@@ -263,11 +263,7 @@ CONTAINS
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,nlen,zlon,zlat,zheight,zq4,zq5,zq6,zq7,zq8)
     DO jb = 1, nblks_c
-      IF (jb /= nblks_c) THEN
-         nlen = nproma
-      ELSE
-         nlen = npromz_c
-      ENDIF
+      nlen = MERGE(nproma, npromz_c, jb /= nblks_c)
       DO jk = 1, nlev
 
 
@@ -426,11 +422,7 @@ CONTAINS
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,nlen)
     DO jb = 1, nblks_c
-      IF (jb /= nblks_c) THEN
-         nlen = nproma
-      ELSE
-         nlen = npromz_c
-      ENDIF
+      nlen = MERGE(nproma, npromz_c, jb /= nblks_c)
 
       DO jk = 1, nlev
 
@@ -449,11 +441,7 @@ CONTAINS
     ! compute pressure and density at interface levels (time level n)
 !$OMP DO PRIVATE(jb,jk,jc,nlen)
     DO jb = 1, nblks_c
-      IF (jb /= nblks_c) THEN
-         nlen = nproma
-      ELSE
-         nlen = npromz_c
-      ENDIF
+      nlen = MERGE(nproma, npromz_c, jb /= nblks_c)
 
       ! lower boundary
       z_pres_ic(1:nlen,nlevp1,jb) = zp0
@@ -492,11 +480,7 @@ CONTAINS
     ! add time independent part to time dependent part zomega_t
 !$OMP DO PRIVATE(jb,jk,jc,nlen,zshape) LASTPRIVATE(zomega_mid,zw)
     DO jb = 1, nblks_c
-      IF (jb /= nblks_c) THEN
-         nlen = nproma
-      ELSE
-         nlen = npromz_c
-      ENDIF
+      nlen = MERGE(nproma, npromz_c, jb /= nblks_c)
 
       ! top and bottom boundary values
       p_w_prog(:,1,jb)        = 0._wp
@@ -553,11 +537,7 @@ CONTAINS
 !    ! (time level n+1)
 !    !
 !    DO jb = 1, nblks_c
-!      IF (jb /= nblks_c) THEN
-!         nlen = nproma
-!      ELSE
-!         nlen = npromz_c
-!      ENDIF
+!      nlen = MERGE(nproma, npromz_c, jb /= nblks_c)
 
 !      DO jk = 1, nlev
 

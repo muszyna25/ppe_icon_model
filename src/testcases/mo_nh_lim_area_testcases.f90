@@ -311,11 +311,7 @@ jglayer(:,:,:)=0
 !$OMP PARALLEL 
 !$OMP DO PRIVATE(jk,jc,nlen,z_h,jl)
     DO jb = 1, nblks_c
-      IF (jb /= nblks_c) THEN
-         nlen = nproma
-      ELSE
-         nlen = npromz_c
-      ENDIF
+      nlen = MERGE(nproma, npromz_c, jb /= nblks_c)
 
       DO jk = nlev, 1, -1
          DO jc = 1, nlen
@@ -347,11 +343,7 @@ jglayer(:,:,:)=0
 !$OMP PARALLEL 
 !$OMP DO PRIVATE(jk,jc,nlen,z_h,z_h_kp1, jg)
     DO jb = 1, nblks_c
-      IF (jb /= nblks_c) THEN
-         nlen = nproma
-      ELSE
-         nlen = npromz_c
-      ENDIF
+      nlen = MERGE(nproma, npromz_c, jb /= nblks_c)
 
       DO jk = nlev, 1, -1
          DO jc = 1, nlen
@@ -447,11 +439,7 @@ jglayer(:,:,:)=0
 !$OMP PARALLEL 
 !$OMP DO PRIVATE(jb,jk,jc,nlen)
     DO jb = 1, nblks_c
-      IF (jb /= nblks_c) THEN
-         nlen = nproma
-      ELSE
-         nlen = npromz_c
-      ENDIF
+      nlen = MERGE(nproma, npromz_c, jb /= nblks_c)
 
       DO jk = nlev, 1, -1
         DO jc = 1, nlen  
