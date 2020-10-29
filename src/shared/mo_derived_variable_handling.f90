@@ -463,20 +463,21 @@ CONTAINS
   !>
   !! return internal name for accumulation variables
   !!
-  FUNCTION get_statistics_varname(varname,output_setup)
-    CHARACTER(LEN=VARNAME_LEN), INTENT(in) :: varname
+  SUBROUTINE get_statistics_varname(statistics_varname, varname, output_setup)
+    CHARACTER(LEN=VARNAME_LEN), INTENT(in)  :: varname
     TYPE(t_output_name_list), INTENT(in) :: output_setup
 
-    CHARACTER(LEN=VARNAME_LEN)  :: get_statistics_varname
+    CHARACTER(LEN=VARNAME_LEN), INTENT(out)  :: statistics_varname
 
-    get_statistics_varname = &
-      &TRIM(varname)//separator//&
-      &TRIM(output_setup%operation)//separator//&
-      &TRIM(output_setup%output_interval(1))//separator//&
-      &TRIM(output_setup%output_start(1))//separator//&
-      &'DOM'//TRIM(int2string(output_setup%dom))
-
-  END FUNCTION get_statistics_varname
+#define TRIM(s) s(:LEN_TRIM(s))
+    WRITE (statistics_varname, '(9a,i0)') &
+         TRIM(varname), separator, &
+         TRIM(output_setup%operation), separator, &
+         TRIM(output_setup%output_interval(1)), separator, &
+         TRIM(output_setup%output_start(1)), separator, &
+         'DOM', output_setup%dom
+#undef TRIM
+  END SUBROUTINE get_statistics_varname
 
   !>
   !! return internal name from accumulation variable name
@@ -564,7 +565,7 @@ CONTAINS
       ! check for already created meanStream variable (maybe from another output_nml with the same output_interval)
       ! names consist of original spot-value names PLUS event information (start + interval of output)
       ! TODO: unify with eventKey definition if possible
-      dest_element_name = get_statistics_varname(varlist(i),p_onl)
+      CALL get_statistics_varname(dest_element_name, in_varlist(i),p_onl)
       dest_element => find_element(trim(dest_element_name),opt_patch_id=p_onl%dom)
 #ifdef DEBUG_MVSTREAM
       IF (my_process_is_stdio()) CALL print_summary('destination variable NAME:'//TRIM(dest_element_name),stderr=.TRUE.)
