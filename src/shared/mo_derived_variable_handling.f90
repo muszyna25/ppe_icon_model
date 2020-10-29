@@ -47,7 +47,7 @@ MODULE mo_derived_variable_handling
   TYPE :: t_derivate_event
     TYPE(t_derivate_var_alloctble), ALLOCATABLE :: vars(:)
     TYPE(event), POINTER :: mtime_event
-    CHARACTER(:), ALLOCATABLE :: eString
+    CHARACTER(LEN=vname_len) :: eString
     INTEGER :: eKey = 0
   END TYPE t_derivate_event
 
@@ -85,13 +85,12 @@ CONTAINS
     TYPE(t_output_name_list), TARGET :: p_onl
     CHARACTER(LEN=vname_len), INTENT(INOUT) :: in_varlist(:)
     TYPE(t_patch), INTENT(IN), TARGET :: patch_2d
-    INTEGER :: eKey, ie, iv, nv_scan, nv_new, nv_old, ne
+    INTEGER :: eKey, ie, iv, nv_scan, nv_new, nv_old, ne, dns_len, it_len, st_len
     TYPE(t_derivate_event), POINTER :: ederiv
     TYPE(t_derivate_event_alloctble), ALLOCATABLE :: etmp(:)
     TYPE(t_derivate_var_alloctble), ALLOCATABLE :: vderiv(:), vtmp(:)
     TYPE(t_var), POINTER :: vl_elem
-    CHARACTER(:), ALLOCATABLE :: dname, eString
-    CHARACTER(LEN=1) :: dom_string
+    CHARACTER(LEN=vname_len) :: dname, eString, dname_suffix
     TYPE(t_var_list_ptr) :: src_list
     CHARACTER(*), PARAMETER :: routine = modname//"::process_mvstream"
 
@@ -105,8 +104,14 @@ CONTAINS
     END DO
     ALLOCATE(vderiv(nv_scan))
     ! uniq identifier for an event based on output start/end/interval
-    eString = TRIM(p_onl%output_start(1)) // '_' // TRIM(p_onl%output_end(1)) // '_' // &
-      &        TRIM(p_onl%output_interval(1))
+    st_len = LEN_TRIM(p_onl%output_start(1))
+    it_len = LEN_TRIM(p_onl%output_interval(1))
+    WRITE(eString, "(5a)") p_onl%output_start(1)(:st_len), '_', &
+      & TRIM(p_onl%output_end(1)), '_', p_onl%output_interval(1)(:it_len)
+    WRITE(dname_suffix, "(8a,i0)") dlim, opnames(iop)(1:oplen(iop)), dlim, &
+        & p_onl%output_interval(1)(:it_len), dlim, &
+        & p_onl%output_start(1)(:st_len), dlim, 'DOM', p_onl%dom
+    dns_len = LEN_TRIM(dname_suffix)
     ! this has the advantage that we can compute a uniq id without creating the event itself
     ! fill main dictionary of variables for different event
     eKey = text_hash_c(eString)
@@ -147,17 +152,14 @@ CONTAINS
       IF (INDEX(in_varlist(iv),':') > 0) CYCLE ! to avoid e.g. "grid:clon" stuff
       ! check for already created meanStream variable (maybe from another output_nml with the same output_interval)
       ! names consist of original spot-value names PLUS event information (start + interval of output)
-      WRITE(dom_string, "(i1)") p_onl%dom
-      dname = TRIM(in_varlist(iv)) // dlim // opnames(iop)(1:oplen(iop)) // dlim // &
-        & TRIM(p_onl%output_interval(1)) // dlim // TRIM(p_onl%output_start(1)) &
-        & // dlim // 'DOM' // dom_string
+      WRITE(dname, "(2a)") TRIM(in_varlist(iv)), dname_suffix(:dns_len)
       vl_elem => vlr_find(dname, opt_patch_id=p_onl%dom)
       IF (.NOT.ASSOCIATED(vl_elem)) THEN !not found -->> create a new one
         ALLOCATE(vderiv(nv_new+1)%a) ! staging a new var entry
         CALL find_src_element(TRIM(in_varlist(iv)), vderiv(nv_new+1)%a)
         IF (TSTEP_CONSTANT .EQ. vderiv(nv_new+1)%a%src(1)%p%info%isteptype) THEN
           DEALLOCATE(vderiv(nv_new+1)%a) ! discard staged entry
-          dname = TRIM(in_varlist(iv)) ! no aggregation needed, since constant
+          dname = in_varlist(iv) ! no aggregation needed, since constant
         ELSE
           nv_new = nv_new + 1 ! new entry is valid, so keep
           CALL copy_var_to_list(vderiv(nv_new)%a) ! add_var to store accumulation
