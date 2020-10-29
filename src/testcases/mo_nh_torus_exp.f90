@@ -29,7 +29,7 @@ MODULE mo_nh_torus_exp
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message, finish
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, SUCCESS
+  USE mo_impl_constants,      ONLY: SUCCESS
   USE mo_io_units,            ONLY: find_next_free_unit
   USE mo_physical_constants,  ONLY: rd, cpd, p0ref, cvd_o_rd, rd_o_cpd, &
      &                              grav, alv, vtmpc1
@@ -248,7 +248,7 @@ MODULE mo_nh_torus_exp
     REAL(wp) :: zvn1, zvn2, zu, zv, psfc_in, ex_sfc
     REAL(wp) :: z_exner_h(1:nproma,ptr_patch%nlev+1), z_help(1:nproma) 
 
-    CHARACTER(len=max_char_length), PARAMETER :: &
+    CHARACTER(len=*), PARAMETER :: &
        &  routine = 'mo_nh_torus_exp:init_torus_with_sounding'
   !-------------------------------------------------------------------------
     
@@ -272,7 +272,7 @@ MODULE mo_nh_torus_exp
     ptr_nh_diag%pres_sfc(:,:) = psfc_in
     ex_sfc   = (psfc_in/p0ref)**rd_o_cpd
     IF ( les_config(jg)%psfc /= psfc_in ) THEN
-      CALL finish(TRIM(routine),'Value of psfc in les_nml is inconsistent with data in sounding file!')
+      CALL finish(routine,'Value of psfc in les_nml is inconsistent with data in sounding file!')
     END IF
 
 
@@ -646,7 +646,7 @@ MODULE mo_nh_torus_exp
     REAL(wp),  INTENT(OUT) :: psfc_in
   
     REAL(wp), ALLOCATABLE, DIMENSION(:):: zs, ths, qvs, us, vs
-    CHARACTER(len=max_char_length),PARAMETER :: routine  = &
+    CHARACTER(len=*),PARAMETER :: routine  = &
          &   'mo_nh_torus_exp:read_ext_profile'
   
     INTEGER :: ist, iunit
@@ -654,14 +654,14 @@ MODULE mo_nh_torus_exp
     
     !-------------------------------------------------------------------------
   
-    CALL message(TRIM(routine), 'READING FROM SOUNDING!')
+    CALL message(routine, 'READING FROM SOUNDING!')
     
     !open file again to read data this time
     iunit = find_next_free_unit(10,100)
     OPEN (unit=iunit,file='sound_in', access='SEQUENTIAL', &
             form='FORMATTED',action='READ', status='OLD', IOSTAT=ist) 
     IF(ist/=success)THEN
-      CALL finish (TRIM(routine), 'open verticaling sound file failed')
+      CALL finish (routine, 'open verticaling sound file failed')
     ENDIF
   
     !Read the header : ps,klev
@@ -674,7 +674,7 @@ MODULE mo_nh_torus_exp
     DO jk = klev,1,-1 
       READ (iunit,*,IOSTAT=ist) zs(jk),ths(jk),qvs(jk),us(jk),vs(jk)
       IF(ist/=success)THEN
-        CALL finish (TRIM(routine), 'reading sounding file failed')
+        CALL finish (routine, 'reading sounding file failed')
       ENDIF
     END DO
 
@@ -682,7 +682,7 @@ MODULE mo_nh_torus_exp
 
     !Check if the file is written in descending order
     IF(zs(1) < zs(klev)) &
-         CALL finish (TRIM(routine), 'Writing souding data in descending order!')
+         CALL finish (routine, 'Writing souding data in descending order!')
 
     !Now perform interpolation to grid levels assuming:
     !a) linear interpolation
@@ -725,7 +725,7 @@ MODULE mo_nh_torus_exp
     INTEGER  :: nlen, jg, itr
 
     REAL(wp), DIMENSION(3) :: x_bubble 
-    CHARACTER(len=max_char_length),PARAMETER :: routine  = &
+    CHARACTER(len=*),PARAMETER :: routine  = &
          &   'mo_nh_torus_exp:init_warm_bubble'
   !-------------------------------------------------------------------------
 

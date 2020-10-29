@@ -36,7 +36,7 @@ MODULE mo_nh_pa_test
 !
 
 USE mo_kind,                ONLY: wp
-USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
+USE mo_impl_constants,      ONLY: SUCCESS
 USE mo_physical_constants,  ONLY: rd, cpd, p0ref
 USE mo_math_constants,      ONLY: pi_2, pi
 USE mo_model_domain,        ONLY: t_patch
@@ -383,7 +383,7 @@ CONTAINS
 
     ! for writing data
     INTEGER, SAVE :: n_file_ti          ! file identifier
-    CHARACTER (LEN=MAX_CHAR_LENGTH) :: file_ti
+    CHARACTER(LEN=*), PARAMETER :: file_ti = 'vertical_velocity.dat'
     REAL(wp) :: zsim_days
 
 !--------------------------------------------------------------------
@@ -406,7 +406,6 @@ CONTAINS
 
     ! Open the datafile in first time step
     IF ( my_process_is_stdio() .AND. k_step == 1 ) THEN
-      file_ti   = 'vertical_velocity.dat'
       n_file_ti = find_next_free_unit(10,20)
       OPEN( UNIT=n_file_ti, FILE=TRIM(file_ti), FORM='FORMATTED', IOSTAT=ist )
       IF (ist/=SUCCESS) THEN
