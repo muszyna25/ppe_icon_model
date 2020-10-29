@@ -171,7 +171,7 @@ MODULE mo_name_list_output_init
   USE mo_name_list_output_zaxes_types,      ONLY: t_verticalAxisList, t_verticalAxis
   USE mo_name_list_output_printvars,        ONLY: print_var_list
   USE mo_util_vgrid_types,                  ONLY: vgrid_buffer
-  USE mo_derived_variable_handling,         ONLY: process_statistics_stream
+  USE mo_derived_variable_handling,         ONLY: init_statistics
 
 #ifndef __NO_ICON_ATMO__
   USE mo_vertical_coord_table,              ONLY: vct
@@ -1134,13 +1134,22 @@ CONTAINS
         END IF
 
       END DO INTVL_LOOP
-
       p_onl => p_onl%next
     ENDDO
     CALL deallocateTimeDelta(mtime_day)
 
-    ! Get the number of output files needed (by counting the domains per name list)
+    ! Init temporal accumulation fields etc.
+    IF (my_process_is_work()) THEN
+      p_onl => first_output_name_list
+      DO WHILE(ASSOCIATED(p_onl))
+        idom = p_onl%dom
+        IF (idom .LE. n_dom_out) &
+          & CALL init_statistics(p_onl, p_patch(patch_info(p_onl%dom)%log_patch_id))
+        p_onl => p_onl%next
+      END DO
+    END IF
 
+    ! Get the number of output files needed (by counting the domains per name list)
     p_onl => first_output_name_list
     nfiles = 0
     DO WHILE(ASSOCIATED(p_onl))
@@ -1266,11 +1275,8 @@ CONTAINS
     CHARACTER(len=vname_len), POINTER :: varlist_ptr(:)
     INTEGER, POINTER                     :: pe_placement(:)
     INTEGER :: ifile, ifile_partition, npartitions, i_typ, idom, log_patch_id
-    CHARACTER(len=*), PARAMETER :: routine &
-         = modname//"::output_name_lists_to_files"
-    LOGICAL :: is_work
+    CHARACTER(*), PARAMETER :: routine = modname//"::output_name_lists_to_files"
 
-    is_work = my_process_is_work()
     p_onl => first_output_name_list
     ifile = 0
     LOOP_NML : DO WHILE (ASSOCIATED(p_onl))
@@ -1340,17 +1346,10 @@ CONTAINS
           p_of%io_proc_id      = -1 ! undefined MPI rank
           p_of%pe_placement    = pe_placement(ifile_partition)
 
-          IF (is_work) &
-            & CALL process_statistics_stream(p_onl, varlist_ptr, p_patch(log_patch_id))
-
-          CALL add_varlist_to_output_file(p_of,varlist_ptr)
-
+          CALL add_varlist_to_output_file(p_of, varlist_ptr)
         END DO ! ifile_partition
-
       ENDDO ! i_typ
-
       p_onl => p_onl%next
-
     ENDDO LOOP_NML
   END SUBROUTINE output_name_lists_to_files
 

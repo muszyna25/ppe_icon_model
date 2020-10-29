@@ -23,6 +23,7 @@ MODULE mo_derived_variable_handling
   USE mo_time_config,         ONLY: time_config
   USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_FLT64, GRID_LONLAT, TSTEP_CONSTANT
   USE mo_util_texthash,       ONLY: text_hash_c
+  USE mo_var, ONLY: level_type_ml, level_type_pl, level_type_hl, level_type_il
 ! HB: commented openACC stuff for now -- due to weird memory issues, if nproma is large
 #ifdef _OPENACC
   USE mo_mpi,                 ONLY: i_am_accel_node
@@ -32,8 +33,7 @@ MODULE mo_derived_variable_handling
   IMPLICIT NONE
   PRIVATE
 
-  PUBLIC :: update_statistics
-  PUBLIC :: process_statistics_stream
+  PUBLIC :: init_statistics, update_statistics
 
   TYPE :: t_derivate_var
     TYPE(t_var_ptr) :: dst, src(3)
@@ -68,22 +68,42 @@ MODULE mo_derived_variable_handling
 
 CONTAINS
 
-  SUBROUTINE process_statistics_stream(p_onl, vlist, patch_2d)
-    TYPE(t_output_name_list), INTENT(IN) :: p_onl
-    CHARACTER(LEN=vname_len), INTENT(INOUT) :: vlist(:)
-    TYPE(t_patch), INTENT(IN), TARGET :: patch_2d
-    INTEGER :: i
+  ! wire up namelist mvstream associations
+  SUBROUTINE init_statistics(p_onl, patch_2d)
+    TYPE(t_output_name_list), POINTER, INTENT(IN) :: p_onl
+    TYPE(t_patch), INTENT(IN) :: patch_2d
+    CHARACTER(LEN=vname_len), POINTER :: vlist(:)
+    INTEGER :: i_typ, iop
 
-    DO i = 1, nops
-      IF (TRIM(p_onl%operation) == opnames(i)(1:oplen(i))) &
-        & CALL process_mvstream(i, p_onl, vlist, patch_2d)
-    ENd DO
-  END SUBROUTINE process_statistics_stream
+    ! Loop over model/pressure/height levels
+    ! HB: a cumbersome way to pick a var-list
+    DO i_typ = 1, 4
+      ! Check if name_list has variables of corresponding type
+      SELECT CASE(i_typ)
+      CASE (level_type_ml)
+        vlist => p_onl%ml_varlist
+      CASE (level_type_pl)
+        vlist => p_onl%pl_varlist
+      CASE (level_type_hl)
+        vlist => p_onl%hl_varlist
+      CASE (level_type_il)
+        vlist => p_onl%il_varlist
+      END SELECT
+      IF (vlist(1)(1:1) /= ' ') THEN
+        DO iop = 1, nops
+          IF (TRIM(p_onl%operation) == opnames(iop)(1:oplen(iop))) THEN
+            CALL init_op(iop, p_onl, vlist, patch_2d)
+            EXIT
+          END IF
+        END DO
+      END IF
+    END DO
+  END SUBROUTINE init_statistics
 
-  SUBROUTINE process_mvstream(iop, p_onl, in_varlist, patch_2d)
+  SUBROUTINE init_op(iop, p_onl, vlist, patch_2d)
     INTEGER, INTENT(IN) :: iop
     TYPE(t_output_name_list), TARGET :: p_onl
-    CHARACTER(LEN=vname_len), INTENT(INOUT) :: in_varlist(:)
+    CHARACTER(LEN=vname_len), INTENT(INOUT) :: vlist(:)
     TYPE(t_patch), INTENT(IN), TARGET :: patch_2d
     INTEGER :: eKey, ie, iv, nv_scan, nv_new, nv_old, ne, dns_len, it_len, st_len
     TYPE(t_derivate_event), POINTER :: ederiv
@@ -98,8 +118,8 @@ CONTAINS
       &          p_onl%stream_partitions_hl, p_onl%stream_partitions_il])) &
       & CALL finish(routine, "only supported on global domain 1 " // &
       &                      "and without stream partitioning!")
-    nv_scan = 0
-    DO WHILE(.NOT.(in_varlist(nv_scan + 1) == ' '))
+    nv_scan = 1
+    DO WHILE(.NOT.(vlist(nv_scan + 1)(1:1) == ' '))
       nv_scan = nv_scan + 1
     END DO
     ALLOCATE(vderiv(nv_scan))
@@ -149,23 +169,23 @@ CONTAINS
     nv_new = 0
     DO iv = 1, nv_scan
       ! collect data variables only
-      IF (INDEX(in_varlist(iv),':') > 0) CYCLE ! to avoid e.g. "grid:clon" stuff
+      IF (INDEX(vlist(iv),':') > 0) CYCLE ! to avoid e.g. "grid:clon" stuff
       ! check for already created meanStream variable (maybe from another output_nml with the same output_interval)
       ! names consist of original spot-value names PLUS event information (start + interval of output)
-      WRITE(dname, "(2a)") TRIM(in_varlist(iv)), dname_suffix(:dns_len)
+      WRITE(dname, "(2a)") TRIM(vlist(iv)), dname_suffix(:dns_len)
       vl_elem => vlr_find(dname, opt_patch_id=p_onl%dom)
       IF (.NOT.ASSOCIATED(vl_elem)) THEN !not found -->> create a new one
         ALLOCATE(vderiv(nv_new+1)%a) ! staging a new var entry
-        CALL find_src_element(TRIM(in_varlist(iv)), vderiv(nv_new+1)%a)
+        CALL find_src_element(TRIM(vlist(iv)), vderiv(nv_new+1)%a)
         IF (TSTEP_CONSTANT .EQ. vderiv(nv_new+1)%a%src(1)%p%info%isteptype) THEN
           DEALLOCATE(vderiv(nv_new+1)%a) ! discard staged entry
-          dname = in_varlist(iv) ! no aggregation needed, since constant
+          dname = vlist(iv) ! no aggregation needed, since constant
         ELSE
           nv_new = nv_new + 1 ! new entry is valid, so keep
           CALL copy_var_to_list(vderiv(nv_new)%a) ! add_var to store accumulation
         END IF
       END IF
-      in_varlist(iv) = dname
+      vlist(iv) = dname
     END DO
     ALLOCATE(ederiv%vars(nv_new + nv_old))
     DO iv = 1, nv_old
@@ -240,7 +260,7 @@ CONTAINS
     deriv%dst%p => vl_elem
   END SUBROUTINE copy_var_to_list
 
-  END SUBROUTINE process_mvstream
+  END SUBROUTINE init_op
 
   SUBROUTINE perform_op(src, dest, opcode, weight, miss, miss_s)
     TYPE(t_var), POINTER, INTENT(IN) :: src
@@ -504,15 +524,15 @@ CONTAINS
   !! Execute the accumulation forall internal variables and compute mean values
   !! if the corresponding event is active
   SUBROUTINE update_statistics()
-    INTEGER :: i
+    INTEGER :: iop
 
-    DO i = 1, nops
-      CALL update_mvstream(i)
+    DO iop = 1, nops
+      IF (ALLOCATED(ops(iop)%events)) &
+        CALL update_op()
     END DO
-  END SUBROUTINE update_statistics
+  CONTAINS
 
-  SUBROUTINE update_mvstream(iop)
-    INTEGER, INTENT(IN) :: iop
+  SUBROUTINE update_op()
     INTEGER :: tl, iv, ie, it, ne, nv
     INTEGER, POINTER :: ct
     TYPE(t_var), POINTER :: src, dst
@@ -520,8 +540,7 @@ CONTAINS
     TYPE(datetime) :: mtime_date
     LOGICAL :: isactive
 
-    ne = 0
-    IF (ALLOCATED(ops(iop)%events)) ne = SIZE(ops(iop)%events)
+    ne = SIZE(ops(iop)%events)
     mtime_date = time_config%tc_current_date
     DO ie = 1, ne
       ederiv => ops(iop)%events(ie)%a
@@ -553,6 +572,8 @@ CONTAINS
         END IF
       END DO
     END DO
-  END SUBROUTINE update_mvstream
+  END SUBROUTINE update_op
+
+  END SUBROUTINE update_statistics
 
 END MODULE mo_derived_variable_handling
