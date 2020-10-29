@@ -949,53 +949,34 @@ CONTAINS
             tlen = len_trim(grp_name)
             grp_name(tlen+1:tlen+2) ="_t"
             tlen = tlen + 2
-            ! loop over all variables and collects the variables names
-            ! corresponding to the group "grp_name"
-            CALL collect_group(grp_name, grp_vars, ngrp_vars,                           &
-              &               loutputvars_only = .TRUE.,                                &
-              &               lremap_lonlat    = (p_onl%remap == REMAP_REGULAR_LATLON), &
-              &               opt_vlevel_type  = i_typ,                                 &
-              &               opt_dom_id       = p_onl%dom)
-            DO i=1,ngrp_vars
-              grp_vars(i) = tolower(grp_vars(i))
-            END DO
-            ! generate varlist where "grp_name" has been replaced;
-            ! duplicates are removed
-            CALL insert_group(varlist, vname, grp_vars(1:ngrp_vars))
-
-            ! status output
-            IF (msg_level >= 12) THEN
-              CALL message(routine, "Activating group of variables: "//grp_name(1:tlen))
-              DO jvar=1,ngrp_vars
-                CALL message(routine, "   "//TRIM(grp_vars(jvar)))
-              END DO
-            END IF
-          END IF
-
-          IF (INDEX(vname, GRP_PREFIX) > 0) THEN
+          ELSE IF (INDEX(vname, GRP_PREFIX) > 0) THEN
             ! this is a group identifier
             grp_name = vname(LEN(GRP_PREFIX)+1:)
-            ! loop over all variables and collects the variables names
-            ! corresponding to the group "grp_name"
-            CALL collect_group(grp_name, grp_vars, ngrp_vars,                           &
-              &               loutputvars_only = .TRUE.,                                &
-              &               lremap_lonlat    = (p_onl%remap == REMAP_REGULAR_LATLON), &
-              &               opt_vlevel_type  = i_typ,                                 &
-              &               opt_dom_id       = p_onl%dom)
-            DO i=1,ngrp_vars
-              grp_vars(i) = tolower(grp_vars(i))
-            END DO
-            ! generate varlist where "grp_name" has been replaced;
-            ! duplicates are removed
-            CALL insert_group(varlist, vname, grp_vars(1:ngrp_vars))
+            tlen = LEN_TRIM(grp_name)
+          ELSE
+            ! do not perform insertion if nothing matched
+            CYCLE
+          END IF
+          ! loop over all variables and collects the variables names
+          ! corresponding to the group "grp_name"
+          CALL collect_group(grp_name, grp_vars, ngrp_vars,                           &
+            &               loutputvars_only = .TRUE.,                                &
+            &               lremap_lonlat    = (p_onl%remap == REMAP_REGULAR_LATLON), &
+            &               opt_vlevel_type  = i_typ,                                 &
+            &               opt_dom_id       = p_onl%dom)
+          DO i=1,ngrp_vars
+            grp_vars(i) = tolower(grp_vars(i))
+          END DO
+          ! generate varlist where "grp_name" has been replaced;
+          ! duplicates are removed
+          CALL insert_group(varlist, vname, grp_vars(1:ngrp_vars))
 
-            ! status output
-            IF (msg_level >= 12) THEN
-              CALL message(routine, "Activating group of variables: "//TRIM(grp_name))
-              DO jvar=1,ngrp_vars
-                CALL message(routine, "   "//TRIM(grp_vars(jvar)))
-              END DO
-            END IF
+          ! status output
+          IF (msg_level >= 12) THEN
+            CALL message(routine, "Activating group of variables: "//TRIM(grp_name))
+            DO jvar=1,ngrp_vars
+              CALL message(routine, "   "//TRIM(grp_vars(jvar)))
+            END DO
           END IF
         END DO
 
