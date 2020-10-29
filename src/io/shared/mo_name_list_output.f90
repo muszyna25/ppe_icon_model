@@ -2798,6 +2798,7 @@ CONTAINS
     ! Get maximum number of data points in a slice and allocate tmp variables
 
     i_dom = of%phys_patch_id
+    i_log_dom = of%log_patch_id
     nval = MAX(patch_info(i_dom)%ri(icell)%n_glb, &
                patch_info(i_dom)%ri(iedge)%n_glb, &
                patch_info(i_dom)%ri(ivert)%n_glb)
@@ -2807,7 +2808,6 @@ CONTAINS
       info => of%var_desc(iv)%info
       IF (info%hgrid == GRID_REGULAR_LONLAT) THEN
         lonlat_id = info%hor_interp%lonlat_id
-        i_log_dom = of%log_patch_id
         p_ri  => lonlat_info(lonlat_id, i_log_dom)%ri
         nval = MAX(nval, p_ri%n_glb)
       END IF
