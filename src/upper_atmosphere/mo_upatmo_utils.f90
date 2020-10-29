@@ -210,37 +210,22 @@ CONTAINS !......................................................................
     IF (LEN_TRIM(var_name) == 0) RETURN
 
     ! Check for optional conditions
-    l_anycond = .FALSE.
     !
-    IF (PRESENT(opt_dom)) THEN
-      l_dom     = .TRUE.
-      l_anycond = .TRUE.
-    ELSE
-      l_dom = .FALSE.
-    ENDIF
-    !
-    IF (PRESENT(opt_filetype)) THEN
-      l_filetype = .TRUE.
-      l_anycond  = .TRUE.
-    ELSE
-      l_filetype = .FALSE.
-    ENDIF
+    l_dom      = PRESENT(opt_dom)
+    l_filetype = PRESENT(opt_filetype)
+    l_anycond  = l_dom .OR. l_filetype
 
     p_onl  => first_output_name_list
 
     ! If there is no optional condition, 
     ! this function becomes 'is_variable_in_output' effectively
     IF (.NOT. l_anycond) THEN
-      DO
-        IF(.NOT. ASSOCIATED(p_onl)) EXIT
-        IF (retval) EXIT
+      DO WHILE (ASSOCIATED(p_onl) .AND. .NOT. retval)
         retval = is_variable_in_output_nml(p_onl, var_name=var_name)
         p_onl  => p_onl%next
       END DO
     ELSE
-      DO
-        IF(.NOT. ASSOCIATED(p_onl)) EXIT
-        IF (retval) EXIT
+      DO WHILE (ASSOCIATED(p_onl) .AND. .NOT. retval)
         ! Check, if current list element satisfies ALL optional conditions, ...
         l_met = .TRUE.
         IF (l_dom)      l_met = l_met .AND. (ANY(opt_dom(:) == p_onl%dom))
