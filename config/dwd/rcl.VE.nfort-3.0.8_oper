@@ -15,11 +15,7 @@ ICON_DIR=$(cd "${SCRIPT_DIR}/../..">/dev/null; pwd)
 MODULE_SETTINGS=". ${MODULESHOME}/init/sh; module purge"
 
 
-<<<<<<< HEAD:config/dwd/rcl.VE.nfort-3.0.7_oper
-MODULES='sx/default nfort/3.0.7 nc++/3.0.7 mpi/2.6.0 netcdf4/4.7.3-sx hdf5/1.10.5-sx eccodes/2.14.1-sx aec/1.0.3-sx nlc/2.0.0 libxml2/2.9.10-sx szip/2.1.1-sx zlib/1.2.11-sx'
-=======
 MODULES='sx/default nfort/3.0.8 nc++/3.0.8 mpi/2.6.0 netcdf4/4.7.3-sx hdf5/1.10.5-sx eccodes/2.14.1-sx aec/1.0.3-sx nlc/2.0.0 libxml2/2.9.10-sx szip/2.1.1-sx zlib/1.2.11-sx'
->>>>>>> upstream/icon-2.6.2-rc:config/dwd/rcl.VE.nfort-3.0.8_oper
 
 
 ### Libraries ###
