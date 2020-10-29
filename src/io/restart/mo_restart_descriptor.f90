@@ -201,7 +201,7 @@ CONTAINS
     IF (ALLOCATED(desc%opt_t_elapsed_phy)) THEN
       DO j = 1, SIZE(desc%opt_t_elapsed_phy)
         WRITE (prefix, '(2(a,i2.2))') 't_elapsed_phy_DOM', jg, '_PHY', j
-        CALL rAttribs%put(prefix(1:25), desc%opt_t_elapsed_phy(j))
+        CALL rAttribs%put(prefix, desc%opt_t_elapsed_phy(j))
       END DO
     END IF
     IF (desc%opt_ndyn_substeps%present) &
