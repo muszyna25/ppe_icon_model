@@ -30,14 +30,14 @@ MODULE mo_parallel_config
        &  l_log_checks, l_fast_sum,   &
        &  ldiv_phys_dom, p_test_run, num_test_pe, l_test_openmp,    &
        &  pio_type, itype_comm, iorder_sendrecv, num_io_procs,      &
-       &  num_restart_procs, num_prefetch_proc,                     &
+       &  num_restart_procs, num_prefetch_proc, num_io_procs_radar, &
        &  use_icon_comm, icon_comm_debug, max_send_recv_buffer_size,&
        &  use_dycore_barrier, itype_exch_barrier, use_dp_mpi2io,    &
        &  icon_comm_method, icon_comm_openmp, max_no_of_comm_variables, &
        &  max_no_of_comm_processes, max_no_of_comm_patterns,        &
        &  sync_barrier_mode, max_mpi_message_size, use_physics_barrier, &
-       &  restart_chunk_size, ext_div_from_file, write_div_to_file, &
-       &  use_div_from_file, io_proc_chunk_size,                    &
+       &  restart_chunk_size, restart_load_scale_max, ext_div_from_file, &
+       &  write_div_to_file, use_div_from_file, io_proc_chunk_size, &
        &  num_dist_array_replicas, comm_pattern_type_orig,          &
        &  comm_pattern_type_yaxt, default_comm_pattern_type,        &
        &  io_process_stride, io_process_rotate, proc0_shift,        &
@@ -117,6 +117,9 @@ MODULE mo_parallel_config
 
   INTEGER :: num_io_procs = 0
 
+  ! Output procs for radar forward operator
+  INTEGER :: num_io_procs_radar = 0
+
   ! The number of PEs used for writing restart files (0 means, the worker PE0 writes)
   INTEGER :: num_restart_procs = 0
 
@@ -153,9 +156,13 @@ MODULE mo_parallel_config
   !
   LOGICAL :: use_dp_mpi2io
 
-  ! The (asynchronous) restart is capable of writing and communicating
-  ! more than one 2D slice at once
+  ! The asynchronous and multifile checkpointing frameworks are capable of writing
+  ! and communicating more than one 2D slice at once.
   INTEGER :: restart_chunk_size
+
+  ! The multifile checkpointing framework is capable of reading and distributing
+  ! full 3d arrays (if there are less than restart_load_scale_max work PE per file.
+  INTEGER :: restart_load_scale_max = 1
 
   ! The (asynchronous) name list output is capable of writing and communicating
   ! more than one 2D slice at once

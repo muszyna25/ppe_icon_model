@@ -21,7 +21,7 @@
 MODULE mo_random_util
 
   USE mo_kind,                ONLY: wp
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, ON_CELLS, ON_EDGES, ON_VERTICES
+  USE mo_impl_constants,      ONLY: SUCCESS, ON_CELLS, ON_EDGES, ON_VERTICES
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
  ! USE mo_mpi,                 ONLY: get_my_global_mpi_id, global_mpi_barrier

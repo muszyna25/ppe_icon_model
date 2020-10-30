@@ -72,7 +72,7 @@ MODULE mo_radiation_nml
   USE mo_physical_constants, ONLY: amd, amco2, amch4, amn2o, amo2, amc11, amc12
   USE sfc_terra_data,        ONLY: csalb, csalb1, csalb2
   USE mo_master_control,     ONLY: use_restart_namelists
-  USE mo_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist, &
+  USE mo_restart_nml_and_att,ONLY: open_tmpfile, store_and_close_namelist, &
                                  & open_and_restore_namelist, close_tmpfile
   USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
   USE mo_io_units,           ONLY: filename_max
@@ -167,23 +167,12 @@ MODULE mo_radiation_nml
   !
   ! --- Default gas volume mixing ratios - 1990 values (CMIP5)
   !
-!DR preliminary restart fix
-#ifdef __SX__
-  INTEGER, PARAMETER :: qp = SELECTED_REAL_KIND(24, 307)
-  REAL(qp) :: vmr_co2
-  REAL(qp) :: vmr_ch4
-  REAL(qp) :: vmr_n2o
-  REAL(qp) :: vmr_o2
-  REAL(qp) :: vmr_cfc11
-  REAL(qp) :: vmr_cfc12
-#else
   REAL(wp) :: vmr_co2
   REAL(wp) :: vmr_ch4
   REAL(wp) :: vmr_n2o
   REAL(wp) :: vmr_o2
   REAL(wp) :: vmr_cfc11
   REAL(wp) :: vmr_cfc12
-#endif
   !
   ! --- Time control
   !

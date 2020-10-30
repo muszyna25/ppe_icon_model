@@ -144,6 +144,8 @@ CONTAINS
     INTEGER,  ALLOCATABLE :: ibuffer(:)
     INTEGER,  ALLOCATABLE :: field_ids_total(:)
 
+    REAL(wp), ALLOCATABLE :: lsmnolake(:,:)
+
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: startdatestring
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: stopdatestring
 
@@ -200,6 +202,8 @@ CONTAINS
     ALLOCATE(buffer_lon(nproma*nblks))
     ALLOCATE(buffer_lat(nproma*nblks))
     ALLOCATE(buffer_c(3,nproma*nblks))
+
+    ALLOCATE(lsmnolake(nproma,nblks))
 
     nbr_vertices_per_cell = 3
 
@@ -314,30 +318,43 @@ CONTAINS
     ! These points are not touched by yac.
     !
 
+    !  slo: caution - lsmask includes alake, must be added to refetch pure lsm:
+
+!ICON_OMP_PARALLEL_DO PRIVATE(BLOCK,idx) ICON_OMP_RUNTIME_SCHEDULE
+    DO BLOCK = 1, patch_horz%nblks_c
+      DO idx = 1, nproma
+        lsmnolake(idx, BLOCK) = prm_field(1)%lsmask(idx,BLOCK) + prm_field(1)%alake(idx,BLOCK)
+      ENDDO
+    ENDDO
+!ICON_OMP_END_PARALLEL_DO
+
     mask_checksum = 0
 !ICON_OMP_PARALLEL_DO PRIVATE(BLOCK,idx) REDUCTION(+:mask_checksum) ICON_OMP_RUNTIME_SCHEDULE
     DO BLOCK = 1, patch_horz%nblks_c
       DO idx = 1, nproma
-        mask_checksum = mask_checksum + ABS(ext_data(1)%atm%lsm_ctr_c(idx, BLOCK))
+!       mask_checksum = mask_checksum + ABS(ext_data(1)%atm%lsm_ctr_c(idx, BLOCK))
+        mask_checksum = mask_checksum + ABS( lsmnolake(idx,BLOCK))
       ENDDO
     ENDDO
 !ICON_OMP_END_PARALLEL_DO
 
     !
     ! Define cell_mask_ids(1): all ocean and coastal points are valid
-    !   This is the standard for the coupling fields listed below
+    !   This is the standard for the coupling of atmospheric fields listed below
     !
     IF ( mask_checksum > 0 ) THEN
 !ICON_OMP_PARALLEL_DO PRIVATE(BLOCK, idx, INDEX) ICON_OMP_RUNTIME_SCHEDULE
        DO BLOCK = 1, patch_horz%nblks_c
           DO idx = 1, nproma
-             IF ( ext_data(1)%atm%lsm_ctr_c(idx, BLOCK) < 0 ) THEN
-               ! Ocean point (lsm_ctr_c = -1 or -2) is valid
+
+             IF ( lsmnolake(idx, BLOCK) .LT. 1.0_wp ) THEN
+               ! ocean point (fraction of ocean is >0., lsmnolake .lt. 1.) is valid
                ibuffer((BLOCK-1)*nproma+idx) = 0
              ELSE
-               ! Land point (lsm_ctr_c = 1 or 2) is undef
+               ! land point (fraction of land is one, no sea water, lsmnolake=1.) is undef
                ibuffer((BLOCK-1)*nproma+idx) = 1
              ENDIF
+
           ENDDO
        ENDDO
 !ICON_OMP_END_PARALLEL_DO
@@ -382,47 +399,55 @@ CONTAINS
 
 #if !defined(__NO_JSBACH__) && !defined(__NO_JSBACH_HD__)
     !
-    ! Define cell_mask_ids(2) for runoff:
-    !   Ocean coastal points with respect to HDmodel mask only are valid.
-    !   The integer mask for the HDmodel is ext_data(1)%atm%lsm_hd_c(:,:).
-    !   Caution: jg=1 is only valid for coupling to ocean
-    !
+    ! ! Define cell_mask_ids(2) for runoff:
+    ! !slo old!   Ocean coastal points with respect to HDmodel mask only are valid.
+    ! !slo old!   The integer mask for the HDmodel is ext_data(1)%atm%lsm_hd_c(:,:).
+    ! !slo old!   Caution: jg=1 is only valid for coupling to ocean
+    ! !
+    ! Define cell_mask_ids(1) for runoff - same as above, ocean wet points are valid
     IF ( mask_checksum > 0 ) THEN
 
 !ICON_OMP_PARALLEL_DO PRIVATE(BLOCK, idx, INDEX) ICON_OMP_RUNTIME_SCHEDULE
         DO BLOCK = 1, patch_horz%nblks_c
           DO idx = 1, nproma
-             IF ( ext_data(1)%atm%lsm_hd_c(idx, BLOCK) == -1 ) THEN
-!            write(0,'(a,3i10)') 'BLOCK,IDX,SLM:', block,idx,ocean_coast(idx,block)
-!            ibuffer((BLOCK-1)*nproma+idx) = ocean_coast(idx,BLOCK)
-!            IF ( prm_field(1)%hdmask(idx, BLOCK) < -0.9_wp .AND. &
-!              &  prm_field(1)%hdmask(idx, BLOCK) > -1.1_wp) THEN
-                ! Ocean point at coast is valid
-                ibuffer((BLOCK-1)*nproma+idx) = 0
+
+             IF ( lsmnolake(idx, BLOCK) .LT. 1.0_wp ) THEN
+               ! ocean point (fraction of ocean is >0., lsmnolake .lt. 1.) is valid
+               ibuffer((BLOCK-1)*nproma+idx) = 0
              ELSE
-                ! Land point or ocean point without coast is undef
-                ibuffer((BLOCK-1)*nproma+idx) = 1
+               ! land point (fraction of land is one, lsmnolake=1.) is undef
+               ibuffer((BLOCK-1)*nproma+idx) = 1
              ENDIF
+
           ENDDO
         ENDDO
 !ICON_OMP_END_PARALLEL_DO
+    ELSE
+!ICON_OMP_PARALLEL_DO PRIVATE(BLOCK, idx, INDEX) ICON_OMP_RUNTIME_SCHEDULE
+       DO idx = 1,patch_horz%nblks_c * nproma
+          ibuffer(idx) = 0
+       ENDDO
+!ICON_OMP_END_PARALLEL_DO
 
-        CALL yac_fdef_mask (           &
-          & patch_horz%n_patch_cells,  &
-          & ibuffer,                   &
-          & cell_point_ids(1),         &
-          & cell_mask_ids(2) )
+    ENDIF
 
-      ENDIF
+    CALL yac_fdef_mask (           &
+      & patch_horz%n_patch_cells,  &
+      & ibuffer,                   &
+      & cell_point_ids(1),         &
+      & cell_mask_ids(2) )
 
-      ! Define additional coupling field(s) for JSBACH/HD
-      ! Utilize mask field for runoff
-      !  - cell_mask_ids(2:2) is ocean coast points only for source point mapping (source_to_target_map)
-      CALL jsb_fdef_hd_fields(comp_id, domain_id, cell_point_ids, cell_mask_ids(2:2))
+    ! Define additional coupling field(s) for JSBACH/HD
+    ! Utilize mask field for runoff
+    ! !slo old!  - cell_mask_ids(2:2) is ocean coast points only for source point mapping (source_to_target_map)
+    !  - cell_mask_ids(2:2) is ocean wet points as above - todo: use cell_mask_ids(1:1)
+    CALL jsb_fdef_hd_fields(comp_id, domain_id, cell_point_ids, cell_mask_ids(2:2))
 
 #endif
 
     DEALLOCATE (ibuffer)
+
+    DEALLOCATE (lsmnolake)
 
     ! End definition of coupling fields and search
     CALL yac_fget_nbr_fields(no_of_fields_total)
@@ -491,8 +516,8 @@ CONTAINS
     REAL(wp), PARAMETER   :: dummy = 0.0_wp
 
     REAL(wp)              :: scr(nproma,p_patch%alloc_cell_blocks)
-    REAL(wp)              :: frac_oce(nproma,p_patch%alloc_cell_blocks)        !  allocatable?
-    REAL(wp)              :: fwf_fac !,frac_oce
+    REAL(wp)              :: frac_oce(nproma,p_patch%alloc_cell_blocks)
+    REAL(wp)              :: fwf_fac
 
     IF ( .NOT. is_coupled_run() ) RETURN
 
@@ -553,6 +578,25 @@ CONTAINS
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
     !
     write_coupler_restart = .FALSE.
+
+    ! Calculate fractionla ocean mask 
+    ! evaporation over ice-free and ice-covered water fraction, of whole ocean part, without land part
+    !  - lake part is included in land part, must be subtracted as well
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
+    DO i_blk = 1, p_patch%nblks_c
+      nn = (i_blk-1)*nproma
+      IF (i_blk /= p_patch%nblks_c) THEN
+        nlen = nproma
+      ELSE
+        nlen = p_patch%npromz_c
+      END IF
+      DO n = 1, nlen
+           frac_oce(n,i_blk) = 1.0_wp-prm_field(jg)%frac_tile(n,i_blk,ilnd) - prm_field(jg)%alake(n,i_blk)
+      ENDDO
+    ENDDO
+!ICON_OMP_END_DO
+!ICON_OMP_END_PARALLEL
 
     !
     ! ------------------------------
@@ -631,7 +675,6 @@ CONTAINS
     !         evap.oce = (evap.wtr*frac.wtr + evap.ice*frac.ice)/(1-frac.lnd)
     !
     buffer(:,:)   = 0.0_wp  ! temporarily
-    frac_oce(:,:) = 0.0_wp  ! for dbg
     scr(:,:)      = 0.0_wp
     !
     ! Preliminary: hard-coded correction factor for freshwater imbalance stemming from the atmosphere
@@ -690,9 +733,8 @@ CONTAINS
           !  - lake part is included in land part, must be subtracted as well
           !    frac_oce(n,i_blk)= 1.0_wp-prm_field(jg)%frac_tile(n,i_blk,ilnd)-prm_field(jg)%alake(n,i_blk)
           !  - sftof = 1-(land+lake) is already available in prm_field
-          frac_oce(n,i_blk)= prm_field(jg)%sftof(n,i_blk)
+          !frac_oce(n,i_blk)= prm_field(jg)%sftof(n,i_blk) - commented before tested in coupled model
 
-          !IF (frac_oce <= 0.0_wp) THEN
           IF (frac_oce(n,i_blk) <= 0.0_wp) THEN
             ! land part is zero
             buffer(nn+n,3) = 0.0_wp
@@ -988,22 +1030,36 @@ CONTAINS
           nlen = p_patch%npromz_c
         END IF
         DO n = 1, nlen
+
+          !  - lake part is included in land part, must be subtracted as well, see frac_oce
+
           IF ( nn+n > nbr_inner_cells ) THEN
             prm_field(jg)%ts_tile(n,i_blk,iwtr) = dummy
           ELSE
-            ! Workaround for missing discrimination between tile_wtr and tile_lake:
-            !   > background: surface temp. ts_tile(lake)=ts_tile(wtr) is calculated in jsbach and was overwritten
-            !     by default values (buffer_wtr) from ocean
-            !   > ts_tile(wtr) is set over ocean (not lake) points only
-            IF ( ext_data(1)%atm%lsm_ctr_c(n,i_blk) < 0 ) prm_field(jg)%ts_tile(n,i_blk,iwtr) = buffer(nn+n,1)
-            !  for dbg_print only
-            IF ( idbg_mxmn >= 1 .OR. idbg_val >=1 ) THEN
-              IF ( ext_data(1)%atm%lsm_ctr_c(n,i_blk) < 0 ) THEN
-                scr(n,i_blk) = buffer(nn+n,1)
-              ELSE
-                scr(n,i_blk) = 285.0_wp  !  value over land - for dbg_print
-              ENDIF
-            ENDIF
+           !! Workaround for missing discrimination between tile_wtr and tile_lake:
+           !!   > background: surface temp. ts_tile(lake)=ts_tile(wtr) is calculated in jsbach and was overwritten
+           !!     by default values (buffer_wtr) from ocean
+           !!   > ts_tile(wtr) is set over ocean (not lake) points only
+           !IF ( ext_data(1)%atm%lsm_ctr_c(n,i_blk) < 0 ) prm_field(jg)%ts_tile(n,i_blk,iwtr) = buffer(nn+n,1)
+           !!  for dbg_print only
+           !IF ( idbg_mxmn >= 1 .OR. idbg_val >=1 ) THEN
+           !  IF ( ext_data(1)%atm%lsm_ctr_c(n,i_blk) < 0 ) THEN
+           !    scr(n,i_blk) = buffer(nn+n,1)
+           !  ELSE
+           !    scr(n,i_blk) = 285.0_wp  !  value over land - for dbg_print
+           !  ENDIF
+           !ENDIF
+           !
+           !!   > slo: using frac_oce>0., constant fractional lsm contains ocean part
+           IF ( frac_oce(n,i_blk) > EPSILON(1.0_wp) ) prm_field(jg)%ts_tile(n,i_blk,iwtr) = buffer(nn+n,1)
+           !  for dbg_print only
+           IF ( idbg_mxmn >= 1 .OR. idbg_val >=1 ) THEN
+             IF ( frac_oce(n,i_blk) > 0.0_wp ) THEN
+               scr(n,i_blk) = buffer(nn+n,1)
+             ELSE
+               scr(n,i_blk) = 285.0_wp  !  value over land - for dbg_print
+             ENDIF
+           ENDIF
           ENDIF
         ENDDO
       ENDDO

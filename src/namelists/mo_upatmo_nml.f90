@@ -27,12 +27,12 @@ MODULE mo_upatmo_nml
   USE mo_io_units,                ONLY: nnml, nnml_output, filename_max
   USE mo_mpi,                     ONLY: my_process_is_stdio
   USE mo_master_control,          ONLY: use_restart_namelists
-  USE mo_restart_namelist,        ONLY: open_tmpfile, store_and_close_namelist, &
+  USE mo_restart_nml_and_att,     ONLY: open_tmpfile, store_and_close_namelist, &
     &                                   open_and_restore_namelist, close_tmpfile
   USE mo_nml_annotate,            ONLY: temp_defaults, temp_settings
   USE mo_impl_constants,          ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom
   USE mo_util_string,             ONLY: int2string
-  USE mo_upatmo_impl_const,       ONLY: iUpatmoStat, isolvar, isolvardat, iorbit, icycle, &
+  USE mo_upatmo_impl_const,       ONLY: isolvar, isolvardat, iorbit, icycle,              &
     &                                   iUpatmoPrcMode, iUpatmoPrcId, iUpatmoGasMode,     & 
     &                                   iUpatmoGrpId, iUpatmoGasId, iUpatmoExtdatId,      &
     &                                   iThermdynCoupling

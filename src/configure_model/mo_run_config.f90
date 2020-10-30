@@ -33,11 +33,12 @@ MODULE mo_run_config
   PUBLIC :: ltransport, ntracer, nlev, nlevm1, nlevp1
   PUBLIC :: lart
   PUBLIC :: ldass_lhn
+  PUBLIC :: luse_radarfwo
   PUBLIC :: lvert_nest, num_lev, nshift, nsteps, dtime
   PUBLIC :: ltimer, timers_level, activate_sync_timers, msg_level
   PUBLIC :: iqv, iqc, iqi, iqs, iqr, iqtvar, nqtendphy, iqt, ico2, ich4, in2o, io3
   PUBLIC :: iqni, iqni_nuc, iqg, iqm_max
-  PUBLIC :: iqh, iqnh, iqnr, iqns, iqng, iqnc, inccn, ininpot, ininact
+  PUBLIC :: iqh, iqnh, iqnr, iqns, iqng, iqnc, inccn, ininpot, ininact, iqgl, iqhl
   PUBLIC :: iqtke
   PUBLIC :: grid_generatingCenter     ! non-namelist variables
   PUBLIC :: grid_generatingSubcenter  ! non-namelist variables
@@ -63,6 +64,8 @@ MODULE mo_run_config
 
     LOGICAL :: lart            !< switch for ICON-ART (Treatment of Aerosols and Trace Gases)
     LOGICAL :: ldass_lhn         !< switch for assimilation of radar data using latent heat nudging
+
+    LOGICAL :: luse_radarfwo(MAX_DOM)  !< switch for radar forward operator EMVORADO
 
     LOGICAL :: lvert_nest         !< switch for vertical nesting
     INTEGER :: num_lev  (MAX_DOM) !< number of full levels for each domain
@@ -129,6 +132,8 @@ MODULE mo_run_config
     INTEGER :: inccn     = 0  !<ccn number
     INTEGER :: ininpot   = 0  !<number of aerosol particles which are potential IN
     INTEGER :: ininact   = 0  !<number of activated IN
+    INTEGER :: iqgl      = 0  !<liquid on graupel
+    INTEGER :: iqhl      = 0  !<liquid on hail
 
     ! For TKE advection
     INTEGER :: iqtke     = 0  !< turbulent kinetic energy

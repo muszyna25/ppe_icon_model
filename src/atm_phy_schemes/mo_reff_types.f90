@@ -154,8 +154,8 @@ CONTAINS
     CLASS(t_reff_calc), INTENT(INOUT)     :: me
 
     ! Allocate memory for parameterizations
-    ALLOCATE( me%reff_coeff (4))   ! Coeeficients of the reff parameterization
-    ALLOCATE( me%ncn_coeff  (3))   ! Coeeficients of the ncn parameterization
+    IF( .NOT. ALLOCATED(me%reff_coeff) ) ALLOCATE( me%reff_coeff (4))   ! Coeeficients of the reff parameterization
+    IF( .NOT. ALLOCATED(me%ncn_coeff)  ) ALLOCATE( me%ncn_coeff  (3))   ! Coeeficients of the ncn parameterization
 
     ! Nullify pointers
     NULLIFY(me%p_q)

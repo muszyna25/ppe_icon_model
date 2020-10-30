@@ -41,7 +41,6 @@ MODULE mo_art_tracer_interface
 #ifdef __ICON_ART
   USE mo_art_tracer,                    ONLY: art_tracer
   USE mo_art_init,                      ONLY: art_init
-  USE mo_art_diag_state,                ONLY: art_create_diagnostics
 #endif
 
   IMPLICIT NONE
@@ -107,17 +106,19 @@ SUBROUTINE art_tracer_interface(defcase,jg,nblks_c,this_list,vname_prefix, &
               CALL finish('mo_art_tracer_interface:art_tracer_interface',  &
          &      'ptr_arr not present at defcase'//TRIM(defcase))
       ENDIF
-    
+      
       CALL message('','ART: Definition of tracers for defcase: '//TRIM(defcase))
         
       IF (TRIM(defcase) .EQ. 'prog') THEN 
-        CALL art_tracer(defcase,jg,nblks_c,this_list,vname_prefix,ptr_arr,advconf,           & 
-          &             p_prog=p_prog,timelev=timelev, ldims=ldims, tlev_source=tlev_source)
+        CALL art_tracer(defcase, jg, nblks_c, this_list, vname_prefix, ptr_arr, advconf,  &
+          &             p_prog=p_prog, timelev=timelev,                                   &
+          &             ldims=ldims, tlev_source=tlev_source)
       ELSE
-        CALL art_tracer(defcase,jg,nblks_c,this_list,vname_prefix,ptr_arr,advconf,    &
-          &             phy_tend=phy_tend, ldims=ldims, tlev_source=tlev_source)
+        CALL art_tracer(defcase, jg, nblks_c, this_list, vname_prefix, ptr_arr, advconf,  &
+          &             phy_tend=phy_tend,                                                &
+          &             ldims=ldims, tlev_source=tlev_source)
       ENDIF
-
+    
       IF (TRIM(defcase) .EQ. 'prog') THEN
         IF (timelev .EQ. 1) THEN 
           IF ( iforcing == iecham) THEN
@@ -126,7 +127,7 @@ SUBROUTINE art_tracer_interface(defcase,jg,nblks_c,this_list,vname_prefix, &
         END IF
       END IF
 
-    END IF
+    ENDIF
 
     IF (timers_level > 3) CALL timer_stop(timer_art_tracInt)
   ENDIF ! lart
