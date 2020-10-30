@@ -596,7 +596,25 @@ MKDIR_P
 INSTALL_DATA
 INSTALL_SCRIPT
 INSTALL_PROGRAM
+ICON_SELF_CFLAGS
+ICON_SELF_FCFLAGS
+ICON_TIXI_CFLAGS
+ICON_TIXI_FCFLAGS
+ICON_YAC_CFLAGS
+ICON_YAC_FCFLAGS
+ICON_MTIME_CFLAGS
+ICON_MTIME_FCFLAGS
+ICON_CDI_CFLAGS
+ICON_CDI_FCFLAGS
+ICON_YAXT_CFLAGS
+ICON_YAXT_FCFLAGS
+ICON_SCT_CFLAGS
+ICON_SCT_FCFLAGS
+ICON_ECRAD_CFLAGS
+ICON_ECRAD_FCFLAGS
 subdirs_extra
+ICON_RTE_RRTMGP_CFLAGS
+ICON_RTE_RRTMGP_FCFLAGS
 BUNDLED_LIBFILES
 DEPGEN_FCFLAGS
 NVCFLAGS
@@ -645,6 +663,10 @@ CLAW_ENABLED
 GPU_ENABLED
 OPENMP_ENABLED
 MPI_ENABLED
+EMVORADO_ENABLED
+RTTOV_ENABLED
+DACE_NOT_ENABLED
+DACE_ENABLED
 ART_ENABLED
 JSBACH_ENABLED
 DEFAULT_VERBOSITY
@@ -694,8 +716,10 @@ enable_silent_rules
 enable_atmo
 enable_ocean
 enable_jsbach
+enable_dace
+enable_emvorado
 enable_coupling
-enable_psrad
+enable_concurrent_psrad
 enable_ecrad
 enable_rte_rrtmgp
 enable_rttov
@@ -747,6 +771,24 @@ ICON_CFLAGS
 ICON_BUNDLED_CFLAGS
 NVCC
 NVCFLAGS
+ICON_RTE_RRTMGP_FCFLAGS
+ICON_RTE_RRTMGP_CFLAGS
+ICON_ECRAD_FCFLAGS
+ICON_ECRAD_CFLAGS
+ICON_SCT_FCFLAGS
+ICON_SCT_CFLAGS
+ICON_YAXT_FCFLAGS
+ICON_YAXT_CFLAGS
+ICON_CDI_FCFLAGS
+ICON_CDI_CFLAGS
+ICON_MTIME_FCFLAGS
+ICON_MTIME_CFLAGS
+ICON_YAC_FCFLAGS
+ICON_YAC_CFLAGS
+ICON_TIXI_FCFLAGS
+ICON_TIXI_CFLAGS
+ICON_SELF_FCFLAGS
+ICON_SELF_CFLAGS
 PYTHON
 PERL
 CLAW
@@ -1378,8 +1420,14 @@ Model Features:
                           [default=yes]
   --enable-ocean          enable the ocean component of ICON [default=yes]
   --enable-jsbach         enable the land component JSBACH [default=yes]
+  --enable-dace           enable DACE modules for data assimilation
+                          [default=no]
+  --enable-emvorado       enable the radar forward operator EMVORADO
+                          [default=no]
   --enable-coupling       enable the coupling [default=yes]
-  --enable-psrad          enable the radiation component PSRAD [default=yes]
+  --enable-concurrent-psrad
+                          enable the concurrent mode of the radiation
+                          component PSRAD [default=yes]
   --enable-ecrad          enable usage of the ECMWF radiation scheme (ECRAD)
                           [default=no]
   --enable-rte-rrtmgp     enable usage of the RTE+RRTMGP toolbox for radiation
@@ -1480,6 +1528,78 @@ Some influential environment variables:
               linking the bundled libraries [default=$ICON_CFLAGS]
   NVCC        NVIDIA CUDA Compiler command
   NVCFLAGS    NVIDIA CUDA Compiler flags
+  ICON_RTE_RRTMGP_FCFLAGS
+              Fortran compiler flags to be appended to FCFLAGS when compiling
+              and linking the bundled version of RTE+RRTMGP
+              [default=$ICON_BUNDLED_FCFLAGS]
+  ICON_RTE_RRTMGP_CFLAGS
+              Fortran compiler flags to be appended to CFLAGS when compiling
+              and linking the bundled version of RTE+RRTMGP
+              [default=$ICON_BUNDLED_CFLAGS]
+  ICON_ECRAD_FCFLAGS
+              Fortran compiler flags to be appended to FCFLAGS when compiling
+              and linking the bundled version of ECRAD
+              [default=$ICON_BUNDLED_FCFLAGS]
+  ICON_ECRAD_CFLAGS
+              Fortran compiler flags to be appended to CFLAGS when compiling
+              and linking the bundled version of ECRAD
+              [default=$ICON_BUNDLED_CFLAGS]
+  ICON_SCT_FCFLAGS
+              Fortran compiler flags to be appended to FCFLAGS when compiling
+              and linking the bundled version of SCT
+              [default=$ICON_BUNDLED_FCFLAGS]
+  ICON_SCT_CFLAGS
+              Fortran compiler flags to be appended to CFLAGS when compiling
+              and linking the bundled version of SCT
+              [default=$ICON_BUNDLED_CFLAGS]
+  ICON_YAXT_FCFLAGS
+              Fortran compiler flags to be appended to FCFLAGS when compiling
+              and linking the bundled version of YAXT
+              [default=$ICON_BUNDLED_FCFLAGS]
+  ICON_YAXT_CFLAGS
+              Fortran compiler flags to be appended to CFLAGS when compiling
+              and linking the bundled version of YAXT
+              [default=$ICON_BUNDLED_CFLAGS]
+  ICON_CDI_FCFLAGS
+              Fortran compiler flags to be appended to FCFLAGS when compiling
+              and linking the bundled version of CDI
+              [default=$ICON_BUNDLED_FCFLAGS]
+  ICON_CDI_CFLAGS
+              Fortran compiler flags to be appended to CFLAGS when compiling
+              and linking the bundled version of CDI
+              [default=$ICON_BUNDLED_CFLAGS]
+  ICON_MTIME_FCFLAGS
+              Fortran compiler flags to be appended to FCFLAGS when compiling
+              and linking the bundled version of MTIME
+              [default=$ICON_BUNDLED_FCFLAGS]
+  ICON_MTIME_CFLAGS
+              Fortran compiler flags to be appended to CFLAGS when compiling
+              and linking the bundled version of MTIME
+              [default=$ICON_BUNDLED_CFLAGS]
+  ICON_YAC_FCFLAGS
+              Fortran compiler flags to be appended to FCFLAGS when compiling
+              and linking the bundled version of YAC
+              [default=$ICON_BUNDLED_FCFLAGS]
+  ICON_YAC_CFLAGS
+              Fortran compiler flags to be appended to CFLAGS when compiling
+              and linking the bundled version of YAC
+              [default=$ICON_BUNDLED_CFLAGS]
+  ICON_TIXI_FCFLAGS
+              Fortran compiler flags to be appended to FCFLAGS when compiling
+              and linking the bundled version of TIXI
+              [default=$ICON_BUNDLED_FCFLAGS]
+  ICON_TIXI_CFLAGS
+              Fortran compiler flags to be appended to CFLAGS when compiling
+              and linking the bundled version of TIXI
+              [default=$ICON_BUNDLED_CFLAGS]
+  ICON_SELF_FCFLAGS
+              Fortran compiler flags to be appended to FCFLAGS when compiling
+              and linking the bundled version of SELF
+              [default=$ICON_BUNDLED_FCFLAGS]
+  ICON_SELF_CFLAGS
+              Fortran compiler flags to be appended to CFLAGS when compiling
+              and linking the bundled version of SELF
+              [default=$ICON_BUNDLED_CFLAGS]
   PYTHON      Python interpreter command
   PERL        Perl interpreter command
   CLAW        CLAW preprocessor command (optional)
@@ -2244,6 +2364,26 @@ else
 fi
 
 
+# Check whether --enable-dace was given.
+if test "${enable_dace+set}" = set; then :
+  enableval=$enable_dace; if test x"$enableval" != xno; then :
+  enable_dace=yes
+fi
+else
+  enable_dace=no
+fi
+
+
+# Check whether --enable-emvorado was given.
+if test "${enable_emvorado+set}" = set; then :
+  enableval=$enable_emvorado; if test x"$enableval" != xno; then :
+  enable_emvorado=yes
+fi
+else
+  enable_emvorado=no
+fi
+
+
 # Check whether --enable-coupling was given.
 if test "${enable_coupling+set}" = set; then :
   enableval=$enable_coupling; if test x"$enableval" != xno; then :
@@ -2254,13 +2394,13 @@ else
 fi
 
 
-# Check whether --enable-psrad was given.
-if test "${enable_psrad+set}" = set; then :
-  enableval=$enable_psrad; if test x"$enableval" != xno; then :
-  enable_psrad=yes
+# Check whether --enable-concurrent-psrad was given.
+if test "${enable_concurrent_psrad+set}" = set; then :
+  enableval=$enable_concurrent_psrad; if test x"$enableval" != xno; then :
+  enable_concurrent_psrad=yes
 fi
 else
-  enable_psrad=yes
+  enable_concurrent_psrad=yes
 fi
 
 
@@ -2642,6 +2782,53 @@ fi
 
 else
   ART_ENABLED='#'
+
+fi
+
+if test "x$enable_dace" = xyes; then :
+  icon_subdir_srcdir="$srcdir/externals/dace_icon"
+   icon_subdir_unique_file="src_for_icon/mo_fdbk_tables.f90"
+   if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
+  as_fn_error $? "unable to find sources of the DACE component, for example ($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component (--disable-dace) or load submodule dace_icon" "$LINENO" 5
+fi
+  DACE_ENABLED=''
+
+  DACE_NOT_ENABLED='#'
+
+
+else
+
+  DACE_ENABLED='#'
+
+  DACE_NOT_ENABLED=''
+
+
+fi
+
+if test "x$enable_rttov" = xyes; then :
+  RTTOV_ENABLED=''
+
+else
+  RTTOV_ENABLED='#'
+
+fi
+
+if test "x$enable_emvorado" = xyes; then :
+
+   icon_subdir_srcdir="$srcdir/externals/emvorado"
+   icon_subdir_unique_file="src_emvorado/radar_organize.f90"
+   if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
+  as_fn_error $? "unable to find sources of the EMVORADO component ($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component (--disable-emvorado)" "$LINENO" 5 or load submodule emvorado
+fi
+   icon_subdir_srcdir="$srcdir/externals/dace_icon"
+   icon_subdir_unique_file="src_for_icon/mo_fdbk_tables.f90"
+   if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
+  as_fn_error $? "unable to find sources of the DACE component which is needed by EMVORADO, for example ($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component (--disable-emvorado) or load submodule dace_icon" "$LINENO" 5
+fi
+   EMVORADO_ENABLED=''
+
+else
+  EMVORADO_ENABLED='#'
 
 fi
 
@@ -3431,7 +3618,8 @@ ICON_FCFLAGS=${ICON_FCFLAGS-}
 
 ICON_OCEAN_FCFLAGS=${ICON_OCEAN_FCFLAGS-$ICON_FCFLAGS}
 
-subdir_FCFLAGS="$FCFLAGS ${ICON_BUNDLED_FCFLAGS-$ICON_FCFLAGS}"
+ICON_BUNDLED_FCFLAGS=${ICON_BUNDLED_FCFLAGS-$ICON_FCFLAGS}
+subdir_FCFLAGS=$FCFLAGS
 
 if test "x$acx_save_cross_compiling" = xno; then :
   acx_compiler_cross_check_result=ok
@@ -4144,11 +4332,30 @@ if test "x$enable_jsbach" = xno; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}__NO_JSBACH__"
 fi
 
+if test "x$enable_dace" = xyes; then :
+
+  if test "x$enable_rttov" = xno; then :
+
+    { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "The DACE submodule currently only works together with the RTTOV library: enable usage of RTTOV (--enable-rttov) and link the RTTOV lib accordingly (FCFLAGS, LDFLAGS and LIBS), or --disable-dace
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
+
+fi
+  as_fn_append FCFLAGS " ${FC_PP_DEF}__DACE__ ${FC_PP_DEF}HAVE_MPI_MOD"
+
+fi
+
+if test "x$enable_emvorado" = xyes; then :
+  as_fn_append FCFLAGS " ${FC_PP_DEF}HAVE_RADARFWO ${FC_PP_DEF}NUDGING ${FC_PP_DEF}GRIBAPI ${FC_PP_DEF}HDF5_RADAR_INPUT ${FC_PP_DEF}WITH_ZLIB ${FC_PP_DEF}NETCDF ${FC_PP_DEF}TWOMOM_SB_NEW "
+fi
+
 if test "x$enable_coupling" = xyes; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}YAC_coupling"
 fi
 
-if test "x$enable_psrad" = xno; then :
+if test "x$enable_concurrent_psrad" = xno; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}__NO_ICON_PS_RAD__"
 fi
 
@@ -4161,7 +4368,7 @@ if test "x$enable_rte_rrtmgp" = xno; then :
 fi
 
 if test "x$enable_rttov" = xyes; then :
-  as_fn_append FCFLAGS " ${FC_PP_DEF}__USE_RTTOV"
+  as_fn_append FCFLAGS " ${FC_PP_DEF}__USE_RTTOV ${FC_PP_DEF}RTTOV12 ${FC_PP_DEF}__RTTOV12 ${FC_PP_DEF}HAVE_MPI_MOD"
 fi
 
 if test "x$enable_art" = xyes; then :
@@ -4232,7 +4439,7 @@ if test "x$enable_vectorized_lrtm" = xyes; then :
 fi
 
 if test "x$enable_mixed_precision" = xyes; then :
-  as_fn_append FCFLAGS " ${FC_PP_DEF}__MIXED_PRECISION ${FC_PP_DEF}__MIXED_PRECISION_2"
+  as_fn_append FCFLAGS " ${FC_PP_DEF}__MIXED_PRECISION"
 fi
 
 ######################### C COMPILER COMMAND AND FLAGS #########################
@@ -5042,7 +5249,8 @@ $as_echo "$acx_cv_c_compiler_version" >&6; }
 
 ICON_CFLAGS=${ICON_CFLAGS-}
 
-subdir_CFLAGS="$CFLAGS ${ICON_BUNDLED_CFLAGS-$ICON_CFLAGS}"
+ICON_BUNDLED_CFLAGS=${ICON_BUNDLED_CFLAGS-$ICON_CFLAGS}
+subdir_CFLAGS=$CFLAGS
 
 
 for ac_header in execinfo.h ucontext.h link.h
@@ -5517,6 +5725,66 @@ ${icon_usr_note}" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
+fi
+
+if test -n "$MPI_LAUNCH"; then :
+  case "$MPI_LAUNCH" in #(
+  [\\/]* | ?:[\\/]*) :
+     ;; #(
+  *) :
+    acx_prog_search_abspath=unknown
+   set dummy $MPI_LAUNCH; shift; acx_prog_exec=$1; shift; acx_prog_args="$@"
+   { $as_echo "$as_me:${as_lineno-$LINENO}: checking for the absolute path to $acx_prog_exec" >&5
+$as_echo_n "checking for the absolute path to $acx_prog_exec... " >&6; }
+   case $acx_prog_exec in #(
+  *[\\/]*) :
+    if as_fn_executable_p $acx_prog_exec; then :
+  acx_prog_search_abspath=$acx_prog_exec
+fi ;; #(
+  *) :
+    as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    if as_fn_executable_p "$as_dir/$acx_prog_exec"; then :
+  acx_prog_search_abspath="$as_dir/$acx_prog_exec"; break
+fi
+  done
+IFS=$as_save_IFS
+ ;;
+esac
+   case $acx_prog_search_abspath in #(
+  unknown) :
+     ;; #(
+  [\\/]* | ?:[\\/]*) :
+     ;; #(
+  *) :
+    asx_dir=`echo "$acx_prog_search_abspath" | sed 's%/[^/]*$%%' 2>/dev/null`
+      asx_file=`echo "$acx_prog_search_abspath" | sed 's%.*/%%' 2>/dev/null`
+      asx_dir=`cd "$asx_dir" >/dev/null 2>&1 && pwd 2>/dev/null`
+      acx_prog_search_abspath=unknown
+      case $asx_dir in #(
+  [\\/]* | ?:[\\/]*) :
+    if as_fn_executable_p "$asx_dir/$asx_file"; then :
+  acx_prog_search_abspath="$asx_dir/$asx_file"
+fi ;; #(
+  *) :
+     ;;
+esac ;;
+esac
+   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_prog_search_abspath" >&5
+$as_echo "$acx_prog_search_abspath" >&6; }
+   if test "x$acx_prog_search_abspath" = xunknown; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: unable to find the absolute path to $MPI_LAUNCH: the bundled libraries might pick other MPI launcher commands for their tests" >&5
+$as_echo "$as_me: WARNING: unable to find the absolute path to $MPI_LAUNCH: the bundled libraries might pick other MPI launcher commands for their tests" >&2;}
+else
+  if test -n "$acx_prog_args"; then :
+  as_fn_append acx_prog_search_abspath " $acx_prog_args"
+fi
+      MPI_LAUNCH="$acx_prog_search_abspath"
+fi ;;
+esac
 fi
 
 if test "x$enable_openmp" = xyes; then :
@@ -6018,6 +6286,8 @@ else
       if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
   as_fn_error $? "unable to find sources of the the RTE+RRTMGP toolbox ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable RTE+RRTMGP (--disable-rte-rrtmgp) or provide an external version of RTE+RRTMGP (--with-external-rte-rrtmgp) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
 fi
+            ICON_RTE_RRTMGP_FCFLAGS=${ICON_RTE_RRTMGP_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
+            ICON_RTE_RRTMGP_CFLAGS=${ICON_RTE_RRTMGP_CFLAGS-$ICON_BUNDLED_CFLAGS}
          acx_config_subdir_args_externals_rte_rrtmgp=
    acx_config_subdir_ignore_arg=no
    eval "set dummy $ac_configure_args"; shift
@@ -6058,7 +6328,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" NETCDF_FCFLAGS= NETCDF_FCLIBS= --enable-openacc="$enable_gpu" --enable-silent-rules="$enable_silent_rules" ; shift
+   set dummy CFLAGS="$subdir_CFLAGS $ICON_RTE_RRTMGP_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_RTE_RRTMGP_FCFLAGS" NETCDF_FCFLAGS= NETCDF_FCLIBS= --enable-openacc="$enable_gpu" --enable-silent-rules="$enable_silent_rules" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -6111,6 +6381,8 @@ else
       if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
   as_fn_error $? "unable to find sources of the the ECMWF radiation scheme ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable ECRAD (--disable-ecrad) or provide an external version of ECRAD (--with-external-ecrad) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
 fi
+            ICON_ECRAD_FCFLAGS=${ICON_ECRAD_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
+            ICON_ECRAD_CFLAGS=${ICON_ECRAD_CFLAGS-$ICON_BUNDLED_CFLAGS}
          acx_config_subdir_args_externals_ecrad=
    acx_config_subdir_ignore_arg=no
    eval "set dummy $ac_configure_args"; shift
@@ -6151,7 +6423,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" NETCDF_FCFLAGS= NETCDF_FCLIBS= --enable-silent-rules="$enable_silent_rules" ; shift
+   set dummy CFLAGS="$subdir_CFLAGS $ICON_ECRAD_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_ECRAD_FCFLAGS" NETCDF_FCFLAGS= NETCDF_FCLIBS= --enable-silent-rules="$enable_silent_rules" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -6191,7 +6463,7 @@ else
 $as_echo "no" >&6; }
       { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using RTTOV: either disable usage of RTTOV (--disable-rttov) or set FCFLAGS, LDFLAGS and LIBS accordingly
+as_fn_error $? "unable to link a test program using the RTTOV library: either disable usage of RTTOV (--disable-rttov) or set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
@@ -6231,6 +6503,8 @@ else
       if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
   as_fn_error $? "unable to find sources of the bundled version of SCT library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable the SCT timer (--disable-sct) or provide an external version of SCT (--with-external-sct) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
 fi
+            ICON_SCT_FCFLAGS=${ICON_SCT_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
+            ICON_SCT_CFLAGS=${ICON_SCT_CFLAGS-$ICON_BUNDLED_CFLAGS}
          acx_config_subdir_args_externals_sct=
    acx_config_subdir_ignore_arg=no
    eval "set dummy $ac_configure_args"; shift
@@ -6291,7 +6565,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" MPICC= MPIFC= --enable-static --disable-shared --disable-maintainer-mode --enable-mpi="$enable_mpi" --enable-openmp="$enable_openmp" --disable-rpath --disable-papi --enable-hdf5 --enable-silent-rules="$enable_silent_rules" --without-libpapi-prefix --without-libhdf5-prefix MPI_LAUNCH="$MPI_LAUNCH" ; shift
+   set dummy CFLAGS="$subdir_CFLAGS $ICON_SCT_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_SCT_FCFLAGS" MPICC= MPIFC= --enable-static --disable-shared --disable-maintainer-mode --enable-mpi="$enable_mpi" --enable-openmp="$enable_openmp" --disable-rpath --disable-papi --enable-hdf5 --enable-silent-rules="$enable_silent_rules" --without-libpapi-prefix --without-libhdf5-prefix MPI_LAUNCH="$MPI_LAUNCH" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -6341,6 +6615,8 @@ else
       if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
   as_fn_error $? "unable to find sources of the bundled version of YAXT library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable the YAXT data exchange (--disable-yaxt) or provide an external version of YAXT (--with-external-yaxt) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
 fi
+            ICON_YAXT_FCFLAGS=${ICON_YAXT_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
+            ICON_YAXT_CFLAGS=${ICON_YAXT_CFLAGS-$ICON_BUNDLED_CFLAGS}
          acx_config_subdir_args_externals_yaxt=
    acx_config_subdir_ignore_arg=no
    eval "set dummy $ac_configure_args"; shift
@@ -6365,6 +6641,8 @@ fi
      ;; #(
   -enable-shared|-enable-shared=*|--enable-shared|--enable-shared=*|-disable-shared|--disable-shared) :
      ;; #(
+  -enable-maintainer-mode|-enable-maintainer-mode=*|--enable-maintainer-mode|--enable-maintainer-mode=*|-disable-maintainer-mode|--disable-maintainer-mode) :
+     ;; #(
   -enable-silent-rules|-enable-silent-rules=*|--enable-silent-rules|--enable-silent-rules=*|-disable-silent-rules|--disable-silent-rules) :
      ;; #(
   -enable-dependency-tracking|-enable-dependency-tracking=*|--enable-dependency-tracking|--enable-dependency-tracking=*|-disable-dependency-tracking|--disable-dependency-tracking) :
@@ -6385,7 +6663,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" --enable-static --disable-shared --enable-dependency-tracking --enable-silent-rules="$enable_silent_rules" --with-regard-for-quality="$enable_mpi_checks" MPI_LAUNCH="$MPI_LAUNCH" ; shift
+   set dummy CFLAGS="$subdir_CFLAGS $ICON_YAXT_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_YAXT_FCFLAGS" --enable-static --disable-shared --disable-maintainer-mode --enable-dependency-tracking --enable-silent-rules="$enable_silent_rules" --with-regard-for-quality="$enable_mpi_checks" MPI_LAUNCH="$MPI_LAUNCH" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -6549,6 +6827,8 @@ fi
    if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
   as_fn_error $? "unable to find sources of the bundled version of CDI library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an external version of CDI (--with-external-cdi) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
 fi
+      ICON_CDI_FCFLAGS=${ICON_CDI_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
+      ICON_CDI_CFLAGS=${ICON_CDI_CFLAGS-$ICON_BUNDLED_CFLAGS}
       acx_config_subdir_args_externals_cdi=
    acx_config_subdir_ignore_arg=no
    eval "set dummy $ac_configure_args"; shift
@@ -6572,6 +6852,8 @@ fi
   -enable-static|-enable-static=*|--enable-static|--enable-static=*|-disable-static|--disable-static) :
      ;; #(
   -enable-shared|-enable-shared=*|--enable-shared|--enable-shared=*|-disable-shared|--disable-shared) :
+     ;; #(
+  -enable-maintainer-mode|-enable-maintainer-mode=*|--enable-maintainer-mode|--enable-maintainer-mode=*|-disable-maintainer-mode|--disable-maintainer-mode) :
      ;; #(
   -enable-silent-rules|-enable-silent-rules=*|--enable-silent-rules|--enable-silent-rules=*|-disable-silent-rules|--disable-silent-rules) :
      ;; #(
@@ -6609,7 +6891,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" --enable-static --disable-shared --enable-silent-rules="$enable_silent_rules" --enable-iso-c-interface --disable-cf-interface --disable-cdi-app --enable-grib --enable-cgribex --disable-mpi --with-grib_api="$enable_grib2" --without-eccodes --without-threads --with-netcdf acx_cv_have_netcdf2=yes acx_cv_have_netcdf4=yes acx_cv_have_libnc_dap=no acx_cv_have_nc4hdf5=no F77=no CXX=no MPI_LAUNCH="$MPI_LAUNCH" ; shift
+   set dummy CFLAGS="$subdir_CFLAGS $ICON_CDI_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_CDI_FCFLAGS" --enable-static --disable-shared --disable-maintainer-mode --enable-silent-rules="$enable_silent_rules" --enable-iso-c-interface --disable-cf-interface --disable-cdi-app --enable-grib --enable-cgribex --disable-mpi --with-grib_api="$enable_grib2" --without-eccodes --without-threads --with-netcdf acx_cv_have_netcdf2=yes acx_cv_have_netcdf4=yes acx_cv_have_libnc_dap=no acx_cv_have_nc4hdf5=no F77=no CXX=no MPI_LAUNCH="$MPI_LAUNCH" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -6686,6 +6968,8 @@ else
    if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
   as_fn_error $? "unable to find sources of the bundled version of MTIME library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an external version of MTIME (--with-external-mtime) by setting CFLAGS, FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
 fi
+      ICON_MTIME_FCFLAGS=${ICON_MTIME_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
+      ICON_MTIME_CFLAGS=${ICON_MTIME_CFLAGS-$ICON_BUNDLED_CFLAGS}
       acx_config_subdir_args_externals_mtime=
    acx_config_subdir_ignore_arg=no
    eval "set dummy $ac_configure_args"; shift
@@ -6710,6 +6994,8 @@ fi
      ;; #(
   -enable-shared|-enable-shared=*|--enable-shared|--enable-shared=*|-disable-shared|--disable-shared) :
      ;; #(
+  -enable-maintainer-mode|-enable-maintainer-mode=*|--enable-maintainer-mode|--enable-maintainer-mode=*|-disable-maintainer-mode|--disable-maintainer-mode) :
+     ;; #(
   -enable-silent-rules|-enable-silent-rules=*|--enable-silent-rules|--enable-silent-rules=*|-disable-silent-rules|--disable-silent-rules) :
      ;; #(
   -enable-examples|-enable-examples=*|--enable-examples|--enable-examples=*|-disable-examples|--disable-examples) :
@@ -6730,7 +7016,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" --enable-static --disable-shared --enable-silent-rules="$enable_silent_rules" --disable-examples --enable-openmp="$enable_openmp" ; shift
+   set dummy CFLAGS="$subdir_CFLAGS $ICON_MTIME_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_MTIME_FCFLAGS" --enable-static --disable-shared --disable-maintainer-mode --enable-silent-rules="$enable_silent_rules" --disable-examples --enable-openmp="$enable_openmp" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -6864,6 +7150,8 @@ ac_abs_srcdir=$ac_abs_top_srcdir$ac_dir_suffix
          yac_MTIME_CFLAGS="-I${ac_abs_top_srcdir}/externals/mtime/include"
          yac_MTIME_CLIBS="${ac_abs_top_builddir}/externals/mtime/src/.libs/libmtime.a"
 fi
+            ICON_YAC_FCFLAGS=${ICON_YAC_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
+            ICON_YAC_CFLAGS=${ICON_YAC_CFLAGS-$ICON_BUNDLED_CFLAGS}
          acx_config_subdir_args_externals_yac=
    acx_config_subdir_ignore_arg=no
    eval "set dummy $ac_configure_args"; shift
@@ -6882,13 +7170,15 @@ fi
            -prefix=*|--prefix=*|--prefi=*|--pref=*|--pre=*|--pr=*|--p=*| \
            --disable-option-checking) :
      ;; #(
-  BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*) :
+  BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*|MPI_LAUNCH=*) :
      ;; #(
   MTIME_CFLAGS=*|MTIME_CLIBS=*|NETCDF_CFLAGS=*|NETCDF_CLIBS=*) :
      ;; #(
   XML2_CFLAGS=*|XML2_CLIBS=*|MPI_CFLAGS=*|MPI_CLIBS=*) :
      ;; #(
   MPI_FCFLAGS=*|MPI_FCLIBS=*|FORTRAN_LAPACK_CLIBS=*) :
+     ;; #(
+  -enable-maintainer-mode|-enable-maintainer-mode=*|--enable-maintainer-mode|--enable-maintainer-mode=*|-disable-maintainer-mode|--disable-maintainer-mode) :
      ;; #(
   -enable-silent-rules|-enable-silent-rules=*|--enable-silent-rules|--enable-silent-rules=*|-disable-silent-rules|--disable-silent-rules) :
      ;; #(
@@ -6920,7 +7210,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" MTIME_CFLAGS="$yac_MTIME_CFLAGS" MTIME_CLIBS= NETCDF_CFLAGS= NETCDF_CLIBS= XML2_CFLAGS= XML2_CLIBS= MPI_CFLAGS= MPI_CLIBS= MPI_FCFLAGS= MPI_FCLIBS= FORTRAN_LAPACK_CLIBS= --enable-silent-rules="$enable_silent_rules" --enable-lib-only --enable-xml --enable-netcdf --enable-mpi="$enable_mpi" --with-external-lapack=fortran --with-external-mtime --enable-mpi-checks="$enable_mpi_checks" acx_cv_c_lib_func_datetimeToString="$yac_MTIME_CLIBS" ; shift
+   set dummy CFLAGS="$subdir_CFLAGS $ICON_YAC_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_YAC_FCFLAGS" MTIME_CFLAGS="$yac_MTIME_CFLAGS" MTIME_CLIBS= NETCDF_CFLAGS= NETCDF_CLIBS= XML2_CFLAGS= XML2_CLIBS= MPI_CFLAGS= MPI_CLIBS= MPI_FCFLAGS= MPI_FCLIBS= FORTRAN_LAPACK_CLIBS= MPI_LAUNCH="$MPI_LAUNCH" --disable-maintainer-mode --enable-silent-rules="$enable_silent_rules" --enable-lib-only --enable-xml --enable-netcdf --enable-mpi="$enable_mpi" --with-external-lapack=fortran --with-external-mtime --enable-mpi-checks="$enable_mpi_checks" acx_cv_c_lib_func_datetimeToString="$yac_MTIME_CLIBS" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -6970,6 +7260,8 @@ else
       if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
   as_fn_error $? "unable to find sources of the bundled version of TIXI library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable the ART component (--disable-art) or provide an external version of TIXI (--with-external-tixi) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
 fi
+            ICON_TIXI_FCFLAGS=${ICON_TIXI_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
+            ICON_TIXI_CFLAGS=${ICON_TIXI_CFLAGS-$ICON_BUNDLED_CFLAGS}
          acx_config_subdir_args_externals_tixi=
    acx_config_subdir_ignore_arg=no
    eval "set dummy $ac_configure_args"; shift
@@ -6992,6 +7284,8 @@ fi
      ;; #(
   XML2_CFLAGS=*|XML2_CLIBS=*) :
      ;; #(
+  -enable-maintainer-mode|-enable-maintainer-mode=*|--enable-maintainer-mode|--enable-maintainer-mode=*|-disable-maintainer-mode|--disable-maintainer-mode) :
+     ;; #(
   -enable-silent-rules|-enable-silent-rules=*|--enable-silent-rules|--enable-silent-rules=*|-disable-silent-rules|--disable-silent-rules) :
      ;; #(
   *) :
@@ -7008,7 +7302,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" XML2_CFLAGS= XML2_CLIBS= --enable-silent-rules="$enable_silent_rules" ; shift
+   set dummy CFLAGS="$subdir_CFLAGS $ICON_TIXI_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_TIXI_FCFLAGS" XML2_CFLAGS= XML2_CLIBS= --disable-maintainer-mode --enable-silent-rules="$enable_silent_rules" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -7060,6 +7354,8 @@ else
    if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
   as_fn_error $? "unable to find sources of the bundled version of SELF library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an external version of SELF (--with-external-self) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
 fi
+      ICON_SELF_FCFLAGS=${ICON_SELF_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
+      ICON_SELF_CFLAGS=${ICON_SELF_CFLAGS-$ICON_BUNDLED_CFLAGS}
       acx_config_subdir_args_externals_self=
    acx_config_subdir_ignore_arg=no
    eval "set dummy $ac_configure_args"; shift
@@ -7080,6 +7376,8 @@ fi
      ;; #(
   BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*) :
      ;; #(
+  -enable-maintainer-mode|-enable-maintainer-mode=*|--enable-maintainer-mode|--enable-maintainer-mode=*|-disable-maintainer-mode|--disable-maintainer-mode) :
+     ;; #(
   -enable-silent-rules|-enable-silent-rules=*|--enable-silent-rules|--enable-silent-rules=*|-disable-silent-rules|--disable-silent-rules) :
      ;; #(
   *) :
@@ -7096,7 +7394,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" --enable-silent-rules="$enable_silent_rules" ; shift
+   set dummy CFLAGS="$subdir_CFLAGS $ICON_SELF_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_SELF_FCFLAGS" --disable-maintainer-mode --enable-silent-rules="$enable_silent_rules" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -7637,74 +7935,18 @@ else
   SB2PP=
 fi
 
-if test -n "$MPI_LAUNCH"; then :
-  case "$MPI_LAUNCH" in #(
-  [\\/]* | ?:[\\/]*) :
-     ;; #(
-  *) :
-    acx_prog_search_abspath=unknown
-   set dummy $MPI_LAUNCH; shift; acx_prog_exec=$1; shift; acx_prog_args="$@"
-   { $as_echo "$as_me:${as_lineno-$LINENO}: checking for the absolute path to $acx_prog_exec" >&5
-$as_echo_n "checking for the absolute path to $acx_prog_exec... " >&6; }
-   case $acx_prog_exec in #(
-  *[\\/]*) :
-    if as_fn_executable_p $acx_prog_exec; then :
-  acx_prog_search_abspath=$acx_prog_exec
-fi ;; #(
-  *) :
-    as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-    if as_fn_executable_p "$as_dir/$acx_prog_exec"; then :
-  acx_prog_search_abspath="$as_dir/$acx_prog_exec"; break
-fi
-  done
-IFS=$as_save_IFS
- ;;
-esac
-   case $acx_prog_search_abspath in #(
-  unknown) :
-     ;; #(
-  [\\/]* | ?:[\\/]*) :
-     ;; #(
-  *) :
-    asx_dir=`echo "$acx_prog_search_abspath" | sed 's%/[^/]*$%%' 2>/dev/null`
-      asx_file=`echo "$acx_prog_search_abspath" | sed 's%.*/%%' 2>/dev/null`
-      asx_dir=`cd "$asx_dir" >/dev/null 2>&1 && pwd 2>/dev/null`
-      acx_prog_search_abspath=unknown
-      case $asx_dir in #(
-  [\\/]* | ?:[\\/]*) :
-    if as_fn_executable_p "$asx_dir/$asx_file"; then :
-  acx_prog_search_abspath="$asx_dir/$asx_file"
-fi ;; #(
-  *) :
-     ;;
-esac ;;
-esac
-   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_prog_search_abspath" >&5
-$as_echo "$acx_prog_search_abspath" >&6; }
-   if test "x$acx_prog_search_abspath" = xunknown; then :
-  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to find the absolute path to $acx_prog_exec
-See \`config.log' for more details
-${icon_usr_note}" "$LINENO" 5; }
-else
-  if test -n "$acx_prog_args"; then :
-  as_fn_append acx_prog_search_abspath " $acx_prog_args"
-fi
-      MPI_LAUNCH="$acx_prog_search_path"
-fi ;;
-esac
-fi
 
 #################################### OUTPUT ####################################
 
 ac_config_headers="$ac_config_headers config.h"
 
 ac_config_files="$ac_config_files Makefile depgen.c.config depgen.f90.config deplist.config icon.mk"
+
+
+ac_config_files="$ac_config_files run/collect.set-up.info"
+
+
+ac_config_commands="$ac_config_commands run/set-up.info"
 
 
 ac_config_commands="$ac_config_commands depfiles"
@@ -8543,6 +8785,8 @@ do
     "depgen.f90.config") CONFIG_FILES="$CONFIG_FILES depgen.f90.config" ;;
     "deplist.config") CONFIG_FILES="$CONFIG_FILES deplist.config" ;;
     "icon.mk") CONFIG_FILES="$CONFIG_FILES icon.mk" ;;
+    "run/collect.set-up.info") CONFIG_FILES="$CONFIG_FILES run/collect.set-up.info" ;;
+    "run/set-up.info") CONFIG_COMMANDS="$CONFIG_COMMANDS run/set-up.info" ;;
     "depfiles") CONFIG_COMMANDS="$CONFIG_COMMANDS depfiles" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
@@ -9105,6 +9349,9 @@ $as_echo "$as_me: executing $ac_file commands" >&6;}
 
 
   case $ac_file$ac_mode in
+    "run/collect.set-up.info":F) chmod +x "$ac_file" ;;
+    "run/set-up.info":C) run/collect.set-up.info "$ac_file" 2>/dev/null ||    { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: failed to create \"$ac_file\"" >&5
+$as_echo "$as_me: WARNING: failed to create \"$ac_file\"" >&2;} ;;
     "depfiles":C) ${MAKE-make} -f icon.mk dummy-depend >/dev/null 2>&5
    sleep 1
    touch icon.mk ;;

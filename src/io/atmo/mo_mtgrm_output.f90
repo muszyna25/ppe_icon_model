@@ -474,24 +474,27 @@ CONTAINS
     CALL add_atmo_var(meteogram_config, IBSET(VAR_GROUP_ATMO_ML, FLAG_DIAG), "REL_HUM", "%", "relative humidity", &
       &               jg, prog%tracer_ptr(iqv)%p_3d(:,:,:))
 
-    IF(atm_phy_nwp_config(jg)%inwp_gscp==4 .OR. atm_phy_nwp_config(jg)%inwp_gscp==5) THEN
-        CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "QG", "kg kg-1", "graupel_mixing_ratio", &
+    IF(atm_phy_nwp_config(jg)%lhave_graupel) THEN
+      CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "QG", "kg kg-1", "graupel_mixing_ratio", &
         &               jg, prog%tracer_ptr(iqg)%p_3d(:,:,:))
-        CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "QH", "kg kg-1", "graupel_mixing_ratio", &
+    END IF
+
+    IF(atm_phy_nwp_config(jg)%l2moment) THEN
+      CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "QH", "kg kg-1", "hail_mixing_ratio", &
         &               jg, prog%tracer_ptr(iqh)%p_3d(:,:,:))
-        CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "QNI", "kg-1", "number concentration ice", &
+      CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "QNI", "kg-1", "number concentration ice", &
         &               jg, prog%tracer_ptr(iqni)%p_3d(:,:,:))
-        CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "QNS", "kg-1", "number concentration snow", &
+      CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "QNS", "kg-1", "number concentration snow", &
         &               jg, prog%tracer_ptr(iqns)%p_3d(:,:,:))
-        CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "QNR", "kg-1", "number concentration rain droplet", &
+      CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "QNR", "kg-1", "number concentration rain droplet", &
         &               jg, prog%tracer_ptr(iqnr)%p_3d(:,:,:))
-        CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "QNG", "kg-1", "number concentration graupel", &
+      CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "QNG", "kg-1", "number concentration graupel", &
         &               jg, prog%tracer_ptr(iqng)%p_3d(:,:,:))
-        CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "QNH", "kg-1", "number concentration hail", &
+      CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "QNH", "kg-1", "number concentration hail", &
         &               jg, prog%tracer_ptr(iqnh)%p_3d(:,:,:))
-        CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "QNC", "kg-1", "number concentration cloud water", &
+      CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "QNC", "kg-1", "number concentration cloud water", &
         &               jg, prog%tracer_ptr(iqnc)%p_3d(:,:,:))
-        CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "NIACT", "kg-1", "number concentration activated ice nuclei", &
+      CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "NIACT", "kg-1", "number concentration activated ice nuclei", &
         &               jg, prog%tracer_ptr(ininact)%p_3d(:,:,:))
     END IF
 
@@ -961,9 +964,12 @@ CONTAINS
         IF (jb == nblks) i_endidx = npromz
 
         DO jc=i_startidx,i_endidx
-          in_points(jc,jb,:) = &
-            &  (/ meteogram_output_config%station_list(jc,jb)%location%lon, &
-            &     meteogram_output_config%station_list(jc,jb)%location%lat  /) * pi_180
+!          in_points(jc,jb,:) = &
+!            &  (/ meteogram_output_config%station_list(jc,jb)%location%lon, &
+!            &     meteogram_output_config%station_list(jc,jb)%location%lat  /) * pi_180
+           
+           in_points(jc,jb,1) = meteogram_output_config%station_list(jc,jb)%location%lon * pi_180
+           in_points(jc,jb,2) = meteogram_output_config%station_list(jc,jb)%location%lat * pi_180                    
         END DO
       END DO
 

@@ -94,7 +94,6 @@ MODULE mo_name_list_output
   USE mo_exception,                 ONLY: finish, message, message_text
   USE mo_util_string,               ONLY: t_keyword_list, associate_keyword, with_keywords,         &
   &                                       int2string
-  USE mo_dictionary,                ONLY: dict_finalize
   USE mo_timer,                     ONLY: timer_start, timer_stop, timer_write_output, ltimer,      &
     &                                     print_timer
   USE mo_level_selection_types,     ONLY: t_level_selection
@@ -123,8 +122,7 @@ MODULE mo_name_list_output
     &                                     t_var_desc, t_output_name_list
   USE mo_output_event_types,        ONLY: t_sim_step_info, t_par_output_event
   ! parallelization
-  USE mo_communication,             ONLY: exchange_data, t_comm_gather_pattern, idx_no, blk_no,     &
-    &                                     idx_1d
+  USE mo_communication,             ONLY: exchange_data, t_comm_gather_pattern, idx_no, blk_no
   USE mo_mpi,                       ONLY: p_send, p_recv, p_barrier, stop_mpi,                      &
     &                                     p_mpi_wtime, p_irecv, p_wait, p_test, p_isend,            &
     &                                     p_comm_work, p_real_dp, p_real_sp, p_int,                 &
@@ -132,7 +130,7 @@ MODULE mo_name_list_output
     &                                     my_process_is_mpi_workroot, my_process_is_work,           &
     &                                     my_process_is_io, my_process_is_mpi_ioroot,               &
     &                                     process_mpi_all_test_id, process_mpi_all_workroot_id,     &
-    &                                     num_work_procs, p_pe, p_pe_work, p_work_pe0, p_io_pe0,    &
+    &                                     num_work_procs, p_pe, p_pe_work,                          &
     &                                     p_max, p_comm_work_2_io, mpi_request_null
 #ifdef _OPENACC
   USE mo_mpi,                       ONLY: i_am_accel_node
@@ -140,8 +138,7 @@ MODULE mo_name_list_output
 #endif
   ! calendar operations
   USE mtime,                        ONLY: datetime, newDatetime, deallocateDatetime, OPERATOR(-),   &
-    &                                     timedelta, newTimedelta, deallocateTimedelta,             &
-    &                                     MAX_DATETIME_STR_LEN
+    &                                     timedelta, MAX_DATETIME_STR_LEN
   ! output scheduling
   USE mo_output_event_handler,      ONLY: is_output_step, check_open_file, check_close_file,        &
     &                                     pass_output_step, get_current_filename,                   &
@@ -417,8 +414,8 @@ CONTAINS
     DEALLOCATE(output_file)
 
     ! destroy variable name dictionaries:
-    CALL dict_finalize(varnames_dict)
-    CALL dict_finalize(out_varnames_dict)
+    CALL varnames_dict%finalize()
+    CALL out_varnames_dict%finalize()
 
   END SUBROUTINE close_name_list_output
 
@@ -2732,16 +2729,13 @@ CONTAINS
   !  @note This subroutine is called by asynchronous I/O PEs only.
   !
 #ifndef NOMPI
-#ifdef __INTEL_COMPILER
-#define __MPI3_OSC
-#endif
   SUBROUTINE io_proc_write_name_list(of, is_first_write)
 
 #ifdef __SUNPRO_F95
     INCLUDE "mpif.h"
 #else
     USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_LOCK_SHARED, MPI_MODE_NOCHECK
-#ifdef __MPI3_OSC
+#ifndef NO_MPI_RGET
     USE mpi, ONLY: MPI_STATUS_IGNORE, MPI_STATUSES_IGNORE, MPI_REQUEST_NULL
 #endif
 #endif
@@ -2767,11 +2761,10 @@ CONTAINS
     INTEGER                        :: nmiss    ! missing value indicator
     INTEGER                        :: ichunk, nchunks, chunk_start, chunk_end, &
       &                               this_chunk_nlevs, ilev, chunk_size
-#ifdef __MPI3_OSC
+#ifndef NO_MPI_RGET
     INTEGER, PARAMETER             :: req_pool_size = 16
     INTEGER                        :: mver_mpi, sver_mpi, &
       &                               req_pool(req_pool_size), req_next, req_rampup
-    LOGICAL                        :: have_LOCKALL
 #endif
 
     !-- for timing
@@ -2785,14 +2778,6 @@ CONTAINS
       WRITE (0, '(a,i0,a)') '#################### I/O PE ',p_pe,' starting I/O at '//ctime
     END IF
     CALL interval_start(TRIM(get_current_filename(of%out_event)))
-#ifdef __MPI3_OSC
-    CALL MPI_Get_version(mver_mpi, sver_mpi, mpierr)
-    IF ( mver_mpi .GT. 3) THEN
-      have_LOCKALL = .true.
-    ELSE
-      have_LOCKALL = .false.
-    ENDIF
-#endif
 
     t_get   = 0.d0
     t_write = 0.d0
@@ -2854,10 +2839,9 @@ CONTAINS
 
     ioff(:) = 0_MPI_ADDRESS_KIND
 
-#ifdef __MPI3_OSC
-    IF (have_LOCKALL) THEN
-      CALL MPI_Win_lock_all(MPI_MODE_NOCHECK, of%mem_win%mpi_win, mpierr)
-    ENDIF
+#ifndef NO_MPI_RGET
+    req_pool(:) = MPI_REQUEST_NULL
+    CALL MPI_Win_lock_all(MPI_MODE_NOCHECK, of%mem_win%mpi_win, mpierr)
 #endif
 
     DO iv = 1, of%num_vars
@@ -2964,12 +2948,10 @@ CONTAINS
 
         ! Retrieve part of variable from every worker PE using MPI_Get
         nv_off  = 0
-#ifdef __MPI3_OSC
-        IF (have_LOCKALL) THEN
-          t_0 = p_mpi_wtime()
-          req_next = 0
-          req_rampup = 1
-        ENDIF
+#ifndef NO_MPI_RGET
+        t_0 = p_mpi_wtime()
+        req_next = 0
+        req_rampup = 1
 #endif
         DO np = 0, num_work_procs-1
 
@@ -2978,46 +2960,42 @@ CONTAINS
           ! Number of words to transfer
           nval = p_ri%pe_own(np) * this_chunk_nlevs
 
-#ifdef __MPI3_OSC
-          IF (.NOT.have_LOCKALL) THEN
-#endif
-            t_0 = p_mpi_wtime()
-            CALL MPI_Win_lock(MPI_LOCK_SHARED, np, MPI_MODE_NOCHECK, &
-              &               of%mem_win%mpi_win, mpierr)
+#if defined NO_MPI_RGET
+          t_0 = p_mpi_wtime()
+          CALL MPI_Win_lock(MPI_LOCK_SHARED, np, MPI_MODE_NOCHECK, &
+            &               of%mem_win%mpi_win, mpierr)
 
-            IF (use_dp_mpi2io) THEN
-              CALL MPI_Get(var1_dp(nv_off+1), nval, p_real_dp, np, ioff(np), &
-                &          nval, p_real_dp, of%mem_win%mpi_win, mpierr)
-            ELSE
-              CALL MPI_Get(var1_sp(nv_off+1), nval, p_real_sp, np, ioff(np), &
-                &          nval, p_real_sp, of%mem_win%mpi_win, mpierr)
-            ENDIF
-
-            CALL MPI_Win_unlock(np, of%mem_win%mpi_win, mpierr)
-            t_get  = t_get  + p_mpi_wtime() - t_0
-#ifdef __MPI3_OSC
+          IF (use_dp_mpi2io) THEN
+            CALL MPI_Get(var1_dp(nv_off+1), nval, p_real_dp, np, ioff(np), &
+              &          nval, p_real_dp, of%mem_win%mpi_win, mpierr)
           ELSE
-            !handle request pool
-            IF (req_rampup .eq. 1) THEN
-              req_next = req_next + 1
-              IF (req_next .GT. req_pool_size) THEN
-                req_rampup = 0
-              ELSE
-                req_pool(req_next) = MPI_REQUEST_NULL
-              ENDIF
-            ENDIF
-            IF (req_rampup .eq. 0) THEN
-              CALL MPI_Waitany(req_pool_size, req_pool, req_next, MPI_STATUS_IGNORE, mpierr)
+            CALL MPI_Get(var1_sp(nv_off+1), nval, p_real_sp, np, ioff(np), &
+              &          nval, p_real_sp, of%mem_win%mpi_win, mpierr)
+          ENDIF
+
+          CALL MPI_Win_unlock(np, of%mem_win%mpi_win, mpierr)
+          t_get  = t_get  + p_mpi_wtime() - t_0
+#else
+          !handle request pool
+          IF (req_rampup .EQ. 1) THEN
+            req_next = req_next + 1
+            IF (req_next .GT. req_pool_size) THEN
+              req_rampup = 0
+            ELSE
               req_pool(req_next) = MPI_REQUEST_NULL
             ENDIF
-            !issue get
-            IF (use_dp_mpi2io) THEN
-              CALL MPI_Rget(var1_dp(nv_off+1), nval, p_real_dp, np, ioff(np), &
-                &          nval, p_real_dp, of%mem_win%mpi_win, req_pool(req_next), mpierr)
-            ELSE
-              CALL MPI_Rget(var1_sp(nv_off+1), nval, p_real_sp, np, ioff(np), &
-                &          nval, p_real_sp, of%mem_win%mpi_win, req_pool(req_next), mpierr)
-            ENDIF
+          ENDIF
+          IF (req_rampup .EQ. 0) THEN
+            CALL MPI_Waitany(req_pool_size, req_pool, req_next, MPI_STATUS_IGNORE, mpierr)
+            req_pool(req_next) = MPI_REQUEST_NULL
+          ENDIF
+          !issue get
+          IF (use_dp_mpi2io) THEN
+            CALL MPI_Rget(var1_dp(nv_off+1), nval, p_real_dp, np, ioff(np), &
+              &          nval, p_real_dp, of%mem_win%mpi_win, req_pool(req_next), mpierr)
+          ELSE
+            CALL MPI_Rget(var1_sp(nv_off+1), nval, p_real_sp, np, ioff(np), &
+              &          nval, p_real_sp, of%mem_win%mpi_win, req_pool(req_next), mpierr)
           ENDIF
 #endif
           mb_get = mb_get + nval
@@ -3029,11 +3007,9 @@ CONTAINS
           ioff(np) = ioff(np) + INT(nval,i8)
 
         ENDDO
-#ifdef __MPI3_OSC
-        IF (have_LOCKALL) THEN
-          CALL MPI_Waitall(req_pool_size, req_pool, MPI_STATUSES_IGNORE, mpierr)
-          t_get  = t_get  + p_mpi_wtime() - t_0
-        ENDIF
+#ifndef NO_MPI_RGET
+        CALL MPI_Waitall(req_pool_size, req_pool, MPI_STATUSES_IGNORE, mpierr)
+        t_get  = t_get  + p_mpi_wtime() - t_0
 #endif
 
         ! compute the total offset for each PE
@@ -3131,10 +3107,8 @@ CONTAINS
 
     ENDDO ! Loop over output variables
 
-#ifdef __MPI3_OSC
-    IF (have_LOCKALL) THEN
-      CALL MPI_Win_unlock_all(of%mem_win%mpi_win, mpierr)
-    ENDIF
+#if ! defined NO_MPI_RGET
+    CALL MPI_Win_unlock_all(of%mem_win%mpi_win, mpierr)
 #endif
     IF (use_dp_mpi2io) THEN
       DEALLOCATE(var1_dp, STAT=ierrstat)

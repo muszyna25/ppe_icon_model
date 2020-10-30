@@ -31,7 +31,7 @@ MODULE mo_upatmo_phy_diag
   USE mo_impl_constants_grf,     ONLY: grf_bdywidth_c
   USE mo_upatmo_impl_const,      ONLY: iUpatmoStat, iUpatmoGasId,         &
     &                                  iUpatmoGasMode, iUpatmoExtdatStat, &
-    &                                  iUpatmoExtdatId, iUpatmoGasStat
+    &                                  iUpatmoExtdatId
   USE mo_run_config,             ONLY: iqv, iqc, iqi 
   USE mo_model_domain,           ONLY: t_patch
   USE mo_nonhydro_types,         ONLY: t_nh_prog, t_nh_diag

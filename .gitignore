@@ -24,9 +24,9 @@
 
 # Build stage files:
 *.i
-*.o
 *.lst
-/bin/icon
+*.o
+/bin
 /mod
 /pp
 /srclist

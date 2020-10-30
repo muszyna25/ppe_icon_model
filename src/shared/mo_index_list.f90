@@ -1,6 +1,6 @@
 MODULE mo_index_list
 
-  USE mo_kind, ONLY: i1, i2, i4
+  USE mo_kind, ONLY: i1, i4
 
 #ifdef _OPENACC
   USE openacc

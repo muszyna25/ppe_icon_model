@@ -27,16 +27,14 @@ MODULE mo_art_sedi_interface
   USE mo_model_domain,                  ONLY: t_patch
   USE mo_impl_constants,                ONLY: min_rlcell_int
   USE mo_impl_constants_grf,            ONLY: grf_bdywidth_c
-  USE mo_nonhydro_types,                ONLY: t_nh_prog, t_nh_metrics,t_nh_diag
+  USE mo_nonhydro_types,                ONLY: t_nh_prog, t_nh_metrics, t_nh_diag
   USE mo_nonhydro_state,                ONLY: p_nh_state_lists
   USE mo_nonhydrostatic_config,         ONLY: kstart_tracer
-  USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_diag
-  USE mo_run_config,                    ONLY: lart,iqr,iqc,iqv, iforcing
+  USE mo_run_config,                    ONLY: lart, iqr, iqc, iqv
   USE mo_exception,                     ONLY: finish
   USE mo_advection_vflux,               ONLY: upwind_vflux_ppm, implicit_sedim_tracer
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
                                           &   timer_art, timer_art_sedInt
-  USE mo_physical_constants,            ONLY: grav
 
 
 #ifdef __ICON_ART
@@ -55,7 +53,8 @@ MODULE mo_art_sedi_interface
   USE mo_art_sedi_2mom,                 ONLY: art_calc_v_sed, art_calc_sed_flx
   USE mo_art_depo_2mom,                 ONLY: art_calc_v_dep, art_store_v_dep
   USE mo_art_drydepo_radioact,          ONLY: art_drydepo_radioact
-  USE mo_art_diagnostics,               ONLY: art_get_diag_tracer_index
+  USE mo_art_diag_types,                ONLY: art_diag_tracer_index
+  USE mo_art_impl_constants,            ONLY: IART_ACC_SEDIM
 #endif
 
   IMPLICIT NONE
@@ -203,12 +202,11 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, p_diag, &
           DO jb = art_atmo%i_startblk, art_atmo%i_endblk
             CALL art_get_indices_c(jg, jb, istart, iend)
             ! Before sedimentation/deposition velocity calculation, the modal parameters have to be calculated
-            CALL fields%modal_param(p_art_data(jg)%air_prop%art_free_path(:,:,jb),                &
+            CALL fields%modal_param(p_art_data(jg)%air_prop%art_free_path(:,:,jb),                     &
               &                     istart, iend, art_atmo%nlev, jb, tracer(:,:,jb,:))
             ! Calculate sedimentation velocities for 0th and 3rd moment
-            CALL art_calc_v_sed(art_atmo%dz(:,:,jb),                                              &
-              &     p_art_data(jg)%air_prop%art_dyn_visc(:,:,jb), fields%density(:,:,jb),         &
-              &     fields%diameter(:,:,jb), fields%info%exp_aero, fields%knudsen_nr(:,:,jb),     &
+            CALL art_calc_v_sed(p_art_data(jg)%air_prop%art_dyn_visc(:,:,jb), fields%density(:,:,jb),  &
+              &     fields%diameter(:,:,jb), fields%info%exp_aero, fields%knudsen_nr(:,:,jb),          &
               &     istart, iend, art_atmo%nlev, vsed0(:,:), vsed3(:,:))
 
             !MB>>
@@ -267,7 +265,7 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, p_diag, &
                  &              fields%diameter(:,art_atmo%nlev,jb),                            &
                  &              fields%info%exp_aero,fields%knudsen_nr(:,art_atmo%nlev,jb),     &
                  &              vsed0(:,art_atmo%nlev), vsed3(:,art_atmo%nlev),                 &
-                 &              istart, iend, art_atmo%nlev, vdep0(:), vdep3(:))
+                 &              istart, iend, vdep0(:), vdep3(:))
             ! Store deposition velocities for the use in turbulence scheme
             ALLOCATE(jsp_ar(fields%ntr-1))
             DO i =1, fields%ntr-1
@@ -368,7 +366,7 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, p_diag, &
                 ! ----------------------------------
 
                 ! get tracer index in diagnostics container (for diagnostic ACC_SEDIM)
-                CALL art_get_diag_tracer_index(p_nh_state_lists(jg)%diag_list, 'acc_sedim', jsp, idx_diag)
+                idx_diag = art_diag_tracer_index(IART_ACC_SEDIM, jsp)
 
                 IF ( idx_diag > 0 .AND. n == 1 ) THEN
 !$omp parallel do default(shared) private(jb, jk, jc, istart, iend)
@@ -376,11 +374,12 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, p_diag, &
                     CALL art_get_indices_c(jg, jb, istart, iend)
 
                     DO jk = kstart_tracer(jg,jsp), art_atmo%nlev
+!NEC$ ivdep
                       DO jc = istart, iend
                         ! save sedimentation in lowest model level (ACC_SEDIM)
                         ! integrate sedim_update vertically
                         p_art_data(jg)%diag%acc_sedim(jc,jb,idx_diag) =         &
-                          & p_art_data(jg)%diag%acc_sedim(jc,jb,idx_diag)       &
+                         & p_art_data(jg)%diag%acc_sedim(jc,jb,idx_diag)       &
                           & + tracer(jc,jk,jb,jsp) * rhodz_new(jc,jk,jb)
                       ENDDO!jc
                     ENDDO !jk
@@ -410,6 +409,7 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, p_diag, &
                   DO jb = art_atmo%i_startblk, art_atmo%i_endblk
                     CALL art_get_indices_c(jg, jb, istart, iend)
                     DO jk = kstart_tracer(jg,jsp), art_atmo%nlev
+!NEC$ ivdep
                       DO jc = istart, iend
                         ! save sedimentation in lowest model level (ACC_SEDIM)
                         ! integrate sedim_update vertically
@@ -527,13 +527,14 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, p_diag, &
               ENDIF
 
               ! get tracer index in diagnostics container (for diagnostic ACC_SEDIM)
-              CALL art_get_diag_tracer_index(p_nh_state_lists(jg)%diag_list, 'acc_sedim', jsp, idx_diag)
+              idx_diag = art_diag_tracer_index(IART_ACC_SEDIM, jsp)
 
               IF ( idx_diag > 0 ) THEN
 !$omp parallel do default(shared) private(jb, jk, jc, istart, iend)
                 DO jb = art_atmo%i_startblk, art_atmo%i_endblk
                   CALL art_get_indices_c(jg, jb, istart, iend)
                   DO jk = 1, art_atmo%nlev
+!NEC$ ivdep
                     DO jc = istart, iend
                       ! save sedimentation in lowest model level (ACC_SEDIM)
                       ! integrate sedim_update vertically
@@ -560,6 +561,7 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, p_diag, &
                 DO jb = art_atmo%i_startblk, art_atmo%i_endblk
                   CALL art_get_indices_c(jg, jb, istart, iend)
                   DO jk = 1, art_atmo%nlev
+!NEC$ ivdep
                     DO jc = istart, iend
                       ! save sedimentation in lowest model level (ACC_SEDIM)
                       ! integrate sedim_update vertically

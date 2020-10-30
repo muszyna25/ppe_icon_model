@@ -21,14 +21,17 @@
 MODULE mo_2mom_prepare
 
   USE mo_kind,            ONLY: wp
+  USE mo_exception,       ONLY: finish, message, message_text
   USE mo_2mom_mcrph_main, ONLY: particle, particle_lwf, atmosphere
   IMPLICIT NONE
   PUBLIC :: prepare_twomoment, post_twomoment
 
+  CHARACTER(len=*), PARAMETER :: routine = 'mo_2mom_prepare'
+
 CONTAINS
 
   SUBROUTINE prepare_twomoment(atmo, cloud, rain, ice, snow, graupel, hail, &
-       rho, rhocorr, rhocld, pres, w, tk, &
+       rho, rhocorr, rhocld, pres, w, tk, hhl, &
        nccn, ninpot, ninact, &
        qv, qc, qnc, qr, qnr, qi, qni, qs, qns, qg, qng, qh, qnh, qgl, qhl, &
        lprogccn, lprogin, lprogmelt, its, ite, kts, kte)
@@ -37,7 +40,7 @@ CONTAINS
     CLASS(particle),  INTENT(inout)   :: cloud, rain, ice, snow
     CLASS(particle),  INTENT(inout)   :: graupel, hail
     REAL(wp), TARGET, DIMENSION(:, :), INTENT(in) :: &
-         rho, rhocorr, rhocld, pres, w, tk
+         rho, rhocorr, rhocld, pres, w, tk, hhl
     REAL(wp), DIMENSION(:,:), INTENT(inout) , TARGET :: &
          &               qv, qc, qnc, qr, qnr, qi, qni, qs, qns, qg, qng, qh, qnh
     LOGICAL, INTENT(in) :: lprogccn, lprogin, lprogmelt
@@ -85,12 +88,17 @@ CONTAINS
       END DO
     END DO
 
+    IF (lprogmelt.AND.(.not.PRESENT(qgl).or..not.PRESENT(qhl))) THEN
+      CALL finish(TRIM(routine),'Error in prepare_twomoment, something wrong with qgl or qhl')
+    END IF
+        
     ! set pointers
     atmo%w   => w
     atmo%T   => tk
     atmo%p   => pres
     atmo%qv  => qv
     atmo%rho => rho
+    atmo%zh  => hhl
 
     cloud%rho_v   => rhocld
     rain%rho_v    => rhocorr
@@ -122,6 +130,23 @@ CONTAINS
        hail%l    => qhl
     END SELECT
 
+    ! enforce upper and lower bounds for number concentrations
+    ! (may not be necessary or only at initial time)
+    DO kk=kts,kte
+      DO ii=its,ite
+        rain%n(ii,kk) = MIN(rain%n(ii,kk), rain%q(ii,kk)/rain%x_min)
+        rain%n(ii,kk) = MAX(rain%n(ii,kk), rain%q(ii,kk)/rain%x_max)
+        ice%n(ii,kk) = MIN(ice%n(ii,kk), ice%q(ii,kk)/ice%x_min)
+        ice%n(ii,kk) = MAX(ice%n(ii,kk), ice%q(ii,kk)/ice%x_max)
+        snow%n(ii,kk) = MIN(snow%n(ii,kk), snow%q(ii,kk)/snow%x_min)
+        snow%n(ii,kk) = MAX(snow%n(ii,kk), snow%q(ii,kk)/snow%x_max)
+        graupel%n(ii,kk) = MIN(graupel%n(ii,kk), graupel%q(ii,kk)/graupel%x_min)
+        graupel%n(ii,kk) = MAX(graupel%n(ii,kk), graupel%q(ii,kk)/graupel%x_max)
+        hail%n(ii,kk) = MIN(hail%n(ii,kk), hail%q(ii,kk)/hail%x_min)
+        hail%n(ii,kk) = MAX(hail%n(ii,kk), hail%q(ii,kk)/hail%x_max)
+      END DO
+    END DO
+
   END SUBROUTINE prepare_twomoment
 
   SUBROUTINE post_twomoment(atmo, cloud, rain, ice, snow, graupel, hail, &
@@ -144,12 +169,17 @@ CONTAINS
     INTEGER :: ii, kk
     REAL(wp) :: hlp
 
+    IF (lprogmelt.AND.(.not.PRESENT(qgl).or..not.PRESENT(qhl))) THEN
+      CALL finish(TRIM(routine),'Error in post_twomoment, something wrong with qgl or qhl')
+    END IF
+
     ! nullify pointers
     atmo%w   => null()
     atmo%T   => null()
     atmo%p   => null()
     atmo%qv  => null()
     atmo%rho => null()
+    atmo%zh  => null()
 
     cloud%rho_v   => null()
     rain%rho_v    => null()

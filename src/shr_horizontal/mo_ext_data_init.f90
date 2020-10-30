@@ -82,8 +82,7 @@ MODULE mo_ext_data_init
     &                              has_filetype_netcdf
   USE mo_util_uuid_types,    ONLY: t_uuid, uuid_string_length
   USE mo_util_uuid,          ONLY: OPERATOR(==), uuid_unparse
-  USE mo_dictionary,         ONLY: t_dictionary, dict_init, dict_finalize,         &
-    &                              dict_loadfile
+  USE mo_dictionary,         ONLY: t_dictionary
   USE mo_nwp_tuning_config,  ONLY: itune_albedo
   USE mo_cdi,                ONLY: FILETYPE_GRB2, streamOpenRead, streamInqFileType, &
     &                              streamInqVlist, vlistInqVarZaxis, zaxisInqSize,   &
@@ -180,11 +179,10 @@ CONTAINS
     IF (iforcing == inwp) CALL inquire_external_files(p_patch, cdi_extpar_id, cdi_filetype)
 
     ! read the map file (internal -> GRIB2) into dictionary data structure:
-    CALL dict_init(extpar_varnames_dict, lcase_sensitive=.FALSE.)
+    CALL extpar_varnames_dict%init(.FALSE.)
     IF (ANY(cdi_filetype(:) == FILETYPE_GRB2)) THEN
-      IF(extpar_varnames_map_file /= ' ') THEN
-        CALL dict_loadfile(extpar_varnames_dict, TRIM(extpar_varnames_map_file))
-      END IF
+      IF (extpar_varnames_map_file /= ' ') &
+        & CALL extpar_varnames_dict%loadfile(TRIM(extpar_varnames_map_file))
       read_netcdf_parallel = .FALSE. ! GRIB2 can only be read using cdi library
     ELSE IF (read_nc_via_cdi) THEN
       read_netcdf_parallel = .FALSE.
@@ -354,7 +352,7 @@ CONTAINS
     END IF
 
     ! destroy variable name dictionary:
-    CALL dict_finalize(extpar_varnames_dict)
+    CALL extpar_varnames_dict%finalize()
 
   END SUBROUTINE init_ext_data
 
@@ -1490,9 +1488,13 @@ CONTAINS
 
        i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
        i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
-
+#ifdef __SX__
+! turn off OpenMP on the NEC until MAXLOC bug (not threadsafe) is fixed
+!$OMP SINGLE
+#else
 !$OMP DO PRIVATE(jb,jc,i_lu,i_startidx,i_endidx,i_count,i_count_sea,i_count_flk,tile_frac,&
 !$OMP            tile_mask,lu_subs,sum_frac,scalfac,zfr_land,it_count,ic,jt,jt_in,t2mclim_hc,lat ) ICON_OMP_DEFAULT_SCHEDULE
+#endif
        DO jb=i_startblk, i_endblk
 
          CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
@@ -1934,10 +1936,11 @@ CONTAINS
          ! frac_t(jc,jb,isub_seaice) is set in init_sea_lists
 
        END DO !jb
+#ifndef __SX__
 !$OMP END DO
 
-
 !$OMP SINGLE
+#endif
        ! Some useful diagnostics
        npoints      = ext_data(jg)%atm%list_land %get_sum_global(i_startblk,i_endblk)
        npoints_sea  = ext_data(jg)%atm%list_sea  %get_sum_global(i_startblk,i_endblk)

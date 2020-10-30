@@ -20,8 +20,8 @@
 !!
 MODULE mo_tracer_metadata_types
 
-  USE mo_kind,           ONLY: wp
-  USE mo_storage,        ONLY: t_storage
+  USE mo_kind,            ONLY: wp
+  USE mo_key_value_store, ONLY: t_key_value_store
 
   IMPLICIT NONE
 
@@ -47,7 +47,7 @@ MODULE mo_tracer_metadata_types
     LOGICAL :: lturb_tracer       ! Turbulent transport (TRUE/FALSE)
     LOGICAL :: lconv_tracer       ! Convection  (TRUE/FALSE)
     ! Processes not covered by ICON (requires ART extension)
-    TYPE(t_storage) :: opt_meta   ! Storage container for optional metadata
+    TYPE(t_key_value_store) :: opt_meta   ! Storage container for optional metadata
     
     CONTAINS
       procedure :: construct_base => construct_t_tracer_meta

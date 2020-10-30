@@ -24,7 +24,6 @@ MODULE mo_zaxis_type
 
   USE ISO_C_BINDING,    ONLY: C_INT32_T
   USE mo_exception,     ONLY: finish
-  USE mo_fortran_tools, ONLY: t_Destructible
   USE mo_hash_table,    ONLY: t_HashTable, hashTable_make
   USE mo_cdi, ONLY: ZAXIS_ALTITUDE, ZAXIS_ATMOSPHERE, ZAXIS_CLOUD_BASE, ZAXIS_CLOUD_TOP,        &
     &               ZAXIS_DEPTH_BELOW_LAND, ZAXIS_DEPTH_BELOW_SEA, ZAXIS_GENERIC, ZAXIS_HEIGHT, &
@@ -68,23 +67,19 @@ MODULE mo_zaxis_type
   !> Derived type holding a the ICON-internal key for a single
   !  vertical axis type. See "t_zaxisTypeList" for details.
   !
-  TYPE, EXTENDS(t_Destructible) :: t_zaxisKey
+  TYPE :: t_zaxisKey
     INTEGER :: icon_zaxis_type
-  CONTAINS
-    PROCEDURE :: destruct => t_zaxisKey_destruct
   END TYPE t_zaxisKey
 
 
   !> Derived type holding a single vertical axis type. See
   !  "t_zaxisTypeList" for details.
   !
-  TYPE, EXTENDS(t_Destructible) :: t_zaxisType
+  TYPE :: t_zaxisType
     INTEGER :: icon_zaxis_type
     INTEGER :: cdi_zaxis_type
     LOGICAL :: is_2d
   CONTAINS
-    PROCEDURE :: destruct => t_zaxisType_destruct
-
     GENERIC, PUBLIC :: OPERATOR(==) => eqv
     PROCEDURE :: eqv => t_zaxisType_eqv
   END TYPE t_zaxisType
@@ -233,13 +228,13 @@ CONTAINS
   !> Auxiliary function for the internal hash table: compute hash key.
   !
   INTEGER(C_INT32_T) FUNCTION list_hashKey(key) RESULT(RESULT)
-    CLASS(t_Destructible), POINTER, INTENT(in) :: key
+    CLASS(*), POINTER, INTENT(in) :: key
     CHARACTER(LEN=*), PARAMETER :: routine = modname//":list_hashKey"
 
     SELECT TYPE(key)
     TYPE IS(t_zaxisKey)
       RESULT = key%icon_zaxis_type
-      CLASS DEFAULT
+    CLASS DEFAULT
       CALL finish(routine, "Unknown type for key.")
     END SELECT
   END FUNCTION list_hashKey
@@ -248,7 +243,7 @@ CONTAINS
   !> Auxiliary function for the internal hash table: compare keys.
   !
   LOGICAL FUNCTION list_equalKeys(keyA, keyB) RESULT(RESULT)
-    CLASS(t_Destructible), POINTER, INTENT(in) :: keyA, keyB
+    CLASS(*), POINTER, INTENT(in) :: keyA, keyB
     CHARACTER(LEN=*), PARAMETER :: routine = modname//":list_equalKeys"
 
     SELECT TYPE(keyA)
@@ -277,8 +272,8 @@ CONTAINS
 
     CHARACTER(LEN=*), PARAMETER     :: routine = modname//'::t_zaxisTypeList_register'
 
-    CLASS(t_Destructible),POINTER :: p_key
-    CLASS(t_Destructible),POINTER :: p_value
+    CLASS(*),POINTER :: p_key
+    CLASS(*),POINTER :: p_value
 
     IF (PRESENT(icon_zaxis_type)) THEN
       ! check if icon_zaxis_type already set
@@ -324,8 +319,7 @@ CONTAINS
     INTEGER, OPTIONAL,      INTENT(OUT) :: ierror
 
     CHARACTER(LEN=*), PARAMETER        :: routine = modname//'::t_zaxisTypeList_getEntry'
-    CLASS(t_Destructible), POINTER     :: p_key
-    CLASS(t_Destructible), POINTER     :: p_value
+    CLASS(*), POINTER     :: p_key, p_value
 
     ! retrieve entry from hash table:
     IF (PRESENT(ierror))  ierror = 0
@@ -393,19 +387,5 @@ CONTAINS
     CLASS(t_zaxisTypeList), INTENT(IN) :: zaxisTypeList
     za_count = zaxisTypeList%max_icon_zaxis_type
   END FUNCTION t_zaxisTypeList_za_count
-
-
-  !> Dummy destructor for t_zaxisKey.
-  SUBROUTINE t_zaxisKey_destruct(me)
-    CLASS(t_zaxisKey), INTENT(INOUT) :: me
-    ! do nothing
-  END SUBROUTINE t_zaxisKey_destruct
-
-
-  !> Dummy destructor for t_zaxisType.
-  SUBROUTINE t_zaxisType_destruct(me)
-    CLASS(t_zaxisType), INTENT(INOUT) :: me
-    ! do nothing
-  END SUBROUTINE t_zaxisType_destruct
 
 END MODULE mo_zaxis_type
