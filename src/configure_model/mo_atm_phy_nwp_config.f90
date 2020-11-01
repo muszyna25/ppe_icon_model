@@ -88,6 +88,7 @@ MODULE mo_atm_phy_nwp_config
     INTEGER ::  inwp_satad       !! saturation adjustment
     INTEGER ::  inwp_convection  !! convection
     LOGICAL ::  lshallowconv_only !! use shallow convection only
+    LOGICAL ::  lgrayzone_deepconv !! use grayzone tuning for deep convection
     LOGICAL ::  ldetrain_conv_prec !! detrain convective rain and snow
     INTEGER ::  inwp_radiation   !! radiation
     INTEGER ::  inwp_sso         !! sso
@@ -330,6 +331,11 @@ CONTAINS
       END SELECT
       atm_phy_nwp_config(jg)%lhydrom_read_from_fg(:) = .FALSE.
       atm_phy_nwp_config(jg)%lhydrom_read_from_ana(:) = .FALSE.
+
+      ! check for contradicting convection settings
+      IF (atm_phy_nwp_config(jg)%lshallowconv_only .AND. atm_phy_nwp_config(jg)%lgrayzone_deepconv) THEN
+        CALL finish('configure_atm_phy_nwp', "lshallowconv_only and lgrayzone_deepconv are mutually exclusive")
+      ENDIF
 
       ! Configure LES physics (if activated)
       !

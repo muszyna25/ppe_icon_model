@@ -65,7 +65,7 @@ CONTAINS
   !
   SUBROUTINE cuascn &
     & ( kidia,    kfdia,    klon,    ktdia,  klev, rmfcfl, &
-    & entrorg, rprcon, lmfmid, ptsphy,&
+    & entrorg, rprcon, lmfmid, lgrz_deepconv, ptsphy,&
     & paer_ss,&
     & ptenh,    pqenh,   &
     & ptenq,             &
@@ -234,7 +234,7 @@ INTEGER(KIND=jpim),INTENT(in)    :: kfdia
 INTEGER(KIND=jpim),INTENT(in)    :: ktdia
 REAL(KIND=jprb)   ,INTENT(in)    :: rmfcfl 
 REAL(KIND=jprb)   ,INTENT(in)    :: entrorg, rprcon
-LOGICAL           ,INTENT(in)    :: lmfmid
+LOGICAL           ,INTENT(in)    :: lmfmid, lgrz_deepconv
 REAL(KIND=jprb)   ,INTENT(in)    :: ptsphy 
 !KF
 REAL(KIND=jprb)   ,INTENT(in), OPTIONAL:: paer_ss(klon)
@@ -302,7 +302,7 @@ REAL(KIND=jprb) :: z_cldmax, z_cprc2, z_cwdrag, z_cwifrac, zalfaw,&
  & zleen, zlnew, zmfmax, zmftest, zmfulk, zmfun, &
  & zmfuqk, zmfusk, zoealfa, zoealfap, zprcdgw, &
  & zprcon, zqeen, zqude, zrnew, zrold, zscde, &
- & zseen, ztglace, zvi, zvv, zvw, zwu, zzco, zzzmb, zdz, zmf, zglac
+ & zseen, ztglace, zvi, zvv, zvw, zwu, zzco, zzzmb, zdz, zmf, zglac, zentr_prof
 
 REAL(KIND=jprb) ::  zchange,zxs,zxe
 REAL(KIND=jprb) :: zhook_handle
@@ -459,7 +459,7 @@ ENDDO
         zdnoprc(jl) = zdnoprc(jl) + zc*zd*1.25e-4_jprb  ! enhancement by at most 0.25 g/kg
       ENDDO
       DO jl=kidia,kfdia
-        IF(.NOT. ldland(jl) .AND. .NOT. ldlake(jl)) THEN
+        IF(.NOT. ldland(jl) .AND. .NOT. ldlake(jl) .AND. .NOT. lgrz_deepconv) THEN
           zdrain(jl)  = MIN(0.6E4_JPRB, zdrain(jl) ) ! ... but over ocean at most 60 hPa
           zdnoprc(jl) = MIN(3.e-4_JPRB, zdnoprc(jl)) ! ... but over ocean at most 0.3 g/kg
         ENDIF
@@ -823,8 +823,9 @@ DO jk=klev-1,ktdia+2,-1
 
           IF(zbuo(jl,jk) > -0.2_JPRB) THEN !.AND.klab(jl,jk+1) == 2) THEN
             ikb=kcbot(jl)
+            zentr_prof = MERGE((pqsen(jl,jk)/pqsen(jl,ikb))**2, (pqsen(jl,jk)/pqsen(jl,ikb))**3, lgrz_deepconv)
             zoentr(jl)=zentrorg(jl)*(1.3_JPRB-MIN(1.0_JPRB,pqen(jl,jk-1)/pqsen(jl,jk-1)))*&
-              &(pgeoh(jl,jk-1)-pgeoh(jl,jk))*zrg*MIN(1.0_JPRB,pqsen(jl,jk)/pqsen(jl,ikb))**3
+              &(pgeoh(jl,jk-1)-pgeoh(jl,jk))*zrg*MIN(1.0_JPRB,zentr_prof)
             zoentr(jl)=MIN(0.4_JPRB,zoentr(jl))*pmfu(jl,jk)
           ELSE
             zoentr(jl)=0.0_JPRB

@@ -1050,7 +1050,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
   
-  SUBROUTINE sucumf(rsltn,klev,pmean,phy_params,lshallow_only,ldetrain_conv_prec)
+  SUBROUTINE sucumf(rsltn,klev,pmean,phy_params,lshallow_only,lgrayzone_deepconv,ldetrain_conv_prec)
 
 !     THIS ROUTINE DEFINES DISPOSABLE PARAMETERS FOR MASSFLUX SCHEME
 
@@ -1103,7 +1103,7 @@ INTEGER(KIND=jpim), INTENT(in) :: klev
 REAL(KIND=jprb)   , INTENT(in) :: rsltn
 REAL(KIND=jprb)   , INTENT(in) :: pmean(klev)
 TYPE(t_phy_params), INTENT(inout) :: phy_params
-LOGICAL           , INTENT(in) :: lshallow_only
+LOGICAL           , INTENT(in) :: lshallow_only, lgrayzone_deepconv
 LOGICAL           , INTENT(in) :: ldetrain_conv_prec
 
 !* change to operations
@@ -1146,7 +1146,7 @@ ENTSHALP=2.0_JPRB
 
 !     ENTSTPC1,2: SHALLOW ENTRAINMENT CONSTANTS FOR TRIGGER TEST PARCEL ONLY
 !     ----------
-IF (lshallow_only .OR. rsltn < 5.e3_jprb) THEN
+IF (lshallow_only) THEN
   entstpc1 = 1.0_JPRB
   entstpc2 = 2.E-4_JPRB
 ELSE
@@ -1178,7 +1178,7 @@ rmfcmin=1.e-10_JPRB
 !     RMFDEPS:   FRACTIONAL MASSFLUX FOR DOWNDRAFTS AT LFS
 !     -------
 
-IF (lshallow_only) THEN
+IF (lshallow_only .OR. lgrayzone_deepconv) THEN
   rmfdeps       = 0.30_JPRB
   rmfdeps_ocean = rmfdeps
 ELSE
@@ -1302,9 +1302,18 @@ phy_params%lmfscv  =.TRUE.   ! shallow convection
 IF (lshallow_only) THEN
   phy_params%lmfmid  =.FALSE.   ! mid-level convection
   phy_params%lmfpen  =.FALSE.   ! deep convection
+ELSE IF (lgrayzone_deepconv) THEN
+  phy_params%lmfmid  =.FALSE.   ! mid-level convection
+  phy_params%lmfpen  =.TRUE.    ! deep convection
 ELSE
-  phy_params%lmfmid  =.TRUE.   ! mid-level convection
-  phy_params%lmfpen  =.TRUE.   ! deep convection
+  phy_params%lmfmid  =.TRUE.    ! mid-level convection
+  phy_params%lmfpen  =.TRUE.    ! deep convection
+ENDIF
+
+IF (lgrayzone_deepconv) THEN
+  phy_params%lgrayzone_deepconv = .TRUE.
+ELSE
+  phy_params%lgrayzone_deepconv = .FALSE.
 ENDIF
 
 IF (ldetrain_conv_prec) THEN
@@ -1326,7 +1335,7 @@ lmfglac =.TRUE.   ! glaciation of precip in updraught
 
 !     RMFCFL:     MASSFLUX MULTIPLE OF CFL STABILITY CRITERIUM
 !     -------
-IF (lshallow_only .OR. rsltn < 5.e3_jprb) THEN
+IF (lshallow_only) THEN
   phy_params%mfcfl = 1.5_JPRB
 ELSE
   phy_params%mfcfl = 2._JPRB*MIN(2._JPRB,1._JPRB + 2.5e-5_JPRB*rsltn)

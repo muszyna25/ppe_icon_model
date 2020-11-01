@@ -48,6 +48,8 @@ MODULE mo_nwp_parameters
     LOGICAL :: lmfscv, lmfmid, lmfpen
     ! switch for detrainment of rain and snow to gridscale scheme
     LOGICAL :: lmfdsnow
+    ! switch for grayzone tuning for deep convection
+    LOGICAL :: lgrayzone_deepconv
     !
     ! Parameters which are only computed if Gravity wave drag scheme is switched on
     !

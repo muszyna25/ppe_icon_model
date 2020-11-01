@@ -4946,8 +4946,19 @@ L (max\_ dom)&
 .FALSE.&
 &
 .TRUE.: use shallow convection only\\
-& inwp\_convection = 1
+& inwp\_convection = 1; cannot be combined with lgrayzone\_deepconv
 \tabularnewline
+
+%\hline
+lgrayzone\_deepconv&
+L (max\_ dom)&
+.FALSE.&
+&
+.TRUE.: activates shallow and deep convection but not mid-level convection, together with some tuning
+measures targeted at grayzone (convection-permitting) model resolutions\\
+& inwp\_convection = 1; cannot be combined with lshallowconv\_only
+\tabularnewline
+
 
 %\hline
 ldetrain\_conv\_prec&

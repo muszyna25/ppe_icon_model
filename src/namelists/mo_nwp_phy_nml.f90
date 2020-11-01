@@ -58,6 +58,7 @@ MODULE mo_nwp_phy_nml
   ! switches defining physics packages
   INTEGER  :: inwp_convection(max_dom)    !! convection
   LOGICAL  :: lshallowconv_only(max_dom)  !! use shallow convection only
+  LOGICAL  :: lgrayzone_deepconv(max_dom) !! use grayzone tuning for deep convection
   LOGICAL  :: ldetrain_conv_prec(max_dom) !! detrain convective rain and snow
   INTEGER  :: inwp_cldcover(max_dom)      !! cloud cover
   INTEGER  :: inwp_radiation(max_dom)     !! radiation
@@ -104,7 +105,7 @@ MODULE mo_nwp_phy_nml
     &                    lrtm_filename, cldopt_filename, icpl_o3_tp, &
     &                    iprog_aero, lshallowconv_only,              &
     &                    ldetrain_conv_prec, rain_n0_factor,         &
-    &                    icalc_reff, lupatmo_phy
+    &                    icalc_reff, lupatmo_phy, lgrayzone_deepconv
 
  
 CONTAINS
@@ -171,6 +172,7 @@ CONTAINS
     !------------------------------------------------------------------
 
     lshallowconv_only(:)  = .FALSE.
+    lgrayzone_deepconv(:) = .FALSE.
     ldetrain_conv_prec(:) = .FALSE.
 
     lrtm_filename   = 'rrtmg_lw.nc'  
@@ -388,6 +390,7 @@ CONTAINS
       atm_phy_nwp_config(jg)%itype_z0        = itype_z0
 
       atm_phy_nwp_config(jg)%lshallowconv_only  = lshallowconv_only(jg)
+      atm_phy_nwp_config(jg)%lgrayzone_deepconv = lgrayzone_deepconv(jg)
       atm_phy_nwp_config(jg)%ldetrain_conv_prec = ldetrain_conv_prec(jg)
 
       atm_phy_nwp_config(jg)%dt_conv         = dt_conv (jg)

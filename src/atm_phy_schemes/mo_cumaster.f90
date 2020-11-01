@@ -423,7 +423,7 @@ REAL(KIND=jprb) ::   zcons2, zcons, zdh,&
   & zdqmin, zdz, zeps, zfac, &
   & zmfmax, zpbmpt, zqumqe, zro, zmfa, zerate, zderate, zorcpd, zrdocpd,&
   & ZDUTEN, ZDVTEN, ZTDIS,&
-  & zalv, zsfl(klon), zcapefac
+  & zalv, zsfl(klon), zcapefac, zcapethr
 
 REAL(KIND=jprb) :: ztau(klon), ztaupbl(klon)  ! adjustment time
 
@@ -728,8 +728,8 @@ ENDDO
 
 CALL cuascn &
   & ( kidia,    kfdia,    klon,   ktdia,   klev, phy_params%mfcfl, &
-  & phy_params%entrorg, phy_params%rprcon, phy_params%lmfmid, ptsphy,&
-  & paer_ss, &
+  & phy_params%entrorg, phy_params%rprcon, phy_params%lmfmid,      &
+  & phy_params%lgrayzone_deepconv, ptsphy, paer_ss,                &
   & ztenh,    zqenh,&
   & ptenq, &
   & pten,     pqen,     pqsen,    plitot,&
@@ -866,8 +866,9 @@ DO jl = kidia, kfdia
     IF (llo1 .AND. ldland(jl)) THEN
       ! Use PBL CAPE for diurnal cycle correction, including a reduction term for low-CAPE situations
       ! and an increased correction over small-scale mountain peaks to reduce excessive precipitation maxima
+      zcapethr = MERGE(100._jprb,-100._jprb,phy_params%lgrayzone_deepconv)
       zcapefac = (tune_capdcfac_et*(1._jprb-trop_mask(jl)) + tune_capdcfac_tr*trop_mask(jl)) *      &
-                 MIN(1._jprb,MAX(0._jprb,(tune_lowcapefac*pcape(jl)-100._jprb)/300._jprb))
+                 MIN(1._jprb,MAX(0._jprb,(tune_lowcapefac*pcape(jl)+zcapethr)/300._jprb))
       zcapdcycl(jl) = (zcapefac+mtnmask(jl))*MAX(limit_negpblcape,zcappbl(jl))*ztau(jl)*phy_params%tau0
     ENDIF
     ! Reduce adjustment time scale for extreme CAPE values
@@ -1000,8 +1001,8 @@ IF(lmfit) THEN
 
   CALL cuascn &
     & ( kidia,    kfdia,    klon,   ktdia,   klev, phy_params%mfcfl, &
-    & phy_params%entrorg, phy_params%rprcon, phy_params%lmfmid, ptsphy,&
-    & paer_ss,&
+    & phy_params%entrorg, phy_params%rprcon, phy_params%lmfmid,      &
+    & phy_params%lgrayzone_deepconv, ptsphy, paer_ss,                &
     & ztenh,    zqenh,    &
     & ptenq,            &
     & pten,     pqen,     pqsen,    plitot,&
