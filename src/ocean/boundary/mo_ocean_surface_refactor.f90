@@ -1100,7 +1100,7 @@ CONTAINS
     REAL(wp) :: d_c, dz_old, dz_new, extra_salt_in_col
     REAL(wp) :: dz_ratio, adj_lev_ht
     
-    REAL(wp) :: old_sss, new_sss 
+    REAL(wp) :: old_sss, new_s1, new_s2
 
     REAL(wp)  :: heatflux_surface_layer ! heatflux into the surface layer
     
@@ -1126,8 +1126,8 @@ CONTAINS
     adj_lev    = 1
     adj_lev_ht = p_patch_3d%p_patch_1d(1)%zlev_i(2)
     DO jk = 1, n_zlev 
-      IF ( ( p_patch_3d%p_patch_1d(1)%zlev_i(jk) .LE. 15) .AND. &
-        & ( p_patch_3d%p_patch_1d(1)%zlev_i(jk + 1) .GT. 15) ) THEN 
+      IF ( ( p_patch_3d%p_patch_1d(1)%zlev_i(jk) .LE. 11) .AND. &
+        & ( p_patch_3d%p_patch_1d(1)%zlev_i(jk + 1) .GT. 11) ) THEN 
         
          adj_lev    = jk
          adj_lev_ht = p_patch_3d%p_patch_1d(1)%zlev_i(jk + 1)
@@ -1260,9 +1260,23 @@ CONTAINS
 !            p_os%p_prog(nold(1))%tracer(jc, jk, jb, 2) = p_os%p_prog(nold(1))%tracer(jc, jk, jb, 2) &
 !              &  + ( p_oce_sfc%FrshFlux_IceSalt(jc,jb) * dtime ) /dz_new
             !! 
-            p_os%p_prog(nold(1))%tracer(jc, jk, jb, 2) = p_os%p_prog(nold(1))%tracer(jc, jk, jb, 2)*dz_old/dz_new &
+            new_s1  = p_os%p_prog(nold(1))%tracer(jc, jk, jb, 2)*dz_old/dz_new &
               &  +  dz_ratio*p_oce_sfc%FrshFlux_IceSalt(jc,jb) * dtime/dz_new &
               &  +  dz_ratio*extra_salt_in_col/dz_new
+ 
+            new_s2  = p_os%p_prog(nold(1))%tracer(jc, jk, jb, 2)*dz_old/dz_new &
+              &  +  dz_ratio*p_oce_sfc%FrshFlux_IceSalt(jc,jb) * dtime/dz_new  
+
+            !! If salt adjustment causes negative salinity
+            !! we reject conservsative adjustment
+            !! this should happen very rarely, so we should still be
+            !! approximately conservative
+            IF (new_s1 .LT. 0) THEN
+              p_os%p_prog(nold(1))%tracer(jc, jk, jb, 2) = new_s2
+            ELSE
+              p_os%p_prog(nold(1))%tracer(jc, jk, jb, 2) = new_s1
+            END IF
+            
 
 !            if ( p_os%p_prog(nold(1))%tracer(jc, jk, jb, 2) < 2 ) then
 !              write(0, *) "============================================"
