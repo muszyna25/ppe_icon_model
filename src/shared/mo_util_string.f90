@@ -694,10 +694,11 @@ CONTAINS
   !
   ! @return     contents of @p varlist where @p group_name has been replaced.
   !------------------------------------------------------------------------------
-  SUBROUTINE insert_group(varlist, group_name, group_list)
+  SUBROUTINE insert_group(varlist, nused, group_name, group_list, ninserted)
     CHARACTER(LEN=*),               INTENT(INOUT) :: varlist(:)
-    CHARACTER(LEN=*),               INTENT(IN)    :: group_list(:)
-    CHARACTER(LEN=*),               INTENT(IN)    :: group_name
+    INTEGER,                        INTENT(INOUT) :: nused
+    INTEGER,                        INTENT(OUT)   :: ninserted
+    CHARACTER(LEN=*),               INTENT(IN)    :: group_name, group_list(:)
     ! local variables
     INTEGER :: i,j,k,m,n,ngroups,src_pos(SIZE(varlist)+SIZE(group_list)), &
          insert_ofs(SIZE(group_list))
@@ -717,8 +718,8 @@ CONTAINS
       END DO
       group_name_uc = toupper(group_name)
       inserted = .FALSE.
-      scan_cpy_src: DO i = 1, m
-        IF (varlist(i) == ' ') EXIT
+      n = 0
+      scan_cpy_src: DO i = 1, nused
         IF (toupper(varlist(i)) == group_name_uc) THEN
           IF (.NOT. inserted) THEN
             DO j = 1,ngroups
@@ -733,6 +734,7 @@ CONTAINS
         END IF
       END DO scan_cpy_src
       m = i - 1
+      nused = n
       IF (n < m) THEN
         DO i = n, 1, -1
           k = src_pos(i)
@@ -751,12 +753,15 @@ CONTAINS
       DO i = n, 1, -1
         k = src_pos(i)
         IF (k < 0) THEN
-          varlist(i) = group_list(-k)
+          varlist(i) = group_list(insert_ofs(-k))
         ELSE IF (k > 0) THEN
           varlist(i) = varlist(k)
         END IF
       END DO
-      CALL remove_duplicates(varlist, n)
+      ninserted = MERGE(ngroups, 0, inserted)
+    ELSE
+      nused = 0
+      ninserted = 0
     END IF
 
   END SUBROUTINE insert_group

@@ -893,7 +893,7 @@ CONTAINS
     CHARACTER(LEN=VARNAME_LEN)              :: vname, grp_name
     INTEGER                                 :: nvars, ngrp_vars, i_typ, ierrstat, &
       &                                        ivar, ntotal_vars, jvar, i,        &
-      &                                        nsubtract_vars, tlen
+      &                                        nsubtract_vars, tlen, ninserted
     CHARACTER(LEN=vname_len),  POINTER      :: in_varlist(:)
     TYPE (t_output_name_list), POINTER      :: p_onl
 
@@ -928,10 +928,9 @@ CONTAINS
 !         write(0,*) "nvars=", nvars, "  ntotal_vars=", ntotal_vars
         IF (nvars>ntotal_vars)  CALL finish(routine, "Internal error: nvars > ntotal_vars")
 
-        if (nvars > 0)  varlist(1:nvars) = in_varlist(1:nvars)
-        varlist((nvars+1):ntotal_vars) = " "
         ! look for variable groups ("tiles:xyz" and "group:xyz") and replace them:
-        DO ivar = 1, nvars
+        ivar = 1
+        DO WHILE (ivar <= nvars)
           vname = in_varlist(ivar)
 
           ! FIXME: this is probably a bug: the INDEX function also
@@ -941,10 +940,9 @@ CONTAINS
           ! tile_prefix
           IF (INDEX(vname, TILE_PREFIX) > 0) THEN
             ! this is a tile group identifier
-            grp_name = vname(LEN(TILE_PREFIX)+1:)
-
             ! translate group name from GRIB2 to internal nomenclature, if necessary
-            grp_name = varnames_dict%get(grp_name, grp_name)
+            grp_name = varnames_dict%get(vname(LEN(TILE_PREFIX)+1:), &
+              &                          vname(LEN(TILE_PREFIX)+1:))
 
             tlen = len_trim(grp_name)
             grp_name(tlen+1:tlen+2) ="_t"
@@ -955,6 +953,7 @@ CONTAINS
             tlen = LEN_TRIM(grp_name)
           ELSE
             ! do not perform insertion if nothing matched
+            ivar = ivar + 1
             CYCLE
           END IF
           ! loop over all variables and collects the variables names
@@ -969,7 +968,7 @@ CONTAINS
           END DO
           ! generate varlist where "grp_name" has been replaced;
           ! duplicates are removed
-          CALL insert_group(varlist, vname, grp_vars(1:ngrp_vars))
+          CALL insert_group(in_varlist, nvars, vname, grp_vars(1:ngrp_vars), ninserted)
 
           ! status output
           IF (msg_level >= 12) THEN
@@ -978,16 +977,8 @@ CONTAINS
               CALL message(routine, "   "//TRIM(grp_vars(jvar)))
             END DO
           END IF
+          ivar = ivar + ninserted
         END DO
-
-        ! Again, count the number of variables in varlist
-        nvars = 0
-        DO WHILE (nvars < SIZE(varlist))
-          IF (varlist(nvars+1) == ' ') EXIT
-          nvars = nvars + 1
-        END DO
-
-        in_varlist(1:nvars) = varlist(1:nvars)
 
         ! second step: look for "subtraction" of variables groups ("-varname"):
         nsubtract_vars = 0
