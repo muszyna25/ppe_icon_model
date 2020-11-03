@@ -62,7 +62,8 @@ MODULE mo_name_list_output_init
     &                                             with_keywords, insert_group,                    &
     &                                             tolower, int2string, difference,                &
     &                                             sort_and_compress_list,                         &
-    &                                             real2string, remove_whitespace
+    &                                             real2string, remove_whitespace,                 &
+    &                                             lowcase
   USE mo_util_hash,                         ONLY: util_hashword
   USE mo_cf_convention,                     ONLY: t_cf_var, cf_global_info
   USE mo_restart_nml_and_att,               ONLY: getAttributesForRestarting
@@ -963,9 +964,8 @@ CONTAINS
             &               lremap_lonlat    = (p_onl%remap == REMAP_REGULAR_LATLON), &
             &               opt_vlevel_type  = i_typ,                                 &
             &               opt_dom_id       = p_onl%dom)
-          DO i=1,ngrp_vars
-            grp_vars(i) = tolower(grp_vars(i))
-          END DO
+          CALL lowcase(grp_vars(1:ngrp_vars))
+
           ! generate varlist where "grp_name" has been replaced;
           ! duplicates are removed
           CALL insert_group(in_varlist, nvars, vname, grp_vars(1:ngrp_vars), ninserted)
