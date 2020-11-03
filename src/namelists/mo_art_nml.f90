@@ -19,7 +19,7 @@
 !!
 MODULE mo_art_nml
  
-  USE mo_exception,           ONLY: message, finish
+  USE mo_exception,           ONLY: finish
   USE mo_run_config,          ONLY: lart
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_impl_constants,      ONLY: max_dom
@@ -44,7 +44,6 @@ MODULE mo_art_nml
   ! General variables (Details: cf. Tab. 2.1 ICON-ART User Guide)
   CHARACTER(LEN=IART_PATH_LEN)  :: &
     &  cart_input_folder             !< Absolute Path to ART source code
-  INTEGER :: iart_ntracer            !< number transported ART tracers
   INTEGER :: iart_init_aero(1:max_dom)          !< Initialization of aerosol species
   INTEGER :: iart_init_gas(1:max_dom)           !< Initialization of gaseous species
   LOGICAL :: lart_diag_out           !< Enable output of diagnostic fields
@@ -126,7 +125,7 @@ MODULE mo_art_nml
    &                iart_volcano, cart_volcano_file, iart_radioact,                    &
    &                cart_radioact_file, iart_pollen, iart_nonsph,                      &
    &                iart_aci_warm, iart_aci_cold, iart_ari, iart_aero_washout,         & 
-   &                lart_conv, iart_ntracer, lart_turb, iart_init_aero, iart_init_gas, &
+   &                lart_conv, lart_turb, iart_init_aero, iart_init_gas,               &
    &                lart_diag_out, cart_emiss_xml_file, cart_ext_data_xml,             &
    &                cart_vortex_init_date , cart_cheminit_file, cart_cheminit_coord,   &
    &                cart_cheminit_type,                                                &
@@ -158,7 +157,6 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
     INTEGER :: jg            !< patch loop index
-    INTEGER :: auto_ntracer  !< automatically computed number of tracers
     LOGICAL :: l_exist       !< variable for inquiring if the xml file 
                                         !   and emission base path exist.
     CHARACTER(len=*), PARAMETER ::  &
@@ -171,7 +169,6 @@ CONTAINS
 
     ! General variables (Details: cf. Tab. 2.1 ICON-ART User Guide)
     cart_input_folder          = ''
-    iart_ntracer               = -1    !< default value if it is not given
     iart_init_aero(:)          = 0
     iart_init_gas(:)           = 0
     lart_diag_out              = .FALSE.
@@ -306,20 +303,6 @@ CONTAINS
       END IF
   
 
-      IF (iart_ntracer > -1) THEN
-        CALL message('WARNING',  &
-          &          'Namelist parameter iart_ntracer of art_nml is obsolete '  &
-          &        //'and will be removed soon.')
-      END IF
-
-      IF ((iart_ntracer > -1)  &
-         &  .AND. (auto_ntracer /= iart_ntracer)) THEN
-        CALL finish('mo_art_nml:read_art_namelist',                              &
-              &     'The given namelist parameter iart_ntracer is not equal to ' &
-              &   //'the automatically computed one. This namelist parameter '   &
-              &   //'is obsolete so just remove it from your art_nml.')
-      END IF
-
       ! Diagnostics paths and file
       IF (TRIM(cart_diagnostics_xml) /= '') THEN
         INQUIRE(file = TRIM(cart_diagnostics_xml), EXIST = l_exist)
@@ -399,9 +382,6 @@ CONTAINS
       ! Fast Physics Processes (Details: cf. Tab. 2.5 ICON-ART User Guide)
       art_config(jg)%lart_conv           = lart_conv
       art_config(jg)%lart_turb           = lart_turb
-
-      ! art number of tracers
-      art_config(jg)%iart_ntracer        = auto_ntracer 
     ENDDO !jg
 
     !-----------------------------------------------------

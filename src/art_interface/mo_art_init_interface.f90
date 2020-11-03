@@ -22,8 +22,8 @@
 MODULE mo_art_init_interface
 
   USE mo_kind,                          ONLY: wp, i8
-  USE mo_run_config,                    ONLY: lart, ntracer
   USE mo_exception,                     ONLY: finish
+  USE mo_run_config,                    ONLY: lart, ntracer
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
                                           &   timer_art_initInt
   USE mo_time_config,                   ONLY: time_config

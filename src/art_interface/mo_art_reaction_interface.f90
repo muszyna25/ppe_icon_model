@@ -158,7 +158,6 @@ SUBROUTINE art_reaction_interface(jg,current_date,p_dtime,p_prog_list,tracer)
                  &       p_dtime,                       &
                  &       art_atmo%temp,                 &
                  &       art_atmo%pres,                 &
-                 &       art_atmo%rho,                  &
                  &       art_atmo%dz,                   &
                  &       art_atmo%cell_area,            &
                  &       jg, tracer)
@@ -176,8 +175,6 @@ SUBROUTINE art_reaction_interface(jg,current_date,p_dtime,p_prog_list,tracer)
         IF (timers_level > 3) CALL timer_start(timer_art_photo)
   
         CALL art_photolysis(jg,                           &
-               &            current_date,                 &
-               &            p_dtime,                      &
                &            tracer,                       &
                &            p_art_data(jg)%chem%vmr2Nconc)
         IF (timers_level > 3) CALL timer_stop(timer_art_photo)

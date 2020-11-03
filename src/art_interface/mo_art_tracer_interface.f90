@@ -55,7 +55,7 @@ CONTAINS
 !!
 SUBROUTINE art_tracer_interface(defcase,jg,nblks_c,this_list,vname_prefix, &
    &                            ptr_arr,advconf,phy_tend, p_prog,          &
-   &                            timelev,ldims,tlev_source)
+   &                            timelev,ldims)
 !! Interface for ART-routine art_ini_tracer 
 !!
 !! This interface calls the ART-routine art_ini_tracer, if ICON has been 
@@ -82,8 +82,7 @@ SUBROUTINE art_tracer_interface(defcase,jg,nblks_c,this_list,vname_prefix, &
       
   INTEGER,INTENT(in), OPTIONAL   :: &
     &   timelev,                    & !< drieg : why is timelevel optional?
-    &   ldims(3),                   & !< local dimensions, for checking
-    &   tlev_source                   !< actual TL for TL dependent vars
+    &   ldims(3)                      !< local dimensions, for checking
 
   CHARACTER(len=*), INTENT(IN)   :: & 
     &   vname_prefix                  !< list name
@@ -110,13 +109,11 @@ SUBROUTINE art_tracer_interface(defcase,jg,nblks_c,this_list,vname_prefix, &
       CALL message('','ART: Definition of tracers for defcase: '//TRIM(defcase))
         
       IF (TRIM(defcase) .EQ. 'prog') THEN 
-        CALL art_tracer(defcase, jg, nblks_c, this_list, vname_prefix, ptr_arr, advconf,  &
-          &             p_prog=p_prog, timelev=timelev,                                   &
-          &             ldims=ldims, tlev_source=tlev_source)
+        CALL art_tracer(defcase, jg, nblks_c, this_list, vname_prefix, ptr_arr, advconf,  & 
+          &             p_prog=p_prog,timelev=timelev, ldims=ldims)
       ELSE
         CALL art_tracer(defcase, jg, nblks_c, this_list, vname_prefix, ptr_arr, advconf,  &
-          &             phy_tend=phy_tend,                                                &
-          &             ldims=ldims, tlev_source=tlev_source)
+          &             phy_tend=phy_tend, ldims=ldims)
       ENDIF
     
       IF (TRIM(defcase) .EQ. 'prog') THEN

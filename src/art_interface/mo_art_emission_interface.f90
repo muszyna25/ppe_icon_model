@@ -44,7 +44,6 @@ MODULE mo_art_emission_interface
   USE mo_exception,                     ONLY: finish, message
   USE mo_linked_list,                   ONLY: t_var_list
   USE mo_nonhydro_state,                ONLY: p_nh_state_lists
-  USE mo_nonhydro_types,                ONLY: t_nh_state
   USE mo_ext_data_types,                ONLY: t_external_data
   USE mo_nwp_lnd_types,                 ONLY: t_lnd_diag
   USE mo_run_config,                    ONLY: lart,ntracer
@@ -104,9 +103,9 @@ CONTAINS
 !!
 !!-------------------------------------------------------------------------
 !!
-  SUBROUTINE art_emission_interface(p_prog_list, ext_data, p_patch, dtime,  &
-       &                            p_diag_lnd, current_date,  &
-       &                            tracer)
+  SUBROUTINE art_emission_interface(p_prog_list,ext_data,p_patch,dtime, &
+       &                            p_diag_lnd,                         &
+       &                            current_date,tracer)
   !! Interface for ART: Emissions
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2012-01-27)
