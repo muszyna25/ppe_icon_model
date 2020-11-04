@@ -853,7 +853,7 @@ export NMPI_EXPORT="GFORTRAN_UNBUFFERED_PRECONNECTED"
 #          But when you worry you make it double ..."
 # ----------------------------------------------------------------------
 
-refdir="/hpc/rwork0/routfor/test/icon/Checksuite_data/ref_data_exp09/cd743500"
+refdir="/hpc/rwork0/routfor/test/icon/Checksuite_data/ref_data_exp09/229c058e"
 
 bash << EOFSCRIPT
 

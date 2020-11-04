@@ -65,7 +65,7 @@ MODULE mo_initicon
   USE sfc_terra_init,         ONLY: get_wsnow
   USE mo_nh_vert_interp,      ONLY: vert_interp_atm, vert_interp_sfc
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
-  USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
+  USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp, calc_qsum
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_sync,                ONLY: sync_patch_array, SYNC_E, SYNC_C
   USE mo_math_laplace,        ONLY: nabla2_vec, nabla4_vec
@@ -1173,14 +1173,8 @@ MODULE mo_initicon
         CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
           & i_startidx, i_endidx, rl_start, rl_end)
 
-
         ! Sum up the hydrometeor species for the water loading term
-        DO jk = 1, nlev
-          DO jc = i_startidx, i_endidx
-            z_qsum(jc,jk) = SUM(p_prog_now_rcf%tracer (jc,jk,jb,condensate_list))
-          ENDDO
-        ENDDO
-
+        CALL calc_qsum (p_prog_now_rcf%tracer, z_qsum, condensate_list, jb, i_startidx, i_endidx, 1, 1, nlev)
 
         DO jk = 1, nlev
           DO jc = i_startidx, i_endidx
