@@ -104,8 +104,7 @@ CONTAINS
 !!-------------------------------------------------------------------------
 !!
   SUBROUTINE art_emission_interface(p_prog_list,ext_data,p_patch,dtime, &
-       &                            p_diag_lnd,                         &
-       &                            current_date,tracer)
+       &                            p_diag_lnd, current_date,tracer)
   !! Interface for ART: Emissions
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2012-01-27)
@@ -312,10 +311,10 @@ CONTAINS
                 DO ijsp = 1, fields%ntr-1
                   CALL art_integrate_explicit(tracer(:,:,jb,fields%itr3(ijsp)),  emiss_rate(:,:), &
                     &                         dtime, istart, iend, art_atmo%nlev,                 &
-                    &                         opt_rho = art_atmo%rho(:,:,jb))!,                     &
-!                    &                         opt_kstart = kstart_emiss)
+                    &                         opt_rho = art_atmo%rho(:,:,jb),                     &
+                    &                         opt_kstart = kstart_emiss)
                   ! DIAGNOSTIC: emiss / acc_emiss of art-tracer
-                  CALL art_save_aerosol_emission(p_art_data(jg),  &
+                  CALL art_save_aerosol_emission(p_art_data(jg),                                  &
                        & emiss_rate(:,:), art_atmo%dz(:,:,:), dtime, fields%itr3(ijsp), jb,       &
                        & istart, iend, kstart_emiss, art_atmo%nlev)
                 ENDDO
@@ -323,10 +322,10 @@ CONTAINS
                 CALL art_integrate_explicit(tracer(:,:,jb,fields%itr0), emiss_rate(:,:), dtime,   &
                   &                         istart, iend, art_atmo%nlev,                          &
                   &                         opt_rho = art_atmo%rho(:,:,jb),                       &
-                  &                         opt_fac=(fields%info%mode_fac * fields%info%factnum))!, &
-!                  &                         opt_kstart = kstart_emiss)
+                  &                         opt_fac=(fields%info%mode_fac * fields%info%factnum), &
+                  &                         opt_kstart = kstart_emiss)
                 ! DIAGNOSTIC: emiss / acc_emiss of art-tracer
-                CALL art_save_aerosol_emission(p_art_data(jg),     &
+                CALL art_save_aerosol_emission(p_art_data(jg),                                    &
                      & emiss_rate(:,:), art_atmo%dz(:,:,:), dtime, fields%itr0, jb,               &
                      & istart, iend, kstart_emiss, art_atmo%nlev,                                 &
                      & opt_fac=(fields%info%mode_fac * fields%info%factnum))
@@ -340,6 +339,7 @@ CONTAINS
                 this_mode => this_mode%next_mode
                 CYCLE
               END IF
+
               ! days since 1st December (= first day) for current run (initial time)
               IF (time_config%tc_exp_startdate%date%month == 12) THEN
                 doy_dec1 = time_config%tc_exp_startdate%date%day
@@ -385,6 +385,7 @@ CONTAINS
                       &                    jb, istart, iend,               &
                       &                    n_stns )
                   ENDDO !jb
+
                   IF(.NOT.ALLOCATED(saisl_stns)) ALLOCATE(saisl_stns(n_stns))
                   saisl_stns = 0._wp
 
@@ -395,16 +396,19 @@ CONTAINS
                       &                     current_date,                   &
                       &                     fields%name,                    &
                       &                     saisl_stns )
+
                     !synchronization across processors
                     !using p_max-routine since only one processor will provide a useful value
                     !that is greater than 0 (per station)
                     saisl_stns = p_max(saisl_stns,comm=p_comm_work)
 
                   END IF
+
                   IF (TRIM(fields%name) /= 'pollambr') THEN
-                    
+
                     DO jb = art_atmo%i_startblk, art_atmo%i_endblk
                       CALL art_get_indices_c(jg, jb, istart, iend)
+
                       CALL art_prepare_sdes( p_art_data(jg)%ext%pollen_prop, &
                         &                    p_patch,                        &
                         &                    jb, istart, iend,               &

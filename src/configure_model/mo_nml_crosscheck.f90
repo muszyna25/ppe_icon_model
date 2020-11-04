@@ -385,29 +385,29 @@ CONTAINS
 
           ! ecRad specific checks
           IF ( (atm_phy_nwp_config(jg)%inwp_radiation == 4) )  THEN
-            IF (irad_h2o /= 0 .AND. irad_h2o /= 1) &
+            IF (.NOT. ANY( irad_h2o     == (/0,1/)         ) ) &
               &  CALL finish(routine,'For inwp_radiation = 4, irad_h2o has to be 0 or 1')
-            IF (irad_co2 /= 0 .AND. irad_co2 /= 2) &
-              &  CALL finish(routine,'For inwp_radiation = 4, irad_co2 has to be 0 or 2')
-            IF (irad_ch4 /= 0 .AND. irad_ch4 /= 2 .AND. irad_ch4 /= 3) &
-              &  CALL finish(routine,'For inwp_radiation = 4, irad_ch4 has to be 0, 2 or 3')
-            IF (irad_n2o /= 0 .AND. irad_n2o /= 2 .AND. irad_n2o /= 3) &
-              &  CALL finish(routine,'For inwp_radiation = 4, irad_n2o has to be 0, 2 or 3')
-            IF (irad_o3  /= 0 .AND. irad_o3  /= 7 .AND. irad_o3  /= 9 .AND. irad_o3  /= 79 .AND. irad_o3  /= 97) &
+            IF (.NOT. ANY( irad_co2     == (/0,2,4/)       ) ) &
+              &  CALL finish(routine,'For inwp_radiation = 4, irad_co2 has to be 0, 2 or 4')
+            IF (.NOT. ANY( irad_ch4     == (/0,2,3,4/)     ) ) &
+              &  CALL finish(routine,'For inwp_radiation = 4, irad_ch4 has to be 0, 2, 3 or 4')
+            IF (.NOT. ANY( irad_n2o     == (/0,2,3,4/)     ) ) &
+              &  CALL finish(routine,'For inwp_radiation = 4, irad_n2o has to be 0, 2, 3 or 4')
+            IF (.NOT. ANY( irad_o3      == (/0,7,9,79,97/) ) ) &
               &  CALL finish(routine,'For inwp_radiation = 4, irad_o3 has to be 0, 7, 9, 79 or 97')
-            IF (irad_o2  /= 0 .AND. irad_o2  /= 2) &
+            IF (.NOT. ANY( irad_o2      == (/0,2/)         ) ) &
               &  CALL finish(routine,'For inwp_radiation = 4, irad_o2 has to be 0 or 2')
-            IF (irad_cfc11 /= 0 .AND. irad_cfc11 /= 2) &
-              &  CALL finish(routine,'For inwp_radiation = 4, irad_cfc11 has to be 0 or 2')
-            IF (irad_cfc12 /= 0 .AND. irad_cfc12 /= 2) &
-              &  CALL finish(routine,'For inwp_radiation = 4, irad_cfc12 has to be 0 or 2')
-            IF ( irad_aero /= 0 .AND. irad_aero /= 2 .AND. irad_aero /= 5 .AND. irad_aero /= 6 .AND. irad_aero /= 9) &
+            IF (.NOT. ANY( irad_cfc11   == (/0,2,4/)       ) ) &
+              &  CALL finish(routine,'For inwp_radiation = 4, irad_cfc11 has to be 0, 2 or 4')
+            IF (.NOT. ANY( irad_cfc12   == (/0,2,4/)       ) ) &
+              &  CALL finish(routine,'For inwp_radiation = 4, irad_cfc12 has to be 0, 2 or 4')
+            IF (.NOT. ANY( irad_aero    == (/0,2,5,6,9/)   ) ) &
               &  CALL finish(routine,'For inwp_radiation = 4, irad_aero has to be 0, 2, 5, 6 or 9')
-            IF ( icld_overlap /= 1 .AND. icld_overlap /= 2 .AND. icld_overlap /= 5 ) &
+            IF (.NOT. ANY( icld_overlap == (/1,2,5/)       ) ) &
               &  CALL finish(routine,'For inwp_radiation = 4, icld_overlap has to be 1, 2 or 5')
-            IF ( iliquid_scat /= 0 .AND. iliquid_scat /= 1 ) &
+            IF (.NOT. ANY( iliquid_scat == (/0,1/)         ) ) &
               &  CALL finish(routine,'For inwp_radiation = 4, iliquid_scat has to be 0 or 1')
-            IF ( iice_scat /= 0 .AND. iice_scat /= 1 ) &
+            IF (.NOT. ANY( iice_scat    == (/0,1/)         ) ) &
               &  CALL finish(routine,'For inwp_radiation = 4, iice_scat has to be 0 or 1')
           ELSE
             IF ( llw_cloud_scat ) &

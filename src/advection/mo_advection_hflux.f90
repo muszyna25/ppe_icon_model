@@ -74,7 +74,7 @@ MODULE mo_advection_hflux
     &                               min_rledge_int, min_rlcell_int,             &
     &                               UP, MIURA, MIURA3, FFSL, FFSL_HYB, MCYCL,   &
     &                               MIURA_MCYCL, MIURA3_MCYCL, FFSL_MCYCL,      &
-    &                               FFSL_HYB_MCYCL, UP3, ifluxl_m, ifluxl_sm
+    &                               FFSL_HYB_MCYCL, ifluxl_m, ifluxl_sm
   USE mo_model_domain,        ONLY: t_patch
   USE mo_grid_config,         ONLY: l_limited_area
   USE mo_math_gradients,      ONLY: grad_green_gauss_cell, grad_fe_cell
@@ -93,7 +93,8 @@ MODULE mo_advection_hflux
   USE mo_sync,                ONLY: SYNC_C, SYNC_C1, sync_patch_array,          &
     &                               sync_patch_array_4de1
   USE mo_parallel_config,     ONLY: p_test_run
-  USE mo_advection_config,    ONLY: advection_config, lcompute, lcleanup, t_trList
+  USE mo_advection_config,    ONLY: t_advection_config, advection_config,       &
+    &                               lcompute, lcleanup, t_trList
   USE mo_advection_utils,     ONLY: t_list2D
   USE mo_advection_quadrature,ONLY: prep_gauss_quadrature_l,                    &
     &                               prep_gauss_quadrature_l_list,               &
@@ -106,7 +107,7 @@ MODULE mo_advection_hflux
     &                               btraj_compute_o1, btraj_compute_o2
   USE mo_advection_geometry,  ONLY: divide_flux_area, divide_flux_area_list
   USE mo_advection_hlimit,    ONLY: hflx_limiter_mo, hflx_limiter_pd
-  USE mo_timer,               ONLY: timer_adv_horz, timer_start, timer_stop
+  USE mo_timer,               ONLY: timer_adv_hflx, timer_start, timer_stop
   USE mo_vertical_coord_table,ONLY: vct_a
   USE mo_fortran_tools,       ONLY: init, copy
 #ifdef _OPENACC
@@ -172,9 +173,7 @@ CONTAINS
   ! MIURA: Miura, H. (2007), Mon. Wea. Rev., 135, 4038-4044
   !
   SUBROUTINE hor_upwind_flux( p_cc, p_rhodz_now, p_rhodz_new, p_mass_flx_e, p_vn,   &
-    &                     p_dtime, p_patch, p_int, p_ihadv_tracer, p_igrad_c_miura, &
-    &                     p_itype_hlimit, p_iadv_slev, p_iord_backtraj, p_upflux,   &
-    &                     opt_rlend )
+    &                         p_dtime, p_patch, p_int, p_upflux, opt_rlend )
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_advection_hflux: hor_upwind_flux'
@@ -202,23 +201,6 @@ CONTAINS
 
     REAL(wp), INTENT(IN) :: p_dtime !< time step
 
-    INTEGER, INTENT(IN) ::      &   !< parameter to select numerical
-      &  p_ihadv_tracer(:)          !< scheme for horizontal transport
-                                    !< dim: (ntracer)
-
-    INTEGER, INTENT(IN) ::      &   !< parameter to select the gradient
-      &  p_igrad_c_miura            !< reconstruction method at cell center
-
-    INTEGER, INTENT(IN) ::      &   !< parameter to select the limiter
-      &  p_itype_hlimit(:)          !< for horizontal transport
-                                    !< dim: (ntracer)
-
-    INTEGER, INTENT(IN) ::      &   !< vertical start level for advection
-      &  p_iadv_slev(:)             !< dim: (ntracer)
-
-    INTEGER, INTENT(IN) ::      &   !< parameter to select the spacial order
-      &  p_iord_backtraj            !< of accuracy for the backward trajectory
-
     REAL(wp), INTENT(INOUT) ::  &   !< variable in which the upwind flux is stored
       &  p_upflux(:,:,:,:)          !< dim: (nproma,nlev,nblks_e,ntracer)
 
@@ -226,7 +208,6 @@ CONTAINS
      &  opt_rlend                      !< (to avoid calculation of halo points)
 
     INTEGER :: jt, nt               !< tracer index and loop index
-    INTEGER :: jg                   !< patch ID
     INTEGER :: i_rlend, i_rlend_vt, i_rlend_tr
     INTEGER :: i_rlstart
     INTEGER :: qvsubstep_elev       !< end level for qv-substepping
@@ -242,6 +223,8 @@ CONTAINS
     TYPE(t_back_traj) :: btraj      !< backward trajectories for MIURA, MIURA_MCYCL
     TYPE(t_back_traj) :: btraj_cycl !< backward trajectories for subcycling
 
+    TYPE(t_advection_config), POINTER :: advconf
+
     TYPE(t_trList), POINTER :: &    !< pointer to tracer sublist
       &  trAdvect
 
@@ -256,11 +239,12 @@ CONTAINS
 #ifdef __INTEL_COMPILER
 !DIR$ ATTRIBUTES ALIGN : 64 :: z_real_vt
 #endif
-    ! get patch ID
-    jg = p_patch%id
+
+    ! pointer to advection_config(p_patch%id) to save some paperwork
+    advconf => advection_config(p_patch%id)
 
     ! tracer fields which are advected
-    trAdvect => advection_config(jg)%trAdvect
+    trAdvect => advconf%trAdvect
 
     ! 
     IF ( PRESENT(opt_rlend) ) THEN
@@ -269,7 +253,7 @@ CONTAINS
       i_rlend = min_rledge_int - 1
     ENDIF
 
-    IF (timers_level > 2) CALL timer_start(timer_adv_horz)
+    IF (timers_level > 2) CALL timer_start(timer_adv_hflx)
     CALL btraj%construct(nproma,p_patch%nlev,p_patch%nblks_e,2)
     CALL btraj_cycl%construct(nproma,p_patch%nlev,p_patch%nblks_e,2)
 
@@ -292,11 +276,11 @@ CONTAINS
     ! routines. The resulting tangential velocity field is then passed to
     ! the flux routines.
 
-    IF (ANY(p_ihadv_tracer(:)/= UP) .AND. ANY(p_ihadv_tracer(:)/= UP3)) THEN
+    IF ( ANY(advconf%ihadv_tracer(:)/= UP) ) THEN
 
       i_rlend_vt = MIN(i_rlend, min_rledge_int - 1)
 
-      IF ( p_iord_backtraj /= 1 ) THEN
+      IF ( advconf%iord_backtraj /= 1 ) THEN
         i_rlend_vt = min_rledge_int - 3
       ENDIF
 
@@ -313,15 +297,15 @@ CONTAINS
     ! only the barycenter of the departure region (instead of all the vertices).
     i_rlstart  = 5
     i_rlend_tr = MIN(i_rlend, min_rledge_int - 1)
-    qvsubstep_elev = advection_config(jg)%iadv_qvsubstep_elev
+    qvsubstep_elev = advconf%iadv_qvsubstep_elev
 
 
-    IF (advection_config(jg)%isAnyTypeMiura) THEN
+    IF (advconf%isAnyTypeMiura) THEN
 
-      iadv_min_slev = advection_config(jg)%miura_h%iadv_min_slev
+      iadv_min_slev = advconf%miura_h%iadv_min_slev
       z_dthalf = 0.5_wp * p_dtime
 
-      IF (p_iord_backtraj == 1)  THEN
+      IF (advconf%iord_backtraj == 1)  THEN
 
         ! 1st order backward trajectory
         CALL btraj_compute_o1( btraj       = btraj,            & !inout
@@ -351,11 +335,12 @@ CONTAINS
     ENDIF
 
 
-    IF (advection_config(jg)%isAnyTypeMcycl) THEN
+    IF (advconf%isAnyTypeMcycl) THEN
 
-      iadv_min_slev = advection_config(jg)%mcycl_h%iadv_min_slev
+      iadv_min_slev = advconf%mcycl_h%iadv_min_slev
       ! should be moved to advection_config
-      iadv_max_elev = MERGE(p_patch%nlev,qvsubstep_elev,ANY(p_ihadv_tracer(:)== MCYCL))
+      iadv_max_elev = MERGE( p_patch%nlev,qvsubstep_elev,  &
+        &                    ANY(advconf%ihadv_tracer(:)== MCYCL) )
 
       ! Determine number of substeps in miura_cycl
       ! It is assumed that three substeps are needed if the top of the currently active
@@ -369,7 +354,7 @@ CONTAINS
       z_dthalf_cycl = 0.5_wp * p_dtime/REAL(nsubsteps,wp)
 
       !
-      IF (p_iord_backtraj == 1)  THEN
+      IF (advconf%iord_backtraj == 1)  THEN
         !
         ! 1st order backward trajectory for subcycled version
         ! The only thing that differs is the time step passed in
@@ -412,44 +397,46 @@ CONTAINS
       jt = trAdvect%list(nt)
 
       ! Select desired flux calculation method
-      SELECT CASE( p_ihadv_tracer(jt) )
+      SELECT CASE( advconf%ihadv_tracer(jt) )
 
       CASE( UP )      ! ihadv_tracer = 1
         ! CALL first order upwind
         ! DA: this routine is not (yet) async
         !$ACC WAIT
-        CALL upwind_hflux_up( p_patch      = p_patch,            & !in
-          &                   p_cc         = p_cc(:,:,:,jt),     & !in
-          &                   p_mass_flx_e = p_mass_flx_e,       & !in
-          &                   p_upflux     = p_upflux(:,:,:,jt), & !inout
-          &                   opt_slev     = p_iadv_slev(jt),    & !in
-          &                   opt_rlend    = i_rlend             ) !in
+        CALL upwind_hflux_up(                             &
+          &         p_patch      = p_patch,               & !in
+          &         p_cc         = p_cc(:,:,:,jt),        & !in
+          &         p_mass_flx_e = p_mass_flx_e,          & !in
+          &         p_upflux     = p_upflux(:,:,:,jt),    & !inout
+          &         opt_slev     = advconf%iadv_slev(jt), & !in
+          &         opt_rlend    = i_rlend                ) !in
 
 
       CASE( MIURA )   ! ihadv_tracer = 2
 
         ! CALL MIURA with second order accurate reconstruction
         ! DA: this routine IS async, no wait.
-        CALL upwind_hflux_miura( p_patch         = p_patch,            & !in
-          &                      p_cc            = p_cc(:,:,:,jt),     & !in
-          &                      p_mass_flx_e    = p_mass_flx_e,       & !in
-          &                      p_dtime         = p_dtime,            & !in
-          &                      p_int           = p_int,              & !in
-          &                      btraj           = btraj,              & !in
-          &                      p_igrad_c_miura = p_igrad_c_miura,    & !in
-          &                      p_itype_hlimit  = p_itype_hlimit(jt), & !in
-          &                      p_out_e         = p_upflux(:,:,:,jt), & !inout
-          &                      opt_rhodz_now   = p_rhodz_now,        & !in
-          &                      opt_rhodz_new   = p_rhodz_new,        & !in
-          &                      opt_lconsv      = llsq_lin_consv,     & !in
-          &                      opt_rlend       = i_rlend,            & !in
-          &                      opt_slev        = p_iadv_slev(jt),    & !in
-          &                      opt_acc_async   = .TRUE.              ) !in
+        CALL upwind_hflux_miura(                                &
+          &         p_patch         = p_patch,                  & !in
+          &         p_cc            = p_cc(:,:,:,jt),           & !in
+          &         p_mass_flx_e    = p_mass_flx_e,             & !in
+          &         p_dtime         = p_dtime,                  & !in
+          &         p_int           = p_int,                    & !in
+          &         btraj           = btraj,                    & !in
+          &         p_igrad_c_miura = advconf%igrad_c_miura,    & !in
+          &         p_itype_hlimit  = advconf%itype_hlimit(jt), & !in
+          &         p_out_e         = p_upflux(:,:,:,jt),       & !inout
+          &         opt_rhodz_now   = p_rhodz_now,              & !in
+          &         opt_rhodz_new   = p_rhodz_new,              & !in
+          &         opt_lconsv      = llsq_lin_consv,           & !in
+          &         opt_rlend       = i_rlend,                  & !in
+          &         opt_slev        = advconf%iadv_slev(jt),    & !in
+          &         opt_acc_async   = .TRUE.                    ) !in
 
 
       CASE( MIURA3 )  ! ihadv_tracer = 3
 
-        iadv_min_slev = advection_config(jg)%miura3_h%iadv_min_slev
+        iadv_min_slev = advconf%miura3_h%iadv_min_slev
 
         ! CALL MIURA with third order accurate reconstruction
         ! DA: this routine is not (yet) async
@@ -457,17 +444,17 @@ CONTAINS
         CALL upwind_hflux_miura3( p_patch, p_cc(:,:,:,jt), p_mass_flx_e, &! in
           &                p_vn, z_real_vt, p_dtime, p_int,              &! in
           &                lcompute%miura3_h(jt), lcleanup%miura3_h(jt), &! in
-          &                p_itype_hlimit(jt),                           &! in
+          &                advconf%itype_hlimit(jt),                     &! in
           &                p_upflux(:,:,:,jt),                           &! inout
           &                opt_rhodz_now  = p_rhodz_now,                 &! in
           &                opt_rhodz_new  = p_rhodz_new,                 &! in
           &                opt_rlend      = i_rlend,                     &! in
-          &                opt_slev       = p_iadv_slev(jt),             &! in
+          &                opt_slev       = advconf%iadv_slev(jt),       &! in
           &                opt_ti_slev    = iadv_min_slev                )! in
 
       CASE( FFSL )  ! ihadv_tracer = 4
 
-        iadv_min_slev = advection_config(jg)%ffsl_h%iadv_min_slev
+        iadv_min_slev = advconf%ffsl_h%iadv_min_slev
 
 #ifdef _OPENACC
 ! In GPU mode, copy data to HOST and perform upwind_hflux_ffsl there, then update device
@@ -484,16 +471,16 @@ CONTAINS
         ! with second or third order accurate reconstruction
         ! DA: this routine is not (yet) async
         !$ACC WAIT  
-        CALL upwind_hflux_ffsl( p_patch, p_cc(:,:,:,jt),                  &! in
-          &                 p_rhodz_now, p_rhodz_new, p_mass_flx_e,       &! in
-          &                 p_vn, z_real_vt, p_dtime, p_int,              &! in
-          &                 lcompute%ffsl_h(jt), lcleanup%ffsl_h(jt),     &! in
-          &                 p_itype_hlimit(jt),                           &! in
-          &                 p_upflux(:,:,:,jt),                           &! inout
-          &                 opt_lconsv  = llsq_high_consv,                &! in
-          &                 opt_rlend   = i_rlend,                        &! in
-          &                 opt_slev    = p_iadv_slev(jt),                &! in
-          &                 opt_ti_slev = iadv_min_slev                   )! in
+        CALL upwind_hflux_ffsl( p_patch, p_cc(:,:,:,jt),              &! in
+          &                 p_rhodz_now, p_rhodz_new, p_mass_flx_e,   &! in
+          &                 p_vn, z_real_vt, p_dtime, p_int,          &! in
+          &                 lcompute%ffsl_h(jt), lcleanup%ffsl_h(jt), &! in
+          &                 advconf%itype_hlimit(jt),                 &! in
+          &                 p_upflux(:,:,:,jt),                       &! inout
+          &                 opt_lconsv  = llsq_high_consv,            &! in
+          &                 opt_rlend   = i_rlend,                    &! in
+          &                 opt_slev    = advconf%iadv_slev(jt),      &! in
+          &                 opt_ti_slev = iadv_min_slev               )! in
 
 #ifdef _OPENACC
         i_am_accel_node =  save_i_am_accel_node    ! reactivate GPUs if appropriate
@@ -502,7 +489,7 @@ CONTAINS
 
       CASE( FFSL_HYB )  ! ihadv_tracer = 5
 
-        iadv_min_slev = advection_config(jg)%ffsl_hyb_h%iadv_min_slev
+        iadv_min_slev = advconf%ffsl_hyb_h%iadv_min_slev
 
 #ifdef _OPENACC
 ! In GPU mode, copy data to HOST and perform hflux_ffsl_hybrid there, then update device
@@ -519,17 +506,17 @@ CONTAINS
         ! is exceeded, the scheme switches from MIURA3 to FFSL
         ! DA: this routine is not (yet) async
         !$ACC WAIT  
-        CALL hflux_ffsl_hybrid( p_patch, p_cc(:,:,:,jt),                  &! in
-          &                 p_rhodz_now, p_rhodz_new, p_mass_flx_e,       &! in
-          &                 p_vn, z_real_vt, p_dtime, p_int,              &! in
-          &                 lcompute%ffsl_hyb_h(jt),                      &! in
-          &                 lcleanup%ffsl_hyb_h(jt),                      &! in
-          &                 p_itype_hlimit(jt),                           &! in
-          &                 p_upflux(:,:,:,jt),                           &! inout
-          &                 opt_lconsv  = llsq_high_consv,                &! in
-          &                 opt_rlend   = i_rlend,                        &! in
-          &                 opt_slev    = p_iadv_slev(jt),                &! in
-          &                 opt_ti_slev = iadv_min_slev                   )! in
+        CALL hflux_ffsl_hybrid( p_patch, p_cc(:,:,:,jt),            &! in
+          &                 p_rhodz_now, p_rhodz_new, p_mass_flx_e, &! in
+          &                 p_vn, z_real_vt, p_dtime, p_int,        &! in
+          &                 lcompute%ffsl_hyb_h(jt),                &! in
+          &                 lcleanup%ffsl_hyb_h(jt),                &! in
+          &                 advconf%itype_hlimit(jt),               &! in
+          &                 p_upflux(:,:,:,jt),                     &! inout
+          &                 opt_lconsv  = llsq_high_consv,          &! in
+          &                 opt_rlend   = i_rlend,                  &! in
+          &                 opt_slev    = advconf%iadv_slev(jt),    &! in
+          &                 opt_ti_slev = iadv_min_slev             )! in
 
 #ifdef _OPENACC
         i_am_accel_node =  save_i_am_accel_node    ! reactivate GPUs if appropriate
@@ -541,45 +528,47 @@ CONTAINS
         ! CALL MIURA with second order accurate reconstruction and subcycling
         ! DA: this routine is not (yet) async
         !$ACC WAIT
-        CALL upwind_hflux_miura_cycl( p_patch         = p_patch,            & !in
-          &                           p_cc            = p_cc(:,:,:,jt),     & !in
-          &                           p_rhodz_now     = p_rhodz_now,        & !in
-          &                           p_mass_flx_e    = p_mass_flx_e,       & !in
-          &                           p_dtime         = p_dtime,            & !in
-          &                           p_ncycl         = nsubsteps,          & !in
-          &                           p_int           = p_int,              & !in
-          &                           btraj           = btraj_cycl,         & !in
-          &                           p_igrad_c_miura = p_igrad_c_miura,    & !in
-          &                           p_itype_hlimit  = p_itype_hlimit(jt), & !in
-          &                           p_out_e         = p_upflux(:,:,:,jt), & !inout
-          &                           elev            = p_patch%nlev,       & !in
-          &                           opt_lconsv      = llsq_lin_consv,     & !in
-          &                           opt_rlend       = i_rlend             ) !in
+        CALL upwind_hflux_miura_cycl(                           &
+          &         p_patch         = p_patch,                  & !in
+          &         p_cc            = p_cc(:,:,:,jt),           & !in
+          &         p_rhodz_now     = p_rhodz_now,              & !in
+          &         p_mass_flx_e    = p_mass_flx_e,             & !in
+          &         p_dtime         = p_dtime,                  & !in
+          &         p_ncycl         = nsubsteps,                & !in
+          &         p_int           = p_int,                    & !in
+          &         btraj           = btraj_cycl,               & !in
+          &         p_igrad_c_miura = advconf%igrad_c_miura,    & !in
+          &         p_itype_hlimit  = advconf%itype_hlimit(jt), & !in
+          &         p_out_e         = p_upflux(:,:,:,jt),       & !inout
+          &         elev            = p_patch%nlev,             & !in
+          &         opt_lconsv      = llsq_lin_consv,           & !in
+          &         opt_rlend       = i_rlend                   ) !in
 
 
       CASE( MIURA_MCYCL )   ! ihadv_tracer = 22
 
-        qvsubstep_elev = advection_config(jg)%iadv_qvsubstep_elev
+        qvsubstep_elev = advconf%iadv_qvsubstep_elev
 
         ! CALL standard MIURA for lower atmosphere and the subcycling version of
         ! MIURA for upper atmosphere
         ! DA: this routine IS async, no wait needed
-        CALL upwind_hflux_miura( p_patch         = p_patch,            & !in
-          &                      p_cc            = p_cc(:,:,:,jt),     & !in
-          &                      p_mass_flx_e    = p_mass_flx_e,       & !in
-          &                      p_dtime         = p_dtime,            & !in
-          &                      p_int           = p_int,              & !in
-          &                      btraj           = btraj,              & !in
-          &                      p_igrad_c_miura = p_igrad_c_miura,    & !in
-          &                      p_itype_hlimit  = p_itype_hlimit(jt), & !in
-          &                      p_out_e         = p_upflux(:,:,:,jt), & !inout
-          &                      opt_rhodz_now   = p_rhodz_now,        & !in
-          &                      opt_rhodz_new   = p_rhodz_new,        & !in
-          &                      opt_lconsv      = llsq_lin_consv,     & !in
-          &                      opt_rlend       = i_rlend,            & !in
-          &                      opt_slev        = qvsubstep_elev+1,   & !in
-          &                      opt_elev        = p_patch%nlev,       & !in
-          &                      opt_acc_async   = .TRUE.              ) !in
+        CALL upwind_hflux_miura(                                &
+          &         p_patch         = p_patch,                  & !in
+          &         p_cc            = p_cc(:,:,:,jt),           & !in
+          &         p_mass_flx_e    = p_mass_flx_e,             & !in
+          &         p_dtime         = p_dtime,                  & !in
+          &         p_int           = p_int,                    & !in
+          &         btraj           = btraj,                    & !in
+          &         p_igrad_c_miura = advconf%igrad_c_miura,    & !in
+          &         p_itype_hlimit  = advconf%itype_hlimit(jt), & !in
+          &         p_out_e         = p_upflux(:,:,:,jt),       & !inout
+          &         opt_rhodz_now   = p_rhodz_now,              & !in
+          &         opt_rhodz_new   = p_rhodz_new,              & !in
+          &         opt_lconsv      = llsq_lin_consv,           & !in
+          &         opt_rlend       = i_rlend,                  & !in
+          &         opt_slev        = qvsubstep_elev+1,         & !in
+          &         opt_elev        = p_patch%nlev,             & !in
+          &         opt_acc_async   = .TRUE.                    ) !in
 
 
 
@@ -591,27 +580,28 @@ CONTAINS
         ! different other schemes.
         ! DA: this routine is not (yet) async
         !$ACC WAIT
-        CALL upwind_hflux_miura_cycl( p_patch         = p_patch,            & !in
-          &                           p_cc            = p_cc(:,:,:,jt),     & !in
-          &                           p_rhodz_now     = p_rhodz_now,        & !in
-          &                           p_mass_flx_e    = p_mass_flx_e,       & !in
-          &                           p_dtime         = p_dtime,            & !in
-          &                           p_ncycl         = nsubsteps,          & !in
-          &                           p_int           = p_int,              & !in
-          &                           btraj           = btraj_cycl,         & !in
-          &                           p_igrad_c_miura = p_igrad_c_miura,    & !in
-          &                           p_itype_hlimit  = p_itype_hlimit(jt), & !in
-          &                           p_out_e         = p_upflux(:,:,:,jt), & !inout
-          &                           elev            = qvsubstep_elev,     & !in
-          &                           opt_lconsv      = llsq_lin_consv,     & !in
-          &                           opt_rlend       = i_rlend,            & !in
-          &                           opt_slev        = p_iadv_slev(jt)     ) !in
+        CALL upwind_hflux_miura_cycl(                           &
+          &         p_patch         = p_patch,                  & !in
+          &         p_cc            = p_cc(:,:,:,jt),           & !in
+          &         p_rhodz_now     = p_rhodz_now,              & !in
+          &         p_mass_flx_e    = p_mass_flx_e,             & !in
+          &         p_dtime         = p_dtime,                  & !in
+          &         p_ncycl         = nsubsteps,                & !in
+          &         p_int           = p_int,                    & !in
+          &         btraj           = btraj_cycl,               & !in
+          &         p_igrad_c_miura = advconf%igrad_c_miura,    & !in
+          &         p_itype_hlimit  = advconf%itype_hlimit(jt), & !in
+          &         p_out_e         = p_upflux(:,:,:,jt),       & !inout
+          &         elev            = qvsubstep_elev,           & !in
+          &         opt_lconsv      = llsq_lin_consv,           & !in
+          &         opt_rlend       = i_rlend,                  & !in
+          &         opt_slev        = advconf%iadv_slev(jt)     ) !in
         ENDIF
 
 
       CASE( MIURA3_MCYCL )   ! ihadv_tracer = 32
 
-        qvsubstep_elev = advection_config(jg)%iadv_qvsubstep_elev
+        qvsubstep_elev = advconf%iadv_qvsubstep_elev
 
         ! CALL standard MIURA3 for lower atmosphere and the subcycling version of
         ! MIURA for upper atmosphere
@@ -620,7 +610,7 @@ CONTAINS
         CALL upwind_hflux_miura3( p_patch, p_cc(:,:,:,jt), p_mass_flx_e, &! in
           &              p_vn, z_real_vt, p_dtime, p_int,                &! in
           &              lcompute%miura3_h(jt), lcleanup%miura3_h(jt),   &! in
-          &              p_itype_hlimit(jt),                             &! in
+          &              advconf%itype_hlimit(jt),                       &! in
           &              p_upflux(:,:,:,jt),                             &! inout
           &              opt_rhodz_now  = p_rhodz_now,                   &! in
           &              opt_rhodz_new  = p_rhodz_new,                   &! in
@@ -638,27 +628,28 @@ CONTAINS
         ! different other schemes.
         ! DA: this routine is not (yet) async
         !$ACC WAIT
-        CALL upwind_hflux_miura_cycl( p_patch         = p_patch,            & !in
-          &                           p_cc            = p_cc(:,:,:,jt),     & !in
-          &                           p_rhodz_now     = p_rhodz_now,        & !in
-          &                           p_mass_flx_e    = p_mass_flx_e,       & !in
-          &                           p_dtime         = p_dtime,            & !in
-          &                           p_ncycl         = nsubsteps,          & !in
-          &                           p_int           = p_int,              & !in
-          &                           btraj           = btraj_cycl,         & !in
-          &                           p_igrad_c_miura = p_igrad_c_miura,    & !in
-          &                           p_itype_hlimit  = p_itype_hlimit(jt), & !in
-          &                           p_out_e         = p_upflux(:,:,:,jt), & !inout
-          &                           elev            = qvsubstep_elev,     & !in
-          &                           opt_lconsv      = llsq_lin_consv,     & !in
-          &                           opt_rlend       = i_rlend,            & !in
-          &                           opt_slev        = p_iadv_slev(jt)     ) !in
+        CALL upwind_hflux_miura_cycl(                           &
+          &         p_patch         = p_patch,                  & !in
+          &         p_cc            = p_cc(:,:,:,jt),           & !in
+          &         p_rhodz_now     = p_rhodz_now,              & !in
+          &         p_mass_flx_e    = p_mass_flx_e,             & !in
+          &         p_dtime         = p_dtime,                  & !in
+          &         p_ncycl         = nsubsteps,                & !in
+          &         p_int           = p_int,                    & !in
+          &         btraj           = btraj_cycl,               & !in
+          &         p_igrad_c_miura = advconf%igrad_c_miura,    & !in
+          &         p_itype_hlimit  = advconf%itype_hlimit(jt), & !in
+          &         p_out_e         = p_upflux(:,:,:,jt),       & !inout
+          &         elev            = qvsubstep_elev,           & !in
+          &         opt_lconsv      = llsq_lin_consv,           & !in
+          &         opt_rlend       = i_rlend,                  & !in
+          &         opt_slev        = advconf%iadv_slev(jt)     ) !in
         ENDIF
 
 
       CASE (FFSL_MCYCL)   ! ihadv_tracer = 42
 
-        qvsubstep_elev = advection_config(jg)%iadv_qvsubstep_elev
+        qvsubstep_elev = advconf%iadv_qvsubstep_elev
 
 #ifdef _OPENACC
 ! In GPU mode, copy data to HOST and perform upwind_hflux_ffsl there, then update device
@@ -675,18 +666,18 @@ CONTAINS
         ! MIURA for upper atmosphere
         ! DA: this routine is not (yet) async
         !$ACC WAIT
-        CALL upwind_hflux_ffsl( p_patch, p_cc(:,:,:,jt),                  &! in
-          &                 p_rhodz_now, p_rhodz_new, p_mass_flx_e,       &! in
-          &                 p_vn, z_real_vt, p_dtime, p_int,              &! in
-          &                 lcompute%ffsl_h(jt), lcleanup%ffsl_h(jt),     &! in
-          &                 p_itype_hlimit(jt),                           &! in
-          &                 p_upflux(:,:,:,jt),                           &! inout
-          &                 opt_lconsv  = llsq_high_consv,                &! in
-          &                 opt_rlend   = i_rlend,                        &! in
-          &                 opt_slev    = qvsubstep_elev+1,               &! in
-          &                 opt_elev    = p_patch%nlev,                   &! in
-          &                 opt_ti_slev = qvsubstep_elev+1,               &! in
-          &                 opt_ti_elev = p_patch%nlev                    )! in
+        CALL upwind_hflux_ffsl( p_patch, p_cc(:,:,:,jt),              &! in
+          &                 p_rhodz_now, p_rhodz_new, p_mass_flx_e,   &! in
+          &                 p_vn, z_real_vt, p_dtime, p_int,          &! in
+          &                 lcompute%ffsl_h(jt), lcleanup%ffsl_h(jt), &! in
+          &                 advconf%itype_hlimit(jt),                 &! in
+          &                 p_upflux(:,:,:,jt),                       &! inout
+          &                 opt_lconsv  = llsq_high_consv,            &! in
+          &                 opt_rlend   = i_rlend,                    &! in
+          &                 opt_slev    = qvsubstep_elev+1,           &! in
+          &                 opt_elev    = p_patch%nlev,               &! in
+          &                 opt_ti_slev = qvsubstep_elev+1,           &! in
+          &                 opt_ti_elev = p_patch%nlev                )! in
 
 #ifdef _OPENACC
         i_am_accel_node =  save_i_am_accel_node    ! reactivate GPUs if appropriate
@@ -701,27 +692,28 @@ CONTAINS
         ! different other schemes.
         ! DA: this routine is not (yet) async
         !$ACC WAIT
-        CALL upwind_hflux_miura_cycl( p_patch         = p_patch,            & !in
-          &                           p_cc            = p_cc(:,:,:,jt),     & !in
-          &                           p_rhodz_now     = p_rhodz_now,        & !in
-          &                           p_mass_flx_e    = p_mass_flx_e,       & !in
-          &                           p_dtime         = p_dtime,            & !in
-          &                           p_ncycl         = nsubsteps,          & !in
-          &                           p_int           = p_int,              & !in
-          &                           btraj           = btraj_cycl,         & !in
-          &                           p_igrad_c_miura = p_igrad_c_miura,    & !in
-          &                           p_itype_hlimit  = p_itype_hlimit(jt), & !in
-          &                           p_out_e         = p_upflux(:,:,:,jt), & !inout
-          &                           elev            = qvsubstep_elev,     & !in
-          &                           opt_lconsv      = llsq_lin_consv,     & !in
-          &                           opt_rlend       = i_rlend,            & !in
-          &                           opt_slev        = p_iadv_slev(jt)     ) !in
+        CALL upwind_hflux_miura_cycl(                           &
+          &         p_patch         = p_patch,                  & !in
+          &         p_cc            = p_cc(:,:,:,jt),           & !in
+          &         p_rhodz_now     = p_rhodz_now,              & !in
+          &         p_mass_flx_e    = p_mass_flx_e,             & !in
+          &         p_dtime         = p_dtime,                  & !in
+          &         p_ncycl         = nsubsteps,                & !in
+          &         p_int           = p_int,                    & !in
+          &         btraj           = btraj_cycl,               & !in
+          &         p_igrad_c_miura = advconf%igrad_c_miura,    & !in
+          &         p_itype_hlimit  = advconf%itype_hlimit(jt), & !in
+          &         p_out_e         = p_upflux(:,:,:,jt),       & !inout
+          &         elev            = qvsubstep_elev,           & !in
+          &         opt_lconsv      = llsq_lin_consv,           & !in
+          &         opt_rlend       = i_rlend,                  & !in
+          &         opt_slev        = advconf%iadv_slev(jt)     ) !in
         ENDIF
 
 
       CASE (FFSL_HYB_MCYCL)   ! ihadv_tracer = 52
 
-        qvsubstep_elev = advection_config(jg)%iadv_qvsubstep_elev
+        qvsubstep_elev = advconf%iadv_qvsubstep_elev
 
 #ifdef _OPENACC
 ! In GPU mode, copy data to HOST and perform hflux_ffsl_hybrid there, then update device
@@ -738,19 +730,19 @@ CONTAINS
         ! version of MIURA for upper atmosphere
         ! DA: this routine is not (yet) async
         !$ACC WAIT
-        CALL hflux_ffsl_hybrid( p_patch, p_cc(:,:,:,jt),                  &! in
-          &                 p_rhodz_now, p_rhodz_new, p_mass_flx_e,       &! in
-          &                 p_vn, z_real_vt, p_dtime, p_int,              &! in
-          &                 lcompute%ffsl_hyb_h(jt),                      &! in
-          &                 lcleanup%ffsl_hyb_h(jt),                      &! in
-          &                 p_itype_hlimit(jt),                           &! in
-          &                 p_upflux(:,:,:,jt),                           &! inout
-          &                 opt_lconsv  = llsq_high_consv,                &! in
-          &                 opt_rlend   = i_rlend,                        &! in
-          &                 opt_slev    = qvsubstep_elev+1,               &! in
-          &                 opt_elev    = p_patch%nlev,                   &! in
-          &                 opt_ti_slev = qvsubstep_elev+1,               &! in
-          &                 opt_ti_elev = p_patch%nlev                    )! in
+        CALL hflux_ffsl_hybrid( p_patch, p_cc(:,:,:,jt),            &! in
+          &                 p_rhodz_now, p_rhodz_new, p_mass_flx_e, &! in
+          &                 p_vn, z_real_vt, p_dtime, p_int,        &! in
+          &                 lcompute%ffsl_hyb_h(jt),                &! in
+          &                 lcleanup%ffsl_hyb_h(jt),                &! in
+          &                 advconf%itype_hlimit(jt),               &! in
+          &                 p_upflux(:,:,:,jt),                     &! inout
+          &                 opt_lconsv  = llsq_high_consv,          &! in
+          &                 opt_rlend   = i_rlend,                  &! in
+          &                 opt_slev    = qvsubstep_elev+1,         &! in
+          &                 opt_elev    = p_patch%nlev,             &! in
+          &                 opt_ti_slev = qvsubstep_elev+1,         &! in
+          &                 opt_ti_elev = p_patch%nlev              )! in
 
 #ifdef _OPENACC
         i_am_accel_node =  save_i_am_accel_node    ! reactivate GPUs if appropriate
@@ -765,21 +757,22 @@ CONTAINS
         ! different other schemes.
         ! DA: this routine is not (yet) async
         !$ACC WAIT
-        CALL upwind_hflux_miura_cycl( p_patch         = p_patch,            & !in
-          &                           p_cc            = p_cc(:,:,:,jt),     & !in
-          &                           p_rhodz_now     = p_rhodz_now,        & !in
-          &                           p_mass_flx_e    = p_mass_flx_e,       & !in
-          &                           p_dtime         = p_dtime,            & !in
-          &                           p_ncycl         = nsubsteps,          & !in
-          &                           p_int           = p_int,              & !in
-          &                           btraj           = btraj_cycl,         & !in
-          &                           p_igrad_c_miura = p_igrad_c_miura,    & !in
-          &                           p_itype_hlimit  = p_itype_hlimit(jt), & !in
-          &                           p_out_e         = p_upflux(:,:,:,jt), & !inout
-          &                           elev            = qvsubstep_elev,     & !in
-          &                           opt_lconsv      = llsq_lin_consv,     & !in
-          &                           opt_rlend       = i_rlend,            & !in
-          &                           opt_slev        = p_iadv_slev(jt)     ) !in
+        CALL upwind_hflux_miura_cycl(                           &
+          &         p_patch         = p_patch,                  & !in
+          &         p_cc            = p_cc(:,:,:,jt),           & !in
+          &         p_rhodz_now     = p_rhodz_now,              & !in
+          &         p_mass_flx_e    = p_mass_flx_e,             & !in
+          &         p_dtime         = p_dtime,                  & !in
+          &         p_ncycl         = nsubsteps,                & !in
+          &         p_int           = p_int,                    & !in
+          &         btraj           = btraj_cycl,               & !in
+          &         p_igrad_c_miura = advconf%igrad_c_miura,    & !in
+          &         p_itype_hlimit  = advconf%itype_hlimit(jt), & !in
+          &         p_out_e         = p_upflux(:,:,:,jt),       & !inout
+          &         elev            = qvsubstep_elev,           & !in
+          &         opt_lconsv      = llsq_lin_consv,           & !in
+          &         opt_rlend       = i_rlend,                  & !in
+          &         opt_slev        = advconf%iadv_slev(jt)     ) !in
         ENDIF
 
       END SELECT
@@ -792,7 +785,7 @@ CONTAINS
     CALL btraj%destruct()
     CALL btraj_cycl%destruct()
 
-    IF (timers_level > 2) CALL timer_stop(timer_adv_horz)
+    IF (timers_level > 2) CALL timer_stop(timer_adv_hflx)
 
   END SUBROUTINE hor_upwind_flux
 

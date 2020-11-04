@@ -72,6 +72,14 @@ MODULE mo_echam_vdf_config
      !                              are nominally evaluated, tuning param for sfc stress
      REAL(wp) :: fbl             !< 1/fbl: fraction of BL height at which lmix hat its max
      !
+     INTEGER :: turb             !< 1: TTE scheme, 2: 3D Smagorinsky
+     REAL(wp) :: smag_constant
+     REAL(wp) :: turb_prandtl
+     REAL(wp) :: rturb_prandtl     !inverse turbulent prandtl number
+     REAL(wp) :: km_min        !min mass weighted turbulent viscosity
+     REAL(wp) :: max_turb_scale !max turbulence length scale
+     REAL(wp) :: min_sfc_wind  !min sfc wind in free convection limit
+     !
   END TYPE t_echam_vdf_config
 
   !>
@@ -103,6 +111,13 @@ CONTAINS
     echam_vdf_config(:)% wmc      =  0.5_wp
     echam_vdf_config(:)% fsl      =  0.4_wp
     echam_vdf_config(:)% fbl      =  3._wp
+    echam_vdf_config(:)%turb      =  1
+    echam_vdf_config(:)%smag_constant = 0.23_wp
+    echam_vdf_config(:)%max_turb_scale= 300._wp
+    echam_vdf_config(:)%turb_prandtl  = 0.33333333333_wp
+    echam_vdf_config(:)%rturb_prandtl = 1/echam_vdf_config(:)%turb_prandtl
+    echam_vdf_config(:)%km_min        =  0.001_wp
+    echam_vdf_config(:)%min_sfc_wind  =  1._wp
     !
   END SUBROUTINE init_echam_vdf_config
 
@@ -161,6 +176,13 @@ CONTAINS
        CALL print_value('    echam_vdf_config('//TRIM(cg)//')% wmc            ',echam_vdf_config(jg)% wmc            )
        CALL print_value('    echam_vdf_config('//TRIM(cg)//')% fsl            ',echam_vdf_config(jg)% fsl            )
        CALL print_value('    echam_vdf_config('//TRIM(cg)//')% fbl            ',echam_vdf_config(jg)% fbl            )
+       CALL print_value('    echam_vdf_config('//TRIM(cg)//')% turb           ',echam_vdf_config(jg)% turb           )
+       CALL print_value('    echam_vdf_config('//TRIM(cg)//')% smag_constant  ',echam_vdf_config(jg)% smag_constant  )
+       CALL print_value('    echam_vdf_config('//TRIM(cg)//')% turb_prandtl   ',echam_vdf_config(jg)% turb_prandtl   )
+       CALL print_value('    echam_vdf_config('//TRIM(cg)//')% rturb_prandtl  ',echam_vdf_config(jg)% rturb_prandtl  )
+       CALL print_value('    echam_vdf_config('//TRIM(cg)//')% km_min         ',echam_vdf_config(jg)% km_min         )
+       CALL print_value('    echam_vdf_config('//TRIM(cg)//')% max_turb_scale ',echam_vdf_config(jg)% max_turb_scale )
+       CALL print_value('    echam_vdf_config('//TRIM(cg)//')% min_sfc_wind   ',echam_vdf_config(jg)% min_sfc_wind   )
        CALL message    ('','')
        !
     END DO

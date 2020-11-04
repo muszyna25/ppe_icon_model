@@ -28,7 +28,6 @@ MODULE mo_art_sedi_interface
   USE mo_impl_constants,                ONLY: min_rlcell_int
   USE mo_impl_constants_grf,            ONLY: grf_bdywidth_c
   USE mo_nonhydro_types,                ONLY: t_nh_prog, t_nh_metrics, t_nh_diag
-  USE mo_nonhydro_state,                ONLY: p_nh_state_lists
   USE mo_nonhydrostatic_config,         ONLY: kstart_tracer
   USE mo_run_config,                    ONLY: lart, iqr, iqc, iqv
   USE mo_exception,                     ONLY: finish

@@ -137,8 +137,6 @@ MODULE mo_advection_config
 
     LOGICAL :: lvadv_tracer         !< if .TRUE., calculate vertical tracer advection
     LOGICAL :: lclip_tracer         !< if .TRUE., clip negative tracer values    
-    LOGICAL :: lstrang              !< if .TRUE., use complete Strang splitting  
-                                    !< (\Delta t/2 vert)+(\Delta t hor)+(\Delta t/2 vert)  
                                                    
     LOGICAL :: llsq_svd             !< least squares reconstruction with         
                                     !< singular value decomposition (TRUE) or    
@@ -187,9 +185,6 @@ MODULE mo_advection_config
 
     ! derived variables
 
-    REAL(wp) :: cSTR             !< if complete Strang-splitting is used,        
-                                 !< this constant adapts the time step           
-                                                                                 
     INTEGER  :: iubc_adv         !< selects upper boundary condition             
                                  !< for tracer transport                         
                                  !< 0: no flux                                   
@@ -339,14 +334,6 @@ CONTAINS
       advection_config(jg)%lfull_comp = .TRUE.
     ELSE
       advection_config(jg)%lfull_comp = .FALSE. ! do not perform full set of computations in prepare_tracer
-    ENDIF
-
-
-    ! check, whether Strang-splitting has been chosen and adapt cSTR accordingly
-    IF ( advection_config(jg)%lstrang ) THEN
-      advection_config(jg)%cSTR = 0.5_wp
-    ELSE
-      advection_config(jg)%cSTR = 1._wp
     ENDIF
 
 

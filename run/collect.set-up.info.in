@@ -42,17 +42,14 @@ VERSION_='@PACKAGE_VERSION@'
 # Set use_site:
 use_host='@host_fqdn@'
 case "$use_host" in
-  unknown) ;;
   wizard*|mlogin*|btlogin*|btc*) use_site=dkrz.de ;;
   daint*|tave*|santis*|kesch*) use_site=cscs.ch ;;
   ic2*|uc1*|fh2*) use_site=kit.edu ;;
-  melian*) use_site=local.net ;;
-  *mpimet.mpg.de) use_site=mpg.de ;;
   xc*|rcnl*|oflws*) use_site=dwd.de ;;
+  mpipc*mpimet.mpg.de|breeze*mpimet.mpg.de) use_site=mpg.de ;;
+  *) use_site='local.net' ;;
 esac
-test -z "$use_site" && test x"$ICON_DOCKER" = x1 && use_site=docker
-test -n "$use_site" || use_site=`echo "$use_host" | sed 's/^[^.]*\\.//'`
-test -n "$use_site" || use_site='local.net'
+test x"$ICON_DOCKER" = x1 && use_site=docker
 
 # Set use_compiler:
 use_compiler='@FC_VENDOR@'
@@ -240,24 +237,12 @@ case "$use_site" in
   ;;
 
   mpg.de)
-    case "$use_host" in
-      mpipc*|breeze*)
-        use_target='mpipc'
-        case "`lsb_release -c | awk '{print $2}'`" in
-          stretch)
-            use_load_profile='. /etc/profile.d/mpim.sh'
-            use_load_modules='cdo/1.9.6-gccsys python/2.7.14-stable'
-          ;;
-        esac
-      ;;
-      *)
-        case '@host_os@' in
-          darwin*)
-            use_target='mpimac'
-            use_mpi_startrun='/opt/local/bin/mpiexec -n $mpi_total_procs'
-          ;;
-        esac
-      ;;
+    use_target='mpipc'
+    case "`lsb_release -c | awk '{print $2}'`" in
+      stretch)
+        use_load_profile='. /etc/profile.d/mpim.sh'
+        use_load_modules='cdo/1.9.6-gccsys python/2.7.14-stable'
+        ;;
     esac
   ;;
 
@@ -265,14 +250,7 @@ case "$use_site" in
   ;;
 
   local.net)
-    case "$use_host" in
-      melian)
-        use_target='archlinux'
-        use_mpi_startrun='mpiexec'
-        use_mpi_procs_pernode=2
-        use_shell='/bin/bash'
-      ;;
-    esac
+    use_target='default'
   ;;
 
   pa.cluster)

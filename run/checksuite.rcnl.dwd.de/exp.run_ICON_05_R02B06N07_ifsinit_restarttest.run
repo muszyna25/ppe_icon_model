@@ -20,7 +20,7 @@
 date
 source ${NMPI_ROOT}/bin/necmpivars.sh
 
-set -x
+set -ex
 . /etc/profile
 
 # OpenMP settings

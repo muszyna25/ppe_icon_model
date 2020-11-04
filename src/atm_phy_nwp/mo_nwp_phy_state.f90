@@ -2637,7 +2637,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     grib2_desc = grib2_var(0, 2, 1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'sp_10m', diag%sp_10m,                       &
       & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,       &
-      & ldims=shape2d, lrestart=.FALSE. )
+      & ldims=shape2d, lrestart=.FALSE., lopenacc=.TRUE. )
+    __acc_attach(diag%sp_10m)
 
     !tiled quantities
     ! &      diag%shfl_s_t(nproma,nblks_c,ntiles_total+ntiles_water)
@@ -4291,77 +4292,94 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
       ALLOCATE( phy_tend%tracer_gscp_ptr(ktracer) )
 
       !qv
-      CALL add_ref( phy_tend_list, 'ddt_tracer_gscp',                              &
-                  & 'ddt_qv_gscp', phy_tend%tracer_gscp_ptr(iqv)%p_3d,             &
-                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
-                  & t_cf_var('ddt_qv_gscp', 'kg kg**-1 s**-1',                     &
-                  & 'microphysics tendency of specific humidity', datatype_flt),   &
-                  & grib2_var(192, 162, 204, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
-                  & vert_interp=create_vert_interp_metadata(                       &
-                  & vert_intp_type=vintp_types("P","Z","I"),                       &
-                  & vert_intp_method=VINTP_METHOD_LIN),                            &
-                  & ref_idx=iqv,                                                   &
-                  & ldims=shape3d, in_group=groups("phys_tendencies") )
+      IF ( iqv /= 0 ) THEN
+        CALL add_ref( phy_tend_list, 'ddt_tracer_gscp',                              &
+                    & 'ddt_qv_gscp', phy_tend%tracer_gscp_ptr(iqv)%p_3d,             &
+                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
+                    & t_cf_var('ddt_qv_gscp', 'kg kg**-1 s**-1',                     &
+                    & 'microphysics tendency of specific humidity', datatype_flt),   &
+                    & grib2_var(192, 162, 204, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
+                    & vert_interp=create_vert_interp_metadata(                       &
+                    & vert_intp_type=vintp_types("P","Z","I"),                       &
+                    & vert_intp_method=VINTP_METHOD_LIN),                            &
+                    & ref_idx=iqv,                                                   &
+                    & ldims=shape3d, in_group=groups("phys_tendencies") )
+      END IF
+
       !qc
-      CALL add_ref( phy_tend_list, 'ddt_tracer_gscp',                              &
-                  & 'ddt_qc_gscp', phy_tend%tracer_gscp_ptr(iqc)%p_3d,             &
-                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
-                  & t_cf_var('ddt_qc_gscp', 'kg kg**-1 s**-1',                     &
-                  & 'microphysics tendency of specific cloud water', datatype_flt),&
-                  & grib2_var(192, 162, 205, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
-                  & vert_interp=create_vert_interp_metadata(                       &
-                  & vert_intp_type=vintp_types("P","Z","I"),                       &
-                  & vert_intp_method=VINTP_METHOD_LIN),                            &
-                  & ref_idx=iqc,                                                   &
-                  & ldims=shape3d, in_group=groups("phys_tendencies") )
+      IF ( iqc /= 0 ) THEN
+        CALL add_ref( phy_tend_list, 'ddt_tracer_gscp',                              &
+                    & 'ddt_qc_gscp', phy_tend%tracer_gscp_ptr(iqc)%p_3d,             &
+                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
+                    & t_cf_var('ddt_qc_gscp', 'kg kg**-1 s**-1',                     &
+                    & 'microphysics tendency of specific cloud water', datatype_flt),&
+                    & grib2_var(192, 162, 205, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
+                    & vert_interp=create_vert_interp_metadata(                       &
+                    & vert_intp_type=vintp_types("P","Z","I"),                       &
+                    & vert_intp_method=VINTP_METHOD_LIN),                            &
+                    & ref_idx=iqc,                                                   &
+                    & ldims=shape3d, in_group=groups("phys_tendencies") )
+       END IF
+
       !qi
-      CALL add_ref( phy_tend_list, 'ddt_tracer_gscp',                              &
-                  & 'ddt_qi_gscp', phy_tend%tracer_gscp_ptr(iqi)%p_3d,             &
-                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
-                  & t_cf_var('ddt_qi_gscp', 'kg kg**-1 s**-1',                     &
-                  & 'microphysics tendency of specific cloud ice', datatype_flt),  &
-                  & grib2_var(192, 162, 206, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
-                  & vert_interp=create_vert_interp_metadata(                       &
-                  & vert_intp_type=vintp_types("P","Z","I"),                       &
-                  & vert_intp_method=VINTP_METHOD_LIN),                            &
-                  & ref_idx=iqi,                                                   &
-                  & ldims=shape3d, in_group=groups("phys_tendencies") )
+      IF ( iqi /= 0 ) THEN
+        CALL add_ref( phy_tend_list, 'ddt_tracer_gscp',                              &
+                    & 'ddt_qi_gscp', phy_tend%tracer_gscp_ptr(iqi)%p_3d,             &
+                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
+                    & t_cf_var('ddt_qi_gscp', 'kg kg**-1 s**-1',                     &
+                    & 'microphysics tendency of specific cloud ice', datatype_flt),  &
+                    & grib2_var(192, 162, 206, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
+                    & vert_interp=create_vert_interp_metadata(                       &
+                    & vert_intp_type=vintp_types("P","Z","I"),                       &
+                    & vert_intp_method=VINTP_METHOD_LIN),                            &
+                    & ref_idx=iqi,                                                   &
+                    & ldims=shape3d, in_group=groups("phys_tendencies") )
+      END IF
+
       !qr
-      CALL add_ref( phy_tend_list, 'ddt_tracer_gscp',                              &
-                & 'ddt_qr_gscp', phy_tend%tracer_gscp_ptr(iqr)%p_3d,               &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                            &
-                & t_cf_var('ddt_qr_gscp', 'kg kg**-1 s**-1',                       &
-                & 'microphysics tendency of rain', datatype_flt),                  &
-                & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),   &
-                & vert_interp=create_vert_interp_metadata(                         &
-                & vert_intp_type=vintp_types("P","Z","I"),                         &
-                & vert_intp_method=VINTP_METHOD_LIN),                              &
-                & ref_idx=iqr,                                                     &
-                & ldims=shape3d, in_group=groups("phys_tendencies") )
+      IF ( iqr /= 0 ) THEN
+        CALL add_ref( phy_tend_list, 'ddt_tracer_gscp',                              &
+                  & 'ddt_qr_gscp', phy_tend%tracer_gscp_ptr(iqr)%p_3d,               &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                            &
+                  & t_cf_var('ddt_qr_gscp', 'kg kg**-1 s**-1',                       &
+                  & 'microphysics tendency of rain', datatype_flt),                  &
+                  & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),   &
+                  & vert_interp=create_vert_interp_metadata(                         &
+                  & vert_intp_type=vintp_types("P","Z","I"),                         &
+                  & vert_intp_method=VINTP_METHOD_LIN),                              &
+                  & ref_idx=iqr,                                                     &
+                  & ldims=shape3d, in_group=groups("phys_tendencies") )
+      END IF
+
       !qs
-      CALL add_ref( phy_tend_list, 'ddt_tracer_gscp',                              &
-                & 'ddt_qs_gscp', phy_tend%tracer_gscp_ptr(iqs)%p_3d,               &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                            &
-                & t_cf_var('ddt_qs_gscp', 'kg kg**-1 s**-1',                       &
-                & 'microphysics tendency of snow', datatype_flt),                  &
-                & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),   &
-                & vert_interp=create_vert_interp_metadata(                         &
-                & vert_intp_type=vintp_types("P","Z","I"),                         &
-                & vert_intp_method=VINTP_METHOD_LIN),                              &
-                & ref_idx=iqs,                                                     &
-                & ldims=shape3d, in_group=groups("phys_tendencies") )
+      IF ( iqs /= 0 ) THEN
+        CALL add_ref( phy_tend_list, 'ddt_tracer_gscp',                              &
+                  & 'ddt_qs_gscp', phy_tend%tracer_gscp_ptr(iqs)%p_3d,               &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                            &
+                  & t_cf_var('ddt_qs_gscp', 'kg kg**-1 s**-1',                       &
+                  & 'microphysics tendency of snow', datatype_flt),                  &
+                  & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),   &
+                  & vert_interp=create_vert_interp_metadata(                         &
+                  & vert_intp_type=vintp_types("P","Z","I"),                         &
+                  & vert_intp_method=VINTP_METHOD_LIN),                              &
+                  & ref_idx=iqs,                                                     &
+                  & ldims=shape3d, in_group=groups("phys_tendencies") )
+      END IF
+
       !qg
-      CALL add_ref( phy_tend_list, 'ddt_tracer_gscp',                              &
-                & 'ddt_qg_gscp', phy_tend%tracer_gscp_ptr(iqg)%p_3d,               &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                            &
-                & t_cf_var('ddt_qg_gscp', 'kg kg**-1 s**-1',                       &
-                & 'microphysics tendency of graupel', datatype_flt),               &
-                & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),   &
-                & vert_interp=create_vert_interp_metadata(                         &
-                & vert_intp_type=vintp_types("P","Z","I"),                         &
-                & vert_intp_method=VINTP_METHOD_LIN),                              &
-                & ref_idx=iqg,                                                     &
-                & ldims=shape3d, in_group=groups("phys_tendencies") )
+      IF ( iqg /= 0 ) THEN
+        CALL add_ref( phy_tend_list, 'ddt_tracer_gscp',                              &
+                  & 'ddt_qg_gscp', phy_tend%tracer_gscp_ptr(iqg)%p_3d,               &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                            &
+                  & t_cf_var('ddt_qg_gscp', 'kg kg**-1 s**-1',                       &
+                  & 'microphysics tendency of graupel', datatype_flt),               &
+                  & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),   &
+                  & vert_interp=create_vert_interp_metadata(                         &
+                  & vert_intp_type=vintp_types("P","Z","I"),                         &
+                  & vert_intp_method=VINTP_METHOD_LIN),                              &
+                  & ref_idx=iqg,                                                     &
+                  & ldims=shape3d, in_group=groups("phys_tendencies") )
+      END IF
 
       ! art
       IF (lart) THEN

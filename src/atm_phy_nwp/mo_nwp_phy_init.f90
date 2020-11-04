@@ -372,7 +372,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
              &  i_startidx, i_endidx, rl_start, rl_end)
 
-        IF ( (nh_test_name == 'APE_nwp' .OR. nh_test_name == 'dcmip_tc_52') ) THEN
+        IF ( (nh_test_name == 'APE_nwp' .OR. nh_test_name == 'dcmip_tc_52' .OR. nh_test_name == 'CBL_flxconst') ) THEN
 
           ! t_g = ape_sst1
 
@@ -1735,6 +1735,12 @@ END SUBROUTINE init_nwp_phy
         prm_diag%aerosol(:,iorg,jb), prm_diag%aerosol(:,idu,jb), zncn)
 
       CALL specccn_segalkhain_simple (nproma, i_startidx, i_endidx, zncn(:,nlev), prm_diag%cloud_num(:,jb))
+
+      ! Impose lower limit on cloud_num over land
+      DO jc = i_startidx, i_endidx
+        IF (ext_data%atm%llsm_atm_c(jc,jb) .OR. ext_data%atm%llake_c(jc,jb)) &
+          prm_diag%cloud_num(jc,jb) = MAX(175.e6_wp,prm_diag%cloud_num(jc,jb))
+      ENDDO
 
     ENDDO
 !$OMP END DO

@@ -31,7 +31,7 @@ MODULE mo_advection_nml
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_ntracer, max_dom,      &
     &                               MIURA, FFSL_HYB_MCYCL, ippm_v,              &
     &                               inol, ifluxl_sm, inol_v,                    &
-    &                               islopel_vsm, ifluxl_vpd, VNAME_LEN
+    &                               islopel_vsm, ifluxl_vpd, VNAME_LEN, NO_VADV
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_restart_nml_and_att, ONLY: open_tmpfile, store_and_close_namelist,     &
@@ -86,8 +86,6 @@ MODULE mo_advection_nml
 
   LOGICAL :: lvadv_tracer          !< if .TRUE., calculate vertical tracer advection
   LOGICAL :: lclip_tracer          !< if .TRUE., clip negative tracer values
-  LOGICAL :: lstrang               !< if .TRUE., use complete Strang splitting
-                                   !< (\Delta t/2 vert)+(\Delta t hor)+(\Delta t/2 vert)
 
   LOGICAL :: llsq_svd              !< least squares reconstruction with 
                                    !< singular value decomposition (TRUE) or 
@@ -137,7 +135,7 @@ MODULE mo_advection_nml
     &                     ivcfl_max, itype_hlimit,                        &
     &                     iadv_tke, beta_fct,                             &
     &                     iord_backtraj, lclip_tracer, tracer_names,      &
-    &                     ctracer_list, igrad_c_miura, lstrang, llsq_svd, &
+    &                     ctracer_list, igrad_c_miura, llsq_svd,          &
     &                     npassive_tracer, init_formula
 
 
@@ -191,7 +189,6 @@ CONTAINS
     iord_backtraj        = 1         ! 1st order backward trajectory
     lvadv_tracer         = .TRUE.    ! vertical advection yes/no
     lclip_tracer         = .FALSE.   ! clipping of negative values yes/no
-    lstrang              = .FALSE.   ! Strang splitting yes/no
 
     igrad_c_miura        = 1         ! MIURA linear least squares reconstruction
 
@@ -281,35 +278,45 @@ CONTAINS
 
     ! flux computation methods - sanity check
     !
-    IF ( ANY(ihadv_tracer(1:ntracer) > FFSL_HYB_MCYCL) .OR.            &
-      &  ANY(ihadv_tracer(1:ntracer) < 0) )    THEN
+    IF ( ANY(ihadv_tracer(1:max_ntracer) > FFSL_HYB_MCYCL) .OR.       &
+      &  ANY(ihadv_tracer(1:max_ntracer) < 0) )    THEN
       CALL finish( TRIM(routine),                                     &
         &  'incorrect settings for ihadv_tracer. Must be 0,1,2,3,4,5,'//&
         &  '20,22,32,42 or 52 ')
     ENDIF
 
-    IF ( ANY(ivadv_tracer(1:ntracer) > ippm_v) .OR.                   &
-      &  ANY(ivadv_tracer(1:ntracer) < 0)) THEN
+    IF ( ANY(ivadv_tracer(1:max_ntracer) > ippm_v) .OR.               &
+      &  ANY(ivadv_tracer(1:max_ntracer) < 0) ) THEN
       CALL finish( TRIM(routine),                                     &
         &  'incorrect settings for ivadv_tracer. Must be 0,1,2, or 3 ')
+    ENDIF
+
+    IF (.NOT. lvadv_tracer) THEN
+      IF ( ANY(ivadv_tracer(1:max_ntracer) /= NO_VADV) ) THEN
+        ivadv_tracer(1:max_ntracer) = NO_VADV
+        WRITE(message_text,'(a,I2,a,a)') &
+          &  'Resetting ivadv_tracer(1:max_ntracer)=',NO_VADV,' for all tracers, ', &
+          &  'as vertical tracer transport is disabled (lvadv_tracer=.FALSE.).'
+        CALL message(TRIM(routine), message_text)
+      ENDIF
     ENDIF
 
 
 
     ! limiter - sanity check
     !
-    IF ( ANY(itype_vlimit(1:ntracer) < inol_v ) .OR.                  &
-      &  ANY(itype_vlimit(1:ntracer) > ifluxl_vpd)) THEN
+    IF ( ANY(itype_vlimit(1:max_ntracer) < inol_v ) .OR.              &
+      &  ANY(itype_vlimit(1:max_ntracer) > ifluxl_vpd)) THEN
       CALL finish( TRIM(routine),                                     &
         &  'incorrect settings for itype_vlimit. Permissible choices [0,..,3]')
     ENDIF
-    IF ( ANY(itype_hlimit(1:ntracer) < inol ) .OR.                    &
-      &  ANY(itype_hlimit(1:ntracer) > ifluxl_sm)) THEN
+    IF ( ANY(itype_hlimit(1:max_ntracer) < inol ) .OR.                &
+      &  ANY(itype_hlimit(1:max_ntracer) > ifluxl_sm)) THEN
       CALL finish( TRIM(routine),                                     &
         &  'incorrect settings for itype_hlimit. Permissible choices [0,..,4]')
     ENDIF
-    IF ( ANY(ivlimit_selective(1:ntracer) < 0 ) .OR.                  &
-      &  ANY(ivlimit_selective(1:ntracer) > 1 )) THEN
+    IF ( ANY(ivlimit_selective(1:max_ntracer) < 0 ) .OR.              &
+      &  ANY(ivlimit_selective(1:max_ntracer) > 1 )) THEN
       CALL finish( TRIM(routine),                                     &
         &  'incorrect settings for ivlimit_selective. Permissible values 0 or 1')
     ENDIF
@@ -347,7 +354,6 @@ CONTAINS
       advection_config(jg)%ivadv_tracer(:)     = ivadv_tracer(:)
       advection_config(jg)%lvadv_tracer        = lvadv_tracer
       advection_config(jg)%lclip_tracer        = lclip_tracer
-      advection_config(jg)%lstrang             = lstrang
       advection_config(jg)%llsq_svd            = llsq_svd
       advection_config(jg)%itype_vlimit(:)     = itype_vlimit(:)
       advection_config(jg)%itype_hlimit(:)     = itype_hlimit(:)

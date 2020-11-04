@@ -1254,16 +1254,19 @@ MODULE mo_nh_diffusion
                p_nh_metrics%theta_ref_mc(icidx(jc,jb,2),jk,icblk(jc,jb,2)) +       &
                p_nh_metrics%theta_ref_mc(icidx(jc,jb,3),jk,icblk(jc,jb,3)) ) / 3._wp
 
-            IF (tdiff-trefdiff < thresh_tdiff .AND. trefdiff < 0._wp) THEN
+            ! Enahnced horizontal diffusion is applied if the theta perturbation is either
+            ! - at least 5 K colder than the average of the neighbor points on valley points (determined by trefdiff < 0.) or
+            ! - at least 7.5 K colder than the average of the neighbor points otherwise
+            IF (tdiff-trefdiff < thresh_tdiff .AND. trefdiff < 0._wp .OR. tdiff-trefdiff < 1.5_wp*thresh_tdiff) THEN
 #ifndef _OPENACC
               ic = ic+1
               iclist(ic,jb) = jc
               iklist(ic,jb) = jk
-              tdlist(ic,jb) = thresh_tdiff - tdiff
+              tdlist(ic,jb) = thresh_tdiff - tdiff + trefdiff
 #else
       ! Enhance Smagorinsky coefficients at the three edges of the cells included in the list
 ! Attention: this operation is neither vectorizable nor OpenMP-parallelizable (race conditions!)
-              enh_diffu_3d(jc,jk,jb) = (thresh_tdiff - tdiff)*5.e-4_vp
+              enh_diffu_3d(jc,jk,jb) = (thresh_tdiff - tdiff + trefdiff)*5.e-4_vp
             ELSE
               enh_diffu_3d(jc,jk,jb) = -HUGE(0._vp)   ! In order that this is never taken as the MAX
 #endif

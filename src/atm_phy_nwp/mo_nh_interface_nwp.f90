@@ -156,7 +156,7 @@ CONTAINS
     LOGICAL, INTENT(IN)          ::   &             !< physics package time control (switches)
          &                          lcall_phy_jg(:) !< for domain jg
     LOGICAL, INTENT(IN)          :: linit           !< .TRUE. if initialization call (this switch is currently used
-                                                    !  to call turbtran in addition to the slow-physics routines
+                                                    !  to call turbtran in addition to the slow-physics routines)
     LOGICAL, INTENT(IN)          :: lredgrid        !< use reduced grid for radiation
     REAL(wp),INTENT(in)          :: dt_loc          !< (advective) time step applicable to local grid level
     REAL(wp),INTENT(in)          :: dt_phy_jg(:)    !< time interval for all physics
@@ -628,8 +628,8 @@ CONTAINS
        CALL nwp_surface    (  dt_phy_jg(itfastphy),              & !>input
                              & pt_patch,                         & !>input
                              & ext_data,                         & !>input
-                             & pt_prog_rcf,                      & !>in/inout rcf=reduced calling freq.
-                             & pt_diag ,                         & !>inout
+                             & pt_prog, pt_prog_rcf,             & !>in/inout rcf=reduced calling freq.
+                             & pt_diag, p_metrics,               & !>inout
                              & prm_diag,                         & !>inout
                              & lnd_prog_now, lnd_prog_new,       & !>inout
                              & wtr_prog_now, wtr_prog_new,       & !>inout
@@ -1952,7 +1952,7 @@ CONTAINS
     ! time averages, accumulations and vertical integrals
     CALL nwp_statistics(lcall_phy_jg,                    & !in
                         & dt_phy_jg,p_sim_time,          & !in
-                        & kstart_moist(jg),              & !in
+                        & ext_data, kstart_moist(jg),    & !in
                         & ih_clch(jg), ih_clcm(jg),      & !in
                         & pt_patch, p_metrics,           & !in
                         & pt_prog, pt_prog_rcf,          & !in
