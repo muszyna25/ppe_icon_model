@@ -1,3 +1,4 @@
+!NEC$ options "-O1"
 #if (defined (__GNUC__) || defined(__SUNPRO_F95) || defined(__SX__))
 #define HAVE_F95
 #endif
