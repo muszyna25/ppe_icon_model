@@ -979,7 +979,7 @@ CONTAINS
                &        tend_qtrc_vdf(:,:,jb,iqc),       &! out
                &        tend_qtrc_vdf(:,:,jb,iqi),       &! out
 !               &        tend_qtrc_vdf(:,:,jb,iqt:),     &! out
-               &        tend_qtrc_vdf_iqt(:,:,jb,iqt:),  & ! out
+               &        tend_qtrc_vdf_iqt(:,:,jb,:),     & ! out
                &        field%   z0m   (:,  jb),         &! out, for the next step
                &        dummy(:,:,jb),                   &! 
                &        field%      totte(:,:,jb)        )! out
@@ -1102,7 +1102,7 @@ CONTAINS
                 tend% qtrc_vdf(jl,jk,jb,iqi) = tend_qtrc_vdf(jl,jk,jb,iqi)
                 !$ACC LOOP SEQ
                 DO jt = iqt,ntracer
-                  tend% qtrc_vdf(jl,jk,jb,jt) = tend_qtrc_vdf(jl,jk,jb,jt)
+                  tend% qtrc_vdf(jl,jk,jb,jt) = tend_qtrc_vdf_iqt(jl,jk,jb,jt-iqt)
                 END DO
               END DO
             END DO
