@@ -6,6 +6,7 @@ include NumRu
 
 # 
 # This script splits the glocal cell grid into northern and southern hemisphere.
+# @author: ralf mueller , ralf.mueller@dkrz.de
 #
 # Requirements: ruby, ruby modules: ruby-netcdf
 def splitHemisphere(iFilename,varname,lon,lat)

@@ -1,6 +1,8 @@
 !>
 !! Routines for handling proxy variables e.g. accumulation buffers
 !!
+!! @author: ralf mueller, ralf.mueller@dkrz.de
+!!
 MODULE mo_derived_variable_handling
 
   USE self_object

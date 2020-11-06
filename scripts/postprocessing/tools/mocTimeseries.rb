@@ -5,7 +5,8 @@ require 'cdo'
 #==============================================================================
 # USAGE:
 # <TITLE='title'> <PLOTFILE='image.png'> ./mocTimeseries.rb '../oce_mpiom_r11698_3600_1.0E-17_30/MOC*Z'
-# 
+#
+# @author: ralf.mueller , ralf.mueller@dkrz.de
 #==============================================================================
 
 mocPattern      = ARGV[0].nil?      ? 'MOC*Z'    : ARGV[0]
