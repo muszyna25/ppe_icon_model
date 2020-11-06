@@ -331,7 +331,7 @@ CONTAINS
         new_elem%var_base_size = 4
         ALLOCATE(new_elem%i_ptr(d(1), d(2), d(3), d(4), d(5)), STAT=istat)
         IF (istat /= 0) CALL finish(routine, 'allocation of arrayb'//TRIM(varname)//' failed')
-        !$ACC ENTER DATA CREATE(new_elem%i_ptr)bIF(new_elem%info%lopenacc)
+        !$ACC ENTER DATA CREATE(new_elem%i_ptr) IF(new_elem%info%lopenacc)
       END IF
       !ICON_OMP PARALLEL
       CALL init_contiguous_i4(new_elem%i_ptr, PRODUCT(d(1:5)), ivals%ival)
