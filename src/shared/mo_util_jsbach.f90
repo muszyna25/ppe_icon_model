@@ -1184,8 +1184,7 @@ MODULE mo_jsb_varlist_iface
   USE mo_kind,               ONLY: wp, dp
   USE mo_exception,          ONLY: finish
   USE mo_var_list_register,  ONLY: vlr_get, vlr_add
-  USE mo_var_list, ONLY: add_var_icon => add_var, &
-    & t_var_list_ptr, t_var_list => t_var_list_ptr
+  USE mo_var_list, ONLY: add_var_icon => add_var, t_var_list => t_var_list_ptr
   USE mo_var, ONLY: t_var
   USE mo_name_list_output_config, ONLY: var_in_out => is_variable_in_output
   USE mo_var_groups,         ONLY: groups
@@ -1210,9 +1209,9 @@ MODULE mo_jsb_varlist_iface
 CONTAINS
 
   SUBROUTINE get_var_list(this_list, vlname)
-    TYPE(t_var_list_ptr), INTENT(OUT), POINTER :: this_list
+    TYPE(t_var_list), INTENT(OUT), POINTER :: this_list
     CHARACTER(*), INTENT(IN) :: vlname
-    TYPE(t_var_list_ptr) :: tmp
+    TYPE(t_var_list) :: tmp
 
     NULLIFY(this_list)
     CALL vlr_get(tmp, vlname)
@@ -1224,7 +1223,7 @@ CONTAINS
 
   SUBROUTINE new_var_list(this_list, vname, patch_id, output_type, restart_type, &
        & post_suf, rest_suf, init_suf, loutput, lrestart, linitial, table)
-    TYPE(t_var_list_ptr), POINTER, INTENT(inout) :: this_list    ! anchor
+    TYPE(t_var_list), POINTER, INTENT(inout) :: this_list    ! anchor
     CHARACTER(len=*), INTENT(in)             :: vname         ! name of output var_list
     INTEGER,          INTENT(in)             :: patch_id     ! patch ID
     INTEGER,          INTENT(in), OPTIONAL   :: output_type  ! 'GRIB1', 'GRIB2' or 'NetCDF[12]'
@@ -1265,7 +1264,7 @@ CONTAINS
     in_groups, verbose, new_element                                                     &
     )
 
-    TYPE(t_var_list_ptr),     INTENT(inout)        :: this_list           ! list
+    TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
     REAL(wp),             POINTER              :: ptr(:,:)            ! reference to field
     INTEGER,              INTENT(in)           :: hgrid               ! horizontal grid type
@@ -1338,7 +1337,7 @@ CONTAINS
     in_groups, verbose, new_element                                                     &
     )
 
-    TYPE(t_var_list_ptr),     INTENT(inout)        :: this_list           ! list
+    TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
     REAL(wp),             POINTER              :: ptr(:,:,:)          ! reference to field
     INTEGER,              INTENT(in)           :: hgrid               ! horizontal grid type
