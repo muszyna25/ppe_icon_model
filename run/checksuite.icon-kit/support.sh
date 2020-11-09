@@ -10,14 +10,16 @@ function set_cluster {
      input_folder="/lsdf/kit/imk/projects/icon/TESTSUITE"
      FILETYPE="4" 
      output_folder="${WORK}/TESTSUITE_OUTPUT"
-	   icon_data_poolFolder=/lsdf/kit/imk/projects/icon/INPUT/AMIP/amip_input
+     icon_data_poolFolder=/lsdf/kit/imk/projects/icon/INPUT/AMIP/amip_input
+     aer_opt="${icon_data_poolFolder}"
      ;;
    xfh2*) :
      echo "...FH2  at KIT"; CENTER="IMK"
-     input_folder="/pfs/work6/workspace/scratch/my9453-icon-input-0/TESTSUITE/"
+     input_folder="/lsdf/kit/imk/projects/icon/TESTSUITE"
      FILETYPE="4" 
      output_folder="${WORK}/TESTSUITE_OUTPUT"
-	   icon_data_poolFolder=/pfs/work6/workspace/scratch/my9453-icon-input-0/INPUT/AMIP/amip_input
+     icon_data_poolFolder=/lsdf/kit/imk/projects/icon/INPUT/AMIP/amip_input
+     aer_opt="${icon_data_poolFolder}"
      ;;
    xxce*) :
      echo "...XCE at DWD"; CENTER="DWD"
@@ -55,6 +57,7 @@ function set_cluster {
      input_folder="~/TESTSUITE/"
 	 FILETYPE="4" 
      output_folder="/scratch/b/${USER}/TESTSUITE_OUTPUT/"
+     aer_opt="/pool/data/ICON/grids/private/rene/mpim/independent"
 	 ;;
 
    mlogin*)
@@ -63,6 +66,7 @@ function set_cluster {
 	 FILETYPE="4" 
      output_folder="${SCRATCH}/TESTSUITE_OUTPUT"
 	 icon_data_poolFolder=/pool/data/ICON/grids/private/mpim/icon_preprocessing/source/
+     aer_opt="/pool/data/ICON/grids/private/rene/mpim/independent"
 	 ;;
    *) :
      echo "...unknown HPC" ; exit 202 ;; #(
@@ -153,6 +157,7 @@ cat > $output_script << EOF
 CENTER=$CENTER
 basedir=$ICON_FOLDER
 icon_data_poolFolder=$icon_data_poolFolder
+aer_opt=$aer_opt
 EXPNAME=atm_amip_test_kit
 OUTDIR=$complete_output_folder
 ICONFOLDER=$ICON_FOLDER
