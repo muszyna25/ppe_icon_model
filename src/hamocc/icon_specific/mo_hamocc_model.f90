@@ -15,7 +15,7 @@ MODULE mo_hamocc_model
 
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_master_config,       ONLY: isRestart
-  USE mo_master_control,      ONLY: hamocc_process
+  USE mo_master_control,      ONLY: hamocc_process, get_my_process_name
   USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs, &
        &                            pio_type, num_test_pe
   USE mo_mpi,                 ONLY: set_mpi_work_communicators, process_mpi_io_size, &
@@ -116,8 +116,10 @@ MODULE mo_hamocc_model
   USE mo_ocean_hamocc_interface, ONLY: hamocc_to_ocean_init, hamocc_to_ocean_end, hamocc_to_ocean_interface
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_ocean_math_operators,   ONLY: update_height_hamocc
+
+  USE mo_io_coupling,            ONLY: construct_io_coupler, destruct_io_coupler
   USE mo_icon_output_tools,      ONLY: init_io_processes, prepare_output
-  
+ 
   IMPLICIT NONE
 
   PRIVATE
@@ -216,6 +218,7 @@ MODULE mo_hamocc_model
     
     CALL timer_start(timer_total)
     CALL output_hamocc(jstep, get_OceanCurrentTime_Pointer())
+    
     ! timestep ...
     !-------------------------------------------------------------------------
     TIME_LOOP: DO
@@ -227,7 +230,7 @@ MODULE mo_hamocc_model
       CALL message (TRIM(method_name), message_text)
 
       CALL hamocc_to_ocean_interface()
-      CALL update_height_hamocc( patch_3D, ocean_operators_coefficients, hamocc_ocean_state%ocean_to_hamocc_state%h_old)
+      CALL update_height_hamocc( patch_3D, ocean_operators_coefficients, hamocc_ocean_state%ocean_to_hamocc_state%h_old_withIce)
       CALL tracer_biochemistry_transport(hamocc_ocean_state, ocean_operators_coefficients, current_time)
 
       !-------------------------------------------------------------------------
@@ -253,9 +256,7 @@ MODULE mo_hamocc_model
           CALL restartDescriptor%writeRestart(current_time, jstep)
         END IF
       END IF
-      !-------------------------------------------------------------------------
-      
-      
+      !-------------------------------------------------------------------------            
       IF (isEndOfThisRun()) THEN
         ! leave time loop
         EXIT TIME_LOOP
@@ -263,7 +264,6 @@ MODULE mo_hamocc_model
 
     ENDDO TIME_LOOP
     !-------------------------------------------------------------------------
-     
     CALL timer_stop(timer_total)
     
     CALL deallocateDatetime(current_time)   
@@ -355,6 +355,11 @@ MODULE mo_hamocc_model
       CALL close_name_list_output
       CALL finish_statistics_streams
     ENDIF
+   
+#ifdef YAC_coupling
+     CALL destruct_io_coupler ( get_my_process_name() )
+#endif
+
 
     CALL destruct_icon_communication()
 
@@ -411,6 +416,16 @@ MODULE mo_hamocc_model
     CALL set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs, &
       &  dedicatedRestartProcs, my_comp_id=hamocc_process, num_test_pe=num_test_pe, pio_type=pio_type)
  
+
+#ifdef YAC_coupling
+      ! The initialisation of YAC needs to be called by all (!) MPI processes
+      ! in MPI_COMM_WORLD.
+      ! construct_io_coupler needs to be called before init_name_list_output
+      ! due to calling sequence in subroutine atmo_model for other atmosphere
+      ! processes
+      CALL construct_io_coupler ( get_my_process_name()  )
+#endif
+
     !-------------------------------------------------------------------
     ! 3.2 Initialize various timers
     !-------------------------------------------------------------------

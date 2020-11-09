@@ -124,6 +124,7 @@
 
       USE mo_memory_bgc, ONLY: bgctra, co3, hi, bgctend,  &
  &                         akw3,ak13,ak23,akb3,aksp,satoxy, &
+ &                         akf3,aks3,aksi3,ak1p3,ak2p3,ak3p3, &
  &                         satn2, satn2o, solco2,kbo,bolay,&
 &                          atm
       USE MO_PARAM1_BGC, ONLY: n_bgctra, issso12,         &
@@ -173,6 +174,12 @@
           ak23(jc, jk) = p_tend%ak2(jc,jk,jb)    
           akb3(jc, jk) = p_tend%akb(jc,jk,jb)    
           akw3(jc, jk) = p_tend%akw(jc,jk,jb)    
+          aksi3(jc, jk) = p_tend%aksi(jc,jk,jb)    
+          ak1p3(jc, jk) = p_tend%ak1p(jc,jk,jb)    
+          ak2p3(jc, jk) = p_tend%ak2p(jc,jk,jb)    
+          ak3p3(jc, jk) = p_tend%ak3p(jc,jk,jb)    
+          aks3(jc, jk) = p_tend%aks(jc,jk,jb)  
+          akf3(jc, jk) = p_tend%akf(jc,jk,jb)     
           satoxy(jc, jk) = p_tend%satoxy(jc,jk,jb)    
           bgctend(jc,jk,kh2ob) =  p_tend%h2obudget(jc,jk,jb) 
           bgctend(jc,jk,kn2b) =  p_tend%n2budget(jc,jk,jb) 
@@ -218,6 +225,7 @@
 
       
       USE mo_memory_bgc, ONLY: bgctend, bgcflux, hi, co3, sedfluxo, &
+ &                         aks3, akf3, aksi3, ak1p3, ak2p3, ak3p3, &
  &                         akw3, akb3, aksp, ak13, ak23, satoxy, satn2, &
  &                         satn2o, solco2, atm
 
@@ -316,6 +324,12 @@
              p_tend%akw(jc,jk,jb)    = akw3(jc,jk) 
              p_tend%ak1(jc,jk,jb)    = ak13(jc,jk) 
              p_tend%ak2(jc,jk,jb)    = ak23(jc,jk) 
+             p_tend%aks(jc,jk,jb)    = aks3(jc,jk) 
+             p_tend%akf(jc,jk,jb)    = akf3(jc,jk) 
+             p_tend%ak1p(jc,jk,jb)   = ak1p3(jc,jk) 
+             p_tend%ak2p(jc,jk,jb)   = ak2p3(jc,jk)
+             p_tend%ak3p(jc,jk,jb)   = ak3p3(jc,jk)
+             p_tend%aksi(jc,jk,jb)   = aksi3(jc,jk)
              p_tend%aksp(jc,jk,jb)   = aksp(jc,jk) 
              p_tend%flim(jc,jk,jb) = bgctend(jc,jk,kflim)
              p_tend%nlim(jc,jk,jb) = bgctend(jc,jk,knlim)

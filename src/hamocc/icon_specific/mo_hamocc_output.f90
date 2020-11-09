@@ -1382,6 +1382,48 @@
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
       & loutput=.TRUE., lrestart=.FALSE.)
 
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_aksi',hamocc_state_tend%aksi,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('aksi','','dissociation constant silicic acid', datatype_flt,'aksi'), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_aks',hamocc_state_tend%aks,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('aks','','dissociation constant hydrogen sulfate', datatype_flt,'aks'), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_akf',hamocc_state_tend%akf,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('akf','','dissociation constant hydrogen fluoride', datatype_flt,'akf'), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_ak1p',hamocc_state_tend%ak1p,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('ak1p','','dissociation constant 1 for phosphoric acid', datatype_flt,'ak1p'), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_ak2p',hamocc_state_tend%ak2p,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('ak2p','','dissociation constant 2 for phosphoric acid', datatype_flt,'ak2p'), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_ak3p',hamocc_state_tend%ak3p,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('ak3p','','dissociation constant 3 for phosphoric acid', datatype_flt,'ak3p'), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
     CALL add_var(hamocc_tendency_list, 'HAMOCC_satoxy',hamocc_state_tend%satoxy,    &
       & grid_unstructured_cell, za_depth_below_sea,&
       & t_cf_var('satoxy','','O2 at saturation', datatype_flt,'satoxy'), &
