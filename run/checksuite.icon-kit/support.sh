@@ -234,6 +234,7 @@ cat > job_ICON << ENDFILE
 #SBATCH --time=$2
 #SBATCH --ntasks-per-node=20
 #SBATCH --partition=$4
+#SBATCH --constraint=LSDF
 
 export LD_LIBRARY_PATH=\${LD_LIBRARY_PATH}:/software/community/ICON/lib/szip/szip/lib:/software/community/ICON/lib/eccodes/2.12.0_ifort19/lib
 export ECCODES_DEFINITION_PATH=/software/community/ICON/lib/eccodes/2.12.0_ifort19/share/eccodes/dwd_definitions/:/software/community/ICON/lib/eccodes/2.12.0_ifort19/share/eccodes/definitions
