@@ -555,7 +555,7 @@ AS_VAR_IF([enable_rte_rrtmgp], [no],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_RTE_RRTMGP__"])])
 
 AS_VAR_IF([enable_rttov], [yes],
-  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__USE_RTTOV ${FC_PP_DEF}RTTOV12 ${FC_PP_DEF}__RTTOV12 ${FC_PP_DEF}HAVE_MPI_MOD"])])
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__USE_RTTOV ${FC_PP_DEF}_RTTOV_VERSION=13 ${FC_PP_DEF}HAVE_MPI_MOD"])])
 
 AS_VAR_IF([enable_art], [yes],
   [AS_VAR_APPEND([FCFLAGS],

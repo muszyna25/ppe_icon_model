@@ -80,7 +80,7 @@ MODULE mo_nh_stepping
     &                                    timer_total, timer_model_init, timer_nudging,    &
     &                                    timer_bdy_interp, timer_feedback, timer_nesting, &
     &                                    timer_integrate_nh, timer_nh_diagnostics,        &
-    &                                    timer_iconam_echam
+    &                                    timer_iconam_echam, timer_dace_coupling
   USE mo_atm_phy_nwp_config,       ONLY: dt_phy, atm_phy_nwp_config, iprog_aero, setup_nwp_diag_events
   USE mo_ensemble_pert_config,     ONLY: compute_ensemble_pert, use_ensemble_pert
   USE mo_nwp_phy_init,             ONLY: init_nwp_phy, init_cloud_aero_cpl
@@ -601,10 +601,14 @@ MODULE mo_nh_stepping
                CALL aggr_landvars
           IF (.NOT. dace_op_init) THEN
              CALL message('perform_nh_stepping','calling init_dace_op before run_dace_op')
+             IF (timers_level > 4) CALL timer_start(timer_dace_coupling)
              IF (my_process_is_work_only()) CALL init_dace_op ()
+             IF (timers_level > 4) CALL timer_stop(timer_dace_coupling)
           END IF
           CALL message('perform_nh_stepping','calling run_dace_op')
+          IF (timers_level > 4) CALL timer_start(timer_dace_coupling)
           IF (my_process_is_work_only()) CALL run_dace_op (mtime_current)
+          IF (timers_level > 4) CALL timer_stop(timer_dace_coupling)
        END IF
     END IF
 
@@ -1363,14 +1367,18 @@ MODULE mo_nh_stepping
           IF (sim_time > 0._wp .OR. iau_iter == 1) THEN
              IF (.NOT. dace_op_init) THEN
                 CALL message('perform_nh_timeloop','calling init_dace_op before run_dace_op')
+                IF (timers_level > 4) CALL timer_start(timer_dace_coupling)
                 IF (my_process_is_work_only()) CALL init_dace_op ()
+                IF (timers_level > 4) CALL timer_stop(timer_dace_coupling)
              END IF
              IF (sim_time == 0._wp) THEN
                 CALL message('perform_nh_timeloop','calling run_dace_op for sim_time=0')
              ELSE
                 CALL message('perform_nh_timeloop','calling run_dace_op')
              END IF
+             IF (timers_level > 4) CALL timer_start(timer_dace_coupling)
              IF (my_process_is_work_only()) CALL run_dace_op (mtime_current)
+             IF (timers_level > 4) CALL timer_stop(timer_dace_coupling)
           END IF
        END IF
     END IF

@@ -19,7 +19,7 @@ USE mtime,                   ONLY: datetimeToString, OPERATOR(>)
 USE mo_fortran_tools,        ONLY: copy, init
 USE mo_impl_constants,       ONLY: SUCCESS, max_dom, inwp, iecham
 USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, timer_init_latbc, &
-  &                                timer_model_init, timer_init_icon, timer_read_restart
+  &                                timer_model_init, timer_init_icon, timer_read_restart, timer_init_dace
 USE mo_master_config,        ONLY: isRestart
 USE mo_time_config,          ONLY: time_config
 USE mo_load_restart,         ONLY: read_restart_files
@@ -263,7 +263,9 @@ CONTAINS
 
     ! Initialize DACE routines
     IF (assimilation_config(1)% dace_coupling) then
+      IF (timers_level > 4) CALL timer_start(timer_init_dace)
       CALL init_dace (comm=p_comm_work_only, p_io=0, ldetached=.NOT.my_process_is_work_only())
+      IF (timers_level > 4) CALL timer_stop(timer_init_dace)
     END IF
 
     IF (iforcing == inwp) THEN
