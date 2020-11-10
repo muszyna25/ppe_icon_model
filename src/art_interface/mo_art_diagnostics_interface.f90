@@ -42,7 +42,7 @@ MODULE mo_art_diagnostics_interface
   USE mo_art_diag_state,                ONLY: art_create_diagnostics
   USE mo_art_diagnostics,               ONLY: art_volc_diagnostics, art_radio_diagnostics
   USE mo_art_clipping,                  ONLY: art_clip_lt
-  USE mo_art_read_pol_oper,             ONLY: art_read_pol_oper
+!  USE mo_art_read_pol_oper,             ONLY: art_read_pol_oper
   USE mo_art_modes_linked_list,         ONLY: p_mode_state, t_mode
   USE mo_art_modes,                     ONLY: t_fields_2mom
 
@@ -74,8 +74,8 @@ SUBROUTINE art_diagnostics_interface_init(jg, this_list, p_prog_list)
 
     CALL art_create_diagnostics(jg, this_list, p_prog_list)
 
-    ! read in variable pollen diagnostics
-    IF (art_config(jg)%iart_pollen > 0) CALL art_read_pol_oper(jg)
+!    ! read in variable pollen diagnostics
+!    IF (art_config(jg)%iart_pollen > 0) CALL art_read_pol_oper(jg)
 
     IF (timers_level > 3) CALL timer_stop(timer_art_diagInt)
     IF (timers_level > 3) CALL timer_stop(timer_art)
