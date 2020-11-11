@@ -1091,7 +1091,7 @@ CONTAINS
           END IF
           !
           IF (ASSOCIATED(tend% qtrc_vdf )) THEN
-            !$ACC DATA PRESENT( tend%qtrc_vdf, tend_qtrc_vdf )
+            !$ACC DATA PRESENT( tend%qtrc_vdf, tend_qtrc_vdf, tend_qtrc_vdf_iqt )
             !$ACC PARALLEL DEFAULT(PRESENT)
             !$ACC LOOP GANG
             DO jk = 1,nlev
