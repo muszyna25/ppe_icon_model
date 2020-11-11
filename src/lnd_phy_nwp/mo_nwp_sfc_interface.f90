@@ -542,26 +542,6 @@ CONTAINS
         i_count = ext_data%atm%gp_count_t(jb,isubs) 
 
         IF (i_count == 0) CYCLE ! skip loop if the index list for the given tile is empty
-#ifdef _OPENACC
-      !$acc enter data create (soiltyp_t, plcov_t, rootdp_t, sai_t, eai_t, tai_t, laifac_t,      &
-      !$acc                    skinc_t, rsmin2d_t, u_t, v_t, t_t, qv_t, p0_t, ps_t, h_snow_gp_t, &
-      !$acc                    u_10m_t, v_10m_t, prr_con_t, prs_con_t, conv_frac, prr_gsp_t,     &
-      !$acc                    prs_gsp_t, prg_gsp_t, sobs_t, thbs_t, pabs_t, tsnred,             &
-      !$acc                    t_snow_now_t, t_s_now_t, t_sk_now_t, t_g_t, qv_s_t, w_snow_now_t, &
-      !$acc                    rho_snow_now_t, h_snow_t, w_i_now_t, w_p_now_t, w_s_now_t,        &
-      !$acc                    freshsnow_t, snowfrac_t, tch_t, tcm_t, tfv_t, runoff_s_inst_t,    &
-      !$acc                    runoff_g_inst_t, t_snow_mult_now_t, rho_snow_mult_now_t,          &
-      !$acc                    wliq_snow_now_t, wtot_snow_now_t, dzh_snow_now_t, t_so_now_t,     &
-      !$acc                    w_so_now_t, w_so_ice_now_t, t_snow_new_t, t_s_new_t, t_sk_new_t,  &
-      !$acc                    w_snow_new_t, rho_snow_new_t, meltrate, w_i_new_t, w_p_new_t,     &
-      !$acc                    w_s_new_t, shfl_soil_t, lhfl_soil_t, shfl_snow_t, lhfl_snow_t,    &
-      !$acc                    rstom_t, lhfl_bs_t, t_snow_mult_new_t, rho_snow_mult_new_t,       &
-      !$acc                    wliq_snow_new_t, wtot_snow_new_t, dzh_snow_new_t, t_so_new_t,     &
-      !$acc                    w_so_new_t, w_so_ice_new_t, lhfl_pl_t, shfl_s_t, lhfl_s_t,        &
-      !$acc                    qhfl_s_t, plevap_t, z0_t, sso_sigma_t,                            &
-      !$acc                    snowfrac_lcu_t, lc_class_t),                                      &
-      !$acc if(lzacc)
-#endif
 
 
 !$NEC ivdep
@@ -1397,20 +1377,6 @@ CONTAINS
         &             lnd_prog_now, lnd_prog_new, ext_data, lnd_diag, tcall_sfc_jg)
     ENDIF
 
-#ifdef _OPENACC
-    IF(lzacc .AND. lseaice) THEN
-      CALL message('mo_nwp_sfc_interface', 'host to device copy after seaice. This needs to be removed once port is finished!')
-      CALL gpu_h2d_nh_nwp(p_patch, prm_diag)
-    ENDIF
-#endif
-
-#ifdef _OPENACC
-    IF(lzacc .AND. llake) THEN
-      CALL message('mo_nwp_sfc_interface', 'Device to host copy before flake. This needs to be removed once port is finished!')
-      CALL gpu_d2h_nh_nwp(p_patch, prm_diag)
-    ENDIF
-#endif
-
     !
     ! Call fresh water lake model (Flake)
     !
@@ -1517,7 +1483,6 @@ CONTAINS
            ENDDO  ! jc
            !$acc loop gang vector collapse(2)
            DO jk=1,nlev_soil
-             !$acc loop 
              DO jc = i_startidx, i_endidx
                prm_diag%lhfl_pl(jc,jk,jb) = prm_diag%lhfl_pl(jc,jk,jb) + ext_data%atm%frac_t(jc,jb,isubs) &
                  &      * ext_data%atm%inv_frland_from_tiles(jc,jb) * prm_diag%lhfl_pl_t(jc,jk,jb,isubs)
