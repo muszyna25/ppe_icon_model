@@ -534,7 +534,7 @@ EOF
 else
 cat > $master_namelist << EOF
 &master_nml
- lrestart            = $restart
+ lrestart            = .true.
  read_restart_namelists = $read_restart_namelists
 /
 &master_time_control_nml
