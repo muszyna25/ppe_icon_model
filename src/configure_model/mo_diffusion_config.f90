@@ -98,7 +98,7 @@ MODULE mo_diffusion_config
   END TYPE t_diffusion_config
   !>
   !!
-  TYPE(t_diffusion_config),TARGET :: diffusion_config(max_dom)
+  TYPE(t_diffusion_config),SAVE :: diffusion_config(max_dom)
 
 CONTAINS
   !>
@@ -112,11 +112,11 @@ CONTAINS
     REAL(WP),INTENT(IN) :: vct_a(nlev+1), vct_b(nlev+1), apzero
 
     INTEGER  :: jg, jk, jgp
-    REAL(wp) :: zpres(nlev+1)
+    REAL(wp) :: zpres(nlev+1), tmp
 
-    REAL(wp),POINTER :: k2_pres_max
-    INTEGER, POINTER :: k2_klev_max
-    INTEGER, POINTER :: ik2s, ik2e, ik4s, ik4e
+    REAL(wp) :: k2_pres_max
+    INTEGER  :: k2_klev_max
+    INTEGER  :: ik2s, ik2e, ik4s, ik4e
 
     CHARACTER(len=*), PARAMETER :: &
       routine = 'mo_diffusion_config:configure_diffusion'
@@ -130,12 +130,12 @@ CONTAINS
       IF (  diffusion_config(jg)%hdiff_order==24 .OR. &
          &  diffusion_config(jg)%hdiff_order==42) THEN
 
-        k2_pres_max => diffusion_config(jg)% k2_pres_max
-        k2_klev_max => diffusion_config(jg)% k2_klev_max
-        ik2s        => diffusion_config(jg)% ik2s
-        ik2e        => diffusion_config(jg)% ik2e
-        ik4s        => diffusion_config(jg)% ik4s
-        ik4e        => diffusion_config(jg)% ik4e
+        k2_pres_max = diffusion_config(jg)% k2_pres_max
+        k2_klev_max = diffusion_config(jg)% k2_klev_max
+        ik2s        = diffusion_config(jg)% ik2s
+        ik2e        = diffusion_config(jg)% ik2e
+        ik4s        = diffusion_config(jg)% ik4s
+        ik4e        = diffusion_config(jg)% ik4e
         
         CALL message('','')
         WRITE(message_text,'(a,i2.2)') '----- horizontal diffusion on grid level ', jg
@@ -183,6 +183,7 @@ CONTAINS
             CALL print_value('half level pressure (+) = ', zpres(k2_klev_max+1))
   
           END IF ! k2_pres_max search
+          diffusion_config(jg)%k2_klev_max = k2_klev_max  ! Update
         END IF   ! k2_pres_max >0
 
         ! If the user didn't specifiy a pressure value, then use the 
@@ -192,6 +193,10 @@ CONTAINS
         ik2e = k2_klev_max
         ik4s = k2_klev_max +1
         ik4e = nlev
+        diffusion_config(jg)%ik2s = ik2s
+        diffusion_config(jg)%ik2e = ik2e
+        diffusion_config(jg)%ik4s = ik4s
+        diffusion_config(jg)%ik4e = ik4e
 
         ! Inform the user about the configuration
 
@@ -229,11 +234,15 @@ CONTAINS
 
     ELSE
 
-      diffusion_config(1)%k2 = 1._wp/ (diffusion_config(1)%hdiff_efdt_ratio*8._wp)
-      diffusion_config(1)%k4 = 1._wp/ (diffusion_config(1)%hdiff_efdt_ratio*64._wp)
-      diffusion_config(1)%k6 = 1._wp/ (diffusion_config(1)%hdiff_efdt_ratio*512._wp)
+      tmp = 1._wp/(diffusion_config(1)%hdiff_efdt_ratio*8._wp)
+      diffusion_config(1)%k2 = tmp
+      tmp = 1._wp/(diffusion_config(1)%hdiff_efdt_ratio*64._wp)
+      diffusion_config(1)%k4 = tmp
+      tmp = 1._wp/(diffusion_config(1)%hdiff_efdt_ratio*512._wp)
+      diffusion_config(1)%k6 = tmp
   
-      diffusion_config(:)%k4w = 1._wp/(diffusion_config(1)%hdiff_w_efdt_ratio*36._wp)
+      tmp = 1._wp/(diffusion_config(1)%hdiff_w_efdt_ratio*36._wp)
+      diffusion_config(:)%k4w = tmp
 
       DO jg = 2, n_dom
 

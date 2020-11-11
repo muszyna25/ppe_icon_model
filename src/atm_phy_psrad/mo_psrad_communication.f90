@@ -31,8 +31,7 @@ MODULE mo_psrad_communication
   USE mpi
   USE mo_mpi,                      ONLY: get_mpi_work_intercomm, p_pe_work, &
                                          get_my_global_mpi_communicator
-  USE yaxt,                        ONLY: xt_initialize, xt_initialized, &
-                                         xt_redist, xt_redist_collection_new, &
+  USE yaxt,                        ONLY: xt_redist, xt_redist_collection_new, &
                                          xt_redist_p2p_ext_new, xt_redist_p2p_new, &
                                          xt_offset_ext, xt_redist_p2p_off_new, &
                                          xt_redist_delete, xt_redist_s_exchange, &
@@ -94,18 +93,19 @@ CONTAINS
 
     TYPE(xt_redist) :: atmo_2_psrad_redist_int
     TYPE(xt_redist) :: atmo_2_psrad_redist_int_2d
+    TYPE(xt_redist) :: atmo_2_psrad_redist_logical
     TYPE(xt_redist) :: atmo_2_psrad_redist_logical_2d
     TYPE(xt_redist) :: atmo_2_psrad_redist_wp
     TYPE(xt_redist) :: atmo_2_psrad_redist_wp_nbndsw
     TYPE(xt_redist) :: atmo_2_psrad_redist_wp_2d
-    TYPE(xt_redist) :: atmo_2_psrad_redist_wp_3d
+    TYPE(xt_redist) :: atmo_2_psrad_redist_wp_3d       ! variables with nlev
     TYPE(xt_redist) :: atmo_2_psrad_redist_wp_3d_cfc
-    TYPE(xt_redist) :: atmo_2_psrad_redist_wp_3d_layer
+    TYPE(xt_redist) :: atmo_2_psrad_redist_wp_3d_layer ! variables with nlev+1 
     TYPE(xt_redist) :: psrad_2_atmo_redist_int_2d
     TYPE(xt_redist) :: psrad_2_atmo_redist_logical_2d
     TYPE(xt_redist) :: psrad_2_atmo_redist_wp_2d
-    TYPE(xt_redist) :: psrad_2_atmo_redist_wp_3d
-    TYPE(xt_redist) :: psrad_2_atmo_redist_wp_3d_layer
+    TYPE(xt_redist) :: psrad_2_atmo_redist_wp_3d       ! variables with nlev  
+    TYPE(xt_redist) :: psrad_2_atmo_redist_wp_3d_layer ! variables with nlev+1
 
     INTEGER :: ierr
 
@@ -223,6 +223,8 @@ CONTAINS
     psrad_2_atmo_redist_int_2d = &
       xt_redist_p2p_off_new( &
         psrad_2_atmo_xmap_2d, offsets, offsets, MPI_INTEGER)
+    atmo_2_psrad_redist_logical = &
+      xt_redist_p2p_new(atmo_2_psrad_xmap_bcast, MPI_LOGICAL)
     atmo_2_psrad_redist_logical_2d = &
       xt_redist_p2p_off_new( &
         atmo_2_psrad_xmap_2d, offsets, offsets, MPI_LOGICAL)
@@ -260,6 +262,7 @@ CONTAINS
 
     exchange_redist_atmo_2_psrad = &
       xt_redist_collection_new((/atmo_2_psrad_redist_int, & !< aerosol control
+                                 atmo_2_psrad_redist_logical, & !< aerosol diagnostic control
                                  atmo_2_psrad_redist_int, & !< number of levels
                                  atmo_2_psrad_redist_int_2d, & ! convection_type
                                  atmo_2_psrad_redist_wp, & !< orbit and time dependent solar constant for radiation time step
@@ -294,16 +297,17 @@ CONTAINS
                                  atmo_2_psrad_redist_wp_3d, & ! o3
                                  atmo_2_psrad_redist_wp_3d/), & ! o2
                                psrad_atm_intercomm)
-
     exchange_redist_psrad_2_atmo = &
-      xt_redist_collection_new((/psrad_2_atmo_redist_wp_3d_layer, & ! Clear-sky downwelling_longwave_flux_in_air
-                                 psrad_2_atmo_redist_wp_3d_layer, & ! Clear-sky upwelling_longwave_flux_in_air
-                                 psrad_2_atmo_redist_wp_3d_layer, & ! Clear-sky downwelling_shortwave_flux_in_air_assuming_clear_sky
-                                 psrad_2_atmo_redist_wp_3d_layer, & ! Clear-sky upwelling_shortwave_flux_in_air
-                                 psrad_2_atmo_redist_wp_3d_layer, & ! All-sky downwelling_longwave_flux_in_air
-                                 psrad_2_atmo_redist_wp_3d_layer, & ! All-sky upwelling_longwave_flux_in_air
-                                 psrad_2_atmo_redist_wp_3d_layer, & ! All-sky downwelling_shortwave_flux_in_air_assuming_clear_sky
-                                 psrad_2_atmo_redist_wp_3d_layer, & ! All-sky upwelling_shortwave_flux_in_air
+      xt_redist_collection_new((/psrad_2_atmo_redist_wp_3d_layer, & ! Clear-sky downwelling_longwave_flux_in_air on nlev+1 levels
+                                 psrad_2_atmo_redist_wp_3d_layer, & ! Clear-sky upwelling_longwave_flux_in_air on nlev+1 levels
+                                 psrad_2_atmo_redist_wp_3d_layer, & ! Clear-sky 
+     !downwelling_shortwave_flux_in_air_assuming_clear_sky on nlev+1 levels
+                                 psrad_2_atmo_redist_wp_3d_layer, & ! Clear-sky upwelling_shortwave_flux_in_air on nlev+1 levels
+                                 psrad_2_atmo_redist_wp_3d_layer, & ! All-sky downwelling_longwave_flux_in_air on nlev+1 levels
+                                 psrad_2_atmo_redist_wp_3d_layer, & ! All-sky upwelling_longwave_flux_in_air on nlev+1 levels
+                                 psrad_2_atmo_redist_wp_3d_layer, & ! All-sky 
+     !downwelling_shortwave_flux_in_air_assuming_clear_sky on nlev+1 levels
+                                 psrad_2_atmo_redist_wp_3d_layer, & ! All-sky upwelling_shortwave_flux_in_air on nlev+1 levels
                                  psrad_2_atmo_redist_wp_2d, & ! surface_downwelling_direct_visible_flux_in_air_at_rad_time
                                  psrad_2_atmo_redist_wp_2d, & ! surface_downwelling_direct_par_flux_in_air_at_rad_time
                                  psrad_2_atmo_redist_wp_2d, & ! surface_downwelling_direct_nearir_flux_in_air_at_rad_time
@@ -312,12 +316,21 @@ CONTAINS
                                  psrad_2_atmo_redist_wp_2d, & ! surface_downwelling_diffuse_nearir_flux_in_air_at_rad_time
                                  psrad_2_atmo_redist_wp_2d, & ! surface_upwelling_visible_flux_in_air_at_rad_time
                                  psrad_2_atmo_redist_wp_2d, & ! surface_upwelling_par_flux_in_air_at_rad_time
-                                 psrad_2_atmo_redist_wp_2d/), & ! surface_upwelling_nearir_flux_in_air_at_rad_time
+                                 psrad_2_atmo_redist_wp_2d, & ! surface_upwelling_nearir_flux_in_air_at_rad_time
+                                 psrad_2_atmo_redist_wp_3d, & ! aerosol optical depth at 533 nm on nlev layers (levels)
+                                 psrad_2_atmo_redist_wp_3d, & ! aerosol single scattering albedo at 533 nm on nlev layers (levels)
+                                 psrad_2_atmo_redist_wp_3d, & ! aerosol asymmetry factor at 533 nm on nlev layers (levels)
+                                 psrad_2_atmo_redist_wp_3d, & ! aerosol optical depth at 2325 nm on nlev layers (levels)
+                                 psrad_2_atmo_redist_wp_3d, & ! aerosol single scattering albedo at 2325 nm on nlev layers (levels)
+                                 psrad_2_atmo_redist_wp_3d, & ! aerosol asymmetry factor at 2325 nm on nlev layers (levels)
+                                 psrad_2_atmo_redist_wp_3d  & ! aerosol optical depth at 9731 nm on nlev layers (levels)
+                                                            & /), &
                                psrad_atm_intercomm)
 
     ! clean up
     CALL xt_redist_delete(atmo_2_psrad_redist_int)
     CALL xt_redist_delete(atmo_2_psrad_redist_int_2d)
+    CALL xt_redist_delete(atmo_2_psrad_redist_logical)
     CALL xt_redist_delete(atmo_2_psrad_redist_logical_2d)
     CALL xt_redist_delete(atmo_2_psrad_redist_wp)
     CALL xt_redist_delete(atmo_2_psrad_redist_wp_nbndsw)
@@ -359,8 +372,9 @@ CONTAINS
 
     INTEGER :: i
 
-    IF (.NOT. xt_initialized()) &
-      CALL xt_initialize(get_my_global_mpi_communicator())
+    ! done when setting-up the mpi communicators
+!     IF (.NOT. xt_initialized()) &
+!       CALL xt_initialize(get_my_global_mpi_communicator())
 
     ALLOCATE(exchange_redist_atmo_2_psrad(n_dom_start:n_dom), &
              exchange_redist_psrad_2_atmo(n_dom_start:n_dom))
@@ -418,6 +432,7 @@ CONTAINS
 
   SUBROUTINE exchange_data_atmo_2_psrad(idom, &
                                         irad_aero, &
+                                        lrad_aero_diag, &
                                         klev, &
                                         ktype, &
                                         psctm, &
@@ -468,8 +483,9 @@ CONTAINS
     !LOGICAL,INTENT(INOUT) ::   &
     TYPE(c_ptr), INTENT(IN) ::  &
          loland,                & !< land sea mask, land=.true.
-         loglac                   !< glacier mask, glacier=.true.
-
+         loglac,                & !< glacier mask, glacier=.true.
+         lrad_aero_diag
+    
     !REAL(WP),INTENT(INOUT)  :: &
     TYPE(c_ptr), INTENT(IN)  :: &
          pcos_mu0,     & !< mu0 for solar zenith angle
@@ -500,42 +516,43 @@ CONTAINS
          xm_o3,      & !< o3  mass in kg/m2
          xm_o2       !< o2  mass in kg/m2
 
-    TYPE(c_ptr) :: src_data_cptr(34), dst_data_cptr(34)
+    TYPE(c_ptr) :: src_data_cptr(35), dst_data_cptr(35)
 
     src_data_cptr( 1) = irad_aero
-    src_data_cptr( 2) = klev
-    src_data_cptr( 3) = ktype
-    src_data_cptr( 4) = psctm
-    src_data_cptr( 5) = ssi_factor
-    src_data_cptr( 6) = loland
-    src_data_cptr( 7) = loglac
-    src_data_cptr( 8) = pcos_mu0
-    src_data_cptr( 9) = daylght_frc
-    src_data_cptr(10) = alb_vis_dir
-    src_data_cptr(11) = alb_nir_dir
-    src_data_cptr(12) = alb_vis_dif
-    src_data_cptr(13) = alb_nir_dif
-    src_data_cptr(14) = emissivity
-    src_data_cptr(15) = zf
-    src_data_cptr(16) = zh
-    src_data_cptr(17) = dz
-    src_data_cptr(18) = pp_sfc
-    src_data_cptr(19) = pp_fl
-    src_data_cptr(20) = tk_sfc
-    src_data_cptr(21) = tk_fl
-    src_data_cptr(22) = tk_hl
-    src_data_cptr(23) = xm_dry
-    src_data_cptr(24) = xm_vap
-    src_data_cptr(25) = xm_liq
-    src_data_cptr(26) = xm_ice
-    src_data_cptr(27) = cdnc
-    src_data_cptr(28) = xc_frc
-    src_data_cptr(29) = xm_co2
-    src_data_cptr(30) = xm_ch4
-    src_data_cptr(31) = xm_n2o
-    src_data_cptr(32) = xm_cfc
-    src_data_cptr(33) = xm_o3
-    src_data_cptr(34) = xm_o2
+    src_data_cptr( 2) = lrad_aero_diag
+    src_data_cptr( 3) = klev
+    src_data_cptr( 4) = ktype
+    src_data_cptr( 5) = psctm
+    src_data_cptr( 6) = ssi_factor
+    src_data_cptr( 7) = loland
+    src_data_cptr( 8) = loglac
+    src_data_cptr( 9) = pcos_mu0
+    src_data_cptr(10) = daylght_frc
+    src_data_cptr(11) = alb_vis_dir
+    src_data_cptr(12) = alb_nir_dir
+    src_data_cptr(13) = alb_vis_dif
+    src_data_cptr(14) = alb_nir_dif
+    src_data_cptr(15) = emissivity
+    src_data_cptr(16) = zf
+    src_data_cptr(17) = zh
+    src_data_cptr(18) = dz
+    src_data_cptr(19) = pp_sfc
+    src_data_cptr(20) = pp_fl
+    src_data_cptr(21) = tk_sfc
+    src_data_cptr(22) = tk_fl
+    src_data_cptr(23) = tk_hl
+    src_data_cptr(24) = xm_dry
+    src_data_cptr(25) = xm_vap
+    src_data_cptr(26) = xm_liq
+    src_data_cptr(27) = xm_ice
+    src_data_cptr(28) = cdnc
+    src_data_cptr(29) = xc_frc
+    src_data_cptr(30) = xm_co2
+    src_data_cptr(31) = xm_ch4
+    src_data_cptr(32) = xm_n2o
+    src_data_cptr(33) = xm_cfc
+    src_data_cptr(34) = xm_o3
+    src_data_cptr(35) = xm_o2
 
     dst_data_cptr = src_data_cptr
 
@@ -567,20 +584,28 @@ CONTAINS
                                         nir_dn_dff_sfc, &
                                         vis_up_sfc, &
                                         par_up_sfc, &
-                                        nir_up_sfc)
+                                        nir_up_sfc, &
+                                        aer_aod_533 , &
+                                        aer_ssa_533 , &
+                                        aer_asy_533 , &
+                                        aer_aod_2325, &
+                                        aer_ssa_2325, &
+                                        aer_asy_2325, &
+                                        aer_aod_9731  &
+                                        )
 
     INTEGER, INTENT(IN) :: idom
 
     !REAL(wp), INTENT(INOUT)   :: &
     TYPE(c_ptr), INTENT(IN)  :: &
-         lw_upw,    & !< All-sky   upward   longwave  at all levels
-         lw_upw_clr,& !< Clear-sky upward   longwave  at all levels
-         lw_dnw,    & !< All-sky   downward longwave  at all levels
-         lw_dnw_clr,& !< Clear-sky downward longwave  at all levels
-         sw_upw,    & !< All-sky   upward   shortwave at all levels
-         sw_upw_clr,& !< Clear-sky upward   shortwave at all levels
-         sw_dnw,    & !< All-sky   downward shortwave at all levels
-         sw_dnw_clr   !< Clear-sky downward shortwave at all levels
+         lw_upw,    & !< All-sky   upward   longwave  at all levels (nlev+1)
+         lw_upw_clr,& !< Clear-sky upward   longwave  at all levels (nlev+1) 
+         lw_dnw,    & !< All-sky   downward longwave  at all levels (nlev+1)
+         lw_dnw_clr,& !< Clear-sky downward longwave  at all levels (nlev+1)
+         sw_upw,    & !< All-sky   upward   shortwave at all levels (nlev+1)
+         sw_upw_clr,& !< Clear-sky upward   shortwave at all levels (nlev+1)
+         sw_dnw,    & !< All-sky   downward shortwave at all levels (nlev+1)
+         sw_dnw_clr   !< Clear-sky downward shortwave at all levels (nlev+1)
 
     !REAL(wp), INTENT(INOUT) :: &
     TYPE(c_ptr), INTENT(IN)  :: &
@@ -592,9 +617,16 @@ CONTAINS
          nir_dn_dff_sfc, & !< Direct  downward flux surface near-infrared radiation
          vis_up_sfc,     & !< Upward  flux surface visible radiation
          par_up_sfc,     & !< Upward  flux surface PAR
-         nir_up_sfc        !< Upward  flux surface near-infrared radiation
+         nir_up_sfc,     & !< Upward  flux surface near-infrared radiation
+         aer_aod_533,    & !< Aerosol optical density at 533 nm (nlev levels)
+         aer_ssa_533,    & !< Single scattering albedo at 533 nm (nlev levels)
+         aer_asy_533,    & !< Asymmetry factor at 533 nm (nlev levels)
+         aer_aod_2325,   & !< Aerosol optical density at 2325 nm (nlev levels)
+         aer_ssa_2325,   & !< Single scattering albedo at 2325 nm (nlev levels)
+         aer_asy_2325,   & !< Asymmetry factor at 2325 nm (nlev levels)
+         aer_aod_9731      !< Aerosol optical density at 9731 nm (nlev levels)
 
-    TYPE(c_ptr) :: src_data_cptr(17), dst_data_cptr(17)
+    TYPE(c_ptr) :: src_data_cptr(24), dst_data_cptr(24)
 
     src_data_cptr( 1) = lw_upw
     src_data_cptr( 2) = lw_upw_clr
@@ -613,11 +645,19 @@ CONTAINS
     src_data_cptr(15) = vis_up_sfc
     src_data_cptr(16) = par_up_sfc
     src_data_cptr(17) = nir_up_sfc
+    src_data_cptr(18) = aer_aod_533
+    src_data_cptr(19) = aer_ssa_533
+    src_data_cptr(20) = aer_asy_533
+    src_data_cptr(21) = aer_aod_2325
+    src_data_cptr(22) = aer_ssa_2325
+    src_data_cptr(23) = aer_asy_2325
+    src_data_cptr(24) = aer_aod_9731
     dst_data_cptr = src_data_cptr
 
 #ifdef USE_PSRAD_COMMUNICATION
     CALL xt_redist_s_exchange(exchange_redist_psrad_2_atmo(idom), &
                               src_data_cptr, dst_data_cptr)
+
 #else
     CALL finish("exchange_data_atmo_2_psrad", " Requires the YAXT library")
 #endif

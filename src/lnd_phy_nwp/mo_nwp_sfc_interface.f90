@@ -30,12 +30,12 @@ MODULE mo_nwp_sfc_interface
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_ext_data_types,      ONLY: t_external_data
-  USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag 
+  USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE mo_nwp_phy_state,       ONLY: phy_params
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: iqv, msg_level
+  USE mo_run_config,          ONLY: iqv, iqi, msg_level
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, ibot_w_so, ntiles_total,    &
     &                               ntiles_water, lseaice, llake, lmulti_snow,        &
@@ -51,7 +51,7 @@ MODULE mo_nwp_sfc_interface
   USE sfc_flake_data,         ONLY: h_Ice_min_flk
   USE sfc_seaice,             ONLY: seaice_timestep_nwp
   USE sfc_terra_data                ! soil and vegetation parameters for TILES
-  USE mo_physical_constants,  ONLY: tmelt, grav, salinity_fac
+  USE mo_physical_constants,  ONLY: tmelt, grav, salinity_fac, rhoh2o
   USE mo_nwp_gpu_util,        ONLY: gpu_d2h_nh_nwp, gpu_h2d_nh_nwp
 
   IMPLICIT NONE 
@@ -76,8 +76,8 @@ CONTAINS
   SUBROUTINE nwp_surface( tcall_sfc_jg,                   & !>in
                         & p_patch,                        & !>in
                         & ext_data,                       & !>in
-                        & p_prog_rcf,                     & !>in/inout
-                        & p_diag ,                        & !>inout
+                        & p_prog, p_prog_rcf,             & !>in/inout
+                        & p_diag, p_metrics,              & !>inout
                         & prm_diag,                       & !>inout 
                         & lnd_prog_now, lnd_prog_new,     & !>inout
                         & p_prog_wtr_now, p_prog_wtr_new, & !>inout
@@ -86,8 +86,10 @@ CONTAINS
 
     TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch       !< grid/patch info
     TYPE(t_external_data),       INTENT(inout):: ext_data      !< external data
+    TYPE(t_nh_prog),      TARGET,INTENT(inout):: p_prog        !< dynamic prognostic vars
     TYPE(t_nh_prog),      TARGET,INTENT(inout):: p_prog_rcf    !< call freq
     TYPE(t_nh_diag),      TARGET,INTENT(inout):: p_diag        !< diag vars
+    TYPE(t_nh_metrics),   TARGET,INTENT(in)   :: p_metrics     !< metrics vars
     TYPE(t_nwp_phy_diag),        INTENT(inout):: prm_diag      !< atm phys vars
     TYPE(t_lnd_prog),            INTENT(inout):: lnd_prog_now  !< prog vars for sfc
     TYPE(t_lnd_prog),            INTENT(inout):: lnd_prog_new  !< prog vars for sfc
@@ -414,7 +416,7 @@ CONTAINS
          DO isubs = ntiles_lnd+1, ntiles_total
            i_count = ext_data%atm%gp_count_t(jb,isubs) 
 !$NEC ivdep
-           !$acc loop private(jc)
+           !$acc loop private(jc,tmp1)
            DO ic = 1, i_count
              jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
              ! Another tuning factor in order to treat partial snow cover different for fresh snow and 'old' snow
@@ -424,6 +426,23 @@ CONTAINS
              ELSE
                sntunefac2(jc,isubs) = 1._wp
              ENDIF
+             !
+             ! parameterization for snow drift, treated as a source term for cloud ice (restricted to glaciers in order
+             ! to avoid erroneous side effects on snow density)
+             ! Note that, consistent with the approximations made for evaporation and deposition of precipitation,
+             ! the related change of total air mass is neglected here
+             !
+             IF (ext_data%atm%lc_class_t(jc,jb,isubs) == ext_data%atm%i_lc_snow_ice) THEN
+               tmp1 = tcall_sfc_jg * 7.5e-10_wp * (600._wp-lnd_prog_now%rho_snow_t(jc,jb,isubs))* &
+                 MAX(0._wp,prm_diag%gust10(jc,jb)-7.5_wp)**2
+
+               p_prog_rcf%tracer(jc,nlev,jb,iqi) = p_prog_rcf%tracer(jc,nlev,jb,iqi) + tmp1 * &
+                 ext_data%atm%frac_t(jc,jb,isubs) / (p_prog%rho(jc,nlev,jb)*p_metrics%ddqz_z_full(jc,nlev,jb))
+
+               lnd_prog_now%w_snow_t(jc,jb,isubs) = lnd_prog_now%w_snow_t(jc,jb,isubs) - tmp1/rhoh2o
+               lnd_diag%h_snow_t(jc,jb,isubs) = rhoh2o*lnd_prog_now%w_snow_t(jc,jb,isubs)/lnd_prog_now%rho_snow_t(jc,jb,isubs)
+             ENDIF
+
            ENDDO
          ENDDO
          !$acc end parallel
@@ -1380,7 +1399,6 @@ CONTAINS
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
         & i_startidx, i_endidx, rl_start, rl_end)
-
 
        IF (ntiles_total == 1) THEN 
          !$acc parallel if(lzacc)

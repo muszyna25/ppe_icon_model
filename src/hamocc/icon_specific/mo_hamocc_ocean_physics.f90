@@ -20,8 +20,7 @@
     USE mo_ocean_surface_types,          ONLY: t_ocean_surface, t_atmos_for_ocean
     USE mo_sea_ice_types,                ONLY: t_sea_ice
     USE mo_run_config,                   ONLY: ltimer
-    USE mo_ocean_nml,                    ONLY: Cartesian_Mixing, GMRedi_configuration, &
-      & vert_mix_type,vmix_kpp
+    USE mo_ocean_nml,                    ONLY: Cartesian_Mixing, GMRedi_configuration
     USE mo_hamocc_types,                 ONLY: t_hamocc_prog, t_hamocc_state
     USE mo_bgc_icon_comm,                ONLY: hamocc_state
     USE mo_dynamics_config,              ONLY: nold, nnew 
@@ -34,8 +33,8 @@
     USE mo_master_control,         ONLY: my_process_is_hamocc
 
     USE mo_hamocc_nml,             ONLY: l_bgc_check,io_stdo_bgc
-    USE mo_exception,              ONLY: message
-    USE mo_hamocc_diagnostics,     ONLY: get_inventories
+    USE mo_exception, ONLY: message
+    USE mo_hamocc_diagnostics,  ONLY: get_inventories
     
     ! only temporary solution
     USE mo_ocean_tracer_dev,       ONLY: advect_ocean_tracers_dev
@@ -81,10 +80,11 @@
     CALL bgc_icon(patch_3d, hamocc_ocean_state)
     if(ltimer) call timer_stop(timer_bgc_tot)
 
-    IF(l_bgc_check)THEN
-    CALL message('3. after bgc + fluxes and weathering', 'inventories', io_stdo_bgc)
-    CALL get_inventories(hamocc_state, ocean_to_hamocc_state%h_old, hamocc_state%p_prog(nold(1))%tracer, patch_3d, 0._wp, 0._wp)
+    IF (l_bgc_check) THEN
+      CALL message('3. after bgc + fluxes and weathering', 'inventories', io_stdo_bgc)
+      CALL get_inventories(hamocc_state, ocean_to_hamocc_state%h_old, hamocc_state%p_prog(nold(1))%tracer, patch_3d, 0._wp, 0._wp)
     ENDIF
+
 
     !------------------------------------------------------------------------
     ! transport tracers and diffuse them
@@ -105,21 +105,20 @@
       CALL advect_ocean_tracers(old_tracer_collection, new_tracer_collection, transport_state, operators_coefficients)
     ELSE
       IF (my_process_is_hamocc() ) THEN
-	CALL finish("concurrent HAMOCC", "GMRedi is not possible at present")
+        CALL finish("concurrent HAMOCC", "GMRedi is not possible at present")
       ELSE
-	CALL  advect_ocean_tracers_dev(old_tracer_collection, new_tracer_collection, &
+        CALL  advect_ocean_tracers_dev(old_tracer_collection, new_tracer_collection, &
           &  ocean_state(1), transport_state, v_params, operators_coefficients)
       ENDIF
     ENDIF
     
      stop_timer(timer_tracer_ab,1)
 
-    IF(l_bgc_check)THEN
-    CALL message('4. after transport', 'inventories', io_stdo_bgc)
-    CALL get_inventories(hamocc_state, ocean_to_hamocc_state%h_new, hamocc_state%p_prog(nnew(1))%tracer, patch_3d, 0._wp, 0._wp)
+    IF (l_bgc_check) THEN
+      CALL message('4. after transport', 'inventories', io_stdo_bgc)
+      CALL get_inventories(hamocc_state, ocean_to_hamocc_state%h_new, hamocc_state%p_prog(nnew(1))%tracer, patch_3d, 0._wp, 0._wp)
     ENDIF
-
-     !------------------------------------------------------------------------
+    !------------------------------------------------------------------------
     
      CALL get_monitoring( hamocc_state, hamocc_state%p_prog(nnew(1))%tracer, ocean_to_hamocc_state%h_new, patch_3d)
     !------------------------------------------------------------------------

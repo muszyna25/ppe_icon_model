@@ -47,7 +47,7 @@ MODULE mo_timer
   PUBLIC :: print_timer, cleanup_timer, delete_timer          !< procedures imported and renamed
   PUBLIC :: init_timer                                        !< procedure of this module
 
-  PUBLIC :: timer_total                         !< IDs of timers
+  PUBLIC :: timer_total                                       !< IDs of timers
   PUBLIC :: timer_exch_data, timer_exch_data_rv, timer_exch_data_async, timer_exch_data_wait
   PUBLIC :: timer_global_sum, timer_omp_global_sum, timer_ordglb_sum, timer_omp_ordglb_sum
   PUBLIC :: timer_icon_comm_sync
@@ -245,6 +245,13 @@ MODULE mo_timer
        &    timer_radar_comppolar, &
        &    timer_radar_out      , & 
        &    timer_radar_barrier
+
+  ! Timers for optional diagnostics
+  ! Model atmosphere
+  PUBLIC :: timer_opt_diag_atmo,             &
+    &       timer_opt_diag_atmo_vor,         &
+    &       timer_opt_diag_atmo_bvf2,        &
+    &       timer_opt_diag_atmo_parcelfreq2
 
   ! low level timing routine
   PUBLIC :: tic, toc
@@ -463,6 +470,13 @@ MODULE mo_timer
        &     timer_radar_comppolar, &
        &     timer_radar_out      , & 
        &     timer_radar_barrier
+
+  ! Timers for optional diagnostics
+  ! Model atmosphere
+  INTEGER :: timer_opt_diag_atmo,             &
+    &        timer_opt_diag_atmo_vor,         &
+    &        timer_opt_diag_atmo_bvf2,        &
+    &        timer_opt_diag_atmo_parcelfreq2
 
 
 CONTAINS
@@ -925,6 +939,13 @@ CONTAINS
       timer_radar_out       = new_timer("EMVORADO_output")
       timer_radar_barrier   = new_timer("EMVORADO_barrier_waiting")
     END IF
+
+    ! Timers for optional diagnostics
+    ! Model atmosphere
+    timer_opt_diag_atmo             = new_timer("optional_diagnostics_atmosphere")
+    timer_opt_diag_atmo_vor         = new_timer("opt_diag_atmo_vorticity")
+    timer_opt_diag_atmo_bvf2        = new_timer("opt_diag_atmo_bruntvaisala")
+    timer_opt_diag_atmo_parcelfreq2 = new_timer("opt_diag_atmo_parcelfrequency")
 
   END SUBROUTINE init_timer
 

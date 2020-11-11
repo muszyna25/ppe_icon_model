@@ -96,7 +96,6 @@ MODULE mo_hydro_ocean_run
   USE mo_ocean_time_events,      ONLY: ocean_time_nextStep, isCheckpoint, isEndOfThisRun, newNullDatetime
   USE mo_ocean_ab_timestepping_mimetic, ONLY: clear_ocean_ab_timestepping_mimetic
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
-  USE mo_ocean_tracer_diffusion, ONLY: tracer_vertdiff_eliminate_upper_diag => eliminate_upper_diag
   USE mo_ocean_pressure_bc_conditions,  ONLY: create_pressure_bc_conditions
   
   
@@ -727,6 +726,10 @@ CONTAINS
       
     ENDIF
     !------------------------------------------------------------------------
+    
+    ! Call the biogeochemistry before transporting for performance reasons
+    CALL ocean_to_hamocc_interface(ocean_state, transport_state, &
+      & p_oce_sfc, p_as, sea_ice, p_phys_param, operators_coefficients, current_time)
 
     !------------------------------------------------------------------------
     ! transport tracers and diffuse them
@@ -749,8 +752,6 @@ CONTAINS
 !       & patch_3d%p_patch_2d(1)%cells%owned )
 !     CALL dbg_print('Tr20:new adv', ocean_state%p_prog(nnew(1))%tracer(:,:,:,20),str_module,1, &
 !       & patch_3d%p_patch_2d(1)%cells%owned )
-    CALL ocean_to_hamocc_interface(ocean_state, transport_state, &
-      & p_oce_sfc, p_as, sea_ice, p_phys_param, operators_coefficients, current_time)
 
   END SUBROUTINE tracer_transport
   !-------------------------------------------------------------------------
@@ -847,9 +848,7 @@ CONTAINS
     tmp => ocean_state%p_aux%g_n
     ocean_state%p_aux%g_n => ocean_state%p_aux%g_nm1
     ocean_state%p_aux%g_nm1 => tmp
-    
-    tracer_vertdiff_eliminate_upper_diag = .not. tracer_vertdiff_eliminate_upper_diag ! switch solving methods
-    
+        
   END SUBROUTINE update_time_g_n
 
 

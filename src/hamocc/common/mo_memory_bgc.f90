@@ -150,25 +150,18 @@ CONTAINS
     sedfluxo(:,:) = 0._wp
 
     ALLOCATE (aksp(bgc_nproma,bgc_zlevs))
-    aksp(:,:) = rmasko
 
     ALLOCATE (aks3(bgc_nproma,bgc_zlevs))
-    aks3(:,:) = rmasko
 
     ALLOCATE (akf3(bgc_nproma,bgc_zlevs))
-    akf3(:,:) = rmasko
 
     ALLOCATE (ak1p3(bgc_nproma,bgc_zlevs))
-    ak1p3(:,:) = rmasko
 
     ALLOCATE (ak2p3(bgc_nproma,bgc_zlevs))
-    ak2p3(:,:) = rmasko
 
     ALLOCATE (ak3p3(bgc_nproma,bgc_zlevs))
-    ak3p3(:,:) = rmasko
 
     ALLOCATE (aksi3(bgc_nproma,bgc_zlevs))
-    aksi3(:,:) = rmasko
 
     ALLOCATE (ak23(bgc_nproma,bgc_zlevs))
 
@@ -177,6 +170,7 @@ CONTAINS
     ALLOCATE (akb3(bgc_nproma,bgc_zlevs))
 
     ALLOCATE (akw3(bgc_nproma,bgc_zlevs))
+
     ALLOCATE (swr_frac(bgc_nproma,bgc_zlevs))
     swr_frac=1._wp
     ALLOCATE (meanswr(bgc_nproma,bgc_zlevs))

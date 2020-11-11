@@ -29,9 +29,9 @@ PROGRAM icon
 #endif
   USE mo_exception,           ONLY: message_text, message, finish
   USE mo_io_units,            ONLY: filename_max
-  USE mo_mpi,                 ONLY: start_mpi, stop_mpi, my_process_is_global_root
-  USE mo_master_control,      ONLY: init_master_control,                                &
-    &                               get_my_namelist_filename, get_my_process_type,      &
+  USE mo_mpi,                 ONLY: start_mpi , stop_mpi, my_process_is_global_root
+  USE mo_master_init,         ONLY: init_master_control
+  USE mo_master_control,      ONLY: get_my_namelist_filename, get_my_process_type,      &
     &                               atmo_process, ocean_process, ps_radiation_process,  &
     &                               hamocc_process, icon_output_process
 #ifndef __NO_ICON_TESTBED__

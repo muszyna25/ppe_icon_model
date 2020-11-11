@@ -571,6 +571,104 @@ MODULE mo_surface_les
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
+
+    !Fix SST case
+    CASE(7,8,9)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,zrough,theta_sfc,mwind,z_mc, &
+!$OMP            RIB,tcn_mom,tcn_heat,rhos,itr,shfl,lhfl,bflx1,ustar,   &
+!$OMP            obukhov_length,inv_bus_mom),ICON_OMP_RUNTIME_SCHEDULE
+      DO jb = i_startblk,i_endblk
+         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                            i_startidx, i_endidx, rl_start, rl_end)
+         DO jc = i_startidx, i_endidx
+
+           !Roughness length
+           zrough = prm_diag%gz0(jc,jb) * rgrav
+
+           !Get surface pot. temperature and humidity
+           p_prog_lnd_new%t_g(jc,jb) = les_config(jg)%sst
+           theta_sfc = p_prog_lnd_new%t_g(jc,jb) / EXP( rd_o_cpd*LOG(pres_sfc(jc,jb)/p0ref) )
+
+           p_diag_lnd%qv_s(jc,jb) = spec_humi(sat_pres_water(les_config(jg)%sst),pres_sfc(jc,jb))
+
+           !rho at surface: no qc at suface
+           rhos   =  pres_sfc(jc,jb)/( rd * &
+                     p_prog_lnd_new%t_g(jc,jb)*(1._wp+vtmpc1*p_diag_lnd%qv_s(jc,jb)) )
+
+           mwind = MAX( les_config(jg)%min_sfc_wind, SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )
+
+           !Z height to be used as a reference height in surface layer
+           z_mc   = p_nh_metrics%z_mc(jc,jk,jb) - p_nh_metrics%z_ifc(jc,jkp1,jb)
+
+           !First guess for tch and tcm using bulk approach
+           RIB = grav * (theta(jc,jk,jb)-theta_sfc) * (z_mc-zrough) / (theta_sfc * mwind**2)
+
+           tcn_mom             = (akt/LOG(z_mc/zrough))**2
+           prm_diag%tcm(jc,jb) = tcn_mom * stability_function_mom(RIB,z_mc/zrough,tcn_mom)
+
+           tcn_heat            = akt**2/(LOG(z_mc/zrough)*LOG(z_mc/zrough))
+           prm_diag%tch(jc,jb) = tcn_heat * stability_function_heat(RIB,z_mc/zrough,tcn_heat)
+
+           !now iterate
+           DO itr = 1 , 5
+              shfl = prm_diag%tch(jc,jb)*mwind*(theta_sfc-theta(jc,jk,jb))
+              lhfl = prm_diag%tch(jc,jb)*mwind*(p_diag_lnd%qv_s(jc,jb)-qv(jc,jk,jb))
+              bflx1= shfl + vtmpc1 * theta_sfc * lhfl
+              ustar= SQRT(prm_diag%tcm(jc,jb))*mwind
+
+              obukhov_length = -ustar**3 * theta_sfc * rgrav / (akt * bflx1)
+
+              inv_bus_mom = 1._wp / businger_mom(zrough,z_mc,obukhov_length)
+              prm_diag%tch(jc,jb) = inv_bus_mom / businger_heat(zrough,z_mc,obukhov_length)
+
+              prm_diag%tcm(jc,jb) = inv_bus_mom * inv_bus_mom
+           END DO
+
+            !Now diagnose friction velocity (ustar)
+            IF(les_config(jg)%ufric<0._wp)THEN
+              !Bulk Richardson no at first model level
+              RIB = grav * (theta(jc,jk,jb)-theta_sfc)*(z_mc-zrough)/(theta_sfc*mwind**2)
+              !first guess
+              ustar = SQRT( diag_ustar_sq(z_mc,zrough,RIB,mwind) )
+              DO itr = 1 , 5
+                !"-" sign in the begining because ustar*thstar = -shflx
+                obukhov_length = - theta_sfc*ustar**3/(akt*grav*les_config(jg)%shflx)
+                ustar = mwind / businger_mom(zrough,z_mc,obukhov_length)
+              END DO
+
+            ELSE
+              ustar = les_config(jg)%ufric
+              obukhov_length = -theta_sfc*ustar**3/(akt*grav*les_config(jg)%shflx)
+            END IF
+
+           !Get surface fluxes
+           IF( les_config(jg)%isrfc_type == 7 ) THEN
+             prm_diag%shfl_s(jc,jb) = les_config(jg)%shflx * rhos * cpd
+             prm_diag%lhfl_s(jc,jb) = 0
+           ELSE IF ( les_config(jg)%isrfc_type == 8 ) THEN
+             prm_diag%shfl_s(jc,jb) = 0
+             prm_diag%lhfl_s(jc,jb) = les_config(jg)%lhflx * rhos * alv
+           ELSE IF ( les_config(jg)%isrfc_type == 9 ) THEN
+             prm_diag%shfl_s(jc,jb) = les_config(jg)%shflx * rhos * cpd
+             prm_diag%lhfl_s(jc,jb) = les_config(jg)%lhflx * rhos * alv
+           END IF
+
+           IF(les_config(jg)%ufric<0._wp)THEN
+             prm_diag%umfl_s(jc,jb) = rhos*prm_diag%tcm(jc,jb)*mwind*p_nh_diag%u(jc,jk,jb)
+             prm_diag%vmfl_s(jc,jb) = rhos*prm_diag%tcm(jc,jb)*mwind*p_nh_diag%v(jc,jk,jb)
+           ELSE
+             prm_diag%umfl_s(jc,jb)  = ustar**2 * rhos * p_nh_diag%u(jc,jk,jb) / mwind
+             prm_diag%vmfl_s(jc,jb)  = ustar**2 * rhos * p_nh_diag%v(jc,jk,jb) / mwind
+           END IF
+
+         END DO
+      END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+
     !No fluxes
     CASE(0)
 

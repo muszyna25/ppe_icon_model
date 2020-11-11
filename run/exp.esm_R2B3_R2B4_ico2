@@ -58,8 +58,8 @@ nproma_oce=48
 
 # use alternatively: full restart, init from (ocean) restart, init from climatology or false
 #  - set to false if ocean was already initialised
-# initialiseOcean="fromRestart"
-initialiseOcean="fromRestartwithHamocc"
+initialiseOcean="fromRestart"
+# initialiseOcean="fromRestartwithHamocc"
 # initialiseOcean="fromClimatology"
 # initialiseOcean="FALSE"
 

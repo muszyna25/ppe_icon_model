@@ -33,8 +33,9 @@ MODULE mo_nh_torus_exp
   USE mo_io_units,            ONLY: find_next_free_unit
   USE mo_physical_constants,  ONLY: rd, cpd, p0ref, cvd_o_rd, rd_o_cpd, &
      &                              grav, alv, vtmpc1
-  USE mo_nh_testcases_nml,    ONLY: u_cbl, v_cbl, th_cbl, psfc_cbl, &
-                                    bubctr_x, bubctr_y, nh_test_name
+  USE mo_nh_testcases_nml,    ONLY: u_cbl, v_cbl, th_cbl, psfc_cbl,   &
+     &                              bubctr_x, bubctr_y, nh_test_name, &
+     &                              is_dry_cbl
   USE mo_nh_wk_exp,           ONLY: bub_amp, bub_ver_width, bub_hor_width, bubctr_z
   USE mo_model_domain,        ONLY: t_patch
   USE mo_math_constants,      ONLY: rad2deg, pi_2
@@ -127,7 +128,7 @@ MODULE mo_nh_torus_exp
       ENDIF
 
       !Tracers
-      IF(.NOT.les_config(jg)%is_dry_cbl)THEN
+      IF(.NOT.les_config(jg)%is_dry_cbl .AND. .NOT.is_dry_cbl)THEN
         DO jk = 1, nlev
           ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) = rh_sfc * spec_humi(sat_pres_water(th_cbl(1)),psfc_cbl) * &
                     EXP(-ptr_metrics%z_mc(1:nlen,jk,jb)/lambda)
@@ -173,6 +174,7 @@ MODULE mo_nh_torus_exp
       DO jk = 1 , nlev
          ptr_nh_prog%rho(1:nlen,jk,jb) = (ptr_nh_prog%exner(1:nlen,jk,jb)**cvd_o_rd)*p0ref/rd / &
                                          ptr_nh_prog%theta_v(1:nlen,jk,jb)     
+         ptr_nh_diag%pres(1:nlen,jk,jb) = ptr_nh_prog%rho(1:nlen,jk,jb)*rd*th_cbl(1)
       END DO !jk
 
     ENDDO !jb
