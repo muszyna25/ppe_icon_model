@@ -243,7 +243,7 @@ CONTAINS
     !$ACC               zaa_btm, zbb, zbb_btm, zfactor_sfc,                     &
     !$ACC               zthvvar, ztottevn, zch_tile, kedisp, tend_ua_vdf,       &
     !$ACC               tend_va_vdf, q_vdf, tend_qtrc_vdf, q_snocpymlt, zco2,   &
-    !$ACC               tend_qtrc_vdf_iqt,                                      &
+    !$ACC               tend_qtrc_vdf_iqt, tend_qtrc_vdf_dummy,                 &
     !$ACC               tend_ta_sfc, q_rlw_impl, tend_ta_rlw_impl, tend_ta_vdf, &
     !$ACC               ts_tile, z0m_tile, ustar, wstar_tile, thvsig, rlus,     &
     !$ACC               albvisdir_ice, albnirdir_ice, albvisdif_ice,            &
