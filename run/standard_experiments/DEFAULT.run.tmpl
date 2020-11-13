@@ -211,9 +211,11 @@ export PYTHONPATH=$MODEL_DIR/lib/python${PYTHONPATH:+:}$PYTHONPATH
 eval $(python -c "
 import mtime
 mtime.setCalendar(mtime.CALENDAR_TYPE.%{calendar_mtime})
+reference_date = mtime.DateTime('$initial_date') + mtime.TimeDelta('-$restart_interval')
 next_date = mtime.DateTime('$start_date') + mtime.TimeDelta('$restart_interval')
 end_date = next_date + mtime.TimeDelta('-%{ATMO_TIME_STEP}')
 
+print('reference_date=' + str(reference_date))
 print('end_date=' + str(end_date))
 print('next_date=' + str(next_date))
 ")
@@ -524,6 +526,7 @@ cat > $master_namelist << EOF
 /
 &master_time_control_nml
  experimentStartDate  = "$initial_date" 
+ experimentReferenceDate = "$reference_date"
  restartTimeIntval    = "$restart_interval" 
  checkpointTimeIntval = "$checkpoint_interval" 
 /
@@ -542,6 +545,7 @@ cat > $master_namelist << EOF
  checkpointTimeIntval = "$checkpoint_interval" 
  restartTimeIntval    = "$restart_interval" 
  experimentStartDate  = "$initial_date" 
+ experimentReferenceDate = "$reference_date"
  experimentStopDate   = "$final_date" 
 /
 &time_nml
