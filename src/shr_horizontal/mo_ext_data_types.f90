@@ -428,6 +428,15 @@ MODULE mo_ext_data_types
       &  dust(:,:,:)   
    REAL(wp), POINTER ::   &   !< (monthly) nitrogen deposition
       &  nitro(:,:,:)   
+   REAL(wp), POINTER ::   &   !< org. C flux for offline sed.
+      &  prorca(:,:)          !  index1=1,nproma, index2=1,nblks_c
+   REAL(wp), POINTER ::   &   !< inorg. C flux for offline sed.
+      &  prcaca(:,:)          !  index1=1,nproma, index2=1,nblks_c
+   REAL(wp), POINTER ::   &   !< Si flux for offline sed.
+      &  silpro(:,:)          !  index1=1,nproma, index2=1,nblks_c
+   REAL(wp), POINTER ::   &   !< dust flux for offline sed.
+      &  produs(:,:)          !  index1=1,nproma, index2=1,nblks_c
+
   END TYPE t_external_bgc
 
   !>

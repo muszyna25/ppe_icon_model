@@ -20,7 +20,8 @@
     USE mo_ocean_surface_types,          ONLY: t_ocean_surface, t_atmos_for_ocean
     USE mo_sea_ice_types,                ONLY: t_sea_ice
     USE mo_run_config,                   ONLY: ltimer
-    USE mo_ocean_nml,                    ONLY: Cartesian_Mixing, GMRedi_configuration
+    USE mo_ocean_nml,                    ONLY: Cartesian_Mixing, GMRedi_configuration, &
+    &                                          lsediment_only
     USE mo_hamocc_types,                 ONLY: t_hamocc_prog, t_hamocc_state
     USE mo_bgc_icon_comm,                ONLY: hamocc_state
     USE mo_dynamics_config,              ONLY: nold, nnew 
@@ -68,6 +69,11 @@
     ocean_to_hamocc_state => hamocc_ocean_state%ocean_to_hamocc_state
     hamocc_to_ocean_state => hamocc_ocean_state%hamocc_to_ocean_state
     hamocc_state_prog => hamocc_state%p_prog(nold(1))
+
+    IF (lsediment_only) THEN
+      CALL offline_sediment(hamocc_ocean_state, operators_coefficients, current_time)
+      RETURN
+    ENDIF
     
     CALL dilute_hamocc_tracers(patch_3d, ocean_to_hamocc_state%top_dilution_coeff, hamocc_state%p_prog(nold(1)))
     !------------------------------------------------------------------------
@@ -125,6 +131,35 @@
 
     END SUBROUTINE tracer_biochemistry_transport
 
+
+  SUBROUTINE offline_sediment(hamocc_ocean_state, operators_coefficients, current_time)
+
+    TYPE(t_hamocc_ocean_state), TARGET               :: hamocc_ocean_state
+    TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
+    TYPE(datetime), POINTER, INTENT(in)              :: current_time
+
+    TYPE(t_patch_3d ),POINTER                        :: patch_3d
+    TYPE(t_ocean_transport_state), POINTER           :: transport_state
+
+    TYPE(t_hamocc_prog), POINTER                     :: hamocc_state_prog
+
+
+
+    transport_state => hamocc_ocean_state%ocean_transport_state
+    patch_3d => transport_state%patch_3d
+
+
+    CALL update_bgc_bcond( patch_3d, ext_data_bgc,  current_time)
+ 
+    !------------------------------------------------------------------------
+    ! call HAMOCC
+    if(ltimer) call timer_start(timer_bgc_tot)
+    CALL bgc_icon(patch_3d, hamocc_ocean_state)
+    if(ltimer) call timer_stop(timer_bgc_tot)
+
+    !------------------------------------------------------------------------
+
+    END SUBROUTINE offline_sediment
 
 
     SUBROUTINE DILUTE_HAMOCC_TRACERS(p_patch_3D, top_dilution_coeff, hamocc_state_prog)

@@ -25,10 +25,11 @@ SUBROUTINE BGC_ICON(p_patch_3D, hamocc_ocean_state)
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
 
   USE mo_bgc_icon_comm,       ONLY: update_icon, update_bgc, hamocc_state, &
-       &                            set_bgc_tendencies_output
+       &                            set_bgc_tendencies_output, set_bgc_tendencies_output_sedon
   USE mo_dynamics_config,     ONLY: nold 
   USE mo_hamocc_nml,          ONLY: i_settling, l_cyadyn,l_bgc_check,io_stdo_bgc,l_implsed, &
        &                            l_dynamic_pi, l_pdm_settling 
+  USE mo_ocean_nml,           ONLY: lsediment_only
   USE mo_control_bgc,         ONLY: ndtdaybgc,  &
        &                        ldtrunbgc, bgc_nproma
 
@@ -90,9 +91,14 @@ SUBROUTINE BGC_ICON(p_patch_3D, hamocc_ocean_state)
   all_cells => p_patch%cells%ALL
 !   owned_cells => p_patch%cells%owned
 
-  
-  ! trigger chemcon at depth only once per day
-  itrig_chemcon=mod(ldtrunbgc,ndtdaybgc)+1
+  IF (lsediment_only) THEN
+    ! trigger chemcon at depth only once per run cycle
+    itrig_chemcon=merge(1,0,ldtrunbgc<1)
+  ELSE
+    ! trigger chemcon at depth only once per day
+    itrig_chemcon=mod(ldtrunbgc,ndtdaybgc)+1
+  ENDIF
+
   !
   !
   !----------------------------------------------------------------------
@@ -112,7 +118,7 @@ IF(l_bgc_check)THEN
  call message('1. before bgc','inventories',io_stdo_bgc)
  call get_inventories(hamocc_state, ocean_to_hamocc_state%h_old, hamocc_state%p_prog(nold(1))%tracer, p_patch_3d, 0._wp, 0._wp) 
 ENDIF
-
+IF (.not. lsediment_only) THEN
 !DIR$ INLINE
   DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, start_index, end_index)
@@ -286,6 +292,68 @@ ENDIF
 
 ! O2 min depth & value diagnostics
 CALL get_omz(hamocc_state,ocean_to_hamocc_state%h_old,p_patch_3d)
+
+ELSE
+! offline sediment
+!DIR$ INLINE
+  DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, start_index, end_index)
+        !  tracer 1: potential temperature
+        !  tracer 2: salinity
+        levels(start_index:end_index) = p_patch_3D%p_patch_1d(1)%dolic_c(start_index:end_index,jb)
+
+        start_detail_timer(timer_bgc_up_bgc,5)
+
+        CALL update_bgc(start_index,end_index,levels,&
+             & p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),&  ! cell thickness
+             &jb, hamocc_state%p_prog(nold(1))%tracer(:,:,jb,:), &
+             & ocean_to_hamocc_state%co2_mixing_ratio(:,jb)                        & ! co2mixing ratio
+             & ,hamocc_state%p_diag,hamocc_state%p_sed, hamocc_state%p_tend)
+
+        stop_detail_timer(timer_bgc_up_bgc,5)
+
+        CALL ini_bottom(start_index,end_index,levels,p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb))
+
+       !----------------------------------------------------------------------
+       ! Calculate chemical properties 
+
+        start_detail_timer(timer_bgc_chemcon,5)
+        CALL chemcon(start_index, end_index,levels,  ocean_to_hamocc_state%salinity(:,:,jb), & ! index range, levels, salinity
+   &                 ocean_to_hamocc_state%temperature(:,:,jb),                              & ! pot. temperature
+   &                 p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),                    & ! cell thickness
+   &                 p_patch_3d%p_patch_1d(1)%depth_CellInterface(:,:,jb) ,  &           ! depths at interface  
+   &                 itrig_chemcon)           
+        stop_detail_timer(timer_bgc_chemcon,5)
+
+       !----------------------------------------------------------------------
+        ! Calculate sediment dynamics
+        start_detail_timer(timer_bgc_powach,5)
+        if(l_implsed)then 
+         CALL powach_impl( start_index, end_index,    & 
+   &               ocean_to_hamocc_state%salinity(:,:,jb))          ! salinity
+         else
+ 
+        CALL powach( start_index, end_index, &    
+   &               ocean_to_hamocc_state%salinity(:,:,jb),          &! salinity
+   &               p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb))  ! cell thickness
+         endif
+        stop_detail_timer(timer_bgc_powach,5)
+
+        if(mod(ldtrunbgc,ndtdaybgc).eq.0) CALL sedshi(start_index,end_index)
+
+
+        start_detail_timer(timer_bgc_tend,5)
+        CALL set_bgc_tendencies_output_sedon(start_index,end_index, &
+  &               p_patch_3D%p_patch_1d(1)%prism_thick_c(:,:,jb),&  ! cell thickness
+  &                                   jb, &
+  &                                   hamocc_state%p_tend,            &
+  &                                   hamocc_state%p_sed)
+
+        stop_detail_timer(timer_bgc_tend,5)
+ 
+ ENDDO
+
+ENDIF  ! lsediment_only
 
   ! Increment bgc time step counter of run (initialized in INI_BGC).
   !

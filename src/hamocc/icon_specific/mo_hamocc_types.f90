@@ -223,6 +223,10 @@ MODULE mo_hamocc_types
   TYPE t_hamocc_bcond
    REAL(wp), POINTER:: dusty(:,:)       !  index1=1,nproma, nblks_e
    REAL(wp), POINTER:: nitro(:,:)       !  index1=1,nproma, nblks_e
+   REAL(wp), POINTER:: prorca(:,:)       !  index1=1,nproma, nblks_e
+   REAL(wp), POINTER:: prcaca(:,:)       !  index1=1,nproma, nblks_e
+   REAL(wp), POINTER:: silpro(:,:)       !  index1=1,nproma, nblks_e
+   REAL(wp), POINTER:: produs(:,:)       !  index1=1,nproma, nblks_e
   END TYPE t_hamocc_bcond
 
 END MODULE 
