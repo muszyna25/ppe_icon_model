@@ -22,7 +22,6 @@ MODULE mo_tracer_metadata
 
   USE mo_kind,                  ONLY: wp
   USE mo_tracer_metadata_types, ONLY: t_tracer_meta, t_aero_meta, &
-                                  &   t_passive_meta,             &
                                   &   t_chem_meta, t_hydro_meta
 
   IMPLICIT NONE
@@ -31,7 +30,6 @@ MODULE mo_tracer_metadata
 
   PUBLIC  :: create_tracer_metadata
   PUBLIC  :: create_tracer_metadata_aero
-  PUBLIC  :: create_tracer_metadata_passive
   PUBLIC  :: create_tracer_metadata_hydro
 
   !------------------------------------------------------------------------------------------------
@@ -146,29 +144,6 @@ CONTAINS
     ENDIF
 
   END FUNCTION create_tracer_metadata_aero
-
-
-  TYPE(t_passive_meta) FUNCTION create_tracer_metadata_passive(lis_tracer, name, lfeedback, ihadv_tracer, ivadv_tracer, &
-                      &                                  lturb_tracer, lconv_tracer)
-    ! Base type (t_tracer_meta) content
-    LOGICAL, INTENT(IN), OPTIONAL  :: lis_tracer       ! this is a tracer field (TRUE/FALSE)
-    CHARACTER(LEN=*),INTENT(IN),OPTIONAL :: name       ! Name of tracer
-    LOGICAL, INTENT(IN), OPTIONAL  :: lfeedback        ! feedback from child- to parent domain
-    INTEGER, INTENT(IN), OPTIONAL  :: ihadv_tracer     ! Method for horizontal transport
-    INTEGER, INTENT(IN), OPTIONAL  :: ivadv_tracer     ! Method for vertical transport
-    LOGICAL, INTENT(IN), OPTIONAL  :: lturb_tracer     ! Switch for turbulent transport
-    LOGICAL, INTENT(IN), OPTIONAL  :: lconv_tracer     ! Switch for convection
-    ! Extended type (t_passive_meta) content
-    ! ...
-
-    ! Fill the metadata of the base type
-    CALL create_tracer_metadata_passive%construct_base(lis_tracer, name, lfeedback, ihadv_tracer, ivadv_tracer,  &
-      &                                              lturb_tracer, lconv_tracer)
-
-    ! Fill the meta of the extended type (t_passive_meta)
-    ! ...
-
-  END FUNCTION create_tracer_metadata_passive
 
 
   TYPE(t_hydro_meta) FUNCTION create_tracer_metadata_hydro(lis_tracer, name, lfeedback, ihadv_tracer, ivadv_tracer, &

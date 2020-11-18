@@ -103,18 +103,18 @@ if ( -d $srcdir."/.svn" ) {
     $revision = $revisions[0];
     $revision =~ s/commit *//;
     $revision =~ s/ *\n//;
-		if ( -d $srcdir."/src/art/.git" ) {
-    		my @art_remote_urls = `git --git-dir $srcdir/src/art/.git remote -v`;
+		if ( -d $srcdir."/externals/art/.git" ) {
+    		my @art_remote_urls = `git --git-dir $srcdir/externals/art/.git remote -v`;
     		@art_remote_urls = grep(/fetch/, @art_remote_urls);
 			$art_remote_url = $art_remote_urls[0];
     		$art_remote_url =~ s/^origin[ \t]*//;
     		$art_remote_url =~ s/ *\(fetch\) *\n//;
-    		my @art_branches = `git --git-dir $srcdir//src/art/.git branch`;	
+    		my @art_branches = `git --git-dir $srcdir//externals/art/.git branch`;	
     		@art_branches = grep(/^\*/, @art_branches); 
     		$art_branch = $art_branches[0];
     		$art_branch =~ s/\* *//;
     		$art_branch =~ s/ *\n//;
-    		my @art_revisions = `git --git-dir $srcdir/src/art/.git --no-pager log --max-count=1`; 
+    		my @art_revisions = `git --git-dir $srcdir/externals/art/.git --no-pager log --max-count=1`; 
     		@art_revisions = grep(/commit/, @art_revisions);
     		$art_revision = $art_revisions[0];
     		$art_revision =~ s/commit *//;

@@ -50,6 +50,8 @@ MODULE mo_2mom_mcrph_util
 
   PRIVATE
 
+  PUBLIC :: init_dmin_wetgrowth
+
   PUBLIC :: &
        & gfct,                       & ! main (could be replaced by intrinsic in Fortran2008)
        & rat2do3,                    & ! main

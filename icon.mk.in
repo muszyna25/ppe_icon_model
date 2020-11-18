@@ -82,6 +82,8 @@ f90_files:= $(filter %.f90,$(all_files))
 inc_files:= $(filter %.inc,$(all_files))
 # Files included with the Fortran INCLUDE "filename.incf" statements:
 incf_files:= $(filter %.incf,$(all_files))
+# Files included with the pp #include "filename.interface" statements:
+incf_files+= $(filter %.interface,$(all_files))
 # C '.c' source files:
 c_files:= $(filter %.c,$(all_files))
 # CUDA '*.cu' source files:

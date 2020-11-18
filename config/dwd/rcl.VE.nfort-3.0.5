@@ -1,0 +1,136 @@
+#!/bin/bash
+
+##################################################################
+###        Configure wrapper for NEC SX AURORA                 ###
+###                   VECTOR ENGINE                            ###
+##################################################################
+  
+set -eu
+
+SCRIPT_DIR=$(cd "$(dirname "$0")">/dev/null; pwd)
+ICON_DIR=$(cd "${SCRIPT_DIR}/../..">/dev/null; pwd)
+
+
+# make module command available
+MODULE_SETTINGS=". ${MODULESHOME}/init/sh; module purge"
+
+
+MODULES='sx/default nfort/3.0.5 nc++/3.0.5 mpi/2.6.0 netcdf4/4.7.3-sx hdf5/1.10.5-sx eccodes/2.14.1-sx aec/1.0.3-sx nlc/2.0.0 libxml2/2.9.10-sx szip/2.1.1-sx zlib/1.2.11-sx'
+
+
+### Libraries ###
+
+# NETCDF
+NETCDFF_LIBS='-lnetcdff'
+NETCDF_LIBS='-lnetcdf'
+
+# HDF5
+HDF5_LIBS='-lhdf5hl_fortran -lhdf5_fortran -lhdf5_hl -lhdf5'
+
+# BLAS, LAPACK
+LAPACK_LIBS='-llapack -lblas_sequential'
+
+# ECCODES - note that we use a double underscore because ECCODES_LIBS may be overwritten by system settings
+ECCODES__LIBS='-leccodes_f90 -leccodes'
+
+# XML
+XML2_LIBS='-lxml2'
+
+# AEC
+AEC_LIB='-laec'
+
+# SZIP
+SZIP_LIB='-lsz'
+
+# ZLIB
+ZLIB_LIB='-lz' 
+
+# RTTOV
+RTTOV_ROOT='/hpc/rhome/for0adm/nwp/ve1/external'
+RTTOV_LIBS='-lrttov12'
+
+################################################################################
+
+
+BUILD_ENV="export ICON_DIR=$(cd "${SCRIPT_DIR}/../..">/dev/null; pwd); ${MODULE_SETTINGS} && . \"${SCRIPT_DIR}/module_switcher\"; switch_for_module ${MODULES};"
+echo ${BUILD_ENV}
+
+# We need some of the environment variables set by the modules now:
+eval "$BUILD_ENV"
+
+echo ${MODULEPATH}
+
+
+# cross compiling!
+HOST='none'
+AR='nar'
+AS='nas'
+LD='nld'
+
+# C compiler wrapper on cray machine
+CC='mpincc'
+CFLAGS='-std=gnu11 -O3 -finline-functions -mno-vector-fma -fno-associative-math -msched-block -fcse-after-vectorization -DUSE_XML2 -USX -D__SX__=__NEC__'
+ICON_CFLAGS='-O3'
+ICON_BUNDLED_CFLAGS='-O2'
+CPPFLAGS="${ECCODES_INCLUDE} -I${HDF5_DIR}/include -I${NETCDF_DIR}/include ${ECCODES_INCLUDE} -I${XML2ROOT}/include/libxml2"
+
+# Fortran compiler wrapper on cray machine
+FC='mpinfort'
+FCFLAGS="${ECCODES_INCLUDE} -I${HDF5_DIR}/include -I${NETCDF_DIR}/include -I${RTTOV_ROOT}/include/rttov12 -fdiag-vector=0 -report-all -traceback=verbose -O3 -mstack-arrays -msched-block -mvector-floating-divide-instruction -mvector-sqrt-instruction -floop-unroll-completely=8 -floop-unroll-completely-nest=8 -fcse-after-vectorization -mno-vector-fma -fno-associative-math -DUSE_XML2 -USX -D__SX__=__NEC__ -D__COMM_OPT__ -D__BLOCK_GET__"
+
+ICON_FCFLAGS='-fpp -finline-functions -finline-file=${ICON_DIR}/src/atm_phy_schemes/mo_2mom_mcrph_driver.f90:${ICON_DIR}/src/atm_phy_schemes/mo_2mom_mcrph_processes.f90:${ICON_DIR}/src/atm_phy_schemes/mo_2mom_mcrph_util.f90:${ICON_DIR}/src/advection/mo_advection_utils.f90:${ICON_DIR}/src/atm_phy_schemes/mo_cufunctions.f90:${ICON_DIR}/src/parallel_infrastructure/mo_extents.f90:${ICON_DIR}/src/shared/mo_math_utilities.f90:${ICON_DIR}/src/configure_model/mo_parallel_config.f90:${ICON_DIR}/src/atm_phy_schemes/mo_satad.f90:${ICON_DIR}/src/shared/mo_statistics.f90:${ICON_DIR}/src/atm_phy_nwp/mo_util_phys.f90:${ICON_DIR}/src/atm_phy_schemes/turb_utilities.f90:${ICON_DIR}/src/lnd_phy_nwp/mo_nwp_sfc_interp.f90'
+
+ICON_OCEAN_FCFLAGS='-O2'
+ICON_ECRAD_FCFLAGS="-D__ECRAD_LITTLE_ENDIAN -fpp -finline-functions -finline-file=${ICON_DIR}/externals/ecrad/radiation/radiation_two_stream.F90:${ICON_DIR}/externals/ecrad/radiation/radiation_liquid_optics_socrates.F90:${ICON_DIR}/externals/ecrad/radiation/radiation_ice_optics_fu.F90"
+
+LDFLAGS="-L${ZLIBROOT}/lib -L${AEC_DIR}/lib -L${SZIPROOT}/lib -L${HDF5_DIR}/lib -L${NETCDF_DIR}/lib -L${RTTOV_ROOT}/lib -L${ECCODES_LIB_DIR} -L${LAPACKROOT}/lib -L${XML2ROOT}/lib -traceback=verbose -static -static-nec"
+
+LIBS="-Wl,--as-needed ${XML2_LIBS} ${RTTOV_LIBS} ${LAPACK_LIBS} ${ECCODES__LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${HDF5_LIBS} ${SZIP_LIB} ${AEC_LIB} ${ZLIB_LIB}"
+
+MPI_LAUNCH=''  # needed e.g. for yac configuration ?? 
+
+EXTRA_CONFIG_ARGS='--host='${HOST}' --disable-mpi-checks --disable-rpaths --enable-active-target-sync --enable-mixed-precision --disable-loop-exchange --enable-grib2 --enable-mpi --disable-openmp --enable-rttov --disable-rte-rrtmgp --disable-concurrent-psrad --disable-jsbach --disable-ocean --disable-coupling'
+
+################################################################################
+
+
+"${ICON_DIR}/configure" \
+BUILD_ENV="${BUILD_ENV}" \
+CC="${CC}" \
+CFLAGS="${CFLAGS}" \
+CPPFLAGS="${CPPFLAGS}" \
+FC="${FC}" \
+FCFLAGS="${FCFLAGS}" \
+ICON_BUNDLED_CFLAGS="${ICON_BUNDLED_CFLAGS}" \
+ICON_CFLAGS="${ICON_CFLAGS}" \
+ICON_FCFLAGS="${ICON_FCFLAGS}" \
+ICON_OCEAN_FCFLAGS="${ICON_OCEAN_FCFLAGS}" \
+ICON_ECRAD_FCFLAGS="${ICON_ECRAD_FCFLAGS}" \
+LDFLAGS="${LDFLAGS}" \
+LIBS="${LIBS}" \
+MPI_LAUNCH="${MPI_LAUNCH}" \
+AR="${AR}" \
+LD="${LD}" \
+AS="${AS}" \
+${EXTRA_CONFIG_ARGS} \
+"$@"
+
+for arg in "$@"; do
+  case $arg in
+    -help | --help | --hel | --he | -h | -help=r* | --help=r* | --hel=r* | --he=r* | -hr* | -help=s* | --help=s* | --hel=s* | --he=s* | -hs*)
+      test -n "${EXTRA_CONFIG_ARGS}" && echo '' && echo "This wrapper script ('$0') calls the configure script with the following extra arguments, which might override the default values listed above: ${EXTRA_CONFIG_ARGS}"
+      exit 0 ;;
+  esac
+done
+
+
+# Copy runscript-related files when building out-of-source:
+if test $(pwd) != $(cd "${ICON_DIR}"; pwd); then
+  echo "Copying runscript input files from the source directory..."
+  rsync -uavz ${ICON_DIR}/run . --exclude='*in' --exclude='.*'
+  rsync -uavz ${ICON_DIR}/externals . --exclude='.git' --exclude='*.f90' --exclude='*.F90' --exclude='*.c' --exclude='*.h' --exclude='*.Po' --exclude='tests' --exclude='rrtmgp*.nc' --exclude='*.mod' --exclude='*.o'
+  rsync -uavz ${ICON_DIR}/make_runscripts .
+  ln -sf ${ICON_DIR}/data
+  ln -sf ${ICON_DIR}/vertical_coord_tables
+fi
+
