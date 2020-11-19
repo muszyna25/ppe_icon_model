@@ -76,7 +76,7 @@ MODULE mo_nh_interface_nwp
   USE mo_atm_phy_nwp_config,      ONLY: atm_phy_nwp_config, iprog_aero
   USE mo_util_phys,               ONLY: tracer_add_phytend, iau_update_tracer
   USE mo_lnd_nwp_config,          ONLY: ntiles_total, ntiles_water
-  USE mo_cover_koe,               ONLY: cover_koe
+  USE mo_cover_koe,               ONLY: cover_koe, cover_koe_config
   USE mo_satad,                   ONLY: satad_v_3D
   USE mo_aerosol_util,            ONLY: prog_aerosol_2D
   USE mo_radiation,               ONLY: radheat, pre_radiation_nwp
@@ -108,7 +108,7 @@ MODULE mo_nh_interface_nwp
   USE mo_latent_heat_nudging,     ONLY: organize_lhn
   USE mo_assimilation_config,     ONLY: assimilation_config
   USE mo_nudging_config,          ONLY: nudging_config
-  USE mo_nwp_reff_interface,      ONLY: set_reff
+  USE mo_nwp_reff_interface,      ONLY: set_reff , combine_phases_radiation_reff
   USE mo_upatmo_impl_const,       ONLY: iUpatmoPrcStat, iUpatmoStat
   USE mo_upatmo_types,            ONLY: t_upatmo
   USE mo_upatmo_config,           ONLY: upatmo_config
@@ -1093,9 +1093,8 @@ CONTAINS
         CALL cover_koe &
 &             (kidia  = i_startidx ,   kfdia  = i_endidx  ,       & !! in:  horizonal begin, end indices
 &              klon = nproma,  kstart = kstart_moist(jg)  ,       & !! in:  horiz. and vert. vector length
-&              klev   = nlev,                                     &
-&              icldscheme = atm_phy_nwp_config(jg)%inwp_cldcover ,& !! in:  cloud cover option
-&              inwp_turb  = atm_phy_nwp_config(jg)%inwp_turb,     & !! in:  turbulence scheme number
+&              klev   = nlev                              ,       &
+&              cover_koe_config = cover_koe_config(jg)    ,       & !! in:  physics config state
 &              tt     = pt_diag%temp         (:,:,jb)     ,       & !! in:  temperature at full levels
 &              pp     = pt_diag%pres         (:,:,jb)     ,       & !! in:  pressure at full levels
 &              ps     = pt_diag%pres_sfc     (:,jb)       ,       & !! in:  surface pressure at full levels
@@ -1139,10 +1138,20 @@ CONTAINS
 
     !! Call effective radius diagnostic calculation (only for radiation time steps)
 
-    IF ( lcall_phy_jg(itrad)  .AND. atm_phy_nwp_config(jg)%icalc_reff .GT. 0 ) THEN
+    IF ( lcall_phy_jg(itrad)  .AND. atm_phy_nwp_config(jg)%icalc_reff > 0 ) THEN
+
+      IF (msg_level >= 15) &
+           &           CALL message('mo_nh_interface', 'effective radius')
+
       IF (timers_level > 10) CALL timer_start(timer_phys_reff)
       CALL  set_reff (prm_diag,pt_patch, pt_prog, pt_diag,ext_data) 
-      IF (timers_level > 10) CALL timer_stop(timer_phys_reff)
+
+      ! Combine all hydrometoers in one liquid and one frozen phase 
+      ! Not available for RRTM reff parameterization with single liquid and ice phase
+      IF (  atm_phy_nwp_config(jg)%icpl_rad_reff > 0 .AND. atm_phy_nwp_config(jg)%icalc_reff /= 101 ) THEN
+        CALL combine_phases_radiation_reff (prm_diag, pt_patch, pt_prog)
+      END IF
+      IF (timers_level > 10) CALL timer_stop(timer_phys_reff)      
     END IF
 
 

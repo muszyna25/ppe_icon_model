@@ -2290,31 +2290,19 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
       & ldims=shape2d, lopenacc=.TRUE.)
     __acc_attach(diag%qifl_s)
 
-    IF (atm_phy_nwp_config(k_jg)%icalc_reff .GT. 0) THEN 
       
-      ! Effective radius fields
-      ! These are not additive fields and therefore nearest neig. interoplation is used for horizontal.
-      ! Linear interpolation is used for vertical because nearest neig is not yet implemented
+    ! Effective radius fields
+    ! These are not additive fields and therefore nearest neig. interoplation is used for horizontal.
+    ! Linear interpolation is used for vertical because nearest neig is not yet implemented
+
+    IF (atm_phy_nwp_config(k_jg)%icalc_reff > 0) THEN 
 
       cf_desc      = t_cf_var('reff_qc', 'm',  'effective radius of cloud water', datatype_flt)
-      grib2_desc   = grib2_var(0, 254, 50, ibits, GRID_UNSTRUCTURED, GRID_CELL)    ! Corresponds to DUMMY_50 in DWD
+      grib2_desc  = grib2_var(0, 254, 50, ibits, GRID_UNSTRUCTURED, GRID_CELL)    ! Corresponds to DUMMY_50 in DWD
       CALL add_var( diag_list, 'reff_qc', diag%reff_qc,                                 &
-         & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,               &
-         & ldims=shape3d, lrestart=.TRUE.,                                       &
-         & vert_interp=create_vert_interp_metadata(                              &
-         &             vert_intp_type=vintp_types("P","Z","I"),                  &
-         &             vert_intp_method=VINTP_METHOD_LIN,                        &
-         &             l_loglin=.FALSE.,                                         &
-         &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,                   &
-         &             lower_limit=0._wp ),                                      &
-         & hor_interp=create_hor_interp_metadata(                                &
-         &                      hor_intp_type=HINTP_TYPE_LONLAT_NNB)) 
-
-      cf_desc      = t_cf_var('reff_qi', 'm',  'effective radius of cloud ice', datatype_flt)
-      grib2_desc   = grib2_var(0, 254, 51, ibits, GRID_UNSTRUCTURED, GRID_CELL)    ! Corresponds to DUMMY_51 in DWD
-      CALL add_var( diag_list, 'reff_qi', diag%reff_qi,                                 &
         & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,               &
         & ldims=shape3d, lrestart=.TRUE.,                                       &
+        & initval=1.0e-5_wp,                                                    & 
         & vert_interp=create_vert_interp_metadata(                              &
         &             vert_intp_type=vintp_types("P","Z","I"),                  &
         &             vert_intp_method=VINTP_METHOD_LIN,                        &
@@ -2324,11 +2312,28 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
         & hor_interp=create_hor_interp_metadata(                                &
         &                      hor_intp_type=HINTP_TYPE_LONLAT_NNB)) 
 
+      cf_desc      = t_cf_var('reff_qi', 'm',  'effective radius of cloud ice', datatype_flt)
+      grib2_desc   = grib2_var(0, 254, 51, ibits, GRID_UNSTRUCTURED, GRID_CELL)    ! Corresponds to DUMMY_51 in DWD
+      CALL add_var( diag_list, 'reff_qi', diag%reff_qi,                                 &
+        & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,               &
+        & ldims=shape3d, lrestart=.TRUE.,                                       &
+        & initval=1.5e-5_wp,                                                    &
+        & vert_interp=create_vert_interp_metadata(                              &
+        &             vert_intp_type=vintp_types("P","Z","I"),                  &
+        &             vert_intp_method=VINTP_METHOD_LIN,                        &
+        &             l_loglin=.FALSE.,                                         &
+        &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,                   &
+        &             lower_limit=0._wp ),                                      &
+        & hor_interp=create_hor_interp_metadata(                                &
+        &                      hor_intp_type=HINTP_TYPE_LONLAT_NNB)) 
+
+
       cf_desc      = t_cf_var('reff_qr', 'm',  'effective radius of rain droplets', datatype_flt)
       grib2_desc   = grib2_var(0, 254, 52, ibits, GRID_UNSTRUCTURED, GRID_CELL)    ! Corresponds to DUMMY_52 in DWD
       CALL add_var( diag_list, 'reff_qr', diag%reff_qr,                                 &
         & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,               &
         & ldims=shape3d, lrestart=.TRUE.,                                       &
+        & initval=5.0e-4_wp,                                                    &
         & vert_interp=create_vert_interp_metadata(                              &
         &             vert_intp_type=vintp_types("P","Z","I"),                  &
         &             vert_intp_method=VINTP_METHOD_LIN,                        &
@@ -2343,6 +2348,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
       CALL add_var( diag_list, 'reff_qs', diag%reff_qs,                                 &
         & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,               &
         & ldims=shape3d, lrestart=.TRUE.,                                       &
+        & initval=1.0e-4_wp,                                                    &
         & vert_interp=create_vert_interp_metadata(                              &
         &             vert_intp_type=vintp_types("P","Z","I"),                  &
         &             vert_intp_method=VINTP_METHOD_LIN,                        &
@@ -2359,6 +2365,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
         CALL add_var( diag_list, 'reff_qg', diag%reff_qg,                                 &
           & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,               &
           & ldims=shape3d, lrestart=.TRUE.,                                       &
+          & initval=3.0e-4_wp,                                                    &
           & vert_interp=create_vert_interp_metadata(                              &
           &             vert_intp_type=vintp_types("P","Z","I"),                  &
           &             vert_intp_method=VINTP_METHOD_LIN,                        &
@@ -2375,6 +2382,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
         CALL add_var( diag_list, 'reff_qh', diag%reff_qh,                                 &
           & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,               &
           & ldims=shape3d, lrestart=.TRUE.,                                       &
+          & initval=1.0e-3_wp,                                                    &
           & vert_interp=create_vert_interp_metadata(                              &
           &             vert_intp_type=vintp_types("P","Z","I"),                  &
           &             vert_intp_method=VINTP_METHOD_LIN,                        &
@@ -2384,7 +2392,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
           & hor_interp=create_hor_interp_metadata(                                &
           &                      hor_intp_type=HINTP_TYPE_LONLAT_NNB)) 
       END IF
-   
+    ELSE
+      NULLIFY(diag%reff_qc, diag%reff_qi, diag%reff_qr, diag%reff_qs, diag%reff_qg, diag%reff_qh)
     END IF  ! IF effective radius
 
 

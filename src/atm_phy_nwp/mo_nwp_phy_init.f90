@@ -127,7 +127,8 @@ MODULE mo_nwp_phy_init
   USE mo_upatmo_impl_const,   ONLY: iUpatmoPrcStat, iUpatmoStat
   USE mo_upatmo_phy_setup,    ONLY: init_upatmo_phy_nwp
 
-  
+  USE mo_cover_koe,           ONLY: cover_koe_config
+
   IMPLICIT NONE
 
   PRIVATE
@@ -725,9 +726,16 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
 
   END SELECT
 
+  ! Fill parameters for cover_koe
+  ! Set physics options in cloud cover derived type
+  ! This should be moved to init routine in an interface module
+  cover_koe_config(jg)%icldscheme  = atm_phy_nwp_config(jg)%inwp_cldcover
+  cover_koe_config(jg)%inwp_turb   = atm_phy_nwp_config(jg)%inwp_turb
+  cover_koe_config(jg)%inwp_cpl_re = atm_phy_nwp_config(jg)%icpl_rad_reff
+  cover_koe_config(jg)%inwp_reff   = atm_phy_nwp_config(jg)%icalc_reff
 
   ! Initiate parameters for reff calculations
-  IF (atm_phy_nwp_config(jg)%icalc_reff .GT. 0) THEN
+  IF (atm_phy_nwp_config(jg)%icalc_reff > 0) THEN
     IF (timers_level > 10) CALL timer_start(timer_phys_reff)
     CALL init_reff ( prm_diag, p_patch, p_prog_now) 
     IF (timers_level > 10) CALL timer_stop(timer_phys_reff)

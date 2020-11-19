@@ -120,6 +120,7 @@ MODULE mo_atm_phy_nwp_config
     LOGICAL  :: latm_above_top     !! use extra layer above model top for radiation 
                                    !! (reduced grid only)
     INTEGER  :: icalc_reff         !! type of effective radius calculation
+    INTEGER  :: icpl_rad_reff      !! couplig of radiation and effective radius
 
     ! upper atmosphere
     LOGICAL ::  lupatmo_phy        !! use upper atmosphere physics

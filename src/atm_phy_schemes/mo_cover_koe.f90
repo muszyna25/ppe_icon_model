@@ -53,17 +53,30 @@ MODULE mo_cover_koe
 
   USE mo_nwp_tuning_config,  ONLY: tune_box_liq, tune_box_liq_asy, tune_thicklayfac, tune_sgsclifac, icpl_turb_clc
 
+  USE mo_impl_constants,      ONLY: max_dom  
+
   IMPLICIT NONE
 
   PRIVATE
 
 
-  PUBLIC :: cover_koe
+  PUBLIC :: cover_koe, t_cover_koe_config, cover_koe_config
+
+
+!  Cloud cover derived type with physics configuration options
+   
+  TYPE t_cover_koe_config
+    INTEGER(KIND=i4)        ::     icldscheme    ! cloud cover option 
+    INTEGER(KIND=i4)        ::     inwp_turb     ! turbulence scheme number
+    INTEGER(KIND=i4)        ::     inwp_cpl_re   ! coupling reff (for qs altering qi)
+    INTEGER(KIND=i4)        ::     inwp_reff     ! reff option (for qs altering qi)
+  END TYPE t_cover_koe_config
 
 !-------------------------------------------------------------------------
 
-CONTAINS
+  TYPE(t_cover_koe_config)  ::     cover_koe_config(max_dom)  ! This should be in interface module
 
+CONTAINS
 
 !-------------------------------------------------------------------------
 !
@@ -85,8 +98,7 @@ CONTAINS
 
 SUBROUTINE cover_koe( &
   & kidia, kfdia, klon, kstart, klev, & ! in:    dimensions (turn off physics above kstart)
-  & icldscheme                      , & ! in:    cloud cover framework
-  & inwp_turb                       , & ! in:    turbulence scheme number
+  & cover_koe_config                , & ! in:    configure state
   & tt                              , & ! in:    temperature (main levels)
   & pp                              , & ! in:    pressure (")
   & ps                              , & ! in:    surface pressure
@@ -113,9 +125,7 @@ INTEGER(KIND=i4), INTENT(IN) ::  &
   & kstart           , & ! vertical start index (turn off physics above)
   & klev                 ! vertical dimension
 
-INTEGER(KIND=i4), INTENT(IN) ::  &
-  & icldscheme       , & ! cloud cover framework: see option above
-  & inwp_turb            ! turbulence scheme number
+TYPE(t_cover_koe_config), INTENT(IN) :: cover_koe_config ! configure state
 
 REAL(KIND=wp), DIMENSION(klon,klev), INTENT(IN) ::  &
   & pp               , & ! full pressure                                 (  Pa )
@@ -163,7 +173,7 @@ REAL(KIND=wp), DIMENSION(klon,klev), INTENT(INOUT) ::   &
 !! ----------------
 
 LOGICAL ::  &
-  & lprog_qi
+  & lprog_qi, l_addsnow
 
 INTEGER (KIND=i4) :: &
   & jl, jk, jkp1,         &
@@ -227,6 +237,13 @@ ELSE
   rcld_asyfac = 2._wp
 ENDIF
 
+! Snow is added to qi_dia in three cases: 
+! 1) No coupling of reff with radiation
+! 2) No param for reff 
+! 3) Using the original RRTM parameterization for reff 
+l_addsnow = (cover_koe_config%inwp_cpl_re == 0) .OR. (cover_koe_config%inwp_reff == 0) .OR. &
+            (cover_koe_config%inwp_reff == 101)
+
 ! Set cloud fields for stratospheric levels to zero
 DO jk = 1,kstart-1
   DO jl = kidia,kfdia
@@ -259,7 +276,7 @@ ENDDO
 ! Select desired cloud cover framework
 !-----------------------------------------------------------------------
 
-SELECT CASE( icldscheme )
+SELECT CASE( cover_koe_config%icldscheme )
 
 !-----------------------------------------------------------------------
 
@@ -328,9 +345,11 @@ CASE( 1 )
 !  ice cloud
       rhcrit_sgsice = 1._wp - 0.25_wp*tune_sgsclifac*MAX(0._wp,0.75_wp-zqisat(jl,jk)/zqlsat(jl,jk))
       fac_aux = 1._wp - MIN(1._wp,MAX(0._wp,tt(jl,jk)-tm40)/15._wp)
-      qi_mod = MAX(qi(jl,jk), 0.1_wp*(qi(jl,jk)+qs(jl,jk)) ) +                  &
+
+      qi_mod = MERGE( MAX(qi(jl,jk), 0.1_wp*(qi(jl,jk)+qs(jl,jk))), qi(jl,jk), l_addsnow) + &
                fac_aux*MIN(1._wp,tune_sgsclifac*zrcld/(box_ice*zqisat(jl,jk)))* &
                MAX(0._wp,qv(jl,jk)-rhcrit_sgsice*zqisat(jl,jk))
+
      !ice cloud: assumed box distribution, width 0.1 qisat, saturation above qv 
      !           (qv is microphysical threshold for ice as seen by grid scale microphysics)
       IF ( qi_mod > zcldlim ) THEN
@@ -388,7 +407,7 @@ CASE( 1 )
   ENDDO
 
 
-  IF (inwp_turb == iedmf) THEN
+  IF (cover_koe_config%inwp_turb == iedmf) THEN
     DO jk = kstart,klev
       DO jl = kidia,kfdia
 !       IF (SQRT(qtvar(jl,jk)) / MAX(qv(jl,jk)+qc(jl,jk)+qi(jl,jk),0.000001_wp) > 0.01_wp) THEN
