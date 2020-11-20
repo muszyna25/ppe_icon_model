@@ -46,7 +46,7 @@ MODULE mo_cuascn
     &                        lphylin  ,rlptrc,           &
     &                        entshalp ,rmfcmin,          &
     &                        rmflic   ,rmflia ,rvdifts  ,&
-    &                        rmfcmax, rlmin, detrpen    ,&
+    &                        rmfcmax, rlmin             ,&
     &                        lhook,   dr_hook, lmfglac
 
   USE mo_adjust ,ONLY: cuadjtq
@@ -65,10 +65,8 @@ CONTAINS
   !
   SUBROUTINE cuascn &
     & ( kidia,    kfdia,    klon,    ktdia,  klev, rmfcfl, &
-    & entrorg, rprcon, lmfmid, lgrz_deepconv, ptsphy,&
-    & paer_ss,&
-    & ptenh,    pqenh,   &
-    & ptenq,             &
+    & entrorg, detrpen, rprcon, lmfmid, lgrz_deepconv, ptsphy,&
+    & paer_ss,  ptenh,    pqenh,    ptenq,             &
     & pten,     pqen,     pqsen,    plitot,&
     & pgeo,     pgeoh,    pap,      paph,&
     & zdph,     zdgeoh,                  &
@@ -233,7 +231,7 @@ INTEGER(KIND=jpim),INTENT(in)    :: kidia
 INTEGER(KIND=jpim),INTENT(in)    :: kfdia 
 INTEGER(KIND=jpim),INTENT(in)    :: ktdia
 REAL(KIND=jprb)   ,INTENT(in)    :: rmfcfl 
-REAL(KIND=jprb)   ,INTENT(in)    :: entrorg, rprcon
+REAL(KIND=jprb)   ,INTENT(in)    :: entrorg, rprcon, detrpen
 LOGICAL           ,INTENT(in)    :: lmfmid, lgrz_deepconv
 REAL(KIND=jprb)   ,INTENT(in)    :: ptsphy 
 !KF
@@ -1154,7 +1152,7 @@ END SUBROUTINE cuascn
   SUBROUTINE cuentr &
     & ( kidia,    kfdia,    klon,     klev,&
     & kk,       kcbot,&
-    & ldcum,    ldwork,&
+    & ldcum,    ldwork, detrpen, &
     & paph,     pgeoh,  zdgeoh,      &
     & pmfu,&
     & pcbase,   pdmfen,   pdmfde )
@@ -1244,6 +1242,7 @@ END SUBROUTINE cuascn
     INTEGER(KIND=jpim),INTENT(in)    :: kcbot(klon)
     LOGICAL           ,INTENT(in)    :: ldcum(klon)
     LOGICAL           ,INTENT(in)    :: ldwork
+    REAL(KIND=jprb)   ,INTENT(in)    :: detrpen
     REAL(KIND=jprb)   ,INTENT(in)    :: paph(klon,klev+1)
     REAL(KIND=jprb)   ,INTENT(in)    :: pgeoh(klon,klev+1)
     REAL(KIND=jprb)   ,INTENT(in)    :: zdgeoh(klon,klev)

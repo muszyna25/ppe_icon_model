@@ -53,6 +53,8 @@ MODULE mo_cover_koe
 
   USE mo_nwp_tuning_config,  ONLY: tune_box_liq, tune_box_liq_asy, tune_thicklayfac, tune_sgsclifac, icpl_turb_clc
 
+  USE mo_ensemble_pert_config, ONLY: box_liq_sv, thicklayfac_sv, box_liq_asy_sv
+
   USE mo_impl_constants,      ONLY: max_dom  
 
   IMPLICIT NONE
@@ -190,7 +192,8 @@ REAL(KIND=wp) :: &
   & fgew   , fgee   , fgqs   , dqsdt,   & !fgqv   , & ! name of statement functions
   & ztt    , zzpv   , zzpa   , zzps   , zqs, &
   & zf_ice , deltaq , qisat_grid, zdeltaq, zrcld, thicklay_fac, tfac, satdef_fac, rhcrit_sgsice, &
-  & vap_pres, zaux, zqisat_m50, zqisat_m25, qi_mod, par1, qcc, box_liq_asy, fac_aux, fac_ic, fac_sfc, rcld_asyfac
+  & vap_pres, zaux, zqisat_m50, zqisat_m25, qi_mod, par1, qcc, box_liq_asy, fac_aux, fac_ic, fac_sfc, &
+  & rcld_asyfac, dq1, dq2, dq3, tfmax
 
 REAL(KIND=wp), DIMENSION(klon,klev)  :: &
   zqlsat , zqisat, zagl_lim, zdqlsat_dT
@@ -236,6 +239,12 @@ IF (icpl_turb_clc == 1) THEN
 ELSE
   rcld_asyfac = 2._wp
 ENDIF
+! auxiliary factors depending on ensemble perturbations in order to increase spread
+tfmax = 0.6_wp  + 100._wp*(tune_thicklayfac-thicklayfac_sv)
+dq1   = 0.8_wp  + 100._wp*(tune_box_liq-box_liq_sv)*(tune_box_liq_asy-box_liq_asy_sv)
+dq2   = 1._wp   + 400._wp*(tune_thicklayfac-thicklayfac_sv)*(tune_box_liq_asy-box_liq_asy_sv)
+dq3   = 0.25_wp + 2500._wp*(tune_box_liq-box_liq_sv)*(tune_thicklayfac-thicklayfac_sv)
+
 
 ! Snow is added to qi_dia in three cases: 
 ! 1) No coupling of reff with radiation
@@ -308,15 +317,15 @@ CASE( 1 )
      ! in addition, sub-grid scale moisture variations in the vertical are parameterized depending on vertical resolution
      ! Diagnosed cloud water is proportional to clcov**2
      !
-      thicklay_fac = MIN(0.6_wp,MAX(0._wp,tune_thicklayfac*(deltaz(jl,jk)-150._wp))) ! correction for thick model layers
+      thicklay_fac = MIN(tfmax,MAX(0._wp,tune_thicklayfac*(deltaz(jl,jk)-150._wp))) ! correction for thick model layers
       zdeltaq = MIN(tune_box_liq*(1._wp+0.5_wp*thicklay_fac), zagl_lim(jl,jk)) * zqlsat(jl,jk)
       zrcld = 0.5_wp*(rcld(jl,jk)+rcld(jl,jk+1))
       IF (icpl_turb_clc == 1) THEN
-        deltaq = MAX(0.8_wp*zdeltaq,(4._wp+thicklay_fac)*zrcld)
+        deltaq = MAX(dq1*zdeltaq,(4._wp*dq2+thicklay_fac)*zrcld)
       ELSE
-        deltaq = 0.8_wp*zdeltaq+(1._wp+0.25_wp*thicklay_fac)*zrcld
+        deltaq = dq1*zdeltaq+(dq2+dq3*thicklay_fac)*zrcld
       ENDIF
-        deltaq = MIN(deltaq,2._wp*zdeltaq)
+      deltaq = MIN(deltaq,2._wp*zdeltaq)
       IF ( ( qv(jl,jk) + qc(jl,jk) - deltaq ) > zqlsat(jl,jk) ) THEN
         cc_turb_liq(jl,jk) = 1.0_wp
         qc_turb  (jl,jk)   = qv(jl,jk) + qc(jl,jk) - zqlsat(jl,jk)

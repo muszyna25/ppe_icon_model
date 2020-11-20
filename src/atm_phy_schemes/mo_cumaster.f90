@@ -574,7 +574,8 @@ CALL cuinin &
 
 CALL cubasen &
   & ( kidia,    kfdia,    klon,   ktdia,    klev, &
-  & phy_params%kcon1, phy_params%kcon2, phy_params%entrorg, phy_params%rdepths, &
+  & phy_params%kcon1, phy_params%kcon2, phy_params%entrorg, &
+  & phy_params%entstpc1, phy_params%entstpc2, phy_params%rdepths, &
   & phy_params%texc, phy_params%qexc, mtnmask, ldland, ldlake, &
   & ztenh,    zqenh,    pgeoh,    paph,&
   & pqhfl,    pahfs,    &
@@ -728,7 +729,7 @@ ENDDO
 
 CALL cuascn &
   & ( kidia,    kfdia,    klon,   ktdia,   klev, phy_params%mfcfl, &
-  & phy_params%entrorg, phy_params%rprcon, phy_params%lmfmid,      &
+  & phy_params%entrorg, phy_params%detrpen, phy_params%rprcon, phy_params%lmfmid,      &
   & phy_params%lgrayzone_deepconv, ptsphy, paer_ss,                &
   & ztenh,    zqenh,&
   & ptenq, &
@@ -810,7 +811,7 @@ IF(lmfdd) THEN
 
   CALL cuddrafn &
     & ( kidia,    kfdia,    klon,   ktdia,  klev,&
-    & k950, llddraf, ztenh,    zqenh            ,&
+    & k950, llddraf, phy_params%entrdd, ztenh,    zqenh,&
     & pgeo,     pgeoh,    paph,     zrfl,&
     & zdph,     zdgeoh,                  &
     & ztd,      zqd,      pmfu,&
@@ -1001,7 +1002,7 @@ IF(lmfit) THEN
 
   CALL cuascn &
     & ( kidia,    kfdia,    klon,   ktdia,   klev, phy_params%mfcfl, &
-    & phy_params%entrorg, phy_params%rprcon, phy_params%lmfmid,      &
+    & phy_params%entrorg, phy_params%detrpen, phy_params%rprcon, phy_params%lmfmid,  &
     & phy_params%lgrayzone_deepconv, ptsphy, paer_ss,                &
     & ztenh,    zqenh,    &
     & ptenq,            &

@@ -426,6 +426,11 @@ MODULE mo_nh_stepping
     CALL message('',message_text)
   ENDIF
 
+  ! Initialize time-dependent ensemble perturbations if necessary
+  IF (use_ensemble_pert .AND. gribout_config(1)%perturbationNumber >= 1) THEN
+    CALL compute_ensemble_pert(p_patch(1:), ext_data, prm_diag, phy_params, mtime_current, .FALSE.)
+  ENDIF
+
   SELECT CASE (iforcing)
   CASE (inwp)
     DO jg=1, n_dom
@@ -453,6 +458,7 @@ MODULE mo_nh_stepping
       IF (iprog_aero >= 1) CALL setup_aerosol_advection(p_patch(jg))
 
     ENDDO
+
     IF (.NOT.isRestart()) THEN
       ! Compute diagnostic physics fields
       CALL aggr_landvars
@@ -902,10 +908,7 @@ MODULE mo_nh_stepping
 
     ! Update time-dependent ensemble perturbations if necessary
     IF (use_ensemble_pert .AND. gribout_config(1)%perturbationNumber >= 1) THEN
-#ifdef _OPENACC
-      CALL finish (routine, 'compute_ensemble_part: OpenACC version currently not implemented')
-#endif
-      CALL compute_ensemble_pert(p_patch(1:), ext_data, prm_diag, mtime_current)
+      CALL compute_ensemble_pert(p_patch(1:), ext_data, prm_diag, phy_params, mtime_current, .TRUE.)
     ENDIF
 
     ! update model date and time mtime based
@@ -3183,6 +3186,11 @@ MODULE mo_nh_stepping
     atm_phy_nwp_config(:)%lcalc_acc_avg = .FALSE.
 
     CALL restore_initial_state(p_patch(1:), p_nh_state, prm_diag, prm_nwp_tend, p_lnd_state, ext_data)
+
+    ! Reinitialize time-dependent ensemble perturbations if necessary
+    IF (use_ensemble_pert .AND. gribout_config(1)%perturbationNumber >= 1) THEN
+      CALL compute_ensemble_pert(p_patch(1:), ext_data, prm_diag, phy_params, datetime_current, .FALSE.)
+    ENDIF
 
     DO jg=1, n_dom
 

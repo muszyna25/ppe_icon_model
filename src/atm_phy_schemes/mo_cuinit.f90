@@ -48,8 +48,7 @@ MODULE mo_cuinit
     &                          lmfdudv               ,&
     &                          rcpd   ,retv, rd, rg  ,&
     &                          rlmin                 ,&
-    &                          lhook,   dr_hook      ,&
-    &                          entstpc1, entstpc2
+    &                          lhook,   dr_hook
 
   USE mo_adjust ,ONLY: cuadjtq ,cuadjtqs
 
@@ -301,7 +300,8 @@ CONTAINS
 
 SUBROUTINE cubasen &
  & ( kidia,    kfdia,  klon,  ktdia, klev, njkt1, njkt2,  &
- & entrorg, rdepths, texc, qexc, mtnmask, ldland, ldlake, &
+ & entrorg, entstpc1, entstpc2, rdepths, texc, qexc,      &
+ & mtnmask, ldland, ldlake,                               &
  & ptenh,  pqenh, pgeoh, paph,  pqhfl, pahfs,             &
 !& PSSTRU,   PSSTRV,                                      &
  & pten,     pqen,     pqsen, pgeo,                       &
@@ -455,7 +455,7 @@ INTEGER(KIND=jpim),INTENT(in)    :: kidia
 INTEGER(KIND=jpim),INTENT(in)    :: kfdia
 INTEGER(KIND=jpim),INTENT(in)    :: ktdia
 INTEGER(KIND=jpim),INTENT(in)    :: njkt1, njkt2
-REAL(KIND=jprb)   ,INTENT(in)    :: entrorg
+REAL(KIND=jprb)   ,INTENT(in)    :: entrorg, entstpc1, entstpc2
 REAL(KIND=jprb)   ,INTENT(in)    :: rdepths
 REAL(KIND=jprb)   ,INTENT(in)    :: texc, qexc
 REAL(KIND=jprb)   ,INTENT(in)    :: mtnmask(klon)

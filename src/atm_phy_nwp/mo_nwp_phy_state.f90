@@ -2488,7 +2488,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'tkred_sfc', diag%tkred_sfc,                 &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
-      & ldims=shape2d, lrestart=.FALSE., lopenacc=.TRUE. )
+      & ldims=shape2d, lrestart=.FALSE., initval=1._wp, lopenacc=.TRUE. )
     __acc_attach(diag%tkred_sfc)
 
     ! &      diag%pat_len(nproma,nblks_c)

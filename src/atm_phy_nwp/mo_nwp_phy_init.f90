@@ -1111,7 +1111,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
     lshallow = atm_phy_nwp_config(jg)%lshallowconv_only
     lgrayzone_dc = atm_phy_nwp_config(jg)%lgrayzone_deepconv
     ldetrain_prec = atm_phy_nwp_config(jg)%ldetrain_conv_prec
-    CALL sucumf(rsltn,nlev,pref,phy_params,lshallow,lgrayzone_dc,ldetrain_prec)
+    CALL sucumf(rsltn,nlev,phy_params,lshallow,lgrayzone_dc,ldetrain_prec,pref)
     CALL suphli
     CALL suvdf
     CALL suvdfs
@@ -1635,7 +1635,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
 
   ! SSO scheme
   !
-  CALL sugwd(nlev, pref, phy_params, jg )
+  CALL sugwd(nlev, pref, phy_params, jg)
   IF (linit_mode) prm_diag%ktop_envel(:,:) = nlev
 
    ! read time-dependent boundary conditions from file

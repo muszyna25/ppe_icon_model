@@ -40,6 +40,10 @@ MODULE mo_nwp_parameters
     REAL(wp) :: rcucov, rcucov_trop
     ! tuning coefficient for organized entrainment of deep convection
     REAL(wp) :: entrorg
+    ! detrainment rate for deep convection updrafts and downdrafts
+    REAL(wp) :: detrpen, entrdd
+    ! entrainment constants for test parcel ascent
+    REAL(wp) :: entstpc1, entstpc2
     ! coefficient for conversion of cloud water into precipitation
     REAL(wp) :: rprcon
     ! maximum allowed depth of shallow convection (hPa)

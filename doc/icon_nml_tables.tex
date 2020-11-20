@@ -1563,7 +1563,8 @@ I&
 &
 Time-dependence of ensemble perturbations (except tkred\_sfc, which oscillates with a time scale of 20 days)\\
 0: None\\
-1: Random seed for perturbation generation depends on initial date&
+1: Random seed for perturbation generation depends on initial date\\
+2: Time-dependent perturbations varying sinusoidally within their range &
 \tabularnewline
 
 \hline
@@ -1700,6 +1701,15 @@ inwp\_cldcover = 1
 \tabularnewline
 
 \hline
+range\_thicklayfac&
+R&
+0.0025&
+&
+Variability range for thick-layer correction factor for sub-grid scale liquid cloud distribution &
+inwp\_cldcover = 1
+\tabularnewline
+
+\hline
 range\_tkhmin&
 R&
 0.2&
@@ -1738,7 +1748,7 @@ inwp\_turb = 1
 \hline
 range\_a\_stab&
 R&
-0&
+1&
 &
 Variability range for stability correction&
 inwp\_turb = 1
@@ -1747,7 +1757,7 @@ inwp\_turb = 1
 \hline
 range\_c\_diff&
 R&
-1.0&
+2.0&
 &
 Range for multiplicative change of length scale factor for vertical diffusion&
 inwp\_turb = 1
@@ -1756,7 +1766,7 @@ inwp\_turb = 1
 \hline
 range\_q\_crit&
 R&
-0&
+1&
 &
 Variability range for critical value for normalized supersaturation in turbulent cloud scheme &
 inwp\_turb = 1
@@ -1774,9 +1784,9 @@ inwp\_turb = 1
 \hline
 range\_rlam\_heat&
 R&
-3.0&
+8.0&
 &
-Variability range (multiplicative!) of laminar transport resistance parameter &
+Variability range (additive) of laminar transport resistance parameter &
 inwp\_turb = 1
 \tabularnewline
 
