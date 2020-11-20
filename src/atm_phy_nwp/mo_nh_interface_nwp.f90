@@ -1162,7 +1162,13 @@ CONTAINS
     !-------------------------------------------------------------------------
 
     IF ( lcall_phy_jg(itrad) ) THEN
-
+      
+#ifdef _OPENACC
+      IF(.not. linit) THEN
+        CALL message('wp_radiation', 'Host to device copy before nwp_radiation. This needs to be removed once port is finished!')
+        CALL gpu_h2d_nh_nwp(pt_patch, prm_diag, ext_data)
+      ENDIF
+#endif
       IF (ltimer) CALL timer_start(timer_nwp_radiation)
       CALL nwp_radiation (lredgrid,              & ! in
            &              p_sim_time,            & ! in
@@ -1175,8 +1181,15 @@ CONTAINS
            &              pt_diag,               & ! inout
            &              prm_diag,              & ! inout
            &              lnd_prog_new,          & ! in
-           &              wtr_prog_new           ) ! in
+           &              wtr_prog_new,          & ! in
+           &              linit                  ) ! in, optional
       IF (ltimer) CALL timer_stop(timer_nwp_radiation)
+#ifdef _OPENACC
+      IF(.not. linit) THEN
+        CALL message('nwp_radiation', 'Device to host copy after nwp_radiation. This needs to be removed once port is finished!')
+        CALL gpu_d2h_nh_nwp(pt_patch, prm_diag, ext_data)
+      ENDIF
+#endif
 
     ENDIF
 

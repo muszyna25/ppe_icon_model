@@ -138,7 +138,7 @@ PUBLIC           ! All constants and variables in this module are public
  
   REAL  (KIND=wp) , POINTER ::  csalb(:)
 
-  !$acc declare copyin(clgk0)
+  !$acc declare copyin(clgk0) create (csalb)
 
   ! Initialization of soil type parameters except cdz1 
   ! (being calculated during execution)

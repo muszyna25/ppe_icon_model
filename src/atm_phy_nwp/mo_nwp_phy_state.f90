@@ -1336,8 +1336,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     CALL add_var( diag_list, 'albdif', diag%albdif,                         &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
       & ldims=shape2d, in_group=groups("rad_vars"),                         &
-      & post_op=post_op(POST_OP_SCALE, arg1=100._wp,                        &
-      &                 new_cf=new_cf_desc) )
+      & post_op=post_op(POST_OP_SCALE, arg1=100._wp, new_cf=new_cf_desc),   &
+      & lopenacc=.TRUE.)
+      __acc_attach(diag%albdif)
 
     !        diag%albvisdif    (nproma,       nblks),          &
     cf_desc     = t_cf_var('albvisdif', '', 'UV visible albedo for diffuse radiation', &
@@ -1348,8 +1349,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     CALL add_var( diag_list, 'albvisdif', diag%albvisdif,                   &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
       & ldims=shape2d, in_group=groups("rad_vars"),                         &
-      & post_op=post_op(POST_OP_SCALE, arg1=100._wp,                        &
-      &                 new_cf=new_cf_desc) )
+      & post_op=post_op(POST_OP_SCALE, arg1=100._wp, new_cf=new_cf_desc),   &
+      & lopenacc=.TRUE.)
+      __acc_attach(diag%albvisdif)
 
     !        diag%albvisdir    (nproma,       nblks),          &
     cf_desc     = t_cf_var('albvisdir', '', 'UV visible albedo for direct radiation', &
@@ -1360,8 +1362,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     CALL add_var( diag_list, 'albvisdir', diag%albvisdir,                   &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
       & ldims=shape2d,                                                      &
-      & post_op=post_op(POST_OP_SCALE, arg1=100._wp,                        &
-      &                 new_cf=new_cf_desc) )
+      & post_op=post_op(POST_OP_SCALE, arg1=100._wp, new_cf=new_cf_desc),   &
+      & lopenacc=.TRUE.)
+      __acc_attach(diag%albvisdir)
 
     !        diag%albnirdif    (nproma,       nblks),          &
     cf_desc     = t_cf_var('albnirdif', '',  'Near IR albedo for diffuse radiation',&
@@ -1372,8 +1375,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     CALL add_var( diag_list, 'albnirdif', diag%albnirdif,                   &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
       & ldims=shape2d, in_group=groups("rad_vars"),                         &
-      & post_op=post_op(POST_OP_SCALE, arg1=100._wp,                        &
-      &                 new_cf=new_cf_desc) )
+      & post_op=post_op(POST_OP_SCALE, arg1=100._wp, new_cf=new_cf_desc),   &
+      & lopenacc=.TRUE.)
+      __acc_attach(diag%albnirdif)
 
     !        diag%albnirdir    (nproma,       nblks),          &
     cf_desc     = t_cf_var('albnirdir', '',  'Near IR albedo for direct radiation',&
@@ -1384,8 +1388,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     CALL add_var( diag_list, 'albnirdir', diag%albnirdir,                   &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
       & ldims=shape2d,                                                      &
-      & post_op=post_op(POST_OP_SCALE, arg1=100._wp,                        &
-      &                 new_cf=new_cf_desc) )
+      & post_op=post_op(POST_OP_SCALE, arg1=100._wp, new_cf=new_cf_desc),   &
+      & lopenacc=.TRUE.)
+      __acc_attach(diag%albnirdir)
 
 
     ! longwave surface emissivity
@@ -1396,7 +1401,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     CALL add_var( diag_list, 'lw_emiss', diag%lw_emiss,         &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,  &
       &           grib2_desc, ldims=shape2d, loutput=.TRUE.,    &
-      &           lrestart=.TRUE. )
+      &           lrestart=.TRUE., lopenacc=.TRUE.)
+      __acc_attach(diag%lw_emiss)
 
 
     ! These variables only make sense if the land-surface scheme is switched on.
@@ -1434,7 +1440,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
       CALL add_var( diag_list, 'albvisdif_t', diag%albvisdif_t,               &
         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
         & ldims=shape3dsubsw, lcontainer=.TRUE., lrestart=.FALSE., &
-        & loutput=.FALSE.)
+        & loutput=.FALSE., lopenacc=.TRUE.)
+        __acc_attach(diag%albvisdif_t)
 
       ! fill the seperate variables belonging to the container albvisdif_t
       ALLOCATE(diag%albvisdif_t_ptr(ntiles_total+ntiles_water))
@@ -1457,7 +1464,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
       CALL add_var( diag_list, 'albnirdif_t', diag%albnirdif_t,               &
         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
         & ldims=shape3dsubsw, lcontainer=.TRUE., lrestart=.FALSE., &
-        & loutput=.FALSE.)
+        & loutput=.FALSE., lopenacc=.TRUE.)
+        __acc_attach(diag%albnirdif_t)
 
 
       ! fill the seperate variables belonging to the container albnirdif_t
@@ -1526,8 +1534,10 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     !        diag%cosmu0    (nproma,nblks)
     cf_desc    = t_cf_var('cosmu0', '-', 'Cosine of solar zenith angle', datatype_flt)
     grib2_desc = grib2_var(192, 214, 1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( diag_list, 'cosmu0', diag%cosmu0,                         &
-      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
+    CALL add_var( diag_list, 'cosmu0', diag%cosmu0,                  &
+    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,       &
+    & ldims=shape2d, in_group=groups("rad_vars"), lopenacc=.TRUE.)
+    __acc_attach(diag%cosmu0)
 
     ! &      diag%tsfctrad(nproma,nblks_c)
     cf_desc    = t_cf_var('tsfctrad', 'K', 'surface temperature at trad', datatype_flt)

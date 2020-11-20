@@ -1109,7 +1109,9 @@ MODULE mo_nwp_lnd_state
          & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ), & 
          & in_group=groups("dwd_fg_sfc_vars","mode_dwd_fg_in", "mode_iau_fg_in", &
          &                 "mode_iau_old_fg_in","mode_cosmo_in","mode_iniana"),                &
-         & post_op=post_op(POST_OP_SCALE, arg1=100._wp, new_cf=new_cf_desc) )   
+         & post_op=post_op(POST_OP_SCALE, arg1=100._wp, new_cf=new_cf_desc),     &
+         & lopenacc=.TRUE. )   
+         __acc_attach(p_prog_wtr%alb_si)   
 
 
     !

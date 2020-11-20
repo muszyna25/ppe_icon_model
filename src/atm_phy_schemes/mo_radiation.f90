@@ -109,7 +109,7 @@ MODULE mo_radiation
 CONTAINS
 
   SUBROUTINE pre_radiation_nwp_steps( &
-    & kbdim,cosmu0_dark,p_inc_rad,p_inc_radheat,p_sim_time,pt_patch,zsmu0,zsct)
+    & kbdim,cosmu0_dark,p_inc_rad,p_inc_radheat,p_sim_time,pt_patch,zsmu0,zsct, lacc)
 
     INTEGER, INTENT(IN)   :: &
       & kbdim
@@ -124,6 +124,7 @@ CONTAINS
 
     REAL(wp), INTENT(OUT), OPTIONAL   :: zsct                  ! solar constant (at time of year)
     REAL(wp), INTENT(OUT)             :: zsmu0(kbdim,pt_patch%nblks_c)   ! Cosine of zenith angle
+    LOGICAL                           :: lacc ! accelerator flag
 
     REAL(wp) ::                    &
       & p_sim_time_rad,            &
@@ -162,6 +163,9 @@ CONTAINS
     IF (izenith == 0) THEN
     ! local insolation = constant = global mean insolation (ca. 340 W/m2)
     ! zenith angle = 0,
+#ifdef _OPENACC
+      IF (lacc) CALL finish('pre_radiation_nwp','Only ported on gpu for izenith == 4')
+#endif
       DO jb = 1, pt_patch%nblks_c
         ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
         zsmu0(1:ie,jb) = 1._wp ! sun in zenith everywhere
@@ -173,6 +177,9 @@ CONTAINS
     ! no diurnal cycle,
     ! local time always 12:00
     ! --> sin(time of day)=1 ) and zenith angle depends on latitude only
+#ifdef _OPENACC
+      IF (lacc) CALL finish('pre_radiation_nwp','Only ported on gpu for izenith == 4')
+#endif
       DO jb = 1, pt_patch%nblks_c
         ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
         zsmu0(1:ie,jb) = COS( pt_patch%cells%center(1:ie,jb)%lat )
@@ -185,6 +192,9 @@ CONTAINS
     ! no diurnal cycle,
     ! local time always  07:14:15 or 16:45:45
     ! --> sin(time of day)=1/pi and zenith angle depends on latitude only
+#ifdef _OPENACC
+      IF (lacc) CALL finish('pre_radiation_nwp','Only ported on gpu for izenith == 4')
+#endif
       DO jb = 1, pt_patch%nblks_c
         ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
         zsmu0(1:ie,jb) = COS( pt_patch%cells%center(1:ie,jb)%lat ) * rpi
@@ -194,6 +204,9 @@ CONTAINS
     ! circular non-seasonal orbit,
     ! perpetual equinox,
     ! with diurnal cycle,
+#ifdef _OPENACC
+      IF (lacc) CALL finish('pre_radiation_nwp','Only ported on gpu for izenith == 4')
+#endif
 
       zsmu0(:,:)=0.0_wp
       n_cosmu0pos(:,:) = 0
@@ -327,10 +340,14 @@ CONTAINS
 
       ENDDO !jmu0
 
+      !$acc update device (zsmu0) if (lacc)
+      !$acc parallel default (none) present (zsmu0) copyin (n_cosmu0pos, cosmu0_dark, n_zsct, zsct_save) copy (zsct) if (lacc)
+      !$acc loop gang
       DO jb = 1, pt_patch%nblks_c
 
         ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
 
+        !$acc loop vector
         DO jc = 1,ie
           IF ( n_cosmu0pos(jc,jb) > 0 ) THEN
             ! The averaged cosine of zenith angle is limited to 0.05 in order to avoid
@@ -350,6 +367,8 @@ CONTAINS
           zsct = zsct_save
         ENDIF
       ENDIF
+      !$acc end parallel
+      !$acc update host (zsmu0) if (lacc)
 
     ELSEIF (izenith == 5) THEN
      ! Radiative convective equilibrium
@@ -358,6 +377,9 @@ CONTAINS
      ! no diurnal cycle,
      ! the product tsi*cos(zenith angle) should equal 340 W/m2
      ! see Popke et al. 2013 and Cronin 2013
+#ifdef _OPENACC
+      IF (lacc) CALL finish('pre_radiation_nwp','Only ported on gpu for izenith == 4')
+#endif
       DO jb = 1, pt_patch%nblks_c
         ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
         zsmu0(1:ie,jb) = COS(zenithang*pi/180._wp)
