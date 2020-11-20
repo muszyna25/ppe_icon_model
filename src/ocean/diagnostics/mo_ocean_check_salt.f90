@@ -140,16 +140,16 @@ CONTAINS
 !       WRITE(0,*) '(',id,')', ' saltwat:' , total_saltinliquidwater, (total_saltinliquidwater / total_saltinliquidwater_old) - 1.0_wp
 !     ENDIF
 
-!     IF (my_process_is_stdio()) THEN
-!       WRITE(0,*) '(',id,')', ' salt   :' , total_salt, total_salt - total_salt_old
+     IF (my_process_is_stdio()) THEN
+       WRITE(0,*) '(',id,')', ' salt   :' , total_salt, total_salt - total_salt_old
 !       WRITE(0,*) '(',id,')', ' saltice:' , total_saltinseaice, total_saltinseaice - total_saltinseaice_old
 !       WRITE(0,*) '(',id,')', ' saltwat:' , total_saltinliquidwater, total_saltinliquidwater - total_saltinliquidwater_old
-!     ENDIF
+     ENDIF
    
-    IF (my_process_is_stdio()) THEN
-       WRITE(0,*) '(',id,')', ' -- total init error:', (total_salt - initial_total_salt) / initial_total_salt 
-       WRITE(0,*) '(',id,')', ' -- accumulated run error:', accumulated_run_error(id) /  total_salt
-    ENDIF
+!    IF (my_process_is_stdio()) THEN
+!       WRITE(0,*) '(',id,')', ' -- total init error:', (total_salt - initial_total_salt) / initial_total_salt 
+!       WRITE(0,*) '(',id,')', ' -- accumulated run error:', accumulated_run_error(id) /  total_salt
+!    ENDIF
    
     total_salt_old = total_salt
     total_saltinseaice_old = total_saltinseaice
@@ -241,7 +241,7 @@ CONTAINS
 
         !! FIXME for SF = 3, ice ocean coupling is through fluxes
         !! so water height is h and not h - draftave
-        if (surface_flux_type .eq. 3) then
+        IF ( (surface_flux_type .EQ. 3) .OR. (surface_flux_type .GE. 10))THEN 
           draftave = 0.0_wp
         end if
 

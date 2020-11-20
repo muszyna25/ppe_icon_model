@@ -431,7 +431,7 @@ CONTAINS
         CALL create_pressure_bc_conditions(patch_3d,ocean_state(jg), p_as, current_time)
         !------------------------------------------------------------------------
        
-        IF (surface_flux_type .EQ. 3) THEN 
+        IF ( (surface_flux_type .EQ. 3) .OR. (surface_flux_type .GE. 10))THEN 
           ocean_state(jg)%p_aux%bc_total_top_potential = &
             & ocean_state(jg)%p_aux%bc_tides_potential  + &
             & rho_ref * OceanReferenceDensity_inv * grav * sea_ice%draftave
@@ -759,7 +759,7 @@ CONTAINS
         CALL create_pressure_bc_conditions(patch_3d,ocean_state(jg), p_as, current_time)
         !------------------------------------------------------------------------
 
-        IF (surface_flux_type .EQ. 2) THEN 
+        IF ( (surface_flux_type .EQ. 2) .OR. (surface_flux_type .GE. 10))THEN 
           ocean_state(jg)%p_aux%bc_total_top_potential = &
             & ocean_state(jg)%p_aux%bc_tides_potential  + &
             & rho_ref * OceanReferenceDensity_inv * grav * sea_ice%draftave
