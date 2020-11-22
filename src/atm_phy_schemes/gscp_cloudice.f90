@@ -1286,8 +1286,16 @@ SUBROUTINE cloudice (             &
             zsidep = zsidep * reduce_dep(iv)  !FR new: SLW reduction
           END IF
           zsvidep = MIN( zsidep, zsvmax )
-        ELSEIF (zsidep < 0.0_wp ) THEN
-          zsvisub = - MAX(-zsimax, zsvmax )
+        ELSEIF (zsidep < 0.0_wp .AND. k < ke) THEN
+          zsvisub = - MAX(zsidep, -zsimax, zsvmax )
+        ELSE ! limit precip rate rather than sublimation in order to reduce time-step dependence
+          zsvisub = - MAX(zsidep, zsvmax )
+          IF (zsvisub > zsimax) THEN
+            zzai(iv) = zsvisub/(z1orhog(iv)*zdtr)
+            zpki(iv) = MIN( zpki(iv) , zzai(iv) )
+            zqik(iv) = zzai(iv)*zimi(iv)
+            zsimax   = zsvisub
+          ENDIF
         ENDIF
         zsiau = zciau * MAX( qig - qi0, 0.0_wp ) * stickeff
         IF (llqi) THEN

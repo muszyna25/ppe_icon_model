@@ -872,6 +872,9 @@ DO jl = kidia, kfdia
                  MIN(1._jprb,MAX(0._jprb,(tune_lowcapefac*pcape(jl)+zcapethr)/300._jprb))
       zcapdcycl(jl) = (zcapefac+mtnmask(jl))*MAX(limit_negpblcape,zcappbl(jl))*ztau(jl)*phy_params%tau0
     ENDIF
+    ! This largely suppresses convective drizzle over mountain ridges in grayzone deep convection mode
+    IF (phy_params%lgrayzone_deepconv) zcapdcycl(jl) = MAX(zcapdcycl(jl),                     &
+      MAX(0._jprb,mtnmask(jl)-0.2_jprb)*MERGE(10._jprb,0.1_jprb,llo1)*ztau(jl)*phy_params%tau0)
     ! Reduce adjustment time scale for extreme CAPE values
     IF (pcape(jl) > zcapethresh) ztau(jl) = ztau(jl)/phy_params%tau
   ELSE IF (ldcum(jl) .AND. ktype(jl) == 1) THEN
