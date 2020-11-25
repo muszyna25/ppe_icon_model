@@ -47,40 +47,34 @@ MODULE mo_action
   USE mo_mpi,                ONLY: my_process_is_stdio, p_pe, p_io, p_comm_work, p_bcast
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_impl_constants,     ONLY: vname_len
-  USE mtime,                 ONLY: event, newEvent, datetime, newDatetime,&
+  USE mtime,                 ONLY: event, newEvent, datetime, newDatetime,           &
     &                              isCurrentEventActive, deallocateDatetime,         &
     &                              MAX_DATETIME_STR_LEN, datetimetostring,           &
     &                              MAX_EVENTNAME_STR_LEN, timedelta, newTimedelta,   &
     &                              deallocateTimedelta, getPTStringFromMS,           &
     &                              getTriggeredPreviousEventAtDateTime,              &
-    &                              OPERATOR(+), OPERATOR(>=), OPERATOR(<=)
+    &                              getPTStringFromMS, datetimetostring, OPERATOR(+)
   USE mo_util_mtime,         ONLY: is_event_active
   USE mo_time_config,        ONLY: time_config
   USE mo_util_string,        ONLY: remove_duplicates
   USE mo_util_table,         ONLY: initialize_table, finalize_table, add_table_column, &
     &                              set_table_entry, print_table, t_table
-  USE mo_action_types,       ONLY: t_var_action, t_var_action_element
+  USE mo_action_types,       ONLY: t_var_action, action_names, action_reset, t_var_action_element
   USE mo_grid_config,        ONLY: n_dom
   USE mo_run_config,         ONLY: msg_level
   USE mo_parallel_config,    ONLY: proc0_offloading
   USE mo_var_list_register,  ONLY: t_vl_register_iter
   USE mo_var,                ONLY: t_var
-  USE mo_var_metadata_types, ONLY: t_var_metadata
   USE mo_fortran_tools,      ONLY: init
 
   IMPLICIT NONE
   PRIVATE
 
   PUBLIC :: reset_act
-  PUBLIC :: getActiveAction, new_action, actions
-  PUBLIC :: ACTION_NAMES
+  PUBLIC :: action_names, action_reset, new_action, actions
 
   INTEGER, PARAMETER :: NMAX_VARS = 100 ! maximum number of fields that can be
                                         ! assigned to a single action
-  ! List of available action types
-  INTEGER, PARAMETER, PUBLIC :: ACTION_RESET = 1   ! re-set field to 0
-  ! corresponding array of action names
-  CHARACTER(LEN=10), PARAMETER :: ACTION_NAMES(1) =(/"RESET     "/)
 
   ! type for generating an array of pointers of type t_var_list_element
   TYPE t_var_element_ptr
@@ -97,7 +91,6 @@ MODULE mo_action
     INTEGER                    :: nvars                 ! number of variables for which
                                                         ! this action is to be performed
   CONTAINS
-
     PROCEDURE :: initialize => action_collect_vars  ! initialize action object
 #if defined (__SX__) || defined (__NEC_VH__)
     PROCEDURE :: execute    => action_execute_SX    ! execute action object
@@ -442,56 +435,6 @@ CONTAINS
       CALL finish (routine, 'Field not allocated for '//TRIM(act_obj%var_element_ptr(ivar)%p%info%name))
     ENDIF
   END SUBROUTINE reset_kernel
-
-  !>
-  !! Get index of potentially active action-event
-  !!
-  !! For a specific variable,
-  !! get index of potentially active action-event of selected action-type.
-  !!
-  !! The variable's info state and the action-type must be given.
-  !! The function returns the active action index within the variable's array
-  !! of actions. If no matching action is found, the function returns
-  !! the result -1.
-  !!
-  !! @par Revision History
-  !! Initial revision by Daniel Reinert, DWD (2015-04-08)
-  !!
-  FUNCTION getActiveAction(var_info, actionTyp, cur_date) RESULT(actionId)
-    TYPE(t_var_metadata), INTENT(IN)  :: var_info      ! var metadata
-    INTEGER             , INTENT(IN)  :: actionTyp     ! type of action to be searched for
-    TYPE(datetime)      , INTENT(IN)  :: cur_date      ! current datetime (mtime format)
-    !
-    ! local
-    INTEGER :: actionId
-    INTEGER :: iact             ! loop counter
-    TYPE(datetime), POINTER :: start_date       ! action-event start datetime
-    TYPE(datetime), POINTER :: end_date         ! action-event end datetime
-    !-------------------------------------------------------------------
-
-    actionId = -1
-
-    ! loop over all variable-specific actions
-    !
-    ! We unconditionally take the first active one found, even if there are more active ones.
-    ! (which however would normally make little sense)
-    DO iact = 1,var_info%action_list%n_actions
-      IF (var_info%action_list%action(iact)%actionTyp /= actionTyp ) CYCLE  ! skip all non-matching action types
-
-      start_date => newDatetime(var_info%action_list%action(iact)%start)
-      end_date   => newDatetime(var_info%action_list%action(iact)%end)
-
-      IF ((cur_date >= start_date) .AND. (cur_date <= end_date)) THEN
-        actionId = iact   ! found active action
-        CALL deallocateDatetime(start_date)
-        CALL deallocateDatetime(end_date)
-        EXIT      ! exit loop
-      ENDIF
-      CALL deallocateDatetime(start_date)
-      CALL deallocateDatetime(end_date)
-    ENDDO
-
-  END FUNCTION getActiveAction
 
   !------------------------------------------------------------------------------------------------
   ! HANDLING OF ACTION EVENTS
