@@ -1994,7 +1994,7 @@ CONTAINS
               new_sss = new_s1
             END IF
 
-            p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc, 2, jb) = new_sss
+            p_os%p_prog(nold(1))%tracer(jc,  2, jb, 2) = new_sss
 
           END IF !! FLAG = 1
 
@@ -2006,9 +2006,10 @@ CONTAINS
             new_s1   = p_os%p_prog(nold(1))%tracer(jc,  3, jb, 2) &
               &             +  extra_salt_in_col /dz_new
 
-            p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc, 3, jb) = new_sss
+            p_os%p_prog(nold(1))%tracer(jc,  3, jb, 2) = new_s1 
 
-          END IF !! FLAG = 1
+
+          END IF !! FLAG = 2
 
 
         ENDIF  !  dolic>0
