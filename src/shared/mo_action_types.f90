@@ -19,7 +19,9 @@
 !!
 MODULE mo_action_types
 
-  USE mtime,                 ONLY: MAX_DATETIME_STR_LEN, datetime
+  USE mtime,                 ONLY: MAX_DATETIME_STR_LEN, datetime, &
+    &                              newDatetime, deallocateDatetime,&
+    &                              OPERATOR(>=), OPERATOR(<=)
 
   IMPLICIT NONE
 
@@ -62,6 +64,65 @@ MODULE mo_action_types
     INTEGER                    :: n_actions           ! number of variable specific actions  
   END TYPE t_var_action
 
+  ! List of available action types
+  !
+  INTEGER, PARAMETER, PUBLIC :: ACTION_RESET = 1   ! re-set field to 0
+  !
+  ! corresponding array of action names
+  CHARACTER(LEN=10), PARAMETER, PUBLIC :: ACTION_NAMES(1) =(/"RESET     "/)
+
+  ! Functions/Subroutines
+  PUBLIC :: getActiveAction
+CONTAINS
+  !>
+  !! Get index of potentially active action-event
+  !!
+  !! For a specific variable,
+  !! get index of potentially active action-event of selected action-type.
+  !!
+  !! The variable's info state and the action-type must be given.
+  !! The function returns the active action index within the variable's array
+  !! of actions. If no matching action is found, the function returns
+  !! the result -1.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2015-04-08)
+  !!
+  FUNCTION getActiveAction(actions, actionTyp, cur_date) RESULT(actionId)
+    TYPE(t_var_action), INTENT(IN)  :: actions      ! var metadata
+    INTEGER           , INTENT(IN)  :: actionTyp     ! type of action to be searched for
+    TYPE(datetime)    , INTENT(IN)  :: cur_date      ! current datetime (mtime format)
+    !
+    ! local
+    INTEGER :: actionId
+    INTEGER :: iact             ! loop counter
+    TYPE(datetime), POINTER :: start_date       ! action-event start datetime
+    TYPE(datetime), POINTER :: end_date         ! action-event end datetime
+    !-------------------------------------------------------------------
+
+    actionId = -1
+
+    ! loop over all variable-specific actions
+    !
+    ! We unconditionally take the first active one found, even if there are more active ones.
+    ! (which however would normally make little sense)
+    DO iact = 1,actions%n_actions
+      IF (actions%action(iact)%actionTyp /= actionTyp ) CYCLE  ! skip all non-matching action types
+
+      start_date => newDatetime(actions%action(iact)%start)
+      end_date   => newDatetime(actions%action(iact)%end)
+
+      IF ((cur_date >= start_date) .AND. (cur_date <= end_date)) THEN
+        actionId = iact   ! found active action
+        CALL deallocateDatetime(start_date)
+        CALL deallocateDatetime(end_date)
+        EXIT      ! exit loop
+      ENDIF
+      CALL deallocateDatetime(start_date)
+      CALL deallocateDatetime(end_date)
+    ENDDO
+
+  END FUNCTION getActiveAction
 
 END MODULE mo_action_types
 
