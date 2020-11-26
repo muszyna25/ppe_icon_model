@@ -436,8 +436,8 @@ CONTAINS
              ! glacier snow density (which depends on the climatological 2m-temperature) and the freshsnow factor
              !
              IF (ext_data%atm%lc_class_t(jc,jb,isubs) == ext_data%atm%i_lc_snow_ice) THEN
-               tmp1 = tcall_sfc_jg * 5.e-9_wp * (600._wp-lnd_prog_now%rho_snow_t(jc,jb,isubs))*       &
-                 MAX(0._wp,SQRT(SQRT(lnd_diag%freshsnow_t(jc,jb,isubs)))*prm_diag%gust10(jc,jb)-7.5_wp)
+               tmp1 = tcall_sfc_jg * 7.5e-9_wp * (600._wp-lnd_prog_now%rho_snow_t(jc,jb,isubs))*       &
+                 MAX(0._wp,SQRT(SQRT(lnd_diag%freshsnow_t(jc,jb,isubs)))*prm_diag%dyn_gust(jc,jb)-7.5_wp)
 
                p_prog_rcf%tracer(jc,nlev,jb,iqi) = p_prog_rcf%tracer(jc,nlev,jb,iqi) + tmp1 * &
                  ext_data%atm%frac_t(jc,jb,isubs) / (p_prog%rho(jc,nlev,jb)*p_metrics%ddqz_z_full(jc,nlev,jb))
