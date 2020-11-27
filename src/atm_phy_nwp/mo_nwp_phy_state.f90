@@ -797,7 +797,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'dyn_gust', diag%dyn_gust,                        &
                 & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,  &
-                & ldims=shape2d, lrestart=.FALSE., isteptype=TSTEP_INSTANT,    &
+                & ldims=shape2d, lrestart=.TRUE., isteptype=TSTEP_INSTANT,     &
                 & hor_interp=create_hor_interp_metadata(                       &
                 &            hor_intp_type=HINTP_TYPE_LONLAT_BCTR,             &
                 &            fallback_type=HINTP_TYPE_LONLAT_RBF),             &
