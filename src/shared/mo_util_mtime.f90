@@ -13,7 +13,7 @@ MODULE mo_util_mtime
 
   USE, INTRINSIC :: iso_c_binding, ONLY: c_int64_t, c_char
   USE mo_kind,                     ONLY: dp, wp, i8
-  USE mo_exception,                ONLY: message, message_text, finish
+  USE mo_exception,                ONLY: finish
   USE mo_impl_constants,           ONLY: MAX_CHAR_LENGTH
   USE mtime,                       ONLY: datetime, newDatetime, timedelta, newTimeDelta,   &
     &                                    OPERATOR(-), OPERATOR(+), event,      &
