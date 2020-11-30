@@ -1288,7 +1288,7 @@ SUBROUTINE cloudice (             &
           zsvidep = MIN( zsidep, zsvmax )
         ELSEIF (zsidep < 0.0_wp .AND. k < ke) THEN
           zsvisub = - MAX(zsidep, -zsimax, zsvmax )
-        ELSE ! limit precip rate rather than sublimation in order to reduce time-step dependence
+        ELSE IF (zsidep < 0.0_wp) THEN ! limit precip rate rather than sublimation in order to reduce time-step dependence
           zsvisub = - MAX(zsidep, zsvmax )
           IF (zsvisub > zsimax) THEN
             zzai(iv) = zsvisub/(z1orhog(iv)*zdtr)

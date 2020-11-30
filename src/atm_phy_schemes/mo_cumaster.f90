@@ -576,7 +576,7 @@ CALL cubasen &
   & ( kidia,    kfdia,    klon,   ktdia,    klev, &
   & phy_params%kcon1, phy_params%kcon2, phy_params%entrorg, &
   & phy_params%entstpc1, phy_params%entstpc2, phy_params%rdepths, &
-  & phy_params%texc, phy_params%qexc, mtnmask, ldland, ldlake, &
+  & phy_params%texc, phy_params%qexc, phy_params%lgrayzone_deepconv, mtnmask, ldland, ldlake, &
   & ztenh,    zqenh,    pgeoh,    paph,&
   & pqhfl,    pahfs,    &
   & pten,     pqen,     pqsen,    pgeo,&
