@@ -1,68 +1,254 @@
-# Path to the directory with the original source files:
+# Path to the source directory:
 srcdir:= @srcdir@
 
 # Absolute path to the building directory:
 builddir:= @abs_builddir@
 
-# Relative path to the directory with the module files:
-moddir:= $(CLAW_subdir)/xmod
+# Relative path to the directory with the preprocessed source files:
+ppdir:= pp
+
+# CLAW preprocessing subdirectory:
+CLAW_ppdir:= claw
+
+# Relative path to the directory with the xmod files:
+xmoddir:= $(ppdir)/$(CLAW_ppdir)/xmod
 
 # Compilers and utilities:
-CLAW:= @CLAW@
+CLAW= @CLAW@
+CLAW_FILTER= $(srcdir)/utils/claw-helpers/claw_filter.sh
+PYTHON= @PYTHON@
+DEPGEN= ${PYTHON} $(srcdir)/utils/mkhelper/depgen.py
 
-# Compiler and preprocessor flags:
+# CLAW flags:
+CLAWFLAGS= --no-dep -w 132 --Wf-no-module-cache -J$(xmoddir) $(addprefix -I$(srcdir)/,$(CLAW_inc_subdirs)) $(addprefix -I$(srcdir)/externals/omni-xmod-pool/,mpi/3.0 self/0.2 yaxt/0.7.0 mtime/1.0.8 cdi/1.8.x) @CLAWFLAGS@
+ICON_CLAWFLAGS=
+ICON_OCEAN_CLAWFLAGS=
+DEPGEN_CLAWFLAGS= @DEPGEN_CLAWFLAGS@
+
+# Fortran compiler flags:
 FCFLAGS= @FCFLAGS@
 ICON_FCFLAGS= @ICON_FCFLAGS@
-CLAWFLAGS= @CLAWFLAGS@
+ICON_OCEAN_FCFLAGS= @ICON_OCEAN_FCFLAGS@
 
-# Filtered compiler flags:
-nullstring:=
-space:= $(nullstring) # significant comment
-macro_FCFLAGS:= $(filter -D%,$(subst -D$(space),-D,$(FCFLAGS) $(ICON_FCFLAGS)))
-inc_FCFLAGS:= $(filter -I%,$(subst -I$(space),-I,$(FCFLAGS) $(ICON_FCFLAGS)))
-filtered_FCFLAGS:= $(macro_FCFLAGS) $(inc_FCFLAGS)
+# Auxiliary function. Filters the requested Fortran compiler flags and turns
+# them into respective CLAW flags. Receives three arguments:
+#   (1) the prefix of the requested Fortran compiler flags (allowed to have a
+#       significant trailing whitespace);
+#   (2) the respective prefix understood by CLAW (no trailing whitespaces are
+#       allowed);
+#   (3) a list of Fortran compiler arguments.
+# Examples:
+#   1) FCFLAGS= -WF,-D   MACRO1 -WF,-DMACRO2 -I irrelevant args
+#      FC_MACRO_PREFIX= -WF,-D
+#      result:= $(call convert_fcflags,$(FC_MACRO_PREFIX),-D,$(FCFLAGS))
+#      result equals to: `-DMACRO1 -DMACRO2`
+#   2) FCFLAGS= -WF,-D   MACRO1 -WF,-DMACRO2 -I irrelevant args
+#      FC_MACRO_PREFIX= -WF,-D $ # the '$ ' suffix preserves the trailing whitespace
+#      result:= $(call convert_fcflags,$(FC_MACRO_PREFIX),-D,$(FCFLAGS))
+#      result equals to `-DMACRO1`
+convert_fcflags= $(filter $(2)%,$(subst $(2) ,$(2),$(subst $(1),$(2),$(strip $(3)))))
 
-# Compiler and preprocessor flags that must not be overloaded by the user:
-makefile_FCFLAGS:= $(addprefix -J,$(moddir) $(addprefix $(srcdir)/externals/omni-xmod-pool/,mpi/3.0 self/0.2 yaxt/0.7.0) $(sort $(dir $(CLAW_inputs)))) -I$(srcdir)/src/include
-makefile_CLAWFLAGS:= -w 132 --Wf-no-module-cache --model-config=$(srcdir)/externals/jsbach/config/icon_jsbach.toml
+FC_INC_FLAG_PP= @FC_INC_FLAG_PP_f90@$ # the '$ ' suffix preserves the trailing whitespace
+CLAWFLAGS+= $(call convert_fcflags,$(FC_INC_FLAG_PP),-I,$(FCFLAGS))
+ICON_CLAWFLAGS+= $(call convert_fcflags,$(FC_INC_FLAG_PP),-I,$(ICON_FCFLAGS))
+ICON_OCEAN_CLAWFLAGS+= $(call convert_fcflags,$(FC_INC_FLAG_PP),-I,$(ICON_OCEAN_FCFLAGS))
+
+FC_INC_FLAG= @FC_INC_FLAG@$ # the '$ ' suffix preserves the trailing whitespace
+ifneq ($(FC_INC_FLAG),$(FC_INC_FLAG_PP))
+CLAWFLAGS+= $(call convert_fcflags,$(FC_INC_FLAG),-I,$(FCFLAGS))
+ICON_CLAWFLAGS+= $(call convert_fcflags,$(FC_INC_FLAG),-I,$(ICON_FCFLAGS))
+ICON_OCEAN_CLAWFLAGS+= $(call convert_fcflags,$(FC_INC_FLAG),-I,$(ICON_OCEAN_FCFLAGS))
+endif
+
+FC_PP_MACRO_FLAG= @FC_PP_DEF@$ # the '$ ' suffix preserves the trailing whitespace
+CLAWFLAGS+= $(call convert_fcflags,$(FC_PP_MACRO_FLAG),-D,$(FCFLAGS))
+ICON_CLAWFLAGS+= $(call convert_fcflags,$(FC_PP_MACRO_FLAG),-D,$(ICON_FCFLAGS))
+ICON_OCEAN_CLAWFLAGS+= $(call convert_fcflags,$(FC_PP_MACRO_FLAG),-D,$(ICON_OCEAN_FCFLAGS))
 
 # Silent rule prefixes:
 V= @DEFAULT_VERBOSITY@
 ifeq ($(V),0)
 silent_CLAW=    @echo "  CLAW    " $@;
+silent_DEPGEN=  @echo "  DEPGEN  " $@;
 silent_MKDIR=   @echo "  MKDIR   " $(@D);
+silent_XMOD=    @echo "  XMOD   <" $<;
 endif
 
-# Stamp files of the building subdirectories:
-dir_files= $(moddir)/.dirstamp
-
-# Run this file serially:
-.NOTPARALLEL:
 # Disable built-in suffix rules:
 .SUFFIXES:
+# Delete partially updated files:
+.DELETE_ON_ERROR:
 # Targets not associated with files:
 .PHONY: all mostlyclean clean distclean
-# Keep directory stamps:
-.PRECIOUS: $(dir_files)
+# Targets that do not need the inclusion of the dependency files:
+NO_INC_TARGETS:= dummy-depend mostlyclean clean distclean
+
+# File search path:
+VPATH:= $(srcdir)
+
+# By default, CLAW performs the code transformation (deep preprocessing) only if
+# the input file contains CLAW directives. Otherwise, the contents of the input
+# file are copied as-is to the output (shallow preprocessing). The deep
+# preprocessing of a Fortran file requires additional information, which is
+# stored in the '.xmod' files: if the code in the input file uses a Fortran
+# module, the respective '.xmod' file needs to be generated in advance. CLAW
+# implements an algorithm that generates the required '.xmod' files
+# automatically. However, it reduces the transparency of the process and poses
+# a significant limitation: all CLAW preprocessing jobs must run serially. The
+# alternative is to generate the '.xmod' files as a side effect of the code
+# transformation: similar to the regular Fortran compilers, CLAW generates
+# '.xmod' files when performing the deep preprocessing of a source file that
+# declares the respective Fortran modules. That is, we can generate the required
+# '.xmod' files by enforcing the code transformation of the corresponding source
+# files in the right topologically sorted order: files that declare Fortran
+# modules are processed before files that use them. Note that there are cases
+# when CLAW is unable to perform the code transformation but still generates the
+# required '.xmod' files. That gives us the option to ignore the failure of a
+# preprocessing job if the only reason we run it is to generate the '.xmod'
+# files.
+#
+# The deep preprocessing is expensive and fragile. Therefore, we have to
+# minimize the number of files that undergo it. For that reason, we distinguish
+# three types of input files:
+#   1. Primary input files with CLAW directives. These files undergo the deep
+#      preprocessing unconditionally with no tolerance to the failure.
+#   2. Primary input files without CLAW directives. These files undergo the
+#      shallow preprocessing unconditionally with no tolerance to the failure.
+#      However, some of these files might declare Fortran modules that are used
+#      in files that undergo the deep preprocessing (e.g. all files in 1.).
+#      Files that fall under such cases additionally undergo the deep
+#      preprocessing, which is allowed to fail, as long a all the required
+#      '.xmod' files are generated successfully.
+#   3. Secondary input files. Regardless of having CLAW directives, these files
+#      undergo the deep preprocessing only if they declare Fortran modules that
+#      are used in files that must undergo the deep preprocessing. Again, the
+#      preprocessing of these files if allowed to fail, as long a all the
+#      required '.xmod' files are generated successfully.
+
+# Primary input '.f90' files:
+in_f90_files:= $(CLAW_in_f90_files)
+
+# Output '.f90' files (supposed to be a subset of $(CLAW_mk_targets)):
+out_f90_files:= $(addprefix $(builddir)/$(ppdir)/$(CLAW_ppdir)/,$(in_f90_files))
+
+# Secondary input '.f90' files:
+xmod_f90_files:= $(filter-out $(CLAW_in_f90_files),$(CLAW_xmod_f90_files))
+
+# Stamp files for the fault tolerant deep preprocessing of the corresponding
+# secondary input '.f90' files:
+xmodstamp_files:= $(addprefix $(builddir)/$(ppdir)/$(CLAW_ppdir)/,$(xmod_f90_files:.f90=.xmodstamp))
+
+# Dependency files (ensure the topologically sorted order of the preprocessing):
+dep_files:= $(addsuffix .claw.d,$(out_f90_files) $(xmodstamp_files))
+
+# Stamp files of the preprocessing subdirectories:
+dir_files= $(filter-out ./.dirstamp,$(addsuffix .dirstamp,$(sort $(dir $(dep_files))) $(xmoddir)/))
+
+############################### INTERFACE RULES ################################
 
 # Default rule:
-all: $(CLAW_outputs)
+all: $(CLAW_mk_targets)
 
 # Delete files generated at the building stage:
 clean: mostlyclean
-	rm -f $(moddir)/*.xmod
-	rm -f $(dir_files)
+	rm -f $(out_f90_files)
+	rm -f $(xmodstamp_files)
+	rm -f $(out_f90_files:.f90=.xmodstamp)
+	rm -f $(xmoddir)/*.xmod
 
 # Delete everything generated at the configure stage:
 distclean: clean
+	rm -f $(dep_files)
+	rm -f $(dir_files)
 	rm -f claw.mk
 
-# Default f90->f90 rule for files that have already been processed by some other
-# preprocessor:
-$(builddir)/$(CLAW_subdir)/%.f90: $(builddir)/%.f90 | $(dir_files)
-	$(silent_CLAW)$(CLAW) -o $@ $(makefile_CLAWFLAGS) $(CLAWFLAGS) $(makefile_FCFLAGS) $(filtered_FCFLAGS) $<
+########################### CLAW PREPROCESSING RULES ###########################
+
+ICON_CLAW_CMD=       $(CLAW) -o $@ $(CLAWFLAGS) $(ICON_CLAWFLAGS) $<
+ICON_OCEAN_CLAW_CMD= $(CLAW) -o $@ $(CLAWFLAGS) $(ICON_OCEAN_CLAWFLAGS) $<
+
+# Auxiliary function. Returns a non-empty string if a source file, the argument
+# of the function, is part of ICON-Ocean, and an empty string otherwise.
+# See icon.mk for the rationale behind this function.
+is_ocean_src= $(strip $(foreach d,src/hamocc/ src/ocean/ src/sea_ice/,$(findstring $(d),$(1))))
+
+# Default f90->f90 rule for the primary input files:
+$(builddir)/$(ppdir)/$(CLAW_ppdir)/%.f90: %.f90 | $(dir_files)
+	$(silent_CLAW)$(if $(call is_ocean_src,$<),$(ICON_OCEAN_CLAW_CMD),$(ICON_CLAW_CMD))
+
+############################ XMOD GENERATION RULES #############################
+
+# These are similar to $(ICON_CLAW_CMD) and $(ICON_OCEAN_CLAW_CMD) but serve
+# the purpose of the '.xmod' file generation, therefore:
+#   1) the deep preprocessing is enforced;
+#   2) the output of CLAW is dropped as irrelevant;
+#   3) the command is allowed to fail.
+ICON_XMOD_CMD=       $(CLAW) --force $(CLAWFLAGS) $(ICON_CLAWFLAGS) $< >/dev/null; touch $@
+ICON_OCEAN_XMOD_CMD= $(CLAW) --force $(CLAWFLAGS) $(ICON_OCEAN_CLAWFLAGS) $< >/dev/null; touch $@
+
+# Default f90->xmodstamp rule for the secondary input files and the primary
+# input files without CLAW directives:
+$(builddir)/$(ppdir)/$(CLAW_ppdir)/%.xmodstamp: %.f90 | $(dir_files)
+	$(silent_XMOD)$(if $(call is_ocean_src,$<),$(ICON_OCEAN_XMOD_CMD),$(ICON_XMOD_CMD))
+
+$(xmoddir)/%.xmod:
+	@if test -z '$<'; then \
+	  echo "Cannot find Fortran source file providing module '$(basename $(@F))'." >&2; \
+	else \
+	  if test ! -f '$@'; then rm -f '$<'; $(MAKE) -f claw.mk '$<'; fi; \
+	  test -f '$@' && touch '$@'; \
+	fi
+
+############################### AUXILIARY RULES ################################
 
 # Directory creation rule:
 %/.dirstamp:
 	$(silent_MKDIR)@MKDIR_P@ $(@D) && touch $@
 
+# Keep directory stamps:
+.PRECIOUS: $(dir_files)
+
+######################### DEPENDENCY GENERATION RULES ##########################
+
+DEPGEN_CMD_prefix= $(DEPGEN) @depgen.f90.config \
+                   --pp-inc-flag=-I --pp-macro-flag=-D \
+                   --fc-mod-ext=xmod --fc-mod-upper=no \
+                   --fc-inc-flag=-I --fc-mod-dir-flag=-J \
+                   -o $@ -i $<
+
+DEPGEN_CMD_suffix= -- $(DEPGEN_CLAWFLAGS) $(CLAWFLAGS) \
+                   $(if $(call is_ocean_src,$<),$(ICON_OCEAN_CLAWFLAGS),$(ICON_CLAWFLAGS))
+
+DEPGEN_CMD= $(DEPGEN) $(DEPGEN_ARGS) --obj-name $(@:.claw.d=) -- \
+                      $(DEPGEN_CLAWFLAGS) $(CLAWFLAGS) \
+                      $(if $(call is_ocean_src,$<),$(ICON_OCEAN_CLAWFLAGS),$(ICON_CLAWFLAGS))
+
+# Dependency generation rule for the primary input files
+# ($(CLAW_FILTER) checks input files for the presence of CLAW directives):
+$(builddir)/$(ppdir)/$(CLAW_ppdir)/%.f90.claw.d: %.f90 icon.mk claw.mk depgen.f90.config | $(dir_files)
+	$(silent_DEPGEN) \
+	if $(CLAW_FILTER) $(CLAWFLAGS) $< >/dev/null; then \
+	  $(DEPGEN_CMD_prefix) --obj-name $(@:.claw.d=) $(DEPGEN_CMD_suffix); \
+	else \
+	  $(DEPGEN_CMD_prefix) --obj-name $(@:.f90.claw.d=.xmodstamp) $(DEPGEN_CMD_suffix); \
+	fi
+
+# Dependency generation rule for the secondary input files:
+$(builddir)/$(ppdir)/$(CLAW_ppdir)/%.xmodstamp.claw.d: %.f90 icon.mk claw.mk depgen.f90.config | $(dir_files)
+	$(silent_DEPGEN)$(DEPGEN_CMD_prefix) --obj-name $(@:.claw.d=) $(DEPGEN_CMD_suffix)
+
+# Dummy dependency file generation rule:
+dummy-depend: | $(dir_files)
+	@for file in $(dep_files); do \
+	  test -e "$$file" || touch "$$file"; \
+	done
+
+# Include dependencies if required:
+current_targets:= $(strip $(MAKECMDGOALS))
+ifeq (,$(current_targets))
+current_targets:= all
+endif
+
+ifneq (,$(filter-out $(NO_INC_TARGETS),$(current_targets)))
+include $(dep_files)
+endif
