@@ -52,3 +52,6 @@
 	path = externals/emvorado
 	url = git@gitlab.dkrz.de:dwd-sw/emvorado-for-icon.git
 	branch = master
+[submodule "utils/mkexp"]
+	path = utils/mkexp
+	url = https://git.mpimet.mpg.de/public/mkexp
