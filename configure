@@ -587,6 +587,7 @@ LIBOBJS
 MPI_LAUNCH
 SB2PP
 FPP
+DEPGEN_CLAWFLAGS
 CLAWFLAGS
 CLAW
 PERL
@@ -666,8 +667,7 @@ GPU_ENABLED
 OPENMP_ENABLED
 MPI_ENABLED
 EMVORADO_ENABLED
-RTTOV_ENABLED
-DACE_NOT_ENABLED
+DACE_DISABLED
 DACE_ENABLED
 ART_ENABLED
 JSBACH_ENABLED
@@ -2798,31 +2798,19 @@ if test "x$enable_dace" = xyes; then :
    if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
   as_fn_error $? "unable to find sources of the DACE component, for example ($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component (--disable-dace) or load submodule dace_icon" "$LINENO" 5
 fi
-  DACE_ENABLED=''
+   DACE_ENABLED=''
 
-  DACE_NOT_ENABLED='#'
-
+   DACE_DISABLED='#'
 
 else
-
   DACE_ENABLED='#'
 
-  DACE_NOT_ENABLED=''
-
-
-fi
-
-if test "x$enable_rttov" = xyes; then :
-  RTTOV_ENABLED=''
-
-else
-  RTTOV_ENABLED='#'
+   DACE_DISABLED=''
 
 fi
 
 if test "x$enable_emvorado" = xyes; then :
-
-   icon_subdir_srcdir="$srcdir/externals/emvorado"
+  icon_subdir_srcdir="$srcdir/externals/emvorado"
    icon_subdir_unique_file="src_emvorado/radar_organize.f90"
    if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
   as_fn_error $? "unable to find sources of the EMVORADO component ($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component (--disable-emvorado)" "$LINENO" 5 or load submodule emvorado
@@ -4349,18 +4337,10 @@ if test "x$enable_jsbach" = xno; then :
 fi
 
 if test "x$enable_dace" = xyes; then :
-
   if test "x$enable_rttov" = xno; then :
-
-    { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "The DACE submodule currently only works together with the RTTOV library: enable usage of RTTOV (--enable-rttov) and link the RTTOV lib accordingly (FCFLAGS, LDFLAGS and LIBS), or --disable-dace
-See \`config.log' for more details
-${icon_usr_note}" "$LINENO" 5; }
-
+  as_fn_error $? "The DACE submodule currently only works together with the RTTOV library: enable usage of RTTOV (--enable-rttov) and link the RTTOV lib accordingly (FCFLAGS, LDFLAGS and LIBS), or --disable-dace" "$LINENO" 5
 fi
   as_fn_append FCFLAGS " ${FC_PP_DEF}__DACE__ ${FC_PP_DEF}HAVE_MPI_MOD"
-
 fi
 
 if test "x$enable_emvorado" = xyes; then :
@@ -6472,11 +6452,11 @@ $as_echo_n "checking whether Fortran RTTOV library is available... " >&6; }
    cat > conftest.$ac_ext <<_ACEOF
       program main
 
-use rttov_types, only: rttov_coefs
-implicit none
+      use rttov_types, only: rttov_coefs
+      implicit none
 #include "rttov_nullify_coef.interface"
-type(rttov_coefs),target:: coefs(1)
-call rttov_nullify_coef(coefs(1)%coef)
+      type(rttov_coefs),target:: coefs(1)
+      call rttov_nullify_coef(coefs(1)%coef)
       end
 _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :
@@ -7693,40 +7673,26 @@ ${icon_usr_note}" "$LINENO" 5; }
 fi
 
 
+DEPGEN_CLAWFLAGS='-D_CLAW'
+
 if test "x$enable_claw" != xno; then :
   icon_subdir_srcdir="$srcdir/externals/omni-xmod-pool"
-   icon_subdir_unique_file="self/0.2/self_object.xmod"
+   icon_subdir_unique_file="cdi"
    if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
   as_fn_error $? "unable to find precompiled module files for OMNI compiler required for CLAW preprocessing ($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable CLAW preprocessing (--disable-claw)" "$LINENO" 5
-fi
-   if test "x$with_external_mtime" = xyes; then :
-  icon_subdir_srcdir="$srcdir/externals/mtime"
-      icon_subdir_unique_file="src/libmtime.f90"
-      if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
-  as_fn_error $? "unable to find sources of the bundled version of MTIME library ($icon_subdir_unique_file) in '$icon_subdir_srcdir', which are required for CLAW preprocessing even if an external version of the library is used: disable CLAW preprocessing (--disable-claw)" "$LINENO" 5
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: CLAW preprocessing implies parsing '$icon_subdir_unique_file' and other source files of the bundled version of MTIME in '$icon_subdir_srcdir' even if an external version of the library is used: it is strongly recommended to switch to the bundled version of MTIME (--without-external-mtime) to avoid potential inconsistency" >&5
-$as_echo "$as_me: WARNING: CLAW preprocessing implies parsing '$icon_subdir_unique_file' and other source files of the bundled version of MTIME in '$icon_subdir_srcdir' even if an external version of the library is used: it is strongly recommended to switch to the bundled version of MTIME (--without-external-mtime) to avoid potential inconsistency" >&2;}
-fi
-fi
-   if test "x$with_external_cdi" = xyes; then :
-  icon_subdir_srcdir="$srcdir/externals/cdi"
-      icon_subdir_unique_file="src/mo_cdi.f90"
-      if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
-  as_fn_error $? "unable to find sources of the bundled version of CDI library ($icon_subdir_unique_file) in '$icon_subdir_srcdir', which are required for CLAW preprocessing even if an external version of the library is used: disable CLAW preprocessing (--disable-claw)" "$LINENO" 5
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: CLAW preprocessing implies parsing '$icon_subdir_unique_file' and other source files of the bundled version of CDI in '$icon_subdir_srcdir' even if an external version of the library is used: it is strongly recommended to switch to the bundled version of CDI (--without-external-cdi) to avoid potential inconsistency" >&5
-$as_echo "$as_me: WARNING: CLAW preprocessing implies parsing '$icon_subdir_unique_file' and other source files of the bundled version of CDI in '$icon_subdir_srcdir' even if an external version of the library is used: it is strongly recommended to switch to the bundled version of CDI (--without-external-cdi) to avoid potential inconsistency" >&2;}
-fi
 fi
    if test "x$enable_openmp" = xyes; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: CLAW preprocessing is not compatible with OpenMP: it is strongly recommended to disable OpenMP support (--disable-openmp)" >&5
 $as_echo "$as_me: WARNING: CLAW preprocessing is not compatible with OpenMP: it is strongly recommended to disable OpenMP support (--disable-openmp)" >&2;}
 fi
-  if test "x$enable_gpu" = xyes; then :
+   if test "x$enable_gpu" = xyes; then :
   as_fn_append CLAWFLAGS ' --target=gpu --directive=acc'
+      as_fn_append DEPGEN_CLAWFLAGS ' -D_OPENACC'
 else
   as_fn_append CLAWFLAGS ' --target=cpu --directive=none'
+fi
+   if test "x$enable_jsbach" = xyes; then :
+  as_fn_append CLAWFLAGS " --model-config=$srcdir/externals/jsbach/config/icon_jsbach.toml"
 fi
    if test "x$enable_claw" = xvalidate; then :
   if test "x$enable_serialization" = xno; then :

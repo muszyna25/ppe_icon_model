@@ -361,24 +361,16 @@ AS_VAR_IF([enable_dace], [yes],
   [icon_subdir_srcdir="$srcdir/externals/dace_icon"
    icon_subdir_unique_file="src_for_icon/mo_fdbk_tables.f90"
    AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
-     [AC_MSG_ERROR([unable to find sources of the DACE component, for example dnl
-($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component dnl
-(--disable-dace) or load submodule dace_icon])])
-  AC_SUBST([DACE_ENABLED], [''])
-  AC_SUBST([DACE_NOT_ENABLED], ['#'])
-  ],
-  [
-  AC_SUBST([DACE_ENABLED], ['#'])
-  AC_SUBST([DACE_NOT_ENABLED], [''])
-  ])
-
-AS_VAR_IF([enable_rttov], [yes],
-  [AC_SUBST([RTTOV_ENABLED], [''])],
-  [AC_SUBST([RTTOV_ENABLED], ['#'])])
+     [AC_MSG_ERROR([unable to find sources of the DACE component, for dnl
+example ($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the dnl
+component (--disable-dace) or load submodule dace_icon])])
+   AC_SUBST([DACE_ENABLED], [''])
+   AC_SUBST([DACE_DISABLED], ['#'])],
+  [AC_SUBST([DACE_ENABLED], ['#'])
+   AC_SUBST([DACE_DISABLED], [''])])
 
 AS_VAR_IF([enable_emvorado], [yes],
-  [
-   icon_subdir_srcdir="$srcdir/externals/emvorado"
+  [icon_subdir_srcdir="$srcdir/externals/emvorado"
    icon_subdir_unique_file="src_emvorado/radar_organize.f90"
    AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
      [AC_MSG_ERROR([unable to find sources of the EMVORADO component dnl
@@ -387,9 +379,10 @@ AS_VAR_IF([enable_emvorado], [yes],
    icon_subdir_srcdir="$srcdir/externals/dace_icon"
    icon_subdir_unique_file="src_for_icon/mo_fdbk_tables.f90"
    AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
-     [AC_MSG_ERROR([unable to find sources of the DACE component which is needed by EMVORADO, for example dnl
-($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component dnl
-(--disable-emvorado) or load submodule dace_icon])])
+     [AC_MSG_ERROR([unable to find sources of the DACE component which is dnl
+needed by EMVORADO, for example ($icon_subdir_unique_file) in dnl
+'$icon_subdir_srcdir': disable the component (--disable-emvorado) or load dnl
+submodule dace_icon])])
    AC_SUBST([EMVORADO_ENABLED], [''])],
   [AC_SUBST([EMVORADO_ENABLED], ['#'])])
 
@@ -537,17 +530,16 @@ AS_VAR_IF([enable_jsbach], [no],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_JSBACH__"])])
 
 AS_VAR_IF([enable_dace], [yes],
-  [
-  AS_VAR_IF([enable_rttov], [no], [
-    AC_MSG_FAILURE([The DACE submodule currently only works together with the RTTOV library: dnl
-enable usage of RTTOV (--enable-rttov) and link the RTTOV lib accordingly (FCFLAGS, LDFLAGS and LIBS), dnl
-or --disable-dace])
-  ])
-  AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__DACE__ ${FC_PP_DEF}HAVE_MPI_MOD"])
-  ])
+  [AS_VAR_IF([enable_rttov], [no],
+     [AC_MSG_ERROR([The DACE submodule currently only works together with dnl
+the RTTOV library: enable usage of RTTOV (--enable-rttov) and link the RTTOV dnl
+lib accordingly (FCFLAGS, LDFLAGS and LIBS), or --disable-dace])])
+  AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__DACE__ ${FC_PP_DEF}HAVE_MPI_MOD"])])
 
 AS_VAR_IF([enable_emvorado], [yes],
-  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}HAVE_RADARFWO ${FC_PP_DEF}NUDGING ${FC_PP_DEF}GRIBAPI ${FC_PP_DEF}HDF5_RADAR_INPUT ${FC_PP_DEF}WITH_ZLIB ${FC_PP_DEF}NETCDF ${FC_PP_DEF}TWOMOM_SB_NEW "])])
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}HAVE_RADARFWO ${FC_PP_DEF}NUDGING dnl
+${FC_PP_DEF}GRIBAPI ${FC_PP_DEF}HDF5_RADAR_INPUT ${FC_PP_DEF}WITH_ZLIB dnl
+${FC_PP_DEF}NETCDF ${FC_PP_DEF}TWOMOM_SB_NEW "])])
 
 AS_VAR_IF([enable_coupling], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}YAC_coupling"])])
@@ -562,7 +554,8 @@ AS_VAR_IF([enable_rte_rrtmgp], [no],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_RTE_RRTMGP__"])])
 
 AS_VAR_IF([enable_rttov], [yes],
-  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__USE_RTTOV ${FC_PP_DEF}RTTOV12 ${FC_PP_DEF}__RTTOV12 ${FC_PP_DEF}HAVE_MPI_MOD"])])
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__USE_RTTOV ${FC_PP_DEF}RTTOV12 dnl
+${FC_PP_DEF}__RTTOV12 ${FC_PP_DEF}HAVE_MPI_MOD"])])
 
 AS_VAR_IF([enable_art], [yes],
   [AS_VAR_APPEND([FCFLAGS],
@@ -972,16 +965,16 @@ linking the bundled version of ECRAD @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
 AS_VAR_IF([enable_rttov], [yes],
   [AC_MSG_CHECKING([whether Fortran RTTOV library is available])
    AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
-use rttov_types, only: rttov_coefs
-implicit none
+      use rttov_types, only: rttov_coefs
+      implicit none
 #include "rttov_nullify_coef.interface"
-type(rttov_coefs),target:: coefs(1)
-call rttov_nullify_coef(coefs(1)%coef)]])],
+      type(rttov_coefs),target:: coefs(1)
+      call rttov_nullify_coef(coefs(1)%coef)]])],
      [AC_MSG_RESULT([yes])],
      [AC_MSG_RESULT([no])
-      AC_MSG_FAILURE([unable to link a test program using the RTTOV library: either dnl
-disable usage of RTTOV (--disable-rttov) or set FCFLAGS, LDFLAGS and LIBS dnl
-accordingly])])])
+      AC_MSG_FAILURE([unable to link a test program using the RTTOV library: dnl
+either disable usage of RTTOV (--disable-rttov) or set FCFLAGS, LDFLAGS and dnl
+LIBS accordingly])])])
 
 AS_VAR_IF([enable_sct], [yes],
   [AS_VAR_IF([with_external_sct], [yes],
@@ -1568,46 +1561,27 @@ ACX_PROG_SEARCH([PERL], [perl],
 
 AC_ARG_VAR([CLAW], [CLAW preprocessor command (optional)])dnl
 AC_ARG_VAR([CLAWFLAGS], [CLAW preprocessor flags (optional)])dnl
+dnl Additional macro definitions to aid the dependency generator,
+dnl e.g. CLAW intrinsic macros:
+AC_SUBST([DEPGEN_CLAWFLAGS], ['-D_CLAW'])
 AS_IF([test "x$enable_claw" != xno],
   [icon_subdir_srcdir="$srcdir/externals/omni-xmod-pool"
-   icon_subdir_unique_file="self/0.2/self_object.xmod"
+   icon_subdir_unique_file="cdi"
    AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
      [AC_MSG_ERROR([unable to find precompiled module files for OMNI dnl
 compiler required for CLAW preprocessing ($icon_subdir_unique_file) in dnl
 '$icon_subdir_srcdir': disable CLAW preprocessing (--disable-claw)])])
-   AS_VAR_IF([with_external_mtime], [yes],
-     [icon_subdir_srcdir="$srcdir/externals/mtime"
-      icon_subdir_unique_file="src/libmtime.f90"
-      AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
-        [AC_MSG_ERROR([unable to find sources of the bundled version of dnl
-MTIME library ($icon_subdir_unique_file) in '$icon_subdir_srcdir', which dnl
-are required for CLAW preprocessing even if an external version of the dnl
-library is used: disable CLAW preprocessing (--disable-claw)])],
-        [AC_MSG_WARN([CLAW preprocessing implies parsing dnl
-'$icon_subdir_unique_file' and other source files of the bundled version of dnl
-MTIME in '$icon_subdir_srcdir' even if an external version of the library is dnl
-used: it is strongly recommended to switch to the bundled version of MTIME dnl
-(--without-external-mtime) to avoid potential inconsistency])])])
-   AS_VAR_IF([with_external_cdi], [yes],
-     [icon_subdir_srcdir="$srcdir/externals/cdi"
-      icon_subdir_unique_file="src/mo_cdi.f90"
-      AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
-        [AC_MSG_ERROR([unable to find sources of the bundled version of CDI dnl
-library ($icon_subdir_unique_file) in '$icon_subdir_srcdir', which are dnl
-required for CLAW preprocessing even if an external version of the library dnl
-is used: disable CLAW preprocessing (--disable-claw)])],
-        [AC_MSG_WARN([CLAW preprocessing implies parsing dnl
-'$icon_subdir_unique_file' and other source files of the bundled version of dnl
-CDI in '$icon_subdir_srcdir' even if an external version of the library is dnl
-used: it is strongly recommended to switch to the bundled version of CDI dnl
-(--without-external-cdi) to avoid potential inconsistency])])])
    AS_VAR_IF([enable_openmp], [yes],
      [AC_MSG_WARN([CLAW preprocessing is not compatible with OpenMP: it is dnl
 strongly recommended to disable OpenMP support (--disable-openmp)])])
 dnl
-  AS_VAR_IF([enable_gpu], [yes],
-     [AS_VAR_APPEND([CLAWFLAGS], [' --target=gpu --directive=acc'])],
+   AS_VAR_IF([enable_gpu], [yes],
+     [AS_VAR_APPEND([CLAWFLAGS], [' --target=gpu --directive=acc'])
+      AS_VAR_APPEND([DEPGEN_CLAWFLAGS], [' -D_OPENACC'])],
      [AS_VAR_APPEND([CLAWFLAGS], [' --target=cpu --directive=none'])])
+   AS_VAR_IF([enable_jsbach], [yes],
+     [AS_VAR_APPEND([CLAWFLAGS],
+        [" --model-config=$srcdir/externals/jsbach/config/icon_jsbach.toml"])])
    AS_VAR_IF([enable_claw], [validate],
      [AS_VAR_IF([enable_serialization], [no],
         [AC_MSG_ERROR([unsupported combination of the configure options: you dnl
