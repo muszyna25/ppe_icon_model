@@ -525,7 +525,7 @@ cat > $master_namelist << EOF
  lrestart            = .true.
 /
 &master_time_control_nml
- experimentStartDate  = "$initial_date" 
+ experimentStartDate  = "$reference_date" # TODO: hack to reproduce result
  experimentReferenceDate = "$reference_date"
  restartTimeIntval    = "$restart_interval" 
  checkpointTimeIntval = "$checkpoint_interval" 
@@ -544,7 +544,7 @@ cat > $master_namelist << EOF
  calendar             = "%{CALENDAR}"
  checkpointTimeIntval = "$checkpoint_interval" 
  restartTimeIntval    = "$restart_interval" 
- experimentStartDate  = "$initial_date" 
+ experimentStartDate  = "$reference_date" # TODO: hack to reproduce result
  experimentReferenceDate = "$reference_date"
  experimentStopDate   = "$final_date" 
 /
