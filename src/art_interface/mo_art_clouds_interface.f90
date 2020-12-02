@@ -49,7 +49,7 @@ CONTAINS
 SUBROUTINE art_clouds_interface_2mom(isize, ke, jg, jb, is, ie, ks, dt, &
                                    & dz, rho, pres, tke, p_trac, tk,    &
                                    & w, prec_r, prec_i, prec_s,         &
-                                   & prec_g, prec_h, tkvh, msg_level, l_cv)
+                                   & prec_g, prec_h, tkvh, l_cv)
   !! Interface for ART: Aerosol-Cloud-Interactions
   !! @par Revision History
   !! Initial revision by Daniel Rieger, KIT (2014-11-10)
@@ -81,8 +81,6 @@ SUBROUTINE art_clouds_interface_2mom(isize, ke, jg, jb, is, ie, ks, dt, &
     &  prec_g(:),                    & !< Precipitation rate for graupel
     &  prec_h(:)                       !< Precipitation rate for hail
   ! Switches
-  INTEGER, INTENT (in)            :: &
-    &  msg_level                       !< Message level
   LOGICAL, INTENT (in)            :: &
     &  l_cv                            !< Use c_v (true) or c_p (false)
     
@@ -102,7 +100,7 @@ SUBROUTINE art_clouds_interface_2mom(isize, ke, jg, jb, is, ie, ks, dt, &
     CALL art_2mom_mcrph(isize, ke, jg, jb, is, ie, ks, dt,           &
                         & dz, rho, pres, tke, p_trac(:,:,:), tk,    &
                         & w, prec_r, prec_i, prec_s,         &
-                        & prec_g, prec_h, tkvh, msg_level, l_cv)
+                        & prec_g, prec_h, tkvh, l_cv)
 
     IF (timers_level > 3) CALL timer_stop(timer_art_cldInt)
     IF (timers_level > 3) CALL timer_stop(timer_art)
