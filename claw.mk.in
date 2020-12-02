@@ -1,9 +1,6 @@
 # Path to the source directory:
 srcdir:= @srcdir@
 
-# Absolute path to the building directory:
-builddir:= @abs_builddir@
-
 # Relative path to the directory with the preprocessed source files:
 ppdir:= pp
 
@@ -83,8 +80,8 @@ endif
 # Targets that do not need the inclusion of the dependency files:
 NO_INC_TARGETS:= dummy-depend mostlyclean clean distclean
 
-# File search path:
-VPATH:= $(srcdir)
+# Selective search paths:
+vpath %.f90 $(srcdir)
 
 # By default, CLAW performs the code transformation (deep preprocessing) only if
 # the input file contains CLAW directives. Otherwise, the contents of the input
@@ -129,14 +126,14 @@ VPATH:= $(srcdir)
 in_f90_files:= $(CLAW_in_f90_files)
 
 # Output '.f90' files (supposed to be a subset of $(CLAW_mk_targets)):
-out_f90_files:= $(addprefix $(builddir)/$(ppdir)/$(CLAW_ppdir)/,$(in_f90_files))
+out_f90_files:= $(addprefix $(ppdir)/$(CLAW_ppdir)/,$(in_f90_files))
 
 # Secondary input '.f90' files:
 xmod_f90_files:= $(filter-out $(CLAW_in_f90_files),$(CLAW_xmod_f90_files))
 
 # Stamp files for the fault tolerant deep preprocessing of the corresponding
 # secondary input '.f90' files:
-xmodstamp_files:= $(addprefix $(builddir)/$(ppdir)/$(CLAW_ppdir)/,$(xmod_f90_files:.f90=.xmodstamp))
+xmodstamp_files:= $(addprefix $(ppdir)/$(CLAW_ppdir)/,$(xmod_f90_files:.f90=.xmodstamp))
 
 # Dependency files (ensure the topologically sorted order of the preprocessing):
 dep_files:= $(addsuffix .claw.d,$(out_f90_files) $(xmodstamp_files))
@@ -172,8 +169,7 @@ ICON_OCEAN_CLAW_CMD= $(CLAW) -o $@ $(CLAWFLAGS) $(ICON_OCEAN_CLAWFLAGS) $<
 # See icon.mk for the rationale behind this function.
 is_ocean_src= $(strip $(foreach d,src/hamocc/ src/ocean/ src/sea_ice/,$(findstring $(d),$(1))))
 
-# Default f90->f90 rule for the primary input files:
-$(builddir)/$(ppdir)/$(CLAW_ppdir)/%.f90: %.f90 | $(dir_files)
+$(ppdir)/$(CLAW_ppdir)/%.f90: %.f90 | $(dir_files)
 	$(silent_CLAW)$(if $(call is_ocean_src,$<),$(ICON_OCEAN_CLAW_CMD),$(ICON_CLAW_CMD))
 
 ############################ XMOD GENERATION RULES #############################
@@ -186,9 +182,7 @@ $(builddir)/$(ppdir)/$(CLAW_ppdir)/%.f90: %.f90 | $(dir_files)
 ICON_XMOD_CMD=       $(CLAW) --force $(CLAWFLAGS) $(ICON_CLAWFLAGS) $< >/dev/null; touch $@
 ICON_OCEAN_XMOD_CMD= $(CLAW) --force $(CLAWFLAGS) $(ICON_OCEAN_CLAWFLAGS) $< >/dev/null; touch $@
 
-# Default f90->xmodstamp rule for the secondary input files and the primary
-# input files without CLAW directives:
-$(builddir)/$(ppdir)/$(CLAW_ppdir)/%.xmodstamp: %.f90 | $(dir_files)
+$(ppdir)/$(CLAW_ppdir)/%.xmodstamp: %.f90 | $(dir_files)
 	$(silent_XMOD)$(if $(call is_ocean_src,$<),$(ICON_OCEAN_XMOD_CMD),$(ICON_XMOD_CMD))
 
 $(xmoddir)/%.xmod:
@@ -225,7 +219,7 @@ DEPGEN_CMD= $(DEPGEN) $(DEPGEN_ARGS) --obj-name $(@:.claw.d=) -- \
 
 # Dependency generation rule for the primary input files
 # ($(CLAW_FILTER) checks input files for the presence of CLAW directives):
-$(builddir)/$(ppdir)/$(CLAW_ppdir)/%.f90.claw.d: %.f90 icon.mk claw.mk depgen.f90.config | $(dir_files)
+$(ppdir)/$(CLAW_ppdir)/%.f90.claw.d: %.f90 icon.mk claw.mk depgen.f90.config | $(dir_files)
 	$(silent_DEPGEN) \
 	if $(CLAW_FILTER) $(CLAWFLAGS) $< >/dev/null; then \
 	  $(DEPGEN_CMD_prefix) --obj-name $(@:.claw.d=) $(DEPGEN_CMD_suffix); \
@@ -234,7 +228,7 @@ $(builddir)/$(ppdir)/$(CLAW_ppdir)/%.f90.claw.d: %.f90 icon.mk claw.mk depgen.f9
 	fi
 
 # Dependency generation rule for the secondary input files:
-$(builddir)/$(ppdir)/$(CLAW_ppdir)/%.xmodstamp.claw.d: %.f90 icon.mk claw.mk depgen.f90.config | $(dir_files)
+$(ppdir)/$(CLAW_ppdir)/%.xmodstamp.claw.d: %.f90 icon.mk claw.mk depgen.f90.config | $(dir_files)
 	$(silent_DEPGEN)$(DEPGEN_CMD_prefix) --obj-name $(@:.claw.d=) $(DEPGEN_CMD_suffix)
 
 # Dummy dependency file generation rule:

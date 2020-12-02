@@ -1,9 +1,6 @@
 # Path to the root source directory:
 srcdir:= @srcdir@
 
-# Absolute path to the root building directory:
-builddir:= @abs_builddir@
-
 # Relative paths to the directories with the ICON source code:
 subdirs:= src support
 
@@ -111,17 +108,6 @@ pp_files:=
 @SB2_ENABLED@SB2_out_f90_files:= $(addprefix $(ppdir)/$(SB2_ppdir)/,$(SB2_in_f90_files))
 @SB2_ENABLED@f90_files:= $(filter-out $(SB2_in_f90_files),$(f90_files)) $(SB2_out_f90_files)
 @SB2_ENABLED@pp_files+= $(SB2_out_f90_files)
-
-# Auxiliary function. Turns a space-separated list of relative paths to the
-# preprocessed files into a space-separated list of the absolute ones, which we
-# need to make sure that we compile the preprocessed source files from the
-# current building directory but not from the possibly "dirty" source directory.
-seal_pp_files= $(patsubst $(ppdir)/%,$(builddir)/$(ppdir)/%,$(1))
-
-f90_files:= $(call seal_pp_files,$(f90_files))
-pp_files:= $(call seal_pp_files,$(pp_files))
-@CLAW_ENABLED@CLAW_mk_targets:= $(call seal_pp_files,$(CLAW_mk_targets))
-@CLAW_ENABLED@CLAW_mk_prereqs:= $(call seal_pp_files,$(CLAW_in_f90_files))
 
 ############################## OUTPUT EXECUTABLES ##############################
 
@@ -253,7 +239,7 @@ mostlyclean: $(bundled_subdirs)
 #   first attempt to overcome this issue is to turn the absolute paths of the
 #   files into relative ones.
 clean: mostlyclean
-	rm -f srclist $(patsubst $(builddir)/%,%,$(filter-out $(CLAW_mk_targets),$(pp_files))) version.c
+	rm -f srclist $(filter-out $(CLAW_mk_targets),$(pp_files)) version.c
 
 # Delete everything generated at the configure stage (and clean the created
 # directories if they are empty):
@@ -360,8 +346,7 @@ sanitize-mod-proxies:
 
 ######################### DSL4JSB PREPROCESSING RULES ##########################
 
-# dsl->f90 rule for the original files:
-@JSBACH_ENABLED@$(builddir)/$(ppdir)/$(DSL4JSB_ppdir)/%.f90: %.f90 | $(dir_files)
+@JSBACH_ENABLED@$(ppdir)/$(DSL4JSB_ppdir)/%.f90: %.f90 | $(dir_files)
 @JSBACH_ENABLED@	$(silent_DSL4JSB)$(DSL4JSB) -i $< -o $@
 
 ########################### CLAW PREPROCESSING RULES ###########################
@@ -380,34 +365,16 @@ sanitize-mod-proxies:
 
 ##################### EXPLICIT FORTRAN PREPROCESSING RULES #####################
 
-# Note that old versions of make (3.81 and earlier) take the first matching
-# pattern rules instead of the rule with the shortest stem. Therefore, it is
-# important that we declare more concrete rules first.
-
 ICON_FPP_CMD=       $(FPP) $(FCFLAGS) $(ICON_FCFLAGS) $< >$@
 ICON_OCEAN_FPP_CMD= $(FPP) $(FCFLAGS) $(ICON_OCEAN_FCFLAGS) $< >$@
 
-# f90->f90 rule for files that have already been processed by some other
-# preprocessor:
-@FPP_ENABLED@$(builddir)/$(ppdir)/$(FPP_ppdir)/$(ppdir)/%.f90: $(builddir)/$(ppdir)/%.f90 | $(dir_files)
-@FPP_ENABLED@	$(silent_FPP)$(if $(call is_ocean_src,$<),$(ICON_OCEAN_FPP_CMD),$(ICON_FPP_CMD))
-
-# f90->f90 rule for the original files:
-@FPP_ENABLED@$(builddir)/$(ppdir)/$(FPP_ppdir)/%.f90: %.f90 | $(dir_files)
+@FPP_ENABLED@$(ppdir)/$(FPP_ppdir)/%.f90: %.f90 | $(dir_files)
 @FPP_ENABLED@	$(silent_FPP)$(if $(call is_ocean_src,$<),$(ICON_OCEAN_FPP_CMD),$(ICON_FPP_CMD))
 
 ######################## SERIALBOX2 PREPROCESSING RULES ########################
 
-@SB2_ENABLED@ICON_SB2_CMD= $(SB2PP) -o $@ $<
-
-# f90->f90 rule for files that have already been processed by some other
-# preprocessor:
-@SB2_ENABLED@$(builddir)/$(ppdir)/$(SB2_ppdir)/$(ppdir)/%.f90: $(builddir)/$(ppdir)/%.f90 | $(dir_files)
-@SB2_ENABLED@	$(silent_SB2)$(ICON_SB2_CMD)
-
-# f90->f90 rule for the original files:
-@SB2_ENABLED@$(builddir)/$(ppdir)/$(SB2_ppdir)/%.f90: %.f90  | $(dir_files)
-@SB2_ENABLED@	$(silent_SB2)$(ICON_SB2_CMD)
+@SB2_ENABLED@$(ppdir)/$(SB2_ppdir)/%.f90: %.f90  | $(dir_files)
+@SB2_ENABLED@	$(silent_SB2)$(SB2PP) -o $@ $<
 
 ############################ BUNDLED LIBRARY RULES #############################
 

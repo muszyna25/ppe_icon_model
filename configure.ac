@@ -27,12 +27,33 @@ ${icon_usr_note}], [$2]); }])
 dnl End of the temporary message injection. Delete up until this line once the
 dnl message is not needed anymore.
 
-dnl Currently, ICON makefiles are implemented in a way that allows for
-dnl out-of-source building even if the source directory is "dirty" (i.e.
-dnl contains results of in-source configuration and building). Nonetheless, we
-dnl enforce the source directory to be clean, because, first, it a good
-dnl practice, second, configure scripts of the bundled libraries might complain
-dnl about their "dirty" source directories anyway.
+dnl We need to make sure that the source directory is clean when building
+dnl out-of-source for two reasons:
+dnl   1. Building systems of most of the bundled libraries are Automake-based
+dnl      and, therefore, they rely on the standard non-selective search path
+dnl      (i.e., VPATH) feature of make for out-of-source builds. This makes
+dnl      having a clean source directory a hard requirement for them. Otherwise,
+dnl      instead of generating object files in the build directory, make would
+dnl      simply take them from the dirty source directory. For that reason, the
+dnl      respective configure scripts will run a check similar to the one below
+dnl      and fail if their source directories are dirty. It is better that we
+dnl      run the check much earlier and fail the configuration with a more
+dnl      informative error message.
+dnl   2. The makefiles of ICON rely on the selective search path (i.e. vpath)
+dnl      feature of GNU Make. Therefore, the problem with the object files that
+dnl      is described above is irrelevant. However, icon.mk supports Fortran
+dnl      source file preprocessing. The input and output files of the most of
+dnl      the preprocessing steps are valid Fortran files. Thus, both the
+dnl      original files in the source directory and the preprocessed files in
+dnl      the build directory have the same suffix '.f90', which makes it
+dnl      impossible to declare selective search paths that would work for the
+dnl      original files but wouldn't work for the preprocessed files. This might
+dnl      lead to the preprocessed files being taken from the dirty source
+dnl      directory instead of being generated in the build directory. A
+dnl      workaround for this, which had been implemented before, is to refer to
+dnl      the preprocessed files by their absolute paths. However, it makes the
+dnl      makefiles overcomplicated and error-prone. Instead, we simply forbid
+dnl      the source directory to be dirty in the case of out-of-source build.
 AS_IF([test "`cd $srcdir && pwd`" != "`pwd`" && dnl
 test -f "$srcdir/config.status"],
   [AC_MSG_ERROR([source directory already configured; dnl

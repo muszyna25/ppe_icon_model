@@ -770,25 +770,18 @@ the preprocessing with the `--disable-explicit-fpp` option.
 
 The output directories of the preprocessing steps have the same layout as the
 directories containing their input files and the output files have the same
-basenames as the corresponding intput files. For example if the original source
-file of JSBACH `/icon-srcdir/externals/jsbach/src/base/mo_jsb_base.f90`
+basenames as the corresponding input files. For example if the original source
+file of JSBACH `./externals/jsbach/src/base/mo_jsb_base.f90`
 is preprocessed by each of the preprocessing steps, the corresponding output
 files are saved as follows:
-- `/icon-build/pp/jsb/src/base/mo_jsb_base.f90` &mdash; JSBACH preprocessing
-output;
-- `/icon-build/pp/claw/pp/jsb/src/base/mo_jsb_base.f90` &mdash; CLAW
+- `./pp/dsl4jsb/externals/jsbach/src/base/mo_jsb_base.f90` &mdash; JSBACH
 preprocessing output;
-- `/icon-build/pp/fpp/pp/claw/pp/jsb/src/base/mo_jsb_base.f90` &mdash; explicit
-Fortran preprocessing output;
-- `/icon-build/pp/sb2/pp/fpp/pp/claw/pp/jsb/src/base/mo_jsb_base.f90` &mdash;
-Serialbox2 preprocessing output.
-
-> **_NOTE:_** In contrast to the original source files residing in the source
-directory, output files of the preprocessing steps are treated by `make` by
-their absolute paths. This is done to avoid potential ambiguity between the
-preprocessed files residing in the current build directory and the preprocessed
-files in the source directory generated as a result of a prior in-source
-configuration and building.
+- `./pp/claw/pp/dsl4jsb/externals/jsbach/src/base/mo_jsb_base.f90` &mdash; CLAW
+preprocessing output;
+- `./pp/fpp/pp/claw/pp/dsl4jsb/externals/jsbach/src/base/mo_jsb_base.f90`
+&mdash; explicit Fortran preprocessing output;
+- `./pp/sb2/pp/fpp/pp/claw/pp/dsl4jsb/externals/jsbach/src/base/mo_jsb_base.f90`
+&mdash; Serialbox2 preprocessing output.
 
 > **_NOTE:_** Source files are additionaly preprocessed with the corresponding
 standard language-specific (i.e. Fortran, C, CUDA) preprocessors as part of the
