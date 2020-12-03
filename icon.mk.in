@@ -43,19 +43,17 @@ all_files:= $(call find_files,$(subdirs),'*.f90' '*.inc' '*.incf' '*.c' '*.cu')
 @JSBACH_ENABLED@JSBACH_subdir:= externals/jsbach/src
 @JSBACH_ENABLED@JSBACH_dsl_files:= $(call find_files,$(JSBACH_subdir),'*.f90')
 
-# ART sources:
-@ART_ENABLED@ART_subdir:= externals/art
-@ART_ENABLED@all_files+= $(call find_files,$(ART_subdir),'*.f90' '*.inc' '*.incf')
-
 # DACE sources:
-DACE_subdir:= externals/dace_icon/src_for_icon
-@DACE_ENABLED@all_files+= $(call find_files,$(DACE_subdir),'*.f90' '*.inc' '*.incf')
+@DACE_ENABLED_OR_NEEDED@DACE_subdir:= externals/dace_icon/src_for_icon
+@DACE_ENABLED_OR_NEEDED@all_files+= $(call find_files,$(DACE_subdir),'*.f90' '*.inc' '*.incf')
 
 # EMVORADO sources:
 @EMVORADO_ENABLED@EMVORADO_subdir:= externals/emvorado
 @EMVORADO_ENABLED@all_files+= $(call find_files,$(EMVORADO_subdir),'*.f90' '*.incf')
-@EMVORADO_ENABLED@@DACE_DISABLED@EMVORADO_dacefiles:= mo_fdbk.f90 mo_fdbk_io.f90 mo_fdbk_tables.f90 kind_parameters.f90 environment.f90 mo_fortran_units.f90 mo_mpi_dace.f90 mo_omp.f90 mo_netcdf_param.f90 mo_t_netcdf_file.f90 mo_t_table.f90 p_bcast.incf p_scatter_derived.incf
-@EMVORADO_ENABLED@@DACE_DISABLED@all_files+= $(addprefix $(DACE_subdir)/,$(EMVORADO_dacefiles))
+
+# ART sources:
+@ART_ENABLED@ART_subdir:= externals/art
+@ART_ENABLED@all_files+= $(call find_files,$(ART_subdir),'*.f90' '*.inc' '*.incf')
 
 # Fortran '.f90' source files:
 f90_files:= $(filter %.f90,$(all_files))
