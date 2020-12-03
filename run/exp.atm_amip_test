@@ -564,6 +564,30 @@ if [[ "$output_phy_3d" == "yes" ]]; then
 EOF
 fi
 
+output_atm_mean_3d=yes
+#
+# Time-average a few variables at checkpoint_interval times
+#
+if [[ "$output_atm_mean_3d" == "yes" ]]; then
+  #
+  cat >> ${atmo_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_atm_mean_3d"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
+ remap            = 0
+ operation        = 'mean'
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${checkpoint_interval}"
+ file_interval    = "${checkpoint_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'ps'      , 'pfull'   , 'zg'      ,
+/
+EOF
+fi
+
 
 output_trc_3d=yes
 #

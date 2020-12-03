@@ -22,7 +22,7 @@ MODULE mo_name_list_output_init
 
   ! constants and global settings
   USE mo_cdi,                               ONLY: FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2, gridCreate, cdiEncodeDate,          &
-                                                & cdiEncodeTime, institutInq, vlistCreate, vlistDefVar,          &
+                                                & cdiEncodeTime, institutInq, institutDef, vlistCreate, vlistDefVar,          &
                                                 & TUNIT_MINUTE, CDI_UNDEFID, TAXIS_RELATIVE, taxisCreate, TAXIS_ABSOLUTE,        &
                                                 & GRID_UNSTRUCTURED, GRID_LONLAT, vlistDefVarDatatype, vlistDefVarName,          &
                                                 & gridDefPosition, vlistDefVarIntKey, gridDefXsize, gridDefXname, gridDefXunits, &
@@ -2526,6 +2526,10 @@ CONTAINS
     cdiInstID = institutInq(gribout_config(i_dom)%generatingCenter,          &
       &                     gribout_config(i_dom)%generatingSubcenter, '', '')
 
+    IF (cdiInstID == CDI_UNDEFID) &
+         &   cdiInstID = institutDef(gribout_config(i_dom)%generatingCenter, &
+         &                           gribout_config(i_dom)%generatingSubcenter, &
+         &                           "MPIMET",    "Max-Planck-Institute for Meteorology")
 
     ! define Institute
     CALL vlistDefInstitut(of%cdiVlistID,cdiInstID)

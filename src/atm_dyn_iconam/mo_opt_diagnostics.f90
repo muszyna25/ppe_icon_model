@@ -761,6 +761,10 @@ CONTAINS
       &       vcoeff_lin%zextrap(nproma,nblks), STAT=ierrstat )
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
+!$ACC ENTER DATA CREATE( vcoeff_lin%wfac_lin, vcoeff_lin%idx0_lin, vcoeff_lin%bot_idx_lin, &
+!$ACC                    vcoeff_lin%wfacpbl1, vcoeff_lin%wfacpbl2, vcoeff_lin%kpbl1, &
+!$ACC                    vcoeff_lin%kpbl2, vcoeff_lin%zextrap )
+
     ! Initialization
     vcoeff_lin%wfac_lin    = 0._wp
     vcoeff_lin%idx0_lin    = 0
@@ -795,6 +799,9 @@ CONTAINS
       &       STAT=ierrstat )
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
+!$ACC ENTER DATA CREATE( vcoeff_cub%coef1, vcoeff_cub%coef2, vcoeff_cub%coef3, &
+!$ACC                    vcoeff_cub%idx0_cub, vcoeff_cub%bot_idx_cub )
+
     ! Initialization
     vcoeff_cub%coef1       = 0._wp
     vcoeff_cub%coef2       = 0._wp
@@ -816,14 +823,20 @@ CONTAINS
 
 !!$    CHARACTER(*), PARAMETER :: routine = TRIM("mo_opt_diagnostics:vcoeff_allocate")
 
+!$ACC ENTER DATA CREATE( vcoeff )
+
     IF (.NOT. vcoeff%l_allocated) THEN
       CALL vcoeff_lin_allocate(nblks_c, nlev, vcoeff%lin_cell)
       CALL vcoeff_lin_allocate(nblks_c, nlev, vcoeff%lin_cell_nlevp1)
       CALL vcoeff_lin_allocate(nblks_e, nlev, vcoeff%lin_edge)
 
+! TODO: attach these pointers
+
       ! CUBIC interpolation coefficients:
       CALL vcoeff_cub_allocate(nblks_c, nlev, vcoeff%cub_cell)
       CALL vcoeff_cub_allocate(nblks_e, nlev, vcoeff%cub_edge)
+
+! TODO: attach these pointers
 
       vcoeff%l_allocated = .TRUE.
     END IF
@@ -839,6 +852,10 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = &
       &  TRIM("mo_opt_diagnostics:vcoeff_lin_deallocate")
     INTEGER :: ierrstat
+
+!$ACC EXIT DATA DELETE( vcoeff_lin%wfac_lin, vcoeff_lin%idx0_lin, vcoeff_lin%bot_idx_lin, &
+!$ACC                   vcoeff_lin%wfacpbl1, vcoeff_lin%wfacpbl2, vcoeff_lin%kpbl1, &
+!$ACC                   vcoeff_lin%kpbl2, vcoeff_lin%zextrap )
 
     ! real(wp)
     DEALLOCATE( vcoeff_lin%wfac_lin, STAT=ierrstat )
@@ -864,6 +881,9 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = &
       &  TRIM("mo_opt_diagnostics:vcoeff_cub_deallocate")
     INTEGER :: ierrstat
+
+!$ACC EXIT DATA DELETE( vcoeff_cub%coef1, vcoeff_cub%coef2, vcoeff_cub%coef3, &
+!$ACC                   vcoeff_cub%idx0_cub, vcoeff_cub%bot_idx_cub )
 
     ! CUBIC interpolation coefficients:
     ! real(wp)
@@ -898,6 +918,8 @@ CONTAINS
 
       vcoeff%l_allocated = .FALSE.
     END IF
+
+!$ACC EXIT DATA DELETE(vcoeff)
 
     vcoeff%l_initialized = .FALSE.
   END SUBROUTINE vcoeff_deallocate

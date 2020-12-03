@@ -1238,8 +1238,9 @@ END SUBROUTINE edges2edges_scalar
 !! @par Revision History
 !!  developed by Guenther Zaengl, 2008-12-05
 !!
-SUBROUTINE cell_avg( psi_c, ptr_patch, avg_coeff, avg_psi_c,    &
-  &                  opt_slev, opt_elev, opt_rlstart, opt_rlend )
+SUBROUTINE cell_avg( psi_c, ptr_patch, avg_coeff, avg_psi_c,     &
+  &                  opt_slev, opt_elev, opt_rlstart, opt_rlend, &
+  &                  opt_acc_async )
 !
 
 !
@@ -1265,6 +1266,9 @@ INTEGER, INTENT(in), OPTIONAL ::  &
 
 INTEGER, INTENT(in), OPTIONAL ::  &
   &  opt_rlstart, opt_rlend   ! start and end values of refin_ctrl flag
+
+LOGICAL, INTENT(IN), OPTIONAL :: & 
+  &  opt_acc_async    ! optional async OpenACC
 
 !
 !   cell based variable after averaging
@@ -1324,7 +1328,7 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
 IF (timers_level > 10) CALL timer_start(timer_intp)
 
-!$ACC DATA PCOPYIN( psi_c, avg_coeff ), PCOPY( avg_psi_c ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PRESENT( psi_c, avg_coeff, avg_psi_c, iidx, iblk ) IF( i_am_accel_node .AND. acc_on ) 
 !$ACC UPDATE DEVICE( psi_c, avg_coeff, avg_psi_c ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 !$OMP PARALLEL
@@ -1334,16 +1338,13 @@ IF (timers_level > 10) CALL timer_start(timer_intp)
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, rl_start, rl_end)
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+    !$ACC LOOP GANG VECTOR COLLAPSE(2) 
 #ifdef __LOOP_EXCHANGE
-    !$ACC LOOP GANG
     DO jc = i_startidx, i_endidx
-      !$ACC LOOP VECTOR
       DO jk = slev, elev
 #else
-    !$ACC LOOP GANG
     DO jk = slev, elev
-      !$ACC LOOP VECTOR
       DO jc = i_startidx, i_endidx
 #endif
 
@@ -1365,11 +1366,17 @@ IF (timers_level > 10) CALL timer_start(timer_intp)
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-!$ACC UPDATE HOST( avg_psi_c ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC UPDATE HOST( avg_psi_c ) WAIT, IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 IF (timers_level > 10) CALL timer_stop(timer_intp)
 
+IF ( PRESENT(opt_acc_async) ) THEN
+  IF ( opt_acc_async ) THEN
+    RETURN
+  END IF
+END IF
+!$ACC WAIT
 
 END SUBROUTINE cell_avg
 

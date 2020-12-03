@@ -3700,7 +3700,7 @@ MODULE mo_nonhydro_state
     !
     cf_desc    = t_cf_var('metrics_functional_determinant', '-',                &
       &                   'metrics functional determinant (edge)', datatype_flt)
-    grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
+    grib2_desc = grib2_var( 0, 3, 192, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
     CALL add_var( p_metrics_list, 'ddqz_z_full_e', p_metrics%ddqz_z_full_e,     &
                 & GRID_UNSTRUCTURED_EDGE, ZA_REFERENCE, cf_desc, grib2_desc,    &
                 & ldims=shape3d_e, loutput=.TRUE.,                              &

@@ -6,6 +6,7 @@
 *.c.d
 *.cu.d
 *.f90.d
+*.mod
 .dirstamp
 /Makefile
 /c_binding.d
