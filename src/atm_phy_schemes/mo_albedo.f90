@@ -46,6 +46,7 @@ MODULE mo_albedo
   USE mo_lnd_nwp_config,       ONLY: ntiles_total, ntiles_water, ntiles_lnd,             &
     &                                lseaice, lprog_albsi, llake, isub_water, isub_lake, &
     &                                isub_seaice
+  USE mo_extpar_config,        ONLY: itype_vegetation_cycle
   USE sfc_terra_data,          ONLY: csalb, csalb_snow_fe, csalb_snow_fd,     &
     &                                csalb_snow_min, csalb_snow_max, csalb_p, csalb_snow, &
     &                                ist_seawtr, ist_seaice
@@ -736,11 +737,15 @@ CONTAINS
             ! maximum snow albedo specified in landuse table
             zsnowalb_lu = ABS(ext_data%atm%snowalb_lcc(ilu))
 
-            IF (ext_data%atm%alb_dif(jc,jb) > csalb_snow_min .AND. ilu == ext_data%atm%i_lc_snow_ice) THEN
-              ! temperature-dependent minimum snow albedo over glaciers (i.e. alb_dif = 0.7)
+            IF (ilu == ext_data%atm%i_lc_snow_ice) THEN
+              ! temperature-dependent minimum snow albedo over glaciers, ranging between 0.5 and 0.7
               ! this is needed to prevent unrealistically low albedos over Antarctica
-              t_fac = MIN(1._wp,0.1_wp*(tmelt-lnd_prog%t_snow_t(jc,jb,jt)))
-              zminsnow_alb = (1._wp-t_fac)*csalb_snow_min + t_fac*ext_data%atm%alb_dif(jc,jb)
+              IF (itype_vegetation_cycle > 1) THEN ! use climatological T2M to avoid unphysical diurnal cycle of albedo
+                t_fac = MIN(1._wp,0.1_wp*MAX(0._wp,tmelt-ext_data%atm%t2m_clim_hc(jc,jb)))
+              ELSE
+                t_fac = MIN(1._wp,0.1_wp*(tmelt-lnd_prog%t_snow_t(jc,jb,jt)))
+              ENDIF
+              zminsnow_alb = (1._wp-t_fac)*csalb_snow_min + t_fac*0.7_wp
             ELSE
               ! otherwise take minimum snow albedo as 60% of the landuse-class specific maximum snow albedo
               zminsnow_alb = MAX(0.4_wp*csalb_snow_min,MIN(csalb_snow_min,0.6_wp*zsnowalb_lu))
@@ -1349,12 +1354,13 @@ CONTAINS
 
         ENDIF  ! ntiles_total = 1
 
-        ! Account for snow effect on LW emissivity
+        ! Account for snow effect on LW emissivity, using values consistent with the CAMEL climatology
         !$acc parallel default (present) if (lacc)
         !$acc loop gang vector
         DO jc = i_startidx, i_endidx
-          prm_diag%lw_emiss(jc,jb) = (1._wp-zsnowfrac(jc))*ext_data%atm%emis_rad(jc,jb) + &
-                                     MIN(0.999_wp,1._wp-1.e-3_wp*prm_diag%gz0(jc,jb))*zsnowfrac(jc)
+          prm_diag%lw_emiss(jc,jb) = (1._wp-zsnowfrac(jc))*ext_data%atm%emis_rad(jc,jb) + 0.978_wp*zsnowfrac(jc)
+          ! analogously use lower values for sea ice than for open water
+          IF (lnd_diag%fr_seaice(jc,jb) > 0._wp) prm_diag%lw_emiss(jc,jb) = 0.975_wp
         ENDDO
         !$acc end parallel     
 

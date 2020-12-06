@@ -192,7 +192,7 @@ REAL(KIND=wp) :: &
   & fgew   , fgee   , fgqs   , dqsdt,   & !fgqv   , & ! name of statement functions
   & ztt    , zzpv   , zzpa   , zzps   , zqs, &
   & zf_ice , deltaq , qisat_grid, zdeltaq, zrcld, thicklay_fac, tfac, satdef_fac, rhcrit_sgsice, &
-  & vap_pres, zaux, zqisat_m50, zqisat_m25, qi_mod, par1, qcc, box_liq_asy, fac_aux, fac_ic, fac_sfc, &
+  & vap_pres, zaux, zqisat_m50, zqisat_m25, qi_mod, par1, qcc, box_liq_asy, fac_aux, fac_sfc, &
   & rcld_asyfac, dq1, dq2, dq3, tfmax
 
 REAL(KIND=wp), DIMENSION(klon,klev)  :: &
@@ -331,13 +331,10 @@ CASE( 1 )
         qc_turb  (jl,jk)   = qv(jl,jk) + qc(jl,jk) - zqlsat(jl,jk)
       ELSE
         ! asymmetry factor for water clouds and derived parameters;
-        ! the asymmetry factor is reduced to 2 in the presence of (grid-scale) cloud ice seeding
-        ! and close to the surface because 'long tails' are unrealistic (and detrimental) in these cases
-        fac_aux = 1._wp - MIN(1._wp,0.1_wp*MAX(0._wp,tt(jl,jk)-tm10))
-        fac_ic  = fac_aux*MIN(1._wp,qi(jl,jk)/(1.e-3_wp*zqisat_m50))
+        ! the asymmetry factor is reduced to 2 close to the surface because 'long tails' are unrealistic (and detrimental) in this case
         fac_sfc = MAX(0._wp,zqlsat(jl,jk)-(qv(jl,jk)+deltaq))/deltaq*MAX(0._wp,(tune_box_liq-zagl_lim(jl,jk))/zagl_lim(jl,jk))
-        fac_ic  = MAX(fac_ic,MIN(1._wp,fac_sfc))
-        box_liq_asy = tune_box_liq_asy*(1._wp+0.5_wp*thicklay_fac+rcld_asyfac*zrcld/zqlsat(jl,jk))*(1._wp-fac_ic) + 2._wp*fac_ic
+        fac_sfc = MIN(1._wp,fac_sfc)
+        box_liq_asy = tune_box_liq_asy*(1._wp+0.5_wp*thicklay_fac+rcld_asyfac*zrcld/zqlsat(jl,jk))*(1._wp-fac_sfc) + 2._wp*fac_sfc
         par1 = box_liq_asy+1._wp
         !
         zaux = qv(jl,jk) + qc(jl,jk) + box_liq_asy*deltaq - zqlsat(jl,jk)
