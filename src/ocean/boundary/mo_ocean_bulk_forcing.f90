@@ -1133,17 +1133,20 @@ CONTAINS
   !! Initial revision by Stephan Lorenz, MPI (2013-04)
   !!
   !!
-  SUBROUTINE balance_elevation (p_patch_3D, h_old)
+  SUBROUTINE balance_elevation (p_patch_3D, h_old,p_oce_sfc,p_ice)
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)    :: p_patch_3D
     REAL(wp), INTENT(INOUT)                 :: h_old(1:nproma,1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    TYPE(t_ocean_surface) , INTENT(INOUT)   :: p_oce_sfc
+    TYPE(t_sea_ice),INTENT(IN)              :: p_ice
+
 
     TYPE(t_patch), POINTER                  :: p_patch
     TYPE(t_subset_range), POINTER           :: all_cells
 
     INTEGER  :: i_startidx_c, i_endidx_c
-    INTEGER  :: jc, jb
-    REAL(wp) :: ocean_are, glob_slev, corr_slev
+    INTEGER  :: jc, jb 
+    REAL(wp) :: ocean_are, glob_slev, corr_slev , hold_b,hnew_a
 
     p_patch         => p_patch_3D%p_patch_2D(1)
     all_cells       => p_patch%cells%all
@@ -1162,6 +1165,11 @@ CONTAINS
       DO jc =  i_startidx_c, i_endidx_c
         IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
           ! subtract or scale?
+
+          hold_b = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)+h_old(jc,jb) - p_ice%draftave(jc,jb)
+          hnew_a = hold_b - corr_slev
+
+          p_oce_sfc%top_dilution_coeff(jc,jb) =p_oce_sfc%top_dilution_coeff(jc,jb) * hold_b / hnew_a ! for hamocc tracers dilution dilution=hold/hnew *dilution(old from surface fluxes)
           h_old(jc,jb) = h_old(jc,jb) - corr_slev
           !h_old(jc,jb) = h_old(jc,jb) * (1.0_wp - corr_slev)
           !h_old(jc,jb) = h_old(jc,jb) - h_old(jc,jb)*corr_slev

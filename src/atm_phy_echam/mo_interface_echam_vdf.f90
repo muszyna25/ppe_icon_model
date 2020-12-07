@@ -243,6 +243,7 @@ CONTAINS
     !$ACC               zaa_btm, zbb, zbb_btm, zfactor_sfc,                     &
     !$ACC               zthvvar, ztottevn, zch_tile, kedisp, tend_ua_vdf,       &
     !$ACC               tend_va_vdf, q_vdf, tend_qtrc_vdf, q_snocpymlt, zco2,   &
+    !$ACC               tend_qtrc_vdf_iqt, tend_qtrc_vdf_dummy,                 &
     !$ACC               tend_ta_sfc, q_rlw_impl, tend_ta_rlw_impl, tend_ta_vdf, &
     !$ACC               ts_tile, z0m_tile, ustar, wstar_tile, thvsig, rlus,     &
     !$ACC               albvisdir_ice, albnirdir_ice, albvisdif_ice,            &
@@ -979,7 +980,7 @@ CONTAINS
                &        tend_qtrc_vdf(:,:,jb,iqc),       &! out
                &        tend_qtrc_vdf(:,:,jb,iqi),       &! out
 !               &        tend_qtrc_vdf(:,:,jb,iqt:),     &! out
-               &        tend_qtrc_vdf_iqt(:,:,jb,iqt:),  & ! out
+               &        tend_qtrc_vdf_iqt(:,:,jb,:),     & ! out
                &        field%   z0m   (:,  jb),         &! out, for the next step
                &        dummy(:,:,jb),                   &! 
                &        field%      totte(:,:,jb)        )! out
@@ -1091,7 +1092,7 @@ CONTAINS
           END IF
           !
           IF (ASSOCIATED(tend% qtrc_vdf )) THEN
-            !$ACC DATA PRESENT( tend%qtrc_vdf, tend_qtrc_vdf )
+            !$ACC DATA PRESENT( tend%qtrc_vdf, tend_qtrc_vdf, tend_qtrc_vdf_iqt )
             !$ACC PARALLEL DEFAULT(PRESENT)
             !$ACC LOOP GANG
             DO jk = 1,nlev
@@ -1102,7 +1103,7 @@ CONTAINS
                 tend% qtrc_vdf(jl,jk,jb,iqi) = tend_qtrc_vdf(jl,jk,jb,iqi)
                 !$ACC LOOP SEQ
                 DO jt = iqt,ntracer
-                  tend% qtrc_vdf(jl,jk,jb,jt) = tend_qtrc_vdf(jl,jk,jb,jt)
+                  tend% qtrc_vdf(jl,jk,jb,jt) = tend_qtrc_vdf_iqt(jl,jk,jb,jt-iqt)
                 END DO
               END DO
             END DO

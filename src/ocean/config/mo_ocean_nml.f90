@@ -422,6 +422,7 @@ MODULE mo_ocean_nml
 
   INTEGER, PARAMETER :: vmix_pp  = 1
   INTEGER, PARAMETER :: vmix_tke = 2
+  INTEGER, PARAMETER :: vmix_idemix_tke = 4
   INTEGER, PARAMETER :: vmix_kpp = 3
   INTEGER  :: vert_mix_type = vmix_pp  ! 1: PP; 2: TKE; 3: KPP ! by_nils/by_ogut
 
@@ -490,6 +491,19 @@ MODULE mo_ocean_nml
   LOGICAL  :: only_tke = .true.
   LOGICAL  :: use_ubound_dirichlet = .false.
   LOGICAL  :: use_lbound_dirichlet = .false.
+  ! cvmix_idemix parameters ! by_nils
+  REAL(wp) :: tau_v = 86400.0_wp
+  REAL(wp) :: tau_h = 1296000.0_wp
+  REAL(wp) :: gamma = 1.570_wp
+  REAL(wp) :: jstar = 10.0_wp
+  REAL(wp) :: mu0 = 1.33333333_wp
+  LOGICAL  :: l_idemix_osborn_cox_kv = .false.
+  LOGICAL  :: l_use_idemix_forcing = .true.
+  INTEGER  :: n_hor_iwe_prop_iter = 5
+  CHARACTER(filename_max) :: fpath_iwe_surforc = 'idemix_surface_forcing.nc'
+  CHARACTER(LEN=40) :: name_iwe_surforc='niw_forc'
+  CHARACTER(filename_max) :: fpath_iwe_botforc = 'idemix_bottom_forcing.nc'
+  CHARACTER(LEN=40) :: name_iwe_botforc='wave_dissipation'
   ! cvmix_kpp parameters ! by_oliver
   REAL(wp) :: Ri_crit=0.3                    ! critical bulk-Rickardson number (Rib) used to diagnose OBL depth
   REAL(wp) :: vonKarman=0.40                 ! von Karman constant(dimensionless)
@@ -548,6 +562,7 @@ MODULE mo_ocean_nml
   REAL(wp) :: PP_alpha   = 5.0               !
   REAL(wp) :: PP_loc_exp = 2.0               !
 
+  LOGICAL :: use_bc_SAL_potential = .false.
 
  NAMELIST/ocean_horizontal_diffusion_nml/&
     & &! define harmonic and biharmonic parameters !
@@ -624,6 +639,19 @@ MODULE mo_ocean_nml
     &  only_tke,                    &
     &  use_ubound_dirichlet,        &
     &  use_lbound_dirichlet,        &
+    ! cvmix_idemix parameters ! by_nils
+    &  tau_v,                       &
+    &  tau_h,                       &
+    &  gamma,                       &
+    &  jstar,                       &
+    &  mu0,                         &
+    &  l_idemix_osborn_cox_kv,      &
+    &  l_use_idemix_forcing,        &
+    &  n_hor_iwe_prop_iter,         &
+    &  fpath_iwe_surforc,           &
+    &  name_iwe_surforc,            &
+    &  fpath_iwe_botforc,           &
+    &  name_iwe_botforc,            &
     ! cvmix_kpp parameters ! by_oliver
     !(FIXME: reduce number of namelist entries)
     &  Ri_crit,                     &
@@ -736,6 +764,7 @@ MODULE mo_ocean_nml
   ! ist : todo move into different nml
   LOGICAL  :: lhamocc=.FALSE.
   LOGICAL  :: lbgcadv=.FALSE.
+  LOGICAL  :: lsediment_only=.FALSE.
   INTEGER  :: nbgctra, nbgcadv 
                                  
   
@@ -745,7 +774,7 @@ MODULE mo_ocean_nml
     &  LinearThermoExpansionCoefficient,  &
     &  LinearHalineContractionCoefficient,&
     &  OceanReferenceDensity,       &
-    &  lhamocc, lbgcadv
+    &  lhamocc, lbgcadv, lsediment_only
 
   ! ------------------------------------------------------------------------
   ! FORCING {
@@ -839,7 +868,9 @@ MODULE mo_ocean_nml
   INTEGER      :: tides_mod = 1 !1: tidal potential by Logemann, HZG 2020. 2: tidal potential from MPI-OM.
   CHARACTER*16 :: tide_startdate = '2001-01-01 00:00' ! date when tidal spin-up (over 30 days) should start                                                              
   REAL(wp)     :: tides_esl_damping_coeff = 0.69_wp
-
+  LOGICAL      :: use_tides_SAL  = .FALSE.
+  REAL(wp)     :: tides_SAL_coeff = 0.085_wp
+  INTEGER      :: tides_smooth_iterations = 0
 
   NAMELIST/ocean_forcing_nml/&
     &                 forcing_center                      , &
@@ -910,7 +941,10 @@ MODULE mo_ocean_nml
     &                 use_tides                           , &
     &                 tides_mod                           , &
     &                 tide_startdate                      , &
-    &                 tides_esl_damping_coeff
+    &                 tides_esl_damping_coeff             , &
+    &                 use_tides_SAL                      , &
+    &                 tides_SAL_coeff                    , &
+    &                 tides_smooth_iterations
   ! } END FORCING
 
   !----------------------------------------------------------------------------
@@ -1219,6 +1253,9 @@ MODULE mo_ocean_nml
       END IF
     END SELECT
 
+    use_bc_SAL_potential = use_tides_SAL
+    CALL message(method_name, "use_bc_SAL_potential acitvated")
+    
     CALL position_nml ('ocean_initialConditions_nml', status=i_status)
     IF (my_process_is_stdio()) THEN
       iunit = temp_defaults()

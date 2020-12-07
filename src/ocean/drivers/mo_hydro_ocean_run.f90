@@ -33,8 +33,8 @@ MODULE mo_hydro_ocean_run
   USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
     &  i_sea_ice, cfl_check, cfl_threshold, cfl_stop_on_violation,   &
     &  cfl_write, surface_module, run_mode, RUN_FORWARD, RUN_ADJOINT, &
-    &  lswr_jerlov, &
-    &  Cartesian_Mixing, GMRedi_configuration, use_tides, tides_mod, OceanReferenceDensity_inv, &
+    &  lswr_jerlov, lsediment_only, &
+    &  Cartesian_Mixing, GMRedi_configuration, OceanReferenceDensity_inv, &
     &  atm_pressure_included_in_ocedyn, &
     &  vert_mix_type,vmix_kpp, lcheck_salt_content, &
     &  use_draftave_for_transport_h
@@ -94,11 +94,11 @@ MODULE mo_hydro_ocean_run
   USE mo_ocean_coupling,         ONLY: couple_ocean_toatmo_fluxes  
   USE mo_hamocc_nml,             ONLY: l_cpl_co2
   USE mo_ocean_time_events,      ONLY: ocean_time_nextStep, isCheckpoint, isEndOfThisRun, newNullDatetime
-  USE mo_ocean_tides,            ONLY: tide, tide_mpi    
   USE mo_ocean_ab_timestepping_mimetic, ONLY: clear_ocean_ab_timestepping_mimetic
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
-  USE mo_ocean_tracer_diffusion, ONLY: tracer_vertdiff_eliminate_upper_diag => eliminate_upper_diag
-
+  USE mo_ocean_pressure_bc_conditions,  ONLY: create_pressure_bc_conditions
+  
+  
   IMPLICIT NONE
 
   PRIVATE
@@ -282,7 +282,11 @@ CONTAINS
       jstep = jstep0
       TIME_LOOP: DO
 
-         CALL ocean_time_step()
+         IF(lsediment_only) THEN
+             CALL sed_only_time_step()
+         ELSE
+             CALL ocean_time_step()
+         END IF
 
          IF (isEndOfThisRun()) THEN
             ! leave time loop
@@ -383,19 +387,16 @@ CONTAINS
         CALL update_height_depdendent_variables( patch_3d, ocean_state(jg), p_ext_data(jg), operators_coefficients, solvercoeff_sp)
         stop_detail_timer(timer_extra22,4)
         
+        !--------------------------------------------------------------------------
+        ! calculate in situ density here, as it may be used fotr the tides load
+        CALL calculate_density( patch_3d,                         &
+          & ocean_state(jg)%p_prog(nold(1))%tracer(:,:,:,:),      &
+          & ocean_state(jg)%p_diag%rho(:,:,:) )
+
+        !--------------------------------------------------------------------------
+        CALL create_pressure_bc_conditions(patch_3d,ocean_state(jg), p_as, current_time)
         !------------------------------------------------------------------------
-        ! compute tidal potential
-        IF (use_tides) THEN
-          IF(tides_mod.eq.1) CALL tide(patch_3d,current_time,ocean_state(jg)%p_aux%bc_tides_potential)
-          IF(tides_mod.eq.2) CALL tide_mpi(patch_3d,current_time,ocean_state(jg)%p_aux%bc_tides_potential)
-        ENDIF
-        ! total top potential
-        IF (atm_pressure_included_in_ocedyn) THEN
-          ocean_state(jg)%p_aux%bc_total_top_potential = ocean_state(jg)%p_aux%bc_tides_potential  &
-            & + p_as%pao * OceanReferenceDensity_inv
-        ELSE
-          ocean_state(jg)%p_aux%bc_total_top_potential = ocean_state(jg)%p_aux%bc_tides_potential
-        ENDIF 
+       
 
   !       IF (timers_level > 2) CALL timer_start(timer_scalar_prod_veloc)
   !       CALL calc_scalar_product_veloc_3d( patch_3d,  &
@@ -658,6 +659,64 @@ CONTAINS
 
     END SUBROUTINE ocean_time_step
 
+
+    SUBROUTINE sed_only_time_step()
+        ! fill transport state
+        ocean_state(jg)%transport_state%patch_3d    => patch_3d
+
+        ! optional memory loggin
+        CALL memory_log_add
+        
+        jstep = jstep + 1
+        ! update model date and time mtime based
+        current_time = ocean_time_nextStep()
+
+        CALL datetimeToString(current_time, datestring)
+        WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
+        CALL message (TRIM(routine), message_text)
+
+
+        ! Add here the calls for Hamocc
+        CALL ocean_to_hamocc_interface(ocean_state(jg), ocean_state(jg)%transport_state, &
+          & p_oce_sfc, p_as, sea_ice, p_phys_param, operators_coefficients, current_time)
+
+        CALL update_statistics
+
+        CALL output_ocean( patch_3d, ocean_state, &
+          &                current_time,              &
+          &                p_oce_sfc,             &
+          &                sea_ice,                 &
+          &                jstep, jstep0)
+        
+        CALL reset_statistics
+
+        ! check whether time has come for writing restart file
+        IF (isCheckpoint()) THEN
+          IF (.NOT. output_mode%l_none ) THEN
+            !
+            ! For multifile restart (restart_write_mode = "joint procs multifile")
+            ! the domain flag must be set to .TRUE. in order to activate the domain,
+            ! even though we have one currently in the ocean. Without this the
+            ! processes won't write out their data into a the patch restart files.
+            !
+            patch_2d%ldom_active = .TRUE.
+            !
+            CALL restartDescriptor%updatePatch(patch_2d, &
+                                              &opt_nice_class=1, &
+                                              &opt_ocean_zlevels=n_zlev, &
+                                              &opt_ocean_zheight_cellmiddle = patch_3d%p_patch_1d(1)%zlev_m(:), &
+                                              &opt_ocean_zheight_cellinterfaces = patch_3d%p_patch_1d(1)%zlev_i(:))
+            CALL restartDescriptor%writeRestart(current_time, jstep)
+          END IF
+        END IF
+        
+        IF (isEndOfThisRun()) THEN
+          ! leave time loop
+          RETURN
+        END IF
+
+    END SUBROUTINE sed_only_time_step
+
   END SUBROUTINE perform_ho_stepping
   !-------------------------------------------------------------------------
 
@@ -729,6 +788,10 @@ CONTAINS
       
     ENDIF
     !------------------------------------------------------------------------
+    
+    ! Call the biogeochemistry before transporting for performance reasons
+    CALL ocean_to_hamocc_interface(ocean_state, transport_state, &
+      & p_oce_sfc, p_as, sea_ice, p_phys_param, operators_coefficients, current_time)
 
     !------------------------------------------------------------------------
     ! transport tracers and diffuse them
@@ -751,8 +814,6 @@ CONTAINS
 !       & patch_3d%p_patch_2d(1)%cells%owned )
 !     CALL dbg_print('Tr20:new adv', ocean_state%p_prog(nnew(1))%tracer(:,:,:,20),str_module,1, &
 !       & patch_3d%p_patch_2d(1)%cells%owned )
-    CALL ocean_to_hamocc_interface(ocean_state, transport_state, &
-      & p_oce_sfc, p_as, sea_ice, p_phys_param, operators_coefficients, current_time)
 
   END SUBROUTINE tracer_transport
   !-------------------------------------------------------------------------
@@ -849,9 +910,7 @@ CONTAINS
     tmp => ocean_state%p_aux%g_n
     ocean_state%p_aux%g_n => ocean_state%p_aux%g_nm1
     ocean_state%p_aux%g_nm1 => tmp
-    
-    tracer_vertdiff_eliminate_upper_diag = .not. tracer_vertdiff_eliminate_upper_diag ! switch solving methods
-    
+        
   END SUBROUTINE update_time_g_n
 
 

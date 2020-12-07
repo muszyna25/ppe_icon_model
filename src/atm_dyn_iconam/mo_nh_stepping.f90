@@ -407,17 +407,19 @@ MODULE mo_nh_stepping
   IF (iforcing == inwp .AND. lart) THEN
     DO jg=1, n_dom
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
-      CALL art_init_atmo_tracers_nwp(                     &
-           &  jg,                                         &
-           &  mtime_current,                              &
-           &  p_nh_state(jg),                             &
-           &  ext_data(jg),                               &
-           &  prm_diag(jg),                               &
-           &  p_nh_state(jg)%prog(nnow(jg)),              &
-           &  p_nh_state(jg)%prog(nnow_rcf(jg))%tracer,   &
-           &  p_nh_state_lists(jg)%prog_list(nnow_rcf(jg)) )
+      CALL art_init_atmo_tracers_nwp(                       &
+           &  jg,                                           &
+           &  mtime_current,                                &
+           &  p_nh_state(jg),                               &
+           &  ext_data(jg),                                 &
+           &  prm_diag(jg),                                 &
+           &  p_nh_state(jg)%prog(nnow(jg)),                &
+           &  p_nh_state(jg)%prog(nnow_rcf(jg))%tracer,     &
+           &  p_nh_state_lists(jg)%prog_list(nnow_rcf(jg)), & 
+           &  p_patch(jg)%nest_level)
     ENDDO
   END IF
+
 
   ! Save initial state if IAU iteration mode is chosen
   IF (iterate_iau .AND. .NOT. isRestart()) THEN
@@ -533,13 +535,14 @@ MODULE mo_nh_stepping
 
     IF (lart) THEN
       DO jg = 1, n_dom
-        CALL art_init_atmo_tracers_echam(                   &
-               &  jg,                                       &
-               &  mtime_current,                            &
-               &  p_nh_state(jg),                           &
-               &  p_nh_state(jg)%prog(nnow(jg)),            &
-               &  p_nh_state(jg)%prog(nnow_rcf(jg))%tracer, &
-               &  p_nh_state_lists(jg)%prog_list(nnow_rcf(jg)) )
+        CALL art_init_atmo_tracers_echam(                      &
+               &  jg,                                          &
+               &  mtime_current,                               &
+               &  p_nh_state(jg),                              &
+               &  p_nh_state(jg)%prog(nnow(jg)),               &
+               &  p_nh_state(jg)%prog(nnow_rcf(jg))%tracer,    &
+               &  p_nh_state_lists(jg)%prog_list(nnow_rcf(jg)),&
+               &  p_patch(jg)%nest_level )
       ENDDO
     END IF
   END SELECT ! iforcing
@@ -1803,9 +1806,6 @@ MODULE mo_nh_stepping
         ! re-check: iadv_rcf -> ndynsubsteps
         !!!!!!!!
         IF ( iforcing == iheldsuarez) THEN
-#ifdef _OPENACC
-          CALL finish (routine, 'held_suarez_nh_interface: OpenACC version currently not implemented')
-#endif
           CALL held_suarez_nh_interface (p_nh_state(jg)%prog(nnow(jg)), p_patch(jg), &
                                          p_int_state(jg),p_nh_state(jg)%metrics,  &
                                          p_nh_state(jg)%diag)
@@ -1881,6 +1881,7 @@ MODULE mo_nh_stepping
 #endif
 
             CALL art_emission_interface(                       &
+              &      p_nh_state_lists(jg)%prog_list(n_new_rcf),&!inout
               &      ext_data(jg),                             &!in
               &      p_patch(jg),                              &!in
               &      dt_loc,                                   &!in
@@ -2461,17 +2462,19 @@ MODULE mo_nh_stepping
                 & prm_upatmo(jgc)                         ,&
                 & lnest_start=.TRUE.                       )
 
-              IF (lart) THEN
-                CALL art_init_atmo_tracers_nwp(                         &
-                       &  jgc,                                          &
-                       &  datetime_local(jgc)%ptr,                      &
-                       &  p_nh_state(jgc),                              &
-                       &  ext_data(jgc),                                &
-                       &  prm_diag(jgc),                                &
-                       &  p_nh_state(jgc)%prog(nnow(jgc)),              &
-                       &  p_nh_state(jgc)%prog(nnow_rcf(jgc))%tracer,   &
-                       &  p_nh_state_lists(jgc)%prog_list(nnow_rcf(jgc)) )
-              END IF
+            IF (lart) THEN
+              CALL art_init_atmo_tracers_nwp(                            &
+                     &  jgc,                                             &
+                     &  datetime_local(jgc)%ptr,                         &
+                     &  p_nh_state(jgc),                                 &
+                     &  ext_data(jgc),                                   &
+                     &  prm_diag(jgc),                                   &
+                     &  p_nh_state(jgc)%prog(nnow(jgc)),                 &
+                     &  p_nh_state(jgc)%prog(nnow_rcf(jgc))%tracer,      &
+                     &  p_nh_state_lists(jgc)%prog_list(nnow_rcf(jgc)),  &
+                     &  p_patch(jgc)%nest_level)
+            END IF
+
 
               CALL init_cloud_aero_cpl (datetime_local(jgc)%ptr, p_patch(jgc), p_nh_state(jgc)%metrics, &
                 &                       ext_data(jgc), prm_diag(jgc))

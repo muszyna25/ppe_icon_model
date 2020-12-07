@@ -182,6 +182,12 @@ MODULE mo_hamocc_types
     REAL(wp), POINTER ::  akw(:,:,:)       
     REAL(wp), POINTER ::  ak1(:,:,:)       
     REAL(wp), POINTER ::  ak2(:,:,:)       
+    REAL(wp), POINTER ::  aksi(:,:,:)
+    REAL(wp), POINTER ::  aks(:,:,:)
+    REAL(wp), POINTER ::  akf(:,:,:)
+    REAL(wp), POINTER ::  ak1p(:,:,:)
+    REAL(wp), POINTER ::  ak2p(:,:,:)
+    REAL(wp), POINTER ::  ak3p(:,:,:)
     REAL(wp), POINTER ::  satoxy(:,:,:)       
     REAL(wp), POINTER ::  satn2(:,:)       
     REAL(wp), POINTER ::  satn2o(:,:)       
@@ -217,6 +223,10 @@ MODULE mo_hamocc_types
   TYPE t_hamocc_bcond
    REAL(wp), POINTER:: dusty(:,:)       !  index1=1,nproma, nblks_e
    REAL(wp), POINTER:: nitro(:,:)       !  index1=1,nproma, nblks_e
+   REAL(wp), POINTER:: prorca(:,:)       !  index1=1,nproma, nblks_e
+   REAL(wp), POINTER:: prcaca(:,:)       !  index1=1,nproma, nblks_e
+   REAL(wp), POINTER:: silpro(:,:)       !  index1=1,nproma, nblks_e
+   REAL(wp), POINTER:: produs(:,:)       !  index1=1,nproma, nblks_e
   END TYPE t_hamocc_bcond
 
 END MODULE 

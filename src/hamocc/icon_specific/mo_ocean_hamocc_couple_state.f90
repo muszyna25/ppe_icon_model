@@ -28,7 +28,7 @@ MODULE mo_ocean_hamocc_couple_state
   USE mo_impl_constants,      ONLY: success, max_char_length, TLEV_NNEW
   USE mo_parallel_config,     ONLY: nproma
   USE mo_linked_list,         ONLY: t_var_list
-  USE mo_var_groups,          ONLY: groups 
+  USE mo_var_groups,          ONLY: groups
   USE mo_var_list,            ONLY: add_var,                  &
     &                               new_var_list,             &
     &                               delete_var_list,          &
@@ -60,6 +60,7 @@ MODULE mo_ocean_hamocc_couple_state
     onCells_2D :: top_dilution_coeff
     onCells_2D :: h_old
     onCells_2D :: h_new
+    onCells_2D :: h_old_withIce
     onCells_2D :: ice_concentration_sum
     
     onCells    :: temperature
@@ -173,6 +174,14 @@ CONTAINS
       & ldims=(/nproma,alloc_cell_blocks/),&
       & in_group=groups("hamocc_ocean_state"))
     ocean_transport_state%h_new = 0.0_wp
+
+    CALL add_var(hamocc_ocean_state_list, 'h_old_withIce', hamocc_ocean_state%ocean_to_hamocc_state%h_old_withIce , &
+      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,    &
+      & t_cf_var('h_old_withIce', 'm', 'h_old_withIce', datatype_flt,'h_old_withIce'),&
+      & grib2_var(255, 255, 1, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),&
+      & in_group=groups("hamocc_ocean_state"))
+    hamocc_ocean_state%ocean_to_hamocc_state%h_old_withIce = 0.0_wp
     
     ! ocean to hamocc
     ! just add pointers for the h_old, h_new to the transport

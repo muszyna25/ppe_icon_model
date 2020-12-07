@@ -44,14 +44,14 @@ MODULE mo_real_timer
 #ifndef NOMPI
   USE mo_mpi,             ONLY: p_recv, p_send, p_barrier, p_real_dp, &
                                 p_pe, get_my_mpi_all_comm_size, p_io, &
-                                p_comm_size, p_n_work
+                                p_comm_size, p_n_work, num_work_procs
 #endif
   USE mo_parallel_config, ONLY: p_test_run, proc0_shift
 
   USE mo_mpi,             ONLY: num_test_procs, get_my_mpi_work_id, &
     &                           get_mpi_comm_world_ranks, p_pe, p_pe_work, &
     &                           p_min, p_max,  &
-    &                           num_work_procs, p_sum, p_allgather, mpi_land, &
+    &                           p_sum, p_allgather, mpi_land, &
     &                           p_allreduce, my_process_is_stdio, p_io, &
     &                           p_comm_work, p_comm_work_test, p_gather, p_mpi_comm_null
   USE mo_master_control,  ONLY: get_my_process_name
@@ -68,6 +68,7 @@ MODULE mo_real_timer
   INTEGER, PARAMETER :: report_tag = 12345
 #else
   INTEGER, PARAMETER :: p_n_work = 1
+  INTEGER, PARAMETER :: num_work_procs = 1 
 #endif
 
   ! raw timers
@@ -1064,7 +1065,7 @@ CONTAINS
     TYPE(t_timer_reductions), INTENT(in)  :: tmr
     ! local variables
     REAL(dp)            :: val_avg
-    CHARACTER(len=12)   :: min_str, avg_str, max_str, tot_min_str, tot_max_str
+    CHARACTER(len=12)   :: min_str, avg_str, max_str, tot_min_str, tot_max_str, tot_avg_str
 
     ! OpenMP: We take the values of the master thread
     IF ((p_pe_work_only == 0) .AND. ( tmr%val_call_n(it) > 1.e-6_dp )) THEN
@@ -1075,6 +1076,7 @@ CONTAINS
 
       WRITE (tot_min_str, '(f12.3)') tmr%val_tot_min(it)
       WRITE (tot_max_str, '(f12.3)') tmr%val_tot_max(it)
+      WRITE (tot_avg_str, '(f12.3)') tmr%val_tot(it) / REAL(num_work_procs,dp)
 
       CALL set_table_entry(table, irow, "name",     &
         &                  REPEAT('   ',MAX(nd-1,0))//REPEAT(' L ',MIN(nd,1))//srt(it)%text)
@@ -1099,6 +1101,10 @@ CONTAINS
       CALL set_table_entry(table, irow, "total max (s)",           TRIM(tot_max_str))
       IF (p_n_work > 1) &
         CALL set_table_entry(table, irow, "total max rank", "["//TRIM(int2string(tmr%tot_rank_max(it)))//"]")
+     
+      CALL set_table_entry(table, irow, "total avg (s)",           TRIM(tot_avg_str))
+
+        
     ENDIF
 
   END SUBROUTINE print_report_aggregated

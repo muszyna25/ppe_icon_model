@@ -21,6 +21,7 @@ SUBROUTINE CHEMCON ( start_idx, end_idx, klevs, psao, ptho,  &
        &                     ak3p3,aksi3,rrrcl
   USE mo_sedmnt, ONLY      : calcon
   USE mo_control_bgc, ONLY : bgc_nproma, bgc_zlevs
+  USE mo_hamocc_nml, ONLY  : l_limit_sal
 
 
   USE mo_bgc_constants
@@ -90,7 +91,11 @@ SUBROUTINE CHEMCON ( start_idx, end_idx, klevs, psao, ptho,  &
               log_q = LOG(q)
               qi =  1.0_wp / q
               q2 = q**2
-              s = MAX(25._wp, psao(jc, 1))           ! minimum salinity 25
+              IF (l_limit_sal) THEN
+                s = MAX(25._wp, psao(jc, 1))           ! minimum salinity 25
+              ELSE
+                s = psao(jc, 1)
+              ENDIF
               sqrt_s = SQRT(s)
               s2= s*s
               !
@@ -289,7 +294,7 @@ SUBROUTINE CHEMCON ( start_idx, end_idx, klevs, psao, ptho,  &
                aksurf(jc,1) = ak1
                aksurf(jc,2) = ak2
                aksurf(jc,3) = akb
-               aksurf(jc,4) = AKW** SWS2total
+               aksurf(jc,4) = AKW * SWS2total
                aksurf(jc,5) = aksi * SWS2total
                aksurf(jc,6) = akf ! already at total scale
                aksurf(jc,7) = aks !  here free=total scale
@@ -344,7 +349,12 @@ SUBROUTINE CHEMCON ( start_idx, end_idx, klevs, psao, ptho,  &
            !   (THIS IS DONE TO AVOID COMPUTATIONAL CRASH AT DRY
            !   POINTS DURING CALCULATION OF CHEMICAL CONSTANTS)
 
-           s = MAX(25._wp, psao(jc, k))
+           IF (l_limit_sal) THEN
+             s = MAX(25._wp, psao(jc, k))           ! minimum salinity 25
+           ELSE
+             s = psao(jc, k)
+           ENDIF
+
            sqrt_s = SQRT(s)
            s2 = s*s
 
@@ -355,7 +365,7 @@ SUBROUTINE CHEMCON ( start_idx, end_idx, klevs, psao, ptho,  &
            ! Garcia & Gordon, 1992, EQ. 8, p 1310
            ! w/o A3*ts**2 --> see mocsy -> gasx.f90, OMIP paper 
            ! t in degC, s in permill
-           tt  = 298.15_wp - ptho(jc,1)
+           tt  = 298.15_wp - ptho(jc,k)
            ts  = LOG(tt/t)
            ts2 = ts*ts
            ts3 = ts*ts2
@@ -368,7 +378,7 @@ SUBROUTINE CHEMCON ( start_idx, end_idx, klevs, psao, ptho,  &
                + oxyc0*(s*s)
 
 
-           satoxy(jc,k) = EXP(oxy) * oxyco
+           if (k > 1) satoxy(jc,k) = EXP(oxy) * oxyco
 
            !
            !*    22.5 PK1, PK2 OF CARBONIC ACID, PKB OF BORIC ACID, PKW OF WATER

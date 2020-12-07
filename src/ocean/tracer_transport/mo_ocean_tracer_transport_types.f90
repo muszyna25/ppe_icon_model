@@ -72,6 +72,7 @@ MODULE mo_ocean_tracer_transport_types
     onEdges    :: vn
 
     onCells_HalfLevels :: w
+
   END TYPE t_ocean_transport_state
   !----------------------------------------------
     

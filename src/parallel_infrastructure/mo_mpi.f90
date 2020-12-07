@@ -231,6 +231,13 @@ MODULE mo_mpi
     USE mo_util_system, ONLY: util_exit
 #endif
 
+  USE mo_master_control, ONLY: get_my_process_type, hamocc_process, ocean_process, process_exists, &
+    & my_process_is_hamocc, my_process_is_ocean
+
+#ifdef HAVE_YAXT
+  USE yaxt,                   ONLY: xt_initialize, xt_initialized
+#endif
+
   IMPLICIT NONE
 
   PRIVATE                          ! all declarations are private
@@ -282,6 +289,7 @@ MODULE mo_mpi
   PUBLIC :: get_my_mpi_all_comm_size   ! this is the the size of the communicator for the specific component
   PUBLIC :: get_my_mpi_work_communicator   ! the communicator for the workers of this component
   PUBLIC :: get_my_mpi_work_comm_size   ! this is the the size of the workers
+  PUBLIC :: get_hamocc_ocean_mpi_communicator 
 
   PUBLIC :: get_mpi_all_workroot_id, get_my_global_mpi_id, get_my_mpi_all_id
   PUBLIC :: get_mpi_all_ioroot_id
@@ -385,7 +393,7 @@ MODULE mo_mpi
   PUBLIC :: p_real_dp_byte, p_real_sp_byte, p_int_byte
   PUBLIC :: p_int_i4_byte, p_int_i8_byte
   PUBLIC :: p_mpi_comm_null
-
+  
   ! mpi reduction operators
   PUBLIC :: mpi_lor, mpi_land, mpi_sum, mpi_min, mpi_max, &
        mpi_minloc, mpi_maxloc
@@ -434,6 +442,8 @@ MODULE mo_mpi
   ! this is the global communicator
   INTEGER, PARAMETER :: global_mpi_communicator = 0  ! replaces MPI_COMM_WORLD
 #endif
+
+  INTEGER :: hamocc_ocean_mpi_communicator
 
   ! public parallel run information
   CHARACTER(len=64) :: global_mpi_name
@@ -578,7 +588,7 @@ MODULE mo_mpi
   INTEGER :: p_int_i8_byte  = 0
 
   INTEGER :: p_mpi_comm_null = -32766
-
+  
   ! Flag if processor splitting is active
   LOGICAL, PUBLIC :: proc_split = .FALSE.
 #ifdef _OPENACC
@@ -946,6 +956,12 @@ CONTAINS
   !------------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------
+  INTEGER FUNCTION get_hamocc_ocean_mpi_communicator()
+    get_hamocc_ocean_mpi_communicator = hamocc_ocean_mpi_communicator
+  END FUNCTION get_hamocc_ocean_mpi_communicator
+  !------------------------------------------------------------------------------
+
+  !------------------------------------------------------------------------------
   INTEGER FUNCTION get_my_mpi_all_communicator()
     get_my_mpi_all_communicator = process_mpi_all_comm
   END FUNCTION get_my_mpi_all_communicator
@@ -1232,6 +1248,9 @@ CONTAINS
 
 !   !local variables
     INTEGER :: my_color, remote_leader, peer_comm, p_error, global_dup_comm
+    INTEGER :: tmp_common_intracom, tmp_work_intracom, my_common_intracom_mpi_id, my_work_intracom_mpi_id
+    INTEGER :: hamocc_root, ocean_root
+    LOGICAL :: I_am_receiver, I_am_sender
     INTEGER :: my_function_comm
     CHARACTER(*), PARAMETER :: method_name = "set_mpi_work_communicators"
     INTEGER :: grp_process_mpi_all_comm, grp_comm_work_io, input_ranks(1), &
@@ -1868,10 +1887,129 @@ CONTAINS
     DEALLOCATE(root_buffer)
 #endif
 
+! if there is a hamocc proccess, create hamocc-ocean communicator
+#ifndef NOMPI
+      IF (process_exists(hamocc_process)) THEN
+        ALLOCATE(root_buffer(2))
+
+        IF ((get_my_process_type() == hamocc_process .or. get_my_process_type() == ocean_process) &
+            .AND. my_mpi_function == work_mpi_process) THEN
+          my_color = 1 
+        ELSE
+          my_color = 0
+        ENDIF
+        ! create a intracommunicator between hamocc and ocean
+        CALL mpi_comm_split(global_mpi_communicator, my_color, my_global_mpi_id, &
+          tmp_common_intracom, p_error)
+          
+        IF (my_color == 0)  THEN
+          ! we will not use this communicator if not hamocc and ocean
+          CALL MPI_COMM_FREE(tmp_common_intracom, p_error)
+          hamocc_ocean_mpi_communicator = MPI_COMM_NULL 
+        ELSE
+          !------------------------------------------------
+          ! we neet to create an intercommunicator 
+          !   split again to the compoment communicators
+          CALL MPI_COMM_RANK (tmp_common_intracom, my_common_intracom_mpi_id, p_error)
+          my_color = get_my_process_type()
+          CALL mpi_comm_split(tmp_common_intracom, my_color, my_common_intracom_mpi_id, &
+            tmp_work_intracom, p_error)
+          CALL MPI_COMM_RANK (tmp_work_intracom, my_work_intracom_mpi_id, p_error)        
+        
+          ! get the my_common_intracom_mpi_id of the roots to proc 0
+          !   first get the hamocc root_buffer
+          I_am_sender = .false.
+          I_am_receiver = .false.
+          IF (my_process_is_hamocc() .AND. my_work_intracom_mpi_id == 0) THEN
+            root_buffer(1) = my_common_intracom_mpi_id
+            hamocc_root = my_common_intracom_mpi_id
+            I_am_sender = .true.
+          ENDIF
+          IF (my_common_intracom_mpi_id == 0) I_am_receiver = .true.
+          IF (I_am_receiver .and. I_am_sender) THEN
+            ! do nothing 
+            I_am_receiver = .false.
+            I_am_sender   = .false.
+          ENDIF
+          !  sent the hamocc root_buffer
+          IF (I_am_sender) THEN
+            CALL MPI_SEND(root_buffer, 1, p_int, 0, 0, tmp_common_intracom, p_error)
+          ENDIF
+          IF (I_am_receiver) THEN
+            root_buffer(1) = -1        
+            CALL MPI_RECV(root_buffer, 1, p_int, MPI_ANY_SOURCE, 0, &
+              & tmp_common_intracom, p_status, p_error)
+            hamocc_root = root_buffer(1)          
+          ENDIF        
+          
+          ! now get the ocean root_buffer
+          I_am_sender = .false.
+          I_am_receiver = .false.
+          IF (my_process_is_ocean() .AND. my_work_intracom_mpi_id == 0) THEN
+            root_buffer(1) = my_common_intracom_mpi_id
+            ocean_root = my_common_intracom_mpi_id
+            I_am_sender = .true.
+          ENDIF
+          IF (my_common_intracom_mpi_id == 0) I_am_receiver = .true.
+          IF (I_am_receiver .and. I_am_sender) THEN
+            ! do nothing 
+            I_am_receiver = .false.
+            I_am_sender   = .false.
+          ENDIF
+          ! sent the hamocc root_buffer
+          IF (I_am_sender) THEN
+            CALL MPI_SEND(root_buffer, 1, p_int, 0, 0, tmp_common_intracom, p_error)
+          ENDIF
+          IF (I_am_receiver) THEN
+            root_buffer(1) = -1        
+            CALL MPI_RECV(root_buffer, 1, p_int, MPI_ANY_SOURCE, 0, &
+              & tmp_common_intracom, p_status, p_error)
+            ocean_root = root_buffer(1)          
+          ENDIF        
+        
+          ! ok, now broadcast the ocean and hamocc roots
+          IF (my_common_intracom_mpi_id == 0) THEN
+            root_buffer(1) = ocean_root
+            root_buffer(2) = hamocc_root          
+            CALL MPI_BCAST(root_buffer, 2, p_int, 0, tmp_common_intracom, p_error)
+          ELSE
+            CALL MPI_BCAST(root_buffer, 2, p_int, 0, tmp_common_intracom, p_error)
+            ocean_root = root_buffer(1)
+            hamocc_root = root_buffer(2)
+          ENDIF
+          
+          ! now we are ready to create the intercommunicator between haomcc and ocean
+          IF (my_process_is_ocean()) THEN
+            CALL MPI_Intercomm_create(tmp_work_intracom, 0, tmp_common_intracom, &
+              & hamocc_root, 0, hamocc_ocean_mpi_communicator, p_error)
+          ELSE
+              ! this is a hamocc process
+            CALL MPI_Intercomm_create(tmp_work_intracom, 0, tmp_common_intracom, &
+                & ocean_root, 0, hamocc_ocean_mpi_communicator, p_error)
+                                    
+          ENDIF
+          
+          CALL MPI_COMM_FREE(tmp_work_intracom, p_error)
+          CALL MPI_COMM_FREE(tmp_common_intracom, p_error)
+
+          ! -- done -- 
+        ENDIF
+        
+        DEALLOCATE(root_buffer)
+       
+      ENDIF ! hamocc process exists 
+#endif
+    
+#ifdef HAVE_YAXT
+!   initialize here yaxt for all the processors
+      IF (.NOT. xt_initialized()) CALL xt_initialize(global_mpi_communicator)
+#endif
+
     ! still to be filled
 !     process_mpi_local_comm  = process_mpi_all_comm
 !     process_mpi_local_size  = process_mpi_all_size
 !     my_process_mpi_local_id = my_process_mpi_all_id
+   
 
 #ifdef DEBUG
       WRITE (nerr,'(a,a,i5)') method_name, ' p_pe=',            p_pe

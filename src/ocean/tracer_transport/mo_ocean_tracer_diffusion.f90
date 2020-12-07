@@ -29,6 +29,9 @@ MODULE mo_ocean_tracer_diffusion
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_sync,                ONLY: sync_c, sync_e, sync_v, sync_patch_array, sync_patch_array_mult
   USE mo_exception,           ONLY: finish !, message_text, message
+  USE mtime,                  ONLY: MAX_DATETIME_STR_LEN
+  USE mo_ocean_time_events,   ONLY: getCurrentDate_to_String
+  USE mo_mpi,                 ONLY: my_process_is_stdio
  
   IMPLICIT NONE
   
@@ -39,15 +42,16 @@ MODULE mo_ocean_tracer_diffusion
   CHARACTER(LEN=12)           :: str_module    = 'oceDiffusion'  ! Output of module for 1 line debug
   INTEGER :: idt_src       = 1               ! Level of detail for 1 line debug
   
-  LOGICAL :: eliminate_upper_diag = .true.
+  LOGICAL :: eliminate_upper_diag = .false.
   !
   ! PUBLIC INTERFACE
   !
   INTEGER, PARAMETER :: top=1
   PUBLIC :: tracer_diffusion_horz
   PUBLIC :: tracer_diffusion_vertical_implicit
-  PUBLIC :: eliminate_upper_diag
   
+  CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: oldDateString = ""
+
 CONTAINS
     
   !-------------------------------------------------------------------------
@@ -161,6 +165,15 @@ CONTAINS
     !-----------------------------------------------------------------------
     cells_in_domain       =>  patch_3d%p_patch_2d(1)%cells%in_domain
     !-----------------------------------------------------------------------
+    IF (oldDateString /= getCurrentDate_to_String()) THEN 
+      eliminate_upper_diag = .not. eliminate_upper_diag
+      oldDateString = getCurrentDate_to_String()
+!       IF (my_process_is_stdio()) THEN
+!         write (0,*) "eliminate_upper_diag changed to ", eliminate_upper_diag, " at ", TRIM(oldDateString)
+!       ENDIF
+    ENDIF
+    !-----------------------------------------------------------------------
+
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index) ICON_OMP_DEFAULT_SCHEDULE
     DO cell_block = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, cell_block, start_index, end_index)
@@ -175,8 +188,7 @@ CONTAINS
     END DO
 !ICON_OMP_END_PARALLEL_DO
 
-!     eliminate_upper_diag = .not. eliminate_upper_diag ! done in ocean_run
-
+    
   END SUBROUTINE tracer_diffusion_vertical_implicit
   !------------------------------------------------------------------------
 

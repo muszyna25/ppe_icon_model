@@ -226,6 +226,9 @@ MODULE mo_ocean_types
       & wS, &  !< product of salinity and w-velocity
       & wR, &  !< product of density and w-velocity
       & ww, &  !< square of w-velocity
+      & RR, &  !< square of density
+      & SS, &  !< square of salinity
+      & TT, &  !< square of temperature
       & uw, &  !< product of u-velocity and w-velocity
       & vw, &  !< product of v-velocity and w-velocity
       & uv, &  !< product of u-velocity and v-velocity
@@ -389,8 +392,10 @@ MODULE mo_ocean_types
       & bc_top_w        ,& ! vertical velocity boundary condition at surface
       & bc_bot_w        ,&   ! vertical velocity boundary condition at bottom
       & bc_tides_potential, &
-      & bc_total_top_potential
-      
+      & bc_tides_load,   &
+      & bc_total_top_potential, &
+      & bc_SAL_potential
+            
     onCells_2D_tracers :: &
       & bc_top_tracer,    &
       & bc_bot_tracer 

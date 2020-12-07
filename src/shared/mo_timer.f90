@@ -47,7 +47,7 @@ MODULE mo_timer
   PUBLIC :: print_timer, cleanup_timer, delete_timer          !< procedures imported and renamed
   PUBLIC :: init_timer                                        !< procedure of this module
 
-  PUBLIC :: timer_total                         !< IDs of timers
+  PUBLIC :: timer_total                                       !< IDs of timers
   PUBLIC :: timer_exch_data, timer_exch_data_rv, timer_exch_data_async, timer_exch_data_wait
   PUBLIC :: timer_global_sum, timer_omp_global_sum, timer_ordglb_sum, timer_omp_ordglb_sum
   PUBLIC :: timer_icon_comm_sync

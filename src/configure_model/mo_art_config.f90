@@ -60,7 +60,6 @@ MODULE mo_art_config
     INTEGER :: iart_ntracer              !< number of transported ART tracers
     INTEGER :: iart_init_aero            !< Initialization of aerosol species
     INTEGER :: iart_init_gas             !< Initialization of gaseous species
-    INTEGER :: iart_init_passive         !< Initialization of passive species
     LOGICAL :: lart_diag_out             !< Enable output of diagnostic fields
     LOGICAL :: lart_pntSrc               !< Enables point sources
     LOGICAL :: lart_emiss_turbdiff       !< Switch if emission should be included as surface flux condition
@@ -70,9 +69,9 @@ MODULE mo_art_config
     
     ! Atmospheric Chemistry (Details: cf. Tab. 2.3 ICON-ART User Guide)
     LOGICAL :: lart_chem               !< Main switch to enable chemistry
-    LOGICAL :: lart_passive            !< Main switch to enable chemistry
+    LOGICAL :: lart_chemtracer         !< switch for parametrised tracers
+    LOGICAL :: lart_mecca              !< switch for MECCA chemistry
     LOGICAL :: lart_psc                !< switch for computation of PSCs
-    INTEGER :: iart_chem_mechanism     !< Selects the chemical mechanism
     INTEGER :: O3_feedback             !< O3 radiation feedback from ART? (0 = false, 1 = true)
     CHARACTER(LEN=IART_PATH_LEN) :: &
       &  cart_vortex_init_date        !< Date of vortex initialization
@@ -84,11 +83,11 @@ MODULE mo_art_config
       &  cart_cheminit_type           !< Type of  chemical initialization coordinate file
     ! Paths and filenames of XML configuration
     CHARACTER(LEN=IART_PATH_LEN) :: &
-      &  cart_chemistry_xml           !< Path to XML file for chemical tracers
+      &  cart_chemtracer_xml           !< Path to XML file for parametrised chemtracers
+    CHARACTER(LEN=IART_PATH_LEN) :: &
+      &  cart_mecca_xml               !< Path to XML file for MECCA chemistry tracers
     CHARACTER(LEN=IART_PATH_LEN) :: &
       &  cart_aerosol_xml             !< Path to XML file for aerosol tracers
-    CHARACTER(LEN=IART_PATH_LEN) :: &
-      &  cart_passive_xml             !< Path to XML file for passive tracers
     CHARACTER(LEN=IART_PATH_LEN) :: &
       &  cart_modes_xml               !< Path to XML file for modes
     CHARACTER(LEN=IART_PATH_LEN) :: &
@@ -134,8 +133,6 @@ MODULE mo_art_config
     INTEGER :: nconv_tracer            !< number of tracers in convection 
     LOGICAL :: lart_turb               !< Turbulent diffusion of aerosol (TRUE/FALSE)
     INTEGER :: nturb_tracer            !< number of tracers in turbulence
-
-    INTEGER :: iart_echam_ghg          !< number of hard coded ECHAM greenhouse gas tracers
     
   END TYPE t_art_config
 

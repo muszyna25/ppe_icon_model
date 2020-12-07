@@ -207,6 +207,8 @@ silent_SB2=     @echo "  SB2PP   " $@;
 silent_none=    @
 endif
 
+# Files included with the pp #include "filename.interface" statements:
+incf_files+= $(filter %.interface,$(all_files))
 # Disable built-in suffix rules:
 .SUFFIXES:
 # Delete partially updated files:

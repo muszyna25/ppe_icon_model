@@ -491,9 +491,7 @@ CONTAINS !......................................................................
         ! (The else-case should be covered by the default values in 'src/atm_dyn_iconam/mo_nonhydro_state')    
       ENDIF
       
-    ENDDO  !jk
-
-!$ACC UPDATE DEVICE( p_nh_metrics%deepatmo_t1mc ) 
+    ENDDO
 
     ! For 'nlevp1'
     p_nh_metrics%deepatmo_t1ifc(nlevp1,idamtr%t1ifc%gradh) = 1._wp ! = 'grid_sphere_radius / grid_sphere_radius'

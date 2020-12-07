@@ -863,7 +863,7 @@ CONTAINS
     IF (ASSOCIATED(mtime_exp_stop))  CALL deallocateDatetime(mtime_exp_stop)
     IF (ASSOCIATED(mtime_restart_stop))  CALL deallocateDatetime(mtime_restart_stop)
     IF (ASSOCIATED(mtime_nsteps_stop))  CALL deallocateDatetime(mtime_nsteps_stop)
-    IF (INT(dt_restart) > 0)  CALL deallocateTimedelta(mtime_dt_restart)
+    IF (INT(dt_restart,i8) > 0)  CALL deallocateTimedelta(mtime_dt_restart)
 
     ! --- --- NSTEPS
     !

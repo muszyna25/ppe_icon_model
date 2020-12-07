@@ -1728,8 +1728,7 @@ CONTAINS
         levelbelow = 3
         level2below = 4
         IF ( cell_levels >= levelbelow ) THEN
-          
-          
+                    
           vertadvppm%cellheightratio_this_tothisabovebelow(jc,thislevel) = &
             & cell_thickness(jc, thislevel ,blockNo) / &
             & (cell_thickness(jc,levelabove,blockNo) + cell_thickness(jc,thislevel,blockNo)    &
