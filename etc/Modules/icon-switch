@@ -4,6 +4,7 @@ source [file join [file dirname $ModulesCurrentModulefile] .pkg]
 
 set ICON_DIR [file dirname [file dirname [file dirname $ModulesCurrentModulefile]]]
 prepend-path-if-exists PATH $ICON_DIR/utils/mkexp
+prepend-path-if-exists PATH $ICON_DIR/utils/plotems
 
 set_dependencies {
     python/2.7.12
