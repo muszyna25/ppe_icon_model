@@ -13,9 +13,8 @@ sct: hdf5 mpi
 hdf5: mpi aec zlib
 yaxt: mpi
 tixi: xml2
-rttov: netcdf-fortran hdf5
+rttov: netcdf-fortran hdf5 lapack
 ecrad: netcdf-fortran
-rte-rrtmgp: netcdf-fortran
 serialbox2: netcdf stdc++
 eccodes: aec
 cub: cuda stdc++

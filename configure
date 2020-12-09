@@ -6299,10 +6299,9 @@ elif test x"$icon_netcdf_supports_parallel" = xunknown; then :
 $as_echo "$as_me: WARNING: unable to check whether the provided version of NetCDF supports the parallel features" >&2;}
 fi
 fi
-if test "x$enable_emvorado" = xyes; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran 90 interface of NetCDF library is available" >&5
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran 90 interface of NetCDF library is available" >&5
 $as_echo_n "checking whether the Fortran 90 interface of NetCDF library is available... " >&6; }
-   cat > conftest.$ac_ext <<_ACEOF
+cat > conftest.$ac_ext <<_ACEOF
       program main
 
       use netcdf, only: nf90_open, nf90_nowrite
@@ -6314,19 +6313,20 @@ _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 $as_echo "yes" >&6; }
-   as_fn_append FCFLAGS " ${FC_PP_DEF}NETCDF"
+   if test "x$enable_emvorado" = xyes; then :
+  as_fn_append FCFLAGS " ${FC_PP_DEF}NETCDF"
+fi
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
    { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using the Fortran 90 interface of NetCDF library: either disable the radar forward operator EMVORADO (--disable-emvorado) or set FCFLAGS, LDFLAGS and LIBS accordingly
+as_fn_error $? "unable to link a test program using the Fortran 90 interface of NetCDF library: set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
-fi
 
 if test "x$enable_rte_rrtmgp" = xyes; then :
   if test "x$with_external_rte_rrtmgp" = xyes; then :
@@ -6541,7 +6541,51 @@ esac
 fi
 fi
 
-if test x"$enable_rttov" = xyes || test x"$enable_dace" = xyes; then :
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran BLAS library is available" >&5
+$as_echo_n "checking whether Fortran BLAS library is available... " >&6; }
+cat > conftest.$ac_ext <<_ACEOF
+      program main
+      call dgemm
+      end
+_ACEOF
+if ac_fn_fc_try_link "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to link a test program using BLAS library: set FCFLAGS, LDFLAGS and LIBS accordingly
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran LAPACK library is available" >&5
+$as_echo_n "checking whether Fortran LAPACK library is available... " >&6; }
+cat > conftest.$ac_ext <<_ACEOF
+      program main
+      call dgeev
+      end
+_ACEOF
+if ac_fn_fc_try_link "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to link a test program using LAPACK library: set FCFLAGS, LDFLAGS and LIBS accordingly
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+
+if test "x$enable_rttov" = xyes; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran RTTOV library is available" >&5
 $as_echo_n "checking whether Fortran RTTOV library is available... " >&6; }
    cat > conftest.$ac_ext <<_ACEOF
@@ -6557,18 +6601,25 @@ _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 $as_echo "yes" >&6; }
-      as_fn_append FCFLAGS " ${FC_PP_DEF}RTTOV12"
+      if test "x$enable_dace" = xyes; then :
+  as_fn_append FCFLAGS " ${FC_PP_DEF}RTTOV12"
+fi
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
       { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using RTTOV library: either disable usage of the radiative transfer model for TOVS (--disable-rttov) and the DACE modules for data assimilation (--disable-dace), or set FCFLAGS, LDFLAGS and LIBS accordingly
+as_fn_error $? "unable to link a test program using RTTOV library: either disable usage of the radiative transfer model for TOVS (--disable-rttov) or set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
+else
+  if test "x$enable_dace" = xyes; then :
+        as_fn_error $? "unsupported combination of the configure options: you are trying to configure with the DACE modules for data assimilation but usage of the radiative transfer model for TOVS is disabled: either disable the DACE modules for data assimilation (--disable-dace) or enable usage of the radiative transfer model for TOVS (--enable-rttov)" "$LINENO" 5
+      as_fn_append FCFLAGS " ${FC_PP_DEF}NO_RTTOV"
+fi
 fi
 
 if test "x$enable_sct" = xyes; then :
@@ -7160,50 +7211,6 @@ esac
    as_fn_append bundled_includes "${FC_MOD_IN}externals/mtime/src "
    BUNDLED_LIBFILES="externals/mtime/src/.libs/libmtime.a $BUNDLED_LIBFILES"
 fi
-
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran BLAS library is available" >&5
-$as_echo_n "checking whether Fortran BLAS library is available... " >&6; }
-cat > conftest.$ac_ext <<_ACEOF
-      program main
-      call dgemm
-      end
-_ACEOF
-if ac_fn_fc_try_link "$LINENO"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using BLAS library: set FCFLAGS, LDFLAGS and LIBS accordingly
-See \`config.log' for more details
-${icon_usr_note}" "$LINENO" 5; }
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran LAPACK library is available" >&5
-$as_echo_n "checking whether Fortran LAPACK library is available... " >&6; }
-cat > conftest.$ac_ext <<_ACEOF
-      program main
-      call dgeev
-      end
-_ACEOF
-if ac_fn_fc_try_link "$LINENO"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using LAPACK library: set FCFLAGS, LDFLAGS and LIBS accordingly
-See \`config.log' for more details
-${icon_usr_note}" "$LINENO" 5; }
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
 
 if test "x$enable_coupling" = xyes; then :
   if test "x$with_external_yac" = xyes; then :

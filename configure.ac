@@ -718,9 +718,9 @@ fi
 dnl One of the topological orderings of the ICON dependency graph
 dnl (run ./utils/icon_sorted_deps.sh):
 dnl
-dnl '-lself', '-licon_tixi', '-lyac', '-llapack -lblas (or other)',
-dnl '-lmtime', '-lSerialboxFortranShared', '-lcdi_f2003 -lcdi', '-leccodes_f90',
-dnl '-lyaxt -lyaxt_c', '-lsct', '-lradiance -lrttov10.2 (etc.)',
+dnl '-lself', '-licon_tixi', '-lyac', '-lmtime', '-lSerialboxFortranShared',
+dnl '-lcdi_f2003 -lcdi', '-leccodes_f90', '-lyaxt -lyaxt_c', '-lsct',
+dnl '-lradiance -lrttov10.2 (etc.)', '-llapack -lblas (or other)',
 dnl '-lradiation -lifsrrtm -lutilities -lifsaux', '-lrrtmgp -lrte',
 dnl '-lnetcdff', '-lhdf5hl_fortran -lhdf5_fortran', '-lz', '-lgomp (or other)',
 dnl '-lmpifort -lmpi (or other)'
@@ -906,20 +906,19 @@ parallel features: either disable usage of the parallel features of NetCDF dnl
         [test x"$icon_netcdf_supports_parallel" = xunknown],
         [AC_MSG_WARN([unable to check whether the provided version of dnl
 NetCDF supports the parallel features])])])
-AS_VAR_IF([enable_emvorado], [yes],
-  [AC_MSG_CHECKING([whether the Fortran 90 interface of NetCDF library is dnl
+AC_MSG_CHECKING([whether the Fortran 90 interface of NetCDF library is dnl
 available])
-   AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
       use netcdf, only: nf90_open, nf90_nowrite
       implicit none
       integer :: status, ncid
       status = nf90_open('conftest.nc', nf90_nowrite, ncid)]])],
   [AC_MSG_RESULT([yes])
-   AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}NETCDF"])],
+   AS_VAR_IF([enable_emvorado], [yes],
+     [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}NETCDF"])])],
   [AC_MSG_RESULT([no])
    AC_MSG_FAILURE([unable to link a test program using the Fortran 90 dnl
-interface of NetCDF library: either disable the radar forward operator dnl
-EMVORADO (--disable-emvorado) or set FCFLAGS, LDFLAGS and LIBS accordingly])])])
+interface of NetCDF library: set FCFLAGS, LDFLAGS and LIBS accordingly])])
 
 AS_VAR_IF([enable_rte_rrtmgp], [yes],
   [AS_VAR_IF([with_external_rte_rrtmgp], [yes],
@@ -1043,7 +1042,21 @@ linking the bundled version of ECRAD library
       BUNDLED_LIBFILES="externals/ecrad/libifsrrtm.a $BUNDLED_LIBFILES"
       BUNDLED_LIBFILES="externals/ecrad/libradiation.a $BUNDLED_LIBFILES"])])
 
-AS_IF([test x"$enable_rttov" = xyes || test x"$enable_dace" = xyes],
+AC_MSG_CHECKING([whether Fortran BLAS library is available])
+AC_LINK_IFELSE([AC_LANG_FUNC_LINK_TRY([dgemm])],
+  [AC_MSG_RESULT([yes])],
+  [AC_MSG_RESULT([no])
+   AC_MSG_FAILURE([unable to link a test program using BLAS library: set dnl
+FCFLAGS, LDFLAGS and LIBS accordingly])])
+
+AC_MSG_CHECKING([whether Fortran LAPACK library is available])
+AC_LINK_IFELSE([AC_LANG_FUNC_LINK_TRY([dgeev])],
+  [AC_MSG_RESULT([yes])],
+  [AC_MSG_RESULT([no])
+   AC_MSG_FAILURE([unable to link a test program using LAPACK library: set dnl
+FCFLAGS, LDFLAGS and LIBS accordingly])])
+
+AS_VAR_IF([enable_rttov], [yes],
   [AC_MSG_CHECKING([whether Fortran RTTOV library is available])
    AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
       use rttov_types, only: rttov_coefs
@@ -1052,12 +1065,30 @@ AS_IF([test x"$enable_rttov" = xyes || test x"$enable_dace" = xyes],
       type(rttov_coefs),target:: coefs(1)
       call rttov_nullify_coef(coefs(1)%coef)]])],
      [AC_MSG_RESULT([yes])
-      AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}RTTOV12"])],
+dnl The only file in ICON (src/data_assimilation/interfaces/mo_rttov_ifc.f90)
+dnl that uses the macro 'RTTOV12' defines it itself. Therefore, we define it
+dnl only when the DACE modules are enabled because their source files need it.
+      AS_VAR_IF([enable_dace], [yes],
+        [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}RTTOV12"])])],
      [AC_MSG_RESULT([no])
       AC_MSG_FAILURE([unable to link a test program using RTTOV library: dnl
 either disable usage of the radiative transfer model for TOVS dnl
-(--disable-rttov) and the DACE modules for data assimilation dnl
-(--disable-dace), or set FCFLAGS, LDFLAGS and LIBS accordingly])])])
+(--disable-rttov) or set FCFLAGS, LDFLAGS and LIBS accordingly])])dnl
+dnl We need an extra check for the availability of the "god stuff (generalized
+dnl optical depth, RTTOV smoothing)" when the DACE modules are enabled.
+],
+  [AS_VAR_IF([enable_dace], [yes],
+     [dnl
+dnl It is technically possible to build the DACE modules without RTTOV library
+dnl but it is currently unclear whether that makes sense. Therefore, we fail
+dnl the configuration when the modules are enabled but usage of the library is
+dnl disabled:
+      AC_MSG_ERROR([unsupported combination of the configure options: dnl
+you are trying to configure with the DACE modules for data assimilation but dnl
+usage of the radiative transfer model for TOVS is disabled: either disable dnl
+the DACE modules for data assimilation (--disable-dace) or enable usage of dnl
+the radiative transfer model for TOVS (--enable-rttov)])
+      AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}NO_RTTOV"])])])
 
 AS_VAR_IF([enable_sct], [yes],
   [AS_VAR_IF([with_external_sct], [yes],
@@ -1452,20 +1483,6 @@ linking the bundled version of MTIME library
       [--enable-openmp="$enable_openmp"]])
    AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/mtime/src "])
    BUNDLED_LIBFILES="externals/mtime/src/.libs/libmtime.a $BUNDLED_LIBFILES"])
-
-AC_MSG_CHECKING([whether Fortran BLAS library is available])
-AC_LINK_IFELSE([AC_LANG_FUNC_LINK_TRY([dgemm])],
-  [AC_MSG_RESULT([yes])],
-  [AC_MSG_RESULT([no])
-   AC_MSG_FAILURE([unable to link a test program using BLAS library: set dnl
-FCFLAGS, LDFLAGS and LIBS accordingly])])
-
-AC_MSG_CHECKING([whether Fortran LAPACK library is available])
-AC_LINK_IFELSE([AC_LANG_FUNC_LINK_TRY([dgeev])],
-  [AC_MSG_RESULT([yes])],
-  [AC_MSG_RESULT([no])
-   AC_MSG_FAILURE([unable to link a test program using LAPACK library: set dnl
-FCFLAGS, LDFLAGS and LIBS accordingly])])
 
 AS_VAR_IF([enable_coupling], [yes],
   [AS_VAR_IF([with_external_yac], [yes],

@@ -1,4 +1,4 @@
-# Path to the source directory:
+# Path to the root source directory:
 srcdir:= @srcdir@
 
 # Relative path to the directory with the preprocessed source files:
@@ -7,8 +7,67 @@ ppdir:= pp
 # CLAW preprocessing subdirectory:
 CLAW_ppdir:= claw
 
-# Relative path to the directory with the xmod files:
+# Relative path to the directory with the '.xmod' files:
 xmoddir:= $(ppdir)/$(CLAW_ppdir)/xmod
+
+############################ SOURCE FILE COLLECTION ############################
+
+# By default, CLAW performs the code transformation (deep preprocessing) only if
+# the input file contains CLAW directives. Otherwise, the contents of the input
+# file are copied as-is to the output (shallow preprocessing). The deep
+# preprocessing of a Fortran file requires additional information, which is
+# stored in the '.xmod' files: if the code in the input file uses a Fortran
+# module, the respective '.xmod' file needs to be generated in advance. CLAW
+# implements an algorithm that generates the required '.xmod' files
+# automatically. However, it reduces the transparency of the process and poses
+# a significant limitation: all CLAW preprocessing jobs must run serially. The
+# alternative is to generate the '.xmod' files as a side effect of the code
+# transformation: similar to the regular Fortran compilers, CLAW generates
+# '.xmod' files when performing the deep preprocessing of a source file that
+# declares the respective Fortran modules. That is, we can generate the required
+# '.xmod' files by enforcing the code transformation of the corresponding source
+# files in the right topologically sorted order: files that declare Fortran
+# modules are processed before files that use them. Note that there are cases
+# when CLAW is unable to perform the code transformation but still generates the
+# required '.xmod' files. That gives us the option to ignore the failure of a
+# preprocessing job if the only reason we run it is to generate the '.xmod'
+# files.
+#
+# The deep preprocessing is expensive and fragile. Therefore, we have to
+# minimize the number of files that undergo it. For that reason, we distinguish
+# three types of input files:
+#   1. Primary input files with CLAW directives. These files undergo the deep
+#      preprocessing unconditionally with no tolerance to the failure.
+#   2. Primary input files without CLAW directives. These files undergo the
+#      shallow preprocessing unconditionally with no tolerance to the failure.
+#      However, some of these files might declare Fortran modules that are used
+#      in files that undergo the deep preprocessing (e.g. all files in 1.).
+#      Files that fall under such cases additionally undergo the deep
+#      preprocessing, which is allowed to fail, as long a all the required
+#      '.xmod' files are generated successfully.
+#   3. Secondary input files. Regardless of having CLAW directives, these files
+#      undergo the deep preprocessing only if they declare Fortran modules that
+#      are used in files that must undergo the deep preprocessing. Again, the
+#      preprocessing of these files if allowed to fail, as long a all the
+#      required '.xmod' files are generated successfully.
+
+# Primary input '.f90' files:
+f90_files:= $(CLAW_in_f90_files)
+# Secondary input '.f90' files:
+xmod_f90_files:= $(filter-out $(f90_files),$(CLAW_xmod_f90_files))
+
+# Relative paths to the directories with Fortran include files:
+inc_subdirs:= $(CLAW_inc_subdirs)
+
+################################ UTILITY FILES #################################
+
+# Dependency files (ensure the topologically sorted order of the preprocessing):
+dep_files:= $(addprefix $(ppdir)/$(CLAW_ppdir)/,$(addsuffix .claw.d,$(f90_files) $(xmod_f90_files:.f90=.xmodstamp)))
+
+# Stamp files of the preprocessing subdirectories:
+dir_files= $(filter-out ./.dirstamp,$(addsuffix .dirstamp,$(sort $(dir $(dep_files))) $(xmoddir)/))
+
+########################### BUILDING TOOLS AND FLAGS ###########################
 
 # Compilers and utilities:
 CLAW= @CLAW@
@@ -17,7 +76,7 @@ PYTHON= @PYTHON@
 DEPGEN= ${PYTHON} $(srcdir)/utils/mkhelper/depgen.py
 
 # CLAW flags:
-CLAWFLAGS= --no-dep -w 132 --Wf-no-module-cache -J$(xmoddir) $(addprefix -I$(srcdir)/,$(CLAW_inc_subdirs)) $(addprefix -I$(srcdir)/externals/omni-xmod-pool/,mpi/3.0 self/0.2 yaxt/0.7.0 mtime/1.0.8 cdi/1.8.x) @CLAWFLAGS@
+CLAWFLAGS= --no-dep -w 132 --Wf-no-module-cache -J$(xmoddir) $(addprefix -I$(srcdir)/,$(inc_subdirs)) $(addprefix -I$(srcdir)/externals/omni-xmod-pool/,mpi/3.0 self/0.2 yaxt/0.7.0 mtime/1.0.8 cdi/1.8.x) @CLAWFLAGS@
 ICON_CLAWFLAGS=
 ICON_OCEAN_CLAWFLAGS=
 DEPGEN_CLAWFLAGS= @DEPGEN_CLAWFLAGS@
@@ -62,6 +121,8 @@ CLAWFLAGS+= $(call convert_fcflags,$(FC_PP_MACRO_FLAG),-D,$(FCFLAGS))
 ICON_CLAWFLAGS+= $(call convert_fcflags,$(FC_PP_MACRO_FLAG),-D,$(ICON_FCFLAGS))
 ICON_OCEAN_CLAWFLAGS+= $(call convert_fcflags,$(FC_PP_MACRO_FLAG),-D,$(ICON_OCEAN_FCFLAGS))
 
+############################### MAKEFILE TWEAKS ################################
+
 # Silent rule prefixes:
 V= @DEFAULT_VERBOSITY@
 ifeq ($(V),0)
@@ -77,69 +138,12 @@ endif
 .DELETE_ON_ERROR:
 # Targets not associated with files:
 .PHONY: all mostlyclean clean distclean
-# Targets that do not need the inclusion of the dependency files:
-NO_INC_TARGETS:= dummy-depend mostlyclean clean distclean
+
+# Targets that do not need the dependency files:
+nodep_targets:= dummy-depend mostlyclean clean distclean
 
 # Selective search paths:
 vpath %.f90 $(srcdir)
-
-# By default, CLAW performs the code transformation (deep preprocessing) only if
-# the input file contains CLAW directives. Otherwise, the contents of the input
-# file are copied as-is to the output (shallow preprocessing). The deep
-# preprocessing of a Fortran file requires additional information, which is
-# stored in the '.xmod' files: if the code in the input file uses a Fortran
-# module, the respective '.xmod' file needs to be generated in advance. CLAW
-# implements an algorithm that generates the required '.xmod' files
-# automatically. However, it reduces the transparency of the process and poses
-# a significant limitation: all CLAW preprocessing jobs must run serially. The
-# alternative is to generate the '.xmod' files as a side effect of the code
-# transformation: similar to the regular Fortran compilers, CLAW generates
-# '.xmod' files when performing the deep preprocessing of a source file that
-# declares the respective Fortran modules. That is, we can generate the required
-# '.xmod' files by enforcing the code transformation of the corresponding source
-# files in the right topologically sorted order: files that declare Fortran
-# modules are processed before files that use them. Note that there are cases
-# when CLAW is unable to perform the code transformation but still generates the
-# required '.xmod' files. That gives us the option to ignore the failure of a
-# preprocessing job if the only reason we run it is to generate the '.xmod'
-# files.
-#
-# The deep preprocessing is expensive and fragile. Therefore, we have to
-# minimize the number of files that undergo it. For that reason, we distinguish
-# three types of input files:
-#   1. Primary input files with CLAW directives. These files undergo the deep
-#      preprocessing unconditionally with no tolerance to the failure.
-#   2. Primary input files without CLAW directives. These files undergo the
-#      shallow preprocessing unconditionally with no tolerance to the failure.
-#      However, some of these files might declare Fortran modules that are used
-#      in files that undergo the deep preprocessing (e.g. all files in 1.).
-#      Files that fall under such cases additionally undergo the deep
-#      preprocessing, which is allowed to fail, as long a all the required
-#      '.xmod' files are generated successfully.
-#   3. Secondary input files. Regardless of having CLAW directives, these files
-#      undergo the deep preprocessing only if they declare Fortran modules that
-#      are used in files that must undergo the deep preprocessing. Again, the
-#      preprocessing of these files if allowed to fail, as long a all the
-#      required '.xmod' files are generated successfully.
-
-# Primary input '.f90' files:
-in_f90_files:= $(CLAW_in_f90_files)
-
-# Output '.f90' files (supposed to be a subset of $(CLAW_mk_targets)):
-out_f90_files:= $(addprefix $(ppdir)/$(CLAW_ppdir)/,$(in_f90_files))
-
-# Secondary input '.f90' files:
-xmod_f90_files:= $(filter-out $(CLAW_in_f90_files),$(CLAW_xmod_f90_files))
-
-# Stamp files for the fault tolerant deep preprocessing of the corresponding
-# secondary input '.f90' files:
-xmodstamp_files:= $(addprefix $(ppdir)/$(CLAW_ppdir)/,$(xmod_f90_files:.f90=.xmodstamp))
-
-# Dependency files (ensure the topologically sorted order of the preprocessing):
-dep_files:= $(addsuffix .claw.d,$(out_f90_files) $(xmodstamp_files))
-
-# Stamp files of the preprocessing subdirectories:
-dir_files= $(filter-out ./.dirstamp,$(addsuffix .dirstamp,$(sort $(dir $(dep_files))) $(xmoddir)/))
 
 ############################### INTERFACE RULES ################################
 
@@ -148,9 +152,8 @@ all: $(CLAW_mk_targets)
 
 # Delete files generated at the building stage:
 clean: mostlyclean
-	rm -f $(out_f90_files)
-	rm -f $(xmodstamp_files)
-	rm -f $(out_f90_files:.f90=.xmodstamp)
+	rm -f $(dep_files:.claw.d=)
+	rm -f $(addprefix $(ppdir)/$(CLAW_ppdir)/,$(f90_files:.f90=.xmodstamp))
 	rm -f $(xmoddir)/*.xmod
 
 # Delete everything generated at the configure stage:
@@ -243,6 +246,6 @@ ifeq (,$(current_targets))
 current_targets:= all
 endif
 
-ifneq (,$(filter-out $(NO_INC_TARGETS),$(current_targets)))
+ifneq (,$(filter-out $(nodep_targets),$(current_targets)))
 include $(dep_files)
 endif
