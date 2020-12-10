@@ -22,10 +22,10 @@ MODULE mo_name_list_output_zaxes_types
   USE mo_cdi,                               ONLY: CDI_UNDEFID, zaxisCreate, zaxisDefNumber, zaxisDefUUID,        &
     &                                             zaxisDefLevels, zaxisDefLbounds, zaxisDefUbounds, zaxisDefVct, &
     &                                             zaxisDefUnits, zaxisDefNlevRef, zaxisDefName, zaxisDestroy,    &
-    &                                             zaxisDefLongname
+    &                                             zaxisDefLongname, zaxisDefLtype
   USE mo_zaxis_type,                        ONLY: t_zaxisType
   USE mo_kind,                              ONLY: wp, dp
-  USE mo_exception,                         ONLY: finish, message
+  USE mo_exception,                         ONLY: finish
   USE mo_packed_message,                    ONLY: t_PackedMessage
   USE mo_mpi,                               ONLY: p_get_bcast_role
 
@@ -66,6 +66,8 @@ MODULE mo_name_list_output_zaxes_types
 
     INTEGER(KIND=C_SIGNED_CHAR), ALLOCATABLE :: zaxisUUID(:)    !< UUID of vertical grid
     REAL(dp),                    ALLOCATABLE :: zaxisVct(:)     !< vertical coordinate table
+
+    INTEGER,                     ALLOCATABLE :: zaxisDefLtype   !< additional GRIB2 level type
 
   CONTAINS
     PROCEDURE :: finalize       => t_verticalAxis_finalize        !< destructor
@@ -133,6 +135,8 @@ CONTAINS
     IF (ALLOCATED(axis%zaxisNlevRef))   DEALLOCATE(axis%zaxisNlevRef)
     IF (ALLOCATED(axis%zaxisUUID))      DEALLOCATE(axis%zaxisUUID)
     IF (ALLOCATED(axis%zaxisVct))       DEALLOCATE(axis%zaxisVct)
+    IF (ALLOCATED(axis%zaxisDefLtype))  DEALLOCATE(axis%zaxisDefLtype)
+
     IF (axis%cdi_id /= CDI_UNDEFID) THEN
       CALL zaxisDestroy(axis%cdi_id)
       axis%cdi_id = CDI_UNDEFID
@@ -168,12 +172,15 @@ CONTAINS
       CALL zaxisDefUnits(cdiID, TRIM(axis%zaxisUnits))
     IF (ALLOCATED(axis%zaxisNumber))   &
       CALL zaxisDefNumber(cdiID, axis%zaxisNumber)
-    IF (ALLOCATED(axis%zaxisNlevRef))   &
+    IF (ALLOCATED(axis%zaxisNlevRef))  &
       CALL zaxisDefNlevRef(cdiID, axis%zaxisNlevRef)
     IF (ALLOCATED(axis%zaxisUUID))     &
       CALL zaxisDefUUID (cdiID, axis%zaxisUUID)
     IF (ALLOCATED(axis%zaxisVct))      &
       CALL zaxisDefVct(cdiID, SIZE(axis%zaxisVct), axis%zaxisVct)
+    IF (ALLOCATED(axis%zaxisDefLtype)) &
+      CALL zaxisDefLtype(cdiID, axis%zaxisDefLtype)
+
   END SUBROUTINE t_verticalAxis_cdiZaxisCreate
 
 
@@ -182,7 +189,7 @@ CONTAINS
   !
   SUBROUTINE t_verticalAxis_set(axis, &
     &                           zaxisLevels,  zaxisLbounds, zaxisUbounds, zaxisName, zaxisLongname, &
-    &                           zaxisUnits, zaxisNumber, zaxisNlevRef, zaxisUUID, zaxisVct)
+    &                           zaxisUnits, zaxisNumber, zaxisNlevRef, zaxisUUID, zaxisVct, zaxisDefLtype)
 
     CLASS(t_verticalAxis),       INTENT(INOUT) :: axis
     REAL(dp),                    INTENT(IN), OPTIONAL :: zaxisLevels(:)
@@ -195,6 +202,7 @@ CONTAINS
     INTEGER,                     INTENT(IN), OPTIONAL :: zaxisNlevRef
     INTEGER(KIND=C_SIGNED_CHAR), INTENT(IN), OPTIONAL :: zaxisUUID(:)
     REAL(dp),                    INTENT(IN), OPTIONAL :: zaxisVct(:)
+    INTEGER,                     INTENT(IN), OPTIONAL :: zaxisDefLtype
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//'::t_verticalAxis_set'
 
@@ -248,6 +256,11 @@ CONTAINS
       ALLOCATE(axis%zaxisVct(SIZE(zaxisVct)))
       axis%zaxisVct = zaxisVct
     END IF
+    IF (PRESENT(zaxisDefLtype)) THEN
+      IF (ALLOCATED(axis%zaxisDefLtype))  CALL finish(routine, "'zaxisDefLtype' already initialized!")
+      ALLOCATE(axis%zaxisDefLtype)
+      axis%zaxisDefLtype = zaxisDefLtype
+    END IF
   END SUBROUTINE t_verticalAxis_set
 
 
@@ -286,6 +299,7 @@ CONTAINS
     IF (is_zaxisNlevRef) CALL packedMessage%pack(axis%zaxisNlevRef)
     CALL packedMessage%pack(axis%zaxisUUID)
     CALL packedMessage%pack(axis%zaxisVct)
+    CALL packedMessage%pack(axis%zaxisDefLType)
   CONTAINS
 
     SUBROUTINE pack_string(string)
@@ -345,6 +359,7 @@ CONTAINS
     END IF
     CALL packedMessage%unpack(axis%zaxisUUID)
     CALL packedMessage%unpack(axis%zaxisVct)
+    CALL packedMessage%unpack(axis%zaxisDefLtype)
   CONTAINS
 
     SUBROUTINE unpack_string(string)
@@ -481,6 +496,9 @@ CONTAINS
       IF (ALLOCATED(axis1%zaxisNlevRef)) THEN
         IF (axis1%zaxisNlevRef /= axis2%zaxisNlevRef)    t_verticalAxis_eqv=.FALSE.
       END IF
+      IF (ALLOCATED(axis1%zaxisDefLtype)) THEN
+        IF (axis1%zaxisDefLtype /= axis2%zaxisDefLtype)  t_verticalAxis_eqv=.FALSE.
+      END IF
    
       ! check array contents (if available):
       IF (.NOT. array_eqv_dp(axis1%zaxisLevels,  axis2%zaxisLevels))   t_verticalAxis_eqv=.FALSE.
@@ -498,7 +516,7 @@ CONTAINS
   FUNCTION new_verticalAxis(zaxisType, zaxisNlev,                                 &
     &                       zaxisLevels,  zaxisLbounds, zaxisUbounds, zaxisName,  &
     &                       zaxisLongname, zaxisUnits, zaxisNumber, zaxisNlevRef, &
-    &                       zaxisUUID, zaxisVct)
+    &                       zaxisUUID, zaxisVct, zaxisDefLtype)
 
     TYPE(t_verticalAxis) :: new_verticalAxis
     TYPE(t_zaxisType),           INTENT(IN)           :: zaxisType
@@ -513,6 +531,7 @@ CONTAINS
     INTEGER,                     INTENT(IN), OPTIONAL :: zaxisNlevRef
     INTEGER(KIND=C_SIGNED_CHAR), INTENT(IN), OPTIONAL :: zaxisUUID(:)
     REAL(dp),                    INTENT(IN), OPTIONAL :: zaxisVct(:)
+    INTEGER,                     INTENT(IN), OPTIONAL :: zaxisDefLtype
     CHARACTER(LEN=*), PARAMETER :: routine = modname//'::new_verticalAxis'
 
     new_verticalAxis%zaxisType = zaxisType
@@ -524,7 +543,7 @@ CONTAINS
 
     CALL new_verticalAxis%set(zaxisLevels,  zaxisLbounds, zaxisUbounds, zaxisName,  &
       &                       zaxisLongname, zaxisUnits, zaxisNumber, zaxisNlevRef, &
-      &                       zaxisUUID, zaxisVct)
+      &                       zaxisUUID, zaxisVct, zaxisDefLtype)
   END FUNCTION new_verticalAxis
 
 

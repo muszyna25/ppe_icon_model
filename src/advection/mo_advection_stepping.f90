@@ -80,8 +80,7 @@ MODULE mo_advection_stepping
   USE mo_initicon_config,     ONLY: is_iau_active, iau_wgt_adv
   USE mo_fortran_tools,       ONLY: negative2zero
 #ifdef _OPENACC
-  USE mo_mpi,                 ONLY: i_am_accel_node, my_process_is_work
-  USE mo_sync,                ONLY: SYNC_E, SYNC_C, check_patch_array
+  USE mo_mpi,                 ONLY: i_am_accel_node
 #endif
   USE mo_dynamics_config,     ONLY: ldeepatmo
   USE mo_upatmo_impl_const,   ONLY: idamtr
@@ -98,7 +97,6 @@ MODULE mo_advection_stepping
 #else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
 #endif
-  LOGICAL, PARAMETER ::  acc_validate = .FALSE.   ! ONLY SET TO .TRUE. FOR VALIDATION PHASE
 #endif
 
 CONTAINS
@@ -332,13 +330,6 @@ CONTAINS
 !$ACC       IF( i_am_accel_node .AND. acc_on .AND. is_present_rho_incr )
 !$ACC DATA  PRESENT( opt_ddt_tracer_adv ),                              &
 !$ACC       IF( i_am_accel_node .AND. acc_on .AND. PRESENT(opt_ddt_tracer_adv) )
-
-!$ACC UPDATE DEVICE( p_tracer_now, p_mflx_contra_h, p_mflx_contra_v,    & 
-!$ACC                p_vn_contra_traj,                                  &
-!$ACC                p_cellhgt_mc_now, p_rhodz_now, p_rhodz_new ),      &
-!$ACC        IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( rho_incr ),                                        &
-!$ACC        IF( acc_validate .AND. i_am_accel_node .AND. acc_on .AND. is_present_rho_incr )
 
     ! In order to achieve consistency with continuity we follow the method of 
     ! Easter (1993) and (re-)integrate the air mass continuity equation in the 
@@ -732,10 +723,6 @@ CONTAINS
 
 
 !$ACC WAIT
-!$ACC UPDATE HOST( p_tracer_new, p_mflx_tracer_h, p_mflx_tracer_v ), &
-!$ACC        IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
-!$ACC UPDATE HOST( opt_ddt_tracer_adv ), &
-!$ACC        IF( acc_validate .AND. i_am_accel_node .AND. acc_on .AND. PRESENT(opt_ddt_tracer_adv) )
 
 !$ACC END DATA
 !$ACC END DATA

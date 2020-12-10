@@ -1151,16 +1151,15 @@ CONTAINS
       IF (advection_config(pid)%llsq_svd .AND. l_consv) THEN
         CALL recon_lsq_cell_l_consv_svd( p_cc, p_patch, lsq_lin, z_lsq_coeff,             &
         &                              opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
-        &                              opt_lconsv=l_consv, opt_acc_async=.TRUE.)
+        &                              opt_lconsv=l_consv )
         use_zlsq = .TRUE.
       ELSE IF (advection_config(pid)%llsq_svd) THEN
         CALL recon_lsq_cell_l_svd( p_cc, p_patch, lsq_lin, z_grad,                  &
-        &                        opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
-        &                        opt_acc_async=.TRUE.)
+        &                        opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c )
       ELSE
         CALL recon_lsq_cell_l( p_cc, p_patch, lsq_lin, z_lsq_coeff,             &
         &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
-        &                    opt_lconsv=l_consv, opt_acc_async=.TRUE.)
+        &                    opt_lconsv=l_consv )
         use_zlsq = .TRUE.
       ENDIF
 
