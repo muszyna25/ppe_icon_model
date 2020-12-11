@@ -429,6 +429,11 @@ CONTAINS
         ENDIF !inwp_radiation
 
         !! check microphysics scheme
+        IF (   ANY(atm_phy_nwp_config(1:n_dom)%inwp_gscp == 2) .AND. &
+             & ANY(atm_phy_nwp_config(1:n_dom)%inwp_gscp == 1) ) THEN
+          CALL finish(routine,'combining inwp_gscp=1 and inwp_gscp=2 in nested runs is not allowed')
+        END IF
+        
         IF (  atm_phy_nwp_config(jg)%mu_rain < 0.0   .OR. &
           &   atm_phy_nwp_config(jg)%mu_rain > 5.0)  THEN
           CALL finish(routine,'mu_rain requires: 0 < mu_rain < 5')

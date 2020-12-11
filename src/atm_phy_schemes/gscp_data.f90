@@ -90,7 +90,7 @@ USE mo_physical_constants, ONLY: r_v   => rv    , & !> gas constant for water va
 
 USE mo_math_utilities    , ONLY: gamma_fct
 
-USE mo_exception,          ONLY: message, message_text
+USE mo_exception,          ONLY: finish, message, message_text
 USE mo_reff_types,         ONLY: t_reff_calc
 #endif
 
@@ -153,11 +153,19 @@ REAL (KIND=wp), PARAMETER ::  &
     zar,       & !
     zceff_min, & ! Minimum value for sticking efficiency
     v0snow,    & ! factor in the terminal velocity for snow
-    v0snow_gr, & ! factor in the terminal velocity for snow (graupel scheme)
     zvz0i,     & ! Terminal fall velocity of ice  (original value of Heymsfield+Donner 1990: 3.29)
     icesedi_exp  ! exponent for density correction for coud ice sedimentation
 
 ! More variables
+! --------------
+
+  REAL (KIND=wp)     ::             &
+    rain_n0_factor =  1.0_wp,       & ! COSMO_EU default
+    mu_rain        =  0.0_wp,       & ! COSMO_EU default
+    mu_snow        =  0.0_wp,       & ! COSMO_EU default
+    ageo_snow                         ! global zams, will be zams_ci or zams_gr
+
+! Even more variables (currently only used in Carmen's scheme for KC05 fall speed)
 ! --------------
 
   REAL (KIND=wp)     ::             &
@@ -166,10 +174,7 @@ REAL (KIND=wp), PARAMETER ::  &
     kc_gamma       =  0.120285_wp,  & !..gam, CGS is 0.24
     kc_sigma       =  1.85_wp,      & !..exponent  in area-size relation
     do_i           =  5.83_wp,      & ! coefficients for drag correction
-    co_i           =  0.6_wp,       & ! coefficients for turbulence correction
-    rain_n0_factor =  1.0_wp,       & ! COSMO_EU default
-    mu_rain        =  0.0_wp,       & ! COSMO_EU default
-    mu_snow        =  0.0_wp          ! COSMO_EU default
+    co_i           =  0.6_wp          ! coefficients for turbulence correction
 
 #ifdef __COSMO__
   REAL (KIND=wp)     ::           &
@@ -199,10 +204,10 @@ REAL    (KIND=wp   ), PARAMETER ::  &
 
   zadi   = 0.217_wp,     & ! Formfactor in the size-mass relation of ice particles
   zbdi   = 0.302_wp,     & ! Exponent in the size-mass relation of ice particles
-  zams   = 0.069_wp,     & ! Formfactor in the mass-size relation of snow particles
-  zams_gr= 0.038_wp,     & ! Formfactor in the mass-size relation of snow particles for graupel scheme
+  zams_ci= 0.069_wp,     & ! Formfactor in the mass-size relation of snow particles for cloud ice scheme
+  zams_gr= 0.069_wp,     & ! Formfactor in the mass-size relation of snow particles for graupel scheme
   zbms   = 2.000_wp,     & ! Exponent in the mass-size relation of snow particles
-
+                           ! (do not change this, exponent of 2 is hardcoded for isnow_n0temp=2)
   zv1s   = 0.50_wp,      & ! Exponent in the terminal velocity for snow
 
   zami   = 130.0_wp,     & ! Formfactor in the mass-size relation of cloud ice
@@ -304,7 +309,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 SUBROUTINE gscp_set_coefficients (idbg, tune_zceff_min, tune_v0snow, tune_zvz0i, &
-  &                               tune_mu_rain, tune_rain_n0_factor, tune_icesedi_exp)
+  &                               tune_mu_rain, tune_rain_n0_factor, tune_icesedi_exp, igscp)
 
 !------------------------------------------------------------------------------
 !> Description:
@@ -319,15 +324,28 @@ SUBROUTINE gscp_set_coefficients (idbg, tune_zceff_min, tune_v0snow, tune_zvz0i,
   REAL(wp) ,INTENT(IN) ,OPTIONAL ::  tune_icesedi_exp
   REAL(wp) ,INTENT(IN) ,OPTIONAL ::  tune_mu_rain
   REAL(wp) ,INTENT(IN) ,OPTIONAL ::  tune_rain_n0_factor
-
+  INTEGER  ,INTENT(IN) ,OPTIONAL ::  igscp
+  
 ! Local variable
 #ifdef __COSMO__
   CHARACTER(132) :: message_text = ''
 #endif
-
+  REAL(wp) :: zams  ! local value of zams
+  
 !------------------------------------------------------------------------------
 !>  Initial setting of local and global variables
 !------------------------------------------------------------------------------
+
+  IF (PRESENT(igscp)) THEN
+    IF (igscp == 2) THEN
+      zams = zams_gr         ! default for graupel scheme
+    ELSE
+      zams = zams_ci         ! default for cloud ice scheme
+    END IF
+  ELSE
+    zams = zams_ci           ! COSMO default
+  END IF
+  ageo_snow = zams           ! zams is local, but ageo_snow will survive
 
   IF (PRESENT(tune_zceff_min)) THEN
     zceff_min = tune_zceff_min
@@ -336,11 +354,18 @@ SUBROUTINE gscp_set_coefficients (idbg, tune_zceff_min, tune_v0snow, tune_zvz0i,
   ENDIF
 
   IF (PRESENT(tune_v0snow)) THEN
-    v0snow = tune_v0snow
+    IF (tune_v0snow <= 0._wp) THEN
+      IF (igscp == 2) THEN
+        v0snow = 20.0_wp     ! default for graupel scheme
+      ELSE
+        v0snow = 25.0_wp     ! default for cloud ice scheme
+      END IF
+    ELSE
+      v0snow = tune_v0snow   ! use ICON namelist value
+    END IF
   ELSE
-    v0snow = 25.0_wp         ! COSMO default
+    v0snow = 20.0_wp         ! COSMO default
   ENDIF
-  v0snow_gr = 20.0_wp        ! COSMO-DE default for graupel scheme
 
   IF (PRESENT(tune_zvz0i)) THEN
     zvz0i = tune_zvz0i
@@ -366,8 +391,6 @@ SUBROUTINE gscp_set_coefficients (idbg, tune_zceff_min, tune_v0snow, tune_zvz0i,
     rain_n0_factor = 1.0_wp         ! COSMO-EU default
   ENDIF
 
-  ! zconst = zkcau / (20.0_wp*zxstar*cloud_num*cloud_num) &
-  !          * (zcnue+2.0_wp)*(zcnue+4.0_wp)/(zcnue+1.0_wp)**2
   zconst = zkcau / (20.0_wp*zxstar) * (zcnue+2.0_wp)*(zcnue+4.0_wp)/(zcnue+1.0_wp)**2
   ccsrim = 0.25_wp*pi*zecs*v0snow*gamma_fct(zv1s+3.0_wp)
   ccsagg = 0.25_wp*pi*v0snow*gamma_fct(zv1s+3.0_wp)
@@ -385,10 +408,8 @@ SUBROUTINE gscp_set_coefficients (idbg, tune_zceff_min, tune_v0snow, tune_zvz0i,
   ccdvtp = 2.22E-5_wp * t0**(-1.94_wp) * 101325.0_wp
   ccidep = 4.0_wp * zami**(-x1o3)
   zn0r   = 8.0E6_wp * EXP(3.2_wp*mu_rain) * (0.01_wp)**(-mu_rain)  ! empirical relation adapted from Ulbrich (1983)
-! to tune the zn0r variable
-  zn0r   = zn0r * rain_n0_factor
-
-  zar    = pi*zrhow/6.0_wp * zn0r * gamma_fct(mu_rain+4.0_wp) ! pre-factor in lambda
+  zn0r   = zn0r * rain_n0_factor                                   ! apply tuning factor to zn0r variable
+  zar    = pi*zrhow/6.0_wp * zn0r * gamma_fct(mu_rain+4.0_wp)      ! pre-factor in lambda of rain
   zcevxp = (mu_rain+2.0_wp)/(mu_rain+4.0_wp)
   zcev   = 2.0_wp*pi*zdv/zhw*zn0r*zar**(-zcevxp) * gamma_fct(mu_rain+2.0_wp)
   zbevxp = (2.0_wp*mu_rain+5.5_wp)/(2.0_wp*mu_rain+8.0_wp)-zcevxp
@@ -400,15 +421,18 @@ SUBROUTINE gscp_set_coefficients (idbg, tune_zceff_min, tune_v0snow, tune_zvz0i,
 
 #ifdef __ICON__  
   !CK> for cloud ice sedimentation based on KC05
-  vtxexp = kc_beta + 2.0_wp - kc_sigma
-  kc_c1  = 4.0_wp / ( do_i**2 * SQRT(co_i) )
-  kc_c2  = do_i **2 / 4.0_wp
+  IF (igscp == 3) THEN
+    vtxexp = kc_beta + 2.0_wp - kc_sigma
+    kc_c1  = 4.0_wp / ( do_i**2 * SQRT(co_i) )
+    kc_c2  = do_i **2 / 4.0_wp
+  ENDIF
   !CK<
 #endif    
 
   IF (PRESENT(idbg)) THEN
     IF (idbg > 10) THEN
       CALL message('gscp_set_coefficients',': Initialized coefficients for microphysics')
+      WRITE (message_text,'(A,E10.3)') '      zams   = ',zams   ; CALL message('',message_text)
       WRITE (message_text,'(A,E10.3)') '      ccslam = ',ccslam ; CALL message('',message_text)
       WRITE (message_text,'(A,E10.3)') '      ccsvel = ',ccsvel ; CALL message('',message_text)
       WRITE (message_text,'(A,E10.3)') '      ccsrim = ',ccsrim ; CALL message('',message_text)
@@ -428,17 +452,18 @@ SUBROUTINE gscp_set_coefficients (idbg, tune_zceff_min, tune_v0snow, tune_zvz0i,
       WRITE (message_text,'(A,E10.3)') '      v0snow = ',v0snow ; CALL message('',message_text)
       WRITE (message_text,'(A,E10.3)') '       zvz0i = ',zvz0i  ; CALL message('',message_text)
 #ifdef __ICON__
-      WRITE (message_text,'(A,E10.3)') '      vtxexp = ',vtxexp ; CALL message('',message_text)
-      WRITE (message_text,'(A,E10.3)') '       kc_c1 = ',kc_c1  ; CALL message('',message_text)
-      WRITE (message_text,'(A,E10.3)') '       kc_c2 = ',kc_c2  ; CALL message('',message_text)
+      IF (igscp == 3) THEN
+        WRITE (message_text,'(A,E10.3)') '      vtxexp = ',vtxexp ; CALL message('',message_text)
+        WRITE (message_text,'(A,E10.3)') '       kc_c1 = ',kc_c1  ; CALL message('',message_text)
+        WRITE (message_text,'(A,E10.3)') '       kc_c2 = ',kc_c2  ; CALL message('',message_text)
+      ENDIF
 #endif
     ENDIF
-  END IF
+  ENDIF
 
   CALL message('gscp_set_coefficients','microphysical values initialized')
 
 END SUBROUTINE gscp_set_coefficients
-
 
 !==============================================================================
 
@@ -457,7 +482,8 @@ END SUBROUTINE gscp_set_coefficients
     REAL(wp)                          :: x_min,x_max         ! Maximum and minimum mass of particles (kg)
     LOGICAL                           :: monodisperse        ! .true. for monodisperse DSD assumption
 
-
+    CHARACTER(len=*), PARAMETER :: routine = 'one_mom_reff_coefficients'
+    
     ! Check input return_fct
     IF (.NOT. return_fct) THEN
       WRITE (message_text,*) 'Reff: Function one_mom_provide_reff_coefficients (1mom) entered with previous error'
@@ -465,12 +491,9 @@ END SUBROUTINE gscp_set_coefficients
       RETURN
     END IF
 
-
-
     ! Default values
     x_min           = reff_calc%x_min
     x_max           = reff_calc%x_max
-
 
     ! Extract parameterization parameters
     SELECT CASE ( reff_calc%hydrometeor ) ! Select Hydrometeor
@@ -478,50 +501,41 @@ END SUBROUTINE gscp_set_coefficients
       a_geo         = pi/6.0_wp * rhoh2o
       b_geo         = 3.0_wp
       monodisperse  = .true.              ! Monodisperse assumption by default
-
     CASE (1)                              ! Ice
       a_geo         = zami
       b_geo         = 3.0_wp              ! According to COSMO Documentation
       monodisperse  = .true.              ! Monodisperse assumption by default
       x_min         = zmi0                ! Limits to crystal mass set by the scheme
-      x_max         = zmimax
-   
+      x_max         = zmimax 
     CASE (2)                              ! Rain
       a_geo         = pi/6.0_wp * rhoh2o  ! Assume spherical rain
       b_geo         = 3.0_wp
       monodisperse  = .false.  
       N0            = zn0r 
       nu            = mu_rain             ! This is right, there are different mu/nu notations
-      mu            = 1.0 
-   
+      mu            = 1.0   
     CASE (3)                              ! Snow
-      IF  (      reff_calc%microph_param == 1 &
-           &.OR. reff_calc%microph_param == 3   ) THEN  
-        a_geo       = zams                ! Cloud Ice Scheme value
-      ELSE                               
-        a_geo       = zams_gr             ! Graupel Scheme value
-      END IF
-
+      a_geo         = ageo_snow 
       b_geo         = zbms
       monodisperse  = .false.  
       N0            = 1.0_wp              ! Complex dependency for N0 (set in calculate_ncn)
       nu            = 0.0_wp              ! Marshall Palmer distribution (exponential)
       mu            = 1.0_wp
-      x_min         = zmsmin
-   
-    CASE (4)                              ! Graupel: values from Documentaion (not in micro. code)
+      x_min         = zmsmin  
+    CASE (4)                              ! Graupel: values from Documentation (not in micro. code)
       a_geo         = 169.6_wp   
       b_geo         = 3.1_wp
       monodisperse  = .false.  
       N0            = 4.0E6_wp 
       nu            = 0.0_wp              ! Marshall Palmer distribution (exponential)
       mu            = 1.0_wp
+    CASE DEFAULT
+      CALL finish(TRIM(routine),'wrong value for reff_calc%hydrometeor')      
     END SELECT
 
     ! Set values if changed
     reff_calc%x_min = x_min
     reff_calc%x_max = x_max
-
 
     ! Overwrite monodisperse/polydisperse according to options
     SELECT CASE (reff_calc%dsd_type)
@@ -529,13 +543,14 @@ END SUBROUTINE gscp_set_coefficients
       monodisperse  = .true.
     CASE (2)
       monodisperse  = .false.
+    CASE DEFAULT
+      CALL finish(TRIM(routine),'wrong value for reff_calc%dsd_type')      
     END SELECT
      
     IF ( reff_calc%dsd_type == 2) THEN    ! Overwrite mu and nu coefficients
       mu            = reff_calc%mu
       nu            = reff_calc%nu
     END IF
-
 
     ! Calculate parameters to calculate effective radius
     SELECT CASE ( reff_calc%reff_param )  ! Select Parameterization
@@ -551,7 +566,6 @@ END SUBROUTINE gscp_set_coefficients
         reff_calc%reff_coeff(1) = reff_calc%reff_coeff(1)*bf
       END IF       
      
-
     CASE (1) ! Fu Random Hexagonal needles:  Dge = 1/(c1 * x**[c2] + c3 * x**[c4])
              ! Parameterization based on Fu, 1996; Fu et al., 1998; Fu ,2007
 
@@ -573,7 +587,9 @@ END SUBROUTINE gscp_set_coefficients
         reff_calc%reff_coeff(3) = reff_calc%reff_coeff(3)*bf2
       END IF
 
-     END SELECT
+    CASE DEFAULT
+      CALL finish(TRIM(routine),'wrong value for reff_calc%reff_param')      
+    END SELECT
 
     ! Calculate coefficients to calculate n from qn, in case N0 is available
     IF ( N0 > 0.0_wp) THEN 
@@ -586,11 +602,9 @@ END SUBROUTINE gscp_set_coefficients
     
   END SUBROUTINE one_mom_reff_coefficients
 
-
-
-! This function provides the number concentration of hydrometoers consistent with the
-! one moment scheme. 
-! It contains copied code from the 1 moment scheme, becasue many functions are hard-coded.
+  ! This function provides the number concentration of hydrometoers consistent with the
+  ! one moment scheme. 
+  ! It contains copied code from the 1 moment scheme, because many functions are hard-coded.
   SUBROUTINE one_mom_calculate_ncn( ncn, return_fct, reff_calc ,k_start, &
         &                           k_end, indices, n_ind, q , t, rho,surf_cloud_num) 
     REAL(wp)          ,INTENT(INOUT)     ::  ncn(:,:)           ! Number concentration
@@ -606,8 +620,6 @@ END SUBROUTINE gscp_set_coefficients
 
     REAL(wp) ,INTENT(IN), OPTIONAL       ::  surf_cloud_num(:)  ! Number concentrarion at surface 
                                                                 !CALL WITH prm_diag%cloud_num(is:ie,:) 
-
-
     ! --- End of input/output variables.
 
     INTEGER                              ::  jc, k,ic           ! Running indices
@@ -630,7 +642,6 @@ END SUBROUTINE gscp_set_coefficients
 
     zlog_10 = LOG(10._wp) ! logarithm of 10
 
-
     ! Check input return_fct
 
     IF (.NOT. return_fct) THEN
@@ -638,8 +649,6 @@ END SUBROUTINE gscp_set_coefficients
       CALL message('',message_text)
       RETURN
     END IF
-
-
       
     SELECT CASE ( reff_calc%hydrometeor )   ! Select Hydrometeor
     CASE (0)   ! Cloud water from surface field cloud_num field or fixed
@@ -664,8 +673,6 @@ END SUBROUTINE gscp_set_coefficients
       
       ENDIF
 
-
-
     CASE (1)   ! Ice
 
       well_posed = PRESENT(t)
@@ -689,7 +696,6 @@ END SUBROUTINE gscp_set_coefficients
           ncn(jc,k) = MIN(fxna_cooper(t(jc,k)),znimax) 
         END DO
       END DO
-
 
     CASE (2,4) ! Rain, Graupel done with 1 mom param. w. fixed N0
 
@@ -718,12 +724,11 @@ END SUBROUTINE gscp_set_coefficients
           RETURN
         END IF
         
-
         DO k = k_start,k_end
           DO ic  = 1,n_ind(k)
             jc = indices(ic,k)
 
-            IF (isnow_n0temp == 1) THEN ! This ig in internal loop is not effiecient. Consider taking out.
+            IF (isnow_n0temp == 1) THEN
               ! Calculate n0s using the temperature-dependent
               ! formula of Field et al. (2005)
               ztc = t(jc,k) - t0
@@ -746,8 +751,8 @@ END SUBROUTINE gscp_set_coefficients
                    & + mmb(5)*ztc**2 + mmb(6)*nnr**2 + mmb(7)*ztc**2*nnr &
                    & + mmb(8)*ztc*nnr**2 + mmb(9)*ztc**3 + mmb(10)*nnr**3
 
-              ! Here is the exponent bms=2.0 hardwired! not ideal! (Uli Blahak)
-              m2s = q(jc,k) * rho(jc,k) / zams   ! UB rho added as bugfix
+              ! assumes bms=2.0 
+              m2s = q(jc,k) * rho(jc,k) / ageo_snow
               m3s = alf*EXP(bet*LOG(m2s))
 
               hlp  = zn0s1*EXP(zn0s2*ztc)
@@ -767,8 +772,6 @@ END SUBROUTINE gscp_set_coefficients
         END DO
 
     END SELECT
-
-
 
   END SUBROUTINE one_mom_calculate_ncn
 

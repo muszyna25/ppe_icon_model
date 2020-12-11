@@ -1063,8 +1063,7 @@ SUBROUTINE hydci_pp_ice (             &
           & + mmb(5)*ztc**2 + mmb(6)*nnr**2 + mmb(7)*ztc**2*nnr &
           & + mmb(8)*ztc*nnr**2 + mmb(9)*ztc**3 + mmb(10)*nnr**3
 
-        ! Here is the exponent bms=2.0 hardwired! not ideal! (Uli Blahak)
-        m2s = qsg * rho(iv,k) / zams   ! UB rho added as bugfix
+        m2s = qsg * rho(iv,k) / zams_ci
         m3s = alf*EXP(bet*LOG(m2s))
 
         hlp  = zn0s1*EXP(zn0s2*ztc)

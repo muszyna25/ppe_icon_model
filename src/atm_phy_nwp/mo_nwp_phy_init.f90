@@ -667,12 +667,13 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
 
   CASE (1,2,3)  ! cloud microphysics from COSMO (V 5.0)
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics')
-    CALL gscp_set_coefficients(tune_zceff_min = tune_zceff_min,               &
-      &                        tune_v0snow    = tune_v0snow,                  &
-      &                        tune_zvz0i     = tune_zvz0i,                   &
-      &                      tune_icesedi_exp = tune_icesedi_exp,             &
-      &                        tune_mu_rain   = atm_phy_nwp_config(1)%mu_rain,&
-      &                   tune_rain_n0_factor = atm_phy_nwp_config(1)%rain_n0_factor)
+    CALL gscp_set_coefficients(tune_zceff_min   = tune_zceff_min,               &
+      &                        tune_v0snow      = tune_v0snow,                  &
+      &                        tune_zvz0i       = tune_zvz0i,                   &
+      &                        tune_icesedi_exp = tune_icesedi_exp,             &
+      &                        tune_mu_rain        = atm_phy_nwp_config(1)%mu_rain,&
+      &                        tune_rain_n0_factor = atm_phy_nwp_config(1)%rain_n0_factor, &
+      &                        igscp = atm_phy_nwp_config(jg)%inwp_gscp )
 
   CASE (4,7) !two moment micrphysics
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics: two-moment')

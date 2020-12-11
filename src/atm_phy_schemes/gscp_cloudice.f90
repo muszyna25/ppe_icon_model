@@ -201,24 +201,11 @@ USE gscp_data, ONLY: &          ! all variables are used here
     zkphi1,    zkphi2,    zkphi3,    zmi0,      zmimax,    zmsmin,       &
     zn0s0,     zn0s1,     zn0s2,     znimax_thom,          zqmin,        &
     zrho0,     zthet,     zthn,      ztmix,     ztrfrz,    zv1s,         &
-    zvz0i,     x13o12,    x2o3,      x5o24,     zams,      zasmel,       &
+    zvz0i,     x13o12,    x2o3,      x5o24,     zams=>zams_ci, zasmel,   &
     zbsmel,    zcsmel,    icesedi_exp,                                   &
     iautocon,  isnow_n0temp, dist_cldtop_ref,   reduce_dep_ref,          &
     tmin_iceautoconv,     zceff_fac, zceff_min,                          &
     mma, mmb, v_sedi_rain_min, v_sedi_snow_min
-
-#ifdef __ICON__
-! this is (at the moment) an ICON part
-USE gscp_data, ONLY: &          ! all variables are used here
-    vtxexp,    & !  kc_c1,     & !
-    kc_c2,     & !
-    kc_alpha,  & !
-    kc_beta,   & !
-    kc_gamma,  & !
-    kc_sigma,  & !
-    do_i,      & !
-    co_i
-#endif
 
 !==============================================================================
 
@@ -690,9 +677,12 @@ SUBROUTINE cloudice (             &
       qrsflux(:,:) = 0.0_wp
   ENDIF
 
-
 ! output for various debug levels
-  IF (izdebug > 15) CALL message('gscp_cloudice: ','Start of cloudice')
+  IF (izdebug > 15) THEN
+    CALL message('gscp_cloudice: ','Start of cloudice')
+    WRITE (message_text,'(A,E10.3)') '      zams   = ',zams   ; CALL message('',message_text)
+    WRITE (message_text,'(A,E10.3)') '      ccslam = ',ccslam ; CALL message('',message_text)
+  END IF
   IF (izdebug > 20) THEN
     WRITE (message_text,*) '   nvec = ',nvec       ; CALL message('',message_text)
     WRITE (message_text,*) '   ke = ',ke           ; CALL message('',message_text)
@@ -823,7 +813,7 @@ SUBROUTINE cloudice (             &
         zn0s(iv) = MAX(zn0s(iv),1e6_wp)
       ELSEIF (isnow_n0temp == 2) THEN
         ! Calculate n0s using the temperature-dependent moment
-        ! relations of Field et al. (2005)
+        ! relations of Field et al. (2005) which assume bms=2.0
         ztc = tg - t0
         ztc = MAX(MIN(ztc,0.0_wp),-40.0_wp)
 
@@ -835,9 +825,8 @@ SUBROUTINE cloudice (             &
         bet = mmb(1) + mmb(2)*ztc + mmb(3)*nnr + mmb(4)*ztc*nnr &
           & + mmb(5)*ztc**2 + mmb(6)*nnr**2 + mmb(7)*ztc**2*nnr &
           & + mmb(8)*ztc*nnr**2 + mmb(9)*ztc**3 + mmb(10)*nnr**3
-
-        ! Here is the exponent bms=2.0 hardwired! not ideal! (Uli Blahak)
-        m2s = qsg * rho(iv,k) / zams   ! UB rho added as bugfix
+        
+        m2s = qsg * rho(iv,k) / zams  ! assumes bms=2.0 
         m3s = alf*EXP(bet*LOG(m2s))
 
         hlp  = zn0s1*EXP(zn0s2*ztc)

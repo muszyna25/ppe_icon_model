@@ -195,9 +195,7 @@ USE gscp_data, ONLY: &          ! all variables are used here
     ccslxp,    ccsaxp,    ccsdxp,    ccshi1,    ccdvtp,    ccidep,       &
     ccswxp,    zconst,    zcev,      zbev,      zcevxp,    zbevxp,       &
     zvzxp,     zvz0r,                                                    &
-
-    v0snow => v0snow_gr,  mu_rain,   rain_n0_factor,       cloud_num,    &
-
+    v0snow,    mu_rain,   rain_n0_factor,       cloud_num,               &
     x13o8,     x1o2,      x27o16,    x3o4,      x7o4,      x7o8,         &
     zbms,      zbvi,      zcac,      zccau,     zciau,     zcicri,       &
     zcrcri,    zcrfrz,    zcrfrz1,   zcrfrz2,   zeps,      zkcac,        &
@@ -209,20 +207,6 @@ USE gscp_data, ONLY: &          ! all variables are used here
     iautocon,  isnow_n0temp, dist_cldtop_ref,   reduce_dep_ref,          &
     tmin_iceautoconv,     zceff_fac, zceff_min,                          &
     mma, mmb, v_sedi_rain_min, v_sedi_snow_min, v_sedi_graupel_min
-
-#ifdef __ICON__
-! this is (at the moment) an ICON part
-USE gscp_data, ONLY: &          ! all variables are used here
-    vtxexp,    & !
-    kc_c1,     & !
-    kc_c2,     & !
-    kc_alpha,  & !
-    kc_beta,   & !
-    kc_gamma,  & !
-    kc_sigma,  & !
-    do_i,      & !
-    co_i
-#endif
 
 !==============================================================================
 
