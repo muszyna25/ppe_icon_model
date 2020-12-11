@@ -124,6 +124,8 @@ for arg in "$@"; do
   esac
 done
 
+#Hack to switch back to RTTOV12 (in addition to replacing 'rttov13' with 'rttov12' in this script)':
+#sed -i 's;_RTTOV_VERSION=13;_RTTOV_VERSION=12;' icon.mk
 
 # Copy runscript-related files when building out-of-source:
 if test $(pwd) != $(cd "${ICON_DIR}"; pwd); then
