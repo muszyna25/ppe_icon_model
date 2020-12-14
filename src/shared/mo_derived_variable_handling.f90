@@ -313,31 +313,31 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::find_src_element"
 
     ! find existing source variable on all possible ICON grids with the identical name {{{
-    src_element => find_element ( TRIM(varlist_element), &
+    src_element => find_element ( varlist_element, &
         &                         opt_patch_id=dom, &
         &                         opt_hgrid=GRID_UNSTRUCTURED_CELL, &
         &                         opt_caseInsensitive=.true., &
         &                         opt_returnList=src_list)
     IF (.NOT. ASSOCIATED(src_element) ) &
-        & src_element => find_element ( TRIM(varlist_element),&
+        & src_element => find_element ( varlist_element,&
         &                               opt_patch_id=dom, &
         &                               opt_hgrid=GRID_UNSTRUCTURED_EDGE, &
         &                               opt_caseInsensitive=.true., &
         &                               opt_returnList=src_list)
     IF (.NOT. ASSOCIATED(src_element) ) &
-        & src_element => find_element ( TRIM(varlist_element),&
+        & src_element => find_element ( varlist_element,&
         &                               opt_patch_id=dom, &
         &                               opt_hgrid=GRID_UNSTRUCTURED_VERT, &
         &                               opt_caseInsensitive=.true., &
         &                               opt_returnList=src_list)
     IF (.NOT. ASSOCIATED(src_element) ) &
-        & src_element => find_element ( TRIM(varlist_element),&
+        & src_element => find_element ( varlist_element,&
         &                               opt_patch_id=dom, &
         &                               opt_hgrid=GRID_LONLAT, &
         &                               opt_caseInsensitive=.true., &
         &                               opt_returnList=src_list)
     IF (.NOT. ASSOCIATED(src_element) ) &
-        & src_element => find_element ( TRIM(varlist_element),&
+        & src_element => find_element ( varlist_element,&
         &                               opt_patch_id=dom, &
         &                               opt_hgrid=GRID_ZONAL, &
         &                               opt_caseInsensitive=.true., &
