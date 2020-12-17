@@ -968,16 +968,14 @@ IF (timers_level > 10) CALL timer_start(timer_intp)
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
 #ifdef __LOOP_EXCHANGE
-    !$ACC LOOP GANG
+    !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jv = i_startidx, i_endidx
-      !$ACC LOOP VECTOR
       DO jk = slev, elev
          p_vert_out(jk,jv,jb) =                                         &
 #else
 !$NEC outerloop_unroll(4)
-    !$ACC LOOP GANG
+    !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = slev, elev
-      !$ACC LOOP VECTOR
       DO jv = i_startidx, i_endidx
          p_vert_out(jv,jk,jb) =                                         &
 #endif
@@ -1242,7 +1240,6 @@ SUBROUTINE cell_avg( psi_c, ptr_patch, avg_coeff, avg_psi_c,     &
   &                  opt_slev, opt_elev, opt_rlstart, opt_rlend, &
   &                  opt_acc_async )
 !
-
 !
 !  patch on which computation is performed
 !
@@ -1359,24 +1356,27 @@ IF (timers_level > 10) CALL timer_start(timer_intp)
       END DO !cell loop
 
     END DO !vertical levels loop
-!$ACC END PARALLEL
+    !$ACC END PARALLEL
 
   END DO !block loop
 
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
+  IF ( PRESENT(opt_acc_async) ) THEN
+    IF ( .NOT. opt_acc_async ) THEN
+      !$ACC WAIT
+    END IF
+  ELSE
+    !$ACC WAIT
+  END IF
+
 !$ACC UPDATE HOST( avg_psi_c ) WAIT, IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 IF (timers_level > 10) CALL timer_stop(timer_intp)
 
-IF ( PRESENT(opt_acc_async) ) THEN
-  IF ( opt_acc_async ) THEN
-    RETURN
-  END IF
-END IF
-!$ACC WAIT
+
 
 END SUBROUTINE cell_avg
 

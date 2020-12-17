@@ -412,6 +412,8 @@ SUBROUTINE recon_lsq_cell_l( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     IF ( .NOT. opt_acc_async ) THEN
       !$ACC WAIT
     END IF
+  ELSE
+    !$ACC WAIT
   END IF
 !$ACC UPDATE HOST(p_coeff) WAIT IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
@@ -612,6 +614,8 @@ SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff,      &
     IF ( .NOT. opt_acc_async ) THEN
       !$ACC WAIT
     END IF
+  ELSE
+    !$ACC WAIT
   END IF
 
 END SUBROUTINE recon_lsq_cell_l_svd

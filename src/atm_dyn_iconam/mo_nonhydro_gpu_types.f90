@@ -281,13 +281,15 @@ CONTAINS
 
       IF ( host_to_device ) THEN
 
-!$ACC ENTER DATA COPYIN( advection_config(j)%trHydroMass%list ) &
-!$ACC            IF ( i_am_accel_node  )
+!$ACC ENTER DATA &
+!$ACC       COPYIN( advection_config(j)%trHydroMass%list, advection_config(j)%iadv_slev, advection_config(j)%trAdvect%list ) &
+!$ACC       IF ( i_am_accel_node  )
 
       ELSE
 
-!$ACC EXIT DATA DELETE( advection_config(j)%trHydroMass%list )  &
-!$ACC           IF ( i_am_accel_node  )
+!$ACC EXIT DATA &
+!$ACC      DELETE( advection_config(j)%trHydroMass%list, advection_config(j)%iadv_slev, advection_config(j)%trAdvect%list )  &
+!$ACC      IF ( i_am_accel_node  )
 
       ENDIF
 

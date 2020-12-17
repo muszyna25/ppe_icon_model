@@ -253,6 +253,26 @@ CHARACTER(132) :: message_text = ''
 
 CONTAINS
 
+#ifdef _OPENACC
+! GPU code can't flush to zero double precision denormals
+! So to avoid CPU-GPU differences we'll do it manually
+FUNCTION make_normalized(v)
+  !$ACC ROUTINE SEQ
+  REAL(wp) :: v, make_normalized
+
+  IF (ABS(v) <= 2.225073858507201e-308_wp) THEN
+    make_normalized = 0.0_wp
+  ELSE
+    make_normalized = v
+  END IF
+END FUNCTION
+#else
+FUNCTION make_normalized(v)
+  REAL(wp) :: v, make_normalized
+    make_normalized = v
+END FUNCTION
+#endif
+
 !==============================================================================
 !> Module procedure "graupel" in "gscp_graupel" for computing effects of grid
 !! scale precipitation including cloud water, cloud ice, graupel, rain and snow
@@ -848,15 +868,15 @@ SUBROUTINE graupel     (             &
       ! 2.1: Preparations for computations and to check the different conditions
       !----------------------------------------------------------------------------
 
-      qrg = qr(iv,k)
-      qsg = qs(iv,k)
-      qgg = qg(iv,k)
-      qvg = qv(iv,k)
-      qcg = qc(iv,k)
-      qig = qi(iv,k)
-      tg  = t(iv,k)
-      ppg = p(iv,k)
-      rhog = rho(iv,k)
+      qrg  = make_normalized(qr(iv,k))
+      qsg  = make_normalized(qs(iv,k))
+      qgg  = make_normalized(qg(iv,k))
+      qvg  = make_normalized(qv(iv,k))
+      qcg  = make_normalized(qc(iv,k))
+      qig  = make_normalized(qi(iv,k))
+      tg   = make_normalized(t(iv,k))
+      ppg  = make_normalized(p(iv,k))
+      rhog = make_normalized(rho(iv,k))
 
       !..for density correction of fall speeds
       z1orhog = 1.0_wp/rhog
@@ -1515,7 +1535,7 @@ SUBROUTINE graupel     (             &
       zqrt =   scau   + sshed  + scac   + ssmelt + sgmelt - sev    - srcri  - srfrz  + sconr
       zqst =   siau   + sdau   - ssmelt + srim   + ssdep  + sagg   - sconsg
       zqgt =   sagg2  - sgmelt + sicri  + srcri  + sgdep  + srfrz  + srim2  + sconsg
-      
+
       ztt = z_heat_cap_r*( lh_v*(zqct+zqrt) + lh_s*(zqit+zqst+zqgt) )
 
 #ifdef __COSMO__

@@ -1241,7 +1241,10 @@ SUBROUTINE grad_green_gauss_cell_dycore(p_ccpr, ptr_patch, ptr_int, p_grad,     
       IF ( .NOT. opt_acc_async ) THEN
         !$ACC WAIT
       END IF
+    ELSE
+      !$ACC WAIT
     END IF
+    
 !$ACC UPDATE HOST( p_grad ) WAIT IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
   END SUBROUTINE grad_green_gauss_cell_dycore
