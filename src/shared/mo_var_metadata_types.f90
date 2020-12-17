@@ -116,6 +116,7 @@ MODULE mo_var_metadata_types
 
 
   TYPE :: t_var_metadata
+    INTEGER(C_SIZE_T)          :: just_a_dummy = 1234
     CHARACTER(len=vname_len)   :: name        = ''             ! variable name
     INTEGER                    :: var_class   = CLASS_DEFAULT  ! variable type
     INTEGER                    :: data_type   = -1             ! variable data type: REAL_T, SINGLE_T, INT_T, BOOL_T
@@ -221,8 +222,7 @@ CONTAINS
     INTERFACE
       FUNCTION get_ptrdiff(a, b) RESULT(s) BIND(C,NAME='util_get_ptrdiff')
         USE ISO_C_BINDING, ONLY: C_SIZE_T, c_ptr
-        INTEGER(C_SIZE_T) :: s
-        TYPE(c_ptr) :: a, b
+        INTEGER(C_SIZE_T) :: s, a, b
       END FUNCTION get_ptrdiff
     END INTERFACE
     TYPE(t_var_metadata), TARGET :: info_dummy(2)
@@ -232,7 +232,7 @@ CONTAINS
     IF (init) THEN
       bsize = bsize_saved
     ELSE
-      bsize = get_ptrdiff(C_LOC(info_dummy(1)), C_LOC(info_dummy(2)))
+      bsize = get_ptrdiff(info_dummy(1)%just_a_dummy, info_dummy(2)%just_a_dummy)
       bsize_saved = bsize
       init = .TRUE.
     END IF
