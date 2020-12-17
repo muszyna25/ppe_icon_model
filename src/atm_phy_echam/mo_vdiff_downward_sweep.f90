@@ -250,11 +250,11 @@ CONTAINS
     !$ACC PRESENT(pcfthv,aa,aa_btm,bb,bb_btm,pfactor_sfc,pcpt_tile)    &
     !$ACC PRESENT(pcptgz,pzthvvar,pthvsig,pztottevn)    &
     !---- Argument arrays - intent(out)
-    !$ACC PRESENT(pch_tile,pbn_tile,pbhn_tile,pbm_tile,pbh_tile) &
+    !$ACC PRESENT(pch_tile,pbn_tile,pbhn_tile,pbm_tile,pbh_tile, ddt_u, ddt_v) &
     !---- Optional Argument arrays - intent(in)
     !$ACC PRESENT(pcsat,pcair,paz0lh) &
     !---- Local variables
-    !$ACC CREATE(zghf,zghh,zfactor,zrmairm,zrmairh,zrmrefm) &
+    !$ACC CREATE(zghf,zghh,zfactor,zrmairm,zrmairh,zrmrefm,jztottevn) &
     !$ACC CREATE(ztheta_b,zthetav_b,zthetal_b,zqsat_b,zlh_b)
 
 
@@ -278,53 +278,54 @@ CONTAINS
 
     ! geopotential height above ground
 
-    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2)
+    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
     DO jk = 1,klev
          DO jl = jcs,jce
             zghf(jl,jk,jb) = pzf(jl,jk,jb) - pzh(jl,klevp1,jb)
          END DO
     END DO
+    !$ACC END PARALLEL LOOP
 
-    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2)
+    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
     DO jk = 1,klevp1
          DO jl = jcs,jce
             zghh (jl,jk,jb) = pzh(jl,jk,jb) - pzh(jl,klevp1,jb)
          END DO
     END DO
-
+    !$ACC END PARALLEL LOOP
+    
     ! reciprocal layer mass
-
-    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2)
+    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
     DO jk = 1,klev
          DO jl = jcs,jce
             zrmairm(jl,jk,jb) = 1._wp / pmair(jl,jk,jb)
             zrmrefm(jl,jk,jb) = 1._wp / pmref(jl,jk,jb)
          END DO
     END DO
-
-    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2)
+    !$ACC END PARALLEL LOOP
+    
+    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
     DO jk = 1,klevm1
       DO jl = jcs,jce
         zrmairh(jl,jk,jb) = 2._wp / (pmair(jl,jk,jb) + pmair(jl,jk+1,jb))
       END DO
     END DO
+    !$ACC END PARALLEL LOOP
 
+    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
     DO jk = 1,klev
        DO jl = jcs,jce
          ddt_u(jl,jk,jb) = 0._wp
          ddt_v(jl,jk,jb) = 0._wp
        END DO
     END DO
-
-    !$ACC WAIT
-
+    !$ACC END PARALLEL LOOP
+    
 !##############################################################################
 !## jb end loop1
    END DO
 !$OMP END PARALLEL DO
 !##############################################################################
-
-    !$ACC WAIT
 
 SELECT CASE ( turb ) ! select turbulent scheme
 CASE ( itte ) ! TTE scheme
@@ -369,12 +370,11 @@ CASE ( itte ) ! TTE scheme
                            & zqsat_b(:,jb),  zlh_b(:,jb),                                &! out, for "sfc_exchange_coeff"
                            & pri(:,1:klevm1,jb), pmixlen(:,1:klevm1,jb)                  )! out, for output
 
-    !$ACC WAIT
-
-    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR
+    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR ASYNC(1)
     DO jl = jcs,jce
       pmixlen(jl,klev,jb) = -999._wp
     END DO
+    !$ACC END PARALLEL LOOP
 
     !-----------------------------------------------------------------------
     ! 2. Compute exchange coefficients at the air-sea/ice/land interface.
@@ -416,23 +416,19 @@ CASE ( itte ) ! TTE scheme
                            & pcsat(:,jb),                                   &! in, optional
                            & pcair(:,jb))                                    ! in, optional
 
-    !$ACC WAIT
-
     IF ( isrfc_type == 1 ) THEN
+      !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR ASYNC(1)
       DO jl = jcs,jce
         pztottevn(jl,klev,jb) = jztottevn(jl,jb)
       END DO
+      !$ACC END PARALLEL LOOP
     END IF
-
-    !$ACC WAIT
 
 !##############################################################################
 !## jb end loop2
    END DO
 !$OMP END PARALLEL DO
 !##############################################################################
-
-    !$ACC WAIT
 
 CASE ( isma ) ! 3D Smagorinksy scheme
 
@@ -521,9 +517,6 @@ CASE ( isma ) ! 3D Smagorinksy scheme
 
 END SELECT    !select turbulent scheme
 
-    !$ACC WAIT
-
-
     !-----------------------------------------------------------------------
     ! 3. Set up coefficient matrix of the tri-diagonal system, then perform
     !    Gauss elimination for it. The matrix is built from
@@ -552,7 +545,7 @@ END SELECT    !select turbulent scheme
 
     zconst = tpfac1*pdtime
 
-    !$ACC PARALLEL DEFAULT(NONE)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = 1,klevm1
       DO jl = jcs,jce
@@ -561,14 +554,12 @@ END SELECT    !select turbulent scheme
     END DO
     !$ACC END PARALLEL
 
-    !$ACC PARALLEL DEFAULT(NONE)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jl = jcs,jce
       zfactor(jl,klev,jb) = zfactor(jl, klev,jb)*zconst
     END DO
     !$ACC END PARALLEL
-
-    !$ACC WAIT
 
     CALL matrix_setup_elim( jcs, jce, kbdim, klev, klevm1, ksfc_type, itop, &! in
                           & pcfm     (:,:,jb),   pcfh  (:,1:klevm1,jb),         &! in
@@ -578,17 +569,13 @@ END SELECT    !select turbulent scheme
                           & zrmairm(:,:,jb), zrmairh(:,:,jb), zrmrefm(:,:,jb),  &! in
                           & aa(:,:,:,:,jb), aa_btm(:,:,:,:,jb)                  )! out
 
-    !$ACC WAIT
-
     ! Save for output, to be used in "update_surface"
-    !$ACC PARALLEL DEFAULT(NONE)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jl = jcs,jce
       pfactor_sfc(jl,jb) = zfactor(jl,klev,jb)
     END DO
     !$ACC END PARALLEL
-
-    !$ACC WAIT
 
     !-----------------------------------------------------------------------
     ! 4. Set up right-hand side of the tri-diagonal system and perform
@@ -605,12 +592,8 @@ END SELECT    !select turbulent scheme
                   & zrmrefm(:,:,jb), pztottevn(:,:,jb), pzthvvar(:,:,jb), aa(:,:,:,:,jb),           &! in
                   & bb(:,:,:,jb), bb_btm(:,:,:,jb)                                                  )! out
 
-    !$ACC WAIT
-
     CALL rhs_elim ( jcs, jce, kbdim, itop, klev, klevm1, &! in
                   & aa(:,:,:,:,jb), bb(:,:,:,jb)         )! in, inout
-
-    !$ACC WAIT
 
 !##############################################################################
 !## jb end loop3
@@ -618,10 +601,9 @@ END SELECT    !select turbulent scheme
 !$OMP END PARALLEL DO
 !##############################################################################
 
-    !$ACC END DATA
-    !$ACC END DATA
-
     !$ACC WAIT
+    !$ACC END DATA
+    !$ACC END DATA
 
   END SUBROUTINE vdiff_down
   !-------------

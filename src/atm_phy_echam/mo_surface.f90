@@ -297,14 +297,14 @@ CONTAINS
     !$ACC DATA PRESENT( pu_stress_gbm, pv_stress_gbm, plhflx_gbm, pshflx_gbm,  &
     !$ACC               pevap_gbm, pu_stress_tile, pv_stress_tile, pevap_tile )
 
-    !$ACC DATA PRESENT( lsm, alake, pu, pv, ptemp, pq, prsfl, prsfc,           &
-    !$ACC               pssfl, pssfc, rlds, rsds, rvds_dir, rpds_dir,     &
-    !$ACC               rnds_dir, rvds_dif, rpds_dif, rnds_dif, ps,       &
-    !$ACC               pcosmu0, pch_tile, pcsat, pcair, z0h_lnd,         &
-    !$ACC               z0m_tile, albvisdir_tile, albnirdir_tile,         &
-    !$ACC               albvisdif_tile, albnirdif_tile, albedo, albvisdir,&
-    !$ACC               albvisdif, albnirdir, albnirdif, albedo_tile,     &
-    !$ACC               rlus, rsus, rsns_tile, rlns_tile, emissivity )    &
+    !$ACC DATA PRESENT( lsm, alake, pu, pv, ptemp, pq, prsfl, prsfc, pmair,    &
+    !$ACC               pssfl, pssfc, rlds, rsds, rvds_dir, rpds_dir,          &
+    !$ACC               rnds_dir, rvds_dif, rpds_dif, rnds_dif, ps,            &
+    !$ACC               pcosmu0, pch_tile, pcsat, pcair, z0h_lnd,              &
+    !$ACC               z0m_tile, albvisdir_tile, albnirdir_tile,              &
+    !$ACC               albvisdif_tile, albnirdif_tile, albedo, albvisdir,     &
+    !$ACC               albvisdif, albnirdir, albnirdif, albedo_tile,          &
+    !$ACC               rlus, rsus, rsns_tile, rlns_tile, emissivity )         &
     !$ACC      PRESENT( ptsfc, ptsfc_rad, lake_ice_frc, q_snocpymlt )          &
     !$ACC                IF( idx_lnd <= ksfc_type )
 
@@ -326,7 +326,7 @@ CONTAINS
     !$ACC               ztsfc_lice, rvds, rnds, rpds, rsns, rlns,               &
     !$ACC               fract_par_diffuse, zalbedo_lwtr, zalbedo_lice,          &
     !$ACC               zgrnd_hflx, zgrnd_hcap, Tfw, swflx_ice, nonsolar_ice,   &
-    !$ACC               dnonsolardT, conc_sum, mask, zwindspeed_lnd,            &
+    !$ACC               dnonsolardT, conc_sum, mask, delz, zwindspeed_lnd,      &
     !$ACC               zwindspeed10m_lnd,                                      &
     !$ACC               rain_tmp, snow_tmp, drag_srf_tmp, pch_tmp, drag_wtr_tmp,&
     !$ACC               drag_ice_tmp)
@@ -404,9 +404,12 @@ CONTAINS
     END DO
     !$ACC END PARALLEL
 
+    !$ACC PARALLEL DEFAULT(NONE)
+    !$ACC LOOP GANG VECTOR
     DO jl = jcs,kproma
       delz(jl) = (pmair(jl,klev) / pfac_sfc(jl) / tpfac2 * pdtime)
     END DO
+    !$ACC END PARALLEL
     !$ACC WAIT
 
     ! Turbulent transport of moisture:

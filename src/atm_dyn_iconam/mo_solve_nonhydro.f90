@@ -2890,7 +2890,7 @@ MODULE mo_solve_nonhydro
       ! Index list over halo points lying in the boundary interpolation zone
       ! Note: this list typically contains at most 10 grid points
 
-!$ACC PARALLEL , IF( i_am_accel_node .AND. acc_on )  DEFAULT(NONE) ASYNC(1)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )  DEFAULT(NONE) ASYNC(1)
 !$ACC LOOP GANG
 #ifndef __SX__
 !$OMP DO PRIVATE(jb,ic,jk,jc) ICON_OMP_DEFAULT_SCHEDULE

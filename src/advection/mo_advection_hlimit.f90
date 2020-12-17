@@ -103,7 +103,7 @@ CONTAINS
   SUBROUTINE hflx_limiter_mo( ptr_patch, ptr_int, p_dtime, p_cc,            &
     &                         p_rhodz_now, p_rhodz_new, p_mass_flx_e,       &
     &                         p_mflx_tracer_h, slev, elev, opt_beta_fct,    &
-    &                         opt_rlstart, opt_rlend, opt_acc_async )
+    &                         opt_rlstart, opt_rlend )
 
     TYPE(t_patch), TARGET, INTENT(inout) ::  &   !< patch on which computation is performed
       &  ptr_patch
@@ -144,9 +144,6 @@ CONTAINS
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
       &  opt_rlend                     !< (to avoid calculation of halo points)
-
-    LOGICAL, INTENT(IN), OPTIONAL :: & !< optional async OpenACC
-      &  opt_acc_async
 
 
     REAL(wp) ::                 &    !< first order tracer mass flux
@@ -567,15 +564,9 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-!$ACC UPDATE HOST( p_mflx_tracer_h ) WAIT IF (acc_validate .AND. i_am_accel_node .AND. acc_on)
+!$ACC WAIT
+!$ACC UPDATE HOST( p_mflx_tracer_h ) IF (acc_validate .AND. i_am_accel_node .AND. acc_on)
 !$ACC END DATA
-
-    IF ( PRESENT(opt_acc_async) ) THEN
-      IF ( opt_acc_async ) THEN
-        RETURN
-      END IF
-    END IF
-    !$ACC WAIT
 
   END SUBROUTINE hflx_limiter_mo
 
@@ -603,7 +594,7 @@ CONTAINS
   !!
   SUBROUTINE hflx_limiter_pd( ptr_patch, ptr_int, p_dtime, p_cc,        &
     &                         p_rhodz_now, p_mflx_tracer_h, slev, elev, &
-    &                         opt_rlstart, opt_rlend, opt_acc_async )
+    &                         opt_rlstart, opt_rlend )
 
     TYPE(t_patch), TARGET, INTENT(INOUT) ::  &   !< patch on which computation is performed
       &  ptr_patch
@@ -637,10 +628,7 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
      &  opt_rlend                      !< (to avoid calculation of halo points)
 
-    LOGICAL, INTENT(IN), OPTIONAL :: & !< optional async OpenACC
-     &  opt_acc_async
-
-#if defined(__INTEL_COMPILER) || defined(__SX__)
+#if defined(__INTEL_COMPILER) || defined(__SX__) || defined(_OPENACC)
     REAL(wp) :: z_mflx1,  z_mflx2, z_mflx3
 #else
     REAL(wp) ::                 &    !< tracer mass flux ( total mass crossing the edge )
@@ -656,7 +644,6 @@ CONTAINS
 #ifndef __INTEL_COMPILER
     REAL(wp) :: p_m                          !< sum of fluxes out of cell jc
                                              !< [kg m^-3]
-
 #else
     REAL(wp) :: p_m(nproma,slev:elev)
 #endif
@@ -700,7 +687,7 @@ CONTAINS
     iidx => ptr_patch%cells%edge_idx
     iblk => ptr_patch%cells%edge_blk
 
-!$ACC DATA CREATE( z_mflx, r_m ), PCOPYIN( p_cc, p_rhodz_now ), PCOPY( p_mflx_tracer_h ),  &
+!$ACC DATA CREATE( r_m ), PCOPYIN( p_cc, p_rhodz_now ), PCOPY( p_mflx_tracer_h ),  &
 !$ACC      PRESENT( ptr_patch, ptr_int, iilc, iibc, iidx, iblk ),                          &
 !$ACC      IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( p_cc, p_mflx_tracer_h ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
@@ -740,7 +727,6 @@ CONTAINS
 !$OMP            z_mflx1,z_mflx2,z_mflx3) ICON_OMP_DEFAULT_SCHEDULE
 #else
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,p_m,z_mflx) ICON_OMP_DEFAULT_SCHEDULE
-
 #endif
     DO jb = i_startblk, i_endblk
 
@@ -758,7 +744,7 @@ CONTAINS
         DO jc = i_startidx, i_endidx
 #endif
 
-#if defined (__SX__)
+#if defined (__SX__) || defined ( _OPENACC )
           z_mflx1 = ptr_int%geofac_div(jc,1,jb) * p_dtime &
             &                * p_mflx_tracer_h(iidx(jc,jb,1),jk,iblk(jc,jb,1))
           z_mflx2 = ptr_int%geofac_div(jc,2,jb) * p_dtime &
@@ -892,15 +878,9 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-!$ACC UPDATE HOST( p_mflx_tracer_h ) WAIT IF (acc_validate .AND. i_am_accel_node .AND. acc_on )
+!$ACC WAIT
+!$ACC UPDATE HOST( p_mflx_tracer_h ) IF (acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
-
-    IF ( PRESENT(opt_acc_async) ) THEN
-      IF ( opt_acc_async ) THEN
-        RETURN
-      END IF
-    END IF
-    !$ACC WAIT
 
   END SUBROUTINE hflx_limiter_pd
 

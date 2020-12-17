@@ -430,8 +430,7 @@ CONTAINS
           &         opt_rhodz_new   = p_rhodz_new,              & !in
           &         opt_lconsv      = llsq_lin_consv,           & !in
           &         opt_rlend       = i_rlend,                  & !in
-          &         opt_slev        = advconf%iadv_slev(jt),    & !in
-          &         opt_acc_async   = .TRUE.                    ) !in
+          &         opt_slev        = advconf%iadv_slev(jt) )     !in
 
 
       CASE( MIURA3 )  ! ihadv_tracer = 3
@@ -567,8 +566,7 @@ CONTAINS
           &         opt_lconsv      = llsq_lin_consv,           & !in
           &         opt_rlend       = i_rlend,                  & !in
           &         opt_slev        = qvsubstep_elev+1,         & !in
-          &         opt_elev        = p_patch%nlev,             & !in
-          &         opt_acc_async   = .TRUE.                    ) !in
+          &         opt_elev        = p_patch%nlev )              !in
 
 
 
@@ -967,7 +965,7 @@ CONTAINS
     &                      p_int, btraj, p_igrad_c_miura, p_itype_hlimit,   &
     &                      p_out_e, opt_rhodz_now, opt_rhodz_new,           &
     &                      opt_lconsv, opt_rlstart, opt_rlend,              &
-    &                      opt_lout_edge, opt_slev, opt_elev, opt_acc_async )
+    &                      opt_lout_edge, opt_slev, opt_elev )
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_advection_hflux: upwind_hflux_miura'
@@ -1023,10 +1021,6 @@ CONTAINS
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
       &  opt_elev
-
-    LOGICAL, INTENT(IN), OPTIONAL :: & !< optional async OpenACC
-      &  opt_acc_async   
-
 
     LOGICAL  :: l_out_edgeval          !< corresponding local variable; default .FALSE.
                                        !< i.e. output flux across the edge
@@ -1154,12 +1148,13 @@ CONTAINS
         &                              opt_lconsv=l_consv )
         use_zlsq = .TRUE.
       ELSE IF (advection_config(pid)%llsq_svd) THEN
-        CALL recon_lsq_cell_l_svd( p_cc, p_patch, lsq_lin, z_grad,                  &
-        &                        opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c )
+        CALL recon_lsq_cell_l_svd( p_cc, p_patch, lsq_lin, z_grad,                     &
+             &                     opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c,  &
+             &                     opt_acc_async = .TRUE. )
       ELSE
         CALL recon_lsq_cell_l( p_cc, p_patch, lsq_lin, z_lsq_coeff,             &
         &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
-        &                    opt_lconsv=l_consv )
+        &                    opt_lconsv=l_consv, opt_acc_async = .TRUE. )
         use_zlsq = .TRUE.
       ENDIF
 
@@ -1306,8 +1301,7 @@ CONTAINS
       ENDIF
       CALL hflx_limiter_mo( p_patch, p_int, p_dtime, p_cc,               & !in
         &                   opt_rhodz_now, opt_rhodz_new, p_mass_flx_e,  & !in
-        &                   p_out_e, slev, elev, opt_rlend=i_rlend,      & !inout,in
-        &                   opt_acc_async=.TRUE.                         ) !in
+        &                   p_out_e, slev, elev, opt_rlend=i_rlend )       !inout,in
 
     ELSE IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_sm) THEN
       IF (.NOT. (PRESENT(opt_rhodz_now))) THEN
@@ -1316,21 +1310,14 @@ CONTAINS
       ! MPI-sync necessary
       CALL hflx_limiter_pd( p_patch, p_int, p_dtime,                 & !in
         &                   p_cc, opt_rhodz_now, p_out_e,            & !in,inout
-        &                   slev, elev, opt_rlend=i_rlend,           & !in
-        &                   opt_acc_async=.TRUE.                     ) !in
+        &                   slev, elev, opt_rlend=i_rlend )            !in
     ENDIF
 
-!$ACC UPDATE HOST( p_out_e ) WAIT IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+!$ACC WAIT
+!$ACC UPDATE HOST( p_out_e ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 !$ACC END DATA
 !$ACC END DATA
-
-    IF ( PRESENT(opt_acc_async) ) THEN
-      IF ( opt_acc_async ) THEN
-        RETURN
-      END IF
-    END IF
-    !$ACC WAIT
 
   END SUBROUTINE upwind_hflux_miura
 
