@@ -6,7 +6,7 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 MODULE mo_var_list_register
-  USE mo_var_metadata_types, ONLY: var_metadata_fromBinary, var_metadata_toBinary
+  USE mo_var_metadata_types, ONLY: var_metadata_fromBinary, var_metadata_toBinary, var_metadata_get_size
   USE mo_var,              ONLY: t_var
   USE mo_var_list,         ONLY: t_var_list_ptr
   USE mo_exception,        ONLY: message, finish
@@ -147,7 +147,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: op
     TYPE(t_PackedMessage), INTENT(INOUT) :: pmsg
     INTEGER, INTENT(OUT), OPTIONAL :: nv_all
-    INTEGER :: ivl, nvl, iv, nv, nv_al, patch_id, r_type, vl_type, ierr
+    INTEGER :: ivl, nvl, iv, nv, nv_al, patch_id, r_type, vl_type, ierr, infosize
     INTEGER, ALLOCATABLE :: info_buf(:)
     TYPE(t_var), POINTER :: elem
     CHARACTER(LEN=128) :: vl_name
@@ -163,6 +163,7 @@ CONTAINS
     CALL pmsg%packer(op, nvl)
     nv_al = 0
     l_end = .false.
+    infosize = var_metadata_get_size()
     DO ivl = 1, nvl
       IF(op .EQ. kPackOp) THEN
         IF (.NOT.iter_next(iter)) THEN
@@ -195,7 +196,7 @@ CONTAINS
       IF (op .EQ. kPackOp) THEN
         DO iv = 1, vlp%p%nvars
           elem => vlp%p%vl(iv)%p
-          info_buf = var_metadata_toBinary(elem%info)
+          info_buf = var_metadata_toBinary(elem%info, infosize)
           CALL pmsg%pack(info_buf)
           CALL pmsg%pack(vlp%p%tl(iv))
           CALL pmsg%pack(vlp%p%hgrid(iv))
@@ -218,7 +219,7 @@ CONTAINS
           NULLIFY(elem%r_ptr, elem%s_ptr, elem%i_ptr, elem%l_ptr)
           elem%var_base_size = 0 ! Unknown here
           CALL pmsg%unpack(info_buf)
-          elem%info = var_metadata_fromBinary(info_buf)
+          elem%info = var_metadata_fromBinary(info_buf, infosize)
           CALL pmsg%unpack(vlp%p%tl(iv))
           CALL pmsg%unpack(vlp%p%hgrid(iv))
           CALL pmsg%unpack(vlp%p%key(iv))

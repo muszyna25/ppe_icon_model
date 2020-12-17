@@ -101,7 +101,8 @@ CONTAINS
       & CALL finish(routine, "Internal error!")
 
     ! copy the info object into the memory window
-    memwin%mem_ptr_metainfo_pe0(:, ivar) = var_metadata_toBinary(info)
+    memwin%mem_ptr_metainfo_pe0(:, ivar) = var_metadata_toBinary(info, &
+      & SIZE(memwin%mem_ptr_metainfo_pe0, 1))
   END SUBROUTINE metainfo_write_to_memwin
 
 
@@ -117,7 +118,7 @@ CONTAINS
     TYPE(t_var_metadata), INTENT(OUT) :: info   ! meta data for variable
 
     ! copy the info object from the memory window
-    info = var_metadata_fromBinary(buf)
+    info = var_metadata_fromBinary(buf, SIZE(buf))
   END SUBROUTINE metainfo_get_from_buffer
 
   !-------------------------------------------------------------------------------------------------

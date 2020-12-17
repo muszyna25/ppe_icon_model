@@ -8,7 +8,7 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 MODULE mo_var_metadata_types
-
+  USE ISO_C_BINDING,            ONLY: C_SIZE_T, C_LOC, c_ptr
   USE mo_kind,                  ONLY: dp, wp, sp
   USE mo_impl_constants,        ONLY: TLEV_NNOW, vname_len, &
     & VINTP_METHOD_LIN, HINTP_TYPE_LONLAT_RBF
@@ -19,6 +19,7 @@ MODULE mo_var_metadata_types
   USE mo_model_domain,          ONLY: t_subset_range
   USE mo_var_groups,            ONLY: MAX_GROUPS
   USE mo_cdi,                   ONLY: TSTEP_INSTANT, CDI_UNDEFID
+  USE mo_exception,             ONLY: finish
 
   IMPLICIT NONE
   PRIVATE
@@ -63,7 +64,7 @@ MODULE mo_var_metadata_types
   ! ---------------------------------------------------------------
   ! META-DATA TYPE DEFINITIONS
 
-  TYPE t_union_vals
+  TYPE :: t_union_vals
     REAL(dp) :: rval = 0._dp
     REAL(sp) :: sval = 0._sp
     INTEGER  :: ival = 0
@@ -71,7 +72,7 @@ MODULE mo_var_metadata_types
   END type t_union_vals
 
   !> data specific for pz-level interpolation.
-  TYPE t_vert_interp_meta
+  TYPE :: t_vert_interp_meta
     ! meta data containing the groups to which a variable belongs
     LOGICAL  :: vert_intp_type(SIZE(VINTP_TYPE_LIST)) = .FALSE.
     INTEGER  :: vert_intp_method                      = VINTP_METHOD_LIN
@@ -87,7 +88,7 @@ MODULE mo_var_metadata_types
   END TYPE t_vert_interp_meta
 
   !> data specific for horizontal interpolation.
-  TYPE t_hor_interp_meta
+  TYPE :: t_hor_interp_meta
     INTEGER :: hor_intp_type = HINTP_TYPE_LONLAT_RBF ! NONE/RBF/Nearest-Neighbor/...
     INTEGER :: fallback_type = HINTP_TYPE_LONLAT_RBF ! replaces "hor_intp_type" if this is not feasible
     INTEGER :: lonlat_id     = 0 ! lon-lat grid (ID in global list)
@@ -114,7 +115,7 @@ MODULE mo_var_metadata_types
   END TYPE t_post_op_meta
 
 
-  TYPE t_var_metadata
+  TYPE :: t_var_metadata
     CHARACTER(len=vname_len)   :: name        = ''             ! variable name
     INTEGER                    :: var_class   = CLASS_DEFAULT  ! variable type
     INTEGER                    :: data_type   = -1             ! variable data type: REAL_T, SINGLE_T, INT_T, BOOL_T
@@ -193,32 +194,70 @@ MODULE mo_var_metadata_types
   PUBLIC :: t_hor_interp_meta
   PUBLIC :: t_post_op_meta
 
-  TYPE(t_var_metadata) :: info_dummy
+  INTERFACE cmemcpy
+    TYPE(c_ptr) FUNCTION do_cmemcpy(a, b, s) BIND(C,NAME='memcpy')
+      USE ISO_C_BINDING, ONLY: C_SIZE_T, c_ptr
+      INTEGER(C_SIZE_T), VALUE :: s
+      TYPE(c_ptr), VALUE :: a, b
+    END FUNCTION do_cmemcpy
+  END INTERFACE cmemcpy
 
 CONTAINS
 
-  !-------------------------------------------------------------------------------------------------
-  !> @return size of a single variable's info object
-  !
-  !  @author F. Prill, DWD
-  !
-  PURE INTEGER FUNCTION var_metadata_get_size()
+  INTEGER FUNCTION var_metadata_get_size() RESULT(isize)
+    INTEGER, SAVE :: isize_saved = 0
+    LOGICAL, SAVE :: init = .FALSE.
 
-    var_metadata_get_size = SIZE(TRANSFER(info_dummy, [1]))
+    IF (init) THEN
+      isize = isize_saved
+    ELSE
+      isize = (size_byte() + 3) / 4
+      isize_saved = isize
+      init = .TRUE.
+    END IF
   END FUNCTION var_metadata_get_size
 
-  PURE FUNCTION var_metadata_toBinary(info) RESULT(bin)
-    TYPE(t_var_metadata), INTENT(IN) :: info
-    INTEGER :: bin(var_metadata_get_size())
+  INTEGER(C_SIZE_T) FUNCTION size_byte() RESULT(bsize)
+    INTERFACE
+      FUNCTION get_ptrdiff(a, b) RESULT(s) BIND(C,NAME='util_get_ptrdiff')
+        USE ISO_C_BINDING, ONLY: C_SIZE_T, c_ptr
+        INTEGER(C_SIZE_T) :: s
+        TYPE(c_ptr) :: a, b
+      END FUNCTION get_ptrdiff
+    END INTERFACE
+    TYPE(t_var_metadata), TARGET :: info_dummy(2)
+    INTEGER(C_SIZE_T), SAVE :: bsize_saved = 0
+    LOGICAL, SAVE :: init = .FALSE.
 
-    bin(1:var_metadata_get_size()) = TRANSFER(info, [1])
+    IF (init) THEN
+      bsize = bsize_saved
+    ELSE
+      bsize = get_ptrdiff(C_LOC(info_dummy(1)), C_LOC(info_dummy(2)))
+      bsize_saved = bsize
+      init = .TRUE.
+    END IF
+  END FUNCTION size_byte
+
+  FUNCTION var_metadata_toBinary(info, isize) RESULT(bin)
+    TYPE(t_var_metadata), INTENT(IN), TARGET :: info
+    INTEGER, INTENT(IN) :: isize
+    INTEGER, TARGET :: bin(isize)
+    TYPE(c_ptr) :: dummy_cptr
+
+    IF (var_metadata_get_size() .GT. isize) &
+      & CALL finish("var_metadata_toBinary", "size mismatch")
+    dummy_cptr = cmemcpy(C_LOC(bin), C_LOC(info), size_byte())
   END FUNCTION var_metadata_toBinary
 
-  PURE FUNCTION var_metadata_fromBinary(bin) RESULT(info)
-    INTEGER, INTENT(IN) :: bin(var_metadata_get_size())
-    TYPE(t_var_metadata) :: info
+  FUNCTION var_metadata_fromBinary(bin, isize) RESULT(info)
+    INTEGER, INTENT(IN) :: isize
+    INTEGER, INTENT(IN), TARGET :: bin(isize)
+    TYPE(t_var_metadata), TARGET :: info
+    TYPE(c_ptr) :: dummy_cptr
 
-    info = TRANSFER(bin(1:var_metadata_get_size()), info_dummy)
+    IF (var_metadata_get_size() .GT. isize) &
+      & CALL finish("var_metadata_fromBinary", "size mismatch")
+    dummy_cptr = cmemcpy(C_LOC(info), C_LOC(bin), size_byte())
   END FUNCTION var_metadata_fromBinary
 
 END MODULE mo_var_metadata_types
