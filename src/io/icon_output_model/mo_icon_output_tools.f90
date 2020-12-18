@@ -163,14 +163,13 @@ MODULE mo_icon_output_tools
         sim_step_info%run_start = time_config%tc_startdate
         sim_step_info%restart_time = time_config%tc_stopdate
 
-        sim_step_info%dtime      = dtime
+        sim_step_info%dtime  = dtime
         sim_step_info%jstep0 = 0
 
         CALL getAttributesForRestarting(restartAttributes)
         ! get start counter for time loop from restart file:
         IF (restartAttributes%is_init) &
-          CALL restartAttributes%get("jstep", sim_step_info%jstep0)
-        CALL init_statistics_streams
+          & CALL restartAttributes%get("jstep", sim_step_info%jstep0)
       ENDIF
 
      IF (.NOT. xt_initialized()) CALL xt_initialize(p_comm_work_io)
