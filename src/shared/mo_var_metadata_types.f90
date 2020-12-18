@@ -20,6 +20,8 @@ MODULE mo_var_metadata_types
   USE mo_var_groups,            ONLY: MAX_GROUPS
   USE mo_cdi,                   ONLY: TSTEP_INSTANT, CDI_UNDEFID
   USE mo_exception,             ONLY: finish
+  USE mo_util_stride,           ONLY: util_get_ptrdiff
+  USE mo_util_libc,             ONLY: memcpy
 
   IMPLICIT NONE
   PRIVATE
@@ -116,7 +118,7 @@ MODULE mo_var_metadata_types
 
 
   TYPE :: t_var_metadata
-    INTEGER(C_SIZE_T)          :: just_a_dummy = 1234
+    INTEGER(C_SIZE_T)          :: c_interop = 1234 ! just a C-interoperable dummy member
     CHARACTER(len=vname_len)   :: name        = ''             ! variable name
     INTEGER                    :: var_class   = CLASS_DEFAULT  ! variable type
     INTEGER                    :: data_type   = -1             ! variable data type: REAL_T, SINGLE_T, INT_T, BOOL_T
@@ -185,7 +187,6 @@ MODULE mo_var_metadata_types
     CLASS(t_tracer_meta), ALLOCATABLE :: tracer      ! Tracer-specific metadata
   END TYPE t_var_metadata_dynamic
 
-
   PUBLIC :: VINTP_TYPE_LIST
   PUBLIC :: t_union_vals
   PUBLIC :: t_var_metadata, t_var_metadata_ptr, var_metadata_get_size
@@ -194,14 +195,6 @@ MODULE mo_var_metadata_types
   PUBLIC :: t_vert_interp_meta
   PUBLIC :: t_hor_interp_meta
   PUBLIC :: t_post_op_meta
-
-  INTERFACE cmemcpy
-    TYPE(c_ptr) FUNCTION do_cmemcpy(a, b, s) BIND(C,NAME='memcpy')
-      USE ISO_C_BINDING, ONLY: C_SIZE_T, c_ptr
-      INTEGER(C_SIZE_T), VALUE :: s
-      TYPE(c_ptr), VALUE :: a, b
-    END FUNCTION do_cmemcpy
-  END INTERFACE cmemcpy
 
 CONTAINS
 
@@ -219,20 +212,14 @@ CONTAINS
   END FUNCTION var_metadata_get_size
 
   INTEGER(C_SIZE_T) FUNCTION size_byte() RESULT(bsize)
-    INTERFACE
-      FUNCTION get_ptrdiff(a, b) RESULT(s) BIND(C,NAME='util_get_ptrdiff')
-        USE ISO_C_BINDING, ONLY: C_SIZE_T, c_ptr
-        INTEGER(C_SIZE_T) :: s, a, b
-      END FUNCTION get_ptrdiff
-    END INTERFACE
-    TYPE(t_var_metadata), TARGET :: info_dummy(2)
+    TYPE(t_var_metadata), TARGET :: dummy(2)
     INTEGER(C_SIZE_T), SAVE :: bsize_saved = 0
     LOGICAL, SAVE :: init = .FALSE.
 
     IF (init) THEN
       bsize = bsize_saved
     ELSE
-      bsize = get_ptrdiff(info_dummy(1)%just_a_dummy, info_dummy(2)%just_a_dummy)
+      bsize = util_get_ptrdiff(dummy(1)%c_interop, dummy(2)%c_interop)
       bsize_saved = bsize
       init = .TRUE.
     END IF
@@ -246,7 +233,7 @@ CONTAINS
 
     IF (var_metadata_get_size() .GT. isize) &
       & CALL finish("var_metadata_toBinary", "size mismatch")
-    dummy_cptr = cmemcpy(C_LOC(bin), C_LOC(info), size_byte())
+    dummy_cptr = memcpy(C_LOC(bin), C_LOC(info), size_byte())
   END FUNCTION var_metadata_toBinary
 
   FUNCTION var_metadata_fromBinary(bin, isize) RESULT(info)
@@ -257,7 +244,7 @@ CONTAINS
 
     IF (var_metadata_get_size() .GT. isize) &
       & CALL finish("var_metadata_fromBinary", "size mismatch")
-    dummy_cptr = cmemcpy(C_LOC(info), C_LOC(bin), size_byte())
+    dummy_cptr = memcpy(C_LOC(info), C_LOC(bin), size_byte())
   END FUNCTION var_metadata_fromBinary
 
 END MODULE mo_var_metadata_types
