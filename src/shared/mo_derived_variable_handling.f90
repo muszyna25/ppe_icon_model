@@ -241,7 +241,7 @@ CONTAINS
       & vert_interp=info%vert_interp, hor_interp=info%hor_interp, &
       & in_group=info%in_group, l_pp_scheduler_task=info%l_pp_scheduler_task, &
       & loutput=.TRUE., lrestart=.FALSE., var_class=info%var_class )
-    __acc_attach(vl_elem%field%r_ptr)
+    __acc_attach(vl_elem%r_ptr)
     SELECT CASE(info%hgrid)
     CASE(GRID_UNSTRUCTURED_CELL)
       vl_elem%info%subset = patch_2d%cells%owned
@@ -341,6 +341,7 @@ CONTAINS
     INTEGER :: ni, j, k, l, m, lsi, lei, blk, si, ei, joff, koff
     LOGICAL :: ls, blk_is3
     REAL(wp), POINTER :: tmp1(:,:,:,:,:), tmp2(:,:,:,:,:)
+    REAL(wp) :: miss__, weight__
 
     ls = br .NE. 0
     blk_is3 = br .EQ. 3
@@ -476,6 +477,7 @@ CONTAINS
       END DO
 !ICON_OMP END DO NOWAIT
     CASE(7)
+      weight__ = weight
 !ICON_OMP DO COLLAPSE(4)
 !$ACC PARALLEL LOOP DEFAULT(PRESENT) GANG VECTOR COLLAPSE(4) IF(i_am_accel_node)
       DO m = 1, SIZE(tmp1,5)
@@ -486,13 +488,14 @@ CONTAINS
               lsi = MERGE(si, 1,  ls .AND. blk .EQ. 1)
               lei = MERGE(ei, ni, ls .AND. blk .EQ. eb)
               tmp2(lsi:lei,j+joff,k+koff,l,m) = &
-                & tmp2(lsi:lei,j+joff,k+koff,l,m) * weight
+                & tmp2(lsi:lei,j+joff,k+koff,l,m) * weight__
             END DO
           END DO
         END DO
       END DO
 !ICON_OMP END DO NOWAIT
     CASE(8)
+      miss__ = miss
 !ICON_OMP DO COLLAPSE(4)
 !$ACC PARALLEL LOOP DEFAULT(PRESENT) GANG VECTOR COLLAPSE(4) IF(i_am_accel_node)
       DO m = 1, SIZE(tmp2,5)
@@ -500,7 +503,7 @@ CONTAINS
           DO k = 1, SIZE(tmp2,3)
             DO j = 1, SIZE(tmp2,2)
               WHERE(tmp1(:,j,k,l,m) .EQ. miss_src) &
-                tmp2(:,j,k,l,m) = miss
+                tmp2(:,j,k,l,m) = miss__
             END DO
           END DO
         END DO
