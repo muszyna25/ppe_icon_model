@@ -660,12 +660,6 @@ CONTAINS
 
     !-----------------------------------------------------------------------
 
-#ifdef _OPENACC
-    IF (ntiles_total == 1) THEN
-      CALL finish ('sfc_albedo_modis','Routine not ported for ntiles_total == 1')
-    ENDIF
-#endif
-
     jg = pt_patch%id
     i_nchdom  = MAX(1,pt_patch%n_childdom)
 

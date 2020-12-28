@@ -1408,6 +1408,10 @@ CONTAINS
         & i_startidx, i_endidx, rl_start, rl_end)
 
        IF (ntiles_total == 1) THEN 
+
+        ! WARNING: This has been ported to GPU but has not been tested. If ntiles_total == 1 is
+        ! read from the namelist with GPU enabled, the code finishes.
+
          !$acc parallel if(lzacc)
          !$acc loop gang vector
          DO jc = i_startidx, i_endidx

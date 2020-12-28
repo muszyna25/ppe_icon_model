@@ -364,6 +364,9 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
       ! fraction and tile 1 of the land points)
       IF (ntiles_total == 1) THEN ! tile approach not used; use tile-averaged fields from extpar
 
+        ! WARNING: This has been ported to GPU but has not been tested. If ntiles_total == 1 is
+        ! read from the namelist with GPU enabled, the code finishes.
+
         !should be dependent on location in future!
         !$acc kernels default(present) if(lzacc)
         l_hori(i_startidx:i_endidx)=phy_params(jg)%mean_charlen
