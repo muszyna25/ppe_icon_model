@@ -5570,12 +5570,13 @@ CONTAINS
 
   END SUBROUTINE p_irecv_char
 
-  SUBROUTINE p_irecv_char_1d(t_buffer, p_source, p_tag, p_count, comm)
+  SUBROUTINE p_irecv_char_1d(t_buffer, p_source, p_tag, p_count, comm, request)
     CHARACTER(len=*), INTENT(inout) :: t_buffer(:)
     INTEGER,   INTENT(in) :: p_source, p_tag
     INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+    INTEGER, OPTIONAL, INTENT(out) :: request
 #ifndef NOMPI
-    INTEGER :: p_comm, icount
+    INTEGER :: p_comm, icount, out_request
 
     IF (PRESENT(comm)) THEN
        p_comm = comm
@@ -5595,14 +5596,20 @@ CONTAINS
 !$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
 #endif
 
-    CALL p_inc_request
     CALL mpi_irecv(t_buffer, icount, p_char, p_source, p_tag, &
-         p_comm, p_request(p_irequest), p_error)
+         p_comm, out_request, p_error)
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
 !$ACC END DATA
 #endif
+
+    IF (PRESENT(request)) THEN
+      request               = out_request
+    ELSE
+      CALL p_inc_request
+      p_request(p_irequest) = out_request
+    END IF
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -6024,13 +6031,15 @@ CONTAINS
 
   END SUBROUTINE p_irecv_int
 
-  SUBROUTINE p_irecv_int_1d (t_buffer, p_source, p_tag, p_count, comm)
+  SUBROUTINE p_irecv_int_1d(t_buffer, p_source, p_tag, p_count, comm, &
+    &                       request)
 
     INTEGER, INTENT(inout) :: t_buffer(:)
     INTEGER,   INTENT(in) :: p_source, p_tag
     INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+    INTEGER, OPTIONAL, INTENT(out) :: request
 #ifndef NOMPI
-    INTEGER :: p_comm, icount
+    INTEGER :: p_comm, icount, out_request
 
     IF (PRESENT(comm)) THEN
       p_comm = comm
@@ -6047,13 +6056,19 @@ CONTAINS
 !$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
-    CALL p_inc_request
     CALL mpi_irecv(t_buffer, icount, p_int, p_source, p_tag, &
-         p_comm, p_request(p_irequest), p_error)
+         p_comm, out_request, p_error)
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
 #endif
+
+    IF (PRESENT(request)) THEN
+      request               = out_request
+    ELSE
+      CALL p_inc_request
+      p_request(p_irequest) = out_request
+    END IF
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -6778,14 +6793,16 @@ CONTAINS
 
   END SUBROUTINE p_recv_packed
 
-  SUBROUTINE p_irecv_packed (t_buffer, p_source, p_tag, p_count, comm)
+  SUBROUTINE p_irecv_packed (t_buffer, p_source, p_tag, p_count, comm, &
+       request)
 
     CHARACTER, INTENT(INOUT) :: t_buffer(:)
     INTEGER,   INTENT(IN)    :: p_source, p_tag
     INTEGER,   INTENT(IN)    :: p_count
     INTEGER, OPTIONAL, INTENT(IN) :: comm
+    INTEGER, OPTIONAL, INTENT(out) :: request
 #ifndef NOMPI
-    INTEGER :: p_comm
+    INTEGER :: p_comm, out_request
 
     IF (PRESENT(comm)) THEN
        p_comm = comm
@@ -6793,9 +6810,15 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    CALL p_inc_request
     CALL MPI_IRECV (t_buffer, p_count, MPI_PACKED, p_source, p_tag, &
-      p_comm, p_request(p_irequest), p_error)
+      p_comm, out_request, p_error)
+
+    IF (PRESENT(request)) THEN
+      request               = out_request
+    ELSE
+      CALL p_inc_request
+      p_request(p_irequest) = out_request
+    END IF
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
