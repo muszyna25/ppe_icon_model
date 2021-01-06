@@ -706,6 +706,7 @@ MODULE mo_mpi
     MODULE PROCEDURE p_wait
     MODULE PROCEDURE p_wait_1
     MODULE PROCEDURE p_wait_n
+    MODULE PROCEDURE p_wait_n_stati
   END INTERFACE p_wait
 
   INTERFACE p_clear_request
@@ -8674,6 +8675,15 @@ CONTAINS
     CALL p_clear_request(requests)
 #endif
   END SUBROUTINE p_wait_n
+
+  SUBROUTINE p_wait_n_stati(requests, stati)
+    INTEGER, INTENT(INOUT) :: requests(:)
+    INTEGER, INTENT(out) :: stati(:,:)
+#ifndef NOMPI
+    CALL mpi_waitall(SIZE(requests), requests, stati, p_error)
+    CALL p_clear_request(requests)
+#endif
+  END SUBROUTINE p_wait_n_stati
 
   SUBROUTINE p_wait_any(return_pe)
 
