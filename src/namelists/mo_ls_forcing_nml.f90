@@ -116,6 +116,11 @@ CONTAINS
     IF(is_subsidence_moment .OR. is_subsidence_heat .OR. is_advection .OR. is_geowind .OR. is_rad_forcing) &
         is_ls_forcing = .TRUE.
 
+#ifdef _OPENACC
+    IF(is_ls_forcing) &
+        CALL finish(TRIM(routine),'is_ls_forcing not available on GPU.')
+#endif
+
     IF(is_ls_forcing .AND. .NOT.ltestcase) &
         CALL message(TRIM(routine),'ltestcase is turned ON because is_ls_forcing is ON!')
 

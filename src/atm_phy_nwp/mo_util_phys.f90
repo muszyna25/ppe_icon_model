@@ -46,6 +46,9 @@ MODULE mo_util_phys
   USE mo_nonhydrostatic_config, ONLY: kstart_moist
   USE mo_satad,                 ONLY: qsat_rho
   USE mo_upatmo_config,         ONLY: upatmo_config
+#if defined( _OPENACC )
+  USE mo_mpi,                   ONLY: i_am_accel_node
+#endif
 
 
   IMPLICIT NONE
@@ -687,6 +690,17 @@ CONTAINS
     INTEGER, DIMENSION(3), TARGET :: conv_list_small
     INTEGER, DIMENSION(5), TARGET :: conv_list_large
 
+    !$acc data present(p_rho_now, prm_nwp_tend, prm_nwp_tend%ddt_tracer_pconv, &
+    !$acc              prm_diag, prm_diag%rain_con, prm_diag%snow_con, prm_diag%prec_con, &
+    !$acc              prm_diag%rain_con_rate, pt_prog_rcf, pt_prog_rcf%tracer) &
+    !$acc      if(i_am_accel_node)
+
+    !$acc data create(zrhox, zrhox_clip) &
+    !$acc      if(i_am_accel_node)
+
+    !$acc data copyin(kstart_moist) &
+    !$acc      if(i_am_accel_node)
+
 
     ! get list of water tracers which are affected by convection
     IF (atm_phy_nwp_config(jg)%ldetrain_conv_prec) THEN
@@ -697,11 +711,15 @@ CONTAINS
       ptr_conv_list =>conv_list_small
     ENDIF
 
+    !$acc kernels default(none) if(i_am_accel_node)
     zrhox_clip(:,:) = 0._wp
+    !$acc end kernels
 
     ! add tendency due to convection
     DO jt=1,SIZE(ptr_conv_list)
       idx = ptr_conv_list(jt)
+      !$acc parallel default(none) if(i_am_accel_node)
+      !$acc loop gang vector collapse(2)
       DO jk = kstart_moist(jg), kend
         DO jc = i_startidx, i_endidx
           zrhox(jc,jk,jt) = p_rho_now(jc,jk)*pt_prog_rcf%tracer(jc,jk,jb,idx)  &
@@ -714,6 +732,7 @@ CONTAINS
           zrhox(jc,jk,jt) = MAX(0._wp, zrhox(jc,jk,jt))
         ENDDO
       ENDDO
+      !$acc end parallel
       !
       ! Re-diagnose tracer mass fraction from partial mass
       IF (idx == iqv) THEN
@@ -721,15 +740,20 @@ CONTAINS
         CYCLE         ! special treatment see below
       ENDIF
       !
+      !$acc parallel default(none) if(i_am_accel_node)
+      !$acc loop gang vector collapse(2)
       DO jk = kstart_moist(jg), kend
         DO jc = i_startidx, i_endidx
           pt_prog_rcf%tracer(jc,jk,jb,idx) = zrhox(jc,jk,jt)/p_rho_now(jc,jk)
         ENDDO
       ENDDO
+      !$acc end parallel
     ENDDO ! jt
     !
     ! Special treatment for qv. 
     ! Rediagnose tracer mass fraction and substract mass created by artificial clipping.
+    !$acc parallel default(none) if(i_am_accel_node)
+    !$acc loop gang vector collapse(2)
     DO jk = kstart_moist(jg), kend
       DO jc = i_startidx, i_endidx
         pt_prog_rcf%tracer(jc,jk,jb,iqv) = MAX(0._wp, &
@@ -738,10 +762,14 @@ CONTAINS
           &                                   )
       ENDDO
     ENDDO
+    !$acc end parallel
 
 
 
     IF(lart .AND. art_config(jg)%lart_conv) THEN
+#ifdef _OPENACC
+      CALL finish("mo_util_phys", "ART-part not supported on GPU")
+#endif
       ! add convective tendency and fix to positive values
       DO jt=1,art_config(jg)%nconv_tracer  ! ASH
         DO jk = 1, kend
@@ -758,6 +786,8 @@ CONTAINS
     ! (very small negative values may occur during the transport process (order 10E-15))
     iq_start = MAXVAL(ptr_conv_list(:)) + 1  ! all others have already been clipped above
     !
+    !$acc parallel default(none) if(i_am_accel_node)
+    !$acc loop gang vector collapse(3)
     DO jt=iq_start, iqm_max  ! qr,qs,etc. 
       DO jk = kstart_moist(jg), kend
         DO jc = i_startidx, i_endidx
@@ -765,9 +795,12 @@ CONTAINS
         ENDDO
       ENDDO
     ENDDO
+    !$acc end parallel
     
     ! clipping for number concentrations
     IF(atm_phy_nwp_config(jg)%l2moment)THEN
+      !$acc parallel default(none) if(i_am_accel_node)
+      !$acc loop gang vector collapse(3)
       DO jt=iqni, ininact  ! qni,qnr,qns,qng,qnh,qnc and ninact (but not yet ninpot)
         DO jk = kstart_moist(jg), kend
           DO jc = i_startidx, i_endidx
@@ -775,6 +808,7 @@ CONTAINS
           ENDDO          
         ENDDO
       ENDDO
+      !$acc end parallel
     END IF
 
 
@@ -782,6 +816,8 @@ CONTAINS
     ! Diagnose convective precipitation amount
     IF (atm_phy_nwp_config(jg)%lcalc_acc_avg) THEN
 !DIR$ IVDEP
+      !$acc parallel default(none) if(i_am_accel_node)
+      !$acc loop gang vector
       DO jc = i_startidx, i_endidx
 
         prm_diag%rain_con(jc,jb) = prm_diag%rain_con(jc,jb)    &
@@ -793,6 +829,7 @@ CONTAINS
         prm_diag%prec_con(jc,jb) = prm_diag%rain_con(jc,jb) + prm_diag%snow_con(jc,jb)
 
       ENDDO
+      !$acc end parallel
     ENDIF
 
 
@@ -807,6 +844,10 @@ CONTAINS
         ENDDO
       END DO
     ENDIF  ! is_ls_forcing
+
+    !$acc end data !copyin
+    !$acc end data !create
+    !$acc end data !present
 
   END SUBROUTINE tracer_add_phytend
 

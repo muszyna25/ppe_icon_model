@@ -2037,11 +2037,7 @@ MODULE mo_nh_stepping
 
             CASE (inwp) ! iforcing
 
-#ifdef _OPENACC
-              CALL message('mo_nh_stepping', 'Device to host copy before nwp_nh_interface. This needs to be removed once port is finished!')
-              CALL gpu_d2h_nh_nwp(p_patch(jg), prm_diag(jg))
-              i_am_accel_node = .FALSE.
-#endif
+
               ! nwp physics
               !$ser verbatim CALL serialize_all(nproma, jg, "physics", .TRUE., opt_lupdate_cpu=.TRUE.)
               CALL nwp_nh_interface(atm_phy_nwp_config(jg)%lcall_phy(:), & !in
@@ -2049,7 +2045,7 @@ MODULE mo_nh_stepping
                 &                  lredgrid_phys(jg),                  & !in
                 &                  dt_loc,                             & !in
                 &                  dt_phy(jg,:),                       & !in
-                &                  datetime_local(jg)%ptr,              & !in
+                &                  datetime_local(jg)%ptr,             & !in
                 &                  p_patch(jg)  ,                      & !in
                 &                  p_int_state(jg),                    & !in
                 &                  p_nh_state(jg)%metrics ,            & !in
@@ -2068,12 +2064,7 @@ MODULE mo_nh_stepping
                 &                  p_lnd_state(jg)%prog_wtr(n_new_rcf),& !inout
                 &                  p_nh_state_lists(jg)%prog_list(n_new_rcf),& !in
                 &                  prm_upatmo(jg)                      ) !inout
-
-#ifdef _OPENACC
-              CALL message('mo_nh_stepping', 'Host to device copy after nwp_nh_interface. This needs to be removed once port is finished!')
-              CALL gpu_h2d_nh_nwp(p_patch(jg), prm_diag(jg))
-              i_am_accel_node = my_process_is_work()
-#endif
+  
               !$ser verbatim CALL serialize_all(nproma, jg, "physics", .FALSE., opt_lupdate_cpu=.TRUE.)
 
             CASE (iecham) ! iforcing

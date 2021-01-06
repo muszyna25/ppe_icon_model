@@ -52,7 +52,6 @@ MODULE mo_nwp_sfc_interface
   USE sfc_seaice,             ONLY: seaice_timestep_nwp
   USE sfc_terra_data                ! soil and vegetation parameters for TILES
   USE mo_physical_constants,  ONLY: tmelt, grav, salinity_fac, rhoh2o
-  USE mo_nwp_gpu_util,        ONLY: gpu_d2h_nh_nwp, gpu_h2d_nh_nwp
 
   IMPLICIT NONE 
 
