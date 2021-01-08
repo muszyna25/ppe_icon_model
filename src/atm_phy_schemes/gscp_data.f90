@@ -537,19 +537,22 @@ END SUBROUTINE gscp_set_coefficients
     reff_calc%x_min = x_min
     reff_calc%x_max = x_max
 
-    ! Overwrite monodisperse/polydisperse according to options
-    SELECT CASE (reff_calc%dsd_type)
-    CASE (1)
-      monodisperse  = .true.
-    CASE (2)
-      monodisperse  = .false.
-    CASE DEFAULT
-      CALL finish(TRIM(routine),'wrong value for reff_calc%dsd_type')      
-    END SELECT
+    ! Overwrite dsd options if they are provided
+    IF ( reff_calc%dsd_type /= 0) THEN
+      ! Overwrite monodisperse/polydisperse according to options
+      SELECT CASE (reff_calc%dsd_type)
+      CASE (1)
+        monodisperse  = .true.
+      CASE (2)
+        monodisperse  = .false.
+      CASE DEFAULT
+        CALL finish(TRIM(routine),'wrong value for reff_calc%dsd_type')      
+      END SELECT
      
-    IF ( reff_calc%dsd_type == 2) THEN    ! Overwrite mu and nu coefficients
-      mu            = reff_calc%mu
-      nu            = reff_calc%nu
+      IF ( reff_calc%dsd_type == 2) THEN    ! Overwrite mu and nu coefficients
+        mu            = reff_calc%mu
+        nu            = reff_calc%nu
+      END IF
     END IF
 
     ! Calculate parameters to calculate effective radius
