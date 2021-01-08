@@ -1040,8 +1040,10 @@ CONTAINS
         CALL get_index_range(all_cells, jb, start_index, end_index) 
         DO jc = start_index, end_index
           levels = patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+          !! Note the negative sign for eta_c. Depth is positive from free
+          !! surface so all signs are negated
           z_p(1:levels) = ( stretch_c(jc, jb) * patch_3d%p_patch_1d(1)%depth_CellMiddle(jc,1:levels,jb) &
-            & + eta_c(jc, jb) ) &
+            & - eta_c(jc, jb) ) &
             & * OceanReferenceDensity * sitodbar
           rho(jc,1:levels,jb) = calculate_density_mpiom_onColumn( &
             & tracer(jc,1:levels,jb,1),  tracer(jc,1:levels,jb,2), z_p(1:levels), levels)
@@ -1057,7 +1059,7 @@ CONTAINS
         DO jc = start_index, end_index
           levels = patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
           z_p(1:levels) = ( stretch_c(jc, jb) * patch_3d%p_patch_1d(1)%depth_CellMiddle(jc,1:levels,jb) &
-            & + eta_c(jc, jb) ) &
+            & - eta_c(jc, jb) ) &
             & * OceanReferenceDensity * sitodbar
           rho(jc,1:levels,jb) = calculate_density_mpiom_onColumn( &
              & tracer(jc,1:levels,jb,1),  salinityReference_column(1:levels), z_p(1:levels), levels)

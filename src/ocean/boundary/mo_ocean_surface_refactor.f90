@@ -1974,42 +1974,55 @@ CONTAINS
             new_sss = new_s1
           END IF
 
+          !! Restrict SSS to threshold value to prevent negative salinity
+          !! This will not be salt conservative but should occur rarely
           p_oce_sfc%sss(jc,jb) = new_sss
 
-          IF (flag .EQ. 1) THEN
-          
-            dz_new = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc, 2, jb)&
-              & * temp_stretch(jc, jb) 
-            
-            new_s1   = p_os%p_prog(nold(1))%tracer(jc, 2, jb, 2) &
-              &             +  extra_salt_in_col /dz_new
-
-            IF (new_s1 .LT. thresh_sss) THEN
-              new_sss = thresh_sss
-              flag    = 2
-              
-              extra_salt_in_col = extra_salt_in_col + ( new_s1 - new_sss)*dz_new
-  
-            ELSE
-              new_sss = new_s1
-            END IF
-
-            p_os%p_prog(nold(1))%tracer(jc,  2, jb, 2) = new_sss
-
-          END IF !! FLAG = 1
-
-          IF (flag .EQ. 2) THEN
-          
-            dz_new = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc, 3, jb)&
-              & * temp_stretch(jc, jb) 
-            
-            new_s1   = p_os%p_prog(nold(1))%tracer(jc,  3, jb, 2) &
-              &             +  extra_salt_in_col /dz_new
-
-            p_os%p_prog(nold(1))%tracer(jc,  3, jb, 2) = new_s1 
-
-
-          END IF !! FLAG = 2
+!          IF (flag .EQ. 1) THEN
+!          
+!            dz_new = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc, 2, jb)&
+!              & * temp_stretch(jc, jb) 
+!            
+!            new_s1   = p_os%p_prog(nold(1))%tracer(jc, 2, jb, 2) &
+!              &             +  extra_salt_in_col /dz_new
+!
+!            IF (new_s1 .LT. thresh_sss) THEN
+!              new_sss = thresh_sss
+!              flag    = 2
+!              
+!              extra_salt_in_col = extra_salt_in_col + ( new_s1 - new_sss)*dz_new
+!  
+!            ELSE
+!              new_sss = new_s1
+!            END IF
+!
+!            p_os%p_prog(nold(1))%tracer(jc,  2, jb, 2) = new_sss
+!
+!          END IF !! FLAG = 1
+!
+!          IF (flag .EQ. 2) THEN
+!          
+!            dz_new = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc, 3, jb)&
+!              & * temp_stretch(jc, jb) 
+!            
+!            new_s1   = p_os%p_prog(nold(1))%tracer(jc,  3, jb, 2) &
+!              &             +  extra_salt_in_col /dz_new
+!
+!            !! Limit salinity to thresh_sss
+!            !! should not be required so need to check
+!            IF (new_s1 .LT. thresh_sss) THEN
+!              write(0, *) "=============99999999===================" 
+!              write(0, *) bt_lev, extra_salt_in_col, dz_new, p_ice%zUnderIce(jc,jb)
+!              write(0, *) "===============HERE=====================" 
+!              new_sss = thresh_sss
+!            ELSE
+!              new_sss = new_s1
+!            END IF
+!
+!            p_os%p_prog(nold(1))%tracer(jc,  3, jb, 2) = new_sss
+!
+!
+!          END IF !! FLAG = 2
 
 
         ENDIF  !  dolic>0
