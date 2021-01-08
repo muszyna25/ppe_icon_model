@@ -533,7 +533,6 @@ CONTAINS
                        prec_h = prm_diag%hail_gsp_rate (:,jb),   &!inout precp rate hail
 ! not impl yet!        qrsflux= prm_diag%qrs_flux(:,:,jb),      & !inout: 3D precipitation flux for LHN
                        tkvh   = prm_diag%tkvh(:,:,jb),           &!in: turbulent diffusion coefficients for heat     (m/s2 )
-                       msg_level = msg_level,                    &
                        l_cv=.TRUE.     )
     
         CASE(7)  ! two-moment scheme with liquid water on graupel and hail (lwf scheme)

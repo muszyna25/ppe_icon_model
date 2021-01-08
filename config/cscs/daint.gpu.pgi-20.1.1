@@ -5,14 +5,14 @@ set -eu
 SCRIPT_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR=$(cd "${SCRIPT_DIR}/../.."; pwd)
 
-MODULES='modules craype cdt/20.08 PrgEnv-pgi pgi/20.1.1 gcc cce cray-mpich cray-netcdf cray-hdf5 cudatoolkit'
+MODULES='modules craype cdt/20.08 PrgEnv-pgi pgi-icon/20.1.1 gcc cce cray-mpich cray-netcdf cray-hdf5 cudatoolkit'
 
 XML2_ROOT='/apps/daint/UES/jenkins/6.0.UP07/gpu/easybuild/software/libxml2/2.9.7-CrayGNU-18.08'
 XML2_LIBS='-lxml2'
 
 BLAS_LAPACK_LIBS='-llapack -lblas'
 
-SERIALBOX2_ROOT='/project/d56/install/daint/serialbox2/2.4.3/pgi/19.9'
+SERIALBOX2_ROOT='/project/d56/install/daint/serialbox2/2.6.0/pgi/20.1.0'
 SERIALBOX2_LIBS='-lSerialboxFortran'
 
 # The rest of libraries required by CUDA will be provided by PGI compiler:

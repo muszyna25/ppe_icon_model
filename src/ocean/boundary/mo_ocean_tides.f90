@@ -9,6 +9,7 @@
 !----------------------------
 #include "icon_definitions.inc"
 #include "omp_definitions.inc"
+#include "iconfor_dsl_definitions.inc"
 !----------------------------
 MODULE mo_ocean_tides
   !-------------------------------------------------------------------------
@@ -21,29 +22,150 @@ MODULE mo_ocean_tides
        &                               ASSIGNMENT(=), OPERATOR(==), OPERATOR(>=), OPERATOR(/=),     &
        &                               event, eventGroup, newEvent,                                 &
        &                               addEventToEventGroup, isCurrentEventActive
+  USE mo_exception,              ONLY: message, finish, warning, message_text
   USE mo_model_domain,           ONLY: t_patch, t_patch_3d
-  USE mo_ocean_nml,              ONLY: n_zlev, tide_startdate, tides_esl_damping_coeff
-  USE mo_ocean_types,            ONLY: t_hydro_ocean_state, &
-    & t_operator_coeff
+  USE mo_ocean_nml,              ONLY: n_zlev, tide_startdate, tides_esl_damping_coeff, use_tides,   &
+    & tides_mod, use_tides_SAL, tides_SAL_coeff, OceanReferenceDensity_inv, ab_beta,               &
+    & tides_smooth_iterations, OceanReferenceDensity
+  USE mo_physical_constants,     ONLY: grav
   USE mo_grid_subset,            ONLY: t_subset_range, get_index_range
   USE mo_parallel_config,        ONLY: nproma
   USE mo_impl_constants,         ONLY: sea_boundary
   USE mo_ocean_math_operators,   ONLY: grad_fd_norm_oce_2d_3d
+  USE mo_util_dbg_prnt,          ONLY: dbg_print, debug_printValue
 
   IMPLICIT NONE
 
   PRIVATE
 
-  PUBLIC  :: tide,tide_mpi
+  PUBLIC  :: calculate_tides_potential
   
   CHARACTER(LEN=12)  :: str_module = 'tides'  ! Output of module for 1 line debug
   INTEGER            :: idt_src    = 1               ! Level of detail for 1 line debug
+  INTEGER            :: load_iteration = 0
+  INTEGER            :: tide_iteration = 0
   !-------------------------------------------------------------------------
-
   
 CONTAINS
 
+  !-------------------------------------------------------------------------
+  SUBROUTINE calculate_tides_potential(patch_3d,current_time,rho,h,tides_potential, SelfAtrractionLoad)
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    TYPE(datetime), POINTER              :: current_time
+    onCells                              :: rho
+    onCells_2D                           :: h
+    onCells_2D, INTENT(inout)            :: tides_potential
+    onCells_2D, INTENT(inout)            :: SelfAtrractionLoad
+
+    IF (use_tides) THEN
+      SELECT CASE(tides_mod)
+      CASE(1) 
+        CALL tide(patch_3d,current_time,tides_potential)
+    !  CASE(2) 
+    !    CALL tide_mpi(patch_3d,current_time,tides_potential)
+      CASE default
+        CALL finish(str_module, "Unknown tides_mod")
+      END SELECT
+   
+    ENDIF
+
+    IF (use_tides_SAL) THEN
+      CALL calculate_tides_SAL_simple(patch_3d,rho,h,SelfAtrractionLoad)
+    ENDIF
   
+    
+!     CALL dbg_print('tides_potential', tides_potential, str_module, 1, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
+!     CALL dbg_print('SelfAtrractionLoad',      SelfAtrractionLoad,      str_module, 1, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
+        
+  END SUBROUTINE calculate_tides_potential
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  SUBROUTINE calculate_tides_SAL_simple(patch_3d,rho,h,SelfAtrractionLoad)
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    onCells                              :: rho
+    onCells_2D                           :: h
+    onCells_2D, INTENT(inout)            :: SelfAtrractionLoad
+    
+    TYPE(t_patch), POINTER :: patch_2D
+    TYPE(t_subset_range), POINTER :: all_cells
+    INTEGER :: jb,jc,jk,start_index,end_index, levels
+    REAL(wp) :: grav_eps_explicit, smooth, barotropic_part, z_grav_rho_inv_eps
+    onCells :: cell_thickness
+   
+    patch_2D        => patch_3d%p_patch_2d(1)
+    all_cells       => patch_2D%cells%ALL
+   cell_thickness  => patch_3D%p_patch_1d(1)%prism_thick_c
+!     cell_thickness  => patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c
+  
+    IF (load_iteration >= tides_smooth_iterations) THEN 
+      smooth = 1.0_wp
+    ELSE
+      smooth = REAL(load_iteration,wp) / REAL(tides_smooth_iterations,wp)
+      load_iteration = load_iteration + 1
+    ENDIF
+ 
+    z_grav_rho_inv_eps  = grav * tides_SAL_coeff * smooth
+!     grav_eps_explicit = grav * tides_SAL_coeff * (1.0_wp-ab_beta) * smooth
+
+!ICON_OMP_PARALLEL_DO PRIVATE(jb, jc, jk, start_index,end_index) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_index, end_index)
+      DO jc = start_index, end_index
+         SelfAtrractionLoad(jc,jb) = h(jc,jb) * z_grav_rho_inv_eps
+      ENDDO
+    ENDDO
+!ICON_OMP_END_PARALLEL_DO     
+ 
+  END SUBROUTINE calculate_tides_SAL_simple
+  !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
+  SUBROUTINE calculate_tides_SAL_Thomas(patch_3d,rho,h,SelfAtrractionLoad)
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    onCells                              :: rho
+    onCells_2D                           :: h
+    onCells_2D, INTENT(inout)            :: SelfAtrractionLoad
+    
+    TYPE(t_patch), POINTER :: patch_2D
+    TYPE(t_subset_range), POINTER :: all_cells
+    INTEGER :: jb,jc,jk,start_index,end_index, levels
+    REAL(wp) :: grav_eps_explicit, smooth, barotropic_part, z_grav_rho_inv_eps
+    onCells :: cell_thickness
+   
+    patch_2D        => patch_3d%p_patch_2d(1)
+    all_cells       => patch_2D%cells%ALL
+   cell_thickness  => patch_3D%p_patch_1d(1)%prism_thick_c
+!     cell_thickness  => patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c
+  
+    IF (load_iteration >= tides_smooth_iterations) THEN 
+      smooth = 1.0_wp
+    ELSE
+      smooth = REAL(load_iteration,wp) / REAL(tides_smooth_iterations,wp)
+      load_iteration = load_iteration + 1
+    ENDIF
+ 
+    z_grav_rho_inv_eps  = OceanReferenceDensity_inv * grav * tides_SAL_coeff * smooth
+!     grav_eps_explicit = grav * tides_SAL_coeff * (1.0_wp-ab_beta) * smooth
+
+!ICON_OMP_PARALLEL_DO PRIVATE(jb, jc, jk, start_index,end_index, levels, &
+!ICON_OMP barotropic_part) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_index, end_index)
+      DO jc = start_index, end_index
+         SelfAtrractionLoad(jc,jb) = 0.0_wp
+         DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+           SelfAtrractionLoad(jc,jb) = SelfAtrractionLoad(jc,jb) + cell_thickness(jc,jk,jb) * rho(jc,jk,jb)
+        ENDDO   
+        SelfAtrractionLoad(jc,jb) = SelfAtrractionLoad(jc,jb) * z_grav_rho_inv_eps
+      ENDDO
+    ENDDO
+!ICON_OMP_END_PARALLEL_DO     
+ 
+  END SUBROUTINE calculate_tides_SAL_Thomas
+  !-------------------------------------------------------------------------
+ 
+  !-------------------------------------------------------------------------
   SUBROUTINE tide(patch_3d,mtime_current,tides_potential)
   
   IMPLICIT NONE
@@ -54,12 +176,13 @@ CONTAINS
   
   TYPE(t_patch), POINTER :: patch_2D
   TYPE(t_subset_range), POINTER :: all_cells
-  INTEGER :: jb,jc,jk,je,start_index,end_index,start_edge_index,end_edge_index,icel1,icel2
+  INTEGER :: jb,jc,jk,start_index,end_index
   CHARACTER(LEN=MAX_DATETIME_STR_LEN)    :: datestri
   INTEGER  :: jahr,monat,tag,stunde,minute
   REAL(dp) :: sekunde,gezhochfahr,rs,rm
   REAL(dp) :: dtim,gst,dcl_m,alp_m,h_m,dcl_s,alp_s,h_s,mpot,spot,longitude,latitude
   REAL(dp) :: tide_start
+  REAL(wp) :: smooth
   
   
   
@@ -84,6 +207,13 @@ CONTAINS
   READ(datestri(15:16),'(i2.2)') minute
   READ(datestri(18:23),'(f6.3)') sekunde
   
+  IF (tide_iteration >= tides_smooth_iterations) THEN 
+    smooth = 1.0_wp
+  ELSE
+    smooth = REAL(tide_iteration,wp) / REAL(tides_smooth_iterations,wp)
+    tide_iteration = tide_iteration + 1
+  ENDIF
+   
   call timing(jahr,monat,tag,stunde,minute,sekunde,dtim)  ! compute the number of days since 2010 January 0.0
   call get_gst(jahr,monat,tag,stunde,minute,sekunde,gst) ! compute the Greenwich siderial time gst
   call moon_declination(dtim,gst,dcl_m,alp_m,h_m) ! declination (deg) and right ascension (hours) and Greenwich hour angle h (hours) of the Moon after Duffet and Zwart (1979)
@@ -98,7 +228,6 @@ CONTAINS
   
 ! Compute tidal potential ==================================================
 !ICON_OMP_PARALLEL_DO PRIVATE(jb, jc, start_index,end_index,longitude,latitude,mpot,spot) ICON_OMP_DEFAULT_SCHEDULE
-
   DO jb = all_cells%start_block, all_cells%end_block
     CALL get_index_range(all_cells, jb, start_index, end_index)
 
@@ -109,7 +238,7 @@ CONTAINS
       call Moon_pot(dcl_m,h_m,latitude,longitude,rm,mpot) ! computation of the Moon's tidal potential
       call Sun_pot(dcl_s,h_s,latitude,longitude,rs,spot)  ! computation of the Sun's tidal potential
 
-      tides_potential(jc,jb) = tides_esl_damping_coeff * gezhochfahr * (mpot + spot) ! combined tidal potential 
+      tides_potential(jc,jb) = tides_esl_damping_coeff * gezhochfahr * (mpot + spot) * smooth ! combined tidal potential 
   
     END DO
   END DO
@@ -691,7 +820,7 @@ end subroutine findee
   
   TYPE(t_patch), POINTER :: patch_2D
   TYPE(t_subset_range), POINTER :: all_cells
-  INTEGER :: jb,jc,jk,je,start_index,end_index,start_edge_index,end_edge_index,icel1,icel2
+  INTEGER :: jb,jc,jk,start_index,end_index
   CHARACTER(LEN=MAX_DATETIME_STR_LEN)    :: datestri
   INTEGER  :: jahr,monat,tag,stunde,minute
   REAL(dp) :: sekunde,gezhochfahr,rs,rm
@@ -703,12 +832,20 @@ end subroutine findee
   REAL(dp) :: codm,codmq,sids,sidsq,cods,codsq,sidm2,sids2,lon,lat,argp,alatr,hamp,hasp,tipoto
   REAL(dp) :: silato,colato
   INTEGER  :: mmccdt,fnut
+  REAL(wp) :: smooth
   
   
   
   patch_2D        => patch_3d%p_patch_2d(1)
   all_cells       => patch_2D%cells%ALL
-  
+
+  IF (tide_iteration >= tides_smooth_iterations) THEN 
+    smooth = 1.0_wp
+  ELSE
+    smooth = REAL(tide_iteration,wp) / REAL(tides_smooth_iterations,wp)
+    tide_iteration = tide_iteration + 1
+  ENDIF
+ 
   read(tide_startdate(1:4),'(i4)') jahr
   read(tide_startdate(6:7),'(i2.2)') monat
   read(tide_startdate(9:10),'(i2.2)') tag
@@ -781,8 +918,8 @@ end subroutine findee
    
   
 ! Compute tidal potential ==================================================
-!ICON_OMP_PARALLEL_DO PRIVATE(jb, jc, start_index,end_index,longitude,latitude,mpot,spot) ICON_OMP_DEFAULT_SCHEDULE
-
+!ICON_OMP_PARALLEL_DO PRIVATE(jb, jc, start_index,end_index,longitude,latitude,argp,alatr, silato,colato, &
+!ICON_OMP hamp, hasp) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = all_cells%start_block, all_cells%end_block
     CALL get_index_range(all_cells, jb, start_index, end_index)
 
@@ -802,7 +939,7 @@ end subroutine findee
 
       ! attention : mpiom uses a negative tidal potential due to negative factor rkomp
       ! FIXME: move 1./3. to parameter
-      tides_potential(jc,jb) = tides_esl_damping_coeff * gezhochfahr*(erdrad * rkomp * crim3 &
+      tides_potential(jc,jb) = smooth * tides_esl_damping_coeff * gezhochfahr*(erdrad * rkomp * crim3 &
          * (3.0_dp * (silato**2 - 1.0_dp/3.0_dp) * (sidmq - 1.0_dp/3.0_dp)&
       &  + DSIN(2.0_dp * alatr) * sidm2 * DCOS(hamp) &
       &  + colato**2 * codmq * DCOS(2.0_dp * hamp))        &

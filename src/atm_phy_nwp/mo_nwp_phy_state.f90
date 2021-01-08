@@ -67,7 +67,7 @@ USE mo_impl_constants,      ONLY: success, max_char_length,           &
   &                               HINTP_TYPE_LONLAT_RBF,              &
   &                               nexlevs_rrg_vnest, RTTOV_BT_CL,     &
   &                               RTTOV_RAD_CL, RTTOV_RAD_CS,         &
-  &                               TLEV_NNOW_RCF, iss, iorg, ibc, iso4,&
+  &                               iss, iorg, ibc, iso4,               &
   &                               idu, nclass_aero
 USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL,             &
   &                               GRID_CELL
@@ -4338,7 +4338,7 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
       CALL art_tracer_interface('turb', k_jg, kblks, phy_tend_list,  &
                 & 'ddt_', ptr_arr=phy_tend%tracer_turb_ptr,          &
                 & advconf=advection_config(k_jg), phy_tend=phy_tend, &
-                & ldims=shape3d, tlev_source=TLEV_NNOW_RCF)
+                & ldims=shape3d)
     ENDIF
 
     ! --- Convection moist tracer tendencies
@@ -4427,7 +4427,7 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
         CALL art_tracer_interface('conv', k_jg, kblks, phy_tend_list,  &
                   & 'ddt_', ptr_arr=phy_tend%tracer_conv_ptr,          &
                   & advconf=advection_config(k_jg), phy_tend=phy_tend, &
-                  & ldims=shape3d, tlev_source=TLEV_NNOW_RCF)
+                  & ldims=shape3d)
       ENDIF
 
     END IF !.not.is_les_phy
@@ -4550,7 +4550,7 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
         CALL art_tracer_interface('gscp', k_jg, kblks, phy_tend_list,  &
                   & 'ddt_', ptr_arr=phy_tend%tracer_gscp_ptr,          &
                   & advconf=advection_config(k_jg), phy_tend=phy_tend, &
-                  & ldims=shape3d, tlev_source=TLEV_NNOW_RCF)
+                  & ldims=shape3d)
       ENDIF
 
     END IF

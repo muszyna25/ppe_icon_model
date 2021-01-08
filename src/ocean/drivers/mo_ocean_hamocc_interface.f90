@@ -94,7 +94,6 @@ CONTAINS
    !----------------------------------------------
     IF (process_exists(ocean_process)) THEN
       ! we run in a coupled ocean-hamocc setup 
-      CALL message("setup_hamocc_2_ocean_communication", "...")
       CALL setup_hamocc_2_ocean_communication(hamocc_ocean_state%patch_3D%p_patch_2d(1), n_zlev)      
       CALL exchange_ocean_to_hamocc_state()
       ! sync the input from the ocean, as this is sent only for owned cells/edges
@@ -125,6 +124,7 @@ CONTAINS
   
     IF(.not. lhamocc) return
    
+    CALL message("ocean_to_hamocc_init", "...")
     patch_2d => patch_3d%p_patch_2d(1)
     alloc_cell_blocks = patch_2d%alloc_cell_blocks
     nblks_e = patch_2d%nblks_e
@@ -156,10 +156,10 @@ CONTAINS
       CALL init_icon_hamocc (hamocc_ocean_state)  
     ENDIF
     
-    DEALLOCATE(my_transport_state%h_new, &
-             my_transport_state%h_old,   &
-             my_transport_state%mass_flux_e, &
-             my_transport_state%vn,      &
+    DEALLOCATE(my_transport_state%h_new,       &
+             my_transport_state%h_old,         &
+             my_transport_state%mass_flux_e,   &
+             my_transport_state%vn,            &
              my_transport_state%w)
 
   END SUBROUTINE ocean_to_hamocc_init
@@ -271,6 +271,7 @@ CONTAINS
     ocean_to_hamocc_state%top_dilution_coeff => p_oce_sfc%top_dilution_coeff
     ocean_to_hamocc_state%h_old              => transport_state%h_old
     ocean_to_hamocc_state%h_new              => transport_state%h_new
+    ocean_to_hamocc_state%h_old_withIce      =>  ocean_state%p_prog(nold(1))%h
     ocean_to_hamocc_state%ice_concentration_sum => sea_ice%concSum    
     ocean_to_hamocc_state%temperature        => ocean_state%p_prog(nold(1))%tracer(:,:,:,1)
     ocean_to_hamocc_state%salinity           => ocean_state%p_prog(nold(1))%tracer(:,:,:,2)
@@ -296,6 +297,7 @@ CONTAINS
       &  top_dilution_coeff(:,:),              &
       &  h_old(:,:),                           &
       &  h_new(:,:),                           &
+      &  h_old_withIce(:,:),                   &
       &  ice_concentration_sum(:,:),           &
       &  temperature(:,:,:),                   &
       &  salinity(:,:,:),                      &
@@ -316,6 +318,7 @@ CONTAINS
     top_dilution_coeff        => ocean_to_hamocc_state%top_dilution_coeff    
     h_old                     => ocean_to_hamocc_state%h_old                
     h_new                     => ocean_to_hamocc_state%h_new                 
+    h_old_withIce             => ocean_to_hamocc_state%h_old_withIce              
     ice_concentration_sum     => ocean_to_hamocc_state%ice_concentration_sum 
     temperature               => ocean_to_hamocc_state%temperature         
     salinity                  => ocean_to_hamocc_state%salinity            
@@ -346,6 +349,7 @@ CONTAINS
       &  c_loc(top_dilution_coeff(1,1)),              &
       &  c_loc(h_old(1,1)),                           &
       &  c_loc(h_new(1,1)),                           &
+      &  c_loc(h_old_withIce(1,1)),                   &
       &  c_loc(ice_concentration_sum(1,1)),           &
       &  c_loc(temperature(1,1,1)),                   &
       &  c_loc(salinity(1,1,1)),                      &
@@ -417,24 +421,26 @@ CONTAINS
     !----------------------------------------------
     ! use a copy to a 3d strucure to do the communication of the 2d
     ! Not nice, but probably better...
-    ALLOCATE(gather_cells_2d(nproma,7,alloc_cell_blocks))
+    ALLOCATE(gather_cells_2d(nproma,8,alloc_cell_blocks))
     gather_cells_2d(:,1,:) = hamocc_ocean_state%ocean_to_hamocc_state%top_dilution_coeff(:,:)
     gather_cells_2d(:,2,:) = hamocc_ocean_state%ocean_to_hamocc_state%h_old(:,:)                 
     gather_cells_2d(:,3,:) = hamocc_ocean_state%ocean_to_hamocc_state%h_new(:,:)                 
-    gather_cells_2d(:,4,:) = hamocc_ocean_state%ocean_to_hamocc_state%ice_concentration_sum(:,:) 
-    gather_cells_2d(:,5,:) = hamocc_ocean_state%ocean_to_hamocc_state%short_wave_flux(:,:)      
-    gather_cells_2d(:,6,:) = hamocc_ocean_state%ocean_to_hamocc_state%wind10m(:,:)               
-    gather_cells_2d(:,7,:) = hamocc_ocean_state%ocean_to_hamocc_state%co2_mixing_ratio(:,:)
+    gather_cells_2d(:,4,:) = hamocc_ocean_state%ocean_to_hamocc_state%h_old_withIce(:,:)                 
+    gather_cells_2d(:,5,:) = hamocc_ocean_state%ocean_to_hamocc_state%ice_concentration_sum(:,:) 
+    gather_cells_2d(:,6,:) = hamocc_ocean_state%ocean_to_hamocc_state%short_wave_flux(:,:)      
+    gather_cells_2d(:,7,:) = hamocc_ocean_state%ocean_to_hamocc_state%wind10m(:,:)               
+    gather_cells_2d(:,8,:) = hamocc_ocean_state%ocean_to_hamocc_state%co2_mixing_ratio(:,:)
         
     CALL sync_patch_array(sync_c, patch_2d, gather_cells_2d)
 
     hamocc_ocean_state%ocean_to_hamocc_state%top_dilution_coeff(:,:)    = gather_cells_2d(:,1,:)
     hamocc_ocean_state%ocean_to_hamocc_state%h_old(:,:)                 = gather_cells_2d(:,2,:)
     hamocc_ocean_state%ocean_to_hamocc_state%h_new(:,:)                 = gather_cells_2d(:,3,:)
-    hamocc_ocean_state%ocean_to_hamocc_state%ice_concentration_sum(:,:) = gather_cells_2d(:,4,:)
-    hamocc_ocean_state%ocean_to_hamocc_state%short_wave_flux(:,:)       = gather_cells_2d(:,5,:)
-    hamocc_ocean_state%ocean_to_hamocc_state%wind10m(:,:)               = gather_cells_2d(:,6,:)
-    hamocc_ocean_state%ocean_to_hamocc_state%co2_mixing_ratio(:,:)      = gather_cells_2d(:,7,:)
+    hamocc_ocean_state%ocean_to_hamocc_state%h_old_withIce(:,:)         = gather_cells_2d(:,4,:)
+    hamocc_ocean_state%ocean_to_hamocc_state%ice_concentration_sum(:,:) = gather_cells_2d(:,5,:)
+    hamocc_ocean_state%ocean_to_hamocc_state%short_wave_flux(:,:)       = gather_cells_2d(:,6,:)
+    hamocc_ocean_state%ocean_to_hamocc_state%wind10m(:,:)               = gather_cells_2d(:,7,:)
+    hamocc_ocean_state%ocean_to_hamocc_state%co2_mixing_ratio(:,:)      = gather_cells_2d(:,8,:)
     
     DEALLOCATE(gather_cells_2d)
     

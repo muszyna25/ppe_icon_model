@@ -119,7 +119,7 @@ MODULE mo_nonhydro_state
   PUBLIC :: construct_nh_state    ! Constructor for the nonhydrostatic state
   PUBLIC :: destruct_nh_state     ! Destructor for the nonhydrostatic state
   PUBLIC :: duplicate_prog_state  ! Copy the prognostic state
-
+  PUBLIC :: new_zd_metrics
   PUBLIC :: p_nh_state            ! state vector of nonhydrostatic variables (variable)
   PUBLIC :: p_nh_state_lists      ! lists for state vector of nonhydrostatic variables (variable)
   
@@ -1347,8 +1347,7 @@ MODULE mo_nonhydro_state
         IF (lart) THEN
           CALL art_tracer_interface('prog',p_patch%id,p_patch%nblks_c,p_prog_list,vname_prefix,&
             &                       ptr_arr=p_prog%tracer_ptr,advconf=advconf,p_prog=p_prog,   &
-            &                       timelev=timelev,ldims=shape3d_c,tlev_source=TLEV_NNOW_RCF, &
-            &                       nest_level=p_patch%nest_level)
+            &                       timelev=timelev,ldims=shape3d_c)
         ENDIF
 
 
@@ -3335,15 +3334,17 @@ MODULE mo_nonhydro_state
 
     INTEGER :: nlev, nlevp1, jg
 
-    INTEGER :: shape2d_c(2), shape2d_e(2), shape3d_c(3), shape3d_e(3), &
-      &        shape3d_v(3), shape3d_chalf(3), shape3d_ehalf(3),       &
-      &        shape2d_ccubed(3), shape2d_ecubed(3), shape3d_vhalf(3), & 
-      &        shape2d_esquared(3), shape3d_esquared(4), shape3d_e8(4)
+    INTEGER :: shape1d_c(1), shape1d_chalf(1), shape2d_c(2), shape2d_e(2),  &
+      &        shape3d_c(3), shape3d_e(3), shape3d_v(3),                 &
+      &        shape3d_chalf(3), shape3d_ehalf(3), shape2d_ccubed(3),    &
+      &        shape2d_ecubed(3), shape3d_vhalf(3), shape2d_esquared(3), &
+      &        shape3d_esquared(4), shape3d_e8(4)
     INTEGER :: ibits         !< "entropy" of horizontal slice
     INTEGER :: DATATYPE_PACK_VAR  !< variable "entropy" for selected fields
     INTEGER :: datatype_flt       !< floating point accuracy in NetCDF output
     INTEGER :: ist, error_status
     LOGICAL :: group(MAX_GROUPS)
+
     !--------------------------------------------------------------
 
     nblks_c = p_patch%nblks_c
@@ -3373,6 +3374,8 @@ MODULE mo_nonhydro_state
     ENDIF
 
     ! predefined array shapes
+    shape1d_c        = (/nlev                        /)
+    shape1d_chalf    = (/nlevp1                      /)
     shape2d_c        = (/nproma,          nblks_c    /)
     shape2d_e        = (/nproma,          nblks_e    /)
     shape2d_esquared = (/nproma, 2      , nblks_e    /)    
@@ -3699,7 +3702,7 @@ MODULE mo_nonhydro_state
     !
     cf_desc    = t_cf_var('metrics_functional_determinant', '-',                &
       &                   'metrics functional determinant (edge)', datatype_flt)
-    grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
+    grib2_desc = grib2_var( 0, 3, 192, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
     CALL add_var( p_metrics_list, 'ddqz_z_full_e', p_metrics%ddqz_z_full_e,     &
                 & GRID_UNSTRUCTURED_EDGE, ZA_REFERENCE, cf_desc, grib2_desc,    &
                 & ldims=shape3d_e, loutput=.TRUE.,                              &
@@ -3791,39 +3794,46 @@ MODULE mo_nonhydro_state
                 & lopenacc = .TRUE. )
     __acc_attach(p_metrics%dgeopot_mc)
 
-    !------------------------------------------------------------------------------
-    !HW: Vertical 1D arrays are not yet supported by add_var. Use allocate for now.
-    ! Since this is meant to be a temporary solution, deallocated is not implemented.
+    
+    ! Rayleigh damping coefficient for w
+    cf_desc = t_cf_var('rayleigh_w', '-',                                      &
+     &                'Rayleigh damping coefficient for w', datatype_flt)
+    grib2_desc = grib2_var( 0, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_metrics_list, 'rayleigh_w', p_metrics%rayleigh_w,           &
+        & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, &
+        & ldims = shape1d_chalf , &
+        & lopenacc = .TRUE. )
+    __acc_attach(p_metrics%rayleigh_w)
 
-      ! Rayleigh damping coefficient for w
-      ALLOCATE(p_metrics%rayleigh_w(nlevp1),STAT=ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                    'allocation for rayleigh_w failed')
-      ENDIF
+    ! Rayleigh damping coefficient for vn
+    cf_desc = t_cf_var('rayleigh_vn', '-',                                      &
+     &                'Rayleigh damping coefficient for vn', datatype_flt)
+    grib2_desc = grib2_var( 0, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_metrics_list, 'rayleigh_vn', p_metrics%rayleigh_vn,           &
+        & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, &
+        & ldims = shape1d_c , &
+        & lopenacc = .TRUE. )
+   __acc_attach(p_metrics%rayleigh_vn)
 
-      ! Rayleigh damping coefficient for vn
-      ALLOCATE(p_metrics%rayleigh_vn(nlev),STAT=ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                    'allocation for rayleigh_vn failed')
-      ENDIF
+    ! Background nabla2 diffusion coefficient for upper sponge layer
+   cf_desc = t_cf_var('enhfac_diffu', '-',                                      &
+     &                'Background nabla2 diffusion coefficient for upper sponge layer', datatype_flt)
+   grib2_desc = grib2_var( 0, 1, 1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+   CALL add_var( p_metrics_list, 'enhfac_diffu', p_metrics%enhfac_diffu,           &
+        & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, &
+        & ldims = shape1d_c , &
+        & lopenacc = .TRUE. )
+   __acc_attach(p_metrics%enhfac_diffu)
 
-      ! Background nabla2 diffusion coefficient for upper sponge layer
-      ALLOCATE(p_metrics%enhfac_diffu(nlev),STAT=ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                    'allocation for enhfac_diffu failed')
-      ENDIF
-
-      ! Scaling factor for 3D divergence damping terms
-      ALLOCATE(p_metrics%scalfac_dd3d(nlev),STAT=ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                    'allocation for scalfac_dd3d failed')
-      ENDIF
-
-!$ACC ENTER DATA CREATE( p_metrics%rayleigh_w, p_metrics%rayleigh_vn, p_metrics%enhfac_diffu, p_metrics%scalfac_dd3d )
+    ! Scaling factor for 3D divergence damping terms
+   cf_desc = t_cf_var('scalfac_dd3d', '-',                                      &
+     &                'Scaling factor for 3D divergence damping terms', datatype_flt)
+   grib2_desc = grib2_var( 0, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+   CALL add_var( p_metrics_list, 'scalfac_dd3d', p_metrics%scalfac_dd3d,           &
+        & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, &
+        & ldims = shape1d_c , &
+        & lopenacc = .TRUE. )
+   __acc_attach(p_metrics%scalfac_dd3d)
 
     ! Horizontal mask field for 3D divergence damping terms
     ! hmask_dd3d   p_metrics%hmask_dd3d(nproma,nblks_e)
@@ -4420,32 +4430,182 @@ MODULE mo_nonhydro_state
         &           lopenacc = .TRUE.  )
       __acc_attach(p_metrics%dzgpot_mc)
     ENDIF  !IF (.NOT. upatmo_config(jg)%l_status(istatus%configured))
-    
+
     ! metrical modification factors for the deep-atmosphere equations 
-    ! note: no explicit deallocation implemented!
-    ALLOCATE(p_metrics%deepatmo_t1mc(nlev,idamtr%t1mc%nitem),STAT=ist)
-    IF (ist/=SUCCESS) CALL finish(TRIM(routine), 'allocation of deepatmo_t1mc failed')
-    !$ACC ENTER DATA CREATE( p_metrics%deepatmo_t1mc )
-    ALLOCATE(p_metrics%deepatmo_t1ifc(nlevp1,idamtr%t1ifc%nitem),STAT=ist)
-    IF (ist/=SUCCESS) CALL finish(TRIM(routine), 'allocation of deepatmo_t1ifc failed')
-    ALLOCATE(p_metrics%deepatmo_t2mc(idamtr%t2mc%nitem,nlev),STAT=ist)
-    IF (ist/=SUCCESS) CALL finish(TRIM(routine), 'allocation of deepatmo_t2mc failed')
-    
-    ! assign default values
-    ! (mostly factor = 1 means no metrical modification -> shallow atmosphere)
+    ! p_metrics%deepatmo_t1mc
+    !
+    cf_desc    = t_cf_var('deepatmo_t1mc', '-',                                              &
+         &                'metrical modification factors for the deep-atmosphere equations ' , datatype_flt)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_metrics_list, 'deepatmo_t1mc', p_metrics%deepatmo_t1mc,                  &
+         &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,              &
+         &           ldims = (/nlev, idamtr%t1mc%nitem/), lopenacc = .TRUE.)
+    __acc_attach(p_metrics%deepatmo_t1mc)
+
     p_metrics%deepatmo_t1mc(:,idamtr%t1mc%gradh)    = 1._wp
     p_metrics%deepatmo_t1mc(:,idamtr%t1mc%divh)     = 1._wp
     p_metrics%deepatmo_t1mc(:,idamtr%t1mc%vol)      = 1._wp
     p_metrics%deepatmo_t1mc(:,idamtr%t1mc%invr)     = 0._wp  ! here 0 means shallow atmosphere
     p_metrics%deepatmo_t1mc(:,idamtr%t1mc%centri)   = 0._wp  ! here 0 means shallow atmosphere
-    !$ACC UPDATE DEVICE( p_metrics%deepatmo_t1mc )
+
+    
+    ! Missing description
+    ! p_metrics%deepatmo_t1ifc
+    !
+    cf_desc    = t_cf_var('deepatmo_t1ifc', '-',                                             &
+         &                'Missing description' , datatype_flt)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_metrics_list, 'deepatmo_t1ifc', p_metrics%deepatmo_t1ifc,                &
+         &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,              &
+         &           ldims = (/nlevp1, idamtr%t1ifc%nitem/), lopenacc = .TRUE. )
+    __acc_attach(p_metrics%deepatmo_t1ifc)
+
     p_metrics%deepatmo_t1ifc(:,idamtr%t1ifc%gradh)  = 1._wp
     p_metrics%deepatmo_t1ifc(:,idamtr%t1ifc%invr)   = 0._wp  ! here 0 means shallow atmosphere
     p_metrics%deepatmo_t1ifc(:,idamtr%t1ifc%centri) = 0._wp  ! here 0 means shallow atmosphere
+   
+    
+    ! Missing description
+    ! p_metrics%deepatmo_t2mc
+    !
+    cf_desc    = t_cf_var('deepatmo_t2mc', '-',                                             &
+         &                'Missing description' , datatype_flt)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_metrics_list, 'deepatmo_t2mc', p_metrics%deepatmo_t2mc,                &
+         &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,              &
+         &           ldims = (/idamtr%t2mc%nitem, nlev/), lopenacc = .TRUE. )
+    __acc_attach(p_metrics%deepatmo_t2mc)
+
+
     p_metrics%deepatmo_t2mc(idamtr%t2mc%divzU,:)    = 1._wp
     p_metrics%deepatmo_t2mc(idamtr%t2mc%divzL,:)    = 1._wp
-
-
+    
   END SUBROUTINE new_nh_metrics_list
 
+  
+  SUBROUTINE new_zd_metrics(p_metrics, p_metrics_list, numpoints)
+
+    TYPE(t_nh_metrics),  INTENT(INOUT):: &  !< diagnostic state
+         &  p_metrics
+
+    TYPE(t_var_list), INTENT(INOUT) :: p_metrics_list   !< diagnostic state list
+    
+    INTEGER, INTENT(INOUT) :: numpoints
+
+    TYPE(t_cf_var)    :: cf_desc
+    TYPE(t_grib2_var) :: grib2_desc
+
+    INTEGER :: ibits
+    INTEGER :: datatype_flt
+
+    ibits = DATATYPE_PACK16
+    IF ( lnetcdf_flt64_output ) THEN
+       datatype_flt = DATATYPE_FLT64
+    ELSE
+       datatype_flt = DATATYPE_FLT32
+    ENDIF
+
+    
+    ! Missing description
+    ! p_metrics%zd_indlist
+    !
+    cf_desc    = t_cf_var('zd_indlist', '-',                                             &
+         &                'Missing description' , datatype_flt)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_metrics_list, 'zd_indlist', p_metrics%zd_indlist,                &
+         &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,              &
+         &           ldims = (/4, numpoints/), lopenacc = .TRUE. )
+    __acc_attach(p_metrics%zd_indlist)
+
+    ! Missing description
+    ! p_metrics%zd_blklist
+    !
+    cf_desc    = t_cf_var('zd_blklist', '-',                                             &
+         &                'Missing description' , datatype_flt)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_metrics_list, 'zd_blklist', p_metrics%zd_blklist,                &
+         &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,              &
+         &           ldims = (/4, numpoints/), lopenacc = .TRUE. )
+    __acc_attach(p_metrics%zd_blklist)
+
+    ! Missing description
+    ! p_metrics%zd_vertidx
+    !
+    cf_desc    = t_cf_var('zd_vertidx', '-',                                       &
+         &                'Missing description' , datatype_flt)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_metrics_list, 'zd_vertidx', p_metrics%zd_vertidx,                &
+         &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,              &
+         &           ldims = (/4, numpoints/), lopenacc = .TRUE. )
+    __acc_attach(p_metrics%zd_vertidx)
+
+
+    ! Missing description
+    ! p_metrics%zd_edgeidx
+    !
+    cf_desc    = t_cf_var('zd_edgeidx', '-',                                             &
+         &                'Missing description' , datatype_flt)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_metrics_list, 'zd_edgeidx', p_metrics%zd_edgeidx,                &
+         &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,              &
+         &           ldims = (/3, numpoints/), lopenacc = .TRUE. )
+    __acc_attach(p_metrics%zd_edgeidx)
+
+    ! Missing description
+    ! p_metrics%zd_edgeblk
+    !
+    cf_desc    = t_cf_var('zd_edgeblk', '-',                                             &
+         &                'Missing description' , datatype_flt)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_metrics_list, 'zd_edgeblk', p_metrics%zd_edgeblk,                &
+         &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,              &
+         &           ldims = (/3, numpoints/), lopenacc = .TRUE. )
+    __acc_attach(p_metrics%zd_edgeblk)
+
+    ! Missing description
+    ! p_metrics%zd_geofac
+    !
+    cf_desc    = t_cf_var('zd_geofac', '-',                                             &
+         &                'Missing description' , datatype_flt)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_metrics_list, 'zd_geofac', p_metrics%zd_geofac,                &
+         &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,              &
+         &           ldims = (/4, numpoints/), lopenacc = .TRUE. )
+    __acc_attach(p_metrics%zd_geofac)
+
+    ! Missing description
+    ! p_metrics%zd_e2cell
+    !
+    cf_desc    = t_cf_var('zd_e2cell', '-',                                             &
+         &                'Missing description' , datatype_flt)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_metrics_list, 'zd_e2cell', p_metrics%zd_e2cell,                &
+         &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,              &
+         &           ldims = (/3, numpoints/), lopenacc = .TRUE. )
+    __acc_attach(p_metrics%zd_e2cell)
+
+    ! Missing description
+    ! p_metrics%zd_intcoef
+    !
+    cf_desc    = t_cf_var('zd_intcoef', '-',                                             &
+         &                'Missing description' , datatype_flt)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_metrics_list, 'zd_intcoef', p_metrics%zd_intcoef,                &
+         &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,              &
+         &           ldims = (/3, numpoints/), lopenacc = .TRUE. )
+    __acc_attach(p_metrics%zd_intcoef)
+
+    ! Missing description
+    ! p_metrics%zd_diffcoef
+    !
+    cf_desc    = t_cf_var('zd_diffcoef', '-',                                             &
+         &                'Missing description' , datatype_flt)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_metrics_list, 'zd_diffcoef', p_metrics%zd_diffcoef,                &
+         &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,              &
+         &           ldims = (/numpoints/), lopenacc = .TRUE. )
+    __acc_attach(p_metrics%zd_diffcoef)
+    
+  END SUBROUTINE new_zd_metrics
+  
 END MODULE mo_nonhydro_state

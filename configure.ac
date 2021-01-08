@@ -27,12 +27,33 @@ ${icon_usr_note}], [$2]); }])
 dnl End of the temporary message injection. Delete up until this line once the
 dnl message is not needed anymore.
 
-dnl Currently, ICON makefiles are implemented in a way that allows for
-dnl out-of-source building even if the source directory is "dirty" (i.e.
-dnl contains results of in-source configuration and building). Nonetheless, we
-dnl enforce the source directory to be clean, because, first, it a good
-dnl practice, second, configure scripts of the bundled libraries might complain
-dnl about their "dirty" source directories anyway.
+dnl We need to make sure that the source directory is clean when building
+dnl out-of-source for two reasons:
+dnl   1. Building systems of most of the bundled libraries are Automake-based
+dnl      and, therefore, they rely on the standard non-selective search path
+dnl      (i.e., VPATH) feature of make for out-of-source builds. This makes
+dnl      having a clean source directory a hard requirement for them. Otherwise,
+dnl      instead of generating object files in the build directory, make would
+dnl      simply take them from the dirty source directory. For that reason, the
+dnl      respective configure scripts will run a check similar to the one below
+dnl      and fail if their source directories are dirty. It is better that we
+dnl      run the check much earlier and fail the configuration with a more
+dnl      informative error message.
+dnl   2. The makefiles of ICON rely on the selective search path (i.e. vpath)
+dnl      feature of GNU Make. Therefore, the problem with the object files that
+dnl      is described above is irrelevant. However, icon.mk supports Fortran
+dnl      source file preprocessing. The input and output files of the most of
+dnl      the preprocessing steps are valid Fortran files. Thus, both the
+dnl      original files in the source directory and the preprocessed files in
+dnl      the build directory have the same suffix '.f90', which makes it
+dnl      impossible to declare selective search paths that would work for the
+dnl      original files but wouldn't work for the preprocessed files. This might
+dnl      lead to the preprocessed files being taken from the dirty source
+dnl      directory instead of being generated in the build directory. A
+dnl      workaround for this, which had been implemented before, is to refer to
+dnl      the preprocessed files by their absolute paths. However, it makes the
+dnl      makefiles overcomplicated and error-prone. Instead, we simply forbid
+dnl      the source directory to be dirty in the case of out-of-source build.
 AS_IF([test "`cd $srcdir && pwd`" != "`pwd`" && dnl
 test -f "$srcdir/config.status"],
   [AC_MSG_ERROR([source directory already configured; dnl
@@ -74,18 +95,6 @@ AC_ARG_ENABLE([jsbach],
   [AS_IF([test x"$enableval" != xno], [enable_jsbach=yes])],
   [enable_jsbach=yes])
 
-AC_ARG_ENABLE([dace],
-  [AC_HELP_STRING([--enable-dace],
-     [enable DACE modules for data assimilation @<:@default=no@:>@])],
-  [AS_IF([test x"$enableval" != xno], [enable_dace=yes])],
-  [enable_dace=no])
-
-AC_ARG_ENABLE([emvorado],
-  [AC_HELP_STRING([--enable-emvorado],
-     [enable the radar forward operator EMVORADO @<:@default=no@:>@])],
-  [AS_IF([test x"$enableval" != xno], [enable_emvorado=yes])],
-  [enable_emvorado=no])
-
 AC_ARG_ENABLE([coupling],
   [AC_HELP_STRING([--enable-coupling],
      [enable the coupling @<:@default=yes@:>@])],
@@ -118,6 +127,18 @@ AC_ARG_ENABLE([rttov],
 @<:@default=no@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_rttov=yes])],
   [enable_rttov=no])
+
+AC_ARG_ENABLE([dace],
+  [AC_HELP_STRING([--enable-dace],
+     [enable the DACE modules for data assimilation @<:@default=no@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_dace=yes])],
+  [enable_dace=no])
+
+AC_ARG_ENABLE([emvorado],
+  [AC_HELP_STRING([--enable-emvorado],
+     [enable the radar forward operator EMVORADO @<:@default=no@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_emvorado=yes])],
+  [enable_emvorado=no])
 
 AC_ARG_ENABLE([art],
   [AC_HELP_STRING([--enable-art],
@@ -347,51 +368,40 @@ AS_VAR_IF([enable_jsbach], [yes],
    AC_SUBST([JSBACH_ENABLED], [''])],
   [AC_SUBST([JSBACH_ENABLED], ['#'])])
 
+icon_dace_enabled_or_needed=no
+AS_IF([test x"$enable_dace" = xyes || test x"$enable_emvorado" = xyes],
+  [icon_dace_enabled_or_needed=yes])
+
+AS_VAR_IF([icon_dace_enabled_or_needed], [yes],
+  [icon_subdir_srcdir="$srcdir/externals/dace_icon"
+   icon_subdir_unique_file="src_for_icon/mo_fdbk_tables.f90"
+   AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+     [AC_MSG_ERROR([unable to find sources of the DACE modules for data dnl
+assimilation ($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable dnl
+the modules (--disable-dace) and the radar forward operator EMVORADO dnl
+(--disable-emvorado)])])
+   AC_SUBST([DACE_ENABLED_OR_NEEDED], [''])],
+  [AC_SUBST([DACE_ENABLED_OR_NEEDED], ['#'])])
+
+AS_VAR_IF([enable_emvorado], [yes],
+  [icon_subdir_srcdir="$srcdir/externals/emvorado"
+   icon_subdir_unique_file="src_emvorado/radar_organize.f90"
+   AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+     [AC_MSG_ERROR([unable to find sources of the radar forward operator dnl
+EMVORADO ($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the dnl
+operator (--disable-emvorado)])])
+   AC_SUBST([EMVORADO_ENABLED], [''])],
+  [AC_SUBST([EMVORADO_ENABLED], ['#'])])
+
 AS_VAR_IF([enable_art], [yes],
   [icon_subdir_srcdir="$srcdir/externals/art"
    icon_subdir_unique_file="chem_init/mo_art_chem_init_utils.f90"
    AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
-     [AC_MSG_ERROR([unable to find sources of the ART component dnl
-($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component dnl
-(--disable-art)])])
+     [AC_MSG_ERROR([unable to find sources of the aerosols and reactive dnl
+trace component ART ($icon_subdir_unique_file) in '$icon_subdir_srcdir': dnl
+disable the component (--disable-art)])])
    AC_SUBST([ART_ENABLED], [''])],
   [AC_SUBST([ART_ENABLED], ['#'])])
-
-AS_VAR_IF([enable_dace], [yes],
-  [icon_subdir_srcdir="$srcdir/externals/dace_icon"
-   icon_subdir_unique_file="src_for_icon/mo_fdbk_tables.f90"
-   AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
-     [AC_MSG_ERROR([unable to find sources of the DACE component, for example dnl
-($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component dnl
-(--disable-dace) or load submodule dace_icon])])
-  AC_SUBST([DACE_ENABLED], [''])
-  AC_SUBST([DACE_NOT_ENABLED], ['#'])
-  ],
-  [
-  AC_SUBST([DACE_ENABLED], ['#'])
-  AC_SUBST([DACE_NOT_ENABLED], [''])
-  ])
-
-AS_VAR_IF([enable_rttov], [yes],
-  [AC_SUBST([RTTOV_ENABLED], [''])],
-  [AC_SUBST([RTTOV_ENABLED], ['#'])])
-
-AS_VAR_IF([enable_emvorado], [yes],
-  [
-   icon_subdir_srcdir="$srcdir/externals/emvorado"
-   icon_subdir_unique_file="src_emvorado/radar_organize.f90"
-   AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
-     [AC_MSG_ERROR([unable to find sources of the EMVORADO component dnl
-($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component dnl
-(--disable-emvorado)]) or load submodule emvorado])
-   icon_subdir_srcdir="$srcdir/externals/dace_icon"
-   icon_subdir_unique_file="src_for_icon/mo_fdbk_tables.f90"
-   AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
-     [AC_MSG_ERROR([unable to find sources of the DACE component which is needed by EMVORADO, for example dnl
-($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component dnl
-(--disable-emvorado) or load submodule dace_icon])])
-   AC_SUBST([EMVORADO_ENABLED], [''])],
-  [AC_SUBST([EMVORADO_ENABLED], ['#'])])
 
 AS_VAR_IF([enable_mpi], [yes],
   [AC_SUBST([MPI_ENABLED], [''])],
@@ -405,12 +415,12 @@ AS_VAR_IF([enable_gpu], [yes],
   [AC_SUBST([GPU_ENABLED], [''])],
   [AC_SUBST([GPU_ENABLED], ['#'])])
 
-AS_IF([test "x$enable_claw" != xno],
+AS_IF([test x"$enable_claw" != xno],
   [AC_SUBST([CLAW_ENABLED], [''])],
   [AC_SUBST([CLAW_ENABLED], ['#'])])
 
-AS_IF([test "x$enable_explicit_fpp" = xauto && dnl
-test "x$enable_serialization" != xno],
+AS_IF([test x"$enable_explicit_fpp" = xauto && dnl
+test x"$enable_serialization" != xno],
   [AC_MSG_NOTICE([explicit Fortran preprocessing is enabled because the dnl
 Serialbox2 serialization is requested: disable the explicit preprocessing dnl
 if required (--disable-explicit-fpp)])
@@ -419,7 +429,7 @@ AS_VAR_IF([enable_explicit_fpp], [yes],
   [AC_SUBST([FPP_ENABLED], [''])],
   [AC_SUBST([FPP_ENABLED], ['#'])])
 
-AS_IF([test "x$enable_serialization" != xno],
+AS_IF([test x"$enable_serialization" != xno],
   [AC_SUBST([SB2_ENABLED], [''])],
   [AC_SUBST([SB2_ENABLED], ['#'])])
 
@@ -450,6 +460,12 @@ AC_ARG_VAR([ICON_FCFLAGS],
   [Fortran compiler flags to be appended to FCFLAGS when compiling and linking
 ICON, e.g. optimization flags])dnl
 ICON_FCFLAGS=${ICON_FCFLAGS-}
+
+AC_ARG_VAR([ICON_LDFLAGS],
+  [Fortran compiler flags to be appended to LDFLAGS when linking ICON, e.g.
+to prevent configuration-time failures of the Libtool-based bundled
+libraries])dnl
+ICON_LDFLAGS=${ICON_LDFLAGS-}
 
 AC_ARG_VAR([ICON_OCEAN_FCFLAGS],
   [Fortran compiler flags to be appended to FCFLAGS when compiling the ocean
@@ -504,14 +520,15 @@ AC_SUBST([FC_INC_ORDER_PP_f90])
 ACX_LANG_MACRO_FLAG([AC_SUBST([FC_PP_DEF], [$acx_cv_fc_macro_flag])])
 
 dnl Generate RPATH flags:
+AC_SUBST([ICON_RPATH_LDFLAGS], [''])
 AS_VAR_IF([enable_rpaths], [yes],
   [ACX_SHLIB_FC_RPATH_FLAG
    ASX_EXTRACT_ARGS([icon_L_args], ["$LDFLAGS $LIBS"], ['-L@<:@ @:>@*'])
    for icon_L_arg in $icon_L_args; do
-     ASX_VAR_APPEND_UNIQ([LDFLAGS],
+     ASX_VAR_APPEND_UNIQ([ICON_RPATH_LDFLAGS],
        ["$acx_cv_fc_rpath_flag$icon_L_arg"], [' '])
    done
-   ACX_SHLIB_RPATH_FLAGS_CHECK])
+   ACX_SHLIB_RPATH_FLAGS_CHECK([$ICON_RPATH_LDFLAGS])])
 
 ACX_FC_ATTRIBUTE_CONTIGUOUS(
   [AS_VAR_APPEND([FCFLAGS],
@@ -529,19 +546,6 @@ AS_VAR_IF([enable_ocean], [no],
 AS_VAR_IF([enable_jsbach], [no],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_JSBACH__"])])
 
-AS_VAR_IF([enable_dace], [yes],
-  [
-  AS_VAR_IF([enable_rttov], [no], [
-    AC_MSG_FAILURE([The DACE submodule currently only works together with the RTTOV library: dnl
-enable usage of RTTOV (--enable-rttov) and link the RTTOV lib accordingly (FCFLAGS, LDFLAGS and LIBS), dnl
-or --disable-dace])
-  ])
-  AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__DACE__ ${FC_PP_DEF}HAVE_MPI_MOD"])
-  ])
-
-AS_VAR_IF([enable_emvorado], [yes],
-  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}HAVE_RADARFWO ${FC_PP_DEF}NUDGING ${FC_PP_DEF}GRIBAPI ${FC_PP_DEF}HDF5_RADAR_INPUT ${FC_PP_DEF}WITH_ZLIB ${FC_PP_DEF}NETCDF ${FC_PP_DEF}TWOMOM_SB_NEW "])])
-
 AS_VAR_IF([enable_coupling], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}YAC_coupling"])])
 
@@ -556,6 +560,14 @@ AS_VAR_IF([enable_rte_rrtmgp], [no],
 
 AS_VAR_IF([enable_rttov], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__USE_RTTOV ${FC_PP_DEF}_RTTOV_VERSION=13 ${FC_PP_DEF}HAVE_MPI_MOD"])])
+
+AS_VAR_IF([enable_dace], [yes],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__DACE__"])])
+
+AS_VAR_IF([enable_emvorado], [yes],
+  [AS_VAR_APPEND([FCFLAGS],
+     [" ${FC_PP_DEF}HAVE_RADARFWO ${FC_PP_DEF}NUDGING dnl
+${FC_PP_DEF}TWOMOM_SB_NEW"])])
 
 AS_VAR_IF([enable_art], [yes],
   [AS_VAR_APPEND([FCFLAGS],
@@ -580,10 +592,10 @@ AS_VAR_IF([enable_sct], [yes],
 AS_VAR_IF([enable_yaxt], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}HAVE_YAXT"])])
 
-AS_IF([test "x$enable_claw" != xno],
+AS_IF([test x"$enable_claw" != xno],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}_CLAW"])])
 
-AS_IF([test "x$enable_serialization" != xno],
+AS_IF([test x"$enable_serialization" != xno],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}SERIALIZE"])
    AS_CASE(["$enable_serialization"],
      [read], [AS_VAR_APPEND([FCFLAGS],
@@ -599,8 +611,8 @@ AS_VAR_IF([enable_testbed], [no],
 AS_VAR_IF([enable_loop_exchange], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__LOOP_EXCHANGE"])])
 
-AS_IF([test "x$enable_intel_consistency" = xauto && dnl
-test "x$acx_cv_fc_compiler_vendor" = xintel],
+AS_IF([test x"$enable_intel_consistency" = xauto && dnl
+test x"$acx_cv_fc_compiler_vendor" = xintel],
   [AC_MSG_NOTICE([Intel compiler directives enforcing consistency are dnl
 enabled because $FC is recognized as the Intel Fortran compiler: disable dnl
 the directives if required (--disable-intel-consistency)])
@@ -673,7 +685,7 @@ dnl support/util_signal.c: features.h strings.h fenv.h fptrap.h
 
 dnl Don't use neither AS_IF nor AS_VAR_IF to prevent checking for NVCC when
 dnl GPU support is disabled:
-if test "x$enable_gpu" = xyes; then :
+if test x"$enable_gpu" = xyes; then :
   ACX_PROG_NVCC
    AS_VAR_IF([acx_cv_prog_nvcc_cuda], [no],
      [AC_MSG_FAILURE([unable to find a working NVIDIA CUDA Compiler: either dnl
@@ -706,11 +718,12 @@ fi
 dnl One of the topological orderings of the ICON dependency graph
 dnl (run ./utils/icon_sorted_deps.sh):
 dnl
-dnl '-lself', '-licon_tixi', '-lyac', '-llapack -lblas (or other)',
-dnl '-lmtime', '-lSerialboxFortranShared', '-lcdi_f2003 -lcdi',
-dnl '-lyaxt -lyaxt_c', '-lsct', '-lradiance -lrttov10.2 (etc.)',
+dnl '-lself', '-licon_tixi', '-lyac', '-lmtime', '-lSerialboxFortranShared',
+dnl '-lcdi_f2003 -lcdi', '-leccodes_f90', '-lyaxt -lyaxt_c', '-lsct',
+dnl '-lradiance -lrttov10.2 (etc.)', '-llapack -lblas (or other)',
 dnl '-lradiation -lifsrrtm -lutilities -lifsaux', '-lrrtmgp -lrte',
-dnl '-lnetcdff', '-lgomp (or other)', '-lmpifort -lmpi (or other)'
+dnl '-lnetcdff', '-lhdf5hl_fortran -lhdf5_fortran', '-lz', '-lgomp (or other)',
+dnl '-lmpifort -lmpi (or other)'
 dnl
 dnl We check these dependencies in the reverse order.
 
@@ -733,17 +746,21 @@ dnl libraries:
 bundled_includes=
 
 AS_VAR_IF([enable_mpi], [yes],
-  [AC_MSG_CHECKING([whether Fortran 90 interface of MPI library is available])
+  [AC_MSG_CHECKING([whether the Fortran 90 interface of MPI library is dnl
+available])
    AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
        use mpi, only: mpi_init
        implicit none
        integer :: error
        call mpi_init(error)]])],
-     [AC_MSG_RESULT([yes])],
+     [AC_MSG_RESULT([yes])
+      AS_IF([test x"$icon_dace_enabled_or_needed" = xyes || dnl
+test x"$enable_rttov" = xyes],
+        [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}HAVE_MPI_MOD"])])],
      [AC_MSG_RESULT([no])
-      AC_MSG_FAILURE([unable to link a test program using Fortran 90 dnl
-interface of MPI: either disable MPI support (--disable-mpi) or set FC to dnl
-the MPI Fortran compiler wrapper, or set FCFLAGS, LDFLAGS and LIBS dnl
+      AC_MSG_FAILURE([unable to link a test program using the Fortran 90 dnl
+interface of MPI library: either disable MPI support (--disable-mpi) or set dnl
+FC to the MPI Fortran compiler wrapper, or set FCFLAGS, LDFLAGS and LIBS dnl
 accordingly])])])
 
 dnl The configure scripts of the most of the bundled libraries expect
@@ -795,16 +812,60 @@ AS_VAR_IF([enable_gpu], [yes],
 either enable GPU support (--enable-gpu) or set FCFLAGS accordingly to dnl
 disable OpenACC])])])
 
+AS_VAR_IF([enable_emvorado], [yes],
+  [AC_MSG_CHECKING([whether C ZLIB library is available via the Fortran dnl
+ISO_C_BINDING interface])
+   AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      implicit none
+      interface
+      subroutine gzOpen() bind(c, name="gzopen")
+      end subroutine gzOpen
+      end interface
+      call gzOpen]])],
+     [AC_MSG_RESULT([yes])
+      AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}WITH_ZLIB"])],
+     [AC_MSG_RESULT([no])
+      AC_MSG_FAILURE([unable to link a test program using ZLIB library via dnl
+the Fortran ISO_C_BINDING interface: either disable the radar forward dnl
+operator EMVORADO (--disable-emvorado) or set LDFLAGS and LIBS accordingly])])])
+
+AS_VAR_IF([enable_emvorado], [yes],
+  [AC_MSG_CHECKING([whether the Fortran 90 low- and high-level interfaces of dnl
+HDF5 library are available])
+   AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      use hdf5, only: h5open_f, &
+                    & h5fopen_f, &
+                    & hid_t, &
+                    & H5F_ACC_RDONLY_F
+      use h5lt, only: h5ltget_attribute_string_f
+      implicit none
+      integer :: ierr
+      integer(kind=hid_t) :: file_id
+      character(len=500) :: catt_value
+      call h5open_f(ierr)
+      call h5fopen_f('conftest.h5', H5F_ACC_RDONLY_F, &
+                   & file_id, ierr)
+      call h5ltget_attribute_string_f(file_id, &
+                                    & 'group', 'attr', &
+                                    & catt_value, ierr)]])],
+     [AC_MSG_RESULT([yes])
+      AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}HDF5_RADAR_INPUT"])],
+     [AC_MSG_RESULT([no])
+      AC_MSG_FAILURE([unable to link a test program using the Fortran 90 dnl
+low- and high-level interfaces of HDF5 library: set FCFLAGS, LDFLAGS and dnl
+LIBS accordingly])])])
+
 AC_MSG_CHECKING([whether the Fortran 77 interface of NetCDF library is dnl
 available])
 AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      implicit none
       include 'netcdf.inc'
       integer :: status, ncid
       status = nf_open('conftest.nc', nf_nowrite, ncid)]])],
   [AC_MSG_RESULT([yes])],
   [AC_MSG_RESULT([no])
-   AC_MSG_FAILURE([unable to link a test program using Fortran 77 interface dnl
-of NetCDF library: set FCFLAGS, LDFLAGS and LIBS accordingly])])
+   AC_MSG_FAILURE([unable to link a test program using the Fortran 77 dnl
+interface of NetCDF library: set FCFLAGS, LDFLAGS and LIBS accordingly])])
 AS_VAR_IF([enable_parallel_netcdf], [yes],
   [AC_MSG_CHECKING(
      [whether the provided version of NetCDF is built with parallel support])
@@ -839,12 +900,25 @@ grep 'conftest_parallel_yes' >/dev/null 2>&1],
               [icon_netcdf_supports_parallel=yes])])])])
    AC_MSG_RESULT([$icon_netcdf_supports_parallel])
    AS_IF([test x"$icon_netcdf_supports_parallel" = xno],
-        [AC_MSG_FAILURE([the provided version of NetCDF does not support dnl
+        [AC_MSG_FAILURE([the provided version of NetCDF does not support the dnl
 parallel features: either disable usage of the parallel features of NetCDF dnl
 (--disable-parallel-netcdf) or set FCFLAGS, LDFLAGS and LIBS accordingly])],
         [test x"$icon_netcdf_supports_parallel" = xunknown],
         [AC_MSG_WARN([unable to check whether the provided version of dnl
-NetCDF supports parallel features])])])
+NetCDF supports the parallel features])])])
+AC_MSG_CHECKING([whether the Fortran 90 interface of NetCDF library is dnl
+available])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      use netcdf, only: nf90_open, nf90_nowrite
+      implicit none
+      integer :: status, ncid
+      status = nf90_open('conftest.nc', nf90_nowrite, ncid)]])],
+  [AC_MSG_RESULT([yes])
+   AS_VAR_IF([enable_emvorado], [yes],
+     [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}NETCDF"])])],
+  [AC_MSG_RESULT([no])
+   AC_MSG_FAILURE([unable to link a test program using the Fortran 90 dnl
+interface of NetCDF library: set FCFLAGS, LDFLAGS and LIBS accordingly])])
 
 AS_VAR_IF([enable_rte_rrtmgp], [yes],
   [AS_VAR_IF([with_external_rte_rrtmgp], [yes],
@@ -880,26 +954,28 @@ AS_VAR_IF([enable_rte_rrtmgp], [yes],
       error_msg = gas_conc_array(1)%set_vmr('h2o',gas_conc_temp_3d(:,:,1))]])],
         [AC_MSG_RESULT([yes])],
         [AC_MSG_RESULT([no])
-         AC_MSG_FAILURE([unable to link a test program using RTE+RRTMGP: dnl
-either disable RTE+RRTMGP (--disable-rte-rrtmgp) or use the bundled version dnl
-of RTE+RRTMGP (--without-external-rte-rrtmgp), or set FCFLAGS, LDFLAGS and dnl
-LIBS accordingly])])],
+         AC_MSG_FAILURE([unable to link a test program using RTE+RRTMGP dnl
+library: either disable usage of the RTE+RRTMGP toolbox for radiation dnl
+calculations (--disable-rte-rrtmgp) or use the bundled version of RTE+RRTMGP dnl
+library (--without-external-rte-rrtmgp), or set FCFLAGS, LDFLAGS and LIBS dnl
+accordingly])])],
      [icon_subdir_srcdir="$srcdir/externals/rte-rrtmgp"
       icon_subdir_unique_file="rte/mo_rte_sw.F90"
       AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
-        [AC_MSG_ERROR([unable to find sources of the the RTE+RRTMGP toolbox dnl
-($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable dnl
-RTE+RRTMGP (--disable-rte-rrtmgp) or provide an external version of dnl
-RTE+RRTMGP (--with-external-rte-rrtmgp) by setting FCFLAGS, LDFLAGS and dnl
-LIBS accordingly])])
+        [AC_MSG_ERROR([unable to find sources of the RTE+RRTMGP library dnl
+($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable usage of dnl
+the RTE+RRTMGP toolbox for radiation calculations (--disable-rte-rrtmgp) or dnl
+provide an external version of RTE+RRTMGP library dnl
+(--with-external-rte-rrtmgp) by setting FCFLAGS, LDFLAGS and LIBS dnl
+accordingly])])
       AC_ARG_VAR([ICON_RTE_RRTMGP_FCFLAGS],
         [Fortran compiler flags to be appended to FCFLAGS when compiling and
-linking the bundled version of RTE+RRTMGP
+linking the bundled version of RTE+RRTMGP library
 @<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
       ICON_RTE_RRTMGP_FCFLAGS=${ICON_RTE_RRTMGP_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
       AC_ARG_VAR([ICON_RTE_RRTMGP_CFLAGS],
         [Fortran compiler flags to be appended to CFLAGS when compiling and
-linking the bundled version of RTE+RRTMGP
+linking the bundled version of RTE+RRTMGP library
 @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
       ICON_RTE_RRTMGP_CFLAGS=${ICON_RTE_RRTMGP_CFLAGS-$ICON_BUNDLED_CFLAGS}
       ACX_CONFIG_SUBDIR([externals/rte-rrtmgp],
@@ -928,24 +1004,28 @@ AS_VAR_IF([enable_ecrad], [yes],
       call setup_radiation(conf)]])],
         [AC_MSG_RESULT([yes])],
         [AC_MSG_RESULT([no])
-         AC_MSG_FAILURE([unable to link a test program using ECRAD: either dnl
-disable ECRAD (--disable-ecrad) or use the bundled version of ECRAD dnl
-(--without-external-ecrad), or set FCFLAGS, LDFLAGS and LIBS accordingly])])],
+         AC_MSG_FAILURE([unable to link a test program using ECRAD library: dnl
+either disable usage of the ECMWF radiation scheme (--disable-ecrad) or use dnl
+the bundled version of ECRAD library (--without-external-ecrad), or set dnl
+FCFLAGS, LDFLAGS and LIBS accordingly])])],
 dnl
      [icon_subdir_srcdir="$srcdir/externals/ecrad"
       icon_subdir_unique_file="radiation/radiation_flux.F90"
       AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
-        [AC_MSG_ERROR([unable to find sources of the the ECMWF radiation dnl
-scheme ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable dnl
-ECRAD (--disable-ecrad) or provide an external version of ECRAD dnl
-(--with-external-ecrad) by setting FCFLAGS, LDFLAGS and LIBS accordingly])])
+        [AC_MSG_ERROR([unable to find sources of the the ECRAD library dnl
+($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable usage of dnl
+the ECMWF radiation scheme (--disable-ecrad) or provide an external version dnl
+of ECRAD library (--with-external-ecrad) by setting FCFLAGS, LDFLAGS and dnl
+LIBS accordingly])])
       AC_ARG_VAR([ICON_ECRAD_FCFLAGS],
         [Fortran compiler flags to be appended to FCFLAGS when compiling and
-linking the bundled version of ECRAD @<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
+linking the bundled version of ECRAD library
+@<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
       ICON_ECRAD_FCFLAGS=${ICON_ECRAD_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
       AC_ARG_VAR([ICON_ECRAD_CFLAGS],
         [Fortran compiler flags to be appended to CFLAGS when compiling and
-linking the bundled version of ECRAD @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
+linking the bundled version of ECRAD library
+@<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
       ICON_ECRAD_CFLAGS=${ICON_ECRAD_CFLAGS-$ICON_BUNDLED_CFLAGS}
       ACX_CONFIG_SUBDIR([externals/ecrad],
         [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*],
@@ -962,19 +1042,53 @@ linking the bundled version of ECRAD @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
       BUNDLED_LIBFILES="externals/ecrad/libifsrrtm.a $BUNDLED_LIBFILES"
       BUNDLED_LIBFILES="externals/ecrad/libradiation.a $BUNDLED_LIBFILES"])])
 
+AC_MSG_CHECKING([whether Fortran BLAS library is available])
+AC_LINK_IFELSE([AC_LANG_FUNC_LINK_TRY([dgemm])],
+  [AC_MSG_RESULT([yes])],
+  [AC_MSG_RESULT([no])
+   AC_MSG_FAILURE([unable to link a test program using BLAS library: set dnl
+FCFLAGS, LDFLAGS and LIBS accordingly])])
+
+AC_MSG_CHECKING([whether Fortran LAPACK library is available])
+AC_LINK_IFELSE([AC_LANG_FUNC_LINK_TRY([dgeev])],
+  [AC_MSG_RESULT([yes])],
+  [AC_MSG_RESULT([no])
+   AC_MSG_FAILURE([unable to link a test program using LAPACK library: set dnl
+FCFLAGS, LDFLAGS and LIBS accordingly])])
+
 AS_VAR_IF([enable_rttov], [yes],
   [AC_MSG_CHECKING([whether Fortran RTTOV library is available])
    AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
-use rttov_types, only: rttov_coefs
-implicit none
+      use rttov_types, only: rttov_coefs
+      implicit none
 #include "rttov_nullify_coef.interface"
-type(rttov_coefs),target:: coefs(1)
-call rttov_nullify_coef(coefs(1)%coef)]])],
-     [AC_MSG_RESULT([yes])],
+      type(rttov_coefs),target:: coefs(1)
+      call rttov_nullify_coef(coefs(1)%coef)]])],
+     [AC_MSG_RESULT([yes])
+dnl The only file in ICON (src/data_assimilation/interfaces/mo_rttov_ifc.f90)
+dnl that uses the macro 'RTTOV12' defines it itself. Therefore, we define it
+dnl only when the DACE modules are enabled because their source files need it.
+      AS_VAR_IF([enable_dace], [yes],
+        [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}RTTOV12"])])],
      [AC_MSG_RESULT([no])
-      AC_MSG_FAILURE([unable to link a test program using the RTTOV library: either dnl
-disable usage of RTTOV (--disable-rttov) or set FCFLAGS, LDFLAGS and LIBS dnl
-accordingly])])])
+      AC_MSG_FAILURE([unable to link a test program using RTTOV library: dnl
+either disable usage of the radiative transfer model for TOVS dnl
+(--disable-rttov) or set FCFLAGS, LDFLAGS and LIBS accordingly])])dnl
+dnl We need an extra check for the availability of the "god stuff (generalized
+dnl optical depth, RTTOV smoothing)" when the DACE modules are enabled.
+],
+  [AS_VAR_IF([enable_dace], [yes],
+     [dnl
+dnl It is technically possible to build the DACE modules without RTTOV library
+dnl but it is currently unclear whether that makes sense. Therefore, we fail
+dnl the configuration when the modules are enabled but usage of the library is
+dnl disabled:
+      AC_MSG_ERROR([unsupported combination of the configure options: dnl
+you are trying to configure with the DACE modules for data assimilation but dnl
+usage of the radiative transfer model for TOVS is disabled: either disable dnl
+the DACE modules for data assimilation (--disable-dace) or enable usage of dnl
+the radiative transfer model for TOVS (--enable-rttov)])
+      AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}NO_RTTOV"])])])
 
 AS_VAR_IF([enable_sct], [yes],
   [AS_VAR_IF([with_external_sct], [yes],
@@ -986,9 +1100,10 @@ available])
       call sct_init(timer_max=512)]])],
         [AC_MSG_RESULT([yes])],
         [AC_MSG_RESULT([no])
-         AC_MSG_FAILURE([unable to link a test program using SCT: either dnl
-disable SCT timer (--disable-sct) or use the bundled version of SCT dnl
-(--without-external-sct), or set FCFLAGS, LDFLAGS and LIBS accordingly])])],
+         AC_MSG_FAILURE([unable to link a test program using the Fortran dnl
+interface of SCT library: either disable the SCT timer (--disable-sct) or dnl
+use the bundled version of SCT library (--without-external-sct), or set dnl
+FCFLAGS, LDFLAGS and LIBS accordingly])])],
 dnl
      [icon_subdir_srcdir="$srcdir/externals/sct"
       icon_subdir_unique_file="src/sct_reporter.c"
@@ -996,15 +1111,17 @@ dnl
         [AC_MSG_ERROR([unable to find sources of the bundled version of dnl
 SCT library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either dnl
 disable the SCT timer (--disable-sct) or provide an external dnl
-version of SCT (--with-external-sct) by setting FCFLAGS, LDFLAGS and LIBS dnl
-accordingly])])
+version of SCT library (--with-external-sct) by setting FCFLAGS, LDFLAGS and dnl
+LIBS accordingly])])
       AC_ARG_VAR([ICON_SCT_FCFLAGS],
         [Fortran compiler flags to be appended to FCFLAGS when compiling and
-linking the bundled version of SCT @<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
+linking the bundled version of SCT library
+@<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
       ICON_SCT_FCFLAGS=${ICON_SCT_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
       AC_ARG_VAR([ICON_SCT_CFLAGS],
         [Fortran compiler flags to be appended to CFLAGS when compiling and
-linking the bundled version of SCT @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
+linking the bundled version of SCT library
+@<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
       ICON_SCT_CFLAGS=${ICON_SCT_CFLAGS-$ICON_BUNDLED_CFLAGS}
       ACX_CONFIG_SUBDIR([externals/sct],
         [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*],
@@ -1065,8 +1182,8 @@ dnl If that is not the case, prepend libs with the flag:
 
 AS_IF([test x"$enable_yaxt" = xyes || test x"$enable_cdi_pio" = xyes],
   [AS_VAR_IF([with_external_yaxt], [yes],
-     [AC_MSG_CHECKING([whether the Fortran interface of YAXT library dnl
-is available])
+     [AC_MSG_CHECKING([whether the Fortran interface of YAXT library is dnl
+available])
       AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
       use yaxt, only: xt_initialized, xt_initialize
       implicit none
@@ -1074,10 +1191,10 @@ is available])
       if (.not. xt_initialized()) call xt_initialize(a)]])],
         [AC_MSG_RESULT([yes])],
         [AC_MSG_RESULT([no])
-         AC_MSG_FAILURE([unable to link a test program using YAXT: either dnl
-disable the YAXT data exchange (--disable-yaxt) or use the bundled version dnl
-of YAXT (--without-external-yaxt), or set FCFLAGS, LDFLAGS and LIBS dnl
-accordingly])])],
+         AC_MSG_FAILURE([unable to link a test program using the Fortran dnl
+interface of YAXT library: either disable the YAXT data exchange dnl
+(--disable-yaxt) or use the bundled version of YAXT library dnl
+(--without-external-yaxt), or set FCFLAGS, LDFLAGS and LIBS accordingly])])],
 dnl
      [icon_subdir_srcdir="$srcdir/externals/yaxt"
       icon_subdir_unique_file="src/xt_idxlist.c"
@@ -1085,15 +1202,17 @@ dnl
         [AC_MSG_ERROR([unable to find sources of the bundled version of dnl
 YAXT library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either dnl
 disable the YAXT data exchange (--disable-yaxt) or provide an external dnl
-version of YAXT (--with-external-yaxt) by setting FCFLAGS, LDFLAGS and LIBS dnl
-accordingly])])
+version of YAXT library (--with-external-yaxt) by setting FCFLAGS, LDFLAGS dnl
+and LIBS accordingly])])
       AC_ARG_VAR([ICON_YAXT_FCFLAGS],
         [Fortran compiler flags to be appended to FCFLAGS when compiling and
-linking the bundled version of YAXT @<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
+linking the bundled version of YAXT library
+@<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
       ICON_YAXT_FCFLAGS=${ICON_YAXT_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
       AC_ARG_VAR([ICON_YAXT_CFLAGS],
         [Fortran compiler flags to be appended to CFLAGS when compiling and
-linking the bundled version of YAXT @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
+linking the bundled version of YAXT library
+@<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
       ICON_YAXT_CFLAGS=${ICON_YAXT_CFLAGS-$ICON_BUNDLED_CFLAGS}
       ACX_CONFIG_SUBDIR([externals/yaxt],
         [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*|MPI_LAUNCH=*],
@@ -1114,6 +1233,21 @@ linking the bundled version of YAXT @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
       BUNDLED_LIBFILES="externals/yaxt/src/.libs/libyaxt.a dnl
 externals/yaxt/src/.libs/libyaxt_c.a $BUNDLED_LIBFILES"])])
 
+AS_VAR_IF([enable_emvorado], [yes],
+  [AC_MSG_CHECKING([whether the Fortran 90 interfaces of GRIB-API library is dnl
+available])
+   AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      use grib_api, only: grib_open_file, GRIB_SUCCESS
+      implicit none
+      integer :: igrib, ierr
+      call grib_open_file(igrib, 'conftest.grb', 'w', ierr)
+      if (ierr  /= GRIB_SUCCESS) igrib = 0]])],
+     [AC_MSG_RESULT([yes])
+      AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}GRIBAPI"])],
+     [AC_MSG_RESULT([no])
+      AC_MSG_FAILURE([unable to link a test program using the Fortran 90 dnl
+interfaces of GRIB-API library: set FCFLAGS, LDFLAGS and LIBS accordingly])])])
+
 AS_VAR_IF([with_external_cdi], [yes],
 dnl Check whether an external version of CDI is provided:
   [AC_MSG_CHECKING([whether the Fortran 2003 interface of CDI 1.8.x library dnl
@@ -1129,9 +1263,10 @@ is available])
       a = vlistInqVarTypeOfGeneratingProcess(b, c)]])],
      [AC_MSG_RESULT([yes])],
      [AC_MSG_RESULT([no])
-      AC_MSG_FAILURE([unable to link a test program using CDI: either use dnl
-the bundled version of CDI (--without-external-cdi) or set FCFLAGS, LDFLAGS dnl
-and LIBS accordingly])])
+      AC_MSG_FAILURE([unable to link a test program using the Fortran 2003 dnl
+interface of CDI 1.8.x library: either use the bundled version of CDI dnl
+library (--without-external-cdi) or set FCFLAGS, LDFLAGS and LIBS dnl
+accordingly])])
 dnl Check whether the provided external version is compatible with ICON:
    AC_MSG_CHECKING([whether the provided version of CDI 1.8.x is patched])
    AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
@@ -1142,8 +1277,9 @@ dnl Check whether the provided external version is compatible with ICON:
       a = cdiIterator_inqFiletype(b)]])],
      [AC_MSG_RESULT([yes])],
      [AC_MSG_RESULT([no])
-      AC_MSG_FAILURE([the provided version of CDI 1.8.x does not have dnl
-required patches])])
+      AC_MSG_FAILURE([the provided version of CDI 1.8.x does not have the dnl
+required patches: use the bundled version of CDI library dnl
+(--without-external-cdi)])])
 dnl Check whether the provided external version supports the required file
 dnl formats:
    icon_cdi_formats="NetCDF-2:CDI_FILETYPE_NC2 NetCDF-4:CDI_FILETYPE_NC4 dnl
@@ -1168,7 +1304,8 @@ $icon_cdi_format_name support])
      AC_MSG_RESULT([$icon_cdi_format_result])
      AS_IF([test x"$icon_cdi_format_result" = xno],
         [AC_MSG_FAILURE([the provided version of CDI does not support dnl
-$icon_cdi_format_name])],
+$icon_cdi_format_name: use the bundled version of CDI library dnl
+(--without-external-cdi)])],
         [test x"$icon_cdi_format_result" = xunknown],
         [AC_MSG_WARN([unable to check whether the provided version of CDI dnl
 supports $icon_cdi_format_name])])
@@ -1178,11 +1315,11 @@ dnl Check whether the provided external version supports the parallel features:
      [AS_VAR_IF([with_external_yaxt], [no],
         [AC_MSG_ERROR([unsupported combination of the configure options: dnl
 you are trying to configure with the parallel features of an external CDI dnl
-and the bundled YAXT: either disable the parallel features of CDI dnl
-(--disable-cdi-pio) or use the bundled version of CDI dnl
-(--without-external-cdi), or provide the version of YAXT dnl
-(--with-external-yaxt) that CDI has been built with by setting FCFLAGS, dnl
-LDFLAGS and LIBS accordingly])])
+library and the bundled YAXT library: either disable the parallel features dnl
+of CDI (--disable-cdi-pio) or use the bundled version of CDI library dnl
+(--without-external-cdi), or provide the version of YAXT library dnl
+(--with-external-yaxt) that the provided CDI library has been built with by dnl
+setting FCFLAGS, LDFLAGS and LIBS accordingly])])
       AC_MSG_CHECKING([whether the Fortran interface of CDI-PIO library is dnl
 available])
       AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
@@ -1201,29 +1338,31 @@ available])
                             & null_idxlist, null_idxlist)]])],
         [AC_MSG_RESULT([yes])],
         [AC_MSG_RESULT([no])
-         AC_MSG_FAILURE([unable to link a test program using CDI-PIO: dnl
-either disable the usage of the parallel features of CDI dnl
-(--disable-cdi-pio) or set FCFLAGS, LDFLAGS and LIBS accordingly])])])],
+         AC_MSG_FAILURE([unable to link a test program using the Fortran dnl
+interface of CDI-PIO library: either disable usage of the parallel features dnl
+of CDI (--disable-cdi-pio) or set FCFLAGS, LDFLAGS and LIBS accordingly])])])],
 dnl Configure the bundled version of CDI:
   [AS_VAR_IF([enable_cdi_pio], [yes],
-     [AC_MSG_ERROR([the bundled version of CDI does not currently support dnl
-the parallel features: either disable the usage of the parallel features of dnl
-CDI (--disable-cdi-pio) or provide an external version of CDI dnl
+     [AC_MSG_ERROR([the bundled version of CDI library does not currently dnl
+support the parallel features: either disable usage of the parallel features dnl
+of CDI (--disable-cdi-pio) or provide an external version of CDI library dnl
 (--with-external-cdi) by setting FCFLAGS, LDFLAGS and LIBS accordingly])])
    icon_subdir_srcdir="$srcdir/externals/cdi"
    icon_subdir_unique_file="src/cdi.h"
    AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
      [AC_MSG_ERROR([unable to find sources of the bundled version of CDI dnl
 library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an dnl
-external version of CDI (--with-external-cdi) by setting FCFLAGS, LDFLAGS dnl
-and LIBS accordingly])])
+external version of CDI library (--with-external-cdi) by setting FCFLAGS, dnl
+LDFLAGS and LIBS accordingly])])
    AC_ARG_VAR([ICON_CDI_FCFLAGS],
      [Fortran compiler flags to be appended to FCFLAGS when compiling and
-linking the bundled version of CDI @<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
+linking the bundled version of CDI library
+@<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
    ICON_CDI_FCFLAGS=${ICON_CDI_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
    AC_ARG_VAR([ICON_CDI_CFLAGS],
      [Fortran compiler flags to be appended to CFLAGS when compiling and
-linking the bundled version of CDI @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
+linking the bundled version of CDI library
+@<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
    ICON_CDI_CFLAGS=${ICON_CDI_CFLAGS-$ICON_BUNDLED_CFLAGS}
    ACX_CONFIG_SUBDIR([externals/cdi],
      [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*|MPI_LAUNCH=*|F77=*|CXX=*],
@@ -1282,7 +1421,7 @@ dnl didn't use the C++ compiler at all (e.g. like in YAXT).
    BUNDLED_LIBFILES="externals/cdi/src/.libs/libcdi_f2003.a dnl
 externals/cdi/src/.libs/libcdi.a $BUNDLED_LIBFILES"])
 
-AS_IF([test "x$enable_serialization" != xno],
+AS_IF([test x"$enable_serialization" != xno],
   [AC_MSG_CHECKING(
      [whether the Fortran interface of SERIALBOX2 library is available])
    AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
@@ -1291,9 +1430,9 @@ AS_IF([test "x$enable_serialization" != xno],
       call ppser_set_mode(1)]])],
      [AC_MSG_RESULT([yes])],
      [AC_MSG_RESULT([no])
-      AC_MSG_FAILURE([unable to link a test program using SERIALBOX2: dnl
-either disable the serialization (--disable-serialization) or set FCFLAGS, dnl
-LDFLAGS and LIBS accordingly])])])
+      AC_MSG_FAILURE([unable to link a test program using the Fortrain dnl
+interface of SERIALBOX2 library: either disable the serialization dnl
+(--disable-serialization) or set FCFLAGS, LDFLAGS and LIBS accordingly])])])
 
 AS_VAR_IF([with_external_mtime], [yes],
   [AC_MSG_CHECKING([whether the Fortran interface of MTIME library is dnl
@@ -1308,24 +1447,26 @@ available])
       call dateToString(test_date, test_date_string)]])],
      [AC_MSG_RESULT([yes])],
      [AC_MSG_RESULT([no])
-      AC_MSG_FAILURE([unable to link a test program using MTIME: either use dnl
-the bundled version of MTIME (--without-external-mtime) or set FCFLAGS, dnl
-LDFLAGS and LIBS accordingly])])],
+      AC_MSG_FAILURE([unable to link a test program using the Fortran dnl
+interface of MTIME library: either use the bundled version of MTIME dnl
+(--without-external-mtime) or set FCFLAGS, LDFLAGS and LIBS accordingly])])],
 dnl
   [icon_subdir_srcdir="$srcdir/externals/mtime"
    icon_subdir_unique_file="include/mtime_calendar.h"
    AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
      [AC_MSG_ERROR([unable to find sources of the bundled version of MTIME dnl
 library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an dnl
-external version of MTIME (--with-external-mtime) by setting CFLAGS, dnl
+external version of MTIME library (--with-external-mtime) by setting CFLAGS, dnl
 FCFLAGS, LDFLAGS and LIBS accordingly])])
    AC_ARG_VAR([ICON_MTIME_FCFLAGS],
      [Fortran compiler flags to be appended to FCFLAGS when compiling and
-linking the bundled version of MTIME @<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
+linking the bundled version of MTIME library
+@<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
    ICON_MTIME_FCFLAGS=${ICON_MTIME_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
    AC_ARG_VAR([ICON_MTIME_CFLAGS],
      [Fortran compiler flags to be appended to CFLAGS when compiling and
-linking the bundled version of MTIME @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
+linking the bundled version of MTIME library
+@<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
    ICON_MTIME_CFLAGS=${ICON_MTIME_CFLAGS-$ICON_BUNDLED_CFLAGS}
    ACX_CONFIG_SUBDIR([externals/mtime],
      [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*],
@@ -1343,29 +1484,15 @@ linking the bundled version of MTIME @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
    AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/mtime/src "])
    BUNDLED_LIBFILES="externals/mtime/src/.libs/libmtime.a $BUNDLED_LIBFILES"])
 
-AC_MSG_CHECKING([whether Fortran BLAS library is available])
-AC_LINK_IFELSE([AC_LANG_FUNC_LINK_TRY([dgemm])],
-  [AC_MSG_RESULT([yes])],
-  [AC_MSG_RESULT([no])
-   AC_MSG_FAILURE([unable to link a test program using BLAS: set FCFLAGS, dnl
-LDFLAGS and LIBS accordingly])])
-
-AC_MSG_CHECKING([whether Fortran LAPACK library is available])
-AC_LINK_IFELSE([AC_LANG_FUNC_LINK_TRY([dgeev])],
-  [AC_MSG_RESULT([yes])],
-  [AC_MSG_RESULT([no])
-   AC_MSG_FAILURE([unable to link a test program using LAPACK: set FCFLAGS, dnl
-LDFLAGS and LIBS accordingly])])
-
 AS_VAR_IF([enable_coupling], [yes],
   [AS_VAR_IF([with_external_yac], [yes],
      [AS_VAR_IF([with_external_mtime], [no],
         [AC_MSG_ERROR([unsupported combination of the configure options: dnl
-you are trying to configure with external YAC and the bundled MTIME: either dnl
-disable the coupling (--disable-coupling) or use the bundled version of YAC dnl
-(--without-external-yac), or provide the version of MTIME dnl
-(--with-external-mtime) that YAC has been built with by setting FCFLAGS, dnl
-LDFLAGS and LIBS accordingly])])
+you are trying to configure with an external YAC library and the bundled dnl
+MTIME library: either disable the coupling (--disable-coupling) or use the dnl
+bundled version of YAC library (--without-external-yac), or provide the dnl
+version of MTIME library (--with-external-mtime) that the provided YAC dnl
+library has been built with by setting FCFLAGS, LDFLAGS and LIBS accordingly])])
       AC_MSG_CHECKING([whether the Fortran interface of YAC library is dnl
 available])
       AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
@@ -1375,17 +1502,18 @@ available])
       call yac_finit(a, b)]])],
         [AC_MSG_RESULT([yes])],
         [AC_MSG_RESULT([no])
-         AC_MSG_FAILURE([unable to link a test program using YAC: dnl
-either disable the coupling (--disable-coupling) or use the bundled version dnl
-of YAC (--without-external-yac), or set FCFLAGS, LDFLAGS and LIBS dnl
-accordingly])])],
+         AC_MSG_FAILURE([unable to link a test program using the Fortran dnl
+interface of YAC library: either disable the coupling (--disable-coupling) dnl
+or use the bundled version of YAC library (--without-external-yac), or set dnl
+FCFLAGS, LDFLAGS and LIBS accordingly])])],
      [icon_subdir_srcdir="$srcdir/externals/yac"
       icon_subdir_unique_file="src/grid.c"
       AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
         [AC_MSG_ERROR([unable to find sources of the bundled version of YAC dnl
 library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either dnl
 disable the coupling (--disable-coupling) or provide an external version of dnl
-YAC (--with-external-yac) by setting FCFLAGS, LDFLAGS and LIBS accordingly])])
+YAC library (--with-external-yac) by setting FCFLAGS, LDFLAGS and LIBS dnl
+accordingly])])
       yac_MTIME_CFLAGS= ; yac_MTIME_CLIBS=
       AS_VAR_IF([with_external_mtime], [no],
         [dnl Set $ac_abs_top_srcdir and $ac_abs_top_builddir:
@@ -1394,11 +1522,13 @@ YAC (--with-external-yac) by setting FCFLAGS, LDFLAGS and LIBS accordingly])])
          yac_MTIME_CLIBS="${ac_abs_top_builddir}/externals/mtime/src/.libs/libmtime.a"])
       AC_ARG_VAR([ICON_YAC_FCFLAGS],
         [Fortran compiler flags to be appended to FCFLAGS when compiling and
-linking the bundled version of YAC @<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
+linking the bundled version of YAC library
+@<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
       ICON_YAC_FCFLAGS=${ICON_YAC_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
       AC_ARG_VAR([ICON_YAC_CFLAGS],
         [Fortran compiler flags to be appended to CFLAGS when compiling and
-linking the bundled version of YAC @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
+linking the bundled version of YAC library
+@<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
       ICON_YAC_CFLAGS=${ICON_YAC_CFLAGS-$ICON_BUNDLED_CFLAGS}
       ACX_CONFIG_SUBDIR([externals/yac],
         [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*|MPI_LAUNCH=*],
@@ -1441,25 +1571,27 @@ available])
       b = tixiOpenDocument(a, b)]])],
         [AC_MSG_RESULT([yes])],
         [AC_MSG_RESULT([no])
-         AC_MSG_FAILURE([unable to link a test program using TIXI: either dnl
-disable the ART component (--disable-art) or use the bundled version of dnl
-TIXI (--without-external-tixi), or set FCFLAGS, LDFLAGS and LIBS dnl
-accordingly])])],
+         AC_MSG_FAILURE([unable to link a test program using the Fortran dnl
+interface of TIXI library: either disable the aerosols and reactive trace dnl
+component (--disable-art) or use the bundled version of TIXI library dnl
+(--without-external-tixi), or set FCFLAGS, LDFLAGS and LIBS accordingly])])],
      [icon_subdir_srcdir="$srcdir/externals/tixi"
       icon_subdir_unique_file="src/tixi.f90"
       AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
         [AC_MSG_ERROR([unable to find sources of the bundled version of dnl
 TIXI library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either dnl
-disable the ART component (--disable-art) or provide an external version of dnl
-TIXI (--with-external-tixi) by setting FCFLAGS, LDFLAGS and LIBS dnl
-accordingly])])
+disable the aerosols and reactive trace component (--disable-art) or provide dnl
+an external version of TIXI library (--with-external-tixi) by setting dnl
+FCFLAGS, LDFLAGS and LIBS accordingly])])
       AC_ARG_VAR([ICON_TIXI_FCFLAGS],
         [Fortran compiler flags to be appended to FCFLAGS when compiling and
-linking the bundled version of TIXI @<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
+linking the bundled version of TIXI library
+@<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
       ICON_TIXI_FCFLAGS=${ICON_TIXI_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
       AC_ARG_VAR([ICON_TIXI_CFLAGS],
         [Fortran compiler flags to be appended to CFLAGS when compiling and
-linking the bundled version of TIXI @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
+linking the bundled version of TIXI library
+@<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
       ICON_TIXI_CFLAGS=${ICON_TIXI_CFLAGS-$ICON_BUNDLED_CFLAGS}
       ACX_CONFIG_SUBDIR([externals/tixi],
         [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*],
@@ -1488,22 +1620,24 @@ AS_VAR_IF([with_external_self], [yes],
      [AC_MSG_RESULT([yes])],
      [AC_MSG_RESULT([no])
       AC_MSG_FAILURE([unable to link a test program using SELF 0.2 dnl
-library: either use the bundled version of SELF (--without-external-self) dnl
-or set FCFLAGS, LDFLAGS and LIBS accordingly])])],
+library: either use the bundled version of SELF library dnl
+(--without-external-self) or set FCFLAGS, LDFLAGS and LIBS accordingly])])],
   [icon_subdir_srcdir="$srcdir/externals/self"
    icon_subdir_unique_file="src/self_object.f90"
    AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
      [AC_MSG_ERROR([unable to find sources of the bundled version of SELF dnl
 library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an dnl
-external version of SELF (--with-external-self) by setting FCFLAGS, LDFLAGS dnl
-and LIBS accordingly])])
+external version of SELF library (--with-external-self) by setting FCFLAGS, dnl
+LDFLAGS and LIBS accordingly])])
    AC_ARG_VAR([ICON_SELF_FCFLAGS],
      [Fortran compiler flags to be appended to FCFLAGS when compiling and
-linking the bundled version of SELF @<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
+linking the bundled version of SELF library
+@<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
    ICON_SELF_FCFLAGS=${ICON_SELF_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
    AC_ARG_VAR([ICON_SELF_CFLAGS],
      [Fortran compiler flags to be appended to CFLAGS when compiling and
-linking the bundled version of SELF @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
+linking the bundled version of SELF library
+@<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
    ICON_SELF_CFLAGS=${ICON_SELF_CFLAGS-$ICON_BUNDLED_CFLAGS}
    ACX_CONFIG_SUBDIR([externals/self],
      [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*],
@@ -1525,7 +1659,7 @@ AS_VAR_IF([enable_gpu], [yes],
       AC_CHECK_HEADER([cub/device/device_select.cuh], [],
         [AC_MSG_FAILURE([unable to find header files of CUB library: either dnl
 disable GPU support (--disable-gpu) or use the bundled version of CUB dnl
-(--without-external-cub) or set NVCFLAGS accordingly])],
+library (--without-external-cub) or set NVCFLAGS accordingly])],
         [[// override default includes]])
       ACX_LANG_POP_CUDA],
      [icon_subdir_srcdir="$srcdir/externals/cub"
@@ -1533,7 +1667,7 @@ disable GPU support (--disable-gpu) or use the bundled version of CUB dnl
       AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
         [AC_MSG_ERROR([unable to find sources of the bundled version of CUB dnl
 library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable dnl
-GPU support (--disable-gpu) or provide an external version of CUB dnl
+GPU support (--disable-gpu) or provide an external version of CUB library dnl
 (--with-external-cub) by setting NVCFLAGS accordingly])])
       AS_VAR_APPEND([NVCFLAGS], [" -I${srcdir}/externals/cub"])])])
 
@@ -1561,46 +1695,27 @@ ACX_PROG_SEARCH([PERL], [perl],
 
 AC_ARG_VAR([CLAW], [CLAW preprocessor command (optional)])dnl
 AC_ARG_VAR([CLAWFLAGS], [CLAW preprocessor flags (optional)])dnl
-AS_IF([test "x$enable_claw" != xno],
+dnl Additional macro definitions to aid the dependency generator,
+dnl e.g. CLAW intrinsic macros:
+AC_SUBST([DEPGEN_CLAWFLAGS], ['-D_CLAW'])
+AS_IF([test x"$enable_claw" != xno],
   [icon_subdir_srcdir="$srcdir/externals/omni-xmod-pool"
-   icon_subdir_unique_file="self/0.2/self_object.xmod"
+   icon_subdir_unique_file="cdi"
    AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
      [AC_MSG_ERROR([unable to find precompiled module files for OMNI dnl
 compiler required for CLAW preprocessing ($icon_subdir_unique_file) in dnl
 '$icon_subdir_srcdir': disable CLAW preprocessing (--disable-claw)])])
-   AS_VAR_IF([with_external_mtime], [yes],
-     [icon_subdir_srcdir="$srcdir/externals/mtime"
-      icon_subdir_unique_file="src/libmtime.f90"
-      AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
-        [AC_MSG_ERROR([unable to find sources of the bundled version of dnl
-MTIME library ($icon_subdir_unique_file) in '$icon_subdir_srcdir', which dnl
-are required for CLAW preprocessing even if an external version of the dnl
-library is used: disable CLAW preprocessing (--disable-claw)])],
-        [AC_MSG_WARN([CLAW preprocessing implies parsing dnl
-'$icon_subdir_unique_file' and other source files of the bundled version of dnl
-MTIME in '$icon_subdir_srcdir' even if an external version of the library is dnl
-used: it is strongly recommended to switch to the bundled version of MTIME dnl
-(--without-external-mtime) to avoid potential inconsistency])])])
-   AS_VAR_IF([with_external_cdi], [yes],
-     [icon_subdir_srcdir="$srcdir/externals/cdi"
-      icon_subdir_unique_file="src/mo_cdi.f90"
-      AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
-        [AC_MSG_ERROR([unable to find sources of the bundled version of CDI dnl
-library ($icon_subdir_unique_file) in '$icon_subdir_srcdir', which are dnl
-required for CLAW preprocessing even if an external version of the library dnl
-is used: disable CLAW preprocessing (--disable-claw)])],
-        [AC_MSG_WARN([CLAW preprocessing implies parsing dnl
-'$icon_subdir_unique_file' and other source files of the bundled version of dnl
-CDI in '$icon_subdir_srcdir' even if an external version of the library is dnl
-used: it is strongly recommended to switch to the bundled version of CDI dnl
-(--without-external-cdi) to avoid potential inconsistency])])])
    AS_VAR_IF([enable_openmp], [yes],
      [AC_MSG_WARN([CLAW preprocessing is not compatible with OpenMP: it is dnl
 strongly recommended to disable OpenMP support (--disable-openmp)])])
 dnl
-  AS_VAR_IF([enable_gpu], [yes],
-     [AS_VAR_APPEND([CLAWFLAGS], [' --target=gpu --directive=acc'])],
+   AS_VAR_IF([enable_gpu], [yes],
+     [AS_VAR_APPEND([CLAWFLAGS], [' --target=gpu --directive=acc'])
+      AS_VAR_APPEND([DEPGEN_CLAWFLAGS], [' -D_OPENACC'])],
      [AS_VAR_APPEND([CLAWFLAGS], [' --target=cpu --directive=none'])])
+   AS_VAR_IF([enable_jsbach], [yes],
+     [AS_VAR_APPEND([CLAWFLAGS],
+        [" --model-config=$srcdir/externals/jsbach/config/icon_jsbach.toml"])])
    AS_VAR_IF([enable_claw], [validate],
      [AS_VAR_IF([enable_serialization], [no],
         [AC_MSG_ERROR([unsupported combination of the configure options: you dnl
@@ -1622,6 +1737,7 @@ dnl Check for CLAW:
    AC_LANG_ASSERT([Fortran])
    AC_MSG_CHECKING([for CLAW preprocessor command])
    icon_claw_result=unknown
+   CLAW=${CLAW-'clawfc'}
    AS_MKDIR_P([conftest.dir])
    cd conftest.dir
    AC_LANG_CONFTEST([AC_LANG_SOURCE(
@@ -1654,7 +1770,7 @@ set FPP accordingly])],
   [FPP=])
 
 AC_ARG_VAR([SB2PP], [Serialbox2 preprocessor command (optional)])dnl
-AS_IF([test "x$enable_serialization" != xno],
+AS_IF([test x"$enable_serialization" != xno],
   [AC_LANG_ASSERT([Fortran])
    AC_MSG_CHECKING([for Serialbox2 preprocessor command])
    icon_sb2pp_result=unknown
@@ -1677,9 +1793,9 @@ dnl Therefore, we need to generate the source code manually:
    AC_MSG_RESULT([$icon_sb2pp_result])
    AS_VAR_IF([icon_sb2pp_result], [unknown],
      [AC_MSG_FAILURE([unable to find a valid Serialbox2 preprocessor dnl
-command: either disable the serialization (--disable-serialization) or make dnl
-sure that path to the 'pp_ser' module is in the PYTHONPATH environment dnl
-variable, or set SB2PP accordingly])])],
+command: either disable the Serialbox2 serialization dnl
+(--disable-serialization) or make sure that path to the 'pp_ser' module is dnl
+in the PYTHONPATH environment variable, or set SB2PP accordingly])])],
    [SB2PP=])
 
 dnl We have checked this command earlier but put the declaration here so

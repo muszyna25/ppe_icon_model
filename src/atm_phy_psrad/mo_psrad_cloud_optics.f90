@@ -33,6 +33,7 @@ MODULE mo_psrad_cloud_optics
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: setup_cloud_optics, cloud_optics
+  PUBLIC :: reimin, reimax, relmin, relmax    !< this is used in ART
 
   INTEGER, PARAMETER :: &
     n_mdl_bnds = 30, & ! n of bands in effective radius table

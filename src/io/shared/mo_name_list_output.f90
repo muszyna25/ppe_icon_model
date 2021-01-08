@@ -87,6 +87,7 @@ MODULE mo_name_list_output
       &                                   CDI_UNDEFID, TSTEP_CONSTANT, FILETYPE_GRB, taxisDestroy, gridDestroy, &
       &                                   vlistDestroy, streamClose, streamWriteVarSlice, streamWriteVarSliceF, streamDefVlist, &
       &                                   streamSync, taxisDefVdate, taxisDefVtime, GRID_LONLAT, &
+      &                                   streamDefCompType, CDI_COMPRESS_SZIP, &
       &                                   streamOpenAppend, streamInqVlist, vlistInqTaxis, vlistNtsteps
   USE mo_util_cdi,                  ONLY: cdiGetStringError
   ! utility functions
@@ -320,6 +321,9 @@ CONTAINS
         of%cdiTaxisID_orig = CDI_UNDEFID
       ENDIF
       of%cdiFileID       = streamOpenWrite(filename(1:name_len), of%output_type)
+      IF (gribout_config(of%phys_patch_id)%lgribout_compress_ccsds) THEN
+        CALL streamDefCompType(of%cdiFileID, CDI_COMPRESS_SZIP)
+      ENDIF
       of%appending       = .FALSE.
     ENDIF
 

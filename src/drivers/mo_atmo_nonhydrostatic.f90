@@ -320,6 +320,7 @@ CONTAINS
 
     CALL set_nh_metrics(p_patch(1:)     ,&
          &              p_nh_state      ,&
+         &              p_nh_state_lists ,&
          &              p_int_state(1:) ,&
          &              ext_data        )
 

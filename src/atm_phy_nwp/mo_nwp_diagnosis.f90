@@ -1953,8 +1953,6 @@ CONTAINS
     REAL(wp) ::                                                                          &
          & qvmaxi, qcmaxi, qrmaxi, qimaxi, qsmaxi, qhmaxi, qgmaxi, tmaxi, wmaxi, qncmaxi, qnimaxi, qglmaxi, qhlmaxi,  &
          & qvmini, qcmini, qrmini, qimini, qsmini, qhmini, qgmini, tmini, wmini, qncmini, qnimini, qglmini, qhlmini
-
-
     
     ! loop indices
     INTEGER :: jc,jk,jb,jg

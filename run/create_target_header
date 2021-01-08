@@ -781,6 +781,7 @@ EOF
   start_header
   cat >>$output_script <<EOF
 export CRAY_CUDA_MPS=1
+#export PGI_ACC_SYNCHRONOUS=1     # For extra safety, disable the OpenACC asynchronicity (performance reduction)
 EOF
 }
 
@@ -980,6 +981,7 @@ EOF
     start_header
     cat >>$output_script <<EOF
 export CRAY_CUDA_MPS=1
+export PGI_ACC_SYNCHRONOUS=1
 EOF
 }
 

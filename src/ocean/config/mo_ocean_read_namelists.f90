@@ -137,7 +137,7 @@ CONTAINS
 
     ! write an annotate table of all namelist settings to a text file
     IF (my_process_is_stdio()) CALL log_nml_settings(TRIM(oce_namelist_filename)//".log")
-
+    
   END SUBROUTINE read_ocean_namelists
   !-------------------------------------------------------------------------
 

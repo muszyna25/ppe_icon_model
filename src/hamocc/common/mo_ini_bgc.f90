@@ -321,7 +321,7 @@ CONTAINS
                 bgctra(j,k,ioxygen) = oxymed
                 bgctra(j,k,isilica) = silmed
                 bgctra(j,k,iagesc) = 0._wp
-                bgctra(j,k,igasnit)= 1e-10_wp
+                bgctra(j,k,igasnit)= 1e-5_wp
                 bgctra(j,k,idoc)   = 1.e-10_wp
                 bgctra(j,k,iphy)   = 1.e-8_wp
                 bgctra(j,k,izoo)   = 1.e-8_wp
@@ -332,7 +332,7 @@ CONTAINS
                 bgctra(j,k,iopal)  = 1.e-8_wp
                 bgctra(j,k,idust)  = 0._wp
                 bgctra(j,k,icya)   = 1.e-10_wp
-                bgctra(j,k,ian2o)    = 1.e-10_wp
+                bgctra(j,k,ian2o)    = 1.e-9_wp
                 hi(j,k)              = 3.e-9_wp
                 !co3(j,k)             = 0._wp       ! this good for initialisation -> 2.e-4?
                 co3(j,k)             = 2.e-4_wp       ! this good for initialisation -> 2.e-4?
