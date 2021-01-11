@@ -235,12 +235,12 @@ CONTAINS
     turb => echam_vdf_config(jg)%turb
 
     !$ACC DATA PCREATE( zxt_emis ) IF( ntrac > 0 )
-    !$ACC DATA PRESENT( field ),                                                &
+    !$ACC DATA PRESENT( field, tend ),                                          &
     !$ACC      PCREATE( zcpt_sfc_tile, ri_tile, zqx, zcptgz, zbn_tile,          &
     !$ACC               zbhn_tile, zbm_tile, zbh_tile, dummy, dummyx,           &
     !$ACC               wstar, qs_sfc_tile, hdtcbl, ri_atm, mixlen, cfm,        &
     !$ACC               cfm_tile, cfh, cfh_tile, cfv, cftotte, cfthv, zaa,      &
-    !$ACC               zaa_btm, zbb, zbb_btm, zfactor_sfc,                     &
+    !$ACC               zaa_btm, zbb, zbb_btm, zfactor_sfc, ddt_u, ddt_v,       &
     !$ACC               zthvvar, ztottevn, zch_tile, kedisp, tend_ua_vdf,       &
     !$ACC               tend_va_vdf, q_vdf, tend_qtrc_vdf, q_snocpymlt, zco2,   &
     !$ACC               tend_qtrc_vdf_iqt, tend_qtrc_vdf_dummy,                 &
@@ -253,9 +253,11 @@ CONTAINS
     !$ACC               albnirdif_tile, albedo, albedo_tile  )
 
     IF ( is_dry_cbl ) THEN
+!$ACC KERNELS DEFAULT(NONE)
       field% qtrc(:,:,:,iqv) = 0._wp
       field% qtrc(:,:,:,iqi) = 0._wp
       field% qtrc(:,:,:,iqc) = 0._wp
+!$ACC END KERNELS
     END IF
 
     !$ser verbatim zaa = 0._wp
@@ -600,7 +602,7 @@ CONTAINS
           !
           IF (ASSOCIATED(field% wstar)) THEN
             !$ACC DATA PRESENT( field%wstar, wstar )
-            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP GANG VECTOR
             DO jl=jcs,jce
               field% wstar(jl,jb) = wstar(jl,jb)
@@ -610,7 +612,7 @@ CONTAINS
           END IF
           IF (ASSOCIATED(field% qs_sfc_tile)) THEN
             !$ACC DATA PRESENT( field%qs_sfc_tile, qs_sfc_tile )
-            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP SEQ
             DO jsfc=1,nsfc_type
               !$ACC LOOP GANG VECTOR
@@ -623,7 +625,7 @@ CONTAINS
           END IF
           IF (ASSOCIATED(field% hdtcbl)) THEN
             !$ACC DATA PRESENT( field%hdtcbl, hdtcbl )
-            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP GANG VECTOR
             DO jl=jcs,jce
               field% hdtcbl(jl,jb) = hdtcbl(jl,jb)
@@ -633,7 +635,7 @@ CONTAINS
           END IF
           IF (ASSOCIATED(field% ri_atm)) THEN
             !$ACC DATA PRESENT( field%ri_atm, ri_atm )
-            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP GANG
             DO jk=1,nlev
               !$ACC LOOP VECTOR
@@ -646,7 +648,7 @@ CONTAINS
           END IF
           IF (ASSOCIATED(field% mixlen)) THEN
             !$ACC DATA PRESENT( field%mixlen, mixlen )
-            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP GANG
             DO jk=1,nlev
               !$ACC LOOP VECTOR
@@ -659,7 +661,7 @@ CONTAINS
           END IF
           IF (ASSOCIATED(field% cfm)) THEN
             !$ACC DATA PRESENT( field%cfm, cfm )
-            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP GANG
             DO jk=1,nlev
               !$ACC LOOP VECTOR
@@ -672,7 +674,7 @@ CONTAINS
           END IF
           IF (ASSOCIATED(field% cfm_tile)) THEN
             !$ACC DATA PRESENT( field%cfm_tile, cfm_tile )
-            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP SEQ
             DO jsfc=1,nsfc_type
               !$ACC LOOP GANG VECTOR
@@ -685,7 +687,7 @@ CONTAINS
           END IF
           IF (ASSOCIATED(field% cfh)) THEN
             !$ACC DATA PRESENT( field%cfh, cfh )
-            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP GANG
             DO jk=1,nlev
               !$ACC LOOP VECTOR
@@ -698,7 +700,7 @@ CONTAINS
           END IF
           IF (ASSOCIATED(field% cfh_tile)) THEN
             !$ACC DATA PRESENT( field%cfh_tile, cfh_tile )
-            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP SEQ
             DO jsfc=1,nsfc_type
               !$ACC LOOP GANG VECTOR
@@ -711,7 +713,7 @@ CONTAINS
           END IF
           IF (ASSOCIATED(field% cfv)) THEN
             !$ACC DATA PRESENT( field%cfv, cfv )
-            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP GANG
             DO jk=1,nlev
               !$ACC LOOP VECTOR
@@ -724,7 +726,7 @@ CONTAINS
           END IF
           IF (ASSOCIATED(field% cftotte)) THEN
             !$ACC DATA PRESENT( field%cftotte, cftotte )
-            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP GANG
             DO jk=1,nlev
               !$ACC LOOP VECTOR
@@ -737,7 +739,7 @@ CONTAINS
           END IF
           IF (ASSOCIATED(field% cfthv)) THEN
             !$ACC DATA PRESENT( field%cfthv, cfthv )
-            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP GANG
             DO jk=1,nlev
               !$ACC LOOP VECTOR
@@ -779,7 +781,7 @@ CONTAINS
           ! condition for wind, temperature, tracer concentration, etc.
           !
           !$ACC DATA PRESENT( field%lhflx_tile, field%shflx_tile, field%evap_tile )
-          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC PARALLEL DEFAULT(NONE)
           !$ACC LOOP SEQ
           DO jsfc=1,nsfc_type
             !$ACC LOOP GANG VECTOR
@@ -911,7 +913,7 @@ CONTAINS
           !
           IF (ASSOCIATED(field% q_snocpymlt)) THEN
             !$ACC DATA PRESENT( field%q_snocpymlt, q_snocpymlt )
-            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP GANG VECTOR
             DO jl = jcs,jce
               field% q_snocpymlt(jl, jb)   = q_snocpymlt(jl,jb)
@@ -990,12 +992,15 @@ CONTAINS
 
     !$ACC WAIT
           IF ( turb == 2 ) THEN ! Smagorinksy
+            !$ACC PARALLEL DEFAULT(NONE)
+            !$ACC LOOP GANG VECTOR COLLAPSE(2)
             DO jk = 1,nlev
               DO jl = jcs, jce 
                 tend_ua_vdf(jl,jk,jb) = tend_ua_vdf(jl,jk,jb) + ddt_u(jl,jk,jb)
                 tend_va_vdf(jl,jk,jb) = tend_va_vdf(jl,jk,jb) + ddt_v(jl,jk,jb)
               END DO
             END DO
+            !$ACC END PARALLEL
           END IF
 
           !
@@ -1006,7 +1011,7 @@ CONTAINS
           ! is used as input to land (and ocean).
           IF (ccycle_config(jg)%iccycle == 2) THEN
             !$ACC DATA PRESENT( tend_qtrc_vdf )
-            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP GANG
             DO jk = 1,nlev
               !$ACC LOOP VECTOR
@@ -1031,7 +1036,7 @@ CONTAINS
           !
           IF (ASSOCIATED(field% kedisp  )) THEN
             !$ACC DATA PRESENT( field%kedisp, kedisp )
-            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP GANG VECTOR
             DO jl = jcs,jce
               field% kedisp  (jl, jb)   = kedisp (jl,jb)
@@ -1042,7 +1047,7 @@ CONTAINS
           !
           IF (ASSOCIATED(field% q_vdf)) THEN
             !$ACC DATA PRESENT( field%q_vdf, q_vdf )
-            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP GANG 
             DO jk = 1,nlev
               !$ACC LOOP VECTOR
@@ -1055,7 +1060,7 @@ CONTAINS
           END IF
           IF (ASSOCIATED(field% q_vdf_vi)) THEN
             !$ACC DATA PRESENT( field%q_vdf_vi, q_vdf )
-            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP GANG VECTOR
             DO jl = jcs,jce
               field% q_vdf_vi(jl,jb) = SUM(q_vdf(jl,:,jb))
@@ -1066,7 +1071,7 @@ CONTAINS
           !
           IF (ASSOCIATED(tend% ua_vdf)) THEN
             !$ACC DATA PRESENT( tend%ua_vdf, tend_ua_vdf )
-            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP GANG
             DO jk = 1,nlev
               !$ACC LOOP VECTOR
@@ -1079,7 +1084,7 @@ CONTAINS
           END IF
           IF (ASSOCIATED(tend% va_vdf)) THEN
             !$ACC DATA PRESENT( tend%va_vdf, tend_va_vdf )
-            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP GANG
             DO jk = 1,nlev
               !$ACC LOOP VECTOR
@@ -1093,7 +1098,7 @@ CONTAINS
           !
           IF (ASSOCIATED(tend% qtrc_vdf )) THEN
             !$ACC DATA PRESENT( tend%qtrc_vdf, tend_qtrc_vdf, tend_qtrc_vdf_iqt )
-            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP GANG
             DO jk = 1,nlev
               !$ACC LOOP VECTOR
@@ -1148,7 +1153,7 @@ CONTAINS
           !
           IF (ASSOCIATED(field% q_snocpymlt)) THEN
             !$ACC DATA PRESENT( q_snocpymlt, field%q_snocpymlt )
-            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP GANG VECTOR
             DO jl = jcs,jce
               q_snocpymlt(jl,jb) = field% q_snocpymlt(jl,  jb)
@@ -1159,7 +1164,7 @@ CONTAINS
           !
           IF (ASSOCIATED(field% q_vdf)) THEN
             !$ACC DATA PRESENT( q_vdf, field%q_vdf )
-            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP GANG
             DO jk = 1,nlev
               !$ACC LOOP VECTOR
@@ -1173,7 +1178,7 @@ CONTAINS
           !
           IF (ASSOCIATED(tend% ua_vdf)) THEN
             !$ACC DATA PRESENT( tend_ua_vdf, tend%ua_vdf )
-            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP GANG
             DO jk = 1,nlev
               !$ACC LOOP VECTOR
@@ -1186,7 +1191,7 @@ CONTAINS
           END IF
           IF (ASSOCIATED(tend% va_vdf)) THEN
             !$ACC DATA PRESENT( tend_va_vdf, tend%va_vdf )
-            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP GANG
             DO jk = 1,nlev
               !$ACC LOOP VECTOR
@@ -1200,7 +1205,7 @@ CONTAINS
           !
           IF (ASSOCIATED(tend% qtrc_vdf )) THEN
             !$ACC DATA PRESENT( tend_qtrc_vdf, tend%qtrc_vdf )
-            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP GANG
             DO jk = 1,nlev
               !$ACC LOOP VECTOR
@@ -1261,7 +1266,7 @@ CONTAINS
           ! q_snocpymlt = heating for melting of snow on canopy
           !             = cooling of atmosphere --> negative sign
           !$ACC DATA PRESENT( tend_ta_sfc, q_snocpymlt, field%qconv )
-          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC PARALLEL DEFAULT(NONE)
           !$ACC LOOP GANG VECTOR
           DO jl = jcs,jce
             tend_ta_sfc(jl,jb) = -q_snocpymlt(jl,jb) * field% qconv(jl,nlev,jb)
@@ -1271,7 +1276,7 @@ CONTAINS
           !
           IF (ASSOCIATED(tend% ta_sfc)) THEN
             !$ACC DATA PRESENT( tend%ta_sfc, tend_ta_sfc )
-            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP GANG VECTOR
             DO jl = jcs, jce
               tend% ta_sfc(jl,jb) = tend_ta_sfc(jl,jb)
@@ -1283,7 +1288,7 @@ CONTAINS
           ! for output: accumulate heating
           IF (ASSOCIATED(field% q_phy)) THEN
             !$ACC DATA PRESENT( field%q_phy, q_snocpymlt )
-            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP GANG VECTOR
             DO jl = jcs, jce
               field% q_phy(jl,nlev,jb) = field% q_phy(jl,nlev,jb) - q_snocpymlt(jl,jb)
@@ -1293,7 +1298,7 @@ CONTAINS
           END IF
           IF (ASSOCIATED(field% q_phy_vi)) THEN
             !$ACC DATA PRESENT( field%q_phy_vi, q_snocpymlt )
-            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP GANG VECTOR
             DO jl = jcs, jce
               field% q_phy_vi(jl, jb) = field% q_phy_vi(jl, jb) - q_snocpymlt(jl,jb)
@@ -1309,7 +1314,7 @@ CONTAINS
           CASE(1)
              ! use tendency to update the model state
              !$ACC DATA PRESENT( tend%ta_phy, tend_ta_sfc )
-             !$ACC PARALLEL DEFAULT(PRESENT)
+             !$ACC PARALLEL DEFAULT(NONE)
              !$ACC LOOP GANG VECTOR
              DO jl = jcs, jce
                tend% ta_phy(jl,nlev,jb) = tend% ta_phy(jl,nlev,jb) + tend_ta_sfc(jl,jb)
@@ -1329,7 +1334,7 @@ CONTAINS
              ! use tendency to update the physics state
              IF (lparamcpl) THEN
                 !$ACC DATA PRESENT( field%ta, tend_ta_sfc )
-                !$ACC PARALLEL DEFAULT(PRESENT)
+                !$ACC PARALLEL DEFAULT(NONE)
                 !$ACC LOOP GANG VECTOR
                 DO jl = jcs, jce
                    field% ta(jl,nlev,jb) = field% ta(jl,nlev,jb) + tend_ta_sfc(jl,jb)*pdtime
@@ -1351,7 +1356,7 @@ CONTAINS
        !
        ! convert    heating
        !$ACC DATA PRESENT( q_vdf, field%qconv )
-       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC PARALLEL DEFAULT(NONE)
        !$ACC LOOP GANG
        DO jk = 1,nlev
          !$ACC LOOP VECTOR
@@ -1363,7 +1368,10 @@ CONTAINS
        !$ACC END DATA
 
        ! for Smagorinsky
-       IF ( turb == 2 ) THEN    
+       IF ( turb == 2 ) THEN
+         !$ACC DATA PRESENT( tend_ta_vdf, ta_hori_tend, tend_qtrc_vdf, qv_hori_tend, ql_hori_tend, qi_hori_tend )
+         !$ACC PARALLEL DEFAULT(NONE)
+         !$ACC LOOP GANG VECTOR COLLAPSE(2)
          DO jk = 1,nlev
            DO jl = jcs, jce
              tend_ta_vdf(jl,jk,jb) = tend_ta_vdf(jl,jk,jb) + ta_hori_tend(jl,jk,jb)
@@ -1372,12 +1380,14 @@ CONTAINS
              tend_qtrc_vdf(jl,jk,jb,iqi) = tend_qtrc_vdf(jl,jk,jb,iqi) + qi_hori_tend(jl,jk,jb)
            END DO
          END DO
+         !$ACC END PARALLEL 
+         !$ACC END DATA
        END IF
 
        !
        IF (ASSOCIATED(tend% ta_vdf)) THEN
          !$ACC DATA PRESENT( tend%ta_vdf )
-         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC PARALLEL DEFAULT(NONE)
          !$ACC LOOP GANG
          DO jk = 1,nlev
            !$ACC LOOP VECTOR
@@ -1392,7 +1402,7 @@ CONTAINS
        ! for output: accumulate heating
        IF (ASSOCIATED(field% q_phy)) THEN
          !$ACC DATA PRESENT( field%q_phy, q_vdf )
-         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC PARALLEL DEFAULT(NONE)
          !$ACC LOOP GANG
          DO jk = 1,nlev
            !$ACC LOOP VECTOR
@@ -1405,7 +1415,7 @@ CONTAINS
        END IF
        IF (ASSOCIATED(field% q_phy_vi)) THEN 
          !$ACC DATA PRESENT( field%q_phy_vi, q_vdf )
-         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC PARALLEL DEFAULT(NONE)
          !$ACC LOOP GANG VECTOR
          DO jl = jcs, jce
            field% q_phy_vi(jl, jb) = field% q_phy_vi(jl, jb) + SUM(q_vdf(jl,:,jb))
@@ -1422,7 +1432,7 @@ CONTAINS
           ! use tendency to update the model state
           !$ACC DATA PRESENT( tend%ua_phy, tend_ua_vdf, tend%va_phy, tend_va_vdf, tend%ta_phy, &
           !$ACC               tend%qtrc_phy, tend_qtrc_vdf )
-          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC PARALLEL DEFAULT(NONE)
           !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 1,nlev
             DO jl = jcs, jce
@@ -1441,6 +1451,8 @@ CONTAINS
           !$ACC END PARALLEL
           !$ACC END DATA
           IF ( is_dry_cbl ) THEN
+            !$ACC PARALLEL DEFAULT(NONE)
+            !$ACC LOOP GANG VECTOR COLLAPSE(2)
             DO jk = 1,nlev
               DO jl = jcs, jce
                 tend% qtrc_phy(jl,jk,jb,iqv)  = 0._wp
@@ -1448,6 +1460,7 @@ CONTAINS
                 tend% qtrc_phy(jl,jk,jb,iqi)  = 0._wp
               END DO
             END DO
+            !$ACC END PARALLEL
           END IF
 !!$       CASE(2)
 !!$          ! use tendency as forcing in the dynamics
@@ -1464,7 +1477,7 @@ CONTAINS
              ! prognostic
              !$ACC DATA PRESENT( field%ua, tend_ua_vdf, field%va, tend_va_vdf, field%ta,  &
              !$ACC               field%qtrc, tend_qtrc_vdf )
-             !$ACC PARALLEL DEFAULT(PRESENT)
+             !$ACC PARALLEL DEFAULT(NONE)
              !$ACC LOOP GANG VECTOR COLLAPSE(2)
              DO jk = 1,nlev
                DO jl = jcs, jce
@@ -1483,6 +1496,9 @@ CONTAINS
              !$ACC END PARALLEL
              !$ACC END DATA
              IF ( is_dry_cbl ) THEN
+               !$ACC DATA PRESENT( tend%qtrc_phy )
+               !$ACC PARALLEL DEFAULT(NONE)
+               !$ACC LOOP GANG VECTOR COLLAPSE(2)
                DO jk = 1,nlev
                  DO jl = jcs, jce
                    tend% qtrc_phy(jl,jk,jb,iqv)  = 0._wp
@@ -1490,12 +1506,14 @@ CONTAINS
                    tend% qtrc_phy(jl,jk,jb,iqi)  = 0._wp
                  END DO
                END DO
+               !$ACC END PARALLEL
+               !$ACC END DATA
              END IF 
             !
             ! diagnostic
             ! 2-tl-scheme
             !$ACC DATA PRESENT( field%tottem1, field%totte )
-            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP GANG VECTOR COLLAPSE(2)
             DO jk = 1,nlev
               DO jl = jcs, jce
@@ -1510,7 +1528,7 @@ CONTAINS
             !$ACC               field%thvsig, field%cair, field%csat, field%z0h_lnd,    &
             !$ACC               field%rlus, field%albvisdir, field%albnirdir,           &
             !$ACC               field%albvisdif, field%albnirdif, field%albedo          )
-            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP GANG VECTOR
             DO jl = jcs, jce
               field% ts        (jl,jb)   = ts        (jl,jb)
@@ -1536,7 +1554,7 @@ CONTAINS
             !$ACC DATA PRESENT( field%ts_tile, field%wstar_tile, field%z0m_tile,                  &
             !$ACC               field%albvisdir_tile, field%albnirdir_tile, field%albvisdif_tile, &
             !$ACC               field%albnirdif_tile, field%albedo_tile )
-            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP SEQ
             DO jsfc = 1,nsfc_type
               !$ACC LOOP GANG VECTOR
@@ -1557,7 +1575,7 @@ CONTAINS
             !$ACC END DATA
 
             !$ACC DATA PRESENT( field%albvisdir_ice, field%albnirdir_ice, field%albvisdif_ice, field%albnirdif_ice )
-            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP SEQ
             DO jice=1,nice
               !$ACC LOOP GANG VECTOR
@@ -1579,12 +1597,17 @@ CONTAINS
        ! part of longwave radiation to compute new surface temperature
        ! 
        IF ( isrfc_type >= 5 ) THEN
+         !$ACC DATA PRESENT(q_rlw_impl)
+         !$ACC PARALLEL DEFAULT(NONE)
+         !$ACC LOOP GANG VECTOR
          DO jl = jcs,jce
            q_rlw_impl(jl,jb) = 0._wp
          END DO
+         !$ACC END PARALLEL
+         !$ACC END DATA
        ELSE
          !$ACC DATA PRESENT( q_rlw_impl, field%rld_rt, field%rlu_rt, field%rlds, field%rlus, field%q_rlw_nlev )
-         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC PARALLEL DEFAULT(NONE)
          !$ACC LOOP GANG VECTOR
          DO jl = jcs,jce
            q_rlw_impl(jl,jb) =                                               &
@@ -1598,7 +1621,7 @@ CONTAINS
        !
        IF (ASSOCIATED(field%q_rlw_impl)) THEN
          !$ACC DATA PRESENT( field%q_rlw_impl, q_rlw_impl )
-         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC PARALLEL DEFAULT(NONE)
          !$ACC LOOP GANG VECTOR
          DO jl = jcs,jce
           field%q_rlw_impl(jl,jb) = q_rlw_impl(jl,jb)
@@ -1609,7 +1632,7 @@ CONTAINS
 
        ! convert    heating
        !$ACC DATA PRESENT( tend_ta_rlw_impl, q_rlw_impl, field%qconv )
-       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC PARALLEL DEFAULT(NONE)
        !$ACC LOOP GANG VECTOR
        DO jl = jcs,jce
          tend_ta_rlw_impl(jl,jb) = q_rlw_impl(jl,jb) * field% qconv(jl,nlev,jb)
@@ -1619,7 +1642,7 @@ CONTAINS
        !
        IF (ASSOCIATED(tend%ta_rlw_impl)) THEN
          !$ACC DATA PRESENT( tend%ta_rlw_impl, tend_ta_rlw_impl )
-         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC PARALLEL DEFAULT(NONE)
          !$ACC LOOP GANG VECTOR
          DO jl = jcs,jce
            tend%ta_rlw_impl(jl,jb) = tend_ta_rlw_impl(jl,jb)
@@ -1631,7 +1654,7 @@ CONTAINS
        ! for output: accumulate heating
        IF (ASSOCIATED(field% q_phy)) THEN
          !$ACC DATA PRESENT( field%q_phy, q_rlw_impl )
-         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC PARALLEL DEFAULT(NONE)
          !$ACC LOOP GANG VECTOR
          DO jl = jcs,jce
            field% q_phy(jl,nlev,jb) = field% q_phy(jl,nlev,jb) + q_rlw_impl(jl,jb)
@@ -1641,7 +1664,7 @@ CONTAINS
        END IF
        IF (ASSOCIATED(field% q_phy_vi)) THEN
          !$ACC DATA PRESENT( field%q_phy_vi, q_rlw_impl )
-         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC PARALLEL DEFAULT(NONE)
          !$ACC LOOP GANG VECTOR
          DO jl = jcs,jce
            field% q_phy_vi(jl,jb) = field% q_phy_vi(jl,jb) + q_rlw_impl(jl,jb)
@@ -1657,7 +1680,7 @@ CONTAINS
        CASE(1)
           ! use tendency to update the model state
           !$ACC DATA PRESENT( tend%ta_phy, tend_ta_rlw_impl )
-          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC PARALLEL DEFAULT(NONE)
           !$ACC LOOP GANG VECTOR
           DO jl = jcs,jce
             tend%ta_phy(jl,nlev,jb) = tend%ta_phy(jl,nlev,jb) + tend_ta_rlw_impl(jl,jb)
@@ -1677,7 +1700,7 @@ CONTAINS
           ! use tendency to update the physics state
           IF (lparamcpl) THEN
             !$ACC DATA PRESENT( field%ta, tend_ta_rlw_impl )
-            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP GANG VECTOR
             DO jl = jcs,jce
               field% ta(jl,nlev,jb) = field% ta(jl,nlev,jb) + tend_ta_rlw_impl(jl,jb)*pdtime
@@ -1771,7 +1794,7 @@ CONTAINS
        !
        ! vdiff_down
        !$ACC DATA PRESENT( field%ustar )
-       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC PARALLEL DEFAULT(NONE)
        !$ACC LOOP GANG VECTOR
        DO jl = jcs,jce
          field% ustar(jl,jb) = 0.0_wp
@@ -1780,7 +1803,7 @@ CONTAINS
        !$ACC END DATA
        IF (ASSOCIATED(field% wstar)) THEN
          !$ACC DATA PRESENT( field%wstar )
-         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC PARALLEL DEFAULT(NONE)
          !$ACC LOOP GANG VECTOR
          DO jl = jcs,jce
            field% wstar(jl,jb) = 0.0_wp
@@ -1789,7 +1812,7 @@ CONTAINS
          !$ACC END DATA
        END IF
        !$ACC DATA PRESENT( field%wstar_tile )
-       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC PARALLEL DEFAULT(NONE)
        !$ACC LOOP SEQ
        DO jsfc = 1,nsfc_type
          !$ACC LOOP GANG VECTOR
@@ -1801,7 +1824,7 @@ CONTAINS
        !$ACC END DATA
        IF (ASSOCIATED(field% qs_sfc_tile)) THEN
          !$ACC DATA PRESENT( field%qs_sfc_tile )
-         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC PARALLEL DEFAULT(NONE)
          !$ACC LOOP SEQ
          DO jsfc = 1,nsfc_type
            !$ACC LOOP GANG VECTOR
@@ -1814,7 +1837,7 @@ CONTAINS
        END IF
        IF (ASSOCIATED(field% hdtcbl  )) THEN
          !$ACC DATA PRESENT( field%hdtcbl )
-         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC PARALLEL DEFAULT(NONE)
          !$ACC LOOP GANG VECTOR
          DO jl = jcs,jce
            field% hdtcbl(jl, jb) = 0.0_wp
@@ -1824,7 +1847,7 @@ CONTAINS
        END IF
        IF (ASSOCIATED(field% ri_atm  )) THEN
          !$ACC DATA PRESENT( field%ri_atm )
-         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC PARALLEL DEFAULT(NONE)
          !$ACC LOOP GANG
          DO jk = 1,nlev
            !$ACC LOOP VECTOR
@@ -1837,7 +1860,7 @@ CONTAINS
        END IF
        IF (ASSOCIATED(field% mixlen)) THEN
          !$ACC DATA PRESENT( field%mixlen )
-         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC PARALLEL DEFAULT(NONE)
          !$ACC LOOP GANG
          DO jk = 1,nlev
            !$ACC LOOP VECTOR
@@ -1850,7 +1873,7 @@ CONTAINS
        END IF
        IF (ASSOCIATED(field% cfm)) THEN
          !$ACC DATA PRESENT( field%cfm )
-         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC PARALLEL DEFAULT(NONE)
          !$ACC LOOP GANG
          DO jk = 1,nlev
            !$ACC LOOP VECTOR
@@ -1863,7 +1886,7 @@ CONTAINS
        END IF
        IF (ASSOCIATED(field% cfm_tile)) THEN
          !$ACC DATA PRESENT( field%cfm_tile )
-         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC PARALLEL DEFAULT(NONE)
          !$ACC LOOP SEQ
          DO jsfc = 1,nsfc_type
            !$ACC LOOP GANG VECTOR
@@ -1876,7 +1899,7 @@ CONTAINS
        END IF
        IF (ASSOCIATED(field% cfh)) THEN
          !$ACC DATA PRESENT( field%cfh )
-         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC PARALLEL DEFAULT(NONE)
          !$ACC LOOP GANG
          DO jk = 1,nlev
            !$ACC LOOP VECTOR
@@ -1889,7 +1912,7 @@ CONTAINS
        END IF
        IF (ASSOCIATED(field% cfh_tile)) THEN
          !$ACC DATA PRESENT( field%cfh_tile )
-         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC PARALLEL DEFAULT(NONE)
          !$ACC LOOP SEQ
          DO jsfc = 1,nsfc_type
            !$ACC LOOP GANG VECTOR
@@ -1902,7 +1925,7 @@ CONTAINS
        END IF
        IF (ASSOCIATED(field% cfv)) THEN
          !$ACC DATA PRESENT( field%cfv )
-         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC PARALLEL DEFAULT(NONE)
          !$ACC LOOP GANG
          DO jk = 1,nlev
            !$ACC LOOP VECTOR
@@ -1915,7 +1938,7 @@ CONTAINS
        END IF
        IF (ASSOCIATED(field% cftotte )) THEN
          !$ACC DATA PRESENT( field%cftotte )
-         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC PARALLEL DEFAULT(NONE)
          !$ACC LOOP GANG
          DO jk = 1,nlev
            !$ACC LOOP VECTOR
@@ -1928,7 +1951,7 @@ CONTAINS
        END IF
        IF (ASSOCIATED(field% cfthv)) THEN
          !$ACC DATA PRESENT( field%cfthv )
-         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC PARALLEL DEFAULT(NONE)
          !$ACC LOOP GANG
          DO jk = 1,nlev
            !$ACC LOOP VECTOR
@@ -1940,7 +1963,7 @@ CONTAINS
          !$ACC END DATA
        END IF
        !$ACC DATA PRESENT( field%thvsig )
-       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC PARALLEL DEFAULT(NONE)
        !$ACC LOOP GANG VECTOR
        DO jl = jcs,jce
          field% thvsig(jl,jb) = 0.0_wp
@@ -1956,7 +1979,7 @@ CONTAINS
        !$ACC               field%albvisdif, field%albnirdif, field%albvisdir_tile, field%albnirdir_tile,        &
        !$ACC               field%albvisdif_tile, field%albnirdif_tile, field%albedo, field%albedo_tile,         &
        !$ACC               field%co2_flux_tile, field%ts, field%ts_rad, field%lwflxsfc_tile, field%swflxsfc_tile )
-       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC PARALLEL DEFAULT(NONE)
        !$ACC LOOP GANG VECTOR
        DO jl = jcs,jce
          field% u_stress  (jl,jb) = 0.0_wp
@@ -1978,7 +2001,7 @@ CONTAINS
          field% ts_rad    (jl,jb) = 0.0_wp
        END DO
        !$ACC END PARALLEL
-       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC PARALLEL DEFAULT(NONE)
        !$ACC LOOP SEQ
        DO jsfc = 1,nsfc_type
          !$ACC LOOP GANG VECTOR
@@ -2003,7 +2026,7 @@ CONTAINS
        !$ACC END DATA
        IF (ASSOCIATED(field% q_snocpymlt)) THEN
          !$ACC DATA PRESENT( field%q_snocpymlt )
-         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC PARALLEL DEFAULT(NONE)
          !$ACC LOOP GANG VECTOR
          DO jl = jcs,jce
            field% q_snocpymlt (jl,jb) = 0.0_wp
@@ -2013,7 +2036,7 @@ CONTAINS
        END IF
        IF (ASSOCIATED(field% q_rlw_impl)) THEN
          !$ACC DATA PRESENT( field%q_rlw_impl )
-         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC PARALLEL DEFAULT(NONE)
          !$ACC LOOP GANG VECTOR
          DO jl = jcs,jce
            field% q_rlw_impl(jl,jb) = 0.0_wp
@@ -2024,7 +2047,7 @@ CONTAINS
        !
        !$ACC DATA PRESENT( field%Tsurf, field%T1, field%T2, field%Qtop, field%Qbot, field%albvisdir_ice, &
        !$ACC               field%albnirdir_ice, field%albvisdif_ice, field%albnirdif_ice )
-       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC PARALLEL DEFAULT(NONE)
        !$ACC LOOP GANG
        DO jice=1,nice
          !$ACC LOOP VECTOR
@@ -2045,7 +2068,7 @@ CONTAINS
        !
        IF (ASSOCIATED(tend% ta_sfc     )) THEN
          !$ACC DATA PRESENT( tend%ta_sfc )
-         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC PARALLEL DEFAULT(NONE)
          !$ACC LOOP GANG VECTOR
          DO jl = jcs,jce
            tend% ta_sfc(jl,jb) = 0.0_wp
@@ -2055,7 +2078,7 @@ CONTAINS
        END IF
        IF (ASSOCIATED(tend% ta_rlw_impl)) THEN
          !$ACC DATA PRESENT( tend%ta_rlw_impl )
-         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC PARALLEL DEFAULT(NONE)
          !$ACC LOOP GANG VECTOR
          DO jl = jcs,jce
            tend% ta_rlw_impl(jl,jb) = 0.0_wp
@@ -2066,7 +2089,7 @@ CONTAINS
        !
        ! vdiff_up
        !$ACC DATA PRESENT( field%totte, field%z0m, field%z0m_tile )
-       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC PARALLEL DEFAULT(NONE)
        !$ACC LOOP GANG
        DO jk = 1,nlev
          !$ACC LOOP VECTOR
@@ -2075,13 +2098,13 @@ CONTAINS
          END DO
        END DO
        !$ACC END PARALLEL
-       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC PARALLEL DEFAULT(NONE)
        !$ACC LOOP GANG VECTOR
        DO jl = jcs,jce
          field% z0m(jl,jb) = 0.0_wp
        END DO
        !$ACC END PARALLEL
-       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC PARALLEL DEFAULT(NONE)
        !$ACC LOOP SEQ
        DO jsfc = 1,nsfc_type
          !$ACC LOOP GANG VECTOR
@@ -2093,7 +2116,7 @@ CONTAINS
        !$ACC END DATA
        IF (ASSOCIATED(field% kedisp)) THEN
          !$ACC DATA PRESENT( field%kedisp )
-         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC PARALLEL DEFAULT(NONE)
          !$ACC LOOP GANG VECTOR
          DO jl = jcs,jce
            field% kedisp(jl,jb) = 0.0_wp
@@ -2102,7 +2125,7 @@ CONTAINS
          !$ACC END DATA
        END IF
 !!$       !$ACC DATA PRESENT( field%sh_vdiff, field%qv_vdiff )
-!!$       !$ACC PARALLEL DEFAULT(PRESENT)
+!!$       !$ACC PARALLEL DEFAULT(NONE)
 !!$       !$ACC LOOP GANG VECTOR
 !!$       DO jl = jcs,jce
 !!$         field% sh_vdiff(jl,jb) = 0.0_wp
@@ -2113,7 +2136,7 @@ CONTAINS
        !
        IF (ASSOCIATED(field% q_vdf)) THEN
          !$ACC DATA PRESENT( field%q_vdf )
-         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC PARALLEL DEFAULT(NONE)
          !$ACC LOOP GANG
          DO jk = 1,nlev
          !$ACC LOOP VECTOR
@@ -2126,7 +2149,7 @@ CONTAINS
        END IF
        IF (ASSOCIATED(field% q_vdf_vi)) THEN
          !$ACC DATA PRESENT( field%q_vdf_vi )
-         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC PARALLEL DEFAULT(NONE)
          !$ACC LOOP GANG VECTOR
          DO jl = jcs,jce
            field% q_vdf_vi(jl,jb) = 0.0_wp
@@ -2137,7 +2160,7 @@ CONTAINS
        !
        IF (ASSOCIATED(tend% ta_vdf)) THEN
          !$ACC DATA PRESENT( tend%ta_vdf )
-         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC PARALLEL DEFAULT(NONE)
          !$ACC LOOP GANG
          DO jk = 1,nlev
          !$ACC LOOP VECTOR
@@ -2150,7 +2173,7 @@ CONTAINS
        END IF
        IF (ASSOCIATED(tend% ua_vdf)) THEN
          !$ACC DATA PRESENT( tend%ua_vdf )
-         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC PARALLEL DEFAULT(NONE)
          !$ACC LOOP GANG
          DO jk = 1,nlev
          !$ACC LOOP VECTOR
@@ -2163,7 +2186,7 @@ CONTAINS
        END IF
        IF (ASSOCIATED(tend% va_vdf)) THEN
          !$ACC DATA PRESENT( tend%va_vdf )
-         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC PARALLEL DEFAULT(NONE)
          !$ACC LOOP GANG
          DO jk = 1,nlev
          !$ACC LOOP VECTOR
@@ -2177,7 +2200,7 @@ CONTAINS
        !
        IF (ASSOCIATED(tend% qtrc_vdf)) THEN
           !$ACC DATA PRESENT( tend%qtrc_vdf )
-          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC PARALLEL DEFAULT(NONE)
           !$ACC LOOP GANG
           DO jk = 1,nlev
           !$ACC LOOP VECTOR

@@ -554,20 +554,21 @@ CONTAINS
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
                        i_startidx, i_endidx, i_rlstart, i_rlend)
 
+!$ACC PARALLEL DEFAULT(NONE) PRESENT(trNotAdvect) &
+!$ACC          ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP SEQ
         DO nt = 1, trNotAdvect%len ! Tracer loop
 
           jt = trNotAdvect%list(nt)
-
-!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
           !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 1, nlev
             DO jc = i_startidx, i_endidx
               p_tracer_new(jc,jk,jb,jt) = p_tracer_now(jc,jk,jb,jt)
             ENDDO  !jc
           ENDDO  !jk
-!$ACC END PARALLEL
 
         ENDDO  !nt
+!$ACC END PARALLEL
        
       ENDDO  ! jb
 !$OMP END DO NOWAIT
@@ -594,11 +595,14 @@ CONTAINS
         ! Tracer values are clipped here to avoid generation of negative values
         ! For mass conservation, a correction has to be applied in the
         ! feedback routine anyway
+
+!$ACC PARALLEL DEFAULT(NONE) PRESENT(trAdvect) &
+!$ACC          ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP SEQ
         DO nt = 1, trAdvect%len ! Tracer loop
 
           jt = trAdvect%list(nt)
 
-!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
           !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 1, nlev
             DO jc = i_startidx, i_endidx
@@ -607,8 +611,8 @@ CONTAINS
                 &   + p_dtime * p_grf_tend_tracer(jc,jk,jb,jt) )
             ENDDO
           ENDDO  !jk
-!$ACC END PARALLEL
         ENDDO  !Tracer loop
+!$ACC END PARALLEL
       ENDDO  !jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -648,6 +652,9 @@ CONTAINS
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
                        i_startidx, i_endidx, i_rlstart, i_rlend)
 
+!$ACC PARALLEL DEFAULT(NONE) PRESENT(trAdvect, advection_config ) &
+!$ACC          ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP SEQ
         DO nt = 1, trAdvect%len ! Tracer loop
 
           jt = trAdvect%list(nt)
@@ -659,7 +666,6 @@ CONTAINS
           IF ( iforcing == inwp ) THEN
 
             IF ( jt == iqv ) THEN
-!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
               !$ACC LOOP GANG VECTOR COLLAPSE(2)
               DO jk = iadv_slev_jt, nlev
                 DO jc = i_startidx, i_endidx
@@ -667,11 +673,9 @@ CONTAINS
                     & (p_tracer_new(jc,jk,jb,jt)-p_tracer_now(jc,jk,jb,jt))/p_dtime           
                 ENDDO
               ENDDO
-!$ACC END PARALLEL
             ENDIF  ! jt == iqv
 
             IF ( advection_config(jg)%iadv_tke > 0 .AND. jt == iqtke ) THEN
-!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
               !$ACC LOOP GANG VECTOR COLLAPSE(2)
               DO jk = iadv_slev_jt, nlev
                 DO jc = i_startidx, i_endidx
@@ -679,14 +683,12 @@ CONTAINS
                     & (p_tracer_new(jc,jk,jb,jt)-p_tracer_now(jc,jk,jb,jt))/p_dtime           
                 ENDDO
               ENDDO
-!$ACC END PARALLEL
             ENDIF  ! jt == iqtke
 
           ELSE  ! iforcing /= inwp
 
             ! store advection tendency for all tracers
             !
-!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
             !$ACC LOOP GANG VECTOR COLLAPSE(2)
             DO jk = iadv_slev_jt, nlev
               DO jc = i_startidx, i_endidx
@@ -694,10 +696,10 @@ CONTAINS
                   & (p_tracer_new(jc,jk,jb,jt)-p_tracer_now(jc,jk,jb,jt))/p_dtime   
               ENDDO
             ENDDO
-!$ACC END PARALLEL
           ENDIF ! iforcing == inwp
 
         END DO  ! Tracer loop
+!$ACC END PARALLEL
       END DO  !jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -857,13 +859,15 @@ CONTAINS
 
       ! compute vertical flux divergences and update tracer mass fractions
       !
+!$ACC PARALLEL DEFAULT(NONE) PRESENT( trAdvect, advection_config ) &
+!$ACC          ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP SEQ
       TRACERLOOP: DO nt = 1, trAdvect%len ! Tracer loop
 
         jt = trAdvect%list(nt)
         iadv_slev_jt = advection_config(jg)%iadv_slev(jt)
 
         IF ( advection_config(jg)%ivadv_tracer(jt) /= 0 ) THEN
-!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
           !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = iadv_slev_jt, p_patch%nlev
             DO jc = i_startidx, i_endidx
@@ -878,9 +882,7 @@ CONTAINS
 
             END DO  !jc
           END DO  !jk
-!$ACC END PARALLEL
 
-!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
           !$ACC LOOP GANG VECTOR COLLAPSE(2)
           ! set tracer(nnew) to tracer(nnow) at levels where advection is turned off
           DO jk = 1, iadv_slev_jt-1
@@ -888,11 +890,9 @@ CONTAINS
               tracer_new(jc,jk,jb,jt) = tracer_now(jc,jk,jb,jt)
             END DO
           END DO
-!$ACC END PARALLEL
 
         ELSE  ! no vertical transport
 
-!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
           !$ACC LOOP GANG VECTOR COLLAPSE(2)
           ! copy
           DO jk = 1, p_patch%nlev
@@ -900,10 +900,10 @@ CONTAINS
               tracer_new(jc,jk,jb,jt) = tracer_now(jc,jk,jb,jt)
             ENDDO  !jc
           ENDDO  !jk
-!$ACC END PARALLEL
         ENDIF
 
       END DO  TRACERLOOP
+!$ACC END PARALLEL
 
     END DO  !jb
 !$OMP END DO NOWAIT
@@ -1082,9 +1082,7 @@ CONTAINS
 
             ENDDO  !jc
           ENDDO  !jk
-!$ACC END PARALLEL
 
-!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
           !$ACC LOOP GANG VECTOR COLLAPSE(2)
           ! set tracer(nnew) to tracer(nnow) at levels where advection is turned off
           DO jk = 1, iadv_slev_jt-1
