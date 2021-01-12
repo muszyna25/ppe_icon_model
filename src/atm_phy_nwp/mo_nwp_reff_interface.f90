@@ -55,13 +55,13 @@ MODULE mo_nwp_reff_interface
   USE mo_nwp_tuning_config,    ONLY: tune_zceff_min, tune_v0snow, tune_zvz0i, tune_icesedi_exp
 
   USE mo_reff_types,           ONLY: t_reff_calc_dom,  nreff_max_calc
-  USE mo_reff_main,            ONLY: init_reff_calc, mapping_indices,calculate_ncn,calculate_reff  
+  USE mo_reff_main,            ONLY: init_reff_calc, mapping_indices,calculate_ncn,calculate_reff,combine_reff, set_max_reff
   USE mo_impl_constants,       ONLY: max_dom  
 
   IMPLICIT NONE
   PRIVATE
   
-  PUBLIC:: set_reff, init_reff, reff_calc_dom
+  PUBLIC:: set_reff, init_reff, reff_calc_dom, combine_phases_radiation_reff
 
   TYPE(t_reff_calc_dom) ::  reff_calc_dom(max_dom)        ! Calculations array 
 
@@ -97,7 +97,7 @@ MODULE mo_nwp_reff_interface
 
 ! Initialize 1 moment scheme coefficients in case, they were not inititated
     SELECT CASE (  atm_phy_nwp_config(jg)%inwp_gscp )
-    CASE (1,2,3)
+    CASE (1,2)
       IF (msg_level >= 15) THEN 
         WRITE (message_text,*) "Reff: one-moment scheme already initialized"
         CALL message('',message_text)
@@ -200,7 +200,7 @@ MODULE mo_nwp_reff_interface
 
 
     ! 1 Moment Scheme
-    CASE (1,2, 3)
+    CASE (1,2)
       ! Cloud water using mono-modal spherical particles and ncnd from acdnc (different from standard with cloud_num)
       ! No distinction between grid and subgrid
       nreff_calc = nreff_calc + 1
@@ -275,7 +275,7 @@ MODULE mo_nwp_reff_interface
                     &     p_reff        = prm_diag%reff_qs(:,:,:) )        ! Output
 
       ! One moment scheme with graupel
-      IF ( icalc_reff_loc .GT. 1 ) THEN
+      IF ( icalc_reff_loc == 2 ) THEN
         ! Graupel using 1 mom
         nreff_calc = nreff_calc + 1
         CALL  init_reff_calc ( reff_calc_dom(jg)%reff_calc_arr(nreff_calc),&
@@ -290,7 +290,7 @@ MODULE mo_nwp_reff_interface
       END IF
 
       ! 2 Moment Scheme
-    CASE ( 4,5,6,7,9) 
+    CASE ( 4,5,6,7) 
 
       ! Grid cloud water from 2 moment scheme
       nreff_calc = nreff_calc + 1
@@ -559,6 +559,88 @@ MODULE mo_nwp_reff_interface
     
   END SUBROUTINE set_reff
 
+! Main routine to combine all hidropmeteors into a frozen phase and a liquid phase for radiation
+! It changes the effective radius fields, as well as the tot_cld fields
+  SUBROUTINE combine_phases_radiation_reff (prm_diag, p_patch, p_prog,return_reff )
+      TYPE(t_nwp_phy_diag)   , INTENT(inout):: prm_diag         !Diagnostic statistics from physics (inlcuding reff)
+      TYPE(t_patch)          , INTENT(in)   :: p_patch          !<grid/patch info.
+      TYPE(t_nh_prog)        , INTENT(in)   :: p_prog           !<the dyn prog vars
+      LOGICAL, OPTIONAL      , INTENT(out)  :: return_reff      ! Return call from function .true. if right
+
+      ! Limitors of effective radius.
+      REAL(wp), PARAMETER   :: reff_max_qc = 30.0e-6_wp      ! Maximum reff cloud water in tables from RRTM
+      REAL(wp), PARAMETER   :: reff_max_qi = 99.0e-6_wp      ! Maximum reff ice in ECCRAD. It Crashes for larger values
+!      REAL(wp), PARAMETER   :: reff_max_qi = 120.0e-6       ! Maximum reff ice in tables from RRTM
+
+      ! Local scalars:
+      INTEGER               :: jb,jg, ireff                 !<block indices
+      INTEGER               :: i_startblk, i_endblk         !< blocks
+      INTEGER               :: is, ie                       !< slices
+      INTEGER               :: i_rlstart, i_rlend           ! blocks limits 
+      INTEGER               :: nlev                         ! Number of grid levels in vertical
+
+      !
+
+      ! Initiare proper return
+      IF ( PRESENT (return_reff) ) return_reff = .true.
+
+
+      ! domain ID
+      jg         = p_patch%id
+      ! Number of levels
+      nlev       = p_patch%nlev
+
+      ! Prepare the loop over grid points
+      ! exclude boundary interpolation zone of nested domains
+      i_rlstart  = grf_bdywidth_c+1
+      i_rlend    = min_rlcell_int
+
+      i_startblk = p_patch%cells%start_block(i_rlstart)
+      i_endblk   = p_patch%cells%end_block(i_rlend)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = i_startblk, i_endblk     
+       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+           &                is, ie, i_rlstart, i_rlend)
+       
+
+! Combine rain into the liquid phase
+       IF ( ASSOCIATED( prm_diag%reff_qr ) ) THEN
+         CALL combine_reff( prm_diag%tot_cld(:,:,jb,iqc),  prm_diag%reff_qc(:,:,jb),  &
+             &              p_prog%tracer(:,:,jb,iqr),     prm_diag%reff_qr(:,:,jb),  &
+             &              k_start =kstart_moist(jg),k_end = nlev,is = is,ie=ie    )
+       END IF
+
+! Combine snow into the ice phase
+       IF ( ASSOCIATED( prm_diag%reff_qs ) ) THEN
+         CALL combine_reff( prm_diag%tot_cld(:,:,jb,iqi),  prm_diag%reff_qi(:,:,jb),  &
+             &              p_prog%tracer(:,:,jb,iqs),     prm_diag%reff_qs(:,:,jb),  &
+             &              k_start =kstart_moist(jg),k_end = nlev,is = is,ie=ie    )
+       END IF
+! Combine graupel into the ice phase
+       IF ( ANY(atm_phy_nwp_config(jg)%inwp_gscp == (/2,4,5,6,7/)) .AND.               &
+       &      ASSOCIATED( prm_diag%reff_qg ) ) THEN
+          CALL combine_reff( prm_diag%tot_cld(:,:,jb,iqi),  prm_diag%reff_qi(:,:,jb),  &
+           &              p_prog%tracer(:,:,jb,iqg),     prm_diag%reff_qg(:,:,jb),  &
+           &              k_start =kstart_moist(jg),k_end = nlev,is = is,ie=ie    )
+       END IF
+
+! Set maximum radius in the liquid phase keeping the ratio q/r constant
+       CALL set_max_reff ( prm_diag%tot_cld(:,:,jb,iqc),  prm_diag%reff_qc(:,:,jb), reff_max_qc, & 
+           &               k_start =kstart_moist(jg),k_end = nlev,is = is,ie=ie    )
+
+! Set maximum radius in the frozen phase keeping the ratio q/r constant
+       CALL set_max_reff ( prm_diag%tot_cld(:,:,jb,iqi),  prm_diag%reff_qi(:,:,jb), reff_max_qi, & 
+           &               k_start =kstart_moist(jg),k_end = nlev,is = is,ie=ie    )
+
+
+
+     END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+      
+   END SUBROUTINE combine_phases_radiation_reff
 
 
 END MODULE mo_nwp_reff_interface

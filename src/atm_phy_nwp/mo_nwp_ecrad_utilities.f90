@@ -194,7 +194,8 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Daniel Rieger, Deutscher Wetterdienst, Offenbach (2019-05-10)
   !!
-  SUBROUTINE ecrad_set_clouds(ecrad_cloud, ecrad_thermodynamics, qc, qi, clc, temp, pres, acdnc, fr_glac, fr_land, fact_reffc, &
+  SUBROUTINE ecrad_set_clouds(ecrad_cloud, ecrad_thermodynamics, qc, qi, clc, temp, pres, acdnc, fr_glac, fr_land, &
+    &                         reff_liq, reff_frz, icpl_reff, fact_reffc,                                           &
     &                         clc_min, nlev, i_startidx, i_endidx)
 
     TYPE(t_ecrad_cloud_type), INTENT(inout) :: &
@@ -212,7 +213,12 @@ CONTAINS
       &  fr_land(:),            & !< land-sea mask. (1. = land, 0. = sea/lakes)
       &  fact_reffc,            & !< Factor in the calculation of cloud droplet effective radius
       &  clc_min                  !< Minimum cloud cover value to be considered as partly cloudy
+    REAL(wp), POINTER, INTENT(in)     :: &
+      &  reff_liq(:,:),         & !< effective radius of the liquid phase (external)
+      &  reff_frz(:,:)            !< effective radius of the frozen phase (external)
+
     INTEGER, INTENT(in)      :: &
+      &  icpl_reff,             & !< Option for effective radius
       &  nlev,                  & !< Number of vertical full levels
       &  i_startidx, i_endidx     !< Start and end index of nproma loop in current block
 ! Local variables
@@ -236,14 +242,28 @@ CONTAINS
           liwcfac = 0._wp
           ecrad_cloud%fraction(jc,jk) = 0._wp
         ENDIF
-        lwc                         = qc(jc,jk) * liwcfac
-        iwc                         = qi(jc,jk) * liwcfac
-        ! Careful with acdnc input: A division is performed and it is not checked for 0 as the function used
-        ! to create acdnc returns always positive values
-        ecrad_cloud%re_liq(jc,jk)   = reff_droplet(lwc, acdnc(jc,jk), fr_land(jc), fr_glac(jc), fact_reffc)
-        ecrad_cloud%re_ice(jc,jk)   = reff_crystal(iwc)
+        IF ( icpl_reff == 0 ) THEN ! No external calculationcof reff.
+          lwc                         = qc(jc,jk) * liwcfac
+          iwc                         = qi(jc,jk) * liwcfac
+          ! Careful with acdnc input: A division is performed and it is not checked for 0 as the function used
+          ! to create acdnc returns always positive values
+          ecrad_cloud%re_liq(jc,jk)   = reff_droplet(lwc, acdnc(jc,jk), fr_land(jc), fr_glac(jc), fact_reffc)
+          ecrad_cloud%re_ice(jc,jk)   = reff_crystal(iwc)
+        END IF
       ENDDO
     ENDDO
+
+    IF ( icpl_reff > 0 ) THEN
+      IF (.NOT. ASSOCIATED(reff_liq) .OR. .NOT. ASSOCIATED(reff_frz)) THEN
+        CALL finish('ecrad_set_clouds','effective radius fields not associated')
+      ENDIF
+      DO jk = 1, nlev
+        DO jc = i_startidx, i_endidx
+          ecrad_cloud%re_liq(jc,jk) = MAX(MIN(reff_liq(jc,jk),32.0e-6_wp),2.0e-6_wp)  
+          ecrad_cloud%re_ice(jc,jk) = MAX(MIN(reff_frz(jc,jk),99.0e-6_wp),4.0e-6_wp) 
+        ENDDO
+      ENDDO
+    ENDIF
 
   END SUBROUTINE ecrad_set_clouds
   !---------------------------------------------------------------------------------------

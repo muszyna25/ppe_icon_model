@@ -4372,7 +4372,7 @@ if test "x$enable_rte_rrtmgp" = xno; then :
 fi
 
 if test "x$enable_rttov" = xyes; then :
-  as_fn_append FCFLAGS " ${FC_PP_DEF}__USE_RTTOV ${FC_PP_DEF}RTTOV12 ${FC_PP_DEF}__RTTOV12 ${FC_PP_DEF}HAVE_MPI_MOD"
+  as_fn_append FCFLAGS " ${FC_PP_DEF}__USE_RTTOV ${FC_PP_DEF}_RTTOV_VERSION=13 ${FC_PP_DEF}HAVE_MPI_MOD"
 fi
 
 if test "x$enable_art" = xyes; then :

@@ -52,7 +52,7 @@ MODULE mo_reff_main
   IMPLICIT NONE
   PRIVATE
   
-  PUBLIC:: init_reff_calc, mapping_indices,calculate_ncn,calculate_reff
+  PUBLIC:: init_reff_calc, mapping_indices,calculate_ncn,calculate_reff,set_max_reff,combine_reff 
 
 
   CONTAINS
@@ -699,5 +699,61 @@ MODULE mo_reff_main
 
 
   END SUBROUTINE calculate_ncn
+
+
+! Combine two hydrometeors fields into one, keeping qtot/rtot = q1/r1 + q2/r2
+  SUBROUTINE  combine_reff( q1,reff_1, q2,reff_2,k_start,k_end,is,ie )
+    
+    REAL(wp)          , INTENT(INOUT)         :: q1(:,:)                ! Mass concentration of first hydromet. (also store results)
+    REAL(wp)          , INTENT(INOUT)         :: reff_1(:,:)            ! Effective radius of first hydromet. (also store results)
+    REAL(wp)          , INTENT(IN)            :: q2(:,:)                ! Mass concentration of first hydromet.
+    REAL(wp)          , INTENT(IN)            :: reff_2(:,:)            ! Effective radius of first hydromet.    
+    INTEGER           , INTENT(IN)            :: k_start, k_end, is, ie ! Start, end total indices    
+
+    REAL(wp)                                  :: q_ov_reff     ! Local cross section
+    INTEGER                                   :: k,jc           ! Local counters                                                  
+
+    DO k = k_start,k_end
+      DO jc  = is,ie
+        IF ( reff_2(jc,k) > 1e-6_wp ) THEN  ! Combine only when there is something in second phase
+          IF ( reff_1(jc,k) > 1e-6_wp)  THEN ! Also something in first phase
+            q_ov_reff = q1(jc,k)/reff_1(jc,k) + q2(jc,k)/reff_2(jc,k)
+            q1(jc,k)     =  q1(jc,k) +  q2(jc,k)
+            IF ( q_ov_reff > 1E-6) THEN
+              reff_1(jc,k) =  q1(jc,k)/q_ov_reff
+            ELSE
+              q1(jc,k)     = 0.0_wp
+              reff_1(jc,k) = 0.0_wp  ! Set to 0 micro, nominally for negligible extinction
+            END IF
+          ELSE  ! Something in second phase, but not in first
+            q1(jc,k) = q2(jc,k)
+            reff_1(jc,k) = reff_2(jc,k)
+          END IF
+        END IF
+      END DO
+    END DO
+
+  END SUBROUTINE combine_reff
+
+! Set a maximum effective radius, keeping qend/rmax = qini/rini
+  SUBROUTINE set_max_reff( q,reff,reff_max,k_start,k_end,is,ie )
+    REAL(wp)          , INTENT(INOUT)         :: q(:,:)                 ! Mass concentration of hydromet. (also store results)
+    REAL(wp)          , INTENT(INOUT)         :: reff(:,:)              ! Effective radius of hydromet. (also store results)
+    REAL(wp)          , INTENT(IN)            :: reff_max               ! Maximum effective radius
+    INTEGER           , INTENT(IN)            :: k_start, k_end, is, ie ! Start, end total indices    
+ 
+    REAL(wp)                                  :: q_ov_reff     ! Local cross section
+    INTEGER                                   :: k,jc           ! Local counters 
+    
+    DO k = k_start,k_end
+      DO jc  = is,ie
+        IF ( reff(jc,k) > reff_max) THEN
+          q(jc,k)    = q(jc,k)*reff_max/reff(jc,k)
+          reff(jc,k) = reff_max
+        END IF
+      END DO
+    END DO
+
+  END SUBROUTINE set_max_reff
 
 END MODULE mo_reff_main

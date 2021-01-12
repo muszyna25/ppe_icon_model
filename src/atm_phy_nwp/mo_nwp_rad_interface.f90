@@ -18,7 +18,7 @@
 
 MODULE mo_nwp_rad_interface
 
-  USE mo_exception,            ONLY: finish
+  USE mo_exception,            ONLY: finish, message
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_parallel_config,      ONLY: nproma
@@ -42,6 +42,7 @@ MODULE mo_nwp_rad_interface
 #endif
   USE mo_albedo,               ONLY: sfc_albedo, sfc_albedo_modis
   USE mtime,                   ONLY: datetime
+  USE mo_nwp_gpu_util,         ONLY: gpu_d2h_nh_nwp, gpu_h2d_nh_nwp
   
   IMPLICIT NONE
 
@@ -57,18 +58,20 @@ MODULE mo_nwp_rad_interface
   !---------------------------------------------------------------------------------------
   !>
   !! This subroutine is the interface between nwp_nh_interface to the radiation schemes.
-  !! Depending on inwp_radiation, it can call RRTM (1) or Ritter-Geleyn (2).
+  !! Depending on inwp_radiation, it can call RRTM/PSRAD (1,3), Ritter-Geleyn (2), or 
+  !! ecRad(4).
   !!
   !! @par Revision History
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
   SUBROUTINE nwp_radiation ( lredgrid, p_sim_time, mtime_datetime, pt_patch,pt_par_patch, &
-    & ext_data, lnd_diag, pt_prog, pt_diag, prm_diag, lnd_prog, wtr_prog )
+    & ext_data, lnd_diag, pt_prog, pt_diag, prm_diag, lnd_prog, wtr_prog, linit)
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
       &  routine = 'mo_nwp_rad_interface:nwp_radiation'
     
     LOGICAL,                 INTENT(in)    :: lredgrid        !< use reduced grid for radiation
+    LOGICAL, OPTIONAL,       INTENT(in)    :: linit
 
     REAL(wp),                INTENT(in)    :: p_sim_time
 
@@ -92,6 +95,7 @@ MODULE mo_nwp_rad_interface
 
     
     INTEGER :: jg, irad
+    LOGICAL :: lacc
 
     REAL(wp):: zsct        ! solar constant (at time of year)
     REAL(wp):: cosmu0_dark ! minimum cosmu0, for smaller values no shortwave calculations
@@ -101,6 +105,12 @@ MODULE mo_nwp_rad_interface
     ! patch ID
     jg = pt_patch%id
 
+    ! openACC flag (initialization run is left on)
+    IF(PRESENT(linit)) THEN
+      lacc = .NOT. linit
+    ELSE
+      lacc = .FALSE.
+    ENDIF
 
 
     !-------------------------------------------------------------------------
@@ -137,7 +147,8 @@ MODULE mo_nwp_rad_interface
       & p_sim_time   = p_sim_time,                        & !in
       & pt_patch     = pt_patch,                          & !in
       & zsmu0        = prm_diag%cosmu0(:,:),              & !out
-      & zsct         = zsct                               ) !out, optional
+      & zsct         = zsct,                              & !out, optional
+      & lacc         = lacc                               ) !in
 
 
 
@@ -146,18 +157,28 @@ MODULE mo_nwp_rad_interface
     !
     IF ( albedo_type == MODIS ) THEN
       ! MODIS albedo
-      CALL sfc_albedo_modis(pt_patch, ext_data, lnd_prog, wtr_prog, lnd_diag, prm_diag)
+      CALL sfc_albedo_modis(pt_patch, ext_data, lnd_prog, wtr_prog, lnd_diag, prm_diag, lacc)
     ELSE
+#ifdef _OPENACC
+      IF (lacc) CALL finish('nwp_radiation','sfc_albedo not ported to gpu')
+#endif
       ! albedo based on tabulated bare soil values
       CALL sfc_albedo(pt_patch, ext_data, lnd_prog, wtr_prog, lnd_diag, prm_diag)
     ENDIF
 
 
-
+    
     !-------------------------------------------------------------------------
     !> Radiation
     !-------------------------------------------------------------------------
     !
+
+#ifdef _OPENACC
+    IF(lacc) THEN
+      CALL message('mo_nh_interface_nwp', 'Device to host copy before Radiation. This needs to be removed once port is finished!')
+      CALL gpu_d2h_nh_nwp(pt_patch, prm_diag, ext_data)
+    ENDIF
+#endif
     SELECT CASE (atm_phy_nwp_config(jg)%inwp_radiation)
     CASE (1, 3) ! RRTM / PSRAD
 
@@ -209,6 +230,12 @@ MODULE mo_nwp_rad_interface
         &      'atm_phy_nwp_config(jg)%inwp_radiation = 4 needs -D__ECRAD.')
 #endif
     END SELECT ! inwp_radiation
+#ifdef _OPENACC
+    IF(lacc) THEN
+      CALL message('mo_nh_interface_nwp', 'Host to device copy after Radiation. This needs to be removed once port is finished!')
+      CALL gpu_h2d_nh_nwp(pt_patch, prm_diag, ext_data)
+    ENDIF
+#endif
 
   END SUBROUTINE nwp_radiation
 

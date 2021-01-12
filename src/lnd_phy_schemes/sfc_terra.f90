@@ -344,6 +344,7 @@ CONTAINS
                   conv_frac        , & ! convective area fraction as assumed in convection scheme
                   prr_gsp          , & ! precipitation rate of rain, grid-scale        (kg/m2*s)
                   prs_gsp          , & ! precipitation rate of snow, grid-scale        (kg/m2*s)
+                  pri_gsp          , & ! precipitation rate of ice, grid-scale        (kg/m2*s)
                   prg_gsp          , & ! precipitation rate of graupel, grid-scale     (kg/m2*s)
 #ifdef TWOMOM_SB
                   prh_gsp          , & ! precipitation rate of hail, grid-scale        (kg/m2*s)
@@ -431,6 +432,7 @@ CONTAINS
                   conv_frac        , & ! convective area fraction
                   prr_gsp          , & ! precipitation rate of rain, grid-scale        (kg/m2*s)
                   prs_gsp          , & ! precipitation rate of snow, grid-scale        (kg/m2*s)
+                  pri_gsp          , & ! precipitation rate of ice, grid-scale         (kg/m2*s)
                   prg_gsp          , & ! precipitation rate of graupel, grid-scale     (kg/m2*s)
 #ifdef TWOMOM_SB
                   prh_gsp          , & ! precipitation rate of hail, grid-scale        (kg/m2*s)
@@ -1228,7 +1230,7 @@ enddo
 #endif
   !$acc present(skinc)                                               &
   !$acc present(rsmin2d, u, v, t, qv, ptot, ps, h_snow_gp, u_10m)    &
-  !$acc present(v_10m, prr_con, prs_con, conv_frac, prr_gsp,prs_gsp) &
+  !$acc present(v_10m, prr_con, prs_con, conv_frac, prr_gsp,prs_gsp,pri_gsp) &
 #ifdef TWOMOM_SB
   !$acc present(prh_gsp)                                             &
 #endif
@@ -1914,6 +1916,7 @@ enddo
 #endif
 
   ! Update indicator for age of snow in top of snow layer
+  ! Note that cloud ice is deliberately disregarded here in order to avoid counting drifting snow as fresh snow
   !$acc parallel async if(lzacc)
   !$acc loop gang vector private(zsnow_rate, zdsn_new, zdsn_old, ztau_snow, zuv)
   DO i = ivstart, ivend
@@ -2983,7 +2986,7 @@ enddo
       ! to dew and rime
       zrr(i) = zrr(i) + prr_con(i) + prr_gsp(i)
       zrime  = zrs(i)
-      zrs(i) = zrs(i) + prs_con(i) + prs_gsp(i)
+      zrs(i) = zrs(i) + prs_con(i) + prs_gsp(i) + pri_gsp(i)
       IF ( nclass_gscp >= 2000 ) THEN
         ! only possible when running 2-moment microphysics
 #ifdef TWOMOM_SB
@@ -3149,12 +3152,12 @@ enddo
       IF ( nclass_gscp >= 2000 ) THEN
         ! only possible when running 2-moment microphysics
 #ifdef TWOMOM_SB
-        zrs(i) = zrrs(i) + prs_con(i) + prs_gsp(i) + prg_gsp(i) + prh_gsp(i)
+        zrs(i) = zrrs(i) + prs_con(i) + prs_gsp(i) + pri_gsp(i) + prg_gsp(i) + prh_gsp(i)
 #endif
       ELSEIF ( nclass_gscp >= 6 ) THEN
-        zrs(i) = zrrs(i) + prs_con(i) + prs_gsp(i) + prg_gsp(i)
+        zrs(i) = zrrs(i) + prs_con(i) + prs_gsp(i) + pri_gsp(i) + prg_gsp(i)
       ELSE
-        zrs(i) = zrrs(i) + prs_con(i) + prs_gsp(i)
+        zrs(i) = zrrs(i) + prs_con(i) + prs_gsp(i) + pri_gsp(i)
       ENDIF
 
       ! Preliminary interception store budget
@@ -5745,12 +5748,12 @@ enddo
       IF ( nclass_gscp >= 2000 ) THEN
         ! only possible when running 2-moment microphysics
 #ifdef TWOMOM_SB
-        zgrfrac = (prh_gsp(i)+prg_gsp(i)+prs_con(i)) / MAX(eps_soil,prs_gsp(i)+prs_con(i)+prg_gsp(i)+prh_gsp(i))
+        zgrfrac = (prh_gsp(i)+prg_gsp(i)+prs_con(i)) / MAX(eps_soil,prs_gsp(i)+pri_gsp(i)+prs_con(i)+prg_gsp(i)+prh_gsp(i))
 #endif
       ELSEIF ( nclass_gscp >= 6 ) THEN
-        zgrfrac = (prg_gsp(i)+prs_con(i)) / MAX(eps_soil,prs_gsp(i)+prs_con(i)+prg_gsp(i))
+        zgrfrac = (prg_gsp(i)+prs_con(i)) / MAX(eps_soil,prs_gsp(i)+pri_gsp(i)+prs_con(i)+prg_gsp(i))
       ELSE
-        zgrfrac =             prs_con(i)  / MAX(eps_soil,prs_gsp(i)+prs_con(i))
+        zgrfrac =             prs_con(i)  / MAX(eps_soil,prs_gsp(i)+pri_gsp(i)+prs_con(i))
       ENDIF
 
       ! c) new snow density is computed by adding depths of existing and new snow
@@ -5758,12 +5761,12 @@ enddo
        ! only possible when running the 2-moment microphysics
        !!$ UB: does that really make sense to integrate hail into snow density at the surface?
 #ifdef TWOMOM_SB
-        zzz = (prs_gsp(i)+prs_con(i)+prg_gsp(i)+prh_gsp(i))*zdtdrhw
+        zzz = (prs_gsp(i)+pri_gsp(i)+prs_con(i)+prg_gsp(i)+prh_gsp(i))*zdtdrhw
 #endif
       ELSEIF ( nclass_gscp >= 6 ) THEN
-        zzz = (prs_gsp(i)+prs_con(i)+prg_gsp(i))*zdtdrhw
+        zzz = (prs_gsp(i)+pri_gsp(i)+prs_con(i)+prg_gsp(i))*zdtdrhw
       ELSE
-        zzz = (prs_gsp(i)+prs_con(i))*zdtdrhw
+        zzz = (prs_gsp(i)+pri_gsp(i)+prs_con(i))*zdtdrhw
       ENDIF
 
       ! prevent accumulation of new snow if the air temperature is above 1 deg C with
@@ -6046,14 +6049,11 @@ enddo
 
 !$acc end data
 !!!!#ifdef __ICON__
-  IF (ldebug) THEN
+  IF (msg_level >= 19) THEN
     DO i = ivstart, ivend
 
-!     IF (ABS(t_s_now(i)-t_s_new(i)) > 25.0_wp) THEN
-      IF (i== mvid .AND. iblock == mbid .AND. my_cart_id == mcid) THEN
-#ifdef _OPENMP
-       IF (my_thrd_id == mtid) THEN
-#endif
+     IF (ABS(t_s_now(i)-t_s_new(i)) > 15.0_wp .or. ABS(t_sk_now(i)-t_sk_new(i)) > 15.0_wp) THEN
+!      IF (i== mvid .AND. iblock == mbid .AND. my_cart_id == mcid) THEN
 
         WRITE(*,'(A        )') '                                '
         WRITE(*,'(A,2I5)'  ) 'SFC-DIAGNOSIS terra output:  iblock = ', iblock, i
@@ -6097,9 +6097,6 @@ enddo
 do k = 1, ke_soil
         WRITE(*,'(A,I1,A, F28.16)') '   lhfl_pl (',k,')      :  ', lhfl_pl(i,k)
 enddo
-#ifdef _OPENMP
-       ENDIF
-#endif
       ENDIF
     ENDDO
   ENDIF

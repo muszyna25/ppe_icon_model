@@ -1530,7 +1530,7 @@ MODULE mo_async_latbc
         END IF
       END DO
       DO jp = 1, buffer%ngrp_vars
-        IF (buffer%internal_name(jp) == buffer%geop_ml_var) THEN
+        IF (tolower(buffer%internal_name(jp)) == tolower(buffer%geop_ml_var)) THEN
           ! variable GEOSP is stored in cell center location
           buffer%hgrid(jp) = GRID_UNSTRUCTURED_CELL
         END IF
@@ -1595,7 +1595,7 @@ MODULE mo_async_latbc
       IF (found_unknown_grid) CALL finish(routine,'Unknown grid type found!')
 
       DO jp = 1, buffer%ngrp_vars
-        IF (buffer%internal_name(jp) == buffer%geop_ml_var) THEN
+        IF (tolower(buffer%internal_name(jp)) == tolower(buffer%geop_ml_var)) THEN
           ! Memory for GEOSP variable taken as memory equivalent to 1 level of z_ifc
           ! as the variable GEOSP doesn't exist in metadata
           mem_size_ = mem_size_ + INT(1*n_own_cells,mpi_address_kind)

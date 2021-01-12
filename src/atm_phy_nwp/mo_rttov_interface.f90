@@ -57,9 +57,9 @@ MODULE mo_rttov_interface
   USE mo_mpi,                 ONLY: p_pe, p_comm_work, p_io, num_work_procs, p_barrier, &
     &                               get_my_mpi_all_id
 #ifdef __USE_RTTOV
-  USE mo_rttov_ifc,           ONLY: rttov_init, rttov_fill_input, rttov_direct_ifc, &
-    &                               NO_ERROR, rttov_ifc_errMsg, &
-                                    default_gas_units, gas_unit_specconc, gas_unit_ppmvdry, default_use_q2m
+  USE mo_rtifc,               ONLY: rtifc_set_opts, rtifc_init, rtifc_fill_input, &
+                                    rtifc_direct, rtifc_errmsg, rttov_opts_def,   &
+                                    NO_ERROR, default_gas_units, gas_unit_ppmvdry
 #endif
 
   IMPLICIT NONE
@@ -195,22 +195,30 @@ CONTAINS
         WRITE (0,*) routine, ": CALL to rttov_init"
       END IF
 
-      ! use 2m humidity
-      default_use_q2m = .TRUE.
+      CALL rtifc_set_opts(        &
+        addclouds      = .true.,  &
+        apply_reg_lims = .true.,  &
+        addsolar       = .false., &
+        addrefrac      = .true.,  &
+        addinterp      = .false., &
+        use_q2m        = .true.,  &
+        cloud_overlap  = 2,       & !Simplified, much faster scheme
+        do_checkinput  = .false., & !do_checkinput is expensive on vector machine
+        init           = .true.)
 
-      istatus = rttov_init(  &
-        instruments     , &
-        channels        , &
-        n_chans         , &
-        p_pe            , &
-        num_work_procs  , &
-        p_io            , &
-        p_comm_work     , &
-        appRegLim=.TRUE., &
-        readCloud=addclouds)
+      CALL rtifc_init(                            &
+        instruments                             , &
+        channels                                , &
+        n_chans                                 , &
+        (/(rttov_opts_def,isens=1,num_sensors)/), &
+        p_pe                                    , &
+        num_work_procs                          , &
+        p_io                                    , &
+        p_comm_work                             , &
+        istatus                                 )
 
       IF (istatus /= NO_ERROR) THEN
-        WRITE(message_text,'(a)') TRIM(rttov_ifc_errMsg(istatus))
+        WRITE(message_text,'(a)') TRIM(rtifc_errmsg(istatus))
         CALL finish(routine ,message_text)
       ENDIF
       IF (dbg_level > 2) THEN
@@ -374,34 +382,36 @@ SUBROUTINE rttov_driver (jg, jgp, nnow)
       ENDDO
     ENDDO
 
-    istatus = rttov_fill_input(                            &
-          press      = pres(:,is:ie) ,                     &
-          temp       = temp(:,is:ie),                      &
-          humi       = qv(:,is:ie),                        &
-          t2m        = rg_t2m(is:ie,jb),                   &
-          q2m        = rg_qv2m(is:ie,jb),                  &
-          psurf      = rg_psfc(is:ie,jb),                  &
-          hsurf      = rg_hsfc(is:ie,jb),                  &
-          u10m       = rg_u10m(is:ie,jb),                  &
-          v10m       = rg_v10m(is:ie,jb),                  &
-          stemp      = rg_tsfc(is:ie,jb),                  &
-          stype      = rg_stype(is:ie,jb),                 &
-          watertype  = rg_wtype(is:ie,jb),                 &
-          lat        = p_gcp%center(is:ie,jb)%lat*rad2deg, &
-          satzenith  = (/(0.0_wp, jc=is,ie)/),             &
-          sunZenith  = rg_cosmu0(is:ie,jb),                & ! actually unused for addsolar=.false.
-          cloud      = cld(:,:,is:ie),                     &
-          cfrac      = clc(:,is:ie),                       &
-          ice_scheme = ish(is:ie),                         &
-          idg        = idg(is:ie),                         &
-          addsolar   = .false.,                            &
-          addrefrac  = .true.,                             &
-          rttov9_compat = .false.,                         &
-          addinterp  = .false.,                            &
-          ivect      = 1)
+    CALL rtifc_fill_input(                            &
+         istatus, &
+         rttov_opts_def, &
+         press      = pres(:,is:ie) ,                     &
+         temp       = temp(:,is:ie),                      &
+         humi       = qv(:,is:ie),                        &
+         t2m        = rg_t2m(is:ie,jb),                   &
+         q2m        = rg_qv2m(is:ie,jb),                  &
+         psurf      = rg_psfc(is:ie,jb),                  &
+         hsurf      = rg_hsfc(is:ie,jb),                  &
+         u10m       = rg_u10m(is:ie,jb),                  &
+         v10m       = rg_v10m(is:ie,jb),                  &
+         stemp      = rg_tsfc(is:ie,jb),                  &
+         stype      = rg_stype(is:ie,jb),                 &
+         watertype  = rg_wtype(is:ie,jb),                 &
+         lat        = p_gcp%center(is:ie,jb)%lat*rad2deg, &
+         lon        = p_gcp%center(is:ie,jb)%lon*rad2deg, &
+         sat_zen    = (/(0.0_wp, jc=is,ie)/),             &
+         sun_zen    = rg_cosmu0(is:ie,jb),                & ! actually unused for addsolar=.false.
+         cloud      = cld(:,:,is:ie),                     &
+         cfrac      = clc(:,is:ie),                       &
+         ice_scheme = ish(is:ie),                         &
+         idg        = idg(is:ie),                         &
+         ivect      = 1,                                  &
+         pe         = p_pe)
+
 
     IF (istatus /= NO_ERROR) THEN
-      WRITE(0,*) 'RTTOV fill_input ERROR ', TRIM(rttov_ifc_errMsg(istatus))
+      WRITE(message_text,'(a)') TRIM(rtifc_errmsg(istatus))
+      CALL finish('RTTOV fill_input ERROR' ,message_text)
     ENDIF
 
     sensor_loop: DO isens = 1, num_sensors
@@ -445,20 +455,24 @@ SUBROUTINE rttov_driver (jg, jgp, nnow)
           &         ", ichan=", ichan(1:ncalc), ", emiss=", emiss(1:numchans(isens), 1:n_profs), &
           &         ", numchans=", numchans(isens)
       END IF
-      istatus = rttov_direct_ifc(                                 &
+      CALL rtifc_direct(                                          &
              isens,                                               &
              iprof(1:ncalc),                                      &
              ichan(1:ncalc),                                      &
+             rttov_opts_def,                                      &
              emiss(1:numchans(isens), 1:n_profs),                 &
-             satAzim   = sat_a(is:ie),                            &
-             satZenith = sat_z(is:ie),                            &
-             T_b       = T_b(1:numchans(isens), 1:n_profs),       &
+             T_b(1:numchans(isens), 1:n_profs),                   &
+             istatus,                                             &
+             sat_azi   = sat_a(is:ie),                            &
+             sat_zen   = sat_z(is:ie),                            &
              T_b_clear = T_b_clear(1:numchans(isens), 1:n_profs), &
              rad       = rad      (1:numchans(isens), 1:n_profs), &
-             radClear  = rad_clear(1:numchans(isens), 1:n_profs), &
-             iprint    = iprint)
+             radclear  = rad_clear(1:numchans(isens), 1:n_profs), &
+             iprint    = iprint,                                  &
+             pe        = p_pe)
       IF (istatus /= NO_ERROR) THEN
-        WRITE(0,*) 'RTTOV synsat calc ERROR ', TRIM(rttov_ifc_errMsg(istatus))
+        WRITE(message_text,'(a)') TRIM(rtifc_errmsg(istatus))
+        CALL finish('RTTOV synsat calc ERROR' ,message_text)
       ENDIF
 
       IF (dbg_level > 2)  WRITE (0,*) "PE ", get_my_mpi_all_id(), " :: copy result into rg_synsat array"

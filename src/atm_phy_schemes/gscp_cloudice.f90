@@ -201,24 +201,11 @@ USE gscp_data, ONLY: &          ! all variables are used here
     zkphi1,    zkphi2,    zkphi3,    zmi0,      zmimax,    zmsmin,       &
     zn0s0,     zn0s1,     zn0s2,     znimax_thom,          zqmin,        &
     zrho0,     zthet,     zthn,      ztmix,     ztrfrz,    zv1s,         &
-    zvz0i,     x13o12,    x2o3,      x5o24,     zams,      zasmel,       &
+    zvz0i,     x13o12,    x2o3,      x5o24,     zams=>zams_ci, zasmel,   &
     zbsmel,    zcsmel,    icesedi_exp,                                   &
     iautocon,  isnow_n0temp, dist_cldtop_ref,   reduce_dep_ref,          &
     tmin_iceautoconv,     zceff_fac, zceff_min,                          &
     mma, mmb, v_sedi_rain_min, v_sedi_snow_min
-
-#ifdef __ICON__
-! this is (at the moment) an ICON part
-USE gscp_data, ONLY: &          ! all variables are used here
-    vtxexp,    & !  kc_c1,     & !
-    kc_c2,     & !
-    kc_alpha,  & !
-    kc_beta,   & !
-    kc_gamma,  & !
-    kc_sigma,  & !
-    do_i,      & !
-    co_i
-#endif
 
 !==============================================================================
 
@@ -273,7 +260,7 @@ SUBROUTINE cloudice (             &
   !xxx: this should become a module variable, e.g. in a new module mo_gscp_data.f90
   qi0,qc0,                           & !! cloud ice/water threshold for autoconversion
 #endif
-  prr_gsp,prs_gsp,                   & !! surface precipitation rates
+  prr_gsp,prs_gsp,pri_gsp,           & !! surface precipitation rates
 #ifdef __COSMO__
   tinc_lh,                           & !  t-increment due to latent heat 
   pstoph,                            & !  stochastic multiplier of physics tendencies
@@ -368,6 +355,7 @@ SUBROUTINE cloudice (             &
   REAL(KIND=wp), DIMENSION(:), INTENT(INOUT) ::   &   ! dim (ie)
     prr_gsp,             & !> precipitation rate of rain, grid-scale        (kg/(m2*s))
     prs_gsp,             & !! precipitation rate of snow, grid-scale        (kg/(m2*s))
+    pri_gsp,             & !! precipitation rate of cloud ice, grid-scale   (kg/(m2*s))
     qnc                    !! cloud number concentration
 
   REAL(KIND=wp), DIMENSION(:,:), INTENT(INOUT), OPTIONAL ::   &     ! dim (ie,ke)
@@ -621,6 +609,7 @@ SUBROUTINE cloudice (             &
 ! Delete precipitation fluxes from previous timestep
     prr_gsp (:) = 0.0_wp
     prs_gsp (:) = 0.0_wp
+    pri_gsp (:) = 0.0_wp
     zpkr    (:) = 0.0_wp
     zpks    (:) = 0.0_wp
     zpki    (:) = 0.0_wp
@@ -688,9 +677,12 @@ SUBROUTINE cloudice (             &
       qrsflux(:,:) = 0.0_wp
   ENDIF
 
-
 ! output for various debug levels
-  IF (izdebug > 15) CALL message('gscp_cloudice: ','Start of cloudice')
+  IF (izdebug > 15) THEN
+    CALL message('gscp_cloudice: ','Start of cloudice')
+    WRITE (message_text,'(A,E10.3)') '      zams   = ',zams   ; CALL message('',message_text)
+    WRITE (message_text,'(A,E10.3)') '      ccslam = ',ccslam ; CALL message('',message_text)
+  END IF
   IF (izdebug > 20) THEN
     WRITE (message_text,*) '   nvec = ',nvec       ; CALL message('',message_text)
     WRITE (message_text,*) '   ke = ',ke           ; CALL message('',message_text)
@@ -821,7 +813,7 @@ SUBROUTINE cloudice (             &
         zn0s(iv) = MAX(zn0s(iv),1e6_wp)
       ELSEIF (isnow_n0temp == 2) THEN
         ! Calculate n0s using the temperature-dependent moment
-        ! relations of Field et al. (2005)
+        ! relations of Field et al. (2005) which assume bms=2.0
         ztc = tg - t0
         ztc = MAX(MIN(ztc,0.0_wp),-40.0_wp)
 
@@ -833,9 +825,8 @@ SUBROUTINE cloudice (             &
         bet = mmb(1) + mmb(2)*ztc + mmb(3)*nnr + mmb(4)*ztc*nnr &
           & + mmb(5)*ztc**2 + mmb(6)*nnr**2 + mmb(7)*ztc**2*nnr &
           & + mmb(8)*ztc*nnr**2 + mmb(9)*ztc**3 + mmb(10)*nnr**3
-
-        ! Here is the exponent bms=2.0 hardwired! not ideal! (Uli Blahak)
-        m2s = qsg * rho(iv,k) / zams   ! UB rho added as bugfix
+        
+        m2s = qsg * rho(iv,k) / zams  ! assumes bms=2.0 
         m3s = alf*EXP(bet*LOG(m2s))
 
         hlp  = zn0s1*EXP(zn0s2*ztc)
@@ -1284,8 +1275,16 @@ SUBROUTINE cloudice (             &
             zsidep = zsidep * reduce_dep(iv)  !FR new: SLW reduction
           END IF
           zsvidep = MIN( zsidep, zsvmax )
-        ELSEIF (zsidep < 0.0_wp ) THEN
-          zsvisub = - MAX(-zsimax, zsvmax )
+        ELSEIF (zsidep < 0.0_wp .AND. k < ke) THEN
+          zsvisub = - MAX(zsidep, -zsimax, zsvmax )
+        ELSE IF (zsidep < 0.0_wp) THEN ! limit precip rate rather than sublimation in order to reduce time-step dependence
+          zsvisub = - MAX(zsidep, zsvmax )
+          IF (zsvisub > zsimax) THEN
+            zzai(iv) = zsvisub/(z1orhog(iv)*zdtr)
+            zpki(iv) = MIN( zpki(iv) , zzai(iv) )
+            zqik(iv) = zzai(iv)*zimi(iv)
+            zsimax   = zsvisub
+          ENDIF
         ENDIF
         zsiau = zciau * MAX( qig - qi0, 0.0_wp ) * stickeff
         IF (llqi) THEN
@@ -1483,7 +1482,8 @@ SUBROUTINE cloudice (             &
           ! Precipitation fluxes at the ground
           prr_gsp(iv) = 0.5_wp * (qrg*rhog*zvzr(iv) + zpkr(iv))
           IF (lsedi_ice .OR. lorig_icon) THEN
-            prs_gsp(iv) = 0.5_wp * (rhog*(qsg*zvzs(iv)+qig*zvzi(iv)) + zpks(iv)+zpki(iv))
+            prs_gsp(iv) = 0.5_wp * (rhog*qsg*zvzs(iv) + zpks(iv))
+            pri_gsp(iv) = 0.5_wp * (rhog*qig*zvzi(iv) + zpki(iv))
           ELSE
             prs_gsp(iv) = 0.5_wp * (qsg*rhog*zvzs(iv) + zpks(iv))
           END IF

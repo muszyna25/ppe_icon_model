@@ -62,15 +62,14 @@ MODULE mo_radiation
     &                                irad_o2,    mmr_o2,              &
     &                                irad_cfc11, vmr_cfc11,           &
     &                                irad_cfc12, vmr_cfc12,           &
-    &                                irad_aero,  lrad_aero_diag,      &
+    &                                irad_aero,                       &
     &                                izenith, lradforcing, islope_rad
   USE mo_lnd_nwp_config,       ONLY: isub_seaice, isub_lake
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_newcld_optics,        ONLY: newcld_optics
   USE mo_psrad_cloud_optics,   ONLY: psrad_cloud_optics => cloud_optics
   USE mo_bc_aeropt_kinne,      ONLY: set_bc_aeropt_kinne
-  USE mo_bc_aeropt_stenchikov, ONLY: add_bc_aeropt_stenchikov
-
+  USE mo_bc_aeropt_cmip6_volc, ONLY: add_bc_aeropt_cmip6_volc
   USE mo_lrtm_par,             ONLY: jpband => nbndlw, jpxsec => maxxsec
   USE mo_lrtm,                 ONLY: lrtm
   USE mo_psrad_gas_optics,     ONLY: psrad_precomputation => precomputation
@@ -84,7 +83,6 @@ MODULE mo_radiation
     &                                timer_radiation, timer_rrtm_prep,       &
     &                                timer_lrtm, timer_srtm, timer_rrtm_post
   USE mo_nh_testcases_nml,     ONLY: zenithang
-  USE mo_rad_diag,             ONLY: rad_aero_diag
   USE mo_art_radiation_interface, ONLY: art_rad_aero_interface
   USE mo_psrad_radiation_forcing, ONLY: calculate_psrad_radiation_forcing
   USE mtime,                   ONLY: datetime, newDatetime, timedelta, newTimedelta, &
@@ -111,7 +109,7 @@ MODULE mo_radiation
 CONTAINS
 
   SUBROUTINE pre_radiation_nwp_steps( &
-    & kbdim,cosmu0_dark,p_inc_rad,p_inc_radheat,p_sim_time,pt_patch,zsmu0,zsct)
+    & kbdim,cosmu0_dark,p_inc_rad,p_inc_radheat,p_sim_time,pt_patch,zsmu0,zsct, lacc)
 
     INTEGER, INTENT(IN)   :: &
       & kbdim
@@ -126,6 +124,7 @@ CONTAINS
 
     REAL(wp), INTENT(OUT), OPTIONAL   :: zsct                  ! solar constant (at time of year)
     REAL(wp), INTENT(OUT)             :: zsmu0(kbdim,pt_patch%nblks_c)   ! Cosine of zenith angle
+    LOGICAL                           :: lacc ! accelerator flag
 
     REAL(wp) ::                    &
       & p_sim_time_rad,            &
@@ -164,6 +163,9 @@ CONTAINS
     IF (izenith == 0) THEN
     ! local insolation = constant = global mean insolation (ca. 340 W/m2)
     ! zenith angle = 0,
+#ifdef _OPENACC
+      IF (lacc) CALL finish('pre_radiation_nwp','Only ported on gpu for izenith == 4')
+#endif
       DO jb = 1, pt_patch%nblks_c
         ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
         zsmu0(1:ie,jb) = 1._wp ! sun in zenith everywhere
@@ -175,6 +177,9 @@ CONTAINS
     ! no diurnal cycle,
     ! local time always 12:00
     ! --> sin(time of day)=1 ) and zenith angle depends on latitude only
+#ifdef _OPENACC
+      IF (lacc) CALL finish('pre_radiation_nwp','Only ported on gpu for izenith == 4')
+#endif
       DO jb = 1, pt_patch%nblks_c
         ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
         zsmu0(1:ie,jb) = COS( pt_patch%cells%center(1:ie,jb)%lat )
@@ -187,6 +192,9 @@ CONTAINS
     ! no diurnal cycle,
     ! local time always  07:14:15 or 16:45:45
     ! --> sin(time of day)=1/pi and zenith angle depends on latitude only
+#ifdef _OPENACC
+      IF (lacc) CALL finish('pre_radiation_nwp','Only ported on gpu for izenith == 4')
+#endif
       DO jb = 1, pt_patch%nblks_c
         ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
         zsmu0(1:ie,jb) = COS( pt_patch%cells%center(1:ie,jb)%lat ) * rpi
@@ -196,6 +204,9 @@ CONTAINS
     ! circular non-seasonal orbit,
     ! perpetual equinox,
     ! with diurnal cycle,
+#ifdef _OPENACC
+      IF (lacc) CALL finish('pre_radiation_nwp','Only ported on gpu for izenith == 4')
+#endif
 
       zsmu0(:,:)=0.0_wp
       n_cosmu0pos(:,:) = 0
@@ -329,10 +340,14 @@ CONTAINS
 
       ENDDO !jmu0
 
+      !$acc update device (zsmu0) if (lacc)
+      !$acc parallel default (none) present (zsmu0) copyin (n_cosmu0pos, cosmu0_dark, n_zsct, zsct_save) copy (zsct) if (lacc)
+      !$acc loop gang
       DO jb = 1, pt_patch%nblks_c
 
         ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
 
+        !$acc loop vector
         DO jc = 1,ie
           IF ( n_cosmu0pos(jc,jb) > 0 ) THEN
             ! The averaged cosine of zenith angle is limited to 0.05 in order to avoid
@@ -352,6 +367,8 @@ CONTAINS
           zsct = zsct_save
         ENDIF
       ENDIF
+      !$acc end parallel
+      !$acc update host (zsmu0) if (lacc)
 
     ELSEIF (izenith == 5) THEN
      ! Radiative convective equilibrium
@@ -360,6 +377,9 @@ CONTAINS
      ! no diurnal cycle,
      ! the product tsi*cos(zenith angle) should equal 340 W/m2
      ! see Popke et al. 2013 and Cronin 2013
+#ifdef _OPENACC
+      IF (lacc) CALL finish('pre_radiation_nwp','Only ported on gpu for izenith == 4')
+#endif
       DO jb = 1, pt_patch%nblks_c
         ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
         zsmu0(1:ie,jb) = COS(zenithang*pi/180._wp)
@@ -557,7 +577,7 @@ CONTAINS
   SUBROUTINE radiation_nwp(                                                &
     ! input
     &  current_date                                                        &
-    & ,jg, jb, irad                                                        &
+    & ,jg, jb, irad, icpl_reff                                             &
     & ,jcs               ,jce               ,kbdim                         &
     & ,klev              ,klevp1                                           &
     & ,ktype             ,zland           ,zglac            ,cos_mu0       &
@@ -566,7 +586,7 @@ CONTAINS
     & ,tk_sfc            ,pp_hl            ,pp_fl                          &
     & ,tk_fl             ,qm_vap          ,qm_liq           ,qm_ice        &
     & ,qm_o3                                                               &
-    & ,cdnc              ,cld_frc                                          &
+    & ,cdnc              ,reff_liq        ,reff_frz         ,cld_frc       &
     & ,zaeq1, zaeq2, zaeq3, zaeq4, zaeq5, dust_tunefac                     &
     ! output
     & ,cld_cvr, flx_lw_net, flx_uplw_sfc, trsol_net, trsol_up_toa          &
@@ -584,6 +604,7 @@ CONTAINS
       &  jg,                 & !< domain index
       &  jb,                 & !< block index
       &  irad,               & !< option for radiation scheme (RRTM/PSRAD)
+      &  icpl_reff,          & !< option for couplig radiation with reff
       &  jcs,                & !< start index for loop over block
       &  jce,                & !< end   index for loop over block
       &  kbdim,              & !< dimension of block over cells
@@ -617,6 +638,9 @@ CONTAINS
       &  zaeq5(kbdim,klev) , & !< aerosol stratospheric background
       &  dust_tunefac(kbdim,jpband) !< LW tuning factor for dust aerosol
 
+    REAL(wp), INTENT(in), OPTIONAL  :: &
+      &  reff_liq(:,:),      & !< Effective radius liquid phase [m]
+      &  reff_frz(:,:)         !< Effective radius frozen phase [m]
 
 
     ! output
@@ -780,7 +804,7 @@ CONTAINS
     CALL rrtm_interface(                                                    &
       ! input
       & current_date                                                       ,&
-      & jg              ,jb              ,irad                             ,&
+      & jg              ,jb              ,irad            ,icpl_reff       ,&
       & jcs             ,jce             ,kbdim           ,klev            ,&
       & ktype           ,zland           ,zglac                            ,&
       & cos_mu0                                                            ,&
@@ -789,7 +813,7 @@ CONTAINS
       & pp_fl           ,pp_hl           ,pp_sfc          ,tk_fl           ,&
       & tk_hl           ,tk_sfc          ,xq_vap                           ,&
       & xq_liq          ,xq_ice                                            ,&
-      & cdnc                                                               ,&
+      & cdnc            ,reff_liq        ,reff_frz                         ,&
       & cld_frc_sec                                                        ,&
       & qm_o3           ,xm_co2          ,xm_ch4                           ,&
       & xm_n2o          ,xm_cfc11        ,xm_cfc12        ,xm_o2           ,&
@@ -934,7 +958,7 @@ CONTAINS
   SUBROUTINE rrtm_interface(                                              &
     ! input
     & current_date                                                       ,&
-    & jg              ,jb              ,irad                             ,&
+    & jg              ,jb              ,irad            ,icpl_reff       ,&
     & jcs             ,jce             ,kbdim           ,klev            ,&
     & ktype           ,zland           ,zglac                            ,&
     & pmu0                                                               ,&
@@ -943,7 +967,7 @@ CONTAINS
     & pp_fl           ,pp_hl           ,pp_sfc          ,tk_fl           ,&
     & tk_hl           ,tk_sfc          ,xm_vap                           ,&
     & xm_liq          ,xm_ice                                            ,&
-    & cdnc                                                               ,&
+    & cdnc            ,reff_liq        ,reff_frz                         ,&
     & cld_frc                                                            ,&
     & xm_o3           ,xm_co2          ,xm_ch4                           ,&
     & xm_n2o          ,xm_cfc11        ,xm_cfc12        ,xm_o2           ,&
@@ -967,6 +991,7 @@ CONTAINS
       &  jb,                              & !< block index
       &  irad,                            & !< option for radiation scheme (RRTM/PSRAD); active in NWP mode only, 
       !                                        ECHAM mode uses a completely different interface
+      &  icpl_reff,                       & !< in option for radiation reff coupling
       &  jcs,                             & !< number of skipped columns
       &  jce,                             & !< number of columns
       &  kbdim,                           & !< first dimension of 2-d arrays
@@ -1007,6 +1032,10 @@ CONTAINS
       &  zaeq3(kbdim,klev),               & !< aerosol urban
       &  zaeq4(kbdim,klev),               & !< aerosol volcano ashes
       &  zaeq5(kbdim,klev)                  !< aerosol stratospheric background
+
+    REAL(wp),INTENT(in), OPTIONAL :: &
+      &  reff_liq(:,:),              & !< effective radius liquid phase in m
+      &  reff_frz(:,:)                 !< effective radius frozen phase in m
 
 
     REAL(wp), INTENT(out) ::              &
@@ -1086,6 +1115,9 @@ CONTAINS
       &  flx_upsw_clr(kbdim,klev+1),      & !< upward flux clear sky
       &  flx_dnsw(kbdim,klev+1),          & !< downward flux total sky
       &  flx_dnsw_clr(kbdim,klev+1)         !< downward flux clear sky
+    REAL(wp), POINTER ::       &
+      &  reff_liq_vr(:,:) => NULL(),         & !< effective radius liquid phase [m]
+      &  reff_frz_vr(:,:) => NULL()            !< effective radius frozen phase [m]
 
     REAL(wp), TARGET ::                   &
       &  wkl_vr(kbdim,jpinpx,klev)        !< number of molecules/cm2 of
@@ -1130,10 +1162,12 @@ CONTAINS
     INTEGER, PARAMETER    :: rng_seed_size = 4
     INTEGER :: rnseeds(kbdim,rng_seed_size)
     REAL(WP) :: per_band_flux(KBDIM,nbndsw,3), bnd_wght(nbndsw)
+    LOGICAL:: l_coupled_reff          ! Use the effective radius from microphysics
 #ifdef __INTEL_COMPILER
 !DIR$ ATTRIBUTES ALIGN : 64 :: icldlyr,zsemiss,ppd_hl,pm_sfc
 !DIR$ ATTRIBUTES ALIGN : 64 :: col_dry_vr,pm_fl_vr,pm_hl_vr,tk_fl_vr,tk_hl_vr
 !DIR$ ATTRIBUTES ALIGN : 64 :: cdnc_vr,cld_frc_vr,ziwgkg_vr,ziwc_vr,ziwp_vr
+!DIR$ ATTRIBUTES ALIGN : 64 :: reff_liq_vr,reff_frz_vr
 !DIR$ ATTRIBUTES ALIGN : 64 :: zlwgkg_vr,zlwp_vr,zlwc_vr,wkl_vr,wx_vr
 !DIR$ ATTRIBUTES ALIGN : 64 :: cld_tau_lw_vr,cld_tau_sw_vr,cld_cg_sw_vr,cld_piz_sw_vr
 !DIR$ ATTRIBUTES ALIGN : 64 :: aer_tau_lw_vr,aer_tau_sw_vr,aer_cg_sw_vr,aer_piz_sw_vr
@@ -1156,6 +1190,11 @@ CONTAINS
     flx_uplw_sfc_clr(:) = 0._wp
     flx_upsw_sfc(:)     = 0._wp
     flx_upsw_sfc_clr(:) = 0._wp
+    
+    l_coupled_reff = icpl_reff > 0
+    IF ( l_coupled_reff ) THEN
+      ALLOCATE(reff_liq_vr(kbdim,klev),reff_frz_vr(kbdim,klev) )
+    END IF
 
     IF (atm_phy_nwp_config(jg)%l_3d_rad_fluxes) THEN
       IF (PRESENT(flx_lw_dn))     flx_lw_dn(:,:)      = 0._wp
@@ -1253,6 +1292,15 @@ CONTAINS
         wx_vr(jl,2,jk) = col_dry_vr(jl,jk)*xm_cfc11(jl,jkb)*1.e-20_wp
         wx_vr(jl,3,jk) = col_dry_vr(jl,jk)*xm_cfc12(jl,jkb)*1.e-20_wp
       END DO
+        !
+        ! --- extra cloud properties for rad coupling
+        ! 
+      IF ( l_coupled_reff ) THEN
+        DO jl = 1, jce
+          reff_liq_vr(jl,jk) = reff_liq(jl,jkb)
+          reff_frz_vr(jl,jk) = reff_frz(jl,jkb)      
+        END DO
+      END IF
     END DO
     DO jp = 1, 7
       wkl_vr(1:jce,jp,:)=col_dry_vr(1:jce,:)*wkl_vr(1:jce,jp,:)
@@ -1333,7 +1381,9 @@ CONTAINS
         &                         aer_piz_sw_vr,                 &
         &                         aer_cg_sw_vr)
     CASE (13)
-      CALL set_bc_aeropt_kinne( current_date                        ,&
+       ! this is for rrtm radiation in the NWP part, we do not introduce
+       ! the simple plumes here
+       CALL set_bc_aeropt_kinne( current_date                        ,&
         & jg                                                        ,&
         & 1, jce           ,kbdim                 ,klev             ,&
         & jb               ,jpsw                  ,jpband           ,&
@@ -1342,19 +1392,22 @@ CONTAINS
         & aer_tau_sw_vr    ,aer_piz_sw_vr         , aer_cg_sw_vr    ,&
         & aer_tau_lw_vr                                              )
     CASE (14)
-      ! set zero aerosol before adding Stenchikov aerosols
+      ! this is for rrtm radiation in the NWP part, we do not introduce
+      ! the simple plumes here
+      ! set zero aerosol before adding CMIP6 volcanic aerosols
       aer_tau_lw_vr(:,:,:) = 0.0_wp
       aer_tau_sw_vr(:,:,:) = 0.0_wp
       aer_piz_sw_vr(:,:,:) = 1.0_wp
       aer_cg_sw_vr(:,:,:)  = 0.0_wp
-      CALL add_bc_aeropt_stenchikov( current_date ,jg,           1  ,&
+      CALL add_bc_aeropt_cmip6_volc( current_date ,jg,            1 ,&
         & jce              ,kbdim                 ,klev             ,&
         & jb               ,jpsw                  ,jpband           ,&
+        & p_nh_state(jg)% metrics% z_mc(:,:,jb)                     ,&
         & p_nh_state(jg)% metrics% ddqz_z_full(:,:,jb)              ,&
-        & pp_fl                                                     ,&
         & aer_tau_sw_vr    ,aer_piz_sw_vr         ,aer_cg_sw_vr     ,&
         & aer_tau_lw_vr                                              )
-    CASE (15)
+      
+   CASE (15)
       CALL set_bc_aeropt_kinne( current_date                        ,&
         & jg                                                        ,&
         & 1,   jce         ,kbdim                 ,klev             ,&
@@ -1363,32 +1416,26 @@ CONTAINS
         & p_nh_state(jg)% metrics% ddqz_z_full(:,:,jb)              ,&
         & aer_tau_sw_vr    ,aer_piz_sw_vr         ,aer_cg_sw_vr     ,&
         & aer_tau_lw_vr                                              )
-      CALL add_bc_aeropt_stenchikov( current_date ,jg,           1  ,&
+      CALL add_bc_aeropt_cmip6_volc( current_date ,jg,            1 ,&      
         & jce              ,kbdim                 ,klev             ,&
         & jb               ,jpsw                  ,jpband           ,&
+        & p_nh_state(jg)% metrics% z_mc(:,:,jb)                     ,&
         & p_nh_state(jg)% metrics% ddqz_z_full(:,:,jb)              ,&
-        & pp_fl                                                     ,&
         & aer_tau_sw_vr    ,aer_piz_sw_vr         ,aer_cg_sw_vr     ,&
         & aer_tau_lw_vr                                              )
-    CASE DEFAULT
+
+   CASE DEFAULT
       WRITE (c_irad_aero,'(i3)') irad_aero
       CALL finish ('rrtm_interface of mo_radition','irad_aero= '// &
                    TRIM(ADJUSTL(c_irad_aero))//' does not exist')
     END SELECT
-
-    IF (lrad_aero_diag .AND. jce >= jcs) THEN
-      CALL rad_aero_diag (                jg              , &
-      & jb              ,1               ,jce             , &
-      & kbdim           ,klev            ,jpband          , &
-      & jpsw            ,aer_tau_lw_vr   ,aer_tau_sw_vr   , &
-      & aer_piz_sw_vr   ,aer_cg_sw_vr                       )
-    END IF
 
     IF (irad == 1 .AND. jce >= jcs) THEN
       CALL newcld_optics(                                                       &
         & jce          ,kbdim        ,klev         ,jpband       ,jpsw         ,&
         & zglac        ,zland        ,ktype        ,icldlyr      ,tk_fl_vr     ,&
         & zlwp_vr      ,ziwp_vr      ,zlwc_vr      ,ziwc_vr      ,cdnc_vr      ,&
+        & reff_liq_vr  ,reff_frz_vr  ,icpl_reff                                ,& 
         & cld_tau_lw_vr,cld_tau_sw_vr,cld_piz_sw_vr,cld_cg_sw_vr                )
     ELSE IF (jce >= jcs) THEN
       DO jl = 1,jce
@@ -1403,6 +1450,7 @@ CONTAINS
           laglac(jl) = .FALSE.
         ENDIF
       ENDDO
+
       CALL psrad_cloud_optics(                                          &
          & laglac        ,laland        ,jce           ,kbdim          ,& 
          & klev          , ktype        ,&
@@ -1565,6 +1613,11 @@ CONTAINS
     END IF
 !!$    sw_irr_toa(1:jce)       = flx_dnsw(1:jce,1)
     !
+
+    IF ( l_coupled_reff ) THEN
+      DEALLOCATE(reff_liq_vr,reff_frz_vr)
+    END IF
+
     IF (timers_level > 7) CALL timer_stop(timer_rrtm_post)
 
   END SUBROUTINE rrtm_interface

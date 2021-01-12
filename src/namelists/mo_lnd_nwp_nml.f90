@@ -321,6 +321,11 @@ MODULE mo_lnd_nwp_nml
       config_zml_soil = zml_soil(1:nlev_soil)
     ENDIF
 
+    !Check if target GPU configuration is supported
+#ifdef _OPENACC
+    IF(ntiles == 1) CALL finish(routine, "GPU version not available for ntiles == 1.")
+#endif
+
     !----------------------------------------------------
     ! 5. Fill the configuration state
     !----------------------------------------------------
