@@ -1,7 +1,7 @@
 #! /bin/ksh
 #-----------------------------------------------------------------------------
 #PBS -q xc_norm_h
-#PBS -l select=10:ompthreads=4
+#PBS -l select=5:ompthreads=4
 #PBS -l place=scatter
 #PBS -l walltime=01:00:00
 #PBS -j oe
@@ -198,7 +198,7 @@ icldm_turb=-1
 lfreeslip=.true.
 /
 &nonhydrostatic_nml
- iadv_rhotheta = 2
+ iadv_rhotheta = 1
  ivctype       = 2
  itime_scheme   = 5
  ndyn_substeps = 6
@@ -270,7 +270,7 @@ EOF
 # run the model!
 # ----------------------------------------------------------------------
  cp -p $MODEL icon.exe
- aprun  -n 120 -N 12 -j 2 -d 4 -m 5g icon.exe
+ aprun  -n 60 -N 12 -j 2 -d 4 -m 5g icon.exe
 
 
 

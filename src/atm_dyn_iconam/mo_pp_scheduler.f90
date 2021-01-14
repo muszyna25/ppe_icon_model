@@ -163,9 +163,11 @@ MODULE mo_pp_scheduler
     &                                   TASK_COMPUTE_TWATER, TASK_COMPUTE_Q_SEDIM,          &
     &                                   TASK_COMPUTE_DBZ850, TASK_COMPUTE_DBZCMAX,          &
     &                                   TASK_COMPUTE_CEILING,                               &
+    &                                   TASK_COMPUTE_VOR_U, TASK_COMPUTE_VOR_V,             &
+    &                                   TASK_COMPUTE_BVF2, TASK_COMPUTE_PARCELFREQ2,        &
     &                                   TASK_INTP_VER_ZLEV,                                 &
     &                                   TASK_INTP_VER_ILEV, TASK_INTP_EDGE2CELL,            &
-    &                                   max_phys_dom, UNDEF_TIMELEVEL, ALL_TIMELEVELS,      &
+    &                                   UNDEF_TIMELEVEL, ALL_TIMELEVELS,                    &
     &                                   vname_len, TASK_COMPUTE_OMEGA,                      &
     &                                   TLEV_NNOW, TLEV_NNOW_RCF, HINTP_TYPE_LONLAT_NNB,    &
     &                                   STR_HINTP_TYPE
@@ -207,6 +209,7 @@ MODULE mo_pp_scheduler
     &                                   DEFAULT_PRIORITY4, LOW_PRIORITY, dbg_level,         &
     &                                   t_activity_status
   USE mo_fortran_tools,           ONLY: assign_if_present
+  USE mo_timer,                   ONLY: timers_level, timer_start, timer_stop, timer_opt_diag_atmo
   USE mo_mpi,                     ONLY: my_process_is_stdio
 
 
@@ -290,6 +293,26 @@ CONTAINS
             ! potential vorticity
             CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
               &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_PV )
+            !
+          CASE (TASK_COMPUTE_VOR_U) 
+            ! zonal component of relative vorticity
+            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
+              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_VOR_U )
+            !
+          CASE (TASK_COMPUTE_VOR_V) 
+            ! meridional component of relative vorticity
+            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
+              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_VOR_V )
+            !
+          CASE (TASK_COMPUTE_BVF2) 
+            ! square of Brunt-Vaisala frequency
+            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
+              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_BVF2 )
+            !
+          CASE (TASK_COMPUTE_PARCELFREQ2) 
+            ! square of air parcel oscillation frequency
+            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
+              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_PARCELFREQ2 )
             !
           CASE (TASK_COMPUTE_SDI2) 
             ! super cell detection index (SDI2)
@@ -797,20 +820,26 @@ CONTAINS
                 &           missval=info%missval%ival, var_class=info%var_class,  &
                 &           tlev_source=info%tlev_source )
             END IF
+            ! SINGLE PRECISION FLOAT fields
+            IF (ASSOCIATED(element%field%s_ptr)) THEN
+              CALL add_var( p_opt_diag_list, info%name, p_opt_field_r3d,          &
+                &           GRID_REGULAR_LONLAT, info%vgrid, info%cf, info%grib2, &
+                &           ldims=var_shape, lrestart=.FALSE.,                    &
+                &           tracer_info=info_dyn%tracer,                          &
+                &           loutput=.TRUE., new_element=new_element,              &
+                &           isteptype=info%isteptype,                             &
+                &           hor_interp=create_hor_interp_metadata(                &
+                &               hor_intp_type=HINTP_TYPE_NONE ),                  &
+                &           vert_interp=info%vert_interp,                         &
+                &           post_op=info%post_op,                                 &
+                &           lmiss=info%lmiss,                                     &
+                &           missval=REAL(info%missval%sval,wp),                   &
+                &           var_class=info%var_class,                             &
+                &           tlev_source=info%tlev_source )
+            END IF
             ! LOGICAL fields
             IF (ASSOCIATED(element%field%l_ptr)) THEN
               CALL finish(routine, "Regular-grid output of LOGICAL field "//TRIM(info%name)//" unsupported!")
-            END IF
-            ! SINGLE PRECISION FLOAT fields
-            IF (ASSOCIATED(element%field%s_ptr)) THEN
-              IF (my_process_is_stdio()) THEN
-                WRITE (0,*) "!!! Regular-grid output of single precision "//TRIM(info%name)//" unsupported!"
-                WRITE (0,*) "!!!  You may recompile the model with to partial single precision support"
-                WRITE (0,*) "!!!  by setting the flag __MIXED_PRECISION_2."
-                WRITE (0,*) "!!!  You may recompile the model with to double precision support"
-                WRITE (0,*) "!!!  by setting the flag __MIXED_PRECISION."
-              END IF
-              CALL finish(routine, "Regular-output of single precision "//TRIM(info%name)//" unsupported!")
             END IF
           CASE DEFAULT
             CALL finish(routine, "Unsupported grid type!")
@@ -1448,10 +1477,6 @@ CONTAINS
               ! time-dependent variables):
               IF (TRIM(varlist(ivar)) /= TRIM(tolower(get_var_name(element%field)))) CYCLE
 
-              ! throw error message, if this variable is not a REAL field:
-              IF (.NOT. ASSOCIATED(element%field%r_ptr)) THEN
-                CALL finish(routine, TRIM(info%name)//": i/p/z interpolation implemented for REAL fields only.")
-              END IF
 
               ! Found it, add it to the variable list of optional
               ! diagnostics
@@ -1641,8 +1666,11 @@ CONTAINS
       CASE ( TASK_COMPUTE_RH, TASK_COMPUTE_OMEGA, TASK_COMPUTE_PV, TASK_COMPUTE_SDI2,              &
         &    TASK_COMPUTE_LPI, TASK_COMPUTE_CEILING, TASK_COMPUTE_HBAS_SC, TASK_COMPUTE_HTOP_SC,   &
         &    TASK_COMPUTE_TWATER, TASK_COMPUTE_Q_SEDIM, TASK_COMPUTE_DBZ850, TASK_COMPUTE_DBZCMAX, &
+        &    TASK_COMPUTE_VOR_U, TASK_COMPUTE_VOR_V, TASK_COMPUTE_BVF2, TASK_COMPUTE_PARCELFREQ2,  &
         &    TASK_COMPUTE_SMI )
-        CALL pp_task_compute_field(ptr_task)
+        IF (timers_level >= 5) CALL timer_start(timer_opt_diag_atmo)
+        CALL pp_task_compute_field(ptr_task, simulation_status)
+        IF (timers_level >= 5) CALL timer_stop(timer_opt_diag_atmo)
 
         ! vector reconstruction on cell centers:
       CASE ( TASK_INTP_EDGE2CELL )

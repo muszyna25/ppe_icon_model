@@ -43,7 +43,7 @@ MODULE mo_nwp_ecrad_init
                                  &   ISolverHomogeneous, ISolverMcICA, ISolverSpartacus, &
                                  &   ISolverTripleclouds,                                &
                                  &   IGasModelMonochromatic, IGasModelIFSRRTMG,          &
-                                 &   IGasModelPSRRTMG, ILiquidModelSOCRATES,             &
+                                 &   ILiquidModelSOCRATES,                               &
                                  &   ILiquidModelSlingo, IIceModelFu, IIceModelBaran2016,&
                                  &   IOverlapMaximumRandom, IOverlapExponentialRandom,   &
                                  &   IOverlapExponential,                                &
@@ -79,10 +79,12 @@ CONTAINS
       &  ecrad_conf           !< ecRad configuration state
 
     ! Local variables
-    REAL(wp)                 :: &
-      &  wavelength_bound(1)      !< Wavelength bound between VIS and NIR albedo (m)
-    INTEGER                  :: &
-      &  i_band_in(2)             !< The albedo band indices corresponding to each interval
+    REAL(wp)                  :: &
+      &  wavelength_bound_sw(1), & !< Wavelength bound between VIS and NIR albedo (m)
+      &  wavelength_bound_lw(0)    !< Wavelength bound LW emissivity (m)
+    INTEGER                   :: &
+      &  i_band_in_sw(2),        & !< The albedo band indices corresponding to each interval
+      &  i_band_in_lw(1)           !< The emissivity band indices corresponding to each interval
 
     WRITE (message_text,'(A)') 'Setup of ecRad'
     CALL message('',message_text)
@@ -92,9 +94,9 @@ CONTAINS
     !---------------------------------------------------------------------------------------
 
     ! Compatibility check wp and JPRB. If this check fails, JPRB has to be adapted manually to wp.
-    IF (PRECISION(wavelength_bound) /= PRECISION(ecrad_conf%cloud_fraction_threshold)) &
+    IF (PRECISION(wavelength_bound_sw) /= PRECISION(ecrad_conf%cloud_fraction_threshold)) &
       &  CALL finish(TRIM(routine),'ICON working precision (wp) does not match ecRad precision.')
-    IF (EPSILON(wavelength_bound(1)) /= EPSILON(ecrad_conf%cloud_fraction_threshold)) &
+    IF (EPSILON(wavelength_bound_sw(1)) /= EPSILON(ecrad_conf%cloud_fraction_threshold)) &
       &  CALL finish(TRIM(routine),'Smallest number in working precision (wp) is different from ecRad precision.')
 
     !---------------------------------------------------------------------------------------
@@ -178,6 +180,8 @@ CONTAINS
     ecrad_conf%do_surface_sw_spectral_flux = .true.       !< Save the surface downwelling shortwave fluxes in each band
                                                           !< Needed for photosynthetic active radiation
     !
+    ecrad_conf%use_spectral_solar_scaling  = .true.       !< Apply correction to solar spectrum in order to match recent measurements
+    !
     ecrad_conf%do_fu_lw_ice_optics_bug     = .false.      !< In the IFS environment there was a bug in the Fu longwave
                                                           !< ice optics producing better results than the fixed version
     !
@@ -223,14 +227,15 @@ CONTAINS
     ! ICON external parameters have SW albedo for two different wavelength bands, visible and near infrared. The following call to
     ! ecrad_conf%define_sw_albedo_intervals tells ecrad about the two bands and the wavelength bound which is at 700 nm (according
     ! to a comment in mo_nwp_phy_types).
-    wavelength_bound(1) = 0.7_wp * 1.e-6_wp !< 700 nm
-    i_band_in(1)        = 1
-    i_band_in(2)        = 2
-    CALL ecrad_conf%define_sw_albedo_intervals(2, wavelength_bound=wavelength_bound, i_band_in=i_band_in) 
+    wavelength_bound_sw(1) = 0.7_wp * 1.e-6_wp !< 700 nm
+    i_band_in_sw(1)        = 1
+    i_band_in_sw(2)        = 2
+    CALL ecrad_conf%define_sw_albedo_intervals(2, wavelength_bound_sw, i_band_in_sw)
 
     ! Similar to the short wave albedo bands, ecRad needs to know the number of longwave emissivity bands provided from ICON
-    ! external data. As the number is 1, no other arguments are needed
-    CALL ecrad_conf%define_lw_emiss_intervals(1)
+    ! external data.
+    i_band_in_lw           = 1
+    CALL ecrad_conf%define_lw_emiss_intervals(1, wavelength_bound_lw, i_band_in_lw)
     
   END SUBROUTINE setup_ecrad
   !---------------------------------------------------------------------------------------

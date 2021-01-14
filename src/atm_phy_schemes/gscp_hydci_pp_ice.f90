@@ -332,6 +332,7 @@ IMPLICIT NONE
 
 REAL (KIND=ireals)              :: sat_pres_ice
 REAL (KIND=ireals), INTENT(IN)  :: temp
+!$acc routine seq
 
 sat_pres_ice = b1*EXP( b2i*(temp-b3)/(temp-b4i) )
 

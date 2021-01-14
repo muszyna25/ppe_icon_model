@@ -401,17 +401,21 @@ add_link_file ${datadir}/bc_aeropt_kinne_lw_b16_coa.nc                  ./
 add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_coa.nc                  ./
 add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_fin_1850.nc             ./bc_aeropt_kinne_sw_b14_fin.nc
 #
-# - stratospheric aerosol
+# - stratospheric aerosol (CMIP6)
+datadir=${icon_data_poolFolder}/independent/CMIP6Forcing
 #
-datadir=${icon_data_poolFolder}/independent/aerosol_stenchikov
+if [ ! -d $datadir ]; then
+  echo 'directory '$datadir' for stratospheric aerosol data does not exist'
+  exit -1
+fi	
 year=$start_year
 while [[ $year -le $end_year ]]
 do
-  if [[ $year -le 1999 ]]
+  if [[ $year -le 2014 ]]
   then
-    add_link_file ${datadir}/bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc ./bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc
+    add_link_file $datadir/bc_aeropt_cmip6_volc_lw_b16_sw_b14_${year}.nc  ./bc_aeropt_cmip6_volc_lw_b16_sw_b14_${year}.nc
   else
-    add_link_file ${datadir}/bc_aeropt_stenchikov_lw_b16_sw_b14_1999.nc    ./bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc
+    add_link_file $datadir/bc_aeropt_cmip6_volc_lw_b16_sw_b14_2014.nc     ./bc_aeropt_cmip6_volc_lw_b16_sw_b14_${year}.nc
   fi
   (( year = year+1 ))
 done

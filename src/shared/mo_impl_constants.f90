@@ -366,7 +366,6 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: MIURA3  = 3
   INTEGER, PARAMETER :: FFSL    = 4
   INTEGER, PARAMETER :: FFSL_HYB= 5
-  INTEGER, PARAMETER :: UP3     = 6
   INTEGER, PARAMETER :: MCYCL   = 20
   INTEGER, PARAMETER :: MIURA_MCYCL  = 22
   INTEGER, PARAMETER :: MIURA3_MCYCL = 32
@@ -592,6 +591,10 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_Q_SEDIM   = 23 !< task: compute specific content of precipitation particles
   INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_DBZCMAX   = 24 !< task: compute radar reflectivity column maximum
   INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_DBZ850    = 25 !< task: compute radar reflectivity in approx. 850 hPa
+  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_VOR_U     = 26 !< task: compute zonal component of relative vorticity
+  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_VOR_V     = 27 !< task: compute meridional component of relative vorticity
+  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_BVF2      = 28 !< task: compute square of Brunt-Vaisala frequency
+  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_PARCELFREQ2 = 29 !< task: compute square of general parcel oscillation frequency
 
   !--------------------------------------------------------------------!
   !  VARIABLE TIMELEVEL SPECIFICATION (FOR POST-PROCESSING SCHEDULER)  !

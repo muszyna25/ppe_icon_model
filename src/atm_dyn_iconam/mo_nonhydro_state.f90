@@ -43,7 +43,9 @@ MODULE mo_nonhydro_state
     &                                MODE_IAU, MODE_IAU_OLD,                         &
     &                                TASK_COMPUTE_OMEGA, TLEV_NNOW_RCF,              &
     &                                MODE_ICONVREMAP,HINTP_TYPE_LONLAT_RBF,          &
-    &                                HINTP_TYPE_LONLAT_BCTR
+    &                                HINTP_TYPE_LONLAT_BCTR,                         &
+    &                                TASK_COMPUTE_VOR_U, TASK_COMPUTE_VOR_V,         &
+    &                                TASK_COMPUTE_BVF2, TASK_COMPUTE_PARCELFREQ2
   USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, &
     &                                GRID_UNSTRUCTURED_VERT, GRID_CELL, GRID_EDGE,   &
     &                                GRID_VERTEX
@@ -62,8 +64,10 @@ MODULE mo_nonhydro_state
     &                                ico2, ich4, in2o, io3,                     &
     &                                iqni, iqni_nuc, iqg, iqh, iqnr, iqns,      & 
     &                                iqng, iqnh, iqnc, inccn, ininpot, ininact, &
+    &                                iqgl, iqhl,                                &
     &                                iqtke, nqtendphy, ltestcase, lart
-  USE mo_io_config,            ONLY: inextra_2d, inextra_3d, lnetcdf_flt64_output
+  USE mo_io_config,            ONLY: inextra_2d, inextra_3d, lnetcdf_flt64_output, &
+    &                                t_var_in_output
   USE mo_limarea_config,       ONLY: latbc_config
   USE mo_advection_config,     ONLY: t_advection_config, advection_config
   USE mo_turbdiff_config,      ONLY: turbdiff_config
@@ -100,6 +104,7 @@ MODULE mo_nonhydro_state
   USE mo_util_vgrid_types,     ONLY: vgrid_buffer
   USE mo_upatmo_config,        ONLY: upatmo_dyn_config
   USE mo_upatmo_impl_const,    ONLY: idamtr
+  USE mo_echam_vdf_config,     ONLY: echam_vdf_config
 
 #include "add_var_acc_macro.inc"
 
@@ -114,7 +119,7 @@ MODULE mo_nonhydro_state
   PUBLIC :: construct_nh_state    ! Constructor for the nonhydrostatic state
   PUBLIC :: destruct_nh_state     ! Destructor for the nonhydrostatic state
   PUBLIC :: duplicate_prog_state  ! Copy the prognostic state
-
+  PUBLIC :: new_zd_metrics
   PUBLIC :: p_nh_state            ! state vector of nonhydrostatic variables (variable)
   PUBLIC :: p_nh_state_lists      ! lists for state vector of nonhydrostatic variables (variable)
   
@@ -140,7 +145,7 @@ MODULE mo_nonhydro_state
   !! @par Revision History
   !! Initial release by Almut Gassmann (2009-03-06)
   !!
-  SUBROUTINE construct_nh_state(p_patch, p_nh_state, p_nh_state_lists, n_timelevels, l_pres_msl, l_omega)
+  SUBROUTINE construct_nh_state(p_patch, p_nh_state, p_nh_state_lists, n_timelevels, var_in_output)
 !
     TYPE(t_patch),     INTENT(IN)   ::        & ! patch
       &  p_patch(n_dom)
@@ -150,8 +155,8 @@ MODULE mo_nonhydro_state
       &  p_nh_state_lists(n_dom)
     INTEGER, OPTIONAL, INTENT(IN)   ::  & ! number of timelevels
       &  n_timelevels    
-    LOGICAL, INTENT(IN) :: l_pres_msl(:) !< Flag. TRUE if computation of mean sea level pressure desired
-    LOGICAL, INTENT(IN) :: l_omega(:)    !< Flag. TRUE if computation of vertical velocity desired
+    TYPE(t_var_in_output), INTENT(IN) ::      & !< switches for optional diagnostics
+      &  var_in_output(:)
 
     INTEGER  :: ntl,      &! local number of timelevels
                 ntl_pure, &! local number of timelevels (without any extra timelevs)
@@ -254,7 +259,7 @@ MODULE mo_nonhydro_state
       !
       WRITE(listname,'(a,i2.2)') 'nh_state_diag_of_domain_',jg
       CALL new_nh_state_diag_list(p_patch(jg), p_nh_state(jg)%diag, &
-        &  p_nh_state_lists(jg)%diag_list, listname, l_pres_msl(jg), l_omega(jg) )
+        &  p_nh_state_lists(jg)%diag_list, listname, var_in_output(jg))
 
       ! art: add ART diagnostics to diag list
       IF (lart) THEN
@@ -714,6 +719,7 @@ MODULE mo_nonhydro_state
             &                     lower_limit=0._wp  ),                              &
             &         in_group=ingroup)
         END IF ! iqc
+
         !QI
         IF ( iqi /= 0 ) THEN
           tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(iqi))
@@ -739,6 +745,7 @@ MODULE mo_nonhydro_state
             &                     lower_limit=0._wp  ),                              &
             &         in_group=ingroup )
         END IF ! iqi
+
         !QR
         IF ( iqr /= 0 ) THEN
           tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(iqr))
@@ -763,7 +770,7 @@ MODULE mo_nonhydro_state
             &                       lower_limit=0._wp  ),                              & 
             &           in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
             &                           "dwd_fg_atm_vars","mode_dwd_fg_in",            &
-            &                           "mode_iau_ana_in", "mode_iau_anaatm_in",      &
+            &                           "mode_iau_ana_in", "mode_iau_anaatm_in",       &
             &                           "mode_iau_fg_in","mode_iau_old_fg_in",         &
             &                           "LATBC_PREFETCH_VARS",                         &
             &                           "mode_iniana","icon_lbc_vars") )
@@ -793,7 +800,7 @@ MODULE mo_nonhydro_state
             &                       lower_limit=0._wp  ),                              & 
             &           in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
             &                           "dwd_fg_atm_vars","mode_dwd_fg_in",            &
-            &                           "mode_iau_ana_in", "mode_iau_anaatm_in",      &
+            &                           "mode_iau_ana_in", "mode_iau_anaatm_in",       &
             &                           "mode_iau_fg_in","mode_iau_old_fg_in",         &
             &                           "LATBC_PREFETCH_VARS",                         &
             &                           "mode_iniana","icon_lbc_vars") )
@@ -823,7 +830,97 @@ MODULE mo_nonhydro_state
             &                       lower_limit=0._wp  ),                              & 
             &           in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
             &                           "dwd_fg_atm_vars","mode_dwd_fg_in",            &
-            &                           "mode_iau_fg_in" )                             )
+            &                           "mode_iau_fg_in","mode_iau_old_fg_in",         &
+            &                           "LATBC_PREFETCH_VARS") )
+        END IF
+
+
+        !hail
+        IF ( iqh /= 0 ) THEN
+            tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(iqh))
+            CALL add_ref( p_prog_list, 'tracer',                                     &
+                    & TRIM(tracer_name)//suffix, p_prog%tracer_ptr(iqh)%p_3d,        &
+                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
+                    & t_cf_var(TRIM(tracer_name),                                    &
+                    &  'kgkg-1 ','specific_hail_content', datatype_flt),             &
+                    & grib2_var(0, 1, 71, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
+                    & ref_idx=iqh,                                                   &
+                    & ldims=shape3d_c,                                               &
+                    & tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
+                    & tracer_info=create_tracer_metadata_hydro(lis_tracer=.TRUE.,    &
+                    &             name        = TRIM(tracer_name)//suffix,           &
+                    &             ihadv_tracer=advconf%ihadv_tracer(iqh),            &
+                    &             ivadv_tracer=advconf%ivadv_tracer(iqh)),           &
+                    & vert_interp=create_vert_interp_metadata(                       &
+                    &             vert_intp_type=vintp_types("P","Z","I"),           &
+                    &             vert_intp_method=VINTP_METHOD_LIN,                 &
+                    &             l_loglin=.FALSE.,                                  &
+                    &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
+                    &             lower_limit=0._wp  ),                              & 
+                    & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
+                    &                 "dwd_fg_atm_vars","mode_dwd_fg_in",            &
+                    &                 "mode_iau_ana_in","mode_iau_anaatm_in",        &
+                    &                 "mode_iau_fg_in",                              &
+                    &                 "LATBC_PREFETCH_VARS")  )
+        END IF
+
+
+        ! liquid water (meltwater) on graupel (shortname "QG_LIQ")
+        IF ( iqgl /= 0 ) THEN
+            tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(iqgl))
+            CALL add_ref( p_prog_list, 'tracer',                                     &
+                    & TRIM(tracer_name)//suffix, p_prog%tracer_ptr(iqgl)%p_3d,       &
+                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
+                    & t_cf_var(TRIM(tracer_name),                                    &
+                    &  'kgkg-1 ','Specific mass of liquid water coating on graupel', datatype_flt), &
+                    & grib2_var(0, 1, 113, ibits, GRID_UNSTRUCTURED, GRID_CELL),     & ! from shortName.def
+                    & ref_idx=iqgl,                                                  &
+                    & ldims=shape3d_c,                                               &
+                    & tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
+                    & tracer_info=create_tracer_metadata_hydro(lis_tracer=.TRUE.,    &
+                    &             name        = TRIM(tracer_name)//suffix,           &
+                    &             ihadv_tracer=advconf%ihadv_tracer(iqgl),           &
+                    &             ivadv_tracer=advconf%ivadv_tracer(iqgl)),          &
+                    & vert_interp=create_vert_interp_metadata(                       &
+                    &             vert_intp_type=vintp_types("P","Z","I"),           &
+                    &             vert_intp_method=VINTP_METHOD_LIN,                 &
+                    &             l_loglin=.FALSE.,                                  &
+                    &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
+                    &             lower_limit=0._wp  ),                              & 
+                    & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
+                    &                 "dwd_fg_atm_vars","mode_dwd_fg_in",            &
+                    &                 "mode_iau_ana_in","mode_iau_anaatm_in",        &
+                    &                 "mode_iau_fg_in",                              &
+                    &                 "LATBC_PREFETCH_VARS")  )
+        END IF
+   
+        ! liquid water (meltwater) on hail  (shortname "QH_LIQ")
+        IF ( iqhl /= 0 ) THEN
+            tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(iqhl))
+            CALL add_ref( p_prog_list, 'tracer',                                     &
+                    & TRIM(tracer_name)//suffix, p_prog%tracer_ptr(iqhl)%p_3d,       &
+                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
+                    & t_cf_var(TRIM(tracer_name),                                    &
+                    &  'kgkg-1 ','Specific mass of liquid water coating on hail', datatype_flt), &
+                    & grib2_var(0, 1, 110, ibits, GRID_UNSTRUCTURED, GRID_CELL),     & ! from shortName.def
+                    & ref_idx=iqhl,                                                  &
+                    & ldims=shape3d_c,                                               &
+                    & tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
+                    & tracer_info=create_tracer_metadata_hydro(lis_tracer=.TRUE.,    &
+                    &             name        = TRIM(tracer_name)//suffix,           &
+                    &             ihadv_tracer=advconf%ihadv_tracer(iqhl),           &
+                    &             ivadv_tracer=advconf%ivadv_tracer(iqhl)),          &
+                    & vert_interp=create_vert_interp_metadata(                       &
+                    &             vert_intp_type=vintp_types("P","Z","I"),           &
+                    &             vert_intp_method=VINTP_METHOD_LIN,                 &
+                    &             l_loglin=.FALSE.,                                  &
+                    &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
+                    &             lower_limit=0._wp  ),                              & 
+                    & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
+                    &                 "dwd_fg_atm_vars","mode_dwd_fg_in",            &
+                    &                 "mode_iau_ana_in","mode_iau_anaatm_in",        &
+                    &                 "mode_iau_fg_in",                              &
+                    &                 "LATBC_PREFETCH_VARS")  )          
         END IF
 
         !O3
@@ -914,38 +1011,36 @@ MODULE mo_nonhydro_state
             &                       lower_limit=0.0_wp )                               )
         END IF
 
-        !CK> improved ice nucleation scheme
-        !QNI cloud ice number # per kg, local 
+
+        !ice number concentration
         IF ( iqni /= 0 ) THEN
-          tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(iqni))
-          CALL add_ref( p_prog_list, 'tracer',                                         &
-            &           TRIM(tracer_name)//suffix, p_prog%tracer_ptr(iqni)%p_3d,       &
-            &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
-            &           t_cf_var(TRIM(tracer_name),                                    &
-            &            ' kg-1 ','number_concentration_cloud_ice', datatype_flt),     &
-            &           grib2_var(0, 6, 29, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
-            &           ref_idx=iqni,                                                  &
-            &           ldims=shape3d_c,                                               &
-            &           tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
-            &           tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
-            &                       name        = TRIM(tracer_name)//suffix,           &
-            &                       ihadv_tracer=advconf%ihadv_tracer(iqni),           &
-            &                       ivadv_tracer=advconf%ivadv_tracer(iqni)),          &
-            &           vert_interp=create_vert_interp_metadata(                       &
-            &                       vert_intp_type=vintp_types("P","Z","I"),           &
-            &                       vert_intp_method=VINTP_METHOD_LIN,                 &
-            &                       l_loglin=.FALSE.,                                  &
-            &                       l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
-            &             lower_limit=0._wp  ),                                        & 
-            &           in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
-            &                           "dwd_fg_atm_vars","mode_dwd_fg_in",            &
-            &                           "mode_iau_ana_in", "mode_iau_anaatm_in",       &
-            &                           "mode_iau_fg_in"                               &
-! also necessary???  &                  "mode_iau_old_fg_in",                          &
-! ???       &                           "LATBC_PREFETCH_VARS"                          &
-! ???       &                           "mode_iniana","icon_lbc_vars") )
-            &                          )                             )
+            tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(iqni))
+            CALL add_ref( p_prog_list, 'tracer',                                     &
+                    & TRIM(tracer_name)//suffix, p_prog%tracer_ptr(iqni)%p_3d,       &
+                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
+                    & t_cf_var(TRIM(tracer_name),                                    &
+                    &  ' kg-1 ','number concentration cloud ice', datatype_flt),     &
+                    & grib2_var(0, 6, 29, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
+                    & ref_idx=iqni,                                                  &
+                    & ldims=shape3d_c,                                               &
+                    & tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
+                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             name        = TRIM(tracer_name)//suffix,           &
+                    &             ihadv_tracer=advconf%ihadv_tracer(iqni),           &
+                    &             ivadv_tracer=advconf%ivadv_tracer(iqni)),          &
+                    & vert_interp=create_vert_interp_metadata(                       &
+                    &             vert_intp_type=vintp_types("P","Z","I"),           &
+                    &             vert_intp_method=VINTP_METHOD_LIN,                 &
+                    &             l_loglin=.FALSE.,                                  &
+                    &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
+                    &             lower_limit=0._wp  ),                              & 
+                    & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
+                    &                 "dwd_fg_atm_vars","mode_dwd_fg_in",            &
+                    &                 "mode_iau_ana_in","mode_iau_anaatm_in",        &
+                    &                 "mode_iau_fg_in",                              &
+                    &                 "LATBC_PREFETCH_VARS")  )
         END IF
+
 
         !QNI_NUC activated ice nuclei tracking var # per kg, local
         IF ( iqni_nuc /= 0 ) THEN
@@ -953,7 +1048,7 @@ MODULE mo_nonhydro_state
 
           CALL add_ref( p_prog_list, 'tracer',                                         &
             &           TRIM(tracer_name)//suffix, p_prog%tracer_ptr(iqni_nuc)%p_3d,   &
-            &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
+            &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
             &           t_cf_var(TRIM(tracer_name),                                    &
             &           ' kg-1','number concentration of activated_IN', datatype_flt), &
             &           grib2_var(0, 1, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),     &
@@ -970,52 +1065,24 @@ MODULE mo_nonhydro_state
             &                       l_loglin=.FALSE.,                                  &
             &                       l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
             &                       lower_limit=0._wp  ),                              & 
-            &           in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
+            &           in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
+            &                           "LATBC_PREFETCH_VARS")  )
         END IF
         !CK<
 
-        !hail
-        IF ( iqh /= 0 ) THEN
-            tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(iqh))
-            CALL add_ref( p_prog_list, 'tracer',                                     &
-                    & TRIM(tracer_name)//suffix, p_prog%tracer_ptr(iqh)%p_3d,        &
-                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
-                    & t_cf_var(TRIM(tracer_name),                                    &
-                    &  'kgkg-1 ','specific_hail_content', datatype_flt),             &
-                    & grib2_var(0, 1, 71, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
-                    & ref_idx=iqh,                                                   &
-                    & ldims=shape3d_c,                                               &
-                    & tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
-                    & tracer_info=create_tracer_metadata_hydro(lis_tracer=.TRUE.,    &
-                    &             name        = TRIM(tracer_name)//suffix,           &
-                    &             ihadv_tracer=advconf%ihadv_tracer(iqh),            &
-                    &             ivadv_tracer=advconf%ivadv_tracer(iqh)),           &
-                    & vert_interp=create_vert_interp_metadata(                       &
-                    &             vert_intp_type=vintp_types("P","Z","I"),           &
-                    &             vert_intp_method=VINTP_METHOD_LIN,                 &
-                    &             l_loglin=.FALSE.,                                  &
-                    &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
-                    &             lower_limit=0._wp  ),                              & 
-                    & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
-!!                    & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars", &
-!!                    &                 "dwd_fg_atm_vars","mode_dwd_fg_in",             &
-!!                    &                 "mode_iau_ana_in", "mode_iau_anaatm_in",        &
-!!                    &                 "mode_iau_fg_in",                               &
-!!                    &                 "LATBC_PREFETCH_VARS")  )
-        END IF
 
         !rain droplet concentration
         IF ( iqnr /= 0 ) THEN
             tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(iqnr))
             CALL add_ref( p_prog_list, 'tracer',                                     &
                     & TRIM(tracer_name)//suffix, p_prog%tracer_ptr(iqnr)%p_3d,       &
-                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
+                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
                     & t_cf_var(TRIM(tracer_name),                                    &
                     &  ' kg-1 ','number_concentration_rain_droplet', datatype_flt),  &
-                    & grib2_var(0, 1, 228, ibits, GRID_UNSTRUCTURED, GRID_CELL),     &
+                    & grib2_var(0, 1, 100, ibits, GRID_UNSTRUCTURED, GRID_CELL),     &
                     & ref_idx=iqnr,                                                  &
                     & ldims=shape3d_c,                                               &
-                    & tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
+                    & tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
                     &             name        = TRIM(tracer_name)//suffix,           &
                     &             ihadv_tracer=advconf%ihadv_tracer(iqnr),           &
@@ -1026,12 +1093,11 @@ MODULE mo_nonhydro_state
                     &             l_loglin=.FALSE.,                                  &
                     &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
                     &             lower_limit=0._wp  ),                              & 
-                    & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
-!!                    & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars",  &
-!!                    &                 "dwd_fg_atm_vars","mode_dwd_fg_in",             &
-!!                    &                 "mode_iau_ana_in", "mode_iau_anaatm_in",        &
-!!                    &                 "mode_iau_fg_in",                               &
-!!                    &                 "LATBC_PREFETCH_VARS")  )
+                    & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
+                    &                 "dwd_fg_atm_vars","mode_dwd_fg_in",            &
+                    &                 "mode_iau_ana_in","mode_iau_anaatm_in",        &
+                    &                 "mode_iau_fg_in",                              &
+                    &                 "LATBC_PREFETCH_VARS")  )
         END IF
 
 
@@ -1040,14 +1106,13 @@ MODULE mo_nonhydro_state
             tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(iqns))
             CALL add_ref( p_prog_list, 'tracer',                                     &
                     & TRIM(tracer_name)//suffix, p_prog%tracer_ptr(iqns)%p_3d,       &
-                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
+                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
                     & t_cf_var(TRIM(tracer_name),                                    &
                     &  ' kg-1 ','number_concentration_snow', datatype_flt),          &
-                    & grib2_var(0, 1, 217, ibits, GRID_UNSTRUCTURED, GRID_CELL),     &
-!!                    & grib2_var(0, 1, 101, ibits, GRID_UNSTRUCTURED, GRID_CELL),       &
+                    & grib2_var(0, 1, 101, ibits, GRID_UNSTRUCTURED, GRID_CELL),     &
                     & ref_idx=iqns,                                                  &
                     & ldims=shape3d_c,                                               &
-                    & tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
+                    & tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
                     &             name        = TRIM(tracer_name)//suffix,           &
                     &             ihadv_tracer=advconf%ihadv_tracer(iqns),           &
@@ -1058,27 +1123,25 @@ MODULE mo_nonhydro_state
                     &             l_loglin=.FALSE.,                                  &
                     &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
                     &             lower_limit=0._wp  ),                              & 
-                    & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
-!!                    & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars",  &
-!!                    &                 "dwd_fg_atm_vars","mode_dwd_fg_in",             &
-!!                    &                 "mode_iau_ana_in", "mode_iau_anaatm_in",        &
-!!                    &                 "mode_iau_fg_in",                               &
-!!                    &                 "LATBC_PREFETCH_VARS")  )
+                    & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
+                    &                 "dwd_fg_atm_vars","mode_dwd_fg_in",            &
+                    &                 "mode_iau_ana_in","mode_iau_anaatm_in",        &
+                    &                 "mode_iau_fg_in",                              &
+                    &                 "LATBC_PREFETCH_VARS")  )
         END IF
-
 
         !graupel concentration
         IF ( iqng /= 0 ) THEN
             tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(iqng))
             CALL add_ref( p_prog_list, 'tracer',                                     &
                     & TRIM(tracer_name)//suffix, p_prog%tracer_ptr(iqng)%p_3d,       &
-                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
+                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
                     & t_cf_var(TRIM(tracer_name),                                    &
                     &  ' kg-1 ','number_concentration_graupel', datatype_flt),       &
-                    & grib2_var(0, 1, 218, ibits, GRID_UNSTRUCTURED, GRID_CELL),     &
+                    & grib2_var(0, 1, 102, ibits, GRID_UNSTRUCTURED, GRID_CELL),     &
                     & ref_idx=iqng,                                                  &
                     & ldims=shape3d_c,                                               &
-                    & tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
+                    & tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
                     &             name        = TRIM(tracer_name)//suffix,           &
                     &             ihadv_tracer=advconf%ihadv_tracer(iqng),           &
@@ -1089,7 +1152,11 @@ MODULE mo_nonhydro_state
                     &             l_loglin=.FALSE.,                                  &
                     &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
                     &             lower_limit=0._wp  ),                              & 
-                    & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
+                    & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
+                    &                 "dwd_fg_atm_vars","mode_dwd_fg_in",            &
+                    &                 "mode_iau_ana_in","mode_iau_anaatm_in",        &
+                    &                 "mode_iau_fg_in",                              &
+                    &                 "LATBC_PREFETCH_VARS")  )
         END IF
 
         !hail concentration
@@ -1097,13 +1164,13 @@ MODULE mo_nonhydro_state
             tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(iqnh))
             CALL add_ref( p_prog_list, 'tracer',                                     &
                     & TRIM(tracer_name)//suffix, p_prog%tracer_ptr(iqnh)%p_3d,       &
-                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
+                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
                     & t_cf_var(TRIM(tracer_name),                                    &
                     &  ' kg-1 ','number_concentration_hail', datatype_flt),          &
-                    & grib2_var(0, 1, 219, ibits, GRID_UNSTRUCTURED, GRID_CELL),     &
+                    & grib2_var(0, 1, 103, ibits, GRID_UNSTRUCTURED, GRID_CELL),     &
                     & ref_idx=iqnh,                                                  &
                     & ldims=shape3d_c,                                               &
-                    & tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
+                    & tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
                     &             name        = TRIM(tracer_name)//suffix,           &
                     &             ihadv_tracer=advconf%ihadv_tracer(iqnh),           &
@@ -1114,7 +1181,11 @@ MODULE mo_nonhydro_state
                     &             l_loglin=.FALSE.,                                  &
                     &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
                     &             lower_limit=0._wp  ),                              & 
-                    & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
+                    & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
+                    &                 "dwd_fg_atm_vars","mode_dwd_fg_in",            &
+                    &                 "mode_iau_ana_in","mode_iau_anaatm_in",        &
+                    &                 "mode_iau_fg_in",                              &
+                    &                 "LATBC_PREFETCH_VARS")  )
         END IF
 
         ! cloud droplet concentration
@@ -1123,13 +1194,13 @@ MODULE mo_nonhydro_state
             tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(iqnc))
             CALL add_ref( p_prog_list, 'tracer',                                     &
                     & TRIM(tracer_name)//suffix, p_prog%tracer_ptr(iqnc)%p_3d,       &
-                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
+                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
                     & t_cf_var(TRIM(tracer_name),                                    &
                     &  ' kg-1 ','number_concentration_cloud_droplets', datatype_flt),&
-                    & grib2_var(0, 6, 28, ibits, GRID_UNSTRUCTURED, GRID_CELL),  &
+                    & grib2_var(0, 6, 28, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
                     & ref_idx=iqnc,                                                  &
                     & ldims=shape3d_c,                                               &
-                    & tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
+                    & tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
                     &             name        = TRIM(tracer_name)//suffix,           &
                     &             ihadv_tracer=advconf%ihadv_tracer(iqnc),           &
@@ -1140,20 +1211,26 @@ MODULE mo_nonhydro_state
                     &             l_loglin=.FALSE.,                                  &
                     &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
                     &             lower_limit=0._wp  ),                              & 
-                    & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
+                    & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
+                    &                 "dwd_fg_atm_vars","mode_dwd_fg_in",            &
+                    &                 "mode_iau_ana_in","mode_iau_anaatm_in",        &
+                    &                 "mode_iau_fg_in",                              &
+                    &                 "LATBC_PREFETCH_VARS")  )
         END IF
+
 
         IF ( ininact /= 0 ) THEN
             tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(ininact))
+            ! NO OFFICIAL GRIB CODINGS YET! THE "255, 255, 255" HAS TO BE ADAPTED WHEN THESE CODINGS BECOME AVAILABLE!
             CALL add_ref( p_prog_list, 'tracer',                                     &
                     & TRIM(tracer_name)//suffix, p_prog%tracer_ptr(ininact)%p_3d,    &
-                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
+                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
                     & t_cf_var(TRIM(tracer_name),' kg-1 ',                           &
                     & 'number_concentration_activated_ice_nuclei', datatype_flt),    &
                     & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
                     & ref_idx=ininact,                                               &
                     & ldims=shape3d_c,                                               &
-                    & tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
+                    & tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
                     &             name        = TRIM(tracer_name)//suffix,           &
                     &             ihadv_tracer=advconf%ihadv_tracer(ininact),        &
@@ -1165,22 +1242,21 @@ MODULE mo_nonhydro_state
                     &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
                     &             lower_limit=0._wp  ),                              & 
                     & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
-        END IF ! inwp_gscp==4, inwp_gscp==5 .or. inwp_gscp==6
+        END IF ! inwp_gscp==4, inwp_gscp==5 .or. inwp_gscp==6 .or. inwp_gscp==7
 
         ! concentration of cloud condensation nuclei
         IF ( inccn /= 0 ) THEN
             tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(inccn))
-            ! concentration of cloud condensation nuclei
             ! NO OFFICIAL GRIB CODINGS YET! THE "255, 255, 255" HAS TO BE ADAPTED WHEN THESE CODINGS BECOME AVAILABLE!
             CALL add_ref( p_prog_list, 'tracer',                                     &
                     & TRIM(tracer_name)//suffix, p_prog%tracer_ptr(inccn)%p_3d,      &
-                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
+                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
                     & t_cf_var(TRIM(tracer_name),' kg-1 ',                           &
                     & 'number_concentration_cloud_condensation_nuclei',datatype_flt),&
                     & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
                     & ref_idx=inccn,                                                 &
                     & ldims=shape3d_c,                                               &
-                    & tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
+                    & tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
                     &             name        = TRIM(tracer_name)//suffix,           &
                     &             ihadv_tracer=advconf%ihadv_tracer(inccn),          &
@@ -1199,13 +1275,13 @@ MODULE mo_nonhydro_state
             ! NO OFFICIAL GRIB CODINGS YET! THE "255, 255, 255" HAS TO BE ADAPTED WHEN THESE CODINGS BECOME AVAILABLE!
             CALL add_ref( p_prog_list, 'tracer',                                     &
                     & TRIM(tracer_name)//suffix, p_prog%tracer_ptr(ininpot)%p_3d,    &
-                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
+                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
                     & t_cf_var(TRIM(tracer_name),' kg-1 ',                           &
                     & 'number_concentration_potential_ice_nuclei', datatype_flt),    &
                     & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
                     & ref_idx=ininpot,                                               &
                     & ldims=shape3d_c,                                               &
-                    & tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
+                    & tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
                     &             name        = TRIM(tracer_name)//suffix,           &
                     &             ihadv_tracer=advconf%ihadv_tracer(ininpot),        &
@@ -1224,7 +1300,7 @@ MODULE mo_nonhydro_state
           tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(iqtvar))
           CALL add_ref( p_prog_list, 'tracer',                                         &
             &           TRIM(tracer_name)//suffix, p_prog%tracer_ptr(iqtvar)%p_3d,     &
-            &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
+            &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
             &           t_cf_var(TRIM(tracer_name),                                    &
             &            'kg2 kg-2','total water variance', datatype_flt),             &
             &           grib2_var(192, 201, 39, ibits, GRID_UNSTRUCTURED, GRID_CELL),  &
@@ -1269,8 +1345,7 @@ MODULE mo_nonhydro_state
         IF (lart) THEN
           CALL art_tracer_interface('prog',p_patch%id,p_patch%nblks_c,p_prog_list,vname_prefix,&
             &                       ptr_arr=p_prog%tracer_ptr,advconf=advconf,p_prog=p_prog,   &
-            &                       timelev=timelev,ldims=shape3d_c,tlev_source=TLEV_NNOW_RCF, &
-            &                       nest_level=p_patch%nest_level)
+            &                       timelev=timelev,ldims=shape3d_c)
         ENDIF
 
 
@@ -1444,7 +1519,7 @@ MODULE mo_nonhydro_state
   !! - added pressure on interfaces
   !!
   SUBROUTINE new_nh_state_diag_list ( p_patch, p_diag, p_diag_list,  &
-    &                                 listname, l_pres_msl, l_omega )
+    &                                 listname, var_in_output )
 !
     TYPE(t_patch), TARGET, INTENT(IN) :: &  !< current patch
       &  p_patch
@@ -1456,9 +1531,8 @@ MODULE mo_nonhydro_state
       &  p_diag_list
     CHARACTER(len=*), INTENT(IN)      :: &  !< list name
       &  listname
-    LOGICAL, INTENT(IN)               :: &  !< Flag. If .TRUE., compute mean sea level pressure
-      &  l_pres_msl
-    LOGICAL, INTENT(IN) :: l_omega !< Flag. TRUE if computation of vertical velocity desired
+    TYPE(t_var_in_output), INTENT(IN) :: &  !< optional diagnostic switches
+      &  var_in_output
 
     TYPE(t_cf_var)    :: cf_desc
     TYPE(t_grib2_var) :: grib2_desc
@@ -1625,6 +1699,10 @@ MODULE mo_nonhydro_state
     &       p_diag%pres_avg, &
     &       p_diag%temp_avg, &
     &       p_diag%qv_avg, &
+    &       p_diag%vor_u, &
+    &       p_diag%vor_v, &
+    &       p_diag%bvf2, &
+    &       p_diag%parcelfreq2, &
     &       p_diag%nsteps_avg, &
     &       p_diag%extra_2d, &
     &       p_diag%extra_3d)
@@ -1798,23 +1876,6 @@ MODULE mo_nonhydro_state
       __acc_attach(p_diag%ddt_pres_sfc)
     ENDIF
 
-    ! pres_msl           p_diag%pres_msl(nproma,nblks_c)
-    !
-    ! Note: This task is registered for the post-processing scheduler
-    !        which takes care of the regular update.
-    !
-    IF (l_pres_msl) THEN
-      cf_desc    = t_cf_var('mean sea level pressure', 'Pa', &
-        &                   'mean sea level pressure', datatype_flt)
-      grib2_desc = grib2_var(0, 3, 1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_diag_list, 'pres_msl', p_diag%pres_msl,                     &
-        &           GRID_UNSTRUCTURED_CELL, ZA_MEANSEA, cf_desc, grib2_desc,      &
-        &           ldims=shape2d_c, lrestart=.FALSE.,                            &
-        &           l_pp_scheduler_task=TASK_INTP_MSL,                            &
-        &           lopenacc = .TRUE. )
-      __acc_attach(p_diag%pres_msl)
-    END IF
-
     ! temp         p_diag%temp(nproma,nlev,nblks_c)
     !
     cf_desc    = t_cf_var('air_temperature', 'K', 'Temperature', datatype_flt)
@@ -1908,29 +1969,6 @@ MODULE mo_nonhydro_state
                 &             vert_intp_method=VINTP_METHOD_LIN ),              &
                 & lopenacc = .TRUE. )
     __acc_attach(p_diag%dpres_mc)
-
-    ! vertical velocity ( omega=dp/dt ) 
-    !
-    ! Note: This task is registered for the post-processing scheduler
-    !       which takes care of the regular update:
-    ! 
-    IF (l_omega) THEN
-      cf_desc    = t_cf_var('omega', 'Pa s-1', 'vertical velocity', datatype_flt)
-      grib2_desc = grib2_var(0, 2, 8, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_diag_list,                                                     &
-                    & "omega", p_diag%omega,                                         &
-                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
-                    & cf_desc, grib2_desc,                                           &
-                    & ldims=shape3d_c,                                               &
-                    & vert_interp=create_vert_interp_metadata(                       &
-                    &             vert_intp_type=vintp_types("P","Z","I"),           &
-                    &             vert_intp_method=VINTP_METHOD_LIN,                 &
-                    &             l_loglin=.FALSE., l_extrapol=.FALSE.),             &
-                    & in_group=groups("atmo_derived_vars"),                          &
-                    & l_pp_scheduler_task=TASK_COMPUTE_OMEGA, lrestart=.FALSE.,      &
-                    & lopenacc = .TRUE. )
-      __acc_attach(p_diag%omega)
-    END IF
 
 
     ! div          p_diag%div(nproma,nlev,nblks_c)
@@ -2552,7 +2590,7 @@ MODULE mo_nonhydro_state
                     & cf_desc, grib2_desc,                                         &
                     & ref_idx=iqs,                                                 &
                     & ldims=shape2d_c, lrestart=.FALSE.)
-       ENDIF  ! iqm_max >= 5
+     ENDIF  ! iqm_max >= 5
 
 
      IF ( iqg /= 0 ) THEN
@@ -2568,24 +2606,23 @@ MODULE mo_nonhydro_state
                     & cf_desc, grib2_desc,                                         &
                     & ref_idx=iqg,                                                 &
                     & ldims=shape2d_c, lrestart=.FALSE.)
+     ENDIF
 
-
-        ! Note that hail is only taken into account by schemes 4, 5 and 6
-        !
+     ! Note that hail is only taken into account by schemes 4, 5, 6 and 7
+     !
      IF ( iqh /= 0 ) THEN
      !   IF ( ANY((/4,5,6/) == atm_phy_nwp_config(p_patch%id)%inwp_gscp ) ) THEN
-          ! Q7 vertical integral: tqh(nproma,nblks_c)
-          cf_desc    = t_cf_var('tqh', 'kg m-2', 'total column integrated hail',     &
-            &          datatype_flt)
-          grib2_desc = grib2_var( 0, 1, 72, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-          CALL add_ref( p_diag_list, 'tracer_vi', 'tqh',                             &
-                      & p_diag%tracer_vi_ptr(iqh)%p_2d,                              &
-                      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
-                      & cf_desc, grib2_desc,                                         &
-                      & ref_idx=iqh,                                                 &
-                      & ldims=shape2d_c, lrestart=.FALSE.)
-         ENDIF
-      ENDIF  ! inqp_gscp= 4 or 5
+        ! Q7 vertical integral: tqh(nproma,nblks_c)
+        cf_desc    = t_cf_var('tqh', 'kg m-2', 'total column integrated hail',     &
+          &          datatype_flt)
+        grib2_desc = grib2_var( 0, 1, 72, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+        CALL add_ref( p_diag_list, 'tracer_vi', 'tqh',                             &
+                    & p_diag%tracer_vi_ptr(iqh)%p_2d,                              &
+                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
+                    & cf_desc, grib2_desc,                                         &
+                    & ref_idx=iqh,                                                 &
+                    & ldims=shape2d_c, lrestart=.FALSE.)
+     ENDIF
 
 
 
@@ -2958,6 +2995,148 @@ MODULE mo_nonhydro_state
 
     ENDIF
 
+    !----------------------
+    ! optional diagnostics
+    !----------------------
+
+    ! pres_msl           p_diag%pres_msl(nproma,nblks_c)
+    !
+    ! Note: This task is registered for the post-processing scheduler
+    !        which takes care of the regular update.
+    !
+    IF (var_in_output%pres_msl) THEN
+      cf_desc    = t_cf_var('mean sea level pressure', 'Pa', &
+        &                   'mean sea level pressure', datatype_flt)
+      grib2_desc = grib2_var(0, 3, 1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'pres_msl', p_diag%pres_msl,                     &
+        &           GRID_UNSTRUCTURED_CELL, ZA_MEANSEA, cf_desc, grib2_desc,      &
+        &           ldims=shape2d_c, lrestart=.FALSE.,                            &
+        &           l_pp_scheduler_task=TASK_INTP_MSL,                            &
+        &           lopenacc = .TRUE. )
+      __acc_attach(p_diag%pres_msl)
+    END IF
+
+    ! vertical velocity ( omega=dp/dt ) 
+    !
+    ! Note: This task is registered for the post-processing scheduler
+    !       which takes care of the regular update:
+    ! 
+    IF (var_in_output%omega) THEN
+      cf_desc    = t_cf_var('omega', 'Pa s-1', 'vertical velocity', datatype_flt)
+      grib2_desc = grib2_var(0, 2, 8, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list,                                                     &
+                    & "omega", p_diag%omega,                                         &
+                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
+                    & cf_desc, grib2_desc,                                           &
+                    & ldims=shape3d_c,                                               &
+                    & vert_interp=create_vert_interp_metadata(                       &
+                    &             vert_intp_type=vintp_types("P","Z","I"),           &
+                    &             vert_intp_method=VINTP_METHOD_LIN,                 &
+                    &             l_loglin=.FALSE., l_extrapol=.FALSE.),             &
+                    & in_group=groups("atmo_derived_vars"),                          &
+                    & l_pp_scheduler_task=TASK_COMPUTE_OMEGA, lrestart=.FALSE.,      &
+                    & lopenacc = .TRUE. )
+      __acc_attach(p_diag%omega)
+    END IF
+
+    ! zonal component of relative vorticity  p_diag%vor_u(nproma,nlev,nblks_c)
+    ! (GRIB2: we use the available local DWD definition for ecCodes shortname 'VORTIC_U')
+    ! 
+    IF (var_in_output%vor_u) THEN
+#ifdef _OPENACC
+      CALL finish("mo_nonhydro_state::new_nh_state_diag_list", "No Open-ACC parallelization available for vor_u.")
+#endif
+      cf_desc    = t_cf_var('vor_u', 's-1', 'zonal component of relative vorticity', datatype_flt)
+      grib2_desc = grib2_var(0, 2, 198, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list,                                                     &
+                    & "vor_u", p_diag%vor_u,                                         &
+                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
+                    & cf_desc, grib2_desc,                                           &
+                    & ldims=shape3d_c,                                               &
+                    & vert_interp=create_vert_interp_metadata(                       &
+                    &             vert_intp_type=vintp_types("P","Z","I"),           &
+                    &             vert_intp_method=VINTP_METHOD_LIN,                 &
+                    &             l_loglin=.FALSE., l_extrapol=.FALSE.),             &
+                    & l_pp_scheduler_task=TASK_COMPUTE_VOR_U, lrestart=.FALSE.,      &
+                    & lopenacc = .TRUE. )
+      __acc_attach(p_diag%vor_u)
+    END IF
+
+    ! meridional component of relative vorticity  p_diag%vor_v(nproma,nlev,nblks_c)
+    ! (GRIB2: we use the available local DWD definition for ecCodes shortname 'VORTIC_V')
+    ! 
+    IF (var_in_output%vor_v) THEN
+#ifdef _OPENACC
+      CALL finish("mo_nonhydro_state::new_nh_state_diag_list", "No Open-ACC parallelization available for vor_v.")
+#endif
+      cf_desc    = t_cf_var('vor_v', 's-1', 'meridional component of relative vorticity', datatype_flt)
+      grib2_desc = grib2_var(0, 2, 199, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list,                                                     &
+                    & "vor_v", p_diag%vor_v,                                         &
+                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
+                    & cf_desc, grib2_desc,                                           &
+                    & ldims=shape3d_c,                                               &
+                    & vert_interp=create_vert_interp_metadata(                       &
+                    &             vert_intp_type=vintp_types("P","Z","I"),           &
+                    &             vert_intp_method=VINTP_METHOD_LIN,                 &
+                    &             l_loglin=.FALSE., l_extrapol=.FALSE.),             &
+                    & l_pp_scheduler_task=TASK_COMPUTE_VOR_V, lrestart=.FALSE.,      &
+                    & lopenacc = .TRUE. )
+      __acc_attach(p_diag%vor_v)
+    END IF
+
+    ! square of Brunt-Vaisala frequency  p_diag%bvf2(nproma,nlev,nblks_c)
+    ! (GRIB2: this diagnostic is neither required for operational use 
+    ! nor for some other "official" purpose, 
+    ! so we use the available local DWD definition for ecCodes shortname 'DUMMY_70' for the time being)
+    ! 
+    IF (var_in_output%bvf2) THEN
+#ifdef _OPENACC
+      CALL finish("mo_nonhydro_state::new_nh_state_diag_list", "No Open-ACC parallelization available for bvf2.")
+#endif
+      cf_desc    = t_cf_var('bvf2', 's-2', 'square of Brunt-Vaisala frequency', datatype_flt)
+      grib2_desc = grib2_var(0, 254, 70, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list,                                                     &
+                    & "bvf2", p_diag%bvf2,                                           &
+                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
+                    & cf_desc, grib2_desc,                                           &
+                    & ldims=shape3d_c,                                               &
+                    & vert_interp=create_vert_interp_metadata(                       &
+                    &             vert_intp_type=vintp_types("P","Z","I"),           &
+                    &             vert_intp_method=VINTP_METHOD_LIN,                 &
+                    &             l_loglin=.FALSE., l_extrapol=.FALSE.),             &
+                    & l_pp_scheduler_task=TASK_COMPUTE_BVF2, lrestart=.FALSE.,       &
+                    & lopenacc = .TRUE. )
+      __acc_attach(p_diag%bvf2)
+    END IF
+
+    ! square of general air parcel oscillation frequency  p_diag%parcelfreq2(nproma,nlev,nblks_c)
+    ! (GRIB2: this diagnostic is neither required for operational use 
+    ! nor for some other "official" purpose, 
+    ! so we use the available local DWD definition for ecCodes shortname 'DUMMY_71' for the time being)
+    ! 
+    IF (var_in_output%parcelfreq2) THEN
+#ifdef _OPENACC
+      CALL finish("mo_nonhydro_state::new_nh_state_diag_list", "No Open-ACC parallelization available for parcelfreq2.")
+#endif
+      cf_desc    = t_cf_var('parcelfreq2', 's-2', 'square of air parcel oscillation frequency', datatype_flt)
+      grib2_desc = grib2_var(0, 254, 71, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list,                                                     &
+                    & "parcelfreq2", p_diag%parcelfreq2,                             &
+                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
+                    & cf_desc, grib2_desc,                                           &
+                    & ldims=shape3d_c,                                               &
+                    & vert_interp=create_vert_interp_metadata(                       &
+                    &             vert_intp_type=vintp_types("P","Z","I"),           &
+                    &             vert_intp_method=VINTP_METHOD_LIN,                 &
+                    &             l_loglin=.FALSE., l_extrapol=.FALSE.),             &
+                    & l_pp_scheduler_task=TASK_COMPUTE_PARCELFREQ2, lrestart=.FALSE.,&
+                    & lopenacc = .TRUE. )
+      __acc_attach(p_diag%parcelfreq2)
+    END IF
+
+    !---------------------- End of optional diagnostics ----------------------
+
 
     IF(inextra_2d > 0) THEN
 
@@ -3153,15 +3332,17 @@ MODULE mo_nonhydro_state
 
     INTEGER :: nlev, nlevp1, jg
 
-    INTEGER :: shape2d_c(2), shape2d_e(2), shape3d_c(3), shape3d_e(3), &
-      &        shape3d_v(3), shape3d_chalf(3), shape3d_ehalf(3),       &
-      &        shape2d_ccubed(3), shape2d_ecubed(3), shape3d_vhalf(3), & 
-      &        shape2d_esquared(3), shape3d_esquared(4), shape3d_e8(4)
+    INTEGER :: shape1d_c(1), shape1d_chalf(1), shape2d_c(2), shape2d_e(2),  &
+      &        shape3d_c(3), shape3d_e(3), shape3d_v(3),                 &
+      &        shape3d_chalf(3), shape3d_ehalf(3), shape2d_ccubed(3),    &
+      &        shape2d_ecubed(3), shape3d_vhalf(3), shape2d_esquared(3), &
+      &        shape3d_esquared(4), shape3d_e8(4)
     INTEGER :: ibits         !< "entropy" of horizontal slice
     INTEGER :: DATATYPE_PACK_VAR  !< variable "entropy" for selected fields
     INTEGER :: datatype_flt       !< floating point accuracy in NetCDF output
     INTEGER :: ist, error_status
     LOGICAL :: group(MAX_GROUPS)
+
     !--------------------------------------------------------------
 
     nblks_c = p_patch%nblks_c
@@ -3191,6 +3372,8 @@ MODULE mo_nonhydro_state
     ENDIF
 
     ! predefined array shapes
+    shape1d_c        = (/nlev                        /)
+    shape1d_chalf    = (/nlevp1                      /)
     shape2d_c        = (/nproma,          nblks_c    /)
     shape2d_e        = (/nproma,          nblks_e    /)
     shape2d_esquared = (/nproma, 2      , nblks_e    /)    
@@ -3383,7 +3566,7 @@ MODULE mo_nonhydro_state
                 & lopenacc = .TRUE. )
     __acc_attach(p_metrics%ddxt_z_full)
 
-    IF (atm_phy_nwp_config(jg)%is_les_phy) THEN
+    IF (atm_phy_nwp_config(jg)%is_les_phy .OR. echam_vdf_config(jg)%turb==2) THEN
       ! slope of the terrain in normal direction (half level)
       ! ddxn_z_half_e  p_metrics%ddxn_z_full(nproma,nlevp1,nblks_e)
       !
@@ -3517,7 +3700,7 @@ MODULE mo_nonhydro_state
     !
     cf_desc    = t_cf_var('metrics_functional_determinant', '-',                &
       &                   'metrics functional determinant (edge)', datatype_flt)
-    grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
+    grib2_desc = grib2_var( 0, 3, 192, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
     CALL add_var( p_metrics_list, 'ddqz_z_full_e', p_metrics%ddqz_z_full_e,     &
                 & GRID_UNSTRUCTURED_EDGE, ZA_REFERENCE, cf_desc, grib2_desc,    &
                 & ldims=shape3d_e, loutput=.TRUE.,                              &
@@ -3609,39 +3792,46 @@ MODULE mo_nonhydro_state
                 & lopenacc = .TRUE. )
     __acc_attach(p_metrics%dgeopot_mc)
 
-    !------------------------------------------------------------------------------
-    !HW: Vertical 1D arrays are not yet supported by add_var. Use allocate for now.
-    ! Since this is meant to be a temporary solution, deallocated is not implemented.
+    
+    ! Rayleigh damping coefficient for w
+    cf_desc = t_cf_var('rayleigh_w', '-',                                      &
+     &                'Rayleigh damping coefficient for w', datatype_flt)
+    grib2_desc = grib2_var( 0, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_metrics_list, 'rayleigh_w', p_metrics%rayleigh_w,           &
+        & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, &
+        & ldims = shape1d_chalf , &
+        & lopenacc = .TRUE. )
+    __acc_attach(p_metrics%rayleigh_w)
 
-      ! Rayleigh damping coefficient for w
-      ALLOCATE(p_metrics%rayleigh_w(nlevp1),STAT=ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                    'allocation for rayleigh_w failed')
-      ENDIF
+    ! Rayleigh damping coefficient for vn
+    cf_desc = t_cf_var('rayleigh_vn', '-',                                      &
+     &                'Rayleigh damping coefficient for vn', datatype_flt)
+    grib2_desc = grib2_var( 0, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_metrics_list, 'rayleigh_vn', p_metrics%rayleigh_vn,           &
+        & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, &
+        & ldims = shape1d_c , &
+        & lopenacc = .TRUE. )
+   __acc_attach(p_metrics%rayleigh_vn)
 
-      ! Rayleigh damping coefficient for vn
-      ALLOCATE(p_metrics%rayleigh_vn(nlev),STAT=ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                    'allocation for rayleigh_vn failed')
-      ENDIF
+    ! Background nabla2 diffusion coefficient for upper sponge layer
+   cf_desc = t_cf_var('enhfac_diffu', '-',                                      &
+     &                'Background nabla2 diffusion coefficient for upper sponge layer', datatype_flt)
+   grib2_desc = grib2_var( 0, 1, 1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+   CALL add_var( p_metrics_list, 'enhfac_diffu', p_metrics%enhfac_diffu,           &
+        & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, &
+        & ldims = shape1d_c , &
+        & lopenacc = .TRUE. )
+   __acc_attach(p_metrics%enhfac_diffu)
 
-      ! Background nabla2 diffusion coefficient for upper sponge layer
-      ALLOCATE(p_metrics%enhfac_diffu(nlev),STAT=ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                    'allocation for enhfac_diffu failed')
-      ENDIF
-
-      ! Scaling factor for 3D divergence damping terms
-      ALLOCATE(p_metrics%scalfac_dd3d(nlev),STAT=ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                    'allocation for scalfac_dd3d failed')
-      ENDIF
-
-!$ACC ENTER DATA CREATE( p_metrics%rayleigh_w, p_metrics%rayleigh_vn, p_metrics%enhfac_diffu, p_metrics%scalfac_dd3d )
+    ! Scaling factor for 3D divergence damping terms
+   cf_desc = t_cf_var('scalfac_dd3d', '-',                                      &
+     &                'Scaling factor for 3D divergence damping terms', datatype_flt)
+   grib2_desc = grib2_var( 0, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+   CALL add_var( p_metrics_list, 'scalfac_dd3d', p_metrics%scalfac_dd3d,           &
+        & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, &
+        & ldims = shape1d_c , &
+        & lopenacc = .TRUE. )
+   __acc_attach(p_metrics%scalfac_dd3d)
 
     ! Horizontal mask field for 3D divergence damping terms
     ! hmask_dd3d   p_metrics%hmask_dd3d(nproma,nblks_e)
@@ -4092,7 +4282,7 @@ MODULE mo_nonhydro_state
       __acc_attach(p_metrics%slope_azimuth)
 
     !Add LES related variables : Anurag Dipankar MPIM (2013-04)
-    IF(atm_phy_nwp_config(jg)%is_les_phy)THEN
+    IF(atm_phy_nwp_config(jg)%is_les_phy .OR. echam_vdf_config(jg)%turb==2)THEN
 
       ! inv_ddqz_z_half_e  p_metrics%inv_ddqz_z_half_e(nproma,nlevp1,nblks_e)
       !
@@ -4238,32 +4428,182 @@ MODULE mo_nonhydro_state
         &           lopenacc = .TRUE.  )
       __acc_attach(p_metrics%dzgpot_mc)
     ENDIF  !IF (.NOT. upatmo_config(jg)%l_status(istatus%configured))
-    
+
     ! metrical modification factors for the deep-atmosphere equations 
-    ! note: no explicit deallocation implemented!
-    ALLOCATE(p_metrics%deepatmo_t1mc(nlev,idamtr%t1mc%nitem),STAT=ist)
-    IF (ist/=SUCCESS) CALL finish(TRIM(routine), 'allocation of deepatmo_t1mc failed')
-    !$ACC ENTER DATA CREATE( p_metrics%deepatmo_t1mc )
-    ALLOCATE(p_metrics%deepatmo_t1ifc(nlevp1,idamtr%t1ifc%nitem),STAT=ist)
-    IF (ist/=SUCCESS) CALL finish(TRIM(routine), 'allocation of deepatmo_t1ifc failed')
-    ALLOCATE(p_metrics%deepatmo_t2mc(idamtr%t2mc%nitem,nlev),STAT=ist)
-    IF (ist/=SUCCESS) CALL finish(TRIM(routine), 'allocation of deepatmo_t2mc failed')
-    
-    ! assign default values
-    ! (mostly factor = 1 means no metrical modification -> shallow atmosphere)
+    ! p_metrics%deepatmo_t1mc
+    !
+    cf_desc    = t_cf_var('deepatmo_t1mc', '-',                                              &
+         &                'metrical modification factors for the deep-atmosphere equations ' , datatype_flt)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_metrics_list, 'deepatmo_t1mc', p_metrics%deepatmo_t1mc,                  &
+         &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,              &
+         &           ldims = (/nlev, idamtr%t1mc%nitem/), lopenacc = .TRUE.)
+    __acc_attach(p_metrics%deepatmo_t1mc)
+
     p_metrics%deepatmo_t1mc(:,idamtr%t1mc%gradh)    = 1._wp
     p_metrics%deepatmo_t1mc(:,idamtr%t1mc%divh)     = 1._wp
     p_metrics%deepatmo_t1mc(:,idamtr%t1mc%vol)      = 1._wp
     p_metrics%deepatmo_t1mc(:,idamtr%t1mc%invr)     = 0._wp  ! here 0 means shallow atmosphere
     p_metrics%deepatmo_t1mc(:,idamtr%t1mc%centri)   = 0._wp  ! here 0 means shallow atmosphere
-    !$ACC UPDATE DEVICE( p_metrics%deepatmo_t1mc )
+
+    
+    ! Missing description
+    ! p_metrics%deepatmo_t1ifc
+    !
+    cf_desc    = t_cf_var('deepatmo_t1ifc', '-',                                             &
+         &                'Missing description' , datatype_flt)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_metrics_list, 'deepatmo_t1ifc', p_metrics%deepatmo_t1ifc,                &
+         &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,              &
+         &           ldims = (/nlevp1, idamtr%t1ifc%nitem/), lopenacc = .TRUE. )
+    __acc_attach(p_metrics%deepatmo_t1ifc)
+
     p_metrics%deepatmo_t1ifc(:,idamtr%t1ifc%gradh)  = 1._wp
     p_metrics%deepatmo_t1ifc(:,idamtr%t1ifc%invr)   = 0._wp  ! here 0 means shallow atmosphere
     p_metrics%deepatmo_t1ifc(:,idamtr%t1ifc%centri) = 0._wp  ! here 0 means shallow atmosphere
+   
+    
+    ! Missing description
+    ! p_metrics%deepatmo_t2mc
+    !
+    cf_desc    = t_cf_var('deepatmo_t2mc', '-',                                             &
+         &                'Missing description' , datatype_flt)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_metrics_list, 'deepatmo_t2mc', p_metrics%deepatmo_t2mc,                &
+         &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,              &
+         &           ldims = (/idamtr%t2mc%nitem, nlev/), lopenacc = .TRUE. )
+    __acc_attach(p_metrics%deepatmo_t2mc)
+
+
     p_metrics%deepatmo_t2mc(idamtr%t2mc%divzU,:)    = 1._wp
     p_metrics%deepatmo_t2mc(idamtr%t2mc%divzL,:)    = 1._wp
-
-
+    
   END SUBROUTINE new_nh_metrics_list
 
+  
+  SUBROUTINE new_zd_metrics(p_metrics, p_metrics_list, numpoints)
+
+    TYPE(t_nh_metrics),  INTENT(INOUT):: &  !< diagnostic state
+         &  p_metrics
+
+    TYPE(t_var_list), INTENT(INOUT) :: p_metrics_list   !< diagnostic state list
+    
+    INTEGER, INTENT(INOUT) :: numpoints
+
+    TYPE(t_cf_var)    :: cf_desc
+    TYPE(t_grib2_var) :: grib2_desc
+
+    INTEGER :: ibits
+    INTEGER :: datatype_flt
+
+    ibits = DATATYPE_PACK16
+    IF ( lnetcdf_flt64_output ) THEN
+       datatype_flt = DATATYPE_FLT64
+    ELSE
+       datatype_flt = DATATYPE_FLT32
+    ENDIF
+
+    
+    ! Missing description
+    ! p_metrics%zd_indlist
+    !
+    cf_desc    = t_cf_var('zd_indlist', '-',                                             &
+         &                'Missing description' , datatype_flt)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_metrics_list, 'zd_indlist', p_metrics%zd_indlist,                &
+         &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,              &
+         &           ldims = (/4, numpoints/), lopenacc = .TRUE. )
+    __acc_attach(p_metrics%zd_indlist)
+
+    ! Missing description
+    ! p_metrics%zd_blklist
+    !
+    cf_desc    = t_cf_var('zd_blklist', '-',                                             &
+         &                'Missing description' , datatype_flt)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_metrics_list, 'zd_blklist', p_metrics%zd_blklist,                &
+         &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,              &
+         &           ldims = (/4, numpoints/), lopenacc = .TRUE. )
+    __acc_attach(p_metrics%zd_blklist)
+
+    ! Missing description
+    ! p_metrics%zd_vertidx
+    !
+    cf_desc    = t_cf_var('zd_vertidx', '-',                                       &
+         &                'Missing description' , datatype_flt)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_metrics_list, 'zd_vertidx', p_metrics%zd_vertidx,                &
+         &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,              &
+         &           ldims = (/4, numpoints/), lopenacc = .TRUE. )
+    __acc_attach(p_metrics%zd_vertidx)
+
+
+    ! Missing description
+    ! p_metrics%zd_edgeidx
+    !
+    cf_desc    = t_cf_var('zd_edgeidx', '-',                                             &
+         &                'Missing description' , datatype_flt)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_metrics_list, 'zd_edgeidx', p_metrics%zd_edgeidx,                &
+         &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,              &
+         &           ldims = (/3, numpoints/), lopenacc = .TRUE. )
+    __acc_attach(p_metrics%zd_edgeidx)
+
+    ! Missing description
+    ! p_metrics%zd_edgeblk
+    !
+    cf_desc    = t_cf_var('zd_edgeblk', '-',                                             &
+         &                'Missing description' , datatype_flt)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_metrics_list, 'zd_edgeblk', p_metrics%zd_edgeblk,                &
+         &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,              &
+         &           ldims = (/3, numpoints/), lopenacc = .TRUE. )
+    __acc_attach(p_metrics%zd_edgeblk)
+
+    ! Missing description
+    ! p_metrics%zd_geofac
+    !
+    cf_desc    = t_cf_var('zd_geofac', '-',                                             &
+         &                'Missing description' , datatype_flt)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_metrics_list, 'zd_geofac', p_metrics%zd_geofac,                &
+         &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,              &
+         &           ldims = (/4, numpoints/), lopenacc = .TRUE. )
+    __acc_attach(p_metrics%zd_geofac)
+
+    ! Missing description
+    ! p_metrics%zd_e2cell
+    !
+    cf_desc    = t_cf_var('zd_e2cell', '-',                                             &
+         &                'Missing description' , datatype_flt)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_metrics_list, 'zd_e2cell', p_metrics%zd_e2cell,                &
+         &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,              &
+         &           ldims = (/3, numpoints/), lopenacc = .TRUE. )
+    __acc_attach(p_metrics%zd_e2cell)
+
+    ! Missing description
+    ! p_metrics%zd_intcoef
+    !
+    cf_desc    = t_cf_var('zd_intcoef', '-',                                             &
+         &                'Missing description' , datatype_flt)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_metrics_list, 'zd_intcoef', p_metrics%zd_intcoef,                &
+         &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,              &
+         &           ldims = (/3, numpoints/), lopenacc = .TRUE. )
+    __acc_attach(p_metrics%zd_intcoef)
+
+    ! Missing description
+    ! p_metrics%zd_diffcoef
+    !
+    cf_desc    = t_cf_var('zd_diffcoef', '-',                                             &
+         &                'Missing description' , datatype_flt)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_metrics_list, 'zd_diffcoef', p_metrics%zd_diffcoef,                &
+         &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,              &
+         &           ldims = (/numpoints/), lopenacc = .TRUE. )
+    __acc_attach(p_metrics%zd_diffcoef)
+    
+  END SUBROUTINE new_zd_metrics
+  
 END MODULE mo_nonhydro_state

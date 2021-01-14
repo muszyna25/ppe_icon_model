@@ -73,7 +73,7 @@ MODULE mo_nh_stepping
   USE mo_parallel_config,          ONLY: nproma, itype_comm, num_prefetch_proc, proc0_offloading
   USE mo_run_config,               ONLY: ltestcase, dtime, nsteps, ldynamics, ltransport,   &
     &                                    ntracer, iforcing, msg_level, test_mode,           &
-    &                                    output_mode, lart, ldass_lhn
+    &                                    output_mode, lart, luse_radarfwo, ldass_lhn
   USE mo_echam_phy_config,         ONLY: echam_phy_config
   USE mo_advection_config,         ONLY: advection_config
   USE mo_timer,                    ONLY: ltimer, timers_level, timer_start, timer_stop,   &
@@ -127,7 +127,11 @@ MODULE mo_nh_stepping
   USE mo_nh_diffusion,             ONLY: diffusion
   USE mo_memory_log,               ONLY: memory_log_add
   USE mo_mpi,                      ONLY: proc_split, push_glob_comm, pop_glob_comm, &
-    &                                    p_comm_work, my_process_is_mpi_workroot, p_pe, p_io
+       &                                 p_comm_work, my_process_is_mpi_workroot,   &
+       &                                 my_process_is_mpi_test, my_process_is_work_only
+#ifdef HAVE_RADARFWO
+  USE mo_emvorado_interface,       ONLY: emvorado_radarfwo
+#endif
 #ifdef NOMPI
   USE mo_mpi,                      ONLY: my_process_is_mpi_all_seq
 #endif
@@ -234,6 +238,7 @@ MODULE mo_nh_stepping
     &                                    upatmoRestartAttributesDeallocate
 
   USE mo_atmo_psrad_interface,     ONLY: finalize_atmo_radation
+  use mo_icon2dace,                ONLY: mec_Event, init_dace_op, run_dace_op, dace_op_init
   USE mo_extpar_config,            ONLY: generate_td_filename
   USE mo_nudging_config,           ONLY: nudging_config, l_global_nudging
   USE mo_nudging,                  ONLY: nudging_interface  
@@ -261,7 +266,8 @@ MODULE mo_nh_stepping
 
   PUBLIC :: perform_nh_stepping
 
-  TYPE(t_sst_sic_reader), TARGET :: sst_sic_reader
+  TYPE(t_sst_sic_reader), TARGET :: sst_reader
+  TYPE(t_sst_sic_reader), TARGET :: sic_reader
   TYPE(t_time_intp)      :: sst_intp
   TYPE(t_time_intp)      :: sic_intp
   REAL(wp), ALLOCATABLE  :: sst_dat(:,:,:,:)
@@ -300,7 +306,6 @@ MODULE mo_nh_stepping
   is_mpi_workroot = my_process_is_mpi_workroot()
 
 
-
 !!$  INTEGER omp_get_num_threads
 !!$  INTEGER omp_get_max_threads
 !!$  INTEGER omp_get_max_active_levels
@@ -320,14 +325,15 @@ MODULE mo_nh_stepping
     
     
   ! diagnose airmass from \rho(now) for both restart and non-restart runs
-  ! airmass_new required by initial physics call (init_slowphysics)
+  ! airmass_new required by initial physics call (i.e. by radheat in init_slowphysics)
   ! airmass_now not needed, since ddt_temp_dyn is not computed during the
   ! initial slow physics call.
   DO jg=1, n_dom
-    CALL compute_airmass(p_patch(jg),                  &
-      &                  p_nh_state(jg)%metrics,       &
-      &                  p_nh_state(jg)%prog(nnow(jg)),&
-      &                  p_nh_state(jg)%diag, itlev = 2)
+    CALL compute_airmass(p_patch   = p_patch(jg),                       & !in
+      &                  p_metrics = p_nh_state(jg)%metrics,            & !in
+      &                  rho       = p_nh_state(jg)%prog(nnow(jg))%rho, & !in
+      &                  airmass   = p_nh_state(jg)%diag%airmass_new    ) !inout
+
     
     ! initialize exner_pr if the model domain is active
     IF (p_patch(jg)%ldom_active .AND. .NOT. isRestart()) CALL init_exner_pr(jg, nnow(jg))
@@ -345,6 +351,8 @@ MODULE mo_nh_stepping
       ENDDO
     END IF
 
+    ! Does this really work for nested setups, or does it rather require domain specific 
+    ! objects like sst/sic_reader(jg), sst/sic_intp(jg)?
     IF (sstice_mode == SSTICE_INST) THEN
       DO jg = 1, n_dom
         month = mtime_current%date%month
@@ -372,16 +380,16 @@ MODULE mo_nh_stepping
 
         ENDIF
 
-        CALL sst_sic_reader%init(p_patch(jg), sst_td_filename)
-        CALL sst_intp%init(sst_sic_reader, mtime_current, "SST")
+        CALL sst_reader%init(p_patch(jg), sst_td_filename)
+        CALL sst_intp%init(sst_reader, mtime_current, "SST")
         CALL sst_intp%intp(mtime_current, sst_dat)
 
         WHERE (sst_dat(:,1,:,1) > 0.0_wp)
           p_lnd_state(jg)%diag_lnd%t_seasfc(:,:) = sst_dat(:,1,:,1)
         END WHERE
 
-        CALL sst_sic_reader%init(p_patch(jg), ci_td_filename)
-        CALL sic_intp%init(sst_sic_reader, mtime_current, "SIC")
+        CALL sic_reader%init(p_patch(jg), ci_td_filename)
+        CALL sic_intp%init(sic_reader, mtime_current, "SIC")
         CALL sic_intp%intp(mtime_current, sic_dat)
 
         WHERE (sic_dat(:,1,:,1) < frsi_min)
@@ -395,6 +403,23 @@ MODULE mo_nh_stepping
       ENDDO
     END IF
   END IF
+
+  IF (iforcing == inwp .AND. lart) THEN
+    DO jg=1, n_dom
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+      CALL art_init_atmo_tracers_nwp(                       &
+           &  jg,                                           &
+           &  mtime_current,                                &
+           &  p_nh_state(jg),                               &
+           &  ext_data(jg),                                 &
+           &  prm_diag(jg),                                 &
+           &  p_nh_state(jg)%prog(nnow(jg)),                &
+           &  p_nh_state(jg)%prog(nnow_rcf(jg))%tracer,     &
+           &  p_nh_state_lists(jg)%prog_list(nnow_rcf(jg)), & 
+           &  p_patch(jg)%nest_level)
+    ENDDO
+  END IF
+
 
   ! Save initial state if IAU iteration mode is chosen
   IF (iterate_iau .AND. .NOT. isRestart()) THEN
@@ -423,20 +448,6 @@ MODULE mo_nh_stepping
            & phy_params(jg), mtime_current         ,&
            & prm_upatmo(jg)                         )
 
-
-      IF (lart) THEN
-        CALL art_init_atmo_tracers_nwp(                     &
-               &  jg,                                       &
-               &  mtime_current,                            &
-               &  p_nh_state(jg),                           &
-               &  ext_data(jg),                             &
-               &  prm_diag(jg),                             &
-               &  p_nh_state(jg)%prog(nnow(jg)),            &
-               &  p_nh_state(jg)%prog(nnow_rcf(jg))%tracer, &
-               &  p_nh_state_lists(jg)%prog_list(nnow_rcf(jg)) )
-      END IF
-
-
       IF (.NOT.isRestart()) THEN
         CALL init_cloud_aero_cpl (mtime_current, p_patch(jg), p_nh_state(jg)%metrics, ext_data(jg), prm_diag(jg))
       ENDIF
@@ -449,6 +460,15 @@ MODULE mo_nh_stepping
       CALL aggr_landvars
       ! Initial call of (slow) physics schemes, including computation of transfer coefficients
       CALL init_slowphysics (mtime_current, 1, dtime)
+
+#ifdef HAVE_RADARFWO
+      IF ( .NOT.my_process_is_mpi_test() .AND. ANY(luse_radarfwo(1:n_dom)) .AND. &
+           mtime_current >= time_config%tc_exp_startdate ) THEN
+        ! Radar forward operator EMVORADO: radar simulation in the first timestep for each
+        !  radar-active model domain:
+        CALL emvorado_radarfwo (mtime_current, nnow(1:n_dom), nnow_rcf(1:n_dom), n_dom, luse_radarfwo(1:n_dom), 0, nsteps)
+      END IF
+#endif
 
       DO jg = 1, n_dom
 
@@ -515,13 +535,14 @@ MODULE mo_nh_stepping
 
     IF (lart) THEN
       DO jg = 1, n_dom
-        CALL art_init_atmo_tracers_echam(                   &
-               &  jg,                                       &
-               &  mtime_current,                            &
-               &  p_nh_state(jg),                           &
-               &  p_nh_state(jg)%prog(nnow(jg)),            &
-               &  p_nh_state(jg)%prog(nnow_rcf(jg))%tracer, &
-               &  p_nh_state_lists(jg)%prog_list(nnow_rcf(jg)) )
+        CALL art_init_atmo_tracers_echam(                      &
+               &  jg,                                          &
+               &  mtime_current,                               &
+               &  p_nh_state(jg),                              &
+               &  p_nh_state(jg)%prog(nnow(jg)),               &
+               &  p_nh_state(jg)%prog(nnow_rcf(jg))%tracer,    &
+               &  p_nh_state_lists(jg)%prog_list(nnow_rcf(jg)),&
+               &  p_patch(jg)%nest_level )
       ENDDO
     END IF
   END SELECT ! iforcing
@@ -539,10 +560,9 @@ MODULE mo_nh_stepping
 
       IF (var_in_output(jg)%dbz .OR. var_in_output(jg)%dbz850 .OR. var_in_output(jg)%dbzcmax) THEN 
 
-        CALL compute_field_dbz3D_lin (jg, p_patch(jg), p_nh_state(jg)%metrics, p_nh_state(jg)%prog(nnow(jg)), &
-             &                        p_nh_state(jg)%prog(nnow_rcf(jg)),                                      &
-             &                        p_nh_state(jg)%diag, prm_diag(jg)%dbz3d_lin )
-
+        CALL compute_field_dbz3D_lin (jg, p_patch(jg),                                                  &
+             &                        p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%prog(nnow_rcf(jg)), &
+             &                        p_nh_state(jg)%diag, prm_diag(jg), prm_diag(jg)%dbz3d_lin )
 
       END IF
         
@@ -569,6 +589,26 @@ MODULE mo_nh_stepping
 
     IF (output_mode%l_nml) THEN
       CALL write_name_list_output(jstep=0)
+    END IF
+
+    !-----------------------------------------------
+    ! Pass "initialized analysis" or "analysis" when
+    ! time step 0 cannot be reached in time stepping
+    !-----------------------------------------------
+    IF (assimilation_config(1)% dace_coupling) THEN
+       IF (.NOT. ASSOCIATED (mec_Event)) &
+            CALL finish ("perform_nh_stepping","MEC not configured")
+       IF (timeshift%dt_shift == 0._wp .and. &
+            is_event_active(mec_Event, mtime_current, proc0_offloading)) THEN
+          IF (iforcing == inwp) &
+               CALL aggr_landvars
+          IF (.NOT. dace_op_init) THEN
+             CALL message('perform_nh_stepping','calling init_dace_op before run_dace_op')
+             IF (my_process_is_work_only()) CALL init_dace_op ()
+          END IF
+          CALL message('perform_nh_stepping','calling run_dace_op')
+          IF (my_process_is_work_only()) CALL run_dace_op (mtime_current)
+       END IF
     END IF
 
     IF (p_nh_opt_diag(1)%acc%l_any_m) THEN
@@ -688,13 +728,15 @@ MODULE mo_nh_stepping
                                                           ! lower boundary conditions in NWP mode
   TYPE(datetime)                      :: ref_datetime     ! reference datetime for computing 
                                                           ! climatological SST increments
-  TYPE(datetime)                      :: latbc_read_datetime  ! validity time of next lbc input file 
+  TYPE(datetime)                      :: latbc_read_datetime  ! validity time of next lbc input file
+
 !!$  INTEGER omp_get_num_threads
+
 
 !-----------------------------------------------------------------------
 
   IF (ltimer) CALL timer_start(timer_total)
-  
+
   ! calculate elapsed simulation time in seconds
   sim_time = getElapsedSimTimeInSeconds(mtime_current) 
 
@@ -1049,7 +1091,26 @@ MODULE mo_nh_stepping
     !
     CALL integrate_nh(datetime_current, 1, jstep-jstep_shift, iau_iter, dtime, model_time_step, 1, latbc)
 
+
+    ! --------------------------------------------------------------------------------
+    !
+    ! Radar forward operator EMVORADO: radar simulation in each timestep for each
+    !  radar-active model domain
+    !
+
+#ifdef HAVE_RADARFWO    
+    IF (.NOT.my_process_is_mpi_test() .AND. iforcing == inwp .AND. ANY(luse_radarfwo(1:n_dom)) .AND. &
+         ( jstep >= 0 .AND. (.NOT.iterate_iau .OR. iau_iter == 2) ) ) THEN
+      CALL emvorado_radarfwo (mtime_current, nnow(1:n_dom), nnow_rcf(1:n_dom), n_dom, &
+                              luse_radarfwo(1:n_dom), jstep, nsteps+jstep0)
+    END IF
+#endif
+
+    ! --------------------------------------------------------------------------------
+    !
     ! Compute diagnostics for output if necessary
+    !
+
     IF (l_compute_diagnostic_quants .OR. iforcing==iecham .OR. iforcing==inoforcing) THEN
     
       CALL diag_for_output_dyn ()
@@ -1293,6 +1354,29 @@ MODULE mo_nh_stepping
       END IF
     END IF
 
+    !--------------------------------------------------------------------
+    ! Pass forecast state at selected steps to DACE observation operators
+    !--------------------------------------------------------------------
+    IF (assimilation_config(1)% dace_coupling) then
+       IF (.NOT. ASSOCIATED (mec_Event)) &
+            CALL finish ("perform_nh_timeloop","MEC not configured")
+       IF (is_event_active(mec_Event, mtime_current, proc0_offloading, plus_slack=model_time_step)) THEN
+          IF (iforcing == inwp) CALL aggr_landvars
+          sim_time = getElapsedSimTimeInSeconds(mtime_current)
+          IF (sim_time > 0._wp .OR. iau_iter == 1) THEN
+             IF (.NOT. dace_op_init) THEN
+                CALL message('perform_nh_timeloop','calling init_dace_op before run_dace_op')
+                IF (my_process_is_work_only()) CALL init_dace_op ()
+             END IF
+             IF (sim_time == 0._wp) THEN
+                CALL message('perform_nh_timeloop','calling run_dace_op for sim_time=0')
+             ELSE
+                CALL message('perform_nh_timeloop','calling run_dace_op')
+             END IF
+             IF (my_process_is_work_only()) CALL run_dace_op (mtime_current)
+          END IF
+       END IF
+    END IF
 
     IF (mtime_current >= time_config%tc_stopdate) THEN
       ! this needs to be done before writing the restart, but after anything esle that uses/outputs radation fluxes
@@ -1657,7 +1741,6 @@ MODULE mo_nh_stepping
           CALL nh_testcase_interface( nstep_global,                &  !in
             &                         dt_loc,                      &  !in
             &                         sim_time,                    &  !in
-            &                         datetime_local(jg)%ptr,      &  !in
             &                         p_patch(jg),                 &  !in 
             &                         p_nh_state(jg),              &  !inout
             &                         p_int_state(jg),             &  !in
@@ -1676,36 +1759,40 @@ MODULE mo_nh_stepping
           &         prep_adv(jg)%mass_flx_ic,                             &! inout
           &         prep_adv(jg)%topflx_tra                               )! out
 
-        CALL compute_airmass(p_patch(jg),                   &
-          &                  p_nh_state(jg)%metrics,        &
-          &                  p_nh_state(jg)%prog(nnow(jg)), &
-          &                  p_nh_state(jg)%diag, itlev = 1)
+        ! airmass_now
+        CALL compute_airmass(p_patch   = p_patch(jg),                       & !in
+          &                  p_metrics = p_nh_state(jg)%metrics,            & !in
+          &                  rho       = p_nh_state(jg)%prog(nnow(jg))%rho, & !in
+          &                  airmass   = p_nh_state(jg)%diag%airmass_now    ) !inout
         
-        
-        ! Update air mass in layer.  Air mass is needed by both the transport and physics.
-        CALL compute_airmass(p_patch(jg),                   &
-          &                  p_nh_state(jg)%metrics,        &
-          &                  p_nh_state(jg)%prog(nnew(jg)), &
-          &                  p_nh_state(jg)%diag, itlev = 2)
+        ! airmass_new
+        CALL compute_airmass(p_patch   = p_patch(jg),                       & !in
+          &                  p_metrics = p_nh_state(jg)%metrics,            & !in
+          &                  rho       = p_nh_state(jg)%prog(nnew(jg))%rho, & !in
+          &                  airmass   = p_nh_state(jg)%diag%airmass_new    ) !inout
 
-
-        CALL step_advection( p_patch(jg), p_int_state(jg), dt_loc,       & !in
-          &        jstep_adv(jg)%marchuk_order,                          & !in
-          &        p_nh_state(jg)%prog(n_now_rcf)%tracer,                & !in
-          &        prep_adv(jg)%mass_flx_me, prep_adv(jg)%vn_traj,       & !in
-          &        prep_adv(jg)%mass_flx_ic,                             & !in
-          &        p_nh_state(jg)%metrics%ddqz_z_full,                   & !in
-          &        p_nh_state(jg)%diag%airmass_new,                      & !in
-          &        p_nh_state(jg)%diag%airmass_now,                      & !in
-          &        p_nh_state(jg)%diag%grf_tend_tracer,                  & !in
-          &        p_nh_state(jg)%prog(n_new_rcf)%tracer,                & !inout
-          &        p_nh_state(jg)%diag%hfl_tracer,                       & !out
-          &        p_nh_state(jg)%diag%vfl_tracer,                       & !out
-          &        opt_topflx_tra=prep_adv(jg)%topflx_tra,               & !in
-          &        opt_q_int=p_nh_state(jg)%diag%q_int,                  & !out
-          &        opt_ddt_tracer_adv=p_nh_state(jg)%diag%ddt_tracer_adv,& !out
-          &        opt_deepatmo_t1mc=p_nh_state(jg)%metrics%deepatmo_t1mc, & !optin
-          &        opt_deepatmo_t2mc=p_nh_state(jg)%metrics%deepatmo_t2mc  ) !optin
+        CALL step_advection(                                                 &
+          &       p_patch           = p_patch(jg),                           & !in 
+          &       p_int_state       = p_int_state(jg),                       & !in
+          &       p_dtime           = dt_loc,                                & !in
+          &       k_step            = jstep_adv(jg)%marchuk_order,           & !in
+          &       p_tracer_now      = p_nh_state(jg)%prog(n_now_rcf)%tracer, & !in
+          &       p_mflx_contra_h   = prep_adv(jg)%mass_flx_me,              & !in
+          &       p_vn_contra_traj  = prep_adv(jg)%vn_traj,                  & !in
+          &       p_mflx_contra_v   = prep_adv(jg)%mass_flx_ic,              & !in
+          &       p_cellhgt_mc_now  = p_nh_state(jg)%metrics%ddqz_z_full,    & !in
+          &       p_rhodz_new       = p_nh_state(jg)%diag%airmass_new,       & !in
+          &       p_rhodz_now       = p_nh_state(jg)%diag%airmass_now,       & !in
+          &       p_grf_tend_tracer = p_nh_state(jg)%diag%grf_tend_tracer,   & !in
+          &       p_tracer_new      = p_nh_state(jg)%prog(n_new_rcf)%tracer, & !inout
+          &       p_mflx_tracer_h   = p_nh_state(jg)%diag%hfl_tracer,        & !out
+          &       p_mflx_tracer_v   = p_nh_state(jg)%diag%vfl_tracer,        & !out
+          &       rho_incr          = p_nh_state(jg)%diag%rho_incr,          & !in
+          &       opt_topflx_tra    = prep_adv(jg)%topflx_tra,               & !optin
+          &       opt_q_int         = p_nh_state(jg)%diag%q_int,             & !optout
+          &       opt_ddt_tracer_adv= p_nh_state(jg)%diag%ddt_tracer_adv,    & !optout
+          &       opt_deepatmo_t1mc = p_nh_state(jg)%metrics%deepatmo_t1mc,  & !optin
+          &       opt_deepatmo_t2mc = p_nh_state(jg)%metrics%deepatmo_t2mc   ) !optin
 
 #ifdef MESSY
         CALL main_tracer_afteradv
@@ -1719,9 +1806,6 @@ MODULE mo_nh_stepping
         ! re-check: iadv_rcf -> ndynsubsteps
         !!!!!!!!
         IF ( iforcing == iheldsuarez) THEN
-#ifdef _OPENACC
-          CALL finish (routine, 'held_suarez_nh_interface: OpenACC version currently not implemented')
-#endif
           CALL held_suarez_nh_interface (p_nh_state(jg)%prog(nnow(jg)), p_patch(jg), &
                                          p_int_state(jg),p_nh_state(jg)%metrics,  &
                                          p_nh_state(jg)%diag)
@@ -1797,10 +1881,10 @@ MODULE mo_nh_stepping
 #endif
 
             CALL art_emission_interface(                       &
+              &      p_nh_state_lists(jg)%prog_list(n_new_rcf),&!inout
               &      ext_data(jg),                             &!in
               &      p_patch(jg),                              &!in
               &      dt_loc,                                   &!in
-              &      p_nh_state(jg),                           &!in
               &      p_lnd_state(jg)%diag_lnd,                 &!in
               &      datetime_local(jg)%ptr,                   &!in
               &      p_nh_state(jg)%prog(n_now_rcf)%tracer)     !inout
@@ -1813,23 +1897,28 @@ MODULE mo_nh_stepping
           ENDIF
 
           !$ser verbatim CALL serialize_all(nproma, jg, "step_advection", .TRUE., opt_lupdate_cpu=.TRUE.)
-          CALL step_advection( p_patch(jg), p_int_state(jg), dt_loc,         & !in
-            &          jstep_adv(jg)%marchuk_order,                          & !in
-            &          p_nh_state(jg)%prog(n_now_rcf)%tracer,                & !in
-            &          prep_adv(jg)%mass_flx_me, prep_adv(jg)%vn_traj,       & !in
-            &          prep_adv(jg)%mass_flx_ic,                             & !in
-            &          p_nh_state(jg)%metrics%ddqz_z_full,                   & !in
-            &          p_nh_state(jg)%diag%airmass_new,                      & !in
-            &          p_nh_state(jg)%diag%airmass_now,                      & !in
-            &          p_nh_state(jg)%diag%grf_tend_tracer,                  & !in
-            &          p_nh_state(jg)%prog(n_new_rcf)%tracer,                & !inout
-            &          p_nh_state(jg)%diag%hfl_tracer,                       & !out
-            &          p_nh_state(jg)%diag%vfl_tracer,                       & !out
-            &          opt_topflx_tra=prep_adv(jg)%topflx_tra,               & !in
-            &          opt_q_int=p_nh_state(jg)%diag%q_int,                  & !out
-            &          opt_ddt_tracer_adv=p_nh_state(jg)%diag%ddt_tracer_adv,& !out
-            &          opt_deepatmo_t1mc=p_nh_state(jg)%metrics%deepatmo_t1mc, & !optin
-            &          opt_deepatmo_t2mc=p_nh_state(jg)%metrics%deepatmo_t2mc  ) !optin
+          CALL step_advection(                                                &
+            &       p_patch           = p_patch(jg),                          & !in
+            &       p_int_state       = p_int_state(jg),                      & !in
+            &       p_dtime           = dt_loc,                               & !in
+            &       k_step            = jstep_adv(jg)%marchuk_order,          & !in
+            &       p_tracer_now      = p_nh_state(jg)%prog(n_now_rcf)%tracer,& !in
+            &       p_mflx_contra_h   = prep_adv(jg)%mass_flx_me,             & !in
+            &       p_vn_contra_traj  = prep_adv(jg)%vn_traj,                 & !in
+            &       p_mflx_contra_v   = prep_adv(jg)%mass_flx_ic,             & !in
+            &       p_cellhgt_mc_now  = p_nh_state(jg)%metrics%ddqz_z_full,   & !in
+            &       p_rhodz_new       = p_nh_state(jg)%diag%airmass_new,      & !in
+            &       p_rhodz_now       = p_nh_state(jg)%diag%airmass_now,      & !in
+            &       p_grf_tend_tracer = p_nh_state(jg)%diag%grf_tend_tracer,  & !in
+            &       p_tracer_new      = p_nh_state(jg)%prog(n_new_rcf)%tracer,& !inout
+            &       p_mflx_tracer_h   = p_nh_state(jg)%diag%hfl_tracer,       & !out
+            &       p_mflx_tracer_v   = p_nh_state(jg)%diag%vfl_tracer,       & !out
+            &       rho_incr          = p_nh_state(jg)%diag%rho_incr,         & !in
+            &       opt_topflx_tra    = prep_adv(jg)%topflx_tra,              & !in
+            &       opt_q_int         = p_nh_state(jg)%diag%q_int,            & !out
+            &       opt_ddt_tracer_adv= p_nh_state(jg)%diag%ddt_tracer_adv,   & !out
+            &       opt_deepatmo_t1mc = p_nh_state(jg)%metrics%deepatmo_t1mc, & !optin
+            &       opt_deepatmo_t2mc = p_nh_state(jg)%metrics%deepatmo_t2mc  ) !optin
           !$ser verbatim CALL serialize_all(nproma, jg, "step_advection", .FALSE., opt_lupdate_cpu=.TRUE.)
 
           IF (iprog_aero >= 1) THEN
@@ -2072,7 +2161,6 @@ MODULE mo_nh_stepping
           CALL nh_testcase_interface( nstep_global,                &  !in
             &                         dt_loc,                      &  !in
             &                         sim_time,                    &  !in
-            &                         datetime_local(jg)%ptr,      &  !in
             &                         p_patch(jg),                 &  !in 
             &                         p_nh_state(jg),              &  !inout
             &                         p_int_state(jg),             &  !in
@@ -2374,16 +2462,31 @@ MODULE mo_nh_stepping
                 & prm_upatmo(jgc)                         ,&
                 & lnest_start=.TRUE.                       )
 
+            IF (lart) THEN
+              CALL art_init_atmo_tracers_nwp(                            &
+                     &  jgc,                                             &
+                     &  datetime_local(jgc)%ptr,                         &
+                     &  p_nh_state(jgc),                                 &
+                     &  ext_data(jgc),                                   &
+                     &  prm_diag(jgc),                                   &
+                     &  p_nh_state(jgc)%prog(nnow(jgc)),                 &
+                     &  p_nh_state(jgc)%prog(nnow_rcf(jgc))%tracer,      &
+                     &  p_nh_state_lists(jgc)%prog_list(nnow_rcf(jgc)),  &
+                     &  p_patch(jgc)%nest_level)
+            END IF
+
+
               CALL init_cloud_aero_cpl (datetime_local(jgc)%ptr, p_patch(jgc), p_nh_state(jgc)%metrics, &
                 &                       ext_data(jgc), prm_diag(jgc))
 
               IF (iprog_aero >= 1) CALL setup_aerosol_advection(p_patch(jgc))
             ENDIF
 
-            CALL compute_airmass(p_patch(jgc),                   &
-              &                  p_nh_state(jgc)%metrics,        &
-              &                  p_nh_state(jgc)%prog(nnow(jgc)),&
-              &                  p_nh_state(jgc)%diag, itlev = 2 )
+            ! init airmass_new (diagnose airmass from \rho(now)). airmass_now not needed
+            CALL compute_airmass(p_patch   = p_patch(jgc),                        & !in
+              &                  p_metrics = p_nh_state(jgc)%metrics,             & !in
+              &                  rho       = p_nh_state(jgc)%prog(nnow(jgc))%rho, & !in
+              &                  airmass   = p_nh_state(jgc)%diag%airmass_new     ) !inout
 
             IF ( lredgrid_phys(jgc) ) THEN
               CALL interpol_rrg_grf(jg, jgc, jn, nnow_rcf(jg))
@@ -2457,6 +2560,7 @@ MODULE mo_nh_stepping
     LOGICAL                  :: lprep_adv         !.TRUE.: do computations for preparing tracer advection in solve_nh
     LOGICAL                  :: llast             !.TRUE.: this is the last substep
     TYPE(timeDelta), POINTER :: time_diff
+
     !-------------------------------------------------------------------------
 
     ! get domain ID
@@ -2470,12 +2574,12 @@ MODULE mo_nh_stepping
     ELSE
       lprep_adv = .FALSE.
     ENDIF
-    
-    ! compute airmass \rho*\Delta z [kg m-2] for nnow
-    CALL compute_airmass(p_patch,                   &
-      &                  p_nh_state%metrics,        &
-      &                  p_nh_state%prog(nnow(jg)), &
-      &                  p_nh_state%diag, itlev = 1)
+
+    ! airmass_now
+    CALL compute_airmass(p_patch   = p_patch,                       & !in
+      &                  p_metrics = p_nh_state%metrics,            & !in
+      &                  rho       = p_nh_state%prog(nnow(jg))%rho, & !in
+      &                  airmass   = p_nh_state%diag%airmass_now    ) !inout
 
 
 
@@ -2582,11 +2686,12 @@ MODULE mo_nh_stepping
 
     END DO SUBSTEPS
 
-    ! compute airmass \rho*\Delta z [kg m-2] for nnew
-    CALL compute_airmass(p_patch,                   &
-      &                  p_nh_state%metrics,        &
-      &                  p_nh_state%prog(nnew(jg)), &
-      &                  p_nh_state%diag, itlev = 2)
+    ! airmass_new
+    CALL compute_airmass(p_patch   = p_patch,                       & !in
+      &                  p_metrics = p_nh_state%metrics,            & !in
+      &                  rho       = p_nh_state%prog(nnew(jg))%rho, & !in
+      &                  airmass   = p_nh_state%diag%airmass_new    ) !inout
+
 
   END SUBROUTINE perform_dyn_substepping
 
@@ -3088,10 +3193,11 @@ MODULE mo_nh_stepping
       CALL rbf_vec_interpol_cell(p_nh_state(jg)%prog(nnow(jg))%vn,p_patch(jg),p_int_state(jg),&
                                  p_nh_state(jg)%diag%u,p_nh_state(jg)%diag%v)
 
-      CALL compute_airmass(p_patch(jg),                  &
-        &                  p_nh_state(jg)%metrics,       &
-        &                  p_nh_state(jg)%prog(nnow(jg)),&
-        &                  p_nh_state(jg)%diag, itlev = 2)
+      ! init airmass_new (diagnose airmass from \rho(now)). airmass_now not needed
+      CALL compute_airmass(p_patch   = p_patch(jg),                       & !in
+        &                  p_metrics = p_nh_state(jg)%metrics,            & !in
+        &                  rho       = p_nh_state(jg)%prog(nnow(jg))%rho, & !in
+        &                  airmass   = p_nh_state(jg)%diag%airmass_new    ) !inout
 
       CALL init_exner_pr(jg, nnow(jg))
 
@@ -3226,7 +3332,8 @@ MODULE mo_nh_stepping
       &    'deallocation for linit_dyn failed' )
   ENDIF
 
-  CALL sst_sic_reader%deinit 
+  CALL sst_reader%deinit 
+  CALL sic_reader%deinit 
 
   END SUBROUTINE deallocate_nh_stepping
   !-------------------------------------------------------------------------

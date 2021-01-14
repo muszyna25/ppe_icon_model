@@ -34,7 +34,7 @@ MODULE mo_hydro_ocean_run
   USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
     &  i_sea_ice, cfl_check, cfl_threshold, cfl_stop_on_violation,   &
     &  cfl_write, surface_module, run_mode, RUN_FORWARD, RUN_ADJOINT, &
-    &  lswr_jerlov, &
+    &  lswr_jerlov, lsediment_only, &
     &  Cartesian_Mixing, GMRedi_configuration, OceanReferenceDensity_inv, &
     &  atm_pressure_included_in_ocedyn, &
     &  vert_mix_type,vmix_kpp, lcheck_salt_content, &
@@ -106,7 +106,6 @@ MODULE mo_hydro_ocean_run
   USE mo_ocean_tracer_dev, ONLY: advect_ocean_tracers_GMRedi_zstar
  
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
-  USE mo_ocean_tracer_diffusion, ONLY: tracer_vertdiff_eliminate_upper_diag => eliminate_upper_diag
   USE mo_physical_constants,        ONLY: rho_ref, grav 
   USE mo_ocean_pressure_bc_conditions,  ONLY: create_pressure_bc_conditions
   
@@ -321,6 +320,11 @@ CONTAINS
          ELSEIF ( vert_cor_type == 1 ) THEN
           CALL ocean_time_step_zstar()
          ENDIF
+         IF(lsediment_only) THEN
+             CALL sed_only_time_step()
+         ELSE
+             CALL ocean_time_step()
+         END IF
 
          IF (isEndOfThisRun()) THEN
             ! leave time loop
@@ -699,10 +703,11 @@ CONTAINS
 
     END SUBROUTINE ocean_time_step
 
-    
-    
     !-------------------------------------------------------------------------
     SUBROUTINE ocean_time_step_zstar()
+        ! fill transport state
+        ocean_state(jg)%transport_state%patch_3d    => patch_3d
+
         ! optional memory loggin
         CALL memory_log_add
         
@@ -890,6 +895,7 @@ CONTAINS
 
         stop_detail_timer(timer_extra20,5)
 
+
         CALL update_statistics
 
         CALL output_ocean( patch_3d, ocean_state, &
@@ -899,6 +905,7 @@ CONTAINS
           &                jstep, jstep0)
         
         CALL reset_statistics
+
         ! send and receive coupling fluxes for ocean at the end of time stepping loop
         ! FIXME zstar: Does this make sense for zstar 
         IF (iforc_oce == Coupled_FluxFromAtmo) THEN  !  14
@@ -942,6 +949,7 @@ CONTAINS
             !
             patch_2d%ldom_active = .TRUE.
             !
+
             IF (i_ice_dyn == 1) CALL ice_fem_update_vel_restart(patch_2d, sea_ice) ! write FEM vel to restart or checkpoint file
             CALL restartDescriptor%updatePatch(patch_2d, &
                                               &opt_nice_class=1, &
@@ -981,6 +989,64 @@ CONTAINS
 
 
     END SUBROUTINE ocean_time_step_zstar
+
+    
+    
+    SUBROUTINE sed_only_time_step()
+        ! fill transport state
+        ocean_state(jg)%transport_state%patch_3d    => patch_3d
+
+        ! optional memory loggin
+        CALL memory_log_add
+        
+        jstep = jstep + 1
+        ! update model date and time mtime based
+        current_time = ocean_time_nextStep()
+
+        CALL datetimeToString(current_time, datestring)
+        WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
+        CALL message (TRIM(routine), message_text)
+ 
+        ! Add here the calls for Hamocc
+        CALL ocean_to_hamocc_interface(ocean_state(jg), ocean_state(jg)%transport_state, &
+          & p_oce_sfc, p_as, sea_ice, p_phys_param, operators_coefficients, current_time)
+        
+        CALL update_statistics
+
+        CALL output_ocean( patch_3d, ocean_state, &
+          &                current_time,              &
+          &                p_oce_sfc,             &
+          &                sea_ice,                 &
+          &                jstep, jstep0)
+        
+        CALL reset_statistics
+
+        ! check whether time has come for writing restart file
+        IF (isCheckpoint()) THEN
+          IF (.NOT. output_mode%l_none ) THEN
+            !
+            ! For multifile restart (restart_write_mode = "joint procs multifile")
+            ! the domain flag must be set to .TRUE. in order to activate the domain,
+            ! even though we have one currently in the ocean. Without this the
+            ! processes won't write out their data into a the patch restart files.
+            !
+            patch_2d%ldom_active = .TRUE.
+            !
+            CALL restartDescriptor%updatePatch(patch_2d, &
+                                              &opt_nice_class=1, &
+                                              &opt_ocean_zlevels=n_zlev, &
+                                              &opt_ocean_zheight_cellmiddle = patch_3d%p_patch_1d(1)%zlev_m(:), &
+                                              &opt_ocean_zheight_cellinterfaces = patch_3d%p_patch_1d(1)%zlev_i(:))
+            CALL restartDescriptor%writeRestart(current_time, jstep)
+          END IF
+        END IF
+        
+        IF (isEndOfThisRun()) THEN
+          ! leave time loop
+          RETURN
+        END IF
+        
+    END SUBROUTINE sed_only_time_step
 
 
   END SUBROUTINE perform_ho_stepping
@@ -1054,7 +1120,7 @@ CONTAINS
       
     ENDIF
     !------------------------------------------------------------------------
-
+    
     !------------------------------------------------------------------------
     ! transport tracers and diffuse them
     IF (no_tracer>=1) THEN
@@ -1064,21 +1130,22 @@ CONTAINS
         CALL advect_ocean_tracers(old_tracer_collection, new_tracer_collection, transport_state, operators_coefficients)
       ELSE
         CALL  advect_ocean_tracers_dev(old_tracer_collection, new_tracer_collection, &
-          &  ocean_state, transport_state, p_phys_param, operators_coefficients)
+          &  ocean_state, transport_state, p_phys_param, operators_coefficients)          
       ENDIF
 
       stop_timer(timer_tracer_ab,1)
-
     ENDIF
     !------------------------------------------------------------------------
+     
+      ! Call the biogeochemistry after transporting for GMRedi
+      CALL ocean_to_hamocc_interface(ocean_state, transport_state, &
+        & p_oce_sfc, p_as, sea_ice, p_phys_param, operators_coefficients, current_time)
 
 !     CALL dbg_print('Tr3:new adv', ocean_state%p_prog(nnew(1))%tracer(:,:,:,3),str_module,1, &
 !       & patch_3d%p_patch_2d(1)%cells%owned )
 !     CALL dbg_print('Tr20:new adv', ocean_state%p_prog(nnew(1))%tracer(:,:,:,20),str_module,1, &
 !       & patch_3d%p_patch_2d(1)%cells%owned )
-    CALL ocean_to_hamocc_interface(ocean_state, transport_state, &
-      & p_oce_sfc, p_as, sea_ice, p_phys_param, operators_coefficients, current_time)
-
+    
   END SUBROUTINE tracer_transport
   !-------------------------------------------------------------------------
 
@@ -1253,9 +1320,7 @@ CONTAINS
     tmp => ocean_state%p_aux%g_n
     ocean_state%p_aux%g_n => ocean_state%p_aux%g_nm1
     ocean_state%p_aux%g_nm1 => tmp
-    
-    tracer_vertdiff_eliminate_upper_diag = .not. tracer_vertdiff_eliminate_upper_diag ! switch solving methods
-    
+        
   END SUBROUTINE update_time_g_n
 
 

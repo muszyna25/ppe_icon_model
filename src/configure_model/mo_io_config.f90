@@ -89,6 +89,9 @@ MODULE mo_io_config
 
   TYPE(t_echotop_meta) :: echotop_meta(max_dom)
 
+  INTEGER :: bvf2_mode                  !< computation mode for square of Brunt-Vaisala frequency
+  INTEGER :: parcelfreq2_mode           !< computation mode for square of general air parcel oscillation frequency
+
   ! Derived type to collect logical variables indicating if optional diagnostics are requested for output
   TYPE t_var_in_output
     LOGICAL :: pres_msl    = .FALSE. !< Flag. TRUE if computation of mean sea level pressure desired
@@ -115,6 +118,10 @@ MODULE mo_io_config
     LOGICAL :: uh_max      = .FALSE. !< Flag. TRUE if computation of updraft helicity desired
     LOGICAL :: vorw_ctmax  = .FALSE. !< Flag. TRUE if computation of maximum rotation amplitude desired
     LOGICAL :: w_ctmax     = .FALSE. !< Flag. TRUE if computation of maximum updraft track desired
+    LOGICAL :: vor_u       = .FALSE. !< Flag. TRUE if computation of zonal component of relative vorticity desired
+    LOGICAL :: vor_v       = .FALSE. !< Flag. TRUE if computation of meridional component of relative vorticity desired
+    LOGICAL :: bvf2        = .FALSE. !< Flag. TRUE if computation of square of Brunt-Vaisala frequency desired
+    LOGICAL :: parcelfreq2 = .FALSE. !< Flag. TRUE if computation of square of general parcel oscillation frequency desired
   END TYPE t_var_in_output
 
   TYPE(t_var_in_output), ALLOCATABLE :: var_in_output(:)
@@ -186,6 +193,10 @@ CONTAINS
         &                          is_variable_in_output(first_output_name_list, var_name="psl_m")
       var_in_output(jg)%omega    = is_variable_in_output(first_output_name_list, var_name="omega")    .OR. &
         &                          is_variable_in_output(first_output_name_list, var_name="wap_m")
+      var_in_output(jg)%vor_u    = is_variable_in_output_dom(first_output_name_list, var_name="vor_u", jg=jg)
+      var_in_output(jg)%vor_v    = is_variable_in_output_dom(first_output_name_list, var_name="vor_v", jg=jg)
+      var_in_output(jg)%bvf2     = is_variable_in_output_dom(first_output_name_list, var_name="bvf2", jg=jg)
+      var_in_output(jg)%parcelfreq2 = is_variable_in_output_dom(first_output_name_list, var_name="parcelfreq2", jg=jg)
     END DO
 
 

@@ -22,7 +22,7 @@ MODULE mo_nh_deepatmo_utils
 
   USE mo_kind,                  ONLY: wp, vp
   USE mo_exception,             ONLY: finish, message, message_text
-  USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH, SUCCESS, min_rlcell, min_rlvert, &
+  USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH, SUCCESS, &
     &                                 min_rlcell_int, min_rledge_int, min_rlvert_int
   USE mo_physical_constants,    ONLY: grav, rd, p0ref, rd_o_cpd, cpd, p0sl_bg
   USE mo_upatmo_config,         ONLY: upatmo_dyn_config
@@ -39,8 +39,7 @@ MODULE mo_nh_deepatmo_utils
   USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_math_divrot,           ONLY: rot_vertex_ri
   USE mo_loopindices,           ONLY: get_indices_c, get_indices_e
-  USE mo_sync,                  ONLY: sync_patch_array, sync_patch_array_mult, &
-    &                                 SYNC_C, SYNC_E
+  USE mo_sync,                  ONLY: sync_patch_array, SYNC_E
   USE mo_timer,                 ONLY: timer_start, timer_stop, timers_level, &
     &                                 timer_deepatmo_ztrafo, timer_solve_nh_veltend
   USE mo_icon_interpolation_scalar, ONLY: cells2verts_scalar_ri
@@ -492,9 +491,7 @@ CONTAINS !......................................................................
         ! (The else-case should be covered by the default values in 'src/atm_dyn_iconam/mo_nonhydro_state')    
       ENDIF
       
-    ENDDO  !jk
-
-!$ACC UPDATE DEVICE( p_nh_metrics%deepatmo_t1mc ) 
+    ENDDO
 
     ! For 'nlevp1'
     p_nh_metrics%deepatmo_t1ifc(nlevp1,idamtr%t1ifc%gradh) = 1._wp ! = 'grid_sphere_radius / grid_sphere_radius'

@@ -32,23 +32,23 @@ MODULE mo_nml_crosscheck
     &                                    max_echotop
   USE mo_time_config,              ONLY: time_config, dt_restart
   USE mo_extpar_config,            ONLY: itopo                                             
-  USE mo_io_config,                ONLY: dt_checkpoint, lflux_avg,inextra_2d, inextra_3d,  &
+  USE mo_io_config,                ONLY: dt_checkpoint, lflux_avg,                         &
     &                                    lnetcdf_flt64_output, echotop_meta
   USE mo_parallel_config,          ONLY: check_parallel_configuration,                     &
     &                                    num_io_procs, itype_comm,                         &
-    &                                    num_prefetch_proc, use_dp_mpi2io
+    &                                    num_prefetch_proc, use_dp_mpi2io, num_io_procs_radar
   USE mo_limarea_config,           ONLY: latbc_config, LATBC_TYPE_CONST, LATBC_TYPE_EXT
   USE mo_master_config,            ONLY: isRestart
   USE mo_run_config,               ONLY: nsteps, dtime, iforcing, output_mode,             &
     &                                    ltransport, ntracer, nlev, ltestcase,             &
     &                                    nqtendphy, iqtke, iqv, iqc, iqi,                  &
     &                                    iqs, iqr, iqt, iqtvar, ltimer,                    &
-    &                                    ico2, ich4, in2o, io3,                            &
+    &                                    ico2,                                             &
     &                                    iqni, iqni_nuc, iqg, iqm_max,                     &
-    &                                    iqh, iqnr, iqns, iqng, iqnh, iqnc,                & 
+    &                                    iqh, iqnr, iqns, iqng, iqnh, iqnc, iqgl, iqhl,    & 
     &                                    inccn, ininact, ininpot,                          &
     &                                    activate_sync_timers, timers_level, lart,         &
-    &                                    msg_level
+    &                                    msg_level, luse_radarfwo
   USE mo_dynamics_config,          ONLY: iequations, lshallow_water, ltwotime, ldeepatmo
   USE mo_advection_config,         ONLY: advection_config
   USE mo_nonhydrostatic_config,    ONLY: itime_scheme_nh => itime_scheme,                  &
@@ -72,7 +72,7 @@ MODULE mo_nml_crosscheck
   USE mo_meteogram_config,         ONLY: meteogram_output_config, check_meteogram_configuration
   USE mo_grid_config,              ONLY: lplane, n_dom, l_limited_area, start_time,        &
     &                                    nroot, is_plane_torus, n_dom_start
-  USE mo_art_config,               ONLY: art_config
+  USE mo_art_config,               ONLY: art_config, ctracer_art
   USE mo_time_management,          ONLY: compute_timestep_settings,                        &
     &                                    compute_restart_settings,                         &
     &                                    compute_date_settings
@@ -87,9 +87,14 @@ MODULE mo_nml_crosscheck
   USE mo_upatmo_config,            ONLY: check_upatmo
   USE mo_name_list_output_config,  ONLY: first_output_name_list, is_variable_in_output_dom
   USE mo_nh_testcase_check,        ONLY: check_nh_testcase
+  USE mo_art_init_interface,       ONLY: art_calc_ntracer_and_names
 
 #ifdef __ICON_ART
   USE mo_grid_config,              ONLY: lredgrid_phys
+#endif
+
+#ifdef HAVE_RADARFWO
+  USE radar_data,            ONLY: ndoms_max_radar => ndoms_max
 #endif
 
   IMPLICIT NONE
@@ -142,7 +147,7 @@ CONTAINS
 
 
     IF (lplane) CALL finish(routine,&
-      'Currently a plane version is not available')
+     'Currently a plane version is not available')
 
     ! Reset num_prefetch_proc to zero if the model does not run in limited-area mode
     ! or in global nudging mode or if there are no lateral boundary data to be read
@@ -377,40 +382,32 @@ CONTAINS
             &  ( atm_phy_nwp_config(jg)%icpl_aero_gscp > 0 .OR. icpl_aero_conv > 0 ) ) THEN
             CALL finish(routine,'aerosol-precipitation coupling requires irad_aero=6 or =9')
           ENDIF
-        ELSE
-
-          SELECT CASE (irad_o3)
-          CASE(0) ! ok
-          CASE default
-            irad_o3 = 0
-            CALL message(routine,'running without radiation => irad_o3 reset to 0')
-          END SELECT
 
           ! ecRad specific checks
           IF ( (atm_phy_nwp_config(jg)%inwp_radiation == 4) )  THEN
-            IF (irad_h2o /= 0 .AND. irad_h2o /= 1) &
+            IF (.NOT. ANY( irad_h2o     == (/0,1/)         ) ) &
               &  CALL finish(routine,'For inwp_radiation = 4, irad_h2o has to be 0 or 1')
-            IF (irad_co2 /= 0 .AND. irad_co2 /= 2) &
-              &  CALL finish(routine,'For inwp_radiation = 4, irad_co2 has to be 0 or 2')
-            IF (irad_ch4 /= 0 .AND. irad_ch4 /= 2 .AND. irad_ch4 /= 3) &
-              &  CALL finish(routine,'For inwp_radiation = 4, irad_ch4 has to be 0, 2 or 3')
-            IF (irad_n2o /= 0 .AND. irad_n2o /= 2 .AND. irad_n2o /= 3) &
-              &  CALL finish(routine,'For inwp_radiation = 4, irad_n2o has to be 0, 2 or 3')
-            IF (irad_o3  /= 0 .AND. irad_o3  /= 7 .AND. irad_o3  /= 9 .AND. irad_o3  /= 79 .AND. irad_o3  /= 97) &
+            IF (.NOT. ANY( irad_co2     == (/0,2,4/)       ) ) &
+              &  CALL finish(routine,'For inwp_radiation = 4, irad_co2 has to be 0, 2 or 4')
+            IF (.NOT. ANY( irad_ch4     == (/0,2,3,4/)     ) ) &
+              &  CALL finish(routine,'For inwp_radiation = 4, irad_ch4 has to be 0, 2, 3 or 4')
+            IF (.NOT. ANY( irad_n2o     == (/0,2,3,4/)     ) ) &
+              &  CALL finish(routine,'For inwp_radiation = 4, irad_n2o has to be 0, 2, 3 or 4')
+            IF (.NOT. ANY( irad_o3      == (/0,7,9,79,97/) ) ) &
               &  CALL finish(routine,'For inwp_radiation = 4, irad_o3 has to be 0, 7, 9, 79 or 97')
-            IF (irad_o2  /= 0 .AND. irad_o2  /= 2) &
+            IF (.NOT. ANY( irad_o2      == (/0,2/)         ) ) &
               &  CALL finish(routine,'For inwp_radiation = 4, irad_o2 has to be 0 or 2')
-            IF (irad_cfc11 /= 0 .AND. irad_cfc11 /= 2) &
-              &  CALL finish(routine,'For inwp_radiation = 4, irad_cfc11 has to be 0 or 2')
-            IF (irad_cfc12 /= 0 .AND. irad_cfc12 /= 2) &
-              &  CALL finish(routine,'For inwp_radiation = 4, irad_cfc12 has to be 0 or 2')
-            IF ( irad_aero /= 0 .AND. irad_aero /= 2 .AND. irad_aero /= 5 .AND. irad_aero /= 6 .AND. irad_aero /= 9) &
+            IF (.NOT. ANY( irad_cfc11   == (/0,2,4/)       ) ) &
+              &  CALL finish(routine,'For inwp_radiation = 4, irad_cfc11 has to be 0, 2 or 4')
+            IF (.NOT. ANY( irad_cfc12   == (/0,2,4/)       ) ) &
+              &  CALL finish(routine,'For inwp_radiation = 4, irad_cfc12 has to be 0, 2 or 4')
+            IF (.NOT. ANY( irad_aero    == (/0,2,5,6,9/)   ) ) &
               &  CALL finish(routine,'For inwp_radiation = 4, irad_aero has to be 0, 2, 5, 6 or 9')
-            IF ( icld_overlap /= 1 .AND. icld_overlap /= 2 .AND. icld_overlap /= 5 ) &
+            IF (.NOT. ANY( icld_overlap == (/1,2,5/)       ) ) &
               &  CALL finish(routine,'For inwp_radiation = 4, icld_overlap has to be 1, 2 or 5')
-            IF ( iliquid_scat /= 0 .AND. iliquid_scat /= 1 ) &
+            IF (.NOT. ANY( iliquid_scat == (/0,1/)         ) ) &
               &  CALL finish(routine,'For inwp_radiation = 4, iliquid_scat has to be 0 or 1')
-            IF ( iice_scat /= 0 .AND. iice_scat /= 1 ) &
+            IF (.NOT. ANY( iice_scat    == (/0,1/)         ) ) &
               &  CALL finish(routine,'For inwp_radiation = 4, iice_scat has to be 0 or 1')
           ELSE
             IF ( llw_cloud_scat ) &
@@ -420,6 +417,15 @@ CONTAINS
             IF ( iice_scat /= 0 ) &
               &  CALL message(routine,'Warning: iice_scat is explicitly set, but ecRad is not used')
           ENDIF
+
+        ELSE
+
+          SELECT CASE (irad_o3)
+          CASE(0) ! ok
+          CASE default
+            irad_o3 = 0
+            CALL message(routine,'running without radiation => irad_o3 reset to 0')
+          END SELECT
 
         ENDIF !inwp_radiation
 
@@ -544,6 +550,26 @@ CONTAINS
        
         ntracer = 14
 
+      CASE(7)  ! two-moment scheme with additional prognostic liquid water (melting) variables for graupel and hail
+      
+        iqg     = 6  ; advection_config(:)%tracer_names(iqg)     = 'qg'
+        iqh     = 7  ; advection_config(:)%tracer_names(iqh)     = 'qh'
+        iqgl    = 8  ; advection_config(:)%tracer_names(iqgl)    = 'qgl'
+        iqhl    = 9  ; advection_config(:)%tracer_names(iqhl)    = 'qhl'      
+        iqni    = 10 ; advection_config(:)%tracer_names(iqni)    = 'qni'       
+        iqnr    = 11 ; advection_config(:)%tracer_names(iqnr)    = 'qnr'      
+        iqns    = 12 ; advection_config(:)%tracer_names(iqns)    = 'qns'       
+        iqng    = 13 ; advection_config(:)%tracer_names(iqng)    = 'qng'       
+        iqnh    = 14 ; advection_config(:)%tracer_names(iqnh)    = 'qnh'
+        iqnc    = 15 ; advection_config(:)%tracer_names(iqnc)    = 'qnc'
+        ininact = 16 ; advection_config(:)%tracer_names(ininact) = 'ninact'
+
+        nqtendphy = 3     !! number of water species for which convective and turbulent tendencies are stored
+        iqm_max   = 9     !! end index of water species mass mixing ratios
+        iqt       = 17    !! start index of other tracers not related at all to moisture
+       
+        ntracer = 16
+
       CASE(5)  ! two-moment scheme with CCN and IN budgets
       
         iqg     = 6  ; advection_config(:)%tracer_names(iqg)     = 'qg'
@@ -648,7 +674,14 @@ CONTAINS
     END SELECT ! iforcing
 
     IF (lart) THEN
-      
+      ! determine number of ART-tracers (by reading given XML-Files)
+      ! * art_config(1)%iart_ntracer
+      CALL art_calc_ntracer_and_names()
+
+      IF(art_config(1)%iart_ntracer > 0) THEN
+        advection_config(1)%tracer_names(ntracer+1:ntracer+art_config(1)%iart_ntracer) =       &
+          &   ctracer_art(ntracer+1:)
+      END IF
       ntracer = ntracer + art_config(1)%iart_ntracer
       
       WRITE(message_text,'(a,i3,a,i3)') 'Attention: transport of ART tracers is active, '//&
@@ -943,6 +976,19 @@ CONTAINS
       &                nh_test_name, init_mode, atm_phy_nwp_config(:)%inwp_turb,          &
       &                atm_phy_nwp_config(:)%inwp_radiation, first_output_name_list       )
 
+
+    ! ********************************************************************************
+    ! [RADAROP]
+    ! ********************************************************************************
+    !
+    ! Enter "cross checks" for namelist parameters here:
+    ! *  RadarOp may be switched on only if nonhydro and inwp enabled.
+    ! *  RadarOp may be switched on only if preprocessor flag enabled (see below).
+    ! 
+    ! ********************************************************************************
+
+    CALL emvorado_crosscheck()
+
   END  SUBROUTINE atm_crosscheck
   !---------------------------------------------------------------------------------------
 
@@ -1010,21 +1056,51 @@ CONTAINS
       ENDIF
     ENDDO
     
-    ! XML specification checks
-    
-    DO jg= 1,n_dom
-      IF(art_config(jg)%lart_aerosol .AND. art_config(jg)%cart_aerosol_xml =='') THEN
-        CALL finish(routine,'lart_aerosol=.TRUE. but no cart_aerosol_xml specified')
-      ENDIF
-      IF(art_config(jg)%lart_chem .AND. art_config(jg)%cart_chemistry_xml =='') THEN
-        CALL finish(routine,'lart_chem=.TRUE. but no cart_chemistry_xml specified')
-      ENDIF
-      IF(art_config(jg)%lart_passive .AND. art_config(jg)%cart_passive_xml =='' )THEN
-        CALL finish(routine,'lart_passive=.TRUE. but no cart_passive_xml specified')
-      ENDIF
-    ENDDO
-    
 #endif
   END SUBROUTINE art_crosscheck
   !---------------------------------------------------------------------------------------
+
+  !---------------------------------------------------------------------------------------
+  SUBROUTINE emvorado_crosscheck
+    CHARACTER(len=*), PARAMETER :: routine =  'mo_nml_crosscheck:emvorado_crosscheck'
+
+    INTEGER  :: jg, ndoms_radaractive
+    CHARACTER(len=255) :: errstring
+    
+#ifndef HAVE_RADARFWO
+    IF ( ANY(luse_radarfwo) ) THEN
+        CALL finish( routine,'run_nml: luse_radarfwo is set .TRUE. in some domains but ICON was compiled without -DHAVE_RADARFWO')
+    ENDIF
+#endif
+    
+    ndoms_radaractive = 0
+    DO jg = 1, n_dom
+      IF (luse_radarfwo(jg)) ndoms_radaractive = ndoms_radaractive + 1 
+    END DO
+#ifdef HAVE_RADARFWO
+    IF ( ndoms_radaractive > ndoms_max_radar ) THEN
+      errstring(:) = ' '
+      WRITE (errstring, '(a,i3,a,i2,a)') 'luse_radarfwo is enabled (.true.) for ', ndoms_radaractive, &
+           ' ICON domains, but EMVORADO supports max. ', ndoms_max_radar, &
+           ' domains. You may increase  parameter ''ndoms_max'' in radar_data.f90.'
+      CALL finish(routine, 'run_nml: '//TRIM(errstring))
+    END IF
+#endif
+
+    IF ( num_io_procs_radar > 0 .AND. .NOT.ANY(luse_radarfwo) ) THEN
+      CALL message(routine, 'Setting num_io_procs_radar = 0 because luse_radarfwo(:) = .FALSE.')
+      num_io_procs_radar = 0
+    END IF
+
+    IF ( (iforcing /= INWP .OR. iequations /= INH_ATMOSPHERE) .AND. ANY(luse_radarfwo) ) THEN
+      errstring(:) = ' '
+      WRITE (errstring, '(a,i2,a,i2)') 'luse_radarfwo = .true. is only possible for NWP physics iforcing = ', INWP, &
+           ' and non-hydrostatic equations iequations = ', INH_ATMOSPHERE
+      CALL finish(routine, 'run_nml: '//TRIM(errstring))
+    END IF
+
+  END SUBROUTINE emvorado_crosscheck
+
+
+
 END MODULE mo_nml_crosscheck

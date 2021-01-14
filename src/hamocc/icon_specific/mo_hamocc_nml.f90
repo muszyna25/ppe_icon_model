@@ -31,6 +31,10 @@ MODULE mo_hamocc_nml
                                                 !< 0 constant sinking speed
                                                 !< 1 variable sinking speed following the 'Martin curve'
                                                 !< 2 sinking via aggregation
+
+  INTEGER, PUBLIC :: hion_solver                !< switch for selecting the solver to update h+ ion concentration
+                                                !< 0 standard solver
+                                                !< 1 solver from mocsy package
   INTEGER, PUBLIC :: isac 
   REAL(wp), PUBLIC :: sinkspeed_opal 
   REAL(wp), PUBLIC :: sinkspeed_calc
@@ -57,6 +61,7 @@ MODULE mo_hamocc_nml
   LOGICAL, PUBLIC :: l_dynamic_pi     = .FALSE.    ! Depth dependent pi_alpha 
   LOGICAL, PUBLIC :: l_PDM_settling   = .FALSE.   ! PDM scheme for particle settling
   LOGICAL, PUBLIC :: l_init_bgc       = .FALSE.   ! initialise state variables with cold start values
+  LOGICAL, PUBLIC :: l_limit_sal      = .TRUE.    ! limit salinity to min. 25 psu?
 
   REAL(wp), PUBLIC :: denit_sed, disso_po
   REAL(wp), PUBLIC :: cycdec, cya_growth_max
@@ -69,6 +74,7 @@ MODULE mo_hamocc_nml
 
   NAMELIST /hamocc_nml/ &
     &  i_settling, &
+    &  hion_solver, &
     &  ks, dzsed,inpw,&
     &  l_cyadyn, &
     &  sinkspeed_opal, &
@@ -92,6 +98,7 @@ MODULE mo_hamocc_nml
     &  cycdec, &
     &  cya_growth_max,&
     &  l_init_bgc, &
+    &  l_limit_sal, &
     &  grazra
 
 CONTAINS
@@ -109,6 +116,8 @@ CONTAINS
     ! Set default values
     !------------------------------------------------------------------
     i_settling        = 0             ! constant sinking
+
+    hion_solver       = 0             ! standard solver
    
     isac = 1       ! no sediment acceleration
     l_cyadyn = .TRUE.

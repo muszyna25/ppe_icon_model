@@ -1237,16 +1237,16 @@ SUBROUTINE grad_green_gauss_cell_dycore(p_ccpr, ptr_patch, ptr_int, p_grad,     
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
+    IF ( PRESENT(opt_acc_async) ) THEN
+      IF ( .NOT. opt_acc_async ) THEN
+        !$ACC WAIT
+      END IF
+    ELSE
+      !$ACC WAIT
+    END IF
+    
 !$ACC UPDATE HOST( p_grad ) WAIT IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
-
-    IF ( PRESENT(opt_acc_async) ) THEN
-      IF ( opt_acc_async ) THEN
-        RETURN
-      END IF
-    END IF
-    !$ACC WAIT
-
   END SUBROUTINE grad_green_gauss_cell_dycore
 
 END MODULE mo_math_gradients

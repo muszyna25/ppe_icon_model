@@ -202,6 +202,38 @@ EOF
 }
 
 #=============================================================================
+set_run_target_default()
+{
+    # Default configuration for unknown systems
+
+    icon_data_rootFolder=${icon_data_rootFolder:=~/pool/data/ICON}
+
+    set_default use_nproma 48
+    set_default use_nodes 1
+
+    if [[ "$use_mpi" == "yes" ]]
+    then
+	set_default use_mpi_procs_pernode 2
+    fi
+    if [[ "$use_openmp" == "yes" ]]
+    then
+	set_default use_openmp_threads 2
+    else
+	set_default use_openmp_threads 1
+    fi
+
+    start_header
+}
+
+#=============================================================================
+set_run_target_()
+{
+  echo "!! THIS IS A FALLBACK SETUP !!"
+  echo "!! YOUR HOST/SITE IS unknown TO THE SCRIPTING ENGINE !!"
+  set_run_target_default
+}
+
+#=============================================================================
 set_run_target_bullx_cpu()
 {
     # mistral.dkrz.de
@@ -579,37 +611,6 @@ set_run_target_mpipc()
 }
 
 #=============================================================================
-set_run_target_()
-{
-  echo "!! THIS IS A FALLBACK SETUP !!"
-  echo "!! YOUR HOST/SITE IS unknown TO THE SCRIPTING ENGINE !!"
-  set_run_target_mpipc
-}
-
-#=============================================================================
-set_run_target_mpimac()
-{
-    # some Macs at MPIM
-    icon_data_rootFolder=${icon_data_rootFolder:=~/pool/data/ICON}
-
-    set_default use_nproma 48
-    use_nodes=1
-  
-    if [[ "$use_mpi" == "yes" ]]
-    then
-	set_default use_mpi_procs_pernode 2
-    fi
-    if [[ "$use_openmp" == "yes" ]]
-    then
-	set_default use_openmp_threads 2
-    else
-	set_default use_openmp_threads 1
-    fi
-
-    start_header
-}
-
-#=============================================================================
 set_run_target_docker_cpu()
 {
     # Docker container
@@ -780,6 +781,7 @@ EOF
   start_header
   cat >>$output_script <<EOF
 export CRAY_CUDA_MPS=1
+#export PGI_ACC_SYNCHRONOUS=1     # For extra safety, disable the OpenACC asynchronicity (performance reduction)
 EOF
 }
 
@@ -792,6 +794,12 @@ set_run_target_daint_cpu()
     set_default use_nproma 16
     set_default use_nodes 1
     # use_OMP_SCHEDULE="static,1"
+    set_default use_account_no "$(id -gn)"
+    if [[ "x$BB_SYSTEM" != "x" ]]
+    then
+	# this is buildbot, do not use job id
+	use_account_no="d56"
+    fi
     use_OMP_SCHEDULE="static,12"
 
     is_serial_run="no"
@@ -866,6 +874,7 @@ set_run_target_daint_cpu()
 # daint cpu batch job parameters
 # ------------------------------
 #SBATCH --constraint=gpu
+#SBATCH --account=$use_account_no
 #SBATCH --job-name=$job_name
 #SBATCH --output=$output_folder/$job_log_name.o
 #SBATCH --error=$output_folder/$job_log_name.o
@@ -885,13 +894,19 @@ set_run_target_daint_gpu()
     icon_data_rootFolder=${icon_data_rootFolder:=${rootFolder_prefix}/pool/data/ICON}
 
     set_default use_nproma 8000
-    set_default use_nodes 1
     set_default use_prefetch_procs 0
+    set_default use_account_no "$(id -gn)"
+    if [[ "x$BB_SYSTEM" != "x" ]]
+    then
+	# this buildbot, do not use job id
+	use_account_no="d56"
+    fi
     use_OMP_SCHEDULE="static,1"
 
     is_serial_run="no"
     if [[ $use_mpi == "yes" ]]
     then
+    	set_default use_nodes 2
 	if [[ $use_openmp == "yes" ]]
 	then
 	    set_default use_mpi_procs_pernode $((1+use_prefetch_procs))
@@ -900,6 +915,7 @@ set_run_target_daint_gpu()
 	    set_default use_mpi_procs_pernode $((1+use_prefetch_procs))
 	fi
     else
+    	set_default use_nodes 1
 	if [[ $use_openmp == "yes" ]]
 	then
 	    set_default use_openmp_threads 1
@@ -953,6 +969,7 @@ set_run_target_daint_gpu()
 # daint gpu batch job parameters
 # ------------------------------
 #SBATCH --constraint=gpu
+#SBATCH --account=$use_account_no
 #SBATCH --job-name=$job_name
 #SBATCH --output=$output_folder/$job_log_name.o
 #SBATCH --error=$output_folder/$job_log_name.o
@@ -964,6 +981,7 @@ EOF
     start_header
     cat >>$output_script <<EOF
 export CRAY_CUDA_MPS=1
+export PGI_ACC_SYNCHRONOUS=1
 EOF
 }
 
@@ -1035,6 +1053,7 @@ set_run_target_dom_gpu()
 
 # dom gpu batch job parameters
 # ----------------------------
+#SBATCH --account=csstaff
 #SBATCH --job-name=$job_name
 #SBATCH --output=$job_log_name.o
 #SBATCH --error=$job_log_name.o
@@ -1124,6 +1143,7 @@ set_run_target_tave_knl()
 #=============================================================================
 # tave batch job parameters
 #--------------------------
+#SBATCH --account=csstaff
 #SBATCH --job-name=$job_name
 #SBATCH --output=$output_folder/$job_log_name.o
 #SBATCH --error=$output_folder/$job_log_name.o
@@ -1131,198 +1151,6 @@ set_run_target_tave_knl()
 #$SBATCH_ntasks_per_node
 #$s_cpu_time
 EOF
-    start_header
-}
-
-#=============================================================================
-set_run_target_kesch_cpu()
-{
-    rootFolder_prefix=/users/icontest
-    icon_data_rootFolder=${icon_data_rootFolder:=${rootFolder_prefix}/pool/data/ICON}
-
-    set_default use_nproma 16
-    set_default use_nodes 1
-    # use_OMP_SCHEDULE="static,1"
-    use_OMP_SCHEDULE="static,12"
-
-    is_serial_run="no"
-    if [[ $use_mpi == "yes" ]]
-    then
-	if [[ $use_openmp == "yes" ]]
-	then
-	    set_default use_mpi_procs_pernode 2
-	    set_default use_openmp_threads 6
-	else
-	    set_default use_mpi_procs_pernode 24
-	fi
-    else
-	if [[ $use_openmp == "yes" ]]
-	then
-	    set_default use_openmp_threads 24
-	    set_default use_mpi_procs_pernode 1
-	else
-	    is_serial_run="yes"
-	fi
-    fi
-
-    case _$use_compiler in
-	"_intel" )
-            use_mpi_startrun="$use_mpi_startrun -npernode \$mpi_procs_pernode -cpus-per-proc \$OMP_NUM_THREADS --bind-to-core --verbose --report-bindings"
-            add_free_var KMP_AFFINITY "verbose,granularity=core,compact,1,1"
-            add_free_var KMP_LIBRARY "turnaround"
-            add_free_var KMP_KMP_SETTINGS "1"
-            add_free_var OMP_WAIT_POLICY "active"
-	    ;;
-    esac
-
-    if [[ "$is_serial_run" == "yes"  ]]
-    then
-	use_nodes=1
-	tasks_per_node=1
-	SBATCH_nodes="SBATCH --nodes=1"
-	SBATCH_ntasks_per_node=""
-	SBATCH_cpus_per_task="SBATCH --cpus-per-task=1"
-    else
-	job_type=parallel
-	tasks_per_node=$use_mpi_procs_pernode
-	SBATCH_nodes="SBATCH --nodes=${use_nodes}"
-	SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=${tasks_per_node}"
-	SBATCH_cpus_per_task="SBATCH --cpus-per-task=1"
-    fi
-
-    if [[ "x$BB_SYSTEM" != "x" ]]
-    then
-	# this buildbot, do not use job id
-	job_log_name="LOG.$job_name"
-    else
-	job_log_name="LOG.$job_name.%j"
-    fi
-    # ------------------------------------
-    s_cpu_time=""
-    if [[ "x$use_cpu_time" != "x" ]]
-    then
-	s_cpu_time="SBATCH --time=$use_cpu_time"
-    fi
-    if [[ "x$BB_SYSTEM" != "x" ]]
-    then
-	# this is buldbot, do not run more than 45 minutes
-	s_cpu_time="SBATCH --time=00:45:00"
-    fi
-    # ------------------------------------
-
-    use_nodes=${use_nodes}
-    use_mpi_procs_pernode=${use_mpi_procs_pernode}
-
-    cat >> $output_script << EOF
-#=============================================================================
-
-# kesch cpu batch job parameters
-# ------------------------------
-#SBATCH --partition=debug
-#SBATCH --job-name=$job_name
-#SBATCH --output=$output_folder/$job_log_name.o
-#SBATCH --error=$output_folder/$job_log_name.o
-#$SBATCH_nodes
-#SBATCH --ntasks-per-core=1
-#$SBATCH_ntasks_per_node
-#$SBATCH_cpus_per_task
-#$s_cpu_time
-EOF
-
-    start_header
-}
-
-#=============================================================================
-set_run_target_kesch_gpu()
-{
-    rootFolder_prefix=/users/icontest
-    icon_data_rootFolder=${icon_data_rootFolder:=${rootFolder_prefix}/pool/data/ICON}
-
-    set_default use_nproma 256
-    set_default use_nodes 1
-    use_OMP_SCHEDULE="static,1"
-
-    is_serial_run="no"
-    if [[ $use_mpi == "yes" ]]
-    then
-	if [[ $use_openmp == "yes" ]]
-	then
-	    set_default use_mpi_procs_pernode 1
-	    set_default use_openmp_threads 1
-	else
-	    set_default use_mpi_procs_pernode 1
-	fi
-    else
-	if [[ $use_openmp == "yes" ]]
-	then
-	    set_default use_openmp_threads 1
-	    set_default use_mpi_procs_pernode 1
-	else
-	    is_serial_run="yes"
-	fi
-    fi
-
-    case _$use_compiler in
-	"_intel" )
-            use_mpi_startrun="$use_mpi_startrun -npernode \$mpi_procs_pernode -cpus-per-proc \$OMP_NUM_THREADS --bind-to-core --verbose --report-bindings"
-            add_free_var KMP_AFFINITY "verbose,granularity=core,compact,1,1"
-            add_free_var KMP_LIBRARY "turnaround"
-            add_free_var KMP_KMP_SETTINGS "1"
-            add_free_var OMP_WAIT_POLICY "active"
-	    ;;
-    esac
-
-    if [[ "$is_serial_run" == "yes"  ]]
-    then
-	use_nodes=1
-	tasks_per_node=1
-	SBATCH_nodes="SBATCH --nodes=1"
-	SBATCH_ntasks_per_node=""
-    else
-	job_type=parallel
-	tasks_per_node=$use_mpi_procs_pernode
-	SBATCH_nodes="SBATCH --nodes=${use_nodes}"
-	SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=1"
-    fi
-
-    if [[ "x$BB_SYSTEM" != "x" ]]
-    then
-	# this buildbot, do not use job id
-	job_log_name="LOG.$job_name"
-    else
-	job_log_name="LOG.$job_name.%j"
-    fi
-
-    s_cpu_time=""
-    if [[ "x$use_cpu_time" != "x" ]]
-    then
-	s_cpu_time="SBATCH --time=$use_cpu_time"
-    fi
-    if [[ "x$BB_SYSTEM" != "x" ]]
-    then
-	# this is buldbot, do not run more than 45 minutes
-	s_cpu_time="SBATCH --time=00:45:00"
-    fi
-
-    use_nodes=${use_nodes}
-    use_mpi_procs_pernode=${use_mpi_procs_pernode}
-
-    cat >> $output_script << EOF
-#=============================================================================
-
-# kesch gpu batch job parameters
-# ------------------------------
-#SBATCH --gres=gpu:1
-#SBATCH --partition=debug
-#SBATCH --job-name=$job_name
-#SBATCH --output=$output_folder/$job_log_name.o
-#SBATCH --error=$output_folder/$job_log_name.o
-#SBATCH --workdir=$output_folder
-#$SBATCH_nodes
-#$SBATCH_ntasks_per_node
-#$s_cpu_time
-EOF
-
     start_header
 }
 
@@ -1391,21 +1219,6 @@ EOF
 }
 
 #=============================================================================
-set_run_target_default()
-{
-    set_default use_nproma 8
-    set_default use_nodes 1
-    set_default use_mpi_procs_pernode 2
-  
-    if [[ $use_openmp == "yes" ]]
-    then
-	set_default use_openmp_threads 2
-    fi
-
-    start_header
-}
-
-#=============================================================================
 set_run_target_fh2()
 {
     icon_data_rootFolder=${icon_data_rootFolder:=/pfs/work6/workspace/scratch/ln1297-boundary_mistral-0/pool/data/ICON}
@@ -1457,11 +1270,12 @@ create_target_header()
     fi
 
     use_prefetch_procs=0
-    case $job_name in
-        *mch_ch*)
-            use_prefetch_procs=1
-            ;;
-    esac
+# Workaround of MPI test failure: temporarily us no prefetch procs
+#    case $job_name in
+#        *mch_ch*)
+#            use_prefetch_procs=1
+#            ;;
+#    esac
 
     # set more default values
     set_default use_shell "/bin/ksh"

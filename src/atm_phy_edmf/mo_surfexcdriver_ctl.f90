@@ -98,7 +98,6 @@ USE mo_edmf_param   ,ONLY : &
       & LEOCWA   ,LEOCCO   ,&                               !yoephy  (& yos_exc)
       & LEFLAKE  ,RH_ICE_MIN_FLK     ,&                     !yoephy  (& yos_flake)
       & FOEEW                                               !fcttrm.h (& fcsttre.h)
-USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
 USE mo_lnd_nwp_config,ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
                                    & isub_water, isub_lake, isub_seaice
 USE mo_ext_data_types,ONLY: t_external_data

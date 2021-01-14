@@ -768,6 +768,7 @@ MODULE mo_ocean_nml
   ! ist : todo move into different nml
   LOGICAL  :: lhamocc=.FALSE.
   LOGICAL  :: lbgcadv=.FALSE.
+  LOGICAL  :: lsediment_only=.FALSE.
   INTEGER  :: nbgctra, nbgcadv 
                                  
   
@@ -778,7 +779,7 @@ MODULE mo_ocean_nml
     &  LinearThermoExpansionCoefficient,  &
     &  LinearHalineContractionCoefficient,&
     &  OceanReferenceDensity,       &
-    &  lhamocc, lbgcadv
+    &  lhamocc, lbgcadv, lsediment_only
 
   ! ------------------------------------------------------------------------
   ! FORCING {

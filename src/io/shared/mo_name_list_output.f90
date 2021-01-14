@@ -87,6 +87,7 @@ MODULE mo_name_list_output
       &                                   CDI_UNDEFID, TSTEP_CONSTANT, FILETYPE_GRB, taxisDestroy, gridDestroy, &
       &                                   vlistDestroy, streamClose, streamWriteVarSlice, streamWriteVarSliceF, streamDefVlist, &
       &                                   streamSync, taxisDefVdate, taxisDefVtime, GRID_LONLAT, &
+      &                                   streamDefCompType, CDI_COMPRESS_SZIP, &
       &                                   streamOpenAppend, streamInqVlist, vlistInqTaxis, vlistNtsteps
   USE mo_util_cdi,                  ONLY: cdiGetStringError
   ! utility functions
@@ -122,8 +123,7 @@ MODULE mo_name_list_output
     &                                     t_var_desc, t_output_name_list
   USE mo_output_event_types,        ONLY: t_sim_step_info, t_par_output_event
   ! parallelization
-  USE mo_communication,             ONLY: exchange_data, t_comm_gather_pattern, idx_no, blk_no,     &
-    &                                     idx_1d
+  USE mo_communication,             ONLY: exchange_data, t_comm_gather_pattern, idx_no, blk_no
   USE mo_mpi,                       ONLY: p_send, p_recv, p_barrier, stop_mpi,                      &
     &                                     p_mpi_wtime, p_irecv, p_wait, p_test, p_isend,            &
     &                                     p_comm_work, p_real_dp, p_real_sp, p_int,                 &
@@ -131,7 +131,7 @@ MODULE mo_name_list_output
     &                                     my_process_is_mpi_workroot, my_process_is_work,           &
     &                                     my_process_is_io, my_process_is_mpi_ioroot,               &
     &                                     process_mpi_all_test_id, process_mpi_all_workroot_id,     &
-    &                                     num_work_procs, p_pe, p_pe_work, p_work_pe0, p_io_pe0,    &
+    &                                     num_work_procs, p_pe, p_pe_work,                          &
     &                                     p_max, p_comm_work_2_io, mpi_request_null
 #ifdef _OPENACC
   USE mo_mpi,                       ONLY: i_am_accel_node
@@ -139,8 +139,7 @@ MODULE mo_name_list_output
 #endif
   ! calendar operations
   USE mtime,                        ONLY: datetime, newDatetime, deallocateDatetime, OPERATOR(-),   &
-    &                                     timedelta, newTimedelta, deallocateTimedelta,             &
-    &                                     MAX_DATETIME_STR_LEN
+    &                                     timedelta, MAX_DATETIME_STR_LEN
   ! output scheduling
   USE mo_output_event_handler,      ONLY: is_output_step, check_open_file, check_close_file,        &
     &                                     pass_output_step, get_current_filename,                   &
@@ -322,6 +321,9 @@ CONTAINS
         of%cdiTaxisID_orig = CDI_UNDEFID
       ENDIF
       of%cdiFileID       = streamOpenWrite(filename(1:name_len), of%output_type)
+      IF (gribout_config(of%phys_patch_id)%lgribout_compress_ccsds) THEN
+        CALL streamDefCompType(of%cdiFileID, CDI_COMPRESS_SZIP)
+      ENDIF
       of%appending       = .FALSE.
     ENDIF
 
@@ -2572,17 +2574,17 @@ CONTAINS
     ! define initial time stamp used as reference for output statistics
     CALL set_reference_time()
 
+    ! Initialize name list output, this is a collective call for all PEs
+    CALL init_name_list_output(sim_step_info)
+
 #ifdef YAC_coupling
     ! The initialisation of YAC needs to be called by all (!) MPI processes
     ! in MPI_COMM_WORLD.
-    ! construct_io_coupler needs to be called before init_name_list_output
+    ! construct_io_coupler needs to be called after init_name_list_output
     ! due to calling sequence in subroutine atmo_model for other atmosphere
     ! processes
     IF ( is_coupled_run() ) CALL construct_io_coupler ( "name_list_io" )
 #endif
-    ! Initialize name list output, this is a collective call for all PEs
-    CALL init_name_list_output(sim_step_info)
-
     ! setup of meteogram output
     DO jg =1,n_dom
       IF (meteogram_output_config(jg)%lenabled) THEN

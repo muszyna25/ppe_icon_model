@@ -24,7 +24,7 @@ MODULE mo_util_phys
   USE mo_physical_constants,    ONLY: o_m_rdv        , & !! 1 - r_d/r_v &
     &                                 rdv,             & !! r_d / r_v
     &                                 cpd, p0ref, rd,  &
-    &                                 vtmpc1, t3
+    &                                 vtmpc1, t3, rd_o_cpd
   USE mo_exception,             ONLY: finish, message
   USE mo_satad,                 ONLY: sat_pres_water, sat_pres_ice
   USE mo_fortran_tools,         ONLY: assign_if_present
@@ -34,7 +34,7 @@ MODULE mo_util_phys
   USE mo_nwp_phy_types,         ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, iqg, iqni, ininact, &
        &                              iqm_max, nqtendphy, lart, &
-       &                              iqh, iqnc, iqnr, iqns, iqng, iqnh, msg_level
+       &                              iqh, iqnc, iqnr, iqns, iqng, iqnh
   USE mo_nh_diagnose_pres_temp, ONLY: diag_pres, diag_temp
   USE mo_ls_forcing_nml,        ONLY: is_ls_forcing
   USE mo_loopindices,           ONLY: get_indices_c
@@ -46,6 +46,10 @@ MODULE mo_util_phys
   USE mo_nonhydrostatic_config, ONLY: kstart_moist
   USE mo_satad,                 ONLY: qsat_rho
   USE mo_upatmo_config,         ONLY: upatmo_config
+#ifdef _OPENACC
+  USE mo_mpi,                   ONLY: i_am_accel_node
+  USE openacc,                  ONLY: acc_is_present
+#endif
 
 
   IMPLICIT NONE
@@ -63,6 +67,8 @@ MODULE mo_util_phys
   PUBLIC :: compute_field_rel_hum_ifs
   PUBLIC :: iau_update_tracer
   PUBLIC :: tracer_add_phytend
+  PUBLIC :: exner_from_pres
+  PUBLIC :: theta_from_temp_and_exner
 
   !> module name
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_util_phys'
@@ -269,6 +275,7 @@ CONTAINS
   !! @par Revision History
   !! Initial revision  :  F. Prill, DWD (2012-07-03) 
   ELEMENTAL FUNCTION rel_hum(temp, qv, p_ex)
+!$ACC ROUTINE SEQ
 
     REAL(wp) :: rel_hum
     REAL(wp), INTENT(IN) :: temp, &  ! temperature
@@ -300,6 +307,7 @@ CONTAINS
   !! @par Revision History
   !! Initial revision  by Daniel Reinert, DWD (2013-07-15) 
   ELEMENTAL FUNCTION rel_hum_ifs(temp, qv, p_ex)
+!$ACC ROUTINE SEQ
 
     REAL(wp) :: rel_hum_ifs
     REAL(wp), INTENT(IN) :: temp, &  ! temperature
@@ -345,7 +353,7 @@ CONTAINS
     TYPE(t_nh_prog), INTENT(IN) :: p_prog
     TYPE(t_nh_diag), INTENT(IN) :: p_diag
     ! output variable, dim: (nproma,nlev,nblks_c):
-    REAL(wp),INTENT(INOUT) :: out_var(:,:,:)
+    REAL(wp), TARGET, INTENT(INOUT)   :: out_var(:,:,:)
     ! optional vertical start/end level:
     INTEGER, INTENT(in), OPTIONAL     :: opt_slev, opt_elev
     ! start and end values of refin_ctrl flag:
@@ -356,6 +364,21 @@ CONTAINS
     INTEGER  :: slev, elev, rl_start, rl_end, i_nchdom,     &
       &         i_startblk, i_endblk, i_startidx, i_endidx, &
       &         jc, jk, jb
+
+    LOGICAL out_var_is_present
+    REAL(wp), POINTER :: out_var_ptr(:,:,:)
+
+#ifdef _OPENACC
+    out_var_is_present = acc_is_present( out_var )
+    IF ( .NOT. out_var_is_present ) THEN
+      ALLOCATE ( out_var_ptr( SIZE(out_var,1), SIZE(out_var,2), SIZE(out_var,3) ) )
+!$ACC ENTER DATA CREATE( out_var_ptr )
+    ELSE
+      out_var_ptr => out_var
+    ENDIF
+#else
+    out_var_ptr => out_var
+#endif
 
     ! default values
     slev     = 1
@@ -378,6 +401,8 @@ CONTAINS
       CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
         i_startidx, i_endidx, rl_start, rl_end)
       
+!$ACC PARALLEL IF ( i_am_accel_node )
+!$ACC LOOP GANG VECTOR COLLAPSE(2) 
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx, i_endidx
         DO jk = slev, elev
@@ -392,14 +417,23 @@ CONTAINS
           qv   = p_prog%tracer_ptr(iqv)%p_3d(jc,jk,jb)
           p_ex = p_prog%exner(jc,jk,jb)
           !-- compute relative humidity as r = e/e_s:
-          out_var(jc,jk,jb) = rel_hum(temp, qv, p_ex)
+          out_var_ptr(jc,jk,jb) = rel_hum(temp, qv, p_ex)
 
         END DO
       END DO
+!$ACC END PARALLEL
 
     END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+
+#ifdef _OPENACC
+    IF ( .NOT. out_var_is_present ) THEN
+!$ACC UPDATE HOST( out_var_ptr )
+      out_var = out_var_ptr 
+!$ACC EXIT DATA DELETE( out_var_ptr)
+    ENDIF
+#endif
 
   END SUBROUTINE compute_field_rel_hum_wmo
 
@@ -434,6 +468,9 @@ CONTAINS
       &         jc, jk, jb
     LOGICAL  :: lclip       ! clip rel. hum. to values <=100% 
 
+#ifdef _OPENACC
+    CALL finish ('mo_util_phys:compute_field_rel_hum_ifs', 'OpenACC version currently not implemented')
+#endif
 
     IF (PRESENT(opt_lclip)) THEN
       lclip = opt_lclip
@@ -754,11 +791,8 @@ CONTAINS
 
     ! additional clipping for qr, qs, ... up to iqm_max
     ! (very small negative values may occur during the transport process (order 10E-15))
-    IF (atm_phy_nwp_config(jg)%ldetrain_conv_prec) THEN
-      iq_start = iqg  ! qr, qs already clipped above
-    ELSE
-      iq_start = iqr
-    ENDIF 
+    iq_start = MAXVAL(ptr_conv_list(:)) + 1  ! all others have already been clipped above
+    !
     DO jt=iq_start, iqm_max  ! qr,qs,etc. 
       DO jk = kstart_moist(jg), kend
         DO jc = i_startidx, i_endidx
@@ -811,5 +845,33 @@ CONTAINS
 
   END SUBROUTINE tracer_add_phytend
 
+
+  !>
+  !! Compute Exner pressure from pressure
+  !!
+  ELEMENTAL FUNCTION exner_from_pres(pres) RESULT(exner)
+    
+    REAL(wp), INTENT(IN) :: pres  !< pressure [Pa]
+    REAL(wp)                exner !< Exner pressure [1]
+    
+    !---------------------------
+    
+    exner = ( pres / p0ref )**rd_o_cpd
+
+  END FUNCTION exner_from_pres
+
+  !>
+  !! Compute potential temperature from temperature and Exner pressure
+  !!
+  ELEMENTAL FUNCTION theta_from_temp_and_exner(temp, exner) RESULT(theta)
+    
+    REAL(wp), INTENT(IN) :: temp, exner  !< temperature [K] and Exner pressure [1]
+    REAL(wp)                theta        !< potential temperature [K]
+    
+    !---------------------------
+    
+    theta = temp / exner
+
+  END FUNCTION theta_from_temp_and_exner
 
 END MODULE mo_util_phys

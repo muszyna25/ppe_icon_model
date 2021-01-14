@@ -20,7 +20,7 @@
 !!
 MODULE mo_fortran_tools
 
-  USE mo_kind,                    ONLY: wp, sp, vp, dp, ik4 => i4, vp2
+  USE mo_kind,                    ONLY: wp, sp, vp, dp, ik4 => i4
   USE mo_exception,               ONLY: finish
   USE mo_impl_constants,          ONLY: SUCCESS
   USE mo_impl_constants,          ONLY: VARNAME_LEN
@@ -34,7 +34,7 @@ MODULE mo_fortran_tools
   IMPLICIT NONE
 
   PUBLIC :: assign_if_present
-  PUBLIC :: t_ptr_2d3d, t_ptr_2d3d_vp, t_ptr_2d3d_vp2
+  PUBLIC :: t_ptr_2d3d, t_ptr_2d3d_vp
   PUBLIC :: assign_if_present_allocatable
   PUBLIC :: t_ptr_1d
   PUBLIC :: t_ptr_1d_int
@@ -96,12 +96,6 @@ MODULE mo_fortran_tools
     REAL(vp),POINTER :: p_3d(:,:,:)  ! REAL pointer to 3D (spatial) array
     REAL(vp),POINTER :: p_2d(:,:)    ! REAL pointer to 2D (spatial) array
   END TYPE t_ptr_2d3d_vp
-
-  TYPE t_ptr_2d3d_vp2
-    REAL(vp2),POINTER :: p_3d(:,:,:)  ! REAL pointer to 3D (spatial) array
-    REAL(vp2),POINTER :: p_2d(:,:)    ! REAL pointer to 2D (spatial) array
-  END TYPE t_ptr_2d3d_vp2
-
 
   TYPE t_ptr_i2d3d
     INTEGER,POINTER :: p_3d(:,:,:)  ! INTEGER pointer to 3D (spatial) array
@@ -441,9 +435,9 @@ CONTAINS
     m1 = SIZE(dest, 1)
     m2 = SIZE(dest, 2)
 #ifdef _OPENACC
-!$ACC DATA PCOPYIN( src ), PCOPYOUT( dest ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( src ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
-!$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYIN( src ) PCOPYOUT( dest ) IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( src ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC PARALLEL PRESENT( src, dest ) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(2)
 #else
 #ifdef __INTEL_COMPILER
@@ -459,7 +453,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( dest ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC UPDATE HOST( dest ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -476,9 +470,9 @@ CONTAINS
     m2 = SIZE(dest, 2)
     m3 = SIZE(dest, 3)
 #ifdef _OPENACC
-!$ACC DATA PCOPYIN( src ), PCOPYOUT( dest ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( src ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
-!$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYIN( src ) PCOPYOUT( dest ) IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( src ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC PARALLEL PRESENT( src, dest ) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(3)
 #else
 #if (defined(_CRAYFTN) || defined(__INTEL_COMPILER))
@@ -496,7 +490,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( dest ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC UPDATE HOST( dest ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -513,9 +507,9 @@ CONTAINS
     m3 = SIZE(dest, 3)
     m4 = SIZE(dest, 4)
 #ifdef _OPENACC
-!$ACC DATA PCOPYIN( src ), PCOPYOUT( dest ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( src ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
-!$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYIN( src ) PCOPYOUT( dest ) IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( src ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC PARALLEL PRESENT( src, dest ) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(4)
 #else
 #if (defined(_CRAYFTN) || defined(__INTEL_COMPILER))
@@ -535,7 +529,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( dest ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC UPDATE HOST( dest ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -553,9 +547,9 @@ CONTAINS
     m4 = SIZE(dest, 4)
     m5 = SIZE(dest, 5)
 #ifdef _OPENACC
-!$ACC DATA PCOPYIN( src ), PCOPYOUT( dest ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( src ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
-!$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYIN( src ) PCOPYOUT( dest ) IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( src ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC PARALLEL PRESENT( src, dest ) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(5)
 #else
 #if (defined(__INTEL_COMPILER))
@@ -577,7 +571,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( dest ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC UPDATE HOST( dest ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -595,9 +589,9 @@ CONTAINS
     m4 = SIZE(dest, 4)
     m5 = SIZE(dest, 5)
 #ifdef _OPENACC
-!$ACC DATA PCOPYIN( src ), PCOPYOUT( dest ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( src ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
-!$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYIN( src ) PCOPYOUT( dest ) IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( src ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC PARALLEL PRESENT( src, dest ) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(5)
 #else
 #if (defined(__INTEL_COMPILER))
@@ -619,7 +613,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( dest ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC UPDATE HOST( dest ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -637,9 +631,9 @@ CONTAINS
     m4 = SIZE(dest, 4)
     m5 = SIZE(dest, 5)
 #ifdef _OPENACC
-!$ACC DATA PCOPYIN( src ), PCOPYOUT( dest ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( src ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
-!$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYIN( src ) PCOPYOUT( dest ) IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( src ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC PARALLEL PRESENT( src, dest ) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(5)
 #else
 #if (defined(__INTEL_COMPILER))
@@ -661,7 +655,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( dest ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC UPDATE HOST( dest ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -676,9 +670,9 @@ CONTAINS
     m1 = SIZE(dest, 1)
     m2 = SIZE(dest, 2)
 #ifdef _OPENACC
-!$ACC DATA PCOPYIN( src ), PCOPYOUT( dest ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( src ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
-!$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYIN( src ) PCOPYOUT( dest ) IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( src ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC PARALLEL PRESENT( src, dest ) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(2)
 #else
 #if (defined(__INTEL_COMPILER))
@@ -694,7 +688,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( dest ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC UPDATE HOST( dest ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -713,9 +707,9 @@ CONTAINS
     m5 = SIZE(dest, 5)
 
 #ifdef _OPENACC
-!$ACC DATA PCOPYIN( src ), PCOPYOUT( dest ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( src ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
-!$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYIN( src ) PCOPYOUT( dest ) IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( src ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC PARALLEL PRESENT( src, dest ) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(5)
 #else
 #if (defined(__INTEL_COMPILER))
@@ -737,7 +731,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( dest ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC UPDATE HOST( dest ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -753,9 +747,9 @@ CONTAINS
     m2 = SIZE(dest, 2)
     m3 = SIZE(dest, 3)
 #ifdef _OPENACC
-!$ACC DATA PCOPYIN( src ), PCOPYOUT( dest ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( src ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
-!$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYIN( src ) PCOPYOUT( dest ) IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( src ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC PARALLEL PRESENT( src, dest ) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(3)
 #else
 #if (defined(__INTEL_COMPILER))
@@ -773,7 +767,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( dest ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC UPDATE HOST( dest ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -788,8 +782,8 @@ CONTAINS
     m2 = SIZE(init_var, 2)
     m3 = SIZE(init_var, 3)
 #ifdef _OPENACC
-!$ACC DATA PCOPYOUT( init_var ), IF( i_am_accel_node .AND. acc_on )
-!$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYOUT( init_var ) IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( init_var ) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(3)
 #else
 #if (defined(__INTEL_COMPILER) || defined(_CRAYFTN))
@@ -807,7 +801,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC UPDATE HOST( init_var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -823,8 +817,8 @@ CONTAINS
     m3 = SIZE(init_var, 3)
     m4 = SIZE(init_var, 4)
 #ifdef _OPENACC
-!$ACC DATA PCOPYOUT( init_var ), IF( i_am_accel_node .AND. acc_on )
-!$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYOUT( init_var ) IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( init_var ) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(4)
 #else
 #if (defined(__INTEL_COMPILER) || defined(_CRAYFTN))
@@ -844,7 +838,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC UPDATE HOST( init_var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -860,8 +854,8 @@ CONTAINS
     m3 = SIZE(init_var, 3)
     m4 = SIZE(init_var, 4)
 #ifdef _OPENACC
-!$ACC DATA PCOPYOUT( init_var ), IF( i_am_accel_node .AND. acc_on )
-!$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYOUT( init_var ) IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( init_var ) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(4)
 #else
 #if (defined(__INTEL_COMPILER) || defined(_CRAYFTN))
@@ -881,7 +875,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC UPDATE HOST( init_var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -896,8 +890,8 @@ CONTAINS
     m2 = SIZE(init_var, 2)
     m3 = SIZE(init_var, 3)
 #ifdef _OPENACC
-!$ACC DATA PCOPYOUT( init_var ), IF( i_am_accel_node .AND. acc_on )
-!$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYOUT( init_var ) IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( init_var ) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(3)
 #else
 #if (defined(__INTEL_COMPILER))
@@ -915,7 +909,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC UPDATE HOST( init_var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -931,8 +925,8 @@ CONTAINS
     m2 = SIZE(init_var, 2)
 
 #ifdef _OPENACC
-!$ACC DATA PCOPYOUT( init_var ), IF( i_am_accel_node .AND. acc_on )
-!$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYOUT( init_var ) IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( init_var ) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(2)
 #else
 #if (defined(__INTEL_COMPILER))
@@ -948,7 +942,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC UPDATE HOST( init_var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -963,8 +957,8 @@ CONTAINS
     m2 = SIZE(init_var, 2)
     m3 = SIZE(init_var, 3)
 #ifdef _OPENACC
-!$ACC DATA PCOPYOUT( init_var ), IF( i_am_accel_node .AND. acc_on )
-!$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYOUT( init_var ) IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( init_var ) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(3)
 #else
 #if (defined(__INTEL_COMPILER))
@@ -982,7 +976,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC UPDATE HOST( init_var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -998,8 +992,8 @@ CONTAINS
     m3 = SIZE(init_var, 3)
     m4 = SIZE(init_var, 4)
 #ifdef _OPENACC
-!$ACC DATA PCOPY( init_var ), IF( i_am_accel_node .AND. acc_on )
-!$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPY( init_var ) IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( init_var ) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(4)
 #else
 #if (defined(__INTEL_COMPILER))
@@ -1019,7 +1013,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC UPDATE HOST( init_var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -1032,8 +1026,8 @@ CONTAINS
 
     m1 = SIZE(init_var, 1)
 #ifdef _OPENACC
-!$ACC DATA PCOPYOUT( init_var ), IF( i_am_accel_node .AND. acc_on )
-!$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYOUT( init_var ) IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( init_var ) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP 
 #else
 !$omp do
@@ -1043,7 +1037,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC UPDATE HOST( init_var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -1057,8 +1051,8 @@ CONTAINS
     m1 = SIZE(init_var, 1)
     m2 = SIZE(init_var, 2)
 #ifdef _OPENACC
-!$ACC DATA PCOPYOUT( init_var ), IF( i_am_accel_node .AND. acc_on )
-!$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYOUT( init_var ) IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( init_var ) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(2)
 #else
 #if (defined(__INTEL_COMPILER))
@@ -1074,7 +1068,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC UPDATE HOST( init_var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -1091,8 +1085,8 @@ CONTAINS
     m2 = SIZE(init_var, 2)
     m3 = SIZE(init_var, 3)
 #ifdef _OPENACC
-!$ACC DATA PCOPYOUT( init_var ), IF( i_am_accel_node .AND. acc_on )
-!$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYOUT( init_var ) IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( init_var ) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(3)
 #else
 #if (defined(__INTEL_COMPILER))
@@ -1110,7 +1104,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC UPDATE HOST( init_var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -1127,8 +1121,8 @@ CONTAINS
     m2 = SIZE(init_var, 2)
     m3 = SIZE(init_var, 3)
 #ifdef _OPENACC
-!$ACC DATA PCOPYOUT( init_var ), IF( i_am_accel_node .AND. acc_on )
-!$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYOUT( init_var ) IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( init_var ) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(3)
 #else
 #if (defined(__INTEL_COMPILER))
@@ -1146,7 +1140,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC UPDATE HOST( init_var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -1165,8 +1159,8 @@ CONTAINS
     m4 = SIZE(init_var, 4)
     m5 = SIZE(init_var, 5)
 #ifdef _OPENACC
-!$ACC DATA PCOPYOUT( init_var ), IF( i_am_accel_node .AND. acc_on )
-!$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYOUT( init_var ) IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( init_var ) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(5)
 #else
 #if (defined(__INTEL_COMPILER))
@@ -1188,7 +1182,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC UPDATE HOST( init_var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -1207,8 +1201,8 @@ CONTAINS
     m4 = SIZE(init_var, 4)
     m5 = SIZE(init_var, 5)
 #ifdef _OPENACC
-!$ACC DATA PCOPYOUT( init_var ), IF( i_am_accel_node .AND. acc_on )
-!$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYOUT( init_var ) IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( init_var ) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(5)
 #else
 #if (defined(__INTEL_COMPILER))
@@ -1230,7 +1224,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC UPDATE HOST( init_var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -1249,9 +1243,9 @@ CONTAINS
     m3 = SIZE(var, 3)
 
 #ifdef _OPENACC
-!$ACC DATA PCOPYOUT( var ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
-!$ACC PARALLEL PRESENT( var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYOUT( var ) IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC PARALLEL PRESENT( var ) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(3)
 #else
 #if (defined(__INTEL_COMPILER))
@@ -1269,7 +1263,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC UPDATE HOST( var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -1318,9 +1312,8 @@ CONTAINS
 
 #ifdef _OPENACC
 
-!$ACC DATA PCOPY( var ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
-!$ACC PARALLEL PRESENT( var ), ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC PARALLEL DEFAULT(NONE) PRESENT( var ) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(4)
 #else
 #if (defined(__INTEL_COMPILER))
@@ -1341,18 +1334,19 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( var ), WAIT IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
-!$ACC END DATA
+!$ACC UPDATE HOST( var ) WAIT IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 #else
 !$omp end do nowait
 #endif
 
     IF ( PRESENT(opt_acc_async) ) THEN
-      IF ( opt_acc_async ) THEN
-        RETURN
+      IF ( .NOT. opt_acc_async ) THEN
+        !$ACC WAIT
       END IF
+    ELSE
+      !$ACC WAIT
     END IF
-    !$ACC WAIT
+
   END SUBROUTINE negative2zero_4d_dp
 
   SUBROUTINE init_contiguous_dp(var, n, v, opt_acc_async)
@@ -1365,8 +1359,7 @@ CONTAINS
     INTEGER :: i
 
 #ifdef _OPENACC
-!$ACC DATA PCOPYOUT( var ), IF( i_am_accel_node .AND. acc_on )
-!$ACC PARALLEL PRESENT( var ), IF( i_am_accel_node .AND. acc_on ) ASYNC(1)
+!$ACC PARALLEL DEFAULT(NONE) PRESENT( var ) IF( i_am_accel_node .AND. acc_on ) ASYNC(1)
 !$ACC LOOP
 #else
 !$omp do
@@ -1376,18 +1369,19 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( var ), WAIT IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
-!$ACC END DATA
+!$ACC UPDATE HOST( var ) WAIT IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 #else
 !$omp end do nowait
 #endif
 
     IF ( PRESENT(opt_acc_async) ) THEN
-      IF ( opt_acc_async ) THEN
-        RETURN
+      IF ( .NOT. opt_acc_async ) THEN
+        !$ACC WAIT
       END IF
+    ELSE
+      !$ACC WAIT
     END IF
-    !$ACC WAIT
+
   END SUBROUTINE init_contiguous_dp
 
   SUBROUTINE init_zero_contiguous_dp(var, n, opt_acc_async)
@@ -1412,8 +1406,7 @@ CONTAINS
 
     INTEGER :: i
 #ifdef _OPENACC
-!$ACC DATA PCOPYOUT( var ), IF( i_am_accel_node .AND. acc_on )
-!$ACC PARALLEL PRESENT( var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) PRESENT( var ) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP
 #else
 !$omp do
@@ -1423,18 +1416,19 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
-!$ACC END DATA
+!$ACC UPDATE HOST( var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 #else
 !$omp end do nowait
 #endif
 
     IF ( PRESENT(opt_acc_async) ) THEN
-      IF ( opt_acc_async ) THEN
-        RETURN
+      IF ( .NOT. opt_acc_async ) THEN
+        !$ACC WAIT
       END IF
+    ELSE
+      !$ACC WAIT
     END IF
-    !$ACC WAIT
+
   END SUBROUTINE init_contiguous_sp
 
   SUBROUTINE init_zero_contiguous_sp(var, n, opt_acc_async)
@@ -1456,8 +1450,8 @@ CONTAINS
 
     INTEGER :: i
 #ifdef _OPENACC
-!$ACC DATA PCOPYOUT( var ), IF( i_am_accel_node .AND. acc_on )
-!$ACC PARALLEL PRESENT( var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYOUT( var ) IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( var ) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP
 #else
 !$omp do
@@ -1467,7 +1461,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC UPDATE HOST( var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -1481,8 +1475,8 @@ CONTAINS
 
     INTEGER :: i
 #ifdef _OPENACC
-!$ACC DATA PCOPYOUT( var ), IF( i_am_accel_node .AND. acc_on )
-!$ACC PARALLEL PRESENT( var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYOUT( var ) IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( var ) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP
 #else
 !$omp do
@@ -1492,7 +1486,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC UPDATE HOST( var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait

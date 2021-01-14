@@ -39,7 +39,7 @@ USE mo_impl_constants,       ONLY: SUCCESS
 USE mo_scatter_pattern_base, ONLY: t_ScatterPattern, t_ScatterPatternPtr, deleteScatterPattern
 USE mo_kind,                 ONLY: dp, sp
 USE mo_exception,            ONLY: finish
-USE mo_mpi,                  ONLY: p_send, p_recv, &
+USE mo_mpi,                  ONLY: p_send, p_recv, p_barrier, &
      &                             p_comm_work, p_pe_work, p_n_work, p_gatherv, &
      &                             p_alltoallv, p_alltoall, process_mpi_root_id, &
      &                             p_bcast, p_comm_is_intercomm, &
@@ -1296,6 +1296,10 @@ CONTAINS
          comm=comm)
     IF (SIZE(out_array, 1) < SUM(collector_buffer_sizes)) &
       CALL finish("allgather_r_1d_deblock", "invalid out_array size")
+#if defined (__SX__) || defined (__NEC_VH__)
+    ! Workaround for occasional segfaults
+    CALL p_barrier(comm)
+#endif
     CALL p_allgatherv(collector_buffer(1,:), out_array, collector_buffer_sizes,&
       &               comm=comm)
 

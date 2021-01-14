@@ -19,7 +19,9 @@ MODULE mo_atmo_model
   USE mo_exception,               ONLY: message, finish
   USE mo_mpi,                     ONLY: stop_mpi, my_process_is_io, my_process_is_work,       &
     &                                   set_mpi_work_communicators, process_mpi_io_size,      &
-    &                                   my_process_is_pref, process_mpi_pref_size
+    &                                   my_process_is_pref, process_mpi_pref_size,            &
+    &                                   my_process_is_radario, process_mpi_radario_size,      &
+    &                                   my_process_is_mpi_test
 #ifdef HAVE_CDI_PIO
   USE mo_mpi,                     ONLY: mpi_comm_null, p_comm_work_io
 #endif
@@ -27,9 +29,17 @@ MODULE mo_atmo_model
     &                                   timers_level, timer_model_init,                       &
     &                                   timer_domain_decomp, timer_compute_coeffs,            &
     &                                   timer_ext_data, print_timer
-  USE mo_parallel_config,         ONLY: p_test_run, num_test_pe, l_test_openmp,               &
-    &                                   update_nproma_on_device, num_io_procs,                &
-    &                                   num_prefetch_proc, pio_type
+#ifdef HAVE_RADARFWO
+  USE mo_emvorado_init,           ONLY: prep_emvorado_domains
+  USE mo_emvorado_interface,      ONLY: radar_mpi_barrier
+#ifndef NOMPI
+  USE mo_emvorado_interface,      ONLY: exchg_with_detached_emvorado_io,                      &
+       &                                detach_emvorado_io
+#endif
+#endif
+  USE mo_parallel_config,         ONLY: p_test_run, num_test_pe, l_test_openmp,                  &
+    &                                   update_nproma_on_device, num_io_procs, proc0_shift, &
+    &                                   num_prefetch_proc, pio_type, num_io_procs_radar
   USE mo_master_config,           ONLY: isRestart
   USE mo_memory_log,              ONLY: memory_log_terminate
   USE mo_impl_constants,          ONLY: pio_type_async, pio_type_cdipio
@@ -71,7 +81,7 @@ MODULE mo_atmo_model
     &                                   dtime, output_mode,                                   &
     &                                   grid_generatingCenter,                                & ! grid generating center
     &                                   grid_generatingSubcenter,                             & ! grid generating subcenter
-    &                                   iforcing
+    &                                   iforcing, luse_radarfwo
   USE mo_gribout_config,          ONLY: configure_gribout
 #ifndef __NO_JSBACH__
   USE mo_echam_phy_config,        ONLY: echam_phy_config
@@ -174,7 +184,6 @@ CONTAINS
 #endif
 #endif
 
-
     !---------------------------------------------------------------------
     ! construct the atmo model
     CALL construct_atmo_model(atm_namelist_filename,shr_namelist_filename)
@@ -211,6 +220,19 @@ CONTAINS
     ! print performance timers:
     IF (ltimer) CALL print_timer
 
+#ifdef HAVE_RADARFWO
+#ifndef __SCT__
+    IF (process_mpi_radario_size > 0) THEN
+      IF (ltimer) THEN
+#ifndef NOMPI
+        ! To synchronize the EMVORADO async. IO timing output, so that this 
+        !  timing printout appears after the "normal" timing printout for the workers
+        CALL radar_mpi_barrier ()
+#endif
+      END IF
+    END IF
+#endif
+#endif
 
     !---------------------------------------------------------------------
     ! 13. Integration finished. Carry out the shared clean-up processes
@@ -299,10 +321,21 @@ CONTAINS
     ! 3.1 Initialize the mpi work groups
     !-------------------------------------------------------------------
     CALL restartWritingParameters(opt_dedicatedProcCount = dedicatedRestartProcs)
-    CALL set_mpi_work_communicators(p_test_run, l_test_openmp, &
-         &                          num_io_procs, dedicatedRestartProcs, &
-         &                          atmo_process, num_prefetch_proc, num_test_pe,      &
-         &                          pio_type) 
+
+#ifdef HAVE_RADARFWO
+    IF (iequations == inh_atmosphere .AND. iforcing == inwp .AND. ANY(luse_radarfwo(1:n_dom))) THEN
+      CALL prep_emvorado_domains (n_dom, luse_radarfwo(1:n_dom))
+    ENDIF
+#endif
+
+    CALL set_mpi_work_communicators(p_test_run, l_test_openmp,                    &
+         &                          num_io_procs, dedicatedRestartProcs,          &
+         &                          atmo_process, num_prefetch_proc, num_test_pe, &
+         &                          pio_type,                                     &
+         &                          num_io_procs_radar=num_io_procs_radar,        &
+         &                          radar_flag_doms_model=luse_radarfwo(1:n_dom), &
+         &                          num_dio_procs=proc0_shift)
+
 #ifdef _OPENACC
     CALL update_nproma_on_device( my_process_is_work() )
 #endif
@@ -414,6 +447,47 @@ CONTAINS
       ENDIF
     ENDIF
 
+#ifdef HAVE_RADARFWO
+#ifndef NOMPI
+    IF ( .NOT. my_process_is_mpi_test() .AND. &
+         iequations == inh_atmosphere .AND. iforcing == inwp .AND. &
+         ANY(luse_radarfwo(1:n_dom)) .AND. num_io_procs_radar > 0   ) THEN
+
+      ! -------------------------------------------------------------------------
+      ! Radar forward operator EMVORADO
+      ! -------------------------------------------------------------------------
+      !
+      ! - Initialize data here which must be available on
+      !   all radar PEs (workers + radario). 
+      !
+      ! - also detach the separate radario-procs after this initialisation here.
+      !
+      ! -------------------------------------------------------------------------
+
+      IF (my_process_is_radario()) THEN
+        
+        ! We have to call configure_gribout(...) also on the separate radar-IO-procs
+        !  due to composite-output. For this, grid_generatingCenter and grid_generatingSubcenter
+        !  have to be received on the radar-IO procs from the workers first. Both things are done here.
+        ! The counterpart on the worker nodes is called after model initialization below,
+        !  because only then the grid_generatingCenter and grid_generatingSubcenter are known:
+        CALL exchg_with_detached_emvorado_io (grid_generatingCenter, grid_generatingSubcenter)
+
+        CALL configure_gribout(grid_generatingCenter, grid_generatingSubcenter, n_dom)
+
+        ! This is a pure radar IO PE, so the below "detach_emvorado_io" will never return.
+        ! So we STOP the already started timer "timer_model_init", because it is useless on this PE:
+        IF (timers_level > 3) CALL timer_stop(timer_model_init)
+        
+        CALL detach_emvorado_io (n_dom, luse_radarfwo(1:n_dom))
+        
+      END IF
+    END IF
+#endif
+#endif
+
+
+
     !------------------
     ! Next, define the horizontal and vertical grids since they are aready
     ! needed for some derived control parameters. This includes
@@ -425,7 +499,7 @@ CONTAINS
     !-------------------------------------------------------------------
 
     IF (timers_level > 4) CALL timer_start(timer_domain_decomp)
-    CALL build_decomposition(num_lev, nshift, is_ocean_decomposition = .false.)
+    CALL build_decomposition(num_lev, nshift, is_ocean_decomposition = .FALSE.)
     IF (timers_level > 4) CALL timer_stop(timer_domain_decomp)
 
 
@@ -450,10 +524,10 @@ CONTAINS
     ENDIF
 
     ALLOCATE( p_int_state_local_parent(n_dom_start+1:n_dom), &
-      &       p_grf_state_local_parent(n_dom_start+1:n_dom), &
-      &       STAT=error_status)
+         &    p_grf_state_local_parent(n_dom_start+1:n_dom), &
+         &    STAT=error_status)
     IF (error_status /= SUCCESS) &
-      CALL finish(routine, 'allocation for local parents failed')
+         CALL finish(routine, 'allocation for local parents failed')
 
     ! Construct interpolation state
     ! Please note that for parallel runs the divided state is constructed here
@@ -463,7 +537,7 @@ CONTAINS
     DO jg = n_dom_start+1, n_dom
       jgp = p_patch(jg)%parent_id
       CALL transfer_interpol_state(p_patch(jgp),p_patch_local_parent(jg), &
-        &  p_int_state(jgp), p_int_state_local_parent(jg))
+           &  p_int_state(jgp), p_int_state_local_parent(jg))
     ENDDO
 
     !-----------------------------------------------------------------------------
@@ -471,7 +545,7 @@ CONTAINS
     !-----------------------------------------------------------------------------
     ! For the NH model, the initialization routines called from
     ! construct_2d_gridref_state require the metric terms to be present
-
+      
     IF (n_dom_start==0 .OR. n_dom > 1) THEN
 
       ! Construct gridref state
@@ -479,7 +553,7 @@ CONTAINS
       ! for parallel runs, the main part of the gridref state is constructed on the
       ! local parent with the following call
       CALL construct_2d_gridref_state (p_patch, p_grf_state)
-
+        
       ! Transfer gridref state from local parent to p_grf_state
       DO jg = n_dom_start+1, n_dom
         jgp = p_patch(jg)%parent_id
@@ -493,11 +567,11 @@ CONTAINS
     !-------------------------------------------------------------------
     ! Initialize icon_comm_lib
     !-------------------------------------------------------------------
-!    IF (use_icon_comm) THEN
-      CALL construct_icon_communication(p_patch, n_dom)
-!    ENDIF
+    !    IF (use_icon_comm) THEN
+    CALL construct_icon_communication(p_patch, n_dom)
+    !    ENDIF
 
-
+    
     !--------------------------------------------
     ! Setup the information for the physical patches
     CALL setup_phys_patches
@@ -513,9 +587,10 @@ CONTAINS
     ENDIF
     IF (timers_level > 4) CALL timer_stop(timer_compute_coeffs)
 
-   !---------------------------------------------------------------------
-   ! Prepare dynamics and land
-   !---------------------------------------------------------------------
+
+    !---------------------------------------------------------------------
+    ! Prepare dynamics and land
+    !---------------------------------------------------------------------
 
     CALL configure_dynamics ( n_dom )
 
@@ -537,9 +612,9 @@ CONTAINS
     CALL init_ext_data (p_patch(1:), p_int_state(1:), ext_data)
     IF (timers_level > 4) CALL timer_stop(timer_ext_data)
 
-   !---------------------------------------------------------------------
-   ! Import vertical grid/ define vertical coordinate
-   !---------------------------------------------------------------------
+    !---------------------------------------------------------------------
+    ! Import vertical grid/ define vertical coordinate
+    !---------------------------------------------------------------------
 
     CALL allocate_vct_atmo(p_patch(1)%nlevp1)
     IF (iequations == inh_atmosphere .AND. ltestcase) THEN
@@ -569,6 +644,26 @@ CONTAINS
         END IF
       ENDDO
     ENDIF
+
+    !-------------------------------------------------------------------------
+    ! EMVORADO: The worker part of the communication with radar IO PEs
+    ! To send informations on grid_generatingCenter, grid_generatingSubcenter
+    !-------------------------------------------------------------------------
+
+#ifdef HAVE_RADARFWO
+#ifndef NOMPI
+    IF ( .NOT. my_process_is_mpi_test() .AND. &
+         iequations == inh_atmosphere .AND. iforcing == inwp .AND. &
+         ANY(luse_radarfwo(1:n_dom)) .AND. num_io_procs_radar > 0   ) THEN
+
+      ! Only workers reach this point here. Send
+      !  grid_generatingCenter and grid_generatingSubcenter to the radar I/O PEs:
+      CALL exchg_with_detached_emvorado_io(grid_generatingCenter, grid_generatingSubcenter)
+      
+    END IF
+#endif
+#endif
+
 
 #ifndef __NO_JSBACH__
     ! Setup horizontal grids and tiles for JSBACH

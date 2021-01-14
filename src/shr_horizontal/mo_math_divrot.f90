@@ -280,9 +280,7 @@ SUBROUTINE recon_lsq_cell_l( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   !
   ! 1. reconstruction of cell based gradient (geographical components)
   !
-!$ACC DATA PCOPYIN( p_cc ), PCOPY( p_coeff ), PRESENT( iidx, iblk ),                                      &
-!$ACC      PRESENT( ptr_int_lsq ), &
-!$ACC      CREATE( z_d ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PRESENT( p_coeff, p_cc, iidx, iblk, ptr_int_lsq )
 !$ACC UPDATE DEVICE ( p_cc, p_coeff ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_d,z_qt_times_d), ICON_OMP_RUNTIME_SCHEDULE
@@ -292,6 +290,7 @@ SUBROUTINE recon_lsq_cell_l( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
                        i_startidx, i_endidx, rl_start, rl_end)
 
 #ifdef __LOOP_EXCHANGE
+!$ACC DATA CREATE( z_d )
 !$ACC PARALLEL DEFAULT (NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jc = i_startidx, i_endidx
@@ -336,6 +335,12 @@ SUBROUTINE recon_lsq_cell_l( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
         ! constant
         p_coeff(1,jc,jk,jb) = p_cc(jc,jk,jb)
+        
+      END DO ! end loop over cells
+    END DO ! end loop over vertical levels
+!$ACC END PARALLEL
+!$ACC WAIT
+!$ACC END DATA
 
 #else
 !$ACC PARALLEL DEFAULT (NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
@@ -373,12 +378,13 @@ SUBROUTINE recon_lsq_cell_l( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
         ! constant
         p_coeff(1,jc,jk,jb) = p_cc(jc,jk,jb)
-
-#endif
-
+        
       END DO ! end loop over cells
     END DO ! end loop over vertical levels
 !$ACC END PARALLEL
+
+#endif
+
 
     IF (l_consv) THEN
 !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
@@ -401,15 +407,16 @@ SUBROUTINE recon_lsq_cell_l( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   END DO ! end loop over blocks
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-!$ACC UPDATE HOST(p_coeff) WAIT IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
-!$ACC END DATA
 
   IF ( PRESENT(opt_acc_async) ) THEN
-    IF ( opt_acc_async ) THEN
-      RETURN
+    IF ( .NOT. opt_acc_async ) THEN
+      !$ACC WAIT
     END IF
+  ELSE
+    !$ACC WAIT
   END IF
-  !$ACC WAIT
+!$ACC UPDATE HOST(p_coeff) WAIT IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC END DATA
 
 END SUBROUTINE recon_lsq_cell_l
 
@@ -517,12 +524,6 @@ SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff,      &
   iblk => ptr_patch%cells%neighbor_blk
 
 
-
-  !
-  ! 1. reconstruction of cell based gradient (geographical components)
-  !
-!$ACC DATA PCOPYIN( p_cc ), PCOPY( p_coeff ), PRESENT( ptr_int_lsq, iidx, iblk ), &
-!$ACC      CREATE( z_b ), IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE ( p_cc, p_coeff ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
@@ -532,7 +533,8 @@ SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff,      &
                        i_startidx, i_endidx, rl_start, rl_end)
 
 #ifdef __LOOP_EXCHANGE
-!$ACC PARALLEL DEFAULT (NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA CREATE( z_b )
+!$ACC PARALLEL DEFAULT (PRESENT) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
@@ -553,7 +555,7 @@ SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff,      &
     ! 2. compute cell based coefficients for linear reconstruction
     !    calculate matrix vector product PINV(A) * b
     !
-!$ACC PARALLEL DEFAULT (NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT (PRESENT) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = slev, elev
       DO jc = i_startidx, i_endidx
@@ -568,8 +570,14 @@ SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff,      &
           &                 + ptr_int_lsq%lsq_pseudoinv(jc,1,2,jb) * z_b(2,jc,jk)  &
           &                 + ptr_int_lsq%lsq_pseudoinv(jc,1,3,jb) * z_b(3,jc,jk)
 
+      END DO ! end loop over cells
+    END DO ! end loop over vertical levels
+    !$ACC END PARALLEL
+    !$ACC WAIT
+    !$ACC END DATA
+
 #else
-!$ACC PARALLEL DEFAULT (NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT (PRESENT) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR COLLAPSE(2) PRIVATE(z_b)
 !$NEC outerloop_unroll(4)
     DO jk = slev, elev
@@ -591,25 +599,24 @@ SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff,      &
         p_coeff(1,jc,jk,jb) = ptr_int_lsq%lsq_pseudoinv(jc,1,1,jb) * z_b(1)  &
           &                 + ptr_int_lsq%lsq_pseudoinv(jc,1,2,jb) * z_b(2)  &
           &                 + ptr_int_lsq%lsq_pseudoinv(jc,1,3,jb) * z_b(3)
-#endif
 
       END DO ! end loop over cells
     END DO ! end loop over vertical levels
-!$ACC END PARALLEL
-
+    !$ACC END PARALLEL
+#endif
 
   END DO ! end loop over blocks
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 !$ACC UPDATE HOST(p_coeff) WAIT IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
-!$ACC END DATA
 
   IF ( PRESENT(opt_acc_async) ) THEN
-    IF ( opt_acc_async ) THEN
-      RETURN
+    IF ( .NOT. opt_acc_async ) THEN
+      !$ACC WAIT
     END IF
+  ELSE
+    !$ACC WAIT
   END IF
-  !$ACC WAIT
 
 END SUBROUTINE recon_lsq_cell_l_svd
 
@@ -642,7 +649,7 @@ END SUBROUTINE recon_lsq_cell_l_svd
 !!
 SUBROUTINE recon_lsq_cell_l_consv_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   &                                    opt_slev, opt_elev, opt_rlstart,      &
-  &                                    opt_rlend, opt_lconsv, opt_acc_async )
+  &                                    opt_rlend, opt_lconsv )
 
   TYPE(t_patch), TARGET, INTENT(IN) :: &  !< patch on which computation 
     &  ptr_patch                          !< is performed
@@ -667,10 +674,7 @@ SUBROUTINE recon_lsq_cell_l_consv_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
   REAL(wp), INTENT(INOUT) ::  &  !< cell based coefficients (geographical components)
     &  p_coeff(:,:,:,:)          !< (constant and gradients in latitudinal and
-                                 !< longitudinal direction)
-
-  LOGICAL, INTENT(IN), OPTIONAL ::  &   !< optional async OpenACC
-    &  opt_acc_async   
+                                 !< longitudinal direction)  
 
 
   REAL(wp)  ::   &               !< weights * difference of scalars i j
@@ -810,15 +814,9 @@ SUBROUTINE recon_lsq_cell_l_consv_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   END DO ! end loop over blocks
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+!$ACC WAIT
 !$ACC UPDATE HOST(p_coeff) WAIT IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
-
-  IF ( PRESENT(opt_acc_async) ) THEN
-    IF ( opt_acc_async ) THEN
-      RETURN
-    END IF
-  END IF
-  !$ACC WAIT
 
 END SUBROUTINE recon_lsq_cell_l_consv_svd
 
@@ -1914,6 +1912,7 @@ SUBROUTINE recon_lsq_cell_c( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$NEC outerloop_unroll(4)
     DO jk = slev, elev
       !$ACC LOOP VECTOR
+!NEC$ ivdep
       DO jc = i_startidx, i_endidx
 #endif
 
@@ -1939,6 +1938,7 @@ SUBROUTINE recon_lsq_cell_c( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     DO jk = slev, elev
 
       !$ACC LOOP VECTOR PRIVATE( z_qt_times_d )
+!NEC$ ivdep
       DO jc = i_startidx, i_endidx
 
         ! calculate matrix vector product Q^T d (transposed of Q times LHS)
@@ -2836,7 +2836,7 @@ i_nchdom   = MAX(1,ptr_patch%n_childdom)
 ! First compute divergence
 !
 !$ACC DATA PCOPYIN( vec_e, avg_coeff ), PCOPY( div_vec_c ), CREATE( aux_c ), &
-!$ACC      PRESENT( ptr_int%geofac_div, ieidx, ieblk, inidx, inblk ),  IF( i_am_accel_node .AND. acc_on )
+!$ACC      PRESENT( ptr_int, ieidx, ieblk, inidx, inblk ),  IF( i_am_accel_node .AND. acc_on )
 !$ACC DATA PCOPYIN( opt_in2 ), PCOPY( opt_out2 ), CREATE( aux_c2 ), IF( i_am_accel_node .AND. acc_on .AND. l2fields )
 !$ACC UPDATE DEVICE ( vec_e, div_vec_c ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC UPDATE DEVICE ( opt_in2, opt_out2 ), IF( i_am_accel_node .AND. acc_on .AND. l2fields .AND. acc_validate )
@@ -2853,7 +2853,7 @@ IF (l2fields) THEN
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                      i_startidx, i_endidx, rl_start, rl_end_l1)
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 
 #ifdef __LOOP_EXCHANGE
     !$ACC LOOP GANG VECTOR COLLAPSE(2)
@@ -2890,7 +2890,7 @@ ELSE
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                      i_startidx, i_endidx, rl_start, rl_end_l1)
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 #ifdef __LOOP_EXCHANGE
     !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jc = i_startidx, i_endidx
@@ -2946,7 +2946,7 @@ IF (l2fields) THEN
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                      i_startidx, i_endidx, rl_start_l2, rl_end)
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 
 #ifdef __LOOP_EXCHANGE
     !$ACC LOOP GANG VECTOR COLLAPSE(2)
@@ -2987,7 +2987,7 @@ ELSE
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                      i_startidx, i_endidx, rl_start_l2, rl_end)
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 #ifdef __LOOP_EXCHANGE
     !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jc = i_startidx, i_endidx
@@ -3016,6 +3016,7 @@ ELSE
 ENDIF
 
 !$OMP END PARALLEL
+!$ACC WAIT
 !$ACC UPDATE HOST(div_vec_c) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC UPDATE HOST(opt_out2) IF( i_am_accel_node .AND. acc_on .AND. l2fields .AND. acc_validate )
 !$ACC END DATA

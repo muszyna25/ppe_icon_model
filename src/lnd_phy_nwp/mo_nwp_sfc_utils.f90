@@ -60,7 +60,7 @@ MODULE mo_nwp_sfc_utils
   USE sfc_flake,              ONLY: flake_init
   USE sfc_seaice,             ONLY: seaice_init_nwp, hice_min, frsi_min, &
     &                               seaice_coldinit_albsi_nwp
-  USE sfc_terra_data,         ONLY: cadp, cf_snow     ! soil and vegetation parameters for TILES
+  USE sfc_terra_data,         ONLY: cadp, cf_snow, crhosmin_ml, crhosmax_ml
   USE turb_data,              ONLY: c_lnd, c_sea
   USE mo_satad,               ONLY: sat_pres_water, sat_pres_ice, spec_humi
   USE mo_sync,                ONLY: global_max, global_min
@@ -1241,6 +1241,7 @@ CONTAINS
     INTEGER :: jc, jb, jk, isubs
 
     REAL(wp) :: tilefrac ! fractional area covered by tile
+    REAL(wp) :: rho_snow_lim !< Snow density limited to [crhosmin_ml, crhosmax_ml]
 
     LOGICAL :: lmask(nproma)  ! mask array (TRUE for landpoint)
     INTEGER :: icount         ! index list length per block
@@ -1500,7 +1501,9 @@ CONTAINS
         ! diagnose rho_snow from aggregated values of w_snow and h_snow; 
         ! by convention, snow density is zero in the absence of snow
         DO jc = i_startidx, i_endidx
-          lnd_diag%rho_snow(jc,jb) = rhoh2o*(lnd_diag%w_snow(jc,jb)/MAX(dbl_eps,lnd_diag%h_snow(jc,jb)))
+          rho_snow_lim             = rhoh2o*(lnd_diag%w_snow(jc,jb)/MAX(dbl_eps,lnd_diag%h_snow(jc,jb)))
+          rho_snow_lim             = MAX(MIN(rho_snow_lim,crhosmax_ml),crhosmin_ml)
+          lnd_diag%rho_snow(jc,jb) = MERGE(rho_snow_lim,0._wp,lnd_diag%w_snow(jc,jb)>0._wp)
         ENDDO
 
       ENDIF  ! ntiles_total == 1
@@ -1876,7 +1879,7 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   SUBROUTINE diag_snowfrac_tg(istart, iend, lc_class, i_lc_urban, t_snow, t_soiltop, w_snow, &
-    & rho_snow, freshsnow, sso_sigma, z0, snowfrac, t_g, meltrate, snowfrac_u)
+    & rho_snow, freshsnow, sso_sigma, z0, snowfrac, t_g, meltrate, snowfrac_u, lacc)
 
     INTEGER, INTENT (IN) :: istart, iend ! start and end-indices of the computation
 
@@ -1892,14 +1895,31 @@ CONTAINS
     INTEGER  :: ic
     REAL(wp) :: h_snow, snowdepth_fac, sso_fac, lc_fac, lc_limit
 
+    LOGICAL, OPTIONAL,           INTENT(in)   :: lacc          !< GPU flag
+    LOGICAL :: lzacc
+
+    IF(PRESENT(lacc)) THEN
+        lzacc = lacc
+    ELSE
+        lzacc = .FALSE.
+    ENDIF
+
+   !$acc data                                                              &
+   !$acc present(lc_class, t_snow, t_soiltop, w_snow, rho_snow, freshsnow, &
+   !$acc         sso_sigma, z0, meltrate, snowfrac, t_g, snowfrac_u) if(lzacc)
 
     SELECT CASE (idiag_snowfrac)
     CASE (1) ! old parameterization depending on SWE only
+      !$acc parallel if(lzacc)
+      !$acc loop gang vector
       DO ic = istart, iend
         snowfrac(ic) = MIN(1.0_wp, w_snow(ic)/cf_snow)
         t_g(ic) = t_snow(ic) + (1.0_wp - snowfrac(ic))*(t_soiltop(ic) - t_snow(ic))
       ENDDO
+      !$acc end parallel
     CASE (2, 20) ! more advanced parameterization depending on snow depth, accounts also for vegetation and SSO
+      !$acc parallel if(lzacc)
+      !$acc loop gang vector private(h_snow,sso_fac,snowdepth_fac,lc_fac,lc_limit)
       DO ic = istart, iend
         IF (w_snow(ic) <= 1.e-6_wp) THEN
           snowfrac(ic) = 0._wp
@@ -1917,7 +1937,10 @@ CONTAINS
         ENDIF
         t_g(ic) = t_snow(ic) + (1.0_wp - snowfrac(ic))*(t_soiltop(ic) - t_snow(ic))
       ENDDO
+      !$acc end parallel
     CASE (3, 30)  ! similar to option 2, but somewhat less snow cover and limit over high vegetation
+      !$acc parallel if(lzacc)
+      !$acc loop gang vector private(h_snow,sso_fac,snowdepth_fac,lc_fac,lc_limit)
       DO ic = istart, iend
         IF (w_snow(ic) <= 1.e-6_wp) THEN
           snowfrac(ic) = 0._wp
@@ -1935,7 +1958,10 @@ CONTAINS
         ENDIF
         t_g(ic) = t_snow(ic) + (1.0_wp - snowfrac(ic))*(t_soiltop(ic) - t_snow(ic))
       ENDDO
+      !$acc end parallel
     CASE (4, 40)  ! same as option 3, but even more restrictive snow cover limit over high vegetation
+      !$acc parallel if(lzacc)
+      !$acc loop gang vector private(h_snow,sso_fac,snowdepth_fac,lc_fac,lc_limit)
       DO ic = istart, iend
         IF (w_snow(ic) <= 1.e-6_wp) THEN
           snowfrac(ic) = 0._wp
@@ -1953,29 +1979,43 @@ CONTAINS
         ENDIF
         t_g(ic) = t_snow(ic) + (1.0_wp - snowfrac(ic))*(t_soiltop(ic) - t_snow(ic))
       ENDDO
+      !$acc end parallel
     END SELECT
 
     ! For the single-layer scheme, t_soiltop represents the weighted average between the snow-covered
     ! part and the snow-free part in the case of melting snow concurrent with above-freezing soil temperatures
     IF (.NOT. lmulti_snow) THEN
+      !$acc parallel if(lzacc)
+      !$acc loop gang vector
       DO ic = istart, iend
         IF (t_soiltop(ic) > tmelt .AND. t_snow(ic) >= tmelt - dbl_eps) t_g(ic) = t_soiltop(ic)
       ENDDO
+      !$acc end parallel
     ENDIF
-
-    IF (PRESENT(snowfrac_u)) snowfrac_u(istart:iend) = snowfrac(istart:iend) ! save unmodified snow-cover fraction
+ 
+    IF (PRESENT(snowfrac_u)) THEN
+      !$acc parallel if(lzacc)
+      !$acc loop gang vector
+      DO ic = istart, iend
+       snowfrac_u(ic) = snowfrac(ic) ! save unmodified snow-cover fraction
+      ENDDO
+      !$acc end parallel
+    ENDIF
 
     SELECT CASE (idiag_snowfrac)
     CASE (20, 30, 40)
       ! Artificially reduce snow-cover fraction in case of melting snow in order to reduce the ubiquitous
       ! cold bias in such situations
       IF (PRESENT(meltrate)) THEN
+        !$acc parallel if(lzacc)
+        !$acc loop gang vector
         DO ic = istart, iend
-          snowfrac(ic) = MIN(snowfrac(ic),MAX(tune_minsnowfrac,1._wp-30000._wp*MAX(0._wp,z0(ic)-0.02_wp)*meltrate(ic)))
+          snowfrac(ic) = MIN(snowfrac(ic),MAX(tune_minsnowfrac,1._wp-20000._wp*MAX(0._wp,z0(ic)-0.02_wp)*meltrate(ic)))
         ENDDO
+        !$acc end parallel
       ENDIF
     END SELECT
-
+    !$acc end data
   END SUBROUTINE diag_snowfrac_tg
 
 
@@ -1996,7 +2036,7 @@ CONTAINS
   !!
   SUBROUTINE update_idx_lists_lnd (idx_lst_lp, lp_count, idx_lst, gp_count, idx_lst_snow, &
     &             gp_count_snow, lc_frac, partial_frac, partial_frac_snow, snowtile_flag, &
-    &             snowtile_flag_snow, snowfrac)
+    &             snowtile_flag_snow, snowfrac, lacc)
 
 
     INTEGER ,    INTENT(   IN) ::  &   !< static list of all land points of a tile index
@@ -2038,12 +2078,28 @@ CONTAINS
     INTEGER  :: ic, jc, icount, icount_snow
     REAL(wp) :: eps = 1.e-6_wp
 
+    LOGICAL, OPTIONAL,           INTENT(in)   :: lacc          !< GPU flag
+    LOGICAL :: lzacc
+
     !-------------------------------------------------------------------------
+
+    IF(PRESENT(lacc)) THEN
+        lzacc = lacc
+    ELSE
+        lzacc = .FALSE.
+    ENDIF
+
+   !$acc data                                                              &
+   !$acc present(idx_lst_lp, idx_lst, idx_lst_snow, snowtile_flag)         &
+   !$acc present(snowtile_flag_snow, lc_frac, snowfrac, partial_frac)      &
+   !$acc present(partial_frac_snow) if(lzacc)
 
     icount = 0
     icount_snow = 0
 
 !$NEC ivdep
+    !$acc parallel if(lzacc)
+    !$acc loop seq
     DO ic = 1, lp_count
       jc = idx_lst_lp(ic)
 
@@ -2057,8 +2113,12 @@ CONTAINS
         IF (1._wp - snowfrac(jc) < eps) snowfrac(jc) = 1._wp
       ENDIF
     ENDDO
+    !$acc end parallel
+
 
 !$NEC ivdep
+    !$acc parallel if(lzacc)
+    !$acc loop seq
     DO ic = 1, lp_count
       jc = idx_lst_lp(ic)
 
@@ -2091,9 +2151,12 @@ CONTAINS
         ENDIF
       ENDIF
     ENDDO
+    !$acc end parallel 
 
     gp_count = icount
     gp_count_snow = icount_snow
+
+    !$acc end data
 
   END SUBROUTINE update_idx_lists_lnd
 

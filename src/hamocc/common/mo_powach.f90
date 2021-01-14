@@ -8,6 +8,7 @@ MODULE mo_powach
  USE mo_kind, ONLY        : wp
  USE mo_sedmnt_diffusion, ONLY: powadi, dipowa
  USE mo_hamocc_nml,       ONLY: ks,porwat
+ USE mo_carchm,           ONLY: update_hi
 
  IMPLICIT NONE
 
@@ -60,7 +61,7 @@ CONTAINS
   
   !! Local variables
 
-   INTEGER :: j,k, iter
+   INTEGER :: j,k
 
 
    REAL(wp) :: orgsed                        ! sum of C12 and C13 in organic sed.
@@ -69,26 +70,15 @@ CONTAINS
    REAL(wp) :: powcar(ks)
 
    REAL(wp) :: undsa, posol, pomax
-   REAL(wp) :: bt,alk,c
-   REAL(wp) :: ak1,ak2,akb,akw
    REAL(wp) :: satlev
 !   REAL(wp) :: o2lim
-   REAL(wp) :: AKSI,AKF,AKS,AK1P,AK2P,AK3P
-   REAL(wp) :: sti,ft,sit,pt,ah1       ! Chr. Heinze [H+]
-   REAL(wp) :: hso4,hf,hsi,hpo4
-   REAL(wp) :: ab,aw,ac,ah2o,ah2,erel
-   INTEGER  :: jit
-
 
 
 !!! WE start with remineralisation of organic to estimate alkalinity changes first
 !          
 !HAMOCC_OMP_PARALLEL
 !HAMOCC_OMP_DO PRIVATE(j,k,pomax,posol,orgsed,sssnew,&
-!HAMOCC_OMP           undsa,iter,bt,alk,c,ak1,ak2,akb,akw,&
-!HAMOCC_OMP           satlev,powcar,sti,ft,sit,&
-!HAMOCC_OMP           pt,ah1,aks,akf,ak1p,ak2p,ak3p,aksi,jit,&
-!HAMOCC_OMP           hso4,hf,hpo4,ab,aw,ac,ah2o,ah2,erel) HAMOCC_OMP_DEFAULT_SCHEDULE
+!HAMOCC_OMP           undsa,satlev,powcar) HAMOCC_OMP_DEFAULT_SCHEDULE
 
 
     Do j = start_idx, end_idx
@@ -254,62 +244,17 @@ CONTAINS
       DO k = 1, ks
 
          IF((bolay(j).GT.0._wp).and.(pddpo(j,1)>0.5_wp)) THEN
+               sedhpl(j,k)= update_hi(sedhpl(j,k),powtra(j,k,ipowaic),ak13(j,kbo(j)),&
+        &                             ak23(j,kbo(j)),akw3(j,kbo(j)),aks3(j,kbo(j)),&
+        &                             akf3(j,kbo(j)),aksi3(j,kbo(j)),ak1p3(j,kbo(j)),&
+        &                             ak2p3(j,kbo(j)),ak3p3(j,kbo(j)),psao(j,kbo(j)),&
+        &                             akb3(j,kbo(j)),powtra(j,k,ipowasi),powtra(j,k,ipowaph),&
+        &                             powtra(j,k,ipowaal))
 
-               bt = rrrcl*psao(j,kbo(j))
-             ! sulfate Morris & Riley (1966)
-               sti   = 0.14_wp *  psao(j,kbo(j))*1.025_wp/1.80655_wp  / 96.062_wp
-             ! fluoride Riley (1965)
-               ft    = 0.000067_wp * psao(j,kbo(j))*1.025_wp/1.80655_wp / 18.9984_wp
-
-               sit   = powtra(j,k,ipowasi) 
-               pt    = powtra(j,k,ipowaph)
-
-               alk  = powtra(j,k,ipowaal) 
-               c    = powtra(j,k,ipowaic) 
-
-               ak1  = ak13(j,kbo(j))
-               ak2  = ak23(j,kbo(j))
-               akb  = akb3(j,kbo(j))
-               akw  = akw3(j,kbo(j))
-               ah1  = sedhpl(j,k)
-               aks  = aks3(j,kbo(j))
-               akf  = akf3(j,kbo(j))
-               ak1p = ak1p3(j,kbo(j))
-               ak2p = ak2p3(j,kbo(j))
-               ak3p = ak3p3(j,kbo(j))
-               aksi = aksi3(j,kbo(j)) 
-
-               iter  = 0
-               DO jit = 1,20
-
-                    hso4 = sti / ( 1._wp + aks / ( ah1 / ( 1._wp + sti / aks ) ))
-                    hf   = 1._wp / ( 1._wp + akf / ah1 )
-                    hsi  = 1._wp/ ( 1._wp + ah1 / aksi )
-                    hpo4 = ( ak1p * ak2p * ( ah1 + 2._wp * ak3p ) - ah1**3 ) /& 
-               &        ( ah1**3 + ak1p * ah1**2 + ak1p * ak2p * ah1 + ak1p *ak2p *ak3p )
-                    ab   = bt / ( 1._wp + ah1 / akb )
-                    aw   = akw / ah1 - ah1 / ( 1._wp + sti / aks )
-                    ac   = alk + hso4 - sit * hsi - ab - aw + ft * hf - pt *hpo4
-                    ah2o = SQRT( ( c - ac )**2 + 4._wp * ( ac * ak2 / ak1 ) * (2._wp *c - ac ) )
-                    ah2  = 0.5_wp * ak1 / ac *( ( c - ac ) + ah2o )
-                    erel = ( ah2 - ah1 ) / ah2
-
-                    if (abs( erel ).ge.5.e-5_wp) then
-                      ah1 = ah2
-                      iter = iter + 1
-                    else
-                      ah1 = ah2
-                     exit
-                    endif
-               ENDDO
-
-               if(ah1.gt.0._wp) then 
-                 sedhpl(j,k)=max(1.e-20_wp,ah1)
-               endif
-
-                 powcar(k)  = c / (1._wp + sedhpl(j,k)/ak1 * (1._wp + sedhpl(j,k)/ak2))
-              ENDIF
-          END DO
+                powcar(k)  = powtra(j,k,ipowaic) / (1._wp + sedhpl(j,k)/ak13(j,kbo(j)) &
+        &                    * (1._wp + sedhpl(j,k)/ak23(j,kbo(j))))
+         ENDIF
+      END DO
       
 
 
@@ -400,21 +345,15 @@ SUBROUTINE powach_impl( start_idx, end_idx, psao )
 
   !! Local variables
 
-  INTEGER :: j,k, iter
+  INTEGER :: j,k
 
   REAL(wp) :: sedb1(0:ks), sediso(0:ks)
   REAL(wp) :: solrat(ks), powcar(ks)
   REAL(wp) :: aerob(ks), anaerob(ks), ansulf(ks)
 
   REAL(wp) :: undsa, posol 
-  REAL(wp) :: umfa, bt, alk, c
-  REAL(wp) :: ak1, ak2, akb, akw
+  REAL(wp) :: umfa, alk, c
   REAL(wp) :: satlev
-  REAL(wp) :: AKSI,AKF,AKS,AK1P,AK2P,AK3P
-   REAL(wp) :: sti,ft,sit,pt,ah1       ! Chr. Heinze [H+]
-   REAL(wp) :: hso4,hf,hsi,hpo4
-   REAL(wp) :: ab,aw,ac,ah2o,ah2,erel
-   INTEGER  :: jit
 
   !
   REAL(wp) :: bolven
@@ -434,11 +373,8 @@ SUBROUTINE powach_impl( start_idx, end_idx, psao )
 
 !!HAMOCC_OMP_PARALLEL
 !!HAMOCC_OMP_DO PRIVATE(j,bolven,undsa,sedb1,solrat,posol,umfa,&
-!!HAMOCC_OMP           aerob,anaerob,seddenit,ansulf,k,bt,&
-!!HAMMOC_OMP           alk,c,ak1,ak2,akb,akw,h,t1,t2,a,&
-!!HAMOCC_OMP           satlev,sti,ft,sit,&
-!!HAMOCC_OMP            pt,ah1,aks,akf,ak1p,ak2p,ak3p,aksi,iter, jit,&
-!!HAMOCC_OMP            hso4,hf,hpo4,ab,aw,ac,ah2o,ah2,erel) HAMOCC_OMP_DEFAULT_SCHEDULE
+!!HAMOCC_OMP           aerob,anaerob,seddenit,ansulf,k,&
+!!HAMMOC_OMP           alk,c,t1,t2,a,satlev) HAMOCC_OMP_DEFAULT_SCHEDULE
 
   DO j = start_idx, end_idx
      ! calculate bottom ventilation rate for scaling of sediment-water exchange
@@ -648,61 +584,20 @@ SUBROUTINE powach_impl( start_idx, end_idx, psao )
 
          IF((bolay(j).GT.0._wp)) THEN
 
-               bt = rrrcl*psao(j,kbo(j))
-             ! sulfate Morris & Riley (1966)
-               sti   = 0.14_wp *  psao(j,kbo(j))*1.025_wp/1.80655_wp  / 96.062_wp
-             ! fluoride Riley (1965)
-               ft    = 0.000067_wp * psao(j,kbo(j))*1.025_wp/1.80655_wp / 18.9984_wp
-
-               sit   = powtra(j,k,ipowasi) 
-               pt    = powtra(j,k,ipowaph)
-
                alk  = powtra(j,k,ipowaal) -( -ansulf(k)  +aerob(k)+anaerob(k))*ralk + nitdem*anaerob(k)
                c    = powtra(j,k,ipowaic) +(anaerob(k) +aerob(k) + ansulf(k))*rcar
+                             
+               sedhpl(j,k)= update_hi(sedhpl(j,k),c,ak13(j,kbo(j)),&
+        &                             ak23(j,kbo(j)),akw3(j,kbo(j)),aks3(j,kbo(j)),&
+        &                             akf3(j,kbo(j)),aksi3(j,kbo(j)),ak1p3(j,kbo(j)),&
+        &                             ak2p3(j,kbo(j)),ak3p3(j,kbo(j)),psao(j,kbo(j)),&
+        &                             akb3(j,kbo(j)),powtra(j,k,ipowasi),powtra(j,k,ipowaph),&
+        &                             alk)
 
-               ak1  = ak13(j,kbo(j))
-               ak2  = ak23(j,kbo(j))
-               akb  = akb3(j,kbo(j))
-               akw  = akw3(j,kbo(j))
-               ah1  = sedhpl(j,k)
-               aks  = aks3(j,kbo(j))
-               akf  = akf3(j,kbo(j))
-               ak1p = ak1p3(j,kbo(j))
-               ak2p = ak2p3(j,kbo(j))
-               ak3p = ak3p3(j,kbo(j))
-               aksi = aksi3(j,kbo(j)) 
-
-               iter  = 0
-               DO jit = 1,20
-
-                    hso4 = sti / ( 1._wp + aks / ( ah1 / ( 1._wp + sti / aks ) ))
-                    hf   = 1._wp / ( 1._wp + akf / ah1 )
-                    hsi  = 1._wp/ ( 1._wp + ah1 / aksi )
-                    hpo4 = ( ak1p * ak2p * ( ah1 + 2._wp * ak3p ) - ah1**3 ) /& 
-               &        ( ah1**3 + ak1p * ah1**2 + ak1p * ak2p * ah1 + ak1p *ak2p *ak3p )
-                    ab   = bt / ( 1._wp + ah1 / akb )
-                    aw   = akw / ah1 - ah1 / ( 1._wp + sti / aks )
-                    ac   = alk + hso4 - sit * hsi - ab - aw + ft * hf - pt *hpo4
-                    ah2o = SQRT( ( c - ac )**2 + 4._wp * ( ac * ak2 / ak1 ) * (2._wp *c - ac ) )
-                    ah2  = 0.5_wp * ak1 / ac *( ( c - ac ) + ah2o )
-                    erel = ( ah2 - ah1 ) / ah2
-
-                    if (abs( erel ).ge.5.e-5_wp) then
-                      ah1 = ah2
-                      iter = iter + 1
-                    else
-                      ah1 = ah2
-                     exit
-                    endif
-               ENDDO
-
-               if(ah1.gt.0._wp) then 
-                 sedhpl(j,k)=max(1.e-20_wp,ah1)
-               endif
-
-                 powcar(k)  = c / (1._wp + sedhpl(j,k)/ak1 * (1._wp + sedhpl(j,k)/ak2))
-              ENDIF
-          END DO
+                powcar(k)  = c / (1._wp + sedhpl(j,k)/ak13(j,kbo(j)) &
+        &                    * (1._wp + sedhpl(j,k)/ak23(j,kbo(j))))
+          ENDIF
+      END DO
 
 
      

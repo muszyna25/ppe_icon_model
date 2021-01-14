@@ -48,7 +48,6 @@ USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e, grf_
                                   grf_fbk_start_c, grf_fbk_start_e, grf_bdywidth_c,               &
                                   grf_bdywidth_e
 USE mo_parallel_config,     ONLY: nproma
-  USE mo_mpi,                  ONLY: p_pe_work
 
 USE mo_communication,       ONLY: t_p_comm_pattern, blk_no, idx_no, idx_1d, &
   &                               delete_comm_pattern, &
@@ -358,16 +357,16 @@ IF (n_dom_start == 0 .OR. n_dom > 1) THEN
 
   CALL gridref_info ( ptr_grf_state)
 
-  CALL init_fbk_wgt ( ptr_grf_state)
+  CALL init_fbk_wgt ()
 
-  CALL compute_pc2cc_distances ( ptr_grf_state)
-  CALL compute_pe2ce_distances ( ptr_grf_state)
+  CALL compute_pc2cc_distances ()
+  CALL compute_pe2ce_distances ()
 
-  CALL grf_index( ptr_grf_state)
+  CALL grf_index ()
   IF ( MOD(grf_intmethod_e,2) == 0) THEN
-    CALL rbf_compute_coeff_grf_e ( ptr_grf_state)
+    CALL rbf_compute_coeff_grf_e ()
   ELSE IF (MOD(grf_intmethod_e,2) == 1) THEN
-    CALL idw_compute_coeff_grf_e ( ptr_grf_state)
+    CALL idw_compute_coeff_grf_e ()
   ENDIF
 
 ENDIF

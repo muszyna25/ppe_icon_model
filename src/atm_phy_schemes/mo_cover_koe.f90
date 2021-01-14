@@ -221,8 +221,6 @@ zqisat_m50 = fgqs ( fgee(223.15_wp), 0._wp, 20000._wp )
 ! saturation mixing ratio at -25 C and 700 hPa
 zqisat_m25 = fgqs ( fgee(248.15_wp), 0._wp, 70000._wp )
 
-rhcrit_sgsice = 1._wp - 0.05_wp*tune_sgsclifac
-
 IF (icpl_turb_clc == 1) THEN
   rcld_asyfac = 0._wp
 ELSE
@@ -328,6 +326,7 @@ CASE( 1 )
       ENDIF
 
 !  ice cloud
+      rhcrit_sgsice = 1._wp - 0.25_wp*tune_sgsclifac*MAX(0._wp,0.75_wp-zqisat(jl,jk)/zqlsat(jl,jk))
       fac_aux = 1._wp - MIN(1._wp,MAX(0._wp,tt(jl,jk)-tm40)/15._wp)
       qi_mod = MAX(qi(jl,jk), 0.1_wp*(qi(jl,jk)+qs(jl,jk)) ) +                  &
                fac_aux*MIN(1._wp,tune_sgsclifac*zrcld/(box_ice*zqisat(jl,jk)))* &
@@ -335,8 +334,8 @@ CASE( 1 )
      !ice cloud: assumed box distribution, width 0.1 qisat, saturation above qv 
      !           (qv is microphysical threshold for ice as seen by grid scale microphysics)
       IF ( qi_mod > zcldlim ) THEN
-        deltaq     = MIN(box_ice, zagl_lim(jl,jk)) * MIN(zqisat_m25, zqisat(jl,jk))  ! box width = 2*deltaq
-        qisat_grid = MAX( qv(jl,jk), zqisat(jl,jk) )                        ! qsat grid-scale
+        deltaq     = box_ice * MIN(zqisat_m25, zqisat(jl,jk))  ! box width = 2*deltaq
+        qisat_grid = MAX( qv(jl,jk), zqisat(jl,jk) )           ! qsat grid-scale
         IF ( ( qv(jl,jk) + qi_mod - deltaq) > qisat_grid ) THEN
           cc_turb_ice(jl,jk) = 1.0_wp
           qi_turb    (jl,jk) = qi_mod

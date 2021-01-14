@@ -1,0 +1,1 @@
+dmin_wetgrowth_graupelhail2test4.nc

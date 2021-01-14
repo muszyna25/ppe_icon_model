@@ -2,25 +2,23 @@
 
 SHELL= @SHELL@
 BUILD_ENV= @BUILD_ENV_MAKE@
+
 DELEGATEE_FILE= icon.mk
-# A list of targets that are explicitely delegated to $(DELEGATEE_FILE). The
-# first target in the list becomes the default one for this makefile:
-DELEGATED_RULES= all depend preprocess mostlyclean clean install srclist check
 
 .SUFFIXES:
 .NOTPARALLEL:
-.PHONY: $(DELEGATED_RULES) distclean help dist snapshot runscripts force-delegate
+.PHONY: all distclean help dist snapshot force-delegate
 
-$(DELEGATED_RULES):
+# Default target:
+all:
 	@$(BUILD_ENV) $(MAKE) -f $(DELEGATEE_FILE) $@
 
-# A rule for targets that are unkown to this makefile. For example, this allows
-# for building individual object files from the command line (e.g.
-# 'make src/atm_phy_nwp/mo_nwp_rg_interface.o'). The dependency on a phony
-# target 'force-delegate' enforces running make with $(DELEGATEE_FILE) even if
-# the requested target already exists. The fact that the rule is terminal (i.e.
-# declared with double colon) allows for building targets that are normally not
-# matched by "match-anything" patter rules (e.g. 'make version.c')
+# A rule for targets that are unknown to this makefile. The dependency on a
+# phony target 'force-delegate' enforces running make with $(DELEGATEE_FILE)
+# even if the requested target already exists. The fact that the rule is
+# terminal (i.e. declared with double colon) allows for building targets that
+# are normally not matched by "match-anything" pattern rules (e.g. generated
+# source files like version.c):
 %:: force-delegate
 	@$(BUILD_ENV) $(MAKE) -f $(DELEGATEE_FILE) $@
 
@@ -56,6 +54,7 @@ GIT= git
 TAR= tar
 BZIP2= bzip2
 
+# Includes only commited versions of the files:
 dist:
 	@if test ! -d @top_srcdir@/.git; then echo "'@top_srcdir@' is not a git repository" >&2; exit 1; fi
 	$(GIT) -C @top_srcdir@ archive --prefix=@PACKAGE_TARNAME@/ --format tar -o @abs_top_builddir@/@PACKAGE_TARNAME@.tar HEAD

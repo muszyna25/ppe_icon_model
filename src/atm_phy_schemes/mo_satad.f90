@@ -437,25 +437,14 @@ SUBROUTINE satad_v_3D_gpu (maxiter, tol, te, qve, qce,    & ! IN, INOUT
   REAL    (KIND=ireals),    INTENT (IN) ::  &
        tol                 ! Desired abs. accuracy in K of the adjusted temperature
 
-#ifdef __COSMO__
-  REAL    (KIND=ireals),    INTENT (IN),  DIMENSION(:,:) ::  &  !  dim (idim,kdim)
-       p0e      , & ! Reference pressure
-       qle      , & ! Liquid hydrometeors which are not affected by saturation adj.
-                    ! (i.e., rain drops)
-       qie          ! Solid hydrometeors (sum of qi, qs, qg and, if present, qh)
-  REAL    (KIND=ireals),    INTENT (INOUT), DIMENSION(:,:) ::  &  !  dim (idim,kdim)
-       ppe          ! Pressure deviation from reference pressure needed in COSMO
-#endif
 
   REAL    (KIND=ireals),    INTENT (INOUT), DIMENSION(:,:) ::  &  !  dim (idim,kdim)
        te      , & ! Temperature on input/ouput
        qve     , & ! Specific humidity on input/output
        qce         ! Specific cloud water content on input/output
 
-#ifdef __ICON__
   REAL    (KIND=ireals),    INTENT (IN),  DIMENSION(:,:) ::  &  !  dim (idim,kdim)
        rhotot    ! density containing dry air and water constituents
-#endif
 
   REAL    (KIND=ireals),    INTENT (IN), OPTIONAL, DIMENSION(:,:)       ::  &  !  dim (idim,kdim)
        qtvar     ! total water variance - needed only for EDMF
@@ -473,21 +462,16 @@ SUBROUTINE satad_v_3D_gpu (maxiter, tol, te, qve, qce,    & ! IN, INOUT
        i, k                      !  Loop indices
 
   REAL    (KIND=ireals   ) ::  &
-       Ttest(idim,kdim), qtest(idim,kdim), qw(idim,kdim), qwd, qwa, dqwd, fT, dfT, & !, cvvmcl, qd,
+       Ttest, qtest, qw, qwd, qwa, dqwd, fT, dfT, & !, cvvmcl, qd,
        zqwmin              ! Minimum cloud water content for adjustment
 
-#ifdef __COSMO__
-  REAL    (KIND=ireals),  DIMENSION(idim,kdim) ::  &
-       rhotot              ! Total density
-#endif
-
-  REAL    (KIND=ireals),  DIMENSION(idim,kdim) ::  &
+  REAL    (KIND=ireals) ::  &
        lwdocvd  ! (Temperature-dependent) latent heat of vaporization over cv
 
-  REAL (KIND=ireals), DIMENSION(idim, kdim) ::  &
+  REAL (KIND=ireals) ::  &
        twork, tworkold
 
-  LOGICAL, DIMENSION(idim, kdim) :: iter_mask
+  LOGICAL :: iter_mask
 
   REAL (KIND=ireals), PARAMETER :: cp_v = 1850._ireals ! specific heat of water vapor J
                                                        !at constant pressure
@@ -517,159 +501,89 @@ SUBROUTINE satad_v_3D_gpu (maxiter, tol, te, qve, qce,    & ! IN, INOUT
   ! Some constants:
   ! lwdocvd = lwd / cvd
 
-  !$ACC DATA CREATE( Ttest, qtest, qw, rhotot, lwdocvd, twork, tworkold, iter_mask)
-
-  !$acc kernels
-  iter_mask = .FALSE.
-  !$acc end kernels
-
 !!!=============================================================================================
 
-#ifdef __COSMO__
-   ! diagnostically (re)compute density of moist air for time-level nnow
-   ! ... using specific moisture quantities
-   CALL calrho( te, ppe,qve,qce,qle+qie, p0e, rhotot, idim, kdim, r_d, rvd_m_o )
-#endif
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP GANG VECTOR TILE(128,*)
+  DO k = klo, kup
+    DO i = ilo , iup
+      ! total content of the species which are changed by the adjustment:
+      qw = qve(i,k) + qce(i,k)
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP GANG VECTOR COLLAPSE(2)
-    DO k = klo, kup
-      DO i = ilo , iup
-        ! total content of the species which are changed by the adjustment:
-        qw(i,k) = qve(i,k) + qce(i,k)
+      ! check, which points will still be subsaturated even
+      ! if all the cloud water would have been evaporated.
+      ! At such points, the Newton iteration is not necessary and the
+      ! adjusted values of T, p, qv and qc can be obtained directly.
 
-        ! check, which points will still be subsaturated even
-        ! if all the cloud water would have been evaporated.
-        ! At such points, the Newton iteration is not necessary and the
-        ! adjusted values of T, p, qv and qc can be obtained directly.
+      lwdocvd = ( lwd + (cp_v - cl)*(te(i,k)-tmelt) - r_v*te(i,k) )/ cvd
+      Ttest = te(i,k) - lwdocvd*qce(i,k)
+      qtest = qsat_rho(Ttest, rhotot(i,k))
 
-        lwdocvd(i,k) = ( lwd + (cp_v - cl)*(te(i,k)-tmelt) - r_v*te(i,k) )/ cvd
+      ll_satad = .TRUE.
+      IF (lqtvar) THEN
+        IF ( qtvar(i,k) > 0.0001_ireals * (qve(i,k)+qce(i,k))**2 ) THEN ! satad not in EDMF boundary layer
+          ll_satad = .false.                                            ! sqrt(qtvar) > 0.001
+        ENDIF
+      ENDIF
 
-        Ttest(i,k) = te(i,k) - lwdocvd(i,k)*qce(i,k)
-
-        qtest(i,k) = qsat_rho(Ttest(i,k), rhotot(i,k))
-
-      END DO
-    END DO
-    !$ACC END PARALLEL
-
-    !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP GANG VECTOR COLLAPSE(2) PRIVATE(ll_satad)
-    DO k = klo, kup
-      DO i = ilo , iup
-
-       ll_satad = .TRUE.
-       IF (lqtvar) THEN
-         IF ( qtvar(i,k) > 0.0001_ireals * (qve(i,k)+qce(i,k))**2 ) THEN ! satad not in EDMF boundary layer
-           ll_satad = .false.                                            ! sqrt(qtvar) > 0.001
-         ENDIF
-       ENDIF
-
-       IF ( ll_satad ) THEN
-
-        IF (qw(i,k) <= qtest(i,k) ) THEN
+      iter_mask = .FALSE.
+      twork = 0.0_ireals
+      IF ( ll_satad ) THEN
+        IF (qw <= qtest ) THEN
           ! In this case, all the cloud water evaporates and there is still (sub)saturation.
           ! The resulting state depends only on the available cloud water and is
           ! not saturated, which enables direct computation of the adjusted variables:
-          qve(i,k)  = qw(i,k)
+          qve(i,k)  = qw
           qce(i,k)  = 0.0_ireals
-          te(i,k)   = Ttest(i,k)
+          te(i,k)   = Ttest
         ELSE
           ! Field for the iterated temperature, here set the starting value for the below iteration
           ! to the "old" temperature (as an alternative, the arithmetic mean
           ! between "old" temperature and dew point has been tested, but did
           ! not significantly increase the convergence speed of the iteration):
-          twork(i,k)  = te(i,k)
+          twork  = te(i,k)
           ! And this is the storage variable for the "old" values in the below iteration:
           ! Add some nonesense increment to the starting, which is sufficient to trigger the
           ! iteration below:
-          tworkold(i,k) = twork(i,k) + 10.0_ireals
-          iter_mask(i,k) = .TRUE.
+          tworkold = twork + 10.0_ireals
+          iter_mask = .TRUE.
         END IF
-        
-       END IF
+      END IF
 
-      END DO
-    END DO
-    !$ACC END PARALLEL
-
-    ! Do the Newton iteration at gridpoints which need it:
-    ! ---------------------------------------------------
-
-!!!=============================================================================
-!!! ..This is the version for the NEC. On a scalar system, it might be better
-!!!   to do the iteration within the "indx"-loop, not outside!
-!!!=============================================================================
-
-
-    !$acc parallel default(present)
-    !$acc loop gang vector collapse(2) private(qwd, dqwd, fT, dfT, count)
-    DO k = klo,kup
-      DO i = ilo,iup
-        count = 0
-        DO WHILE (ABS(twork(i,k)-tworkold(i,k)) > tol .AND. count < maxiter .AND. iter_mask(i,k))
+      ! Do the Newton iteration at gridpoints which need it:
+      ! ---------------------------------------------------
+      !$ACC LOOP SEQ
+      DO count = 1, maxiter
+        IF (ABS(twork-tworkold) > tol .AND. iter_mask) THEN
           ! Here we still have to iterate ...
-          tworkold(i,k) = twork(i,k)
-          qwd  = qsat_rho(twork(i,k), rhotot(i,k))
-          dqwd = dqsatdT_rho(qwd, twork(i,k))
+          tworkold = twork
+          qwd  = qsat_rho(twork, rhotot(i,k))
+          dqwd = dqsatdT_rho(qwd, twork)
           ! Newton:
-          fT = twork(i,k) - te(i,k) + lwdocvd(i,k)*(qwd - qve(i,k))
-          dfT = 1.0_ireals + lwdocvd(i,k)*dqwd
-          twork(i,k) = twork(i,k) - fT / dfT;
-          count = count + 1
-        END DO !while
-      END DO !i
-    END DO !k
-    !$acc end parallel
-
-!      IF (ANY(ABS(twork(1:nsat)-tworkold(1:nsat)) > tol)) THEN
-!        WRITE(*,*) 'SATAD_V_3D: convergence error of Newton iteration'
-!        errstat = 2
-!        RETURN
-!      END IF
+          fT = twork - te(i,k) + lwdocvd*(qwd - qve(i,k))
+          dfT = 1.0_ireals + lwdocvd*dqwd
+          twork = twork - fT / dfT;
+        END IF
+      END DO !while
 
       ! Distribute the results back to gridpoints:
       ! ------------------------------------------
+      IF(iter_mask) THEN
+        te (i,k) = twork
+        ! We disregard here the extrapolation of qsat from the second-last iteration
+        ! step, which is done in the original routine to exactly preserve the internal energy.
+        ! This introduces a small error (see the COSMO-Documentation, Part III).
+        qwa = qsat_rho(te(i,k), rhotot(i,k))
+        qce(i,k) = MAX( qce(i,k) + qve(i,k) - qwa,zqwmin)
+        qve(i,k) = qwa
+      ENDIF
 
-!CDIR NODEP,VOVERTAKE,VOB
-!DIR$ IVDEP
-      !$acc parallel default(present)
-      !$acc loop gang vector collapse(2) private(qwa)
-    DO k = klo,kup
-      DO i = ilo,iup
-        IF(iter_mask(i,k)) THEN
-          te (i,k) = twork(i,k)
-          ! We disregard here the extrapolation of qsat from the second-last iteration
-          ! step, which is done in the original routine to exactly preserve the internal energy.
-          ! This introduces a small error (see the COSMO-Documentation, Part III).
-          qwa = qsat_rho(te(i,k), rhotot(i,k))
-          qce(i,k) = MAX( qce(i,k) + qve(i,k) - qwa,zqwmin)
-          qve(i,k) = qwa
-        ENDIF
-      ENDDO !i
-    ENDDO !k
-    !$acc end parallel
-
-    ! ending the pcreate
-    !$ACC END DATA
+    ENDDO !i
+  ENDDO !k
+  !$ACC END PARALLEL
 
 !!!=============================================================================================
-
 !!!=============================================================================================
-
-!  END SELECT
-
-!KF
-! since ICON re-diagnoses the Exner pressure after satad we do not need
-! the following:
-#ifdef __COSMO__
-  ! Re-diagnose pressure at all gridpoints:
-  ppe(ilo:iup,:) = rhotot(ilo:iup,:) * r_d * te(ilo:iup,:) * &
-       ( 1.0_ireals + rvd_m_o*qve(ilo:iup,:)   &
-       - qce(ilo:iup,:) &
-       - qle(ilo:iup,:) &
-       - qie(ilo:iup,:) )     -    p0e(ilo:iup,:)
-#endif
 
 END SUBROUTINE satad_v_3D_gpu
 
@@ -803,6 +717,7 @@ ELEMENTAL  FUNCTION dqsatdT_ice (zqsat, temp)
   ! input variables: specific saturation humidity [-], temperature [K]:
   REAL (KIND=ireals)            :: dqsatdT_ice
   REAL(kind=ireals), INTENT(in) :: zqsat, temp
+!$ACC ROUTINE SEQ
 
   dqsatdT_ice = b234i * ( 1.0_ireals + rvd_m_o*zqsat ) * zqsat &
                              / (temp-b4i)**2

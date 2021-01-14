@@ -36,6 +36,7 @@ MODULE mo_turbulence_diag
     &                             vtmpc1, tmelt, alv, als, p0ref
   USE mo_grid_config       ,ONLY: grid_angular_velocity
   USE mo_index_list        ,ONLY: generate_index_list_batched
+  USE mo_nh_testcases_nml  ,ONLY: isrfc_type, ufric
 
   IMPLICIT NONE
   PRIVATE
@@ -346,6 +347,12 @@ CONTAINS
     END DO
     !$ACC END PARALLEL
 
+    IF ( isrfc_type == 1 ) THEN
+      DO jl = jcs,kproma
+        zhdyn(jl)=MIN(pghf(jl,1),chneu*ufric/zcor)
+      END DO
+    END IF
+
     !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP SEQ
     DO jk=klevm1,1,-1
@@ -553,6 +560,7 @@ CONTAINS
                                & pcftotte_sfc, pcfthv_sfc,               &! out
                                & pprfac_sfc,                             &! out
                                & ptottevn_sfc, pthvvar_sfc,              &! out
+                               & jtottevn_sfc,                           &! out
                                & pustarm,                                &! out
                                & pch_tile,                               &! out
                                & pbn_tile, pbhn_tile, pbm_tile, pbh_tile,&! out
@@ -615,6 +623,7 @@ CONTAINS
     REAL(wp),INTENT(OUT) :: pcfthv_sfc  (:)  !< (kbdim) exchange coeff. of the variance of 
                                              !<  theta_v
     REAL(wp),INTENT(OUT) :: pprfac_sfc (:)   !< (kbdim) prefactor for exchange coefficients
+    REAL(wp),INTENT(OUT) :: jtottevn_sfc(:)  !< (kbdim) boundary condition (sfc value) of TTE
     REAL(wp),INTENT(OUT) :: ptottevn_sfc(:)  !< (kbdim) boundary condition (sfc value) of TTE
     REAL(wp),INTENT(OUT) :: pthvvar_sfc(:)   !< (kbdim) boundary condition (sfc value)
                                                  !< of the variance of theta_v
@@ -1200,6 +1209,28 @@ CONTAINS
 
     ENDDO
     !$ACC END PARALLEL
+
+    DO jl = jcs, kproma
+      jtottevn_sfc(jl) = 0._wp
+    ENDDO
+
+    IF ( isrfc_type == 1 ) THEN
+      DO jsfc = 1,ksfc_type
+        DO jls = 1,is(jsfc)
+        js=loidx(jls,jsfc)
+
+        IF(pri_tile(js,jsfc).GT.0._wp) THEN
+          ztottev  = (1._wp+e_pot(js,jsfc)/e_kin(js,jsfc))/f_tau(js,jsfc)*(ufric**2)
+        ELSE
+          ztottev  = (1._wp+e_pot(js,jsfc)/e_kin(js,jsfc))/f_tau(js,jsfc)                 &
+                     & *(ufric**3+lmix(js,jsfc)*2._wp*grav/zthetavmid(js,jsfc)      &
+                     & *pcfh_tile(js,jsfc)*abs(zdthetal(js,jsfc)))**ztwothirds
+        END IF
+
+        jtottevn_sfc(js) = jtottevn_sfc(js) + ztottev*pfrc(js,jsfc)
+        END DO
+      END DO
+    END IF
 
     !$ACC END DATA
   END SUBROUTINE sfc_exchange_coeff

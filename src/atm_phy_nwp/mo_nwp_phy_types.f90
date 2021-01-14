@@ -41,7 +41,7 @@
 !!
 MODULE mo_nwp_phy_types
 
-  USE mo_kind,                ONLY: wp, vp2
+  USE mo_kind,                ONLY: wp, vp
   USE mo_fortran_tools,       ONLY: t_ptr_2d3d,t_ptr_tracer
 
   IMPLICIT NONE
@@ -507,7 +507,7 @@ MODULE mo_nwp_phy_types
       ddt_tracer_gscp (:,:,:,:),& !! Hydromet-tendency from microphysics
       ddt_tke         (:,:,:)     !! tendency for turbulent velocity scale [m/s^2]
 
-    REAL(vp2), POINTER           &
+    REAL(vp), POINTER           &
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
       , CONTIGUOUS              &
 #endif

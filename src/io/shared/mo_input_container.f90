@@ -7,7 +7,7 @@
 !! headers of the routines.
 
 MODULE mo_input_container
-    USE ISO_C_BINDING, ONLY: C_INT32_T, C_INT64_T, C_DOUBLE, C_FLOAT, C_ASSOCIATED, C_CHAR
+    USE ISO_C_BINDING, ONLY: C_INT32_T, C_INT64_T, C_DOUBLE, C_FLOAT, C_ASSOCIATED
     USE mo_cdi, ONLY: t_CdiIterator, gridInqSize, cdiIterator_inqGridId, cdiIterator_readField, cdiIterator_readFieldF, &
                     & cdiIterator_inqDatatype, CDI_DATATYPE_PACK23, CDI_DATATYPE_PACK32, CDI_DATATYPE_FLT64, CDI_DATATYPE_INT32
     USE mo_communication, ONLY: t_ScatterPattern
@@ -17,11 +17,11 @@ MODULE mo_input_container
     USE mo_impl_constants, ONLY: SUCCESS
     USE mo_kind, ONLY: wp, dp
     USE mo_math_types, ONLY: t_Statistics
-    USE mo_mpi, ONLY: p_bcast, p_comm_work, my_process_is_stdio, p_mpi_wtime, process_mpi_root_id
+    USE mo_mpi, ONLY: p_bcast, p_comm_work, p_mpi_wtime, process_mpi_root_id
     USE mo_parallel_config, ONLY: blk_no, nproma
     USE mo_scatter_pattern_base, ONLY: lookupScatterPattern
     USE mo_nwp_sfc_tiles, ONLY: trivial_tile_att, t_tileinfo_icon
-    USE mo_util_string, ONLY: int2string, real2string, toCharacter
+    USE mo_util_string, ONLY: int2string, real2string
 #ifdef _OPENMP
     USE omp_lib
 #endif
@@ -452,7 +452,7 @@ CONTAINS
            variableName_prev = variableName
 
         CASE (-1)
-           !NEC_RP: Last record: Only data distribution and statistics
+           !NEC_RP: Last record of previous variable
 
 !$OMP PARALLEL SECTIONS NUM_THREADS(2)
 !$OMP SECTION
@@ -463,31 +463,45 @@ CONTAINS
             CALL compute_statistics()
 !$OMP END PARALLEL SECTIONS
 
-            ! Deallocation must be done after the parallel section in order to avoid race conditions
-            SELECT CASE(packedMessage_prev(2))
-            CASE(CDI_DATATYPE_PACK23:CDI_DATATYPE_PACK32, CDI_DATATYPE_FLT64, CDI_DATATYPE_INT32)
-               DEALLOCATE(bufferD_prev)
-               NULLIFY(bufferD_prev)
-               DEALLOCATE(bufferD)
-               NULLIFY(bufferD)
-             CASE DEFAULT
+        CASE (-2)
+           !NEC_RP: Last record: Only data distribution and statistics; deallocate
+
+!$OMP PARALLEL SECTIONS NUM_THREADS(2)
+!$OMP SECTION
+            ! first section for distribution of previous buffer
+            CALL distribute_data()
+!$OMP SECTION
+            ! second section for statistics on previous buffer
+            CALL compute_statistics()
+!$OMP END PARALLEL SECTIONS
+
+            IF (ASSOCIATED(bufferD_prev)) THEN
+              DEALLOCATE(bufferD_prev)
+              NULLIFY(bufferD_prev)
+            END IF
+            IF (ASSOCIATED(bufferD)) THEN 
+              DEALLOCATE(bufferD)
+              NULLIFY(bufferD)
+            END IF  
+            IF (ASSOCIATED(bufferS_prev)) THEN
                DEALLOCATE(bufferS_prev)
                NULLIFY(bufferS_prev)
-               DEALLOCATE(bufferS)
-               NULLIFY(bufferS)
-             END SELECT
-
+            END IF
+            IF (ASSOCIATED(bufferS)) THEN 
+              DEALLOCATE(bufferS)
+              NULLIFY(bufferS)
+            END IF  
+            
         CASE DEFAULT
            !NEC_RP: Read data, distribute them, and compute statistics
-           !GZ: in principle, one could use 3 sections here, but this does not give any benefit
-           !    because statistics+distribution is always faster than reading
-!$OMP PARALLEL SECTIONS NUM_THREADS(2)
+!$OMP PARALLEL SECTIONS NUM_THREADS(3)
 !$OMP SECTION
            ! first section for read of current buffer
            CALL read_data(firstcall = .FALSE.)
 !$OMP SECTION
-           ! second section for statistics on and distribution of previous buffer
+           ! second and third sections for statistics on and distribution of previous buffer
             CALL compute_statistics()
+!$OMP SECTION
             CALL distribute_data()
 !$OMP END PARALLEL SECTIONS
 
@@ -495,7 +509,7 @@ CONTAINS
             ! first flip pointer assignments (faster than copy)
             IF (ASSOCIATED(bufferD)) THEN
                IF (SIZE(bufferD) /= SIZE(bufferD_prev)) THEN
-                  DEALLOCATE(bufferD_prev)
+                  IF (ASSOCIATED(bufferD_prev)) DEALLOCATE(bufferD_prev)
                   ALLOCATE(bufferD_prev(SIZE(bufferD)))
                END IF
                tmpDP => bufferD_prev
@@ -504,7 +518,7 @@ CONTAINS
             END IF
             IF (ASSOCIATED(bufferS)) THEN
                IF (SIZE(bufferS) /= SIZE(bufferS_prev)) THEN
-                  DEALLOCATE(bufferS_prev)
+                  IF (ASSOCIATED(bufferS_prev)) DEALLOCATE(bufferS_prev)
                   ALLOCATE(bufferS_prev(SIZE(bufferS)))
                END IF
                tmpSP => bufferS_prev

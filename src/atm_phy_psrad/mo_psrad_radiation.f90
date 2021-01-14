@@ -349,7 +349,15 @@ MODULE mo_psrad_radiation
     & nir_dn_dff_sfc ,&!< out all-sky downward diffuse near-IR radiation at surface
     & vis_up_sfc     ,&!< out all-sky upward visible radiation at surface
     & par_up_sfc     ,&!< out all-sky upward PAR     radiation at surfac
-    & nir_up_sfc     ) !< out all-sky upward near-IR radiation at surface
+    & nir_up_sfc     ,&!< out all-sky upward near-IR radiation at surface
+    & aer_aod_533    ,&!< out  aerosol optical density at 533 nm
+    & aer_ssa_533    ,&!< out  single scattering albedo at 533 nm
+    & aer_asy_533    ,&!< out  asymmetrie factor at 533 nm
+    & aer_aod_2325   ,&!< out  aerosol optical density at 2325 nm
+    & aer_ssa_2325   ,&!< out  single scattering albedo at 2325 nm
+    & aer_asy_2325   ,&!< out  asymmetrie factor at 2325 nm
+    & aer_aod_9731    &!< out  aerosol optical density at 9731 nm
+                      )
 
     TYPE(t_patch)   ,TARGET ,INTENT(in)    :: patch
 
@@ -407,8 +415,15 @@ MODULE mo_psrad_radiation
     & nir_dn_dff_sfc(:,:)  , & !< Direct  downward flux surface near-infrared radiation
     & vis_up_sfc    (:,:)  , & !< Upward  flux surface visible radiation 
     & par_up_sfc    (:,:)  , & !< Upward  flux surface PAR
-    & nir_up_sfc    (:,:)      !< Upward  flux surface near-infrared radiation
-
+    & nir_up_sfc    (:,:)  , & !< Upward  flux surface near-infrared radiation
+    & aer_aod_533   (:,:,:), & !< aerosol optical density at 533 nm
+    & aer_ssa_533   (:,:,:), & !< single scattering albedo at 533 nm
+    & aer_asy_533   (:,:,:), & !< asymmetrie factor at 533 nm
+    & aer_aod_2325  (:,:,:), & !< aerosol optical density at 2325 nm
+    & aer_ssa_2325  (:,:,:), & !< single scattering albedo at 2325 nm
+    & aer_asy_2325  (:,:,:), & !< asymmetrie factor at 2325 nm
+    & aer_aod_9731  (:,:,:)    !< aerosol optical density at 9731 nm
+    
 
     REAL (wp) ::      &
     & xm_vap(nproma,klev, patch%nblks_c),           & !< water vapor mass in layer [kg/m2]
@@ -437,9 +452,11 @@ MODULE mo_psrad_radiation
     ! Shortcuts to components of echam_rad_config
     !
     INTEGER , POINTER :: irad_aero
+    LOGICAL , POINTER :: lrad_aero_diag
     !
     jg         =  patch%id
     irad_aero  => echam_rad_config(jg)% irad_aero
+    lrad_aero_diag => echam_rad_config(jg)% lrad_aero_diag
     
     rl_start   = grf_bdywidth_c+1
     rl_end     = min_rlcell_int
@@ -513,7 +530,7 @@ MODULE mo_psrad_radiation
 !     CALL psrad_interface(                                                   &
     CALL atmo_psrad_interface(                                                   &
       & patch,                                                              &
-      & irad_aero     ,klev                                                ,& 
+      & irad_aero       ,lrad_aero_diag  ,klev                             ,& 
       & ktype                                                              ,&
       & psctm(jg)       ,ssi_factor                                        ,&
       & loland          ,loglac          ,this_datetime                    ,&
@@ -531,7 +548,10 @@ MODULE mo_psrad_radiation
       & sw_upw          ,sw_upw_clr      ,sw_dnw          ,sw_dnw_clr      ,&
       & vis_dn_dir_sfc  ,par_dn_dir_sfc  ,nir_dn_dir_sfc                   ,&
       & vis_dn_dff_sfc  ,par_dn_dff_sfc  ,nir_dn_dff_sfc                   ,&
-      & vis_up_sfc      ,par_up_sfc      ,nir_up_sfc                       )     
+      & vis_up_sfc      ,par_up_sfc      ,nir_up_sfc                       ,&
+      & aer_aod_533     ,aer_ssa_533     ,aer_asy_533                      ,&
+      & aer_aod_2325    ,aer_ssa_2325    ,aer_asy_2325                     ,&
+      & aer_aod_9731                                                        )
      !-------------------------------------------------------------------
 
   END SUBROUTINE psrad_radiation

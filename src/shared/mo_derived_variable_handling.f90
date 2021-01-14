@@ -12,7 +12,7 @@ MODULE mo_derived_variable_handling
   USE mo_util_dbg_prnt, ONLY: dbg_print
 #endif
 
-  USE mo_kind, ONLY: wp
+  USE mo_kind, ONLY: wp, sp
   USE mo_model_domain, ONLY: t_patch
   USE mo_io_config, ONLY: lnetcdf_flt64_output
   USE mo_dynamics_config, ONLY: nnow, nnew, nold
@@ -41,6 +41,11 @@ MODULE mo_derived_variable_handling
   USE mo_output_event_types,  ONLY: t_sim_step_info
   USE mo_time_config,         ONLY: time_config
   USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_FLT64, GRID_LONLAT, TSTEP_CONSTANT
+#ifdef _OPENACC
+  USE mo_mpi,                 ONLY: i_am_accel_node
+#endif
+
+#include "add_var_acc_macro.inc"
 
   IMPLICIT NONE
 
@@ -76,10 +81,10 @@ MODULE mo_derived_variable_handling
   CHARACTER(LEN = MAX_CHAR_LENGTH), PARAMETER :: SQUARE = "square"
   !>
   ! wrapper for bind_c event type - needed because bind_c types are not allowed
-  ! in "select type" - this is kind of a hack
-  type :: t_event_wrapper
-    type(event), pointer :: this
-  end type
+  ! in "SELECT TYPE" - this is kind of a hack
+  TYPE :: t_event_wrapper
+    TYPE(event), pointer :: this
+  end TYPE
 
 CONTAINS
 
@@ -92,37 +97,37 @@ CONTAINS
     ! main map for automatical mean value computation:
     ! key: eventString
     ! value: self-vector of t_list_elements objects that belong to that event
-    call meanMap%init(verbose=.false.)
+    CALL meanMap%init(verbose=.false.)
     ! map for holding the events itself
     ! since the events cannot be saved a keys for a map because they are only
     ! C-pointers the same string representation of events is used as for
     ! "meanMap"
-    call meanEvents%init(verbose=.false.)
-    call meanEventsActivity%init(verbose=.false.)
-    call meanVarCounter%init(verbose=.false.)
-    call meanPrognostics%init(verbose=.false.)
-    call meanPrognosticPointers%init(verbose=.false.)
+    CALL meanEvents%init(verbose=.false.)
+    CALL meanEventsActivity%init(verbose=.false.)
+    CALL meanVarCounter%init(verbose=.false.)
+    CALL meanPrognostics%init(verbose=.false.)
+    CALL meanPrognosticPointers%init(verbose=.false.)
 
-    call maxMap%init(verbose=.false.)
-    call maxEvents%init(verbose=.false.)
-    call maxEventsActivity%init(verbose=.false.)
-    call maxVarCounter%init(verbose=.false.)
-    call maxPrognostics%init(verbose=.false.)
-    call maxPrognosticPointers%init(verbose=.false.)
+    CALL maxMap%init(verbose=.false.)
+    CALL maxEvents%init(verbose=.false.)
+    CALL maxEventsActivity%init(verbose=.false.)
+    CALL maxVarCounter%init(verbose=.false.)
+    CALL maxPrognostics%init(verbose=.false.)
+    CALL maxPrognosticPointers%init(verbose=.false.)
 
-    call minMap%init(verbose=.false.)
-    call minEvents%init(verbose=.false.)
-    call minEventsActivity%init(verbose=.false.)
-    call minVarCounter%init(verbose=.false.)
-    call minPrognostics%init(verbose=.false.)
-    call minPrognosticPointers%init(verbose=.false.)
+    CALL minMap%init(verbose=.false.)
+    CALL minEvents%init(verbose=.false.)
+    CALL minEventsActivity%init(verbose=.false.)
+    CALL minVarCounter%init(verbose=.false.)
+    CALL minPrognostics%init(verbose=.false.)
+    CALL minPrognosticPointers%init(verbose=.false.)
 
-    call squareMap%init(verbose=.false.)
-    call squareEvents%init(verbose=.false.)
-    call squareEventsActivity%init(verbose=.false.)
-    call squareVarCounter%init(verbose=.false.)
-    call squarePrognostics%init(verbose=.false.)
-    call squarePrognosticPointers%init(verbose=.false.)
+    CALL squareMap%init(verbose=.false.)
+    CALL squareEvents%init(verbose=.false.)
+    CALL squareEventsActivity%init(verbose=.false.)
+    CALL squareVarCounter%init(verbose=.false.)
+    CALL squarePrognostics%init(verbose=.false.)
+    CALL squarePrognosticPointers%init(verbose=.false.)
   END SUBROUTINE init_statistics_streams
 
   !>
@@ -131,7 +136,7 @@ CONTAINS
   !! Optional label is printed first, on a line by its own
   !!
   SUBROUTINE var_print(this, label)
-    class(vector_ref) , INTENT(in) :: this
+    CLASS(vector_ref) , INTENT(in) :: this
     CHARACTER(*), INTENT(in), OPTIONAL :: label
 
     TYPE(vector_iterator) :: my_iter
@@ -143,12 +148,12 @@ CONTAINS
     my_iter = this%iter()
     DO WHILE(my_iter%next(my_buffer))
       SELECT TYPE(my_buffer)
-      TYPE is (t_list_element)
+      TYPE IS (t_list_element)
         PRINT *,'t_list_element:varname:',         trim(my_buffer%field%info%name)
-      TYPE is (t_mvstream_pair)
+      TYPE IS (t_mvstream_pair)
         PRINT *,'t_mvstream_pair:source     :',trim(my_buffer%source%field%info%name)
         PRINT *,'t_mvstream_pair:destination:',trim(my_buffer%destination%field%info%name)
-      CLASS default
+      CLASS DEFAULT
         PRINT *,' default class print  :'
         print *,object_string (my_buffer)
       END SELECT
@@ -173,25 +178,25 @@ CONTAINS
   !>
   !! function to check if a varable is prognostic and saved for stats
   !!
-  logical function is_statsPrognosticVariable(variable,statList)
-    type(t_list_element), intent(in) :: variable
-    type(vector), intent(in) :: statList
+  LOGICAL FUNCTION is_statsPrognosticVariable(variable,statList)
+    TYPE(t_list_element), INTENT(in) :: variable
+    TYPE(vector), INTENT(in) :: statList
 
     is_statsPrognosticVariable = statList%includes(variable%field%info%name)
-  end function
+  END FUNCTION
 
   !>
   !! return pointer to prognostic accumulation copy for given timelevel
   !!
-  function get_prognostics_source_pointer(destinationVariable, timelevelIndex, pointerMap) result(sourcePointer)
-    type(t_list_element), pointer :: sourcePointer
-    type(t_list_element)          :: destinationVariable
-    type(map)                     :: pointerMap
+  FUNCTION get_prognostics_source_pointer(destinationVariable, timelevelIndex, pointerMap) result(sourcePointer)
+    TYPE(t_list_element), pointer :: sourcePointer
+    TYPE(t_list_element)          :: destinationVariable
+    TYPE(map)                     :: pointerMap
 
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::get_prognostics_source_pointer"
     INTEGER , INTENT(IN) :: timelevelIndex
 
-    class(*), pointer :: dummy
+    CLASS(*), pointer :: dummy
 
     dummy => pointerMap%get( &
       & get_varname_with_timelevel( &
@@ -199,13 +204,13 @@ CONTAINS
       &   timelevelIndex) &
       & )
 
-    select type (dummy)
-    type is (t_list_element)
+    SELECT TYPE (dummy)
+    TYPE IS (t_list_element)
       sourcePointer => dummy
-    class default
-      call finish(routine,"Cound not find pointer to prognostics variable for given timelevel!")
-    end select
-  end function get_prognostics_source_pointer
+    CLASS DEFAULT
+      CALL finish(routine,"Cound not find pointer to prognostics variable for given timelevel!")
+    END SELECT
+  END FUNCTION get_prognostics_source_pointer
 
   !>
   !! The current mean values are supported
@@ -226,7 +231,7 @@ CONTAINS
       &   p_onl%stream_partitions_il > 1 ) abort = .TRUE.
 
     IF (abort) THEN
-      call finish(routine,"meanValues are only supported on global domain 1 and without stream partitioning!")
+      CALL finish(routine,"meanValues are only supported on global domain 1 and without stream partitioning!")
     END IF
   END SUBROUTINE statStreamCrossCheck
 
@@ -241,15 +246,15 @@ CONTAINS
 
   END SUBROUTINE finish_statistics_streams
 
-  integer function output_varlist_length(in_varlist)
-    CHARACTER(LEN=vname_len), intent(in) :: in_varlist(:)
+  INTEGER FUNCTION output_varlist_length(in_varlist)
+    CHARACTER(LEN=vname_len), INTENT(in) :: in_varlist(:)
 
     output_varlist_length = 0
     DO
       IF (in_varlist(output_varlist_length+1) == ' ') EXIT
       output_varlist_length = output_varlist_length + 1
     END DO
-  end function output_varlist_length
+  END FUNCTION output_varlist_length
 
   SUBROUTINE fill_list_of_output_varnames(varlist,in_varlist,ntotal_vars)
     CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: varlist(:)
@@ -276,22 +281,22 @@ CONTAINS
     CHARACTER(LEN=vname_len), POINTER :: in_varlist(:)
     INTEGER,INTENT(IN) :: i
 
-      if (my_process_is_stdio()) CALL print_summary('src(name)     :|'//trim(src_element%field%info%name)//'|',stderr=.true.)
-      if (my_process_is_stdio()) CALL print_summary('src(grid)     :|'//int2string(src_element%field%info%hgrid)//'|', &
+      IF (my_process_is_stdio()) CALL print_summary('src(name)     :|'//trim(src_element%field%info%name)//'|',stderr=.true.)
+      IF (my_process_is_stdio()) CALL print_summary('src(grid)     :|'//int2string(src_element%field%info%hgrid)//'|', &
           & stderr=.true.)
-      if (my_process_is_stdio()) CALL print_summary('src(dims:1)   :|'//int2string(src_element%field%info%used_dimensions(1))//'|',&
+      IF (my_process_is_stdio()) CALL print_summary('src(dims:1)   :|'//int2string(src_element%field%info%used_dimensions(1))//'|',&
           & stderr=.true.)
-      if (my_process_is_stdio()) CALL print_summary('src(dims:2)   :|'//int2string(src_element%field%info%used_dimensions(2))//'|',&
+      IF (my_process_is_stdio()) CALL print_summary('src(dims:2)   :|'//int2string(src_element%field%info%used_dimensions(2))//'|',&
           & stderr=.true.)
-      if (my_process_is_stdio()) CALL print_summary('src(dims:3)   :|'//int2string(src_element%field%info%used_dimensions(3))//'|',&
+      IF (my_process_is_stdio()) CALL print_summary('src(dims:3)   :|'//int2string(src_element%field%info%used_dimensions(3))//'|',&
           & stderr=.true.)
-      if (my_process_is_stdio()) CALL print_summary('src(dims:4)   :|'//int2string(src_element%field%info%used_dimensions(4))//'|',&
+      IF (my_process_is_stdio()) CALL print_summary('src(dims:4)   :|'//int2string(src_element%field%info%used_dimensions(4))//'|',&
           & stderr=.true.)
-      if (my_process_is_stdio()) CALL print_summary('src(dims:5)   :|'//int2string(src_element%field%info%used_dimensions(5))//'|',&
+      IF (my_process_is_stdio()) CALL print_summary('src(dims:5)   :|'//int2string(src_element%field%info%used_dimensions(5))//'|',&
           & stderr=.true.)
-      if (my_process_is_stdio()) CALL print_summary('varlist(name) :|'//trim(in_varlist(i))//'|',stderr=.true.)
-      if (my_process_is_stdio()) CALL print_summary('new name      :|'//trim(dest_element_name)//'|',stderr=.true.)
-      if (my_process_is_stdio()) CALL print_summary('new grid      :|'//int2string(dest_element%field%info%hgrid)//'|',&
+      IF (my_process_is_stdio()) CALL print_summary('varlist(name) :|'//trim(in_varlist(i))//'|',stderr=.true.)
+      IF (my_process_is_stdio()) CALL print_summary('new name      :|'//trim(dest_element_name)//'|',stderr=.true.)
+      IF (my_process_is_stdio()) CALL print_summary('new grid      :|'//int2string(dest_element%field%info%hgrid)//'|',&
           & stderr=.true.)
   END SUBROUTINE
 
@@ -315,25 +320,25 @@ CONTAINS
         &                         opt_hgrid=GRID_UNSTRUCTURED_CELL, &
         &                         opt_caseInsensitive=.true., &
         &                         opt_returnList=src_list)
-    IF (.not. ASSOCIATED(src_element) ) &
+    IF (.NOT. ASSOCIATED(src_element) ) &
         & src_element => find_element ( TRIM(varlist_element),&
         &                               opt_patch_id=dom, &
         &                               opt_hgrid=GRID_UNSTRUCTURED_EDGE, &
         &                               opt_caseInsensitive=.true., &
         &                               opt_returnList=src_list)
-    IF (.not. ASSOCIATED(src_element) ) &
+    IF (.NOT. ASSOCIATED(src_element) ) &
         & src_element => find_element ( TRIM(varlist_element),&
         &                               opt_patch_id=dom, &
         &                               opt_hgrid=GRID_UNSTRUCTURED_VERT, &
         &                               opt_caseInsensitive=.true., &
         &                               opt_returnList=src_list)
-    IF (.not. ASSOCIATED(src_element) ) &
+    IF (.NOT. ASSOCIATED(src_element) ) &
         & src_element => find_element ( TRIM(varlist_element),&
         &                               opt_patch_id=dom, &
         &                               opt_hgrid=GRID_LONLAT, &
         &                               opt_caseInsensitive=.true., &
         &                               opt_returnList=src_list)
-    IF (.not. ASSOCIATED(src_element) ) &
+    IF (.NOT. ASSOCIATED(src_element) ) &
         & src_element => find_element ( TRIM(varlist_element),&
         &                               opt_patch_id=dom, &
         &                               opt_hgrid=GRID_ZONAL, &
@@ -345,60 +350,60 @@ CONTAINS
     ! time-level in its name
     ! ATTENTION: this is only a placeholder, because it catches the first match
     ! the correct pointer is the one with nnew(), but its value changes each timestep
-    IF (.not. ASSOCIATED (src_element)) THEN
+    IF (.NOT. ASSOCIATED (src_element)) THEN
       foundPrognostic = .false.
       timelevels = (/nold(1),nnow(1),nnew(1)/)
       DO timelevel=1,3
 
 #ifdef DEBUG_MVSTREAM
-          if (my_process_is_stdio()) call print_error(get_varname_with_timelevel(varlist_element,timelevels(timelevel)))
+          IF (my_process_is_stdio()) CALL print_error(get_varname_with_timelevel(varlist_element,timelevels(timelevel)))
 #endif
           src_element => find_element(get_varname_with_timelevel(varlist_element,timelevels(timelevel)),&
               &                       opt_patch_id=dom, opt_returnList=src_list)
-          if ( ASSOCIATED(src_element) ) then
+          IF ( ASSOCIATED(src_element) ) THEN
 #ifdef DEBUG_MVSTREAM
-            if (my_process_is_stdio()) write(0,*)'found prognostic:',&
+            IF (my_process_is_stdio()) write(0,*)'found prognostic:',&
                 & TRIM(get_varname_with_timelevel(varlist_element,timelevels(timelevel)))
 #endif
-            if ( .not. foundPrognostic ) then
+            IF ( .NOT. foundPrognostic ) THEN
               ! save the name of the original output variable if a prognosting version was found
-              call prognosticsList%add(dest_element_name)
+              CALL prognosticsList%add(dest_element_name)
               foundPrognostic = .true.
 #ifdef DEBUG_MVSTREAM
-              if (my_process_is_stdio()) call print_error('prognosticsList%add():'//varlist_element)
+              IF (my_process_is_stdio()) CALL print_error('prognosticsList%add():'//varlist_element)
 #endif
-            end if
+            END IF
             ! save the the pointers for all time levels of a prognostic variable
             ! these must be used for correct accumulation during the time loop
-            call prognosticsPointerList%add(get_varname_with_timelevel(dest_element_name,timelevels(timelevel)),src_element)
-          end if
+            CALL prognosticsPointerList%add(get_varname_with_timelevel(dest_element_name,timelevels(timelevel)),src_element)
+          END IF
       END DO
     END IF
     ! in case nothing appropriate could be found, throw an error
-    IF (.not. ASSOCIATED (src_element)) THEN
-      call finish(routine,'Could not find source variable:'//TRIM(varlist_element))
+    IF (.NOT. ASSOCIATED (src_element)) THEN
+      CALL finish(routine,'Could not find source variable:'//TRIM(varlist_element))
     END IF
   END SUBROUTINE
 
   SUBROUTINE setup_statistics_events_and_lists(statsMap, eventTag, statisticsVariablesForEvent, eventMap, eventsActivityMap,p_onl)
     TYPE(map) :: statsMap, eventMap, eventsActivityMap
-    CHARACTER(LEN=100), intent(in) :: eventTag
+    CHARACTER(LEN=100), INTENT(in) :: eventTag
     TYPE(vector_ref) :: statisticsVariablesForEvent
-    TYPE (t_output_name_list), intent(in),target  :: p_onl
+    TYPE (t_output_name_list), INTENT(in),target  :: p_onl
 
-    class(*), pointer :: myBuffer
-    type(t_event_wrapper) :: event_wrapper
+    CLASS(*), pointer :: myBuffer
+    TYPE(t_event_wrapper) :: event_wrapper
 
     IF ( statsMap%has_key(eventTag) ) THEN
       myBuffer => statsMap%get(eventTag)
-      select type (myBuffer)
-      type is (vector_ref)
+      SELECT TYPE (myBuffer)
+      TYPE IS (vector_ref)
         ! use exiting list
         statisticsVariablesForEvent = myBuffer
-      end select
+      END SELECT
     ELSE
       ! create new variable list
-      call statisticsVariablesForEvent%init()
+      CALL statisticsVariablesForEvent%init()
 
       ! wrap c-pointer for events into a fortran type - look weird, but does the trick
       event_wrapper = t_event_wrapper(this=newEvent(eventTag, &
@@ -409,10 +414,10 @@ CONTAINS
         &                ))
 
       ! collect the new event
-      call eventMap%add(eventTag,event_wrapper)
+      CALL eventMap%add(eventTag,event_wrapper)
     END IF
     ! initialize all events as in-active
-    call eventsActivityMap%add(eventTag,.false.)
+    CALL eventsActivityMap%add(eventTag,.false.)
   END SUBROUTINE
 
   SUBROUTINE print_prognosticLists(varlist,progMap,progPointers)
@@ -421,11 +426,11 @@ CONTAINS
 
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::print_prognosticLists"
 
-    call var_print(varlist)
-    call print_routine(routine, 'progMap%to_string()')
-    call print_routine(routine, progMap%to_string())
-    call print_routine(routine, progPointers%to_string())
-    call var_print(progPointers%values())
+    CALL var_print(varlist)
+    CALL print_routine(routine, 'progMap%to_string()')
+    CALL print_routine(routine, progMap%to_string())
+    CALL print_routine(routine, progPointers%to_string())
+    CALL var_print(progPointers%values())
   END SUBROUTINE
 
   !>
@@ -440,15 +445,15 @@ CONTAINS
 
     TYPE(t_list_element), POINTER :: dest_element
 
-    integer :: dataType = -1
+    INTEGER :: dataType = -1
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::copy_var_to_list"
 
     dataType = MERGE(DATATYPE_FLT64, DATATYPE_FLT32, lnetcdf_flt64_output)
 #ifdef DEBUG_MVSTREAM
-    if (my_process_is_stdio()) then
-      call print_verbose("COPY variable:"//TRIM(name))
-      call print_verbose("     INTO    :"//TRIM(list%p%name))
-    endif
+    IF (my_process_is_stdio()) THEN
+      CALL print_verbose("COPY variable:"//TRIM(name))
+      CALL print_verbose("     INTO    :"//TRIM(list%p%name))
+    END IF
 #endif
     CALL add_var(source_element%field%info%ndims, &
       & REAL_T, &
@@ -470,17 +475,20 @@ CONTAINS
       & in_group=source_element%field%info%in_group, &
       & l_pp_scheduler_task=source_element%field%info%l_pp_scheduler_task, &
       & loutput=.TRUE., lrestart=.FALSE., &
-      & var_class=source_element%field%info%var_class )
+      & var_class=source_element%field%info%var_class, &
+      & lopenacc = .TRUE. )
+!!!!      & lopenacc = source_element%field%info%lopenacc )   ! Not clear why this is not .TRUE.
+    __acc_attach( dest_element%field%r_ptr )
 
     ! add the subset for later accumulation on all types of horizontal grids
-    select case (source_element%field%info%hgrid)
+    SELECT case (source_element%field%info%hgrid)
     case (GRID_UNSTRUCTURED_CELL)
       dest_element%field%info%subset = patch_2d%cells%owned
     case (GRID_UNSTRUCTURED_EDGE)
       dest_element%field%info%subset = patch_2d%edges%owned
     case (GRID_UNSTRUCTURED_VERT)
       dest_element%field%info%subset = patch_2d%verts%owned
-    end select
+    END SELECT
   END FUNCTION copy_var_to_list
 
   !>
@@ -488,7 +496,7 @@ CONTAINS
   !!
   FUNCTION get_statistics_varname(varname,output_setup)
     CHARACTER(LEN=VARNAME_LEN)  :: varname
-    type(t_output_name_list) :: output_setup
+    TYPE(t_output_name_list) :: output_setup
 
     CHARACTER(LEN=VARNAME_LEN)  :: get_statistics_varname
 
@@ -525,22 +533,22 @@ CONTAINS
     TYPE (t_sim_step_info), INTENT(IN) :: sim_step_info
     TYPE(t_patch), INTENT(IN)          :: patch_2d
 
-    type(map) :: statisticMap
-    type(map) :: statisticEvents
-    type(map) :: statisticEventsActivity
-    type(map) :: statisticVarCounter
-    type(vector) :: statisticPrognostics
-    type(map) :: statisticPrognosticPointers
-    CHARACTER(len=*), intent(in) :: operation
+    TYPE(map) :: statisticMap
+    TYPE(map) :: statisticEvents
+    TYPE(map) :: statisticEventsActivity
+    TYPE(map) :: statisticVarCounter
+    TYPE(vector) :: statisticPrognostics
+    TYPE(map) :: statisticPrognosticPointers
+    CHARACTER(len=*), INTENT(in) :: operation
 
     !-----------------------------------------------------------------------------
     CHARACTER(LEN=vname_len), POINTER :: in_varlist(:)
     INTEGER :: ntotal_vars, output_variables,i,ierrstat, dataType
     INTEGER :: timelevel, timelevels(3)
-    type(vector_ref) :: statisticVariables, prognosticVariables
+    TYPE(vector_ref) :: statisticVariables, prognosticVariables
     CHARACTER(LEN=100) :: eventKey
-    type(t_event_wrapper) :: event_wrapper
-    class(*), pointer :: myBuffer
+    TYPE(t_event_wrapper) :: event_wrapper
+    CLASS(*), pointer :: myBuffer
     TYPE(t_list_element), POINTER :: src_element, dest_element
     CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: varlist(:)
     CHARACTER(LEN=VARNAME_LEN) :: dest_element_name
@@ -549,15 +557,15 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::process_mvstream"
 
 #ifdef DEBUG_MVSTREAM
-    if (my_process_is_stdio()) call print_routine(routine,'start')
+    IF (my_process_is_stdio()) CALL print_routine(routine,'start')
 #endif
 
     IF (trim(operation) .EQ. TRIM(p_onl%operation)) THEN
 
 #ifdef DEBUG_MVSTREAM
-      if (my_process_is_stdio()) call print_routine(routine,'found "'//trim(operation)//'" operation')
+      IF (my_process_is_stdio()) CALL print_routine(routine,'found "'//trim(operation)//'" operation')
 #endif
-      call statStreamCrossCheck(p_onl)
+      CALL statStreamCrossCheck(p_onl)
 
       ntotal_vars = total_number_of_variables()
       ! temporary variables needed for variable group parsing
@@ -586,7 +594,7 @@ CONTAINS
       ! the event itself
 
 #ifdef DEBUG_MVSTREAM
-      if (my_process_is_stdio()) call print_summary('eventKey:'//trim(eventKey))
+      IF (my_process_is_stdio()) CALL print_summary('eventKey:'//trim(eventKey))
 #endif
 
       ! fill main dictionary of variables for different events
@@ -611,9 +619,9 @@ CONTAINS
         dest_element_name = get_statistics_varname(varlist(i),p_onl)
         dest_element => find_element(trim(dest_element_name),opt_patch_id=p_onl%dom)
 #ifdef DEBUG_MVSTREAM
-        if (my_process_is_stdio()) call print_summary('destination variable NAME:'//TRIM(dest_element_name),stderr=.true.)
+        IF (my_process_is_stdio()) CALL print_summary('destination variable NAME:'//TRIM(dest_element_name),stderr=.true.)
 #endif
-        IF (.not. ASSOCIATED(dest_element) ) THEN !not found -->> create a new on
+        IF (.NOT. ASSOCIATED(dest_element) ) THEN !not found -->> create a new on
           ! find existing source variable on all possible ICON grids with the identical name
           CALL find_src_element(src_element, varlist(i), dest_element_name, p_onl%dom, src_list, &
             & statisticPrognostics, statisticPrognosticPointers)
@@ -642,9 +650,9 @@ CONTAINS
 
         ! replace existince varname in output_nml with the meanStream Variable
 #ifdef DEBUG_MVSTREAM
-          if ( my_process_is_stdio()) CALL print_summary('dst(name)     :|'//trim(dest_element%field%info%name)//'|',&
+          IF ( my_process_is_stdio()) CALL print_summary('dst(name)     :|'//trim(dest_element%field%info%name)//'|',&
               & stderr=.true.)
-          if ( my_process_is_stdio()) CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_name)//'|',&
+          IF ( my_process_is_stdio()) CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_name)//'|',&
               & stderr=.true.)
 #endif
         END IF
@@ -652,21 +660,21 @@ CONTAINS
       END DO
       CALL statisticMap%add(eventKey,statisticVariables)
 #ifdef DEBUG_MVSTREAM
-      if (my_process_is_stdio()) call print_error(routine//": statisticPrognostics%to_string()")
-      if (my_process_is_stdio()) call print_error(statisticPrognostics%to_string())
+      IF (my_process_is_stdio()) CALL print_error(routine//": statisticPrognostics%to_string()")
+      IF (my_process_is_stdio()) CALL print_error(statisticPrognostics%to_string())
 #endif
       DEALLOCATE(varlist)
     ELSE
 #ifdef DEBUG_MVSTREAM
-      if (my_process_is_stdio()) call print_routine(routine,'NO "statistic" operation found')
+      IF (my_process_is_stdio()) CALL print_routine(routine,'NO "statistic" operation found')
 #endif
     END IF
 
 #ifdef DEBUG_MVSTREAM
-    if (my_process_is_stdio()) then
-      call print_prognosticLists(statisticVariables, statisticMap, statisticPrognosticPointers)
-    endif
-    if (my_process_is_stdio()) call print_routine(routine,'end',stderr=.true.)
+    IF (my_process_is_stdio()) THEN
+      CALL print_prognosticLists(statisticVariables, statisticMap, statisticPrognosticPointers)
+    END IF
+    IF (my_process_is_stdio()) CALL print_routine(routine,'end',stderr=.true.)
 #endif
 
   END SUBROUTINE process_mvstream
@@ -715,11 +723,11 @@ CONTAINS
   !! implement addition for source fields to the internal accumulation fields
   !!
   SUBROUTINE statistics_add(source, destination, counter)
-    type(t_list_element) , INTENT(IN)    :: source
-    type(t_list_element) , INTENT(INOUT) :: destination
-    integer, intent(inout)               :: counter
+    TYPE(t_list_element) , INTENT(IN)    :: source
+    TYPE(t_list_element) , INTENT(INOUT) :: destination
+    INTEGER, INTENT(inout)               :: counter
 
-    integer :: index
+    INTEGER :: index
 
     index = -1
 
@@ -727,137 +735,113 @@ CONTAINS
       CALL add_sp()
     ELSE
       CALL add_wp()
-    ENDIF
+    END IF
     counter                 = counter + 1
 
     CONTAINS
       SUBROUTINE add_wp()
+        REAL(wp), POINTER :: dst_ptr(:,:,:,:,:), src_ptr(:,:,:,:,:)
+        dst_ptr => destination%field%r_ptr
+        src_ptr => source%field%r_ptr
         IF (source%field%info%lcontained) THEN
-          index = source%field%info%ncontained
-
           ! tackle 4d containers
-          SELECT CASE(source%field%info%var_ref_pos)
-          CASE(1)
-            destination%field%r_ptr(:,:,:,:,:) = &
-              & destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(index:index,:,:,:,:)
-          CASE(2)
-            destination%field%r_ptr(:,:,:,:,:) = &
-              & destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,index:index,:,:,:)
-          CASE(3)
-            destination%field%r_ptr(:,:,:,:,:) = &
-              & destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,:,index:index,:,:)
-          CASE(4)
-            destination%field%r_ptr(:,:,:,:,:) = &
-              & destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,:,:,index:index,:)
-          END SELECT
+          CALL add_fields(dst_ptr,src_ptr, source%field%info%var_ref_pos,source%field%info%ncontained)
         ELSE
           ! tackle 1d, 2d and 3d
           SELECT CASE(destination%field%info%ndims)
           CASE(3)
            !hack for sea ice variables which uses vertical level for ice class
             IF (1 == destination%field%info%used_dimensions(2)) THEN
-              call add_fields(destination%field%r_ptr(:,:,:,1,1), &
-                &             source%field%r_ptr(:,:,:,1,1), &
+              CALL add_fields(dst_ptr(:,:,:,1,1), &
+                &             src_ptr(:,:,:,1,1), &
                 &             destination%field%info%subset, &
                 &             levels=1, &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
             ELSE IF (ZA_OCEAN_SEDIMENT == destination%field%info%vgrid) THEN
-              call add_fields(destination%field%r_ptr(:,:,:,1,1), &
-                &             source%field%r_ptr(:,:,:,1,1), &
+              CALL add_fields(dst_ptr(:,:,:,1,1), &
+                &             src_ptr(:,:,:,1,1), &
                 &             destination%field%info%subset, &
                 &             levels=destination%field%info%used_dimensions(2), &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
             ELSE
-              call add_fields(destination%field%r_ptr(:,:,:,1,1), &
-                &             source%field%r_ptr(:,:,:,1,1), &
+              CALL add_fields(dst_ptr(:,:,:,1,1), &
+                &             src_ptr(:,:,:,1,1), &
                 &             destination%field%info%subset, &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
-            ENDIF
+            END IF
           CASE(2)
             IF (GRID_ZONAL .EQ. destination%field%info%hgrid) THEN
-              call add_fields(destination%field%r_ptr(:,:,1,1,1), &
-                &             source%field%r_ptr(:,:,1,1,1), &
+              CALL add_fields(dst_ptr(:,:,1,1,1), &
+                &             src_ptr(:,:,1,1,1), &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
             ELSE
-              call add_fields(destination%field%r_ptr(:,:,1,1,1), &
-                &             source%field%r_ptr(:,:,1,1,1), &
+              CALL add_fields(dst_ptr(:,:,1,1,1), &
+                &             src_ptr(:,:,1,1,1), &
                 &             destination%field%info%subset, &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
-            ENDIF
+            END IF
           CASE DEFAULT
-            destination%field%r_ptr(:,:,:,:,:) = destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,:,:,:,:)
+            CALL add_fields(dst_ptr, src_ptr)
           END SELECT
-        ENDIF
+        END IF
+
       END SUBROUTINE add_wp
       SUBROUTINE add_sp() 
-        IF (source%field%info%lcontained) then
-          index = source%field%info%ncontained
+        REAL(wp), POINTER :: dst_ptr(:,:,:,:,:)
+        REAL(sp), POINTER :: src_ptr(:,:,:,:,:)
+        dst_ptr => destination%field%r_ptr
+        src_ptr => source%field%s_ptr
+        IF (source%field%info%lcontained) THEN
           ! tackle 4d containers
-          if (my_process_is_stdio()) print *,'sheeep:',shape(source%field%s_ptr)
-          if (my_process_is_stdio()) print *,'deeeep:',shape(destination%field%s_ptr)
-          if (my_process_is_stdio()) print *,'index:',trim(int2string(index))
-          SELECT CASE(source%field%info%var_ref_pos)
-          CASE(1)
-            destination%field%r_ptr(:,:,:,:,:) = &
-              & destination%field%r_ptr (:,:,:,:,:) + REAL(source%field%r_ptr(index:index,:,:,:,:),wp)
-          CASE(2)
-            destination%field%r_ptr(:,:,:,:,:) = &
-              & destination%field%r_ptr (:,:,:,:,:) + REAL(source%field%r_ptr(:,index:index,:,:,:),wp)
-          CASE(3)
-            destination%field%r_ptr(:,:,:,:,:) = &
-              & destination%field%r_ptr (:,:,:,:,:) + REAL(source%field%r_ptr(:,:,index:index,:,:) ,wp)
-          CASE(4)
-            destination%field%r_ptr(:,:,:,:,:) = &
-              & destination%field%r_ptr (:,:,:,:,:) + REAL(source%field%r_ptr(:,:,:,index:index,:),wp)
-          END SELECT
+          CALL add_fields(dst_ptr,src_ptr, source%field%info%var_ref_pos,source%field%info%ncontained)
         ELSE
           ! tackle 1d, 2d and 3d
           SELECT CASE(destination%field%info%ndims)
           CASE(3)
            !hack for sea ice variables which uses vertical level for ice class
             IF (1 == destination%field%info%used_dimensions(2)) THEN
-              call add_fields(destination%field%r_ptr(:,:,:,1,1), &
-                &             source%field%s_ptr(:,:,:,1,1), &
+              CALL add_fields(dst_ptr(:,:,:,1,1), &
+                &             src_ptr(:,:,:,1,1), &
                 &             destination%field%info%subset, &
                 &             levels=1, &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
             ELSE IF (ZA_OCEAN_SEDIMENT == destination%field%info%vgrid) THEN
-              call add_fields(destination%field%r_ptr(:,:,:,1,1), &
-                &             source%field%s_ptr(:,:,:,1,1), &
+              CALL add_fields(dst_ptr(:,:,:,1,1), &
+                &             src_ptr(:,:,:,1,1), &
                 &             destination%field%info%subset, &
                 &             levels=destination%field%info%used_dimensions(2), &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
             ELSE
-              call add_fields(destination%field%r_ptr(:,:,:,1,1), &
-                &             source%field%s_ptr(:,:,:,1,1), &
+              CALL add_fields(dst_ptr(:,:,:,1,1), &
+                &             src_ptr(:,:,:,1,1), &
                 &             destination%field%info%subset, &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
-            ENDIF
+            END IF
           CASE(2)
             IF (GRID_ZONAL .EQ. destination%field%info%hgrid) THEN
-              call add_fields(destination%field%r_ptr(:,:,1,1,1), &
-                &             source%field%s_ptr(:,:,1,1,1), &
+              CALL add_fields(dst_ptr(:,:,1,1,1), &
+                &             src_ptr(:,:,1,1,1), &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
             ELSE
-              call add_fields(destination%field%r_ptr(:,:,1,1,1), &
+              CALL add_fields(dst_ptr(:,:,1,1,1), &
                 &             source%field%s_ptr(:,:,1,1,1), &
                 &             destination%field%info%subset, &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
-            ENDIF
+            END IF
           CASE DEFAULT
-            destination%field%r_ptr(:,:,:,:,:) = destination%field%r_ptr (:,:,:,:,:) + REAL(source%field%s_ptr(:,:,:,:,:),wp)
+            CALL add_fields(dst_ptr,src_ptr)
           END SELECT
-        ENDIF
+        END IF
       END SUBROUTINE add_sp
   END SUBROUTINE statistics_add
 
@@ -866,11 +850,11 @@ CONTAINS
   !! implement addition for source fields to the internal accumulation fields
   !!
   SUBROUTINE statistics_add_sqr(source, destination, counter)
-    type(t_list_element) , INTENT(IN)    :: source
-    type(t_list_element) , INTENT(INOUT) :: destination
-    integer, intent(inout)               :: counter
+    TYPE(t_list_element) , INTENT(IN)    :: source
+    TYPE(t_list_element) , INTENT(INOUT) :: destination
+    INTEGER, INTENT(inout)               :: counter
 
-    integer :: index
+    INTEGER :: index
 
     index = -1
 
@@ -878,144 +862,121 @@ CONTAINS
       CALL add_sqr_sp()
     ELSE
       CALL add_sqr_wp()
-    ENDIF
+    END IF
     counter                 = counter + 1
 
     CONTAINS
       SUBROUTINE add_sqr_wp()
+        REAL(wp), POINTER :: dst_ptr(:,:,:,:,:), src_ptr(:,:,:,:,:)
+        dst_ptr => destination%field%r_ptr
+        src_ptr => source%field%r_ptr
         IF (source%field%info%lcontained) THEN
-          index = source%field%info%ncontained
-
           ! tackle 4d containers
-          SELECT CASE(source%field%info%var_ref_pos)
-          CASE(1)
-            destination%field%r_ptr(:,:,:,:,:) = &
-              & destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(index:index,:,:,:,:)**2
-          CASE(2)
-            destination%field%r_ptr(:,:,:,:,:) = &
-              & destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,index:index,:,:,:)**2
-          CASE(3)
-            destination%field%r_ptr(:,:,:,:,:) = &
-              & destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,:,index:index,:,:)**2
-          CASE(4)
-            destination%field%r_ptr(:,:,:,:,:) = &
-              & destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,:,:,index:index,:)**2
-          END SELECT
+          CALL add_sqr_fields(dst_ptr,src_ptr, source%field%info%var_ref_pos,source%field%info%ncontained)
         ELSE
           ! tackle 1d, 2d and 3d
           SELECT CASE(destination%field%info%ndims)
           CASE(3)
            !hack for sea ice variables which uses vertical level for ice class
             IF (1 == destination%field%info%used_dimensions(2)) THEN
-              call add_sqr_fields(destination%field%r_ptr(:,:,:,1,1), &
-                &             source%field%r_ptr(:,:,:,1,1), &
+              CALL add_sqr_fields(dst_ptr(:,:,:,1,1), &
+                &             src_ptr(:,:,:,1,1), &
                 &             destination%field%info%subset, &
                 &             levels=1, &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
             ELSE IF (ZA_OCEAN_SEDIMENT == destination%field%info%vgrid) THEN
-              call add_sqr_fields(destination%field%r_ptr(:,:,:,1,1), &
-                &             source%field%r_ptr(:,:,:,1,1), &
+              CALL add_sqr_fields(dst_ptr(:,:,:,1,1), &
+                &             src_ptr(:,:,:,1,1), &
                 &             destination%field%info%subset, &
                 &             levels=destination%field%info%used_dimensions(2), &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
             ELSE
-              call add_sqr_fields(destination%field%r_ptr(:,:,:,1,1), &
-                &             source%field%r_ptr(:,:,:,1,1), &
+              CALL add_sqr_fields(dst_ptr(:,:,:,1,1), &
+                &             src_ptr(:,:,:,1,1), &
                 &             destination%field%info%subset, &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
-            ENDIF
+            END IF
           CASE(2)
             IF (GRID_ZONAL .EQ. destination%field%info%hgrid) THEN
-              call add_sqr_fields(destination%field%r_ptr(:,:,1,1,1), &
-                &             source%field%r_ptr(:,:,1,1,1), &
+              CALL add_sqr_fields(dst_ptr(:,:,1,1,1), &
+                &             src_ptr(:,:,1,1,1), &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
             ELSE
-              call add_sqr_fields(destination%field%r_ptr(:,:,1,1,1), &
-                &             source%field%r_ptr(:,:,1,1,1), &
+              CALL add_sqr_fields(dst_ptr(:,:,1,1,1), &
+                &             src_ptr(:,:,1,1,1), &
                 &             destination%field%info%subset, &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
-            ENDIF
+            END IF
           CASE DEFAULT
-            destination%field%r_ptr(:,:,:,:,:) = destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,:,:,:,:)**2
+            CALL add_sqr_fields(dst_ptr,src_ptr)
           END SELECT
-        ENDIF
+        END IF
       END SUBROUTINE add_sqr_wp
       SUBROUTINE add_sqr_sp()
+        REAL(wp), POINTER :: dst_ptr(:,:,:,:,:)
+        REAL(sp), POINTER :: src_ptr(:,:,:,:,:)
+        dst_ptr => destination%field%r_ptr
+        src_ptr => source%field%s_ptr
         IF (source%field%info%lcontained) THEN
-          index = source%field%info%ncontained
-
           ! tackle 4d containers
-          SELECT CASE(source%field%info%var_ref_pos)
-          CASE(1)
-            destination%field%r_ptr(:,:,:,:,:) = &
-              & destination%field%r_ptr (:,:,:,:,:) + REAL(source%field%r_ptr(index:index,:,:,:,:),wp)**2
-          CASE(2)
-            destination%field%r_ptr(:,:,:,:,:) = &
-              & destination%field%r_ptr (:,:,:,:,:) + REAL(source%field%r_ptr(:,index:index,:,:,:),wp)**2
-          CASE(3)
-            destination%field%r_ptr(:,:,:,:,:) = &
-              & destination%field%r_ptr (:,:,:,:,:) + REAL(source%field%r_ptr(:,:,index:index,:,:),wp)**2
-          CASE(4)
-            destination%field%r_ptr(:,:,:,:,:) = &
-              & destination%field%r_ptr (:,:,:,:,:) + REAL(source%field%r_ptr(:,:,:,index:index,:),wp)**2
-          END SELECT
+          CALL add_sqr_fields(dst_ptr,src_ptr, source%field%info%var_ref_pos,source%field%info%ncontained)
         ELSE
           ! tackle 1d, 2d and 3d
           SELECT CASE(destination%field%info%ndims)
           CASE(3)
            !hack for sea ice variables which uses vertical level for ice class
             IF (1 == destination%field%info%used_dimensions(2)) THEN
-              call add_sqr_fields(destination%field%r_ptr(:,:,:,1,1), &
+              CALL add_sqr_fields(dst_ptr(:,:,:,1,1), &
                 &             source%field%s_ptr(:,:,:,1,1), &
                 &             destination%field%info%subset, &
                 &             levels=1, &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
             ELSE IF (ZA_OCEAN_SEDIMENT == destination%field%info%vgrid) THEN
-              call add_sqr_fields(destination%field%r_ptr(:,:,:,1,1), &
+              CALL add_sqr_fields(dst_ptr(:,:,:,1,1), &
                 &             source%field%s_ptr(:,:,:,1,1), &
                 &             destination%field%info%subset, &
                 &             levels=destination%field%info%used_dimensions(2), &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
             ELSE
-              call add_sqr_fields(destination%field%r_ptr(:,:,:,1,1), &
+              CALL add_sqr_fields(dst_ptr(:,:,:,1,1), &
                 &             source%field%s_ptr(:,:,:,1,1), &
                 &             destination%field%info%subset, &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
-            ENDIF
+            END IF
           CASE(2)
             IF (GRID_ZONAL .EQ. destination%field%info%hgrid) THEN
-              call add_sqr_fields(destination%field%r_ptr(:,:,1,1,1), &
+              CALL add_sqr_fields(dst_ptr(:,:,1,1,1), &
                 &             source%field%s_ptr(:,:,1,1,1), &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
             ELSE
-              call add_sqr_fields(destination%field%r_ptr(:,:,1,1,1), &
+              CALL add_sqr_fields(dst_ptr(:,:,1,1,1), &
                 &             source%field%s_ptr(:,:,1,1,1), &
                 &             destination%field%info%subset, &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
-            ENDIF
+            END IF
           CASE DEFAULT
-            destination%field%r_ptr(:,:,:,:,:) = destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,:,:,:,:)**2
+            CALL add_sqr_fields(dst_ptr,src_ptr)
           END SELECT
-        ENDIF
+        END IF
       END SUBROUTINE add_sqr_sp
   END SUBROUTINE statistics_add_sqr
 
   SUBROUTINE statistics_assign(source, destination, counter)
-    type(t_list_element) , INTENT(IN)    :: source
-    type(t_list_element) , INTENT(INOUT) :: destination
-    integer, intent(inout)               :: counter
+    TYPE(t_list_element) , INTENT(IN)    :: source
+    TYPE(t_list_element) , INTENT(INOUT) :: destination
+    INTEGER, INTENT(inout)               :: counter
 
-    integer :: index
+    INTEGER :: index
 
     index = -1
 
@@ -1023,136 +984,121 @@ CONTAINS
       CALL assign_sp()
     ELSE
       CALL assign_wp()
-    ENDIF
+    END IF
     counter                 = counter + 1
 
     CONTAINS
       SUBROUTINE assign_wp()
+        REAL(wp), POINTER :: dst_ptr(:,:,:,:,:), src_ptr(:,:,:,:,:)
+        dst_ptr => destination%field%r_ptr
+        src_ptr => source%field%r_ptr
         IF (source%field%info%lcontained) THEN
-          index = source%field%info%ncontained
-
           ! tackle 4d containers
-          SELECT CASE(source%field%info%var_ref_pos)
-          CASE(1)
-            destination%field%r_ptr(:,:,:,:,:) = source%field%r_ptr(index:index,:,:,:,:)
-          CASE(2)
-            destination%field%r_ptr(:,:,:,:,:) = source%field%r_ptr(:,index:index,:,:,:)
-          CASE(3)
-            destination%field%r_ptr(:,:,:,:,:) = source%field%r_ptr(:,:,index:index,:,:)
-          CASE(4)
-            destination%field%r_ptr(:,:,:,:,:) = source%field%r_ptr(:,:,:,index:index,:)
-          END SELECT
+          CALL assign_fields(dst_ptr,src_ptr, source%field%info%var_ref_pos,source%field%info%ncontained)
         ELSE
           ! tackle 1d, 2d and 3d
           SELECT CASE(destination%field%info%ndims)
           CASE(3)
            !hack for sea ice variables which uses vertical level for ice class
             IF (1 == destination%field%info%used_dimensions(2)) THEN
-              call assign_fields(destination%field%r_ptr(:,:,:,1,1), &
-                &             source%field%r_ptr(:,:,:,1,1), &
+              CALL assign_fields(dst_ptr(:,:,:,1,1), &
+                &             src_ptr(:,:,:,1,1), &
                 &             destination%field%info%subset, &
                 &             levels=1, &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
             ELSE IF (ZA_OCEAN_SEDIMENT == destination%field%info%vgrid) THEN
-              call assign_fields(destination%field%r_ptr(:,:,:,1,1), &
-                &             source%field%r_ptr(:,:,:,1,1), &
+              CALL assign_fields(dst_ptr(:,:,:,1,1), &
+                &             src_ptr(:,:,:,1,1), &
                 &             destination%field%info%subset, &
                 &             levels=destination%field%info%used_dimensions(2), &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
             ELSE
-              call assign_fields(destination%field%r_ptr(:,:,:,1,1), &
-                &             source%field%r_ptr(:,:,:,1,1), &
+              CALL assign_fields(dst_ptr(:,:,:,1,1), &
+                &             src_ptr(:,:,:,1,1), &
                 &             destination%field%info%subset, &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
-            ENDIF
+            END IF
           CASE(2)
             IF (GRID_ZONAL .EQ. destination%field%info%hgrid) THEN
-              call assign_fields(destination%field%r_ptr(:,:,1,1,1), &
-                &             source%field%r_ptr(:,:,1,1,1), &
+              CALL assign_fields(dst_ptr(:,:,1,1,1), &
+                &             src_ptr(:,:,1,1,1), &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
             ELSE
-              call assign_fields(destination%field%r_ptr(:,:,1,1,1), &
-                &             source%field%r_ptr(:,:,1,1,1), &
+              CALL assign_fields(dst_ptr(:,:,1,1,1), &
+                &             src_ptr(:,:,1,1,1), &
                 &             destination%field%info%subset, &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
-            ENDIF
+            END IF
           CASE DEFAULT
-            destination%field%r_ptr(:,:,:,:,:) = source%field%r_ptr(:,:,:,:,:)
+            CALL assign_fields(dst_ptr,src_ptr)
           END SELECT
-        ENDIF
+        END IF
       END SUBROUTINE assign_wp
       SUBROUTINE assign_sp()
+        REAL(wp), POINTER :: dst_ptr(:,:,:,:,:)
+        REAL(sp), POINTER :: src_ptr(:,:,:,:,:)
+        dst_ptr => destination%field%r_ptr
+        src_ptr => source%field%s_ptr
         IF (source%field%info%lcontained) THEN
-          index = source%field%info%ncontained
-
           ! tackle 4d containers
-          SELECT CASE(source%field%info%var_ref_pos)
-          CASE(1)
-            destination%field%r_ptr(:,:,:,:,:) = REAL(source%field%r_ptr(index:index,:,:,:,:),wp)
-          CASE(2)
-            destination%field%r_ptr(:,:,:,:,:) = REAL(source%field%r_ptr(:,index:index,:,:,:),wp)
-          CASE(3)
-            destination%field%r_ptr(:,:,:,:,:) = REAL(source%field%r_ptr(:,:,index:index,:,:),wp)
-          CASE(4)
-            destination%field%r_ptr(:,:,:,:,:) = REAL(source%field%r_ptr(:,:,:,index:index,:),wp)
-          END SELECT
+          CALL assign_fields(dst_ptr,src_ptr, source%field%info%var_ref_pos,source%field%info%ncontained)
         ELSE
           ! tackle 1d, 2d and 3d
           SELECT CASE(destination%field%info%ndims)
           CASE(3)
            !hack for sea ice variables which uses vertical level for ice class
             IF (1 == destination%field%info%used_dimensions(2)) THEN
-              call assign_fields(destination%field%r_ptr(:,:,:,1,1), &
+              CALL assign_fields(dst_ptr(:,:,:,1,1), &
                 &             source%field%s_ptr(:,:,:,1,1), &
                 &             destination%field%info%subset, &
                 &             levels=1, &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
             ELSE IF (ZA_OCEAN_SEDIMENT == destination%field%info%vgrid) THEN
-              call assign_fields(destination%field%r_ptr(:,:,:,1,1), &
+              CALL assign_fields(dst_ptr(:,:,:,1,1), &
                 &             source%field%s_ptr(:,:,:,1,1), &
                 &             destination%field%info%subset, &
                 &             levels=destination%field%info%used_dimensions(2), &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
             ELSE
-              call assign_fields(destination%field%r_ptr(:,:,:,1,1), &
+              CALL assign_fields(dst_ptr(:,:,:,1,1), &
                 &             source%field%s_ptr(:,:,:,1,1), &
                 &             destination%field%info%subset, &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
-            ENDIF
+            END IF
           CASE(2)
             IF (GRID_ZONAL .EQ. destination%field%info%hgrid) THEN
-              call assign_fields(destination%field%r_ptr(:,:,1,1,1), &
+              CALL assign_fields(dst_ptr(:,:,1,1,1), &
                 &             source%field%s_ptr(:,:,1,1,1), &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
             ELSE
-              call assign_fields(destination%field%r_ptr(:,:,1,1,1), &
+              CALL assign_fields(dst_ptr(:,:,1,1,1), &
                 &             source%field%s_ptr(:,:,1,1,1), &
                 &             destination%field%info%subset, &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
-            ENDIF
+            END IF
           CASE DEFAULT
-            destination%field%r_ptr(:,:,:,:,:) = REAL(source%field%r_ptr(:,:,:,:,:),wp)
+            CALL assign_fields(dst_ptr,src_ptr)
           END SELECT
-        ENDIF
+        END IF
       END SUBROUTINE assign_sp
   END SUBROUTINE statistics_assign
 
   SUBROUTINE statistics_max(source, destination, counter)
-    type(t_list_element) , INTENT(IN)    :: source
-    type(t_list_element) , INTENT(INOUT) :: destination
-    integer, intent(inout)               :: counter
+    TYPE(t_list_element) , INTENT(IN)    :: source
+    TYPE(t_list_element) , INTENT(INOUT) :: destination
+    INTEGER, INTENT(inout)               :: counter
 
-    integer :: index
+    INTEGER :: index
 
     index = -1
 
@@ -1160,341 +1106,251 @@ CONTAINS
       CALL max_sp()
     ELSE
       CALL max_wp()
-    ENDIF
+    END IF
     counter                 = counter + 1
 
     CONTAINS
       SUBROUTINE max_wp()
+        REAL(wp), POINTER :: dst_ptr(:,:,:,:,:), src_ptr(:,:,:,:,:)
+        dst_ptr => destination%field%r_ptr
+        src_ptr => source%field%r_ptr
         IF (source%field%info%lcontained) THEN
-          index = source%field%info%ncontained
-
           ! tackle 4d containers
-          SELECT CASE(source%field%info%var_ref_pos)
-          CASE(1)
-            destination%field%r_ptr(:,:,:,:,:) = &
-            & merge(destination%field%r_ptr (:,:,:,:,:), &
-            &       source%field%r_ptr(index:index,:,:,:,:), &
-            &       destination%field%r_ptr(:,:,:,:,:).gt.source%field%r_ptr(index:index,:,:,:,:))
-          CASE(2)
-            destination%field%r_ptr(:,:,:,:,:) = &
-            & merge(destination%field%r_ptr (:,:,:,:,:), &
-            &       source%field%r_ptr(:,index:index,:,:,:), &
-            &       destination%field%r_ptr(:,:,:,:,:).gt.source%field%r_ptr(:,index:index,:,:,:))
-          CASE(3)
-            destination%field%r_ptr(:,:,:,:,:) = &
-            & merge(destination%field%r_ptr (:,:,:,:,:), &
-            &       source%field%r_ptr(:,:,index:index,:,:), &
-            &       destination%field%r_ptr(:,:,:,:,:).gt.source%field%r_ptr(:,:,index:index,:,:))
-          CASE(4)
-            destination%field%r_ptr(:,:,:,:,:) = &
-            & merge(destination%field%r_ptr (:,:,:,:,:), &
-            &       source%field%r_ptr(:,:,:,index:index,:), &
-            &       destination%field%r_ptr(:,:,:,:,:).gt.source%field%r_ptr(:,:,:,index:index,:))
-          END SELECT
+          CALL max_fields(dst_ptr,src_ptr, source%field%info%var_ref_pos,source%field%info%ncontained)
         ELSE
           ! tackle 1d, 2d and 3d
           SELECT CASE(destination%field%info%ndims)
           CASE(3)
            !hack for sea ice variables which uses vertical level for ice class
             IF (1 == destination%field%info%used_dimensions(2)) THEN
-              call max_fields(destination%field%r_ptr(:,:,:,1,1), &
-                &             source%field%r_ptr(:,:,:,1,1), &
+              CALL max_fields(dst_ptr(:,:,:,1,1), &
+                &             src_ptr(:,:,:,1,1), &
                 &             destination%field%info%subset, &
                 &             levels=1, &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
             ELSE IF (ZA_OCEAN_SEDIMENT == destination%field%info%vgrid) THEN
-              call max_fields(destination%field%r_ptr(:,:,:,1,1), &
-                &             source%field%r_ptr(:,:,:,1,1), &
+              CALL max_fields(dst_ptr(:,:,:,1,1), &
+                &             src_ptr(:,:,:,1,1), &
                 &             destination%field%info%subset, &
                 &             levels=destination%field%info%used_dimensions(2), &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
             ELSE
-              call max_fields(destination%field%r_ptr(:,:,:,1,1), &
-                &             source%field%r_ptr(:,:,:,1,1), &
+              CALL max_fields(dst_ptr(:,:,:,1,1), &
+                &             src_ptr(:,:,:,1,1), &
                 &             destination%field%info%subset, &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
-            ENDIF
+            END IF
           CASE(2)
             IF (GRID_ZONAL .EQ. destination%field%info%hgrid) THEN
-              call max_fields(destination%field%r_ptr(:,:,1,1,1), &
-                &             source%field%r_ptr(:,:,1,1,1), &
+              CALL max_fields(dst_ptr(:,:,1,1,1), &
+                &             src_ptr(:,:,1,1,1), &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
             ELSE
-              call max_fields(destination%field%r_ptr(:,:,1,1,1), &
-                &             source%field%r_ptr(:,:,1,1,1), &
+              CALL max_fields(dst_ptr(:,:,1,1,1), &
+                &             src_ptr(:,:,1,1,1), &
                 &             destination%field%info%subset, &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
-            ENDIF
+            END IF
           CASE DEFAULT
-            destination%field%r_ptr(:,:,:,:,:) = &
-                & merge(destination%field%r_ptr, &
-                &       source%field%r_ptr, &
-                &       destination%field%r_ptr.gt.source%field%r_ptr)
+            CALL max_fields(dst_ptr,src_ptr)
           END SELECT
-        ENDIf
+        END IF
       END SUBROUTINE max_wp
       SUBROUTINE max_sp()
+        REAL(wp), POINTER :: dst_ptr(:,:,:,:,:)
+        REAL(sp), POINTER :: src_ptr(:,:,:,:,:)
+        dst_ptr => destination%field%r_ptr
+        src_ptr => source%field%s_ptr
         IF (source%field%info%lcontained) THEN
-          index = source%field%info%ncontained
-
           ! tackle 4d containers
-          SELECT CASE(source%field%info%var_ref_pos)
-          CASE(1)
-            destination%field%r_ptr(:,:,:,:,:) = &
-            & merge(destination%field%r_ptr (:,:,:,:,:), &
-            &       REAL(source%field%s_ptr(index:index,:,:,:,:),wp), &
-            &       destination%field%r_ptr(:,:,:,:,:).gt.REAL(source%field%r_ptr(index:index,:,:,:,:),wp))
-          CASE(2)
-            destination%field%r_ptr(:,:,:,:,:) = &
-            & merge(destination%field%r_ptr (:,:,:,:,:), &
-            &       REAL(source%field%s_ptr(:,index:index,:,:,:),wp), &
-            &       destination%field%r_ptr(:,:,:,:,:).gt.REAL(source%field%r_ptr(:,index:index,:,:,:),wp))
-          CASE(3)
-            destination%field%r_ptr(:,:,:,:,:) = &
-            & merge(destination%field%r_ptr (:,:,:,:,:), &
-            &       REAL(source%field%s_ptr(:,:,index:index,:,:),wp), &
-            &       destination%field%r_ptr(:,:,:,:,:).gt.REAL(source%field%r_ptr(:,:,index:index,:,:),wp))
-          CASE(4)
-            destination%field%r_ptr(:,:,:,:,:) = &
-            & merge(destination%field%r_ptr (:,:,:,:,:), &
-            &       REAL(source%field%s_ptr(:,:,:,index:index,:),wp), &
-            &       destination%field%r_ptr(:,:,:,:,:).gt.REAL(source%field%r_ptr(:,:,:,index:index,:),wp))
-          END SELECT
+          CALL max_fields(dst_ptr,src_ptr, source%field%info%var_ref_pos,source%field%info%ncontained)
         ELSE
           ! tackle 1d, 2d and 3d
           SELECT CASE(destination%field%info%ndims)
           CASE(3)
            !hack for sea ice variables which uses vertical level for ice class
             IF (1 == destination%field%info%used_dimensions(2)) THEN
-              call max_fields(destination%field%r_ptr(:,:,:,1,1), &
+              CALL max_fields(dst_ptr(:,:,:,1,1), &
                 &             source%field%s_ptr(:,:,:,1,1), &
                 &             destination%field%info%subset, &
                 &             levels=1, &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
             ELSE IF (ZA_OCEAN_SEDIMENT == destination%field%info%vgrid) THEN
-              call max_fields(destination%field%r_ptr(:,:,:,1,1), &
+              CALL max_fields(dst_ptr(:,:,:,1,1), &
                 &             source%field%s_ptr(:,:,:,1,1), &
                 &             destination%field%info%subset, &
                 &             levels=destination%field%info%used_dimensions(2), &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
             ELSE
-              call max_fields(destination%field%r_ptr(:,:,:,1,1), &
+              CALL max_fields(dst_ptr(:,:,:,1,1), &
                 &             source%field%s_ptr(:,:,:,1,1), &
                 &             destination%field%info%subset, &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
-            ENDIF
+            END IF
           CASE(2)
             IF (GRID_ZONAL .EQ. destination%field%info%hgrid) THEN
-              call max_fields(destination%field%r_ptr(:,:,1,1,1), &
+              CALL max_fields(dst_ptr(:,:,1,1,1), &
                 &             source%field%s_ptr(:,:,1,1,1), &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
             ELSE
-              call max_fields(destination%field%r_ptr(:,:,1,1,1), &
+              CALL max_fields(dst_ptr(:,:,1,1,1), &
                 &             source%field%s_ptr(:,:,1,1,1), &
                 &             destination%field%info%subset, &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
-            ENDIF
+            END IF
           CASE DEFAULT
-            destination%field%r_ptr(:,:,:,:,:) = &
-                & merge(destination%field%r_ptr, &
-                &       REAL(source%field%s_ptr,wp), &
-                &       destination%field%r_ptr.gt.REAL(source%field%s_ptr,wp))
+            CALL max_fields(dst_ptr,src_ptr)
           END SELECT
-        ENDIf
+        END IF
       END SUBROUTINE max_sp
   END SUBROUTINE statistics_max
 
   SUBROUTINE statistics_min(source, destination, counter)
-    type(t_list_element) , INTENT(IN)    :: source
-    type(t_list_element) , INTENT(INOUT) :: destination
-    integer, intent(inout)               :: counter
+    TYPE(t_list_element) , INTENT(IN)    :: source
+    TYPE(t_list_element) , INTENT(INOUT) :: destination
+    INTEGER, INTENT(inout)               :: counter
 
-    integer :: index
+    INTEGER :: index
 
     index = -1
     IF (.NOT. ASSOCIATED(source%field%r_ptr)) THEN
       CALL min_sp()
     ELSE
       CALL min_wp()
-    ENDIF
+    END IF
     counter                 = counter + 1
 
     CONTAINS
       SUBROUTINE min_wp()
+        REAL(wp), POINTER :: dst_ptr(:,:,:,:,:), src_ptr(:,:,:,:,:)
+        dst_ptr => destination%field%r_ptr
+        src_ptr => source%field%r_ptr
         IF (source%field%info%lcontained) THEN
-          index = source%field%info%ncontained
-
           ! tackle 4d containers
-          SELECT CASE(source%field%info%var_ref_pos)
-          CASE(1)
-            destination%field%r_ptr(:,:,:,:,:) = &
-            & merge(destination%field%r_ptr (:,:,:,:,:), &
-            &       source%field%r_ptr(index:index,:,:,:,:), &
-            &       destination%field%r_ptr(:,:,:,:,:).lt.source%field%r_ptr(index:index,:,:,:,:))
-          CASE(2)
-            destination%field%r_ptr(:,:,:,:,:) = &
-            & merge(destination%field%r_ptr (:,:,:,:,:), &
-            &       source%field%r_ptr(:,index:index,:,:,:), &
-            &       destination%field%r_ptr(:,:,:,:,:).lt.source%field%r_ptr(:,index:index,:,:,:))
-          CASE(3)
-            destination%field%r_ptr(:,:,:,:,:) = &
-            & merge(destination%field%r_ptr (:,:,:,:,:), &
-            &       source%field%r_ptr(:,:,index:index,:,:), &
-            &       destination%field%r_ptr(:,:,:,:,:).lt.source%field%r_ptr(:,:,index:index,:,:))
-          CASE(4)
-            destination%field%r_ptr(:,:,:,:,:) = &
-            & merge(destination%field%r_ptr (:,:,:,:,:), &
-            &       source%field%r_ptr(:,:,:,index:index,:), &
-            &       destination%field%r_ptr(:,:,:,:,:).lt.source%field%r_ptr(:,:,:,index:index,:))
-          END SELECT
+          CALL min_fields(dst_ptr,src_ptr, source%field%info%var_ref_pos,source%field%info%ncontained)
         ELSE
           ! tackle 1d, 2d and 3d
           SELECT CASE(destination%field%info%ndims)
           CASE(3)
            !hack for sea ice variables which uses vertical level for ice class
             IF (1 == destination%field%info%used_dimensions(2)) THEN
-              call min_fields(destination%field%r_ptr(:,:,:,1,1), &
-                &             source%field%r_ptr(:,:,:,1,1), &
+              CALL min_fields(dst_ptr(:,:,:,1,1), &
+                &             src_ptr(:,:,:,1,1), &
                 &             destination%field%info%subset, &
                 &             levels=1, &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
             ELSE IF (ZA_OCEAN_SEDIMENT == destination%field%info%vgrid) THEN
-              call min_fields(destination%field%r_ptr(:,:,:,1,1), &
-                &             source%field%r_ptr(:,:,:,1,1), &
+              CALL min_fields(dst_ptr(:,:,:,1,1), &
+                &             src_ptr(:,:,:,1,1), &
                 &             destination%field%info%subset, &
                 &             levels=destination%field%info%used_dimensions(2), &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
             ELSE
-              call min_fields(destination%field%r_ptr(:,:,:,1,1), &
-                &             source%field%r_ptr(:,:,:,1,1), &
+              CALL min_fields(dst_ptr(:,:,:,1,1), &
+                &             src_ptr(:,:,:,1,1), &
                 &             destination%field%info%subset, &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
-            ENDIF
+            END IF
           CASE(2)
             IF (GRID_ZONAL .EQ. destination%field%info%hgrid) THEN
-              call min_fields(destination%field%r_ptr(:,:,1,1,1), &
-                &             source%field%r_ptr(:,:,1,1,1), &
+              CALL min_fields(dst_ptr(:,:,1,1,1), &
+                &             src_ptr(:,:,1,1,1), &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
             ELSE
-              call min_fields(destination%field%r_ptr(:,:,1,1,1), &
-                &             source%field%r_ptr(:,:,1,1,1), &
+              CALL min_fields(dst_ptr(:,:,1,1,1), &
+                &             src_ptr(:,:,1,1,1), &
                 &             destination%field%info%subset, &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
-            ENDIF
+            END IF
           CASE DEFAULT
-            destination%field%r_ptr(:,:,:,:,:) = &
-                & merge(destination%field%r_ptr, &
-                &       source%field%r_ptr, &
-                &       destination%field%r_ptr.lt.source%field%r_ptr)
+            CALL min_fields(dst_ptr,src_ptr)
           END SELECT
-        ENDIF
+        END IF
       END SUBROUTINE min_wp
       SUBROUTINE min_sp()
+        REAL(wp), POINTER :: dst_ptr(:,:,:,:,:)
+        REAL(sp), POINTER :: src_ptr(:,:,:,:,:)
+        dst_ptr => destination%field%r_ptr
+        src_ptr => source%field%s_ptr
         IF (source%field%info%lcontained) THEN
-          index = source%field%info%ncontained
-
           ! tackle 4d containers
-          SELECT CASE(source%field%info%var_ref_pos)
-          CASE(1)
-            destination%field%r_ptr(:,:,:,:,:) = &
-            & merge(destination%field%r_ptr (:,:,:,:,:), &
-            &       REAL(source%field%s_ptr(index:index,:,:,:,:),wp), &
-            &       destination%field%r_ptr(:,:,:,:,:).lt.REAL(source%field%s_ptr(index:index,:,:,:,:),wp))
-          CASE(2)
-            destination%field%r_ptr(:,:,:,:,:) = &
-            & merge(destination%field%r_ptr (:,:,:,:,:), &
-            &       REAL(source%field%s_ptr(:,index:index,:,:,:),wp), &
-            &       destination%field%r_ptr(:,:,:,:,:).lt.REAL(source%field%r_ptr(:,index:index,:,:,:),wp))
-          CASE(3)
-            destination%field%r_ptr(:,:,:,:,:) = &
-            & merge(destination%field%r_ptr (:,:,:,:,:), &
-            &       REAL(source%field%s_ptr(:,:,index:index,:,:),wp), &
-            &       destination%field%r_ptr(:,:,:,:,:).lt.REAL(source%field%r_ptr(:,:,index:index,:,:),wp))
-          CASE(4)
-            destination%field%r_ptr(:,:,:,:,:) = &
-            & merge(destination%field%r_ptr (:,:,:,:,:), &
-            &       REAL(source%field%s_ptr(:,:,:,index:index,:),wp), &
-            &       destination%field%r_ptr(:,:,:,:,:).lt.REAL(source%field%r_ptr(:,:,:,index:index,:),wp))
-          END SELECT
+          CALL min_fields(dst_ptr,src_ptr, source%field%info%var_ref_pos,source%field%info%ncontained)
         ELSE
           ! tackle 1d, 2d and 3d
           SELECT CASE(destination%field%info%ndims)
           CASE(3)
            !hack for sea ice variables which uses vertical level for ice class
             IF (1 == destination%field%info%used_dimensions(2)) THEN
-              call min_fields(destination%field%r_ptr(:,:,:,1,1), &
+              CALL min_fields(dst_ptr(:,:,:,1,1), &
                 &             source%field%s_ptr(:,:,:,1,1), &
                 &             destination%field%info%subset, &
                 &             levels=1, &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
             ELSE IF (ZA_OCEAN_SEDIMENT == destination%field%info%vgrid) THEN
-              call min_fields(destination%field%r_ptr(:,:,:,1,1), &
+              CALL min_fields(dst_ptr(:,:,:,1,1), &
                 &             source%field%s_ptr(:,:,:,1,1), &
                 &             destination%field%info%subset, &
                 &             levels=destination%field%info%used_dimensions(2), &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
             ELSE
-              call min_fields(destination%field%r_ptr(:,:,:,1,1), &
+              CALL min_fields(dst_ptr(:,:,:,1,1), &
                 &             source%field%s_ptr(:,:,:,1,1), &
                 &             destination%field%info%subset, &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
-            ENDIF
+            END IF
           CASE(2)
             IF (GRID_ZONAL .EQ. destination%field%info%hgrid) THEN
-              call min_fields(destination%field%r_ptr(:,:,1,1,1), &
+              CALL min_fields(dst_ptr(:,:,1,1,1), &
                 &             source%field%s_ptr(:,:,1,1,1), &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
             ELSE
-              call min_fields(destination%field%r_ptr(:,:,1,1,1), &
+              CALL min_fields(dst_ptr(:,:,1,1,1), &
                 &             source%field%s_ptr(:,:,1,1,1), &
                 &             destination%field%info%subset, &
                 &             has_missvals=destination%field%info%lmiss, &
                 &             missval=destination%field%info%missval%rval)
-            ENDIF
+            END IF
           CASE DEFAULT
-            destination%field%r_ptr(:,:,:,:,:) = &
-                & merge(destination%field%r_ptr, &
-                &       REAL(source%field%r_ptr,wp), &
-                &       destination%field%r_ptr.lt.REAL(source%field%r_ptr,wp))
+            CALL min_fields(dst_ptr,src_ptr)
           END SELECT
-        ENDIF
+        END IF
       END SUBROUTINE min_sp
   END SUBROUTINE statistics_min
   !>
   !! Execute the accumulation forall internal variables and compute mean values
   !! if the corresponding event is active
   !!
-  subroutine update_statistics()
-    call update_mvstream(meanMap, meanEvents, meanEventsActivity, meanPrognostics, meanPrognosticPointers,  meanVarCounter,MEAN)
-    call update_mvstream(maxMap, maxEvents, maxEventsActivity, maxPrognostics, maxPrognosticPointers,  maxVarCounter,MAX)
-    call update_mvstream(minMap, minEvents, minEventsActivity, minPrognostics, minPrognosticPointers,  minVarCounter,MIN)
-    call update_mvstream(squareMap, &
+  SUBROUTINE update_statistics()
+    CALL update_mvstream(meanMap, meanEvents, meanEventsActivity, meanPrognostics, meanPrognosticPointers,  meanVarCounter,MEAN)
+    CALL update_mvstream(maxMap, maxEvents, maxEventsActivity, maxPrognostics, maxPrognosticPointers,  maxVarCounter,MAX)
+    CALL update_mvstream(minMap, minEvents, minEventsActivity, minPrognostics, minPrognosticPointers,  minVarCounter,MIN)
+    CALL update_mvstream(squareMap, &
       &                  squareEvents, &
       &                  squareEventsActivity, &
       &                  squarePrognostics, &
       &                  squarePrognosticPointers, &
       &                  squareVarCounter, &
       &                  SQUARE)
-  end subroutine update_statistics
+  END SUBROUTINE update_statistics
 
   SUBROUTINE update_mvstream(statisticMap, statisticEvents, statisticEventsActivity, &
           & statisticPrognostics, statisticPrognosticPointers, &
@@ -1509,26 +1365,27 @@ CONTAINS
 
     !----------------------------------------------------------------------------------
     INTEGER :: element_counter
-    class(*),pointer :: varListForMeanEvent, statisticEventKey
-    class(*),pointer :: sourceVariable, destinationVariable, sourceVariable4Prognostics
-    class(*),pointer :: counter, statisticEvent, myItem
-    class(*),pointer :: eventActive
-    type(t_list_element), pointer :: source, destination
-    type(vector_iterator) :: statisticMapIterator, statisticEventIterator
-    class(*), pointer :: mvstream_pair
+    CLASS(*),pointer :: varListForMeanEvent, statisticEventKey
+    CLASS(*),pointer :: sourceVariable, destinationVariable, sourceVariable4Prognostics
+    CLASS(*),pointer :: counter, statisticEvent, myItem
+    CLASS(*),pointer :: eventActive
+    TYPE(t_list_element), pointer :: source, destination
+    TYPE(vector_iterator) :: statisticMapIterator, statisticEventIterator
+    CLASS(*), pointer :: mvstream_pair
 
     TYPE(datetime), POINTER :: mtime_date
-    logical :: isactive
-    integer :: varcounter
-    integer :: timelevel
+    LOGICAL :: isactive
+    INTEGER :: varcounter
+    INTEGER :: timelevel
 #ifdef DEBUG_MVSTREAM
     character(len=max_datetime_str_len) :: datetimestring
 #endif
 
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::update_statistics"
+    REAL(wp), POINTER :: dst_ptr(:,:,:,:,:)
 
 #ifdef DEBUG_MVSTREAM
-    if (my_process_is_stdio()) call print_routine(routine,'start',stderr=.true.)
+    IF (my_process_is_stdio()) CALL print_routine(routine,'start',stderr=.true.)
 #endif
 
     statisticMapIterator   = statisticMap%iter()
@@ -1541,64 +1398,64 @@ CONTAINS
 
 #ifdef DEBUG_MVSTREAM
     CALL datetimeToString(mtime_date, datetimestring)
-    if (my_process_is_stdio()) call print_summary('Current mtime timestamp:'//trim(datetimestring),stderr=.true.)
+    IF (my_process_is_stdio()) CALL print_summary('Current mtime timestamp:'//trim(datetimestring),stderr=.true.)
 #endif
 
     ! Save results for (not so much) later
-    do while (statisticEventIterator%next(myItem))
-      select type (myItem)
-      type is (map_item)
+    DO WHILE (statisticEventIterator%next(myItem))
+      SELECT TYPE (myItem)
+      TYPE IS (map_item)
         statisticEventKey => myItem%key
         statisticEvent    => myItem%value
-        select type (statisticEvent)
-        type is (t_event_wrapper)
+        SELECT TYPE (statisticEvent)
+        TYPE IS (t_event_wrapper)
           isactive = LOGICAL(isCurrentEventActive(statisticEvent%this,mtime_date))
-        end select
-        call statisticEventsActivity%add(statisticEventKey,isactive)
-      end select
-    end do
+        END SELECT
+        CALL statisticEventsActivity%add(statisticEventKey,isactive)
+      END SELECT
+    END DO
 
 #ifdef DEBUG_MVSTREAM
-    if (my_process_is_stdio()) call print_error(statisticEventsActivity%to_string(),stderr=.true.)
+    IF (my_process_is_stdio()) CALL print_error(statisticEventsActivity%to_string(),stderr=.true.)
 #endif
     ! }}}
 
-    do while (statisticMapIterator%next(myItem))
+    DO WHILE (statisticMapIterator%next(myItem))
 
-      select type (myItem)
-      type is (map_item)
+      SELECT TYPE (myItem)
+      TYPE IS (map_item)
 
         statisticEventKey        => myItem%key
         varListForMeanEvent => myItem%value
 
 #ifdef DEBUG_MVSTREAM
-        if (my_process_is_stdio()) call print_summary(object_pointer_string(statisticEventKey)//"PERFORM ACCU",stderr=.true.) !TODO
+        IF (my_process_is_stdio()) CALL print_summary(object_pointer_string(statisticEventKey)//"PERFORM ACCU",stderr=.true.) !TODO
 #endif
 
-        select type(varListForMeanEvent)
-        class is (vector_ref)
-          do element_counter=1,varListForMeanEvent%length(),2
+        SELECT TYPE(varListForMeanEvent)
+        CLASS IS (vector_ref)
+          DO element_counter=1,varListForMeanEvent%length(),2
 
 #ifdef DEBUG_MVSTREAM
-          if (my_process_is_stdio()) call print_routine("update_statistics",object_string(element_counter),stderr=.true.)
+          IF (my_process_is_stdio()) CALL print_routine("update_statistics",object_string(element_counter),stderr=.true.)
 #endif
             sourceVariable      => varListForMeanEvent%at(element_counter)
             destinationVariable => varListForMeanEvent%at(element_counter+1)
-            if (associated(sourceVariable) .and. associated(destinationVariable)) then
-              select type (sourceVariable)
-              type is (t_list_element)
-                select type (destinationVariable)
-                type is (t_list_element)
+            IF (ASSOCIATED(sourceVariable) .and. ASSOCIATED(destinationVariable)) THEN
+              SELECT TYPE (sourceVariable)
+              TYPE IS (t_list_element)
+                SELECT TYPE (destinationVariable)
+                TYPE IS (t_list_element)
                   ! check for prognostics, pointer must be shifted according to given timelevelIndex {{{
-                  if (is_statsPrognosticVariable(destinationVariable,statisticPrognostics)) then
+                  IF (is_statsPrognosticVariable(destinationVariable,statisticPrognostics)) THEN
                     ! find the correct pointer:
                     ! check f reduced calling freq. variables are used for
                     ! output? if true, theses variables should be used for
                     ! accumulation, too
 
 #ifdef DEBUG_MVSTREAM
-                    if (my_process_is_stdio()) &
-                      & call print_error("destination var IS     prognostic:"//TRIM(destinationVariable%field%info%name),&
+                    IF (my_process_is_stdio()) &
+                      & CALL print_error("destination var IS     prognostic:"//TRIM(destinationVariable%field%info%name),&
                       & stderr=.true.)
 #endif
 
@@ -1607,106 +1464,113 @@ CONTAINS
 
                     source    => get_prognostics_source_pointer(destinationVariable, timelevel, statisticPrognosticPointers)
 
-                  else
+                  ELSE
                   ! }}}
                     source    => sourceVariable
 #ifdef DEBUG_MVSTREAM
-                    if (my_process_is_stdio()) &
-                      & call print_error("destination var IS NOT prognostic:"//TRIM(destinationVariable%field%info%name),&
+                    IF (my_process_is_stdio()) &
+                      & CALL print_error("destination var IS NOT prognostic:"//TRIM(destinationVariable%field%info%name),&
                       & stderr=.true.)
 #endif
-                  end if
+                  END IF
                   destination => destinationVariable
                   counter     => statisticVarCounter%get(destination%field%info%name)
-                  select type (counter)
-                  type is (integer)
+                  SELECT TYPE (counter)
+                  TYPE IS (INTEGER)
 
 #ifdef DEBUG_MVSTREAM
-                    IF ( my_process_is_stdio() ) call print_summary('sourceName : '//trim(source%field%info%name),&
+                    IF ( my_process_is_stdio() ) CALL print_summary('sourceName : '//trim(source%field%info%name),&
                         &stderr=.true.)
-                    IF ( my_process_is_stdio() ) call print_summary('destName   : '//trim(destination%field%info%name),&
+                    IF ( my_process_is_stdio() ) CALL print_summary('destName   : '//trim(destination%field%info%name),&
                         & stderr=.true.)
-                    IF ( my_process_is_stdio() ) call print_summary('destNameOut: '//trim(destination%field%info%cf%short_name),&
+                    IF ( my_process_is_stdio() ) CALL print_summary('destNameOut: '//trim(destination%field%info%cf%short_name),&
                         &stderr=.true.)
                     IF ( my_process_is_stdio() ) write (0,*)'old counter: ',counter
 #endif
 
                     ! update of internal fields according to the operator {{{
                     varcounter = counter !TODO work around for integer pointer, ugly
-                    if (MEAN.EQ.operation) then
+                    IF (MEAN.EQ.operation) THEN
                       CALL statistics_add(source, destination, varcounter)
 
-                    elseif (MAX.EQ.operation) then
-                      if (0 .EQ. varcounter) then
+                    ELSE IF (MAX.EQ.operation) THEN
+                      IF (0 .EQ. varcounter) THEN
                         CALL statistics_assign(source, destination, varcounter)
-                      else
+                      ELSE
                         CALL statistics_max(source, destination, varcounter)
-                      endif
+                      END IF
 
-                    elseif (MIN.EQ.operation) then
-                      if (0 .EQ. varcounter) then
+                    ELSE IF (MIN.EQ.operation) THEN
+                      IF (0 .EQ. varcounter) THEN
                         CALL statistics_assign(source, destination, varcounter)
-                      else
+                      ELSE
                         CALL statistics_min(source, destination, varcounter)
-                      endif
+                      END IF
 
-                    elseif (SQUARE.EQ.operation) then
+                    ELSE IF (SQUARE.EQ.operation) THEN
                       CALL statistics_add_sqr(source, destination, varcounter)
 
-                    else
+                    ELSE
                       CALL finish('update_mvstream','Found unknown operation:'//trim(operation))
 
-                    endif
+                    END IF
                     counter = varcounter
                     ! }}}
 #ifdef DEBUG_MVSTREAM
                     IF ( my_process_is_stdio() )  write (0,*)'new counter: ',counter
 #endif
 
-                  end select
+                  END SELECT
+
+! Subsequently the accumulated arrays may be updated on the HOST
+!$ACC WAIT
 
                   ! MEAN VALUE COMPUTAION {{{
                   ! check if the field will be written to disk this timestep {{{
                   eventActive => statisticEventsActivity%get(statisticEventKey)
-                  select type (eventActive)
-                  type is (logical)
+                  SELECT TYPE (eventActive)
+                  TYPE IS (LOGICAL)
                     isactive = eventActive
-                    if ( isactive ) then
+                    IF ( isactive ) THEN
 
 #ifdef DEBUG_MVSTREAM
-                    if (my_process_is_stdio()) &
+                    IF (my_process_is_stdio()) &
                         & CALL print_summary(" --> PERFORM MEAN VALUE COMP for"//trim(destination%field%info%name),stderr=.true.)
 #endif
 
                       counter => statisticVarCounter%get(destination%field%info%name)
-                      select type(counter)
-                      type is (integer)
+                      SELECT TYPE(counter)
+                      TYPE IS (INTEGER)
 #ifdef DEBUG_MVSTREAM
                       IF ( my_process_is_stdio() ) write (0,*)' ------> MEAN VALUE counter:',counter
 #endif
-                      if (MEAN.EQ.operation .OR. SQUARE.EQ.operation) then
-                        destination%field%r_ptr = destination%field%r_ptr / REAL(counter,wp)
-                      endif
+                      IF (MEAN.EQ.operation .OR. SQUARE.EQ.operation) THEN
+                        dst_ptr => destination%field%r_ptr
+                        varcounter = counter   ! PGI 19.9 cannot properly pass this scalar to Kernel
+                        !$ACC KERNELS PRESENT(dst_ptr) IF (i_am_accel_node)
+                        dst_ptr = dst_ptr / REAL(varcounter,wp)
+                        !$ACC END KERNELS
+                      END IF
                       counter = 0
-                      end select
-                    end if
-                  end select
+                      END SELECT
+                    END IF
+                  END SELECT
                   ! }}}
-                end select
+                END SELECT
                 ! ! }}}
-              class default
-                call finish('update_statistics','Found unknown source variable type')
-              end select
-            else
-              call finish(routine,'source or destination variable cannot be found')
-            end if
-          end do
-        end select
-      end select
-    end do
+              CLASS DEFAULT
+                CALL finish('update_statistics','Found unknown source variable type')
+              END SELECT
+            ELSE
+              CALL finish(routine,'source or destination variable cannot be found')
+            END IF
+          END DO
+        END SELECT
+      END SELECT
+    END DO
 
 #ifdef DEBUG_MVSTREAM
-    if (my_process_is_stdio()) call print_routine(routine,'finish')
+    IF (my_process_is_stdio()) CALL print_routine(routine,'finish')
 #endif
 
   END SUBROUTINE update_mvstream
@@ -1716,228 +1580,235 @@ CONTAINS
   !!
   ! min/max do not need extra reset due to JEFs implementation idea
   SUBROUTINE reset_statistics
-    call reset_mvstream(meanMap, meanEventsActivity)
-    call reset_mvstream(squareMap, squareEventsActivity)
+    CALL reset_mvstream(meanMap, meanEventsActivity)
+    CALL reset_mvstream(squareMap, squareEventsActivity)
   END SUBROUTINE reset_statistics
 
 
   SUBROUTINE reset_mvstream(statisticMap, statisticEventsActivity)
-    type(map) :: statisticMap, statisticEventsActivity
+    TYPE(map) :: statisticMap, statisticEventsActivity
 
     INTEGER :: element_counter
-    type(t_list_element), pointer :: destination
-    class(*),pointer :: varListForStatisticEvent, statisticEventKey
-    class(*),pointer :: destinationVariable
-    class(*),pointer :: statisticEvent, myItem
-    class(*), pointer :: eventActive
-    type(vector_iterator) :: statisticMapIterator
+    TYPE(t_list_element), pointer :: destination
+    CLASS(*),pointer :: varListForStatisticEvent, statisticEventKey
+    CLASS(*),pointer :: destinationVariable
+    CLASS(*),pointer :: statisticEvent, myItem
+    CLASS(*), pointer :: eventActive
+    TYPE(vector_iterator) :: statisticMapIterator
 
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::reset_statistics"
+    REAL(wp), POINTER :: dst_ptr(:,:,:,:,:)
 
 #ifdef DEBUG_MVSTREAM
-    if (my_process_is_stdio()) call print_routine(routine,'start')
+    IF (my_process_is_stdio()) CALL print_routine(routine,'start')
 #endif
 
     statisticMapIterator = statisticMap%iter()
 
-    do while (statisticMapIterator%next(myItem))
+    DO WHILE (statisticMapIterator%next(myItem))
 
 #ifdef DEBUG_MVSTREAM
-      if (my_process_is_stdio()) call print_error("started event loop",stderr=.true.)
+      IF (my_process_is_stdio()) CALL print_error("started event loop",stderr=.true.)
 #endif
-      select type (myItem)
-      type is (map_item)
+      SELECT TYPE (myItem)
+      TYPE IS (map_item)
 
         statisticEventKey   => myItem%key
         varListForStatisticEvent => myItem%value
 
-        select type(varListForStatisticEvent)
-        class is (vector_ref)
+        SELECT TYPE(varListForStatisticEvent)
+        CLASS IS (vector_ref)
 
-          do element_counter=1,varListForStatisticEvent%length(),2 !start at 2 because the event is at index 1
+          DO element_counter=1,varListForStatisticEvent%length(),2 !start at 2 because the event is at index 1
 
             destinationVariable => varListForStatisticEvent%at(element_counter+1)
 
 #ifdef DEBUG_MVSTREAM
-            if (my_process_is_stdio()) call print_error("got destinationVariable",stderr=.true.)
+            IF (my_process_is_stdio()) CALL print_error("got destinationVariable",stderr=.true.)
 #endif
 
-            if (associated(destinationVariable)) then
+            IF (ASSOCIATED(destinationVariable)) THEN
 
 #ifdef DEBUG_MVSTREAM
-            if (my_process_is_stdio()) call print_error("    destinationVariable is associated",stderr=.true.)
+            IF (my_process_is_stdio()) CALL print_error("    destinationVariable is ASSOCIATED",stderr=.true.)
 #endif
 
-              select type (destinationVariable)
-              type is (t_list_element)
+              SELECT TYPE (destinationVariable)
+              TYPE IS (t_list_element)
                   destination => destinationVariable
 
 #ifdef DEBUG_MVSTREAM
-                  if (my_process_is_stdio()) call print_error("    destinationVariable is t_list_element",stderr=.true.)
+                  IF (my_process_is_stdio()) CALL print_error("    destinationVariable is t_list_element",stderr=.true.)
 #endif
 
                   eventActive => statisticEventsActivity%get(statisticEventKey)
 
 #ifdef DEBUG_MVSTREAM
-                  if (.not.associated(eventActive)) then
-                    if (my_process_is_stdio()) call print_error("       eventActive not associated",stderr=.true.)
-                  end if
+                  IF (.NOT.ASSOCIATED(eventActive)) THEN
+                    IF (my_process_is_stdio()) CALL print_error("       eventActive not ASSOCIATED",stderr=.true.)
+                  END IF
 #endif
 
-                  select type (eventActive)
-                  type is (logical)
+                  SELECT TYPE (eventActive)
+                  TYPE IS (LOGICAL)
 
 #ifdef DEBUG_MVSTREAM
-                    if (my_process_is_stdio()) call print_error("       eventActive is logical",stderr=.true.)
+                    IF (my_process_is_stdio()) CALL print_error("       eventActive is LOGICAL",stderr=.true.)
 #endif
 
-                    if ( LOGICAL(eventActive) ) then
+                    IF ( LOGICAL(eventActive) ) THEN
 
 #ifdef DEBUG_MVSTREAM
-                      if (my_process_is_stdio()) call print_error("       eventActive is true",stderr=.true.)
-                      if (my_process_is_stdio()) call print_error(object_string(statisticEventKey)//' : --> PERFORM RESET',&
+                      IF (my_process_is_stdio()) CALL print_error("       eventActive is true",stderr=.true.)
+                      IF (my_process_is_stdio()) CALL print_error(object_string(statisticEventKey)//' : --> PERFORM RESET',&
                           & stderr=.true.)
-if (my_process_is_stdio()) call print_error(object_string(statisticEventKey)//' : --> '//trim(destination%field%info%name),&
+IF (my_process_is_stdio()) CALL print_error(object_string(statisticEventKey)//' : --> '//trim(destination%field%info%name),&
     & stderr=.true.)
 #endif
+                      dst_ptr => destination%field%r_ptr
+                      !$ACC KERNELS PRESENT(dst_ptr) IF (i_am_accel_node)
+                      dst_ptr = 0.0_wp ! take the neutral element of addition
+                      !$ACC END KERNELS
+#ifdef DEBUG_MVSTREAM
+                    ELSE
+                      IF (my_process_is_stdio()) CALL print_error("       eventActive is false",stderr=.true.)
+#endif
+                    END IF
+                  CLASS DEFAULT
+#ifdef DEBUG_MVSTREAM
+                      IF (my_process_is_stdio()) CALL print_error("       eventActive has wrong type",stderr=.true.)
+#endif
+                  END SELECT
+              CLASS DEFAULT
+#ifdef DEBUG_MVSTREAM
+                  IF (my_process_is_stdio()) CALL print_error("     destinationVariable is not t_list_element",stderr=.true.)
+#endif
+              END SELECT
+            ELSE
+#ifdef DEBUG_MVSTREAM
+              IF (my_process_is_stdio()) CALL print_error(routine//TRIM(": cannot find destination variable!"),stderr=.true.)
+#endif
+            END IF
+          END DO
+        END SELECT
+      END SELECT
+    END DO
 
-                      destination%field%r_ptr = 0.0_wp ! take the neutral element of addition
 #ifdef DEBUG_MVSTREAM
-                    else
-                      if (my_process_is_stdio()) call print_error("       eventActive is false",stderr=.true.)
-#endif
-                    end if
-                  class default
-#ifdef DEBUG_MVSTREAM
-                      if (my_process_is_stdio()) call print_error("       eventActive has wrong type",stderr=.true.)
-#endif
-                  end select
-              class default
-#ifdef DEBUG_MVSTREAM
-                  if (my_process_is_stdio()) call print_error("     destinationVariable is not t_list_element",stderr=.true.)
-#endif
-              end select
-            else
-#ifdef DEBUG_MVSTREAM
-              if (my_process_is_stdio()) call print_error(routine//TRIM(": cannot find destination variable!"),stderr=.true.)
-#endif
-            end if
-          end do
-        end select
-      end select
-    end do
-
-#ifdef DEBUG_MVSTREAM
-    if (my_process_is_stdio()) call print_routine(routine,'finish',stderr=.true.)
+    IF (my_process_is_stdio()) CALL print_routine(routine,'finish',stderr=.true.)
 #endif
   END SUBROUTINE
 
   SUBROUTINE reset_mean
     INTEGER :: element_counter
-    type(t_list_element), pointer :: destination
-    class(*),pointer :: varListForMeanEvent, meanEventKey
-    class(*),pointer :: destinationVariable
-    class(*),pointer :: meanEvent, myItem
-    class(*), pointer :: eventActive
-    type(vector_iterator) :: meanMapIterator
+    TYPE(t_list_element), pointer :: destination
+    CLASS(*),pointer :: varListForMeanEvent, meanEventKey
+    CLASS(*),pointer :: destinationVariable
+    CLASS(*),pointer :: meanEvent, myItem
+    CLASS(*), pointer :: eventActive
+    TYPE(vector_iterator) :: meanMapIterator
 
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::reset_statistics"
+    REAL(wp), POINTER :: dst_ptr(:,:,:,:,:)
 
 #ifdef DEBUG_MVSTREAM
-    if (my_process_is_stdio()) call print_routine(routine,'start')
+    IF (my_process_is_stdio()) CALL print_routine(routine,'start')
 #endif
 
     meanMapIterator   = meanMap%iter()
 
-    do while (meanMapIterator%next(myItem))
+    DO WHILE (meanMapIterator%next(myItem))
 
 #ifdef DEBUG_MVSTREAM
-      if (my_process_is_stdio()) call print_error("started event loop",stderr=.true.)
+      IF (my_process_is_stdio()) CALL print_error("started event loop",stderr=.true.)
 #endif
-      select type (myItem)
-      type is (map_item)
+      SELECT TYPE (myItem)
+      TYPE IS (map_item)
 
         meanEventKey        => myItem%key
         varListForMeanEvent => myItem%value
 
-        select type(varListForMeanEvent)
-        class is (vector_ref)
+        SELECT TYPE(varListForMeanEvent)
+        CLASS IS (vector_ref)
 
-          do element_counter=1,varListForMeanEvent%length(),2 !start at 2 because the event is at index 1
+          DO element_counter=1,varListForMeanEvent%length(),2 !start at 2 because the event is at index 1
 
             destinationVariable => varListForMeanEvent%at(element_counter+1)
 
 #ifdef DEBUG_MVSTREAM
-            if (my_process_is_stdio()) call print_error("got destinationVariable",stderr=.true.)
+            IF (my_process_is_stdio()) CALL print_error("got destinationVariable",stderr=.true.)
 #endif
 
-            if (associated(destinationVariable)) then
+            IF (ASSOCIATED(destinationVariable)) THEN
 
 #ifdef DEBUG_MVSTREAM
-            if (my_process_is_stdio()) call print_error("    destinationVariable is associated",stderr=.true.)
+            IF (my_process_is_stdio()) CALL print_error("    destinationVariable is ASSOCIATED",stderr=.true.)
 #endif
 
-              select type (destinationVariable)
-              type is (t_list_element)
+              SELECT TYPE (destinationVariable)
+              TYPE IS (t_list_element)
                   destination => destinationVariable
 
 #ifdef DEBUG_MVSTREAM
-                  if (my_process_is_stdio()) call print_error("    destinationVariable is t_list_element",stderr=.true.)
+                  IF (my_process_is_stdio()) CALL print_error("    destinationVariable is t_list_element",stderr=.true.)
 #endif
 
                   eventActive => meanEventsActivity%get(meanEventKey)
 
 #ifdef DEBUG_MVSTREAM
-                  if (.not.associated(eventActive)) then
-                    if (my_process_is_stdio()) call print_error("       eventActive not associated",stderr=.true.)
-                  end if
+                  IF (.NOT. ASSOCIATED(eventActive)) THEN
+                    IF (my_process_is_stdio()) CALL print_error("       eventActive not ASSOCIATED",stderr=.true.)
+                  END IF
 #endif
 
-                  select type (eventActive)
-                  type is (logical)
+                  SELECT TYPE (eventActive)
+                  TYPE IS (LOGICAL)
 
 #ifdef DEBUG_MVSTREAM
-                    if (my_process_is_stdio()) call print_error("       eventActive is logical",stderr=.true.)
+                    IF (my_process_is_stdio()) CALL print_error("       eventActive is LOGICAL",stderr=.true.)
 #endif
 
-                    if ( LOGICAL(eventActive) ) then
+                    IF ( LOGICAL(eventActive) ) THEN
 
 #ifdef DEBUG_MVSTREAM
-                      if (my_process_is_stdio()) call print_error("       eventActive is true",stderr=.true.)
-                      if (my_process_is_stdio()) call print_error(object_string(meanEventKey)//' : --> PERFORM RESET',&
+                      IF (my_process_is_stdio()) CALL print_error("       eventActive is true",stderr=.true.)
+                      IF (my_process_is_stdio()) CALL print_error(object_string(meanEventKey)//' : --> PERFORM RESET',&
                           & stderr=.true.)
-if (my_process_is_stdio()) call print_error(object_string(meanEventKey)//' : --> '//trim(destination%field%info%name),&
+IF (my_process_is_stdio()) CALL print_error(object_string(meanEventKey)//' : --> '//trim(destination%field%info%name),&
     & stderr=.true.)
 #endif
 
-                      destination%field%r_ptr = 0.0_wp ! take the neutral element of addition
+                      dst_ptr => destination%field%r_ptr
+                      !$ACC KERNELS PRESENT(dst_ptr) IF (i_am_accel_node)
+                      dst_ptr = 0.0_wp ! take the neutral element of addition
+                      !$ACC END KERNELS
 #ifdef DEBUG_MVSTREAM
-                    else
-                      if (my_process_is_stdio()) call print_error("       eventActive is false",stderr=.true.)
+                    ELSE
+                      IF (my_process_is_stdio()) CALL print_error("       eventActive is false",stderr=.true.)
 #endif
-                    end if
-                  class default
+                    END IF
+                  CLASS DEFAULT
 #ifdef DEBUG_MVSTREAM
-                      if (my_process_is_stdio()) call print_error("       eventActive has wrong type",stderr=.true.)
+                      IF (my_process_is_stdio()) CALL print_error("       eventActive has wrong type",stderr=.true.)
 #endif
-                  end select
-              class default
+                  END SELECT
+              CLASS DEFAULT
 #ifdef DEBUG_MVSTREAM
-                  if (my_process_is_stdio()) call print_error("     destinationVariable is not t_list_element",stderr=.true.)
+                  IF (my_process_is_stdio()) CALL print_error("     destinationVariable is not t_list_element",stderr=.true.)
 #endif
-              end select
-            else
+              END SELECT
+            ELSE
 #ifdef DEBUG_MVSTREAM
-              if (my_process_is_stdio()) call print_error(routine//TRIM(": cannot find destination variable!"),stderr=.true.)
+              IF (my_process_is_stdio()) CALL print_error(routine//TRIM(": cannot find destination variable!"),stderr=.true.)
 #endif
-            end if
-          end do
-        end select
-      end select
-    end do
+            END IF
+          END DO
+        END SELECT
+      END SELECT
+    END DO
 
 #ifdef DEBUG_MVSTREAM
-    if (my_process_is_stdio()) call print_routine(routine,'finish',stderr=.true.)
+    IF (my_process_is_stdio()) CALL print_routine(routine,'finish',stderr=.true.)
 #endif
 
   END SUBROUTINE

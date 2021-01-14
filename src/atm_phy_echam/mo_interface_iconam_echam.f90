@@ -107,7 +107,6 @@ MODULE mo_interface_iconam_echam
     &                                 timer_echam_bcs, timer_echam_phy, timer_coupling,                &
     &                                 timer_phy2dyn, timer_p2d_prep, timer_p2d_sync, timer_p2d_couple
   USE mo_run_config,            ONLY: lart
-  USE mo_art_config,            ONLY: art_config
 #if defined( _OPENACC )
   USE mo_var_list_gpu          ,ONLY: gpu_h2d_var_list, gpu_d2h_var_list
 #endif
@@ -266,7 +265,7 @@ CONTAINS
     !$ACC               patch%edges%cell_idx, patch%edges%primal_normal_cell,                   &
     !$ACC               field%ua, field%va, field%vor, field%ta, field%tv, field%presm_old,     &
     !$ACC               field%presm_new, field%rho, field%mair, field%dz, field%mh2o,           &
-    !$ACC               field%mdry, field%mref, field%xref, field%omega, field%presi_old,       &
+    !$ACC               field%mdry, field%mref, field%xref, field%wa, field%omega, field%presi_old,       &
     !$ACC               field%presi_new, field%clon, field%clat, field%mtrc, field%qtrc,        &
     !$ACC               field%mtrcvi, field%mh2ovi, field%mairvi, field%mdryvi, field%mrefvi,   &
     !$ACC               tend%ua, tend%va, tend%ta, tend%ua_dyn, tend%va_dyn, tend%ta_dyn,       &
@@ -609,9 +608,21 @@ CONTAINS
       END DO
       !$ACC END PARALLEL
       !
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
+      DO jk = 1,nlev+1
+        DO jc = jcs, jce
+          !
+          field%     wa(jc,jk,jb) = pt_prog_new% w(jc,jk,jb)          !
+        END DO
+      END DO
+      !$ACC END PARALLEL
+      !
     END DO ! jb
 !$OMP END DO
 !$OMP END PARALLEL
+
+    CALL sync_patch_array( SYNC_C, patch, field%wa )
 
 #ifdef _OPENACC
     CALL warning('GPU:mo_interface_iconam_echam','GPU mode currently disables echam_phy_config(jg)%iqneg_d2p triggered output!')
@@ -828,9 +839,21 @@ CONTAINS
       END DO
       !$ACC END PARALLEL
       !
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
+      DO jk = 1,nlev+1
+        DO jc = jcs, jce
+          !
+           pt_prog_new% w(jc,jk,jb)=field%     wa(jc,jk,jb)
+        END DO
+      END DO
+      !$ACC END PARALLEL
+      !
     END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+
+    CALL sync_patch_array( SYNC_C, patch, pt_prog_new%w )
 
     IF (ltimer) CALL timer_stop(timer_p2d_prep)
 
@@ -933,7 +956,7 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
-IF (lart) jt_end = iqm_max + art_config(1)%iart_echam_ghg
+IF (lart) jt_end = advection_config(jg)%nname
 
 #ifdef _OPENACC
     CALL warning('GPU:mo_interface_iconam_echam','GPU mode currently disables echam_phy_config(jg)%iqneg_p2d triggered output!')

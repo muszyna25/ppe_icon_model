@@ -14,7 +14,7 @@ MODULE mo_restart_patch_description
     USE mo_zaxis_type, ONLY: ZA_SURFACE, ZA_REFERENCE, ZA_REFERENCE_HALF, ZA_HEIGHT_2M, ZA_HEIGHT_10M, ZA_TOA, ZA_LAKE_BOTTOM, &
                               & ZA_MIX_LAYER, ZA_LAKE_BOTTOM_HALF, ZA_SEDIMENT_BOTTOM_TW_HALF, ZA_GENERIC_ICE, ZA_DEPTH_RUNOFF_S, &
                               & ZA_DEPTH_RUNOFF_G, ZA_DEPTH_BELOW_LAND, ZA_DEPTH_BELOW_LAND_P1, ZA_SNOW, ZA_SNOW_HALF, &
-                              & ZA_DEPTH_BELOW_SEA, ZA_DEPTH_BELOW_SEA_HALF, ZA_OCEAN_SEDIMENT, zaxisTypeList
+                              & ZA_DEPTH_BELOW_SEA, ZA_DEPTH_BELOW_SEA_HALF, ZA_OCEAN_SEDIMENT, ZA_TROPOPAUSE, zaxisTypeList
     USE mo_cdi_ids, ONLY: set_vertical_grid, t_Vgrid
     USE mo_communication, ONLY: t_comm_gather_pattern
     USE mo_dynamics_config, ONLY: nold, nnow, nnew, nnew_rcf, nnow_rcf
@@ -359,6 +359,8 @@ CONTAINS
             CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_DEPTH_BELOW_SEA, nlev_ocean)
             CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_DEPTH_BELOW_SEA_HALF, nlev_ocean+1)
         END IF
+
+        CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_TROPOPAUSE, 1)
 
 #ifndef __NO_JSBACH__
         IF (ANY(echam_phy_config(:)%ljsb)) CALL set_vertical_grids_jsbach(me%v_grid_defs, me%v_grid_count)
