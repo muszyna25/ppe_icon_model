@@ -49,7 +49,7 @@ CLAWFLAGS="-I${NETCDF_DIR}/include"
 NVCC='nvcc'
 NVCFLAGS='--std=c++11 -arch=sm_60 -g -O3'
 
-SB2PP="${SERIALBOX2_ROOT}/python/pp_ser/pp_ser.py"
+SB2PP="python2 ${SERIALBOX2_ROOT}/python/pp_ser/pp_ser.py"
 
 #MPI_LAUNCH='/apps/daint/UES/xalt/production/bin/srun -p debug -C gpu'
 MPI_LAUNCH=false

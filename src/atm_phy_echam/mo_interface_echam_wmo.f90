@@ -25,8 +25,6 @@ MODULE mo_interface_echam_wmo
   USE mo_timer               ,ONLY: ltimer, timer_start, timer_stop, timer_wmo
 
   USE mo_tropopause          ,ONLY: WMO_tropopause
-  !$ser verbatim USE mo_ser_echam_wmo, ONLY: serialize_wmo_input,&
-  !$ser verbatim                             serialize_wmo_output
 
   IMPLICIT NONE
   PRIVATE
@@ -52,18 +50,12 @@ CONTAINS
     ! associate pointers
     field => prm_field(jg)
 
-    ! Serialbox2 input fields serialization
-    !$ser verbatim call serialize_wmo_input(jg, jb, jcs, jce, nproma, nlev, field)
-
     CALL WMO_tropopause( jg,                       &! in
                        & jcs, jce, nproma, nlev,   &! in
                        & field% ta(:,:,jb),        &! in
                        & field% presm_old(:,:,jb), &! in
                        & field% ptp(:,jb)          )! inout for diagnostics
     !
-
-    ! Serialbox2 output fields serialization
-    !$ser verbatim call serialize_wmo_output(jg, jb, jcs, jce, nproma, nlev, field)
 
     IF (ltimer) call timer_stop(timer_wmo)
 

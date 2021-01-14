@@ -79,9 +79,6 @@ MODULE mo_nwp_gscp_interface
       &                              timer_phys_micro_specific,                &
       &                              timer_phys_micro_satad                               
 
-  !$ser verbatim USE mo_ser_nwp_graupel, ONLY: serialize_graupel_input,&
-  !$ser verbatim                               serialize_graupel_output
-
   IMPLICIT NONE
 
   PRIVATE
@@ -173,9 +170,6 @@ CONTAINS
 
     !$acc data create(ddt_tend_t, ddt_tend_qv, ddt_tend_qc, ddt_tend_qi, ddt_tend_qr, ddt_tend_qs, &
     !$acc             zncn, qnc, qnc_s)
-
-    !$ser verbatim call serialize_graupel_input(jg, nproma, nlev, p_metrics, p_prog,&
-    !$ser verbatim                              p_prog_rcf, p_diag, prm_diag, prm_nwp_tend)
 
     SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
     CASE(4,5,6,7)
@@ -806,9 +800,6 @@ CONTAINS
     IF (msg_level>14 .AND. atm_phy_nwp_config(jg)%l2moment) THEN
        CALL nwp_diag_output_minmax_micro(p_patch, p_prog, p_diag, p_prog_rcf)
     END IF
-
-    !$ser verbatim call serialize_graupel_output(jg, nproma, nlev, p_metrics, p_prog,&
-    !$ser verbatim                               p_prog_rcf, p_diag, prm_diag, prm_nwp_tend)
 
     !$acc end data
      

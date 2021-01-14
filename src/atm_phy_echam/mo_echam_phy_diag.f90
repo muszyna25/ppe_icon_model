@@ -31,16 +31,6 @@ MODULE mo_echam_phy_diag
   USE mo_run_config          ,ONLY: iqv
   USE mo_echam_cop_config    ,ONLY: echam_cop_config
   USE mo_echam_sfc_indices   ,ONLY: nsfc_type, iwtr, iice, ilnd
-  !$ser verbatim USE mo_ser_echam_diag, ONLY: serialize_fractions_input,&
-  !$ser verbatim                              serialize_droplet_number_input,&
-  !$ser verbatim                              serialize_cpair_cvair_qconv_input,&
-  !$ser verbatim                              serialize_initialize_input,&
-  !$ser verbatim                              serialize_finalize_input,&
-  !$ser verbatim                              serialize_fractions_output,&
-  !$ser verbatim                              serialize_droplet_number_output,&
-  !$ser verbatim                              serialize_cpair_cvair_qconv_output,&
-  !$ser verbatim                              serialize_initialize_output,&
-  !$ser verbatim                              serialize_finalize_output
 
   IMPLICIT NONE
   PRIVATE
@@ -70,9 +60,6 @@ CONTAINS
     INTEGER                             :: jc
 
     field => prm_field(jg)
-
-    ! Serialbox2 input fields serialization
-    !$ser verbatim call serialize_fractions_input(jg, jb, jcs, jce, nproma, nlev, field)
 
     !$ACC DATA PRESENT( field%lsmask, field%alake, field%seaice, field%lake_ice_frc, field%ts_tile, &
     !$ACC               field%frac_tile )                                                           &
@@ -161,9 +148,6 @@ CONTAINS
 
     !$ACC END DATA
 
-    ! Serialbox2 output fields serialization
-    !$ser verbatim call serialize_fractions_output(jg, jb, jcs, jce, nproma, nlev, field)
-
     NULLIFY(field)
 
   END SUBROUTINE surface_fractions
@@ -196,9 +180,6 @@ CONTAINS
     cn2sea = echam_cop_config(jg)% cn2sea
 
     field => prm_field(jg)
-
-    ! Serialbox2 input fields serialization
-    !$ser verbatim call serialize_droplet_number_input(jg, jb, jcs, jce, nproma, nlev, field)
 
     !$ACC DATA PRESENT( field%sftlf, field%sftgif, field%presm_old, field%acdnc ) &
     !$ACC       CREATE( lland, lglac )
@@ -238,9 +219,6 @@ CONTAINS
 
     !$ACC END DATA
 
-    ! Serialbox2 output fields serialization
-    !$ser verbatim call serialize_droplet_number_output(jg, jb, jcs, jce, nproma, nlev, field)
-
     NULLIFY(field)
 
   END SUBROUTINE droplet_number
@@ -261,9 +239,6 @@ CONTAINS
     INTEGER                             :: jc, jk
 
     field => prm_field(jg)
-
-    ! Serialbox2 input fields serialization
-    !$ser verbatim call serialize_cpair_cvair_qconv_input(jg, jb, jcs, jce, nproma, nlev, field)
     
     !$ACC DATA PRESENT( field%cpair, field%qtrc, field%cvair, field%qconv, field%mair )
 
@@ -280,9 +255,6 @@ CONTAINS
     !$ACC END PARALLEL
 
     !$ACC END DATA
-
-    ! Serialbox2 output fields serialization
-    !$ser verbatim call serialize_cpair_cvair_qconv_output(jg, jb, jcs, jce, nproma, nlev, field)
     
     NULLIFY(field)
 
@@ -304,9 +276,6 @@ CONTAINS
     INTEGER                             :: jc, jk
 
     field => prm_field(jg)
-
-    ! Serialbox2 input fields serialization
-    !$ser verbatim call serialize_initialize_input(jg, jb, jcs, jce, nproma, nlev, field)
     
     IF (ASSOCIATED(field% q_phy)) THEN
       !$ACC PARALLEL DEFAULT(PRESENT)
@@ -327,9 +296,6 @@ CONTAINS
       END DO
       !$ACC END PARALLEL
     END IF
-
-    ! Serialbox2 output fields serialization
-    !$ser verbatim call serialize_initialize_output(jg, jb, jcs, jce, nproma, nlev, field)
 
     NULLIFY(field)
 
@@ -353,9 +319,6 @@ CONTAINS
 
     field => prm_field(jg)
     tend  => prm_tend (jg)
-
-    ! Serialbox2 input fields serialization
-    !$ser verbatim call serialize_finalize_input(jg, jb, jcs, jce, nproma, nlev, field, tend)
 
     !$ACC DATA PRESENT( field%pr, field%rsfl, field%ssfl, field%rsfc, field%ssfc, tend%ta_phy, field%cpair, field%cvair )
     
@@ -383,9 +346,6 @@ CONTAINS
     !$ACC END PARALLEL
 
     !$ACC END DATA
-
-    ! Serialbox2 output fields serialization
-    !$ser verbatim call serialize_finalize_output(jg, jb, jcs, jce, nproma, nlev, field, tend)
 
     NULLIFY(field)
     NULLIFY(tend )

@@ -9,8 +9,6 @@ MODULE mo_echam_diagnostics
   USE mo_loopindices         ,ONLY: get_indices_c
   USE mo_impl_constants      ,ONLY: min_rlcell_int
   USE mo_impl_constants_grf  ,ONLY: grf_bdywidth_c
-  !$ser verbatim USE mo_ser_echam_global_diag, ONLY: serialize_input,&
-  !$ser verbatim                                     serialize_output
 
   PUBLIC echam_global_diagnostics
 
@@ -28,9 +26,6 @@ CONTAINS
     rle = min_rlcell_int
     jks = patch%cells%start_blk(rls, 1)
     jke = patch%cells%end_blk(rle, MAX(1, patch%n_childdom))
-
-    ! Serialbox2 input fields serialization
-    !$ser verbatim call serialize_input(patch%id, prm_field(patch%id))
 
     ! global mean t2m, tas_gmean, if requested for output
     tas_gmean = 0.0_wp
@@ -162,9 +157,6 @@ CONTAINS
  !        & icefrc_gmean)
  !  END IF
  !  prm_field(patch%id)%icefrc_gmean = icefrc_gmean
-
-    ! Serialbox2 output fields serialization
-    !$ser verbatim call serialize_output(patch%id, prm_field(patch%id))
 
   END SUBROUTINE echam_global_diagnostics
 END MODULE mo_echam_diagnostics
