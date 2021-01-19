@@ -376,7 +376,7 @@ TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
 REAL(wp) :: glob_det, glob_doc, glob_phy, glob_zoo
 REAL(wp) :: glob_phos, glob_sedo12, glob_bo12
 REAL(wp) :: glob_sedc12, glob_nit, glob_gnit, glob_pwn2b, glob_pwh2ob
-REAL(wp) :: glob_n2o,glob_n2fl,glob_n2ofl, glob_orginp
+REAL(wp) :: glob_n2o,glob_n2fl,glob_n2ofl, glob_orginp,glob_nitinp
 REAL(wp) :: glob_calinp, glob_silinp, glob_alk, glob_calc
 REAL(wp) :: glob_sil, glob_opal, glob_sedsi, glob_pwsi
 REAL(wp) :: glob_bsil, glob_silpro, glob_n2b, glob_h2ob
@@ -472,6 +472,7 @@ CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%n2oflux(:,:), glob_n2ofl, 
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%orginp(:,:), glob_orginp, 1, ssh)
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%silinp(:,:), glob_silinp, 1, ssh)
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%calinp(:,:), glob_calinp, 1, ssh)
+CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%nitrogeninp(:,:), glob_nitinp, 1, ssh)
 CALL calc_inventory3d(p_patch_3d, ssh, hamocc_state%p_tend%h2obudget(:,:,:), glob_h2ob,.TRUE.)
 CALL calc_inventory3d(p_patch_3d, ssh, hamocc_state%p_tend%n2budget(:,:,:), glob_n2b,.TRUE.)
 
@@ -612,13 +613,12 @@ CALL message(' ', ' ', io_stdo_bgc)
 !-------- Nitrate
 watersum = rnit * (glob_det + glob_doc + glob_phy + glob_zoo  &
      &     + rcyano*glob_cya ) + glob_nit     &
-     &     + rn2 * (glob_gnit + glob_n2o + flux_flag * (glob_n2fl + glob_n2ofl))&
-     &     + rn2*glob_pwn2 + glob_pwno3
+     &     + rn2 * (glob_gnit + glob_n2o + flux_flag * (glob_n2fl + glob_n2ofl)) &
+     &     + rn2*glob_pwn2 + glob_pwno3 - glob_nitinp
 
 sedsum =  rnit* (glob_sedo12 + glob_bo12)   &
      &     - weathering_flag * rnit * glob_orginp
 
-! Still the nitrogen depostion is missing, should be subtracted from watersum
 
 total_ocean = watersum + sedsum
 
@@ -655,7 +655,6 @@ CALL to_bgcout('Global total alkalinity [kmol]',total_ocean)
 CALL message(' ', ' ', io_stdo_bgc)
 
 ! Oxygen
-! Still the nitrogen depostion is missing, should be subtracted from watersum 
 
 watersum = (glob_det + glob_doc + glob_phy + glob_zoo +         &
   &         rcyano*glob_cya )*(-ro2bal) + &
@@ -663,7 +662,8 @@ watersum = (glob_det + glob_doc + glob_phy + glob_zoo +         &
   &         glob_nit * 1.5_wp + glob_n2o* 0.5_wp + glob_pwno3* 1.5 + &
   &         glob_pwic + glob_pwox + glob_pwph*2._wp + flux_flag * (glob_ofl + &
   &         glob_n2ofl * 0.5_wp + glob_cfl) + glob_h2ob +         &
-  &         weathering_flag * (glob_orginp*ro2bal - glob_calinp) 
+  &         weathering_flag * (glob_orginp*ro2bal - glob_calinp)  &
+  &         - glob_nitinp*1.5_wp
 
 sedsum =   (glob_sedo12 + glob_bo12)*(-ro2bal) + glob_sedc12 + glob_bc12
 
