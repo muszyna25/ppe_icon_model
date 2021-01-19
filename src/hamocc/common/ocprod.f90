@@ -9,15 +9,15 @@
    
    USE mo_memory_bgc, ONLY     :phytomi, grami, rnoi, riron, pi_alpha, &
        &                        fpar, bkphy, bkzoo, epsher,         &
-       &                        zinges, drempoc, ro2ut, remido, dyphy, spemor,     &
+       &                        zinges, ro2ut, remido, dyphy, spemor,     &
        &                        gammaz, gammap, ecan, rnit, ropal, bkopal,         &
-       &                        rcar, dremopal, relaxfe, fesoly,            &
+       &                        rcar, relaxfe, fesoly,            &
        &                        denitrification, nitdem, dremn2o,         &
        &                        n2prod, sulfate_reduction, strahl,                 &
        &                        thresh_aerob, thresh_o2, prodn2o, & 
-       &                        thresh_sred, dmsp, calmax, &
+       &                        thresh_sred, dmsp, &
        &                        satoxy, meanswr, ralk, bkh2sox, rh2sox,&
-       &                        bgctra, bgctend
+       &                        bgctra, bgctend,docmin
 
 
    USE mo_control_bgc, ONLY    : dtb, bgc_nproma, bgc_zlevs, dtbgc 
@@ -32,7 +32,7 @@
        &                         kplim, kgraton, kexudp, kexudz, kpdy,kzdy,kaou,&
        &                         kh2sprod, kh2sloss
 
-    USE mo_hamocc_nml, ONLY    : grazra
+    USE mo_hamocc_nml, ONLY    : grazra, calmax, dremopal, drempoc
 
 
     IMPLICIT NONE
@@ -238,7 +238,7 @@
           
            ! DOC decomposition
            avoxy = bgctra(j,k,ioxygen) -remin*ro2ut - thresh_aerob      ! available O2                       
-           xn=bgctra(j,k,idoc)/(1._wp+remido)
+           xn=(bgctra(j,k,idoc)+remido*docmin)/(1._wp+remido)
            bacfra=MAX(0._wp,bgctra(j,k,idoc) - xn)
            bacfra    = MERGE(-0._wp,bacfra, avoxy-bacfra*ro2ut.lt.thresh_aerob)
 

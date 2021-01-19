@@ -253,7 +253,8 @@ IF (.not. lsediment_only) THEN
         start_detail_timer(timer_bgc_calc,5)
          CALL calc_dissol( start_index, end_index, levels,   & 
    &               p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),& ! cell thickness
-   &               ocean_to_hamocc_state%salinity(:,:,jb))           ! salinity
+   &               ocean_to_hamocc_state%salinity(:,:,jb),         &  ! salinity
+   &               p_patch_3d%p_patch_1d(1)%depth_CellInterface(:,:,jb)) !depths at interface   
  
         stop_detail_timer(timer_bgc_calc,5)
        !----------------------------------------------------------------------

@@ -1806,9 +1806,6 @@ MODULE mo_nh_stepping
         ! re-check: iadv_rcf -> ndynsubsteps
         !!!!!!!!
         IF ( iforcing == iheldsuarez) THEN
-#ifdef _OPENACC
-          CALL finish (routine, 'held_suarez_nh_interface: OpenACC version currently not implemented')
-#endif
           CALL held_suarez_nh_interface (p_nh_state(jg)%prog(nnow(jg)), p_patch(jg), &
                                          p_int_state(jg),p_nh_state(jg)%metrics,  &
                                          p_nh_state(jg)%diag)

@@ -38,6 +38,7 @@
       &                               HINTP_TYPE_LONLAT_RBF,                                  &
       &                               HINTP_TYPE_LONLAT_NNB, HINTP_TYPE_LONLAT_BCTR,          &
       &                               SCALE_MODE_TABLE, SCALE_MODE_AUTO, SCALE_MODE_PRESET
+    USE mo_cdi_constants,       ONLY: GRID_REGULAR_LONLAT, GRID_CELL
     USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
     USE mo_model_domain,        ONLY: t_patch
     USE mo_run_config,          ONLY: timers_level
@@ -425,7 +426,12 @@
 
         CALL finish(routine, "Unknown stencil!")
 
-      END IF
+     END IF
+
+! Note: IF (i_am_accel_node) is not used because it is .FALSE. when this is called
+!$ACC UPDATE DEVICE( ptr_int_lonlat%rbf_c2l%idx ) IF_PRESENT
+!$ACC UPDATE DEVICE( ptr_int_lonlat%rbf_c2l%blk ) IF_PRESENT
+!$ACC UPDATE DEVICE( ptr_int_lonlat%rbf_c2l%stencil ) IF_PRESENT
 
     END SUBROUTINE rbf_c2l_index
 
@@ -672,6 +678,9 @@
       IF (ist /= SUCCESS)  CALL finish (routine, 'deallocation for working arrays failed')
 !$OMP END PARALLEL
 
+! Note: IF (i_am_accel_node) is not used because it is .FALSE. when this is called
+!$ACC UPDATE DEVICE( ptr_int_lonlat%rbf_vec%coeff ) IF_PRESENT
+
     END SUBROUTINE rbf_compute_coeff_vec
 
 
@@ -845,6 +854,9 @@
       DEALLOCATE( z_rbfmat, z_diag, z_rbfval, STAT=ist )
       IF (ist /= SUCCESS)  CALL finish (routine, 'deallocation for working arrays failed')
 !$OMP END PARALLEL
+
+! Note: IF (i_am_accel_node) is not used because it is .FALSE. when this is called
+!$ACC UPDATE DEVICE( ptr_int_lonlat%rbf_c2l%coeff ) IF_PRESENT
 
     END SUBROUTINE rbf_compute_coeff_c2l
 
@@ -1027,6 +1039,11 @@
 
       END DO
       IF (dbg_level > 1)  CALL message(routine, "done.")
+
+! Note: IF (i_am_accel_node) is not used because it is .FALSE. when this is called
+!$ACC UPDATE DEVICE( ptr_intp%blk ) IF_PRESENT
+!$ACC UPDATE DEVICE( ptr_intp%idx ) IF_PRESENT
+!$ACC UPDATE DEVICE( ptr_intp%coeff ) IF_PRESENT
 
     END SUBROUTINE mask_out_boundary
 
@@ -1397,6 +1414,13 @@
         END DO
       END DO
 !$OMP END PARALLEL DO
+
+! Note: IF (i_am_accel_node) is not used because it is .FALSE. when this is called
+!$ACC UPDATE DEVICE( ptr_int_lonlat%nnb%stencil ) IF_PRESENT
+!$ACC UPDATE DEVICE( ptr_int_lonlat%nnb%coeff ) IF_PRESENT      
+!$ACC UPDATE DEVICE( ptr_int_lonlat%nnb%idx ) IF_PRESENT      
+!$ACC UPDATE DEVICE( ptr_int_lonlat%nnb%idx ) IF_PRESENT      
+
     END SUBROUTINE nnb_setup_interpol_lonlat_grid
 
 
@@ -1453,6 +1477,11 @@
       ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
+      
+! Note: IF (i_am_accel_node) is not used because it is .FALSE. when this is called
+!$ACC UPDATE DEVICE( ptr_int_lonlat%rbf_vec%stencil ) IF_PRESENT
+!$ACC UPDATE DEVICE( ptr_int_lonlat%rbf_vec%idx ) IF_PRESENT
+!$ACC UPDATE DEVICE( ptr_int_lonlat%rbf_vec%blk ) IF_PRESENT
 
       IF (dbg_level > 1) CALL message(routine, "compute lon-lat interpolation coefficients")
 

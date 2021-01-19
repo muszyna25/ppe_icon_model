@@ -1459,6 +1459,21 @@
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
       & loutput=.TRUE., lrestart=.FALSE.)
 
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_lysocline',hamocc_state_tend%lysocline, &
+      & grid_unstructured_cell, za_surface,&
+      & t_cf_var('lysocl','m','Depth of lysocline',datatype_flt,'lysocl'), &
+      & grib2_var(255, 255, 75, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+    CALL add_var(hamocc_tendency_list,'HAMOCC_nitinp',hamocc_state_tend%nitrogeninp, &
+      & grid_unstructured_cell, za_surface,&
+      & t_cf_var('nitinp','m','Nitrogen inp',datatype_flt,'nitinp'), &
+      & grib2_var(255, 255, 75, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.FALSE., lrestart=.FALSE.)
+
+
+
     CALL message(TRIM(routine), 'construct hamocc tend end')
 
   END SUBROUTINE 

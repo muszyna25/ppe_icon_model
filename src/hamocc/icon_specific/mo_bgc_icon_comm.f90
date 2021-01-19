@@ -12,7 +12,7 @@
        &                                 bgc_natl, bgc_atl, bgc_tatl, &
        &                                 bgc_tropac, &
        &                                 bgc_land, bgc_ind, &
-       &                                 bgc_soce, bgc_npac, bgc_carb
+       &                                 bgc_soce, bgc_npac, bgc_carb,inv_dtb
 
       USE mo_sedmnt,               ONLY: powtra, sedlay, burial, sedhpl
 
@@ -242,8 +242,8 @@
       USE mo_param1_bgc, ONLY: kphosy, ksred, kremin, kdenit, &
  &                             kcflux, koflux, knflux, knfixd, &
  &                             knfix, kgraz, ksilpro, kprorca, &
- &                             kn2oflux,korginp, ksilinp, kcalinp,  &
- &                             kprcaca, kcoex90, issso12, &
+ &                             kn2oflux,korginp,ksilinp, kcalinp,  &
+ &                             kprcaca, kcoex90,issso12, &
  &                             isssc12, issssil, issster, &
  &                             ipowaic, ipowaal, ipowaph, &
  &                             ipowaox, ipown2, ipowno3,  &
@@ -257,7 +257,7 @@
 &                              kopex1000,kopex2000,kcalex1000,&
 &                              kcalex2000, kaou, kcTlim, kcLlim, &
 &                              kcPlim, kcFlim, ipowh2s,kh2sprod, &   
-&                              kh2sloss,iatmco2,kpco2
+&                              kh2sloss,iatmco2,kpco2,klysocl,knitinp
   
       USE mo_sedmnt, ONLY : pown2bud, powh2obud, sedtend, &
 &                           isremino, isreminn, isremins
@@ -287,6 +287,7 @@
         p_tend%orginp(jc,jb) = bgcflux(jc,korginp)
         p_tend%silinp(jc,jb) = bgcflux(jc,ksilinp)
         p_tend%calinp(jc,jb) = bgcflux(jc,kcalinp)
+     !   p_tend%nitinp(jc,jb) = bgcflux(jc,knitinp)
         p_tend%n2oflux(jc,jb) = bgcflux(jc,kn2oflux)
         p_tend%nfixd(jc,jb) = bgcflux(jc,knfixd)
         p_tend%prcaca(jc,jb) = bgcflux(jc,kprcaca)
@@ -302,6 +303,8 @@
         p_tend%coex2000(jc,jb) = bgcflux(jc,kcoex2000)
         p_tend%calex2000(jc,jb) = bgcflux(jc,kcalex2000)
         p_tend%opex2000(jc,jb) = bgcflux(jc,kopex2000)
+        p_tend%lysocline(jc,jb)=bgcflux(jc,klysocl)
+        p_tend%nitrogeninp(jc,jb)=bgcflux(jc,knitinp)
         kpke=klevs(jc)
         DO jk =1,kpke
              p_tend%npp(jc,jk,jb) = bgctend(jc,jk,kphosy)
@@ -567,21 +570,22 @@
   SUBROUTINE print_bgc_parameters
   USE mo_memory_bgc, ONLY      : phytomi, grami, remido, dyphy, zinges,        &
        &                      bkphy, bkzoo, bkopal,                      &
-       &                     drempoc,dremopal,sulfate_reduction,                &
-       &                     dremcalc, n2_fixation,                             &
+       &                     sulfate_reduction,                &
+       &                     n2_fixation,                             &
        &                     ropal, perc_diron, riron, fesoly, relaxfe,         &
        &                     denitrification, pi_alpha_cya,                     &
-       &                     Topt_cya,T1_cya,T2_cya,bkcya_N, bkcya_P, bkcya_fe, &
+       &                     Topt_cya,T1_cya,T2_cya,bkcya_N, &
        &                     buoyancyspeed_cya,                                 &
        &                     doccya_fac, thresh_aerob, thresh_sred
 
    USE mo_hamocc_nml, ONLY: i_settling, l_cyadyn, denit_sed, disso_po, &
-      &                 sinkspeed_opal, sinkspeed_calc,grazra, cycdec
+      &                 sinkspeed_opal, sinkspeed_calc,grazra,cycdec,l_dynamic_pi, &
+      &                 drempoc,dremopal,dremcalc,bkcya_P,bkcya_fe
 
 
    USE mo_sedmnt, ONLY: disso_op, disso_cal,sred_sed
 
-
+  
   CHARACTER(LEN=max_char_length) :: &
                 cpara_name,cpara_val
 
@@ -596,6 +600,7 @@
    CALL to_bgcout("phytomi",phytomi)
    CALL to_bgcout("dyphy",dyphy)
    CALL to_bgcout("bkphy",bkphy)
+   CALL to_bgcout("l_dynamic_pi",l_dynamic_pi)
 
    ! Zooplankton
    cpara_name='ZOOPLANKTON'
@@ -603,7 +608,7 @@
    CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
    CALL to_bgcout("grami",grami)
    CALL to_bgcout("zinges",zinges)
-   CALL to_bgcout("grazra",grazra)
+   CALL to_bgcout("grazra",grazra*inv_dtb)
    CALL to_bgcout("bkzoo",bkzoo)
 
    ! Cyanobacteria
@@ -613,8 +618,8 @@
    CALL to_bgcout("l_cyadyn",l_cyadyn)
    CALL to_bgcout("n2_fixation",n2_fixation)
    CALL to_bgcout("n2_fixation",n2_fixation)
-   CALL to_bgcout("buoyancyspeed_cya",buoyancyspeed_cya)
-   CALL to_bgcout("cycdec",cycdec)
+   CALL to_bgcout("buoyancyspeed_cya 1/d",buoyancyspeed_cya*inv_dtb)
+   CALL to_bgcout("cycdec 1/d",cycdec*inv_dtb)
    CALL to_bgcout("pi_alpha_cya",pi_alpha_cya)
    CALL to_bgcout("Topt_cya",Topt_cya)
    CALL to_bgcout("T1",T1_cya)
@@ -629,9 +634,9 @@
    cpara_val="========"
    CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
    CALL to_bgcout("i_settling",i_settling)
-   CALL to_bgcout("drempoc",drempoc)
-   CALL to_bgcout("denitrification",denitrification)
-   CALL to_bgcout("sulfate_reduction",sulfate_reduction)
+   CALL to_bgcout("drempoc 1/d",drempoc*inv_dtb)
+   CALL to_bgcout("denitrification 1/d",denitrification*inv_dtb)
+   CALL to_bgcout("sulfate_reduction 1/d",sulfate_reduction)
    CALL to_bgcout("thresh_aerob",thresh_aerob)
    CALL to_bgcout("thresh_sred",thresh_sred)
 
@@ -640,7 +645,7 @@
    cpara_name='DOC'
    cpara_val="========"
    CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   CALL to_bgcout("remido",remido)
+   CALL to_bgcout("remido",remido*inv_dtb)
   
 
    ! Opal
@@ -648,7 +653,7 @@
    cpara_val="========"
    CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
    CALL to_bgcout("bkopal",bkopal)
-   CALL to_bgcout("dremopal",dremopal)
+   CALL to_bgcout("dremopal 1/d",dremopal*inv_dtb)
    CALL to_bgcout("ropal",ropal)
    CALL to_bgcout("sinkspeed_opal",sinkspeed_opal)
 
@@ -674,7 +679,7 @@
    cpara_name='Calc'
    cpara_val="========"
    CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   CALL to_bgcout("dremcalc",dremcalc)
+   CALL to_bgcout("dremcalc 1/d",dremcalc*inv_dtb)
    CALL to_bgcout("sinkspeed_calc",sinkspeed_calc)
 
    cpara_name='======================='

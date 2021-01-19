@@ -111,7 +111,7 @@ MODULE mo_param1_bgc
       &                 kcFlim    = 31,               &
       &                 kh2sprod  = 32,               &
       &                 kh2sloss  = 33,               &
-                        nbgctend  = 33 
+      &                 nbgctend  = 33 
  
   INTEGER, PARAMETER :: kcflux     = 1,               &
       &                 koflux     = 2,               &
@@ -136,5 +136,7 @@ MODULE mo_param1_bgc
       &                 kcalex2000 = 21,               &
       &                 kopex2000  = 22,               &
       &                 kpco2      = 23,               &
-                        nbgcflux   = 23  
+      &                 klysocl    = 24,               &
+      &                 knitinp    = 25,               &
+      &                 nbgcflux   = 25  
 END MODULE mo_param1_bgc

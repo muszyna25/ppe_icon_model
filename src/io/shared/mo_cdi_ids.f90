@@ -25,17 +25,18 @@ MODULE mo_cdi_ids
     &                              CDI_UNDEFID, gridCreate, gridDefNvertex, gridDefXname,       &
     &                              gridDefXlongname, gridDefXunits, gridDefYname,               &
     &                              gridDefYlongname, gridDefYunits, GRID_UNSTRUCTURED,          &
-    &                              streamDefVlist, DATATYPE_FLT32, cdiDefAttInt, CDI_GLOBAL,  &
+    &                              streamDefVlist, DATATYPE_FLT32, cdiDefAttInt, CDI_GLOBAL,    &
     &                              DATATYPE_INT32, zaxisDefVct, zaxisDefLbounds,                &
     &                              zaxisDefUbounds, zaxisDefUnits, streamClose, vlistDestroy,   &
-    &                              taxisDestroy, gridDestroy, zaxisDestroy,  vlistdeftaxis
-  USE mo_zaxis_type,         ONLY: ZA_REFERENCE, ZA_REFERENCE_HALF, ZA_LAKE_BOTTOM,                     &
-    &                              ZA_LAKE_BOTTOM_HALF, ZA_MIX_LAYER, ZA_SEDIMENT_BOTTOM_TW_HALF, &
+    &                              taxisDestroy, gridDestroy, zaxisDestroy,  vlistdeftaxis,     &
+    &                              zaxisDefLtype
+  USE mo_zaxis_type,         ONLY: ZA_REFERENCE, ZA_REFERENCE_HALF, ZA_LAKE_BOTTOM, ZA_TROPOPAUSE, &
+    &                              ZA_LAKE_BOTTOM_HALF, ZA_MIX_LAYER, ZA_SEDIMENT_BOTTOM_TW_HALF,  &
     &                              zaxisTypeList
   USE mtime,                 ONLY: datetime
   USE mo_exception,          ONLY: finish, message
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, SUCCESS, REAL_t, SINGLE_t, INT_t
-  USE mo_cdi_constants,      only: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE,               &
+  USE mo_cdi_constants,      only: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE,                 &
     &                              GRID_UNSTRUCTURED_VERT
   USE mo_kind,               ONLY: wp
   USE mo_util_cdi,           ONLY: cdiGetStringError
@@ -94,7 +95,7 @@ CONTAINS
     END FUNCTION defineVAxis
 
     SUBROUTINE createVgrids(axisIds, gridDescriptions, opt_vct)
-        INTEGER, INTENT(INOUT) :: axisIds(:)
+        INTEGER, INTENT(OUT) :: axisIds(:)
         TYPE(t_Vgrid), INTENT(IN) :: gridDescriptions(:)
         REAL(wp), OPTIONAL, INTENT(IN) :: opt_vct(:)
 
@@ -129,6 +130,10 @@ CONTAINS
             IF (ANY(gridDescriptions(i)%type == [ZA_LAKE_BOTTOM_HALF, ZA_SEDIMENT_BOTTOM_TW_HALF])) THEN
               CALL zaxisDefUnits(gridId, "m")
             END IF
+            IF (gridDescriptions(i)%type == ZA_TROPOPAUSE) THEN
+              CALL zaxisDefLtype(gridId, 7)
+            ENDIF
+
         ENDDO
     END SUBROUTINE createVgrids
 
@@ -382,6 +387,7 @@ CONTAINS
         REAL(wp), VALUE :: levelValue
 
         CALL set_vertical_grid(gridDefinitions, gridCount, TYPE, [levelValue])
+
     END SUBROUTINE set_vertical_grid_single
 
 END MODULE mo_cdi_ids
