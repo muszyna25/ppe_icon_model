@@ -2196,7 +2196,7 @@ MODULE mo_nh_stepping
             ! update the coefficients for the linear interpolation
             CALL update_lin_interpolation(latbc, datetime_local(jg)%ptr)
             CALL limarea_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),     &
-              &  p_nh_state(jg)%prog(n_new_rcf),                                    &
+              &  p_nh_state(jg)%prog(n_new_rcf)%tracer,                             &
               &  p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),tsrat,  &
               &  p_latbc_old=latbc%latbc_data(latbc%prev_latbc_tlev())%atm,         &
               &  p_latbc_new=latbc%latbc_data(latbc%new_latbc_tlev)%atm)
@@ -2205,7 +2205,7 @@ MODULE mo_nh_stepping
             ! update the coefficients for the linear interpolation
             CALL update_lin_interc(datetime_local(jg)%ptr)
             CALL limarea_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),     &
-              &  p_nh_state(jg)%prog(n_new_rcf),                                    &
+              &  p_nh_state(jg)%prog(n_new_rcf)%tracer,                             &
               &  p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),tsrat,  &
               &  p_latbc_old=p_latbc_data(last_latbc_tlev)%atm,                     &
               &  p_latbc_new=p_latbc_data(read_latbc_tlev)%atm)
@@ -2214,8 +2214,10 @@ MODULE mo_nh_stepping
           
         ELSE ! constant lateral boundary data
           
-          CALL limarea_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),p_nh_state(jg)%prog(n_new_rcf), &
-            & p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),tsrat,p_latbc_const=p_nh_state(jg)%prog(nsav2(jg)))
+          CALL limarea_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)), &
+            &                      p_nh_state(jg)%prog(n_new_rcf)%tracer,     &
+            & p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),     &
+            & tsrat,p_latbc_const=p_nh_state(jg)%prog(nsav2(jg)))
           
         ENDIF
 #ifdef _OPENACC
