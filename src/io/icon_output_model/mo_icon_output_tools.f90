@@ -20,7 +20,7 @@ MODULE mo_icon_output_tools
   USE mo_mpi,                 ONLY: process_mpi_io_size
 #ifdef HAVE_CDI_PIO
   USE mo_parallel_config,     ONLY: pio_type
-  USE mo_mpi,                 ONLY: mpi_comm_null, p_comm_work_io, &
+  USE mo_mpi,                 ONLY: mpi_comm_null, p_comm_work_io, stop_mpi, &
     &                               my_process_is_io, my_process_is_mpi_test
   USE mo_impl_constants,      ONLY: pio_type_cdipio
   USE yaxt,                   ONLY: xt_initialize, xt_initialized
