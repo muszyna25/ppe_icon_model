@@ -108,7 +108,7 @@ MODULE mo_interface_iconam_echam
     &                                 timer_phy2dyn, timer_p2d_prep, timer_p2d_sync, timer_p2d_couple
   USE mo_run_config,            ONLY: lart
 #if defined( _OPENACC )
-  USE mo_var_list_gpu          ,ONLY: gpu_h2d_var_list, gpu_d2h_var_list
+  USE mo_var_list_gpu          ,ONLY: gpu_update_var_list
 #endif
 
   USE mo_upatmo_config         ,ONLY: upatmo_config
@@ -759,8 +759,8 @@ CONTAINS
     IF ( is_coupled_run() ) THEN
 #if defined( _OPENACC )
       CALL warning('GPU:interface_echam_ocean','GPU host synchronization should be removed when port is done!')
-      CALL gpu_d2h_var_list('prm_field_D', jg)
-      CALL gpu_d2h_var_list('prm_tend_D', jg)
+      CALL gpu_update_var_list('prm_field_D', .false., jg)
+      CALL gpu_update_var_list('prm_tend_D', .false., jg)
 #endif
 
       IF (ltimer) CALL timer_start(timer_coupling)
@@ -771,8 +771,8 @@ CONTAINS
 
 #if defined( _OPENACC )
       CALL warning('GPU:interface_echam_ocean','GPU device synchronization should be removed when port is done!')
-      CALL gpu_h2d_var_list('prm_field_D', jg)
-      CALL gpu_h2d_var_list('prm_tend_D', jg)
+      CALL gpu_update_var_list('prm_field_D', .true., jg)
+      CALL gpu_update_var_list('prm_tend_D', .true., jg)
 #endif
     END IF
     !
@@ -1339,13 +1339,13 @@ ENDIF
 
 #if defined( _OPENACC )
       CALL warning('GPU:interface_iconam_echam','GPU host synchronization should be removed when port is done!')
-      CALL gpu_d2h_var_list('nh_state_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnow(jg))
-      CALL gpu_d2h_var_list('nh_state_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnow_rcf(jg))
-      CALL gpu_d2h_var_list('nh_state_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnew(jg))
-      CALL gpu_d2h_var_list('nh_state_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnew_rcf(jg))
-      CALL gpu_d2h_var_list('nh_state_diag_of_domain_', domain=jg )
-      CALL gpu_d2h_var_list('prm_field_D', domain=jg)
-      CALL gpu_d2h_var_list('prm_tend_D', domain=jg)
+      CALL gpu_update_var_list('nh_state_prog_of_domain_', .false., domain=jg, substr='_and_timelev_', timelev=nnow(jg))
+      CALL gpu_update_var_list('nh_state_prog_of_domain_', .false., domain=jg, substr='_and_timelev_', timelev=nnow_rcf(jg))
+      CALL gpu_update_var_list('nh_state_prog_of_domain_', .false., domain=jg, substr='_and_timelev_', timelev=nnew(jg))
+      CALL gpu_update_var_list('nh_state_prog_of_domain_', .false., domain=jg, substr='_and_timelev_', timelev=nnew_rcf(jg))
+      CALL gpu_update_var_list('nh_state_diag_of_domain_', .false., domain=jg )
+      CALL gpu_update_var_list('prm_field_D', .false., domain=jg)
+      CALL gpu_update_var_list('prm_tend_D', .false., domain=jg)
 #endif
 
   END SUBROUTINE gpu_d2h_iconam_echam

@@ -12,42 +12,60 @@ MODULE mo_var_list_gpu
   USE mo_var_list,            ONLY: t_var_list_ptr
   USE mo_var,                 ONLY: t_var
   USE mo_var_list_register,   ONLY: vlr_get
-  USE mo_util_string,         ONLY: int2string
+!  USE mo_exception,           ONLY: message, message_text
 
   IMPLICIT NONE
   PRIVATE
 
-  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_var_list_gpu'
+  CHARACTER(*), PARAMETER :: modname = 'mo_var_list_gpu'
 
-  PUBLIC :: gpu_h2d_var_list
-  PUBLIC :: gpu_d2h_var_list
+  PUBLIC :: gpu_update_var_list
 
 CONTAINS
 
-  !> Update device data of variable list
-  !
-  SUBROUTINE gpu_h2d_var_list(name, domain, substr, timelev)
-    CHARACTER(len=*), INTENT(IN)            :: name    ! name of output var_list
-    INTEGER, INTENT(IN), OPTIONAL           :: domain  ! domain index to append
-    CHARACTER(len=*), INTENT(IN), OPTIONAL  :: substr  ! String after domain, before timelev
-    INTEGER, INTENT(IN), OPTIONAL           :: timelev ! timelev index to append
-
+  !> Update data of variable list on device or host
+  ! we expect "trimmed" character variables as input!
+  SUBROUTINE gpu_update_var_list(vlname, to_device, domain, substr, timelev)
+    CHARACTER(*), INTENT(IN) :: vlname    ! name of output var_list
+    LOGICAL, INTENT(IN) :: to_device ! direction of update (true, if host->device)
+    INTEGER, INTENT(IN), OPTIONAL :: domain, timelev  ! domain/timelev index to append
+    CHARACTER(*), INTENT(IN), OPTIONAL :: substr  ! String after domain, before timelev
     TYPE(t_var_list_ptr) :: list
     TYPE(t_var_metadata), POINTER :: info
     TYPE(t_var), POINTER :: element
     CHARACTER(:), ALLOCATABLE :: listname
+!    CHARACTER(*), PARAMETER :: d2h = "dev => host", h2d = "host => dev"
     INTEGER :: ii
+    CHARACTER(LEN=2) :: i2a
 
-    ! generate listname
-    listname = TRIM(name) // &
-      & MERGE(int2string(domain, "(i2.2)"), '', PRESENT(domain)) // &
-      & MERGE(TRIM(substr),                 '', PRESENT(substr)) // &
-      & MERGE(int2string(domain, "(i2.2)"), '', PRESENT(timelev))
+    listname = vlname
+    IF (PRESENT(domain)) THEN
+      WRITE(i2a, "(i2.2)") domain
+      listname = listname//i2a
+    END IF
+    IF (PRESENT(substr))  listname = listname//substr
+    IF (PRESENT(timelev)) THEN  
+      WRITE(i2a, "(i2.2)") timelev
+      listname = listname//i2a
+    END IF
     CALL vlr_get(list, listname)
+!    WRITE(message_text, "(a,l1)") MERGE(h2d, d2h, to_device)//" update <"//listname//"> found=", ASSOCIATED(list%p)
+!    CALL message("", message_text)
+    IF (ASSOCIATED(list%p)) THEN
+      DO ii = 1, list%p%nvars
+        element => list%p%vl(ii)%p
+        info    => element%info
+        IF (to_device) THEN
+          CALL upd_dev()
+        ELSE
+          CALL upd_host()
+        END IF
+      END DO
+    END IF
+  CONTAINS
 
-    for_all_list_elements: DO ii = 1, list%p%nvars
-      element => list%p%vl(ii)%p
-      info    => element%info
+    SUBROUTINE upd_dev()
+
       SELECT CASE(info%data_type)
       CASE (REAL_T)
         !$ACC UPDATE DEVICE(element%r_ptr) IF(info%lopenacc)
@@ -58,34 +76,10 @@ CONTAINS
       CASE (BOOL_T)
         !$ACC UPDATE DEVICE(element%l_ptr) IF(info%lopenacc)
       END SELECT
-    END DO for_all_list_elements
+    END SUBROUTINE upd_dev
 
-  END SUBROUTINE gpu_h2d_var_list
-
-  !> Update host data of variable list
-  !
-  SUBROUTINE gpu_d2h_var_list( name, domain, substr, timelev )
-    CHARACTER(len=*), INTENT(IN)            :: name    ! name of output var_list
-    INTEGER, INTENT(IN), OPTIONAL           :: domain  ! domain index to append
-    CHARACTER(len=*), INTENT(IN), OPTIONAL  :: substr  ! String after domain, before timelev
-    INTEGER, INTENT(IN), OPTIONAL           :: timelev ! timelev index to append
-
-    TYPE(t_var_list_ptr) :: list
-    TYPE(t_var_metadata), POINTER :: info
-    TYPE(t_var), POINTER :: element
-    CHARACTER(:), ALLOCATABLE :: listname
-    INTEGER :: ii
-
-    ! generate listname
-    listname = TRIM(name) // &
-      & MERGE(int2string(domain, "(i2.2)"), '', PRESENT(domain)) // &
-      & MERGE(TRIM(substr),                 '', PRESENT(substr)) // &
-      & MERGE(int2string(domain, "(i2.2)"), '', PRESENT(timelev))
-    CALL vlr_get(list, listname)
-
-    for_all_list_elements: DO ii = 1, list%p%nvars
-      element => list%p%vl(ii)%p
-      info    => element%info
+    SUBROUTINE upd_host()
+      
       SELECT CASE(info%data_type)
       CASE (REAL_T)
         !$ACC UPDATE HOST(element%r_ptr) IF(info%lopenacc)
@@ -96,8 +90,7 @@ CONTAINS
       CASE (BOOL_T)
         !$ACC UPDATE HOST(element%l_ptr) IF(info%lopenacc)
       END SELECT
-    END DO for_all_list_elements
-
-  END SUBROUTINE gpu_d2h_var_list
+    END SUBROUTINE upd_host
+  END SUBROUTINE gpu_update_var_list
 
 END MODULE mo_var_list_gpu
