@@ -1393,7 +1393,8 @@ CONTAINS
 
     have_GRIB =      of%output_type == FILETYPE_GRB  &
       &         .OR. of%output_type == FILETYPE_GRB2
-    lwrite_single_precision = (.NOT. use_dp_mpi2io) .AND. (.NOT. have_GRIB)
+    lwrite_single_precision =   (.NOT. use_dp_mpi2io) .AND. (.NOT. have_GRIB) &
+      &                       .OR. idata_type == iREAL_sp
 
     IF (idata_type == iREAL) THEN
       ALLOCATE(r_out_dp(MERGE(n_glb, 0, is_mpi_workroot)))
