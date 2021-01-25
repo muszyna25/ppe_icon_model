@@ -673,7 +673,7 @@ CONTAINS
         ! zstar height
         CALL add_var(ocean_restart_list, 'zos'//TRIM(var_suffix), ocean_state_prog%eta_c , &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,    &
-          & t_cf_var('eta_c'//TRIM(var_suffix), 'm', 'zstar sfc elevation at cell center', DATATYPE_FLT64,'eta_c'),&
+          & t_cf_var('zos'//TRIM(var_suffix), 'm', 'zstar sfc elevation at cell center', DATATYPE_FLT64,'zos'),&
           & grib2_var(255, 255, 1, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
           & ldims=(/nproma,alloc_cell_blocks/), tlev_source=TLEV_NNEW,&
           & in_group=groups("oce_default", "oce_essentials","oce_prog"))
@@ -690,7 +690,7 @@ CONTAINS
         ! height
         CALL add_var(ocean_restart_list, 'z_ht'//TRIM(var_suffix), ocean_state_prog%h , &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,    &
-          & t_cf_var('zos'//TRIM(var_suffix), 'm', 'surface elevation at cell center', DATATYPE_FLT64,'zos'),&
+          & t_cf_var('z_ht'//TRIM(var_suffix), 'm', 'dummy elevation at cell center', DATATYPE_FLT64,'z_ht'),&
           & grib2_var(255, 255, 1, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
           & ldims=(/nproma,alloc_cell_blocks/), tlev_source=TLEV_NNEW,&
           & in_group=groups("oce_default", "oce_essentials","oce_prog"))
