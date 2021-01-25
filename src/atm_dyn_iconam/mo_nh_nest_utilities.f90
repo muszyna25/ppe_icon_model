@@ -1452,12 +1452,12 @@ CONTAINS
   !!
   !! @par Revision History
   !! Developed  by Guenther Zaengl, DWD, 2013-21-10
-  SUBROUTINE limarea_bdy_nudging (p_patch, p_prog, rcf_tracer, p_metrics, p_diag, &
+  SUBROUTINE limarea_bdy_nudging (p_patch, p_prog, ptr_tracer, p_metrics, p_diag, &
                                   p_int, tsrat, p_latbc_const, p_latbc_old, p_latbc_new)
 
     TYPE(t_patch),   INTENT(IN)    :: p_patch
     TYPE(t_nh_prog), INTENT(IN)    :: p_prog
-    REAL(wp), CONTIGUOUS_ARGUMENT(inout) ::  rcf_tracer(:,:,:,:)
+    REAL(wp), CONTIGUOUS_ARGUMENT(inout) ::  ptr_tracer(:,:,:,:)
     TYPE(t_nh_metrics), INTENT(IN) :: p_metrics
     TYPE(t_nh_diag), INTENT(INOUT) :: p_diag
     TYPE(t_int_state), INTENT(IN)  :: p_int
@@ -1596,7 +1596,7 @@ CONTAINS
             qv   = wfac_old*p_latbc_old%qv(jc,jk,jb)   + wfac_new*p_latbc_new%qv(jc,jk,jb)
 
             tempv_inc = (temp-p_diag%temp(jc,jk,jb))*(1._wp+vtmpc1*qv) + &
-               (qv-rcf_tracer(jc,jk,jb,iqv))*vtmpc1*temp
+               (qv-ptr_tracer(jc,jk,jb,iqv))*vtmpc1*temp
             pres_inc  = pres-p_diag%pres(jc,jk,jb)
 
             thv_tend = tempv_inc/p_prog%exner(jc,jk,jb) - rd_o_cpd*p_prog%theta_v(jc,jk,jb)/pres*pres_inc
@@ -1655,14 +1655,14 @@ CONTAINS
             jc = p_metrics%nudge_c_idx(ic)
             jb = p_metrics%nudge_c_blk(ic)
 #endif
-            qv_tend = wfac_old*p_latbc_old%qv(jc,jk,jb) + wfac_new*p_latbc_new%qv(jc,jk,jb) - rcf_tracer(jc,jk,jb,iqv)
+            qv_tend = wfac_old*p_latbc_old%qv(jc,jk,jb) + wfac_new*p_latbc_new%qv(jc,jk,jb) - ptr_tracer(jc,jk,jb,iqv)
 
             ! Suppress positive nudging tendencies in saturated (=cloudy) regions in order to avoid runaway effects
-            qv_tend = MERGE(MIN(0._wp,qv_tend), qv_tend, rcf_tracer(jc,jk,jb,iqc) > 1.e-10_wp)
+            qv_tend = MERGE(MIN(0._wp,qv_tend), qv_tend, ptr_tracer(jc,jk,jb,iqc) > 1.e-10_wp)
 
             ! using a weaker nudging coefficient for QV than for thermodynamic variables turned out to have a slightly
             ! beneficial impact on forecast quality
-            rcf_tracer(jc,jk,jb,iqv) = rcf_tracer(jc,jk,jb,iqv) + 0.5_wp*tsrat*p_int%nudgecoeff_c(jc,jb)*qv_tend
+            ptr_tracer(jc,jk,jb,iqv) = ptr_tracer(jc,jk,jb,iqv) + 0.5_wp*tsrat*p_int%nudgecoeff_c(jc,jb)*qv_tend
 
           ENDDO
         ENDDO
@@ -1724,7 +1724,7 @@ CONTAINS
             qv   = wfac_old*p_latbc_old%qv(jc,jk,jb)   + wfac_new*p_latbc_new%qv(jc,jk,jb)
 
             tempv_inc = (temp-p_diag%temp(jc,jk,jb))*(1._wp+vtmpc1*qv) + &
-               (qv-rcf_tracer(jc,jk,jb,iqv))*vtmpc1*temp
+               (qv-ptr_tracer(jc,jk,jb,iqv))*vtmpc1*temp
             pres_inc  = pres-p_diag%pres(jc,jk,jb)
 
             thv_tend = tempv_inc/p_prog%exner(jc,jk,jb) - rd_o_cpd*p_prog%theta_v(jc,jk,jb)/pres*pres_inc
