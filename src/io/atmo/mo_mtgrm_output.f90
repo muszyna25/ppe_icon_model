@@ -13,7 +13,9 @@
 !! In SR "meteogram_setup_variables", insert
 !!
 !! a) for volume variables:
-!!      CALL add_atmo_var(VAR_GROUP_ATMO_ML, "myvarname", "myvarunit", "long name", jg, <state_var>)
+!!      CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_ML, &
+!!                        "myvarname", "myvarunit", "long name", &
+!!                        var_info, pack_buf, <state_var>)
 !!
 !!      where "VAR_GROUP_ATMO_ML" (or "VAR_GROUP_ATMO_HL" or
 !!      "VAR_GROUP_SOIL_HL", ...)  determines the level heights of this
@@ -21,14 +23,17 @@
 !!      pointer to the corresponding data.
 !!
 !! b) for surface variables:
-!!      CALL add_sfc_var(VAR_GROUP_SFC, "myvarname", "myvarunit", "long name", jg, <state_var>)
+!!      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SFC, &
+!!                       "myvarname", "myvarunit", "long name", &
+!!                       sfc_var_info, pack_buf, <state_var>)
 !!
 !! How to add additional diagnostic quantities
 !! -------------------------------------------
 !! In SR "meteogram_setup_variables", insert
 !!
-!!      CALL add_atmo/sfc_var (IBSET(VAR_GROUP_XX, FLAG_DIAG), &
-!!         &                   "myvarname", "myvarunit", "long name", jg, <var>)
+!!      CALL add_atmo/sfc_var (meteogram_config, var_list, IBSET(VAR_GROUP_XX, FLAG_DIAG), &
+!!         &                   "myvarname", "myvarunit", "long name", &
+!!         &                   var_info, pack_buf, <var>)
 !! where <var> denotes a variable of _equal_size_.
 !!
 !! The computation of the diagnostic quantities should be placed inside
@@ -43,11 +48,15 @@
 !! tasks have the following functions:
 !!
 !! 1) use_async_name_list_io == .FALSE. (synchronous I/O)
+!!
 !!    1a) ldistributed == .TRUE.
+!!
 !!        All MPI tasks are writing their own files from their
 !!        individual out_buf.
 !!        Thus, all PEs have the flag "l_is_writer" enabled.
+!!
 !!    1b) ldistributed == .FALSE.
+!!
 !!        All PEs are sampling meteogram data and send it to a single
 !!        writing PE (all PEs have the flag "l_is_sender" enabled).
 !!        One of the working PEs is collecting all meteogram data in its
@@ -55,25 +64,35 @@
 !!        closes the NetCDF file. The MPI rank of this PE is
 !!        "process_mpi_all_workroot_id", this PE has the flag
 !!        "l_is_collecting_pe" enabled.
-!! 2) use_async_name_list_io == .TRUE. => num_io_procs > 0 (asynchronous I/O)
+!! 2) use_async_name_list_io == .TRUE. => num_io_procs > 0 (asynchronous I/O without CDI-PIO)
+!!
 !!    2a) ldistributed == .TRUE.
+!!
 !!        Invalid case, caught by namelist cross checks
+!!
 !!    2b) ldistributed == .FALSE.
+!!
 !!        The last I/O PE collects data from working PEs and writes
-!!        the NetCDF output. Thus, this PE has "l_is_collecting_pe" and
-!!        "l_is_writer" enabled.  Since this output PE has no
+!!        the NetCDF output. Thus, this PE has "l_is_collecting_pe"
+!!        and "l_is_writer" enabled.  Since this output PE has no
 !!        information on variable (levels) and patches, it has also
-!!        the flag "is_pure_io_pe" enabled and receives this setup from
-!!        a dedicated working PE (workroot). The latter has
-!!        "l_is_varlist_sender" enabled.
+!!        the flag "is_pure_io_pe" enabled and receives this setup
+!!        from a dedicated working PE (highest worker rank with data
+!!        or highest worker rank if no PE has any station
+!!        assigned). The latter has "l_is_varlist_sender" enabled.
 !!
 !! Known limitations:
 !! ------------------
+!!
 !! - So far, only NetCDF file format is supported.
+!!
 !! - ASCII output data (similar to COSMO) must be generated in a
 !!   post-processing step.
+!!
 !! - In case of an application crash, latest meteogram data, which has
-!!   not yet been written to hard disk, may be lost.
+!!   not yet been written to hard disk, will be lost. The recommended
+!!   work-around is to choose the max_time_stamps namelist
+!!   configuration variable to match the restart frequency of the model.
 !!
 !! @author F. Prill, DWD
 !!
@@ -1678,7 +1697,9 @@ CONTAINS
 
 
   !>
-  !! Adds values for current model time to buffer.
+  !! Adds values for current model time to buffer. Also flushes the
+  !! buffer when full and adds time stamp
+  !!
   !! For gathered NetCDF output, this is a collective operation,
   !! otherwise this is a local operation.
   !!
@@ -1746,6 +1767,8 @@ CONTAINS
     END IF
   END SUBROUTINE meteogram_sample_vars
 
+  !> transfers data for the current time step for each station X
+  !! variable + plus diagnostics into output buffer
   SUBROUTINE sample_station_vars(tri_idx_local, var_info, sfc_var_info, &
     diag_var_indices, i_tstep, ithis_nlocal_pts, out_buf, buf_idx)
     INTEGER, INTENT(in) :: tri_idx_local(:,:)
@@ -1990,6 +2013,7 @@ CONTAINS
 
   END SUBROUTINE meteogram_collect_buffers
 
+  !> unpacks all data transferred for a single station into gathering ranks output buffer
   SUBROUTINE unpack_station_sample(var_info, sfc_var_info, out_buf, &
       sttn_buffer, istation, nstations, icurrent)
     TYPE(t_var_info), INTENT(in) :: var_info(:)
@@ -2038,6 +2062,7 @@ CONTAINS
     pack_size = SUM(var_info(:)%nlevs) * max_time_stamps * p_real_dp_byte
   END FUNCTION station_atmo_vars_max_pack_size
 
+  !> fills mpi packed buffer for sending to gathering rank
   SUBROUTINE pack_station_sample(sttn_buffer, pos, icurrent, out_buf, istation,&
     var_info, global_idx)
     CHARACTER, INTENT(out) :: sttn_buffer(:)
@@ -2127,6 +2152,9 @@ CONTAINS
 
   END SUBROUTINE meteogram_open_file
 
+  !> create meteogram netcdf dataset and call create_netcdf_meta for
+  !! corresponding variables and meta-data, afterwards add
+  !! time-invariant data via put_station_invariants
   SUBROUTINE meteogram_create_file(output_config, file_info, pstation, &
     out_buf, var_info, sfc_var_info, invariants)
     TYPE(t_meteogram_output_config), INTENT(IN) :: output_config
@@ -2164,6 +2192,8 @@ CONTAINS
     CALL put_invariants(file_info%ncid, var_info, invariants)
   END SUBROUTINE meteogram_create_file
 
+  !> add meteogram netcdf dataset variables and meta-data, most
+  !! importantly records the per-variable id into argument ncid
   SUBROUTINE create_netcdf_meta(ncid, cf, uuid_string, number_of_grid_used, &
     var_info, sfc_var_info, invariants)
     TYPE(t_ncid), INTENT(inout) :: ncid
@@ -2417,6 +2447,8 @@ CONTAINS
     END SUBROUTINE put_global_txt_att
   END SUBROUTINE create_netcdf_meta
 
+  !> write time-invariant meteogram data for single station to netcdf
+  !! dataset
   SUBROUTINE put_station_invariants(ncid, istation, station_cfg)
     TYPE(t_ncid), INTENT(in) :: ncid
     INTEGER, INTENT(in) :: istation
@@ -2440,6 +2472,8 @@ CONTAINS
       &                        station_cfg%location%lat), routine)
   END SUBROUTINE put_station_invariants
 
+  !> write time-invariant and station-independent meteogram data to
+  !! netcdf dataset
   SUBROUTINE put_invariants(ncid, var_info, invariants)
     TYPE(t_ncid), INTENT(in) :: ncid
     TYPE(t_var_info), INTENT(in) :: var_info(:)
@@ -2490,6 +2524,8 @@ CONTAINS
       &     routine)
   END SUBROUTINE put_invariants
 
+  !> instead of creating a dataset, open an existing meteogram file
+  !! and query variable IDs for appending.
   SUBROUTINE meteogram_append_file(file_info, sfc_var_info)
     TYPE(t_meteogram_file), INTENT(inout) :: file_info
     TYPE(t_sfc_var_info), INTENT(in) :: sfc_var_info(:)
@@ -2616,6 +2652,7 @@ CONTAINS
 
   END SUBROUTINE meteogram_flush_file
 
+  !> writer part of intermediate disk flushing
   SUBROUTINE disk_flush(var_info, sfc_var_info, &
     out_buf, time_offset, icurrent, istep, zdate, ncid)
     TYPE(t_var_info), INTENT(in) :: var_info(:)
@@ -2963,6 +3000,9 @@ CONTAINS
     END DO
   END SUBROUTINE add_sfc_var_3d
 
+  !> after adding the variables to maximally sized buffers, shrink
+  !! wrap the buffers to match the number of variables actually
+  !! defined
   SUBROUTINE resize_var_info(var_list, var_info, sfc_var_info)
     TYPE(t_var), INTENT(in) :: var_list
     TYPE(t_var_info), ALLOCATABLE, INTENT(inout) :: var_info(:)
@@ -2985,7 +3025,7 @@ CONTAINS
 
   !>
   !!  Utility function.
-  !!  Receive var list via MPI communication.
+  !!  Receive meteogram var list via MPI communication.
   !!
   SUBROUTINE receive_var_info(var_info, sfc_var_info, var_list, pack_buf)
     TYPE(t_var_info), ALLOCATABLE, TARGET, INTENT(out) :: var_info(:)
@@ -3033,6 +3073,7 @@ CONTAINS
 #endif
   END SUBROUTINE receive_var_info
 
+  !> fill t_cf_var struct for meteogram variable description from pack buffer
   SUBROUTINE unpack_cf(cf, pack_buf)
     TYPE(t_cf_var), INTENT(out) :: cf
     TYPE(mtgrm_pack_buf), INTENT(inout) :: pack_buf
@@ -3041,6 +3082,7 @@ CONTAINS
     CALL p_unpack_string(pack_buf%msg_varlist, pack_buf%pos, cf%units)
   END SUBROUTINE unpack_cf
 
+  !> send time invariants in case output happens through a rank dedicated to asynchronous I/O
   SUBROUTINE send_time_invariants(var_info, invariants, &
     io_collector_rank, io_collect_comm, global_idx)
     TYPE(t_var_info), INTENT(in) :: var_info(:)
@@ -3076,6 +3118,7 @@ CONTAINS
     CALL p_wait
   END SUBROUTINE send_time_invariants
 
+  !> recv and fill time invariant fields on dedicated async I/O rank from pack buffer
   SUBROUTINE recv_time_invariants(var_info, invariants, pstation, &
     io_collect_comm, is_pure_io_pe)
     TYPE(t_var_info), INTENT(in) :: var_info(:)
