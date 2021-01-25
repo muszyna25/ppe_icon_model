@@ -315,15 +315,14 @@ CONTAINS
       jstep = jstep0
       TIME_LOOP: DO
 
-         IF ( vert_cor_type == 0 ) THEN
-          CALL ocean_time_step()
-         ELSEIF ( vert_cor_type == 1 ) THEN
-          CALL ocean_time_step_zstar()
-         ENDIF
          IF(lsediment_only) THEN
              CALL sed_only_time_step()
          ELSE
+           IF ( vert_cor_type == 0 ) THEN
              CALL ocean_time_step()
+            ELSEIF ( vert_cor_type == 1 ) THEN
+             CALL ocean_time_step_zstar()
+            ENDIF
          END IF
 
          IF (isEndOfThisRun()) THEN
