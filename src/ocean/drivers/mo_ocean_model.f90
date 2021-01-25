@@ -25,7 +25,6 @@ MODULE mo_ocean_model
 #ifdef HAVE_CDI_PIO
   USE mo_mpi,                     ONLY: mpi_comm_null, p_comm_work_io
   USE mo_impl_constants,          ONLY: pio_type_cdipio
-  USE yaxt,                       ONLY: xt_initialize, xt_initialized
   USE mo_cdi,                     ONLY: namespacegetactive
   USE mo_cdi_pio_interface,       ONLY: nml_io_cdi_pio_namespace, &
     &                                   cdi_base_namespace, &
@@ -248,7 +247,6 @@ MODULE mo_ocean_model
     END SELECT
 
     !------------------------------------------------------------------
-
     CALL print_timer()
 
     !------------------------------------------------------------------

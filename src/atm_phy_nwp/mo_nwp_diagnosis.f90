@@ -41,7 +41,7 @@ MODULE mo_nwp_diagnosis
   USE mo_exception,          ONLY: message, message_text
   USE mo_model_domain,       ONLY: t_patch
   USE mo_run_config,         ONLY: iqv, iqc, iqi, iqr, iqs,  &
-                                   iqni, iqg, iqh, iqnc, iqm_max
+                                   iqni, iqg, iqh, iqnc, iqm_max, iqgl, iqhl
   USE mo_grid_config,        ONLY: n_dom, n_dom_start
   USE mo_timer,              ONLY: ltimer, timer_start, timer_stop, timer_nh_diagnostics
   USE mo_nonhydro_types,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics, t_nh_state
@@ -73,7 +73,7 @@ MODULE mo_nwp_diagnosis
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_nwp_parameters,     ONLY: t_phy_params
   USE mo_time_config,        ONLY: time_config
-  USE mo_nwp_tuning_config,  ONLY: lcalib_clcov
+  USE mo_nwp_tuning_config,  ONLY: lcalib_clcov, max_calibfac_clcl
   USE mo_upatmo_impl_const,  ONLY: idamtr
   USE mo_mpi,                ONLY: p_io, p_comm_work, p_bcast
 
@@ -111,7 +111,7 @@ CONTAINS
   !!
   SUBROUTINE nwp_statistics(lcall_phy_jg,                 & !in
                             & dt_phy_jg, p_sim_time,      & !in
-                            & kstart_moist,               & !in
+                            & ext_data, kstart_moist,     & !in
                             & ih_clch, ih_clcm,           & !in
                             & pt_patch, p_metrics,        & !in
                             & pt_prog, pt_prog_rcf,       & !in
@@ -131,6 +131,7 @@ CONTAINS
     TYPE(t_nh_prog),    INTENT(IN)   :: pt_prog_rcf !<the prognostic variables (with
                                                     !< red. calling frequency for tracers!
     TYPE(t_nh_metrics), INTENT(in)   :: p_metrics
+    TYPE(t_external_data),INTENT(IN) :: ext_data    !< external data
 
     TYPE(t_nwp_phy_diag), INTENT(inout):: prm_diag
     TYPE(t_lnd_diag),     INTENT(inout):: lnd_diag      !< diag vars for sfc
@@ -176,7 +177,7 @@ CONTAINS
     IF (atm_phy_nwp_config(jg)%lcalc_moist_integral_avg) THEN
       CALL calc_moist_integrals(pt_patch, p_metrics,        & !in
                               & pt_prog, pt_prog_rcf,       & !in
-                              & kstart_moist,               & !in
+                              & ext_data, kstart_moist,     & !in
                               & ih_clch, ih_clcm,           & !in
                               & pt_diag, prm_diag           ) !inout
     ENDIF
@@ -438,8 +439,7 @@ CONTAINS
 
               ! time averaged shortwave diffuse upward flux at surface
               prm_diag%asodifu_s (jc,jb) = time_avg(prm_diag%asodifu_s   (jc,jb), &
-                &           prm_diag%albdif(jc,jb)/(1._wp-prm_diag%albdif(jc,jb)) &
-                &                                 * prm_diag%swflxsfc    (jc,jb), &
+                &                                   prm_diag%swflx_up_sfc(jc,jb), &
                 &                                   t_wgt)
 
               ! time averaged longwave net flux at surface
@@ -596,8 +596,7 @@ CONTAINS
 
               ! accumulated shortwave diffuse upward flux at surface
               prm_diag%asodifu_s (jc,jb) = prm_diag%asodifu_s   (jc,jb)  &
-             &         + prm_diag%albdif(jc,jb)/(1._wp-prm_diag%albdif(jc,jb)) &
-             &                           * prm_diag%swflxsfc    (jc,jb)   &
+             &                           + prm_diag%swflx_up_sfc(jc,jb)  &
              &                           * dt_phy_jg(itfastphy)
 
               ! accumulated longwave net flux at surface
@@ -679,7 +678,7 @@ CONTAINS
   !!
   SUBROUTINE calc_moist_integrals(pt_patch, p_metrics,        & !in
                                 & pt_prog, pt_prog_rcf,       & !in
-                                & kstart_moist,               & !in
+                                & ext_data, kstart_moist,     & !in
                                 & ih_clch, ih_clcm,           & !in
                                 & pt_diag, prm_diag           ) !inout
 
@@ -689,6 +688,7 @@ CONTAINS
     TYPE(t_nh_prog),    INTENT(IN)   :: pt_prog     !<the prognostic variables
     TYPE(t_nh_prog),    INTENT(IN)   :: pt_prog_rcf !<the prognostic variables (with red. calling frequency for tracers!)
     TYPE(t_nh_metrics), INTENT(in)   :: p_metrics
+    TYPE(t_external_data),INTENT(IN) :: ext_data    !< external data
     TYPE(t_nwp_phy_diag), INTENT(inout):: prm_diag
 
     INTEGER,           INTENT(IN)  :: kstart_moist
@@ -708,7 +708,7 @@ CONTAINS
 
     REAL(wp):: clearsky(nproma)
     REAL(wp):: ccmax, ccran, alpha(nproma,pt_patch%nlev), clcl_mod, clcm_mod, clct_fac
-
+    LOGICAL :: lland
 
     REAL(wp), PARAMETER :: eps_clc = 1.e-7_wp
 
@@ -745,7 +745,7 @@ CONTAINS
 !$OMP PARALLEL
     IF ( atm_phy_nwp_config(jg)%lenabled(itccov) ) THEN
 
-!$OMP DO PRIVATE(jc,jk,jb,z_help,i_startidx,i_endidx,clearsky,ccmax,ccran,alpha,clcl_mod,clcm_mod,clct_fac)
+!$OMP DO PRIVATE(jc,jk,jb,z_help,i_startidx,i_endidx,clearsky,ccmax,ccran,alpha,clcl_mod,clcm_mod,clct_fac,lland)
       DO jb = i_startblk, i_endblk
         !
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -894,10 +894,11 @@ CONTAINS
           ! calibration of layer-wise cloud cover fields
           IF (lcalib_clcov) THEN
             DO jc = i_startidx, i_endidx
-              clcl_mod = MIN(4._wp*prm_diag%clcl(jc,jb), &
+              lland = ext_data%atm%fr_land(jc,jb)+ext_data%atm%fr_lake(jc,jb) > 0._wp
+              clcl_mod = MIN(MERGE(max_calibfac_clcl,1.5_wp,lland)*prm_diag%clcl(jc,jb), &
                 EXP((1._wp+prm_diag%clcl(jc,jb))/2._wp*LOG(MAX(eps_clc,prm_diag%clcl(jc,jb)))))
-              clcm_mod = MIN(3._wp*prm_diag%clcm(jc,jb), &
-                EXP((2._wp+prm_diag%clcm(jc,jb))/3._wp*LOG(MAX(eps_clc,prm_diag%clcm(jc,jb)))))
+              clcm_mod = MIN(MERGE(3._wp,1.5_wp,lland)*prm_diag%clcm(jc,jb), &
+                EXP((1._wp+prm_diag%clcm(jc,jb))/2._wp*LOG(MAX(eps_clc,prm_diag%clcm(jc,jb)))))
               clct_fac = (clcl_mod+clcm_mod+prm_diag%clch(jc,jb)) /                        &
                 MAX(eps_clc,prm_diag%clcl(jc,jb)+prm_diag%clcm(jc,jb)+prm_diag%clch(jc,jb))
               clct_fac = MIN(clct_fac, SQRT(1._wp/MAX(0.05_wp,prm_diag%clct(jc,jb))) )
@@ -1013,7 +1014,7 @@ CONTAINS
     TYPE(t_lnd_diag),    INTENT(IN)   :: lnd_diag    ! land diag state
     TYPE(t_lnd_prog),    INTENT(IN)   :: p_prog_lnd_now ! land prognostic state (now)
     TYPE(t_wtr_prog),    INTENT(INOUT):: p_prog_wtr_now ! water prognostic state (now)
-    TYPE(t_external_data),INTENT(IN)  ::ext_data       !< external data, inout only for accomodating ext_data%atm%sso_gamma
+    TYPE(t_external_data),INTENT(IN)  :: ext_data       !< external data
     TYPE(t_nwp_phy_diag),INTENT(INOUT):: prm_diag
 
     ! Local
@@ -1060,7 +1061,7 @@ CONTAINS
 
     CALL calc_moist_integrals(pt_patch, p_metrics,        & !in
                             & pt_prog, pt_prog_rcf,       & !in
-                            & kstart_moist,               & !in
+                            & ext_data, kstart_moist,     & !in
                             & ih_clch, ih_clcm,           & !in
                             & pt_diag, prm_diag           ) !inout
 
@@ -1194,15 +1195,6 @@ CONTAINS
         ENDDO  !jc
       ENDIF
 
-
-      ! Compute wind speed in 10m
-      ! 
-      IF (atm_phy_nwp_config(jg)%inwp_turb > 0 ) THEN
-        DO jc = i_startidx, i_endidx
-          prm_diag%sp_10m(jc,jb) = SQRT(prm_diag%u_10m(jc,jb)**2 &
-            &                    +      prm_diag%v_10m(jc,jb)**2 )
-        ENDDO
-      ENDIF
 
 
       ! Compute resolved surface drag: ps * del(orog)
@@ -1584,8 +1576,8 @@ CONTAINS
       ! Has to be computed before pp_scheduler_process(simulation_status) and before statistical processing between timesteps below!
 
       IF (l_need_dbz3d) THEN
-        CALL compute_field_dbz3D_lin( jg, p_patch(jg), p_nh(jg)%metrics, p_nh(jg)%prog(nnow(jg)), &
-             &                        p_nh(jg)%prog(nnow_rcf(jg)), p_nh(jg)%diag, prm_diag(jg)%dbz3d_lin )
+        CALL compute_field_dbz3D_lin( jg, p_patch(jg), p_nh(jg)%prog(nnow(jg)), p_nh(jg)%prog(nnow_rcf(jg)), &
+             &                        p_nh(jg)%diag, prm_diag(jg), prm_diag(jg)%dbz3d_lin )
       END IF
 
       ! output of dbz_ctmax (column maximum reflectivity during a time interval (namelist param. celltracks_interval) is required
@@ -1602,7 +1594,7 @@ CONTAINS
       ! output of echotopinm (maximum height where reflectivity exceeds threshold(s) 
       ! during a time interval (namelist param. echotop_meta(jg)%time_interval) is required:
       IF ( var_in_output(jg)%echotopinm .AND. (l_output(jg) .OR. l_dbz_event_active ) ) THEN
-        CALL compute_field_echotopinm ( p_patch(jg), jg, p_nh(jg)%metrics, p_nh(jg)%diag, &
+        CALL compute_field_echotopinm ( p_patch(jg), jg, p_nh(jg)%metrics, &
                                         prm_diag(jg)%dbz3d_lin, prm_diag(jg)%echotopinm )
       END IF
     END DO
@@ -1842,12 +1834,12 @@ CONTAINS
 
     ! Local variables
     REAL(wp), DIMENSION(p_patch%nblks_c) ::                                              &
-         & qvmax, qcmax, qrmax, qimax, qsmax, qhmax, qgmax, tmax, wmax, qncmax, qnimax,  &
-         & qvmin, qcmin, qrmin, qimin, qsmin, qhmin, qgmin, tmin, wmin, qncmin, qnimin
+         & qvmax, qcmax, qrmax, qimax, qsmax, qhmax, qgmax, tmax, wmax, qncmax, qnimax, qglmax, qhlmax, &
+         & qvmin, qcmin, qrmin, qimin, qsmin, qhmin, qgmin, tmin, wmin, qncmin, qnimin, qglmin, qhlmin
     REAL(wp) ::                                                                          &
-         & qvmaxi, qcmaxi, qrmaxi, qimaxi, qsmaxi, qhmaxi, qgmaxi, tmaxi, wmaxi, qncmaxi, qnimaxi,  &
-         & qvmini, qcmini, qrmini, qimini, qsmini, qhmini, qgmini, tmini, wmini, qncmini, qnimini
-
+         & qvmaxi, qcmaxi, qrmaxi, qimaxi, qsmaxi, qhmaxi, qgmaxi, tmaxi, wmaxi, qncmaxi, qnimaxi, qglmaxi, qhlmaxi,  &
+         & qvmini, qcmini, qrmini, qimini, qsmini, qhmini, qgmini, tmini, wmini, qncmini, qnimini, qglmini, qhlmini
+    
     ! loop indices
     INTEGER :: jc,jk,jb,jg
 
@@ -1890,6 +1882,11 @@ CONTAINS
     qgmin = 0.0_wp
     qhmax = 0.0_wp
     qhmin = 0.0_wp
+    
+    qglmax = 0.0_wp
+    qglmin = 0.0_wp
+    qhlmax = 0.0_wp
+    qhlmin = 0.0_wp
 
     qncmax = 0.0_wp
     qncmin = 0.0_wp
@@ -1921,11 +1918,17 @@ CONTAINS
             qsmin(jb) = MIN(qsmin(jb),p_prog_rcf%tracer(jc,jk,jb,iqs))
             
             IF(atm_phy_nwp_config(jg)%inwp_gscp==4 &
-                 & .OR.atm_phy_nwp_config(jg)%inwp_gscp==5)THEN
+                 & .OR.atm_phy_nwp_config(jg)%inwp_gscp==5 .OR. atm_phy_nwp_config(jg)%inwp_gscp==7)THEN
                qgmax(jb) = MAX(qgmax(jb),p_prog_rcf%tracer(jc,jk,jb,iqg))
                qgmin(jb) = MIN(qgmin(jb),p_prog_rcf%tracer(jc,jk,jb,iqg))
                qhmax(jb) = MAX(qhmax(jb),p_prog_rcf%tracer(jc,jk,jb,iqh))
                qhmin(jb) = MIN(qhmin(jb),p_prog_rcf%tracer(jc,jk,jb,iqh))
+            END IF
+            IF(atm_phy_nwp_config(jg)%inwp_gscp==7)THEN
+               qglmax(jb) = MAX(qglmax(jb),p_prog_rcf%tracer(jc,jk,jb,iqgl))
+               qglmin(jb) = MIN(qglmin(jb),p_prog_rcf%tracer(jc,jk,jb,iqgl))
+               qhlmax(jb) = MAX(qhlmax(jb),p_prog_rcf%tracer(jc,jk,jb,iqhl))
+               qhlmin(jb) = MIN(qhlmin(jb),p_prog_rcf%tracer(jc,jk,jb,iqhl))
             END IF
             IF(atm_phy_nwp_config(jg)%inwp_gscp==5)THEN
                qncmax(jb) = MAX(qncmax(jb),p_prog_rcf%tracer(jc,jk,jb,iqnc))
@@ -1956,11 +1959,17 @@ CONTAINS
     qsmaxi = MAXVAL(qsmax(i_startblk:i_endblk))
     qsmini = MINVAL(qsmin(i_startblk:i_endblk))
     IF(atm_phy_nwp_config(jg)%inwp_gscp==4 &
-         & .OR.atm_phy_nwp_config(jg)%inwp_gscp==5)THEN
+         & .OR.atm_phy_nwp_config(jg)%inwp_gscp==5 .OR.atm_phy_nwp_config(jg)%inwp_gscp==7)THEN
        qgmaxi = MAXVAL(qgmax(i_startblk:i_endblk))
        qgmini = MINVAL(qgmin(i_startblk:i_endblk))
        qhmaxi = MAXVAL(qhmax(i_startblk:i_endblk))
        qhmini = MINVAL(qhmin(i_startblk:i_endblk))
+    END IF
+    IF(atm_phy_nwp_config(jg)%inwp_gscp==7)THEN
+       qglmaxi = MAXVAL(qglmax(i_startblk:i_endblk))
+       qglmini = MINVAL(qglmin(i_startblk:i_endblk))
+       qhlmaxi = MAXVAL(qhlmax(i_startblk:i_endblk))
+       qhlmini = MINVAL(qhlmin(i_startblk:i_endblk))
     END IF
     IF(atm_phy_nwp_config(jg)%inwp_gscp==5)THEN
        qncmaxi = MAXVAL(qncmax(i_startblk:i_endblk))
@@ -1985,11 +1994,17 @@ CONTAINS
     qsmaxi = global_max(qsmaxi)
     qsmini = global_min(qsmini)
     IF(atm_phy_nwp_config(jg)%inwp_gscp==4 &
-         & .OR.atm_phy_nwp_config(jg)%inwp_gscp==5)THEN
+         & .OR.atm_phy_nwp_config(jg)%inwp_gscp==5 .OR. atm_phy_nwp_config(jg)%inwp_gscp==7)THEN
        qgmaxi = global_max(qgmaxi)
        qgmini = global_min(qgmini)
        qhmaxi = global_max(qhmaxi)
        qhmini = global_min(qhmini)
+    END IF
+    IF(atm_phy_nwp_config(jg)%inwp_gscp==7)THEN
+       qglmaxi = global_max(qglmaxi)
+       qglmini = global_min(qglmini)
+       qhlmaxi = global_max(qhlmaxi)
+       qhlmini = global_min(qhlmini)
     END IF
     IF(atm_phy_nwp_config(jg)%inwp_gscp==5)THEN
        qncmaxi = global_max(qncmaxi)
@@ -2020,6 +2035,13 @@ CONTAINS
        WRITE(message_text,'(A10,10E11.3)') '  max: ', wmaxi,qvmaxi,qcmaxi,qrmaxi,qimaxi,qsmaxi,qgmaxi,qhmaxi,qncmaxi,qnimaxi
        CALL message("",TRIM(message_text))
        WRITE(message_text,'(A10,10E11.3)') '  min: ', wmini,qvmini,qcmini,qrmini,qimini,qsmini,qgmini,qhmini,qncmini,qnimini
+       CALL message("",TRIM(message_text))       
+    CASE(7)
+       WRITE(message_text,'(A10,10A11)')   '  var: ', 'w','qv','qc','qr','qi','qs','qg','qh','qgl','qhl'
+       CALL message("",TRIM(message_text))
+       WRITE(message_text,'(A10,10E11.3)') '  max: ', wmaxi,qvmaxi,qcmaxi,qrmaxi,qimaxi,qsmaxi,qgmaxi,qhmaxi,qglmaxi,qhlmaxi
+       CALL message("",TRIM(message_text))
+       WRITE(message_text,'(A10,10E11.3)') '  min: ', wmini,qvmini,qcmini,qrmini,qimini,qsmini,qgmini,qhmini,qhlmini,qhlmini
        CALL message("",TRIM(message_text))       
     CASE DEFAULT       
           CALL finish('nwp_diag_output_minmax_micro', 'Cloud microphysics scheme not yet known in diagnostics.')

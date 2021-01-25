@@ -44,6 +44,7 @@ SUBROUTINE DIPOWA (start_idx,end_idx)
   &                             isilica, ipowafe, iiron, ialkali, &  
   &                             isco212, igasnit, ipowaph, ipowaal, &
   &                             ipown2, ipowaic 
+  USE mo_ocean_nml, ONLY      : lsediment_only
 
   IMPLICIT NONE
 
@@ -182,6 +183,7 @@ SUBROUTINE DIPOWA (start_idx,end_idx)
 
          sedfluxo(j,iv) = (bgctra(j,kbo(j),iv_oc)-aprior)*bolay(j)/dtbgc
 
+         IF (lsediment_only) bgctra(j,kbo(j),iv_oc) = aprior
 
       END DO
      endif

@@ -272,7 +272,7 @@ MODULE mo_solve_nonhydro
     REAL(vp), POINTER :: p_distv_bary(:,:,:,:)
 #endif
 #ifdef __SX__
-      REAL(wp) :: zaux(6), z_rho_tavg_m1_v(nproma), z_theta_tavg_m1_v(nproma)
+      REAL(wp) :: z_rho_tavg_m1_v(nproma), z_theta_tavg_m1_v(nproma)
       REAL(vp) :: z_theta_v_pr_mc_m1_v(nproma)
 #endif
     !-------------------------------------------------------------------
@@ -1717,11 +1717,7 @@ MODULE mo_solve_nonhydro
 
       i_startblk = p_patch%edges%start_block(rl_start)
       i_endblk   = p_patch%edges%end_block(rl_end)
-#ifdef __SX__
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,z_vn_avg,zaux) ICON_OMP_DEFAULT_SCHEDULE
-#else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,z_vn_avg) ICON_OMP_DEFAULT_SCHEDULE
-#endif
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -1741,7 +1737,6 @@ MODULE mo_solve_nonhydro
 !$NEC vovertake
             DO je = i_startidx, i_endidx
 #endif
-#ifndef __SX__
               ! Average normal wind components in order to get nearly second-order accurate divergence
               z_vn_avg(je,jk) = p_int%e_flx_avg(je,1,jb)*p_nh%prog(nnew)%vn(je,jk,jb)           &
                 + p_int%e_flx_avg(je,2,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,1),jk,iqblk(je,jb,1)) &
@@ -1769,26 +1764,6 @@ MODULE mo_solve_nonhydro
                 * p_nh%prog(nnew)%vn(iqidx(je,jb,3),jk,iqblk(je,jb,3)) &
                 + p_int%rbf_vec_coeff_e(4,je,jb)                       &
                 * p_nh%prog(nnew)%vn(iqidx(je,jb,4),jk,iqblk(je,jb,4))
-#else
-             ! Workaround for compiler optimization problem in order to simplify instruction scheduling
-              DO ic = 1, 4
-                zaux(ic) = p_nh%prog(nnew)%vn(iqidx(je,jb,ic),jk,iqblk(je,jb,ic))
-              END DO
-
-              ! Average normal wind components in order to get nearly second-order accurate divergence
-              z_vn_avg(je,jk) = p_int%e_flx_avg(je,1,jb)*p_nh%prog(nnew)%vn(je,jk,jb) &
-                + p_int%e_flx_avg(je,2,jb)*zaux(1) + p_int%e_flx_avg(je,3,jb)*zaux(2) &
-                + p_int%e_flx_avg(je,4,jb)*zaux(3) + p_int%e_flx_avg(je,5,jb)*zaux(4)
-
-              ! Compute gradient of divergence of vn for divergence damping
-              z_graddiv_vn(je,jk,jb) = p_int%geofac_grdiv(je,1,jb)*p_nh%prog(nnew)%vn(je,jk,jb) &
-                + p_int%geofac_grdiv(je,2,jb)*zaux(1) + p_int%geofac_grdiv(je,3,jb)*zaux(2)     &
-                + p_int%geofac_grdiv(je,4,jb)*zaux(3) + p_int%geofac_grdiv(je,5,jb)*zaux(4)
-
-              ! RBF reconstruction of tangential wind component
-              p_nh%diag%vt(je,jk,jb) = p_int%rbf_vec_coeff_e(1,je,jb)*zaux(1) + p_int%rbf_vec_coeff_e(2,je,jb)*zaux(2) &
-                                     + p_int%rbf_vec_coeff_e(3,je,jb)*zaux(3) + p_int%rbf_vec_coeff_e(4,je,jb)*zaux(4)
-#endif
             ENDDO
           ENDDO
 !$ACC END PARALLEL
@@ -1840,22 +1815,11 @@ MODULE mo_solve_nonhydro
             DO je = i_startidx, i_endidx
 #endif
               ! Average normal wind components in order to get nearly second-order accurate divergence
-#ifdef __SX__
-             ! Workaround for compiler optimization problem in order to simplify instruction scheduling
-              DO ic = 1, 4
-                zaux(ic) = p_nh%prog(nnew)%vn(iqidx(je,jb,ic),jk,iqblk(je,jb,ic))
-              END DO
-
-              z_vn_avg(je,jk) = p_int%e_flx_avg(je,1,jb)*p_nh%prog(nnew)%vn(je,jk,jb) &
-                + p_int%e_flx_avg(je,2,jb)*zaux(1) + p_int%e_flx_avg(je,3,jb)*zaux(2) &
-                + p_int%e_flx_avg(je,4,jb)*zaux(3) + p_int%e_flx_avg(je,5,jb)*zaux(4)
-#else
               z_vn_avg(je,jk) = p_int%e_flx_avg(je,1,jb)*p_nh%prog(nnew)%vn(je,jk,jb)           &
                 + p_int%e_flx_avg(je,2,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,1),jk,iqblk(je,jb,1)) &
                 + p_int%e_flx_avg(je,3,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,2),jk,iqblk(je,jb,2)) &
                 + p_int%e_flx_avg(je,4,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,3),jk,iqblk(je,jb,3)) &
                 + p_int%e_flx_avg(je,5,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,4),jk,iqblk(je,jb,4))
-#endif
             ENDDO
           ENDDO
 !$ACC END PARALLEL
@@ -2243,9 +2207,6 @@ MODULE mo_solve_nonhydro
       ENDIF
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,z_w_expl,z_contr_w_fl_l,z_rho_expl,z_exner_expl, &
-#ifdef __SX__
-!$OMP   zaux, &
-#endif
 !$OMP   z_a,z_b,z_c,z_g,z_q,z_alpha,z_beta,z_gamma,ic,z_flxdiv_mass,z_flxdiv_theta  ) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
@@ -2266,7 +2227,6 @@ MODULE mo_solve_nonhydro
           DO jk = 1, nlev
             DO jc = i_startidx, i_endidx
 #endif
-#ifndef __SX__
               z_flxdiv_mass(jc,jk) =  &
                 p_nh%diag%mass_fl_e(ieidx(jc,jb,1),jk,ieblk(jc,jb,1)) * p_int%geofac_div(jc,1,jb) + &
                 p_nh%diag%mass_fl_e(ieidx(jc,jb,2),jk,ieblk(jc,jb,2)) * p_int%geofac_div(jc,2,jb) + &
@@ -2276,17 +2236,6 @@ MODULE mo_solve_nonhydro
                 z_theta_v_fl_e(ieidx(jc,jb,1),jk,ieblk(jc,jb,1)) * p_int%geofac_div(jc,1,jb) + &
                 z_theta_v_fl_e(ieidx(jc,jb,2),jk,ieblk(jc,jb,2)) * p_int%geofac_div(jc,2,jb) + &
                 z_theta_v_fl_e(ieidx(jc,jb,3),jk,ieblk(jc,jb,3)) * p_int%geofac_div(jc,3,jb)
-#else
-              ! Workaround for compiler optimization problem
-              DO ic = 1, 3
-                zaux(ic)   = p_nh%diag%mass_fl_e(ieidx(jc,jb,ic),jk,ieblk(jc,jb,ic))
-                zaux(ic+3) = z_theta_v_fl_e(ieidx(jc,jb,ic),jk,ieblk(jc,jb,ic))
-              ENDDO
-              z_flxdiv_mass(jc,jk)  = p_int%geofac_div(jc,1,jb)*zaux(1) + p_int%geofac_div(jc,2,jb)*zaux(2) + &
-                                      p_int%geofac_div(jc,3,jb)*zaux(3)
-              z_flxdiv_theta(jc,jk) = p_int%geofac_div(jc,1,jb)*zaux(4) + p_int%geofac_div(jc,2,jb)*zaux(5) + &
-                                      p_int%geofac_div(jc,3,jb)*zaux(6)
-#endif
             END DO
           END DO
 !$ACC END PARALLEL
@@ -2941,7 +2890,7 @@ MODULE mo_solve_nonhydro
       ! Index list over halo points lying in the boundary interpolation zone
       ! Note: this list typically contains at most 10 grid points
 
-!$ACC PARALLEL , IF( i_am_accel_node .AND. acc_on )  DEFAULT(NONE) ASYNC(1)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )  DEFAULT(NONE) ASYNC(1)
 !$ACC LOOP GANG
 #ifndef __SX__
 !$OMP DO PRIVATE(jb,ic,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
@@ -3091,7 +3040,9 @@ MODULE mo_solve_nonhydro
        REAL(wp), DIMENSION(:,:,:),   POINTER  :: grf_bdy_mflx_tmp                                               ! p_diag  WP
 
        REAL(vp), DIMENSION(:,:,:),   POINTER  :: vt_tmp, vn_ie_tmp, w_concorr_c_tmp, ddt_exner_phy_tmp          ! p_diag  VP
-       REAL(vp), DIMENSION(:,:,:),   POINTER  :: exner_dyn_incr_tmp, ddt_vn_phy_tmp                             ! p_diag  VP
+       REAL(vp), DIMENSION(:,:,:),   POINTER  :: exner_dyn_incr_tmp                                             ! p_diag  VP 
+       REAL(vp), DIMENSION(:,:,:),   POINTER  :: ddt_vn_phy_tmp                                                 ! p_diag  VP
+
        REAL(vp), DIMENSION(:,:,:),   POINTER  :: rho_incr_tmp, exner_incr_tmp                                   ! p_diag  VP
        REAL(wp), DIMENSION(:,:,:),   POINTER  :: vn_traj_tmp, mass_flx_me_tmp, mass_flx_ic_tmp                  ! prep_adv WP
        REAL(wp), DIMENSION(:,:,:),   POINTER  :: vn_ref_tmp, w_ref_tmp                                          ! p_ref   WP
@@ -3201,7 +3152,8 @@ MODULE mo_solve_nonhydro
        REAL(wp), DIMENSION(:,:,:),   POINTER  :: mass_fl_e_tmp,  mflx_ic_int_tmp, exner_pr_tmp                  ! p_diag  WP
 
        REAL(vp), DIMENSION(:,:,:),   POINTER  :: vt_tmp, vn_ie_tmp, w_concorr_c_tmp                             ! p_diag  VP
-       REAL(vp), DIMENSION(:,:,:),   POINTER  :: mass_fl_e_sv_tmp, exner_dyn_incr_tmp                           ! p_diag  VP
+       REAL(vp), DIMENSION(:,:,:),   POINTER  :: mass_fl_e_sv_tmp                                               ! p_diag  VP
+       REAL(vp), DIMENSION(:,:,:),   POINTER  :: exner_dyn_incr_tmp                                             ! p_diag  VP
        REAL(wp), DIMENSION(:,:,:),   POINTER  :: vn_traj_tmp, mass_flx_me_tmp, mass_flx_ic_tmp                  ! prep_adv WP
        REAL(vp), DIMENSION(:,:,:,:), POINTER  :: ddt_vn_adv_tmp, ddt_w_adv_tmp
 

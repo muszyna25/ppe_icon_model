@@ -56,7 +56,9 @@ MODULE mo_io_nml
                                  & config_timeSteps_per_outputStep  => timeSteps_per_outputStep, &
                                  & config_lmask_boundary            => lmask_boundary          , &
                                  & config_restart_write_mode        => restart_write_mode   , &
-                                 & config_nrestart_streams          => nrestart_streams  
+                                 & config_nrestart_streams          => nrestart_streams     , &
+                                 & config_bvf2_mode                 => bvf2_mode            , &
+                                 & config_parcelfreq2_mode          => parcelfreq2_mode  
 
   USE mo_exception,        ONLY: finish
   USE mo_util_string,      ONLY: tolower
@@ -158,6 +160,16 @@ CONTAINS
     ! involved. This speeds up the read-in process, since all the
     ! files may then be read in parallel.
     INTEGER :: nrestart_streams
+
+    INTEGER :: bvf2_mode                  !< computation mode for square of Brunt-Vaisala frequency:
+                                          !< 1: standard
+                                          !< 2: hydrostatic
+                                          !< 3: after Durran & Klemp (1982)
+    INTEGER :: parcelfreq2_mode           !< computation mode for square of general air parcel oscillation frequency:
+                                          !< 11: standard + unrestricted oscillation
+                                          !< 12: standard + vertical oscillation
+                                          !< 21: hydrostatic + unrestricted oscillation
+                                          !< 22: hydrostatic + vertical oscillation
     
     NAMELIST/io_nml/ lkeep_in_sync, dt_diag, dt_checkpoint,               &
       &              inextra_2d, inextra_3d,                              &
@@ -169,7 +181,8 @@ CONTAINS
       &              lmask_boundary, gust_interval, restart_write_mode,   &
       &              nrestart_streams, celltracks_interval, echotop_meta, &
       &              precip_interval, maxt_interval,                      &
-      &              nrestart_streams, dt_lpi, dt_celltracks, dt_radar_dbz
+      &              nrestart_streams, dt_lpi, dt_celltracks, dt_radar_dbz, &
+      &              bvf2_mode, parcelfreq2_mode
 
     !-----------------------
     ! 1. default settings
@@ -214,6 +227,9 @@ CONTAINS
 
     restart_write_mode = ""
     nrestart_streams   = 1
+
+    bvf2_mode          = 1
+    parcelfreq2_mode   = 11
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above
@@ -288,6 +304,8 @@ CONTAINS
     config_lmask_boundary          = lmask_boundary
     config_restart_write_mode      = tolower(restart_write_mode)
     config_nrestart_streams        = nrestart_streams
+    config_bvf2_mode               = bvf2_mode
+    config_parcelfreq2_mode        = parcelfreq2_mode
 
     ! --- consistency check:
 

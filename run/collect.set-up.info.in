@@ -42,16 +42,14 @@ VERSION_='@PACKAGE_VERSION@'
 # Set use_site:
 use_host='@host_fqdn@'
 case "$use_host" in
-  unknown) ;;
   wizard*|mlogin*|btlogin*|btc*) use_site=dkrz.de ;;
   daint*|tave*|santis*|kesch*) use_site=cscs.ch ;;
   ic2*|uc1*|fh2*) use_site=kit.edu ;;
-  melian*) use_site=local.net ;;
-  *mpimet.mpg.de) use_site=mpg.de ;;
+  xc*|rcnl*|oflws*) use_site=dwd.de ;;
+  mpipc*mpimet.mpg.de|breeze*mpimet.mpg.de) use_site=mpg.de ;;
+  *) use_site='local.net' ;;
 esac
-test -z "$use_site" && test x"$ICON_DOCKER" = x1 && use_site=docker
-test -n "$use_site" || use_site=`echo "$use_host" | sed 's/^[^.]*\\.//'`
-test -n "$use_site" || use_site='local.net'
+test x"$ICON_DOCKER" = x1 && use_site=docker
 
 # Set use_compiler:
 use_compiler='@FC_VENDOR@'
@@ -114,6 +112,11 @@ case "$use_site" in
 
   dwd.de)
     case "$use_host" in
+      rcnl*)
+        use_load_profile='/usr/share/Modules/init/sh'
+        use_submit='qsub'
+        use_sync_submit='qsub'
+      ;;
       xc*)
         use_submit='qsub'
         use_sync_submit='qsub -Wblock=true'
@@ -214,16 +217,20 @@ case "$use_site" in
             use_submit='sbatch'
             use_load_profile='/etc/profile'
             case "$use_compiler_version" in
-              19.*) use_mpi_startrun='/software/all/mpi/openmpi/3.0_intel_19.0/bin/mpirun'
-                    use_load_modules="compiler/intel/19.0 mpi/openmpi/3.0 lib/netcdf/4.6 lib/hdf5/1.10 lib/netcdf-fortran/4.4 eccodes/eccodes_ifort19"
+              19.0.*) use_mpi_startrun='/software/all/mpi/openmpi/2.1_intel_19.0/bin/mpirun'
+                    use_load_modules="compiler/intel/19.0 mpi/openmpi/2.1 lib/netcdf/4.7 lib/hdf5/1.10 lib/netcdf-fortran/4.5 eccodes/eccodes_ifort19"
                     ;;
-              17.*) use_mpi_startrun='/software/all/mpi/openmpi/3.0_intel_19.0/bin/mpirun' 
-                    use_load_modules='compiler/intel/19.0 mpi/openmpi/3.0 lib/netcdf/4.6 lib/hdf5/1.10 lib/netcdf-fortran/4.4 eccodes/eccodes_ifort19'
+              19.1.*) use_mpi_startrun='/software/all/mpi/openmpi/3.1_intel_19.1/bin/mpirun'
+                    use_load_modules="compiler/intel/19.1 mpi/openmpi/3.1 lib/netcdf/4.7 lib/hdf5/1.10 lib/netcdf-fortran/4.5 eccodes/eccodes_ifort19.1"
+                    ;;
+              17.*) use_mpi_startrun='/software/all/mpi/openmpi/2.1_intel_19.0/bin/mpirun' 
+                    use_load_modules='compiler/intel/19.0 mpi/openmpi/2.1 lib/netcdf/4.7 lib/hdf5/1.10 lib/netcdf-fortran/4.5 eccodes/eccodes_ifort19'
                      ;;
             esac
           ;;
           gcc)
-            use_submit='msub'
+            use_load_modules="compiler/gnu/7 numlib/mkl/2018 mpi/openmpi/2.1 lib/netcdf/4.7 lib/hdf5/1.10 lib/netcdf-fortran/4.5 eccodes/eccodes_gnu7"
+            use_submit='sbatch'
             use_mpi_startrun='mpirun'
           ;;
         esac
@@ -233,24 +240,12 @@ case "$use_site" in
   ;;
 
   mpg.de)
-    case "$use_host" in
-      mpipc*|breeze*)
-        use_target='mpipc'
-        case "`lsb_release -c | awk '{print $2}'`" in
-          stretch)
-            use_load_profile='. /etc/profile.d/mpim.sh'
-            use_load_modules='cdo/1.9.6-gccsys python/2.7.14-stable'
-          ;;
-        esac
-      ;;
-      *)
-        case '@host_os@' in
-          darwin*)
-            use_target='mpimac'
-            use_mpi_startrun='/opt/local/bin/mpiexec -n $mpi_total_procs'
-          ;;
-        esac
-      ;;
+    use_target='mpipc'
+    case "`lsb_release -c | awk '{print $2}'`" in
+      stretch)
+        use_load_profile='. /etc/profile.d/mpim.sh'
+        use_load_modules='cdo/1.9.6-gccsys python/2.7.14-stable'
+        ;;
     esac
   ;;
 
@@ -258,14 +253,7 @@ case "$use_site" in
   ;;
 
   local.net)
-    case "$use_host" in
-      melian)
-        use_target='archlinux'
-        use_mpi_startrun='mpiexec'
-        use_mpi_procs_pernode=2
-        use_shell='/bin/bash'
-      ;;
-    esac
+    use_target='default'
   ;;
 
   pa.cluster)

@@ -103,7 +103,6 @@ CONTAINS
     CHARACTER(LEN=MAX_CHAR_LENGTH)    ::  field_name(no_of_fields)
 
     INTEGER :: error_status
-
     INTEGER                :: patch_no
     TYPE(t_patch), POINTER :: patch_horz
 

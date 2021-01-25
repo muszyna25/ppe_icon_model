@@ -33,8 +33,7 @@ MODULE mo_radar_data_state
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_grid_config,        ONLY: n_dom
   USE mo_mpi,                ONLY: my_process_is_mpi_workroot, p_io, p_bcast, &
-    &                              p_comm_work_test, p_comm_work
-  USE mo_parallel_config,    ONLY: p_test_run
+    &                              p_comm_work
   USE mo_linked_list,        ONLY: t_var_list
 
   USE mo_radar_data_types,   ONLY: t_radar_fields,t_radar_td_fields, t_radar_ct_fields, t_lhn_diag
@@ -52,8 +51,8 @@ MODULE mo_radar_data_state
     &                              vlistInqTaxis, streamInqTimestep, taxisInqVdate,&
     &                              taxisInqVtime, vlistInqVarGrid, vlistInqVarName
   USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL
-  USE mo_zaxis_type,         ONLY: ZA_HYBRID, ZA_SURFACE
-  USE mo_util_cdi,           ONLY: get_cdi_varID, read_cdi_2d, read_cdi_3d, t_inputParameters,  &
+  USE mo_zaxis_type,         ONLY: ZA_SURFACE
+  USE mo_util_cdi,           ONLY: get_cdi_varID, read_cdi_2d, t_inputParameters,  &
     &                              makeInputParameters, deleteInputParameters
   USE mo_util_uuid_types,    ONLY: t_uuid, uuid_string_length
   USE mo_util_uuid,          ONLY: OPERATOR(==), uuid_unparse
@@ -142,7 +141,7 @@ CONTAINS
     ALLOCATE (cdi_radar_id(n_dom), cdi_black_id(n_dom), cdi_height_id(n_dom), cdi_filetype(n_dom), stat=ist)
     IF (ist /= SUCCESS)  CALL finish(TRIM(routine),'ALLOCATE failed!')
     CALL inquire_radar_files(p_patch, cdi_radar_id, cdi_black_id, cdi_height_id, cdi_filetype, lread_process)
-
+    CALL p_bcast (cdi_filetype, p_io, p_comm_work)
 
     ! read the map file (internal -> GRIB2) into dictionary data structure:
     CALL radar_varnames_dict%init(.FALSE.)
@@ -981,6 +980,8 @@ CONTAINS
               CALL read_cdi_2d(parameters, 'RAD_BL', radar_data(jg)%radar_ct%blacklist)
               CALL deleteInputParameters(parameters)
             ENDIF
+            ! Mask blacklist entries on halo points
+            WHERE (p_patch(jg)%cells%decomp_info%decomp_domain(:,:) /= 0) radar_data(jg)%radar_ct%blacklist(:,:) = 0
 
             IF (assimilation_config(jg)%lhn_bright) THEN
               parameters = makeInputParameters(cdi_height_id(jg), p_patch(jg)%n_patch_cells_g, p_patch(jg)%comm_pat_scatter_c) ! &
@@ -1017,10 +1018,12 @@ CONTAINS
     CALL init(lhn_fields(jg)%ttend_lhn(:,:,:))
     CALL init(lhn_fields(jg)%qvtend_lhn(:,:,:))
 !    CALL init(lhn_fields(jg)%brightband(:,:),-1._wp)
-    lhn_fields(jg)%brightband(:,:) = -1._wp
     CALL init(lhn_fields(jg)%pr_obs_sum(:,:))
     CALL init(lhn_fields(jg)%pr_mod_sum(:,:))
     CALL init(lhn_fields(jg)%pr_ref_sum(:,:))
+!$OMP WORKSHARE
+    lhn_fields(jg)%brightband(:,:) = -1._wp
+!$OMP END WORKSHARE
 !$OMP END PARALLEL
 
   ENDDO

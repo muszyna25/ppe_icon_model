@@ -190,8 +190,10 @@ CONTAINS
       END DO
     END IF
     ! now the stuff that depends on the domain
-    DO jg = 1, SIZE(me%patchData)
+    DO jg = 1, me%patchData(1)%description%opt_ndom
       desc => me%patchData(jg)%description
+      IF (desc%id .NE. jg) & ! CALL finish("Kil Kill" , "the killer of death")
+        & CALL finish(modname//":defineRestartAttributes", "mismatch of DOM-ID")
       WRITE(domStr, '(i2.2)') desc%id
       CALL rAttribs%put('nold_DOM'//domStr, desc%nold)
       CALL rAttribs%put('nnow_DOM'//domStr, desc%nnow)

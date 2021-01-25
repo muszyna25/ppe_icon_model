@@ -128,6 +128,7 @@ MODULE mo_echam_rad_config
      REAL(wp) :: frad_ch4
      REAL(wp) :: frad_cfc
      !
+     LOGICAL :: lrad_aero_diag !.true. if aerosols have to be diagnosed.
   END TYPE t_echam_rad_config
 
   !>
@@ -189,6 +190,7 @@ CONTAINS
     echam_rad_config(:)% frad_o2        = 1.0_wp
     echam_rad_config(:)% frad_cfc       = 1.0_wp
     !
+    echam_rad_config(:)% lrad_aero_diag = .false.
   END SUBROUTINE init_echam_rad_config
 
   !----
@@ -205,7 +207,7 @@ CONTAINS
 
     ! Shortcuts to components of echam_rad_config
     !
-    LOGICAL , POINTER :: l_orbvsop87, l_sph_symm_irr, ldiur, lyr_perp
+    LOGICAL , POINTER :: l_orbvsop87, l_sph_symm_irr, ldiur, lyr_perp, lrad_aero_diag
     INTEGER , POINTER :: isolrad, nmonth, yr_perp
     REAL(wp), POINTER :: fsolrad, cecc, cobld, clonp
     INTEGER , POINTER :: irad_h2o, irad_co2, irad_ch4, irad_n2o, irad_o3, irad_o2, irad_cfc11, irad_cfc12, irad_aero
@@ -260,6 +262,7 @@ CONTAINS
        frad_o3    => echam_rad_config(jg)% frad_o3
        frad_o2    => echam_rad_config(jg)% frad_o2
        frad_cfc   => echam_rad_config(jg)% frad_cfc
+       lrad_aero_diag => echam_rad_config(jg)% lrad_aero_diag
        !
        WRITE(cg,'(i0)') jg
        !
@@ -619,6 +622,7 @@ CONTAINS
        CALL print_value('    echam_rad_config('//TRIM(cg)//')% frad_o3       ',echam_rad_config(jg)% frad_o3       )
        CALL print_value('    echam_rad_config('//TRIM(cg)//')% frad_o2       ',echam_rad_config(jg)% frad_o2       )
        CALL print_value('    echam_rad_config('//TRIM(cg)//')% frad_cfc      ',echam_rad_config(jg)% frad_cfc      )
+       CALL print_value('aerosol optical properties will be diagnosed:',echam_rad_config(jg)% lrad_aero_diag       ) 
        CALL message    ('','')
        !
     END DO

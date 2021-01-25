@@ -53,7 +53,10 @@ CONTAINS
       & sw_upw          ,sw_upw_clr      ,sw_dnw          ,sw_dnw_clr      ,&
       & vis_dn_dir_sfc  ,par_dn_dir_sfc  ,nir_dn_dir_sfc                   ,&
       & vis_dn_dff_sfc  ,par_dn_dff_sfc  ,nir_dn_dff_sfc                   ,&
-      & vis_up_sfc      ,par_up_sfc      ,nir_up_sfc                       )     
+      & vis_up_sfc      ,par_up_sfc      ,nir_up_sfc                       ,&
+      & aer_aod_533     ,aer_ssa_533     ,aer_asy_533                      ,&
+      & aer_aod_2325    ,aer_ssa_2325    ,aer_asy_2325                     ,&
+      & aer_aod_9731                                                        )  
      !-------------------------------------------------------------------
 
     INTEGER,INTENT(IN)  ::             &
@@ -120,7 +123,14 @@ CONTAINS
          nir_dn_dff_sfc(:,:)       , & !< Direct  downward flux surface near-infrared radiation
          vis_up_sfc    (:,:)       , & !< Upward  flux surface visible radiation 
          par_up_sfc    (:,:)       , & !< Upward  flux surface PAR
-         nir_up_sfc    (:,:)           !< Upward  flux surface near-infrared radiation
+         nir_up_sfc    (:,:)       , & !< Upward  flux surface near-infrared radiation
+         aer_aod_533   (:,:,:)     , & !< Aerosol optical density at 533 nm
+         aer_ssa_533   (:,:,:)     , & !< Single scattering albedo at 533 nm
+         aer_asy_533   (:,:,:)     , & !< Asymmetry factor at 533 nm
+         aer_aod_2325  (:,:,:)     , & !< Aerosol optical density at 2325 nm
+         aer_ssa_2325  (:,:,:)     , & !< Single scattering albedo at 2325 nm
+         aer_asy_2325  (:,:,:)     , & !< Asymmetry factor at 2325 nm
+         aer_aod_9731  (:,:,:)         !< Aerosol optical density at 9731 nm
  
     CHARACTER(len=filename_max) :: my_namelist_filename
     CHARACTER(len=filename_max) :: master_namelist_filename="icon_master.namelist"
@@ -186,7 +196,8 @@ CONTAINS
     !------------------------------------------------------------------------
     CALL psrad_interface(                                                   &
       & this_memory%const%patch,                                           &
-      & this_memory%const%irad_aero     ,this_memory%const%no_of_levels    ,& 
+      & this_memory%const%irad_aero     ,this_memory%const%lrad_aero_diag, &
+      & this_memory%const%no_of_levels                                     ,& 
       & this_memory%in%convection_type                                     ,&
       & this_memory%in%psctm, this_memory%in%ssi_factor,                    &
       & this_memory%in%loland          ,this_memory%in%loglac          ,    &
@@ -209,7 +220,10 @@ CONTAINS
       & sw_upw          ,sw_upw_clr      ,sw_dnw          ,sw_dnw_clr      ,&
       & vis_dn_dir_sfc  ,par_dn_dir_sfc  ,nir_dn_dir_sfc                   ,&
       & vis_dn_dff_sfc  ,par_dn_dff_sfc  ,nir_dn_dff_sfc                   ,&
-      & vis_up_sfc      ,par_up_sfc      ,nir_up_sfc                       ) 
+      & vis_up_sfc      ,par_up_sfc      ,nir_up_sfc                       ,&
+      & aer_aod_533     ,aer_ssa_533     ,aer_asy_533                      ,&
+      & aer_aod_2325    ,aer_ssa_2325    ,aer_asy_2325                     ,&
+      & aer_aod_9731                                                        ) 
 
   END SUBROUTINE psrad_interface_test
  ! -------------------------------------------------------------------------------------

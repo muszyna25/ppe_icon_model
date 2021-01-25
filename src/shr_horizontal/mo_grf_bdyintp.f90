@@ -659,7 +659,7 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
 
 
 #ifndef __PGI
-! FIXME: PGI runs into deadlock on loop exit (?), if OMP-parallelized
+! FIXME: PGI runs into deadlock on loop exit (?), if OMP-parallelized. Compiler bug suspected
 !$OMP PARALLEL DO PRIVATE (jb,nlen,nshift,jk,jc,jn,elev,limfac1,limfac2,limfac, &
 !$OMP   min_expval,max_expval,relaxed_minval,relaxed_maxval, grad_x, grad_y, &
 !$OMP   val_ctr, maxval_neighb, minval_neighb) ICON_OMP_DEFAULT_SCHEDULE

@@ -587,6 +587,7 @@ LIBOBJS
 MPI_LAUNCH
 SB2PP
 FPP
+DEPGEN_CLAWFLAGS
 CLAWFLAGS
 CLAW
 PERL
@@ -625,6 +626,7 @@ ac_ct_CC
 CPPFLAGS
 CFLAGS
 CC
+ICON_RPATH_LDFLAGS
 FC_PP_DEF
 FC_INC_ORDER_PP_f90
 FC_INC_FLAG_PP_f90
@@ -636,6 +638,7 @@ FC_MOD_OUT
 FC_MOD_IN
 ICON_BUNDLED_FCFLAGS
 ICON_OCEAN_FCFLAGS
+ICON_LDFLAGS
 ICON_FCFLAGS
 FC_VERSION
 FC_VENDOR
@@ -664,6 +667,8 @@ GPU_ENABLED
 OPENMP_ENABLED
 MPI_ENABLED
 ART_ENABLED
+EMVORADO_ENABLED
+DACE_ENABLED_OR_NEEDED
 JSBACH_ENABLED
 DEFAULT_VERBOSITY
 target_alias
@@ -717,6 +722,8 @@ enable_concurrent_psrad
 enable_ecrad
 enable_rte_rrtmgp
 enable_rttov
+enable_dace
+enable_emvorado
 enable_art
 enable_mpi
 enable_mpi_checks
@@ -756,6 +763,7 @@ FCFLAGS
 LDFLAGS
 LIBS
 ICON_FCFLAGS
+ICON_LDFLAGS
 ICON_OCEAN_FCFLAGS
 ICON_BUNDLED_FCFLAGS
 CC
@@ -1424,6 +1432,10 @@ Model Features:
                           calculations [default=no]
   --enable-rttov          enable usage of the radiative transfer model for
                           TOVS [default=no]
+  --enable-dace           enable the DACE modules for data assimilation
+                          [default=no]
+  --enable-emvorado       enable the radar forward operator EMVORADO
+                          [default=no]
   --enable-art            enable the aerosols and reactive trace component ART
                           [default=no]
 
@@ -1501,6 +1513,10 @@ Some influential environment variables:
   ICON_FCFLAGS
               Fortran compiler flags to be appended to FCFLAGS when compiling
               and linking ICON, e.g. optimization flags
+  ICON_LDFLAGS
+              Fortran compiler flags to be appended to LDFLAGS when linking
+              ICON, e.g. to prevent configuration-time failures of the
+              Libtool-based bundled libraries
   ICON_OCEAN_FCFLAGS
               Fortran compiler flags to be appended to FCFLAGS when compiling
               the ocean component of ICON [default=$ICON_FCFLAGS]
@@ -1520,75 +1536,75 @@ Some influential environment variables:
   NVCFLAGS    NVIDIA CUDA Compiler flags
   ICON_RTE_RRTMGP_FCFLAGS
               Fortran compiler flags to be appended to FCFLAGS when compiling
-              and linking the bundled version of RTE+RRTMGP
+              and linking the bundled version of RTE+RRTMGP library
               [default=$ICON_BUNDLED_FCFLAGS]
   ICON_RTE_RRTMGP_CFLAGS
               Fortran compiler flags to be appended to CFLAGS when compiling
-              and linking the bundled version of RTE+RRTMGP
+              and linking the bundled version of RTE+RRTMGP library
               [default=$ICON_BUNDLED_CFLAGS]
   ICON_ECRAD_FCFLAGS
               Fortran compiler flags to be appended to FCFLAGS when compiling
-              and linking the bundled version of ECRAD
+              and linking the bundled version of ECRAD library
               [default=$ICON_BUNDLED_FCFLAGS]
   ICON_ECRAD_CFLAGS
               Fortran compiler flags to be appended to CFLAGS when compiling
-              and linking the bundled version of ECRAD
+              and linking the bundled version of ECRAD library
               [default=$ICON_BUNDLED_CFLAGS]
   ICON_SCT_FCFLAGS
               Fortran compiler flags to be appended to FCFLAGS when compiling
-              and linking the bundled version of SCT
+              and linking the bundled version of SCT library
               [default=$ICON_BUNDLED_FCFLAGS]
   ICON_SCT_CFLAGS
               Fortran compiler flags to be appended to CFLAGS when compiling
-              and linking the bundled version of SCT
+              and linking the bundled version of SCT library
               [default=$ICON_BUNDLED_CFLAGS]
   ICON_YAXT_FCFLAGS
               Fortran compiler flags to be appended to FCFLAGS when compiling
-              and linking the bundled version of YAXT
+              and linking the bundled version of YAXT library
               [default=$ICON_BUNDLED_FCFLAGS]
   ICON_YAXT_CFLAGS
               Fortran compiler flags to be appended to CFLAGS when compiling
-              and linking the bundled version of YAXT
+              and linking the bundled version of YAXT library
               [default=$ICON_BUNDLED_CFLAGS]
   ICON_CDI_FCFLAGS
               Fortran compiler flags to be appended to FCFLAGS when compiling
-              and linking the bundled version of CDI
+              and linking the bundled version of CDI library
               [default=$ICON_BUNDLED_FCFLAGS]
   ICON_CDI_CFLAGS
               Fortran compiler flags to be appended to CFLAGS when compiling
-              and linking the bundled version of CDI
+              and linking the bundled version of CDI library
               [default=$ICON_BUNDLED_CFLAGS]
   ICON_MTIME_FCFLAGS
               Fortran compiler flags to be appended to FCFLAGS when compiling
-              and linking the bundled version of MTIME
+              and linking the bundled version of MTIME library
               [default=$ICON_BUNDLED_FCFLAGS]
   ICON_MTIME_CFLAGS
               Fortran compiler flags to be appended to CFLAGS when compiling
-              and linking the bundled version of MTIME
+              and linking the bundled version of MTIME library
               [default=$ICON_BUNDLED_CFLAGS]
   ICON_YAC_FCFLAGS
               Fortran compiler flags to be appended to FCFLAGS when compiling
-              and linking the bundled version of YAC
+              and linking the bundled version of YAC library
               [default=$ICON_BUNDLED_FCFLAGS]
   ICON_YAC_CFLAGS
               Fortran compiler flags to be appended to CFLAGS when compiling
-              and linking the bundled version of YAC
+              and linking the bundled version of YAC library
               [default=$ICON_BUNDLED_CFLAGS]
   ICON_TIXI_FCFLAGS
               Fortran compiler flags to be appended to FCFLAGS when compiling
-              and linking the bundled version of TIXI
+              and linking the bundled version of TIXI library
               [default=$ICON_BUNDLED_FCFLAGS]
   ICON_TIXI_CFLAGS
               Fortran compiler flags to be appended to CFLAGS when compiling
-              and linking the bundled version of TIXI
+              and linking the bundled version of TIXI library
               [default=$ICON_BUNDLED_CFLAGS]
   ICON_SELF_FCFLAGS
               Fortran compiler flags to be appended to FCFLAGS when compiling
-              and linking the bundled version of SELF
+              and linking the bundled version of SELF library
               [default=$ICON_BUNDLED_FCFLAGS]
   ICON_SELF_CFLAGS
               Fortran compiler flags to be appended to CFLAGS when compiling
-              and linking the bundled version of SELF
+              and linking the bundled version of SELF library
               [default=$ICON_BUNDLED_CFLAGS]
   PYTHON      Python interpreter command
   PERL        Perl interpreter command
@@ -2404,6 +2420,26 @@ else
 fi
 
 
+# Check whether --enable-dace was given.
+if test "${enable_dace+set}" = set; then :
+  enableval=$enable_dace; if test x"$enableval" != xno; then :
+  enable_dace=yes
+fi
+else
+  enable_dace=no
+fi
+
+
+# Check whether --enable-emvorado was given.
+if test "${enable_emvorado+set}" = set; then :
+  enableval=$enable_emvorado; if test x"$enableval" != xno; then :
+  enable_emvorado=yes
+fi
+else
+  enable_emvorado=no
+fi
+
+
 # Check whether --enable-art was given.
 if test "${enable_art+set}" = set; then :
   enableval=$enable_art; if test x"$enableval" != xno; then :
@@ -2742,11 +2778,42 @@ else
 
 fi
 
+icon_dace_enabled_or_needed=no
+if test x"$enable_dace" = xyes || test x"$enable_emvorado" = xyes; then :
+  icon_dace_enabled_or_needed=yes
+fi
+
+if test "x$icon_dace_enabled_or_needed" = xyes; then :
+  icon_subdir_srcdir="$srcdir/externals/dace_icon"
+   icon_subdir_unique_file="src_for_icon/mo_fdbk_tables.f90"
+   if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
+  as_fn_error $? "unable to find sources of the DACE modules for data assimilation ($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the modules (--disable-dace) and the radar forward operator EMVORADO (--disable-emvorado)" "$LINENO" 5
+fi
+   DACE_ENABLED_OR_NEEDED=''
+
+else
+  DACE_ENABLED_OR_NEEDED='#'
+
+fi
+
+if test "x$enable_emvorado" = xyes; then :
+  icon_subdir_srcdir="$srcdir/externals/emvorado"
+   icon_subdir_unique_file="src_emvorado/radar_organize.f90"
+   if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
+  as_fn_error $? "unable to find sources of the radar forward operator EMVORADO ($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the operator (--disable-emvorado)" "$LINENO" 5
+fi
+   EMVORADO_ENABLED=''
+
+else
+  EMVORADO_ENABLED='#'
+
+fi
+
 if test "x$enable_art" = xyes; then :
   icon_subdir_srcdir="$srcdir/externals/art"
    icon_subdir_unique_file="chem_init/mo_art_chem_init_utils.f90"
    if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
-  as_fn_error $? "unable to find sources of the ART component ($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component (--disable-art)" "$LINENO" 5
+  as_fn_error $? "unable to find sources of the aerosols and reactive trace component ART ($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component (--disable-art)" "$LINENO" 5
 fi
    ART_ENABLED=''
 
@@ -2779,7 +2846,7 @@ else
 
 fi
 
-if test "x$enable_claw" != xno; then :
+if test x"$enable_claw" != xno; then :
   CLAW_ENABLED=''
 
 else
@@ -2787,7 +2854,7 @@ else
 
 fi
 
-if test "x$enable_explicit_fpp" = xauto && test "x$enable_serialization" != xno; then :
+if test x"$enable_explicit_fpp" = xauto && test x"$enable_serialization" != xno; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: explicit Fortran preprocessing is enabled because the Serialbox2 serialization is requested: disable the explicit preprocessing if required (--disable-explicit-fpp)" >&5
 $as_echo "$as_me: explicit Fortran preprocessing is enabled because the Serialbox2 serialization is requested: disable the explicit preprocessing if required (--disable-explicit-fpp)" >&6;}
    enable_explicit_fpp=yes
@@ -2800,7 +2867,7 @@ else
 
 fi
 
-if test "x$enable_serialization" != xno; then :
+if test x"$enable_serialization" != xno; then :
   SB2_ENABLED=''
 
 else
@@ -3492,6 +3559,8 @@ elif $FC -V 2>/dev/null| grep '^Copyright.*\(The Portland Group\|NVIDIA CORPORAT
   acx_cv_fc_compiler_vendor=portland
 elif $FC -V 2>&1 | grep '^Cray Fortran' >/dev/null 2>&1; then :
   acx_cv_fc_compiler_vendor=cray
+elif $FC --version 2>&1 | grep '^Copyright.*NEC Corporation' >/dev/null 2>&1; then :
+  acx_cv_fc_compiler_vendor=nec
 elif $FC --version 2>/dev/null | grep '^GNU Fortran' >/dev/null 2>&1; then :
   acx_cv_fc_compiler_vendor=gnu
 else
@@ -3518,6 +3587,8 @@ else
     acx_cv_fc_compiler_version=`$FC -V 2>/dev/null | sed -n 's/\(pgfortran\|pgf90\) \([0-9][0-9]*\.[0-9][0-9]*\)-\([0-9][0-9]*\).*/\2.\3/p'` ;; #(
   cray) :
     acx_cv_fc_compiler_version=`$FC -V 2>&1 | sed -n 's/.*ersion \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p'` ;; #(
+  nec) :
+    acx_cv_fc_compiler_version=`$FC --version 2>&1 | sed -n 's/^nfort (NFORT) \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p'` ;; #(
   gnu) :
     acx_cv_fc_compiler_version=`$FC -dumpfullversion 2>/dev/null`
          if test $? -ne 0 || test -z "$acx_cv_fc_compiler_version"; then :
@@ -3538,6 +3609,8 @@ FC_VERSION=$acx_cv_fc_compiler_version
 
 
 ICON_FCFLAGS=${ICON_FCFLAGS-}
+
+ICON_LDFLAGS=${ICON_LDFLAGS-}
 
 ICON_OCEAN_FCFLAGS=${ICON_OCEAN_FCFLAGS-$ICON_FCFLAGS}
 
@@ -4141,6 +4214,8 @@ else
 fi
 
 
+ICON_RPATH_LDFLAGS=''
+
 if test "x$enable_rpaths" = xyes; then :
      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Fortran compiler flag needed to add a directory to the runtime library search path" >&5
 $as_echo_n "checking for Fortran compiler flag needed to add a directory to the runtime library search path... " >&6; }
@@ -4170,19 +4245,20 @@ $as_echo "$acx_cv_fc_rpath_flag" >&6; }
 esac
    done
    for icon_L_arg in $icon_L_args; do
-     case ' '$LDFLAGS' ' in #(
+     case ' '$ICON_RPATH_LDFLAGS' ' in #(
   *' '"$acx_cv_fc_rpath_flag$icon_L_arg"' '*) :
      ;; #(
   ' '' ') :
-    as_fn_append LDFLAGS "$acx_cv_fc_rpath_flag$icon_L_arg" ;; #(
+    as_fn_append ICON_RPATH_LDFLAGS "$acx_cv_fc_rpath_flag$icon_L_arg" ;; #(
   *) :
-    as_fn_append LDFLAGS ' '; as_fn_append LDFLAGS "$acx_cv_fc_rpath_flag$icon_L_arg" ;;
+    as_fn_append ICON_RPATH_LDFLAGS ' '; as_fn_append ICON_RPATH_LDFLAGS "$acx_cv_fc_rpath_flag$icon_L_arg" ;;
 esac
    done
    acx_shlib_rpath_flags_check_result=no
    { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran compiler accepts the automatically generated RPATH flags" >&5
 $as_echo_n "checking whether Fortran compiler accepts the automatically generated RPATH flags... " >&6; }
-
+   acx_save_LDFLAGS=$LDFLAGS
+      LDFLAGS="$ICON_RPATH_LDFLAGS $LDFLAGS"
    cat > conftest.$ac_ext <<_ACEOF
       program main
 
@@ -4193,7 +4269,7 @@ if ac_fn_fc_try_link "$LINENO"; then :
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
-
+   LDFLAGS=$acx_save_LDFLAGS
    { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_shlib_rpath_flags_check_result" >&5
 $as_echo "$acx_shlib_rpath_flags_check_result" >&6; }
    if test "x$acx_shlib_rpath_flags_check_result" = xyes; then :
@@ -4201,7 +4277,7 @@ $as_echo "$acx_shlib_rpath_flags_check_result" >&6; }
 else
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "Fortran compiler does not accept the automatically generated RPATH flags ''
+as_fn_error $? "Fortran compiler does not accept the automatically generated RPATH flags '$ICON_RPATH_LDFLAGS'
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
@@ -4275,6 +4351,14 @@ if test "x$enable_rttov" = xyes; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}__USE_RTTOV"
 fi
 
+if test "x$enable_dace" = xyes; then :
+  as_fn_append FCFLAGS " ${FC_PP_DEF}__DACE__"
+fi
+
+if test "x$enable_emvorado" = xyes; then :
+  as_fn_append FCFLAGS " ${FC_PP_DEF}HAVE_RADARFWO ${FC_PP_DEF}NUDGING ${FC_PP_DEF}TWOMOM_SB_NEW"
+fi
+
 if test "x$enable_art" = xyes; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}__ICON_ART ${FC_PP_DEF}__ART_TMP_IFDEF"
 fi
@@ -4303,11 +4387,11 @@ if test "x$enable_yaxt" = xyes; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}HAVE_YAXT"
 fi
 
-if test "x$enable_claw" != xno; then :
+if test x"$enable_claw" != xno; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}_CLAW"
 fi
 
-if test "x$enable_serialization" != xno; then :
+if test x"$enable_serialization" != xno; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}SERIALIZE"
    case "$enable_serialization" in #(
   read) :
@@ -4329,7 +4413,7 @@ if test "x$enable_loop_exchange" = xyes; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}__LOOP_EXCHANGE"
 fi
 
-if test "x$enable_intel_consistency" = xauto && test "x$acx_cv_fc_compiler_vendor" = xintel; then :
+if test x"$enable_intel_consistency" = xauto && test x"$acx_cv_fc_compiler_vendor" = xintel; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: Intel compiler directives enforcing consistency are enabled because $FC is recognized as the Intel Fortran compiler: disable the directives if required (--disable-intel-consistency)" >&5
 $as_echo "$as_me: Intel compiler directives enforcing consistency are enabled because $FC is recognized as the Intel Fortran compiler: disable the directives if required (--disable-intel-consistency)" >&6;}
    enable_intel_consistency=yes
@@ -4343,7 +4427,7 @@ if test "x$enable_vectorized_lrtm" = xyes; then :
 fi
 
 if test "x$enable_mixed_precision" = xyes; then :
-  as_fn_append FCFLAGS " ${FC_PP_DEF}__MIXED_PRECISION ${FC_PP_DEF}__MIXED_PRECISION_2"
+  as_fn_append FCFLAGS " ${FC_PP_DEF}__MIXED_PRECISION"
 fi
 
 ######################### C COMPILER COMMAND AND FLAGS #########################
@@ -5102,7 +5186,9 @@ elif $CC -V 2>&1 | grep '^Cray C' >/dev/null 2>&1; then :
   acx_cv_c_compiler_vendor=cray
 elif $CC --version 2>&1 | grep '^Cray clang' >/dev/null 2>&1; then :
   acx_cv_c_compiler_vendor=cray
-elif $CC --version | grep '^gcc' >/dev/null 2>&1; then :
+elif $CC --version 2>&1 | grep '^Copyright.*NEC Corporation' >/dev/null 2>&1; then :
+  acx_cv_c_compiler_vendor=nec
+elif $CC --version 2>/dev/null | grep '^gcc' >/dev/null 2>&1; then :
   acx_cv_c_compiler_vendor=gnu
 else
   acx_cv_c_compiler_vendor=unknown
@@ -5123,7 +5209,7 @@ else
   nag) :
     acx_cv_c_compiler_version=`$CC -V 2>&1 | sed -n 's/^NAG Fortran Compiler Release \([0-9][0-9]*\.[0-9][0-9]*\).*Build \([0-9][0-9]*\)/\1.\2/p'` ;; #(
   portland) :
-    acx_cv_c_compiler_version=`$CC -V 2>/dev/null | sed -n 's/pgcc \([0-9][0-9]*\.[0-9][0-9]*\)-\([0-9][0-9]*\).*/\1.\2/p'` ;; #(
+    acx_cv_c_compiler_version=`$CC -V 2>/dev/null | sed -n 's/pgcc \((.*) \)\?\([0-9][0-9]*\.[0-9][0-9]*\)-\([0-9][0-9]*\).*/\2.\3/p'` ;; #(
   cray) :
     acx_cv_c_compiler_version=`$CC -V 2>&1 | sed -n 's/.*ersion \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p'`
          if test -z "$acx_cv_c_compiler_version"; then :
@@ -5134,6 +5220,8 @@ fi
 else
   acx_cv_c_compiler_version="classic:${acx_cv_c_compiler_version}"
 fi ;; #(
+  nec) :
+    acx_cv_c_compiler_version=`$CC --version 2>&1 | sed -n 's/^ncc (NCC) \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p'` ;; #(
   gnu) :
     acx_cv_c_compiler_version=`$CC -dumpfullversion 2>/dev/null`
          if test $? -ne 0 || test -z "$acx_cv_c_compiler_version"; then :
@@ -5197,7 +5285,7 @@ done
 
 ########################### CUDA COMPILER AND FLAGS ############################
 
-if test "x$enable_gpu" = xyes; then :
+if test x"$enable_gpu" = xyes; then :
   ac_ext=cu
 ac_compile='$NVCC -c $NVCFLAGS conftest.$ac_ext >&5'
 ac_link='$NVCC -o conftest$ac_exeext $NVCFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
@@ -5519,8 +5607,12 @@ void conftest_foo();
 #ifdef __cplusplus
 }
 #endif
+
+/* An attempt to write a function that would keep the dependency on the
+   standard C++ library even with a high optimization level, i.e. -O3 */
+volatile void* p;
 void conftest_foo() {
-  std::vector<int> b = std::vector<int>();
+  std::vector<int> b = *(std::vector<int>*)p;
   b.push_back(1);
 }
 _ACEOF
@@ -5604,8 +5696,8 @@ BUNDLED_LIBFILES=''
 bundled_includes=
 
 if test "x$enable_mpi" = xyes; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran 90 interface of MPI library is available" >&5
-$as_echo_n "checking whether Fortran 90 interface of MPI library is available... " >&6; }
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran 90 interface of MPI library is available" >&5
+$as_echo_n "checking whether the Fortran 90 interface of MPI library is available... " >&6; }
    cat > conftest.$ac_ext <<_ACEOF
       program main
 
@@ -5618,12 +5710,15 @@ _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 $as_echo "yes" >&6; }
+      if test x"$icon_dace_enabled_or_needed" = xyes || test x"$enable_rttov" = xyes; then :
+  as_fn_append FCFLAGS " ${FC_PP_DEF}HAVE_MPI_MOD"
+fi
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
       { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using Fortran 90 interface of MPI: either disable MPI support (--disable-mpi) or set FC to the MPI Fortran compiler wrapper, or set FCFLAGS, LDFLAGS and LIBS accordingly
+as_fn_error $? "unable to link a test program using the Fortran 90 interface of MPI library: either disable MPI support (--disable-mpi) or set FC to the MPI Fortran compiler wrapper, or set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
@@ -6055,11 +6150,83 @@ $as_echo "$acx_cv_fc_macro__OPENACC_defined" >&6; }
 fi
 fi
 
+if test "x$enable_emvorado" = xyes; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether C ZLIB library is available via the Fortran ISO_C_BINDING interface" >&5
+$as_echo_n "checking whether C ZLIB library is available via the Fortran ISO_C_BINDING interface... " >&6; }
+   cat > conftest.$ac_ext <<_ACEOF
+      program main
+
+      implicit none
+      interface
+      subroutine gzOpen() bind(c, name="gzopen")
+      end subroutine gzOpen
+      end interface
+      call gzOpen
+      end
+_ACEOF
+if ac_fn_fc_try_link "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+      as_fn_append FCFLAGS " ${FC_PP_DEF}WITH_ZLIB"
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+      { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to link a test program using ZLIB library via the Fortran ISO_C_BINDING interface: either disable the radar forward operator EMVORADO (--disable-emvorado) or set LDFLAGS and LIBS accordingly
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+fi
+
+if test "x$enable_emvorado" = xyes; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran 90 low- and high-level interfaces of HDF5 library are available" >&5
+$as_echo_n "checking whether the Fortran 90 low- and high-level interfaces of HDF5 library are available... " >&6; }
+   cat > conftest.$ac_ext <<_ACEOF
+      program main
+
+      use hdf5, only: h5open_f, &
+                    & h5fopen_f, &
+                    & hid_t, &
+                    & H5F_ACC_RDONLY_F
+      use h5lt, only: h5ltget_attribute_string_f
+      implicit none
+      integer :: ierr
+      integer(kind=hid_t) :: file_id
+      character(len=500) :: catt_value
+      call h5open_f(ierr)
+      call h5fopen_f('conftest.h5', H5F_ACC_RDONLY_F, &
+                   & file_id, ierr)
+      call h5ltget_attribute_string_f(file_id, &
+                                    & 'group', 'attr', &
+                                    & catt_value, ierr)
+      end
+_ACEOF
+if ac_fn_fc_try_link "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+      as_fn_append FCFLAGS " ${FC_PP_DEF}HDF5_RADAR_INPUT"
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+      { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to link a test program using the Fortran 90 low- and high-level interfaces of HDF5 library: set FCFLAGS, LDFLAGS and LIBS accordingly
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+fi
+
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran 77 interface of NetCDF library is available" >&5
 $as_echo_n "checking whether the Fortran 77 interface of NetCDF library is available... " >&6; }
 cat > conftest.$ac_ext <<_ACEOF
       program main
 
+      implicit none
       include 'netcdf.inc'
       integer :: status, ncid
       status = nf_open('conftest.nc', nf_nowrite, ncid)
@@ -6073,7 +6240,7 @@ else
 $as_echo "no" >&6; }
    { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using Fortran 77 interface of NetCDF library: set FCFLAGS, LDFLAGS and LIBS accordingly
+as_fn_error $? "unable to link a test program using the Fortran 77 interface of NetCDF library: set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
@@ -6124,14 +6291,42 @@ $as_echo "$icon_netcdf_supports_parallel" >&6; }
    if test x"$icon_netcdf_supports_parallel" = xno; then :
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "the provided version of NetCDF does not support parallel features: either disable usage of the parallel features of NetCDF (--disable-parallel-netcdf) or set FCFLAGS, LDFLAGS and LIBS accordingly
+as_fn_error $? "the provided version of NetCDF does not support the parallel features: either disable usage of the parallel features of NetCDF (--disable-parallel-netcdf) or set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 elif test x"$icon_netcdf_supports_parallel" = xunknown; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: unable to check whether the provided version of NetCDF supports parallel features" >&5
-$as_echo "$as_me: WARNING: unable to check whether the provided version of NetCDF supports parallel features" >&2;}
+  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: unable to check whether the provided version of NetCDF supports the parallel features" >&5
+$as_echo "$as_me: WARNING: unable to check whether the provided version of NetCDF supports the parallel features" >&2;}
 fi
 fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran 90 interface of NetCDF library is available" >&5
+$as_echo_n "checking whether the Fortran 90 interface of NetCDF library is available... " >&6; }
+cat > conftest.$ac_ext <<_ACEOF
+      program main
+
+      use netcdf, only: nf90_open, nf90_nowrite
+      implicit none
+      integer :: status, ncid
+      status = nf90_open('conftest.nc', nf90_nowrite, ncid)
+      end
+_ACEOF
+if ac_fn_fc_try_link "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+   if test "x$enable_emvorado" = xyes; then :
+  as_fn_append FCFLAGS " ${FC_PP_DEF}NETCDF"
+fi
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to link a test program using the Fortran 90 interface of NetCDF library: set FCFLAGS, LDFLAGS and LIBS accordingly
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
 
 if test "x$enable_rte_rrtmgp" = xyes; then :
   if test "x$with_external_rte_rrtmgp" = xyes; then :
@@ -6178,7 +6373,7 @@ else
 $as_echo "no" >&6; }
          { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using RTE+RRTMGP: either disable RTE+RRTMGP (--disable-rte-rrtmgp) or use the bundled version of RTE+RRTMGP (--without-external-rte-rrtmgp), or set FCFLAGS, LDFLAGS and LIBS accordingly
+as_fn_error $? "unable to link a test program using RTE+RRTMGP library: either disable usage of the RTE+RRTMGP toolbox for radiation calculations (--disable-rte-rrtmgp) or use the bundled version of RTE+RRTMGP library (--without-external-rte-rrtmgp), or set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
@@ -6188,7 +6383,7 @@ else
   icon_subdir_srcdir="$srcdir/externals/rte-rrtmgp"
       icon_subdir_unique_file="rte/mo_rte_sw.F90"
       if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
-  as_fn_error $? "unable to find sources of the the RTE+RRTMGP toolbox ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable RTE+RRTMGP (--disable-rte-rrtmgp) or provide an external version of RTE+RRTMGP (--with-external-rte-rrtmgp) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
+  as_fn_error $? "unable to find sources of the RTE+RRTMGP library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable usage of the RTE+RRTMGP toolbox for radiation calculations (--disable-rte-rrtmgp) or provide an external version of RTE+RRTMGP library (--with-external-rte-rrtmgp) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
 fi
             ICON_RTE_RRTMGP_FCFLAGS=${ICON_RTE_RRTMGP_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
             ICON_RTE_RRTMGP_CFLAGS=${ICON_RTE_RRTMGP_CFLAGS-$ICON_BUNDLED_CFLAGS}
@@ -6273,7 +6468,7 @@ else
 $as_echo "no" >&6; }
          { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using ECRAD: either disable ECRAD (--disable-ecrad) or use the bundled version of ECRAD (--without-external-ecrad), or set FCFLAGS, LDFLAGS and LIBS accordingly
+as_fn_error $? "unable to link a test program using ECRAD library: either disable usage of the ECMWF radiation scheme (--disable-ecrad) or use the bundled version of ECRAD library (--without-external-ecrad), or set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
@@ -6283,7 +6478,7 @@ else
        icon_subdir_srcdir="$srcdir/externals/ecrad"
       icon_subdir_unique_file="radiation/radiation_flux.F90"
       if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
-  as_fn_error $? "unable to find sources of the the ECMWF radiation scheme ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable ECRAD (--disable-ecrad) or provide an external version of ECRAD (--with-external-ecrad) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
+  as_fn_error $? "unable to find sources of the the ECRAD library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable usage of the ECMWF radiation scheme (--disable-ecrad) or provide an external version of ECRAD library (--with-external-ecrad) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
 fi
             ICON_ECRAD_FCFLAGS=${ICON_ECRAD_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
             ICON_ECRAD_CFLAGS=${ICON_ECRAD_CFLAGS-$ICON_BUNDLED_CFLAGS}
@@ -6346,17 +6541,11 @@ esac
 fi
 fi
 
-if test "x$enable_rttov" = xyes; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran RTTOV library is available" >&5
-$as_echo_n "checking whether Fortran RTTOV library is available... " >&6; }
-   cat > conftest.$ac_ext <<_ACEOF
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran BLAS library is available" >&5
+$as_echo_n "checking whether Fortran BLAS library is available... " >&6; }
+cat > conftest.$ac_ext <<_ACEOF
       program main
-
-use rttov_types, only: rttov_coefs
-implicit none
-#include "rttov_nullify_coef.interface"
-type(rttov_coefs),target:: coefs(1)
-call rttov_nullify_coef(coefs(1)%coef)
+      call dgemm
       end
 _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :
@@ -6365,14 +6554,72 @@ $as_echo "yes" >&6; }
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
-      { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using RTTOV: either disable usage of RTTOV (--disable-rttov) or set FCFLAGS, LDFLAGS and LIBS accordingly
+as_fn_error $? "unable to link a test program using BLAS library: set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran LAPACK library is available" >&5
+$as_echo_n "checking whether Fortran LAPACK library is available... " >&6; }
+cat > conftest.$ac_ext <<_ACEOF
+      program main
+      call dgeev
+      end
+_ACEOF
+if ac_fn_fc_try_link "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to link a test program using LAPACK library: set FCFLAGS, LDFLAGS and LIBS accordingly
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+
+if test "x$enable_rttov" = xyes; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran RTTOV library is available" >&5
+$as_echo_n "checking whether Fortran RTTOV library is available... " >&6; }
+   cat > conftest.$ac_ext <<_ACEOF
+      program main
+
+      use rttov_types, only: rttov_coefs
+      implicit none
+#include "rttov_nullify_coef.interface"
+      type(rttov_coefs),target:: coefs(1)
+      call rttov_nullify_coef(coefs(1)%coef)
+      end
+_ACEOF
+if ac_fn_fc_try_link "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+      if test "x$enable_dace" = xyes; then :
+  as_fn_append FCFLAGS " ${FC_PP_DEF}RTTOV12"
+fi
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+      { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to link a test program using RTTOV library: either disable usage of the radiative transfer model for TOVS (--disable-rttov) or set FCFLAGS, LDFLAGS and LIBS accordingly
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+else
+  if test "x$enable_dace" = xyes; then :
+        as_fn_error $? "unsupported combination of the configure options: you are trying to configure with the DACE modules for data assimilation but usage of the radiative transfer model for TOVS is disabled: either disable the DACE modules for data assimilation (--disable-dace) or enable usage of the radiative transfer model for TOVS (--enable-rttov)" "$LINENO" 5
+      as_fn_append FCFLAGS " ${FC_PP_DEF}NO_RTTOV"
+fi
 fi
 
 if test "x$enable_sct" = xyes; then :
@@ -6395,7 +6642,7 @@ else
 $as_echo "no" >&6; }
          { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using SCT: either disable SCT timer (--disable-sct) or use the bundled version of SCT (--without-external-sct), or set FCFLAGS, LDFLAGS and LIBS accordingly
+as_fn_error $? "unable to link a test program using the Fortran interface of SCT library: either disable the SCT timer (--disable-sct) or use the bundled version of SCT library (--without-external-sct), or set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
@@ -6405,7 +6652,7 @@ else
        icon_subdir_srcdir="$srcdir/externals/sct"
       icon_subdir_unique_file="src/sct_reporter.c"
       if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
-  as_fn_error $? "unable to find sources of the bundled version of SCT library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable the SCT timer (--disable-sct) or provide an external version of SCT (--with-external-sct) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
+  as_fn_error $? "unable to find sources of the bundled version of SCT library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable the SCT timer (--disable-sct) or provide an external version of SCT library (--with-external-sct) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
 fi
             ICON_SCT_FCFLAGS=${ICON_SCT_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
             ICON_SCT_CFLAGS=${ICON_SCT_CFLAGS-$ICON_BUNDLED_CFLAGS}
@@ -6507,7 +6754,7 @@ else
 $as_echo "no" >&6; }
          { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using YAXT: either disable the YAXT data exchange (--disable-yaxt) or use the bundled version of YAXT (--without-external-yaxt), or set FCFLAGS, LDFLAGS and LIBS accordingly
+as_fn_error $? "unable to link a test program using the Fortran interface of YAXT library: either disable the YAXT data exchange (--disable-yaxt) or use the bundled version of YAXT library (--without-external-yaxt), or set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
@@ -6517,7 +6764,7 @@ else
        icon_subdir_srcdir="$srcdir/externals/yaxt"
       icon_subdir_unique_file="src/xt_idxlist.c"
       if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
-  as_fn_error $? "unable to find sources of the bundled version of YAXT library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable the YAXT data exchange (--disable-yaxt) or provide an external version of YAXT (--with-external-yaxt) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
+  as_fn_error $? "unable to find sources of the bundled version of YAXT library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable the YAXT data exchange (--disable-yaxt) or provide an external version of YAXT library (--with-external-yaxt) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
 fi
             ICON_YAXT_FCFLAGS=${ICON_YAXT_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
             ICON_YAXT_CFLAGS=${ICON_YAXT_CFLAGS-$ICON_BUNDLED_CFLAGS}
@@ -6583,6 +6830,36 @@ esac
 fi
 fi
 
+if test "x$enable_emvorado" = xyes; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran 90 interfaces of GRIB-API library is available" >&5
+$as_echo_n "checking whether the Fortran 90 interfaces of GRIB-API library is available... " >&6; }
+   cat > conftest.$ac_ext <<_ACEOF
+      program main
+
+      use grib_api, only: grib_open_file, GRIB_SUCCESS
+      implicit none
+      integer :: igrib, ierr
+      call grib_open_file(igrib, 'conftest.grb', 'w', ierr)
+      if (ierr  /= GRIB_SUCCESS) igrib = 0
+      end
+_ACEOF
+if ac_fn_fc_try_link "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+      as_fn_append FCFLAGS " ${FC_PP_DEF}GRIBAPI"
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+      { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to link a test program using the Fortran 90 interfaces of GRIB-API library: set FCFLAGS, LDFLAGS and LIBS accordingly
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+fi
+
 if test "x$with_external_cdi" = xyes; then :
     { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran 2003 interface of CDI 1.8.x library is available" >&5
 $as_echo_n "checking whether the Fortran 2003 interface of CDI 1.8.x library is available... " >&6; }
@@ -6607,7 +6884,7 @@ else
 $as_echo "no" >&6; }
       { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using CDI: either use the bundled version of CDI (--without-external-cdi) or set FCFLAGS, LDFLAGS and LIBS accordingly
+as_fn_error $? "unable to link a test program using the Fortran 2003 interface of CDI 1.8.x library: either use the bundled version of CDI library (--without-external-cdi) or set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
@@ -6633,7 +6910,7 @@ else
 $as_echo "no" >&6; }
       { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "the provided version of CDI 1.8.x does not have required patches
+as_fn_error $? "the provided version of CDI 1.8.x does not have the required patches: use the bundled version of CDI library (--without-external-cdi)
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
@@ -6675,7 +6952,7 @@ $as_echo "$icon_cdi_format_result" >&6; }
      if test x"$icon_cdi_format_result" = xno; then :
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "the provided version of CDI does not support $icon_cdi_format_name
+as_fn_error $? "the provided version of CDI does not support $icon_cdi_format_name: use the bundled version of CDI library (--without-external-cdi)
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 elif test x"$icon_cdi_format_result" = xunknown; then :
@@ -6685,7 +6962,7 @@ fi
    done
    if test "x$enable_cdi_pio" = xyes; then :
   if test "x$with_external_yaxt" = xno; then :
-  as_fn_error $? "unsupported combination of the configure options: you are trying to configure with the parallel features of an external CDI and the bundled YAXT: either disable the parallel features of CDI (--disable-cdi-pio) or use the bundled version of CDI (--without-external-cdi), or provide the version of YAXT (--with-external-yaxt) that CDI has been built with by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
+  as_fn_error $? "unsupported combination of the configure options: you are trying to configure with the parallel features of an external CDI library and the bundled YAXT library: either disable the parallel features of CDI (--disable-cdi-pio) or use the bundled version of CDI library (--without-external-cdi), or provide the version of YAXT library (--with-external-yaxt) that the provided CDI library has been built with by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
 fi
       { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran interface of CDI-PIO library is available" >&5
 $as_echo_n "checking whether the Fortran interface of CDI-PIO library is available... " >&6; }
@@ -6715,7 +6992,7 @@ else
 $as_echo "no" >&6; }
          { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using CDI-PIO: either disable the usage of the parallel features of CDI (--disable-cdi-pio) or set FCFLAGS, LDFLAGS and LIBS accordingly
+as_fn_error $? "unable to link a test program using the Fortran interface of CDI-PIO library: either disable usage of the parallel features of CDI (--disable-cdi-pio) or set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
@@ -6724,12 +7001,12 @@ rm -f core conftest.err conftest.$ac_objext \
 fi
 else
     if test "x$enable_cdi_pio" = xyes; then :
-  as_fn_error $? "the bundled version of CDI does not currently support the parallel features: either disable the usage of the parallel features of CDI (--disable-cdi-pio) or provide an external version of CDI (--with-external-cdi) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
+  as_fn_error $? "the bundled version of CDI library does not currently support the parallel features: either disable usage of the parallel features of CDI (--disable-cdi-pio) or provide an external version of CDI library (--with-external-cdi) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
 fi
    icon_subdir_srcdir="$srcdir/externals/cdi"
    icon_subdir_unique_file="src/cdi.h"
    if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
-  as_fn_error $? "unable to find sources of the bundled version of CDI library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an external version of CDI (--with-external-cdi) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
+  as_fn_error $? "unable to find sources of the bundled version of CDI library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an external version of CDI library (--with-external-cdi) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
 fi
       ICON_CDI_FCFLAGS=${ICON_CDI_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
       ICON_CDI_CFLAGS=${ICON_CDI_CFLAGS-$ICON_BUNDLED_CFLAGS}
@@ -6810,7 +7087,7 @@ esac
    BUNDLED_LIBFILES="externals/cdi/src/.libs/libcdi_f2003.a externals/cdi/src/.libs/libcdi.a $BUNDLED_LIBFILES"
 fi
 
-if test "x$enable_serialization" != xno; then :
+if test x"$enable_serialization" != xno; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran interface of SERIALBOX2 library is available" >&5
 $as_echo_n "checking whether the Fortran interface of SERIALBOX2 library is available... " >&6; }
    cat > conftest.$ac_ext <<_ACEOF
@@ -6829,7 +7106,7 @@ else
 $as_echo "no" >&6; }
       { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using SERIALBOX2: either disable the serialization (--disable-serialization) or set FCFLAGS, LDFLAGS and LIBS accordingly
+as_fn_error $? "unable to link a test program using the Fortrain interface of SERIALBOX2 library: either disable the serialization (--disable-serialization) or set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
@@ -6860,7 +7137,7 @@ else
 $as_echo "no" >&6; }
       { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using MTIME: either use the bundled version of MTIME (--without-external-mtime) or set FCFLAGS, LDFLAGS and LIBS accordingly
+as_fn_error $? "unable to link a test program using the Fortran interface of MTIME library: either use the bundled version of MTIME (--without-external-mtime) or set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
@@ -6870,7 +7147,7 @@ else
     icon_subdir_srcdir="$srcdir/externals/mtime"
    icon_subdir_unique_file="include/mtime_calendar.h"
    if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
-  as_fn_error $? "unable to find sources of the bundled version of MTIME library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an external version of MTIME (--with-external-mtime) by setting CFLAGS, FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
+  as_fn_error $? "unable to find sources of the bundled version of MTIME library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an external version of MTIME library (--with-external-mtime) by setting CFLAGS, FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
 fi
       ICON_MTIME_FCFLAGS=${ICON_MTIME_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
       ICON_MTIME_CFLAGS=${ICON_MTIME_CFLAGS-$ICON_BUNDLED_CFLAGS}
@@ -6935,54 +7212,10 @@ esac
    BUNDLED_LIBFILES="externals/mtime/src/.libs/libmtime.a $BUNDLED_LIBFILES"
 fi
 
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran BLAS library is available" >&5
-$as_echo_n "checking whether Fortran BLAS library is available... " >&6; }
-cat > conftest.$ac_ext <<_ACEOF
-      program main
-      call dgemm
-      end
-_ACEOF
-if ac_fn_fc_try_link "$LINENO"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using BLAS: set FCFLAGS, LDFLAGS and LIBS accordingly
-See \`config.log' for more details
-${icon_usr_note}" "$LINENO" 5; }
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran LAPACK library is available" >&5
-$as_echo_n "checking whether Fortran LAPACK library is available... " >&6; }
-cat > conftest.$ac_ext <<_ACEOF
-      program main
-      call dgeev
-      end
-_ACEOF
-if ac_fn_fc_try_link "$LINENO"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using LAPACK: set FCFLAGS, LDFLAGS and LIBS accordingly
-See \`config.log' for more details
-${icon_usr_note}" "$LINENO" 5; }
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-
 if test "x$enable_coupling" = xyes; then :
   if test "x$with_external_yac" = xyes; then :
   if test "x$with_external_mtime" = xno; then :
-  as_fn_error $? "unsupported combination of the configure options: you are trying to configure with external YAC and the bundled MTIME: either disable the coupling (--disable-coupling) or use the bundled version of YAC (--without-external-yac), or provide the version of MTIME (--with-external-mtime) that YAC has been built with by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
+  as_fn_error $? "unsupported combination of the configure options: you are trying to configure with an external YAC library and the bundled MTIME library: either disable the coupling (--disable-coupling) or use the bundled version of YAC library (--without-external-yac), or provide the version of MTIME library (--with-external-mtime) that the provided YAC library has been built with by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
 fi
       { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran interface of YAC library is available" >&5
 $as_echo_n "checking whether the Fortran interface of YAC library is available... " >&6; }
@@ -7003,7 +7236,7 @@ else
 $as_echo "no" >&6; }
          { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using YAC: either disable the coupling (--disable-coupling) or use the bundled version of YAC (--without-external-yac), or set FCFLAGS, LDFLAGS and LIBS accordingly
+as_fn_error $? "unable to link a test program using the Fortran interface of YAC library: either disable the coupling (--disable-coupling) or use the bundled version of YAC library (--without-external-yac), or set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
@@ -7013,7 +7246,7 @@ else
   icon_subdir_srcdir="$srcdir/externals/yac"
       icon_subdir_unique_file="src/grid.c"
       if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
-  as_fn_error $? "unable to find sources of the bundled version of YAC library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable the coupling (--disable-coupling) or provide an external version of YAC (--with-external-yac) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
+  as_fn_error $? "unable to find sources of the bundled version of YAC library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable the coupling (--disable-coupling) or provide an external version of YAC library (--with-external-yac) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
 fi
       yac_MTIME_CFLAGS= ; yac_MTIME_CLIBS=
       if test "x$with_external_mtime" = xno; then :
@@ -7152,7 +7385,7 @@ else
 $as_echo "no" >&6; }
          { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using TIXI: either disable the ART component (--disable-art) or use the bundled version of TIXI (--without-external-tixi), or set FCFLAGS, LDFLAGS and LIBS accordingly
+as_fn_error $? "unable to link a test program using the Fortran interface of TIXI library: either disable the aerosols and reactive trace component (--disable-art) or use the bundled version of TIXI library (--without-external-tixi), or set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
@@ -7162,7 +7395,7 @@ else
   icon_subdir_srcdir="$srcdir/externals/tixi"
       icon_subdir_unique_file="src/tixi.f90"
       if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
-  as_fn_error $? "unable to find sources of the bundled version of TIXI library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable the ART component (--disable-art) or provide an external version of TIXI (--with-external-tixi) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
+  as_fn_error $? "unable to find sources of the bundled version of TIXI library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable the aerosols and reactive trace component (--disable-art) or provide an external version of TIXI library (--with-external-tixi) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
 fi
             ICON_TIXI_FCFLAGS=${ICON_TIXI_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
             ICON_TIXI_CFLAGS=${ICON_TIXI_CFLAGS-$ICON_BUNDLED_CFLAGS}
@@ -7246,7 +7479,7 @@ else
 $as_echo "no" >&6; }
       { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using SELF 0.2 library: either use the bundled version of SELF (--without-external-self) or set FCFLAGS, LDFLAGS and LIBS accordingly
+as_fn_error $? "unable to link a test program using SELF 0.2 library: either use the bundled version of SELF library (--without-external-self) or set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
@@ -7256,7 +7489,7 @@ else
   icon_subdir_srcdir="$srcdir/externals/self"
    icon_subdir_unique_file="src/self_object.f90"
    if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
-  as_fn_error $? "unable to find sources of the bundled version of SELF library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an external version of SELF (--with-external-self) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
+  as_fn_error $? "unable to find sources of the bundled version of SELF library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an external version of SELF library (--with-external-self) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
 fi
       ICON_SELF_FCFLAGS=${ICON_SELF_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
       ICON_SELF_CFLAGS=${ICON_SELF_CFLAGS-$ICON_BUNDLED_CFLAGS}
@@ -7331,7 +7564,7 @@ if test "x$ac_cv_header_cub_device_device_select_cuh" = xyes; then :
 else
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to find header files of CUB library: either disable GPU support (--disable-gpu) or use the bundled version of CUB (--without-external-cub) or set NVCFLAGS accordingly
+as_fn_error $? "unable to find header files of CUB library: either disable GPU support (--disable-gpu) or use the bundled version of CUB library (--without-external-cub) or set NVCFLAGS accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
@@ -7346,7 +7579,7 @@ else
   icon_subdir_srcdir="$srcdir/externals/cub"
       icon_subdir_unique_file="cub/device/device_select.cuh"
       if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
-  as_fn_error $? "unable to find sources of the bundled version of CUB library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable GPU support (--disable-gpu) or provide an external version of CUB (--with-external-cub) by setting NVCFLAGS accordingly" "$LINENO" 5
+  as_fn_error $? "unable to find sources of the bundled version of CUB library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable GPU support (--disable-gpu) or provide an external version of CUB library (--with-external-cub) by setting NVCFLAGS accordingly" "$LINENO" 5
 fi
       as_fn_append NVCFLAGS " -I${srcdir}/externals/cub"
 fi
@@ -7573,40 +7806,26 @@ ${icon_usr_note}" "$LINENO" 5; }
 fi
 
 
-if test "x$enable_claw" != xno; then :
+DEPGEN_CLAWFLAGS='-D_CLAW'
+
+if test x"$enable_claw" != xno; then :
   icon_subdir_srcdir="$srcdir/externals/omni-xmod-pool"
-   icon_subdir_unique_file="self/0.2/self_object.xmod"
+   icon_subdir_unique_file="cdi"
    if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
   as_fn_error $? "unable to find precompiled module files for OMNI compiler required for CLAW preprocessing ($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable CLAW preprocessing (--disable-claw)" "$LINENO" 5
-fi
-   if test "x$with_external_mtime" = xyes; then :
-  icon_subdir_srcdir="$srcdir/externals/mtime"
-      icon_subdir_unique_file="src/libmtime.f90"
-      if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
-  as_fn_error $? "unable to find sources of the bundled version of MTIME library ($icon_subdir_unique_file) in '$icon_subdir_srcdir', which are required for CLAW preprocessing even if an external version of the library is used: disable CLAW preprocessing (--disable-claw)" "$LINENO" 5
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: CLAW preprocessing implies parsing '$icon_subdir_unique_file' and other source files of the bundled version of MTIME in '$icon_subdir_srcdir' even if an external version of the library is used: it is strongly recommended to switch to the bundled version of MTIME (--without-external-mtime) to avoid potential inconsistency" >&5
-$as_echo "$as_me: WARNING: CLAW preprocessing implies parsing '$icon_subdir_unique_file' and other source files of the bundled version of MTIME in '$icon_subdir_srcdir' even if an external version of the library is used: it is strongly recommended to switch to the bundled version of MTIME (--without-external-mtime) to avoid potential inconsistency" >&2;}
-fi
-fi
-   if test "x$with_external_cdi" = xyes; then :
-  icon_subdir_srcdir="$srcdir/externals/cdi"
-      icon_subdir_unique_file="src/mo_cdi.f90"
-      if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
-  as_fn_error $? "unable to find sources of the bundled version of CDI library ($icon_subdir_unique_file) in '$icon_subdir_srcdir', which are required for CLAW preprocessing even if an external version of the library is used: disable CLAW preprocessing (--disable-claw)" "$LINENO" 5
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: CLAW preprocessing implies parsing '$icon_subdir_unique_file' and other source files of the bundled version of CDI in '$icon_subdir_srcdir' even if an external version of the library is used: it is strongly recommended to switch to the bundled version of CDI (--without-external-cdi) to avoid potential inconsistency" >&5
-$as_echo "$as_me: WARNING: CLAW preprocessing implies parsing '$icon_subdir_unique_file' and other source files of the bundled version of CDI in '$icon_subdir_srcdir' even if an external version of the library is used: it is strongly recommended to switch to the bundled version of CDI (--without-external-cdi) to avoid potential inconsistency" >&2;}
-fi
 fi
    if test "x$enable_openmp" = xyes; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: CLAW preprocessing is not compatible with OpenMP: it is strongly recommended to disable OpenMP support (--disable-openmp)" >&5
 $as_echo "$as_me: WARNING: CLAW preprocessing is not compatible with OpenMP: it is strongly recommended to disable OpenMP support (--disable-openmp)" >&2;}
 fi
-  if test "x$enable_gpu" = xyes; then :
+   if test "x$enable_gpu" = xyes; then :
   as_fn_append CLAWFLAGS ' --target=gpu --directive=acc'
+      as_fn_append DEPGEN_CLAWFLAGS ' -D_OPENACC'
 else
   as_fn_append CLAWFLAGS ' --target=cpu --directive=none'
+fi
+   if test "x$enable_jsbach" = xyes; then :
+  as_fn_append CLAWFLAGS " --model-config=$srcdir/externals/jsbach/config/icon_jsbach.toml"
 fi
    if test "x$enable_claw" = xvalidate; then :
   if test "x$enable_serialization" = xno; then :
@@ -7623,6 +7842,7 @@ fi
    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for CLAW preprocessor command" >&5
 $as_echo_n "checking for CLAW preprocessor command... " >&6; }
    icon_claw_result=unknown
+   CLAW=${CLAW-'clawfc'}
    as_dir=conftest.dir; as_fn_mkdir_p
    cd conftest.dir
    cat > conftest.$ac_ext <<_ACEOF
@@ -7799,7 +8019,7 @@ else
   FPP=
 fi
 
-if test "x$enable_serialization" != xno; then :
+if test x"$enable_serialization" != xno; then :
 
    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Serialbox2 preprocessor command" >&5
 $as_echo_n "checking for Serialbox2 preprocessor command... " >&6; }
@@ -7831,7 +8051,7 @@ $as_echo "$icon_sb2pp_result" >&6; }
    if test "x$icon_sb2pp_result" = xunknown; then :
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to find a valid Serialbox2 preprocessor command: either disable the serialization (--disable-serialization) or make sure that path to the 'pp_ser' module is in the PYTHONPATH environment variable, or set SB2PP accordingly
+as_fn_error $? "unable to find a valid Serialbox2 preprocessor command: either disable the Serialbox2 serialization (--disable-serialization) or make sure that path to the 'pp_ser' module is in the PYTHONPATH environment variable, or set SB2PP accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi

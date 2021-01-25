@@ -128,6 +128,7 @@ CONTAINS
       & zaeqdo   (nproma,pt_patch%nblks_c), zaeqdn,                 &
       & zaequo   (nproma,pt_patch%nblks_c), zaequn,                 &
       & zaeqlo   (nproma,pt_patch%nblks_c), zaeqln,                 &
+      & zaeqsuo  (nproma,pt_patch%nblks_c), zaeqsun,                &
       & zaeqso   (nproma,pt_patch%nblks_c), zaeqsn, zw, &
       & zptrop(nproma), zdtdz(nproma), zlatfac(nproma), zstrfac, zpblfac, zslatq
 
@@ -202,7 +203,7 @@ CONTAINS
     i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jk,i_endidx,zsign,zvdaes, zvdael, zvdaeu, zvdaed, zaeqsn, zaeqln, &
+!$OMP DO PRIVATE(jb,jc,jk,i_endidx,zsign,zvdaes, zvdael, zvdaeu, zvdaed, zaeqsn, zaeqln, zaeqsun, &
 !$OMP zaequn,zaeqdn,zaetr_bot,zaetr,wfac,ncn_bg,zptrop,zdtdz,zlatfac,zstrfac,zpblfac,zslatq)  ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
@@ -336,7 +337,8 @@ CONTAINS
         DO jc = 1,i_endidx
           ! top level
           zaeqso(jc,jb) = zvdaes(jc,1) * prm_diag%aerosol(jc,iss,jb)
-          zaeqlo(jc,jb) = zvdael(jc,1) *(prm_diag%aerosol(jc,iorg,jb)+prm_diag%aerosol(jc,iso4,jb))
+          zaeqlo(jc,jb) = zvdael(jc,1) * prm_diag%aerosol(jc,iorg,jb)
+          zaeqsuo(jc,jb) = zvdael(jc,1)* prm_diag%aerosol(jc,iso4,jb)
           zaequo(jc,jb) = zvdaeu(jc,1) * prm_diag%aerosol(jc,ibc,jb) 
           zaeqdo(jc,jb) = zvdaed(jc,1) * prm_diag%aerosol(jc,idu,jb)
 
@@ -355,7 +357,8 @@ CONTAINS
         DO jk = 1,nlev
           DO jc = 1,i_endidx
             zaeqsn  = zvdaes(jc,jk+1) * prm_diag%aerosol(jc,iss,jb)
-            zaeqln  = zvdael(jc,jk+1) *(prm_diag%aerosol(jc,iorg,jb)+prm_diag%aerosol(jc,iso4,jb))
+            zaeqln  = zvdael(jc,jk+1) * prm_diag%aerosol(jc,iorg,jb)
+            zaeqsun = zvdael(jc,jk+1) * prm_diag%aerosol(jc,iso4,jb)
             zaequn  = zvdaeu(jc,jk+1) * prm_diag%aerosol(jc,ibc,jb)
             zaeqdn  = zvdaed(jc,jk+1) * prm_diag%aerosol(jc,idu,jb)
 
@@ -369,10 +372,11 @@ CONTAINS
             zaeq2(jc,jk,jb) = (1._wp-zstrfac)*(zaeqsn-zaeqso(jc,jb))
             zaeq3(jc,jk,jb) = (1._wp-zstrfac)*(zaeqdn-zaeqdo(jc,jb))
             zaeq4(jc,jk,jb) = (1._wp-zstrfac)*zpblfac*(zaequn-zaequo(jc,jb))
-            zaeq5(jc,jk,jb) = zstrfac*zstbga*pt_diag%dpres_mc(jc,jk,jb)
+            zaeq5(jc,jk,jb) = (1._wp-zstrfac)*zpblfac*(zaeqsun-zaeqsuo(jc,jb)) + zstrfac*zstbga*pt_diag%dpres_mc(jc,jk,jb)
 
             zaeqso(jc,jb)    = zaeqsn
             zaeqlo(jc,jb)    = zaeqln
+            zaeqsuo(jc,jb)   = zaeqsun
             zaequo(jc,jb)    = zaequn
             zaeqdo(jc,jb)    = zaeqdn
 
@@ -396,7 +400,7 @@ CONTAINS
         DO jk = 1,nlev
 !DIR$ IVDEP
           DO jc = 1, i_endidx
-            wfac = MAX(1._wp,(MIN(8._wp,0.8_wp*pt_diag%pres_sfc(jc,jb)/pt_diag%pres(jc,jk,jb))))**2
+            wfac = MAX(1._wp,MIN(8._wp,0.8_wp*pt_diag%pres_sfc(jc,jb)/pt_diag%pres(jc,jk,jb)))**2
             ncn_bg = MIN(prm_diag%cloud_num(jc,jb),50.e6_wp)
             prm_diag%acdnc(jc,jk,jb) = (ncn_bg+(prm_diag%cloud_num(jc,jb)-ncn_bg)*(EXP(1._wp-wfac)))
           END DO
@@ -1057,8 +1061,8 @@ CONTAINS
 
       ENDIF ! msg_level >= 16
 
-#if (!defined(__GFORTRAN__) && !defined(__PGI))
-!FIXME: PGI + OpenMP or GCC + OpenMP produce deadlock in this loop... check correctness of parallel code
+#if !defined(__PGI)
+!FIXME: PGI + OpenMP produce deadlock in this loop. Compiler bug suspected
 !ICON_OMP PARALLEL DO PRIVATE(jb,jk,i_startidx,i_endidx,dust_tunefac) ICON_OMP_GUIDED_SCHEDULE
 #endif
       DO jb = i_startblk, i_endblk

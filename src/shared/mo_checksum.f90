@@ -14,7 +14,7 @@ MODULE mo_checksum
     USE ISO_C_BINDING,  ONLY: C_INT32_T, C_DOUBLE, C_FLOAT, c_int, c_ptr, c_loc
     USE mo_mpi,         ONLY: p_comm_size, p_comm_rank, p_comm_work, p_gather
     USE mo_util_string, ONLY: int2string
-    USE mo_cdi,         ONLY: DATATYPE_INT, DATATYPE_FLT32, DATATYPE_FLT64
+    USE mo_cdi,         ONLY: DATATYPE_INT, DATATYPE_FLT64
 #ifndef NOMPI
 #ifndef __SUNPRO_F95
     USE mpi !, ONLY: MPI_INT32_T, MPI_GATHER

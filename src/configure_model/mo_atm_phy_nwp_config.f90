@@ -321,7 +321,7 @@ CONTAINS
       CASE (2)
         atm_phy_nwp_config(jg)%lhave_graupel = .TRUE.
         atm_phy_nwp_config(jg)%l2moment = .FALSE.
-      CASE (4,5,6)
+      CASE (4,5,6,7)
         atm_phy_nwp_config(jg)%lhave_graupel = .TRUE.
         atm_phy_nwp_config(jg)%l2moment = .TRUE.
       CASE DEFAULT
@@ -525,8 +525,13 @@ CONTAINS
     CASE (79,97) ! Blending between GEMS and MACC climatologies
       CALL message(TRIM(routine), 'Use blending between GEMS and MACC ozone climatologies with tuning')
       ltuning_ozone     = .TRUE.
-      tune_ozone_ztop   = 29000.0_wp
-      tune_ozone_zmid2  = 26000.0_wp
+      IF (atm_phy_nwp_config(jg)%inwp_radiation == 4) THEN
+        tune_ozone_ztop   = 29000.0_wp
+        tune_ozone_zmid2  = 24000.0_wp
+      ELSE
+        tune_ozone_ztop   = 29000.0_wp
+        tune_ozone_zmid2  = 26000.0_wp
+      ENDIF
       tune_ozone_zmid   = 18000.0_wp
       tune_ozone_zbot   = 15000.0_wp
       tune_ozone_fac    = 0.25_wp
@@ -582,7 +587,7 @@ CONTAINS
           ELSE IF (ozone_shapemode == 2 .AND. tune_ozone_lat > 0._wp) THEN
             IF (ABS(p_patch(jg)%cells%center(jc,jb)%lat) < tune_ozone_lat * deg2rad) THEN
               atm_phy_nwp_config(jg)%shapefunc_ozone(jc,jb) = &
-                1._wp - 0.8_wp*SQRT(COS(p_patch(jg)%cells%center(jc,jb)%lat * 90._wp/tune_ozone_lat))
+                1._wp - 1.0_wp*(COS(p_patch(jg)%cells%center(jc,jb)%lat * 90._wp/tune_ozone_lat))**0.25_wp
             ELSE
               atm_phy_nwp_config(jg)%shapefunc_ozone(jc,jb) = 1._wp
             END IF
@@ -688,14 +693,15 @@ CONTAINS
 
 
       ! 3d radiative flux output: only allocate and write variable if at least one is requested as output
-      atm_phy_nwp_config(jg)%l_3d_rad_fluxes = is_variable_in_output(first_output_name_list, var_name="lwflx_dn") & 
-                                          .OR. is_variable_in_output(first_output_name_list, var_name="swflx_dn") & 
-                                          .OR. is_variable_in_output(first_output_name_list, var_name="lwflx_up") & 
-                                          .OR. is_variable_in_output(first_output_name_list, var_name="swflx_up") &
-                                          .OR. is_variable_in_output(first_output_name_list, var_name="lwflx_dn_clr") &
-                                          .OR. is_variable_in_output(first_output_name_list, var_name="swflx_dn_clr") &
-                                          .OR. is_variable_in_output(first_output_name_list, var_name="lwflx_up_clr") &
-                                          .OR. is_variable_in_output(first_output_name_list, var_name="swflx_up_clr")
+      atm_phy_nwp_config(jg)%l_3d_rad_fluxes = is_variable_in_output(first_output_name_list, var_name="group:all")    &
+        &                                 .OR. is_variable_in_output(first_output_name_list, var_name="lwflx_dn")     &
+        &                                 .OR. is_variable_in_output(first_output_name_list, var_name="swflx_dn")     &
+        &                                 .OR. is_variable_in_output(first_output_name_list, var_name="lwflx_up")     &
+        &                                 .OR. is_variable_in_output(first_output_name_list, var_name="swflx_up")     &
+        &                                 .OR. is_variable_in_output(first_output_name_list, var_name="lwflx_dn_clr") &
+        &                                 .OR. is_variable_in_output(first_output_name_list, var_name="swflx_dn_clr") &
+        &                                 .OR. is_variable_in_output(first_output_name_list, var_name="lwflx_up_clr") &
+        &                                 .OR. is_variable_in_output(first_output_name_list, var_name="swflx_up_clr")
  
     ENDDO  ! jg
 

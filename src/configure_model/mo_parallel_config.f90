@@ -30,7 +30,7 @@ MODULE mo_parallel_config
        &  l_log_checks, l_fast_sum,   &
        &  ldiv_phys_dom, p_test_run, num_test_pe, l_test_openmp,    &
        &  pio_type, itype_comm, iorder_sendrecv, num_io_procs,      &
-       &  num_restart_procs, num_prefetch_proc,                     &
+       &  num_restart_procs, num_prefetch_proc, num_io_procs_radar, &
        &  use_icon_comm, icon_comm_debug, max_send_recv_buffer_size,&
        &  use_dycore_barrier, itype_exch_barrier, use_dp_mpi2io,    &
        &  icon_comm_method, icon_comm_openmp, max_no_of_comm_variables, &
@@ -117,6 +117,9 @@ MODULE mo_parallel_config
 
   INTEGER :: num_io_procs = 0
 
+  ! Output procs for radar forward operator
+  INTEGER :: num_io_procs_radar = 0
+
   ! The number of PEs used for writing restart files (0 means, the worker PE0 writes)
   INTEGER :: num_restart_procs = 0
 
@@ -199,7 +202,7 @@ CONTAINS
     IF (nproma>256) CALL warning(TRIM(method_name),'The value of "nproma" seems to be set for a vector machine!')
 #endif
 
-    IF (proc0_shift < 0 .OR. proc0_shift > 1) CALL finish(TRIM(method_name),'"proc0_shift" currently must be 0 or 1')
+    IF (proc0_shift < 0) CALL finish(TRIM(method_name),'"proc0_shift" currently must be 0 (disable) or a positive number')
     proc0_offloading = proc0_shift > 0
 
     icon_comm_openmp = .false.

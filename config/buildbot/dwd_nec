@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# set required environment variables
+export MODULESHOME="/usr/share/Modules"
+
+# this wrapper needs to build two ICON binaries
+MY_DIR=$(cd "$(dirname "$0")"; pwd)
+ICON_DIR=$(cd "${MY_DIR}/../.."; pwd)
+
+# create vector engine binary
+${ICON_DIR}/config/dwd/rcl.VE.nfort --enable-openmp --prefix=$(pwd)/vector
+MAKE_PROCS=14
+make -j ${MAKE_PROCS}
+make install
+
+make distclean
+
+# create vector host binary
+${ICON_DIR}/config/dwd/rcl.VH.gcc --prefix=$(pwd)/host
+MAKE_PROCS=14
+make -j ${MAKE_PROCS}
+make install
+
+VECTOR_BINARY=$(pwd)/vector/bin/icon
+HOST_BINARY=$(pwd)/host/bin/icon
+
+find $(pwd)/vector
+find $(pwd)/host

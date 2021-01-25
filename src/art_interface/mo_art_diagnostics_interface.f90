@@ -34,13 +34,17 @@ MODULE mo_art_diagnostics_interface
 
 ! ART
 #ifdef __ICON_ART
-  USE mo_art_data,                      ONLY: p_art_data, t_art_atmo
+  USE mo_art_data,                      ONLY: p_art_data
+  USE mo_art_atmo_data,                 ONLY: t_art_atmo
   USE mo_art_wrapper_routines,          ONLY: art_get_indices_c
   USE mo_art_config,                    ONLY: art_config
-  USE mo_art_aero_optical_props,        ONLY: art_calc_aod, art_calc_bsc
+  USE mo_art_aero_optical_props,        ONLY: art_calc_aod, art_calc_bsc, art_calc_aodvar
   USE mo_art_diag_state,                ONLY: art_create_diagnostics
   USE mo_art_diagnostics,               ONLY: art_volc_diagnostics, art_radio_diagnostics
   USE mo_art_clipping,                  ONLY: art_clip_lt
+  USE mo_art_modes_linked_list,         ONLY: p_mode_state, t_mode
+  USE mo_art_modes,                     ONLY: t_fields_2mom
+
 #endif
 
   IMPLICIT NONE
@@ -96,11 +100,19 @@ SUBROUTINE art_diagnostics_interface(rho, pres, p_trac, dz, hml, jg, &
     &  p_sim_time
 
 #ifdef __ICON_ART
+  REAL(wp), POINTER ::       &
+        & cmd(:,:)             !< Pointer to current median diameter
+  REAL(wp) ::                &
+        & ini_cmd              !< Initial diameter
   INTEGER                ::  &
     &  jb,                   & !< Counter for block loop
-    &  istart, iend            !< Start and end index of nproma loop
+    &  istart, iend,         & !< Start and end index of nproma loop
+    &  var_med_dia             !< control variable for varying median diameter (1=varying median dia, 0=constant median dia)
   LOGICAL                ::  &
-    &  l_output_step
+    &  l_output_step,        &
+    &  l_init_aod
+  TYPE(t_mode), POINTER ::   &
+    &  this_mode               !< Pointer to current mode
   TYPE(t_art_atmo), POINTER :: &
     &  art_atmo
 
@@ -116,6 +128,8 @@ SUBROUTINE art_diagnostics_interface(rho, pres, p_trac, dz, hml, jg, &
 
     art_atmo => p_art_data(jg)%atmo
     ! --- Get the loop indizes
+
+    var_med_dia = 1
 
     IF (l_output_step) THEN
 
@@ -135,46 +149,43 @@ SUBROUTINE art_diagnostics_interface(rho, pres, p_trac, dz, hml, jg, &
           ! --------------------------------------
           ! --- Calculate aerosol optical depths
           ! --------------------------------------
-          IF (art_config(jg)%iart_dust > 0            &
-            &  .OR. art_config(jg)%iart_seasalt > 0   &
-            &  .OR. art_config(jg)%iart_volcano > 0) THEN
-
-            CALL art_calc_aod(rho(:,:,jb),          &
-                       &      p_trac(:,:,jb,:),     &
-                       &      dz(:,:,jb),           &
-                       &      istart,               &
-                       &      iend,                 &
-                       &      art_atmo%nlev,        &
-                       &      jb,                   &
-                       &      jg,                   &
-                       &      p_art_data(jg))
-
-            CALL art_calc_bsc(rho(:,:,jb),          &
-                       &      p_trac(:,:,jb,:),     &
-                       &      dz(:,:,jb),           &
-                       &      istart,               &
-                       &      iend,                 &
-                       &      art_atmo%nlev,        &
-                       &      jb,                   &
-                       &      jg,                   &
-                       &      p_art_data(jg))
+          IF (art_config(jg)%iart_dust > 0    .OR. &
+            & art_config(jg)%iart_seasalt > 0 .OR. &
+            & art_config(jg)%iart_volcano > 0) THEN
+            IF (var_med_dia == 1) THEN
+              l_init_aod = .TRUE.
+              this_mode => p_mode_state(jg)%p_mode_list%p%first_mode
+              DO WHILE(ASSOCIATED(this_mode))
+                ! Select type of mode
+                SELECT TYPE (fields => this_mode%fields)
+                CLASS is (t_fields_2mom)
+                  cmd => fields%diameter(:,:,jb)
+                  ini_cmd = fields%info%diameter_ini_nmb
+                  CALL art_calc_aodvar(rho(:,:,jb), p_trac(:,:,jb,:), dz(:,:,jb),           &
+                    &                  istart, iend, art_atmo%nlev, jb, jg, p_art_data(jg), &
+                    &                  cmd, ini_cmd, TRIM(fields%name),                     &
+                    &                  l_init_aod)
+                  IF (fields%name(:4) == 'dust') l_init_aod = .FALSE.
+                CLASS DEFAULT
+                    ! No ARI for monodisperse particles
+                END SELECT
+                this_mode => this_mode%next_mode
+              ENDDO !associated(this_mode)
+            ELSE
+              CALL art_calc_aod(rho(:,:,jb), p_trac(:,:,jb,:), dz(:,:,jb),            &
+                &               istart, iend, art_atmo%nlev, jb, jg, p_art_data(jg))
+            ENDIF
+            CALL art_calc_bsc(rho(:,:,jb), p_trac(:,:,jb,:), dz(:,:,jb),              &
+              &               istart, iend, art_atmo%nlev, jb, jg, p_art_data(jg))
           ENDIF
 
           ! -------------------------------------
           ! --- Calculate volcanic ash products
           ! -------------------------------------
           IF (art_config(jg)%iart_volcano > 0) THEN
-            CALL art_volc_diagnostics( rho(:,:,jb),               &
-                          &            pres(:,:,jb),              &
-                          &            p_trac(:,:,jb,:),          &
-                          &            dz(:,:,jb),                &
-                          &            hml(:,:,jb),               &
-                          &            istart,                    &
-                          &            iend,                      &
-                          &            art_atmo%nlev,             &
-                          &            jb,                        &
-                          &            p_art_data(jg),            &
-                          &            art_config(jg)%iart_volcano )
+            CALL art_volc_diagnostics( rho(:,:,jb), pres(:,:,jb), p_trac(:,:,jb,:), dz(:,:,jb),       &
+              &                        hml(:,:,jb), istart, iend, art_atmo%nlev, jb, p_art_data(jg),  &
+              &                        art_config(jg)%iart_volcano )
           END IF
 
         ENDDO

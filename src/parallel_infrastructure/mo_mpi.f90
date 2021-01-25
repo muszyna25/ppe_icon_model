@@ -13,31 +13,33 @@
 !!
 !!  Processors are divided into
 !!    1.    worker PEs    : majority of MPI tasks, doing the actual work
-!!    2.    I/O PEs       : dedicated I/O server tasks        (only for parallel_nml::num_io_procs > 0)
-!!    3.    one test PE   : for verification runs             (only for parallel_nml::p_test_run == .TRUE.)
-!!    4.    restart PEs   : for asynchronous restart writing  (only for dedicatedRestartProcs > 0)
-!!    5.    prefetch PEs  : for prefetching of data           (only for parallel_nml::num_prefetch_proc > 0)
-!!
+!!    2.    I/O PEs       : dedicated I/O server tasks          (only for parallel_nml::num_io_procs > 0)
+!!    3.    one test PE   : for verification runs               (only for parallel_nml::p_test_run == .TRUE.)
+!!    4.    restart PEs   : for asynchronous restart writing    (only for dedicatedRestartProcs > 0)
+!!    5.    prefetch PEs  : for prefetching of data             (only for parallel_nml::num_prefetch_proc > 0)
+!!    6.    radar I/O PEs : for some async. tasks of radar      (only for parallel_nml::num_io_procs_radar > 0)
+!!                          forward operator EMVORADO (asynchr. processing: I/O and postprocessing tasks like
+!!                          radar composites, bubble generator, superobservations)
 !!
 !!  The communicators are split like this:
 !!
-!!          0    p_work_pe0    p_io_pe0    p_restart_pe0    p_pref_pe0   process_mpi_all_size
+!!          0    p_work_pe0    p_io_pe0    p_restart_pe0    p_pref_pe0    p_radario_pe0   process_mpi_all_size
 !!
-!!          |         |            |             |               |                |
-!!          V         V            V             V               V                V
+!!          |         |            |             |               |                |              |
+!!          V         V            V             V               V                V              V
 !!
-!!          +---------------------------------------------------------------------+
-!!          !                      process_mpi_all_comm                           !
-!!          +---------+------------+-------------+---------------+----------------+
-!!          | test PE | worker PEs |   I/O PEs   |  restart PEs  |  prefetch PEs  |
-!!          +---------+------------+-------------+---------------+----------------+
-!!          |    A    |     B      |     C       |      D        |       E        | p_comm_work
-!!          |    A    |     A      |             |               |                | p_comm_work_test
-!!          |    A    |     B      |     B       |               |                | p_comm_work_io
-!!          |    A    |            |     B       |               |                | p_comm_io (B is worker PE 0 if num_io_procs == 0)
-!!          |         |     A      |             |      A        |                | p_comm_work_restart
-!!          |         |     A      |             |               |       A        | p_comm_work_pref
-!!          +---------+------------+-------------+---------------+----------------+
+!!          +---------------------------------------------------------------------+---------------+
+!!          !                      process_mpi_all_comm                                           !
+!!          +---------+------------+-------------+---------------+----------------+---------------+
+!!          | test PE | worker PEs |   I/O PEs   |  restart PEs  |  prefetch PEs  | radar I/O PEs |
+!!          +---------+------------+-------------+---------------+----------------+---------------+
+!!          |    A    |     B      |     C       |      D        |       E        |               | p_comm_work
+!!          |    A    |     A      |             |               |                |               | p_comm_work_test
+!!          |    A    |     B      |     B       |               |                | (see the      | p_comm_work_io
+!!          |    A    |            |     B       |               |                |    Note^^     | p_comm_io (B is worker PE 0 if num_io_procs == 0)
+!!          |         |     A      |             |      A        |                |      below)   | p_comm_work_restart
+!!          |         |     A      |             |               |       A        |               | p_comm_work_pref
+!!          +---------+------------+-------------+---------------+----------------+---------------+
 !!
 !!  Note that there are actually two different p_comm_work_io communicators:
 !!  One that spans the worker AND I/O PEs as the NAME implies, AND one that IS ONLY defined on the test PE.
@@ -76,6 +78,9 @@
 !!         size         : num_work_procs (on worker PEs: num_work_procs==p_n_work)
 !!         this PE's ID : p_pe_work (= get_my_mpi_work_id())
 !!
+!!       In the case of the NEC hybrid mode (detached PE0), the sub-communicator p_comm_work_only encompasses
+!!       all true worker PEs (excluding PE0), otherwise, p_comm_work_only is identical to p_comm_work
+!!
 !!
 !!       ... less important MPI communicators ...
 !!
@@ -94,8 +99,8 @@
 !!         description  : Inter(!)communicator work PEs - prefetching PEs
 !!
 !!
-!!  Processor splitting
-!!  -------------------
+!!  Processor splitting:
+!!  --------------------
 !!
 !!       In order to improve the parallel load balancing, the domains
 !!       of the first refinement level can be distributed to disjoint
@@ -125,8 +130,9 @@
 !!       domains etc.
 !!
 !!
-!! Split of process_mpi_all_comm and stdio process
-!! -----------------------------
+!! Split of process_mpi_all_comm and stdio process:
+!! ------------------------------------------------
+!!
 !!    The process_mpi_all_comm is the whole model communicator and is split
 !!    to test/work/io/restart, in this order
 !!
@@ -139,8 +145,52 @@
 !!    process should be used in the case of gather and scatter procedures that do
 !!    not use the io process (the third part). This will be different from using
 !!    the stdio process only in the case of p_test
+!!
+!!
+!! ^^A Note on radar I/O PEs:
+!! --------------------------
+!!
+!!   If ANY(run_nml::luse_radarfwo(1:max_dom)) and parallel_nml::num_io_procs_radar > 0,
+!!   These PEs are appended at the very end of the PE list, but are not used by ICON itself.
+!!   They are provided exclusively to the radar forward operator EMVORADO for
+!!   Input/Output of observed and simulated radar data and postprocessing tasks
+!!   such as computing superobservations for data assimilation,
+!!   generating radar reflectivity composites for model verification and visualization,
+!!   or the "warm bubble generator" for triggering missing convective cells.
+!!   From this set of PEs, EMVORADO creates different communicators internally on its own,
+!!   triggered by a "CALL init_emvorado_mpi()" below. These communicators
+!!   are only used in EMVORADO and its interface (src/data_assimilation/interfaces/) and consist of:
+!!
+!!     - a clone of p_comm_work                    : icomm_cart_fwo
+!!     - a communicator for the radar I/O Pes      : icomm_radario
+!!     - a combined communicator                   : icomm_radar = icomm_cart_fwo + icomm_radario
+!!
+!!   In case EMVORADO runs asynchroneously for more than 1 (N) different model domains, i.e.,
+!!   run_nml::luse_radarfwo(1:N) = .TRUE. and parallel_nml::num_io_procs_radar > 0,
+!!   and if parallel_nml::num_io_procs_radar > N,
+!!   there are also separate radar I/O sub-communicators for each model domain:
+!!
+!!     - a subset of icomm_radario for each domain : icomm_radario_dom(i), i=1...N
+!!     - a combined communicator for each domain   : icomm_radar_dom(i) = icomm_cart_fwo + icomm_radario_dom(i), i=1...N
+!!     - icomm_radario is still available as the superset of all icomm_radario_dom(i)
+!!     - icomm_radar is still available as icomm_cart_fwo + icomm_radario
+!!
+!!   This enables to run the radar I/O and postprocessing for each domain
+!!   separately and in parallel, minimizing communication latency on the worker
+!!   procs.
+!!
+!!   Although ICON does not need to access these communicators explicitly,
+!!   it checks at a few places if the PE does belong to icomm_radar or icomm_radario.
+!!   For this purpose, the following is provided PUBLIC below:
+!!
+!!   process_mpi_radario_size        : equals parallel_nml::num_io_procs_radar
+!!   process_mpi_all_radarioroot_id  : ID of root of icomm_radario in the global communicator (= p_radario_pe0)
+!!   my_process_is_radar()           : returns .TRUE. if PE belongs to icomm_radar
+!!   my_process_is_radario()         : returns .TRUE. if PE belongs to icomm_radario
+!!   my_process_is_mpi_radarioroot() : returns .TRUE. if PE is root of icomm_radario
+!!
 
-!This IS a small helper to avoid a full #ifdef ... #ELSE ... #endif sequence where we 
+!This IS a small helper to avoid a full #ifdef ... #ELSE ... #endif sequence where we
 !can just replace the MPI symbol with something constant.
 #ifdef NOMPI
 #define MERGE_HAVE_MPI(mpiVariant, noMpiVariant) noMpiVariant
@@ -175,8 +225,17 @@ MODULE mo_mpi
 #endif
 !  USE mo_impl_constants, ONLY: SUCCESS
 
+  USE mo_emvorado_init, ONLY: init_emvorado_mpi
+
 #ifndef __STANDALONE
     USE mo_util_system, ONLY: util_exit
+#endif
+
+  USE mo_master_control, ONLY: get_my_process_type, hamocc_process, ocean_process, process_exists, &
+    & my_process_is_hamocc, my_process_is_ocean
+
+#ifdef HAVE_YAXT
+  USE yaxt,                   ONLY: xt_initialize, xt_initialized
 #endif
 
   IMPLICIT NONE
@@ -221,7 +280,8 @@ MODULE mo_mpi
   PUBLIC :: my_process_is_mpi_all_seq, my_process_is_io
   PUBLIC :: my_process_is_global_root
   PUBLIC :: my_process_is_mpi_prefroot, my_process_is_pref
-  PUBLIC :: my_process_is_restart,my_process_is_work
+  PUBLIC :: my_process_is_restart
+  PUBLIC :: my_process_is_work, my_process_is_work_only
 
   ! get parameters
   PUBLIC :: get_my_global_mpi_communicator   ! essentially a copy of MPI_COMM_WORLD
@@ -229,6 +289,7 @@ MODULE mo_mpi
   PUBLIC :: get_my_mpi_all_comm_size   ! this is the the size of the communicator for the specific component
   PUBLIC :: get_my_mpi_work_communicator   ! the communicator for the workers of this component
   PUBLIC :: get_my_mpi_work_comm_size   ! this is the the size of the workers
+  PUBLIC :: get_hamocc_ocean_mpi_communicator 
 
   PUBLIC :: get_mpi_all_workroot_id, get_my_global_mpi_id, get_my_mpi_all_id
   PUBLIC :: get_mpi_all_ioroot_id
@@ -242,14 +303,18 @@ MODULE mo_mpi
     &       process_mpi_all_ioroot_id, &
     &       process_mpi_all_prefroot_id, p_comm_work_pref_compute_pe0
 
-  PUBLIC :: p_comm_work, p_comm_work_test, p_comm_work_2_test
-  PUBLIC :: p_comm_work_2_io, p_comm_work_io, &
+  PUBLIC :: p_comm_work, p_comm_work_test, p_comm_work_2_test, p_comm_work_only
+  PUBLIC :: p_comm_work_2_io, p_comm_work_io, p_comm_dio_io, &
     &       p_comm_io, p_comm_work_pref, p_comm_work_2_pref
   !restart communicators
   PUBLIC :: p_comm_work_2_restart, p_comm_work_restart
   PUBLIC :: p_communicator_a, p_communicator_b, p_communicator_d
 
   PUBLIC :: process_mpi_io_size, process_mpi_restart_size, process_mpi_pref_size
+
+  PUBLIC :: process_mpi_all_size
+  PUBLIC :: process_mpi_radario_size, process_mpi_all_radarioroot_id
+  PUBLIC :: my_process_is_radar, my_process_is_radario, my_process_is_mpi_radarioroot
 
   PUBLIC :: process_mpi_stdio_id
   PUBLIC :: process_mpi_root_id
@@ -300,6 +365,7 @@ MODULE mo_mpi
        &    p_work_pe0, p_io_pe0,               &
        &    p_n_work, p_pe_work, &
        &    p_pref_pe0
+  PUBLIC :: p_pe_work_only
   !--------------------------------------------------------------------
 
 #ifndef NOMPI
@@ -326,7 +392,8 @@ MODULE mo_mpi
   PUBLIC :: p_address_kind
   PUBLIC :: p_real_dp_byte, p_real_sp_byte, p_int_byte
   PUBLIC :: p_int_i4_byte, p_int_i8_byte
-
+  PUBLIC :: p_mpi_comm_null
+  
   ! mpi reduction operators
   PUBLIC :: mpi_lor, mpi_land, mpi_sum, mpi_min, mpi_max, &
        mpi_minloc, mpi_maxloc
@@ -376,6 +443,8 @@ MODULE mo_mpi
   INTEGER, PARAMETER :: global_mpi_communicator = 0  ! replaces MPI_COMM_WORLD
 #endif
 
+  INTEGER :: hamocc_ocean_mpi_communicator
+
   ! public parallel run information
   CHARACTER(len=64) :: global_mpi_name
   CHARACTER(len=64) :: process_mpi_name
@@ -396,6 +465,7 @@ MODULE mo_mpi
   INTEGER :: my_process_mpi_all_id        ! the id in the whole model communicator
   INTEGER :: process_mpi_all_workroot_id  ! the root process in component
   INTEGER :: process_mpi_all_ioroot_id    ! the first I/O process
+  INTEGER :: process_mpi_all_radarioroot_id    ! the first radar I/O process
   INTEGER :: process_mpi_all_test_id  ! the test process in component
   INTEGER :: process_work_io0
   INTEGER :: process_mpi_all_prefroot_id ! the id of the first prefetch process
@@ -416,6 +486,7 @@ MODULE mo_mpi
   INTEGER, PARAMETER :: io_mpi_process = 3
   INTEGER, PARAMETER :: restart_mpi_process = 4
   INTEGER, PARAMETER :: pref_mpi_process = 5
+  INTEGER, PARAMETER :: radario_mpi_process = 6
 
   !------------------------------------------------------------
   ! Processor distribution:
@@ -427,6 +498,8 @@ MODULE mo_mpi
   ! num_test_procs + num_work_procs + process_mpi_io_size + num_restart_procs + num_prefetch_proc = process_mpi_all_size
   INTEGER :: num_test_procs
   INTEGER :: num_work_procs
+  INTEGER :: p_radario_pe0
+  INTEGER :: process_mpi_radario_size
   INTEGER :: process_mpi_io_size
   INTEGER :: process_mpi_restart_size
   INTEGER :: process_mpi_pref_size
@@ -434,6 +507,7 @@ MODULE mo_mpi
   ! Note: p_work_pe0, p_io_pe0 are identical on all PEs
 
   INTEGER :: p_work_pe0    ! Number of workgroup PE 0 within all PEs
+  INTEGER :: p_workonly_pe0 ! Number of workgroup PE 0 excluding detached PE0
   INTEGER :: p_io_pe0      ! Number of I/O PE 0 within all PEs (process_mpi_all_size if no I/O PEs)
   INTEGER :: p_pref_pe0    ! Number of the prefetching PE 0 within all PEs (process_mpi_all_size
   !                          if no prefetching PEs)
@@ -449,12 +523,16 @@ MODULE mo_mpi
 
   INTEGER :: p_n_work
   INTEGER :: p_pe_work        ! PE number within work group
+  INTEGER :: p_pe_work_only   ! PE number within work group excluding detached stdio-PE (NEC hybrid mode), otherwise same as p_pe_work
+
 
   ! MPI communicators
   INTEGER :: p_comm_work           ! Communicator for work group
+  INTEGER :: p_comm_work_only      ! Communicator for work group excluding detached stdio-PE (NEC hybrid mode), otherwise same as p_comm_work
   INTEGER :: p_comm_work_test      ! Communicator spanning work group and test PE
   INTEGER :: p_comm_work_2_test
   INTEGER :: p_comm_work_io        ! Communicator spanning work group and I/O PEs
+  INTEGER :: p_comm_dio_io         ! Communicator spanning detached std I/O and I/O PEs
   INTEGER :: p_comm_io             ! Communicator spanning the I/O PEs
   INTEGER :: p_comm_work_2_io      ! Inter(!)communicator work PEs - I/O PEs
   INTEGER :: p_comm_work_restart   ! Communicator spanning work group and Restart Output PEs
@@ -509,6 +587,8 @@ MODULE mo_mpi
   INTEGER :: p_int_i4_byte  = 0
   INTEGER :: p_int_i8_byte  = 0
 
+  INTEGER :: p_mpi_comm_null = -32766
+  
   ! Flag if processor splitting is active
   LOGICAL, PUBLIC :: proc_split = .FALSE.
 #ifdef _OPENACC
@@ -876,6 +956,12 @@ CONTAINS
   !------------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------
+  INTEGER FUNCTION get_hamocc_ocean_mpi_communicator()
+    get_hamocc_ocean_mpi_communicator = hamocc_ocean_mpi_communicator
+  END FUNCTION get_hamocc_ocean_mpi_communicator
+  !------------------------------------------------------------------------------
+
+  !------------------------------------------------------------------------------
   INTEGER FUNCTION get_my_mpi_all_communicator()
     get_my_mpi_all_communicator = process_mpi_all_comm
   END FUNCTION get_my_mpi_all_communicator
@@ -938,8 +1024,27 @@ CONTAINS
 
   !------------------------------------------------------------------------------
   LOGICAL FUNCTION my_process_is_io()
-     my_process_is_io = (my_mpi_function == io_mpi_process)
+    my_process_is_io = (my_mpi_function == io_mpi_process)
   END FUNCTION my_process_is_io
+  !------------------------------------------------------------------------------
+
+  !------------------------------------------------------------------------------
+  LOGICAL FUNCTION my_process_is_radar()
+    my_process_is_radar = ( my_process_is_work() .OR. my_process_is_radario() )
+  END FUNCTION my_process_is_radar
+  !------------------------------------------------------------------------------
+
+  !------------------------------------------------------------------------------
+  LOGICAL FUNCTION my_process_is_radario()
+    my_process_is_radario = (my_mpi_function == radario_mpi_process)
+  END FUNCTION my_process_is_radario
+  !------------------------------------------------------------------------------
+
+  !------------------------------------------------------------------------------
+  LOGICAL FUNCTION my_process_is_mpi_radarioroot()
+    my_process_is_mpi_radarioroot = (my_process_is_radario() .AND. &
+     &                   (my_process_mpi_all_id == process_mpi_all_radarioroot_id))
+  END FUNCTION my_process_is_mpi_radarioroot
   !------------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------
@@ -969,6 +1074,14 @@ CONTAINS
      my_process_is_work = (my_mpi_function == work_mpi_process)
   END FUNCTION my_process_is_work
   !------------------------------------------------------------------------------
+
+  !------------------------------------------------------------------------------
+  !>
+  LOGICAL FUNCTION my_process_is_work_only()
+     my_process_is_work_only = (my_process_is_work() .AND. p_pe >= p_workonly_pe0)
+  END FUNCTION my_process_is_work_only
+  !------------------------------------------------------------------------------
+
   !------------------------------------------------------------------------------
   LOGICAL FUNCTION my_process_is_pref()
     my_process_is_pref = (my_mpi_function == pref_mpi_process)
@@ -1118,23 +1231,37 @@ CONTAINS
   ! Warning: The dummy argument num_restart_procs IS NOT identical to the namelist PARAMETER anymore,
   !          rather, it IS the number of *dedicated* restart processes.
   !          We don't care about work processes here that are reused as restart writing processes.
-  SUBROUTINE set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs, &
-    &                                   num_restart_procs, my_comp_id, num_prefetch_proc, &
-    &                                   num_test_pe, pio_type)
-    LOGICAL,INTENT(INOUT) :: p_test_run, l_test_openmp
-    INTEGER,INTENT(INOUT) :: num_io_procs
-    INTEGER,INTENT(INOUT) :: num_restart_procs
-    INTEGER,INTENT(IN)    :: my_comp_id
-    INTEGER,INTENT(IN), OPTIONAL :: num_prefetch_proc, num_test_pe
-    INTEGER,INTENT(IN), OPTIONAL :: pio_type
+  SUBROUTINE set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs,               &
+    &                                   num_restart_procs, my_comp_id, num_prefetch_proc,      &
+    &                                   num_test_pe, pio_type,                                 &
+    &                                   num_io_procs_radar, radar_flag_doms_model, num_dio_procs)
+
+    LOGICAL, INTENT(INOUT)           :: p_test_run, l_test_openmp
+    INTEGER, INTENT(INOUT)           :: num_io_procs
+    INTEGER, INTENT(INOUT)           :: num_restart_procs
+    INTEGER, INTENT(IN)              :: my_comp_id
+    INTEGER, INTENT(IN),    OPTIONAL :: num_prefetch_proc, num_test_pe
+    INTEGER, INTENT(IN),    OPTIONAL :: pio_type
+    INTEGER, INTENT(INOUT), OPTIONAL :: num_io_procs_radar
+    LOGICAL, INTENT(IN),    OPTIONAL :: radar_flag_doms_model(:)
+    INTEGER, INTENT(IN),    OPTIONAL :: num_dio_procs
 
 !   !local variables
     INTEGER :: my_color, remote_leader, peer_comm, p_error, global_dup_comm
+    INTEGER :: tmp_common_intracom, tmp_work_intracom, my_common_intracom_mpi_id, my_work_intracom_mpi_id
+    INTEGER :: hamocc_root, ocean_root
+    LOGICAL :: I_am_receiver, I_am_sender
     INTEGER :: my_function_comm
     CHARACTER(*), PARAMETER :: method_name = "set_mpi_work_communicators"
     INTEGER :: grp_process_mpi_all_comm, grp_comm_work_io, input_ranks(1), &
                translated_ranks(1), grp_comm_work_pref
     INTEGER :: sizeof_prefetch_processes, pio_type_
+
+    INTEGER :: num_radario_procs
+    INTEGER :: icomm_cart, my_cart_id
+    LOGICAL :: lhave_radar
+
+
 #ifdef HAVE_CDI_PIO
     INTEGER :: my_cdi_pio_role, grib_mode_for_cdi_pio
 #endif
@@ -1146,6 +1273,10 @@ CONTAINS
     CHARACTER(len=1000) :: message_text = ''
     CHARACTER(len=*), PARAMETER :: &
          routine = modname//'::set_mpi_work_communicators'
+
+    INTEGER :: my_arch, p
+    INTEGER, ALLOCATABLE :: glb_arch(:)
+    LOGICAL :: arch_mismatch
 
     IF (PRESENT(num_prefetch_proc)) THEN
       sizeof_prefetch_processes = num_prefetch_proc
@@ -1161,6 +1292,18 @@ CONTAINS
       pio_type_ = pio_type_async
     END IF
 
+    IF (PRESENT(num_io_procs_radar) .AND. PRESENT(radar_flag_doms_model)) THEN
+      lhave_radar = .TRUE.
+      IF (.NOT.ANY(radar_flag_doms_model)) THEN
+        CALL print_info_stderr(method_name, &
+             & 'num_io_procs_radar has no effect if there are no radar-active domains!')
+        CALL print_info_stderr(method_name, &
+             & '--> num_io_procs_radar set to 0')
+        num_io_procs_radar = 0
+      END IF
+    ELSE
+      lhave_radar = .FALSE.
+    END IF
 
 ! check l_test_openmp
 #ifndef _OPENMP
@@ -1191,6 +1334,17 @@ CONTAINS
        & '--> num_io_procs set to 0')
       num_io_procs = 0
     END IF
+
+    IF (lhave_radar) THEN
+      IF (num_io_procs_radar /= 0) THEN
+        CALL print_info_stderr(method_name, &
+             & 'num_io_procs_radar has no effect if the model is compiled with the NOMPI compiler directive')
+        CALL print_info_stderr(method_name, &
+             & '--> num_io_procs_radar set to 0')
+        num_io_procs_radar = 0
+      ENDIF
+    ENDIF
+
     IF (num_restart_procs /= 0) THEN
       CALL print_info_stderr(method_name, &
        & 'num_restart_procs has no effect if the model is compiled with the NOMPI compiler directive')
@@ -1214,6 +1368,21 @@ CONTAINS
     num_work_procs = 1
     p_comm_io = mpi_comm_self
 
+    num_radario_procs = 0
+    p_radario_pe0 = 0
+    IF (lhave_radar) THEN
+      message_text(:) = ' '
+      CALL init_emvorado_mpi ( radar_flag_doms_model,  & ! INPUT
+                               MPI_COMM_NULL, 0, 1,    & ! INPUT
+                               MPI_COMM_NULL, 0, 1,    & ! INPUT
+                               .TRUE.,                 & ! INPUT
+                               0, 0, 0,                & ! INPUT
+                               p_error, message_text )
+      IF (p_error /= 0) THEN
+        CALL finish ('init_emvorado_mpi', TRIM(message_text))
+      END IF
+    END IF
+
 #else
 
     ! A run on 1 PE is never a verification run,
@@ -1233,6 +1402,15 @@ CONTAINS
             & '--> num_io_procs set to 0')
         num_io_procs = 0
       ENDIF
+      IF (lhave_radar) THEN
+        IF (num_io_procs_radar > 0) THEN
+          CALL print_info_stderr(method_name, &
+               & 'num_io_procs_radar cannot be > 0 in seq run')
+          CALL print_info_stderr(method_name, &
+               & '--> num_io_procs_radar set to 0')
+          num_io_procs_radar = 0
+        ENDIF
+      ENDIF
       IF (num_restart_procs > 0) THEN
         CALL print_info_stderr(method_name, &
             & 'num_restart_procs cannot be > 0 in seq run')
@@ -1248,8 +1426,11 @@ CONTAINS
         sizeof_prefetch_processes = 0
       ENDIF
     ENDIF
-    IF(num_io_procs < 0) num_io_procs = 0           ! for safety only
-    IF(num_restart_procs < 0) num_restart_procs = 0 ! for safety only
+    IF(num_io_procs < 0) num_io_procs = 0              ! for safety only
+    IF (lhave_radar) THEN
+      IF (num_io_procs_radar < 0) num_io_procs_radar = 0  ! for safety only
+    ENDIF
+    IF(num_restart_procs < 0) num_restart_procs = 0    ! for safety only
     IF(sizeof_prefetch_processes < 0) sizeof_prefetch_processes = 0 ! for safety only
     ! -----------------------------------------
     ! Set if test
@@ -1262,15 +1443,33 @@ CONTAINS
     ELSE
       num_test_procs = 0
     ENDIF
+    IF (lhave_radar) THEN
+      num_radario_procs = num_io_procs_radar
+    ELSE
+      num_radario_procs = 0
+    END IF
 
     ! -----------------------------------------
     ! how many work processors?
-    num_work_procs = process_mpi_all_size - num_test_procs - num_io_procs - num_restart_procs - sizeof_prefetch_processes
+    num_work_procs = process_mpi_all_size - num_test_procs - num_io_procs - num_restart_procs - sizeof_prefetch_processes &
+                        - num_radario_procs
 
     ! Check if there are sufficient PEs at all
     IF(num_work_procs < 1) THEN
+      WRITE (message_text, &
+             '(a,7("  |  ",a,i0))' &
+             ) 'ERROR in processor config: ', &
+             & 'total number of procs: ', process_mpi_all_size, &
+             & 'num_test_procs: ', num_test_procs, &
+             & 'num_work_procs: ',num_work_procs, &
+             & 'num_io_procs: ',num_io_procs, &
+             & 'num_io_procs_radar: ',num_radario_procs, &
+             & 'num_restart_procs: ',num_restart_procs, &
+             & 'sizeof_prefetch_process: ',sizeof_prefetch_processes
+      CALL print_info_stderr(method_name, TRIM(message_text))
       CALL finish(method_name, &
-      & 'not enough processors for given values of p_test_run/num_io_procs/num_restart_procs/sizeof_prefetch_processes')
+      & 'not enough processors for given values of p_test_run/num_io_procs/num_restart_procs/'// &
+      &    'sizeof_prefetch_processes/num_radario_procs')
     ELSE IF (p_test_run .AND. num_work_procs == 1) THEN
 #ifdef _OPENACC
       PRINT *, "Testing 1 CPU against 1 GPU"
@@ -1294,6 +1493,8 @@ CONTAINS
     p_io_pe0      = num_test_procs + num_work_procs
     p_restart_pe0 = num_test_procs + num_work_procs + num_io_procs
     p_pref_pe0    = num_test_procs + num_work_procs + num_io_procs + num_restart_procs
+    ! preliminary, will be re-computed below to match the requirements from EMVORADO:
+    p_radario_pe0 = num_test_procs + num_work_procs + num_io_procs + num_restart_procs + sizeof_prefetch_processes
 
     ! Print the process layout
     WRITE (message_text, *) "0 <= ", num_test_procs, " test procs < "                          , &
@@ -1301,6 +1502,7 @@ CONTAINS
                           & p_io_pe0,      " <= ", num_io_procs, " io procs < "                , &
                           & p_restart_pe0, " <= ", num_restart_procs, " restart procs < "      , &
                           & p_pref_pe0,    " <= ", sizeof_prefetch_processes, " pref procs < " , &
+                          & p_radario_pe0, " <= ", num_radario_procs, " radario procs < "     , &
                           & process_mpi_all_size
     CALL print_info_stderr(method_name, message_text)
 
@@ -1321,11 +1523,13 @@ CONTAINS
       ! Restart PE (if present)
       p_n_work  = num_restart_procs
       p_pe_work = p_pe - num_test_procs - num_work_procs - num_io_procs
-    ELSE
+    ELSE IF (p_pe < p_radario_pe0) THEN
       p_n_work  = sizeof_prefetch_processes
       p_pe_work = p_pe - num_test_procs - num_work_procs - num_io_procs - num_restart_procs
+    ELSE
+      p_n_work  = num_radario_procs
+      p_pe_work = p_pe - num_test_procs - num_work_procs - num_io_procs - num_restart_procs - sizeof_prefetch_processes
     ENDIF
-
 
     ! Set communicators
     ! =================
@@ -1341,8 +1545,10 @@ CONTAINS
       my_mpi_function = io_mpi_process
     ELSE IF(p_pe < p_pref_pe0) THEN
       my_mpi_function = restart_mpi_process
-    ELSE
+    ELSE IF (p_pe < p_radario_pe0) THEN
       my_mpi_function = pref_mpi_process
+    ELSE
+      my_mpi_function = radario_mpi_process
     ENDIF
 
     ! create intra-communicators for
@@ -1369,6 +1575,27 @@ CONTAINS
       p_comm_work_test = MPI_COMM_NULL
     ENDIF
 
+    ! Apply communicator splitting in case of NEC hybrid mode
+    p_comm_work_only = p_comm_work
+    p_workonly_pe0   = p_work_pe0
+    p_pe_work_only   = p_pe_work
+
+    IF (PRESENT(num_dio_procs)) THEN
+       IF (my_mpi_function == work_mpi_process .AND. num_dio_procs > 0) THEN
+          ! set first process of p_comm_work_only
+          p_workonly_pe0 = p_work_pe0 + num_dio_procs
+          IF (p_pe > p_work_pe0 + num_dio_procs - 1) THEN
+             ! give color to real work processes
+             my_color = 1
+          ELSE
+             ! give color to detached stdio-PEs
+             my_color = 2
+          END IF
+          CALL MPI_COMM_SPLIT(p_comm_work, my_color, p_pe, p_comm_work_only, p_error)
+          CALL MPI_COMM_RANK (p_comm_work_only, p_pe_work_only, p_error)
+       ENDIF
+    ENDIF
+
     ! Create p_comm_work_io, the communicator spanning work group and I/O PEs
     IF (num_io_procs > 0) THEN
       my_color = MERGE(2, &
@@ -1378,6 +1605,40 @@ CONTAINS
            .OR. my_mpi_function == io_mpi_process)
       CALL mpi_comm_split(process_mpi_all_comm, my_color, p_pe, &
            p_comm_work_io, p_error)
+
+      ! Check whether all detached std I/O PEs and I/O PEs run on same architecture
+#ifdef __NEC__
+      my_arch = 1 ! NEC-SX
+#else
+      my_arch = 0
+#endif
+
+      IF (p_comm_work_io /= MPI_COMM_NULL) THEN
+        ! gather all architectures on PE0
+        ALLOCATE(glb_arch(num_work_procs + num_io_procs))
+        CALL p_gather(my_arch, glb_arch, 0, p_comm_work_io)
+
+        ! compare process architectures with PE0 architecture
+        IF (p_pe == p_work_pe0) THEN
+
+          arch_mismatch = .FALSE.
+          ! check all detached std I/O PEs
+          DO p = 1, num_dio_procs
+            IF (my_arch /= glb_arch(p)) arch_mismatch = .TRUE.
+          END DO
+          ! check all I/O PEs
+          DO p = num_work_procs + 1, num_work_procs + num_io_procs
+            IF (my_arch /= glb_arch(p)) arch_mismatch = .TRUE.
+          END DO
+          DEALLOCATE(glb_arch)
+
+          ! if mismatch found, abort
+          IF (arch_mismatch) THEN
+            CALL finish(routine, "All detached std I/O PEs and I/O PEs must run on same architecture!")
+          END IF
+        END IF
+      END IF
+
       IF (pio_type_ == pio_type_async &
         & .AND. (     my_mpi_function == work_mpi_process &
         &        .OR. my_mpi_function == io_mpi_process)) THEN
@@ -1538,8 +1799,33 @@ CONTAINS
 #ifdef _OPENMP
     IF (l_test_openmp .AND. my_mpi_function == test_mpi_process) &
          CALL OMP_SET_NUM_THREADS(1)
-    IF (p_pe >= p_io_pe0) CALL OMP_SET_NUM_THREADS(1)
+    IF (p_pe >= p_io_pe0 .AND. p_pe < p_radario_pe0) CALL OMP_SET_NUM_THREADS(1)
 #endif
+
+    IF (lhave_radar) THEN
+      IF (num_radario_procs > 0) THEN
+        p_radario_pe0 = num_test_procs + num_work_procs + num_io_procs + num_restart_procs + sizeof_prefetch_processes
+      ELSE
+        p_radario_pe0 = p_work_pe0
+      END IF
+      IF (my_process_is_work()) THEN
+        icomm_cart = p_comm_work
+        my_cart_id = p_pe_work
+      ELSE
+        icomm_cart = MPI_COMM_NULL
+        my_cart_id = MPI_UNDEFINED
+      END IF
+      message_text(:) = ' '
+      CALL init_emvorado_mpi ( radar_flag_doms_model,            & ! INPUT
+           process_mpi_all_comm, p_pe, process_mpi_all_size,     & ! INPUT
+           icomm_cart, my_cart_id, num_work_procs,               & ! INPUT
+           my_process_is_work(),                                 & ! INPUT
+           num_radario_procs, p_work_pe0, p_radario_pe0,         & ! INPUT
+           p_error, message_text)
+      IF (p_error /= 0) THEN
+        CALL finish ('init_emvorado_mpi', TRIM(message_text))
+      END IF
+    END IF
 
 #endif
 
@@ -1549,6 +1835,8 @@ CONTAINS
     process_mpi_all_test_id         = p_work_pe0-1
     process_mpi_restart_size        = num_restart_procs
     process_mpi_io_size             = num_io_procs
+    process_mpi_radario_size        = num_radario_procs
+    process_mpi_all_radarioroot_id  = p_radario_pe0
     process_mpi_all_prefroot_id     = p_pref_pe0
     process_mpi_pref_size           = sizeof_prefetch_processes
     p_comm_work_pref_compute_pe0    = p_work_pe0
@@ -1599,16 +1887,136 @@ CONTAINS
     DEALLOCATE(root_buffer)
 #endif
 
+! if there is a hamocc proccess, create hamocc-ocean communicator
+#ifndef NOMPI
+      IF (process_exists(hamocc_process)) THEN
+        ALLOCATE(root_buffer(2))
+
+        IF ((get_my_process_type() == hamocc_process .or. get_my_process_type() == ocean_process) &
+            .AND. my_mpi_function == work_mpi_process) THEN
+          my_color = 1 
+        ELSE
+          my_color = 0
+        ENDIF
+        ! create a intracommunicator between hamocc and ocean
+        CALL mpi_comm_split(global_mpi_communicator, my_color, my_global_mpi_id, &
+          tmp_common_intracom, p_error)
+          
+        IF (my_color == 0)  THEN
+          ! we will not use this communicator if not hamocc and ocean
+          CALL MPI_COMM_FREE(tmp_common_intracom, p_error)
+          hamocc_ocean_mpi_communicator = MPI_COMM_NULL 
+        ELSE
+          !------------------------------------------------
+          ! we neet to create an intercommunicator 
+          !   split again to the compoment communicators
+          CALL MPI_COMM_RANK (tmp_common_intracom, my_common_intracom_mpi_id, p_error)
+          my_color = get_my_process_type()
+          CALL mpi_comm_split(tmp_common_intracom, my_color, my_common_intracom_mpi_id, &
+            tmp_work_intracom, p_error)
+          CALL MPI_COMM_RANK (tmp_work_intracom, my_work_intracom_mpi_id, p_error)        
+        
+          ! get the my_common_intracom_mpi_id of the roots to proc 0
+          !   first get the hamocc root_buffer
+          I_am_sender = .false.
+          I_am_receiver = .false.
+          IF (my_process_is_hamocc() .AND. my_work_intracom_mpi_id == 0) THEN
+            root_buffer(1) = my_common_intracom_mpi_id
+            hamocc_root = my_common_intracom_mpi_id
+            I_am_sender = .true.
+          ENDIF
+          IF (my_common_intracom_mpi_id == 0) I_am_receiver = .true.
+          IF (I_am_receiver .and. I_am_sender) THEN
+            ! do nothing 
+            I_am_receiver = .false.
+            I_am_sender   = .false.
+          ENDIF
+          !  sent the hamocc root_buffer
+          IF (I_am_sender) THEN
+            CALL MPI_SEND(root_buffer, 1, p_int, 0, 0, tmp_common_intracom, p_error)
+          ENDIF
+          IF (I_am_receiver) THEN
+            root_buffer(1) = -1        
+            CALL MPI_RECV(root_buffer, 1, p_int, MPI_ANY_SOURCE, 0, &
+              & tmp_common_intracom, p_status, p_error)
+            hamocc_root = root_buffer(1)          
+          ENDIF        
+          
+          ! now get the ocean root_buffer
+          I_am_sender = .false.
+          I_am_receiver = .false.
+          IF (my_process_is_ocean() .AND. my_work_intracom_mpi_id == 0) THEN
+            root_buffer(1) = my_common_intracom_mpi_id
+            ocean_root = my_common_intracom_mpi_id
+            I_am_sender = .true.
+          ENDIF
+          IF (my_common_intracom_mpi_id == 0) I_am_receiver = .true.
+          IF (I_am_receiver .and. I_am_sender) THEN
+            ! do nothing 
+            I_am_receiver = .false.
+            I_am_sender   = .false.
+          ENDIF
+          ! sent the hamocc root_buffer
+          IF (I_am_sender) THEN
+            CALL MPI_SEND(root_buffer, 1, p_int, 0, 0, tmp_common_intracom, p_error)
+          ENDIF
+          IF (I_am_receiver) THEN
+            root_buffer(1) = -1        
+            CALL MPI_RECV(root_buffer, 1, p_int, MPI_ANY_SOURCE, 0, &
+              & tmp_common_intracom, p_status, p_error)
+            ocean_root = root_buffer(1)          
+          ENDIF        
+        
+          ! ok, now broadcast the ocean and hamocc roots
+          IF (my_common_intracom_mpi_id == 0) THEN
+            root_buffer(1) = ocean_root
+            root_buffer(2) = hamocc_root          
+            CALL MPI_BCAST(root_buffer, 2, p_int, 0, tmp_common_intracom, p_error)
+          ELSE
+            CALL MPI_BCAST(root_buffer, 2, p_int, 0, tmp_common_intracom, p_error)
+            ocean_root = root_buffer(1)
+            hamocc_root = root_buffer(2)
+          ENDIF
+          
+          ! now we are ready to create the intercommunicator between haomcc and ocean
+          IF (my_process_is_ocean()) THEN
+            CALL MPI_Intercomm_create(tmp_work_intracom, 0, tmp_common_intracom, &
+              & hamocc_root, 0, hamocc_ocean_mpi_communicator, p_error)
+          ELSE
+              ! this is a hamocc process
+            CALL MPI_Intercomm_create(tmp_work_intracom, 0, tmp_common_intracom, &
+                & ocean_root, 0, hamocc_ocean_mpi_communicator, p_error)
+                                    
+          ENDIF
+          
+          CALL MPI_COMM_FREE(tmp_work_intracom, p_error)
+          CALL MPI_COMM_FREE(tmp_common_intracom, p_error)
+
+          ! -- done -- 
+        ENDIF
+        
+        DEALLOCATE(root_buffer)
+       
+      ENDIF ! hamocc process exists 
+#endif
+    
+#ifdef HAVE_YAXT
+!   initialize here yaxt for all the processors
+      IF (.NOT. xt_initialized()) CALL xt_initialize(global_mpi_communicator)
+#endif
+
     ! still to be filled
 !     process_mpi_local_comm  = process_mpi_all_comm
 !     process_mpi_local_size  = process_mpi_all_size
 !     my_process_mpi_local_id = my_process_mpi_all_id
+   
 
 #ifdef DEBUG
       WRITE (nerr,'(a,a,i5)') method_name, ' p_pe=',            p_pe
       WRITE (nerr,'(a,a,i5)') method_name, ' p_work_pe0=',      p_work_pe0
       WRITE (nerr,'(a,a,i5)') method_name, ' p_io_pe0=',        p_io_pe0
       WRITE (nerr,'(a,a,i5)') method_name, ' p_restart_pe0=',   p_restart_pe0
+      WRITE (nerr,'(a,a,i5)') method_name, ' p_radario_pe0=',   p_radario_pe0
       WRITE (nerr,'(a,a,i5)') method_name, ' p_comm_work=',     p_comm_work
       WRITE (nerr,'(a,a,i5)') method_name, ' p_comm_work_2_restart=', &
         & p_comm_work_2_restart
@@ -1640,7 +2048,7 @@ CONTAINS
     other_comp_root_global_mpi_id = -1
 
     DO i = 1, num_component
-  !    write(0,*) "get_mpi_work_intercomm:", i, p_work_root_processes(i)%comp_id 
+  !    write(0,*) "get_mpi_work_intercomm:", i, p_work_root_processes(i)%comp_id
       IF (p_work_root_processes(i)%comp_id == other_comp_id) THEN
         other_comp_root_global_mpi_id = p_work_root_processes(i)%global_mpi_id
       END IF
@@ -1679,6 +2087,7 @@ CONTAINS
     process_mpi_io_size         = 0
     process_mpi_restart_size    = 0
     process_mpi_pref_size       = 0
+    process_mpi_radario_size    = 0
     p_comm_work_pref_compute_pe0 = 0
 
 !     process_mpi_local_comm  = process_mpi_all_comm
@@ -1693,6 +2102,7 @@ CONTAINS
     num_work_procs = process_mpi_all_size
     p_work_pe0     = 0
     p_io_pe0       = process_mpi_all_size    ! Number of I/O PE 0 within all PEs (process_mpi_all_size if no I/O PEs)
+    p_radario_pe0  = process_mpi_all_size
     ! Number of prefetching PE 0 within all PEs (process_mpi_all_size if no prefetching PEs)
     p_pref_pe0     = process_mpi_all_size
     p_n_work       = process_mpi_all_size
@@ -2041,6 +2451,8 @@ CONTAINS
       p_real = mpi_datatype_null
     END IF
 
+    p_mpi_comm_null = MPI_COMM_NULL
+
 #ifdef DEBUG
     WRITE (nerr,'(/,a)')    ' MPI transfer sizes [bytes]:'
     WRITE (nerr,'(a,i4)') '  INTEGER generic:', p_int_byte
@@ -2061,6 +2473,7 @@ CONTAINS
     is_global_mpi_parallel = .false.
     process_mpi_name = 'uknown'
     process_mpi_all_comm = MPI_COMM_NULL
+    p_mpi_comm_null = MPI_COMM_NULL
 
 #endif
 
@@ -7989,7 +8402,7 @@ CONTAINS
     TYPE(datetime), POINTER             :: mtime_datetime_ptr
     TYPE(datetime), POINTER             :: datetime_loc
     INTEGER                             :: errno
- 
+
 #ifndef NOMPI
     mtime_datetime_ptr => mtime_datetime
     CALL datetimeToString(mtime_datetime_ptr, mtime_datetime_str, errno)
@@ -8433,14 +8846,14 @@ CONTAINS
 
   END FUNCTION p_sum_i8_1d
 
-  FUNCTION p_sum_i_1d (kfield, comm) RESULT (p_sum)
+  FUNCTION p_sum_i_1d (kfield, comm, root) RESULT (p_sum)
 
     INTEGER,       INTENT(in) :: kfield(:)
-    INTEGER, OPTIONAL, INTENT(in) :: comm
+    INTEGER, OPTIONAL, INTENT(in) :: comm, root
     INTEGER                   :: p_sum (SIZE(kfield))
 
 #ifndef NOMPI
-    INTEGER :: p_comm
+    INTEGER :: p_comm, my_rank
 
     IF (PRESENT(comm)) THEN
        p_comm = comm
@@ -8449,8 +8862,17 @@ CONTAINS
     ENDIF
 
     IF (my_process_is_mpi_all_parallel()) THEN
-       CALL MPI_ALLREDUCE (kfield, p_sum, SIZE(kfield), p_int, &
+      IF (PRESENT(root)) THEN
+        CALL MPI_REDUCE(kfield, p_sum, SIZE(kfield), p_int, &
+             mpi_sum, root, p_comm, p_error)
+        ! get local PE identification
+        CALL mpi_comm_rank(p_comm, my_rank, p_error)
+        ! do not use the result on all the other ranks:
+        IF (root /= my_rank) p_sum = kfield
+      ELSE
+        CALL MPI_ALLREDUCE (kfield, p_sum, SIZE(kfield), p_int, &
             mpi_sum, p_comm, p_error)
+      END IF
     ELSE
        p_sum = kfield
     END IF

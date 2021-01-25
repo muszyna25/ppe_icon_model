@@ -34,8 +34,7 @@ MODULE mo_dictionary
   USE mo_io_units,       ONLY: find_next_free_unit
   USE mo_key_value_store, ONLY: t_key_value_store
 #else
-  USE mo_utilities,      ONLY: finish, message_text, tolower, tocompact, &
-    &                          SUCCESS, find_next_free_unit
+  USE mo_utilities,      ONLY: finish, tocompact, find_next_free_unit
 #endif
 
   IMPLICIT NONE
@@ -102,7 +101,7 @@ CONTAINS
   !
   FUNCTION dict_get(dict, key, default, linverse) RESULT(val)
     CHARACTER(LEN=DICT_MAX_STRLEN) :: val !< return value.
-    CLASS(t_dictionary), INTENT(IN) :: dict !< dictionary data structure
+    CLASS(t_dictionary), INTENT(IN), TARGET :: dict !< dictionary data structure
     CHARACTER(*), INTENT(IN) :: key  !< new search key
     CHARACTER(*), INTENT(IN), OPTIONAL :: default  !< default value
     LOGICAL, INTENT(IN), OPTIONAL :: linverse !< Flag. If .TRUE., the dictionary is queried in inverse order.
@@ -110,19 +109,17 @@ CONTAINS
     CHARACTER(:), ALLOCATABLE :: tmp
     INTEGER :: opt_err
     LOGICAL :: linv
+    TYPE(t_key_value_store), POINTER :: dic_ptr
 
     linv = .FALSE.
-    val = ''
     IF (PRESENT(linverse)) linv = linverse
-    IF (linv) THEN
-      CALL dict%idic%get(key, tmp, opt_err=opt_err)
-    ELSE
-      CALL dict%dic%get(key, tmp, opt_err=opt_err)
-    END IF
+    dic_ptr => dict%dic
+    IF (linv) dic_ptr => dict%idic
+    CALL dic_ptr%get(key, tmp, opt_err=opt_err)
     IF (opt_err .EQ. 0) THEN
-      WRITE(val, "(a)") tmp
+      val = tmp
     ELSE IF (PRESENT(default)) THEN
-      WRITE(val, "(a)") TRIM(default)
+      val = TRIM(default)
     ELSE
       CALL finish(routine, 'Requested dictionary key ' // TRIM(key) // ' not found!')
     END IF
@@ -163,11 +160,9 @@ CONTAINS
       IF(llen .EQ. 0) CYCLE ! blank line
       IF(line(1:1) == '#') CYCLE ! comment
       klen = INDEX(line, ' ')
-      IF (klen-1 .GT. DICT_MAX_STRLEN) &
-        & CALL finish(routine, "Key does not fit into dictionary.")
-      IF (llen - klen - 1 .GT. DICT_MAX_STRLEN) &
-        & CALL finish(routine, "Value does not fit into dictionary.")
       IF (llen .LE. klen) CALL finish(routine, "Illegal line in name_map.")
+      IF (klen-1 .GT. DICT_MAX_STRLEN) CALL finish(routine, "Key too long")
+      IF (llen - klen - 1 .GT. DICT_MAX_STRLEN) CALL finish(routine, "Value too long.")
       key => line(1:klen-1)
       val => line(klen+1:llen)
       IF (.NOT. lread_inverse) THEN

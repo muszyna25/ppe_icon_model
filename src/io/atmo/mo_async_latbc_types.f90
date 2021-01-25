@@ -20,7 +20,7 @@
 !!
 MODULE mo_async_latbc_types
 
-  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_null_ptr, C_F_POINTER
+  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, C_F_POINTER
   USE mo_kind,                     ONLY: sp
   USE mo_dictionary,               ONLY: DICT_MAX_STRLEN
   USE mtime,                       ONLY: event, datetime, timedelta, &
@@ -30,7 +30,7 @@ MODULE mo_async_latbc_types
   USE mo_exception,                ONLY: finish, message
   USE mo_run_config,               ONLY: msg_level
   USE mo_reorder_info,             ONLY: t_reorder_info, release_reorder_info
-  USE mo_mpi,                      ONLY: get_my_global_mpi_id, p_comm_work, p_comm_work_pref, p_barrier
+  USE mo_mpi,                      ONLY: p_comm_work_pref, p_barrier
 #ifndef NOMPI
   USE mpi
 #endif

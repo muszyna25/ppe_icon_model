@@ -33,7 +33,7 @@ MODULE mo_nh_wk_exp
 !
   
    USE mo_kind,                 ONLY: wp
-   USE mo_physical_constants,   ONLY: rd_o_cpd, p0ref, grav, tmelt,  &
+   USE mo_physical_constants,   ONLY: rd_o_cpd, p0ref, grav, &
      &                                cvd_o_rd, cpd ,     &
      &                                vtmpc1 , rdv,  rd,             &
      &                                cp_d => cpd, &
@@ -41,7 +41,7 @@ MODULE mo_nh_wk_exp
    USE mo_math_types,           ONLY: t_cartesian_coordinates, t_geographical_coordinates
    USE mo_math_constants,       ONLY: pi, deg2rad
    USE mo_math_utilities,       ONLY: gc2cc, arc_length, plane_torus_distance
-   USE mo_grid_geometry_info,   ONLY: t_grid_geometry_info, planar_torus_geometry, sphere_geometry
+   USE mo_grid_geometry_info,   ONLY: planar_torus_geometry, sphere_geometry
    USE mo_model_domain,         ONLY: t_patch
    USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
    USE mo_run_config,           ONLY: iqv
@@ -59,7 +59,6 @@ MODULE mo_nh_wk_exp
    USE mo_nh_init_utils,        ONLY: init_w
    USE mo_hydro_adjust,         ONLY: hydro_adjust
    USE mo_vertical_coord_table, ONLY: vct_a
-   USE mo_grid_config,         ONLY: grid_sphere_radius
 
    IMPLICIT NONE
 

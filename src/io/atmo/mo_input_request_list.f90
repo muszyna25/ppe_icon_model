@@ -756,7 +756,7 @@ CONTAINS
            END DO
            IF (ASSOCIATED(fortranName_prev)) THEN
               CALL domainData%container%readField_omp(fortranName_prev, level, tileId, timer, &
-                p_patch%id, iterator, domainData%statistics, -1)
+                p_patch%id, iterator, domainData%statistics, -2)
               DEALLOCATE(fortranName_prev)
               NULLIFY(fortranName_prev)
            END IF
