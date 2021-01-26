@@ -720,7 +720,6 @@ CONTAINS
                             & pt_prog,                          & !>inout
                             & pt_prog_rcf%tracer,               & !>inout
                             & pt_prog_rcf%tke,                  & !>in
-                            & pt_prog_rcf%rho,                  & !>in
                             & pt_diag ,                         & !>inout
                             & prm_diag, prm_nwp_tend,           & !>inout
                             & lcompute_tt_lheat                 ) !>in

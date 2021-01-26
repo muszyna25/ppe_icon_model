@@ -101,7 +101,6 @@ CONTAINS
                             &   p_prog,                       & !>inout
                             &   ptr_tracer,                   & !>inout
                             &   ptr_tke,                      & !>in
-                            &   ptr_rho,                      & !>in
                             &   p_diag ,                      & !>inout
                             &   prm_diag,prm_nwp_tend,        & !>inout
                             &   lcompute_tt_lheat             ) !>in 
@@ -113,7 +112,6 @@ CONTAINS
     TYPE(t_nh_prog)        , INTENT(inout):: p_prog          !<the dyn prog vars
     REAL(wp), CONTIGUOUS_ARGUMENT(inout) :: ptr_tracer(:,:,:,:)
     REAL(wp), CONTIGUOUS_ARGUMENT(in) :: ptr_tke(:,:,:)
-    REAL(wp), CONTIGUOUS_ARGUMENT(in) :: ptr_rho(:,:,:)
     TYPE(t_nh_diag)        , INTENT(inout):: p_diag          !<the dyn diag vars
     TYPE(t_nwp_phy_diag)   , INTENT(inout):: prm_diag        !<the atm phys vars
     TYPE(t_nwp_phy_tend)   , TARGET, INTENT(inout):: prm_nwp_tend    !< atm tend vars
@@ -180,7 +178,7 @@ CONTAINS
     !$acc             zncn, qnc, qnc_s)
 
     !$ser verbatim call serialize_graupel_input(jg, nproma, nlev, p_metrics, p_prog,&
-    !$ser verbatim                              ptr_tracer, ptr_rho, ptr_tke, p_diag, prm_diag, prm_nwp_tend)
+    !$ser verbatim                              ptr_tracer, ptr_tke, p_diag, prm_diag, prm_nwp_tend)
 
     SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
     CASE(4,5,6,7)
@@ -208,7 +206,7 @@ CONTAINS
              
              DO jk = 1, nlev
                 DO jc = i_startidx, i_endidx
-                   rholoc = ptr_rho(jc,jk,jb)
+                   rholoc = p_prog%rho(jc,jk,jb)
                    rhoinv = 1.0_wp / rholoc
                    ptr_tracer(jc,jk,jb,iqnc) = set_qnc(ptr_tracer(jc,jk,jb,iqc)*rholoc)*rhoinv
                    ptr_tracer(jc,jk,jb,iqnr) = set_qnr(ptr_tracer(jc,jk,jb,iqr)*rholoc)*rhoinv
