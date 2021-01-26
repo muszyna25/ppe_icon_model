@@ -1,4 +1,13 @@
-AC_PREREQ([2.69])
+dnl We want to make sure that the configure script in the repository is always
+dnl generated with the same version of Autoconf. Currently, we stick to version
+dnl 2.69.
+m4_version_prereq([2.69], [
+dnl At this point, we know that we are using Autoconf 2.69 or higher, which also
+dnl means that the AC_AUTOCONF_VERSION macro is available.
+   m4_if(m4_version_compare(m4_defn([AC_AUTOCONF_VERSION]), [2.69]), [1],
+     [m4_fatal([Autoconf version 2.69 is required but version ]dnl
+m4_defn([AC_AUTOCONF_VERSION])[ is used], [63])])],
+  [m4_fatal([Autoconf version 2.69 is required], [63])])
 AC_INIT([icon], [2.6.0], [], [icon-2.6.0])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([utils])
@@ -62,14 +71,14 @@ run "make distclean" there first])])
 ############################# OPTION DECLARATIONS ##############################
 
 AC_ARG_ENABLE([rpaths],
-  [AC_HELP_STRING([--enable-rpaths],
+  [AS_HELP_STRING([--enable-rpaths],
      [add directories specified with -L flags in LDFLAGS and LIBS to the
 runtime library search paths (RPATH) @<:@default=yes@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_rpaths=yes])],
   [enable_rpaths=yes])
 
 AC_ARG_ENABLE([silent-rules],
-  [AC_HELP_STRING([--enable-silent-rules],
+  [AS_HELP_STRING([--enable-silent-rules],
      [less verbose build output (undo: "make V=1") @<:@default=yes@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_silent_rules=yes])],
   [enable_silent_rules=yes])
@@ -78,70 +87,70 @@ m4_divert_once([HELP_ENABLE], [[
 Model Features:]])
 
 AC_ARG_ENABLE([atmo],
-  [AC_HELP_STRING([--enable-atmo],
+  [AS_HELP_STRING([--enable-atmo],
      [enable the atmosphere component of ICON @<:@default=yes@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_atmo=yes])],
   [enable_atmo=yes])
   
 AC_ARG_ENABLE([ocean],
-  [AC_HELP_STRING([--enable-ocean],
+  [AS_HELP_STRING([--enable-ocean],
      [enable the ocean component of ICON @<:@default=yes@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_ocean=yes])],
   [enable_ocean=yes])
 
 AC_ARG_ENABLE([jsbach],
-  [AC_HELP_STRING([--enable-jsbach],
+  [AS_HELP_STRING([--enable-jsbach],
      [enable the land component JSBACH @<:@default=yes@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_jsbach=yes])],
   [enable_jsbach=yes])
 
 AC_ARG_ENABLE([coupling],
-  [AC_HELP_STRING([--enable-coupling],
+  [AS_HELP_STRING([--enable-coupling],
      [enable the coupling @<:@default=yes@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_coupling=yes])],
   [enable_coupling=yes])
 
 AC_ARG_ENABLE([concurrent-psrad],
-  [AC_HELP_STRING([--enable-concurrent-psrad],
+  [AS_HELP_STRING([--enable-concurrent-psrad],
      [enable the concurrent mode of the radiation component PSRAD
 @<:@default=yes@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_concurrent_psrad=yes])],
   [enable_concurrent_psrad=yes])
 
 AC_ARG_ENABLE([ecrad],
-  [AC_HELP_STRING([--enable-ecrad],
+  [AS_HELP_STRING([--enable-ecrad],
      [enable usage of the ECMWF radiation scheme (ECRAD) @<:@default=no@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_ecrad=yes])],
   [enable_ecrad=no])
 
 AC_ARG_ENABLE([rte-rrtmgp],
-  [AC_HELP_STRING([--enable-rte-rrtmgp],
+  [AS_HELP_STRING([--enable-rte-rrtmgp],
      [enable usage of the RTE+RRTMGP toolbox for radiation calculations
 @<:@default=no@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_rte_rrtmgp=yes])],
   [enable_rte_rrtmgp=no])
 
 AC_ARG_ENABLE([rttov],
-  [AC_HELP_STRING([--enable-rttov],
+  [AS_HELP_STRING([--enable-rttov],
      [enable usage of the radiative transfer model for TOVS
 @<:@default=no@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_rttov=yes])],
   [enable_rttov=no])
 
 AC_ARG_ENABLE([dace],
-  [AC_HELP_STRING([--enable-dace],
+  [AS_HELP_STRING([--enable-dace],
      [enable the DACE modules for data assimilation @<:@default=no@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_dace=yes])],
   [enable_dace=no])
 
 AC_ARG_ENABLE([emvorado],
-  [AC_HELP_STRING([--enable-emvorado],
+  [AS_HELP_STRING([--enable-emvorado],
      [enable the radar forward operator EMVORADO @<:@default=no@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_emvorado=yes])],
   [enable_emvorado=no])
 
 AC_ARG_ENABLE([art],
-  [AC_HELP_STRING([--enable-art],
+  [AS_HELP_STRING([--enable-art],
      [enable the aerosols and reactive trace component ART
 @<:@default=no@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_art=yes])],
@@ -151,64 +160,64 @@ m4_divert_once([HELP_ENABLE], [[
 Infrastructural Features:]])
 
 AC_ARG_ENABLE([mpi],
-  [AC_HELP_STRING([--enable-mpi],
+  [AS_HELP_STRING([--enable-mpi],
      [enable MPI (parallelization) support @<:@default=yes@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_mpi=yes])],
   [enable_mpi=yes])
 
 AC_ARG_ENABLE([mpi-checks],
-  [AC_HELP_STRING([--enable-mpi-checks],
+  [AS_HELP_STRING([--enable-mpi-checks],
      [enable configure-time checks of MPI library for known defects ]dnl
 [@<:@default=yes@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_mpi_checks=yes])],
   [enable_mpi_checks=yes])
 
 AC_ARG_ENABLE([active-target-sync],
-  [AC_HELP_STRING([--enable-active-target-sync],
+  [AS_HELP_STRING([--enable-active-target-sync],
      [enable MPI active target mode (otherwise, passive target mode is used)
 @<:@default=no@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_active_target_sync=yes])],
   [enable_active_target_sync=no])
 
 AC_ARG_ENABLE([openmp],
-  [AC_HELP_STRING([--enable-openmp],
+  [AS_HELP_STRING([--enable-openmp],
      [enable OpenMP support @<:@default=no@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_openmp=yes])],
   [enable_openmp=no])
 
 AC_ARG_ENABLE([gpu],
-  [AC_HELP_STRING([--enable-gpu],
+  [AS_HELP_STRING([--enable-gpu],
      [enable GPU support @<:@default=no@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_gpu=yes])],
   [enable_gpu=no])
 
 AC_ARG_ENABLE([grib2],
-  [AC_HELP_STRING([--enable-grib2],
+  [AS_HELP_STRING([--enable-grib2],
      [enable GRIB2 I/O @<:@default=no@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_grib2=yes])],
   [enable_grib2=no])
 
 AC_ARG_ENABLE([parallel-netcdf],
-  [AC_HELP_STRING([--enable-parallel-netcdf],
+  [AS_HELP_STRING([--enable-parallel-netcdf],
      [enable usage of the parallel features of NetCDF
 @<:@default=no@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_parallel_netcdf=yes])],
   [enable_parallel_netcdf=no])
 
 AC_ARG_ENABLE([cdi-pio],
-  [AC_HELP_STRING([--enable-cdi-pio],
+  [AS_HELP_STRING([--enable-cdi-pio],
      [enable usage of the parallel features of CDI @<:@default=no@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_cdi_pio=yes])],
   [enable_cdi_pio=no])
 
 AC_ARG_ENABLE([sct],
-  [AC_HELP_STRING([--enable-sct],
+  [AS_HELP_STRING([--enable-sct],
      [enable the SCT timer @<:@default=no@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_sct=yes])],
   [enable_sct=no])
 
 AC_ARG_ENABLE([yaxt],
-  [AC_HELP_STRING([--enable-yaxt],
+  [AS_HELP_STRING([--enable-yaxt],
      [enable the YAXT data exchange @<:@default=no@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_yaxt=yes])],
   [enable_yaxt=no])
@@ -228,7 +237,7 @@ AC_ARG_ENABLE([claw],
 [enable_claw=no])
 
 AC_ARG_ENABLE([explicit-fpp],
-  [AC_HELP_STRING([--enable-explicit-fpp],
+  [AS_HELP_STRING([--enable-explicit-fpp],
      [enable explicit Fortran preprocessing @<:@default=auto@:>@])],
   [AS_IF([test x"$enableval" != xno && test x"$enableval" != xauto],
      [enable_explicit_fpp=yes])],
@@ -251,7 +260,7 @@ AC_ARG_ENABLE([serialization],
 [enable_serialization=no])
 
 AC_ARG_ENABLE([testbed],
-  [AC_HELP_STRING([--enable-testbed],
+  [AS_HELP_STRING([--enable-testbed],
      [enable ICON Testbed infrastructure @<:@default=no@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_testbed=yes])],
   [enable_testbed=no])
@@ -260,13 +269,13 @@ m4_divert_once([HELP_ENABLE], [[
 Optimization Features:]])
 
 AC_ARG_ENABLE([loop-exchange],
-  [AC_HELP_STRING([--enable-loop-exchange],
+  [AS_HELP_STRING([--enable-loop-exchange],
      [enable loop exchange @<:@default=yes@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_loop_exchange=yes])],
   [enable_loop_exchange=yes])
 
 AC_ARG_ENABLE([intel-consistency],
-  [AC_HELP_STRING([--enable-intel-consistency],
+  [AS_HELP_STRING([--enable-intel-consistency],
      [enable Intel compiler directives enforcing consistency
 @<:@default=auto@:>@])],
   [AS_IF([test x"$enableval" != xno && test x"$enableval" != xauto],
@@ -274,14 +283,14 @@ AC_ARG_ENABLE([intel-consistency],
   [enable_intel_consistency=auto])
 
 AC_ARG_ENABLE([vectorized-lrtm],
-  [AC_HELP_STRING([--enable-vectorized-lrtm],
+  [AS_HELP_STRING([--enable-vectorized-lrtm],
      [enable the parallelization-invariant version of LRTM
 @<:@default=no@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_vectorized_lrtm=yes])],
   [enable_vectorized_lrtm=no])
 
 AC_ARG_ENABLE([mixed-precision],
-  [AC_HELP_STRING([--enable-mixed-precision],
+  [AS_HELP_STRING([--enable-mixed-precision],
      [enable mixed precision dycore @<:@default=no@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_mixed_precision=yes])],
   [enable_mixed_precision=no])
@@ -289,65 +298,65 @@ AC_ARG_ENABLE([mixed-precision],
 dnl Optional Packages:
 
 AC_ARG_WITH([external-ecrad],
-  [AC_HELP_STRING([--with-external-ecrad],
+  [AS_HELP_STRING([--with-external-ecrad],
      [use external ECRAD library @<:@default=no@:>@])],
   [AS_IF([test x"$withval" != xno], [with_external_ecrad=yes])],
   [with_external_ecrad=no])
 
 AC_ARG_WITH([external-rte-rrtmgp],
-     [AC_HELP_STRING([--with-external-rte-rrtmgp],
+     [AS_HELP_STRING([--with-external-rte-rrtmgp],
         [use external RTE+RRTMGP library @<:@default=no@:>@])],
   [AS_IF([test x"$withval" != xno], [with_external_rte_rrtmgp=yes])],
   [with_external_rte_rrtmgp=no])
 
 AC_ARG_WITH([external-sct],
-  [AC_HELP_STRING([--with-external-sct],
+  [AS_HELP_STRING([--with-external-sct],
      [use external SCT library (when the SCT timer is enabled)
 @<:@default=no@:>@])],
   [AS_IF([test x"$withval" != xno], [with_external_sct=yes])],
   [with_external_sct=no])
 
 AC_ARG_WITH([external-yaxt],
-  [AC_HELP_STRING([--with-external-yaxt],
+  [AS_HELP_STRING([--with-external-yaxt],
      [use external YAXT library (when the YAXT data exchange is enabled)
 @<:@default=no@:>@])],
   [AS_IF([test x"$withval" != xno], [with_external_yaxt=yes])],
   [with_external_yaxt=no])
 
 AC_ARG_WITH([external-cdi],
-  [AC_HELP_STRING([--with-external-cdi],
+  [AS_HELP_STRING([--with-external-cdi],
      [use external CDI library @<:@default=no@:>@])],
   [AS_IF([test x"$withval" != xno], [with_external_cdi=yes])],
   [with_external_cdi=no])
 
 AC_ARG_WITH([external-mtime],
-  [AC_HELP_STRING([--with-external-mtime],
+  [AS_HELP_STRING([--with-external-mtime],
      [use external MTIME library @<:@default=no@:>@])],
   [AS_IF([test x"$withval" != xno], [with_external_mtime=yes])],
   [with_external_mtime=no])
 
 AC_ARG_WITH([external-yac],
-  [AC_HELP_STRING([--with-external-yac],
+  [AS_HELP_STRING([--with-external-yac],
      [use external YAC library (when the coupling is enabled)
 @<:@default=no@:>@])],
   [AS_IF([test x"$withval" != xno], [with_external_yac=yes])],
   [with_external_yac=no])
 
 AC_ARG_WITH([external-tixi],
-  [AC_HELP_STRING([--with-external-tixi],
+  [AS_HELP_STRING([--with-external-tixi],
      [use external TIXI library (when ART is enabled)
 @<:@default=no@:>@])],
   [AS_IF([test x"$withval" != xno], [with_external_tixi=yes])],
   [with_external_tixi=no])
 
 AC_ARG_WITH([external-self],
-  [AC_HELP_STRING([--with-external-self],
+  [AS_HELP_STRING([--with-external-self],
      [use external SELF library @<:@default=no@:>@])],
   [AS_IF([test x"$withval" != xno], [with_external_self=yes])],
   [with_external_self=no])
 
 AC_ARG_WITH([external-cub],
-  [AC_HELP_STRING([--with-external-cub],
+  [AS_HELP_STRING([--with-external-cub],
      [use external CUB library @<:@default=no@:>@])],
   [AS_IF([test x"$withval" != xno], [with_external_cub=yes])],
   [with_external_cub=no])
@@ -633,15 +642,6 @@ CFLAGS=${CFLAGS-}
 AC_PROG_CC
 AC_LANG([C])
 
-dnl Supporting ISO C89 means that the following header files are available:
-dnl stdlib.h, stdio.h, math.h, time.h, ctype.h, string.h, signal.h, limits.h
-dnl errno.h, ctype.h assert.h.
-AS_VAR_IF([ac_cv_prog_cc_c89], [no],
-  [AC_MSG_FAILURE([C compiler does not support ISO C89])])
-
-dnl Some of the C source files require support for ISO C99. Supporting ISO C99
-dnl also means that the following header files are available:
-dnl stdbool.h.
 AC_PROG_CC_C99
 AS_VAR_IF([ac_cv_prog_cc_c99], [no],
   [AC_MSG_FAILURE([C compiler does not support ISO C99])])
@@ -660,17 +660,20 @@ the bundled libraries @<:@default=$ICON_CFLAGS@:>@])dnl
 ICON_BUNDLED_CFLAGS=${ICON_BUNDLED_CFLAGS-$ICON_CFLAGS}
 subdir_CFLAGS=$CFLAGS
 
-dnl Check for headers that are protected with HAVE_* macros in the code
-dnl (override AC_INCLUDES_DEFAULT of autoconf 2.69, which runs additional
-dnl annoying checks; already fixed in the autoconf master branch):
-AC_CHECK_HEADERS([execinfo.h ucontext.h link.h], [], [],
-  [[// override default includes]])
-
-dnl Check for headers that are not protected at all:
-AC_CHECK_HEADERS([unistd.h fcntl.h pwd.h stdint.h sys/types.h sys/stat.h]dnl
-  [sys/param.h sys/resource.h sys/utsname.h sys/time.h sys/times.h dirent.h],
+dnl AC_PROG_CC, AC_PROG_CC_C99, and AC_INCLUDES_DEFAULT do check for some of the
+dnl following header files but the actual list of files they check for might
+dnl vary from version to version. Therefore, we check for all the headers that
+dnl are used in the code unconditionally:
+AC_CHECK_HEADERS([stdlib.h stdio.h math.h time.h ctype.h string.h signal.h ]dnl
+  [limits.h errno.h assert.h stdbool.h unistd.h fcntl.h pwd.h stdint.h ]dnl
+  [sys/types.h sys/stat.h sys/param.h sys/resource.h sys/utsname.h ]dnl
+  [sys/time.h sys/times.h dirent.h],
   [], [AC_MSG_FAILURE([unable to find header file $ac_header])],
   [[// override default includes]])
+
+dnl Check for headers that are protected with HAVE_* macros in the code:
+AC_CHECK_HEADERS([execinfo.h ucontext.h link.h],
+  [], [], [[// override default includes]])
 
 dnl Other header files that are protected in the code but not with the HAVE_*
 dnl macros:
@@ -687,27 +690,27 @@ dnl Don't use neither AS_IF nor AS_VAR_IF to prevent checking for NVCC when
 dnl GPU support is disabled:
 if test x"$enable_gpu" = xyes; then :
   ACX_PROG_NVCC
-   AS_VAR_IF([acx_cv_prog_nvcc_cuda], [no],
-     [AC_MSG_FAILURE([unable to find a working NVIDIA CUDA Compiler: either dnl
+  AS_VAR_IF([acx_cv_prog_nvcc_cuda], [no],
+    [AC_MSG_FAILURE([unable to find a working NVIDIA CUDA Compiler: either dnl
 disable GPU support (--disable-gpu) or set NVCC accordingly])])
-   ACX_PROG_NVCC_CXX11
-   ACX_LANG_PUSH_CUDA
-   AC_CHECK_HEADER([cuda.h], [],
-     [AC_MSG_FAILURE([unable to find header file cuda.h: either disable GPU dnl
+  ACX_PROG_NVCC_CXX11
+  ACX_LANG_PUSH_CUDA
+  AC_CHECK_HEADER([cuda.h], [],
+    [AC_MSG_FAILURE([unable to find header file cuda.h: either disable GPU dnl
 support (--disable-gpu) or set NVCFLAGS accordingly])],
-     [[// override default includes]])
-   ACX_LANG_POP_CUDA
-   AC_LANG_PUSH([Fortran])
-   ACX_FC_CUDA_COMPATIBLE([],
-     [AC_MSG_FAILURE([Fortran compiler cannot link objects compiled with dnl
+    [[// override default includes]])
+  ACX_LANG_POP_CUDA
+  AC_LANG_PUSH([Fortran])
+  ACX_FC_CUDA_COMPATIBLE([],
+    [AC_MSG_FAILURE([Fortran compiler cannot link objects compiled with dnl
 CUDA compiler: a possible reason is that it cannot find CUDA runtime dnl
 libraries (e.g. '-lcudart'): set LDFLAGS and LIBS accordingly])])
-   ACX_FC_CUDA_STDCXX_COMPATIBLE([],
-     [AC_MSG_FAILURE([Fortran compiler cannot link objects compiled with dnl
+  ACX_FC_CUDA_STDCXX_COMPATIBLE([],
+    [AC_MSG_FAILURE([Fortran compiler cannot link objects compiled with dnl
 CUDA compiler that require C++ standard library: a possible reason is that dnl
 it cannot find C++ standard library (i.e. '-lstdc++'): set LDFLAGS and LIBS dnl
 accordingly])])
-   AC_LANG_POP([Fortran])
+  AC_LANG_POP([Fortran])
 else
   NVCC=
   NVCFLAGS=

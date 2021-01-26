@@ -4978,14 +4978,6 @@ ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
-if test "x$ac_cv_prog_cc_c89" = xno; then :
-  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "C compiler does not support ISO C89
-See \`config.log' for more details
-${icon_usr_note}" "$LINENO" 5; }
-fi
-
    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $CC option to accept ISO C99" >&5
 $as_echo_n "checking for $CC option to accept ISO C99... " >&6; }
 if ${ac_cv_prog_cc_c99+:} false; then :
@@ -5245,22 +5237,7 @@ ICON_BUNDLED_CFLAGS=${ICON_BUNDLED_CFLAGS-$ICON_CFLAGS}
 subdir_CFLAGS=$CFLAGS
 
 
-for ac_header in execinfo.h ucontext.h link.h
-do :
-  as_ac_Header=`$as_echo "ac_cv_header_$ac_header" | $as_tr_sh`
-ac_fn_c_check_header_compile "$LINENO" "$ac_header" "$as_ac_Header" "// override default includes
-"
-if eval test \"x\$"$as_ac_Header"\" = x"yes"; then :
-  cat >>confdefs.h <<_ACEOF
-#define `$as_echo "HAVE_$ac_header" | $as_tr_cpp` 1
-_ACEOF
-
-fi
-
-done
-
-
-for ac_header in unistd.h fcntl.h pwd.h stdint.h sys/types.h sys/stat.h  sys/param.h sys/resource.h sys/utsname.h sys/time.h sys/times.h dirent.h
+for ac_header in stdlib.h stdio.h math.h time.h ctype.h string.h signal.h   limits.h errno.h assert.h stdbool.h unistd.h fcntl.h pwd.h stdint.h   sys/types.h sys/stat.h sys/param.h sys/resource.h sys/utsname.h   sys/time.h sys/times.h dirent.h
 do :
   as_ac_Header=`$as_echo "ac_cv_header_$ac_header" | $as_tr_sh`
 ac_fn_c_check_header_compile "$LINENO" "$ac_header" "$as_ac_Header" "// override default includes
@@ -5276,6 +5253,21 @@ $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to find header file $ac_header
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
+fi
+
+done
+
+
+for ac_header in execinfo.h ucontext.h link.h
+do :
+  as_ac_Header=`$as_echo "ac_cv_header_$ac_header" | $as_tr_sh`
+ac_fn_c_check_header_compile "$LINENO" "$ac_header" "$as_ac_Header" "// override default includes
+"
+if eval test \"x\$"$as_ac_Header"\" = x"yes"; then :
+  cat >>confdefs.h <<_ACEOF
+#define `$as_echo "HAVE_$ac_header" | $as_tr_cpp` 1
+_ACEOF
+
 fi
 
 done
@@ -5411,7 +5403,7 @@ ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
-   if test "x$acx_cv_prog_nvcc_cuda" = xno; then :
+  if test "x$acx_cv_prog_nvcc_cuda" = xno; then :
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to find a working NVIDIA CUDA Compiler: either disable GPU support (--disable-gpu) or set NVCC accordingly
@@ -5483,12 +5475,12 @@ else
   as_fn_append NVCFLAGS " $acx_cv_prog_nvcc_cxx11"
 fi
 fi
-   ac_ext=cu
+  ac_ext=cu
 ac_compile='$NVCC -c $NVCFLAGS conftest.$ac_ext >&5'
 ac_link='$NVCC -o conftest$ac_exeext $NVCFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$acx_cv_nvcc_compiler_gnu
 
-   ac_fn_nvcc_check_header_compile "$LINENO" "cuda.h" "ac_cv_header_cuda_h" "// override default includes
+  ac_fn_nvcc_check_header_compile "$LINENO" "cuda.h" "ac_cv_header_cuda_h" "// override default includes
 "
 if test "x$ac_cv_header_cuda_h" = xyes; then :
 
@@ -5501,18 +5493,18 @@ ${icon_usr_note}" "$LINENO" 5; }
 fi
 
 
-   ac_ext=c
+  ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
-   ac_ext=${ac_fc_srcext-f}
+  ac_ext=${ac_fc_srcext-f}
 ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
 ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_fc_compiler_gnu
 
-   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran compiler can link objects compiled with CUDA compiler" >&5
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran compiler can link objects compiled with CUDA compiler" >&5
 $as_echo_n "checking whether Fortran compiler can link objects compiled with CUDA compiler... " >&6; }
 if ${acx_cv_fc_cuda_compatible+:} false; then :
   $as_echo_n "(cached) " >&6
@@ -5585,7 +5577,7 @@ as_fn_error $? "Fortran compiler cannot link objects compiled with CUDA compiler
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
-   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran compiler can link objects compiled with CUDA compiler that require C++ standard library" >&5
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran compiler can link objects compiled with CUDA compiler that require C++ standard library" >&5
 $as_echo_n "checking whether Fortran compiler can link objects compiled with CUDA compiler that require C++ standard library... " >&6; }
 if ${acx_cv_fc_cuda_stdcxx_compatible+:} false; then :
   $as_echo_n "(cached) " >&6
@@ -5666,7 +5658,7 @@ as_fn_error $? "Fortran compiler cannot link objects compiled with CUDA compiler
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
-   ac_ext=c
+  ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
