@@ -1822,13 +1822,13 @@ CONTAINS
   !! for run-time min/max output of microphysics variables
   !!
 
-  SUBROUTINE nwp_diag_output_minmax_micro(p_patch, p_prog, p_diag, rcf_tracer)
+  SUBROUTINE nwp_diag_output_minmax_micro(p_patch, p_prog, p_diag, ptr_tracer)
 
     TYPE(t_nh_prog), INTENT(in) :: p_prog      !< the dyn prog vars
     TYPE(t_patch),   INTENT(in) :: p_patch     !< grid/patch info.
     TYPE(t_nh_diag), INTENT(in) :: p_diag      !< NH diagnostic state
     !> tracer variables
-    REAL(wp), CONTIGUOUS_ARGUMENT(in) :: rcf_tracer(:,:,:,:)
+    REAL(wp), CONTIGUOUS_ARGUMENT(in) :: ptr_tracer(:,:,:,:)
 
 
     ! Local variables
@@ -1905,35 +1905,35 @@ CONTAINS
             wmin(jb)  = MIN(wmin(jb), p_prog%w(jc,jk,jb))
             tmax(jb)  = MAX(tmax(jb), p_diag%temp(jc,jk,jb))
             tmin(jb)  = MIN(tmin(jb), p_diag%temp(jc,jk,jb))
-            qvmax(jb) = MAX(qvmax(jb),rcf_tracer(jc,jk,jb,iqv))
-            qvmin(jb) = MIN(qvmin(jb),rcf_tracer(jc,jk,jb,iqv))
-            qcmax(jb) = MAX(qcmax(jb),rcf_tracer(jc,jk,jb,iqc))
-            qcmin(jb) = MIN(qcmin(jb),rcf_tracer(jc,jk,jb,iqc))
-            qrmax(jb) = MAX(qrmax(jb),rcf_tracer(jc,jk,jb,iqr))
-            qrmin(jb) = MIN(qrmin(jb),rcf_tracer(jc,jk,jb,iqr))
-            qimax(jb) = MAX(qimax(jb),rcf_tracer(jc,jk,jb,iqi))
-            qimin(jb) = MIN(qimin(jb),rcf_tracer(jc,jk,jb,iqi))
-            qsmax(jb) = MAX(qsmax(jb),rcf_tracer(jc,jk,jb,iqs))
-            qsmin(jb) = MIN(qsmin(jb),rcf_tracer(jc,jk,jb,iqs))
+            qvmax(jb) = MAX(qvmax(jb),ptr_tracer(jc,jk,jb,iqv))
+            qvmin(jb) = MIN(qvmin(jb),ptr_tracer(jc,jk,jb,iqv))
+            qcmax(jb) = MAX(qcmax(jb),ptr_tracer(jc,jk,jb,iqc))
+            qcmin(jb) = MIN(qcmin(jb),ptr_tracer(jc,jk,jb,iqc))
+            qrmax(jb) = MAX(qrmax(jb),ptr_tracer(jc,jk,jb,iqr))
+            qrmin(jb) = MIN(qrmin(jb),ptr_tracer(jc,jk,jb,iqr))
+            qimax(jb) = MAX(qimax(jb),ptr_tracer(jc,jk,jb,iqi))
+            qimin(jb) = MIN(qimin(jb),ptr_tracer(jc,jk,jb,iqi))
+            qsmax(jb) = MAX(qsmax(jb),ptr_tracer(jc,jk,jb,iqs))
+            qsmin(jb) = MIN(qsmin(jb),ptr_tracer(jc,jk,jb,iqs))
             
             IF(atm_phy_nwp_config(jg)%inwp_gscp==4 &
                  & .OR.atm_phy_nwp_config(jg)%inwp_gscp==5 .OR. atm_phy_nwp_config(jg)%inwp_gscp==7)THEN
-               qgmax(jb) = MAX(qgmax(jb),rcf_tracer(jc,jk,jb,iqg))
-               qgmin(jb) = MIN(qgmin(jb),rcf_tracer(jc,jk,jb,iqg))
-               qhmax(jb) = MAX(qhmax(jb),rcf_tracer(jc,jk,jb,iqh))
-               qhmin(jb) = MIN(qhmin(jb),rcf_tracer(jc,jk,jb,iqh))
+               qgmax(jb) = MAX(qgmax(jb),ptr_tracer(jc,jk,jb,iqg))
+               qgmin(jb) = MIN(qgmin(jb),ptr_tracer(jc,jk,jb,iqg))
+               qhmax(jb) = MAX(qhmax(jb),ptr_tracer(jc,jk,jb,iqh))
+               qhmin(jb) = MIN(qhmin(jb),ptr_tracer(jc,jk,jb,iqh))
             END IF
             IF(atm_phy_nwp_config(jg)%inwp_gscp==7)THEN
-               qglmax(jb) = MAX(qglmax(jb),rcf_tracer(jc,jk,jb,iqgl))
-               qglmin(jb) = MIN(qglmin(jb),rcf_tracer(jc,jk,jb,iqgl))
-               qhlmax(jb) = MAX(qhlmax(jb),rcf_tracer(jc,jk,jb,iqhl))
-               qhlmin(jb) = MIN(qhlmin(jb),rcf_tracer(jc,jk,jb,iqhl))
+               qglmax(jb) = MAX(qglmax(jb),ptr_tracer(jc,jk,jb,iqgl))
+               qglmin(jb) = MIN(qglmin(jb),ptr_tracer(jc,jk,jb,iqgl))
+               qhlmax(jb) = MAX(qhlmax(jb),ptr_tracer(jc,jk,jb,iqhl))
+               qhlmin(jb) = MIN(qhlmin(jb),ptr_tracer(jc,jk,jb,iqhl))
             END IF
             IF(atm_phy_nwp_config(jg)%inwp_gscp==5)THEN
-               qncmax(jb) = MAX(qncmax(jb),rcf_tracer(jc,jk,jb,iqnc))
-               qncmin(jb) = MIN(qncmin(jb),rcf_tracer(jc,jk,jb,iqnc))
-               qnimax(jb) = MAX(qnimax(jb),rcf_tracer(jc,jk,jb,iqni))
-               qnimin(jb) = MIN(qnimin(jb),rcf_tracer(jc,jk,jb,iqni))
+               qncmax(jb) = MAX(qncmax(jb),ptr_tracer(jc,jk,jb,iqnc))
+               qncmin(jb) = MIN(qncmin(jb),ptr_tracer(jc,jk,jb,iqnc))
+               qnimax(jb) = MAX(qnimax(jb),ptr_tracer(jc,jk,jb,iqni))
+               qnimin(jb) = MIN(qnimin(jb),ptr_tracer(jc,jk,jb,iqni))
             END IF
          ENDDO
       ENDDO
