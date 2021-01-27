@@ -6,10 +6,8 @@ unset CDPATH
 SCRIPT_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR=$(cd "${SCRIPT_DIR}/../.."; pwd)
 
-#MODULES='pgi/19.9 openmpi/2.0.2p2_hpcx-pgi19' cuda???
-MODULES='gcc/6.4.0 pgi/19.9-spack openmpi/2.0.2p2-pgi-19.9 cuda/'
+MODULES='gcc/6.4.0 pgi/19.9-spack openmpi/2.0.2p2-pgi-19.9 cuda/10.0.130'
 
-#SW_ROOT='/mnt/lustre01/work/mh0287/m300488/spack-sw/pgi-19.9-haswell'
 SW_ROOT='/sw/spack-rhel6'
 
 # Libtool (used by the bundled CDI and some other bundled libraries) outsmarts
@@ -35,6 +33,8 @@ NETCDFF_LIBS='-lnetcdff'
 ECCODES_ROOT="${SW_ROOT}/eccodes-2.19.1-cqlkd7"
 ECCODES_LIBS='-leccodes'
 
+CUDA_ROOT="/sw/rhel6-x64/cuda/cuda-10.0.130"
+
 # Currently, we cannot use Serialbox:
 # undefined reference to `std::experimental::filesystem::v1::__cxx11::path::_M_find_extension[abi:cxx11]() const'
 # SERIALBOX_ROOT="${SW_ROOT}/serialbox-2.6.0-wty33or"
@@ -51,7 +51,7 @@ CLAW="${SW_ROOT}/claw-2.0.2-naetxf/bin/clawfc"
 
 ###############################################################################
 
-BUILD_ENV="export LD_LIBRARY_PATH=\"${ZLIB_ROOT}/lib:${AEC_ROOT}/lib64:${HDF5_ROOT}/lib:${NETCDF_ROOT}/lib:${NETCDFF_ROOT}/lib:${ECCODES_ROOT}/lib64:${XML2_ROOT}/lib:\${LD_LIBRARY_PATH}\";"
+BUILD_ENV=". /sw/rhel6-x64/etc/profile.mistral; module use /sw/spack-rhel6/spack/modules/linux-rhel6-haswell; . \"${SCRIPT_DIR}/module_switcher\"; switch_for_module ${MODULES}; export LD_LIBRARY_PATH=\"${ZLIB_ROOT}/lib:${AEC_ROOT}/lib64:${HDF5_ROOT}/lib:${NETCDF_ROOT}/lib:${NETCDFF_ROOT}/lib:${ECCODES_ROOT}/lib64:${XML2_ROOT}/lib:\${LD_LIBRARY_PATH}\";"
 
 CC='/sw/spack-rhel6/openmpi-2.0.2p2-xw623x/bin/mpicc'
 CFLAGS='-g -O2'
@@ -60,7 +60,7 @@ CPPFLAGS="-I${HDF5_ROOT}/include -I${NETCDF_ROOT}/include -I${ECCODES_ROOT}/incl
 FC='/sw/spack-rhel6/openmpi-2.0.2p2-xw623x/bin/mpif90'
 FCFLAGS="-g -O -Mrecursive -Mallocatable=03 -tp=haswell -I${NETCDFF_ROOT}/include"
 
-LDFLAGS="-L${ZLIB_ROOT}/lib -L${AEC_ROOT}/lib64 -L${HDF5_ROOT}/lib -L${NETCDF_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${ECCODES_ROOT}/lib64 -L${XML2_ROOT}/lib -L/sw/rhel6-x64/cuda/cuda-10.0.130/lib64"
+LDFLAGS="-L${ZLIB_ROOT}/lib -L${AEC_ROOT}/lib64 -L${HDF5_ROOT}/lib -L${NETCDF_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${ECCODES_ROOT}/lib64 -L${XML2_ROOT}/lib -L${CUDA_ROOT}/lib64"
 
 # We cannot use --as-needed as we do for other compilers because libpgc.so
 # (a PGI runtime library) is missing a NEEDED entry for libpgkomp.so:
