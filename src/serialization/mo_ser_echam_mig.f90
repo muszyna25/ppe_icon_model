@@ -46,7 +46,7 @@ MODULE mo_ser_echam_mig
 #if defined( _OPENACC )
     !$ser verbatim   CALL warning('GPU:mo_ser_echam_mig:input','GPU HOST synchronization forced by serialization!')
     !$ser verbatim   !$ACC UPDATE HOST( field%ta ) IF( ASSOCIATED(field%ta) )
-    !$ser verbatim   !$ACC UPDATE HOST( field%presm_old ) IF( ASSOCIATED(field%presm_old) )
+    !$ser verbatim   !$ACC UPDATE HOST( field%pfull ) IF( ASSOCIATED(field%pfull) )
     !$ser verbatim   !$ACC UPDATE HOST( field%rho ) IF( ASSOCIATED(field%rho) )
     !$ser verbatim   !$ACC UPDATE HOST( field%qtrc ) IF( ASSOCIATED(field%qtrc) )
 #endif
@@ -63,7 +63,7 @@ MODULE mo_ser_echam_mig
 #error SERIALIZATION MODE IS NOT SET
 #endif
     !$ser data echam_mig_ta=field%ta(:,:,jb) IF (ASSOCIATED(field%ta))
-    !$ser data echam_mig_presm_old=field%presm_old(:,:,jb) IF (ASSOCIATED(field%presm_old))
+    !$ser data echam_mig_pfull=field%pfull(:,:,jb) IF (ASSOCIATED(field%pfull))
     !$ser data echam_mig_rho=field%rho(:,:,jb) IF (ASSOCIATED(field%rho))
     !$ser data echam_mig_qv=field%qtrc(:,:,jb,iqv) IF (ASSOCIATED(field%qtrc))
     !$ser data echam_mig_qc=field%qtrc(:,:,jb,iqc) IF (ASSOCIATED(field%qtrc))
@@ -79,7 +79,7 @@ MODULE mo_ser_echam_mig
 #if defined( _OPENACC )
     !$ser verbatim CALL warning('GPU:mo_ser_echam_mig:input','GPU DEVICE synchronization forced by serialization!')
     !$ser verbatim   !$ACC UPDATE HOST( field%ta ) IF( ASSOCIATED(field%ta) )
-    !$ser verbatim   !$ACC UPDATE HOST( field%presm_old ) IF( ASSOCIATED(field%presm_old) )
+    !$ser verbatim   !$ACC UPDATE HOST( field%pfull ) IF( ASSOCIATED(field%pfull) )
     !$ser verbatim   !$ACC UPDATE HOST( field%rho ) IF( ASSOCIATED(field%rho) )
     !$ser verbatim   !$ACC UPDATE HOST( field%qtrc ) IF( ASSOCIATED(field%qtrc) )
 #endif
@@ -115,7 +115,7 @@ MODULE mo_ser_echam_mig
     !$ser verbatim   CALL warning('SER:mo_ser_echam_mig:after_satad1','Serialization is active!')
 #if defined( _OPENACC )
     !$ser verbatim   CALL warning('GPU:mo_ser_echam_mig:after_satad1','GPU HOST synchronization forced by serialization!')
-    !$ser verbatim   !$ACC UPDATE HOST( field%presm_old ) IF( ASSOCIATED(field%presm_old) )
+    !$ser verbatim   !$ACC UPDATE HOST( field%pfull ) IF( ASSOCIATED(field%pfull) )
     !$ser verbatim   !$ACC UPDATE HOST( field%rho ) IF( ASSOCIATED(field%rho) )
     !$ser verbatim   !$ACC UPDATE HOST( xlta, xlqv, xlqc, xlqi, xlqr, xlqs, xlqg, zqnc )
     !$ser verbatim   !$ACC UPDATE HOST( zqrsflux )
@@ -133,7 +133,7 @@ MODULE mo_ser_echam_mig
 #error SERIALIZATION MODE IS NOT SET
 #endif
     !$ser data echam_mig_ta=xlta
-    !$ser data echam_mig_presm_old=field%presm_old(:,:,jb) IF (ASSOCIATED(field%presm_old))
+    !$ser data echam_mig_pfull=field%pfull(:,:,jb) IF (ASSOCIATED(field%pfull))
     !$ser data echam_mig_rho=field%rho(:,:,jb) IF (ASSOCIATED(field%rho))
     !$ser data echam_mig_qv=xlqv
     !$ser data echam_mig_qc=xlqc
@@ -150,7 +150,7 @@ MODULE mo_ser_echam_mig
 #if defined( SERIALIZE_READ_REFERENCE ) || defined( SERIALIZE_PERTURB_REFERENCE )
 #if defined( _OPENACC )
     !$ser verbatim CALL warning('GPU:mo_ser_echam_mig:after_satad1','GPU DEVICE synchronization forced by serialization!')
-    !$ser verbatim   !$ACC UPDATE HOST( field%presm_old ) IF( ASSOCIATED(field%presm_old) )
+    !$ser verbatim   !$ACC UPDATE HOST( field%pfull ) IF( ASSOCIATED(field%pfull) )
     !$ser verbatim   !$ACC UPDATE HOST( field%rho ) IF( ASSOCIATED(field%rho) )
     !$ser verbatim   !$ACC UPDATE HOST( xlta, xlqv, xlqc, xlqi, xlqr, xlqs, xlqg, zqnc )
     !$ser verbatim   !$ACC UPDATE HOST( zqrsflux )
@@ -187,7 +187,7 @@ MODULE mo_ser_echam_mig
     !$ser verbatim   CALL warning('SER:mo_ser_echam_mig:before_satad2','Serialization is active!')
 #if defined( _OPENACC )
     !$ser verbatim   CALL warning('GPU:mo_ser_echam_mig:before_satad2','GPU HOST synchronization forced by serialization!')
-    !$ser verbatim   !$ACC UPDATE HOST( field%presm_old ) IF( ASSOCIATED(field%presm_old) )
+    !$ser verbatim   !$ACC UPDATE HOST( field%pfull ) IF( ASSOCIATED(field%pfull) )
     !$ser verbatim   !$ACC UPDATE HOST( field%rho ) IF( ASSOCIATED(field%rho) )
     !$ser verbatim   !$ACC UPDATE HOST( xlta, xlqv, xlqc, xlqi, xlqr, xlqs, xlqg, zqnc )
     !$ser verbatim   !$ACC UPDATE HOST( zqrsflux )
@@ -205,7 +205,7 @@ MODULE mo_ser_echam_mig
 #error SERIALIZATION MODE IS NOT SET
 #endif
     !$ser data echam_mig_ta=xlta
-    !$ser data echam_mig_presm_old=field%presm_old(:,:,jb) IF (ASSOCIATED(field%presm_old))
+    !$ser data echam_mig_pfull=field%pfull(:,:,jb) IF (ASSOCIATED(field%pfull))
     !$ser data echam_mig_rho=field%rho(:,:,jb) IF (ASSOCIATED(field%rho))
     !$ser data echam_mig_qv=xlqv
     !$ser data echam_mig_qc=xlqc
@@ -222,7 +222,7 @@ MODULE mo_ser_echam_mig
 #if defined( SERIALIZE_READ_REFERENCE ) || defined( SERIALIZE_PERTURB_REFERENCE )
 #if defined( _OPENACC )
     !$ser verbatim CALL warning('GPU:mo_ser_echam_mig:before_satad2','GPU DEVICE synchronization forced by serialization!')
-    !$ser verbatim   !$ACC UPDATE HOST( field%presm_old ) IF( ASSOCIATED(field%presm_old) )
+    !$ser verbatim   !$ACC UPDATE HOST( field%pfull ) IF( ASSOCIATED(field%pfull) )
     !$ser verbatim   !$ACC UPDATE HOST( field%rho ) IF( ASSOCIATED(field%rho) )
     !$ser verbatim   !$ACC UPDATE HOST( xlta, xlqv, xlqc, xlqi, xlqr, xlqs, xlqg, zqnc )
     !$ser verbatim   !$ACC UPDATE HOST( zqrsflux )
@@ -251,7 +251,7 @@ MODULE mo_ser_echam_mig
 #if defined( _OPENACC )
     !$ser verbatim   CALL warning('GPU:mo_ser_echam_mig:output','GPU HOST synchronization forced by serialization!')
     !$ser verbatim   !$ACC UPDATE HOST( field%ta ) IF( ASSOCIATED(field%ta) )
-    !$ser verbatim   !$ACC UPDATE HOST( field%presm_old ) IF( ASSOCIATED(field%presm_old) )
+    !$ser verbatim   !$ACC UPDATE HOST( field%pfull ) IF( ASSOCIATED(field%pfull) )
     !$ser verbatim   !$ACC UPDATE HOST( field%rho ) IF( ASSOCIATED(field%rho) )
     !$ser verbatim   !$ACC UPDATE HOST( field%qtrc ) IF( ASSOCIATED(field%qtrc) )
 #endif
@@ -260,7 +260,7 @@ MODULE mo_ser_echam_mig
     !$ser savepoint echam_mig-output jg=jg jb=jb jcs=jcs jce=jce nproma=nproma nlev=nlev date=TRIM(date)
     !$ser mode write
     !$ser data echam_mig_ta=field%ta(:,:,jb) IF (ASSOCIATED(field%ta))
-    !$ser data echam_mig_presm_old=field%presm_old(:,:,jb) IF (ASSOCIATED(field%presm_old))
+    !$ser data echam_mig_pfull=field%pfull(:,:,jb) IF (ASSOCIATED(field%pfull))
     !$ser data echam_mig_rho=field%rho(:,:,jb) IF (ASSOCIATED(field%rho))
     !$ser data echam_mig_qv=field%qtrc(:,:,jb,iqv) IF (ASSOCIATED(field%qtrc))
     !$ser data echam_mig_qc=field%qtrc(:,:,jb,iqc) IF (ASSOCIATED(field%qtrc))

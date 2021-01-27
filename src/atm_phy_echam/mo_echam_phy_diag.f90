@@ -200,7 +200,7 @@ CONTAINS
     ! Serialbox2 input fields serialization
     !$ser verbatim call serialize_droplet_number_input(jg, jb, jcs, jce, nproma, nlev, field)
 
-    !$ACC DATA PRESENT( field%sftlf, field%sftgif, field%presm_old, field%acdnc ) &
+    !$ACC DATA PRESENT( field%sftlf, field%sftgif, field%pfull, field%acdnc ) &
     !$ACC       CREATE( lland, lglac )
 
     !$ACC PARALLEL DEFAULT(PRESENT)
@@ -216,7 +216,7 @@ CONTAINS
     DO jk = 1,nlev
       DO jc = jcs,jce
         !
-        zprat=(MIN(8._wp,80000._wp/field%presm_old(jc,jk,jb)))**2
+        zprat=(MIN(8._wp,80000._wp/field%pfull(jc,jk,jb)))**2
 
         IF (lland(jc).AND.(.NOT.lglac(jc))) THEN
           zn1= cn1lnd
@@ -225,7 +225,7 @@ CONTAINS
           zn1= cn1sea
           zn2= cn2sea
         END IF
-        IF (field%presm_old(jc,jk,jb).LT.80000._wp) THEN
+        IF (field%pfull(jc,jk,jb).LT.80000._wp) THEN
           zcdnc=1.e6_wp*(zn1+(zn2-zn1)*(EXP(1._wp-zprat)))
         ELSE
           zcdnc=zn2*1.e6_wp

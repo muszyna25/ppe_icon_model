@@ -69,8 +69,8 @@ MODULE mo_ser_echam_vdf
     !$ser verbatim   !$ACC UPDATE HOST( field%frac_tile ) IF( ASSOCIATED(field%frac_tile))
     !$ser verbatim   !$ACC UPDATE HOST( field%qtrc ) IF( ASSOCIATED(field%qtrc))
     !$ser verbatim   !$ACC UPDATE HOST( field%ta ) IF( ASSOCIATED(field%ta))
-    !$ser verbatim   !$ACC UPDATE HOST( field%presm_old ) IF( ASSOCIATED(field%presm_old))
-    !$ser verbatim   !$ACC UPDATE HOST( field%presi_old ) IF( ASSOCIATED(field%presi_old))
+    !$ser verbatim   !$ACC UPDATE HOST( field%pfull ) IF( ASSOCIATED(field%pfull))
+    !$ser verbatim   !$ACC UPDATE HOST( field%phalf ) IF( ASSOCIATED(field%phalf))
     !$ser verbatim   !$ACC UPDATE HOST( field%ua ) IF( ASSOCIATED(field%ua))
     !$ser verbatim   !$ACC UPDATE HOST( field%va ) IF( ASSOCIATED(field%va))
     !$ser verbatim   !$ACC UPDATE HOST( field%ocu ) IF( ASSOCIATED(field%ocu))
@@ -169,8 +169,8 @@ MODULE mo_ser_echam_vdf
     !$ser data echam_vdf_frac_tile=field%frac_tile(:,jb,:) IF (ASSOCIATED(field%frac_tile))
     !$ser data echam_vdf_qtrc=field%qtrc(:,:,jb,:) IF (ASSOCIATED(field%qtrc))
     !$ser data echam_vdf_ta=field%ta(:,:,jb) IF (ASSOCIATED(field%ta))
-    !$ser data echam_vdf_presm_old=field%presm_old(:,:,jb) IF (ASSOCIATED(field%presm_old))
-    !$ser data echam_vdf_presi_old=field%presi_old(:,:,jb) IF (ASSOCIATED(field%presi_old))
+    !$ser data echam_vdf_pfull=field%pfull(:,:,jb) IF (ASSOCIATED(field%pfull))
+    !$ser data echam_vdf_phalf=field%phalf(:,:,jb) IF (ASSOCIATED(field%phalf))
     !$ser data echam_vdf_ua=field%ua(:,:,jb) IF (ASSOCIATED(field%ua))
     !$ser data echam_vdf_va=field%va(:,:,jb) IF (ASSOCIATED(field%va))
     !$ser data echam_vdf_ocu=field%ocu(:,jb) IF (ASSOCIATED(field%ocu))
@@ -263,8 +263,8 @@ MODULE mo_ser_echam_vdf
     !$ser verbatim   !$ACC UPDATE DEVICE( field%frac_tile ) IF( ASSOCIATED(field%frac_tile))
     !$ser verbatim   !$ACC UPDATE DEVICE( field%qtrc ) IF( ASSOCIATED(field%qtrc))
     !$ser verbatim   !$ACC UPDATE DEVICE( field%ta ) IF( ASSOCIATED(field%ta))
-    !$ser verbatim   !$ACC UPDATE DEVICE( field%presm_old ) IF( ASSOCIATED(field%presm_old))
-    !$ser verbatim   !$ACC UPDATE DEVICE( field%presi_old ) IF( ASSOCIATED(field%presi_old))
+    !$ser verbatim   !$ACC UPDATE DEVICE( field%pfull ) IF( ASSOCIATED(field%pfull))
+    !$ser verbatim   !$ACC UPDATE DEVICE( field%phalf ) IF( ASSOCIATED(field%phalf))
     !$ser verbatim   !$ACC UPDATE DEVICE( field%ua ) IF( ASSOCIATED(field%ua))
     !$ser verbatim   !$ACC UPDATE DEVICE( field%va ) IF( ASSOCIATED(field%va))
     !$ser verbatim   !$ACC UPDATE DEVICE( field%ocu ) IF( ASSOCIATED(field%ocu))
@@ -1179,7 +1179,7 @@ MODULE mo_ser_echam_vdf
     !$ser verbatim   !$ACC UPDATE HOST( field%ts_tile )
     !$ser verbatim   !$ACC UPDATE HOST( field%ocu )
     !$ser verbatim   !$ACC UPDATE HOST( field%ocv )
-    !$ser verbatim   !$ACC UPDATE HOST( field%presi_old )
+    !$ser verbatim   !$ACC UPDATE HOST( field%phalf )
     !$ser verbatim   !$ACC UPDATE HOST( field%ua )
     !$ser verbatim   !$ACC UPDATE HOST( field%va )
     !$ser verbatim   !$ACC UPDATE HOST( field%ta )
@@ -1190,8 +1190,8 @@ MODULE mo_ser_echam_vdf
     !$ser verbatim   !$ACC UPDATE HOST( field%qtrc )
     !$ser verbatim   !$ACC UPDATE HOST( field%mair )
     !$ser verbatim   !$ACC UPDATE HOST( field%mref )
-    !$ser verbatim   !$ACC UPDATE HOST( field%presi_old )
-    !$ser verbatim   !$ACC UPDATE HOST( field%presm_old )
+    !$ser verbatim   !$ACC UPDATE HOST( field%phalf )
+    !$ser verbatim   !$ACC UPDATE HOST( field%pfull )
     !$ser verbatim   !$ACC UPDATE HOST( field%tv )
     !$ser verbatim   !$ACC UPDATE HOST( field%aclc )
     !$ser verbatim   !$ACC UPDATE HOST( pxt_emis ) IF (SIZE(pxt_emis)>0)
@@ -1251,7 +1251,7 @@ MODULE mo_ser_echam_vdf
     !$ser&     echam_vdf_vd_ptsfc_tile=field%ts_tile(:,jb,:)     &
     !$ser&     echam_vdf_vd_pocu=field%ocu(:,jb)                 &
     !$ser&     echam_vdf_vd_pocv=field%ocv(:,jb)                 &
-    !$ser&     echam_vdf_vd_ppsfc=field%presi_old(:,klevp1,jb)   &
+    !$ser&     echam_vdf_vd_ppsfc=field%phalf(:,klevp1,jb)   &
     !$ser&     echam_vdf_vd_pum1=field%ua(:,:,jb)                &
     !$ser&     echam_vdf_vd_pvm1=field%va(:,:,jb)                &
     !$ser&     echam_vdf_vd_ptm1=field%ta(:,:,jb)                &
@@ -1261,8 +1261,8 @@ MODULE mo_ser_echam_vdf
     !$ser&     echam_vdf_vd_pxm1=pxm1                            &
     !$ser&     echam_vdf_vd_pmair=field%mair(:,:,jb)             &
     !$ser&     echam_vdf_vd_pmref=field%mref(:,:,jb)             &
-    !$ser&     echam_vdf_vd_paphm1=field%presi_old(:,:,jb)       &
-    !$ser&     echam_vdf_vd_papm1=field%presm_old(:,:,jb)        &
+    !$ser&     echam_vdf_vd_paphm1=field%phalf(:,:,jb)           &
+    !$ser&     echam_vdf_vd_papm1=field%pfull(:,:,jb)            &
     !$ser&     echam_vdf_vd_ptvm1=field%tv(:,:,jb)               &
     !$ser&     echam_vdf_vd_paclc=field%aclc(:,:,jb)             &
     !$ser&     echam_vdf_vd_pthvvar=pthvvar                      &
@@ -1313,7 +1313,7 @@ MODULE mo_ser_echam_vdf
     !$ser verbatim !$ACC UPDATE DEVICE( field%ts_tile )
     !$ser verbatim !$ACC UPDATE DEVICE( field%ocu )
     !$ser verbatim !$ACC UPDATE DEVICE( field%ocv )
-    !$ser verbatim !$ACC UPDATE DEVICE( field%presi_old )
+    !$ser verbatim !$ACC UPDATE DEVICE( field%phalf )
     !$ser verbatim !$ACC UPDATE DEVICE( field%ua )
     !$ser verbatim !$ACC UPDATE DEVICE( field%va )
     !$ser verbatim !$ACC UPDATE DEVICE( field%ta )
@@ -1324,8 +1324,8 @@ MODULE mo_ser_echam_vdf
     !$ser verbatim !$ACC UPDATE DEVICE( field%qtrc )
     !$ser verbatim !$ACC UPDATE DEVICE( field%mair )
     !$ser verbatim !$ACC UPDATE DEVICE( field%mref )
-    !$ser verbatim !$ACC UPDATE DEVICE( field%presi_old )
-    !$ser verbatim !$ACC UPDATE DEVICE( field%presm_old )
+    !$ser verbatim !$ACC UPDATE DEVICE( field%phalf )
+    !$ser verbatim !$ACC UPDATE DEVICE( field%pfull )
     !$ser verbatim !$ACC UPDATE DEVICE( field%tv )
     !$ser verbatim !$ACC UPDATE DEVICE( field%aclc )
     !$ser verbatim !$ACC UPDATE DEVICE( pxt_emis ) IF (SIZE(pxt_emis)>0)
@@ -1573,7 +1573,7 @@ MODULE mo_ser_echam_vdf
     !$ser verbatim   !$ACC UPDATE HOST( field%rvds_dif )
     !$ser verbatim   !$ACC UPDATE HOST( field%rpds_dif )
     !$ser verbatim   !$ACC UPDATE HOST( field%rnds_dif )
-    !$ser verbatim   !$ACC UPDATE HOST( field%presi_old )
+    !$ser verbatim   !$ACC UPDATE HOST( field%phalf )
     !$ser verbatim   !$ACC UPDATE HOST( field%cosmu0 )
     !$ser verbatim   !$ACC UPDATE HOST( pch_tile )
     !$ser verbatim   !$ACC UPDATE HOST( field%csat )
@@ -1657,7 +1657,7 @@ MODULE mo_ser_echam_vdf
     !$ser&     echam_vdf_us_rvds_dif=field%rvds_dif(:,jb)                &
     !$ser&     echam_vdf_us_rpds_dif=field%rpds_dif(:,jb)                &
     !$ser&     echam_vdf_us_rnds_dif=field%rnds_dif(:,jb)                &
-    !$ser&     echam_vdf_us_ps=field%presi_old(:,klevp1,jb)              &
+    !$ser&     echam_vdf_us_ps=field%phalf(:,klevp1,jb)              &
     !$ser&     echam_vdf_us_pcosmu0=field%cosmu0(:,jb)                   &
     !$ser&     echam_vdf_us_pch_tile=pch_tile                            &
     !$ser&     echam_vdf_us_pcsat=field%csat(:,jb)                       &
@@ -1733,7 +1733,7 @@ MODULE mo_ser_echam_vdf
     !$ser verbatim !$ACC UPDATE DEVICE( field%rvds_dif )
     !$ser verbatim !$ACC UPDATE DEVICE( field%rpds_dif )
     !$ser verbatim !$ACC UPDATE DEVICE( field%rnds_dif )
-    !$ser verbatim !$ACC UPDATE DEVICE( field%presi_old )
+    !$ser verbatim !$ACC UPDATE DEVICE( field%phalf )
     !$ser verbatim !$ACC UPDATE DEVICE( field%cosmu0 )
     !$ser verbatim !$ACC UPDATE DEVICE( pch_tile )
     !$ser verbatim !$ACC UPDATE DEVICE( field%csat )
@@ -2137,8 +2137,8 @@ MODULE mo_ser_echam_vdf
     !$ser verbatim   !$ACC UPDATE HOST( field%frac_tile )
     !$ser verbatim   !$ACC UPDATE HOST( field%qtrc )
     !$ser verbatim   !$ACC UPDATE HOST( field%ta )
-    !$ser verbatim   !$ACC UPDATE HOST( field%presm_old )
-    !$ser verbatim   !$ACC UPDATE HOST( field%presi_old )
+    !$ser verbatim   !$ACC UPDATE HOST( field%pfull )
+    !$ser verbatim   !$ACC UPDATE HOST( field%phalf )
     !$ser verbatim   !$ACC UPDATE HOST( pxm1 )
     !$ser verbatim   !$ACC UPDATE HOST( field%ua )
     !$ser verbatim   !$ACC UPDATE HOST( field%va )
@@ -2172,8 +2172,8 @@ MODULE mo_ser_echam_vdf
     !$ser data echam_vdf_nd_pfrc=field%frac_tile(:,jb,:)         &
     !$ser&     echam_vdf_nd_pqm1=field%qtrc(:,klev,jb,iqv)       &
     !$ser&     echam_vdf_nd_ptm1=field%ta(:,klev,jb)             &
-    !$ser&     echam_vdf_nd_papm1=field%presm_old(:,klev,jb)     &
-    !$ser&     echam_vdf_nd_paphm1=field%presi_old(:,klevp1,jb)  &
+    !$ser&     echam_vdf_nd_papm1=field%pfull(:,klev,jb)         &
+    !$ser&     echam_vdf_nd_paphm1=field%phalf(:,klevp1,jb)      &
     !$ser&     echam_vdf_nd_pxm1=pxm1(:,klev)                    &
     !$ser&     echam_vdf_nd_pum1=field%ua(:,klev,jb)             &
     !$ser&     echam_vdf_nd_pvm1=field%va(:,klev,jb)             &
@@ -2200,8 +2200,8 @@ MODULE mo_ser_echam_vdf
     !$ser verbatim !$ACC UPDATE DEVICE( field%frac_tile )
     !$ser verbatim !$ACC UPDATE DEVICE( field%qtrc )
     !$ser verbatim !$ACC UPDATE DEVICE( field%ta )
-    !$ser verbatim !$ACC UPDATE DEVICE( field%presm_old )
-    !$ser verbatim !$ACC UPDATE DEVICE( field%presi_old )
+    !$ser verbatim !$ACC UPDATE DEVICE( field%pfull )
+    !$ser verbatim !$ACC UPDATE DEVICE( field%phalf )
     !$ser verbatim !$ACC UPDATE DEVICE( pxm1 )
     !$ser verbatim !$ACC UPDATE DEVICE( field%ua )
     !$ser verbatim !$ACC UPDATE DEVICE( field%va )

@@ -2879,8 +2879,6 @@ CONTAINS
     !
     IF (PRESENT(lmiss)) THEN
       ptr = new_list_element%field%info%missval%rval
-    ELSE
-      ptr = 0.0_wp
     END IF
     !
   END SUBROUTINE add_var_list_reference_r3d
@@ -3086,8 +3084,6 @@ CONTAINS
     !
     IF (PRESENT(lmiss)) THEN
       ptr = new_list_element%field%info%missval%rval
-    ELSE
-      ptr = 0.0_wp
     END IF
     !
   END SUBROUTINE add_var_list_reference_r2d
@@ -3287,8 +3283,6 @@ CONTAINS
     !
     IF (PRESENT(lmiss)) THEN
       ptr = new_list_element%field%info%missval%sval
-    ELSE
-      ptr = 0.0_sp
     END IF
     !
   END SUBROUTINE add_var_list_reference_s3d
@@ -3490,8 +3484,6 @@ CONTAINS
     !
     IF (PRESENT(lmiss)) THEN
       ptr = new_list_element%field%info%missval%sval
-    ELSE
-      ptr = 0.0_sp
     END IF
     !
   END SUBROUTINE add_var_list_reference_s2d
@@ -3693,8 +3685,6 @@ CONTAINS
     !
     IF (PRESENT(lmiss)) THEN
       ptr = new_list_element%field%info%missval%ival
-    ELSE
-      ptr = 0
     END IF
   END SUBROUTINE add_var_list_reference_i2d
 

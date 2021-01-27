@@ -178,7 +178,7 @@ CONTAINS
 
     CHARACTER(*), PARAMETER :: routine = "construct_atmo_nonhydrostatic"
 
-    INTEGER :: jg, jt, ist, jgroup
+    INTEGER :: jg, jt, ist
 
     TYPE(t_sim_step_info) :: sim_step_info  
     INTEGER :: jstep0
@@ -187,12 +187,6 @@ CONTAINS
     TYPE(t_key_value_store), POINTER :: restartAttributes
 
     IF (timers_level > 1) CALL timer_start(timer_model_init)
-
-    IF (iforcing == iecham) THEN
-      CALL init_echam_phy_params( p_patch(1:) )
-      CALL construct_echam_phy_state   ( p_patch(1:), ntracer )
-      CALL construct_psrad_forcing_list( p_patch(1:) )
-    END IF
 
     IF(iforcing == inwp) THEN
 
@@ -270,6 +264,12 @@ CONTAINS
       CALL construct_nwp_phy_state( p_patch(1:), var_in_output)
       CALL construct_nwp_lnd_state( p_patch(1:), p_lnd_state, var_in_output(:)%smi, n_timelevels=2 )
       CALL compute_ensemble_pert  ( p_patch(1:), ext_data, prm_diag, time_config%tc_current_date)
+    END IF
+
+    IF (iforcing == iecham) THEN
+      CALL init_echam_phy_params( p_patch(1:) )
+      CALL construct_echam_phy_state   ( p_patch(1:), ntracer )
+      CALL construct_psrad_forcing_list( p_patch(1:) )
     END IF
 
     CALL upatmo_initialize(p_patch)
@@ -501,14 +501,8 @@ CONTAINS
       !
       ! prepare fields of the physics state, real and test case
       DO jg = 1,n_dom
-        CALL init_echam_phy_field( p_patch(jg)                                        ,&
-          &                        ext_data  (jg)% atm%topography_c       (:,  :)     ,&
-          &                        p_nh_state(jg)% metrics% z_ifc         (:,:,:)     ,&
-          &                        p_nh_state(jg)% metrics% z_mc          (:,:,:)     ,&
-          &                        p_nh_state(jg)% metrics% ddqz_z_full   (:,:,:)     ,&
-          &                        p_nh_state(jg)% metrics% geopot_agl_ifc(:,:,:)     ,&
-          &                        p_nh_state(jg)% metrics% geopot_agl    (:,:,:)     ,&
-          &                        p_nh_state(jg)% diag% temp             (:,:,:)     )
+        CALL init_echam_phy_field( p_patch(jg)                       ,&
+          &                        p_nh_state(jg)% diag% temp(:,:,:) )
       END DO
       !
     END IF

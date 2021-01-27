@@ -98,7 +98,6 @@ MODULE mo_nonhydro_state
     &                                DATATYPE_INT, TSTEP_CONSTANT, TSTEP_AVG,        &
     &                                GRID_UNSTRUCTURED
   USE mo_action,               ONLY: ACTION_RESET
-  USE mo_util_vgrid_types,     ONLY: vgrid_buffer
   USE mo_upatmo_config,        ONLY: upatmo_dyn_config
   USE mo_upatmo_impl_const,    ONLY: idamtr
   USE mo_echam_vdf_config,     ONLY: echam_vdf_config
@@ -3232,7 +3231,7 @@ MODULE mo_nonhydro_state
     INTEGER :: ibits         !< "entropy" of horizontal slice
     INTEGER :: DATATYPE_PACK_VAR  !< variable "entropy" for selected fields
     INTEGER :: datatype_flt       !< floating point accuracy in NetCDF output
-    INTEGER :: ist, error_status
+    INTEGER :: ist
     LOGICAL :: group(MAX_GROUPS)
     !--------------------------------------------------------------
 
@@ -3404,13 +3403,6 @@ MODULE mo_nonhydro_state
                 & in_group=group, isteptype=TSTEP_CONSTANT,                     &
                 & lopenacc = .TRUE. )
     __acc_attach(p_metrics%z_ifc)
-
-    ! The 3D coordinate field "z_ifc" exists already in a buffer
-    ! variable of module "mo_util_vgrid". We move the data to its
-    ! final place here:
-    p_metrics%z_ifc(:,:,:) = vgrid_buffer(p_patch%id)%z_ifc(:,:,:)
-    DEALLOCATE(vgrid_buffer(p_patch%id)%z_ifc, STAT=error_status)
-    IF (error_status /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 
     ! geometric height at full levels
     ! z_mc         p_metrics%z_mc(nproma,nlev,nblks_c)

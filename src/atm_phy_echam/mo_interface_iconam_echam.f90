@@ -64,7 +64,7 @@
 
 MODULE mo_interface_iconam_echam
 
-  USE mo_kind                  ,ONLY: wp
+  USE mo_kind                  ,ONLY: wp, vp
   USE mo_exception             ,ONLY: warning, finish, print_value
 
   USE mo_coupling_config       ,ONLY: is_coupled_run
@@ -258,16 +258,16 @@ CONTAINS
     !$ACC               pt_prog_old_rcf%tracer, pt_prog_new%vn, pt_prog_new%w, pt_prog_new%rho, &
     !$ACC               pt_prog_new%exner, pt_prog_new%theta_v,                                 &
     !$ACC               pt_prog_new_rcf%tracer,                                                 &
-    !$ACC               pt_diag%u, pt_diag%v, pt_diag%vor, pt_diag%temp, pt_diag%tempv,         &
-    !$ACC               pt_diag%pres, pt_diag%pres_ifc, pt_diag%ddt_tracer_adv,                 &
+    !$ACC               pt_diag%u, pt_diag%v, pt_diag%temp, pt_diag%tempv,                      &
+    !$ACC               pt_diag%ddt_tracer_adv,                                                 &
     !$ACC               pt_diag%ddt_vn_phy, pt_diag%exner_pr, pt_diag%ddt_exner_phy,            &
     !$ACC               pt_diag%exner_dyn_incr,                                                 &
     !$ACC               pt_int_state%c_lin_e,  advection_config(jg)%trHydroMass%list,           &
     !$ACC               patch%edges%cell_idx, patch%edges%primal_normal_cell,                   &
-    !$ACC               field%ua, field%va, field%vor, field%ta, field%tv, field%presm_old,     &
-    !$ACC               field%presm_new, field%rho, field%mair, field%dz, field%mh2o,           &
-    !$ACC               field%mdry, field%mref, field%xref, field%wa, field%omega, field%presi_old,       &
-    !$ACC               field%presi_new, field%clon, field%clat, field%mtrc, field%qtrc,        &
+    !$ACC               field%pfull,                                                            &
+    !$ACC               field%rho, field%mair, field%dz, field%mh2o,                            &
+    !$ACC               field%mdry, field%mref, field%xref, field%wa, field%omega,              &
+    !$ACC               field%clon, field%clat, field%mtrc, field%qtrc,                         &
     !$ACC               field%mtrcvi, field%mh2ovi, field%mairvi, field%mdryvi, field%mrefvi,   &
     !$ACC               tend%ua, tend%va, tend%ta, tend%ua_dyn, tend%va_dyn, tend%ta_dyn,       &
     !$ACC               tend%ua_phy, tend%va_phy, tend%ta_phy, tend%qtrc, tend%qtrc_dyn,        &
@@ -379,12 +379,12 @@ CONTAINS
     !
     ! (2) Diagnostics
     !
-    ! - pt_diag%tempv
-    ! - pt_diag%temp
-    ! - pt_diag%pres_sfc   surface pressure filtered to remove sound waves, see diagnose_pres_temp
-    ! - pt_diag%pres_ifc   hydrostatic pressure at layer interface
-    ! - pt_diag%pres       hydrostatic pressure at layer midpoint = SQRT(upper pres_ifc * lower pres_ifc)
-    ! - pt_diag%dpres_mc   pressure thickness of layer
+    ! - pt_diag%tempv    = field%tv
+    ! - pt_diag%temp     = field%ta
+    ! - pt_diag%pres_sfc                surface pressure filtered to remove sound waves, see diagnose_pres_temp
+    ! - pt_diag%pres_ifc = field%phalf  hydrostatic pressure at layer interface
+    ! - pt_diag%pres     = field%pfull  hydrostatic pressure at layer midpoint = SQRT(upper pres_ifc * lower pres_ifc)
+    ! - pt_diag%dpres_mc                pressure thickness of layer
     !
     ! For the old state:
     !
@@ -506,16 +506,6 @@ CONTAINS
           !
           ! Fill the time dependent physics state variables, which are used by echam:
           !
-          field%        ua(jc,jk,jb) = pt_diag%     u(jc,jk,jb)
-          field%        va(jc,jk,jb) = pt_diag%     v(jc,jk,jb)
-          field%       vor(jc,jk,jb) = pt_diag%   vor(jc,jk,jb)
-          !
-          field%        ta(jc,jk,jb) = pt_diag% temp (jc,jk,jb)
-          field%        tv(jc,jk,jb) = pt_diag% tempv(jc,jk,jb)
-          !
-          field% presm_old(jc,jk,jb) = pt_diag% pres(jc,jk,jb)
-          field% presm_new(jc,jk,jb) = pt_diag% pres(jc,jk,jb)
-          !
           ! density
           field%       rho(jc,jk,jb) = pt_prog_new% rho(jc,jk,jb)
           !
@@ -602,18 +592,6 @@ CONTAINS
       DO jk = 1,nlev+1
         DO jc = jcs, jce
           !
-          field% presi_old(jc,jk,jb) = pt_diag% pres_ifc(jc,jk,jb)
-          field% presi_new(jc,jk,jb) = pt_diag% pres_ifc(jc,jk,jb)
-          !
-        END DO
-      END DO
-      !$ACC END PARALLEL
-      !
-      !$ACC PARALLEL DEFAULT(PRESENT)
-      !$ACC LOOP GANG VECTOR COLLAPSE(2)
-      DO jk = 1,nlev+1
-        DO jc = jcs, jce
-          !
           field%     wa(jc,jk,jb) = pt_prog_new% w(jc,jk,jb)          !
         END DO
       END DO
@@ -650,7 +628,7 @@ CONTAINS
                      CALL print_value('grid   index jg',jg)
                      CALL print_value('tracer index jt',jt)
                      CALL print_value('level  index jk',jk)
-                     CALL print_value('pressure   [Pa]',field% presm_new(jc,jk,jb))
+                     CALL print_value('pressure   [Pa]',field% pfull(jc,jk,jb))
                      CALL print_value('longitude [deg]',field% clon(jc,jb)*rad2deg)
                      CALL print_value('latitude  [deg]',field% clat(jc,jb)*rad2deg)
                      CALL print_value('pt_prog_new_rcf%tracer',pt_prog_new_rcf% tracer(jc,jk,jb,jt))
@@ -801,6 +779,20 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_p2d_prep)
 
+    !     (a) diagnose again temperature, which is provisionally updated in phyiscs,
+    !         from the "new" state after dynamics, so that the temperature field
+    !         can be used for updating the model state
+    !
+    CALL diagnose_pres_temp( p_metrics                ,&
+      &                      pt_prog_new              ,&
+      &                      pt_prog_new_rcf          ,&
+      &                      pt_diag                  ,&
+      &                      patch                    ,&
+      &                      opt_calc_temp=.TRUE.     ,&
+      &                      opt_calc_pres=.FALSE.    ,&
+      &                      opt_rlend=min_rlcell_int ,& 
+      &                      opt_lconstgrav=upatmo_config(jg)%echam_phy%l_constgrav )
+
     !     (b) (du/dt|phy, dv/dt|phy) --> dvn/dt|phy
     !
     ALLOCATE(zdudt(nproma,nlev,patch%nblks_c), &
@@ -886,8 +878,8 @@ CONTAINS
           zvn2 =   zdudt(jcn,jk,jbn)*patch%edges%primal_normal_cell(je,jb,2)%v1 &
             &    + zdvdt(jcn,jk,jbn)*patch%edges%primal_normal_cell(je,jb,2)%v2
           !
-          pt_diag%ddt_vn_phy(je,jk,jb) =   pt_int_state%c_lin_e(je,1,jb)*zvn1 &
-            &                            + pt_int_state%c_lin_e(je,2,jb)*zvn2
+          pt_diag%ddt_vn_phy(je,jk,jb) =   REAL(  pt_int_state%c_lin_e(je,1,jb)*zvn1      &
+            &                                   + pt_int_state%c_lin_e(je,2,jb)*zvn2, vp)
           !
         END DO ! je
       END DO ! jk
@@ -1023,7 +1015,7 @@ IF (lart) jt_end = iqm_max + art_config(1)%iart_echam_ghg
                           CALL print_value('grid   index jg',jg)
                           CALL print_value('tracer index jt',jt)
                           CALL print_value('level  index jk',jk)
-                          CALL print_value('pressure   [Pa]',field% presm_new(jc,jk,jb))
+                          CALL print_value('pressure   [Pa]',field% pfull(jc,jk,jb))
                           CALL print_value('longitude [deg]',field% clon(jc,jb)*rad2deg)
                           CALL print_value('latitude  [deg]',field% clat(jc,jb)*rad2deg)
                           CALL print_value('field%mtrc     ',field% mtrc(jc,jk,jb,jt))
@@ -1336,10 +1328,10 @@ ENDIF
 
     IF (ltimer) CALL timer_stop(timer_phy2dyn)
 
-#if defined( _OPENACC )
-!!!  This has been deactivated in merge_candidate_8_no_updates; it is only a debugging placeholder
-!!!    CALL gpu_d2h_iconam_echam(patch)
-#endif
+!!$#if defined( _OPENACC )
+!!$!!!  This has been deactivated in merge_candidate_8_no_updates; it is only a debugging placeholder
+!!$!!!    CALL gpu_d2h_iconam_echam(patch)
+!!$#endif
     !=====================================================================================
     !
     ! Now the final new state (pt_prog_new/pt_prog_new_rcf) and
@@ -1351,26 +1343,26 @@ ENDIF
   END SUBROUTINE interface_iconam_echam
   !----------------------------------------------------------------------------
 
-  SUBROUTINE gpu_d2h_iconam_echam(patch)
-    USE mo_dynamics_config,          ONLY: nnow,nnew, nnow_rcf, nnew_rcf
-    TYPE(t_patch)         , INTENT(inout), TARGET :: patch           !< grid/patch info
-    INTEGER :: jg
-
-    jg = patch%id
-
-    !$ACC UPDATE HOST( patch%edges%cell_idx, patch%edges%primal_normal_cell )
-
-#if defined( _OPENACC )
-      CALL warning('GPU:interface_iconam_echam','GPU host synchronization should be removed when port is done!')
-      CALL gpu_d2h_var_list('nh_state_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnow(jg))
-      CALL gpu_d2h_var_list('nh_state_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnow_rcf(jg))
-      CALL gpu_d2h_var_list('nh_state_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnew(jg))
-      CALL gpu_d2h_var_list('nh_state_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnew_rcf(jg))
-      CALL gpu_d2h_var_list('nh_state_diag_of_domain_', domain=jg )
-      CALL gpu_d2h_var_list('prm_field_D', domain=jg)
-      CALL gpu_d2h_var_list('prm_tend_D', domain=jg)
-#endif
-
-  END SUBROUTINE gpu_d2h_iconam_echam
+!!$  SUBROUTINE gpu_d2h_iconam_echam(patch)
+!!$    USE mo_dynamics_config,          ONLY: nnow,nnew, nnow_rcf, nnew_rcf
+!!$    TYPE(t_patch)         , INTENT(inout), TARGET :: patch           !< grid/patch info
+!!$    INTEGER :: jg
+!!$
+!!$    jg = patch%id
+!!$
+!!$    !$ACC UPDATE HOST( patch%edges%cell_idx, patch%edges%primal_normal_cell )
+!!$
+!!$#if defined( _OPENACC )
+!!$      CALL warning('GPU:interface_iconam_echam','GPU host synchronization should be removed when port is done!')
+!!$      CALL gpu_d2h_var_list('nh_state_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnow(jg))
+!!$      CALL gpu_d2h_var_list('nh_state_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnow_rcf(jg))
+!!$      CALL gpu_d2h_var_list('nh_state_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnew(jg))
+!!$      CALL gpu_d2h_var_list('nh_state_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnew_rcf(jg))
+!!$      CALL gpu_d2h_var_list('nh_state_diag_of_domain_', domain=jg )
+!!$      CALL gpu_d2h_var_list('prm_field_D', domain=jg)
+!!$      CALL gpu_d2h_var_list('prm_tend_D', domain=jg)
+!!$#endif
+!!$
+!!$  END SUBROUTINE gpu_d2h_iconam_echam
 
 END MODULE mo_interface_iconam_echam

@@ -43,7 +43,7 @@ MODULE mo_ser_echam_mox
     !$ser verbatim   CALL warning('SER:mo_ser_echam_mox:input','Serialization is active!')
 #if defined( _OPENACC )
     !$ser verbatim   CALL warning('GPU:mo_ser_echam_mox:input','GPU HOST synchronization forced by serialization!')
-    !$ser verbatim   !$ACC UPDATE HOST( field%presm_old ) IF(ASSOCIATED( field%presm_old) )
+    !$ser verbatim   !$ACC UPDATE HOST( field%pfull ) IF(ASSOCIATED( field%pfull) )
     !$ser verbatim   !$ACC UPDATE HOST( field%qtrc ) IF( ASSOCIATED(field%qtrc) )
     !$ser verbatim   !$ACC UPDATE HOST( tend%qtrc_mox ) IF( ASSOCIATED(tend%qtrc_mox) )
     !$ser verbatim   !$ACC UPDATE HOST( tend%qtrc_phy ) IF( ASSOCIATED(tend%qtrc_phy) )
@@ -60,7 +60,7 @@ MODULE mo_ser_echam_mox
 #else
 #error SERIALIZATION MODE IS NOT SET
 #endif
-    !$ser data echam_mox_presm_old=field%presm_old(:,:,jb) IF (ASSOCIATED(field%presm_old))
+    !$ser data echam_mox_pfull=field%pfull(:,:,jb) IF (ASSOCIATED(field%pfull))
     !$ser data echam_mox_qtrc=field%qtrc(:,:,jb,:) IF (ASSOCIATED(field%qtrc))
     !$ser data echam_mox_qtrc_mox=tend%qtrc_mox(:,:,jb,:) IF (ASSOCIATED(tend%qtrc_mox))
     !$ser data echam_mox_qtrc_phy=tend%qtrc_phy(:,:,jb,:) IF (ASSOCIATED(tend%qtrc_phy))
@@ -71,7 +71,7 @@ MODULE mo_ser_echam_mox
 #if defined( SERIALIZE_READ_REFERENCE ) || defined( SERIALIZE_PERTURB_REFERENCE )
 #if defined( _OPENACC )
     !$ser verbatim CALL warning('GPU:mo_ser_echam_mox:input','GPU DEVICE synchronization forced by serialization!')
-    !$ser verbatim   !$ACC UPDATE DEVICE( field%presm_old ) IF(ASSOCIATED( field%presm_old) )
+    !$ser verbatim   !$ACC UPDATE DEVICE( field%pfull ) IF(ASSOCIATED( field%pfull) )
     !$ser verbatim   !$ACC UPDATE DEVICE( field%qtrc ) IF( ASSOCIATED(field%qtrc) )
     !$ser verbatim   !$ACC UPDATE DEVICE( tend%qtrc_mox ) IF( ASSOCIATED(tend%qtrc_mox) )
     !$ser verbatim   !$ACC UPDATE DEVICE( tend%qtrc_phy ) IF( ASSOCIATED(tend%qtrc_phy) )
@@ -100,7 +100,7 @@ MODULE mo_ser_echam_mox
     !$ser verbatim   CALL warning('SER:mo_ser_echam_mox:output','Serialization is active!')
 #if defined( _OPENACC )
     !$ser verbatim   CALL warning('GPU:mo_ser_echam_mox:output','GPU HOST synchronization forced by serialization!')
-    !$ser verbatim   !$ACC UPDATE HOST( field%presm_old ) IF(ASSOCIATED( field%presm_old) )
+    !$ser verbatim   !$ACC UPDATE HOST( field%pfull ) IF(ASSOCIATED( field%pfull) )
     !$ser verbatim   !$ACC UPDATE HOST( field%qtrc ) IF( ASSOCIATED(field%qtrc) )
     !$ser verbatim   !$ACC UPDATE HOST( tend%qtrc_mox ) IF( ASSOCIATED(tend%qtrc_mox) )
     !$ser verbatim   !$ACC UPDATE HOST( tend%qtrc_phy ) IF( ASSOCIATED(tend%qtrc_phy) )
@@ -109,7 +109,7 @@ MODULE mo_ser_echam_mox
     !$ser verbatim   CALL init('icon')
     !$ser savepoint echam_mox-output jg=jg jb=jb jcs=jcs jce=jce nproma=nproma nlev=nlev date=TRIM(date) 
     !$ser mode write
-    !$ser data echam_mox_presm_old=field%presm_old(:,:,jb) IF (ASSOCIATED(field%presm_old))
+    !$ser data echam_mox_pfull=field%pfull(:,:,jb) IF (ASSOCIATED(field%pfull))
     !$ser data echam_mox_qtrc=field%qtrc(:,:,jb,:) IF (ASSOCIATED(field%qtrc))
     !$ser data echam_mox_qtrc_mox=tend%qtrc_mox(:,:,jb,:) IF (ASSOCIATED(tend%qtrc_mox))
     !$ser data echam_mox_qtrc_phy=tend%qtrc_phy(:,:,jb,:) IF (ASSOCIATED(tend%qtrc_phy))

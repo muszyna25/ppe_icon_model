@@ -180,8 +180,8 @@ CONTAINS
                &             zqtrc_iqt (:,:,:),&! in
                &       field% omega    (:,:,jb),     &! in
                &       field% evap     (:,  jb),     &! in
-               &       field% presm_new(:,:,jb),     &! in
-               &       field% presi_new(:,:,jb),     &! in
+               &       field% pfull    (:,:,jb),     &! in
+               &       field% phalf    (:,:,jb),     &! in
                &       field% geom     (:,:,jb),     &! in
                &       field% geoi     (:,:,jb),     &! in
                &             ztend_qv  (:,:),        &! in

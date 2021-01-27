@@ -58,7 +58,7 @@ CONTAINS
     CALL WMO_tropopause( jg,                       &! in
                        & jcs, jce, nproma, nlev,   &! in
                        & field% ta(:,:,jb),        &! in
-                       & field% presm_old(:,:,jb), &! in
+                       & field% pfull(:,:,jb),     &! in
                        & field% ptp(:,jb)          )! inout for diagnostics
     !
 

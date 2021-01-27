@@ -201,7 +201,7 @@ CONTAINS
               & qc0    =echam_mig_config(jg)%qc0    , & !< in: cloud water threshold for autoconversion
               & dz     =field% dz       (:,:,jb)    , & !< in: vertical layer thickness
               & t      =xlta            (:,:)       , & !< inout: temp
-              & p      =field% presm_old(:,:,jb)    , & !< in:  pressure
+              & p      =field% pfull    (:,:,jb)    , & !< in:  pressure
               & rho    =field% rho      (:,:,jb)    , & !< in:  density
               & qv     =xlqv            (:,:)       , & !< inout:sp humidity
               & qc     =xlqc            (:,:)       , & !< inout:cloud water

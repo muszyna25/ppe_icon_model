@@ -242,7 +242,7 @@ MODULE mo_ser_echam_diag
     !$ser verbatim   CALL warning('GPU:mo_ser_echam_diag_dpn:input','GPU HOST synchronization forced by serialization!')
     !$ser verbatim   !$ACC UPDATE HOST( field%sftlf ) IF( ASSOCIATED(field%sftlf) )
     !$ser verbatim   !$ACC UPDATE HOST( field%sftgif ) IF( ASSOCIATED(field%sftgif) )
-    !$ser verbatim   !$ACC UPDATE HOST( field%presm_old ) IF( ASSOCIATED(field%presm_old) )
+    !$ser verbatim   !$ACC UPDATE HOST( field%pfull ) IF( ASSOCIATED(field%pfull) )
     !$ser verbatim   !$ACC UPDATE HOST( field%acdnc ) IF( ASSOCIATED(field%acdnc) )
 #endif
     !$ser verbatim   CALL datetimeToString(time_config%tc_current_date, date)
@@ -259,7 +259,7 @@ MODULE mo_ser_echam_diag
 #endif
     !$ser data echam_diag_dpn_sftlf=field%sftlf(:,jb) IF (ASSOCIATED(field%sftlf))
     !$ser data echam_diag_dpn_sftgif=field%sftgif(:,jb) IF (ASSOCIATED(field%sftgif))
-    !$ser data echam_diag_dpn_presm_old=field%presm_old(:,:,jb) IF (ASSOCIATED(field%presm_old))
+    !$ser data echam_diag_dpn_pfull=field%pfull(:,:,jb) IF (ASSOCIATED(field%pfull))
     !$ser data echam_diag_dpn_acdnc=field%acdnc(:,:,jb) IF (ASSOCIATED(field%acdnc))
     !$ser verbatim lactive = .FALSE.
     !$ser verbatim IF (lonlyonce) THEN
@@ -270,7 +270,7 @@ MODULE mo_ser_echam_diag
     !$ser verbatim CALL warning('GPU:mo_ser_echam_diag_dpn:input','GPU DEVICE synchronization forced by serialization!')
     !$ser verbatim !$ACC UPDATE DEVICE( field%sftlf ) IF( ASSOCIATED(field%sftlf) )
     !$ser verbatim !$ACC UPDATE DEVICE( field%sftgif ) IF( ASSOCIATED(field%sftgif) )
-    !$ser verbatim !$ACC UPDATE DEVICE( field%presm_old ) IF( ASSOCIATED(field%presm_old) )
+    !$ser verbatim !$ACC UPDATE DEVICE( field%pfull ) IF( ASSOCIATED(field%pfull) )
     !$ser verbatim !$ACC UPDATE DEVICE( field%acdnc ) IF( ASSOCIATED(field%acdnc) )
 #endif
 #endif
@@ -298,7 +298,7 @@ MODULE mo_ser_echam_diag
     !$ser verbatim   CALL warning('GPU:mo_ser_echam_diag_dpn:output','GPU HOST synchronization forced by serialization!')
     !$ser verbatim   !$ACC UPDATE HOST( field%sftlf ) IF( ASSOCIATED(field%sftlf) )
     !$ser verbatim   !$ACC UPDATE HOST( field%sftgif ) IF( ASSOCIATED(field%sftgif) )
-    !$ser verbatim   !$ACC UPDATE HOST( field%presm_old ) IF( ASSOCIATED(field%presm_old) )
+    !$ser verbatim   !$ACC UPDATE HOST( field%pfull ) IF( ASSOCIATED(field%pfull) )
     !$ser verbatim   !$ACC UPDATE HOST( field%acdnc ) IF( ASSOCIATED(field%acdnc) )
 #endif
     !$ser verbatim   CALL datetimeToString(time_config%tc_current_date, date)
@@ -307,7 +307,7 @@ MODULE mo_ser_echam_diag
     !$ser mode write
     !$ser data echam_diag_dpn_sftlf=field%sftlf(:,jb) IF (ASSOCIATED(field%sftlf))
     !$ser data echam_diag_dpn_sftgif=field%sftgif(:,jb) IF (ASSOCIATED(field%sftgif))
-    !$ser data echam_diag_dpn_presm_old=field%presm_old(:,:,jb) IF (ASSOCIATED(field%presm_old))
+    !$ser data echam_diag_dpn_pfull=field%pfull(:,:,jb) IF (ASSOCIATED(field%pfull))
     !$ser data echam_diag_dpn_acdnc=field%acdnc(:,:,jb) IF (ASSOCIATED(field%acdnc))
     !$ser verbatim lactive = .FALSE.
     !$ser verbatim IF (lonlyonce) THEN
