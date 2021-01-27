@@ -23,10 +23,11 @@ MODULE mo_derived_variable_handling
   USE mo_time_config,         ONLY: time_config
   USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_FLT64, GRID_LONLAT, TSTEP_CONSTANT
   USE mo_util_texthash,       ONLY: text_hash_c
+! HB: commented openACC stuff for now -- due to weird memory issues, if nproma is large
 #ifdef _OPENACC
   USE mo_mpi,                 ONLY: i_am_accel_node
 #endif
-#include "add_var_acc_macro.inc"
+!#include "add_var_acc_macro.inc"
 
   IMPLICIT NONE
   PRIVATE
@@ -236,12 +237,13 @@ CONTAINS
       & info%grib2, info%used_dimensions(1:info%ndims), vl_elem, &
       & tlev_source=info%tlev_source, isteptype=info%isteptype, &
       & post_op=info%post_op, initval_r=info%initval%rval, &
-      & resetval_r=info%resetval%rval, lmiss=info%lmiss, lopenacc = .TRUE., &
+      & resetval_r=info%resetval%rval, lmiss=info%lmiss, &
       & missval_r=info%missval%rval, action_list=info%action_list, &
       & vert_interp=info%vert_interp, hor_interp=info%hor_interp, &
       & in_group=info%in_group, l_pp_scheduler_task=info%l_pp_scheduler_task, &
-      & loutput=.TRUE., lrestart=.FALSE., var_class=info%var_class )
-    __acc_attach(vl_elem%r_ptr)
+      & loutput=.TRUE., lrestart=.FALSE., var_class=info%var_class, &
+      & lopenacc = .FALSE. )
+!    __acc_attach(vl_elem%r_ptr)
     SELECT CASE(info%hgrid)
     CASE(GRID_UNSTRUCTURED_CELL)
       vl_elem%info%subset = patch_2d%cells%owned
@@ -351,12 +353,14 @@ CONTAINS
     ei = dest%info%subset%end_index
     ni = SIZE(dest%r_ptr, 1)
     IF (ASSOCIATED(sd5d)) THEN
+      !$ACC UPDATE HOST(src%r_ptr) IF(src%info%lopenacc .AND. i_am_accel_node)
       tmp1 => sd5d
     ELSE
+      !$ACC UPDATE HOST(src%s_ptr) IF(src%info%lopenacc .AND. i_am_accel_node)
       ALLOCATE(tmp1(SIZE(ss5d,1), SIZE(ss5d,2), SIZE(ss5d,3), SIZE(ss5d,4), SIZE(ss5d,5)))
 !ICON_OMP PARALLEL PRIVATE(j,k,l,m,blk,lsi,lei)
 !ICON_OMP DO COLLAPSE(4)
-!$ACC PARALLEL LOOP DEFAULT(PRESENT) GANG VECTOR COLLAPSE(4) IF(i_am_accel_node)
+!!$ACC PARALLEL LOOP PRESENT(tmp1, tmp2) GANG VECTOR COLLAPSE(4) ASYNC(1) IF(i_am_accel_node)
       DO m = 1, SIZE(tmp1,5)
         DO l = 1, SIZE(tmp1,4)
           DO k = 1, SIZE(tmp1,3)
@@ -377,7 +381,7 @@ CONTAINS
     SELECT CASE(opcode)
     CASE(1)
 !ICON_OMP DO COLLAPSE(4)
-!$ACC PARALLEL LOOP DEFAULT(PRESENT) GANG VECTOR COLLAPSE(4) IF(i_am_accel_node)
+!!$ACC PARALLEL LOOP PRESENT(tmp1, tmp2) GANG VECTOR COLLAPSE(4) ASYNC(1) IF(i_am_accel_node)
       DO m = 1, SIZE(tmp1,5)
         DO l = 1, SIZE(tmp1,4)
           DO k = 1, SIZE(tmp1,3)
@@ -394,7 +398,7 @@ CONTAINS
 !ICON_OMP END DO NOWAIT
     CASE(2)
 !ICON_OMP DO COLLAPSE(4)
-!$ACC PARALLEL LOOP DEFAULT(PRESENT) GANG VECTOR COLLAPSE(4) IF(i_am_accel_node)
+!!$ACC PARALLEL LOOP PRESENT(tmp1, tmp2) GANG VECTOR COLLAPSE(4) ASYNC(1) IF(i_am_accel_node)
       DO m = 1, SIZE(tmp1,5)
         DO l = 1, SIZE(tmp1,4)
           DO k = 1, SIZE(tmp1,3)
@@ -411,7 +415,7 @@ CONTAINS
 !ICON_OMP END DO NOWAIT
     CASE(3)
 !ICON_OMP DO COLLAPSE(4)
-!$ACC PARALLEL LOOP DEFAULT(PRESENT) GANG VECTOR COLLAPSE(4) IF(i_am_accel_node)
+!!$ACC PARALLEL LOOP PRESENT(tmp1, tmp2) GANG VECTOR COLLAPSE(4) ASYNC(1) IF(i_am_accel_node)
       DO m = 1, SIZE(tmp1,5)
         DO l = 1, SIZE(tmp1,4)
           DO k = 1, SIZE(tmp1,3)
@@ -428,7 +432,7 @@ CONTAINS
 !ICON_OMP END DO NOWAIT
     CASE(4)
 !ICON_OMP DO COLLAPSE(4)
-!$ACC PARALLEL LOOP DEFAULT(PRESENT) GANG VECTOR COLLAPSE(4) IF(i_am_accel_node)
+!!$ACC PARALLEL LOOP PRESENT(tmp1, tmp2) GANG VECTOR COLLAPSE(4) ASYNC(1) IF(i_am_accel_node)
       DO m = 1, SIZE(tmp1,5)
         DO l = 1, SIZE(tmp1,4)
           DO k = 1, SIZE(tmp1,3)
@@ -445,7 +449,7 @@ CONTAINS
 !ICON_OMP END DO NOWAIT
     CASE(5)
 !ICON_OMP DO COLLAPSE(4)
-!$ACC PARALLEL LOOP DEFAULT(PRESENT) GANG VECTOR COLLAPSE(4) IF(i_am_accel_node)
+!!$ACC PARALLEL LOOP PRESENT(tmp1, tmp2) GANG VECTOR COLLAPSE(4) ASYNC(1) IF(i_am_accel_node)
       DO m = 1, SIZE(tmp1,5)
         DO l = 1, SIZE(tmp1,4)
           DO k = 1, SIZE(tmp1,3)
@@ -461,7 +465,7 @@ CONTAINS
 !ICON_OMP END DO NOWAIT
     CASE(6)
 !ICON_OMP DO COLLAPSE(4)
-!$ACC PARALLEL LOOP DEFAULT(PRESENT) GANG VECTOR COLLAPSE(4) IF(i_am_accel_node)
+!!$ACC PARALLEL LOOP PRESENT(tmp1, tmp2) GANG VECTOR COLLAPSE(4) ASYNC(1) IF(i_am_accel_node)
       DO m = 1, SIZE(tmp1,5)
         DO l = 1, SIZE(tmp1,4)
           DO k = 1, SIZE(tmp1,3)
@@ -479,7 +483,7 @@ CONTAINS
     CASE(7)
       weight__ = weight
 !ICON_OMP DO COLLAPSE(4)
-!$ACC PARALLEL LOOP DEFAULT(PRESENT) GANG VECTOR COLLAPSE(4) IF(i_am_accel_node)
+!!$ACC PARALLEL LOOP PRESENT(tmp1, tmp2) GANG VECTOR COLLAPSE(4) ASYNC(1) IF(i_am_accel_node)
       DO m = 1, SIZE(tmp1,5)
         DO l = 1, SIZE(tmp1,4)
           DO k = 1, SIZE(tmp1,3)
@@ -497,7 +501,7 @@ CONTAINS
     CASE(8)
       miss__ = miss
 !ICON_OMP DO COLLAPSE(4)
-!$ACC PARALLEL LOOP DEFAULT(PRESENT) GANG VECTOR COLLAPSE(4) IF(i_am_accel_node)
+!!$ACC PARALLEL LOOP PRESENT(tmp1, tmp2) GANG VECTOR COLLAPSE(4) ASYNC(1) IF(i_am_accel_node)
       DO m = 1, SIZE(tmp2,5)
         DO l = 1, SIZE(tmp2,4)
           DO k = 1, SIZE(tmp2,3)
