@@ -1165,7 +1165,7 @@ CONTAINS
     REAL(wp), INTENT(IN) :: stretch_e(nproma, patch_3d%p_patch_2d(1)%nblks_e) !! stretch factor 
     REAL(wp), INTENT(IN) :: stretch_c_new(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
  
-    TYPE(t_ocean_transport_state)                    :: transport_state
+    TYPE(t_ocean_transport_state) , POINTER                   :: transport_state
     TYPE(t_tracer_collection) , POINTER              :: old_tracer_collection, new_tracer_collection
 
     INTEGER :: i
@@ -1175,6 +1175,7 @@ CONTAINS
  
     old_tracer_collection => ocean_state%p_prog(nold(1))%tracer_collection
     new_tracer_collection => ocean_state%p_prog(nnew(1))%tracer_collection
+    transport_state => ocean_state%transport_state
 
  
     !------------------------------------------------------------------------
