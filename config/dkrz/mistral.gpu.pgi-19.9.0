@@ -1,0 +1,111 @@
+#!/bin/bash
+
+set -eu
+unset CDPATH
+
+SCRIPT_DIR=$(cd "$(dirname "$0")"; pwd)
+ICON_DIR=$(cd "${SCRIPT_DIR}/../.."; pwd)
+
+#MODULES='pgi/19.9 openmpi/2.0.2p2_hpcx-pgi19' cuda???
+MODULES='gcc/6.4.0 pgi/19.9-spack openmpi/2.0.2p2-pgi-19.9 cuda/'
+
+#SW_ROOT='/mnt/lustre01/work/mh0287/m300488/spack-sw/pgi-19.9-haswell'
+SW_ROOT='/sw/spack-rhel6'
+
+# Libtool (used by the bundled CDI and some other bundled libraries) outsmarts
+# itself: it tries to overlink to -lsz but does not provide the respective -L
+# flag because libaec is built with CMake and there is no libsz.la file.
+# Therefore, we have to provide the flag ourselves.
+AEC_ROOT="${SW_ROOT}/libaec-1.0.2-pdjdxk"
+
+# The same problem with -lz: Libtool does not know where to take the right one.
+ZLIB_ROOT="${SW_ROOT}/zlib-1.2.11-vrolxmz"
+
+HDF5_ROOT="${SW_ROOT}/hdf5-1.10.7-xynrbi"
+HDF5_LIBS='-lhdf5'
+
+# /sw/spack-rhel6/parallel-netcdf-1.12.1-rwufaz /sw/spack-rhel6/hdf5-1.10.7-xynrbi/
+# /sw/spack-rhel6/netcdf-c-4.7.4-22ody2/bin /sw/spack-rhel6/netcdf-fortran-4.5.3-3olwe7/bin
+NETCDF_ROOT="${SW_ROOT}/netcdf-c-4.7.4-22ody2"
+NETCDF_LIBS='-lnetcdf'
+
+NETCDFF_ROOT="${SW_ROOT}/netcdf-fortran-4.5.3-3olwe7"
+NETCDFF_LIBS='-lnetcdff'
+
+ECCODES_ROOT="${SW_ROOT}/eccodes-2.19.1-cqlkd7"
+ECCODES_LIBS='-leccodes'
+
+# Currently, we cannot use Serialbox:
+# undefined reference to `std::experimental::filesystem::v1::__cxx11::path::_M_find_extension[abi:cxx11]() const'
+# SERIALBOX_ROOT="${SW_ROOT}/serialbox-2.6.0-wty33or"
+# SERIALBOX_LIBS='-lSerialboxFortran'
+
+BLAS_LAPACK_LIBS='-llapack -lblas'
+
+XML2_ROOT="${SW_ROOT}/libxml2-2.9.10-knadwd"
+XML2_LIBS='-lxml2'
+
+STDCPP_LIBS='-lstdc++'
+
+CLAW="${SW_ROOT}/claw-2.0.2-naetxf/bin/clawfc"
+
+###############################################################################
+
+BUILD_ENV="export LD_LIBRARY_PATH=\"${ZLIB_ROOT}/lib:${AEC_ROOT}/lib64:${HDF5_ROOT}/lib:${NETCDF_ROOT}/lib:${NETCDFF_ROOT}/lib:${ECCODES_ROOT}/lib64:${XML2_ROOT}/lib:\${LD_LIBRARY_PATH}\";"
+
+CC='/sw/spack-rhel6/openmpi-2.0.2p2-xw623x/bin/mpicc'
+CFLAGS='-g -O2'
+CPPFLAGS="-I${HDF5_ROOT}/include -I${NETCDF_ROOT}/include -I${ECCODES_ROOT}/include -I${XML2_ROOT}/include/libxml2"
+
+FC='/sw/spack-rhel6/openmpi-2.0.2p2-xw623x/bin/mpif90'
+FCFLAGS="-g -O -Mrecursive -Mallocatable=03 -tp=haswell -I${NETCDFF_ROOT}/include"
+
+LDFLAGS="-L${ZLIB_ROOT}/lib -L${AEC_ROOT}/lib64 -L${HDF5_ROOT}/lib -L${NETCDF_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${ECCODES_ROOT}/lib64 -L${XML2_ROOT}/lib -L/sw/rhel6-x64/cuda/cuda-10.0.130/lib64"
+
+# We cannot use --as-needed as we do for other compilers because libpgc.so
+# (a PGI runtime library) is missing a NEEDED entry for libpgkomp.so:
+LIBS="${XML2_LIBS} ${BLAS_LAPACK_LIBS} ${ECCODES_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${HDF5_LIBS} ${STDCPP_LIBS} -lcudart"
+
+MPI_LAUNCH='/sw/spack-rhel6/openmpi-2.0.2p2-xw623x/bin/mpiexec'
+
+NVCFLAGS='-arch=sm_37 -g -O3'
+
+EXTRA_CONFIG_ARGS='--enable-parallel-netcdf --disable-loop-exchange --enable-claw --enable-gpu'
+
+################################################################################
+
+"${ICON_DIR}/configure" \
+BUILD_ENV="$BUILD_ENV" \
+CC="$CC" \
+CFLAGS="$CFLAGS" \
+CLAW="$CLAW" \
+CPPFLAGS="$CPPFLAGS" \
+FC="$FC" \
+FCFLAGS="$FCFLAGS" \
+LDFLAGS="$LDFLAGS" \
+LIBS="$LIBS" \
+MPI_LAUNCH="$MPI_LAUNCH" \
+NVCFLAGS="$NVCFLAGS" \
+${EXTRA_CONFIG_ARGS} \
+"$@"
+
+for arg in "$@"; do
+  case $arg in
+    -help | --help | --hel | --he | -h | -help=r* | --help=r* | --hel=r* | --he=r* | -hr* | -help=s* | --help=s* | --hel=s* | --he=s* | -hs*)
+      test -n "${EXTRA_CONFIG_ARGS}" && echo '' && echo "This wrapper script ('$0') calls the configure script with the following extra arguments, which might override the default values listed above: ${EXTRA_CONFIG_ARGS}"
+      exit 0 ;;
+  esac
+done
+
+# Copy runscript-related files when building out-of-source:
+if test $(pwd) != $(cd "${ICON_DIR}"; pwd); then
+  echo "Copying runscript input files from the source directory..."
+  rsync -uavz ${ICON_DIR}/run . --exclude='*.in' --exclude='.*' --exclude='standard_*'
+  ln -sf -t run/ ${ICON_DIR}/run/standard_*
+  ln -sf set-up.info run/SETUP.config
+  rsync -uavz ${ICON_DIR}/externals . --exclude='.git' --exclude='*.f90' --exclude='*.F90' --exclude='*.c' --exclude='*.h' --exclude='*.Po' --exclude='tests' --exclude='rrtmgp*.nc' --exclude='*.mod' --exclude='*.o'
+  rsync -uavz ${ICON_DIR}/make_runscripts .
+  ln -sf ${ICON_DIR}/data
+  ln -sf ${ICON_DIR}/vertical_coord_tables
+fi
+
