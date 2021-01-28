@@ -23,7 +23,7 @@
 MODULE mo_integrate_density_pa
 
   USE mo_kind,                ONLY: wp
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, min_rlcell, min_rledge_int, min_rlcell_int, &
+  USE mo_impl_constants,      ONLY: min_rlcell, min_rledge_int, min_rlcell_int, &
     &                               MIURA, MIURA3, ippm_v
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_model_domain,        ONLY: t_patch
@@ -111,8 +111,7 @@ CONTAINS
     REAL(wp), POINTER ::  &
       & ptr_current_rho(:,:,:) => NULL()  !< pointer to density field
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = modname//':integrate_density_pa'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':integrate_density_pa'
 
     !---------------------------------------------------------------------------
 

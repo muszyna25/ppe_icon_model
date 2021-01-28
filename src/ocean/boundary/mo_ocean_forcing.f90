@@ -713,7 +713,7 @@ CONTAINS
       !
       !-------------------------------------------------------
 
-      stream_id = openInputFile(relax_init_file, patch_2d)
+      CALL openinputfile(stream_id, relax_init_file, patch_2d)
 
       ! triangle center and edges
 

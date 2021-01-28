@@ -58,7 +58,7 @@ use File::Temp;
 use File::Compare;
 use File::Copy;
 
-my $srcdir = '';
+my $srcdir = '.';
 my $help = 0;
 
 GetOptions( 'help|?' => \$help, 'srcdir=s' => \$srcdir) or pod2usage(-exitstatus => 2);

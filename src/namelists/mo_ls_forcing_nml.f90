@@ -40,9 +40,6 @@ MODULE mo_ls_forcing_nml
   LOGICAL  :: is_theta       !true is forcings are in terms of theta
   LOGICAL  :: is_nudging      !true if nudging applied
  
-  NAMELIST/ls_forcing_nml/ is_subsidence_moment, is_subsidence_heat, is_advection, is_geowind, is_rad_forcing,  &
-                           is_theta, is_nudging
-
 CONTAINS
   !-------------------------------------------------------------------------
   !>
@@ -67,6 +64,9 @@ CONTAINS
 
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_ls_forcing_nml: read_ls_forcing_namelist'
+    NAMELIST/ls_forcing_nml/ &
+         is_subsidence_moment, is_subsidence_heat, is_advection, &
+         is_geowind, is_rad_forcing, is_theta, is_nudging
 
     !-----------------------
     ! 1. default settings
@@ -117,14 +117,15 @@ CONTAINS
         is_ls_forcing = .TRUE.
 
     IF(is_ls_forcing .AND. .NOT.ltestcase) &
-        CALL message(TRIM(routine),'ltestcase is turned ON because is_ls_forcing is ON!')
+        CALL message(routine,'ltestcase is turned ON because is_ls_forcing is ON!')
 
     !Check for testcases with large-scale forcing
-    IF(is_rad_forcing .AND. atm_phy_nwp_config(1)%inwp_radiation>0) &
-        CALL finish(TRIM(routine),'both inwp_rad and rad_forcing are turned on!')
+    ! fixme: move to nml crosscheck
+    IF (is_rad_forcing .AND. atm_phy_nwp_config(1)%inwp_radiation>0) &
+      CALL finish(routine, 'both inwp_rad and rad_forcing are turned on!')
 
-    IF(is_geowind .AND. .NOT.is_plane_torus) & 
-         CALL finish(TRIM(routine),'is_geowind is only applicable if is_plane_torus is turned on!')  
+    IF (is_geowind .AND. .NOT.is_plane_torus) &
+      CALL finish(routine, 'is_geowind is only applicable if is_plane_torus is turned on!')
 
     !-----------------------------------------------------
     ! 5. Store the namelist for restart

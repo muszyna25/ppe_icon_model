@@ -1,0 +1,68 @@
+#!/bin/bash
+
+set -eu
+unset CDPATH
+
+SCRIPT_DIR=$(cd "$(dirname "$0")"; pwd)
+ICON_DIR=$(cd "${SCRIPT_DIR}/../.."; pwd)
+
+SW_ROOT='/sw/rhel6-x64'
+
+HDF5_ROOT="${SW_ROOT}/hdf5/hdf5-1.8.18-parallel-openmpi2-intel14"
+HDF5_LIBS='-lhdf5'
+
+NETCDF_ROOT="${SW_ROOT}/netcdf/netcdf_c-4.4.0-parallel-openmpi2-intel14"
+NETCDF_LIBS='-lnetcdf'
+
+NETCDFF_ROOT="${SW_ROOT}/netcdf/netcdf_fortran-4.4.3-parallel-openmpi2-intel14"
+NETCDFF_LIBS='-lnetcdff'
+
+case " $* " in
+  *\ --enable-openmp\ *)
+    PPM_ROOT=/work/k20200/sw/ppm/1.0.6-intel17-openmpi-2.0.2p1-omp
+    ;;
+  *)
+    PPM_ROOT=/work/k20200/sw/ppm/1.0.6-intel17-openmpi-2.0.2p1-noomp
+    ;;
+esac
+PPM_LIBS='-lscalesppm'
+
+ECCODES_ROOT="${SW_ROOT}/eccodes/eccodes-2.6.0-gcc64"
+ECCODES_LIBS='-leccodes'
+
+LIBAEC_ROOT="${SW_ROOT}/sys/libaec-1.0.2-gcc64"
+LIBAEC_LIBS='-lsz -laec'
+
+YAXT_ROOT=/work/k20200/sw/yaxt/0.9.0-openmpi-2.0.2p1-intel17
+YAXT_LIBS='-lyaxt -lyaxt_c'
+
+CDI_ROOT=/work/k20200/sw/cdi/15f0fb7bfd17-openmpi-2.0.2p1-intel17
+CDI_LIBS='-lcdipio -lcdi_f2003 -lcdi'
+
+MKL_LDFLAGS='-mkl=sequential'
+
+XML2_ROOT=/usr
+XML2_LIBS='-lxml2'
+
+################################################################################
+
+LD_LIBRARY_PATH="${LD_LIBRARY_PATH+${LD_LIBRARY_PATH}:}"
+
+CPPFLAGS="-I${NETCDF_ROOT}/include -I${ECCODES_ROOT}/include -I${XML2_ROOT}/include/libxml2"
+
+FCFLAGS="-I${CDI_ROOT}/include -I${YAXT_ROOT}/include -I${NETCDFF_ROOT}/include -gdwarf-4 -g -march=native -pc64 -fp-model source"
+
+LDFLAGS="-shared-intel -L${CDI_ROOT}/lib -L${YAXT_ROOT}/lib -L${NETCDF_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${ECCODES_ROOT}/lib -L${LIBAEC_ROOT}/lib ${MKL_LDFLAGS}"
+LIBS="-Wl,--as-needed ${CDI_LIBS} ${YAXT_LIBS} ${ECCODES_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${LIBAEC_LIBS} ${XML2_LIBS} -Wl,--no-as-needed"
+
+EXTRA_CONFIG_ARGS=(--enable-intel-consistency --enable-vectorized-lrtm --enable-parallel-netcdf --enable-cdi-pio --with-external-yaxt --with-external-cdi --enable-yaxt)
+
+################################################################################
+
+exec "${SCRIPT_DIR}/mistral.intel-17.0.6" \
+CPPFLAGS="${CPPFLAGS}" \
+FCFLAGS="${FCFLAGS}" \
+LDFLAGS="${LDFLAGS}" \
+LIBS="${LIBS}" \
+"${EXTRA_CONFIG_ARGS[@]}" \
+"$@"

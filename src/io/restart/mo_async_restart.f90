@@ -27,7 +27,8 @@ MODULE mo_async_restart
   USE mo_grid_config,               ONLY: n_dom
   USE mo_packed_message,            ONLY: t_PackedMessage, kPackOp, kUnpackOp
   USE mo_restart_descriptor,        ONLY: t_RestartDescriptor
-  USE mo_async_restart_patch_data,  ONLY: t_asyncPatchData
+  USE mo_restart_patch_data,        ONLY: t_RestartPatchData
+  USE mo_async_restart_patch_data,  ONLY: t_asyncPatchData, toAsyncPatchData
   USE mo_restart_patch_description, ONLY: t_restart_patch_description
   USE mo_restart_util,              ONLY: t_restart_args
   USE mo_restart_var_data,          ONLY: get_var_3d_ptr, has_valid_time_level
@@ -76,11 +77,10 @@ CONTAINS
     END IF
     me%modelType = modelType
     CALL me%transferGlobalParameters()
-    ALLOCATE(me%aPatchData(n_dom), STAT = error)
-    me%patchData => me%aPatchData
+    ALLOCATE(t_AsyncPatchData :: me%patchData(n_dom), STAT = error)
     IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
     DO jg = 1, n_dom
-      CALL me%aPatchData(jg)%construct(me%modelType, jg)
+      CALL me%patchData(jg)%construct(me%modelType, jg)
     END DO
     IF(timers_level >= 5) CALL timer_stop(timer_write_restart)
   END SUBROUTINE asyncRestartDescriptor_construct
@@ -103,8 +103,8 @@ CONTAINS
     CALL restart_args%construct(this_datetime, jstep, me%modelType, opt_output_jfile)
     CALL compute_prepare_restart()
     CALL restart_args%destruct()
-    DO idx = 1, SIZE(me%aPatchData)
-      patchData => me%aPatchData(idx)
+    DO idx = 1, SIZE(me%patchData)
+      patchData => toAsyncPatchData(me%patchData(idx))
       IF (.NOT. ASSOCIATED(patchData)) CALL finish(routine, "wrong type of patchData")
       IF (patchData%description%l_dom_active .AND. SIZE(patchData%varData) > 0) &
         & CALL compute_write_var_list(patchData%commData, patchData%description, &
@@ -140,16 +140,16 @@ CONTAINS
     INTEGER :: i, trash
 
     IF(timers_level >= 7) CALL timer_start(timer_write_restart_communication)
-    DO i = 1, SIZE(me%aPatchData)
-      CALL me%aPatchData(i)%description%updateOnMaster()
+    DO i = 1, SIZE(me%patchData)
+      CALL me%patchData(i)%description%updateOnMaster()
     END DO
     IF (p_pe_work == 0) THEN
       CALL packedMessage%pack(MSG_RESTART_START)  ! set command id
-      CALL restartMetadataPacker(kPackOp, restart_args, me%aPatchData, packedMessage)    ! all the other DATA
+      CALL restartMetadataPacker(kPackOp, restart_args, me%patchData, packedMessage)    ! all the other DATA
     END IF
     CALL packedMessage%bcast(0, p_comm_work)
     CALL packedMessage%unpack(trash)  ! ignore the command id
-    CALL restartMetadataPacker(kUnpackOp, restart_args, me%aPatchData, packedMessage)
+    CALL restartMetadataPacker(kUnpackOp, restart_args, me%patchData, packedMessage)
     IF(timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
   END SUBROUTINE compute_prepare_restart
 
@@ -218,10 +218,10 @@ CONTAINS
       CALL packedMessage%reset()
     ENDIF
     IF(timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
-    DO i = 1, SIZE(me%aPatchData, 1)
-      CALL me%aPatchData(i)%destruct()
+    DO i = 1, SIZE(me%patchData, 1)
+      CALL me%patchData(i)%destruct()
     END DO
-    DEALLOCATE(me%aPatchData)
+    DEALLOCATE(me%patchData)
     IF(timers_level >= 5) CALL timer_stop(timer_write_restart)
   END SUBROUTINE asyncRestartDescriptor_destruct
 
@@ -251,10 +251,10 @@ CONTAINS
         & CALL p_send(MSG_RESTART_DONE, 0, 0, comm=p_comm_work_2_restart)
       IF(timers_level >= 5) CALL timer_stop(timer_write_restart)
     ENDDO
-    DO j = 1, SIZE(desc%aPatchData, 1)
-      CALL desc%aPatchData(j)%destruct()
+    DO j = 1, SIZE(desc%patchData, 1)
+      CALL desc%patchData(j)%destruct()
     END DO
-    DEALLOCATE(desc%aPatchData)
+    DEALLOCATE(desc%patchData)
   CONTAINS
 
   SUBROUTINE restart_wait_for_trigger()
@@ -268,7 +268,7 @@ CONTAINS
     CALL packedMessage%unpack(steer)
     SELECT CASE(steer)
     CASE(MSG_RESTART_START)
-      CALL restartMetadataPacker(kUnpackOp, restart_args, desc%aPatchData, packedMessage)
+      CALL restartMetadataPacker(kUnpackOp, restart_args, desc%patchData, packedMessage)
     CASE(MSG_RESTART_SHUTDOWN)
       at_service = .false.
     CASE DEFAULT
@@ -282,8 +282,8 @@ CONTAINS
     TYPE(t_asyncPatchData), POINTER :: apData
     INTEGER :: i
 
-    DO i = 1, SIZE(desc%aPatchData)
-      apData => desc%aPatchData(i)
+    DO i = 1, SIZE(desc%patchData)
+      apData => toAsyncPatchData(desc%patchData(i))
       IF(p_pe_work == MOD(apData%description%id-1, process_mpi_restart_size)) THEN
         CALL apData%commData%sync(mode)
       ELSE IF (.NOT.mode) THEN
@@ -298,7 +298,7 @@ CONTAINS
   SUBROUTINE restartMetadataPacker(operation, restart_args, patchData, packedMessage)
     INTEGER, INTENT(IN) :: operation
     TYPE(t_restart_args), INTENT(INOUT) :: restart_args
-    TYPE(t_asyncPatchData), INTENT(INOUT) :: patchData(:)
+    CLASS(t_RestartPatchData), INTENT(INOUT) :: patchData(:)
     TYPE(t_PackedMessage), INTENT(INOUT) :: packedMessage
     INTEGER :: i
 

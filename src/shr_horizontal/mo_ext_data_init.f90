@@ -906,7 +906,7 @@ CONTAINS
           land_sso_fn  = 'bc_land_sso.nc'
         ENDIF
 
-        stream_id = openInputFile(land_sso_fn, p_patch(jg), default_read_method)
+        CALL openInputFile(stream_id, land_sso_fn, p_patch(jg), default_read_method)
         CALL read_2D(stream_id, on_cells, 'oromea', &
           &          ext_data(jg)%atm%topography_c)
 
@@ -925,7 +925,7 @@ CONTAINS
         ! inner sea (-2), boundary sea (-1, cells and vertices), boundary (0, edges),
         ! boundary land (1, cells and vertices), inner land (2)
 
-        stream_id = openInputFile(p_patch(jg)%grid_filename, p_patch(jg), default_read_method)
+        CALL openInputFile(stream_id, p_patch(jg)%grid_filename, p_patch(jg), default_read_method)
 
         CALL read_2D_int(stream_id, on_cells, 'cell_sea_land_mask', &
           &              ext_data(jg)%atm%lsm_ctr_c)
@@ -935,7 +935,7 @@ CONTAINS
         ! If JSBACH is used open/read the mask for the hydrological discharge model
         IF ( echam_phy_config(jg)%ljsb ) THEN
 
-          stream_id = openInputFile('hd_mask.nc', p_patch(jg), default_read_method)
+          CALL openInputFile(stream_id, 'hd_mask.nc', p_patch(jg), default_read_method)
      
           ! get land-sea-mask on cells, integer marks are:
           ! inner sea (-2), boundary sea (-1, cells and vertices), boundary (0, edges),
@@ -1037,7 +1037,7 @@ CONTAINS
             &                             TRIM(p_patch(jg)%grid_filename),    &
             &                              nroot,                             &
             &                             p_patch(jg)%level, p_patch(jg)%id)
-          stream_id   = openInputFile(extpar_file, p_patch(jg), default_read_method)
+          CALL openinputfile(stream_id, extpar_file, p_patch(jg), default_read_method)
         ELSE
           parameters = makeInputParameters(cdi_extpar_id(jg), p_patch(jg)%n_patch_cells_g, p_patch(jg)%comm_pat_scatter_c, &
           &                                opt_dict=extpar_varnames_dict)
@@ -1299,7 +1299,7 @@ CONTAINS
           CALL message(routine, TRIM(message_text))
         ENDDO
 
-        stream_id = openInputFile(ozone_file, p_patch(jg), default_read_method)
+        CALL openinputfile(stream_id, ozone_file, p_patch(jg), default_read_method)
 
         CALL read_3D_extdim(stream_id, on_cells, TRIM(o3name), &
           &                 ext_data(jg)%atm_td%O3)
@@ -1353,7 +1353,7 @@ CONTAINS
 
          ENDIF
 
-         stream_id = openInputFile(sst_td_file, p_patch(jg), &
+         CALL openinputfile(stream_id, sst_td_file, p_patch(jg), &
           &                        default_read_method)
          CALL read_2D (stream_id, on_cells, 'SST', &
           &            ext_data(jg)%atm_td%sst_m(:,:,im))
@@ -1375,7 +1375,7 @@ CONTAINS
 
          ENDIF
 
-         stream_id = openInputFile(ci_td_file, p_patch(jg), default_read_method)
+         CALL openinputfile(stream_id, ci_td_file, p_patch(jg), default_read_method)
          CALL read_2D(stream_id, on_cells, 'CI', &
           &           ext_data(jg)%atm_td%fr_ice_m(:,:,im))
          CALL closeFile(stream_id)

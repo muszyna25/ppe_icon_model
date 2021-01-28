@@ -203,7 +203,7 @@ MODULE mo_mpi
   ! Comment: Please use basic WRITE to nerr for messaging in the whole
   !          MPI package to achieve proper output.
 
-  USE ISO_C_BINDING, ONLY: C_CHAR
+  USE ISO_C_BINDING, ONLY: C_CHAR, C_SIGNED_CHAR
   ! actual method (MPI-2)
 #ifndef NOMPI
 #if !defined (__SUNPRO_F95)
@@ -387,6 +387,7 @@ MODULE mo_mpi
   ! real data type matching real type of MPI implementation
   PUBLIC :: p_real_dp, p_real_sp, p_real
   PUBLIC :: p_int
+  PUBLIC :: p_int_i4
   PUBLIC :: p_int_i8
   PUBLIC :: p_bool
   PUBLIC :: p_address_kind
@@ -420,7 +421,6 @@ MODULE mo_mpi
   ! general run time information
 
 #ifndef NOMPI
-  INTEGER :: version, subversion   ! MPI version
  ! MPI call inherent variables
   INTEGER :: p_error                     ! MPI error number
   INTEGER :: p_status(MPI_STATUS_SIZE)   ! standard information of MPI_RECV
@@ -638,6 +638,7 @@ MODULE mo_mpi
      MODULE PROCEDURE p_isend_sreal
      MODULE PROCEDURE p_isend_int
      MODULE PROCEDURE p_isend_bool
+     MODULE PROCEDURE p_isend_char_1d
      MODULE PROCEDURE p_isend_real_1d
      MODULE PROCEDURE p_isend_sreal_1d
      MODULE PROCEDURE p_isend_int_1d
@@ -684,6 +685,7 @@ MODULE mo_mpi
      MODULE PROCEDURE p_irecv_sreal
      MODULE PROCEDURE p_irecv_int
      MODULE PROCEDURE p_irecv_bool
+     MODULE PROCEDURE p_irecv_char_1d
      MODULE PROCEDURE p_irecv_real_1d
      MODULE PROCEDURE p_irecv_sreal_1d
      MODULE PROCEDURE p_irecv_int_1d
@@ -704,6 +706,7 @@ MODULE mo_mpi
     MODULE PROCEDURE p_wait
     MODULE PROCEDURE p_wait_1
     MODULE PROCEDURE p_wait_n
+    MODULE PROCEDURE p_wait_n_stati
   END INTERFACE p_wait
 
   INTERFACE p_clear_request
@@ -718,6 +721,11 @@ MODULE mo_mpi
      MODULE PROCEDURE p_sendrecv_real_4d
      MODULE PROCEDURE p_sendrecv_char_array
   END INTERFACE
+
+  INTERFACE p_send_packed
+    MODULE PROCEDURE p_send_packed
+    MODULE PROCEDURE p_send_packed_2d
+  END INTERFACE p_send_packed
 
   INTERFACE p_bcast
      MODULE PROCEDURE p_bcast_real
@@ -787,6 +795,7 @@ MODULE mo_mpi
   INTERFACE p_scatterv
     MODULE PROCEDURE p_scatterv_real1D2D
     MODULE PROCEDURE p_scatterv_real1D1D
+    MODULE PROCEDURE p_scatterv_int_1d1d
     MODULE PROCEDURE p_scatterv_single1D1D
   END INTERFACE
 
@@ -1660,6 +1669,7 @@ CONTAINS
         CALL cdiPioConfSetIOMode(nml_io_cdi_pio_conf_handle, &
           &                      grib_mode_for_cdi_pio)
         CALL cdiPioConfSetCSRole(nml_io_cdi_pio_conf_handle, my_cdi_pio_role)
+        CALL cdiPioConfSetBatchedRMA(nml_io_cdi_pio_conf_handle, .FALSE.)
 #else
         CALL finish(routine, "ICON was compiled without CDI-PIO")
 #endif
@@ -2286,6 +2296,7 @@ CONTAINS
     REAL        :: rrg = 0.0
     REAL(sp)    :: rsp = 0.0_sp
     REAL(dp)    :: rdp = 0.0_dp
+    INTEGER :: version, subversion
 
     CHARACTER(len=132) :: yname
 
@@ -2478,11 +2489,7 @@ CONTAINS
 #endif
 
 
-    IF (global_mpi_size > 1) THEN
-      is_global_mpi_parallel = .TRUE.
-    ELSE
-      global_mpi_size = 1 ! just in case we got wrong size
-    ENDIF
+    is_global_mpi_parallel = global_mpi_size > 1
 
 #ifdef _OPENMP
     ! The number of threads, if varying, will be defined via
@@ -4700,6 +4707,53 @@ CONTAINS
 
   END SUBROUTINE p_recv_sreal
 
+  SUBROUTINE p_isend_char_1d(t_buffer, p_destination, p_tag, p_count, comm)
+    CHARACTER(len=*),  INTENT(inout) :: t_buffer(:)
+    INTEGER,           INTENT(in) :: p_destination, p_tag
+    INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+
+#ifndef NOMPI
+    INTEGER :: p_comm, icount
+
+    IF (PRESENT(comm)) THEN
+      p_comm = comm
+    ELSE
+      p_comm = process_mpi_all_comm
+    ENDIF
+    IF (PRESENT(p_count)) THEN
+      icount = p_count
+    ELSE IF (SIZE(t_buffer) > 0) THEN
+      icount = LEN(t_buffer(1))
+    ELSE
+      icount = 0
+    END IF
+    icount = icount * SIZE(t_buffer)
+
+#ifdef __USE_G2G
+!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+#endif
+
+    CALL p_inc_request
+    CALL mpi_isend(t_buffer, icount, p_char, p_destination, p_tag, &
+         p_comm, p_request(p_irequest), p_error)
+
+#ifdef __USE_G2G
+!$ACC END HOST_DATA
+!$ACC END DATA
+#endif
+
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_ISEND from ', my_process_mpi_all_id, &
+            ' to ', p_destination, ' for tag ', p_tag, ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL abort_mpi
+    END IF
+#endif
+#endif
+  END SUBROUTINE p_isend_char_1d
+
   SUBROUTINE p_recv_real_1d (t_buffer, p_source, p_tag, p_count, comm, displs)
 
     REAL (dp), INTENT(out) :: t_buffer(:)
@@ -5487,9 +5541,7 @@ CONTAINS
     IF (PRESENT(p_count)) THEN
       icount = p_count
     ELSE
-      ! FIXME: this should probably be LEN(t_buffer) instead of 1 as
-      ! in p_recv_char
-      icount = 1
+      icount = LEN(t_buffer)
     END IF
 
 #ifdef __USE_G2G
@@ -5515,6 +5567,59 @@ CONTAINS
 #endif
 
   END SUBROUTINE p_irecv_char
+
+  SUBROUTINE p_irecv_char_1d(t_buffer, p_source, p_tag, p_count, comm, request)
+    CHARACTER(len=*), INTENT(inout) :: t_buffer(:)
+    INTEGER,   INTENT(in) :: p_source, p_tag
+    INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+    INTEGER, OPTIONAL, INTENT(out) :: request
+#ifndef NOMPI
+    INTEGER :: p_comm, icount, out_request
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+    IF (PRESENT(p_count)) THEN
+      icount = p_count
+    ELSE
+      icount = SIZE(t_buffer)
+    END IF
+    icount = icount * LEN(t_buffer(1))
+
+#ifdef __USE_G2G
+!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+#endif
+
+    CALL mpi_irecv(t_buffer, icount, p_char, p_source, p_tag, &
+         p_comm, out_request, p_error)
+
+#ifdef __USE_G2G
+!$ACC END HOST_DATA
+!$ACC END DATA
+#endif
+
+    IF (PRESENT(request)) THEN
+      request               = out_request
+    ELSE
+      CALL p_inc_request
+      p_request(p_irequest) = out_request
+    END IF
+
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_IRECV on ', my_process_mpi_all_id, &
+            ' from ', p_source, ' for tag ', p_tag, ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL abort_mpi
+    END IF
+#endif
+#endif
+  END SUBROUTINE p_irecv_char_1d
+
   !================================================================================================
   ! REAL SECTION ----------------------------------------------------------------------------------
   !
@@ -5924,13 +6029,15 @@ CONTAINS
 
   END SUBROUTINE p_irecv_int
 
-  SUBROUTINE p_irecv_int_1d (t_buffer, p_source, p_tag, p_count, comm)
+  SUBROUTINE p_irecv_int_1d(t_buffer, p_source, p_tag, p_count, comm, &
+    &                       request)
 
     INTEGER, INTENT(inout) :: t_buffer(:)
     INTEGER,   INTENT(in) :: p_source, p_tag
     INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+    INTEGER, OPTIONAL, INTENT(out) :: request
 #ifndef NOMPI
-    INTEGER :: p_comm, icount
+    INTEGER :: p_comm, icount, out_request
 
     IF (PRESENT(comm)) THEN
       p_comm = comm
@@ -5947,13 +6054,19 @@ CONTAINS
 !$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
-    CALL p_inc_request
     CALL mpi_irecv(t_buffer, icount, p_int, p_source, p_tag, &
-         p_comm, p_request(p_irequest), p_error)
+         p_comm, out_request, p_error)
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
 #endif
+
+    IF (PRESENT(request)) THEN
+      request               = out_request
+    ELSE
+      CALL p_inc_request
+      p_request(p_irequest) = out_request
+    END IF
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -6359,7 +6472,7 @@ CONTAINS
 
     CALL MPI_PACK(t_var, 1, p_bool, t_buffer, SIZE(t_buffer), p_pos, p_comm, p_error)
 #ifdef DEBUG
-    IF (p_error /= MPI_SUCCESS) CALL finish ("p_pack_int", 'MPI call failed')
+    IF (p_error /= MPI_SUCCESS) CALL finish ("p_pack_bool", 'MPI call failed')
 #endif
 #endif
   END SUBROUTINE p_pack_bool
@@ -6678,14 +6791,16 @@ CONTAINS
 
   END SUBROUTINE p_recv_packed
 
-  SUBROUTINE p_irecv_packed (t_buffer, p_source, p_tag, p_count, comm)
+  SUBROUTINE p_irecv_packed (t_buffer, p_source, p_tag, p_count, comm, &
+       request)
 
     CHARACTER, INTENT(INOUT) :: t_buffer(:)
     INTEGER,   INTENT(IN)    :: p_source, p_tag
     INTEGER,   INTENT(IN)    :: p_count
     INTEGER, OPTIONAL, INTENT(IN) :: comm
+    INTEGER, OPTIONAL, INTENT(out) :: request
 #ifndef NOMPI
-    INTEGER :: p_comm
+    INTEGER :: p_comm, out_request
 
     IF (PRESENT(comm)) THEN
        p_comm = comm
@@ -6693,9 +6808,15 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    CALL p_inc_request
     CALL MPI_IRECV (t_buffer, p_count, MPI_PACKED, p_source, p_tag, &
-      p_comm, p_request(p_irequest), p_error)
+      p_comm, out_request, p_error)
+
+    IF (PRESENT(request)) THEN
+      request               = out_request
+    ELSE
+      CALL p_inc_request
+      p_request(p_irequest) = out_request
+    END IF
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -6738,8 +6859,39 @@ CONTAINS
 
   END SUBROUTINE p_send_packed
 
+  SUBROUTINE p_send_packed_2d(t_buffer, p_destination, p_tag, p_count, comm)
+
+    CHARACTER, INTENT(in) :: t_buffer(:,:)
+    INTEGER,   INTENT(in) :: p_destination, p_tag
+    INTEGER,   INTENT(in) :: p_count
+    INTEGER, OPTIONAL, INTENT(in) :: comm
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+    CALL MPI_SEND (t_buffer, p_count, MPI_PACKED, p_destination, p_tag, &
+      p_comm, p_error)
+
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_SEND from ', my_process_mpi_all_id, &
+            ' to ', p_destination, ' for tag ', p_tag, ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL abort_mpi
+    END IF
+#endif
+#endif
+
+  END SUBROUTINE p_send_packed_2d
+
   SUBROUTINE p_bcast_packed (t_buffer, p_source, p_count, comm)
-    CHARACTER, INTENT(inout) :: t_buffer(:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    CHARACTER :: t_buffer(:)
     INTEGER,   INTENT(in)    :: p_source
     INTEGER,   INTENT(in)    :: p_count
     INTEGER, OPTIONAL, INTENT(in) :: comm
@@ -6989,8 +7141,9 @@ CONTAINS
   ! bcast implementation
 
   SUBROUTINE p_bcast_real (t_buffer, p_source, comm)
-
-    REAL (dp), INTENT(inout) :: t_buffer
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    REAL(dp) :: t_buffer
     INTEGER,   INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 #ifndef NOMPI
@@ -7042,8 +7195,9 @@ CONTAINS
   !> wrapper for MPI_Bcast
   !---------------------------------------------------------------------------------------------------------------------------------
   SUBROUTINE p_bcast_real_single (t_buffer, p_source, comm)
-
-    REAL (sp), INTENT(inout) :: t_buffer
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    REAL(sp) :: t_buffer
     INTEGER,   INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 #ifndef NOMPI
@@ -7092,8 +7246,9 @@ CONTAINS
   END SUBROUTINE p_bcast_real_single
 
   SUBROUTINE p_bcast_real_1d (t_buffer, p_source, comm)
-
-    REAL (dp), INTENT(inout) :: t_buffer(:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    REAL(dp) :: t_buffer(:)
     INTEGER,   INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 #ifndef NOMPI
@@ -7145,8 +7300,9 @@ CONTAINS
   !> wrapper for MPI_Bcast
   !---------------------------------------------------------------------------------------------------------------------------------
   SUBROUTINE p_bcast_real_1d_single (t_buffer, p_source, comm)
-
-    REAL (sp), INTENT(inout) :: t_buffer(:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    REAL(sp) :: t_buffer(:)
     INTEGER,   INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 #ifndef NOMPI
@@ -7195,8 +7351,9 @@ CONTAINS
   END SUBROUTINE p_bcast_real_1d_single
 
   SUBROUTINE p_bcast_real_2d (t_buffer, p_source, comm)
-
-    REAL (dp), INTENT(inout) :: t_buffer(:,:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    REAL(dp) :: t_buffer(:,:)
     INTEGER,   INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7247,8 +7404,9 @@ CONTAINS
 
 
   SUBROUTINE p_bcast_real_2d_single (t_buffer, p_source, comm)
-
-    REAL (sp), INTENT(inout) :: t_buffer(:,:) ! SINGLE PRECISION
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    REAL(sp) :: t_buffer(:,:) ! SINGLE PRECISION
     INTEGER,   INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7299,8 +7457,9 @@ CONTAINS
 
 
   SUBROUTINE p_bcast_real_3d (t_buffer, p_source, comm)
-
-    REAL (dp), INTENT(inout) :: t_buffer(:,:,:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    REAL (dp) :: t_buffer(:,:,:)
     INTEGER,   INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7350,8 +7509,9 @@ CONTAINS
   END SUBROUTINE p_bcast_real_3d
 
   SUBROUTINE p_bcast_real_4d (t_buffer, p_source, comm)
-
-    REAL (dp), INTENT(inout) :: t_buffer(:,:,:,:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    REAL(dp) :: t_buffer(:,:,:,:)
     INTEGER,   INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7401,8 +7561,9 @@ CONTAINS
   END SUBROUTINE p_bcast_real_4d
 
   SUBROUTINE p_bcast_real_5d (t_buffer, p_source, comm)
-
-    REAL (dp), INTENT(inout) :: t_buffer(:,:,:,:,:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    REAL(dp) :: t_buffer(:,:,:,:,:)
     INTEGER,   INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7452,8 +7613,9 @@ CONTAINS
   END SUBROUTINE p_bcast_real_5d
 
   SUBROUTINE p_bcast_real_7d (t_buffer, p_source, comm)
-
-    REAL (dp), INTENT(inout) :: t_buffer(:,:,:,:,:,:,:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    REAL(dp) :: t_buffer(:,:,:,:,:,:,:)
     INTEGER,   INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7503,8 +7665,9 @@ CONTAINS
   END SUBROUTINE p_bcast_real_7d
 
   SUBROUTINE p_bcast_int_i4 (t_buffer, p_source, comm)
-
-    INTEGER (i4), INTENT(inout) :: t_buffer
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    INTEGER(i4) :: t_buffer
     INTEGER, INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7554,8 +7717,9 @@ CONTAINS
   END SUBROUTINE p_bcast_int_i4
 
   SUBROUTINE p_bcast_int_i8 (t_buffer, p_source, comm)
-
-    INTEGER (i8), INTENT(inout) :: t_buffer
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    INTEGER(i8) :: t_buffer
     INTEGER, INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7605,8 +7769,9 @@ CONTAINS
   END SUBROUTINE p_bcast_int_i8
 
   SUBROUTINE p_bcast_int_1d (t_buffer, p_source, comm)
-
-    INTEGER, INTENT(inout) :: t_buffer(:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    INTEGER :: t_buffer(:)
     INTEGER, INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7656,8 +7821,9 @@ CONTAINS
   END SUBROUTINE p_bcast_int_1d
 
   SUBROUTINE p_bcast_int_i8_1d (t_buffer, p_source, comm)
-
-    INTEGER(i8), INTENT(inout) :: t_buffer(:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    INTEGER(i8) :: t_buffer(:)
     INTEGER, INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7707,8 +7873,9 @@ CONTAINS
   END SUBROUTINE p_bcast_int_i8_1d
 
   SUBROUTINE p_bcast_int_2d (t_buffer, p_source, comm)
-
-    INTEGER, INTENT(inout) :: t_buffer(:,:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    INTEGER :: t_buffer(:,:)
     INTEGER, INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7758,8 +7925,9 @@ CONTAINS
   END SUBROUTINE p_bcast_int_2d
 
   SUBROUTINE p_bcast_int_3d (t_buffer, p_source, comm)
-
-    INTEGER, INTENT(inout) :: t_buffer(:,:,:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    INTEGER :: t_buffer(:,:,:)
     INTEGER, INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7809,8 +7977,9 @@ CONTAINS
   END SUBROUTINE p_bcast_int_3d
 
   SUBROUTINE p_bcast_int_4d (t_buffer, p_source, comm)
-
-    INTEGER, INTENT(inout) :: t_buffer(:,:,:,:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    INTEGER :: t_buffer(:,:,:,:)
     INTEGER, INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7860,8 +8029,9 @@ CONTAINS
   END SUBROUTINE p_bcast_int_4d
 
   SUBROUTINE p_bcast_int_7d (t_buffer, p_source, comm)
-
-    INTEGER, INTENT(inout) :: t_buffer(:,:,:,:,:,:,:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    INTEGER                :: t_buffer(:,:,:,:,:,:,:)
     INTEGER, INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7911,8 +8081,9 @@ CONTAINS
   END SUBROUTINE p_bcast_int_7d
 
   SUBROUTINE p_bcast_bool (t_buffer, p_source, comm)
-
-    LOGICAL, INTENT(inout) :: t_buffer
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    LOGICAL :: t_buffer
     INTEGER, INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7962,8 +8133,9 @@ CONTAINS
   END SUBROUTINE p_bcast_bool
 
   SUBROUTINE p_bcast_bool_1d (t_buffer, p_source, comm)
-
-    LOGICAL, INTENT(inout) :: t_buffer(:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    LOGICAL :: t_buffer(:)
     INTEGER, INTENT(in) :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -8013,8 +8185,9 @@ CONTAINS
   END SUBROUTINE p_bcast_bool_1d
 
   SUBROUTINE p_bcast_bool_2d (t_buffer, p_source, comm)
-
-    LOGICAL, INTENT(inout) :: t_buffer(:,:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    LOGICAL :: t_buffer(:,:)
     INTEGER, INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -8064,8 +8237,9 @@ CONTAINS
   END SUBROUTINE p_bcast_bool_2d
 
   SUBROUTINE p_bcast_bool_3d (t_buffer, p_source, comm)
-
-    LOGICAL, INTENT(inout) :: t_buffer(:,:,:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    LOGICAL :: t_buffer(:,:,:)
     INTEGER, INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -8115,8 +8289,9 @@ CONTAINS
   END SUBROUTINE p_bcast_bool_3d
 
   SUBROUTINE p_bcast_bool_4d (t_buffer, p_source, comm)
-
-    LOGICAL, INTENT(inout) :: t_buffer(:,:,:,:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    LOGICAL :: t_buffer(:,:,:,:)
     INTEGER, INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -8166,8 +8341,9 @@ CONTAINS
   END SUBROUTINE p_bcast_bool_4d
 
   SUBROUTINE p_bcast_char (t_buffer, p_source, comm)
-
-    CHARACTER(len=*),  INTENT(inout) :: t_buffer
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    CHARACTER(len=*) :: t_buffer
     INTEGER,           INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -8217,8 +8393,9 @@ CONTAINS
   END SUBROUTINE p_bcast_char
 
   SUBROUTINE p_bcast_char_1d(t_buffer, p_source, comm)
-
-    CHARACTER (*), INTENT(inout) :: t_buffer(:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    CHARACTER(*) :: t_buffer(:)
     INTEGER,       INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
     INTEGER                      :: lexlength, flength
@@ -8270,7 +8447,7 @@ CONTAINS
   END SUBROUTINE p_bcast_char_1d
 
   SUBROUTINE p_bcast_char_2d(t_buffer, p_source, comm)
-    CHARACTER(*),  INTENT(inout) :: t_buffer(:,:)
+    CHARACTER(*) :: t_buffer(:,:)
     INTEGER,       INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
     INTEGER :: lexlength, flength
@@ -8313,11 +8490,10 @@ CONTAINS
 
 
   SUBROUTINE p_bcast_cchar (t_buffer, buflen, p_source, p_comm)
-
-    USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_SIGNED_CHAR
-
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
     INTEGER,           INTENT(IN)    :: buflen
-    INTEGER(C_SIGNED_CHAR), INTENT(INOUT) :: t_buffer(buflen)
+    INTEGER(C_SIGNED_CHAR)                :: t_buffer(buflen)
 
     INTEGER,           INTENT(IN)    :: p_source
     INTEGER,           INTENT(IN)    :: p_comm
@@ -8393,7 +8569,7 @@ CONTAINS
 !DR Test
   SUBROUTINE p_bcast_datetime (mtime_datetime, p_source, comm)
 
-    TYPE(datetime), TARGET  , INTENT(inout) :: mtime_datetime
+    TYPE(datetime), TARGET                  :: mtime_datetime
     INTEGER                 , INTENT(in)    :: p_source
     INTEGER       , OPTIONAL, INTENT(in)    :: comm
     !
@@ -8522,6 +8698,15 @@ CONTAINS
     CALL p_clear_request(requests)
 #endif
   END SUBROUTINE p_wait_n
+
+  SUBROUTINE p_wait_n_stati(requests, stati)
+    INTEGER, INTENT(INOUT) :: requests(:)
+    INTEGER, INTENT(out) :: stati(:,:)
+#ifndef NOMPI
+    CALL mpi_waitall(SIZE(requests), requests, stati, p_error)
+    CALL p_clear_request(requests)
+#endif
+  END SUBROUTINE p_wait_n_stati
 
   SUBROUTINE p_wait_any(return_pe)
 
@@ -10477,6 +10662,29 @@ CONTAINS
         recvbuf(1:recvcount) = sendbuf((displs(1)+1):(displs(1)+recvcount))
 #endif
    END SUBROUTINE p_scatterv_real1D1D
+
+   SUBROUTINE p_scatterv_int_1d1d(sendbuf, sendcounts, displs, recvbuf, &
+     recvcount, p_src, comm)
+     IMPLICIT NONE
+     INTEGER, INTENT(IN) :: sendbuf(:)
+     INTEGER, INTENT(IN) :: sendcounts(:)
+     INTEGER, INTENT(INOUT) :: recvbuf(:)
+     INTEGER, INTENT(IN)  :: recvcount
+     INTEGER, INTENT(IN)  :: displs(:)
+     INTEGER, INTENT(IN)  :: p_src
+     INTEGER, INTENT(IN)  :: comm
+
+#ifndef NOMPI
+     CHARACTER(*), PARAMETER :: routine = modname//"::p_scatterv_real1D1D"
+     INTEGER :: ierr
+
+     CALL MPI_Scatterv(sendbuf, sendcounts, displs, p_int, &
+       &               recvbuf, recvcount, p_int, p_src, comm, ierr)
+     IF (ierr /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_Scatterv operation!')
+#else
+     recvbuf(1:recvcount) = sendbuf((displs(1)+1):(displs(1)+recvcount))
+#endif
+   END SUBROUTINE p_scatterv_int_1d1d
 
 
   !---------------------------------------------------------------------------------------------------------------------------------

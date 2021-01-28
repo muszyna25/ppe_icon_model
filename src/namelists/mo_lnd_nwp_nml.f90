@@ -76,78 +76,9 @@ MODULE mo_lnd_nwp_nml
   IMPLICIT NONE
 
   PRIVATE
-! Variable to set the sst and seaice fraction mode      
-  INTEGER ::  sstice_mode
-!> Action Variables for physical schemes
-! --------------------------------------
-  INTEGER ::  nlev_snow         !< number of snow layers
-  INTEGER ::  nlev_soil         !< number of soil layers
-  REAL(wp):: zml_soil(max_nsoil)!< Soil full levels
-  INTEGER ::  ntiles            !< number of static tiles
-  REAL(wp)::  frlnd_thrhld      !< fraction threshold for creating a land grid point
-  REAL(wp)::  frlndtile_thrhld  !< fraction threshold for retaining the respective 
-                                !< tile for a grid point
-  REAL(wp)::  frlake_thrhld     !< fraction threshold for creating a lake grid point
-  REAL(wp)::  frsea_thrhld      !< fraction threshold for creating a sea grid point
-  REAL(wp)::  max_toplaydepth   !< maximum depth of uppermost snow layer for multi-layer snow scheme
-  INTEGER ::  itype_trvg        !< type of vegetation transpiration parameterization
-  INTEGER ::  itype_evsl        !< type of parameterization of bare soil evaporation
-  INTEGER ::  itype_lndtbl      !< choice of table for associating surface parameters to land-cover classes
-  INTEGER ::  itype_root        !< type of root density distribution
-  INTEGER ::  itype_heatcond    !< type of soil heat conductivity
-  INTEGER ::  itype_interception!< type of plant interception
-  REAL(wp)::  cwimax_ml         !< scaling parameter for maximum interception storage
-  REAL(wp)::  c_soil            !< surface area density of the (evaporative) soil surface
-  REAL(wp)::  c_soil_urb        !< surface area density of the (evaporative) soil surface, urban areas
-  INTEGER ::  itype_canopy      !< type of canopy parameterisation with respect to the surface energy balance
-  REAL(wp)::  cskinc            !< skin conductivity (W/m**2/K)
-  REAL(wp)::  tau_skin          !< relaxation time scale for the computation of the skin temperature
-  INTEGER ::  itype_hydbound    !< type of hydraulic lower boundary condition
-  INTEGER ::  idiag_snowfrac    !< method for diagnosis of snow-cover fraction       
-  INTEGER ::  itype_snowevap    !< treatment of snow evaporation in the presence of vegetation      
-
-  CHARACTER(LEN=filename_max) :: sst_td_filename, ci_td_filename
-
-
-  LOGICAL ::           &
-       lseaice,        & !> forecast with sea ice model
-       lprog_albsi,    & !> sea-ice albedo is computed prognostically 
-       llake,          & !> forecast with lake model FLake
-       lmelt     ,     & !> soil model with melting process
-       lmelt_var ,     & !> freezing temperature dependent on water content
-       lmulti_snow,    & !> run the multi-layer snow model
-       l2lay_rho_snow, & !> use two-layer snow density for single-layer snow scheme
-       lstomata   ,    & !> map of minimum stomata resistance
-       l2tls      ,    & !> forecast with 2-TL integration scheme
-       lana_rho_snow,  & !> if .TRUE., take rho_snow-values from analysis file 
-       lsnowtile         !> if .TRUE., snow is considered as a separate tile
-!--------------------------------------------------------------------
-! nwp forcing (right hand side)
-!--------------------------------------------------------------------
-
-  NAMELIST/lnd_nml/ nlev_snow, zml_soil, ntiles                     , &
-    &               frlnd_thrhld, lseaice, lprog_albsi, llake, lmelt, &
-    &               frlndtile_thrhld, frlake_thrhld                 , &
-    &               frsea_thrhld, lmelt_var, lmulti_snow            , & 
-    &               itype_trvg, idiag_snowfrac, max_toplaydepth     , & 
-    &               itype_evsl                                      , & 
-    &               itype_lndtbl                                    , & 
-    &               itype_root                                      , & 
-    &               itype_heatcond                                  , & 
-    &               itype_interception                              , & 
-    &               itype_hydbound                                  , & 
-    &               itype_canopy, cskinc, tau_skin                  , &
-    &               lstomata                                        , & 
-    &               l2tls                                           , & 
-    &               lana_rho_snow, l2lay_rho_snow                   , & 
-    &               lsnowtile, itype_snowevap                       , &
-    &               sstice_mode                                     , &
-    &               sst_td_filename                                 , &
-    &               ci_td_filename, cwimax_ml, c_soil, c_soil_urb
-   
   PUBLIC :: read_nwp_lnd_namelist
 
- CONTAINS
+CONTAINS
 
 
   !-------------------------------------------------------------------------
@@ -175,14 +106,83 @@ MODULE mo_lnd_nwp_nml
     INTEGER :: jg, js            ! loop indices
     INTEGER :: iunit
 
+    ! Variable to set the sst and seaice fraction mode
+    INTEGER ::  sstice_mode
+    !> Action Variables for physical schemes
+    ! --------------------------------------
+    INTEGER ::  nlev_snow         !< number of snow layers
+    INTEGER ::  nlev_soil         !< number of soil layers
+    REAL(wp):: zml_soil(max_nsoil)!< Soil full levels
+    INTEGER ::  ntiles            !< number of static tiles
+    REAL(wp)::  frlnd_thrhld      !< fraction threshold for creating a land grid point
+    REAL(wp)::  frlndtile_thrhld  !< fraction threshold for retaining the respective
+    !! tile for a grid point
+    REAL(wp)::  frlake_thrhld     !< fraction threshold for creating a lake grid point
+    REAL(wp)::  frsea_thrhld      !< fraction threshold for creating a sea grid point
+    REAL(wp)::  max_toplaydepth   !< maximum depth of uppermost snow layer for multi-layer snow scheme
+    INTEGER ::  itype_trvg        !< type of vegetation transpiration parameterization
+    INTEGER ::  itype_evsl        !< type of parameterization of bare soil evaporation
+    INTEGER ::  itype_lndtbl      !< choice of table for associating surface parameters to land-cover classes
+    INTEGER ::  itype_root        !< type of root density distribution
+    INTEGER ::  itype_heatcond    !< type of soil heat conductivity
+    INTEGER ::  itype_interception!< type of plant interception
+    REAL(wp)::  cwimax_ml         !< scaling parameter for maximum interception storage
+    REAL(wp)::  c_soil            !< surface area density of the (evaporative) soil surface
+    REAL(wp)::  c_soil_urb        !< surface area density of the (evaporative) soil surface, urban areas
+    INTEGER ::  itype_canopy      !< type of canopy parameterisation with respect to the surface energy balance
+    REAL(wp)::  cskinc            !< skin conductivity (W/m**2/K)
+    REAL(wp)::  tau_skin          !< relaxation time scale for the computation of the skin temperature
+    INTEGER ::  itype_hydbound    !< type of hydraulic lower boundary condition
+    INTEGER ::  idiag_snowfrac    !< method for diagnosis of snow-cover fraction
+    INTEGER ::  itype_snowevap    !< treatment of snow evaporation in the presence of vegetation
+
+    CHARACTER(LEN=filename_max) :: sst_td_filename, ci_td_filename
+
+
+    LOGICAL ::           &
+         lseaice,        & !> forecast with sea ice model
+         lprog_albsi,    & !> sea-ice albedo is computed prognostically 
+         llake,          & !> forecast with lake model FLake
+         lmelt     ,     & !> soil model with melting process
+         lmelt_var ,     & !> freezing temperature dependent on water content
+         lmulti_snow,    & !> run the multi-layer snow model
+         l2lay_rho_snow, & !> use two-layer snow density for single-layer snow scheme
+         lstomata   ,    & !> map of minimum stomata resistance
+         l2tls      ,    & !> forecast with 2-TL integration scheme
+         lana_rho_snow,  & !> if .TRUE., take rho_snow-values from analysis file
+         lsnowtile         !> if .TRUE., snow is considered as a separate tile
+    !--------------------------------------------------------------------
+    ! nwp forcing (right hand side)
+    !--------------------------------------------------------------------
+
+    NAMELIST/lnd_nml/ nlev_snow, zml_soil, ntiles                     , &
+         &               frlnd_thrhld, lseaice, lprog_albsi, llake, lmelt, &
+         &               frlndtile_thrhld, frlake_thrhld                 , &
+         &               frsea_thrhld, lmelt_var, lmulti_snow            , &
+         &               itype_trvg, idiag_snowfrac, max_toplaydepth     , &
+         &               itype_evsl                                      , &
+         &               itype_lndtbl                                    , &
+         &               itype_root                                      , &
+         &               itype_heatcond                                  , &
+         &               itype_interception                              , &
+         &               itype_hydbound                                  , &
+         &               itype_canopy, cskinc, tau_skin                  , &
+         &               lstomata                                        , &
+         &               l2tls                                           , &
+         &               lana_rho_snow, l2lay_rho_snow                   , &
+         &               lsnowtile, itype_snowevap                       , &
+         &               sstice_mode                                     , &
+         &               sst_td_filename                                 , &
+         &               ci_td_filename, cwimax_ml, c_soil, c_soil_urb
+
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_lnd_nwp_nml:read_nwp_lnd_namelist'
 
     !-----------------------
-    ! 1. default settings   
+    ! 1. default settings
     !-----------------------
 
-    sstice_mode  = SSTICE_ANA  ! forecast mode, sst and sea ice fraction is read from 
+    sstice_mode  = SSTICE_ANA  ! forecast mode, sst and sea ice fraction is read from
                                ! the analysis, sst ist kept constant, sea ice fraction
                                ! is modified by the sea ice model
                                ! default names for the time dependent SST and CI ext param files

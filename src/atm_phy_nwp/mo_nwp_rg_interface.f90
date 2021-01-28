@@ -59,7 +59,7 @@ MODULE mo_nwp_rg_interface
   SUBROUTINE nwp_rg_radiation ( p_sim_time, mtime_datetime, pt_patch, &
     & ext_data,pt_prog,pt_diag,prm_diag,lnd_prog,zsct )
 
-!    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
+!    CHARACTER(len=*), PARAMETER::  &
 !      &  routine = 'mo_nwp_rg_interface:'
 
 !    REAL(wp), PARAMETER::  &
@@ -229,7 +229,7 @@ MODULE mo_nwp_rg_interface
     &                                   ext_data,pt_prog,pt_diag,prm_diag, &
     &                                   lnd_prog,zsct )
 
-!    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
+!    CHARACTER(len=*), PARAMETER::  &
 !      &  routine = 'mo_nwp_rg_interface:'
 
 !    REAL(wp), PARAMETER::  &

@@ -51,7 +51,7 @@ MODULE mo_ha_stepping
   USE mo_hierarchy_management,ONLY: process_grid, interpolate_diagnostics
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
   USE mo_impl_constants,      ONLY: LEAPFROG_EXPL, LEAPFROG_SI, &
-                                    RK4, SSPRK54, MAX_CHAR_LENGTH
+                                    RK4, SSPRK54
   USE mo_timer,               ONLY: ltimer, timer_start, timer_stop, timer_total, timer_intrp_diagn
   USE mo_sync,                ONLY: global_max
   USE mo_vertical_coord_table,ONLY: vct
@@ -204,8 +204,7 @@ CONTAINS
                                 & p_hydro_state,                      &
                                 & mtime_current )
 
-  CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_ha_stepping:perform_ha_stepping'
+  CHARACTER(len=*), PARAMETER :: routine = 'mo_ha_stepping:perform_ha_stepping'
 
   TYPE(t_patch),         TARGET, INTENT(INOUT) :: p_patch(n_dom)
   TYPE(t_int_state),     TARGET, INTENT(IN)    :: p_int_state(n_dom)
@@ -242,7 +241,7 @@ CONTAINS
 
   CALL getAttributesForRestarting(restartAttributes)
   ! get start counter for time loop from restart file:
-  IF (ASSOCIATED(restartAttributes)) CALL restartAttributes%get("jstep", jstep0)
+  IF (restartAttributes%is_init) CALL restartAttributes%get("jstep", jstep0)
 
   jstep = jstep0+1  
   TIME_LOOP: DO 
@@ -268,7 +267,7 @@ CONTAINS
 #endif
       vnmax = global_max(vnmax) ! Get max over all PEs
       WRITE(message_text,'(a,e14.6)') 'MAXABS VN ', vnmax
-      CALL message(TRIM(routine),message_text)
+      CALL message(routine, message_text)
     ENDIF
 
     !--------------------------------------------------------------------------
@@ -358,7 +357,7 @@ CONTAINS
 
       IF (l_nml_output) THEN
         CALL datetimeToString(mtime_current, dstring)
-        CALL message(TRIM(routine),'Output (name_list) at: '//dstring)
+        CALL message(routine, 'Output (name_list) at: '//dstring)
         CALL write_name_list_output(jstep)
       ENDIF
 

@@ -18,7 +18,7 @@
 
 ! String conversion utilities
 MODULE mo_util_string
-
+  USE mo_exception, ONLY: finish
   USE ISO_C_BINDING,     ONLY: C_INT8_T, C_CHAR
   ! Note: This file must not use mo_exception:finish() to avoid a circular dependency.
   USE mo_impl_constants, ONLY: MAX_CHAR_LENGTH
@@ -30,7 +30,8 @@ MODULE mo_util_string
   !
   PRIVATE
   !
-  PUBLIC :: tolower              ! Conversion   : 'ABCXYZ' -> 'abcxyz'   
+  PUBLIC :: tolower              ! Conversion   : 'ABCXYZ' -> 'abcxyz'
+  PUBLIC :: lowcase              ! like to tolower, but in place
   PUBLIC :: toupper              ! Conversion   : 'abcxyz' -> 'ABCXYZ'
   PUBLIC :: separator            ! Format string: (/"-----...-----"/)
   PUBLIC :: int2string           ! returns integer n as a string
@@ -58,14 +59,17 @@ MODULE mo_util_string
   !functions to handle character arrays as strings
   PUBLIC :: toCharArray     ! convert a fortran string to a character array of kind = c_char
   PUBLIC :: toCharacter     ! convert a character array of kind = c_char back to a fortran string
+  PUBLIC :: c2f_char        ! convert a character array of kind = c_char back to a fortran string
   PUBLIC :: charArray_dup   ! make a copy of a character array
   PUBLIC :: charArray_equal ! compare two character arrays for equality
   PUBLIC :: charArray_toLower   ! canonicalize to lower case
 
   !
   PUBLIC :: normal, bold
-  PUBLIC :: fg_black, fg_red, fg_green, fg_blue, fg_magenta, fg_cyan, fg_white, fg_default
-  PUBLIC :: bg_black, bg_red, bg_green, bg_blue, bg_magenta, bg_cyan, bg_white, bg_default
+  PUBLIC :: fg_black, fg_red, fg_green, fg_yellow, fg_blue, fg_magenta, &
+       fg_cyan, fg_white, fg_default
+  PUBLIC :: bg_black, bg_red, bg_green, bg_yellow, bg_blue, bg_magenta, &
+       bg_cyan, bg_white, bg_default
   !
   INTERFACE real2string
     MODULE PROCEDURE float2string
@@ -77,6 +81,9 @@ MODULE mo_util_string
     MODULE PROCEDURE charArray_equal_char
   END INTERFACE charArray_equal
 
+  INTERFACE add_to_list
+    MODULE PROCEDURE add_to_list, add_to_list_1
+  END INTERFACE add_to_list
   !
   ! ANSI color sequences
   !
@@ -123,7 +130,7 @@ CONTAINS
   !
   ! Conversion: Uppercase -> Lowercase
   !
-  FUNCTION tolower (uppercase)
+  PURE FUNCTION tolower (uppercase)
     CHARACTER(len=*), INTENT(in) :: uppercase
     CHARACTER(len=LEN_TRIM(uppercase)) :: tolower
     !
@@ -144,9 +151,26 @@ CONTAINS
   END FUNCTION tolower
   !------------------------------------------------------------------------------------------------
   !
+  !> convert string to lower case in-place, i.e. destructively
+  !!
+  ELEMENTAL SUBROUTINE lowcase(s)
+    CHARACTER(len=*), INTENT(inout) :: s
+    INTEGER, PARAMETER :: idel = ICHAR('a')-ICHAR('A')
+    INTEGER, PARAMETER :: ia = ICHAR('A')
+    INTEGER, PARAMETER :: iz = ICHAR('Z')
+    INTEGER :: i, ic, n
+    !
+    n = LEN_TRIM(s)
+    DO i = 1, n
+      ic = ICHAR(s(i:i))
+      s(i:i) = CHAR(ic + MERGE(idel, 0, ic >= ia .AND. ic <= iz))
+    ENDDO
+  END SUBROUTINE lowcase
+  !------------------------------------------------------------------------------------------------
+  !
   ! Conversion: Lowercase -> Uppercase
   !
-  FUNCTION toupper (lowercase)
+  PURE FUNCTION toupper (lowercase)
     CHARACTER(len=*), INTENT(in) :: lowercase
     CHARACTER(len=LEN_TRIM(lowercase)) :: toupper
     !
@@ -309,7 +333,8 @@ CONTAINS
         END IF
       END DO
     END IF
-#else ! The crap compiler is to brain-dead to compile and USE the above code.
+#else
+    ! The crap compiler is to brain-dead to compile and USE the above code.
     one_of = -1
     IF (SIZE(arg) > 0) THEN
       in_str_tlen = LEN_TRIM(in_str)
@@ -513,7 +538,8 @@ CONTAINS
     iwrite = 0
     ITEM_LOOP: DO iread=1,nitems
       ! check if item already in string list (1:iwrite-1):
-      DO i=1,iwrite
+      ! start with most recently added to tailor to (partially) sorted lists
+      DO i=iwrite,1,-1
         IF (str_list(i) == str_list(iread)) CYCLE item_loop
       END DO
       iwrite = iwrite + 1
@@ -577,27 +603,38 @@ CONTAINS
     INTEGER,                   INTENT(IN)    :: nitems2
     ! local variables
     INTEGER :: iread, i
-    LOGICAL :: l_duplicate
 
 
     ! Loop over all items that should potentially be added
-    DO iread=1,nitems2
+    item_add_loop: DO iread=1,nitems2
+      ! Loop over all items in the target list (list 1) to
       ! check if item is already in string list 1:
-      l_duplicate = .FALSE.
-      ! Loop over all items in the target list (list 1)
-      CHECK_LOOP : DO i=1,nitems1
-        IF (TRIM(str_list1(i)) == TRIM(str_list2(iread))) THEN
-          l_duplicate = .TRUE.
-          EXIT CHECK_LOOP
-        END IF
-      END DO CHECK_LOOP
-      IF (.NOT. l_duplicate) THEN
-        str_list1(nitems1+1) = str_list2(iread)
-        nitems1 = nitems1+1
-      END IF
-    END DO
+      DO i=1,nitems1
+        IF (str_list1(i) == str_list2(iread)) CYCLE item_add_loop
+      END DO
+      nitems1 = nitems1+1
+      str_list1(nitems1) = str_list2(iread)
+    END DO item_add_loop
 
   END SUBROUTINE add_to_list
+
+  SUBROUTINE add_to_list_1(str_list, nitems, str)
+    CHARACTER(len=*),          INTENT(INOUT) :: str_list(:)
+    INTEGER,                   INTENT(INOUT) :: nitems
+    CHARACTER(len=*),          INTENT(IN)    :: str
+    ! local variables
+    INTEGER :: iread, i
+
+
+    ! Loop over all items in the target list to
+    ! check if item is already in that list
+    DO i=1,nitems
+      IF (str_list(i) == str) RETURN
+    END DO
+    nitems = nitems+1
+    str_list(nitems) = str
+
+  END SUBROUTINE add_to_list_1
 
 
   !==============================================================================
@@ -651,45 +688,81 @@ CONTAINS
   ! whole group of variables (like "tracers"), for example by
   ! group_list="Q1", "Q2", etc.
   !
-  ! @param[in]  varlist    original array of strings (variable names)
-  ! @param[in]  vname_len  length of each string
-  ! @param[in]  n          length of list
+  ! @param[inout]  varlist    original array of strings (variable names)
   ! @param[in]  group_name substitution keyword (i.e. variable group name)
   ! @param[in]  group_list array of strings that will be inserted
   !
   ! @return     contents of @p varlist where @p group_name has been replaced.
   !------------------------------------------------------------------------------
-  SUBROUTINE insert_group(varlist, vname_len, n, group_name, group_list, result_list)
-    INTEGER,                        INTENT(IN)    :: vname_len, n
-    CHARACTER(LEN=vname_len),       INTENT(INOUT) :: result_list(n)
-    CHARACTER(LEN=*),               INTENT(IN)    :: varlist(:), group_list(:)
-    CHARACTER(LEN=*),               INTENT(IN)    :: group_name
+  SUBROUTINE insert_group(varlist, nused, group_name, group_list, ninserted)
+    CHARACTER(LEN=*),               INTENT(INOUT) :: varlist(:)
+    INTEGER,                        INTENT(INOUT) :: nused
+    INTEGER,                        INTENT(OUT)   :: ninserted
+    CHARACTER(LEN=*),               INTENT(IN)    :: group_name, group_list(:)
     ! local variables
-    INTEGER :: i,j,k,m,ngroups
+    INTEGER :: i,j,k,m,n,ngroups,src_pos(SIZE(varlist)+SIZE(group_list)), &
+         insert_ofs(SIZE(group_list))
+    LOGICAL :: inserted
     CHARACTER(len=LEN_TRIM(group_name)) :: group_name_uc
 
-    k=0
-    ngroups = SIZE(group_list)
     m = SIZE(varlist)
     IF (m > 0) THEN
-      group_name_uc = toupper(group_name)
-      DO i=1,m
-        IF (varlist(i) == ' ') EXIT
-        IF (toupper(varlist(i)) == group_name_uc) THEN
-          DO j=1,ngroups
-            k = k+1
-            result_list(k) = group_list(j)
-          END DO
-        ELSE
-          k = k+1
-          result_list(k) = varlist(i)
+      k = 0
+      ! determine number of variables in group_list not yet in varlist
+      ngroups = 0
+      DO j = 1, SIZE(group_list)
+        IF (ALL(varlist(1:nused) /= group_list(j))) THEN
+          ngroups = ngroups + 1
+          insert_ofs(ngroups) = j
         END IF
       END DO
-      CALL remove_duplicates(result_list, k )
+      group_name_uc = toupper(group_name)
+      inserted = .FALSE.
+      n = 0
+      scan_cpy_src: DO i = 1, nused
+        IF (toupper(varlist(i)) == group_name_uc) THEN
+          IF (.NOT. inserted) THEN
+            DO j = 1,ngroups
+              src_pos(n+j) = -j
+            END DO
+            n = n + ngroups
+            inserted = .TRUE.
+          END IF
+        ELSE
+          n = n + 1
+          src_pos(n) = i
+        END IF
+      END DO scan_cpy_src
+      m = i - 1
+      nused = n
+      IF (n < m) THEN
+        DO i = n, 1, -1
+          k = src_pos(i)
+          IF (k <= i) THEN
+            DO j = i+1, n
+              varlist(j) = varlist(src_pos(j))
+            END DO
+            DO j=n+1,m
+              varlist(j) = " "
+            END DO
+            n = i
+            EXIT
+          END IF
+        END DO
+      END IF
+      DO i = n, 1, -1
+        k = src_pos(i)
+        IF (k < 0) THEN
+          varlist(i) = group_list(insert_ofs(-k))
+        ELSE IF (k > 0) THEN
+          varlist(i) = varlist(k)
+        END IF
+      END DO
+      ninserted = MERGE(ngroups, 0, inserted)
+    ELSE
+      nused = 0
+      ninserted = 0
     END IF
-    DO i=k+1,n
-      result_list(i) = " "
-    END DO
 
   END SUBROUTINE insert_group
 
@@ -860,6 +933,21 @@ CONTAINS
     END DO
   END FUNCTION toCharacter
 
+  SUBROUTINE c2f_char(c, s)
+    CHARACTER(LEN=:), INTENT(out), ALLOCATABLE :: c
+    CHARACTER(KIND = C_CHAR), INTENT(in) :: s(:)
+    INTEGER :: i, ierror, slen
+
+    CHARACTER(LEN = *), PARAMETER :: routine = modName//":toCharacter"
+
+    slen = SIZE(s, 1) !XXX: This may not be merged into the next line, because that triggers a bug in gfortran
+    ALLOCATE(CHARACTER(LEN = slen) :: c, STAT = ierror)
+    IF (ierror /= 0) CALL finish(routine, "memory allocation error")
+    DO i = 1, slen
+      c(i:i) = s(i)
+    END DO
+  END SUBROUTINE c2f_char
+
   FUNCTION charArray_dup(charArray) RESULT(resultVar)
     CHARACTER(KIND = C_CHAR), INTENT(IN) :: charArray(:)
     CHARACTER(KIND = C_CHAR), POINTER :: resultVar(:)
@@ -922,7 +1010,7 @@ CONTAINS
     INTEGER, OPTIONAL,          INTENT(IN) :: opt_dst     ! (optional:) WRITE destination
     CHARACTER(LEN=*), OPTIONAL, INTENT(IN) :: opt_prefix  ! (optional:) line prefix
 
-    INTEGER :: dst, max_ll, ccnt, i, len_i
+    INTEGER :: dst, max_ll, ccnt, i, len_i, len_pfx
     CHARACTER(len=:), ALLOCATABLE :: prefix
 
     dst = 0
@@ -933,9 +1021,9 @@ CONTAINS
     IF (PRESENT(opt_prefix)) THEN
       prefix = opt_prefix
     ELSE
-      ALLOCATE(CHARACTER(1) :: prefix)
       prefix = " "
     END IF
+    len_pfx = LEN(prefix)
 
     ccnt = max_ll
     DO i=1,SIZE(list)
@@ -944,9 +1032,9 @@ CONTAINS
       IF (ccnt + len_i + 2 > max_ll) THEN
         IF (i>1)  WRITE (dst,"(a)") " "
         WRITE (dst,"(a)", advance='no') prefix
-        ccnt = LEN(prefix)
+        ccnt = len_pfx
       END IF
-      WRITE (dst,"(a)", advance='no') TRIM(list(i))
+      WRITE (dst,"(a)", advance='no') list(i)(1:len_i)
       IF (i < SIZE(list))  WRITE (dst,"(a)", advance='no') ", "
       ccnt = ccnt + len_i + 2
     END DO
@@ -959,24 +1047,29 @@ CONTAINS
   !> find position of numeric suffix in the character string "str",
   !  return "-1" if no such suffix is found.
   !
-  RECURSIVE FUNCTION find_trailing_number(str) RESULT(pos)
+  FUNCTION find_trailing_number(str, tlen) RESULT(pos)
     INTEGER                      :: pos
+    INTEGER, OPTIONAL, INTENT(IN) :: tlen
     CHARACTER(LEN=*), INTENT(IN) :: str  !< input string
-    INTEGER :: len
+    INTEGER :: l
 
-    pos   = -1
-    len   = LEN_TRIM(str)
-    IF (len == 0) RETURN
-
-    IF (is_number(str(len:len))) THEN
-      IF (len > 1)   pos = find_trailing_number(str(1:(len-1)))
-      IF (pos == -1) pos = len
+    pos = -1
+    IF (PRESENT(tlen)) THEN
+      l = tlen
+    ELSE
+      l = LEN_TRIM(str)
     END IF
-
+    IF (l > 0) THEN
+      DO WHILE (is_number(str(l:l)))
+        pos = l
+        l = l - 1
+        IF (l <= 1) EXIT
+      END DO
+    END IF
   CONTAINS
     LOGICAL FUNCTION is_number(char)
       CHARACTER, INTENT(IN) :: char
-      is_number = (IACHAR(char) - IACHAR('0')) <= 9
+      is_number = IACHAR(char) >= IACHAR('0') .AND. IACHAR(char) <= IACHAR('9')
     END FUNCTION is_number
   END FUNCTION find_trailing_number
 

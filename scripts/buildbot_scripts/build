@@ -16,6 +16,12 @@ import argparse
 parser = argparse.ArgumentParser(description='Build a builder; compile and create the runscripts of the builder.')
 parser.add_argument('builder_name', type=str, help='the builder')
 parser.add_argument('--list', dest="list_name", type=str, help='buildbot list', required=True)
+parser.add_argument('--create-binaries', dest='create_binaries',
+                    action='store_true', default=True,
+                    help="run steps to build binaries")
+parser.add_argument('--no-create-binaries', dest='create_binaries',
+                    action='store_false',
+                    help="do not run steps to build binaries")
 args = parser.parse_args()
 
 #______________________________________________________________________________
@@ -27,9 +33,9 @@ if not paths.thisListExists(args.list_name):
     quit(1)
   
 thisList = buildbot_experiments_list(args.list_name)
-status   = thisList.make_binaries(args.builder_name)
-if not status == 0:
-    quit(1)
+if args.create_binaries:
+  status = thisList.make_binaries(args.builder_name)
+  if not status == 0: quit(1)
 
 runscriptsList = thisList.make_runscripts(args.builder_name)
 
