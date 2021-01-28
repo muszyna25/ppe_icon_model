@@ -158,6 +158,14 @@ for builder in MISTRAL_intel18_pio; do
   $addexp checksuite.infrastructure/output/exp.atm_amip_R2B4_1day_pio --builders ${builder} --list $listname
   $addexp checksuite.infrastructure/output/exp.atm_amip_R2B4_1day     --builders ${builder} --list $listname
 done
+
+# PGI setups
+./set_builder_flags Active --builders MISTRAL_pgi_gpu --list $listname
+$addexp exp.atm_amip_noforcing_gpu_test    --builders MISTRAL_pgi_gpu --list $listname
+./set_builder_flags Active --builders MISTRAL_pgi_cpu --list $listname
+$addexp exp.atm_amip_test    --builders MISTRAL_pgi_cpu --list $listname
+$addexp checksuite.ocean_internal/omip/exp.test_ocean_omip_10days  --builders MISTRAL_pgi_cpu --list $listname
+
 #lets see the list
 ./lslist $listname
 #-----------------------------------------------------------
