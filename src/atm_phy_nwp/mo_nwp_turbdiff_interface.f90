@@ -61,14 +61,6 @@ MODULE mo_nwp_turbdiff_interface
   USE mo_vdfouter,               ONLY: vdfouter
   USE mo_lnd_nwp_config,         ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water
 
-  !$ser verbatim USE mo_ser_nwp_tudif, ONLY: serialize_turbdiff_interface_input,&
-  !$ser verbatim                             serialize_turbdiff_interface_output,&
-  !$ser verbatim                             serialize_turbdiff_input,&
-  !$ser verbatim                             serialize_turbdiff_output,&
-  !$ser verbatim                             serialize_vertdiff_input,&
-  !$ser verbatim                             serialize_vertdiff_output
-  !$ser verbatim USE mo_ser_debug, ONLY: serialize_debug_output
-
   IMPLICIT NONE
 
   PRIVATE
@@ -216,12 +208,6 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 
   ! logical for SB two-moment scheme
   ltwomoment = atm_phy_nwp_config(jg)%l2moment
-
-  ! Serialbox2 input fields serialization
-  !$ser verbatim call serialize_turbdiff_interface_input(jg, nproma, nlev,&
-  !$ser verbatim                                         p_prog, p_prog_rcf, p_prog_now_rcf,&
-  !$ser verbatim                                         p_diag, p_metrics, prm_diag, prm_nwp_tend,&
-  !$ser verbatim                                         wtr_prog_now, lnd_prog_now, lnd_diag)
 
 !$acc data create(khpbln, kvartop, kpbltype, pdifts, pdiftq, pdiftl, pdifti, pstrtu, pstrtv, pkh, pkm, z_omega_p, &
 !$acc             zchar, zucurr, zvcurr, zsoteu, zsotev, zsobeta, zz0m, zz0h, zae, ztskrad, zsigflt, shfl_s_t, &
@@ -398,11 +384,6 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 
       nzprv = 1
 
-      !$ser verbatim call serialize_turbdiff_input(jg, jb, nproma, nlev, p_prog,&
-      !$ser verbatim                               p_prog_rcf, p_diag, p_metrics,&
-      !$ser verbatim                               prm_diag, prm_nwp_tend,&
-      !$ser verbatim                               lnd_prog_now, lnd_diag, z_tvs)
-
       !$ACC KERNELS DEFAULT(PRESENT)
       ut_sso(:,:)=REAL(prm_nwp_tend%ddt_u_sso(:,:,jb), wp)
       vt_sso(:,:)=REAL(prm_nwp_tend%ddt_v_sso(:,:,jb), wp)
@@ -475,17 +456,6 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         &  zvari=zvari(:,:,:),                                                        & !out
         &  ierrstat=ierrstat, yerrormsg=errormsg, yroutine=eroutine )
 
-      !$ser verbatim call serialize_turbdiff_output(jg, jb, nproma, nlev, prm_diag, prm_nwp_tend,&
-      !$ser verbatim                                z_tvs, zrhon(i_startidx:i_endidx,1:nlevp1),&
-      !$ser verbatim                                zvari(i_startidx:i_endidx,1:nlevp1,:))
-
-
-
-      !$ser verbatim call serialize_vertdiff_input(jg, jb, nproma, nlev, p_prog,&
-      !$ser verbatim                               p_prog_rcf, p_diag, p_metrics, prm_diag,&
-      !$ser verbatim                               prm_nwp_tend, lnd_prog_now, lnd_diag,&
-      !$ser verbatim                               zvari(i_startidx:i_endidx,1:nlevp1,:),&
-      !$ser verbatim                               zrhon(i_startidx:i_endidx,1:nlevp1))
       ! vertdiff
       CALL vertdiff( &
 
@@ -539,11 +509,6 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 !          umfl_s: missing                                          !inout
 !          vmfl_s: missing                                          !inout
         &  ierrstat=ierrstat, yerrormsg=errormsg, yroutine=eroutine)
-        !$ser verbatim call serialize_vertdiff_output(jg, jb, nproma, nlev,&
-        !$ser verbatim                                p_prog_rcf, p_diag, prm_diag,&
-        !$ser verbatim                                prm_nwp_tend,&
-        !$ser verbatim                                zvari(i_startidx:i_endidx,1:nlevp1,:))
-
 
        ! re-diagnose turbulent deposition fluxes for qc and qi (positive downward)
        ! So far these fluxes only serve diagnostic purposes. I.e. they 
@@ -992,12 +957,6 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
   IF ( atm_phy_nwp_config(jg)%inwp_turb == iedmf ) nstep_turb = nstep_turb + 1
 
   !$acc end data
-
-  ! Serialbox2 output fields serialization
-  !$ser verbatim call serialize_turbdiff_interface_output(jg, nproma, nlev,&
-  !$ser verbatim                                          p_prog, p_prog_rcf,&
-  !$ser verbatim                                          p_diag, prm_diag, prm_nwp_tend,&
-  !$ser verbatim                                          lnd_diag)
 
 END SUBROUTINE nwp_turbdiff
 

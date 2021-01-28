@@ -2001,7 +2001,7 @@ MODULE mo_initicon
           ! SST analysis (T_SO(0) or T_SEA) was read into initicon(jg)%sfc%sst.
           ! Now copy to diag_lnd%t_seasfc for sea water points (including ice-covered ones)
           !
-!CDIR NODEP,VOVERTAKE,VOB
+!NEC$ ivdep
           DO ic = 1, ext_data(jg)%atm%list_sea%ncount(jb)
              jc = ext_data(jg)%atm%list_sea%idx(ic,jb)
              p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MAX(tf_salt,initicon(jg)%sfc%sst(jc,jb))
@@ -2011,6 +2011,7 @@ MODULE mo_initicon
           !
           ! get SST from first guess T_G
           !
+!NEC$ ivdep
           DO ic = 1, ext_data(jg)%atm%list_sea%ncount(jb)
             jc = ext_data(jg)%atm%list_sea%idx(ic,jb)
             p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) =  &
@@ -2026,16 +2027,19 @@ MODULE mo_initicon
         ! construct temporary field containing both SST and lake-surface temperatures
         ! which is needed for initializing T_SO at pure water points
         z_t_seasfc(:) = 0._wp
+!NEC$ ivdep
         DO ic = 1, ext_data(jg)%atm%list_sea%ncount(jb)
           jc = ext_data(jg)%atm%list_sea%idx(ic,jb)
           z_t_seasfc(jc) = p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
         END DO
         IF (llake) THEN
+!NEC$ ivdep
           DO ic = 1, ext_data(jg)%atm%list_lake%ncount(jb)
             jc = ext_data(jg)%atm%list_lake%idx(ic,jb)
             z_t_seasfc(jc) = MAX(tmelt, p_lnd_state(jg)%prog_wtr(ntlr)%t_wml_lk(jc,jb))
           END DO
         ELSE
+!NEC$ ivdep
           DO ic = 1, ext_data(jg)%atm%list_lake%ncount(jb)
             jc = ext_data(jg)%atm%list_lake%idx(ic,jb)
             z_t_seasfc(jc) = MAX(tmelt, p_lnd_state(jg)%prog_lnd(ntlr)%t_g_t(jc,jb,isub_lake))
@@ -2046,6 +2050,7 @@ MODULE mo_initicon
         !
         ! Compute mask field for land points
         lp_mask(:) = .FALSE.
+!NEC$ ivdep
         DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,1)
           jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,1)
           lp_mask(jc) = .TRUE.
@@ -2071,7 +2076,7 @@ MODULE mo_initicon
 
           ! Check consistency between w_snow and rho_snow
           !
-!CDIR NODEP,VOVERTAKE,VOB
+!NEC$ ivdep
           DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
              jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
 
@@ -2089,6 +2094,7 @@ MODULE mo_initicon
 
             ! Constrain both rho_snow and t_snow because initial fields interpolated from a coarser grid
             ! may suffer from missing values near coasts
+!NEC$ ivdep
             DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
               jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
 
@@ -2108,7 +2114,7 @@ MODULE mo_initicon
           ! Catch problematic coast cases: ICON-land but GME ocean for moisture
           !
           DO jk = 1, nlev_soil
-!CDIR NODEP,VOVERTAKE,VOB
+!NEC$ ivdep
             DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
                jc  = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
                ist = ext_data(jg)%atm%soiltyp_t(jc,jb,jt)

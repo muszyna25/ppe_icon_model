@@ -820,9 +820,10 @@ CONTAINS
         !$acc end kernels
 
         !$acc parallel default(present) if(lzacc)
-        !$acc loop gang vector private(z_help) collapse(2)
+        !$acc loop seq
         DO jk = kstart_moist, nlev
 !DIR$ IVDEP
+          !$acc loop gang vector private(z_help)
           DO jc = i_startidx, i_endidx
 
            ! (deep-atmosphere modification applied: height-dependence of grid cell volume)
@@ -857,8 +858,9 @@ CONTAINS
           !$acc end parallel
           
           !$acc parallel default(present) if(lzacc)
-          !$acc loop gang vector collapse(2)
+          !$acc loop seq
           DO jk = kstart_moist+1, ih_clch
+            !$acc loop gang vector
             DO jc = i_startidx, i_endidx
               clearsky(jc) = clearsky(jc)*    &
               &  ( 1._wp - MAX( prm_diag%clc(jc,jk  ,jb), prm_diag%clc(jc,jk-1,jb))) &
@@ -877,8 +879,9 @@ CONTAINS
           
           ! continue downward for total cloud cover
           !$acc parallel default(present) if(lzacc)
-          !$acc loop gang vector collapse(2)
+          !$acc loop seq
           DO jk = ih_clch+1, nlev
+            !$acc loop gang vector
             DO jc = i_startidx, i_endidx
               clearsky(jc) = clearsky(jc)*    &
               &  ( 1._wp - MAX( prm_diag%clc(jc,jk,jb), prm_diag%clc(jc,jk-1,jb))) &
@@ -899,8 +902,9 @@ CONTAINS
           
           ! mid-level clouds
           !$acc parallel default(present) if(lzacc)
-          !$acc loop gang vector collapse(2)
+          !$acc loop seq
           DO jk = ih_clch+2, ih_clcm
+            !$acc loop gang vector
             DO jc = i_startidx, i_endidx
               clearsky(jc) = clearsky(jc)*    &
               &  ( 1._wp - MAX( prm_diag%clc(jc,jk,jb), prm_diag%clc(jc,jk-1,jb))) &
@@ -922,8 +926,9 @@ CONTAINS
           
           ! continue downward for mid-level clouds
           !$acc parallel default(present) if(lzacc)
-          !$acc loop gang vector collapse(2)
+          !$acc loop seq
           DO jk = ih_clcm+2, nlev
+            !$acc loop gang vector
             DO jc = i_startidx, i_endidx
               clearsky(jc) = clearsky(jc)*    &
               &  ( 1._wp - MAX( prm_diag%clc(jc,jk,jb), prm_diag%clc(jc,jk-1,jb))) &
@@ -1044,15 +1049,17 @@ CONTAINS
       ENDDO
       !$acc end parallel
 
-      !$acc parallel default(present) if(lzacc)
-      !$acc loop private(jt)
       DO jt = 1, iqm_max
+        !$acc kernels default(present) if(lzacc)
         pt_diag%tracer_vi(i_startidx:i_endidx,jb,jt) = 0.0_wp
+        !$acc end kernels
 
-        !$acc loop collapse(2)
+        !$acc parallel default(present) if(lzacc)
+        !$acc loop seq
         DO jk = advection_config(jg)%iadv_slev(jt), nlev
 
 !DIR$ IVDEP
+          !$acc loop gang vector
           DO jc = i_startidx, i_endidx 
 
             pt_diag%tracer_vi(jc,jb,jt) = pt_diag%tracer_vi(jc,jb,jt)   &
@@ -1060,8 +1067,8 @@ CONTAINS
 
           ENDDO  ! jc
         ENDDO  ! jk
+        !$acc end parallel
       ENDDO  ! jt
-      !$acc end parallel
 
     ENDDO ! nblks   
 !$OMP END DO
