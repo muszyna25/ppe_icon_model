@@ -30,7 +30,7 @@ MODULE mo_advection_config
   USE mo_exception,             ONLY: message, message_text, finish
   USE mo_mpi,                   ONLY: my_process_is_stdio
   USE mo_run_config,            ONLY: msg_level
-  USE mo_expression,            ONLY: expression
+  USE mo_expression,            ONLY: expression, parse_expression_string
   USE mo_linked_list,           ONLY: t_var_list, t_list_element
   USE mo_var_list,              ONLY: fget_var_list_element_r3d, get_timelevel_string
   USE mo_var_metadata_types,    ONLY: t_var_metadata
@@ -982,8 +982,8 @@ CONTAINS
       ELSE
         end_pos = end_pos + pos 
       ENDIF 
-      formula = expression(TRIM(ADJUSTL(advection_config%init_formula(start_pos:end_pos-1))))
-
+      CALL parse_expression_string(formula, &
+           advection_config%init_formula(start_pos:end_pos-1))
       ! generate tracer name
       WRITE(passive_tracer_id,'(I2)') ipassive
       str_ntl = get_timelevel_string(ntl)

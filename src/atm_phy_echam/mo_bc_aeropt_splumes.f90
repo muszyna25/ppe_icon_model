@@ -99,7 +99,7 @@ MODULE mo_bc_aeropt_splumes
     INTEGER           :: ifile_id
 
     cfname='MACv2.0-SP_v1.nc'
-    ifile_id=openInputFile(cfname)
+    CALL openInputFile(ifile_id, cfname)
 
     CALL read_1d_wrapper(ifile_id=ifile_id,        variable_name='plume_lat',&
                        & return_pointer=plume_lat, file_name=cfname,         &

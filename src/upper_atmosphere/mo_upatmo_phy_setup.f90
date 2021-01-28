@@ -18,8 +18,8 @@
 MODULE mo_upatmo_phy_setup
 
   USE mo_kind,                 ONLY: wp
-  USE mo_exception,            ONLY: finish, message
-  USE mo_impl_constants,       ONLY: MAX_CHAR_LENGTH, min_rlcell
+  USE mo_exception,            ONLY: finish, message, message_text
+  USE mo_impl_constants,       ONLY: min_rlcell
   USE mo_physical_constants,   ONLY: amd, grav
   USE mo_upatmo_impl_const,    ONLY: iUpatmoStat, idamtr, iUpatmoPrcStat, &
     &                                iUpatmoGasStat,                      &
@@ -82,9 +82,8 @@ CONTAINS
     INTEGER  :: i_startblk, i_endblk 
     INTEGER  :: i_startidx, i_endidx 
     LOGICAL  :: lmessage, ltimer, lupdate_gas, lchemheat, lrestart
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: cjg
 
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(LEN=*), PARAMETER ::  &
       &  routine = modname//':init_upatmo_phy_nwp'
 
     !---------------------------------------------------------
@@ -100,47 +99,48 @@ CONTAINS
     ENDIF
 
     IF (.NOT. upatmo_config(jg)%l_status( iUpatmoStat%configured )) THEN 
-      CALL finish (TRIM(routine), 'Upper atmosphere not yet configured.') 
+      CALL finish(routine, 'Upper atmosphere not yet configured.')
     ELSEIF (.NOT. prm_upatmo%diag%linitialized) THEN
-      CALL finish (TRIM(routine), 'prm_upatmo%diag not yet initialized.')
+      CALL finish(routine, 'prm_upatmo%diag not yet initialized.')
     ELSEIF (.NOT. prm_upatmo%tend%linitialized) THEN
-      CALL finish (TRIM(routine), 'prm_upatmo%tend not yet initialized.')
+      CALL finish(routine, 'prm_upatmo%tend not yet initialized.')
     ELSEIF (.NOT. prm_upatmo%extdat%linitialized) THEN
-      CALL finish (TRIM(routine), 'prm_upatmo%extdat not yet initialized.')
+      CALL finish(routine, 'prm_upatmo%extdat not yet initialized.')
     ELSEIF (upatmo_config(jg)%nwp_phy%l_gas_stat( iUpatmoGasStat%initialized )) THEN
-      CALL finish (TRIM(routine), 'Gases already initialized.') 
+      CALL finish(routine, 'Gases already initialized.')
     ELSEIF (upatmo_config(jg)%nwp_phy%l_phy_stat( iUpatmoPrcStat%initialized )) THEN
-      CALL finish (TRIM(routine), 'Parameterizations already initialized.') 
+      CALL finish(routine, 'Parameterizations already initialized.')
     ELSEIF (upatmo_config(jg)%nwp_phy%l_extdat_stat( iUpatmoExtdatStat%initialized )) THEN
-      CALL finish (TRIM(routine), 'External data already initialized.') 
+      CALL finish(routine, 'External data already initialized.')
     ELSEIF (upatmo_config(jg)%nwp_phy%l_gas_stat( iUpatmoGasStat%finalized )) THEN
-      CALL finish (TRIM(routine), 'Gases already finalized.') 
+      CALL finish(routine, 'Gases already finalized.')
     ELSEIF (upatmo_config(jg)%nwp_phy%l_phy_stat( iUpatmoPrcStat%finalized )) THEN
-      CALL finish (TRIM(routine), 'Parameterizations already finalized.') 
+      CALL finish(routine, 'Parameterizations already finalized.')
     ELSEIF (upatmo_config(jg)%nwp_phy%l_extdat_stat( iUpatmoExtdatStat%finalized )) THEN
-      CALL finish (TRIM(routine), 'External data already finalized.') 
+      CALL finish(routine, 'External data already finalized.')
     ! Check allocation status of some (but not all!) fields 
     ! that we need for the upper-atmosphere physics
     ELSEIF (.NOT. ASSOCIATED(p_prog%tracer)) THEN
-      CALL finish (TRIM(routine), 'p_prog%tracer is not allocated.') 
+      CALL finish(routine, 'p_prog%tracer is not allocated.')
     ELSEIF (.NOT. ASSOCIATED(p_diag%ddt_vn_phy)) THEN
-      CALL finish (TRIM(routine), 'p_diag%ddt_vn_phy is not allocated.') 
+      CALL finish(routine, 'p_diag%ddt_vn_phy is not allocated.')
     ELSEIF (.NOT. ASSOCIATED(p_diag%ddt_exner_phy)) THEN
-      CALL finish (TRIM(routine), 'p_diag%ddt_exner_phy is not allocated.') 
+      CALL finish(routine, 'p_diag%ddt_exner_phy is not allocated.')
     ELSEIF (.NOT. ASSOCIATED(prm_nwp_diag%cosmu0)) THEN
-      CALL finish (TRIM(routine), 'prm_nwp_diag%cosmu0 is not allocated.') 
+      CALL finish(routine, 'prm_nwp_diag%cosmu0 is not allocated.')
     ELSEIF (.NOT. ASSOCIATED(prm_nwp_tend%ddt_temp_radsw)) THEN
-      CALL finish (TRIM(routine), 'prm_nwp_tend%ddt_temp_radsw is not allocated.') 
+      CALL finish(routine, 'prm_nwp_tend%ddt_temp_radsw is not allocated.')
     ELSEIF (.NOT. ASSOCIATED(prm_nwp_tend%ddt_temp_radlw)) THEN
-      CALL finish (TRIM(routine), 'prm_nwp_tend%ddt_temp_radlw is not allocated.') 
+      CALL finish(routine, 'prm_nwp_tend%ddt_temp_radlw is not allocated.')
     ENDIF
-
-    cjg = TRIM(int2string(jg))
 
     lmessage = upatmo_config(jg)%l_status( iUpatmoStat%message )
 
-    IF (lmessage) CALL message(TRIM(routine), &
-      & 'Initialization of upper-atmosphere physics for NWP forcing started on domain '//TRIM(cjg))
+    IF (lmessage) THEN
+      WRITE (message_text, '(a,i0)') 'Initialization of upper-atmosphere &
+        &physics for NWP forcing started on domain ', jg
+      CALL message(routine, message_text)
+    END IF
 
     lrestart = isRestart()
 
@@ -297,7 +297,7 @@ CONTAINS
           
         ELSE
           
-          CALL finish (TRIM(routine), 'Please implement initialization of new physics group ' &
+          CALL finish(routine, 'Please implement initialization of new physics group ' &
             & //'into upper_atmosphere/mo_upatmo_phy_setup: init_upatmo_phy_nwp. Thank you!'  ) 
           
         ENDIF  !IF (jgrp == iUpatmoGrpId%...)
@@ -314,11 +314,14 @@ CONTAINS
 
     ! Indicate that initialization took place
     upatmo_config(jg)%nwp_phy%l_phy_stat( iUpatmoPrcStat%initialized ) = .TRUE.
-    
-    IF (lmessage) CALL message(TRIM(routine), &
-      & 'Initialization of upper-atmosphere physics for NWP forcing finished on domain '//TRIM(cjg))
 
-    IF (ltimer) THEN 
+    IF (lmessage) THEN
+      WRITE (message_text, '(a,i0)') 'Initialization of upper-atmosphere &
+        &physics for NWP forcing finished on domain ', jg
+      CALL message(routine, message_text)
+    END IF
+
+    IF (ltimer) THEN
       CALL timer_stop(timer_upatmo_phy_init)
       CALL timer_stop(timer_upatmo_phy)
     ENDIF
@@ -338,9 +341,8 @@ CONTAINS
     ! Local variables
     INTEGER  :: jg, jgrp
     LOGICAL  :: lmessage
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: cjg
 
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(LEN=*), PARAMETER ::  &
       &  routine = modname//':finalize_upatmo_phy_nwp'
 
     !---------------------------------------------------------
@@ -348,28 +350,29 @@ CONTAINS
     ! Domain index
     jg  = p_patch%id
 
-    IF (.NOT. upatmo_config(jg)%l_status( iUpatmoStat%configured )) THEN 
-      CALL finish (TRIM(routine), 'Error: upper atmosphere is not configured.') 
+    IF (.NOT. upatmo_config(jg)%l_status( iUpatmoStat%configured )) THEN
+      CALL finish(routine, 'Error: upper atmosphere is not configured.')
     ELSEIF (.NOT. upatmo_config(jg)%nwp_phy%l_gas_stat( iUpatmoGasStat%initialized )) THEN
-      CALL finish (TRIM(routine), 'Error: gases not initialized.') 
+      CALL finish(routine, 'Error: gases not initialized.')
     ELSEIF (.NOT. upatmo_config(jg)%nwp_phy%l_phy_stat( iUpatmoPrcStat%initialized )) THEN
-      CALL finish (TRIM(routine), 'Error: parameterizations not initialized.') 
+      CALL finish(routine, 'Error: parameterizations not initialized.')
     ELSEIF (.NOT. upatmo_config(jg)%nwp_phy%l_extdat_stat( iUpatmoExtdatStat%initialized )) THEN
-      CALL finish (TRIM(routine), 'Error: external data not initialized.') 
+      CALL finish(routine, 'Error: external data not initialized.')
     ELSEIF (upatmo_config(jg)%nwp_phy%l_gas_stat( iUpatmoGasStat%finalized )) THEN
-      CALL finish (TRIM(routine), 'Error: gases already finalized.') 
+      CALL finish(routine, 'Error: gases already finalized.')
     ELSEIF (upatmo_config(jg)%nwp_phy%l_phy_stat( iUpatmoPrcStat%finalized )) THEN
-      CALL finish (TRIM(routine), 'Error: parameterizations already finalized.') 
+      CALL finish(routine, 'Error: parameterizations already finalized.')
     ELSEIF (upatmo_config(jg)%nwp_phy%l_extdat_stat( iUpatmoExtdatStat%finalized )) THEN
-      CALL finish (TRIM(routine), 'Error: external data already finalized.') 
+      CALL finish(routine, 'Error: external data already finalized.')
     ENDIF
-
-    cjg = TRIM(int2string(jg))
 
     lmessage = upatmo_config(jg)%l_status( iUpatmoStat%message )
 
-    IF (lmessage) CALL message(TRIM(routine), &
-      & 'Finalization of upper-atmosphere physics for NWP forcing started on domain '//TRIM(cjg))
+    IF (lmessage) THEN
+      WRITE (message_text, '(a,i0)') 'Finalization of upper-atmosphere &
+           &physics for NWP forcing started on domain ', jg
+      CALL message(routine, message_text)
+    END IF
 
     !---------------------------------------------------------------------------------
     !      Finalize sub-packets of upper-atmosphere physics parameterizations
@@ -397,7 +400,7 @@ CONTAINS
           
         ELSE
           
-          CALL finish (TRIM(routine), 'Please implement finalization of new physics group '      & 
+          CALL finish(routine, 'Please implement finalization of new physics group '      &
             & //'into upper_atmosphere/mo_upatmo_phy_setup: finalize_upatmo_phy_nwp. Thank you!' ) 
           
         ENDIF  !IF (jgrp == iUpatmoGrpId%...)
@@ -427,8 +430,11 @@ CONTAINS
     ! Indicate that finalization took place
     upatmo_config(jg)%nwp_phy%l_phy_stat( iUpatmoPrcStat%finalized ) = .TRUE.
 
-    IF (lmessage) CALL message(TRIM(routine), &
-      & 'Finalization of upper-atmosphere physics for NWP forcing finished on domain '//TRIM(cjg))
+    IF (lmessage) THEN
+      WRITE (message_text, '(a,i0)') 'Finalization of upper-atmosphere &
+        &physics for NWP forcing finished on domain ', jg
+      CALL message(routine, message_text)
+    END IF
 
   END SUBROUTINE finalize_upatmo_phy_nwp
 

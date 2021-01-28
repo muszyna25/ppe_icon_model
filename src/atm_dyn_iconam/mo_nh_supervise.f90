@@ -32,7 +32,7 @@ MODULE mo_nh_supervise
   USE mo_run_config,          ONLY: dtime, msg_level, output_mode,           &
     &                               ltransport, ntracer, lforcing, iforcing, &
     &                               iqm_max
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, inwp, iecham, &
+  USE mo_impl_constants,      ONLY: SUCCESS, inwp, iecham, &
     &                               min_rlcell_int, min_rledge_int, iheldsuarez
   USE mo_physical_constants,  ONLY: cvd
   USE mo_mpi,                 ONLY: my_process_is_stdio, get_my_mpi_all_id, &
@@ -95,11 +95,11 @@ CONTAINS
     !     This requires namelist setting 'run_nml::output = "maxwinds"'
     IF (output_mode%l_maxwinds .AND. my_process_is_stdio()) THEN
       maxwinds_funit = find_next_free_unit(100,1000)
-      CALL message(routine,"Open log file "//TRIM(maxwinds_filename)//" for writing.")
-      OPEN(UNIT=maxwinds_funit, FILE=TRIM(maxwinds_filename), ACTION="write", &
+      CALL message(routine,"Open log file "//maxwinds_filename//" for writing.")
+      OPEN(UNIT=maxwinds_funit, FILE=maxwinds_filename, ACTION="write", &
         &  FORM='FORMATTED', IOSTAT=istat)
       IF (istat/=SUCCESS) &
-        &  CALL finish(routine,'could not open '//TRIM(maxwinds_filename))
+        &  CALL finish(routine, 'could not open '//maxwinds_filename)
     END IF
   END SUBROUTINE init_supervise_nh
 
@@ -118,7 +118,7 @@ CONTAINS
     IF (output_mode%l_maxwinds .AND. my_process_is_stdio()) THEN
       CLOSE(maxwinds_funit, IOSTAT=istat)
       IF (istat/=SUCCESS) &
-        &  CALL finish(routine,'could not open '//TRIM(maxwinds_filename))
+        &  CALL finish(routine,'could not close '//maxwinds_filename)
     END IF
   END SUBROUTINE finalize_supervise_nh
   
@@ -512,13 +512,12 @@ CONTAINS
   !-------------------------------------------------------------------------
   SUBROUTINE open_total_integral_files( )
 
-    CHARACTER (len=MAX_CHAR_LENGTH) :: file_ti    ! file name
     INTEGER :: istat
 
-    file_ti   = 'total_integrals.dat'
     n_file_ti = find_next_free_unit(100,1000)
     ! write(0,*) "n_file_ti", n_file_ti
-    OPEN(UNIT=n_file_ti,FILE=TRIM(file_ti),ACTION="write", FORM='FORMATTED',IOSTAT=istat)
+    OPEN(UNIT=n_file_ti,FILE='total_integrals.dat',ACTION="write", &
+         FORM='FORMATTED',IOSTAT=istat)
     IF (istat/=SUCCESS) THEN
       CALL finish('supervise_total_integrals_nh','could not open total_integrals.dat')
     ENDIF
@@ -546,9 +545,9 @@ CONTAINS
       !!$       ENDIF
 
 
-      file_ti   = 'tracer_total_integrals.dat'
       n_file_tti = find_next_free_unit(100,1000)
-      OPEN(UNIT=n_file_tti,FILE=TRIM(file_ti),ACTION="write",FORM='FORMATTED',IOSTAT=istat)
+      OPEN(UNIT=n_file_tti,FILE='tracer_total_integrals.dat',ACTION="write", &
+           FORM='FORMATTED',IOSTAT=istat)
       IF (istat/=SUCCESS) THEN
         CALL finish('supervise_total_integrals_nh','could not open tracer_total_integrals.dat')
       ENDIF
@@ -561,9 +560,9 @@ CONTAINS
         ' RELATIVE ERROR to step 1 (TRACER)'
     ENDIF
 
-    file_ti   = 'check_global_quantities.dat'
     check_total_quant_fileid = find_next_free_unit(100,1000)
-    OPEN(UNIT=check_total_quant_fileid,FILE=TRIM(file_ti),ACTION="write",FORM='FORMATTED',IOSTAT=istat)
+    OPEN(UNIT=check_total_quant_fileid,FILE='check_global_quantities.dat', &
+      ACTION="write",FORM='FORMATTED',IOSTAT=istat)
     IF (istat/=SUCCESS) THEN
       CALL finish('supervise_total_integrals_nh','could not open check_global_quantities.dat')
     ENDIF
@@ -894,7 +893,7 @@ CONTAINS
         ! Exclude initial time step where pres_sfc_old is zero
         IF (dpsdt_avg < 10000._wp/dt) THEN
           WRITE(message_text,'(a,f12.6,a,i3)') 'average |dPS/dt| =',dpsdt_avg,' Pa/s in domain',pt_patch%id
-          CALL message('nwp_nh_interface: ', TRIM(message_text))
+          CALL message('nwp_nh_interface: ', message_text)
        ENDIF
         IF(l_opt_dpsdt_avg) opt_dpsdt_avg = dpsdt_avg
       ENDIF

@@ -63,7 +63,7 @@ END SUBROUTINE closeFile_wrap
 INTEGER FUNCTION openInputFile_wrap(filename)
   ! open a netcdf file. Since this subroutine is overloaded, we need a wrapper
   CHARACTER(LEN=*), INTENT(IN)      :: filename
-  openInputFile_wrap=openInputFile(filename)
+  CALL openInputFile(openInputFile_wrap, filename)
 END FUNCTION openInputFile_wrap
 REAL(wp) FUNCTION get_constants(constant_name)
   ! This functions is meant to create the constants needed inside the

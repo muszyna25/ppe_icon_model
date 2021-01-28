@@ -604,10 +604,54 @@ CONTAINS
     INTEGER, INTENT(IN)           :: nfields  ! total number of input fields
     INTEGER, INTENT(IN)           :: ndim2tot ! sum of vertical levels of input fields
 
-    CALL p_pat_coll%exchange_data_grf( &
-      nfields, ndim2tot, recv1, send1, recv2, send2, recv3, send3, &
-      recv4, send4, recv5, send5, recv6, send6, &
-      recv4d1, send4d1, recv4d2, send4d2)
+    TYPE(t_ptr_3d) :: recv(nfields), send(nfields)
+
+    INTEGER :: n, n4d
+
+    ! Set pointers to input fields
+    IF (PRESENT(recv4d1) .AND. .NOT. PRESENT(recv4d2)) THEN
+      DO n = 1, nfields
+        recv(n)%p => recv4d1(:,:,:,n)
+        send(n)%p => send4d1(:,:,:,n)
+      ENDDO
+    ELSE IF (PRESENT(recv4d1) .AND. PRESENT(recv4d2)) THEN
+      n4d = nfields/2
+      DO n = 1, n4d
+        recv(n)%p => recv4d1(:,:,:,n)
+        send(n)%p => send4d1(:,:,:,n)
+      ENDDO
+      DO n = 1, n4d
+        recv(n4d+n)%p => recv4d2(:,:,:,n)
+        send(n4d+n)%p => send4d2(:,:,:,n)
+      ENDDO
+    ELSE
+      IF (PRESENT(recv1)) THEN
+        recv(1)%p => recv1
+        send(1)%p => send1
+      ENDIF
+      IF (PRESENT(recv2)) THEN
+        recv(2)%p => recv2
+        send(2)%p => send2
+      ENDIF
+      IF (PRESENT(recv3)) THEN
+        recv(3)%p => recv3
+        send(3)%p => send3
+      ENDIF
+      IF (PRESENT(recv4)) THEN
+        recv(4)%p => recv4
+        send(4)%p => send4
+      ENDIF
+      IF (PRESENT(recv5)) THEN
+        recv(5)%p => recv5
+        send(5)%p => send5
+      ENDIF
+      IF (PRESENT(recv6)) THEN
+        recv(6)%p => recv6
+        send(6)%p => send6
+      ENDIF
+    ENDIF
+
+    CALL p_pat_coll%exchange_data_grf(nfields, ndim2tot, recv, send)
 
   END SUBROUTINE exchange_data_grf
 

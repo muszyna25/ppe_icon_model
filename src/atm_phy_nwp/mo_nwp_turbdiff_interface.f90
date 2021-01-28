@@ -124,10 +124,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 
   REAL(wp), PARAMETER :: cpd_o_cvd = cpd/cvd
 
-  INTEGER :: ierrstat=0
   INTEGER :: nzprv=1
-  CHARACTER (LEN=25) :: eroutine=''
-  CHARACTER (LEN=80) :: errormsg=''
 
   INTEGER  :: nlev, nlevp1, nlevcm                  !< number of full, half and canopy levels
 
@@ -229,7 +226,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 !$acc             tke_inc_ic, l_hori, zvari, zrhon, z_tvs, tempv_sfc, rho_sfc, ut_sso, vt_sso)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,ierrstat,errormsg,eroutine,tke_inc_ic,z_tvs, &
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,tke_inc_ic,z_tvs, &
 !$OMP            ncloud_offset,ptr,nzprv,l_hori,zvari,zrhon,                               &
 !$OMP            jt       , khpbln  , kvartop , kpbltype,                                  &
 !$OMP            pdifts   , pdiftq  , pdiftl  , pdifti  , pstrtu  , pstrtv , pkh , pkm ,   &
@@ -312,8 +309,6 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
       ENDIF
 
 
-
-      ierrstat = 0
 
       !KF tendencies  have to be set to zero
       !GZ: this should be replaced by an appropriate switch in turbdiff
@@ -472,8 +467,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         &  vt_sso=vt_sso(:,:),                                                        & !in
         &  shfl_s=prm_diag%shfl_s(:,jb),                                              & !in
         &  qvfl_s=prm_diag%qhfl_s(:,jb),                                              & !out
-        &  zvari=zvari(:,:,:),                                                        & !out
-        &  ierrstat=ierrstat, yerrormsg=errormsg, yroutine=eroutine )
+        &  zvari=zvari(:,:,:))                                                          !out
 
       !$ser verbatim call serialize_turbdiff_output(jg, jb, nproma, nlev, prm_diag, prm_nwp_tend,&
       !$ser verbatim                                z_tvs, zrhon(i_startidx:i_endidx,1:nlevp1),&
@@ -535,10 +529,10 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         &  qc_tens   = prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqc),  & !inout
 !          qv_conv: missing
         &  shfl_s    = prm_diag%shfl_s(:,jb),                     & !inout
-        &  qvfl_s    = prm_diag%qhfl_s(:,jb),                     & !inout
+        &  qvfl_s    = prm_diag%qhfl_s(:,jb)                      & !inout
 !          umfl_s: missing                                          !inout
 !          vmfl_s: missing                                          !inout
-        &  ierrstat=ierrstat, yerrormsg=errormsg, yroutine=eroutine)
+        )
         !$ser verbatim call serialize_vertdiff_output(jg, jb, nproma, nlev,&
         !$ser verbatim                                p_prog_rcf, p_diag, prm_diag,&
         !$ser verbatim                                prm_nwp_tend,&
@@ -593,10 +587,6 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
            &                          ptr=ptr(:), dt=tcall_turb_jg,                     &
            &                          i_st=i_startidx, i_en=i_endidx )
       ENDIF
-
-      IF (ierrstat.NE.0) THEN
-        CALL finish(eroutine, errormsg)
-      END IF
 
       ! transform updated turbulent velocity scale back to TKE
       ! Note: ddt_tke is purely diagnostic and has already been added to z_tvs

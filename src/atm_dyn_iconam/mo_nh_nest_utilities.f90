@@ -17,6 +17,7 @@
 
 !----------------------------
 #include "omp_definitions.inc"
+#include "icon_contiguous_defines.h"
 !----------------------------
 
 MODULE mo_nh_nest_utilities
@@ -41,7 +42,7 @@ MODULE mo_nh_nest_utilities
   USE mo_nwp_phy_state,       ONLY: prm_diag
   USE mo_nonhydrostatic_config,ONLY: ndyn_substeps_var
   USE mo_atm_phy_nwp_config,  ONLY: iprog_aero
-  USE mo_impl_constants,      ONLY: min_rlcell_int, min_rledge_int, MAX_CHAR_LENGTH, min_rlcell, min_rledge
+  USE mo_impl_constants,      ONLY: min_rlcell_int, min_rledge_int, min_rlcell, min_rledge
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c,                       &
     grf_bdyintp_end_c,                         &
@@ -68,6 +69,7 @@ MODULE mo_nh_nest_utilities
     prep_bdy_nudging, nest_boundary_nudging, save_progvars,                     &
     prep_rho_bdy_nudging, density_boundary_nudging, limarea_bdy_nudging
 
+  CHARACTER(len=*), PARAMETER :: modname = 'mo_nh_nest_utilities'
 CONTAINS
 
   !>
@@ -654,8 +656,8 @@ CONTAINS
   SUBROUTINE boundary_interpolation (jg,jgc,ntp_dyn,ntc_dyn,ntp_tr,ntc_tr, &
     mass_flx_p,mass_flx_c)
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_nh_nest_utilities:boundary_interpolation'
+    CHARACTER(len=*), PARAMETER ::  &
+      &  routine = modname//':boundary_interpolation'
 
 
     INTEGER, INTENT(IN)     :: jg, jgc      ! domain ID of parent and child grid
@@ -708,7 +710,7 @@ CONTAINS
 
     IF (msg_level >= 10) THEN
       WRITE(message_text,'(a,i2,a,i2)') '========= Interpolate:',jg,' =>',jgc
-      CALL message(TRIM(routine),message_text)
+      CALL message(routine, message_text)
     ENDIF
 
     !$  num_threads_omp = omp_get_max_threads()
@@ -993,8 +995,7 @@ CONTAINS
   !! Developed  by Guenther Zaengl, DWD, 2010-06-18
   SUBROUTINE prep_bdy_nudging(jgp, jg)
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_nh_nest_utilities:prep_bdy_nudging'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':prep_bdy_nudging'
 
 
     INTEGER, INTENT(IN) :: jg   ! child grid level
@@ -1039,7 +1040,7 @@ CONTAINS
 
     IF (msg_level >= 10) THEN
       WRITE(message_text,'(a,i2,a,i2)') '1-way nesting: == Boundary nudging:',jg
-      CALL message(TRIM(routine),message_text)
+      CALL message(routine, message_text)
     ENDIF
 
     l_parallel = my_process_is_mpi_parallel()
@@ -1451,11 +1452,12 @@ CONTAINS
   !!
   !! @par Revision History
   !! Developed  by Guenther Zaengl, DWD, 2013-21-10
-  SUBROUTINE limarea_bdy_nudging (p_patch, p_prog, p_prog_rcf, p_metrics, p_diag, &
+  SUBROUTINE limarea_bdy_nudging (p_patch, p_prog, ptr_tracer, p_metrics, p_diag, &
                                   p_int, tsrat, p_latbc_const, p_latbc_old, p_latbc_new)
 
     TYPE(t_patch),   INTENT(IN)    :: p_patch
-    TYPE(t_nh_prog), INTENT(IN)    :: p_prog, p_prog_rcf
+    TYPE(t_nh_prog), INTENT(IN)    :: p_prog
+    REAL(wp), CONTIGUOUS_ARGUMENT(inout) ::  ptr_tracer(:,:,:,:)
     TYPE(t_nh_metrics), INTENT(IN) :: p_metrics
     TYPE(t_nh_diag), INTENT(INOUT) :: p_diag
     TYPE(t_int_state), INTENT(IN)  :: p_int
@@ -1594,7 +1596,7 @@ CONTAINS
             qv   = wfac_old*p_latbc_old%qv(jc,jk,jb)   + wfac_new*p_latbc_new%qv(jc,jk,jb)
 
             tempv_inc = (temp-p_diag%temp(jc,jk,jb))*(1._wp+vtmpc1*qv) + &
-               (qv-p_prog_rcf%tracer(jc,jk,jb,iqv))*vtmpc1*temp
+               (qv-ptr_tracer(jc,jk,jb,iqv))*vtmpc1*temp
             pres_inc  = pres-p_diag%pres(jc,jk,jb)
 
             thv_tend = tempv_inc/p_prog%exner(jc,jk,jb) - rd_o_cpd*p_prog%theta_v(jc,jk,jb)/pres*pres_inc
@@ -1653,14 +1655,14 @@ CONTAINS
             jc = p_metrics%nudge_c_idx(ic)
             jb = p_metrics%nudge_c_blk(ic)
 #endif
-            qv_tend = wfac_old*p_latbc_old%qv(jc,jk,jb) + wfac_new*p_latbc_new%qv(jc,jk,jb) - p_prog_rcf%tracer(jc,jk,jb,iqv)
+            qv_tend = wfac_old*p_latbc_old%qv(jc,jk,jb) + wfac_new*p_latbc_new%qv(jc,jk,jb) - ptr_tracer(jc,jk,jb,iqv)
 
             ! Suppress positive nudging tendencies in saturated (=cloudy) regions in order to avoid runaway effects
-            qv_tend = MERGE(MIN(0._wp,qv_tend), qv_tend, p_prog_rcf%tracer(jc,jk,jb,iqc) > 1.e-10_wp)
+            qv_tend = MERGE(MIN(0._wp,qv_tend), qv_tend, ptr_tracer(jc,jk,jb,iqc) > 1.e-10_wp)
 
             ! using a weaker nudging coefficient for QV than for thermodynamic variables turned out to have a slightly
             ! beneficial impact on forecast quality
-            p_prog_rcf%tracer(jc,jk,jb,iqv) = p_prog_rcf%tracer(jc,jk,jb,iqv) + 0.5_wp*tsrat*p_int%nudgecoeff_c(jc,jb)*qv_tend
+            ptr_tracer(jc,jk,jb,iqv) = ptr_tracer(jc,jk,jb,iqv) + 0.5_wp*tsrat*p_int%nudgecoeff_c(jc,jb)*qv_tend
 
           ENDDO
         ENDDO
@@ -1722,7 +1724,7 @@ CONTAINS
             qv   = wfac_old*p_latbc_old%qv(jc,jk,jb)   + wfac_new*p_latbc_new%qv(jc,jk,jb)
 
             tempv_inc = (temp-p_diag%temp(jc,jk,jb))*(1._wp+vtmpc1*qv) + &
-               (qv-p_prog_rcf%tracer(jc,jk,jb,iqv))*vtmpc1*temp
+               (qv-ptr_tracer(jc,jk,jb,iqv))*vtmpc1*temp
             pres_inc  = pres-p_diag%pres(jc,jk,jb)
 
             thv_tend = tempv_inc/p_prog%exner(jc,jk,jb) - rd_o_cpd*p_prog%theta_v(jc,jk,jb)/pres*pres_inc

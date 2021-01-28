@@ -180,7 +180,7 @@ CONTAINS
   !!
   SUBROUTINE print_echam_cld_config
     !
-    INTEGER           :: jg
+    INTEGER           :: jg,lg
     CHARACTER(LEN=2)  :: cg
     !
     CALL message    ('','')
@@ -193,34 +193,35 @@ CONTAINS
     DO jg = 1,n_dom
        !
        WRITE(cg,'(i0)') jg
+       lg = MERGE(2, 1, jg > 9)
        !
        CALL message    ('','For domain '//cg)
        CALL message    ('','------------')
        CALL message    ('','')
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% zmaxcld  ',echam_cld_config(jg)% zmaxcld )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% jkscld   ',echam_cld_config(jg)% jkscld  )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% zmaxcld  ',echam_cld_config(jg)% zmaxcld )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% jkscld   ',echam_cld_config(jg)% jkscld  )
        CALL message    ('','')
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% ccwmin   ',echam_cld_config(jg)% ccwmin  )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% cqtmin   ',echam_cld_config(jg)% cqtmin  )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% ccwmin   ',echam_cld_config(jg)% ccwmin  )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% cqtmin   ',echam_cld_config(jg)% cqtmin  )
        CALL message    ('','')
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% cthomi   ',echam_cld_config(jg)% cthomi  )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% csecfrl  ',echam_cld_config(jg)% csecfrl )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% cthomi   ',echam_cld_config(jg)% cthomi  )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% csecfrl  ',echam_cld_config(jg)% csecfrl )
        CALL message    ('','')
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% ccraut   ',echam_cld_config(jg)% ccraut  )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% ccracl   ',echam_cld_config(jg)% ccracl  )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% cauloc   ',echam_cld_config(jg)% cauloc  )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% clmin    ',echam_cld_config(jg)% clmin   )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% clmax    ',echam_cld_config(jg)% clmax   )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% ccraut   ',echam_cld_config(jg)% ccraut  )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% ccracl   ',echam_cld_config(jg)% ccracl  )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% cauloc   ',echam_cld_config(jg)% cauloc  )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% clmin    ',echam_cld_config(jg)% clmin   )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% clmax    ',echam_cld_config(jg)% clmax   )
        CALL message    ('','')
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% cvtfall  ',echam_cld_config(jg)% cvtfall )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% ceffmin  ',echam_cld_config(jg)% ceffmin )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% ceffmax  ',echam_cld_config(jg)% ceffmax )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% crhoi    ',echam_cld_config(jg)% crhoi   )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% crhosno  ',echam_cld_config(jg)% crhosno )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% cn0s     ',echam_cld_config(jg)% cn0s    )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% ccsaut   ',echam_cld_config(jg)% ccsaut  )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% ccsacl   ',echam_cld_config(jg)% ccsacl  )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% clwprat  ',echam_cld_config(jg)% clwprat )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% cvtfall  ',echam_cld_config(jg)% cvtfall )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% ceffmin  ',echam_cld_config(jg)% ceffmin )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% ceffmax  ',echam_cld_config(jg)% ceffmax )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% crhoi    ',echam_cld_config(jg)% crhoi   )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% crhosno  ',echam_cld_config(jg)% crhosno )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% cn0s     ',echam_cld_config(jg)% cn0s    )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% ccsaut   ',echam_cld_config(jg)% ccsaut  )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% ccsacl   ',echam_cld_config(jg)% ccsacl  )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% clwprat  ',echam_cld_config(jg)% clwprat )
        CALL message    ('','')
        !
     END DO

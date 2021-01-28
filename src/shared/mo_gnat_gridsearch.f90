@@ -628,7 +628,7 @@ CONTAINS
 
           ! compute a true upper bound for search radius
           ! ("1.05" is just for safety)
-          r = MINVAL((/ rr, 1.05_gk*(r2 + min_dist_old) /))
+          r = MIN(rr, 1.05_gk*(r2 + min_dist_old))
 
         END IF
 
@@ -1502,7 +1502,7 @@ CONTAINS
     &                                        tri_idx, min_dist)
 
     TYPE (t_gnat_tree),    INTENT(IN)    :: gnat
-    TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch
+    TYPE(t_patch), INTENT(IN) :: p_patch
     INTEGER,  INTENT(IN)    :: iv_nproma, iv_nblks, iv_npromz      ! list size
     REAL(wp), INTENT(IN)    :: grid_sphere_radius
     LOGICAL,  INTENT(IN)    :: l_p_test_run
@@ -1510,8 +1510,6 @@ CONTAINS
     INTEGER,  INTENT(INOUT) :: tri_idx(2,iv_nproma, iv_nblks)      ! containing triangle (idx,block)
     REAL(gk), INTENT(OUT)   :: min_dist(iv_nproma, iv_nblks)       ! minimal distance
     ! local parameters
-    TYPE (t_grid_cells)   , POINTER  :: cells
-    TYPE (t_grid_vertices), POINTER  :: verts
     INTEGER                 :: i_nv
     CHARACTER(*), PARAMETER :: routine = modname//"::gnat_query_containing_triangles"
 
@@ -1531,8 +1529,6 @@ CONTAINS
       RETURN
     END IF
 
-    cells => p_patch%cells
-    verts => p_patch%verts
     i_nv  =  p_patch%geometry_info%cell_type
 
     IF (i_nv /= 3)  CALL finish(routine, "Wrong number of cell vertices!")

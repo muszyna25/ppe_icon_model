@@ -22,7 +22,7 @@ MODULE mo_nh_deepatmo_utils
 
   USE mo_kind,                  ONLY: wp, vp
   USE mo_exception,             ONLY: finish, message, message_text
-  USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH, SUCCESS, &
+  USE mo_impl_constants,        ONLY: success, &
     &                                 min_rlcell_int, min_rledge_int, min_rlvert_int
   USE mo_physical_constants,    ONLY: grav, rd, p0ref, rd_o_cpd, cpd, p0sl_bg
   USE mo_upatmo_config,         ONLY: upatmo_dyn_config
@@ -97,7 +97,7 @@ CONTAINS !......................................................................
     INTEGER  :: jb, jk, jc  ! (jc is habitual placeholder for jc, je, jv)
     INTEGER  :: nlen
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &    
+    CHARACTER(len=*), PARAMETER :: &
       & routine = modname//':height_transform_a'
 
     !-----------------------------------------------------------------------
@@ -121,7 +121,7 @@ CONTAINS !......................................................................
       ! where a is radius of Earth
       trafo_fac = 1._wp/grid_sphere_radius
     CASE DEFAULT
-      CALL finish( TRIM(routine),'invalid trafo_type')
+      CALL finish(routine,'invalid trafo_type')
     END SELECT
 
 !$OMP PARALLEL
@@ -181,7 +181,7 @@ CONTAINS !......................................................................
     INTEGER  :: jb, jk, jc  ! (jc is habitual placeholder for jc, je, jv)
     INTEGER  :: nlen
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &    
+    CHARACTER(len=*), PARAMETER :: &
       & routine = modname//':height_transform_b'
 
     !-----------------------------------------------------------------------
@@ -205,7 +205,7 @@ CONTAINS !......................................................................
         ! where a is radius of Earth
         trafo_fac = 1._wp/grid_sphere_radius
       CASE DEFAULT
-        CALL finish( TRIM(routine),'invalid trafo_type')
+        CALL finish(routine,'invalid trafo_type')
       END SELECT
     ENDIF
       
@@ -299,7 +299,7 @@ CONTAINS !......................................................................
     CHARACTER(len=10), PARAMETER :: column_invr   = "invr [1/m]"
     CHARACTER(len=10), PARAMETER :: column_centri = "centri [1]"
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       & routine = modname//':set_deepatmo_metrics'
 
     !-------------------------------------------------------------------------------
@@ -355,7 +355,7 @@ CONTAINS !......................................................................
       IF (.NOT. (ASSOCIATED(p_nh_metrics%zgpot_ifc) .AND. & 
         &        ASSOCIATED(p_nh_metrics%zgpot_mc)  .AND. & 
         &        ASSOCIATED(p_nh_metrics%dzgpot_mc)      )) THEN
-        CALL finish(TRIM(routine), 'zgpot_ifc, zgpot_mc and dzgpot_mc not allocated')
+        CALL finish(routine, 'zgpot_ifc, zgpot_mc and dzgpot_mc not allocated')
       ENDIF
 
       ! (Note: the geopotential-height-modification depends only on the radial position, 
@@ -789,11 +789,11 @@ CONTAINS !......................................................................
     !-----------------------------------------------------
     
     IF (msg_level >= imsg_thr%high .AND. my_process_is_stdio() .AND. jg == 1) THEN        
-      WRITE(message_text,'(a)') 'Metrical modification factors for the deep-atmosphere configuration'// &
-        & ' (domain '//TRIM(int2string(jg))//'):'
-      CALL message(TRIM(routine), TRIM(message_text))
+      WRITE(message_text,'(a,i0,a)') 'Metrical modification factors for the &
+        &deep-atmosphere configuration (domain ', jg, '):'
+      CALL message(routine, message_text)
       ! For full levels
-      CALL message(TRIM(routine), 'At full levels:')
+      CALL message(routine, 'At full levels:')
       ! Set up table
       CALL initialize_table(table)
       ! Set up table columns
@@ -839,7 +839,7 @@ CONTAINS !......................................................................
       ! Destruct table
       CALL finalize_table(table)
       ! Likewise for half levels
-      CALL message(TRIM(routine), 'At half levels:')
+      CALL message(routine, 'At half levels:')
       ! Set up table
       CALL initialize_table(table)
       ! Set up table columns
@@ -960,7 +960,7 @@ CONTAINS !......................................................................
     REAL(wp), DIMENSION(:), POINTER :: deepatmo_gradh_mc, deepatmo_gradh_ifc, &
       &                                deepatmo_invr_mc, deepatmo_invr_ifc
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &    
+    CHARACTER(len=*), PARAMETER :: &
       routine = modname//':velocity_tendencies_deepatmo'
 
     !--------------------------------------------------------------------------
@@ -975,7 +975,7 @@ CONTAINS !......................................................................
 
     ! in this temporary, pure deep-atmosphere version of the subroutine, 
     ! 'opt_nrdmax' should be input
-    IF (.NOT. PRESENT(opt_nrdmax)) CALL finish( TRIM(routine),'opt_nrdmax should be present')
+    IF (.NOT. PRESENT(opt_nrdmax)) CALL finish(routine,'opt_nrdmax should be present')
 
     !Get patch id
     jg = p_patch%id

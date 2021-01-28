@@ -51,8 +51,7 @@ MODULE mo_rttov_interface
     &                               total_numchans, total_channels, instruments,     &
     &                               addclouds, nlev_rttov, num_images, iwc2effdiam,  &
     &                               iceshape, zenmax10, get_synsat_name
-  USE mo_name_list_output_config, ONLY: first_output_name_list, &
-    &                               is_variable_in_output
+  USE mo_name_list_output_config, ONLY: is_variable_in_output
   USE mo_var_metadata_types,  ONLY: VARNAME_LEN
   USE mo_mpi,                 ONLY: p_pe, p_comm_work, p_io, num_work_procs, p_barrier, &
     &                               get_my_mpi_all_id
@@ -120,7 +119,7 @@ CONTAINS
           isynsat = (k-1)*4+RTTOV_BT_CL
           ! check if image is in any of our output namelists
           lsynsat_product(isynsat) =  &
-            &    is_variable_in_output(first_output_name_list, var_name=TRIM(shortname))
+            &    is_variable_in_output(var_name=TRIM(shortname))
           IF (lsynsat_product(isynsat))  lsynsat_chan(isens, k) = .TRUE.
         ENDDO
       ENDIF
@@ -130,7 +129,7 @@ CONTAINS
           IF (dbg_level > 1)  WRITE (0,*) TRIM(shortname), " (k=", k, ")"
           isynsat = (k-1)*4+RTTOV_BT_CS
           lsynsat_product(isynsat) =  &
-            &    is_variable_in_output(first_output_name_list, var_name=TRIM(shortname))
+            &    is_variable_in_output(var_name=TRIM(shortname))
           IF (lsynsat_product(isynsat))  lsynsat_chan(isens, k) = .TRUE.
         ENDDO
       ENDIF
@@ -140,7 +139,7 @@ CONTAINS
           IF (dbg_level > 1)  WRITE (0,*) TRIM(shortname), " (k=", k, ")"
           isynsat = (k-1)*4+RTTOV_RAD_CL
           lsynsat_product(isynsat) =  &
-            &    is_variable_in_output(first_output_name_list, var_name=TRIM(shortname))
+            &    is_variable_in_output(var_name=TRIM(shortname))
           IF (lsynsat_product(isynsat))  lsynsat_chan(isens, k) = .TRUE.
         ENDDO
       ENDIF
@@ -150,7 +149,7 @@ CONTAINS
           IF (dbg_level > 1)  WRITE (0,*) TRIM(shortname), " (k=", k, ")"
           isynsat = (k-1)*4+RTTOV_RAD_CS
           lsynsat_product(isynsat) =  &
-            &    is_variable_in_output(first_output_name_list, var_name=TRIM(shortname))
+            &    is_variable_in_output(var_name=TRIM(shortname))
           IF (lsynsat_product(isynsat))  lsynsat_chan(isens, k) = .TRUE.
         ENDDO
       ENDIF

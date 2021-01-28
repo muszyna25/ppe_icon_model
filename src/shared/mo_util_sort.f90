@@ -632,8 +632,9 @@ CONTAINS
   END SUBROUTINE quicksort_permutation_int
 
 
-  SUBROUTINE swap_string(a, b, dummy)
-    CHARACTER(LEN=*),  INTENT(INOUT)  :: a,b,dummy  !< strings for in-situ swap
+  SUBROUTINE swap_string(a, b)
+    CHARACTER(LEN=*),  INTENT(INOUT)  :: a,b  !< strings for in-situ swap
+    CHARACTER(LEN=LEN(a)) :: dummy
     dummy = a
     a     = b
     b     = dummy
@@ -651,12 +652,8 @@ CONTAINS
     INTEGER,          INTENT(IN),    OPTIONAL :: l_in,r_in      !< left, right partition indices
     ! local variables
     INTEGER :: i,j,l,r,m
-    CHARACTER(len=:), ALLOCATABLE :: dummy, v, t
+    CHARACTER(len=:), ALLOCATABLE :: v, t
 
-    ALLOCATE(CHARACTER(LEN(a(1))) :: dummy)
-    ALLOCATE(CHARACTER(LEN(a(1))) :: v)
-    ALLOCATE(CHARACTER(LEN(a(1))) :: t)
-    
     IF (PRESENT(l_in)) THEN
       l = l_in
     ELSE
@@ -668,17 +665,19 @@ CONTAINS
       r = SIZE(a,1)
     END IF
     IF (r>l) THEN
+      ALLOCATE(CHARACTER(LEN(a(1))) :: v, t)
+
       i = l-1
       j = r
       
       ! median-of-three selection of partitioning element
       IF ((r-l) > 3) THEN 
         m = (l+r)/2
-        IF (a(l)>a(m))  CALL swap_string(a(l), a(m), dummy)
+        IF (a(l)>a(m))  CALL swap_string(a(l), a(m))
         IF (a(l)>a(r)) THEN
-          CALL swap_string(a(l),a(r), dummy)
+          CALL swap_string(a(l),a(r))
         ELSE IF (a(r)>a(m)) THEN
-          CALL swap_string(a(r),a(m), dummy)
+          CALL swap_string(a(r),a(m))
         END IF
       END IF
 
@@ -702,9 +701,9 @@ CONTAINS
       a(r) = t
       CALL quicksort(a,l,i-1)
       CALL quicksort(a,i+1,r)
+      DEALLOCATE(v, t)
     END IF
 
-    DEALLOCATE(dummy, v, t)
   END SUBROUTINE quicksort_string
 
 

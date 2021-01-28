@@ -163,7 +163,7 @@ MODULE mo_hamocc_model
       ocean_initFromRestart_OVERRIDE = initialize_fromRestart
       ! This is an resumed integration. Read model state from restart file(s).
       CALL read_restart_files( patch_3d%p_patch_2d(1) )
-      CALL message(TRIM(method_name),'normal exit from read_restart_files')
+      CALL message(method_name,'normal exit from read_restart_files')
       !ELSE
       !  Prepare the initial conditions:
       !  forcing is part of the restart file
@@ -208,7 +208,7 @@ MODULE mo_hamocc_model
     current_time => newNullDatetime()
     jstep0 = 0
     CALL getAttributesForRestarting(restartAttributes)
-    IF (ASSOCIATED(restartAttributes)) THEN
+    IF (restartAttributes%is_init) THEN
       ! get start counter for time loop from restart file:
       CALL restartAttributes%get("jstep", jstep0)
     END IF
@@ -227,7 +227,7 @@ MODULE mo_hamocc_model
 
       CALL datetimeToString(current_time, datestring)
       WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
-      CALL message (TRIM(method_name), message_text)
+      CALL message (method_name, message_text)
 
       CALL hamocc_to_ocean_interface()
       CALL update_height_hamocc( patch_3D, ocean_operators_coefficients, hamocc_ocean_state%ocean_to_hamocc_state%h_old_withIce)
@@ -332,7 +332,7 @@ MODULE mo_hamocc_model
     !------------------------------------------------------------------
     !  cleaning up process
     !------------------------------------------------------------------
-    CALL message(TRIM(method_name),'start to clean up')
+    CALL message(method_name,'start to clean up')
     
     CALL restartDescriptor%destruct()
 
@@ -368,7 +368,7 @@ MODULE mo_hamocc_model
     ! close memory logging files
     CALL memory_log_terminate
 
-    CALL message(TRIM(method_name),'clean-up finished')
+    CALL message(method_name,'clean-up finished')
 
   END SUBROUTINE destruct_hamocc_model
   !--------------------------------------------------------------------------
@@ -459,13 +459,13 @@ MODULE mo_hamocc_model
     !------------------------------------------------------------------
 !     ALLOCATE (ocean_state(n_dom), stat=ist)
 !     IF (ist /= success) THEN
-!       CALL finish(TRIM(method_name),'allocation for ocean_state failed')
+!       CALL finish(method_name,'allocation for ocean_state failed')
 !     ENDIF
 
     !if(lhamocc)then
     !ALLOCATE (hamocc_state(n_dom), stat=ist)
     !IF (ist /= success) THEN
-    !  CALL finish(TRIM(method_name),'allocation for hamocc_state failed')
+    !  CALL finish(method_name,'allocation for hamocc_state failed')
     !ENDIF
     !ENDIF
     !---------------------------------------------------------------------
@@ -480,7 +480,7 @@ MODULE mo_hamocc_model
     !------------------------------------------------------------------
      ALLOCATE (ext_data(1), stat=error_status)
      IF (error_status /= success) THEN
-       CALL finish(TRIM(method_name),'allocation for ext_data failed')
+       CALL finish(method_name,'allocation for ext_data failed')
     ENDIF
     
 ! 
