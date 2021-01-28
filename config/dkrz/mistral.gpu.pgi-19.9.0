@@ -58,7 +58,7 @@ CFLAGS='-g -O2'
 CPPFLAGS="-I${HDF5_ROOT}/include -I${NETCDF_ROOT}/include -I${ECCODES_ROOT}/include -I${XML2_ROOT}/include/libxml2"
 
 FC='/sw/spack-rhel6/openmpi-2.0.2p2-xw623x/bin/mpif90'
-FCFLAGS="-g -O -Mrecursive -Mallocatable=03 -tp=haswell -I${NETCDFF_ROOT}/include"
+FCFLAGS="-g -O -Mrecursive -Mallocatable=03 -tp=haswell -I${NETCDFF_ROOT}/include -ta=tesla:cc35"
 
 LDFLAGS="-L${ZLIB_ROOT}/lib -L${AEC_ROOT}/lib64 -L${HDF5_ROOT}/lib -L${NETCDF_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${ECCODES_ROOT}/lib64 -L${XML2_ROOT}/lib -L${CUDA_ROOT}/lib64"
 
