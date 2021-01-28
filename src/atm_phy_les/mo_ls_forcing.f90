@@ -34,8 +34,11 @@ MODULE mo_ls_forcing
   USE mo_model_domain,        ONLY: t_patch
   USE mo_parallel_config,     ONLY: nproma
   USE mo_loopindices,         ONLY: get_indices_c
-  USE mo_les_utilities
-  USE mo_ls_forcing_nml
+  USE mo_les_utilities,       ONLY: vert_intp_linear_1d, global_hor_mean, &
+    &                               vertical_derivative
+  USE mo_ls_forcing_nml,      ONLY: is_subsidence_moment, is_subsidence_heat, &
+    &                               is_ls_forcing, is_advection, is_nudging, &
+    &                               is_geowind, is_rad_forcing
   USE mo_fortran_tools,       ONLY: init
 
   IMPLICIT NONE
@@ -79,7 +82,7 @@ MODULE mo_ls_forcing
 
     TYPE(t_nh_metrics),INTENT(in),   TARGET :: p_metrics
 
-    CHARACTER(len=max_char_length), PARAMETER :: routine = 'mo_ls_forcing:init_ls_forcing'
+    CHARACTER(len=*), PARAMETER :: routine = 'mo_ls_forcing:init_ls_forcing'
 
     REAL(wp), ALLOCATABLE, DIMENSION(:) :: zz, zw, zu, zv, z_dt_temp_adv, &
                                            z_dt_temp_rad, z_dt_qv_adv
@@ -100,45 +103,41 @@ MODULE mo_ls_forcing
       OPEN (unit=iunit,file='ls_forcing.dat',access='SEQUENTIAL', &
             form='FORMATTED', action='READ', status='OLD', IOSTAT=ist)
 
-      IF(ist/=success)THEN
-        CALL finish (TRIM(routine), 'open ls_forcing.dat failed')
-      ENDIF
+      IF (ist/=success) CALL finish(routine, 'open ls_forcing.dat failed')
 
       !Read the input file till end. The order of file assumed is:
       !Z(m) - u_geo(m/s) - v_geo(m/s) - w_ls(m/s) - dt_temp_rad(K/s) - ddt_qv_hadv_ls(1/s) - ddt_temp_hadv_ls(K/s)
 
       !Skip the first line and read next 2 lines with information about vertical and time levels
       READ(iunit,*,IOSTAT=ist)                       !skip
-      READ(iunit,*,IOSTAT=ist)nk,dt_forcing,end_time !vertical levels, forcing interval, end of forcing data
+      IF (ist == success) READ(iunit,*,IOSTAT=ist)nk,dt_forcing,end_time !vertical levels, forcing interval, end of forcing data
       IF(ist/=success) &
-        CALL finish (TRIM(routine), &
+        CALL finish(routine, &
           'Must provide vertical level, forcing interval, end of forcing time info in forcing file')
 
       nt = INT(end_time/dt_forcing)+1
 
       IF(nt>1)THEN
         READ(iunit,*,IOSTAT=ist)nskip !lines to skip between successive time levels
-        IF(ist/=success) &
-    	    CALL finish (TRIM(routine), &
-        	  'Time levels > 1 so must provide number lines to skip between successive time levels in forcing file')
+        IF (ist/=success) &
+          CALL finish(routine, &
+            'Time levels > 1 so must provide number lines to skip between successive time levels in forcing file')
       END IF
 
       IF(nt<=1)dt_forcing=-999._wp
 
       ALLOCATE( zz(nk), zw(nk), zu(nk), zv(nk), z_dt_temp_adv(nk), &
-        	z_dt_temp_rad(nk), z_dt_qv_adv(nk) )
+                z_dt_temp_rad(nk), z_dt_qv_adv(nk) )
 
       ALLOCATE( w_ls(nlev,nt), u_geo(nlev,nt), v_geo(nlev,nt), ddt_temp_hadv_ls(nlev,nt), &
-    		ddt_temp_rad(nlev,nt), ddt_qv_hadv_ls(nlev,nt) )
+                ddt_temp_rad(nlev,nt), ddt_qv_hadv_ls(nlev,nt) )
 
       DO n = 1,nt
 
         DO jk = nk , 1, -1
           READ(iunit,*,IOSTAT=ist)zz(jk),zu(jk),zv(jk),zw(jk),z_dt_temp_rad(jk), &
-        	  		  z_dt_qv_adv(jk),z_dt_temp_adv(jk)
-          IF(ist/=success)THEN
-            CALL finish (TRIM(routine), 'something wrong in forcing.dat')
-          END IF
+                                  z_dt_qv_adv(jk),z_dt_temp_adv(jk)
+          IF(ist/=success) CALL finish(routine, 'something wrong in forcing.dat')
         END DO
 
         !Skip lines
@@ -149,7 +148,8 @@ MODULE mo_ls_forcing
         END IF
 
         !Check if the file is written in descending order
-        IF(zz(1) < zz(nk))CALL finish (TRIM(routine), 'Write LS forcing data in descending order!')
+        IF (zz(1) < zz(nk)) &
+          CALL finish(routine, 'Write LS forcing data in descending order!')
 
         !Now perform interpolation to grid levels assuming:
         !a) linear interpolation
@@ -183,9 +183,7 @@ MODULE mo_ls_forcing
       OPEN (unit=iunit,file='nudging.dat',access='SEQUENTIAL', &
             form='FORMATTED', action='READ', status='OLD', IOSTAT=ist)
 
-      IF(ist/=success)THEN
-        CALL finish (TRIM(routine), 'open nudging.dat failed')
-      ENDIF
+      IF (ist/=success) CALL finish(routine, 'open nudging.dat failed')
 
        !Read the input file till end. The order of file assumed is:
        !Z(m) - tau(s) - u(m/s) - v(m/s) - temp(K) - qv(kg/kg) 
@@ -193,15 +191,13 @@ MODULE mo_ls_forcing
        !Skip the first line and read next 2 lines with information about vertical and time levels
        READ(iunit,*,IOSTAT=ist)                         !skip
        READ(iunit,*,IOSTAT=ist)nk,dt_nudging,end_time   !vertical levels,time levels and interval
-       IF(ist/=success) &
-          CALL finish (TRIM(routine), &
-          'Must provide vertical level, time level and time interval info in nudging file')
+      IF (ist/=success) CALL finish(routine, &
+        'Must provide vertical level, time level and time interval info in nudging file')
 
        IF(nt>1)THEN
          READ(iunit,*,IOSTAT=ist)nskip              !lines to skip between successive time levels
-         IF(ist/=success) &
-           CALL finish (TRIM(routine), &
-           'Time levels > 1 so must provide number lines to skip between successive time levels in nudging file')
+        IF (ist/=success) CALL finish(routine, &
+          'Time levels > 1 so must provide number lines to skip between successive time levels in nudging file')
        END IF
        IF(nt<=1)dt_nudging=-999._wp
 
@@ -213,9 +209,7 @@ MODULE mo_ls_forcing
 
          DO jk = nk , 1, -1
            READ(iunit,*,IOSTAT=ist)zz(jk),dt_relax,zu(jk),zv(jk),z_temp(jk),z_qv(jk)
-           IF(ist/=success)THEN
-               CALL finish (TRIM(routine), 'something wrong in nudging.dat')
-           END IF
+           IF (ist/=success) CALL finish(routine, 'something wrong in nudging.dat')
          END DO
 
          !Skip lines
@@ -226,7 +220,8 @@ MODULE mo_ls_forcing
          END IF
 
          !Check if the file is written in descending order
-         IF(zz(1) < zz(nk))CALL finish (TRIM(routine), 'Write nuding data in descending order!')
+         IF (zz(1) < zz(nk)) &
+           CALL finish(routine, 'Write nuding data in descending order!')
 
          !Now perform interpolation to grid levels assuming:
          !a) linear interpolation
@@ -292,7 +287,7 @@ MODULE mo_ls_forcing
     REAL(wp),       INTENT(out)             :: ddt_qv_nud_ls(:)
     REAL(wp),       INTENT(out)             :: wsub(:)
 
-    CHARACTER(len=max_char_length), PARAMETER :: routine = 'mo_ls_forcing:apply_ls_forcing'
+    CHARACTER(len=*), PARAMETER :: routine = 'mo_ls_forcing:apply_ls_forcing'
     REAL(wp) :: varin(nproma,p_patch%nlev,p_patch%nblks_c)
     REAL(wp) :: inv_no_gb_cells, inv_dt_relax
     REAL(wp), DIMENSION(p_patch%nlev)  :: u_gb, v_gb, temp_gb, qv_gb, w_gb
@@ -314,10 +309,9 @@ MODULE mo_ls_forcing
 !$OMP PARALLEL
     CALL init(ddt_u_ls); CALL init(ddt_v_ls);  CALL init(ddt_temp_ls)
     call init(ddt_qv_ls)
-!$OMP END PARALLEL
 
     !use theta instead of temperature for subsidence (Anurag, Christopher)
-!$OMP PARALLEL
+!$OMP BARRIER
 !$OMP DO PRIVATE(jc,jb,jk,i_startidx,i_endidx)
     DO jb = i_startblk,i_endblk
        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -349,8 +343,10 @@ MODULE mo_ls_forcing
 
       ! Christopher Moseley: temporary catch
       IF (int_weight.LT.0 .OR.int_weight.GT.1) THEN
-        WRITE(message_text,*)n_curr,n_next,int_weight
-        CALL message('INTERPOLATION ERROR in LS forcing:',message_text)
+        WRITE(message_text,'(a,2(i0,", "),g0)') &
+             'INTERPOLATION ERROR in LS forcing: ', &
+             n_curr,n_next,int_weight
+        CALL message(routine, message_text)
       END IF
 
       wsub            = w_ls(:,n_curr)*(1.-int_weight)+w_ls(:,n_next)*int_weight
@@ -415,17 +411,18 @@ MODULE mo_ls_forcing
      !WRITE(message_text,*)dt_nudging
       !CALL message('dt_nudging =',message_text)
 
+      inv_dt_relax    = 1._wp / dt_relax
       IF (dt_nudging > 0._wp) THEN
         n_curr = FLOOR(curr_sim_time/dt_nudging)+1
         n_next = n_curr+1
         int_weight = curr_sim_time/dt_nudging-n_curr+1
 
-        inv_dt_relax    = 1._wp / dt_relax
-
         ! Interpolation error catch
         IF (int_weight.LT.0 .OR. int_weight.GT.1) THEN
-          WRITE(message_text,*)n_curr,n_next,int_weight
-          CALL message('INTERPOLATION ERROR in nudging:',message_text)
+          WRITE (message_text,'(a,2(i0,", "),g0)') &
+               'INTERPOLATION ERROR in nudging:', &
+               n_curr,n_next,int_weight
+          CALL message(routine, message_text)
         END IF
 
         ddt_u_ls    =  ddt_u_ls  - ( u_gb  - &

@@ -62,7 +62,7 @@ MODULE mo_advection_vflux
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish, message, message_text
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, SUCCESS, min_rlcell_int,   &
+  USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int,   &
     &                               iup_v, ippm_v, ipsm_v,                      &
     &                               islopel_vsm, islopel_vm, ifluxl_vpd,        &
     &                               ino_flx, izero_grad, iparent_flx
@@ -108,6 +108,8 @@ MODULE mo_advection_vflux
   LOGICAL, PARAMETER ::  acc_validate = .FALSE.   ! ONLY SET TO .TRUE. FOR VALIDATION PHASE
 #endif
 
+  CHARACTER(len=*), PARAMETER :: modname = 'mo_advection_vflux'
+
   !-------------------------------------------------------------------------
 
 CONTAINS
@@ -149,8 +151,7 @@ CONTAINS
     &                      lprint_cfl, p_upflux, opt_topflx_tra, opt_q_int,   &
     &                      opt_rlstart, opt_rlend  )
 
-   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_advection_vflux: vert_upwind_flux'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':vert_upwind_flux'
 
     TYPE(t_patch), INTENT(IN) ::  &  !< patch on which computation is 
       &  p_patch                             !< performed
@@ -355,8 +356,7 @@ CONTAINS
     &                         p_upflux, opt_topflx_tra, opt_slev,         &
     &                         opt_rlstart, opt_rlend )
 
-!!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-!!$      &  routine = 'mo_advection_vflux: upwind_vflux_up'
+!!$    CHARACTER(len=*), PARAMETER :: routine = modname//':upwind_vflux_up'
 
     TYPE(t_patch), INTENT(IN) ::  & !< patch on which computation is performed
       &  p_patch
@@ -520,8 +520,7 @@ CONTAINS
     &                      p_upflux, opt_lout_edge, opt_topflx_tra, opt_slev,  &
     &                      opt_ti_slev, opt_rlstart, opt_rlend, opt_elev )
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_advection_vflux:upwind_vflux_ppm'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':upwind_vflux_ppm'
 
     TYPE(t_patch), INTENT(IN) ::  &  !< patch on which computation is performed
       &  p_patch
@@ -782,7 +781,7 @@ CONTAINS
         &       z_cflfrac(nproma,nlevp1,p_patch%nblks_c),              &
         &       max_cfl_blk(p_patch%nblks_c), STAT=ist                 )
       IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine),                                   &
+        CALL finish(routine,                                           &
           &  'allocation for i_indlist, i_levlist, i_listdim, '    //  &
           &  'jk_shifted, z_cflfrac, max_cfl_blk  failed '    )
       ENDIF
@@ -1211,7 +1210,7 @@ CONTAINS
       IF (my_process_is_stdio() .OR. comm_lev>0 .AND. get_my_mpi_work_id() == get_glob_proc0() ) THEN
         ! otherwise it is possible that max_cfl_tot is undefined
         WRITE(message_text,'(a,e16.8)') 'maximum vertical CFL =',max_cfl_tot
-        CALL message(TRIM(routine),message_text)
+        CALL message(routine, message_text)
       ENDIF
 
       ! Add layer-wise diagnostic if the maximum CFL value is close to the stability limit
@@ -1224,7 +1223,7 @@ CONTAINS
           max_cfl_lay_tot(slevp1_ti:nlev) = global_max(max_cfl_lay_tot(slevp1_ti:nlev), iroot=process_mpi_stdio_id)
           DO jk = slevp1_ti,nlev
             WRITE(message_text,'(a,i4,a,e16.8)') 'maximum vertical CFL in layer', jk,' =', max_cfl_lay_tot(jk)
-            CALL message(TRIM(routine),message_text)
+            CALL message(routine, message_text)
           ENDDO
         ENDIF
       ENDIF
@@ -1237,7 +1236,7 @@ CONTAINS
         &         jk_shifted, z_cflfrac, max_cfl_blk, STAT=ist )
 
       IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine),                                    &
+        CALL finish(routine,                                            &
           &  'deallocation for i_indlist, i_levlist, i_listdim_p, ' //  &
           &  'jk_shifted, z_cflfrac, max_cfl_blk failed '      )
       ENDIF
@@ -1279,8 +1278,7 @@ CONTAINS
     &                      p_upflux, opt_lout_edge, opt_topflx_tra, opt_slev,  &
     &                      opt_ti_slev, opt_rlstart, opt_rlend, opt_elev )
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_advection_vflux:upwind_vflux_ppm4gpu'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':upwind_vflux_ppm4gpu'
 
     TYPE(t_patch), TARGET, INTENT(IN) ::  &  !< patch on which computation is performed
       &  p_patch
@@ -1510,7 +1508,7 @@ CONTAINS
       ! TODO: figure out z_cfl lifetime
       ALLOCATE( z_cfl(nproma,nlevp1,p_patch%nblks_c), STAT=ist  )
       IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine), 'allocation for z_cfl failed')
+        CALL finish(routine, 'allocation for z_cfl failed')
       ENDIF
 !$ACC ENTER DATA CREATE( z_cfl ),  IF( i_am_accel_node .AND. acc_on )
     END IF
@@ -1905,7 +1903,7 @@ CONTAINS
       IF (my_process_is_stdio() .OR. comm_lev>0 .AND. get_my_mpi_work_id() == get_glob_proc0() ) THEN
         ! otherwise it is possible that max_cfl_tot is undefined
         WRITE(message_text,'(a,e16.8)') 'maximum vertical CFL =',max_cfl_tot
-        CALL message(TRIM(routine),message_text)
+        CALL message(routine,message_text)
       ENDIF
 
       ! Add layer-wise diagnostic if the maximum CFL value is close to the stability limit
@@ -1917,7 +1915,7 @@ CONTAINS
         max_cfl_lay_tot(slevp1_ti:nlev) = global_max(max_cfl_lay_tot(slevp1_ti:nlev), iroot=process_mpi_stdio_id)
         DO jk = slevp1_ti,nlev
           WRITE(message_text,'(a,i4,a,e16.8)') 'maximum vertical CFL in layer', jk,' =', max_cfl_lay_tot(jk)
-          CALL message(TRIM(routine),message_text)
+          CALL message(routine,message_text)
         ENDDO
       ENDIF
 
@@ -1931,7 +1929,7 @@ CONTAINS
 !$ACC EXIT DATA DELETE( z_cfl ) IF( i_am_accel_node .AND. acc_on )
       DEALLOCATE( z_cfl, STAT=ist )
       IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine), 'deallocation for z_cfl failed' )
+        CALL finish(routine, 'deallocation for z_cfl failed' )
       ENDIF
     END IF
 
@@ -2124,8 +2122,7 @@ CONTAINS
     &                    i_start, i_end, parent_topflx, upflx_top,      &
     &                    upflx_bottom, llbc_adv )
 
-!!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-!!$      &  routine = 'mo_advection_vflux: set_ubc_adv'
+!!$    CHARACTER(len=*), PARAMETER :: routine = modname//':set_ubc_adv'
 
     REAL(wp), INTENT(IN)     :: & !< computed tracer flux at second half level
       &  upflx_top_p1(:)

@@ -694,7 +694,8 @@ CONTAINS
                             & lcall_phy_jg(itsatad),            & !>input
                             & pt_patch, p_metrics,              & !>input
                             & pt_prog,                          & !>inout
-                            & pt_prog_rcf,                      & !>inout
+                            & pt_prog_rcf%tracer,               & !>inout
+                            & pt_prog_rcf%tke,                  & !>in
                             & pt_diag ,                         & !>inout
                             & prm_diag, prm_nwp_tend,           & !>inout
                             & lcompute_tt_lheat                 ) !>in

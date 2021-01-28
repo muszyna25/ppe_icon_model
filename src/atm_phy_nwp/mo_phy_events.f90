@@ -21,7 +21,8 @@
 MODULE mo_phy_events
 
   USE mo_kind,                     ONLY: wp
-  USE mo_impl_constants,           ONLY: MAX_CHAR_LENGTH, SUCCESS
+  USE mo_impl_constants,           ONLY: max_char_length, SUCCESS, &
+    &                                    max_var_list_name_len
   USE mo_exception,                ONLY: finish, message, message_text
   USE mtime,                       ONLY: datetime, newDatetime, timedelta, newTimedelta, &
     &                                    datetimeToString, timedeltaToString, &
@@ -33,8 +34,9 @@ MODULE mo_phy_events
     &                                    getEventLastDateTime, getEventFirstDateTime,       &
     &                                    getEventInterval, getTotalSecondsTimedelta,        &
     &                                    getTriggerNextEventAtDateTime, deallocateEvent,    &
-    &                                    deallocateTimedelta, deallocateDatetime
+    &                                    deallocateDatetime
 !!$                                   getTriggeredPreviousEventAtDateTime
+  USE mo_util_mtime,               ONLY: mtime_timedelta_from_fseconds
   USE mo_util_table,               ONLY: t_table, initialize_table, add_table_column, &
     &                                    set_table_entry, print_table, finalize_table
   USE mo_run_config,               ONLY: msg_level
@@ -246,8 +248,8 @@ CONTAINS
     eventRefDate   => startDate  ! should this be set to the model start date
     eventInterval  => dt
     !
-    phyProc%ev_ptr => newEvent(TRIM(phyProc%name), eventRefDate, eventStartDate, &
-      &                        eventEndDate, eventInterval, errno=ierr)
+    phyProc%ev_ptr => newEvent(phyProc%name, eventRefDate, eventStartDate, &
+      &                        eventEndDate, eventInterval)
 
     ! dummy initialization
     lastActive_ptr => newDatetime("1111-01-01T00:00:00.000")
@@ -298,16 +300,13 @@ CONTAINS
     eventRefDate   => phyProc%startDate  ! should this be set to the model start date
     eventInterval  => phyProc%dt
     !
-    phyProc%ev_ptr => newEvent(TRIM(phyProc%name), eventRefDate, eventStartDate, &
+    phyProc%ev_ptr => newEvent(phyProc%name, eventRefDate, eventStartDate, &
       &                        eventEndDate, eventInterval, errno=ierr)
 
     ! dummy initialization
     lastActive_ptr => newDatetime("1111-01-01T00:00:00.000")
     phyProc%lastActive = lastActive_ptr
-
-    IF (ASSOCIATED(lastActive_ptr)) THEN
-      CALL deallocateDatetime(lastActive_ptr)
-    END IF
+    CALL deallocateDatetime(lastActive_ptr)
 
   END SUBROUTINE phyProcBase_reinitEvent
 
@@ -325,7 +324,7 @@ CONTAINS
   LOGICAL FUNCTION phyProcBase_doInit (phyProc, mtime_current)
 
     CLASS(t_phyProcBase)   , INTENT(INOUT) :: phyProc        !< passed-object dummy argument
-    TYPE(datetime), POINTER, INTENT(IN)    :: mtime_current  !< current_datetime
+    TYPE(datetime)         , INTENT(IN)    :: mtime_current  !< current_datetime
 
   !-----------------------------------------------------------------
 
@@ -357,7 +356,7 @@ CONTAINS
   LOGICAL FUNCTION phyProcBase_isActive (phyProc, mtime_current, lasync)
 
     CLASS(t_phyProcBase)   , INTENT(INOUT) :: phyProc        !< passed-object dummy argument
-    TYPE(datetime), POINTER, INTENT(IN)    :: mtime_current  !< current_datetime
+    TYPE(datetime)         , INTENT(IN)    :: mtime_current  !< current_datetime
     LOGICAL, INTENT(IN), OPTIONAL          :: lasync         !< if present, broadcast is done in calling routine
 
     ! local
@@ -452,15 +451,13 @@ CONTAINS
     CLASS(t_phyProcBase)   , INTENT(IN) :: phyProc    !< passed-object dummy argument
 
     ! local
-    TYPE(datetime), TARGET  :: lastActive
-    TYPE(datetime), POINTER :: lastActive_ptr
+    TYPE(datetime) :: lastActive
     INTEGER :: ierr
   !-----------------------------------------------------------------
 
     lastActive = phyProc%getLastActive()
-    lastActive_ptr =>lastActive
 
-    CALL datetimeToString(lastActive_ptr, phyProcBase_getLastActivePTString, ierr)
+    CALL datetimeToString(lastActive, phyProcBase_getLastActivePTString, ierr)
 
   END FUNCTION phyProcBase_getLastActivePTString
 
@@ -478,7 +475,7 @@ CONTAINS
   TYPE(timedelta) FUNCTION phyProcBase_getElapsedTime (phyProc, mtime_current)
 
     CLASS(t_phyProcBase)   , INTENT(IN) :: phyProc        !< passed-object dummy argument
-    TYPE(datetime), POINTER, INTENT(IN) :: mtime_current  !< current_datetime
+    TYPE(datetime)         , INTENT(IN) :: mtime_current  !< current_datetime
 
   !-----------------------------------------------------------------
 
@@ -498,19 +495,16 @@ CONTAINS
   CHARACTER(len=MAX_TIMEDELTA_STR_LEN) FUNCTION phyProcBase_getElapsedTimePTString (phyProc, mtime_current)
 
     CLASS(t_phyProcBase)   , INTENT(IN) :: phyProc        !< passed-object dummy argument
-    TYPE(datetime), POINTER, INTENT(IN) :: mtime_current  !< current_datetime
+    TYPE(datetime)         , INTENT(IN) :: mtime_current  !< current_datetime
 
     ! local
     TYPE(timedelta), TARGET  :: elapsedTime
-    TYPE(timedelta), POINTER :: elapsedTime_ptr
     INTEGER :: ierr
   !-----------------------------------------------------------------
 
     elapsedTime = phyProc%getElapsedTime(mtime_current)
 
-    elapsedTime_ptr =>elapsedTime
-
-    CALL timedeltaToString(elapsedTime_ptr, phyProcBase_getElapsedTimePTString, ierr)
+    CALL timedeltaToString(elapsedTime, phyProcBase_getElapsedTimePTString, ierr)
 
   END FUNCTION phyProcBase_getElapsedTimePTString
 
@@ -824,14 +818,14 @@ CONTAINS
   !!
   SUBROUTINE phyProcGroup_deserialize (phyProcGrp, mtime_current, optAttnamePrefix)
     CLASS(t_phyProcGroup)         , INTENT(INOUT):: phyProcGrp     !< passed-object dummy argument
-    TYPE(datetime), POINTER       , INTENT(IN)   :: mtime_current  !< current_datetime
+    !> current_datetime
+    TYPE(datetime)                , INTENT(IN)   :: mtime_current
     CHARACTER(LEN=*), OPTIONAL    , INTENT(IN)   :: optAttnamePrefix !< optional prefix in attribute name
 
     ! local
     INTEGER                               :: iproc               ! loop conter
     REAL(wp)                              :: elapsedTime
-    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: elapsedTime_str
-    TYPE(timedelta), POINTER              :: mtime_elapsedTime   ! elapsed time in mtime format
+    TYPE(timedelta)                       :: mtime_elapsedTime   ! elapsed time in mtime format
     TYPE(t_key_value_store), POINTER :: restartAttributes
     CHARACTER(len=MAX_CHAR_LENGTH)        :: attname             ! attribute name
     CHARACTER(LEN=*), PARAMETER           :: routine = modname//":phyProcGroup_deserialize"
@@ -839,7 +833,7 @@ CONTAINS
  
     CALL getAttributesForRestarting(restartAttributes)
 
-    IF (ASSOCIATED(restartAttributes)) THEN
+    IF (restartAttributes%is_init) THEN
       DO iproc=1,UBOUND(phyProcGrp%proc,1)
         IF (.NOT. ASSOCIATED(phyProcGrp%proc(iproc)%p)) CYCLE
         IF (.NOT. phyProcGrp%proc(iproc)%p%is_enabled) CYCLE
@@ -853,13 +847,10 @@ CONTAINS
 
         ! Note that elapsedTime is multiplied by -1, since we only have a 
         ! '+' operator available.
-        CALL getPTStringFromSeconds((-1._wp)*elapsedTime, elapsedTime_str)
-        mtime_elapsedTime => newTimedelta(elapsedTime_str)
+        CALL mtime_timedelta_from_fseconds(-elapsedTime, mtime_current, &
+          &                                mtime_elapsedTime)
         phyProcGrp%proc(iproc)%p%lastActive = mtime_current + mtime_elapsedTime
         !
-        IF (ASSOCIATED(mtime_elapsedTime)) THEN
-          CALL deallocateTimedelta(mtime_elapsedTime)
-        END IF
       ENDDO
     ENDIF  ! associated
 
@@ -992,7 +983,7 @@ CONTAINS
   SUBROUTINE phyProcGroup_printStatus (phyProcGrp, mtime_current)
     !
     CLASS(t_phyProcGroup)  , INTENT(INOUT) :: phyProcGrp    !< passed-object dummy argument
-    TYPE(datetime), POINTER, INTENT(IN)    :: mtime_current !< current_datetime
+    TYPE(datetime)         , INTENT(IN)    :: mtime_current !< current_datetime
 
     ! local variables
     INTEGER         :: iev             ! loop counter
@@ -1112,7 +1103,7 @@ CONTAINS
   SUBROUTINE mtime_ctrl_physics ( phyProcs, mtime_current, isInit, lcall_phy )
 
     TYPE(t_phyProcGroup)    , INTENT(INOUT):: phyProcs       !< physics group
-    TYPE(datetime), POINTER , INTENT(IN)   :: mtime_current  !< current_datetime
+    TYPE(datetime)          , INTENT(IN)   :: mtime_current  !< current_datetime
     LOGICAL                 , INTENT(IN)   :: isInit         !< if TRUE, special settings 
                                                              !  for lcall_phy which are adjusted 
                                                              !  for the physics initialization phase

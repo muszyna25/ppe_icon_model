@@ -40,7 +40,7 @@
    USE mo_model_domain,        ONLY: t_patch
    USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
    USE mo_run_config,          ONLY: iforcing, iqv,msg_level 
-   USE mo_impl_constants,      ONLY: inwp, MAX_CHAR_LENGTH
+   USE mo_impl_constants,      ONLY: inwp
    USE mo_parallel_config,     ONLY: nproma
    USE mo_satad,               ONLY:  sat_pres_water, &  !! saturation vapor pressure w.r.t. water
             &                         sat_pres_ice,   &  !! saturation vapor pressure w.r.t. ice
@@ -148,7 +148,7 @@
   SUBROUTINE init_nh_atmo_ana_poly( ptr_patch, ptr_nh_prog, ptr_nh_diag, &
     &                                p_metrics, l_hydro_adjust )
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_nh_lim_area_testcases:init_nh_atmo_ana_poly'
 
 
@@ -232,7 +232,7 @@
     IF (h_poly(jl+1) > h_poly(jl)+t_poly(jl)/tgr_poly(jl) ) THEN
       WRITE(message_text,'(a,i3,a)') 'jl:',jl,' combination of h_poly(jl), t_poly(jl) &
                                & tgr_poly(jl) lead to negative pressure'
-      CALL finish('',TRIM(message_text))
+      CALL finish('', message_text)
     END IF
    END IF
   END DO
@@ -240,7 +240,7 @@
    IF ( zz_top > h_poly(nlayers_poly)+t_poly(nlayers_poly)/tgr_poly(nlayers_poly) ) THEN
      WRITE(message_text,'(a)') ' combination of h_poly(nlayers_poly), t_poly(nlayers_poly) &
                              & tgr_poly(nlayers_poly) lead to negative pres'
-     CALL finish('',TRIM(message_text))
+     CALL finish('', message_text)
    END IF
   END IF
 
@@ -300,24 +300,22 @@
    DO  jl = 1, nlayers_poly
      WRITE(message_text,'(10x,i4,4e18.10)') jl, &
                              & pres_poly(jl), t_poly(jl), rh_poly(jl), qv_poly(jl)
-     CALL message('',TRIM(message_text))
+     CALL message('', message_text)
    END DO
 
   ENDIF ! msg_level >= 5
 
 ! set the corresponding layer for all the model points
 
-jglayer(:,:,:)=0  
-!$OMP PARALLEL 
+!$OMP PARALLEL
 !$OMP DO PRIVATE(jk,jc,nlen,z_h,jl)
     DO jb = 1, nblks_c
-      IF (jb /= nblks_c) THEN
-         nlen = nproma
-      ELSE
-         nlen = npromz_c
-      ENDIF
+      nlen = MERGE(nproma, npromz_c, jb /= nblks_c)
 
       DO jk = nlev, 1, -1
+         DO jc = 1,nproma
+           jglayer(jc, jk, jb) = 0
+         END DO
          DO jc = 1, nlen
 
             z_h = p_metrics%z_mc(jc,jk,jb)
@@ -347,11 +345,7 @@ jglayer(:,:,:)=0
 !$OMP PARALLEL 
 !$OMP DO PRIVATE(jk,jc,nlen,z_h,z_h_kp1, jg)
     DO jb = 1, nblks_c
-      IF (jb /= nblks_c) THEN
-         nlen = nproma
-      ELSE
-         nlen = npromz_c
-      ENDIF
+      nlen = MERGE(nproma, npromz_c, jb /= nblks_c)
 
       DO jk = nlev, 1, -1
          DO jc = 1, nlen
@@ -447,11 +441,7 @@ jglayer(:,:,:)=0
 !$OMP PARALLEL 
 !$OMP DO PRIVATE(jb,jk,jc,nlen)
     DO jb = 1, nblks_c
-      IF (jb /= nblks_c) THEN
-         nlen = nproma
-      ELSE
-         nlen = npromz_c
-      ENDIF
+      nlen = MERGE(nproma, npromz_c, jb /= nblks_c)
 
       DO jk = nlev, 1, -1
         DO jc = 1, nlen  
@@ -508,7 +498,7 @@ jglayer(:,:,:)=0
   SUBROUTINE init_nh_atmo_ana_nconstlayers( ptr_patch, ptr_nh_prog, ptr_nh_diag, &
     &                                p_metrics, l_hydro_adjust )
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_nh_lim_area_testcases:init_nh_atmo_ana_nconstlayers'
 
 
@@ -587,7 +577,7 @@ jglayer(:,:,:)=0
    IF (bvref_tconst >= zloghuge) THEN
     WRITE(message_text,'(2a, i4, a)')' INPUT_ARTIFCTL: ERROR * Combination of h_nconst, N_nconst',&
              & ' will lead to floating overflow in layer jl = ',jl,' ! * '
-    CALL finish('',TRIM(message_text))
+    CALL finish('', message_text)
    END IF
   END DO
   bvref_tconst = N_nconst(nlayers_nconst)**2 / &
@@ -595,7 +585,7 @@ jglayer(:,:,:)=0
   IF (bvref_tconst >= zloghuge) THEN
     WRITE(message_text,'(2a, i4, a)')' INPUT_ARTIFCTL: ERROR * Combination of h_nconst, N_nconst',&
              & ' will lead to floating overflow in layer jl = ',nlayers_nconst,' !!! *** '
-    CALL finish('',TRIM(message_text))           
+    CALL finish('', message_text)
   END IF
 
     ! number of vertical levels
@@ -629,7 +619,7 @@ jglayer(:,:,:)=0
          & (1._wp/thetab(jl)-1._wp/thetab(jl-1))*(grav/N_nconst(jl-1))**2/cpd  ) THEN
      WRITE(message_text,'(a,i3,a)')'jl: ',jl-1,  &
                         & 'value of N_nconst(jl) leads to a negative pressure'
-     CALL finish('',TRIM(message_text))
+     CALL finish('', message_text)
     END IF
     !here I use rh of the layer below
     rhb(jl)    = rh_nconst(jl-1)-rhgr_nconst(jl-1)*(h_nconst(jl)-h_nconst(jl-1))
@@ -672,7 +662,7 @@ jglayer(:,:,:)=0
                               &  (grav/N_nconst(nlayers_nconst))**2/cpd  ) THEN
     WRITE(message_text,'(a,i3,a)') 'jl: ',nlayers_nconst,'value of N_nconst(jl) leads &
                                       &   to a negative pressure'
-    CALL finish('',TRIM(message_text))
+    CALL finish('', message_text)
    END IF  
   END IF
 ! ckeck finished
@@ -682,7 +672,7 @@ jglayer(:,:,:)=0
    DO  jl = 1, nlayers_nconst
      WRITE(message_text,'(10x,i3, 4e18.10)') jl,    &
                              &     presb(jl), tempb(jl), rhb(jl), qvb(jl)
-     CALL message('',TRIM(message_text))
+     CALL message('', message_text)
    END DO
 
   ENDIF ! msg_level >= 5

@@ -57,7 +57,7 @@ USE mo_communication,      ONLY: exchange_data, exchange_data_4de1,            &
 
 USE mo_timer,           ONLY: timer_start, timer_stop, activate_sync_timers, &
   & timer_global_sum, timer_omp_global_sum, timer_ordglb_sum!, timer_omp_ordglb_sum
-USE mo_fortran_tools,   ONLY: t_ptr_3d, insert_dimension
+USE mo_fortran_tools,   ONLY: t_ptr_3d, t_ptr_3d_sp, insert_dimension
 
 IMPLICIT NONE
 
@@ -167,6 +167,13 @@ TYPE(t_cumulative_sync) :: cumul_sync(4,max_dom,MAX_CUMULATIVE_SYNC)
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
 #endif
 #endif
+
+  INTERFACE sync_patch_array_mult
+    MODULE PROCEDURE sync_patch_array_mult_dp
+    MODULE PROCEDURE sync_patch_array_mult_sp
+  END INTERFACE sync_patch_array_mult
+
+  CHARACTER(len=*), PARAMETER :: modname = 'mo_sync'
 
 CONTAINS
 
@@ -357,14 +364,14 @@ END SUBROUTINE sync_patch_array_i2
 !! Optimized version by Guenther Zaengl, Apr 2010, based on routines
 !! developed by Rainer Johanni
 !!
-SUBROUTINE sync_patch_array_mult(typ, p_patch, nfields, f3din1, f3din2, f3din3, &
+SUBROUTINE sync_patch_array_mult_dp(typ, p_patch, nfields, f3din1, f3din2, f3din3, &
                                  f3din4, f3din5, f4din, f3din_arr, opt_varname)
 
    INTEGER, INTENT(IN)             :: typ
    TYPE(t_patch), INTENT(IN), TARGET :: p_patch
    INTEGER,     INTENT(IN)         :: nfields
 
-   REAL(wp), OPTIONAL, INTENT(INOUT) ::  f3din1(:,:,:), f3din2(:,:,:), f3din3(:,:,:), &
+   REAL(dp), OPTIONAL, INTENT(INOUT) ::  f3din1(:,:,:), f3din2(:,:,:), f3din3(:,:,:), &
       &                                  f3din4(:,:,:), f3din5(:,:,:), f4din(:,:,:,:)
    TYPE(t_ptr_3d), OPTIONAL, INTENT(INOUT) :: f3din_arr(:)
 
@@ -421,7 +428,93 @@ SUBROUTINE sync_patch_array_mult(typ, p_patch, nfields, f3din1, f3din2, f3din3, 
        &                     recv3d_arr=f3din_arr)
    ENDIF
 
-END SUBROUTINE sync_patch_array_mult
+END SUBROUTINE sync_patch_array_mult_dp
+
+!-------------------------------------------------------------------------
+!>
+!! Does boundary exchange for up to 5 3D cell-based fields and/or a 4D field.
+!! The 4D field can alternatively be passed as an array of 3D fields.
+!!
+!! @par Revision History
+!! Optimized version by Guenther Zaengl, Apr 2010, based on routines
+!! developed by Rainer Johanni
+!!
+SUBROUTINE sync_patch_array_mult_sp(typ, p_patch, nfields, f3din1, f3din2, f3din3, &
+                                 f3din4, f3din5, f4din, f3din_arr, opt_varname)
+
+   INTEGER, INTENT(IN)             :: typ
+   TYPE(t_patch), INTENT(IN), TARGET :: p_patch
+   INTEGER,     INTENT(IN)         :: nfields
+
+   REAL(sp), TARGET, INTENT(INOUT) :: f3din1(:,:,:)
+   REAL(sp), TARGET, OPTIONAL, INTENT(INOUT) :: f3din2(:,:,:), f3din3(:,:,:), &
+      &                           f3din4(:,:,:), f3din5(:,:,:), f4din(:,:,:,:)
+   TYPE(t_ptr_3d_sp), OPTIONAL, INTENT(INOUT) :: f3din_arr(:)
+
+   CLASS(t_comm_pattern), POINTER :: p_pat
+   CHARACTER(len=*), TARGET, INTENT(IN), OPTIONAL :: opt_varname
+   INTEGER :: i, nfields_
+   INTEGER :: ndim2tot ! Sum of second dimensions over all input fields
+   TYPE(t_ptr_3d_sp) :: fld(nfields)
+   CHARACTER(len=*), PARAMETER :: routine &
+        = modname//'::sync_patch_array_mult_sp'
+!-----------------------------------------------------------------------
+
+   p_pat => comm_pat_of_type(p_patch, typ)
+
+   nfields_ = 0
+   nfields_ = nfields_ + 1
+   ndim2tot = SIZE(f3din1,2)
+   fld(nfields_)%p => f3din1
+   IF (PRESENT(f3din2)) THEN
+     nfields_ = nfields_ + 1
+     ndim2tot = ndim2tot + SIZE(f3din2,2)
+     fld(nfields_)%p => f3din2
+   END IF
+   IF (PRESENT(f3din3)) THEN
+     nfields_ = nfields_ + 1
+     ndim2tot = ndim2tot + SIZE(f3din3,2)
+     fld(nfields_)%p => f3din3
+   END IF
+   IF (PRESENT(f3din4)) THEN
+     nfields_ = nfields_ + 1
+     ndim2tot = ndim2tot + SIZE(f3din4,2)
+     fld(nfields_)%p => f3din4
+   END IF
+   IF (PRESENT(f3din5)) THEN
+     nfields_ = nfields_ + 1
+     ndim2tot = ndim2tot + SIZE(f3din5,2)
+     fld(nfields_)%p => f3din5
+   END IF
+   IF (PRESENT(f4din)) THEN
+     DO i = 1, SIZE(f4din,4)
+       nfields_ = nfields_ + 1
+       fld(nfields_)%p => f4din(:,:,:,i)
+     ENDDO
+   ENDIF
+   IF (PRESENT(f3din_arr)) THEN
+     DO i = 1, SIZE(f3din_arr)
+       ndim2tot = ndim2tot + SIZE(f3din_arr(i)%p, 2)
+       fld(nfields_+i)%p => f3din_arr(i)%p
+     ENDDO
+   ENDIF
+   IF (nfields_ /= nfields) THEN
+     CALL finish(routine, 'internal error')
+   END IF
+   ! If this is a verification run, check consistency before doing boundary exchange
+   IF (p_test_run .AND. do_sync_checks) THEN
+     DO i = 1, nfields
+       CALL check_patch_array_sp(typ, p_patch, fld(i)%p, opt_varname)
+     ENDDO
+   ENDIF
+
+   ! Boundary exchange for work PEs
+   IF(my_process_is_mpi_parallel()) THEN
+     CALL p_pat%exchange_data_mult_mixprec(0, 0, nfields, ndim2tot, &
+          recv_sp=fld)
+   ENDIF
+
+ END SUBROUTINE sync_patch_array_mult_sp
 
 
 !-------------------------------------------------------------------------
@@ -2635,7 +2728,7 @@ SUBROUTINE cumulative_sync_patch_array(typ, p_patch, f3d)
   TYPE(t_patch), INTENT(IN),    TARGET :: p_patch
   REAL(wp),      INTENT(INOUT), TARGET :: f3d(:,:,:)
   ! local variables
-  CHARACTER(*), PARAMETER :: routine = TRIM("mo_sync:cumulative_sync_patch_array")
+  CHARACTER(*), PARAMETER :: routine = modname//"::cumulative_sync_patch_array"
   INTEGER :: idx
 
   ! add pointer to list of cumulative sync fields:
@@ -2661,7 +2754,7 @@ RECURSIVE SUBROUTINE complete_cumulative_sync(opt_typ, opt_patch_id)
   INTEGER, OPTIONAL, INTENT(IN) :: opt_typ
   INTEGER, OPTIONAL, INTENT(IN) :: opt_patch_id
   ! local variables
-  CHARACTER(*), PARAMETER :: routine = TRIM("mo_sync:complete_cumulative_sync")
+  CHARACTER(*), PARAMETER :: routine = modname//"::complete_cumulative_sync"
   TYPE(t_patch), POINTER :: p_patch
   INTEGER :: i
 

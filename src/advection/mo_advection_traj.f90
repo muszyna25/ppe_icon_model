@@ -43,6 +43,7 @@
 
 !----------------------------
 #include "omp_definitions.inc"
+#include "icon_contiguous_defines.h"
 !----------------------------
 MODULE mo_advection_traj
 
@@ -52,7 +53,7 @@ MODULE mo_advection_traj
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_parallel_config,     ONLY: nproma
   USE mo_loopindices,         ONLY: get_indices_e
-  USE mo_impl_constants,      ONLY: min_rledge_int, SUCCESS, MAX_CHAR_LENGTH
+  USE mo_impl_constants,      ONLY: min_rledge_int, SUCCESS
   USE mo_timer,               ONLY: timer_start, timer_stop, timers_level, timer_back_traj
   USE mo_advection_utils,     ONLY: t_list2D
 !!$  USE mo_math_constants,      ONLY: dbl_eps
@@ -84,15 +85,15 @@ MODULE mo_advection_traj
   TYPE t_back_traj
     ! line indices of cell centers in which the calculated barycenters are located
     ! dim: (nproma,nlev,p_patch%nblks_e)
-    INTEGER , POINTER :: cell_idx(:,:,:) => NULL()
+    INTEGER, CONTIGUOUS_POINTER :: cell_idx(:,:,:) => NULL()
     !
     ! block indices of cell centers in which the calculated barycenters are located
     ! dim: (nproma,nlev,p_patch%nblks_e)
-    INTEGER , POINTER :: cell_blk(:,:,:) => NULL()
+    INTEGER, CONTIGUOUS_POINTER :: cell_blk(:,:,:) => NULL()
     !
     ! distance vectors cell center --> barycenter of advected area (geographical coordinates)
     ! dim: (nproma,nlev,p_patch%nblks_e,2)
-    REAL(vp), POINTER :: distv_bary(:,:,:,:) => NULL()
+    REAL(vp), CONTIGUOUS_POINTER :: distv_bary(:,:,:,:) => NULL()
 
   CONTAINS
     !
@@ -100,6 +101,8 @@ MODULE mo_advection_traj
     PROCEDURE :: destruct
     
   END TYPE t_back_traj
+
+  CHARACTER(len=*), PARAMETER :: modname = 'mo_advection_traj'
 
 CONTAINS
 
@@ -123,19 +126,12 @@ CONTAINS
     ! local
     INTEGER :: ist
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_advection_traj: construct'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':construct'
 
     ALLOCATE(obj%cell_idx(nproma,nlev,nblks), &
-      &      obj%cell_blk(nproma,nlev,nblks), STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish ( TRIM(routine), 'allocation for cell_idx and cell_blk failed' )
-    ENDIF
-
-    ALLOCATE(obj%distv_bary(nproma,nlev,nblks,ncoord), STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish ( TRIM(routine), 'allocation for distv_bary failed' )
-    ENDIF
+      &      obj%cell_blk(nproma,nlev,nblks), &
+      &      obj%distv_bary(nproma,nlev,nblks,ncoord), STAT=ist)
+    IF (ist /= SUCCESS) CALL finish(routine, 'allocation failed')
 
 !$ACC ENTER DATA CREATE( obj ), IF ( i_am_accel_node .AND. acc_on )
 !$ACC ENTER DATA CREATE( obj%cell_idx, obj%cell_blk, obj%distv_bary ), IF ( i_am_accel_node .AND. acc_on )
@@ -159,23 +155,16 @@ CONTAINS
     ! local
     INTEGER :: ist
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_advection_traj: destruct'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':destruct'
 
     IF (ASSOCIATED(obj%cell_idx)) THEN
 
 !$ACC EXIT DATA DELETE( obj%cell_idx, obj%cell_blk, obj%distv_bary ), IF ( i_am_accel_node .AND. acc_on )
 !$ACC EXIT DATA DELETE( obj ), IF ( i_am_accel_node .AND. acc_on )
 
-      DEALLOCATE(obj%cell_idx, obj%cell_blk, STAT=ist)
-      IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine), 'deallocation for cell_idx and cell_blk failed' )
-      ENDIF
+      DEALLOCATE(obj%cell_idx, obj%cell_blk, obj%distv_bary, STAT=ist)
+      IF (ist /= SUCCESS) CALL finish(routine, 'deallocation failed')
 
-      DEALLOCATE(obj%distv_bary, STAT=ist)
-      IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine), 'allocation for distv_bary failed' )
-      ENDIF
     ENDIF
 
   END SUBROUTINE destruct
@@ -244,8 +233,8 @@ CONTAINS
     INTEGER :: i_rlstart, i_rlend
     INTEGER :: slev, elev        !< vertical start and end level
 ! These convenience pointers are needed to avoid PGI trying to copy derived type instance btraj back from device to host
-    INTEGER, POINTER  :: p_cell_idx(:,:,:), p_cell_blk(:,:,:)
-    REAL(vp), POINTER :: p_distv_bary(:,:,:,:)
+    INTEGER, CONTIGUOUS_POINTER  :: p_cell_idx(:,:,:), p_cell_blk(:,:,:)
+    REAL(vp), CONTIGUOUS_POINTER :: p_distv_bary(:,:,:,:)
     LOGICAL :: lvn_pos
 
     !-------------------------------------------------------------------------
@@ -887,11 +876,12 @@ CONTAINS
     INTEGER :: slev, elev        !< vertical start and end level
     INTEGER :: zcell             !< determines whether the barycenter is located
     !< in cell 1 or 2
-    INTEGER, POINTER ::    &     !< pointer for line and block indices of edge
-         & iidx(:,:,:), iblk(:,:,:) !< midpoints for quadrilateral cell
+    !> pointer for line and block indices of edge
+    !! midpoints for quadrilateral cell
+    INTEGER, CONTIGUOUS_POINTER :: iidx(:,:,:), iblk(:,:,:)
 ! These convenience pointers are needed to avoid PGI trying to copy derived type instance btraj back from device to host
-    INTEGER, POINTER  :: p_cell_idx(:,:,:), p_cell_blk(:,:,:)
-    REAL(vp), POINTER :: p_distv_bary(:,:,:,:)
+    INTEGER, CONTIGUOUS_POINTER  :: p_cell_idx(:,:,:), p_cell_blk(:,:,:)
+    REAL(vp), CONTIGUOUS_POINTER :: p_distv_bary(:,:,:,:)
 
     !DR    REAL(wp) :: z_vabs_orig, z_vabs_new
 

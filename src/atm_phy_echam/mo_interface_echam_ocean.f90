@@ -100,7 +100,27 @@ CONTAINS
 
     TYPE(t_patch), TARGET, INTENT(IN) :: p_patch(:)
 
-    CHARACTER(LEN=MAX_CHAR_LENGTH)    ::  field_name(no_of_fields)
+    CHARACTER(LEN=40), PARAMETER ::  field_name(no_of_fields) &
+      = (/ & ! bundled field containing two components
+           "surface_downward_eastward_stress        ", &
+           ! bundled field containing two components
+           "surface_downward_northward_stress       ", &
+           ! bundled field containing three components
+           "surface_fresh_water_flux                ", &
+           ! bundled field containing four components
+           "total_heat_flux                         ", &
+           ! bundled field containing two components
+           "atmosphere_sea_ice_bundle               ", &
+           "sea_surface_temperature                 ", &
+           "eastward_sea_water_velocity             ", &
+           "northward_sea_water_velocity            ", &
+           ! bundled field containing three components
+           "ocean_sea_ice_bundle                    ", &
+           "10m_wind_speed                          ", &
+           "co2_mixing_ratio                        ", &
+           "co2_flux                                ", &
+           "sea_level_pressure                      " /)
+
 
     INTEGER :: error_status
     INTEGER                :: patch_no
@@ -118,9 +138,6 @@ CONTAINS
 
     REAL(wp), PARAMETER :: deg = 180.0_wp / pi
 
-    CHARACTER(LEN=max_char_length) :: xml_filename
-    CHARACTER(LEN=max_char_length) :: xsd_filename
-    CHARACTER(LEN=max_char_length) :: grid_name
     CHARACTER(LEN=max_char_length) :: comp_name
 
     INTEGER :: comp_id
@@ -160,15 +177,13 @@ CONTAINS
 
     IF (ltimer) CALL timer_start (timer_coupling_init)
 
-    comp_name = TRIM(get_my_process_name())
+    comp_name = get_my_process_name()
 
     patch_no = 1
     patch_horz => p_patch(patch_no)
 
     ! Initialise the coupler
-    xml_filename = "coupling.xml"
-    xsd_filename = "coupling.xsd"
-    CALL yac_finit ( TRIM(xml_filename), TRIM(xsd_filename) )
+    CALL yac_finit ( "coupling.xml", "coupling.xsd" )
 
     ! Inform the coupler about what we are
     CALL yac_fdef_comp ( TRIM(comp_name), comp_id )
@@ -185,8 +200,7 @@ CONTAINS
          &                   end_datetime   = TRIM(stopdatestring)   )
  
     ! Announce one subdomain (patch) to the coupler
-    grid_name = "grid1"
-    CALL yac_fdef_subdomain ( comp_id, TRIM(grid_name), subdomain_id )
+    CALL yac_fdef_subdomain ( comp_id, "grid1", subdomain_id )
 
     subdomain_ids(1) = subdomain_id
 
@@ -370,20 +384,6 @@ CONTAINS
       & ibuffer,                   &
       & cell_point_ids(1),         &
       & cell_mask_ids(1) )
-
-    field_name(1) = "surface_downward_eastward_stress"   ! bundled field containing two components
-    field_name(2) = "surface_downward_northward_stress"  ! bundled field containing two components
-    field_name(3) = "surface_fresh_water_flux"           ! bundled field containing three components
-    field_name(4) = "total_heat_flux"                    ! bundled field containing four components
-    field_name(5) = "atmosphere_sea_ice_bundle"          ! bundled field containing two components
-    field_name(6) = "sea_surface_temperature"
-    field_name(7) = "eastward_sea_water_velocity"
-    field_name(8) = "northward_sea_water_velocity"
-    field_name(9) = "ocean_sea_ice_bundle"               ! bundled field containing three components
-    field_name(10) = "10m_wind_speed"
-    field_name(11) = "co2_mixing_ratio"
-    field_name(12) = "co2_flux"
-    field_name(13) = "sea_level_pressure"
 
     DO idx = 1, no_of_fields
       CALL yac_fdef_field (      &

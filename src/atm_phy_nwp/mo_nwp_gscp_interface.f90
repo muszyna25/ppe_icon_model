@@ -39,6 +39,7 @@
 
 !----------------------------
 #include "omp_definitions.inc"
+#include "icon_contiguous_defines.h"
 !----------------------------
 
 MODULE mo_nwp_gscp_interface
@@ -95,7 +96,8 @@ CONTAINS
                             &   lsatad,                       & !>input
                             &   p_patch,p_metrics,            & !>input
                             &   p_prog,                       & !>inout
-                            &   p_prog_rcf,                   & !>inout
+                            &   ptr_tracer,                   & !>inout
+                            &   ptr_tke,                      & !>in
                             &   p_diag ,                      & !>inout
                             &   prm_diag,prm_nwp_tend,        & !>inout
                             &   lcompute_tt_lheat             ) !>in 
@@ -105,7 +107,8 @@ CONTAINS
     TYPE(t_patch)          , INTENT(in)   :: p_patch        !!<grid/patch info.
     TYPE(t_nh_metrics)     , INTENT(in)   :: p_metrics
     TYPE(t_nh_prog)        , INTENT(inout):: p_prog          !<the dyn prog vars
-    TYPE(t_nh_prog)        , INTENT(inout):: p_prog_rcf      !<call freq
+    REAL(wp), CONTIGUOUS_ARGUMENT(inout) :: ptr_tracer(:,:,:,:)
+    REAL(wp), CONTIGUOUS_ARGUMENT(in) :: ptr_tke(:,:,:)
     TYPE(t_nh_diag)        , INTENT(inout):: p_diag          !<the dyn diag vars
     TYPE(t_nwp_phy_diag)   , INTENT(inout):: prm_diag        !<the atm phys vars
     TYPE(t_nwp_phy_tend)   , TARGET, INTENT(inout):: prm_nwp_tend    !< atm tend vars
@@ -197,14 +200,14 @@ CONTAINS
              
              DO jk = 1, nlev
                 DO jc = i_startidx, i_endidx
-                   rholoc = p_prog_rcf%rho(jc,jk,jb)
+                   rholoc = p_prog%rho(jc,jk,jb)
                    rhoinv = 1.0_wp / rholoc
-                   p_prog_rcf%tracer(jc,jk,jb,iqnc) = set_qnc(p_prog_rcf%tracer(jc,jk,jb,iqc)*rholoc)*rhoinv
-                   p_prog_rcf%tracer(jc,jk,jb,iqnr) = set_qnr(p_prog_rcf%tracer(jc,jk,jb,iqr)*rholoc)*rhoinv
-                   p_prog_rcf%tracer(jc,jk,jb,iqni) = set_qni(p_prog_rcf%tracer(jc,jk,jb,iqi)*rholoc)*rhoinv
-                   p_prog_rcf%tracer(jc,jk,jb,iqns) = set_qns(p_prog_rcf%tracer(jc,jk,jb,iqs)*rholoc)*rhoinv
-                   p_prog_rcf%tracer(jc,jk,jb,iqng) = set_qng(p_prog_rcf%tracer(jc,jk,jb,iqg)*rholoc)*rhoinv
-                   p_prog_rcf%tracer(jc,jk,jb,iqnh) = set_qnh(p_prog_rcf%tracer(jc,jk,jb,iqh)*rholoc)*rhoinv
+                   ptr_tracer(jc,jk,jb,iqnc) = set_qnc(ptr_tracer(jc,jk,jb,iqc)*rholoc)*rhoinv
+                   ptr_tracer(jc,jk,jb,iqnr) = set_qnr(ptr_tracer(jc,jk,jb,iqr)*rholoc)*rhoinv
+                   ptr_tracer(jc,jk,jb,iqni) = set_qni(ptr_tracer(jc,jk,jb,iqi)*rholoc)*rhoinv
+                   ptr_tracer(jc,jk,jb,iqns) = set_qns(ptr_tracer(jc,jk,jb,iqs)*rholoc)*rhoinv
+                   ptr_tracer(jc,jk,jb,iqng) = set_qng(ptr_tracer(jc,jk,jb,iqg)*rholoc)*rhoinv
+                   ptr_tracer(jc,jk,jb,iqnh) = set_qnh(ptr_tracer(jc,jk,jb,iqh)*rholoc)*rhoinv
                 ENDDO
              ENDDO
           ENDDO
@@ -227,7 +230,7 @@ CONTAINS
 
     ! Some run time diagnostics (can also be used for other schemes)
     IF (msg_level>14 .AND. atm_phy_nwp_config(jg)%l2moment) THEN
-       CALL nwp_diag_output_minmax_micro(p_patch, p_prog, p_diag, p_prog_rcf)
+       CALL nwp_diag_output_minmax_micro(p_patch, p_prog, p_diag, ptr_tracer)
     END IF
     
 !$OMP PARALLEL
@@ -249,7 +252,7 @@ CONTAINS
             prm_diag%aerosol(:,iorg,jb), prm_diag%aerosol(:,idu,jb), zncn)
 
           CALL specccn_segalkhain (nproma, nlev, i_startidx, i_endidx, kstart_moist(jg), nlev, zncn,         &
-            p_prog%w(:,:,jb), p_prog_rcf%tracer(:,:,jb,iqc), p_prog%rho(:,:,jb), p_metrics%z_ifc(:,:,jb), qnc)
+            p_prog%w(:,:,jb), ptr_tracer(:,:,jb,iqc), p_prog%rho(:,:,jb), p_metrics%z_ifc(:,:,jb), qnc)
 
         ELSE IF (atm_phy_nwp_config(jg)%icpl_aero_gscp == 1) THEN
 
@@ -323,11 +326,11 @@ CONTAINS
             & t      =p_diag%temp   (:,:,jb)           ,    & !< inout:  temp,tracer,...
             & p      =p_diag%pres   (:,:,jb)           ,    & !< in:  full level pres
             & rho    =p_prog%rho    (:,:,jb  )         ,    & !< in:  density
-            & qv     =p_prog_rcf%tracer (:,:,jb,iqv)   ,    & !< inout:  spec. humidity
-            & qc     =p_prog_rcf%tracer (:,:,jb,iqc)   ,    & !< inout:  cloud water
-            & qi     =p_prog_rcf%tracer (:,:,jb,iqi)   ,    & !< inout:  cloud ice
-            & qr     =p_prog_rcf%tracer (:,:,jb,iqr)   ,    & !< inout:  rain water
-            & qs     =p_prog_rcf%tracer (:,:,jb,iqs)   ,    & !< inout:  snow
+            & qv     =ptr_tracer (:,:,jb,iqv)   ,    & !< inout:  spec. humidity
+            & qc     =ptr_tracer (:,:,jb,iqc)   ,    & !< inout:  cloud water
+            & qi     =ptr_tracer (:,:,jb,iqi)   ,    & !< inout:  cloud ice
+            & qr     =ptr_tracer (:,:,jb,iqr)   ,    & !< inout:  rain water
+            & qs     =ptr_tracer (:,:,jb,iqs)   ,    & !< inout:  snow
             & qnc    = qnc_s                           ,    & !< cloud number concentration
             & prr_gsp=prm_diag%rain_gsp_rate (:,jb)    ,    & !< out: precipitation rate of rain
             & prs_gsp=prm_diag%snow_gsp_rate (:,jb)    ,    & !< out: precipitation rate of snow
@@ -360,12 +363,12 @@ CONTAINS
             & t      =p_diag%temp   (:,:,jb)            ,    & !< in:  temp,tracer,...
             & p      =p_diag%pres   (:,:,jb)            ,    & !< in:  full level pres
             & rho    =p_prog%rho    (:,:,jb  )          ,    & !< in:  density
-            & qv     =p_prog_rcf%tracer (:,:,jb,iqv)    ,    & !< in:  spec. humidity
-            & qc     =p_prog_rcf%tracer (:,:,jb,iqc)    ,    & !< in:  cloud water
-            & qi     =p_prog_rcf%tracer (:,:,jb,iqi)    ,    & !< in:  cloud ice
-            & qr     =p_prog_rcf%tracer (:,:,jb,iqr)    ,    & !< in:  rain water
-            & qs     =p_prog_rcf%tracer (:,:,jb,iqs)    ,    & !< in:  snow
-            & qg     =p_prog_rcf%tracer (:,:,jb,iqg)    ,    & !< in:  graupel
+            & qv     =ptr_tracer (:,:,jb,iqv)    ,    & !< in:  spec. humidity
+            & qc     =ptr_tracer (:,:,jb,iqc)    ,    & !< in:  cloud water
+            & qi     =ptr_tracer (:,:,jb,iqi)    ,    & !< in:  cloud ice
+            & qr     =ptr_tracer (:,:,jb,iqr)    ,    & !< in:  rain water
+            & qs     =ptr_tracer (:,:,jb,iqs)    ,    & !< in:  snow
+            & qg     =ptr_tracer (:,:,jb,iqg)    ,    & !< in:  graupel
             & qnc    = qnc_s                            ,    & !< cloud number concentration
             & prr_gsp=prm_diag%rain_gsp_rate (:,jb)     ,    & !< out: precipitation rate of rain
             & prs_gsp=prm_diag%snow_gsp_rate (:,jb)     ,    & !< out: precipitation rate of snow
@@ -399,15 +402,15 @@ CONTAINS
             & t      =p_diag%temp   (:,:,jb)            ,    & !< in:  temp,tracer,...
             & p      =p_diag%pres   (:,:,jb)            ,    & !< in:  full level pres
             & w      =p_prog%w(:,:,jb)                  ,    & !< in:  vertical wind speed, half levs (m/s)
-            & tke    =p_prog_rcf%tke(:,:,jb)            ,    & !< in:  turbulent kinetik energy
+            & tke    =ptr_tke(:,:,jb)            ,    & !< in:  turbulent kinetik energy
             & rho    =p_prog%rho    (:,:,jb  )          ,    & !< in:  density
-            & qv     =p_prog_rcf%tracer (:,:,jb,iqv)    ,    & !< in:  spec. humidity
-            & qc     =p_prog_rcf%tracer (:,:,jb,iqc)    ,    & !< in:  cloud water
-            & qi     =p_prog_rcf%tracer (:,:,jb,iqi)    ,    & !< in:  cloud ice
-            & qni    =p_prog_rcf%tracer (:,:,jb,iqni)   ,    & !< in:  cloud ice number     ( 1/kg)
-            & qni_nuc=p_prog_rcf%tracer (:,:,jb,iqni_nuc),   & !< in:  activated ice nuclei ( 1/kg)            
-            & qr     =p_prog_rcf%tracer (:,:,jb,iqr)    ,    & !< in:  rain water
-            & qs     =p_prog_rcf%tracer (:,:,jb,iqs)    ,    & !< in:  snow
+            & qv     =ptr_tracer (:,:,jb,iqv)    ,    & !< in:  spec. humidity
+            & qc     =ptr_tracer (:,:,jb,iqc)    ,    & !< in:  cloud water
+            & qi     =ptr_tracer (:,:,jb,iqi)    ,    & !< in:  cloud ice
+            & qni    =ptr_tracer (:,:,jb,iqni)   ,    & !< in:  cloud ice number     ( 1/kg)
+            & qni_nuc=ptr_tracer (:,:,jb,iqni_nuc),   & !< in:  activated ice nuclei ( 1/kg)
+            & qr     =ptr_tracer (:,:,jb,iqr)    ,    & !< in:  rain water
+            & qs     =ptr_tracer (:,:,jb,iqs)    ,    & !< in:  snow
             & prr_gsp=prm_diag%rain_gsp_rate (:,jb)     ,    & !< out: precipitation rate of rain
             & prs_gsp=prm_diag%snow_gsp_rate (:,jb)     ,    & !< out: precipitation rate of snow
             & qrsflux= prm_diag%qrs_flux (:,:,jb)       ,    & !< out: precipitation flux
@@ -435,20 +438,20 @@ CONTAINS
                        hhl    = p_metrics%z_ifc(:,:,jb),        &!in: height of half levels
                        rho    = p_prog%rho(:,:,jb  )       ,    &!in:  density
                        pres   = p_diag%pres(:,:,jb  )      ,    &!in:  pressure
-                       qv     = p_prog_rcf%tracer (:,:,jb,iqv), &!inout:sp humidity
-                       qc     = p_prog_rcf%tracer (:,:,jb,iqc), &!inout:cloud water
-                       qnc    = p_prog_rcf%tracer (:,:,jb,iqnc),&!inout: cloud droplet number 
-                       qr     = p_prog_rcf%tracer (:,:,jb,iqr), &!inout:rain
-                       qnr    = p_prog_rcf%tracer (:,:,jb,iqnr),&!inout:rain droplet number 
-                       qi     = p_prog_rcf%tracer (:,:,jb,iqi), &!inout: ice
-                       qni    = p_prog_rcf%tracer (:,:,jb,iqni),&!inout: cloud ice number
-                       qs     = p_prog_rcf%tracer (:,:,jb,iqs), &!inout: snow 
-                       qns    = p_prog_rcf%tracer (:,:,jb,iqns),&!inout: snow number
-                       qg     = p_prog_rcf%tracer (:,:,jb,iqg), &!inout: graupel 
-                       qng    = p_prog_rcf%tracer (:,:,jb,iqng),&!inout: graupel number
-                       qh     = p_prog_rcf%tracer (:,:,jb,iqh), &!inout: hail 
-                       qnh    = p_prog_rcf%tracer (:,:,jb,iqnh),&!inout: hail number
-                       ninact = p_prog_rcf%tracer (:,:,jb,ininact), &!inout: IN number
+                       qv     = ptr_tracer (:,:,jb,iqv), &!inout:sp humidity
+                       qc     = ptr_tracer (:,:,jb,iqc), &!inout:cloud water
+                       qnc    = ptr_tracer (:,:,jb,iqnc),&!inout: cloud droplet number
+                       qr     = ptr_tracer (:,:,jb,iqr), &!inout:rain
+                       qnr    = ptr_tracer (:,:,jb,iqnr),&!inout:rain droplet number
+                       qi     = ptr_tracer (:,:,jb,iqi), &!inout: ice
+                       qni    = ptr_tracer (:,:,jb,iqni),&!inout: cloud ice number
+                       qs     = ptr_tracer (:,:,jb,iqs), &!inout: snow
+                       qns    = ptr_tracer (:,:,jb,iqns),&!inout: snow number
+                       qg     = ptr_tracer (:,:,jb,iqg), &!inout: graupel
+                       qng    = ptr_tracer (:,:,jb,iqng),&!inout: graupel number
+                       qh     = ptr_tracer (:,:,jb,iqh), &!inout: hail
+                       qnh    = ptr_tracer (:,:,jb,iqnh),&!inout: hail number
+                       ninact = ptr_tracer (:,:,jb,ininact), &!inout: IN number
                        tk     = p_diag%temp(:,:,jb),            &!inout: temp 
                        w      = p_prog%w(:,:,jb),               &!inout: w
                        prec_r = prm_diag%rain_gsp_rate (:,jb),  &!inout precp rate rain
@@ -474,22 +477,22 @@ CONTAINS
                        hhl    = p_metrics%z_ifc(:,:,jb),        &!in: height of half levels
                        rho    = p_prog%rho(:,:,jb  )       ,    &!in:  density
                        pres   = p_diag%pres(:,:,jb  )      ,    &!in:  pressure
-                       qv     = p_prog_rcf%tracer (:,:,jb,iqv), &!inout: humidity
-                       qc     = p_prog_rcf%tracer (:,:,jb,iqc), &!inout: cloud water
-                       qnc    = p_prog_rcf%tracer (:,:,jb,iqnc),&!inout: cloud droplet number 
-                       qr     = p_prog_rcf%tracer (:,:,jb,iqr), &!inout: rain
-                       qnr    = p_prog_rcf%tracer (:,:,jb,iqnr),&!inout: rain drop number 
-                       qi     = p_prog_rcf%tracer (:,:,jb,iqi), &!inout: ice
-                       qni    = p_prog_rcf%tracer (:,:,jb,iqni),&!inout: cloud ice number
-                       qs     = p_prog_rcf%tracer (:,:,jb,iqs), &!inout: snow 
-                       qns    = p_prog_rcf%tracer (:,:,jb,iqns),&!inout: snow number
-                       qg     = p_prog_rcf%tracer (:,:,jb,iqg), &!inout: graupel 
-                       qng    = p_prog_rcf%tracer (:,:,jb,iqng),&!inout: graupel number
-                       qh     = p_prog_rcf%tracer (:,:,jb,iqh), &!inout: hail 
-                       qnh    = p_prog_rcf%tracer (:,:,jb,iqnh),&!inout: hail number
-                       nccn   = p_prog_rcf%tracer (:,:,jb,inccn),&!inout: CCN number
-                       ninpot = p_prog_rcf%tracer (:,:,jb,ininpot), &!inout: IN number
-                       ninact = p_prog_rcf%tracer (:,:,jb,ininact), &!inout: IN number
+                       qv     = ptr_tracer (:,:,jb,iqv), &!inout: humidity
+                       qc     = ptr_tracer (:,:,jb,iqc), &!inout: cloud water
+                       qnc    = ptr_tracer (:,:,jb,iqnc),&!inout: cloud droplet number
+                       qr     = ptr_tracer (:,:,jb,iqr), &!inout: rain
+                       qnr    = ptr_tracer (:,:,jb,iqnr),&!inout: rain drop number
+                       qi     = ptr_tracer (:,:,jb,iqi), &!inout: ice
+                       qni    = ptr_tracer (:,:,jb,iqni),&!inout: cloud ice number
+                       qs     = ptr_tracer (:,:,jb,iqs), &!inout: snow
+                       qns    = ptr_tracer (:,:,jb,iqns),&!inout: snow number
+                       qg     = ptr_tracer (:,:,jb,iqg), &!inout: graupel
+                       qng    = ptr_tracer (:,:,jb,iqng),&!inout: graupel number
+                       qh     = ptr_tracer (:,:,jb,iqh), &!inout: hail
+                       qnh    = ptr_tracer (:,:,jb,iqnh),&!inout: hail number
+                       nccn   = ptr_tracer (:,:,jb,inccn),&!inout: CCN number
+                       ninpot = ptr_tracer (:,:,jb,ininpot), &!inout: IN number
+                       ninact = ptr_tracer (:,:,jb,ininact), &!inout: IN number
                        tk     = p_diag%temp(:,:,jb),            &!inout: temp 
                        w      = p_prog%w(:,:,jb),               &!inout: w
                        prec_r = prm_diag%rain_gsp_rate (:,jb),  &!inout precp rate rain
@@ -516,8 +519,8 @@ CONTAINS
                        dz     = p_metrics%ddqz_z_full(:,:,jb),   &!in: vertical layer thickness
                        rho    = p_prog%rho(:,:,jb  )       ,     &!in:  density
                        pres   = p_diag%pres(:,:,jb  )      ,     &!in:  pressure
-                       tke    = p_prog_rcf%tke(:,:,jb),          &!in:  turbulent kinetik energy
-                       p_trac = p_prog_rcf%tracer (:,:,jb,:),    &!inout: all tracers
+                       tke    = ptr_tke(:,:,jb),          &!in:  turbulent kinetik energy
+                       p_trac = ptr_tracer (:,:,jb,:),    &!inout: all tracers
                        tk     = p_diag%temp(:,:,jb),             &!inout: temp 
                        w      = p_prog%w(:,:,jb),                &!inout: w
                        prec_r = prm_diag%rain_gsp_rate (:,jb),   &!inout precp rate rain
@@ -542,22 +545,22 @@ CONTAINS
                        hhl    = p_metrics%z_ifc(:,:,jb),        &!in: height of half levels
                        rho    = p_prog%rho(:,:,jb  )       ,    &!in:  density
                        pres   = p_diag%pres(:,:,jb  )      ,    &!in:  pressure
-                       qv     = p_prog_rcf%tracer (:,:,jb,iqv), &!inout:sp humidity
-                       qc     = p_prog_rcf%tracer (:,:,jb,iqc), &!inout:cloud water
-                       qnc    = p_prog_rcf%tracer (:,:,jb,iqnc),&!inout: cloud droplet number 
-                       qr     = p_prog_rcf%tracer (:,:,jb,iqr), &!inout:rain
-                       qnr    = p_prog_rcf%tracer (:,:,jb,iqnr),&!inout:rain droplet number 
-                       qi     = p_prog_rcf%tracer (:,:,jb,iqi), &!inout: ice
-                       qni    = p_prog_rcf%tracer (:,:,jb,iqni),&!inout: cloud ice number
-                       qs     = p_prog_rcf%tracer (:,:,jb,iqs), &!inout: snow 
-                       qns    = p_prog_rcf%tracer (:,:,jb,iqns),&!inout: snow number
-                       qg     = p_prog_rcf%tracer (:,:,jb,iqg), &!inout: graupel 
-                       qng    = p_prog_rcf%tracer (:,:,jb,iqng),&!inout: graupel number
-                       qgl    = p_prog_rcf%tracer (:,:,jb,iqgl),&!inout: liquid water on graupel 
-                       qh     = p_prog_rcf%tracer (:,:,jb,iqh), &!inout: hail 
-                       qnh    = p_prog_rcf%tracer (:,:,jb,iqnh),&!inout: hail number
-                       qhl    = p_prog_rcf%tracer (:,:,jb,iqhl),&!inout: liquid water on hail
-                       ninact = p_prog_rcf%tracer (:,:,jb,ininact), &!inout: IN number
+                       qv     = ptr_tracer (:,:,jb,iqv), &!inout:sp humidity
+                       qc     = ptr_tracer (:,:,jb,iqc), &!inout:cloud water
+                       qnc    = ptr_tracer (:,:,jb,iqnc),&!inout: cloud droplet number
+                       qr     = ptr_tracer (:,:,jb,iqr), &!inout:rain
+                       qnr    = ptr_tracer (:,:,jb,iqnr),&!inout:rain droplet number
+                       qi     = ptr_tracer (:,:,jb,iqi), &!inout: ice
+                       qni    = ptr_tracer (:,:,jb,iqni),&!inout: cloud ice number
+                       qs     = ptr_tracer (:,:,jb,iqs), &!inout: snow
+                       qns    = ptr_tracer (:,:,jb,iqns),&!inout: snow number
+                       qg     = ptr_tracer (:,:,jb,iqg), &!inout: graupel
+                       qng    = ptr_tracer (:,:,jb,iqng),&!inout: graupel number
+                       qgl    = ptr_tracer (:,:,jb,iqgl),&!inout: liquid water on graupel
+                       qh     = ptr_tracer (:,:,jb,iqh), &!inout: hail
+                       qnh    = ptr_tracer (:,:,jb,iqnh),&!inout: hail number
+                       qhl    = ptr_tracer (:,:,jb,iqhl),&!inout: liquid water on hail
+                       ninact = ptr_tracer (:,:,jb,ininact), &!inout: IN number
                        tk     = p_diag%temp(:,:,jb),            &!inout: temp 
                        w      = p_prog%w(:,:,jb),               &!inout: w
                        prec_r = prm_diag%rain_gsp_rate (:,jb),  &!inout precp rate rain
@@ -583,9 +586,9 @@ CONTAINS
             & t      =p_diag%temp   (:,:,jb)            ,    & ! in:  temp,tracer,...
             & p      =p_diag%pres   (:,:,jb)            ,    & ! in:  full level pres
             & rho    =p_prog%rho    (:,:,jb  )          ,    & ! in:  density
-            & qv     =p_prog_rcf%tracer (:,:,jb,iqv)    ,    & ! in:  spec. humidity
-            & qc     =p_prog_rcf%tracer (:,:,jb,iqc)    ,    & ! in:  cloud water
-            & qr     =p_prog_rcf%tracer (:,:,jb,iqr)    ,    & ! in:  rain water
+            & qv     =ptr_tracer (:,:,jb,iqv)    ,    & ! in:  spec. humidity
+            & qc     =ptr_tracer (:,:,jb,iqc)    ,    & ! in:  cloud water
+            & qr     =ptr_tracer (:,:,jb,iqr)    ,    & ! in:  rain water
             & prr_gsp=prm_diag%rain_gsp_rate (:,jb)     ,    & ! out: precipitation rate of rain
             & qrsflux= prm_diag%qrs_flux (:,:,jb)       ,    & !< out: precipitation flux
             & ldiag_ttend = ldiag_ttend                 ,    & !< in:  if temp. tendency shall be diagnosed
@@ -739,10 +742,10 @@ CONTAINS
                & maxiter  = 10                            ,& !> IN
                & tol      = 1.e-3_wp                      ,& !> IN
                & te       = p_diag%temp       (:,:,jb)    ,& !> INOUT
-               & qve      = p_prog_rcf%tracer (:,:,jb,iqv),& !> INOUT
-               & qce      = p_prog_rcf%tracer (:,:,jb,iqc),& !> INOUT
+               & qve      = ptr_tracer (:,:,jb,iqv),& !> INOUT
+               & qce      = ptr_tracer (:,:,jb,iqc),& !> INOUT
                & rhotot   = p_prog%rho        (:,:,jb)    ,& !> IN
-               & qtvar    = p_prog_rcf%tracer (:,:,jb,iqtvar) ,& !> IN
+               & qtvar    = ptr_tracer (:,:,jb,iqtvar) ,& !> IN
                & idim     = nproma                        ,& !> IN
                & kdim     = nlev                          ,& !> IN
                & ilo      = i_startidx                    ,& !> IN
@@ -761,8 +764,8 @@ CONTAINS
                & maxiter  = 10                            ,& !> IN
                & tol      = 1.e-3_wp                      ,& !> IN
                & te       = p_diag%temp       (:,:,jb)    ,& !> INOUT
-               & qve      = p_prog_rcf%tracer (:,:,jb,iqv),& !> INOUT
-               & qce      = p_prog_rcf%tracer (:,:,jb,iqc),& !> INOUT
+               & qve      = ptr_tracer (:,:,jb,iqv),& !> INOUT
+               & qce      = ptr_tracer (:,:,jb,iqc),& !> INOUT
                & rhotot   = p_prog%rho        (:,:,jb)    ,& !> IN
                & idim     = nproma                        ,& !> IN
                & kdim     = nlev                          ,& !> IN
@@ -797,7 +800,7 @@ CONTAINS
  
     ! Some more run time diagnostics (can also be used for other schemes)
     IF (msg_level>14 .AND. atm_phy_nwp_config(jg)%l2moment) THEN
-       CALL nwp_diag_output_minmax_micro(p_patch, p_prog, p_diag, p_prog_rcf)
+       CALL nwp_diag_output_minmax_micro(p_patch, p_prog, p_diag, ptr_tracer)
     END IF
 
     !$acc end data
