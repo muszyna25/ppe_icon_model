@@ -1,0 +1,29 @@
+machine|mistral|
+builder|MISTRAL_gcc|./config/buildbot/mistral_gcc|--with-mpi --with-openmp|build_only
+builder|MISTRAL_intel17|./config/buildbot/mistral_intel17|--with-mpi --without-openmp|build_only
+builder|MISTRAL_intel17_hybrid|./config/buildbot/mistral_intel17_hybrid|--with-mpi --with-openmp|build_only
+builder|MISTRAL_intel17_openmp|./config/buildbot/mistral_intel17_openmp|--without-mpi --with-openmp|build_only
+builder|MISTRAL_intel17_hybrid_mixed|./config/buildbot/mistral_intel17_hybrid_mixed|--with-mpi --with-openmp --enable-mixed|build_only
+builder|MISTRAL_intel18|./config/buildbot/mistral_intel18|--with-mpi --withoutout-openmp|build_only
+builder|MISTRAL_intel18_hybrid|./config/buildbot/mistral_intel18_hybrid|--with-mpi --with-openmp|build_only
+builder|MISTRAL_intel18_openmp|./config/buildbot/mistral_intel18_openmp|--without-mpi --with-openmp|build_only
+builder|MISTRAL_intel18_hybrid_mixed|./config/buildbot/mistral_intel18_hybrid_mixed|--with-mpi --with-openmp --enable-mixed|build_only
+builder|MISTRAL_nag|./config/buildbot/mistral_nag|--with-mpi    --without-openmp|build_only
+builder|MISTRAL_nag_serial|./config/buildbot/mistral_nag_serial|--without-mpi --without-openmp|build_only
+builder|MISTRAL_ocean_intel17|./config/buildbot/mistral_intel17_ocean|--with-openmp --with-mpi --disable-atmo --disable-jsbach --disable-psrad  --with-yac=no|build_only
+builder|MISTRAL_ocean_intel18|./config/buildbot/mistral_intel18_ocean|--with-openmp --with-mpi --disable-atmo --disable-jsbach --disable-psrad  --with-yac=no|build_only
+builder|MISTRAL_intel18_pio|./config/buildbot/mistral_intel18_pio|--with-mpi --withoutout-openmp|build_only
+machine|breeze|
+builder|BREEZE_gcc|./config/buildbot/breeze_gcc|--with-fortran=gcc|build_only
+builder|BREEZE_gcc_openmp|./config/buildbot/breeze_gcc_openmp|--with-fortran=gcc --with-openmp|build_only
+builder|BREEZE_intel|./config/buildbot/breeze_intel|--with-fortran=intel|build_only
+builder|BREEZE_intel_openmp|./config/buildbot/breeze_intel_openmp|--with-fortran=intel --with-openmp|build_only
+builder|BREEZE_nag|./config/buildbot/breeze_nag|--with-fortran=nag|build_only
+machine|daint|
+builder|DAINT_CPU_cce|./config/buildbot/daint_cpu_cray|--with-fortran=cray|build_only
+builder|DAINT_CPU_pgi|./config/buildbot/daint_cpu_pgi|--with-fortran=pgi|build_only
+builder|DAINT_GPU_pgi|./config/buildbot/daint_gpu_pgi|--with-fortran=pgi_gpu --enable-gpu --enable-claw=std|build_only
+machine|dwd_cray|
+builder|DWD_cray|./config/buildbot/dwd_cray|--with-fortran=cray|build_only
+machine|dwd_nec|
+builder|DWD_nec|./config/buildbot/dwd_nec||build_only

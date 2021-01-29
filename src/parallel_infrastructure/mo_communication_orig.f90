@@ -49,7 +49,7 @@ USE mo_parallel_config,      ONLY: iorder_sendrecv, nproma, itype_exch_barrier
 USE mo_timer,                ONLY: timer_start, timer_stop, timer_exch_data, &
      &                             timer_barrier, &
      &                             timer_exch_data_wait
-USE mo_fortran_tools,        ONLY: t_ptr_3d, t_ptr_3d_sp, t_ptr_1d_int, &
+USE mo_fortran_tools,        ONLY: t_ptr_3d, t_ptr_3d_sp, t_ptr_2d, t_ptr_1d_int, &
      &                             insert_dimension
 USE mo_run_config,           ONLY: msg_level, activate_sync_timers
 USE mo_decomposition_tools,  ONLY: t_glb2loc_index_lookup, get_local_index
@@ -514,7 +514,7 @@ CONTAINS
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
     CONTIGUOUS :: recv_msg, send_msg
 #endif
-    INTEGER :: np_recv, np_send, n_send, n_recv, i, comm_rank, &
+    INTEGER :: np_recv, np_send, n_send, n_recv, comm_rank, &
          n_pnts_recv, n_pnts_send, comm_size
     LOGICAL :: is_inter
     CHARACTER(len=*), PARAMETER :: routine &
@@ -571,7 +571,7 @@ CONTAINS
       INTEGER, INTENT(out) :: nself, nremote, ranks(nmsg), counts(nmsg), &
            starts(nmsg)
       LOGICAL, INTENT(in) :: is_inter
-      INTEGER :: nidx_remote, nidx_local, sz, msg_rank, sz_accum
+      INTEGER :: nidx_remote, nidx_local, sz, msg_rank, sz_accum, i
       nidx_remote = 0
       nidx_local = 0
       sz_accum = 1
@@ -621,7 +621,7 @@ CONTAINS
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
       CONTIGUOUS :: msg, limits, recv_src
 #endif
-      INTEGER :: nmsg, i, sz, sz_psum, msg_rank, jls, jl, jle
+      INTEGER :: nmsg, i, sz, msg_rank, jls, jl, jle
       nmsg = SIZE(msg)
       DO i = 1, nmsg
         msg_rank = msg(i)%rank
@@ -2095,7 +2095,7 @@ CONTAINS
 #if defined( __SX__ ) || defined( _OPENACC )
     REAL(dp), POINTER :: send_ptr(:,:,:), recv_ptr(:,:,:)  ! Refactoring for OpenACC
 #endif
-    INTEGER :: nfields
+    INTEGER :: nfields, accum
     INTEGER :: i, k, kshift(SIZE(recv)), jb,ik, jl, n, np, irs, iss, pid, icount
     LOGICAL :: lsend
     INTEGER, POINTER :: recv_src(:)
@@ -2170,11 +2170,11 @@ CONTAINS
         IF (SIZE(recv(n)%p,2) == 1) kshift(n) = 0
       ENDDO
 
-      noffset(1) = 0
-      ndim2(1)   = SIZE(recv(1)%p,2) - kshift(1)
-      DO n = 2, nfields
-        noffset(n) = noffset(n-1)+ndim2(n-1)
-        ndim2(n)   = SIZE(recv(n)%p,2) - kshift(n)
+      accum = 0
+      DO n = 1, nfields
+        noffset(n) = accum
+        ndim2(n) = SIZE(recv(n)%p,2) - kshift(n)
+        accum = accum + ndim2(n)
       ENDDO
 
 !$ACC DATA COPYIN(noffset, ndim2) IF (use_gpu)
@@ -2372,7 +2372,7 @@ CONTAINS
     REAL(dp), POINTER :: send_fld_dp(:,:,:), recv_fld_dp(:,:,:)
 #endif
     INTEGER :: i, k, kshift_dp(nfields_dp), kshift_sp(nfields_sp), &
-         jb, ik, jl, n, np, irs, iss, pid, icount
+         jb, ik, jl, n, np, irs, iss, pid, icount, accum
     LOGICAL :: lsend
     INTEGER, POINTER :: recv_src(:)
     INTEGER, POINTER :: recv_dst_blk(:)
@@ -2460,21 +2460,17 @@ CONTAINS
         IF (SIZE(recv_sp(n)%p,2) == 1) kshift_sp(n) = 0
       ENDDO
 
-      IF (nfields_dp > 0) THEN
-        noffset_dp(1) = 0
-        ndim2_dp(1)   = SIZE(recv_dp(1)%p,2) - kshift_dp(1)
-      ENDIF
-      DO n = 2, nfields_dp
-        noffset_dp(n) = noffset_dp(n-1)+ndim2_dp(n-1)
+      accum = 0
+      DO n = 1, nfields_dp
+        noffset_dp(n) = accum
         ndim2_dp(n)   = SIZE(recv_dp(n)%p,2) - kshift_dp(n)
+        accum = accum + ndim2_dp(n)
       ENDDO
-      IF (nfields_sp > 0) THEN
-        noffset_sp(1) = 0
-        ndim2_sp(1)   = SIZE(recv_sp(1)%p,2) - kshift_sp(1)
-      ENDIF
-      DO n = 2, nfields_sp
-        noffset_sp(n) = noffset_sp(n-1)+ndim2_sp(n-1)
+      accum = 0
+      DO n = 1, nfields_sp
+        noffset_sp(n) = accum
         ndim2_sp(n)   = SIZE(recv_sp(n)%p,2) - kshift_sp(n)
+        accum = accum + ndim2_sp(n)
       ENDDO
 
 !$ACC DATA COPYIN(kshift_dp,noffset_dp,ndim2_dp,kshift_sp,noffset_sp,ndim2_sp)
@@ -2952,39 +2948,18 @@ CONTAINS
   !! Optimized version by Guenther Zaengl to process up to two 4D fields or up to six 3D fields
   !! for an array-sized communication pattern (as needed for boundary interpolation) in one step
   !!
-  SUBROUTINE exchange_data_grf(p_pat_coll, nfields, ndim2tot, recv1, send1, &
-    recv2, send2, recv3, send3, recv4, send4, &
-    recv5, send5, recv6, send6, recv4d1, send4d1, &
-    recv4d2, send4d2)
+  SUBROUTINE exchange_data_grf(p_pat_coll, nfields, ndim2tot, recv, send)
 
     CLASS(t_comm_pattern_collection_orig), INTENT(INOUT), TARGET :: p_pat_coll
-
-    REAL(dp), INTENT(INOUT), TARGET, OPTIONAL ::  &
-      recv1(:,:,:), recv2(:,:,:), recv3(:,:,:), recv4d1(:,:,:,:), &
-      recv4(:,:,:), recv5(:,:,:), recv6(:,:,:), recv4d2(:,:,:,:)
-    ! Note: the last index of the send fields corresponds to the dimension of p_pat
-    ! On the other hand, they are not blocked and have the vertical index first
-    REAL(dp), INTENT(IN   ), TARGET, OPTIONAL ::  &
-      send1(:,:,:), send2(:,:,:), send3(:,:,:), send4d1(:,:,:,:), &
-      send4(:,:,:), send5(:,:,:), send6(:,:,:), send4d2(:,:,:,:)
 
     CHARACTER(len=*), PARAMETER :: routine = modname//"::exchange_data_grf"
     INTEGER, INTENT(IN)           :: nfields  ! total number of input fields
     INTEGER, INTENT(IN)           :: ndim2tot ! sum of vertical levels of input fields
+    TYPE(t_ptr_3d), PTR_INTENT(in) :: recv(nfields), send(nfields)
 
     INTEGER           :: nsendtot ! total number of send points
     INTEGER           :: nrecvtot ! total number of receive points
 
-    TYPE t_fieldptr_recv
-      REAL(dp), POINTER :: fld(:,:,:)
-    END TYPE t_fieldptr_recv
-
-    TYPE t_fieldptr_send
-      REAL(dp), POINTER :: fld(:,:)
-    END TYPE t_fieldptr_send
-
-    TYPE(t_fieldptr_recv) :: recv(nfields)
-    TYPE(t_fieldptr_send) :: send(nfields*SIZE(p_pat_coll%patterns))
 
     TYPE(t_ptr_1d_int) :: p_send_src_idx(SIZE(p_pat_coll%patterns))
     TYPE(t_ptr_1d_int) :: p_send_src_blk(SIZE(p_pat_coll%patterns))
@@ -3003,7 +2978,7 @@ CONTAINS
 
     INTEGER :: i, j, k, ik, jb, jl, n, np, irs, ire, iss, ise, &
       npats, isum, ioffset, isum1, n4d, pid, num_send, num_recv, &
-      comm_size
+      comm_size, idx_1d_i, accum, accum2
     INTEGER, ALLOCATABLE :: pelist_send(:), pelist_recv(:)
 
     TYPE(t_p_comm_pattern_orig), POINTER :: p_pat(:)
@@ -3106,79 +3081,20 @@ CONTAINS
 
     ENDDO
 
-    ! Set pointers to input fields
-    IF (PRESENT(recv4d1) .AND. .NOT. PRESENT(recv4d2)) THEN
-      DO n = 1, nfields
-        recv(n)%fld => recv4d1(:,:,:,n)
-        DO np = 1, npats
-          send(np+(n-1)*npats)%fld => send4d1(:,:,np,n)
-        ENDDO
-      ENDDO
-    ELSE IF (PRESENT(recv4d1) .AND. PRESENT(recv4d2)) THEN
-      n4d = nfields/2
-      DO n = 1, n4d
-        recv(n)%fld => recv4d1(:,:,:,n)
-        DO np = 1, npats
-          send(np+(n-1)*npats)%fld => send4d1(:,:,np,n)
-        ENDDO
-      ENDDO
-      DO n = 1, n4d
-        recv(n4d+n)%fld => recv4d2(:,:,:,n)
-        DO np = 1, npats
-          send(np+(n4d+n-1)*npats)%fld => send4d2(:,:,np,n)
-        ENDDO
-      ENDDO
-    ELSE
-      IF (PRESENT(recv1)) THEN
-        recv(1)%fld => recv1
-        DO np = 1, npats
-          send(np)%fld => send1(:,:,np)
-        ENDDO
-      ENDIF
-      IF (PRESENT(recv2)) THEN
-        recv(2)%fld => recv2
-        DO np = 1, npats
-          send(np+npats)%fld => send2(:,:,np)
-        ENDDO
-      ENDIF
-      IF (PRESENT(recv3)) THEN
-        recv(3)%fld => recv3
-        DO np = 1, npats
-          send(np+2*npats)%fld => send3(:,:,np)
-        ENDDO
-      ENDIF
-      IF (PRESENT(recv4)) THEN
-        recv(4)%fld => recv4
-        DO np = 1, npats
-          send(np+3*npats)%fld => send4(:,:,np)
-        ENDDO
-      ENDIF
-      IF (PRESENT(recv5)) THEN
-        recv(5)%fld => recv5
-        DO np = 1, npats
-          send(np+4*npats)%fld => send5(:,:,np)
-        ENDDO
-      ENDIF
-      IF (PRESENT(recv6)) THEN
-        recv(6)%fld => recv6
-        DO np = 1, npats
-          send(np+5*npats)%fld => send6(:,:,np)
-        ENDDO
-      ENDIF
-    ENDIF
-
-    noffset(1) = 0
-    ndim2(1)   = SIZE(recv(1)%fld,2)
-    DO n = 2, nfields
-      noffset(n) = noffset(n-1)+ndim2(n-1)
-      ndim2(n)   = SIZE(recv(n)%fld,2)
+    accum = 0
+    DO n = 1, nfields
+      noffset(n) = accum
+      ndim2(n) = SIZE(recv(n)%p,2)
+      accum = accum + ndim2(n)
     ENDDO
 
-    ioffset_r(1) = 0
-    ioffset_s(1) = 0
-    DO np = 2, npats
-      ioffset_r(np) = ioffset_r(np-1) + p_pat(np-1)%p%n_recv
-      ioffset_s(np) = ioffset_s(np-1) + p_pat(np-1)%p%n_send
+    accum = 0
+    accum2 = 0
+    DO np = 1, npats
+      ioffset_r(np) = accum
+      accum = accum + p_pat(np)%p%n_recv
+      ioffset_s(np) = accum2
+      accum2 = accum2 + p_pat(np)%p%n_send
     ENDDO
 
     DO np = 1, npats
@@ -3200,9 +3116,9 @@ CONTAINS
 #ifdef _OPENACC
      DO n = 1, nfields
        DO np = 1, npats
-!$ACC ENTER DATA ATTACH( send(np+(n-1)*npats)%fld )
+!$ACC ENTER DATA ATTACH( send(np+(n-1)*npats)%p )
        ENDDO
-!$ACC ENTER DATA ATTACH( recv(n)%fld )
+!$ACC ENTER DATA ATTACH( recv(n)%p )
      ENDDO
 
      DO np = 1, npats
@@ -3219,14 +3135,13 @@ CONTAINS
       DO np = 1, npats
 !$ACC LOOP VECTOR
         DO i = 1, n_pnts(np)
+          idx_1d_i = idx_1d(p_send_src_idx(np)%p(p_recv_src(np)%p(i)),       &
+                            p_send_src_blk(np)%p(p_recv_src(np)%p(i)))
           DO n = 1, nfields
             DO k = 1, ndim2(n)
-              recv(n)%fld( p_recv_dst_idx(np)%p(i), k, &
+              recv(n)%p( p_recv_dst_idx(np)%p(i), k, &
                 p_recv_dst_blk(np)%p(i) ) =            &
-                send(np+(n-1)*npats)%fld( k,           &
-                  idx_1d(p_send_src_idx(np)%p(         &
-                           p_recv_src(np)%p(i)),       &
-                         p_send_src_blk(np)%p(p_recv_src(np)%p(i))))
+                send(n)%p(k, idx_1d_i, np)
             ENDDO
           ENDDO
         ENDDO
@@ -3274,9 +3189,8 @@ CONTAINS
           DO k = 1, ndim2(n)
             DO i = 1, n_send(np)
               send_buf(k+noffset(n),i+ioffset_s(np)) =                &
-                & send(np+(n-1)*npats)%fld(k, &
-                &   idx_1d(p_send_src_idx(np)%p(i), &
-                &          p_send_src_blk(np)%p(i)))
+                & send(n)%p(k, idx_1d(p_send_src_idx(np)%p(i),    &
+                &                     p_send_src_blk(np)%p(i)), np)
             ENDDO
           ENDDO
         ENDDO
@@ -3284,18 +3198,17 @@ CONTAINS
 !$ACC END PARALLEL
 #else
 #ifdef __OMPPAR_COPY__
-!$OMP PARALLEL
+!$OMP PARALLEL PRIVATE(np)
 #endif
       DO np = 1, npats
 #ifdef __OMPPAR_COPY__
-!$OMP DO PRIVATE(jl,n,k)
+!$OMP DO PRIVATE(idx_1d_i,n,k)
 #endif
         DO i = 1, n_send(np)
-          jl = idx_1d(p_send_src_idx(np)%p(i), p_send_src_blk(np)%p(i))
+          idx_1d_i = idx_1d(p_send_src_idx(np)%p(i), p_send_src_blk(np)%p(i))
           DO n = 1, nfields
             DO k = 1, ndim2(n)
-              send_buf(k+noffset(n),i+ioffset_s(np)) = &
-                send(np+(n-1)*npats)%fld(k,jl)
+              send_buf(k+noffset(n),i+ioffset_s(np)) = send(n)%p(k, idx_1d_i, np)
             ENDDO
           ENDDO
         ENDDO
@@ -3469,9 +3382,9 @@ CONTAINS
 
         isum = ioffset
         DO n = 1, npats
-          irs = p_pat(n)%p%recv_limits(pid)+1 + ioffset_r(n)
+          irs = p_pat(n)%p%recv_limits(pid)   + ioffset_r(n)
           ire = p_pat(n)%p%recv_limits(pid+1) + ioffset_r(n)
-          isum1 = ire - irs + 1
+          isum1 = ire - irs
           IF (isum1 > 0) THEN
 #ifdef __OMPPAR_COPY__
 !$OMP DO
@@ -3482,7 +3395,7 @@ CONTAINS
 !
 !$ACC KERNELS DEFAULT(PRESENT) IF (use_gpu)
             DO i = 1, isum1
-              recv_buf(:,irs-1+i) = auxr_buf(:,isum+i)
+              recv_buf(:,irs+i) = auxr_buf(:,isum+i)
             ENDDO
 !$ACC END KERNELS
 #ifdef __OMPPAR_COPY__
@@ -3507,8 +3420,8 @@ CONTAINS
 !$NEC novector
           DO k = 1, ndim2(n)
             DO i = 1, n_pnts(np)
-              recv(n)%fld(p_recv_dst_idx(np)%p(i),k, &
-                          p_recv_dst_blk(np)%p(i)) =   &
+              recv(n)%p(p_recv_dst_idx(np)%p(i),k, &
+                        p_recv_dst_blk(np)%p(i)) =   &
                 recv_buf(k+noffset(n),p_recv_src(np)%p(i)+ioffset_r(np))
             ENDDO
           ENDDO
@@ -3526,7 +3439,7 @@ CONTAINS
           ik  = p_recv_src(np)%p(i)+ioffset_r(np)
           DO n = 1, nfields
             DO k = 1, ndim2(n)
-              recv(n)%fld(jl,k,jb) = recv_buf(k+noffset(n),ik)
+              recv(n)%p(jl,k,jb) = recv_buf(k+noffset(n),ik)
             ENDDO
           ENDDO
         ENDDO
@@ -3544,9 +3457,9 @@ CONTAINS
 
 #ifdef _OPENACC
      DO n = 1, nfields
-!$ACC EXIT DATA DETACH( recv(n)%fld ) IF (use_gpu)
+!$ACC EXIT DATA DETACH( recv(n)%p ) IF (use_gpu)
        DO np = 1, npats
-!$ACC EXIT DATA DETACH( send(np+(n-1)*npats)%fld ) IF (use_gpu)
+!$ACC EXIT DATA DETACH( send(np+(n-1)*npats)%p ) IF (use_gpu)
        ENDDO
      ENDDO
 

@@ -24,7 +24,7 @@ MODULE mo_ha_diagnostics
 
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: finish
-  USE mo_impl_constants,     ONLY: SUCCESS, MAX_CHAR_LENGTH,inwp,iecham,ildf_echam
+  USE mo_impl_constants,     ONLY: SUCCESS,inwp,iecham,ildf_echam
   USE mo_grid_config,        ONLY: n_dom
   USE mo_model_domain,       ONLY: t_patch
   USE mo_ext_data_types,     ONLY: t_external_data
@@ -34,7 +34,7 @@ MODULE mo_ha_diagnostics
   USE mo_physical_constants, ONLY: rgrav, cpd, grav
   USE mo_vertical_coord_table, ONLY: dela, delb
   USE mo_icoham_dyn_types,   ONLY: t_hydro_atm, t_hydro_atm_prog, t_hydro_atm_diag
-  USE mo_io_units,           ONLY: find_next_free_unit
+  USE mo_io_units,           ONLY: find_next_free_unit, filename_max
   USE mo_mpi,                ONLY: my_process_is_stdio
   USE mo_sync,               ONLY: global_sum_array
 
@@ -44,7 +44,7 @@ MODULE mo_ha_diagnostics
 
   ! ASCII files that contain the global integrals
 
-  CHARACTER (len=MAX_CHAR_LENGTH) :: file_ti, file_tti  ! file names
+  CHARACTER (len=filename_max) :: file_ti, file_tti  ! file names
   INTEGER :: n_file_ti, n_file_tti                      ! I/O units
 
   ! Total mass, energy and tracer at time step n-1. Used in the calculation of
@@ -62,6 +62,8 @@ MODULE mo_ha_diagnostics
   PUBLIC :: init_total_integrals
   PUBLIC :: supervise_total_integrals
 
+  CHARACTER(len=*), PARAMETER :: modname = 'mo_ha_diagnostics'
+
   CONTAINS
 
   !-------------------------------------------------------------------------
@@ -76,7 +78,7 @@ MODULE mo_ha_diagnostics
   SUBROUTINE init_total_integrals
 
     INTEGER :: ist
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: thisroutine = "init_total_integrals"
+    CHARACTER(LEN=*), PARAMETER :: routine = "init_total_integrals"
     
     IF (.NOT.output_mode%l_totint) RETURN
 
@@ -89,7 +91,7 @@ MODULE mo_ha_diagnostics
       
       OPEN(UNIT=n_file_ti,FILE=TRIM(file_ti),FORM='FORMATTED',IOSTAT=ist)
       IF (ist/=SUCCESS) THEN
-        CALL finish( TRIM(thisroutine),'could not create data file' )
+        CALL finish(routine,'could not create data file' )
       ENDIF
       
       WRITE (n_file_ti,'(A22,A22,6A40)') &
@@ -109,11 +111,11 @@ MODULE mo_ha_diagnostics
 
          ALLOCATE(total_tracer_old(ntracer), STAT=ist)
          IF(ist/=SUCCESS)THEN
-           CALL finish ( TRIM(thisroutine), 'allocation of total_tracer_old failed')
+           CALL finish (routine, 'allocation of total_tracer_old failed')
          ENDIF
          ALLOCATE(total_tracer_ini(ntracer), STAT=ist)
          IF(ist/=SUCCESS)THEN
-           CALL finish ( TRIM(thisroutine), 'allocation of total_tracer_ini failed')
+           CALL finish (routine, 'allocation of total_tracer_ini failed')
          ENDIF
 
          file_tti   = 'tracer_total_integrals.dat'
@@ -121,7 +123,7 @@ MODULE mo_ha_diagnostics
 
          OPEN(UNIT=n_file_tti,FILE=TRIM(file_tti),FORM='FORMATTED',IOSTAT=ist)
          IF (ist/=SUCCESS) THEN
-           CALL finish( TRIM(thisroutine),'could not open data file for tracers')
+           CALL finish(routine,'could not open data file for tracers')
          ENDIF
          WRITE (n_file_tti,'(A22,A22,A22,3A40)') &
               ' TIMESTEP            ,',&
@@ -142,7 +144,7 @@ MODULE mo_ha_diagnostics
       n_file_ti = find_next_free_unit(10,20)
       OPEN(UNIT=n_file_ti,FILE=TRIM(file_ti),FORM='FORMATTED',IOSTAT=ist)
       IF (ist/=SUCCESS) THEN
-        CALL finish( TRIM(thisroutine),'could not open datafile')
+        CALL finish(routine,'could not open datafile')
       ENDIF
       WRITE (n_file_ti,'(A24,A24,A24,A24,A24,A24)') &
            ' TIMESTEP              ,',&

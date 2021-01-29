@@ -371,7 +371,7 @@ CONTAINS
 
       IF (PRESENT(dim_names)) THEN
         DO idim = 1, 2
-          IF (TRIM(dim_names(idim)) /= TRIM(var_dim_name(idim))) THEN
+          IF (dim_names(idim) /= var_dim_name(idim)) THEN
             WRITE(0,*) 'dim_name(',idim,')=',TRIM(ADJUSTL(var_dim_name(idim))),&
                        ' but dimension name', &
                        TRIM(ADJUSTL(dim_names(idim))),' was expected'
@@ -380,7 +380,7 @@ CONTAINS
         END DO
       END IF
 
-      IF (TRIM(var_dim_name(3)) /= 'time' ) THEN
+      IF (var_dim_name(3) /= 'time' ) THEN
         WRITE(0,*) 'no time dimension found, the last dimension must be time'
         CALL finish(method_name, 'no time dimension found')
       END IF
@@ -476,7 +476,7 @@ CONTAINS
 
       IF (PRESENT(dim_names)) THEN
         DO idim = 1, 3
-          IF (TRIM(dim_names(idim)) /= TRIM(var_dim_name(idim))) THEN
+          IF (dim_names(idim) /= var_dim_name(idim)) THEN
             WRITE(0,*) 'dim_name(',idim,')=',TRIM(ADJUSTL(var_dim_name(idim))),&
                        ' but dimension name ', &
                        TRIM(ADJUSTL(dim_names(idim))),' was expected'
@@ -485,7 +485,7 @@ CONTAINS
         END DO
       END IF
 
-      IF (TRIM(var_dim_name(4)) /= 'time' ) THEN
+      IF (var_dim_name(4) /= 'time' ) THEN
         WRITE(0,*) 'no time dimension found, the last dimension must be time'
         CALL finish(method_name, 'no time dimension found')
       END IF
@@ -1770,10 +1770,10 @@ CONTAINS
 
     IF (STATUS /= nf_noerr) THEN
       IF (lwarnonly) THEN
-        CALL message( TRIM(routine)//' netCDF error', nf_strerror(STATUS), &
+        CALL message(routine, 'netCDF error: '//nf_strerror(STATUS), &
           & level=em_warn)
       ELSE
-        CALL finish( TRIM(routine)//' netCDF error', nf_strerror(STATUS))
+        CALL finish(routine, 'netCDF error: '//nf_strerror(STATUS))
       ENDIF
     ENDIF
 

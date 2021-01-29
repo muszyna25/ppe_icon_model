@@ -70,7 +70,7 @@ MODULE mo_advection_hflux
 
   USE mo_kind,                ONLY: wp, vp
   USE mo_exception,           ONLY: finish, message, message_text
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, SUCCESS,                   &
+  USE mo_impl_constants,      ONLY: SUCCESS,                   &
     &                               min_rledge_int, min_rlcell_int,             &
     &                               UP, MIURA, MIURA3, FFSL, FFSL_HYB, MCYCL,   &
     &                               MIURA_MCYCL, MIURA3_MCYCL, FFSL_MCYCL,      &
@@ -135,7 +135,7 @@ MODULE mo_advection_hflux
   LOGICAL, PARAMETER ::  acc_validate = .FALSE.   ! ONLY SET TO .TRUE. FOR VALIDATION PHASE
 #endif
 
-
+  CHARACTER(len=*), PARAMETER :: modname = 'mo_advection_hflux'
 
   !-------------------------------------------------------------------------
 
@@ -175,8 +175,8 @@ CONTAINS
   SUBROUTINE hor_upwind_flux( p_cc, p_rhodz_now, p_rhodz_new, p_mass_flx_e, p_vn,   &
     &                         p_dtime, p_patch, p_int, p_upflux, opt_rlend )
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_advection_hflux: hor_upwind_flux'
+    CHARACTER(len=*), PARAMETER ::  &
+      &  routine = modname//':hor_upwind_flux'
 
     TYPE(t_patch), TARGET, INTENT(INOUT) ::  &     !< patch on which computation is performed
       &  p_patch
@@ -430,8 +430,7 @@ CONTAINS
           &         opt_rhodz_new   = p_rhodz_new,              & !in
           &         opt_lconsv      = llsq_lin_consv,           & !in
           &         opt_rlend       = i_rlend,                  & !in
-          &         opt_slev        = advconf%iadv_slev(jt),    & !in
-          &         opt_acc_async   = .TRUE.                    ) !in
+          &         opt_slev        = advconf%iadv_slev(jt) )     !in
 
 
       CASE( MIURA3 )  ! ihadv_tracer = 3
@@ -460,7 +459,7 @@ CONTAINS
 ! In GPU mode, copy data to HOST and perform upwind_hflux_ffsl there, then update device
 ! NOTE: this is only for testing; use upwind_hflux_miura/miura3 for performance
         WRITE(message_text,'(a)') 'GPU mode: performing upwind_hflux_ffsl on host; for performance use upwind_hflux_miura'
-        CALL message(TRIM(routine),message_text)
+        CALL message(routine,message_text)
 !$ACC UPDATE HOST( p_cc(:,:,:,jt), p_mass_flx_e, p_vn, p_rhodz_now, p_rhodz_new, z_real_vt ), &
 !$ACC        IF( i_am_accel_node .AND. acc_on )
         save_i_am_accel_node = i_am_accel_node
@@ -495,7 +494,7 @@ CONTAINS
 ! In GPU mode, copy data to HOST and perform hflux_ffsl_hybrid there, then update device
 ! NOTE: this is only for testing; use upwind_hflux_miura/miura3 for performance
         WRITE(message_text,'(a)') 'GPU mode: performing hflux_ffsl_hybrid on host; for performance use upwind_hflux_miura'
-        CALL message(TRIM(routine),message_text)
+        CALL message(routine,message_text)
 !$ACC UPDATE HOST( p_cc(:,:,:,jt), p_mass_flx_e, p_vn, p_rhodz_now, p_rhodz_new, z_real_vt ), &
 !$ACC        IF( i_am_accel_node .AND. acc_on )
         save_i_am_accel_node = i_am_accel_node
@@ -567,8 +566,7 @@ CONTAINS
           &         opt_lconsv      = llsq_lin_consv,           & !in
           &         opt_rlend       = i_rlend,                  & !in
           &         opt_slev        = qvsubstep_elev+1,         & !in
-          &         opt_elev        = p_patch%nlev,             & !in
-          &         opt_acc_async   = .TRUE.                    ) !in
+          &         opt_elev        = p_patch%nlev )              !in
 
 
 
@@ -655,7 +653,7 @@ CONTAINS
 ! In GPU mode, copy data to HOST and perform upwind_hflux_ffsl there, then update device
 ! NOTE: this is only for testing; use upwind_hflux_miura/miura3 for performance
         WRITE(message_text,'(a)') 'GPU mode: performing upwind_hflux_ffsl on host; for performance use upwind_hflux_miura'
-        CALL message(TRIM(routine),message_text)
+        CALL message(routine,message_text)
 !$ACC UPDATE HOST( p_cc(:,:,:,jt), p_mass_flx_e, p_vn, p_rhodz_now, p_rhodz_new, z_real_vt ), &
 !$ACC        IF( i_am_accel_node .AND. acc_on )
         save_i_am_accel_node = i_am_accel_node
@@ -719,7 +717,7 @@ CONTAINS
 ! In GPU mode, copy data to HOST and perform hflux_ffsl_hybrid there, then update device
 ! NOTE: this is only for testing; use upwind_hflux_miura/miura3 for performance
         WRITE(message_text,'(a)') 'GPU mode: performing hflux_ffsl_hybrid on host; for performance use upwind_hflux_miura'
-        CALL message(TRIM(routine),message_text)
+        CALL message(routine,message_text)
 !$ACC UPDATE HOST( p_cc(:,:,:,jt), p_mass_flx_e, p_vn, p_rhodz_now, p_rhodz_new, z_real_vt ), &
 !$ACC        IF( i_am_accel_node .AND. acc_on )
         save_i_am_accel_node = i_am_accel_node
@@ -967,10 +965,10 @@ CONTAINS
     &                      p_int, btraj, p_igrad_c_miura, p_itype_hlimit,   &
     &                      p_out_e, opt_rhodz_now, opt_rhodz_new,           &
     &                      opt_lconsv, opt_rlstart, opt_rlend,              &
-    &                      opt_lout_edge, opt_slev, opt_elev, opt_acc_async )
+    &                      opt_lout_edge, opt_slev, opt_elev )
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_advection_hflux: upwind_hflux_miura'
+    CHARACTER(len=*), PARAMETER ::  &
+      &  routine = modname//':upwind_hflux_miura'
 
     TYPE(t_patch), TARGET, INTENT(INOUT) ::  &   !< patch on which computation is performed
       &  p_patch
@@ -1023,10 +1021,6 @@ CONTAINS
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
       &  opt_elev
-
-    LOGICAL, INTENT(IN), OPTIONAL :: & !< optional async OpenACC
-      &  opt_acc_async   
-
 
     LOGICAL  :: l_out_edgeval          !< corresponding local variable; default .FALSE.
                                        !< i.e. output flux across the edge
@@ -1154,12 +1148,13 @@ CONTAINS
         &                              opt_lconsv=l_consv )
         use_zlsq = .TRUE.
       ELSE IF (advection_config(pid)%llsq_svd) THEN
-        CALL recon_lsq_cell_l_svd( p_cc, p_patch, lsq_lin, z_grad,                  &
-        &                        opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c )
+        CALL recon_lsq_cell_l_svd( p_cc, p_patch, lsq_lin, z_grad,                     &
+             &                     opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c,  &
+             &                     opt_acc_async = .TRUE. )
       ELSE
         CALL recon_lsq_cell_l( p_cc, p_patch, lsq_lin, z_lsq_coeff,             &
         &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
-        &                    opt_lconsv=l_consv )
+        &                    opt_lconsv=l_consv, opt_acc_async = .TRUE. )
         use_zlsq = .TRUE.
       ENDIF
 
@@ -1302,35 +1297,27 @@ CONTAINS
     !    The flux limiter is based on work by Zalesak (1979)
     IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_m) THEN
       IF (.NOT. (PRESENT(opt_rhodz_now) .OR. PRESENT(opt_rhodz_now))) THEN
-        CALL finish(TRIM(routine),'Required fields opt_rhodz_now and opt_rhodz_now are not present')
+        CALL finish(routine,'Required fields opt_rhodz_now and opt_rhodz_now are not present')
       ENDIF
       CALL hflx_limiter_mo( p_patch, p_int, p_dtime, p_cc,               & !in
         &                   opt_rhodz_now, opt_rhodz_new, p_mass_flx_e,  & !in
-        &                   p_out_e, slev, elev, opt_rlend=i_rlend,      & !inout,in
-        &                   opt_acc_async=.TRUE.                         ) !in
+        &                   p_out_e, slev, elev, opt_rlend=i_rlend )       !inout,in
 
     ELSE IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_sm) THEN
       IF (.NOT. (PRESENT(opt_rhodz_now))) THEN
-        CALL finish(TRIM(routine),'Required field opt_rhodz_now not present')
+        CALL finish(routine,'Required field opt_rhodz_now not present')
       ENDIF
       ! MPI-sync necessary
       CALL hflx_limiter_pd( p_patch, p_int, p_dtime,                 & !in
         &                   p_cc, opt_rhodz_now, p_out_e,            & !in,inout
-        &                   slev, elev, opt_rlend=i_rlend,           & !in
-        &                   opt_acc_async=.TRUE.                     ) !in
+        &                   slev, elev, opt_rlend=i_rlend )            !in
     ENDIF
 
-!$ACC UPDATE HOST( p_out_e ) WAIT IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+!$ACC WAIT
+!$ACC UPDATE HOST( p_out_e ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 !$ACC END DATA
 !$ACC END DATA
-
-    IF ( PRESENT(opt_acc_async) ) THEN
-      IF ( opt_acc_async ) THEN
-        RETURN
-      END IF
-    END IF
-    !$ACC WAIT
 
   END SUBROUTINE upwind_hflux_miura
 
@@ -1373,8 +1360,8 @@ CONTAINS
     &                   elev, opt_lconsv, opt_rlstart, opt_rlend, opt_slev )
 
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_advection_hflux: upwind_hflux_miura_cycl'
+    CHARACTER(len=*), PARAMETER ::  &
+      &  routine = modname//':upwind_hflux_miura_cycl'
 
     TYPE(t_patch), TARGET, INTENT(INOUT) ::  &   !< patch on which computation is performed
       &  p_patch
@@ -1473,8 +1460,8 @@ CONTAINS
    !-------------------------------------------------------------------------
 
     IF (p_ncycl /= 2 .AND. p_ncycl /= 3) &
-    CALL finish(TRIM(routine),'current implementation of upwind_hflux_miura_cycl '//&
-      &                       'requires 2 or 3 subcycling steps (p_ncycl=2/3)')
+    CALL finish(routine,'current implementation of upwind_hflux_miura_cycl '//&
+      &                 'requires 2 or 3 subcycling steps (p_ncycl=2/3)')
 
     ! get patch ID
     pid = p_patch%id
@@ -1886,8 +1873,8 @@ CONTAINS
     &                        opt_elev, opt_ti_slev, opt_ti_elev )
 
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_advection_hflux: upwind_hflux_miura3'
+    CHARACTER(len=*), PARAMETER ::  &
+      &  routine = modname//':upwind_hflux_miura3'
 
     TYPE(t_patch), INTENT(INOUT) ::  &  !< patch on which computation is performed
       &  p_patch
@@ -2090,7 +2077,7 @@ CONTAINS
         &       z_cell_blk(nproma,nlev,p_patch%nblks_e),                &
         &       STAT=ist )
       IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine),                                 &
+        CALL finish(routine,                                 &
           &  'allocation for z_quad_vector_sum, z_dreg_area, ' //    &
           &  'z_cell_idx, z_cell_blk' )
       ENDIF
@@ -2366,7 +2353,7 @@ CONTAINS
     !
     IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_m) THEN
       IF (.NOT. (PRESENT(opt_rhodz_now) .OR. PRESENT(opt_rhodz_now))) THEN
-        CALL finish(TRIM(routine),'Required fields opt_rhodz_now and opt_rhodz_now are not present')
+        CALL finish(routine,'Required fields opt_rhodz_now and opt_rhodz_now are not present')
       ENDIF
       !
       CALL hflx_limiter_mo( p_patch, p_int, p_dtime, p_cc,              & !in
@@ -2375,7 +2362,7 @@ CONTAINS
         &                   opt_beta_fct=advection_config(pid)%beta_fct ) !in
     ELSE IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_sm) THEN
       IF (.NOT. (PRESENT(opt_rhodz_now))) THEN
-        CALL finish(TRIM(routine),'Required field opt_rhodz_now not present')
+        CALL finish(routine,'Required field opt_rhodz_now not present')
       ENDIF
       !
       CALL hflx_limiter_pd( p_patch, p_int, p_dtime,                 & !in
@@ -2394,7 +2381,7 @@ CONTAINS
       DEALLOCATE( z_quad_vector_sum, z_dreg_area, z_cell_idx, z_cell_blk, &
         &         STAT=ist )
       IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine),                                 &
+        CALL finish(routine,                                 &
           &  'deallocation for z_quad_vector_sum, z_dreg_area, ' //  &
           &  ' z_cell_idx, z_cell_blk failed' )
       ENDIF
@@ -2435,8 +2422,8 @@ CONTAINS
     &                      opt_ti_slev, opt_ti_elev  )
 
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_advection_hflux: upwind_hflux_ffsl'
+    CHARACTER(len=*), PARAMETER ::  &
+      &  routine = modname//':upwind_hflux_ffsl'
 
     TYPE(t_patch), INTENT(INOUT) ::  &  !< patch on which computation is performed
       &  p_patch
@@ -2651,7 +2638,7 @@ CONTAINS
         &       patch2_cell_blk(nproma,nlev,p_patch%nblks_e),            &
         &       STAT=ist )
       IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine),                                        &
+        CALL finish(routine,                                        &
           &  'allocation for z_quad_vector_sum0/1/2, z_dreg_area0/1/2, ' // &
           &  'patch0/1/2_cell_idx,  patch0/1/2_cell_blk failed' )
       ENDIF
@@ -2967,7 +2954,7 @@ CONTAINS
         &         patch1_cell_idx, patch2_cell_idx, patch0_cell_blk,          &
         &         patch1_cell_blk, patch2_cell_blk, STAT=ist )
       IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine),                                           &
+        CALL finish(routine,                                           &
           &  'deallocation for z_quad_vector_sum0/1/2, z_dreg_area0/1/2, '  // &
           &  'patch0/1/2_cell_idx, patch0/1/2_cell_blk failed' )
       ENDIF
@@ -3006,8 +2993,8 @@ CONTAINS
     &                      opt_ti_slev, opt_ti_elev  )
 
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_advection_hflux: upwind_hflux_hybrid'
+    CHARACTER(len=*), PARAMETER ::  &
+      &  routine = modname//':upwind_hflux_hybrid'
 
     TYPE(t_patch), INTENT(INOUT) ::  &  !< patch on which computation is performed
       &  p_patch
@@ -3220,7 +3207,7 @@ CONTAINS
         &       falist%len(p_patch%nblks_e),                             &
         &       STAT=ist )
       IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine),                                        &
+        CALL finish(routine,                                        &
           &  'allocation for patch0_cell_idx,  patch0_cell_blk, falist failed' )
       ENDIF
 
@@ -3251,7 +3238,7 @@ CONTAINS
         &       dreg_patch2(npoints,4,2,p_patch%nblks_e),                &
         &       STAT=ist )
       IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine),                                      &
+        CALL finish(routine,                                      &
           &  'allocation for z_quad_vector_sum0/1/2, z_dreg_area, ' //    &
           &  'patch1/2_cell_idx,  patch1/2_cell_blk, dreg_patch1/2 failed' )
       ENDIF
@@ -3523,7 +3510,7 @@ CONTAINS
         &         patch1_cell_blk, patch2_cell_blk, falist%eidx, falist%elev, &
         &         falist%len, STAT=ist )
       IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine),                                           &
+        CALL finish(routine,                                           &
           &  'deallocation for z_quad_vector_sum0/1/2, z_dreg_area0/1/2, '  // &
           &  'patch0/1/2_cell_idx, patch0/1/2_cell_blk, falist failed' )
       ENDIF

@@ -197,7 +197,7 @@ CONTAINS
     ENDDO
 !$ACC END PARALLEL
 
-
+!$ACC WAIT
 !$ACC UPDATE HOST( p_mflx_tracer_v ), WAIT(1) IF (acc_validate .AND. i_am_accel_node .AND. acc_on)
 !$ACC END DATA
 
@@ -523,6 +523,7 @@ CONTAINS
       END DO
 !$ACC END PARALLEL
     ENDIF
+
 !$ACC UPDATE HOST( p_face_up, p_face_low ), WAIT(1) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 

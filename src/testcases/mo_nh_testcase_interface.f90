@@ -19,7 +19,7 @@
 MODULE mo_nh_testcase_interface
 
   USE mo_kind,                   ONLY: wp
-  USE mo_impl_constants,         ONLY: MAX_CHAR_LENGTH, TRACER_ONLY
+  USE mo_impl_constants,         ONLY: TRACER_ONLY
   USE mo_grid_config,            ONLY: grid_sphere_radius
   USE mo_model_domain,           ONLY: t_patch
   USE mo_nonhydro_types,         ONLY: t_nh_state
@@ -76,7 +76,7 @@ CONTAINS
     ! Local variables
     INTEGER :: jg
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &  routine = modname//':nh_testcase_interface'
     
     !--------------------------------------------------------------

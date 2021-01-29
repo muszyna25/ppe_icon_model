@@ -672,6 +672,8 @@ IF ( PRESENT(opt_acc_async) ) THEN
   IF ( .NOT. opt_acc_async ) THEN
     !$ACC WAIT
   END IF
+ELSE
+  !$ACC WAIT
 END IF
 
 END SUBROUTINE rbf_vec_interpol_vertex_wp
@@ -813,6 +815,8 @@ IF ( PRESENT(opt_acc_async) ) THEN
   IF ( .NOT. opt_acc_async ) THEN
     !$ACC WAIT
   END IF
+ELSE
+  !$ACC WAIT
 END IF
 
 END SUBROUTINE rbf_vec_interpol_vertex_vp
@@ -949,6 +953,8 @@ i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
     IF ( .NOT. opt_acc_async ) THEN
       !$ACC WAIT
     END IF
+  ELSE
+    !$ACC WAIT
   END IF
   
 END SUBROUTINE rbf_vec_interpol_edge

@@ -124,7 +124,7 @@ CONTAINS
 
     ! name
     IF ( PRESENT(name) ) THEN
-      meta%name = TRIM(name)
+      meta%name = name
     ELSE
       meta%name = "unnamed"
     ENDIF

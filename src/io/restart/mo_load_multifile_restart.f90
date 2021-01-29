@@ -120,10 +120,11 @@ CONTAINS
       IF (myFCnt .GT. 0) myFF = rGroup(nr_in=mfCnt)
     ELSE
       myFCnt = COUNT( (/ (rGroup(nr_in=pCnt, nw_in=mfCnt, pe_in=i) .EQ. myR, &
-        &                    i = 0, mfCnt-1) /) )
-      i = 0
-      DO WHILE(i .LT. mfCnt .AND. myFF .LT. 0)
+        &                    i = myR, mfCnt-1) /) )
+      i = myR
+      DO WHILE(myFF .LT. 0)
         IF (rGroup(nr_in=pCnt, nw_in=mfCnt, pe_in=i) .EQ. myR) myFF = i
+        i = i + 1
       END DO
     END IF
 #ifdef DEBUG

@@ -115,8 +115,9 @@ CONTAINS
       &                                grid_filename
     INTEGER,          INTENT(IN)   :: nroot, jlev, idom
     CHARACTER(len=MAX_CHAR_LENGTH)  :: result_str
-    TYPE (t_keyword_list), POINTER  :: keywords => NULL()
+    TYPE (t_keyword_list), POINTER  :: keywords
 
+    NULLIFY(keywords)
     CALL associate_keyword("<path>",     TRIM(model_base_dir), keywords)
     CALL associate_keyword("<gridfile>", TRIM(grid_filename),  keywords)
     CALL associate_keyword("<nroot>",  TRIM(int2string(nroot,"(i0)")),   keywords)
@@ -125,7 +126,7 @@ CONTAINS
     CALL associate_keyword("<idom>",   TRIM(int2string(idom, "(i2.2)")), keywords)
     ! replace keywords in "extpar_filename", which is by default
     ! extpar_filename = "<path>extpar_<gridfile>"
-    result_str = TRIM(with_keywords(keywords, TRIM(extpar_filename)))
+    result_str = with_keywords(keywords, TRIM(extpar_filename))
 
   END FUNCTION generate_filename
 !-----------------------------------------------------------------------
@@ -137,25 +138,29 @@ CONTAINS
     INTEGER, INTENT(IN)             :: month
     INTEGER, INTENT(IN), OPTIONAL   :: year
     LOGICAL, INTENT(IN), OPTIONAL   :: clim
-    CHARACTER(len=MAX_CHAR_LENGTH)  :: syear,smonth, result_str
-    TYPE (t_keyword_list), POINTER :: keywords => NULL()
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+    CHARACTER(len=4) :: syear
+    CHARACTER(len=2) :: smonth
+    CHARACTER(len=MAX_CHAR_LENGTH) :: result_str
+    TYPE(t_keyword_list), POINTER :: keywords
+    LOGICAL :: lclim
+    CHARACTER(len=*), PARAMETER :: &
     &  routine = modname//':generate_td_filename:'
 
+    lclim = .FALSE.
+    IF (PRESENT(clim)) lclim = clim
     IF (PRESENT (year)) THEN
      WRITE(syear, '(i4.4)') year
-    ELSEIF ( PRESENT(clim) .AND. clim) THEN
-     syear="CLIM"
+    ELSEIF (lclim) THEN
+      syear="CLIM"
     ELSE
-          CALL finish(TRIM(ROUTINE),&
-            & 'Missing year for a non climatological run')     
+      CALL finish(routine, 'Missing year for a non climatological run')
     END IF
     WRITE(smonth,'(i2.2)') month
-
+    NULLIFY(keywords)
     CALL associate_keyword("<path>",     TRIM(model_base_dir), keywords)
     CALL associate_keyword("<gridfile>", TRIM(grid_filename),  keywords)
-    CALL associate_keyword("<year>", TRIM(syear),  keywords)
-    CALL associate_keyword("<month>", TRIM(smonth),  keywords)
+    CALL associate_keyword("<year>", syear,  keywords)
+    CALL associate_keyword("<month>", smonth,  keywords)
     ! replace keywords in "extpar_filename", which is by default
     ! extpar_td_filename = "<path>extpar_<year>_<month>_<gridfile>"
     ! if clim ist present and clim=.TRUE., <year> ist subst. by "CLIM"

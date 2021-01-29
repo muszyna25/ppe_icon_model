@@ -56,7 +56,7 @@ MODULE mo_latent_heat_nudging
 ! Modules used:
 
 !USE mo_datetime,                ONLY: t_datetime,print_datetime
-USE mtime,                      ONLY: datetime, newDatetime, MAX_DATETIME_STR_LEN, timedelta, &
+USE mtime,                      ONLY: datetime, newDatetime, timedelta, &
                                       PROLEPTIC_GREGORIAN, setCalendar,                       &
                                       newTimedelta, &
                                       OPERATOR(-), OPERATOR (<), OPERATOR(+), OPERATOR(==), OPERATOR(*), &

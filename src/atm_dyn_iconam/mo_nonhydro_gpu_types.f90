@@ -40,7 +40,7 @@ MODULE mo_nonhydro_gpu_types
 #if defined( _OPENACC )
 
   USE mo_kind,                 ONLY: wp, vp
-  USE mo_impl_constants,       ONLY: MAX_CHAR_LENGTH, inwp, iecham
+  USE mo_impl_constants,       ONLY: max_var_list_name_len, inwp, iecham
   USE mo_mpi,                  ONLY: i_am_accel_node
   USE mo_fortran_tools,        ONLY: t_ptr_2d3d
   USE mo_math_types,           ONLY: t_geographical_coordinates
@@ -281,13 +281,15 @@ CONTAINS
 
       IF ( host_to_device ) THEN
 
-!$ACC ENTER DATA COPYIN( advection_config(j)%trHydroMass%list ) &
-!$ACC            IF ( i_am_accel_node  )
+!$ACC ENTER DATA &
+!$ACC       COPYIN( advection_config(j)%trHydroMass%list, advection_config(j)%iadv_slev, advection_config(j)%trAdvect%list ) &
+!$ACC       IF ( i_am_accel_node  )
 
       ELSE
 
-!$ACC EXIT DATA DELETE( advection_config(j)%trHydroMass%list )  &
-!$ACC           IF ( i_am_accel_node  )
+!$ACC EXIT DATA &
+!$ACC      DELETE( advection_config(j)%trHydroMass%list, advection_config(j)%iadv_slev, advection_config(j)%trAdvect%list )  &
+!$ACC      IF ( i_am_accel_node  )
 
       ENDIF
 
@@ -300,27 +302,27 @@ CONTAINS
     LOGICAL, INTENT(IN)                        :: host_to_device     !   .TRUE. : h2d   .FALSE. : d2h
     TYPE ( t_nh_state ), TARGET, INTENT(INOUT) :: p_nh(:)
     INTEGER :: istep, jg
-    CHARACTER(len=MAX_CHAR_LENGTH) :: metrics, prog, ref, diag
+    CHARACTER(len=*), PARAMETER :: metrics = 'nh_state_metrics_of_domain_', &
+         ref = 'nh_state_ref_of_domain_', &
+         diag = 'nh_state_diag_of_domain_'
+    CHARACTER(len=max_var_list_name_len) :: prog
 
 !
 ! At this point, p_nh and all its underlying subtypes have been created on the device
 !
     DO jg = 1, SIZE(p_nh)
 
-      WRITE(metrics,'(a)') 'nh_state_metrics_of_domain_'
-      WRITE(diag,'(a)') 'nh_state_diag_of_domain_'
-      WRITE(ref,'(a)') 'nh_state_ref_of_domain_'
-      WRITE(prog,'(a)') 'nh_state_prog_of_domain_'
-
       IF ( host_to_device ) THEN
 
-        CALL gpu_h2d_var_list(TRIM(metrics), domain=jg )
-        IF (ltestcase) CALL gpu_h2d_var_list(TRIM(ref), domain=jg )
-        CALL gpu_h2d_var_list(TRIM(diag), domain=jg )
+        CALL gpu_h2d_var_list(metrics, domain=jg )
+        IF (ltestcase) CALL gpu_h2d_var_list(ref, domain=jg )
+        CALL gpu_h2d_var_list(diag, domain=jg )
         DO istep = 1, SIZE(p_nh(jg)%prog)
-          CALL gpu_h2d_var_list(TRIM(prog), domain=jg, substr='_and_timelev_', timelev=istep )
+          CALL gpu_h2d_var_list('nh_state_prog_of_domain_', domain=jg, &
+               substr='_and_timelev_', timelev=istep)
         ENDDO
 
+#if 0
       ELSE
 
 ! 
@@ -328,14 +330,13 @@ CONTAINS
 !      after the end of the time loop.  Dycore variables are updated in ACC_VALIDATE mode individually
 !      BUT: there should be a way to delete all the variables with DEL_VAR
 !
-#if 0
-        CALL gpu_d2h_var_list(TRIM(metrics), domain=jg )
-        CALL gpu_d2h_var_list(TRIM(diag), domain=jg )
-        CALL gpu_d2h_var_list(TRIM(ref), domain=jg )
+        CALL gpu_d2h_var_list(metrics, domain=jg )
+        CALL gpu_d2h_var_list(diag, domain=jg )
+        IF (ltestcase) CALL gpu_d2h_var_list(ref, domain=jg )
 
         DO istep = 1, SIZE(p_nh(jg)%prog)
-          WRITE(prog,'(a,i2.2,a,i2.2)') 'nh_state_prog_of_domain_',jg, '_and_timelev_'
-          CALL gpu_d2h_var_list(TRIM(prog), timelev=istep )
+          CALL gpu_d2h_var_list('nh_state_prog_of_domain_', domain=jg, &
+               substr='_and_timelev_', timelev=istep)
         ENDDO
 #endif
 

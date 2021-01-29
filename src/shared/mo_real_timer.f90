@@ -511,7 +511,7 @@ CONTAINS
     INTEGER, INTENT(in), OPTIONAL :: itimer      ! show this timer if present
     LOGICAL, INTENT(in), OPTIONAL :: short       ! generates condensed output if set
     ! local variables
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_real_timer:timer_report'
     INTEGER :: it
 

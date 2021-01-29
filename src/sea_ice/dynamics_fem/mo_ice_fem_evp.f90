@@ -398,8 +398,7 @@ integer     ::  i,j
 !ICON_OMP_END_DO
 !ICON_OMP_END_PARALLEL
 
-     call exchange_nod2D(u_ice)
-     call exchange_nod2D(v_ice)
+     CALL exchange_nod2D(u_ice, v_ice)
  END DO
 
 end subroutine EVPdynamics

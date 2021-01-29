@@ -28,7 +28,7 @@
 !!
 MODULE mo_echam_vdf_config
 
-  USE mo_exception            ,ONLY: message, print_value
+  USE mo_exception            ,ONLY: finish, message, print_value
   USE mo_kind                 ,ONLY: wp
   USE mo_impl_constants       ,ONLY: max_dom
   USE mo_grid_config          ,ONLY: n_dom
@@ -129,6 +129,12 @@ CONTAINS
   SUBROUTINE eval_echam_vdf_config
     !
     CHARACTER(LEN=*), PARAMETER :: routine = 'eval_echam_vdf_config'
+
+#ifdef _OPENACC
+    IF ( ANY (echam_vdf_config(:)%turb == 2) ) THEN ! turb=2 is Smagorinsky
+      CALL finish (routine, 'Smagorinsky not yet implemented with OpenACC')
+    END IF
+#endif
     !
     ! check range of pr0
     IF ( ANY(echam_vdf_config(:)% pr0 <0.6_wp ) ) CALL message(routine//' WARNING:',' echam_vdf_config(:)% pr0 < 0.6 ')

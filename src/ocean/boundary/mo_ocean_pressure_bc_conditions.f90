@@ -66,8 +66,10 @@ CONTAINS
       ocean_state%p_aux%bc_total_top_potential =  ocean_state%p_aux%bc_tides_potential + ocean_state%p_aux%bc_SAL_potential
     ENDIF
                             
-    CALL dbg_print('tides_potential',  ocean_state%p_aux%bc_tides_potential, str_module, 3, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
-    CALL dbg_print('tides_SAL',      ocean_state%p_aux%bc_SAL_potential,      str_module, 3, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
+    CALL dbg_print('tides_potential',  ocean_state%p_aux%bc_tides_potential, &
+      str_module, 3, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
+    CALL dbg_print('tides_SAL',      ocean_state%p_aux%bc_SAL_potential, &
+      str_module, 3, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
         
   END SUBROUTINE create_pressure_bc_conditions
   !-------------------------------------------------------------------------

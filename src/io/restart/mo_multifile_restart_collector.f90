@@ -384,7 +384,7 @@ CONTAINS
             CALL MPI_Rget(me%rBuf%s(1:bSize), 1, o_dTy, me%srcPE(i), t_dsp, &
               &           t_cnt(i), dTy, me%win, getReq(iReq), ierr)
 #else
-            CALL MPI_Get(me%rBuf%s(1:bSize), 1, o_dType, me%srcPE(i), t_dsp, &
+            CALL MPI_Get(me%rBuf%s(1:bSize), 1, o_dTy, me%srcPE(i), t_dsp, &
               &          t_cnt(i), dTy, me%win, ierr)
 #endif
           CASE(INT_T)

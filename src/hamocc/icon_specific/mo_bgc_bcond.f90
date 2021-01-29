@@ -336,7 +336,7 @@ CONTAINS
         CALL nf(nf_close(ncid), routine)
       ENDIF
 
-      stream_id = openInputFile(dust_file, p_patch)
+      CALL openinputfile(stream_id, dust_file, p_patch)
       
       no_tst = 12
       !-------------------------------------------------------
@@ -404,7 +404,7 @@ CONTAINS
         CALL nf(nf_close(ncid), routine)
       ENDIF
 
-      stream_id = openInputFile(dust_file, p_patch)
+      CALL openinputfile(stream_id, dust_file, p_patch)
       
       no_tst = 12
       !-------------------------------------------------------
@@ -504,7 +504,7 @@ CONTAINS
         CALL nf(nf_close(ncid), routine)
       ENDIF
 
-      stream_id = openInputFile(dust_file, p_patch)
+      CALL openInputFile(stream_id, dust_file, p_patch)
       
       no_tst = 12
       !-------------------------------------------------------

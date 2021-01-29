@@ -76,11 +76,7 @@ MODULE mo_nwp_ww
 #else
   PUBLIC :: ww_datetime
 
-  TYPE t_datetime_ptr
-    TYPE(datetime), POINTER :: ptr 
-  END TYPE t_datetime_ptr
-
-  TYPE(t_datetime_ptr) :: ww_datetime(max_dom)
+  TYPE(datetime) :: ww_datetime(max_dom)
 #endif
 
 !  The following indices are used in the diagnostics of WW
@@ -121,7 +117,7 @@ CONTAINS
 #ifdef ONLYWW
     INTEGER                                   :: ini_datetime  ! not used
 #else
-    TYPE(datetime),   INTENT(IN), POINTER     :: ini_datetime  ! init datetime (mtime)
+    TYPE(datetime),   INTENT(IN)              :: ini_datetime  ! init datetime (mtime)
 #endif
 
     INTEGER,  INTENT(IN) :: jg           !< patch 
@@ -142,7 +138,7 @@ CONTAINS
     INTEGER             :: jk, jk1
 
 #ifndef ONLYWW
-    ww_datetime(jg)%ptr => newDatetime(ini_datetime)
+    ww_datetime(jg) = ini_datetime
 #endif
 
 !   Find next layer below height of 500 hPa, and next layer to height of 500 hPa
