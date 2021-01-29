@@ -312,21 +312,37 @@ CONTAINS
     LOGICAL :: foundPrognostic
     INTEGER :: timelevel, timelevels(3)
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::find_src_element"
-    INTEGER, PARAMETER :: num_search_grids = 5
-    INTEGER, PARAMETER :: search_grids(num_search_grids) &
-         = (/ GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, &
-         &    GRID_UNSTRUCTURED_VERT, GRID_LONLAT, GRID_ZONAL /)
-    INTEGER :: hgrid, i
+
     ! find existing source variable on all possible ICON grids with the identical name {{{
-    DO i = 1, num_search_grids
-      hgrid = search_grids(i)
-      src_element => find_element ( varlist_element, &
-           &                         opt_patch_id=dom, &
-           &                         opt_hgrid=hgrid, &
-           &                         opt_caseInsensitive=.TRUE., &
-           &                         opt_returnList=src_list)
-      IF (ASSOCIATED(src_element)) EXIT
-    END DO
+    src_element => find_element ( varlist_element, &
+        &                         opt_patch_id=dom, &
+        &                         opt_hgrid=GRID_UNSTRUCTURED_CELL, &
+        &                         opt_caseInsensitive=.true., &
+        &                         opt_returnList=src_list)
+    IF (.NOT. ASSOCIATED(src_element) ) &
+        & src_element => find_element ( varlist_element,&
+        &                               opt_patch_id=dom, &
+        &                               opt_hgrid=GRID_UNSTRUCTURED_EDGE, &
+        &                               opt_caseInsensitive=.true., &
+        &                               opt_returnList=src_list)
+    IF (.NOT. ASSOCIATED(src_element) ) &
+        & src_element => find_element ( varlist_element,&
+        &                               opt_patch_id=dom, &
+        &                               opt_hgrid=GRID_UNSTRUCTURED_VERT, &
+        &                               opt_caseInsensitive=.true., &
+        &                               opt_returnList=src_list)
+    IF (.NOT. ASSOCIATED(src_element) ) &
+        & src_element => find_element ( varlist_element,&
+        &                               opt_patch_id=dom, &
+        &                               opt_hgrid=GRID_LONLAT, &
+        &                               opt_caseInsensitive=.true., &
+        &                               opt_returnList=src_list)
+    IF (.NOT. ASSOCIATED(src_element) ) &
+        & src_element => find_element ( varlist_element,&
+        &                               opt_patch_id=dom, &
+        &                               opt_hgrid=GRID_ZONAL, &
+        &                               opt_caseInsensitive=.true., &
+        &                               opt_returnList=src_list)
     ! }}}
 
     ! if not found: maybe it is a prognostic variable, so it has the
