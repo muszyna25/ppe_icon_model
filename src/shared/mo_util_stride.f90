@@ -21,7 +21,7 @@ MODULE mo_util_stride
     END SUBROUTINE util_stride_2d
 
     FUNCTION util_get_ptrdiff(a, b) RESULT(s) BIND(C,NAME='util_get_ptrdiff')
-      USE ISO_C_BINDING, ONLY: C_SIZE_T, C_PTR
+      USE ISO_C_BINDING, ONLY: C_SIZE_T
       INTEGER(C_SIZE_T) :: s, a, b
     END FUNCTION util_get_ptrdiff
   END INTERFACE
