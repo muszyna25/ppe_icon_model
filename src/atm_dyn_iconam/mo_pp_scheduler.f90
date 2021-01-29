@@ -264,8 +264,14 @@ CONTAINS
     DO i = 1,nvar_lists
       jg = var_lists(i)%p%patch_id         
 
-      element => var_lists(i)%p%first_list_element
-      DO WHILE (ASSOCIATED(element))
+      element => NULL()
+      DO
+        IF(.NOT.ASSOCIATED(element)) THEN
+          element => var_lists(i)%p%first_list_element
+        ELSE
+          element => element%next_list_element
+        ENDIF
+        IF(.NOT.ASSOCIATED(element)) EXIT
 
         IF (element%field%info%l_pp_scheduler_task /= TASK_NONE) THEN
 
@@ -375,7 +381,6 @@ CONTAINS
           END SELECT
         END IF
         
-        element => element%next_list_element
       ENDDO ! loop over vlist "i"
     ENDDO ! i = 1,nvar_lists
 
@@ -455,82 +460,89 @@ CONTAINS
       IF (.NOT. lonlat_grids%list(ll_grid_id)%l_dom(jg)) CYCLE
 
       ! now, search for "vn" in the variable list:
-      element => var_lists(i)%p%first_list_element
-      DO WHILE (ASSOCIATED(element))
+      element => NULL()
+      DO
+        IF(.NOT.ASSOCIATED(element)) THEN
+          element => var_lists(i)%p%first_list_element
+        ELSE
+          element => element%next_list_element
+        ENDIF
+        IF(.NOT.ASSOCIATED(element)) EXIT
 
         info => element%field%info
-        ! Do not inspect element if it is a container, "loutput=.false.",
-        ! or the name doesn't match
-        IF (.NOT. info%lcontainer .AND. info%loutput &
-             .AND. vn_name == tolower(get_var_name(element%field))) THEN
+        ! Do not inspect element if it is a container
+        IF (info%lcontainer) CYCLE
+        ! Do not inspect element if "loutput=.false."
+        IF (.NOT. info%loutput) CYCLE
 
-          ! get time level
-          tl = get_var_timelevel(element%field%info)
-          suffix = ''
-          IF (tl /= -1)  suffix = get_timelevel_string(tl)
+        ! Check for matching name
+        IF (vn_name /= TRIM(tolower(get_var_name(element%field)))) CYCLE
 
-          !- find existing variables "u", "v" (for copying the meta-data):
-          element_u => find_list_element (p_nh_state_lists(jg)%diag_list, "u")
-          element_v => find_list_element (p_nh_state_lists(jg)%diag_list, "v")
+        ! get time level
+        tl = get_var_timelevel(element%field%info)
+        suffix = ''
+        IF (tl /= -1)  suffix = get_timelevel_string(tl)
+
+        !- find existing variables "u", "v" (for copying the meta-data):
+        element_u => find_list_element (p_nh_state_lists(jg)%diag_list, "u")
+        element_v => find_list_element (p_nh_state_lists(jg)%diag_list, "v")
         
-          !- predefined array shapes
-          nlev = element%field%info%used_dimensions(2)
-          ptr_int_lonlat => lonlat_grids%list(ll_grid_id)%intp(jg)
-          nblks_lonlat   =  (ptr_int_lonlat%nthis_local_pts - 1)/nproma + 1
-          shape3d_ll = (/ nproma, nlev, nblks_lonlat /)
+        !- predefined array shapes
+        nlev = element%field%info%used_dimensions(2)
+        ptr_int_lonlat => lonlat_grids%list(ll_grid_id)%intp(jg)
+        nblks_lonlat   =  (ptr_int_lonlat%nthis_local_pts - 1)/nproma + 1
+        shape3d_ll = (/ nproma, nlev, nblks_lonlat /)
 
-          !-- create new cell-based variables "u", "v" on lon-lat grid
-          !   for the same time level
-          IF (dbg_level > 8) &
-            CALL message(routine, "horizontal interpolation: create u/v variables on lon-lat grid")
-          name    = TRIM(get_var_name(element_u%field))//suffix
-          cf      = element_u%field%info%cf
-          grib2   = element_u%field%info%grib2
-          post_op = element_u%field%info%post_op
-          CALL add_var( dst_varlist, TRIM(name), p_opt_field_r3d,                           &
-            & GRID_REGULAR_LONLAT, info%vgrid, cf, grib2,                                   &
-            & ldims=shape3d_ll, lrestart=.FALSE., in_group=element_u%field%info%in_group,   &
-            & new_element=new_element, loutput=.TRUE., post_op=post_op,                     &
-            & var_class=element_u%field%info%var_class, tlev_source=info%tlev_source,       &
-            & hor_interp=element_u%field%info%hor_interp,                                   &
-            & vert_interp=element_u%field%info%vert_interp )
+        !-- create new cell-based variables "u", "v" on lon-lat grid
+        !   for the same time level
+        IF (dbg_level > 8) &
+          CALL message(routine, "horizontal interpolation: create u/v variables on lon-lat grid")
+        name    = TRIM(get_var_name(element_u%field))//suffix
+        cf      = element_u%field%info%cf
+        grib2   = element_u%field%info%grib2
+        post_op = element_u%field%info%post_op
+        CALL add_var( dst_varlist, TRIM(name), p_opt_field_r3d,                           &
+          & GRID_REGULAR_LONLAT, info%vgrid, cf, grib2,                                   &
+          & ldims=shape3d_ll, lrestart=.FALSE., in_group=element_u%field%info%in_group,   &
+          & new_element=new_element, loutput=.TRUE., post_op=post_op,                     &
+          & var_class=element_u%field%info%var_class, tlev_source=info%tlev_source,       &
+          & hor_interp=element_u%field%info%hor_interp,                                   &
+          & vert_interp=element_u%field%info%vert_interp )
 
-          name    = TRIM(get_var_name(element_v%field))//suffix
-          cf      = element_v%field%info%cf
-          grib2   = element_v%field%info%grib2
-          post_op = element_v%field%info%post_op
-          CALL add_var( dst_varlist, TRIM(name), p_opt_field_r3d,                           &
-            & GRID_REGULAR_LONLAT, info%vgrid, cf, grib2,                                   &
-            & ldims=shape3d_ll, lrestart=.FALSE., in_group=element_v%field%info%in_group,   &
-            & new_element=new_element_2, loutput=.TRUE., post_op=post_op,                   &
-            & var_class=element_v%field%info%var_class, tlev_source=info%tlev_source,       &
-            & hor_interp=element_v%field%info%hor_interp,                                   &
-            & vert_interp=element_v%field%info%vert_interp )
+        name    = TRIM(get_var_name(element_v%field))//suffix
+        cf      = element_v%field%info%cf
+        grib2   = element_v%field%info%grib2
+        post_op = element_v%field%info%post_op
+        CALL add_var( dst_varlist, TRIM(name), p_opt_field_r3d,                           &
+          & GRID_REGULAR_LONLAT, info%vgrid, cf, grib2,                                   &
+          & ldims=shape3d_ll, lrestart=.FALSE., in_group=element_v%field%info%in_group,   &
+          & new_element=new_element_2, loutput=.TRUE., post_op=post_op,                   &
+          & var_class=element_v%field%info%var_class, tlev_source=info%tlev_source,       &
+          & hor_interp=element_v%field%info%hor_interp,                                   &
+          & vert_interp=element_v%field%info%vert_interp )
 
-          ! link these new variables to the lon-lat grid:
-          new_element%field%info%hor_interp%lonlat_id   = ll_grid_id
-          new_element_2%field%info%hor_interp%lonlat_id = ll_grid_id
+        ! link these new variables to the lon-lat grid:
+        new_element%field%info%hor_interp%lonlat_id   = ll_grid_id
+        new_element_2%field%info%hor_interp%lonlat_id = ll_grid_id
 
-          !-- create and add post-processing task
-          task => pp_task_insert(DEFAULT_PRIORITY4)
-          WRITE (task%job_name, *) "horizontal interp. ",TRIM(info%name),", ",prefix//"-levels", ", DOM ",jg
-          IF (dbg_level > 8) CALL message(routine, task%job_name)
-          task%data_input%p_nh_state          => NULL()
-          task%data_input%prm_diag            => NULL()
-          task%data_input%nh_pzlev_config     => NULL()
-          task%data_input%jg                  =  jg           
-          task%data_input%p_patch             => p_patch(jg)
-          task%data_input%p_nh_opt_diag       => p_nh_opt_diag(jg)
-          task%data_input%p_int_state         => p_int_state(jg)
-          task%job_type                       =  TASK_INTP_HOR_LONLAT
-          task%activity                       =  new_activity_status(l_output_step=.TRUE.)
-          task%activity%check_dom_active      =  .TRUE.
-          task%activity%i_timelevel           =  get_var_timelevel(element%field%info)
-          task%data_input%var                 => element%field       ! set input variable
-          task%data_output%var                => new_element%field   ! set output variable "u"
-          task%data_output%var_2              => new_element_2%field ! set output variable "v"
-        END IF
-        element => element%next_list_element
+        !-- create and add post-processing task
+        task => pp_task_insert(DEFAULT_PRIORITY4)
+        WRITE (task%job_name, *) "horizontal interp. ",TRIM(info%name),", ",prefix//"-levels", ", DOM ",jg
+        IF (dbg_level > 8) CALL message(routine, task%job_name)
+        task%data_input%p_nh_state          => NULL()
+        task%data_input%prm_diag            => NULL()
+        task%data_input%nh_pzlev_config     => NULL()
+        task%data_input%jg                  =  jg           
+        task%data_input%p_patch             => p_patch(jg)
+        task%data_input%p_nh_opt_diag       => p_nh_opt_diag(jg)
+        task%data_input%p_int_state         => p_int_state(jg)
+        task%job_type                       =  TASK_INTP_HOR_LONLAT
+        task%activity                       =  new_activity_status(l_output_step=.TRUE.)
+        task%activity%check_dom_active      =  .TRUE.
+        task%activity%i_timelevel           =  get_var_timelevel(element%field%info)
+        task%data_input%var                 => element%field       ! set input variable
+        task%data_output%var                => new_element%field   ! set output variable "u"
+        task%data_output%var_2              => new_element_2%field ! set output variable "v"
       END DO
     END DO
     if (dbg_level > 5)  CALL message(routine, "Done")
@@ -691,7 +703,6 @@ CONTAINS
         CALL message(routine, "horizontal interpolation: "&
         &     //"Looking for input var '"//TRIM(ll_varlist(ivar))//"'")
       found = .FALSE.
-      vname = ll_varlist(ivar)
         
       !- loop over model level variables
       ! Note that there may be several variables with different time levels,
@@ -705,26 +716,36 @@ CONTAINS
         ! loop only over variables on requested domains:
         jg = var_lists(i)%p%patch_id
         IF (.NOT. lonlat_grids%list(ll_vargrid(ivar))%l_dom(jg)) CYCLE LIST_LOOP
-        element => var_lists(i)%p%first_list_element
-        VAR_LOOP : DO WHILE (ASSOCIATED(element))
+        element => NULL()
+        VAR_LOOP : DO
+          IF(.NOT.ASSOCIATED(element)) THEN
+            element => var_lists(i)%p%first_list_element
+          ELSE
+            element => element%next_list_element
+          ENDIF
+          IF(.NOT.ASSOCIATED(element)) EXIT
+            
           info     => element%field%info
           info_dyn => element%field%info_dyn
           ! Do not inspect element if it is a container
-          IF (info%lcontainer &
-            ! Do not inspect element if "loutput=.false."
-            .OR. .NOT. info%loutput &
-            ! Do not inspect element if it does not support horizontal
-            ! interpolation
-            .OR. info%hor_interp%hor_intp_type==HINTP_TYPE_NONE &
-            ! "u", "v" are processed separately, see above.
-            .OR. vname == "u" .OR. vname == "v" &
-            ! Check for matching name (take care of suffix of
-            ! time-dependent variables):
-            .OR. vname /= tolower(get_var_name(element%field)) &
-            .OR. info%hgrid /= GRID_UNSTRUCTURED_CELL) THEN
-            element => element%next_list_element
-            CYCLE VAR_LOOP
-          ENDIF
+          IF (info%lcontainer) CYCLE VAR_LOOP
+          ! Do not inspect element if "loutput=.false."
+          IF (.NOT. info%loutput) CYCLE VAR_LOOP
+          ! Do not inspect element if it does not support horizontal
+          ! interpolation
+          IF (info%hor_interp%hor_intp_type==HINTP_TYPE_NONE) CYCLE VAR_LOOP
+
+          ! Check for matching name
+          vname = ll_varlist(ivar)
+
+          ! "u", "v" are processed separately, see above.
+          IF ((TRIM(vname) == "u") .OR. (TRIM(vname) == "v"))  CYCLE VAR_LOOP
+
+          ! Check for matching name (take care of suffix of
+          ! time-dependent variables):
+          IF (TRIM(vname) /= TRIM(tolower(get_var_name(element%field)))) CYCLE VAR_LOOP
+
+          IF (info%hgrid /= GRID_UNSTRUCTURED_CELL)  CYCLE VAR_LOOP
 
           ! Found it, add it to the variable list of optional
           ! diagnostics       
@@ -861,8 +882,7 @@ CONTAINS
           ! been created.
           l_horintp = .TRUE.
           found     = .TRUE.
-
-          element => element%next_list_element
+          
         ENDDO VAR_LOOP ! loop over vlist "i"
       ENDDO LIST_LOOP ! i = 1,nvar_lists
     END DO ! ivar
@@ -915,7 +935,8 @@ CONTAINS
     p_onl => first_output_name_list
     nvars = 0
     l_intp = .FALSE.
-    NML_LOOP : DO WHILE (ASSOCIATED(p_onl))
+    NML_LOOP : DO
+      IF (.NOT.ASSOCIATED(p_onl)) EXIT NML_LOOP
       SELECT CASE (toupper(vintp_name))
       CASE ("Z")
         nml_varlist => p_onl%hl_varlist
@@ -1040,19 +1061,24 @@ CONTAINS
       ! loop only over variables of current domain
       IF (var_lists(i)%p%patch_id /= jg) CYCLE
 
-      element => var_lists(i)%p%first_list_element
-      var_loop: DO WHILE (ASSOCIATED(element))
+      element => NULL()
+      DO
+        IF(.NOT.ASSOCIATED(element)) THEN
+          element => var_lists(i)%p%first_list_element
+        ELSE
+          element => element%next_list_element
+        ENDIF
+        IF(.NOT.ASSOCIATED(element)) EXIT
+
         info => element%field%info
         ! Do not inspect element if it is a container
-        IF (info%lcontainer &
-          ! Do not inspect element if "loutput=.false."
-          .OR. .NOT. info%loutput &
-          ! Check for matching name (take care of suffix of
-          ! time-dependent variables):
-          .OR. vn_name /= tolower(get_var_name(element%field))) THEN
-          element => element%next_list_element
-          CYCLE var_loop
-        ENDIF
+        IF (info%lcontainer) CYCLE
+        ! Do not inspect element if "loutput=.false."
+        IF (.NOT. info%loutput) CYCLE
+
+        ! Check for matching name (take care of suffix of
+        ! time-dependent variables):
+        IF (vn_name /= tolower(get_var_name(element%field))) CYCLE
 
         ! get time level
         tl = get_var_timelevel(element%field%info)
@@ -1139,8 +1165,7 @@ CONTAINS
         task%data_input%var             => vn_element%field    ! set input variable
         task%data_output%var            => new_element%field   ! set output variable
         task%data_output%var_2          => new_element_2%field ! set Y-component
-        element => element%next_list_element
-      END DO var_loop
+      END DO
     END DO
 
     if (dbg_level > 5)  CALL message(routine, "Done")
@@ -1424,24 +1449,36 @@ CONTAINS
             ! loop only over variables of current domain
             IF (var_lists(i)%p%patch_id /= jg) CYCLE
 
-            element => var_lists(i)%p%first_list_element
-            var_loop: DO WHILE (ASSOCIATED(element))
+            element => NULL()
+            DO
+              IF(.NOT.ASSOCIATED(element)) THEN
+                element => var_lists(i)%p%first_list_element
+              ELSE
+                element => element%next_list_element
+              ENDIF
+              IF(.NOT.ASSOCIATED(element)) EXIT
+
               info     => element%field%info
               info_dyn => element%field%info_dyn
               ! Do not inspect element if it is a container
-              IF (info%lcontainer &
-                ! Do not inspect element if "loutput=.false."
-                .OR. .NOT. info%loutput &
-                ! Inspect element only if vertical interpolation matches
-                .OR. (iaxis == 1 .AND. .NOT. info%vert_interp%vert_intp_type(z_id)) &
-                .OR. (iaxis == 2 .AND. .NOT. info%vert_interp%vert_intp_type(p_id)) &
-                .OR. (iaxis == 3 .AND. .NOT. info%vert_interp%vert_intp_type(i_id)) &
-                ! Check for matching name (take care of suffix of
-                ! time-dependent variables):
-                .OR. varlist(ivar) /= tolower(get_var_name(element%field))) THEN
-                element => element%next_list_element
-                CYCLE var_loop
+              IF (info%lcontainer) CYCLE
+              ! Do not inspect element if "loutput=.false."
+              IF (.NOT. info%loutput) CYCLE
+              ! Inspect element only if vertical interpolation matches
+              IF (iaxis == 1) THEN
+                IF (.NOT. info%vert_interp%vert_intp_type(z_id)) CYCLE
               END IF
+              IF (iaxis == 2) THEN
+                IF (.NOT. info%vert_interp%vert_intp_type(p_id)) CYCLE
+              END IF
+              IF (iaxis == 3) THEN
+                IF (.NOT. info%vert_interp%vert_intp_type(i_id)) CYCLE
+              END IF
+
+              ! Check for matching name (take care of suffix of
+              ! time-dependent variables):
+              IF (varlist(ivar) /= tolower(get_var_name(element%field))) CYCLE
+
 
               ! Found it, add it to the variable list of optional
               ! diagnostics
@@ -1502,8 +1539,7 @@ CONTAINS
 
               found = .TRUE.
 
-              element => element%next_list_element
-            ENDDO var_loop ! loop over vlist "i"
+            ENDDO ! loop over vlist "i"
           ENDDO ! i = 1,nvar_lists
         
           ! Check that at least one element with this name has been found
@@ -1589,7 +1625,8 @@ CONTAINS
     END IF
     ptr_task => job_queue
     ! loop over job queue
-    LOOP_JOB : DO WHILE (ASSOCIATED(ptr_task))
+    LOOP_JOB : DO
+      IF (.NOT. ASSOCIATED(ptr_task)) EXIT
       IF (.NOT. pp_task_is_active(ptr_task, simulation_status)) THEN
         IF (dbg_level > 20) THEN
           WRITE(message_text,*) "Skipping task '", TRIM(ptr_task%job_name), "'"
@@ -1662,7 +1699,8 @@ CONTAINS
     
     CALL message(routine, "")
     ! destroy linked list
-    DO WHILE (ASSOCIATED(job_queue))
+    DO
+      IF (.NOT. ASSOCIATED(job_queue)) EXIT
       ! remove list head
       tmp => job_queue%next
       DEALLOCATE(job_queue, STAT=ierrstat)
@@ -1741,7 +1779,8 @@ CONTAINS
     ! find the correct position in list:
     tmp     => job_queue
     nb_left => NULL()
-    DO WHILE (ASSOCIATED(tmp))
+    DO
+      IF (.NOT. ASSOCIATED(tmp))                EXIT
       IF (tmp%job_priority > job_priority) EXIT
       nb_left => tmp
       tmp     => tmp%next
