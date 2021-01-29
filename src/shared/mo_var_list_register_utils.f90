@@ -66,7 +66,7 @@ CONTAINS
     &                      loutputvars_only, lremap_lonlat, &
     &                      opt_vlevel_type, opt_dom_id)
     CHARACTER(*), INTENT(IN) :: grp_name
-    CHARACTER(LEN=vname_len), INTENT(INOUT) :: var_name(:)
+    CHARACTER(LEN=vname_len), INTENT(OUT) :: var_name(:)
     INTEGER, INTENT(OUT) :: nvars
     LOGICAL, INTENT(IN) :: loutputvars_only, lremap_lonlat
     INTEGER, OPTIONAL, INTENT(IN) :: opt_vlevel_type, opt_dom_id
