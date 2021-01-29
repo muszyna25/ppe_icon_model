@@ -251,7 +251,7 @@ CONTAINS
 
     ! local variables
     CHARACTER(*), PARAMETER :: routine =  modname//"::pp_scheduler_init"
-    INTEGER                          :: jg, i, job_type
+    INTEGER                          :: jg, i
     TYPE(t_list_element), POINTER    :: element, element_pres
 
     if (dbg_level > 5)  CALL message(routine, "Enter")
@@ -262,50 +262,103 @@ CONTAINS
 
     !- loop over model level variables
     DO i = 1,nvar_lists
-      jg = var_lists(i)%p%patch_id
+      jg = var_lists(i)%p%patch_id         
 
       element => var_lists(i)%p%first_list_element
       DO WHILE (ASSOCIATED(element))
 
-        job_type = element%field%info%l_pp_scheduler_task
-        IF (job_type /= TASK_NONE) THEN
+        IF (element%field%info%l_pp_scheduler_task /= TASK_NONE) THEN
 
           IF (dbg_level > 5)  &
             & CALL message(routine, "Inserting pp task: "//TRIM(element%field%info%name))
 
-          SELECT CASE(job_type)
-          CASE (TASK_COMPUTE_RH, TASK_COMPUTE_OMEGA, TASK_COMPUTE_PV, &
-            &   TASK_COMPUTE_VOR_U, TASK_COMPUTE_VOR_V, TASK_COMPUTE_BVF2, &
-            &   TASK_COMPUTE_PARCELFREQ2, &
-            &   TASK_COMPUTE_SDI2, TASK_COMPUTE_LPI, TASK_COMPUTE_CEILING, &
-            &   TASK_COMPUTE_HBAS_SC, TASK_COMPUTE_HTOP_SC, &
-            &   TASK_COMPUTE_TWATER, TASK_COMPUTE_Q_SEDIM, &
-            &   TASK_COMPUTE_DBZ850, TASK_COMPUTE_DBZCMAX, TASK_COMPUTE_SMI)
-            ! TASK_COMPUTE_RH: relative humidity
-            ! TASK_COMPUTE_OMEGA: vertical velocity
-            ! TASK_COMPUTE_PV: potential vorticity
-            ! TASK_COMPUTE_VOR_U: zonal component of relative vorticity
-            ! TASK_COMPUTE_VOR_V: meridional component of relative vorticity
-            ! TASK_COMPUTE_BVF2: square of Brunt-Vaisala frequency
-            ! TASK_COMPUTE_PARCELFREQ2: square of air parcel oscillation frequency
-            ! TASK_COMPUTE_SDI2: super cell detection index (SDI2)
-            ! TASK_COMPUTE_LPI: lightning potential index (LPI)
-            ! TASK_COMPUTE_CEILING: ceiling height
-            ! TASK_COMPUTE_HBAS_SC: height of base over MSL from shallow
-            !                       convection parameterization
-            ! TASK_COMPUTE_HTOP_SC: height of top over MSL from shallow
-            !                       convection parameterization
-            ! TASK_COMPUTE_TWATER: total column integrated water
-            ! TASK_COMPUTE_Q_SEDIM: Specific content of precipitation particles
-            ! TASK_COMPUTE_DBZ850: radar reflectivity
-            ! TASK_COMPUTE_DBZCMAX: radar reflectivity
-            ! TASK_COMPUTE_SMI: soil moisture index
-            CALL pp_scheduler_register(name=element%field%info%name, jg=jg, &
-              &                        p_out_var=element,                   &
-              &                        l_init_prm_diag=l_init_prm_diag,     &
-              &                        job_type=job_type)
+          SELECT CASE(element%field%info%l_pp_scheduler_task)
+          CASE (TASK_COMPUTE_RH) 
+            ! relative humidity
+            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
+              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_RH )
             !
-          CASE (TASK_INTP_MSL)
+          CASE (TASK_COMPUTE_OMEGA)
+            ! vertical velocity
+            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
+              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_OMEGA )
+            !
+          CASE (TASK_COMPUTE_PV) 
+            ! potential vorticity
+            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
+              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_PV )
+            !
+          CASE (TASK_COMPUTE_VOR_U) 
+            ! zonal component of relative vorticity
+            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
+              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_VOR_U )
+            !
+          CASE (TASK_COMPUTE_VOR_V) 
+            ! meridional component of relative vorticity
+            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
+              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_VOR_V )
+            !
+          CASE (TASK_COMPUTE_BVF2) 
+            ! square of Brunt-Vaisala frequency
+            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
+              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_BVF2 )
+            !
+          CASE (TASK_COMPUTE_PARCELFREQ2) 
+            ! square of air parcel oscillation frequency
+            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
+              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_PARCELFREQ2 )
+            !
+          CASE (TASK_COMPUTE_SDI2) 
+            ! super cell detection index (SDI2)
+            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
+              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_SDI2 )
+            !
+          CASE (TASK_COMPUTE_LPI) 
+            ! lightning potential index (LPI)
+            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
+              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_LPI )
+            !
+          CASE (TASK_COMPUTE_CEILING) 
+            ! ceiling height
+            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
+              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_CEILING )
+            !
+          CASE (TASK_COMPUTE_HBAS_SC) 
+            ! height of base over MSL from shallow convection parameterization
+            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
+              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_HBAS_SC )
+            !
+          CASE (TASK_COMPUTE_HTOP_SC)
+            ! height of top over MSL from shallow convection parameterization
+            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
+              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_HTOP_SC )
+            !
+          CASE (TASK_COMPUTE_TWATER) 
+            ! Total column integrated water
+            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
+              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_TWATER )
+            !
+          CASE (TASK_COMPUTE_Q_SEDIM)
+            ! Specific content of precipitation particles
+            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
+              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_Q_SEDIM )
+            !
+          CASE (TASK_COMPUTE_DBZ850)
+            ! Radar reflectivity
+            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
+              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_DBZ850 )
+            !
+          CASE (TASK_COMPUTE_DBZCMAX)
+            ! Radar reflectivity
+            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
+              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_DBZCMAX )
+            !
+          CASE (TASK_COMPUTE_SMI) 
+            ! soil moisture index
+            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
+              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_SMI )
+            !
+          CASE (TASK_INTP_MSL)   
             ! mean sea level pressure
             !
             ! find the standard pressure field:
