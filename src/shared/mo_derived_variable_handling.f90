@@ -273,31 +273,30 @@ CONTAINS
     ! }}}
   END SUBROUTINE fill_list_of_output_varnames
 
-#ifdef DEBUG_MVSTREAM
   SUBROUTINE print_src_dest_info(src_element, dest_element, dest_element_name,in_varlist,i)
     TYPE(t_list_element), POINTER :: src_element, dest_element
     CHARACTER(LEN=VARNAME_LEN) :: dest_element_name
     CHARACTER(LEN=vname_len), POINTER :: in_varlist(:)
     INTEGER,INTENT(IN) :: i
-    INTEGER :: j
-    CHARACTER(LEN=80) :: msg
 
-    IF (my_process_is_stdio()) THEN
-      CALL print_summary('src(name)     :|'//TRIM(src_element%field%info%name)//'|',stderr=.TRUE.)
-      CALL print_summary('src(grid)     :|'//int2string(src_element%field%info%hgrid)//'|', &
-           & stderr=.TRUE.)
-      DO j = 1, 5
-        WRITE (msg, '(a,i0,a,i0,a)') 'src(dims:', j, ')   :|', &
-             src_element%field%info%used_dimensions(j), '|'
-        CALL print_summary(msg, stderr=.TRUE.)
-      END DO
-      CALL print_summary('varlist(name) :|'//TRIM(in_varlist(i))//'|',stderr=.TRUE.)
-      CALL print_summary('new name      :|'//TRIM(dest_element_name)//'|',stderr=.TRUE.)
-      CALL print_summary('new grid      :|'//int2string(dest_element%field%info%hgrid)//'|',&
-        & stderr=.TRUE.)
-    END IF
-  END SUBROUTINE print_src_dest_info
-#endif
+      IF (my_process_is_stdio()) CALL print_summary('src(name)     :|'//trim(src_element%field%info%name)//'|',stderr=.true.)
+      IF (my_process_is_stdio()) CALL print_summary('src(grid)     :|'//int2string(src_element%field%info%hgrid)//'|', &
+          & stderr=.true.)
+      IF (my_process_is_stdio()) CALL print_summary('src(dims:1)   :|'//int2string(src_element%field%info%used_dimensions(1))//'|',&
+          & stderr=.true.)
+      IF (my_process_is_stdio()) CALL print_summary('src(dims:2)   :|'//int2string(src_element%field%info%used_dimensions(2))//'|',&
+          & stderr=.true.)
+      IF (my_process_is_stdio()) CALL print_summary('src(dims:3)   :|'//int2string(src_element%field%info%used_dimensions(3))//'|',&
+          & stderr=.true.)
+      IF (my_process_is_stdio()) CALL print_summary('src(dims:4)   :|'//int2string(src_element%field%info%used_dimensions(4))//'|',&
+          & stderr=.true.)
+      IF (my_process_is_stdio()) CALL print_summary('src(dims:5)   :|'//int2string(src_element%field%info%used_dimensions(5))//'|',&
+          & stderr=.true.)
+      IF (my_process_is_stdio()) CALL print_summary('varlist(name) :|'//trim(in_varlist(i))//'|',stderr=.true.)
+      IF (my_process_is_stdio()) CALL print_summary('new name      :|'//trim(dest_element_name)//'|',stderr=.true.)
+      IF (my_process_is_stdio()) CALL print_summary('new grid      :|'//int2string(dest_element%field%info%hgrid)//'|',&
+          & stderr=.true.)
+  END SUBROUTINE
 
   SUBROUTINE find_src_element(src_element, varlist_element, dest_element_name, &
           &  dom, src_list, prognosticsList, prognosticsPointerList)
