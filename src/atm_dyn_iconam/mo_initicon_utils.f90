@@ -131,11 +131,10 @@ MODULE mo_initicon_utils
     CHARACTER(len=*), INTENT(IN)      :: varname             !< var name of field to be read
     REAL(wp), OPTIONAL, INTENT(INOUT) :: optvar_out2D(:,:)   !< 3D output field
     REAL(wp), OPTIONAL, INTENT(INOUT) :: optvar_out3D(:,:,:) !< 2D output field
-    ! local variables
     INTEGER                         :: i              ! loop count
     TYPE(t_var_metadata), POINTER   :: info           ! variable metadata
     CHARACTER(*), PARAMETER     :: routine = 'initicon_inverse_post_op'
-    CHARACTER(:), ALLOCATABLE :: lc_varname
+    CHARACTER(LEN=LEN_TRIM(varname)) :: lc_varname
     TYPE(t_vl_register_iter) :: vl_iter
 
     !-------------------------------------------------------------------------
@@ -158,16 +157,13 @@ MODULE mo_initicon_utils
       END DO
     ENDDO
     IF (.NOT.ASSOCIATED(info)) THEN
-      WRITE (message_text,'(a,a)') TRIM(varname), ' not found'
-      CALL message('',message_text)
+      CALL message(TRIM(varname)//' not found',message_text)
       CALL finish(routine, 'Varname does not match any of the ICON variable names')
     ENDIF
     ! perform post_op
     IF (info%post_op%ipost_op_type /= POST_OP_NONE) THEN
-      IF(my_process_is_stdio() .AND. msg_level>10) THEN
-        WRITE(message_text,'(a)') 'Inverse Post_op for: '//TRIM(varname)
-        CALL message(TRIM(routine), TRIM(message_text))
-      ENDIF
+      IF(my_process_is_stdio() .AND. msg_level>10) &
+        & CALL message(routine, 'Inverse Post_op for: '//TRIM(varname))
       IF (PRESENT(optvar_out2D)) THEN
         CALL perform_post_op(info%post_op, optvar_out2D, opt_inverse=.TRUE.)
       ELSE IF (PRESENT(optvar_out3D)) THEN
