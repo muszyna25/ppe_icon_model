@@ -45,7 +45,8 @@ MODULE mo_nonhydro_state
     &                                MODE_ICONVREMAP,HINTP_TYPE_LONLAT_RBF,          &
     &                                HINTP_TYPE_LONLAT_BCTR,                         &
     &                                TASK_COMPUTE_VOR_U, TASK_COMPUTE_VOR_V,         &
-    &                                TASK_COMPUTE_BVF2, TASK_COMPUTE_PARCELFREQ2
+    &                                TASK_COMPUTE_BVF2, TASK_COMPUTE_PARCELFREQ2,    &
+    &                                MIN_RLCELL_INT, MIN_RLCELL
   USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, &
     &                                GRID_UNSTRUCTURED_VERT, GRID_CELL, GRID_EDGE,   &
     &                                GRID_VERTEX
@@ -105,6 +106,7 @@ MODULE mo_nonhydro_state
   USE mo_upatmo_config,        ONLY: upatmo_dyn_config
   USE mo_upatmo_impl_const,    ONLY: idamtr
   USE mo_echam_vdf_config,     ONLY: echam_vdf_config
+  USE mo_loopindices,          ONLY: get_indices_c
 
 #include "add_var_acc_macro.inc"
 
@@ -165,6 +167,8 @@ MODULE mo_nonhydro_state
                 jt         ! time level counter
 
     LOGICAL  :: l_extra_timelev
+    
+    INTEGER :: ic, jb, jc, i_startblk, i_endblk, i_startidx, i_endidx
 
     CHARACTER(len=max_var_list_name_len) :: listname
     CHARACTER(len=varname_len) :: varname_prefix
@@ -218,6 +222,32 @@ MODULE mo_nonhydro_state
       ALLOCATE(p_nh_state_lists(jg)%tracer_list(1:ntl_pure), STAT=ist)
       IF (ist/=SUCCESS) CALL finish(routine,                                   &
         'allocation of prognostic tracer list array failed')
+
+      ! Moved here from set_nh_metrics because we need bdy_halo_c_dim/blk/idx for add_var
+      i_startblk = p_patch(jg)%cells%start_block(min_rlcell_int-1)
+      i_endblk   = p_patch(jg)%cells%end_block(min_rlcell)
+      ic = 0
+      DO jb = i_startblk, i_endblk
+
+        CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, min_rlcell_int-1, min_rlcell)
+
+        DO jc = i_startidx, i_endidx
+          IF (p_patch(jg)%cells%refin_ctrl(jc,jb)>=1 .AND. &
+              p_patch(jg)%cells%refin_ctrl(jc,jb)<=4) THEN
+            ic = ic+1
+          ENDIF
+        ENDDO
+      ENDDO
+      p_nh_state(jg)%metrics%bdy_halo_c_dim = ic
+      !$acc update device(p_nh_state(jg)%metrics%bdy_halo_c_dim)
+      ! Index list for halo points belonging to the lateral boundary interpolation zone
+
+      IF ( ic == 0 ) THEN
+         ALLOCATE(p_nh_state(jg)%metrics%bdy_halo_c_idx(0:0),p_nh_state(jg)%metrics%bdy_halo_c_blk(0:0))
+      ELSE
+         ALLOCATE(p_nh_state(jg)%metrics%bdy_halo_c_idx(ic),p_nh_state(jg)%metrics%bdy_halo_c_blk(ic))
+      ENDIF
 
 
       !
@@ -4246,6 +4276,30 @@ MODULE mo_nonhydro_state
         __acc_attach(p_metrics%d2dexdz2_fac2_mc)
       ENDIF
 
+      ! index lists for halo points belonging to the nest boundary region
+      ! p_metrics%bdy_halo_c_idx
+      !
+      cf_desc    = t_cf_var('bdy_halo_c_idx', '-',                                      &
+      &                     'index lists for halo points belonging to the nest boundary region', &
+      &                     DATATYPE_INT)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_metrics_list, 'bdy_halo_c_idx', p_metrics%bdy_halo_c_idx, &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,        &
+                  & ldims=(/p_metrics%bdy_halo_c_dim/), lopenacc = .TRUE. )
+      __acc_attach(p_metrics%bdy_halo_c_idx)
+
+      ! block lists for halo points belonging to the nest boundary region
+      ! bdy_halo_c_blk
+      !
+      cf_desc    = t_cf_var('bdy_halo_c_blk', '-',                                      &
+      &                     'block lists for halo points belonging to the nest boundary region', &
+      &                     DATATYPE_INT)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_metrics_list, 'bdy_halo_c_blk', p_metrics%bdy_halo_c_blk, &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,        &
+                  & ldims=(/p_metrics%bdy_halo_c_dim/), lopenacc = .TRUE. )
+      __acc_attach(p_metrics%bdy_halo_c_blk)
+      
       ! mask field that excludes boundary halo points
       ! mask_prog_halo_c  p_metrics%mask_prog_halo_c(nproma,nblks_c)
       ! Note: Here "loutput" is set to .FALSE. since the output

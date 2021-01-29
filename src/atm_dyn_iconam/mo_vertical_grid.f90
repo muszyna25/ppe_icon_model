@@ -750,29 +750,6 @@ MODULE mo_vertical_grid
           IF (p_patch(jg)%cells%refin_ctrl(jc,jb)>=1 .AND. &
               p_patch(jg)%cells%refin_ctrl(jc,jb)<=4) THEN
             ic = ic+1
-          ENDIF
-        ENDDO
-      ENDDO
-      p_nh(jg)%metrics%bdy_halo_c_dim = ic
-
-      ! Index list for halo points belonging to the lateral boundary interpolation zone
-
-      IF ( ic == 0 ) THEN
-         ALLOCATE(p_nh(jg)%metrics%bdy_halo_c_idx(0:0),p_nh(jg)%metrics%bdy_halo_c_blk(0:0))
-      ELSE
-         ALLOCATE(p_nh(jg)%metrics%bdy_halo_c_idx(ic),p_nh(jg)%metrics%bdy_halo_c_blk(ic))
-      ENDIF
-
-      ic = 0
-      DO jb = i_startblk, i_endblk
-
-        CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, min_rlcell_int-1, min_rlcell)
-
-        DO jc = i_startidx, i_endidx
-          IF (p_patch(jg)%cells%refin_ctrl(jc,jb)>=1 .AND. &
-              p_patch(jg)%cells%refin_ctrl(jc,jb)<=4) THEN
-            ic = ic+1
             p_nh(jg)%metrics%bdy_halo_c_idx(ic) = jc
             p_nh(jg)%metrics%bdy_halo_c_blk(ic) = jb
           ELSE
