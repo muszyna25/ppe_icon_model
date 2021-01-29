@@ -370,7 +370,7 @@ SUBROUTINE CHEMCON ( start_idx, end_idx, klevs, psao, ptho,  &
            ts2 = ts*ts
            ts3 = ts*ts2
            ts4 = ts*ts3
-           ts5 = ts*ts5
+           ts5 = ts*ts4
 
            ! O2sat ml/L
            oxy  = oxya0 + oxya1*ts + oxya2*ts2 + oxya3*ts3 + oxya4*ts4 +oxya5*ts5  &
