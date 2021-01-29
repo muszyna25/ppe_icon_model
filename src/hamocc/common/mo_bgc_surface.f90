@@ -162,7 +162,7 @@ SUBROUTINE dust_deposition ( start_idx,end_idx, pddpo,za,dustinp)
 END SUBROUTINE
 
 
-SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, psao, ptho,  &
+SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, ptho, psao,  &
      &              pfu10, psicomo )
 !! @brief Computes sea-air gass exchange
 !!         for oxygen, O2, N2, N2O, DMS, and CO2.
