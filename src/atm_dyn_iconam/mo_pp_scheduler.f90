@@ -229,7 +229,7 @@ MODULE mo_pp_scheduler
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_pp_scheduler'
 
   ! some constants (for better readability):
-  CHARACTER(*), PARAMETER :: vn_name = "vn"
+  CHARACTER(*), PARAMETER :: vn_name = TRIM("vn")
 
 CONTAINS
 
@@ -937,7 +937,7 @@ CONTAINS
     l_intp = .FALSE.
     NML_LOOP : DO
       IF (.NOT.ASSOCIATED(p_onl)) EXIT NML_LOOP
-      SELECT CASE (toupper(vintp_name))
+      SELECT CASE (TRIM(toupper(vintp_name)))
       CASE ("Z")
         nml_varlist => p_onl%hl_varlist
       CASE ("P")
@@ -1078,7 +1078,7 @@ CONTAINS
 
         ! Check for matching name (take care of suffix of
         ! time-dependent variables):
-        IF (vn_name /= tolower(get_var_name(element%field))) CYCLE
+        IF (TRIM(vn_name) /= TRIM(tolower(get_var_name(element%field)))) CYCLE
 
         ! get time level
         tl = get_var_timelevel(element%field%info)
@@ -1477,7 +1477,7 @@ CONTAINS
 
               ! Check for matching name (take care of suffix of
               ! time-dependent variables):
-              IF (varlist(ivar) /= tolower(get_var_name(element%field))) CYCLE
+              IF (TRIM(varlist(ivar)) /= TRIM(tolower(get_var_name(element%field)))) CYCLE
 
 
               ! Found it, add it to the variable list of optional
