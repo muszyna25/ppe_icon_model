@@ -339,16 +339,10 @@
       is_restart = isrestart()
       ! Fill data type with parameters for cdi read routine
       IF (latbc_config%lsparse_latbc) THEN
-        IF (ALLOCATED(latbc%global_index%cells)) THEN
-          read_params(icell)%npoints = SIZE(latbc%global_index%cells)
-          read_params(iedge)%npoints = SIZE(latbc%global_index%edges)
-          read_params(icell)%idx_ptr => latbc%global_index%cells
-          read_params(iedge)%idx_ptr => latbc%global_index%edges
-        ELSE
-          read_params(:)%npoints = -1
-          read_params(icell)%idx_ptr => idummy
-          read_params(iedge)%idx_ptr => idummy
-        END IF
+        read_params(icell)%npoints = SIZE(latbc%global_index%cells)
+        read_params(iedge)%npoints = SIZE(latbc%global_index%edges)
+        read_params(icell)%idx_ptr => latbc%global_index%cells
+        read_params(iedge)%idx_ptr => latbc%global_index%edges
       ELSE
         read_params(icell)%npoints = p_patch%n_patch_cells_g
         read_params(iedge)%npoints = p_patch%n_patch_edges_g
