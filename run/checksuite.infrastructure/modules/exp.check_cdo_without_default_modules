@@ -1,3 +1,0 @@
-module purge
-
-cdo -V
