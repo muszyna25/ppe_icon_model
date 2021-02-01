@@ -3754,7 +3754,7 @@ CONTAINS
     SUBROUTINE locate (element, name, in_var_list)
       TYPE(t_var_list_element), POINTER        :: element
       CHARACTER(len=*), INTENT(in)           :: name
-      CHARACTER(len=*), INTENT(in) :: in_var_list
+      CHARACTER(len=*), INTENT(in), OPTIONAL :: in_var_list
       !
       INTEGER                     :: i
       TYPE(t_list_element), POINTER :: link
@@ -3762,13 +3762,14 @@ CONTAINS
       NULLIFY (element)
       !
       DO i = 1, nvar_lists
-        IF (in_var_list == var_lists(i)%p%name) THEN
-          link => find_list_element (var_lists(i), name)
-          IF (ASSOCIATED(link)) THEN
-            element => link%field
-            EXIT
-          ENDIF
-        END IF
+        IF (PRESENT(in_var_list)) THEN
+          IF (in_var_list /= var_lists(i)%p%name) CYCLE
+        ENDIF
+        link => find_list_element (var_lists(i), name)
+        IF (ASSOCIATED(link)) THEN
+          element => link%field
+          EXIT
+        ENDIF
       END DO
       !
     END SUBROUTINE locate
