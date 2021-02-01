@@ -2605,6 +2605,19 @@ Affects the analysis increments of the the number concentrations of those hydrom
 init\_mode=5, inwp\_gscp=4,5,6
 \tabularnewline
 
+
+icpl\_da\_sfcevap&
+I & 0 & &
+Coupling between data assimilation and model parameters controlling surface evaporation (bare soil and plants). 
+Choosing values $>$ 0 requires itype\_vegetation\_cycle=2 (in extpar\_nml) :\\
+0: off \\
+1: use time-filtered T2M bias provided by the soil moisture analysis \\
+2: use in addition a time-filtered RH increment at the lowest model level (requires assimilation of RH2M) &
+init\_mode=5
+\tabularnewline
+
+
+
 %\hline
 lconsistency\_checks&
 L & .TRUE.& &
@@ -9327,9 +9340,7 @@ itype\_vegetation\_cycle&
 I & 1& &
 1: annual cycle of LAI solely based on NDVI climatology \\
 2: additional use of monthly T2M climatology to get more realistic values in extratropics 
-(requires external parameter data contining this field) \\
-3: as 2 with additional coupling of vegetation parameters to T2M bias in transitional seasons
-(requires DWD assimilation cycle including soil moisture analysis) &
+(requires external parameter data containing this field) &
 \tabularnewline
 
 

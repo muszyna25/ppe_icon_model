@@ -212,6 +212,7 @@ cat > ${atmo_namelist} << EOF
  lp2cintp_incr         = .true.
  lp2cintp_sfcana       = .true.
  ltile_coldstart       = .false.
+ icpl_da_sfcevap       = 1
  qcana_mode            = 2
  qiana_mode            = 0  ! due to KENDA, before: 1
  use_lakeiceana        = .true.
@@ -408,7 +409,7 @@ cat > ${atmo_namelist} << EOF
 /
 &extpar_nml
  itopo                   = 1
- itype_vegetation_cycle  = 3
+ itype_vegetation_cycle  = 2
  n_iter_smooth_topo      = 1,1,1,1,1,1
  heightdiff_threshold    = 2250.,1500.
  hgtdiff_max_smooth_topo = 750.,750.,750.,750.,750.,750.

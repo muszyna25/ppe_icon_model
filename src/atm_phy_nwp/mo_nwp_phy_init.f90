@@ -96,7 +96,7 @@ MODULE mo_nwp_phy_init
   USE mo_nwp_sfc_utils,       ONLY: nwp_surface_init, init_snowtile_lists, init_sea_lists, &
     &                               aggregate_tg_qvs, copy_lnd_prog_now2new
   USE mo_lnd_nwp_config,      ONLY: ntiles_total, lsnowtile, ntiles_water, &
-    &                               lseaice, zml_soil
+    &                               lseaice, zml_soil, itype_canopy
   USE sfc_terra_data,         ONLY: csalbw!, z0_lu
   USE mo_satad,               ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
     &                               sat_pres_ice, &    !! saturation vapor pressure w.r.t. ice
@@ -109,7 +109,7 @@ MODULE mo_nwp_phy_init
   USE mo_master_config,       ONLY: isRestart
   USE mo_nwp_parameters,      ONLY: t_phy_params
 
-  USE mo_initicon_config,     ONLY: init_mode, lread_tke
+  USE mo_initicon_config,     ONLY: init_mode, lread_tke, icpl_da_sfcevap, dt_ana
 
   USE mo_nwp_tuning_config,   ONLY: tune_zceff_min, tune_v0snow, tune_zvz0i, tune_icesedi_exp
   USE mo_cuparameters,        ONLY: sugwd
@@ -311,7 +311,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
 
 
   IF (.NOT. lreset_mode .AND. itype_vegetation_cycle >= 2) THEN
-    CALL vege_clim (p_patch, ext_data, p_diag_lnd)
+    CALL vege_clim (p_patch, ext_data, p_diag)
   ENDIF
 
 
@@ -364,6 +364,24 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
       prm_diag%pat_len(jc,jb) = 300._wp*EXP(1.5_wp*LOG(MAX(1.e-2_wp,(ext_data%atm%sso_stdh_raw(jc,jb)-150._wp)/300._wp)))
     ENDDO
 
+    ! tuning factor for rlam_heat depending on skin conductivity and analyzed T2M/RH2M bias
+    IF (itype_canopy == 2 .AND. icpl_da_sfcevap == 2) THEN
+      DO jt = 1, ntiles_total + ntiles_water
+        DO jc = i_startidx,i_endidx
+          IF (jt <= ntiles_total) THEN
+            prm_diag%rlamh_fac_t(jc,jb,jt) =                                                                              &
+              1._wp - 0.9_wp*MAX(0._wp,MIN(1._wp,(60._wp-ext_data%atm%skinc_t(jc,jb,jt))/30._wp)) *                       &
+              MAX(0._wp,MIN(1._wp,2.5_wp*(p_diag%t2m_bias(jc,jb)+100._wp*10800._wp/dt_ana*p_diag%rh_avginc(jc,jb)-0.4_wp)))
+          ELSE IF (jt == ntiles_total + ntiles_water) THEN ! seaice points
+            prm_diag%rlamh_fac_t(jc,jb,jt) = 0.25_wp
+          ELSE
+            prm_diag%rlamh_fac_t(jc,jb,jt) = 1._wp
+          ENDIF
+        ENDDO
+      ENDDO
+    ELSE
+      prm_diag%rlamh_fac_t(:,jb,:) = 1._wp
+    ENDIF
   ENDDO
 
   IF (linit_mode) THEN
@@ -1442,6 +1460,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
        &  fr_land=ext_data%atm%fr_land(:,jb),                                 &
        &  depth_lk=ext_data%atm%depth_lk(:,jb),                               &
        &  h_ice=p_prog_wtr_now%h_ice(:,jb),                                   &
+       &  rlamh_fac=prm_diag%rlamh_fac_t(:,jb,1),                             &
        &  sai=ext_data%atm%sai(:,jb),                                         &
        &  gz0=prm_diag%gz0(:,jb),                                             &
        &  t_g=p_prog_lnd_now%t_g(:,jb),                                       &

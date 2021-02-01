@@ -59,6 +59,7 @@ MODULE mo_initicon_config
   PUBLIC :: qcana_mode, qiana_mode, qrsgana_mode, qnxana_2mom_mode
   PUBLIC :: ltile_coldstart
   PUBLIC :: ltile_init
+  PUBLIC :: icpl_da_sfcevap, dt_ana
   PUBLIC :: lvert_remap_fg
   PUBLIC :: lcalc_avg_fg
   PUBLIC :: start_time_avg_fg
@@ -136,6 +137,10 @@ MODULE mo_initicon_config
   LOGICAL  :: ltile_coldstart  ! If true, initialize tile-based surface fields from first guess with tile-averaged fields
 
   LOGICAL  :: ltile_init       ! If true, initialize tile-based surface fields from first guess without tiles
+
+  INTEGER  :: icpl_da_sfcevap  ! Type of coupling between data assimilation and medel parameters affecting surface evaporation (plants + bare soil)
+
+  REAL(wp) :: dt_ana           ! Time interval of assimilation cycle [s] (relevant for icpl_da_sfcevap >= 2)
 
   LOGICAL  :: use_lakeiceana   ! If true, use ice fraction analysis data also over lakes (otherwise sea points only)
 

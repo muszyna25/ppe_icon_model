@@ -79,7 +79,7 @@ USE mo_grid_config,         ONLY: n_dom, n_dom_start
 USE mo_linked_list,         ONLY: t_var_list
 USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config, icpl_aero_conv, iprog_aero
 USE turb_data,              ONLY: ltkecon
-USE mo_extpar_config,       ONLY: itype_vegetation_cycle
+USE mo_initicon_config,     ONLY: icpl_da_sfcevap
 USE mo_radiation_config,    ONLY: irad_aero
 USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water, nlev_soil
 USE mo_var_list,            ONLY: default_var_list_settings, &
@@ -2580,6 +2580,31 @@ __acc_attach(diag%clct_avg)
       & ldims=shape2d, lrestart=.FALSE., lopenacc=.TRUE. )
     __acc_attach(diag%pat_len)
 
+    !        diag%rlamh_fac_t (nproma, nblks, ntiles_total+ntiles_water)
+    cf_desc    = t_cf_var('rlamh_fac_t', '', 'scaling factor for rlam_heat', &
+      &                   datatype_flt)
+    grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'rlamh_fac_t', diag%rlamh_fac_t,          &
+      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,       &
+      & ldims=shape3dsubsw, lcontainer=.TRUE., lrestart=.FALSE.,       &
+      & loutput=.FALSE., lopenacc=.TRUE.)
+    __acc_attach(diag%rlamh_fac_t)
+
+    ! fill the seperate variables belonging to the container rlamh_fac_t
+    ALLOCATE(diag%rlamh_fac_ptr(ntiles_total+ntiles_water))
+    DO jsfc = 1,ntiles_total+ntiles_water
+      WRITE(csfc,'(i1)') jsfc 
+      CALL add_ref( diag_list, 'rlamh_fac_t',                            &
+         & 'rlamh_fac_t_'//TRIM(ADJUSTL(csfc)),                          &
+         & diag%rlamh_fac_ptr(jsfc)%p_2d,                                &
+         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
+         & t_cf_var('rlamh_fac_'//TRIM(csfc), '', '', datatype_flt),     &
+         & grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),  &
+         & ref_idx=jsfc, ldims=shape2d, lrestart=.FALSE.                  )
+    ENDDO
+
+
+
     ! &      diag%gz0(nproma,nblks_c)
     cf_desc     = t_cf_var('gz0', 'm2 s-2 ','roughness length times gravity', datatype_flt)
     new_cf_desc = t_cf_var( 'z0',       'm','roughness length',               datatype_flt)
@@ -2596,7 +2621,7 @@ __acc_attach(diag%clct_avg)
     __acc_attach(diag%gz0)
 
     ! &      diag%t_2m(nproma,nblks_c)
-    IF (itype_vegetation_cycle == 3) THEN
+    IF (icpl_da_sfcevap >= 1) THEN
       in_group = groups("pbl_vars","dwd_fg_atm_vars","mode_iau_ana_in")
     ELSE
       in_group = groups("pbl_vars","dwd_fg_atm_vars")

@@ -198,12 +198,13 @@ CONTAINS
         CHARACTER(LEN = VARNAME_LEN), INTENT(INOUT) :: outGroup(:)
         INTEGER, INTENT(OUT) :: outGroupSize
 
-        outGroup(1:20) = (/'alb_si       ','rho_snow_mult','aer_ss       ','aer_or       ', &
+        outGroup(1:21) = (/'alb_si       ','rho_snow_mult','aer_ss       ','aer_or       ', &
           &                'aer_bc       ','aer_su       ','aer_du       ','plantevap    ', &
           &                't_sk         ','t2m_bias     ','hsnow_max    ','snow_age     ', &
           &                'qg           ','qh           ','qnc          ','qni          ', &
-          &                'qnr          ','qns          ','qng          ','qnh          '/)
-        outGroupSize  = 20
+          &                'qnr          ','qns          ','qng          ','qnh          ', &
+          &                'rh_avginc    '/)
+        outGroupSize  = 21
     END SUBROUTINE collectGroupFgOpt
 
     SUBROUTINE collectGroupAna(outGroup, outGroupSize, init_mode)

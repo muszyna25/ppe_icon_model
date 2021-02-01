@@ -133,7 +133,12 @@ MODULE mo_nonhydro_types
     &  q_ubc(:,:,:),       & ! Storage field for vertical nesting: q at child upper boundary
 
     !
-    ! c) storage variables for time-averaged first-guess output
+    ! c) variables derived from analysis increments
+    &  t2m_bias (:,:),       & !! filtered T2M bias from surface analysis [K]
+    &  rh_avginc(:,:),       & !! time-averaged/filtered RH increments from DA at lowest model level
+
+    !
+    ! d) storage variables for time-averaged first-guess output
     &  u_avg    (:,:,:),    & ! normal velocity average          [m/s]
     &  v_avg    (:,:,:),    & ! normal velocity average          [m/s]
     &  pres_avg (:,:,:),    & ! exner average                    [-]
@@ -141,7 +146,7 @@ MODULE mo_nonhydro_types
     &  qv_avg    (:,:,:),   &  ! specific humidity average        [kg/kg]
 
     !
-    ! d) optional diagnostics
+    ! e) optional diagnostics
     &  pres_msl(:,:),       & ! diagnosed mean sea level pressure (nproma,nblks_c)  [Pa]
     &  omega(:,:,:),        & ! vertical velocity ( omega=dp/dt )           [Pa/s]
     &  vor_u(:,:,:),        & ! zonal component of relative vorticity
@@ -177,6 +182,7 @@ MODULE mo_nonhydro_types
     &  rhons_incr (:,:,:),   & ! snow number density increment [1/m^3]
     &  rhong_incr (:,:,:),   & ! graupel number density increment [1/m^3]
     &  rhonh_incr (:,:,:),   & ! hail number density increment [1/m^3]
+    !
     ! tendencies, physics increments and derived velocity fields
     &  vt(:,:,:),           & ! tangential wind (nproma,nlev,nblks_e)          [m/s]
     &  ddt_exner_phy(:,:,:),& ! exner pressure tendency from physical forcing 

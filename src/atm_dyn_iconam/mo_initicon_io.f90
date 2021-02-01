@@ -30,7 +30,7 @@ MODULE mo_initicon_io
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data_types,      ONLY: t_external_data
-  USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog
+  USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
   USE mo_initicon_types,      ONLY: t_initicon_state, t_pi_atm_in, t_pi_atm, &
@@ -42,7 +42,7 @@ MODULE mo_initicon_io
     &                               ifs2icon_filename, lread_vn, lread_tke,             &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart,    &
     &                               lvert_remap_fg, aerosol_fg_present, nlevsoil_in, qcana_mode, qiana_mode, qrsgana_mode, &
-    &                               qnxana_2mom_mode
+    &                               qnxana_2mom_mode, icpl_da_sfcevap
   USE mo_nh_init_nest_utils,  ONLY: interpolate_scal_increments, interpolate_sfcana
   USE mo_nh_init_utils,       ONLY: convert_omega2w, compute_input_pressure_and_height
   USE mo_impl_constants,      ONLY: max_dom, MODE_ICONVREMAP,          &
@@ -63,7 +63,6 @@ MODULE mo_initicon_io
     &                               ntiles_water, lmulti_snow, lsnowtile, &
     &                               isub_lake, llake, lprog_albsi, itype_trvg, &
     &                               itype_snowevap, itype_canopy, nlev_soil
-  USE mo_extpar_config,       ONLY: itype_vegetation_cycle
   USE mo_master_config,       ONLY: getModelBaseDir
   USE mo_nwp_sfc_interp,      ONLY: smi_to_wsoil
   USE mo_initicon_utils,      ONLY: allocate_extana_atm, allocate_extana_sfc, &
@@ -1776,10 +1775,11 @@ CONTAINS
 
   !>
   !! Fetch DWD first guess DATA from request list (land/surface only)
-  SUBROUTINE fetch_dwdfg_sfc(requestList, p_patch, prm_diag, p_lnd_state, inputInstructions)
+  SUBROUTINE fetch_dwdfg_sfc(requestList, p_patch, prm_diag, p_nh_state, p_lnd_state, inputInstructions)
     CLASS(t_InputRequestList), POINTER, INTENT(INOUT) :: requestList
     TYPE(t_patch),             INTENT(IN)    :: p_patch(:)
     TYPE(t_nwp_phy_diag),      INTENT(INOUT) :: prm_diag(:)
+    TYPE(t_nh_state),  TARGET, INTENT(INOUT) :: p_nh_state(:)
     TYPE(t_lnd_state), TARGET, INTENT(INOUT) :: p_lnd_state(:)
     TYPE(t_readInstructionListPtr), INTENT(INOUT) :: inputInstructions(:)
 
@@ -1788,6 +1788,7 @@ CONTAINS
     REAL(dp), POINTER :: levels(:)
     TYPE(t_lnd_prog), POINTER :: lnd_prog
     TYPE(t_lnd_diag), POINTER :: lnd_diag
+    TYPE(t_nh_diag),  POINTER :: nh_diag
     TYPE(t_wtr_prog), POINTER :: wtr_prog
     TYPE(t_fetchParams) :: params
 
@@ -1806,6 +1807,7 @@ CONTAINS
         IF(p_patch(jg)%ldom_active) THEN ! Skip reading the atmospheric input data if a model domain is not active at initial time
             lnd_prog => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
             lnd_diag => p_lnd_state(jg)%diag_lnd
+            nh_diag  => p_nh_state(jg)%diag
             wtr_prog => p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))
 
             ! COSMO-DE does not provide sea ice field. In that case set fr_seaice to 0
@@ -1846,9 +1848,13 @@ CONTAINS
             IF (itype_trvg == 3) THEN
               CALL fetchTiledSurface(params, 'plantevap', jg, ntiles_total, lnd_diag%plantevap_t)
             ENDIF
-            IF (itype_vegetation_cycle == 3) THEN
-              CALL fetchSurface(params, 't2m_bias', jg, lnd_diag%t2m_bias)
+            IF (icpl_da_sfcevap >= 1) THEN
+              CALL fetchSurface(params, 't2m_bias', jg, nh_diag%t2m_bias)
             ENDIF
+            IF (icpl_da_sfcevap >= 2) THEN
+              CALL fetchSurface(params, 'rh_avginc', jg, nh_diag%rh_avginc)
+            ENDIF
+
             IF (itype_snowevap == 3) THEN
               CALL fetchSurface(params, 'hsnow_max', jg, lnd_diag%hsnow_max)
               CALL fetchSurface(params, 'snow_age',  jg, lnd_diag%snow_age)
@@ -2214,7 +2220,7 @@ CONTAINS
             END IF
 
             ! t_2m bias
-            IF (itype_vegetation_cycle == 3 .AND. init_mode == MODE_IAU ) THEN
+            IF (icpl_da_sfcevap >= 1 .AND. init_mode == MODE_IAU ) THEN
                my_ptr2d => initicon(jg)%sfc_inc%t_2m(:,:)
                CALL fetchSurface(params, 't_2m', jg, my_ptr2d)
             ENDIF
