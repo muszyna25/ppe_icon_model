@@ -52,8 +52,7 @@
     USE mo_intp_data_strc,      ONLY: t_int_state
     USE mo_nh_vert_interp,      ONLY: vert_interp
     USE mo_physical_constants,  ONLY: cpd, rd, cvd_o_rd, p0ref, vtmpc1
-    USE mo_nh_init_utils,       ONLY: convert_omega2w, &
-      &                               compute_input_pressure_and_height
+    USE mo_nh_init_utils,       ONLY: convert_omega2w, compute_input_pressure_and_height
     USE mo_sync,                ONLY: sync_patch_array, SYNC_E
     USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
     USE mtime,                  ONLY: timedelta, newTimedelta, deallocateTimedelta, &
@@ -321,8 +320,8 @@
       ! local variables
       TYPE(datetime) :: nextActive          ! next trigger date for prefetch event
       TYPE(datetime), POINTER :: latbc_read_datetime ! next input date to be read
-      INTEGER        :: ierr, nblks_c, nlev_in, jk,jb,jc
-      REAL(wp)       :: seconds
+      INTEGER        :: ierr, nblks_c, nlev_in, jk,jb,jc, npoints_c, npoints_e
+      REAL(wp)       :: seconds,log_exner,tempv
       INTEGER        :: prev_latbc_tlev
       CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: td_string
       CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: latbc_read_datetime_str
@@ -850,6 +849,7 @@
       TYPE(datetime) :: nextActive             ! next trigger date for prefetch event
       INTEGER        :: ierr
       TYPE(datetime), POINTER :: latbc_read_datetime    ! next input date to be read
+      LOGICAL        :: done
       REAL(wp)       :: seconds
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::async_init_latbc_data"
       CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: td_string
