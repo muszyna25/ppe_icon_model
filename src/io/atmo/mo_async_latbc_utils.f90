@@ -25,8 +25,9 @@
 
 #ifndef NOMPI
     USE mpi
-    USE mo_mpi,                 ONLY: my_process_is_pref, my_process_is_work, &
-         &                            my_process_is_stdio, p_comm_work
+    USE mo_mpi,                 ONLY: my_process_is_pref, my_process_is_work,   &
+         &                            p_comm_work, my_process_is_stdio,         &
+         &                            my_process_is_mpi_test
     ! Processor numbers
     USE mo_mpi,                 ONLY: p_pref_pe0, p_pe_work, p_work_pe0, num_work_procs
     ! MPI Communication routines
