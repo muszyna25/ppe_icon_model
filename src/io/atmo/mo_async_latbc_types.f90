@@ -31,7 +31,6 @@ MODULE mo_async_latbc_types
   USE mo_run_config,               ONLY: msg_level
   USE mo_reorder_info,             ONLY: t_reorder_info, release_reorder_info
   USE mo_mpi,                      ONLY: p_comm_work_pref, p_barrier
-  USE mo_cdi,                      ONLY: cdi_undefid
 #ifndef NOMPI
   USE mpi
 #endif
@@ -183,10 +182,6 @@ MODULE mo_async_latbc_types
   !
   TYPE t_latbc_data
 
-    !> full path of currently open file, unallocated if not open
-    CHARACTER(:), ALLOCATABLE :: open_filepath
-    !> CDI handle of currently open stream, CDI_UNDEFID if not open
-    INTEGER :: open_cdi_stream_handle = cdi_undefid
     TYPE(datetime),  POINTER :: mtime_last_read => NULL()
     TYPE(event),     POINTER :: prefetchEvent   => NULL()
     TYPE(timedelta), POINTER :: delta_dtime     => NULL()
