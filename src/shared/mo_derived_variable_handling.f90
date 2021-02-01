@@ -638,7 +638,7 @@ CONTAINS
               & stderr=.true.)
 #endif
         END IF
-        in_varlist(i) = dest_element%field%info%name
+        in_varlist(i) = trim(dest_element%field%info%name)
       END DO
       CALL statisticMap%add(eventKey,statisticVariables)
 #ifdef DEBUG_MVSTREAM
