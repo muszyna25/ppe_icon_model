@@ -182,6 +182,7 @@ CONTAINS
 
     TYPE(t_list_element), POINTER       :: element
     TYPE(t_var_action)  , POINTER       :: action_list
+    CHARACTER(LEN=2)                    :: str_actionTyp
     CHARACTER(LEN=MAX_EVENTNAME_STR_LEN):: event_name
     CHARACTER(LEN=vname_len)            :: varlist(NMAX_VARS)
   !-------------------------------------------------------------------------
@@ -218,14 +219,14 @@ CONTAINS
 
 
             ! Create event for this specific field
-            WRITE(event_name,'(a,i2,2a)') 'act_TYP', actionTyp, &
-                 '_', TRIM(action_list%action(iact)%intvl)
+            write(str_actionTyp,'(i2)') actionTyp
+            event_name = 'act_TYP'//TRIM(str_actionTyp)//'_'//TRIM(action_list%action(iact)%intvl)
             act_obj%var_element_ptr(nvars)%event =>newEvent(                            &
-              &                                    event_name,                    &
-              &                                    action_list%action(iact)%ref,  &
-              &                                    action_list%action(iact)%start,&
-              &                                    action_list%action(iact)%end  ,&
-              &                                    action_list%action(iact)%intvl)
+              &                                    TRIM(event_name),                    &
+              &                                    TRIM(action_list%action(iact)%ref),  &
+              &                                    TRIM(action_list%action(iact)%start),&
+              &                                    TRIM(action_list%action(iact)%end  ),&
+              &                                    TRIM(action_list%action(iact)%intvl))
 
           END IF
         ENDDO  LOOPACTION ! loop over variable-specific actions
@@ -244,7 +245,7 @@ CONTAINS
 
       ! remove duplicate variable names
       DO i=1,act_obj%nvars
-        varlist(i) = act_obj%var_element_ptr(i)%p%info%name
+        varlist(i) = TRIM(act_obj%var_element_ptr(i)%p%info%name)
       ENDDO
       CALL remove_duplicates(varlist,nvars)
 
@@ -635,8 +636,8 @@ CONTAINS
     DO iact = 1,var_info%action_list%n_actions
       IF (var_info%action_list%action(iact)%actionTyp /= actionTyp ) CYCLE  ! skip all non-matching action types
 
-      start_date => newDatetime(var_info%action_list%action(iact)%start)
-      end_date   => newDatetime(var_info%action_list%action(iact)%end)
+      start_date => newDatetime(TRIM(var_info%action_list%action(iact)%start))
+      end_date   => newDatetime(TRIM(var_info%action_list%action(iact)%end))
 
       IF ((cur_date >= start_date) .AND. (cur_date <= end_date)) THEN
         actionId = iact   ! found active action
