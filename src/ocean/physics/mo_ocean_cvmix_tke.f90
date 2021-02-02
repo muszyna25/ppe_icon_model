@@ -71,7 +71,8 @@ MODULE mo_ocean_cvmix_tke
     &  tke_surf_min,                &
     &  only_tke,                    &
     &  use_ubound_dirichlet,        &
-    &  use_lbound_dirichlet
+    &  use_lbound_dirichlet,        &
+    &  vert_cor_type
 
   USE mo_ocean_physics_types, ONLY: t_ho_params, v_params, WindMixingDecay, WindMixingLevel
    !, l_convection, l_pp_scheme
@@ -221,6 +222,11 @@ CONTAINS
     REAL(wp) :: Nsqr(n_zlev+1), Ssqr(n_zlev+1)
     !REAL(wp), POINTER :: vert_density_grad(:,:,:)
 
+    ! Parameters for zstar
+    REAL(wp) :: s_c(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks)    ! stretching factor
+    REAL(wp) :: e_c(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks)    ! surface height
+
+
     INTEGER :: tstep_count
 
     ! put this later to a global place
@@ -300,6 +306,15 @@ CONTAINS
       tke_iwe_forcing(:,:,:) = -1.0_wp * params_oce%cvmix_params%iwe_Tdis(:,:,:)
     endif
 
+    ! set zstar related parameters
+    if (vert_cor_type == 1) then
+      s_c(:,:) = ocean_state%p_prog(nold(1))%stretch_c(:,:)
+      e_c(:,:) = ocean_state%p_prog(nold(1))%eta_c(:,:)
+    else
+      s_c = 1.0_wp
+      e_c = 0.0_wp
+    endif
+
     !write(*,*) "TKE before:"
     !write(*,*) tke(8,:,10)
 !ICON_OMP_PARALLEL PRIVATE(rho_up, rho_down)
@@ -319,7 +334,8 @@ CONTAINS
         forc_tke_surf_2D(jc,blockNo) = tau_abs / OceanReferenceDensity
 
         ! calculate N2
-        pressure(1:levels) = patch_3d%p_patch_1d(1)%depth_CellInterface(jc, 1:levels, blockNo) * ReferencePressureIndbars
+        pressure(1:levels) = (patch_3d%p_patch_1d(1)%depth_CellInterface(jc, 1:levels, blockNo) * s_c(jc,blockNo) &
+            &                  - e_c(jc,blockNo)) * ReferencePressureIndbars
         !rho_up(1:levels-1)  = calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(jc,1:levels-1,blockNo,1), &
         !  & salinity(1:levels-1), pressure(2:levels), levels-1)
         !rho_down(2:levels)  = calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(jc,2:levels,blockNo,1), &
@@ -334,7 +350,7 @@ CONTAINS
             & pressure(2:levels), levels-1)
         Nsqr = 0.
         DO jk = 2, n_zlev 
-          Nsqr(jk) = grav/OceanReferenceDensity * (rho_down(jk) - rho_up(jk-1)) *  dzi(jc,jk,blockNo)
+          Nsqr(jk) = grav/OceanReferenceDensity * (rho_down(jk) - rho_up(jk-1)) *  dzi(jc,jk,blockNo) / s_c(jc,blockNo)
         ENDDO
 
         ! calculate shear
@@ -342,7 +358,7 @@ CONTAINS
         DO jk = 2, n_zlev 
           Ssqr(jk) = SUM(((  ocean_state%p_diag%p_vn(jc,jk-1,blockNo)%x   &
             &              - ocean_state%p_diag%p_vn(jc,jk,  blockNo)%x ) &
-            &            * dzi(jc,jk,blockNo) )**2)
+            &            * dzi(jc,jk,blockNo)/s_c(jc,blockNo) )**2)
         ENDDO
 
       !if (jc==8 .and. blockNo==10) then
@@ -366,8 +382,8 @@ CONTAINS
                              cvmix_int_1  = params_oce%cvmix_params%cvmix_dummy_1(jc,:,blockNo),   & !
                              cvmix_int_2  = params_oce%cvmix_params%cvmix_dummy_2(jc,:,blockNo),   & !
                              cvmix_int_3  = params_oce%cvmix_params%cvmix_dummy_3(jc,:,blockNo),   & !
-                             dzw          = dzw(jc,:,blockNo),             &
-                             dzt          = dz(jc,:,blockNo),              &
+                             dzw          = dzw(jc,:,blockNo)*s_c(jc,blockNo),             &
+                             dzt          = dz(jc,:,blockNo)*s_c(jc,blockNo),              &
                              nlev         = kbot(jc,blockNo),                   &
                              max_nlev     = n_zlev,               &
                              Ssqr         = Ssqr(:),            & ! in

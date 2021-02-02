@@ -103,7 +103,7 @@ MODULE mo_ocean_physics
   USE mo_timer,               ONLY: timers_level, timer_start, timer_stop, timer_upd_phys
   USE mo_statistics,          ONLY: global_minmaxmean
   USE mo_io_config,           ONLY: lnetcdf_flt64_output
-  USE mo_ocean_pp_scheme,     ONLY: update_PP_scheme
+  USE mo_ocean_pp_scheme,     ONLY: update_PP_scheme, update_PP_scheme_zstar
   USE mo_ocean_cvmix_tke,     ONLY: calc_tke, setup_tke
   USE mo_ocean_cvmix_idemix,  ONLY: calc_idemix, setup_idemix
   USE mo_ocean_cvmix_kpp,     ONLY: calc_kpp, setup_kpp
@@ -126,6 +126,7 @@ MODULE mo_ocean_physics
   !PUBLIC :: init_ho_physics
   PUBLIC :: init_ho_params
   PUBLIC :: update_ho_params
+  PUBLIC :: update_ho_params_zstar
 !   PUBLIC :: calc_characteristic_physical_numbers
   PUBLIC :: scale_horizontal_diffusion, copy2Dto3D
   
@@ -946,6 +947,59 @@ CONTAINS
   END SUBROUTINE update_ho_params
   !-------------------------------------------------------------------------
 
+
+  SUBROUTINE update_ho_params_zstar(patch_3d, ocean_state, fu10, concsum, params_oce,op_coeffs, atmos_fluxes, p_oce_sfc, &
+      & eta_c, stretch_c, stretch_e)
+    !, calculate_density_func)
+
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET    :: ocean_state
+    REAL(wp), TARGET                     :: fu10   (:,:) ! t_atmos_for_ocean%fu10
+    REAL(wp), TARGET                     :: concsum(:,:) ! t_sea_ice%concsum
+    TYPE(t_ho_params), INTENT(inout)     :: params_oce
+    TYPE (t_ocean_surface), INTENT(IN)   :: p_oce_sfc
+    TYPE(t_operator_coeff),INTENT(in)    :: op_coeffs
+    TYPE(t_atmos_fluxes)                 :: atmos_fluxes
+    REAL(wp), INTENT(IN) :: eta_c(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !! sfc ht 
+    REAL(wp), INTENT(IN) :: stretch_c(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
+    REAL(wp), INTENT(IN) :: stretch_e(nproma, patch_3d%p_patch_2d(1)%nblks_e) !! stretch factor 
+
+    INTEGER :: tracer_index
+    !INTEGER :: vert_mix_type=2 ! by_nils ! FIXME: make this a namelist parameter
+    !-------------------------------------------------------------------------
+    start_timer(timer_upd_phys,1)
+
+!    CALL calc_characteristic_physical_numbers(patch_3d, ocean_state)
+
+!   Calculate the vertical density gradient on the interfaces (zgrad_rho)
+!   and the Richardson Number ; shall be used in PP and possibly TKE
+     CALL calc_vertical_stability_zstar(patch_3d, ocean_state, eta_c, stretch_c)
+
+
+    SELECT CASE(vert_mix_type)
+    CASE(vmix_pp)
+      CALL update_PP_scheme_zstar(patch_3d, ocean_state, fu10, concsum, params_oce,op_coeffs, &
+                                  & eta_c, stretch_c, stretch_e)
+    CASE(vmix_tke)
+      !write(*,*) 'Do calc_tke...'
+      ! tke does not need a special routine for zstar
+      CALL calc_tke(patch_3d, ocean_state, params_oce, atmos_fluxes)
+    CASE(vmix_idemix_tke)
+      !write(*,*) 'Do calc_idemix...'
+      CALL calc_idemix(patch_3d, ocean_state, params_oce, op_coeffs, atmos_fluxes)
+      CALL calc_tke(patch_3d, ocean_state, params_oce, atmos_fluxes)
+    CASE(3) ! by_ogut 
+      CALL calc_kpp(patch_3d, ocean_state, params_oce, atmos_fluxes, p_oce_sfc, concsum)
+    CASE default
+      write(*,*) "Unknown vert_mix_type!"
+    END SELECT
+ 
+
+
+    stop_timer(timer_upd_phys,1)
+
+  END SUBROUTINE update_ho_params_zstar
+  !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !>
@@ -2106,6 +2160,97 @@ CONTAINS
 
 
   END SUBROUTINE calc_vertical_stability
+  !-------------------------------------------------------------------------
+
+
+
+!<Optimize:inUse>
+  SUBROUTINE calc_vertical_stability_zstar(patch_3d, ocean_state, eta_c, stretch_c)
+    TYPE(t_patch_3d ),TARGET, INTENT(in)             :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET                :: ocean_state
+    REAL(wp), INTENT(IN) :: eta_c(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !! sfc ht 
+    REAL(wp), INTENT(IN) :: stretch_c(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
+
+    !Local variables
+    INTEGER :: start_index, end_index, cell_index,level,end_level, blockNo
+
+    TYPE(t_subset_range), POINTER :: cells_in_domain, all_cells
+    TYPE(t_patch), POINTER :: patch_2D
+
+    REAL(wp) :: z_grav_rho
+    REAL(wp) :: z_shear_cell
+    REAL(wp) :: z_rho_up(n_zlev), z_rho_down(n_zlev) !, density(n_zlev)
+    REAL(wp) :: pressure(n_zlev), salinity(n_zlev)
+
+    !-------------------------------------------------------------------------------
+    patch_2D        => patch_3d%p_patch_2d(1)
+    cells_in_domain => patch_2D%cells%in_domain
+    all_cells       => patch_2D%cells%ALL
+    !-------------------------------------------------------------------------------
+
+    z_grav_rho = grav/OceanReferenceDensity
+
+    !ICON_OMP_PARALLEL PRIVATE(salinity, z_rho_up, z_rho_down, pressure)
+    salinity(1:n_zlev) = sal_ref
+    z_rho_up(:)=0.0_wp
+    z_rho_down(:)=0.0_wp
+    pressure(:) = 0._wp
+
+    !ICON_OMP_DO PRIVATE(start_index, end_index, cell_index, end_level, level, &
+    !ICON_OMP z_shear_cell) ICON_OMP_DEFAULT_SCHEDULE
+    DO blockNo = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, blockNo, start_index, end_index)
+
+      ocean_state%p_diag%Richardson_Number(:, :, blockNo) = 0.0_wp
+      ocean_state%p_diag%zgrad_rho(:,:, blockNo) = 0.0_wp
+
+      DO cell_index = start_index, end_index
+
+        end_level = patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)
+        IF (end_level < 2) CYCLE
+
+        IF(no_tracer >= 2) THEN
+            salinity(1:end_level) = ocean_state%p_prog(nold(1))%tracer(cell_index,1:end_level,blockNo,2)
+        ENDIF
+
+        !--------------------------------------------------------
+        pressure(2:end_level) = (patch_3d%p_patch_1d(1)%depth_CellInterface(cell_index, 2:end_level, blockNo) &
+           & * stretch_c(cell_index, blockNo) - eta_c(cell_index,blockNo))  &
+           & * OceanReferenceDensity * sitodbar
+
+        z_rho_up(1:end_level-1) = &
+             calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(cell_index,1:end_level-1,blockNo,1), &
+             salinity(1:end_level-1), pressure(2:end_level),end_level-1)
+
+        z_rho_down(2:end_level) = &
+             calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(cell_index,2:end_level,blockNo,1), &
+             salinity(2:end_level), pressure(2:end_level), end_level-1)
+
+        DO level = 2, end_level
+
+          z_shear_cell = dbl_eps + &
+               SUM((ocean_state%p_diag%p_vn(cell_index,level-1,blockNo)%x &
+               - ocean_state%p_diag%p_vn(cell_index,level,blockNo)%x)**2)
+
+          ocean_state%p_diag%zgrad_rho(cell_index,level,blockNo) = (z_rho_down(level) - z_rho_up(level-1)) *  &
+               patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(cell_index,level,blockNo) / stretch_c(cell_index, blockNo)
+
+          !adjusted vertical derivative (follows MOM, see Griffies-book,
+          ! (p. 332, eq. (15.15)) or MOM-5 manual (sect. 23.7.1.1)
+          !ocean_state%p_diag%zgrad_rho(cell_index,level,blockNo)= &
+          !     MIN(ocean_state%p_diag%zgrad_rho(cell_index,level,blockNo),-dbl_eps)
+
+          ocean_state%p_diag%Richardson_Number(cell_index, level, blockNo) &
+               = MAX(patch_3d%p_patch_1d(1)%prism_center_dist_c(cell_index,level,blockNo) * stretch_c(cell_index,blockNo) * z_grav_rho * &
+               (z_rho_down(level) - z_rho_up(level-1)) / z_shear_cell, 0.0_wp)
+        END DO ! levels
+      END DO ! index
+    END DO
+!ICON_OMP_END_DO
+!ICON_OMP_END_PARALLEL
+
+
+  END SUBROUTINE calc_vertical_stability_zstar
   !-------------------------------------------------------------------------
 
 

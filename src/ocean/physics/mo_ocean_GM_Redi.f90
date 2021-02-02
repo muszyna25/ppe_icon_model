@@ -2361,7 +2361,7 @@ ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration
              & = stretch_c(jc, jb) * ocean_state%p_aux%slopes(jc, level, jb)%x 
 
            ocean_state%p_aux%slopes_drdz(jc,level,jb) &
-             & = stretch_c(jc, jb) * ocean_state%p_aux%slopes_drdz(jc,level,jb)
+             & = (1.0_wp / stretch_c(jc, jb)) * ocean_state%p_aux%slopes_drdz(jc,level,jb)
 
            ocean_state%p_aux%slopes_squared(jc, level, jb) &
              & = stretch_c(jc, jb) * stretch_c(jc, jb) * ocean_state%p_aux%slopes_squared(jc, level, jb)
@@ -2390,28 +2390,32 @@ ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration
   !!  Adapted for zstar
   !!
   !<Optimize:inUse:done>
-  SUBROUTINE calc_ocean_physics_zstar(patch_3d, ocean_state, param, op_coeff,tracer_index,&
-      & typeOfTracers, stretch_c)
+  SUBROUTINE calc_ocean_physics_zstar(patch_3d, ocean_state, param, op_coeff, GMRedi_flux_horz, &
+      & GMRedi_flux_vert, tracer, tracer_index, typeOfTracers, stretch_c, stretch_e)
     TYPE(t_patch_3d ),TARGET, INTENT(in)     :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET        :: ocean_state
     TYPE(t_ho_params), INTENT(inout)         :: param
     TYPE(t_operator_coeff),INTENT(in)        :: op_coeff
+    REAL(wp), INTENT(inout)                  :: GMRedi_flux_horz(:,:,:)
+    REAL(wp), INTENT(inout)                  :: GMRedi_flux_vert(:,:,:)
+    TYPE(t_ocean_tracer), TARGET             :: tracer
     INTEGER, INTENT(IN)                      :: tracer_index
     CHARACTER(LEN=*), INTENT(in)             :: typeOfTracers
     REAL(wp),                   INTENT(IN)   :: stretch_c(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
+    REAL(wp),                   INTENT(IN)   :: stretch_e(nproma, patch_3D%p_patch_2d(1)%nblks_e)
     
     !Local variables
     INTEGER :: start_cell_index, end_cell_index, cell_index, blockNo,level
     TYPE(t_subset_range), POINTER :: cells_in_domain
     TYPE(t_patch), POINTER :: patch_2D
     
-    onEdges                :: GMredi_flux_horz
-    onCells_HalfLevels     :: GMredi_flux_vert
+!    onEdges                :: GMredi_flux_horz
+!    onCells_HalfLevels     :: GMredi_flux_vert
     !-------------------------------------------------------------------------------
     patch_2D         => patch_3d%p_patch_2d(1)
     cells_in_domain  => patch_2D%cells%in_domain   
-    GMredi_flux_horz => ocean_state%p_diag%GMRedi_flux_horz(:,:,:,tracer_index)
-    GMredi_flux_vert => ocean_state%p_diag%GMRedi_flux_vert(:,:,:,tracer_index)
+!    GMredi_flux_horz => ocean_state%p_diag%GMRedi_flux_horz(:,:,:,tracer_index)
+!    GMredi_flux_vert => ocean_state%p_diag%GMRedi_flux_vert(:,:,:,tracer_index)
 
         
     SELECT CASE(GMRedi_configuration)!GMRedi_configuration==Cartesian_Mixing)RETURN
@@ -2425,8 +2429,9 @@ ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration
             & op_coeff,         &
             & GMRedi_flux_horz, &
             & GMRedi_flux_vert, &
+            & tracer,           &
             & tracer_index, typeOfTracers, &
-            & stretch_c)
+            & stretch_c, stretch_e)
     CASE DEFAULT
       CALL finish(TRIM('mo_ocean_GM_Redi'), 'This GMRedi_configuration is not supported')
     
@@ -2445,16 +2450,18 @@ ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration
   !!  Adapted for zstar
   !!
   SUBROUTINE calc_combined_GentMcWilliamsRedi_flux_zstar(patch_3d, ocean_state, param, op_coeff,&
-      &GMredi_flux_horz, GMredi_flux_vert, tracer_index, typeOfTracers, stretch_c)
+      &GMredi_flux_horz, GMredi_flux_vert, tracer, tracer_index, typeOfTracers, stretch_c, stretch_e)
     TYPE(t_patch_3d ),TARGET, INTENT(in)     :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET        :: ocean_state
     TYPE(t_ho_params),      INTENT(inout)    :: param
     TYPE(t_operator_coeff), INTENT(in)       :: op_coeff
-    onEdges, INTENT(inout)                   :: GMredi_flux_horz
-    onCells_HalfLevels, INTENT(inout)        :: GMredi_flux_vert
+    REAL(wp), INTENT(inout)                  :: GMredi_flux_horz(:,:,:)
+    REAL(wp), INTENT(inout)                  :: GMredi_flux_vert(:,:,:)
+    TYPE(t_ocean_tracer), TARGET             :: tracer
     INTEGER, INTENT(IN)                      :: tracer_index 
     CHARACTER(LEN=*), INTENT(in)             :: typeOfTracers
     REAL(wp),                   INTENT(IN)   :: stretch_c(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
+    REAL(wp),                   INTENT(IN)   :: stretch_e(nproma, patch_3D%p_patch_2d(1)%nblks_e)
     
     !Local variables
     INTEGER :: start_cell_index, end_cell_index, cell_index,level,start_level,end_level,blockNo
@@ -2480,20 +2487,22 @@ ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration
 
     start_level=1
 
-    !Set pointers for tracer gradients, according to actual tracer index
-    IF(tracer_index==1)THEN
+    IF (typeOfTracers == "ocean" )THEN
+     !Set pointers for tracer gradients, according to actual tracer index
+     IF(tracer_index==1)THEN
       !write(0,*) "DerivTemperature_vec_center"
       tracer_gradient_horz_vec_center => ocean_state%p_aux%PgradTemperature_horz_center
       tracer_gradient_vert_center     => ocean_state%p_aux%DerivTemperature_vert_center
-    ELSEIF(tracer_index==2)THEN
+     ELSEIF(tracer_index==2)THEN
       !write(0,*) "DerivSalinity_vec_center"
       tracer_gradient_horz_vec_center => ocean_state%p_aux%PgradSalinity_horz_center
       tracer_gradient_vert_center     => ocean_state%p_aux%DerivSalinity_vert_center
-    ELSEIF(tracer_index>2)THEN
+     ENDIF
+    ELSE
 
       !Here we have to provide a sbr that calculates derivatives below    
       CALL calc_tracer_derivatives( patch_3d,&
-                                  & ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration,&
+                                  & tracer%concentration,&
                                   & ocean_state, &
                                   & op_coeff, &
                                   & tracer_index, &
@@ -2591,14 +2600,17 @@ ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration
           DO edge_index = start_edge_index, end_edge_index
             DO level = start_level, patch_3D%p_patch_1D(1)%dolic_e(edge_index,blockNo)
             
-              GMredi_flux_horz(edge_index,level,blockNo)&
-              &=GMredi_flux_horz(edge_index,level,blockNo)*patch_3D%p_patch_1d(1)%prism_thick_e(edge_index,level,blockNo) 
+              GMredi_flux_horz(edge_index,level,blockNo)   &
+              & = GMredi_flux_horz(edge_index,level,blockNo)  &
+              & * patch_3D%p_patch_1d(1)%prism_thick_e(edge_index,level,blockNo)  &
+              & * stretch_e(edge_index, blockNo)
             END DO                  
           END DO                
         END DO
 !ICON_OMP_END_DO_PARALLEL
 
 
+    IF(INCLUDE_SLOPE_SQUARED_IMPLICIT)THEN
 
     !Map the (explicit) vertical tracer flux to the prism top (where the vertical divergence is calculated later)
     IF(.NOT.REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN
@@ -2607,29 +2619,10 @@ ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration
       CALL map_scalar_center2prismtop_GM(patch_3d, flux_vert_center, op_coeff,GMredi_flux_vert)    
     ENDIF
 
-    
-    IF(INCLUDE_SLOPE_SQUARED_IMPLICIT)THEN
 
       ! Now we treat the vertical isoneutral coefficient that is discretized implicitely in time.  
       ! This is only neccessary once for temperature and salinity, the HAMOCC tracers use these value  
-      IF(tracer_index<=2)THEN
-        ! 
-        !1.) Interpolate the tapered coefficient for the vertical tracer flux from prism center to prism top: 
-        !this is the diagonal part that is handled implicitely in time
-      
-        IF(.NOT.REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN        
-          CALL map_scalar_center2prismtop( patch_3d, &
-          &                              taper_diagonal_vert_impl,&
-          &                              op_coeff,                &
-          &                              ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit)        
-
-        ELSEIF(REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN
-          CALL map_scalar_center2prismtop_GM( patch_3d, &
-          &                              taper_diagonal_vert_impl,&
-          &                              op_coeff,                &
-          &                              ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit)        
-    
-        ENDIF      
+      IF(typeOfTracers == "ocean" )THEN
         IF(tracer_index==1)THEN
           Do level=1,n_zlev
             CALL dbg_print('Old vert coeff: A_v', param%a_tracer_v(:,level,:, tracer_index),&
@@ -2667,7 +2660,7 @@ ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration
             & this_mod_name, 4, patch_2D%cells%in_domain)
           END DO 
         ENDIF 
-      ENDIF!IF(tracer_index<=1)THEN 
+      ENDIF!IF(typeOfTracers == "ocean" )THEN 
       
       ELSEIF(.NOT.INCLUDE_SLOPE_SQUARED_IMPLICIT)THEN
         

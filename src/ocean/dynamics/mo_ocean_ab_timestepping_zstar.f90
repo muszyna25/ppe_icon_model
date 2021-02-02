@@ -1092,8 +1092,11 @@ CONTAINS
       !!ICON_OMP END PARALLEL WORKSHARE
  
       minmaxmean(:) = global_minmaxmean(values=eta_c_new, in_subset=owned_cells)
-      IF ( ( abs(minmaxmean(1) >  225 ) ) .OR. ( ISNAN(minmaxmean(1)) ) )&
-            CALL finish("Surface height too large!!")
+      IF ( abs(minmaxmean(1)) >  300 ) CALL finish("Surface height too large!!")
+
+#ifndef NAGFOR
+      IF ( ISNAN(minmaxmean(1)) ) CALL finish("Surface height too large!!")
+#endif
 
       IF (createSolverMatrix) &
         CALL free_sfc_solver%dump_matrix(timestep)

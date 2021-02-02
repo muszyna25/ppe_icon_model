@@ -861,17 +861,19 @@ CONTAINS
     TYPE(t_ocean_transport_state), TARGET :: transport_state
     TYPE(t_ho_params),         INTENT(inout) :: p_param
     TYPE(t_operator_coeff),    INTENT(inout) :: p_op_coeff
-    REAL(wp), INTENT(IN)           :: stretch_c(nproma, old_tracers%patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
-    REAL(wp), INTENT(IN)           :: stretch_e(nproma, old_tracers%patch_3d%p_patch_2d(1)%nblks_e) 
-    REAL(wp), INTENT(IN)           :: stretch_c_new(nproma, old_tracers%patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
+    REAL(wp), INTENT(IN)           :: stretch_c(nproma, transport_state%patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
+    REAL(wp), INTENT(IN)           :: stretch_e(nproma, transport_state%patch_3d%p_patch_2d(1)%nblks_e) 
+    REAL(wp), INTENT(IN)           :: stretch_c_new(nproma, transport_state%patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
 
     !Local variables
     TYPE(t_patch_3d ), POINTER     :: patch_3d
     INTEGER :: tracer_index
 
     !-------------------------------------------------------------------------------
-    patch_3d => old_tracers%patch_3d
-    CALL prepare_tracer_transport_GMRedi_zstar(patch_3d, p_os, p_param, p_op_coeff, stretch_c)
+    patch_3d => transport_state%patch_3d
+
+    IF (old_tracers%typeOfTracers == "ocean") &
+      & CALL prepare_tracer_transport_GMRedi_zstar(patch_3d, p_os, p_param, p_op_coeff, stretch_c)
 
     DO tracer_index = 1, old_tracers%no_of_tracers
 
@@ -936,6 +938,9 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: cells_in_domain, edges_in_domain
     TYPE(t_patch), POINTER :: patch_2D
     REAL(wp) :: top_bc(nproma)
+
+    REAL(wp), TARGET :: GMRedi_flux_horz(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)
+    REAL(wp), TARGET :: GMRedi_flux_vert(nproma,n_zlev+1,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
 
     REAL(wp) :: z_adv_flux_h (nproma, n_zlev, patch_3d%p_patch_2d(1)%nblks_e)
     REAL(wp) :: z_adv_low (nproma, n_zlev, patch_3d%p_patch_2d(1)%nblks_e)
@@ -1014,11 +1019,11 @@ CONTAINS
     !---------------------------------------------------------------------
 
     !calculate horizontal and vertical Redi and GM fluxes
-    CALL calc_ocean_physics_zstar(patch_3d, p_os, p_param,p_op_coeff, tracer_index, &
-      & typeOfTracers, stretch_c)
+    CALL calc_ocean_physics_zstar(patch_3d, p_os, p_param,p_op_coeff, GMRedi_flux_horz, GMRedi_flux_vert, &
+      & old_tracer, tracer_index, typeOfTracers, stretch_c, stretch_e)
     
     !calculate horizontal divergence of diffusive flux
-    CALL div_oce_3d( p_os%p_diag%GMRedi_flux_horz(:,:,:,tracer_index),&
+    CALL div_oce_3d( GMRedi_flux_horz(:,:,:),&
                  &   patch_3d, &
                  &   p_op_coeff%div_coeff, &
                  &   div_diff_flux_horz )
@@ -1026,8 +1031,13 @@ CONTAINS
     !! FIXME zstar: needs to be multiplied with stretch_c
     !vertical div of GMRedi-flux
     CALL verticalDiv_scalar_onFullLevels( patch_3d, &
-      & p_os%p_diag%GMRedi_flux_vert(:,:,:,tracer_index), &
+      & GMRedi_flux_vert(:,:,:), &
       & div_diff_flx_vert)
+
+    IF (typeOfTracers == "ocean" )THEN
+      p_os%p_diag%GMRedi_flux_horz(:,:,:,tracer_index) = GMRedi_flux_horz
+      p_os%p_diag%GMRedi_flux_vert(:,:,:,tracer_index)  = GMRedi_flux_vert
+    ENDIF
                  
     !Case: Implicit Vertical diffusion
     start_timer(timer_dif_vert,4)
