@@ -977,6 +977,7 @@
 
       INTEGER(KIND=MPI_ADDRESS_KIND)        :: ioff(0:num_work_procs-1)
       INTEGER                               :: jm, errno, nlevs_read, nlevs
+      TYPE(datetime), POINTER               :: vDateTime_ptr  ! pointer to vDateTime
       character(len=max_datetime_str_len)   :: vDateTime_str  ! vDateTime in String format
 
 
@@ -993,7 +994,8 @@
       ! send validity datetime of current boundary data timeslice from prefetch PE0
       ! to worker PE0
       IF(p_pe_work == 0) THEN
-        CALL datetimeToString(latbc%buffer%vDateTime, vDateTime_str, errno)
+        vDateTime_ptr => latbc%buffer%vDateTime
+        CALL datetimeToString(vDateTime_ptr, vDateTime_str, errno)
         CALL p_isend(vDateTime_str, p_work_pe0, TAG_VDATETIME)
       ENDIF
 
