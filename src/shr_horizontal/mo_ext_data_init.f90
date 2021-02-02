@@ -2401,9 +2401,6 @@ CONTAINS
             ext_data%atm%rsmin2d_t(jc,jb,jt) = ext_data%atm%stomresmin_lcc(ilu)
           ENDIF
 
-          ! Increase stomata resistance outside the vegetation period
-          ext_data%atm%rsmin2d_t(jc,jb,jt) = ext_data%atm%rsmin2d_t(jc,jb,jt)/MAX(0.2_wp,ext_data%atm%laifac_t(jc,jb,jt))
-
         ENDDO
       ENDDO
 

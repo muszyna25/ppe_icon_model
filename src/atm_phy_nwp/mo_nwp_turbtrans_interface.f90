@@ -59,9 +59,6 @@ MODULE mo_nwp_turbtrans_interface
   USE mo_vupdz0_tile,          ONLY: vupdz0_tile
   USE mo_vexcs,                ONLY: vexcs
 
-!$ser verbatim USE mo_ser_nwp_tutra, ONLY: serialize_turbtrans_interface_input,&
-!$ser verbatim                             serialize_turbtrans_interface_output
-
   IMPLICIT NONE
 
   PRIVATE
@@ -191,14 +188,6 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 
   ! Scaling factor for SSO contribution to roughness length ("Erdmann Heise formula")
   fact_z0rough = 1.e-5_wp*ATAN(phy_params(jg)%mean_charlen/2250._wp)
-
-
-  ! Serialbox2 input fields serialization
-  !$ser verbatim IF(lzacc) THEN
-  !$ser verbatim     CALL serialize_turbtrans_interface_input(jg, nproma, nlev,&
-  !$ser verbatim                                              p_metrics, p_prog, p_prog_rcf, p_diag, prm_diag,&
-  !$ser verbatim                                              lnd_prog_new, lnd_diag, wtr_prog_new, ext_data)
-  !$ser verbatim ENDIF
 
 
 !$OMP PARALLEL
@@ -358,6 +347,9 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
       ! First call of turbtran for all grid points (water points with > 50% water
       ! fraction and tile 1 of the land points)
       IF (ntiles_total == 1) THEN ! tile approach not used; use tile-averaged fields from extpar
+
+        ! WARNING: This has been ported to GPU but has not been tested. If ntiles_total == 1 is
+        ! read from the namelist with GPU enabled, the code finishes.
 
         !should be dependent on location in future!
         !$acc kernels default(present) if(lzacc)
@@ -1044,13 +1036,6 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
   ENDDO ! jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-
-  ! Serialbox2 input fields serialization
-  !$ser verbatim IF(lzacc) THEN
-  !$ser verbatim     CALL serialize_turbtrans_interface_output(jg, nproma, nlev,&
-  !$ser verbatim                                               p_prog, p_prog_rcf, p_diag, prm_diag,&
-  !$ser verbatim                                               lnd_prog_new, lnd_diag)
-  !$ser verbatim ENDIF
 
 !$acc end data
 

@@ -2155,6 +2155,7 @@ CONTAINS
 
     gp_count = icount
     gp_count_snow = icount_snow
+    !$acc update device(gp_count,gp_count_snow)
 
     !$acc end data
 

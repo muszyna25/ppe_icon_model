@@ -80,7 +80,7 @@ MODULE mo_nh_stepping
     &                                    timer_total, timer_model_init, timer_nudging,    &
     &                                    timer_bdy_interp, timer_feedback, timer_nesting, &
     &                                    timer_integrate_nh, timer_nh_diagnostics,        &
-    &                                    timer_iconam_echam
+    &                                    timer_iconam_echam, timer_dace_coupling
   USE mo_atm_phy_nwp_config,       ONLY: dt_phy, atm_phy_nwp_config, iprog_aero, setup_nwp_diag_events
   USE mo_ensemble_pert_config,     ONLY: compute_ensemble_pert, use_ensemble_pert
   USE mo_nwp_phy_init,             ONLY: init_nwp_phy, init_cloud_aero_cpl
@@ -427,6 +427,11 @@ MODULE mo_nh_stepping
     CALL message('',message_text)
   ENDIF
 
+  ! Initialize time-dependent ensemble perturbations if necessary
+  IF (use_ensemble_pert .AND. gribout_config(1)%perturbationNumber >= 1) THEN
+    CALL compute_ensemble_pert(p_patch(1:), ext_data, prm_diag, phy_params, mtime_current, .FALSE.)
+  ENDIF
+
   SELECT CASE (iforcing)
   CASE (inwp)
     DO jg=1, n_dom
@@ -454,6 +459,7 @@ MODULE mo_nh_stepping
       IF (iprog_aero >= 1) CALL setup_aerosol_advection(p_patch(jg))
 
     ENDDO
+
     IF (.NOT.isRestart()) THEN
       ! Compute diagnostic physics fields
       CALL aggr_landvars
@@ -603,10 +609,14 @@ MODULE mo_nh_stepping
                CALL aggr_landvars
           IF (.NOT. dace_op_init) THEN
              CALL message('perform_nh_stepping','calling init_dace_op before run_dace_op')
+             IF (timers_level > 4) CALL timer_start(timer_dace_coupling)
              IF (my_process_is_work_only()) CALL init_dace_op ()
+             IF (timers_level > 4) CALL timer_stop(timer_dace_coupling)
           END IF
           CALL message('perform_nh_stepping','calling run_dace_op')
+          IF (timers_level > 4) CALL timer_start(timer_dace_coupling)
           IF (my_process_is_work_only()) CALL run_dace_op (mtime_current)
+          IF (timers_level > 4) CALL timer_stop(timer_dace_coupling)
        END IF
     END IF
 
@@ -898,10 +908,7 @@ MODULE mo_nh_stepping
 
     ! Update time-dependent ensemble perturbations if necessary
     IF (use_ensemble_pert .AND. gribout_config(1)%perturbationNumber >= 1) THEN
-#ifdef _OPENACC
-      CALL finish (routine, 'compute_ensemble_part: OpenACC version currently not implemented')
-#endif
-      CALL compute_ensemble_pert(p_patch(1:), ext_data, prm_diag, mtime_current)
+      CALL compute_ensemble_pert(p_patch(1:), ext_data, prm_diag, phy_params, mtime_current, .TRUE.)
     ENDIF
 
     ! update model date and time mtime based
@@ -1359,14 +1366,18 @@ MODULE mo_nh_stepping
           IF (sim_time > 0._wp .OR. iau_iter == 1) THEN
              IF (.NOT. dace_op_init) THEN
                 CALL message('perform_nh_timeloop','calling init_dace_op before run_dace_op')
+                IF (timers_level > 4) CALL timer_start(timer_dace_coupling)
                 IF (my_process_is_work_only()) CALL init_dace_op ()
+                IF (timers_level > 4) CALL timer_stop(timer_dace_coupling)
              END IF
              IF (sim_time == 0._wp) THEN
                 CALL message('perform_nh_timeloop','calling run_dace_op for sim_time=0')
              ELSE
                 CALL message('perform_nh_timeloop','calling run_dace_op')
              END IF
+             IF (timers_level > 4) CALL timer_start(timer_dace_coupling)
              IF (my_process_is_work_only()) CALL run_dace_op (mtime_current)
+             IF (timers_level > 4) CALL timer_stop(timer_dace_coupling)
           END IF
        END IF
     END IF
@@ -2020,11 +2031,7 @@ MODULE mo_nh_stepping
 
             CASE (inwp) ! iforcing
 
-#ifdef _OPENACC
-              CALL message('mo_nh_stepping', 'Device to host copy before nwp_nh_interface. This needs to be removed once port is finished!')
-              CALL gpu_d2h_nh_nwp(p_patch(jg), prm_diag(jg))
-              i_am_accel_node = .FALSE.
-#endif
+
               ! nwp physics
               !$ser verbatim CALL serialize_all(nproma, jg, "physics", .TRUE., opt_lupdate_cpu=.TRUE.)
               CALL nwp_nh_interface(atm_phy_nwp_config(jg)%lcall_phy(:), & !in
@@ -2032,7 +2039,7 @@ MODULE mo_nh_stepping
                 &                  lredgrid_phys(jg),                  & !in
                 &                  dt_loc,                             & !in
                 &                  dt_phy(jg,:),                       & !in
-                &                  datetime_local(jg)%ptr,              & !in
+                &                  datetime_local(jg)%ptr,             & !in
                 &                  p_patch(jg)  ,                      & !in
                 &                  p_int_state(jg),                    & !in
                 &                  p_nh_state(jg)%metrics ,            & !in
@@ -2051,12 +2058,7 @@ MODULE mo_nh_stepping
                 &                  p_lnd_state(jg)%prog_wtr(n_new_rcf),& !inout
                 &                  p_nh_state_lists(jg)%prog_list(n_new_rcf),& !in
                 &                  prm_upatmo(jg)                      ) !inout
-
-#ifdef _OPENACC
-              CALL message('mo_nh_stepping', 'Host to device copy after nwp_nh_interface. This needs to be removed once port is finished!')
-              CALL gpu_h2d_nh_nwp(p_patch(jg), prm_diag(jg))
-              i_am_accel_node = my_process_is_work()
-#endif
+  
               !$ser verbatim CALL serialize_all(nproma, jg, "physics", .FALSE., opt_lupdate_cpu=.TRUE.)
 
             CASE (iecham) ! iforcing
@@ -3170,6 +3172,11 @@ MODULE mo_nh_stepping
     atm_phy_nwp_config(:)%lcalc_acc_avg = .FALSE.
 
     CALL restore_initial_state(p_patch(1:), p_nh_state, prm_diag, prm_nwp_tend, p_lnd_state, ext_data)
+
+    ! Reinitialize time-dependent ensemble perturbations if necessary
+    IF (use_ensemble_pert .AND. gribout_config(1)%perturbationNumber >= 1) THEN
+      CALL compute_ensemble_pert(p_patch(1:), ext_data, prm_diag, phy_params, datetime_current, .FALSE.)
+    ENDIF
 
     DO jg=1, n_dom
 

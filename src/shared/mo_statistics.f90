@@ -3657,6 +3657,10 @@ CONTAINS
     ! Result
     REAL(wp) :: psi_avg_new                   !< updated time average
 
+#ifdef _OPENACC
+    !$acc routine seq
+#endif
+
     !--------------------------------------------------------------------
 
     ! compute updated time average

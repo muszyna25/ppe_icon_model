@@ -868,8 +868,10 @@ MODULE mo_nonhydro_state
             &                       lower_limit=0._wp  ),                              &
             &           in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
             &                           "dwd_fg_atm_vars","mode_dwd_fg_in",            &
+            &                           "mode_iau_ana_in", "mode_iau_anaatm_in",       &
             &                           "mode_iau_fg_in","mode_iau_old_fg_in",         &
-            &                           "LATBC_PREFETCH_VARS") )
+            &                           "LATBC_PREFETCH_VARS",                         &
+            &                           "mode_iniana","icon_lbc_vars") )
         END IF
 
 

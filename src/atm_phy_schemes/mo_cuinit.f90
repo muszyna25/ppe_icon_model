@@ -48,8 +48,7 @@ MODULE mo_cuinit
     &                          lmfdudv               ,&
     &                          rcpd   ,retv, rd, rg  ,&
     &                          rlmin                 ,&
-    &                          lhook,   dr_hook      ,&
-    &                          entstpc1, entstpc2
+    &                          lhook,   dr_hook
 
   USE mo_adjust ,ONLY: cuadjtq ,cuadjtqs
 
@@ -301,7 +300,8 @@ CONTAINS
 
 SUBROUTINE cubasen &
  & ( kidia,    kfdia,  klon,  ktdia, klev, njkt1, njkt2,  &
- & entrorg, rdepths, texc, qexc, mtnmask, ldland, ldlake, &
+ & entrorg, entstpc1, entstpc2, rdepths, texc, qexc,      &
+ & lgrz_deepconv, mtnmask, ldland, ldlake,                &
  & ptenh,  pqenh, pgeoh, paph,  pqhfl, pahfs,             &
 !& PSSTRU,   PSSTRV,                                      &
  & pten,     pqen,     pqsen, pgeo,                       &
@@ -455,12 +455,13 @@ INTEGER(KIND=jpim),INTENT(in)    :: kidia
 INTEGER(KIND=jpim),INTENT(in)    :: kfdia
 INTEGER(KIND=jpim),INTENT(in)    :: ktdia
 INTEGER(KIND=jpim),INTENT(in)    :: njkt1, njkt2
-REAL(KIND=jprb)   ,INTENT(in)    :: entrorg
+REAL(KIND=jprb)   ,INTENT(in)    :: entrorg, entstpc1, entstpc2
 REAL(KIND=jprb)   ,INTENT(in)    :: rdepths
 REAL(KIND=jprb)   ,INTENT(in)    :: texc, qexc
 REAL(KIND=jprb)   ,INTENT(in)    :: mtnmask(klon)
 LOGICAL           ,INTENT(in)    :: ldland(klon)
 LOGICAL           ,INTENT(in)    :: ldlake(klon)
+LOGICAL           ,INTENT(in)    :: lgrz_deepconv
 REAL(KIND=jprb)   ,INTENT(in)    :: ptenh(klon,klev)
 REAL(KIND=jprb)   ,INTENT(in)    :: pqenh(klon,klev)
 REAL(KIND=jprb)   ,INTENT(in)    :: pgeoh(klon,klev+1)
@@ -497,7 +498,7 @@ LOGICAL ::         ll_ldbase(klon),&
  & llgo_on(klon),&
  & lldeep(klon),    lldcum(klon), &
  & lldsc(klon),     llfirst(klon)  
-LOGICAL ::     llreset,        llresetjl(klon)
+LOGICAL ::     llreset,        llresetjl(klon), ldocean(klon)
 
 INTEGER(KIND=jpim) :: icall, ik, is, jk, jl, jkk, jkt1, jkt2, jkt, jkb ! ,IKB
 
@@ -567,6 +568,7 @@ DO jl=kidia,kfdia
   pwubase(jl)=0.0_JPRB
   llgo_on(jl)=.TRUE.
   llfirst(jl)=.TRUE.
+  ldocean(jl) = .NOT. (ldland(jl) .OR. ldlake(jl) .OR. lgrz_deepconv)
   kdpl(jl)=klev
 ENDDO
 
@@ -671,7 +673,7 @@ DO jkk=klev,MAX(ktdia,jkt1),-1 ! Big external loop for level testing:
           zredfac = 1._jprb/(1._jprb+mtnmask(jl))
           ztexc=texc*zredfac
           zqexc=qexc*pqenh(jl,jkk)*zredfac
-          IF (jkk == klev-1 .AND. .NOT.(ldland(jl).OR.ldlake(jl)) ) THEN
+          IF (jkk == klev-1 .AND. ldocean(jl) ) THEN
             ztexc = MAX(ztexc, ztex(jl))
             ztexc = MIN(ztexc, 3.0_JPRB)
             zqexc = MAX(zqexc, zqex(jl))
@@ -783,7 +785,7 @@ DO jkk=klev,MAX(ktdia,jkt1),-1 ! Big external loop for level testing:
           zsf = (zsenh(jl,jk+1) + zsenh(jl,jk))*0.5_JPRB
 !         zmix(jl)=2.0_JPRB*0.8E-4_JPRB*zdz(jl)*(paph(jl,jk)/paph(jl,klev+1))**3
 !         ZMIX(JL)=0.4_JPRB*ENTRORG*ZDZ(JL)*MIN(1.0_JPRB,(PQSEN(JL,JK)/PQSEN(JL,KLEV))**3)
-          ZMIX(JL)=MERGE(1.3_JPRB - MIN(1.0_JPRB,PQEN(JL,JK)/PQSEN(JL,JK)), 0.3_JPRB, ldland(jl).OR.ldlake(jl)) &
+          ZMIX(JL)=MERGE(0.3_JPRB, 1.3_JPRB - MIN(1.0_JPRB,PQEN(JL,JK)/PQSEN(JL,JK)), ldocean(jl)) &
          &  * ENTRORG*ZDZ(JL)*MAX(0.2_JPRB,MIN(1.0_JPRB,(PQSEN(JL,JK)/PQSEN(JL,KLEV))**2))
           ! Limitation to avoid trouble at very coarse vertical resolution
           zmix(jl) = MIN(1.0_jprb,zmix(jl))
