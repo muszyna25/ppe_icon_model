@@ -13,6 +13,7 @@ MODULE mo_var_list_register
   USE mo_io_config,        ONLY: restart_file_type
   USE mo_packed_message,   ONLY: t_PackedMessage, kPackOp, kUnpackOp
   USE mo_key_value_store,  ONLY: t_key_value_store
+  USE mo_impl_constants,   ONLY: vlname_len
 
   IMPLICIT NONE
   PRIVATE
@@ -61,7 +62,7 @@ CONTAINS
     last_id = last_id + 1
     CALL map%put(vlname, last_id)
     ! set default list characteristics
-    list%p%name     = vlname(1:vln_len)
+    list%p%vlname   = vlname(1:vln_len)
     list%p%post_suf = '_'//vlname(1:vln_len)
     list%p%rest_suf = list%p%post_suf
     list%p%init_suf = list%p%post_suf
@@ -133,9 +134,9 @@ CONTAINS
     INTEGER :: ivl, ierr
 
     IF (ASSOCIATED(list%p)) THEN
-      CALL map%get(list%p%name, ivl, ierr)
+      CALL map%get(list%p%vlname, ivl, ierr)
       IF (ierr .NE. 0) CALL finish(modname//":delete_var_list", &
-        & "var_list <" // TRIM(list%p%name) // "> not registered")
+        & "var_list <" // TRIM(list%p%vlname) // "> not registered")
       CALL list%delete()
       DEALLOCATE(storage(ivl)%p)
       NULLIFY(list%p)
@@ -150,7 +151,7 @@ CONTAINS
     INTEGER :: ivl, nvl, iv, nv, nv_al, patch_id, r_type, vl_type, ierr, infosize
     INTEGER, ALLOCATABLE :: info_buf(:)
     TYPE(t_var), POINTER :: elem
-    CHARACTER(LEN=128) :: vl_name
+    CHARACTER(LEN=vlname_len) :: vl_name
     CHARACTER(LEN=32) :: m_type
     LOGICAL :: lre, lout, l_end
     TYPE(t_var_list_ptr) :: vlp
@@ -174,7 +175,7 @@ CONTAINS
         ! copy the values needed for the new_var_list() CALL to local variables
         lre      = vlp%p%lrestart
         lout     = vlp%p%loutput
-        vl_name  = vlp%p%name
+        vl_name  = vlp%p%vlname
         m_type   = vlp%p%model_type
         patch_id = vlp%p%patch_id
         r_type   = vlp%p%restart_type

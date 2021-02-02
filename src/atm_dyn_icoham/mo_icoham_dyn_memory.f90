@@ -24,8 +24,7 @@
 !!
 MODULE mo_icoham_dyn_memory
 
-  USE mo_impl_constants,      ONLY: success, max_var_list_name_len, &
-    &                               vname_len, max_ntracer
+  USE mo_impl_constants,      ONLY: success, vlname_len, vname_len, max_ntracer
   USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_CELL,   &
     &                               GRID_EDGE, GRID_CELL, GRID_VERTEX,                &
     &                               GRID_UNSTRUCTURED_VERT
@@ -76,17 +75,12 @@ CONTAINS
   !! Subroutine that allocates memory for the state vector on ALL grid levels
   !!
   SUBROUTINE construct_icoham_dyn_state( ntimelevel, ntracer, p_patch )
-
     INTEGER,      INTENT(IN) :: ntimelevel, ntracer
     TYPE(t_patch),INTENT(IN) :: p_patch(:)
-
     INTEGER :: ndomain, jg, jt, istat, nblks_c, nblks_e, nblks_v, nlev
-    CHARACTER(len=max_var_list_name_len) :: listname
-    CHARACTER(len=vname_len) :: varname_prefix
-    CHARACTER(len=VNAME_LEN) :: tracer_names(MAX_NTRACER) 
-
-    CHARACTER(len=*), PARAMETER :: &
-             routine = modname//':construct_icoham_dyn_state'
+    CHARACTER(LEN=vlname_len) :: listname
+    CHARACTER(LEN=vname_len) :: varname_prefix, tracer_names(MAX_NTRACER) 
+    CHARACTER(*), PARAMETER :: routine = modname//':construct_icoham_dyn_state'
 
     !---
     CALL message('','')

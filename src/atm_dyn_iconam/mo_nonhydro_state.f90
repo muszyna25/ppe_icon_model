@@ -1535,7 +1535,7 @@ MODULE mo_nonhydro_state
       ! Only add tracer fields to the tracer list
       IF (from_info_dyn%tracer%lis_tracer .AND. .NOT. from_info%lcontainer ) &
         CALL vlr_add_vref(p_tracer_list, from_info%name, &
-          &               from_var_list%p%name, in_group=groups())
+          &               from_var_list%p%vlname, in_group=groups())
     ENDDO for_all_list_elements
   END SUBROUTINE new_nh_state_tracer_list
 

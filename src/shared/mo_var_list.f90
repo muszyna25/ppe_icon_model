@@ -33,7 +33,8 @@ MODULE mo_var_list
   USE mo_exception,        ONLY: message, finish, message_text
   USE mo_util_texthash,    ONLY: text_hash_c
   USE mo_util_string,      ONLY: toupper, tolower
-  USE mo_impl_constants,   ONLY: STR_HINTP_TYPE, REAL_T, SINGLE_T, BOOL_T, INT_T
+  USE mo_impl_constants,   ONLY: REAL_T, SINGLE_T, BOOL_T, INT_T, &
+    &                            STR_HINTP_TYPE, vlname_len
   USE mo_fortran_tools,    ONLY: init_contiguous_dp, init_contiguous_sp, &
     &                            init_contiguous_i4, init_contiguous_l
   USE mo_action_types,     ONLY: t_var_action
@@ -46,7 +47,7 @@ MODULE mo_var_list
 
   TYPE :: t_var_list
     CHARACTER(len=256) :: filename = ''
-    CHARACTER(len=128) :: name = ''
+    CHARACTER(len=vlname_len) :: vlname = ''
     INTEGER(i8) :: memory_used = 0_i8
     CHARACTER(len=8) :: post_suf = '', rest_suf = '', init_suf = '', &
       & model_type = 'atm' ! model type (default is 'atm' for reasons)
@@ -230,7 +231,7 @@ CONTAINS
     TYPE(t_union_vals) :: missval, initval, resetval, ivals
     INTEGER :: d(5), istat, ndims
     LOGICAL :: referenced, is_restart_var
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//":add_var_list_element_5d"
+    CHARACTER(*), PARAMETER :: routine = modname//":add_var_list_element_5d"
 
     ndims = SIZE(ldims)
     ! Check for a variable of the same name in this list
@@ -239,12 +240,12 @@ CONTAINS
     ! (e.g. lon-lat or vertically interpolated output)  
     ! duplicate names may exist in different lists
     IF (ASSOCIATED(find_list_element(list, varname))) &
-      & CALL finish(routine, "duplicate entry ("//TRIM(varname)//") in var_list ("//TRIM(list%p%name)//")")
+      & CALL finish(routine, "duplicate entry ("//TRIM(varname)//") in var_list ("//TRIM(list%p%vlname)//")")
     is_restart_var = list%p%lrestart
     IF (PRESENT(lrestart)) THEN
       is_restart_var = lrestart
       IF (.NOT.list%p%lrestart .AND. lrestart) &
-        & CALL finish(routine, 'for list '//TRIM(list%p%name)//' restarting not enabled, '// &
+        & CALL finish(routine, 'for list '//TRIM(list%p%vlname)//' restarting not enabled, '// &
                            & 'but restart of '//TRIM(varname)//' requested.')
     ENDIF
     IF (is_restart_var .AND. (.NOT. ANY(data_type == (/REAL_T, SINGLE_T, INT_T/)))) &
@@ -1361,7 +1362,7 @@ CONTAINS
     IF (PRESENT(lshort)) short = lshort
     CALL message('','')
     CALL message('','')
-    CALL message('','Status of variable list '//TRIM(this%p%name)//':')
+    CALL message('','Status of variable list '//TRIM(this%p%vlname)//':')
     CALL message('','')
     DO j = 1, this%p%nvars
       le => this%p%vl(j)%p

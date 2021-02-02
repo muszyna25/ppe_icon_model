@@ -1929,7 +1929,7 @@ CONTAINS
         IF (my_process_is_stdio()) THEN
           DO WHILE(vl_iter%next())
             WRITE(message_text,'(3a, i2)') &
-                 'Variable list name: ',TRIM(vl_iter%cur%p%name), &
+                 'Variable list name: ',TRIM(vl_iter%cur%p%vlname), &
                  ' Patch: ',vl_iter%cur%p%patch_id
             CALL message('',message_text)
             DO ivl = 1, vl_iter%cur%p%nvars
