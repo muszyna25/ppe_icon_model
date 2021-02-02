@@ -36,7 +36,7 @@
 MODULE mo_echam_phy_memory
 
   USE mo_kind,                ONLY: dp, wp
-  USE mo_impl_constants,      ONLY: SUCCESS, varname_len,      &
+  USE mo_impl_constants,      ONLY: SUCCESS, vname_len,        &
     &                               VINTP_METHOD_PRES,         &
     &                               VINTP_METHOD_LIN,          &
     &                               VINTP_METHOD_LIN_NLEVP1
@@ -751,43 +751,27 @@ CONTAINS
   SUBROUTINE new_echam_phy_field_list( jg, kproma, klev, kblks, ktracer, ksfc_type, &
                                      & listname, prefix,                            &
                                      & field_list, field                            )
-
     INTEGER,INTENT(IN) :: jg !> patch ID
     INTEGER,INTENT(IN) :: kproma, klev, kblks, ktracer, ksfc_type  !< dimension sizes
-
-    CHARACTER(len=*)              ,INTENT(IN) :: listname, prefix
-
-    TYPE(t_var_list_ptr),       INTENT(INOUT) :: field_list
-    TYPE(t_echam_phy_field),INTENT(INOUT) :: field
-
-    ! Local variables
-
-    CHARACTER(len=varname_len) :: trcname, varname
+    CHARACTER(*), INTENT(IN) :: listname, prefix
+    TYPE(t_var_list_ptr), INTENT(INOUT) :: field_list
+    TYPE(t_echam_phy_field), INTENT(INOUT) :: field
+    CHARACTER(LEN=vname_len) :: trcname, varname
     LOGICAL :: contvar_is_in_output
-
     TYPE(t_cf_var)    ::    cf_desc
     TYPE(t_grib2_var) :: grib2_desc, grib2_tmp
-
     INTEGER :: shape2d(2), shape3d(3), shapesfc(3), shapeice(3), shape3d_layer_interfaces(3)
-!0!    INTEGER :: shape4d(4)
     INTEGER :: ibits, iextbits
     INTEGER :: datatype_flt
     INTEGER :: jsfc, jtrc
 
     ibits = DATATYPE_PACK16
     iextbits = DATATYPE_PACK24
-
-    IF ( lnetcdf_flt64_output ) THEN
-      datatype_flt = DATATYPE_FLT64
-    ELSE
-      datatype_flt = DATATYPE_FLT32
-    ENDIF
-
+    datatype_flt = MERGE(DATATYPE_FLT64, DATATYPE_FLT32, lnetcdf_flt64_output)
     shape2d  = (/kproma,       kblks/)
     shape3d  = (/kproma, klev, kblks/)
     shapesfc = (/kproma, kblks, ksfc_type/)
     shape3d_layer_interfaces = (/kproma,klev+1,kblks/)
-
 
     !$ACC ENTER DATA COPYIN( field )
     ! Register a field list and apply default settings
@@ -4284,36 +4268,22 @@ CONTAINS
   SUBROUTINE new_echam_phy_tend_list( jg, kproma, klev, kblks, ktracer, &
                                     & listname, prefix,                 &
                                     & tend_list, tend )
-
     INTEGER,INTENT(IN) :: jg !> patch ID
     INTEGER,INTENT(IN) :: kproma, klev, kblks, ktracer  !< dimension sizes
-
-    CHARACTER(len=*)              ,INTENT(IN) :: listname, prefix
-
-    TYPE(t_var_list_ptr)      ,INTENT(INOUT) :: tend_list
-    TYPE(t_echam_phy_tend),INTENT(INOUT) :: tend
-
-    ! Local variables
-
-    CHARACTER(len=varname_len) :: trcname, varname
+    CHARACTER(*), INTENT(IN) :: listname, prefix
+    TYPE(t_var_list_ptr), INTENT(INOUT) :: tend_list
+    TYPE(t_echam_phy_tend), INTENT(INOUT) :: tend
+    CHARACTER(len=vname_len) :: trcname, varname
     LOGICAL :: contvar_is_in_output
-
     TYPE(t_cf_var)    ::    cf_desc
     TYPE(t_grib2_var) :: grib2_desc, grib2_tmp
-
     INTEGER :: shape2d(2), shape3d(3), shape_trc(4)
     INTEGER :: ibits, jtrc
     INTEGER :: datatype_flt
     !------------------------------
 
     ibits = DATATYPE_PACK16 ! "entropy" of horizontal slice
-
-    IF ( lnetcdf_flt64_output ) THEN
-      datatype_flt = DATATYPE_FLT64
-    ELSE
-      datatype_flt = DATATYPE_FLT32
-    ENDIF
-
+    datatype_flt = MERGE(DATATYPE_FLT64, DATATYPE_FLT32, lnetcdf_flt64_output)
     shape2d   = (/kproma, kblks/)
     shape3d   = (/kproma, klev, kblks/)
     shape_trc = (/kproma, klev, kblks, ktracer/)

@@ -33,7 +33,7 @@
 MODULE mo_nonhydro_state
 
   USE mo_kind,                 ONLY: wp
-  USE mo_impl_constants,       ONLY: SUCCESS, varname_len, max_var_list_name_len,    &
+  USE mo_impl_constants,       ONLY: SUCCESS, vname_len, vlname_len,                 &
     &                                INWP, IECHAM,                                   &
     &                                VINTP_METHOD_VN,                                &
     &                                VINTP_METHOD_QV, VINTP_METHOD_PRES,             &
@@ -144,7 +144,6 @@ MODULE mo_nonhydro_state
   !! Initial release by Almut Gassmann (2009-03-06)
   !!
   SUBROUTINE construct_nh_state(p_patch, p_nh_state, p_nh_state_lists, n_timelevels, var_in_output)
-!
     TYPE(t_patch),     INTENT(IN)   ::        & ! patch
       &  p_patch(n_dom)
     TYPE(t_nh_state),  INTENT(INOUT)::        & ! nh state at different grid levels
@@ -155,22 +154,18 @@ MODULE mo_nonhydro_state
       &  n_timelevels    
     TYPE(t_var_in_output), INTENT(IN) ::      & !< switches for optional diagnostics
       &  var_in_output(:)
-
     INTEGER  :: ntl,      &! local number of timelevels
                 ntl_pure, &! local number of timelevels (without any extra timelevs)
                 ist,      &! status
                 jg,       &! grid level counter
                 jt         ! time level counter
-
     LOGICAL  :: l_extra_timelev
-    
     INTEGER :: ic, jb, jc, i_startblk, i_endblk, i_startidx, i_endidx
 
-    CHARACTER(len=max_var_list_name_len) :: listname
-    CHARACTER(len=varname_len) :: varname_prefix
+    CHARACTER(len=vlname_len) :: listname
+    CHARACTER(LEN=vname_len) :: varname_prefix
 
-    CHARACTER(len=*), PARAMETER ::  &
-      &  routine = modname//'::construct_nh_state'
+    CHARACTER(*), PARAMETER :: routine = modname//'::construct_nh_state'
 !-----------------------------------------------------------------------
 
     CALL message (routine, 'Construction of NH state started')
