@@ -18,7 +18,6 @@ MODULE mo_linked_list
   !
   USE mo_kind,             ONLY: i8
   USE mo_exception,        ONLY: finish, message
-  USE mo_impl_constants,   ONLY: max_var_list_name_len
   USE mo_var_list_element, ONLY: t_var_list_element, level_type_ml
   !
   IMPLICIT NONE
@@ -47,7 +46,7 @@ MODULE mo_linked_list
   !
   TYPE t_var_list_intrinsic
     INTEGER                       :: key                ! hash value of name   
-    CHARACTER(len=max_var_list_name_len) :: name               !< stream name
+    CHARACTER(len=128)            :: name               ! stream name
     TYPE(t_list_element), POINTER :: first_list_element ! reference to first
     INTEGER(i8)                   :: memory_used        ! memory allocated
     INTEGER                       :: list_elements      ! allocated elements
