@@ -380,7 +380,7 @@ CONTAINS
        CASE(1,2)
           ! use tendency to update the physics state
           IF (lparamcpl) THEN
-            !$ACC DATA PRESENT( tend%ta )
+            !$ACC DATA PRESENT( field%ta )
             !$ACC PARALLEL DEFAULT(PRESENT)
             !$ACC LOOP GANG
             DO jk = 1, nlev
