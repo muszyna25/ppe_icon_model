@@ -937,6 +937,7 @@ CONTAINS
                 & vert_interp = create_vert_interp_metadata(                   &
                 &               vert_intp_type=vintp_types("P","Z","I"),       &
                 &               vert_intp_method=VINTP_METHOD_LIN )            )
+    __acc_attach(field%ta)
 
     ! &       field% tv        (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('virtual_temperature', 'K', 'virtual temperature', datatype_flt)
