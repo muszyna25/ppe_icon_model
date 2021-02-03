@@ -649,6 +649,20 @@ CONTAINS
         &               var_info, pack_buf, &
         &               lnd_diag%w_so_ice(:,:,:))
 
+      ! -- tiled 3D surface fields (need to be registered before starting with the 2D fields
+      !    because unpacking the buffer fails otherwise)
+      !
+      IF (meteogram_config%loutput_tiles) THEN     ! write some selected tile specific fields
+        CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_SOIL_ML, &
+          &               "W_SO_T", "m H2O", "soil water content", &
+          &               var_info, pack_buf, &
+          &               lnd_prog%w_so_t(:,:,:,:))
+        CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_SOIL_MLp2, &
+          &               "T_SO_T", "K", "soil temperature", &
+          &               var_info, pack_buf, &
+          &               lnd_prog%t_so_t(:,:,:,:))
+      ENDIF
+
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "PL_COV", "-", "ground fraction covered by plants", &
         &              sfc_var_info, pack_buf, &
@@ -882,16 +896,8 @@ CONTAINS
       &              sfc_var_info, pack_buf, &
       &              prm_diag%swflx_dn_sfc_diff(:,:))
 
-    ! -- tiled surface fields
+    ! -- tiled 2D surface fields
     IF (meteogram_config%loutput_tiles) THEN     ! write some selected tile specific fields
-      CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_SOIL_ML, &
-        &               "W_SO_T", "m H2O", "soil water content", &
-        &               var_info, pack_buf, &
-        &               lnd_prog%w_so_t(:,:,:,:))
-      CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_SOIL_MLp2, &
-        &               "T_SO_T", "K", "soil temperature", &
-        &               var_info, pack_buf, &
-        &               lnd_prog%t_so_t(:,:,:,:))
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "T_G_T", "K", "surface temperature", &
         &              sfc_var_info, pack_buf, &

@@ -2935,32 +2935,35 @@ MODULE mo_nonhydro_state
 
         END IF
       END IF
-
-      IF (icpl_da_sfcevap >= 1) THEN
-        !  Filtered T2M bias
-        cf_desc    = t_cf_var('t2m_bias', 'K', 'Filtered T2M bias', datatype_flt)
-        grib2_desc = grib2_var(0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL) &
-                   + t_grib2_int_key("typeOfGeneratingProcess", 206)
-        CALL add_var( p_diag_list, 't2m_bias', p_diag%t2m_bias,                         &
-          &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
-          &           ldims=shape2d_c, lrestart=.true.,                                 &
-          &           in_group=groups("mode_iau_fg_in") )
-      ENDIF
-
-      IF (icpl_da_sfcevap >= 2) THEN
-        !  Time-filtered near-surface level RH increment from data assimilation
-        cf_desc    = t_cf_var('rh_avginc', '1', 'Filtered RH increment', datatype_flt)
-        grib2_desc = grib2_var(0, 1, 1, ibits, GRID_UNSTRUCTURED, GRID_CELL) &
-                   + t_grib2_int_key("typeOfGeneratingProcess", 207)     &
-                   + t_grib2_int_key("typeOfSecondFixedSurface", 1)      &
-                   + t_grib2_int_key("scaledValueOfFirstFixedSurface", 20)
-        CALL add_var( p_diag_list, 'rh_avginc', p_diag%rh_avginc,                       &
-          &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,       &
-          &           ldims=shape2d_c, lrestart=.true.,                                 &
-          &           in_group=groups("mode_iau_fg_in") )
-      ENDIF
-
     ENDIF  ! init_mode = MODE_IAU, MODE_IAU_OLD
+
+    ! From a logical point of view, the following two fields make sense only in combination with an IAU cycle,
+    ! but allocating them anyway allows using the analysis interpolation mode without changing the namelists  
+    !
+    IF (icpl_da_sfcevap >= 1) THEN
+      !  Filtered T2M bias
+      cf_desc    = t_cf_var('t2m_bias', 'K', 'Filtered T2M bias', datatype_flt)
+      grib2_desc = grib2_var(0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL) &
+                 + t_grib2_int_key("typeOfGeneratingProcess", 206)
+      CALL add_var( p_diag_list, 't2m_bias', p_diag%t2m_bias,                         &
+        &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
+        &           ldims=shape2d_c, lrestart=.true.,                                 &
+        &           in_group=groups("mode_iau_fg_in") )
+    ENDIF
+
+    IF (icpl_da_sfcevap >= 2) THEN
+      !  Time-filtered near-surface level RH increment from data assimilation
+      cf_desc    = t_cf_var('rh_avginc', '1', 'Filtered RH increment', datatype_flt)
+      grib2_desc = grib2_var(0, 1, 1, ibits, GRID_UNSTRUCTURED, GRID_CELL) &
+                 + t_grib2_int_key("typeOfGeneratingProcess", 207)     &
+                 + t_grib2_int_key("typeOfSecondFixedSurface", 1)      &
+                 + t_grib2_int_key("scaledValueOfFirstFixedSurface", 20)
+      CALL add_var( p_diag_list, 'rh_avginc', p_diag%rh_avginc,                       &
+        &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,       &
+        &           ldims=shape2d_c, lrestart=.true.,                                 &
+        &           in_group=groups("mode_iau_fg_in") )
+    ENDIF
+
 
     IF (p_patch%id == 1 .AND. lcalc_avg_fg) THEN
       ! NOTE: the following time-averaged fields are not written into the restart file, 

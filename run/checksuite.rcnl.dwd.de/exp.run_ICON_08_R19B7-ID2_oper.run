@@ -701,6 +701,7 @@ cat > ${atmo_namelist} << EOF
 /
 &meteogram_output_nml
   lmeteogram_enabled = .true., .true.
+  loutput_tiles      = .true.
   n0_mtgrm           = 0                          ! meteogram initial time step (0 is first step!)
   ninc_mtgrm         = 45, 45 ! meteogram output interval (in terms of time steps)
   ldistributed       = .false., .false.
