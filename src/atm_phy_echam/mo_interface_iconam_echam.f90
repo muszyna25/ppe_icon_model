@@ -377,6 +377,53 @@ CONTAINS
 
     !=====================================================================================
     !
+    ! Handling of negative tracer mass fractions resulting from dynamics
+    !
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = jbs_c,jbe_c
+      !
+      CALL get_indices_c(patch, jb,jbs_c,jbe_c, jcs,jce, rls_c,rle_c)
+      IF (jcs>jce) CYCLE
+      !
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR COLLAPSE(3)
+      DO jt = 1,ntracer
+        DO jk = 1,nlev
+          DO jc = jcs, jce
+            !
+            IF (echam_phy_config(jg)%iqneg_d2p /= 0) THEN
+                IF (pt_prog_new_rcf% tracer(jc,jk,jb,jt) < 0.0_wp) THEN
+#ifndef _OPENACC
+                  IF (echam_phy_config(jg)%iqneg_d2p == 1 .OR. echam_phy_config(jg)%iqneg_d2p == 3) THEN
+                     CALL print_value('grid   index jg',jg)
+                     CALL print_value('tracer index jt',jt)
+                     CALL print_value('level  index jk',jk)
+                     CALL print_value('pressure   [Pa]',field% presm_new(jc,jk,jb))
+                     CALL print_value('longitude [deg]',field% clon(jc,jb)*rad2deg)
+                     CALL print_value('latitude  [deg]',field% clat(jc,jb)*rad2deg)
+                     CALL print_value('pt_prog_new_rcf%tracer',pt_prog_new_rcf% tracer(jc,jk,jb,jt))
+                  END IF
+#endif
+                  IF (echam_phy_config(jg)%iqneg_d2p == 2 .OR. echam_phy_config(jg)%iqneg_d2p == 3) THEN
+                     pt_prog_new_rcf% tracer(jc,jk,jb,jt) = 0.0_wp
+                  END IF
+               END IF
+            END IF
+            !
+          END DO
+        END DO
+      END DO
+      !$ACC END PARALLEL
+      !
+    END DO
+!$OMP END DO
+!$OMP END PARALLEL
+    !
+    !=====================================================================================
+
+    !=====================================================================================
+    !
     ! (2) Diagnostics
     !
     ! - pt_diag%tempv    = field%tv
@@ -618,27 +665,6 @@ CONTAINS
       DO jt = 1,ntracer
         DO jk = 1,nlev
           DO jc = jcs, jce
-            !
-            ! Handling of negative tracer mass fractions resulting from dynamics
-            !
-            IF (echam_phy_config(jg)%iqneg_d2p /= 0) THEN
-                IF (pt_prog_new_rcf% tracer(jc,jk,jb,jt) < 0.0_wp) THEN
-#ifndef _OPENACC
-                  IF (echam_phy_config(jg)%iqneg_d2p == 1 .OR. echam_phy_config(jg)%iqneg_d2p == 3) THEN
-                     CALL print_value('grid   index jg',jg)
-                     CALL print_value('tracer index jt',jt)
-                     CALL print_value('level  index jk',jk)
-                     CALL print_value('pressure   [Pa]',field% pfull(jc,jk,jb))
-                     CALL print_value('longitude [deg]',field% clon(jc,jb)*rad2deg)
-                     CALL print_value('latitude  [deg]',field% clat(jc,jb)*rad2deg)
-                     CALL print_value('pt_prog_new_rcf%tracer',pt_prog_new_rcf% tracer(jc,jk,jb,jt))
-                  END IF
-#endif
-                  IF (echam_phy_config(jg)%iqneg_d2p == 2 .OR. echam_phy_config(jg)%iqneg_d2p == 3) THEN
-                     pt_prog_new_rcf% tracer(jc,jk,jb,jt) = 0.0_wp
-                  END IF
-               END IF
-            END IF
             !
             ! Tracer mass
             !
