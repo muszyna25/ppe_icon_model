@@ -866,7 +866,9 @@ CONTAINS
                 & ref_idx=1, ldims=shape3d_layer_interfaces,                   &
                 & vert_interp = create_vert_interp_metadata(                   &
                 &               vert_intp_type=vintp_types("P","Z","I"),       &
-                &               vert_intp_method=VINTP_METHOD_LIN_NLEVP1 )     )
+                &               vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ),    &
+                & isteptype=TSTEP_CONSTANT                                     )
+    __acc_attach(field%zh)
 
     cf_desc    = t_cf_var('height_above_reference_ellipsoid', 'm',             &
                 &         'height above reference ellipsoid, full level',      &
@@ -881,7 +883,8 @@ CONTAINS
                 &               vert_intp_type=vintp_types("P","Z","I"),       &
                 &               vert_intp_method=VINTP_METHOD_LIN ),           &
                 & isteptype=TSTEP_CONSTANT                                     )
- 
+    __acc_attach(field%zf)
+
     cf_desc    = t_cf_var('layer_thickness', 'm',                              &
                 &         'layer thickness',                                   &
                 &         datatype_flt)
@@ -895,6 +898,7 @@ CONTAINS
                 &               vert_intp_type=vintp_types("P","Z","I"),       &
                 &               vert_intp_method=VINTP_METHOD_LIN ),           &
                 & isteptype=TSTEP_CONSTANT                                     )
+    __acc_attach(field%dz)
 
 
     !------------------------------
@@ -912,6 +916,7 @@ CONTAINS
                 & lrestart = .FALSE.,                                          &
                 & vert_interp = create_vert_interp_metadata(                   &
                 &               vert_intp_type=vintp_types("P","Z","I") )      )
+    __acc_attach(field%ua)
 
     ! &       field% va        (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('northward_wind', 'm s-1', 'northward wind', datatype_flt)
@@ -924,6 +929,7 @@ CONTAINS
                 & lrestart = .FALSE.,                                          &
                 & vert_interp = create_vert_interp_metadata(                   &
                 &               vert_intp_type=vintp_types("P","Z","I") )      )
+    __acc_attach(field%va)
 
     ! &       field% ta        (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('air_temperature', 'K', 'air temperature', datatype_flt)
@@ -951,6 +957,7 @@ CONTAINS
                 & vert_interp = create_vert_interp_metadata(                   &
                 &               vert_intp_type=vintp_types("P","Z","I"),       &
                 &               vert_intp_method=VINTP_METHOD_LIN )            )
+    __acc_attach(field%tv)
 
     ! OZONE 
     ! &       field% o3        (nproma,nlev  ,nblks),          &
@@ -1396,6 +1403,7 @@ CONTAINS
                 &               vert_intp_type=vintp_types("P","Z","I"),       &
                 &               vert_intp_method=VINTP_METHOD_LIN,             &
                 &               l_extrapol=.TRUE., l_pd_limit=.FALSE.)         )
+    __acc_attach(field%geom)
 
     ! &       field% pfull (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('air_pressure', 'Pa', 'air pressure on model levels', datatype_flt)
@@ -1409,6 +1417,7 @@ CONTAINS
                 & vert_interp=create_vert_interp_metadata(                     &
                 &             vert_intp_type=vintp_types("Z","I"),             &
                 &             vert_intp_method=VINTP_METHOD_PRES )             )
+    __acc_attach(field%pfull)
 
     !-- Variables defined at layer interfaces --
 
@@ -1423,6 +1432,7 @@ CONTAINS
                 & vert_interp = create_vert_interp_metadata(                   &
                 &               vert_intp_type=vintp_types("P","Z","I"),       &
                 &               vert_intp_method=VINTP_METHOD_LIN_NLEVP1 )     )
+    __acc_attach(field%geoi)
 
     ! &       field% phalf (nproma,nlevp1,nblks),          &
     cf_desc    = t_cf_var('air_pressure', 'Pa', 'air pressure on model half levels', datatype_flt)
@@ -1436,6 +1446,7 @@ CONTAINS
                 & vert_interp=create_vert_interp_metadata(                     &
                 &             vert_intp_type=vintp_types("Z","I"),             &
                 &             vert_intp_method=VINTP_METHOD_LIN_NLEVP1 )       )
+    __acc_attach(field%phalf)
 
     !------------------
     ! Radiation
@@ -3386,6 +3397,7 @@ CONTAINS
                 & ref_idx=1, ldims=shape2d,                                    &
                 & loutput=.TRUE.,                                              &
                 & isteptype=TSTEP_CONSTANT                                     )
+    __acc_attach(field%orog)
 
     cf_desc    = t_cf_var('land_area_fraction', 'm2/m2',   &
                 &         'cell area fraction occupied by land including lakes', datatype_flt)
