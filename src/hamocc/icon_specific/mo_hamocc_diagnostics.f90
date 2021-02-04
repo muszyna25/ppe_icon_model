@@ -1,4 +1,3 @@
-#ifndef __NO_ICON_OCEAN__
 ! calculates HAMOCC diagnostics:
 ! monitoring variables, global inventories
 !--------------------------------------
@@ -820,4 +819,3 @@ END SUBROUTINE
 
 END MODULE mo_hamocc_diagnostics
 
-#endif

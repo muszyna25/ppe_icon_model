@@ -10,16 +10,29 @@
 !! Upward shift is currently disabled.
 !!
 #include "hamocc_omp_definitions.inc"
+
+MODULE mo_sedshi
+
+    USE mo_kind, ONLY       : wp
+    USE mo_sedmnt, ONLY     : sedlay, seddw, burial, orgfa, oplfa, &
+       &                    calfa, clafa, porsol, solfu
+    USE mo_memory_bgc, ONLY : bolay,  rcar
+    USE mo_param1_bgc, ONLY : nsedtra, &
+       &                    issso12, isssc12, issssil, issster
+    USE mo_control_bgc, ONLY: bgc_nproma
+    USE mo_hamocc_nml, ONLY: l_up_sedshi,ks
+
+    IMPLICIT NONE
+
+    PRIVATE
+
+    PUBLIC :: sedshi
+
+CONTAINS
+
 SUBROUTINE sedshi(start_idx,end_idx)
 
-  USE mo_kind, ONLY       : wp
-  USE mo_sedmnt, ONLY     : sedlay, seddw, burial, orgfa, oplfa, &
-       &                    calfa, clafa, porsol, solfu
-  USE mo_memory_bgc, ONLY : bolay,  rcar
-  USE mo_param1_bgc, ONLY : nsedtra, &
-       &                    issso12, isssc12, issssil, issster
-  USE mo_control_bgc, ONLY: bgc_nproma
-  USE mo_hamocc_nml, ONLY: l_up_sedshi,ks
+  
  
   IMPLICIT NONE
 
@@ -240,3 +253,4 @@ SUBROUTINE sedshi(start_idx,end_idx)
  ENDIF ! l_up_sedshi
 
 END SUBROUTINE 
+END MODULE

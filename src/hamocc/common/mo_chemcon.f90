@@ -11,8 +11,8 @@
 !!
 #include "hamocc_omp_definitions.inc"
 
-SUBROUTINE CHEMCON ( start_idx, end_idx, klevs, psao, ptho,  &
-     &               pddpo, ptiestu, kldtday)
+MODULE mo_chemcon
+
 
   USE mo_kind, ONLY        : wp
   USE mo_memory_bgc, ONLY      : akb3, akw3, ak13, ak23, aksp, &
@@ -23,9 +23,22 @@ SUBROUTINE CHEMCON ( start_idx, end_idx, klevs, psao, ptho,  &
   USE mo_control_bgc, ONLY : bgc_nproma, bgc_zlevs
   USE mo_hamocc_nml, ONLY  : l_limit_sal
 
-
   USE mo_bgc_constants
 
+  IMPLICIT NONE
+
+  PRIVATE
+
+  PUBLIC :: chemcon
+           
+
+CONTAINS
+
+
+SUBROUTINE CHEMCON ( start_idx, end_idx, klevs, psao, ptho,  &
+     &               pddpo, ptiestu, kldtday)
+
+  
   IMPLICIT NONE
 
   !! Arguments
@@ -595,3 +608,5 @@ SUBROUTINE CHEMCON ( start_idx, end_idx, klevs, psao, ptho,  &
   ENDIF  ! kldtay == 1
 
 END SUBROUTINE CHEMCON
+
+END MODULE
