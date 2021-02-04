@@ -255,11 +255,31 @@
               latbc%latbc_data(tlev)%atm%qs       (nproma,nlev,nblks_c), STAT=ierrstat)
          IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
+!$OMP PARALLEL 
+         CALL init(latbc%latbc_data(tlev)%atm%vn(:,:,:))
+         CALL init(latbc%latbc_data(tlev)%atm%u(:,:,:))
+         CALL init(latbc%latbc_data(tlev)%atm%v(:,:,:))
+         CALL init(latbc%latbc_data(tlev)%atm%w(:,:,:))
+         CALL init(latbc%latbc_data(tlev)%atm%temp(:,:,:))
+         CALL init(latbc%latbc_data(tlev)%atm%exner(:,:,:))
+         CALL init(latbc%latbc_data(tlev)%atm%pres(:,:,:))
+         CALL init(latbc%latbc_data(tlev)%atm%rho(:,:,:))
+         CALL init(latbc%latbc_data(tlev)%atm%theta_v(:,:,:))
+         CALL init(latbc%latbc_data(tlev)%atm%qv(:,:,:))
+         CALL init(latbc%latbc_data(tlev)%atm%qc(:,:,:))
+         CALL init(latbc%latbc_data(tlev)%atm%qi(:,:,:))
+         CALL init(latbc%latbc_data(tlev)%atm%qr(:,:,:))
+         CALL init(latbc%latbc_data(tlev)%atm%qs(:,:,:))
+!$OMP END PARALLEL
+
          ! ... for additional tracer variables
          DO idx=1, ntracer
            IF (latbc%buffer%lread_tracer(idx)) THEN
              ALLOCATE(latbc%latbc_data(tlev)%atm%tracer(idx)%field(nproma,nlev,nblks_c), &
                &      STAT=ierrstat)
+!$OMP PARALLEL
+             CALL init(latbc%latbc_data(tlev)%atm%tracer(idx)%field(:,:,:))
+!$OMP END PARALLEL
            END IF
          END DO
 

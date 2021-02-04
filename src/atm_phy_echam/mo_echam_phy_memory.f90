@@ -1,3 +1,4 @@
+!NEC$ options "-O1"
 #if (defined (__GNUC__) || defined(__SUNPRO_F95) || defined(__SX__))
 #define HAVE_F95
 #endif
@@ -168,6 +169,7 @@ MODULE mo_echam_phy_memory
       & mairvi    (:,:)=>NULL(),    &!< [kg/m2] air content, vertically integrated through the atmospheric column
       & mdryvi    (:,:)=>NULL(),    &!< [kg/m2] dry air content, vertically integrated through the atmospheric column
       & mrefvi    (:,:)=>NULL(),    &!< [kg/m2] reference air content, vertically integrated through the atmospheric column
+      & wa        (:,:,:)=>NULL(),  &!< [m/s] vertical velocity in m/s (for Smagorinsky)
       & omega     (:,:,:)=>NULL(),  &!< [Pa/s]  vertical velocity in pressure coord. ("vervel" in ECHAM)
       & geoi      (:,:,:)=>NULL(),  &!< [m2/s2] geopotential above ground at half levels (vertical interfaces)
       & geom      (:,:,:)=>NULL(),  &!< [m2/s2] geopotential above ground at full levels (layer ave. or mid-point value)
@@ -1350,6 +1352,19 @@ CONTAINS
          &                    lower_limit=0._wp  ),                            &
          &        lopenacc=.TRUE.)
     __acc_attach(field%xref)
+
+    ! &       field% wa     (nproma,nlevp1,nblks),          &
+    cf_desc    = t_cf_var('vertical_velocity', 'm s-1', 'vertical velocity in m/s', datatype_flt)
+    grib2_desc = grib2_var(0,2,8, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'wa_phy', field%wa,                          &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,  &
+                & ldims=shape3d_layer_interfaces, lrestart = .FALSE.,              &
+                & vert_interp=create_vert_interp_metadata(                         &
+                &             vert_intp_type=vintp_types("P","Z","I"),             &
+                &             vert_intp_method=VINTP_METHOD_LIN_NLEVP1,            &
+                &             l_loglin=.FALSE., l_extrapol=.FALSE.),               &
+                & lopenacc=.TRUE.)
+    __acc_attach(field%wa)
 
     ! &       field% omega     (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('vertical_velocity', 'Pa s-1', 'vertical velocity in physics', datatype_flt)

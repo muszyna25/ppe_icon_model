@@ -52,7 +52,6 @@ MODULE mo_nwp_sfc_interface
   USE sfc_seaice,             ONLY: seaice_timestep_nwp
   USE sfc_terra_data                ! soil and vegetation parameters for TILES
   USE mo_physical_constants,  ONLY: tmelt, grav, salinity_fac, rhoh2o
-  USE mo_nwp_gpu_util,        ONLY: gpu_d2h_nh_nwp, gpu_h2d_nh_nwp
 
   IMPLICIT NONE 
 
@@ -120,6 +119,7 @@ CONTAINS
     REAL(wp) :: conv_frac   (nproma)
     REAL(wp) :: prr_gsp_t   (nproma)
     REAL(wp) :: prs_gsp_t   (nproma)
+    REAL(wp) :: pri_gsp_t   (nproma)
     REAL(wp) :: prg_gsp_t   (nproma)
 
     REAL(wp) :: u_t (nproma)
@@ -224,6 +224,7 @@ CONTAINS
                 sntunefac(nproma), sntunefac2(nproma, ntiles_total)
     REAL(wp) :: rain_gsp_rate(nproma, ntiles_total)
     REAL(wp) :: snow_gsp_rate(nproma, ntiles_total)
+    REAL(wp) :: ice_gsp_rate (nproma, ntiles_total)
     REAL(wp) :: rain_con_rate(nproma, ntiles_total)
     REAL(wp) :: snow_con_rate(nproma, ntiles_total)
     REAL(wp) :: graupel_gsp_rate(nproma, ntiles_total)
@@ -295,8 +296,8 @@ CONTAINS
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,isubs,i_count,ic,isubs_snow,i_count_snow,                     &
 !$OMP   tmp1,tmp2,tmp3,fact1,fact2,frac_sv,frac_snow_sv,icount_init,init_list,it1,it2,is1,is2,              &
-!$OMP   rain_gsp_rate,snow_gsp_rate,rain_con_rate,snow_con_rate,ps_t,prr_con_t,prs_con_t,                   &
-!$OMP   prr_gsp_t,prs_gsp_t,u_t,v_t,t_t,qv_t,p0_t,sso_sigma_t,lc_class_t,t_snow_now_t,t_s_now_t,            &
+!$OMP   rain_gsp_rate,snow_gsp_rate,ice_gsp_rate,rain_con_rate,snow_con_rate,ps_t,prr_con_t,prs_con_t,      &
+!$OMP   prr_gsp_t,prs_gsp_t,pri_gsp_t,u_t,v_t,t_t,qv_t,p0_t,sso_sigma_t,lc_class_t,t_snow_now_t,t_s_now_t,  &
 !$OMP   t_g_t,qv_s_t,w_snow_now_t,rho_snow_now_t,w_i_now_t,w_p_now_t,w_s_now_t,freshsnow_t,                 &
 !$OMP   snowfrac_t,runoff_s_inst_t,runoff_g_inst_t,u_10m_t,v_10m_t,tch_t,tcm_t,tfv_t,sobs_t,thbs_t,pabs_t,  &
 !$OMP   soiltyp_t,plcov_t,rootdp_t,sai_t,tai_t,eai_t,rsmin2d_t,t_snow_mult_now_t,wliq_snow_now_t,           &
@@ -312,7 +313,7 @@ CONTAINS
     !$acc            create (sntunefac, sntunefac2, rain_con_rate, snow_con_rate)  &
     !$acc            create (rain_gsp_rate, snow_gsp_rate, graupel_gsp_rate)       &
     !$acc            create (init_list, it1, it2, fact1, fact2, frac_sv)           &
-    !$acc            create (frac_snow_sv),                                        &
+    !$acc            create (frac_snow_sv, ice_gsp_rate),                          &
     !$acc if(lzacc)
 
     DO jb = i_startblk, i_endblk
@@ -372,6 +373,7 @@ CONTAINS
            jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
            rain_gsp_rate(jc,isubs)    = prm_diag%rain_gsp_rate(jc,jb)
            snow_gsp_rate(jc,isubs)    = prm_diag%snow_gsp_rate(jc,jb)
+           ice_gsp_rate(jc,isubs)     = prm_diag%ice_gsp_rate(jc,jb)
            rain_con_rate(jc,isubs)    = prm_diag%rain_con_rate(jc,jb)
            snow_con_rate(jc,isubs)    = prm_diag%snow_con_rate(jc,jb)
            graupel_gsp_rate(jc,isubs) = p_graupel_gsp_rate    (jc,jb)
@@ -379,8 +381,6 @@ CONTAINS
          IF( atm_phy_nwp_config(jg)%l2moment) THEN
            DO ic = 1, i_count
              jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
-             ! for 1mom ice is included in snow_gsp, but for 2mom not
-             snow_gsp_rate(jc,isubs)    = snow_gsp_rate(jc,isubs) + prm_diag%ice_gsp_rate(jc,jb)
              ! here we ignore the different densities of graupel and hail in TERRA (at least for now)
              graupel_gsp_rate(jc,isubs) = graupel_gsp_rate(jc,isubs) + prm_diag%hail_gsp_rate(jc,jb) 
            END DO
@@ -430,11 +430,13 @@ CONTAINS
              ! parameterization for snow drift, treated as a source term for cloud ice (restricted to glaciers in order
              ! to avoid erroneous side effects on snow density)
              ! Note that, consistent with the approximations made for evaporation and deposition of precipitation,
-             ! the related change of total air mass is neglected here
+             ! the related change of total air mass is neglected here. The physical dependency on the near-surface snow density,
+             ! which would require a multi-layer snow scheme to be properly represented, is approximated by a combination of the
+             ! glacier snow density (which depends on the climatological 2m-temperature) and the freshsnow factor
              !
              IF (ext_data%atm%lc_class_t(jc,jb,isubs) == ext_data%atm%i_lc_snow_ice) THEN
-               tmp1 = tcall_sfc_jg * 7.5e-10_wp * (600._wp-lnd_prog_now%rho_snow_t(jc,jb,isubs))* &
-                 MAX(0._wp,prm_diag%gust10(jc,jb)-7.5_wp)**2
+               tmp1 = tcall_sfc_jg * 7.5e-9_wp * (600._wp-lnd_prog_now%rho_snow_t(jc,jb,isubs))*       &
+                 MAX(0._wp,SQRT(SQRT(lnd_diag%freshsnow_t(jc,jb,isubs)))*prm_diag%dyn_gust(jc,jb)-7.5_wp)
 
                p_prog_rcf%tracer(jc,nlev,jb,iqi) = p_prog_rcf%tracer(jc,nlev,jb,iqi) + tmp1 * &
                  ext_data%atm%frac_t(jc,jb,isubs) / (p_prog%rho(jc,nlev,jb)*p_metrics%ddqz_z_full(jc,nlev,jb))
@@ -500,11 +502,13 @@ CONTAINS
 
                rain_gsp_rate(jc,isubs)    = rain_gsp_rate(jc,isubs)*tmp2
                snow_gsp_rate(jc,isubs)    = snow_gsp_rate(jc,isubs)*tmp2
+               ice_gsp_rate(jc,isubs)     = ice_gsp_rate(jc,isubs)*tmp2
                rain_con_rate(jc,isubs)    = rain_con_rate(jc,isubs)*tmp2
                snow_con_rate(jc,isubs)    = snow_con_rate(jc,isubs)*tmp2
                graupel_gsp_rate(jc,isubs) = graupel_gsp_rate(jc,isubs)*tmp2
                rain_gsp_rate(jc,isubs_snow)    = rain_gsp_rate(jc,isubs_snow)*tmp1
                snow_gsp_rate(jc,isubs_snow)    = snow_gsp_rate(jc,isubs_snow)*tmp1
+               ice_gsp_rate(jc,isubs_snow)     = ice_gsp_rate(jc,isubs_snow)*tmp1
                rain_con_rate(jc,isubs_snow)    = rain_con_rate(jc,isubs_snow)*tmp1
                snow_con_rate(jc,isubs_snow)    = snow_con_rate(jc,isubs_snow)*tmp1
                graupel_gsp_rate(jc,isubs_snow) = graupel_gsp_rate(jc,isubs_snow)*tmp1
@@ -519,7 +523,7 @@ CONTAINS
        !$acc enter data create (soiltyp_t, plcov_t, rootdp_t, sai_t, eai_t, tai_t, laifac_t,      &
        !$acc                    skinc_t, rsmin2d_t, u_t, v_t, t_t, qv_t, p0_t, ps_t, h_snow_gp_t, &
        !$acc                    u_10m_t, v_10m_t, prr_con_t, prs_con_t, conv_frac, prr_gsp_t,     &
-       !$acc                    prs_gsp_t, prg_gsp_t, sobs_t, thbs_t, pabs_t, tsnred,             &
+       !$acc                    prs_gsp_t, pri_gsp_t, prg_gsp_t, sobs_t, thbs_t, pabs_t, tsnred,  &
        !$acc                    t_snow_now_t, t_s_now_t, t_sk_now_t, t_g_t, qv_s_t, w_snow_now_t, &
        !$acc                    rho_snow_now_t, h_snow_t, w_i_now_t, w_p_now_t, w_s_now_t,        &
        !$acc                    freshsnow_t, snowfrac_t, tch_t, tcm_t, tfv_t, runoff_s_inst_t,    &
@@ -557,6 +561,7 @@ CONTAINS
                            phy_params(jg)%rcucov_trop*         prm_diag%tropics_mask(jc,jb)
           prr_gsp_t(ic) =  rain_gsp_rate(jc,isubs)
           prs_gsp_t(ic) =  snow_gsp_rate(jc,isubs)
+          pri_gsp_t(ic) =  ice_gsp_rate(jc,isubs)
           prg_gsp_t(ic) =  graupel_gsp_rate(jc,isubs)
 
           u_t(ic)       =  p_diag%u         (jc,nlev,jb)
@@ -838,6 +843,7 @@ CONTAINS
         &  conv_frac     = conv_frac                         , & !IN convective area fraction
         &  prr_gsp       = prr_gsp_t                         , & !IN precipitation rate of rain, grid-scale       (kg/m2*s)
         &  prs_gsp       = prs_gsp_t                         , & !IN precipitation rate of snow, grid-scale       (kg/m2*s)
+        &  pri_gsp       = pri_gsp_t                         , & !IN precipitation rate of cloud ice, grid-scale  (kg/m2*s)
         &  prg_gsp       = prg_gsp_t                         , & !IN precipitation rate of graupel, grid-scale    (kg/m2*s)
 !
         &  tch           = tch_t                             , & !INOUT turbulent transfer coefficient for heat     ( -- )
@@ -917,7 +923,7 @@ CONTAINS
               tmp1 = MAX(0._wp,0.02_wp*(50._wp-prm_diag%swflxsfc_t(jc,jb,isubs-ntiles_lnd)))
               tmp2 = MIN(1._wp,MAX(0._wp,tmelt+1._wp-lnd_prog_new%t_s_t(jc,jb,isubs-ntiles_lnd)))
               snowfrac_t(ic) = MIN(snowfrac_t(ic),lnd_diag%snowfrac_lc_t(jc,jb,isubs)+MAX(tmp1,tmp2)*tcall_sfc_jg/10800._wp)
-            ELSE IF (prs_gsp_t(ic) + prs_con_t(ic) + prg_gsp_t(ic) == 0._wp) THEN
+            ELSE IF (prs_gsp_t(ic) + pri_gsp_t(ic) + prs_con_t(ic) + prg_gsp_t(ic) == 0._wp) THEN
               snowfrac_t(ic) = MIN(snowfrac_t(ic),lnd_diag%snowfrac_lc_t(jc,jb,isubs)+tcall_sfc_jg/7200._wp)
             ELSE
               snowfrac_t(ic) = MIN(snowfrac_t(ic),lnd_diag%snowfrac_lc_t(jc,jb,isubs)+tcall_sfc_jg/1800._wp)
@@ -1042,7 +1048,7 @@ CONTAINS
        !$acc exit data delete (soiltyp_t, plcov_t, rootdp_t, sai_t, eai_t, tai_t, laifac_t,      &
        !$acc                   skinc_t, rsmin2d_t, u_t, v_t, t_t, qv_t, p0_t, ps_t, h_snow_gp_t, &
        !$acc                   u_10m_t, v_10m_t, prr_con_t, prs_con_t, conv_frac, prr_gsp_t,     &
-       !$acc                   prs_gsp_t, prg_gsp_t, sobs_t, thbs_t, pabs_t, tsnred,             &
+       !$acc                   prs_gsp_t, pri_gsp_t, prg_gsp_t, sobs_t, thbs_t, pabs_t, tsnred,  &
        !$acc                   t_snow_now_t, t_s_now_t, t_sk_now_t, t_g_t, qv_s_t, w_snow_now_t, &
        !$acc                   rho_snow_now_t, h_snow_t, w_i_now_t, w_p_now_t, w_s_now_t,        &
        !$acc                   freshsnow_t, snowfrac_t, tch_t, tcm_t, tfv_t, runoff_s_inst_t,    &
@@ -1361,7 +1367,7 @@ CONTAINS
     !$acc           delete (sntunefac, sntunefac2, rain_con_rate, snow_con_rate)  &
     !$acc           delete (rain_gsp_rate, snow_gsp_rate, graupel_gsp_rate)       &
     !$acc           delete (init_list, it1, it2, fact1, fact2, frac_sv)           &
-    !$acc           delete (frac_snow_sv),                                        &
+    !$acc           delete (frac_snow_sv, ice_gsp_rate),                          &
     !$acc if(lzacc)
 
     !
@@ -1401,6 +1407,10 @@ CONTAINS
         & i_startidx, i_endidx, rl_start, rl_end)
 
        IF (ntiles_total == 1) THEN 
+
+        ! WARNING: This has been ported to GPU but has not been tested. If ntiles_total == 1 is
+        ! read from the namelist with GPU enabled, the code finishes.
+
          !$acc parallel if(lzacc)
          !$acc loop gang vector
          DO jc = i_startidx, i_endidx
@@ -1605,7 +1615,7 @@ CONTAINS
         lwflxsfc (ic) = prm_diag%lwflxsfc_t(jc,jb,isub_seaice)   ! net lw radiation flux at sfc [W/m^2]
         swflxsfc (ic) = prm_diag%swflxsfc_t(jc,jb,isub_seaice)   ! net solar radiation flux at sfc [W/m^2]
         snow_rate(ic) = prm_diag%snow_gsp_rate(jc,jb)  &         ! snow rate (convecive + grid-scale) [kg/(m^2 s)]
-          &           + prm_diag%snow_con_rate(jc,jb)
+          &           + prm_diag%snow_con_rate(jc,jb) + prm_diag%ice_gsp_rate(jc,jb)
         rain_rate(ic) = prm_diag%rain_gsp_rate(jc,jb)  &         !  rain rate (convecive + grid-scale) [kg/(m^2 s)]
           &           + prm_diag%rain_con_rate(jc,jb)
         tice_now (ic) = p_prog_wtr_now%t_ice    (jc,jb)

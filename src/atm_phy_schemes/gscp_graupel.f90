@@ -195,9 +195,7 @@ USE gscp_data, ONLY: &          ! all variables are used here
     ccslxp,    ccsaxp,    ccsdxp,    ccshi1,    ccdvtp,    ccidep,       &
     ccswxp,    zconst,    zcev,      zbev,      zcevxp,    zbevxp,       &
     zvzxp,     zvz0r,                                                    &
-
-    v0snow => v0snow_gr,  mu_rain,   rain_n0_factor,       cloud_num,    &
-
+    v0snow,    mu_rain,   rain_n0_factor,       cloud_num,               &
     x13o8,     x1o2,      x27o16,    x3o4,      x7o4,      x7o8,         &
     zbms,      zbvi,      zcac,      zccau,     zciau,     zcicri,       &
     zcrcri,    zcrfrz,    zcrfrz1,   zcrfrz2,   zeps,      zkcac,        &
@@ -209,20 +207,6 @@ USE gscp_data, ONLY: &          ! all variables are used here
     iautocon,  isnow_n0temp, dist_cldtop_ref,   reduce_dep_ref,          &
     tmin_iceautoconv,     zceff_fac, zceff_min,                          &
     mma, mmb, v_sedi_rain_min, v_sedi_snow_min, v_sedi_graupel_min
-
-#ifdef __ICON__
-! this is (at the moment) an ICON part
-USE gscp_data, ONLY: &          ! all variables are used here
-    vtxexp,    & !
-    kc_c1,     & !
-    kc_c2,     & !
-    kc_alpha,  & !
-    kc_beta,   & !
-    kc_gamma,  & !
-    kc_sigma,  & !
-    do_i,      & !
-    co_i
-#endif
 
 !==============================================================================
 
@@ -268,7 +252,7 @@ SUBROUTINE graupel     (             &
   !xxx: this should become a module variable, e.g. in a new module mo_gscp_data.f90
   qi0,qc0,                           & !! cloud ice/water threshold for autoconversion
 #endif
-  prr_gsp,prs_gsp,prg_gsp,           & !! surface precipitation rates
+  prr_gsp,prs_gsp,pri_gsp,prg_gsp,   & !! surface precipitation rates
 #ifdef __COSMO__
   tinc_lh,                           & !  t-increment due to latent heat 
   pstoph,                            & !  stochastic multiplier of physics tendencies
@@ -379,6 +363,9 @@ SUBROUTINE graupel     (             &
     prg_gsp,             & !! precipitation rate of graupel, grid-scale     (kg/(m2*s))
     qnc                    !! cloud number concentration
 
+  REAL(KIND=wp), DIMENSION(:), INTENT(INOUT), OPTIONAL ::   &   ! dim (ie)
+    pri_gsp                !! precipitation rate of ice, grid-scale        (kg/(m2*s))
+
   REAL(KIND=wp), DIMENSION(:,:), INTENT(OUT), OPTIONAL ::   &     ! dim (ie,ke)
     ddt_tend_t      , & !> tendency T                                       ( 1/s )
     ddt_tend_qv     , & !! tendency qv                                      ( 1/s )
@@ -487,7 +474,7 @@ SUBROUTINE graupel     (             &
   LOGICAL :: &
     llqr
 
-  LOGICAL :: lldiag_ttend, lldiag_qtend
+  LOGICAL :: lldiag_ttend, lldiag_qtend, lpres_pri
 
   REAL(KIND=wp), DIMENSION(nvec,ke) ::   &
     t_in               ,    & !> temperature                                   (  K  )
@@ -628,6 +615,12 @@ SUBROUTINE graupel     (             &
   ENDIF
 #endif
 
+  IF (PRESENT(pri_gsp)) THEN
+    lpres_pri = .TRUE.
+  ELSE
+    lpres_pri = .FALSE.
+  ENDIF
+
 !------------------------------------------------------------------------------
 !  Section 1: Initial setting of local and global variables
 !------------------------------------------------------------------------------
@@ -640,6 +633,8 @@ SUBROUTINE graupel     (             &
   !$ACC CREATE( zpkr, zpks, zpkg, zpki )                         &
   !$ACC CREATE( zprvr, zprvs, zprvi, zqvsw_up, zprvg )           &
   !$ACC CREATE( dist_cldtop )
+
+  !$ACC DATA PRESENT( pri_gsp ) IF (lpres_pri)
 
 ! Some constant coefficients
   IF( lsuper_coolw) THEN
@@ -779,6 +774,7 @@ SUBROUTINE graupel     (             &
     zvzi(iv)     = 0.0_wp
     dist_cldtop(iv) = 0.0_wp
     zqvsw_up(iv) = 0.0_wp
+    IF (lpres_pri) pri_gsp (iv) = 0.0_wp
   END DO
   !$ACC END PARALLEL
 
@@ -1591,7 +1587,10 @@ SUBROUTINE graupel     (             &
       ELSE
         ! Precipitation fluxes at the ground
         prr_gsp(iv) = 0.5_wp * (qrg*rhog*zvzr(iv) + zpkr(iv))
-        IF (lsedi_ice) THEN
+        IF (lsedi_ice .AND. lpres_pri) THEN
+          prs_gsp(iv) = 0.5_wp * (rhog*qsg*zvzs(iv) + zpks(iv))
+          pri_gsp(iv) = 0.5_wp * (rhog*qig*zvzi(iv) + zpki(iv))
+        ELSE IF (lsedi_ice) THEN
           prs_gsp(iv) = 0.5_wp * (rhog*(qsg*zvzs(iv)+qig*zvzi(iv)) + zpks(iv)+zpki(iv))
         ELSE
           prs_gsp(iv) = 0.5_wp * (qsg*rhog*zvzs(iv) + zpks(iv))
@@ -1754,6 +1753,7 @@ SUBROUTINE graupel     (             &
     CALL message('', TRIM(message_text))
   ENDIF
 
+  !$ACC END DATA
   !$ACC END DATA
   !$ACC END DATA
 

@@ -388,7 +388,7 @@ sanitize-mod-proxies:
 # ICON-Ocean f90->f90 rules for the original files:
 @FPP_ENABLED@ICON_OCEAN_FPP= $(silent_FPP)$(FPP) $(FCFLAGS) $(ICON_OCEAN_FCFLAGS) $< >$@
 
-@FPP_ENABLED@$(builddir)/$(FPP_subdir)/src/hamocc/%.f90: src/hammoc/%.f90 | $(builddir)/$(FPP_incf_files) $(dir_files)
+@FPP_ENABLED@$(builddir)/$(FPP_subdir)/src/hamocc/%.f90: src/hamocc/%.f90 | $(builddir)/$(FPP_incf_files) $(dir_files)
 @FPP_ENABLED@	$(ICON_OCEAN_FPP)
 @FPP_ENABLED@$(builddir)/$(FPP_subdir)/src/ocean/%.f90: src/ocean/%.f90 | $(builddir)/$(FPP_incf_files) $(dir_files)
 @FPP_ENABLED@	$(ICON_OCEAN_FPP)

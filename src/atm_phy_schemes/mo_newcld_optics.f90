@@ -166,6 +166,7 @@ CONTAINS
     & jce          ,kbdim        ,klev         ,nb_lw        ,nb_sw        ,&
     & zglac        ,zland        ,ktype        ,icldlyr      ,zt           ,&
     & zlwp         ,ziwp         ,zlwc         ,ziwc         ,zcdnc        ,&
+    & zreff_liq     ,zreff_frz   ,icpl_reff    ,                            &
     & tau_lw       ,tau_sw       ,omg          ,asy                         )
 
     INTEGER, INTENT (IN)    ::     &
@@ -175,6 +176,7 @@ CONTAINS
       &  ktype(kbdim),             & !< type of convection
       &  nb_sw,                    & !< number of SW bands
       &  nb_lw,                    & !< number of LW bands
+      &  icpl_reff,                & !< option for couplig radiation with reff
       &  icldlyr(kbdim,klev)         !< 0/1 flag for clear or cloudy layer
 
     REAL (wp), INTENT (IN)  ::     &
@@ -186,6 +188,10 @@ CONTAINS
       &  ziwc(kbdim,klev),         & !< ice water content    [g/m3]
       &  zglac(kbdim),             & !< fraction of land covered by glaciers
       &  zland(kbdim)                !< land-sea mask. (1. = land, 0. = sea/lakes)
+
+    REAL (wp), POINTER, INTENT (IN)  ::     &
+      &  zreff_liq(:,:),           & !< effective radius of the liquid phase
+      &  zreff_frz(:,:)              !< effective radius of the frozen phase
 
     REAL (wp), INTENT (OUT) ::     &
       &  tau_lw(kbdim,klev,nb_lw), & !< LW optical depth
@@ -203,8 +209,8 @@ CONTAINS
       &  zkap(kbdim),        & !< breath parameter for scaling effective radius
       &  zlwpt(kbdim),       & !< liquid water path
       &  zinhoml(kbdim),     & !< cloud inhomogeneity factor (liquid)
-      &  re_droplets,        & !< effective radius of liquid distribution
-      &  re_crystals,        & !< effective radius of ice distribution
+      &  re_droplets(kbdim), & !< effective radius of liquid distribution
+      &  re_crystals(kbdim), & !< effective radius of ice distribution
       &  zscratch,           & !< effective radius of ice distribution
       &  ztau(kbdim,klev,n_mdl_bnds), & !< SW optical depth
       &  zomg(kbdim,klev,n_mdl_bnds), & !< cloud single scattering albedo
@@ -254,15 +260,26 @@ CONTAINS
 
     zfact = 1.0e6_wp*(3.0e-9_wp/(4.0_wp*pi*rhoh2o))**(1.0_wp/3.0_wp)
     DO jk=1,klev
+      IF ( icpl_reff==1 ) THEN ! Coupling of reff with radiation
+        DO jl=1,jce
+            re_crystals(jl) = MAX(reimin,MIN(reimax,1.0e6_wp* zreff_frz(jl,jk)))
+            re_droplets(jl) = MAX(relmin,MIN(relmax,1.0e6_wp* zreff_liq(jl,jk)))
+        ENDDO
+      ELSE
+        DO jl=1,jce
+          IF (icldlyr(jl,jk)==1 .AND. (zlwp(jl,jk)+ziwp(jl,jk))>ccwmin) THEN
+            ! see ECHAM5 documentation (Roeckner et al, MPI report 349)            
+            re_crystals(jl) = MAX(reimin ,MIN(reimax  ,83.8_wp*ziwc(jl,jk)**0.216_wp))
+!mk:opt   re_crystals = MAX(20.0_wp,MIN(150.0_wp,83.8_wp*ziwc(jl,jk)**0.216_wp))
+            re_droplets(jl) = MAX(relmin,MIN(relmax,zfact*zkap(jl)*(zlwc(jl,jk) &
+                                       & /zcdnc(jl,jk))**(1.0_wp/3.0_wp)))
+          ENDIF
+        ENDDO
+      ENDIF
+
 !$NEC ivdep 
       DO jl=1,jce
         IF (icldlyr(jl,jk)==1 .AND. (zlwp(jl,jk)+ziwp(jl,jk))>ccwmin) THEN
-
-          ! see ECHAM5 documentation (Roeckner et al, MPI report 349)
-          re_crystals = MAX(reimin ,MIN(reimax  ,83.8_wp*ziwc(jl,jk)**0.216_wp))
-!mk:opt   re_crystals = MAX(20.0_wp,MIN(150.0_wp,83.8_wp*ziwc(jl,jk)**0.216_wp))
-          re_droplets = MAX(relmin,MIN(relmax,zfact*zkap(jl)*(zlwc(jl,jk) &
-            & /zcdnc(jl,jk))**(1.0_wp/3.0_wp)))
 
           ! alternative formulation Ou and Liou (1995) as function of T as in IFS (cy38r2)
           ! re_crystals = MAX(20.0_wp, MIN(70.0_wp, 0.5_wp * &  ! limits to range of data
@@ -274,14 +291,14 @@ CONTAINS
           ! optional tuning of effective crystal radius
           ! re_crystals = re_crystals * 1.25_wp
 
-          ml1 = MAX(1,MIN(n_sizes-1,FLOOR(1.0_wp+(re_droplets-relmin)/del_rel)))
+          ml1 = MAX(1,MIN(n_sizes-1,FLOOR(1.0_wp+(re_droplets(jl)-relmin)/del_rel)))
           ml2 = ml1 + 1
-          wl1 = 1.0_wp - (re_droplets - (relmin + del_rel* REAL(ml1-1,wp)) )/del_rel
+          wl1 = 1.0_wp - (re_droplets(jl) - (relmin + del_rel* REAL(ml1-1,wp)) )/del_rel
           wl2 = 1.0_wp - wl1
 
-          mi1 = MAX(1,MIN(n_sizes-1,FLOOR(1.0_wp+(re_crystals-reimin)/del_rei)))
+          mi1 = MAX(1,MIN(n_sizes-1,FLOOR(1.0_wp+(re_crystals(jl)-reimin)/del_rei)))
           mi2 = mi1 + 1
-          wi1 = 1.0_wp - (re_crystals - (reimin + del_rei * REAL(mi1-1,wp)) )/del_rei
+          wi1 = 1.0_wp - (re_crystals(jl) - (reimin + del_rei * REAL(mi1-1,wp)) )/del_rei
           wi2 = 1.0_wp - wi1
 
           ! Note: The following implementation is in principle intended; the first SW
@@ -309,8 +326,8 @@ CONTAINS
 !$NEC unroll(nbnds_lw)
           DO iband = 1,nbnds_lw
             zmsald=0.025520637_wp+0.2854650784_wp*EXP(-0.088968393014_wp  &
-                 *re_droplets)
-            zmsaid=(rebcuh(iband)+rebcug(iband)/re_crystals)
+                 *re_droplets(jl))
+            zmsaid=(rebcuh(iband)+rebcug(iband)/re_crystals(jl))
             ztau(jl,jk,iband)  = zmsald*zlwp(jl,jk)*zinhoml(jl)          &
                  &             + zmsaid*ziwp(jl,jk)*zinhomi
             zomg(jl,jk,iband) = 0.0_wp

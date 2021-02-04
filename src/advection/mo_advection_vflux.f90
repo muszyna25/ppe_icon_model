@@ -2222,7 +2222,6 @@ CONTAINS
 
     ! local variables
     INTEGER :: jc, jk
-    INTEGER :: ikp1                !< vertical level plus one
     INTEGER :: elevp1              !< end level + 1
 
     ! TDMA arrays
@@ -2257,15 +2256,14 @@ CONTAINS
 !$ACC END KERNELS
     !
 !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG VECTOR PRIVATE( ikp1, dzfrac ) COLLAPSE(2)
-    DO jk=slev,elev-1
+!$ACC LOOP GANG VECTOR PRIVATE( dzfrac ) COLLAPSE(2)
+    DO jk=slev+1,elev
       DO jc = i_startidx, i_endidx
-        ikp1  = jk+1 
-        dzfrac = p_cellhgt_mc_now(jc,jk)/p_cellhgt_mc_now(jc,ikp1)
-        a  (jc,ikp1) = 1._wp
-        c  (jc,ikp1) = dzfrac
-        b  (jc,ikp1) = 2._wp*(1._wp + dzfrac)
-        rhs(jc,ikp1) = 3._wp*(dzfrac*p_cc(jc,ikp1) + p_cc(jc,jk))
+        dzfrac = p_cellhgt_mc_now(jc,jk-1)/p_cellhgt_mc_now(jc,jk)
+        a  (jc,jk) = 1._wp
+        c  (jc,jk) = dzfrac
+        b  (jc,jk) = 2._wp*(1._wp + dzfrac)
+        rhs(jc,jk) = 3._wp*(dzfrac*p_cc(jc,jk) + p_cc(jc,jk-1))
       ENDDO
     ENDDO
 !$ACC END PARALLEL
@@ -2363,7 +2361,7 @@ CONTAINS
 
     ! local variables
     INTEGER :: jc, jk
-    INTEGER :: ikm1, ikp1, ikp2      !< vertical level minus and plus one, plus two
+    INTEGER :: ikm1, ikp1, ikm2      !< vertical level minus and plus one, minus two
     INTEGER :: slevp1, elevp1        !< start/end level + 1
 
     REAL(wp) ::   &                  !< auxiliaries for optimization
@@ -2489,32 +2487,32 @@ CONTAINS
 
 
 !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG VECTOR PRIVATE( ikm1, ikp1, ikp2, zgeo1, zgeo2, zgeo3, zgeo4 ) COLLAPSE(2)
-    DO jk = slevp1, elev-2
+!$ACC LOOP GANG VECTOR PRIVATE( ikm1, ikm2, ikp1, zgeo1, zgeo2, zgeo3, zgeo4 ) COLLAPSE(2)
+    DO jk = slev+2, elev-1
       DO jc = i_startidx, i_endidx
 
         ! index of top half level
         ikm1 = jk - 1
+        ikm2 = jk - 2
         ! index of bottom half level
         ikp1 = jk + 1
-        ikp2 = jk + 2
 
-        zgeo1 = p_cellhgt_mc_now(jc,jk)                                      &
-          &   / (p_cellhgt_mc_now(jc,jk) + p_cellhgt_mc_now(jc,ikp1))
-        zgeo2 = 1._wp / (p_cellhgt_mc_now(jc,ikm1) + p_cellhgt_mc_now(jc,jk) &
-          &   + p_cellhgt_mc_now(jc,ikp1) + p_cellhgt_mc_now(jc,ikp2))
-        zgeo3 = (p_cellhgt_mc_now(jc,ikm1) + p_cellhgt_mc_now(jc,jk))        &
-          &   / (2._wp*p_cellhgt_mc_now(jc,jk) + p_cellhgt_mc_now(jc,ikp1))
-        zgeo4 = (p_cellhgt_mc_now(jc,ikp2) + p_cellhgt_mc_now(jc,ikp1))      &
-          &   / (2._wp*p_cellhgt_mc_now(jc,ikp1) + p_cellhgt_mc_now(jc,jk))
+        zgeo1 = p_cellhgt_mc_now(jc,ikm1)                                      &
+          &   / (p_cellhgt_mc_now(jc,ikm1) + p_cellhgt_mc_now(jc,jk))
+        zgeo2 = 1._wp / (p_cellhgt_mc_now(jc,ikm2) + p_cellhgt_mc_now(jc,ikm1) &
+          &   + p_cellhgt_mc_now(jc,jk) + p_cellhgt_mc_now(jc,ikp1))
+        zgeo3 = (p_cellhgt_mc_now(jc,ikm2) + p_cellhgt_mc_now(jc,ikm1))        &
+          &   / (2._wp*p_cellhgt_mc_now(jc,ikm1) + p_cellhgt_mc_now(jc,jk))
+        zgeo4 = (p_cellhgt_mc_now(jc,ikp1) + p_cellhgt_mc_now(jc,jk))          &
+          &   / (2._wp*p_cellhgt_mc_now(jc,jk) + p_cellhgt_mc_now(jc,ikm1))
 
 
-        p_face(jc,ikp1) = p_cc(jc,jk)                                  &
-          &  + zgeo1 * (p_cc(jc,ikp1) - p_cc(jc,jk))                   &
-          &  + zgeo2 * ( (2._wp * p_cellhgt_mc_now(jc,ikp1) * zgeo1)   &
-          &  * ( zgeo3 - zgeo4 ) * (p_cc(jc,ikp1) - p_cc(jc,jk))       &
-          &  - zgeo3 * p_cellhgt_mc_now(jc,jk)   * z_slope(jc,ikp1)    &
-          &  + zgeo4 * p_cellhgt_mc_now(jc,ikp1) * z_slope(jc,jk) )
+        p_face(jc,jk) = p_cc(jc,ikm1)                                  &
+          &  + zgeo1 * (p_cc(jc,jk) - p_cc(jc,ikm1))                   &
+          &  + zgeo2 * ( (2._wp * p_cellhgt_mc_now(jc,jk) * zgeo1)     &
+          &  * ( zgeo3 - zgeo4 ) * (p_cc(jc,jk) - p_cc(jc,ikm1))       &
+          &  - zgeo3 * p_cellhgt_mc_now(jc,ikm1)   * z_slope(jc,jk)    &
+          &  + zgeo4 * p_cellhgt_mc_now(jc,jk) * z_slope(jc,ikm1) )
 
       END DO  !jc
 

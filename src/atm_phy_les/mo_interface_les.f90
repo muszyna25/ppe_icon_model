@@ -57,7 +57,7 @@ MODULE mo_interface_les
   USE mo_nh_diagnose_pres_temp, ONLY: diagnose_pres_temp
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
   USE mo_lnd_nwp_config,        ONLY: ntiles_total, ntiles_water
-  USE mo_cover_koe,             ONLY: cover_koe
+  USE mo_cover_koe,             ONLY: cover_koe, cover_koe_config
   USE mo_satad,                 ONLY: satad_v_3D
   USE mo_radiation,             ONLY: radheat, pre_radiation_nwp
   USE mo_radiation_config,      ONLY: irad_aero
@@ -764,9 +764,8 @@ CONTAINS
         CALL cover_koe &
 &             (kidia  = i_startidx ,   kfdia  = i_endidx  ,       & !! in:  horizonal begin, end indices
 &              klon = nproma,  kstart = kstart_moist(jg)  ,       & !! in:  horiz. and vert. vector length
-&              klev   = nlev,                                     &
-&              icldscheme = atm_phy_nwp_config(jg)%inwp_cldcover, & !! in:  cloud cover option
-&              inwp_turb  = atm_phy_nwp_config(jg)%inwp_turb,     & !! in:  turbulence scheme number
+&              klev   = nlev                              ,       &
+&              cover_koe_config = cover_koe_config(jg)    ,       & !! in:  physics config state
 &              tt     = pt_diag%temp         (:,:,jb)     ,       & !! in:  temperature at full levels
 &              pp     = pt_diag%pres         (:,:,jb)     ,       & !! in:  pressure at full levels
 &              ps     = pt_diag%pres_sfc     (:,jb)       ,       & !! in:  surface pressure at full levels

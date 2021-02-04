@@ -337,6 +337,7 @@ CONTAINS
             & qnc    = qnc_s                           ,    & !< cloud number concentration
             & prr_gsp=prm_diag%rain_gsp_rate (:,jb)    ,    & !< out: precipitation rate of rain
             & prs_gsp=prm_diag%snow_gsp_rate (:,jb)    ,    & !< out: precipitation rate of snow
+            & pri_gsp=prm_diag%ice_gsp_rate (:,jb)     ,    & !< out: precipitation rate of cloud ice
             & qrsflux= prm_diag%qrs_flux (:,:,jb)      ,    & !< out: precipitation flux
             & ldiag_ttend = ldiag_ttend                ,    & !< in:  if temp. tendency shall be diagnosed
             & ldiag_qtend = ldiag_qtend                ,    & !< in:  if moisture tendencies shall be diagnosed
@@ -374,7 +375,8 @@ CONTAINS
             & qnc    = qnc_s                            ,    & !< cloud number concentration
             & prr_gsp=prm_diag%rain_gsp_rate (:,jb)     ,    & !< out: precipitation rate of rain
             & prs_gsp=prm_diag%snow_gsp_rate (:,jb)     ,    & !< out: precipitation rate of snow
-            & prg_gsp=prm_diag%graupel_gsp_rate (:,jb)  ,    & !< out: precipitation rate of snow
+            & pri_gsp=prm_diag%ice_gsp_rate (:,jb)      ,    & !< out: precipitation rate of cloud ice
+            & prg_gsp=prm_diag%graupel_gsp_rate (:,jb)  ,    & !< out: precipitation rate of graupel
             & qrsflux= prm_diag%qrs_flux (:,:,jb)       ,    & !< out: precipitation flux
             & ldiag_ttend = ldiag_ttend                 ,    & !< in:  if temp. tendency shall be diagnosed
             & ldiag_qtend = ldiag_qtend                 ,    & !< in:  if moisture tendencies shall be diagnosed
@@ -689,10 +691,14 @@ CONTAINS
              prm_diag%snow_gsp(jc,jb) = prm_diag%snow_gsp(jc,jb)           &
                &                      + tcall_gscp_jg                      &
                &                      * prm_diag%snow_gsp_rate (jc,jb)
+             prm_diag%ice_gsp(jc,jb) = prm_diag%ice_gsp(jc,jb)             &
+               &                      + tcall_gscp_jg                      &
+               &                      * prm_diag%ice_gsp_rate (jc,jb)
              prm_diag%graupel_gsp(jc,jb) = prm_diag%graupel_gsp(jc,jb)     &
                &                      + tcall_gscp_jg                      &
                &                      * prm_diag%graupel_gsp_rate (jc,jb)
-             !
+
+             ! note: ice is deliberately excluded here because it predominantly contains blowing snow
              prm_diag%prec_gsp(jc,jb) = prm_diag%rain_gsp(jc,jb)  &
                &                      + prm_diag%snow_gsp(jc,jb)  &
                &                      + prm_diag%graupel_gsp(jc,jb)
@@ -710,10 +716,14 @@ CONTAINS
              prm_diag%rain_gsp(jc,jb) = prm_diag%rain_gsp(jc,jb)         & 
                &                      + tcall_gscp_jg                    &
                &                      * prm_diag%rain_gsp_rate (jc,jb)
-             prm_diag%snow_gsp(jc,jb) = prm_diag%snow_gsp(jc,jb)         &
-               &                      + tcall_gscp_jg                    &
+             prm_diag%snow_gsp(jc,jb) = prm_diag%snow_gsp(jc,jb)           &
+               &                      + tcall_gscp_jg                      &
                &                      * prm_diag%snow_gsp_rate (jc,jb)
-             !
+             prm_diag%ice_gsp(jc,jb) = prm_diag%ice_gsp(jc,jb)             &
+               &                      + tcall_gscp_jg                      &
+               &                      * prm_diag%ice_gsp_rate (jc,jb)
+
+             ! note: ice is deliberately excluded here because it predominantly contains blowing snow
              prm_diag%prec_gsp(jc,jb) = prm_diag%rain_gsp(jc,jb)  &
                &                      + prm_diag%snow_gsp(jc,jb)
 

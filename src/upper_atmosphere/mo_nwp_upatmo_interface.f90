@@ -1843,7 +1843,7 @@ CONTAINS
 !$OMP DO PRIVATE(jb, jk, jc, i_startidx, i_endidx, mv, dmv, sum_dmv, mv_tot) ICON_OMP_GUIDED_SCHEDULE
       DO jb = i_startblk, i_endblk
 
-        CALL get_indices_e( p_patch, jb, i_startblk, i_endblk,     &
+        CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,     &
           &                 i_startidx, i_endidx, rl_start, rl_end )
 
         ! Initialize sum of changes in water vapor mass

@@ -343,7 +343,7 @@ MODULE mo_ser_all
          CALL warning('GPU:'//TRIM(savepoint_name),'GPU HOST synchronization forced by serialization!')
        ENDIF
 #endif
-       
+
        CALL datetimeToString(time_config%tc_current_date, date)
        CALL init('icon')
        call fs_create_savepoint(TRIM(savepoint_name), ppser_savepoint)

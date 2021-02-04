@@ -214,7 +214,7 @@ MODULE mo_timer
   PUBLIC :: timer_restart_indices_setup
 
   ! Timer for data assimilation
-  PUBLIC :: timer_datass, timer_lhn
+  PUBLIC :: timer_datass, timer_lhn, timer_init_dace, timer_dace_coupling
 
   PUBLIC :: timer_extra1,  timer_extra2,  timer_extra3,  timer_extra4,  timer_extra5,  &
             timer_extra6,  timer_extra7,  timer_extra8,  timer_extra9,  timer_extra10, &
@@ -435,7 +435,7 @@ MODULE mo_timer
   INTEGER :: timer_restart_indices_setup
 
   ! Data assimilation
-  INTEGER :: timer_datass, timer_lhn
+  INTEGER :: timer_datass, timer_lhn, timer_init_dace, timer_dace_coupling
 
   ! The purpose of these "extra" timers is to have otherwise unused timers available for
   ! special-purpose measurements. Please do not remove them and do not use them permanently.
@@ -862,6 +862,8 @@ CONTAINS
     ! Timer for data assimilation
     timer_datass  = new_timer("datass")
     timer_lhn     = new_timer("lhn")
+    timer_init_dace     = new_timer("init_dace")
+    timer_dace_coupling = new_timer("dace_coupling")
 
   ! extra timers for on-demand (non-permanent) timings
     timer_extra1  = new_timer("extra1")

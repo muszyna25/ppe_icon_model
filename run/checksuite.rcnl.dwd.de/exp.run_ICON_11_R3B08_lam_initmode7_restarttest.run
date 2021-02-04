@@ -27,6 +27,7 @@ set -ex
 export OMP_SCHEDULE="static"
 export OMP_DYNAMIC="false"
 export OMP_NUM_THREADS=2
+export OMP_STACKSIZE=3G
 
 # Run information
 let PPN=${CPE}*${NE}/${OMP_NUM_THREADS}         # no. of MPI procs. per NQS job
@@ -493,7 +494,7 @@ export GFORTRAN_UNBUFFERED_PRECONNECTED=y
 export NMPI_EXPORT="GFORTRAN_UNBUFFERED_PRECONNECTED"
 
 /opt/nec/ve/bin/mpirun -v    -vh     -node 0        -np 1      -env OMP_NUM_THREADS 1 ${MODEL_SCAL} : \
-           -x -venode -node 0-${NE1} -np ${PPN} -env OMP_NUM_THREADS 1 ${MODEL} : \
+           -x -venode -node 0-${NE1} -np ${PPN} -env OMP_NUM_THREADS 2 ${MODEL} : \
               -vh     -node 0        -np 3      -env OMP_NUM_THREADS 1 ${MODEL_SCAL} 
 
 # ----------------------------------------------------------------------------

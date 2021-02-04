@@ -111,7 +111,7 @@ CONTAINS
     INTEGER(i8), INTENT(in) :: y
     REAL(dp), ALLOCATABLE :: zin(:)
     REAL(dp) :: dummy(0)
-    INTEGER :: vlID, taxID, tsID, ts_idx, strID, nmiss, vd, vy, vm
+    INTEGER :: vlID, taxID, tsID, ts_idx, strID, nmiss, vd, vy, vm, ts_found
     LOGICAL :: found_last_ts, lexist
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
 
@@ -130,6 +130,7 @@ CONTAINS
       taxID = vlistInqTaxis(vlID)
       tsID = 0
       found_last_ts = .FALSE.
+      ts_found = 0
       ALLOCATE(zin(p_patch%n_patch_cells_g))
       DO WHILE (.NOT. found_last_ts)
         IF (streamInqTimestep(strID, tsID) == 0) EXIT
@@ -139,10 +140,13 @@ CONTAINS
         ts_idx = -1
         IF (INT(vy,i8) == y-1_i8 .AND. vm == 12) THEN
           ts_idx = 0
+          ts_found = ts_found + 1
         ELSE IF (INT(vy,i8) == y) THEN
           ts_idx = vm
+          ts_found = ts_found + 1
         ELSE IF (INT(vy,i8) == y+1_i8 .AND. vm == 1) THEN
           ts_idx = 13
+          ts_found = ts_found + 1
           found_last_ts = .TRUE.
         END IF
         IF (ts_idx /= -1) THEN
@@ -153,6 +157,10 @@ CONTAINS
         ENDIF
         tsID = tsID+1
       END DO
+      IF (ts_found < 14) THEN
+          CALL finish ('mo_bc_sst_sic:read_sst_sic_data', &
+            & 'could not read required data from input file')
+      END IF
       ts_idx = -1
       CALL p_bcast(ts_idx, process_mpi_root_id, p_comm_work)
       DEALLOCATE(zin)

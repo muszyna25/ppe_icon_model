@@ -812,12 +812,13 @@ CONTAINS
   !! @par Revision History
   !! Moved here from the physics interfaces by Daniel Reinert, DWD (2017-09-19)
   !!
-  SUBROUTINE compute_dpsdt (pt_patch, dt, pt_diag, opt_dpsdt_avg)
+  SUBROUTINE compute_dpsdt (pt_patch, dt, pt_diag, opt_dpsdt_avg, linit)
 
     TYPE(t_patch),       INTENT(IN)    :: pt_patch      !< grid/patch info
     REAL(wp),            INTENT(IN)    :: dt            !< time step [s]
     TYPE(t_nh_diag),     INTENT(INOUT) :: pt_diag       !< the diagnostic variables
     REAL(wp), OPTIONAL,  INTENT(OUT)   :: opt_dpsdt_avg !< mean |dPS/dt|
+    LOGICAL,  OPTIONAL,  INTENT(IN)    :: linit         !< Initialization flag (no OpenACC for linit==.TRUE.)
 
     ! local
     INTEGER :: jc, jb                         !< loop indices
@@ -829,8 +830,14 @@ CONTAINS
     INTEGER  :: npoints_blk(pt_patch%nblks_c)
     REAL(wp) :: dpsdt_avg                     !< spatial average of ABS(dpsdt)
     INTEGER  :: npoints
-    LOGICAL  :: l_opt_dpsdt_avg
+    LOGICAL  :: l_opt_dpsdt_avg, lacc
   !-------------------------------------------------------------------------
+
+    IF (PRESENT(linit)) THEN
+      lacc = .NOT. linit
+   ELSE
+      lacc = .FALSE.
+   END IF
 
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
@@ -840,10 +847,13 @@ CONTAINS
 
     ! Initialize fields for runtime diagnostics
     ! In case that average ABS(dpsdt) is diagnosed
+    !$acc data create (dps_blk, npoints_blk) if(lacc)
+    !$acc kernels if(lacc)
     IF (msg_level >= 11) THEN
       dps_blk(:)     = 0._wp
       npoints_blk(:) = 0
     ENDIF
+    !$acc end kernels
 
     l_opt_dpsdt_avg = PRESENT(opt_dpsdt_avg)
     ! Please note: only the stdio-process will return with a reasonable value 
@@ -860,10 +870,13 @@ CONTAINS
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
 
+      !$acc parallel default (present) if(lacc)
+      !$acc loop private(jc)
       DO jc = i_startidx, i_endidx
         pt_diag%ddt_pres_sfc(jc,jb) = (pt_diag%pres_sfc(jc,jb)-pt_diag%pres_sfc_old(jc,jb))/dt
         pt_diag%pres_sfc_old(jc,jb) = pt_diag%pres_sfc(jc,jb)
       ENDDO
+      !$acc end parallel
     ENDDO
 !$OMP END DO
 
@@ -877,10 +890,13 @@ CONTAINS
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
                            i_startidx, i_endidx, rl_start, rl_end)
 
+        !$acc parallel default (present) if(lacc)
+        !$acc loop seq
         DO jc = i_startidx, i_endidx
           dps_blk(jb) = dps_blk(jb) + ABS(pt_diag%ddt_pres_sfc(jc,jb))
           npoints_blk(jb) = npoints_blk(jb) + 1
         ENDDO
+        !$acc end parallel
       ENDDO
 !$OMP END DO
 
@@ -901,6 +917,7 @@ CONTAINS
 !$OMP END MASTER
     ENDIF  ! msg_level
 !$OMP END PARALLEL
+    !$acc end data
 
   END SUBROUTINE compute_dpsdt
 

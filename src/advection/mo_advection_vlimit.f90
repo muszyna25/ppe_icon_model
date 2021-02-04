@@ -213,12 +213,6 @@ CONTAINS
   !! upper or lower interface values.
   !! Avoids non-physical over/undershoots in advected fields.
   !!
-  !! Note that this limiter was coded assuming a pressure based vertical
-  !! coordinate system. Nevertheless this limiter works for a height based
-  !! vertical system, too. This is due to a 'wrong' computation of z_delta
-  !! in the case of a height based coordinate system (i.e. z_delta is
-  !! implicity multiplied by -1)
-  !!
   !! In this version we do no longer make use of the monotonized slope 
   !! for detection of local extrema. Therefore this code can be used for 
   !! PSM as well, where the monotonized slope is not available.
@@ -286,7 +280,7 @@ CONTAINS
         ! index of bottom half level
         ikp1 = jk+1 ! WS: put inside inner loop to collapse both loops
 
-        z_delta   = p_face(jc,ikp1) - p_face(jc,jk)
+        z_delta   = p_face(jc,jk) - p_face(jc,ikp1)        
         z_a6i     = 6._wp * (p_cc(jc,jk) - 0.5_wp * (p_face(jc,jk) + p_face(jc,ikp1)))
 
         ! main criterion upon which it is decided whether an extremum 
@@ -312,13 +306,13 @@ CONTAINS
             !
             ! monotonize parabola by modifying one of the edge values
             IF (z_delta * z_a6i > z_delta * z_delta) THEN
-              p_face_up(jc,jk)  = 3._wp*p_cc(jc,jk) - 2._wp*p_face(jc,ikp1)
-              p_face_low(jc,jk) = p_face(jc,ikp1)
-
-            ELSE IF (z_delta * z_a6i < -1._wp * (z_delta * z_delta)) THEN
               p_face_up(jc,jk)  = p_face(jc,jk)
               p_face_low(jc,jk) = 3._wp*p_cc(jc,jk) - 2._wp*p_face(jc,jk)
-
+              
+            ELSE IF (z_delta * z_a6i < -1._wp * (z_delta * z_delta)) THEN
+              p_face_up(jc,jk)  = 3._wp*p_cc(jc,jk) - 2._wp*p_face(jc,ikp1)
+              p_face_low(jc,jk) = p_face(jc,ikp1)
+              
             ELSE
               ! necessary if z_delta and z_a6i become very tiny.
               p_face_up(jc,jk)  = p_face(jc,jk)
@@ -341,7 +335,7 @@ CONTAINS
 !$ACC UPDATE HOST( p_face_up, p_face_low ), WAIT(1) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 
-  END SUBROUTINE v_limit_parabola_mo
+  END SUBROUTINE v_limit_parabola_mo 
 
 
 
@@ -353,10 +347,6 @@ CONTAINS
   !! Removes undershoots in first guess parabola by resetting either the
   !! upper or lower interface value.
   !! Avoids non-physical undershoots in advected fields.
-  !!
-  !! Note that this limiter was coded assuming a pressure based vertical
-  !! coordinate system. Nevertheless this limiter works for a height based
-  !! vertical system, too - without any modifications.
   !!
   !! Literature
   !! Lin and Rood (1996), MWR, 124, 2046-2070
@@ -419,7 +409,7 @@ CONTAINS
           ! index of bottom half level
           ikp1 = jk+1 ! WS: put inside inner loop to collapse both loops
 
-          z_delta   = p_face(jc,ikp1) - p_face(jc,jk)
+          z_delta   = p_face(jc,jk) - p_face(jc,ikp1)        
           z_a6i     = 6._wp * (p_cc(jc,jk)                      &
             &       - 0.5_wp * (p_face(jc,jk) + p_face(jc,ikp1)))
 
@@ -477,7 +467,7 @@ CONTAINS
           ! index of bottom half level
           ikp1 = jk+1 ! WS: put inside inner loop to collapse both loops
 
-          z_delta   = p_face(jc,ikp1) - p_face(jc,jk)
+          z_delta   = p_face(jc,jk) - p_face(jc,ikp1)          
           z_a6i     = 6._wp * (p_cc(jc,jk)                      &
             &       - 0.5_wp * (p_face(jc,jk) + p_face(jc,ikp1)))
 

@@ -197,7 +197,7 @@ cat > ${atm_namelist} << EOF
 &diffusion_nml
 /
 &transport_nml
- tracer_names     = 'hus','clw','cli', 'qr', 'qi', 'qg'
+ tracer_names     = 'hus','clw','cli', 'qr', 'qs', 'qg'
  ivadv_tracer     =    3 ,   3 ,   3 ,   3 ,   3 ,   3
  itype_hlimit     =    3 ,   4 ,   4 ,   4 ,   4 ,   4
  ihadv_tracer     =   52 ,   2 ,   2 ,   2 ,   2 ,   2
@@ -421,12 +421,22 @@ do
   (( year = year+1 ))
 done
 #
-# - stratospheric aerosol
-datadir=${icon_data_poolFolder}/independent/aerosol_stenchikov
+# - stratospheric aerosol (CMIP6)
+datadir=/pool/data/ICON/grids/private/rene/mpim/independent/CMIP6Forcing
+#
+if [ ! -d $datadir ]; then
+  echo 'directory '$datadir' for stratospheric aerosol data does not exist'
+  exit -1
+fi	
 year=$start_year
 while [[ $year -le $end_year ]]
 do
-  add_link_file $datadir/bc_aeropt_stenchikov_lw_b16_sw_b14_1999.nc     ./bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc
+  if [[ $year -le 2014 ]]
+  then
+    add_link_file $datadir/bc_aeropt_cmip6_volc_lw_b16_sw_b14_${year}.nc  ./bc_aeropt_cmip6_volc_lw_b16_sw_b14_${year}.nc
+  else
+    add_link_file $datadir/bc_aeropt_cmip6_volc_lw_b16_sw_b14_2014.nc     ./bc_aeropt_cmip6_volc_lw_b16_sw_b14_${year}.nc
+  fi
   (( year = year+1 ))
 done
 #

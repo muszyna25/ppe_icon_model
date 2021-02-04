@@ -22,6 +22,8 @@ MODULE mo_vdiff_solver
   USE mo_echam_vdiff_params,ONLY: totte_min, &
     &                             tpfac1, tpfac2, tpfac3, cchar, z0m_min
   USE mo_echam_phy_config,  ONLY: echam_phy_config
+  USE mo_echam_vdf_config,  ONLY: echam_vdf_config
+  USE mo_nh_testcases_nml,  ONLY: isrfc_type, shflx, lhflx
 
   IMPLICIT NONE
   PRIVATE
@@ -223,7 +225,7 @@ CONTAINS
     ! For all prognostic variables: no turbulent flux at the upper boundary
     !-----------------------------------------------------------------------
 
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC PARALLEL DEFAULT(NONE)
     !$ACC LOOP GANG VECTOR
     DO jc = jcs,kproma
       zkstar(jc,itop-1) = 0._wp
@@ -233,7 +235,7 @@ CONTAINS
     !-----------------------------------------------------------------------
     ! For momentum: surface flux is considered
     !-----------------------------------------------------------------------
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC PARALLEL DEFAULT(NONE)
     !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = itop,klev
       DO jc = jcs,kproma
@@ -243,7 +245,7 @@ CONTAINS
     !$ACC END PARALLEL
 
     im = matrix_idx(iu)    ! also = matrix_idx(iv)
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC PARALLEL DEFAULT(NONE)
     !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = itop,klev
       DO jc = jcs,kproma
@@ -260,7 +262,7 @@ CONTAINS
     ! are handled separately. 
     !---------------------------------------------------------------------
     im = imh
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC PARALLEL DEFAULT(NONE)
     !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = itop,klevm1
       DO jc = jcs,kproma
@@ -270,7 +272,7 @@ CONTAINS
     ENDDO
     !$ACC END PARALLEL
 
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC PARALLEL DEFAULT(NONE)
     !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = itop,klevm1
       DO jc = jcs,kproma
@@ -285,22 +287,35 @@ CONTAINS
     ! for all surface types (land, water, ice).
 
     jk = klev
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
-    !$ACC LOOP GANG VECTOR COLLAPSE(2)
-    DO jsfc = 1,ksfc_type
-      DO jc = jcs,kproma
-        aa_btm(jc,1,jsfc,im) = -zkstar(jc,jk-1)*prmairm(jc,jk)    ! -K*_{k-1/2}/dm_k
-        aa_btm(jc,3,jsfc,im) = -pcfh_tile(jc,jsfc)*pprfac(jc,jk)*prmairm(jc,jk)
-        aa_btm(jc,2,jsfc,im) = 1._wp - aa_btm(jc,1,jsfc,im) - aa_btm(jc,3,jsfc,im)
+    IF ( isrfc_type == 1 ) THEN
+      !$ACC PARALLEL DEFAULT(NONE)
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
+      DO jsfc = 1,ksfc_type
+        DO jc = jcs,kproma
+          aa_btm(jc,1,jsfc,im) = -zkstar(jc,jk-1)*prmairm(jc,jk)    ! -K*_{k-1/2}/dm_k
+          aa_btm(jc,3,jsfc,im) = -pcfh_tile(jc,jsfc)*pprfac(jc,jk)*prmairm(jc,jk)
+          aa_btm(jc,2,jsfc,im) = 1._wp - aa_btm(jc,1,jsfc,im)
+        ENDDO
       ENDDO
-    ENDDO
-    !$ACC END PARALLEL
+      !$ACC END PARALLEL
+    ELSE
+      !$ACC PARALLEL DEFAULT(NONE)
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
+      DO jsfc = 1,ksfc_type
+        DO jc = jcs,kproma
+          aa_btm(jc,1,jsfc,im) = -zkstar(jc,jk-1)*prmairm(jc,jk)    ! -K*_{k-1/2}/dm_k
+          aa_btm(jc,3,jsfc,im) = -pcfh_tile(jc,jsfc)*pprfac(jc,jk)*prmairm(jc,jk)
+          aa_btm(jc,2,jsfc,im) = 1._wp - aa_btm(jc,1,jsfc,im) - aa_btm(jc,3,jsfc,im)
+        ENDDO
+      ENDDO
+      !$ACC END PARALLEL
+    END IF
 
     !---------------------------------------------------------------------
     ! Moisture: different surface types are handled separately.
     !---------------------------------------------------------------------
     im = imqv
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC PARALLEL DEFAULT(NONE)
     !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = itop,klevm1
       DO jc = jcs,kproma
@@ -310,7 +325,7 @@ CONTAINS
     ENDDO
     !$ACC END PARALLEL
 
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC PARALLEL DEFAULT(NONE)
     !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = itop,klevm1
       DO jc = jcs,kproma
@@ -327,16 +342,29 @@ CONTAINS
     ! modified, and aa_btm(:,2,idx_land,imqv) re-computed.
 
     jk = klev
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
-    !$ACC LOOP GANG VECTOR COLLAPSE(2)
-    DO jsfc = 1,ksfc_type
-      DO jc = jcs,kproma
-        aa_btm(jc,1,jsfc,im) = -zkstar(jc,jk-1)*prmrefm(jc,jk)    ! -K*_{k-1/2}/dm_k
-        aa_btm(jc,3,jsfc,im) = -pcfh_tile(jc,jsfc)*pprfac(jc,jk)*prmrefm(jc,jk)
-        aa_btm(jc,2,jsfc,im) = 1._wp - aa_btm(jc,1,jsfc,im) - aa_btm(jc,3,jsfc,im)
+    IF ( isrfc_type == 1 ) THEN
+      !$ACC PARALLEL DEFAULT(NONE)
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
+      DO jsfc = 1,ksfc_type
+        DO jc = jcs,kproma
+          aa_btm(jc,1,jsfc,im) = -zkstar(jc,jk-1)*prmrefm(jc,jk)    ! -K*_{k-1/2}/dm_k
+          aa_btm(jc,3,jsfc,im) = -pcfh_tile(jc,jsfc)*pprfac(jc,jk)*prmrefm(jc,jk)
+          aa_btm(jc,2,jsfc,im) = 1._wp - aa_btm(jc,1,jsfc,im)
+        ENDDO
       ENDDO
-    ENDDO
-    !$ACC END PARALLEL
+      !$ACC END PARALLEL
+    ELSE
+      !$ACC PARALLEL DEFAULT(NONE)
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
+      DO jsfc = 1,ksfc_type
+        DO jc = jcs,kproma
+          aa_btm(jc,1,jsfc,im) = -zkstar(jc,jk-1)*prmrefm(jc,jk)    ! -K*_{k-1/2}/dm_k
+          aa_btm(jc,3,jsfc,im) = -pcfh_tile(jc,jsfc)*pprfac(jc,jk)*prmrefm(jc,jk)
+          aa_btm(jc,2,jsfc,im) = 1._wp - aa_btm(jc,1,jsfc,im) - aa_btm(jc,3,jsfc,im)
+        ENDDO
+      ENDDO
+      !$ACC END PARALLEL
+    END IF
 
     !----------------------------------------------------------------------
     ! For all advected tracers except water vapour: no turbulent flux at 
@@ -344,7 +372,7 @@ CONTAINS
     !----------------------------------------------------------------------
     !im = matrix_idx(ixl)
 
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC PARALLEL DEFAULT(NONE)
     !$ACC LOOP GANG VECTOR
     DO jc = jcs,kproma
       zkstar(jc,klev) = 0._wp  ! lower boundary, no turbulent flux
@@ -352,7 +380,7 @@ CONTAINS
     !$ACC END PARALLEL
 
     im = matrix_idx(ixl)
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC PARALLEL DEFAULT(NONE)
     !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = itop,klev
       DO jc = jcs,kproma
@@ -370,7 +398,7 @@ CONTAINS
     ! attention is needed here.
     !----------------------------------------------------------------------
 
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC PARALLEL DEFAULT(NONE)
     !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = itop,klev
       DO jc = jcs,kproma
@@ -384,7 +412,7 @@ CONTAINS
     !                           &  *pcfv(1:kproma,itop:klev)
 
     im = matrix_idx(ixv)
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC PARALLEL DEFAULT(NONE)
     !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = itop,klev
       DO jc = jcs,kproma
@@ -405,7 +433,7 @@ CONTAINS
     !   computed in subroutine "sfc_exchange_coeff".
     !------------------------------------------------------------------------
 
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC PARALLEL DEFAULT(NONE)
     !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = itop,klev
       DO jc = jcs,kproma
@@ -415,7 +443,7 @@ CONTAINS
     ENDDO
     !$ACC END PARALLEL
 
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC PARALLEL DEFAULT(NONE)
     !$ACC LOOP SEQ
     DO jk = itop,klevm1
       !$ACC LOOP GANG VECTOR
@@ -425,7 +453,7 @@ CONTAINS
     ENDDO
     !$ACC END PARALLEL
 
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC PARALLEL DEFAULT(NONE)
     !$ACC LOOP GANG VECTOR
     DO jc = jcs,kproma
       zkh(jc,itop-1) = 0._wp  ! upper boundary, no flux
@@ -433,7 +461,7 @@ CONTAINS
     !$ACC END PARALLEL
 
     im = matrix_idx(itotte)
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC PARALLEL DEFAULT(NONE)
     !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = itop,klevm1
       DO jc = jcs,kproma
@@ -447,7 +475,7 @@ CONTAINS
     !------------------------------------------------
     ! For the variance of theta_v (similar to TTE)
     !------------------------------------------------
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC PARALLEL DEFAULT(NONE)
     !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = itop,klev
       DO jc = jcs,kproma
@@ -457,7 +485,7 @@ CONTAINS
     ENDDO
     !$ACC END PARALLEL
 
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC PARALLEL DEFAULT(NONE)
     !$ACC LOOP SEQ
     DO jk = itop,klevm1
       !$ACC LOOP GANG VECTOR
@@ -468,7 +496,7 @@ CONTAINS
     !$ACC END PARALLEL
 
     im = matrix_idx(ithv)
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC PARALLEL DEFAULT(NONE)
     !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = itop,klevm1
       DO jc = jcs,kproma
@@ -502,7 +530,7 @@ CONTAINS
       ENDDO
     END DO
 #else
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC PARALLEL DEFAULT(NONE)
     !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO im = 1,nmatrix
       DO jc = jcs,kproma
@@ -530,6 +558,7 @@ CONTAINS
     ! See subroutine matrix_to_richtmyer_coeff.
 
   !$ACC END DATA
+  !$ACC WAIT
 
   END SUBROUTINE matrix_setup_elim
 
@@ -587,7 +616,7 @@ CONTAINS
     ! First handle variables that are defined on full levels
     !-------------------------------------------------------------------
     ! u and v
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC PARALLEL DEFAULT(NONE)
     !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = itop,klev
       DO jc = jcs,kproma
@@ -605,7 +634,7 @@ CONTAINS
 
     ! Other tracers
 
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( ktrac > 0 )
+    !$ACC PARALLEL DEFAULT(NONE) IF( ktrac > 0 )
     !$ACC LOOP SEQ
     DO jt = 1,ktrac
       irhs = jt - 1 + itrc_start
@@ -621,7 +650,7 @@ CONTAINS
 
     ! Heat and moisture
 
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC PARALLEL DEFAULT(NONE)
     !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = itop,klevm1
       DO jc = jcs,kproma
@@ -631,7 +660,7 @@ CONTAINS
     END DO
     !$ACC END PARALLEL
 
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC PARALLEL DEFAULT(NONE)
     !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jsfc = 1,ksfc_type
       DO jc = jcs,kproma 
@@ -648,7 +677,7 @@ CONTAINS
     ! lower boundary. The linear solver only solves till index klevm1.
     !-------------------------------------------------------------------
 
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC PARALLEL DEFAULT(NONE)
     !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = itop,klevm1
       DO jc = jcs,kproma
@@ -658,7 +687,7 @@ CONTAINS
     !$ACC END PARALLEL
 
     im = matrix_idx(itotte)
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC PARALLEL DEFAULT(NONE)
     !$ACC LOOP GANG VECTOR
     DO jc = jcs,kproma
       bb(jc,     klevm1,itotte) =  bb(jc,klevm1,itotte)   &
@@ -667,7 +696,7 @@ CONTAINS
     ENDDO
     !$ACC END PARALLEL
 
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC PARALLEL DEFAULT(NONE)
     !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = itop,klevm1
       DO jc = jcs,kproma
@@ -677,7 +706,7 @@ CONTAINS
     !$ACC END PARALLEL
 
     im = matrix_idx(ithv)
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC PARALLEL DEFAULT(NONE)
     !$ACC LOOP GANG VECTOR
     DO jc = jcs,kproma
       bb(jc,     klevm1,ithv) =  bb(jc,klevm1,ithv)   &
@@ -692,7 +721,7 @@ CONTAINS
     !bb     = tpfac2*bb
     !bb_btm = tpfac2*bb_btm
 
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC PARALLEL DEFAULT(NONE)
     !$ACC LOOP SEQ
     DO jt = 1, itotte-1
       !$ACC LOOP GANG VECTOR COLLAPSE(2)
@@ -704,7 +733,7 @@ CONTAINS
     ENDDO
     !$ACC END PARALLEL
 
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC PARALLEL DEFAULT(NONE)
     !$ACC LOOP SEQ
     DO jt = itotte, iqv
       !$ACC LOOP GANG VECTOR COLLAPSE(2)
@@ -717,7 +746,7 @@ CONTAINS
     !$ACC END PARALLEL
 
     IF (ktrac>0) THEN
-      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+      !$ACC PARALLEL DEFAULT(NONE)
       !$ACC LOOP SEQ
       DO jt = itrc_start, nvar_vdiff
         !$ACC LOOP GANG VECTOR COLLAPSE(2)
@@ -731,7 +760,7 @@ CONTAINS
 
     ENDIF
 
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC PARALLEL DEFAULT(NONE)
     !$ACC LOOP SEQ
     DO jt = ih,iqv
       !$ACC LOOP GANG VECTOR COLLAPSE(2)
@@ -748,14 +777,14 @@ CONTAINS
     !--------------------------------------------------------------------
     ! Currently we follow ECHAM in which only the surface emission
     ! is treated in "vdiff".
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC PARALLEL DEFAULT(NONE)
     !$ACC LOOP GANG VECTOR
     DO jc = jcs,kproma
       ztmp(jc,klev) = prmrefm(jc,klev)*pdtime
     ENDDO
     !$ACC END PARALLEL
 
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( ktrac > 0 )
+    !$ACC PARALLEL DEFAULT(NONE) IF( ktrac > 0 )
     !$ACC LOOP SEQ
     DO jt = 1,ktrac
       irhs = jt - 1 + itrc_start
@@ -789,6 +818,7 @@ CONTAINS
     !ENDDO
   !$ACC END DATA
   !$ACC END DATA
+  !$ACC WAIT
 
   END SUBROUTINE rhs_setup
 
@@ -849,7 +879,7 @@ CONTAINS
     ENDDO !jvar: variable loop
 #else
 
-  !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+  !$ACC PARALLEL DEFAULT(NONE)
   !$ACC LOOP GANG VECTOR COLLAPSE(2)
   DO jvar = 1,nvar_vdiff
     DO jc = jcs,kproma
@@ -885,7 +915,7 @@ CONTAINS
       jk   = ibtm_var(jvar)    ! Bottom level index
       jkm1 = jk - 1
 
-      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+      !$ACC PARALLEL DEFAULT(NONE)
       !$ACC LOOP GANG VECTOR
       DO jc = jcs,kproma
         zden =  aa(jc,jk,2,im)                      &
@@ -903,7 +933,7 @@ CONTAINS
     ! level above surface. Now set boundary condition for the variance 
     ! of theta_v.
 
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC PARALLEL DEFAULT(NONE)
     !$ACC LOOP GANG VECTOR
     DO jc = jcs,kproma
       bb(jc,klev,ithv) = bb(jc,klevm1,ithv)
@@ -911,6 +941,7 @@ CONTAINS
     !$ACC END PARALLEL
 
     !$ACC END DATA
+    !$ACC WAIT
 
   END SUBROUTINE rhs_elim
 
@@ -924,6 +955,7 @@ CONTAINS
   !!
   SUBROUTINE matrix_to_richtmyer_coeff( jg, jcs, kproma, kbdim, klev, ksfc_type, idx_lnd, &! in
                                       & aa, bb,                                      &! in
+                                      & pdtime, delz,                                &! in
                                       & aa_btm, bb_btm,                              &! inout
                                       & pen_h, pfn_h, pen_qv, pfn_qv,                &! out
                                       & pcair,                                       &! in
@@ -932,6 +964,8 @@ CONTAINS
     INTEGER,INTENT(IN)     :: jg, jcs, kproma, kbdim, klev, ksfc_type, idx_lnd
     REAL(wp),INTENT(IN)    :: aa    (:,:,:,imh:) !< (kbdim,klev,3,imh:imqv)
     REAL(wp),INTENT(IN)    :: bb    (:,:,ih:)    !< (kbdim,klev,ih:iqv)
+    REAL(wp),INTENT(IN)    :: pdtime 
+    REAL(wp),INTENT(IN)    :: delz(:)            !< (kbdim)
     REAL(wp),INTENT(INOUT) :: aa_btm(:,:,:,imh:) !< (kbdim,3,ksfc_type,imh:imqv)
     REAL(wp),INTENT(INOUT) :: bb_btm(:,:,ih:)    !< (kbdim,ksfc_type,ih:iqv)
 
@@ -959,7 +993,7 @@ CONTAINS
 
       jsfc = idx_lnd
 
-      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+      !$ACC PARALLEL DEFAULT(NONE)
       !$ACC LOOP GANG VECTOR
       DO jk = jcs, kproma
         aa_btm(jk,2,jsfc,imqv) =           1._wp - aa_btm(jk,1,jsfc,imqv) &
@@ -972,54 +1006,91 @@ CONTAINS
 
     ! Bottom level elimination for all surface types
 
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
-    DO jsfc = 1,ksfc_type
+    IF ( isrfc_type == 1) THEN
+      DO jsfc = 1,ksfc_type
+        DO jk = jcs, kproma
+          aa_btm(jk,2,jsfc,imqv) =  aa_btm(jk,2,jsfc,imqv)  &
+                                 & -aa_btm(jk,1,jsfc,imqv)  &
+                                 & *aa    (jk,klevm1,3,imqv)
 
-      !$ACC LOOP GANG VECTOR
-      DO jk = jcs, kproma
-        aa_btm(jk,2,jsfc,imqv) =  aa_btm(jk,2,jsfc,imqv)  &
-                               & -aa_btm(jk,1,jsfc,imqv)  &
-                               & *aa    (jk,klevm1,3,imqv)
+          aa_btm(jk,3,jsfc,imqv) =  -lhflx*pdtime/delz(jk) &
+                                 & /aa_btm(jk,2,jsfc,imqv)
 
-        aa_btm(jk,3,jsfc,imqv) =  aa_btm(jk,3,jsfc,imqv)  &
-                               & /aa_btm(jk,2,jsfc,imqv)
+          bb_btm(jk,jsfc,iqv)    = (bb_btm(jk,jsfc,iqv)    &
+                                 & -aa_btm(jk,1,jsfc,imqv) &
+                                 & *bb    (jk,klevm1,iqv) )&
+                                 & /aa_btm(jk,2,jsfc,imqv)
 
-        bb_btm(jk,jsfc,iqv)    = (bb_btm(jk,jsfc,iqv)    &          
-                               & -aa_btm(jk,1,jsfc,imqv) &
-                               & *bb    (jk,klevm1,iqv) )&
-                               & /aa_btm(jk,2,jsfc,imqv)
+        END DO
       END DO
-    END DO
-    !$ACC END PARALLEL
+    ELSE
+      !$ACC PARALLEL DEFAULT(NONE)
+      DO jsfc = 1,ksfc_type
+
+        !$ACC LOOP GANG VECTOR
+        DO jk = jcs, kproma
+          aa_btm(jk,2,jsfc,imqv) =  aa_btm(jk,2,jsfc,imqv)  &
+                                 & -aa_btm(jk,1,jsfc,imqv)  &
+                                 & *aa    (jk,klevm1,3,imqv)
+
+          aa_btm(jk,3,jsfc,imqv) =  aa_btm(jk,3,jsfc,imqv)  &
+                                 & /aa_btm(jk,2,jsfc,imqv)
+
+          bb_btm(jk,jsfc,iqv)    = (bb_btm(jk,jsfc,iqv)    &          
+                                 & -aa_btm(jk,1,jsfc,imqv) &
+                                 & *bb    (jk,klevm1,iqv) )&
+                                 & /aa_btm(jk,2,jsfc,imqv)
+        END DO
+      END DO
+      !$ACC END PARALLEL
+    END IF
 
     !---------------------------------------------------------
     ! Bottom level elimination for dry static energy
     !---------------------------------------------------------
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
-    DO jsfc = 1,ksfc_type
-      !$ACC LOOP GANG VECTOR
-      DO jk = jcs, kproma
+    IF ( isrfc_type == 1 ) THEN
+      DO jsfc = 1,ksfc_type
+        DO jk = jcs, kproma
+          aa_btm(jk,2,jsfc,imh) =  aa_btm(jk,2,jsfc,imh) &
+                                      & -aa_btm(jk,1,jsfc,imh) &
+                                      & *aa    (jk,klevm1,3,imh)
 
-        aa_btm(jk,2,jsfc,imh) =  aa_btm(jk,2,jsfc,imh) &
-                                    & -aa_btm(jk,1,jsfc,imh) &
-                                    & *aa    (jk,klevm1,3,imh)
+          aa_btm(jk,3,jsfc,imh) =  -shflx*cpd*pdtime/delz(jk) &
+                                      & /aa_btm(jk,2,jsfc,imh)
 
-        aa_btm(jk,3,jsfc,imh) =  aa_btm(jk,3,jsfc,imh) &
-                                    & /aa_btm(jk,2,jsfc,imh)
-
-        bb_btm(jk,jsfc,ih)    = (bb_btm(jk,jsfc,ih)    &          
-                                    & -aa_btm(jk,1,jsfc,imh) &
-                                    & *bb    (jk,klevm1,ih) )&
-                                    & /aa_btm(jk,2,jsfc,imh)
+          bb_btm(jk,jsfc,ih)    = (bb_btm(jk,jsfc,ih)    &
+                                      & -aa_btm(jk,1,jsfc,imh) &
+                                      & *bb    (jk,klevm1,ih) )&
+                                      & /aa_btm(jk,2,jsfc,imh)
+        END DO
       END DO
-    END DO
-    !$ACC END PARALLEL
+    ELSE
+      !$ACC PARALLEL DEFAULT(NONE)
+      DO jsfc = 1,ksfc_type
+        !$ACC LOOP GANG VECTOR
+        DO jk = jcs, kproma
+
+          aa_btm(jk,2,jsfc,imh) =  aa_btm(jk,2,jsfc,imh) &
+                                      & -aa_btm(jk,1,jsfc,imh) &
+                                      & *aa    (jk,klevm1,3,imh)
+
+          aa_btm(jk,3,jsfc,imh) =  aa_btm(jk,3,jsfc,imh) &
+                                      & /aa_btm(jk,2,jsfc,imh)
+
+          bb_btm(jk,jsfc,ih)    = (bb_btm(jk,jsfc,ih)    &          
+                                      & -aa_btm(jk,1,jsfc,imh) &
+                                      & *bb    (jk,klevm1,ih) )&
+                                      & /aa_btm(jk,2,jsfc,imh)
+        END DO
+      END DO
+      !$ACC END PARALLEL
+    END IF
 
     !---------------------------------------------------------
     ! Convert matrix entries to Richtmyer-Morton coefficients
     !---------------------------------------------------------
 
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC PARALLEL DEFAULT(NONE)
     DO jsfc = 1,ksfc_type
       !$ACC LOOP GANG VECTOR
       DO jk = jcs, kproma
@@ -1034,6 +1105,7 @@ CONTAINS
 
     !$ACC END DATA
     !$ACC END DATA
+    !$ACC WAIT
 
   END SUBROUTINE matrix_to_richtmyer_coeff
   !--------------------------------------------------------------------------------
@@ -1090,6 +1162,7 @@ CONTAINS
     !$ACC END PARALLEL
 
     !$ACC END DATA
+    !$ACC WAIT
 
   END SUBROUTINE rhs_bksub
   !-------------
@@ -1230,8 +1303,12 @@ CONTAINS
     END DO
     !$ACC END PARALLEL
 
-    IF(ztest.NE.0._wp) THEN
-      CALL finish('vdiff_tendencies','TTE IS NEGATIVE')
+    IF( echam_vdf_config(1)%turb == 2 ) THEN
+      ztest = 1._wp
+    ELSE
+      IF(ztest.NE.0._wp) THEN
+        CALL finish('vdiff_tendencies','TTE IS NEGATIVE')
+      ENDIF
     ENDIF
 
     !ptotte(jcs:kproma,klev) = pztottevn(jcs:kproma,klev)
@@ -1270,7 +1347,8 @@ CONTAINS
     !$ACC PARALLEL DEFAULT(PRESENT)
     !$ACC LOOP SEQ
     DO jk = itop,klev
-      !$ACC LOOP GANG VECTOR
+!@      !$ACC LOOP GANG VECTOR
+      !$ACC LOOP GANG VECTOR PRIVATE( zunew, zvnew ) 
       DO jl = jcs,kproma
         pute_vdf(jl,jk) = (bb(jl,jk,iu)-tpfac2*pum1(jl,jk))*zrdt
         pvte_vdf(jl,jk) = (bb(jl,jk,iv)-tpfac2*pvm1(jl,jk))*zrdt
@@ -1289,7 +1367,7 @@ CONTAINS
     !-------------------------------------------------------------
 
     !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP GANG VECTOR COLLAPSE(2)
+    !$ACC LOOP GANG VECTOR COLLAPSE(2) PRIVATE( zqnew, zsnew, zhnew, zcp )
     DO jk=itop,klev
       DO jl=jcs,kproma
 
@@ -1400,6 +1478,7 @@ CONTAINS
     !-------------------------------------------------------------------
     !$ACC END DATA
     !$ACC END DATA
+    !$ACC WAIT
 
 
   END SUBROUTINE vdiff_tendencies
