@@ -5,7 +5,6 @@
 !! Please see the file LICENSE in the root of the source tree for this code.
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
-#include "icon_contiguous_defines.h"
 MODULE mo_var_list
 
 #if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
@@ -257,7 +256,7 @@ CONTAINS
     ! set default list characteristics
     !
     this_list%p%name     = name
-    this_list%p%post_suf = '_'//name
+    this_list%p%post_suf = '_'//TRIM(name)
     this_list%p%rest_suf = this_list%p%post_suf
     this_list%p%init_suf = this_list%p%post_suf
     this_list%p%loutput  = .TRUE.
@@ -287,7 +286,7 @@ CONTAINS
   !
   SUBROUTINE get_var_list (this_list, name)
     !
-    TYPE(t_var_list), INTENT(out), POINTER    :: this_list ! pointer
+    TYPE(t_var_list), POINTER    :: this_list ! pointer
     CHARACTER(len=*), INTENT(in) :: name      ! name of output var_list
     !
     INTEGER :: i
@@ -4463,7 +4462,8 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = modname//"::print_group_details"
     CHARACTER(len=VARNAME_LEN), ALLOCATABLE :: group_names(:)
     CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: grp_vars(:), grp_vars_output(:)
-    INTEGER                                 :: ngrp_vars, ngrp_vars_output, ierrstat, i, j
+    INTEGER,                    ALLOCATABLE :: slen(:)
+    INTEGER                                 :: ngrp_vars, ngrp_vars_output, ierrstat, i, j, k, t
     LOGICAL                                 :: latex_fmt, reduce_trailing_num, skip_trivial, lfound
 
     latex_fmt = .FALSE.
@@ -4523,8 +4523,29 @@ CONTAINS
           grp_vars(j) = tolower(grp_vars(j))
         END DO
         ! (optionally) replace trailing numbers by "*"
-        IF (reduce_trailing_num) &
-             CALL star_out_trailing_num(ngrp_vars, grp_vars)
+        IF (reduce_trailing_num) THEN
+          ALLOCATE(slen(ngrp_vars))
+          DO j=1,ngrp_vars
+            slen(j) = find_trailing_number(grp_vars(j))
+          END DO
+          DO j=1,ngrp_vars
+            t = slen(j)
+            IF (t /= -1) THEN
+              ! replace trailing number if any other variable of "this
+              ! kind" exists:
+              lfound = .FALSE.
+              INNER_LOOP1 : DO k=1,ngrp_vars
+                IF (j==k)  CYCLE INNER_LOOP1
+                IF (grp_vars(j)(1:(t-1)) == grp_vars(k)(1:(slen(k)-1))) lfound = .TRUE.
+              END DO INNER_LOOP1
+              IF (lfound) THEN
+                grp_vars(j) = grp_vars(j)(1:(t-1))//"*"
+              END IF
+            END IF
+          END DO
+          CALL remove_duplicates(grp_vars(1:ngrp_vars), ngrp_vars)
+          DEALLOCATE(slen)
+        END IF
         CALL quicksort(grp_vars(1:ngrp_vars))
 
         IF ((skip_trivial) .AND. (ngrp_vars <= 1))  CYCLE
@@ -4540,8 +4561,29 @@ CONTAINS
           grp_vars_output(j) = tolower(grp_vars_output(j))
         END DO
         ! (optionally) replace trailing numbers by "*"
-        IF (reduce_trailing_num) &
-          CALL star_out_trailing_num(ngrp_vars_output, grp_vars_output)
+        IF (reduce_trailing_num) THEN
+          ALLOCATE(slen(ngrp_vars_output))
+          DO j=1,ngrp_vars_output
+            slen(j) = find_trailing_number(grp_vars_output(j))
+          END DO
+          DO j=1,ngrp_vars_output
+            t = slen(j)
+            IF (t /= -1) THEN
+              ! replace trailing number if any other variable of "this
+              ! kind" exists:
+              lfound = .FALSE.
+              INNER_LOOP2 : DO k=1,ngrp_vars_output
+                IF (j==k)  CYCLE INNER_LOOP2
+                IF (grp_vars_output(j)(1:(t-1)) == grp_vars_output(k)(1:(slen(k)-1))) lfound = .TRUE.
+              END DO INNER_LOOP2
+              IF (lfound) THEN
+                grp_vars_output(j) = grp_vars_output(j)(1:(t-1))//"*"
+              END IF
+            END IF
+          END DO
+          CALL remove_duplicates(grp_vars_output(1:ngrp_vars_output), ngrp_vars_output)
+          DEALLOCATE(slen)
+        END IF
         CALL quicksort(grp_vars_output(1:ngrp_vars_output))
 
         IF (latex_fmt) THEN
@@ -4594,35 +4636,5 @@ CONTAINS
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 
   END SUBROUTINE print_group_details
-
-  SUBROUTINE star_out_trailing_num(ngrp_vars, grp_vars)
-    INTEGER, INTENT(inout) :: ngrp_vars
-    CHARACTER(LEN=VARNAME_LEN), INTENT(inout) :: grp_vars(ngrp_vars)
-    INTEGER :: slen(ngrp_vars), j, k, t
-    LOGICAL :: lfound
-    ngrp_vars = SIZE(grp_vars)
-    DO j=1,ngrp_vars
-      slen(j) = find_trailing_number(grp_vars(j))
-    END DO
-    search_loop: DO j=1,ngrp_vars
-      t = slen(j)
-      IF (t /= -1) THEN
-        ! replace trailing number if any other variable of "this
-        ! kind" exists:
-        lfound = .FALSE.
-        DO k=j+1,ngrp_vars
-          IF (t == slen(k)) THEN
-            IF (grp_vars(j)(1:t-1) == grp_vars(k)(1:t-1)) THEN
-              grp_vars(k)(t:) = "*"
-              slen(k) = -1
-              lfound = .TRUE.
-            END IF
-          END IF
-        END DO
-        IF (lfound) grp_vars(j)(t:) = "*"
-      END IF
-    END DO search_loop
-    CALL remove_duplicates(grp_vars, ngrp_vars)
-  END SUBROUTINE star_out_trailing_num
 
 END MODULE mo_var_list
