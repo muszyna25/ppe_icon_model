@@ -42,8 +42,7 @@ MODULE mo_var_list
   USE mo_var_list_element, ONLY: t_var_list_element, level_type_ml
   USE mo_linked_list,      ONLY: t_var_list, t_list_element,        &
        &                         new_list, delete_list,             &
-       &                         append_list_element,               &
-       &                         t_var_list_intrinsic
+       &                         append_list_element
   USE mo_exception,        ONLY: message, message_text, finish
   USE mo_util_hash,        ONLY: util_hashword
   USE mo_util_string,      ONLY: remove_duplicates, toupper,        &
@@ -82,7 +81,6 @@ MODULE mo_var_list
   PUBLIC :: delete_var_lists          ! delete all output var_lists
   PUBLIC :: get_var_list              ! get a pointer to an existing output var_list
   PUBLIC :: set_var_list              ! set default parameters of an output var_list
-  PUBLIC :: print_var
   PUBLIC :: print_var_list
   PUBLIC :: print_all_var_lists
   PUBLIC :: print_memory_use
@@ -128,11 +126,6 @@ MODULE mo_var_list
     MODULE PROCEDURE find_list_element
     MODULE PROCEDURE find_element_from_all
   END INTERFACE find_element
-
-  INTERFACE print_var_list
-    MODULE PROCEDURE print_var_list
-    MODULE PROCEDURE print_var_list_intrinsic
-  END INTERFACE print_var_list
 
  INTERFACE add_var  ! create a new list entry
     MODULE PROCEDURE add_var_list_element_5d
@@ -3814,106 +3807,88 @@ CONTAINS
     TYPE(t_var_list),  INTENT(in) :: this_list ! list
     LOGICAL, OPTIONAL :: lshort
     !
-    CALL print_var_list_intrinsic(this_list%p, lshort)
-    !
-  END SUBROUTINE print_var_list
-  !------------------------------------------------------------------------------------------------
-  !
-  ! print current memory table
-  !
-  SUBROUTINE print_var_list_intrinsic(this_list, lshort)
-    TYPE(t_var_list_intrinsic),  INTENT(in) :: this_list ! list
-    LOGICAL, OPTIONAL :: lshort
-    !
     TYPE(t_list_element), POINTER :: this_list_element
+    CHARACTER(len=32) :: dimension_text, dtext,keytext
+    INTEGER :: i, igrp, ivintp_type
+    CHARACTER(len=4) :: localMode = '----'
+    LOGICAL :: short = .FALSE.
 
-    CALL message('','')
-    CALL message('','')
-    CALL message('','Status of variable list '//TRIM(this_list%name)//':')
-    CALL message('','')
-    !
-    this_list_element => this_list%first_list_element
-    DO WHILE (ASSOCIATED(this_list_element))
-      CALL print_var(this_list_element%field, lshort)
-      this_list_element => this_list_element%next_list_element
-    ENDDO
-  END SUBROUTINE print_var_list_intrinsic
-
-  !---------------------------------------------------------------------
-  !
-  ! print single variable
-  !
-  SUBROUTINE print_var(field, lshort)
-    TYPE(t_var_list_element),  INTENT(in) :: field ! list
-    LOGICAL, OPTIONAL :: lshort
-    !
-    LOGICAL :: short, lfirst
-    CHARACTER(len=32) :: dimension_text, dtext
-    INTEGER :: i, igrp, ivintp_type, tlen, alen
-    CHARACTER(len=4) :: localMode
-
-    localMode = '----'
-    short = .FALSE.
     CALL assign_if_present(short,lshort)
-    IF (short) THEN
-      IF (field%info%name /= '' .AND. .NOT. field%info%lcontainer) THEN
-        IF (field%info%lrestart) localMode(1:1) = 'r'
-        IF (field%info%lcontained) localMode(2:2) = 't'
-        SELECT CASE (field%info%isteptype)
-        CASE (1)
-          localMode(3:3) = 'i'
-        CASE (2)
-          localMode(3:3) = 'm'
-        CASE (3)
-          localMode(3:3) = 'a'
-        END SELECT
-        SELECT CASE (field%info%hgrid)
-        CASE (1)
-          localMode(4:4) = 'c'
-        CASE (2)
-          localMode(4:4) = 'v'
-        CASE (3)
-          localMode(4:4) = 'e'
-        END SELECT
+    CALL message('','')
+    CALL message('','')
+    CALL message('','Status of variable list '//TRIM(this_list%p%name)//':')
+    CALL message('','')
+    !
+    this_list_element => this_list%p%first_list_element
+    !
+    DO WHILE (ASSOCIATED(this_list_element))
+      !
+      IF (short) THEN
 
-        WRITE(message_text, '(a4,3i4,a24,a40)') localMode,                                 &
-           &                              field%info%grib2%discipline, &
-           &                              field%info%grib2%category,   &
-           &                              field%info%grib2%number,     &
-           &                              TRIM(field%info%name),       &
-           &                              TRIM(field%info%cf%standard_name)
-        CALL message('', message_text)
+        IF (this_list_element%field%info%name /= '' .AND. &
+             .NOT. this_list_element%field%info%lcontainer) THEN
+          IF (this_list_element%field%info%lrestart) localMode(1:1) = 'r'
+          IF (this_list_element%field%info%lcontained) localMode(2:2) = 't'
+          SELECT CASE (this_list_element%field%info%isteptype)
+          CASE (1)
+            localMode(3:3) = 'i'
+          CASE (2)
+            localMode(3:3) = 'm'
+          CASE (3)
+            localMode(3:3) = 'a'
+          END SELECT
+          SELECT CASE (this_list_element%field%info%hgrid)
+          CASE (1)
+            localMode(4:4) = 'c'
+          CASE (2)
+            localMode(4:4) = 'v'
+          CASE (3)
+            localMode(4:4) = 'e'
+          END SELECT
 
-      ENDIF
+          WRITE(message_text, '(a4,3i4,a24,a40)') localMode,                                 &
+               &                              this_list_element%field%info%grib2%discipline, &
+               &                              this_list_element%field%info%grib2%category,   &
+               &                              this_list_element%field%info%grib2%number,     &
+               &                              TRIM(this_list_element%field%info%name),       &
+               &                              TRIM(this_list_element%field%info%cf%standard_name)
+          CALL message('', message_text)
 
-    ELSE
+          localMode = '----'
+        ENDIF
 
-      IF (field%info%name /= '' .AND. .NOT. field%info%lcontainer) THEN
+      ELSE
+
+      IF (this_list_element%field%info%name /= '' .AND. &
+           .NOT. this_list_element%field%info%lcontainer) THEN
         !
-        message_text = 'Table entry name                            : ' &
-          // field%info%name
+        WRITE (message_text,'(a,a)')       &
+             'Table entry name                            : ', &
+             TRIM(this_list_element%field%info%name)
         CALL message('', message_text)
-        WRITE (message_text,'(a,i32.1)') &
-          'Key entry                                   : ', field%info%key
+        WRITE (keytext,'(i32.1)') this_list_element%field%info%key
 
+        WRITE (message_text,'(a,a)')       &
+             'Key entry                                   : ', &
+             TRIM(keytext)
         CALL message('', message_text)
         !
-        IF (ASSOCIATED(field%r_ptr) .OR. &
-          & ASSOCIATED(field%s_ptr) .OR. &
-          & ASSOCIATED(field%i_ptr) .OR. &
-          & ASSOCIATED(field%l_ptr)) THEN
+        IF (ASSOCIATED(this_list_element%field%r_ptr) .OR. &
+          & ASSOCIATED(this_list_element%field%s_ptr) .OR. &
+          & ASSOCIATED(this_list_element%field%i_ptr) .OR. &
+          & ASSOCIATED(this_list_element%field%l_ptr)) THEN
           CALL message ('','Pointer status                              : in use.')
           dimension_text = '('
-          tlen = 1
-          DO i = 1, field%info%ndims
-            WRITE(dtext,'(i0)') field%info%used_dimensions(i)
-            alen = LEN_TRIM(dtext)
-            dimension_text(tlen+1:tlen+alen) = dtext(1:alen)
-            tlen = tlen + alen + 1
-            dimension_text(tlen:tlen) = MERGE(',', ')', field%info%ndims /= i)
+          DO i = 1, this_list_element%field%info%ndims
+            WRITE(dtext,'(i0)') this_list_element%field%info%used_dimensions(i)
+            IF (this_list_element%field%info%ndims == i) THEN
+              dimension_text = TRIM(dimension_text)//TRIM(dtext)//')'
+            ELSE
+              dimension_text = TRIM(dimension_text)//TRIM(dtext)//','
+            ENDIF
           ENDDO
-          message_text = 'Local field dimensions                      : ' &
-               // dimension_text(1:tlen)
+          WRITE (message_text,'(a,a)') &
+               'Local field dimensions                      : ', TRIM(dimension_text)
           CALL message('', message_text)
         ELSE
           CALL message('', 'Pointer status                              : not in use.')
@@ -3921,80 +3896,83 @@ CONTAINS
         !
         WRITE (message_text,'(a,3i4)') &
              'Assigned GRIB discipline/category/parameter : ', &
-             field%info%grib2%discipline,    &
-             field%info%grib2%category,      &
-             field%info%grib2%number
+             this_list_element%field%info%grib2%discipline,    &
+             this_list_element%field%info%grib2%category,      &
+             this_list_element%field%info%grib2%number
         CALL message('', message_text)
         !
         WRITE (message_text,'(a,a,a,a)')                          &
              'CF convention standard name/unit            : ',    &
-             TRIM(field%info%cf%standard_name), &
+             TRIM(this_list_element%field%info%cf%standard_name), &
              '     ',                                             &
-             TRIM(field%info%cf%units)
+             TRIM(this_list_element%field%info%cf%units)
         CALL message('', message_text)
         !
-        message_text = 'CF convention long name                     : ' &
-             // field%info%cf%long_name
+        WRITE (message_text,'(2a)') &
+             'CF convention long name                     : ', &
+             TRIM(this_list_element%field%info%cf%long_name)
         !
-        IF (field%info%lcontained) THEN
+        IF (this_list_element%field%info%lcontained) THEN
           CALL message('', 'Field is in a container                     : yes.')
           WRITE (message_text,'(a,i2)')                        &
              ' Index in container                          : ',&
-             field%info%ncontained
+             this_list_element%field%info%ncontained
           CALL message('', message_text)
         ELSE
           CALL message('', 'Field is in a container                     : no.')
-          CALL message('', ' Index in container                          : --')
+          WRITE (message_text,'(a)')                           &
+             ' Index in container                          : --'
+          CALL message('', message_text)
         ENDIF
         !
         WRITE (message_text,'(a,i2)')                          &
              ' horizontal grid type used (C=1,V=2,E=3)     : ',&
-             field%info%hgrid
+             this_list_element%field%info%hgrid
         CALL message('', message_text)
         !
         WRITE (message_text,'(a,i2)')                          &
              ' vertical grid type used (see cdilib.c)      : ',&
-             field%info%vgrid
+             this_list_element%field%info%vgrid
         CALL message('', message_text)
         !
         WRITE (message_text,'(a,i2)')                          &
              ' type of stat. processing (I=1,AVG=2,ACC=3...: ',&
-             field%info%isteptype
+             this_list_element%field%info%isteptype
         CALL message('', message_text)
         !
-        IF (field%info%lmiss) THEN
-          IF (ASSOCIATED(field%r_ptr)) THEN
+        IF (this_list_element%field%info%lmiss) THEN
+          IF (ASSOCIATED(this_list_element%field%r_ptr)) THEN
             WRITE (message_text,'(a,e20.12)')      &
                  'Missing value                               : ', &
-                 field%info%missval%rval
-          ELSE IF (ASSOCIATED(field%s_ptr)) THEN
+                 this_list_element%field%info%missval%rval
+          ELSE IF (ASSOCIATED(this_list_element%field%s_ptr)) THEN
             WRITE (message_text,'(a,e20.12)')      &
                  'Missing value                               : ', &
-                 field%info%missval%sval
-          ELSE IF (ASSOCIATED(field%i_ptr)) THEN
+                 this_list_element%field%info%missval%sval
+          ELSE IF (ASSOCIATED(this_list_element%field%i_ptr)) THEN
             WRITE (message_text,'(a,i8)')      &
                  'Missing value                               : ', &
-                 field%info%missval%ival
-          ELSE IF (ASSOCIATED(field%l_ptr)) THEN
+                 this_list_element%field%info%missval%ival
+          ELSE IF (ASSOCIATED(this_list_element%field%l_ptr)) THEN
             WRITE (message_text,'(a,l8)')      &
                  'Missing value                               : ', &
-                 field%info%missval%lval
+                 this_list_element%field%info%missval%lval
           ENDIF
           CALL message('', message_text)
         ELSE
           CALL message('', 'Missing values                              : off.')
         ENDIF
         !
-        IF (field%info%lrestart) THEN
+        IF (this_list_element%field%info%lrestart) THEN
           CALL message('', 'Added to restart                            : yes.')
         ELSE
           CALL message('', 'Added to Restart                            : no.')
         ENDIF
         !
-        IF (field%info_dyn%tracer%lis_tracer) THEN
+        IF (this_list_element%field%info_dyn%tracer%lis_tracer) THEN
           CALL message('', 'Tracer field                                : yes.')
 
-          IF (field%info_dyn%tracer%lfeedback) THEN
+          IF (this_list_element%field%info_dyn%tracer%lfeedback) THEN
             CALL message('', 'Child-to-parent feedback                  : yes.')
           ELSE
             CALL message('', 'Child-to-parent feedback                  : no.')
@@ -4002,15 +3980,15 @@ CONTAINS
 
           WRITE (message_text,'(a,3i3)') &
              'Horizontal transport method                 : ', &
-             field%info_dyn%tracer%ihadv_tracer
+             this_list_element%field%info_dyn%tracer%ihadv_tracer
           CALL message('', message_text)
 
           WRITE (message_text,'(a,3i3)') &
              'Vertical transport method                   : ', &
-             field%info_dyn%tracer%ivadv_tracer
+             this_list_element%field%info_dyn%tracer%ivadv_tracer
           CALL message('', message_text)
 
-          IF (field%info_dyn%tracer%lturb_tracer) THEN
+          IF (this_list_element%field%info_dyn%tracer%lturb_tracer) THEN
             CALL message('', 'Turbulent transport                         : yes.')
           ELSE
             CALL message('', 'Turbulent transport                         : no.')
@@ -4023,22 +4001,20 @@ CONTAINS
         ! print variable class/species
         WRITE (message_text,'(a,i2)')       &
              'Variable class/species                      : ', &
-             field%info%var_class
+             this_list_element%field%info%var_class
         CALL message('', message_text)
 
         !
         ! print groups, to which this variable belongs:
-        IF (ANY(field%info%in_group(:))) THEN
-          message_text = 'Variable group(s)                           :'
-          tlen = LEN_TRIM(message_text)
-          lfirst = .TRUE.
-          DO igrp=1,SIZE(field%info%in_group)
-            IF (field%info%in_group(igrp)) THEN
-              message_text(tlen+1:tlen+2) = MERGE("  ", ", ", lfirst)
-              tlen = tlen + 1 + MERGE(1, 0, .NOT. lfirst)
-              alen = LEN_TRIM(var_groups_dyn%name(igrp))
-              message_text(tlen+1:tlen+alen) = var_groups_dyn%name(igrp)(1:alen)
-              tlen = tlen + alen
+        IF (ANY(this_list_element%field%info%in_group(:))) THEN
+          WRITE (message_text,'(a)')  'Variable group(s)                           :'
+          DO igrp=1,SIZE(this_list_element%field%info%in_group)
+            IF (this_list_element%field%info%in_group(igrp)) THEN
+              IF (igrp == 1) THEN
+                message_text = TRIM(message_text)//" "//TRIM(var_groups_dyn%name(igrp))
+              ELSE
+                message_text = TRIM(message_text)//", "//TRIM(var_groups_dyn%name(igrp))
+              END IF
             ENDIF
           END DO
           CALL message('', message_text)
@@ -4046,12 +4022,13 @@ CONTAINS
 
         !
         ! print horizontal and vertical interpolation method(s):
-        message_text = 'Horizontal interpolation                    : ' &
-             // STR_HINTP_TYPE(field%info%hor_interp%hor_intp_type)
+        WRITE (message_text,'(a)')  &
+          &  'Horizontal interpolation                    : '//  &
+          &  TRIM(STR_HINTP_TYPE(this_list_element%field%info%hor_interp%hor_intp_type))
         CALL message('', message_text)
 
         LOOP_VINTP_TYPES : DO ivintp_type=1,SIZE(VINTP_TYPE_LIST)
-          IF (field%info%vert_interp%vert_intp_type(ivintp_type)) THEN
+          IF (this_list_element%field%info%vert_interp%vert_intp_type(ivintp_type)) THEN
             WRITE (message_text,'(a)')  &
               &  'Vertical interpolation                      : '//  &
               &  toupper(TRIM(VINTP_TYPE_LIST(ivintp_type)))
@@ -4061,10 +4038,15 @@ CONTAINS
         CALL message('', '')
       ENDIF
 
-    ENDIF
-  END SUBROUTINE print_var
+      ENDIF
+      !
+      ! select next element in linked list
+      !
+      this_list_element => this_list_element%next_list_element
+    ENDDO
 
-
+    !
+  END SUBROUTINE print_var_list
   !------------------------------------------------------------------------------------------------
   !
   ! print all var lists

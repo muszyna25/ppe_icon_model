@@ -33,7 +33,9 @@ MODULE mo_linked_list
   !
   PUBLIC :: append_list_element ! add an element to the list
   !
+#ifdef HAVE_F95
   PUBLIC :: t_var_list_intrinsic
+#endif
   !
   ! t_list_element provides the entry to the actual information 
   ! and a reference to the next element in the list
