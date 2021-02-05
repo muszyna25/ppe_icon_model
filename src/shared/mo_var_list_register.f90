@@ -100,8 +100,7 @@ CONTAINS
     CALL map%get(vlname, ivl, ierr)
     NULLIFY(list%p)
     IF (ierr .EQ. 0) THEN
-      IF (ASSOCIATED(storage(ivl)%p)) &
-        list%p => storage(ivl)%p
+      IF (ASSOCIATED(storage(ivl)%p)) list%p => storage(ivl)%p
     END IF
   END SUBROUTINE vlr_get
 

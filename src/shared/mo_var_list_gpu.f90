@@ -7,19 +7,18 @@
 !! headers of the routines.
 MODULE mo_var_list_gpu
 
-  USE mo_impl_constants,      ONLY: REAL_T, SINGLE_T, INT_T, BOOL_T
+  USE mo_impl_constants,      ONLY: vlname_len, REAL_T, SINGLE_T, INT_T, BOOL_T
   USE mo_var_metadata_types,  ONLY: t_var_metadata
   USE mo_var_list,            ONLY: t_var_list_ptr
   USE mo_var,                 ONLY: t_var
   USE mo_var_list_register,   ONLY: vlr_get
-!  USE mo_exception,           ONLY: message, message_text
 
   IMPLICIT NONE
   PRIVATE
 
-  CHARACTER(*), PARAMETER :: modname = 'mo_var_list_gpu'
-
   PUBLIC :: gpu_update_var_list
+
+  CHARACTER(*), PARAMETER :: modname = 'mo_var_list_gpu'
 
 CONTAINS
 
@@ -33,24 +32,26 @@ CONTAINS
     TYPE(t_var_list_ptr) :: list
     TYPE(t_var_metadata), POINTER :: info
     TYPE(t_var), POINTER :: element
-    CHARACTER(:), ALLOCATABLE :: listname
-!    CHARACTER(*), PARAMETER :: d2h = "dev => host", h2d = "host => dev"
-    INTEGER :: ii
+    CHARACTER(LEN=vlname_len) :: listname
+    INTEGER :: ii,vln_pos, subs_len
     CHARACTER(LEN=2) :: i2a
 
-    listname = vlname
     IF (PRESENT(domain)) THEN
-      WRITE(i2a, "(i2.2)") domain
-      listname = listname//i2a
+      WRITE(listname, "(a,i2.2)") TRIM(vlname), domain
+    ELSE
+      listname = vlname
     END IF
-    IF (PRESENT(substr))  listname = listname//substr
-    IF (PRESENT(timelev)) THEN  
-      WRITE(i2a, "(i2.2)") timelev
-      listname = listname//i2a
+    vln_pos = LEN_TRIM(listname)
+    IF (PRESENT(substr)) THEN
+      subs_len = LEN_TRIM(substr)
+      listname(vln_pos+1:subs_len+vln_pos) = substr(1:subs_len)
+      vln_pos = vln_pos + subs_len
     END IF
-    CALL vlr_get(list, listname)
-!    WRITE(message_text, "(a,l1)") MERGE(h2d, d2h, to_device)//" update <"//listname//"> found=", ASSOCIATED(list%p)
-!    CALL message("", message_text)
+    IF (PRESENT(timelev)) THEN
+      WRITE(listname(vln_pos+1:), "(i2.2)") timelev
+      vln_pos = vln_pos + 2
+    END IF
+    CALL vlr_get(list, listname(1:vln_pos))
     IF (ASSOCIATED(list%p)) THEN
       DO ii = 1, list%p%nvars
         element => list%p%vl(ii)%p
