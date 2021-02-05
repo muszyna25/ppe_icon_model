@@ -49,7 +49,7 @@ MODULE mo_nwp_phy_state
 
 USE mo_kind,                ONLY: wp, i8
 USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag, t_nwp_phy_tend
-USE mo_impl_constants,      ONLY: success, max_var_list_name_len,     &
+USE mo_impl_constants,      ONLY: success, &
   &                               VINTP_METHOD_LIN,VINTP_METHOD_QV,   &
   &                               TASK_COMPUTE_RH, TASK_COMPUTE_PV,   &
   &                               TASK_COMPUTE_SDI2,                  &
@@ -164,20 +164,15 @@ CONTAINS
 !-------------------------------------------------------------------------
 
 SUBROUTINE construct_nwp_phy_state( p_patch, var_in_output )
-
   TYPE(t_patch), TARGET, INTENT(in) :: p_patch(n_dom)
   TYPE(t_var_in_output), INTENT(in) :: var_in_output(n_dom)
-
-                       
-  CHARACTER(len=max_var_list_name_len) :: listname
-  INTEGER ::  jg,ist, nblks_c, nlev, nlevp1
-  CHARACTER(len=*), PARAMETER :: &
-    routine = 'mo_nwp_phy_state:construct_nwp_state'
+  CHARACTER(LEN=21) :: listname
+  INTEGER :: jg, ist, nblks_c, nlev, nlevp1
+  CHARACTER(*), PARAMETER :: routine = 'mo_nwp_phy_state:construct_nwp_state'
 
 !-------------------------------------------------------------------------
 
   CALL message(routine, 'start to construct 3D state vector')
-
 
   ! Allocate pointer arrays prm_diag_nwp and prm_nwp_tend, 
   ! as well as the corresponding list arrays.
@@ -206,23 +201,18 @@ SUBROUTINE construct_nwp_phy_state( p_patch, var_in_output )
      nlevp1 = p_patch(jg)%nlevp1
      
      WRITE(listname,'(a,i2.2)') 'prm_diag_of_domain_',jg
-
-     CALL new_nwp_phy_diag_list( jg, nlev, nlevp1, nblks_c, TRIM(listname),             &
+     CALL new_nwp_phy_diag_list( jg, nlev, nlevp1, nblks_c, listname,             &
        &                         prm_nwp_diag_list(jg), prm_diag(jg), var_in_output(jg) )
-     !
      WRITE(listname,'(a,i2.2)') 'prm_tend_of_domain_',jg
-     CALL new_nwp_phy_tend_list ( jg, nlev, nblks_c,&
-                                & TRIM(listname), prm_nwp_tend_list(jg), prm_nwp_tend(jg))
+     CALL new_nwp_phy_tend_list ( jg, nlev, nblks_c, listname, &
+       &                          prm_nwp_tend_list(jg), prm_nwp_tend(jg))
   ENDDO
 
-
   ! Allocate variable of type t_phy_params containing domain-dependent parameters
-  !
   ALLOCATE(phy_params(n_dom), STAT=ist)
   !$ACC ENTER DATA CREATE(phy_params)
   IF(ist/=success) CALL finish(routine, 'allocation of phy_params array failed')
 
-  
   CALL message(routine, 'construction of state vector finished')
 
 END SUBROUTINE construct_nwp_phy_state
