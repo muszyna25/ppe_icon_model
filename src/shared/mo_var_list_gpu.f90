@@ -38,7 +38,22 @@ CONTAINS
     TYPE(t_list_element), POINTER :: element
     CHARACTER(len=VARNAME_LEN)   :: listname
 
-    CALL compose_vlist_name(listname, name, domain, substr, timelev)
+    listname = TRIM(name)
+    ! Append domain index
+    IF( PRESENT(domain) ) THEN
+      WRITE(listname, '(a,i2.2)') TRIM(listname), domain
+    END IF
+
+    ! Append substr
+    IF( PRESENT(substr) ) THEN
+      listname = TRIM(listname)//TRIM(substr)
+    END IF
+
+    ! Append timelev index
+    IF( PRESENT(timelev) ) THEN
+      WRITE(listname, '(a,i2.2)') TRIM(listname), timelev
+    END IF
+
     CALL get_var_list(list, listname)
 
     element => list%p%first_list_element
@@ -59,35 +74,6 @@ CONTAINS
 
   END SUBROUTINE gpu_h2d_var_list
 
-  SUBROUTINE compose_vlist_name(listname, name, domain, substr, timelev)
-    CHARACTER(len=varname_len), INTENT(out) :: listname
-    CHARACTER(len=*), INTENT(IN)            :: name    ! name of output var_list
-    INTEGER, INTENT(IN), OPTIONAL           :: domain  ! domain index to append
-    CHARACTER(len=*), INTENT(IN), OPTIONAL  :: substr  ! String after domain, before timelev
-    INTEGER, INTENT(IN), OPTIONAL           :: timelev ! timelev index to append
-
-    INTEGER :: tlen, alen
-
-    ! Append domain index
-    IF( PRESENT(domain) ) THEN
-      WRITE(listname, '(a,i2.2)') TRIM(name), domain
-    ELSE
-      listname = name
-    END IF
-    tlen = LEN_TRIM(listname)
-
-    ! Append substr
-    IF( PRESENT(substr) ) THEN
-      alen = LEN_TRIM(substr)
-      listname(tlen+1:) = substr(1:alen)
-      tlen = tlen + alen
-    END IF
-
-    ! Append timelev index
-    IF( PRESENT(timelev) ) THEN
-      WRITE(listname(tlen+1:), '(i2.2)') timelev
-    END IF
-  END SUBROUTINE compose_vlist_name
   !> Update host data of variable list
   !
   SUBROUTINE gpu_d2h_var_list( name, domain, substr, timelev )
@@ -101,7 +87,22 @@ CONTAINS
     TYPE(t_list_element), POINTER :: element
     CHARACTER(len=VARNAME_LEN)   :: listname
 
-    CALL compose_vlist_name(listname, name, domain, substr, timelev)
+    listname = TRIM(name)
+    ! Append domain index
+    IF( PRESENT(domain) ) THEN
+      WRITE(listname, '(a,i2.2)') TRIM(listname), domain
+    END IF
+
+    ! Append substr
+    IF( PRESENT(substr) ) THEN
+      listname = TRIM(listname)//TRIM(substr)
+    END IF
+
+    ! Append timelev index
+    IF( PRESENT(timelev) ) THEN
+      WRITE(listname, '(a,i2.2)') TRIM(listname), timelev
+    END IF
+
     CALL get_var_list(list, listname)
 
     element => list%p%first_list_element
