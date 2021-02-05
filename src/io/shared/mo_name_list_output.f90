@@ -157,8 +157,7 @@ MODULE mo_name_list_output
   USE mo_name_list_output_init,     ONLY: init_name_list_output, setup_output_vlist,                &
     &                                     varnames_dict, out_varnames_dict,                         &
     &                                     output_file, patch_info, lonlat_info,                     &
-    &                                     collect_requested_ipz_levels, &
-    &                                     create_vertical_axes, nlevs_of_var
+    &                                     collect_requested_ipz_levels, create_vertical_axes
   USE mo_name_list_output_metadata, ONLY: metainfo_write_to_memwin, metainfo_get_from_buffer,       &
     &                                     metainfo_get_size, metainfo_get_timelevel
   USE mo_level_selection,           ONLY: create_mipz_level_selections
@@ -1023,11 +1022,48 @@ CONTAINS
         ENDIF
       END IF
 
-      nlevs = nlevs_of_var(info, of%level_selection, var_ignore_level_selection)
-      IF (var_ignore_level_selection .AND. is_stdio .AND. msg_level >= 15) &
-          &   WRITE (0,'(2a)') &
-          &         "warning: ignoring level selection for variable ", &
-          &         TRIM(info%name)
+      var_ignore_level_selection = .FALSE.
+
+      IF (info%hgrid .eq. GRID_ZONAL) THEN ! zonal grids are 2-dim but WITH a vertical axis
+        nlevs = info%used_dimensions(1)
+      ELSE IF(info%ndims < 3) THEN ! other 2-dim. var are supposed to be horizontal only
+        nlevs = 1
+      ELSE
+        ! handle the case that a few levels have been selected out of
+        ! the total number of levels:
+        info_nlevs = info%used_dimensions(2)
+        IF (ASSOCIATED(of%level_selection)) THEN
+          nlevs = 0
+          ! Sometimes the user mixes level-selected variables with
+          ! other fields on other z-axes (e.g. soil fields) in the
+          ! output namelist. We try to catch this "wrong" user input
+          ! here and handle it in the following way: if the current
+          ! variable does not have one (or more) of the requested
+          ! levels, then we completely ignore the level selection for
+          ! this variable.
+          !
+          ! (... but note that we accept (nlevs+1) for an nlevs variable.)
+          CHECK_LOOP : DO jk=1,MIN(of%level_selection%n_selected, info_nlevs)
+            IF (of%level_selection%global_idx(jk) < 1 .OR.  &
+              & of%level_selection%global_idx(jk) > info_nlevs+1) THEN
+              var_ignore_level_selection = .TRUE.
+              nlevs = info_nlevs
+              EXIT CHECK_LOOP
+            ELSE
+              nlevs = nlevs &
+                & + MERGE(1, 0, &
+                &         of%level_selection%global_idx(jk) >= 1 &
+                &   .AND. of%level_selection%global_idx(jk) <= info_nlevs)
+            END IF
+          END DO CHECK_LOOP
+          IF (var_ignore_level_selection .AND. is_stdio .AND. msg_level >= 15) &
+            &   WRITE (0,'(2a)') &
+            &         "warning: ignoring level selection for variable ", &
+            &         TRIM(info%name)
+        ELSE
+          nlevs = info_nlevs
+        END IF
+      ENDIF
 
       ! Get pointer to appropriate reorder_info
       nullify(p_ri, p_pat)
