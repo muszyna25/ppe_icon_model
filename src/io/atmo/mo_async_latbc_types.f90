@@ -187,7 +187,7 @@ MODULE mo_async_latbc_types
     CHARACTER(:), ALLOCATABLE :: open_filepath
     !> CDI handle of currently open stream, CDI_UNDEFID if not open
     INTEGER :: open_cdi_stream_handle = cdi_undefid
-    TYPE(datetime) :: mtime_last_read
+    TYPE(datetime),  POINTER :: mtime_last_read => NULL()
     TYPE(event),     POINTER :: prefetchEvent   => NULL()
     TYPE(timedelta), POINTER :: delta_dtime     => NULL()
 
@@ -323,6 +323,8 @@ CONTAINS
     END IF
 
     ! deallocating date and time data structures
+    IF (ASSOCIATED(latbc%mtime_last_read)) &
+      CALL deallocateDatetime(latbc%mtime_last_read)
     IF (ASSOCIATED(latbc%delta_dtime)) &
       CALL deallocateTimedelta(latbc%delta_dtime)
     IF (ASSOCIATED(latbc%latbc_data_const)) THEN
