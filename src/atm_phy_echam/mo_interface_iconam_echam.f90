@@ -399,7 +399,7 @@ CONTAINS
                      CALL print_value('grid   index jg',jg)
                      CALL print_value('tracer index jt',jt)
                      CALL print_value('level  index jk',jk)
-                     CALL print_value('pressure   [Pa]',field% presm_new(jc,jk,jb))
+                     CALL print_value('pressure   [Pa]',field% pfull(jc,jk,jb))
                      CALL print_value('longitude [deg]',field% clon(jc,jb)*rad2deg)
                      CALL print_value('latitude  [deg]',field% clat(jc,jb)*rad2deg)
                      CALL print_value('pt_prog_new_rcf%tracer',pt_prog_new_rcf% tracer(jc,jk,jb,jt))
