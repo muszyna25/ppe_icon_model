@@ -180,7 +180,7 @@ MODULE mo_initicon_utils
     ! perform post_op
     IF (info%post_op%ipost_op_type /= POST_OP_NONE) THEN
       IF(my_process_is_stdio() .AND. msg_level>10) THEN
-        WRITE(message_text,'(2a)') 'Inverse Post_op for: ', varname
+        WRITE(message_text,'(2a)') 'Inverse Post_op for: ', TRIM(varname)
         CALL message(routine, message_text)
       ENDIF
       IF (PRESENT(optvar_out2D)) THEN
