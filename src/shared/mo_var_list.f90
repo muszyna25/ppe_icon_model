@@ -20,19 +20,17 @@ MODULE mo_var_list
   USE mo_cf_convention,    ONLY: t_cf_var
   USE mo_grib2,            ONLY: t_grib2_var, grib2_var
   USE mo_var_groups,       ONLY: var_groups_dyn, groups, MAX_GROUPS
-  USE mo_var_metadata_types,ONLY: t_var_metadata, t_union_vals,     &
-    &                            t_vert_interp_meta, CLASS_TILE,    &
-    &                            t_hor_interp_meta, t_post_op_meta, &
-    &                            VINTP_TYPE_LIST, CLASS_TILE_LAND
+  USE mo_var_metadata_types,ONLY: t_var_metadata, t_vert_interp_meta, &
+    & t_union_vals, CLASS_TILE, t_hor_interp_meta, t_post_op_meta,    &
+    & VINTP_TYPE_LIST, CLASS_TILE_LAND, t_var_metadata_dynamic
   USE mo_var_metadata,     ONLY: create_vert_interp_metadata,       &
-    &                            create_hor_interp_metadata, &
-    &                            set_var_metadata, set_var_metadata_dyn, &
-    &                            get_var_timelevel, get_var_name
+    & create_hor_interp_metadata, get_var_timelevel, get_var_name,  &
+    & set_var_metadata, set_var_metadata_dyn
   USE mo_tracer_metadata_types, ONLY: t_tracer_meta
   USE mo_var,              ONLY: t_var, t_var_ptr, level_type_ml
   USE mo_exception,        ONLY: message, finish, message_text
   USE mo_util_texthash,    ONLY: text_hash_c
-  USE mo_util_string,      ONLY: toupper, tolower
+  USE mo_util_string,      ONLY: tolower
   USE mo_impl_constants,   ONLY: REAL_T, SINGLE_T, BOOL_T, INT_T, &
     &                            STR_HINTP_TYPE, vlname_len
   USE mo_fortran_tools,    ONLY: init_contiguous_dp, init_contiguous_sp, &
@@ -1348,15 +1346,11 @@ CONTAINS
   END SUBROUTINE add_var_list_reference_i2d
 
   SUBROUTINE print_var_list(this, lshort)
-    CLASS(t_var_list_ptr), INTENT(in) :: this
-    LOGICAL, OPTIONAL :: lshort
-    TYPE(t_var_metadata), POINTER :: info
+    CLASS(t_var_list_ptr), INTENT(IN) :: this
+    LOGICAL, OPTIONAL, INTENT(IN) :: lshort
     TYPE(t_var), POINTER :: le
-    CHARACTER(len=32) :: dimension_text, dtext,keytext
-    INTEGER :: i, igrp, ivintp_type, ndims, j
-    CHARACTER(len=4) :: localMode
+    INTEGER :: j
     LOGICAL :: short
-    LOGICAL, POINTER :: in_group(:)
 
     short = .FALSE.
     IF (PRESENT(lshort)) short = lshort
@@ -1366,163 +1360,159 @@ CONTAINS
     CALL message('','')
     DO j = 1, this%p%nvars
       le => this%p%vl(j)%p
-      info => le%info
+      IF (le%info%lcontainer) CYCLE
+      IF (le%info%name == '') CYCLE
       IF (short) THEN
-        localMode = '----'
-        IF (info%name /= '' .AND. .NOT. info%lcontainer) THEN
-          IF (info%lrestart) localMode(1:1) = 'r'
-          IF (info%lcontained) localMode(2:2) = 't'
-          SELECT CASE (info%isteptype)
-          CASE (1)
-            localMode(3:3) = 'i'
-          CASE (2)
-            localMode(3:3) = 'm'
-          CASE (3)
-            localMode(3:3) = 'a'
-          END SELECT
-          SELECT CASE (info%hgrid)
-          CASE (1)
-            localMode(4:4) = 'c'
-          CASE (2)
-            localMode(4:4) = 'v'
-          CASE (3)
-            localMode(4:4) = 'e'
-          CASE (45)
-            localMode(4:4) = 'L'
-          END SELECT
-          WRITE(message_text, '(a4,3i4,a24,a40)') localMode, &
-            & info%grib2%discipline, info%grib2%category,   &
-            & info%grib2%number, TRIM(info%name), TRIM(info%cf%standard_name)
-          CALL message('', message_text)
-        ENDIF
+        CALL print_var_short(le)
       ELSE
-        IF (info%name /= '' .AND. .NOT. info%lcontainer) THEN
-          message_text = 'Table entry name                            : '//TRIM(info%name)
-          CALL message('', message_text)
-          WRITE (keytext,'(i32.1)') this%p%key(j)
-          WRITE (message_text,'(a,a)')       &
-               'Key entry                                   : ', TRIM(keytext)
-          CALL message('', message_text)
-          IF (ASSOCIATED(le%r_ptr) .OR. ASSOCIATED(le%s_ptr) .OR. &
-            & ASSOCIATED(le%i_ptr) .OR. ASSOCIATED(le%l_ptr)) THEN
-            CALL message ('','Pointer status                              : in use.')
-            dimension_text = '('
-            ndims = info%ndims
-            DO i = 1, ndims
-              WRITE(dtext,'(i0)') info%used_dimensions(i)
-              IF (info%ndims == i) THEN
-                dimension_text = TRIM(dimension_text)//TRIM(dtext)//')'
-              ELSE
-                dimension_text = TRIM(dimension_text)//TRIM(dtext)//','
-              ENDIF
-            ENDDO
-            WRITE (message_text,'(a,a)') &
-                 'Local field dimensions                      : ', TRIM(dimension_text)
-            CALL message('', message_text)
-          ELSE
-            CALL message('', 'Pointer status                              : not in use.')
-          ENDIF
-          WRITE (message_text,'(a,3i4)') &
-            & 'Assigned GRIB discipline/category/parameter : ', &
-            & info%grib2%discipline, info%grib2%category, info%grib2%number
-          CALL message('', message_text)
-          WRITE (message_text,'(a,a,a,a)')                          &
-               'CF convention standard name/unit            : ',    &
-               TRIM(info%cf%standard_name), '     ', TRIM(info%cf%units)
-          CALL message('', message_text)
-          WRITE (message_text,'(2a)') &
-            & 'CF convention long name                     : ', TRIM(info%cf%long_name)
-          IF (info%lcontained) THEN
-            CALL message('', 'Field is in a container                     : yes.')
-            WRITE (message_text,'(a,i2)')                        &
-               ' Index in container                          : ', info%ncontained
-            CALL message('', message_text)
-          ELSE
-            CALL message('', 'Field is in a container                     : no.')
-            WRITE (message_text,'(a)')                           &
-               ' Index in container                          : --'
-            CALL message('', message_text)
-          ENDIF
-          WRITE (message_text,'(a,i2)')                          &
-            & ' horizontal grid type used (C=1,V=2,E=3)     : ', info%hgrid
-          CALL message('', message_text)
-          WRITE (message_text,'(a,i2)')                          &
-            & ' vertical grid type used (see cdilib.c)      : ', info%vgrid
-          CALL message('', message_text)
-          WRITE (message_text,'(a,i2)')                          &
-            & ' type of stat. processing (I=1,AVG=2,ACC=3...: ', info%isteptype
-          CALL message('', message_text)
-          IF (info%lmiss) THEN
-            IF (ASSOCIATED(le%r_ptr)) THEN
-              WRITE (message_text,'(a,e20.12)')      &
-                & 'Missing value                               : ', info%missval%rval
-            ELSE IF (ASSOCIATED(le%s_ptr)) THEN
-              WRITE (message_text,'(a,e20.12)')      &
-                & 'Missing value                               : ', info%missval%sval
-            ELSE IF (ASSOCIATED(le%i_ptr)) THEN
-              WRITE (message_text,'(a,i8)')      &
-                & 'Missing value                               : ', info%missval%ival
-            ELSE IF (ASSOCIATED(le%l_ptr)) THEN
-              WRITE (message_text,'(a,l8)')      &
-                & 'Missing value                               : ', info%missval%lval
-            ENDIF
-            CALL message('', message_text)
-          ELSE
-            CALL message('', 'Missing values                              : off.')
-          ENDIF
-          CALL message('', 'Added to restart                            : ' // &
-            & MERGE("yes.", " no.", info%lrestart))
-          CALL message('', 'Tracer field                                : ' // &
-            & MERGE("yes.", " no.", le%info_dyn%tracer%lis_tracer))
-          IF (le%info_dyn%tracer%lis_tracer) THEN
-            CALL message('', 'Child-to-parent feedback                  : ' // &
-              & MERGE("yes.", " no.", le%info_dyn%tracer%lfeedback))
-            WRITE (message_text,'(a,3i3)') 'Horizontal transport method                 : ', &
-              & le%info_dyn%tracer%ihadv_tracer
-            CALL message('', message_text)
-            WRITE (message_text,'(a,3i3)') 'Vertical transport method                   : ', &
-              & le%info_dyn%tracer%ivadv_tracer
-            CALL message('', message_text)
-            CALL message('', 'Turbulent transport                         : ' // &
-              & MERGE("yes.", " no.", le%info_dyn%tracer%lturb_tracer))
-          ENDIF !lis_tracer
-          ! print variable class/species
-          WRITE (message_text,'(a,i2)')       &
-            & 'Variable class/species                      : ', info%var_class
-          CALL message('', message_text)
-          ! print groups, to which this variable belongs:
-          in_group => info%in_group
-          IF (ANY(in_group(:))) THEN
-            WRITE (message_text,'(a)')  'Variable group(s)                           :'
-            DO igrp=1,SIZE(in_group)
-              IF (in_group(igrp)) THEN
-                IF (igrp == 1) THEN
-                  message_text = TRIM(message_text)//" "//TRIM(var_groups_dyn%name(igrp))
-                ELSE
-                  message_text = TRIM(message_text)//", "//TRIM(var_groups_dyn%name(igrp))
-                END IF
-              ENDIF
-            END DO
-            CALL message('', message_text)
-          END IF
-          ! print horizontal and vertical interpolation method(s):
-          WRITE (message_text,'(a)')  &
-            &  'Horizontal interpolation                    : '//  &
-            &  TRIM(STR_HINTP_TYPE(info%hor_interp%hor_intp_type))
-          CALL message('', message_text)
-          LOOP_VINTP_TYPES : DO ivintp_type=1,SIZE(VINTP_TYPE_LIST)
-            IF (info%vert_interp%vert_intp_type(ivintp_type)) THEN
-              WRITE (message_text,'(a)')  &
-                &  'Vertical interpolation                      : '//  &
-                &  toupper(VINTP_TYPE_LIST(ivintp_type))
-              CALL message('', message_text)
-            END IF
-          END DO LOOP_VINTP_TYPES
-          CALL message('', '')
-        END IF
+        CALL print_var_rigorous(le)
       END IF
-    ENDDO
+    END DO
   END SUBROUTINE print_var_list
+
+  SUBROUTINE print_var_short(var)
+    TYPE(t_var), INTENT(IN), POINTER :: var
+    CHARACTER(LEN=1), PARAMETER :: lm3(3) = ['i', 'm', 'a'], &
+                                   lm4(3) = ['c', 'v', 'e']
+    CHARACTER(LEN=4) :: localMode
+    TYPE(t_var_metadata), POINTER :: info
+
+    info => var%info
+    localMode = '----'
+    IF (info%lrestart) localMode(1:1) = 'r'
+    IF (info%lcontained) localMode(2:2) = 't'
+    SELECT CASE (info%isteptype)
+    CASE (1,2,3)
+      localMode(3:3) = lm3(info%isteptype)
+    END SELECT
+    SELECT CASE (info%hgrid)
+    CASE (1,2,3)
+      localMode(4:4) = lm4(info%hgrid)
+    CASE (45)
+      localMode(4:4) = 'L'
+    END SELECT
+    WRITE(message_text, '(a4,3i4,a24,a40)') localMode, &
+      & info%grib2%discipline, info%grib2%category,   &
+      & info%grib2%number, TRIM(info%name), TRIM(info%cf%standard_name)
+    CALL message('', message_text)
+  END SUBROUTINE print_var_short
+
+  SUBROUTINE print_var_rigorous(var)
+    TYPE(t_var), INTENT(IN), POINTER :: var
+    TYPE(t_var_metadata), POINTER :: info
+    TYPE(t_var_metadata_dynamic), POINTER :: info_dyn
+    CHARACTER(*), PARAMETER :: routine = modname//":print_var_rigorous", &
+      & category(22) = [ &
+      & 'Table entry name                            : ', &
+      & 'Pointer status                              : ', &
+      & 'Local field dimensions                      : ', &
+      & 'Assigned GRIB discipline/category/parameter : ', &
+      & 'CF convention standard name/unit            : ', &
+      & 'CF convention long name                     : ', &
+      & 'Field is in a container                     : ', &
+      & ' Index in container                         : ', &
+      & ' horizontal grid type used (C=1,V=2,E=3)    : ', &
+      & ' vertical grid type used (see cdilib.c)     : ', &
+      & ' stat. processing type (I=1,AVG=2,ACC=3...) : ', &
+      & 'Missing value                               : ', &
+      & 'Added to restart                            : ', &
+      & 'Tracer field                                : ', &
+      & '   Child-to-parent feedback                 : ', &
+      & '   Horizontal transport method              : ', &
+      & '   Vertical transport method                : ', &
+      & '   Turbulent transport                      : ', &
+      & 'Variable class/species                      : ', &
+      & 'Variable group(s)                           : ', &
+      & 'Horizontal interpolation                    : ', &
+      & 'Vertical interpolation                      : ' ]
+    CHARACTER(LEN=2) :: istr
+    CHARACTER(LEN=20) :: mvstr
+    CHARACTER(LEN=9) :: ipstr
+    CHARACTER(LEN=32) :: dimstr
+    INTEGER :: i, mlen, gnlen
+
+    info => var%info
+    info_dyn => var%info_dyn
+    CALL message('', category(1)//TRIM(info%name))
+    IF (ANY([ASSOCIATED(var%r_ptr), ASSOCIATED(var%s_ptr), &
+             ASSOCIATED(var%i_ptr), ASSOCIATED(var%l_ptr)])) THEN
+      CALL message ('',category(2)//'in use.')
+      dimstr = '('
+      DO i = 1, info%ndims
+        WRITE(dimstr,"(a,i0,a1)") TRIM(dimstr), info%used_dimensions(i), &
+          & MERGE(')', ',', info%ndims .EQ. i)
+      ENDDO
+      CALL message('', category(3)//TRIM(dimstr))
+    ELSE
+      CALL message('', category(2)//'not in use.')
+    ENDIF
+    WRITE (message_text,'(a,3i4)') category(4), &
+      & info%grib2%discipline, info%grib2%category, info%grib2%number
+    CALL message('', message_text)
+    WRITE (message_text,'(a,a,a,a)') category(5), &
+         TRIM(info%cf%standard_name), '     ', TRIM(info%cf%units)
+    CALL message('', message_text)
+    CALL message('', category(6)//TRIM(info%cf%long_name))
+    CALL message('', category(7)//MERGE('yes.', 'no. ', info%lcontained))
+    istr = '--'
+    IF (info%lcontained) WRITE(istr, "(i2)") info%ncontained
+    CALL message('', category(8)//istr)
+    WRITE(istr, "(i2)") info%hgrid
+    CALL message('', category(9)//istr)
+    WRITE(istr, "(i2)") info%vgrid
+    CALL message('', category(10)//istr)
+    WRITE(istr, "(i2)") info%isteptype
+    CALL message('', category(11)//istr)
+    IF (info%lmiss) THEN
+      SELECT CASE(info%data_type)
+      CASE (REAL_T)
+        WRITE(mvstr, "(e20.12)") info%missval%rval
+      CASE (SINGLE_T)
+        WRITE(mvstr, "(e20.12)") info%missval%sval
+      CASE (INT_T)
+        WRITE(mvstr, "(i8)") info%missval%ival
+      CASE (BOOL_T)
+        WRITE(mvstr, "(l8)") info%missval%lval
+      END SELECT
+    ELSE
+      WRITE(mvstr, "(a)") 'off.'
+    ENDIF
+    CALL message('', category(12)//mvstr)
+    CALL message('', category(13)//MERGE("yes.", " no.", info%lrestart))
+    CALL message('', category(14)//MERGE("yes.", " no.", info_dyn%tracer%lis_tracer))
+    IF (info_dyn%tracer%lis_tracer) THEN
+      CALL message('', category(15)//MERGE("yes.", " no.", info_dyn%tracer%lfeedback))
+      WRITE(ipstr, "(3i3)") info_dyn%tracer%ihadv_tracer
+      CALL message('', category(16)//ipstr)
+      WRITE(ipstr, "(3i3)") info_dyn%tracer%ivadv_tracer
+      CALL message('', category(17)//ipstr)
+      CALL message('', category(18)//MERGE("yes.", " no.", info_dyn%tracer%lturb_tracer))
+    ENDIF !lis_tracer
+    ! print variable class/species
+    WRITE(istr, "(i2)") info%var_class
+    CALL message('', category(19)//istr)
+    ! print groups, to which this variable belongs:
+    IF (ANY(info%in_group(:))) THEN
+      CALL message('', category(20))
+      message_text = ' + '
+      mlen = 3
+      DO i = 1, SIZE(info%in_group)
+        IF (.NOT.info%in_group(i)) CYCLE
+        gnlen = LEN_TRIM(var_groups_dyn%name(i))
+        IF (mlen + 2 + gnlen .GT. LEN(message_text)) CALL finish(routine, "message_text overflow")
+        WRITE(message_text, "(3a)") message_text(1:mlen), var_groups_dyn%name(i)(1:gnlen), ", "
+        mlen = mlen + 2 + gnlen
+      END DO
+      CALL message('', message_text(1:mlen-2))
+    END IF
+    ! print horizontal and vertical interpolation method(s):
+    CALL message('', category(21)//STR_HINTP_TYPE(info%hor_interp%hor_intp_type))
+    DO i = 1, SIZE(VINTP_TYPE_LIST)
+      IF (info%vert_interp%vert_intp_type(i)) &
+        CALL message('', category(22)//VINTP_TYPE_LIST(i))
+    END DO
+    CALL message('', '')
+  END SUBROUTINE print_var_rigorous
 
   !-----------------------------------------------------------------------------
   ! Should be overloaded to be able to search for the different information 
