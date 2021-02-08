@@ -15,7 +15,7 @@
 !! a) for volume variables:
 !!      CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_ML, &
 !!                        "myvarname", "myvarunit", "long name", &
-!!                        var_info, pack_buf, <state_var>)
+!!                        var_info, <state_var>)
 !!
 !!      where "VAR_GROUP_ATMO_ML" (or "VAR_GROUP_ATMO_HL" or
 !!      "VAR_GROUP_SOIL_HL", ...)  determines the level heights of this
@@ -25,7 +25,7 @@
 !! b) for surface variables:
 !!      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SFC, &
 !!                       "myvarname", "myvarunit", "long name", &
-!!                       sfc_var_info, pack_buf, <state_var>)
+!!                       sfc_var_info, <state_var>)
 !!
 !! How to add additional diagnostic quantities
 !! -------------------------------------------
@@ -33,7 +33,7 @@
 !!
 !!      CALL add_atmo/sfc_var (meteogram_config, var_list, IBSET(VAR_GROUP_XX, FLAG_DIAG), &
 !!         &                   "myvarname", "myvarunit", "long name", &
-!!         &                   var_info, pack_buf, <var>)
+!!         &                   var_info, <var>)
 !! where <var> denotes a variable of _equal_size_.
 !!
 !! The computation of the diagnostic quantities should be placed inside
@@ -130,6 +130,7 @@ MODULE mo_meteogram_output
     &                                 p_pack_int,    p_pack_real,         &
     &                                 p_pack_int_1d, p_pack_real_1d,      &
     &                                 p_pack_string, p_pack_real_2d,      &
+    &                                 p_pack_size_int, p_pack_size_real_dp,&
     &                                 p_unpack_int,    p_unpack_real,     &
     &                                 p_unpack_int_1d, p_unpack_real_1d,  &
     &                                 p_unpack_string, p_unpack_real_2d,  &
@@ -460,69 +461,50 @@ CONTAINS
     !> indices at which to find variables for compute_diagnostics
     TYPE(meteogram_diag_var_indices), INTENT(out) :: diag_var_indices
 
-    INTEGER :: var_counts(2), var_count_pos
-
     var_list%no_atmo_vars = 0
     var_list%no_sfc_vars = 0
 
-    ! dummy to be later overwritten with actual counts of variables
-    IF (pack_buf%l_is_varlist_sender) THEN
-      var_counts = 0
-      var_count_pos = pack_buf%pos
-      CALL p_pack_int_1d(var_counts, 2, pack_buf%msg_varlist, pack_buf%pos)
-    END IF
     ! -- atmosphere
 
     CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_ML, &
       &               "P", "Pa", "Pressure", &
-      &               var_info, pack_buf, &
-      &               diag%pres(:,:,:))
+      &               var_info, diag%pres(:,:,:))
     CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_ML, &
       &               "T", "K", "Temperature", &
-      &               var_info, pack_buf, &
-      &               diag%temp(:,:,:))
+      &               var_info, diag%temp(:,:,:))
     CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_ML, &
       &               "PEXNER", "-", "Exner pressure", &
-      &               var_info, pack_buf, &
-      &               prog%exner(:,:,:))
+      &               var_info, prog%exner(:,:,:))
     CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_ML, &
       &               "RHO", "kg/m^3", "Density", &
-      &               var_info, pack_buf, &
-      &               prog%rho(:,:,:))
+      &               var_info, prog%rho(:,:,:))
     CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_ML, &
       &               "THETAV", "K", "virtual potential temperature", &
-      &               var_info, pack_buf, &
-      &               prog%theta_v(:,:,:))
+      &               var_info, prog%theta_v(:,:,:))
     CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_ML, &
       &               "U", "m/s", "zonal wind", &
-      &               var_info, pack_buf, &
-      &               diag%u(:,:,:))
+      &               var_info, diag%u(:,:,:))
     CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_ML, &
       &               "V", "m/s", "meridional wind", &
-      &               var_info, pack_buf, &
-      &               diag%v(:,:,:))
+      &               var_info, diag%v(:,:,:))
     CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_HL, &
       &               "W", "m/s", "orthogonal vertical wind", &
-      &               var_info, pack_buf, &
-      &               prog%w(:,:,:))
+      &               var_info, prog%w(:,:,:))
 
     ! add some output for turbulence diagnostic
     CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_HL, &
       &               "TKE", "m^2/s^2", "turbulent kinetic energy", &
-      &               var_info, pack_buf, &
-      &               prog%tke(:,:,:))
+      &               var_info, prog%tke(:,:,:))
 
     IF ( .NOT. atm_phy_nwp_config%is_les_phy ) THEN
       CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_HL, &
         &               "ddt_tke_hsh", "m^2/s^3", &
         &               "TKE tendency horizonzal shear production", &
-        &               var_info, pack_buf, &
-        &               prm_nwp_tend%ddt_tke_hsh)
+        &               var_info, prm_nwp_tend%ddt_tke_hsh)
       CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_HL, &
         &               "ddt_tke_pconv", "m^2/s^3", &
         &               "TKE tendency due to subgrid-scale convection", &
-        &               var_info, pack_buf, &
-        &               prm_nwp_tend%ddt_tke_pconv)
+        &               var_info, prm_nwp_tend%ddt_tke_pconv)
     END IF
 
     ! For dry test cases: do not sample variables defined below this line:
@@ -531,349 +513,272 @@ CONTAINS
 
     CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_ML, &
       &               "QV", "kg kg-1", "specific humidity", &
-      &               var_info, pack_buf, &
-      &               prog%tracer_ptr(iqv)%p_3d(:,:,:))
+      &               var_info, prog%tracer_ptr(iqv)%p_3d(:,:,:))
     CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_ML, &
       &               "QC", "kg kg-1", "specific cloud water content", &
-      &               var_info, pack_buf, &
-      &               prog%tracer_ptr(iqc)%p_3d(:,:,:))
+      &               var_info, prog%tracer_ptr(iqc)%p_3d(:,:,:))
     CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_ML, &
       &               "QI", "kg kg-1", "specific cloud ice content", &
-      &               var_info, pack_buf, &
-      &               prog%tracer_ptr(iqi)%p_3d(:,:,:))
+      &               var_info, prog%tracer_ptr(iqi)%p_3d(:,:,:))
     CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_ML, &
       &               "QR", "kg kg-1", "rain_mixing_ratio", &
-      &               var_info, pack_buf, &
-      &               prog%tracer_ptr(iqr)%p_3d(:,:,:))
+      &               var_info, prog%tracer_ptr(iqr)%p_3d(:,:,:))
     CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_ML, &
       &               "QS", "kg kg-1", "snow_mixing_ratio", &
-      &               var_info, pack_buf, &
-      &               prog%tracer_ptr(iqs)%p_3d(:,:,:))
+      &               var_info, prog%tracer_ptr(iqs)%p_3d(:,:,:))
     CALL add_atmo_var(meteogram_config, var_list, &
       &               IBSET(VAR_GROUP_ATMO_ML, FLAG_DIAG), &
       &               "REL_HUM", "%", "relative humidity", &
-      &               var_info, pack_buf, &
-      &              prog%tracer_ptr(iqv)%p_3d(:,:,:))
+      &               var_info, prog%tracer_ptr(iqv)%p_3d(:,:,:))
 
     IF(atm_phy_nwp_config%lhave_graupel) THEN
       CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_ML, &
         &               "QG", "kg kg-1", "graupel_mixing_ratio", &
-        &               var_info, pack_buf, &
-        &               prog%tracer_ptr(iqg)%p_3d(:,:,:))
+        &               var_info, prog%tracer_ptr(iqg)%p_3d(:,:,:))
     END IF
 
     IF(atm_phy_nwp_config%l2moment) THEN
       CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_ML, &
         &               "QH", "kg kg-1", "hail_mixing_ratio", &
-        &               var_info, pack_buf, &
-        &               prog%tracer_ptr(iqh)%p_3d(:,:,:))
+        &               var_info, prog%tracer_ptr(iqh)%p_3d(:,:,:))
       CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_ML, &
         &               "QNI", "kg-1", "number concentration ice", &
-        &               var_info, pack_buf, &
-        &               prog%tracer_ptr(iqni)%p_3d(:,:,:))
+        &               var_info, prog%tracer_ptr(iqni)%p_3d(:,:,:))
       CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_ML, &
         &               "QNS", "kg-1", "number concentration snow", &
-        &               var_info, pack_buf, &
-        &               prog%tracer_ptr(iqns)%p_3d(:,:,:))
+        &               var_info, prog%tracer_ptr(iqns)%p_3d(:,:,:))
       CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_ML, &
         &               "QNR", "kg-1", "number concentration rain droplet", &
-        &               var_info, pack_buf, &
-        &               prog%tracer_ptr(iqnr)%p_3d(:,:,:))
+        &               var_info, prog%tracer_ptr(iqnr)%p_3d(:,:,:))
       CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_ML, &
         &               "QNG", "kg-1", "number concentration graupel", &
-        &               var_info, pack_buf, &
-        &               prog%tracer_ptr(iqng)%p_3d(:,:,:))
+        &               var_info, prog%tracer_ptr(iqng)%p_3d(:,:,:))
       CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_ML, &
         &               "QNH", "kg-1", "number concentration hail", &
-        &               var_info, pack_buf, &
-        &               prog%tracer_ptr(iqnh)%p_3d(:,:,:))
+        &               var_info, prog%tracer_ptr(iqnh)%p_3d(:,:,:))
       CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_ML, &
         &               "QNC", "kg-1", "number concentration cloud water", &
-        &               var_info, pack_buf, &
-        &               prog%tracer_ptr(iqnc)%p_3d(:,:,:))
+        &               var_info, prog%tracer_ptr(iqnc)%p_3d(:,:,:))
       CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_ML, &
         &               "NIACT", "kg-1", &
         &               "number concentration activated ice nuclei", &
-        &               var_info, pack_buf, &
-        &               prog%tracer_ptr(ininact)%p_3d(:,:,:))
+        &               var_info, prog%tracer_ptr(ininact)%p_3d(:,:,:))
     END IF
 
     CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_ML, &
       &               "QV_DIA", "kg kg-1", &
       &               "total specific humidity (diagnostic)", &
-      &               var_info, pack_buf, &
-      &               prm_diag%tot_ptr(iqv)%p_3d(:,:,:))
+      &               var_info, prm_diag%tot_ptr(iqv)%p_3d(:,:,:))
     CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_ML, &
       &               "QC_DIA", "kg kg-1", &
       &               "total specific cloud water content (diagnostic)", &
-      &               var_info, pack_buf, &
-      &               prm_diag%tot_ptr(iqc)%p_3d(:,:,:))
+      &               var_info, prm_diag%tot_ptr(iqc)%p_3d(:,:,:))
     CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_ML, &
       &               "QI_DIA", "kg kg-1", &
       &               "total specific cloud ice content (diagnostic)", &
-      &               var_info, pack_buf, &
-      &               prm_diag%tot_ptr(iqi)%p_3d(:,:,:))
+      &               var_info, prm_diag%tot_ptr(iqi)%p_3d(:,:,:))
 
     CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_ML, &
       &               "CLC", "-", "cloud cover", &
-      &               var_info, pack_buf, &
-      &               prm_diag%clc(:,:,:))
+      &               var_info, prm_diag%clc(:,:,:))
     CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_HL, &
       &               "TKVM", "m**2/s", &
       &               "turbulent diffusion coefficients for momentum", &
-      &               var_info, pack_buf, &
-      &               prm_diag%tkvm(:,:,:))
+      &               var_info, prm_diag%tkvm(:,:,:))
     CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_HL, &
       &               "TKVH", "m**2/s", &
       &               "turbulent diffusion coefficients for heat", &
-      &               var_info, pack_buf, &
-      &               prm_diag%tkvh(:,:,:))
+      &               var_info, prm_diag%tkvh(:,:,:))
     CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_HL, &
       &               "PHALF", "Pa", "Pressure on the half levels", &
-      &               var_info, pack_buf, &
-      &               diag%pres_ifc(:,:,:))
+      &               var_info, diag%pres_ifc(:,:,:))
 
     ! -- soil related
     IF (  atm_phy_nwp_config%inwp_surface == 1 ) THEN
       CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_SOIL_MLp2, &
         &               "T_SO", "K", "soil temperature", &
-        &               var_info, pack_buf, &
-        &               lnd_diag%t_so(:,:,:))
+        &               var_info, lnd_diag%t_so(:,:,:))
       CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_SOIL_ML, &
         &               "W_SO", "m H2O", &
         &               "total water content (ice + liquid water)", &
-        &               var_info, pack_buf, &
-        &               lnd_diag%w_so(:,:,:))
+        &               var_info, lnd_diag%w_so(:,:,:))
       CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_SOIL_ML, &
         &               "W_SO_ICE", "m H2O", "ice content", &
-        &               var_info, pack_buf, &
-        &               lnd_diag%w_so_ice(:,:,:))
+        &               var_info, lnd_diag%w_so_ice(:,:,:))
 
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "PL_COV", "-", "ground fraction covered by plants", &
-        &              sfc_var_info, pack_buf, &
-        &              ext_data%atm%plcov(:,:))
+        &              sfc_var_info, ext_data%atm%plcov(:,:))
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "LA_IND", "-", "leaf area index (vegetation period)", &
-        &              sfc_var_info, pack_buf, &
-        &              ext_data%atm%lai(:,:))
+        &              sfc_var_info, ext_data%atm%lai(:,:))
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "RO_DEPT", "m", "root depth", &
-        &              sfc_var_info, pack_buf, &
-        &              ext_data%atm%rootdp(:,:))
+        &              sfc_var_info, ext_data%atm%rootdp(:,:))
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "Z0", "m", "roughness length*g", &
-        &              sfc_var_info, pack_buf, &
-        &              prm_diag%gz0(:,:))
+        &              sfc_var_info, prm_diag%gz0(:,:))
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "QV_S", "kg/kg", "specific humidity at the surface", &
-        &              sfc_var_info, pack_buf, &
-        &              lnd_diag%qv_s(:,:))
+        &              sfc_var_info, lnd_diag%qv_s(:,:))
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "W_I", "m H2O", "water content of interception water", &
-        &              sfc_var_info, pack_buf, &
-        &              lnd_diag%w_i(:,:))
+        &              sfc_var_info, lnd_diag%w_i(:,:))
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "W_SNOW", "m H2O", "water content of snow", &
-        &              sfc_var_info, pack_buf, &
-        &              lnd_diag%w_snow(:,:))
+        &              sfc_var_info, lnd_diag%w_snow(:,:))
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "RUNOFF_S", "kg/m2", &
         &              "surface water runoff; sum over forecast", &
-        &              sfc_var_info, pack_buf, &
-        &              lnd_diag%runoff_s(:,:))
+        &              sfc_var_info, lnd_diag%runoff_s(:,:))
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "RUNOFF_G", "kg/m2", &
         &              "soil water runoff; sum over forecast", &
-        &              sfc_var_info, pack_buf, &
-        &              lnd_diag%runoff_g(:,:))
+        &              sfc_var_info, lnd_diag%runoff_g(:,:))
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "T_SNOW", "K", "temperature of the snow-surface", &
-        &              sfc_var_info, pack_buf, &
-        &              lnd_diag%t_snow(:,:))
+        &              sfc_var_info, lnd_diag%t_snow(:,:))
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "T_S", "K", "temperature of the ground surface", &
-        &              sfc_var_info, pack_buf, &
-        &              lnd_diag%t_s(:,:))
+        &              sfc_var_info, lnd_diag%t_s(:,:))
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "T_G", "K", "weighted surface temperature", &
-        &              sfc_var_info, pack_buf, &
-        &              lnd_prog%t_g(:,:))
+        &              sfc_var_info, lnd_prog%t_g(:,:))
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "FRESHSNW", "-", &
         &              "indicator for age of snow in top of snow layer", &
-        &              sfc_var_info, pack_buf, &
-        &              lnd_diag%freshsnow(:,:))
+        &              sfc_var_info, lnd_diag%freshsnow(:,:))
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "RHO_SNOW", "kg/m**3", "snow density", &
-        &              sfc_var_info, pack_buf, &
-        &              lnd_diag%rho_snow(:,:))
+        &              sfc_var_info, lnd_diag%rho_snow(:,:))
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "H_SNOW", "m", "snow height", &
-        &              sfc_var_info, pack_buf, &
-        &              lnd_diag%h_snow(:,:))
+        &              sfc_var_info, lnd_diag%h_snow(:,:))
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "FR_SEAICE", "-", "fraction of sea ice", &
-        &              sfc_var_info, pack_buf, &
-        &              lnd_diag%fr_seaice(:,:))
+        &              sfc_var_info, lnd_diag%fr_seaice(:,:))
     ENDIF
 
     ! -- single level variables
 
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "P_SFC", "Pa", "surface pressure", &
-      &              sfc_var_info, pack_buf, &
-      &              diag%pres_sfc(:,:))
+      &              sfc_var_info, diag%pres_sfc(:,:))
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "TCM", "-", &
       &              "turbulent transfer coefficients for momentum", &
-      &              sfc_var_info, pack_buf, &
-      &              prm_diag%tcm(:,:))
+      &              sfc_var_info, prm_diag%tcm(:,:))
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "TCH", "-", "turbulent transfer coefficients for heat", &
-      &              sfc_var_info, pack_buf, &
-      &              prm_diag%tch(:,:))
+      &              sfc_var_info, prm_diag%tch(:,:))
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "SHFL", "W/m2", "sensible heat flux (surface)", &
-      &              sfc_var_info, pack_buf, &
-      &              prm_diag%shfl_s(:,:))
+      &              sfc_var_info, prm_diag%shfl_s(:,:))
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "LHFL", "W/m2", "latent heat flux (surface)", &
-      &              sfc_var_info, pack_buf, &
-      &              prm_diag%lhfl_s(:,:))
+      &              sfc_var_info, prm_diag%lhfl_s(:,:))
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "VIO3", "Pa O3", "vertically integrated ozone amount", &
-      &              sfc_var_info, pack_buf, &
-      &              prm_diag%vio3(:,:))
+      &              sfc_var_info, prm_diag%vio3(:,:))
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "HMO3", "Pa", "height of O3 maximum", &
-      &              sfc_var_info, pack_buf, &
-      &              prm_diag%hmo3(:,:))
+      &              sfc_var_info, prm_diag%hmo3(:,:))
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "T2M", "K", "temperature in 2m", &
-      &              sfc_var_info, pack_buf, &
-      &              prm_diag%t_2m(:,:))
+      &              sfc_var_info, prm_diag%t_2m(:,:))
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "TD2M", "K", "dew-point temperature in 2m", &
-      &              sfc_var_info, pack_buf, &
-      &              prm_diag%td_2m(:,:))
+      &              sfc_var_info, prm_diag%td_2m(:,:))
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "U10M", "m/s", "zonal wind in 10m", &
-      &              sfc_var_info, pack_buf, &
-      &              prm_diag%u_10m(:,:))
+      &              sfc_var_info, prm_diag%u_10m(:,:))
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "V10M", "m/s", "meridional wind in 10m", &
-      &              sfc_var_info, pack_buf, &
-      &              prm_diag%v_10m(:,:))
+      &              sfc_var_info, prm_diag%v_10m(:,:))
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "VBMAX10M", "m/s", "gust in 10m", &
-      &              sfc_var_info, pack_buf, &
-      &              prm_diag%gust10(:,:))
+      &              sfc_var_info, prm_diag%gust10(:,:))
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "dyn_gust", "m/s", "dynamical gust", &
-      &              sfc_var_info, pack_buf, &
-      &              prm_diag%dyn_gust(:,:))
+      &              sfc_var_info, prm_diag%dyn_gust(:,:))
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "con_gust", "m/s", "convective gust", &
-      &              sfc_var_info, pack_buf, &
-      &              prm_diag%con_gust(:,:))
+      &              sfc_var_info, prm_diag%con_gust(:,:))
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "cape_ml", "J/kg", "cape of mean surface layer parcel", &
-      &              sfc_var_info, pack_buf, &
-      &              prm_diag%cape_ml(:,:))
+      &              sfc_var_info, prm_diag%cape_ml(:,:))
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "SOBT", "W m-2", "shortwave net flux at toa", &
-      &              sfc_var_info, pack_buf, &
-      &              prm_diag%swflxtoa(:,:))
+      &              sfc_var_info, prm_diag%swflxtoa(:,:))
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "THBT", "W m-2", "longwave net flux at toa", &
-      &              sfc_var_info, pack_buf, &
-      &              prm_diag%lwflxall(:,1,:))
+      &              sfc_var_info, prm_diag%lwflxall(:,1,:))
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "SOBS", "W m-2", "shortwave net flux at surface", &
-      &              sfc_var_info, pack_buf, &
-      &              prm_diag%swflxsfc(:,:))
+      &              sfc_var_info, prm_diag%swflxsfc(:,:))
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "THBS", "W m-2", "longwave net flux at surface", &
-      &              sfc_var_info, pack_buf, &
-      &              prm_diag%lwflxsfc(:,:))
+      &              sfc_var_info, prm_diag%lwflxsfc(:,:))
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "ALB", "-", "surface shortwave albedo, diffuse", &
-      &              sfc_var_info, pack_buf, &
-      &              prm_diag%albdif(:,:))
+      &              sfc_var_info, prm_diag%albdif(:,:))
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "RAIN_GSP", "kg/m2", &
       &              "accumulated grid-scale surface rain", &
-      &              sfc_var_info, pack_buf, &
-      &              prm_diag%rain_gsp(:,:))
+      &              sfc_var_info, prm_diag%rain_gsp(:,:))
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "SNOW_GSP", "kg/m2", &
       &              "accumulated grid-scale surface snow", &
-      &              sfc_var_info, pack_buf, &
-      &              prm_diag%snow_gsp(:,:))
+      &              sfc_var_info, prm_diag%snow_gsp(:,:))
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "RAIN_CON", "kg/m2", &
       &              "accumulated convective surface rain", &
-      &              sfc_var_info, pack_buf, &
-      &              prm_diag%rain_con(:,:))
+      &              sfc_var_info, prm_diag%rain_con(:,:))
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "SNOW_CON", "kg/m2", &
       &              "accumulated convective surface snow", &
-      &              sfc_var_info, pack_buf, &
-      &              prm_diag%snow_con(:,:))
+      &              sfc_var_info, prm_diag%snow_con(:,:))
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "H_ICE", "m", "sea ice depth", &
-      &              sfc_var_info, pack_buf, &
-      &              prog_wtr%h_ice(:,:))
+      &              sfc_var_info, prog_wtr%h_ice(:,:))
 
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "CLCT", "-", "total cloud cover", &
-      &              sfc_var_info, pack_buf, &
-      &              prm_diag%clct(:,:))
+      &              sfc_var_info, prm_diag%clct(:,:))
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "CLCL", "-", "low level cloud cover", &
-      &              sfc_var_info, pack_buf, &
-      &              prm_diag%clcl(:,:))
+      &              sfc_var_info, prm_diag%clcl(:,:))
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "CLCM", "-", "mid level cloud cover", &
-      &              sfc_var_info, pack_buf, &
-      &              prm_diag%clcm(:,:))
+      &              sfc_var_info, prm_diag%clcm(:,:))
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "CLCH", "-", "high level cloud cover", &
-      &              sfc_var_info, pack_buf, &
-      &              prm_diag%clch(:,:))
+      &              sfc_var_info, prm_diag%clch(:,:))
 
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "hbas_con", "m", "height of convective cloud base",&
-      &              sfc_var_info, pack_buf, &
-      &              prm_diag%hbas_con(:,:))
+      &              sfc_var_info, prm_diag%hbas_con(:,:))
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "htop_con", "m", "height of convective cloud top",&
-      &              sfc_var_info, pack_buf, &
-      &              prm_diag%htop_con(:,:))
+      &              sfc_var_info, prm_diag%htop_con(:,:))
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "UMFL_S", "N m-2", "u-momentum flux at the surface", &
-      &              sfc_var_info, pack_buf, &
-      &              prm_diag%umfl_s(:,:))
+      &              sfc_var_info, prm_diag%umfl_s(:,:))
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "VMFL_S", "N m-2", "v-momentum flux at the surface", &
-      &              sfc_var_info, pack_buf, &
-      &              prm_diag%vmfl_s(:,:))
+      &              sfc_var_info, prm_diag%vmfl_s(:,:))
 
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "SWDIFU_S", "W m-2", "shortwave upward flux at surface", &
-      &              sfc_var_info, pack_buf, &
-      &              prm_diag%swflx_up_sfc(:,:))
+      &              sfc_var_info, prm_diag%swflx_up_sfc(:,:))
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "SWDIFD_S", "W m-2", &
       &              "shortwave diffuse downward flux at surface", &
-      &              sfc_var_info, pack_buf, &
-      &              prm_diag%swflx_dn_sfc_diff(:,:))
+      &              sfc_var_info, prm_diag%swflx_dn_sfc_diff(:,:))
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "PAB_S", "W m-2", &
       &       "photosynthetically active shortwave downward flux at surface", &
-      &              sfc_var_info, pack_buf, &
-      &              prm_diag%swflx_par_sfc(:,:))
+      &              sfc_var_info, prm_diag%swflx_par_sfc(:,:))
 
     ! There is no 2D-field for SWDIR_S available, so we provide swflx_dn_sfc_diff instead
     ! The actual values will be diagnosed at a later point
@@ -881,114 +786,94 @@ CONTAINS
       &              IBSET(VAR_GROUP_SURFACE, FLAG_DIAG), &
       &              "SWDIR_S", "W m-2", &
       &              "shortwave direct downward flux at surface", &
-      &              sfc_var_info, pack_buf, &
-      &              prm_diag%swflx_dn_sfc_diff(:,:))
+      &              sfc_var_info, prm_diag%swflx_dn_sfc_diff(:,:))
 
     ! -- tiled surface fields
     IF (meteogram_config%loutput_tiles) THEN     ! write some selected tile specific fields
       CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_SOIL_ML, &
         &               "W_SO_T", "m H2O", "soil water content", &
-        &               var_info, pack_buf, &
-        &               lnd_prog%w_so_t(:,:,:,:))
+        &               var_info, lnd_prog%w_so_t(:,:,:,:))
       CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_SOIL_MLp2, &
         &               "T_SO_T", "K", "soil temperature", &
-        &               var_info, pack_buf, &
-        &               lnd_prog%t_so_t(:,:,:,:))
+        &               var_info, lnd_prog%t_so_t(:,:,:,:))
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "T_G_T", "K", "surface temperature", &
-        &              sfc_var_info, pack_buf, &
-        &              lnd_prog%t_g_t(:,:,:))
+        &              sfc_var_info, lnd_prog%t_g_t(:,:,:))
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "SHFL_T", "W/m2", "sensible heat flux (surface)", &
-        &              sfc_var_info, pack_buf, &
-        &              prm_diag%shfl_s_t(:,:,:))
+        &              sfc_var_info, prm_diag%shfl_s_t(:,:,:))
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "LHFL_T", "W/m2", "latent heat flux (surface)", &
-        &              sfc_var_info, pack_buf, &
-        &              prm_diag%lhfl_s_t(:,:,:))
+        &              sfc_var_info, prm_diag%lhfl_s_t(:,:,:))
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "SOBS_T", "W m-2", "shortwave net flux (surface)", &
-        &              sfc_var_info, pack_buf, &
-        &              prm_diag%swflxsfc_t(:,:,:))
+        &              sfc_var_info, prm_diag%swflxsfc_t(:,:,:))
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "THBS_T", "W m-2", "longwave net flux (surface)", &
-        &              sfc_var_info, pack_buf, &
-        &              prm_diag%lwflxsfc_t(:,:,:))
+        &              sfc_var_info, prm_diag%lwflxsfc_t(:,:,:))
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "FRAC_T", "-", "tile fractions (time dependent)", &
-        &              sfc_var_info, pack_buf, &
-        &              ext_data%atm%frac_t(:,:,:))
+        &              sfc_var_info, ext_data%atm%frac_t(:,:,:))
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "snowfrac_t", "%", &
         &              "local tile-based snow-cover fraction", &
-        &              sfc_var_info, pack_buf, &
-        &              lnd_diag%snowfrac_t(:,:,:))
+        &              sfc_var_info, lnd_diag%snowfrac_t(:,:,:))
     ENDIF
 
     ! -- vertical integrals
 
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "TQV", "kg m-2", "column integrated water vapour", &
-      &              sfc_var_info, pack_buf, &
-      &              diag%tracer_vi_ptr(iqv)%p_2d(:,:))
+      &              sfc_var_info, diag%tracer_vi_ptr(iqv)%p_2d(:,:))
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "TQC", "kg m-2", "column integrated cloud water", &
-      &              sfc_var_info, pack_buf, &
-      &              diag%tracer_vi_ptr(iqc)%p_2d(:,:))
+      &              sfc_var_info, diag%tracer_vi_ptr(iqc)%p_2d(:,:))
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "TQI", "kg m-2", "column integrated cloud ice", &
-      &              sfc_var_info, pack_buf, &
-      &              diag%tracer_vi_ptr(iqi)%p_2d(:,:))
+      &              sfc_var_info, diag%tracer_vi_ptr(iqi)%p_2d(:,:))
     IF ( iqm_max >= 4) THEN
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "TQR", "kg m-2", "column integrated rain", &
-        &              sfc_var_info, pack_buf, &
-        &              diag%tracer_vi_ptr(iqr)%p_2d(:,:))
+        &              sfc_var_info, diag%tracer_vi_ptr(iqr)%p_2d(:,:))
     ENDIF
     IF ( iqm_max >= 5) THEN
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "TQS", "kg m-2", "column integrated snow", &
-        &              sfc_var_info, pack_buf, &
-        &              diag%tracer_vi_ptr(iqs)%p_2d(:,:))
+        &              sfc_var_info, diag%tracer_vi_ptr(iqs)%p_2d(:,:))
     END IF
 
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "TQV_DIA", "kg m-2", &
       &              "total column integrated water vapour (diagnostic)", &
-      &              sfc_var_info, pack_buf, &
-      &              prm_diag%tci_ptr(iqv)%p_2d(:,:))
+      &              sfc_var_info, prm_diag%tci_ptr(iqv)%p_2d(:,:))
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "TQC_DIA", "kg m-2", &
       &              "total column integrated cloud water (diagnostic)", &
-      &              sfc_var_info, pack_buf, &
-      &              prm_diag%tci_ptr(iqc)%p_2d(:,:))
+      &              sfc_var_info, prm_diag%tci_ptr(iqc)%p_2d(:,:))
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "TQI_DIA", "kg m-2", &
       &              "total column integrated cloud ice (diagnostic)", &
-      &              sfc_var_info, pack_buf, &
-      &              prm_diag%tci_ptr(iqi)%p_2d(:,:))
+      &              sfc_var_info, prm_diag%tci_ptr(iqi)%p_2d(:,:))
 
 
     IF (inextra_2d > 0) THEN
       ! Variable: Extra 2D
       CALL add_sfc_var (meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &               "EXTRA2D","","-", &
-        &               sfc_var_info, pack_buf, &
-        &               diag%extra_2d(:,:,1:inextra_2d))
+        &               sfc_var_info, diag%extra_2d(:,:,1:inextra_2d))
     ENDIF
     IF (inextra_3d > 0) THEN
       ! Variable: Extra 3D
       CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_ML, &
         &               "EXTRA3D","","-", &
-        &               var_info, pack_buf, &
-        &               diag%extra_3d(:,:,:,1:inextra_3d))
+        &               var_info, diag%extra_3d(:,:,:,1:inextra_3d))
     END IF
 
-    IF (pack_buf%l_is_varlist_sender) THEN
-      var_counts(1) = var_list%no_atmo_vars
-      var_counts(2) = var_list%no_sfc_vars
-      CALL p_pack_int_1d(var_counts, 2, pack_buf%msg_varlist, var_count_pos)
-    END IF
+#ifndef NOMPI
+    ! collect variable info for pure I/O PEs
+    IF (pack_buf%l_is_varlist_sender) &
+      CALL pack_varlists(pack_buf, var_list, var_info, sfc_var_info)
+#endif
 
     ! several variable indices, stored for convenience (when computing
     ! additional diagnostics):
@@ -997,6 +882,40 @@ CONTAINS
       sfc_var_info(1:var_list%no_sfc_vars)%cf)
 
   END SUBROUTINE meteogram_setup_variables
+
+#ifndef NOMPI
+  SUBROUTINE pack_varlists(pack_buf, var_list, var_info, sfc_var_info)
+    TYPE(mtgrm_pack_buf), INTENT(inout) :: pack_buf
+    TYPE(t_var), INTENT(in) :: var_list
+    TYPE(t_var_info), INTENT(in) :: var_info(:)
+    TYPE(t_sfc_var_info), INTENT(in) :: sfc_var_info(:)
+
+    CHARACTER(len=*), PARAMETER :: routine = modname//":pack_varlists"
+    INTEGER :: var_counts(2), ivar
+    var_counts(1) = var_list%no_atmo_vars
+    var_counts(2) = var_list%no_sfc_vars
+    CALL p_pack_int_1d(var_counts, 2, pack_buf%msg_varlist, pack_buf%pos)
+
+    IF (dbg_level > 0) &
+      CALL message(routine, "collect variable info for pure I/O PEs")
+    DO ivar = 1, var_list%no_atmo_vars
+
+      CALL p_pack_string(var_info(ivar)%cf%standard_name, pack_buf%msg_varlist, pack_buf%pos)
+      CALL p_pack_string(var_info(ivar)%cf%long_name,     pack_buf%msg_varlist, pack_buf%pos)
+      CALL p_pack_string(var_info(ivar)%cf%units,         pack_buf%msg_varlist, pack_buf%pos)
+      CALL p_pack_int   (var_info(ivar)%igroup_id,        pack_buf%msg_varlist, pack_buf%pos)
+      CALL p_pack_int   (var_info(ivar)%nlevs,            pack_buf%msg_varlist, pack_buf%pos)
+    END DO
+    IF (dbg_level > 0) &
+      CALL message(routine, "collect surface variable info for pure I/O PEs")
+    DO ivar = 1, var_list%no_sfc_vars
+      CALL p_pack_string(sfc_var_info(ivar)%cf%standard_name, pack_buf%msg_varlist, pack_buf%pos)
+      CALL p_pack_string(sfc_var_info(ivar)%cf%long_name,     pack_buf%msg_varlist, pack_buf%pos)
+      CALL p_pack_string(sfc_var_info(ivar)%cf%units,         pack_buf%msg_varlist, pack_buf%pos)
+      CALL p_pack_int   (sfc_var_info(ivar)%igroup_id,        pack_buf%msg_varlist, pack_buf%pos)
+    END DO
+  END SUBROUTINE pack_varlists
+#endif
 
   SUBROUTINE setup_diag_var_indices(diag_var_indices, cf_atmo, cf_lnd)
     !> indices at which to find variables for compute_diagnostics
@@ -1031,7 +950,7 @@ CONTAINS
     get_var = -1 ! invalid result
     nvar = SIZE(cf)
     VAR_LOOP : DO ivar=1,nvar
-      IF (TRIM(cf(ivar)%standard_name) == zname) THEN
+      IF (cf(ivar)%standard_name == zname) THEN
         get_var = ivar
         EXIT VAR_LOOP
       END IF
@@ -1172,7 +1091,7 @@ CONTAINS
 
     TYPE(t_var) :: var_list
     INTEGER      :: tri_idx(2,nproma,(meteogram_output_config%nstations+nproma-1)/nproma)
-    INTEGER      :: max_sfcvar_size, max_time_stamps
+    INTEGER      :: max_time_stamps
     INTEGER                            :: io_collector_rank, iowner, &
       io_invar_send_rank
     LOGICAL :: is_io, is_mpi_workroot, is_mpi_test, is_pure_io_pe
@@ -1442,15 +1361,9 @@ CONTAINS
 
     IF (.NOT. meteogram_output_config%ldistributed) THEN
       ! compute maximum buffer size for MPI messages:
-      max_sfcvar_size = max_time_stamps*p_real_dp_byte
-      mtgrm(jg)%max_buf_size                                   &
-        =   mtgrm_pack_header_ints*p_int_byte                  & ! header size
-        & + station_atmo_vars_max_pack_size(                   &
-        &        mtgrm(jg)%var_info,                           &
-        &        meteogram_output_config%max_time_stamps)      &
-        & + var_list%no_sfc_vars*max_sfcvar_size
-
-      ! allocate buffer:
+      mtgrm(jg)%max_buf_size                                                 &
+        = station_pack_size(max_time_stamps, mtgrm(jg)%var_info,             &
+        &                   mtgrm(jg)%sfc_var_info, mtgrm(jg)%io_collect_comm)
     END IF
 
     ! ------------------------------------------------------------
@@ -1729,7 +1642,7 @@ CONTAINS
     END IF
 
     ! increase time step counter
-    IF (mtgrm(jg)%icurrent > mtgrm(jg)%max_time_stamps) THEN
+    IF (mtgrm(jg)%icurrent >= mtgrm(jg)%max_time_stamps) THEN
       ! buffer full
       IF (.NOT. mtgrm(jg)%silent_flush) THEN
         CALL message(routine, 'WARNING: Intermediate meteogram flush. &
@@ -1748,11 +1661,14 @@ CONTAINS
     mtgrm(jg)%icurrent = i_tstep
 
     ithis_nlocal_pts = mtgrm(jg)%nstations_local
-    IF (ithis_nlocal_pts > 0 .OR. mtgrm(jg)%l_is_collecting_pe) THEN
-      mtgrm(jg)%istep(i_tstep) = cur_step
+    IF (mtgrm(jg)%l_is_writer &
+      .OR. (mtgrm(jg)%l_is_sender &
+      &     .AND. p_pe_work == mtgrm(jg)%io_invar_send_rank)) THEN
       CALL datetimeToPosixString(cur_datetime, zdate, "%Y%m%dT%H%M%SZ")
       mtgrm(jg)%zdate(i_tstep) = zdate
-
+      mtgrm(jg)%istep(i_tstep) = cur_step
+    END IF
+    IF (ithis_nlocal_pts > 0 .OR. mtgrm(jg)%l_is_collecting_pe) THEN
       IF (mtgrm(jg)%l_is_collecting_pe) THEN
         buf_idx = mtgrm(jg)%global_idx(1:ithis_nlocal_pts)
       ELSE
@@ -1879,7 +1795,7 @@ CONTAINS
     INTEGER :: ierror, req(2+max_num_stations), &
       stati(mpi_status_size, 2+max_num_stations)
     LOGICAL :: is_pure_io_pe
-    INTEGER :: max_sfc_var_pack_size, max_time_stamps
+    INTEGER :: max_time_stamps
 
     IF (dbg_level > 5)  WRITE (*,*) routine, " Enter (collecting PE=", mtgrm%l_is_collecting_pe, ")"
 
@@ -1890,20 +1806,17 @@ CONTAINS
         MERGE(max_num_stations, 1, mtgrm%l_is_collecting_pe)), &
         stat=ierror)
       IF (ierror /= SUCCESS) THEN
-        max_sfc_var_pack_size = max_time_stamps*p_real_dp_byte
-
         WRITE (0,'(a,i0)') "jg = ", jg, &
           " : message buffer: mtgrm%max_buf_size = ", &
           & mtgrm%max_buf_size, "; MAX_NUM_STATIONS = ", MAX_NUM_STATIONS, &
           "mtgrm_pack_header_ints  = ", mtgrm_pack_header_ints, &
           "p_real_dp_byte          = ", p_real_dp_byte, &
-          "p_int_byte              = ", p_real_dp_byte, &
+          "p_int_byte              = ", p_int_byte, &
           "max_time_stamps         = ", max_time_stamps, &
           "MAX_DATE_LEN            = ", MAX_DATE_LEN, &
-          "max_atm_var_pack_size   = ", &
-          station_atmo_vars_max_pack_size(mtgrm%var_info, &
-          &                               mtgrm%max_time_stamps), &
-          "max_sfc_var_pack_size   = ", max_sfc_var_pack_size
+          "max_station_pack_size   = ", &
+          station_pack_size(mtgrm%max_time_stamps, mtgrm%var_info, &
+          &                 mtgrm%sfc_var_info, mtgrm%io_collect_comm)
         WRITE (message_text, '(3a)') &
           'ALLOCATE of meteogram message buffer failed (', &
           MERGE('collector', 'sender   ', mtgrm%l_is_collecting_pe), ')'
@@ -1996,7 +1909,7 @@ CONTAINS
         CALL pack_station_sample(msg_buffer(:,1), position, &
           mtgrm%icurrent, &
           mtgrm%out_buf, istation, mtgrm%var_info, &
-          mtgrm%global_idx(istation))
+          mtgrm%global_idx(istation), mtgrm%io_collect_comm)
         ! (blocking) send of packed station data to IO PE:
         CALL p_send_packed(msg_buffer, mtgrm%io_collector_rank, &
           &    tag_mtgrm_msg+3*max_dom + (jg-1)*tag_domain_shift + station_idx,&
@@ -2056,19 +1969,12 @@ CONTAINS
     END DO
   END SUBROUTINE unpack_station_sample
 
-  FUNCTION station_atmo_vars_max_pack_size(var_info, max_time_stamps) &
-    RESULT(pack_size)
-    TYPE(t_var_info), INTENT(in) :: var_info(:)
-    INTEGER, INTENT(in) :: max_time_stamps
-    INTEGER :: pack_size
-    pack_size = SUM(var_info(:)%nlevs) * max_time_stamps * p_real_dp_byte
-  END FUNCTION station_atmo_vars_max_pack_size
 
   !> fills mpi packed buffer for sending to gathering rank
   SUBROUTINE pack_station_sample(sttn_buffer, pos, icurrent, out_buf, istation,&
-    var_info, global_idx)
+    var_info, global_idx, io_collect_comm)
     CHARACTER, INTENT(out) :: sttn_buffer(:)
-    INTEGER, INTENT(in) :: icurrent, global_idx, istation
+    INTEGER, INTENT(in) :: icurrent, global_idx, istation, io_collect_comm
     INTEGER, INTENT(out) :: pos
     TYPE(t_mtgrm_out_buffer), INTENT(inout) :: out_buf
     TYPE(t_var_info), INTENT(in) :: var_info(:)
@@ -2077,25 +1983,41 @@ CONTAINS
     pos = 0
 
     !-- pack global time stamp index
-    CALL p_pack_int(icurrent, sttn_buffer, pos)
+    CALL p_pack_int(icurrent, sttn_buffer, pos, io_collect_comm)
 
     !-- pack meteogram header (information on location, ...)
-    CALL p_pack_int(global_idx, sttn_buffer, pos)
+    CALL p_pack_int(global_idx, sttn_buffer, pos, io_collect_comm)
 
     !-- pack meteogram data:
     nvars = SIZE(out_buf%atmo_vars)
     DO ivar = 1, nvars
       nlevs = var_info(ivar)%nlevs
       CALL p_pack_real_2d(out_buf%atmo_vars(ivar)%a(istation,:,1:icurrent), &
-        &                 nlevs*icurrent, sttn_buffer, pos)
+        &                 nlevs*icurrent, sttn_buffer, pos, io_collect_comm)
     END DO
     nvars = SIZE(out_buf%sfc_vars)
     DO ivar = 1, nvars
       CALL p_pack_real_1d(out_buf%sfc_vars(ivar)%a(istation,1:icurrent), &
-        &                 icurrent, sttn_buffer, pos)
+        &                 icurrent, sttn_buffer, pos, io_collect_comm)
     END DO
 
   END SUBROUTINE pack_station_sample
+
+  FUNCTION station_pack_size(max_time_stamps, var_info, &
+    sfc_var_info, io_collect_comm) RESULT(pack_size)
+    INTEGER, INTENT(in) :: max_time_stamps, io_collect_comm
+    TYPE(t_var_info), INTENT(in) :: var_info(:)
+    TYPE(t_sfc_var_info), INTENT(in) :: sfc_var_info(:)
+    INTEGER :: pack_size, ivar
+    pack_size = p_pack_size_int(1, io_collect_comm) * mtgrm_pack_header_ints
+    DO ivar = 1, SIZE(var_info)
+      pack_size = pack_size &
+        + p_pack_size_real_dp(var_info(ivar)%nlevs * max_time_stamps, &
+        &                     io_collect_comm)
+    END DO
+    pack_size = pack_size + SIZE(sfc_var_info) &
+      * p_pack_size_real_dp(max_time_stamps, io_collect_comm)
+  END FUNCTION station_pack_size
 
   !>
   !! The IO PE creates and opens a disk file for output.
@@ -2828,13 +2750,12 @@ CONTAINS
   !!
   !!  Registers a new atmospheric (volume) variable.
   SUBROUTINE add_atmo_var_3d(meteogram_config, var_list, igroup_id, &
-       zname, zunit, zlong_name, var_info, pack_buf, source)
+       zname, zunit, zlong_name, var_info, source)
     TYPE(t_meteogram_output_config), INTENT(IN) :: meteogram_config
     TYPE(t_var), INTENT(inout) :: var_list
     CHARACTER(LEN=*),  INTENT(IN)    :: zname, zunit, zlong_name
     INTEGER,           INTENT(IN)    :: igroup_id
     TYPE(t_var_info), INTENT(inout) :: var_info(:)
-    TYPE(mtgrm_pack_buf), INTENT(inout) :: pack_buf
     REAL(wp), TARGET,  INTENT(IN)    :: source(:,:,:)   !< source array
     ! Local variables
     CHARACTER(*), PARAMETER :: routine = modname//":add_atmo_var_3d"
@@ -2868,19 +2789,6 @@ CONTAINS
       CALL finish(routine, message_text)
     END IF
 
-    ! collect variable info for pure I/O PEs
-#ifndef NOMPI
-    IF (pack_buf%l_is_varlist_sender) THEN
-      IF (dbg_level > 0) &
-        CALL message(routine, "collect variable info for pure I/O PEs")
-
-      CALL p_pack_string(var_info(ivar)%cf%standard_name, pack_buf%msg_varlist, pack_buf%pos)
-      CALL p_pack_string(var_info(ivar)%cf%long_name,     pack_buf%msg_varlist, pack_buf%pos)
-      CALL p_pack_string(var_info(ivar)%cf%units,         pack_buf%msg_varlist, pack_buf%pos)
-      CALL p_pack_int   (igroup_id,                       pack_buf%msg_varlist, pack_buf%pos)
-      CALL p_pack_int   (nlev,                            pack_buf%msg_varlist, pack_buf%pos)
-    END IF
-#endif
   END SUBROUTINE add_atmo_var_3d
 
 
@@ -2890,13 +2798,12 @@ CONTAINS
   !!
   !!  Registers a new atmospheric (volume) variable.
   SUBROUTINE add_atmo_var_4d(meteogram_config, var_list, igroup_id, &
-       zname, zunit, zlong_name, var_info, pack_buf, source, iidx)
+       zname, zunit, zlong_name, var_info, source, iidx)
     TYPE(t_meteogram_output_config), INTENT(IN) :: meteogram_config
     TYPE(t_var), INTENT(inout) :: var_list
     INTEGER,           INTENT(IN)    :: igroup_id
     CHARACTER(LEN=*),  INTENT(IN)    :: zname, zunit, zlong_name
     TYPE(t_var_info), INTENT(inout) :: var_info(:)
-    TYPE(mtgrm_pack_buf), INTENT(inout) :: pack_buf
     REAL(wp), TARGET,  INTENT(IN)    :: source(:,:,:,:)   !< source array
     INTEGER,           INTENT(IN), OPTIONAL :: iidx
     ! Local variables
@@ -2904,14 +2811,13 @@ CONTAINS
 
     IF (PRESENT(iidx)) THEN
       CALL add_atmo_var_3d(meteogram_config, var_list, igroup_id, zname, &
-        &                  zunit, zlong_name, var_info, pack_buf, &
-        &                  source(:,:,:,iidx))
+        &                  zunit, zlong_name, var_info, source(:,:,:,iidx))
     ELSE
       nidx = SIZE(source, 4) ! get number of 3d var indices (e.g. tile number)
       DO isource_idx=1,nidx
         CALL add_atmo_var_3d(meteogram_config, var_list, igroup_id, &
           &                  zname//"_"//int2string(isource_idx), &
-          &                  zunit, zlong_name, var_info, pack_buf, &
+          &                  zunit, zlong_name, var_info, &
           &                  source(:,:,:,isource_idx))
       END DO
     END IF
@@ -2923,13 +2829,12 @@ CONTAINS
   !!
   !!  Registers a new surface variable.
   SUBROUTINE add_sfc_var_2d(meteogram_config, var_list, igroup_id, &
-       zname, zunit, zlong_name, sfc_var_info, pack_buf, source)
+       zname, zunit, zlong_name, sfc_var_info, source)
     TYPE(t_meteogram_output_config), INTENT(IN) :: meteogram_config
     TYPE(t_var), INTENT(inout) :: var_list
     CHARACTER(LEN=*),  INTENT(IN)    :: zname, zunit, zlong_name
     INTEGER,           INTENT(IN)    :: igroup_id
     TYPE(t_sfc_var_info), INTENT(inout) :: sfc_var_info(:)
-    TYPE(mtgrm_pack_buf), INTENT(inout) :: pack_buf
     REAL(wp), TARGET,  INTENT(IN)    :: source(:,:)   !< source array
     ! Local variables
     CHARACTER(*), PARAMETER :: routine = modname//":add_sfc_var_2d"
@@ -2952,19 +2857,6 @@ CONTAINS
     CALL set_cf_info(sfc_var_info(ivar)%cf, zname, zlong_name, zunit)
     sfc_var_info(ivar)%igroup_id        = igroup_id
     sfc_var_info(ivar)%p_source  => source
-
-    ! collect variable info for pure I/O PEs
-#ifndef NOMPI
-    IF (pack_buf%l_is_varlist_sender) THEN
-      IF (dbg_level > 0) &
-        CALL message(routine, "collect surface variable info for pure I/O PEs")
-
-      CALL p_pack_string(sfc_var_info(ivar)%cf%standard_name, pack_buf%msg_varlist, pack_buf%pos)
-      CALL p_pack_string(sfc_var_info(ivar)%cf%long_name,     pack_buf%msg_varlist, pack_buf%pos)
-      CALL p_pack_string(sfc_var_info(ivar)%cf%units,         pack_buf%msg_varlist, pack_buf%pos)
-      CALL p_pack_int   (igroup_id,                           pack_buf%msg_varlist, pack_buf%pos)
-    END IF
-#endif
   END SUBROUTINE add_sfc_var_2d
 
 
@@ -2975,13 +2867,12 @@ CONTAINS
   !!  Registers a new surface variable.
   SUBROUTINE add_sfc_var_3d(meteogram_config, var_list, igroup_id, &
     &                       zname, zunit, zlong_name, &
-    &                       sfc_var_info, pack_buf, source)
+    &                       sfc_var_info, source)
     TYPE(t_meteogram_output_config), INTENT(IN) :: meteogram_config
     TYPE(t_var), INTENT(inout) :: var_list
     CHARACTER(LEN=*),  INTENT(IN)    :: zname, zunit, zlong_name
     INTEGER,           INTENT(IN)    :: igroup_id
     TYPE(t_sfc_var_info), INTENT(inout) :: sfc_var_info(:)
-    TYPE(mtgrm_pack_buf), INTENT(inout) :: pack_buf
     REAL(wp), TARGET,  INTENT(IN)    :: source(:,:,:)   !< source array
     ! Local variables
     INTEGER                 :: isource_idx, nidx
@@ -2997,7 +2888,7 @@ CONTAINS
     DO isource_idx=1,nidx
       CALL add_sfc_var_2d(meteogram_config, var_list, igroup_id, &
         &                 zname//"_"//int2string(isource_idx), &
-        &                 zunit, zlong_name, sfc_var_info, pack_buf, &
+        &                 zunit, zlong_name, sfc_var_info, &
         &                 source(:,:,isource_idx))
     END DO
   END SUBROUTINE add_sfc_var_3d
