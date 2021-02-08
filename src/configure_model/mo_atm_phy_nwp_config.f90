@@ -87,6 +87,7 @@ MODULE mo_atm_phy_nwp_config
     INTEGER ::  inwp_satad       !! saturation adjustment
     INTEGER ::  inwp_convection  !! convection
     LOGICAL ::  lshallowconv_only !! use shallow convection only
+    LOGICAL ::  lgrayzone_deepconv !! use grayzone tuning for deep convection
     LOGICAL ::  ldetrain_conv_prec !! detrain convective rain and snow
     INTEGER ::  inwp_radiation   !! radiation
     INTEGER ::  inwp_sso         !! sso
@@ -118,6 +119,7 @@ MODULE mo_atm_phy_nwp_config
     LOGICAL  :: latm_above_top     !! use extra layer above model top for radiation 
                                    !! (reduced grid only)
     INTEGER  :: icalc_reff         !! type of effective radius calculation
+    INTEGER  :: icpl_rad_reff      !! couplig of radiation and effective radius
 
     ! upper atmosphere
     LOGICAL ::  lupatmo_phy        !! use upper atmosphere physics
@@ -330,6 +332,11 @@ CONTAINS
       atm_phy_nwp_config(jg)%lhydrom_read_from_fg(:) = .FALSE.
       atm_phy_nwp_config(jg)%lhydrom_read_from_ana(:) = .FALSE.
 
+      ! check for contradicting convection settings
+      IF (atm_phy_nwp_config(jg)%lshallowconv_only .AND. atm_phy_nwp_config(jg)%lgrayzone_deepconv) THEN
+        CALL finish('configure_atm_phy_nwp', "lshallowconv_only and lgrayzone_deepconv are mutually exclusive")
+      ENDIF
+
       ! Configure LES physics (if activated)
       !
       atm_phy_nwp_config(jg)%is_les_phy = .FALSE. 
@@ -531,8 +538,8 @@ CONTAINS
         tune_ozone_ztop   = 29000.0_wp
         tune_ozone_zmid2  = 26000.0_wp
       ENDIF
-      tune_ozone_zmid   = 18000.0_wp
-      tune_ozone_zbot   = 15000.0_wp
+      tune_ozone_zmid   = 19000.0_wp
+      tune_ozone_zbot   = 16000.0_wp
       tune_ozone_fac    = 0.25_wp
       ozone_shapemode   = 2
       tune_ozone_lat    = 30._wp

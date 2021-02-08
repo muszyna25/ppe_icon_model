@@ -416,7 +416,7 @@ CONTAINS
 
         ! This is a pure radar IO PE, so the below "detach_emvorado_io" will never return.
         ! So we STOP the already started timer "timer_model_init", because it is useless on this PE:
-        IF (timers_level > 3) CALL timer_stop(timer_model_init)
+        IF (timers_level > 1) CALL timer_stop(timer_model_init)
         
         CALL detach_emvorado_io (n_dom, luse_radarfwo(1:n_dom))
         

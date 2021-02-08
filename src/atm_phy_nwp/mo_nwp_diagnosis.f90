@@ -117,11 +117,13 @@ CONTAINS
                             & pt_patch, p_metrics,        & !in
                             & pt_prog, pt_prog_rcf,       & !in
                             & pt_diag,                    & !inout
-                            & prm_diag, lnd_diag )          !inout   
+                            & prm_diag, lnd_diag,         & !inout 
+                            & linit                       ) !in  
                             
 
     LOGICAL,            INTENT(IN)   :: lcall_phy_jg(:) !< physics package time control (switches)
                                                         !< for domain jg
+    LOGICAL, OPTIONAL,  INTENT(IN)   :: linit           !< initialization flag
     REAL(wp),           INTENT(IN)   :: dt_phy_jg(:)    !< time interval for all physics
                                                         !< packages on domain jg
     REAL(wp),           INTENT(IN)   :: p_sim_time
@@ -150,11 +152,18 @@ CONTAINS
 
     INTEGER :: jc,jk,jb,jg      ! block index
     INTEGER :: jt               ! tracer loop index
+    LOGICAL :: lacc             ! OpenACC flag
 
 
   !-----------------------------------------------------------------
 
     IF (ltimer) CALL timer_start(timer_nh_diagnostics)
+
+    IF(PRESENT(linit)) THEN
+      lacc = .NOT. linit
+    ELSE
+      lacc = .FALSE.
+    ENDIF
 
     jg        = pt_patch%id
 
@@ -180,7 +189,8 @@ CONTAINS
                               & pt_prog, pt_prog_rcf,       & !in
                               & ext_data, kstart_moist,     & !in
                               & ih_clch, ih_clcm,           & !in
-                              & pt_diag, prm_diag           ) !inout
+                              & pt_diag, prm_diag,          & !inout
+                              & lacc                        ) !in
     ENDIF
 
     ! Calculation of average/accumulated values since model start
@@ -240,6 +250,8 @@ CONTAINS
           & i_startidx, i_endidx, rl_start, rl_end)
 
 !DIR$ IVDEP
+        !$acc parallel default(present) if(lacc)
+        !$acc loop gang vector
         DO jc = i_startidx, i_endidx
 
           ! set to instantaneous values
@@ -247,6 +259,7 @@ CONTAINS
           prm_diag%tmax_2m(jc,jb) = prm_diag%t_2m(jc,jb)
           prm_diag%tmin_2m(jc,jb) = prm_diag%t_2m(jc,jb)
         ENDDO
+        !$acc end parallel
 
       ENDDO  ! jb
 !$OMP END DO
@@ -260,6 +273,8 @@ CONTAINS
           & i_startidx, i_endidx, rl_start, rl_end)
 
 !DIR$ IVDEP
+        !$acc parallel default(present) if(lacc)
+        !$acc loop gang vector
         DO jc = i_startidx, i_endidx
 
           ! maximum 10m gust, including convective contribution
@@ -283,18 +298,24 @@ CONTAINS
             &                               * r_sim_time
 
         ENDDO  ! jc
+        !$acc end parallel
         
 
         IF (atm_phy_nwp_config(jg)%lcalc_moist_integral_avg) THEN
 !DIR$ IVDEP
+          !$acc parallel default(present) if(lacc)
+          !$acc loop gang vector
           DO jc = i_startidx, i_endidx
             ! time averaged total cloud cover
             prm_diag%clct_avg(jc,jb) = time_avg(prm_diag%clct_avg(jc,jb), &
               &                                 prm_diag%clct    (jc,jb), &
               &                                 t_wgt)
           ENDDO  ! jc
+          !$acc end parallel
 
           ! time averaged tracer vertical integrals (mass concentrations only)  
+          !$acc parallel default(present) if(lacc)
+          !$acc loop gang vector collapse(2)
           DO jt = 1, iqm_max
 !DIR$ IVDEP
             DO jc = i_startidx, i_endidx
@@ -302,18 +323,24 @@ CONTAINS
                 &                              + t_wgt * pt_diag%tracer_vi(jc,jb,jt)
             ENDDO  ! jc
           ENDDO  ! jt
+          !$acc end parallel
 
          ! time averaged TQV_DIA, TQC_DIA, TQI_DIA
-         DO jt = 1, 3
+          !$acc parallel default(present) if(lacc)
+          !$acc loop gang vector collapse(2)
+          DO jt = 1, 3
 !DIR$ IVDEP
            DO jc = i_startidx, i_endidx
              prm_diag%tot_cld_vi_avg(jc,jb,jt) = (1._wp - t_wgt)*prm_diag%tot_cld_vi_avg(jc,jb,jt) &
                &                                + t_wgt * prm_diag%tot_cld_vi(jc,jb,jt)
             ENDDO
           ENDDO  ! jt
+          !$acc end parallel
         ENDIF
 
         IF (lcall_phy_jg(itsfc)) THEN
+          !$acc parallel default(present) if(lacc)
+          !$acc loop gang vector collapse(2)
           DO jt=1,ntiles_total
 !DIR$ IVDEP
             DO jc = i_startidx, i_endidx
@@ -321,6 +348,7 @@ CONTAINS
               lnd_diag%runoff_g_t(jc,jb,jt) = lnd_diag%runoff_g_t(jc,jb,jt) + lnd_diag%runoff_g_inst_t(jc,jb,jt)
             END DO
           END DO
+          !$acc end parallel
         END IF
 
 
@@ -330,10 +358,13 @@ CONTAINS
         ! but the instantaneous max/min over all tiles. In case of no tiles both are equivalent.
         IF (lcall_phy_jg(itturb)) THEN
 !DIR$ IVDEP
+          !$acc parallel default(present) if(lacc)
+          !$acc loop gang vector
           DO jc = i_startidx, i_endidx
             prm_diag%tmax_2m(jc,jb) = MAX(prm_diag%t_tilemax_inst_2m(jc,jb), prm_diag%tmax_2m(jc,jb) )
             prm_diag%tmin_2m(jc,jb) = MIN(prm_diag%t_tilemin_inst_2m(jc,jb), prm_diag%tmin_2m(jc,jb) )
           END DO
+          !$acc end parallel
         ENDIF
 
 
@@ -341,6 +372,8 @@ CONTAINS
 
           IF (lcall_phy_jg(itturb)) THEN
 !DIR$ IVDEP
+            !$acc parallel default(present) if(lacc)
+            !$acc loop gang vector
             DO jc = i_startidx, i_endidx
               ! ATTENTION:
               ! the sign, in the output all fluxes must be positive downwards
@@ -376,7 +409,10 @@ CONTAINS
                 &                                t_wgt )
 
             ENDDO  ! jc
+            !$acc end parallel
 
+            !$acc parallel default(present) if(lacc)
+            !$acc loop gang vector collapse(2)
             DO jk = 1, nlev_soil
 !DIR$ IVDEP
               DO jc = i_startidx, i_endidx
@@ -385,9 +421,12 @@ CONTAINS
                 &                                    t_wgt)
               ENDDO  ! jc
             ENDDO  ! jk
+            !$acc end parallel
 
             IF (atm_phy_nwp_config(jg)%lcalc_extra_avg) THEN
 !DIR$ IVDEP
+              !$acc parallel default(present) if(lacc)
+              !$acc loop gang vector
               DO jc = i_startidx, i_endidx
                 ! time averaged surface u-momentum flux SSO
                 prm_diag%astr_u_sso(jc,jb) = time_avg(prm_diag%astr_u_sso(jc,jb), &
@@ -409,6 +448,7 @@ CONTAINS
                   &                                prm_diag%drag_v_grid (jc,jb), &
                   &                                t_wgt )
               ENDDO  ! jc
+              !$acc end parallel
 
             ENDIF  ! lcalc_extra_avg
 
@@ -421,6 +461,8 @@ CONTAINS
             !e.g. dt_phy_jg(itradheat) may then be greater than p_sim_time
             !leading to wrong averaging.
 !DIR$ IVDEP
+            !$acc parallel default(present) if(lacc)
+            !$acc loop gang vector
             DO jc = i_startidx, i_endidx
 
               ! time averaged shortwave net flux at surface
@@ -492,11 +534,15 @@ CONTAINS
                 &                                       prm_diag%swflx_par_sfc(jc,jb),  &
                 &                                       t_wgt)
             ENDDO
-
+            !$acc end parallel
 
           ENDIF  ! lcall_phy_jg(itradheat)
 
         ELSEIF (.NOT. lflux_avg) THEN
+
+#ifdef _OPENACC
+          CALL finish('mo_nwp_diagnosis:','accumulating surface not available on GPU. ')
+#endif
 
           IF (lcall_phy_jg(itturb)) THEN
 
@@ -535,7 +581,6 @@ CONTAINS
                                 &   + prm_diag%vmfl_s(jc,jb)           &
                                 &   * dt_phy_jg(itfastphy)
             ENDDO
-
 
             DO jk = 1, nlev_soil
 !DIR$ IVDEP
@@ -681,7 +726,8 @@ CONTAINS
                                 & pt_prog, pt_prog_rcf,       & !in
                                 & ext_data, kstart_moist,     & !in
                                 & ih_clch, ih_clcm,           & !in
-                                & pt_diag, prm_diag           ) !inout
+                                & pt_diag, prm_diag,          & !inout
+                                & lacc                        ) !in
 
 
     TYPE(t_patch),      INTENT(IN)   :: pt_patch    !<grid/patch info.
@@ -694,6 +740,7 @@ CONTAINS
 
     INTEGER,           INTENT(IN)  :: kstart_moist
     INTEGER,           INTENT(IN)  :: ih_clch, ih_clcm
+    LOGICAL, OPTIONAL, INTENT(IN)  :: lacc
 
     ! Local
     INTEGER :: nlev                    !< number of full levels
@@ -710,6 +757,7 @@ CONTAINS
     REAL(wp):: clearsky(nproma)
     REAL(wp):: ccmax, ccran, alpha(nproma,pt_patch%nlev), clcl_mod, clcm_mod, clct_fac
     LOGICAL :: lland
+    LOGICAL :: lzacc
 
     REAL(wp), PARAMETER :: eps_clc = 1.e-7_wp
 
@@ -718,6 +766,12 @@ CONTAINS
     REAL(wp) :: zdecorr(pt_patch%nlev)         ! decorrelation length scale del(z0) 
 
   !-----------------------------------------------------------------
+
+    IF(PRESENT(lacc)) THEN
+      lzacc = lacc
+    ELSE
+      lzacc = .FALSE.
+    ENDIF
 
     jg        = pt_patch%id
 
@@ -732,7 +786,12 @@ CONTAINS
     i_endblk   = pt_patch%cells%end_block(rl_end)
 
     ! set height-dependent decorrelation length scale
+    !$acc data create (zdecorr, rhodz) if(lzacc)
+    !$acc kernels if(lzacc)
     zdecorr(:) = 2000._wp
+    !$acc end kernels
+    !$acc parallel copyin (vct_a) default(present) if(lzacc)
+    !$acc loop private(jk1,z_help)
     DO jk = nlev, 1, -1
       jk1 = jk + pt_patch%nshift_total
       z_help = 0.5_wp*(vct_a(jk1)+vct_a(jk1+1))
@@ -742,6 +801,7 @@ CONTAINS
         EXIT
       ENDIF
     ENDDO
+    !$acc end parallel
 
 !$OMP PARALLEL
     IF ( atm_phy_nwp_config(jg)%lenabled(itccov) ) THEN
@@ -756,10 +816,15 @@ CONTAINS
         ! if cloud cover is called, vertical integration of cloud content
         ! (for iqv, iqc, iqi)
 
+        !$acc kernels if(lzacc)
         prm_diag%tot_cld_vi(i_startidx:i_endidx,jb,1:3) = 0.0_wp
+        !$acc end kernels
 
+        !$acc parallel default(present) if(lzacc)
+        !$acc loop seq
         DO jk = kstart_moist, nlev
 !DIR$ IVDEP
+          !$acc loop gang vector private(z_help)
           DO jc = i_startidx, i_endidx
 
            ! (deep-atmosphere modification applied: height-dependence of grid cell volume)
@@ -775,6 +840,7 @@ CONTAINS
                                              z_help * prm_diag%tot_cld(jc,jk,jb,iqi)
           ENDDO
         ENDDO
+        !$acc end parallel
 
 
         ! cloud cover calculation
@@ -784,72 +850,108 @@ CONTAINS
  
         CASE ( 1 )      ! maximum-random overlap
 
+          !$acc data create(clearsky)
+          !$acc parallel default(present) if(lzacc)
+          !$acc loop gang vector
           DO jc = i_startidx, i_endidx
             clearsky(jc) = 1._wp - prm_diag%clc(jc,kstart_moist,jb)
           ENDDO
+          !$acc end parallel
           
+          !$acc parallel default(present) if(lzacc)
+          !$acc loop seq
           DO jk = kstart_moist+1, ih_clch
+            !$acc loop gang vector
             DO jc = i_startidx, i_endidx
               clearsky(jc) = clearsky(jc)*    &
               &  ( 1._wp - MAX( prm_diag%clc(jc,jk  ,jb), prm_diag%clc(jc,jk-1,jb))) &
               & /( 1._wp - MIN( prm_diag%clc(jc,jk-1,jb), 1._wp - eps_clc) )
             ENDDO
           ENDDO
+          !$acc end parallel
           
           ! store high-level clouds
+          !$acc parallel default(present) if(lzacc)
+          !$acc loop gang vector
           DO jc = i_startidx, i_endidx
             prm_diag%clch(jc,jb) = MAX( 0._wp, 1._wp - clearsky(jc) - eps_clc)
           ENDDO
+          !$acc end parallel
           
           ! continue downward for total cloud cover
+          !$acc parallel default(present) if(lzacc)
+          !$acc loop seq
           DO jk = ih_clch+1, nlev
+            !$acc loop gang vector
             DO jc = i_startidx, i_endidx
               clearsky(jc) = clearsky(jc)*    &
               &  ( 1._wp - MAX( prm_diag%clc(jc,jk,jb), prm_diag%clc(jc,jk-1,jb))) &
               & /( 1._wp - MIN( prm_diag%clc(jc,jk-1,jb), 1._wp - eps_clc) )
             ENDDO
           ENDDO
+          !$acc end parallel
           
           ! store total cloud cover, start for mid-level clouds
 !DIR$ IVDEP
+          !$acc parallel default(present) if(lzacc)
+          !$acc loop gang vector
           DO jc = i_startidx, i_endidx
             prm_diag%clct(jc,jb) = MAX( 0._wp, 1._wp - clearsky(jc) - eps_clc)
             clearsky(jc) = 1._wp - prm_diag%clc(jc,ih_clch+1,jb)
           ENDDO
+          !$acc end parallel
           
           ! mid-level clouds
+          !$acc parallel default(present) if(lzacc)
+          !$acc loop seq
           DO jk = ih_clch+2, ih_clcm
+            !$acc loop gang vector
             DO jc = i_startidx, i_endidx
               clearsky(jc) = clearsky(jc)*    &
               &  ( 1._wp - MAX( prm_diag%clc(jc,jk,jb), prm_diag%clc(jc,jk-1,jb))) &
               & /( 1._wp - MIN( prm_diag%clc(jc,jk-1,jb), 1._wp - eps_clc) )
             ENDDO
           ENDDO
+          !$acc end parallel
           
           ! store mid-level cloud cover, start for low-level clouds
 !DIR$ IVDEP
+          !$acc parallel default(present) if(lzacc)
+          !$acc loop gang vector
           DO jc = i_startidx, i_endidx
             prm_diag%clcm(jc,jb) = MAX( 0._wp, 1._wp - clearsky(jc) - eps_clc)
           
             clearsky(jc) = 1._wp - prm_diag%clc(jc,ih_clcm+1,jb)
           ENDDO
+          !$acc end parallel
           
           ! continue downward for mid-level clouds
+          !$acc parallel default(present) if(lzacc)
+          !$acc loop seq
           DO jk = ih_clcm+2, nlev
+            !$acc loop gang vector
             DO jc = i_startidx, i_endidx
               clearsky(jc) = clearsky(jc)*    &
               &  ( 1._wp - MAX( prm_diag%clc(jc,jk,jb), prm_diag%clc(jc,jk-1,jb))) &
               & /( 1._wp - MIN( prm_diag%clc(jc,jk-1,jb), 1._wp - eps_clc) )
             ENDDO
           ENDDO
+          !$acc end parallel
           
           ! store low-level clouds
+          !$acc parallel default(present) if(lzacc)
+          !$acc loop gang vector
           DO jc = i_startidx, i_endidx
             prm_diag%clcl(jc,jb) = MAX( 0._wp, 1._wp - clearsky(jc) - eps_clc)
           ENDDO
+          !$acc end parallel
+          !$acc end data
 
         CASE ( 2 )      ! generalized overlap (Hogan, Illingworth, 2000)
 
+          !$acc data create(alpha)
+          !$acc parallel default(present) if(lzacc)
+          !$acc loop gang vector
           DO jc = i_startidx, i_endidx
             prm_diag%clct(jc,jb) = prm_diag%clc(jc,kstart_moist,jb)
             prm_diag%clch(jc,jb) = prm_diag%clc(jc,kstart_moist,jb)
@@ -858,8 +960,10 @@ CONTAINS
           ENDDO
 
 !PREVENT_INCONSISTENT_IFORT_FMA
+          !$acc loop seq
           DO jk = kstart_moist+1, nlev
 !DIR$ IVDEP
+            !$acc loop gang vector private(ccmax,ccran)
             DO jc = i_startidx, i_endidx   ! total cloud cover
               ccmax = MAX( prm_diag%clc(jc,jk,jb),  prm_diag%clct(jc,jb) )
               ccran =      prm_diag%clc(jc,jk,jb) + prm_diag%clct(jc,jb) - &
@@ -869,6 +973,7 @@ CONTAINS
               prm_diag%clct(jc,jb) = alpha(jc,jk) * ccmax + (1._wp-alpha(jc,jk)) * ccran
             ENDDO
 
+            !$acc loop gang vector private(ccmax,ccran)
             DO jc = i_startidx, i_endidx
               IF (jk <= prm_diag%k400(jc,jb)-1) THEN    ! high cloud cover
                 ccmax = MAX( prm_diag%clc(jc,jk,jb),  prm_diag%clch(jc,jb) )
@@ -891,9 +996,12 @@ CONTAINS
             ENDDO
 
           ENDDO
+          !$acc end parallel
 
           ! calibration of layer-wise cloud cover fields
           IF (lcalib_clcov) THEN
+            !$acc parallel default(present) if(lzacc)
+            !$acc loop gang vector private(lland,clcl_mod,clcm_mod,clct_fac)
             DO jc = i_startidx, i_endidx
               lland = ext_data%atm%fr_land(jc,jb)+ext_data%atm%fr_lake(jc,jb) > 0._wp
               clcl_mod = MIN(MERGE(max_calibfac_clcl,1.5_wp,lland)*prm_diag%clcl(jc,jb), &
@@ -907,7 +1015,9 @@ CONTAINS
               prm_diag%clcm(jc,jb) = clcm_mod
               prm_diag%clcl(jc,jb) = clcl_mod
             ENDDO
+            !$acc end parallel
           ENDIF
+          !$acc end data
 
         END SELECT
 
@@ -930,19 +1040,27 @@ CONTAINS
 
       ! pre-computation of rho * \Delta z
       ! (deep-atmosphere modification applied: height-dependence of grid cell volume)
+      !$acc parallel default(present) if(lzacc)
+      !$acc loop collapse(2)
       DO jk = 1, nlev
         DO jc = i_startidx, i_endidx 
           rhodz(jc,jk) = p_metrics%ddqz_z_full(jc,jk,jb) * pt_prog%rho(jc,jk,jb) & 
             &          * p_metrics%deepatmo_t1mc(jk,idamtr%t1mc%vol)  
         ENDDO
       ENDDO
+      !$acc end parallel
 
       DO jt = 1, iqm_max
+        !$acc kernels default(present) if(lzacc)
         pt_diag%tracer_vi(i_startidx:i_endidx,jb,jt) = 0.0_wp
+        !$acc end kernels
 
+        !$acc parallel default(present) if(lzacc)
+        !$acc loop seq
         DO jk = advection_config(jg)%iadv_slev(jt), nlev
 
 !DIR$ IVDEP
+          !$acc loop gang vector
           DO jc = i_startidx, i_endidx 
 
             pt_diag%tracer_vi(jc,jb,jt) = pt_diag%tracer_vi(jc,jb,jt)   &
@@ -950,11 +1068,14 @@ CONTAINS
 
           ENDDO  ! jc
         ENDDO  ! jk
+        !$acc end parallel
       ENDDO  ! jt
 
     ENDDO ! nblks   
 !$OMP END DO
 !$OMP END PARALLEL  
+    
+    !$acc end data
 
   END SUBROUTINE calc_moist_integrals
 
@@ -997,8 +1118,8 @@ CONTAINS
                             & lnd_diag,                   & !in
                             & p_prog_lnd_now,             & !in
                             & p_prog_wtr_now,             & !in
-                            & ext_data,                   & !in
-                            & prm_diag                    ) !inout    
+                            & ext_data,                   & !in 
+                            & prm_diag                    ) !inout
               
     TYPE(datetime),   POINTER     :: mtime_current     ! current datetime (mtime)
     INTEGER,         INTENT(IN)   :: kstart_moist

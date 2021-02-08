@@ -29,8 +29,6 @@ MODULE mo_interface_echam_cov
 
   USE mo_run_config          ,ONLY: iqv, iqc, iqi
   USE mo_cover               ,ONLY: cover
-  !$ser verbatim USE mo_ser_echam_cov, ONLY: serialize_cov_input,&
-  !$ser verbatim                             serialize_cov_output
   
   IMPLICIT NONE
   PRIVATE
@@ -60,9 +58,6 @@ CONTAINS
     IF (ltimer) call timer_start(timer_cov)
 
     field => prm_field(jg)
-
-    ! Serialbox2 input fields serialization
-    !$ser verbatim call serialize_cov_input(jg, jb, jcs, jce, nproma, nlev, field)
 
     nlevp1 = nlev+1
 
@@ -111,9 +106,6 @@ CONTAINS
          &         field% rintop(:,  jb)     ) ! out   (for output)
 
     !$ACC END DATA
-
-    ! Serialbox2 output fields serialization
-    !$ser verbatim call serialize_cov_output(jg, jb, jcs, jce, nproma, nlev, field)
 
     NULLIFY(field)
 

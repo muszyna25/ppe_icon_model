@@ -19,7 +19,7 @@ USE mtime,                   ONLY: OPERATOR(>)
 USE mo_fortran_tools,        ONLY: copy, init
 USE mo_impl_constants,       ONLY: SUCCESS, max_dom, inwp, iecham
 USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, timer_init_latbc, &
-  &                                timer_model_init, timer_init_icon, timer_read_restart
+  &                                timer_model_init, timer_init_icon, timer_read_restart, timer_init_dace
 USE mo_master_config,        ONLY: isRestart
 USE mo_time_config,          ONLY: time_config
 USE mo_load_restart,         ONLY: read_restart_files
@@ -64,7 +64,7 @@ USE mo_nonhydrostatic_config,ONLY: kstart_moist, kend_qvsubstep, l_open_ubc,   &
   &                                itime_scheme, kstart_tracer
 
 USE mo_atm_phy_nwp_config,   ONLY: configure_atm_phy_nwp, atm_phy_nwp_config
-USE mo_ensemble_pert_config, ONLY: configure_ensemble_pert, compute_ensemble_pert
+USE mo_ensemble_pert_config, ONLY: configure_ensemble_pert
 USE mo_synsat_config,        ONLY: configure_synsat
 ! NH-Model states
 USE mo_nonhydro_state,       ONLY: p_nh_state, p_nh_state_lists,               &
@@ -250,13 +250,14 @@ CONTAINS
 
     ! Initialize DACE routines
     IF (assimilation_config(1)% dace_coupling) then
+      IF (timers_level > 4) CALL timer_start(timer_init_dace)
       CALL init_dace (comm=p_comm_work_only, p_io=0, ldetached=.NOT.my_process_is_work_only())
+      IF (timers_level > 4) CALL timer_stop(timer_init_dace)
     END IF
 
     IF (iforcing == inwp) THEN
       CALL construct_nwp_phy_state( p_patch(1:), var_in_output)
       CALL construct_nwp_lnd_state( p_patch(1:), p_lnd_state, var_in_output(:)%smi, n_timelevels=2 )
-      CALL compute_ensemble_pert  ( p_patch(1:), ext_data, prm_diag, time_config%tc_current_date)
     END IF
 
     CALL upatmo_initialize(p_patch)

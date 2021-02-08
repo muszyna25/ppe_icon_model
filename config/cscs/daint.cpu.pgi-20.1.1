@@ -46,7 +46,7 @@ CLAW='/project/d56/install/daint/claw/v2.0.1/pgi/bin/clawfc'
 # We have to tell CLAW where to look for netcdf.inc:
 CLAWFLAGS="-I${NETCDF_DIR}/include"
 
-SB2PP="${SERIALBOX2_ROOT}/python/pp_ser/pp_ser.py"
+SB2PP="python2 ${SERIALBOX2_ROOT}/python/pp_ser/pp_ser.py"
 
 #MPI_LAUNCH='/apps/daint/UES/xalt/production/bin/srun -p debug -C gpu'
 MPI_LAUNCH=false

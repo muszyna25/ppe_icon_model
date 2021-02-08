@@ -205,7 +205,7 @@ MODULE mo_nh_init_nest_utils
                   5+9+1                ! single-layer prognostic variables + t_g, t_sk, freshsnow, t_seasfc, qv_s, plantevap, hsnow_max, 
                                        ! snow_age, t2m_bias + aux variable for lake temp
     num_wtrvars  = 6                   ! water state fields + fr_seaice + alb_si
-    num_phdiagvars = 25                ! number of physics diagnostic variables (copied from interpol_phys_grf)
+    num_phdiagvars = 27                ! number of physics diagnostic variables (copied from interpol_phys_grf)
 
     ALLOCATE(thv_pr_par  (nproma, nlev_p,      p_patch(jg)%nblks_c), &
              rho_pr_par  (nproma, nlev_p,      p_patch(jg)%nblks_c), &
@@ -353,6 +353,8 @@ MODULE mo_nh_init_nest_utils
             phdiag_par(jc,24,jb) = 0._wp
             phdiag_par(jc,25,jb) = 0._wp
           ENDIF
+          phdiag_par(jc,26,jb) = prm_diag(jg)%ice_gsp(jc,jb)
+          phdiag_par(jc,27,jb) = prm_diag(jg)%ice_gsp_rate(jc,jb)
         ENDDO
       ENDIF
 
@@ -637,6 +639,8 @@ MODULE mo_nh_init_nest_utils
             prm_diag(jgc)%graupel_gsp(jc,jb)      = MAX(0._wp,phdiag_chi(jc,24,jb))
             prm_diag(jgc)%graupel_gsp_rate(jc,jb) = phdiag_chi(jc,25,jb) 
           ENDIF
+          prm_diag(jgc)%ice_gsp(jc,jb)        = MAX(0._wp,phdiag_chi(jc,26,jb))
+          prm_diag(jgc)%ice_gsp_rate(jc,jb)   = phdiag_chi(jc,27,jb)
         ENDDO
       ENDIF
 

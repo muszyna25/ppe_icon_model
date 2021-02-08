@@ -80,9 +80,6 @@ MODULE mo_nwp_gscp_interface
       &                              timer_phys_micro_specific,                &
       &                              timer_phys_micro_satad                               
 
-  !$ser verbatim USE mo_ser_nwp_graupel, ONLY: serialize_graupel_input,&
-  !$ser verbatim                               serialize_graupel_output
-
   IMPLICIT NONE
 
   PRIVATE
@@ -176,9 +173,6 @@ CONTAINS
 
     !$acc data create(ddt_tend_t, ddt_tend_qv, ddt_tend_qc, ddt_tend_qi, ddt_tend_qr, ddt_tend_qs, &
     !$acc             zncn, qnc, qnc_s)
-
-    !$ser verbatim call serialize_graupel_input(jg, nproma, nlev, p_metrics, p_prog,&
-    !$ser verbatim                              ptr_tracer, ptr_tke, p_diag, prm_diag, prm_nwp_tend)
 
     SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
     CASE(4,5,6,7)
@@ -340,6 +334,7 @@ CONTAINS
             & qnc    = qnc_s                           ,    & !< cloud number concentration
             & prr_gsp=prm_diag%rain_gsp_rate (:,jb)    ,    & !< out: precipitation rate of rain
             & prs_gsp=prm_diag%snow_gsp_rate (:,jb)    ,    & !< out: precipitation rate of snow
+            & pri_gsp=prm_diag%ice_gsp_rate (:,jb)     ,    & !< out: precipitation rate of cloud ice
             & qrsflux= prm_diag%qrs_flux (:,:,jb)      ,    & !< out: precipitation flux
             & ldiag_ttend = ldiag_ttend                ,    & !< in:  if temp. tendency shall be diagnosed
             & ldiag_qtend = ldiag_qtend                ,    & !< in:  if moisture tendencies shall be diagnosed
@@ -377,7 +372,8 @@ CONTAINS
             & qnc    = qnc_s                            ,    & !< cloud number concentration
             & prr_gsp=prm_diag%rain_gsp_rate (:,jb)     ,    & !< out: precipitation rate of rain
             & prs_gsp=prm_diag%snow_gsp_rate (:,jb)     ,    & !< out: precipitation rate of snow
-            & prg_gsp=prm_diag%graupel_gsp_rate (:,jb)  ,    & !< out: precipitation rate of snow
+            & pri_gsp=prm_diag%ice_gsp_rate (:,jb)      ,    & !< out: precipitation rate of cloud ice
+            & prg_gsp=prm_diag%graupel_gsp_rate (:,jb)  ,    & !< out: precipitation rate of graupel
             & qrsflux= prm_diag%qrs_flux (:,:,jb)       ,    & !< out: precipitation flux
             & ldiag_ttend = ldiag_ttend                 ,    & !< in:  if temp. tendency shall be diagnosed
             & ldiag_qtend = ldiag_qtend                 ,    & !< in:  if moisture tendencies shall be diagnosed
@@ -691,10 +687,14 @@ CONTAINS
              prm_diag%snow_gsp(jc,jb) = prm_diag%snow_gsp(jc,jb)           &
                &                      + tcall_gscp_jg                      &
                &                      * prm_diag%snow_gsp_rate (jc,jb)
+             prm_diag%ice_gsp(jc,jb) = prm_diag%ice_gsp(jc,jb)             &
+               &                      + tcall_gscp_jg                      &
+               &                      * prm_diag%ice_gsp_rate (jc,jb)
              prm_diag%graupel_gsp(jc,jb) = prm_diag%graupel_gsp(jc,jb)     &
                &                      + tcall_gscp_jg                      &
                &                      * prm_diag%graupel_gsp_rate (jc,jb)
-             !
+
+             ! note: ice is deliberately excluded here because it predominantly contains blowing snow
              prm_diag%prec_gsp(jc,jb) = prm_diag%rain_gsp(jc,jb)  &
                &                      + prm_diag%snow_gsp(jc,jb)  &
                &                      + prm_diag%graupel_gsp(jc,jb)
@@ -712,10 +712,14 @@ CONTAINS
              prm_diag%rain_gsp(jc,jb) = prm_diag%rain_gsp(jc,jb)         & 
                &                      + tcall_gscp_jg                    &
                &                      * prm_diag%rain_gsp_rate (jc,jb)
-             prm_diag%snow_gsp(jc,jb) = prm_diag%snow_gsp(jc,jb)         &
-               &                      + tcall_gscp_jg                    &
+             prm_diag%snow_gsp(jc,jb) = prm_diag%snow_gsp(jc,jb)           &
+               &                      + tcall_gscp_jg                      &
                &                      * prm_diag%snow_gsp_rate (jc,jb)
-             !
+             prm_diag%ice_gsp(jc,jb) = prm_diag%ice_gsp(jc,jb)             &
+               &                      + tcall_gscp_jg                      &
+               &                      * prm_diag%ice_gsp_rate (jc,jb)
+
+             ! note: ice is deliberately excluded here because it predominantly contains blowing snow
              prm_diag%prec_gsp(jc,jb) = prm_diag%rain_gsp(jc,jb)  &
                &                      + prm_diag%snow_gsp(jc,jb)
 
@@ -798,9 +802,6 @@ CONTAINS
     IF (msg_level>14 .AND. atm_phy_nwp_config(jg)%l2moment) THEN
        CALL nwp_diag_output_minmax_micro(p_patch, p_prog, p_diag, ptr_tracer)
     END IF
-
-    !$ser verbatim call serialize_graupel_output(jg, nproma, nlev, p_metrics, p_prog,&
-    !$ser verbatim                               ptr_tracer, p_diag, prm_diag, prm_nwp_tend)
 
     !$acc end data
      

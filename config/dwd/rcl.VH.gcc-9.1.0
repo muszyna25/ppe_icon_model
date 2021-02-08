@@ -49,7 +49,7 @@ ZLIB_LIB='-lz'
 
 # RTTOV
 RTTOV_ROOT='/hpc/rhome/for0adm/nwp/x86_vh/external'
-RTTOV_LIBS='-lrttov12'
+RTTOV_LIBS='-lrttov13'
 
 # flags needed for static linking
 STATICLINK_FLAGS='-static -add-gcc-rpath'
@@ -72,7 +72,7 @@ CPPFLAGS="${ECCODES_INCLUDE} -I${HDF5ROOT}/include -I${NETCDFROOT}/include ${ECC
 
 # Fortran compiler wrapper on cray machine
 FC='mpinfort -vh'
-FCFLAGS="${ECCODES_INCLUDE} -I${HDF5ROOT}/include -I${NETCDFROOT}/include -I${NETCDFFROOT}/include -I${RTTOV_ROOT}/include/rttov12 -std=gnu -fno-range-check -fbacktrace -g -fmodule-private -fimplicit-none -fmax-identifier-length=63 -ffree-line-length-132 -Wall -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter -Wno-surprising -fall-intrinsics -mavx2 -O2 -mno-fma -mpc64  -D__COMM_OPT__ -D__BLOCK_GET__ -D__NEC_VH__ -DUSE_XML2"
+FCFLAGS="${ECCODES_INCLUDE} -I${HDF5ROOT}/include -I${NETCDFROOT}/include -I${NETCDFFROOT}/include -I${RTTOV_ROOT}/include/rttov13 -std=gnu -fno-range-check -fbacktrace -g -fmodule-private -fimplicit-none -fmax-identifier-length=63 -ffree-line-length-132 -Wall -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter -Wno-surprising -fall-intrinsics -mavx2 -O2 -mno-fma -mpc64  -D__COMM_OPT__ -D__BLOCK_GET__ -D__NEC_VH__ -DUSE_XML2"
 ICON_FCFLAGS=''
 ICON_OCEAN_FCFLAGS='-O2'
 ICON_ECRAD_FCFLAGS="-D__ECRAD_LITTLE_ENDIAN"
@@ -113,6 +113,8 @@ for arg in "$@"; do
   esac
 done
 
+#Hack to switch back to RTTOV12 (in addition to replacing 'rttov13' with 'rttov12' in this script)':
+#sed -i 's;_RTTOV_VERSION=13;_RTTOV_VERSION=12;' icon.mk
 
 # Copy runscript-related files when building out-of-source:
 if test $(pwd) != $(cd "${ICON_DIR}"; pwd); then

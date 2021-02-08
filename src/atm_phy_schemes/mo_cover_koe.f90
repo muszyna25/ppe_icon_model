@@ -53,17 +53,32 @@ MODULE mo_cover_koe
 
   USE mo_nwp_tuning_config,  ONLY: tune_box_liq, tune_box_liq_asy, tune_thicklayfac, tune_sgsclifac, icpl_turb_clc
 
+  USE mo_ensemble_pert_config, ONLY: box_liq_sv, thicklayfac_sv, box_liq_asy_sv
+
+  USE mo_impl_constants,      ONLY: max_dom  
+
   IMPLICIT NONE
 
   PRIVATE
 
 
-  PUBLIC :: cover_koe
+  PUBLIC :: cover_koe, t_cover_koe_config, cover_koe_config
+
+
+!  Cloud cover derived type with physics configuration options
+   
+  TYPE t_cover_koe_config
+    INTEGER(KIND=i4)        ::     icldscheme    ! cloud cover option 
+    INTEGER(KIND=i4)        ::     inwp_turb     ! turbulence scheme number
+    INTEGER(KIND=i4)        ::     inwp_cpl_re   ! coupling reff (for qs altering qi)
+    INTEGER(KIND=i4)        ::     inwp_reff     ! reff option (for qs altering qi)
+  END TYPE t_cover_koe_config
 
 !-------------------------------------------------------------------------
 
-CONTAINS
+  TYPE(t_cover_koe_config)  ::     cover_koe_config(max_dom)  ! This should be in interface module
 
+CONTAINS
 
 !-------------------------------------------------------------------------
 !
@@ -85,8 +100,7 @@ CONTAINS
 
 SUBROUTINE cover_koe( &
   & kidia, kfdia, klon, kstart, klev, & ! in:    dimensions (turn off physics above kstart)
-  & icldscheme                      , & ! in:    cloud cover framework
-  & inwp_turb                       , & ! in:    turbulence scheme number
+  & cover_koe_config                , & ! in:    configure state
   & tt                              , & ! in:    temperature (main levels)
   & pp                              , & ! in:    pressure (")
   & ps                              , & ! in:    surface pressure
@@ -113,9 +127,7 @@ INTEGER(KIND=i4), INTENT(IN) ::  &
   & kstart           , & ! vertical start index (turn off physics above)
   & klev                 ! vertical dimension
 
-INTEGER(KIND=i4), INTENT(IN) ::  &
-  & icldscheme       , & ! cloud cover framework: see option above
-  & inwp_turb            ! turbulence scheme number
+TYPE(t_cover_koe_config), INTENT(IN) :: cover_koe_config ! configure state
 
 REAL(KIND=wp), DIMENSION(klon,klev), INTENT(IN) ::  &
   & pp               , & ! full pressure                                 (  Pa )
@@ -163,7 +175,7 @@ REAL(KIND=wp), DIMENSION(klon,klev), INTENT(INOUT) ::   &
 !! ----------------
 
 LOGICAL ::  &
-  & lprog_qi
+  & lprog_qi, l_addsnow
 
 INTEGER (KIND=i4) :: &
   & jl, jk, jkp1,         &
@@ -180,7 +192,8 @@ REAL(KIND=wp) :: &
   & fgew   , fgee   , fgqs   , dqsdt,   & !fgqv   , & ! name of statement functions
   & ztt    , zzpv   , zzpa   , zzps   , zqs, &
   & zf_ice , deltaq , qisat_grid, zdeltaq, zrcld, thicklay_fac, tfac, satdef_fac, rhcrit_sgsice, &
-  & vap_pres, zaux, zqisat_m50, zqisat_m25, qi_mod, par1, qcc, box_liq_asy, fac_aux, fac_ic, fac_sfc, rcld_asyfac
+  & vap_pres, zaux, zqisat_m50, zqisat_m25, qi_mod, par1, qcc, box_liq_asy, fac_aux, fac_sfc, &
+  & rcld_asyfac, dq1, dq2, dq3, tfmax
 
 REAL(KIND=wp), DIMENSION(klon,klev)  :: &
   zqlsat , zqisat, zagl_lim, zdqlsat_dT
@@ -226,6 +239,19 @@ IF (icpl_turb_clc == 1) THEN
 ELSE
   rcld_asyfac = 2._wp
 ENDIF
+! auxiliary factors depending on ensemble perturbations in order to increase spread
+tfmax = 0.6_wp  + 100._wp*(tune_thicklayfac-thicklayfac_sv)
+dq1   = 0.8_wp  + 100._wp*(tune_box_liq-box_liq_sv)*(tune_box_liq_asy-box_liq_asy_sv)
+dq2   = 1._wp   + 400._wp*(tune_thicklayfac-thicklayfac_sv)*(tune_box_liq_asy-box_liq_asy_sv)
+dq3   = 0.25_wp + 2500._wp*(tune_box_liq-box_liq_sv)*(tune_thicklayfac-thicklayfac_sv)
+
+
+! Snow is added to qi_dia in three cases: 
+! 1) No coupling of reff with radiation
+! 2) No param for reff 
+! 3) Using the original RRTM parameterization for reff 
+l_addsnow = (cover_koe_config%inwp_cpl_re == 0) .OR. (cover_koe_config%inwp_reff == 0) .OR. &
+            (cover_koe_config%inwp_reff == 101)
 
 ! Set cloud fields for stratospheric levels to zero
 DO jk = 1,kstart-1
@@ -259,7 +285,7 @@ ENDDO
 ! Select desired cloud cover framework
 !-----------------------------------------------------------------------
 
-SELECT CASE( icldscheme )
+SELECT CASE( cover_koe_config%icldscheme )
 
 !-----------------------------------------------------------------------
 
@@ -291,27 +317,24 @@ CASE( 1 )
      ! in addition, sub-grid scale moisture variations in the vertical are parameterized depending on vertical resolution
      ! Diagnosed cloud water is proportional to clcov**2
      !
-      thicklay_fac = MIN(0.6_wp,MAX(0._wp,tune_thicklayfac*(deltaz(jl,jk)-150._wp))) ! correction for thick model layers
+      thicklay_fac = MIN(tfmax,MAX(0._wp,tune_thicklayfac*(deltaz(jl,jk)-150._wp))) ! correction for thick model layers
       zdeltaq = MIN(tune_box_liq*(1._wp+0.5_wp*thicklay_fac), zagl_lim(jl,jk)) * zqlsat(jl,jk)
       zrcld = 0.5_wp*(rcld(jl,jk)+rcld(jl,jk+1))
       IF (icpl_turb_clc == 1) THEN
-        deltaq = MAX(0.8_wp*zdeltaq,(4._wp+thicklay_fac)*zrcld)
+        deltaq = MAX(dq1*zdeltaq,(4._wp*dq2+thicklay_fac)*zrcld)
       ELSE
-        deltaq = 0.8_wp*zdeltaq+(1._wp+0.25_wp*thicklay_fac)*zrcld
+        deltaq = dq1*zdeltaq+(dq2+dq3*thicklay_fac)*zrcld
       ENDIF
-        deltaq = MIN(deltaq,2._wp*zdeltaq)
+      deltaq = MIN(deltaq,2._wp*zdeltaq)
       IF ( ( qv(jl,jk) + qc(jl,jk) - deltaq ) > zqlsat(jl,jk) ) THEN
         cc_turb_liq(jl,jk) = 1.0_wp
         qc_turb  (jl,jk)   = qv(jl,jk) + qc(jl,jk) - zqlsat(jl,jk)
       ELSE
         ! asymmetry factor for water clouds and derived parameters;
-        ! the asymmetry factor is reduced to 2 in the presence of (grid-scale) cloud ice seeding
-        ! and close to the surface because 'long tails' are unrealistic (and detrimental) in these cases
-        fac_aux = 1._wp - MIN(1._wp,0.1_wp*MAX(0._wp,tt(jl,jk)-tm10))
-        fac_ic  = fac_aux*MIN(1._wp,qi(jl,jk)/(1.e-3_wp*zqisat_m50))
+        ! the asymmetry factor is reduced to 2 close to the surface because 'long tails' are unrealistic (and detrimental) in this case
         fac_sfc = MAX(0._wp,zqlsat(jl,jk)-(qv(jl,jk)+deltaq))/deltaq*MAX(0._wp,(tune_box_liq-zagl_lim(jl,jk))/zagl_lim(jl,jk))
-        fac_ic  = MAX(fac_ic,MIN(1._wp,fac_sfc))
-        box_liq_asy = tune_box_liq_asy*(1._wp+0.5_wp*thicklay_fac+rcld_asyfac*zrcld/zqlsat(jl,jk))*(1._wp-fac_ic) + 2._wp*fac_ic
+        fac_sfc = MIN(1._wp,fac_sfc)
+        box_liq_asy = tune_box_liq_asy*(1._wp+0.5_wp*thicklay_fac+rcld_asyfac*zrcld/zqlsat(jl,jk))*(1._wp-fac_sfc) + 2._wp*fac_sfc
         par1 = box_liq_asy+1._wp
         !
         zaux = qv(jl,jk) + qc(jl,jk) + box_liq_asy*deltaq - zqlsat(jl,jk)
@@ -328,9 +351,11 @@ CASE( 1 )
 !  ice cloud
       rhcrit_sgsice = 1._wp - 0.25_wp*tune_sgsclifac*MAX(0._wp,0.75_wp-zqisat(jl,jk)/zqlsat(jl,jk))
       fac_aux = 1._wp - MIN(1._wp,MAX(0._wp,tt(jl,jk)-tm40)/15._wp)
-      qi_mod = MAX(qi(jl,jk), 0.1_wp*(qi(jl,jk)+qs(jl,jk)) ) +                  &
+
+      qi_mod = MERGE( MAX(qi(jl,jk), 0.1_wp*(qi(jl,jk)+qs(jl,jk))), qi(jl,jk), l_addsnow) + &
                fac_aux*MIN(1._wp,tune_sgsclifac*zrcld/(box_ice*zqisat(jl,jk)))* &
                MAX(0._wp,qv(jl,jk)-rhcrit_sgsice*zqisat(jl,jk))
+
      !ice cloud: assumed box distribution, width 0.1 qisat, saturation above qv 
      !           (qv is microphysical threshold for ice as seen by grid scale microphysics)
       IF ( qi_mod > zcldlim ) THEN
@@ -388,7 +413,7 @@ CASE( 1 )
   ENDDO
 
 
-  IF (inwp_turb == iedmf) THEN
+  IF (cover_koe_config%inwp_turb == iedmf) THEN
     DO jk = kstart,klev
       DO jl = kidia,kfdia
 !       IF (SQRT(qtvar(jl,jk)) / MAX(qv(jl,jk)+qc(jl,jk)+qi(jl,jk),0.000001_wp) > 0.01_wp) THEN

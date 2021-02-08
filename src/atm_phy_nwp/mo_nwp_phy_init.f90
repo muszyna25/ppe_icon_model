@@ -127,7 +127,8 @@ MODULE mo_nwp_phy_init
   USE mo_upatmo_impl_const,   ONLY: iUpatmoPrcStat, iUpatmoStat
   USE mo_upatmo_phy_setup,    ONLY: init_upatmo_phy_nwp
 
-  
+  USE mo_cover_koe,           ONLY: cover_koe_config
+
   IMPLICIT NONE
 
   PRIVATE
@@ -196,7 +197,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
   REAL(wp), ALLOCATABLE :: zpres_sfc(:,:)    ! ref sfc press
   REAL(wp), ALLOCATABLE :: zpres_ifc(:,:,:)  ! ref press at interfaces
 
-  LOGICAL :: lland, lglac, lshallow, ldetrain_prec
+  LOGICAL :: lland, lglac, lshallow, lgrayzone_dc, ldetrain_prec
   LOGICAL :: ltkeinp_loc, lgz0inp_loc  !< turbtran switches
   LOGICAL :: linit_mode, lturb_init, lreset_mode
   LOGICAL :: lupatmo_phy
@@ -668,12 +669,13 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
 
   CASE (1,2,3)  ! cloud microphysics from COSMO (V 5.0)
     IF (msg_level >= 12)  CALL message(modname, 'init microphysics')
-    CALL gscp_set_coefficients(tune_zceff_min = tune_zceff_min,               &
-      &                        tune_v0snow    = tune_v0snow,                  &
-      &                        tune_zvz0i     = tune_zvz0i,                   &
-      &                      tune_icesedi_exp = tune_icesedi_exp,             &
-      &                        tune_mu_rain   = atm_phy_nwp_config(1)%mu_rain,&
-      &                   tune_rain_n0_factor = atm_phy_nwp_config(1)%rain_n0_factor)
+    CALL gscp_set_coefficients(tune_zceff_min   = tune_zceff_min,               &
+      &                        tune_v0snow      = tune_v0snow,                  &
+      &                        tune_zvz0i       = tune_zvz0i,                   &
+      &                        tune_icesedi_exp = tune_icesedi_exp,             &
+      &                        tune_mu_rain        = atm_phy_nwp_config(1)%mu_rain,&
+      &                        tune_rain_n0_factor = atm_phy_nwp_config(1)%rain_n0_factor, &
+      &                        igscp = atm_phy_nwp_config(jg)%inwp_gscp )
 
   CASE (4,7) !two moment microphysics
     IF (msg_level >= 12)  CALL message(modname, 'init microphysics: two-moment')
@@ -727,9 +729,16 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
 
   END SELECT
 
+  ! Fill parameters for cover_koe
+  ! Set physics options in cloud cover derived type
+  ! This should be moved to init routine in an interface module
+  cover_koe_config(jg)%icldscheme  = atm_phy_nwp_config(jg)%inwp_cldcover
+  cover_koe_config(jg)%inwp_turb   = atm_phy_nwp_config(jg)%inwp_turb
+  cover_koe_config(jg)%inwp_cpl_re = atm_phy_nwp_config(jg)%icpl_rad_reff
+  cover_koe_config(jg)%inwp_reff   = atm_phy_nwp_config(jg)%icalc_reff
 
   ! Initiate parameters for reff calculations
-  IF (atm_phy_nwp_config(jg)%icalc_reff .GT. 0) THEN
+  IF (atm_phy_nwp_config(jg)%icalc_reff > 0) THEN
     IF (timers_level > 10) CALL timer_start(timer_phys_reff)
     CALL init_reff ( prm_diag, p_patch, p_prog_now) 
     IF (timers_level > 10) CALL timer_stop(timer_phys_reff)
@@ -1103,8 +1112,9 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
 !    CALL message('nwp_phy_init, nsmax=', message_text)
 
     lshallow = atm_phy_nwp_config(jg)%lshallowconv_only
+    lgrayzone_dc = atm_phy_nwp_config(jg)%lgrayzone_deepconv
     ldetrain_prec = atm_phy_nwp_config(jg)%ldetrain_conv_prec
-    CALL sucumf(rsltn,nlev,pref,phy_params,lshallow,ldetrain_prec)
+    CALL sucumf(rsltn,nlev,phy_params,lshallow,lgrayzone_dc,ldetrain_prec,pref)
     CALL suphli
     CALL suvdf
     CALL suvdfs
@@ -1627,7 +1637,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
 
   ! SSO scheme
   !
-  CALL sugwd(nlev, pref, phy_params, jg )
+  CALL sugwd(nlev, pref, phy_params, jg)
   IF (linit_mode) prm_diag%ktop_envel(:,:) = nlev
 
    ! read time-dependent boundary conditions from file
