@@ -62,8 +62,8 @@ MODULE mo_action
   USE mo_grid_config,        ONLY: n_dom
   USE mo_run_config,         ONLY: msg_level
   USE mo_parallel_config,    ONLY: proc0_offloading
-  USE mo_var_list,           ONLY: var_lists_apply
-  USE mo_linked_list,        ONLY: t_list_element, t_var_list_intrinsic
+  USE mo_var_list,           ONLY: nvar_lists, var_lists
+  USE mo_linked_list,        ONLY: t_list_element
   USE mo_var_list_element,   ONLY: t_var_list_element
   USE mo_var_metadata_types, ONLY: t_var_metadata
   USE mo_fortran_tools,      ONLY: init
@@ -163,41 +163,84 @@ CONTAINS
     INTEGER      , INTENT(IN)   :: actionTyp
 
     ! local variables
-    INTEGER :: i, l, tlen, sep_len
+    INTEGER :: i, iact
     INTEGER :: nvars                        ! number of variables assigned to action
 
+    TYPE(t_list_element), POINTER       :: element
     TYPE(t_var_action)  , POINTER       :: action_list
+    CHARACTER(LEN=MAX_EVENTNAME_STR_LEN):: event_name
     CHARACTER(LEN=vname_len)            :: varlist(NMAX_VARS)
-    CHARACTER(len=2), PARAMETER :: sep = ', '
   !-------------------------------------------------------------------------
 
     ! init nvars
-    act_obj%nvars = 0
+    nvars = 0
 
     ! store actionTyp
     act_obj%actionTyp = actionTyp
 
     ! loop over all variable lists and variables
     !
-    CALL var_lists_apply(action_collect_var, act_obj)
+    DO i = 1,nvar_lists
+      element => var_lists(i)%p%first_list_element
+
+      LOOPVAR : DO WHILE (ASSOCIATED(element))
+
+        ! point to variable specific action list
+        action_list => element%field%info%action_list
+
+        ! Loop over all variable-specific actions
+        !
+        LOOPACTION: DO iact = 1,action_list%n_actions
+
+          ! If the variable specific action fits, assign variable
+          ! to the corresponding action.
+          IF (action_list%action(iact)%actionTyp == actionTyp) THEN
+
+            ! Add field to action object
+            nvars = nvars + 1
+            act_obj%var_element_ptr(nvars)%p => element%field
+            act_obj%var_action_index(nvars) = iact
+            act_obj%var_element_ptr(nvars)%patch_id = var_lists(i)%p%patch_id
+
+
+            ! Create event for this specific field
+            WRITE(event_name,'(a,i2,2a)') 'act_TYP', actionTyp, &
+                 '_', TRIM(action_list%action(iact)%intvl)
+            act_obj%var_element_ptr(nvars)%event =>newEvent(                            &
+              &                                    event_name,                    &
+              &                                    action_list%action(iact)%ref,  &
+              &                                    action_list%action(iact)%start,&
+              &                                    action_list%action(iact)%end  ,&
+              &                                    action_list%action(iact)%intvl)
+
+          END IF
+        ENDDO  LOOPACTION ! loop over variable-specific actions
+
+        IF(ASSOCIATED(action_list)) action_list => NULL()
+
+        element => element%next_list_element
+      ENDDO LOOPVAR ! loop over vlist "i"
+    ENDDO ! i = 1,nvar_lists
+
+    ! set nvars
+    act_obj%nvars = nvars
 
 
     IF (msg_level >= 11) THEN
 
       ! remove duplicate variable names
-      nvars = act_obj%nvars
-      DO i=1, nvars
+      DO i=1,act_obj%nvars
         varlist(i) = act_obj%var_element_ptr(i)%p%info%name
       ENDDO
-      CALL remove_duplicates(varlist, nvars)
+      CALL remove_duplicates(varlist,nvars)
 
-      WRITE(message_text,'(3a)') 'Variables assigned to action ',TRIM(ACTION_NAMES(actionTyp)),':'
-      tlen = LEN_TRIM(message_text)
-      DO i = 1, nvars
-        sep_len = MERGE(1,2,i==1)
-        l = LEN_TRIM(varlist(i))
-        WRITE(message_text(tlen+1:),'(2a)') sep(3-sep_len:2), varlist(i)(:l)
-        tlen = tlen + sep_len + l
+      WRITE(message_text,'(a,a,a)') 'Variables assigned to action ',TRIM(ACTION_NAMES(act_obj%actionTyp)),':'
+      DO i=1, nvars
+        IF (i==1) THEN
+          WRITE(message_text,'(a,a,a)') TRIM(message_text), " ",  TRIM(varlist(i))
+        ELSE
+          WRITE(message_text,'(a,a,a)') TRIM(message_text), ", ", TRIM(varlist(i))
+        END IF
       ENDDO
       CALL message('',message_text)
 
@@ -208,63 +251,7 @@ CONTAINS
 
   END SUBROUTINE action_collect_vars
 
-  !> wrapper, see action_collect_var_ for more information
-  SUBROUTINE action_collect_var(field, state, var_list)
-    TYPE(t_var_list_element), TARGET :: field
-    CLASS(*), TARGET :: state
-    TYPE(t_var_list_intrinsic), INTENT(in) :: var_list
 
-    SELECT TYPE(state)
-    CLASS IS (t_action_obj)
-      CALL action_collect_var_(field, state, var_list%patch_id)
-    END SELECT
-  END SUBROUTINE action_collect_var
-
-  !> inspect single field for applicable actions, if so, transfer
-  !! action_list items into act_obj fields in case of matching
-  !! actionTyp member
-  SUBROUTINE action_collect_var_(field, act_obj, patch_id)
-    TYPE(t_var_list_element), TARGET, INTENT(in) :: field
-    CLASS(t_action_obj), INTENT(inout) :: act_obj
-    INTEGER, INTENT(in) :: patch_id
-    INTEGER :: nvars, i, action_type
-    CHARACTER(LEN=MAX_EVENTNAME_STR_LEN):: event_name
-
-    nvars = act_obj%nvars
-    action_type = act_obj%actionTyp
-    ! point to variable specific action list
-    ASSOCIATE(action_list => field%info%action_list)
-      !
-      ! Loop over all variable-specific actions
-      !
-      LOOPACTION: DO i = 1,action_list%n_actions
-
-        ! If the variable specific action fits, assign variable
-        ! to the corresponding action.
-        IF (action_list%action(i)%actionTyp == action_type) THEN
-
-          ! Add field to action object
-          nvars = nvars + 1
-          act_obj%var_element_ptr(nvars)%p => field
-          act_obj%var_action_index(nvars) = i
-          act_obj%var_element_ptr(nvars)%patch_id = patch_id
-
-
-          ! Create event for this specific field
-          WRITE(event_name,'(a,i2,2a)') 'act_TYP', action_type, &
-               '_', TRIM(action_list%action(i)%intvl)
-          act_obj%var_element_ptr(nvars)%event =>newEvent(                   &
-            &                                 event_name,                    &
-            &                                 action_list%action(i)%ref,  &
-            &                                 action_list%action(i)%start,&
-            &                                 action_list%action(i)%end  ,&
-            &                                 action_list%action(i)%intvl)
-
-        END IF
-      ENDDO  LOOPACTION ! loop over variable-specific actions
-    END ASSOCIATE
-    act_obj%nvars = nvars
-  END SUBROUTINE action_collect_var_
 
   !>
   !! Screen print out of action event setup

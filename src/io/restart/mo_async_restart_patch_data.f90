@@ -38,7 +38,7 @@ MODULE mo_async_restart_patch_data
   USE mpi,                          ONLY: MPI_ADDRESS_KIND
 #endif
   USE mo_cdi,                       ONLY: streamWriteVarSlice, streamWriteVarSliceF
-  USE mo_var_list,                  ONLY: get_restart_vars
+  USE mo_restart_var_data,          ONLY: createRestartVarData
   USE mo_restart_patch_data,        ONLY: t_RestartPatchData
 
   IMPLICIT NONE
@@ -65,7 +65,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: jg
 
     CALL me%description%init(jg)
-    CALL get_restart_vars(me%varData, jg, modelType, me%restartType)
+    CALL createRestartVarData(me%varData, jg, modelType, me%restartType)
     CALL me%commData%construct(jg, me%varData)
     CALL me%transferToRestart()
   END SUBROUTINE asyncPatchData_construct

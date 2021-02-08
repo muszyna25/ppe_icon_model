@@ -73,9 +73,9 @@ MODULE mo_initicon_io
   USE mo_util_string,         ONLY: int2string
   USE mo_atm_phy_nwp_config,  ONLY: iprog_aero, atm_phy_nwp_config
 
-  USE mo_linked_list,         ONLY: t_list_element, t_var_list_intrinsic
+  USE mo_linked_list,         ONLY: t_list_element
   USE mo_var_list_element,    ONLY: t_var_list_element, level_type_ml
-  USE mo_var_list,            ONLY: var_lists_apply, get_var_name
+  USE mo_var_list,            ONLY: nvar_lists, var_lists, get_var_name
   USE mo_var_groups,          ONLY: var_groups_dyn
 
   ! High level overview of how `mo_initicon` reads input data
@@ -183,17 +183,7 @@ MODULE mo_initicon_io
     LOGICAL :: isFg
   END TYPE t_fetchParams
 
-  !> this type holds the information needed to setup additional tracer data
-  !! fetch
-  TYPE setup_tracer_buf_state
-    REAL(wp), POINTER :: tracer(:,:,:,:)
-    TYPE(t_pi_atm_in), POINTER :: atm_in
-    TYPE(t_fetchParams), POINTER :: params
-    INTEGER :: patch_id, ilev_type, grp_id, idx, nblks_c, nlev_in
-  END TYPE setup_tracer_buf_state
-
-
-CONTAINS
+  CONTAINS
 
 
   ! Hack to determine the dimension name for phase2 simulations.
@@ -1656,103 +1646,61 @@ CONTAINS
 
   !>
   !! Fetch additional tracers in the first guess from the request list
-  !! Loop over all ICON vars and collect info similar to collect_group
+  !! Lopp over all ICON vars and collect info similar to collect_group
   SUBROUTINE fetch_tracer_fg(grp_name, params, jg, tracer, atm_in, nblks_c, nlev_in)
     CHARACTER(LEN=*),    INTENT(IN)    :: grp_name
-    TYPE(t_fetchParams), TARGET, INTENT(INOUT) :: params
+    TYPE(t_fetchParams), INTENT(INOUT) :: params
     INTEGER,             INTENT(IN)    :: jg
 
     REAL(wp), POINTER,   INTENT(INOUT), OPTIONAL :: tracer(:,:,:,:)
-    TYPE(t_pi_atm_in),   TARGET, INTENT(INOUT), OPTIONAL :: atm_in
+    TYPE(t_pi_atm_in),   INTENT(INOUT), OPTIONAL :: atm_in
     INTEGER,             INTENT(IN), OPTIONAL    :: nlev_in, nblks_c
 
     ! local variables
-    TYPE(setup_tracer_buf_state) :: vl_filter
-
-    vl_filter%idx = 0
-    vl_filter%grp_id = var_groups_dyn%group_id(grp_name)
-    IF (PRESENT(nlev_in)) THEN
-      vl_filter%nlev_in = nlev_in
-    ELSE
-      vl_filter%nlev_in = -1
-    END IF
-    ! loop over all variable lists and variables
-    vl_filter%patch_id = jg
-    IF (PRESENT(nblks_c)) THEN
-      vl_filter%nblks_c = nblks_c
-    ELSE
-      vl_filter%nblks_c = -1
-    END IF
-    vl_filter%ilev_type = level_type_ml
-    vl_filter%params => params
-    IF ( PRESENT(tracer) ) THEN
-      vl_filter%tracer => tracer
-    ELSE
-      NULLIFY(vl_filter%tracer)
-    END IF
-    IF ( PRESENT(atm_in) ) THEN
-      vl_filter%atm_in => atm_in
-    ELSE
-      NULLIFY(vl_filter%atm_in)
-    END IF
-    ! pass setup_tracer_buf to be called for every variable in a list
-    ! matching var_list_filter_patch_levtype, vl_filter contains all
-    ! information needed to set up the mapping and filter the variable
-    ! lists
-    CALL var_lists_apply(setup_tracer_buf, vl_filter, var_list_filter_patch_levtype)
-  END SUBROUTINE fetch_tracer_fg
-
-  !> sets up a single tracer or input variable for fetch_tracer_fg
-  SUBROUTINE setup_tracer_buf(field, state, var_list)
-    TYPE(t_var_list_element), TARGET :: field
-    CLASS(*), TARGET :: state
-    TYPE(t_var_list_intrinsic), INTENT(in) :: var_list
-
-    REAL(wp), POINTER                 :: my_ptr3d(:,:,:)
-    INTEGER :: jg, idx
+    INTEGER                           :: i, grp_id, idx
+    TYPE(t_list_element), POINTER     :: element
+    TYPE(t_var_list_element), POINTER :: var_element
     CHARACTER(LEN=VARNAME_LEN)        :: name
+    REAL(wp), POINTER                 :: my_ptr3d(:,:,:)
 
-    ! Do not inspect element if it is a container
-    SELECT TYPE (state)
-    TYPE IS (setup_tracer_buf_state)
-      IF (.NOT. field%info%lcontainer .AND. field%info%in_group(state%grp_id)) THEN
-        idx = state%idx + 1
-        jg = state%patch_id
-        name = get_var_name(field)
-        IF ( ASSOCIATED(state%atm_in) ) THEN
-          state%atm_in%tracer(idx)%var_element => field
-          ! allocate source array for vertical interpolation
-          ALLOCATE(state%atm_in%tracer(idx)%field(nproma,state%nlev_in,state%nblks_c))
+    idx = 0
+    grp_id = var_groups_dyn%group_id(grp_name)
+
+    ! loop over all variable lists and variables
+    DO i = 1, nvar_lists
+      IF (var_lists(i)%p%vlevel_type /= level_type_ml) CYCLE
+      ! do not inspect variable list if its domain does not match:
+      IF (var_lists(i)%p%patch_id /= jg)  CYCLE
+
+      element => var_lists(i)%p%first_list_element
+      LOOPVAR : DO WHILE (ASSOCIATED(element))
+        var_element => element%field
+        ! Do not inspect element if it is a container
+        IF (.NOT. var_element%info%lcontainer .AND. var_element%info%in_group(grp_id)) THEN
+          idx = idx + 1
+          name = get_var_name(var_element)
+          IF ( PRESENT(atm_in) ) THEN
+            atm_in%tracer(idx)%var_element => var_element
+            ! allocate source array for vertical interpolation
+            ALLOCATE(atm_in%tracer(idx)%field(nproma,nlev_in,nblks_c))
 !$OMP PARALLEL
-          CALL init(state%atm_in%tracer(idx)%field(:,:,:))      !_jf: necessary?
+            CALL init(atm_in%tracer(idx)%field(:,:,:))      !_jf: necessary?
 !$OMP END PARALLEL
-          ! request the first guess fields
-          my_ptr3d => state%atm_in%tracer(idx)%field(:,:,:)
-          CALL fetch3d(state%params, TRIM(name), jg, my_ptr3d)
-        ENDIF
-        IF ( ASSOCIATED(state%tracer) ) THEN
-          ! request the first guess fields
-          my_ptr3d => state%tracer(:,:,:,field%info%ncontained)
-          CALL fetch3d(state%params, TRIM(name), jg, my_ptr3d)
+            ! request the first guess fields
+            my_ptr3d => atm_in%tracer(idx)%field(:,:,:)
+            CALL fetch3d(params, TRIM(name), jg, my_ptr3d)
+          ENDIF
+          IF ( PRESENT(tracer) ) THEN
+            ! request the first guess fields
+            my_ptr3d => tracer(:,:,:,var_element%info%ncontained)
+            CALL fetch3d(params, TRIM(name), jg, my_ptr3d)
+          END IF
         END IF
-        state%idx = idx
-      END IF
-    END SELECT
-  END SUBROUTINE setup_tracer_buf
+        element => element%next_list_element
+      ENDDO LOOPVAR ! loop over vlist "i"
+    ENDDO ! i = 1, nvar_lists
 
-  FUNCTION var_list_filter_patch_levtype(var_list, state) &
-       RESULT(is_selected)
-    LOGICAL :: is_selected
-    TYPE(t_var_list_intrinsic), INTENT(in) :: var_list
-    CLASS(*), TARGET :: state
-    SELECT TYPE (state)
-    CLASS IS (setup_tracer_buf_state)
-      is_selected &
-        ! patch_id in var_lists always corresponds to the LOGICAL domain
-        =     var_list%patch_id == state%patch_id &
-        .AND. state%ilev_type == var_list%vlevel_type
-    END SELECT
-  END FUNCTION var_list_filter_patch_levtype
+  END SUBROUTINE fetch_tracer_fg
 
   !XXX: Cannot be moved into fetch_dwdana_atm() since it needs input from fetch_dwdana_sfc()
   SUBROUTINE process_input_dwdana_atm (p_patch, initicon)

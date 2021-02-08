@@ -25,8 +25,8 @@ MODULE mo_restart_var_data
   USE mo_kind,               ONLY: dp, sp
   USE mo_linked_list,        ONLY: t_list_element, t_var_list
   USE mo_util_string,        ONLY: int2string
-  USE mo_var_list,           ONLY: get_var_timelevel
-  USE mo_var_list_element,   ONLY: t_var_list_element
+  USE mo_var_list,           ONLY: nvar_lists, var_lists, get_var_timelevel
+  USE mo_var_list_element,   ONLY: t_p_var_list_element, t_var_list_element
   USE mo_var_metadata_types, ONLY: t_var_metadata
 #ifndef __NO_ICON_ATMO__
   USE mo_ha_dyn_config, ONLY: ha_dyn_config
@@ -37,6 +37,7 @@ MODULE mo_restart_var_data
 
   IMPLICIT NONE
 
+  PUBLIC :: createRestartVarData
   PUBLIC :: get_var_3d_ptr
   PUBLIC :: has_valid_time_level
 
@@ -51,6 +52,81 @@ MODULE mo_restart_var_data
   CHARACTER(LEN = *), PARAMETER :: modname = "mo_restart_var_data"
 
 CONTAINS
+
+  LOGICAL FUNCTION wantVarlist(varlist, patch_id, modelType) RESULT(resultVar)
+    TYPE(t_var_list), INTENT(IN) :: varlist
+    INTEGER, INTENT(IN) :: patch_id
+    CHARACTER(LEN = *), INTENT(IN) :: modelType
+
+    resultVar = varlist%p%lrestart &
+      .AND. varlist%p%patch_id == patch_id &
+      .AND. varlist%p%model_type == modelType
+  END FUNCTION wantVarlist
+
+  ! compute the number of  restart variables for the given logical patch.
+  FUNCTION countRestartVariables(patch_id, modelType) RESULT(fld_cnt)
+    INTEGER :: fld_cnt
+    INTEGER, INTENT(in) :: patch_id
+    CHARACTER(LEN = *), INTENT(IN) :: modelType
+    INTEGER :: i
+    TYPE(t_list_element), POINTER :: element
+
+    fld_cnt = 0
+    DO i = 1, nvar_lists
+      IF (wantVarlist(var_lists(i), patch_id, modelType)) THEN
+        ! check, if the list has valid restart fields
+        element => var_lists(i)%p%first_list_element
+        DO WHILE (ASSOCIATED(element))
+          fld_cnt = fld_cnt + MERGE(1, 0, element%field%info%lrestart)
+          element => element%next_list_element
+        END DO
+      END IF
+    ENDDO
+  END FUNCTION countRestartVariables
+
+  SUBROUTINE createRestartVarData(var_data, patch_id, modelType, out_restartType)
+    TYPE(t_p_var_list_element), ALLOCATABLE, INTENT(out) :: var_data(:)
+    INTEGER, INTENT(in) :: patch_id
+    CHARACTER(LEN = *), INTENT(IN) :: modelType
+    INTEGER, OPTIONAL, INTENT(OUT) :: out_restartType
+    INTEGER :: varCount, varIndex, error, curList, restartType
+    TYPE(t_list_element), POINTER :: element
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":createRestartVarData"
+
+    ! init. main variables
+    restartType = -1
+    ! counts number of restart variables for this file (logical patch ident)
+    varCount = countRestartVariables(patch_id, modelType)
+#ifdef DEBUG
+    WRITE(nerr, *) routine//' numvars = '//TRIM(int2string(varCount))
+#endif
+    ! allocate the array of restart variables
+    ALLOCATE(var_data(varCount), STAT = error)
+    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
+    ! fill the array of restart variables
+    varIndex = 1
+    DO curList = 1, nvar_lists
+      IF(wantVarlist(var_lists(curList), patch_id, modelType)) THEN
+        IF(restartType == -1) THEN
+          restartType = var_lists(curList)%p%restart_type
+        ELSE IF(restartType /= var_lists(curList)%p%restart_type) THEN
+          CALL finish(routine, "assertion failed: var_lists contains inconsistent restart_type values")
+        END IF
+        ! check, if the list has valid restart fields
+        element => var_lists(curList)%p%first_list_element
+        DO WHILE (ASSOCIATED(element))
+          IF (element%field%info%lrestart) THEN
+            var_data(varIndex)%p => element%field
+            varIndex = varIndex + 1
+          END IF
+          element => element%next_list_element
+        END DO
+      END IF
+    END DO
+    IF(varIndex /= varCount + 1) &
+         CALL finish(routine, "assertion failed: wrong restart variable count")
+    IF (PRESENT(out_restartType)) out_restartType = restartType
+  END SUBROUTINE createRestartVarData
 
   SUBROUTINE get_var_3d_ptr_dp(vd, r_ptr_3d)
     TYPE(t_var_list_element), POINTER, INTENT(IN) :: vd

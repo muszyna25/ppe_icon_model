@@ -21,7 +21,6 @@ MODULE mo_var_list
   USE mo_kind,             ONLY: sp, wp, i8
   USE mo_cdi,              ONLY: TSTEP_INSTANT,                     &
        &                         CDI_UNDEFID
-  USE mo_mpi,              ONLY: my_process_is_stdio, p_bcast
   USE mo_cf_convention,    ONLY: t_cf_var
   USE mo_grib2,            ONLY: t_grib2_var, grib2_var
   USE mo_run_config,       ONLY: msg_level
@@ -40,8 +39,7 @@ MODULE mo_var_list
   USE mo_var_groups,       ONLY: groups
   USE mo_tracer_metadata,  ONLY: create_tracer_metadata
   USE mo_tracer_metadata_types,ONLY: t_tracer_meta
-  USE mo_var_list_element, ONLY: t_var_list_element, t_p_var_list_element, &
-    &                            level_type_ml
+  USE mo_var_list_element, ONLY: t_var_list_element, level_type_ml
   USE mo_linked_list,      ONLY: t_var_list, t_list_element,        &
        &                         new_list, delete_list,             &
        &                         append_list_element,               &
@@ -50,8 +48,7 @@ MODULE mo_var_list
   USE mo_util_hash,        ONLY: util_hashword
   USE mo_util_string,      ONLY: remove_duplicates, toupper,        &
     &                            pretty_print_string_list, tolower, &
-    &                            difference, find_trailing_number,  &
-    &                            lowcase
+    &                            difference, find_trailing_number
   USE mo_impl_constants,   ONLY: max_var_lists, vname_len,          &
     &                            max_var_list_name_len,             &
     &                            STR_HINTP_TYPE, MAX_TIME_LEVELS,   &
@@ -93,7 +90,7 @@ MODULE mo_var_list
   PUBLIC :: default_var_list_settings ! set default settings for a whole list
   PUBLIC :: collect_group
 
-  !PUBLIC :: var_lists                 ! vector of output var_lists
+  PUBLIC :: var_lists                 ! vector of output var_lists
   PUBLIC :: nvar_lists                ! number of output var_lists defined so far
   PUBLIC :: max_var_lists
 
@@ -106,16 +103,13 @@ MODULE mo_var_list
   PUBLIC :: get_var_name              ! return plain variable name (without timelevel)
   PUBLIC :: get_var_timelevel         ! return variable timelevel (or "-1")
   PUBLIC :: get_var_tileidx           ! return variable tile index
-  PUBLIC :: get_var_container
   PUBLIC :: get_var_list_element_info ! return a copy of the metadata for a var_list element
   PUBLIC :: get_tracer_info_dyn_by_idx! return a copy of the dynamic metadata of a certain tracer
   PUBLIC :: get_timelevel_string      ! return the default string with timelevel encoded
   PUBLIC :: get_varname_with_timelevel! join varname with timelevel string
 
   PUBLIC :: total_number_of_variables ! returns total number of defined variables
-  PUBLIC :: get_model_types
-  PUBLIC :: get_restart_vars
-  PUBLIC :: var_lists_apply
+
   PUBLIC :: fget_var_list_element_r1d
   PUBLIC :: fget_var_list_element_r2d
   PUBLIC :: fget_var_list_element_r3d
@@ -133,8 +127,6 @@ MODULE mo_var_list
   INTERFACE find_element
     MODULE PROCEDURE find_list_element
     MODULE PROCEDURE find_element_from_all
-    MODULE PROCEDURE find_field_from_selected
-    MODULE PROCEDURE find_field_from_selected2
   END INTERFACE find_element
 
   INTERFACE print_var_list
@@ -204,35 +196,11 @@ MODULE mo_var_list
     MODULE PROCEDURE assign_if_present_action_list
   END INTERFACE struct_assign_if_present
 
-  ABSTRACT INTERFACE
-    FUNCTION list_select(var_list, state) RESULT(is_selected)
-      IMPORT :: t_var_list_intrinsic
-      LOGICAL :: is_selected
-      TYPE(t_var_list_intrinsic), INTENT(in) :: var_list
-      CLASS(*), TARGET :: state
-    END FUNCTION list_select
-    FUNCTION var_filter(field, state, var_list) RESULT(is_selected)
-      IMPORT :: t_var_list_element, t_var_list_intrinsic
-      LOGICAL :: is_selected
-      TYPE(t_var_list_element), INTENT(in) :: field
-      CLASS(*), TARGET :: state
-      TYPE(t_var_list_intrinsic), INTENT(in) :: var_list
-    END FUNCTION var_filter
-    SUBROUTINE var_apply(field, state, var_list)
-      IMPORT :: t_var_list_element, t_var_list_intrinsic
-      TYPE(t_var_list_element), TARGET :: field
-      CLASS(*), TARGET :: state
-      TYPE(t_var_list_intrinsic), INTENT(in) :: var_list
-    END SUBROUTINE var_apply
-  END INTERFACE
-
+  
   INTEGER,                  SAVE :: nvar_lists     =   0      ! var_lists allocated so far
   !
   TYPE(t_var_list), TARGET, SAVE :: var_lists(max_var_lists)  ! memory buffer array
   !
-#ifndef NOMPI
-  PUBLIC :: replicate_var_lists
-#endif
 CONTAINS
   !------------------------------------------------------------------------------------------------
   !
@@ -346,11 +314,8 @@ CONTAINS
   !
   ! @return total number of (non-container) variables
   !
-  FUNCTION total_number_of_variables(opt_list_select, opt_state, opt_var_select)
+  FUNCTION total_number_of_variables()
     INTEGER :: total_number_of_variables
-    PROCEDURE(list_select), OPTIONAL :: opt_list_select
-    PROCEDURE(var_filter), OPTIONAL :: opt_var_select
-    CLASS(*), OPTIONAL :: opt_state
     ! local variables
     INTEGER :: i
     TYPE(t_list_element), POINTER :: element
@@ -361,159 +326,23 @@ CONTAINS
     ! Note that there may be several variables with different time
     ! levels, we just add unconditionally all
     DO i = 1,nvar_lists
-      IF (PRESENT(opt_list_select)) THEN
-        IF (.NOT. opt_list_select(var_lists(i)%p, opt_state)) CYCLE
-      END IF
       element => var_lists(i)%p%first_list_element
-      IF (.NOT. PRESENT(opt_var_select)) THEN
-        LOOPVAR : DO WHILE (ASSOCIATED(element))
-          ! Do not count element if it is a container
-          total_number_of_variables = total_number_of_variables &
-               + MERGE(1, 0, .NOT. element%field%info%lcontainer)
-          element => element%next_list_element
-        ENDDO LOOPVAR ! loop over vlist "i"
-      ELSE
-        LOOPVAR_CUSTOM_FILTER : DO WHILE (ASSOCIATED(element))
-          ! Do not count element if it is a container
-          total_number_of_variables = total_number_of_variables &
-            &  + MERGE(1, 0, opt_var_select(element%field, opt_state, &
-            &                               var_lists(i)%p))
-          element => element%next_list_element
-        ENDDO LOOPVAR_CUSTOM_FILTER ! loop over vlist "i"
-      END IF
+      LOOPVAR : DO WHILE (ASSOCIATED(element))
+        ! Do not count element if it is a container
+        total_number_of_variables = total_number_of_variables &
+             + MERGE(1, 0, .NOT. element%field%info%lcontainer)
+        element => element%next_list_element
+      ENDDO LOOPVAR ! loop over vlist "i"
     ENDDO ! i = 1,nvar_lists
   END FUNCTION total_number_of_variables
 
-  !> builds array of all model type names seen in any variable list
-  SUBROUTINE get_model_types(model_types, patch_id)
-    CHARACTER(len=8), ALLOCATABLE, INTENT(out) :: model_types(:)
-    INTEGER, intent(in) :: patch_id
-    INTEGER :: i, nmt, ierror
-    CHARACTER(len=8) :: model_types_(nvar_lists)
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//":get_model_types"
-
-    nmt = 0
-    DO i = 1, nvar_lists
-      IF (var_lists(i)%p%patch_id == patch_id &
-          .AND. ALL(model_types_(1:nmt) /= var_lists(i)%p%model_type)) THEN
-        nmt = nmt + 1
-        model_types_(nmt) = var_lists(i)%p%model_type
-      END IF
-    END DO
-    ALLOCATE(model_types(nmt), STAT=ierror)
-    IF (ierror /= SUCCESS) CALL finish(routine, "memory allocation failed")
-    model_types(1:nmt) = model_types_(1:nmt)
-  END SUBROUTINE get_model_types
-
-  !> used as a filter to only select variable lists that match a given
-  !! patch id and model type name
-  LOGICAL FUNCTION list_is_in_patch_restart(varlist, patch_id, model_type)
-    TYPE(t_var_list), INTENT(IN) :: varlist
-    INTEGER, INTENT(IN) :: patch_id
-    CHARACTER(LEN = *), INTENT(IN) :: model_type
-
-    list_is_in_patch_restart = varlist%p%lrestart &
-      .AND. varlist%p%patch_id == patch_id &
-      .AND. varlist%p%model_type == model_type
-  END FUNCTION list_is_in_patch_restart
-
-  ! compute the number of  restart variables for the given logical patch.
-  FUNCTION number_of_restart_variables(patch_id, modelType) RESULT(fld_cnt)
-    INTEGER :: fld_cnt
-    INTEGER, INTENT(in) :: patch_id
-    CHARACTER(LEN = *), INTENT(IN) :: modelType
-    INTEGER :: i
-    TYPE(t_list_element), POINTER :: element
-
-    fld_cnt = 0
-    DO i = 1, nvar_lists
-      IF (list_is_in_patch_restart(var_lists(i), patch_id, modelType)) THEN
-        ! check, if the list has valid restart fields
-        element => var_lists(i)%p%first_list_element
-        DO WHILE (ASSOCIATED(element))
-          fld_cnt = fld_cnt + MERGE(1, 0, element%field%info%lrestart)
-          element => element%next_list_element
-        END DO
-      END IF
-    ENDDO
-  END FUNCTION number_of_restart_variables
-
-  !> collect references to all variables which match patch id and
-  !! model type name into the var_data argument
-  SUBROUTINE get_restart_vars(var_data, patch_id, modelType, out_restartType)
-    TYPE(t_p_var_list_element), ALLOCATABLE, INTENT(out) :: var_data(:)
-    INTEGER, INTENT(in) :: patch_id
-    CHARACTER(LEN = *), INTENT(IN) :: modelType
-    INTEGER, OPTIONAL, INTENT(OUT) :: out_restartType
-    INTEGER :: varCount, varIndex, error, curList, restartType
-    TYPE(t_list_element), POINTER :: element
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//":get_restart_vars"
-
-    ! init. main variables
-    restartType = -1
-    ! counts number of restart variables for this file (logical patch ident)
-    varCount = number_of_restart_variables(patch_id, modelType)
-    ! allocate the array of restart variables
-    ALLOCATE(var_data(varCount), STAT = error)
-    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
-    ! fill the array of restart variables
-    varIndex = 1
-    DO curList = 1, nvar_lists
-      IF(list_is_in_patch_restart(var_lists(curList), patch_id, modelType)) THEN
-        IF(restartType == -1) THEN
-          restartType = var_lists(curList)%p%restart_type
-        ELSE IF(restartType /= var_lists(curList)%p%restart_type) THEN
-          CALL finish(routine, "assertion failed: var_lists contains inconsistent restart_type values")
-        END IF
-        ! check, if the list has valid restart fields
-        element => var_lists(curList)%p%first_list_element
-        DO WHILE (ASSOCIATED(element))
-          IF (element%field%info%lrestart) THEN
-            var_data(varIndex)%p => element%field
-            varIndex = varIndex + 1
-          END IF
-          element => element%next_list_element
-        END DO
-      END IF
-    END DO
-    IF(varIndex /= varCount + 1) &
-         CALL finish(routine, "assertion failed: wrong restart variable count")
-    IF (PRESENT(out_restartType)) out_restartType = restartType
-  END SUBROUTINE get_restart_vars
-
-  !> loop over all variable lists and call fn for each variable list field
-  !!
-  !! @param fn callback to evaluate for each field
-  !! @param opt_list_select optional predicate function that needs to
-  !! evaluate to false for variable lists whose variables are to be
-  !! excluded from evaluation.
-  !! @param state is passed to both fn and opt_list_select (if present)
-  SUBROUTINE var_lists_apply(fn, state, opt_list_select)
-    PROCEDURE(var_apply) :: fn
-    CLASS(*), TARGET :: state
-    PROCEDURE(list_select), OPTIONAL :: opt_list_select
-    TYPE(t_list_element), POINTER :: element
-    INTEGER :: i
-
-    DO i = 1,nvar_lists
-      IF (PRESENT(opt_list_select)) THEN
-        IF (.NOT. opt_list_select(var_lists(i)%p, state)) CYCLE
-      END IF
-      element => var_lists(i)%p%first_list_element
-      DO WHILE (ASSOCIATED(element))
-        CALL fn(element%field, state, var_lists(i)%p)
-        element => element%next_list_element
-      ENDDO
-    ENDDO
-  END SUBROUTINE var_lists_apply
-
-  !-------------------------------------------------------------------------
+  !------------------------------------------------------------------------------------------------
   !
   ! Get a list of variable names matching a given criterion.
   !
-  SUBROUTINE get_all_var_names (varlist, ivar, opt_vlevel_type,           &
-    &                           opt_vert_intp_type,                       &
-    &                           opt_hor_intp_type, opt_lcontainer,        &
+  SUBROUTINE get_all_var_names (varlist, ivar, opt_vlevel_type,                          &
+    &                           opt_vert_intp_type,                                      &
+    &                           opt_hor_intp_type, opt_lcontainer,                       &
     &                           opt_loutput, opt_patch_id)
     CHARACTER(LEN=vname_len), INTENT(INOUT) :: varlist(:)
     INTEGER,                  INTENT(OUT)   :: ivar
@@ -692,44 +521,6 @@ CONTAINS
     IF (get_var_tileidx<=0) &
       CALL finish(routine, 'Illegal time level in '//TRIM(varname))
   END FUNCTION get_var_tileidx
-
-  !------------------------------------------------------------------------------------------------
-  !> @return container variable
-  !
-  FUNCTION get_var_container(patch_id, contained_elt)  RESULT(res)
-    TYPE(t_var_list_element), POINTER :: res
-    INTEGER, INTENT(IN) :: patch_id
-    TYPE(t_var_list_element), TARGET, INTENT(IN) :: contained_elt
-
-    ! local variables
-    TYPE(t_list_element), POINTER :: element
-    INTEGER                       :: i
-
-    ! Unfortunately, there does not (yet) exist a link (pointer)
-    ! between the contained element and the variable
-    ! container. Therefore we need to loop over all variables and
-    ! compare pointers.
-
-    res => contained_elt
-    VARLIST_LOOP : DO i = 1, nvar_lists
-      IF (var_lists(i)%p%patch_id /= patch_id) CYCLE
-
-      element => var_lists(i)%p%first_list_element
-      DO WHILE (ASSOCIATED(element))
-        IF (element%field%info%ncontained > 0) THEN
-          IF (ASSOCIATED(element%field%r_ptr, contained_elt%r_ptr) .OR. &
-            & ASSOCIATED(element%field%s_ptr, contained_elt%s_ptr) .OR. &
-            & ASSOCIATED(element%field%i_ptr, contained_elt%i_ptr) .OR. &
-            & ASSOCIATED(element%field%l_ptr, contained_elt%l_ptr)) THEN
-            res => element%field
-            EXIT VARLIST_LOOP
-          END IF
-        END IF
-
-        element => element%next_list_element
-      END DO
-    END DO VARLIST_LOOP
-  END FUNCTION get_var_container
 
 
   !------------------------------------------------------------------------------------------------
@@ -4544,7 +4335,7 @@ CONTAINS
 
   !-----------------------------------------------------------------------------
   !
-  ! Find named list element across all known variable lists
+  ! Find named list element accross all known variable lists
   !
   FUNCTION find_element_from_all (name, opt_patch_id, opt_hgrid, opt_caseInsensitive,opt_returnList) RESULT(element)
     CHARACTER(len=*),   INTENT(in) :: name
@@ -4572,63 +4363,6 @@ CONTAINS
       END IF
     END DO
   END FUNCTION! find_element_from_all_lists
-
-  !-----------------------------------------------------------------------------
-  !
-  ! Find named list element across selected known variable lists
-  !
-  FUNCTION find_field_from_selected(name, list_is_selected, opt_state, &
-       opt_caseInsensitive) RESULT(field)
-    CHARACTER(len=*),   INTENT(in) :: name
-    PROCEDURE(list_select) :: list_is_selected
-    CLASS(*), TARGET, OPTIONAL :: opt_state
-    LOGICAL, OPTIONAL :: opt_caseInsensitive
-
-    TYPE(t_list_element), POINTER :: element
-    TYPE(t_var_list_element), POINTER :: field
-    INTEGER :: i
-
-    NULLIFY(field)
-    DO i=1,nvar_lists
-      IF (list_is_selected(var_lists(i)%p, opt_state)) THEN
-        element => find_list_element(var_lists(i), name, &
-             opt_caseInsensitive=opt_caseInsensitive)
-        IF (ASSOCIATED (element)) THEN
-          field => element%field
-          RETURN
-        END IF
-      END IF
-    END DO
-  END FUNCTION find_field_from_selected
-
-  !-----------------------------------------------------------------------------
-  !
-  ! Find named list element across selected known variable lists
-  !
-  FUNCTION find_field_from_selected2(var_is_selected, list_is_selected, &
-       state) RESULT(field)
-    PROCEDURE(var_filter) :: var_is_selected
-    PROCEDURE(list_select) :: list_is_selected
-    CLASS(*), TARGET :: state
-
-    TYPE(t_list_element), POINTER :: element
-    TYPE(t_var_list_element), POINTER :: field
-    INTEGER :: i
-
-    NULLIFY(field)
-    DO i=1,nvar_lists
-      IF (list_is_selected(var_lists(i)%p, state)) THEN
-        element => var_lists(i)%p%first_list_element
-        DO WHILE (ASSOCIATED(element))
-          IF (var_is_selected(element%field, state, var_lists(i)%p)) THEN
-            field => element%field
-            RETURN
-          END IF
-          element => element%next_list_element
-        ENDDO
-      END IF
-    END DO
-  END FUNCTION find_field_from_selected2
 
   !-----------------------------------------------------------------------------
   !
@@ -4749,7 +4483,7 @@ CONTAINS
     CHARACTER(len=VARNAME_LEN), ALLOCATABLE :: group_names(:)
     CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: grp_vars(:), grp_vars_output(:)
     INTEGER                                 :: ngrp_vars, ngrp_vars_output, ierrstat, i, j
-    LOGICAL                                 :: latex_fmt, reduce_trailing_num, skip_trivial
+    LOGICAL                                 :: latex_fmt, reduce_trailing_num, skip_trivial, lfound
 
     latex_fmt = .FALSE.
     IF (PRESENT(opt_latex_fmt))  latex_fmt = opt_latex_fmt 
@@ -4804,7 +4538,9 @@ CONTAINS
      
       IF (ngrp_vars > 0) THEN
         
-        CALL lowcase(grp_vars(1:ngrp_vars))
+        DO j=1,ngrp_vars
+          grp_vars(j) = tolower(grp_vars(j))
+        END DO
         ! (optionally) replace trailing numbers by "*"
         IF (reduce_trailing_num) &
              CALL star_out_trailing_num(ngrp_vars, grp_vars)
@@ -4818,8 +4554,10 @@ CONTAINS
           &               opt_vlevel_type  = level_type_ml,        &
           &               opt_dom_id       = idom,                 &
           &               opt_lquiet       = .TRUE.)
-
-        CALL lowcase(grp_vars_output(1:ngrp_vars_output))
+        
+        DO j=1,ngrp_vars_output
+          grp_vars_output(j) = tolower(grp_vars_output(j))
+        END DO
         ! (optionally) replace trailing numbers by "*"
         IF (reduce_trailing_num) &
           CALL star_out_trailing_num(ngrp_vars_output, grp_vars_output)
@@ -4905,148 +4643,5 @@ CONTAINS
     END DO search_loop
     CALL remove_duplicates(grp_vars, ngrp_vars)
   END SUBROUTINE star_out_trailing_num
-
-#ifndef NOMPI
-  !> mirrors all variable meta-data in var_lists on another group of processes
-  !! is_sender must be consistently set for the sending group
-  !! (typically workers)
-  SUBROUTINE replicate_var_lists(intercomm, bcast_root, is_sender)
-    INTEGER, INTENT(in) :: intercomm, bcast_root
-    LOGICAL, INTENT(in) :: is_sender
-
-    ! var_list_name should have at least the length of var_list names
-    ! (although this doesn't matter as long as it is big enough for every name)
-    CHARACTER(LEN=max_var_list_name_len) :: var_list_name
-    INTEGER :: info_size, iv, nv,nelems, n, ierror, list_info(4)
-    INTEGER, ALLOCATABLE          :: info_storage(:,:)
-    TYPE(t_list_element), POINTER :: element
-    TYPE(t_var_list)              :: p_var_list
-    TYPE(t_var_metadata)          :: info
-    CHARACTER(len=*), PARAMETER :: routine = modname//'replicate_var_lists'
-    !---------------------------------------------------------------------
-    ! Replicate variable lists
-
-    ! Get the size - in default INTEGER words - which is needed to
-    ! hold the contents of TYPE(t_var_metadata)
-    info_size = SIZE(TRANSFER(info, (/ 0 /)))
-
-    ! Get the number of var_lists
-    IF (is_sender) THEN
-      nv = nvar_lists
-      list_info(1) = nv
-      list_info(2) = 0
-      DO iv = 1, nv
-        element => var_lists(iv)%p%first_list_element
-        nelems = 0
-        DO WHILE (ASSOCIATED(element))
-          nelems = nelems+1
-          element => element%next_list_element
-        ENDDO
-        IF (nelems > list_info(2)) list_info(2) = nelems
-      END DO
-    END IF
-    CALL p_bcast(list_info(1:2), bcast_root, intercomm)
-    nv = list_info(1)
-
-    ALLOCATE(info_storage(info_size, list_info(2)), STAT=ierror)
-    IF (ierror /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-
-    ! For each var list, get its components
-    DO iv = 1, nv
-
-      ! Send name
-      IF (is_sender) var_list_name = var_lists(iv)%p%name
-      CALL p_bcast(var_list_name, bcast_root, intercomm)
-
-      IF (is_sender) THEN
-
-        ! Count the number of variable entries
-        element => var_lists(iv)%p%first_list_element
-        nelems = 0
-        DO WHILE (ASSOCIATED(element))
-          nelems = nelems+1
-          element => element%next_list_element
-        ENDDO
-
-        ! Gather the components needed for name list I/O and send them.
-        ! Please note that not the complete list is replicated, unneeded
-        ! entries are left away!
-
-        list_info(1) = nelems
-        list_info(2) = var_lists(iv)%p%patch_id
-        list_info(3) = var_lists(iv)%p%vlevel_type
-        list_info(4) = MERGE(1,0,var_lists(iv)%p%loutput)
-
-      ENDIF
-
-      ! Send basic info:
-
-      CALL p_bcast(list_info, bcast_root, intercomm)
-
-      IF (.NOT. is_sender) THEN
-        nelems = list_info(1)
-        ! Create var list
-        CALL new_var_list(p_var_list, var_list_name, patch_id=list_info(2), &
-                          vlevel_type=list_info(3), loutput=(list_info(4)/=0) )
-      ENDIF
-
-      ! Get the binary representation of all info members of the variables
-      ! of the list and send it to the receiver.
-      ! Using the Fortran TRANSFER intrinsic may seem like a hack,
-      ! but it has the advantage that it is completely independet of the
-      ! actual declaration if TYPE(t_var_metadata).
-      ! Thus members may added to or removed from TYPE(t_var_metadata)
-      ! without affecting the code below and we don't have an additional
-      ! cross dependency between TYPE(t_var_metadata) and this module.
-
-      IF (is_sender) THEN
-        element => var_lists(iv)%p%first_list_element
-        nelems = 0
-        DO WHILE (ASSOCIATED(element))
-          nelems = nelems+1
-          info_storage(:,nelems) = TRANSFER(element%field%info, (/ 0 /))
-          element => element%next_list_element
-        ENDDO
-      ENDIF
-
-      ! Send binary representation of all info members
-
-      CALL p_bcast(info_storage, bcast_root, intercomm)
-
-      IF (.NOT. is_sender) THEN
-        IF (nelems > 0) THEN
-          ! Insert elements into var list
-          ALLOCATE(var_lists(iv)%p%first_list_element)
-          element => var_lists(iv)%p%first_list_element
-
-          DO n = 1, nelems-1
-            ! Nullify all pointers in element%field,
-            ! reconstruct these later if needed
-            NULLIFY(element%field%r_ptr, element%field%s_ptr, &
-              &     element%field%i_ptr, element%field%l_ptr)
-            element%field%var_base_size = 0 ! Unknown here
-
-            ! Set info structure from binary representation in info_storage
-            element%field%info = TRANSFER(info_storage(:, n), info)
-            ALLOCATE(element%next_list_element)
-            element => element%next_list_element
-          ENDDO
-          element%field%info = TRANSFER(info_storage(:, nelems), info)
-          NULLIFY(element%next_list_element, &
-            &     element%field%r_ptr, element%field%s_ptr, &
-            &     element%field%i_ptr, element%field%l_ptr)
-          element%field%var_base_size = 0 ! Unknown here
-        ELSE
-          NULLIFY(var_lists(iv)%p%first_list_element)
-        END IF
-      ENDIF
-
-    ENDDO
-
-    DEALLOCATE(info_storage, STAT=ierror)
-    IF (ierror /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
-
-  END SUBROUTINE replicate_var_lists
-#endif
 
 END MODULE mo_var_list

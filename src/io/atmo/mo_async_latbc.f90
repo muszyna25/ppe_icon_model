@@ -225,7 +225,6 @@ MODULE mo_async_latbc
 #ifndef NOMPI
     USE mo_async_latbc_utils,         ONLY: read_init_latbc_data
     USE mo_async_latbc_utils,         ONLY: reopen_latbc_file
-    USE mo_var_list,                  ONLY: replicate_var_lists
 #endif
     USE mo_impl_constants,            ONLY: SUCCESS, TIMELEVEL_SUFFIX, &
          &                                  VARNAME_LEN
@@ -234,12 +233,10 @@ MODULE mo_async_latbc
     USE mo_nonhydro_state,            ONLY: p_nh_state, p_nh_state_lists
     USE mo_intp_data_strc,            ONLY: p_int_state
     USE mo_ext_data_state,            ONLY: ext_data
-    USE mo_linked_list,               ONLY: t_list_element, t_var_list_intrinsic
-    USE mo_var_metadata_types,        ONLY: t_var_metadata, VARNAME_LEN
-    USE mo_var_list,                  ONLY: total_number_of_variables, &
-      &                                     collect_group, get_var_name, &
-      &                                     var_lists_apply
-    USE mo_var_list_element,          ONLY: t_var_list_element
+    USE mo_linked_list,               ONLY: t_var_list, t_list_element
+    USE mo_var_metadata_types,        ONLY: t_var_metadata
+    USE mo_var_list,                  ONLY: nvar_lists, var_lists, new_var_list, &
+         &                                  collect_group, get_var_name
     USE mo_limarea_config,            ONLY: latbc_config
     USE mo_dictionary,                ONLY: t_dictionary
     USE mo_util_string,               ONLY: add_to_list, tolower
@@ -290,11 +287,6 @@ MODULE mo_async_latbc
   TYPE t_var_data
     TYPE(t_var_metadata), POINTER :: info  ! Info structure for variable
   END TYPE t_var_data
-
-  TYPE var_data_buf
-    TYPE(t_var_data), ALLOCATABLE :: var_data(:)
-    INTEGER :: used = 0
-  END TYPE var_data_buf
 
   INTERFACE
     FUNCTION streaminqfileid(streamid) BIND(c, name='streamInqFileID') &
@@ -1225,47 +1217,134 @@ CONTAINS
 
       ! local variables
       CHARACTER(len=*), PARAMETER   :: routine = modname//"::replicate_data_on_pref_proc"
-      TYPE(var_data_buf)            :: vd_buf
-      INTEGER                       :: all_nvars
+      INTEGER                       :: info_size, i, iv, nelems, nv, n, &
+           &                           all_nvars, nvars, i2, ierrstat
       LOGICAL                       :: is_pref
+      INTEGER, ALLOCATABLE          :: info_storage(:,:)
+      TYPE(t_list_element), POINTER :: element
+      TYPE(t_var_metadata)          :: info
+      TYPE(t_var_list)              :: p_var_list
+      ! var_list_name should have at least the length of var_list names
+      CHARACTER(LEN=256)            :: var_list_name
+
+      ! get the size - in default INTEGER words - which is needed to
+      ! hold the contents of TYPE(t_var_metadata)
+      info_size = SIZE(TRANSFER(info, (/ 0 /)))
 
       is_pref = my_process_is_pref()
+      ! get the number of var lists
+      IF (.NOT. is_pref) nv = nvar_lists
+      CALL p_bcast(nv, bcast_root, p_comm_work_2_pref)
 
-      IF (.NOT. is_pref) all_nvars = total_number_of_variables()
+      IF (.NOT. is_pref) THEN
+         all_nvars = 0
+         DO i = 1, nvar_lists
+
+            ! Count the number of variable entries
+            element => var_lists(i)%p%first_list_element
+            !   IF(element%field%info%used_dimensions(2) == 0) CYCLE
+            nvars = 0
+            DO WHILE (ASSOCIATED(element))
+               !      IF(element%field%info%used_dimensions(2) == 0) CYCLE
+               nvars = nvars+1
+               element => element%next_list_element
+            ENDDO
+            all_nvars = all_nvars + nvars
+         ENDDO
+      ENDIF
 
       ! get the number of var lists
       CALL p_bcast(all_nvars, bcast_root, p_comm_work_2_pref)
 
       IF (all_nvars <= 0) RETURN
 
-      CALL replicate_var_lists(p_comm_work_2_pref, bcast_root, .NOT. is_pref)
-
       ! allocate the array of variables
-      ALLOCATE(vd_buf%var_data(all_nvars))
+      ALLOCATE(var_data(all_nvars))
 
-      vd_buf%used = 0
-      CALL var_lists_apply(fill_var_data, vd_buf)
-      CALL MOVE_ALLOC(vd_buf%var_data, var_data)
+      i2 = 0
+      ! For each var list, get its components
+      DO iv = 1, nv
+
+         ! Send name
+         IF (.NOT. is_pref) var_list_name = var_lists(iv)%p%name
+         CALL p_bcast(var_list_name, bcast_root, p_comm_work_2_pref)
+
+         IF (.NOT. is_pref) THEN
+            ! Count the number of variable entries
+            element => var_lists(iv)%p%first_list_element
+            nelems = 0
+            DO WHILE (ASSOCIATED(element))
+               nelems = nelems+1
+               element => element%next_list_element
+            ENDDO
+         ENDIF
+
+         ! Send basic info:
+         CALL p_bcast(nelems, bcast_root, p_comm_work_2_pref)
+
+         IF (is_pref) THEN
+            ! Create var list
+            CALL new_var_list( p_var_list, var_list_name)
+         ENDIF
+
+         ! Get the binary representation of all info members of the
+         ! variables of the list and send it to the receiver.  Using
+         ! the Fortran TRANSFER intrinsic may seem like a hack, but it
+         ! has the advantage that it is completely independent from
+         ! the actual declaration if TYPE(t_var_metadata).  Thus
+         ! members may added to or removed from TYPE(t_var_metadata)
+         ! without affecting the code below and we don't have an
+         ! additional cross dependency between TYPE(t_var_metadata)
+         ! and this module.
+
+         ALLOCATE(info_storage(info_size, nelems), STAT=ierrstat)
+         IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+
+         IF (.NOT. is_pref) THEN
+            element => var_lists(iv)%p%first_list_element
+            nelems = 0
+            DO WHILE (ASSOCIATED(element))
+               i2 = i2 + 1
+               var_data(i2)%info => element%field%info
+               nelems = nelems+1
+               info_storage(:,nelems) = TRANSFER(element%field%info, (/ 0 /))
+               element => element%next_list_element
+            ENDDO
+         ENDIF
+
+         ! Send binary representation of all info members
+
+         CALL p_bcast(info_storage, bcast_root, p_comm_work_2_pref)
+
+         IF (is_pref) THEN
+
+            ! Insert elements into var list
+           IF (nelems > 0) THEN
+             ALLOCATE(p_var_list%p%first_list_element)
+             element => p_var_list%p%first_list_element
+             DO n = 1, nelems-1
+               i2 = i2 + 1
+
+               ! Set info structure from binary representation in info_storage
+               element%field%info = TRANSFER(info_storage(:, n), info)
+               var_data(i2)%info => element%field%info
+               ALLOCATE(element%next_list_element)
+               element => element%next_list_element
+             ENDDO
+             i2 = i2 + 1
+             element%field%info = TRANSFER(info_storage(:, nelems), info)
+             var_data(i2)%info => element%field%info
+             NULLIFY(element%next_list_element)
+           ELSE
+             NULLIFY(p_var_list%p%first_list_element)
+           END IF
+         ENDIF
+         DEALLOCATE(info_storage, STAT=ierrstat)
+         IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+      ENDDO
 
     END SUBROUTINE replicate_data_on_pref_proc
 
-    !> add info of non-container variable to list of variable infos searched
-    !! in later parts of latbc processing
-    SUBROUTINE fill_var_data(field, state, var_list)
-      TYPE(t_var_list_element), TARGET :: field
-      CLASS(*), TARGET :: state
-      TYPE(t_var_list_intrinsic), INTENT(in) :: var_list
-      INTEGER :: used
-
-      IF (.NOT. field%info%lcontainer) THEN
-        SELECT TYPE(state)
-        TYPE IS (var_data_buf)
-          used = state%used + 1
-          state%var_data(used)%info => field%info
-          state%used = used
-        END SELECT
-      END IF
-    END SUBROUTINE fill_var_data
 
     !------------------------------------------------------------------------------------------------
     !> Sets the reorder_data for cells/edges/verts

@@ -41,17 +41,16 @@ MODULE mo_initicon_utils
                                     MODE_IAU_OLD, MODE_IFSANA, MODE_COMBINED,           &
     &                               MODE_COSMO, MODE_ICONVREMAP, MODIS,                 &
     &                               min_rlcell_int, grf_bdywidth_c, min_rlcell,         &
-    &                               iss, iorg, ibc, iso4, idu, SUCCESS, iecham,         &
-    &                               varname_len
+    &                               iss, iorg, ibc, iso4, idu, SUCCESS, iecham
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_radiation_config,    ONLY: albedo_type
   USE mo_physical_constants,  ONLY: tf_salt, tmelt
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom
-  USE mo_util_string,         ONLY: tolower
   USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, &
     &                               p_comm_work, my_process_is_mpi_workroot, &
     &                               p_min, p_max, p_sum, num_work_procs, my_process_is_work
+  USE mo_util_string,         ONLY: tolower
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, lseaice, llake, lmulti_snow,         &
     &                               isub_lake, frlnd_thrhld,             &
     &                               frlake_thrhld, frsea_thrhld, nlev_snow, ntiles_lnd,           &
@@ -65,9 +64,9 @@ MODULE mo_initicon_utils
   USE sfc_seaice,             ONLY: frsi_min, seaice_coldinit_nwp
   USE mo_post_op,             ONLY: perform_post_op
   USE mo_var_metadata_types,  ONLY: t_var_metadata, POST_OP_NONE
-  USE mo_linked_list,         ONLY: t_var_list_intrinsic
-  USE mo_var_list,            ONLY: get_var_name, find_element
-  USE mo_var_list_element,    ONLY: level_type_ml, t_var_list_element
+  USE mo_linked_list,         ONLY: t_list_element
+  USE mo_var_list,            ONLY: get_var_name, nvar_lists, var_lists
+  USE mo_var_list_element,    ONLY: level_type_ml
   USE sfc_flake,              ONLY: flake_coldinit
   USE mtime,                  ONLY: datetime, newDatetime, deallocateDatetime, &
     &                               OPERATOR(==), OPERATOR(+) 
@@ -114,14 +113,6 @@ MODULE mo_initicon_utils
   PUBLIC :: init_qnxinc_from_qxinc_twomom
   PUBLIC :: get_diag_stat_comm_work
 
-  !> type holds selection criteria for var_lists matching ilev_type and
-  !! variables matching name_lc (when converted to lower case)
-  TYPE post_op_search_state
-    INTEGER :: ilev_type
-    CHARACTER(LEN=varname_len) :: name_lc
-  END TYPE post_op_search_state
-
-
   CONTAINS
 
 
@@ -143,33 +134,49 @@ MODULE mo_initicon_utils
     REAL(wp), OPTIONAL, INTENT(INOUT) :: optvar_out3D(:,:,:) !< 2D output field
 
     ! local variables
-    TYPE(t_var_list_element), POINTER :: field
+    INTEGER                         :: i              ! loop count
     TYPE(t_var_metadata), POINTER   :: info           ! variable metadata
-    TYPE(post_op_search_state) :: search_state
+    TYPE(t_list_element), POINTER   :: element
     CHARACTER(len=*), PARAMETER     :: routine = 'initicon_inverse_post_op'
+    CHARACTER(len=LEN_TRIM(varname)):: lc_varname
     !-------------------------------------------------------------------------
 
 
     ! Check consistency of optional arguments
     !
-    IF (PRESENT( optvar_out2D ) .EQV. PRESENT( optvar_out3D )) &
-      CALL finish(routine, 'Exactly one optional argument must be present')
+    IF (PRESENT( optvar_out2D ) .AND. PRESENT( optvar_out3D )) THEN
+      CALL finish(routine, 'Only one optional argument must be present')
+    ELSE IF (.NOT.PRESENT( optvar_out2D ) .AND. .NOT.PRESENT( optvar_out3D )) THEN
+      CALL finish(routine, 'One of 2 optional arguments must be present')
+    ENDIF
 
+    lc_varname = tolower(varname)
     ! get metadata information for field to be read
-    search_state%name_lc = tolower(varname)
-    search_state%ilev_type = level_type_ml
-    ! query all var lists matching level_type_ml for variables with lower
-    ! case name equal to tolower(varname), returns first match or null()
-    field => find_element(var_filter_name_lc, var_list_filter_lev_type, &
-      state=search_state)
+    info => NULL()
+    vlist_loop: DO i = 1,nvar_lists
+      ! loop only over model level variables
+      IF (var_lists(i)%p%vlevel_type /= level_type_ml) CYCLE 
 
-    IF (.NOT.ASSOCIATED(field)) THEN
+      element => var_lists(i)%p%first_list_element
+      DO WHILE (ASSOCIATED(element))
+        ! Check for matching name (take care of suffix of
+        ! time-dependent variables):
+        IF (lc_varname == tolower(get_var_name(element%field))) THEN
+          ! info handle has been found, exit list loop
+          info => element%field%info
+          EXIT vlist_loop
+        ENDIF
+        element => element%next_list_element
+      END DO
+
+    ENDDO vlist_loop
+
+    IF (.NOT.ASSOCIATED(info)) THEN
       WRITE (message_text,'(a,a)') TRIM(varname), ' not found'
       CALL message('',message_text)
       CALL finish(routine, 'Varname does not match any of the ICON variable names')
     ENDIF
 
-    info => field%info
     ! perform post_op
     IF (info%post_op%ipost_op_type /= POST_OP_NONE) THEN
       IF(my_process_is_stdio() .AND. msg_level>10) THEN
@@ -185,28 +192,7 @@ MODULE mo_initicon_utils
 
   END SUBROUTINE initicon_inverse_post_op
 
-  !> predicate to select variables with a name matching the name passed via state
-  FUNCTION var_filter_name_lc(field, state, var_list) RESULT(is_selected)
-    LOGICAL :: is_selected
-    TYPE(t_var_list_element), INTENT(in) :: field
-    CLASS(*), TARGET :: state
-    TYPE(t_var_list_intrinsic), INTENT(in) :: var_list
-    SELECT TYPE (state)
-    TYPE IS (post_op_search_state)
-      is_selected = state%name_lc == tolower(get_var_name(field))
-    END SELECT
-  END FUNCTION var_filter_name_lc
 
-  !> predicate matching variable lists of level type equal to state%ilev_type
-  FUNCTION var_list_filter_lev_type(var_list, state) RESULT(is_selected)
-    LOGICAL :: is_selected
-    TYPE(t_var_list_intrinsic), INTENT(in) :: var_list
-    CLASS(*), TARGET :: state
-    SELECT TYPE (state)
-    TYPE IS (post_op_search_state)
-      is_selected = var_list%vlevel_type == state%ilev_type
-    END SELECT
-  END FUNCTION var_list_filter_lev_type
 
   !>
   !! SUBROUTINE init_aersosol

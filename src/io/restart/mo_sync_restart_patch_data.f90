@@ -65,7 +65,7 @@ MODULE mo_sync_restart_patch_data
                                         & timer_write_restart_communication, timers_level
   USE mo_var_metadata_types,        ONLY: t_var_metadata
   USE mo_cdi,                       ONLY: streamWriteVarSlice, streamWriteVarSliceF
-  USE mo_var_list,                  ONLY: get_restart_vars
+  USE mo_restart_var_data,          ONLY: createRestartVarData
 
   IMPLICIT NONE
   PRIVATE
@@ -95,7 +95,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: jg
 
     CALL me%description%init(jg)
-    CALL get_restart_vars(me%varData, jg, modelType, me%restartType)
+    CALL createRestartVarData(me%varData, jg, modelType, me%restartType)
   END  SUBROUTINE syncPatchData_construct
 
   ! loop over all var_lists for restart

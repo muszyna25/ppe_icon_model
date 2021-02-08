@@ -162,21 +162,21 @@ MODULE mo_pp_scheduler
     &                                   TASK_COMPUTE_HBAS_SC, TASK_COMPUTE_HTOP_SC,         &
     &                                   TASK_COMPUTE_TWATER, TASK_COMPUTE_Q_SEDIM,          &
     &                                   TASK_COMPUTE_DBZ850, TASK_COMPUTE_DBZCMAX,          &
-    &                                   TASK_COMPUTE_CEILING, TASK_COMPUTE_OMEGA,           &
+    &                                   TASK_COMPUTE_CEILING,                               &
     &                                   TASK_COMPUTE_VOR_U, TASK_COMPUTE_VOR_V,             &
     &                                   TASK_COMPUTE_BVF2, TASK_COMPUTE_PARCELFREQ2,        &
     &                                   TASK_INTP_VER_ZLEV,                                 &
     &                                   TASK_INTP_VER_ILEV, TASK_INTP_EDGE2CELL,            &
     &                                   UNDEF_TIMELEVEL, ALL_TIMELEVELS,                    &
-    &                                   vname_len,                                          &
+    &                                   vname_len, TASK_COMPUTE_OMEGA,                      &
     &                                   TLEV_NNOW, TLEV_NNOW_RCF, HINTP_TYPE_LONLAT_NNB,    &
     &                                   STR_HINTP_TYPE
   USE mo_cdi_constants,           ONLY: GRID_CELL, GRID_UNSTRUCTURED_CELL, GRID_REGULAR_LONLAT
   USE mo_model_domain,            ONLY: p_patch, p_phys_patch
-  USE mo_var_list,                ONLY: add_var, get_var_name, var_lists_apply,             &
+  USE mo_var_list,                ONLY: add_var, nvar_lists, var_lists, get_var_name,       &
     &                                   get_var_timelevel, find_list_element,               &
     &                                   get_timelevel_string
-  USE mo_var_list_element,        ONLY: level_type_ml, t_var_list_element,                  &
+  USE mo_var_list_element,        ONLY: level_type_ml,                                      &
     &                                   level_type_pl, level_type_hl, level_type_il
   USE mo_var_metadata_types,      ONLY: t_var_metadata, t_var_metadata_dynamic, VARNAME_LEN,&
     &                                   t_post_op_meta
@@ -188,9 +188,7 @@ MODULE mo_pp_scheduler
   USE mo_nwp_phy_state,           ONLY: prm_diag
   USE mo_nh_pzlev_config,         ONLY: nh_pzlev_config
   USE mo_name_list_output_config, ONLY: first_output_name_list
-  USE mo_name_list_output_types,  ONLY: t_output_name_list, is_grid_info_var, &
-    &                                   var_list_search_out_patch_lev,        &
-    &                                   var_list_filter_output_patch_levtype
+  USE mo_name_list_output_types,  ONLY: t_output_name_list, is_grid_info_var
   USE mo_parallel_config,         ONLY: nproma
   USE mo_io_config,               ONLY: lnetcdf_flt64_output
   USE mo_cf_convention,           ONLY: t_cf_var
@@ -200,7 +198,7 @@ MODULE mo_pp_scheduler
   USE mo_cdi,                     ONLY: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_PACK16,    &
     &                                   GRID_UNSTRUCTURED,TSTEP_INSTANT, TSTEP_CONSTANT
   USE mo_zaxis_type,              ONLY: ZA_ALTITUDE, ZA_PRESSURE, ZA_ISENTROPIC, zaxisTypeList
-  USE mo_linked_list,             ONLY: t_var_list, t_list_element, t_var_list_intrinsic
+  USE mo_linked_list,             ONLY: t_var_list, t_list_element
   USE mo_pp_tasks,                ONLY: pp_task_lonlat, pp_task_sync, pp_task_ipzlev_setup, &
     &                                   pp_task_ipzlev, pp_task_compute_field,              &
     &                                   pp_task_intp_msl, pp_task_edge2cell,                & 
@@ -233,44 +231,6 @@ MODULE mo_pp_scheduler
   ! some constants (for better readability):
   CHARACTER(*), PARAMETER :: vn_name = "vn"
 
-  !> data common to the different mappings created by vn_add_uv_vert_vars and
-  !! vn_add_uv_hor_vars
-  TYPE init_vn_filter_state
-    INTEGER :: lev_type, ll_grid_id
-    TYPE(t_var_list_element), POINTER :: field_u, field_v
-    TYPE(t_lon_lat_intp), POINTER :: ptr_int_lonlat(:)
-  END TYPE init_vn_filter_state
-
-  !> additional match data needed by vn_add_uv_hor_vars
-  TYPE, EXTENDS(init_vn_filter_state) :: init_vn_h_filter_state
-    CHARACTER(len=1) :: prefix
-  END TYPE init_vn_h_filter_state
-
-  !> data needed to select and set up variables for lon/lat interpolation
-  TYPE lonlat_add_state
-    CHARACTER(LEN=vname_len) :: vname
-    INTEGER :: ll_varlevs, ll_vargrid
-    LOGICAL :: l_horintp
-  END TYPE lonlat_add_state
-
-  !> additional match data needed by vn_add_uv_vert_vars
-  TYPE, EXTENDS(init_vn_filter_state) :: init_vn_vertical_filter_state
-    CHARACTER(len=:), POINTER :: prefix
-    TYPE(t_var_list), POINTER :: dst_varlist     !< destination variable list
-    INTEGER :: shape3d_c(3), shape3d_e(3), dst_axis, job_type
-    LOGICAL :: l_init_prm_diag
-  END TYPE init_vn_vertical_filter_state
-
-  !> information needed to set up a matching for i/p/z interpolation and create
-  !! a new corresponding variable in p_opt_diag_list
-  TYPE, EXTENDS(var_list_search_out_patch_lev) :: ipz_search
-    TYPE(t_var_list), POINTER :: p_opt_diag_list
-    INTEGER :: axis_idx, job_type, nlev, vgrid
-    LOGICAL :: l_init_prm_diag, l_intp, found
-    CHARACTER(len=vname_len) :: vname
-    CHARACTER(LEN=7) :: prefix
-  END TYPE ipz_search
-
 CONTAINS
 
   !--- SCHEDULER ---------------------------------------------------------------------
@@ -291,15 +251,80 @@ CONTAINS
 
     ! local variables
     CHARACTER(*), PARAMETER :: routine =  modname//"::pp_scheduler_init"
-
+    INTEGER                          :: jg, i, job_type
+    TYPE(t_list_element), POINTER    :: element, element_pres
 
     if (dbg_level > 5)  CALL message(routine, "Enter")
 
     !-------------------------------------------------------------
     !--- setup of optional diagnostic fields updated by the 
     !    post-processing scheduler
+
     !- loop over model level variables
-    CALL var_lists_apply(pp_sched_var_init, l_init_prm_diag)
+    DO i = 1,nvar_lists
+      jg = var_lists(i)%p%patch_id
+
+      element => var_lists(i)%p%first_list_element
+      DO WHILE (ASSOCIATED(element))
+
+        job_type = element%field%info%l_pp_scheduler_task
+        IF (job_type /= TASK_NONE) THEN
+
+          IF (dbg_level > 5)  &
+            & CALL message(routine, "Inserting pp task: "//TRIM(element%field%info%name))
+
+          SELECT CASE(job_type)
+          CASE (TASK_COMPUTE_RH, TASK_COMPUTE_OMEGA, TASK_COMPUTE_PV, &
+            &   TASK_COMPUTE_VOR_U, TASK_COMPUTE_VOR_V, TASK_COMPUTE_BVF2, &
+            &   TASK_COMPUTE_PARCELFREQ2, &
+            &   TASK_COMPUTE_SDI2, TASK_COMPUTE_LPI, TASK_COMPUTE_CEILING, &
+            &   TASK_COMPUTE_HBAS_SC, TASK_COMPUTE_HTOP_SC, &
+            &   TASK_COMPUTE_TWATER, TASK_COMPUTE_Q_SEDIM, &
+            &   TASK_COMPUTE_DBZ850, TASK_COMPUTE_DBZCMAX, TASK_COMPUTE_SMI)
+            ! TASK_COMPUTE_RH: relative humidity
+            ! TASK_COMPUTE_OMEGA: vertical velocity
+            ! TASK_COMPUTE_PV: potential vorticity
+            ! TASK_COMPUTE_VOR_U: zonal component of relative vorticity
+            ! TASK_COMPUTE_VOR_V: meridional component of relative vorticity
+            ! TASK_COMPUTE_BVF2: square of Brunt-Vaisala frequency
+            ! TASK_COMPUTE_PARCELFREQ2: square of air parcel oscillation frequency
+            ! TASK_COMPUTE_SDI2: super cell detection index (SDI2)
+            ! TASK_COMPUTE_LPI: lightning potential index (LPI)
+            ! TASK_COMPUTE_CEILING: ceiling height
+            ! TASK_COMPUTE_HBAS_SC: height of base over MSL from shallow
+            !                       convection parameterization
+            ! TASK_COMPUTE_HTOP_SC: height of top over MSL from shallow
+            !                       convection parameterization
+            ! TASK_COMPUTE_TWATER: total column integrated water
+            ! TASK_COMPUTE_Q_SEDIM: Specific content of precipitation particles
+            ! TASK_COMPUTE_DBZ850: radar reflectivity
+            ! TASK_COMPUTE_DBZCMAX: radar reflectivity
+            ! TASK_COMPUTE_SMI: soil moisture index
+            CALL pp_scheduler_register(name=element%field%info%name, jg=jg, &
+              &                        p_out_var=element,                   &
+              &                        l_init_prm_diag=l_init_prm_diag,     &
+              &                        job_type=job_type)
+            !
+          CASE (TASK_INTP_MSL)
+            ! mean sea level pressure
+            !
+            ! find the standard pressure field:
+            element_pres => find_list_element (p_nh_state_lists(jg)%diag_list, 'pres')
+            IF (ASSOCIATED (element_pres)) THEN
+              ! register task for interpolation to z=0:
+              CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
+                &                         job_type=TASK_INTP_MSL,                                 &
+                &                         l_init_prm_diag=l_init_prm_diag,                        &
+                &                         opt_p_in_var=element_pres)
+            END IF
+            CASE DEFAULT
+            CALL finish(routine, "Unknown pp task type!")
+          END SELECT
+        END IF
+        
+        element => element%next_list_element
+      ENDDO ! loop over vlist "i"
+    ENDDO ! i = 1,nvar_lists
 
     !-------------------------------------------------------------
     !--- setup of vertical interpolation onto i/p/z-levels
@@ -315,79 +340,6 @@ CONTAINS
     
   END SUBROUTINE pp_scheduler_init
 
-  !> inspects a single var_list element for the value of its
-  !! l_pp_scheduler_task and wires it up for post-processing via
-  !! pp_scheduler_register
-  SUBROUTINE pp_sched_var_init(field, state, var_list)
-    TYPE(t_var_list_element), TARGET :: field
-    CLASS(*), TARGET :: state
-    TYPE(t_var_list_intrinsic), INTENT(in) :: var_list
-
-    TYPE(t_list_element), POINTER :: element_pres
-    INTEGER :: jg, job_type
-    CHARACTER(len=*), PARAMETER :: routine = modname//":pp_sched_var_init"
-
-    SELECT TYPE (state)
-    TYPE IS (LOGICAL)
-      job_type = field%info%l_pp_scheduler_task
-      jg = var_list%patch_id
-      IF (job_type /= TASK_NONE) THEN
-
-        IF (dbg_level > 5)  &
-          & CALL message(routine, "Inserting pp task: "//TRIM(field%info%name))
-
-        SELECT CASE(job_type)
-        CASE (TASK_COMPUTE_RH, TASK_COMPUTE_OMEGA, TASK_COMPUTE_PV, &
-          &   TASK_COMPUTE_VOR_U, TASK_COMPUTE_VOR_V, TASK_COMPUTE_BVF2, &
-          &   TASK_COMPUTE_PARCELFREQ2, &
-          &   TASK_COMPUTE_SDI2, TASK_COMPUTE_LPI, TASK_COMPUTE_CEILING, &
-          &   TASK_COMPUTE_HBAS_SC, TASK_COMPUTE_HTOP_SC, &
-          &   TASK_COMPUTE_TWATER, TASK_COMPUTE_Q_SEDIM, &
-          &   TASK_COMPUTE_DBZ850, TASK_COMPUTE_DBZCMAX, TASK_COMPUTE_SMI)
-          ! TASK_COMPUTE_RH: relative humidity
-          ! TASK_COMPUTE_OMEGA: vertical velocity
-          ! TASK_COMPUTE_PV: potential vorticity
-          ! TASK_COMPUTE_VOR_U: zonal component of relative vorticity
-          ! TASK_COMPUTE_VOR_V: meridional component of relative vorticity
-          ! TASK_COMPUTE_BVF2: square of Brunt-Vaisala frequency
-          ! TASK_COMPUTE_PARCELFREQ2: square of air parcel oscillation frequency
-          ! TASK_COMPUTE_SDI2: super cell detection index (SDI2)
-          ! TASK_COMPUTE_LPI: lightning potential index (LPI)
-          ! TASK_COMPUTE_CEILING: ceiling height
-          ! TASK_COMPUTE_HBAS_SC: height of base over MSL from shallow
-          !                       convection parameterization
-          ! TASK_COMPUTE_HTOP_SC: height of top over MSL from shallow
-          !                       convection parameterization
-          ! TASK_COMPUTE_TWATER: total column integrated water
-          ! TASK_COMPUTE_Q_SEDIM: Specific content of precipitation particles
-          ! TASK_COMPUTE_DBZ850: radar reflectivity
-          ! TASK_COMPUTE_DBZCMAX: radar reflectivity
-          ! TASK_COMPUTE_SMI: soil moisture index
-          CALL pp_scheduler_register(name=field%info%name,                    &
-            &                        jg=var_list%patch_id,                    &
-            &                        p_out_var=field,                         &
-            &                        l_init_prm_diag=state,                   &
-            &                        job_type=job_type)
-          !
-        CASE (TASK_INTP_MSL)
-          ! mean sea level pressure
-          !
-          ! find the standard pressure field:
-          element_pres => find_list_element(p_nh_state_lists(jg)%diag_list, 'pres')
-          IF (ASSOCIATED (element_pres)) THEN
-            ! register task for interpolation to z=0:
-            CALL pp_scheduler_register(name=field%info%name,                  &
-              &                        jg=var_list%patch_id, p_out_var=field, &
-              &                        job_type=TASK_INTP_MSL,                &
-              &                        l_init_prm_diag=state,       &
-              &                        opt_p_in_var=element_pres%field)
-          END IF
-        CASE DEFAULT
-          CALL finish(routine, "Unknown pp task type!")
-        END SELECT
-      END IF
-    END SELECT
-  END SUBROUTINE pp_sched_var_init
 
   !---------------------------------------------------------------
   !> (Internal) Utility routine, add a new "vn" field for a given
@@ -399,172 +351,138 @@ CONTAINS
     INTEGER,          INTENT(IN)  :: lev_type        !< level type: p/z/i/m
     ! local variables
     CHARACTER(*), PARAMETER :: routine =  modname//"::init_vn_horizontal"
-    TYPE(init_vn_h_filter_state) :: vn_filter_state
+    TYPE(t_list_element), POINTER :: element_u, element_v, element, new_element, new_element_2
+    INTEGER                       :: i, shape3d_ll(3), nblks_lonlat, &
+      &                              nlev, jg, tl
+    TYPE(t_job_queue),    POINTER :: task
+    TYPE(t_var_metadata), POINTER :: info
+    REAL(wp),             POINTER :: p_opt_field_r3d(:,:,:)
+    CHARACTER(len=varname_len)    :: name
+    CHARACTER(len=4)              :: suffix
+    TYPE(t_cf_var)                :: cf
+    TYPE(t_grib2_var)             :: grib2
+    TYPE(t_post_op_meta)          :: post_op
+    TYPE(t_var_list), POINTER     :: dst_varlist     !< destination variable list
+    TYPE (t_lon_lat_intp), POINTER:: ptr_int_lonlat
+    CHARACTER(LEN=1)              :: prefix
 
     IF (dbg_level > 5)  CALL message(routine, "Enter")
+    
+    ! initialize "new_element" pointer (cf. NEC compiler bugs DWD0121
+    ! and DWD0123 for hybrid parallelization)
+    new_element   => NULL()
+    new_element_2 => NULL()
 
     !- loop over model level variables
     ! Note that there are several "vn" variables with different time
-    ! levels, we just unconditionally add all of them
-    vn_filter_state%ll_grid_id = ll_grid_id
-    vn_filter_state%lev_type = lev_type
-    vn_filter_state%ptr_int_lonlat => lonlat_grids%list(ll_grid_id)%intp
-    SELECT CASE(lev_type)
-    CASE (level_type_ml)
-      vn_filter_state%prefix = "m"
-    CASE (level_type_pl)
-      vn_filter_state%prefix = "p"
-    CASE (level_type_hl)
-      vn_filter_state%prefix = "z"
-    CASE (level_type_il)
-      vn_filter_state%prefix = "i"
-    END SELECT
+    ! levels, we just add unconditionally all
+    DO i = 1,nvar_lists
+      jg = var_lists(i)%p%patch_id
 
-    CALL var_lists_apply(vn_add_uv_hor_vars, vn_filter_state, filter_vn_lev_type)
+      SELECT CASE(lev_type)
+      CASE (level_type_ml)
+        dst_varlist => p_nh_opt_diag(jg)%opt_diag_list         
+        prefix = "m"
+      CASE (level_type_pl)
+        dst_varlist => p_nh_opt_diag(jg)%opt_diag_list_p
+        prefix = "p"
+      CASE (level_type_hl)
+        dst_varlist => p_nh_opt_diag(jg)%opt_diag_list_z
+        prefix = "z"
+      CASE (level_type_il)
+        dst_varlist => p_nh_opt_diag(jg)%opt_diag_list_i
+        prefix = "i"
+      END SELECT
+
+      ! Do not inspect lists which are disabled for output
+      IF (.NOT. var_lists(i)%p%loutput) CYCLE
+      ! loop only over model level variables
+      IF (var_lists(i)%p%vlevel_type /= lev_type) CYCLE         
+      ! loop only over variables of where domain was requested
+      IF (.NOT. lonlat_grids%list(ll_grid_id)%l_dom(jg)) CYCLE
+
+      ! now, search for "vn" in the variable list:
+      element => var_lists(i)%p%first_list_element
+      DO WHILE (ASSOCIATED(element))
+
+        info => element%field%info
+        ! Do not inspect element if it is a container, "loutput=.false.",
+        ! or the name doesn't match
+        IF (.NOT. info%lcontainer .AND. info%loutput &
+             .AND. vn_name == tolower(get_var_name(element%field))) THEN
+
+          ! get time level
+          tl = get_var_timelevel(element%field%info)
+          suffix = ''
+          IF (tl /= -1)  suffix = get_timelevel_string(tl)
+
+          !- find existing variables "u", "v" (for copying the meta-data):
+          element_u => find_list_element (p_nh_state_lists(jg)%diag_list, "u")
+          element_v => find_list_element (p_nh_state_lists(jg)%diag_list, "v")
+        
+          !- predefined array shapes
+          nlev = element%field%info%used_dimensions(2)
+          ptr_int_lonlat => lonlat_grids%list(ll_grid_id)%intp(jg)
+          nblks_lonlat   =  (ptr_int_lonlat%nthis_local_pts - 1)/nproma + 1
+          shape3d_ll = (/ nproma, nlev, nblks_lonlat /)
+
+          !-- create new cell-based variables "u", "v" on lon-lat grid
+          !   for the same time level
+          IF (dbg_level > 8) &
+            CALL message(routine, "horizontal interpolation: create u/v variables on lon-lat grid")
+          name    = TRIM(get_var_name(element_u%field))//suffix
+          cf      = element_u%field%info%cf
+          grib2   = element_u%field%info%grib2
+          post_op = element_u%field%info%post_op
+          CALL add_var( dst_varlist, TRIM(name), p_opt_field_r3d,                           &
+            & GRID_REGULAR_LONLAT, info%vgrid, cf, grib2,                                   &
+            & ldims=shape3d_ll, lrestart=.FALSE., in_group=element_u%field%info%in_group,   &
+            & new_element=new_element, loutput=.TRUE., post_op=post_op,                     &
+            & var_class=element_u%field%info%var_class, tlev_source=info%tlev_source,       &
+            & hor_interp=element_u%field%info%hor_interp,                                   &
+            & vert_interp=element_u%field%info%vert_interp )
+
+          name    = TRIM(get_var_name(element_v%field))//suffix
+          cf      = element_v%field%info%cf
+          grib2   = element_v%field%info%grib2
+          post_op = element_v%field%info%post_op
+          CALL add_var( dst_varlist, TRIM(name), p_opt_field_r3d,                           &
+            & GRID_REGULAR_LONLAT, info%vgrid, cf, grib2,                                   &
+            & ldims=shape3d_ll, lrestart=.FALSE., in_group=element_v%field%info%in_group,   &
+            & new_element=new_element_2, loutput=.TRUE., post_op=post_op,                   &
+            & var_class=element_v%field%info%var_class, tlev_source=info%tlev_source,       &
+            & hor_interp=element_v%field%info%hor_interp,                                   &
+            & vert_interp=element_v%field%info%vert_interp )
+
+          ! link these new variables to the lon-lat grid:
+          new_element%field%info%hor_interp%lonlat_id   = ll_grid_id
+          new_element_2%field%info%hor_interp%lonlat_id = ll_grid_id
+
+          !-- create and add post-processing task
+          task => pp_task_insert(DEFAULT_PRIORITY4)
+          WRITE (task%job_name, *) "horizontal interp. ",TRIM(info%name),", ",prefix//"-levels", ", DOM ",jg
+          IF (dbg_level > 8) CALL message(routine, task%job_name)
+          task%data_input%p_nh_state          => NULL()
+          task%data_input%prm_diag            => NULL()
+          task%data_input%nh_pzlev_config     => NULL()
+          task%data_input%jg                  =  jg           
+          task%data_input%p_patch             => p_patch(jg)
+          task%data_input%p_nh_opt_diag       => p_nh_opt_diag(jg)
+          task%data_input%p_int_state         => p_int_state(jg)
+          task%job_type                       =  TASK_INTP_HOR_LONLAT
+          task%activity                       =  new_activity_status(l_output_step=.TRUE.)
+          task%activity%check_dom_active      =  .TRUE.
+          task%activity%i_timelevel           =  get_var_timelevel(element%field%info)
+          task%data_input%var                 => element%field       ! set input variable
+          task%data_output%var                => new_element%field   ! set output variable "u"
+          task%data_output%var_2              => new_element_2%field ! set output variable "v"
+        END IF
+        element => element%next_list_element
+      END DO
+    END DO
     if (dbg_level > 5)  CALL message(routine, "Done")
 
   END SUBROUTINE init_vn_horizontal
-
-  !> add variables for horizontal interpolation
-  SUBROUTINE vn_add_uv_hor_vars(field, state, var_list)
-    TYPE(t_var_list_element), TARGET :: field
-    CLASS(*), TARGET :: state
-    TYPE(t_var_list_intrinsic), INTENT(in) :: var_list
-    TYPE(t_list_element), POINTER :: new_element, new_element_2
-    TYPE(t_var_list), POINTER :: dst_varlist     !< destination variable list
-    TYPE(t_cf_var) :: cf
-    TYPE(t_grib2_var) :: grib2
-    TYPE(t_post_op_meta) :: post_op
-    TYPE(t_job_queue), POINTER :: task
-    REAL(wp), POINTER :: p_opt_field_r3d(:,:,:)
-    INTEGER :: jg, tl, nblks_lonlat, shape3d_ll(3)
-    CHARACTER(len=varname_len)    :: name
-    CHARACTER(len=4)              :: suffix
-    CHARACTER(len=*), PARAMETER :: routine = modname//":vn_add_uv_hor_vars"
-
-    ASSOCIATE(info => field%info)
-    SELECT TYPE (state)
-    TYPE IS (init_vn_h_filter_state)
-    ! Do not inspect element if it is a container, "loutput=.false.",
-    ! or the name doesn't match
-    IF (.NOT. info%lcontainer .AND. info%loutput &
-      & .AND. vn_name == tolower(get_var_name(field))) THEN
-      ! get time level
-      tl = get_var_timelevel(field%info)
-      suffix = ''
-      IF (tl /= -1)  suffix = get_timelevel_string(tl)
-      jg = var_list%patch_id
-      !- predefined array shapes
-      nblks_lonlat = (state%ptr_int_lonlat(jg)%nthis_local_pts - 1) &
-           / nproma + 1
-      shape3d_ll = (/ nproma, field%info%used_dimensions(2), nblks_lonlat /)
-
-      SELECT CASE(state%lev_type)
-      CASE (level_type_ml)
-        dst_varlist => p_nh_opt_diag(jg)%opt_diag_list
-      CASE (level_type_pl)
-        dst_varlist => p_nh_opt_diag(jg)%opt_diag_list_p
-      CASE (level_type_hl)
-        dst_varlist => p_nh_opt_diag(jg)%opt_diag_list_z
-      CASE (level_type_il)
-        dst_varlist => p_nh_opt_diag(jg)%opt_diag_list_i
-      END SELECT
-
-      !-- create new cell-based variables "u", "v" on lon-lat grid
-      !   for the same time level
-      IF (dbg_level > 8) &
-        CALL message(routine, "horizontal interpolation: create u/v variables on lon-lat grid")
-      name    = TRIM(get_var_name(state%field_u))//suffix
-      cf      = state%field_u%info%cf
-      grib2   = state%field_u%info%grib2
-      post_op = state%field_u%info%post_op
-      CALL add_var(dst_varlist, TRIM(name), p_opt_field_r3d,                           &
-        & GRID_REGULAR_LONLAT, info%vgrid, cf, grib2,                                   &
-        & ldims=shape3d_ll, lrestart=.FALSE., in_group=state%field_u%info%in_group,   &
-        & new_element=new_element, loutput=.TRUE., post_op=post_op,                     &
-        & var_class=state%field_u%info%var_class, tlev_source=info%tlev_source,       &
-        & hor_interp=state%field_u%info%hor_interp,                                   &
-        & vert_interp=state%field_u%info%vert_interp )
-
-      name    = TRIM(get_var_name(state%field_v))//suffix
-      cf      = state%field_v%info%cf
-      grib2   = state%field_v%info%grib2
-      post_op = state%field_v%info%post_op
-      CALL add_var( dst_varlist, TRIM(name), p_opt_field_r3d,                           &
-        & GRID_REGULAR_LONLAT, info%vgrid, cf, grib2,                                   &
-        & ldims=shape3d_ll, lrestart=.FALSE., in_group=state%field_v%info%in_group,   &
-        & new_element=new_element_2, loutput=.TRUE., post_op=post_op,                   &
-        & var_class=state%field_v%info%var_class, tlev_source=info%tlev_source,       &
-        & hor_interp=state%field_v%info%hor_interp,                                   &
-        & vert_interp=state%field_v%info%vert_interp )
-
-      ! link these new variables to the lon-lat grid:
-      new_element%field%info%hor_interp%lonlat_id   = state%ll_grid_id
-      new_element_2%field%info%hor_interp%lonlat_id = state%ll_grid_id
-
-      !-- create and add post-processing task
-      task => pp_task_insert(DEFAULT_PRIORITY4)
-      WRITE (task%job_name, *) "horizontal interp. ",TRIM(info%name),", ", &
-           state%prefix, "-levels", ", DOM ",jg
-      IF (dbg_level > 8) CALL message(routine, task%job_name)
-      task%data_input%p_nh_state          => NULL()
-      task%data_input%prm_diag            => NULL()
-      task%data_input%nh_pzlev_config     => NULL()
-      task%data_input%jg                  =  jg
-      task%data_input%p_patch             => p_patch(jg)
-      task%data_input%p_nh_opt_diag       => p_nh_opt_diag(jg)
-      task%data_input%p_int_state         => p_int_state(jg)
-      task%job_type                       =  TASK_INTP_HOR_LONLAT
-      task%activity                       =  new_activity_status(l_output_step=.TRUE.)
-      task%activity%check_dom_active      =  .TRUE.
-      task%activity%i_timelevel           =  get_var_timelevel(field%info)
-      task%data_input%var                 => field       ! set input variable
-      task%data_output%var                => new_element%field   ! set output variable "u"
-      task%data_output%var_2              => new_element_2%field ! set output variable "v"
-    END IF
-    END SELECT
-    END ASSOCIATE
-  END SUBROUTINE vn_add_uv_hor_vars
-
-  !> only select variable lists which match the expected vlevel_type and
-  !! horizontal patch and are output-enabled, also sets up per var_list
-  !! search results for u and v variables
-  FUNCTION filter_vn_lev_type(var_list, state) RESULT(is_selected)
-    LOGICAL :: is_selected
-    TYPE(t_var_list_intrinsic), INTENT(in) :: var_list
-    CLASS(*), TARGET :: state
-
-    TYPE(t_list_element), POINTER :: element
-    INTEGER :: jg, ll_grid_id
-    LOGICAL :: domain_filter
-
-    SELECT TYPE (state)
-    CLASS IS (init_vn_filter_state)
-      jg = var_list%patch_id
-      ll_grid_id = state%ll_grid_id
-      IF (ll_grid_id >= 0) THEN
-        ! loop only over variables of where domain was requested
-        domain_filter = lonlat_grids%list(ll_grid_id)%l_dom(jg)
-      ELSE
-        ! loop only over variables of current domain
-        domain_filter = jg == -ll_grid_id
-      END IF
-      ! Do not inspect lists which are disabled for output
-      is_selected = var_list%loutput &
-        ! loop only over model level variables
-        .AND. var_list%vlevel_type == state%lev_type &
-        ! apply filter specific to horizontal/vertical interpolation
-        .AND. domain_filter
-      IF (is_selected) THEN
-        !- find existing variables "u", "v" (for copying the meta-data):
-        element => find_list_element(p_nh_state_lists(jg)%diag_list, "u")
-        NULLIFY(state%field_u, state%field_v)
-        IF (ASSOCIATED(element)) state%field_u => element%field
-        element => find_list_element(p_nh_state_lists(jg)%diag_list, "v")
-        IF (ASSOCIATED(element)) state%field_v => element%field
-      END IF
-    END SELECT
-  END FUNCTION filter_vn_lev_type
 
 
   !---------------------------------------------------------------
@@ -575,20 +493,33 @@ CONTAINS
     ! local variables
     CHARACTER(*), PARAMETER :: routine =  modname//"::pp_scheduler_init_lonlat"
     INTEGER                               :: &
-      &  ndom, ierrstat, ivar, i, j, nvars_ll, &
-      &  ilev_type, max_var, ilev, n_uv_hrz_intp
-    LOGICAL                               :: lvar_present
+      &  jg, ndom, ierrstat, ivar, i, j, nvars_ll, &
+      &  nblks_lonlat, ilev_type, max_var, ilev, n_uv_hrz_intp
+    LOGICAL                               :: l_horintp, lvar_present
     TYPE (t_output_name_list), POINTER    :: p_onl
     TYPE(t_job_queue),         POINTER    :: task
+    TYPE(t_var_list),          POINTER    :: p_opt_diag_list
+    REAL(wp), POINTER                     :: p_opt_field_r3d(:,:,:)
+    INTEGER,  POINTER                     :: p_opt_field_i3d(:,:,:)
+    TYPE(t_list_element),      POINTER    :: element, new_element
     CHARACTER(LEN=vname_len),  POINTER    :: varlist(:)
     INTEGER, ALLOCATABLE                  :: ll_vargrid(:)
     CHARACTER(LEN=vname_len), ALLOCATABLE :: ll_varlist(:)
     INTEGER, ALLOCATABLE                  :: ll_varlevs(:)
-    TYPE(lonlat_add_state) :: state
+    CHARACTER(LEN=vname_len)              :: vname
+    TYPE(t_var_metadata),POINTER          :: info
+    TYPE(t_var_metadata_dynamic),POINTER  :: info_dyn
+    INTEGER                               :: var_shape(5)
+    TYPE (t_lon_lat_intp),     POINTER    :: ptr_int_lonlat
     INTEGER :: uv_hrz_intp_grid(4*lonlat_grids%ngrids), &
          uv_hrz_intp_levs(4*lonlat_grids%ngrids)
+    CHARACTER(LEN=1)                      :: prefix
 
     if (dbg_level > 5)  CALL message(routine, "Enter")
+
+    ! initialize "new_element" pointer (cf. NEC compiler bugs DWD0121
+    ! and DWD0123 for hybrid parallelization)
+    new_element   => NULL()
 
     !-------------------------------------------------------------
     !-- horizontal interpolation regular lon-lat grids
@@ -600,7 +531,7 @@ CONTAINS
 
     ! flag. will be set if horizontal interpolation tasks have been
     ! created
-    state%l_horintp = .FALSE.
+    l_horintp = .FALSE.
 
     ! loop over the output definitions, collect pairs of variable
     ! names/lon-lat interpolation requests
@@ -693,28 +624,192 @@ CONTAINS
 
     !-- loop over requested variables, add variables ("add_var") and
     !-- register interpolation tasks for all requested domains:
+      
     DO ivar=1,nvars_ll
       IF (dbg_level > 8) &
         CALL message(routine, "horizontal interpolation: "&
         &     //"Looking for input var '"//TRIM(ll_varlist(ivar))//"'")
-      IF (ll_varlist(ivar) /= "u" .AND. ll_varlist(ivar) /= "v") THEN
-        state%vname = ll_varlist(ivar)
-        state%ll_varlevs = ll_varlevs(ivar)
-        state%ll_vargrid = ll_vargrid(ivar)
-        !- loop over model level variables
-        ! Note that there may be several variables with different time levels,
-        ! we just unconditionally add all of them
-        ! "u", "v" are processed separately, see above.
-        CALL var_lists_apply(lonlat_add, state, lonlat_list_filter)
-      END IF
-    END DO
+      vname = ll_varlist(ivar)
+        
+      !- loop over model level variables
+      ! Note that there may be several variables with different time levels,
+      ! we just add unconditionally all
+      LIST_LOOP : DO i = 1,nvar_lists
+        ! Do not inspect lists which are disabled for output
+        IF (.NOT. var_lists(i)%p%loutput) CYCLE
+        ! Do not inspect lists if vertical level type does not
+        ! match (p/z/i/model levels):
+        IF (var_lists(i)%p%vlevel_type/=ll_varlevs(ivar)) CYCLE LIST_LOOP
+        ! loop only over variables on requested domains:
+        jg = var_lists(i)%p%patch_id
+        IF (.NOT. lonlat_grids%list(ll_vargrid(ivar))%l_dom(jg)) CYCLE LIST_LOOP
+        element => var_lists(i)%p%first_list_element
+        VAR_LOOP : DO WHILE (ASSOCIATED(element))
+          info     => element%field%info
+          info_dyn => element%field%info_dyn
+          ! Do not inspect element if it is a container
+          IF (info%lcontainer &
+            ! Do not inspect element if "loutput=.false."
+            .OR. .NOT. info%loutput &
+            ! Do not inspect element if it does not support horizontal
+            ! interpolation
+            .OR. info%hor_interp%hor_intp_type==HINTP_TYPE_NONE &
+            ! "u", "v" are processed separately, see above.
+            .OR. vname == "u" .OR. vname == "v" &
+            ! Check for matching name (take care of suffix of
+            ! time-dependent variables):
+            .OR. vname /= tolower(get_var_name(element%field)) &
+            .OR. info%hgrid /= GRID_UNSTRUCTURED_CELL) THEN
+            element => element%next_list_element
+            CYCLE VAR_LOOP
+          ENDIF
+
+          ! Found it, add it to the variable list of optional
+          ! diagnostics       
+          SELECT CASE(ll_varlevs(ivar))
+          CASE (level_type_ml)
+            p_opt_diag_list => p_nh_opt_diag(jg)%opt_diag_list         
+            prefix = "m"
+          CASE (level_type_pl)
+            p_opt_diag_list => p_nh_opt_diag(jg)%opt_diag_list_p
+            prefix = "p"
+          CASE (level_type_hl)
+            p_opt_diag_list => p_nh_opt_diag(jg)%opt_diag_list_z
+            prefix = "z"
+          CASE (level_type_il)
+            p_opt_diag_list => p_nh_opt_diag(jg)%opt_diag_list_i
+            prefix = "i"
+          END SELECT
+
+          ! set local values for "nblks" and "npromz"
+          ptr_int_lonlat => lonlat_grids%list(ll_vargrid(ivar))%intp(jg)
+          nblks_lonlat   =  (ptr_int_lonlat%nthis_local_pts - 1)/nproma + 1
+          var_shape      =  info%used_dimensions(:)
+          IF (zaxisTypeList%is_2d(info%vgrid) .AND. (info%ndims /= 2)) THEN
+            CALL finish(routine, "Inconsistent dimension info: "//TRIM(info%name)//"!")
+          END IF
+          IF (zaxisTypeList%is_2d(info%vgrid)) THEN
+            var_shape(2:3)   =  (/ 1, nblks_lonlat /)
+          ELSE
+            var_shape(3)     =  nblks_lonlat
+          END IF
+
+          ! cross-check: some output fields set "undefined" values as
+          ! a fixed value and communicate this to the output module to
+          ! create a bit mask (GRIB). However, for lon-lat
+          ! interpolated output products this "missval" is preserved
+          ! exactly only when nearest-neighbor interpolation is
+          ! applied.
+          IF (info%lmiss .AND. (info%hor_interp%hor_intp_type /= HINTP_TYPE_LONLAT_NNB)) THEN
+            CALL finish(routine, "User tried to interpolate field with missing value!")
+          END IF
+
+          SELECT CASE (info%hgrid)
+          CASE (GRID_UNSTRUCTURED_CELL)
+            !--- REAL fields
+            IF (ASSOCIATED(element%field%r_ptr)) THEN
+              CALL add_var( p_opt_diag_list, info%name, p_opt_field_r3d,          &
+                &           GRID_REGULAR_LONLAT, info%vgrid, info%cf, info%grib2, &
+                &           ldims=var_shape, lrestart=.FALSE.,                    &
+                &           tracer_info=info_dyn%tracer,                          &
+                &           loutput=.TRUE., new_element=new_element,              &
+                &           isteptype=info%isteptype,                             &
+                &           hor_interp=create_hor_interp_metadata(                &
+                &               hor_intp_type=HINTP_TYPE_NONE ),                  &
+                &           vert_interp=info%vert_interp,                         &
+                &           post_op=info%post_op,                                 &
+                &           lmiss=info%lmiss,                                     &
+                &           missval=info%missval%rval, var_class=info%var_class,  &
+                &           tlev_source=info%tlev_source )
+            END IF
+            !--- INTEGER fields
+            IF (ASSOCIATED(element%field%i_ptr)) THEN
+              CALL add_var( p_opt_diag_list, info%name, p_opt_field_i3d,          &
+                &           GRID_REGULAR_LONLAT, info%vgrid, info%cf, info%grib2, &
+                &           ldims=var_shape, lrestart=.FALSE.,                    &
+                &           loutput=.TRUE., new_element=new_element,              &
+                &           isteptype=info%isteptype,                             &
+                &           hor_interp=create_hor_interp_metadata(                &
+                &               hor_intp_type=HINTP_TYPE_NONE ),                  &
+                &           vert_interp=info%vert_interp,                         &
+                &           post_op=info%post_op,                                 &
+                &           lmiss=info%lmiss,                                     &
+                &           missval=info%missval%ival, var_class=info%var_class,  &
+                &           tlev_source=info%tlev_source )
+            END IF
+            ! SINGLE PRECISION FLOAT fields
+            IF (ASSOCIATED(element%field%s_ptr)) THEN
+              CALL add_var( p_opt_diag_list, info%name, p_opt_field_r3d,          &
+                &           GRID_REGULAR_LONLAT, info%vgrid, info%cf, info%grib2, &
+                &           ldims=var_shape, lrestart=.FALSE.,                    &
+                &           tracer_info=info_dyn%tracer,                          &
+                &           loutput=.TRUE., new_element=new_element,              &
+                &           isteptype=info%isteptype,                             &
+                &           hor_interp=create_hor_interp_metadata(                &
+                &               hor_intp_type=HINTP_TYPE_NONE ),                  &
+                &           vert_interp=info%vert_interp,                         &
+                &           post_op=info%post_op,                                 &
+                &           lmiss=info%lmiss,                                     &
+                &           missval=REAL(info%missval%sval,wp),                   &
+                &           var_class=info%var_class,                             &
+                &           tlev_source=info%tlev_source )
+            END IF
+            ! LOGICAL fields
+            IF (ASSOCIATED(element%field%l_ptr)) THEN
+              CALL finish(routine, "Regular-grid output of LOGICAL field "//TRIM(info%name)//" unsupported!")
+            END IF
+          CASE DEFAULT
+            CALL finish(routine, "Unsupported grid type!")
+          END SELECT
+  
+          ! link this new variable to the lon-lat grid:
+          new_element%field%info%hor_interp%lonlat_id = ll_vargrid(ivar)
+
+          ! If actions have been defined for the source field, we define those actions 
+          ! for the target field (lat-lon-field) as well.
+          ! Strictly speaking this is only necessary for the RESET action, but for the 
+          ! the time being, we copy all (currently only the RESET action exists).
+          ! By this, we assure that for statistically processed fields the  start and end 
+          ! interval in the GRIB message is correct.
+          ! The drawback is, that the reset action is performed for lon-lat fields as well, 
+          ! even though it is not necessary. 
+          IF (info%action_list%n_actions > 0 ) new_element%field%info%action_list = info%action_list
+
+          !-- create and add post-processing task
+          task => pp_task_insert(DEFAULT_PRIORITY4)
+          WRITE (task%job_name, *) "horizontal interp. ",TRIM(info%name),", DOM ",jg, &
+            &                      " on ", prefix, "-levels, intp TYPE: ", &
+            &                      TRIM(STR_HINTP_TYPE(element%field%info%hor_interp%hor_intp_type))
+          IF (dbg_level > 8) CALL message(routine, task%job_name)
+          task%data_input%p_nh_state      => NULL()
+          task%data_input%prm_diag        => NULL()
+          task%data_input%nh_pzlev_config => NULL()
+          task%data_input%jg              =  jg           
+          task%data_input%p_patch         => p_patch(jg)
+          task%data_input%p_nh_opt_diag   => p_nh_opt_diag(jg)
+          task%data_input%p_int_state     => p_int_state(jg)
+          task%job_type                   =  TASK_INTP_HOR_LONLAT
+          task%activity                   =  new_activity_status(l_output_step=.TRUE.)
+          task%activity%check_dom_active  =  .TRUE.
+          task%activity%i_timelevel       =  get_var_timelevel(element%field%info)
+          task%data_input%var             => element%field       ! set input variable
+          task%data_output%var            => new_element%field   ! set output variable
+          
+          ! Flag. Denotes that at least one interpolation task has
+          ! been created.
+          l_horintp = .TRUE.
+
+          element => element%next_list_element
+        ENDDO VAR_LOOP ! loop over vlist "i"
+      ENDDO LIST_LOOP ! i = 1,nvar_lists
+    END DO ! ivar
 
     DEALLOCATE(ll_varlist, ll_vargrid, ll_varlevs, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 
     ! If at least one interpolation task has been created, we add a
     ! setup task which synchronizes the halo regions:
-    IF (state%l_horintp) THEN
+    IF (l_horintp) THEN
       IF (dbg_level >= 10) &
         CALL message(routine, "Creating synchronization task for horizontal interpolation.")
       task => pp_task_insert(DEFAULT_PRIORITY3)
@@ -730,206 +825,6 @@ CONTAINS
     
   END SUBROUTINE pp_scheduler_init_lonlat
 
-  !> return whether var_list matches the prerequisites for setting up
-  !! lon/lat interpolation of its elements
-  FUNCTION lonlat_list_filter(var_list, state) RESULT(is_selected)
-    LOGICAL :: is_selected
-    TYPE(t_var_list_intrinsic), INTENT(in) :: var_list
-    CLASS(*), TARGET :: state
-    SELECT TYPE (state)
-    TYPE IS (lonlat_add_state)
-      ! Do not inspect lists which are disabled for output
-      is_selected = var_list%loutput &
-        ! Do not inspect lists if vertical level type does not
-        ! match (p/z/i/model levels):
-        .AND. var_list%vlevel_type == state%ll_varlevs &
-        ! loop only over variables on requested domains:
-        .AND. lonlat_grids%list(state%ll_vargrid)%l_dom(var_list%patch_id)
-    END SELECT
-  END FUNCTION lonlat_list_filter
-
-  !> select a field for lon/lat interpolation if it matches the search
-  !! criteria from state
-  SUBROUTINE lonlat_add(field, state, var_list)
-    TYPE(t_var_list_element), TARGET :: field
-    CLASS(*), TARGET :: state
-    TYPE(t_var_list_intrinsic), INTENT(in) :: var_list
-
-    REAL(wp), POINTER :: p_opt_field_r3d(:,:,:)
-    INTEGER,  POINTER :: p_opt_field_i3d(:,:,:)
-    TYPE(t_list_element), POINTER :: new_element
-    TYPE(t_var_metadata), POINTER :: info
-    TYPE(t_var_metadata_dynamic),POINTER  :: info_dyn
-    TYPE (t_lon_lat_intp), POINTER :: ptr_int_lonlat
-    TYPE(t_var_list), POINTER :: p_opt_diag_list
-    TYPE(t_job_queue), POINTER :: task
-    INTEGER :: var_shape(5), nblks_lonlat, jg
-    CHARACTER(LEN=1) :: prefix
-    CHARACTER(len=*), PARAMETER :: routine = modname//':lonlat_add'
-
-    SELECT TYPE (state)
-    TYPE IS (lonlat_add_state)
-      info     => field%info
-      info_dyn => field%info_dyn
-      ! Do not inspect element if it is a container
-      IF (info%lcontainer &
-        ! Do not inspect element if "loutput=.false."
-        .OR. .NOT. info%loutput &
-        ! Do not inspect element if it does not support horizontal
-        ! interpolation
-        .OR. info%hor_interp%hor_intp_type == HINTP_TYPE_NONE &
-        ! Check for matching name (take care of suffix of
-        ! time-dependent variables):
-        .OR. state%vname /= tolower(get_var_name(field)) &
-        .OR. info%hgrid /= GRID_UNSTRUCTURED_CELL) THEN
-        RETURN
-      END IF
-
-      jg = var_list%patch_id
-      ! Found it, add it to the variable list of optional
-      ! diagnostics
-      SELECT CASE(state%ll_varlevs)
-      CASE (level_type_ml)
-        p_opt_diag_list => p_nh_opt_diag(jg)%opt_diag_list
-        prefix = "m"
-      CASE (level_type_pl)
-        p_opt_diag_list => p_nh_opt_diag(jg)%opt_diag_list_p
-        prefix = "p"
-      CASE (level_type_hl)
-        p_opt_diag_list => p_nh_opt_diag(jg)%opt_diag_list_z
-        prefix = "z"
-      CASE (level_type_il)
-        p_opt_diag_list => p_nh_opt_diag(jg)%opt_diag_list_i
-        prefix = "i"
-      END SELECT
-
-      ! set local values for "nblks" and "npromz"
-      ptr_int_lonlat => lonlat_grids%list(state%ll_vargrid)%intp(jg)
-      nblks_lonlat   =  (ptr_int_lonlat%nthis_local_pts - 1)/nproma + 1
-      var_shape      =  info%used_dimensions(:)
-      IF (zaxisTypeList%is_2d(info%vgrid) .AND. (info%ndims /= 2)) THEN
-        CALL finish(routine, "Inconsistent dimension info: "//TRIM(info%name)//"!")
-      END IF
-      IF (zaxisTypeList%is_2d(info%vgrid)) var_shape(2)   =  1
-      var_shape(3)     =  nblks_lonlat
-
-      ! cross-check: some output fields set "undefined" values as
-      ! a fixed value and communicate this to the output module to
-      ! create a bit mask (GRIB). However, for lon-lat
-      ! interpolated output products this "missval" is preserved
-      ! exactly only when nearest-neighbor interpolation is
-      ! applied.
-      IF (info%lmiss .AND. (info%hor_interp%hor_intp_type /= HINTP_TYPE_LONLAT_NNB)) THEN
-        CALL finish(routine, "User tried to interpolate field with missing value!")
-      END IF
-
-      ! initialize "new_element" pointer (cf. NEC compiler bugs DWD0121
-      ! and DWD0123 for hybrid parallelization)
-      new_element   => NULL()
-      SELECT CASE (info%hgrid)
-      CASE (GRID_UNSTRUCTURED_CELL)
-        !--- REAL fields
-        IF (ASSOCIATED(field%r_ptr)) THEN
-          CALL add_var( p_opt_diag_list, info%name, p_opt_field_r3d,          &
-            &           GRID_REGULAR_LONLAT, info%vgrid, info%cf, info%grib2, &
-            &           ldims=var_shape, lrestart=.FALSE.,                    &
-            &           tracer_info=info_dyn%tracer,                          &
-            &           loutput=.TRUE., new_element=new_element,              &
-            &           isteptype=info%isteptype,                             &
-            &           hor_interp=create_hor_interp_metadata(                &
-            &               hor_intp_type=HINTP_TYPE_NONE ),                  &
-            &           vert_interp=info%vert_interp,                         &
-            &           post_op=info%post_op,                                 &
-            &           lmiss=info%lmiss,                                     &
-            &           missval=info%missval%rval, var_class=info%var_class,  &
-            &           tlev_source=info%tlev_source )
-        END IF
-        !--- INTEGER fields
-        IF (ASSOCIATED(field%i_ptr)) THEN
-          CALL add_var( p_opt_diag_list, info%name, p_opt_field_i3d,          &
-            &           GRID_REGULAR_LONLAT, info%vgrid, info%cf, info%grib2, &
-            &           ldims=var_shape, lrestart=.FALSE.,                    &
-            &           loutput=.TRUE., new_element=new_element,              &
-            &           isteptype=info%isteptype,                             &
-            &           hor_interp=create_hor_interp_metadata(                &
-            &               hor_intp_type=HINTP_TYPE_NONE ),                  &
-            &           vert_interp=info%vert_interp,                         &
-            &           post_op=info%post_op,                                 &
-            &           lmiss=info%lmiss,                                     &
-            &           missval=info%missval%ival, var_class=info%var_class,  &
-            &           tlev_source=info%tlev_source )
-        END IF
-        IF (ASSOCIATED(field%s_ptr)) THEN
-          CALL add_var( p_opt_diag_list, info%name, p_opt_field_r3d,          &
-            &           GRID_REGULAR_LONLAT, info%vgrid, info%cf, info%grib2, &
-            &           ldims=var_shape, lrestart=.FALSE.,                    &
-            &           tracer_info=info_dyn%tracer,                          &
-            &           loutput=.TRUE., new_element=new_element,              &
-            &           isteptype=info%isteptype,                             &
-            &           hor_interp=create_hor_interp_metadata(                &
-            &               hor_intp_type=HINTP_TYPE_NONE ),                  &
-            &           vert_interp=info%vert_interp,                         &
-            &           post_op=info%post_op,                                 &
-            &           lmiss=info%lmiss,                                     &
-            &           missval=REAL(info%missval%sval,wp),                   &
-            &           var_class=info%var_class,                             &
-            &           tlev_source=info%tlev_source )
-        END IF
-        ! LOGICAL fields
-        IF (ASSOCIATED(field%l_ptr)) THEN
-          CALL finish(routine, "Regular-grid output of LOGICAL field "//TRIM(info%name)//" unsupported!")
-        END IF
-        ! SINGLE PRECISION FLOAT fields
-        IF (ASSOCIATED(field%s_ptr)) THEN
-          IF (my_process_is_stdio()) THEN
-            WRITE (0,*) "!!! Regular-grid output of single precision "//TRIM(info%name)//" unsupported!"
-            WRITE (0,*) "!!!  You may recompile the model with to partial single precision support"
-            WRITE (0,*) "!!!  by setting the flag __MIXED_PRECISION_2."
-            WRITE (0,*) "!!!  You may recompile the model with to double precision support"
-            WRITE (0,*) "!!!  by setting the flag __MIXED_PRECISION."
-          END IF
-          CALL finish(routine, "Regular-output of single precision "//TRIM(info%name)//" unsupported!")
-        END IF
-      CASE DEFAULT
-        CALL finish(routine, "Unsupported grid type!")
-      END SELECT
-      ! link this new variable to the lon-lat grid:
-      new_element%field%info%hor_interp%lonlat_id = state%ll_vargrid
-      ! If actions have been defined for the source field, we define those actions
-      ! for the target field (lat-lon-field) as well.
-      ! Strictly speaking this is only necessary for the RESET action, but for the
-      ! the time being, we copy all (currently only the RESET action exists).
-      ! By this, we assure that for statistically processed fields the  start and end
-      ! interval in the GRIB message is correct.
-      ! The drawback is, that the reset action is performed for lon-lat fields as well,
-      ! even though it is not necessary.
-      IF (info%action_list%n_actions > 0 ) new_element%field%info%action_list = info%action_list
-
-      !-- create and add post-processing task
-      task => pp_task_insert(DEFAULT_PRIORITY4)
-      WRITE (task%job_name, *) "horizontal interp. ",TRIM(info%name),", DOM ",jg, &
-        &                      " on ", prefix, "-levels, intp TYPE: ", &
-        &                      TRIM(STR_HINTP_TYPE(field%info%hor_interp%hor_intp_type))
-      IF (dbg_level > 8) CALL message(routine, task%job_name)
-      task%data_input%p_nh_state      => NULL()
-      task%data_input%prm_diag        => NULL()
-      task%data_input%nh_pzlev_config => NULL()
-      task%data_input%jg              =  jg
-      task%data_input%p_patch         => p_patch(jg)
-      task%data_input%p_nh_opt_diag   => p_nh_opt_diag(jg)
-      task%data_input%p_int_state     => p_int_state(jg)
-      task%job_type                   =  TASK_INTP_HOR_LONLAT
-      task%activity                   =  new_activity_status(l_output_step=.TRUE.)
-      task%activity%check_dom_active  =  .TRUE.
-      task%activity%i_timelevel       =  get_var_timelevel(field%info)
-      task%data_input%var             => field       ! set input variable
-      task%data_output%var            => new_element%field   ! set output variable
-
-      ! Flag. Denotes that at least one interpolation task has
-      ! been created.
-      state%l_horintp = .TRUE.
-    END SELECT
-  END SUBROUTINE lonlat_add
 
   !---------------------------------------------------------------
   !> (Internal) Utility routine, collecting variable names from output
@@ -1033,159 +928,159 @@ CONTAINS
   SUBROUTINE init_vn_vertical(jg, job_type, prefix, l_init_prm_diag, nlev, dst_axis, dst_varlist)
     INTEGER,          INTENT(IN)  :: jg              !< domain number
     INTEGER,          INTENT(IN)  :: job_type        !< vertical interpolation type
-    CHARACTER(LEN=*), TARGET, INTENT(IN) :: prefix          !< job name prefix
+    CHARACTER(LEN=*), INTENT(IN)  :: prefix          !< job name prefix
     LOGICAL,          INTENT(IN)  :: l_init_prm_diag !< Flag. If .TRUE., then prm_diag data structure is available
     INTEGER,          INTENT(IN)  :: nlev            !< number of vertical levels
     INTEGER,          INTENT(IN)  :: dst_axis        !< destination axis
     TYPE(t_var_list), POINTER     :: dst_varlist     !< destination variable list
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//"::init_vn_vertical"
-    INTEGER                       :: nblks_c, nblks_e
-    TYPE(init_vn_vertical_filter_state) :: state
+    TYPE(t_list_element), POINTER :: element_u, element_v, element, vn_element, new_element, new_element_2
+    INTEGER                       :: i, shape3d_c(3), shape3d_e(3), nblks_c, nblks_e, tl
+    TYPE(t_job_queue),    POINTER :: task
+    TYPE(t_var_metadata), POINTER :: info
+    REAL(wp),             POINTER :: p_opt_field_r3d(:,:,:)
+    CHARACTER(len=varname_len)    :: name
+    CHARACTER(len=4)              :: suffix
+    TYPE(t_cf_var)                :: cf
+    TYPE(t_grib2_var)             :: grib2
+    TYPE(t_post_op_meta)          :: post_op
+
     if (dbg_level > 5)  CALL message(routine, "Enter")
 
-    state%dst_varlist => dst_varlist
+    ! initialize "new_element" pointer (cf. NEC compiler bugs DWD0121
+    ! and DWD0123 for hybrid parallelization)
+    new_element   => NULL()
+    new_element_2 => NULL()
+     
+    !- find existing variables "u", "v" (for copying the meta-data):
+    element_u => find_list_element (p_nh_state_lists(jg)%diag_list, "u")
+    element_v => find_list_element (p_nh_state_lists(jg)%diag_list, "v")
 
     !- predefined array shapes
     nblks_c   = p_patch(jg)%nblks_c
     nblks_e   = p_patch(jg)%nblks_e
-    state%shape3d_c = (/ nproma, nlev, nblks_c /)
-    state%shape3d_e = (/ nproma, nlev, nblks_e /)
-    state%dst_axis = dst_axis
-    state%job_type = job_type
-    state%l_init_prm_diag = l_init_prm_diag
-    state%lev_type = level_type_ml
-    state%ll_grid_id = -jg
-    state%prefix => prefix(1:LEN_TRIM(prefix))
-    CALL var_lists_apply(vn_add_uv_vert_vars, state, filter_vn_lev_type)
+    shape3d_c = (/ nproma, nlev, nblks_c /)
+    shape3d_e = (/ nproma, nlev, nblks_e /)
+
     !- loop over model level variables
     ! Note that there may be several variables with different time levels,
     ! we just add unconditionally all
+    DO i = 1,nvar_lists
+      ! Do not inspect lists which are disabled for output
+      IF (.NOT. var_lists(i)%p%loutput) CYCLE
+      ! loop only over model level variables
+      IF (var_lists(i)%p%vlevel_type /= level_type_ml) CYCLE         
+      ! loop only over variables of current domain
+      IF (var_lists(i)%p%patch_id /= jg) CYCLE
+
+      element => var_lists(i)%p%first_list_element
+      var_loop: DO WHILE (ASSOCIATED(element))
+        info => element%field%info
+        ! Do not inspect element if it is a container
+        IF (info%lcontainer &
+          ! Do not inspect element if "loutput=.false."
+          .OR. .NOT. info%loutput &
+          ! Check for matching name (take care of suffix of
+          ! time-dependent variables):
+          .OR. vn_name /= tolower(get_var_name(element%field))) THEN
+          element => element%next_list_element
+          CYCLE var_loop
+        ENDIF
+
+        ! get time level
+        tl = get_var_timelevel(element%field%info)
+        suffix = ''
+
+        IF (tl /= -1) suffix = get_timelevel_string(tl)
+
+        !-- create a new z/p/i-variable "vn":
+        CALL add_var( dst_varlist, TRIM(info%name), p_opt_field_r3d, element%field%info%hgrid,    &
+          &           dst_axis, info%cf, info%grib2, ldims=shape3d_e,                             &
+          &           new_element=vn_element,                                                     &
+          &           post_op=info%post_op, lrestart=.FALSE., var_class=info%var_class,           &
+          &           tlev_source=element%field%info%tlev_source,                                 &
+          &           hor_interp=info%hor_interp,                                                 &
+          &           vert_interp=info%vert_interp )
+         
+        !-- create a post-processing task for vertical interpolation of "vn"
+        task => pp_task_insert(DEFAULT_PRIORITY1)
+        task%job_name        =  &
+          &  TRIM(prefix)//" interp. "//TRIM(info%name)//", DOM "//TRIM(int2string(jg))
+        IF (dbg_level > 8) CALL message(routine, task%job_name)
+
+        task%job_type                    =  job_type
+        task%activity                    =  new_activity_status(l_output_step=.TRUE.)
+        task%activity%check_dom_active   =  .TRUE.
+        task%activity%i_timelevel        =  get_var_timelevel(element%field%info)
+        task%data_input%jg               =  jg 
+        task%data_input%p_patch          => p_patch(jg)          
+        task%data_input%p_int_state      => p_int_state(jg)
+        task%data_input%p_nh_state       => p_nh_state(jg)
+        task%data_input%nh_pzlev_config  => nh_pzlev_config(jg)
+        task%data_input%p_nh_opt_diag    => p_nh_opt_diag(jg)
+        IF (l_init_prm_diag) THEN
+          task%data_input%prm_diag       => prm_diag(jg)
+        ELSE
+          task%data_input%prm_diag       => NULL() 
+        END IF
+        task%data_input%var  => element%field      ! set input variable
+        task%data_output%var => vn_element%field   ! set output variable
+
+        !-- create new cell-based variables "u", "v" on the same vertical axis
+
+        name    = TRIM(get_var_name(element_u%field))//suffix
+        cf      = element_u%field%info%cf
+        grib2   = element_u%field%info%grib2
+        post_op = element_u%field%info%post_op
+        CALL add_var( dst_varlist, TRIM(name), p_opt_field_r3d,                           &
+          & GRID_UNSTRUCTURED_CELL, dst_axis, cf, grib2,                                  &
+          & ldims=shape3d_c, lrestart=.FALSE., in_group=element_u%field%info%in_group,    &
+          & new_element=new_element, post_op=post_op,                                     &
+          & var_class=element_u%field%info%var_class,                                     &
+          & tlev_source=element_u%field%info%tlev_source,                                 &
+          & hor_interp=element_u%field%info%hor_interp,                                   &
+          & vert_interp=element_u%field%info%vert_interp )
+
+        name    = TRIM(get_var_name(element_v%field))//suffix
+        cf      = element_v%field%info%cf
+        grib2   = element_v%field%info%grib2
+        post_op = element_v%field%info%post_op
+        CALL add_var( dst_varlist, TRIM(name), p_opt_field_r3d,                           &
+          & GRID_UNSTRUCTURED_CELL, dst_axis, cf, grib2,                                  &
+          & ldims=shape3d_c, lrestart=.FALSE., in_group=element_v%field%info%in_group,    &
+          & new_element=new_element_2, post_op=post_op,                                   &
+          & var_class=element_v%field%info%var_class,                                     &
+          & tlev_source=element_v%field%info%tlev_source,                                 &
+          & hor_interp=element_v%field%info%hor_interp,                                   &
+          & vert_interp=element_v%field%info%vert_interp  )
+
+        !-- create a post-processing task for edge2cell interpolation "vn" -> "u","v"
+        task => pp_task_insert(DEFAULT_PRIORITY2)
+        WRITE (task%job_name, *) "edge2cell interp. ",TRIM(info%name),", DOM ",jg
+        IF (dbg_level > 8) CALL message(routine, task%job_name)
+        task%data_input%p_nh_state      => NULL()
+        task%data_input%prm_diag        => NULL()
+        task%data_input%nh_pzlev_config => NULL()
+        task%data_input%jg              =  jg           
+        task%data_input%p_patch         => p_patch(jg)
+        task%data_input%p_nh_opt_diag   => p_nh_opt_diag(jg)
+        task%data_input%p_int_state     => p_int_state(jg)
+        task%job_type                   =  TASK_INTP_EDGE2CELL
+        task%activity                   =  new_activity_status(l_output_step=.TRUE.)
+        task%activity%check_dom_active  =  .TRUE.
+        task%activity%i_timelevel       =  get_var_timelevel(element%field%info)
+        task%data_input%var             => vn_element%field    ! set input variable
+        task%data_output%var            => new_element%field   ! set output variable
+        task%data_output%var_2          => new_element_2%field ! set Y-component
+        element => element%next_list_element
+      END DO var_loop
+    END DO
 
     if (dbg_level > 5)  CALL message(routine, "Done")
 
   END SUBROUTINE init_vn_vertical
 
-  !> callback to setup an vn <-> u/v vertical interpolation mapping by
-  !! first creating a vn variable on the desired z axis and new u/v
-  !! variables derived from it afterwards
-  SUBROUTINE vn_add_uv_vert_vars(field, state, var_list)
-    TYPE(t_var_list_element), TARGET :: field
-    CLASS(*), TARGET :: state
-    TYPE(t_var_list_intrinsic), INTENT(in) :: var_list
-
-    REAL(wp), POINTER :: p_opt_field_r3d(:,:,:)
-    TYPE(t_list_element), POINTER :: vn_element, new_element, new_element_2
-    TYPE(t_var_metadata), POINTER :: info
-    TYPE(t_job_queue), POINTER :: task
-    INTEGER :: tl, jg, tlen
-    CHARACTER(len=4) :: suffix
-    CHARACTER(len=varname_len)    :: name
-    CHARACTER(*), PARAMETER :: routine = modname//"::vn_add_uv_vert_vars"
-
-    ! initialize "new_element" pointer (cf. NEC compiler bugs DWD0121
-    ! and DWD0123 for hybrid parallelization)
-    NULLIFY(new_element, new_element_2, vn_element)
-
-    jg = var_list%patch_id
-    info => field%info
-    ! Do not inspect field if it is a container
-    IF (info%lcontainer &
-      ! Do not inspect field if "loutput=.false."
-      .OR. .NOT. info%loutput &
-      ! Check for matching name (take care of suffix of
-      ! time-dependent variables):
-      .OR. vn_name /= tolower(get_var_name(field))) THEN
-      RETURN
-    ENDIF
-
-    SELECT TYPE (state)
-    TYPE IS (init_vn_vertical_filter_state)
-    ! get time level
-    tl = get_var_timelevel(field%info)
-    suffix = ''
-
-    IF (tl /= -1) suffix = get_timelevel_string(tl)
-
-    tlen = LEN_TRIM(info%name)
-    !-- create a new z/p/i-variable "vn":
-    CALL add_var(state%dst_varlist, info%name(1:tlen), p_opt_field_r3d,       &
-      &          info%hgrid, state%dst_axis,                                  &
-      &          info%cf, info%grib2, ldims=state%shape3d_e,                  &
-      &          new_element=vn_element,                                      &
-      &          post_op=info%post_op, lrestart=.FALSE.,                      &
-      &          var_class=info%var_class,                                    &
-      &          tlev_source=info%tlev_source,                                &
-      &          hor_interp=info%hor_interp,                                  &
-      &          vert_interp=info%vert_interp )
-
-    !-- create a post-processing task for vertical interpolation of "vn"
-    task => pp_task_insert(DEFAULT_PRIORITY1)
-    WRITE (task%job_name, '(4a,i0)') &
-      &  TRIM(state%prefix), " interp. ", info%name(1:tlen), ", DOM ", jg
-    IF (dbg_level > 8) CALL message(routine, task%job_name)
-
-    task%job_type                    =  state%job_type
-    task%activity                    =  new_activity_status(l_output_step=.TRUE.)
-    task%activity%check_dom_active   =  .TRUE.
-    task%activity%i_timelevel        =  tl
-    task%data_input%jg               =  jg
-    task%data_input%p_patch          => p_patch(jg)
-    task%data_input%p_int_state      => p_int_state(jg)
-    task%data_input%p_nh_state       => p_nh_state(jg)
-    task%data_input%nh_pzlev_config  => nh_pzlev_config(jg)
-    task%data_input%p_nh_opt_diag    => p_nh_opt_diag(jg)
-    IF (state%l_init_prm_diag) THEN
-      task%data_input%prm_diag       => prm_diag(jg)
-    ELSE
-      task%data_input%prm_diag       => NULL()
-    END IF
-    task%data_input%var  => field      ! set input variable
-    task%data_output%var => vn_element%field   ! set output variable
-
-    !-- create new cell-based variables "u", "v" on the same vertical axis
-    name    = TRIM(get_var_name(state%field_u))//suffix
-    CALL add_var(state%dst_varlist, TRIM(name), p_opt_field_r3d,              &
-      & GRID_UNSTRUCTURED_CELL, state%dst_axis, state%field_u%info%cf,        &
-      & state%field_u%info%grib2, ldims=state%shape3d_c, lrestart=.FALSE.,    &
-      & in_group=state%field_u%info%in_group,                                 &
-      & new_element=new_element, post_op=state%field_u%info%post_op,          &
-      & var_class=state%field_u%info%var_class,                               &
-      & tlev_source=state%field_u%info%tlev_source,                           &
-      & hor_interp=state%field_u%info%hor_interp,                             &
-      & vert_interp=state%field_u%info%vert_interp )
-
-    name    = TRIM(get_var_name(state%field_v))//suffix
-    CALL add_var(state%dst_varlist, TRIM(name), p_opt_field_r3d,              &
-      & GRID_UNSTRUCTURED_CELL, state%dst_axis, state%field_v%info%cf,        &
-      & state%field_v%info%grib2, ldims=state%shape3d_c, lrestart=.FALSE.,    &
-      & in_group=state%field_v%info%in_group, new_element=new_element_2,      &
-      & post_op=state%field_v%info%post_op,                                   &
-      & var_class=state%field_v%info%var_class,                               &
-      & tlev_source=state%field_v%info%tlev_source,                           &
-      & hor_interp=state%field_v%info%hor_interp,                             &
-      & vert_interp=state%field_v%info%vert_interp  )
-
-    !-- create a post-processing task for edge2cell interpolation "vn" -> "u","v"
-    task => pp_task_insert(DEFAULT_PRIORITY2)
-    WRITE (task%job_name, *) "edge2cell interp. ", info%name(1:tlen), ", DOM ",jg
-    IF (dbg_level > 8) CALL message(routine, task%job_name)
-    task%data_input%p_nh_state      => NULL()
-    task%data_input%prm_diag        => NULL()
-    task%data_input%nh_pzlev_config => NULL()
-    task%data_input%jg              =  jg
-    task%data_input%p_patch         => p_patch(jg)
-    task%data_input%p_nh_opt_diag   => p_nh_opt_diag(jg)
-    task%data_input%p_int_state     => p_int_state(jg)
-    task%job_type                   =  TASK_INTP_EDGE2CELL
-    task%activity                   =  new_activity_status(l_output_step=.TRUE.)
-    task%activity%check_dom_active  =  .TRUE.
-    task%activity%i_timelevel       =  tl
-    task%data_input%var             => vn_element%field    ! set input variable
-    task%data_output%var            => new_element%field   ! set output variable
-    task%data_output%var_2          => new_element_2%field ! set Y-component
-    END SELECT
-  END SUBROUTINE vn_add_uv_vert_vars
 
   !---------------------------------------------------------------
   !> Setup of i/p/z-level interpolation tasks.
@@ -1206,29 +1101,40 @@ CONTAINS
     CHARACTER,    PARAMETER :: init_names(3) = &
       &  (/ 'z', 'p', 'i' /)
     INTEGER                            :: &
-      &  jg, ndom, ibits, nblks_c, ierrstat, ivar, i,      &
-      &  iaxis, nvars_pl, nvars_hl, nvars_il, nvars,   &
-      &  z_id, p_id, i_id, shape3d(3), datatype_flt
+      &  jg, ndom, ibits, nblks_c, nblks_v, ierrstat, ivar, i,      &
+      &  iaxis, vgrid, nlev, nvars_pl, nvars_hl, nvars_il, nvars,   &
+      &  job_type, z_id, p_id, i_id, shape3d(3), datatype_flt,      &
+      &  isteptype
     LOGICAL                            :: &
-      &  l_intp_p, l_intp_z, l_intp_i, &
+      &  l_intp_p, l_intp_z, l_intp_i, found, &
       &  l_uv_vertical_intp_z, l_uv_vertical_intp_p, l_uv_vertical_intp_i, &
       &  l_uv_vertical_intp
     TYPE(t_job_queue),         POINTER :: task
     TYPE(t_nh_diag_pz),        POINTER :: p_diag_pz
     TYPE(t_var_list),          POINTER :: p_opt_diag_list_p, p_opt_diag_list_z, &
-      &                                   p_opt_diag_list_i
+      &                                   p_opt_diag_list_i, p_opt_diag_list
+    REAL(wp),                  POINTER :: p_opt_field_r3d(:,:,:)
+    TYPE(t_list_element),      POINTER :: element, new_element
     ! variable lists (for all domains + output name lists):
     CHARACTER(LEN=vname_len), TARGET, ALLOCATABLE  :: &
          &                                pl_varlist(:), hl_varlist(:), il_varlist(:)
     CHARACTER(LEN=vname_len),  POINTER   :: varlist(:)
+    CHARACTER(LEN=10)                    :: prefix
+    TYPE(t_var_metadata),POINTER         :: info
+    TYPE(t_var_metadata_dynamic),POINTER :: info_dyn
     TYPE(t_cf_var)                       :: cf_desc
     TYPE(t_grib2_var)                    :: grib2_desc
-    TYPE(ipz_search) :: search
 
-    search%l_init_prm_diag = l_init_prm_diag
     ! define NetCDF output precision
-    datatype_flt = MERGE(DATATYPE_FLT64, DATATYPE_FLT32, lnetcdf_flt64_output)
+    IF ( lnetcdf_flt64_output ) THEN
+      datatype_flt = DATATYPE_FLT64
+    ELSE
+      datatype_flt = DATATYPE_FLT32
+    ENDIF
 
+    ! initialize "new_element" pointer (cf. NEC compiler bugs DWD0121
+    ! and DWD0123 for hybrid parallelization)
+    new_element   => NULL()
 
     if (dbg_level > 5)  CALL message(routine, "Enter")
     ndom = SIZE(p_nh_opt_diag)
@@ -1252,9 +1158,7 @@ CONTAINS
 !CDIR NOIEXPAND
     i_id = vintp_type_id("I")
 
-    search%ilev_type = level_type_ml
     DOM_LOOP : DO jg=1,ndom
-      search%patch_id = jg
       IF (dbg_level > 8)  CALL message(routine, "DOM "//int2string(jg))
 
       !-- check if any output name list requests p- or z- or i-level 
@@ -1294,8 +1198,6 @@ CONTAINS
       ! skip domain if no p/z-interpolation requested:
       IF (.NOT. (l_intp_z .OR. l_intp_p .OR. l_intp_i)) CYCLE DOM_LOOP
 
-      search%l_intp = l_intp_p .OR. l_intp_i
-
       ! remove duplicates from variable lists
       IF (l_intp_z) CALL remove_duplicates(hl_varlist, nvars_hl)
       IF (l_intp_p) CALL remove_duplicates(pl_varlist, nvars_pl)
@@ -1311,6 +1213,7 @@ CONTAINS
 
       ! predefined array shapes
       nblks_c   = p_patch(jg)%nblks_c
+      nblks_v   = p_patch(jg)%nblks_v
 
       ! add new variable fields for the z/p/i-axis, based on the
       ! meta-data of an existing variable field (which is defined on
@@ -1398,37 +1301,34 @@ CONTAINS
       !-- ("add_var") and register interpolation tasks:
       DO iaxis=1,3
         IF (iaxis == 1) THEN
-          search%prefix  =  "z-level"
+          prefix  =  "z-level"
           varlist => hl_varlist
           nvars   =  nvars_hl
-          search%nlev    =  nh_pzlev_config(jg)%zlevels%nvalues
-          search%vgrid   =  ZA_ALTITUDE
-          search%p_opt_diag_list => p_opt_diag_list_z
-          search%job_type = TASK_INTP_VER_ZLEV
+          nlev    =  nh_pzlev_config(jg)%zlevels%nvalues
+          vgrid   =  ZA_ALTITUDE
+          p_opt_diag_list => p_opt_diag_list_z
+          job_type = TASK_INTP_VER_ZLEV
           l_uv_vertical_intp = l_uv_vertical_intp_z
-          search%axis_idx = z_id
         END IF
         IF (iaxis == 2) THEN
-          search%prefix  =  "p-level"
+          prefix  =  "p-level"
           varlist => pl_varlist
           nvars   =  nvars_pl
-          search%nlev    =  nh_pzlev_config(jg)%plevels%nvalues
-          search%vgrid   =  ZA_PRESSURE
-          search%p_opt_diag_list => p_opt_diag_list_p
-          search%job_type = TASK_INTP_VER_PLEV
+          nlev    =  nh_pzlev_config(jg)%plevels%nvalues
+          vgrid   =  ZA_PRESSURE
+          p_opt_diag_list => p_opt_diag_list_p
+          job_type = TASK_INTP_VER_PLEV
           l_uv_vertical_intp = l_uv_vertical_intp_p
-          search%axis_idx = p_id
         END IF
         IF (iaxis == 3) THEN
-          search%prefix  =  "i-level"
+          prefix  =  "i-level"
           varlist => il_varlist
           nvars   =  nvars_il
-          search%nlev    =  nh_pzlev_config(jg)%ilevels%nvalues
-          search%vgrid   =  ZA_ISENTROPIC
-          search%p_opt_diag_list => p_opt_diag_list_i
-          search%job_type = TASK_INTP_VER_ILEV
+          nlev    =  nh_pzlev_config(jg)%ilevels%nvalues
+          vgrid   =  ZA_ISENTROPIC
+          p_opt_diag_list => p_opt_diag_list_i
+          job_type = TASK_INTP_VER_ILEV
           l_uv_vertical_intp = l_uv_vertical_intp_i
-          search%axis_idx = i_id
         END IF
 
         !-- if "u", "v" appear in the variable list...
@@ -1438,24 +1338,111 @@ CONTAINS
           ! vertical axis, create a post-processing task for vertical
           ! interpolation of "vn", create a post-processing task for
           ! edge2cell interpolation "vn" -> "u","v":
-          CALL init_vn_vertical(jg, search%job_type, search%prefix, l_init_prm_diag, &
-            &                   search%nlev, search%vgrid, search%p_opt_diag_list)
+          CALL init_vn_vertical(jg, job_type, prefix, l_init_prm_diag, &
+            &                   nlev, vgrid, p_opt_diag_list)
         END IF
 
         DO ivar=1,nvars
           IF (dbg_level > 8) &
-            CALL message(routine, search%prefix//": Looking for input var '"//TRIM(varlist(ivar))//"'")
-          search%found = .FALSE.
+            CALL message(routine, TRIM(prefix)//": Looking for input var '"//TRIM(varlist(ivar))//"'")
+          found = .FALSE.
         
           !- loop over model level variables
           ! Note that there may be several variables with different time levels,
           ! we just add unconditionally all
-          search%vname = varlist(ivar)
-          CALL var_lists_apply(ipz_var_add, search, &
-            &                  var_list_filter_output_patch_levtype)
+          DO i = 1,nvar_lists
+            ! Do not inspect lists which are disabled for output
+            IF (.NOT. var_lists(i)%p%loutput) CYCLE
+            ! loop only over model level variables
+            IF (var_lists(i)%p%vlevel_type /= level_type_ml) CYCLE         
+            ! loop only over variables of current domain
+            IF (var_lists(i)%p%patch_id /= jg) CYCLE
+
+            element => var_lists(i)%p%first_list_element
+            var_loop: DO WHILE (ASSOCIATED(element))
+              info     => element%field%info
+              info_dyn => element%field%info_dyn
+              ! Do not inspect element if it is a container
+              IF (info%lcontainer &
+                ! Do not inspect element if "loutput=.false."
+                .OR. .NOT. info%loutput &
+                ! Inspect element only if vertical interpolation matches
+                .OR. (iaxis == 1 .AND. .NOT. info%vert_interp%vert_intp_type(z_id)) &
+                .OR. (iaxis == 2 .AND. .NOT. info%vert_interp%vert_intp_type(p_id)) &
+                .OR. (iaxis == 3 .AND. .NOT. info%vert_interp%vert_intp_type(i_id)) &
+                ! Check for matching name (take care of suffix of
+                ! time-dependent variables):
+                .OR. varlist(ivar) /= tolower(get_var_name(element%field))) THEN
+                element => element%next_list_element
+                CYCLE var_loop
+              END IF
+
+              ! Found it, add it to the variable list of optional
+              ! diagnostics
+              IF ( (info%used_dimensions(1) /= nproma)  .OR.   &
+                &  ((info%used_dimensions(3) /= nblks_c) .AND. &
+                &   (info%used_dimensions(3) /= nblks_v)) ) THEN
+                CALL finish(routine, "Unexpected field size!")
+              END IF
+              ! Note: Even vertex-based variables are interpolated
+              ! onto a cell-based variable, since we interpolate the
+              ! vertex-based vars to cell-based vars first:
+              shape3d  = (/ info%used_dimensions(1), nlev, nblks_c /)
+
+              ! fields interpolated to pressure levels are time
+              ! dependent, rather than constant in time:
+              isteptype = info%isteptype
+              IF ((isteptype==TSTEP_CONSTANT) .AND. (l_intp_p .OR. l_intp_i)) THEN
+                isteptype=TSTEP_INSTANT
+              END IF
+
+              CALL add_var( p_opt_diag_list, info%name, p_opt_field_r3d,    &
+                &           info%hgrid, vgrid, info%cf, info%grib2,         &
+                &           ldims=shape3d, lrestart=.FALSE.,                &
+                &           tracer_info=info_dyn%tracer,                    &
+                &           loutput=.TRUE., new_element=new_element,        &
+                &           isteptype=isteptype,                            &
+                &           post_op=info%post_op, var_class=info%var_class, &
+                &           tlev_source=info%tlev_source,                   &
+                &           hor_interp=info%hor_interp,                     &
+                &           vert_interp=info%vert_interp )
+
+              !-- add post-processing task for interpolation
+
+              task => pp_task_insert(DEFAULT_PRIORITY1)
+              task%job_name        =  &
+                &  TRIM(prefix)//" interp. "//TRIM(info%name)  &
+                &  //", DOM "//TRIM(int2string(jg))            &
+                & //", vintp type: "//TRIM(int2string(element%field%info%vert_interp%vert_intp_method))
+              IF (dbg_level > 8) CALL message(routine, task%job_name)
+
+              task%job_type                    =  job_type
+              task%activity                    =  new_activity_status(l_output_step=.TRUE.)
+              task%activity%check_dom_active   =  .TRUE.
+              task%activity%i_timelevel        =  get_var_timelevel(element%field%info)
+              task%data_input%jg               =  jg 
+              task%data_input%p_patch          => p_patch(jg)          
+              task%data_input%p_int_state      => p_int_state(jg)
+              task%data_input%p_nh_state       => p_nh_state(jg)
+              task%data_input%nh_pzlev_config  => nh_pzlev_config(jg)
+              task%data_input%p_nh_opt_diag    => p_nh_opt_diag(jg)
+              IF (l_init_prm_diag) THEN
+                task%data_input%prm_diag       => prm_diag(jg)
+              ELSE
+                task%data_input%prm_diag       => NULL() 
+              END IF
+              task%data_input%var  => element%field       ! set input variable
+              task%data_output%var => new_element%field   ! set output variable
+
+              found = .TRUE.
+
+              element => element%next_list_element
+            ENDDO var_loop ! loop over vlist "i"
+          ENDDO ! i = 1,nvar_lists
+        
           ! Check that at least one element with this name has been found
-          IF(.NOT. search%found) &
-            CALL finish(routine, search%prefix//" interpolation: No feasible variable found: "&
+          IF(.NOT. found) &
+            CALL finish(routine,TRIM(prefix)//" interpolation: No feasible variable found: "&
             &                   //TRIM(varlist(ivar)))
         END DO ! ivar
       END DO ! height/pressure/isentropic axis
@@ -1467,109 +1454,6 @@ CONTAINS
     IF (dbg_level > 5)  CALL message(routine, "Done")
     
   END SUBROUTINE pp_scheduler_init_ipz
-
-  !> add single variable mapping for vertical interpolation from model
-  !! level variable to i, p or z levels
-  SUBROUTINE ipz_var_add(field, state, var_list)
-    TYPE(t_var_list_element), TARGET :: field
-    TYPE(t_var_list_intrinsic), INTENT(in) :: var_list
-    CLASS(*), TARGET :: state
-
-    REAL(wp),                  POINTER :: p_opt_field_r3d(:,:,:)
-    TYPE(t_var_metadata), POINTER :: info
-    TYPE(t_var_metadata_dynamic), POINTER :: info_dyn
-    TYPE(t_job_queue), POINTER :: task
-    TYPE(t_list_element), POINTER :: new_element
-    INTEGER :: jg, shape3d(3), isteptype, tlen, nblks_c, nblks_v
-    CHARACTER(*), PARAMETER :: routine = modname//"::ipz_var_add"
-
-    SELECT TYPE (state)
-    TYPE is (ipz_search)
-      jg = var_list%patch_id
-      info     => field%info
-      info_dyn => field%info_dyn
-      ! Do not inspect element if it is a container
-      IF (info%lcontainer &
-        ! Do not inspect element if "loutput=.false."
-        .OR. .NOT. info%loutput &
-        ! Inspect element only if vertical interpolation matches
-        .OR. .NOT. info%vert_interp%vert_intp_type(state%axis_idx) &
-        ! Check for matching name (take care of suffix of
-        ! time-dependent variables):
-        .OR. state%vname /= tolower(get_var_name(field))) THEN
-        RETURN
-      END IF
-      ! initialize "new_element" pointer (cf. NEC compiler bugs DWD0121
-      ! and DWD0123 for hybrid parallelization)
-      new_element   => NULL()
-      tlen = LEN_TRIM(info%name)
-      ! throw error message, if this variable is not a REAL field:
-      IF (.NOT. ASSOCIATED(field%r_ptr)) THEN
-        CALL finish(routine, info%name(1:tlen)//": i/p/z interpolation implemented for REAL fields only.")
-      END IF
-
-      ! Found it, add it to the variable list of optional
-      ! diagnostics
-      ! predefined array shapes
-      nblks_c   = p_patch(jg)%nblks_c
-      nblks_v   = p_patch(jg)%nblks_v
-      IF (  (info%used_dimensions(1) /= nproma)  .OR.   &
-        &  ((info%used_dimensions(3) /= nblks_c) .AND. &
-        &   (info%used_dimensions(3) /= nblks_v)) ) THEN
-        CALL finish(routine, "Unexpected field size!")
-      END IF
-      ! Note: Even vertex-based variables are interpolated
-      ! onto a cell-based variable, since we interpolate the
-      ! vertex-based vars to cell-based vars first:
-      shape3d  = (/ nproma, state%nlev, nblks_c /)
-
-      ! fields interpolated to pressure levels are time
-      ! dependent, rather than constant in time:
-      isteptype = info%isteptype
-      IF (isteptype == TSTEP_CONSTANT .AND. state%l_intp) THEN
-        isteptype=TSTEP_INSTANT
-      END IF
-
-      CALL add_var(state%p_opt_diag_list, info%name, p_opt_field_r3d,    &
-        &          info%hgrid, state%vgrid, info%cf, info%grib2,         &
-        &          ldims=shape3d, lrestart=.FALSE.,                &
-        &          tracer_info=info_dyn%tracer,                    &
-        &          loutput=.TRUE., new_element=new_element,        &
-        &          isteptype=isteptype,                            &
-        &          post_op=info%post_op, var_class=info%var_class, &
-        &          tlev_source=info%tlev_source,                   &
-        &          hor_interp=info%hor_interp,                     &
-        &          vert_interp=info%vert_interp )
-
-      !-- add post-processing task for interpolation
-
-      task => pp_task_insert(DEFAULT_PRIORITY1)
-      WRITE (task%job_name, '(4a,i0,a,i0)') &
-        state%prefix, " interp. ", info%name(1:tlen), &
-        ", DOM ", jg, ", vintp type: ", field%info%vert_interp%vert_intp_method
-      IF (dbg_level > 8) CALL message(routine, task%job_name)
-
-      task%job_type                    =  state%job_type
-      task%activity                    =  new_activity_status(l_output_step=.TRUE.)
-      task%activity%check_dom_active   =  .TRUE.
-      task%activity%i_timelevel        =  get_var_timelevel(field%info)
-      task%data_input%jg               =  jg
-      task%data_input%p_patch          => p_patch(jg)
-      task%data_input%p_int_state      => p_int_state(jg)
-      task%data_input%p_nh_state       => p_nh_state(jg)
-      task%data_input%nh_pzlev_config  => nh_pzlev_config(jg)
-      task%data_input%p_nh_opt_diag    => p_nh_opt_diag(jg)
-      IF (state%l_init_prm_diag) THEN
-        task%data_input%prm_diag       => prm_diag(jg)
-      ELSE
-        task%data_input%prm_diag       => NULL()
-      END IF
-      task%data_input%var => field       ! set input variable
-      task%data_output%var => new_element%field   ! set output variable
-
-      state%found = .TRUE.
-    END SELECT
-  END SUBROUTINE ipz_var_add
 
 
   !---------------------------------------------------------------
@@ -1586,12 +1470,12 @@ CONTAINS
 
     CHARACTER(LEN=*)                   , INTENT(IN) :: name
     INTEGER                            , INTENT(IN) :: jg
-    TYPE(t_var_list_element), TARGET :: p_out_var
+    TYPE (t_list_element), POINTER                  :: p_out_var
     LOGICAL                            , INTENT(IN) :: l_init_prm_diag
     INTEGER                            , INTENT(IN) :: job_type
     INTEGER, OPTIONAL                  , INTENT(IN) :: opt_priority
     LOGICAL, OPTIONAL                  , INTENT(IN) :: opt_l_output_step
-    TYPE (t_var_list_element), TARGET, OPTIONAL :: opt_p_in_var
+    TYPE (t_list_element), POINTER, OPTIONAL        :: opt_p_in_var
     ! local variables
     LOGICAL                    :: l_output_step
     INTEGER                    :: priority
@@ -1607,7 +1491,7 @@ CONTAINS
     task => pp_task_insert(priority)
     WRITE (task%job_name, *) TRIM(name),", DOM ",jg
     IF (PRESENT(opt_p_in_var)) THEN
-      task%data_input%var            => opt_p_in_var
+      task%data_input%var            => opt_p_in_var%field
     END IF
     task%data_input%jg               =  jg           
     task%data_input%p_nh_state       => p_nh_state(jg)
@@ -1616,7 +1500,7 @@ CONTAINS
     IF (l_init_prm_diag) THEN
       task%data_input%prm_diag       => prm_diag(jg)
     END IF
-    task%data_output%var             => p_out_var
+    task%data_output%var             => p_out_var%field
     task%job_type                    =  job_type
     task%activity                    =  new_activity_status(l_output_step=l_output_step)
     task%activity%check_dom_active   =  .TRUE.
