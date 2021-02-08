@@ -1435,7 +1435,7 @@ CONTAINS
           p_of%ilev_type = i_typ
 
           ! Fill data members of "t_output_file" data structures
-          p_of%filename_pref   = p_onl%output_filename
+          p_of%filename_pref   = TRIM(p_onl%output_filename)
           p_of%phys_patch_id   = idom
           p_of%log_patch_id    = log_patch_id
           p_of%output_type     = p_onl%filetype
@@ -1704,7 +1704,7 @@ CONTAINS
       ELSE
 #if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
         IF ( is_coupled_run() ) THEN
-          comp_name = get_my_process_name()
+          comp_name = TRIM(get_my_process_name())
           WRITE (osched_fname, '(3a)') "output_schedule_", &
             &                          TRIM(comp_name), ".txt"
         ELSE
@@ -1840,7 +1840,7 @@ CONTAINS
       DO iintvl=1,nintvls
         mtime_interval => newTimedelta(output_interval(iintvl),errno=errno)
         IF (errno /= SUCCESS) CALL finish(routine,"Wrong output interval")
-        mtime_datetime => newDatetime(strip_from_modifiers(output_start(iintvl)))
+        mtime_datetime => newDatetime(TRIM(strip_from_modifiers(output_start(iintvl))))
         !
         ! - The start_date gets an offset of
         !         "(ifile_partition - 1) * output_interval"
@@ -3283,7 +3283,7 @@ CONTAINS
 
     INTEGER :: key
 
-    key = util_hashword(tolower(name)//c_null_char, &
+    key = util_hashword(TRIM(tolower(name))//c_null_char, &
       &                 INT(LEN_TRIM(name), C_SIZE_T),0)
     CALL outputRegister%add(key)
   END SUBROUTINE registerOutputVariable
@@ -3291,7 +3291,7 @@ CONTAINS
   LOGICAL FUNCTION isRegistered(name)
     CHARACTER(LEN=*), INTENT(IN) :: name
 
-    isRegistered = outputRegister%includes(util_hashword(tolower(name)//c_null_char, &
+    isRegistered = outputRegister%includes(util_hashword(TRIM(tolower(name))//c_null_char, &
       &                                    INT(LEN_TRIM(name), C_SIZE_T), 0))
   END FUNCTION
 
