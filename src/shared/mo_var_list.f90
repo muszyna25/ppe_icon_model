@@ -4069,11 +4069,10 @@ CONTAINS
   !
   ! print all var lists
   !
-  SUBROUTINE print_all_var_lists(lshort)
-    LOGICAL, OPTIONAL, INTENT(in) :: lshort
+  SUBROUTINE print_all_var_lists
     INTEGER :: i
     DO i=1,nvar_lists
-      CALL print_var_list(var_lists(i), lshort)
+      CALL print_var_list(var_lists(i))
     END DO
   END SUBROUTINE print_all_var_lists
   !------------------------------------------------------------------------------------------------
