@@ -34,7 +34,7 @@ MODULE mo_multifile_restart_patch_data
   USE mo_var_metadata_types,          ONLY: t_var_metadata
   USE mo_var,                         ONLY: t_var_ptr
   USE mo_parallel_config,             ONLY: restart_chunk_size
-  USE mo_restart_var_data,            ONLY: createRestartVarData
+  USE mo_var_list_register_utils,     ONLY: vlr_select_restart_vars
 
   IMPLICIT NONE
   PRIVATE
@@ -76,7 +76,7 @@ CONTAINS
     INTEGER,                     INTENT(IN)    :: jg
 
     CALL me%description%init(jg)
-    CALL createRestartVarData(me%varData, jg, modelType, me%restartType)
+    CALL vlr_select_restart_vars(me%varData, jg, modelType, me%restartType)
     IF (isAsync()) CALL me%transferToRestart()
   END SUBROUTINE multifilePatchData_construct
 

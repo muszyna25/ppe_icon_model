@@ -65,7 +65,7 @@ MODULE mo_sync_restart_patch_data
                                         & timer_write_restart_communication, timers_level
   USE mo_var_metadata_types,        ONLY: t_var_metadata
   USE mo_cdi,                       ONLY: streamWriteVarSlice, streamWriteVarSliceF
-  USE mo_restart_var_data,          ONLY: createRestartVarData
+  USE mo_var_list_register_utils,   ONLY: vlr_select_restart_vars
 
   IMPLICIT NONE
   PRIVATE
@@ -87,7 +87,7 @@ CONTAINS
     CLASS(t_SyncPatchData), INTENT(INOUT) :: me
 
     IF (ALLOCATED(me%varData)) DEALLOCATE(me%varData)
-  END  SUBROUTINE syncPatchData_destruct
+  END SUBROUTINE syncPatchData_destruct
 
   SUBROUTINE syncPatchData_construct(me, modelType, jg)
     CLASS(t_syncPatchData), INTENT(INOUT) :: me
@@ -95,14 +95,13 @@ CONTAINS
     INTEGER, INTENT(IN) :: jg
 
     CALL me%description%init(jg)
-    CALL createRestartVarData(me%varData, jg, modelType, me%restartType)
-  END  SUBROUTINE syncPatchData_construct
+    CALL vlr_select_restart_vars(me%varData, jg, modelType, me%restartType)
+  END SUBROUTINE syncPatchData_construct
 
   ! loop over all var_lists for restart
   SUBROUTINE syncPatchData_writeData(me, file_handle)
     CLASS(t_SyncPatchData), INTENT(INOUT) :: me
     INTEGER, INTENT(IN) :: file_handle
-
     INTEGER                              :: domain, i, gridSize, error, level
     TYPE(t_var_metadata), POINTER        :: info
     TYPE(t_comm_gather_pattern), POINTER :: gatherPattern
@@ -116,100 +115,82 @@ CONTAINS
     LOGICAL :: is_mpi_workroot
 
     is_mpi_workroot = my_process_is_mpi_workroot()
-
     IF(my_process_is_mpi_test()) RETURN
-
     domain = me%description%id
     DO i = 1, SIZE(me%varData)
-        info => me%varData(i)%p%info
-        IF(.NOT.has_valid_time_level(info, domain, nnew(domain), nnew_rcf(domain))) CYCLE
-
-        ! we are committed to writing now
+      info => me%varData(i)%p%info
+      IF(.NOT.has_valid_time_level(info, domain, nnew(domain), nnew_rcf(domain))) CYCLE
+      ! we are committed to writing now
 #ifdef DEBUG
-        IF(is_mpi_workroot) write (0,*)' ... write '//TRIM(info%name)
+      IF(is_mpi_workroot) write (0,*)' ... write '//TRIM(info%name)
 #endif
-        ! ALLOCATE the global array to gather the DATA on the master process
-        gridSize = me%description%getGlobalGridSize(info%hgrid)
-        gatherPattern => me%description%getGatherPattern(info%hgrid)
-
-        ! get pointers to the local DATA
-        SELECT CASE(info%data_type)
-        CASE(REAL_T)
-          !
-          ALLOCATE(gatherBuffer_dp(MERGE(gridSize, 0, is_mpi_workroot)), STAT = error)
-          IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
-
-          CALL get_var_3d_ptr(me%varData(i)%p, r_ptr_3d)
-
-          ! gather the data in the master process and write it to disk
-          DO level = 1, SIZE(r_ptr_3d, 2)
-            IF(timers_level >= 7) CALL timer_start(timer_write_restart_communication)
-            CALL exchange_data(in_array = r_ptr_3d(:,level,:), &
-              &                out_array = gatherBuffer_dp, &
-              &                gather_pattern = gatherPattern)
-            IF(timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
-            IF(is_mpi_workroot) THEN
-              IF(timers_level >= 7) CALL timer_start(timer_write_restart_io)
-              CALL streamWriteVarSlice(file_handle, info%cdiVarID, level - 1, gatherBuffer_dp, 0)
-              IF(timers_level >= 7) CALL timer_stop(timer_write_restart_io)
-            END IF
-          END DO
-          ! deallocate temporary global arrays
-          DEALLOCATE(gatherBuffer_dp)
-          !
-        CASE(SINGLE_T)
-          !
-          ALLOCATE(gatherBuffer_sp(MERGE(gridSize, 0, is_mpi_workroot)), STAT = error)
-          IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
-
-          CALL get_var_3d_ptr(me%varData(i)%p, s_ptr_3d)
-
-          ! gather the data in the master process and write it to disk
-          DO level = 1, SIZE(s_ptr_3d, 2)
-            IF(timers_level >= 7) CALL timer_start(timer_write_restart_communication)
-            CALL exchange_data(in_array = s_ptr_3d(:,level,:), &
-              &                out_array = gatherBuffer_sp, &
-              &                gather_pattern = gatherPattern)
-            IF(timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
-            IF(is_mpi_workroot) THEN
-              IF(timers_level >= 7) CALL timer_start(timer_write_restart_io)
-              CALL streamWriteVarSliceF(file_handle, info%cdiVarID, level - 1, gatherBuffer_sp, 0)
-              IF(timers_level >= 7) CALL timer_stop(timer_write_restart_io)
-            END IF
-          END DO
-          ! deallocate temporary global arrays
-          DEALLOCATE(gatherBuffer_sp)
-          !
-        CASE(INT_T)
-          !
-          ALLOCATE(gatherBuffer_dp(MERGE(gridSize, 0, is_mpi_workroot)), STAT = error)
-          IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
-          ALLOCATE(gatherBuffer_int(SIZE(gatherBuffer_dp)), STAT = error)
-          IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
-
-          CALL get_var_3d_ptr(me%varData(i)%p, i_ptr_3d)
-
-          ! gather the data in the master process and write it to disk
-          DO level = 1, SIZE(i_ptr_3d, 2)
-            CALL exchange_data(in_array = i_ptr_3d(:,level,:), &
-              &                out_array = gatherBuffer_int, &
-              &                gather_pattern = gatherPattern)
-            IF(is_mpi_workroot) THEN
-              gatherBuffer_dp(:) = REAL(gatherBuffer_int(:), dp)
-              IF(timers_level >= 7) CALL timer_start(timer_write_restart_io)
-              CALL streamWriteVarSlice(file_handle, info%cdiVarID, level - 1, gatherBuffer_dp, 0)
-              IF(timers_level >= 7) CALL timer_stop(timer_write_restart_io)
-            END IF
-          END DO
-          ! deallocate temporary global arrays
-          DEALLOCATE(gatherBuffer_int, gatherBuffer_dp)
-          !
-        CASE DEFAULT
-          CALL finish(routine, "Internal error! Variable "//TRIM(info%name))
-        END SELECT
-
+      ! ALLOCATE the global array to gather the DATA on the master process
+      gridSize = me%description%getGlobalGridSize(info%hgrid)
+      gatherPattern => me%description%getGatherPattern(info%hgrid)
+      ! get pointers to the local DATA
+      SELECT CASE(info%data_type)
+      CASE(REAL_T)
+        ALLOCATE(gatherBuffer_dp(MERGE(gridSize, 0, is_mpi_workroot)), STAT = error)
+        IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
+        CALL get_var_3d_ptr(me%varData(i)%p, r_ptr_3d)
+        ! gather the data in the master process and write it to disk
+        DO level = 1, SIZE(r_ptr_3d, 2)
+          IF(timers_level >= 7) CALL timer_start(timer_write_restart_communication)
+          CALL exchange_data(in_array = r_ptr_3d(:,level,:), &
+            &                out_array = gatherBuffer_dp, &
+            &                gather_pattern = gatherPattern)
+          IF(timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
+          IF(is_mpi_workroot) THEN
+            IF(timers_level >= 7) CALL timer_start(timer_write_restart_io)
+            CALL streamWriteVarSlice(file_handle, info%cdiVarID, level - 1, gatherBuffer_dp, 0)
+            IF(timers_level >= 7) CALL timer_stop(timer_write_restart_io)
+          END IF
+        END DO
+        ! deallocate temporary global arrays
+        DEALLOCATE(gatherBuffer_dp)
+      CASE(SINGLE_T)
+        ALLOCATE(gatherBuffer_sp(MERGE(gridSize, 0, is_mpi_workroot)), STAT = error)
+        IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
+        CALL get_var_3d_ptr(me%varData(i)%p, s_ptr_3d)
+        ! gather the data in the master process and write it to disk
+        DO level = 1, SIZE(s_ptr_3d, 2)
+          IF(timers_level >= 7) CALL timer_start(timer_write_restart_communication)
+          CALL exchange_data(in_array = s_ptr_3d(:,level,:), &
+            &                out_array = gatherBuffer_sp, &
+            &                gather_pattern = gatherPattern)
+          IF(timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
+          IF(is_mpi_workroot) THEN
+            IF(timers_level >= 7) CALL timer_start(timer_write_restart_io)
+            CALL streamWriteVarSliceF(file_handle, info%cdiVarID, level - 1, gatherBuffer_sp, 0)
+            IF(timers_level >= 7) CALL timer_stop(timer_write_restart_io)
+          END IF
+        END DO
+        ! deallocate temporary global arrays
+        DEALLOCATE(gatherBuffer_sp)
+      CASE(INT_T)
+        ALLOCATE(gatherBuffer_dp(MERGE(gridSize, 0, is_mpi_workroot)), STAT = error)
+        IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
+        ALLOCATE(gatherBuffer_int(SIZE(gatherBuffer_dp)), STAT = error)
+        IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
+        CALL get_var_3d_ptr(me%varData(i)%p, i_ptr_3d)
+        ! gather the data in the master process and write it to disk
+        DO level = 1, SIZE(i_ptr_3d, 2)
+          CALL exchange_data(in_array = i_ptr_3d(:,level,:), &
+            &                out_array = gatherBuffer_int, &
+            &                gather_pattern = gatherPattern)
+          IF(is_mpi_workroot) THEN
+            gatherBuffer_dp(:) = REAL(gatherBuffer_int(:), dp)
+            IF(timers_level >= 7) CALL timer_start(timer_write_restart_io)
+            CALL streamWriteVarSlice(file_handle, info%cdiVarID, level - 1, gatherBuffer_dp, 0)
+            IF(timers_level >= 7) CALL timer_stop(timer_write_restart_io)
+          END IF
+        END DO
+        ! deallocate temporary global arrays
+        DEALLOCATE(gatherBuffer_int, gatherBuffer_dp)
+      CASE DEFAULT
+        CALL finish(routine, "Internal error! Variable "//TRIM(info%name))
+      END SELECT
     END DO
-
     CALL message('syncPatchData_writeData','Finished writing restart')
   END SUBROUTINE syncPatchData_writeData
 

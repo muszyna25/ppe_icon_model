@@ -17,14 +17,13 @@ MODULE mo_restart_var_data
   USE mo_exception,          ONLY: finish
   USE mo_fortran_tools,      ONLY: insert_dimension
   USE mo_grid_config,        ONLY: l_limited_area
-  USE mo_impl_constants,     ONLY: IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER, INH_ATMOSPHERE, &
-    &                              TLEV_NNOW, TLEV_NNOW_RCF, SUCCESS, LEAPFROG_EXPL, LEAPFROG_SI
+  USE mo_impl_constants,     ONLY: IHS_ATM_TEMP, IHS_ATM_THETA, TLEV_NNOW, &
+    & ISHALLOW_WATER, INH_ATMOSPHERE, TLEV_NNOW_RCF, LEAPFROG_EXPL, LEAPFROG_SI
 #ifdef DEBUG
   USE mo_io_units,           ONLY: nerr
 #endif
   USE mo_kind,               ONLY: dp, sp
   USE mo_util_string,        ONLY: int2string
-  USE mo_var_list_register,  ONLY: t_vl_register_iter
   USE mo_var_list,           ONLY: t_var_list_ptr
   USE mo_var,                ONLY: t_var, t_var_ptr
   USE mo_var_metadata_types, ONLY: t_var_metadata
@@ -39,9 +38,7 @@ MODULE mo_restart_var_data
   IMPLICIT NONE
   PRIVATE
 
-  PUBLIC :: createRestartVarData
-  PUBLIC :: get_var_3d_ptr
-  PUBLIC :: has_valid_time_level
+  PUBLIC :: get_var_3d_ptr, has_valid_time_level
 
   INTERFACE get_var_3d_ptr
     MODULE PROCEDURE get_var_3d_ptr_dp
@@ -53,51 +50,12 @@ MODULE mo_restart_var_data
 
 CONTAINS
 
-  SUBROUTINE createRestartVarData(var_data, patch_id, modelType, out_restartType)
-    TYPE(t_var_ptr), ALLOCATABLE, INTENT(OUT) :: var_data(:)
-    INTEGER, INTENT(IN) :: patch_id
-    CHARACTER(*), INTENT(IN) :: modelType
-    INTEGER, OPTIONAL, INTENT(OUT) :: out_restartType
-    INTEGER :: n_var, nv, iv, ierr, rsType
-    TYPE(t_vl_register_iter) :: vl_iter
-    CHARACTER(*), PARAMETER :: routine = modname//":createRestartVarData"
-
-    rsType = -1
-    n_var = 0
-    DO WHILE(vl_iter%next())
-      IF (.NOT.vl_iter%cur%p%lrestart) CYCLE
-      IF (vl_iter%cur%p%patch_id .NE. patch_id) CYCLE
-      IF (vl_iter%cur%p%model_type /= modelType) CYCLE
-      DO iv = 1, vl_iter%cur%p%nvars
-        n_var = n_var + MERGE(1, 0, vl_iter%cur%p%vl(iv)%p%info%lrestart)
-      END DO
-    ENDDO
-    ALLOCATE(var_data(n_var), STAT = ierr)
-    IF(ierr /= SUCCESS) CALL finish(routine, "memory allocation failed")
-    nv = 0
-    DO WHILE(vl_iter%next())
-      IF (.NOT.vl_iter%cur%p%lrestart) CYCLE
-      IF (vl_iter%cur%p%patch_id .NE. patch_id) CYCLE
-      IF (vl_iter%cur%p%model_type /= modelType) CYCLE
-      IF (rsType .EQ. -1) rsType = vl_iter%cur%p%restart_type
-      IF (rsType .NE. vl_iter%cur%p%restart_type) &
-        & CALL finish(routine, "found inconsistent restart_type values")
-      DO iv = 1, vl_iter%cur%p%nvars
-        IF (.NOT.vl_iter%cur%p%vl(iv)%p%info%lrestart) CYCLE
-        nv = nv + 1
-        var_data(nv)%p => vl_iter%cur%p%vl(iv)%p
-      END DO
-    END DO
-    IF(nv /= n_var) CALL finish(routine, "inconsistent restart variable count")
-    IF (PRESENT(out_restartType)) out_restartType = rsType
-  END SUBROUTINE createRestartVarData
-
   SUBROUTINE get_var_3d_ptr_dp(vd, r_ptr_3d)
     TYPE(t_var), POINTER, INTENT(IN) :: vd
     REAL(dp), POINTER, INTENT(OUT) :: r_ptr_3d(:,:,:)
     REAL(dp), POINTER :: r_ptr_2d(:,:)
     INTEGER :: nindex, nlevs, var_ref_pos
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//":get_var_3d_ptr_dp"
+    CHARACTER(*), PARAMETER :: routine = modname//":get_var_3d_ptr_dp"
 
     nindex = MERGE(vd%info%ncontained, 1, vd%info%lcontained)
     nlevs = MERGE(vd%info%used_dimensions(2), 1, vd%info%ndims /= 2)
@@ -141,7 +99,7 @@ CONTAINS
     REAL(sp), POINTER, INTENT(OUT) :: s_ptr_3d(:,:,:)
     REAL(sp), POINTER :: s_ptr_2d(:,:)
     INTEGER :: nindex, nlevs, var_ref_pos
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//":get_var_3d_ptr_sp"
+    CHARACTER(*), PARAMETER :: routine = modname//":get_var_3d_ptr_sp"
 
     nindex = MERGE(vd%info%ncontained, 1, vd%info%lcontained)
     nlevs = MERGE(vd%info%used_dimensions(2), 1, vd%info%ndims /= 2)
@@ -185,7 +143,7 @@ CONTAINS
     INTEGER, POINTER, INTENT(OUT) :: i_ptr_3d(:,:,:)
     INTEGER, POINTER :: i_ptr_2d(:,:)
     INTEGER :: nindex, nlevs, var_ref_pos
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//":get_var_3d_ptr_i"
+    CHARACTER(*), PARAMETER :: routine = modname//":get_var_3d_ptr_i"
 
     nindex = MERGE(vd%info%ncontained, 1, vd%info%lcontained)
     nlevs = MERGE(vd%info%used_dimensions(2), 1, vd%info%ndims /= 2)
@@ -230,7 +188,7 @@ CONTAINS
     INTEGER, INTENT(in) :: patch_id, nnew, nnew_rcf
     INTEGER :: time_level
     LOGICAL :: lskip_timelev, lskip_extra_timelevs
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//':has_valid_time_level'
+    CHARACTER(*), PARAMETER :: routine = modname//':has_valid_time_level'
 
     has_vtl = .FALSE.
     IF (.NOT. p_info%lrestart) RETURN

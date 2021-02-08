@@ -9,7 +9,7 @@ MODULE mo_var_list_register_utils
   USE mo_var_groups,       ONLY: var_groups_dyn, MAX_GROUPS
   USE mo_var_metadata_types, ONLY: t_var_metadata
   USE mo_var_metadata,     ONLY: get_var_name
-  USE mo_var, ONLY: level_type_ml, t_var
+  USE mo_var, ONLY: level_type_ml, t_var, t_var_ptr
   USE mo_var_list,         ONLY: find_list_element, t_var_list_ptr
   USE mo_exception,        ONLY: finish
   USE mo_util_string,      ONLY: remove_duplicates, pretty_print_string_list, &
@@ -23,7 +23,7 @@ MODULE mo_var_list_register_utils
   PRIVATE
 
   PUBLIC :: vlr_add_vref, vlr_find, vlr_print_vls
-  PUBLIC :: vlr_print_groups, vlr_group
+  PUBLIC :: vlr_print_groups, vlr_group, vlr_select_restart_vars
 
   CHARACTER(*), PARAMETER :: modname = "mo_var_list_register_utils"
 
@@ -240,5 +240,44 @@ CONTAINS
       END IF
     END SUBROUTINE compose_grp_varlist
   END SUBROUTINE vlr_print_groups
+
+  SUBROUTINE vlr_select_restart_vars(var_data, patch_id, modelType, out_restartType)
+    TYPE(t_var_ptr), ALLOCATABLE, INTENT(OUT) :: var_data(:)
+    INTEGER, INTENT(IN) :: patch_id
+    CHARACTER(*), INTENT(IN) :: modelType
+    INTEGER, OPTIONAL, INTENT(OUT) :: out_restartType
+    INTEGER :: n_var, nv, iv, ierr, rsType
+    TYPE(t_vl_register_iter) :: iter
+    CHARACTER(*), PARAMETER :: routine = modname//":vlr_select_restart_vars"
+
+    rsType = -1
+    n_var = 0
+    DO WHILE(iter%next())
+      IF (.NOT.iter%cur%p%lrestart) CYCLE
+      IF (iter%cur%p%patch_id .NE. patch_id) CYCLE
+      IF (iter%cur%p%model_type /= modelType) CYCLE
+      DO iv = 1, iter%cur%p%nvars
+        n_var = n_var + MERGE(1, 0, iter%cur%p%vl(iv)%p%info%lrestart)
+      END DO
+    ENDDO
+    ALLOCATE(var_data(n_var), STAT = ierr)
+    IF(ierr /= SUCCESS) CALL finish(routine, "memory allocation failed")
+    nv = 0
+    DO WHILE(iter%next())
+      IF (.NOT.iter%cur%p%lrestart) CYCLE
+      IF (iter%cur%p%patch_id .NE. patch_id) CYCLE
+      IF (iter%cur%p%model_type /= modelType) CYCLE
+      IF (rsType .EQ. -1) rsType = iter%cur%p%restart_type
+      IF (rsType .NE. iter%cur%p%restart_type) &
+        & CALL finish(routine, "found inconsistent restart_type values")
+      DO iv = 1, iter%cur%p%nvars
+        IF (.NOT.iter%cur%p%vl(iv)%p%info%lrestart) CYCLE
+        nv = nv + 1
+        var_data(nv)%p => iter%cur%p%vl(iv)%p
+      END DO
+    END DO
+    IF(nv /= n_var) CALL finish(routine, "inconsistent restart variable count")
+    IF (PRESENT(out_restartType)) out_restartType = rsType
+  END SUBROUTINE vlr_select_restart_vars
 
 END MODULE mo_var_list_register_utils

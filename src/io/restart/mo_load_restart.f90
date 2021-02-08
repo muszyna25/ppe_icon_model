@@ -21,13 +21,13 @@ MODULE mo_load_restart
   USE mo_multifile_restart_util, ONLY: multifileRestartLinkName
   USE mo_restart_nml_and_att,ONLY: restartAttributeList_read, ocean_initFromRestart_OVERRIDE
   USE mo_restart_util,       ONLY: restartSymlinkName
-  USE mo_restart_var_data,   ONLY: createRestartVarData
   USE mo_var,                ONLY: t_var_ptr
   USE mo_timer,              ONLY: timer_start, timer_stop, timer_load_restart, timer_load_restart_io, &
     & timer_load_restart_comm_setup, timer_load_restart_communication, &
     & timer_load_restart_get_var_id, timers_level
   USE mo_util_string,        ONLY: separator, toCharacter
   USE mo_var_list_register,  ONLY: t_vl_register_iter
+  USE mo_var_list_register_utils, ONLY: vlr_select_restart_vars
   USE mo_master_control,     ONLY: get_my_process_name
 
   IMPLICIT NONE
@@ -173,7 +173,7 @@ CONTAINS
     CALL getModelTypes()
     cur_mType => entry_mType
     DO WHILE(ASSOCIATED(cur_mType%next))
-        CALL createRestartVarData(varData, p_patch%id, cur_mType%next%a)
+        CALL vlr_select_restart_vars(varData, p_patch%id, cur_mType%next%a)
         !determine whether we have a multifile to READ
         CALL findRestartFile(cur_mType%next%a, lIsMultifileRestart, restartPath)
         IF(lIsMultifileRestart) THEN
