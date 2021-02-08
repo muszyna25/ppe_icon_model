@@ -336,6 +336,8 @@ MODULE mo_mpi
     &       p_pack_int, p_pack_bool, p_pack_real,         &
     &       p_pack_int_1d, p_pack_real_1d,                &
     &       p_pack_string, p_pack_real_2d,                &
+    &       p_pack_size_int, p_pack_size_bool,            &
+    &       p_pack_size_real_dp, p_pack_size_string,         &
     &       p_unpack_int, p_unpack_bool, p_unpack_real,   &
     &       p_unpack_int_1d, p_unpack_real_1d,            &
     &       p_unpack_string, p_unpack_real_2d, p_test
@@ -4539,12 +4541,10 @@ CONTAINS
     ENDIF
     IF (PRESENT(p_count)) THEN
       icount = p_count
-    ELSE IF (SIZE(t_buffer) > 0) THEN
-      icount = LEN(t_buffer(1))
     ELSE
-      icount = 0
+      icount = SIZE(t_buffer)
     END IF
-    icount = icount * SIZE(t_buffer)
+    IF (icount > 0) icount = icount * LEN(t_buffer(1))
 
 #ifdef __USE_G2G
 !$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
@@ -5303,7 +5303,7 @@ CONTAINS
     ELSE
       icount = SIZE(t_buffer)
     END IF
-    icount = icount * LEN(t_buffer(1))
+    IF (icount > 0) icount = icount * LEN(t_buffer(1))
 
 #ifdef __USE_G2G
 !$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
@@ -6231,6 +6231,65 @@ CONTAINS
 #endif
 #endif
   END SUBROUTINE p_pack_real_2d
+
+  FUNCTION p_pack_size_int(p_count, comm) RESULT(pack_size)
+    INTEGER, INTENT(in) :: p_count, comm
+    INTEGER :: pack_size
+#ifndef NOMPI
+    CALL mpi_pack_size(p_count, p_int, comm, pack_size, p_error)
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) CALL finish("p_pack_size_int", 'MPI call failed')
+#endif
+#else
+    ! packing is only supported when mpi is available
+    pack_size = -1
+#endif
+  END FUNCTION p_pack_size_int
+
+  FUNCTION p_pack_size_bool(p_count, comm) result(pack_size)
+    INTEGER, INTENT(in) :: p_count, comm
+    INTEGER :: pack_size
+#ifndef NOMPI
+    CALL mpi_pack_size(p_count, p_bool, comm, pack_size, p_error)
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) CALL finish("p_pack_size_bool", 'MPI call failed')
+#endif
+#else
+    ! packing is only supported when mpi is available
+    pack_size = -1
+#endif
+  END FUNCTION p_pack_size_bool
+
+  FUNCTION p_pack_size_real_dp(p_count, comm) RESULT(pack_size)
+    INTEGER, INTENT(in) :: p_count, comm
+    INTEGER :: pack_size
+#ifndef NOMPI
+    CALL mpi_pack_size(p_count, p_real_dp, comm, pack_size, p_error)
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) CALL finish("p_pack_size_int", 'MPI call failed')
+#endif
+#else
+    ! packing is only supported when mpi is available
+    pack_size = -1
+#endif
+  END FUNCTION p_pack_size_real_dp
+
+  FUNCTION p_pack_size_string(maxlen, comm) RESULT(pack_size)
+    INTEGER, INTENT(in) :: maxlen, comm
+    INTEGER :: pack_size, pack_size_int
+#ifndef NOMPI
+    CALL mpi_pack_size(1, p_int, comm, pack_size_int, p_error)
+    IF (p_error == MPI_SUCCESS) &
+         CALL mpi_pack_size(maxlen, p_char, comm, pack_size, p_error)
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) CALL finish("p_pack_size_string", 'MPI call failed')
+#endif
+    pack_size = pack_size + pack_size_int
+#else
+    ! packing is only supported when mpi is available
+    pack_size = -1
+#endif
+  END FUNCTION p_pack_size_string
 
   SUBROUTINE p_unpack_int (t_buffer, p_pos, t_var, comm)
 
