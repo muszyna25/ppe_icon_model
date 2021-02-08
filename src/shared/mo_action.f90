@@ -84,7 +84,7 @@ MODULE mo_action
   END TYPE t_var_element_ptr
 
   ! base type for action objects
-  TYPE, abstract:: t_action_obj
+  TYPE, ABSTRACT :: t_action_obj
     INTEGER                    :: actionTyp                   ! Type of action
     TYPE(t_var_element_ptr)    :: var_element_ptr(NMAX_VARS)  ! assigned variables
     INTEGER                    :: var_action_index(NMAX_VARS) ! index in var_element_ptr(10)%action
@@ -113,7 +113,7 @@ MODULE mo_action
 
   ! extension of the action base type for the purpose of creating objects of that type.
   ! create specific type for reset-action
-  TYPE, extends(t_action_obj) :: t_reset_obj
+  TYPE, EXTENDS(t_action_obj) :: t_reset_obj
   CONTAINS
     PROCEDURE :: kernel => reset_kernel     ! type-specific action kernel (to be defined by user)
   END TYPE t_reset_obj
@@ -141,32 +141,32 @@ CONTAINS
   !! Initial revision by Daniel Reinert, DWD (2014-01-13)
   !!
   SUBROUTINE action_collect_vars(act_obj, actionTyp)
-    CLASS(t_action_obj)         :: act_obj
-    INTEGER      , INTENT(IN)   :: actionTyp
-    INTEGER :: i, iact, iv, nv
-    TYPE(t_var), POINTER :: element
+    CLASS(t_action_obj) :: act_obj
+    INTEGER, INTENT(IN) :: actionTyp
+    INTEGER :: iact, iv, nv, slen, tlen, vlen
+    TYPE(t_var), POINTER :: elem
     TYPE(t_var_action), POINTER :: action_list
     TYPE(t_vl_register_iter) :: vl_iter
     CHARACTER(LEN=MAX_EVENTNAME_STR_LEN):: event_name
-    CHARACTER(LEN=vname_len)            :: varlist(NMAX_VARS)
-  !-------------------------------------------------------------------------
+    CHARACTER(LEN=vname_len) :: varlist(NMAX_VARS)
+    CHARACTER(*), PARAMETER :: sep = ', '
 
     nv = 0
     act_obj%actionTyp = actionTyp
     ! loop over all variable lists and variables
     DO WHILE(vl_iter%next())
-      LOOPVAR: DO iv = 1, vl_iter%cur%p%nvars
-        element => vl_iter%cur%p%vl(iv)%p
+      DO iv = 1, vl_iter%cur%p%nvars
+        elem => vl_iter%cur%p%vl(iv)%p
         ! point to variable specific action list
-        action_list => element%info%action_list
+        action_list => elem%info%action_list
         ! Loop over all variable-specific actions
-        LOOPACTION: DO iact = 1,action_list%n_actions
+        DO iact = 1, action_list%n_actions
           ! If the variable specific action fits, assign variable
           ! to the corresponding action.
           IF (action_list%action(iact)%actionTyp == actionTyp) THEN
             ! Add field to action object
             nv = nv + 1
-            act_obj%var_element_ptr(nv)%p => element
+            act_obj%var_element_ptr(nv)%p => elem
             act_obj%var_action_index(nv) = iact
             act_obj%var_element_ptr(nv)%patch_id = vl_iter%cur%p%patch_id
             ! Create event for this specific field
@@ -176,38 +176,35 @@ CONTAINS
               & action_list%action(iact)%ref, action_list%action(iact)%start, &
               & action_list%action(iact)%end, action_list%action(iact)%intvl)
           END IF
-        ENDDO  LOOPACTION ! loop over variable-specific actions
-        IF (ASSOCIATED(action_list)) action_list => NULL()
-      ENDDO LOOPVAR ! loop over vlist "i"
+        ENDDO ! loop over variable-specific actions
+      ENDDO ! loop over vlist "i"
     ENDDO ! i = 1, SIZE(var_lists)
     ! set nvars
     act_obj%nvars = nv
     IF (msg_level >= 11) THEN
       ! remove duplicate variable names
-      DO i=1,act_obj%nvars
-        varlist(i) = act_obj%var_element_ptr(i)%p%info%name
+      DO iv = 1, nv
+        varlist(iv) = act_obj%var_element_ptr(iv)%p%info%name
       ENDDO
-      CALL remove_duplicates(varlist,nv)
+      CALL remove_duplicates(varlist, nv)
       WRITE(message_text,'(a)') 'Variables assigned to action '//TRIM(ACTION_NAMES(act_obj%actionTyp))//':'
-      IF (nv .GT. 0) message_text = TRIM(message_text) // " " // TRIM(varlist(i))
-      DO i = 2, nv
-        message_text = TRIM(message_text) // ", " // TRIM(varlist(i))
+      tlen = LEN_TRIM(message_text)
+      DO iv = 1, nv
+        slen = MERGE(1, 2, iv .EQ. 1)
+        vlen = LEN_TRIM(varlist(iv))
+        WRITE(message_text(tlen+1:tlen+slen+vlen),'(2a)') sep(3-slen:2), varlist(iv)(1:vlen)
+        tlen = tlen + slen + vlen
       ENDDO
       CALL message('',message_text)
       IF(my_process_is_stdio()) CALL act_obj%print_setup()
     ENDIF
   END SUBROUTINE action_collect_vars
 
-
-
   !>
-  !! Screen print out of action event setup
-  !!
   !! Screen print out of action event setup.
   !!
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2015-01-06)
-  !!
   SUBROUTINE action_print_setup (act_obj)
     CLASS(t_action_obj)  :: act_obj  !< action for which setup will be printed
     TYPE(t_table)   :: table
