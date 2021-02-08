@@ -30,7 +30,7 @@ MODULE mo_grib2_util
     &                              CLASS_CHEM, CLASS_TILE_LAND,              &
     &                              CLASS_CHEM_STAT, CLASS_CHEM_OPTP,         &
     &                              CLASS_DISTR, CLASS_DISTR_STAT
-  USE mo_action_types,       ONLY: ACTION_RESET, getActiveAction
+  USE mo_action,             ONLY: ACTION_RESET, getActiveAction
   USE mo_util_string,        ONLY: one_of
 #ifndef __NO_ICON_ATMO__
   USE mo_lnd_nwp_config,     ONLY: tile_list
@@ -513,7 +513,7 @@ CONTAINS
 
       ! more than one RESET action may be defined for a single variable.
       ! get ID of currently active RESET action
-      var_actionId = getActiveAction(info%action_list, ACTION_RESET, cur_date)
+      var_actionId = getActiveAction(info, ACTION_RESET, cur_date)
 
       IF (var_actionId == -1) THEN
         write(0,*) 'set_timedependent_GRIB2_keys: no active action of type ACTION_RESET found. '//&
