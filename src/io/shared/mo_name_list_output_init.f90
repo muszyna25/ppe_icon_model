@@ -38,7 +38,7 @@ MODULE mo_name_list_output_init
     &                                             max_var_ml, max_var_pl, max_var_hl, max_var_il,   &
     &                                             MAX_TIME_LEVELS, pio_type_cdipio, INWP,           &
     &                                             MAX_CHAR_LENGTH, MAX_NUM_IO_PROCS, nlat_moc,      &
-    &                                             MAX_TIME_INTERVALS, ihs_ocean, MAX_NPLEVS,        &
+    &                                             MAX_TIME_INTERVALS, MAX_NPLEVS,                   &
     &                                             MAX_NZLEVS, MAX_NILEVS, BOUNDARY_MISSVAL,         &
     &                                             dtime_proleptic_gregorian => proleptic_gregorian, &
     &                                             dtime_cly360              => cly360
@@ -103,7 +103,7 @@ MODULE mo_name_list_output_init
     &                                             process_mpi_io_size, p_n_work,  &
     &                                             p_pe_work, p_io_pe0, p_work_pe0, p_pe, &
     &                                             my_process_is_work, num_test_procs, &
-    &                                             p_allgather, MPI_COMM_NULL, p_get_bcast_role
+    &                                             p_allgather, MPI_COMM_NULL
   USE mo_communication,                     ONLY: idx_no, blk_no
   ! namelist handling
   USE mo_namelist,                          ONLY: position_nml, positioned, open_nml, close_nml
@@ -111,11 +111,10 @@ MODULE mo_name_list_output_init
   ! variable lists
   USE mo_var_groups,                        ONLY: var_groups_dyn
   USE mo_var_metadata_types,                ONLY: t_var_metadata
-  USE mo_var_list_register_utils,           ONLY: vlr_group
-  USE mo_var_list_register,                 ONLY: t_vl_register_iter, vlr_packer
+  USE mo_var_list_register_utils,           ONLY: vlr_group, vlr_replicate
+  USE mo_var_list_register,                 ONLY: t_vl_register_iter
   USE mo_var,                               ONLY: t_var
   USE mo_var_metadata,                      ONLY: get_var_timelevel, get_var_name
-  USE mo_packed_message,                    ONLY: t_packedMessage, kPackOp, kUnpackOp
   USE mo_var, ONLY: level_type_ml, level_type_pl, level_type_hl, level_type_il
   ! lon-lat interpolation
   USE mo_lonlat_grid,                       ONLY: t_lon_lat_grid, compute_lonlat_blocking,        &
@@ -241,7 +240,7 @@ MODULE mo_name_list_output_init
     &   out_varnames_dict      !< maps internal variable names onto names in output file (NetCDF only).
   !------------------------------------------------------------------------------------------------
 
-  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_name_list_output_init'
+  CHARACTER(*), PARAMETER :: modname = 'mo_name_list_output_init'
 
 CONTAINS
 
@@ -1184,7 +1183,7 @@ CONTAINS
     ! Loop over all output namelists, set up the output_file struct for all associated files
     ! --------------------------------------------------------------------------------------
 
-    CALL output_name_lists_to_files(sim_step_info)
+    CALL output_name_lists_to_files()
 
     CALL assign_output_task(output_file%io_proc_id, output_file%pe_placement)
 
@@ -1261,13 +1260,12 @@ CONTAINS
 
   END SUBROUTINE init_name_list_output
 
-  SUBROUTINE output_name_lists_to_files(sim_step_info)
-    TYPE (t_sim_step_info), INTENT(IN) :: sim_step_info
+  SUBROUTINE output_name_lists_to_files()
     TYPE (t_output_name_list), POINTER   :: p_onl
     TYPE (t_output_file),      POINTER   :: p_of
     CHARACTER(len=vname_len), POINTER :: varlist_ptr(:)
     INTEGER, POINTER                     :: pe_placement(:)
-    INTEGER :: ifile, ifile_partition, npartitions, i_typ, idom, j, log_patch_id
+    INTEGER :: ifile, ifile_partition, npartitions, i_typ, idom, log_patch_id
     CHARACTER(len=*), PARAMETER :: routine &
          = modname//"::output_name_lists_to_files"
     LOGICAL :: is_work
@@ -1779,7 +1777,6 @@ CONTAINS
 
       p_of%verticalAxisList = t_verticalAxisList()
 
-!       IF (iequations/=ihs_ocean) THEN ! atm
       IF (.not. my_process_is_oceanic()) THEN ! atm
         SELECT CASE(p_of%ilev_type)
         CASE (level_type_ml)
@@ -2031,29 +2028,28 @@ CONTAINS
     ! Constant defining how many variable entries are added when resizing array:
     INTEGER, PARAMETER :: nvars_grow = 10
     CHARACTER(*), PARAMETER :: routine = "mo_name_list_output_init:add_var_desc"
-    INTEGER                       :: errstat, new_max_vars, i, ivar, &
-         new_num_vars
+    INTEGER :: errstat, new_max, ivar, new_nvars
     TYPE(t_var_desc), ALLOCATABLE :: tmp(:)
 
     ! increase number of variables currently in use:
-    new_num_vars = p_of%num_vars + 1
-    IF (new_num_vars > p_of%max_vars) THEN
+    new_nvars = p_of%num_vars + 1
+    IF (new_nvars > p_of%max_vars) THEN
       ! array full, enlarge and make a triangle copy:
-      new_max_vars = p_of%max_vars + nvars_grow
-      ALLOCATE(tmp(new_max_vars), STAT=errstat)
+      new_max = p_of%max_vars + nvars_grow
+      ALLOCATE(tmp(new_max), STAT=errstat)
       IF (errstat /= 0)  CALL finish (routine, 'Error in ALLOCATE operation!')
-      IF (new_num_vars > 1) &
-        &     tmp(1:new_num_vars-1) = p_of%var_desc(1:new_num_vars-1)
+      IF (new_nvars > 1) &
+        &     tmp(1:new_nvars-1) = p_of%var_desc(1:new_nvars-1)
       CALL MOVE_ALLOC(tmp, p_of%var_desc)
       ! Nullify pointers in p_of%var_desc
-      DO ivar=new_num_vars,new_max_vars
+      DO ivar = new_nvars, new_max
         CALL nullify_var_desc_ptr(p_of%var_desc(ivar))
       END DO
-      p_of%max_vars = new_max_vars
+      p_of%max_vars = new_max
     END IF
     ! add new element to array
-    p_of%var_desc(new_num_vars) = var_desc
-    p_of%num_vars = new_num_vars
+    p_of%var_desc(new_nvars) = var_desc
+    p_of%num_vars = new_nvars
   END SUBROUTINE add_var_desc
 
 
@@ -2872,10 +2868,9 @@ CONTAINS
   !  This routine has to be called by all PEs (work and I/O)
   !
   SUBROUTINE replicate_data_on_io_procs()
-    CHARACTER(len=*), PARAMETER :: routine = modname//"::replicate_data_on_io_procs"
+    CHARACTER(*), PARAMETER :: routine = modname//"::replicate_data_on_io_procs"
     INTEGER :: ivct_len, nvgrid, ivgrid, size_var_groups_dyn
-    LOGICAL :: is_io, lIsSender, lIsReceiver
-    TYPE(t_packedMessage) :: pmsg
+    LOGICAL :: is_io
 
     is_io = my_process_is_io()
     !-----------------------------------------------------------------------------------------------
@@ -2890,11 +2885,7 @@ CONTAINS
 ! #ifndef __NO_ICON_ATMO__
     !-----------------------------------------------------------------------------------------------
     ! Replicate variable lists
-    CALL p_get_bcast_role(bcast_root, p_comm_work_2_io, lIsSender, lIsReceiver)
-    IF(lIsSender) CALL vlr_packer(kPackOp, pmsg)
-    CALL pmsg%bcast(bcast_root, p_comm_work_2_io)
-    IF(lIsReceiver) CALL vlr_packer(kUnpackOp, pmsg)
-
+    CALL vlr_replicate(bcast_root, p_comm_work_2_io)
     ! var_groups_dyn is required in function 'group_id', which is called in
     ! parse_variable_groups. Thus, a broadcast of var_groups_dyn is required.
     size_var_groups_dyn = 0

@@ -6,20 +6,17 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 MODULE mo_var_list_register
-  USE mo_var_metadata_types, ONLY: var_metadata_fromBinary, var_metadata_toBinary, var_metadata_get_size
-  USE mo_var,              ONLY: t_var
   USE mo_var_list,         ONLY: t_var_list_ptr
   USE mo_exception,        ONLY: message, finish
   USE mo_io_config,        ONLY: restart_file_type
-  USE mo_packed_message,   ONLY: t_PackedMessage, kPackOp, kUnpackOp
   USE mo_key_value_store,  ONLY: t_key_value_store
-  USE mo_impl_constants,   ONLY: vlname_len
 
   IMPLICIT NONE
   PRIVATE
 
   PUBLIC :: t_vl_register_iter
-  PUBLIC :: vlr_add, vlr_get, vlr_del, vlr_packer
+  PUBLIC :: vlr_add, vlr_get, vlr_del
+  PUBLIC :: get_nvl
 
   TYPE t_vl_register_iter
     INTEGER, PRIVATE :: cur_idx = -1
@@ -142,97 +139,9 @@ CONTAINS
     END IF
   END SUBROUTINE vlr_del
 
-  ! (Un)pack the var_lists to a t_packed_message
-  SUBROUTINE vlr_packer(op, pmsg, nv_all)
-    INTEGER, INTENT(IN) :: op
-    TYPE(t_PackedMessage), INTENT(INOUT) :: pmsg
-    INTEGER, INTENT(OUT), OPTIONAL :: nv_all
-    INTEGER :: ivl, nvl, iv, nv, nv_al, patch_id, r_type, vl_type, ierr, infosize
-    INTEGER, ALLOCATABLE :: info_buf(:)
-    TYPE(t_var), POINTER :: elem
-    CHARACTER(LEN=vlname_len) :: vl_name
-    CHARACTER(LEN=32) :: m_type
-    LOGICAL :: lre, lout, l_end
-    TYPE(t_var_list_ptr) :: vlp
-    TYPE(t_vl_register_iter) :: iter
-    CHARACTER(*), PARAMETER :: routine = modname//':varlistPacker'
+  INTEGER FUNCTION get_nvl()
 
-    IF (op .EQ. kUnpackOp .AND. last_id .NE. 0) &
-      & CALL finish(routine, "var_list_register must be empty if receiver")
-    nvl = last_id
-    CALL pmsg%packer(op, nvl)
-    nv_al = 0
-    l_end = .false.
-    infosize = var_metadata_get_size()
-    DO ivl = 1, nvl
-      IF(op .EQ. kPackOp) THEN
-        IF (.NOT.iter_next(iter)) THEN
-          l_end = .true.
-          EXIT
-        END IF
-        vlp%p => iter%cur%p
-        ! copy the values needed for the new_var_list() CALL to local variables
-        lre      = vlp%p%lrestart
-        lout     = vlp%p%loutput
-        vl_name  = vlp%p%vlname
-        m_type   = vlp%p%model_type
-        patch_id = vlp%p%patch_id
-        r_type   = vlp%p%restart_type
-        vl_type  = vlp%p%vlevel_type
-        nv = vlp%p%nvars
-        nv_al = nv_al + nv
-      END IF
-      CALL pmsg%packer(op, l_end)
-      IF (l_end) EXIT
-      CALL pmsg%packer(op, lre)
-      CALL pmsg%packer(op, lout)
-      CALL pmsg%packer(op, vl_name)
-      CALL pmsg%packer(op, m_type)
-      CALL pmsg%packer(op, patch_id)
-      CALL pmsg%packer(op, r_type)
-      CALL pmsg%packer(op, vl_type)
-      CALL pmsg%packer(op, nv)
-      IF (nv .EQ. 0) CYCLE ! check if there are valid restart fields
-      IF (op .EQ. kPackOp) THEN
-        DO iv = 1, vlp%p%nvars
-          elem => vlp%p%vl(iv)%p
-          info_buf = var_metadata_toBinary(elem%info, infosize)
-          CALL pmsg%pack(info_buf)
-          CALL pmsg%pack(vlp%p%tl(iv))
-          CALL pmsg%pack(vlp%p%hgrid(iv))
-          CALL pmsg%pack(vlp%p%key(iv))
-          CALL pmsg%pack(vlp%p%key_notl(iv))
-          CALL pmsg%pack(vlp%p%lout(iv))
-        END DO
-      ELSE
-        ! create var list
-        CALL vlr_add(vlp, vl_name, patch_id=patch_id, model_type=m_type, &
-          & restart_type=r_type, vlevel_type=vl_type, lrestart=lre, loutput=lout)
-        vlp%p%nvars = nv
-        ! insert elements into var list
-        ALLOCATE(vlp%p%vl(nv), vlp%p%tl(nv), vlp%p%hgrid(nv), &
-          & vlp%p%key(nv), vlp%p%key_notl(nv), vlp%p%lout(nv))
-        DO iv = 1, nv
-          ALLOCATE(vlp%p%vl(iv)%p, STAT=ierr)
-          IF (ierr .NE. 0) CALL finish(routine, "memory allocation failure")
-          elem => vlp%p%vl(iv)%p
-          NULLIFY(elem%r_ptr, elem%s_ptr, elem%i_ptr, elem%l_ptr)
-          elem%var_base_size = 0 ! Unknown here
-          CALL pmsg%unpack(info_buf)
-          elem%info = var_metadata_fromBinary(info_buf, infosize)
-          CALL pmsg%unpack(vlp%p%tl(iv))
-          CALL pmsg%unpack(vlp%p%hgrid(iv))
-          CALL pmsg%unpack(vlp%p%key(iv))
-          CALL pmsg%unpack(vlp%p%key_notl(iv))
-          CALL pmsg%unpack(vlp%p%lout(iv))
-        END DO
-      END IF
-    END DO
-    IF (op .EQ. kPackOp) THEN
-      IF (iter_next(iter)) CALL finish(routine, "inconsistency -- second kind")
-    END IF
-    CALL pmsg%packer(op, nv_al)
-    IF (PRESENT(nv_all)) nv_all = nv_al
-  END SUBROUTINE vlr_packer
+    get_nvl = last_id
+  END FUNCTION get_nvl
 
 END MODULE mo_var_list_register

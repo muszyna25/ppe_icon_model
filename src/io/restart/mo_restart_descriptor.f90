@@ -18,8 +18,7 @@ MODULE mo_restart_descriptor
   USE mo_kind,                      ONLY: wp
   USE mo_model_domain,              ONLY: t_patch
   USE mo_mpi, ONLY: my_process_is_work, p_bcast, p_comm_work_2_restart, &
-    & p_get_bcast_role, p_pe_work, my_process_is_mpi_test, process_mpi_restart_size
-  USE mo_packed_message,            ONLY: t_PackedMessage, kPackOp, kUnpackOp
+    & p_pe_work, my_process_is_mpi_test, process_mpi_restart_size
   USE mo_restart_nml_and_att,       ONLY: restartAttributeList_make, bcastNamelistStore, &
     & restartAttributeList_write_to_cdi
   USE mo_key_value_store,           ONLY: t_key_value_store
@@ -27,7 +26,7 @@ MODULE mo_restart_descriptor
   USE mo_restart_util, ONLY: t_restart_args, create_restart_file_link, &
     & getRestartFilename, restartBcastRoot
   USE mo_restart_var_data,          ONLY: has_valid_time_level
-  USE mo_var_list_register,         ONLY: vlr_packer
+  USE mo_var_list_register_utils,   ONLY: vlr_replicate
   USE mo_upatmo_flowevent_utils,    ONLY: t_upatmoRestartAttributes, upatmoRestartAttributesSet
   USE mo_cdi_ids,                   ONLY: t_CdiIds
   USE mo_cdi,                       ONLY: FILETYPE_NC2, FILETYPE_NC4
@@ -107,8 +106,6 @@ CONTAINS
     CLASS(t_RestartDescriptor), INTENT(INOUT) :: me
 #ifndef NOMPI
     INTEGER :: error, length, bcast_root
-    TYPE(t_PackedMessage) :: packedMessage
-    LOGICAL :: lIsSender, lIsReceiver
     CHARACTER(*), PARAMETER :: routine = modname//":restartDescriptor_transferGlobalParameters"
 
     bcast_root = restartBcastRoot()
@@ -121,10 +118,7 @@ CONTAINS
     END IF
     CALL p_bcast(me%modelType, bcast_root, p_comm_work_2_restart)
     CALL p_bcast(n_dom, bcast_root, p_comm_work_2_restart)
-    CALL p_get_bcast_role(bcast_root, p_comm_work_2_restart, lIsSender, lIsReceiver)
-    IF(lIsSender) CALL vlr_packer(kPackOp, packedMessage)
-    CALL packedMessage%bcast(bcast_root, p_comm_work_2_restart)
-    IF(lIsReceiver) CALL vlr_packer(kUnpackOp, packedMessage)
+    CALL vlr_replicate(bcast_root, p_comm_work_2_restart)
     CALL bcastNamelistStore(bcast_root, p_comm_work_2_restart)
 #endif
   END SUBROUTINE restartDescriptor_transferGlobalParameters

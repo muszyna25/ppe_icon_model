@@ -200,7 +200,7 @@ MODULE mo_async_latbc
   USE mo_decomposition_tools,       ONLY: t_grid_domain_decomp_info
   USE mo_model_domain,              ONLY: p_patch, t_patch
   USE mo_mpi, ONLY: p_comm_work, p_comm_work_pref, p_comm_work_2_pref, my_process_is_work, &
-    & p_get_bcast_role, num_work_procs, p_pe_work, p_work_pe0, p_comm_work_pref_compute_pe0
+    & num_work_procs, p_pe_work, p_work_pe0, p_comm_work_pref_compute_pe0
   USE mo_time_config,               ONLY: time_config
   USE mo_reorder_info,              ONLY: t_reorder_info
   USE mo_async_latbc_types,         ONLY: t_patch_data, t_buffer, &
@@ -221,11 +221,10 @@ MODULE mo_async_latbc
   USE mo_intp_data_strc,            ONLY: p_int_state
   USE mo_ext_data_state,            ONLY: ext_data
   USE mo_var_metadata_types,        ONLY: t_var_metadata_ptr
-  USE mo_var_list_register_utils,   ONLY: vlr_group
-  USE mo_var_list_register,         ONLY: t_vl_register_iter, vlr_packer
+  USE mo_var_list_register_utils,   ONLY: vlr_group, vlr_replicate
+  USE mo_var_list_register,         ONLY: t_vl_register_iter
   USE mo_var_metadata,              ONLY: get_var_name
   USE mo_var,                       ONLY: t_var
-  USE mo_packed_message,            ONLY: t_packedMessage, kPackOp, kUnpackOp
   USE mo_limarea_config,            ONLY: latbc_config
   USE mo_dictionary,                ONLY: t_dictionary
   USE mo_util_string,               ONLY: add_to_list, tolower
@@ -1111,18 +1110,10 @@ CONTAINS
     TYPE(t_var_metadata_ptr), ALLOCATABLE, INTENT(out) :: var_data(:)
     INTEGER, INTENT(IN) :: bc_root
     INTEGER :: i, iv, nvar
-    LOGICAL :: send, recv
     TYPE(t_vl_register_iter) :: vl_iter
-    TYPE(t_packedMessage) :: pmsg
 
-    CALL p_get_bcast_role(bc_root, p_comm_work_2_pref, send, recv)
-    IF (send) CALL vlr_packer(kPackOp, pmsg, nvar)
-    CALL pmsg%bcast(bc_root, p_comm_work_2_pref)
-    IF (recv) THEN
-      CALL vlr_packer(kUnpackOp, pmsg, nvar)
-    ELSE
-      CALL p_bcast(nvar, 0, comm=p_comm_work)
-    END IF
+    CALL vlr_replicate(bc_root, p_comm_work_2_pref, nvar)
+    IF(.NOT.my_process_is_pref()) CALL p_bcast(nvar, 0, comm=p_comm_work)
     ALLOCATE(var_data(nvar))
     i = 0
     DO WHILE(vl_iter%next())

@@ -7,23 +7,26 @@
 !! headers of the routines.
 MODULE mo_var_list_register_utils
   USE mo_var_groups,       ONLY: var_groups_dyn, MAX_GROUPS
-  USE mo_var_metadata_types, ONLY: t_var_metadata
+  USE mo_var_metadata_types, ONLY: t_var_metadata, var_metadata_get_size, &
+    & var_metadata_toBinary, var_metadata_fromBinary
   USE mo_var_metadata,     ONLY: get_var_name
-  USE mo_var, ONLY: level_type_ml, t_var, t_var_ptr
+  USE mo_var,              ONLY: level_type_ml, t_var_ptr, t_var
   USE mo_var_list,         ONLY: find_list_element, t_var_list_ptr
   USE mo_exception,        ONLY: finish
   USE mo_util_string,      ONLY: remove_duplicates, pretty_print_string_list, &
     &                            lowcase, difference, find_trailing_number
-  USE mo_impl_constants,   ONLY: vname_len, SUCCESS
+  USE mo_impl_constants,   ONLY: vlname_len, vname_len, SUCCESS
   USE mo_cdi_constants,    ONLY: GRID_UNSTRUCTURED_CELL, GRID_REGULAR_LONLAT
   USE mo_util_sort,        ONLY: quicksort
-  USE mo_var_list_register, ONLY: vlr_get, t_vl_register_iter
+  USE mo_var_list_register, ONLY: vlr_get, vlr_add, t_vl_register_iter, get_nvl
+  USE mo_packed_message,   ONLY: t_PackedMessage, kPackOp, kUnpackOp
+  USE mo_mpi,              ONLY: p_get_bcast_role
 
   IMPLICIT NONE
   PRIVATE
 
   PUBLIC :: vlr_add_vref, vlr_find, vlr_print_vls
-  PUBLIC :: vlr_print_groups, vlr_group
+  PUBLIC :: vlr_print_groups, vlr_group, vlr_replicate
   PUBLIC :: vlr_select_restart_vars, vlr_collect_modelTypes
 
   CHARACTER(*), PARAMETER :: modname = "mo_var_list_register_utils"
@@ -306,5 +309,110 @@ CONTAINS
       END IF
     END DO
   END SUBROUTINE vlr_collect_modelTypes
+
+  SUBROUTINE vlr_replicate(bc_root, bc_comm, nvar)
+    INTEGER, INTENT(IN) :: bc_root, bc_comm
+    INTEGER, INTENT(OUT), OPTIONAL :: nvar
+    INTEGER :: nvar_
+    LOGICAL :: send, recv
+    TYPE(t_PackedMessage) :: pmsg
+
+    nvar_ = -1
+    CALL p_get_bcast_role(bc_root, bc_comm, send, recv)
+    IF (send) CALL packer(kPackOp)
+    CALL pmsg%bcast(bc_root, bc_comm)
+    IF (recv) CALL packer(kUnpackOp)
+    IF (PRESENT(nvar)) nvar = nvar_
+  CONTAINS
+
+    SUBROUTINE packer(op)
+      INTEGER, INTENT(IN) :: op
+      INTEGER :: ivl, nvl, iv, nv, patch_id, r_type, vl_type, ierr, infosize
+      INTEGER, ALLOCATABLE :: info_buf(:)
+      TYPE(t_var), POINTER :: elem
+      CHARACTER(LEN=vlname_len) :: vl_name
+      CHARACTER(LEN=32) :: m_type
+      LOGICAL :: lre, lout, l_end
+      TYPE(t_var_list_ptr) :: vlp
+      TYPE(t_vl_register_iter) :: iter
+      CHARACTER(*), PARAMETER :: routine = modname//':varlistPacker'
+ 
+      nvl = get_nvl() 
+      IF (op .EQ. kUnpackOp .AND. nvl .NE. 0) &
+        & CALL finish(routine, "var_list_register must be empty if receiver")
+      CALL pmsg%packer(op, nvl)
+      nvar_ = 0
+      l_end = .false.
+      infosize = var_metadata_get_size()
+      DO ivl = 1, nvl
+        IF(op .EQ. kPackOp) THEN
+          IF (.NOT.iter%next()) THEN
+            l_end = .true.
+            EXIT
+          END IF
+          vlp%p => iter%cur%p
+          ! copy the values needed for the new_var_list() CALL to local variables
+          lre      = vlp%p%lrestart
+          lout     = vlp%p%loutput
+          vl_name  = vlp%p%vlname
+          m_type   = vlp%p%model_type
+          patch_id = vlp%p%patch_id
+          r_type   = vlp%p%restart_type
+          vl_type  = vlp%p%vlevel_type
+          nv = vlp%p%nvars
+          nvar_ = nvar_ + nv
+        END IF
+        CALL pmsg%packer(op, l_end)
+        IF (l_end) EXIT
+        CALL pmsg%packer(op, lre)
+        CALL pmsg%packer(op, lout)
+        CALL pmsg%packer(op, vl_name)
+        CALL pmsg%packer(op, m_type)
+        CALL pmsg%packer(op, patch_id)
+        CALL pmsg%packer(op, r_type)
+        CALL pmsg%packer(op, vl_type)
+        CALL pmsg%packer(op, nv)
+        IF (nv .EQ. 0) CYCLE ! check if there are valid restart fields
+        IF (op .EQ. kPackOp) THEN
+          DO iv = 1, vlp%p%nvars
+            elem => vlp%p%vl(iv)%p
+            info_buf = var_metadata_toBinary(elem%info, infosize)
+            CALL pmsg%pack(info_buf)
+            CALL pmsg%pack(vlp%p%tl(iv))
+            CALL pmsg%pack(vlp%p%hgrid(iv))
+            CALL pmsg%pack(vlp%p%key(iv))
+            CALL pmsg%pack(vlp%p%key_notl(iv))
+            CALL pmsg%pack(vlp%p%lout(iv))
+          END DO
+        ELSE
+          ! create var list
+          CALL vlr_add(vlp, vl_name, patch_id=patch_id, model_type=m_type, &
+            & restart_type=r_type, vlevel_type=vl_type, lrestart=lre, loutput=lout)
+          vlp%p%nvars = nv
+          ! insert elements into var list
+          ALLOCATE(vlp%p%vl(nv), vlp%p%tl(nv), vlp%p%hgrid(nv), &
+            & vlp%p%key(nv), vlp%p%key_notl(nv), vlp%p%lout(nv))
+          DO iv = 1, nv
+            ALLOCATE(vlp%p%vl(iv)%p, STAT=ierr)
+            IF (ierr .NE. 0) CALL finish(routine, "memory allocation failure")
+            elem => vlp%p%vl(iv)%p
+            NULLIFY(elem%r_ptr, elem%s_ptr, elem%i_ptr, elem%l_ptr)
+            elem%var_base_size = 0 ! Unknown here
+            CALL pmsg%unpack(info_buf)
+            elem%info = var_metadata_fromBinary(info_buf, infosize)
+            CALL pmsg%unpack(vlp%p%tl(iv))
+            CALL pmsg%unpack(vlp%p%hgrid(iv))
+            CALL pmsg%unpack(vlp%p%key(iv))
+            CALL pmsg%unpack(vlp%p%key_notl(iv))
+            CALL pmsg%unpack(vlp%p%lout(iv))
+          END DO
+        END IF
+      END DO
+      IF (op .EQ. kPackOp) THEN
+        IF (iter%next()) CALL finish(routine, "inconsistency -- second kind")
+      END IF
+      CALL pmsg%packer(op, nvar_)
+    END SUBROUTINE packer
+  END SUBROUTINE vlr_replicate
 
 END MODULE mo_var_list_register_utils
