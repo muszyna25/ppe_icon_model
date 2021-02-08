@@ -23,7 +23,8 @@ MODULE mo_var_list_register_utils
   PRIVATE
 
   PUBLIC :: vlr_add_vref, vlr_find, vlr_print_vls
-  PUBLIC :: vlr_print_groups, vlr_group, vlr_select_restart_vars
+  PUBLIC :: vlr_print_groups, vlr_group
+  PUBLIC :: vlr_select_restart_vars, vlr_collect_modelTypes
 
   CHARACTER(*), PARAMETER :: modname = "mo_var_list_register_utils"
 
@@ -279,5 +280,31 @@ CONTAINS
     IF(nv /= n_var) CALL finish(routine, "inconsistent restart variable count")
     IF (PRESENT(out_restartType)) out_restartType = rsType
   END SUBROUTINE vlr_select_restart_vars
+
+  SUBROUTINE vlr_collect_modelTypes(patch_id, modelTypes)
+    INTEGER, INTENT(IN) :: patch_id
+    CHARACTER(LEN=8), ALLOCATABLE, INTENT(OUT) :: modelTypes(:)
+    CHARACTER(LEN=8), ALLOCATABLE :: tmpTypes(:)
+    INTEGER :: ntypes, itype
+    LOGICAL :: skip
+    TYPE(t_vl_register_iter) :: iter
+
+    ntypes = 0
+    DO WHILE(iter%next())
+      IF (iter%cur%p%patch_id .NE. patch_id) CYCLE
+      skip = .FALSE.
+      DO itype = 1, ntypes
+        skip = iter%cur%p%model_type(1:8) == modelTypes(itype)
+        IF (skip) EXIT
+      END DO
+      IF (.NOT.skip) THEN
+        IF (ALLOCATED(modelTypes)) CALL MOVE_ALLOC(modelTypes, tmpTypes)
+        ntypes = ntypes + 1
+        ALLOCATE(modelTypes(ntypes))
+        IF (ALLOCATED(tmpTypes)) modelTypes(1:ntypes-1) = tmpTypes
+        modelTypes(ntypes) = iter%cur%p%model_type(1:8)
+      END IF
+    END DO
+  END SUBROUTINE vlr_collect_modelTypes
 
 END MODULE mo_var_list_register_utils
