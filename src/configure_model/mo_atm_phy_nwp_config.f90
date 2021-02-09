@@ -25,7 +25,7 @@ MODULE mo_atm_phy_nwp_config
   USE mo_run_config,          ONLY: msg_level, timers_level
   USE mo_parallel_config,     ONLY: nproma
   USE mo_io_units,            ONLY: filename_max
-  USE mo_impl_constants,      ONLY: max_dom, MAX_CHAR_LENGTH, itconv, itccov,  &
+  USE mo_impl_constants,      ONLY: max_dom, itconv, itccov,  &
     &                               itrad, itradheat, itsso, itgscp, itsatad,  &
     &                               itturb, itsfc, itgwd, itfastphy,           &
     &                               iphysproc, iphysproc_short, ismag, iedmf,  &
@@ -48,8 +48,7 @@ MODULE mo_atm_phy_nwp_config
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_phy_events,          ONLY: t_phyProcFast, t_phyProcSlow, t_phyProcGroup
   USE mo_nudging_config,      ONLY: configure_nudging, nudging_config
-  USE mo_name_list_output_config,   ONLY: first_output_name_list, &
-    &                               is_variable_in_output
+  USE mo_name_list_output_config, ONLY: is_variable_in_output
   USE mo_io_config,           ONLY: dt_lpi, dt_celltracks, dt_radar_dbz
 
   IMPLICIT NONE
@@ -88,6 +87,7 @@ MODULE mo_atm_phy_nwp_config
     INTEGER ::  inwp_satad       !! saturation adjustment
     INTEGER ::  inwp_convection  !! convection
     LOGICAL ::  lshallowconv_only !! use shallow convection only
+    LOGICAL ::  lgrayzone_deepconv !! use grayzone tuning for deep convection
     LOGICAL ::  ldetrain_conv_prec !! detrain convective rain and snow
     INTEGER ::  inwp_radiation   !! radiation
     INTEGER ::  inwp_sso         !! sso
@@ -119,6 +119,7 @@ MODULE mo_atm_phy_nwp_config
     LOGICAL  :: latm_above_top     !! use extra layer above model top for radiation 
                                    !! (reduced grid only)
     INTEGER  :: icalc_reff         !! type of effective radius calculation
+    INTEGER  :: icpl_rad_reff      !! couplig of radiation and effective radius
 
     ! upper atmosphere
     LOGICAL ::  lupatmo_phy        !! use upper atmosphere physics
@@ -241,7 +242,7 @@ CONTAINS
     ! local
     INTEGER :: jg, jk, jk_shift, jb, jc
     INTEGER :: error
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &      routine = modname//":configure_atm_phy_nwp"
     REAL(wp) :: z_mc_ref
     REAL(wp) :: &                             ! time-intervals for calling various 
@@ -331,6 +332,11 @@ CONTAINS
       atm_phy_nwp_config(jg)%lhydrom_read_from_fg(:) = .FALSE.
       atm_phy_nwp_config(jg)%lhydrom_read_from_ana(:) = .FALSE.
 
+      ! check for contradicting convection settings
+      IF (atm_phy_nwp_config(jg)%lshallowconv_only .AND. atm_phy_nwp_config(jg)%lgrayzone_deepconv) THEN
+        CALL finish('configure_atm_phy_nwp', "lshallowconv_only and lgrayzone_deepconv are mutually exclusive")
+      ENDIF
+
       ! Configure LES physics (if activated)
       !
       atm_phy_nwp_config(jg)%is_les_phy = .FALSE. 
@@ -344,21 +350,21 @@ CONTAINS
 
         ! convection should be turned off for LES
         IF(atm_phy_nwp_config(jg)%inwp_convection>0)THEN
-          CALL message(TRIM(routine),'Turning off convection for LES!')
+          CALL message(routine, 'Turning off convection for LES!')
           atm_phy_nwp_config(jg)%inwp_convection  = 0
           atm_phy_nwp_config(jg)%lenabled(itconv) = .FALSE.
         END IF
 
         ! SSO should be turned off for LES
         IF(atm_phy_nwp_config(jg)%inwp_sso>0)THEN
-          CALL message(TRIM(routine),'Turning off SSO scheme for LES!')
+          CALL message(routine, 'Turning off SSO scheme for LES!')
           atm_phy_nwp_config(jg)%inwp_sso = 0
           atm_phy_nwp_config(jg)%lenabled(itsso)= .FALSE.
         END IF
 
         ! GWD should be turned off for LES
         IF(atm_phy_nwp_config(jg)%inwp_gwd>0)THEN
-          CALL message(TRIM(routine),'Turning off GWD scheme for LES!')
+          CALL message(routine, 'Turning off GWD scheme for LES!')
           atm_phy_nwp_config(jg)%inwp_gwd = 0
           atm_phy_nwp_config(jg)%lenabled(itgwd) =.FALSE.
         END IF
@@ -390,7 +396,7 @@ CONTAINS
       IF (isModulo(atm_phy_nwp_config(jg)%dt_conv,atm_phy_nwp_config(jg)%dt_fastphy)) THEN
         WRITE(message_text,'(a,i2,a)') 'DOM ',jg, &
           &                            ': Convection timestep is not a multiple of advection step => rounded up!'
-        CALL message(TRIM(routine), message_text)
+        CALL message(routine, message_text)
         atm_phy_nwp_config(jg)%dt_conv = roundToNextMultiple(atm_phy_nwp_config(jg)%dt_conv,  &
           &                                                  atm_phy_nwp_config(jg)%dt_fastphy)
       ENDIF
@@ -398,7 +404,7 @@ CONTAINS
       IF (isModulo(atm_phy_nwp_config(jg)%dt_ccov,atm_phy_nwp_config(jg)%dt_fastphy)) THEN
         WRITE(message_text,'(a,i2,a)') 'DOM ',jg, &
           &                            ': Cloud-cover timestep is not a multiple of advection step => rounded up!'
-        CALL message(TRIM(routine), message_text)
+        CALL message(routine, message_text)
         atm_phy_nwp_config(jg)%dt_ccov = roundToNextMultiple(atm_phy_nwp_config(jg)%dt_ccov,  &
           &                                                  atm_phy_nwp_config(jg)%dt_fastphy)
       ENDIF
@@ -406,7 +412,7 @@ CONTAINS
       IF (isModulo(atm_phy_nwp_config(jg)%dt_sso,atm_phy_nwp_config(jg)%dt_fastphy)) THEN
         WRITE(message_text,'(a,i2,a)') 'DOM ',jg, &
           &                            ': SSO timestep is not a multiple of advection step => rounded up!'
-        CALL message(TRIM(routine), message_text)
+        CALL message(routine, message_text)
         atm_phy_nwp_config(jg)%dt_sso = roundToNextMultiple(atm_phy_nwp_config(jg)%dt_sso,    &
           &                                                 atm_phy_nwp_config(jg)%dt_fastphy)
       ENDIF
@@ -414,7 +420,7 @@ CONTAINS
       IF (isModulo(atm_phy_nwp_config(jg)%dt_gwd,atm_phy_nwp_config(jg)%dt_fastphy)) THEN
         WRITE(message_text,'(a,i2,a)') 'DOM ',jg, &
           &                            ': GWD timestep is not a multiple of advection step => rounded up!'
-        CALL message(TRIM(routine), message_text)
+        CALL message(routine, message_text)
         atm_phy_nwp_config(jg)%dt_gwd = roundToNextMultiple(atm_phy_nwp_config(jg)%dt_gwd,    &
                                                             atm_phy_nwp_config(jg)%dt_fastphy)
       ENDIF
@@ -422,7 +428,7 @@ CONTAINS
       IF (isModulo(atm_phy_nwp_config(jg)%dt_rad,atm_phy_nwp_config(jg)%dt_fastphy)) THEN
         WRITE(message_text,'(a,i2,a)') 'DOM ',jg, &
           &                            ': Radiation timestep is not a multiple of advection step => rounded up!'
-        CALL message(TRIM(routine), message_text)
+        CALL message(routine, message_text)
         atm_phy_nwp_config(jg)%dt_rad = roundToNextMultiple(atm_phy_nwp_config(jg)%dt_rad,    &
           &                                                 atm_phy_nwp_config(jg)%dt_fastphy)
       ENDIF
@@ -442,7 +448,7 @@ CONTAINS
         IF (atm_phy_nwp_config(jg)%dt_ccov /= atm_phy_nwp_config(jg)%dt_conv) THEN
           WRITE(message_text,'(a,f7.2,a,f7.2,a)') 'Timesteps for cloud-cover and convection differ. (', &
             &   atm_phy_nwp_config(jg)%dt_ccov,'/', atm_phy_nwp_config(jg)%dt_conv,'). Resetting dt_ccov...'
-          CALL message(TRIM(routine), message_text)
+          CALL message(routine, message_text)
           atm_phy_nwp_config(jg)%dt_ccov = atm_phy_nwp_config(jg)%dt_conv
         ENDIF
       ENDIF
@@ -451,7 +457,7 @@ CONTAINS
       ! cloud cover is called every turbulence time step
       IF ( atm_phy_nwp_config(jg)%inwp_turb == iedmf ) THEN
         WRITE(message_text,'(a)') 'EDMF DUALM selected => Resetting dt_ccov to dt_fastphy.'
-        CALL message(TRIM(routine), message_text)
+        CALL message(routine, message_text)
         atm_phy_nwp_config(jg)% dt_ccov = atm_phy_nwp_config(jg)% dt_fastphy
       ENDIF
 
@@ -460,7 +466,7 @@ CONTAINS
       IF (isModulo(atm_phy_nwp_config(jg)%dt_rad,atm_phy_nwp_config(jg)%dt_ccov)) THEN
         WRITE(message_text,'(a,i2,a)') 'DOM ',jg, &
           &                            ': Radiation timestep is not a multiple of cloud-cover step => rounded up!'
-        CALL message(TRIM(routine), message_text)
+        CALL message(routine, message_text)
         atm_phy_nwp_config(jg)%dt_rad = roundToNextMultiple(atm_phy_nwp_config(jg)%dt_rad,    &
           &                                                 atm_phy_nwp_config(jg)%dt_ccov)
       ENDIF
@@ -511,7 +517,7 @@ CONTAINS
     ! Settings for ozone tuning, depending on option for ozone climatology
     SELECT CASE (irad_o3)
     CASE (7)  ! GEMS climatology
-      CALL message(TRIM(routine), 'Use GEMS ozone climatology with tuning')
+      CALL message(routine, 'Use GEMS ozone climatology with tuning')
       ltuning_ozone     = .TRUE.
       tune_ozone_ztop   = 30000.0_wp
       tune_ozone_zmid2  = 15000.0_wp
@@ -523,7 +529,7 @@ CONTAINS
       tune_ozone_maxinc = 2.e-6_wp ! maximum absolute change of O3 mixing ratio
                                    ! this value is about 12% of the climatological maximum in the tropics
     CASE (79,97) ! Blending between GEMS and MACC climatologies
-      CALL message(TRIM(routine), 'Use blending between GEMS and MACC ozone climatologies with tuning')
+      CALL message(routine, 'Use blending between GEMS and MACC ozone climatologies with tuning')
       ltuning_ozone     = .TRUE.
       IF (atm_phy_nwp_config(jg)%inwp_radiation == 4) THEN
         tune_ozone_ztop   = 29000.0_wp
@@ -532,8 +538,8 @@ CONTAINS
         tune_ozone_ztop   = 29000.0_wp
         tune_ozone_zmid2  = 26000.0_wp
       ENDIF
-      tune_ozone_zmid   = 18000.0_wp
-      tune_ozone_zbot   = 15000.0_wp
+      tune_ozone_zmid   = 19000.0_wp
+      tune_ozone_zbot   = 16000.0_wp
       tune_ozone_fac    = 0.25_wp
       ozone_shapemode   = 2
       tune_ozone_lat    = 30._wp
@@ -693,16 +699,16 @@ CONTAINS
 
 
       ! 3d radiative flux output: only allocate and write variable if at least one is requested as output
-      atm_phy_nwp_config(jg)%l_3d_rad_fluxes = is_variable_in_output(first_output_name_list, var_name="group:all")    &
-        &                                 .OR. is_variable_in_output(first_output_name_list, var_name="lwflx_dn")     &
-        &                                 .OR. is_variable_in_output(first_output_name_list, var_name="swflx_dn")     &
-        &                                 .OR. is_variable_in_output(first_output_name_list, var_name="lwflx_up")     &
-        &                                 .OR. is_variable_in_output(first_output_name_list, var_name="swflx_up")     &
-        &                                 .OR. is_variable_in_output(first_output_name_list, var_name="lwflx_dn_clr") &
-        &                                 .OR. is_variable_in_output(first_output_name_list, var_name="swflx_dn_clr") &
-        &                                 .OR. is_variable_in_output(first_output_name_list, var_name="lwflx_up_clr") &
-        &                                 .OR. is_variable_in_output(first_output_name_list, var_name="swflx_up_clr")
- 
+      atm_phy_nwp_config(jg)%l_3d_rad_fluxes &
+        =    is_variable_in_output(var_name="group:all")    &
+        .OR. is_variable_in_output(var_name="lwflx_dn")     &
+        .OR. is_variable_in_output(var_name="swflx_dn")     &
+        .OR. is_variable_in_output(var_name="lwflx_up")     &
+        .OR. is_variable_in_output(var_name="swflx_up")     &
+        .OR. is_variable_in_output(var_name="lwflx_dn_clr") &
+        .OR. is_variable_in_output(var_name="swflx_dn_clr") &
+        .OR. is_variable_in_output(var_name="lwflx_up_clr") &
+        .OR. is_variable_in_output(var_name="swflx_up_clr")
     ENDDO  ! jg
 
 
@@ -1154,23 +1160,23 @@ CONTAINS
     TYPE(t_table)   :: table
     INTEGER         :: irow            ! row to fill
     INTEGER         :: i               ! loop index
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: dt_str, dt_str_orig
-    INTEGER                        :: idx_arr(iphysproc_short)
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: proc_names(iphysproc_short)
+    CHARACTER(LEN=64) :: dt_str, dt_str_orig
+    INTEGER, PARAMETER :: idx_arr(iphysproc_short) &
+         = (/itfastphy,itconv,itccov,itrad,itsso,itgwd/)
+    CHARACTER(LEN=7), PARAMETER :: proc_names(iphysproc_short) &
+      &                     = (/ "fastphy", &
+      &                          "conv   ", &
+      &                          "ccov   ", &
+      &                          "rad    ", &
+      &                          "sso    ", &
+      &                          "gwd    " /)
     !--------------------------------------------------------------------------
 
     ! will only be executed by stdio process
     IF(.NOT. my_process_is_stdio()) RETURN
 
     ! Initialize index-arrax and string-array
-    idx_arr = (/itfastphy,itconv,itccov,itrad,itsso,itgwd/)
     !
-    proc_names(itfastphy) = "fastphy"
-    proc_names(itconv)    = "conv"
-    proc_names(itccov)    = "ccov"
-    proc_names(itrad)     = "rad"
-    proc_names(itsso)     = "sso"
-    proc_names(itgwd)     = "gwd"
 
     ! could this be transformed into a table header?
     write(0,*) "Time intervals for calling NWP physics on patch ", pid
@@ -1188,13 +1194,12 @@ CONTAINS
       IF (atm_phy_nwp_config%lenabled(i)) THEN
         irow=irow+1
         CALL set_table_entry(table,irow,"Process", TRIM(proc_names(i)))
-        WRITE(dt_str,'(f7.2)') dt_phy(i)
         IF (dt_phy(i) /= dt_phy_orig(i)) THEN
-          WRITE(dt_str_orig,'(f7.2)') dt_phy_orig(i)
-          CALL set_table_entry(table,irow,"dt user [=> final]", TRIM(dt_str_orig)//' => '//TRIM(dt_str))
+          WRITE(dt_str,'(f7.2,a,f7.2)') dt_phy_orig(i), ' => ', dt_phy(i)
         ELSE
-          CALL set_table_entry(table,irow,"dt user [=> final]", TRIM(dt_str))
+          WRITE(dt_str,'(f7.2)') dt_phy(i)
         ENDIF
+        CALL set_table_entry(table,irow,"dt user [=> final]", TRIM(dt_str))
       ENDIF
 
     ENDDO

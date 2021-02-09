@@ -32,7 +32,7 @@ MODULE mo_nh_supervise
   USE mo_run_config,          ONLY: dtime, msg_level, output_mode,           &
     &                               ltransport, ntracer, lforcing, iforcing, &
     &                               iqm_max
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, inwp, iecham, &
+  USE mo_impl_constants,      ONLY: SUCCESS, inwp, iecham, &
     &                               min_rlcell_int, min_rledge_int, iheldsuarez
   USE mo_physical_constants,  ONLY: cvd
   USE mo_mpi,                 ONLY: my_process_is_stdio, get_my_mpi_all_id, &
@@ -95,11 +95,11 @@ CONTAINS
     !     This requires namelist setting 'run_nml::output = "maxwinds"'
     IF (output_mode%l_maxwinds .AND. my_process_is_stdio()) THEN
       maxwinds_funit = find_next_free_unit(100,1000)
-      CALL message(routine,"Open log file "//TRIM(maxwinds_filename)//" for writing.")
-      OPEN(UNIT=maxwinds_funit, FILE=TRIM(maxwinds_filename), ACTION="write", &
+      CALL message(routine,"Open log file "//maxwinds_filename//" for writing.")
+      OPEN(UNIT=maxwinds_funit, FILE=maxwinds_filename, ACTION="write", &
         &  FORM='FORMATTED', IOSTAT=istat)
       IF (istat/=SUCCESS) &
-        &  CALL finish(routine,'could not open '//TRIM(maxwinds_filename))
+        &  CALL finish(routine, 'could not open '//maxwinds_filename)
     END IF
   END SUBROUTINE init_supervise_nh
 
@@ -118,7 +118,7 @@ CONTAINS
     IF (output_mode%l_maxwinds .AND. my_process_is_stdio()) THEN
       CLOSE(maxwinds_funit, IOSTAT=istat)
       IF (istat/=SUCCESS) &
-        &  CALL finish(routine,'could not open '//TRIM(maxwinds_filename))
+        &  CALL finish(routine,'could not close '//maxwinds_filename)
     END IF
   END SUBROUTINE finalize_supervise_nh
   
@@ -512,13 +512,12 @@ CONTAINS
   !-------------------------------------------------------------------------
   SUBROUTINE open_total_integral_files( )
 
-    CHARACTER (len=MAX_CHAR_LENGTH) :: file_ti    ! file name
     INTEGER :: istat
 
-    file_ti   = 'total_integrals.dat'
     n_file_ti = find_next_free_unit(100,1000)
     ! write(0,*) "n_file_ti", n_file_ti
-    OPEN(UNIT=n_file_ti,FILE=TRIM(file_ti),ACTION="write", FORM='FORMATTED',IOSTAT=istat)
+    OPEN(UNIT=n_file_ti,FILE='total_integrals.dat',ACTION="write", &
+         FORM='FORMATTED',IOSTAT=istat)
     IF (istat/=SUCCESS) THEN
       CALL finish('supervise_total_integrals_nh','could not open total_integrals.dat')
     ENDIF
@@ -546,9 +545,9 @@ CONTAINS
       !!$       ENDIF
 
 
-      file_ti   = 'tracer_total_integrals.dat'
       n_file_tti = find_next_free_unit(100,1000)
-      OPEN(UNIT=n_file_tti,FILE=TRIM(file_ti),ACTION="write",FORM='FORMATTED',IOSTAT=istat)
+      OPEN(UNIT=n_file_tti,FILE='tracer_total_integrals.dat',ACTION="write", &
+           FORM='FORMATTED',IOSTAT=istat)
       IF (istat/=SUCCESS) THEN
         CALL finish('supervise_total_integrals_nh','could not open tracer_total_integrals.dat')
       ENDIF
@@ -561,9 +560,9 @@ CONTAINS
         ' RELATIVE ERROR to step 1 (TRACER)'
     ENDIF
 
-    file_ti   = 'check_global_quantities.dat'
     check_total_quant_fileid = find_next_free_unit(100,1000)
-    OPEN(UNIT=check_total_quant_fileid,FILE=TRIM(file_ti),ACTION="write",FORM='FORMATTED',IOSTAT=istat)
+    OPEN(UNIT=check_total_quant_fileid,FILE='check_global_quantities.dat', &
+      ACTION="write",FORM='FORMATTED',IOSTAT=istat)
     IF (istat/=SUCCESS) THEN
       CALL finish('supervise_total_integrals_nh','could not open check_global_quantities.dat')
     ENDIF
@@ -812,12 +811,13 @@ CONTAINS
   !! @par Revision History
   !! Moved here from the physics interfaces by Daniel Reinert, DWD (2017-09-19)
   !!
-  SUBROUTINE compute_dpsdt (pt_patch, dt, pt_diag, opt_dpsdt_avg)
+  SUBROUTINE compute_dpsdt (pt_patch, dt, pt_diag, opt_dpsdt_avg, linit)
 
     TYPE(t_patch),       INTENT(IN)    :: pt_patch      !< grid/patch info
     REAL(wp),            INTENT(IN)    :: dt            !< time step [s]
     TYPE(t_nh_diag),     INTENT(INOUT) :: pt_diag       !< the diagnostic variables
     REAL(wp), OPTIONAL,  INTENT(OUT)   :: opt_dpsdt_avg !< mean |dPS/dt|
+    LOGICAL,  OPTIONAL,  INTENT(IN)    :: linit         !< Initialization flag (no OpenACC for linit==.TRUE.)
 
     ! local
     INTEGER :: jc, jb                         !< loop indices
@@ -829,8 +829,14 @@ CONTAINS
     INTEGER  :: npoints_blk(pt_patch%nblks_c)
     REAL(wp) :: dpsdt_avg                     !< spatial average of ABS(dpsdt)
     INTEGER  :: npoints
-    LOGICAL  :: l_opt_dpsdt_avg
+    LOGICAL  :: l_opt_dpsdt_avg, lacc
   !-------------------------------------------------------------------------
+
+    IF (PRESENT(linit)) THEN
+      lacc = .NOT. linit
+   ELSE
+      lacc = .FALSE.
+   END IF
 
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
@@ -840,10 +846,13 @@ CONTAINS
 
     ! Initialize fields for runtime diagnostics
     ! In case that average ABS(dpsdt) is diagnosed
+    !$acc data create (dps_blk, npoints_blk) if(lacc)
+    !$acc kernels if(lacc)
     IF (msg_level >= 11) THEN
       dps_blk(:)     = 0._wp
       npoints_blk(:) = 0
     ENDIF
+    !$acc end kernels
 
     l_opt_dpsdt_avg = PRESENT(opt_dpsdt_avg)
     ! Please note: only the stdio-process will return with a reasonable value 
@@ -860,10 +869,13 @@ CONTAINS
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
 
+      !$acc parallel default (present) if(lacc)
+      !$acc loop private(jc)
       DO jc = i_startidx, i_endidx
         pt_diag%ddt_pres_sfc(jc,jb) = (pt_diag%pres_sfc(jc,jb)-pt_diag%pres_sfc_old(jc,jb))/dt
         pt_diag%pres_sfc_old(jc,jb) = pt_diag%pres_sfc(jc,jb)
       ENDDO
+      !$acc end parallel
     ENDDO
 !$OMP END DO
 
@@ -877,10 +889,13 @@ CONTAINS
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
                            i_startidx, i_endidx, rl_start, rl_end)
 
+        !$acc parallel default (present) if(lacc)
+        !$acc loop seq
         DO jc = i_startidx, i_endidx
           dps_blk(jb) = dps_blk(jb) + ABS(pt_diag%ddt_pres_sfc(jc,jb))
           npoints_blk(jb) = npoints_blk(jb) + 1
         ENDDO
+        !$acc end parallel
       ENDDO
 !$OMP END DO
 
@@ -894,13 +909,14 @@ CONTAINS
         ! Exclude initial time step where pres_sfc_old is zero
         IF (dpsdt_avg < 10000._wp/dt) THEN
           WRITE(message_text,'(a,f12.6,a,i3)') 'average |dPS/dt| =',dpsdt_avg,' Pa/s in domain',pt_patch%id
-          CALL message('nwp_nh_interface: ', TRIM(message_text))
+          CALL message('nwp_nh_interface: ', message_text)
        ENDIF
         IF(l_opt_dpsdt_avg) opt_dpsdt_avg = dpsdt_avg
       ENDIF
 !$OMP END MASTER
     ENDIF  ! msg_level
 !$OMP END PARALLEL
+    !$acc end data
 
   END SUBROUTINE compute_dpsdt
 

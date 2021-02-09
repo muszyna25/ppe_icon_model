@@ -1,5 +1,3 @@
-#ifndef __NO_ICON_OCEAN__
-
 !>
 !! Allocation/deallocation and reading of HAMOCC boundary conditions
 !!
@@ -336,7 +334,7 @@ CONTAINS
         CALL nf(nf_close(ncid), routine)
       ENDIF
 
-      stream_id = openInputFile(dust_file, p_patch)
+      CALL openinputfile(stream_id, dust_file, p_patch)
       
       no_tst = 12
       !-------------------------------------------------------
@@ -404,7 +402,7 @@ CONTAINS
         CALL nf(nf_close(ncid), routine)
       ENDIF
 
-      stream_id = openInputFile(dust_file, p_patch)
+      CALL openinputfile(stream_id, dust_file, p_patch)
       
       no_tst = 12
       !-------------------------------------------------------
@@ -504,7 +502,7 @@ CONTAINS
         CALL nf(nf_close(ncid), routine)
       ENDIF
 
-      stream_id = openInputFile(dust_file, p_patch)
+      CALL openInputFile(stream_id, dust_file, p_patch)
       
       no_tst = 12
       !-------------------------------------------------------
@@ -585,4 +583,3 @@ CONTAINS
   END SUBROUTINE update_bgc_bcond
 END MODULE
 
-#endif

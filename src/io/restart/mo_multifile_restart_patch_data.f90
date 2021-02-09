@@ -34,14 +34,16 @@ MODULE mo_multifile_restart_patch_data
   USE mo_var_metadata_types,          ONLY: t_var_metadata
   USE mo_var_list_element,            ONLY: t_p_var_list_element
   USE mo_parallel_config,             ONLY: restart_chunk_size
-  USE mo_restart_var_data,            ONLY: createRestartVarData
+  USE mo_var_list,                    ONLY: get_restart_vars
 
   IMPLICIT NONE
-  PRIVATE
   
-  PUBLIC :: t_MultifilePatchData
+  PUBLIC :: t_MultifilePatchData, toMultifilePatchData
+
+  PRIVATE
 
   TYPE, EXTENDS(t_RestartPatchData) :: t_MultifilePatchData
+    PRIVATE
     INTEGER :: cnkLvs
     LOGICAL :: shortcut
     TYPE(t_MultifileRestartCollector) :: coll
@@ -70,13 +72,26 @@ CONTAINS
     CALL finish(modname//"writeData", "not implemented!")
   END SUBROUTINE multifilePatchData_writeData
 
+  FUNCTION toMultifilePatchData(me) RESULT(resultVar)
+    CLASS(t_RestartPatchData), TARGET, INTENT(INOUT) :: me(:)
+    TYPE(t_MultifilePatchData), POINTER :: resultVar(:)
+    CHARACTER(*), PARAMETER :: routine = modname//":toMultifilePatchData"
+
+    SELECT TYPE(me)
+    TYPE IS(t_MultifilePatchData)
+      resultVar => me
+    CLASS DEFAULT
+      CALL finish(routine, "assertion failed: wrong dynamic type")
+    END SELECT
+  END FUNCTION toMultifilePatchData
+
   SUBROUTINE multifilePatchData_construct(me, modelType, jg)
     CLASS(t_MultifilePatchData), INTENT(INOUT) :: me
     CHARACTER(*),                INTENT(IN)    :: modelType
     INTEGER,                     INTENT(IN)    :: jg
 
     CALL me%description%init(jg)
-    CALL createRestartVarData(me%varData, jg, modelType, me%restartType)
+    CALL get_restart_vars(me%varData, jg, modelType, me%restartType)
     IF (isAsync()) CALL me%transferToRestart()
   END SUBROUTINE multifilePatchData_construct
 
@@ -374,7 +389,7 @@ CONTAINS
     CLASS(t_MultifilePatchData), INTENT(INOUT) :: me
 
     CALL me%coll%finalize()
-    IF (ALLOCATED(me%varData)) DEALLOCATE(me%varData)
+    IF(ALLOCATED(me%varData)) DEALLOCATE(me%varData)
   END SUBROUTINE multifilePatchData_destruct
 
 END MODULE mo_multifile_restart_patch_data

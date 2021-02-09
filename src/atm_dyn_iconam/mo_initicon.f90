@@ -42,7 +42,7 @@ MODULE mo_initicon
     &                               qrsgana_mode, fgFilename, anaFilename, ana_varnames_map_file
   USE mo_advection_config,    ONLY: advection_config
   USE mo_nwp_tuning_config,   ONLY: max_freshsnow_inc
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, MODE_DWDANA, max_dom,   &
+  USE mo_impl_constants,      ONLY: SUCCESS, MODE_DWDANA, max_dom,   &
     &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA,              &
     &                               MODE_ICONVREMAP, MODE_COMBINED, MODE_COSMO,       &
     &                               min_rlcell, INWP, min_rledge_int, grf_bdywidth_c, &
@@ -65,7 +65,7 @@ MODULE mo_initicon
   USE sfc_terra_init,         ONLY: get_wsnow
   USE mo_nh_vert_interp,      ONLY: vert_interp_atm, vert_interp_sfc
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
-  USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
+  USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp, calc_qsum
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_sync,                ONLY: sync_patch_array, SYNC_E, SYNC_C
   USE mo_math_laplace,        ONLY: nabla2_vec, nabla4_vec
@@ -129,7 +129,7 @@ MODULE mo_initicon
     ! Allocate initicon data type
     ALLOCATE (initicon(n_dom), initicon_const(n_dom),  &
       &       stat=ist)
-    IF (ist /= SUCCESS)  CALL finish(TRIM(routine),'allocation for initicon failed')
+    IF (ist /= SUCCESS)  CALL finish(routine,'allocation for initicon failed')
 
     DO jg = 1, n_dom
       initicon(jg)%const => initicon_const(jg)
@@ -178,13 +178,13 @@ MODULE mo_initicon
     CALL deallocate_initicon(initicon)
 
     DEALLOCATE (initicon, stat=ist)
-    IF (ist /= success) CALL finish(TRIM(routine),'deallocation for initicon failed')
+    IF (ist /= success) CALL finish(routine,'deallocation for initicon failed')
     DO jg = 1, n_dom
       IF(p_patch(jg)%ldom_active) THEN
         IF(my_process_is_stdio()) CALL inputInstructions(jg)%ptr%printSummary(jg)
         CALL inputInstructions(jg)%ptr%destruct()
         DEALLOCATE(inputInstructions(jg)%ptr, stat=ist)
-        IF(ist /= success) CALL finish(TRIM(routine),'deallocation of an input instruction list failed')
+        IF(ist /= success) CALL finish(routine,'deallocation of an input instruction list failed')
       END IF
     END DO
 
@@ -281,7 +281,7 @@ MODULE mo_initicon
     DO jg = 1, n_dom
       IF(p_patch(jg)%ldom_active) THEN
         IF(my_process_is_stdio()) THEN
-          CALL message (TRIM(routine), 'read atm_FG fields from '//TRIM(fgFilename_str(jg)))
+          CALL message(routine, 'read atm_FG fields from '//TRIM(fgFilename_str(jg)))
         ENDIF  ! p_io
         IF (ana_varnames_map_file /= ' ') THEN
           CALL requestList%readFile(p_patch(jg), TRIM(fgFilename_str(jg)), .TRUE., &
@@ -428,7 +428,7 @@ MODULE mo_initicon
         IF(p_patch(jg)%ldom_active .AND. lread_ana) THEN
             IF (lp2cintp_incr(jg) .AND. lp2cintp_sfcana(jg)) CYCLE
             IF(my_process_is_stdio()) THEN
-                CALL message (TRIM(routine), 'read atm_ANA fields from '//TRIM(anaFilename_str(jg)))
+                CALL message(routine, 'read atm_ANA fields from '//TRIM(anaFilename_str(jg)))
             ENDIF  ! p_io
             IF (ana_varnames_map_file /= ' ') THEN
               CALL requestList%readFile(p_patch(jg), TRIM(anaFilename_str(jg)), .FALSE., &
@@ -697,7 +697,7 @@ MODULE mo_initicon
 
     REAL(wp) :: vn_incr_smt
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+    CHARACTER(len=*), PARAMETER :: &
       routine = modname//':create_dwdana_atm'
 
     ! nondimensional diffusion coefficient for interpolated velocity increment
@@ -731,7 +731,7 @@ MODULE mo_initicon
                z_qsum   (nproma,nlev),          &
                STAT=ist)
       IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine), 'allocation of auxiliary arrays failed')
+        CALL finish(routine, 'allocation of auxiliary arrays failed')
       ENDIF
 
       nabla4_vn_incr(:,:,:) = 0._wp
@@ -1045,7 +1045,7 @@ MODULE mo_initicon
       ! deallocate temporary arrays
       DEALLOCATE( zpres_nh, pres_incr, u_incr, v_incr, vn_incr, nabla4_vn_incr, w_incr, z_qsum, STAT=ist )
       IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine), 'deallocation of auxiliary arrays failed' )
+        CALL finish(routine, 'deallocation of auxiliary arrays failed' )
       ENDIF
 
     ENDDO  ! jg domain loop
@@ -1091,7 +1091,7 @@ MODULE mo_initicon
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: nabla2_vn_incr, w_incr
     REAL(vp), ALLOCATABLE, DIMENSION(:,:,:) :: zvn_incr
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+    CHARACTER(len=*), PARAMETER :: &
       routine = modname//':transform_dwdana_increment_atm'
 
     ! nondimensional diffusion coefficient for interpolated velocity increment
@@ -1132,7 +1132,7 @@ MODULE mo_initicon
         &      zvn_incr(nlev,nproma,nblks_e), alpha(nproma,nlev),STAT=ist)
       !
       IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine), 'allocation of auxiliary arrays failed')
+        CALL finish(routine, 'allocation of auxiliary arrays failed')
       ENDIF
 
 
@@ -1173,14 +1173,8 @@ MODULE mo_initicon
         CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
           & i_startidx, i_endidx, rl_start, rl_end)
 
-
         ! Sum up the hydrometeor species for the water loading term
-        DO jk = 1, nlev
-          DO jc = i_startidx, i_endidx
-            z_qsum(jc,jk) = SUM(p_prog_now_rcf%tracer (jc,jk,jb,condensate_list))
-          ENDDO
-        ENDDO
-
+        CALL calc_qsum (p_prog_now_rcf%tracer, z_qsum, condensate_list, jb, i_startidx, i_endidx, 1, 1, nlev)
 
         DO jk = 1, nlev
           DO jc = i_startidx, i_endidx
@@ -1455,7 +1449,7 @@ MODULE mo_initicon
       ! deallocate temporary arrays
       DEALLOCATE( nabla2_vn_incr, z_qsum, zvn_incr, alpha, STAT=ist )
       IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine), 'deallocation of auxiliary arrays failed' )
+        CALL finish(routine, 'deallocation of auxiliary arrays failed' )
       ENDIF
 
       !
@@ -1468,7 +1462,7 @@ MODULE mo_initicon
         ! Note that here the filtered velocity increment is used.
         ALLOCATE(w_incr(nproma,nlevp1,nblks_c), STAT=ist)
         IF (ist /= SUCCESS) THEN
-          CALL finish ( TRIM(routine), 'allocation of auxiliary arrays failed')
+          CALL finish(routine, 'allocation of auxiliary arrays failed')
         ENDIF
 
         CALL init_w(p_patch(jg), p_int_state(jg), REAL(p_diag%vn_incr,wp), p_nh_state(jg)%metrics%z_ifc, w_incr)
@@ -1631,7 +1625,7 @@ MODULE mo_initicon
         ! deallocate temporary arrays
         DEALLOCATE( w_incr, STAT=ist )
         IF (ist /= SUCCESS) THEN
-          CALL finish ( TRIM(routine), 'deallocation of auxiliary arrays failed' )
+          CALL finish(routine, 'deallocation of auxiliary arrays failed' )
         ENDIF
       ENDIF  ! dt_iau = 0
 
@@ -1692,7 +1686,7 @@ MODULE mo_initicon
     REAL(wp), PARAMETER :: min_hsnow_inc=0.001_wp  ! minimum hsnow increment (1mm absolute value)
                                                    ! in order to avoid grib precision problems
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+    CHARACTER(len=*), PARAMETER :: &
       routine = modname//':create_iau_sfc'
   !-------------------------------------------------------------------------
 
@@ -2007,7 +2001,7 @@ MODULE mo_initicon
           ! SST analysis (T_SO(0) or T_SEA) was read into initicon(jg)%sfc%sst.
           ! Now copy to diag_lnd%t_seasfc for sea water points (including ice-covered ones)
           !
-!CDIR NODEP,VOVERTAKE,VOB
+!NEC$ ivdep
           DO ic = 1, ext_data(jg)%atm%list_sea%ncount(jb)
              jc = ext_data(jg)%atm%list_sea%idx(ic,jb)
              p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MAX(tf_salt,initicon(jg)%sfc%sst(jc,jb))
@@ -2017,6 +2011,7 @@ MODULE mo_initicon
           !
           ! get SST from first guess T_G
           !
+!NEC$ ivdep
           DO ic = 1, ext_data(jg)%atm%list_sea%ncount(jb)
             jc = ext_data(jg)%atm%list_sea%idx(ic,jb)
             p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) =  &
@@ -2032,16 +2027,19 @@ MODULE mo_initicon
         ! construct temporary field containing both SST and lake-surface temperatures
         ! which is needed for initializing T_SO at pure water points
         z_t_seasfc(:) = 0._wp
+!NEC$ ivdep
         DO ic = 1, ext_data(jg)%atm%list_sea%ncount(jb)
           jc = ext_data(jg)%atm%list_sea%idx(ic,jb)
           z_t_seasfc(jc) = p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
         END DO
         IF (llake) THEN
+!NEC$ ivdep
           DO ic = 1, ext_data(jg)%atm%list_lake%ncount(jb)
             jc = ext_data(jg)%atm%list_lake%idx(ic,jb)
             z_t_seasfc(jc) = MAX(tmelt, p_lnd_state(jg)%prog_wtr(ntlr)%t_wml_lk(jc,jb))
           END DO
         ELSE
+!NEC$ ivdep
           DO ic = 1, ext_data(jg)%atm%list_lake%ncount(jb)
             jc = ext_data(jg)%atm%list_lake%idx(ic,jb)
             z_t_seasfc(jc) = MAX(tmelt, p_lnd_state(jg)%prog_lnd(ntlr)%t_g_t(jc,jb,isub_lake))
@@ -2052,6 +2050,7 @@ MODULE mo_initicon
         !
         ! Compute mask field for land points
         lp_mask(:) = .FALSE.
+!NEC$ ivdep
         DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,1)
           jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,1)
           lp_mask(jc) = .TRUE.
@@ -2077,7 +2076,7 @@ MODULE mo_initicon
 
           ! Check consistency between w_snow and rho_snow
           !
-!CDIR NODEP,VOVERTAKE,VOB
+!NEC$ ivdep
           DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
              jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
 
@@ -2095,6 +2094,7 @@ MODULE mo_initicon
 
             ! Constrain both rho_snow and t_snow because initial fields interpolated from a coarser grid
             ! may suffer from missing values near coasts
+!NEC$ ivdep
             DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
               jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
 
@@ -2114,7 +2114,7 @@ MODULE mo_initicon
           ! Catch problematic coast cases: ICON-land but GME ocean for moisture
           !
           DO jk = 1, nlev_soil
-!CDIR NODEP,VOVERTAKE,VOB
+!NEC$ ivdep
             DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
                jc  = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
                ist = ext_data(jg)%atm%soiltyp_t(jc,jb,jt)

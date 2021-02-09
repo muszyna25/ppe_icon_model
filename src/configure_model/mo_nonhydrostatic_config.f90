@@ -25,11 +25,11 @@
 MODULE mo_nonhydrostatic_config
 
   USE mo_kind,                    ONLY: wp
-  USE mo_impl_constants,          ONLY: max_dom, MAX_CHAR_LENGTH, MAX_NTRACER
+  USE mo_impl_constants,          ONLY: max_dom, MAX_NTRACER
   USE mo_exception,               ONLY: message, message_text
   USE mo_vertical_coord_table,    ONLY: vct_a
   USE mo_run_config,              ONLY: msg_level
-  USE mo_name_list_output_config, ONLY: first_output_name_list, is_variable_in_output
+  USE mo_name_list_output_config, ONLY: is_variable_in_output
 
   IMPLICIT NONE
 
@@ -132,7 +132,7 @@ CONTAINS
     REAL(wp), PARAMETER :: hbase_clcm = 1948.99_wp  ! height in m of 800 hPa level in US standard atmosphere
 
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_nonhydrostatic_config:configure_nonhydrostatic'
 
     !-----------------------------------------------------------------------
@@ -150,7 +150,7 @@ CONTAINS
     IF ( kstart_moist(jg) >= 1 ) THEN
       WRITE(message_text,'(2(a,i4))') 'Domain', jg, &
         '; computation of moist physics processes starts in layer ', kstart_moist(jg)
-      CALL message(TRIM(routine),message_text)
+      CALL message(routine, message_text)
     ENDIF
 
 
@@ -180,7 +180,7 @@ CONTAINS
       WRITE(message_text,'(a,i4,a,i4,a)') 'Domain', jg, &
         '; computations related to (ART) tracers start in layer ', kstart_tracer(jg,1), &
         ' (might be overwritten by ART-xml settings)'
-      CALL message(TRIM(routine),message_text)
+      CALL message(routine, message_text)
     ENDIF
 
 
@@ -204,7 +204,7 @@ CONTAINS
     ENDDO
     WRITE(message_text,'(2(a,i4),i4)') 'Domain', jg, &
       '; high- and mid-level clouds in layers above ', ih_clch(jg), ih_clcm(jg)
-    CALL message(TRIM(routine),message_text)
+    CALL message(routine, message_text)
 
     ! initialization of control variables derived from ndyn_substeps
     ndyn_substeps_max    = ndyn_substeps + 3
@@ -212,7 +212,7 @@ CONTAINS
 
 
     ! check whether dpsdt should be computed for output purposes
-    lcalc_dpsdt = (is_variable_in_output(first_output_name_list, var_name='ddt_pres_sfc')) &
+    lcalc_dpsdt = (is_variable_in_output(var_name='ddt_pres_sfc')) &
       &           .OR. (msg_level >= 11)
 
   END SUBROUTINE configure_nonhydrostatic

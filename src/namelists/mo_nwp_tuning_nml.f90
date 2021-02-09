@@ -253,7 +253,7 @@ CONTAINS
     !
     ! grid scale microphysics
     tune_zceff_min   = 0.01_wp
-    tune_v0snow      = 25.0_wp      ! previous ICON value was 20
+    tune_v0snow      = -1.0_wp      ! defaults are set in data_gscp depending on igscp
     tune_zvz0i       = 1.25_wp      ! original value of Heymsfield+Donner 1990: 3.29
     tune_icesedi_exp = 0.30_wp      ! exponent for density correction of cloud ice sedimentation
     !

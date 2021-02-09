@@ -128,7 +128,7 @@ CONTAINS
     nold(1) = 1
     nnew(1) = 1
     !---------------------------------------------------------------------
-    stream_id = openInputFile(fileName, patch_2d, read_netcdf_broadcast_method)
+    CALL openinputfile(stream_id, fileName, patch_2d, read_netcdf_broadcast_method)
 
     CALL read_3D_time(                        &
       & stream_id=stream_id,                  &

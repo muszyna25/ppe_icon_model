@@ -223,17 +223,17 @@ CONTAINS
     END IF
     IF (PRESENT(zaxisName)) THEN
       IF (ALLOCATED(axis%zaxisName))     CALL finish(routine, "'zaxisName' already initialized!")
-      ALLOCATE(CHARACTER(LEN(zaxisName)) :: axis%zaxisName)
+      ALLOCATE(CHARACTER(LEN_TRIM(zaxisName)) :: axis%zaxisName)
       axis%zaxisName = zaxisName
     END IF
     IF (PRESENT(zaxisLongname)) THEN
       IF (ALLOCATED(axis%zaxisLongname)) CALL finish(routine, "'zaxisLongname' already initialized!")
-      ALLOCATE(CHARACTER(LEN(zaxisLongname)) :: axis%zaxisLongname)
+      ALLOCATE(CHARACTER(LEN_TRIM(zaxisLongname)) :: axis%zaxisLongname)
       axis%zaxisLongname = zaxisLongname
     END IF
     IF (PRESENT(zaxisUnits)) THEN
       IF (ALLOCATED(axis%zaxisUnits))    CALL finish(routine, "'zaxisUnits' already initialized!")
-      ALLOCATE(CHARACTER(LEN(zaxisUnits)) :: axis%zaxisUnits)
+      ALLOCATE(CHARACTER(LEN_TRIM(zaxisUnits)) :: axis%zaxisUnits)
       axis%zaxisUnits = zaxisUnits
     END IF
     IF (PRESENT(zaxisNumber)) THEN
@@ -650,7 +650,7 @@ CONTAINS
         IF (it%axis%zaxisType%cdi_zaxis_type /= cdi_zaxis_type)  match=.FALSE.
       END IF
       IF (PRESENT(zaxisName)) THEN
-        IF (TRIM(it%axis%zaxisName) /= TRIM(zaxisName))  match=.FALSE.
+        IF (it%axis%zaxisName /= zaxisName)  match=.FALSE.
       END IF
       IF (PRESENT(zaxisNlev)) THEN
         IF (it%axis%zaxisNlev /= zaxisNlev)  match=.FALSE.

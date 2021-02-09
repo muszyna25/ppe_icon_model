@@ -82,7 +82,7 @@ SUBROUTINE su_bc_aeropt_cmip6_volc( p_patch_id,                          &
     ELSE
       cfname='bc_aeropt_cmip6_volc_lw_b16_sw_b14.nc'
     ENDIF
-    ifile_id=openInputFile(cfname)
+    CALL openInputFile(ifile_id, cfname)
 !!$write(0,*) 'cfname=',TRIM(ADJUSTL(cfname)),'ifile_id=',ifile_id
     CALL nf(nf_inq_dimid(ifile_id,TRIM(ADJUSTL(clat_dim)),idim_id), &
            TRIM(ADJUSTL(csubprog_name)))
@@ -537,7 +537,7 @@ END SUBROUTINE altitude_index
     cfname='bc_aeropt_cmip6_volc_lw_b16_sw_b14.nc'
   ENDIF
 
-  ifile_id=openInputFile(cfname)
+  CALL openInputFile(ifile_id, cfname)
   CALL read_1D(file_id=ifile_id, variable_name='altitude', return_pointer=zalt)
   ! order altitudes from top to bottom of atmosphere (should be outside reading routine)
   r_alt_clim=zalt

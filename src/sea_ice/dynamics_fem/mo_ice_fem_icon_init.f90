@@ -29,13 +29,14 @@ MODULE mo_ice_fem_icon_init
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish
   USE mo_exception,           ONLY: message
-  USE mo_impl_constants,      ONLY: max_char_length
   USE mo_impl_constants,      ONLY: success
 
   USE mo_parallel_config,     ONLY: nproma
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_math_constants,      ONLY: rad2deg, deg2rad
+
+  USE mo_sync,                ONLY: sync_v, sync_patch_array
 
 
   IMPLICIT NONE
@@ -47,6 +48,12 @@ MODULE mo_ice_fem_icon_init
   PUBLIC  :: ice_fem_grid_post
 
   PUBLIC  :: exchange_nod2D
+
+  INTERFACE exchange_nod2d
+    MODULE PROCEDURE exchange_nod2d
+    MODULE PROCEDURE exchange_nod2Dx2
+    MODULE PROCEDURE exchange_nod2Dx3
+  END INTERFACE exchange_nod2d
 
   PRIVATE :: basisfunctions_nod
   PRIVATE :: calc_f_rot
@@ -78,7 +85,7 @@ CONTAINS
     TYPE(t_patch_3D), TARGET, INTENT(IN)    :: p_patch_3D
 
     !Local variables
-    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ice_fem_interface:init_fem_wgts'
+    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_ice_fem_interface:init_fem_wgts'
 
     ! Patch
     TYPE(t_patch), POINTER :: p_patch
@@ -94,7 +101,7 @@ CONTAINS
     REAL(wp) :: rdeno, rsum
 
     !-------------------------------------------------------------------------
-    CALL message(TRIM(routine), 'start' )
+    CALL message(routine, 'start' )
 
     p_patch => p_patch_3D%p_patch_2D(1)
     iidx => p_patch%verts%cell_idx
@@ -148,7 +155,7 @@ CONTAINS
     ENDDO
 !ICON_OMP_END_PARALLEL_DO
 
-    CALL message (TRIM(routine), 'end')        
+    CALL message (routine, 'end')
 
   END SUBROUTINE init_fem_wgts
 
@@ -247,9 +254,9 @@ CONTAINS
 
     !Local variables
     INTEGER :: ist
-    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ice_fem_interface:destruct_fem_wgts'
+    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_ice_fem_interface:destruct_fem_wgts'
     !-------------------------------------------------------------------------
-    CALL message(TRIM(routine), 'start' )
+    CALL message(routine, 'start' )
 
     DEALLOCATE(c2v_wgt,STAT=ist)
     IF (ist /= SUCCESS) THEN
@@ -271,7 +278,7 @@ CONTAINS
       CALL finish (routine,'deallocating rot_mat_3D failed')
     ENDIF
 
-    CALL message (TRIM(routine), 'end')        
+    CALL message (routine, 'end')
 
   END SUBROUTINE destruct_fem_wgts
   !-------------------------------------------------------------------------
@@ -297,7 +304,7 @@ CONTAINS
     TYPE(t_patch_3D), TARGET, INTENT(in) :: p_patch_3D
 
     ! local variables
-    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ice_fem_interface:ice_fem_grid_init'
+    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_ice_fem_interface:ice_fem_grid_init'
 
     ! Patch
     TYPE(t_patch), POINTER :: p_patch
@@ -481,7 +488,7 @@ CONTAINS
     INTEGER :: ist
     ! Temporary var
     INTEGER ::  elem, elnodes(3)
-    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ice_fem_interface:basisfunctions_nod'
+    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_ice_fem_interface:basisfunctions_nod'
     LOGICAL :: found, kill
 
     ! allocate bafux_nod, bafuy_nod
@@ -560,31 +567,95 @@ CONTAINS
   !
   SUBROUTINE exchange_nod2D(u_ice)
 
-    USE mo_sync,                ONLY: SYNC_V, sync_patch_array!, sync_patch_array_mult
-
     REAL(wp), INTENT(INOUT) :: u_ice(fem_patch%n_patch_verts)
 
-    ! local variables
-    ! Temporary variables/buffers and pad
-    REAL(wp) :: u(nproma, fem_patch%nblks_v)
-    REAL(wp) :: buffy(nproma*fem_patch%nblks_v)
-    REAL(wp), ALLOCATABLE :: pad(:)
+    ! Temporary buffer
+    REAL(wp) :: u_(nproma, fem_patch%nblks_v)
+
+    CALL copy_fem2icon(u_ice, u_, 1, 1)
+
+    CALL sync_patch_array(SYNC_V, fem_patch, u_(:,:))
+
+    CALL copy_icon2fem(u_, u_ice, 1, 1)
+  END SUBROUTINE exchange_nod2D
 
   !-------------------------------------------------------------------------
+  ! copy ice velocities to ICON variables
+  SUBROUTINE copy_fem2icon(u_ice, u_, nlev, lev_idx)
+    INTEGER, INTENT(in) :: nlev, lev_idx
+    REAL(wp), INTENT(IN) :: u_ice(fem_patch%n_patch_verts)
+    REAL(wp), INTENT(INOUT) :: u_(nproma, nlev, fem_patch%nblks_v)
+    INTEGER :: jv, jb, npad, nlast
+    DO jb = 1, fem_patch%nblks_v-1
+      DO jv = 1, nproma
+        u_(jv, lev_idx, jb) = u_ice((jb-1)*nproma + jv)
+      END DO
+    END DO
+    npad = nproma*fem_patch%nblks_v - fem_patch%n_patch_verts
+    nlast = nproma - npad
+    jb = fem_patch%nblks_v
+    DO jv = 1, nlast
+      u_(jv, lev_idx, jb) = u_ice((jb-1)*nproma + jv)
+    END DO
+    DO jv = nlast+1,nproma
+      u_(jv, lev_idx, jb) = -9999._wp
+    END DO
+  END SUBROUTINE copy_fem2icon
 
-    ! Reshape and copy ice velocities to ICON variables
-    ALLOCATE(pad(nproma*fem_patch%nblks_v - fem_patch%n_patch_verts))
-    pad = -9999._wp
-    u=RESHAPE(u_ice, SHAPE(u), pad)
-    DEALLOCATE(pad)
+  ! Reshape and copy ice velocity to FEM model variables
+  SUBROUTINE copy_icon2fem(u_, u_ice, nlev, lev_idx)
+    INTEGER, INTENT(in) :: nlev, lev_idx
+    REAL(wp), INTENT(IN) :: u_(nproma, nlev, fem_patch%nblks_v)
+    REAL(wp), INTENT(OUT) :: u_ice(fem_patch%n_patch_verts)
+    INTEGER :: jv, jb, npad, nlast
+    DO jb = 1, fem_patch%nblks_v-1
+      DO jv = 1, nproma
+        u_ice((jb-1)*nproma + jv) = u_(jv, lev_idx, jb)
+      END DO
+    END DO
+    npad = nproma*fem_patch%nblks_v - fem_patch%n_patch_verts
+    nlast = nproma - npad
+    jb = fem_patch%nblks_v
+    DO jv = 1, nlast
+      u_ice((jb-1)*nproma + jv) = u_(jv, lev_idx, jb)
+    END DO
+  END SUBROUTINE copy_icon2fem
 
-    CALL sync_patch_array(SYNC_V, fem_patch, u(:,:))
+  SUBROUTINE exchange_nod2Dx2(u1_ice, u2_ice)
+    REAL(wp), INTENT(INOUT) :: u1_ice(fem_patch%n_patch_verts), &
+         u2_ice(fem_patch%n_patch_verts)
 
-    ! Reshape and copy ice velocity to FEM model variables
-    buffy = RESHAPE(u, SHAPE(buffy))
-    u_ice = buffy(1:SIZE(u_ice))
+    ! Temporary buffer
+    REAL(wp) :: u_(nproma, 2, fem_patch%nblks_v)
 
-  END SUBROUTINE exchange_nod2D
+    CALL copy_fem2icon(u1_ice, u_, 2, 1)
+    CALL copy_fem2icon(u2_ice, u_, 2, 2)
+
+    CALL sync_patch_array(SYNC_V, fem_patch, u_)
+
+    CALL copy_icon2fem(u_, u1_ice, 2, 1)
+    CALL copy_icon2fem(u_, u2_ice, 2, 2)
+
+  END SUBROUTINE exchange_nod2Dx2
+
+  SUBROUTINE exchange_nod2Dx3(u1_ice, u2_ice, u3_ice)
+    REAL(wp), INTENT(INOUT) :: u1_ice(fem_patch%n_patch_verts), &
+         u2_ice(fem_patch%n_patch_verts), u3_ice(fem_patch%n_patch_verts)
+
+    ! Temporary buffer
+    REAL(wp) :: u_(nproma, 3, fem_patch%nblks_v)
+
+    CALL copy_fem2icon(u1_ice, u_, 3, 1)
+    CALL copy_fem2icon(u2_ice, u_, 3, 2)
+    CALL copy_fem2icon(u3_ice, u_, 3, 3)
+
+    CALL sync_patch_array(SYNC_V, fem_patch, u_)
+
+    CALL copy_icon2fem(u_, u1_ice, 3, 1)
+    CALL copy_icon2fem(u_, u2_ice, 3, 2)
+    CALL copy_icon2fem(u_, u3_ice, 3, 3)
+
+  END SUBROUTINE exchange_nod2Dx3
 
   !-------------------------------------------------------------------------
   !

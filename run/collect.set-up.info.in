@@ -215,7 +215,7 @@ case "$use_site" in
         case "$use_compiler" in
           intel)
             use_submit='sbatch'
-            use_load_profile='/etc/profile'
+            use_load_profile='. /etc/profile'
             case "$use_compiler_version" in
               19.0.*) use_mpi_startrun='/software/all/mpi/openmpi/2.1_intel_19.0/bin/mpirun'
                     use_load_modules="compiler/intel/19.0 mpi/openmpi/2.1 lib/netcdf/4.7 lib/hdf5/1.10 lib/netcdf-fortran/4.5 eccodes/eccodes_ifort19"

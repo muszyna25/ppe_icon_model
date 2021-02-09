@@ -138,7 +138,7 @@ PUBLIC           ! All constants and variables in this module are public
  
   REAL  (KIND=wp) , POINTER ::  csalb(:)
 
-  !$acc declare copyin(clgk0)
+  !$acc declare copyin(clgk0) create (csalb)
 
   ! Initialization of soil type parameters except cdz1 
   ! (being calculated during execution)
@@ -200,7 +200,7 @@ PUBLIC           ! All constants and variables in this module are public
     ! T.R. 2011-09-21 csalb_snow_min/max set to values used in GME
     csalb_snow_min = 0.500_wp , &
                            ! min. solar albedo of snow for forest free surfaces
-    csalb_snow_max = 0.850_wp , &
+    csalb_snow_max = 0.800_wp , &
                            ! max. solar albedo of snow for forest free surfaces
     ! T.R. 2011-09-21 snow albedos for forests set to values used in GME
     csalb_snow_fe  = 0.270_wp , &  ! solar albedo of snow for surfaces with evergreen forest

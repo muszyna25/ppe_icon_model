@@ -82,6 +82,7 @@ CONTAINS
     INTEGER,INTENT(IN) :: ndom
 
     INTEGER :: jdom
+    CHARACTER(2) :: sdom
     TYPE(t_key_value_store), POINTER :: restartAttributes
     CHARACTER(LEN=*),PARAMETER :: routine='mo_dynamics_config:setup_dynamics_config'
 
@@ -89,17 +90,18 @@ CONTAINS
     ! Set time level indices
 
     CALL getAttributesForRestarting(restartAttributes)
-    IF (ASSOCIATED(restartAttributes)) THEN
+    IF (restartAttributes%is_init) THEN
       ! Read time level indices from restart file.
       ! NOTE: this part will be modified later for a proper handling
       ! of multiple domains!!!
 
       DO jdom = 1,ndom
-        CALL restartAttributes%get('nold_DOM'//TRIM(int2string(jdom, "(i2.2)")), nold(jdom))
-        CALL restartAttributes%get('nnow_DOM'//TRIM(int2string(jdom, "(i2.2)")), nnow(jdom))
-        CALL restartAttributes%get('nnew_DOM'//TRIM(int2string(jdom, "(i2.2)")), nnew(jdom))
-        CALL restartAttributes%get('nnow_rcf_DOM'//TRIM(int2string(jdom, "(i2.2)")), nnow_rcf(jdom))
-        CALL restartAttributes%get('nnew_rcf_DOM'//TRIM(int2string(jdom, "(i2.2)")), nnew_rcf(jdom))
+        WRITE (sdom, "(i2.2)") jdom
+        CALL restartAttributes%get('nold_DOM'//sdom, nold(jdom))
+        CALL restartAttributes%get('nnow_DOM'//sdom, nnow(jdom))
+        CALL restartAttributes%get('nnew_DOM'//sdom, nnew(jdom))
+        CALL restartAttributes%get('nnow_rcf_DOM'//sdom, nnow_rcf(jdom))
+        CALL restartAttributes%get('nnew_rcf_DOM'//sdom, nnew_rcf(jdom))
       END DO
 
     ELSE ! not isRestart

@@ -27,9 +27,9 @@ MODULE mo_restart_patch_data
     TYPE(t_p_var_list_element), ALLOCATABLE :: varData(:)
     INTEGER :: restartType
   CONTAINS
-    PROCEDURE :: transferToRestart => restartPatchData_transferToRestart
     PROCEDURE(i_construct), DEFERRED :: construct
     PROCEDURE(i_writeData), DEFERRED :: writeData
+    PROCEDURE :: transferToRestart => restartPatchData_transferToRestart
     PROCEDURE(i_destruct), DEFERRED :: destruct
   END TYPE t_RestartPatchData
 

@@ -80,7 +80,7 @@ MODULE mo_nh_stepping
     &                                    timer_total, timer_model_init, timer_nudging,    &
     &                                    timer_bdy_interp, timer_feedback, timer_nesting, &
     &                                    timer_integrate_nh, timer_nh_diagnostics,        &
-    &                                    timer_iconam_echam
+    &                                    timer_iconam_echam, timer_dace_coupling
   USE mo_atm_phy_nwp_config,       ONLY: dt_phy, atm_phy_nwp_config, iprog_aero, setup_nwp_diag_events
   USE mo_ensemble_pert_config,     ONLY: compute_ensemble_pert, use_ensemble_pert
   USE mo_nwp_phy_init,             ONLY: init_nwp_phy, init_cloud_aero_cpl
@@ -113,8 +113,7 @@ MODULE mo_nh_stepping
                                          limarea_bdy_nudging, save_progvars
   USE mo_nh_feedback,              ONLY: feedback, relax_feedback, lhn_feedback
   USE mo_exception,                ONLY: message, message_text, finish
-  USE mo_impl_constants,           ONLY: SUCCESS, MAX_CHAR_LENGTH,                          &
-    &                                    inoforcing, iheldsuarez, inwp, iecham,             &
+  USE mo_impl_constants,           ONLY: SUCCESS, inoforcing, iheldsuarez, inwp, iecham,    &
     &                                    MODE_IAU, MODE_IAU_OLD, SSTICE_CLIM,               &
     &                                    SSTICE_AVG_MONTHLY, SSTICE_AVG_DAILY, SSTICE_INST, &
     &                                    max_dom, min_rlcell, min_rlvert
@@ -190,7 +189,7 @@ MODULE mo_nh_stepping
                                          sampl_freq_step, les_cloud_diag
   USE mo_opt_diagnostics,          ONLY: update_opt_acc, reset_opt_acc, &
     &                                    calc_mean_opt_acc, p_nh_opt_diag
-  USE mo_var_list,                 ONLY: nvar_lists, var_lists, print_var_list
+  USE mo_var_list,                 ONLY: print_all_var_lists
   USE mo_async_latbc_utils,        ONLY: recv_latbc_data, update_lin_interpolation
   USE mo_async_latbc_types,        ONLY: t_latbc_data
   USE mo_nonhydro_types,           ONLY: t_nh_state
@@ -294,7 +293,7 @@ MODULE mo_nh_stepping
 
   TYPE(t_simulation_status)            :: simulation_status
 
-  CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+  CHARACTER(len=*), PARAMETER ::  &
     &  routine = modname//':perform_nh_stepping'
   CHARACTER(filename_max) :: sst_td_file !< file name for reading in
   CHARACTER(filename_max) :: ci_td_file
@@ -428,6 +427,11 @@ MODULE mo_nh_stepping
     CALL message('',message_text)
   ENDIF
 
+  ! Initialize time-dependent ensemble perturbations if necessary
+  IF (use_ensemble_pert .AND. gribout_config(1)%perturbationNumber >= 1) THEN
+    CALL compute_ensemble_pert(p_patch(1:), ext_data, prm_diag, phy_params, mtime_current, .FALSE.)
+  ENDIF
+
   SELECT CASE (iforcing)
   CASE (inwp)
     DO jg=1, n_dom
@@ -455,6 +459,7 @@ MODULE mo_nh_stepping
       IF (iprog_aero >= 1) CALL setup_aerosol_advection(p_patch(jg))
 
     ENDDO
+
     IF (.NOT.isRestart()) THEN
       ! Compute diagnostic physics fields
       CALL aggr_landvars
@@ -604,10 +609,14 @@ MODULE mo_nh_stepping
                CALL aggr_landvars
           IF (.NOT. dace_op_init) THEN
              CALL message('perform_nh_stepping','calling init_dace_op before run_dace_op')
+             IF (timers_level > 4) CALL timer_start(timer_dace_coupling)
              IF (my_process_is_work_only()) CALL init_dace_op ()
+             IF (timers_level > 4) CALL timer_stop(timer_dace_coupling)
           END IF
           CALL message('perform_nh_stepping','calling run_dace_op')
+          IF (timers_level > 4) CALL timer_start(timer_dace_coupling)
           IF (my_process_is_work_only()) CALL run_dace_op (mtime_current)
+          IF (timers_level > 4) CALL timer_stop(timer_dace_coupling)
        END IF
     END IF
 
@@ -755,7 +764,7 @@ MODULE mo_nh_stepping
   IF (timeshift%dt_shift < 0._wp  .AND. .NOT. isRestart()) THEN
     jstep_shift = NINT(timeshift%dt_shift/dtime)
     WRITE(message_text,'(a,i6,a)') 'Model start shifted backwards by ', ABS(jstep_shift),' time steps'
-    CALL message(TRIM(routine),message_text)
+    CALL message(routine, message_text)
     atm_phy_nwp_config(:)%lcalc_acc_avg = .FALSE.
   ELSE
     jstep_shift = 0
@@ -776,11 +785,9 @@ MODULE mo_nh_stepping
 
   ! for debug purposes print var lists: for msg_level >= 13 short and for >= 20 long format
   IF  (.NOT. ltestcase .AND. msg_level >= 13) THEN
-    DO i = 1, nvar_lists
-      CALL print_var_list(var_lists(i), lshort=(msg_level < 20))
-    ENDDO
+    CALL print_all_var_lists(lshort=(msg_level < 20))
   ENDIF
-  
+
   ! Check if current number of dynamics substeps is larger than the default value
   ! (this can happen for restarted runs only at this point)
   IF (ANY(ndyn_substeps_var(1:n_dom) > ndyn_substeps)) THEN
@@ -895,16 +902,13 @@ MODULE mo_nh_stepping
       IF (p_patch(jg)%ldom_active .AND. (sim_time >= end_time(jg))) THEN
         p_patch(jg)%ldom_active = .FALSE.
         WRITE(message_text,'(a,i2,a,f12.2)') 'domain ',jg,' stopped at time ',sim_time
-        CALL message('perform_nh_timeloop', TRIM(message_text))
+        CALL message('perform_nh_timeloop', message_text)
       ENDIF
     ENDDO
 
     ! Update time-dependent ensemble perturbations if necessary
     IF (use_ensemble_pert .AND. gribout_config(1)%perturbationNumber >= 1) THEN
-#ifdef _OPENACC
-      CALL finish (routine, 'compute_ensemble_part: OpenACC version currently not implemented')
-#endif
-      CALL compute_ensemble_pert(p_patch(1:), ext_data, prm_diag, mtime_current)
+      CALL compute_ensemble_pert(p_patch(1:), ext_data, prm_diag, phy_params, mtime_current, .TRUE.)
     ENDIF
 
     ! update model date and time mtime based
@@ -929,11 +933,7 @@ MODULE mo_nh_stepping
       CALL read_latbc_data_sync(p_patch(1), p_nh_state(1), ext_data(1), p_int_state(1), mtime_current)
     ENDIF
 
-    IF (msg_level > 2) THEN
-      lprint_timestep = .TRUE.
-    ELSE
-      lprint_timestep = MOD(jstep,25) == 0
-    ENDIF
+    lprint_timestep = msg_level > 2 .OR. MOD(jstep,25) == 0
 
     ! always print the first and the last time step
     lprint_timestep = lprint_timestep .OR. (jstep == jstep0+1) .OR. (jstep == jstep0+nsteps)
@@ -1366,14 +1366,18 @@ MODULE mo_nh_stepping
           IF (sim_time > 0._wp .OR. iau_iter == 1) THEN
              IF (.NOT. dace_op_init) THEN
                 CALL message('perform_nh_timeloop','calling init_dace_op before run_dace_op')
+                IF (timers_level > 4) CALL timer_start(timer_dace_coupling)
                 IF (my_process_is_work_only()) CALL init_dace_op ()
+                IF (timers_level > 4) CALL timer_stop(timer_dace_coupling)
              END IF
              IF (sim_time == 0._wp) THEN
                 CALL message('perform_nh_timeloop','calling run_dace_op for sim_time=0')
              ELSE
                 CALL message('perform_nh_timeloop','calling run_dace_op')
              END IF
+             IF (timers_level > 4) CALL timer_start(timer_dace_coupling)
              IF (my_process_is_work_only()) CALL run_dace_op (mtime_current)
+             IF (timers_level > 4) CALL timer_stop(timer_dace_coupling)
           END IF
        END IF
     END IF
@@ -1548,7 +1552,7 @@ MODULE mo_nh_stepping
   RECURSIVE SUBROUTINE integrate_nh (datetime_local, jg, nstep_global,   &
     &                                iau_iter, dt_loc, mtime_dt_loc, num_steps, latbc )
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = modname//':integrate_nh'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':integrate_nh'
 
     TYPE(t_datetime_ptr)    :: datetime_local(:)     !< current datetime in mtime format (for each patch)
 
@@ -1893,7 +1897,7 @@ MODULE mo_nh_stepping
 
           IF (msg_level >= 13) THEN
             WRITE(message_text,'(a,i2)') 'call advection  DOM:',jg
-            CALL message('integrate_nh', TRIM(message_text))
+            CALL message('integrate_nh', message_text)
           ENDIF
 
           !$ser verbatim CALL serialize_all(nproma, jg, "step_advection", .TRUE., opt_lupdate_cpu=.TRUE.)
@@ -2027,11 +2031,7 @@ MODULE mo_nh_stepping
 
             CASE (inwp) ! iforcing
 
-#ifdef _OPENACC
-              CALL message('mo_nh_stepping', 'Device to host copy before nwp_nh_interface. This needs to be removed once port is finished!')
-              CALL gpu_d2h_nh_nwp(p_patch(jg), prm_diag(jg))
-              i_am_accel_node = .FALSE.
-#endif
+
               ! nwp physics
               !$ser verbatim CALL serialize_all(nproma, jg, "physics", .TRUE., opt_lupdate_cpu=.TRUE.)
               CALL nwp_nh_interface(atm_phy_nwp_config(jg)%lcall_phy(:), & !in
@@ -2039,7 +2039,7 @@ MODULE mo_nh_stepping
                 &                  lredgrid_phys(jg),                  & !in
                 &                  dt_loc,                             & !in
                 &                  dt_phy(jg,:),                       & !in
-                &                  datetime_local(jg)%ptr,              & !in
+                &                  datetime_local(jg)%ptr,             & !in
                 &                  p_patch(jg)  ,                      & !in
                 &                  p_int_state(jg),                    & !in
                 &                  p_nh_state(jg)%metrics ,            & !in
@@ -2058,12 +2058,7 @@ MODULE mo_nh_stepping
                 &                  p_lnd_state(jg)%prog_wtr(n_new_rcf),& !inout
                 &                  p_nh_state_lists(jg)%prog_list(n_new_rcf),& !in
                 &                  prm_upatmo(jg)                      ) !inout
-
-#ifdef _OPENACC
-              CALL message('mo_nh_stepping', 'Host to device copy after nwp_nh_interface. This needs to be removed once port is finished!')
-              CALL gpu_h2d_nh_nwp(p_patch(jg), prm_diag(jg))
-              i_am_accel_node = my_process_is_work()
-#endif
+  
               !$ser verbatim CALL serialize_all(nproma, jg, "physics", .FALSE., opt_lupdate_cpu=.TRUE.)
 
             CASE (iecham) ! iforcing
@@ -2196,7 +2191,7 @@ MODULE mo_nh_stepping
             ! update the coefficients for the linear interpolation
             CALL update_lin_interpolation(latbc, datetime_local(jg)%ptr)
             CALL limarea_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),     &
-              &  p_nh_state(jg)%prog(n_new_rcf),                                    &
+              &  p_nh_state(jg)%prog(n_new_rcf)%tracer,                             &
               &  p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),tsrat,  &
               &  p_latbc_old=latbc%latbc_data(latbc%prev_latbc_tlev())%atm,         &
               &  p_latbc_new=latbc%latbc_data(latbc%new_latbc_tlev)%atm)
@@ -2205,7 +2200,7 @@ MODULE mo_nh_stepping
             ! update the coefficients for the linear interpolation
             CALL update_lin_interc(datetime_local(jg)%ptr)
             CALL limarea_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),     &
-              &  p_nh_state(jg)%prog(n_new_rcf),                                    &
+              &  p_nh_state(jg)%prog(n_new_rcf)%tracer,                             &
               &  p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),tsrat,  &
               &  p_latbc_old=p_latbc_data(last_latbc_tlev)%atm,                     &
               &  p_latbc_new=p_latbc_data(read_latbc_tlev)%atm)
@@ -2214,8 +2209,10 @@ MODULE mo_nh_stepping
           
         ELSE ! constant lateral boundary data
           
-          CALL limarea_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),p_nh_state(jg)%prog(n_new_rcf), &
-            & p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),tsrat,p_latbc_const=p_nh_state(jg)%prog(nsav2(jg)))
+          CALL limarea_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)), &
+            &                      p_nh_state(jg)%prog(n_new_rcf)%tracer,     &
+            & p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),     &
+            & tsrat,p_latbc_const=p_nh_state(jg)%prog(nsav2(jg)))
           
         ENDIF
 #ifdef _OPENACC
@@ -2498,7 +2495,7 @@ MODULE mo_nh_stepping
             CALL init_slowphysics (datetime_local(jgc)%ptr, jgc, dt_sub)
 
             WRITE(message_text,'(a,i2,a,f12.2)') 'domain ',jgc,' started at time ',sim_time
-            CALL message('integrate_nh', TRIM(message_text))
+            CALL message('integrate_nh', message_text)
 
           ENDIF
         ENDDO
@@ -2543,7 +2540,7 @@ MODULE mo_nh_stepping
 
     TYPE(datetime)      ,INTENT(IN)    :: mtime_current
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = modname//':perform_dyn_substepping'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':perform_dyn_substepping'
 
     ! local variables
     INTEGER                  :: jg                ! domain ID
@@ -2559,8 +2556,7 @@ MODULE mo_nh_stepping
     LOGICAL                  :: lsave_mflx
     LOGICAL                  :: lprep_adv         !.TRUE.: do computations for preparing tracer advection in solve_nh
     LOGICAL                  :: llast             !.TRUE.: this is the last substep
-    TYPE(timeDelta), POINTER :: time_diff
-
+    TYPE(timeDelta) :: time_diff
     !-------------------------------------------------------------------------
 
     ! get domain ID
@@ -2623,12 +2619,10 @@ MODULE mo_nh_stepping
 #ifdef _OPENACC
         CALL finish (routine, 'IAU: OpenACC version currently not implemented')
 #endif
-        time_diff  => newTimedelta("PT0S")
         time_diff  =  getTimeDeltaFromDateTime(mtime_current, time_config%tc_exp_startdate)
         cur_time = REAL(getTotalSecondsTimedelta(time_diff, mtime_current)                  &
              &         -getTotalSecondsTimedelta(timeshift%mtime_shift, mtime_current),wp)  &
              &    +(REAL(nstep-ndyn_substeps_var(jg),wp)-0.5_wp)*dt_dyn
-        CALL deallocateTimedelta(time_diff)
         IF (iau_iter == 1) THEN
           CALL compute_iau_wgt(cur_time, dt_dyn, 0.5_wp*dt_iau, lclean_mflx)
         ELSE
@@ -2709,7 +2703,7 @@ MODULE mo_nh_stepping
   !!
   RECURSIVE SUBROUTINE init_slowphysics (mtime_current, jg, dt_loc)
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = modname//':init_slowphysics'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':init_slowphysics'
 
     TYPE(datetime), POINTER :: mtime_current
     INTEGER , INTENT(IN)    :: jg           !< current grid level
@@ -2742,7 +2736,7 @@ MODULE mo_nh_stepping
 
     IF (msg_level >= 7) THEN
       WRITE(message_text,'(a,i2)') 'initial call of (slow) physics, domain ', jg
-      CALL message(TRIM(routine), TRIM(message_text))
+      CALL message(routine, message_text)
     ENDIF
 
     IF (atm_phy_nwp_config(jg)%is_les_phy) THEN
@@ -2891,7 +2885,7 @@ MODULE mo_nh_stepping
   !!
   SUBROUTINE diag_for_output_dyn ()
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
      &  routine = 'mo_nh_stepping:diag_for_output_dyn'
 
     ! Local variables
@@ -3179,6 +3173,11 @@ MODULE mo_nh_stepping
 
     CALL restore_initial_state(p_patch(1:), p_nh_state, prm_diag, prm_nwp_tend, p_lnd_state, ext_data)
 
+    ! Reinitialize time-dependent ensemble perturbations if necessary
+    IF (use_ensemble_pert .AND. gribout_config(1)%perturbationNumber >= 1) THEN
+      CALL compute_ensemble_pert(p_patch(1:), ext_data, prm_diag, phy_params, datetime_current, .FALSE.)
+    ENDIF
+
     DO jg=1, n_dom
 
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
@@ -3348,8 +3347,9 @@ MODULE mo_nh_stepping
 
     INTEGER                              :: jg
     INTEGER                              :: ist
-    CHARACTER(len=MAX_CHAR_LENGTH)       :: attname   ! attribute name
+    CHARACTER(len=32)       :: attname   ! attribute name
     TYPE(t_key_value_store), POINTER :: restartAttributes
+    CHARACTER(len=*), PARAMETER :: routine = modname//': perform_nh_stepping'
 
     !-----------------------------------------------------------------------
 
@@ -3358,27 +3358,24 @@ MODULE mo_nh_stepping
     !
     ALLOCATE(prep_adv(n_dom), STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ( modname//': perform_nh_stepping',           &
-        &      'allocation for prep_adv failed' )
+      CALL finish(routine, 'allocation for prep_adv failed')
     ENDIF
 
     ALLOCATE(jstep_adv(n_dom), STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ( modname//': perform_nh_stepping',           &
-        &      'allocation for jstep_adv failed' )
+      CALL finish(routine, 'allocation for jstep_adv failed' )
     ENDIF
 
 
     ! allocate flow control variables for transport and slow physics calls
     ALLOCATE(linit_dyn(n_dom), STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ( modname//': perform_nh_stepping',           &
-        &      'allocation for flow control variables failed' )
+      CALL finish(routine, 'allocation for flow control variables failed')
     ENDIF
     !
     ! initialize
     CALL getAttributesForRestarting(restartAttributes)
-    IF (ASSOCIATED(restartAttributes)) THEN
+    IF (restartAttributes%is_init) THEN
       !
       ! Get attributes from restart file
       DO jg = 1,n_dom
@@ -3401,7 +3398,7 @@ MODULE mo_nh_stepping
         &  prep_adv(jg)%topflx_tra  (nproma,p_patch(jg)%nblks_c,MAX(1,ntracer)),     &
         &       STAT=ist )
       IF (ist /= SUCCESS) THEN
-        CALL finish ( modname//': perform_nh_stepping',           &
+        CALL finish(routine,                                             &
           &      'allocation for mass_flx_me, mass_flx_ic, vn_traj, ' // &
           &      'topflx_tra failed' )
       ENDIF

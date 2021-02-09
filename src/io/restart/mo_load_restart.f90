@@ -21,13 +21,12 @@ MODULE mo_load_restart
   USE mo_multifile_restart_util, ONLY: multifileRestartLinkName
   USE mo_restart_nml_and_att,ONLY: restartAttributeList_read, ocean_initFromRestart_OVERRIDE
   USE mo_restart_util,       ONLY: restartSymlinkName
-  USE mo_restart_var_data,   ONLY: createRestartVarData
   USE mo_var_list_element,   ONLY: t_p_var_list_element
   USE mo_timer,              ONLY: timer_start, timer_stop, timer_load_restart, timer_load_restart_io, &
     & timer_load_restart_comm_setup, timer_load_restart_communication, &
     & timer_load_restart_get_var_id, timers_level
   USE mo_util_string,        ONLY: separator, toCharacter
-  USE mo_var_list,           ONLY: nvar_lists, var_lists
+  USE mo_var_list,           ONLY: get_restart_vars, get_model_types
   USE mo_master_control,     ONLY: get_my_process_name
 
   IMPLICIT NONE
@@ -147,12 +146,8 @@ CONTAINS
     INTEGER, OPTIONAL, INTENT(in) :: opt_ndom
     CHARACTER(:), ALLOCATABLE :: restartPath
     LOGICAL :: lIsMultifileRestart, lMultifileTimersInitialized
-    TYPE mtype_ll
-      CHARACTER(:), ALLOCATABLE :: a
-      TYPE(mtype_ll), POINTER :: next => NULL()
-    END TYPE mtype_ll
-    TYPE(mtype_ll), POINTER :: cur_mType, entry_mType
-    INTEGER :: ndom_deopt
+    CHARACTER(len=8), ALLOCATABLE :: model_types(:)
+    INTEGER :: i, ndom_deopt, tlen
     TYPE(t_p_var_list_element), ALLOCATABLE :: varData(:)
 
     IF(timers_level >= 5) CALL timer_start(timer_load_restart)
@@ -169,14 +164,13 @@ CONTAINS
 
     IF (my_process_is_mpi_workroot()) &
          WRITE(0,'(a,i0,a,i0)') "restart: reading restart data for patch ", &
-         p_patch%id, ", nvar_lists = ", nvar_lists
-    ALLOCATE(entry_mType)
-    CALL getModelTypes()
-    cur_mType => entry_mType
-    DO WHILE(ASSOCIATED(cur_mType%next))
-        CALL createRestartVarData(varData, p_patch%id, cur_mType%next%a)
-        !determine whether we have a multifile to READ
-        CALL findRestartFile(cur_mType%next%a, lIsMultifileRestart, restartPath)
+         p_patch%id
+    CALL get_model_types(model_types, p_patch%id)
+    DO i = 1, SIZE(model_types)
+      tlen = LEN_TRIM(model_types(i))
+      CALL get_restart_vars(varData, p_patch%id, model_types(i)(1:tlen))
+      !determine whether we have a multifile to READ
+      CALL findRestartFile(model_types(i)(1:tlen), lIsMultifileRestart, restartPath)
         IF(lIsMultifileRestart) THEN
             !multifile loading also uses these two timers
             IF(timers_level >= 7 .AND..NOT.lMultifileTimersInitialized) THEN
@@ -193,13 +187,9 @@ CONTAINS
             !can't USE restartPath here because the path IS patch dependent IN the single file CASE
             ndom_deopt = -1
             IF (PRESENT(opt_ndom)) ndom_deopt = opt_ndom
-            CALL singlefileReadPatch(varData, cur_mType%next%a, p_patch, ndom_deopt)
+            CALL singlefileReadPatch(varData, model_types(i)(1:tlen), p_patch, ndom_deopt)
         END IF
 
-        DEALLOCATE(varData)
-        entry_mType => cur_mType
-        cur_mType => cur_mType%next
-        DEALLOCATE(entry_mType)
     END DO
 
     IF(timers_level >= 5) CALL timer_stop(timer_load_restart)
@@ -207,27 +197,7 @@ CONTAINS
     CALL message('','')
     CALL message('',separator)
     CALL message('','')
-  CONTAINS
 
-    SUBROUTINE getModelTypes()
-      INTEGER :: i, lm
-      LOGICAL :: skip
-
-      skip = .FALSE.
-      DO i = 1, nvar_lists
-        IF (var_lists(i)%p%patch_id .NE. p_patch%id) CYCLE
-        lm = LEN_TRIM(var_lists(i)%p%model_type)
-        cur_mType => entry_mType
-        DO WHILE(ASSOCIATED(cur_mType%next))
-          skip = var_lists(i)%p%model_type(1:lm) == cur_mType%next%a
-          IF (skip) EXIT
-          cur_mType => cur_mType%next
-        END DO
-        IF (skip) CYCLE
-        ALLOCATE(cur_mType%next)
-        cur_mType%next%a = var_lists(i)%p%model_type(1:lm)
-      END DO
-    END SUBROUTINE getModelTypes
   END SUBROUTINE read_restart_files
 
 END MODULE mo_load_restart

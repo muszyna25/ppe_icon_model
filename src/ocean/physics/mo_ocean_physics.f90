@@ -1273,14 +1273,14 @@ CONTAINS
     ! tracer diffusion 
 !     IF (TracerDiffusion_LeithWeight > 0.0_wp) THEN
 !       DO i=1,no_tracer
-! 	param%TracerDiffusion_coeff(je,level,blockNo,i) = &
-! 	  & param%TracerDiffusion_BasisCoeff(je,blockNo,i) + &
-! 	  & MIN(param%HarmonicViscosity_coeff(je,1,blockNo) * TracerDiffusion_LeithWeight,    &
-! 	  &     max_turbulenece_TracerDiffusion)
+!       param%TracerDiffusion_coeff(je,level,blockNo,i) = &
+!         & param%TracerDiffusion_BasisCoeff(je,blockNo,i) + &
+!         & MIN(param%HarmonicViscosity_coeff(je,1,blockNo) * TracerDiffusion_LeithWeight,    &
+!         &     max_turbulenece_TracerDiffusion)
 !       END DO
 ! !       DO i=1,no_tracer
 !       CALL dbg_print('LeithClosure: tracer diff',param%TracerDiffusion_coeff(:,:,:,1),&
-! 	&str_module,idt_src, in_subset=edges_in_domain)
+!       &str_module,idt_src, in_subset=edges_in_domain)
 ! !       END DO
 !     ENDIF
 

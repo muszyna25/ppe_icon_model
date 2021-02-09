@@ -391,7 +391,8 @@ CONTAINS
       CALL add_var( p_ext_atm_list, 'llsm_atm_c', p_ext_atm%llsm_atm_c, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,        &
         &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,       &
-        &           isteptype=TSTEP_CONSTANT )
+        &           isteptype=TSTEP_CONSTANT, lopenacc=.TRUE.           )
+        __acc_attach(p_ext_atm%llsm_atm_c)
 
       ! llake_c    p_ext_atm%llake_c(nproma,nblks_c)
       cf_desc    = t_cf_var('lake_mask_(cell)', '-', &
@@ -473,7 +474,8 @@ CONTAINS
       CALL add_var( p_ext_atm_list, 'fr_lake', p_ext_atm%fr_lake,   &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,   &
-        &           isteptype=TSTEP_CONSTANT )
+        &           isteptype=TSTEP_CONSTANT, lopenacc=.TRUE. )
+        __acc_attach(p_ext_atm%fr_lake)
 
 
       ! lake depth
@@ -803,7 +805,9 @@ CONTAINS
       grib2_desc = grib2_var( 2, 0, 29, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'for_e', p_ext_atm%for_e,       &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,  &
+        &           lopenacc=.TRUE.)
+      __acc_attach(p_ext_atm%for_e)
 
       ! deciduous forest
       !
@@ -813,7 +817,8 @@ CONTAINS
       grib2_desc = grib2_var( 2, 0, 30, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'for_d', p_ext_atm%for_d,       &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-        &           grib2_desc, ldims=shape2d_c )
+        &           grib2_desc, ldims=shape2d_c, lopenacc=.TRUE.    )
+      __acc_attach(p_ext_atm%for_d)
 
 
       ! Skin conductivity
@@ -1035,7 +1040,8 @@ CONTAINS
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
         &           hor_interp=create_hor_interp_metadata(          &
         &               hor_intp_type=HINTP_TYPE_LONLAT_NNB ),      &
-        &           isteptype=TSTEP_CONSTANT )
+        &           isteptype=TSTEP_CONSTANT, lopenacc=.TRUE.       )
+        __acc_attach(p_ext_atm%soiltyp)
 
       ! soiltyp_t      p_ext_atm%soiltyp_t(nproma,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('soil_type', '-','soil type', datatype_flt)
@@ -1126,7 +1132,8 @@ CONTAINS
         grib2_desc = grib2_var(0, 19, 18, ibits, GRID_UNSTRUCTURED, GRID_CELL)
         CALL add_var( p_ext_atm_list, 'alb_dif', p_ext_atm%alb_dif,               &
           &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-          &           ldims=shape2d_c, loutput=.TRUE.                            )
+          &           ldims=shape2d_c, loutput=.TRUE., lopenacc=.TRUE. )
+          __acc_attach(p_ext_atm%alb_dif)
 
         ! UV visible broadband albedo for diffuse radiation (0.3 - 0.7 micron)
         !
@@ -1136,7 +1143,8 @@ CONTAINS
         grib2_desc = grib2_var(0, 19, 222, ibits, GRID_UNSTRUCTURED, GRID_CELL)
         CALL add_var( p_ext_atm_list, 'albuv_dif', p_ext_atm%albuv_dif,           &
           &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-          &           ldims=shape2d_c, loutput=.TRUE.                             )
+          &           ldims=shape2d_c, loutput=.TRUE., lopenacc=.TRUE.            )
+          __acc_attach(p_ext_atm%albuv_dif)
 
         ! Near IR broadband albedo for diffuse radiation (0.7 - 5.0 micron)
         !
@@ -1146,7 +1154,8 @@ CONTAINS
         grib2_desc = grib2_var(0, 19, 223, ibits, GRID_UNSTRUCTURED, GRID_CELL)
         CALL add_var( p_ext_atm_list, 'albni_dif', p_ext_atm%albni_dif,           &
           &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-          &           ldims=shape2d_c, loutput=.TRUE.                             )
+          &           ldims=shape2d_c, loutput=.TRUE., lopenacc=.TRUE.            )
+          __acc_attach(p_ext_atm%albni_dif)
 
       END IF  ! albedo_type
 
@@ -1420,7 +1429,8 @@ CONTAINS
       CALL add_var( p_ext_atm_td_list, 'alb_dif', p_ext_atm_td%alb_dif,         &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
         &           ldims=shape3d_c, loutput=.FALSE.,                           &
-        &           isteptype=TSTEP_AVG )
+        &           isteptype=TSTEP_AVG, lopenacc=.TRUE.                        )
+        __acc_attach(p_ext_atm_td%alb_dif)
 
       ! (monthly)  UV visible broadband albedo for diffuse radiation (0.3 - 0.7 micron)
       !
@@ -1431,7 +1441,8 @@ CONTAINS
       CALL add_var( p_ext_atm_td_list, 'albuv_dif', p_ext_atm_td%albuv_dif,     &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
         &           ldims=shape3d_c, loutput=.FALSE.,                           &
-        &           isteptype=TSTEP_AVG )
+        &           isteptype=TSTEP_AVG, lopenacc=.TRUE.                        )
+        __acc_attach(p_ext_atm_td%albuv_dif)
 
       ! (monthly)  Near IR broadband albedo for diffuse radiation (0.7 - 5.0 micron)
       !

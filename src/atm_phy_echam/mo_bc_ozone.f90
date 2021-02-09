@@ -143,7 +143,7 @@ CONTAINS
           IF ( kmonth_end > 1 ) THEN
             WRITE(message_text,'(2a)') 'Read ozone for months  2:12 from file: ',TRIM(fname)
             CALL message('read_bc_ozone', message_text)
-            stream_id = openInputFile(fname, p_patch, default_read_method)
+            CALL openInputFile(stream_id, fname, p_patch, default_read_method)
             CALL read_3D_time(stream_id=stream_id, location=on_cells,      &
               &               variable_name='O3', return_pointer=zo3_plev, &
               &               start_timestep=2,end_timestep=kmonth_end)
@@ -161,7 +161,7 @@ CONTAINS
           IF ( imonth_end == 13 ) THEN
             WRITE(message_text,'(2a)') 'Read ozone for month     13 from file: ',TRIM(fname)
             CALL message('read_bc_ozone', message_text)
-            stream_id = openInputFile(fname, p_patch, default_read_method)
+            CALL openInputFile(stream_id, fname, p_patch, default_read_method)
             CALL read_3D_time(stream_id=stream_id, location=on_cells,      &
               &               variable_name='O3', return_pointer=zo3_plev, &
               &               start_timestep=1,end_timestep=1)
@@ -202,10 +202,10 @@ CONTAINS
             fname = 'bc_ozone'//'.nc'
           END IF
            !
-          stream_id = openInputFile(fname, p_patch, default_read_method)
+          CALL openInputFile(stream_id, fname, p_patch, default_read_method)
           !
           WRITE(message_text,'(a,i2.2,a1,i2.2,2a)') 'Read clim. annual cycle of ozone for months ', &
-            &                                        kmonth_beg, ':', kmonth_end, ' from file: ', TRIM(fname)
+            &                                        kmonth_beg, ':', kmonth_end, ' from file: ', fname
           CALL message('read_bc_ozone', message_text)
           !
           CALL read_3D_time(stream_id=stream_id, location=on_cells,      &
@@ -264,7 +264,7 @@ CONTAINS
           WRITE(message_text,'(2a)') 'Read constant-in-time ozone from file: ',TRIM(fname)
           CALL message('read_bc_ozone', message_text)
           !
-          stream_id = openInputFile(fname, p_patch, default_read_method)
+          CALL openInputFile(stream_id, fname, p_patch, default_read_method)
           CALL read_3D_time(stream_id=stream_id, location=on_cells,      &
             &               variable_name='O3', return_pointer=zo3_plev, &
             &               start_timestep=1,end_timestep=1)
@@ -306,7 +306,7 @@ CONTAINS
             !
             WRITE(message_text,'(2a)') 'Read ozone for month      0 from file: ',TRIM(fname)
             CALL message('read_bc_ozone', message_text)
-            stream_id = openInputFile(fname, p_patch, default_read_method)
+            CALL openInputFile(stream_id, fname, p_patch, default_read_method)
             CALL read_3D_time(stream_id=stream_id, location=on_cells,         &
               &               variable_name='O3', return_pointer=zo3_plev, &
               &               start_timestep=12,end_timestep=12)
@@ -337,7 +337,7 @@ CONTAINS
           WRITE(message_text,'(a,i2.2,a1,i2.2,2a)') 'Read ozone for months ', kmonth_beg, ':', &
           &                            kmonth_end, ' from file: ',TRIM(fname)
           CALL message('read_bc_ozone', message_text)
-          stream_id = openInputFile(fname, p_patch, default_read_method)
+          CALL openInputFile(stream_id, fname, p_patch, default_read_method)
           CALL read_3D_time(stream_id=stream_id, location=on_cells,         &
             &               variable_name='O3', return_pointer=zo3_plev, &
             &               start_timestep=kmonth_beg,end_timestep=kmonth_end)
@@ -369,7 +369,7 @@ CONTAINS
             !
             WRITE(message_text,'(2a)') 'Read ozone for month     13 from file: ',TRIM(fname)
             CALL message('read_bc_ozone', message_text)
-            stream_id = openInputFile(fname, p_patch, default_read_method)
+            CALL openInputFile(stream_id, fname, p_patch, default_read_method)
             CALL read_3D_time(stream_id=stream_id, location=on_cells,         &
                &              variable_name='O3', return_pointer=zo3_plev, &
                &              start_timestep=1,end_timestep=1)

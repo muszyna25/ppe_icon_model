@@ -83,7 +83,7 @@ CONTAINS
     !---------------------------------------------------------------------
     ! test sst
     CALL message(method_name,   testfile_3D_time(1))
-    file_id = openInputFile(filename = testfile_3D_time(1))
+    CALL openinputfile(file_id, filename = testfile_3D_time(1))
 
     !---------------------------------------------------------------------
     CALL read_1D(file_id=file_id, variable_name = "lnwl", &
@@ -96,8 +96,8 @@ CONTAINS
     CALL closeFile(file_id)
 
     !---------------------------------------------------------------------
-    stream_id = openInputFile(testfile_3D_time(1), patch, &
-      &                       read_netcdf_broadcast_method)
+    CALL openinputfile(stream_id, testfile_3D_time(1), patch, &
+      &                read_netcdf_broadcast_method)
     !-----------------------------------------------------
     ! example with non-allocated arrays
     ! mote that allocation time dim will be 1:12, as in the file
@@ -178,8 +178,8 @@ CONTAINS
     ! test sst
     CALL message(method_name,   testfile_2D_time(1))
 
-    stream_id = openInputFile(testfile_2D_time(1), patch, &
-      &                       read_netcdf_broadcast_method)
+    CALL openinputfile(stream_id, testfile_2D_time(1), patch, &
+      &                read_netcdf_broadcast_method)
 
     !---------------------------------------------------------------------
     ! will read all timesteps in the file
@@ -221,8 +221,8 @@ CONTAINS
     !---------------------------------------------------------------------
     ! test O3
     CALL message(method_name,   testfile_3D_time(1))
-    stream_id = openInputFile(testfile_3D_time(1), patch, &
-      &                       read_netcdf_broadcast_method)
+    CALL openinputfile(stream_id, testfile_3D_time(1), patch, &
+      &                read_netcdf_broadcast_method)
     CALL read_3D_time(stream_id=stream_id, location=on_cells, &
       &               variable_name=TRIM(testfile_3D_time(2)), &
       &               return_pointer=fill_3D_time_array)

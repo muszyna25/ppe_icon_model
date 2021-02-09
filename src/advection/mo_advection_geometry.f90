@@ -31,7 +31,7 @@ MODULE mo_advection_geometry
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_parallel_config,     ONLY: nproma
   USE mo_loopindices,         ONLY: get_indices_e
-  USE mo_impl_constants,      ONLY: min_rledge_int, max_char_length
+  USE mo_impl_constants,      ONLY: min_rledge_int
   USE mo_math_constants,      ONLY: rad2deg
   USE mo_math_types,          ONLY: t_line, t_geographical_coordinates
   USE mo_math_utilities,      ONLY: lintersect, line_intersect
@@ -174,7 +174,7 @@ CONTAINS
       &  levlist_vn0(nproma*p_patch%nlev,p_patch%nblks_e), &
       &  levlist_err(nproma*p_patch%nlev,p_patch%nblks_e)
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_advection_traj: divide_flux_area'
 
   !-------------------------------------------------------------------------
@@ -964,7 +964,7 @@ CONTAINS
       &  levlist_vn0(falist%npoints), &
       &  levlist_err(falist%npoints)
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_advection_traj: divide_flux_area'
 
   !-------------------------------------------------------------------------

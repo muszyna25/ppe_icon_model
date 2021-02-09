@@ -13,6 +13,7 @@ USE mo_memory_bgc, ONLY     : hi, aksp, akb3, akw3, ak13, ak23, co3, bgctra,bgcf
 
 USE mo_kind, ONLY           : wp
 USE mo_control_bgc, ONLY    : bgc_nproma, bgc_zlevs
+USE mo_param1_bgc, ONLY     : icalc, ialkali, isco212, isilica, iphosph, klysocl
 USE mo_hamocc_nml, ONLY     : hion_solver, dremcalc
 
 IMPLICIT NONE
@@ -43,8 +44,6 @@ CONTAINS
 SUBROUTINE calc_dissol ( start_idx, end_idx, klevs, pddpo, psao,ptiestu)
 
 !! Computes calcium carbonate dissolution
-
-  USE mo_param1_bgc, ONLY     : icalc, ialkali, isco212, isilica, iphosph, klysocl
   
   IMPLICIT NONE
 
@@ -148,8 +147,6 @@ SUBROUTINE calc_dissol ( start_idx, end_idx, klevs, pddpo, psao,ptiestu)
 !HAMOCC_OMP_END_DO
 !HAMOCC_OMP_END_PARALLEL
 END SUBROUTINE
-
-
 
 
 FUNCTION update_hi(hi,c,ak1,ak2,akw,aks,akf,aksi,ak1p,ak2p,ak3p,s,akb,sit,pt,alk) RESULT (h)

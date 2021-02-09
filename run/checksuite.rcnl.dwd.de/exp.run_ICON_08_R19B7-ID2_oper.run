@@ -102,7 +102,7 @@ cp $DATADIR/rrtm_cldopt.nc .
 cp $DATADIR/rrtmg_lw.nc .
 
 # files needed for synsats
-cp $DATADIR/*seviri.dat .
+cp $ICONDIR/data/rttov/const/rt13coeffs_rttov7pred54L/*.dat .
 
 # radar data
 ln -sf $DATADIR/radar_dx.nc .

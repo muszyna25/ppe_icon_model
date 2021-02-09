@@ -1,4 +1,3 @@
-#ifndef __NO_ICON_OCEAN__
 
       MODULE mo_hamocc_output
 
@@ -1730,4 +1729,3 @@
 
  END MODULE
 
-#endif
