@@ -74,10 +74,10 @@ MODULE mo_advection_vflux
   USE mo_run_config,          ONLY: msg_level, lvert_nest, timers_level, iqtke
   USE mo_advection_config,    ONLY: t_advection_config, advection_config,     &
     &                               lcompute, lcleanup, t_trList 
-  USE mo_advection_vlimit,    ONLY: v_limit_parabola_mo, v_limit_parabola_sm, &
-   &                                vflx_limiter_pd,                          &
-   &                                v_limit_slope_mo, v_limit_slope_sm,       &
-   &                                v_limit_face_mo, v_limit_face_sm
+  USE mo_advection_vlimit,    ONLY: v_limit_parabola_mo, v_limit_parabola_sm,  &
+   &                                vflx_limiter_pd,                           &
+   &                                v_limit_slope_mo, v_limit_slope_sm,        &
+   &                                v_limit_face_mc_mo, v_limit_face_mc_sm
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_sync,                ONLY: global_max
   USE mo_mpi,                 ONLY: process_mpi_stdio_id, my_process_is_stdio, get_my_mpi_work_id, &
@@ -2238,20 +2238,24 @@ CONTAINS
     !
     ! 1. reconstruct face values at vertical half-levels using splines
     !
-!$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
-    ! top BC
-    a  (i_startidx:i_endidx,slev) = 0._wp
-    b  (i_startidx:i_endidx,slev) = 2._wp
-    c  (i_startidx:i_endidx,slev) = 1._wp
-    rhs(i_startidx:i_endidx,slev) = 3._wp*p_cc(i_startidx:i_endidx,slev)
     !
-    ! bottom BC
-    a  (i_startidx:i_endidx,elevp1) = 1._wp
-    b  (i_startidx:i_endidx,elevp1) = 2._wp
-    c  (i_startidx:i_endidx,elevp1) = 0._wp
-    rhs(i_startidx:i_endidx,elevp1) = 3._wp*p_cc(i_startidx:i_endidx,elev)
-!$ACC END KERNELS
-    !
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR
+    DO jc = i_startidx, i_endidx
+      ! top BC
+      a  (jc,slev) = 0._wp
+      b  (jc,slev) = 2._wp
+      c  (jc,slev) = 1._wp
+      rhs(jc,slev) = 3._wp*p_cc(jc,slev)
+      !
+      ! bottom BC
+      a  (jc,elevp1) = 1._wp
+      b  (jc,elevp1) = 2._wp
+      c  (jc,elevp1) = 0._wp
+      rhs(jc,elevp1) = 3._wp*p_cc(jc,elev)
+    ENDDO
+!$ACC END PARALLEL
+
 !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR PRIVATE( dzfrac ) COLLAPSE(2)
     DO jk=slev+1,elev
@@ -2283,37 +2287,48 @@ CONTAINS
     SELECT CASE (p_itype_vlimit)
     CASE(ISLOPEL_VSM)
 
-      ! make sure that PSM face values lie within the range of values 
-      ! in the neighbouring cells
-      CALL v_limit_face_sm( p_cc       = p_cc(:,:),   & ! in
-        &                   p_face     = p_face(:,:), & ! inout
-        &                   i_startidx = i_startidx,  & ! in
-        &                   i_endidx   = i_endidx,    & ! in
-        &                   slev       = slev,        & ! in
-        &                   elev       = elev-1       ) ! in
+      ! make sure that face values are bounded by the neighbouring cell averages
+      !
+      CALL v_limit_face_mc_sm(p_cc             = p_cc(:,:),             & ! in
+        &                     p_cellhgt_mc_now = p_cellhgt_mc_now(:,:), & ! in
+        &                     p_face           = p_face(:,:),           & ! inout
+        &                     i_startidx       = i_startidx,            & ! in
+        &                     i_endidx         = i_endidx,              & ! in
+        &                     slev             = slev,                  & ! in
+        &                     elev             = elev                   ) ! in
+
 
       ! top and bottom face
-!$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
-      p_face(i_startidx:i_endidx,slev)   = MAX(p_cc(i_startidx:i_endidx,slev),p_face(i_startidx:i_endidx,slev))
-      p_face(i_startidx:i_endidx,elevp1) = MAX(p_cc(i_startidx:i_endidx,elev),p_face(i_startidx:i_endidx,elevp1))
-!$ACC END KERNELS
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR
+      DO jc = i_startidx, i_endidx
+        p_face(jc,slev)   = MAX(p_cc(jc,slev),p_face(jc,slev))
+        p_face(jc,elevp1) = MAX(p_cc(jc,elev),p_face(jc,elevp1))
+      ENDDO
+!$ACC END PARALLEL
+
 
     CASE(ISLOPEL_VM)
 
-      ! make sure that PSM face values lie within the range of values 
-      ! in the neighbouring cells
-      CALL v_limit_face_mo( p_cc       = p_cc(:,:),   & ! in
-        &                   p_face     = p_face(:,:), & ! inout
-        &                   i_startidx = i_startidx,  & ! in
-        &                   i_endidx   = i_endidx,    & ! in
-        &                   slev       = slev,        & ! in
-        &                   elev       = elev-1       ) ! in
+      ! make sure that face values are bounded by the neighbouring cell averages
+      !
+      CALL v_limit_face_mc_mo(p_cc             = p_cc(:,:),             & ! in
+        &                     p_cellhgt_mc_now = p_cellhgt_mc_now(:,:), & ! in
+        &                     p_face           = p_face(:,:),           & ! inout
+        &                     i_startidx       = i_startidx,            & ! in
+        &                     i_endidx         = i_endidx,              & ! in
+        &                     slev             = slev,                  & ! in
+        &                     elev             = elev                   ) ! in
+ 
 
       ! top and bottom face
-!$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
-      p_face(i_startidx:i_endidx,slev)   = p_cc(i_startidx:i_endidx,slev)
-      p_face(i_startidx:i_endidx,elevp1) = p_cc(i_startidx:i_endidx,elev)
-!$ACC END KERNELS
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR
+      DO jc = i_startidx, i_endidx
+        p_face(jc,slev)   = p_cc(jc,slev)
+        p_face(jc,elevp1) = p_cc(jc,elev)
+      ENDDO
+!$ACC END PARALLEL
 
     CASE default
       ! do nothing

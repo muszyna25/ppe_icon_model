@@ -90,7 +90,6 @@ MODULE mo_nh_stepping
   USE mo_nwp_lnd_state,            ONLY: p_lnd_state
   USE sfc_seaice,                  ONLY: frsi_min
   USE mo_ext_data_state,           ONLY: ext_data
-  USE mo_turbdiff_config,          ONLY: turbdiff_config
   USE mo_limarea_config,           ONLY: latbc_config
   USE mo_model_domain,             ONLY: p_patch, t_patch, p_patch_local_parent
   USE mo_time_config,              ONLY: time_config

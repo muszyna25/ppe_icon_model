@@ -21,16 +21,15 @@
 MODULE mo_phy_events
 
   USE mo_kind,                     ONLY: wp
-  USE mo_impl_constants,           ONLY: max_char_length, SUCCESS, &
-    &                                    max_var_list_name_len
+  USE mo_impl_constants,           ONLY: max_char_length, SUCCESS
   USE mo_exception,                ONLY: finish, message, message_text
-  USE mtime,                       ONLY: datetime, newDatetime, timedelta, newTimedelta, &
+  USE mtime,                       ONLY: datetime, newDatetime, timedelta, &
     &                                    datetimeToString, timedeltaToString, &
     &                                    event, newEvent, isCurrentEventActive,      &
     &                                    MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN, &
     &                                    MAX_EVENTNAME_STR_LEN, &
     &                                    OPERATOR(+), OPERATOR(-), OPERATOR(==), OPERATOR(<=), &
-    &                                    getEventName, getPTStringFromSeconds, &
+    &                                    getEventName, &
     &                                    getEventLastDateTime, getEventFirstDateTime,       &
     &                                    getEventInterval, getTotalSecondsTimedelta,        &
     &                                    getTriggerNextEventAtDateTime, deallocateEvent,    &
