@@ -219,20 +219,20 @@ SUBROUTINE organize_lhn ( &
   LOGICAL                   ::           &
     lopen_log  
  
-  INTEGER ::  kqrs       ! upper layer with qrs_flux > 0.0
+  INTEGER ::  kqrs(nproma)       ! upper layer with qrs_flux > 0.0
 
   INTEGER :: jg          ! domain ID
   INTEGER :: jb,jc,jk,i_rlstart, i_rlend, ndiag, iter, nlev
   INTEGER :: i_startblk, i_endblk    !> blocks
   INTEGER :: i_startidx, i_endidx    !< slices
 
-  REAL (KIND=wp) :: zdcoeff, vcoordsum, qrsflux_int
+  REAL (KIND=wp) :: zdcoeff
 
   REAL (KIND=wp)               ::           &
     zdt_1                ! inverse of the timestep for physics ( = 1/dt )
 
 
-  REAL (KIND=wp), DIMENSION(nproma)  ::  qrsgmax,qrsgthres,ttmin,ttmax
+  REAL (KIND=wp), DIMENSION(nproma)  ::  qrsgmax,qrsgthres,ttmin,ttmax,vcoordsum,qrsflux_int
 
 ! Local arrays:
 
@@ -504,27 +504,32 @@ SUBROUTINE organize_lhn ( &
        ENDDO
        DO jc=i_startidx,i_endidx
          qrsgthres(jc) = MAX(assimilation_config(jg)%thres_lhn,assimilation_config(jg)%rqrsgmax*qrsgmax(jc))
+         qrsflux_int(jc) = 0.0_wp
+         vcoordsum(jc)=0.0_wp
+         kqrs(jc)=nlev+1
        ENDDO
 
-       DO jc=i_startidx,i_endidx
-         qrsflux_int = 0.0_wp
-         vcoordsum=0.0_wp
-         kqrs=nlev+1
-         IF (qrsgmax(jc) >= qrsgthres(jc)) THEN
-           DO jk=kstart_moist(jg),nlev
-            IF (qrsflux(jc,jk,jb) >= qrsgthres(jc)) then
-              kqrs=jk
-              EXIT
-            ENDIF
-           ENDDO
-           DO jk=kqrs,nlev
-             qrsflux_int = qrsflux_int + qrsflux(jc,jk,jb)  &
+       DO jk=kstart_moist(jg),nlev
+         DO jc=i_startidx,i_endidx
+           IF (qrsgmax(jc) >= qrsgthres(jc)) THEN
+             IF (qrsflux(jc,jk,jb) >= qrsgthres(jc) .AND. kqrs(jc)==nlev+1) then
+               kqrs(jc)=jk
+             ENDIF
+           ENDIF
+         ENDDO
+       ENDDO
+       DO jk=MINVAL(kqrs(i_startidx:i_endidx)),nlev
+         DO jc=i_startidx,i_endidx
+           IF (jk >= kqrs(jc)) THEN
+             qrsflux_int(jc) = qrsflux_int(jc) + qrsflux(jc,jk,jb)  &
                               * (p_metrics%z_ifc(jc,jk,jb)-p_metrics%z_ifc(jc,jk+1,jb))
-             vcoordsum=vcoordsum+(p_metrics%z_ifc(jc,jk,jb)-p_metrics%z_ifc(jc,jk+1,jb))
-           ENDDO
-           IF (vcoordsum /= 0.0_wp) qrsflux_int = qrsflux_int / vcoordsum
-         ENDIF
-         pr_ref(jc,jb) = qrsflux_int
+             vcoordsum(jc)=vcoordsum(jc)+(p_metrics%z_ifc(jc,jk,jb)-p_metrics%z_ifc(jc,jk+1,jb))
+           ENDIF
+         ENDDO
+       ENDDO
+       DO jc=i_startidx,i_endidx
+         IF (vcoordsum(jc) /= 0.0_wp) qrsflux_int(jc) = qrsflux_int(jc) / vcoordsum(jc)
+         pr_ref(jc,jb) = qrsflux_int(jc)
        ENDDO
 
      ENDDO
@@ -1063,26 +1068,31 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,prm_diag,lhn_fields,pr_obs, &
       weight_index_p1=i
       IF (msg_level > 12) CALL print_value ('o_p1',radar_data%radar_td%obs_date(i)%time%minute)
       IF (msg_level > 12) CALL print_value ('o_p1',weight_index_p1)
+      IF (msg_level > 12) CALL print_value ('td_p1',td_in_min(weight_index_p1))
       lp1=.true.
     ELSE IF (.NOT.lp2 .AND. radar_data%radar_td%obs_date(i) == next_time_2) THEN 
       weight_index_p2=i
       IF (msg_level > 12) CALL print_value ('o_p2',radar_data%radar_td%obs_date(i)%time%minute)
       IF (msg_level > 12) CALL print_value ('o_p2',weight_index_p2)
+      IF (msg_level > 12) CALL print_value ('td_p2',td_in_min(weight_index_p2))
       lp2=.true.
     ELSE IF (.NOT.lp3 .AND. radar_data%radar_td%obs_date(i) == next_time_3) THEN 
       weight_index_p3=i
       IF (msg_level > 12) CALL print_value ('o_p3',radar_data%radar_td%obs_date(i)%time%minute)
       IF (msg_level > 12) CALL print_value ('o_p3',weight_index_p3)
+      IF (msg_level > 12) CALL print_value ('td_p3',td_in_min(weight_index_p3))
       lp3=.true.
     ELSE IF (.NOT.lm1 .AND. radar_data%radar_td%obs_date(i) == prev_time_1) THEN 
       weight_index_m1=i
       IF (msg_level > 12) CALL print_value ('o_m1',radar_data%radar_td%obs_date(i)%time%minute)
       IF (msg_level > 12) CALL print_value ('o_m1',weight_index_m1)
+      IF (msg_level > 12) CALL print_value ('td_m1',td_in_min(weight_index_m1))
       lm1=.true.
     ELSE IF (.NOT.lm2 .AND. radar_data%radar_td%obs_date(i) == prev_time_2) THEN
       weight_index_m2=i
       IF (msg_level > 12) CALL print_value ('o_m2',radar_data%radar_td%obs_date(i)%time%minute)
       IF (msg_level > 12) CALL print_value ('o_m2',weight_index_m2)
+      IF (msg_level > 12) CALL print_value ('td_m2',td_in_min(weight_index_m2))
       lm2=.true.
     ENDIF
     IF (lp1 .AND. lp2 .AND. lp3 .AND. lm1 .AND. lm2) EXIT
@@ -1168,177 +1178,363 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,prm_diag,lhn_fields,pr_obs, &
 ! If the data is in high frequency take into account observations that
 ! are within the interval [-2,3]*lhn_dt_obs fore the time interpolation
 ! of obs and wobs_space
-      ! exclude boundary interpolation zone of nested domains
-      i_rlstart = grf_bdywidth_c+1
-      i_rlend   = min_rlcell_int
+  ! exclude boundary interpolation zone of nested domains
+  i_rlstart = grf_bdywidth_c+1
+  i_rlend   = min_rlcell_int
 
-      i_startblk = pt_patch%cells%start_block(i_rlstart)
-      i_endblk   = pt_patch%cells%end_block(i_rlend)
+  i_startblk = pt_patch%cells%start_block(i_rlstart)
+  i_endblk   = pt_patch%cells%end_block(i_rlend)
+
+  IF (td_in_min(weight_index_0) >= 0) THEN
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_GUIDED_SCHEDULE
+    DO jb=i_startblk,i_endblk
+      CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+      &                i_startidx, i_endidx, i_rlstart, i_rlend)
+      DO jc=i_startidx,i_endidx
+        IF (NINT(radar_data%radar_ct%blacklist(jc,jb)) /= 1_i4 .AND. NINT(lhn_fields%brightband(jc,jb)) /= 1_i4) THEN
+          IF ((radar_data%radar_td%obs(jc,jb,weight_index_0) >= pr_time_limit) .AND. &
+              (lp1 .AND. radar_data%radar_td%obs(jc,jb,weight_index_p1) >= pr_time_limit)) THEN
+            ! observation is valid between t>=0 and t<=+lhn_dt_obs
+            pr_obs(jc,jb)    = radar_data%radar_td%obs(jc,jb,weight_index_0)                           &
+              + (radar_data%radar_td%obs(jc,jb,weight_index_p1)-radar_data%radar_td%obs(jc,jb,weight_index_0)) &
+              * (abs(td_in_min(weight_index_0)))/ assimilation_config(jg)%lhn_dt_obs
+            pr_obs(jc,jb) = pr_obs(jc,jb)*sec_per_hr_inv
+            wobs_time(jc,jb) = 1.0_wp
+            num_t_obs (jc,jb,1) = 1
+            IF (assimilation_config(jg)%lhn_spqual) THEN
+              wobs_space(jc,jb) = radar_data%radar_td%spqual(jc,jb,weight_index_0)                                   &
+                + (radar_data%radar_td%spqual(jc,jb,weight_index_p1)-radar_data%radar_td%spqual(jc,jb,weight_index_0)) &
+                * (abs(td_in_min(weight_index_0)))/ assimilation_config(jg)%lhn_dt_obs
+            ELSE
+              wobs_space(jc,jb) = 1.0_wp
+            ENDIF
+          ELSEIF ((radar_data%radar_td%obs(jc,jb,weight_index_0) >= pr_time_limit) .AND. &
+                  (lm1 .AND. radar_data%radar_td%obs(jc,jb,weight_index_m1lim) >= pr_time_limit)) THEN
+            ! observation is valid between t>=0 and t<=+lhn_dt_obs
+            pr_obs(jc,jb)    = radar_data%radar_td%obs(jc,jb,weight_index_0)                           &
+              + (radar_data%radar_td%obs(jc,jb,weight_index_0)-radar_data%radar_td%obs(jc,jb,weight_index_m1lim)) &
+              * (abs(td_in_min(weight_index_0)))/ assimilation_config(jg)%lhn_dt_obs
+            pr_obs(jc,jb) = pr_obs(jc,jb)*sec_per_hr_inv
+            wobs_time(jc,jb) = 1.0_wp
+            num_t_obs (jc,jb,1) = 1
+            IF (assimilation_config(jg)%lhn_spqual) THEN
+              wobs_space(jc,jb) = radar_data%radar_td%spqual(jc,jb,weight_index_0)                                   &
+                + (radar_data%radar_td%spqual(jc,jb,weight_index_0)-radar_data%radar_td%spqual(jc,jb,weight_index_m1lim)) &
+                * (abs(td_in_min(weight_index_0)))/ assimilation_config(jg)%lhn_dt_obs
+            ELSE
+              wobs_space(jc,jb) = 1.0_wp
+            ENDIF
+          ELSEIF ((lm1 .AND. radar_data%radar_td%obs(jc,jb,weight_index_m1lim) >= pr_time_limit) .AND. &
+                  (lp1 .AND. radar_data%radar_td%obs(jc,jb,weight_index_p1) >= pr_time_limit)) THEN
+            ! observation is valid between t>=-lhn_dt_obs and t<=+lhn_dt_obs
+            pr_obs(jc,jb)     = radar_data%radar_td%obs(jc,jb,weight_index_m1lim)                               &
+              + (radar_data%radar_td%obs(jc,jb,weight_index_p1)-radar_data%radar_td%obs(jc,jb,weight_index_m1lim))  &
+              * (abs(td_in_min(weight_index_m1lim)))/ (2.0_wp*assimilation_config(jg)%lhn_dt_obs)
+            pr_obs(jc,jb) = pr_obs(jc,jb)*sec_per_hr_inv
+            wobs_time(jc,jb) = 0.75_wp   
+            num_t_obs (jc,jb,2) = 1
+            IF (assimilation_config(jg)%lhn_spqual) THEN
+              wobs_space(jc,jb) = radar_data%radar_td%spqual(jc,jb,weight_index_m1lim)                               &
+                + (radar_data%radar_td%spqual(jc,jb,weight_index_p1)-radar_data%radar_td%spqual(jc,jb,weight_index_m1lim))&
+                * (abs(td_in_min(weight_index_m1lim)))/ (2.0_wp*assimilation_config(jg)%lhn_dt_obs)
+            ELSE
+              wobs_space(jc,jb) = 1.0_wp
+            ENDIF
+          ELSEIF ((radar_data%radar_td%obs(jc,jb,weight_index_0) >= pr_time_limit) .AND. &
+                  (lp2 .AND. radar_data%radar_td%obs(jc,jb,weight_index_p2)>= pr_time_limit)) THEN
+            ! observation is valid between t>=0 and t<=+2assimilation_config(jg)%lhn_dt_obs
+            pr_obs(jc,jb) = radar_data%radar_td%obs(jc,jb,weight_index_0)                                   &
+              + (radar_data%radar_td%obs(jc,jb,weight_index_p2)-radar_data%radar_td%obs(jc,jb,weight_index_0))      &
+              * (abs(td_in_min(weight_index_0)))/ (2.0_wp*assimilation_config(jg)%lhn_dt_obs)
+            pr_obs(jc,jb) = pr_obs(jc,jb)*sec_per_hr_inv
+            wobs_time(jc,jb) = 0.75_wp
+            num_t_obs (jc,jb,2)= 1
+            IF (assimilation_config(jg)%lhn_spqual) THEN
+              wobs_space(jc,jb) = radar_data%radar_td%spqual(jc,jb,weight_index_0)                                   &
+                + (radar_data%radar_td%spqual(jc,jb,weight_index_p2)-radar_data%radar_td%spqual(jc,jb,weight_index_0)) &
+                * (abs(td_in_min(weight_index_0)))/ (2.0_wp*assimilation_config(jg)%lhn_dt_obs)
+            ELSE
+              wobs_space(jc,jb) = 1.0_wp
+            ENDIF
+          ELSEIF((lm1 .AND. radar_data%radar_td%obs(jc,jb,weight_index_m1lim) >= pr_time_limit) .AND. &
+                 (lp2 .AND. radar_data%radar_td%obs(jc,jb,weight_index_p2) >= pr_time_limit)) THEN
+            ! observation is valid between t>=-lhn_dt_obs and t<=+2lhn_dt_obs
+            pr_obs(jc,jb)    = radar_data%radar_td%obs(jc,jb,weight_index_m1lim)                                  &
+              + (radar_data%radar_td%obs(jc,jb,weight_index_p2)-radar_data%radar_td%obs(jc,jb,weight_index_m1lim))     &
+              * (abs(td_in_min(weight_index_m1lim)))/ (3.0_wp*assimilation_config(jg)%lhn_dt_obs)
+            pr_obs(jc,jb) = pr_obs(jc,jb)*sec_per_hr_inv
+            wobs_time(jc,jb) = 0.5_wp
+            num_t_obs (jc,jb,3) = 1
+            IF (assimilation_config(jg)%lhn_spqual) THEN
+              wobs_space(jc,jb)= radar_data%radar_td%spqual(jc,jb,weight_index_m1lim)                                  &
+                + (radar_data%radar_td%spqual(jc,jb,weight_index_p2)-radar_data%radar_td%spqual(jc,jb,weight_index_m1lim)) &
+                * (abs(td_in_min(weight_index_m1lim)))/ (3.0_wp*assimilation_config(jg)%lhn_dt_obs)
+            ELSE
+              wobs_space(jc,jb) = 1.0_wp
+            ENDIF
+          ELSEIF((lm2 .AND. radar_data%radar_td%obs(jc,jb,weight_index_m2lim) >= pr_time_limit) .AND. &
+                 (lp1 .AND. radar_data%radar_td%obs(jc,jb,weight_index_p1) >= pr_time_limit)) THEN
+            ! observation is valid between t>=-2lhn_dt_obs and t<=+lhn_dt_obs
+            pr_obs(jc,jb) = radar_data%radar_td%obs(jc,jb,weight_index_m2lim)                                  &
+              + (radar_data%radar_td%obs(jc,jb,weight_index_p1)-radar_data%radar_td%obs(jc,jb,weight_index_m2lim))     &
+              * (abs(td_in_min(weight_index_m2lim)))/ (3.0_wp*assimilation_config(jg)%lhn_dt_obs)
+            pr_obs(jc,jb) = pr_obs(jc,jb)*sec_per_hr_inv
+            wobs_time(jc,jb) = 0.5_wp
+            num_t_obs (jc,jb,3) = 1
+            IF (assimilation_config(jg)%lhn_spqual) THEN
+              wobs_space(jc,jb) = radar_data%radar_td%spqual(jc,jb,weight_index_m2lim)                                  &
+                + (radar_data%radar_td%spqual(jc,jb,weight_index_p1)-radar_data%radar_td%spqual(jc,jb,weight_index_m2lim))&
+                * (abs(td_in_min(weight_index_m2lim)))/(3.0_wp*assimilation_config(jg)%lhn_dt_obs)
+            ELSE
+              wobs_space(jc,jb) = 1.0_wp
+            ENDIF
+          ELSEIF((radar_data%radar_td%obs(jc,jb,weight_index_0) >= pr_time_limit) .AND. &
+                 (lp3 .AND. radar_data%radar_td%obs(jc,jb,weight_index_p3)>= pr_time_limit)) THEN
+            ! observation is valid between t>=0 and t<=+3lhn_dt_obs
+            pr_obs(jc,jb) = radar_data%radar_td%obs(jc,jb,weight_index_0)                                  &
+              + (radar_data%radar_td%obs(jc,jb,weight_index_p3)-radar_data%radar_td%obs(jc,jb,weight_index_0))     &
+              * (abs(td_in_min(weight_index_0)))/ (3.0_wp*assimilation_config(jg)%lhn_dt_obs)
+            pr_obs(jc,jb) = pr_obs(jc,jb)*sec_per_hr_inv
+            wobs_time(jc,jb) = 0.5_wp
+            num_t_obs (jc,jb,3) = 1
+            IF (assimilation_config(jg)%lhn_spqual) THEN
+              wobs_space(jc,jb) = radar_data%radar_td%spqual(jc,jb,weight_index_0)                                  &
+                + (radar_data%radar_td%spqual(jc,jb,weight_index_p3)-radar_data%radar_td%spqual(jc,jb,weight_index_0)) &
+                * (abs(td_in_min(weight_index_0)))/ (3.0_wp*assimilation_config(jg)%lhn_dt_obs)
+            ELSE
+              wobs_space(jc,jb) = 1.0_wp
+            ENDIF
+         ELSEIF((lm2 .AND. radar_data%radar_td%obs(jc,jb,weight_index_m2lim) >= pr_time_limit) .AND. &
+                (lp2 .AND. radar_data%radar_td%obs(jc,jb,weight_index_p2) >= pr_time_limit)) THEN
+           ! observation is valid between t>=-2lhn_dt_obs and t<=+2lhn_dt_obs
+           pr_obs(jc,jb) = radar_data%radar_td%obs(jc,jb,weight_index_m2lim)                                  &
+             + (radar_data%radar_td%obs(jc,jb,weight_index_p2)-radar_data%radar_td%obs(jc,jb,weight_index_m2lim))     &
+             * (abs(td_in_min(weight_index_m2lim)))/ (4.0_wp*assimilation_config(jg)%lhn_dt_obs)
+           pr_obs(jc,jb) = pr_obs(jc,jb)*sec_per_hr_inv
+           wobs_time(jc,jb) = 0.25_wp
+           num_t_obs (jc,jb,4) = 1
+           IF (assimilation_config(jg)%lhn_spqual) THEN
+             wobs_space(jc,jb) = radar_data%radar_td%spqual(jc,jb,weight_index_m2lim)                                  &
+               + (radar_data%radar_td%spqual(jc,jb,weight_index_p2)-radar_data%radar_td%spqual(jc,jb,weight_index_m2lim)) &
+               * (abs(td_in_min(weight_index_m2lim)))/ (4.0_wp*assimilation_config(jg)%lhn_dt_obs)
+           ELSE
+             wobs_space(jc,jb) = 1.0_wp
+           ENDIF
+        ELSEIF((lm1 .AND. radar_data%radar_td%obs(jc,jb,weight_index_m1lim) >= pr_time_limit) .AND. &
+               (lp3 .AND. radar_data%radar_td%obs(jc,jb,weight_index_p3) >= pr_time_limit)) THEN
+           ! observation is valid between t>=-lhn_dt_obs and t<=+3lhn_dt_obs
+           pr_obs(jc,jb) = radar_data%radar_td%obs(jc,jb,weight_index_m1lim)                                  &
+             + (radar_data%radar_td%obs(jc,jb,weight_index_p3)-radar_data%radar_td%obs(jc,jb,weight_index_m1lim))     &
+             * (abs(td_in_min(weight_index_m1lim)))/ (4.0_wp*assimilation_config(jg)%lhn_dt_obs)
+           pr_obs(jc,jb) = pr_obs(jc,jb)*sec_per_hr_inv
+           wobs_time(jc,jb) = 0.25_wp
+           num_t_obs (jc,jb,4) = 1
+           IF (assimilation_config(jg)%lhn_spqual) THEN
+             wobs_space(jc,jb) = radar_data%radar_td%spqual(jc,jb,weight_index_m1lim)                                  &
+               + (radar_data%radar_td%spqual(jc,jb,weight_index_p3)-radar_data%radar_td%spqual(jc,jb,weight_index_m1lim)) &
+               * (abs(td_in_min(weight_index_m1lim)))/ (4.0_wp*assimilation_config(jg)%lhn_dt_obs)
+           ELSE
+              wobs_space(jc,jb) = 1.0_wp
+           ENDIF
+         ELSE
+           ! observation is not valid
+           pr_obs(jc,jb) = -0.1_wp
+           wobs_space(jc,jb) = 0.0_wp
+           wobs_time(jc,jb) = 0.0_wp
+           num_t_obs (jc,jb,0) = 1
+         ENDIF
+        ENDIF
+       ENDDO
+     ENDDO
+  
+!$OMP END DO 
+!$OMP END PARALLEL
+
+   ELSE  ! td_min < 0 !!!
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_GUIDED_SCHEDULE
      DO jb=i_startblk,i_endblk
        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-         &                i_startidx, i_endidx, i_rlstart, i_rlend)
-        DO jc=i_startidx,i_endidx
-          IF (NINT(radar_data%radar_ct%blacklist(jc,jb)) /= 1_i4 .AND. NINT(lhn_fields%brightband(jc,jb)) /= 1_i4) THEN
-            IF ((radar_data%radar_td%obs(jc,jb,weight_index_0) >= pr_time_limit) .AND. &
-               (lp1 .AND. radar_data%radar_td%obs(jc,jb,weight_index_p1) >= pr_time_limit)) THEN
-              ! observation is valid between t>=0 and t<=+lhn_dt_obs
-              pr_obs(jc,jb)    = radar_data%radar_td%obs(jc,jb,weight_index_0)                           &
-                   + (radar_data%radar_td%obs(jc,jb,weight_index_p1)-radar_data%radar_td%obs(jc,jb,weight_index_0)) &
-                   * (abs(td_in_min(weight_index_0)))/ assimilation_config(jg)%lhn_dt_obs
-              pr_obs(jc,jb) = pr_obs(jc,jb)*sec_per_hr_inv
-              wobs_time(jc,jb) = 1.0_wp
-              num_t_obs (jc,jb,1) = 1
-              IF (assimilation_config(jg)%lhn_spqual) THEN
-                  wobs_space(jc,jb) = radar_data%radar_td%spqual(jc,jb,weight_index_0)                                   &
-                   + (radar_data%radar_td%spqual(jc,jb,weight_index_p1)-radar_data%radar_td%spqual(jc,jb,weight_index_0)) &
-                   * (abs(td_in_min(weight_index_0)))/ assimilation_config(jg)%lhn_dt_obs
-              ELSE
-                  wobs_space(jc,jb) = 1.0_wp
-              ENDIF
-            ELSEIF ((radar_data%radar_td%obs(jc,jb,weight_index_0) >= pr_time_limit) .AND. &
-                    (lm1 .AND. radar_data%radar_td%obs(jc,jb,weight_index_m1lim) >= pr_time_limit)) THEN
-              ! observation is valid between t>=0 and t<=+lhn_dt_obs
-              pr_obs(jc,jb)    = radar_data%radar_td%obs(jc,jb,weight_index_0)                           &
-                   + (radar_data%radar_td%obs(jc,jb,weight_index_0)-radar_data%radar_td%obs(jc,jb,weight_index_m1lim)) &
-                   * (abs(td_in_min(weight_index_0)))/ assimilation_config(jg)%lhn_dt_obs
-              pr_obs(jc,jb) = pr_obs(jc,jb)*sec_per_hr_inv
-              wobs_time(jc,jb) = 1.0_wp
-              num_t_obs (jc,jb,1) = 1
-              IF (assimilation_config(jg)%lhn_spqual) THEN
-                  wobs_space(jc,jb) = radar_data%radar_td%spqual(jc,jb,weight_index_0)                                   &
-                   + (radar_data%radar_td%spqual(jc,jb,weight_index_0)-radar_data%radar_td%spqual(jc,jb,weight_index_m1lim)) &
-                   * (abs(td_in_min(weight_index_0)))/ assimilation_config(jg)%lhn_dt_obs
-              ELSE
-                  wobs_space(jc,jb) = 1.0_wp
-              ENDIF
-            ELSEIF((lm1 .AND. radar_data%radar_td%obs(jc,jb,weight_index_m1lim) >= pr_time_limit) .AND. &
-                  (lp1 .AND. radar_data%radar_td%obs(jc,jb,weight_index_p1) >= pr_time_limit)) THEN
-              ! observation is valid between t>=-lhn_dt_obs and t<=+lhn_dt_obs
-              pr_obs(jc,jb)     = radar_data%radar_td%obs(jc,jb,weight_index_m1lim)                               &
-                   + (radar_data%radar_td%obs(jc,jb,weight_index_p1)-radar_data%radar_td%obs(jc,jb,weight_index_m1lim))  &
-                   * (abs(td_in_min(weight_index_m1lim)))/ (2.0_wp*assimilation_config(jg)%lhn_dt_obs)
-              pr_obs(jc,jb) = pr_obs(jc,jb)*sec_per_hr_inv
-              wobs_time(jc,jb) = 0.75_wp   
-              num_t_obs (jc,jb,2) = 1
-              IF (assimilation_config(jg)%lhn_spqual) THEN
-                  wobs_space(jc,jb) = radar_data%radar_td%spqual(jc,jb,weight_index_m1lim)                               &
-                   + (radar_data%radar_td%spqual(jc,jb,weight_index_p1)-radar_data%radar_td%spqual(jc,jb,weight_index_m1lim))&
-                   * (abs(td_in_min(weight_index_m1lim)))/ (2.0_wp*assimilation_config(jg)%lhn_dt_obs)
-              ELSE
-                  wobs_space(jc,jb) = 1.0_wp
-              ENDIF
-            ELSEIF((radar_data%radar_td%obs(jc,jb,weight_index_0) >= pr_time_limit) .AND. &
-                  lp2 .AND.(radar_data%radar_td%obs(jc,jb,weight_index_p2)>= pr_time_limit)) THEN
-              ! observation is valid between t>=0 and t<=+2assimilation_config(jg)%lhn_dt_obs
-              pr_obs(jc,jb) = radar_data%radar_td%obs(jc,jb,weight_index_0)                                   &
-                   + (radar_data%radar_td%obs(jc,jb,weight_index_p2)-radar_data%radar_td%obs(jc,jb,weight_index_0))      &
-                   * (abs(td_in_min(weight_index_0)))/ (2.0_wp*assimilation_config(jg)%lhn_dt_obs)
-              pr_obs(jc,jb) = pr_obs(jc,jb)*sec_per_hr_inv
-              wobs_time(jc,jb) = 0.75_wp
-              num_t_obs (jc,jb,2)= 1
-              IF (assimilation_config(jg)%lhn_spqual) THEN
-                  wobs_space(jc,jb) = radar_data%radar_td%spqual(jc,jb,weight_index_0)                                   &
-                   + (radar_data%radar_td%spqual(jc,jb,weight_index_p2)-radar_data%radar_td%spqual(jc,jb,weight_index_0)) &
-                   * (abs(td_in_min(weight_index_0)))/ (2.0_wp*assimilation_config(jg)%lhn_dt_obs)
-              ELSE
-                  wobs_space(jc,jb) = 1.0_wp
-              ENDIF
-            ELSEIF((lm1.AND.radar_data%radar_td%obs(jc,jb,weight_index_m1lim) >= pr_time_limit) .AND. &
-                  (lp2.AND.radar_data%radar_td%obs(jc,jb,weight_index_p2) >= pr_time_limit)) THEN
-              ! observation is valid between t>=-lhn_dt_obs and t<=+2lhn_dt_obs
-              pr_obs(jc,jb)    = radar_data%radar_td%obs(jc,jb,weight_index_m1lim)                                  &
-                   + (radar_data%radar_td%obs(jc,jb,weight_index_p2)-radar_data%radar_td%obs(jc,jb,weight_index_m1lim))     &
-                   * (abs(td_in_min(weight_index_m1lim)))/ (3.0_wp*assimilation_config(jg)%lhn_dt_obs)
-              pr_obs(jc,jb) = pr_obs(jc,jb)*sec_per_hr_inv
-              wobs_time(jc,jb) = 0.5_wp
-              num_t_obs (jc,jb,3) = 1
-              IF (assimilation_config(jg)%lhn_spqual) THEN
-                  wobs_space(jc,jb)= radar_data%radar_td%spqual(jc,jb,weight_index_m1lim)                                  &
-                   + (radar_data%radar_td%spqual(jc,jb,weight_index_p2)-radar_data%radar_td%spqual(jc,jb,weight_index_m1lim)) &
-                   * (abs(td_in_min(weight_index_m1lim)))/ (3.0_wp*assimilation_config(jg)%lhn_dt_obs)
-              ELSE
-                  wobs_space(jc,jb) = 1.0_wp
-              ENDIF
-            ELSEIF((lm2 .AND. radar_data%radar_td%obs(jc,jb,weight_index_m2lim) >= pr_time_limit) .AND. &
-                  (lp1 .AND. radar_data%radar_td%obs(jc,jb,weight_index_p1) >= pr_time_limit)) THEN
-              ! observation is valid between t>=-2lhn_dt_obs and t<=+lhn_dt_obs
-              pr_obs(jc,jb) = radar_data%radar_td%obs(jc,jb,weight_index_m2lim)                                  &
-                   + (radar_data%radar_td%obs(jc,jb,weight_index_p1)-radar_data%radar_td%obs(jc,jb,weight_index_m2lim))     &
-                   * (abs(td_in_min(weight_index_m2lim)))/ (3.0_wp*assimilation_config(jg)%lhn_dt_obs)
-              pr_obs(jc,jb) = pr_obs(jc,jb)*sec_per_hr_inv
-              wobs_time(jc,jb) = 0.5_wp
-              num_t_obs (jc,jb,3) = 1
-              IF (assimilation_config(jg)%lhn_spqual) THEN
-                  wobs_space(jc,jb) = radar_data%radar_td%spqual(jc,jb,weight_index_m2lim)                                  &
-                   + (radar_data%radar_td%spqual(jc,jb,weight_index_p1)-radar_data%radar_td%spqual(jc,jb,weight_index_m2lim))&
-                   * (abs(td_in_min(weight_index_m2lim)))/(3.0_wp*assimilation_config(jg)%lhn_dt_obs)
-              ELSE
-                  wobs_space(jc,jb) = 1.0_wp
-              ENDIF
-            ELSEIF((radar_data%radar_td%obs(jc,jb,weight_index_0) >= pr_time_limit) .AND. &
-                  (lp3 .AND. radar_data%radar_td%obs(jc,jb,weight_index_p3)>= pr_time_limit)) THEN
-              ! observation is valid between t>=0 and t<=+3lhn_dt_obs
-              pr_obs(jc,jb) = radar_data%radar_td%obs(jc,jb,weight_index_0)                                  &
-                   + (radar_data%radar_td%obs(jc,jb,weight_index_p3)-radar_data%radar_td%obs(jc,jb,weight_index_0))     &
-                   * (abs(td_in_min(weight_index_0)))/ (3.0_wp*assimilation_config(jg)%lhn_dt_obs)
-              pr_obs(jc,jb) = pr_obs(jc,jb)*sec_per_hr_inv
-              wobs_time(jc,jb) = 0.5_wp
-              num_t_obs (jc,jb,3) = 1
-              IF (assimilation_config(jg)%lhn_spqual) THEN
-                  wobs_space(jc,jb) = radar_data%radar_td%spqual(jc,jb,weight_index_0)                                  &
-                   + (radar_data%radar_td%spqual(jc,jb,weight_index_p3)-radar_data%radar_td%spqual(jc,jb,weight_index_0)) &
-                   * (abs(td_in_min(weight_index_0)))/ (3.0_wp*assimilation_config(jg)%lhn_dt_obs)
-              ELSE
-                  wobs_space(jc,jb) = 1.0_wp
-              ENDIF
-            ELSEIF((lm2 .AND. radar_data%radar_td%obs(jc,jb,weight_index_m2lim) >= pr_time_limit) .AND. &
-                  (lp2 .AND. radar_data%radar_td%obs(jc,jb,weight_index_p2) >= pr_time_limit)) THEN
-              ! observation is valid between t>=-2lhn_dt_obs and t<=+2lhn_dt_obs
-              pr_obs(jc,jb) = radar_data%radar_td%obs(jc,jb,weight_index_m2lim)                                  &
-                   + (radar_data%radar_td%obs(jc,jb,weight_index_p2)-radar_data%radar_td%obs(jc,jb,weight_index_m2lim))     &
-                   * (abs(td_in_min(weight_index_m2lim)))/ (4.0_wp*assimilation_config(jg)%lhn_dt_obs)
-              pr_obs(jc,jb) = pr_obs(jc,jb)*sec_per_hr_inv
-              wobs_time(jc,jb) = 0.25_wp
-              num_t_obs (jc,jb,4) = 1
-              IF (assimilation_config(jg)%lhn_spqual) THEN
-                  wobs_space(jc,jb) = radar_data%radar_td%spqual(jc,jb,weight_index_m2lim)                                  &
-                   + (radar_data%radar_td%spqual(jc,jb,weight_index_p2)-radar_data%radar_td%spqual(jc,jb,weight_index_m2lim)) &
-                   * (abs(td_in_min(weight_index_m2lim)))/ (4.0_wp*assimilation_config(jg)%lhn_dt_obs)
-              ELSE
-                  wobs_space(jc,jb) = 1.0_wp
-              ENDIF
-            ELSEIF((lm1 .AND. radar_data%radar_td%obs(jc,jb,weight_index_m1lim) >= pr_time_limit) .AND. &
-                  (lp3 .AND. radar_data%radar_td%obs(jc,jb,weight_index_p3) >= pr_time_limit)) THEN
-              ! observation is valid between t>=-lhn_dt_obs and t<=+3lhn_dt_obs
-              pr_obs(jc,jb) = radar_data%radar_td%obs(jc,jb,weight_index_m1lim)                                  &
-                   + (radar_data%radar_td%obs(jc,jb,weight_index_p3)-radar_data%radar_td%obs(jc,jb,weight_index_m1lim))     &
-                   * (abs(td_in_min(weight_index_m1lim)))/ (4.0_wp*assimilation_config(jg)%lhn_dt_obs)
-              pr_obs(jc,jb) = pr_obs(jc,jb)*sec_per_hr_inv
-              wobs_time(jc,jb) = 0.25_wp
-              num_t_obs (jc,jb,4) = 1
-              IF (assimilation_config(jg)%lhn_spqual) THEN
-                  wobs_space(jc,jb) = radar_data%radar_td%spqual(jc,jb,weight_index_m1lim)                                  &
-                   + (radar_data%radar_td%spqual(jc,jb,weight_index_p3)-radar_data%radar_td%spqual(jc,jb,weight_index_m1lim)) &
-                   * (abs(td_in_min(weight_index_m1lim)))/ (4.0_wp*assimilation_config(jg)%lhn_dt_obs)
-              ELSE
-                  wobs_space(jc,jb) = 1.0_wp
-              ENDIF
-            ELSE
-              ! observation is not valid
-              pr_obs(jc,jb) = -0.1_wp
-              wobs_space(jc,jb) = 0.0_wp
-              wobs_time(jc,jb) = 0.0_wp
-              num_t_obs (jc,jb,0) = 1
-            ENDIF
-          ENDIF
-        ENDDO
+       &                i_startidx, i_endidx, i_rlstart, i_rlend)
+       DO jc=i_startidx,i_endidx
+
+        IF (NINT(radar_data%radar_ct%blacklist(jc,jb)) /= 1_i4 .AND. NINT(lhn_fields%brightband(jc,jb)) /= 1_i4) THEN
+         IF ((radar_data%radar_td%obs(jc,jb,weight_index_0) >= pr_time_limit) .AND. &
+             (lm1 .AND. radar_data%radar_td%obs(jc,jb,weight_index_m1lim) >= pr_time_limit)) THEN
+           ! observation is valid between t>=0 and t<=+lhn_dt_obs
+           pr_obs(jc,jb)    = radar_data%radar_td%obs(jc,jb,weight_index_m1lim)                           &
+             + (radar_data%radar_td%obs(jc,jb,weight_index_0)-radar_data%radar_td%obs(jc,jb,weight_index_m1lim)) &
+             * (ABS(td_in_min(weight_index_m1lim)))/ assimilation_config(jg)%lhn_dt_obs
+           pr_obs(jc,jb) = pr_obs(jc,jb)*sec_per_hr_inv
+           wobs_time(jc,jb) = 1.0_wp
+           num_t_obs (jc,jb,1) = 1
+           IF (assimilation_config(jg)%lhn_spqual) THEN
+             wobs_space(jc,jb) = radar_data%radar_td%spqual(jc,jb,weight_index_m1lim)                                   &
+               + (radar_data%radar_td%spqual(jc,jb,weight_index_0)-radar_data%radar_td%spqual(jc,jb,weight_index_m1lim)) &
+               * (ABS(td_in_min(weight_index_m1lim)))/ assimilation_config(jg)%lhn_dt_obs
+           ELSE
+             wobs_space(jc,jb) = 1.0_wp
+           ENDIF
+         ELSEIF ((radar_data%radar_td%obs(jc,jb,weight_index_0) >= pr_time_limit) .AND. &
+                 (lp1 .AND. radar_data%radar_td%obs(jc,jb,weight_index_p1) >= pr_time_limit)) THEN
+           ! observation is valid between t>=0 and t<=+lhn_dt_obs
+           pr_obs(jc,jb)    = radar_data%radar_td%obs(jc,jb,weight_index_0)                           &
+             - (radar_data%radar_td%obs(jc,jb,weight_index_p1)-radar_data%radar_td%obs(jc,jb,weight_index_0)) &
+             * (ABS(td_in_min(weight_index_0)))/ assimilation_config(jg)%lhn_dt_obs
+           pr_obs(jc,jb) = pr_obs(jc,jb)*sec_per_hr_inv
+           wobs_time(jc,jb) = 1.0_wp
+           num_t_obs (jc,jb,1) = 1
+           IF (assimilation_config(jg)%lhn_spqual) THEN
+             wobs_space(jc,jb) = radar_data%radar_td%spqual(jc,jb,weight_index_0)                                   &
+               - (radar_data%radar_td%spqual(jc,jb,weight_index_p1)-radar_data%radar_td%spqual(jc,jb,weight_index_0)) &
+               * (ABS(td_in_min(weight_index_0)))/ assimilation_config(jg)%lhn_dt_obs
+           ELSE
+             wobs_space(jc,jb) = 1.0_wp
+           ENDIF
+         ELSEIF((lm1 .AND. radar_data%radar_td%obs(jc,jb,weight_index_m1lim) >= pr_time_limit) .AND. &
+                (lp1 .AND. radar_data%radar_td%obs(jc,jb,weight_index_p1) >= pr_time_limit)) THEN
+           ! observation is valid between t>=-lhn_dt_obs and t<=+lhn_dt_obs
+           pr_obs(jc,jb)     = radar_data%radar_td%obs(jc,jb,weight_index_m1lim)                               &
+             + (radar_data%radar_td%obs(jc,jb,weight_index_p1)-radar_data%radar_td%obs(jc,jb,weight_index_m1lim))  &
+             * (ABS(td_in_min(weight_index_m1lim)))/ (2.0_wp*assimilation_config(jg)%lhn_dt_obs)
+           pr_obs(jc,jb) = pr_obs(jc,jb)*sec_per_hr_inv
+           wobs_time(jc,jb) = 0.75_wp   
+           num_t_obs (jc,jb,2) = 1
+           IF (assimilation_config(jg)%lhn_spqual) THEN
+             wobs_space(jc,jb) = radar_data%radar_td%spqual(jc,jb,weight_index_m1lim)                               &
+               + (radar_data%radar_td%spqual(jc,jb,weight_index_p1)-radar_data%radar_td%spqual(jc,jb,weight_index_m1lim))&
+               * (ABS(td_in_min(weight_index_m1lim)))/ (2.0_wp*assimilation_config(jg)%lhn_dt_obs)
+           ELSE
+             wobs_space(jc,jb) = 1.0_wp
+           ENDIF
+         ELSEIF((radar_data%radar_td%obs(jc,jb,weight_index_0) >= pr_time_limit) .AND. &
+                (lm2 .AND. radar_data%radar_td%obs(jc,jb,weight_index_m2lim)>= pr_time_limit)) THEN
+           ! observation is valid between t>=0 and t<=+2assimilation_config(jg)%lhn_dt_obs
+           pr_obs(jc,jb) = radar_data%radar_td%obs(jc,jb,weight_index_m2lim)                                   &
+             + (radar_data%radar_td%obs(jc,jb,weight_index_0)-radar_data%radar_td%obs(jc,jb,weight_index_m2lim))      &
+             * (ABS(td_in_min(weight_index_m2lim)))/ (2.0_wp*assimilation_config(jg)%lhn_dt_obs)
+           pr_obs(jc,jb) = pr_obs(jc,jb)*sec_per_hr_inv
+           wobs_time(jc,jb) = 0.75_wp
+           num_t_obs (jc,jb,2)= 1
+           IF (assimilation_config(jg)%lhn_spqual) THEN
+             wobs_space(jc,jb) = radar_data%radar_td%spqual(jc,jb,weight_index_m2lim)                                   &
+               + (radar_data%radar_td%spqual(jc,jb,weight_index_0)-radar_data%radar_td%spqual(jc,jb,weight_index_m2lim)) &
+               * (ABS(td_in_min(weight_index_m2lim)))/ (2.0_wp*assimilation_config(jg)%lhn_dt_obs)
+           ELSE
+             wobs_space(jc,jb) = 1.0_wp
+           ENDIF
+         ELSEIF((radar_data%radar_td%obs(jc,jb,weight_index_0) >= pr_time_limit) .AND. &
+                (lp2 .AND.radar_data%radar_td%obs(jc,jb,weight_index_p2)>= pr_time_limit)) THEN
+           ! observation is valid between t>=0 and t<=+2assimilation_config(jg)%lhn_dt_obs
+           pr_obs(jc,jb) = radar_data%radar_td%obs(jc,jb,weight_index_0)                                   &
+             - (radar_data%radar_td%obs(jc,jb,weight_index_p2)-radar_data%radar_td%obs(jc,jb,weight_index_0))      &
+             * (ABS(td_in_min(weight_index_0)))/ (2.0_wp*assimilation_config(jg)%lhn_dt_obs)
+           pr_obs(jc,jb) = pr_obs(jc,jb)*sec_per_hr_inv
+           wobs_time(jc,jb) = 0.75_wp
+           num_t_obs (jc,jb,2)= 1
+           IF (assimilation_config(jg)%lhn_spqual) THEN
+             wobs_space(jc,jb) = radar_data%radar_td%spqual(jc,jb,weight_index_0)                                   &
+               - (radar_data%radar_td%spqual(jc,jb,weight_index_p2)-radar_data%radar_td%spqual(jc,jb,weight_index_0)) &
+               * (ABS(td_in_min(weight_index_0)))/ (2.0_wp*assimilation_config(jg)%lhn_dt_obs)
+           ELSE
+             wobs_space(jc,jb) = 1.0_wp
+           ENDIF
+         ELSEIF((lm1.AND.radar_data%radar_td%obs(jc,jb,weight_index_m1lim) >= pr_time_limit) .AND. &
+                (lp2.AND.radar_data%radar_td%obs(jc,jb,weight_index_p2) >= pr_time_limit)) THEN
+           ! observation is valid between t>=-lhn_dt_obs and t<=+2lhn_dt_obs
+           pr_obs(jc,jb)    = radar_data%radar_td%obs(jc,jb,weight_index_m1lim)                                  &
+             + (radar_data%radar_td%obs(jc,jb,weight_index_p2)-radar_data%radar_td%obs(jc,jb,weight_index_m1lim))     &
+             * (ABS(td_in_min(weight_index_m1lim)))/ (3.0_wp*assimilation_config(jg)%lhn_dt_obs)
+           pr_obs(jc,jb) = pr_obs(jc,jb)*sec_per_hr_inv
+           wobs_time(jc,jb) = 0.5_wp
+           num_t_obs (jc,jb,3) = 1
+           IF (assimilation_config(jg)%lhn_spqual) THEN
+             wobs_space(jc,jb)= radar_data%radar_td%spqual(jc,jb,weight_index_m1lim)                                  &
+               + (radar_data%radar_td%spqual(jc,jb,weight_index_p2)-radar_data%radar_td%spqual(jc,jb,weight_index_m1lim)) &
+               * (ABS(td_in_min(weight_index_m1lim)))/ (3.0_wp*assimilation_config(jg)%lhn_dt_obs)
+           ELSE
+             wobs_space(jc,jb) = 1.0_wp
+           ENDIF
+         ELSEIF((lm2 .AND. radar_data%radar_td%obs(jc,jb,weight_index_m2lim) >= pr_time_limit) .AND. &
+                (lp1 .AND. radar_data%radar_td%obs(jc,jb,weight_index_p1) >= pr_time_limit)) THEN
+           ! observation is valid between t>=-2lhn_dt_obs and t<=+lhn_dt_obs
+           pr_obs(jc,jb) = radar_data%radar_td%obs(jc,jb,weight_index_m2lim)                                  &
+             + (radar_data%radar_td%obs(jc,jb,weight_index_p1)-radar_data%radar_td%obs(jc,jb,weight_index_m2lim))     &
+             * (ABS(td_in_min(weight_index_m2lim)))/ (3.0_wp*assimilation_config(jg)%lhn_dt_obs)
+           pr_obs(jc,jb) = pr_obs(jc,jb)*sec_per_hr_inv
+           wobs_time(jc,jb) = 0.5_wp
+           num_t_obs (jc,jb,3) = 1
+           IF (assimilation_config(jg)%lhn_spqual) THEN
+             wobs_space(jc,jb) = radar_data%radar_td%spqual(jc,jb,weight_index_m2lim)                                  &
+             + (radar_data%radar_td%spqual(jc,jb,weight_index_p1)-radar_data%radar_td%spqual(jc,jb,weight_index_m2lim))&
+             * (ABS(td_in_min(weight_index_m2lim)))/(3.0_wp*assimilation_config(jg)%lhn_dt_obs)
+           ELSE
+             wobs_space(jc,jb) = 1.0_wp
+           ENDIF
+         ELSEIF((radar_data%radar_td%obs(jc,jb,weight_index_0) >= pr_time_limit) .AND. &
+                (lp3 .AND. radar_data%radar_td%obs(jc,jb,weight_index_p3)>= pr_time_limit)) THEN
+           ! observation is valid between t>=0 and t<=+3lhn_dt_obs
+           pr_obs(jc,jb) = radar_data%radar_td%obs(jc,jb,weight_index_0)                                  &
+             - (radar_data%radar_td%obs(jc,jb,weight_index_p3)-radar_data%radar_td%obs(jc,jb,weight_index_0))     &
+             * (ABS(td_in_min(weight_index_0)))/ (3.0_wp*assimilation_config(jg)%lhn_dt_obs)
+           pr_obs(jc,jb) = pr_obs(jc,jb)*sec_per_hr_inv
+           wobs_time(jc,jb) = 0.5_wp
+           num_t_obs (jc,jb,3) = 1
+           IF (assimilation_config(jg)%lhn_spqual) THEN
+             wobs_space(jc,jb) = radar_data%radar_td%spqual(jc,jb,weight_index_0)                                  &
+               - (radar_data%radar_td%spqual(jc,jb,weight_index_p3)-radar_data%radar_td%spqual(jc,jb,weight_index_0)) &
+               * (ABS(td_in_min(weight_index_0)))/ (3.0_wp*assimilation_config(jg)%lhn_dt_obs)
+           ELSE
+             wobs_space(jc,jb) = 1.0_wp
+           ENDIF
+         ELSEIF((lm1 .AND. radar_data%radar_td%obs(jc,jb,weight_index_m1lim) >= pr_time_limit) .AND. &
+                (lp3 .AND. radar_data%radar_td%obs(jc,jb,weight_index_p3) >= pr_time_limit)) THEN
+           ! observation is valid between t>=-lhn_dt_obs and t<=+3lhn_dt_obs
+           pr_obs(jc,jb) = radar_data%radar_td%obs(jc,jb,weight_index_m1lim)                                  &
+             + (radar_data%radar_td%obs(jc,jb,weight_index_p3)-radar_data%radar_td%obs(jc,jb,weight_index_m1lim))     &
+             * (ABS(td_in_min(weight_index_m1lim)))/ (4.0_wp*assimilation_config(jg)%lhn_dt_obs)
+           pr_obs(jc,jb) = pr_obs(jc,jb)*sec_per_hr_inv
+           wobs_time(jc,jb) = 0.25_wp
+           num_t_obs (jc,jb,4) = 1
+           IF (assimilation_config(jg)%lhn_spqual) THEN
+             wobs_space(jc,jb) = radar_data%radar_td%spqual(jc,jb,weight_index_m1lim)                                  &
+               + (radar_data%radar_td%spqual(jc,jb,weight_index_p3)-radar_data%radar_td%spqual(jc,jb,weight_index_m1lim)) &
+               * (ABS(td_in_min(weight_index_m1lim)))/ (4.0_wp*assimilation_config(jg)%lhn_dt_obs)
+           ELSE
+             wobs_space(jc,jb) = 1.0_wp
+           ENDIF
+         ELSEIF((lm2 .AND. radar_data%radar_td%obs(jc,jb,weight_index_m2lim) >= pr_time_limit) .AND. &
+                (lp2 .AND. radar_data%radar_td%obs(jc,jb,weight_index_p2) >= pr_time_limit)) THEN
+           ! observation is valid between t>=-2lhn_dt_obs and t<=+2lhn_dt_obs
+           pr_obs(jc,jb) = radar_data%radar_td%obs(jc,jb,weight_index_m2lim)                                  &
+             + (radar_data%radar_td%obs(jc,jb,weight_index_p2)-radar_data%radar_td%obs(jc,jb,weight_index_m2lim))     &
+             * (ABS(td_in_min(weight_index_m2lim)))/ (4.0_wp*assimilation_config(jg)%lhn_dt_obs)
+           pr_obs(jc,jb) = pr_obs(jc,jb)*sec_per_hr_inv
+           wobs_time(jc,jb) = 0.25_wp
+           num_t_obs (jc,jb,4) = 1
+           IF (assimilation_config(jg)%lhn_spqual) THEN
+             wobs_space(jc,jb) = radar_data%radar_td%spqual(jc,jb,weight_index_m2lim)                                  &
+               + (radar_data%radar_td%spqual(jc,jb,weight_index_p2)-radar_data%radar_td%spqual(jc,jb,weight_index_m2lim)) &
+               * (ABS(td_in_min(weight_index_m2lim)))/ (4.0_wp*assimilation_config(jg)%lhn_dt_obs)
+           ELSE
+             wobs_space(jc,jb) = 1.0_wp
+           ENDIF
+         ELSE
+           ! observation is not valid
+           pr_obs(jc,jb) = -0.1_wp
+           wobs_space(jc,jb) = 0.0_wp
+           wobs_time(jc,jb) = 0.0_wp
+           num_t_obs (jc,jb,0) = 1
+         ENDIF
+        ENDIF
+       ENDDO
      ENDDO
-  
 !$OMP END DO 
 !$OMP END PARALLEL
+  
+   ENDIF
 
   DEALLOCATE (td_in_min)
 
