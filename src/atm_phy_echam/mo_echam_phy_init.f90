@@ -335,7 +335,8 @@ CONTAINS
       END IF
       !
       jg=1
-      CALL gscp_set_coefficients(tune_zceff_min      = echam_mig_config(jg)% zceff_min      ,&
+      CALL gscp_set_coefficients(              igscp = 2                                    ,& 
+         &                       tune_zceff_min      = echam_mig_config(jg)% zceff_min      ,&
          &                       tune_v0snow         = echam_mig_config(jg)% v0snow         ,&
          &                       tune_zvz0i          = echam_mig_config(jg)% zvz0i          ,&
          &                       tune_icesedi_exp    = echam_mig_config(jg)% icesedi_exp    ,&
