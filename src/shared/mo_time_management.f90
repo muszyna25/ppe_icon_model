@@ -122,8 +122,7 @@ CONTAINS
     ! The time step is determined either by the "dtime" parameter or
     ! by the "modelTimeStep" parameter from the namelist "run_nml".
     !
-    dtime_string = ''
-    IF (TRIM(mtime_modelTimeStep) /= "")   dtime_string = TRIM(mtime_modelTimeStep)
+    dtime_string = mtime_modelTimeStep
     
     dtime_real = dtime
     IF (dtime_real > 0._wp) THEN
@@ -131,7 +130,7 @@ CONTAINS
       CALL getPTStringFromMS(dtime_ms, dtime_str2)
       
       IF (dtime_string == "") THEN
-        dtime_string = TRIM(dtime_str2)
+        dtime_string = dtime_str2
       ELSE
         ! Obviously, both namelist parameters for the time step have
         ! been used. We need to test for equality.
@@ -175,7 +174,7 @@ CONTAINS
 
     ! consistency check
     zero_dt => newTimedelta("PT0S") ! mtime object for zero
-    IF (dtime1 <= zero_dt) CALL finish(TRIM(routine),'"dtime" must be positive')
+    IF (dtime1 <= zero_dt) CALL finish(routine,'"dtime" must be positive')
 
     CALL deallocateTimedelta( zero_dt )
 
@@ -262,9 +261,9 @@ CONTAINS
       restartTimeIntval = 'PT0.000S'
       dt_restart = 0.0_wp
       CALL set_tc_write_restart(.FALSE.)      
-      restart_intvl_string = TRIM(restartTimeIntval)
+      restart_intvl_string = restartTimeIntval
     ELSE
-      IF (TRIM(restartTimeIntval) /= "") THEN
+      IF (restartTimeIntval /= "") THEN
         IF (dt_restart > 0.0_wp) THEN
           ! Comparison of intervals cannot be done with strings as there are multiple options
           ! for expressing an interval
@@ -272,7 +271,7 @@ CONTAINS
           CALL getPTStringFromSeconds(dt_restart, restart_intvl_string)
           tmp_td2 => newTimedelta(restart_intvl_string)
           IF (tmp_td1 == tmp_td2) THEN
-            restart_intvl_string = TRIM(restartTimeIntval)
+            restart_intvl_string = restartTimeIntval
           ELSE
             ! if both are set but inconsistent, finish with error message
             CALL finish(routine, "Inconsistent setting of restart interval: " &
@@ -282,7 +281,7 @@ CONTAINS
           CALL deallocateTimedelta(tmp_td2)
         ELSE
           ! use restartTimeIntval
-          restart_intvl_string = TRIM(restartTimeIntval)
+          restart_intvl_string = restartTimeIntval
         END IF
       ELSE
         IF (dt_restart > 0.0_wp) THEN
@@ -310,17 +309,16 @@ CONTAINS
     !         TODO: The checkpoint interval needs to be multiple of the
     !               model time steps.
     !
-    checkpt_intvl_string = ''
-    IF (TRIM(checkpointTimeIntval) /= "")  checkpt_intvl_string = TRIM(checkpointTimeIntval)
+    checkpt_intvl_string = checkpointTimeIntval
     IF (dt_checkpoint > 0._wp) THEN
-      checkpt_intvl2 = "PT"//TRIM(int2string(INT(dt_checkpoint), '(i0)'))//"S"
-      IF (TRIM(checkpt_intvl_string) == "") THEN
-        checkpt_intvl_string = TRIM(checkpt_intvl2)
+      WRITE (checkpt_intvl2, '(a,i0,a)') "PT", INT(dt_checkpoint), "S"
+      IF (checkpt_intvl_string == "") THEN
+        checkpt_intvl_string = checkpt_intvl2
       ELSE
         tmp_td1 => newTimedelta(checkpt_intvl_string)
         tmp_td2 => newTimedelta(checkpt_intvl2)        
         IF (.NOT. (tmp_td1 < tmp_td2) .AND. .NOT. (tmp_td2 < tmp_td1)) THEN
-          checkpt_intvl_string = TRIM(checkpt_intvl2)
+          checkpt_intvl_string = checkpt_intvl2
         ELSE
           CALL finish(routine, "Inconsistent setting of checkpoint interval: " &
                &               //TRIM(checkpt_intvl_string)//"/"//TRIM(checkpt_intvl2))
@@ -330,7 +328,7 @@ CONTAINS
       END IF
     END IF
     ! if "checkpt_intvl_string" still unspecified: set default to no checkpoint
-    IF (TRIM(checkpt_intvl_string) == "") THEN
+    IF (checkpt_intvl_string == "") THEN
       checkpt_intvl_string = 'PT0.000S'
     END IF
 
@@ -355,9 +353,9 @@ CONTAINS
     ! --------------------------------------------------------------
 
     CALL message('','')    
-    WRITE(message_text,'(a,a)') 'Checkpoint interval      : ', TRIM(checkpt_intvl_string)
+    WRITE(message_text,'(a,a)') 'Checkpoint interval      : ', checkpt_intvl_string
     CALL message('',message_text)
-    WRITE(message_text,'(a,a)') 'Restart interval         : ', TRIM(restart_intvl_string)
+    WRITE(message_text,'(a,a)') 'Restart interval         : ', restart_intvl_string
     CALL message('',message_text)
     CALL message('','')
 
@@ -393,7 +391,7 @@ CONTAINS
     !
     DO jg =1,n_dom
       IF (INT(start_time(jg)) <= 0)  CYCLE
-      dtime_string = "PT"//TRIM(int2string(INT(start_time(jg)), '(i0)'))//"S"
+      WRITE (dtime_string, '(a,i0,a)') "PT", INT(start_time(jg)), "S"
       mtime_dom_start => newTimedelta(dtime_string)
       IF (mtime_dom_start == mtime_dt_checkpoint) THEN
         WRITE(message_text,'(a)') &
@@ -476,7 +474,7 @@ CONTAINS
     ! namelist) into a string. The naming scheme is then compatible
     ! with concurrent namelist settings of the calendar (mtime):
     calendar1 = calendar_index2string(time_nml_icalendar)
-    calendar2 = TRIM(master_nml_calendar)
+    calendar2 = master_nml_calendar
     tlen1 = LEN_TRIM(calendar1)
     tlen2 = LEN_TRIM(calendar2)
     IF (tlen2 /= 0) THEN
@@ -615,7 +613,7 @@ CONTAINS
     !         "master_time_control_nml") is unspecified, then the
     !         reference date is set to the experiment start date.
     !
-    IF (TRIM(experimentReferenceDate) == '') THEN
+    IF (experimentReferenceDate == '') THEN
       exp_ref_datetime_string = exp_start_datetime_string
     ELSE
       exp_ref_datetime_string = experimentReferenceDate
@@ -645,7 +643,7 @@ CONTAINS
           &int2string(restart_calendar)//' /= '//int2string(dtime_calendar))
         start_datetime_string = exp_start_datetime_string
 
-      ELSE IF (TRIM(restart_ini_datetime_string) /= TRIM(ini_datetime_string)) THEN
+      ELSE IF (restart_ini_datetime_string /= ini_datetime_string) THEN
 
         CALL message('','Restart ini date is not matching, fallback to experiment start date: '//&
         &TRIM(restart_ini_datetime_string)//' /= '//TRIM(ini_datetime_string))
@@ -653,7 +651,7 @@ CONTAINS
       ELSE
         CALL message('','Read restart file meta data ...')
         CALL getAttributesForRestarting(restartAttributes)
-        IF (ASSOCIATED(restartAttributes)) THEN
+        IF (restartAttributes%is_init) THEN
           CALL restartAttributes%get('tc_startdate', start_datetime_string)
         ELSE
           CALL finish(routine, "Could not retrieve tc_startdate from restart file!")
@@ -674,7 +672,7 @@ CONTAINS
     cur_datetime_string = start_datetime_string
 
 
-    IF (TRIM(model_string) == 'atm') THEN
+    IF (model_string == 'atm') THEN
 #ifndef __NO_ICON_ATMO__
       !
       ! timeshift-operations for CURRENT DATE
@@ -701,11 +699,11 @@ CONTAINS
       ! transform timeshift to mtime-format
       !
       CALL getPTStringFromSeconds(timeshift%dt_shift, dt_shift_string)
-      timeshift%mtime_shift => newTimedelta(TRIM(dt_shift_string))
+      timeshift%mtime_shift => newTimedelta(dt_shift_string)
       WRITE(message_text,'(a,a)') 'IAU time shift: ', TRIM(dt_shift_string)
       !
       CALL getPTStringFromSeconds(ABS(timeshift%dt_shift), dt_shift_string)
-      timeshift%mtime_absshift => newTimedelta(TRIM(dt_shift_string))
+      timeshift%mtime_absshift => newTimedelta(dt_shift_string)
       CALL message('',message_text)
 #endif
     ENDIF
@@ -737,7 +735,7 @@ CONTAINS
     mtime_start        => newDatetime(start_datetime_string, errno)
     IF (errno /= 0)  CALL finish(routine, "Error in conversion of start date: "//start_datetime_string)
 
-    IF (TRIM(exp_stop_datetime_string) /= "") THEN
+    IF (exp_stop_datetime_string /= "") THEN
       mtime_exp_stop     => newDatetime(exp_stop_datetime_string, errno)
       IF (errno /= 0)  CALL finish(routine, "Error in conversion of exp stop date: "//exp_stop_datetime_string)
     END IF
@@ -778,13 +776,13 @@ CONTAINS
       IF (errno /= 0)  CALL finish(routine, "Error in initialization of nsteps stop date")
       mtime_nsteps_stop = mtime_nsteps_stop + mtime_dtime * INT(nsteps,c_int32_t)
     ELSE
-      IF (TRIM(exp_stop_datetime_string) /= "") THEN
+      IF (exp_stop_datetime_string /= "") THEN
         mtime_nsteps_stop  => newDatetime(mtime_exp_stop, errno)
         IF (errno /= 0)  CALL finish(routine, "Error in initialization of nsteps  stop date")
       END IF
     END IF
 
-    IF (TRIM(end_datetime_string) /= "") THEN
+    IF (end_datetime_string /= "") THEN
       mtime_stop => newDatetime(end_datetime_string)
     ELSE
     
@@ -863,7 +861,7 @@ CONTAINS
     IF (ASSOCIATED(mtime_exp_stop))  CALL deallocateDatetime(mtime_exp_stop)
     IF (ASSOCIATED(mtime_restart_stop))  CALL deallocateDatetime(mtime_restart_stop)
     IF (ASSOCIATED(mtime_nsteps_stop))  CALL deallocateDatetime(mtime_nsteps_stop)
-    IF (INT(dt_restart) > 0)  CALL deallocateTimedelta(mtime_dt_restart)
+    IF (INT(dt_restart,i8) > 0)  CALL deallocateTimedelta(mtime_dt_restart)
 
     ! --- --- NSTEPS
     !
@@ -912,7 +910,7 @@ CONTAINS
     CALL set_tc_exp_refdate  ( exp_ref_datetime_string   )
     CALL set_tc_current_date ( cur_datetime_string       )
 
-    IF (TRIM(model_string) == 'atm') THEN
+    IF (model_string == 'atm') THEN
 #ifndef __NO_ICON_ATMO__
       ! add IAU time shift to current date
       IF (.NOT. isRestart()) THEN

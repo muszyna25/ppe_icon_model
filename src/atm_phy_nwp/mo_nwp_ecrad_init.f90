@@ -35,7 +35,6 @@ MODULE mo_nwp_ecrad_init
 
   USE mo_kind,                 ONLY: wp
   USE mo_exception,            ONLY: finish, message, message_text
-  USE mo_impl_constants,       ONLY: MAX_CHAR_LENGTH
   USE mo_radiation_config,     ONLY: icld_overlap, irad_aero, ecrad_data_path,           &
                                  &   llw_cloud_scat, iliquid_scat, iice_scat
 #ifdef __ECRAD
@@ -72,8 +71,7 @@ CONTAINS
   !!
   SUBROUTINE setup_ecrad ( ecrad_conf )
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-      &  routine = modname//'::setup_ecrad' 
+    CHARACTER(len=*), PARAMETER :: routine = modname//'::setup_ecrad'
 
     TYPE(t_ecrad_conf), INTENT(inout) :: &
       &  ecrad_conf           !< ecRad configuration state
@@ -86,8 +84,7 @@ CONTAINS
       &  i_band_in_sw(2),        & !< The albedo band indices corresponding to each interval
       &  i_band_in_lw(1)           !< The emissivity band indices corresponding to each interval
 
-    WRITE (message_text,'(A)') 'Setup of ecRad'
-    CALL message('',message_text)
+    CALL message('', 'Setup of ecRad')
 
     !---------------------------------------------------------------------------------------
     ! Checks
@@ -95,16 +92,16 @@ CONTAINS
 
     ! Compatibility check wp and JPRB. If this check fails, JPRB has to be adapted manually to wp.
     IF (PRECISION(wavelength_bound_sw) /= PRECISION(ecrad_conf%cloud_fraction_threshold)) &
-      &  CALL finish(TRIM(routine),'ICON working precision (wp) does not match ecRad precision.')
+      &  CALL finish(routine,'ICON working precision (wp) does not match ecRad precision.')
     IF (EPSILON(wavelength_bound_sw(1)) /= EPSILON(ecrad_conf%cloud_fraction_threshold)) &
-      &  CALL finish(TRIM(routine),'Smallest number in working precision (wp) is different from ecRad precision.')
+      &  CALL finish(routine,'Smallest number in working precision (wp) is different from ecRad precision.')
 
     !---------------------------------------------------------------------------------------
     ! Configuration based on ICON namelist settings
     !---------------------------------------------------------------------------------------
 
     ! Directory with all input data required by ecRad
-    ecrad_conf%directory_name = TRIM(ecrad_data_path)
+    ecrad_conf%directory_name = ecrad_data_path
 
     ! Overlap scheme
     SELECT CASE (icld_overlap)
@@ -115,7 +112,7 @@ CONTAINS
       CASE (5)
         ecrad_conf%i_overlap_scheme = IOverlapExponential
       CASE DEFAULT
-        CALL finish(TRIM(routine),'Only values of 1 (MAX-RAN), 2 (EXP-RAN) and 5 (EXP) are valid for icld_overlap')
+        CALL finish(routine, 'Only values of 1 (MAX-RAN), 2 (EXP-RAN) and 5 (EXP) are valid for icld_overlap')
     END SELECT
 
     ! Aerosol climatology
@@ -125,7 +122,7 @@ CONTAINS
       CASE (2,5,6) ! Constant, Tanre, Tegen
         ecrad_conf%use_aerosols = .true.
       CASE DEFAULT
-        CALL finish(TRIM(routine),'irad_aero not valid for ecRad')
+        CALL finish(routine, 'irad_aero not valid for ecRad')
     END SELECT
 
     ! LW scattering due to clouds
@@ -138,7 +135,7 @@ CONTAINS
       CASE(1)
         ecrad_conf%i_liq_model = ILiquidModelSlingo
       CASE DEFAULT
-        CALL finish(TRIM(routine),'i_liquid_scat not valid for ecRad')
+        CALL finish(routine, 'i_liquid_scat not valid for ecRad')
     END SELECT
     
     ! Ice cloud particle scattering properties
@@ -148,7 +145,7 @@ CONTAINS
       CASE(1)
         ecrad_conf%i_ice_model = IIceModelBaran2016
       CASE DEFAULT
-        CALL finish(TRIM(routine),'i_ice_scat not valid for ecRad')
+        CALL finish(routine, 'i_ice_scat not valid for ecRad')
     END SELECT
 
     !---------------------------------------------------------------------------------------
@@ -179,6 +176,8 @@ CONTAINS
     !
     ecrad_conf%do_surface_sw_spectral_flux = .true.       !< Save the surface downwelling shortwave fluxes in each band
                                                           !< Needed for photosynthetic active radiation
+    !
+    ecrad_conf%use_spectral_solar_scaling  = .true.       !< Apply correction to solar spectrum in order to match recent measurements
     !
     ecrad_conf%do_fu_lw_ice_optics_bug     = .false.      !< In the IFS environment there was a bug in the Fu longwave
                                                           !< ice optics producing better results than the fixed version

@@ -125,6 +125,8 @@ CONTAINS
     !-----------------------------------------------------------------------
     p_patch         => p_patch_3D%p_patch_2D(1)
     !-----------------------------------------------------------------------
+    
+    p_oce_sfc%top_dilution_coeff(:,:) = 1.0_wp ! Initilize dilution factor to one
 
     IF (no_tracer>=1) p_oce_sfc%sst => p_os%p_prog(nold(1))%tracer(:,1,:,1)
     IF (no_tracer>=2) p_oce_sfc%sss => p_os%p_prog(nold(1))%tracer(:,1,:,2)
@@ -184,7 +186,7 @@ CONTAINS
     ! (3) Sea ice thermodynamics & dynamics (at ocean time-step)
     !---------------------------------------------------------------------
     p_oce_sfc%cellThicknessUnderIce(:,:) = p_ice%zUnderIce(:,:) ! neccessary, because is not yet in restart
-
+   
     p_ice%draftave_old(:,:) = p_ice%draftave(:,:)
 
     IF ( i_sea_ice > 0 ) THEN ! sea ice is on
@@ -287,7 +289,7 @@ CONTAINS
     dsec  = REAL(getNoOfSecondsElapsedInDayDateTime(this_datetime), wp)
     ! event at end of first timestep of day - tbd: use mtime
     IF (limit_elevation .AND. (dsec-dtime)<0.1 ) THEN
-      CALL balance_elevation(p_patch_3D, p_os%p_prog(nold(1))%h)
+      CALL balance_elevation(p_patch_3D, p_os%p_prog(nold(1))%h,p_oce_sfc,p_ice)
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       CALL dbg_print('UpdSfc: h-old+BalElev',p_os%p_prog(nold(1))%h  ,str_module, 2, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
@@ -416,9 +418,8 @@ CONTAINS
     REAL(wp)              :: zUnderIceIni(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp)              :: zUnderIceArt(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
 
-    REAL(wp) :: h_old_test, h_new_test
-
     REAL(wp)  :: heatflux_surface_layer ! heatflux into the surface layer
+    REAL(wp)  :: zunderice_ini
 
 
     TYPE(t_patch), POINTER:: p_patch
@@ -508,9 +509,8 @@ CONTAINS
           p_ice%zUnderIce(jc,jb) = zUnderIceOld(jc,jb) + p_oce_sfc%FrshFlux_VolumeTotal(jc,jb) * dtime
           p_oce_sfc%SSS(jc,jb)   = sss_inter(jc,jb) * zUnderIceOld(jc,jb) / p_ice%zUnderIce(jc,jb)
 
-          h_old_test =  (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)+p_os%p_prog(nold(1))%h(jc,jb))
-
-
+         zUnderIce_ini=  p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) &
+              &                    + p_os%p_prog(nold(1))%h(jc,jb) - p_ice%draftave_old(jc,jb)
           !******  (Thermodynamic Eq. 5)  ******
           !! Finally, let sea-level change from P-E+RO plus snow fall on ice, net total volume forcing to ocean surface
           p_os%p_prog(nold(1))%h(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb)               &
@@ -520,10 +520,8 @@ CONTAINS
           !! update zunderice
           p_ice%zUnderIce(jc,jb) = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) + p_os%p_prog(nold(1))%h(jc,jb) &
             &                    - p_ice%draftave(jc,jb)
-    
-          h_new_test =  (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)+p_os%p_prog(nold(1))%h(jc,jb))
-          p_oce_sfc%top_dilution_coeff(jc,jb) = h_old_test/h_new_test
           
+          p_oce_sfc%top_dilution_coeff(jc,jb) = zUnderIce_ini / p_ice%zUnderIce(jc,jb)
         ENDIF  !  dolic>0
       END DO
     END DO

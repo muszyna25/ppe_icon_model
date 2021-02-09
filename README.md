@@ -79,6 +79,9 @@ $ /path/to/icon/config/dkrz/mistral.intel --enable-openmp
 This way, you can build ICON in several different configurations, i.e. with
 different compilers and features, using the same copy of the source code.
 
+> **_NOTE:_** If you want to build and run ICON on your personal
+computer/laptop, consider using [generic configure wrappers](./config/generic).
+
 > **_NOTE:_** If there is no configure wrapper script for your platform or
 machine, refer to section [Configuration](#configuration) for information on how
 to work with the [./configure](./configure) script directly.
@@ -175,27 +178,29 @@ recommended (topologically sorted) order for the `LIBS` argument is presented in
 |  2 | [ICON-TIXI](https://gitlab.dkrz.de/icon-libraries/libtixi) (a modified version of [TIXI](https://github.com/DLR-SC/tixi)) | `--enable-art --with-external-tixi` | `FCFLAGS='-I/path/to/tixi/include' LDFLAGS='-L/path/to/tixi/lib' LIBS='-licon_tixi'` |
 |  3 | [YAC](https://doc.redmine.dkrz.de/YAC/html/) | `--enable-coupling --with-external-yac` | `FCFLAGS='-I/path/to/yac/include' LDFLAGS='-L/path/to/yac/lib' LIBS='-lyac'` |
 |  4 | [XML2](http://www.xmlsoft.org/) | `--enable-coupling`<sup><a name="f2-back" href="#f2">2</a></sup> or `--enable-art`<sup><a name="f2-back" href="#f2">2</a></sup>| `CPPFLAGS='-I/path/to/libxml2/include/libxml2' LDFLAGS='-L/path/to/libxml2/lib' LIBS='-lxml2'` |
-|  5 | [LAPACK](http://www.netlib.org/lapack/) (or analogue) | mandatory | `LDFLAGS='-L/path/to/lapack/lib' LIBS='-llapack'` (depends on the implementation) |
-|  6 | [BLAS](http://www.netlib.org/blas/) (or analogue) | mandatory | `LDFLAGS='-L/path/to/blas/lib' LIBS='-lblas'` (depends on the implementation) |
-|  7 | [MTIME](https://gitlab.dkrz.de/icon-libraries/libmtime) | `--with-external-mtime`<sup><a name="f3-back" href="#f3">3</a></sup> | `FCFLAGS='-I/path/to/mtime/include' CPPFLAGS='-I/path/to/mtime/include' LDFLAGS='-L/path/to/mtime/lib' LIBS='-lmtime'` |
-|  8 | [SERIALBOX2](https://github.com/GridTools/serialbox) | `--enable-serialization` | `FCFLAGS='-I/path/to/serialbox2/include' LDFLAGS='-L/path/to/serialbox2/lib' LIBS='-lSerialboxFortranShared'` |
-|  9 | [CDI](https://code.mpimet.mpg.de/projects/cdi/) or CDI-PIO | `--with-external-cdi`<sup><a name="f4-back" href="#f4">4</a></sup> | `FCFLAGS='-I/path/to/libcdi/include' LDFLAGS='-L/path/to/libcdi/lib' LIBS='-lcdi_f2003 -lcdi'` (or `LIBS='-lcdi_f2003 -lcdipio -lcdi'`) |
-| 10 | [ECCODES](https://confluence.ecmwf.int/display/ECC) or [GRIB-API](https://confluence.ecmwf.int/display/GRIB/Home) | `--enable-grib2 --without-external-cdi`<sup><a name="f5-back" href="#f5">5</a></sup> | `CPPFLAGS='-I/path/to/eccodes/include' LDFLAGS='-L/path/to/eccodes/lib' LIBS='-leccodes'` (or `LIBS='-lgrib_api'`) |
-| 11 | [YAXT](https://gitlab.dkrz.de/dkrz-sw/yaxt) | `--enable-yaxt --with-external-yaxt` or `--enable-cdi-pio --with-external-yaxt`<sup><a name="f6-back" href="#f6">6</a></sup> | `FCFLAGS='-I/path/to/yaxt/include' LDFLAGS='-L/path/to/yaxt/lib' LIBS='-lyaxt'` |
-| 12 | [SCT](https://gitlab.dkrz.de/dkrz-sw/sct) | `--enable-sct --with-external-sct` | `FCFLAGS='-I/path/to/sct/include' LDFLAGS='-L/path/to/sct/lib' LIBS='-lsct'` |
-| 13 | RTTOV (a modified version of [RTTOV](https://www.nwpsaf.eu/site/software/rttov/)) | `--enable-rttov` | `FCFLAGS='-I/path/to/rttov/include' LDFLAGS='-L/path/to/rttov/lib' LIBS='-lradiance -lrttov10.2'` |
-| 14 | [ECRAD](https://confluence.ecmwf.int/display/ECRAD/ECMWF+Radiation+Scheme+Home) | `--enable-ecrad --with-external-ecrad` | `FCFLAGS='-I/path/to/ecrad/include' LDFLAGS='-L/path/to/ecrad/lib' LIBS='-lradiation -lifsrrtm -lutilities -lifsaux'` |
-| 15 | [RTE+RRTMGP](https://github.com/RobertPincus/rte-rrtmgp) | `--enable-rte-rrtmgp --with-external-rte-rrtmgp` | `FCFLAGS='-I/path/to/rte-rrtmgp/include' LDFLAGS='-L/path/to/rte-rrtmgp/lib' LIBS='-lrrtmgp -lrte'` |
-| 16 | [NetCDF-Fortran](https://www.unidata.ucar.edu/software/netcdf/docs-fortran/) | mandatory | `FCFLAGS='-I/path/to/netcdf-fortran/include' LDFLAGS='-L/path/to/netcdf-fortran/lib' LIBS='-lnetcdff'` |
-| 17 | [NetCDF-C](https://www.unidata.ucar.edu/software/netcdf/docs/) | `--without-external-cdi` or `--enable-coupling`<sup><a name="f7-back" href="#f7">7</a></sup> | `CPPFLAGS='-I/path/to/netcdf/include' LDFLAGS='-L/path/to/netcdf/lib' LIBS='-lnetcdf'` |
-| 18 | [Zlib](https://zlib.net/) | static linking | `LDFLAGS='-L/path/to/zlib/lib' LIBS='-lz'` |
-| 19 | [HDF5](https://support.hdfgroup.org/HDF5/) | `--enable-sct --without-external-sct` | `CPPFLAGS='-I/path/to/hdf5/include' LDFLAGS='-L/path/to/hdf5/lib' LIBS='-lhdf5'` |
-| 20 | [AEC](https://gitlab.dkrz.de/k202009/libaec) or [SZIP](https://support.hdfgroup.org/doc_resource/SZIP/) | static linking | `LDFLAGS='-L/path/to/aec/lib' LIBS='-laec'` (or `LIBS='-lsz'`) |
-| 21 | [MPI](https://www.mpi-forum.org/) (Fortran interface) | `--enable-mpi` or `--enable-yaxt --without-external-yaxt` or `--enable-coupling --without-external-yac`<sup><a name="f8-back" href="#f8">8</a></sup> | `FC='/path/to/mpi/bin/mpif90'` or `FCFLAGS='-I/path/to/mpi/include' LDFLAGS='-L/path/to/mpi/lib' LIBS='-lmpifort -lmpi'` (depends on the implementation) |
-| 22 | [MPI](https://www.mpi-forum.org/) (C interface) | `--enable-mpi --enable-coupling --without-external-yac` or `--enable-yaxt --without-external-yaxt` or `--enable-mpi --enable-sct --without-external-sct` | `CC=/path/to/mpi/bin/mpicc` or `CPPFLAGS=-I/path/to/mpi/include LDFLAGS='-L/path/to/mpi/lib' LIBS='-lmpi'` (depends on the implementation) |
-| 23 | [CUB](https://nvlabs.github.io/cub/) | `--enable-gpu --with-external-cub` | `NVCFLAGS=-I/path/to/cub`<sup><a name="f9-back" href="#f9">9</a></sup> |
-| 24 | [CUDA](https://developer.nvidia.com/cuda-zone) | `--enable-gpu` | `LDFLAGS=-L/path/to/cuda/lib LIBS=-lcudart`<sup><a name="f10-back" href="#f10">10</a></sup> |
-| 25 | [STDC++](https://gcc.gnu.org/onlinedocs/libstdc++/) | `--enable-gpu` | `LDFLAGS=-L/path/to/gcc/used/by/nvcc/lib LIBS=-lstdc++` |
+|  5 | [MTIME](https://gitlab.dkrz.de/icon-libraries/libmtime) | `--with-external-mtime`<sup><a name="f3-back" href="#f3">3</a></sup> | `FCFLAGS='-I/path/to/mtime/include' CPPFLAGS='-I/path/to/mtime/include' LDFLAGS='-L/path/to/mtime/lib' LIBS='-lmtime'` |
+|  6 | [SERIALBOX](https://github.com/GridTools/serialbox) | `--enable-serialization` | `FCFLAGS='-I/path/to/serialbox2/include' LDFLAGS='-L/path/to/serialbox2/lib' LIBS='-lSerialboxFortran'` |
+|  7 | [CDI](https://code.mpimet.mpg.de/projects/cdi/) or CDI-PIO | `--with-external-cdi`<sup><a name="f4-back" href="#f4">4</a></sup> | `FCFLAGS='-I/path/to/libcdi/include' LDFLAGS='-L/path/to/libcdi/lib' LIBS='-lcdi_f2003 -lcdi'` (or `LIBS='-lcdi_f2003 -lcdipio -lcdi'`) |
+|  8 | [ECCODES](https://confluence.ecmwf.int/display/ECC) or [GRIB-API](https://confluence.ecmwf.int/display/GRIB/Home) (Fortran interface) | `--enable-emvorado` | `FCFLAGS='-I/path/to/eccodes/include' LDFLAGS='-L/path/to/eccodes/lib' LIBS='-leccodes_f90'` (or `LIBS='-lgrib_api_f90'`) |
+|  9 | [ECCODES](https://confluence.ecmwf.int/display/ECC) or [GRIB-API](https://confluence.ecmwf.int/display/GRIB/Home) (C interface) | `--enable-grib2 --without-external-cdi`<sup><a name="f5-back" href="#f5">5</a></sup> | `CPPFLAGS='-I/path/to/eccodes/include' LDFLAGS='-L/path/to/eccodes/lib' LIBS='-leccodes'` (or `LIBS='-lgrib_api'`) |
+| 10 | [YAXT](https://gitlab.dkrz.de/dkrz-sw/yaxt) | `--enable-yaxt --with-external-yaxt` or `--enable-cdi-pio --with-external-yaxt`<sup><a name="f6-back" href="#f6">6</a></sup> | `FCFLAGS='-I/path/to/yaxt/include' LDFLAGS='-L/path/to/yaxt/lib' LIBS='-lyaxt'` |
+| 11 | [SCT](https://gitlab.dkrz.de/dkrz-sw/sct) | `--enable-sct --with-external-sct` | `FCFLAGS='-I/path/to/sct/include' LDFLAGS='-L/path/to/sct/lib' LIBS='-lsct'` |
+| 12 | RTTOV (a modified version of [RTTOV](https://www.nwpsaf.eu/site/software/rttov/)) | `--enable-rttov` | `FCFLAGS='-I/path/to/rttov/include' LDFLAGS='-L/path/to/rttov/lib' LIBS='-lradiance -lrttov10.2'` |
+| 13 | [LAPACK](http://www.netlib.org/lapack/) (or analogue) | mandatory | `LDFLAGS='-L/path/to/lapack/lib' LIBS='-llapack'` (depends on the implementation) |
+| 14 | [BLAS](http://www.netlib.org/blas/) (or analogue) | mandatory | `LDFLAGS='-L/path/to/blas/lib' LIBS='-lblas'` (depends on the implementation) |
+| 15 | [ECRAD](https://confluence.ecmwf.int/display/ECRAD/ECMWF+Radiation+Scheme+Home) | `--enable-ecrad --with-external-ecrad` | `FCFLAGS='-I/path/to/ecrad/include' LDFLAGS='-L/path/to/ecrad/lib' LIBS='-lradiation -lifsrrtm -lutilities -lifsaux'` |
+| 16 | [RTE+RRTMGP](https://github.com/RobertPincus/rte-rrtmgp) | `--enable-rte-rrtmgp --with-external-rte-rrtmgp` | `FCFLAGS='-I/path/to/rte-rrtmgp/include' LDFLAGS='-L/path/to/rte-rrtmgp/lib' LIBS='-lrrtmgp -lrte'` |
+| 17 | [NetCDF-Fortran](https://www.unidata.ucar.edu/software/netcdf/docs-fortran/) | mandatory | `FCFLAGS='-I/path/to/netcdf-fortran/include' LDFLAGS='-L/path/to/netcdf-fortran/lib' LIBS='-lnetcdff'` |
+| 18 | [NetCDF-C](https://www.unidata.ucar.edu/software/netcdf/docs/) | `--without-external-cdi` or `--enable-coupling`<sup><a name="f7-back" href="#f7">7</a></sup> | `CPPFLAGS='-I/path/to/netcdf/include' LDFLAGS='-L/path/to/netcdf/lib' LIBS='-lnetcdf'` |
+| 19 | [HDF5](https://support.hdfgroup.org/HDF5/) (low- and high-level Fortran interfaces) | `--enable-emvorado` or `--enable-rttov`<sup><a name="f8-back" href="#f8">8</a></sup> | `FCFLAGS='-I/path/to/hdf5/include' LDFLAGS='-L/path/to/hdf5/lib' LIBS='-lhdf5_hl_fortran -lhdf5_fortran'` |
+| 20 | [HDF5](https://support.hdfgroup.org/HDF5/) (low-level C interface) | `--enable-sct --without-external-sct` | `CPPFLAGS='-I/path/to/hdf5/include' LDFLAGS='-L/path/to/hdf5/lib' LIBS='-lhdf5'` |
+| 21 | [ZLIB](https://zlib.net/) | `--enable-emvorado` | `LDFLAGS='-L/path/to/zlib/lib' LIBS='-lz'` |
+| 22 | [AEC](https://gitlab.dkrz.de/k202009/libaec) or [SZIP](https://support.hdfgroup.org/doc_resource/SZIP/) | static linking | `LDFLAGS='-L/path/to/aec/lib' LIBS='-laec'` (or `LIBS='-lsz'`) |
+| 23 | [MPI](https://www.mpi-forum.org/) (Fortran interface) | `--enable-mpi` or `--enable-yaxt --without-external-yaxt` or `--enable-coupling --without-external-yac` | `FC='/path/to/mpi/bin/mpif90'` or `FCFLAGS='-I/path/to/mpi/include' LDFLAGS='-L/path/to/mpi/lib' LIBS='-lmpifort -lmpi'` (depends on the implementation) |
+| 24 | [MPI](https://www.mpi-forum.org/) (C interface) | `--enable-mpi --enable-coupling --without-external-yac` or `--enable-yaxt --without-external-yaxt` or `--enable-mpi --enable-sct --without-external-sct` | `CC=/path/to/mpi/bin/mpicc` or `CPPFLAGS=-I/path/to/mpi/include LDFLAGS='-L/path/to/mpi/lib' LIBS='-lmpi'` (depends on the implementation) |
+| 25 | [CUB](https://nvlabs.github.io/cub/) | `--enable-gpu --with-external-cub` | `NVCFLAGS=-I/path/to/cub`<sup><a name="f9-back" href="#f9">9</a></sup> |
+| 26 | [CUDA](https://developer.nvidia.com/cuda-zone) | `--enable-gpu` | `LDFLAGS=-L/path/to/cuda/lib LIBS=-lcudart`<sup><a name="f10-back" href="#f10">10</a></sup> |
+| 27 | [STDC++](https://gcc.gnu.org/onlinedocs/libstdc++/) | `--enable-gpu` | `LDFLAGS=-L/path/to/gcc/used/by/nvcc/lib LIBS=-lstdc++` |
 
 1. <a name="f1"/> The dependency conditions and required flags are specified
 assuming that the shared versions of the libraries containing `RPATH` entries
@@ -232,8 +237,9 @@ mandatory (must be the library that CDI has been built with). [↩](#f6-back)
 NetCDF-C library implicitly, therefore the latter needs to be linked explicitly,
 regardless of whether an external or the bundled version of YAC is used.
 [↩](#f7-back)
-8. <a name="f8"/> Both `mpif.h` and `mpi.mod` interfaces are required for the
-bundled version of YAC. [↩](#f8-back)
+8. <a name="f8"/> There is no shared version of RTTOV library, which could link
+Fortran HDF5 libraries implicitly, therefore the latter need to be linked
+explicitly when RTTOV is used. [↩](#f8-back)
 9. <a name="f9"/> CUB is a header-only library and does not need additional
 linker flags. [↩](#f9-back)
 10. <a name="f10"/> Currently, the only Fortran compiler that supports all
@@ -384,6 +390,8 @@ compiler flags specifiying search paths (`-I<path>`) and macros
 - `LDFLAGS` &mdash; common Fortran **and** C compiler flags to be used at the
 configuration **and** building stages when linking ICON **and** the bundled
 libraries;
+- `ICON_LDFLAGS` &mdash; Fortran compiler flags to be appended to `LDFLAGS` at
+the building stage when linking ICON;
 - `LIBS` &mdash; a list of libraries (see [Table 1](#icon-deptable) for the
 recommended order) to be passed to the linker by the Fortran compiler when
 linking ICON **and** to the configure scripts of the bundled libraries (which
@@ -408,7 +416,7 @@ ICON but at the same time can break the configuration (a flag is too restrictive
 for the configure checks to pass, e.g. `-fimplicit-none` for Gfortran) or the
 functionality of the bundled libraries (e.g. the optimization level required
 for ICON is too high and leads to errors in the functionality of the bundled
-libraries) can be put to `ICON_FCFLAGS` and `ICON_CFLAGS`, respectively.
+libraries) can be put to `ICON_FCFLAGS`, `ICON_CFLAGS` or `ICON_LDFLAGS`.
 4. Special optimization flags for the ocean component of ICON can be put to
 `ICON_OCEAN_FCFLAGS`.
 5. Fortran and C compiler flags that need to be used when compiling and linking
@@ -476,9 +484,7 @@ fully compatible with some compilers. For example, the flags
 incorrectly transformed by Libtool into
 `-Wl,-Wl -Wl,"" -Wl,-rpath -Wl,-Wl -Wl,"" -Wl,<path>`. A possible solution
 for this problem is to add the flags in the form understood by NAG compiler not
-to `LDFLAGS` but to `ICON_FCFLAGS` and make sure that the bundled libraries,
-especially the Libtool-based ones, will not receive them:
-`ICON_BUNDLED_FCFLAGS=`.
+to `LDFLAGS` but to `ICON_LDFLAGS`.
 
 > **_NOTE:_** The generated `-rpath` flags are applied only at the building
 stage and for the ICON executable only. However, some of the checks performed by
@@ -497,11 +503,9 @@ It is important that both the configuration and the building stages are
 performed in the same environment, i.e. the environment variables that might
 influence the way the compilers and the linker work are set to the same values
 when running the [configure](./configure) script and when running the `make`
-command for building (see also section
-[Initialization of the building environment](#initialization-of-the-building-environment)).
-For example, NAG compiler will not work if the environment variable
-`NAG_KUSARI_FILE` is not set properly. Keeping track of all the steps required
-to re-initialize the environment for the building stage, e.g. when the
+command for building. For example, NAG compiler will not work if the environment
+variable `NAG_KUSARI_FILE` is not set properly. Keeping track of all the steps
+required to re-initialize the environment for the building stage, e.g. when the
 configuration stage has already been done but in another terminal session, might
 be challenging, especially in HPC environments offering multiple compilers and
 libraries.
@@ -721,8 +725,10 @@ The list of source files is a result of recursive search for files that have
 the aforementioned extenions and reside in the [src](./src) and
 [support](./support) subdirectories of the source root directory of ICON.
 Additionaly, depending on the whether the corresponding components of the model
-were enabled at the configuration stage, the list is extended with files Fortran
-source files from the `./externals/jsbach` and `./externals/art` subdirectories.
+were enabled at the configuration stage, the list is extended with Fortran
+source files from the `./externals/jsbach/src`,
+`./externals/dace_icon/src_for_icon`, `./externals/emvorado` and
+`./externals/art` subdirectories.
 
 > **_NOTE:_** In general, you can extend the source base of ICON just by adding
 the source files to the [src](./src) subdirectory of the source root directory
@@ -730,89 +736,53 @@ of ICON.
 
 ## Preprocessing
 
-Depending on the configuration, Fortran source and header files undergo one or
-more of the following preprocessing precedures.
+Depending on the configuration, Fortran source files undergo one or more of the
+following preprocessing precedures.
 1. Fortran source files residing in the `./externals/jsbach/src` are
 preprocessed with the
 [dsl4jsb.py](https://gitlab.dkrz.de/jsbach/jsbach/blob/master/scripts/dsl4jsb/dsl4jsb.py)
 script. This is done only if the JSBACH component has been enabled at the
 configuration stage (`--enable-jsbach`). Otherwise, the source files of the
 component are completely ignored. The result of this procedure is stored to the
-`./pp/jsb` subdirectory of the root build directory.
+`./pp/dsl4jsb` subdirectory of the root build directory.
 2. Depending on whether the *CLAW preprocessing* (`--enable-claw`) is enabled,
-the result of the previous step (currently, only JSBACH files are optionally
-preprocessed at this step) are preprocessed with the
-[CLAW](https://claw-project.github.io/) compiler. The result of this procedure
-is stored to the `./pp/claw` subdirectory.
-> **_NOTE:_** Unlike the rest of the preprocessing steps, the instructions for
-CLAW preprocessing are moved to a separate makefile called `claw.mk`, which is
-generated based on the [claw.mk.in](./claw.mk.in) template. This is done to
-employ the
-[.NOTPARALLEL](https://www.gnu.org/software/make/manual/html_node/Special-Targets.html#index-parallel-execution_002c-overriding)
-feature of GNU make, which is required to meet the limitation of the CLAW
-compiler manifested in the fact that the files must be processed serially.
+the result of the previous step (currently, only JSBACH files are preprocessed
+at this step) are preprocessed with the [CLAW](https://claw-project.github.io/)
+compiler. The result of this procedure is stored to the `./pp/claw`
+subdirectory.
+    > **_NOTE:_** Unlike the rest of the preprocessing steps, the instructions
+for CLAW preprocessing are moved to a separate makefile called `claw.mk`, which
+is generated based on the [claw.mk.in](./claw.mk.in) template. This is done to
+enable an extra dependency generation step required for the preprocessing.
 3. Depending on whether the *explicit Fortran preprocessing* is enabled
 (`--enable-explicit-fpp`), the results of the **actual** previous preprocessing
-step, together with Fortran source and header files of ICON (including the ART
-component, if enabled) that have not been preprocessed yet, are treated as
-follows:
-    - `.f90` files are preprocessed with the standard Fortran preprocessor;
-    - `.inc` files are withdrown from further preprocessing since their contents
-    are supposed to be injected into the output of the Fortran preprocessor when
-    processing `.f90` files that include them;
-    - `.incf` files that do **not** reside in the common
-    [include](./src/include) directory are copied as-is to the corresponding
-    subdirectories of the output directory, so they can be later found by the
-    Fortran compiler without additional search path flags (`.incf` files that
-    are stored in the common directory do not need to be copied because the
-    compiler is always called with the `-I/path/to/icon-srcdir/src/include`
-    search path flag and therefore is able to locate them).
-    
-    The result of this procedure is stored to the `./pp/fpp` subdirectory.
+step, together with Fortran source files that have not been preprocessed yet,
+are preprocessed with the standard Fortran preprocessor. The result of this
+procedure is stored to the `./pp/fpp` subdirectory.
 4. If the *Serialbox2 serialization* is enabled (`--enable-serialization`), the
-results of the **actual** previous preprocessing step, as well as Fortran
-source and header files of ICON (including the ART component, if enabled) that
-have not been preprocessed yet, are treated as follows:
-    - `.f90` files are preprocessed with the
+results of the **actual** previous preprocessing step, together with Fortran
+source files that have not been preprocessed yet, are preprocessed with the
 [corresponding script](https://github.com/GridTools/serialbox/blob/master/src/serialbox-python/pp_ser/pp_ser.py)
-of the [Serialbox2](https://gridtools.github.io/serialbox/) toolkit;
-    - `.inc` files, if not withdrown at the previous step, are preprocessed with
-    the same script as for `.f90` files and an additional search path flag
-    `-I/path/to/icon-builddir/pp/sb2/src/include` is prepended to the list of
-    Fortran compiler flags, so the compiler would later prefer the 
-    **preprocessed** versions of the files over the original ones residing in
-    the common [include](./src/include) directory;
-    - `.incf` that do **not** reside in the common [include](./src/include)
-    directory are copied as-is to the corresponding subdirectories of the output
-    directory (for the same reason as in the case of the explicit Fortran
-    preprocessing)
-    The result of this procedure is stored to the `./pp/sb2` subdirectory.
-
-> **_NOTE:_** The explicit Fortran preprocessing is enabled automatically when
-the Serialbox2 serialization is enabled. You can override this by disabling the
-preprocessing with the `--disable-explicit-fpp` option.
+of the [Serialbox2](https://gridtools.github.io/serialbox/) toolkit. The result
+of this procedure is stored to the `./pp/sb2` subdirectory.
+    > **_NOTE:_** The explicit Fortran preprocessing is enabled automatically
+when the Serialbox2 serialization is enabled. You can override this by disabling
+the preprocessing with the `--disable-explicit-fpp` option.
 
 The output directories of the preprocessing steps have the same layout as the
 directories containing their input files and the output files have the same
-basenames as the corresponding intput files. For example if the original source
-file of JSBACH `/icon-srcdir/externals/jsbach/src/base/mo_jsb_base.f90`
+basenames as the corresponding input files. For example if the original source
+file of JSBACH `./externals/jsbach/src/base/mo_jsb_base.f90`
 is preprocessed by each of the preprocessing steps, the corresponding output
 files are saved as follows:
-- `/icon-build/pp/jsb/src/base/mo_jsb_base.f90` &mdash; JSBACH preprocessing
-output;
-- `/icon-build/pp/claw/pp/jsb/src/base/mo_jsb_base.f90` &mdash; CLAW
+- `./pp/dsl4jsb/externals/jsbach/src/base/mo_jsb_base.f90` &mdash; JSBACH
 preprocessing output;
-- `/icon-build/pp/fpp/pp/claw/pp/jsb/src/base/mo_jsb_base.f90` &mdash; explicit
-Fortran preprocessing output;
-- `/icon-build/pp/sb2/pp/fpp/pp/claw/pp/jsb/src/base/mo_jsb_base.f90` &mdash;
-Serialbox2 preprocessing output.
-
-> **_NOTE:_** In contrast to the original source files residing in the source
-directory, output files of the preprocessing steps are treated by `make` by
-their absolute paths. This is done to avoid potential ambiguity between the
-preprocessed files residing in the current build directory and the preprocessed
-files in the source directory generated as a result of a prior in-source
-configuration and building.
+- `./pp/claw/pp/dsl4jsb/externals/jsbach/src/base/mo_jsb_base.f90` &mdash; CLAW
+preprocessing output;
+- `./pp/fpp/pp/claw/pp/dsl4jsb/externals/jsbach/src/base/mo_jsb_base.f90`
+&mdash; explicit Fortran preprocessing output;
+- `./pp/sb2/pp/fpp/pp/claw/pp/dsl4jsb/externals/jsbach/src/base/mo_jsb_base.f90`
+&mdash; Serialbox2 preprocessing output.
 
 > **_NOTE:_** Source files are additionaly preprocessed with the corresponding
 standard language-specific (i.e. Fortran, C, CUDA) preprocessors as part of the
@@ -832,10 +802,10 @@ a source file declaring a Fortran module must be compiled before any other
 source file using that module. Both tasks are accomplished as follows.
 
 Once the [preprocessing](#preprocessing) is finished, all source files of ICON
-(as well as JSBACH and ART, if enabled) or their **final** preprocessed versions
-are processed with the [dependency generator](./utils/mkhelper/depgen.py). The
-tool parses each source file, detects which header and module files are required
-for its succesful compilation, and stores this information in the form of a
+(including the enabled components) or their **final** preprocessed versions are
+processed with the [dependency generator](./utils/mkhelper/depgen.py). The tool
+parses each source file, detects which header and module files are required for
+its succesful compilation, and stores this information in the form of a
 makefile. The makefiles a then read by `make` and the
 [dependency listing script](./utils/mkhelper/deplist.py). The former makes sure
 that the source files are compiled in the right order, the latter identifies the
@@ -1210,9 +1180,10 @@ the issue?**</a>
 Most probably, you are running ICON on an unknown (unsupported) system. In that
 case, the runscript expects input data in your home directory
 `$HOME/pool/data/ICON`. You need to request the required input files from ICON
-developers and put it to the aformentioned folder. You can also save the data to
-a different directory and override the default path by setting the environment
-variable `icon_data_rootFolder` before generating the runscripts, for example:
+developers and put them to the aformentioned folder. You can also save the data
+to a different directory and override the default path by setting the
+environment variable `icon_data_rootFolder` before generating the runscripts,
+for example:
 ```console
 $ export icon_data_rootFolder='/path/to/ICON/data'
 $ ./make_runscripts -s atm_amip_test

@@ -43,7 +43,6 @@ MODULE mo_ocean_tracer
   USE mo_sync,                      ONLY: sync_c, sync_patch_array
   USE mo_timer,                     ONLY: timer_start, timer_stop, timers_level, timer_dif_vert, timer_extra30
   USE mo_statistics,                ONLY: global_minmaxmean, print_value_location
-  USE mo_ocean_types,               ONLY: t_hydro_ocean_state
   USE mo_ocean_tracer_transport_types,  ONLY: t_ocean_tracer, t_tracer_collection, t_ocean_transport_state
 
   IMPLICIT NONE

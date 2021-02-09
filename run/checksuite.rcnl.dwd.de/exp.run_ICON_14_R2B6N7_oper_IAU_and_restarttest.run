@@ -132,8 +132,7 @@ ln -sf $EXTPDIR/icon_extpar_0024_R02B06_G_20180625_tiles.nc extpar_iconR2B06_DOM
 ln -sf $EXTPDIR/icon_extpar_0028_R02B07_N02_20180625_tiles.nc extpar_iconR2B07_DOM02.nc
 
 # files needed for radiation
-ln -sf ${ICONDIR}/data/ECHAM6_CldOptProps.nc rrtm_cldopt.nc
-ln -sf ${ICONDIR}/data/rrtmg_lw.nc .
+ln -sf ${ICONDIR}/externals/ecrad/data ecrad_data
 
 
 
@@ -348,7 +347,7 @@ cat > ${atmo_namelist} << EOF
 &nwp_phy_nml
  inwp_gscp			= 1   ! 1: default, or 10
  inwp_convection		= 1
- inwp_radiation			= 1
+ inwp_radiation			= 4
  inwp_cldcover			= 1   ! 0: no cld, 1: new diagnostic, 3: COSMO, 5: grid scale
  inwp_turb			= 1
  inwp_satad			= 1
@@ -420,6 +419,7 @@ cat > ${atmo_namelist} << EOF
  vmr_o2				= 0.20946
  vmr_cfc11			= 240.e-12
  vmr_cfc12			= 532.e-12
+ ecrad_data_path                = './ecrad_data'
 /
 &nonhydrostatic_nml
  iadv_rhotheta			= 2
@@ -506,7 +506,8 @@ cat > ${atmo_namelist} << EOF
  tune_box_liq_asy               = 3.0
 /
 &ensemble_pert_nml
- use_ensemble_pert              = .FALSE.
+ use_ensemble_pert              = .true.
+ timedep_pert                   = 2
 /
 &gribout_nml
  preset                          ='ensemble'

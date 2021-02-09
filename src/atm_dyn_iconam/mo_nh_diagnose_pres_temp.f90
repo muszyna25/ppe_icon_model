@@ -65,7 +65,7 @@ MODULE mo_nh_diagnose_pres_temp
     &                            lnd_prog, opt_slev, opt_rlend, opt_lconstgrav       )
 
 
-!!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+!!$    CHARACTER(len=*), PARAMETER ::  &
 !!$      &  routine = 'mo_nh_diagnose_pres_temp:diagnose_pres_temp' 
 
     TYPE(t_nh_metrics), INTENT(IN)    :: p_metrics

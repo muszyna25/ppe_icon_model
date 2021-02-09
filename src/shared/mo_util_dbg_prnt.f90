@@ -494,7 +494,7 @@ CONTAINS
       
       ! idbg_mxmn<4: one level output only (slev), independent of elev_val
       elev_mxmn = elev
-      IF (idbg_mxmn < 4 .AND. inDetail_level > 0) elev_mxmn = slev
+    !  IF (idbg_mxmn < 4 .AND. inDetail_level > 0) elev_mxmn = slev
       
       ! print out maximum and minimum value
       ! ctrn=minval(p_array(:, slev:elev_mxmn, :))

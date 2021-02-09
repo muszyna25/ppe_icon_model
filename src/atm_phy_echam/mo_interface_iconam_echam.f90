@@ -107,14 +107,9 @@ MODULE mo_interface_iconam_echam
     &                                 timer_echam_bcs, timer_echam_phy, timer_coupling,                &
     &                                 timer_phy2dyn, timer_p2d_prep, timer_p2d_sync, timer_p2d_couple
   USE mo_run_config,            ONLY: lart
-  USE mo_art_config,            ONLY: art_config
 #if defined( _OPENACC )
   USE mo_var_list_gpu          ,ONLY: gpu_h2d_var_list, gpu_d2h_var_list
 #endif
-  !$ser verbatim USE mo_ser_iconam_echam, ONLY: serialize_iconam_input,&
-  !$ser verbatim                                serialize_iconam_output
-  !$ser verbatim USE mo_ser_diagnose_pres_temp, ONLY: serialize_prestemp_input => serialize_input,&
-  !$ser verbatim                                      serialize_prestemp_output => serialize_output
 
   USE mo_upatmo_config         ,ONLY: upatmo_config
   USE mo_upatmo_impl_const,     ONLY: idamtr
@@ -237,11 +232,6 @@ CONTAINS
     ! associate pointers
     field => prm_field(jg)
     tend  => prm_tend (jg)
-
-    ! Serialbox2 input fields serialization
-    !$ser verbatim call serialize_iconam_input(jg, field, tend,&
-    !$ser verbatim                   pt_int_state, p_metrics, pt_prog_old, pt_prog_old_rcf,&
-    !$ser verbatim                   pt_prog_new, pt_prog_new_rcf, pt_diag)
 
     ! The date and time needed for the radiation computation in the phyiscs is
     ! the date and time of the initial data for this step.
@@ -435,7 +425,6 @@ CONTAINS
     !
     ! For the old state:
     !
-    !$ser verbatim call serialize_prestemp_input(jg, pt_prog_old, pt_prog_old_rcf, pt_diag, patch)
     CALL diagnose_pres_temp( p_metrics                ,&
       &                      pt_prog_old              ,&
       &                      pt_prog_old_rcf          ,&
@@ -445,7 +434,6 @@ CONTAINS
       &                      opt_calc_pres=.TRUE.     ,&
       &                      opt_rlend=min_rlcell_int ,& 
       &                      opt_lconstgrav=upatmo_config(jg)%echam_phy%l_constgrav )
-    !$ser verbatim call serialize_prestemp_output(jg, pt_diag)
 
     IF (ltimer) CALL timer_stop(timer_d2p_prep)
 
@@ -975,7 +963,7 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
-IF (lart) jt_end = iqm_max + art_config(1)%iart_echam_ghg
+IF (lart) jt_end = advection_config(jg)%nname
 
 #ifdef _OPENACC
     CALL warning('GPU:mo_interface_iconam_echam','GPU mode currently disables echam_phy_config(jg)%iqneg_p2d triggered output!')
@@ -1343,11 +1331,6 @@ ENDIF
     IF (ltimer) CALL timer_stop(timer_p2d_sync)
     !
     !=====================================================================================
-
-    ! Serialbox2 output fields serialization
-    !$ser verbatim call serialize_iconam_output(jg, field, tend,&
-    !$ser verbatim                    pt_int_state, p_metrics, pt_prog_old, pt_prog_old_rcf,&
-    !$ser verbatim                    pt_prog_new, pt_prog_new_rcf, pt_diag)
 
     NULLIFY(field)
     NULLIFY(tend)

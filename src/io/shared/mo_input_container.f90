@@ -409,8 +409,8 @@ CONTAINS
     SUBROUTINE InputContainer_readField_omp(me, variableName, level, tile, timer, jg, iterator, statistics, iread)
         CLASS(t_InputContainer), INTENT(INOUT) :: me
         CHARACTER(LEN = *), INTENT(IN) :: variableName
-        REAL(dp), VALUE :: level
-        INTEGER, VALUE :: tile, jg
+        REAL(dp), INTENT(IN) :: level
+        INTEGER, INTENT(IN) :: tile, jg
         REAL(dp), INTENT(INOUT) :: timer(:)
         TYPE(t_CdiIterator), VALUE :: iterator
         TYPE(t_Statistics), INTENT(INOUT) :: statistics ! This gets the statistics of the READ field added, but ONLY on the master process.
@@ -452,7 +452,7 @@ CONTAINS
            variableName_prev = variableName
 
         CASE (-1)
-           !NEC_RP: Last record: Only data distribution and statistics
+           !NEC_RP: Last record of previous variable
 
 !$OMP PARALLEL SECTIONS NUM_THREADS(2)
 !$OMP SECTION
@@ -463,20 +463,35 @@ CONTAINS
             CALL compute_statistics()
 !$OMP END PARALLEL SECTIONS
 
-            ! Deallocation must be done after the parallel section in order to avoid race conditions
-            SELECT CASE(packedMessage_prev(2))
-            CASE(CDI_DATATYPE_PACK23:CDI_DATATYPE_PACK32, CDI_DATATYPE_FLT64, CDI_DATATYPE_INT32)
-               DEALLOCATE(bufferD_prev)
-               NULLIFY(bufferD_prev)
-               DEALLOCATE(bufferD)
-               NULLIFY(bufferD)
-             CASE DEFAULT
+        CASE (-2)
+           !NEC_RP: Last record: Only data distribution and statistics; deallocate
+
+!$OMP PARALLEL SECTIONS NUM_THREADS(2)
+!$OMP SECTION
+            ! first section for distribution of previous buffer
+            CALL distribute_data()
+!$OMP SECTION
+            ! second section for statistics on previous buffer
+            CALL compute_statistics()
+!$OMP END PARALLEL SECTIONS
+
+            IF (ASSOCIATED(bufferD_prev)) THEN
+              DEALLOCATE(bufferD_prev)
+              NULLIFY(bufferD_prev)
+            END IF
+            IF (ASSOCIATED(bufferD)) THEN 
+              DEALLOCATE(bufferD)
+              NULLIFY(bufferD)
+            END IF  
+            IF (ASSOCIATED(bufferS_prev)) THEN
                DEALLOCATE(bufferS_prev)
                NULLIFY(bufferS_prev)
-               DEALLOCATE(bufferS)
-               NULLIFY(bufferS)
-             END SELECT
-
+            END IF
+            IF (ASSOCIATED(bufferS)) THEN 
+              DEALLOCATE(bufferS)
+              NULLIFY(bufferS)
+            END IF  
+            
         CASE DEFAULT
            !NEC_RP: Read data, distribute them, and compute statistics
 !$OMP PARALLEL SECTIONS NUM_THREADS(3)
@@ -721,8 +736,8 @@ CONTAINS
                 CALL finish(routine, "assertion failed")
         END SELECT
         IF(ASSOCIATED(me%fields%getEntry(key))) THEN
-            WRITE(message_text, '(a,g24.15e3,a,i2,a)') "double definition of level-tile tuple (", &
-              level,",",tile,") in variable '"//variableName//"' in an input file"
+            WRITE(message_text, '(a,g24.15e3,a,i2,3a)') "double definition of level-tile tuple (", &
+              level,",",tile,") in variable '",variableName,"' in an input file"
             CALL finish(routine, message_text)
         END IF
 

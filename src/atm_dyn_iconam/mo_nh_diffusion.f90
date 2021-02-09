@@ -292,7 +292,7 @@ MODULE mo_nh_diffusion
 !$ACC              z_nabla4_e, z_nabla4_e2, z_nabla2_e, z_nabla2_c, enh_diffu_3d, icount,                    &
 !$ACC              z_vn_ie, z_vt_ie, dvndz, dvtdz, dwdz, dthvdz, dwdn, dwdt, kh_smag3d_e ),                  &
 !$ACC      COPYIN( nrdmax, diff_multfac_vn, diff_multfac_n2w, diff_multfac_smag, smag_limit, enh_smag_fac ), &
-!$ACC      PRESENT( p_patch, p_int, p_nh_prog, p_nh_prog, p_nh_diag, p_nh_metrics,                           &
+!$ACC      PRESENT( p_patch, p_int, p_nh_prog, p_nh_diag, p_nh_metrics,                                      &
 !$ACC               ividx, ivblk, iecidx, iecblk, icidx, icblk, ieidx, ieblk )
 
 ! !$ACC      PRESENT( p_patch%edges%primal_normal_vert,  p_patch%edges%dual_normal_vert,                       &
@@ -456,6 +456,7 @@ MODULE mo_nh_diffusion
             kh_smag_e(je,jk,jb) = MIN(kh_smag_e(je,jk,jb),smag_limit(jk))
           ENDDO
         ENDDO
+!$ACC END PARALLEL LOOP
 
       ENDDO ! block jb
 !$OMP END DO NOWAIT
@@ -518,6 +519,7 @@ MODULE mo_nh_diffusion
              (1._wp - p_nh_metrics%wgtfac_e(je,jk,jb))*p_nh_diag%vt(je,jk-1,jb)
           ENDDO
         ENDDO
+!$ACC END PARALLEL LOOP
 
 !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR ASYNC(1) IF( i_am_accel_node .AND. acc_on )
         DO je = i_startidx, i_endidx
@@ -538,6 +540,7 @@ MODULE mo_nh_diffusion
             p_nh_metrics%wgtfacq_e(je,2,jb)*p_nh_diag%vt(je,nlev-1,jb) + &
             p_nh_metrics%wgtfacq_e(je,3,jb)*p_nh_diag%vt(je,nlev-2,jb)
         ENDDO
+!$ACC END PARALLEL LOOP
 
         ! Computation of wind field deformation
 
@@ -652,6 +655,7 @@ MODULE mo_nh_diffusion
             kh_smag_e(je,jk,jb) = MIN(kh_smag_e(je,jk,jb),smag_limit(jk))
           ENDDO
         ENDDO
+!$ACC END PARALLEL LOOP
 
       ENDDO
 !$OMP END DO NOWAIT
@@ -779,7 +783,7 @@ MODULE mo_nh_diffusion
             kh_smag_e(je,jk,jb) = MIN(kh_smag_e(je,jk,jb),smag_limit(jk))
           ENDDO
         ENDDO
-
+!$ACC END PARALLEL LOOP
 
       ENDDO
 !$OMP END DO NOWAIT
@@ -823,6 +827,7 @@ MODULE mo_nh_diffusion
                          p_nh_prog%vn(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))*p_int%geofac_div(jc,3,jb)
           ENDDO
         ENDDO
+!$ACC END PARALLEL LOOP
 
 !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
         DO jk = 2, nlev ! levels 1 and nlevp1 are unused
@@ -836,6 +841,7 @@ MODULE mo_nh_diffusion
               (1._wp-p_nh_metrics%wgtfac_c(jc,jk,jb))*kh_c(jc,jk-1))**2
           ENDDO
         ENDDO
+!$ACC END PARALLEL LOOP
 
       ENDDO
 !$OMP END DO
@@ -927,6 +933,7 @@ MODULE mo_nh_diffusion
 
           ENDDO
         ENDDO
+!$ACC END PARALLEL LOOP
 
         ! Apply diffusion for the case of diffu_type = 5
         IF ( jg == 1 .AND. l_limited_area .OR. jg > 1 .AND. .NOT. lfeedback(jg)) THEN
@@ -941,6 +948,7 @@ MODULE mo_nh_diffusion
                 p_patch%edges%area_edge(je,jb))
             ENDDO
           ENDDO
+!$ACC END PARALLEL LOOP
 
         ELSE IF (jg > 1) THEN
 !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
@@ -954,6 +962,7 @@ MODULE mo_nh_diffusion
                 p_patch%edges%area_edge(je,jb))
             ENDDO
           ENDDO
+!$ACC END PARALLEL LOOP
 
         ELSE
 
@@ -967,6 +976,7 @@ MODULE mo_nh_diffusion
                 p_patch%edges%area_edge(je,jb))
             ENDDO
           ENDDO
+!$ACC END PARALLEL LOOP
         ENDIF
 
       ENDDO
@@ -1003,7 +1013,7 @@ MODULE mo_nh_diffusion
                 MAX(nudgezone_diff*p_int%nudgecoeff_e(je,jb),REAL(kh_smag_e(je,jk,jb),wp))
             ENDDO
           ENDDO
-!$ACC END PARALLEL
+!$ACC END PARALLEL LOOP
         ENDDO
 !$OMP END DO
 
@@ -1023,6 +1033,7 @@ MODULE mo_nh_diffusion
                 p_patch%edges%area_edge(je,jb) * kh_smag_e(je,jk,jb)* z_nabla2_e(je,jk,jb)
             ENDDO
           ENDDO
+!$ACC END PARALLEL LOOP
         ENDDO
 !$OMP END DO
 
@@ -1045,6 +1056,7 @@ MODULE mo_nh_diffusion
               p_patch%edges%area_edge(je,jb)*p_patch%edges%area_edge(je,jb)
           ENDDO
         ENDDO
+!$ACC END PARALLEL LOOP
       ENDDO
 !$OMP END DO
 
@@ -1072,6 +1084,7 @@ MODULE mo_nh_diffusion
               p_patch%edges%area_edge(je,jb)*fac_bdydiff_v
           ENDDO
         ENDDO
+!$ACC END PARALLEL LOOP
       ENDDO
 !$OMP END DO
 
@@ -1116,6 +1129,7 @@ MODULE mo_nh_diffusion
               p_nh_prog%w(icidx(jc,jb,3),jk,icblk(jc,jb,3))*p_int%geofac_n2s(jc,4,jb)
           ENDDO
         ENDDO
+!$ACC END PARALLEL LOOP
 
         IF (turbdiff_config(jg)%itype_sher == 2) THEN ! compute horizontal gradients of w
 !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
@@ -1139,6 +1153,7 @@ MODULE mo_nh_diffusion
 
             ENDDO
           ENDDO
+!$ACC END PARALLEL LOOP
         ENDIF
 
       ENDDO
@@ -1176,6 +1191,7 @@ MODULE mo_nh_diffusion
               z_nabla2_c(icidx(jc,jb,3),jk,icblk(jc,jb,3))*p_int%geofac_n2s(jc,4,jb))
           ENDDO
         ENDDO
+!$ACC END PARALLEL LOOP
 
         ! Add nabla2 diffusion in upper damping layer (if present)
 !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
@@ -1186,6 +1202,7 @@ MODULE mo_nh_diffusion
               diff_multfac_n2w(jk) * p_patch%cells%area(jc,jb) * z_nabla2_c(jc,jk,jb)
           ENDDO
         ENDDO
+!$ACC END PARALLEL LOOP
 
       ENDDO
 !$OMP END DO
@@ -1254,22 +1271,26 @@ MODULE mo_nh_diffusion
                p_nh_metrics%theta_ref_mc(icidx(jc,jb,2),jk,icblk(jc,jb,2)) +       &
                p_nh_metrics%theta_ref_mc(icidx(jc,jb,3),jk,icblk(jc,jb,3)) ) / 3._wp
 
-            IF (tdiff-trefdiff < thresh_tdiff .AND. trefdiff < 0._wp) THEN
+            ! Enahnced horizontal diffusion is applied if the theta perturbation is either
+            ! - at least 5 K colder than the average of the neighbor points on valley points (determined by trefdiff < 0.) or
+            ! - at least 7.5 K colder than the average of the neighbor points otherwise
+            IF (tdiff-trefdiff < thresh_tdiff .AND. trefdiff < 0._wp .OR. tdiff-trefdiff < 1.5_wp*thresh_tdiff) THEN
 #ifndef _OPENACC
               ic = ic+1
               iclist(ic,jb) = jc
               iklist(ic,jb) = jk
-              tdlist(ic,jb) = thresh_tdiff - tdiff
+              tdlist(ic,jb) = thresh_tdiff - tdiff + trefdiff
 #else
       ! Enhance Smagorinsky coefficients at the three edges of the cells included in the list
 ! Attention: this operation is neither vectorizable nor OpenMP-parallelizable (race conditions!)
-              enh_diffu_3d(jc,jk,jb) = (thresh_tdiff - tdiff)*5.e-4_vp
+              enh_diffu_3d(jc,jk,jb) = (thresh_tdiff - tdiff + trefdiff)*5.e-4_vp
             ELSE
               enh_diffu_3d(jc,jk,jb) = -HUGE(0._vp)   ! In order that this is never taken as the MAX
 #endif
             ENDIF
           ENDDO
         ENDDO
+!$ACC END PARALLEL LOOP
         icount(jb) = ic
 
       ENDDO
@@ -1317,6 +1338,7 @@ MODULE mo_nh_diffusion
                  enh_diffu_3d(iecidx(je,jb,2),jk,iecblk(je,jb,2)) )
          ENDDO
        ENDDO
+!$ACC END PARALLEL LOOP
      ENDDO
 #endif
 
@@ -1357,6 +1379,7 @@ MODULE mo_nh_diffusion
                 p_nh_prog%theta_v(icidx(jc,jb,3),jk,icblk(jc,jb,3))*p_int%geofac_n2s(jc,4,jb))
             ENDDO
           ENDDO
+!$ACC END PARALLEL LOOP
         ENDDO
 !$OMP END DO
 
@@ -1393,7 +1416,7 @@ MODULE mo_nh_diffusion
                 p_nh_prog%theta_v(iecidx(je,jb,1),jk,iecblk(je,jb,1)))
             ENDDO
           ENDDO
-!$ACC END PARALLEL
+!$ACC END PARALLEL LOOP
         ENDDO
 !$OMP END DO
 
@@ -1424,6 +1447,7 @@ MODULE mo_nh_diffusion
                 z_nabla2_e(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))*p_int%geofac_div(jc,3,jb)
             ENDDO
           ENDDO
+!$ACC END PARALLEL LOOP
         ENDDO
 !$OMP END DO
 
@@ -1460,6 +1484,7 @@ MODULE mo_nh_diffusion
               geofac_n2s(4,ic)*(vcoef(3,ic)*p_nh_prog%theta_v(icell(4,ic),ilev(4,ic),iblk(4,ic))+&
               (1._wp-vcoef(3,ic))* p_nh_prog%theta_v(icell(4,ic),ilev(4,ic)+1,iblk(4,ic)))  )
           ENDDO
+!$ACC END PARALLEL LOOP
         ENDDO
 !$OMP END DO
 
@@ -1485,6 +1510,7 @@ MODULE mo_nh_diffusion
 
           ENDDO
         ENDDO
+!$ACC END PARALLEL LOOP
 
       ENDDO
 !$OMP END DO NOWAIT

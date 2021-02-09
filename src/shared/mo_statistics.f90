@@ -36,6 +36,9 @@ MODULE mo_statistics
   USE mo_impl_constants, ONLY: on_cells, on_edges, on_vertices
   USE mo_math_types,     ONLY: t_geographical_coordinates
   USE mo_math_constants, ONLY: rad2deg
+#ifdef _OPENACC
+  USE mo_mpi,            ONLY: i_am_accel_node
+#endif
 
   IMPLICIT NONE
 
@@ -73,8 +76,7 @@ MODULE mo_statistics
     MODULE PROCEDURE LInfNorm_2D_InRange
   END INTERFACE LInfNorm
 
-
-  INTERFACE verticallyIntegrated_field 
+  INTERFACE verticallyIntegrated_field
     MODULE PROCEDURE verticallyIntegrated_field_weighted
     MODULE PROCEDURE verticallyIntegrated_field_notWeighted
   END INTERFACE verticallyIntegrated_field
@@ -251,9 +253,13 @@ MODULE mo_statistics
   END INTERFACE
 
   INTERFACE add_fields
+    MODULE PROCEDURE add_fields_5d
+    MODULE PROCEDURE add_fields_4d
     MODULE PROCEDURE add_fields_3d
     MODULE PROCEDURE add_fields_2d
     MODULE PROCEDURE add_fields_2d_nosubset
+    MODULE PROCEDURE add_fields_5d_sp
+    MODULE PROCEDURE add_fields_4d_sp
     MODULE PROCEDURE add_fields_3d_sp
     MODULE PROCEDURE add_fields_2d_sp
     MODULE PROCEDURE add_fields_2d_nosubset_sp
@@ -262,16 +268,24 @@ MODULE mo_statistics
   INTERFACE add_sqr_fields
     MODULE PROCEDURE add_sqr_fields_2d
     MODULE PROCEDURE add_sqr_fields_3d
+    MODULE PROCEDURE add_sqr_fields_4d
+    MODULE PROCEDURE add_sqr_fields_5d
     MODULE PROCEDURE add_sqr_fields_2d_nosubset
     MODULE PROCEDURE add_sqr_fields_2d_sp
     MODULE PROCEDURE add_sqr_fields_3d_sp
+    MODULE PROCEDURE add_sqr_fields_4d_sp
+    MODULE PROCEDURE add_sqr_fields_5d_sp
     MODULE PROCEDURE add_sqr_fields_2d_nosubset_sp
   END INTERFACE add_sqr_fields
 
   INTERFACE assign_fields
+    MODULE PROCEDURE assign_fields_5d
+    MODULE PROCEDURE assign_fields_4d
     MODULE PROCEDURE assign_fields_3d
     MODULE PROCEDURE assign_fields_2d
     MODULE PROCEDURE assign_fields_2d_nosubset
+    MODULE PROCEDURE assign_fields_5d_sp
+    MODULE PROCEDURE assign_fields_4d_sp
     MODULE PROCEDURE assign_fields_3d_sp
     MODULE PROCEDURE assign_fields_2d_sp
     MODULE PROCEDURE assign_fields_2d_nosubset_sp
@@ -283,17 +297,25 @@ MODULE mo_statistics
   END INTERFACE print_value_location
 
   INTERFACE max_fields
+    MODULE PROCEDURE max_fields_5d
+    MODULE PROCEDURE max_fields_4d
     MODULE PROCEDURE max_fields_3d
     MODULE PROCEDURE max_fields_2d
     MODULE PROCEDURE max_fields_2d_nosubset
+    MODULE PROCEDURE max_fields_5d_sp
+    MODULE PROCEDURE max_fields_4d_sp
     MODULE PROCEDURE max_fields_3d_sp
     MODULE PROCEDURE max_fields_2d_sp
     MODULE PROCEDURE max_fields_2d_nosubset_sp
   END INTERFACE max_fields
   INTERFACE min_fields
+    MODULE PROCEDURE min_fields_5d
+    MODULE PROCEDURE min_fields_4d
     MODULE PROCEDURE min_fields_3d
     MODULE PROCEDURE min_fields_2d
     MODULE PROCEDURE min_fields_2d_nosubset
+    MODULE PROCEDURE min_fields_5d_sp
+    MODULE PROCEDURE min_fields_4d_sp
     MODULE PROCEDURE min_fields_3d_sp
     MODULE PROCEDURE min_fields_2d_sp
     MODULE PROCEDURE min_fields_2d_nosubset_sp
@@ -2046,6 +2068,43 @@ CONTAINS
   !-----------------------------------------------------------------------
 
   !-----------------------------------------------------------------------
+  SUBROUTINE assign_fields_5d(dst_ptr,src_ptr)
+    REAL(wp),INTENT(inout) :: dst_ptr(:,:,:,:,:)
+    REAL(wp),INTENT(in)    :: src_ptr(:,:,:,:,:)
+    !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+    dst_ptr(:,:,:,:,:) = src_ptr(:,:,:,:,:)
+    !$ACC END KERNELS
+  END SUBROUTINE assign_fields_5d
+
+  SUBROUTINE assign_fields_4d(dst_ptr,src_ptr,var_ref_pos,index)
+    REAL(wp),INTENT(inout) :: dst_ptr(:,:,:,:,:)
+    REAL(wp),INTENT(in)    :: src_ptr(:,:,:,:,:)
+    INTEGER,INTENT(in)     :: var_ref_pos, index
+    
+    SELECT CASE(var_ref_pos)
+    CASE(1)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+        & src_ptr(index:index,:,:,:,:)
+      !$ACC END KERNELS
+    CASE(2)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+        & src_ptr(:,index:index,:,:,:)
+      !$ACC END KERNELS
+    CASE(3)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+        & src_ptr(:,:,index:index,:,:)
+      !$ACC END KERNELS
+    CASE(4)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+        & src_ptr(:,:,:,index:index,:)
+      !$ACC END KERNELS
+    END SELECT
+  END SUBROUTINE assign_fields_4d
+
   SUBROUTINE assign_fields_3d(out_field,field,subset,levels,has_missvals, missval)
     REAL(wp),INTENT(inout)          :: out_field(:,:,:)
     REAL(wp),INTENT(in)             :: field(:,:,:)
@@ -2072,9 +2131,10 @@ CONTAINS
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
     DO block = subset%start_block, subset%end_block
       CALL get_index_range(subset, block, start_index, end_index)
-      DO idx = start_index, end_index
-        DO level = 1, mylevels
-        out_field(idx,level,block) = MERGE(my_miss, &
+      !$ACC PARALLEL LOOP DEFAULT(PRESENT) GANG VECTOR COLLAPSE(2) IF( i_am_accel_node )
+      DO level = 1, mylevels
+        DO idx = start_index, end_index
+          out_field(idx,level,block) = MERGE(my_miss, &
                                         &  field(idx,level,block), &
                                         &  my_has_missvals .AND. (field(idx,level,block) == my_miss))
         END DO
@@ -2103,6 +2163,7 @@ CONTAINS
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
     DO jb = subset%start_block, subset%end_block
       CALL get_index_range(subset, jb, start_index, end_index)
+      !$ACC PARALLEL LOOP DEFAULT(PRESENT) GANG VECTOR IF( i_am_accel_node )
       DO jc = start_index, end_index
         out_field(jc,jb) = MERGE(my_miss, field(jc,jb), my_has_missvals .AND. (field(jc,jb) == my_miss))
       END DO
@@ -2127,6 +2188,7 @@ CONTAINS
     CALL assign_if_present(my_miss, missval)
 
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
+    !$ACC PARALLEL LOOP DEFAULT(PRESENT) GANG VECTOR COLLAPSE(2) IF( i_am_accel_node )
     DO jb = LBOUND(field,2),UBOUND(field,2)
       DO jc = LBOUND(field,1),UBOUND(field,1)
         out_field(jc,jb) = MERGE(my_miss, field(jc,jb), my_has_missvals .AND. (field(jc,jb) == my_miss))
@@ -2134,6 +2196,44 @@ CONTAINS
     END DO
 !ICON_OMP_END_PARALLEL_DO
   END SUBROUTINE assign_fields_2d_nosubset
+
+  SUBROUTINE assign_fields_5d_sp(dst_ptr,src_ptr)
+    REAL(wp),INTENT(inout) :: dst_ptr(:,:,:,:,:)
+    REAL(sp),INTENT(in)    :: src_ptr(:,:,:,:,:)
+    !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+    dst_ptr(:,:,:,:,:) = src_ptr(:,:,:,:,:)
+    !$ACC END KERNELS
+  END SUBROUTINE assign_fields_5d_sp
+
+  SUBROUTINE assign_fields_4d_sp(dst_ptr,src_ptr,var_ref_pos,index)
+    REAL(wp),INTENT(inout) :: dst_ptr(:,:,:,:,:)
+    REAL(sp),INTENT(in)    :: src_ptr(:,:,:,:,:)
+    INTEGER,INTENT(in)     :: var_ref_pos, index
+    
+    SELECT CASE(var_ref_pos)
+    CASE(1)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+        & src_ptr(index:index,:,:,:,:)
+      !$ACC END KERNELS
+    CASE(2)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+        & src_ptr(:,index:index,:,:,:)
+      !$ACC END KERNELS
+    CASE(3)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+        & src_ptr(:,:,index:index,:,:)
+      !$ACC END KERNELS
+    CASE(4)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+        & src_ptr(:,:,:,index:index,:)
+      !$ACC END KERNELS
+    END SELECT
+  END SUBROUTINE assign_fields_4d_sp
+
 
   SUBROUTINE assign_fields_3d_sp(out_field,field,subset,levels,has_missvals, missval)
     REAL(wp),INTENT(inout)          :: out_field(:,:,:)
@@ -2161,9 +2261,10 @@ CONTAINS
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
     DO block = subset%start_block, subset%end_block
       CALL get_index_range(subset, block, start_index, end_index)
-      DO idx = start_index, end_index
-        DO level = 1, mylevels
-        out_field(idx,level,block) = MERGE(my_miss, &
+      !$ACC PARALLEL LOOP DEFAULT(PRESENT) GANG VECTOR COLLAPSE(2) IF( i_am_accel_node )
+      DO level = 1, mylevels
+        DO idx = start_index, end_index
+          out_field(idx,level,block) = MERGE(my_miss, &
                                         &  REAL(field(idx,level,block),wp), &
                                         &  my_has_missvals .AND. (REAL(field(idx,level,block),wp) == my_miss))
         END DO
@@ -2192,6 +2293,7 @@ CONTAINS
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
     DO jb = subset%start_block, subset%end_block
       CALL get_index_range(subset, jb, start_index, end_index)
+      !$ACC PARALLEL LOOP DEFAULT(PRESENT) GANG VECTOR IF( i_am_accel_node )
       DO jc = start_index, end_index
         out_field(jc,jb) = MERGE(my_miss, REAL(field(jc,jb),wp), &
           & my_has_missvals .AND. (REAL(field(jc,jb),wp) == my_miss))
@@ -2217,6 +2319,7 @@ CONTAINS
     CALL assign_if_present(my_miss, missval)
 
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
+    !$ACC PARALLEL LOOP DEFAULT(PRESENT) GANG VECTOR COLLAPSE(2) IF( i_am_accel_node )
     DO jb = LBOUND(field,2),UBOUND(field,2)
       DO jc = LBOUND(field,1),UBOUND(field,1)
         out_field(jc,jb) = MERGE(my_miss, REAL(field(jc,jb),wp), &
@@ -2226,6 +2329,43 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
   END SUBROUTINE assign_fields_2d_nosubset_sp
   !-----------------------------------------------------------------------
+  SUBROUTINE add_fields_5d(dst_ptr,src_ptr)
+    REAL(wp),INTENT(inout) :: dst_ptr(:,:,:,:,:)
+    REAL(wp),INTENT(in)    :: src_ptr(:,:,:,:,:)
+    !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+    dst_ptr(:,:,:,:,:) = dst_ptr (:,:,:,:,:) + src_ptr(:,:,:,:,:)
+    !$ACC END KERNELS
+  END SUBROUTINE add_fields_5d
+
+  SUBROUTINE add_fields_4d(dst_ptr,src_ptr,var_ref_pos,index)
+    REAL(wp),INTENT(inout) :: dst_ptr(:,:,:,:,:)
+    REAL(wp),INTENT(in)    :: src_ptr(:,:,:,:,:)
+    INTEGER,INTENT(in)     :: var_ref_pos, index
+    
+    SELECT CASE(var_ref_pos)
+    CASE(1)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+        & dst_ptr (:,:,:,:,:) + src_ptr(index:index,:,:,:,:)
+      !$ACC END KERNELS
+    CASE(2)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+        & dst_ptr (:,:,:,:,:) + src_ptr(:,index:index,:,:,:)
+      !$ACC END KERNELS
+    CASE(3)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+        & dst_ptr (:,:,:,:,:) + src_ptr(:,:,index:index,:,:)
+      !$ACC END KERNELS
+    CASE(4)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+        & dst_ptr (:,:,:,:,:) + src_ptr(:,:,:,index:index,:)
+      !$ACC END KERNELS
+    END SELECT
+  END SUBROUTINE add_fields_4d
+
   SUBROUTINE add_fields_3d(sum_field,field,subset,levels,has_missvals, missval)
     REAL(wp),INTENT(inout)          :: sum_field(:,:,:)
     REAL(wp),INTENT(in)             :: field(:,:,:)
@@ -2252,9 +2392,10 @@ CONTAINS
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
     DO block = subset%start_block, subset%end_block
       CALL get_index_range(subset, block, start_index, end_index)
-      DO idx = start_index, end_index
-        DO level = 1, mylevels
-        sum_field(idx,level,block) = MERGE(my_miss, &
+      !$ACC PARALLEL LOOP PRESENT(sum_field, field) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( i_am_accel_node )
+      DO level = 1, mylevels
+        DO idx = start_index, end_index
+          sum_field(idx,level,block) = MERGE(my_miss, &
                                         & sum_field(idx,level,block) + field(idx,level,block), &
                                         & my_has_missvals .AND. (field(idx,level,block) == my_miss))
         END DO
@@ -2284,6 +2425,7 @@ CONTAINS
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
     DO jb = subset%start_block, subset%end_block
       CALL get_index_range(subset, jb, start_index, end_index)
+      !$ACC PARALLEL LOOP PRESENT(sum_field, field) GANG VECTOR ASYNC(1) IF( i_am_accel_node )
       DO jc = start_index, end_index
         sum_field(jc,jb) = MERGE(my_miss, sum_field(jc,jb) + field(jc,jb), my_has_missvals .AND. (field(jc,jb) == my_miss))
       END DO
@@ -2308,6 +2450,7 @@ CONTAINS
     CALL assign_if_present(my_miss, missval)
 
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
+    !$ACC PARALLEL LOOP PRESENT(sum_field, field) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( i_am_accel_node )
     DO jb = LBOUND(field,2),UBOUND(field,2)
       DO jc = LBOUND(field,1),UBOUND(field,1)
         sum_field(jc,jb) = MERGE(my_miss, sum_field(jc,jb) + field(jc,jb), my_has_missvals .AND. (field(jc,jb) == my_miss))
@@ -2315,6 +2458,44 @@ CONTAINS
     END DO
 !ICON_OMP_END_PARALLEL_DO
   END SUBROUTINE add_fields_2d_nosubset
+  
+
+  SUBROUTINE add_fields_5d_sp(dst_ptr,src_ptr)
+    REAL(wp),INTENT(inout) :: dst_ptr(:,:,:,:,:)
+    REAL(sp),INTENT(in)    :: src_ptr(:,:,:,:,:)
+    !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+    dst_ptr(:,:,:,:,:) = dst_ptr (:,:,:,:,:) + REAL(src_ptr(:,:,:,:,:),wp)
+    !$ACC END KERNELS
+  END SUBROUTINE add_fields_5d_sp
+
+  SUBROUTINE add_fields_4d_sp(dst_ptr,src_ptr,var_ref_pos,index)
+    REAL(wp),INTENT(inout) :: dst_ptr(:,:,:,:,:)
+    REAL(sp),INTENT(in)    :: src_ptr(:,:,:,:,:)
+    INTEGER,INTENT(in)     :: var_ref_pos, index
+    
+    SELECT CASE(var_ref_pos)
+    CASE(1)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+        & dst_ptr (:,:,:,:,:) + REAL(src_ptr(index:index,:,:,:,:),wp)
+      !$ACC END KERNELS
+    CASE(2)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+        & dst_ptr (:,:,:,:,:) + REAL(src_ptr(:,index:index,:,:,:),wp)
+      !$ACC END KERNELS
+    CASE(3)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+        & dst_ptr (:,:,:,:,:) + REAL(src_ptr(:,:,index:index,:,:),wp)
+      !$ACC END KERNELS
+    CASE(4)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+        & dst_ptr (:,:,:,:,:) + REAL(src_ptr(:,:,:,index:index,:),wp)
+      !$ACC END KERNELS
+    END SELECT
+  END SUBROUTINE add_fields_4d_sp
 
   SUBROUTINE add_fields_3d_sp(sum_field,field,subset,levels,has_missvals, missval)
     REAL(wp),INTENT(inout)          :: sum_field(:,:,:)
@@ -2342,8 +2523,9 @@ CONTAINS
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
       DO block = subset%start_block, subset%end_block
         CALL get_index_range(subset, block, start_index, end_index)
-        DO idx = start_index, end_index
-          DO level = 1, mylevels
+        !$ACC PARALLEL LOOP PRESENT(sum_field, field) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( i_am_accel_node )
+        DO level = 1, mylevels
+          DO idx = start_index, end_index
             sum_field(idx,level,block) = MERGE(my_miss, &
                                              & sum_field(idx,level,block) + REAL(field(idx,level,block),wp), &
                                              & my_has_missvals .AND. (field(idx,level,block) == REAL(my_miss,sp)))
@@ -2374,6 +2556,7 @@ CONTAINS
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
     DO jb = subset%start_block, subset%end_block
       CALL get_index_range(subset, jb, start_index, end_index)
+      !$ACC PARALLEL LOOP PRESENT(sum_field, field) GANG VECTOR ASYNC(1) IF( i_am_accel_node )
       DO jc = start_index, end_index
         sum_field(jc,jb) = MERGE(my_miss, &
                                & sum_field(jc,jb) + REAL(field(jc,jb),wp), &
@@ -2399,6 +2582,7 @@ CONTAINS
     CALL assign_if_present(my_miss, missval)
     
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
+    !$ACC PARALLEL LOOP PRESENT(sum_field, field) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( i_am_accel_node )
     DO jb = LBOUND(field,2),UBOUND(field,2)
       DO jc = LBOUND(field,1),UBOUND(field,1)
         sum_field(jc,jb) = MERGE(my_miss, &
@@ -2408,7 +2592,44 @@ CONTAINS
     END DO
 !ICON_OMP_END_PARALLEL_DO
   END SUBROUTINE add_fields_2d_nosubset_sp
+  !-----------------------------------------------------------------------
 
+  SUBROUTINE add_sqr_fields_5d(dst_ptr,src_ptr)
+    REAL(wp),INTENT(inout) :: dst_ptr(:,:,:,:,:)
+    REAL(wp),INTENT(in)    :: src_ptr(:,:,:,:,:)
+    !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+    dst_ptr(:,:,:,:,:) = dst_ptr (:,:,:,:,:) + src_ptr(:,:,:,:,:)**2
+    !$ACC END KERNELS
+  END SUBROUTINE add_sqr_fields_5d
+
+  SUBROUTINE add_sqr_fields_4d(dst_ptr,src_ptr,var_ref_pos,index)
+    REAL(wp),INTENT(inout) :: dst_ptr(:,:,:,:,:)
+    REAL(wp),INTENT(in)    :: src_ptr(:,:,:,:,:)
+    INTEGER,INTENT(in)     :: var_ref_pos, index
+    
+    SELECT CASE(var_ref_pos)
+    CASE(1)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+        & dst_ptr (:,:,:,:,:) + src_ptr(index:index,:,:,:,:)**2
+      !$ACC END KERNELS
+    CASE(2)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+        & dst_ptr (:,:,:,:,:) + src_ptr(:,index:index,:,:,:)**2
+      !$ACC END KERNELS
+    CASE(3)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+        & dst_ptr (:,:,:,:,:) + src_ptr(:,:,index:index,:,:)**2
+      !$ACC END KERNELS
+    CASE(4)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+        & dst_ptr (:,:,:,:,:) + src_ptr(:,:,:,index:index,:)**2
+      !$ACC END KERNELS
+    END SELECT
+  END SUBROUTINE add_sqr_fields_4d
 
   SUBROUTINE add_sqr_fields_3d(sum_field,field,subset,levels,has_missvals, missval)
     REAL(wp),INTENT(inout)          :: sum_field(:,:,:)
@@ -2436,9 +2657,10 @@ CONTAINS
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
     DO block = subset%start_block, subset%end_block
       CALL get_index_range(subset, block, start_index, end_index)
-      DO idx = start_index, end_index
-        DO level = 1, mylevels
-        sum_field(idx,level,block) = MERGE(my_miss, &
+      !$ACC PARALLEL LOOP PRESENT(sum_field, field) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( i_am_accel_node )
+      DO level = 1, mylevels
+        DO idx = start_index, end_index
+          sum_field(idx,level,block) = MERGE(my_miss, &
                                         & sum_field(idx,level,block) + field(idx,level,block)**2, &
                                         & my_has_missvals .AND. (field(idx,level,block) == my_miss))
         END DO
@@ -2468,6 +2690,7 @@ CONTAINS
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
     DO jb = subset%start_block, subset%end_block
       CALL get_index_range(subset, jb, start_index, end_index)
+      !$ACC PARALLEL LOOP PRESENT(sum_field, field) GANG VECTOR ASYNC(1) IF( i_am_accel_node )
       DO jc = start_index, end_index
         sum_field(jc,jb) = MERGE(my_miss, sum_field(jc,jb) + field(jc,jb)**2, my_has_missvals .AND. (field(jc,jb) == my_miss))
       END DO
@@ -2492,6 +2715,7 @@ CONTAINS
     CALL assign_if_present(my_miss, missval)
 
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
+    !$ACC PARALLEL LOOP PRESENT(sum_field, field) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( i_am_accel_node )
     DO jb = LBOUND(field,2),UBOUND(field,2)
       DO jc = LBOUND(field,1),UBOUND(field,1)
         sum_field(jc,jb) = MERGE(my_miss, sum_field(jc,jb) + field(jc,jb)**2, my_has_missvals .AND. (field(jc,jb) == my_miss))
@@ -2500,6 +2724,43 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
   END SUBROUTINE add_sqr_fields_2d_nosubset
   !-----------------------------------------------------------------------
+
+  SUBROUTINE add_sqr_fields_5d_sp(dst_ptr,src_ptr)
+    REAL(wp),INTENT(inout) :: dst_ptr(:,:,:,:,:)
+    REAL(sp),INTENT(in)    :: src_ptr(:,:,:,:,:)
+    !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+    dst_ptr(:,:,:,:,:) = dst_ptr (:,:,:,:,:) + REAL(src_ptr(:,:,:,:,:),wp)**2
+    !$ACC END KERNELS
+  END SUBROUTINE add_sqr_fields_5d_sp
+
+  SUBROUTINE add_sqr_fields_4d_sp(dst_ptr,src_ptr,var_ref_pos,index)
+    REAL(wp),INTENT(inout) :: dst_ptr(:,:,:,:,:)
+    REAL(sp),INTENT(in)    :: src_ptr(:,:,:,:,:)
+    INTEGER,INTENT(in)     :: var_ref_pos, index
+    
+    SELECT CASE(var_ref_pos)
+    CASE(1)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+        & dst_ptr (:,:,:,:,:) + REAL(src_ptr(index:index,:,:,:,:),wp)**2
+      !$ACC END KERNELS
+    CASE(2)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+        & dst_ptr (:,:,:,:,:) + REAL(src_ptr(:,index:index,:,:,:),wp)**2
+      !$ACC END KERNELS
+    CASE(3)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+        & dst_ptr (:,:,:,:,:) + REAL(src_ptr(:,:,index:index,:,:),wp)**2
+      !$ACC END KERNELS
+    CASE(4)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+        & dst_ptr (:,:,:,:,:) + REAL(src_ptr(:,:,:,index:index,:),wp)**2
+      !$ACC END KERNELS
+    END SELECT
+  END SUBROUTINE add_sqr_fields_4d_sp
 
   SUBROUTINE add_sqr_fields_3d_sp(sum_field,field,subset,levels,has_missvals, missval)
     REAL(wp),INTENT(inout)          :: sum_field(:,:,:)
@@ -2527,9 +2788,10 @@ CONTAINS
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
     DO block = subset%start_block, subset%end_block
       CALL get_index_range(subset, block, start_index, end_index)
-      DO idx = start_index, end_index
-        DO level = 1, mylevels
-        sum_field(idx,level,block) = MERGE(my_miss, &
+      !$ACC PARALLEL LOOP PRESENT(sum_field, field) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( i_am_accel_node )
+      DO level = 1, mylevels
+        DO idx = start_index, end_index
+          sum_field(idx,level,block) = MERGE(my_miss, &
                                         & sum_field(idx,level,block) + REAL(field(idx,level,block),wp)**2, &
                                         & my_has_missvals .AND. (REAL(field(idx,level,block),wp) == my_miss))
         END DO
@@ -2559,6 +2821,7 @@ CONTAINS
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
     DO jb = subset%start_block, subset%end_block
       CALL get_index_range(subset, jb, start_index, end_index)
+      !$ACC PARALLEL LOOP PRESENT(sum_field, field) GANG VECTOR ASYNC(1) IF( i_am_accel_node )
       DO jc = start_index, end_index
         sum_field(jc,jb) = MERGE(my_miss, sum_field(jc,jb) + REAL(field(jc,jb),wp)**2, &
             & my_has_missvals .AND. (REAL(field(jc,jb),wp) == my_miss))
@@ -2584,6 +2847,7 @@ CONTAINS
     CALL assign_if_present(my_miss, missval)
 
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
+    !$ACC PARALLEL LOOP PRESENT(sum_field, field) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( i_am_accel_node )
     DO jb = LBOUND(field,2),UBOUND(field,2)
       DO jc = LBOUND(field,1),UBOUND(field,1)
         sum_field(jc,jb) = MERGE(my_miss, sum_field(jc,jb) + REAL(field(jc,jb),wp)**2, &
@@ -2702,7 +2966,7 @@ CONTAINS
         DO idx = start_index, end_index
           vint_field(idx,block) = 0.0_wp
           DO level = 1, subset%vertical_levels(idx,block)
-            vint_field(idx,block) = vint_field(idx,block) + field_3D(idx,level,block) 
+            vint_field(idx,block) = vint_field(idx,block) + field_3D(idx,level,block)
           END DO
         END DO
       END DO
@@ -2718,7 +2982,7 @@ CONTAINS
         DO idx = start_index, end_index
            vint_field(idx,block) = 0.0_wp
            DO level = 1, mylevels
-            vint_field(idx,block) = vint_field(idx,block) + field_3D(idx,level,block) 
+            vint_field(idx,block) = vint_field(idx,block) + field_3D(idx,level,block)
           END DO
         END DO
       END DO
@@ -2771,6 +3035,54 @@ CONTAINS
   END SUBROUTINE add_verticalSum_field
   !-----------------------------------------------------------------------
 
+  SUBROUTINE max_fields_5d(dst_ptr,src_ptr)
+    REAL(wp),INTENT(inout) :: dst_ptr(:,:,:,:,:)
+    REAL(wp),INTENT(in)    :: src_ptr(:,:,:,:,:)
+    !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+    dst_ptr(:,:,:,:,:) = &
+      & MERGE(dst_ptr(:,:,:,:,:), &
+      &       src_ptr(:,:,:,:,:), &
+      &       dst_ptr(:,:,:,:,:).gt.src_ptr(:,:,:,:,:))
+    !$ACC END KERNELS
+  END SUBROUTINE max_fields_5d
+
+  SUBROUTINE max_fields_4d(dst_ptr,src_ptr,var_ref_pos,index)
+    REAL(wp),INTENT(inout) :: dst_ptr(:,:,:,:,:)
+    REAL(wp),INTENT(in)    :: src_ptr(:,:,:,:,:)
+    INTEGER,INTENT(in)     :: var_ref_pos, index
+    
+    SELECT CASE(var_ref_pos)
+    CASE(1)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+      & MERGE(dst_ptr(:,:,:,:,:), &
+      &       src_ptr(index:index,:,:,:,:), &
+      &       dst_ptr(:,:,:,:,:).gt.src_ptr(index:index,:,:,:,:))
+      !$ACC END KERNELS
+    CASE(2)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+      & MERGE(dst_ptr(:,:,:,:,:), &
+      &       src_ptr(:,index:index,:,:,:), &
+      &       dst_ptr(:,:,:,:,:).gt.src_ptr(:,index:index,:,:,:))
+      !$ACC END KERNELS
+    CASE(3)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+      & MERGE(dst_ptr(:,:,:,:,:), &
+      &       src_ptr(:,:,index:index,:,:), &
+      &       dst_ptr(:,:,:,:,:).gt.src_ptr(:,:,index:index,:,:))
+      !$ACC END KERNELS
+    CASE(4)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+      & MERGE(dst_ptr(:,:,:,:,:), &
+      &       src_ptr(:,:,:,index:index,:), &
+      &       dst_ptr(:,:,:,:,:).gt.src_ptr(:,:,:,index:index,:))
+      !$ACC END KERNELS
+    END SELECT
+  END SUBROUTINE max_fields_4d
+
   ! routine for computing max of two fields ------------------------------
   SUBROUTINE max_fields_2d(max_field,field,subset,has_missvals, missval)
     REAL(wp),INTENT(inout)          :: max_field(:,:)
@@ -2792,6 +3104,7 @@ CONTAINS
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
     DO jb = subset%start_block, subset%end_block
       CALL get_index_range(subset, jb, start_index, end_index)
+      !$ACC PARALLEL LOOP PRESENT(max_field, field) GANG VECTOR ASYNC(1) IF( i_am_accel_node )
       DO jc = start_index, end_index
         max_field(jc,jb) = MERGE(my_miss, &
             &                    MERGE(max_field(jc,jb), &
@@ -2819,6 +3132,7 @@ CONTAINS
     CALL assign_if_present(my_miss, missval)
 
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
+    !$ACC PARALLEL LOOP PRESENT(max_field, field) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( i_am_accel_node )
     DO jb = LBOUND(field,2),UBOUND(field,2)
       DO jc = LBOUND(field,1),UBOUND(field,1)
         max_field(jc,jb) = MERGE(my_miss, &
@@ -2856,8 +3170,9 @@ CONTAINS
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
       DO block = subset%start_block, subset%end_block
         CALL get_index_range(subset, block, start_index, end_index)
-        DO idx = start_index, end_index
-          DO level = 1, mylevels
+        !$ACC PARALLEL LOOP PRESENT(max_field, field) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( i_am_accel_node )
+        DO level = 1, mylevels
+          DO idx = start_index, end_index
             max_field(idx,level,block) = MERGE(my_miss, &
                                           &    MERGE(max_field(idx,level,block), &
                                           &          field(idx,level,block), &
@@ -2869,6 +3184,55 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
 
   END SUBROUTINE max_fields_3d
+
+  SUBROUTINE max_fields_5d_sp(dst_ptr,src_ptr)
+    REAL(wp),INTENT(inout) :: dst_ptr(:,:,:,:,:)
+    REAL(sp),INTENT(in)    :: src_ptr(:,:,:,:,:)
+    !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+    dst_ptr(:,:,:,:,:) = &
+      & MERGE(dst_ptr(:,:,:,:,:), &
+      &       REAL(src_ptr(:,:,:,:,:),wp), &
+      &       dst_ptr(:,:,:,:,:).gt.REAL(src_ptr(:,:,:,:,:),wp))
+    !$ACC END KERNELS
+  END SUBROUTINE max_fields_5d_sp
+
+  SUBROUTINE max_fields_4d_sp(dst_ptr,src_ptr,var_ref_pos,index)
+    REAL(wp),INTENT(inout) :: dst_ptr(:,:,:,:,:)
+    REAL(sp),INTENT(in)    :: src_ptr(:,:,:,:,:)
+    INTEGER,INTENT(in)     :: var_ref_pos, index
+    
+    SELECT CASE(var_ref_pos)
+    CASE(1)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+      & MERGE(dst_ptr(:,:,:,:,:), &
+      &       REAL(src_ptr(index:index,:,:,:,:),wp), &
+      &       dst_ptr(:,:,:,:,:).gt.REAL(src_ptr(index:index,:,:,:,:),wp))
+      !$ACC END KERNELS
+    CASE(2)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+      & MERGE(dst_ptr(:,:,:,:,:), &
+      &       REAL(src_ptr(:,index:index,:,:,:),wp), &
+      &       dst_ptr(:,:,:,:,:).gt.REAL(src_ptr(:,index:index,:,:,:),wp))
+      !$ACC END KERNELS
+    CASE(3)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+      & MERGE(dst_ptr(:,:,:,:,:), &
+      &       REAL(src_ptr(:,:,index:index,:,:),wp), &
+      &       dst_ptr(:,:,:,:,:).gt.REAL(src_ptr(:,:,index:index,:,:),wp))
+      !$ACC END KERNELS
+    CASE(4)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+      & MERGE(dst_ptr(:,:,:,:,:), &
+      &       REAL(src_ptr(:,:,:,index:index,:),wp), &
+      &       dst_ptr(:,:,:,:,:).gt.REAL(src_ptr(:,:,:,index:index,:),wp))
+      !$ACC END KERNELS
+    END SELECT
+  END SUBROUTINE max_fields_4d_sp
+
   ! routine for computing max of two fields ------------------------------
   SUBROUTINE max_fields_2d_sp(max_field,field,subset,has_missvals, missval)
     REAL(wp),INTENT(inout)          :: max_field(:,:)
@@ -2890,6 +3254,7 @@ CONTAINS
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
     DO jb = subset%start_block, subset%end_block
       CALL get_index_range(subset, jb, start_index, end_index)
+      !$ACC PARALLEL LOOP PRESENT(max_field, field) GANG VECTOR ASYNC(1) IF( i_am_accel_node )
       DO jc = start_index, end_index
         max_field(jc,jb) = MERGE(my_miss, &
             &                    MERGE(max_field(jc,jb), &
@@ -2917,6 +3282,7 @@ CONTAINS
     CALL assign_if_present(my_miss, missval)
 
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
+    !$ACC PARALLEL LOOP PRESENT(max_field, field) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( i_am_accel_node )
     DO jb = LBOUND(field,2),UBOUND(field,2)
       DO jc = LBOUND(field,1),UBOUND(field,1)
         max_field(jc,jb) = MERGE(my_miss, &
@@ -2954,8 +3320,9 @@ CONTAINS
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
       DO block = subset%start_block, subset%end_block
         CALL get_index_range(subset, block, start_index, end_index)
-        DO idx = start_index, end_index
-          DO level = 1, mylevels
+        !$ACC PARALLEL LOOP PRESENT(max_field, field) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( i_am_accel_node )
+        DO level = 1, mylevels
+          DO idx = start_index, end_index
             max_field(idx,level,block) = MERGE(my_miss, &
                                           &    MERGE(max_field(idx,level,block), &
                                           &          REAL(field(idx,level,block),wp), &
@@ -2967,6 +3334,56 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
 
   END SUBROUTINE max_fields_3d_sp
+
+  
+  SUBROUTINE min_fields_5d(dst_ptr,src_ptr)
+    REAL(wp),INTENT(inout) :: dst_ptr(:,:,:,:,:)
+    REAL(wp),INTENT(in)    :: src_ptr(:,:,:,:,:)
+    !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+    dst_ptr(:,:,:,:,:) = &
+      & MERGE(dst_ptr(:,:,:,:,:), &
+      &       src_ptr(:,:,:,:,:), &
+      &       dst_ptr(:,:,:,:,:).lt.src_ptr(:,:,:,:,:))
+    !$ACC END KERNELS
+  END SUBROUTINE min_fields_5d
+
+  SUBROUTINE min_fields_4d(dst_ptr,src_ptr,var_ref_pos,index)
+    REAL(wp),INTENT(inout) :: dst_ptr(:,:,:,:,:)
+    REAL(wp),INTENT(in)    :: src_ptr(:,:,:,:,:)
+    INTEGER,INTENT(in)     :: var_ref_pos, index
+    
+    SELECT CASE(var_ref_pos)
+    CASE(1)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+      & MERGE(dst_ptr(:,:,:,:,:), &
+      &       src_ptr(index:index,:,:,:,:), &
+      &       dst_ptr(:,:,:,:,:).lt.src_ptr(index:index,:,:,:,:))
+      !$ACC END KERNELS
+    CASE(2)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+      & MERGE(dst_ptr(:,:,:,:,:), &
+      &       src_ptr(:,index:index,:,:,:), &
+      &       dst_ptr(:,:,:,:,:).lt.src_ptr(:,index:index,:,:,:))
+      !$ACC END KERNELS
+    CASE(3)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+      & MERGE(dst_ptr(:,:,:,:,:), &
+      &       src_ptr(:,:,index:index,:,:), &
+      &       dst_ptr(:,:,:,:,:).lt.src_ptr(:,:,index:index,:,:))
+      !$ACC END KERNELS
+    CASE(4)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+      & MERGE(dst_ptr(:,:,:,:,:), &
+      &       src_ptr(:,:,:,index:index,:), &
+      &       dst_ptr(:,:,:,:,:).lt.src_ptr(:,:,:,index:index,:))
+      !$ACC END KERNELS
+    END SELECT
+  END SUBROUTINE min_fields_4d
+
   ! routines for computing min of two fields ------------------------------
   SUBROUTINE min_fields_2d(min_field,field,subset,has_missvals, missval)
     REAL(wp),INTENT(inout)          :: min_field(:,:)
@@ -2988,6 +3405,7 @@ CONTAINS
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
     DO jb = subset%start_block, subset%end_block
       CALL get_index_range(subset, jb, start_index, end_index)
+      !$ACC PARALLEL LOOP PRESENT(min_field, field) GANG VECTOR ASYNC(1) IF( i_am_accel_node )
       DO jc = start_index, end_index
         min_field(jc,jb) = MERGE(my_miss, &
             &                    MERGE(min_field(jc,jb), &
@@ -3015,6 +3433,7 @@ CONTAINS
     CALL assign_if_present(my_miss, missval)
 
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
+    !$ACC PARALLEL LOOP PRESENT(min_field, field) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( i_am_accel_node )
     DO jb = LBOUND(field,2),UBOUND(field,2)
       DO jc = LBOUND(field,1),UBOUND(field,1)
         min_field(jc,jb) = MERGE(my_miss, &
@@ -3026,7 +3445,6 @@ CONTAINS
     END DO
 !ICON_OMP_END_PARALLEL_DO
   END SUBROUTINE min_fields_2d_nosubset
-  
   
   SUBROUTINE min_fields_3d(min_field,field,subset,levels,has_missvals, missval)
     REAL(wp),INTENT(inout)          :: min_field(:,:,:)
@@ -3054,8 +3472,9 @@ CONTAINS
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
       DO block = subset%start_block, subset%end_block
         CALL get_index_range(subset, block, start_index, end_index)
-        DO idx = start_index, end_index
-          DO level = 1, mylevels
+        !$ACC PARALLEL LOOP PRESENT(min_field, field) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( i_am_accel_node )
+        DO level = 1, mylevels
+          DO idx = start_index, end_index
             min_field(idx,level,block) = MERGE(my_miss, &
                                           &    MERGE(min_field(idx,level,block), &
                                           &          field(idx,level,block), &
@@ -3066,6 +3485,55 @@ CONTAINS
       END DO
 !ICON_OMP_END_PARALLEL_DO
   END SUBROUTINE min_fields_3d
+
+  SUBROUTINE min_fields_5d_sp(dst_ptr,src_ptr)
+    REAL(wp),INTENT(inout) :: dst_ptr(:,:,:,:,:)
+    REAL(sp),INTENT(in)    :: src_ptr(:,:,:,:,:)
+    !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+    dst_ptr(:,:,:,:,:) = &
+      & MERGE(dst_ptr(:,:,:,:,:), &
+      &       REAL(src_ptr(:,:,:,:,:),wp), &
+      &       dst_ptr(:,:,:,:,:).lt.REAL(src_ptr(:,:,:,:,:),wp))
+    !$ACC END KERNELS
+  END SUBROUTINE min_fields_5d_sp
+
+  SUBROUTINE min_fields_4d_sp(dst_ptr,src_ptr,var_ref_pos,index)
+    REAL(wp),INTENT(inout) :: dst_ptr(:,:,:,:,:)
+    REAL(sp),INTENT(in)    :: src_ptr(:,:,:,:,:)
+    INTEGER,INTENT(in)     :: var_ref_pos, index
+    
+    SELECT CASE(var_ref_pos)
+    CASE(1)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+      & MERGE(dst_ptr(:,:,:,:,:), &
+      &       REAL(src_ptr(index:index,:,:,:,:),wp), &
+      &       dst_ptr(:,:,:,:,:).lt.REAL(src_ptr(index:index,:,:,:,:),wp))
+      !$ACC END KERNELS
+    CASE(2)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+      & MERGE(dst_ptr(:,:,:,:,:), &
+      &       REAL(src_ptr(:,index:index,:,:,:),wp), &
+      &       dst_ptr(:,:,:,:,:).lt.REAL(src_ptr(:,index:index,:,:,:),wp))
+      !$ACC END KERNELS
+    CASE(3)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+      & MERGE(dst_ptr(:,:,:,:,:), &
+      &       REAL(src_ptr(:,:,index:index,:,:),wp), &
+      &       dst_ptr(:,:,:,:,:).lt.REAL(src_ptr(:,:,index:index,:,:),wp))
+      !$ACC END KERNELS
+    CASE(4)
+      !$ACC KERNELS ASYNC(1) PRESENT( dst_ptr, src_ptr ) IF (i_am_accel_node)
+      dst_ptr(:,:,:,:,:) = &
+      & MERGE(dst_ptr(:,:,:,:,:), &
+      &       REAL(src_ptr(:,:,:,index:index,:),wp), &
+      &       dst_ptr(:,:,:,:,:).lt.REAL(src_ptr(:,:,:,index:index,:),wp))
+      !$ACC END KERNELS
+    END SELECT
+  END SUBROUTINE min_fields_4d_sp
+
   SUBROUTINE min_fields_2d_sp(min_field,field,subset,has_missvals, missval)
     REAL(wp),INTENT(inout)          :: min_field(:,:)
     REAL(sp),INTENT(in)             :: field(:,:)
@@ -3086,6 +3554,7 @@ CONTAINS
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
     DO jb = subset%start_block, subset%end_block
       CALL get_index_range(subset, jb, start_index, end_index)
+      !$ACC PARALLEL LOOP PRESENT(min_field, field) GANG VECTOR ASYNC(1) IF( i_am_accel_node )
       DO jc = start_index, end_index
         min_field(jc,jb) = MERGE(my_miss, &
             &                    MERGE(min_field(jc,jb), &
@@ -3113,6 +3582,7 @@ CONTAINS
     CALL assign_if_present(my_miss, missval)
 
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
+    !$ACC PARALLEL LOOP PRESENT(min_field, field) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( i_am_accel_node )
     DO jb = LBOUND(field,2),UBOUND(field,2)
       DO jc = LBOUND(field,1),UBOUND(field,1)
         min_field(jc,jb) = MERGE(my_miss, &
@@ -3150,8 +3620,9 @@ CONTAINS
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
       DO block = subset%start_block, subset%end_block
         CALL get_index_range(subset, block, start_index, end_index)
-        DO idx = start_index, end_index
-          DO level = 1, mylevels
+        !$ACC PARALLEL LOOP PRESENT(min_field, field) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( i_am_accel_node )
+        DO level = 1, mylevels
+          DO idx = start_index, end_index
             min_field(idx,level,block) = MERGE(my_miss, &
                                           &    MERGE(min_field(idx,level,block), &
                                           &          REAL(field(idx,level,block),wp), &
@@ -3185,6 +3656,10 @@ CONTAINS
 
     ! Result
     REAL(wp) :: psi_avg_new                   !< updated time average
+
+#ifdef _OPENACC
+    !$acc routine seq
+#endif
 
     !--------------------------------------------------------------------
 

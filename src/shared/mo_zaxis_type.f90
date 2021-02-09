@@ -30,7 +30,8 @@ MODULE mo_zaxis_type
     &               ZAXIS_HYBRID, ZAXIS_HYBRID_HALF, ZAXIS_ISENTROPIC, ZAXIS_ISOTHERM_ZERO,     &
     &               ZAXIS_LAKE_BOTTOM, ZAXIS_MEANSEA, ZAXIS_MIX_LAYER, ZAXIS_PRESSURE,          &
     &               ZAXIS_REFERENCE, ZAXIS_SEDIMENT_BOTTOM_TW, ZAXIS_SURFACE, ZAXIS_TOA,        &
-    &               CDI_UNDEFID
+    &               CDI_UNDEFID, zaxisCreate, zaxisDefLtype
+
 
 
   IMPLICIT NONE
@@ -62,7 +63,7 @@ MODULE mo_zaxis_type
     &   ZA_SEDIMENT_BOTTOM_TW_HALF, ZA_DEPTH_BELOW_SEA, ZA_DEPTH_BELOW_SEA_HALF,        &
     &   ZA_GENERIC_ICE, ZA_OCEAN_SEDIMENT, ZA_PRES_FL_SFC_200, ZA_PRES_FL_200_350,      &
     &   ZA_PRES_FL_350_550, ZA_PRES_FL_SFC_100, ZA_PRES_FL_100_245, ZA_PRES_FL_245_390, &
-    &   ZA_PRES_FL_390_530, ZA_ATMOSPHERE, ZA_HEIGHT_2M_LAYER, ZA_ECHOTOP
+    &   ZA_PRES_FL_390_530, ZA_ATMOSPHERE, ZA_HEIGHT_2M_LAYER, ZA_ECHOTOP, ZA_TROPOPAUSE
 
   !> Derived type holding a the ICON-internal key for a single
   !  vertical axis type. See "t_zaxisTypeList" for details.
@@ -129,6 +130,9 @@ MODULE mo_zaxis_type
 
   TYPE(t_zaxisTypeList) :: zaxisTypeList
 
+  LOGICAL :: l_add_addition_zaxis_types = .FALSE.
+  INTEGER, PUBLIC :: ZAXIS_TROPOPAUSE = CDI_UNDEFID
+
 CONTAINS
 
   !> Comparison operator for two zaxis types.
@@ -148,6 +152,13 @@ CONTAINS
   !
   FUNCTION new_zaxisTypeList()  RESULT(za_list)
     TYPE(t_zaxisTypeList) :: za_list
+
+    IF (l_add_addition_zaxis_types) THEN
+      ZAXIS_TROPOPAUSE = zaxisCreate(ZAXIS_GENERIC, 1)
+      ! WMO GRIB2 code table 4.5: level type TOPOPAUSE = 7
+      CALL zaxisDefLtype(ZAXIS_TROPOPAUSE, 7) 
+      l_add_addition_zaxis_types = .FALSE.
+    ENDIF
 
     za_list%max_icon_zaxis_type = 0
     za_list%list = hashTable_make(list_hashKey, list_equalKeys)
@@ -216,6 +227,7 @@ CONTAINS
     ZA_PRES_FL_390_530         = za_list%register(cdi_zaxis_type=ZAXIS_PRESSURE           , is_2D=.TRUE.)
     ZA_ATMOSPHERE              = za_list%register(cdi_zaxis_type=ZAXIS_ATMOSPHERE         , is_2D=.TRUE.)
     ZA_HEIGHT_2M_LAYER         = za_list%register(cdi_zaxis_type=ZAXIS_HEIGHT             , is_2D=.TRUE.)
+    ZA_TROPOPAUSE              = za_list%register(cdi_zaxis_type=ZAXIS_GENERIC            , is_2D=.TRUE.)    
   END FUNCTION new_zaxisTypeList
 
 

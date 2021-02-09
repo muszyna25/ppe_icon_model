@@ -33,7 +33,7 @@ MODULE mo_opt_diagnostics
   USE mo_model_domain,         ONLY: t_patch, t_subset_range
   USE mo_nonhydro_types,       ONLY: t_nh_diag,t_nh_prog,      &
                                      t_nh_state_lists
-  USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH,           &
+  USE mo_impl_constants,       ONLY: success, max_var_list_name_len,     &
     &                                VINTP_METHOD_QV,                    &
     &                                VINTP_METHOD_PRES,                  &
     &                                VINTP_METHOD_LIN,                   &
@@ -57,7 +57,7 @@ MODULE mo_opt_diagnostics
     &                                new_var_list, delete_var_list, add_var, add_ref
   USE mo_var_list_element,     ONLY: level_type_ml, level_type_pl,                     &
     &                                level_type_hl, level_type_il
-  USE mo_name_list_output_config,ONLY: first_output_name_list, is_variable_in_output
+  USE mo_name_list_output_config, ONLY: is_variable_in_output
   USE mo_io_config,            ONLY: lnetcdf_flt64_output
   USE mo_gribout_config,       ONLY: gribout_config
   USE mo_cf_convention,        ONLY: t_cf_var
@@ -319,7 +319,7 @@ CONTAINS
     p_acc%l_any_m = .FALSE.
 
     ! PROGS {{{
-    p_acc%l_ua_m  = is_variable_in_output(first_output_name_list, var_name="ua_m")
+    p_acc%l_ua_m  = is_variable_in_output(var_name="ua_m")
     p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_ua_m
     IF (p_acc%l_ua_m) THEN
        cf_desc    = t_cf_var('eastward_wind', 'm s-1', 'Zonal wind (time mean)', datatype_flt)
@@ -332,7 +332,7 @@ CONTAINS
                    & in_group=groups("prog_timemean","atmo_timemean") )
     END IF
 
-    p_acc%l_va_m  = is_variable_in_output(first_output_name_list, var_name="va_m")
+    p_acc%l_va_m  = is_variable_in_output(var_name="va_m")
     p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_va_m
     IF (p_acc%l_va_m) THEN
        cf_desc    = t_cf_var('northward_wind', 'm s-1', 'Meridional wind (time mean)', datatype_flt)
@@ -345,7 +345,7 @@ CONTAINS
                    & in_group=groups("prog_timemean","atmo_timemean") )
     END IF
 
-    p_acc%l_wa_m  = is_variable_in_output(first_output_name_list, var_name="wa_m")
+    p_acc%l_wa_m  = is_variable_in_output(var_name="wa_m")
     p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_wa_m
     IF (p_acc%l_wa_m) THEN
        cf_desc    = t_cf_var('upward_air_velocity', 'm s-1', 'Vertical velocity (time mean)', datatype_flt)
@@ -359,7 +359,7 @@ CONTAINS
                    & in_group=groups("prog_timemean","atmo_timemean") )
     END IF
 
-    p_acc%l_rho_m = is_variable_in_output(first_output_name_list, var_name="rho_m")
+    p_acc%l_rho_m = is_variable_in_output(var_name="rho_m")
     p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_rho_m
     IF (p_acc%l_rho_m) THEN
        cf_desc    = t_cf_var('air_density', 'kg m-3', 'density (time mean)', datatype_flt)
@@ -373,7 +373,7 @@ CONTAINS
                    & in_group=groups("prog_timemean","atmo_timemean") )
     END IF
 
-    p_acc%l_ta_m  = is_variable_in_output(first_output_name_list, var_name="ta_m")
+    p_acc%l_ta_m  = is_variable_in_output(var_name="ta_m")
     p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_ta_m
     IF (p_acc%l_ta_m) THEN
        cf_desc    = t_cf_var('air temperature', 'K', 'Temperature', datatype_flt)
@@ -387,7 +387,7 @@ CONTAINS
                    & in_group=groups("prog_timemean","atmo_timemean"))
     END IF
 
-    p_acc%l_ps_m  = is_variable_in_output(first_output_name_list, var_name="ps_m")
+    p_acc%l_ps_m  = is_variable_in_output(var_name="ps_m")
     p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_ps_m
     IF (p_acc%l_ps_m) THEN
        cf_desc    = t_cf_var('surface_air_pressure', 'Pa', 'surface pressure (time mean)', datatype_flt)
@@ -398,7 +398,7 @@ CONTAINS
                    & in_group=groups("prog_timemean","atmo_timemean") )
     END IF
 
-    p_acc%l_psl_m = is_variable_in_output(first_output_name_list, var_name="psl_m")
+    p_acc%l_psl_m = is_variable_in_output(var_name="psl_m")
     p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_psl_m
     IF (p_acc%l_psl_m) THEN
        cf_desc    = t_cf_var('mean sea level pressure', 'Pa',                      &
@@ -410,7 +410,7 @@ CONTAINS
                    & in_group=groups("prog_timemean","atmo_timemean") )
     END IF
 
-    p_acc%l_pfull_m = is_variable_in_output(first_output_name_list, var_name="pfull_m")
+    p_acc%l_pfull_m = is_variable_in_output(var_name="pfull_m")
     p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_pfull_m
     IF (p_acc%l_pfull_m) THEN
        cf_desc    = t_cf_var('air_pressure', 'Pa', 'pressure at full level (time mean)', datatype_flt)
@@ -424,7 +424,7 @@ CONTAINS
                    & in_group=groups("prog_timemean","atmo_timemean") )
     END IF
 
-    p_acc%l_phalf_m = is_variable_in_output(first_output_name_list, var_name="phalf_m")
+    p_acc%l_phalf_m = is_variable_in_output(var_name="phalf_m")
     p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_phalf_m
     IF (p_acc%l_phalf_m) THEN
        cf_desc    = t_cf_var('air_pressure', 'Pa', 'pressure at half level (time mean)', datatype_flt)
@@ -438,7 +438,7 @@ CONTAINS
                    & in_group=groups("prog_timemean","atmo_timemean") )
     END IF
 
-    p_acc%l_wap_m = is_variable_in_output(first_output_name_list, var_name="wap_m")
+    p_acc%l_wap_m = is_variable_in_output(var_name="wap_m")
     p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_wap_m
     IF (p_acc%l_wap_m) THEN
        cf_desc    = t_cf_var('omega', 'Pa/s', 'vertical velocity (time mean)', datatype_flt)
@@ -458,9 +458,9 @@ CONTAINS
     ! TRACERS {{{
     ! support qv,qc,qi because they are always there
     IF (ntracer > 0) THEN
-       p_acc%l_tracer_m = is_variable_in_output(first_output_name_list, var_name="hus_m") .OR. &
-                        & is_variable_in_output(first_output_name_list, var_name="clw_m") .OR. &
-                        & is_variable_in_output(first_output_name_list, var_name="cli_m")
+       p_acc%l_tracer_m = is_variable_in_output(var_name="hus_m") .OR. &
+                        & is_variable_in_output(var_name="clw_m") .OR. &
+                        & is_variable_in_output(var_name="cli_m")
        p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tracer_m
        IF (p_acc%l_tracer_m) THEN
           cf_desc    = t_cf_var('tracer', 'kg kg-1', 'air tracer (time mean)', datatype_flt)
@@ -555,7 +555,7 @@ CONTAINS
     INTEGER :: jt
 
     !WRITE(message_text,'(a,i2)') '(pre ): numberOfAccumulations:',acc%numberOfAccumulations
-    !CALL message('update_opt_nh_acc', TRIM(message_text))
+    !CALL message('update_opt_nh_acc', message_text)
     IF (acc%l_ua_m)    CALL add_fields(acc%u       , nh_diag%u       , subset, levels=levels)
     IF (acc%l_va_m)    CALL add_fields(acc%v       , nh_diag%v       , subset, levels=levels)
     IF (acc%l_wa_m)    CALL add_fields(acc%w       , nh_prog%w       , subset, levels=levels+1)
@@ -583,7 +583,7 @@ CONTAINS
 
     acc%numberOfAccumulations = acc%numberOfAccumulations + 1
     !WRITE(message_text,'(a,i2)') '(post): numberOfAccumulations:',acc%numberOfAccumulations
-    !CALL message('update_opt_nh_acc', TRIM(message_text))
+    !CALL message('update_opt_nh_acc', message_text)
 
   END SUBROUTINE update_opt_acc
 
@@ -655,20 +655,19 @@ CONTAINS
     LOGICAL,              INTENT(IN)   :: l_init_pz
 
     ! local variables
-    CHARACTER(*), PARAMETER :: routine =  &
-      &  TRIM("mo_opt_diagnostics:construct_opt_diag")
+    CHARACTER(*), PARAMETER :: routine = modname//":construct_opt_diag"
     INTEGER                            :: jg, ist
-    CHARACTER(len=MAX_CHAR_LENGTH)     :: listname
+    CHARACTER(len=max_var_list_name_len) :: listname
 
     ! initialize data structure for optional diagnostics
     ALLOCATE(p_nh_opt_diag(n_dom), STAT=ist)
     IF (ist /= SUCCESS) &
-      CALL finish (TRIM(routine), 'Allocation of optional diagnostics failed')
+      CALL finish (routine, 'Allocation of optional diagnostics failed')
 
     DO jg = 1, n_dom
 
       WRITE(listname,'(a,i2.2)') 'nh_state_opt_diag_of_domain_',jg
-      CALL new_var_list( p_nh_opt_diag(jg)%opt_diag_list, TRIM(listname), &
+      CALL new_var_list( p_nh_opt_diag(jg)%opt_diag_list, listname, &
         & patch_id=p_patch(jg)%id, vlevel_type=level_type_ml )
       CALL default_var_list_settings( p_nh_opt_diag(jg)%opt_diag_list,    &
         & lrestart=.FALSE. )
@@ -676,25 +675,25 @@ CONTAINS
       IF (.NOT. l_init_pz) CYCLE
 
       WRITE(listname,'(a,i2.2)') 'nh_state_opt_diag_z_of_domain_',jg
-      CALL new_var_list( p_nh_opt_diag(jg)%opt_diag_list_z, TRIM(listname), &
+      CALL new_var_list( p_nh_opt_diag(jg)%opt_diag_list_z, listname, &
         & patch_id=p_patch(jg)%id, vlevel_type=level_type_hl )
       CALL default_var_list_settings( p_nh_opt_diag(jg)%opt_diag_list_z,    &
         & lrestart=.FALSE. )
 
       WRITE(listname,'(a,i2.2)') 'nh_state_opt_diag_p_of_domain_',jg
-      CALL new_var_list( p_nh_opt_diag(jg)%opt_diag_list_p, TRIM(listname), &
+      CALL new_var_list( p_nh_opt_diag(jg)%opt_diag_list_p, listname, &
         & patch_id=p_patch(jg)%id, vlevel_type=level_type_pl )
       CALL default_var_list_settings( p_nh_opt_diag(jg)%opt_diag_list_p,    &
         & lrestart=.FALSE. )
 
       WRITE(listname,'(a,i2.2)') 'nh_state_opt_diag_i_of_domain_',jg
-      CALL new_var_list( p_nh_opt_diag(jg)%opt_diag_list_i, TRIM(listname), &
+      CALL new_var_list( p_nh_opt_diag(jg)%opt_diag_list_i, listname, &
         & patch_id=p_patch(jg)%id, vlevel_type=level_type_il )
       CALL default_var_list_settings( p_nh_opt_diag(jg)%opt_diag_list_i,    &
         & lrestart=.FALSE. )
 
       WRITE(listname,'(a,i2.2)') 'nh_accumulation_for_ProgAndDiag_of_domain_',jg
-      CALL new_var_list( p_nh_opt_diag(jg)%opt_acc_list, TRIM(listname), &
+      CALL new_var_list( p_nh_opt_diag(jg)%opt_acc_list, listname, &
         & patch_id=p_patch(jg)%id, vlevel_type=level_type_ml )
       CALL default_var_list_settings( p_nh_opt_diag(jg)%opt_acc_list,    &
         & lrestart=.FALSE.,loutput=.TRUE. )
@@ -714,8 +713,7 @@ CONTAINS
   !
   SUBROUTINE destruct_opt_diag()
     ! local variables
-    CHARACTER(*), PARAMETER :: routine =  &
-      &  TRIM("mo_opt_diagnostics:destruct_opt_diag")
+    CHARACTER(*), PARAMETER :: routine = modname//":destruct_opt_diag"
     INTEGER :: jg, ist
 
     DO jg = 1, n_dom
@@ -729,7 +727,7 @@ CONTAINS
     ! Delete optional diagnostics
     DEALLOCATE(p_nh_opt_diag, STAT=ist)
     IF (ist /= SUCCESS) &
-      CALL finish(TRIM(routine),'Deallocation for optional diagnostics failed.')
+      CALL finish(routine,'Deallocation for optional diagnostics failed.')
 
   END SUBROUTINE destruct_opt_diag
 
@@ -744,7 +742,7 @@ CONTAINS
     INTEGER,                   INTENT(IN)    :: nlev
     TYPE(t_vcoeff_lin),        INTENT(INOUT) :: vcoeff_lin
 
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_opt_diagnostics:vcoeff_lin_allocate")
+    CHARACTER(*), PARAMETER :: routine = modname//":vcoeff_lin_allocate"
     INTEGER :: ierrstat
 
     ! real(wp)
@@ -760,6 +758,10 @@ CONTAINS
     ALLOCATE( vcoeff_lin%kpbl1(nproma,nblks), vcoeff_lin%kpbl2(nproma,nblks),                 &
       &       vcoeff_lin%zextrap(nproma,nblks), STAT=ierrstat )
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+
+!$ACC ENTER DATA CREATE( vcoeff_lin%wfac_lin, vcoeff_lin%idx0_lin, vcoeff_lin%bot_idx_lin, &
+!$ACC                    vcoeff_lin%wfacpbl1, vcoeff_lin%wfacpbl2, vcoeff_lin%kpbl1, &
+!$ACC                    vcoeff_lin%kpbl2, vcoeff_lin%zextrap )
 
     ! Initialization
     vcoeff_lin%wfac_lin    = 0._wp
@@ -783,7 +785,7 @@ CONTAINS
     INTEGER,                   INTENT(IN)    :: nlev
     TYPE(t_vcoeff_cub),        INTENT(INOUT) :: vcoeff_cub
 
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_opt_diagnostics:vcoeff_cub_allocate")
+    CHARACTER(*), PARAMETER :: routine = modname//":vcoeff_cub_allocate"
     INTEGER :: ierrstat
 
     ! real(wp)
@@ -794,6 +796,9 @@ CONTAINS
     ALLOCATE( vcoeff_cub%idx0_cub(nproma,nlev,nblks), vcoeff_cub%bot_idx_cub(nproma,nblks), &
       &       STAT=ierrstat )
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+
+!$ACC ENTER DATA CREATE( vcoeff_cub%coef1, vcoeff_cub%coef2, vcoeff_cub%coef3, &
+!$ACC                    vcoeff_cub%idx0_cub, vcoeff_cub%bot_idx_cub )
 
     ! Initialization
     vcoeff_cub%coef1       = 0._wp
@@ -814,16 +819,22 @@ CONTAINS
     INTEGER,                           INTENT(IN)    :: nlev
     TYPE(t_vcoeff),                    INTENT(INOUT) :: vcoeff
 
-!!$    CHARACTER(*), PARAMETER :: routine = TRIM("mo_opt_diagnostics:vcoeff_allocate")
+!!$    CHARACTER(*), PARAMETER :: routine = modname//":vcoeff_allocate"
+
+!$ACC ENTER DATA CREATE( vcoeff )
 
     IF (.NOT. vcoeff%l_allocated) THEN
       CALL vcoeff_lin_allocate(nblks_c, nlev, vcoeff%lin_cell)
       CALL vcoeff_lin_allocate(nblks_c, nlev, vcoeff%lin_cell_nlevp1)
       CALL vcoeff_lin_allocate(nblks_e, nlev, vcoeff%lin_edge)
 
+! TODO: attach these pointers
+
       ! CUBIC interpolation coefficients:
       CALL vcoeff_cub_allocate(nblks_c, nlev, vcoeff%cub_cell)
       CALL vcoeff_cub_allocate(nblks_e, nlev, vcoeff%cub_edge)
+
+! TODO: attach these pointers
 
       vcoeff%l_allocated = .TRUE.
     END IF
@@ -836,9 +847,12 @@ CONTAINS
   SUBROUTINE vcoeff_lin_deallocate(vcoeff_lin)
     TYPE(t_vcoeff_lin), INTENT(INOUT) :: vcoeff_lin
 
-    CHARACTER(*), PARAMETER :: routine = &
-      &  TRIM("mo_opt_diagnostics:vcoeff_lin_deallocate")
+    CHARACTER(*), PARAMETER :: routine = modname//":vcoeff_lin_deallocate"
     INTEGER :: ierrstat
+
+!$ACC EXIT DATA DELETE( vcoeff_lin%wfac_lin, vcoeff_lin%idx0_lin, vcoeff_lin%bot_idx_lin, &
+!$ACC                   vcoeff_lin%wfacpbl1, vcoeff_lin%wfacpbl2, vcoeff_lin%kpbl1, &
+!$ACC                   vcoeff_lin%kpbl2, vcoeff_lin%zextrap )
 
     ! real(wp)
     DEALLOCATE( vcoeff_lin%wfac_lin, STAT=ierrstat )
@@ -861,9 +875,11 @@ CONTAINS
   SUBROUTINE vcoeff_cub_deallocate(vcoeff_cub)
     TYPE(t_vcoeff_cub), INTENT(INOUT) :: vcoeff_cub
 
-    CHARACTER(*), PARAMETER :: routine = &
-      &  TRIM("mo_opt_diagnostics:vcoeff_cub_deallocate")
+    CHARACTER(*), PARAMETER :: routine = modname//":vcoeff_cub_deallocate"
     INTEGER :: ierrstat
+
+!$ACC EXIT DATA DELETE( vcoeff_cub%coef1, vcoeff_cub%coef2, vcoeff_cub%coef3, &
+!$ACC                   vcoeff_cub%idx0_cub, vcoeff_cub%bot_idx_cub )
 
     ! CUBIC interpolation coefficients:
     ! real(wp)
@@ -884,8 +900,7 @@ CONTAINS
   SUBROUTINE vcoeff_deallocate(vcoeff)
     TYPE(t_vcoeff), INTENT(INOUT) :: vcoeff
 
-!!$    CHARACTER(*), PARAMETER :: routine = &
-!!$      &  TRIM("mo_opt_diagnostics:vcoeff_deallocate")
+!!$    CHARACTER(*), PARAMETER :: routine = modname//":vcoeff_deallocate"
 
     ! deallocate coefficient tables:
     IF (vcoeff%l_allocated) THEN
@@ -898,6 +913,8 @@ CONTAINS
 
       vcoeff%l_allocated = .FALSE.
     END IF
+
+!$ACC EXIT DATA DELETE(vcoeff)
 
     vcoeff%l_initialized = .FALSE.
   END SUBROUTINE vcoeff_deallocate

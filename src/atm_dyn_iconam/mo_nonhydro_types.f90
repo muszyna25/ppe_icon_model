@@ -93,9 +93,7 @@ MODULE mo_nonhydro_types
     &  pres_sfc(:,:),       & ! diagnosed surface pressure (nproma,nblks_c)     [Pa]
     &  pres_sfc_old(:,:),   & ! diagnosed surface pressure at previous timestep (nproma,nblks_c) [Pa]
     &  ddt_pres_sfc(:,:),   & ! current time tendency of diagnosed surface pressure (nproma,nblks_c) [Pa/s]
-    &  pres_msl(:,:),       & ! diagnosed mean sea level pressure (nproma,nblks_c)  [Pa]
     &  dpres_mc(:,:,:),     & ! pressure thickness at masspoints(nproma,nlevp,nblks_c)  [Pa]
-    &  omega(:,:,:),        & ! vertical velocity ( omega=dp/dt )           [Pa/s]
     &  hfl_tracer(:,:,:,:), & ! horizontal tracer flux at edges             [kg/m/s]
                               ! (nproma,nlev,nblks_e,ntracer)
     &  vfl_tracer(:,:,:,:), & ! vertical tracer flux at cells               [kg/m/s]
@@ -140,7 +138,20 @@ MODULE mo_nonhydro_types
     &  v_avg    (:,:,:),    & ! normal velocity average          [m/s]
     &  pres_avg (:,:,:),    & ! exner average                    [-]
     &  temp_avg   (:,:,:),  & ! moist density average            [kg/m^3]
-    &  qv_avg    (:,:,:)    &  ! specific humidity average        [kg/kg]
+    &  qv_avg    (:,:,:),   &  ! specific humidity average        [kg/kg]
+
+    !
+    ! d) optional diagnostics
+    &  pres_msl(:,:),       & ! diagnosed mean sea level pressure (nproma,nblks_c)  [Pa]
+    &  omega(:,:,:),        & ! vertical velocity ( omega=dp/dt )           [Pa/s]
+    &  vor_u(:,:,:),        & ! zonal component of relative vorticity
+                              ! (nproma,nlev,nblks_c)            [s-1]
+    &  vor_v(:,:,:),        & ! meridional component of relative vorticity
+                              ! (nproma,nlev,nblks_c)            [s-1]
+    &  bvf2(:,:,:),         & ! square of Brunt-Vaisala frequency
+                              ! (nproma,nlev,nblks_c)            [s-2]
+    &  parcelfreq2(:,:,:)   & ! square of general parcel oscillation frequency
+                              ! (nproma,nlev,nblks_c)            [s-2]
     &  => NULL()
 
     ! d) variables that are in single precision when "__MIXED_PRECISION" is defined

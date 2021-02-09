@@ -1009,6 +1009,10 @@ CONTAINS
     REAL(wp), INTENT(IN) ::           &
                          &  t_ice       !< temperature of ice upper surface [K] 
 
+#ifdef _OPENACC
+    !$acc routine seq
+#endif
+
     !===============================================================================================
     !  Start calculations
     !-----------------------------------------------------------------------------------------------

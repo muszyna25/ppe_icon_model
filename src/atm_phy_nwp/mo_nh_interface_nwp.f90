@@ -76,8 +76,8 @@ MODULE mo_nh_interface_nwp
   USE mo_atm_phy_nwp_config,      ONLY: atm_phy_nwp_config, iprog_aero
   USE mo_util_phys,               ONLY: tracer_add_phytend, iau_update_tracer
   USE mo_lnd_nwp_config,          ONLY: ntiles_total, ntiles_water
-  USE mo_cover_koe,               ONLY: cover_koe
-  USE mo_satad,                   ONLY: satad_v_3D
+  USE mo_cover_koe,               ONLY: cover_koe, cover_koe_config
+  USE mo_satad,                   ONLY: satad_v_3D, satad_v_3D_gpu
   USE mo_aerosol_util,            ONLY: prog_aerosol_2D
   USE mo_radiation,               ONLY: radheat, pre_radiation_nwp
   USE mo_radiation_config,        ONLY: irad_aero
@@ -108,16 +108,16 @@ MODULE mo_nh_interface_nwp
   USE mo_latent_heat_nudging,     ONLY: organize_lhn
   USE mo_assimilation_config,     ONLY: assimilation_config
   USE mo_nudging_config,          ONLY: nudging_config
-  USE mo_nwp_reff_interface,      ONLY: set_reff
+  USE mo_nwp_reff_interface,      ONLY: set_reff , combine_phases_radiation_reff
   USE mo_upatmo_impl_const,       ONLY: iUpatmoPrcStat, iUpatmoStat
   USE mo_upatmo_types,            ONLY: t_upatmo
   USE mo_upatmo_config,           ONLY: upatmo_config
   USE mo_nwp_upatmo_interface,    ONLY: nwp_upatmo_interface, nwp_upatmo_update
+#if defined( _OPENACC )
   USE mo_nwp_gpu_util,            ONLY: gpu_d2h_nh_nwp, gpu_h2d_nh_nwp
+  USE mo_mpi,                     ONLY: i_am_accel_node, my_process_is_work
+#endif
 
-  !$ser verbatim USE mo_ser_nh_interface_nwp, ONLY: serialize_nh_interface_nwp_input,&
-  !$ser verbatim                                    serialize_nh_interface_nwp_output
-  !$ser verbatim USE mo_ser_nml,              ONLY: ser_debug
   !$ser verbatim USE mo_ser_all,              ONLY: serialize_all
 
   IMPLICIT NONE
@@ -318,12 +318,10 @@ CONTAINS
 
     lconstgrav = upatmo_config(jg)%nwp_phy%l_constgrav  ! const. gravitational acceleration?
 
-    !$ser verbatim IF(.NOT. linit) THEN
-    !$ser verbatim   call serialize_nh_interface_nwp_input(jg, nproma, nlev, pt_prog,&
-    !$ser verbatim                                         pt_prog_rcf, pt_prog_now_rcf, pt_diag, p_metrics,&
-    !$ser verbatim                                         prm_diag, prm_nwp_tend, wtr_prog_now, wtr_prog_new,&
-    !$ser verbatim                                         lnd_prog_now, lnd_prog_now, lnd_diag, ext_data, lcpu_only=.TRUE.)
-    !$ser verbatim ENDIF
+
+    !$acc data create(zddt_v_raylfric,zddt_u_raylfric,sqrt_ri,z_ddt_temp,z_ddt_alpha,z_ddt_v_tot, &
+    !$acc             z_ddt_u_tot,z_exner_sv,z_qsum) if(.NOT. linit)
+    !$acc data copyin(dt_phy_jg)
 
     IF ( lcall_phy_jg(itturb) .OR. lcall_phy_jg(itconv) .OR.           &
          lcall_phy_jg(itsso)  .OR. lcall_phy_jg(itgwd) .OR. linit ) THEN
@@ -364,7 +362,6 @@ CONTAINS
       CALL nwp_diag_output_1(pt_patch, pt_diag, pt_prog_rcf)
 
     ENDIF
-
 
     !-------------------------------------------------------------------------
     !>  Update the slow-physics tendencies on the tracer fields,
@@ -414,8 +411,9 @@ CONTAINS
 
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk,  &
                          i_startidx, i_endidx, rl_start, rl_end)
-
+      !$acc kernels if(i_am_accel_node)
       z_exner_sv(i_startidx:i_endidx,:,jb) = pt_prog%exner(i_startidx:i_endidx,:,jb)
+      !$acc end kernels
     ENDDO
 !$OMP END DO NOWAIT
 
@@ -437,6 +435,9 @@ CONTAINS
       IF (.NOT. linit) THEN
 
         IF (is_iau_active) THEN
+#ifdef _OPENACC
+          CALL finish('mo_nh_interface_nwp:','iau_update_tracer not available on GPU')
+#endif
           ! add analysis increments from data assimilation to qv (during IAU phase)
           CALL iau_update_tracer( pt_prog     = pt_prog,     & !in
            &                      p_metrics   = p_metrics,   & !in
@@ -476,7 +477,9 @@ CONTAINS
       ENDIF
 
       ! Save Exner pressure field (this is needed for a correction to reduce sound-wave generation by latent heating)
+      !$acc kernels if(i_am_accel_node)
       z_exner_sv(i_startidx:i_endidx,:,jb) = pt_prog%exner(i_startidx:i_endidx,:,jb)
+      !$acc end kernels
 
       !!-------------------------------------------------------------------------
       !> Initial saturation adjustment (a second one follows at the end of the microphysics)
@@ -486,47 +489,56 @@ CONTAINS
 
         ! initialize tt_lheat to be in used LHN
         IF (lcompute_tt_lheat) THEN
+#ifdef _OPENACC
+          CALL finish('mo_nh_interface_nwp:','Latent heat nudging not available on GPU')
+#endif
           prm_diag%tt_lheat (:,:,jb) = - pt_diag%temp   (:,:,jb)
         ENDIF
 
+        
+
         IF ( atm_phy_nwp_config(jg)%inwp_turb == iedmf ) THEN   ! EDMF DUALM: no satad in PBL
-
-          CALL satad_v_3D( &
-               & maxiter  = 10                             ,& !> IN
-               & tol      = 1.e-3_wp                       ,& !> IN
-               & te       = pt_diag%temp       (:,:,jb)    ,& !> INOUT
-               & qve      = pt_prog_rcf%tracer (:,:,jb,iqv),& !> INOUT
-               & qce      = pt_prog_rcf%tracer (:,:,jb,iqc),& !> INOUT
-               & rhotot   = pt_prog%rho        (:,:,jb)    ,& !> IN
-               & qtvar    = pt_prog_rcf%tracer (:,:,jb,iqtvar) ,& !> IN
-               & idim     = nproma                         ,& !> IN
-               & kdim     = nlev                           ,& !> IN
-               & ilo      = i_startidx                     ,& !> IN
-               & iup      = i_endidx                       ,& !> IN
-               & klo      = kstart_moist(jg)               ,& !> IN
-               & kup      = nlev                            & !> IN
-               )
+            CALL satad_v_3D( &
+                  & maxiter  = 10                             ,& !> IN
+                  & tol      = 1.e-3_wp                       ,& !> IN
+                  & te       = pt_diag%temp       (:,:,jb)    ,& !> INOUT
+                  & qve      = pt_prog_rcf%tracer (:,:,jb,iqv),& !> INOUT
+                  & qce      = pt_prog_rcf%tracer (:,:,jb,iqc),& !> INOUT
+                  & rhotot   = pt_prog%rho        (:,:,jb)    ,& !> IN
+                  & qtvar    = pt_prog_rcf%tracer (:,:,jb,iqtvar) ,& !> IN
+                  & idim     = nproma                         ,& !> IN
+                  & kdim     = nlev                           ,& !> IN
+                  & ilo      = i_startidx                     ,& !> IN
+                  & iup      = i_endidx                       ,& !> IN
+                  & klo      = kstart_moist(jg)               ,& !> IN
+                  & kup      = nlev                            & !> IN
+                  )
         ELSE
-
-          CALL satad_v_3D( &
-               & maxiter  = 10                             ,& !> IN
-               & tol      = 1.e-3_wp                       ,& !> IN
-               & te       = pt_diag%temp       (:,:,jb)    ,& !> INOUT
-               & qve      = pt_prog_rcf%tracer (:,:,jb,iqv),& !> INOUT
-               & qce      = pt_prog_rcf%tracer (:,:,jb,iqc),& !> INOUT
-               & rhotot   = pt_prog%rho        (:,:,jb)    ,& !> IN
-               & idim     = nproma                         ,& !> IN
-               & kdim     = nlev                           ,& !> IN
-               & ilo      = i_startidx                     ,& !> IN
-               & iup      = i_endidx                       ,& !> IN
-               & klo      = kstart_moist(jg)               ,& !> IN
-               & kup      = nlev                            & !> IN
-               )
-
+#ifdef _OPENACC
+          CALL satad_v_3D_gpu(                            &
+#else
+          CALL satad_v_3D(                                &
+#endif
+              & maxiter  = 10                             ,& !> IN
+              & tol      = 1.e-3_wp                       ,& !> IN
+              & te       = pt_diag%temp       (:,:,jb)    ,& !> INOUT
+              & qve      = pt_prog_rcf%tracer (:,:,jb,iqv),& !> INOUT
+              & qce      = pt_prog_rcf%tracer (:,:,jb,iqc),& !> INOUT
+              & rhotot   = pt_prog%rho        (:,:,jb)    ,& !> IN
+              & idim     = nproma                         ,& !> IN
+              & kdim     = nlev                           ,& !> IN
+              & ilo      = i_startidx                     ,& !> IN
+              & iup      = i_endidx                       ,& !> IN
+              & klo      = kstart_moist(jg)               ,& !> IN
+              & kup      = nlev                            & !> IN
+              )
+          
         ENDIF
 
         CALL calc_qsum (pt_prog_rcf%tracer, z_qsum, condensate_list, jb, i_startidx, i_endidx, 1, kstart_moist(jg), nlev)
 
+        !$acc parallel default(present) if(i_am_accel_node)
+        !$acc loop gang vector private(z_tempv) collapse(2)
         DO jk = kstart_moist(jg), nlev
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
@@ -542,9 +554,13 @@ CONTAINS
 
           ENDDO
         ENDDO
+        !$acc end parallel
 
         ! initialize tt_lheat to be in used LHN
         IF (lcompute_tt_lheat) THEN
+#ifdef _OPENACC
+          CALL finish('mo_nh_interface_nwp:','Latent heat nudging not available on GPU')
+#endif
           prm_diag%tt_lheat (:,:,jb) = prm_diag%tt_lheat (:,:,jb) + pt_diag%temp   (:,:,jb)
         ENDIF
       ENDIF
@@ -556,6 +572,7 @@ CONTAINS
 
 
     ENDDO ! nblks
+
 
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -577,12 +594,6 @@ CONTAINS
 
       IF (timers_level > 1) CALL timer_start(timer_nwp_turbulence)
 
-#ifdef _OPENACC
-      IF(.not. linit) THEN
-        CALL message('mo_nh_interface_nwp', 'Host to device copy before nwp_turbtrans. This needs to be removed once port is finished!')
-        CALL gpu_h2d_nh_nwp(pt_patch, prm_diag, ext_data)
-      ENDIF
-#endif
       ! compute turbulent transfer coefficients (atmosphere-surface interface)
       CALL nwp_turbtrans  ( dt_phy_jg(itfastphy),             & !>in
                           & pt_patch, p_metrics,              & !>in
@@ -595,12 +606,6 @@ CONTAINS
                           & lnd_prog_now,                     & !>inout
                           & lnd_diag,                         & !>inout
                           & lacc=(.not. linit)                ) !>in
-#ifdef _OPENACC
-    IF(.not. linit) THEN
-      CALL message('mo_nh_interface_nwp', 'Device to host copy after nwp_turbtrans. This needs to be removed once port is finished!')
-      CALL gpu_d2h_nh_nwp(pt_patch, prm_diag)
-    ENDIF
-#endif
 
       IF (timers_level > 1) CALL timer_stop(timer_nwp_turbulence)
     ENDIF !lcall(itturb)
@@ -614,34 +619,24 @@ CONTAINS
     IF ( l_any_fastphys .AND. ( ANY( (/icosmo,igme/)==atm_phy_nwp_config(jg)%inwp_turb ) &
                   & .OR. ( edmf_conf==2  .AND. iedmf==atm_phy_nwp_config(jg)%inwp_turb ) ) ) THEN
       IF (timers_level > 2) CALL timer_start(timer_nwp_surface)
-#ifdef _OPENACC
-      IF(.not. linit) THEN
-        CALL message('mo_nh_interface_nwp', 'Host to device copy before nwp_surface. This needs to be removed once port is finished!')
-        CALL gpu_h2d_nh_nwp(pt_patch, prm_diag, ext_data)
-      ENDIF
-#endif
       !$ser verbatim CALL serialize_all(nproma, 1, "surface", .TRUE., opt_lupdate_cpu=.FALSE.)
 
        !> as pressure is needed only for an approximate adiabatic extrapolation
        !! of the temperature at the lowest model level towards ground level,
        !! a recalculation is not required
+
        CALL nwp_surface    (  dt_phy_jg(itfastphy),              & !>input
                              & pt_patch,                         & !>input
                              & ext_data,                         & !>input
-                             & pt_prog_rcf,                      & !>in/inout rcf=reduced calling freq.
-                             & pt_diag ,                         & !>inout
+                             & pt_prog, pt_prog_rcf,             & !>in/inout rcf=reduced calling freq.
+                             & pt_diag, p_metrics,               & !>inout
                              & prm_diag,                         & !>inout
                              & lnd_prog_now, lnd_prog_new,       & !>inout
                              & wtr_prog_now, wtr_prog_new,       & !>inout
                              & lnd_diag,                         & !>input
                              & lacc=(.not. linit)                ) !>in
+
        !$ser verbatim CALL serialize_all(nproma, 1, "surface", .FALSE., opt_lupdate_cpu=.TRUE.)
-#ifdef _OPENACC
-    IF(.not. linit) THEN
-      CALL message('mo_nh_interface_nwp', 'Device to host copy after nwp_surface. This needs to be removed once port is finished!')
-      CALL gpu_d2h_nh_nwp(pt_patch, prm_diag)
-    ENDIF
-#endif
       IF (timers_level > 2) CALL timer_stop(timer_nwp_surface)
     END IF
 
@@ -656,12 +651,6 @@ CONTAINS
       !Turbulence schemes NOT including the call to the surface scheme
       CASE(icosmo,igme,iedmf)
 
-#ifdef _OPENACC
-      IF(.not. linit) THEN
-        CALL message('mo_nh_interface_nwp', 'Host to device copy before nwp_turbdiff. This needs to be removed once port is finished!')
-        CALL gpu_h2d_nh_nwp(pt_patch, prm_diag, ext_data)
-      ENDIF
-#endif
       ! compute turbulent diffusion (atmospheric column)
       CALL nwp_turbdiff   (  dt_phy_jg(itfastphy),              & !>in
                             & pt_patch, p_metrics,              & !>in
@@ -673,12 +662,6 @@ CONTAINS
                             & wtr_prog_now,                     & !>in
                             & lnd_prog_now,                     & !>in
                             & lnd_diag                          ) !>in
-#ifdef _OPENACC
-    IF(.not. linit) THEN
-      CALL message('mo_nh_interface_nwp', 'Device to host copy after nwp_turbdiff. This needs to be removed once port is finished!')
-      CALL gpu_d2h_nh_nwp(pt_patch, prm_diag)
-    ENDIF
-#endif
 
       CASE DEFAULT
 
@@ -707,34 +690,25 @@ CONTAINS
 
       IF (timers_level > 1) CALL timer_start(timer_nwp_microphysics)
 
-
-#ifdef _OPENACC
-      IF(.not. linit) THEN
-        CALL message('mo_nh_interface_nwp', 'Host to device copy before nwp_microphysics. This needs to be removed once port is finished!')
-        CALL gpu_h2d_nh_nwp(pt_patch, prm_diag)
-      ENDIF
-#endif
       CALL nwp_microphysics ( dt_phy_jg(itfastphy),             & !>input
                             & lcall_phy_jg(itsatad),            & !>input
                             & pt_patch, p_metrics,              & !>input
                             & pt_prog,                          & !>inout
-                            & pt_prog_rcf,                      & !>inout
+                            & pt_prog_rcf%tracer,               & !>inout
+                            & pt_prog_rcf%tke,                  & !>in
                             & pt_diag ,                         & !>inout
                             & prm_diag, prm_nwp_tend,           & !>inout
                             & lcompute_tt_lheat                 ) !>in
 
-#ifdef _OPENACC
-    IF(.not. linit) THEN
-      CALL message('mo_nh_interface_nwp', 'Device to host copy after nwp_microphysics. This needs to be removed once port is finished!')
-      CALL gpu_d2h_nh_nwp(pt_patch, prm_diag)
-    ENDIF
-#endif
 
       IF (timers_level > 1) CALL timer_stop(timer_nwp_microphysics)
 
     ENDIF
 
     IF (lart) THEN
+#ifdef _OPENACC
+      CALL finish('mo_nh_interface_nwp:','ART not supported on GPU')
+#endif
       CALL calc_o3_gems(pt_patch,mtime_datetime,pt_diag,prm_diag,ext_data)
 
       IF (.NOT. linit) THEN
@@ -759,6 +733,9 @@ CONTAINS
     !> Latent heat nudging (optional)
     !!------------------------------------------------------------------
     IF (ldass_lhn .AND. assimilation_config(jg)%lvalid_data .AND. .NOT. linit) THEN
+#ifdef _OPENACC
+      CALL finish('mo_nh_interface_nwp:','Latent heat nudging not supported on GPU')
+#endif
 
       IF (msg_level >= 15) CALL message('mo_nh_interface_nwp:', 'applying LHN')
       IF (timers_level > 1) CALL timer_start(timer_datass)
@@ -876,6 +853,8 @@ CONTAINS
 
         CALL calc_qsum (pt_prog_rcf%tracer, z_qsum, condensate_list, jb, i_startidx, i_endidx, 1, kstart_moist(jg), nlev)
 
+        !$acc parallel default(present) if(i_am_accel_node)
+        !$acc loop gang vector collapse(2)
         DO jk = 1, nlev
 !DIR$ IVDEP
           DO jc =  i_startidx, i_endidx
@@ -896,11 +875,14 @@ CONTAINS
 
           ENDDO
         ENDDO
+        !$acc end parallel
 
         ! compute dynamical temperature tendency from increments of Exner function and density
         ! the virtual increment is neglected here because this tendency is used only as
         ! input for the convection scheme, which is rather insensitive against this quantity
         IF ( lcall_phy_jg(itconv) ) THEN
+          !$acc parallel default(present) if(i_am_accel_node)
+          !$acc loop gang vector collapse(2)
           DO jk = kstart_moist(jg), nlev
 !DIR$ IVDEP
             DO jc =  i_startidx, i_endidx
@@ -912,6 +894,7 @@ CONTAINS
 
             ENDDO
           ENDDO
+          !$acc end parallel
         ENDIF
 
       ENDIF ! recalculation
@@ -923,6 +906,9 @@ CONTAINS
       ENDIF
 
       IF (iprog_aero >= 1 .AND. .NOT. linit) THEN
+#ifdef _OPENACC
+        CALL finish('mo_nh_interface_nwp:','prog_aerosol_2D not available on GPU')
+#endif
         CALL prog_aerosol_2D (nproma,i_startidx,i_endidx,dt_loc,iprog_aero,                              &
                               prm_diag%aerosol(:,:,jb),prm_diag%aercl_ss(:,jb),prm_diag%aercl_or(:,jb),  &
                               prm_diag%aercl_bc(:,jb),prm_diag%aercl_su(:,jb),prm_diag%aercl_du(:,jb),   &
@@ -944,13 +930,8 @@ CONTAINS
 
       IF (timers_level > 1) CALL timer_start(timer_nwp_turbulence)
 
-#ifdef _OPENACC
-      IF(.not. linit) THEN
-        CALL message('mo_nh_interface_nwp', 'Host to device copy before nwp_turbtrans. This needs to be removed once port is finished!')
-        CALL gpu_h2d_nh_nwp(pt_patch, prm_diag)
-      ENDIF
-#endif
       ! compute turbulent transfer coefficients (atmosphere-surface interface)
+
       CALL nwp_turbtrans  ( dt_phy_jg(itfastphy),             & !>in
                           & pt_patch, p_metrics,              & !>in
                           & ext_data,                         & !>in
@@ -962,16 +943,10 @@ CONTAINS
                           & lnd_prog_new,                     & !>inout
                           & lnd_diag,                         & !>inout
                           & lacc=(.not. linit)                ) !>in
-#ifdef _OPENACC
-    IF(.not. linit) THEN
-      CALL message('mo_nh_interface_nwp', 'Device to host copy after nwp_turbtrans. This needs to be removed once port is finished!')
-      CALL gpu_d2h_nh_nwp(pt_patch, prm_diag)
-    ENDIF
-#endif
+
 
       IF (timers_level > 1) CALL timer_stop(timer_nwp_turbulence)
     ENDIF !lcall(itturb)
-
 
 
     !!-------------------------------------------------------------------------
@@ -1017,11 +992,18 @@ CONTAINS
     ENDIF
 
 
+
     !-------------------------------------------------------------------------
     !> Convection
     !-------------------------------------------------------------------------
 
     IF ( lcall_phy_jg(itconv)  ) THEN
+#ifdef _OPENACC
+      IF (.NOT. linit) THEN
+        CALL message('mo_nh_interface_nwp', 'Device to host copy before nwp_convection. This needs to be removed once port is finished!')
+        CALL gpu_d2h_nh_nwp(pt_patch, prm_diag)
+      ENDIF
+#endif
 
 
       IF (msg_level >= 15) &
@@ -1036,6 +1018,12 @@ CONTAINS
                             & pt_diag,                          & !>inout
                             & prm_diag, prm_nwp_tend            ) !>inout
       IF (timers_level > 2) CALL timer_stop(timer_nwp_convection)
+#ifdef _OPENACC
+      IF (.NOT. linit) THEN
+        CALL message('mo_nh_interface_nwp', 'Host to device copy after nwp_convection. This needs to be removed once port is finished!')
+        CALL gpu_h2d_nh_nwp(pt_patch, prm_diag)
+      ENDIF
+#endif
 
     ENDIF! convection
 
@@ -1045,6 +1033,12 @@ CONTAINS
     !-------------------------------------------------------------------------
 
     IF ( lcall_phy_jg(itccov) ) THEN
+#ifdef _OPENACC
+      IF (.NOT. linit) THEN
+        CALL message('mo_nh_interface_nwp', 'Device to host copy before cover_koe. This needs to be removed once port is finished!')
+        CALL gpu_d2h_nh_nwp(pt_patch, prm_diag)
+      ENDIF
+#endif
 
       ! When using a reduced grid for radiation, part of the boundary points need
       ! to be included in order to compute spatial gradients for back-interpolation
@@ -1089,13 +1083,11 @@ CONTAINS
         ELSE
           qtvar(:,:) = 0.0_wp                                   ! other turb schemes
         ENDIF
-
         CALL cover_koe &
 &             (kidia  = i_startidx ,   kfdia  = i_endidx  ,       & !! in:  horizonal begin, end indices
 &              klon = nproma,  kstart = kstart_moist(jg)  ,       & !! in:  horiz. and vert. vector length
-&              klev   = nlev,                                     &
-&              icldscheme = atm_phy_nwp_config(jg)%inwp_cldcover ,& !! in:  cloud cover option
-&              inwp_turb  = atm_phy_nwp_config(jg)%inwp_turb,     & !! in:  turbulence scheme number
+&              klev   = nlev                              ,       &
+&              cover_koe_config = cover_koe_config(jg)    ,       & !! in:  physics config state
 &              tt     = pt_diag%temp         (:,:,jb)     ,       & !! in:  temperature at full levels
 &              pp     = pt_diag%pres         (:,:,jb)     ,       & !! in:  pressure at full levels
 &              ps     = pt_diag%pres_sfc     (:,jb)       ,       & !! in:  surface pressure at full levels
@@ -1128,6 +1120,12 @@ CONTAINS
 !$OMP END PARALLEL DO
 #endif
       IF (timers_level > 2) CALL timer_stop(timer_cover_koe)
+#ifdef _OPENACC
+      IF (.NOT. linit) THEN
+        CALL message('mo_nh_interface_nwp', 'Host to device copy after cover_koe. This needs to be removed once port is finished!')
+        CALL gpu_h2d_nh_nwp(pt_patch, prm_diag)
+      ENDIF
+#endif
 
     ENDIF! cloud cover
 
@@ -1139,10 +1137,23 @@ CONTAINS
 
     !! Call effective radius diagnostic calculation (only for radiation time steps)
 
-    IF ( lcall_phy_jg(itrad)  .AND. atm_phy_nwp_config(jg)%icalc_reff .GT. 0 ) THEN
+    IF ( lcall_phy_jg(itrad)  .AND. atm_phy_nwp_config(jg)%icalc_reff > 0 ) THEN
+#ifdef _OPENACC
+        CALL finish('mo_nh_interface_nwp:','set_reff not available on GPU')
+#endif
+
+      IF (msg_level >= 15) &
+           &           CALL message('mo_nh_interface', 'effective radius')
+
       IF (timers_level > 10) CALL timer_start(timer_phys_reff)
       CALL  set_reff (prm_diag,pt_patch, pt_prog, pt_diag,ext_data) 
-      IF (timers_level > 10) CALL timer_stop(timer_phys_reff)
+
+      ! Combine all hydrometoers in one liquid and one frozen phase 
+      ! Not available for RRTM reff parameterization with single liquid and ice phase
+      IF (  atm_phy_nwp_config(jg)%icpl_rad_reff > 0 .AND. atm_phy_nwp_config(jg)%icalc_reff /= 101 ) THEN
+        CALL combine_phases_radiation_reff (prm_diag, pt_patch, pt_prog)
+      END IF
+      IF (timers_level > 10) CALL timer_stop(timer_phys_reff)      
     END IF
 
 
@@ -1153,7 +1164,13 @@ CONTAINS
     !-------------------------------------------------------------------------
 
     IF ( lcall_phy_jg(itrad) ) THEN
-
+      
+#ifdef _OPENACC
+      IF(.not. linit) THEN
+        CALL message('wp_radiation', 'Host to device copy before nwp_radiation. This needs to be removed once port is finished!')
+        CALL gpu_h2d_nh_nwp(pt_patch, prm_diag, ext_data)
+      ENDIF
+#endif
       IF (ltimer) CALL timer_start(timer_nwp_radiation)
       CALL nwp_radiation (lredgrid,              & ! in
            &              p_sim_time,            & ! in
@@ -1166,13 +1183,26 @@ CONTAINS
            &              pt_diag,               & ! inout
            &              prm_diag,              & ! inout
            &              lnd_prog_new,          & ! in
-           &              wtr_prog_new           ) ! in
+           &              wtr_prog_new,          & ! in
+           &              linit                  ) ! in, optional
       IF (ltimer) CALL timer_stop(timer_nwp_radiation)
+#ifdef _OPENACC
+      IF(.not. linit) THEN
+        CALL message('nwp_radiation', 'Device to host copy after nwp_radiation. This needs to be removed once port is finished!')
+        CALL gpu_d2h_nh_nwp(pt_patch, prm_diag, ext_data)
+      ENDIF
+#endif
 
     ENDIF
 
 
     IF ( lcall_phy_jg(itradheat) ) THEN
+#ifdef _OPENACC
+      IF (.NOT. linit) THEN
+        CALL message('mo_nh_interface_nwp', 'Device to host copy before radiative heating. This needs to be removed once port is finished!')
+        CALL gpu_d2h_nh_nwp(pt_patch, prm_diag)
+      ENDIF
+#endif
 
       IF (msg_level >= 15) &
 &           CALL message('mo_nh_interface', 'radiative heating')
@@ -1368,8 +1398,15 @@ CONTAINS
 !$OMP END PARALLEL
 
       IF (timers_level > 2) CALL timer_stop(timer_radheat)
+#ifdef _OPENACC
+      IF (.NOT. linit) THEN
+        CALL message('mo_nh_interface_nwp', 'Host to device copy after radiative heating. This needs to be removed once port is finished!')
+        CALL gpu_h2d_nh_nwp(pt_patch, prm_diag)
+      ENDIF
+#endif
 
     ENDIF  ! inwp_radiation
+
 
 
     !-------------------------------------------------------------------------
@@ -1377,6 +1414,12 @@ CONTAINS
     !-------------------------------------------------------------------------
 
     IF (lcall_phy_jg(itsso) .OR. lcall_phy_jg(itgwd)) THEN
+#ifdef _OPENACC
+      IF (.NOT. linit) THEN
+        CALL message('mo_nh_interface_nwp', 'Device to host copy before nwp_gwdrag. This needs to be removed once port is finished!')
+        CALL gpu_d2h_nh_nwp(pt_patch, prm_diag)
+      ENDIF
+#endif
 
       IF (msg_level >= 15) &
         &  CALL message('mo_nh_interface', 'gravity waves')
@@ -1394,9 +1437,15 @@ CONTAINS
         &               prm_diag, prm_nwp_tend     ) !>inout
 
       IF (timers_level > 3) CALL timer_stop(timer_sso)
+#ifdef _OPENACC
+      IF (.NOT. linit) THEN
+        CALL message('mo_nh_interface_nwp', 'Host to device copy after nwp_gwdrag. This needs to be removed once port is finished!')
+        CALL gpu_h2d_nh_nwp(pt_patch, prm_diag)
+      ENDIF
+#endif
     ENDIF ! inwp_sso
     !-------------------------------------------------------------------------
-
+    
 
     !-------------------------------------------------------------------------
     ! Anurag Dipankar MPIM (2013-May-29)
@@ -1446,10 +1495,14 @@ CONTAINS
 
     ENDIF
 
+
     !-------------------------------------------------------------------------
     !  Upper-atmosphere physics: compute tendencies
     !-------------------------------------------------------------------------
     IF (l_any_upatmophys) THEN
+#ifdef _OPENACC
+      CALL finish('mo_nh_interface_nwp', 'nwp_upatmo_interface not available on GPU.')
+#endif
       IF (upatmo_config(jg)%l_status( iUpatmoStat%timer )) CALL timer_start(timer_upatmo)
       ! This interface has to be called after all other slow physics.
       CALL nwp_upatmo_interface( dt_loc            = dt_loc,            & !in
@@ -1465,6 +1518,7 @@ CONTAINS
         &                        kstart_moist      = kstart_moist(jg),  & !in
         &                        prm_upatmo        = prm_upatmo         ) !inout
       IF (upatmo_config(jg)%l_status( iUpatmoStat%timer )) CALL timer_stop(timer_upatmo)
+
     ENDIF
 
 
@@ -1475,8 +1529,10 @@ CONTAINS
     IF( (l_any_slowphys .OR. lcall_phy_jg(itradheat)) .OR. is_ls_forcing) THEN
 
       IF (p_test_run) THEN
+        !$acc kernels if(i_am_accel_node)
         z_ddt_u_tot = 0._wp
         z_ddt_v_tot = 0._wp
+        !$acc end kernels
       ENDIF
 
       IF (timers_level > 10) CALL timer_start(timer_phys_acc_1)
@@ -1486,6 +1542,7 @@ CONTAINS
       uoffset_q = ustart + 40._wp
       ustart_q  = ustart + 50._wp
       max_relax = -1._wp/atm_phy_nwp_config(jg)%efdt_min_raylfric
+      !$acc data copyin(ustart,uoffset_q,ustart_q,max_relax)
 
       ! exclude boundary interpolation zone of nested domains
       rl_start = grf_bdywidth_c+1
@@ -1506,6 +1563,8 @@ CONTAINS
 
         ! artificial Rayleigh friction: active if GWD or SSO scheme is active
         IF (atm_phy_nwp_config(jg)%inwp_sso > 0 .OR. atm_phy_nwp_config(jg)%inwp_gwd > 0) THEN
+          !$acc parallel default(present) if (i_am_accel_node)
+          !$acc loop gang vector private(vabs,rfric_fac) collapse(2)
           DO jk = 1, nlev
 !DIR$ IVDEP
             DO jc = i_startidx, i_endidx
@@ -1518,13 +1577,18 @@ CONTAINS
               zddt_v_raylfric(jc,jk) = max_relax*rfric_fac*pt_diag%v(jc,jk,jb)
             ENDDO
           ENDDO
+          !$acc end parallel
         ELSE
+          !$acc kernels if(i_am_accel_node)
           zddt_u_raylfric(:,:) = 0._wp
           zddt_v_raylfric(:,:) = 0._wp
+          !$acc end kernels
         ENDIF
 
         ! SQRT of Richardson number between the two lowest model levels
         ! This is used below to reduce frictional heating near the surface under very stable conditions
+        !$acc parallel default(present) if(i_am_accel_node)
+        !$acc loop gang vector private(n2,dvdz2)
         DO jc = i_startidx, i_endidx
           n2 = 2._wp*grav/(pt_prog%theta_v(jc,nlev,jb)+pt_prog%theta_v(jc,nlev-1,jb)) * MAX(1.e-4_wp,        &
                (pt_prog%theta_v(jc,nlev-1,jb)-pt_prog%theta_v(jc,nlev,jb))/p_metrics%ddqz_z_half(jc,nlev,jb) )
@@ -1532,8 +1596,11 @@ CONTAINS
                   (pt_diag%v(jc,nlev-1,jb)-pt_diag%v(jc,nlev,jb))**2 )/p_metrics%ddqz_z_half(jc,nlev,jb)**2 )
           sqrt_ri(jc) = MAX(1._wp, SQRT(n2/dvdz2))
         ENDDO
+        !$acc end parallel
 
         ! heating related to momentum deposition by SSO, GWD and Rayleigh friction
+        !$acc parallel default(present) if(i_am_accel_node)
+        !$acc loop gang vector private(wfac) collapse(2)
         DO jk = 1, nlev
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
@@ -1549,7 +1616,10 @@ CONTAINS
                                                     ((1._wp-wfac)*sqrt_ri(jc) + wfac)
           ENDDO
         ENDDO
+        !$acc end parallel
 
+        !$acc parallel default(present) if(i_am_accel_node)
+        !$acc loop gang vector collapse(2)
         DO jk = 1, nlev
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
@@ -1557,14 +1627,19 @@ CONTAINS
               &              +  prm_nwp_tend%ddt_temp_drag (jc,jk,jb) + prm_nwp_tend%ddt_temp_pconv(jc,jk,jb)
           ENDDO
         ENDDO
+        !$acc end parallel
 
         CALL calc_qsum (pt_prog_rcf%tracer, z_qsum, condensate_list, jb, i_startidx, i_endidx, 1, kstart_moist(jg), nlev)
 
 
         IF (kstart_moist(jg) > 1) THEN
+          !$acc kernels if(i_am_accel_node)
           z_ddt_alpha(:,1:kstart_moist(jg)-1) = 0._wp
+          !$acc end kernels
         ENDIF
 
+        !$acc parallel default(present) if(i_am_accel_node)
+        !$acc loop gang vector collapse(2)
         DO jk = kstart_moist(jg), nlev
           DO jc = i_startidx, i_endidx
 
@@ -1576,9 +1651,12 @@ CONTAINS
              &                 / pt_prog%rho(jc,jk,jb)
           ENDDO
         ENDDO
+        !$acc end parallel
 
 
         ! Convert temperature tendency into Exner function tendency
+        !$acc parallel default(present) if(i_am_accel_node)
+        !$acc loop gang vector collapse(2)
         DO jk = 1, nlev
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
@@ -1591,6 +1669,7 @@ CONTAINS
 
           ENDDO
         ENDDO
+        !$acc end parallel
 
 
 
@@ -1599,6 +1678,8 @@ CONTAINS
         ! in the current time step, but the radiation time step should be a multiple
         ! of the convection time step anyway in order to obtain up-to-date cloud cover fields
         IF (l_any_slowphys) THEN
+          !$acc parallel default(present) if(i_am_accel_node)
+          !$acc loop gang vector collapse(2)
           DO jk = 1, nlev
 !DIR$ IVDEP
             DO jc = i_startidx, i_endidx
@@ -1608,6 +1689,7 @@ CONTAINS
                 &     + prm_nwp_tend%ddt_v_sso(jc,jk,jb)  + prm_nwp_tend%ddt_v_pconv(jc,jk,jb)
             ENDDO
           ENDDO
+          !$acc end parallel
         ELSE IF (is_ls_forcing) THEN
           z_ddt_u_tot(i_startidx:i_endidx,:,jb) = 0._wp
           z_ddt_v_tot(i_startidx:i_endidx,:,jb) = 0._wp
@@ -1619,7 +1701,6 @@ CONTAINS
         !>  accumulate tendencies of slow_physics when LS forcing is ON
         !-------------------------------------------------------------------------
         IF (is_ls_forcing) THEN
-
           DO jk = 1, nlev
             DO jc = i_startidx, i_endidx
               z_ddt_temp(jc,jk) = z_ddt_temp(jc,jk)               &
@@ -1659,6 +1740,8 @@ CONTAINS
           ENDDO
         ELSE IF (lcall_phy_jg(itconv)) THEN
 !DIR$ IVDEP
+          !$acc parallel default(present) if(i_am_accel_node)
+          !$acc loop gang vector private(convfac)
           DO jc = i_startidx, i_endidx
             ! rain-snow conversion factor to avoid 'snow showers' at temperatures when they don't occur in practice
             convfac = MIN(1._wp,MAX(0._wp,pt_diag%temp(jc,prm_diag%k950(jc,jb),jb)-tmelt)* &
@@ -1667,6 +1750,7 @@ CONTAINS
               convfac*prm_diag%snow_con_rate_3d(jc,nlevp1,jb)
             prm_diag%snow_con_rate(jc,jb) = (1._wp-convfac)*prm_diag%snow_con_rate_3d(jc,nlevp1,jb)
           ENDDO
+          !$acc end parallel
         ENDIF
 
       ENDDO  ! jb
@@ -1674,7 +1758,9 @@ CONTAINS
 !$OMP END PARALLEL
       IF (timers_level > 10) CALL timer_stop(timer_phys_acc_1)
 
+    !$acc end data
     END IF  !END OF slow physics tendency accumulation
+    
 
 
     !--------------------------------------------------------
@@ -1718,10 +1804,14 @@ CONTAINS
       CALL sync_patch_array(SYNC_C, pt_patch, pt_prog_rcf%tracer(:,:,:,iqtke))
     ENDIF
 
+
     !------------------------------------------------------------
     ! sync here the slowphys for aggregation
     !-------------------------------------------------------------------
     IF (use_physics_barrier) THEN
+#ifdef _OPENACC
+      CALL finish('mo_nh_interface_nwp', 'work_mpi_barrier not available on GPU')
+#endif
       CALL timer_start(timer_barrier)
       CALL work_mpi_barrier()
       CALL timer_stop(timer_barrier)
@@ -1765,6 +1855,8 @@ CONTAINS
             & i_startidx, i_endidx, rl_start, rl_end )
 
           IF (lhdiff_rcf) THEN
+            !$acc parallel default(present) if(i_am_accel_node)
+            !$acc loop gang vector collapse(2)
             DO jk = 1, nlev
 !DIR$ IVDEP
               DO jc =  i_startidx, i_endidx
@@ -1780,7 +1872,10 @@ CONTAINS
 
               ENDDO
             ENDDO
+            !$acc end parallel
           ELSE
+            !$acc parallel default(present) if(i_am_accel_node)
+            !$acc loop gang vector collapse(2)
             DO jk = 1, nlev
 !DIR$ IVDEP
               DO jc =  i_startidx, i_endidx
@@ -1799,6 +1894,7 @@ CONTAINS
 
               ENDDO
             ENDDO
+            !$acc end parallel
           ENDIF
         ENDDO
 !$OMP END DO NOWAIT
@@ -1836,6 +1932,8 @@ CONTAINS
 
       IF ( (is_ls_forcing .OR. l_any_slowphys) .AND. lcall_phy_jg(itturb) ) THEN
 
+        !$acc parallel default(present) if(i_am_accel_node)
+        !$acc loop gang vector collapse(2)
 #ifdef __LOOP_EXCHANGE
         DO jce = i_startidx, i_endidx
 !DIR$ IVDEP
@@ -1871,8 +1969,11 @@ CONTAINS
 
           ENDDO
         ENDDO
+        !$acc end parallel
 
       ELSE IF (lcall_phy_jg(itturb) ) THEN
+        !$acc parallel default(present) if(i_am_accel_node)
+        !$acc loop gang vector collapse(2)
 #ifdef __LOOP_EXCHANGE
         DO jce = i_startidx, i_endidx
 !DIR$ IVDEP
@@ -1897,6 +1998,7 @@ CONTAINS
 
           ENDDO
         ENDDO
+        !$acc end parallel
 
       ENDIF
 
@@ -1906,10 +2008,15 @@ CONTAINS
 
     IF (timers_level > 10) CALL timer_stop(timer_phys_acc_2)
 
+
     !-------------------------------------------------------------------------
     !  Upper-atmosphere physics: add tendencies
     !-------------------------------------------------------------------------
     IF (l_any_upatmophys) THEN
+#ifdef _OPENACC
+      CALL finish('mo_nh_interface_nwp', 'nwp_upatmo_update not available on GPU')
+#endif
+      
       IF (upatmo_config(jg)%l_status( iUpatmoStat%timer )) CALL timer_start(timer_upatmo)
       ! This interface has to be called after all other tendencies have been accumulated.
       CALL nwp_upatmo_update( lslowphys         = l_any_slowphys,                  & !in
@@ -1928,39 +2035,48 @@ CONTAINS
     !
     ! dpsdt diagnostic
     IF (lcalc_dpsdt) THEN
-      CALL compute_dpsdt (pt_patch      = pt_patch, &
-        &                 dt            = dt_loc,   &
-        &                 pt_diag       = pt_diag,  &
-        &                 opt_dpsdt_avg = dpsdt_avg )  ! (only stdio-process has reasonable return value!)
+      CALL compute_dpsdt (pt_patch      = pt_patch,  &
+        &                 dt            = dt_loc,    &
+        &                 pt_diag       = pt_diag,   &
+        &                 opt_dpsdt_avg = dpsdt_avg, &
+        &                 linit         = linit      )  ! (only stdio-process has reasonable return value!)
       nudging_config%dpsdt = dpsdt_avg
     ENDIF
     IF (timers_level > 10) CALL timer_stop(timer_phys_dpsdt)
 
 
     IF (timers_level > 10) CALL timer_start(timer_phys_sync_vn)
-    IF (lcall_phy_jg(itturb)) CALL sync_patch_array(SYNC_E, pt_patch, pt_prog%vn)
+    IF (lcall_phy_jg(itturb)) THEN
+      CALL sync_patch_array(SYNC_E, pt_patch, pt_prog%vn)
+    ENDIF
     IF (timers_level > 10) CALL timer_stop(timer_phys_sync_vn)
     IF (timers_level > 2) CALL timer_stop(timer_phys_acc)
 
 
 
     IF (lcall_phy_jg(itturb) .AND. msg_level >= 18) THEN ! extended diagnostic for turbulence quantities
+#ifdef _OPENACC
+      CALL finish('mo_nh_interface_nwp', 'nwp_diag_output_2 not available on GPU.')
+#endif
       CALL nwp_diag_output_2(pt_patch, pt_prog_rcf, prm_nwp_tend)
     ENDIF
-
 
     ! time averages, accumulations and vertical integrals
     CALL nwp_statistics(lcall_phy_jg,                    & !in
                         & dt_phy_jg,p_sim_time,          & !in
-                        & kstart_moist(jg),              & !in
+                        & ext_data, kstart_moist(jg),    & !in
                         & ih_clch(jg), ih_clcm(jg),      & !in
                         & pt_patch, p_metrics,           & !in
                         & pt_prog, pt_prog_rcf,          & !in
                         & pt_diag,                       & !inout
-                        & prm_diag, lnd_diag             ) !inout
+                        & prm_diag, lnd_diag,            & !inout
+                        & linit                          ) !in
 
     IF (lart) THEN
       ! Call the ART diagnostics
+#ifdef _OPENACC
+      CALL finish('mo_nh_interface_nwp', 'art_diagnostics_interface not available on GPU.')
+#endif
       CALL art_diagnostics_interface(pt_prog%rho,            &
         &                            pt_diag%pres,           &
         &                            pt_prog_now_rcf%tracer, &
@@ -1971,12 +2087,8 @@ CONTAINS
 
     IF (ltimer) CALL timer_stop(timer_physics)
 
-    !$ser verbatim IF(.NOT. linit) THEN
-    !$ser verbatim   call serialize_nh_interface_nwp_output(jg, nproma, nlev, pt_prog,&
-    !$ser verbatim                                          pt_prog_rcf, pt_prog_now_rcf, pt_diag, p_metrics,&
-    !$ser verbatim                                          prm_diag, prm_nwp_tend, wtr_prog_now, wtr_prog_new,&
-    !$ser verbatim                                          lnd_prog_now, lnd_prog_now, lnd_diag, ext_data, lcpu_only=.TRUE.)
-    !$ser verbatim ENDIF
+    !$acc end data ! copyin
+    !$acc end data ! create
 
   END SUBROUTINE nwp_nh_interface
 

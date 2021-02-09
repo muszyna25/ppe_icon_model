@@ -1727,11 +1727,11 @@ CONTAINS
     ENDDO
 
     CALL nf(nf_open(TRIM(patch%grid_filename), nf_nowrite, ncid))
-    stream_id = openInputFile(TRIM(patch%grid_filename), patches)
+    CALL openinputfile(stream_id, TRIM(patch%grid_filename), patches)
 
     IF (lsep_grfinfo) THEN
       CALL nf(nf_open(TRIM(patch%grid_filename_grfinfo), nf_nowrite, ncid_grf))
-      stream_id_grf = openInputFile(TRIM(patch%grid_filename_grfinfo), patches)
+      CALL openinputfile(stream_id_grf, TRIM(patch%grid_filename_grfinfo), patches)
     ELSE
       ncid_grf = ncid
       stream_id_grf = stream_id

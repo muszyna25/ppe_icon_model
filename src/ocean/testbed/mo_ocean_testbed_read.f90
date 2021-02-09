@@ -73,8 +73,8 @@ CONTAINS
 
     !---------------------------------------------------------------------
     ! 2D Tests
-    stream_id = openInputFile(dynamics_grid_filename(1), patch_2d, &
-      &                       read_netcdf_broadcast_method)
+    CALL openinputfile(stream_id, dynamics_grid_filename(1), patch_2d, &
+      &                read_netcdf_broadcast_method)
 
     CALL read_2D(stream_id=stream_id, location=on_cells, &
       &          variable_name="cell_area", return_pointer=cell_data_broadcast)
@@ -85,8 +85,8 @@ CONTAINS
 
     CALL closeFile(stream_id)
 
-    stream_id = openInputFile(dynamics_grid_filename(1), patch_2d, &
-      &                       read_netcdf_distribute_method)
+    CALL openinputfile(stream_id, dynamics_grid_filename(1), patch_2d, &
+      &                read_netcdf_distribute_method)
 
     CALL read_2D(stream_id=stream_id, location=on_cells, &
       &          variable_name="cell_area", return_pointer=cell_data_distribute)
@@ -112,8 +112,8 @@ CONTAINS
     RETURN ! disable the rest of tests (write/read) in order to run on buildbot
     !---------------------------------------------------------------------
 
-    stream_id = openInputFile(initialState_InputFileName, patch_2d, &
-      &                       read_netcdf_broadcast_method)
+    CALL openinputfile(stream_id, initialState_InputFileName, patch_2d, &
+      &                read_netcdf_broadcast_method)
 
     CALL read_3D_time( stream_id=stream_id, location=on_cells, &
       &                variable_name="T", return_pointer=T )
@@ -130,8 +130,8 @@ CONTAINS
 !       & write_array=T,                             &
 !       & patch=patch_2d )
 !
-!     stream_id = openInputFile(OutputFileName, patch_2d, &
-!       &                       read_netcdf_broadcast_method)
+!     CALL openinputfile(stream_id, OutputFileName, patch_2d, &
+!       &                read_netcdf_broadcast_method)
 !
 !     CALL read_3D_time( stream_id=stream_id, location=on_cells, &
 !       &                variable_name="T", return_pointer=T_check )
@@ -212,8 +212,8 @@ CONTAINS
       CALL work_mpi_barrier()
 
       ! open input file
-      stream_id = openInputFile("testfile.nc", dummy_patch, &
-        &                       read_method)
+      CALL openinputfile(stream_id, "testfile.nc", dummy_patch, &
+        &                read_method)
 
       CALL read_2D(stream_id, on_cells, 'cell_2d_real', return_pointer=real_2d)
       IF (SIZE(real_2d) /= 2 * nproma) &
@@ -1088,7 +1088,7 @@ CONTAINS
       CALL work_mpi_barrier()
 
       ! open input file
-      stream_id = openInputFile("testfile.nc", dummy_patch, read_method)
+      CALL openinputfile(stream_id, "testfile.nc", dummy_patch, read_method)
 
       ! test cell 2d 1time real
       CALL read_2D_1time(stream_id, on_cells, 'cell_2d_time_real', return_pointer=real_2d)

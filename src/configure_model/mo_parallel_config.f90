@@ -202,7 +202,7 @@ CONTAINS
     IF (nproma>256) CALL warning(TRIM(method_name),'The value of "nproma" seems to be set for a vector machine!')
 #endif
 
-    IF (proc0_shift < 0 .OR. proc0_shift > 1) CALL finish(TRIM(method_name),'"proc0_shift" currently must be 0 or 1')
+    IF (proc0_shift < 0) CALL finish(TRIM(method_name),'"proc0_shift" currently must be 0 (disable) or a positive number')
     proc0_offloading = proc0_shift > 0
 
     icon_comm_openmp = .false.

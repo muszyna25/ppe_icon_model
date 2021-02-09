@@ -52,10 +52,10 @@ MODULE mo_ext_data_init
   USE mo_extpar_config,      ONLY: itopo, itype_lwemiss, extpar_filename, generate_filename,   &
     &                              generate_td_filename, extpar_varnames_map_file,       &
     &                              n_iter_smooth_topo, i_lctype, nclass_lu, nmonths_ext, &
-    &                              itype_vegetation_cycle, read_nc_via_cdi
+    &                              itype_vegetation_cycle, read_nc_via_cdi, pp_glacier_sso
   USE mo_radiation_config,   ONLY: irad_o3, irad_aero, albedo_type
   USE mo_echam_phy_config,   ONLY: echam_phy_config
-  USE mo_smooth_topo,        ONLY: smooth_topo_real_data
+  USE mo_process_topo,       ONLY: smooth_topo_real_data, postproc_glacier_sso
   USE mo_model_domain,       ONLY: t_patch
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_grid_config,        ONLY: n_dom, nroot
@@ -257,6 +257,15 @@ CONTAINS
       IF ( iforcing == inwp ) THEN
 
         DO jg = 1, n_dom
+          IF (pp_glacier_sso) THEN
+            CALL postproc_glacier_sso ( p_patch(jg)                   ,&
+              &                         p_int_state(jg)               ,&
+              &                         ext_data(jg)%atm%fr_glac      ,&
+              &                         ext_data(jg)%atm%topography_c ,&
+              &                         ext_data(jg)%atm%sso_stdh     ,&
+              &                         ext_data(jg)%atm%sso_sigma     )
+         ENDIF
+
          ! topography smoothing
          IF (n_iter_smooth_topo(jg) > 0) THEN
             CALL smooth_topo_real_data ( p_patch(jg)                   ,&
@@ -853,26 +862,26 @@ CONTAINS
                    &   0.00_wp,  0.0_wp,  0.0_wp, 0.0_wp, 250.0_wp,  -1.0_wp,-1._wp, 200._wp  / ! undefined
 
 ! Yet another tuned version by Guenther Zaengl (adjusted to resistance-based bare soil evaporation scheme)
- DATA lu_gcv2009_v4 /  0.07_wp,  0.9_wp,  3.3_wp, 1.0_wp, 225.0_wp,  0.72_wp, 1._wp, 100._wp, & ! irrigated croplands
-                   &   0.07_wp,  0.9_wp,  3.3_wp, 1.0_wp, 140.0_wp,  0.72_wp, 1._wp,  50._wp, & ! rainfed croplands
-                   &   0.25_wp,  0.8_wp,  3.0_wp, 1.0_wp, 130.0_wp,  0.55_wp, 1._wp,  30._wp, & ! mosaic cropland (50-70%) - vegetation (20-50%)
-                   &   0.07_wp,  0.9_wp,  3.5_wp, 1.0_wp, 120.0_wp,  0.72_wp, 1._wp,  40._wp, & ! mosaic vegetation (50-70%) - cropland (20-50%)
+ DATA lu_gcv2009_v4 /  0.25_wp,  0.9_wp,  3.3_wp, 1.0_wp, 225.0_wp,  0.72_wp, 1._wp, 100._wp, & ! irrigated croplands
+                   &   0.10_wp,  0.9_wp,  3.3_wp, 1.0_wp, 140.0_wp,  0.72_wp, 1._wp,  50._wp, & ! rainfed croplands
+                   &   0.30_wp,  0.8_wp,  3.0_wp, 1.0_wp, 130.0_wp,  0.55_wp, 1._wp,  30._wp, & ! mosaic cropland (50-70%) - vegetation (20-50%)
+                   &   0.10_wp,  0.9_wp,  3.5_wp, 1.0_wp, 120.0_wp,  0.72_wp, 1._wp,  40._wp, & ! mosaic vegetation (50-70%) - cropland (20-50%)
                    &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 250.0_wp,  0.38_wp, 1._wp,  40._wp, & ! closed broadleaved evergreen forest
                    &   1.00_wp,  0.9_wp,  5.0_wp,1.25_wp, 300.0_wp,  0.31_wp, 1._wp,  30._wp, & ! closed broadleaved deciduous forest
                    &   0.50_wp,  0.8_wp,  4.0_wp, 1.5_wp, 225.0_wp,  0.31_wp, 1._wp,  50._wp, & ! open broadleaved deciduous forest
                    &   1.00_wp,  0.8_wp,  5.0_wp,0.75_wp, 300.0_wp,  0.27_wp, 1._wp,  50._wp, & ! closed needleleaved evergreen forest
-                   &   1.00_wp,  0.9_wp,  5.0_wp, 0.6_wp, 300.0_wp,  0.33_wp, 1._wp,  15._wp, & ! open needleleaved deciduous forest
-                   &   1.00_wp,  0.9_wp,  5.0_wp, 1.0_wp, 270.0_wp,  0.29_wp, 1._wp,  20._wp, & ! mixed broadleaved and needleleaved forest
-                   &   0.20_wp,  0.8_wp,  2.5_wp, 1.1_wp, 170.0_wp,  0.60_wp, 1._wp,  30._wp, & ! mosaic shrubland (50-70%) - grassland (20-50%)
-                   &   0.20_wp,  0.8_wp,  2.5_wp, 0.9_wp, 170.0_wp,  0.65_wp, 1._wp,  30._wp, & ! mosaic grassland (50-70%) - shrubland (20-50%)
+                   &   1.00_wp,  0.9_wp,  5.0_wp, 0.6_wp, 300.0_wp,  0.33_wp, 1._wp,  10._wp, & ! open needleleaved deciduous forest
+                   &   1.00_wp,  0.9_wp,  5.0_wp, 1.0_wp, 270.0_wp,  0.29_wp, 1._wp,  15._wp, & ! mixed broadleaved and needleleaved forest
+                   &   0.15_wp,  0.8_wp,  2.5_wp, 1.1_wp, 170.0_wp,  0.60_wp, 1._wp,  30._wp, & ! mosaic shrubland (50-70%) - grassland (20-50%)
+                   &   0.15_wp,  0.8_wp,  2.5_wp, 0.9_wp, 170.0_wp,  0.65_wp, 1._wp,  30._wp, & ! mosaic grassland (50-70%) - shrubland (20-50%)
                    &   0.15_wp,  0.8_wp,  2.5_wp, 1.5_wp, 180.0_wp,  0.65_wp, 1._wp,  75._wp, & ! closed to open shrubland
                    &   0.03_wp,  0.9_wp,  3.1_wp, 0.6_wp, 100.0_wp,  0.82_wp, 1._wp,  70._wp, & ! closed to open herbaceous vegetation
-                   &   0.05_wp,  0.5_wp,  0.6_wp, 0.3_wp, 140.0_wp,  0.76_wp, 1._wp,  30._wp, & ! sparse vegetation
+                   &   0.05_wp,  0.5_wp,  0.6_wp, 0.3_wp, 140.0_wp,  0.76_wp, 1._wp,  15._wp, & ! sparse vegetation
                    &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 190.0_wp,  0.30_wp, 1._wp,  50._wp, & ! closed to open forest regulary flooded
                    &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 190.0_wp,  0.30_wp, 1._wp,  80._wp, & ! closed forest or shrubland permanently flooded
                    &   0.05_wp,  0.8_wp,  2.0_wp, 1.0_wp,  80.0_wp,  0.76_wp, 1._wp,  30._wp, & ! closed to open grassland regularly flooded
                    &   1.00_wp,  0.2_wp,  1.6_wp, 0.6_wp, 300.0_wp,  0.50_wp, 1._wp, 200._wp, & ! artificial surfaces
-                   &   0.05_wp,  0.01_wp, 0.2_wp, 0.3_wp, 300.0_wp,  0.82_wp, 1._wp, 200._wp, & ! bare areas
+                   &   0.02_wp,  0.01_wp, 0.2_wp, 0.3_wp, 300.0_wp,  0.82_wp, 1._wp, 200._wp, & ! bare areas
                    &   0.0002_wp,0.0_wp,  0.0_wp, 0.0_wp, 150.0_wp,  -1.0_wp,-1._wp, 200._wp, & ! water bodies
                    &   0.01_wp,  0.0_wp,  0.0_wp, 0.0_wp, 120.0_wp,  -1.0_wp, 1._wp, 200._wp, & ! permanent snow and ice
                    &   0.00_wp,  0.0_wp,  0.0_wp, 0.0_wp, 250.0_wp,  -1.0_wp,-1._wp, 200._wp  / ! undefined
@@ -897,7 +906,7 @@ CONTAINS
           land_sso_fn  = 'bc_land_sso.nc'
         ENDIF
 
-        stream_id = openInputFile(land_sso_fn, p_patch(jg), default_read_method)
+        CALL openInputFile(stream_id, land_sso_fn, p_patch(jg), default_read_method)
         CALL read_2D(stream_id, on_cells, 'oromea', &
           &          ext_data(jg)%atm%topography_c)
 
@@ -916,7 +925,7 @@ CONTAINS
         ! inner sea (-2), boundary sea (-1, cells and vertices), boundary (0, edges),
         ! boundary land (1, cells and vertices), inner land (2)
 
-        stream_id = openInputFile(p_patch(jg)%grid_filename, p_patch(jg), default_read_method)
+        CALL openInputFile(stream_id, p_patch(jg)%grid_filename, p_patch(jg), default_read_method)
 
         CALL read_2D_int(stream_id, on_cells, 'cell_sea_land_mask', &
           &              ext_data(jg)%atm%lsm_ctr_c)
@@ -926,7 +935,7 @@ CONTAINS
         ! If JSBACH is used open/read the mask for the hydrological discharge model
         IF ( echam_phy_config(jg)%ljsb ) THEN
 
-          stream_id = openInputFile('hd_mask.nc', p_patch(jg), default_read_method)
+          CALL openInputFile(stream_id, 'hd_mask.nc', p_patch(jg), default_read_method)
      
           ! get land-sea-mask on cells, integer marks are:
           ! inner sea (-2), boundary sea (-1, cells and vertices), boundary (0, edges),
@@ -1014,7 +1023,7 @@ CONTAINS
         DO ilu = 1, num_lcc
           IF (ilu == ext_data(jg)%atm%i_lc_urban .OR. ilu == ext_data(jg)%atm%i_lc_water) THEN
             ext_data(jg)%atm%z0_lcc_min(ilu) = ext_data(jg)%atm%z0_lcc(ilu) ! no reduction in urban regions and over water
-          ELSE IF (ext_data(jg)%atm%z0_lcc(ilu) >= 0.1) THEN
+          ELSE IF (ext_data(jg)%atm%z0_lcc(ilu) > 0.1_wp) THEN
             ext_data(jg)%atm%z0_lcc_min(ilu) = 0.3_wp*ext_data(jg)%atm%z0_lcc(ilu) ! 30% for nominal roughness lengths > 10 cm
           ELSE
             ext_data(jg)%atm%z0_lcc_min(ilu) = 0.1_wp*ext_data(jg)%atm%z0_lcc(ilu) ! 10% otherwise
@@ -1028,7 +1037,7 @@ CONTAINS
             &                             TRIM(p_patch(jg)%grid_filename),    &
             &                              nroot,                             &
             &                             p_patch(jg)%level, p_patch(jg)%id)
-          stream_id   = openInputFile(extpar_file, p_patch(jg), default_read_method)
+          CALL openinputfile(stream_id, extpar_file, p_patch(jg), default_read_method)
         ELSE
           parameters = makeInputParameters(cdi_extpar_id(jg), p_patch(jg)%n_patch_cells_g, p_patch(jg)%comm_pat_scatter_c, &
           &                                opt_dict=extpar_varnames_dict)
@@ -1290,7 +1299,7 @@ CONTAINS
           CALL message(routine, TRIM(message_text))
         ENDDO
 
-        stream_id = openInputFile(ozone_file, p_patch(jg), default_read_method)
+        CALL openinputfile(stream_id, ozone_file, p_patch(jg), default_read_method)
 
         CALL read_3D_extdim(stream_id, on_cells, TRIM(o3name), &
           &                 ext_data(jg)%atm_td%O3)
@@ -1344,7 +1353,7 @@ CONTAINS
 
          ENDIF
 
-         stream_id = openInputFile(sst_td_file, p_patch(jg), &
+         CALL openinputfile(stream_id, sst_td_file, p_patch(jg), &
           &                        default_read_method)
          CALL read_2D (stream_id, on_cells, 'SST', &
           &            ext_data(jg)%atm_td%sst_m(:,:,im))
@@ -1366,7 +1375,7 @@ CONTAINS
 
          ENDIF
 
-         stream_id = openInputFile(ci_td_file, p_patch(jg), default_read_method)
+         CALL openinputfile(stream_id, ci_td_file, p_patch(jg), default_read_method)
          CALL read_2D(stream_id, on_cells, 'CI', &
           &           ext_data(jg)%atm_td%fr_ice_m(:,:,im))
          CALL closeFile(stream_id)
@@ -1879,6 +1888,7 @@ CONTAINS
            IF (zfr_land > 0._wp) THEN
              ext_data(jg)%atm%inv_frland_from_tiles(jc,jb) = 1._wp/zfr_land
            ENDIF
+
          ENDDO  ! jc
 
 
@@ -2263,25 +2273,25 @@ CONTAINS
     !-------------------------------------------------------------------------
 
     !                 lai_min   T_thresh   T_asy    rd_fac
-    DATA vege_table /  0.5_wp,  282.0_wp,  2.0_wp,  5.0_wp,   & ! 1 - irrigated croplands
-                   &   0.5_wp,  282.0_wp,  2.0_wp,  5.0_wp,   & ! 2 - rainfed croplands
-                   &   0.7_wp,  280.0_wp,  1.0_wp,  4.0_wp,   & ! 3 - mosaic cropland (50-70%) - vegetation (20-50%)
-                   &   0.7_wp,  280.0_wp,  1.0_wp,  3.0_wp,   & ! 4 - mosaic vegetation (50-70%) - cropland (20-50%)
-                   &   5.0_wp,  281.0_wp,  0.0_wp,  1.0_wp,   & ! 5 - closed broadleaved evergreen forest
-                   &   0.5_wp,  281.0_wp,  1.5_wp,  1.0_wp,   & ! 6 - closed broadleaved deciduous forest
-                   &   0.5_wp,  281.0_wp,  1.0_wp,  1.0_wp,   & ! 7 - open broadleaved deciduous forest
-                   &   3.0_wp,  280.0_wp,  0.5_wp,  1.0_wp,   & ! 8 - closed needleleaved evergreen forest
-                   &   1.5_wp,  280.0_wp,  0.5_wp,  1.0_wp,   & ! 9 - open needleleaved evergreen or deciduous forest
-                   &   1.5_wp,  281.0_wp,  1.0_wp,  1.0_wp,   & ! 10- mixed broadleaved and needleleaved forest
-                   &   1.0_wp,  278.0_wp,  0.0_wp,  1.0_wp,   & ! 11- mosaic shrubland (50-70%) - grassland (20-50%)
-                   &   1.0_wp,  278.0_wp,  0.0_wp,  1.0_wp,   & ! 12- mosaic grassland (50-70%) - shrubland (20-50%)
-                   &   1.5_wp,  278.0_wp,  0.0_wp,  1.0_wp,   & ! 13- closed to open shrubland
-                   &   1.0_wp,  278.0_wp,  0.0_wp,  1.0_wp,   & ! 14- closed to open herbaceous vegetation
+    DATA vege_table /  0.5_wp,  283.0_wp,  2.0_wp,  5.0_wp,   & ! 1 - irrigated croplands
+                   &   0.5_wp,  283.0_wp,  2.0_wp,  5.0_wp,   & ! 2 - rainfed croplands
+                   &   0.7_wp,  282.0_wp,  1.0_wp,  4.0_wp,   & ! 3 - mosaic cropland (50-70%) - vegetation (20-50%)
+                   &   0.7_wp,  281.0_wp,  1.0_wp,  3.0_wp,   & ! 4 - mosaic vegetation (50-70%) - cropland (20-50%)
+                   &   5.0_wp,  282.0_wp,  0.0_wp,  1.0_wp,   & ! 5 - closed broadleaved evergreen forest
+                   &   0.5_wp,  282.0_wp,  0.0_wp,  1.0_wp,   & ! 6 - closed broadleaved deciduous forest
+                   &   0.5_wp,  282.0_wp,  0.0_wp,  1.0_wp,   & ! 7 - open broadleaved deciduous forest
+                   &   3.0_wp,  282.0_wp,  0.0_wp,  1.0_wp,   & ! 8 - closed needleleaved evergreen forest
+                   &   1.5_wp,  282.0_wp,  0.0_wp,  1.0_wp,   & ! 9 - open needleleaved evergreen or deciduous forest
+                   &   1.5_wp,  282.0_wp,  0.0_wp,  1.0_wp,   & ! 10- mixed broadleaved and needleleaved forest
+                   &   1.0_wp,  280.0_wp,  0.0_wp,  1.0_wp,   & ! 11- mosaic shrubland (50-70%) - grassland (20-50%)
+                   &   1.0_wp,  280.0_wp,  0.0_wp,  1.0_wp,   & ! 12- mosaic grassland (50-70%) - shrubland (20-50%)
+                   &   1.5_wp,  280.0_wp,  0.0_wp,  1.0_wp,   & ! 13- closed to open shrubland
+                   &   1.0_wp,  279.0_wp,  0.0_wp,  1.0_wp,   & ! 14- closed to open herbaceous vegetation
                    &   0.3_wp,  278.0_wp,  0.0_wp,  1.0_wp,   & ! 15- sparse vegetation
-                   &   5.0_wp,  280.0_wp,  0.0_wp,  1.0_wp,   & ! 16- closed to open forest regulary flooded
-                   &   5.0_wp,  280.0_wp,  0.0_wp,  1.0_wp,   & ! 17- closed forest or shrubland permanently flooded
-                   &   1.0_wp,  278.0_wp,  0.0_wp,  1.0_wp,   & ! 18- closed to open grassland regularly flooded
-                   &   1.0_wp,  280.0_wp,  0.0_wp,  1.0_wp,   & ! 19- artificial surfaces
+                   &   5.0_wp,  282.0_wp,  0.0_wp,  1.0_wp,   & ! 16- closed to open forest regulary flooded
+                   &   5.0_wp,  282.0_wp,  0.0_wp,  1.0_wp,   & ! 17- closed forest or shrubland permanently flooded
+                   &   1.0_wp,  279.0_wp,  0.0_wp,  1.0_wp,   & ! 18- closed to open grassland regularly flooded
+                   &   1.0_wp,  281.0_wp,  0.0_wp,  1.0_wp,   & ! 19- artificial surfaces
                    &   0.2_wp,  280.0_wp,  0.0_wp,  1.0_wp,   & ! 20- bare areas
                    &   0.0_wp,    0.0_wp,  0.0_wp,  1.0_wp,   & ! 21- water bodies
                    &   0.0_wp,    0.0_wp,  0.0_wp,  1.0_wp,   & ! 22- permanent snow and ice
@@ -2305,7 +2315,7 @@ CONTAINS
     dtdz_clim = -5.e-3_wp  ! -5 K/km
 
     ! transition width for temperature-dependent tai limitation
-    trans_width = 2.5_wp
+    trans_width = 2.0_wp
 
 
     ! exclude the boundary interpolation zone of nested domains
@@ -2387,6 +2397,8 @@ CONTAINS
               ext_data%atm%eai_t(jc,jb,jt)     = MIN(MERGE(c_soil_urb,c_soil,ilu == ext_data%atm%i_lc_urban) * &
                                                  (1._wp+0.25_wp*lnd_diag%t2m_bias(jc,jb)), 2._wp)
             ENDIF
+          ELSE
+            ext_data%atm%rsmin2d_t(jc,jb,jt) = ext_data%atm%stomresmin_lcc(ilu)
           ENDIF
 
         ENDDO

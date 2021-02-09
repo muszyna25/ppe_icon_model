@@ -29,11 +29,11 @@ PROGRAM icon
 #endif
   USE mo_exception,           ONLY: message_text, message, finish
   USE mo_io_units,            ONLY: filename_max
-  USE mo_mpi,                 ONLY: start_mpi, stop_mpi, my_process_is_global_root
-  USE mo_master_control,      ONLY: init_master_control,                                &
-    &                               get_my_namelist_filename, get_my_process_type,      &
+  USE mo_mpi,                 ONLY: start_mpi , stop_mpi, my_process_is_global_root
+  USE mo_master_init,         ONLY: init_master_control
+  USE mo_master_control,      ONLY: get_my_namelist_filename, get_my_process_type,      &
     &                               atmo_process, ocean_process, ps_radiation_process,  &
-    &                               hamocc_process
+    &                               hamocc_process, icon_output_process
 #ifndef __NO_ICON_TESTBED__
   USE mo_master_control,      ONLY: testbed_process
 #endif
@@ -44,7 +44,7 @@ PROGRAM icon
 
 #ifndef __NO_ICON_OCEAN__
   USE mo_ocean_model,         ONLY: ocean_model
-  USE mo_hamocc_model,        ONLY: hamocc_model  
+  USE mo_hamocc_model,        ONLY: hamocc_model
 #endif
 
 #ifndef __NO_ICON_TESTBED__
@@ -57,6 +57,16 @@ PROGRAM icon
 
 #ifndef __NO_ICON_PS_RAD__
   USE mo_ps_radiation_model, ONLY: ps_radiation_model
+#endif
+
+#ifndef __NO_ICON_OUTPUT_MODEL__
+  USE mo_icon_output_model, ONLY: icon_output_driver
+#endif
+
+#if defined ICON_MEMORY_TRACING
+#  if ICON_MEMORY_TRACING == 1
+  USE mo_mtrace,            ONLY: start_memory_tracing
+#  endif
 #endif
 
   IMPLICIT NONE
@@ -103,7 +113,13 @@ PROGRAM icon
 
 
 !--------------------------------------------------------------------
-
+#if defined ICON_MEMORY_TRACING
+!  activate memory tracing with glibc mtrace?
+#  if ICON_MEMORY_TRACING == 1
+  ! trace malloc/memalign/calloc/free operations following this point
+  CALL start_memory_tracing
+#  endif
+#endif
 #if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
 #ifdef VARLIST_INITIZIALIZE_WITH_NAN
   CALL ieee_get_status(saved_fpscr)
@@ -226,6 +242,10 @@ PROGRAM icon
     CALL icon_testbed(my_namelist_filename, TRIM(master_namelist_filename))
 #endif
 
+#ifndef __NO_ICON_OUTPUT_MODEL__
+  CASE (icon_output_process)
+    CALL icon_output_driver(my_namelist_filename, TRIM(master_namelist_filename))
+#endif
 
   CASE default
     CALL finish("icon","my_process_component is unknown")

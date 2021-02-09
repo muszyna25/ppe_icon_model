@@ -29,6 +29,7 @@ MODULE mo_ocean_cvmix_tke
     & PPscheme_ICON_Edge_type,                   &
     & PPscheme_ICON_Edge_vnPredict_type,         &
     & use_wind_mixing,                                        &
+    & vert_mix_type, vmix_pp, vmix_tke, vmix_idemix_tke,      & ! by_nils
     & HorizontalViscosity_SmoothIterations,                   &
     & convection_InstabilityThreshold,                        &
     & RichardsonDiffusion_threshold,                          &
@@ -241,7 +242,7 @@ CONTAINS
     !REAL(wp) :: cvmix_dummy_3(nproma, n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: tke_iw_alpha_c(nproma, n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: tke_iwe(nproma, n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
-    REAL(wp) :: tke_iw_forcing(nproma, n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp) :: tke_iwe_forcing(nproma, n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: forc_tke_surf_2D(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: forc_rho_surf_2D(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: bottom_fric_2D(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
@@ -269,7 +270,7 @@ CONTAINS
     tke_Av = 0.0
     tke_iw_alpha_c = 0.0
     tke_iwe = 0.0
-    tke_iw_forcing = 0.0
+    tke_iwe_forcing = 0.0
     forc_rho_surf_2D = 0.0
     bottom_fric_2D = 0.0
 
@@ -293,6 +294,11 @@ CONTAINS
     
     levels = n_zlev
 
+    ! special settings if IDEMIX is used together with TKE
+    if ( vert_mix_type==vmix_idemix_tke ) then
+      ! use iwe dissipation as forcing for tke 
+      tke_iwe_forcing(:,:,:) = -1.0_wp * params_oce%cvmix_params%iwe_Tdis(:,:,:)
+    endif
 
     !write(*,*) "TKE before:"
     !write(*,*) tke(8,:,10)
@@ -382,7 +388,7 @@ CONTAINS
                              bottom_fric  = bottom_fric_2D(jc,blockNo),    &
                              old_kappaM   = Av_old(jc,:,blockNo),         & ! in
                              old_KappaH   = kv_old(jc,:,blockNo),         & ! in
-                             iw_diss      = tke_iw_forcing(jc,:,blockNo),  & 
+                             iw_diss      = tke_iwe_forcing(jc,:,blockNo),  & 
                              forc_rho_surf= forc_rho_surf_2D(jc,blockNo),  &
                              rho_ref      = OceanReferenceDensity,           &
                              grav         = grav,                      &

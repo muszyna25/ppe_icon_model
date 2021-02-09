@@ -235,7 +235,7 @@ USE data_parallel,  ONLY : &
 
 #ifdef __ICON__
 USE mo_mpi,                ONLY : get_my_global_mpi_id
-
+USE mo_exception,          ONLY : finish
 USE mo_physical_constants, ONLY : &
 !
 ! Physical constants and related variables:
@@ -273,6 +273,7 @@ USE turb_data, ONLY : &
     tkmmin_strat, & ! additional minimal diffusion coefficients for momentum for stratosphere
     tndsmot,      & ! vertical smoothing factor for diffusion tendencies
     frcsmot,      & ! vertical smoothing factor for TKE forcing
+    imode_frcsmot,& ! mode for TKE forcing
     epsi,         & ! relative limit of accuracy for comparison of numbers
     it_end,       & ! number of initialization iterations (>=0)
 
@@ -495,18 +496,24 @@ REAL (KIND=wp), PARAMETER :: &
     z2d3=z2/z3     ,&
     z3d2=z3/z2
 
+#ifndef __ICON__
 INTEGER :: &
     istat=0, ilocstat=0
 
 LOGICAL :: &
     lerror=.FALSE.
-
+#endif
 !===============================================================================
 
 CONTAINS
 
 !===============================================================================
 
+#ifndef __ICON__
+#  define err_args ,ierrstat, yerrormsg, yroutine
+#else
+#  define err_args
+#endif
 
 SUBROUTINE turbdiff ( &
 !
@@ -539,9 +546,9 @@ SUBROUTINE turbdiff ( &
 !
           shfl_s, qvfl_s,                                            &
 !
-          zvari,                                                     &
+          zvari                                                      &
 !
-          ierrstat, yerrormsg, yroutine)
+          err_args)
 
 !-------------------------------------------------------------------------------
 !
@@ -864,11 +871,12 @@ REAL (KIND=wp), DIMENSION(:),   TARGET, OPTIONAL, INTENT(INOUT) :: &
 ! Error handling
 ! --------------
 
+#ifndef __ICON__
 INTEGER,           INTENT(INOUT) :: ierrstat
 
 CHARACTER (LEN=*), INTENT(INOUT) :: yroutine
 CHARACTER (LEN=*), INTENT(INOUT) :: yerrormsg
-
+#endif
 !-------------------------------------------------------------------------------
 !Local Parameters:
 !-------------------------------------------------------------------------------
@@ -1040,7 +1048,7 @@ INTEGER                ::  &
   lev(nvec,2)
 #endif
 
-LOGICAL :: ldebug=.FALSE.
+LOGICAL, PARAMETER :: ldebug=.FALSE.
 
 #ifdef __ICON__
 INTEGER :: my_cart_id, my_thrd_id
@@ -1055,8 +1063,10 @@ LOGICAL :: lzacc
 !All variables and their tendencies are defined at horizontal mass positions.
 
  lzacc = iini == 0
+#ifndef __ICON__
  istat=0; ilocstat=0; ierrstat=0
  yerrormsg = ''; yroutine='turbdiff'; lerror=.FALSE.
+#endif
 
  lssintact=((ltkesso.OR.ltkeshs.OR.ltkecon) .AND. imode_adshear.EQ.1)
 
@@ -1144,7 +1154,7 @@ LOGICAL :: lzacc
 
   ! check if vertical smoothing of TKE forcing terms is needed
   IF (frcsmot > z0) THEN
-    IF (.NOT. PRESENT(trop_mask)) THEN
+    IF (.NOT. PRESENT(trop_mask) .OR. imode_frcsmot == 1) THEN
       lcalc_frcsmot = .TRUE.
     ELSE IF (ANY(trop_mask(ivstart:ivend) > z0)) THEN
       lcalc_frcsmot = .TRUE.
@@ -1233,8 +1243,12 @@ LOGICAL :: lzacc
   !$acc update device(tinc,ivtp) if(lzacc)
 
   IF (l3dturb .AND..NOT. (PRESENT(tkhm) .AND. PRESENT(tkhh))) THEN
+#ifdef __ICON__
+    CALL finish("", 'ERROR *** 3D-diffusion with not present horiz. diff.coeffs. ***')
+#else
     ierrstat = 1004; lerror=.TRUE.
     yerrormsg='ERROR *** 3D-diffusion with not present horiz. diff.coeffs. ***'
+#endif
   END IF
 
 !-------------------------------------------------------------------------------
@@ -2454,7 +2468,11 @@ my_thrd_id = omp_get_thread_num()
         !>Tuning
           ! Factor for variable minimum diffusion coefficient proportional to 1/SQRT(Ri);
           ! the namelist parameters tkhmin/tkmmin specify the value for Ri=1:
-          fakt=MIN( z1, tkred_sfc(i)*(0.25_wp+7.5e-3_wp*(hhl(i,k)-hhl(i,ke1))) ) !low-level red.-fact.
+          IF (gz0(i) < 0.01_wp .AND. l_pat(i) > 0._wp) THEN ! glaciers
+            fakt=MIN( z1, tkred_sfc(i)*4.e-3_wp*(hhl(i,k)-hhl(i,ke1)) ) !low-level red.-fact.
+          ELSE
+            fakt=MIN( z1, tkred_sfc(i)*(0.25_wp+7.5e-3_wp*(hhl(i,k)-hhl(i,ke1))) ) !low-level red.-fact.
+          ENDIF
           fakt=MIN( 2.5_wp, MAX( 0.01_wp, fakt*xri(i,k) ) )
 
           val1=tkmmin*fakt; val2=tkhmin*fakt

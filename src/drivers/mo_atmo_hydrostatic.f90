@@ -39,7 +39,6 @@ MODULE mo_atmo_hydrostatic
   USE mo_name_list_output,     ONLY:  write_name_list_output, &
        &                              close_name_list_output
   USE mo_output_event_types,   ONLY: t_sim_step_info
-  USE mtime,                   ONLY: datetimeToString
 
 
   IMPLICIT NONE
@@ -140,16 +139,16 @@ CONTAINS
 
     IF (output_mode%l_nml) THEN
       ! compute sim_start, sim_end
-      CALL datetimeToString(time_config%tc_exp_startdate, sim_step_info%sim_start)
-      CALL datetimeToString(time_config%tc_exp_stopdate, sim_step_info%sim_end)
-      CALL datetimeToString(time_config%tc_startdate, sim_step_info%run_start)
-      CALL datetimeToString(time_config%tc_stopdate, sim_step_info%restart_time)
+      sim_step_info%sim_start = time_config%tc_exp_startdate
+      sim_step_info%sim_end = time_config%tc_exp_stopdate
+      sim_step_info%run_start = time_config%tc_startdate
+      sim_step_info%restart_time = time_config%tc_stopdate
 
       sim_step_info%dtime      = dtime
       jstep0 = 0
       CALL getAttributesForRestarting(restartAttributes)
       ! get start counter for time loop from restart file:
-      IF (ASSOCIATED(restartAttributes)) THEN
+      IF (restartAttributes%is_init) THEN
         CALL restartAttributes%get("jstep", jstep0, opt_err=opt_err)
         jstep0 = MERGE(jstep0, 0, opt_err .EQ. 0)
       END IF

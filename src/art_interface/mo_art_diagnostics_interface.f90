@@ -34,14 +34,14 @@ MODULE mo_art_diagnostics_interface
 
 ! ART
 #ifdef __ICON_ART
-  USE mo_art_data,                      ONLY: p_art_data, t_art_atmo
+  USE mo_art_data,                      ONLY: p_art_data
+  USE mo_art_atmo_data,                 ONLY: t_art_atmo
   USE mo_art_wrapper_routines,          ONLY: art_get_indices_c
   USE mo_art_config,                    ONLY: art_config
   USE mo_art_aero_optical_props,        ONLY: art_calc_aod, art_calc_bsc, art_calc_aodvar
   USE mo_art_diag_state,                ONLY: art_create_diagnostics
   USE mo_art_diagnostics,               ONLY: art_volc_diagnostics, art_radio_diagnostics
   USE mo_art_clipping,                  ONLY: art_clip_lt
-  USE mo_art_read_pol_oper,             ONLY: art_read_pol_oper
   USE mo_art_modes_linked_list,         ONLY: p_mode_state, t_mode
   USE mo_art_modes,                     ONLY: t_fields_2mom
 
@@ -72,9 +72,6 @@ SUBROUTINE art_diagnostics_interface_init(jg, this_list, p_prog_list)
     IF (timers_level > 3) CALL timer_start(timer_art_diagInt)
 
     CALL art_create_diagnostics(jg, this_list, p_prog_list)
-
-    ! read in variable pollen diagnostics
-    IF (art_config(jg)%iart_pollen > 0) CALL art_read_pol_oper(jg)
 
     IF (timers_level > 3) CALL timer_stop(timer_art_diagInt)
     IF (timers_level > 3) CALL timer_stop(timer_art)

@@ -33,7 +33,7 @@ MODULE mo_upatmo_phy_config
     &                                    iUpatmoGasMode, iUpatmoExtdatStat, iorbit,          &
     &                                    startHeightDef, itmr_thr, iThermdynCoupling
   USE mo_upatmo_utils,             ONLY: init_logical_1d, is_variable_in_output_cond
-  USE mo_util_string,              ONLY: int2string, logical2string, real2string, &
+  USE mo_util_string,              ONLY: real2string, &
     &                                    t_keyword_list, associate_keyword,       &
     &                                    with_keywords
   USE mtime,                       ONLY: MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN, &
@@ -281,7 +281,6 @@ CONTAINS !......................................................................
     &                                  yr_perp,                 & !in
     &                                  nlev,                    & !in
     &                                  nshift_total,            & !in
-    &                                  first_output_name_list,  & !in
     &                                  tc_exp_startdate,        & !in
     &                                  tc_exp_stopdate,         & !in
     &                                  start_time,              & !in
@@ -315,7 +314,6 @@ CONTAINS !......................................................................
     INTEGER,                   INTENT(IN)    :: yr_perp                 ! Year, for which Earth orbit is perpetuated
     INTEGER,                   INTENT(IN)    :: nlev                    ! Number of vertical grid layers
     INTEGER,                   INTENT(IN)    :: nshift_total            ! Shift of vertical grid index for vertical nesting
-    TYPE(t_output_name_list),  POINTER       :: first_output_name_list  ! Pointer to a linked list of output name lists
     TYPE(datetime),            INTENT(IN)    :: tc_exp_startdate        ! Experiment start date
     TYPE(datetime),            INTENT(IN)    :: tc_exp_stopdate         ! Experiment end date
     REAL(wp),                  INTENT(IN)    :: start_time              ! Time at which execution of domain starts
@@ -339,13 +337,13 @@ CONTAINS !......................................................................
     TYPE(datetime) :: domStartDate, domEndDate
     REAL(wp) :: start_time_sggstn, dtime_sggstn
     INTEGER  :: jgrp, jgas, jprc, jtnd, jext
-    INTEGER  :: imode, igrp, iext
+    INTEGER  :: imode, igrp, iext, cjgadj
     INTEGER  :: istat
     LOGICAL  :: l_belowtop, l_on, l_offline, l_exist, l_enabled, l_first
-    CHARACTER(LEN=MAX_CHAR_LENGTH)       :: vname_prefix, cjg, filename
+    CHARACTER(LEN=MAX_CHAR_LENGTH)       :: vname_prefix, filename
+    CHARACTER(LEN=11) :: cjg
     CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: domTimeString
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = modname//':configure_upatmo_physics'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':configure_upatmo_physics'
 
     !---------------------------------------------------------
 
@@ -354,7 +352,7 @@ CONTAINS !......................................................................
     !-----------------------------------------------------
 
     ! Actually, vct_a is only optional, because it is already optional one level higher
-    IF (.NOT. PRESENT(vct_a)) CALL finish(TRIM(routine), 'vct_a has to be present.')
+    IF (.NOT. PRESENT(vct_a)) CALL finish(routine, 'vct_a has to be present.')
 
     !-----------------------------------------------------
     !         Initialization with default values
@@ -367,7 +365,8 @@ CONTAINS !......................................................................
     !                   Configuration
     !-----------------------------------------------------
 
-    cjg = TRIM(int2string(jg))
+    WRITE (cjg, '(i0)') jg
+    cjgadj = VERIFY(cjg, " ")
 
     keywords => NULL()
 
@@ -686,8 +685,7 @@ CONTAINS !......................................................................
       DO jext = 1, iUpatmoExtdatId%nitem
 
         CALL associate_keyword("<path>", TRIM(model_base_dir), keywords)
-        filename = TRIM(upatmo_phy_config%nwp_extdat( jext )%filename)
-        filename = TRIM(with_keywords(keywords, filename))
+        filename = with_keywords(keywords, upatmo_phy_config%nwp_extdat( jext )%filename)
         upatmo_phy_config%nwp_extdat( jext )%filename = filename
         keywords => NULL()
    
@@ -701,14 +699,14 @@ CONTAINS !......................................................................
 
           IF (upatmo_nwp_phy_config%extdat( jext )%l_stat( iUpatmoExtdatStat%required )) THEN
 
-            INQUIRE(file = TRIM(upatmo_phy_config%nwp_extdat( jext )%filename), exist=l_exist)
+            INQUIRE(file = upatmo_phy_config%nwp_extdat( jext )%filename, exist=l_exist)
             
             IF (.NOT. l_exist) THEN
               message_text = 'The external data file: '                          &
                 & //TRIM(upatmo_phy_config%nwp_extdat( jext )%filename)//' for ' &
                 & //TRIM(upatmo_nwp_phy_config%extdat( jext )%longname)          &
                 & //' is required, but it cannot be found.'
-              CALL finish(TRIM(routine), TRIM(message_text))  
+              CALL finish(routine, message_text)
             ENDIF
 
           ENDIF  !Required?
@@ -729,44 +727,40 @@ CONTAINS !......................................................................
       ! since it is only done once, during model setup.  
       ! In addition, the construction of a sophisticated inquiry tool 
       ! on output namelist settings would be an overkill for our purposes.)
-      vname_prefix = TRIM(upatmo_nwp_phy_config%vname_prefix)
+      vname_prefix = upatmo_nwp_phy_config%vname_prefix
       IF ( .NOT. upatmo_nwp_phy_config%l_phy_stat( iUpatmoPrcStat%enabled ) .AND. &
         &  (LEN_TRIM(vname_prefix) > 0)                                     .AND. &
-        &  is_variable_in_output_cond( first_output_name_list,                    &
-        &                              var_name=vname_prefix,                     &
+        &  is_variable_in_output_cond( var_name=vname_prefix,                     &
         &                              opt_dom=(/jg/) )                           ) THEN
 
         ! Provided the prefix for upper-atmosphere physics variable names has been chosen 
         ! distinguishable enough, it seems that the output of such a variable is requested, 
         ! which is not allowed under these circumstances
         message_text = 'Current namelist settings do not provide output of upatmo variables '    &
-          & //'on domain '//TRIM(cjg)//', check output_nml-varlists for variables with prefix: ' &
-          & //TRIM(vname_prefix)
-        CALL finish(TRIM(routine), TRIM(message_text))          
+          & //'on domain '//cjg(cjgadj:)//', check output_nml-varlists for variables with prefix: ' &
+          & //vname_prefix
+        CALL finish(routine, message_text)
 
       ELSEIF ( .NOT. upatmo_nwp_phy_config%l_gas_stat( iUpatmoGasStat%enabled ) .AND. &
-        &  is_variable_in_output_cond( first_output_name_list,                    &
-        &                              var_name="group:upatmo_rad_gases",         &
+        &  is_variable_in_output_cond( var_name="group:upatmo_rad_gases",         &
         &                              opt_dom=(/jg/) )                           ) THEN
 
         ! Output of all radiatively active gases (varlist-group-prefix: 'group:') is only possible, 
         ! if radiation is switched on
         message_text = 'Current namelist settings do not provide output of upatmo gases ' &
-          & //'on domain '//TRIM(cjg)//', check output_nml-varlists for: group:upatmo_rad_gases'
-        CALL finish(TRIM(routine), TRIM(message_text))  
+          & //'on domain '//cjg(cjgadj:)//', check output_nml-varlists for: group:upatmo_rad_gases'
+        CALL finish(routine, message_text)
 
       ELSEIF ( .NOT. upatmo_nwp_phy_config%l_phy_stat( iUpatmoPrcStat%enabled ) .AND. &
-        &  is_variable_in_output_cond( first_output_name_list,                    &
-        &                              var_name="group:upatmo_tendencies",        &
+        &  is_variable_in_output_cond( var_name="group:upatmo_tendencies",        &
         &                              opt_dom=(/jg/) )                           ) THEN
 
         ! Output of all physics tendencies is only possible, if they are switched on
         message_text = 'Current namelist settings do not provide output of upatmo tendencies ' &
-          & //'on domain '//TRIM(cjg)//', check output_nml-varlists for: group:upatmo_tendencies'
-        CALL finish(TRIM(routine), TRIM(message_text))  
+          & //'on domain '//cjg(cjgadj:)//', check output_nml-varlists for: group:upatmo_tendencies'
+        CALL finish(routine, message_text)
 
-      ELSEIF ( is_variable_in_output_cond( first_output_name_list,                         &
-        &                                  var_name=vname_prefix,                          &
+      ELSEIF ( is_variable_in_output_cond( var_name=vname_prefix,                          &
         &                                  opt_dom=(/jg/),                                 &
         &                                  opt_filetype =(/FILETYPE_GRB, FILETYPE_GRB2/) ) ) THEN
 
@@ -777,26 +771,24 @@ CONTAINS !......................................................................
         !   they would be indistinguishable with regard to their GRIB metadata 
         !   (at least without the specification of additional "non-standard" GRIB keys)
         message_text = 'The output of upatmo variables ' &
-          & //'(desired for domain '//TRIM(cjg)//') in the GRIB format is not possible'
-        CALL finish(TRIM(routine), TRIM(message_text))      
+          & //'(desired for domain '//cjg(cjgadj:)//') in the GRIB format is not possible'
+        CALL finish(routine, message_text)
 
-      ELSEIF ( is_variable_in_output_cond( first_output_name_list,                         &
-        &                                  var_name="group:upatmo_rad_gases",              &
+      ELSEIF ( is_variable_in_output_cond( var_name="group:upatmo_rad_gases",              &
         &                                  opt_dom=(/jg/),                                 &
         &                                  opt_filetype =(/FILETYPE_GRB, FILETYPE_GRB2/) ) ) THEN
 
         message_text = 'The output of upatmo gases ' &
-          & //'(desired for domain '//TRIM(cjg)//') in the GRIB format is not possible'
-        CALL finish(TRIM(routine), TRIM(message_text))    
+          & //'(desired for domain '//cjg(cjgadj:)//') in the GRIB format is not possible'
+        CALL finish(routine, message_text)
   
-      ELSEIF ( is_variable_in_output_cond( first_output_name_list,                         &
-        &                                  var_name="group:upatmo_tendencies",             &
+      ELSEIF ( is_variable_in_output_cond( var_name="group:upatmo_tendencies",             &
         &                                  opt_dom=(/jg/),                                 &
         &                                  opt_filetype =(/FILETYPE_GRB, FILETYPE_GRB2/) ) ) THEN
 
         message_text = 'The output of upatmo tendencies ' &
-          & //'(desired for domain '//TRIM(cjg)//') in the GRIB format is not possible'
-        CALL finish(TRIM(routine), TRIM(message_text))      
+          & //'(desired for domain '//cjg(cjgadj:)//') in the GRIB format is not possible'
+        CALL finish(routine, message_text)
         
       ENDIF
 
@@ -890,7 +882,7 @@ CONTAINS !......................................................................
           IF (MOD(start_time, dtime) > eps) THEN
             start_time_sggstn = MAX(1._wp, ANINT(start_time / dtime)) * dtime
             dtime_sggstn      = start_time / MAX(1._wp, ANINT(start_time / dtime))
-            message_text      = "start_time(dom"//TRIM(cjg)//") = "                &
+            message_text      = "start_time(dom"//cjg(cjgadj:)//") = "                &
               & //TRIM(ADJUSTL(real2string(start_time, opt_fmt="(F20.3)")))        &
               & //" s is no multiple of dtime = "                                  &
               & //TRIM(ADJUSTL(real2string(dtime, opt_fmt="(F20.3)")))             & 
@@ -898,11 +890,11 @@ CONTAINS !......................................................................
               & //TRIM(ADJUSTL(real2string(start_time_sggstn, opt_fmt="(F20.3)"))) &
               & //" s) or adjust dtime (choose, e.g., "                            &
               & //TRIM(ADJUSTL(real2string(dtime_sggstn, opt_fmt="(F20.3)")))//" s)."
-            CALL finish(TRIM(routine), TRIM(message_text))
+            CALL finish(routine, message_text)
           ENDIF
           CALL getPTStringFromMS(INT(start_time * 1000._wp, i8), domTimeString)
           domTime => newTimedelta(domTimeString, istat)
-          IF (istat /= SUCCESS) CALL finish(TRIM(routine), "Invalid domain start time string.")
+          IF (istat /= SUCCESS) CALL finish(routine, "Invalid domain start time string.")
           domStartDate = tc_exp_startdate + domTime
           CALL deallocateTimedelta(domTime)
         ELSE
@@ -914,7 +906,7 @@ CONTAINS !......................................................................
           IF (end_time /= DEFAULT_ENDTIME) THEN
             CALL getPTStringFromMS(INT(end_time * 1000._wp, i8), domTimeString)
             domTime => newTimedelta(domTimeString, istat)
-            IF (istat /= SUCCESS) CALL finish(TRIM(routine), "Invalid domain end time string.")
+            IF (istat /= SUCCESS) CALL finish(routine, "Invalid domain end time string.")
             domEndDate = tc_exp_startdate + domTime
             CALL deallocateTimedelta(domTime)
             IF (domEndDate > tc_exp_stopdate) domEndDate = tc_exp_stopdate
@@ -932,16 +924,16 @@ CONTAINS !......................................................................
           &  (MOD(dt_rad_nwp, upatmo_phy_config%nwp_grp( iUpatmoGrpId%rad )%dt) > eps)            ) THEN
           message_text = "WARNING, update period dt for group "                         &
             & //TRIM(upatmo_nwp_phy_config%grp( iUpatmoGrpId%rad )%name)//" on domain " &
-            & //TRIM(cjg)//" is adjusted to evenly divide dt_rad for NWP forcing..."
-          CALL message(TRIM(routine), TRIM(message_text))
+            & //cjg(cjgadj:)//" is adjusted to evenly divide dt_rad for NWP forcing..."
+          CALL message(routine, message_text)
           message_text = "... its old value was " &
             & //TRIM(ADJUSTL(real2string(upatmo_phy_config%nwp_grp( iUpatmoGrpId%rad )%dt, opt_fmt="(F20.3)")))//" s"
-          CALL message(TRIM(routine), TRIM(message_text))
+          CALL message(routine, message_text)
           upatmo_phy_config%nwp_grp( iUpatmoGrpId%rad )%dt = &
             & dt_rad_nwp / MAX(1._wp, ANINT(dt_rad_nwp / upatmo_phy_config%nwp_grp( iUpatmoGrpId%rad )%dt))
           message_text = "... its new value is " &
             & //TRIM(ADJUSTL(real2string(upatmo_phy_config%nwp_grp( iUpatmoGrpId%rad )%dt, opt_fmt="(F20.3)")))//" s"
-          CALL message(TRIM(routine), TRIM(message_text))
+          CALL message(routine, message_text)
         ENDIF
 
         ! Construct event group
@@ -966,7 +958,7 @@ CONTAINS !......................................................................
             &                       domainEndDate          = domEndDate,                                & !in
             &                       basicInterval          = dt_fastphy,                                & !in
             &                       eventName              = upatmo_nwp_phy_config%grp( jgrp )%name,    & !in
-            &                       domainName             = cjg,                                       & !in
+            &                       domainName             = cjg(cjgadj:),                              & !in
             &                       eventId                = upatmo_nwp_phy_config%grp( jgrp )%id,      & !in
             &                       eventEnabled           = l_enabled,                                 & !in
             &                       eventObject            = upatmo_nwp_phy_config%event_mgmt_grp,      & !inout
@@ -1019,7 +1011,7 @@ CONTAINS !......................................................................
               &                       domainEndDate          = domEndDate,                                & !in
               &                       basicInterval          = dt_fastphy,                                & !in
               &                       eventName              = upatmo_nwp_phy_config%extdat( jext )%name, & !in
-              &                       domainName             = cjg,                                       & !in
+              &                       domainName             = cjg(cjgadj:),                              & !in
               &                       eventId                = upatmo_nwp_phy_config%extdat( jext )%id,   & !in
               &                       eventEnabled           = l_enabled,                                 & !in
               &                       eventObject            = upatmo_nwp_phy_config%event_mgmt_extdat,   & !inout
@@ -1129,7 +1121,7 @@ CONTAINS !......................................................................
           ! so that the entropic coupling factor is the same as with the isochoric coupling:
           upatmo_nwp_phy_config%thermdyn_cpl_fac = cpd / cvd
         CASE DEFAULT
-          CALL finish(TRIM(routine), "Invalid thermdyn_cpl")
+          CALL finish(routine, "Invalid thermdyn_cpl")
         END SELECT
         
       ENDIF  !Physics enabled?
@@ -1502,16 +1494,15 @@ CONTAINS !......................................................................
     ! Local variables
     INTEGER  :: jk, jks
     LOGICAL  :: ldiscardnml
-    CHARACTER(LEN=max_char_length), PARAMETER ::  &
-      &  routine = modname//':configure_start_height'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':configure_start_height'
 
     !---------------------------------------------------------
 
     IF (.NOT. PRESENT(vct_a)) THEN 
-      CALL finish(TRIM(routine), 'vct_a still uninitialized.')
+      CALL finish(routine, 'vct_a still uninitialized.')
     ELSEIF (start_height < 0._wp) THEN
       ! A valid in-value for start_height is required
-      CALL finish(TRIM(routine), 'start_height requires non-negative in-value.')
+      CALL finish(routine, 'start_height requires non-negative in-value.')
     ENDIF
     
     IF (PRESENT(opt_ldiscardnml)) THEN
@@ -1590,15 +1581,14 @@ CONTAINS !......................................................................
 
     ! Local variables
     REAL(wp) :: eventInterval, startDateDiff
-    INTEGER  :: istat
+    INTEGER  :: istat, tlen
     LOGICAL  :: presentLowerBound, presentUpperBound
     TYPE(datetime) :: eventStartDate, eventEndDate
     TYPE(datetime),  POINTER :: eventDate
     TYPE(timedelta), POINTER :: eventDelta, plusSlack, eventDateCorr
     CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: eventDeltaString
-    CHARACTER(LEN=MAX_CHAR_LENGTH)       :: note 
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = modname//':configure_nwp_event'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':configure_nwp_event'
+    CHARACTER(len=*), PARAMETER :: its_adjusted = "It is adjusted to the"
 
     !---------------------------------------------------------
 
@@ -1611,29 +1601,37 @@ CONTAINS !......................................................................
     plusSlack     => NULL()
     eventDateCorr => NULL()
 
-    note  = "(event: "//TRIM(eventName)//", domain: "//TRIM(domainName)//")"
+#define note "(event: "//TRIM(eventName)//", domain: "//TRIM(domainName)//")"
 
     presentLowerBound = PRESENT(optLowerBound4Interval)
     presentUpperBound = PRESENT(optUpperBound4Interval)
     IF ( presentLowerBound .AND. presentUpperBound) THEN
-      IF  (optLowerBound4Interval > optUpperBound4Interval) &
-      CALL finish(TRIM(routine), "Lower bound for interval is greater than upper bound " &
-        & //TRIM(note))
+      IF  (optLowerBound4Interval > optUpperBound4Interval) THEN
+        message_text = "Lower bound for interval is greater than upper bound " &
+          &       // note
+        CALL finish(routine, message_text)
+      END IF
     ENDIF
     IF (presentLowerBound) THEN
       IF (optLowerBound4Interval < 0._wp) THEN
-        CALL finish(TRIM(routine), "optLowerBound4Interval has to be positive "//TRIM(note))
+        message_text = "optLowerBound4Interval has to be positive " &
+          &         // note
+        CALL finish(routine, message_text)
       ELSEIF (MOD(optLowerBound4Interval, basicInterval) > eps) THEN
-        CALL finish(TRIM(routine), "optLowerBound4Interval has to be a multiple of basicInterval " &
-          & //TRIM(note))
+        message_text = "optLowerBound4Interval has to be a multiple of basicInterval " &
+          &         // note
+        CALL finish(routine, message_text)
       ENDIF
     ENDIF
     IF (presentUpperBound) THEN
       IF (optUpperBound4Interval < 0._wp) THEN
-        CALL finish(TRIM(routine), "optUpperBound4Interval has to be positive "//TRIM(note))
+        message_text = "optUpperBound4Interval has to be positive " &
+          &         // note
+        CALL finish(routine, message_text)
       ELSEIF (MOD(optUpperBound4Interval, basicInterval) > eps) THEN
-        CALL finish(TRIM(routine), "optUpperBound4Interval has to be a multiple of basicInterval " &
-          & //TRIM(note))
+        message_text = "optUpperBound4Interval has to be a multiple of basicInterval " &
+          &         // note
+        CALL finish(routine, message_text)
       ENDIF
     ENDIF
 
@@ -1643,28 +1641,34 @@ CONTAINS !......................................................................
 
     IF (eventIntervalIn < 0._wp) THEN
       ! A negative time interval is not allowed
-      CALL finish(TRIM(routine), "Invalid eventIntervalIn "//TRIM(note))
+      message_text = "Invalid eventIntervalIn " &
+        &         // note
+      CALL finish(routine, message_text)
     ELSEIF (eventEnabled .AND. MOD(eventIntervalIn, basicInterval) > eps) THEN
       ! The event interval is not a multiple of the basic interval, 
       ! so we adjust it
       message_text = "WARNING, event interval = "                          &
         & //TRIM(ADJUSTL(real2string(eventIntervalIn, opt_fmt="(F20.3)"))) &
         & //" s is no multiple of basic interval = "                       &
-        & //TRIM(ADJUSTL(real2string(basicInterval, opt_fmt="(F20.3)")))//" s "//TRIM(note)
-      CALL message(TRIM(routine), TRIM(message_text))
+        & //TRIM(ADJUSTL(real2string(basicInterval, opt_fmt="(F20.3)")))//" s "&
+        & //note
+      CALL message(routine, message_text)
       ! Compute a new event interval, which is the multiple of the basic interval 
       ! closest to the original event interval 
       ! (it can be lower or greater than the original value!)
       eventInterval = MAX(1._wp, ANINT(eventIntervalIn / basicInterval)) * basicInterval
-      message_text = "It is adjusted to the"
+      message_text = its_adjusted
+      tlen = LEN(its_adjusted)
       IF (eventInterval > eventIntervalIn) THEN
-        message_text = TRIM(message_text)//" GREATER"
+        message_text(tlen+1:) = " GREATER"
+        tlen = tlen + 8
       ELSE
-        message_text = TRIM(message_text)//" LOWER"
+        message_text(tlen+1:) = " LOWER"
+        tlen = tlen + 6
       ENDIF
-      message_text = TRIM(message_text)//" value of " &
+      message_text(tlen+1:) = " value of " &
         & //TRIM(ADJUSTL(real2string(eventInterval, opt_fmt="(F20.3)")))//" s!"
-      CALL message(TRIM(routine), TRIM(message_text))
+      CALL message(routine, message_text)
     ELSE
       eventInterval = eventIntervalIn
     ENDIF
@@ -1675,10 +1679,10 @@ CONTAINS !......................................................................
           & //TRIM(ADJUSTL(real2string(eventInterval, opt_fmt="(F20.3)")))          &
           & //" s is lower than optLowerBound4Interval = "                          &
           & //TRIM(ADJUSTL(real2string(optLowerBound4Interval, opt_fmt="(F20.3)"))) &
-          & //" s "//TRIM(note)
-        CALL message(TRIM(routine), TRIM(message_text))
+          & //" s "//note
+        CALL message(routine, message_text)
         message_text = "It is adjusted to event interval = optLowerBound4Interval"
-        CALL message(TRIM(routine), TRIM(message_text))
+        CALL message(routine, message_text)
         eventInterval = optLowerBound4Interval
       ENDIF
     ENDIF
@@ -1688,18 +1692,21 @@ CONTAINS !......................................................................
           & //TRIM(ADJUSTL(real2string(eventInterval, opt_fmt="(F20.3)")))          &
           & //" s is greater than optUpperBound4Interval = "                        &
           & //TRIM(ADJUSTL(real2string(optUpperBound4Interval, opt_fmt="(F20.3)"))) &
-          & //" s "//TRIM(note)
-        CALL message(TRIM(routine), TRIM(message_text))
+          & //" s "//note
+        CALL message(routine, message_text)
         message_text = "It is adjusted to event interval = optUpperBound4Interval"
-        CALL message(TRIM(routine), TRIM(message_text))
+        CALL message(routine, message_text)
         eventInterval = optUpperBound4Interval
       ENDIF
     ENDIF
     ! Transform interval into date-time variable
     CALL getPTStringFromMS(INT(eventInterval * 1000._wp, i8), eventDeltaString)
     eventDelta => newTimedelta(eventDeltaString, istat)
-    IF (istat /= SUCCESS) CALL finish(TRIM(routine), &
-      & "Could not transform event interval into date-time variable "//TRIM(note))
+    IF (istat /= SUCCESS) THEN
+      message_text = "Could not transform event interval into date-time variable " &
+        &         // note
+      CALL finish(routine, message_text)
+    END IF
 
     !----------------------
     ! Configure start date
@@ -1712,7 +1719,11 @@ CONTAINS !......................................................................
     ELSE
       ! We try to transform the string into a date-time variable
       eventDate => newDatetime(eventStartDateIn, istat)
-      IF (istat /= SUCCESS) CALL finish(TRIM(routine), "Invalid eventStartDateIn "//TRIM(note))
+      IF (istat /= SUCCESS) THEN
+        message_text = "Invalid eventStartDateIn " &
+         &          // note
+        CALL finish(routine, message_text)
+      END IF
       eventStartDate = eventDate
       ! Difference between domainStartDate and eventStartDate in seconds
       startDateDiff = 1.0e-3_wp * REAL(getTotalMilliSecondsTimeDelta(eventStartDate - domainStartDate, &
@@ -1721,21 +1732,24 @@ CONTAINS !......................................................................
         startDateDiff = MAX(1._wp, ANINT(startDateDiff / basicInterval)) * basicInterval - startDateDiff
         CALL getPTStringFromMS(INT(startDateDiff * 1000._wp, i8), eventDeltaString)
         eventDateCorr => newTimedelta(eventDeltaString, istat)
-        IF (istat /= SUCCESS) CALL finish(TRIM(routine), &
-          & "Could not transform event date correction into date-time variable "//TRIM(note))
+        IF (istat /= SUCCESS) THEN
+          message_text = "Could not transform event date correction into date-time variable " &
+            &         // note
+          CALL finish(routine, message_text)
+        END IF
         eventStartDate = eventStartDate + eventDateCorr
         CALL deallocateTimedelta(eventDateCorr)
         message_text = "WARNING, eventStartDate is adjusted to be in phase with cycle time of ICON " &
-          & //TRIM(note)
-        CALL message(TRIM(routine), TRIM(message_text))
+          & // note
+        CALL message(routine, message_text)
       ENDIF
       ! If the domain start date happens to be after the event start date, 
       ! the event start date is replaced by the domain start date
       IF (domainStartDate > eventStartDate) THEN 
         eventStartDate = domainStartDate
         message_text = "WARNING, domainStartDate > eventStartDate => eventStartDate = domainStartDate " &
-          & //TRIM(note)
-        CALL message(TRIM(routine), TRIM(message_text))
+          & // note
+        CALL message(routine, message_text)
       ENDIF
       CALL deallocateDatetime(eventDate)
     ENDIF
@@ -1755,15 +1769,18 @@ CONTAINS !......................................................................
     ELSE
       ! We try to transform the string into a date-time variable
       eventDate => newDatetime(eventEndDateIn, istat)
-      IF (istat /= SUCCESS) CALL finish(TRIM(routine), "Invalid eventEndDateIn "//TRIM(note))
+      IF (istat /= SUCCESS) THEN
+        message_text = "Invalid eventEndDateIn " // note
+        CALL finish(routine, message_text)
+      END IF
       eventEndDate = eventDate
       ! If the domain end date happens to be before the event end date, 
       ! the latter is replaced by the former
       IF (eventEndDate > domainEndDate) THEN 
         eventEndDate = domainEndDate
         message_text = "WARNING, eventEndDate > domainEndDate => eventEndDate = domainEndDate " &
-          & //TRIM(note)
-        CALL message(TRIM(routine), TRIM(message_text))
+          &         // note
+        CALL message(routine, message_text)
       ENDIF
       CALL deallocateDatetime(eventDate)
     ENDIF
@@ -1773,8 +1790,8 @@ CONTAINS !......................................................................
     IF (eventStartDate > eventEndDate) THEN
       eventStartDate = eventEndDate
       message_text = "WARNING, eventStartDate > eventEndDate => eventStartDate = eventEndDate " &
-        & //TRIM(note)
-      CALL message(TRIM(routine), TRIM(message_text))
+        & // note
+      CALL message(routine, message_text)
     ENDIF
 
     !-----------------
@@ -1812,9 +1829,11 @@ CONTAINS !......................................................................
 
     CALL deallocateTimedelta(eventDelta)
     CALL deallocateTimedelta(plusSlack)
-    
+
+#undef note
+
   END SUBROUTINE configure_nwp_event
-  
+
   !==================================================================================== 
 
   !>
@@ -1843,14 +1862,18 @@ CONTAINS !......................................................................
     TYPE(t_upatmo_nwp_phy),    INTENT(INOUT) :: upatmo_nwp_phy_config   ! Upper-atmosphere configuration for NWP
 
     ! Local variables
-    INTEGER  :: jgrp, jprc, jgas
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: msg_prefix, cjg, cremark
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = modname//':print_config_upatmo_physics'
+    INTEGER  :: jgrp, jprc, jgas, cjgadj, tlen, ladj_s, ladj_e, ladj_h
+    CHARACTER(LEN=13) :: cremark
+    CHARACTER(LEN=80) :: msg_prefix
+    CHARACTER(LEN=11) :: cjg
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':print_config_upatmo_physics'
+    CHARACTER(len=*), PARAMETER :: &
+      hght_msg_sfx = ', => switched off effectively!)'
 
     !---------------------------------------------------------
 
-    cjg = TRIM(int2string(jg))
+    WRITE (cjg, '(i0)') jg
+    cjgadj = VERIFY(cjg, " ")
 
     !-----------------------------------------------------
     !                "Any-case" output
@@ -1882,8 +1905,7 @@ CONTAINS !......................................................................
         
         IF (jg == 1 .AND. upatmo_nwp_phy_config%l_phy_stat( iUpatmoPrcStat%enabled )) THEN
           
-          message_text = 'Notes on configuration of upper-atmosphere physics:'
-          CALL message(TRIM(routine), TRIM(message_text))
+          CALL message(routine, 'Notes on configuration of upper-atmosphere physics:')
           message_text = '* upatmo_nml: nwp_grp_<procgroup>%dt ' &
             & //'(default or NAMELIST input) is not rescaled, if grid_nml: grid_rescale_factor /= 1!'
           CALL message(' ', message_text, adjust_right=.TRUE.)
@@ -1895,29 +1917,23 @@ CONTAINS !......................................................................
             CALL message(' ', message_text, adjust_right=.TRUE.)
           ENDIF
           !
-          message_text = 'Notes on output of (upper-atmosphere) variables:'
-          CALL message(TRIM(routine), TRIM(message_text))
-          message_text = '* only variables associated with switched on process groups ' &
-            & //'can be selected in output_nml!'
-          CALL message(' ', message_text, adjust_right=.TRUE.)
+          CALL message(routine, 'Notes on output of (upper-atmosphere) variables:')
+          CALL message(' ', '* only variables associated with switched on process groups &
+            &can be selected in output_nml!', adjust_right=.TRUE.)
           message_text = '* every variable name requires the following prefix: ' &
-            & //TRIM(upatmo_nwp_phy_config%vname_prefix)
+            & // upatmo_nwp_phy_config%vname_prefix
           CALL message(' ', message_text, adjust_right=.TRUE.)
-          message_text = '* heating rates are isobaric, not isochoric ' &
-            & //'(no matter how they are processed internally)!'
-          CALL message(' ', message_text, adjust_right=.TRUE.)
+          CALL message(' ', '* heating rates are isobaric, not isochoric &
+            &(no matter how they are processed internally)!', adjust_right=.TRUE.)
           IF (upatmo_nwp_phy_config%grp( iUpatmoGrpId%rad )%l_stat( iUpatmoPrcStat%enabled )) THEN
-            message_text = '* efficiency and scaling factors sclrlw and effrsw are multiplied ' &
-              & //'to the temperature tendencies from the standard radiation,'
-            CALL message(' ', message_text, adjust_right=.TRUE.)
-            message_text = '  so the forcing is NOT ddt_temp_radsw and ddt_temp_radlw, ' &
-              & //'but effrsw * ddt_temp_radsw and sclrlw * ddt_temp_lw'
-            CALL message(' ', message_text, adjust_right=.TRUE.)
+            CALL message(' ', '* efficiency and scaling factors sclrlw and effrsw are multiplied &
+              &to the temperature tendencies from the standard radiation,', adjust_right=.TRUE.)
+            CALL message(' ', '  so the forcing is NOT ddt_temp_radsw and ddt_temp_radlw, &
+              &but effrsw * ddt_temp_radsw and sclrlw * ddt_temp_lw', adjust_right=.TRUE.)
           ENDIF  !Radiation enabled?
           IF (n_dom > 1) THEN
-            message_text = '* halo cells typically contain 0s, which might be visible ' &
-              & // 'on the lateral boundary of lon-lat-regridded output of nests'
-            CALL message(' ', message_text, adjust_right=.TRUE.)
+            CALL message(' ', '* halo cells typically contain 0s, which might be visible &
+              &on the lateral boundary of lon-lat-regridded output of nests', adjust_right=.TRUE.)
           ENDIF
           
         ENDIF  !IF (jg == 1 .AND. upatmo_nwp_phy_config%l_phy_stat( iUpatmoPrcStat%enabled ))
@@ -1947,32 +1963,32 @@ CONTAINS !......................................................................
             !*******************************************************************************
 
             IF (upatmo_echam_phy_config%l_status( iUpatmoStat%required )) THEN
-              msg_prefix = 'upatmo_config('//TRIM(cjg)//')%echam_phy%'
+              msg_prefix = 'upatmo_config('//cjg(cjgadj:)//')%echam_phy%'
+              tlen = LEN_TRIM(msg_prefix)
               !
-              message_text = TRIM(msg_prefix)//'l_constgrav: '// &
-                & TRIM(logical2string(upatmo_echam_phy_config%l_constgrav))
-              CALL message(TRIM(routine), TRIM(message_text))
-              ! 
-              message_text = TRIM(msg_prefix)//'l_shallowatmo: '// &
-                & TRIM(logical2string(upatmo_echam_phy_config%l_shallowatmo))
-              CALL message(TRIM(routine), TRIM(message_text))
+              WRITE (message_text, '(2a,l7)') msg_prefix(:tlen), 'l_constgrav: ', &
+                & upatmo_echam_phy_config%l_constgrav
+              CALL message(routine, message_text)
+              !
+              WRITE (message_text, '(2a,l7)') msg_prefix(:tlen), 'l_shallowatmo: ', &
+                & upatmo_echam_phy_config%l_shallowatmo
+              CALL message(routine, message_text)
             ENDIF
 
             IF (jg == 1 .AND. upatmo_echam_phy_config%l_enabled) THEN
               ! (For the time being, we take the configuration for NWP, 
               ! where a corresponding configuration for ECHAM is not yet implemented)
-              message_text = 'Info on processes:'
-              CALL message(TRIM(routine), TRIM(message_text))
+              CALL message(routine, 'Info on processes:')
               DO jprc = 1, iUpatmoPrcId%nitem
-                cremark = ' (start height = ' &
-                  & //TRIM(ADJUSTL(real2string(upatmo_echam_phy_config%start_height( jprc ), opt_fmt='(F20.1)')))//' m'
-                IF (upatmo_echam_phy_config%iendlev( jprc ) > 0) THEN
-                  cremark = TRIM(cremark)//')'
-                ELSE
-                  cremark = TRIM(cremark)//', => switched off effectively!)'
-                ENDIF
                 message_text = '* '//TRIM(upatmo_nwp_phy_config%prc( jprc )%longname) &
-                  & //TRIM(cremark)
+                  & // ' (start height = ' &
+                  & //TRIM(ADJUSTL(real2string(upatmo_echam_phy_config%start_height( jprc ), opt_fmt='(F20.1)')))//' m'
+                tlen = LEN_TRIM(message_text)
+                IF (upatmo_echam_phy_config%iendlev( jprc ) > 0) THEN
+                  message_text(tlen+1:) = ')'
+                ELSE
+                  message_text(tlen+1:) = ', => switched off effectively!)'
+                ENDIF
                 CALL message(' ', message_text, adjust_right=.TRUE.)
               ENDDO  !jprc
             ENDIF  !IF (jg == 1 .AND. upatmo_echam_phy_config%l_enabled)
@@ -1986,29 +2002,30 @@ CONTAINS !......................................................................
             !*******************************************************************************
 
             IF (upatmo_nwp_phy_config%l_status( iUpatmoStat%required )) THEN
-              msg_prefix = 'upatmo_config('//TRIM(cjg)//')%nwp_phy%'
+              msg_prefix = 'upatmo_config('//cjg(cjgadj:)//')%nwp_phy%'
+              tlen = LEN_TRIM(msg_prefix)
               !
-              message_text = TRIM(msg_prefix)//'l_constgrav: '// &
-                & TRIM(logical2string(upatmo_nwp_phy_config%l_constgrav))
-              CALL message(TRIM(routine), TRIM(message_text))
-              ! 
-              message_text = TRIM(msg_prefix)//'l_shallowatmo: '// &
-                & TRIM(logical2string(upatmo_nwp_phy_config%l_shallowatmo))
-              CALL message(TRIM(routine), TRIM(message_text))
+              WRITE (message_text, '(2a,l7)') msg_prefix(1:tlen), 'l_constgrav: ', &
+                & upatmo_nwp_phy_config%l_constgrav
+              CALL message(routine, message_text)
               !
-              message_text = 'lupatmo_phy(dom'//TRIM(cjg)//'): '// &
-                & TRIM(logical2string(lupatmo_phy))
-              CALL message(TRIM(routine), TRIM(message_text))
+              WRITE (message_text, '(2a,l7)') msg_prefix(1:tlen), 'l_shallowatmo: ', &
+                & upatmo_nwp_phy_config%l_shallowatmo
+              CALL message(routine, message_text)
               !
-              message_text = 'l_phy_stat(dom'//TRIM(cjg)//'): '// &
-                & TRIM(logical2string(upatmo_nwp_phy_config%l_phy_stat( iUpatmoPrcStat%enabled )))
-              CALL message(TRIM(routine), TRIM(message_text))
+              WRITE (message_text, '(3a,l7)') 'lupatmo_phy(dom', cjg(cjgadj:), '): ', &
+                & lupatmo_phy
+              CALL message(routine, message_text)
+              !
+              WRITE (message_text, '(3a,l7)') 'l_phy_stat(dom', cjg(cjgadj:), '): ', &
+                & upatmo_nwp_phy_config%l_phy_stat(iUpatmoPrcStat%enabled)
+              CALL message(routine, message_text)
             ENDIF
 
             IF (upatmo_nwp_phy_config%l_phy_stat( iUpatmoPrcStat%enabled )) THEN
               !
-              message_text = 'Switched on process groups on dom '//TRIM(cjg)//':'
-              CALL message(TRIM(routine), TRIM(message_text))
+              message_text = 'Switched on process groups on dom '//cjg(cjgadj:)//':'
+              CALL message(routine, message_text)
               DO jgrp = 1, iUpatmoGrpId%nitem
                 IF (upatmo_nwp_phy_config%grp( jgrp )%l_stat( iUpatmoPrcStat%enabled )) THEN
                   IF (upatmo_nwp_phy_config%grp( jgrp )%l_stat( iUpatmoPrcStat%offline )) THEN
@@ -2016,33 +2033,34 @@ CONTAINS !......................................................................
                   ELSE
                     cremark = ' (interactive'
                   ENDIF
-                  cremark = TRIM(cremark)//', dt(namelist) = '                                              &
-                    & //TRIM(ADJUSTL(real2string(upatmo_phy_config%nwp_grp( jgrp )%dt, opt_fmt='(F20.3)'))) &
-                    & //' s, dt(used) = '                                                                   &
-                    & //TRIM(ADJUSTL(real2string(upatmo_nwp_phy_config%grp( jgrp )%dt, opt_fmt='(F20.3)'))) &
-                    & //' s)'
-                  message_text = '* '//TRIM(upatmo_nwp_phy_config%grp( jgrp )%longname) &
-                    & //TRIM(cremark)
+                  WRITE (message_text, '(8a)') '* ', TRIM(upatmo_nwp_phy_config%grp( jgrp )%longname),      &
+                       & TRIM(cremark),                                                                       &
+                       & ', dt(namelist) = ',                                                                 &
+                       & TRIM(ADJUSTL(real2string(upatmo_phy_config%nwp_grp( jgrp )%dt, opt_fmt='(F20.3)'))), &
+                       & ' s, dt(used) = ',                                                                   &
+                       & TRIM(ADJUSTL(real2string(upatmo_nwp_phy_config%grp( jgrp )%dt, opt_fmt='(F20.3)'))), &
+                       & ' s)'
                   CALL message(' ', message_text, adjust_right=.TRUE.)
-                  message_text = '   Info on single processes:'
-                  CALL message(' ', message_text, adjust_right=.TRUE.)
+                  CALL message(' ', '   Info on single processes:', adjust_right=.TRUE.)
                   DO jprc = 1, iUpatmoPrcId%nitem
                     IF (upatmo_nwp_phy_config%prc( jprc )%igrp == jgrp) THEN
-                      cremark = ' (start height = '                                                                       &
-                        & //TRIM(ADJUSTL(real2string(upatmo_nwp_phy_config%prc( jprc )%start_height, opt_fmt='(F20.1)'))) &
-                        & //' m, end height = '                                                                           &
-                        & //TRIM(ADJUSTL(real2string(upatmo_nwp_phy_config%prc( jprc )%end_height, opt_fmt='(F20.1)')))   &
-                        & //' m, start level = '                                                                          &
-                        & //TRIM(int2string(upatmo_nwp_phy_config%prc( jprc )%istartlev))                                 &
-                        & //', end level = '                                                                              &            
-                        & //TRIM(int2string(upatmo_nwp_phy_config%prc( jprc )%iendlev))
-                      IF (upatmo_nwp_phy_config%prc( jprc )%iendlev > 0) THEN           
-                        cremark = TRIM(cremark)//')'
-                      ELSE
-                        cremark = TRIM(cremark)//', => switched off effectively!)'
-                      ENDIF
-                      message_text = '   * '//TRIM(upatmo_nwp_phy_config%prc( jprc )%longname) &
-                        & //TRIM(cremark)
+                      WRITE (msg_prefix, '(2(f20.1))') &
+                        upatmo_nwp_phy_config%prc( jprc )%start_height, &
+                        upatmo_nwp_phy_config%prc( jprc )%end_height
+                      ladj_s = 1 + VERIFY(msg_prefix(1:20), ' ')
+                      ladj_e = 21 + VERIFY(msg_prefix(21:40), ' ')
+                      tlen = LEN_TRIM(upatmo_nwp_phy_config%prc(jprc)%longname)
+                      ladj_h = MERGE(1, LEN(hght_msg_sfx), &
+                        &            upatmo_nwp_phy_config%prc(jprc)%iendlev>0)
+                      WRITE (message_text, '(7a,i0,a,i0,a)') &
+                        & '   * ', upatmo_nwp_phy_config%prc(jprc)%longname(1:tlen),                                      &
+                        & ' (start height = ',  msg_prefix(ladj_s:20),                                                    &
+                        & ' m, end height = ',  msg_prefix(ladj_e:40),                                                    &
+                        & ' m, start level = ',                                                                           &
+                        & upatmo_nwp_phy_config%prc( jprc )%istartlev,                                                    &
+                        & ', end level = ',                                                                               &
+                        & upatmo_nwp_phy_config%prc( jprc )%iendlev,                                                      &
+                        & hght_msg_sfx(ladj_h:)
                       CALL message(' ', message_text, adjust_right=.TRUE.)
                     ENDIF  !IF (upatmo_nwp_phy_config%prc( jprc )%igrp == jgrp)
                   ENDDO  !jprc
@@ -2056,17 +2074,14 @@ CONTAINS !......................................................................
             !
             IF (jg == 1 .AND. upatmo_nwp_phy_config%l_gas_stat( iUpatmoGasStat%enabled )) THEN
               !
-              message_text = 'Required radiatively active gases:'
-              CALL message(TRIM(routine), TRIM(message_text))
+              CALL message(routine, 'Required radiatively active gases:')
               DO jgas = 1, iUpatmoGasId%nitem
                 IF (upatmo_nwp_phy_config%gas( jgas )%l_stat( iUpatmoGasStat%enabled )) THEN
+                  tlen = LEN_TRIM(upatmo_nwp_phy_config%gas( jgas )%longname)
+                  message_text = '* '//upatmo_nwp_phy_config%gas( jgas )%longname(1:tlen)
                   IF (upatmo_nwp_phy_config%gas( jgas )%imode == iUpatmoGasMode%extdat) THEN
-                    cremark = ' (external data from file)'
-                  ELSE
-                    cremark = ' '
-                  ENDIF
-                  message_text = '* '//TRIM(upatmo_nwp_phy_config%gas( jgas )%longname) &
-                    & //TRIM(cremark)
+                    message_text(tlen+3:) = ' (external data from file)'
+                  END IF
                   CALL message(' ', message_text, adjust_right=.TRUE.)
                 ENDIF  !IF (upatmo_nwp_phy_config%gas( jgas )%l_stat( iUpatmoGasStat%enabled ))
               ENDDO  !jgas
@@ -2081,10 +2096,10 @@ CONTAINS !......................................................................
             ! Thermodynamic coupling factor
             message_text = 'Thermodynamic coupling factor = ' &
               & //TRIM(ADJUSTL(real2string(upatmo_nwp_phy_config%thermdyn_cpl_fac, opt_fmt='(F6.2)')))
-            CALL message(TRIM(routine), TRIM(message_text))
-            message_text = 'Consider heat source from heat diffusion: ' &
-              & //TRIM(logical2string(upatmo_phy_config%nwp_ldiss_from_heatdiff))
-            CALL message(TRIM(routine), TRIM(message_text))
+            CALL message(routine, message_text)
+            WRITE (message_text, '(a,l7)') 'Consider heat source from heat diffusion: ', &
+              & upatmo_phy_config%nwp_ldiss_from_heatdiff
+            CALL message(routine, message_text)
 
           END SELECT  !SELECT CASE(iforcing)
 
@@ -2104,8 +2119,8 @@ CONTAINS !......................................................................
     &                                   mtime_current ) !in
 
     ! In/out variables
-    CLASS(t_phy_prc),        INTENT(INOUT) :: prc
-    TYPE(datetime), POINTER, INTENT(IN)    :: mtime_current
+    CLASS(t_phy_prc), INTENT(INOUT) :: prc
+    TYPE(datetime), INTENT(IN)      :: mtime_current
 
     !---------------------------------------------------------
 
@@ -2133,8 +2148,8 @@ CONTAINS !......................................................................
     &                                  mtime_current ) !in
 
     ! In/out variables
-    CLASS(t_phy_prc),        INTENT(INOUT) :: prc
-    TYPE(datetime), POINTER, INTENT(IN)    :: mtime_current
+    CLASS(t_phy_prc), INTENT(INOUT) :: prc
+    TYPE(datetime), INTENT(IN)      :: mtime_current
 
     !---------------------------------------------------------
 
@@ -2189,7 +2204,7 @@ CONTAINS !......................................................................
 
     ! In/out variables
     CLASS(t_upatmo_nwp_phy), INTENT(INOUT) :: grp
-    TYPE(datetime), POINTER, INTENT(IN)    :: mtime_current
+    TYPE(datetime), INTENT(IN)             :: mtime_current
 
     !---------------------------------------------------------
 

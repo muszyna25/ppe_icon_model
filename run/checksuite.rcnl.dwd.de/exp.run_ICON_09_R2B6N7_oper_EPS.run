@@ -89,8 +89,8 @@ ln -sf $GRIDDIR/icon_grid_0024_R02B06_G-grfinfo.nc iconR2B06_DOM01-grfinfo.nc
 ln -sf $GRIDDIR/icon_grid_0028_R02B07_N02.nc iconR2B07_DOM02.nc
 ln -sf $GRIDDIR/icon_grid_0028_R02B07_N02-grfinfo.nc iconR2B07_DOM02-grfinfo.nc
 
-ln -sf $EXTPDIR/icon_extpar_0024_R02B06_G_20161124_tiles.nc extpar_iconR2B06_DOM01.nc
-ln -sf $EXTPDIR/icon_extpar_0028_R02B07_N02_20161124_tiles.nc extpar_iconR2B07_DOM02.nc
+ln -sf $EXTPDIR/icon_extpar_0024_R02B06_G_20180625_tiles.nc extpar_iconR2B06_DOM01.nc
+ln -sf $EXTPDIR/icon_extpar_0028_R02B07_N02_20180625_tiles.nc extpar_iconR2B07_DOM02.nc
 
 
 cymdg=2017041500
@@ -98,9 +98,9 @@ cymdgm3=$(datconv -Cy -d -3 ${cymdg})
 
 echo dates $cymdg $cymdgm3
 
+
 # files needed for radiation
-ln -sf ${ICONDIR}/data/ECHAM6_CldOptProps.nc .
-ln -sf ${ICONDIR}/data/rrtmg_lw.nc .
+ln -sf ${ICONDIR}/externals/ecrad/data ecrad_data
 
 
 # ----------------------------------------------------------------------
@@ -235,7 +235,7 @@ cat > ${atmo_namelist} << EOF
 &nwp_phy_nml
 inwp_gscp       = 1               ! 10 in test case 35
 inwp_convection = 1
-inwp_radiation  = 1
+inwp_radiation  = 4
 inwp_cldcover   = 1 ! 3 geaendert ab Test2
 inwp_turb       = 1
 inwp_satad      = 1
@@ -283,6 +283,8 @@ a_hshr       = 2.0
   lmulti_snow    = .false.
   itype_heatcond = 3
   idiag_snowfrac = 20
+  itype_snowevap = 2
+  itype_canopy   = 2
   lsnowtile      = .true.
   lseaice        = .true.
   llake          = .true.
@@ -306,6 +308,7 @@ a_hshr       = 2.0
  vmr_o2     = 0.20946
  vmr_cfc11  = 240.e-12
  vmr_cfc12  = 532.e-12
+ ecrad_data_path = './ecrad_data'
 /
 &nonhydrostatic_nml
  itime_scheme    = 4
@@ -376,9 +379,10 @@ support_baryctr_intp=.true.,
  n_iter_smooth_topo   = 1,1
  hgtdiff_max_smooth_topo = 750.,750.,
  heightdiff_threshold = 3000.
+ itype_vegetation_cycle = 2
 /
 &ensemble_pert_nml
-use_ensemble_pert=.true.,
+use_ensemble_pert=.false.,
 /
 &gribout_nml
  preset                          = "ensemble"
@@ -849,7 +853,7 @@ export NMPI_EXPORT="GFORTRAN_UNBUFFERED_PRECONNECTED"
 #          But when you worry you make it double ..."
 # ----------------------------------------------------------------------
 
-refdir="/hpc/rwork0/routfor/test/icon/Checksuite_data/ref_data_exp09/e5558d2b"
+refdir="/hpc/rwork0/routfor/test/icon/Checksuite_data/ref_data_exp09/64e106377"
 
 bash << EOFSCRIPT
 
@@ -864,7 +868,16 @@ export ECCODES_DEFINITION_PATH="\$ECCODES_DIR/definitions.edzw:\$ECCODES_DIR/def
 . "/hpc/rwork0/routfor/test/icon/Checksuite_data/checksuite_rcnl_miniconda3/etc/profile.d/conda.sh"
 conda activate pyn_env
 
-for this_file in igfrf02000000ML.grb iefff02000000MLv01.grb
+for this_file in igfrf02000000ML.grb 
+do
+
+# run Python script for comparison of GRIB2 meta-data and values:
+$ICONDIR/run/checksuite.rcnl.dwd.de/exp.run_ICON_09_R2B6N7_oper_EPS.check.py \
+--datafile=\$this_file --reffile=$refdir/\$this_file -g
+
+done
+
+for this_file in iefff02000000MLv01.grb
 do
 
 # run Python script for comparison of GRIB2 meta-data and values:

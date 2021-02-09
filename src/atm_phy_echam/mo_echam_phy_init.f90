@@ -30,7 +30,6 @@ MODULE mo_echam_phy_init
     &                                t_stream_id, on_cells
   USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, &
     &                                timer_prep_echam_phy
-  USE mo_impl_constants,       ONLY: max_char_length
 
   ! model configuration
   USE mo_impl_constants,       ONLY: min_rlcell_int, grf_bdywidth_c
@@ -145,6 +144,7 @@ MODULE mo_echam_phy_init
   PUBLIC  :: init_echam_phy_params, init_echam_phy_external, init_echam_phy_field
   PUBLIC  :: init_o3_lcariolle
 
+  CHARACTER(len=*), PARAMETER :: modname = 'mo_echam_phy_init'
   TYPE(t_sst_sic_reader), TARGET :: sst_sic_reader
   TYPE(t_time_intp)      :: sst_intp
   TYPE(t_time_intp)      :: sic_intp
@@ -423,6 +423,7 @@ CONTAINS
 
     INTEGER :: jg, jt
     LOGICAL :: lany
+    CHARACTER(len=*), PARAMETER :: routine = modname//':init_echam_phy_tracer'
 
     ! Set the indices for specific tracers, if they occur among the named tracers.
     !
@@ -469,21 +470,21 @@ CONTAINS
     END DO
     IF (lany) THEN
        IF (iqv*iqc*iqi == 0) THEN
-          CALL finish('mo_echam_phy_init:init_echam_phy_tracer',         &
+          CALL finish(routine,         &
                &      'For ECHAM cloud microphysics, the 3 tracers '  // &
                &      'qv/hus, qc/clw, and qi/cli must be included '  // &
                &      'in transport_nml/tracer_names')
        END IF
        IF (MAX(iqv,iqc,iqi) > 3) THEN ! <-- is this needed? depends on usage of iqm_max and iqt
-          CALL finish('mo_echam_phy_init:init_echam_phy_tracer',         &
+          CALL finish(routine,         &
                &      'For ECHAM cloud microphysics, the 3 tracers '  // &
                &      'qv/hus, qc/clw, and qi/cli must be among the ' // &
                &      'first 3 included in transport_nml/tracer_names')
        END IF
        IF (iqm_max > 3) THEN
-          CALL print_value('mo_echam_phy_init:init_echam_phy_tracer: ATTENTION! '  // &
+          CALL print_value('ATTENTION! '  // &
                &           'ECHAM cloud microphyiscs is used with more than 3 '    // &
-               &           'water tracers: iqm_max',iqm_max)
+               &           'water tracers: iqm_max',iqm_max, routine=routine)
        END IF
     END IF
 
@@ -495,21 +496,21 @@ CONTAINS
     END DO
     IF (lany) THEN
        IF (iqv*iqc*iqi*iqr*iqs*iqg == 0) THEN
-          CALL finish('mo_echam_phy_init:init_echam_phy_tracer',           &
+          CALL finish(routine,           &
                &      'For "Graupel" cloud microphysics, the 6 tracers '// &
                &      'qv/hus, qc/clw, qi/cli, qr, qs, and qg must be ' // &
                &      'included in transport_nml/tracer_names')
        END IF
        IF (MAX(iqv,iqc,iqi,iqr,iqs,iqg) > 6) THEN ! <-- is this needed? depends on usage of iqm_max and iqt
-          CALL finish('mo_echam_phy_init:init_echam_phy_tracer',            &
+          CALL finish(routine,            &
                &      'For "Graupel" cloud microphysics, the 6 tracers ' // &
                &      'qv/hus, qc/clw, qi/cli, qr, qs, and qg must be '  // &
                &      'among the first 6 included in transport_nml/tracer_names')
        END IF
        IF (iqm_max > 6) THEN
-          CALL print_value('mo_echam_phy_init:init_echam_phy_tracer: ATTENTION! '   // &
+          CALL print_value('ATTENTION! '   // &
                &           '"Graupel" cloud microphyiscs is used with more than 6 ' // &
-               &           'water tracers: iqm_max',iqm_max)
+               &           'water tracers: iqm_max',iqm_max, routine=routine)
        END IF
     END IF
 
@@ -521,7 +522,7 @@ CONTAINS
     END DO
     IF (lany) THEN
        IF (io3 == 0) THEN
-          CALL finish('mo_echam_phy_init:init_echam_phy_tracer',           &
+          CALL finish(routine,           &
                &      'For the linearized ozone chemistry of Cariolle, '// &
                &      'the tracer qo3 must be included in transport_nml'// &
                &      '/tracer_names')
@@ -536,57 +537,13 @@ CONTAINS
     END DO
     IF (lany) THEN
        IF (iqv == 0) THEN
-          CALL finish('mo_echam_phy_init:init_echam_phy_tracer',           &
+          CALL finish(routine,           &
                &      'For the methane oxidation parameterization, the '// &
                &      'tracer qv/hus must be included in transport_nml' // &
                &      '/tracer_names')
        END IF
     END IF
 
-    ! extra treatment if ART is active
-       
-    IF (lart) THEN
-        
-       io3    = 0     !! O3
-       ico2   = 0     !! CO2
-       ich4   = 0     !! CH4
-       in2o   = 0     !! N2O
-
-       art_config(1)%iart_echam_ghg = ntracer - art_config(1)%iart_ntracer - iqt + 1
-
-       SELECT CASE (art_config(1)%iart_echam_ghg)  
-
-       CASE(1)
-          io3    = iqt + 0; advection_config(:)%tracer_names(io3)  = 'qo3'
-       CASE(2)
-          io3    = iqt + 0; advection_config(:)%tracer_names(io3)  = 'qo3'
-          ico2   = iqt + 1; advection_config(:)%tracer_names(ico2)  = 'qco2'
-       CASE(3)
-          io3    = iqt + 0; advection_config(:)%tracer_names(io3)  = 'qo3'
-          ico2   = iqt + 1; advection_config(:)%tracer_names(ico2)  = 'qco2'
-          ich4   = iqt + 2; advection_config(:)%tracer_names(ich4)  = 'qch4'
-       CASE(4)
-          io3    = iqt + 0; advection_config(:)%tracer_names(io3)  = 'qo3'
-          ico2   = iqt + 1; advection_config(:)%tracer_names(ico2)  = 'qco2'
-          ich4   = iqt + 2; advection_config(:)%tracer_names(ich4)  = 'qch4'
-          in2o   = iqt + 3; advection_config(:)%tracer_names(in2o)  = 'qn2o'
-
-
-       CASE(0)
-
-       CASE DEFAULT
-          CALL finish('mo_echam_phy_init:init_echam_phy_itracer',     &
-                 &    'iart_echam_ghg > 4 or < 0 is not supported.'// &
-                 &    ' ntracer large enough?')
-
-       END SELECT
-
-       WRITE(message_text,'(a,i3,a,i3)') 'Attention: transport of ART tracers is active, '//&
-                                         'ntracer is increased by ',art_config(1)%iart_ntracer, &
-                                         ' to ',ntracer
-       CALL message('mo_echam_phy_init:init_echam_phy_tracer',message_text)
-
-    ENDIF
 
     CALL message('','')
     CALL message('','Tracer configuration')
@@ -624,11 +581,12 @@ CONTAINS
     LOGICAL :: lany
     TYPE(t_stream_id) :: stream_id
 
-    CHARACTER(len=max_char_length) :: land_frac_fn
-    CHARACTER(len=max_char_length) :: land_phys_fn
-    CHARACTER(len=max_char_length) :: land_sso_fn
+    CHARACTER(len=26+2+3) :: land_frac_fn
+    CHARACTER(len=26+2+3) :: land_phys_fn
+    CHARACTER(len=25+2+3) :: land_sso_fn
 
     TYPE(t_time_interpolation_weights) :: current_time_interpolation_weights
+    CHARACTER(len=*), PARAMETER :: routine = modname//':init_echam_phy_external'
 
     IF (timers_level > 1) CALL timer_start(timer_prep_echam_phy)
 
@@ -651,9 +609,9 @@ CONTAINS
         ! land, glacier and lake masks
         !
         WRITE(message_text,'(2a)') 'Read notsea, glac and lake from file ', TRIM(land_frac_fn)
-        CALL message('mo_echam_phy_init:init_echam_phy_external', message_text)
+        CALL message(routine, message_text)
         !
-        stream_id = openInputFile(land_frac_fn, p_patch(jg), default_read_method)
+        CALL openInputFile(stream_id, land_frac_fn, p_patch(jg))
         CALL read_2D(stream_id=stream_id, location=on_cells,&
              &          variable_name='notsea',               &
              &          fill_array=prm_field(jg)%lsmask(:,:))
@@ -692,12 +650,12 @@ CONTAINS
         !
         IF (echam_phy_tc(jg)%dt_vdf > dt_zero .OR. echam_phy_tc(jg)%dt_rad > dt_zero) THEN
           !
-          stream_id = openInputFile(land_phys_fn, p_patch(jg), default_read_method)
+          CALL openInputFile(stream_id, land_phys_fn, p_patch(jg))
           !
           IF (echam_phy_tc(jg)%dt_vdf > dt_zero) THEN
             !
             WRITE(message_text,'(2a)') 'Read roughness_length from file: ', TRIM(land_phys_fn)
-            CALL message('mo_echam_phy_init:init_echam_phy_external', message_text)
+            CALL message(routine, message_text)
             !
             CALL read_2D(stream_id=stream_id, location=on_cells, &
                   &       variable_name='roughness_length',      &
@@ -708,7 +666,7 @@ CONTAINS
           IF (echam_phy_tc(jg)%dt_rad > dt_zero) THEN
             !
             WRITE(message_text,'(2a)') 'Read albedo           from file: ', TRIM(land_phys_fn)
-            CALL message('mo_echam_phy_init:init_echam_phy_external', message_text)
+            CALL message(routine, message_text)
             !
             CALL read_2D(stream_id=stream_id, location=on_cells, &
                  &       variable_name='albedo',                &
@@ -718,7 +676,7 @@ CONTAINS
             ! But currently this is not available. Instead a default constant
             ! is used as source.
             WRITE(message_text,'(2a)') 'Use default surface emissivity zemiss_def from mo_physical_constants'
-            CALL message('mo_echam_phy_init:init_echam_phy_external', message_text)
+            CALL message(routine, message_text)
             !
             prm_field(jg)% emissivity(:,:) = zemiss_def
             !
@@ -732,9 +690,9 @@ CONTAINS
         IF (echam_phy_tc(jg)%dt_sso > dt_zero) THEN
           !
           WRITE(message_text,'(2a)') 'Read oroxyz from file: ', TRIM(land_sso_fn)
-          CALL message('mo_echam_phy_init:init_echam_phy_external', message_text)
+          CALL message(routine, message_text)
           !
-          stream_id = openInputFile(land_sso_fn, p_patch(jg), default_read_method)
+          CALL openInputFile(stream_id, land_sso_fn, p_patch(jg))
           CALL read_2D(stream_id=stream_id, location=on_cells, &
                &       variable_name='oromea',                &
                &       fill_array=prm_field(jg)% oromea(:,:))

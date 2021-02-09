@@ -93,7 +93,7 @@ CONTAINS
     &                                     opt_gas_cumcol     )  !optinout 
 
     ! In/out variables
-    TYPE(datetime),            POINTER,  INTENT(IN)    :: mtime_datetime          ! Date/time information
+    TYPE(datetime),                      INTENT(IN)    :: mtime_datetime          ! Date/time information
     LOGICAL,                             INTENT(IN)    :: lupdate_gas             ! Is update of gases due?
     TYPE(t_patch),             TARGET,   INTENT(IN)    :: p_patch                 ! Grid/patch info
     TYPE(t_nh_prog),           TARGET,   INTENT(IN)    :: p_prog_rcf              ! Prog vars with reduced calling frequency

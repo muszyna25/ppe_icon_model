@@ -35,11 +35,6 @@ MODULE mo_interface_echam_mig
   USE mo_fortran_tools       ,ONLY: init
   USE mo_exception           ,ONLY: warning
 
-  !$ser verbatim USE mo_ser_echam_mig, ONLY: serialize_mig_input,&
-  !$ser verbatim                             serialize_mig_output,&
-  !$ser verbatim                             serialize_mig_after_satad1,&
-  !$ser verbatim                             serialize_mig_before_satad2
-
   IMPLICIT NONE
   PRIVATE
   PUBLIC  :: interface_echam_mig
@@ -98,8 +93,6 @@ CONTAINS
 
     field     => prm_field(jg)
     tend      => prm_tend (jg)
-
-    !$ser verbatim call serialize_mig_input(jg, jb, jcs, jce, nproma, nlev, field)
 
     !$ACC DATA PCREATE( zqrsflux, zqnc           , &
     !$ACC               tend_ta_mig              , &
@@ -185,9 +178,6 @@ CONTAINS
               & kup      = nlev                            & !> IN
               )
 !
-    !$ser verbatim call serialize_mig_after_satad1(jg, jb, jcs, jce, nproma, nlev, field,&
-    !$ser verbatim        xlta, xlqv, xlqc, xlqi, xlqr, xlqs, xlqg, zqnc,&
-    !$ser verbatim        zqrsflux)
        !
        CALL graupel (                            &
               & nvec   =nproma                      , & !> in:  actual array size
@@ -218,10 +208,6 @@ CONTAINS
               & ldiag_ttend = echam_mig_config(jg)%ldiag_ttend , & !< in:  if temp.  tendency shall be diagnosed
               & ldiag_qtend = echam_mig_config(jg)%ldiag_qtend )   !< in:  if moisture tendencies shall be diagnosed
                                                                    ! IF true tendencies have to be re-implemented
-
-    !$ser verbatim call serialize_mig_before_satad2(jg, jb, jcs, jce, nproma, nlev, field,&
-    !$ser verbatim      & xlta, xlqv, xlqc, xlqi, xlqr, xlqs, xlqg, zqnc,&
-    !$ser verbatim      & zqrsflux)
 
       !!-------------------------------------------------------------------------
       !> Final saturation adjustment (as this has been removed from the end of the microphysics)
@@ -450,7 +436,6 @@ CONTAINS
 
     !$ACC END DATA
 
-    !$ser verbatim call serialize_mig_output(jg, jb, jcs, jce, nproma, nlev, field)
     ! disassociate pointers
 
     NULLIFY(field)

@@ -36,9 +36,11 @@ save
 !public member functions
 
 public :: init_idemix
+public :: calc_idemix_v0
 public :: cvmix_coeffs_idemix
 public :: gofx2  ! fixme: only used by IDEMIX public?
 public :: hofx1  ! fixme: public?
+public :: hofx2  ! fixme: public?
 
 !=================================================================================
 !---------------------------------------------------------------------------------
@@ -142,7 +144,7 @@ else
 end if
 
 if (present(mu0)) then
-  if(mu0.lt. 1.d0 .or. mu0 .gt. 3.d0) then
+  if(mu0.lt. 0.d0 .or. mu0 .gt. 3.d0) then
     print*, "ERROR: mu0 can only be allowed_range"
     stop 1
   end if
@@ -178,7 +180,7 @@ type(idemix_type), intent(in), optional, target :: idemix_userdef_constants
 
 type(cvmix_data_type), intent(inout) :: Vmix_vars
 
-real(cvmix_r8), dimension(Vmix_vars%nlev+1) ::       & 
+real(cvmix_r8), dimension(Vmix_vars%max_nlev+1) ::       & 
   new_E_iw                                          ,& 
   cvmix_int_1                                       ,&
   cvmix_int_2                                       ,&
@@ -199,7 +201,8 @@ integer ::                                           &
   nlev                                              ,&
   max_nlev                                          !
 ! FIXME: nils: for debugging delet later
-integer :: i,j, tstep_count
+!integer :: i,j, tstep_count
+logical :: debug
 
 type(idemix_type), pointer :: idemix_constants_in
 
@@ -219,39 +222,44 @@ write(*,*) 'I am wrapping'
 stop
 
 call cvmix_coeffs_idemix( &
-                         i = i,                     & ! FIXME: nils: for debuging
-                         j = j,                     & ! FIXME: nils: for debuging
-                         tstep_count = tstep_count, & ! FIXME: nils: for debuging
-                         !iw_diss_out     = new_iw_diss,               &
+                         ! parameter
+                         dzw             = Vmix_vars%dzw,             &
+                         dzt             = Vmix_vars%dzt,             &
+                         nlev            = nlev,                      &
+                         max_nlev        = max_nlev,                  &
+                         dtime           = Vmix_vars%dtime,           &
+                         coriolis        = Vmix_vars%coriolis,        &
+                         ! essentials
                          iwe_old         = Vmix_vars%E_iw,            &
                          iwe_new         = new_E_iw,                  &
+                         forc_iw_surface = Vmix_vars%forc_iw_surface, &
+                         forc_iw_bottom  = Vmix_vars%forc_iw_bottom,  &
+                         ! FIXME: nils: better output IDEMIX Ri directly
+                         alpha_c         = Vmix_vars%alpha_c,         &
+                         ! only for Osborn shortcut 
+                         ! FIXME: nils: put this to cvmix_tke
                          KappaM_out      = new_KappaM,                &
                          KappaH_out      = new_KappaH,                &
-                         cvmix_int_1     = cvmix_int_1,               &
-                         cvmix_int_2     = cvmix_int_2,               &
-                         cvmix_int_3     = cvmix_int_3,               &
+                         Nsqr            = Vmix_vars%Nsqr_iface,      &
+                         ! diagnostics
                          iwe_Ttot        = iwe_Ttot,                  &
                          iwe_Tdif        = iwe_Tdif,                  &
                          iwe_Thdi        = iwe_Thdi,                  &
                          iwe_Tdis        = iwe_Tdis,                  &
                          iwe_Tsur        = iwe_Tsur,                  &
                          iwe_Tbot        = iwe_Tbot,                  &
-                         dzw             = Vmix_vars%dzw,             &
-                         dzt             = Vmix_vars%dzt,             &
-                         nlev            = nlev,                      &
-                         max_nlev        = max_nlev,                  &
-                         !old_iw_diss     = Vmix_vars%iw_diss,         &
-                         Nsqr            = Vmix_vars%Nsqr_iface,      &
-                         !Ssqr            = Vmix_vars%Ssqr_iface,      &
-                         forc_iw_surface = Vmix_vars%forc_iw_surface, &
-                         forc_iw_bottom  = Vmix_vars%forc_iw_bottom,  &
-                         dtime           = Vmix_vars%dtime,           &
-                         !Kappa_GM        = Vmix_vars%Kappa_GM,        &
-                         coriolis        = Vmix_vars%coriolis,        &
-                         alpha_c         = Vmix_vars%alpha_c,         &
                          c0              = c0,                        &
                          v0              = v0,                        &
-                         idemix_userdef_constants = idemix_userdef_constants)
+                         ! debugging
+                         debug = debug,             & ! FIXME: nils: for debuging
+                         !i = i,                     & ! FIXME: nils: for debuging
+                         !j = j,                     & ! FIXME: nils: for debuging
+                         !tstep_count = tstep_count, & ! FIXME: nils: for debuging
+                         cvmix_int_1     = cvmix_int_1,               &
+                         cvmix_int_2     = cvmix_int_2,               &
+                         cvmix_int_3     = cvmix_int_3,               &
+                         idemix_userdef_constants = idemix_userdef_constants &
+                         )
 
 ! FIXME: nils: This should probably be cvmix_update_idemix. However, it is not used
 ! anyway.
@@ -264,6 +272,87 @@ call cvmix_coeffs_idemix( &
 !                      new_E_iw    = new_E_iw)
 
 end subroutine idemix_wrap
+
+subroutine calc_idemix_v0(nlev, max_nlev, Nsqr, dzw, coriolis, &
+                          v0, debug, idemix_userdef_constants)
+  integer, intent(in) ::                                          &
+    nlev, max_nlev                                                !,&
+
+  real(cvmix_r8), intent(in)                              ::      & 
+    coriolis                                                        !
+
+  logical, intent(in) :: debug
+
+  real(cvmix_r8), dimension(max_nlev+1), intent(in) ::                &
+    dzw
+  
+  real(cvmix_r8), dimension(max_nlev+1), intent(in)           ::      &
+    Nsqr                                                 !,&
+
+  real(cvmix_r8), dimension(max_nlev+1), intent(out) ::               &
+    v0                                                           !,&
+
+  ! IDEMIX namelist parameters
+  real(cvmix_r8)                                          ::      & 
+    cstar                                                        ,& ! 
+    tau_h                                                        ,& !
+    gamma                                                        ,& !
+    jstar                                                        ,& !
+    mu0                                                          ,& !
+    bN0                                                          !,&
+
+  real(cvmix_r8)                                          ::      & 
+    fxa 
+
+  integer                                                 ::      &
+    k
+
+
+  type(idemix_type), intent(in), optional, target :: idemix_userdef_constants
+  type(idemix_type), pointer :: idemix_constants_in
+
+  ! FIXME: nils: Is this necessary?
+  idemix_constants_in => idemix_constants_saved
+  if (present(idemix_userdef_constants)) then
+    idemix_constants_in => idemix_userdef_constants
+  end if
+
+  ! set idemix_constants locally
+  tau_h = idemix_constants_in%tau_h
+  gamma = idemix_constants_in%gamma
+  mu0   = idemix_constants_in%mu0
+  jstar = idemix_constants_in%jstar
+ 
+  ! calculate cstar from OE13 Eq. (13)
+  bN0=0.0
+  do k=2,nlev
+    bN0 = bN0 + max(0.0_cvmix_r8,Nsqr(k))**0.5*dzw(k) 
+  enddo
+  cstar = max(1e-2_cvmix_r8,bN0/(cvmix_PI*jstar) )
+     
+  ! calculate horizontal representative group velocity v0
+  ! v0: OE13 Eq. (A9)
+  do k=1,nlev+1
+    fxa = max(0.0_cvmix_r8,Nsqr(k))**0.5/(1d-22 + abs(coriolis) )
+    v0(k)=max(0.0_cvmix_r8, gamma*cstar*hofx2(fxa))
+
+    ! set v0 to zero to prevent horizontal iwe propagation in mixed layer
+    if ( fxa<1.0_cvmix_r8 ) then
+      v0(k) = 0.0_cvmix_r8
+    endif
+
+    !! for debugging:
+    !if (debug .eqv. .true.) then
+    !  write(*,*) "Nsqr = ", Nsqr(k) 
+    !  write(*,*) "gamma = ", gamma
+    !  write(*,*) "fxa = ", fxa
+    !  write(*,*) "cstar = ", cstar 
+    !  write(*,*) "hofx2(fxa) = ", hofx2(fxa)
+    !  write(*,*) 'v0 = ', v0(k)
+    !end if
+  enddo
+  !v0 = min(3d-1, v0)
+end subroutine calc_idemix_v0
 
 !=================================================================================
 ! This subroutine contains the actual computation of IDEMIX
@@ -283,6 +372,7 @@ subroutine integrate_idemix( &
                             ! FIXME: nils: better output IDEMIX Ri directly
                             alpha_c,               & ! out
                             ! only for Osborn shortcut
+                            ! FIXME: nils: put this to cvmix_tke
                             KappaM_out,            & ! FIXME: nils: put to tke?
                             KappaH_out,            & ! FIXME: nils: put to tke?
                             Nsqr,                  & ! FIXME: nils: put to tke?
@@ -296,16 +386,15 @@ subroutine integrate_idemix( &
                             c0,                    &
                             v0,                    &
                             ! debugging
-                            i, j,                  & ! FIXME: nils: for debuging
-                            tstep_count,           & ! FIXME: nils: for debuging
+                            debug,                 & ! FIXME: nils: for debuging
+                            !i,                     & ! FIXME: nils: for debuging
+                            !j,                     & ! FIXME: nils: for debuging
+                            !tstep_count,           & ! FIXME: nils: for debuging
                             cvmix_int_1,           & ! FIXME: nils: for debuging
                             cvmix_int_2,           & ! FIXME: nils: for debuging
                             cvmix_int_3,           & ! FIXME: nils: for debuging
-                            !Kappa_GM,              & ! FIXME: nils: delete? 
-                            !Ssqr,                  & ! FIXME: nils: delete?
-                            !old_iw_diss,           & ! FIXME: nils: delete?
-                            !iw_diss_out,           & ! FIXME: nils: delete?
-                            idemix_userdef_constants)
+                            idemix_userdef_constants &
+                            )
 
   
    type(idemix_type), intent(in), optional, target :: idemix_userdef_constants
@@ -314,24 +403,25 @@ subroutine integrate_idemix( &
      nlev                                                         ,&
      max_nlev                                                         
   
-   real(cvmix_r8), dimension(nlev+1), intent(inout) ::             &
+   real(cvmix_r8), dimension(max_nlev+1), intent(inout) ::             &
       KappaM_out                                                  ,&
       KappaH_out
   
    ! FIXME: nils: for debuging
-   integer, intent(in) :: i, j, tstep_count
+   !integer, intent(in) :: i, j, tstep_count
+   logical, intent(in) :: debug
   
-   real(cvmix_r8), dimension(nlev+1), intent(in) ::                &
+   real(cvmix_r8), dimension(max_nlev), intent(in) ::                &
      dzw
   
-   real(cvmix_r8), dimension(nlev+1), intent(in)           ::      &
+   real(cvmix_r8), dimension(max_nlev+1), intent(in)           ::      &
      Nsqr                                                         ,&
      iwe_old                                                      ,&
      !old_iw_diss                                                  ,& 
      dzt                                                             !
   
    ! diagnostics
-   real(cvmix_r8), dimension(nlev+1), intent(out) ::               &
+   real(cvmix_r8), dimension(max_nlev+1), intent(out) ::               &
      !iw_diss_out                                                  ,& 
      iwe_new                                                      ,&
      cvmix_int_1                                                  ,&
@@ -345,17 +435,10 @@ subroutine integrate_idemix( &
      c0                                                           ,&
      v0                                                           ,&
      alpha_c
-  
-   real(cvmix_r8), dimension(nlev+1), intent(in) ::               &
+
+   real(cvmix_r8), dimension(max_nlev+1), intent(in) ::               &
      iwe_Thdi
   
-! FIXME: nils: today: delete this
-! not implemented currently, could be added once energy conserving linking
-! between diff. parameterizations is desired
-  !real(cvmix_r8),dimension(nlev+1), intent(in), optional  ::      &
-    !Kappa_GM                                                     ,& ! 
-    !Ssqr
- 
   real(cvmix_r8), intent(in)                              ::      & 
     forc_iw_bottom                                               ,& !
     forc_iw_surface                                              ,& !
@@ -366,7 +449,7 @@ subroutine integrate_idemix( &
     k, ks, ke, n
  
   ! coefficients for the tri-diagonal solver
-  real(cvmix_r8), dimension(nlev+1)                       ::      &
+  real(cvmix_r8), dimension(max_nlev+1)                       ::      &
     a_dif                                                        ,& !
     b_dif                                                        ,& !
     c_dif                                                        ,& !
@@ -375,9 +458,9 @@ subroutine integrate_idemix( &
     c_tri                                                        ,& !
     d_tri
  
-  real(cvmix_r8), dimension(nlev+1)                       ::      &
+  real(cvmix_r8), dimension(max_nlev+1)                       ::      &
     delta                                                        ,& !
-    maxE_iw                                                      ,& ! 
+    iwe_max                                                      ,& ! 
     forc                                                            ! 
  
   ! IDEMIX namelist parameters
@@ -394,13 +477,30 @@ subroutine integrate_idemix( &
     fxa 
  
   type(idemix_type), pointer ::idemix_constants_in
- 
-  ! initialize diagnostics
-  iwe_Ttot = 0.0
-  iwe_Tdif = 0.0
-  iwe_Tdis = 0.0
-  iwe_Tsur = 0.0
-  iwe_Tbot = 0.0
+
+  ! initialize variables
+  iwe_new     = 0.0_cvmix_r8
+  cvmix_int_1 = 0.0_cvmix_r8
+  cvmix_int_2 = 0.0_cvmix_r8
+  cvmix_int_3 = 0.0_cvmix_r8
+  iwe_Ttot    = 0.0_cvmix_r8
+  iwe_Tdif    = 0.0_cvmix_r8
+  iwe_Tdis    = 0.0_cvmix_r8
+  iwe_Tsur    = 0.0_cvmix_r8
+  iwe_Tbot    = 0.0_cvmix_r8
+  c0          = 0.0_cvmix_r8
+  v0          = 0.0_cvmix_r8
+  alpha_c     = 0.0_cvmix_r8
+  a_dif       = 0.0_cvmix_r8
+  b_dif       = 0.0_cvmix_r8
+  c_dif       = 0.0_cvmix_r8
+  a_tri       = 0.0_cvmix_r8
+  b_tri       = 0.0_cvmix_r8
+  c_tri       = 0.0_cvmix_r8
+  d_tri       = 0.0_cvmix_r8
+  delta       = 0.0_cvmix_r8
+  iwe_max     = 0.0_cvmix_r8
+  forc        = 0.0_cvmix_r8
  
   ! FIXME: nils: Is this necessary?
   idemix_constants_in => idemix_constants_saved
@@ -416,34 +516,39 @@ subroutine integrate_idemix( &
   jstar = idemix_constants_in%jstar
  
   ! calculate cstar from OE13 Eq. (13)
-  bN0=0.0
+  bN0=0.0_cvmix_r8
   do k=2,nlev
-    bN0 = bN0 + max(0d0,Nsqr(k))**0.5*dzw(k) 
+    bN0 = bN0 + max(0.0_cvmix_r8,Nsqr(k))**0.5*dzw(k) 
   enddo
-  cstar = max(1d-2,bN0/(cvmix_PI*jstar) )
+  cstar = max(1e-2_cvmix_r8,bN0/(cvmix_PI*jstar) )
      
   ! calculate vertical and horizontal representative group velocities c0 and v0
-  ! c0: OE13 Eq. (13) and v0: OE13 Eq. (A9)
+  ! c0: OE13 Eq. (13) 
   ! alpha_c iwe**2: dissipation of internal wave energy (OE13 Eq. (15))
   do k=1,nlev+1
-    fxa = max(0d0,Nsqr(k))**0.5/(1d-22 + abs(coriolis) )
-    ! print*,"fxa=",fxa
-    c0(k)=max(0d0, gamma*cstar*gofx2(fxa) )
-    v0(k)=max(0d0, gamma*cstar*hofx1(fxa))
-    alpha_c(k) = max( 1d-4, mu0*acosh(max(1d0,fxa))*abs(coriolis)/cstar**2 )
+    fxa = max(0.0_cvmix_r8,Nsqr(k))**0.5/(1e-22_cvmix_r8 + abs(coriolis) )
+    c0(k)=max(0.0_cvmix_r8, gamma*cstar*gofx2(fxa) )
+    v0(k)=max(0.0_cvmix_r8, gamma*cstar*hofx2(fxa))
+    !v0(k)=0.5
+    alpha_c(k) = max( 1e-4_cvmix_r8, mu0*acosh(max(1.0_cvmix_r8,fxa))*abs(coriolis)/cstar**2 )
+
+    ! set v0 to zero to prevent horizontal iwe propagation in mixed layer
+    if ( fxa<1.0_cvmix_r8 ) then
+      v0(k) = 0.0_cvmix_r8
+    endif
   enddo
  
   !---------------------------------------------------------------------------------
   ! initialize forcing
-  forc(:)=0.d0
+  forc(:)=0.0_cvmix_r8
  
   ! add tendency of horizontal diffusion (is calculated externally)
-  forc(:) = forc(:) + iwe_Thdi(:)
+  !forc(:) = forc(:) + iwe_Thdi(:)
  
   !---------------------------------------------------------------------------------
   ! prevent negative dissipation of IW energy
   ! FIXME: Carsten thinks we don't need this
-  maxE_iw = max(0D0, iwe_old)
+  iwe_max = max(0.0_cvmix_r8, iwe_old)
  
  
   ! vertical diffusion and dissipation is solved implicitely 
@@ -493,7 +598,7 @@ subroutine integrate_idemix( &
   a_tri = -dtime*a_dif
   b_tri = 1+dtime*b_dif
   ! FIXME: nils: Should dissipation also be in first and last layer?
-  b_tri(2:nlev) = b_tri(2:nlev) + dtime*alpha_c(2:nlev)*maxE_iw(2:nlev)
+  b_tri(2:nlev) = b_tri(2:nlev) + dtime*alpha_c(2:nlev)*iwe_max(2:nlev)
   c_tri = -dtime*c_dif
    
   ! -- d -- 
@@ -517,8 +622,8 @@ subroutine integrate_idemix( &
   ! dissipation of E_iw
   iwe_Tdis = 0.0
   ! FIXME: nils: dissipation also in first or last layer?
-  !iwe_Tdis(1:nlev+1) =  -alpha_c(1:nlev+1) * maxE_iw(1:nlev+1) * iwe_new(1:nlev+1)
-  iwe_Tdis(2:nlev) =  -alpha_c(2:nlev) * maxE_iw(2:nlev) * iwe_new(2:nlev)
+  !iwe_Tdis(1:nlev+1) =  -alpha_c(1:nlev+1) * iwe_max(1:nlev+1) * iwe_new(1:nlev+1)
+  iwe_Tdis(2:nlev) =  -alpha_c(2:nlev) * iwe_max(2:nlev) * iwe_new(2:nlev)
  
   iwe_Tsur(1)      = forc_iw_surface/dzt(1) 
   iwe_Tbot(nlev+1) = forc_iw_bottom/dzt(nlev+1)
@@ -529,8 +634,8 @@ subroutine integrate_idemix( &
   KappaH_out = 0.0
   KappaM_out = 0.0
   do k=2,nlev
-    KappaH_out(k) =  0.2/(1.0+0.2) * (-1*iwe_Tdis(k)) / max(1d-12, Nsqr(k))
-    KappaH_out(k) = MAX(1e-9_cvmix_r8, KappaH_out(k))
+    KappaH_out(k) =  0.2/(1.0+0.2) * (-1.0*iwe_Tdis(k)) / max(1e-12_cvmix_r8, Nsqr(k))
+    KappaH_out(k) = max(1e-9_cvmix_r8, KappaH_out(k))
     KappaH_out(k) = min(1.0_cvmix_r8, KappaH_out(k))
     KappaM_out(k) =  10.0 * KappaH_out(k)
   enddo
@@ -542,16 +647,17 @@ subroutine integrate_idemix( &
   cvmix_int_2 = alpha_c 
   cvmix_int_3 = c0
  
-  ! nils
+  ! debugging: 
+  !if (debug .eqv. debug) then
   if (.false.) then
-  if (i==45 .and. j==10) then
+  !if (i==45 .and. j==10) then
+  !if (i==45 .and. j==45) then
      write(*,*) ' ===================== '
  
      write(*,*) 'dtime = ', dtime
      write(*,*) 'delta = ', delta
      write(*,*) 'dzw = ', dzw
      write(*,*) 'c0 = ', c0
-     write(*,*) 'v0 = ', v0
      write(*,*) 'a_tri = ', a_tri
      write(*,*) 'b_tri = ', b_tri
      write(*,*) 'c_tri = ', c_tri
@@ -574,7 +680,8 @@ subroutine integrate_idemix( &
     write(*,*) 'mu0 = ', mu0
  
     !stop
-  endif
+  !endif
+  !endif
   endif
  
 end subroutine integrate_idemix
@@ -584,15 +691,26 @@ end subroutine integrate_idemix
 
 function gofx2(x1)
 !=======================================================================
-! a function g(x)	!from pyOM 
+! a function g(x)	! adapted from pyOM 
 !=======================================================================
  implicit none
  real(cvmix_r8) :: gofx2,x1,x2,c
  real(cvmix_r8), parameter :: pi = 3.14159265358979323846264338327950588
- x2=max(3d0,x1)
+ x2=max(3.0_cvmix_r8,x1)
  c= 1.-(2./pi)*asin(1./x2)
  gofx2 = 2/pi/c*0.9*x2**(-2./3.)*(1-exp(-x2/4.3))
 end function gofx2
+
+function hofx2(x1)
+!=======================================================================
+! a function h(x) 	! adapted from pyOM
+!=======================================================================
+ implicit none
+ real(cvmix_r8) :: hofx2,x1,x2
+ real(cvmix_r8), parameter :: pi = 3.14159265358979323846264338327950588
+ x2 = max(10.0_cvmix_r8, x1) ! by_nils: it has to be x2>1
+ hofx2 = (2./pi)/(1.-(2./pi)*asin(1./x2)) * (x2-1.)/(x2+1.)
+end function hofx2
 
 function hofx1(x)
 !=======================================================================

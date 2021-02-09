@@ -28,7 +28,7 @@ MODULE mo_upatmo_extdat
   USE mo_kind,                   ONLY: wp
   USE mo_exception,              ONLY: finish, message
   USE mo_impl_constants,         ONLY: SUCCESS, MAX_CHAR_LENGTH, &
-    &                                  min_rlcell_int
+    &                                  min_rlcell_int, max_dom_dig10
   USE mo_impl_constants_grf,     ONLY: grf_bdywidth_c
   USE mo_upatmo_impl_const,      ONLY: iUpatmoExtdatId, iUpatmoPrcId
   USE mo_model_domain,           ONLY: t_patch
@@ -66,7 +66,7 @@ CONTAINS
     &                                  lmessage           )  !in
 
     ! In/out variables
-    TYPE(datetime),           POINTER, INTENT(IN)    :: mtime_datetime     ! Date/time information
+    TYPE(datetime),                    INTENT(IN)    :: mtime_datetime     ! Date/time information
     TYPE(t_patch),            TARGET,  INTENT(IN)    :: p_patch            ! Grid/patch info
     TYPE(t_upatmo_extdat),    TARGET,  INTENT(INOUT) :: prm_upatmo_extdat  ! Upper-atmosphere external data
     TYPE(t_upatmo_tend),      TARGET,  INTENT(INOUT) :: prm_upatmo_tend    ! Upper-atmosphere physics tendencies
@@ -93,12 +93,12 @@ CONTAINS
     INTEGER  :: i_startidx, i_endidx
     INTEGER  :: istat
 
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: dom_str
+    CHARACTER(LEN=max_dom_dig10) :: dom_str
 
-    TYPE(datetime), POINTER            :: mtime_hour
+    TYPE(datetime) :: mtime_hour
     TYPE(t_time_interpolation_weights) :: time_intrpl
 
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(LEN=*), PARAMETER ::  &
       &  routine = modname//':update_upatmo_extdat_nwp'
     
     !--------------------------------------------------------------
@@ -156,10 +156,10 @@ CONTAINS
     ! Number of vertical levels
     nlev = p_patch%nlev
 
-    dom_str = TRIM(int2string(jg))
+    IF (lmessage) WRITE (dom_str, '(i0)') jg
 
-    IF (lmessage) CALL message(TRIM(routine), &
-      & 'Start update of external data on domain '//TRIM(dom_str))
+    IF (lmessage) CALL message(routine, &
+      & 'Start update of external data on domain '//dom_str)
 
     !---------------------------------------------------------------------
     !                            Preparation
@@ -169,12 +169,11 @@ CONTAINS
     ! For interpolation in time
     !---------------------------
 
-    mtime_hour => newDatetime(mtime_datetime)
+    mtime_hour = mtime_datetime
     mtime_hour%time%minute = 0
     mtime_hour%time%second = 0
     mtime_hour%time%ms     = 0     
     time_intrpl = calculate_time_interpolation_weights(mtime_hour)
-    CALL deallocateDatetime(mtime_hour)
     
     !---------------------------------------------------------------------
     !                        Update external data:
@@ -216,7 +215,7 @@ CONTAINS
       ALLOCATE( ext_intrpl_time( nlat_ext, nlev_ext ), &
         &       ext_intrpl_lev( nlat_ext, nlev ),      &
         &       STAT=istat                             )
-      IF(istat /= SUCCESS) CALL finish(TRIM(routine), 'Allocation of ext_intrpl_time/lev failed.')
+      IF(istat /= SUCCESS) CALL finish(routine, 'Allocation of ext_intrpl_time/lev failed.')
 
       ! Currently, the value of 'nlev_ext' is not very large, 
       ! so we might not yet profit from parallelizing the vertical loop
@@ -246,7 +245,7 @@ CONTAINS
       ENDDO  !jlev
 
       DEALLOCATE(ext_intrpl_time, STAT=istat)
-      IF(istat /= SUCCESS) CALL finish(TRIM(routine), 'Deallocation of ext_intrpl_time failed.')
+      IF(istat /= SUCCESS) CALL finish(routine, 'Deallocation of ext_intrpl_time failed.')
 
       !--------------------------
       ! Horizontal interpolation
@@ -297,7 +296,7 @@ CONTAINS
       !----------
 
       DEALLOCATE(ext_intrpl_lev, STAT=istat)
-      IF(istat /= SUCCESS) CALL finish(TRIM(routine), 'Deallocation of ext_intrpl_lev failed.')
+      IF(istat /= SUCCESS) CALL finish(routine, 'Deallocation of ext_intrpl_lev failed.')
 
       NULLIFY( ilev1, ilev2, wgt_lev1, wgt_lev2, ilat1, ilat2, wgt_lat1, wgt_lat2, &
         &      ext_data_time1, ext_data_time2, intrpl_rslt                         )
@@ -314,6 +313,12 @@ CONTAINS
       ! Number of gases, whose concentrations are provided as external data
       ngas_ext = prm_upatmo_extdat%ngas
 
+      IF (ngas_ext > 0) THEN
+        nlat_ext  = prm_upatmo_extdat%gas(1)%nlat
+        nlev_ext  = prm_upatmo_extdat%gas(1)%nlev
+        ALLOCATE(ext_intrpl_time( nlat_ext, nlev_ext ), STAT=istat)
+        IF(istat /= SUCCESS) CALL finish(routine, 'Allocation of ext_intrpl_time failed.')
+      END IF
       ! Loop over these gases
       DO jgas = 1, ngas_ext
 
@@ -338,15 +343,22 @@ CONTAINS
         ! Interpolation in time
         !-----------------------
 
-        ALLOCATE(ext_intrpl_time( nlat_ext, nlev_ext ), STAT=istat)
-        IF(istat /= SUCCESS) CALL finish(TRIM(routine), 'Allocation of ext_intrpl_time failed.')
+        IF (nlat_ext /= SIZE(ext_intrpl_time, 1) &
+          & .OR. nlev_ext /= SIZE(ext_intrpl_time, 2)) THEN
+          DEALLOCATE(ext_intrpl_time, STAT=istat)
+          IF(istat == SUCCESS) ALLOCATE(ext_intrpl_time( nlat_ext, nlev_ext ), STAT=istat)
+          IF(istat /= SUCCESS) CALL finish(routine, 'Reallocation of ext_intrpl_time failed.')
+        END IF
 
+!$OMP PARALLEL PRIVATE(rl_start, rl_end, i_startblk, i_endblk)
+!$OMP DO PRIVATE(JLEV, JLAT)
         DO jlev = istartlev, iendlev, isteplev
           DO jlat = istartlat, iendlat, isteplat
             ext_intrpl_time(jlat,jlev) = time_intrpl%weight1 * ext_data_time1(jlat,jlev) &
               &                        + time_intrpl%weight2 * ext_data_time2(jlat,jlev)
           ENDDO  !jlat
         ENDDO  !jlev
+!$OMP END DO
 
         !--------------------------
         ! Horizontal interpolation
@@ -358,7 +370,6 @@ CONTAINS
         i_startblk = p_patch%cells%start_block(rl_start)
         i_endblk   = p_patch%cells%end_block(rl_end)
         
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb, jlev, jc, i_startidx, i_endidx) ICON_OMP_GUIDED_SCHEDULE
         DO jb = i_startblk, i_endblk
           
@@ -371,24 +382,25 @@ CONTAINS
             ENDDO  !jc
           ENDDO  !jlev
         ENDDO  !jb
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL      
         
         !----------
         ! Clean-up
         !----------
 
-        DEALLOCATE(ext_intrpl_time, STAT=istat)
-        IF(istat /= SUCCESS) CALL finish(TRIM(routine), 'Deallocation of ext_intrpl_time failed.')
 
         NULLIFY(ilat1, ilat2, wgt_lat1, wgt_lat2, ext_data_time1, ext_data_time2, intrpl_rslt)
         
       ENDDO  !jgas
 
+      DEALLOCATE(ext_intrpl_time, STAT=istat)
+      IF(istat /= SUCCESS) CALL finish(routine, 'Deallocation of ext_intrpl_time failed.')
+
     ENDIF  !Update of external gas data due?
 
-    IF (lmessage) CALL message(TRIM(routine), &
-      & 'Finish update of external data on domain '//TRIM(dom_str))
+    IF (lmessage) CALL message(routine, &
+      & 'Finish update of external data on domain '//dom_str)
 
   END SUBROUTINE update_upatmo_extdat_nwp
 

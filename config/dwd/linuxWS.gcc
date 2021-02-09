@@ -127,7 +127,7 @@ CPPFLAGS="-I${ECCODES_INCLUDE} -I${HDF5_INCLUDE} -I${NETCDF_INCLUDE} -I${XML2_IN
 
 # Fortran compiler wrapper on Linux workstation using OpenMPI
 FC='mpif90'
-FCFLAGS="-I${GLOBAL_LIB_ROOT}/include -I${RTTOV_INCLUDE} -I${ECCODES_INCLUDE} -cpp -std=f2008 -fimplicit-none -fmax-identifier-length=63 -fmax-errors=25 -Wall -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter -Wno-surprising -fall-intrinsics -ffree-line-length-132"
+FCFLAGS="-I${GLOBAL_LIB_ROOT}/include -I${RTTOV_INCLUDE} -I${ECCODES_INCLUDE} -std=f2008 -fimplicit-none -fmax-identifier-length=63 -fmax-errors=25 -Wall -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter -Wno-surprising -fall-intrinsics -ffree-line-length-132"
 
 ICON_FCFLAGS='-fno-range-check -fopenmp -g -fbacktrace -fcheck=all -ffpe-trap=invalid,zero,overflow -fstack-protector-all -finit-real=nan -finit-integer=-2147483648 -finit-character=127 -O2'
 ICON_OCEAN_FCFLAGS="${ICON_FCFLAGS}"

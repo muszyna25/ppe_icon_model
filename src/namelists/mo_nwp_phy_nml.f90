@@ -24,7 +24,7 @@ MODULE mo_nwp_phy_nml
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish, message, message_text
-  USE mo_impl_constants,      ONLY: max_dom
+  USE mo_impl_constants,      ONLY: max_dom, iedmf
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_io_units,            ONLY: nnml, nnml_output, filename_max
@@ -58,6 +58,7 @@ MODULE mo_nwp_phy_nml
   ! switches defining physics packages
   INTEGER  :: inwp_convection(max_dom)    !! convection
   LOGICAL  :: lshallowconv_only(max_dom)  !! use shallow convection only
+  LOGICAL  :: lgrayzone_deepconv(max_dom) !! use grayzone tuning for deep convection
   LOGICAL  :: ldetrain_conv_prec(max_dom) !! detrain convective rain and snow
   INTEGER  :: inwp_cldcover(max_dom)      !! cloud cover
   INTEGER  :: inwp_radiation(max_dom)     !! radiation
@@ -83,7 +84,8 @@ MODULE mo_nwp_phy_nml
   real(wp) :: rain_n0_factor     !! tuning factor for intercept parameter of raindrop size distribution
   real(wp) :: mu_snow            !! ...for snow
 
-  INTEGER  :: icalc_reff(max_dom) !! type of effective radius calculation
+  INTEGER  :: icalc_reff(max_dom)    !! type of effective radius calculation
+  INTEGER  :: icpl_rad_reff(max_dom) !! coupling radiation and effective radius
 
   !> NetCDF file containing longwave absorption coefficients and other data
   !> for RRTMG_LW k-distribution model ('rrtmg_lw.nc')
@@ -104,7 +106,8 @@ MODULE mo_nwp_phy_nml
     &                    lrtm_filename, cldopt_filename, icpl_o3_tp, &
     &                    iprog_aero, lshallowconv_only,              &
     &                    ldetrain_conv_prec, rain_n0_factor,         &
-    &                    icalc_reff, lupatmo_phy
+    &                    icalc_reff, lupatmo_phy, icpl_rad_reff,     &
+    &                    lgrayzone_deepconv
 
  
 CONTAINS
@@ -137,7 +140,7 @@ CONTAINS
          &  routine = 'mo_nwp_phy_nml:read_nwp_phy_namelist'
     INTEGER  :: param_def
     REAL(wp) :: dt_conv_def, dt_rad_def, dt_sso_def, dt_gwd_def
-    INTEGER  :: icalc_reff_def
+    INTEGER  :: icalc_reff_def, icpl_rad_reff_def
 
     !-----------------------
     ! 1a. default settings for domain-specific parmeters; will be rest to dummy values afterwards
@@ -149,7 +152,8 @@ CONTAINS
     dt_sso_def  = 1200._wp
     dt_gwd_def  = 1200._wp
 
-    icalc_reff_def = 0 ! Default is no calculation of effectives radius
+    icalc_reff_def = 0    ! Default is no calculation of effectives radius
+    icpl_rad_reff_def = 0 ! Default is no coupling of effective radius and radiation
 
     inwp_gscp(:)       = param_def
     inwp_satad(:)      = param_def
@@ -171,6 +175,7 @@ CONTAINS
     !------------------------------------------------------------------
 
     lshallowconv_only(:)  = .FALSE.
+    lgrayzone_deepconv(:) = .FALSE.
     ldetrain_conv_prec(:) = .FALSE.
 
     lrtm_filename   = 'rrtmg_lw.nc'  
@@ -218,10 +223,14 @@ CONTAINS
 
     
     ! Calculation of effective radius
-    icalc_reff(:)  =  icalc_reff_def ! 0      = no calculation (current default)
-                       ! 1,..,7 = corresponding to the microphysics scheme 1,....,7 (same terminology as inwp_gscp)
+    icalc_reff(:)   =  icalc_reff_def ! 0      = no calculation (current default)
+                       ! 1,2,4,5,6,7 = corresponding to the microphysics scheme 1,....,7 (same terminology as inwp_gscp)
                        ! 11     = corresponding to the microphysics scheme  inwp_gscp(jg)
                        ! 12     = RRTM parameterization
+
+    icpl_rad_reff(:)=  icpl_rad_reff_def ! 0    = no coupling (using old RRTM Parameterization)
+                       ! 1      = coupling RRTM/ECRAD with the effective radius parameterization 
+
 
     IF (my_process_is_stdio()) THEN
       iunit = temp_defaults()
@@ -264,6 +273,7 @@ CONTAINS
       dt_gwd  (:) = -999._wp
 
       icalc_reff(:)      = -1
+      icpl_rad_reff(:)   = -1
 
       READ (nnml, nwp_phy_nml)   ! overwrite default settings
 
@@ -287,7 +297,8 @@ CONTAINS
       IF (dt_rad  (1) < 0._wp) dt_rad  (1) = dt_rad_def
 
       ! Extra calculation
-      IF (icalc_reff(1)      < 0) icalc_reff(1)      = icalc_reff_def  ! Default no calculation of effective radius
+      IF (icalc_reff(1)      < 0) icalc_reff(1)      = icalc_reff_def    ! Default no calculation of effective radius
+      IF (icpl_rad_reff(1)   < 0) icpl_rad_reff(1)   = icpl_rad_reff_def ! Default no coupling of radiation with effective radius
       
       ! Copy values of parent domain (in case of linear nesting) to nested domains where nothing has been specified
 
@@ -312,6 +323,8 @@ CONTAINS
         
         ! Extra calculations
         IF (icalc_reff(jg)      < 0) icalc_reff(jg)       = icalc_reff(jg-1)
+        IF (icpl_rad_reff(jg)   < 0) icpl_rad_reff(jg)    = icpl_rad_reff(jg-1)
+
 
         ! Upper-atmosphere physics
         IF (lupatmo_phy(jg)) lupatmo_phy(jg) = lupatmo_phy(jg-1)
@@ -338,10 +351,17 @@ CONTAINS
         CALL finish( TRIM(routine), 'Incorrect setting for inwp_gscp. Must be 0,1,2,3,4,5,6,7 or 9.')
       END IF
       
-      IF ( ALL((/0,1,2,3,4,5,6,7,9,100,101/) /= icalc_reff(jg)) ) THEN
-        CALL finish( TRIM(routine), 'Incorrect setting for icalc_reff. Must be 0,1,2,3,4,5, 6,7,9, 100 or 101.')
+      IF ( ALL((/0,1,2,4,5,6,7,100,101/) /= icalc_reff(jg)) ) THEN
+        CALL finish( TRIM(routine), 'Incorrect setting for icalc_reff. Must be 0,1,2,4,5, 6,7, 100 or 101.')
       END IF
 
+      IF ( ALL((/0,1/) /= icpl_rad_reff(jg)) ) THEN
+        CALL finish( TRIM(routine), 'Incorrect setting for icpl_rad_reff. Must be 0,1')
+      END IF
+
+      IF ( (icpl_rad_reff(jg) == 1) .AND. (icalc_reff(jg) == 0) ) THEN
+        CALL finish( TRIM(routine), 'Incorrect setting for icpl_rad_reff. It must be 0 if no reff is defined (icalc_reff =0)')
+      END IF
 
 #ifndef __ICON_ART
     IF (inwp_gscp(jg) == 6) THEN
@@ -357,6 +377,12 @@ CONTAINS
       IF (icpl_aero_gscp > 0 .AND. inwp_gscp(jg) > 2) THEN
         CALL finish( TRIM(routine), 'Aerosol-microphysics coupling currently available only for inwp_gscp=1,2')
       ENDIF
+
+#ifdef _OPENACC
+      IF (inwp_turb(jg) == iedmf) THEN
+        CALL finish(routine,'GPU version not available for edmf turbulence.')
+      ENDIF
+#endif
 
 
       ! For backward compatibility, do not throw an error message, if inwp_turb=10,11 or 12 
@@ -388,6 +414,7 @@ CONTAINS
       atm_phy_nwp_config(jg)%itype_z0        = itype_z0
 
       atm_phy_nwp_config(jg)%lshallowconv_only  = lshallowconv_only(jg)
+      atm_phy_nwp_config(jg)%lgrayzone_deepconv = lgrayzone_deepconv(jg)
       atm_phy_nwp_config(jg)%ldetrain_conv_prec = ldetrain_conv_prec(jg)
 
       atm_phy_nwp_config(jg)%dt_conv         = dt_conv (jg)
@@ -406,6 +433,7 @@ CONTAINS
       atm_phy_nwp_config(jg)%mu_snow         = mu_snow
       atm_phy_nwp_config(jg)%icpl_aero_gscp  = icpl_aero_gscp
       atm_phy_nwp_config(jg)%icalc_reff      = icalc_reff (jg)
+      atm_phy_nwp_config(jg)%icpl_rad_reff   = icpl_rad_reff (jg)
       
     ENDDO
 

@@ -56,7 +56,7 @@ MODULE mo_var_groups
   ! non-public. Its contents are copied to a dynamically growing list
   ! "var_groups_dyn".
 
-  CHARACTER(len=VARNAME_LEN), PARAMETER :: VAR_GROUPS_STATIC(63) = &
+  CHARACTER(len=VARNAME_LEN), PARAMETER :: VAR_GROUPS_STATIC(62) = &
     (/ "ALL                   ",  &
     &  "ATMO_ML_VARS          ",  &
     &  "ATMO_PL_VARS          ",  &
@@ -114,7 +114,6 @@ MODULE mo_var_groups
     &  "icon_lbc_vars         ",  &  ! Variable set needed for ICON-LAM lateral boundary conditions
     &  "ART_AEROSOL           ",  &  ! ICON-ART fields for aerosol particles
     &  "ART_CHEMISTRY         ",  &  ! ICON-ART fields for chemical tracers
-    &  "ART_PASSIVE           ",  &  ! ICON-ART fields for passive tracers
     &  "ART_DIAGNOSTICS       ",  &  ! ICON-ART fields for diagnostic fields
     &  "ART_ROUTINE_DIAG      ",  &  ! ICON-ART fields for routine diagnostic fields
     &  "RTTOV                 ",  &
@@ -203,7 +202,7 @@ CONTAINS
   !----------------------------------------------------------------------------------------
   !> Implements a (somewhat randomly chosen) one-to-one mapping
   !  between a string and an integer ID number between 1 and
-  !  size(var_groups%name).
+  !  size(var_groups%name)+1.
   !
   FUNCTION t_var_groups_group_id(var_groups, in_str, opt_lcheck)  RESULT(group_id)
     INTEGER                            :: group_id
@@ -214,20 +213,24 @@ CONTAINS
     ! Local
     CHARACTER(*), PARAMETER :: routine = modname//"::t_var_groups_group_id"
     LOGICAL :: lcheck
-    INTEGER :: max_size, igrp
+    INTEGER :: max_size, igrp, n
+    CHARACTER(LEN=LEN_TRIM(in_str)) :: in_str_uc
 
     IF (.NOT. ALLOCATED(var_groups%name))  CALL var_groups%init()
 
     ! search the variable groups (which includes the statically
     ! defined groups and the dynamically defined ones):
     group_id = 0
-    LOOP_GROUPS : DO igrp=1,SIZE(var_groups%name)
-      IF (toupper(TRIM(in_str)) == toupper(TRIM(var_groups%name(igrp)))) THEN
-        group_id = igrp
-        EXIT LOOP_GROUPS
-      END IF
-    END DO LOOP_GROUPS
-
+    n = SIZE(var_groups%name)
+    in_str_uc = toupper(in_str)
+    IF (n > 0) THEN
+      LOOP_GROUPS : DO igrp=1,n
+        IF (in_str_uc == toupper(var_groups%name(igrp))) THEN
+          group_id = igrp
+          EXIT LOOP_GROUPS
+        END IF
+      END DO LOOP_GROUPS
+    END IF
     ! If the group does not exist, create it.
     IF (group_id == 0) THEN
       !
@@ -235,7 +238,7 @@ CONTAINS
       CALL resize_arr_c1d(var_groups%name,1)
       !
       ! add new group
-      var_groups%name(SIZE(var_groups%name)) = toupper(TRIM(in_str))
+      var_groups%name(SIZE(var_groups%name)) = in_str_uc
       !
       ! return its group ID (including offset from static groups array)
       group_id = SIZE(var_groups%name)
@@ -278,12 +281,9 @@ CONTAINS
     !
     ! remove time level string from group name
     idx = INDEX(group_name, TIMELEVEL_SUFFIX)
-    IF (idx > 0) THEN
-      group_name_plain = TRIM(group_name(1:idx-1))
-    ELSE
-      group_name_plain = TRIM(group_name)
-    ENDIF
-    grp_id = var_groups%group_id(TRIM(group_name_plain), opt_lcheck=.FALSE.)
+    IF (idx < 1) idx = LEN(group_name)+1
+    group_name_plain = group_name(1:idx-1)
+    grp_id = var_groups%group_id(group_name_plain, opt_lcheck=.FALSE.)
 
     ! If the group does not exist, create it.
     IF (grp_id == 0) THEN
@@ -292,10 +292,10 @@ CONTAINS
       CALL resize_arr_c1d(var_groups%name,1)
       !
       ! add new group
-      var_groups%name(SIZE(var_groups%name)) = toupper(TRIM(group_name_plain))
+      var_groups%name(SIZE(var_groups%name)) = toupper(group_name_plain)
       !
       ! return its group ID (including offset from static groups array)
-      grp_id = var_groups%group_id(TRIM(group_name_plain))
+      grp_id = var_groups%group_id(group_name_plain)
     ENDIF
 
     !
@@ -305,7 +305,7 @@ CONTAINS
       in_group_new(1:SIZE(opt_in_group)) = opt_in_group(:)
     ENDIF
     !
-    IF (grp_id > MAX_GROUPS)  CALL finish(routine, TRIM(group_name))
+    IF (grp_id > MAX_GROUPS)  CALL finish(routine, group_name)
     in_group_new(grp_id) = .TRUE.
 
   END SUBROUTINE t_var_groups_add
@@ -370,9 +370,9 @@ CONTAINS
     groups_vec(:) = .FALSE.
     groups_vec(var_groups_dyn%group_id("ALL")) = .TRUE.
     DO i=1,SIZE(group_list)
-      IF (TRIM(group_list(i)) == "ALL") CYCLE
+      IF (group_list(i) == "ALL") CYCLE
       grp_id = var_groups_dyn%group_id(TRIM(group_list(i)))
-      IF (grp_id > MAX_GROUPS)  CALL finish(routine, TRIM(group_list(i)))
+      IF (grp_id > MAX_GROUPS)  CALL finish(routine, group_list(i))
       groups_vec(grp_id) = .TRUE.
     END DO
   END FUNCTION groups_vec

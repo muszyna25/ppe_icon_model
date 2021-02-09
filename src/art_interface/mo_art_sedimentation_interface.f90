@@ -42,7 +42,8 @@ MODULE mo_art_sedi_interface
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
   USE mo_art_modes,                     ONLY: t_fields_2mom,t_fields_radio, &
                                           &   t_fields_pollen,t_fields_volc
-  USE mo_art_data,                      ONLY: p_art_data, t_art_atmo
+  USE mo_art_data,                      ONLY: p_art_data
+  USE mo_art_atmo_data,                 ONLY: t_art_atmo
   USE mo_art_wrapper_routines,          ONLY: art_get_indices_c
   USE mo_art_clipping,                  ONLY: art_clip_lt
   USE mo_art_config,                    ONLY: art_config
@@ -377,7 +378,7 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, p_diag, &
                         ! save sedimentation in lowest model level (ACC_SEDIM)
                         ! integrate sedim_update vertically
                         p_art_data(jg)%diag%acc_sedim(jc,jb,idx_diag) =         &
-                          & p_art_data(jg)%diag%acc_sedim(jc,jb,idx_diag)       &
+                         & p_art_data(jg)%diag%acc_sedim(jc,jb,idx_diag)       &
                           & + tracer(jc,jk,jb,jsp) * rhodz_new(jc,jk,jb)
                       ENDDO!jc
                     ENDDO !jk

@@ -18,6 +18,7 @@ MODULE mo_linked_list
   !
   USE mo_kind,             ONLY: i8
   USE mo_exception,        ONLY: finish, message
+  USE mo_impl_constants,   ONLY: max_var_list_name_len
   USE mo_var_list_element, ONLY: t_var_list_element, level_type_ml
   !
   IMPLICIT NONE
@@ -32,9 +33,7 @@ MODULE mo_linked_list
   !
   PUBLIC :: append_list_element ! add an element to the list
   !
-#ifdef HAVE_F95
   PUBLIC :: t_var_list_intrinsic
-#endif
   !
   ! t_list_element provides the entry to the actual information 
   ! and a reference to the next element in the list
@@ -46,7 +45,7 @@ MODULE mo_linked_list
   !
   TYPE t_var_list_intrinsic
     INTEGER                       :: key                ! hash value of name   
-    CHARACTER(len=128)            :: name               ! stream name
+    CHARACTER(len=max_var_list_name_len) :: name               !< stream name
     TYPE(t_list_element), POINTER :: first_list_element ! reference to first
     INTEGER(i8)                   :: memory_used        ! memory allocated
     INTEGER                       :: list_elements      ! allocated elements
@@ -137,11 +136,11 @@ CONTAINS
     this_list%p%first_list_element => NULL()
     !
     IF (this_list%p%memory_used /= 0_i8) THEN
-      CALL finish ('delete_list', 'List delete didnt work proper (memory counter)')
+      CALL finish ('delete_list', 'List delete didnt work properly (memory counter)')
     ENDIF
     !
     IF (this_list%p%list_elements /= 0) THEN
-      CALL finish ('delete_list', 'List delete didnt work proper (element counter)')
+      CALL finish ('delete_list', 'List delete didnt work properly (element counter)')
     ENDIF
     !
   END SUBROUTINE delete_list
@@ -199,7 +198,7 @@ CONTAINS
   SUBROUTINE create_list_element (this_list, current_list_element)
     !
     TYPE(t_var_list),     INTENT(inout) :: this_list
-    TYPE(t_list_element), POINTER       :: current_list_element
+    TYPE(t_list_element), POINTER, INTENT(out) :: current_list_element
     !
     INTEGER :: ist
     !
@@ -223,31 +222,28 @@ CONTAINS
   SUBROUTINE append_list_element (this_list, new_list_element)
     !
     TYPE(t_var_list),     INTENT(inout) :: this_list
-    TYPE(t_list_element), POINTER       :: new_list_element
+    TYPE(t_list_element), POINTER, INTENT(out) :: new_list_element
     !
-    TYPE(t_list_element), POINTER :: current_list_element
+    TYPE(t_list_element), POINTER :: last_list_element
     !
     ! insert as first element if list is empty
     !
-    IF (.NOT. ASSOCIATED (this_list%p%first_list_element)) THEN
-      CALL create_list_element (this_list, this_list%p%first_list_element)
-      new_list_element => this_list%p%first_list_element
-      this_list%p%nvars = this_list%p%nvars + 1
-      RETURN
+    CALL create_list_element(this_list, new_list_element)
+    IF (ASSOCIATED(this_list%p%first_list_element)) THEN
+      !
+      ! loop over list elements to find position
+      !
+      last_list_element => this_list%p%first_list_element
+      DO WHILE (ASSOCIATED(last_list_element%next_list_element))
+        last_list_element => last_list_element%next_list_element
+      ENDDO
+      !
+      ! append element
+      !
+      last_list_element%next_list_element => new_list_element
+    ELSE
+      this_list%p%first_list_element => new_list_element
     ENDIF
-    !
-    ! loop over list elements to find position
-    !
-    current_list_element => this_list%p%first_list_element
-    DO WHILE (ASSOCIATED(current_list_element%next_list_element)) 
-      current_list_element => current_list_element%next_list_element
-    ENDDO
-    !
-    ! insert element
-    !
-    CALL create_list_element (this_list, new_list_element)
-    new_list_element%next_list_element => current_list_element%next_list_element
-    current_list_element%next_list_element => new_list_element
     !
     this_list%p%nvars = this_list%p%nvars + 1
   END SUBROUTINE append_list_element

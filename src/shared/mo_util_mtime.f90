@@ -11,14 +11,14 @@
 !! -----------------------------------------------------------------------------------
 MODULE mo_util_mtime
 
-  USE, INTRINSIC :: iso_c_binding, ONLY: c_int64_t
-  USE mo_kind,                     ONLY: wp, i8
-  USE mo_exception,                ONLY: message, message_text, finish
+  USE, INTRINSIC :: iso_c_binding, ONLY: c_int64_t, c_char
+  USE mo_kind,                     ONLY: dp, wp, i8
+  USE mo_exception,                ONLY: finish
   USE mo_impl_constants,           ONLY: MAX_CHAR_LENGTH
   USE mtime,                       ONLY: datetime, newDatetime, timedelta, newTimeDelta,   &
-    &                                    OPERATOR(-), OPERATOR(+), event,                  &
-    &                                    juliandelta, newJulianDelta,                      &
-    &                                    timeDeltaToJulianDelta, deallocateJulianDelta,    &
+    &                                    OPERATOR(-), OPERATOR(+), event,      &
+    &                                    juliandelta,                          &
+    &                                    timeDeltaToJulianDelta,               &
     &                                    deallocateTimeDelta, deallocateDatetime,          &
     &                                    getTimeDeltaFromDateTime,                         &
     &                                    getTotalMillisecondsTimedelta,                    &
@@ -42,6 +42,7 @@ MODULE mo_util_mtime
   PUBLIC :: is_event_active
   PUBLIC :: mtime_convert_netcdf_units
   PUBLIC :: mtime_divide_timedelta
+  PUBLIC :: mtime_timedelta_from_fseconds
 
   TYPE t_datetime_ptr
     TYPE(datetime), POINTER :: ptr => NULL()
@@ -81,16 +82,14 @@ CONTAINS
     TYPE(datetime),    INTENT(IN)   :: start_date, end_date
     CHARACTER(LEN=*),  INTENT(IN)   :: fmt
     
-    TYPE(timedelta),       POINTER  :: time_delta
-    TYPE(juliandelta),     POINTER  :: julian_delta
-    TYPE (t_keyword_list), POINTER  :: keywords => NULL()
+    TYPE(timedelta) :: time_delta
+    TYPE(juliandelta) :: julian_delta
+    TYPE(t_keyword_list), POINTER  :: keywords => NULL()
 
     ! compute time delta:
-    time_delta => newTimeDelta("P01D")
     time_delta = end_date - start_date
     ! compute the time delta in a Julian calendar, which allows more
     ! than 30 days:
-    julian_delta => newJulianDelta('+', 0_c_int64_t, 0_c_int64_t)
     CALL timeDeltaToJulianDelta(time_delta,start_date,julian_delta)
 
     ! now collect the feasible "building-blocks"
@@ -110,10 +109,8 @@ CONTAINS
       CALL associate_keyword("<ms>",  "", keywords)
     END IF
     ! replace keywords in "ddhhmmss"
-    result_str = TRIM(with_keywords(keywords, fmt))
+    result_str = with_keywords(keywords, fmt)
 
-    CALL deallocateTimeDelta(time_delta)
-    CALL deallocateJulianDelta(julian_delta)
   END FUNCTION t_mtime_utils_ddhhmmss
 
 
@@ -182,9 +179,9 @@ CONTAINS
     TYPE(datetime), OPTIONAL, INTENT(IN) :: anchor_datetime   ! anchor date
     !
     ! local
-    TYPE(timedelta), POINTER :: time_diff => NULL()
-    TYPE(datetime)           :: anchor                        ! anchor date for 
-                                                              ! timeDelta computation
+    TYPE(timedelta) :: time_diff
+    TYPE(datetime)  :: anchor                        ! anchor date for
+                                                     ! timeDelta computation
     !---------------------------------------------------------
 
     If (PRESENT(anchor_datetime)) THEN
@@ -194,11 +191,8 @@ CONTAINS
       anchor = time_config%tc_exp_startdate
     ENDIF
 
-    time_diff  => newTimedelta("PT0S")
     time_diff  =  getTimeDeltaFromDateTime(datetime_current, anchor)
     sim_time   =  getTotalMillisecondsTimedelta(time_diff, datetime_current)*1.e-3_wp
-
-    CALL deallocateTimedelta(time_diff)
 
   END FUNCTION getElapsedSimTimeInSeconds
 
@@ -218,13 +212,18 @@ CONTAINS
   TYPE(datetime) FUNCTION dummyDateTime()
     !
     ! local
-    TYPE(datetime), POINTER :: dummy_date
+    TYPE(datetime), POINTER :: dummy_date_ptr
+    LOGICAL, SAVE :: dummy_date_is_set = .FALSE.
+    TYPE(datetime), SAVE :: dummy_date
     !---------------------------------------------------------
 
-    dummy_date    => newDatetime("0-01-01T00:00:00.000")
-    dummyDateTime =  dummy_date
-
-    CALL deallocateDatetime(dummy_date)
+    IF (.NOT. dummy_date_is_set) THEN
+      dummy_date_ptr => newDatetime("0-01-01T00:00:00.000")
+      dummy_date = dummy_date_ptr
+      CALL deallocateDatetime(dummy_date_ptr)
+      dummy_date_is_set = .TRUE.
+    END IF
+    dummydatetime = dummy_date
 
   END FUNCTION dummyDateTime
 
@@ -277,8 +276,8 @@ CONTAINS
   ! via seconds... should be solved by mtime, could be done without
   ! conversion to a prespecified time unit.
   SUBROUTINE mtime_divide_timedelta (dividend, divisor, quotient)
-    TYPE(timedelta), POINTER, INTENT(in   ) :: dividend
-    TYPE(timedelta), POINTER, INTENT(in   ) :: divisor
+    TYPE(timedelta),          INTENT(in   ) :: dividend
+    TYPE(timedelta),          INTENT(in   ) :: divisor
     REAL(wp),                 INTENT(  out) :: quotient
     INTEGER(i8)                             :: dd, ds
 
@@ -290,7 +289,7 @@ CONTAINS
   END SUBROUTINE mtime_divide_timedelta
 
   SUBROUTINE mtime_timedelta_to_seconds (mtime_dt, seconds_dt)
-    TYPE(timedelta), POINTER, INTENT(in   ) :: mtime_dt
+    TYPE(timedelta),          INTENT(in   ) :: mtime_dt
     INTEGER(i8),              INTENT(  out) :: seconds_dt
     CHARACTER(*),                 PARAMETER :: routine = &
       & modname//"::mtime_timedelta_to_seconds"
@@ -305,6 +304,27 @@ CONTAINS
       &          +         INT(mtime_dt%second)
 
   END SUBROUTINE mtime_timedelta_to_seconds
+
+  ! convert (fractional) seconds into an mtime timedelta object
+  SUBROUTINE mtime_timedelta_from_fseconds(dt, base_dt, td)
+    REAL(dp), INTENT(in) :: dt
+    TYPE(datetime), INTENT(in) :: base_dt
+    TYPE(timedelta), INTENT(out) :: td
+    INTERFACE
+      SUBROUTINE julianDeltaToTimeDelta(jd, base_dt, td) BIND(c, name='julianDeltaToTimeDelta')
+        IMPORT :: juliandelta, datetime, timedelta
+        TYPE(juliandelta), INTENT(in) :: jd
+        TYPE(datetime), INTENT(in) :: base_dt
+        TYPE(timedelta), INTENT(out) :: td
+      END SUBROUTINE julianDeltaToTimeDelta
+    END INTERFACE
+    TYPE(juliandelta) :: jdelta
+
+    jdelta%sign = MERGE(c_char_'+', c_char_'-', dt >= 0.0_dp)
+    jdelta%ms = INT(ABS(MOD(dt, 86400._dp)) * 1000._dp, c_int64_t)
+    jdelta%day = INT(dt/86400._dp, c_int64_t)
+    CALL juliandeltatotimedelta(jdelta, base_dt, td)
+  END SUBROUTINE mtime_timedelta_from_fseconds
 
   ! the expected input looks similar to this "seconds since 2013-04-24T00:00:00"
 

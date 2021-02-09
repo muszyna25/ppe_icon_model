@@ -2598,7 +2598,7 @@ MODULE mo_sgs_turbmetric
         i_startblk = p_patch%edges%start_block(rl_start)
         i_endblk   = p_patch%edges%end_block(rl_end)
 
-!$OMP DO PRIVATE(jc,jb,jk,i_startidx,i_endidx,norm_metr,tang_metr,jcn,jvn,jbn)
+!$OMP DO PRIVATE(je,jb,jk,i_startidx,i_endidx,norm_metr,tang_metr,jcn,jvn,jbn)
         DO jb = i_startblk,i_endblk
           CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                              i_startidx, i_endidx, rl_start, rl_end)

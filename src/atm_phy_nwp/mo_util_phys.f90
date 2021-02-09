@@ -24,7 +24,7 @@ MODULE mo_util_phys
   USE mo_physical_constants,    ONLY: o_m_rdv        , & !! 1 - r_d/r_v &
     &                                 rdv,             & !! r_d / r_v
     &                                 cpd, p0ref, rd,  &
-    &                                 vtmpc1, t3
+    &                                 vtmpc1, t3, rd_o_cpd
   USE mo_exception,             ONLY: finish, message
   USE mo_satad,                 ONLY: sat_pres_water, sat_pres_ice
   USE mo_fortran_tools,         ONLY: assign_if_present
@@ -46,6 +46,10 @@ MODULE mo_util_phys
   USE mo_nonhydrostatic_config, ONLY: kstart_moist
   USE mo_satad,                 ONLY: qsat_rho
   USE mo_upatmo_config,         ONLY: upatmo_config
+#ifdef _OPENACC
+  USE mo_mpi,                   ONLY: i_am_accel_node
+  USE openacc,                  ONLY: acc_is_present
+#endif
 
 
   IMPLICIT NONE
@@ -63,6 +67,8 @@ MODULE mo_util_phys
   PUBLIC :: compute_field_rel_hum_ifs
   PUBLIC :: iau_update_tracer
   PUBLIC :: tracer_add_phytend
+  PUBLIC :: exner_from_pres
+  PUBLIC :: theta_from_temp_and_exner
 
   !> module name
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_util_phys'
@@ -269,6 +275,7 @@ CONTAINS
   !! @par Revision History
   !! Initial revision  :  F. Prill, DWD (2012-07-03) 
   ELEMENTAL FUNCTION rel_hum(temp, qv, p_ex)
+!$ACC ROUTINE SEQ
 
     REAL(wp) :: rel_hum
     REAL(wp), INTENT(IN) :: temp, &  ! temperature
@@ -300,6 +307,7 @@ CONTAINS
   !! @par Revision History
   !! Initial revision  by Daniel Reinert, DWD (2013-07-15) 
   ELEMENTAL FUNCTION rel_hum_ifs(temp, qv, p_ex)
+!$ACC ROUTINE SEQ
 
     REAL(wp) :: rel_hum_ifs
     REAL(wp), INTENT(IN) :: temp, &  ! temperature
@@ -345,7 +353,7 @@ CONTAINS
     TYPE(t_nh_prog), INTENT(IN) :: p_prog
     TYPE(t_nh_diag), INTENT(IN) :: p_diag
     ! output variable, dim: (nproma,nlev,nblks_c):
-    REAL(wp),INTENT(INOUT) :: out_var(:,:,:)
+    REAL(wp), TARGET, INTENT(INOUT)   :: out_var(:,:,:)
     ! optional vertical start/end level:
     INTEGER, INTENT(in), OPTIONAL     :: opt_slev, opt_elev
     ! start and end values of refin_ctrl flag:
@@ -356,6 +364,21 @@ CONTAINS
     INTEGER  :: slev, elev, rl_start, rl_end, i_nchdom,     &
       &         i_startblk, i_endblk, i_startidx, i_endidx, &
       &         jc, jk, jb
+
+    LOGICAL out_var_is_present
+    REAL(wp), POINTER :: out_var_ptr(:,:,:)
+
+#ifdef _OPENACC
+    out_var_is_present = acc_is_present( out_var )
+    IF ( .NOT. out_var_is_present ) THEN
+      ALLOCATE ( out_var_ptr( SIZE(out_var,1), SIZE(out_var,2), SIZE(out_var,3) ) )
+!$ACC ENTER DATA CREATE( out_var_ptr )
+    ELSE
+      out_var_ptr => out_var
+    ENDIF
+#else
+    out_var_ptr => out_var
+#endif
 
     ! default values
     slev     = 1
@@ -378,6 +401,8 @@ CONTAINS
       CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
         i_startidx, i_endidx, rl_start, rl_end)
       
+!$ACC PARALLEL IF ( i_am_accel_node )
+!$ACC LOOP GANG VECTOR COLLAPSE(2) 
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx, i_endidx
         DO jk = slev, elev
@@ -392,14 +417,23 @@ CONTAINS
           qv   = p_prog%tracer_ptr(iqv)%p_3d(jc,jk,jb)
           p_ex = p_prog%exner(jc,jk,jb)
           !-- compute relative humidity as r = e/e_s:
-          out_var(jc,jk,jb) = rel_hum(temp, qv, p_ex)
+          out_var_ptr(jc,jk,jb) = rel_hum(temp, qv, p_ex)
 
         END DO
       END DO
+!$ACC END PARALLEL
 
     END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+
+#ifdef _OPENACC
+    IF ( .NOT. out_var_is_present ) THEN
+!$ACC UPDATE HOST( out_var_ptr )
+      out_var = out_var_ptr 
+!$ACC EXIT DATA DELETE( out_var_ptr)
+    ENDIF
+#endif
 
   END SUBROUTINE compute_field_rel_hum_wmo
 
@@ -434,6 +468,9 @@ CONTAINS
       &         jc, jk, jb
     LOGICAL  :: lclip       ! clip rel. hum. to values <=100% 
 
+#ifdef _OPENACC
+    CALL finish ('mo_util_phys:compute_field_rel_hum_ifs', 'OpenACC version currently not implemented')
+#endif
 
     IF (PRESENT(opt_lclip)) THEN
       lclip = opt_lclip
@@ -685,6 +722,17 @@ CONTAINS
     INTEGER, DIMENSION(3), TARGET :: conv_list_small
     INTEGER, DIMENSION(5), TARGET :: conv_list_large
 
+    !$acc data present(p_rho_now, prm_nwp_tend, prm_nwp_tend%ddt_tracer_pconv, &
+    !$acc              prm_diag, prm_diag%rain_con, prm_diag%snow_con, prm_diag%prec_con, &
+    !$acc              prm_diag%rain_con_rate, pt_prog_rcf, pt_prog_rcf%tracer) &
+    !$acc      if(i_am_accel_node)
+
+    !$acc data create(zrhox, zrhox_clip) &
+    !$acc      if(i_am_accel_node)
+
+    !$acc data copyin(kstart_moist) &
+    !$acc      if(i_am_accel_node)
+
 
     ! get list of water tracers which are affected by convection
     IF (atm_phy_nwp_config(jg)%ldetrain_conv_prec) THEN
@@ -695,11 +743,15 @@ CONTAINS
       ptr_conv_list =>conv_list_small
     ENDIF
 
+    !$acc kernels default(none) if(i_am_accel_node)
     zrhox_clip(:,:) = 0._wp
+    !$acc end kernels
 
     ! add tendency due to convection
     DO jt=1,SIZE(ptr_conv_list)
       idx = ptr_conv_list(jt)
+      !$acc parallel default(none) if(i_am_accel_node)
+      !$acc loop gang vector collapse(2)
       DO jk = kstart_moist(jg), kend
         DO jc = i_startidx, i_endidx
           zrhox(jc,jk,jt) = p_rho_now(jc,jk)*pt_prog_rcf%tracer(jc,jk,jb,idx)  &
@@ -712,6 +764,7 @@ CONTAINS
           zrhox(jc,jk,jt) = MAX(0._wp, zrhox(jc,jk,jt))
         ENDDO
       ENDDO
+      !$acc end parallel
       !
       ! Re-diagnose tracer mass fraction from partial mass
       IF (idx == iqv) THEN
@@ -719,15 +772,20 @@ CONTAINS
         CYCLE         ! special treatment see below
       ENDIF
       !
+      !$acc parallel default(none) if(i_am_accel_node)
+      !$acc loop gang vector collapse(2)
       DO jk = kstart_moist(jg), kend
         DO jc = i_startidx, i_endidx
           pt_prog_rcf%tracer(jc,jk,jb,idx) = zrhox(jc,jk,jt)/p_rho_now(jc,jk)
         ENDDO
       ENDDO
+      !$acc end parallel
     ENDDO ! jt
     !
     ! Special treatment for qv. 
     ! Rediagnose tracer mass fraction and substract mass created by artificial clipping.
+    !$acc parallel default(none) if(i_am_accel_node)
+    !$acc loop gang vector collapse(2)
     DO jk = kstart_moist(jg), kend
       DO jc = i_startidx, i_endidx
         pt_prog_rcf%tracer(jc,jk,jb,iqv) = MAX(0._wp, &
@@ -736,10 +794,14 @@ CONTAINS
           &                                   )
       ENDDO
     ENDDO
+    !$acc end parallel
 
 
 
     IF(lart .AND. art_config(jg)%lart_conv) THEN
+#ifdef _OPENACC
+      CALL finish("mo_util_phys", "ART-part not supported on GPU")
+#endif
       ! add convective tendency and fix to positive values
       DO jt=1,art_config(jg)%nconv_tracer  ! ASH
         DO jk = 1, kend
@@ -756,6 +818,8 @@ CONTAINS
     ! (very small negative values may occur during the transport process (order 10E-15))
     iq_start = MAXVAL(ptr_conv_list(:)) + 1  ! all others have already been clipped above
     !
+    !$acc parallel default(none) if(i_am_accel_node)
+    !$acc loop gang vector collapse(3)
     DO jt=iq_start, iqm_max  ! qr,qs,etc. 
       DO jk = kstart_moist(jg), kend
         DO jc = i_startidx, i_endidx
@@ -763,9 +827,12 @@ CONTAINS
         ENDDO
       ENDDO
     ENDDO
+    !$acc end parallel
     
     ! clipping for number concentrations
     IF(atm_phy_nwp_config(jg)%l2moment)THEN
+      !$acc parallel default(none) if(i_am_accel_node)
+      !$acc loop gang vector collapse(3)
       DO jt=iqni, ininact  ! qni,qnr,qns,qng,qnh,qnc and ninact (but not yet ninpot)
         DO jk = kstart_moist(jg), kend
           DO jc = i_startidx, i_endidx
@@ -773,6 +840,7 @@ CONTAINS
           ENDDO          
         ENDDO
       ENDDO
+      !$acc end parallel
     END IF
 
 
@@ -780,6 +848,8 @@ CONTAINS
     ! Diagnose convective precipitation amount
     IF (atm_phy_nwp_config(jg)%lcalc_acc_avg) THEN
 !DIR$ IVDEP
+      !$acc parallel default(none) if(i_am_accel_node)
+      !$acc loop gang vector
       DO jc = i_startidx, i_endidx
 
         prm_diag%rain_con(jc,jb) = prm_diag%rain_con(jc,jb)    &
@@ -791,6 +861,7 @@ CONTAINS
         prm_diag%prec_con(jc,jb) = prm_diag%rain_con(jc,jb) + prm_diag%snow_con(jc,jb)
 
       ENDDO
+      !$acc end parallel
     ENDIF
 
 
@@ -806,7 +877,39 @@ CONTAINS
       END DO
     ENDIF  ! is_ls_forcing
 
+    !$acc end data !copyin
+    !$acc end data !create
+    !$acc end data !present
+
   END SUBROUTINE tracer_add_phytend
 
+
+  !>
+  !! Compute Exner pressure from pressure
+  !!
+  ELEMENTAL FUNCTION exner_from_pres(pres) RESULT(exner)
+    
+    REAL(wp), INTENT(IN) :: pres  !< pressure [Pa]
+    REAL(wp)                exner !< Exner pressure [1]
+    
+    !---------------------------
+    
+    exner = ( pres / p0ref )**rd_o_cpd
+
+  END FUNCTION exner_from_pres
+
+  !>
+  !! Compute potential temperature from temperature and Exner pressure
+  !!
+  ELEMENTAL FUNCTION theta_from_temp_and_exner(temp, exner) RESULT(theta)
+    
+    REAL(wp), INTENT(IN) :: temp, exner  !< temperature [K] and Exner pressure [1]
+    REAL(wp)                theta        !< potential temperature [K]
+    
+    !---------------------------
+    
+    theta = temp / exner
+
+  END FUNCTION theta_from_temp_and_exner
 
 END MODULE mo_util_phys

@@ -47,7 +47,7 @@ MODULE mo_timer
   PUBLIC :: print_timer, cleanup_timer, delete_timer          !< procedures imported and renamed
   PUBLIC :: init_timer                                        !< procedure of this module
 
-  PUBLIC :: timer_total                         !< IDs of timers
+  PUBLIC :: timer_total                                       !< IDs of timers
   PUBLIC :: timer_exch_data, timer_exch_data_rv, timer_exch_data_async, timer_exch_data_wait
   PUBLIC :: timer_global_sum, timer_omp_global_sum, timer_ordglb_sum, timer_omp_ordglb_sum
   PUBLIC :: timer_icon_comm_sync
@@ -214,7 +214,7 @@ MODULE mo_timer
   PUBLIC :: timer_restart_indices_setup
 
   ! Timer for data assimilation
-  PUBLIC :: timer_datass, timer_lhn
+  PUBLIC :: timer_datass, timer_lhn, timer_init_dace, timer_dace_coupling
 
   PUBLIC :: timer_extra1,  timer_extra2,  timer_extra3,  timer_extra4,  timer_extra5,  &
             timer_extra6,  timer_extra7,  timer_extra8,  timer_extra9,  timer_extra10, &
@@ -245,6 +245,13 @@ MODULE mo_timer
        &    timer_radar_comppolar, &
        &    timer_radar_out      , & 
        &    timer_radar_barrier
+
+  ! Timers for optional diagnostics
+  ! Model atmosphere
+  PUBLIC :: timer_opt_diag_atmo,             &
+    &       timer_opt_diag_atmo_vor,         &
+    &       timer_opt_diag_atmo_bvf2,        &
+    &       timer_opt_diag_atmo_parcelfreq2
 
   ! low level timing routine
   PUBLIC :: tic, toc
@@ -428,7 +435,7 @@ MODULE mo_timer
   INTEGER :: timer_restart_indices_setup
 
   ! Data assimilation
-  INTEGER :: timer_datass, timer_lhn
+  INTEGER :: timer_datass, timer_lhn, timer_init_dace, timer_dace_coupling
 
   ! The purpose of these "extra" timers is to have otherwise unused timers available for
   ! special-purpose measurements. Please do not remove them and do not use them permanently.
@@ -463,6 +470,13 @@ MODULE mo_timer
        &     timer_radar_comppolar, &
        &     timer_radar_out      , & 
        &     timer_radar_barrier
+
+  ! Timers for optional diagnostics
+  ! Model atmosphere
+  INTEGER :: timer_opt_diag_atmo,             &
+    &        timer_opt_diag_atmo_vor,         &
+    &        timer_opt_diag_atmo_bvf2,        &
+    &        timer_opt_diag_atmo_parcelfreq2
 
 
 CONTAINS
@@ -848,6 +862,8 @@ CONTAINS
     ! Timer for data assimilation
     timer_datass  = new_timer("datass")
     timer_lhn     = new_timer("lhn")
+    timer_init_dace     = new_timer("init_dace")
+    timer_dace_coupling = new_timer("dace_coupling")
 
   ! extra timers for on-demand (non-permanent) timings
     timer_extra1  = new_timer("extra1")
@@ -925,6 +941,13 @@ CONTAINS
       timer_radar_out       = new_timer("EMVORADO_output")
       timer_radar_barrier   = new_timer("EMVORADO_barrier_waiting")
     END IF
+
+    ! Timers for optional diagnostics
+    ! Model atmosphere
+    timer_opt_diag_atmo             = new_timer("optional_diagnostics_atmosphere")
+    timer_opt_diag_atmo_vor         = new_timer("opt_diag_atmo_vorticity")
+    timer_opt_diag_atmo_bvf2        = new_timer("opt_diag_atmo_bruntvaisala")
+    timer_opt_diag_atmo_parcelfreq2 = new_timer("opt_diag_atmo_parcelfrequency")
 
   END SUBROUTINE init_timer
 

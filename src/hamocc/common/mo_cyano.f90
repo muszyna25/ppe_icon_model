@@ -196,6 +196,12 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,l_dynamic_pi)
 
 
               phosy_cya = pho*avcyabac  
+              
+              ! limitation on DIC
+              if (bgctra(j,k,isco212).le.rcar*phosy_cya) then
+                  cyapro = min(avnit-1.e-11_wp*rnoi,max(0._wp,(bgctra(j,k,isco212)-EPSILON(1.0_wp))/(rcar*phosy_cya)*cyapro))
+                  phosy_cya=max(0._wp,(bgctra(j,k,isco212)-EPSILON(1.0_wp)))/rcar
+              endif
               ! ---------- nutrient uptake
 
               bgctra(j,k,iphosph) = bgctra(j,k,iphosph) - phosy_cya    
@@ -275,7 +281,7 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,l_dynamic_pi)
              
     ENDIF
 
-    do k=2,kpke-1
+    do k=(kpke-1),2,-1  
          ! water column
         if(pddpo(j,k+1).LE.0.5_wp)then ! last wet cell
               bgctra(j,k,icya)  = (bgctra(j,k,icya)*pddpo(j,k))      &

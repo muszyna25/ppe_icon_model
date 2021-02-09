@@ -24,7 +24,8 @@
 !!
 MODULE mo_icoham_dyn_memory
 
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, VNAME_LEN, MAX_NTRACER
+  USE mo_impl_constants,      ONLY: success, max_var_list_name_len, &
+    &                               vname_len, max_ntracer
   USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_CELL,   &
     &                               GRID_EDGE, GRID_CELL, GRID_VERTEX,                &
     &                               GRID_UNSTRUCTURED_VERT
@@ -67,6 +68,7 @@ MODULE mo_icoham_dyn_memory
   TYPE(t_var_list),PUBLIC,ALLOCATABLE :: hydro_tend_phy_list(:)  !< shape: (n_dom)
   TYPE(t_var_list),PUBLIC,ALLOCATABLE :: hydro_prog_out_list(:)  !< shape: (n_dom)
   TYPE(t_var_list),PUBLIC,ALLOCATABLE :: hydro_diag_out_list(:)  !< shape: (n_dom)
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_icoham_dyn_memory'
 
 CONTAINS
 
@@ -82,15 +84,16 @@ CONTAINS
     TYPE(t_patch),INTENT(IN) :: p_patch(:)
 
     INTEGER :: ndomain, jg, jt, istat, nblks_c, nblks_e, nblks_v, nlev
-    CHARACTER(len=MAX_CHAR_LENGTH) :: listname, varname_prefix
+    CHARACTER(len=max_var_list_name_len) :: listname
+    CHARACTER(len=vname_len) :: varname_prefix
     CHARACTER(len=VNAME_LEN) :: tracer_names(MAX_NTRACER) 
 
-    CHARACTER(len=*),PARAMETER ::  &
-             routine = 'mo_icoham_dyn_memory:construct_icoham_dyn_state'
+    CHARACTER(len=*), PARAMETER :: &
+             routine = modname//':construct_icoham_dyn_state'
 
     !---
     CALL message('','')
-    CALL message(TRIM(routine),'Construction of 3D dynamics state vector started.')
+    CALL message(routine, 'Construction of 3D dynamics state vector started.')
 
     ndomain = SIZE(p_patch)
 
@@ -98,7 +101,7 @@ CONTAINS
 
     ALLOCATE (p_hydro_state(ndomain), stat=istat)
     IF (istat /= success) THEN
-      CALL finish(TRIM(routine),'allocation of p_hydro_state failed')
+      CALL finish(routine, 'allocation of p_hydro_state failed')
     ENDIF
 
     ! Allocate list arrays
@@ -111,7 +114,7 @@ CONTAINS
             & hydro_diag_out_list(ndomain),        &
             & STAT=istat)
 
-    IF (istat/=SUCCESS) CALL finish(TRIM(routine), &
+    IF (istat/=SUCCESS) CALL finish(routine, &
       &'allocation of hydrostatic prog/diag list array failed')
 
     ! Build a field list and a tendency list for each grid level.
@@ -135,7 +138,7 @@ CONTAINS
 
       ALLOCATE(p_hydro_state(jg)%prog(1:ntimelevel), STAT=istat)
       IF (istat/=SUCCESS) &
-      CALL finish(TRIM(routine),'allocation of prognostic state array failed')
+      CALL finish(routine, 'allocation of prognostic state array failed')
 
       DO jt = 1,ntimelevel
 
@@ -210,7 +213,7 @@ CONTAINS
 
     ENDDO
 
-    CALL message(TRIM(routine),'Construction of 3D dynamics state vector finished.')
+    CALL message(routine, 'Construction of 3D dynamics state vector finished.')
     CALL message('','')
 
   END SUBROUTINE construct_icoham_dyn_state
@@ -230,7 +233,7 @@ CONTAINS
 
     !---
 
-    CALL message(TRIM(routine),'Destruction of 3D dynamics state vector started.')
+    CALL message(routine,'Destruction of 3D dynamics state vector started.')
 
     ndomain    = SIZE(p_hydro_state)
     ntimelevel = SIZE(p_hydro_state(1)%prog)
@@ -255,15 +258,15 @@ CONTAINS
 
       DEALLOCATE( p_hydro_state(jg)%prog, STAT=istat )
       IF (istat/=SUCCESS) &
-      CALL finish(TRIM(routine),'deallocation of prognostic state array failed')
+      CALL finish(routine,'deallocation of prognostic state array failed')
 
     ENDDO
 
     DEALLOCATE (p_hydro_state, STAT=istat)
     IF (istat /= SUCCESS) & 
-    CALL finish(TRIM(routine),'deallocation for p_hydro_state failed')
+    CALL finish(routine,'deallocation for p_hydro_state failed')
 
-    CALL message(TRIM(routine),'Destruction of 3D dynamics state vector finished.')
+    CALL message(routine,'Destruction of 3D dynamics state vector finished.')
 
   END SUBROUTINE destruct_icoham_dyn_state
 
@@ -307,7 +310,7 @@ CONTAINS
 
     ! Register a variable list and apply default settings
 
-    CALL new_var_list( field_list, TRIM(listname), patch_id=k_jg )
+    CALL new_var_list( field_list, listname, patch_id=k_jg )
     CALL default_var_list_settings( field_list,                &
                                   & lrestart=store_in_restart  )
 
@@ -413,7 +416,7 @@ CONTAINS
 
     ! Register a variable list and apply default settings
 
-    CALL new_var_list( field_list, TRIM(listname), patch_id=k_jg )
+    CALL new_var_list( field_list, listname, patch_id=k_jg )
     CALL default_var_list_settings( field_list, lrestart=store_in_restart ) 
 
     !----------------------------

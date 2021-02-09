@@ -57,7 +57,7 @@ MODULE mo_interface_les
   USE mo_nh_diagnose_pres_temp, ONLY: diagnose_pres_temp
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
   USE mo_lnd_nwp_config,        ONLY: ntiles_total, ntiles_water
-  USE mo_cover_koe,             ONLY: cover_koe
+  USE mo_cover_koe,             ONLY: cover_koe, cover_koe_config
   USE mo_satad,                 ONLY: satad_v_3D
   USE mo_radiation,             ONLY: radheat, pre_radiation_nwp
   USE mo_radiation_config,      ONLY: irad_aero
@@ -466,8 +466,8 @@ CONTAINS
          CALL nwp_surface    (  dt_phy_jg(itfastphy),              & !>input
                                & pt_patch,                         & !>input
                                & ext_data,                         & !>input
-                               & pt_prog_rcf,                      & !>in/inout rcf=reduced calling freq.
-                               & pt_diag ,                         & !>inout
+                               & pt_prog, pt_prog_rcf,             & !>in/inout rcf=reduced calling freq.
+                               & pt_diag, p_metrics,               & !>inout
                                & prm_diag,                         & !>inout
                                & lnd_prog_now, lnd_prog_new,       & !>inout
                                & wtr_prog_now, wtr_prog_new,       & !>inout
@@ -519,7 +519,8 @@ CONTAINS
                             & lcall_phy_jg(itsatad),            & !>input
                             & pt_patch, p_metrics,              & !>input
                             & pt_prog,                          & !>inout
-                            & pt_prog_rcf,                      & !>inout
+                            & pt_prog_rcf%tracer,               & !>inout
+                            & pt_prog_rcf%tke,                  & !>in
                             & pt_diag ,                         & !>inout
                             & prm_diag, prm_nwp_tend,           & !>inout
                             & lcompute_tt_lheat=.FALSE.         ) !>in
@@ -764,9 +765,8 @@ CONTAINS
         CALL cover_koe &
 &             (kidia  = i_startidx ,   kfdia  = i_endidx  ,       & !! in:  horizonal begin, end indices
 &              klon = nproma,  kstart = kstart_moist(jg)  ,       & !! in:  horiz. and vert. vector length
-&              klev   = nlev,                                     &
-&              icldscheme = atm_phy_nwp_config(jg)%inwp_cldcover, & !! in:  cloud cover option
-&              inwp_turb  = atm_phy_nwp_config(jg)%inwp_turb,     & !! in:  turbulence scheme number
+&              klev   = nlev                              ,       &
+&              cover_koe_config = cover_koe_config(jg)    ,       & !! in:  physics config state
 &              tt     = pt_diag%temp         (:,:,jb)     ,       & !! in:  temperature at full levels
 &              pp     = pt_diag%pres         (:,:,jb)     ,       & !! in:  pressure at full levels
 &              ps     = pt_diag%pres_sfc     (:,jb)       ,       & !! in:  surface pressure at full levels
@@ -1398,7 +1398,7 @@ CONTAINS
     ! time averages, accumulations and vertical integrals
     CALL nwp_statistics(lcall_phy_jg,                    & !in
                         & dt_phy_jg,p_sim_time,          & !in
-                        & kstart_moist(jg),              & !in
+                        & ext_data, kstart_moist(jg),    & !in
                         & ih_clch(jg), ih_clcm(jg),      & !in
                         & pt_patch, p_metrics,           & !in
                         & pt_prog, pt_prog_rcf,          & !in
@@ -1410,15 +1410,15 @@ CONTAINS
       !CALL les_cloud_diag(pt_patch, pt_prog_rcf, kstart_moist(jg),   &
       !                    lnd_prog_new, lnd_diag, pt_diag, &
       !                    pt_prog, p_metrics, prm_diag) 
-      CALL les_cloud_diag    ( kstart_moist(jg),		       & !in
-        &		       ih_clch(jg), ih_clcm(jg),	       & !in
-        &		       phy_params(jg),  		       & !in
-        &		       pt_patch,			       & !in
-        &		       p_nh_state(jg)%metrics,  	       & !in
-        &		       p_nh_state(jg)%prog(nnow(jg)),	       & !in
-        &		       p_nh_state(jg)%prog(nnow_rcf(jg)),      & !in
-        &		       p_nh_state(jg)%diag,		       & !in
-        &		       prm_diag 			       ) !inout
+      CALL les_cloud_diag    ( kstart_moist(jg),                       & !in
+        &                      ih_clch(jg), ih_clcm(jg),               & !in
+        &                      phy_params(jg),                         & !in
+        &                      pt_patch,                               & !in
+        &                      p_nh_state(jg)%metrics,                 & !in
+        &                      p_nh_state(jg)%prog(nnow(jg)),          & !in
+        &                      p_nh_state(jg)%prog(nnow_rcf(jg)),      & !in
+        &                      p_nh_state(jg)%diag,                    & !in
+        &                      prm_diag                                ) !inout
 
     IF( is_sampling_time )THEN
 

@@ -32,7 +32,7 @@ MODULE mo_nwp_rrtm_interface
   USE mo_parallel_config,      ONLY: nproma, p_test_run
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi
   USE mo_impl_constants,       ONLY: min_rlcell_int, io3_ape, nexlevs_rrg_vnest, &
-                                     iss, iorg, ibc, iso4, idu, MAX_CHAR_LENGTH
+                                     iss, iorg, ibc, iso4, idu
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c, grf_ovlparea_start_c, grf_fbk_start_c
   USE mo_physical_constants,   ONLY: rd, grav, cpd
   USE mo_kind,                 ONLY: wp
@@ -89,7 +89,7 @@ CONTAINS
   SUBROUTINE nwp_ozon_aerosol ( p_sim_time, mtime_datetime, pt_patch, ext_data, &
     & pt_diag,prm_diag,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,zduo3 )
 
-!    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
+!    CHARACTER(len=*), PARAMETER::  &
 !      &  routine = 'mo_nwp_rad_interface:'
 
     REAL(wp),INTENT(in)         :: p_sim_time
@@ -128,9 +128,9 @@ CONTAINS
       & zaeqdo   (nproma,pt_patch%nblks_c), zaeqdn,                 &
       & zaequo   (nproma,pt_patch%nblks_c), zaequn,                 &
       & zaeqlo   (nproma,pt_patch%nblks_c), zaeqln,                 &
+      & zaeqsuo  (nproma,pt_patch%nblks_c), zaeqsun,                &
       & zaeqso   (nproma,pt_patch%nblks_c), zaeqsn, zw, &
       & zptrop(nproma), zdtdz(nproma), zlatfac(nproma), zstrfac, zpblfac, zslatq
-
 
     ! Local scalars:
     INTEGER:: jc,jk,jb
@@ -202,7 +202,7 @@ CONTAINS
     i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jk,i_endidx,zsign,zvdaes, zvdael, zvdaeu, zvdaed, zaeqsn, zaeqln, &
+!$OMP DO PRIVATE(jb,jc,jk,i_endidx,zsign,zvdaes, zvdael, zvdaeu, zvdaed, zaeqsn, zaeqln, zaeqsun, &
 !$OMP zaequn,zaeqdn,zaetr_bot,zaetr,wfac,ncn_bg,zptrop,zdtdz,zlatfac,zstrfac,zpblfac,zslatq)  ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
@@ -336,7 +336,8 @@ CONTAINS
         DO jc = 1,i_endidx
           ! top level
           zaeqso(jc,jb) = zvdaes(jc,1) * prm_diag%aerosol(jc,iss,jb)
-          zaeqlo(jc,jb) = zvdael(jc,1) *(prm_diag%aerosol(jc,iorg,jb)+prm_diag%aerosol(jc,iso4,jb))
+          zaeqlo(jc,jb) = zvdael(jc,1) * prm_diag%aerosol(jc,iorg,jb)
+          zaeqsuo(jc,jb) = zvdael(jc,1)* prm_diag%aerosol(jc,iso4,jb)
           zaequo(jc,jb) = zvdaeu(jc,1) * prm_diag%aerosol(jc,ibc,jb) 
           zaeqdo(jc,jb) = zvdaed(jc,1) * prm_diag%aerosol(jc,idu,jb)
 
@@ -355,7 +356,8 @@ CONTAINS
         DO jk = 1,nlev
           DO jc = 1,i_endidx
             zaeqsn  = zvdaes(jc,jk+1) * prm_diag%aerosol(jc,iss,jb)
-            zaeqln  = zvdael(jc,jk+1) *(prm_diag%aerosol(jc,iorg,jb)+prm_diag%aerosol(jc,iso4,jb))
+            zaeqln  = zvdael(jc,jk+1) * prm_diag%aerosol(jc,iorg,jb)
+            zaeqsun = zvdael(jc,jk+1) * prm_diag%aerosol(jc,iso4,jb)
             zaequn  = zvdaeu(jc,jk+1) * prm_diag%aerosol(jc,ibc,jb)
             zaeqdn  = zvdaed(jc,jk+1) * prm_diag%aerosol(jc,idu,jb)
 
@@ -369,10 +371,11 @@ CONTAINS
             zaeq2(jc,jk,jb) = (1._wp-zstrfac)*(zaeqsn-zaeqso(jc,jb))
             zaeq3(jc,jk,jb) = (1._wp-zstrfac)*(zaeqdn-zaeqdo(jc,jb))
             zaeq4(jc,jk,jb) = (1._wp-zstrfac)*zpblfac*(zaequn-zaequo(jc,jb))
-            zaeq5(jc,jk,jb) = zstrfac*zstbga*pt_diag%dpres_mc(jc,jk,jb)
+            zaeq5(jc,jk,jb) = (1._wp-zstrfac)*zpblfac*(zaeqsun-zaeqsuo(jc,jb)) + zstrfac*zstbga*pt_diag%dpres_mc(jc,jk,jb)
 
             zaeqso(jc,jb)    = zaeqsn
             zaeqlo(jc,jb)    = zaeqln
+            zaeqsuo(jc,jb)   = zaeqsun
             zaequo(jc,jb)    = zaequn
             zaeqdo(jc,jb)    = zaeqdn
 
@@ -396,7 +399,7 @@ CONTAINS
         DO jk = 1,nlev
 !DIR$ IVDEP
           DO jc = 1, i_endidx
-            wfac = MAX(1._wp,(MIN(8._wp,0.8_wp*pt_diag%pres_sfc(jc,jb)/pt_diag%pres(jc,jk,jb))))**2
+            wfac = MAX(1._wp,MIN(8._wp,0.8_wp*pt_diag%pres_sfc(jc,jb)/pt_diag%pres(jc,jk,jb)))**2
             ncn_bg = MIN(prm_diag%cloud_num(jc,jb),50.e6_wp)
             prm_diag%acdnc(jc,jk,jb) = (ncn_bg+(prm_diag%cloud_num(jc,jb)-ncn_bg)*(EXP(1._wp-wfac)))
           END DO
@@ -455,7 +458,7 @@ CONTAINS
   SUBROUTINE nwp_rrtm_radiation ( current_date, pt_patch, ext_data,                      &
     &  zaeq1, zaeq2, zaeq3, zaeq4, zaeq5, pt_diag, prm_diag, lnd_prog, irad )
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
+    CHARACTER(len=*), PARAMETER::  &
       &  routine = modname//'::nwp_rrtm_radiation'
 
     TYPE(datetime), POINTER, INTENT(in) :: current_date
@@ -477,6 +480,8 @@ CONTAINS
     INTEGER, INTENT(IN) :: irad ! To distinguish between RRTM (1) and PSRAD (3)
 
     REAL(wp):: aclcov(nproma,pt_patch%nblks_c), dust_tunefac(nproma,nbndlw)
+
+    REAL(wp), DIMENSION(:,:), POINTER :: ptr_reff_qc => NULL(), ptr_reff_qi => NULL()
 
 #ifdef __INTEL_COMPILER
 !DIR$ ATTRIBUTES ALIGN : 64 :: aclcov
@@ -557,6 +562,11 @@ CONTAINS
         dust_tunefac(:,:) = 1._wp
       ENDIF
 
+      IF (atm_phy_nwp_config(jg)%icpl_rad_reff > 0) THEN
+        ptr_reff_qc => prm_diag%reff_qc(:,:,jb)
+        ptr_reff_qi => prm_diag%reff_qi(:,:,jb)
+      ENDIF
+
       CALL radiation_nwp(               &
                               !
                               ! input
@@ -567,6 +577,7 @@ CONTAINS
         & jg         =jg                   ,&!< in domain index
         & jb         =jb                   ,&!< in block index
         & irad       =irad                 ,&!< in option for radiation scheme (RRTM/PSRAD)
+        & icpl_reff  =atm_phy_nwp_config(jg)%icpl_rad_reff,&  !< in option for radiation reff coupling
         & jcs        =i_startidx           ,&!< in  start index for loop over block
         & jce        =i_endidx             ,&!< in  end   index for loop over block
         & kbdim      =nproma               ,&!< in  dimension of block over cells
@@ -596,6 +607,8 @@ CONTAINS
         & qm_ice     =prm_diag%tot_cld  (:,:,jb,iqi) ,&!< in cloud ice mass mixing ratio at t-dt
         & qm_o3      =ext_data%atm%o3   (:,:,jb)     ,&!< in o3 mass mixing ratio at t-dt
         & cdnc       =prm_diag%acdnc    (:,:,jb)     ,&!< in  cloud droplet numb conc. [1/m**3]
+        & reff_liq   =ptr_reff_qc                    ,&!< in effective radius liquid phase 
+        & reff_frz   =ptr_reff_qi                    ,&!< in effective radius frozen phase 
         & cld_frc    =prm_diag%clc      (:,:,jb)     ,&!< in  cloud fraction [m2/m2]
         & zaeq1      = zaeq1(:,:,jb)                 ,&!< in aerosol continental
         & zaeq2      = zaeq2(:,:,jb)                 ,&!< in aerosol maritime
@@ -646,7 +659,7 @@ CONTAINS
     &                                     zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,    &
     &                                     pt_diag,prm_diag,lnd_prog,irad    )
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
+    CHARACTER(len=*), PARAMETER::  &
       &  routine = modname//'::nwp_rrtm_radiation_reduced'
 
     TYPE(datetime), POINTER, INTENT(in) :: current_date
@@ -692,6 +705,8 @@ CONTAINS
     REAL(wp), ALLOCATABLE, TARGET:: zrg_temp     (:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_o3       (:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_acdnc    (:,:,:)
+    REAL(wp), POINTER            :: zrg_reff_liq (:,:,:) => NULL()
+    REAL(wp), POINTER            :: zrg_reff_frz (:,:,:) => NULL()
     REAL(wp), ALLOCATABLE, TARGET:: zrg_tot_cld  (:,:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zlp_tot_cld  (:,:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_clc      (:,:,:)
@@ -724,6 +739,7 @@ CONTAINS
     ! Pointer to parent patach or local parent patch for reduced grid
     TYPE(t_patch), POINTER       :: ptr_pp
 
+    REAL(wp), DIMENSION(:,:), POINTER :: ptr_reff_qc => NULL(), ptr_reff_qi => NULL()
 
     ! Variables for debug output
     REAL(wp) :: max_albvisdir, min_albvisdir, max_albvisdif, min_albvisdif, &
@@ -731,7 +747,7 @@ CONTAINS
 
     REAL(wp), DIMENSION(:), ALLOCATABLE :: max_pres_ifc, max_pres, max_temp, max_acdnc, &
         max_qv, max_qc, max_qi, max_cc, min_pres_ifc, min_pres, min_temp, min_acdnc, &
-        min_qv, min_qc, min_qi, min_cc
+        min_qv, min_qc, min_qi, min_cc, max_reff_liq, max_reff_frz, min_reff_liq, min_reff_frz 
 
     REAL(wp), DIMENSION(pt_patch%nlevp1) :: max_lwflx, min_lwflx, max_swtrans, min_swtrans
 #ifdef __INTEL_COMPILER
@@ -741,6 +757,7 @@ CONTAINS
 !DIR$ ATTRIBUTES ALIGN : 64 :: zrg_albnirdif,zrg_albdif,zrg_tsfc,zrg_rtype
 !DIR$ ATTRIBUTES ALIGN : 64 :: zrg_ktype,zrg_pres_ifc,zlp_pres_ifc,zrg_pres
 !DIR$ ATTRIBUTES ALIGN : 64 :: zrg_temp,zrg_o3,zrg_acdnc,zrg_tot_cld
+!DIR$ ATTRIBUTES ALIGN : 64 :: zrg_reff_liq, zrg_reff_frz
 !DIR$ ATTRIBUTES ALIGN : 64 :: zlp_tot_cld,zrg_clc,zrg_aeq1,zrg_aeq2,zrg_aeq3
 !DIR$ ATTRIBUTES ALIGN : 64 :: zrg_aeq4,zrg_aeq5,zrg_aclcov,zrg_lwflxall
 !DIR$ ATTRIBUTES ALIGN : 64 :: zrg_trsolall,zrg_lwflx_up_sfc,zrg_trsol_up_toa
@@ -752,6 +769,7 @@ CONTAINS
 !DIR$ ATTRIBUTES ALIGN : 64 :: max_pres_ifc, max_pres, max_temp, max_acdnc
 !DIR$ ATTRIBUTES ALIGN : 64 :: max_qv,max_qc,max_qi,max_cc,min_pres_ifc,min_pres,min_temp,min_acdnc
 !DIR$ ATTRIBUTES ALIGN : 64 :: min_qv, min_qc, min_qi, min_cc
+!DIR$ ATTRIBUTES ALIGN : 64 :: max_reff_liq, max_reff_frz, min_reff_liq, min_reff_frz
 !DIR$ ATTRIBUTES ALIGN : 64 :: zrg_lwflx_up,zrg_lwflx_dn,zrg_swflx_up,zrg_swflx_dn
 !DIR$ ATTRIBUTES ALIGN : 64 :: zrg_lwflx_up_clr,zrg_lwflx_dn_clr,zrg_swflx_up_clr,zrg_swflx_dn_clr
 #endif
@@ -767,6 +785,7 @@ CONTAINS
     INTEGER:: i_startidx, i_endidx    !< slices
     INTEGER:: i_nchdom                !< domain index
     INTEGER:: i_chidx
+    LOGICAL:: l_coupled_reff          ! Use the effective radius from microphysics
 
     i_nchdom  = MAX(1,pt_patch%n_childdom)
     jg        = pt_patch%id
@@ -775,6 +794,8 @@ CONTAINS
     nlev   = pt_patch%nlev
     nlevp1 = pt_patch%nlevp1
 
+    ! Flag for using microph. effective radius
+    l_coupled_reff = atm_phy_nwp_config(jg)%icpl_rad_reff > 0
 
 
     !-------------------------------------------------------------------------
@@ -820,6 +841,7 @@ CONTAINS
          nl = 1
       END IF
 
+
       ALLOCATE (zrg_cosmu0   (nproma,nblks_par_c),     &
         zrg_fr_land  (nproma,nblks_par_c),             &
         zrg_fr_glac  (nproma,nblks_par_c),             &
@@ -864,6 +886,11 @@ CONTAINS
         zrg_lwflx_dn_clr(np, nl, nblks_par_c),         &
         zrg_swflx_up_clr(np, nl, nblks_par_c),         &
         zrg_swflx_dn_clr(np, nl, nblks_par_c) )
+
+      IF (l_coupled_reff) THEN
+        ALLOCATE(zrg_reff_liq (nproma,nlev_rg,nblks_par_c),   &
+                 zrg_reff_frz (nproma,nlev_rg,nblks_par_c))
+      ENDIF
 
       rl_start = 1 ! SR radiation is not set up to handle boundaries of nested domains
       rl_end   = min_rlcell_int
@@ -911,15 +938,20 @@ CONTAINS
         & prm_diag%albvisdir, prm_diag%albnirdir, prm_diag%albvisdif,   &
         & prm_diag%albnirdif, prm_diag%albdif, prm_diag%tsfctrad,       &
         & prm_diag%ktype, pt_diag%pres_ifc, pt_diag%pres,               &
-        & pt_diag%temp,prm_diag%acdnc, prm_diag%tot_cld, prm_diag%clc,  &
+        & pt_diag%temp,prm_diag%acdnc,                                  &
+        & prm_diag%tot_cld, prm_diag%clc,                               &
         & ext_data%atm%o3, zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,           &
         & zrg_fr_land, zrg_fr_glac, zrg_emis_rad,                       &
         & zrg_cosmu0, zrg_albvisdir, zrg_albnirdir, zrg_albvisdif,      &
         & zrg_albnirdif, zrg_albdif, zrg_tsfc, zrg_rtype, zrg_pres_ifc, &
-        & zrg_pres, zrg_temp, zrg_acdnc, zrg_tot_cld, zrg_clc, zrg_o3,  &
+        & zrg_pres, zrg_temp, zrg_acdnc,                                &
+        & zrg_tot_cld, zrg_clc, zrg_o3,                                 &
         & zrg_aeq1, zrg_aeq2, zrg_aeq3, zrg_aeq4, zrg_aeq5,             &
-        & zlp_pres_ifc, zlp_tot_cld, prm_diag%buffer_rrg)
-
+        & zlp_pres_ifc, zlp_tot_cld, prm_diag%buffer_rrg,               &
+        & atm_phy_nwp_config(jg)%icpl_rad_reff,                         &
+        & prm_diag%reff_qc, prm_diag%reff_qi,                           &
+        & zrg_reff_liq, zrg_reff_frz)
+    
       IF (jg == 1 .AND. l_limited_area) THEN
         rl_start = grf_fbk_start_c
       ELSE
@@ -936,8 +968,8 @@ CONTAINS
         ALLOCATE(max_pres_ifc(nlev_rg), max_pres(nlev_rg), max_temp(nlev_rg), max_acdnc(nlev_rg), &
                  max_qv(nlev_rg), max_qc(nlev_rg), max_qi(nlev_rg), max_cc(nlev_rg),              &
                  min_pres_ifc(nlev_rg), min_pres(nlev_rg), min_temp(nlev_rg), min_acdnc(nlev_rg), &
-                 min_qv(nlev_rg), min_qc(nlev_rg), min_qi(nlev_rg), min_cc(nlev_rg)               )
-
+                 min_qv(nlev_rg), min_qc(nlev_rg), min_qi(nlev_rg), min_cc(nlev_rg)  )
+                
         max_albvisdir = 0._wp
         min_albvisdir = 1.e10_wp
         max_albvisdif = 0._wp
@@ -964,6 +996,15 @@ CONTAINS
         min_qc = 1.e10_wp
         min_qi = 1.e10_wp
         min_cc  = 1.e10_wp
+        IF (l_coupled_reff) THEN
+          ALLOCATE(  min_reff_liq(nlev_rg), max_reff_liq(nlev_rg), &
+                     min_reff_frz(nlev_rg), max_reff_frz(nlev_rg) )
+          max_reff_liq = 0._wp
+          max_reff_frz = 0._wp
+          min_reff_liq = 1.e10_wp
+          min_reff_frz = 1.e10_wp
+        END IF
+
 
         DO jb = i_startblk, i_endblk
 
@@ -998,6 +1039,15 @@ CONTAINS
           min_qi(jk) = MIN(min_qi(jk),MINVAL(zrg_tot_cld(i_startidx:i_endidx,jk,jb,iqi)))
           min_cc(jk)  = MIN(min_cc(jk),MINVAL(zrg_clc(i_startidx:i_endidx,jk,jb)))
          ENDDO
+         IF (l_coupled_reff) THEN
+           DO jk = 1, nlev_rg
+             max_reff_liq(jk) = MAX(max_reff_liq(jk),MAXVAL(zrg_reff_liq    (i_startidx:i_endidx,jk,jb)))
+             max_reff_frz(jk) = MAX(max_reff_frz(jk),MAXVAL(zrg_reff_frz    (i_startidx:i_endidx,jk,jb)))
+             min_reff_liq(jk) = MIN(min_reff_liq(jk),MINVAL(zrg_reff_liq    (i_startidx:i_endidx,jk,jb)))
+             min_reff_frz(jk) = MIN(min_reff_frz(jk),MINVAL(zrg_reff_frz    (i_startidx:i_endidx,jk,jb)))
+           END DO
+         END IF
+
         ENDDO ! blocks
 
         max_albvisdir = global_max(max_albvisdir)
@@ -1024,36 +1074,52 @@ CONTAINS
         min_qc = global_min(min_qc)
         min_qi = global_min(min_qi)
         min_cc  = global_min(min_cc)
-
+        IF (l_coupled_reff) THEN
+          max_reff_liq = global_max(max_reff_liq)
+          max_reff_frz = global_max(max_reff_frz)        
+          min_reff_liq = global_min(min_reff_liq)
+          min_reff_frz = global_min(min_reff_frz)
+        END IF
 
         WRITE(message_text,'(a,4f12.8)') 'max/min alb = ', max_albvisdir, min_albvisdir, &
           max_albvisdif, min_albvisdif
-        CALL message(routine, TRIM(message_text))
+        CALL message(routine, message_text)
 
         WRITE(message_text,'(a,2f10.3,2f10.2)') 'max/min sfc temp/pres = ', max_tsfc, min_tsfc, &
           max_psfc, min_psfc
-        CALL message(routine, TRIM(message_text))
+        CALL message(routine, message_text)
 
         WRITE(message_text,'(a)') 'max/min pres_ifc, pres, temp, acdnc'
-        CALL message(routine, TRIM(message_text))
+        CALL message(routine, message_text)
 
         DO jk = 1, nlev_rg
           WRITE(message_text,'(i4,4f10.2,2f10.3,2f12.1)') jk,max_pres_ifc(jk), min_pres_ifc(jk), &
             max_pres(jk), min_pres(jk), max_temp(jk), min_temp(jk), max_acdnc(jk), min_acdnc(jk)
-          CALL message(routine, TRIM(message_text))
+          CALL message(routine, message_text)
         ENDDO
+        IF (l_coupled_reff) THEN
+          WRITE(message_text,'(a)') 'max/min reff_liq, reff_frz'
+          CALL message(routine, TRIM(message_text))
 
+          DO jk = 1, nlev_rg
+            WRITE(message_text,'(i4,4e13.5)') jk,max_reff_liq(jk), min_reff_liq(jk),                &
+                 max_reff_frz(jk), min_reff_frz(jk)
+            CALL message(routine, TRIM(message_text))
+          ENDDO
+        END IF
+      
         WRITE(message_text,'(a)') 'max/min QV, QC, QI, CC'
-        CALL message(routine, TRIM(message_text))
+        CALL message(routine, message_text)
 
         DO jk = 1, nlev_rg
           WRITE(message_text,'(i4,8e13.5)') jk,max_qv(jk), min_qv(jk), max_qc(jk), min_qc(jk), &
              max_qi(jk), min_qi(jk), max_cc(jk), min_cc(jk)
-          CALL message(routine, TRIM(message_text))
+          CALL message(routine, message_text)
         ENDDO
 
         DEALLOCATE(max_pres_ifc, max_pres, max_temp, max_acdnc, max_qv, max_qc, max_qi, max_cc, &
-                   min_pres_ifc, min_pres, min_temp, min_acdnc, min_qv, min_qc, min_qi, min_cc)
+                   min_pres_ifc, min_pres, min_temp, min_acdnc, min_qv, min_qc, min_qi, min_cc )
+        IF (l_coupled_reff) DEALLOCATE(max_reff_liq, min_reff_liq, max_reff_frz, min_reff_frz)
 
       ENDIF ! msg_level >= 16
 
@@ -1099,7 +1165,14 @@ CONTAINS
             zrg_tot_cld  (1:i_startidx-1,jk,jb,iqi) = zrg_tot_cld(i_startidx,jk,jb,iqi)
             zrg_clc      (1:i_startidx-1,jk,jb) = zrg_clc(i_startidx,jk,jb)
           ENDDO
+          IF (l_coupled_reff) THEN
+            DO jk = 1, nlev_rg
+              zrg_reff_liq (1:i_startidx-1,jk,jb) = zrg_reff_liq (i_startidx,jk,jb)
+              zrg_reff_frz (1:i_startidx-1,jk,jb) = zrg_reff_frz (i_startidx,jk,jb)
+            END DO
+          END IF
         ENDIF
+
 
         IF (tune_dust_abs > 0._wp) THEN
 !DIR$ NOINLINE
@@ -1111,6 +1184,11 @@ CONTAINS
         ! Type of convection is required as INTEGER field
         zrg_ktype(1:i_endidx,jb) = NINT(zrg_rtype(1:i_endidx,jb))
 
+      IF (l_coupled_reff) THEN
+        ptr_reff_qc => zrg_reff_liq(:,:,jb)
+        ptr_reff_qi => zrg_reff_frz(:,:,jb)
+      ENDIF
+
         CALL radiation_nwp(               &
                                 !
                                 ! input
@@ -1121,6 +1199,7 @@ CONTAINS
           & jg          =jg                  ,&!< in domain index
           & jb          =jb                  ,&!< in block index
           & irad        =irad                ,&!< in option for radiation scheme (RRTM/PSRAD)
+          & icpl_reff  =atm_phy_nwp_config(jg)%icpl_rad_reff,&  !< in option for radiation reff coupling
           & jcs         =i_startidx          ,&!< in  start index for loop over block
           & jce         =i_endidx            ,&!< in  end   index for loop over block
           & kbdim       =nproma              ,&!< in  dimension of block over cells
@@ -1149,6 +1228,8 @@ CONTAINS
           & qm_ice     =zrg_tot_cld (:,:,jb,iqi),&!< in    cloud ice mass mixing ratio at t-dt
           & qm_o3      = zrg_o3     (:,:,jb)    ,&!< in    O3
           & cdnc       =zrg_acdnc   (:,:,jb)    ,&!< in    cloud droplet numb. conc. [1/m**3]
+          & reff_liq   =ptr_reff_qc             ,&!< in    effective radius liquid phase. [m]
+          & reff_frz   =ptr_reff_qi             ,&!< in    effective radius frozen phase. [m]
           & cld_frc    =zrg_clc    (:,:,jb)     ,&!< in    cld_frac = cloud fraction [m2/m2]
           & zaeq1      = zrg_aeq1(:,:,jb)       ,&!< in aerosol continental
           & zaeq2      = zrg_aeq2(:,:,jb)       ,&!< in aerosol maritime
@@ -1227,12 +1308,12 @@ CONTAINS
 
 
         WRITE(message_text,'(a)') 'max/min LW flux, SW transmissivity'
-        CALL message(routine, TRIM(message_text))
+        CALL message(routine, message_text)
 
         DO jk = 1, nlevp1
           WRITE(message_text,'(i4,2f10.3,2f10.7)') jk,max_lwflx(jk), min_lwflx(jk), &
             max_swtrans(jk), min_swtrans(jk)
-          CALL message(routine, TRIM(message_text))
+          CALL message(routine, message_text)
         ENDDO
 
       ENDIF ! msg_level >= 16
@@ -1245,6 +1326,7 @@ CONTAINS
         zrg_lwflx_clr_sfc, zrg_fr_land, zrg_fr_glac, zrg_emis_rad, zlp_pres_ifc, zlp_tot_cld, &
         zrg_lwflx_up    , zrg_lwflx_dn    , zrg_swflx_up    , zrg_swflx_dn,               &
         zrg_lwflx_up_clr, zrg_lwflx_dn_clr, zrg_swflx_up_clr, zrg_swflx_dn_clr            )
+      IF (l_coupled_reff) DEALLOCATE(zrg_reff_liq,zrg_reff_frz)            
 
   END SUBROUTINE nwp_rrtm_radiation_reduced
   !---------------------------------------------------------------------------------------
