@@ -35,14 +35,13 @@ CONTAINS
   ! add supplementary fields to a different var list (eg. geopotential, surface pressure, ...)
   SUBROUTINE vlr_add_vref(to_vl, vname, from_vl, loutput, bit_precision, in_group)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: to_vl
-    CHARACTER(*), INTENT(IN) :: vname, from_vl
+    TYPE(t_var_list_ptr), INTENT(IN) :: from_vl
+    CHARACTER(*), INTENT(IN) :: vname
     LOGICAL, INTENT(in), OPTIONAL :: loutput, in_group(MAX_GROUPS)
     INTEGER, INTENT(in), OPTIONAL :: bit_precision
-    TYPE(t_var_list_ptr) :: vlp_from
     TYPE(t_var), POINTER :: n_e, o_e => NULL()
 
-    CALL vlr_get(vlp_from, from_vl)
-    IF (ASSOCIATED(vlp_from%p)) o_e => find_list_element(vlp_from, vname)
+    IF (ASSOCIATED(from_vl%p)) o_e => find_list_element(from_vl, vname)
     IF (ASSOCIATED(o_e)) THEN
       ALLOCATE(n_e, SOURCE=o_e)
       n_e%info%allocated = .FALSE.

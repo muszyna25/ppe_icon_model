@@ -1504,34 +1504,27 @@ MODULE mo_nonhydro_state
   !! @par Revision History
   !! Initial release by Daniel Reinert, DWD (2012-02-02)
   !!
-  SUBROUTINE new_nh_state_tracer_list ( p_patch, from_var_list, p_tracer_list,  &
-    &                                 listname )
-    !> current patch
-    TYPE(t_patch), INTENT(IN)         :: p_patch
-    !> source list to be referenced
-    TYPE(t_var_list_ptr), INTENT(IN)      :: from_var_list
-    !> new tracer list (containing all tracers)
-    TYPE(t_var_list_ptr), INTENT(INOUT)   :: p_tracer_list
-    !> list name
-    CHARACTER(len=*), INTENT(IN)      :: listname
-    ! local variables
-    TYPE (t_var_metadata), POINTER         :: from_info
+  SUBROUTINE new_nh_state_tracer_list (p_patch, from_var_list, p_tracer_list, listname)
+    TYPE(t_patch), INTENT(IN) :: p_patch ! current patch
+    TYPE(t_var_list_ptr), INTENT(IN) :: from_var_list ! source list to be referenced
+    TYPE(t_var_list_ptr), INTENT(INOUT) :: p_tracer_list ! new tracer list (containing all tracers)
+    CHARACTER(*), INTENT(IN) :: listname
+    TYPE (t_var_metadata), POINTER :: from_info
     TYPE (t_var_metadata_dynamic), POINTER :: from_info_dyn
     INTEGER :: iv
 
     ! Register a field list and apply default settings
     CALL vlr_add(p_tracer_list, TRIM(listname), patch_id=p_patch%id, &
-      &               lrestart=.FALSE., loutput =.FALSE.)
+      &          lrestart=.FALSE., loutput =.FALSE.)
     ! add references to all tracer fields of the source list (prognostic state)
-    for_all_list_elements: DO iv = 1, from_var_list%p%nvars
+    DO iv = 1, from_var_list%p%nvars
       ! retrieve information from actual linked list element
       from_info => from_var_list%p%vl(iv)%p%info
       from_info_dyn => from_var_list%p%vl(iv)%p%info_dyn
       ! Only add tracer fields to the tracer list
-      IF (from_info_dyn%tracer%lis_tracer .AND. .NOT. from_info%lcontainer ) &
-        CALL vlr_add_vref(p_tracer_list, from_info%name, &
-          &               from_var_list%p%vlname, in_group=groups())
-    ENDDO for_all_list_elements
+      IF (from_info_dyn%tracer%lis_tracer .AND. .NOT.from_info%lcontainer) &
+        & CALL vlr_add_vref(p_tracer_list, from_info%name, from_var_list, in_group=groups())
+    END DO
   END SUBROUTINE new_nh_state_tracer_list
 
 
