@@ -190,8 +190,7 @@ MODULE mo_pp_scheduler
   USE mo_name_list_output_config, ONLY: first_output_name_list
   USE mo_name_list_output_types,  ONLY: t_output_name_list, is_grid_info_var, &
     &                                   var_list_search_out_patch_lev,        &
-    &                                   var_list_filter_output_patch_levtype, &
-    &                                   remap_regular_latlon
+    &                                   var_list_filter_output_patch_levtype
   USE mo_parallel_config,         ONLY: nproma
   USE mo_io_config,               ONLY: lnetcdf_flt64_output
   USE mo_cf_convention,           ONLY: t_cf_var
@@ -640,7 +639,7 @@ CONTAINS
       
         ! Selection criterion: 
         ! - lon-lat interpolation is requested
-        IF (p_onl%remap == remap_regular_latlon) THEN
+        IF (p_onl%remap == 1) THEN
 
           ivar_loop: DO ivar=1,max_var
             IF (varlist(ivar) == ' ')             CYCLE
