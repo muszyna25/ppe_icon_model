@@ -613,34 +613,33 @@ CONTAINS
 
     NML_LOOP : DO WHILE (ASSOCIATED(p_onl))
 
-      ! Selection criterion:
-      ! - lon-lat interpolation is requested
-      IF (p_onl%remap == remap_regular_latlon) THEN
-
-        ! do the same for the three level types: model levels (ml),
-        ! height levels (hl), pressure levels (pl) and isentropic levels (il):
-        DO ilev=1,4
-
-          SELECT CASE(ilev)
-          CASE (1)
-            varlist => p_onl%ml_varlist
-            ilev_type  =  level_type_ml
-            max_var    =  max_var_ml
-          CASE (2)
-            varlist => p_onl%pl_varlist
-            ilev_type  =  level_type_pl
-            max_var    =  max_var_pl
-          CASE (3)
-            varlist => p_onl%hl_varlist
-            ilev_type  =  level_type_hl
-            max_var    =  max_var_hl
-          CASE (4)
-            varlist => p_onl%il_varlist
-            ilev_type  =  level_type_il
-            max_var    =  max_var_il
-          END SELECT
-          IF (varlist(1) == ' ') CYCLE
-
+      ! do the same for the three level types: model levels (ml),
+      ! height levels (hl), pressure levels (pl) and isentropic levels (il):
+      DO ilev=1,4
+   
+        SELECT CASE(ilev)
+        CASE (1) 
+          varlist => p_onl%ml_varlist
+          ilev_type  =  level_type_ml
+          max_var    =  max_var_ml
+        CASE (2)
+          varlist => p_onl%pl_varlist
+          ilev_type  =  level_type_pl
+          max_var    =  max_var_pl
+        CASE (3)
+          varlist => p_onl%hl_varlist
+          ilev_type  =  level_type_hl
+          max_var    =  max_var_hl
+        CASE (4)
+          varlist => p_onl%il_varlist
+          ilev_type  =  level_type_il
+          max_var    =  max_var_il
+        END SELECT
+        IF (varlist(1) == ' ') CYCLE
+      
+        ! Selection criterion: 
+        ! - lon-lat interpolation is requested
+        IF (p_onl%remap == remap_regular_latlon) THEN
 
           ivar_loop: DO ivar=1,max_var
             IF (varlist(ivar) == ' ')             CYCLE
@@ -675,8 +674,8 @@ CONTAINS
             END IF
           END DO ivar_loop
 
-        END DO
-      END IF
+        END IF
+      END DO
       p_onl => p_onl%next
     END DO NML_LOOP
 
