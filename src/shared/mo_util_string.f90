@@ -538,8 +538,7 @@ CONTAINS
     iwrite = 0
     ITEM_LOOP: DO iread=1,nitems
       ! check if item already in string list (1:iwrite-1):
-      ! start with most recently added to tailor to (partially) sorted lists
-      DO i=iwrite,1,-1
+      DO i=1,iwrite
         IF (str_list(i) == str_list(iread)) CYCLE item_loop
       END DO
       iwrite = iwrite + 1
