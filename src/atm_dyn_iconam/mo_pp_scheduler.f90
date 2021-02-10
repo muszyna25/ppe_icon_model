@@ -1254,7 +1254,6 @@ CONTAINS
     i_id = vintp_type_id("I")
 
     search%ilev_type = level_type_ml
-    shape3d(1) = nproma
     DOM_LOOP : DO jg=1,ndom
       search%patch_id = jg
       IF (dbg_level > 8)  CALL message(routine, "DOM "//int2string(jg))
@@ -1312,20 +1311,20 @@ CONTAINS
       ibits     = DATATYPE_PACK16   ! "entropy" of horizontal slice
 
       ! predefined array shapes
-      shape3d(3) = p_patch(jg)%nblks_c
+      nblks_c   = p_patch(jg)%nblks_c
 
       ! add new variable fields for the z/p/i-axis, based on the
       ! meta-data of an existing variable field (which is defined on
       ! model/half levels):
       IF (l_intp_z) THEN
-        shape3d(2) = nh_pzlev_config(jg)%zlevels%nvalues
+        shape3d = (/ nproma, nh_pzlev_config(jg)%zlevels%nvalues, nblks_c /)
         CALL copy_variable("temp", p_nh_state_lists(jg)%diag_list, ZA_ALTITUDE, shape3d, &
           &                p_diag_pz%z_temp, p_opt_diag_list_z)
         CALL copy_variable("pres", p_nh_state_lists(jg)%diag_list, ZA_ALTITUDE, shape3d, &
           &                p_diag_pz%z_pres, p_opt_diag_list_z)
       END IF
       IF (l_intp_p) THEN
-        shape3d(2) = nh_pzlev_config(jg)%plevels%nvalues
+        shape3d = (/ nproma, nh_pzlev_config(jg)%plevels%nvalues, nblks_c /)
         cf_desc    = t_cf_var('gh', 'm', 'geopotential height', datatype_flt)
         grib2_desc = grib2_var(0, 3, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL)
         CALL add_var( p_opt_diag_list_p, 'gh', p_diag_pz%p_gh,                  &
@@ -1335,7 +1334,7 @@ CONTAINS
           &                p_diag_pz%p_temp, p_opt_diag_list_p)
       END IF
       IF (l_intp_i) THEN
-        shape3d(2) = nh_pzlev_config(jg)%ilevels%nvalues
+        shape3d = (/ nproma, nh_pzlev_config(jg)%ilevels%nvalues, nblks_c /)
         cf_desc    = t_cf_var('gh', 'm', 'geopotential height', datatype_flt)
         grib2_desc = grib2_var(0, 3, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL)
         CALL add_var( p_opt_diag_list_i, 'gh', p_diag_pz%i_gh,                  &
