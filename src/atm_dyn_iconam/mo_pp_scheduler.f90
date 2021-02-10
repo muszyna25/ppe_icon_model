@@ -1279,15 +1279,15 @@ CONTAINS
       ! some debugging output...
       IF (dbg_level > 8)  THEN
         DO i=1,nvars_pl
-          WRITE (message_text,*) "p var list: ", pl_varlist(i)
+          WRITE (message_text,*) "p var list: ", TRIM(pl_varlist(i))
           CALL message(routine, message_text)
         END DO
         DO i=1,nvars_hl
-          WRITE (message_text,*) "h var list: ", hl_varlist(i)
+          WRITE (message_text,*) "h var list: ", TRIM(hl_varlist(i))
           CALL message(routine, message_text)
         END DO
         DO i=1,nvars_il
-          WRITE (message_text,*) "i var list: ", il_varlist(i)
+          WRITE (message_text,*) "i var list: ", TRIM(il_varlist(i))
           CALL message(routine, message_text)
         END DO
       END IF
