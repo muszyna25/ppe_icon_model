@@ -162,11 +162,6 @@ MODULE mo_var_list
     MODULE PROCEDURE add_var_list_element_l1d
   END INTERFACE add_var
 
-  INTERFACE add_var_list_reference
-    MODULE PROCEDURE add_var_list_reference
-    MODULE PROCEDURE add_var_list_reference_named
-  END INTERFACE add_var_list_reference
-
   INTERFACE add_ref
     MODULE PROCEDURE add_var_list_reference_r3d
     MODULE PROCEDURE add_var_list_reference_r2d
@@ -3945,53 +3940,56 @@ CONTAINS
   !
   ! add supplementary fields to a different var list (eg. geopotential, surface pressure, ...)
   !
-  SUBROUTINE add_var_list_reference_named(to_var_list, name, &
-       from_var_list_name, loutput, bit_precision, in_group)
-    TYPE(t_var_list), TARGET, INTENT(inout)  :: to_var_list
-    CHARACTER(len=*), INTENT(in)             :: name
-    CHARACTER(len=*), INTENT(in)             :: from_var_list_name
-    LOGICAL,          INTENT(in),   OPTIONAL :: loutput
-    INTEGER,          INTENT(in),   OPTIONAL :: bit_precision
-    LOGICAL,          INTENT(in),   OPTIONAL :: in_group(MAX_GROUPS)  ! groups to which a variable belongs
-    !
-    TYPE(t_var_list), POINTER :: from_var_list
-    !
-    CALL get_var_list(from_var_list, from_var_list_name)
-    IF (ASSOCIATED(from_var_list)) THEN
-      CALL add_var_list_reference(to_var_list, name, from_var_list, &
-        &                         loutput, bit_precision, in_group)
-    END IF
-    !
-  END SUBROUTINE add_var_list_reference_named
-
-  !------------------------------------------------------------------------------------------------
-  !
-  ! add supplementary fields to a different var list (eg. geopotential, surface pressure, ...)
-  !
-  SUBROUTINE add_var_list_reference(to_var_list, name, from_var_list, loutput, bit_precision, in_group)
+  SUBROUTINE add_var_list_reference (to_var_list, name, from_var_list, loutput, bit_precision, in_group)
     TYPE(t_var_list), INTENT(inout)          :: to_var_list
     CHARACTER(len=*), INTENT(in)             :: name
-    TYPE(t_var_list), TARGET, INTENT(in)     :: from_var_list
+    CHARACTER(len=*), INTENT(in)             :: from_var_list
     LOGICAL,          INTENT(in),   OPTIONAL :: loutput
     INTEGER,          INTENT(in),   OPTIONAL :: bit_precision
     LOGICAL,          INTENT(in),   OPTIONAL :: in_group(MAX_GROUPS)  ! groups to which a variable belongs
     !
     TYPE(t_var_list_element), POINTER :: source
-    TYPE(t_list_element),     POINTER :: element
+    TYPE(t_list_element),     POINTER :: new_list_element
     !
-    element => find_list_element(from_var_list, name)
-    IF (ASSOCIATED(element)) THEN
-      source => element%field
-      CALL append_list_element(to_var_list, element)
-      element%field                = source
-      element%field%info%allocated = .FALSE.
-      element%field%info%lrestart  = .FALSE.
-      CALL assign_if_present(element%field%info%loutput, loutput)
-      CALL assign_if_present(element%field%info%grib2%bits, bit_precision)
+    CALL locate (source, name, from_var_list)
+    IF (ASSOCIATED(source)) THEN
+      CALL append_list_element (to_var_list, new_list_element)
+      new_list_element%field                = source
+      new_list_element%field%info%allocated = .FALSE.
+      new_list_element%field%info%lrestart  = .FALSE.
+      CALL assign_if_present(new_list_element%field%info%loutput, loutput)
+      CALL assign_if_present(new_list_element%field%info%grib2%bits, bit_precision)
       if (present(in_group)) then
-        element%field%info%in_group(:)=in_group(:)
+        new_list_element%field%info%in_group(:)=in_group(:)
       end if
     ENDIF
+    !
+  CONTAINS
+    !----------------------------------------------------------------------------------------------
+    !
+    ! find an entry
+    !
+    SUBROUTINE locate (element, name, in_var_list)
+      TYPE(t_var_list_element), POINTER        :: element
+      CHARACTER(len=*), INTENT(in)           :: name
+      CHARACTER(len=*), INTENT(in) :: in_var_list
+      !
+      INTEGER                     :: i
+      TYPE(t_list_element), POINTER :: link
+      !
+      NULLIFY (element)
+      !
+      DO i = 1, nvar_lists
+        IF (in_var_list == var_lists(i)%p%name) THEN
+          link => find_list_element (var_lists(i), name)
+          IF (ASSOCIATED(link)) THEN
+            element => link%field
+            EXIT
+          ENDIF
+        END IF
+      END DO
+      !
+    END SUBROUTINE locate
     !
   END SUBROUTINE add_var_list_reference
 
