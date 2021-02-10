@@ -75,10 +75,10 @@ MODULE mo_derived_variable_handling
     INTEGER                       :: counter = 0
   END TYPE t_mvstream_pair
 
-  CHARACTER(LEN = *), PARAMETER :: MEAN   = "mean"
-  CHARACTER(LEN = *), PARAMETER :: MAX    = "max"
-  CHARACTER(LEN = *), PARAMETER :: MIN    = "min"
-  CHARACTER(LEN = *), PARAMETER :: SQUARE = "square"
+  CHARACTER(LEN = MAX_CHAR_LENGTH), PARAMETER :: MEAN   = "mean"
+  CHARACTER(LEN = MAX_CHAR_LENGTH), PARAMETER :: MAX    = "max"
+  CHARACTER(LEN = MAX_CHAR_LENGTH), PARAMETER :: MIN    = "min"
+  CHARACTER(LEN = MAX_CHAR_LENGTH), PARAMETER :: SQUARE = "square"
   !>
   ! wrapper for bind_c event type - needed because bind_c types are not allowed
   ! in "SELECT TYPE" - this is kind of a hack
