@@ -1223,11 +1223,11 @@ CONTAINS
     CASE (1)
       IF (info%lcontained .AND. (info%var_ref_pos /= -1))  &
            & CALL finish(routine, "Internal error (ndims=1, lcontained)")
-      IF (ASSOCIATED(r_ptr_5d)) THEN
+      IF (ASSOCIATED(var_desc%r_ptr)) THEN
         r_ptr => r_ptr_5d(:,1:1,1:1,1,1)
-      ELSE IF (ASSOCIATED(s_ptr_5d)) THEN
+      ELSE IF (ASSOCIATED(var_desc%s_ptr)) THEN
         s_ptr => s_ptr_5d(:,1:1,1:1,1,1)
-      ELSE IF (ASSOCIATED(i_ptr_5d)) THEN
+      ELSE IF (ASSOCIATED(var_desc%i_ptr)) THEN
         i_ptr => i_ptr_5d(:,1:1,1:1,1,1)
       ELSE
         CALL finish(routine, "Internal error (not found vardata pointer)")

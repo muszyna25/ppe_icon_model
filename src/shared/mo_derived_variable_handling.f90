@@ -1355,7 +1355,7 @@ CONTAINS
     TYPE(vector_iterator) :: statisticMapIterator, statisticEventIterator
     CLASS(*), pointer :: mvstream_pair
 
-    TYPE(datetime) :: mtime_date
+    TYPE(datetime), POINTER :: mtime_date
     LOGICAL :: isactive
     INTEGER :: varcounter
     INTEGER :: timelevel
@@ -1376,7 +1376,7 @@ CONTAINS
     ! Check events first {{{
     ! this is necessary because of mtime internals
     isactive   = .false.
-    mtime_date = time_config%tc_current_date
+    mtime_date => newDatetime(time_config%tc_current_date)
 
 #ifdef DEBUG_MVSTREAM
     CALL datetimeToString(mtime_date, datetimestring)
