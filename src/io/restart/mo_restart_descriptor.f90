@@ -35,6 +35,11 @@ MODULE mo_restart_descriptor
   USE mo_cdi,                       ONLY: CDI_UNDEFID
 #endif
   USE mo_restart_patch_data, ONLY: t_restartPatchData
+#ifndef NOMPI
+  USE mo_async_restart_patch_data, ONLY: t_asyncPatchData
+#endif
+  USE mo_sync_restart_patch_data, ONLY: t_syncPatchData
+  USE mo_multifile_restart_patch_data, ONLY: t_multifilePatchData
 
   IMPLICIT NONE
   PRIVATE
@@ -55,16 +60,21 @@ MODULE mo_restart_descriptor
   ! Finally, destruct() must be called for cleanup. This IS especially important IN the CASE of asynchronous restart writing,
   ! because the destruct() CALL will signal the restart PEs to finish their work, AND wait for them to stop.
   TYPE, ABSTRACT :: t_RestartDescriptor
-    CLASS(t_RestartPatchData), ALLOCATABLE :: patchData(:)
+    CLASS(t_RestartPatchData), POINTER :: patchData(:)
+#ifndef NOMPI
+    TYPE(t_asyncPatchData), ALLOCATABLE :: aPatchData(:)
+#endif
+    TYPE(t_syncPatchData), ALLOCATABLE :: sPatchData(:)
+    TYPE(t_multifilePatchData), ALLOCATABLE :: mPatchData(:)
     CHARACTER(:), ALLOCATABLE :: modelType
   CONTAINS
-    PROCEDURE(i_construct), DEFERRED :: construct
     PROCEDURE :: updatePatch => restartDescriptor_updatePatch
-    PROCEDURE(i_writeRestart), DEFERRED :: writeRestart
     PROCEDURE :: writeFiles => restartDescriptor_writeFiles
-    PROCEDURE(i_destruct), DEFERRED :: destruct
     PROCEDURE :: transferGlobalParameters => restartDescriptor_transferGlobalParameters
     PROCEDURE :: defineRestartAttributes => restartDescriptor_defineRestartAttributes
+    PROCEDURE(i_construct), DEFERRED :: construct
+    PROCEDURE(i_writeRestart), DEFERRED :: writeRestart
+    PROCEDURE(i_destruct), DEFERRED :: destruct
   END TYPE t_RestartDescriptor
 
   ABSTRACT INTERFACE
@@ -83,7 +93,7 @@ MODULE mo_restart_descriptor
     END SUBROUTINE i_writeRestart
 
     SUBROUTINE i_destruct(me)
-      IMPORT t_RestartDescriptor, datetime
+      IMPORT t_RestartDescriptor
       CLASS(t_RestartDescriptor), INTENT(INOUT) :: me
     END SUBROUTINE i_destruct
   END INTERFACE
@@ -242,7 +252,15 @@ CONTAINS
         CALL desc%updateVGrids()
         CALL restartfile_open()
       END IF
-      CALL me%patchData(jg)%writeData(cdiIds%fHndl)
+      IF (ALLOCATED(me%sPatchData)) THEN
+        CALL me%sPatchData(jg)%writeData(cdiIds%fHndl)
+#ifndef NOMPI
+      ELSE IF (ALLOCATED(me%aPatchData)) THEN
+        CALL me%aPatchData(jg)%writeData(cdiIds%fHndl)
+#endif
+      ELSE
+        CALL finish(routine, "multifile does not use this routine!")
+      END IF
       IF(lIsWriteProcess) THEN
         CALL create_restart_file_link(fname, TRIM(rArgs%modelType), &
           & desc%id, opt_ndom=desc%opt_ndom)

@@ -44,7 +44,7 @@ MODULE mo_async_restart_patch_data
   IMPLICIT NONE
   PRIVATE
 
-  PUBLIC :: t_AsyncPatchData, toAsyncPatchData
+  PUBLIC :: t_AsyncPatchData
 
   TYPE, EXTENDS(t_RestartPatchData) :: t_AsyncPatchData
     TYPE(t_AsyncRestartCommData) :: commData
@@ -76,19 +76,6 @@ CONTAINS
     CALL me%commData%destruct()
     IF(ALLOCATED(me%varData)) DEALLOCATE(me%varData)
   END SUBROUTINE asyncPatchData_destruct
-
-  FUNCTION toAsyncPatchData(patchData) RESULT(resultVar)
-    CLASS(t_RestartPatchData), TARGET :: patchData
-    TYPE(t_AsyncPatchData), POINTER :: resultVar
-
-    resultVar => NULL()
-    SELECT TYPE(patchData)
-      TYPE IS(t_AsyncPatchData)
-        resultVar => patchData
-      CLASS DEFAULT
-        CALL finish("toAsyncPatchData", "not of t_AsyncPatchData type")
-    END SELECT
-  END FUNCTION toAsyncPatchData
 
   !------------------------------------------------------------------------------------------------
   !
