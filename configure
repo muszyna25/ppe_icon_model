@@ -592,6 +592,9 @@ CLAWFLAGS
 CLAW
 PERL
 PYTHON
+RANLIB
+ARFLAGS
+AR
 LN_S
 MKDIR_P
 INSTALL_DATA
@@ -616,13 +619,8 @@ ICON_ECRAD_FCFLAGS
 subdirs_extra
 ICON_RTE_RRTMGP_CFLAGS
 ICON_RTE_RRTMGP_FCFLAGS
-ICON_MPI_SUBVERSION
-ICON_MPI_VERSION
 BUNDLED_LIBFILES
 DEPGEN_FCFLAGS
-RANLIB
-ARFLAGS
-AR
 NVCFLAGS
 NVCC
 ICON_BUNDLED_CFLAGS
@@ -631,7 +629,6 @@ ac_ct_CC
 CPPFLAGS
 CFLAGS
 CC
-ICON_RPATH_LDFLAGS
 FC_PP_DEF
 FC_INC_ORDER_PP_f90
 FC_INC_FLAG_PP_f90
@@ -641,13 +638,13 @@ FC_MOD_FILE_EXT
 FC_MOD_FILE_UPPER
 FC_MOD_OUT
 FC_MOD_IN
+FC_VERSION
+FC_VENDOR
+FCFLAGS_f90
 ICON_BUNDLED_FCFLAGS
 ICON_OCEAN_FCFLAGS
 ICON_LDFLAGS
 ICON_FCFLAGS
-FC_VERSION
-FC_VENDOR
-FCFLAGS_f90
 OBJEXT
 EXEEXT
 ac_ct_FC
@@ -733,6 +730,7 @@ enable_art
 enable_mpi
 enable_mpi_checks
 enable_active_target_sync
+enable_mpi_rget
 enable_openmp
 enable_gpu
 enable_grib2
@@ -744,9 +742,9 @@ enable_claw
 enable_explicit_fpp
 enable_serialization
 enable_testbed
+enable_memory_tracing
 enable_loop_exchange
 enable_intel_consistency
-enable_memory_tracing
 enable_vectorized_lrtm
 enable_mixed_precision
 with_external_ecrad
@@ -759,7 +757,6 @@ with_external_yac
 with_external_tixi
 with_external_self
 with_external_cub
-enable_mpi_rget
 '
       ac_precious_vars='build_alias
 host_alias
@@ -780,7 +777,6 @@ ICON_CFLAGS
 ICON_BUNDLED_CFLAGS
 NVCC
 NVCFLAGS
-ARFLAGS
 ICON_RTE_RRTMGP_FCFLAGS
 ICON_RTE_RRTMGP_CFLAGS
 ICON_ECRAD_FCFLAGS
@@ -799,6 +795,9 @@ ICON_TIXI_FCFLAGS
 ICON_TIXI_CFLAGS
 ICON_SELF_FCFLAGS
 ICON_SELF_CFLAGS
+AR
+ARFLAGS
+RANLIB
 PYTHON
 PERL
 CLAW
@@ -1454,6 +1453,7 @@ Infrastructural Features:
   --enable-active-target-sync
                           enable MPI active target mode (otherwise, passive
                           target mode is used) [default=no]
+  --enable-mpi-rget       enable usage of the MPI_Rget routine [default=auto]
   --enable-openmp         enable OpenMP support [default=no]
   --enable-gpu            enable GPU support [default=no]
   --enable-grib2          enable GRIB2 I/O [default=no]
@@ -1478,22 +1478,22 @@ Infrastructural Features:
                             create    enable CREATE mode
                             no        disable serialization
   --enable-testbed        enable ICON Testbed infrastructure [default=no]
+  --enable-memory-tracing enable native dynamic memory tracing facility. The
+                          value of the argument must be one of the following
+                          [default=no]:
+                            mtrace|yes enable tracing with mtrace (glibc)
+                            no         disable memory tracing
 
 Optimization Features:
   --enable-loop-exchange  enable loop exchange [default=yes]
   --enable-intel-consistency
                           enable Intel compiler directives enforcing
                           consistency [default=auto]
-  --enable-memory-tracing enable native dynamic memory tracing facility
-                          [default=no]
   --enable-vectorized-lrtm
                           enable the parallelization-invariant version of LRTM
                           [default=no]
   --enable-mixed-precision
                           enable mixed precision dycore [default=no]
-  --disable-mpi-rget      MPI_Rget is normally used on systems with MPI
-                          standard 3.0 or later, but can be disabled
-                          unconditionally with this switch
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -1524,102 +1524,95 @@ Some influential environment variables:
               nonstandard directory <lib dir>
   LIBS        libraries to pass to the linker, e.g. -l<library>
   ICON_FCFLAGS
-              Fortran compiler flags to be appended to FCFLAGS when compiling
-              and linking ICON, e.g. optimization flags
+              Fortran compiler flags to be appended to FCFLAGS when
+              configuring ICON
   ICON_LDFLAGS
-              Fortran compiler flags to be appended to LDFLAGS when linking
-              ICON, e.g. to prevent configuration-time failures of the
-              Libtool-based bundled libraries
+              Fortran compiler flags to be appended to LDFLAGS when
+              configuring ICON
   ICON_OCEAN_FCFLAGS
-              Fortran compiler flags to be appended to FCFLAGS when compiling
-              the ocean component of ICON [default=$ICON_FCFLAGS]
+              Fortran compiler flags to be appended to FCFLAGS instead of
+              ICON_FCFLAGS when compiling the ocean component of ICON
+              [default=$ICON_FCFLAGS]
   ICON_BUNDLED_FCFLAGS
-              Fortran compiler flags to be appended to FCFLAGS when compiling
-              and linking the bundled libraries [default=$ICON_FCFLAGS]
+              Fortran compiler flags to be appended to FCFLAGS when
+              configuring the bundled libraries [default=$ICON_FCFLAGS]
   CC          C compiler command
   CFLAGS      C compiler flags
   CPPFLAGS    (Objective) C/C++ preprocessor flags, e.g. -I<include dir> if
               you have headers in a nonstandard directory <include dir>
-  ICON_CFLAGS C compiler flags to be appended to CFLAGS when compiling ICON,
-              e.g. optimization flags
+  ICON_CFLAGS C compiler flags to be appended to CFLAGS when configuring ICON
   ICON_BUNDLED_CFLAGS
-              C compiler flags to be appended to CFLAGS when compiling and
-              linking the bundled libraries [default=$ICON_CFLAGS]
+              C compiler flags to be appended to CFLAGS when configuring the
+              bundled libraries [default=$ICON_CFLAGS]
   NVCC        NVIDIA CUDA Compiler command
   NVCFLAGS    NVIDIA CUDA Compiler flags
-  ARFLAGS     option arguments/commands to pass to the archiver
   ICON_RTE_RRTMGP_FCFLAGS
-              Fortran compiler flags to be appended to FCFLAGS when compiling
-              and linking the bundled version of RTE+RRTMGP library
+              Fortran compiler flags to be appended to FCFLAGS when
+              configuring the bundled version of RTE+RRTMGP library
               [default=$ICON_BUNDLED_FCFLAGS]
   ICON_RTE_RRTMGP_CFLAGS
-              Fortran compiler flags to be appended to CFLAGS when compiling
-              and linking the bundled version of RTE+RRTMGP library
+              C compiler flags to be appended to CFLAGS when configuring the
+              bundled version of RTE+RRTMGP library
               [default=$ICON_BUNDLED_CFLAGS]
   ICON_ECRAD_FCFLAGS
-              Fortran compiler flags to be appended to FCFLAGS when compiling
-              and linking the bundled version of ECRAD library
+              Fortran compiler flags to be appended to FCFLAGS when
+              configuring the bundled version of ECRAD library
               [default=$ICON_BUNDLED_FCFLAGS]
   ICON_ECRAD_CFLAGS
-              Fortran compiler flags to be appended to CFLAGS when compiling
-              and linking the bundled version of ECRAD library
-              [default=$ICON_BUNDLED_CFLAGS]
+              C compiler flags to be appended to CFLAGS when configuring the
+              bundled version of ECRAD library [default=$ICON_BUNDLED_CFLAGS]
   ICON_SCT_FCFLAGS
-              Fortran compiler flags to be appended to FCFLAGS when compiling
-              and linking the bundled version of SCT library
+              Fortran compiler flags to be appended to FCFLAGS when
+              configuring the bundled version of SCT library
               [default=$ICON_BUNDLED_FCFLAGS]
   ICON_SCT_CFLAGS
-              Fortran compiler flags to be appended to CFLAGS when compiling
-              and linking the bundled version of SCT library
-              [default=$ICON_BUNDLED_CFLAGS]
+              C compiler flags to be appended to CFLAGS when configuring the
+              bundled version of SCT library [default=$ICON_BUNDLED_CFLAGS]
   ICON_YAXT_FCFLAGS
-              Fortran compiler flags to be appended to FCFLAGS when compiling
-              and linking the bundled version of YAXT library
+              Fortran compiler flags to be appended to FCFLAGS when
+              configuring the bundled version of YAXT library
               [default=$ICON_BUNDLED_FCFLAGS]
   ICON_YAXT_CFLAGS
-              Fortran compiler flags to be appended to CFLAGS when compiling
-              and linking the bundled version of YAXT library
-              [default=$ICON_BUNDLED_CFLAGS]
+              C compiler flags to be appended to CFLAGS when configuring the
+              bundled version of YAXT library [default=$ICON_BUNDLED_CFLAGS]
   ICON_CDI_FCFLAGS
-              Fortran compiler flags to be appended to FCFLAGS when compiling
-              and linking the bundled version of CDI library
+              Fortran compiler flags to be appended to FCFLAGS when
+              configuring the bundled version of CDI library
               [default=$ICON_BUNDLED_FCFLAGS]
   ICON_CDI_CFLAGS
-              Fortran compiler flags to be appended to CFLAGS when compiling
-              and linking the bundled version of CDI library
-              [default=$ICON_BUNDLED_CFLAGS]
+              C compiler flags to be appended to CFLAGS when configuring the
+              bundled version of CDI library [default=$ICON_BUNDLED_CFLAGS]
   ICON_MTIME_FCFLAGS
-              Fortran compiler flags to be appended to FCFLAGS when compiling
-              and linking the bundled version of MTIME library
+              Fortran compiler flags to be appended to FCFLAGS when
+              configuring the bundled version of MTIME library
               [default=$ICON_BUNDLED_FCFLAGS]
   ICON_MTIME_CFLAGS
-              Fortran compiler flags to be appended to CFLAGS when compiling
-              and linking the bundled version of MTIME library
-              [default=$ICON_BUNDLED_CFLAGS]
+              C compiler flags to be appended to CFLAGS when configuring the
+              bundled version of MTIME library [default=$ICON_BUNDLED_CFLAGS]
   ICON_YAC_FCFLAGS
-              Fortran compiler flags to be appended to FCFLAGS when compiling
-              and linking the bundled version of YAC library
+              Fortran compiler flags to be appended to FCFLAGS when
+              configuring the bundled version of YAC library
               [default=$ICON_BUNDLED_FCFLAGS]
   ICON_YAC_CFLAGS
-              Fortran compiler flags to be appended to CFLAGS when compiling
-              and linking the bundled version of YAC library
-              [default=$ICON_BUNDLED_CFLAGS]
+              C compiler flags to be appended to CFLAGS when configuring the
+              bundled version of YAC library [default=$ICON_BUNDLED_CFLAGS]
   ICON_TIXI_FCFLAGS
-              Fortran compiler flags to be appended to FCFLAGS when compiling
-              and linking the bundled version of TIXI library
+              Fortran compiler flags to be appended to FCFLAGS when
+              configuring the bundled version of TIXI library
               [default=$ICON_BUNDLED_FCFLAGS]
   ICON_TIXI_CFLAGS
-              Fortran compiler flags to be appended to CFLAGS when compiling
-              and linking the bundled version of TIXI library
-              [default=$ICON_BUNDLED_CFLAGS]
+              C compiler flags to be appended to CFLAGS when configuring the
+              bundled version of TIXI library [default=$ICON_BUNDLED_CFLAGS]
   ICON_SELF_FCFLAGS
-              Fortran compiler flags to be appended to FCFLAGS when compiling
-              and linking the bundled version of SELF library
+              Fortran compiler flags to be appended to FCFLAGS when
+              configuring the bundled version of SELF library
               [default=$ICON_BUNDLED_FCFLAGS]
   ICON_SELF_CFLAGS
-              Fortran compiler flags to be appended to CFLAGS when compiling
-              and linking the bundled version of SELF library
-              [default=$ICON_BUNDLED_CFLAGS]
+              C compiler flags to be appended to CFLAGS when configuring the
+              bundled version of SELF library [default=$ICON_BUNDLED_CFLAGS]
+  AR          archiver command
+  ARFLAGS     archiver flags
+  RANLIB      archive indexer command
   PYTHON      Python interpreter command
   PERL        Perl interpreter command
   CLAW        CLAW preprocessor command (optional)
@@ -1970,119 +1963,6 @@ fi
   as_fn_set_status $ac_retval
 
 } # ac_fn_fc_try_run
-
-# ac_fn_c_try_link LINENO
-# -----------------------
-# Try to link conftest.$ac_ext, and return whether this succeeded.
-ac_fn_c_try_link ()
-{
-  as_lineno=${as_lineno-"$1"} as_lineno_stack=as_lineno_stack=$as_lineno_stack
-  rm -f conftest.$ac_objext conftest$ac_exeext
-  if { { ac_try="$ac_link"
-case "(($ac_try" in
-  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
-  *) ac_try_echo=$ac_try;;
-esac
-eval ac_try_echo="\"\$as_me:${as_lineno-$LINENO}: $ac_try_echo\""
-$as_echo "$ac_try_echo"; } >&5
-  (eval "$ac_link") 2>conftest.err
-  ac_status=$?
-  if test -s conftest.err; then
-    grep -v '^ *+' conftest.err >conftest.er1
-    cat conftest.er1 >&5
-    mv -f conftest.er1 conftest.err
-  fi
-  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
-  test $ac_status = 0; } && {
-	 test -z "$ac_c_werror_flag" ||
-	 test ! -s conftest.err
-       } && test -s conftest$ac_exeext && {
-	 test "$cross_compiling" = yes ||
-	 test -x conftest$ac_exeext
-       }; then :
-  ac_retval=0
-else
-  $as_echo "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-	ac_retval=1
-fi
-  # Delete the IPA/IPO (Inter Procedural Analysis/Optimization) information
-  # created by the PGI compiler (conftest_ipa8_conftest.oo), as it would
-  # interfere with the next link command; also delete a directory that is
-  # left behind by Apple's compiler.  We do this before executing the actions.
-  rm -rf conftest.dSYM conftest_ipa8_conftest.oo
-  eval $as_lineno_stack; ${as_lineno_stack:+:} unset as_lineno
-  as_fn_set_status $ac_retval
-
-} # ac_fn_c_try_link
-
-# ac_fn_c_check_func LINENO FUNC VAR
-# ----------------------------------
-# Tests whether FUNC exists, setting the cache variable VAR accordingly
-ac_fn_c_check_func ()
-{
-  as_lineno=${as_lineno-"$1"} as_lineno_stack=as_lineno_stack=$as_lineno_stack
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $2" >&5
-$as_echo_n "checking for $2... " >&6; }
-if eval \${$3+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-/* Define $2 to an innocuous variant, in case <limits.h> declares $2.
-   For example, HP-UX 11i <limits.h> declares gettimeofday.  */
-#define $2 innocuous_$2
-
-/* System header to define __stub macros and hopefully few prototypes,
-    which can conflict with char $2 (); below.
-    Prefer <limits.h> to <assert.h> if __STDC__ is defined, since
-    <limits.h> exists even on freestanding compilers.  */
-
-#ifdef __STDC__
-# include <limits.h>
-#else
-# include <assert.h>
-#endif
-
-#undef $2
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char $2 ();
-/* The GNU C library defines this for functions which it implements
-    to always fail with ENOSYS.  Some functions are actually named
-    something starting with __ and the normal name is an alias.  */
-#if defined __stub_$2 || defined __stub___$2
-choke me
-#endif
-
-int
-main ()
-{
-return $2 ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  eval "$3=yes"
-else
-  eval "$3=no"
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-fi
-eval ac_res=\$$3
-	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
-$as_echo "$ac_res" >&6; }
-  eval $as_lineno_stack; ${as_lineno_stack:+:} unset as_lineno
-
-} # ac_fn_c_check_func
 cat >config.log <<_ACEOF
 This file contains any messages produced by compilers while
 running configure, to aid debugging if configure makes a mistake.
@@ -2651,6 +2531,16 @@ else
 fi
 
 
+# Check whether --enable-mpi-rget was given.
+if test "${enable_mpi_rget+set}" = set; then :
+  enableval=$enable_mpi_rget; if test x"$enableval" != xno && test x"$enableval" != xauto; then :
+  enable_mpi_rget=yes
+fi
+else
+  enable_mpi_rget=auto
+fi
+
+
 # Check whether --enable-openmp was given.
 if test "${enable_openmp+set}" = set; then :
   enableval=$enable_openmp; if test x"$enableval" != xno; then :
@@ -2771,6 +2661,21 @@ else
 fi
 
 
+# Check whether --enable-memory-tracing was given.
+if test "${enable_memory_tracing+set}" = set; then :
+  enableval=$enable_memory_tracing; case "$enableval" in #(
+  yes) :
+    enable_memory_tracing=mtrace ;; #(
+  mtrace|no) :
+     ;; #(
+  *) :
+    as_fn_error $? "unexpected value for the argument --enable-memory-tracing='$enableval'; valid values are 'mtrace', 'yes' (same as 'mtrace'), 'no'" "$LINENO" 5 ;;
+esac
+else
+  enable_memory_tracing=no
+fi
+
+
 
 
 # Check whether --enable-loop-exchange was given.
@@ -2790,19 +2695,6 @@ if test "${enable_intel_consistency+set}" = set; then :
 fi
 else
   enable_intel_consistency=auto
-fi
-
-
-# Check whether --enable-memory-tracing was given.
-if test "${enable_memory_tracing+set}" = set; then :
-  enableval=$enable_memory_tracing; case $enableval in #(
-  yes|mtrace) :
-     ;; #(
-  *) :
-    enable_memory_tracing=no ;;
-esac
-else
-  enable_memory_tracing=no
 fi
 
 
@@ -3239,13 +3131,21 @@ host_fqdn=$acx_cv_host_fqdn
 
 
 ###################### FORTRAN COMPILER COMMAND AND FLAGS ######################
+ac_ext=${ac_fc_srcext-f}
+ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
+ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_fc_compiler_gnu
+
+FCFLAGS=${FCFLAGS-}
+subdir_FCFLAGS=$FCFLAGS
+
+test -n "${ICON_LDFLAGS}" && as_fn_append LDFLAGS " ${ICON_LDFLAGS}"
+
 acx_save_cross_compiling=$cross_compiling
    acx_save_ac_tool_warned=$ac_tool_warned
    cross_compiling=yes
    ac_tool_warned=yes
 
-
-FCFLAGS=${FCFLAGS-}
 ac_ext=${ac_fc_srcext-f}
 ac_compile='$FC -c $FCFLAGS $ICON_FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
 ac_link='$FC -o conftest$ac_exeext $FCFLAGS $ICON_FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
@@ -3644,17 +3544,15 @@ if test $ac_compiler_gnu = yes; then
 else
   GFC=
 fi
-ac_ext=c
-ac_cpp='$CPP $CPPFLAGS'
-ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
-ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_c_compiler_gnu
-
 ac_ext=${ac_fc_srcext-f}
 ac_compile='$FC -c $FCFLAGS $ICON_FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
 ac_link='$FC -o conftest$ac_exeext $FCFLAGS $ICON_FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_fc_compiler_gnu
 
+
+
+ICON_OCEAN_FCFLAGS=${ICON_OCEAN_FCFLAGS-$ICON_FCFLAGS}
+ICON_BUNDLED_FCFLAGS=${ICON_BUNDLED_FCFLAGS-$ICON_FCFLAGS}
 
 
          { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Fortran compiler flag needed to compile preprocessed .f90 files" >&5
@@ -3790,34 +3688,72 @@ $as_echo "$acx_cv_fc_compiler_version" >&6; }
 FC_VERSION=$acx_cv_fc_compiler_version
 
 
-ICON_FCFLAGS=${ICON_FCFLAGS-}
+if test "x$enable_rpaths" = xyes; then :
+     { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Fortran compiler flag needed to add a directory to the runtime library search path" >&5
+$as_echo_n "checking for Fortran compiler flag needed to add a directory to the runtime library search path... " >&6; }
+if ${acx_cv_fc_rpath_flag+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  case $acx_cv_fc_compiler_vendor in #(
+  nag) :
+    acx_cv_fc_rpath_flag="-Wl,-Wl,,-rpath -Wl,-Wl,," ;; #(
+  *) :
+    acx_cv_fc_rpath_flag="-Wl,-rpath -Wl," ;;
+esac
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_fc_rpath_flag" >&5
+$as_echo "$acx_cv_fc_rpath_flag" >&6; }
 
-ICON_LDFLAGS=${ICON_LDFLAGS-}
+   icon_L_args=
+   asx_extract_args_args="$LDFLAGS $LIBS"
+   asx_extract_args_args=`$as_echo "$asx_extract_args_args" | sed 's%''-L[ ]*''%_ASX_EXTRACT_ARGS_MARKER_%g'`
+   for asx_extract_args_arg in $asx_extract_args_args; do
+     case $asx_extract_args_arg in #(
+  _ASX_EXTRACT_ARGS_MARKER_*) :
+    asx_extract_args_value=`$as_echo "$asx_extract_args_arg" | sed 's%^_ASX_EXTRACT_ARGS_MARKER_%%'`
+        as_fn_append icon_L_args " $asx_extract_args_value" ;; #(
+  *) :
+     ;;
+esac
+   done
+   for icon_L_arg in $icon_L_args; do
+     case ' '$LDFLAGS' ' in #(
+  *' '"$acx_cv_fc_rpath_flag$icon_L_arg"' '*) :
+     ;; #(
+  ' '' ') :
+    as_fn_append LDFLAGS "$acx_cv_fc_rpath_flag$icon_L_arg" ;; #(
+  *) :
+    as_fn_append LDFLAGS ' '; as_fn_append LDFLAGS "$acx_cv_fc_rpath_flag$icon_L_arg" ;;
+esac
+   done
+   acx_shlib_rpath_flags_check_result=no
+   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran compiler accepts the automatically generated RPATH flags" >&5
+$as_echo_n "checking whether Fortran compiler accepts the automatically generated RPATH flags... " >&6; }
 
-ICON_OCEAN_FCFLAGS=${ICON_OCEAN_FCFLAGS-$ICON_FCFLAGS}
-
-ICON_BUNDLED_FCFLAGS=${ICON_BUNDLED_FCFLAGS-$ICON_FCFLAGS}
-subdir_FCFLAGS=$FCFLAGS
-
-if test "x$acx_save_cross_compiling" = xno; then :
-  acx_compiler_cross_check_result=ok
    cat > conftest.$ac_ext <<_ACEOF
       program main
 
       end
 _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :
-  ./conftest$ac_cv_exeext >/dev/null 2>&1 || acx_compiler_cross_check_result=fail
-else
-  acx_compiler_cross_check_result=fail
+  acx_shlib_rpath_flags_check_result=yes
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
-   if test "x$acx_compiler_cross_check_result" = xfail; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: unable to link and run executables linked with the provided linker flags, which might result into a failure of the following standard cross compilation check with a misleading message: make sure that the dynamic linker is able to find all the shared libraries specified in LIBS, e.g. by extending the LD_LIBRARY_PATH environment variable (or its analogue)" >&5
-$as_echo "$as_me: WARNING: unable to link and run executables linked with the provided linker flags, which might result into a failure of the following standard cross compilation check with a misleading message: make sure that the dynamic linker is able to find all the shared libraries specified in LIBS, e.g. by extending the LD_LIBRARY_PATH environment variable (or its analogue)" >&2;}
+
+   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_shlib_rpath_flags_check_result" >&5
+$as_echo "$acx_shlib_rpath_flags_check_result" >&6; }
+   if test "x$acx_shlib_rpath_flags_check_result" = xyes; then :
+
+else
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "Fortran compiler does not accept the automatically generated RPATH flags
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 fi
 fi
+
    cross_compiling=$acx_save_cross_compiling
    ac_tool_warned=$acx_save_ac_tool_warned
       cat > conftest.$ac_ext <<_ACEOF
@@ -4396,77 +4332,8 @@ else
 fi
 
 
-ICON_RPATH_LDFLAGS=''
-
-if test "x$enable_rpaths" = xyes; then :
-     { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Fortran compiler flag needed to add a directory to the runtime library search path" >&5
-$as_echo_n "checking for Fortran compiler flag needed to add a directory to the runtime library search path... " >&6; }
-if ${acx_cv_fc_rpath_flag+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  case $acx_cv_fc_compiler_vendor in #(
-  nag) :
-    acx_cv_fc_rpath_flag="-Wl,-Wl,,-rpath -Wl,-Wl,," ;; #(
-  *) :
-    acx_cv_fc_rpath_flag="-Wl,-rpath -Wl," ;;
-esac
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_fc_rpath_flag" >&5
-$as_echo "$acx_cv_fc_rpath_flag" >&6; }
-
-   icon_L_args=
-   asx_extract_args_args="$LDFLAGS $LIBS"
-   asx_extract_args_args=`$as_echo "$asx_extract_args_args" | sed 's%''-L[ ]*''%_ASX_EXTRACT_ARGS_MARKER_%g'`
-   for asx_extract_args_arg in $asx_extract_args_args; do
-     case $asx_extract_args_arg in #(
-  _ASX_EXTRACT_ARGS_MARKER_*) :
-    asx_extract_args_value=`$as_echo "$asx_extract_args_arg" | sed 's%^_ASX_EXTRACT_ARGS_MARKER_%%'`
-        as_fn_append icon_L_args " $asx_extract_args_value" ;; #(
-  *) :
-     ;;
-esac
-   done
-   for icon_L_arg in $icon_L_args; do
-     case ' '$ICON_RPATH_LDFLAGS' ' in #(
-  *' '"$acx_cv_fc_rpath_flag$icon_L_arg"' '*) :
-     ;; #(
-  ' '' ') :
-    as_fn_append ICON_RPATH_LDFLAGS "$acx_cv_fc_rpath_flag$icon_L_arg" ;; #(
-  *) :
-    as_fn_append ICON_RPATH_LDFLAGS ' '; as_fn_append ICON_RPATH_LDFLAGS "$acx_cv_fc_rpath_flag$icon_L_arg" ;;
-esac
-   done
-   acx_shlib_rpath_flags_check_result=no
-   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran compiler accepts the automatically generated RPATH flags" >&5
-$as_echo_n "checking whether Fortran compiler accepts the automatically generated RPATH flags... " >&6; }
-   acx_save_LDFLAGS=$LDFLAGS
-      LDFLAGS="$ICON_RPATH_LDFLAGS $LDFLAGS"
-   cat > conftest.$ac_ext <<_ACEOF
-      program main
-
-      end
-_ACEOF
-if ac_fn_fc_try_link "$LINENO"; then :
-  acx_shlib_rpath_flags_check_result=yes
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-   LDFLAGS=$acx_save_LDFLAGS
-   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_shlib_rpath_flags_check_result" >&5
-$as_echo "$acx_shlib_rpath_flags_check_result" >&6; }
-   if test "x$acx_shlib_rpath_flags_check_result" = xyes; then :
-
-else
-  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "Fortran compiler does not accept the automatically generated RPATH flags '$ICON_RPATH_LDFLAGS'
-See \`config.log' for more details
-${icon_usr_note}" "$LINENO" 5; }
-fi
-fi
-
-   { $as_echo "$as_me:${as_lineno-$LINENO}: checking wether $FC supports CONTIGUOUS attribute" >&5
-$as_echo_n "checking wether $FC supports CONTIGUOUS attribute... " >&6; }
+   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether $FC supports CONTIGUOUS attribute" >&5
+$as_echo_n "checking whether $FC supports CONTIGUOUS attribute... " >&6; }
 if ${acx_cv_fc_attribute_contiguous+:} false; then :
   $as_echo_n "(cached) " >&6
 else
@@ -4550,7 +4417,7 @@ if test "x$enable_rte_rrtmgp" = xno; then :
 fi
 
 if test "x$enable_rttov" = xyes; then :
-  as_fn_append FCFLAGS " ${FC_PP_DEF}__USE_RTTOV ${FC_PP_DEF}_RTTOV_VERSION=13 ${FC_PP_DEF}HAVE_MPI_MOD"
+  as_fn_append FCFLAGS " ${FC_PP_DEF}__USE_RTTOV"
 fi
 
 if test "x$enable_dace" = xyes; then :
@@ -4632,18 +4499,18 @@ if test "x$enable_mixed_precision" = xyes; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}__MIXED_PRECISION"
 fi
 
-# Check whether --enable-mpi-rget was given.
-if test "${enable_mpi_rget+set}" = set; then :
-  enableval=$enable_mpi_rget; if test x"$enable_mpi_rget" != xyes -a x"$enable_mpi_rget" != xauto; then :
-  enable_mpi_rget=no
-fi
-else
-  enable_mpi_rget=auto
-fi
-
-
 ######################### C COMPILER COMMAND AND FLAGS #########################
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
 CFLAGS=${CFLAGS-}
+subdir_CFLAGS=$CFLAGS
+
+test -n "${ICON_CFLAGS}" && as_fn_append CFLAGS " ${ICON_CFLAGS}"
+
 ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
@@ -5178,17 +5045,15 @@ if test "x$ac_cv_prog_cc_c89" != xno; then :
 
 fi
 
-ac_ext=${ac_fc_srcext-f}
-ac_compile='$FC -c $FCFLAGS $ICON_FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
-ac_link='$FC -o conftest$ac_exeext $FCFLAGS $ICON_FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_fc_compiler_gnu
-
 ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
+
+
+ICON_BUNDLED_CFLAGS=${ICON_BUNDLED_CFLAGS-$ICON_CFLAGS}
 
    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $CC option to accept ISO C99" >&5
 $as_echo_n "checking for $CC option to accept ISO C99... " >&6; }
@@ -5442,11 +5307,6 @@ fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_c_compiler_version" >&5
 $as_echo "$acx_cv_c_compiler_version" >&6; }
 
-
-ICON_CFLAGS=${ICON_CFLAGS-}
-
-ICON_BUNDLED_CFLAGS=${ICON_BUNDLED_CFLAGS-$ICON_CFLAGS}
-subdir_CFLAGS=$CFLAGS
 
 
 for ac_header in stdlib.h stdio.h math.h time.h ctype.h string.h signal.h   limits.h errno.h assert.h stdbool.h unistd.h fcntl.h pwd.h stdint.h   sys/types.h sys/stat.h sys/param.h sys/resource.h sys/utsname.h   sys/time.h sys/times.h dirent.h
@@ -5881,157 +5741,6 @@ else
   NVCFLAGS=
 fi
 
-########################## LIBRARY CREATION PROGRAMS AND FLAGS #################
-
-for ac_prog in xiar ar
-do
-  # Extract the first word of "$ac_prog", so it can be a program name with args.
-set dummy $ac_prog; ac_word=$2
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-$as_echo_n "checking for $ac_word... " >&6; }
-if ${ac_cv_prog_AR+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  if test -n "$AR"; then
-  ac_cv_prog_AR="$AR" # Let the user override the test.
-else
-as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
-    ac_cv_prog_AR="$ac_prog"
-    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
-
-fi
-fi
-AR=$ac_cv_prog_AR
-if test -n "$AR"; then
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $AR" >&5
-$as_echo "$AR" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-fi
-
-
-  test -n "$AR" && break
-done
-test -n "$AR" || AR="false"
-
-if test "x$AR" = xfalse; then :
-  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "an archiver is needed to build ICON.
-See \`config.log' for more details
-${icon_usr_note}" "$LINENO" 5; }
-fi
-
-if ${ARFLAGS+:} false; then :
-
-else
-  ARFLAGS=cr
-fi
-if test -n "$ac_tool_prefix"; then
-  # Extract the first word of "${ac_tool_prefix}ranlib", so it can be a program name with args.
-set dummy ${ac_tool_prefix}ranlib; ac_word=$2
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-$as_echo_n "checking for $ac_word... " >&6; }
-if ${ac_cv_prog_RANLIB+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  if test -n "$RANLIB"; then
-  ac_cv_prog_RANLIB="$RANLIB" # Let the user override the test.
-else
-as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
-    ac_cv_prog_RANLIB="${ac_tool_prefix}ranlib"
-    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
-
-fi
-fi
-RANLIB=$ac_cv_prog_RANLIB
-if test -n "$RANLIB"; then
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $RANLIB" >&5
-$as_echo "$RANLIB" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-fi
-
-
-fi
-if test -z "$ac_cv_prog_RANLIB"; then
-  ac_ct_RANLIB=$RANLIB
-  # Extract the first word of "ranlib", so it can be a program name with args.
-set dummy ranlib; ac_word=$2
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-$as_echo_n "checking for $ac_word... " >&6; }
-if ${ac_cv_prog_ac_ct_RANLIB+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  if test -n "$ac_ct_RANLIB"; then
-  ac_cv_prog_ac_ct_RANLIB="$ac_ct_RANLIB" # Let the user override the test.
-else
-as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
-    ac_cv_prog_ac_ct_RANLIB="ranlib"
-    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
-
-fi
-fi
-ac_ct_RANLIB=$ac_cv_prog_ac_ct_RANLIB
-if test -n "$ac_ct_RANLIB"; then
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_ct_RANLIB" >&5
-$as_echo "$ac_ct_RANLIB" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-fi
-
-  if test "x$ac_ct_RANLIB" = x; then
-    RANLIB=":"
-  else
-    case $cross_compiling:$ac_tool_warned in
-yes:)
-{ $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: using cross tools not prefixed with host triplet" >&5
-$as_echo "$as_me: WARNING: using cross tools not prefixed with host triplet" >&2;}
-ac_tool_warned=yes ;;
-esac
-    RANLIB=$ac_ct_RANLIB
-  fi
-else
-  RANLIB="$ac_cv_prog_RANLIB"
-fi
-
-
 ################################ LIBRARY CHECKS ################################
 
 
@@ -6049,6 +5758,37 @@ BUNDLED_LIBFILES=''
 
 
 bundled_includes=
+
+if test "x$enable_memory_tracing" = xmtrace; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether C mtrace function is available via the Fortran ISO_C_BINDING interface" >&5
+$as_echo_n "checking whether C mtrace function is available via the Fortran ISO_C_BINDING interface... " >&6; }
+   cat > conftest.$ac_ext <<_ACEOF
+      program main
+
+      implicit none
+      interface
+      subroutine mtrace() bind(c, name="mtrace")
+      end subroutine mtrace
+      end interface
+      call mtrace
+      end
+_ACEOF
+if ac_fn_fc_try_link "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+      as_fn_append FCFLAGS " ${FC_PP_DEF}ICON_MEMORY_TRACING=1"
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+      { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to link a test program using mtrace function via the Fortran ISO_C_BINDING interface: either disable the native dynamic memory tracing facility (--disable-memory-tracing) or set LDFLAGS and LIBS accordingly
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+fi
 
 if test "x$enable_mpi" = xyes; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran 90 interface of MPI library is available" >&5
@@ -6079,19 +5819,10 @@ ${icon_usr_note}" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
-fi
-if test "x$enable_mpi" = xyes; then :
-     { $as_echo "$as_me:${as_lineno-$LINENO}: checking value of MPI_VERSION" >&5
-$as_echo_n "checking value of MPI_VERSION... " >&6; }
-if ${acx_cv_fortran_MPI_VERSION+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_ext=${ac_fc_srcext-f}
-ac_compile='$FC -c $FCFLAGS $ICON_FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
-ac_link='$FC -o conftest$ac_exeext $FCFLAGS $ICON_FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_fc_compiler_gnu
-
-      if test x"$cross_compiling" = xyes; then :
+   { $as_echo "$as_me:${as_lineno-$LINENO}: checking for the version of the supported MPI standard" >&5
+$as_echo_n "checking for the version of the supported MPI standard... " >&6; }
+   icon_mpi_version=unknown; icon_mpi_subversion=unknown
+   if test x"$cross_compiling" = xyes; then :
     ac_lo=0 ac_hi=100
    while :; do
    cat > conftest.$ac_ext <<_ACEOF
@@ -6128,13 +5859,9 @@ fi
 rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
    done
    if test -z "$ac_lo"; then :
-  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error 77 "cannot determine integer expression at compile time
-See \`config.log' for more details
-${icon_usr_note}" "$LINENO" 5; }
+  :
 else
-  acx_cv_fortran_MPI_VERSION=$ac_lo
+  icon_mpi_version=$ac_lo
 fi
 else
     if test "$cross_compiling" = yes; then :
@@ -6155,13 +5882,9 @@ else
 _ACEOF
 if ac_fn_fc_try_run "$LINENO"; then :
   ac_lo=`sed -e 's/^ *//' conftestval`
-      acx_cv_fortran_MPI_VERSION=$ac_lo
+      icon_mpi_version=$ac_lo
 else
-  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "failed to determine integer expression at run-time
-See \`config.log' for more details
-${icon_usr_note}" "$LINENO" 5; }
+  :
 fi
 rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
   conftest.$ac_objext conftest.beam conftest.$ac_ext
@@ -6169,33 +5892,8 @@ fi
 
    /bin/rm -f conftestval
 fi
-      ac_ext=${ac_fc_srcext-f}
-ac_compile='$FC -c $FCFLAGS $ICON_FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
-ac_link='$FC -o conftest$ac_exeext $FCFLAGS $ICON_FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_fc_compiler_gnu
-
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_fortran_MPI_VERSION" >&5
-$as_echo "$acx_cv_fortran_MPI_VERSION" >&6; }
-   ICON_MPI_VERSION=$acx_cv_fortran_MPI_VERSION
-
-
-cat >>confdefs.h <<_ACEOF
-#define ICON_MPI_VERSION $acx_cv_fortran_MPI_VERSION
-_ACEOF
-
-
-      { $as_echo "$as_me:${as_lineno-$LINENO}: checking value of MPI_SUBVERSION" >&5
-$as_echo_n "checking value of MPI_SUBVERSION... " >&6; }
-if ${acx_cv_fortran_MPI_SUBVERSION+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_ext=${ac_fc_srcext-f}
-ac_compile='$FC -c $FCFLAGS $ICON_FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
-ac_link='$FC -o conftest$ac_exeext $FCFLAGS $ICON_FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_fc_compiler_gnu
-
-      if test x"$cross_compiling" = xyes; then :
+   if test x"$icon_mpi_version" != xunknown; then :
+  if test x"$cross_compiling" = xyes; then :
     ac_lo=0 ac_hi=100
    while :; do
    cat > conftest.$ac_ext <<_ACEOF
@@ -6232,13 +5930,9 @@ fi
 rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
    done
    if test -z "$ac_lo"; then :
-  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error 77 "cannot determine integer expression at compile time
-See \`config.log' for more details
-${icon_usr_note}" "$LINENO" 5; }
+  :
 else
-  acx_cv_fortran_MPI_SUBVERSION=$ac_lo
+  icon_mpi_subversion=$ac_lo
 fi
 else
     if test "$cross_compiling" = yes; then :
@@ -6259,13 +5953,9 @@ else
 _ACEOF
 if ac_fn_fc_try_run "$LINENO"; then :
   ac_lo=`sed -e 's/^ *//' conftestval`
-      acx_cv_fortran_MPI_SUBVERSION=$ac_lo
+      icon_mpi_subversion=$ac_lo
 else
-  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "failed to determine integer expression at run-time
-See \`config.log' for more details
-${icon_usr_note}" "$LINENO" 5; }
+  :
 fi
 rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
   conftest.$ac_objext conftest.beam conftest.$ac_ext
@@ -6273,34 +5963,28 @@ fi
 
    /bin/rm -f conftestval
 fi
-      ac_ext=${ac_fc_srcext-f}
-ac_compile='$FC -c $FCFLAGS $ICON_FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
-ac_link='$FC -o conftest$ac_exeext $FCFLAGS $ICON_FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_fc_compiler_gnu
-
 fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_fortran_MPI_SUBVERSION" >&5
-$as_echo "$acx_cv_fortran_MPI_SUBVERSION" >&6; }
-   ICON_MPI_SUBVERSION=$acx_cv_fortran_MPI_SUBVERSION
-
-
-cat >>confdefs.h <<_ACEOF
-#define ICON_MPI_SUBVERSION $acx_cv_fortran_MPI_SUBVERSION
-_ACEOF
-
-
-   ICON_FCFLAGS="${ICON_FCFLAGS+$ICON_FCFLAGS }${FC_PP_DEF}ICON_MPI_VERSION=$ICON_MPI_VERSION ${FC_PP_DEF}ICON_MPI_SUBVERSION=$ICON_MPI_SUBVERSION"
+   if test x"$icon_mpi_version" != xunknown && test x"$icon_mpi_subversion" != xunknown; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_mpi_version.$icon_mpi_subversion" >&5
+$as_echo "$icon_mpi_version.$icon_mpi_subversion" >&6; }
+      as_fn_append FCFLAGS " ${FC_PP_DEF}ICON_MPI_VERSION=$icon_mpi_version ${FC_PP_DEF}ICON_MPI_SUBVERSION=$icon_mpi_subversion"
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: unknown" >&5
+$as_echo "unknown" >&6; }
+      icon_mpi_version=unknown; icon_mpi_subversion=unknown
 fi
-
-if test "x$enable_mpi_rget" = xauto; then :
-  if test $ICON_MPI_VERSION -ge 3; then :
-  enable_mpi_rget=yes
+   if test "x$enable_mpi_rget" = xauto; then :
+  if test x"$icon_mpi_version" != xunknown && test "$icon_mpi_version" -ge 3 >/dev/null 2>&1; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: usage of the MPI_Rget routine is enabled because the provided MPI library supports standard 3.0 or higher: disable the usage if required (--disable-mpi-rget)" >&5
+$as_echo "$as_me: usage of the MPI_Rget routine is enabled because the provided MPI library supports standard 3.0 or higher: disable the usage if required (--disable-mpi-rget)" >&6;}
+         enable_mpi_rget=yes
 else
   enable_mpi_rget=no
 fi
 fi
-if test "x$enable_mpi_rget" = xno; then :
-  ICON_FCFLAGS="${ICON_FCFLAGS+$ICON_FCFLAGS }${FC_PP_DEF}NO_MPI_RGET"
+   if test "x$enable_mpi_rget" = xno; then :
+  as_fn_append FCFLAGS " ${FC_PP_DEF}NO_MPI_RGET"
+fi
 fi
 
 if test -n "$MPI_LAUNCH"; then :
@@ -7178,9 +6862,7 @@ _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 $as_echo "yes" >&6; }
-      if test "x$enable_dace" = xyes; then :
-  as_fn_append FCFLAGS " ${FC_PP_DEF}RTTOV12"
-fi
+      as_fn_append FCFLAGS " ${FC_PP_DEF}_RTTOV_VERSION=13"
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
@@ -7195,7 +6877,6 @@ rm -f core conftest.err conftest.$ac_objext \
 else
   if test "x$enable_dace" = xyes; then :
         as_fn_error $? "unsupported combination of the configure options: you are trying to configure with the DACE modules for data assimilation but usage of the radiative transfer model for TOVS is disabled: either disable the DACE modules for data assimilation (--disable-dace) or enable usage of the radiative transfer model for TOVS (--enable-rttov)" "$LINENO" 5
-      as_fn_append FCFLAGS " ${FC_PP_DEF}NO_RTTOV"
 fi
 fi
 
@@ -7864,6 +7545,8 @@ ac_abs_srcdir=$ac_abs_top_srcdir$ac_dir_suffix
          yac_MTIME_CFLAGS="-I${ac_abs_top_srcdir}/externals/mtime/include"
          yac_MTIME_CLIBS="${ac_abs_top_builddir}/externals/mtime/src/.libs/libmtime.a"
 fi
+      yac_MPI_LAUNCH='DUMMY='
+      ${MPI_LAUNCH+:} false && yac_MPI_LAUNCH="MPI_LAUNCH=$MPI_LAUNCH"
             ICON_YAC_FCFLAGS=${ICON_YAC_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
             ICON_YAC_CFLAGS=${ICON_YAC_CFLAGS-$ICON_BUNDLED_CFLAGS}
          acx_config_subdir_args_externals_yac=
@@ -7924,7 +7607,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy CFLAGS="$subdir_CFLAGS $ICON_YAC_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_YAC_FCFLAGS" MTIME_CFLAGS="$yac_MTIME_CFLAGS" MTIME_CLIBS= NETCDF_CFLAGS= NETCDF_CLIBS= XML2_CFLAGS= XML2_CLIBS= MPI_CFLAGS= MPI_CLIBS= MPI_FCFLAGS= MPI_FCLIBS= FORTRAN_LAPACK_CLIBS= MPI_LAUNCH="$MPI_LAUNCH" --disable-maintainer-mode --enable-silent-rules="$enable_silent_rules" --enable-lib-only --enable-xml --enable-netcdf --enable-mpi="$enable_mpi" --with-external-lapack=fortran --with-external-mtime --enable-mpi-checks="$enable_mpi_checks" acx_cv_c_lib_func_datetimeToString="$yac_MTIME_CLIBS" ; shift
+   set dummy CFLAGS="$subdir_CFLAGS $ICON_YAC_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_YAC_FCFLAGS" MTIME_CFLAGS="$yac_MTIME_CFLAGS" MTIME_CLIBS= NETCDF_CFLAGS= NETCDF_CLIBS= XML2_CFLAGS= XML2_CLIBS= MPI_CFLAGS= MPI_CLIBS= MPI_FCFLAGS= MPI_FCLIBS= FORTRAN_LAPACK_CLIBS= "$yac_MPI_LAUNCH" --disable-maintainer-mode --enable-silent-rules="$enable_silent_rules" --enable-lib-only --enable-xml --enable-netcdf --enable-mpi="$enable_mpi" --with-external-lapack=fortran --with-external-mtime --enable-mpi-checks="$enable_mpi_checks" acx_cv_c_lib_func_datetimeToString="$yac_MTIME_CLIBS" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -8162,33 +7845,6 @@ fi
 fi
 fi
 
-if test "x$enable_memory_tracing" = xyes; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: detecting memory tracing facility" >&5
-$as_echo "$as_me: detecting memory tracing facility" >&6;}
-   ac_ext=c
-ac_cpp='$CPP $CPPFLAGS'
-ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
-ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_c_compiler_gnu
-
-   ac_fn_c_check_func "$LINENO" "mtrace" "ac_cv_func_mtrace"
-if test "x$ac_cv_func_mtrace" = xyes; then :
-  enable_memory_tracing=mtrace
-fi
-
-   ac_ext=${ac_fc_srcext-f}
-ac_compile='$FC -c $FCFLAGS $ICON_FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
-ac_link='$FC -o conftest$ac_exeext $FCFLAGS $ICON_FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_fc_compiler_gnu
-
-fi
-case $enable_memory_tracing in #(
-  mtrace) :
-    as_fn_append FCFLAGS " ${FC_PP_DEF}ICON_MEMORY_TRACING=1" ;; #(
-  *) :
-     ;;
-esac
-
 ##################### PREPROCESSORS AND AUXILIARY COMMANDS #####################
 
 # Find a good install program.  We prefer a C program (faster),
@@ -8327,6 +7983,149 @@ fi
 $as_echo "$MKDIR_P" >&6; }
 
 LN_S=$as_ln_s
+
+
+ARFLAGS=${ARFLAGS-cr}
+   { $as_echo "$as_me:${as_lineno-$LINENO}: checking for ar" >&5
+$as_echo_n "checking for ar... " >&6; }
+   if ${acx_cv_prog_AR+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  if ${AR+:} false; then :
+  set dummy "$AR"
+else
+  set dummy ar
+fi
+      shift
+      for acx_candidate in "$@"; do
+        cat > conftest.$ac_ext <<_ACEOF
+      program main
+
+      end
+_ACEOF
+if ac_fn_fc_try_compile "$LINENO"; then :
+  icon_prog_try='$acx_candidate ${ARFLAGS} libconftest.a conftest.$ac_objext'
+      { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$icon_prog_try\""; } >&5
+  (eval $icon_prog_try) 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }
+      rm -f libconftest.a
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+   test $ac_status -eq 0
+        if test $? -eq 0; then :
+  acx_cv_prog_AR=$acx_candidate
+           break
+fi
+      done
+fi
+
+   if ${acx_cv_prog_AR+:} false; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_prog_AR" >&5
+$as_echo "$acx_cv_prog_AR" >&6; }
+      AR=$acx_candidate
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: unknown" >&5
+$as_echo "unknown" >&6; }
+      { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to find ar
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
+fi
+
+if test -n "$ac_tool_prefix"; then
+  # Extract the first word of "${ac_tool_prefix}ranlib", so it can be a program name with args.
+set dummy ${ac_tool_prefix}ranlib; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_prog_RANLIB+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test -n "$RANLIB"; then
+  ac_cv_prog_RANLIB="$RANLIB" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_prog_RANLIB="${ac_tool_prefix}ranlib"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+fi
+fi
+RANLIB=$ac_cv_prog_RANLIB
+if test -n "$RANLIB"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $RANLIB" >&5
+$as_echo "$RANLIB" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+fi
+if test -z "$ac_cv_prog_RANLIB"; then
+  ac_ct_RANLIB=$RANLIB
+  # Extract the first word of "ranlib", so it can be a program name with args.
+set dummy ranlib; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_prog_ac_ct_RANLIB+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test -n "$ac_ct_RANLIB"; then
+  ac_cv_prog_ac_ct_RANLIB="$ac_ct_RANLIB" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_prog_ac_ct_RANLIB="ranlib"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+fi
+fi
+ac_ct_RANLIB=$ac_cv_prog_ac_ct_RANLIB
+if test -n "$ac_ct_RANLIB"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_ct_RANLIB" >&5
+$as_echo "$ac_ct_RANLIB" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+  if test "x$ac_ct_RANLIB" = x; then
+    RANLIB=":"
+  else
+    case $cross_compiling:$ac_tool_warned in
+yes:)
+{ $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: using cross tools not prefixed with host triplet" >&5
+$as_echo "$as_me: WARNING: using cross tools not prefixed with host triplet" >&2;}
+ac_tool_warned=yes ;;
+esac
+    RANLIB=$ac_ct_RANLIB
+  fi
+else
+  RANLIB="$ac_cv_prog_RANLIB"
+fi
 
 
    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for python" >&5

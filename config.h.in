@@ -78,12 +78,6 @@
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
 
-/* The value of Fortran parameter MPI_SUBVERSION */
-#undef ICON_MPI_SUBVERSION
-
-/* The value of Fortran parameter MPI_VERSION */
-#undef ICON_MPI_VERSION
-
 /* Define to the address where bug reports for this package should be sent. */
 #undef PACKAGE_BUGREPORT
 
