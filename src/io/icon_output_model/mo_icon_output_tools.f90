@@ -20,9 +20,10 @@ MODULE mo_icon_output_tools
   USE mo_mpi,                 ONLY: set_mpi_work_communicators, process_mpi_io_size, &
        &                            stop_mpi, my_process_is_io, my_process_is_mpi_test,   &
        &                            set_mpi_work_communicators, process_mpi_io_size
-  USE mo_impl_constants,      ONLY: pio_type_async, pio_type_cdipio
+  USE mo_impl_constants,      ONLY: pio_type_async
 #ifdef HAVE_CDI_PIO
   USE mo_mpi,                 ONLY: mpi_comm_null, p_comm_work_io
+  USE mo_impl_constants,      ONLY: pio_type_cdipio
   USE yaxt,                   ONLY: xt_initialize, xt_initialized
   USE mo_cdi,                 ONLY: namespacegetactive
   USE mo_cdi_pio_interface,   ONLY: nml_io_cdi_pio_namespace, &
@@ -31,11 +32,12 @@ MODULE mo_icon_output_tools
     &                                   nml_io_cdi_pio_conf_handle
   USE mo_name_list_output_init, ONLY: init_cdipio_cb
   USE mo_name_list_output,    ONLY: write_ready_files_cdipio
+  USE mo_impl_constants,      ONLY: pio_type_cdipio
   USE mo_cdi,                 ONLY: namespaceGetActive, namespaceSetActive
   USE mo_cdi_pio_interface,   ONLY: nml_io_cdi_pio_namespace
 #endif
   USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, print_timer, &
-       &                            timer_model_init, timers_level
+       &                            timer_model_init
   USE mo_name_list_output_init, ONLY: init_name_list_output, parse_variable_groups, &
     &                                 create_vertical_axes, output_file
   USE mo_derived_variable_handling, ONLY: init_statistics_streams, finish_statistics_streams
@@ -91,55 +93,70 @@ MODULE mo_icon_output_tools
     TYPE(t_sim_step_info)   :: sim_step_info
     TYPE(t_key_value_store), POINTER :: restartAttributes
     CHARACTER(LEN=*), PARAMETER :: &
-         & routine = 'mo_icon_output_tools:init_io_processes'
-
-    IF (process_mpi_io_size > 0 .AND. pio_type == pio_type_async) THEN
-      ! Decide whether async vlist or name_list IO is to be used,
-      ! only one of both may be enabled!
+      & method_name = 'mo_ocean_model:init_io_processes'
+    
+    IF (process_mpi_io_size < 1) THEN
       IF (output_mode%l_nml) THEN
         ! -----------------------------------------
-        ! asynchronous I/O
+        ! non-asynchronous I/O (performed by PE #0)
         ! -----------------------------------------
-        !
-        use_async_name_list_io = .TRUE.
-        CALL message(routine,'asynchronous namelist I/O scheme is enabled.')
-        ! consistency check
-        IF (my_process_is_io()) THEN
-          ! Stop timer which is already started but would not be stopped
-          ! since xxx_io_main_proc never returns
-          IF (timers_level > 1) CALL timer_stop(timer_model_init)
-
-          ! compute sim_start, sim_end
-          sim_step_info%sim_start = time_config%tc_exp_startdate
-          sim_step_info%sim_end = time_config%tc_exp_stopdate
-          sim_step_info%run_start = time_config%tc_startdate
-          sim_step_info%restart_time = time_config%tc_stopdate
-          sim_step_info%dtime = dtime
-
-          CALL getAttributesForRestarting(restartAttributes)
-          IF (restartAttributes%is_init) THEN
-
-            ! get start counter for time loop from restart file:
-            CALL restartAttributes%get("jstep", sim_step_info%jstep0)
-          ELSE
-            sim_step_info%jstep0 = 0
-          END IF
-          ! If we belong to the I/O PEs just call xxx_io_main_proc before
-          ! reading patches.  This routine will never return
-          CALL name_list_io_main_proc(sim_step_info)
-        END IF
-      ELSE IF (my_process_is_io()) THEN
-        ! Shut down MPI
-        CALL stop_mpi
+        CALL message(method_name,'synchronous namelist I/O scheme is enabled.')
       ENDIF
-    ELSE IF (process_mpi_io_size > 0 .AND. pio_type == pio_type_cdipio) THEN
+      ! nothing to do
+      RETURN
+    ENDIF
+!..pa ++ .AND. pio_type == pio_type_async
+!    IF (process_mpi_io_size > 0 .AND. pio_type == pio_type_async) THEN
+!..pa
+!
+!    ! Decide whether async vlist or name_list IO is to be used,
+!    ! only one of both may be enabled!
+!
+!     IF (output_mode%l_nml) THEN
+!      ! -----------------------------------------
+!      ! asynchronous I/O
+!      ! -----------------------------------------
+!      !
+!      use_async_name_list_io = .TRUE.
+!      CALL message(method_name,'asynchronous namelist I/O scheme is enabled.')
+!      ! consistency check
+!      IF (my_process_is_io() .AND. (.NOT. my_process_is_mpi_test())) THEN
+!
+!        ! compute sim_start, sim_end
+!        CALL datetimeToString(time_config%tc_exp_startdate, sim_step_info%sim_start)
+!        CALL datetimeToString(time_config%tc_exp_stopdate, sim_step_info%sim_end)
+!        CALL datetimeToString(time_config%tc_startdate, sim_step_info%run_start)
+!        CALL datetimeToString(time_config%tc_stopdate, sim_step_info%restart_time)
+!
+!        sim_step_info%dtime      = dtime
+!        sim_step_info%jstep0    = jstep0
+!
+!        CALL getAttributesForRestarting(restartAttributes)
+!        IF (restartAttributes%is_init) THEN
+!
+!          ! get start counter for time loop from restart file:
+!          restartAttributes%get("jstep", sim_step_info%jstep0)
+!        END IF
+!!         CALL name_list_io_main_proc(sim_step_info, isample=1)
+!!pa
+!        write(0,*)"Before name_list_io_main_proc"
+!        CALL name_list_io_main_proc(sim_step_info)
+!        write(0,*)"After name_list_io_main_proc"
+!!pa
+!      END IF
+!     ELSE IF (my_process_is_io() .AND. (.NOT. my_process_is_mpi_test())) THEN
+!      ! Shut down MPI
+!        CALL stop_mpi
+!        STOP
+!     ENDIF
+!    ENDIF
 
 #ifdef HAVE_CDI_PIO
-      CALL message(routine,'Collective asynchronous namelist I/O scheme is enabled.')
-      IF (my_process_is_io()) THEN
-        ! Stop timer which is already started but would not be stopped
-        ! since xxx_io_main_proc never returns
-        IF (timers_level > 1) CALL timer_stop(timer_model_init)
+    
+    IF (process_mpi_io_size > 0 .AND. pio_type == pio_type_cdipio) THEN
+
+      CALL message(method_name,'Collective asynchronous namelist I/O scheme is enabled.')
+      IF (my_process_is_io() .AND. (.NOT. my_process_is_mpi_test())) THEN
 
         ! compute sim_start, sim_end
         sim_step_info%sim_start = time_config%tc_exp_startdate
@@ -147,50 +164,53 @@ MODULE mo_icon_output_tools
         sim_step_info%run_start = time_config%tc_startdate
         sim_step_info%restart_time = time_config%tc_stopdate
 
-        sim_step_info%dtime = dtime
+        sim_step_info%dtime      = dtime
         sim_step_info%jstep0 = 0
 
         CALL getAttributesForRestarting(restartAttributes)
         ! get start counter for time loop from restart file:
-        IF (restartAttributes%is_init) THEN
+        IF (restartAttributes%is_init) &
           CALL restartAttributes%get("jstep", sim_step_info%jstep0)
-        ELSE
-          sim_step_info%jstep0 = 0
-        END IF
         CALL init_statistics_streams
       ENDIF
 
-      IF (.NOT. xt_initialized()) CALL xt_initialize(p_comm_work_io)
+     IF (.NOT. xt_initialized()) CALL xt_initialize(p_comm_work_io)
 
 
       cdi_base_namespace = namespaceGetActive()
+!pa      write(0,*)"Before 1st cdiPioConfSetCallBackActions"
       CALL cdiPioConfSetCallBackActions(nml_io_cdi_pio_conf_handle, &
-           cdipio_callback_postcommsetup, init_cdipio_cb)
+        cdipio_callback_postcommsetup, init_cdipio_cb)
+!pa      write(0,*)"After 1st cdiPioConfSetCallBackActions"
+!pa      write(0,*)"Before 2nd cdiPioConfSetCallBackActions"
       CALL cdiPioConfSetCallBackActions(nml_io_cdi_pio_conf_handle, &
-           cdipio_callback_postwritebatch, write_ready_files_cdipio)
+        cdipio_callback_postwritebatch, write_ready_files_cdipio)
+!pa      write(0,*)"After 2nd cdiPioConfSetCallBackActions"
+!pa      write(0,*)"Before cdiPioInit"
       nml_io_cdi_pio_client_comm = &
-           &   cdiPioInit(p_comm_work_io, nml_io_cdi_pio_conf_handle, &
-           &              nml_io_cdi_pio_namespace)
+        &   cdiPioInit(p_comm_work_io, nml_io_cdi_pio_conf_handle, &
+        &              nml_io_cdi_pio_namespace)
+!pa      write(0,*)"After cdiPioInit"
       IF (nml_io_cdi_pio_client_comm == mpi_comm_null) THEN
         ! todo: terminate program cleanly here
+!pa      write(0,*)"init_io_processes: nml_io_cdi_pio_client_comm=", &
+!pa      &          nml_io_cdi_pio_client_comm
+!pa      write(0,*)"init_io_processes: p_comm_work_io=", &
+!pa      &          p_comm_work_io
+!pa      write(0,*)"init_io_processes: nml_io_cdi_pio_namespace", &
+!pa      &          nml_io_cdi_pio_namespace
         CALL stop_mpi
       END IF
+    ELSE IF (my_process_is_io() .AND. (.NOT. my_process_is_mpi_test())) THEN
+      ! Shut down MPI
+      CALL stop_mpi
+      STOP
+    ENDIF
 #else
-      CALL finish(routine, 'CDI-PIO requested but unavailable')
+      CALL finish(method_name, 'CDI-PIO requested but unavailable')
 #endif
-    ELSE
-      ! -----------------------------------------
-      ! non-asynchronous I/O (performed by PE #0)
-      ! -----------------------------------------
-      !
-      IF (output_mode%l_nml) THEN
-        CALL message(routine, 'synchronous namelist I/O scheme is enabled.')
-      ENDIF
-      IF (my_process_is_io()) THEN
-        ! Shut down MPI
-        CALL stop_mpi
-      ENDIF
-    END IF
+
+
   END SUBROUTINE init_io_processes
   !-------------------------------------------------------------------
 
