@@ -68,11 +68,7 @@ CONTAINS
         INTEGER, ALLOCATABLE :: myIndices(:)
         LOGICAL :: l_write_debug_info
 
-        IF (debugModule) THEN
-          l_write_debug_info = my_process_is_stdio()
-        ELSE
-          l_write_debug_info = .FALSE.
-        END IF
+        l_write_debug_info = debugmodule .AND. me%rank == me%root_rank
 
         IF (l_write_debug_info) WRITE(0,*) "entering ", routine
         CALL constructScatterPattern(me, jg, loc_arr_len, glb_index, communicator, root_rank)
@@ -106,11 +102,7 @@ CONTAINS
         INTEGER :: i, j, blk, idx, ierr, send_shape(2)
         LOGICAL :: l_write_debug_info
 
-        IF (debugModule) THEN
-          l_write_debug_info = my_process_is_stdio()
-        ELSE
-          l_write_debug_info = .FALSE.
-        END IF
+        l_write_debug_info = debugmodule .AND. me%rank == me%root_rank
 
         IF (l_write_debug_info) WRITE(0,*) "entering ", routine
         CALL me%startDistribution()
@@ -161,11 +153,7 @@ CONTAINS
         INTEGER :: i, j, blk, idx, ierr, send_shape(2)
         LOGICAL :: l_write_debug_info
 
-        IF (debugModule) THEN
-          l_write_debug_info = my_process_is_stdio()
-        ELSE
-          l_write_debug_info = .FALSE.
-        END IF
+        l_write_debug_info = debugmodule .AND. me%rank == me%root_rank
 
         IF (l_write_debug_info) WRITE(0,*) "entering ", routine
 
@@ -218,11 +206,7 @@ CONTAINS
         INTEGER :: i, j, blk, idx, ierr, send_shape(2)
         LOGICAL :: l_write_debug_info
 
-        IF (debugModule) THEN
-          l_write_debug_info = my_process_is_stdio()
-        ELSE
-          l_write_debug_info = .FALSE.
-        END IF
+        l_write_debug_info = debugmodule .AND. me%rank == me%root_rank
 
         IF (l_write_debug_info) WRITE(0,*) "entering ", routine
 
@@ -275,11 +259,7 @@ CONTAINS
         INTEGER :: i, j, blk, idx, ierr, send_shape(2)
         LOGICAL :: l_write_debug_info
 
-        IF (debugModule) THEN
-          l_write_debug_info = my_process_is_stdio()
-        ELSE
-          l_write_debug_info = .FALSE.
-        END IF
+        l_write_debug_info = debugmodule .AND. me%rank == me%root_rank
 
         IF (l_write_debug_info) WRITE(0,*) "entering ", routine
         CALL me%startDistribution()
@@ -324,11 +304,7 @@ CONTAINS
              = modname//":destructScatterPatternScatter"
         LOGICAL :: l_write_debug_info
 
-        IF (debugModule) THEN
-          l_write_debug_info = my_process_is_stdio()
-        ELSE
-          l_write_debug_info = .FALSE.
-        END IF
+        l_write_debug_info = debugmodule .AND. me%rank == me%root_rank
 
         IF (l_write_debug_info) WRITE(0,*) "entering ", routine
         DEALLOCATE(me%pointIndices)

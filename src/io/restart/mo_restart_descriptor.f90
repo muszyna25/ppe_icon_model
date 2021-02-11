@@ -35,11 +35,6 @@ MODULE mo_restart_descriptor
   USE mo_cdi,                       ONLY: CDI_UNDEFID
 #endif
   USE mo_restart_patch_data, ONLY: t_restartPatchData
-#ifndef NOMPI
-  USE mo_async_restart_patch_data, ONLY: t_asyncPatchData
-#endif
-  USE mo_sync_restart_patch_data, ONLY: t_syncPatchData
-  USE mo_multifile_restart_patch_data, ONLY: t_multifilePatchData
 
   IMPLICIT NONE
   PRIVATE
@@ -60,21 +55,16 @@ MODULE mo_restart_descriptor
   ! Finally, destruct() must be called for cleanup. This IS especially important IN the CASE of asynchronous restart writing,
   ! because the destruct() CALL will signal the restart PEs to finish their work, AND wait for them to stop.
   TYPE, ABSTRACT :: t_RestartDescriptor
-    CLASS(t_RestartPatchData), POINTER :: patchData(:)
-#ifndef NOMPI
-    TYPE(t_asyncPatchData), ALLOCATABLE :: aPatchData(:)
-#endif
-    TYPE(t_syncPatchData), ALLOCATABLE :: sPatchData(:)
-    TYPE(t_multifilePatchData), ALLOCATABLE :: mPatchData(:)
+    CLASS(t_RestartPatchData), ALLOCATABLE :: patchData(:)
     CHARACTER(:), ALLOCATABLE :: modelType
   CONTAINS
+    PROCEDURE(i_construct), DEFERRED :: construct
     PROCEDURE :: updatePatch => restartDescriptor_updatePatch
+    PROCEDURE(i_writeRestart), DEFERRED :: writeRestart
     PROCEDURE :: writeFiles => restartDescriptor_writeFiles
+    PROCEDURE(i_destruct), DEFERRED :: destruct
     PROCEDURE :: transferGlobalParameters => restartDescriptor_transferGlobalParameters
     PROCEDURE :: defineRestartAttributes => restartDescriptor_defineRestartAttributes
-    PROCEDURE(i_construct), DEFERRED :: construct
-    PROCEDURE(i_writeRestart), DEFERRED :: writeRestart
-    PROCEDURE(i_destruct), DEFERRED :: destruct
   END TYPE t_RestartDescriptor
 
   ABSTRACT INTERFACE
@@ -93,7 +83,7 @@ MODULE mo_restart_descriptor
     END SUBROUTINE i_writeRestart
 
     SUBROUTINE i_destruct(me)
-      IMPORT t_RestartDescriptor
+      IMPORT t_RestartDescriptor, datetime
       CLASS(t_RestartDescriptor), INTENT(INOUT) :: me
     END SUBROUTINE i_destruct
   END INTERFACE
@@ -161,13 +151,11 @@ CONTAINS
   END SUBROUTINE restartDescriptor_updatePatch
 
   SUBROUTINE restartDescriptor_defineRestartAttributes(me, rAttribs, rArgs)
-    CLASS(t_RestartDescriptor), TARGET, INTENT(IN) :: me
-    TYPE(t_key_value_store), POINTER, INTENT(INOUT) :: rAttribs
-    TYPE(t_restart_args), TARGET, INTENT(IN) :: rArgs
-    CLASS(t_restart_patch_description), POINTER :: desc
+    CLASS(t_RestartDescriptor), INTENT(IN) :: me
+    TYPE(t_key_value_store), ALLOCATABLE, INTENT(OUT) :: rAttribs
+    TYPE(t_restart_args), INTENT(IN) :: rArgs
     INTEGER :: jg, j
-    CHARACTER(LEN=2) :: domStr
-    CHARACTER(LEN=25) :: prefix
+    CHARACTER(LEN=15) :: prefix
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dstring
 
     ! first the attributes that are independent of the domain
@@ -191,43 +179,51 @@ CONTAINS
     END IF
     ! now the stuff that depends on the domain
     DO jg = 1, me%patchData(1)%description%opt_ndom
-      desc => me%patchData(jg)%description
-      IF (desc%id .NE. jg) & ! CALL finish("Kil Kill" , "the killer of death")
-        & CALL finish(modname//":defineRestartAttributes", "mismatch of DOM-ID")
-      WRITE(domStr, '(i2.2)') desc%id
-      CALL rAttribs%put('nold_DOM'//domStr, desc%nold)
-      CALL rAttribs%put('nnow_DOM'//domStr, desc%nnow)
-      CALL rAttribs%put('nnew_DOM'//domStr, desc%nnew)
-      CALL rAttribs%put('nnow_rcf_DOM'//domStr, desc%nnow_rcf)
-      CALL rAttribs%put('nnew_rcf_DOM'//domStr, desc%nnew_rcf)
-      IF (ALLOCATED(desc%opt_t_elapsed_phy)) THEN
-        DO j = 1, SIZE(desc%opt_t_elapsed_phy)
-          WRITE (prefix, '(2(a,i2.2))') 't_elapsed_phy_DOM', jg, '_PHY', j
-          CALL rAttribs%put(prefix(1:25), desc%opt_t_elapsed_phy(j))
-        END DO
-      END IF
-      IF (ALLOCATED(desc%opt_ndyn_substeps)) &
-        & CALL rAttribs%put('ndyn_substeps_DOM'//domStr, desc%opt_ndyn_substeps)
-      IF (ALLOCATED(desc%opt_jstep_adv_marchuk_order)) &
-        & CALL rAttribs%put('jstep_adv_marchuk_order_DOM'//domStr, desc%opt_jstep_adv_marchuk_order)
-      CALL upatmoRestartAttributesSet(desc%id, desc%opt_upatmo_restart_atts, rAttribs)
+      CALL put_dom_rstrt_attr(rattribs, me%patchData(jg)%description, jg)
     END DO
   END SUBROUTINE restartDescriptor_defineRestartAttributes
+
+  SUBROUTINE put_dom_rstrt_attr(rattribs, desc, jg)
+    TYPE(t_key_value_store), INTENT(INOUT) :: rAttribs
+    CLASS(t_restart_patch_description), INTENT(in) :: desc
+    INTEGER, INTENT(in) :: jg
+    CHARACTER(LEN=2) :: domStr
+    CHARACTER(LEN=25) :: prefix
+    INTEGER :: j
+    IF (desc%id .NE. jg) &
+      CALL finish(modname//":defineRestartAttributes", "mismatch of DOM-ID")
+    WRITE(domStr, '(i2.2)') desc%id
+    CALL rAttribs%put('nold_DOM'//domStr, desc%nold)
+    CALL rAttribs%put('nnow_DOM'//domStr, desc%nnow)
+    CALL rAttribs%put('nnew_DOM'//domStr, desc%nnew)
+    CALL rAttribs%put('nnow_rcf_DOM'//domStr, desc%nnow_rcf)
+    CALL rAttribs%put('nnew_rcf_DOM'//domStr, desc%nnew_rcf)
+    IF (ALLOCATED(desc%opt_t_elapsed_phy)) THEN
+      DO j = 1, SIZE(desc%opt_t_elapsed_phy)
+        WRITE (prefix, '(2(a,i2.2))') 't_elapsed_phy_DOM', jg, '_PHY', j
+        CALL rAttribs%put(prefix, desc%opt_t_elapsed_phy(j))
+      END DO
+    END IF
+    IF (desc%opt_ndyn_substeps%present) &
+      & CALL rAttribs%put('ndyn_substeps_DOM'//domStr, desc%opt_ndyn_substeps%v)
+    IF (desc%opt_jstep_adv_marchuk_order%present) &
+      & CALL rAttribs%put('jstep_adv_marchuk_order_DOM'//domStr, desc%opt_jstep_adv_marchuk_order%v)
+    CALL upatmoRestartAttributesSet(desc%id, desc%opt_upatmo_restart_atts, rAttribs)
+  END SUBROUTINE put_dom_rstrt_attr
 
   SUBROUTINE restartDescriptor_writeFiles(me, rArgs, isSync)
     CLASS(t_restartDescriptor), INTENT(INOUT), TARGET :: me
     TYPE(t_restart_args), INTENT(IN) :: rArgs
     LOGICAL, INTENT(in) :: isSync
-    CHARACTER(*), PARAMETER :: routine = modname//":restartPatchData_writeFile"
+    CHARACTER(*), PARAMETER :: routine = modname//":restartDescriptor_writeFiles"
     CHARACTER(:), ALLOCATABLE :: fname
     TYPE(t_CdiIds) :: cdiIds
     CLASS(t_RestartPatchData), POINTER :: pData
     TYPE(t_restart_patch_description), POINTER :: desc
     LOGICAL :: lIsWriteProcess
     INTEGER :: jg
-    TYPE(t_key_value_store), POINTER :: rAttribs
+    TYPE(t_key_value_store), ALLOCATABLE :: rAttribs
 
-    NULLIFY(rAttribs)
     CALL cdiIds%init()
     DO jg = 1, SIZE(me%patchData, 1)
       pData => me%patchData(jg)
@@ -240,19 +236,13 @@ CONTAINS
         IF (.NOT.desc%l_dom_active) CYCLE
         IF (p_pe_work .NE. MOD(desc%id-1, process_mpi_restart_size)) CYCLE
       END IF
-      IF (lIsWriteProcess .AND. .NOT.ASSOCIATED(rAttribs)) &
-        & CALL me%defineRestartAttributes(rAttribs, rArgs)
-      CALL desc%updateVGrids()
-      IF (lIsWriteProcess) CALL restartfile_open()
-      IF (ALLOCATED(me%sPatchData)) THEN
-        CALL me%sPatchData(jg)%writeData(cdiIds%fHndl)
-#ifndef NOMPI
-      ELSE IF (ALLOCATED(me%aPatchData)) THEN
-        CALL me%aPatchData(jg)%writeData(cdiIds%fHndl)
-#endif
-      ELSE
-        CALL finish(routine, "multifile does not use this routine!")
+      IF (lIsWriteProcess) THEN
+        IF (.NOT.ALLOCATED(rAttribs)) &
+          & CALL me%defineRestartAttributes(rAttribs, rArgs)
+        CALL desc%updateVGrids()
+        CALL restartfile_open()
       END IF
+      CALL me%patchData(jg)%writeData(cdiIds%fHndl)
       IF(lIsWriteProcess) THEN
         CALL create_restart_file_link(fname, TRIM(rArgs%modelType), &
           & desc%id, opt_ndom=desc%opt_ndom)
@@ -267,7 +257,7 @@ CONTAINS
         CALL cdiIds%closeAndDestroyIds()
       END IF
     END DO
-    IF (ASSOCIATED(rAttribs)) THEN
+    IF (ALLOCATED(rAttribs)) THEN
       CALL rAttribs%destruct()
       DEALLOCATE(rAttribs)
     END IF

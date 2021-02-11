@@ -187,6 +187,7 @@ MODULE mo_multifile_restart
     &                                        p_comm_work_2_restart, p_comm_work, p_comm_rank,           &
     &                                        p_mpi_wtime, p_comm_work_restart, num_work_procs,          &
     &                                        my_process_is_mpi_workroot, p_reduce, mpi_sum, p_barrier
+  USE mo_multifile_restart_patch_data, ONLY: t_MultifilePatchData, toMultifilePatchData
   USE mo_multifile_restart_util,       ONLY: createMultifileRestartLink, isAsync, rBuddy, rGroup, &
     &                                        initUtil, iAmRestartMaster, iAmRestartWriter, restartProcCount
   USE mo_packed_message,               ONLY: t_PackedMessage, kPackOp, kUnpackOp
@@ -235,6 +236,7 @@ CONTAINS
     CHARACTER(*), PARAMETER             :: routine = modname//":multifileRestartDescriptor_construct"
     LOGICAL                             :: lthis_pe_active
     INTEGER, ALLOCATABLE                :: srcRanks(:)
+    TYPE(t_MultifilePatchData), POINTER :: patchData(:)
     INTEGER                             :: error, jg, myProcId, myWrt, i, sRStrt, sREnd, jg0, &
       &                                    jfile, nStreams, nSrcRanks, ckSize
 
@@ -254,10 +256,10 @@ CONTAINS
     IF (nStreams > nSrcRanks) &
       CALL finish(routine, "more horizontal multifile chunks than worker ranks requested!")
     ! allocate patch data structure
-    ALLOCATE(me%mPatchData(n_dom*nStreams), STAT = error)
+    ALLOCATE(t_MultifilePatchData :: me%patchData(n_dom*nStreams), STAT = error)
     IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
-    me%patchData => me%mPatchData
     ckSize = (nSrcRanks + nStreams - 1)/nStreams
+    patchData => toMultifilePatchData(me%patchData)
     DO jfile = 1, nStreams
       sRStrt = (jfile-1)*ckSize + 1
       sREnd  = MIN(nSrcRanks, jfile*ckSize)
@@ -265,16 +267,16 @@ CONTAINS
       ! sourceRank_start:sourceRank_end into a separate file.
       jg0 = (jfile-1)*n_dom
       DO jg = 1, n_dom
-        CALL me%mPatchData(jg0+jg)%construct(me%modelType, jg)
+        CALL patchData(jg0+jg)%construct(me%modelType, jg)
         ! initialize the patch DATA structures
         IF (.NOT.iAmRestartWriter()) THEN
           lthis_pe_active = ANY(myProcId == srcRanks(sRStrt:sREnd))
-          CALL me%mPatchData(jg0+jg)%createCollectors(myWrt, srcRanks(1:0), lthis_pe_active)
+          CALL patchData(jg0+jg)%createCollectors(myWrt, srcRanks(1:0), lthis_pe_active)
           ! to keep mo_timer happy
           IF (timers_level >= 7) CALL timer_start(timer_write_restart_communication)
           IF (timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
         ELSE
-          CALL me%mPatchData(jg0+jg)%createCollectors(myWrt, srcRanks(sRStrt:sREnd), .TRUE.)
+          CALL patchData(jg0+jg)%createCollectors(myWrt, srcRanks(sRStrt:sREnd), .TRUE.)
         END IF
       END DO
     END DO
@@ -326,26 +328,28 @@ CONTAINS
     INTEGER(i8)                           :: totBWritten, bWritten
     REAL(dp)                              :: gbWritten, dpTime
     CHARACTER(:), ALLOCATABLE             :: filename
-    TYPE(t_CdiIds)                        :: cdiIds(SIZE(me%mPatchData))
+    TYPE(t_CdiIds)                        :: cdiIds(SIZE(me%patchData))
+    TYPE(t_MultifilePatchData), POINTER   :: patchData(:)
 
     dpTime = p_mpi_wtime()
     bWritten = 0_i8
     CALL restartWritingParameters(opt_nrestart_streams=n_rstreams)
     CALL updatePatchData()
-    DO jg = 1, SIZE(me%mPatchData)
-      IF (me%mPatchData(jg)%description%l_dom_active) &
-        & CALL me%mPatchData(jg)%start_local_access()
+    patchData => toMultifilePatchData(me%patchData)
+    DO jg = 1, SIZE(me%patchData)
+      IF (patchData(jg)%description%l_dom_active) &
+        & CALL patchData(jg)%start_local_access()
     END DO
     IF (my_process_is_work()) THEN
-      DO jg = 1, SIZE(me%mPatchData)
-        IF (me%mPatchData(jg)%description%l_dom_active) THEN
-          CALL me%mPatchData(jg)%exposeData()
+      DO jg = 1, SIZE(me%patchData)
+        IF (patchData(jg)%description%l_dom_active) THEN
+          CALL patchData(jg)%exposeData()
         END IF
       END DO
     END IF
-    DO jg = 1, SIZE(me%mPatchData)
-      IF (me%mPatchData(jg)%description%l_dom_active) THEN
-        CALL me%mPatchData(jg)%start_remote_access()
+    DO jg = 1, SIZE(me%patchData)
+      IF (patchData(jg)%description%l_dom_active) THEN
+        CALL patchData(jg)%start_remote_access()
       END IF
     END DO
     IF(iAmRestartMaster()) THEN
@@ -364,12 +368,12 @@ CONTAINS
     END IF
     IF (iAmRestartWriter()) THEN
       CALL getRestartFilename('multifile', 0, restartArgs, filename)
-      DO jg = 1, SIZE(me%mPatchData)
-        IF (me%mPatchData(jg)%description%l_dom_active .AND. SIZE(me%mPatchData(jg)%varData) > 0) THEN
+      DO jg = 1, SIZE(me%patchData)
+        IF (patchData(jg)%description%l_dom_active .AND. SIZE(patchData(jg)%varData) > 0) THEN
           findex = n_rstreams*rGroup() + (jg-1)/n_dom
-          cdiIds(jg) = me%mPatchData(jg)%openPayloadFile(filename, findex, &
+          cdiIds(jg) = patchData(jg)%openPayloadFile(filename, findex, &
             & restartArgs%restart_datetime, bWritten)
-          CALL me%mPatchData(jg)%collectData(cdiIds(jg)%fHndl, bWritten)
+          CALL patchData(jg)%collectData(cdiIds(jg)%fHndl, bWritten)
           CALL cdiIds(jg)%closeAndDestroyIds()
         END IF
       END DO
@@ -401,11 +405,11 @@ CONTAINS
       INTEGER :: metaFile, grid, zaxis, var, vlist, n_dom_active
       CHARACTER(:), ALLOCATABLE :: mafname
       CHARACTER(*), PARAMETER :: routine = modname//":writeAttributeFile"
-      TYPE(t_key_value_store), POINTER :: rAttribs
+      TYPE(t_key_value_store), ALLOCATABLE :: rAttribs
 
       CALL me%defineRestartAttributes(rAttribs, restartArgs)
       CALL rAttribs%put('multifile_file_count', n_rstreams*restartProcCount())
-      n_dom_active = COUNT(me%mPatchData(:)%description%l_dom_active)
+      n_dom_active = COUNT(patchData(:)%description%l_dom_active)
       CALL rAttribs%put('multifile_n_dom_active', n_dom_active)
       IF(timers_level >= 7) CALL timer_start(timer_write_restart_io)
       mafname = filename//"/attributes.nc"
@@ -434,25 +438,25 @@ CONTAINS
 
       IF(timers_level >= 7) CALL timer_start(timer_write_restart_setup)
       IF (.NOT.isAsync() .OR. .NOT. my_process_is_restart()) THEN
-        DO i = 1, SIZE(me%mPatchData)
-          CALL me%mPatchData(i)%description%updateOnMaster()
+        DO i = 1, SIZE(me%patchData)
+          CALL me%patchData(i)%description%updateOnMaster()
         END DO
       END IF
       IF(my_process_is_mpi_workroot()) THEN
-         DO i = 1, SIZE(me%mPatchData)
-           CALL me%mPatchData(i)%description%packer(kPackOp, packedMessage)
+         DO i = 1, SIZE(me%patchData)
+           CALL me%patchData(i)%description%packer(kPackOp, packedMessage)
          END DO
       END IF
       IF(my_process_is_work()) CALL packedMessage%bcast(0, p_comm_work)
 #ifndef NOMPI
       IF(isAsync()) CALL packedMessage%bcast(restartBcastRoot(), p_comm_work_2_restart)
 #endif
-      DO i = 1, SIZE(me%mPatchData)
-         CALL me%mPatchData(i)%description%packer(kUnpackOp, packedMessage)
+      DO i = 1, SIZE(me%patchData)
+         CALL me%patchData(i)%description%packer(kUnpackOp, packedMessage)
       END DO
       IF(timers_level >= 7) CALL timer_stop(timer_write_restart_setup)
-      DO i = 1, SIZE(me%mPatchData)
-        CALL me%mPatchData(i)%description%updateVGrids()
+      DO i = 1, SIZE(me%patchData)
+        CALL me%patchData(i)%description%updateVGrids()
       END DO
     END SUBROUTINE updatePatchData
   END SUBROUTINE multifileRestartDescriptor_writeRestartInternal
@@ -464,9 +468,10 @@ CONTAINS
 
     IF(timers_level >= 5) CALL timer_start(timer_write_restart)
     IF(my_process_is_work()) CALL sendStopToRestart()
-    DO i = 1, SIZE(me%mPatchData)
-      CALL me%mPatchData(i)%destruct()
+    DO i = 1, SIZE(me%patchData)
+      CALL me%patchData(i)%destruct()
     END DO
+    DEALLOCATE(me%patchData)
     IF(timers_level >= 5) CALL timer_stop(timer_write_restart)
   CONTAINS
 

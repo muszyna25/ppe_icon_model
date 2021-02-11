@@ -31,7 +31,7 @@ MODULE mo_opt_nwp_diagnostics
     &                                 tmelt, earth_radius, &
     &                                 alvdcp, rd_o_cpd, &
     &                                 rhoh2o, rhoice, K_w_0, K_i_0
-  USE gscp_data,                ONLY: cloud_num, isnow_n0temp, zami, mu_rain, zams, zams_gr, zbms, &
+  USE gscp_data,                ONLY: cloud_num, isnow_n0temp, zami, mu_rain, zams_ci, zams_gr, zbms, &
     &                                 znimax_Thom, zthn, mma, mmb, zcnue
   USE mo_2mom_mcrph_main,       ONLY: init_2mom_scheme,      &
     &                                 rain_coeffs  ! contains the parameters for the mue-Dm-relation
@@ -2953,7 +2953,7 @@ CONTAINS
       ! Parameters for snow and graupel:
       IF (igscp == 1) THEN
         
-        ams = zams
+        ams = zams_ci
         bms = zbms
         p_s = (2.0_wp*bms+1.0_wp)/(bms+1.0_wp)
         z_s = mom_fac*ams**2 * gfct(2.0_wp*bms+1.0_wp) * (ams*gfct(bms+1.0_wp))**(-p_s)

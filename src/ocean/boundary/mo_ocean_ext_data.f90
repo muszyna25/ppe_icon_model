@@ -432,7 +432,7 @@ CONTAINS
       CALL nf(nf_close(ncid), routine)
     ENDIF
 
-    stream_id = openInputFile(grid_file, p_patch(jg))
+    CALL openinputfile(stream_id, grid_file, p_patch(jg))
 
     !-------------------------------------------------------
     !
@@ -535,7 +535,7 @@ CONTAINS
         CALL nf(nf_close(ncid), routine)
       ENDIF
 
-      stream_id = openInputFile(omip_file, p_patch(jg))
+      CALL openinputfile(stream_id, omip_file, p_patch(jg))
       
       IF(p_test_run) THEN
         mpi_comm = p_comm_work_test

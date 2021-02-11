@@ -156,6 +156,7 @@ MODULE mo_hamocc_types
     REAL(wp), POINTER ::  orginp(:,:)   ! for now constant value read via nml    
     REAL(wp), POINTER ::  silinp(:,:)   ! later riverine input possible     
     REAL(wp), POINTER ::  calinp(:,:)   ! via mo_bgc_bcond    
+  !  REAL(wp), POINTER ::  nitinp(:,:)     ! nitrogen input 
     REAL(wp), POINTER ::  h2obudget(:,:,:)       
     REAL(wp), POINTER ::  n2budget(:,:,:)       
     REAL(wp), POINTER ::  sedflic(:,:)       
@@ -201,6 +202,8 @@ MODULE mo_hamocc_types
     REAL(wp), POINTER ::  zo2min(:,:)       
     REAL(wp), POINTER ::  h2sprod(:,:,:)       
     REAL(wp), POINTER ::  h2sloss(:,:,:)       
+    REAL(wp), POINTER ::  lysocline(:,:)
+    REAL(wp), POINTER ::  nitrogeninp(:,:)
     TYPE(t_hamocc_monitor) :: monitor
   END TYPE t_hamocc_tend
 

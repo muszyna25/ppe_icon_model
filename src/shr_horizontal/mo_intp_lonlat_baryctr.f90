@@ -115,11 +115,13 @@
 
     !> compute barycentric coordinates u(1...3) for the point pt
     !> inside the triangle pidx(1...3). The vertex positions are
-    !> provided through the array @p vertex.
+    !> provided through the array @v vertex.
     !
-    SUBROUTINE compute_barycentric_coords(pt, p1,p2,p3, u)
+    SUBROUTINE compute_barycentric_coords(pt, v, u)
       TYPE(t_geographical_coordinates), INTENT(IN)  :: pt                  !< query point (longitude/latitude)  
-      REAL(wp),                         INTENT(IN)  :: p1(3), p2(3), p3(3) !< triangle vertices
+      !> triangle vertices, first index is x,y,z,
+      !! second index is 1st,2nd or 3rd vertex
+      REAL(wp),                         INTENT(IN)  :: v(3,3)
       REAL(wp),                         INTENT(OUT) :: u(3)                !< barycentric coordinates (dim: 3)
       ! local variables
       TYPE(t_cartesian_coordinates) :: a,b,c,p
@@ -127,9 +129,9 @@
       INTEGER :: i
 
       ! Cartesian coordinates of triangle vertices
-      a%x(:) = p1
-      b%x(:) = p2
-      c%x(:) = p3
+      a%x(:) = v(:, 1)
+      b%x(:) = v(:, 2)
+      c%x(:) = v(:, 3)
       ! query point and project in onto the plane (p1,p2,p3):
       p = project_point_to_plane (gc2cc(pt), a,b,c)
       ! solve linear system for the barycentric coordinates
@@ -811,8 +813,7 @@
             ! --- compute the barycentric interpolation weights for
             ! --- this triangle
 
-            CALL compute_barycentric_coords(ptr_int_lonlat%ll_coord(jc,jb),     &
-              &                             v(:,0),v(:,1),v(:,2),               &
+            CALL compute_barycentric_coords(ptr_int_lonlat%ll_coord(jc,jb), v,               &
               &                             ptr_int_lonlat%baryctr%coeff(1:3,jc,jb))
 
             ! test if either the barycentric interpolation weights
@@ -870,8 +871,7 @@
 
           ELSE
 
-            CALL compute_barycentric_coords(ptr_int_lonlat%ll_coord(jc,jb),     &
-              &                             v(:,0),v(:,1),v(:,2),               &
+            CALL compute_barycentric_coords(ptr_int_lonlat%ll_coord(jc,jb), v, &
               &                             ptr_int_lonlat%baryctr%coeff(1:3,jc,jb))
 
             IF (dbg_level > 5) THEN
@@ -1126,9 +1126,9 @@
       REAL(wp),     PARAMETER :: INSIDETEST_TOL = 1.e-6
 
       INTEGER                         :: nblks_lonlat, npromz_lonlat, jb, jc,    &
-        &                                i_startidx, i_endidx, i, j,             &
+        &                                i_startidx, i_endidx, i, j, iv,        &
         &                                nobjects, idx0
-      REAL(wp)                        :: v1(3),v2(3),v3(3), baryctr_coeff(3)
+      REAL(wp)                        :: v(3,3), baryctr_coeff(3)
       TYPE (t_range_octree)           :: octree               !< octree data structure
       INTEGER                         :: obj_list(NMAX_HITS)  !< query result (triangle search)
       TYPE(t_cartesian_coordinates)   :: ll_point_c           !< cartes. coordinates of lon-lat points
@@ -1160,7 +1160,7 @@
       npromz_lonlat = ptr_int_lonlat%npromz_lonlat(nproma)
 
 !$OMP PARALLEL DO PRIVATE(jb,jc,i_startidx,i_endidx,ll_point_c,nobjects,obj_list, &
-!$OMP                     idx0, v1,v2,v3,i,j,inside_test1,inside_test2, baryctr_coeff )
+!$OMP                     idx0, v,i,j,inside_test1,inside_test2, baryctr_coeff )
       DO jb=1,nblks_lonlat
         i_startidx = 1
         i_endidx   = nproma
@@ -1187,20 +1187,17 @@
           idx0 = -1
           LOOP: DO i=1,nobjects
             j = obj_list(i) - 1
-            v1(:) = (/ p_global%a(tri%a(j)%p(0))%x, p_global%a(tri%a(j)%p(0))%y, p_global%a(tri%a(j)%p(0))%z /)
-            v2(:) = (/ p_global%a(tri%a(j)%p(1))%x, p_global%a(tri%a(j)%p(1))%y, p_global%a(tri%a(j)%p(1))%z /)
-            v3(:) = (/ p_global%a(tri%a(j)%p(2))%x, p_global%a(tri%a(j)%p(2))%y, p_global%a(tri%a(j)%p(2))%z /)
-
+            DO iv = 1, 3
+              v(1,iv) = p_global%a(tri%a(j)%p(iv-1))%x
+              v(2,iv) = p_global%a(tri%a(j)%p(iv-1))%y
+              v(3,iv) = p_global%a(tri%a(j)%p(iv-1))%z
+            END DO
             ! --- compute the barycentric interpolation weights for
             ! --- this triangle
             baryctr_coeff(:) = 0._wp
-            CALL compute_barycentric_coords(ptr_int_lonlat%ll_coord(jc,jb), v1,v2,v3, baryctr_coeff)
+            CALL compute_barycentric_coords(ptr_int_lonlat%ll_coord(jc,jb), v, baryctr_coeff)
 
-            IF (dbg_level > 5) THEN
-              ptr_int_lonlat%baryctr%v(:,1,jc,jb) = v1(:)
-              ptr_int_lonlat%baryctr%v(:,2,jc,jb) = v2(:)
-              ptr_int_lonlat%baryctr%v(:,3,jc,jb) = v3(:)
-            END IF
+            IF (dbg_level > 5) ptr_int_lonlat%baryctr%v(:,:,jc,jb) = v
 
             ! test if either the barycentric interpolation weights
             ! indicate that "ll_point_c" lies inside the triangle or

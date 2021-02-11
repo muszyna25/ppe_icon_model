@@ -36,6 +36,7 @@ MODULE mo_expression
   INTEGER, PARAMETER :: MAX_NAME_LEN     =   32 ! max length of variable name
 
   PUBLIC :: expression
+  PUBLIC :: parse_expression_string
 
   ! ----------------------------------------------------------------------
   ! ISO-C bindings
@@ -405,6 +406,13 @@ CONTAINS
   FUNCTION expression_init(string) RESULT(expr_list)
     CHARACTER(LEN=*),   INTENT(IN)    :: string
     TYPE(expression) :: expr_list
+    CALL parse_expression_string(expr_list, string)
+  END FUNCTION expression_init
+
+  SUBROUTINE parse_expression_string(expr_list, string)
+    CHARACTER(LEN=*),   INTENT(IN)    :: string
+    TYPE(expression), INTENT(out) :: expr_list
+
     ! local variables
     TYPE(t_list)                      :: cqueue
     INTEGER                           :: i,j, ierr, nvars_used
@@ -484,7 +492,7 @@ CONTAINS
     END DO
     ALLOCATE(expr_list%used_vars(nvars_used))
     expr_list%used_vars(:) = used_vars(1:nvars_used)
-  END FUNCTION expression_init
+  END SUBROUTINE parse_expression_string
 
   ! deallocate list of expression operators
   SUBROUTINE expr_list_finalize(this)

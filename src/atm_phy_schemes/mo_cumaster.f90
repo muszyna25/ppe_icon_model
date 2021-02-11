@@ -423,7 +423,7 @@ REAL(KIND=jprb) ::   zcons2, zcons, zdh,&
   & zdqmin, zdz, zeps, zfac, &
   & zmfmax, zpbmpt, zqumqe, zro, zmfa, zerate, zderate, zorcpd, zrdocpd,&
   & ZDUTEN, ZDVTEN, ZTDIS,&
-  & zalv, zsfl(klon), zcapefac
+  & zalv, zsfl(klon), zcapefac, zcapethr
 
 REAL(KIND=jprb) :: ztau(klon), ztaupbl(klon)  ! adjustment time
 
@@ -574,8 +574,9 @@ CALL cuinin &
 
 CALL cubasen &
   & ( kidia,    kfdia,    klon,   ktdia,    klev, &
-  & phy_params%kcon1, phy_params%kcon2, phy_params%entrorg, phy_params%rdepths, &
-  & phy_params%texc, phy_params%qexc, mtnmask, ldland, ldlake, &
+  & phy_params%kcon1, phy_params%kcon2, phy_params%entrorg, &
+  & phy_params%entstpc1, phy_params%entstpc2, phy_params%rdepths, &
+  & phy_params%texc, phy_params%qexc, phy_params%lgrayzone_deepconv, mtnmask, ldland, ldlake, &
   & ztenh,    zqenh,    pgeoh,    paph,&
   & pqhfl,    pahfs,    &
   & pten,     pqen,     pqsen,    pgeo,&
@@ -728,8 +729,8 @@ ENDDO
 
 CALL cuascn &
   & ( kidia,    kfdia,    klon,   ktdia,   klev, phy_params%mfcfl, &
-  & phy_params%entrorg, phy_params%rprcon, phy_params%lmfmid, ptsphy,&
-  & paer_ss, &
+  & phy_params%entrorg, phy_params%detrpen, phy_params%rprcon, phy_params%lmfmid,      &
+  & phy_params%lgrayzone_deepconv, ptsphy, paer_ss,                &
   & ztenh,    zqenh,&
   & ptenq, &
   & pten,     pqen,     pqsen,    plitot,&
@@ -810,7 +811,7 @@ IF(lmfdd) THEN
 
   CALL cuddrafn &
     & ( kidia,    kfdia,    klon,   ktdia,  klev,&
-    & k950, llddraf, ztenh,    zqenh            ,&
+    & k950, llddraf, phy_params%entrdd, ztenh,    zqenh,&
     & pgeo,     pgeoh,    paph,     zrfl,&
     & zdph,     zdgeoh,                  &
     & ztd,      zqd,      pmfu,&
@@ -866,10 +867,14 @@ DO jl = kidia, kfdia
     IF (llo1 .AND. ldland(jl)) THEN
       ! Use PBL CAPE for diurnal cycle correction, including a reduction term for low-CAPE situations
       ! and an increased correction over small-scale mountain peaks to reduce excessive precipitation maxima
+      zcapethr = MERGE(100._jprb,-100._jprb,phy_params%lgrayzone_deepconv)
       zcapefac = (tune_capdcfac_et*(1._jprb-trop_mask(jl)) + tune_capdcfac_tr*trop_mask(jl)) *      &
-                 MIN(1._jprb,MAX(0._jprb,(tune_lowcapefac*pcape(jl)-100._jprb)/300._jprb))
+                 MIN(1._jprb,MAX(0._jprb,(tune_lowcapefac*pcape(jl)+zcapethr)/300._jprb))
       zcapdcycl(jl) = (zcapefac+mtnmask(jl))*MAX(limit_negpblcape,zcappbl(jl))*ztau(jl)*phy_params%tau0
     ENDIF
+    ! This largely suppresses convective drizzle over mountain ridges in grayzone deep convection mode
+    IF (phy_params%lgrayzone_deepconv) zcapdcycl(jl) = MAX(zcapdcycl(jl),                     &
+      MAX(0._jprb,mtnmask(jl)-0.2_jprb)*MERGE(10._jprb,0.1_jprb,llo1)*ztau(jl)*phy_params%tau0)
     ! Reduce adjustment time scale for extreme CAPE values
     IF (pcape(jl) > zcapethresh) ztau(jl) = ztau(jl)/phy_params%tau
   ELSE IF (ldcum(jl) .AND. ktype(jl) == 1) THEN
@@ -1000,8 +1005,8 @@ IF(lmfit) THEN
 
   CALL cuascn &
     & ( kidia,    kfdia,    klon,   ktdia,   klev, phy_params%mfcfl, &
-    & phy_params%entrorg, phy_params%rprcon, phy_params%lmfmid, ptsphy,&
-    & paer_ss,&
+    & phy_params%entrorg, phy_params%detrpen, phy_params%rprcon, phy_params%lmfmid,  &
+    & phy_params%lgrayzone_deepconv, ptsphy, paer_ss,                &
     & ztenh,    zqenh,    &
     & ptenq,            &
     & pten,     pqen,     pqsen,    plitot,&

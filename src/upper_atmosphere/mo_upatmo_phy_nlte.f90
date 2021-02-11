@@ -138,8 +138,8 @@ MODULE mo_upatmo_phy_nlte
   ! approximate co2 column density at top of xco2 scale (x=16.5)
   REAL(wp), PARAMETER :: co2coltop = 6.E+13
   
-  REAL(wp) :: co2x(klco2)                       ! current profile of CO2 vmr
-  REAL(wp) :: co2colx(klco2)                    ! current profile of accumulated number density
+  REAL(wp), TARGET :: co2x(klco2)                       ! current profile of CO2 vmr
+  REAL(wp), TARGET :: co2colx(klco2)                    ! current profile of accumulated number density
   
   ! xma= pressure scale heights (psh) above psh range of
   !      matrix heating rate calculation at which input
@@ -1334,12 +1334,14 @@ CONTAINS
   !>
   !! F) subroutine to calculate  co2 coefficients for specified co2 vmr
   !!
-  SUBROUTINE nlte_set_co2(klev,xvf,plogco2,plogco2col)
+  SUBROUTINE nlte_set_co2(klev,xvf,plogco2,plogco2col,opt_co2x,opt_co2colx)
 
     INTEGER , INTENT(IN) :: klev
     REAL(wp), INTENT(IN) :: xvf(klev)        ! x coordinate: in x-order, i.e., from bottom to top
     REAL(wp), INTENT(IN) :: plogco2(klev)    ! log of co2 vmr: in x-order, i.e., from bottom to top
     REAL(wp), INTENT(IN) :: plogco2col(klev) ! log of co2 column amount: in x-order, i.e., from bottom to top
+    REAL(wp),OPTIONAL,INTENT(OUT) :: opt_co2x(klco2)
+    REAL(wp),OPTIONAL,INTENT(OUT) :: opt_co2colx(klco2)
 
     REAL(wp) :: uref(4), co2intc(4)
     REAL(wp) :: a, cor, realcol
@@ -1349,8 +1351,12 @@ CONTAINS
 
     REAL(wp), PARAMETER :: logco2coltop = 31.725366    ! approximate co2 accumulated column density 
                                                        ! at top of xco2 scale = 6E13
+    LOGICAL :: present_co2x, present_co2colx
 
     !---------------------------------------------------------
+
+    present_co2x    = PRESENT(opt_co2x)
+    present_co2colx = PRESENT(opt_co2colx)
 
     IF (xco2(klco2) > xvf(klev)) THEN             ! demanding co2 accumulated column density 
                                                   ! at higher levels than provided
@@ -1370,6 +1376,9 @@ CONTAINS
       co2x(j)    = EXP(intp_lin(klev, xco2(j), xvf(:), plogco2(:)))
       co2colx(j) = EXP(intp_lin(klev1, xco2(j), xvf1(:), plogco2col1(:)))
     END DO
+
+    IF(present_co2x)    opt_co2x(:)    = co2x(:)
+    IF(present_co2colx) opt_co2colx(:) = co2colx(:)
 
     amat(:,:) = 0._wp
     bmat(:,:) = 0._wp
@@ -1761,6 +1770,7 @@ CONTAINS
     REAL(wp) :: fip(klrf)
 
     REAL(wp) :: x(klev,kbdim), logco2(klev,kbdim), logco2col(klev,kbdim)
+    REAL(wp) :: co2x_loc(klco2,kbdim), co2colx_loc(klco2,kbdim)
     
     INTEGER  :: jsxm, jexm, jsxrf, jexrf, jsxes
     INTEGER  :: jl,jk
@@ -1844,7 +1854,6 @@ CONTAINS
       co2col = pco2col(jl,klev:1:-1)
       n2     = pn2(jl,klev:1:-1)
       op1    = o + 1._wp
-      pr     = prmu0(jl)
 
       ! logarithms of variables that will be interpolated
       logt(:)         = LOG(t(:))
@@ -1857,13 +1866,12 @@ CONTAINS
       logn2(:)        = LOG(n2(:))
 
       ! parameters
-      CALL nlte_set_co2(klev, x(:,jl), logco2(:,jl), logco2col(:,jl))
+      CALL nlte_set_co2(klev, x(:,jl), logco2(:,jl), logco2col(:,jl), &
+        &               opt_co2x=co2x_loc(:,jl), opt_co2colx=co2colx_loc(:,jl))
 
       ! initialize
       hfir(:)   = 0._wp
-      hnir(:)   = 0._wp
       sclfir(:) = 0._wp
-      sclnir(:) = 0._wp
 
       ! ------------------
       ! FIR calculation
@@ -1995,7 +2003,10 @@ CONTAINS
     IF (nsunlit < 1) RETURN 
 
     DO jsunlit = 1, nsunlit
-      jl = idxlist(jsunlit)    
+      jl = idxlist(jsunlit)
+
+      hnir(:)   = 0._wp
+      sclnir(:) = 0._wp
 
       ! if highest level in this column is lower than lowest level of nir calculation: no nir calculation at all
       IF (x(klev,jl) >= xnir(1)) THEN
@@ -2004,7 +2015,8 @@ CONTAINS
         sclnir = MAX(MIN((x(:,jl) - xzeronir) / (xonenir - xzeronir), 1._wp), 0._wp)
         
         ! nir calculation
-        CALL nlte_nir(klev, pr, x(:,jl), logco2(:,jl), logco2col(:,jl), hnir(:))
+        CALL nlte_nir(klev, prmu0(jl), x(:,jl), logco2(:,jl), logco2col(:,jl), hnir(:), &
+          &           opt_co2x=co2x_loc(:,jl), opt_co2colx=co2colx_loc(:,jl))
         
         ! scale
         hnir = hnir * sclnir  ! factor 1/cp included in slantfact of nlte_nir?
@@ -2027,7 +2039,7 @@ CONTAINS
   !>
   !! I) subroutine which computes heating in the near IR
   !!
-  SUBROUTINE nlte_nir(klev, prmu0, x, logco2, logco2col, hnir)
+  SUBROUTINE nlte_nir(klev, prmu0, x, logco2, logco2col, hnir, opt_co2x, opt_co2colx)
 
     ! in/out variables:
     INTEGER , INTENT(IN)    :: klev
@@ -2036,14 +2048,30 @@ CONTAINS
     REAL(wp), INTENT(IN)    :: logco2(klev)     ! log co2 vmr
     REAL(wp), INTENT(IN)    :: logco2col(klev)  ! log co2 colum amount
     REAL(wp), INTENT(INOUT) :: hnir(klev)       ! nir heating rate
+    REAL(wp),TARGET,OPTIONAL,INTENT(IN) :: opt_co2x(klco2)
+    REAL(wp),TARGET,OPTIONAL,INTENT(IN) :: opt_co2colx(klco2)
 
     ! local variables:
     REAL(wp):: slantfact, co2colslantx, co2, co2col
     REAL(wp):: hx(knir)
 
+    REAL(wp), POINTER :: co2_x(:), co2col_x(:)
+
     INTEGER :: jk
 
     !---------------------------------------------------------
+
+    IF(PRESENT(opt_co2x)) THEN
+      co2_x => opt_co2x
+    ELSE
+      co2_x => co2x
+    ENDIF
+
+    IF(PRESENT(opt_co2colx)) THEN
+      co2col_x => opt_co2colx
+    ELSE
+      co2col_x => co2colx
+    ENDIF
 
     ! compute factor for slant co2 column
     slantfact = 35. / SQRT( 1224._wp * prmu0 ** 2 + 1._wp )
@@ -2054,8 +2082,8 @@ CONTAINS
         co2 = EXP(intp_lin(klev, xnir(jk), x(:), logco2(:)))
         co2col = EXP(intp_lin(klev, xnir(jk), x(:), logco2col(:)))
       ELSE
-        co2 = co2x(jk - knir_below)
-        co2col = co2colx(jk - knir_below)
+        co2 = co2_x(jk - knir_below)
+        co2col = co2col_x(jk - knir_below)
       ENDIF
       co2colslantx = co2col * slantfact
       hx(jk) = intp_lin(nir_ref, co2colslantx, nir_refcol(:,jk), nir_heat(:,jk)) * co2
@@ -2072,6 +2100,9 @@ CONTAINS
         hnir(jk) = intp_lin(knir, x(jk), xnir(1:knir), hx(1:knir))
       END IF
     END DO
+
+    co2_x    => NULL()
+    co2col_x => NULL()
 
   END SUBROUTINE nlte_nir
 

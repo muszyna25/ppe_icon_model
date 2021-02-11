@@ -62,7 +62,7 @@ MODULE mo_advection_vflux
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish, message, message_text
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, SUCCESS, min_rlcell_int,   &
+  USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int,   &
     &                               iup_v, ippm_v, ipsm_v,                      &
     &                               islopel_vsm, islopel_vm, ifluxl_vpd,        &
     &                               ino_flx, izero_grad, iparent_flx
@@ -108,6 +108,8 @@ MODULE mo_advection_vflux
   LOGICAL, PARAMETER ::  acc_validate = .FALSE.   ! ONLY SET TO .TRUE. FOR VALIDATION PHASE
 #endif
 
+  CHARACTER(len=*), PARAMETER :: modname = 'mo_advection_vflux'
+
   !-------------------------------------------------------------------------
 
 CONTAINS
@@ -149,8 +151,7 @@ CONTAINS
     &                      lprint_cfl, p_upflux, opt_topflx_tra, opt_q_int,   &
     &                      opt_rlstart, opt_rlend  )
 
-   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_advection_vflux: vert_upwind_flux'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':vert_upwind_flux'
 
     TYPE(t_patch), INTENT(IN) ::  &  !< patch on which computation is 
       &  p_patch                             !< performed
@@ -355,8 +356,7 @@ CONTAINS
     &                         p_upflux, opt_topflx_tra, opt_slev,         &
     &                         opt_rlstart, opt_rlend )
 
-!!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-!!$      &  routine = 'mo_advection_vflux: upwind_vflux_up'
+!!$    CHARACTER(len=*), PARAMETER :: routine = modname//':upwind_vflux_up'
 
     TYPE(t_patch), INTENT(IN) ::  & !< patch on which computation is performed
       &  p_patch
@@ -520,8 +520,7 @@ CONTAINS
     &                      p_upflux, opt_lout_edge, opt_topflx_tra, opt_slev,  &
     &                      opt_ti_slev, opt_rlstart, opt_rlend, opt_elev )
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_advection_vflux:upwind_vflux_ppm'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':upwind_vflux_ppm'
 
     TYPE(t_patch), INTENT(IN) ::  &  !< patch on which computation is performed
       &  p_patch
@@ -782,7 +781,7 @@ CONTAINS
         &       z_cflfrac(nproma,nlevp1,p_patch%nblks_c),              &
         &       max_cfl_blk(p_patch%nblks_c), STAT=ist                 )
       IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine),                                   &
+        CALL finish(routine,                                           &
           &  'allocation for i_indlist, i_levlist, i_listdim, '    //  &
           &  'jk_shifted, z_cflfrac, max_cfl_blk  failed '    )
       ENDIF
@@ -1211,7 +1210,7 @@ CONTAINS
       IF (my_process_is_stdio() .OR. comm_lev>0 .AND. get_my_mpi_work_id() == get_glob_proc0() ) THEN
         ! otherwise it is possible that max_cfl_tot is undefined
         WRITE(message_text,'(a,e16.8)') 'maximum vertical CFL =',max_cfl_tot
-        CALL message(TRIM(routine),message_text)
+        CALL message(routine, message_text)
       ENDIF
 
       ! Add layer-wise diagnostic if the maximum CFL value is close to the stability limit
@@ -1224,7 +1223,7 @@ CONTAINS
           max_cfl_lay_tot(slevp1_ti:nlev) = global_max(max_cfl_lay_tot(slevp1_ti:nlev), iroot=process_mpi_stdio_id)
           DO jk = slevp1_ti,nlev
             WRITE(message_text,'(a,i4,a,e16.8)') 'maximum vertical CFL in layer', jk,' =', max_cfl_lay_tot(jk)
-            CALL message(TRIM(routine),message_text)
+            CALL message(routine, message_text)
           ENDDO
         ENDIF
       ENDIF
@@ -1237,7 +1236,7 @@ CONTAINS
         &         jk_shifted, z_cflfrac, max_cfl_blk, STAT=ist )
 
       IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine),                                    &
+        CALL finish(routine,                                            &
           &  'deallocation for i_indlist, i_levlist, i_listdim_p, ' //  &
           &  'jk_shifted, z_cflfrac, max_cfl_blk failed '      )
       ENDIF
@@ -1279,8 +1278,7 @@ CONTAINS
     &                      p_upflux, opt_lout_edge, opt_topflx_tra, opt_slev,  &
     &                      opt_ti_slev, opt_rlstart, opt_rlend, opt_elev )
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_advection_vflux:upwind_vflux_ppm4gpu'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':upwind_vflux_ppm4gpu'
 
     TYPE(t_patch), TARGET, INTENT(IN) ::  &  !< patch on which computation is performed
       &  p_patch
@@ -1510,7 +1508,7 @@ CONTAINS
       ! TODO: figure out z_cfl lifetime
       ALLOCATE( z_cfl(nproma,nlevp1,p_patch%nblks_c), STAT=ist  )
       IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine), 'allocation for z_cfl failed')
+        CALL finish(routine, 'allocation for z_cfl failed')
       ENDIF
 !$ACC ENTER DATA CREATE( z_cfl ),  IF( i_am_accel_node .AND. acc_on )
     END IF
@@ -1905,7 +1903,7 @@ CONTAINS
       IF (my_process_is_stdio() .OR. comm_lev>0 .AND. get_my_mpi_work_id() == get_glob_proc0() ) THEN
         ! otherwise it is possible that max_cfl_tot is undefined
         WRITE(message_text,'(a,e16.8)') 'maximum vertical CFL =',max_cfl_tot
-        CALL message(TRIM(routine),message_text)
+        CALL message(routine,message_text)
       ENDIF
 
       ! Add layer-wise diagnostic if the maximum CFL value is close to the stability limit
@@ -1917,7 +1915,7 @@ CONTAINS
         max_cfl_lay_tot(slevp1_ti:nlev) = global_max(max_cfl_lay_tot(slevp1_ti:nlev), iroot=process_mpi_stdio_id)
         DO jk = slevp1_ti,nlev
           WRITE(message_text,'(a,i4,a,e16.8)') 'maximum vertical CFL in layer', jk,' =', max_cfl_lay_tot(jk)
-          CALL message(TRIM(routine),message_text)
+          CALL message(routine,message_text)
         ENDDO
       ENDIF
 
@@ -1931,7 +1929,7 @@ CONTAINS
 !$ACC EXIT DATA DELETE( z_cfl ) IF( i_am_accel_node .AND. acc_on )
       DEALLOCATE( z_cfl, STAT=ist )
       IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine), 'deallocation for z_cfl failed' )
+        CALL finish(routine, 'deallocation for z_cfl failed' )
       ENDIF
     END IF
 
@@ -2124,8 +2122,7 @@ CONTAINS
     &                    i_start, i_end, parent_topflx, upflx_top,      &
     &                    upflx_bottom, llbc_adv )
 
-!!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-!!$      &  routine = 'mo_advection_vflux: set_ubc_adv'
+!!$    CHARACTER(len=*), PARAMETER :: routine = modname//':set_ubc_adv'
 
     REAL(wp), INTENT(IN)     :: & !< computed tracer flux at second half level
       &  upflx_top_p1(:)
@@ -2222,7 +2219,6 @@ CONTAINS
 
     ! local variables
     INTEGER :: jc, jk
-    INTEGER :: ikp1                !< vertical level plus one
     INTEGER :: elevp1              !< end level + 1
 
     ! TDMA arrays
@@ -2257,15 +2253,14 @@ CONTAINS
 !$ACC END KERNELS
     !
 !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG VECTOR PRIVATE( ikp1, dzfrac ) COLLAPSE(2)
-    DO jk=slev,elev-1
+!$ACC LOOP GANG VECTOR PRIVATE( dzfrac ) COLLAPSE(2)
+    DO jk=slev+1,elev
       DO jc = i_startidx, i_endidx
-        ikp1  = jk+1 
-        dzfrac = p_cellhgt_mc_now(jc,jk)/p_cellhgt_mc_now(jc,ikp1)
-        a  (jc,ikp1) = 1._wp
-        c  (jc,ikp1) = dzfrac
-        b  (jc,ikp1) = 2._wp*(1._wp + dzfrac)
-        rhs(jc,ikp1) = 3._wp*(dzfrac*p_cc(jc,ikp1) + p_cc(jc,jk))
+        dzfrac = p_cellhgt_mc_now(jc,jk-1)/p_cellhgt_mc_now(jc,jk)
+        a  (jc,jk) = 1._wp
+        c  (jc,jk) = dzfrac
+        b  (jc,jk) = 2._wp*(1._wp + dzfrac)
+        rhs(jc,jk) = 3._wp*(dzfrac*p_cc(jc,jk) + p_cc(jc,jk-1))
       ENDDO
     ENDDO
 !$ACC END PARALLEL
@@ -2363,7 +2358,7 @@ CONTAINS
 
     ! local variables
     INTEGER :: jc, jk
-    INTEGER :: ikm1, ikp1, ikp2      !< vertical level minus and plus one, plus two
+    INTEGER :: ikm1, ikp1, ikm2      !< vertical level minus and plus one, minus two
     INTEGER :: slevp1, elevp1        !< start/end level + 1
 
     REAL(wp) ::   &                  !< auxiliaries for optimization
@@ -2489,32 +2484,32 @@ CONTAINS
 
 
 !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG VECTOR PRIVATE( ikm1, ikp1, ikp2, zgeo1, zgeo2, zgeo3, zgeo4 ) COLLAPSE(2)
-    DO jk = slevp1, elev-2
+!$ACC LOOP GANG VECTOR PRIVATE( ikm1, ikm2, ikp1, zgeo1, zgeo2, zgeo3, zgeo4 ) COLLAPSE(2)
+    DO jk = slev+2, elev-1
       DO jc = i_startidx, i_endidx
 
         ! index of top half level
         ikm1 = jk - 1
+        ikm2 = jk - 2
         ! index of bottom half level
         ikp1 = jk + 1
-        ikp2 = jk + 2
 
-        zgeo1 = p_cellhgt_mc_now(jc,jk)                                      &
-          &   / (p_cellhgt_mc_now(jc,jk) + p_cellhgt_mc_now(jc,ikp1))
-        zgeo2 = 1._wp / (p_cellhgt_mc_now(jc,ikm1) + p_cellhgt_mc_now(jc,jk) &
-          &   + p_cellhgt_mc_now(jc,ikp1) + p_cellhgt_mc_now(jc,ikp2))
-        zgeo3 = (p_cellhgt_mc_now(jc,ikm1) + p_cellhgt_mc_now(jc,jk))        &
-          &   / (2._wp*p_cellhgt_mc_now(jc,jk) + p_cellhgt_mc_now(jc,ikp1))
-        zgeo4 = (p_cellhgt_mc_now(jc,ikp2) + p_cellhgt_mc_now(jc,ikp1))      &
-          &   / (2._wp*p_cellhgt_mc_now(jc,ikp1) + p_cellhgt_mc_now(jc,jk))
+        zgeo1 = p_cellhgt_mc_now(jc,ikm1)                                      &
+          &   / (p_cellhgt_mc_now(jc,ikm1) + p_cellhgt_mc_now(jc,jk))
+        zgeo2 = 1._wp / (p_cellhgt_mc_now(jc,ikm2) + p_cellhgt_mc_now(jc,ikm1) &
+          &   + p_cellhgt_mc_now(jc,jk) + p_cellhgt_mc_now(jc,ikp1))
+        zgeo3 = (p_cellhgt_mc_now(jc,ikm2) + p_cellhgt_mc_now(jc,ikm1))        &
+          &   / (2._wp*p_cellhgt_mc_now(jc,ikm1) + p_cellhgt_mc_now(jc,jk))
+        zgeo4 = (p_cellhgt_mc_now(jc,ikp1) + p_cellhgt_mc_now(jc,jk))          &
+          &   / (2._wp*p_cellhgt_mc_now(jc,jk) + p_cellhgt_mc_now(jc,ikm1))
 
 
-        p_face(jc,ikp1) = p_cc(jc,jk)                                  &
-          &  + zgeo1 * (p_cc(jc,ikp1) - p_cc(jc,jk))                   &
-          &  + zgeo2 * ( (2._wp * p_cellhgt_mc_now(jc,ikp1) * zgeo1)   &
-          &  * ( zgeo3 - zgeo4 ) * (p_cc(jc,ikp1) - p_cc(jc,jk))       &
-          &  - zgeo3 * p_cellhgt_mc_now(jc,jk)   * z_slope(jc,ikp1)    &
-          &  + zgeo4 * p_cellhgt_mc_now(jc,ikp1) * z_slope(jc,jk) )
+        p_face(jc,jk) = p_cc(jc,ikm1)                                  &
+          &  + zgeo1 * (p_cc(jc,jk) - p_cc(jc,ikm1))                   &
+          &  + zgeo2 * ( (2._wp * p_cellhgt_mc_now(jc,jk) * zgeo1)     &
+          &  * ( zgeo3 - zgeo4 ) * (p_cc(jc,jk) - p_cc(jc,ikm1))       &
+          &  - zgeo3 * p_cellhgt_mc_now(jc,ikm1)   * z_slope(jc,jk)    &
+          &  + zgeo4 * p_cellhgt_mc_now(jc,jk) * z_slope(jc,ikm1) )
 
       END DO  !jc
 

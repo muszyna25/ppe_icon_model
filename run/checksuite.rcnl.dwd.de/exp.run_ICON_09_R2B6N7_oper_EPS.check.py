@@ -21,7 +21,7 @@ async def run_checks_glb(test_data, reference):
         check_rel_avg(test_data, reference, 0.00004, grb_metadata(test_data.grb, "shortName") == "T_G"),     \
         check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "T"),       \
         check_rel_avg(test_data, reference, 0.00003, grb_metadata(test_data.grb, "shortName") == "T_2M"),    \
-        check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "RELHUM_2M"),    \
+        check_rel_avg(test_data, reference, 0.0002, grb_metadata(test_data.grb, "shortName") == "RELHUM_2M"),    \
         check_rel_avg(test_data, reference, 0.0015, grb_metadata(test_data.grb, "shortName") == "TOT_PREC"),     \
         check_rel_avg(test_data, reference, 0.0002, grb_metadata(test_data.grb, "shortName") == "TQV"),     \
         check_rel_avg(test_data, reference, 0.008,  grb_metadata(test_data.grb, "shortName") == "TQC_DIA"),  \
@@ -29,6 +29,7 @@ async def run_checks_glb(test_data, reference):
         check_rel_avg(test_data, reference, 0.005, grb_metadata(test_data.grb, "shortName") == "CLCL"),     \
         check_rel_avg(test_data, reference, 0.005, grb_metadata(test_data.grb, "shortName") == "CLCM"),     \
         check_rel_avg(test_data, reference, 0.005, grb_metadata(test_data.grb, "shortName") == "CLCH"),     \
+        check_rel_avg(test_data, reference, 0.002, grb_metadata(test_data.grb, "shortName") == "CLCT"),     \
         check_rel_avg(test_data, reference, 0.0003, grb_metadata(test_data.grb, "shortName") == "ASOB_S"),   \
         check_rel_avg(test_data, reference, 0.0003, grb_metadata(test_data.grb, "shortName") == "ASOB_T"),   \
         check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "ATHB_S"),   \
@@ -37,7 +38,9 @@ async def run_checks_glb(test_data, reference):
         check_rel_avg(test_data, reference, 0.0005, grb_metadata(test_data.grb, "shortName") == "ASHFL_S"),  \
         check_rel_avg(test_data, reference, 0.001, grb_metadata(test_data.grb, "shortName") == "W_SO"),     \
         check_rel_avg(test_data, reference, 0.002, grb_metadata(test_data.grb, "shortName") == "RAIN_GSP"), \
-        check_rel_avg(test_data, reference, 0.002, grb_metadata(test_data.grb, "shortName") == "RAIN_CON"), \
+        check_rel_avg(test_data, reference, 0.003, grb_metadata(test_data.grb, "shortName") == "RAIN_CON"), \
+        check_rel_avg(test_data, reference, 0.003, grb_metadata(test_data.grb, "shortName") == "SNOW_GSP"), \
+        check_rel_avg(test_data, reference, 0.005, grb_metadata(test_data.grb, "shortName") == "SNOW_CON"), \
         # GRIB2 meta-data checks:
         check_grb_metadata(test_data, reference, True),                                                  \
     )
@@ -49,14 +52,15 @@ async def run_checks_loc(test_data, reference):
         check_rel_avg(test_data, reference, 0.00006, grb_metadata(test_data.grb, "shortName") == "T_G"),     \
         check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "T"),       \
         check_rel_avg(test_data, reference, 0.00005, grb_metadata(test_data.grb, "shortName") == "T_2M"),    \
-        check_rel_avg(test_data, reference, 0.0004, grb_metadata(test_data.grb, "shortName") == "RELHUM_2M"),    \
+        check_rel_avg(test_data, reference, 0.0005, grb_metadata(test_data.grb, "shortName") == "RELHUM_2M"),    \
         check_rel_avg(test_data, reference, 0.002,  grb_metadata(test_data.grb, "shortName") == "TOT_PREC"),     \
         check_rel_avg(test_data, reference, 0.0005, grb_metadata(test_data.grb, "shortName") == "TQV"),     \
         check_rel_avg(test_data, reference, 0.02,  grb_metadata(test_data.grb, "shortName") == "TQC_DIA"),  \
-        check_rel_avg(test_data, reference, 0.01,  grb_metadata(test_data.grb, "shortName") == "TQI_DIA"),  \
-        check_rel_avg(test_data, reference, 0.01,  grb_metadata(test_data.grb, "shortName") == "CLCL"),     \
-        check_rel_avg(test_data, reference, 0.01,  grb_metadata(test_data.grb, "shortName") == "CLCM"),     \
-        check_rel_avg(test_data, reference, 0.01,  grb_metadata(test_data.grb, "shortName") == "CLCH"),     \
+        check_rel_avg(test_data, reference, 0.015,  grb_metadata(test_data.grb, "shortName") == "TQI_DIA"),  \
+        check_rel_avg(test_data, reference, 0.015,  grb_metadata(test_data.grb, "shortName") == "CLCL"),     \
+        check_rel_avg(test_data, reference, 0.015,  grb_metadata(test_data.grb, "shortName") == "CLCM"),     \
+        check_rel_avg(test_data, reference, 0.015,  grb_metadata(test_data.grb, "shortName") == "CLCH"),     \
+        check_rel_avg(test_data, reference, 0.008,  grb_metadata(test_data.grb, "shortName") == "CLCT"),     \
         check_rel_avg(test_data, reference, 0.001, grb_metadata(test_data.grb, "shortName") == "ASOB_S"),   \
         check_rel_avg(test_data, reference, 0.001, grb_metadata(test_data.grb, "shortName") == "ASOB_T"),   \
         check_rel_avg(test_data, reference, 0.0005, grb_metadata(test_data.grb, "shortName") == "ATHB_S"),   \
@@ -66,6 +70,8 @@ async def run_checks_loc(test_data, reference):
         check_rel_avg(test_data, reference, 0.002, grb_metadata(test_data.grb, "shortName") == "W_SO"),     \
         check_rel_avg(test_data, reference, 0.004, grb_metadata(test_data.grb, "shortName") == "RAIN_GSP"), \
         check_rel_avg(test_data, reference, 0.004, grb_metadata(test_data.grb, "shortName") == "RAIN_CON"), \
+        check_rel_avg(test_data, reference, 0.01, grb_metadata(test_data.grb, "shortName") == "SNOW_GSP"), \
+        check_rel_avg(test_data, reference, 0.01, grb_metadata(test_data.grb, "shortName") == "SNOW_CON"), \
         # GRIB2 meta-data checks:
         check_grb_metadata(test_data, reference, True),                                                  \
     )

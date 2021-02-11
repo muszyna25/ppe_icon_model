@@ -101,25 +101,25 @@ CONTAINS
     var_name_u = toupper(var_name)
     DO ivar=1,max_var_ml
       IF (p_onl%ml_varlist(ivar) /= ' ') THEN
-        retval = toupper(TRIM(p_onl%ml_varlist(ivar))) == var_name_u
+        retval = toupper(p_onl%ml_varlist(ivar)) == var_name_u
         IF (retval) RETURN
       END IF
     END DO
     DO ivar=1,max_var_pl
       IF (p_onl%pl_varlist(ivar) /= ' ') THEN
-        retval = toupper(TRIM(p_onl%pl_varlist(ivar))) == var_name_u
+        retval = toupper(p_onl%pl_varlist(ivar)) == var_name_u
         IF (retval) RETURN
       END IF
     END DO
     DO ivar=1,max_var_hl
       IF (p_onl%hl_varlist(ivar) /= ' ') THEN
-        retval = toupper(TRIM(p_onl%hl_varlist(ivar))) == var_name_u
+        retval = toupper(p_onl%hl_varlist(ivar)) == var_name_u
         IF (retval) RETURN
       END IF
     END DO
     DO ivar=1,max_var_il
       IF (p_onl%il_varlist(ivar) /= ' ') THEN
-        retval = toupper(TRIM(p_onl%il_varlist(ivar))) == var_name_u
+        retval = toupper(p_onl%il_varlist(ivar)) == var_name_u
         IF (retval) RETURN
       END IF
     END DO
@@ -134,7 +134,7 @@ CONTAINS
 
     !> head output namelist list
     TYPE(t_output_name_list), POINTER :: first_output_name_list
-    TYPE(t_key_value_store), POINTER, INTENT(INOUT)  :: ptr_outvar
+    TYPE(t_key_value_store), INTENT(INOUT)  :: ptr_outvar
     INTEGER, INTENT(IN), OPTIONAL :: jg
 
     ! local variables
@@ -181,11 +181,10 @@ CONTAINS
   !!       function can be called with "group:gname" as var_name and it will return .TRUE. if
   !!       "group:gname" is in an output namelist. Same with "tiles:".
   !!
-  FUNCTION is_variable_in_output(first_output_name_list, var_name) RESULT(retval)
+  FUNCTION is_variable_in_output(var_name) RESULT(retval)
     LOGICAL :: retval
 
     !> head output namelist list
-    TYPE(t_output_name_list), POINTER :: first_output_name_list
     CHARACTER(LEN=*), INTENT(IN)  :: var_name   !< variable name
 
     ! local variables
@@ -210,11 +209,9 @@ CONTAINS
   !! @return .TRUE. if output for a given variable is due for a specific domain in any
   !!         output namelist.
   !!
-  FUNCTION is_variable_in_output_dom(first_output_name_list, var_name, jg) RESULT(retval)
+  FUNCTION is_variable_in_output_dom(var_name, jg) RESULT(retval)
     LOGICAL :: retval
 
-    !> head output namelist list
-    TYPE(t_output_name_list), POINTER :: first_output_name_list
     CHARACTER(LEN=*), INTENT(IN)  :: var_name   !< variable name
     INTEGER, INTENT(in)           :: jg         !< domain index
 

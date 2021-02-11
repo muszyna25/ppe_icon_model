@@ -104,9 +104,11 @@ CONTAINS
     CHARACTER(*), INTENT(IN) :: modelType
     INTEGER, VALUE :: jg
     INTEGER, INTENT(IN) :: opt_ndom
+    CHARACTER(2) :: sg
 
     IF (opt_ndom == 1) jg = 1
-    resultVar = 'restart_'//modelType//"_DOM"//TRIM(int2string(jg, "(i2.2)"))//'.nc'
+    WRITE (sg, '(i2.2)') jg
+    resultVar = 'restart_'//modelType//"_DOM"//sg//'.nc'
   END SUBROUTINE restartSymlinkName
 
   SUBROUTINE create_restart_file_link(filename, modelType, jg, opt_ndom)

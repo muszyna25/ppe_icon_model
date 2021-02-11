@@ -27,7 +27,6 @@ MODULE mo_nwp_ecrad_utilities
   USE mo_kind,                   ONLY: wp
   USE mo_math_constants,         ONLY: rad2deg
   USE mo_exception,              ONLY: finish
-  USE mo_impl_constants,         ONLY: MAX_CHAR_LENGTH
   USE mo_math_types,             ONLY: t_geographical_coordinates
   USE mo_atm_phy_nwp_config,     ONLY: atm_phy_nwp_config
   USE mo_physical_constants,     ONLY: rd, grav
@@ -194,7 +193,8 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Daniel Rieger, Deutscher Wetterdienst, Offenbach (2019-05-10)
   !!
-  SUBROUTINE ecrad_set_clouds(ecrad_cloud, ecrad_thermodynamics, qc, qi, clc, temp, pres, acdnc, fr_glac, fr_land, fact_reffc, &
+  SUBROUTINE ecrad_set_clouds(ecrad_cloud, ecrad_thermodynamics, qc, qi, clc, temp, pres, acdnc, fr_glac, fr_land, &
+    &                         reff_liq, reff_frz, icpl_reff, fact_reffc,                                           &
     &                         clc_min, nlev, i_startidx, i_endidx)
 
     TYPE(t_ecrad_cloud_type), INTENT(inout) :: &
@@ -212,7 +212,12 @@ CONTAINS
       &  fr_land(:),            & !< land-sea mask. (1. = land, 0. = sea/lakes)
       &  fact_reffc,            & !< Factor in the calculation of cloud droplet effective radius
       &  clc_min                  !< Minimum cloud cover value to be considered as partly cloudy
+    REAL(wp), POINTER, INTENT(in)     :: &
+      &  reff_liq(:,:),         & !< effective radius of the liquid phase (external)
+      &  reff_frz(:,:)            !< effective radius of the frozen phase (external)
+
     INTEGER, INTENT(in)      :: &
+      &  icpl_reff,             & !< Option for effective radius
       &  nlev,                  & !< Number of vertical full levels
       &  i_startidx, i_endidx     !< Start and end index of nproma loop in current block
 ! Local variables
@@ -236,14 +241,28 @@ CONTAINS
           liwcfac = 0._wp
           ecrad_cloud%fraction(jc,jk) = 0._wp
         ENDIF
-        lwc                         = qc(jc,jk) * liwcfac
-        iwc                         = qi(jc,jk) * liwcfac
-        ! Careful with acdnc input: A division is performed and it is not checked for 0 as the function used
-        ! to create acdnc returns always positive values
-        ecrad_cloud%re_liq(jc,jk)   = reff_droplet(lwc, acdnc(jc,jk), fr_land(jc), fr_glac(jc), fact_reffc)
-        ecrad_cloud%re_ice(jc,jk)   = reff_crystal(iwc)
+        IF ( icpl_reff == 0 ) THEN ! No external calculationcof reff.
+          lwc                         = qc(jc,jk) * liwcfac
+          iwc                         = qi(jc,jk) * liwcfac
+          ! Careful with acdnc input: A division is performed and it is not checked for 0 as the function used
+          ! to create acdnc returns always positive values
+          ecrad_cloud%re_liq(jc,jk)   = reff_droplet(lwc, acdnc(jc,jk), fr_land(jc), fr_glac(jc), fact_reffc)
+          ecrad_cloud%re_ice(jc,jk)   = reff_crystal(iwc)
+        END IF
       ENDDO
     ENDDO
+
+    IF ( icpl_reff > 0 ) THEN
+      IF (.NOT. ASSOCIATED(reff_liq) .OR. .NOT. ASSOCIATED(reff_frz)) THEN
+        CALL finish('ecrad_set_clouds','effective radius fields not associated')
+      ENDIF
+      DO jk = 1, nlev
+        DO jc = i_startidx, i_endidx
+          ecrad_cloud%re_liq(jc,jk) = MAX(MIN(reff_liq(jc,jk),32.0e-6_wp),2.0e-6_wp)  
+          ecrad_cloud%re_ice(jc,jk) = MAX(MIN(reff_frz(jc,jk),99.0e-6_wp),4.0e-6_wp) 
+        ENDDO
+      ENDDO
+    ENDIF
 
   END SUBROUTINE ecrad_set_clouds
   !---------------------------------------------------------------------------------------
@@ -283,7 +302,7 @@ CONTAINS
     REAL(wp), ALLOCATABLE    :: &
       &  ch4(:,:),              & !< Methane volume mixing ratio
       &  n2o(:,:)                 !< N2O volume mixing ratio
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+    CHARACTER(len=*), PARAMETER :: &
       &  routine = modname//'::ecrad_set_gas'
 
     ! Water Vapor
@@ -293,7 +312,7 @@ CONTAINS
       CASE(1) ! Use values from diagnosed water vapor content
         CALL ecrad_gas%put(ecRad_IH2O, IMassMixingRatio, qv(:,:))
       CASE DEFAULT
-        CALL finish(TRIM(routine),'Current implementation only supports irad_h2o = 0, 1')
+        CALL finish(routine, 'Current implementation only supports irad_h2o = 0, 1')
     END SELECT
 
     ! Ozone
@@ -303,7 +322,7 @@ CONTAINS
       CASE(7,9,79,97) ! Use values from GEMS/MACC (different profiles)
         CALL ecrad_gas%put(ecRad_IO3,  IMassMixingRatio, o3(:,:))
       CASE DEFAULT
-        CALL finish(TRIM(routine),'Current implementation only supports irad_o3 = 0, 7, 9, 79, 97')
+        CALL finish(routine, 'Current implementation only supports irad_o3 = 0, 7, 9, 79, 97')
     END SELECT
 
     !CO2
@@ -315,7 +334,7 @@ CONTAINS
       CASE(4) ! time dependent concentration from external file
         CALL ecrad_gas%put_well_mixed(ecRad_ICO2,IMassMixingRatio, ghg_co2mmr,  istartcol=i_startidx,iendcol=i_endidx)
       CASE DEFAULT
-        CALL finish(TRIM(routine),'Current implementation only supports irad_co2 = 0, 2, 4')
+        CALL finish(routine, 'Current implementation only supports irad_co2 = 0, 2, 4')
     END SELECT
 
     !O2
@@ -327,7 +346,7 @@ CONTAINS
         ! We still put it in ecRad, because this bug should be fixed with the next ecRad release
         CALL ecrad_gas%put_well_mixed(ecRad_IO2,IVolumeMixingRatio, vmr_o2,  istartcol=i_startidx,iendcol=i_endidx)
       CASE DEFAULT
-        CALL finish(TRIM(routine),'Current implementation only supports irad_o2 = 0, 2')
+        CALL finish(routine, 'Current implementation only supports irad_o2 = 0, 2')
     END SELECT
 
     !CFC11
@@ -339,7 +358,7 @@ CONTAINS
       CASE(4) ! time dependent concentration from external file
         CALL ecrad_gas%put_well_mixed(ecRad_ICFC11,IMassMixingRatio, ghg_cfcmmr(1),istartcol=i_startidx,iendcol=i_endidx)
       CASE DEFAULT
-        CALL finish(TRIM(routine),'Current implementation only supports irad_cfc11 = 0, 2, 4')
+        CALL finish(routine, 'Current implementation only supports irad_cfc11 = 0, 2, 4')
     END SELECT
 
     !CFC12
@@ -351,7 +370,7 @@ CONTAINS
       CASE(4) ! time dependent concentration from external file
         CALL ecrad_gas%put_well_mixed(ecRad_ICFC12,IMassMixingRatio, ghg_cfcmmr(2),istartcol=i_startidx,iendcol=i_endidx)
       CASE DEFAULT
-        CALL finish(TRIM(routine),'Current implementation only supports irad_cfc12 = 0, 2, 4')
+        CALL finish(routine, 'Current implementation only supports irad_cfc12 = 0, 2, 4')
     END SELECT
 
     !N2O
@@ -368,7 +387,7 @@ CONTAINS
       CASE(4) ! time dependent concentration from external file
         CALL ecrad_gas%put_well_mixed(ecRad_IN2O,IMassMixingRatio, ghg_n2ommr,istartcol=i_startidx,iendcol=i_endidx)
       CASE DEFAULT
-        CALL finish(TRIM(routine),'Current implementation only supports irad_n2o = 0, 2, 3, 4')
+        CALL finish(routine, 'Current implementation only supports irad_n2o = 0, 2, 3, 4')
     END SELECT
 
     !CH4
@@ -385,7 +404,7 @@ CONTAINS
       CASE(4) ! time dependent concentration from external file
         CALL ecrad_gas%put_well_mixed(ecRad_ICH4,IMassMixingRatio, ghg_ch4mmr,istartcol=i_startidx,iendcol=i_endidx)
       CASE DEFAULT
-        CALL finish(TRIM(routine),'Current implementation only supports irad_ch4 = 0, 2, 3, 4')
+        CALL finish(routine, 'Current implementation only supports irad_ch4 = 0, 2, 3, 4')
     END SELECT
 
     CALL ecrad_set_gas_units(ecrad_conf, ecrad_gas)

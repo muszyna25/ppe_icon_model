@@ -45,6 +45,15 @@ MODULE mo_restart_patch_description
 
     PRIVATE
 
+
+    TYPE optional_integer
+      INTEGER :: v !< value if present
+      LOGICAL :: present = .FALSE.
+    END TYPE optional_integer
+    INTERFACE assign_if_present
+      MODULE PROCEDURE assign_if_present_optional_i
+    END INTERFACE assign_if_present
+
     PUBLIC :: t_restart_patch_description
 
     ! TYPE t_restart_patch_description contains all the DATA that
@@ -90,8 +99,8 @@ MODULE mo_restart_patch_description
         !> only considered if >0
         INTEGER :: opt_depth_lnd = -1
         ! dynamic patch arguments (optionally)
-        INTEGER, ALLOCATABLE :: opt_nlev_snow, opt_nice_class, opt_ndyn_substeps, opt_jstep_adv_marchuk_order, &
-                              &opt_ocean_zlevels
+        TYPE(optional_integer) :: opt_nlev_snow, opt_nice_class, opt_ndyn_substeps, &
+             opt_jstep_adv_marchuk_order, opt_ocean_zlevels
 
         REAL(wp), ALLOCATABLE :: opt_pvct(:)
         REAL(wp), ALLOCATABLE :: opt_t_elapsed_phy(:)
@@ -193,18 +202,18 @@ CONTAINS
             CALL assign_if_present_allocatable(me%opt_t_elapsed_phy, opt_t_elapsed_phy)
             CALL assign_if_present_allocatable(me%opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellMiddle)
             CALL assign_if_present_allocatable(me%opt_ocean_zheight_cellInterfaces, opt_ocean_zheight_cellInterfaces)
-            CALL assign_if_present_allocatable(me%opt_ndyn_substeps, opt_ndyn_substeps)
-            CALL assign_if_present_allocatable(me%opt_jstep_adv_marchuk_order, opt_jstep_adv_marchuk_order)
+            CALL assign_if_present(me%opt_ndyn_substeps, opt_ndyn_substeps)
+            CALL assign_if_present(me%opt_jstep_adv_marchuk_order, opt_jstep_adv_marchuk_order)
             CALL assign_if_present(me%opt_depth_lnd, opt_depth_lnd)
-            CALL assign_if_present_allocatable(me%opt_nlev_snow, opt_nlev_snow)
-            CALL assign_if_present_allocatable(me%opt_nice_class, opt_nice_class)
+            CALL assign_if_present(me%opt_nlev_snow, opt_nlev_snow)
+            CALL assign_if_present(me%opt_nice_class, opt_nice_class)
             CALL assign_if_present(me%opt_ndom, opt_ndom)
-            CALL assign_if_present_allocatable(me%opt_ocean_zlevels, opt_ocean_zlevels)
+            CALL assign_if_present(me%opt_ocean_zlevels, opt_ocean_zlevels)
             CALL upatmoRestartAttributesAssign(me%id, me%opt_upatmo_restart_atts, opt_upatmo_restart_atts)
 
             ! consistency check for OPTIONAL ocean variables
             IF(ALLOCATED(me%opt_ocean_zheight_cellMiddle)) THEN
-                IF(.NOT. ALLOCATED(me%opt_ocean_Zheight_CellInterfaces) .OR. .NOT. ALLOCATED(me%opt_ocean_Zlevels)) THEN
+                IF(.NOT. ALLOCATED(me%opt_ocean_Zheight_CellInterfaces) .OR. .NOT. me%opt_ocean_Zlevels%present) THEN
                     CALL finish(routine, 'Ocean level parameteres not complete')
                 END IF
             END IF
@@ -246,41 +255,38 @@ CONTAINS
 
         ! optional parameter values
         CALL packedMessage%packer(operation, me%opt_depth_lnd)
-        CALL packAllocIntScalar(me%opt_nlev_snow)
-        CALL packAllocIntScalar(me%opt_nice_class)
-        CALL packAllocIntScalar(me%opt_ndyn_substeps)
-        CALL packAllocIntScalar(me%opt_jstep_adv_marchuk_order)
+        CALL pack_optional_integer(packedMessage, operation, me%opt_nlev_snow)
+        CALL pack_optional_integer(packedMessage, operation, me%opt_nice_class)
+        CALL pack_optional_integer(packedMessage, operation, me%opt_ndyn_substeps)
+        CALL pack_optional_integer(packedMessage, operation, me%opt_jstep_adv_marchuk_order)
         CALL packedMessage%packer(operation, me%opt_ndom)
-        CALL packAllocIntScalar(me%opt_ocean_zlevels)
+        CALL pack_optional_integer(packedMessage, operation, me%opt_ocean_zlevels)
 
         ! optional parameter arrays
         CALL packedMessage%packer(operation, me%opt_pvct)
         CALL packedMessage%packer(operation, me%opt_t_elapsed_phy)
 
         CALL upatmoRestartAttributesPack(me%id, me%opt_upatmo_restart_atts, packedMessage, operation)
-    CONTAINS
+      END SUBROUTINE restartPatchDescription_packer
 
-    SUBROUTINE packAllocIntScalar(val)
-      INTEGER, ALLOCATABLE, INTENT(INOUT) :: val
-      INTEGER :: tmp_val ! needed to avoid signature matching issues
-      LOGICAL :: is_alloc
+  SUBROUTINE assign_if_present_optional_i(o, opt_arg)
+    TYPE(optional_integer), INTENT(out) :: o
+    INTEGER, OPTIONAL, INTENT(in) :: opt_arg
+    o%present = PRESENT(opt_arg)
+    IF (o%present) THEN
+      o%v = opt_arg
+    ELSE
+      o%v = -HUGE(o%v)
+    END IF
+  END SUBROUTINE assign_if_present_optional_i
 
-      IF (operation .EQ. kPackOp) is_alloc = ALLOCATED(val)
-      CALL packedMessage%packer(operation, is_alloc)
-      IF (is_alloc) THEN
-        IF (operation .EQ. kPackOp) tmp_val = val
-        CALL packedMessage%packer(operation, tmp_val)
-        IF (operation .EQ. kUnpackOp) THEN
-          IF(.NOT.ALLOCATED(val)) ALLOCATE(val)
-          val = tmp_val
-        END IF
-      ELSE
-        IF (operation .EQ. kUnpackOp .AND. ALLOCATED(val)) &
-          & DEALLOCATE(val)
-      END IF
-    END SUBROUTINE packAllocIntScalar
-
-    END SUBROUTINE restartPatchDescription_packer
+  SUBROUTINE pack_optional_integer(msg, op, oi)
+    CLASS(t_PackedMessage), INTENT(INOUT) :: msg
+    INTEGER, INTENT(in) :: op
+    TYPE(optional_integer) :: oi
+    CALL msg%packer(op, oi%present)
+    IF (oi%present) CALL msg%packer(op, oi%v)
+  END SUBROUTINE pack_optional_integer
 
     ! This ensures that the work master has complete up-to-date
     ! knowledge of the patch description.  To this END, this calls
@@ -310,7 +316,7 @@ CONTAINS
     !  Set vertical grid definition.
     SUBROUTINE restartPatchDescription_updateVGrids(me)
         CLASS(t_restart_patch_description), TARGET, INTENT(INOUT) :: me
-        INTEGER :: nlev_soil, nlev_snow, nlev_ocean, nice_class
+        INTEGER :: nice_class
 #ifndef __NO_ICON_OCEAN__
         INTEGER :: error
         REAL(wp), ALLOCATABLE :: levels(:), levels_sp(:)
@@ -318,9 +324,6 @@ CONTAINS
         CHARACTER(*), PARAMETER :: routine = modname//":restartPatchDescription_updateVGrids"
 
         ! DEFAULT values for the level counts
-        nlev_soil = 0
-        nlev_snow = 0
-        nlev_ocean = 0
         nice_class = 1
 
         ! Reset counter for vertical axes (needed for writing
@@ -328,10 +331,7 @@ CONTAINS
         me%v_grid_count = 0
 
         ! replace DEFAULT values by the overrides provided IN the me
-        IF (me%opt_depth_lnd > 0) nlev_soil = me%opt_depth_lnd
-        IF(ALLOCATED(me%opt_nlev_snow)) nlev_snow = me%opt_nlev_snow
-        IF(ALLOCATED(me%opt_ocean_zlevels)) nlev_ocean = me%opt_ocean_zlevels
-        IF(ALLOCATED(me%opt_nice_class)) nice_class = me%opt_nice_class
+        IF (me%opt_nice_class%present) nice_class = me%opt_nice_class%v
 
         ! set vertical grid definitions
         CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_SURFACE, 0._wp)
@@ -347,17 +347,23 @@ CONTAINS
         CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_GENERIC_ICE, nice_class)
         CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_DEPTH_RUNOFF_S, 1)
         CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_DEPTH_RUNOFF_G, 1)
-        IF (nlev_soil > 0) THEN
-            CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_DEPTH_BELOW_LAND, nlev_soil)
-            CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_DEPTH_BELOW_LAND_P1, nlev_soil+1)
+        IF (me%opt_depth_lnd > 0) THEN
+          CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, &
+               ZA_DEPTH_BELOW_LAND, me%opt_depth_lnd)
+          CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, &
+               ZA_DEPTH_BELOW_LAND_P1, me%opt_depth_lnd+1)
         END IF
-        IF(ALLOCATED(me%opt_nlev_snow)) THEN
-            CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_SNOW, nlev_snow)
-            CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_SNOW_HALF, nlev_snow+1)
+        IF(me%opt_nlev_snow%present) THEN
+          CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, &
+               ZA_SNOW, me%opt_nlev_snow%v)
+          CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, &
+               ZA_SNOW_HALF, me%opt_nlev_snow%v+1)
         END IF
-        IF(ALLOCATED(me%opt_ocean_zlevels)) THEN
-            CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_DEPTH_BELOW_SEA, nlev_ocean)
-            CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_DEPTH_BELOW_SEA_HALF, nlev_ocean+1)
+        IF (me%opt_ocean_zlevels%present) THEN
+          CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, &
+               ZA_DEPTH_BELOW_SEA, me%opt_ocean_zlevels%v)
+          CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, &
+               ZA_DEPTH_BELOW_SEA_HALF, me%opt_ocean_zlevels%v+1)
         END IF
 
         CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_TROPOPAUSE, 1)

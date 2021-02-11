@@ -103,7 +103,7 @@ CONTAINS
     in_str_upper = toupper(in_str)
     n = SIZE(VINTP_TYPE_LIST)
     LOOP_VINTP_TYPES : DO ivintp_type=1,n
-      IF (in_str_upper == toupper(VINTP_TYPE_LIST(ivintp_type))) THEN
+      IF (in_str_upper == VINTP_TYPE_LIST(ivintp_type)) THEN
         vintp_type_id = ivintp_type
         EXIT LOOP_VINTP_TYPES
       END IF
@@ -249,182 +249,50 @@ CONTAINS
 
     ! local variables
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = modname//':new_action'
-    TYPE(timedelta), POINTER              :: start_offset, end_offset, ref_offset
-    TYPE(datetime), TARGET                :: startdatetime, enddatetime, refdatetime
-    TYPE(datetime), POINTER               :: dummy_ptr
     TYPE(t_var_action_element)            :: var_action
-    TYPE(datetime), POINTER               :: inidatetime
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: iso8601_ini_datetime      ! ISO_8601
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: iso8601_expstart_datetime ! ISO_8601
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: iso8601_end_datetime      ! ISO_8601
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: start, end, ref      ! start, end, and reference time
-                                                                  ! in ISO_8601 format
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: start0, end0, ref0   ! start, end, and reference time
-                                                                  ! in ISO_8601 format
     !---------------------------------------------------------------------------------
-
-    ! create model ini_datetime in ISO_8601 format
-    CALL dateTimeToString(time_config%tc_startdate, iso8601_ini_datetime)
-    ! create experiment start in ISO_8601 format
-    CALL dateTimeToString(time_config%tc_exp_startdate, iso8601_expstart_datetime)
-    ! create model end_datetime in ISO_8601 format
-    CALL dateTimeToString(time_config%tc_stopdate, iso8601_end_datetime)
-
-    ! default start time = model initialization time
-    start0 = TRIM(iso8601_ini_datetime)
-    ! default end time = model end time
-    end0 = TRIM(iso8601_end_datetime)
-    ! default reference time = experiment start time
-    ref0 = TRIM(iso8601_expstart_datetime)
-
-
-    ! assign modified start time if offset opt_start is present
-    IF (PRESENT(opt_start)) THEN
-      !
-      ! convert model ini datetime from ISO_8601 format to type datetime
-      inidatetime  => newDatetime(TRIM(iso8601_ini_datetime))
-      !
-      ! convert start offset from ISO_8601 to TYPE timedelta
-      start_offset => newTimedelta(TRIM(opt_start))
-      !
-      ! add start offset to model ini date
-      startdatetime = inidatetime + start_offset
-      ! transform back from TYPE datetime to ISO_8601
-      dummy_ptr => startdatetime
-      CALL dateTimeToString(dummy_ptr, start0)
-      ! cleanup
-      CALL deallocateDatetime(inidatetime)
-      CALL deallocateTimeDelta(start_offset)
-    ENDIF
-
-
-    ! assign modified end time if offset opt_end is present
-    IF (PRESENT(opt_end)) THEN
-      !
-      ! convert model ini datetime from ISO_8601 format to type datetime
-      inidatetime  => newDatetime(TRIM(iso8601_ini_datetime))
-      !
-      ! convert end offset from ISO_8601 to TYPE timedelta
-      end_offset => newTimedelta(TRIM(opt_end))
-      !
-      ! add end offset to model ini date
-      enddatetime = inidatetime + end_offset
-      ! transform back from TYPE datetime to ISO_8601
-      dummy_ptr => enddatetime
-      CALL dateTimeToString(dummy_ptr, end0)
-      ! cleanup
-      CALL deallocateDatetime(inidatetime)
-      CALL deallocateTimeDelta(end_offset)
-    ENDIF
-
-    ! assign modified reference time if offset opt_ref is present
-    IF (PRESENT(opt_ref)) THEN
-      !
-      ! convert model ini datetime from ISO_8601 format to type datetime
-      inidatetime  => newDatetime(TRIM(iso8601_ini_datetime))
-      !
-      ! convert ref offset from ISO_8601 to TYPE timedelta
-      ref_offset => newTimedelta(TRIM(opt_ref))
-      !
-      ! add ref offset to model ini date
-      refdatetime = inidatetime + ref_offset
-      ! transform back from TYPE datetime to ISO_8601
-      dummy_ptr => refdatetime
-      CALL dateTimeToString(dummy_ptr, ref0)
-      ! cleanup
-      CALL deallocateDatetime(inidatetime)
-      CALL deallocateTimeDelta(ref_offset)
-    ENDIF
-
-    ! default start time = model initialization time
-    start = TRIM(iso8601_ini_datetime)
-    ! default end time = model end time
-    end = TRIM(iso8601_end_datetime)
-    ! default reference time = experiment start time
-    ref = TRIM(iso8601_expstart_datetime)
-
-    !---------------------------------------------------------------------------------
-
-#ifdef _MTIME_DEBUG
-
-    ! CONSISTENCY CHECK: compares the implementation above with an
-    ! mtime-based implementation
-
-    ! assign modified start time if offset opt_start is present
-    IF (PRESENT(opt_start)) THEN
-      !
-      ! convert start offset from ISO_8601 to TYPE timedelta
-      start_offset => newTimedelta(TRIM(opt_start))
-      !
-      ! add start offset to model ini date
-      startdatetime = time_config%tc_startdate + start_offset
-      ! transform back from TYPE datetime to ISO_8601
-      dummy_ptr => startdatetime
-      CALL dateTimeToString(dummy_ptr, start)
-      ! cleanup
-      CALL deallocateTimeDelta(start_offset)
-    ENDIF
-
-
-    ! assign modified end time if offset opt_end is present
-    IF (PRESENT(opt_end)) THEN
-      !
-      ! convert end offset from ISO_8601 to TYPE timedelta
-      end_offset => newTimedelta(TRIM(opt_end))
-      !
-      ! add end offset to model ini date
-      enddatetime = time_config%tc_startdate + end_offset
-      ! transform back from TYPE datetime to ISO_8601
-      dummy_ptr => enddatetime
-      CALL dateTimeToString(dummy_ptr, end)
-      ! cleanup
-      CALL deallocateTimeDelta(end_offset)
-    ENDIF
-
-    ! assign modified reference time if offset opt_ref is present
-    IF (PRESENT(opt_ref)) THEN
-      !
-      ! convert ref offset from ISO_8601 to TYPE timedelta
-      ref_offset => newTimedelta(TRIM(opt_ref))
-      !
-      ! add ref offset to model ini date
-      refdatetime = time_config%tc_startdate + ref_offset
-      ! transform back from TYPE datetime to ISO_8601
-      dummy_ptr => refdatetime
-      CALL dateTimeToString(dummy_ptr, ref)
-      ! cleanup
-      CALL deallocateTimeDelta(ref_offset)
-    ENDIF
-
-    IF ((TRIM(start0) /= TRIM(start)) .OR.   &
-      & (TRIM(end0)   /= TRIM(end))   .OR.   &
-      & (TRIM(ref0)   /= TRIM(ref))) THEN
-      CALL finish(routine, "Error in mtime consistency check!")
-    END IF
-
-#endif
-
-    !---------------------------------------------------------------------------------
-
     ! define var_action
     var_action%actionTyp  = actionTyp
-    var_action%intvl      = TRIM(intvl)               ! interval
-    var_action%start      = TRIM(start)               ! start
-    var_action%end        = TRIM(end)                 ! end
-    var_action%ref        = TRIM(ref)                 ! ref date
-    var_action%lastActive = TRIM(start)               ! arbitrary init
+    var_action%intvl      = intvl                         ! interval
+    ! create model ini_datetime in ISO_8601 format
+    CALL apply_optional_offset(time_config%tc_startdate, &
+      &                        time_config%tc_startdate, &
+      &                        opt_start, var_action%start)
+    CALL apply_optional_offset(time_config%tc_startdate, &
+      &                        time_config%tc_stopdate, &
+      &                        opt_end, var_action%end)
+    CALL apply_optional_offset(time_config%tc_startdate, &
+      &                        time_config%tc_exp_startdate, &
+      &                        opt_ref, var_action%ref)
+    ! arbitrary init
+    CALL dateTimeToString(time_config%tc_startdate, var_action%lastActive)
+    ! arbitrary init
+    var_Action%EventLastTriggerDate = time_config%tc_startdate
 
-    !
-    ! convert start datetime from ISO_8601 format to type datetime
-    dummy_ptr => newDatetime(TRIM(start))
-    IF (.NOT. ASSOCIATED(dummy_ptr)) THEN
-      CALL finish(routine, "date/time conversion error: "//TRIM(start))
-    END IF
-    var_Action%EventLastTriggerDate = dummy_ptr    ! arbitrary init
+  CONTAINS
+    SUBROUTINE apply_optional_offset(datetime_base, default_datetime, &
+         opt_offset, out_string)
+      TYPE(datetime), INTENT(in) :: datetime_base, default_datetime
+      CHARACTER(LEN=*), OPTIONAL, INTENT(IN) :: opt_offset
+      CHARACTER(LEN=MAX_DATETIME_STR_LEN), INTENT(out) :: out_string
+      TYPE(timedelta), POINTER :: offset
+      TYPE(datetime) :: new_datetime
 
-    ! cleanup
-    CALL deallocateDatetime(dummy_ptr)
-
+      IF (PRESENT(opt_offset)) THEN
+        !
+        ! convert ref offset from ISO_8601 to TYPE timedelta
+        offset => newTimedelta(TRIM(opt_offset))
+        !
+        ! add ref offset to model ini date
+        new_datetime = datetime_base + offset
+        ! cleanup
+        CALL deallocateTimeDelta(offset)
+      ELSE
+        new_datetime = default_datetime
+      ENDIF
+      ! transform back from TYPE datetime to ISO_8601
+      CALL dateTimeToString(new_datetime, out_string)
+    END SUBROUTINE apply_optional_offset
   END FUNCTION new_action
 
 
