@@ -382,7 +382,7 @@ support_baryctr_intp=.true.,
  itype_vegetation_cycle = 2
 /
 &ensemble_pert_nml
-use_ensemble_pert=.true.,
+use_ensemble_pert=.false.,
 /
 &gribout_nml
  preset                          = "ensemble"
@@ -853,7 +853,7 @@ export NMPI_EXPORT="GFORTRAN_UNBUFFERED_PRECONNECTED"
 #          But when you worry you make it double ..."
 # ----------------------------------------------------------------------
 
-refdir="/hpc/rwork0/routfor/test/icon/Checksuite_data/ref_data_exp09/cd743500"
+refdir="/hpc/rwork0/routfor/test/icon/Checksuite_data/ref_data_exp09/64e106377"
 
 bash << EOFSCRIPT
 

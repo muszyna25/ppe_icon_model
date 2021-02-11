@@ -38,13 +38,13 @@ MODULE mo_async_restart_patch_data
   USE mpi,                          ONLY: MPI_ADDRESS_KIND
 #endif
   USE mo_cdi,                       ONLY: streamWriteVarSlice, streamWriteVarSliceF
-  USE mo_restart_var_data,          ONLY: createRestartVarData
+  USE mo_var_list,                  ONLY: get_restart_vars
   USE mo_restart_patch_data,        ONLY: t_RestartPatchData
 
   IMPLICIT NONE
   PRIVATE
 
-  PUBLIC :: t_AsyncPatchData
+  PUBLIC :: t_AsyncPatchData, toAsyncPatchData
 
   TYPE, EXTENDS(t_RestartPatchData) :: t_AsyncPatchData
     TYPE(t_AsyncRestartCommData) :: commData
@@ -65,7 +65,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: jg
 
     CALL me%description%init(jg)
-    CALL createRestartVarData(me%varData, jg, modelType, me%restartType)
+    CALL get_restart_vars(me%varData, jg, modelType, me%restartType)
     CALL me%commData%construct(jg, me%varData)
     CALL me%transferToRestart()
   END SUBROUTINE asyncPatchData_construct
@@ -76,6 +76,19 @@ CONTAINS
     CALL me%commData%destruct()
     IF(ALLOCATED(me%varData)) DEALLOCATE(me%varData)
   END SUBROUTINE asyncPatchData_destruct
+
+  FUNCTION toAsyncPatchData(patchData) RESULT(resultVar)
+    CLASS(t_RestartPatchData), TARGET :: patchData
+    TYPE(t_AsyncPatchData), POINTER :: resultVar
+
+    resultVar => NULL()
+    SELECT TYPE(patchData)
+      TYPE IS(t_AsyncPatchData)
+        resultVar => patchData
+      CLASS DEFAULT
+        CALL finish("toAsyncPatchData", "not of t_AsyncPatchData type")
+    END SELECT
+  END FUNCTION toAsyncPatchData
 
   !------------------------------------------------------------------------------------------------
   !
@@ -170,7 +183,8 @@ CONTAINS
           END DO
         ELSE
           DO ilev=chunk_start, chunk_end
-            CALL streamWriteVarSliceF(file_handle, me%varData(iv)%p%info%cdiVarID, ilev - 1, buffer_sp(:, ilev - chunk_start + 1), 0)
+            CALL streamWriteVarSliceF(file_handle, me%varData(iv)%p%info%cdiVarID, ilev - 1, &
+                 buffer_sp(:, ilev - chunk_start + 1), 0)
             bytesWrite = bytesWrite + pointCount*p_real_sp_byte
           END DO
         END IF

@@ -63,6 +63,11 @@ PROGRAM icon
   USE mo_icon_output_model, ONLY: icon_output_driver
 #endif
 
+#if defined ICON_MEMORY_TRACING
+#  if ICON_MEMORY_TRACING == 1
+  USE mo_mtrace,            ONLY: start_memory_tracing
+#  endif
+#endif
 
   IMPLICIT NONE
 
@@ -108,7 +113,13 @@ PROGRAM icon
 
 
 !--------------------------------------------------------------------
-
+#if defined ICON_MEMORY_TRACING
+!  activate memory tracing with glibc mtrace?
+#  if ICON_MEMORY_TRACING == 1
+  ! trace malloc/memalign/calloc/free operations following this point
+  CALL start_memory_tracing
+#  endif
+#endif
 #if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
 #ifdef VARLIST_INITIZIALIZE_WITH_NAN
   CALL ieee_get_status(saved_fpscr)

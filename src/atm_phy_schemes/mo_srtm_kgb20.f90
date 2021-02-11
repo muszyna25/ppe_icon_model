@@ -1,3 +1,4 @@
+!NEC$ options "-O1"
 !option! -Nv -NO
 #ifdef VPP
 !OCL SCALAR

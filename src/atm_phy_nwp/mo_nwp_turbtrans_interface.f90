@@ -59,9 +59,6 @@ MODULE mo_nwp_turbtrans_interface
   USE mo_vupdz0_tile,          ONLY: vupdz0_tile
   USE mo_vexcs,                ONLY: vexcs
 
-!$ser verbatim USE mo_ser_nwp_tutra, ONLY: serialize_turbtrans_interface_input,&
-!$ser verbatim                             serialize_turbtrans_interface_output
-
   IMPLICIT NONE
 
   PRIVATE
@@ -117,10 +114,6 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
   INTEGER :: jk_gust(nproma)
 
   ! local variables for turbdiff
-
-  INTEGER :: ierrstat
-  CHARACTER (LEN=25) :: eroutine=''
-  CHARACTER (LEN=80) :: errormsg=''
 
   INTEGER  :: nlev, nlevp1, nlevcm                  !< number of full, half and canopy levels
   INTEGER  :: lc_class                              !< land-cover class
@@ -197,16 +190,8 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
   fact_z0rough = 1.e-5_wp*ATAN(phy_params(jg)%mean_charlen/2250._wp)
 
 
-  ! Serialbox2 input fields serialization
-  !$ser verbatim IF(lzacc) THEN
-  !$ser verbatim     CALL serialize_turbtrans_interface_input(jg, nproma, nlev,&
-  !$ser verbatim                                              p_metrics, p_prog, p_prog_rcf, p_diag, prm_diag,&
-  !$ser verbatim                                              lnd_prog_new, lnd_diag, wtr_prog_new, ext_data)
-  !$ser verbatim ENDIF
-
-
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jt,jc,jk,ic,ilist,i_startidx,i_endidx,i_count,ierrstat,errormsg,eroutine,   &
+!$OMP DO PRIVATE(jb,jt,jc,jk,ic,ilist,i_startidx,i_endidx,i_count,   &
 !$OMP nzprv,lc_class,z_tvs,z0_mod,gz0_t,tcm_t,tch_t,tfm_t,tfh_t,tfv_t,tvm_t,tvh_t,tkr_t,l_hori, &
 !$OMP t_g_t,qv_s_t,t_2m_t,qv_2m_t,td_2m_t,rh_2m_t,u_10m_t,v_10m_t,tvs_t,pres_sfc_t,u_t,v_t,     &
 !$OMP temp_t,pres_t,qv_t,qc_t,tkvm_t,tkvh_t,z_ifc_t,rcld_t,sai_t,fr_land_t,depth_lk_t,h_ice_t,  &
@@ -347,7 +332,6 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 !< COSMO turbulence scheme by M. Raschendorfer
 !-------------------------------------------------------------------------
  
-      ierrstat = 0
 
       ! note that TKE must be converted to the turbulence velocity scale SQRT(2*TKE)
       ! for turbdiff
@@ -363,6 +347,9 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
       ! First call of turbtran for all grid points (water points with > 50% water
       ! fraction and tile 1 of the land points)
       IF (ntiles_total == 1) THEN ! tile approach not used; use tile-averaged fields from extpar
+
+        ! WARNING: This has been ported to GPU but has not been tested. If ntiles_total == 1 is
+        ! read from the namelist with GPU enabled, the code finishes.
 
         !should be dependent on location in future!
         !$acc kernels default(present) if(lzacc)
@@ -424,7 +411,6 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
           &  qvfl_s=prm_diag%qhfl_s_t(:,jb,1),                                         & !out
           &  umfl_s=prm_diag%umfl_s_t(:,jb,1),                                         & !out
           &  vmfl_s=prm_diag%vmfl_s_t(:,jb,1),                                         & !out
-          &  ierrstat=ierrstat, yerrormsg=errormsg, yroutine=eroutine,                 & !inout
           &  lacc=lzacc                                                                 ) !in
 
         !$acc kernels default(present) if(lzacc)
@@ -623,7 +609,6 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             &  qvfl_s=qhfl_s_t(:,jt),                                       & !out
             &  umfl_s=umfl_s_t(:,jt),                                       & !out
             &  vmfl_s=vmfl_s_t(:,jt),                                       & !out
-            &  ierrstat=ierrstat, yerrormsg=errormsg, yroutine=eroutine,    & !inout
             &  lacc=lzacc                                                   ) !in
 
           ! Decision as to "ice" vs. "no ice" is made on the basis of h_ice_t(:).
@@ -1051,13 +1036,6 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
   ENDDO ! jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-
-  ! Serialbox2 input fields serialization
-  !$ser verbatim IF(lzacc) THEN
-  !$ser verbatim     CALL serialize_turbtrans_interface_output(jg, nproma, nlev,&
-  !$ser verbatim                                               p_prog, p_prog_rcf, p_diag, prm_diag,&
-  !$ser verbatim                                               lnd_prog_new, lnd_diag)
-  !$ser verbatim ENDIF
 
 !$acc end data
 

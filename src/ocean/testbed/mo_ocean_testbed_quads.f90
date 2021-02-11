@@ -72,8 +72,8 @@ CONTAINS
 
     !---------------------------------------------------------------------
     ! 2D Tests
-    stream_id = openInputFile(dynamics_grid_filename(1), patch_2d, &
-      &                       read_netcdf_broadcast_method)
+    CALL openinputfile(stream_id, dynamics_grid_filename(1), patch_2d, &
+      &                read_netcdf_broadcast_method)
 
     CALL read_2D(stream_id=stream_id, location=on_cells, &
       &          variable_name="cell_area", return_pointer=cell_data_broadcast)
@@ -82,8 +82,8 @@ CONTAINS
 
     CALL closeFile(stream_id)
 
-    stream_id = openInputFile(dynamics_grid_filename(1), patch_2d, &
-      &                       read_netcdf_distribute_method)
+    CALL openinputfile(stream_id, dynamics_grid_filename(1), patch_2d, &
+      &                read_netcdf_distribute_method)
 
     CALL read_2D(stream_id=stream_id, location=on_cells, &
       &          variable_name="cell_area", return_pointer=cell_data_distribute)

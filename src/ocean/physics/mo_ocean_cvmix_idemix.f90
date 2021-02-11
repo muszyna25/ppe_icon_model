@@ -170,16 +170,16 @@ CONTAINS
 
     if ( l_use_idemix_forcing ) then 
       ! read internal wave surface forcing
-      stream_id = openInputFile(fpath_iwe_surforc, patch_2d, &
-        &                       read_netcdf_broadcast_method)
+      CALL openInputFile(stream_id, fpath_iwe_surforc, patch_2d, &
+        &                read_netcdf_broadcast_method)
       CALL read_2D_1Time( stream_id=stream_id, location=on_cells, &
         & variable_name=name_iwe_surforc, fill_array=iwe_surf_forc,         &
         & has_missValue=has_missValue, missValue=missValue)
       CALL closeFile(stream_id)
 
       ! read internal wave bottom forcing
-      stream_id = openInputFile(fpath_iwe_botforc, patch_2d, &
-        &                       read_netcdf_broadcast_method)
+      CALL openInputFile(stream_id, fpath_iwe_botforc, patch_2d, &
+        &                read_netcdf_broadcast_method)
       CALL read_2D_1Time( stream_id=stream_id, location=on_cells, &
         & variable_name=name_iwe_botforc, fill_array=iwe_bott_forc,         &
         & has_missValue=has_missValue, missValue=missValue)

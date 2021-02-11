@@ -396,7 +396,6 @@ MODULE mo_solve_nonhydro
 !$ACC      present ( ipeidx, ipeblk, iplev ), &
 !$ACC      IF( i_am_accel_node .AND. acc_on )
 
-
     ! scaling factor for second-order divergence damping: divdamp_fac_o2*delta_x**2
     ! delta_x**2 is approximated by the mean cell area
     scal_divdamp_o2 = divdamp_fac_o2 * p_patch%geometry_info%mean_cell_area

@@ -27,8 +27,7 @@ MODULE mo_nwp_ecrad_prep_aerosol
 #ifdef __ECRAD
   USE mo_ecrad,                  ONLY: t_ecrad_aerosol_type, t_ecrad_conf
 #endif
-  USE mo_impl_constants,         ONLY: max_char_length
-  
+
   USE mo_aerosol_util,           ONLY: zaea_rrtm,zaes_rrtm,zaeg_rrtm
 
   IMPLICIT NONE
@@ -121,7 +120,7 @@ CONTAINS
 ! Local variables
     REAL(wp)                 :: &
       &  tau_abs, tau_sca         !< Absorption and scattering optical depth
-    CHARACTER(len=max_char_length), PARAMETER :: &
+    CHARACTER(len=*), PARAMETER :: &
       &  routine = modname//'::nwp_ecrad_prep_aerosol_tegen' 
     INTEGER                  :: &
       &  jc, jk, jband,         & !< Loop indices

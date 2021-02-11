@@ -1689,8 +1689,9 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  TYPE(t_stream_id) FUNCTION openInputFile_dist_multivar(filename, patches, &
-    &                                                    input_method)
+  SUBROUTINE openInputFile_dist_multivar(stream_id, filename, &
+       patches, input_method)
+    TYPE(t_stream_id), INTENT(out) :: stream_id
     CHARACTER(LEN=*), INTENT(IN) :: filename
     TYPE(p_t_patch), TARGET, INTENT(IN) :: patches(:)
     INTEGER, OPTIONAL, INTENT(IN) :: input_method
@@ -1705,12 +1706,12 @@ CONTAINS
     IF (n_var < 1) CALL finish(method_name, "invalid number of patches")
 
     IF (PRESENT(input_method)) THEN
-      openInputFile_dist_multivar%input_method = input_method
+      stream_id%input_method = input_method
     ELSE
-      openInputFile_dist_multivar%input_method = default_read_method
+      stream_id%input_method = default_read_method
     END IF
 
-    ALLOCATE(openInputFile_dist_multivar%read_info(3, n_var))
+    ALLOCATE(stream_id%read_info(3, n_var))
 
     DO i = 1, n_var
 
@@ -1719,63 +1720,64 @@ CONTAINS
           (patches(1)%p%n_patch_verts_g /= patches(i)%p%n_patch_verts_g))     &
         CALL finish(method_name, "patches do not match")
 
-      openInputFile_dist_multivar%read_info(on_cells, i)%n_g = &
+      stream_id%read_info(on_cells, i)%n_g = &
         patches(i)%p%n_patch_cells_g
-      openInputFile_dist_multivar%read_info(on_edges, i)%n_g = &
+      stream_id%read_info(on_edges, i)%n_g = &
         patches(i)%p%n_patch_edges_g
-      openInputFile_dist_multivar%read_info(on_vertices, i)%n_g = &
+      stream_id%read_info(on_vertices, i)%n_g = &
         patches(i)%p%n_patch_verts_g
 
-      openInputFile_dist_multivar%read_info(on_cells, i)%n_l = &
+      stream_id%read_info(on_cells, i)%n_l = &
         patches(i)%p%n_patch_cells
-      openInputFile_dist_multivar%read_info(on_edges, i)%n_l = &
+      stream_id%read_info(on_edges, i)%n_l = &
         patches(i)%p%n_patch_edges
-      openInputFile_dist_multivar%read_info(on_vertices, i)%n_l = &
+      stream_id%read_info(on_vertices, i)%n_l = &
         patches(i)%p%n_patch_verts
     END DO
 
-    SELECT CASE(openInputFile_dist_multivar%input_method)
+    SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
 
-      openInputFile_dist_multivar%file_id = netcdf_open_input(filename)
+      stream_id%file_id = netcdf_open_input(filename)
 
       DO i = 1, n_var
-        openInputFile_dist_multivar%read_info(on_cells, i)%scatter_pattern => &
+        stream_id%read_info(on_cells, i)%scatter_pattern => &
           patches(i)%p%comm_pat_scatter_c
-        NULLIFY(openInputFile_dist_multivar%read_info(on_cells, i)%dist_read_info)
-        openInputFile_dist_multivar%read_info(on_edges, i)%scatter_pattern => &
+        NULLIFY(stream_id%read_info(on_cells, i)%dist_read_info)
+        stream_id%read_info(on_edges, i)%scatter_pattern => &
           patches(i)%p%comm_pat_scatter_e
-        NULLIFY(openInputFile_dist_multivar%read_info(on_edges, i)%dist_read_info)
-        openInputFile_dist_multivar%read_info(on_vertices, i)%scatter_pattern => &
+        NULLIFY(stream_id%read_info(on_edges, i)%dist_read_info)
+        stream_id%read_info(on_vertices, i)%scatter_pattern => &
           patches(i)%p%comm_pat_scatter_v
-        NULLIFY(openInputFile_dist_multivar%read_info(on_vertices, i)%dist_read_info)
+        NULLIFY(stream_id%read_info(on_vertices, i)%dist_read_info)
       END DO
 
     CASE (read_netcdf_distribute_method)
 
-      openInputFile_dist_multivar%file_id = distrib_nf_open(TRIM(filename))
+      stream_id%file_id = distrib_nf_open(TRIM(filename))
 
       DO i = 1, n_var
-        openInputFile_dist_multivar%read_info(on_cells, i)%dist_read_info => &
+        stream_id%read_info(on_cells, i)%dist_read_info => &
           patches(i)%p%cells%dist_io_data
-        NULLIFY(openInputFile_dist_multivar%read_info(on_cells, i)%scatter_pattern)
-        openInputFile_dist_multivar%read_info(on_vertices, i)%dist_read_info => &
+        NULLIFY(stream_id%read_info(on_cells, i)%scatter_pattern)
+        stream_id%read_info(on_vertices, i)%dist_read_info => &
           patches(i)%p%verts%dist_io_data
-        NULLIFY(openInputFile_dist_multivar%read_info(on_vertices, i)%scatter_pattern)
-        openInputFile_dist_multivar%read_info(on_edges, i)%dist_read_info => &
+        NULLIFY(stream_id%read_info(on_vertices, i)%scatter_pattern)
+        stream_id%read_info(on_edges, i)%dist_read_info => &
           patches(i)%p%edges%dist_io_data
-        NULLIFY(openInputFile_dist_multivar%read_info(on_edges, i)%scatter_pattern)
+        NULLIFY(stream_id%read_info(on_edges, i)%scatter_pattern)
       END DO
 
     CASE default
       CALL finish(method_name, "unknown input_method")
     END SELECT
 
-  END FUNCTION openInputFile_dist_multivar
+  END SUBROUTINE openInputFile_dist_multivar
 
   !-------------------------------------------------------------------------
   !>
-  TYPE(t_stream_id) FUNCTION openInputFile_dist(filename, patch, input_method)
+  SUBROUTINE openInputFile_dist(stream_id, filename, patch, input_method)
+    TYPE(t_stream_id), INTENT(out) :: stream_id
     CHARACTER(LEN=*), INTENT(IN) :: filename
     TYPE(t_patch), TARGET, INTENT(IN) :: patch
     INTEGER, OPTIONAL, INTENT(IN) :: input_method
@@ -1787,23 +1789,23 @@ CONTAINS
 
     patch_(1)%p => patch
 
-    openInputFile_dist = &
-      openInputFile_dist_multivar(filename, patch_, input_method)
+    CALL openInputFile_dist_multivar(stream_id, filename, patch_, input_method)
 
-  END FUNCTION openInputFile_dist
+  END SUBROUTINE openInputFile_dist
   !-------------------------------------------------------------------------
   !-------------------------------------------------------------------------
   !>
-  INTEGER FUNCTION openInputFile_bcast(filename)
+  SUBROUTINE openInputFile_bcast(stream_id, filename)
 
+    INTEGER, INTENT(out) :: stream_id
     CHARACTER(LEN=*), INTENT(IN) :: filename
 
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_interface:openInputFile_bcast'
 
-    openInputFile_bcast = netcdf_open_input(filename)
+    stream_id = netcdf_open_input(filename)
 
-  END FUNCTION openInputFile_bcast
+  END SUBROUTINE openInputFile_bcast
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
@@ -1859,7 +1861,7 @@ CONTAINS
     INTEGER :: varid, var_ndims, var_dimlen(NF_MAX_VAR_DIMS), &
       &        var_dimids(NF_MAX_VAR_DIMS)
     CHARACTER(LEN=NF_MAX_NAME) :: var_dim_name(NF_MAX_VAR_DIMS)
-    INTEGER :: i
+    INTEGER :: i, tlen
 
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_interface:check_dimensions'
@@ -1869,10 +1871,11 @@ CONTAINS
     IF (PRESENT(ref_var_dim_start) .NEQV. PRESENT(ref_var_dim_end)) &
       CALL finish(method_name, "invalid arguments")
 
-    CALL nf(nf_inq_varid(file_id, TRIM(variable_name), varid), &
-      &     method_name // "("//trim(variable_name)//")")
+    tlen = LEN_TRIM(variable_name)
+    CALL nf(nf_inq_varid(file_id, variable_name(1:tlen), varid), &
+      &     method_name // "("//variable_name(1:tlen)//")")
     CALL nf(nf_inq_varndims(file_id, varid, var_ndims), &
-      &     method_name // "("//trim(variable_name)//")")
+      &     method_name // "("//variable_name(1:tlen)//")")
     CALL nf(nf_inq_vardimid(file_id, varid, var_dimids), method_name)
     DO i = 1, var_ndims
       CALL nf(nf_inq_dimlen (file_id, var_dimids(i), var_dimlen(i)), method_name)
@@ -1880,7 +1883,7 @@ CONTAINS
     END DO
 
     IF (var_ndims /= ref_var_ndims ) THEN
-      WRITE(0,*) TRIM(variable_name), ": var_ndims = ", var_ndims
+      WRITE(0,*) variable_name(1:tlen), ": var_ndims = ", var_ndims
       CALL finish(method_name, "Dimensions mismatch")
     ENDIF
 
@@ -1889,20 +1892,20 @@ CONTAINS
         IF ((ref_var_dim_start(i) /= -1) .AND. &
           & (ref_var_dim_end(i) /= -1)) THEN
           IF (ref_var_dim_end(i) < ref_var_dim_start(i)) THEN
-            WRITE(0,*) TRIM(variable_name), ": ref_var_dim_start(:) = ", &
+            WRITE(0,*) variable_name(1:tlen), ": ref_var_dim_start(:) = ", &
               &        ref_var_dim_start(:), "; ref_var_dim_end(:) = ", &
               &        ref_var_dim_end(:)
             CALL finish(method_name, "invalid start end")
           END IF
           IF ((ref_var_dim_start(i) == 0) .OR. &
             & (ref_var_dim_start(i) > var_dimlen(i))) THEN
-            WRITE(0,*) TRIM(variable_name), ": ref_var_dim_start(:) = ", &
+            WRITE(0,*) variable_name(1:tlen), ": ref_var_dim_start(:) = ", &
               &        ref_var_dim_start(:), "; var_dimlen(:) = ", &
               &        var_dimlen(1:ref_var_ndims)
             CALL finish(method_name, "invalid start")
           END IF
           IF ((ref_var_dim_end(i) > var_dimlen(i))) THEN
-            WRITE(0,*) TRIM(variable_name), ": ref_var_dim_end(:) = ", &
+            WRITE(0,*) variable_name(1:tlen), ": ref_var_dim_end(:) = ", &
               &        ref_var_dim_end(:), "; var_dimlen(:) = ", &
               &        var_dimlen(1:ref_var_ndims)
             CALL finish(method_name, "invalid end")
@@ -1913,7 +1916,7 @@ CONTAINS
       DO i = 1, var_ndims
         IF ((ref_var_dimlen(i) /= -1) .AND. &
           & (ref_var_dimlen(i) /= var_dimlen(i))) THEN
-          WRITE(0,*) TRIM(variable_name), ": ref_var_dimlen(:) = ", &
+          WRITE(0,*) variable_name(1:tlen), ": ref_var_dimlen(:) = ", &
             &        ref_var_dimlen(:), "; var_dimlen(:) = ", &
             &        var_dimlen(1:ref_var_ndims)
           CALL finish(method_name, "Dimensions mismatch")
@@ -1928,7 +1931,7 @@ CONTAINS
         IF (.NOT. ((TRIM(var_dim_name(1)) == 'cell') .OR. &
           &        (TRIM(var_dim_name(1)) == 'ncells'))) THEN
           write(0,*) TRIM(var_dim_name(1))
-          WRITE(message_text,*) TRIM(variable_name), " ", &
+          WRITE(message_text,*) variable_name(1:tlen), " ", &
             &                   TRIM(var_dim_name(1)), " /= std_cells_dim_name"
           CALL finish(method_name, message_text)
         ENDIF
@@ -1937,7 +1940,7 @@ CONTAINS
           &        (TRIM(var_dim_name(1)) == 'nverts') .OR. &
           &        (TRIM(var_dim_name(1)) == 'ncells_3'))) THEN
           write(0,*) TRIM(var_dim_name(1))
-          WRITE(message_text,*) TRIM(variable_name), " ", TRIM(var_dim_name(1)), &
+          WRITE(message_text,*) variable_name(1:tlen), " ", TRIM(var_dim_name(1)), &
             &                   " /= std_verts_dim_name"
           CALL finish(method_name, message_text)
         ENDIF
@@ -1946,7 +1949,7 @@ CONTAINS
           &        (TRIM(var_dim_name(1)) == 'nedges') .OR. &
           &        (TRIM(var_dim_name(1)) == 'ncells_2'))) THEN
           write(0,*) TRIM(var_dim_name(1))
-          WRITE(message_text,*) TRIM(variable_name), " ", TRIM(var_dim_name(1)), &
+          WRITE(message_text,*) variable_name(1:tlen), " ", TRIM(var_dim_name(1)), &
             &                   " /= std_edge_dim_name"
           CALL finish(method_name, message_text)
         ENDIF
@@ -1955,7 +1958,7 @@ CONTAINS
     IF (PRESENT(extdim_name)) THEN
       DO i = 2, ref_var_ndims
         IF (TRIM(extdim_name(i)) /= TRIM(var_dim_name(i))) THEN
-          WRITE(message_text,*) TRIM(variable_name), ":", &
+          WRITE(message_text,*) variable_name(1:tlen), ":", &
             &                   TRIM(extdim_name(i)), "/=",  &
             &                   TRIM(var_dim_name(i))
           CALL finish(method_name, TRIM(message_text))

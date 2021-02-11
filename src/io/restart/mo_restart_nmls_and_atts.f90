@@ -34,7 +34,7 @@ MODULE mo_restart_nml_and_att
 
   PUBLIC :: bcastNamelistStore
 
-  TYPE(t_key_value_store), POINTER :: gAttributeStore => NULL()
+  TYPE(t_key_value_store), TARGET :: gAttributeStore
   TYPE(t_key_value_store) :: gNamelistStore
 
   CHARACTER(LEN = *), PARAMETER :: modname = "mo_restart_nml_and_att"
@@ -108,7 +108,7 @@ CONTAINS
     TYPE(t_key_value_store), POINTER, INTENT(OUT) :: ptr
     CHARACTER(*), PARAMETER :: routine = modname//":getAttributesForRestarting"
 
-    IF (.NOT.ASSOCIATED(gAttributeStore) .AND. &
+    IF (.NOT. gAttributeStore%is_init .AND. &
       & (isRestart() .OR. ocean_initFromRestart_OVERRIDE)) &
       & CALL finish(routine, "restart attributes not yet set up")
     ptr => gAttributeStore
@@ -116,13 +116,12 @@ CONTAINS
 
   SUBROUTINE restartAttributeList_read(vlistId, root_pe, comm)
     INTEGER, INTENT(IN) :: vlistId, root_pe, comm
-    CHARACTER(*), PARAMETER :: routine = modname//":restartAttributeList_make"
+    CHARACTER(*), PARAMETER :: routine = modname//":restartAttributeList_read"
 
     IF (.NOT.isRestart() .AND. .NOT.ocean_initFromRestart_OVERRIDE) &
       & CALL finish(routine, "not a restart run")
-    IF (ASSOCIATED(gAttributeStore)) &
+    IF (gAttributeStore%is_init) &
       & CALL finish(routine, "no second assignment of gAttributeStore allowed")
-    ALLOCATE(gAttributeStore)
     IF (p_comm_rank(comm) == root_pe) CALL read_from_cdi(gAttributeStore)
     CALL gAttributeStore%bcast(root_pe, comm)
     IF (.NOT.ocean_initFromRestart_OVERRIDE) &
@@ -223,7 +222,7 @@ CONTAINS
   END SUBROUTINE restartAttributeList_write_to_cdi
 
   SUBROUTINE restartAttributeList_make(ptr)
-    TYPE(t_key_value_store), POINTER, INTENT(OUT) :: ptr
+    TYPE(t_key_value_store), ALLOCATABLE, INTENT(OUT) :: ptr
 
     ALLOCATE(ptr)
     CALL gNamelistStore%output(copy=ptr)

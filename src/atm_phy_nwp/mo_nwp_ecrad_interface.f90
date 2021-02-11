@@ -42,7 +42,7 @@ MODULE mo_nwp_ecrad_interface
   USE mo_exception,              ONLY: finish, message
   USE mo_math_constants,         ONLY: pi
   USE mo_model_domain,           ONLY: t_patch, p_patch_local_parent
-  USE mo_impl_constants,         ONLY: min_rlcell_int, MAX_CHAR_LENGTH, nexlevs_rrg_vnest
+  USE mo_impl_constants,         ONLY: min_rlcell_int, nexlevs_rrg_vnest
   USE mo_impl_constants_grf,     ONLY: grf_bdywidth_c, grf_ovlparea_start_c, grf_fbk_start_c
   USE mo_fortran_tools,          ONLY: init
   USE mo_parallel_config,        ONLY: nproma
@@ -103,8 +103,7 @@ CONTAINS
   SUBROUTINE nwp_ecrad_radiation ( current_datetime, pt_patch, ext_data,                    &
     &  zaeq1, zaeq2, zaeq3, zaeq4, zaeq5, pt_diag, prm_diag, lnd_prog, ecrad_conf )
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
-      &  routine = modname//'::nwp_ecrad_radiation'
+    CHARACTER(len=*), PARAMETER:: routine = modname//'::nwp_ecrad_radiation'
 
     TYPE(datetime),          INTENT(in)    :: current_datetime !< Current date and time
 
@@ -147,12 +146,14 @@ CONTAINS
       &  i_startidx, i_endidx     !< slices
     LOGICAL, ALLOCATABLE     :: &
       &  cosmu0mask(:)            !< Mask if cosmu0 > 0
+    REAL(wp), DIMENSION(:,:), POINTER :: ptr_reff_qc => NULL(), ptr_reff_qi => NULL()
 
     nlev      = pt_patch%nlev
     nlevp1    = nlev+1
     jg        = pt_patch%id
 
     fact_reffc = (3.0e-9_wp/(4.0_wp*pi*rhoh2o))**(1.0_wp/3.0_wp)
+
     
     ALLOCATE(cosmu0mask(nproma))
 
@@ -202,6 +203,11 @@ CONTAINS
       ! In this case, no action is needed
       IF (i_startidx > i_endidx) CYCLE
 
+      IF (atm_phy_nwp_config(jg)%icpl_rad_reff > 0) THEN
+        ptr_reff_qc => prm_diag%reff_qc(:,:,jb)
+        ptr_reff_qi => prm_diag%reff_qi(:,:,jb)
+      ENDIF
+
       prm_diag%tsfctrad(i_startidx:i_endidx,jb) = lnd_prog%t_g(i_startidx:i_endidx,jb)
 
       cosmu0mask(:) = .FALSE.
@@ -232,6 +238,7 @@ CONTAINS
         &                   prm_diag%tot_cld(:,:,jb,iqi), prm_diag%clc(:,:,jb),                    &
         &                   pt_diag%temp(:,:,jb), pt_diag%pres(:,:,jb), prm_diag%acdnc(:,:,jb),    &
         &                   ext_data%atm%fr_glac_smt(:,jb), ext_data%atm%fr_land_smt(:,jb),        &
+        &                   ptr_reff_qc, ptr_reff_qi, atm_phy_nwp_config(jg)%icpl_rad_reff,        &
         &                   fact_reffc, ecrad_conf%cloud_fraction_threshold, nlev, i_startidx, i_endidx)
 
 ! Fill aerosol configuration type
@@ -257,9 +264,9 @@ CONTAINS
             &                         zaeq3(:,:,jb), zaeq4(:,:,jb),                   &
             &                         zaeq5(:,:,jb),                                  &
             &                         ecrad_conf, ecrad_aerosol)
-          CALL finish(TRIM(routine),'irad_aero = 9 not yet fully implemented for ecRad')
+          CALL finish(routine, 'irad_aero = 9 not yet fully implemented for ecRad')
         CASE DEFAULT
-          CALL finish(TRIM(routine),'irad_aero not valid for ecRad')
+          CALL finish(routine, 'irad_aero not valid for ecRad')
       END SELECT
 
       ecrad_flux%cloud_cover_sw(:) = 0._wp
@@ -329,7 +336,7 @@ CONTAINS
     &                                     zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,                      &
     &                                     pt_diag,prm_diag,lnd_prog, ecrad_conf )
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
+    CHARACTER(len=*), PARAMETER :: &
       &  routine = modname//'::nwp_ecrad_radiation_reduced'
 
     TYPE(datetime),          INTENT(in)    :: current_datetime !< Current date and time
@@ -378,6 +385,7 @@ CONTAINS
       &  i_startblk, i_endblk,  & !< blocks
       &  i_startidx, i_endidx,  & !< slices
       &  np, nl                   !< dimension variables for allocation (3d fluxes)
+
     ! For radiation on reduced grid
     ! These fields need to be allocatable because they have different dimensions for
     ! the global grid and nested grids, and for runs with/without MPI parallelization
@@ -422,6 +430,13 @@ CONTAINS
       &  zrg_lwflx_dn_clr(:,:,:),    & !< longwave  3D downward flux clear-sky
       &  zrg_swflx_up_clr(:,:,:),    & !< shortwave 3D upward   flux clear-sky
       &  zrg_swflx_dn_clr(:,:,:)       !< shortwave 3D downward flux clear-sky
+
+    REAL(wp), POINTER :: &
+      &  zrg_reff_liq(:,:,:) => NULL(),  & !< Effective radius (m) of liquid phase on reduced grid
+      &  zrg_reff_frz(:,:,:) => NULL()     !< Effective radius (m) of frozen phase on reduced grid
+
+    REAL(wp), DIMENSION(:,:), POINTER :: ptr_reff_qc => NULL(), ptr_reff_qi => NULL()
+
     ! Some unused variables to be up- and downscaled (to not change the interface to up- and downscale)
     REAL(wp), ALLOCATABLE, TARGET :: &
       &  aclcov(:,:),                & !< Cloud cover
@@ -542,6 +557,11 @@ CONTAINS
       &      zrg_acdnc    (nproma,nlev_rg  ,nblks_par_c),   &
       &      zrg_clc      (nproma,nlev_rg  ,nblks_par_c))
 
+    IF (atm_phy_nwp_config(jg)%icpl_rad_reff > 0) THEN
+      ALLOCATE(zrg_reff_liq (nproma,nlev_rg,nblks_par_c),   &
+        &      zrg_reff_frz (nproma,nlev_rg,nblks_par_c))
+    ENDIF
+
     ALLOCATE(zrg_tot_cld  (nproma,nlev_rg  ,nblks_par_c,3))
 
     ! Unused variables, allocated to not change the upscale_rad_input interface
@@ -593,20 +613,24 @@ CONTAINS
 !$OMP END PARALLEL
 
 ! Upscale ICON input fields from full grid to reduced radiation grid
+
     CALL upscale_rad_input(pt_patch%id, pt_par_patch%id,                                 &
       &                    nlev_rg, ext_data%atm%fr_land_smt, ext_data%atm%fr_glac_smt,  &
       &                    prm_diag%lw_emiss, prm_diag%cosmu0,                           &
       &                    prm_diag%albvisdir, prm_diag%albnirdir, prm_diag%albvisdif,   &
       &                    prm_diag%albnirdif, prm_diag%albdif, prm_diag%tsfctrad,       &
       &                    prm_diag%ktype, pt_diag%pres_ifc, pt_diag%pres,               &
-      &                    pt_diag%temp,prm_diag%acdnc, prm_diag%tot_cld, prm_diag%clc,  &
+      &                    pt_diag%temp, prm_diag%acdnc, prm_diag%tot_cld, prm_diag%clc, &
       &                    ext_data%atm%o3, zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,           &
       &                    zrg_fr_land, zrg_fr_glac, zrg_emis_rad,                       &
       &                    zrg_cosmu0, zrg_albvisdir, zrg_albnirdir, zrg_albvisdif,      &
       &                    zrg_albnirdif, zrg_albdif, zrg_tsfc, zrg_rtype, zrg_pres_ifc, &
-      &                    zrg_pres, zrg_temp, zrg_acdnc, zrg_tot_cld, zrg_clc, zrg_o3,  &
+      &                    zrg_pres, zrg_temp, zrg_acdnc,                                &
+      &                    zrg_tot_cld, zrg_clc, zrg_o3,                                 &
       &                    zrg_aeq1, zrg_aeq2, zrg_aeq3, zrg_aeq4, zrg_aeq5,             &
-      &                    zlp_pres_ifc, zlp_tot_cld, prm_diag%buffer_rrg)
+      &                    zlp_pres_ifc, zlp_tot_cld, prm_diag%buffer_rrg,               &
+      &                    atm_phy_nwp_config(jg)%icpl_rad_reff,                         &
+      &                    prm_diag%reff_qc, prm_diag%reff_qi, zrg_reff_liq, zrg_reff_frz)
 
 ! Set indices for reduced grid loop
     IF (jg == 1 .AND. l_limited_area) THEN
@@ -665,7 +689,15 @@ CONTAINS
             zrg_aeq4(jc,jk,jb)        = zrg_aeq4(i_startidx,jk,jb)
             zrg_aeq5(jc,jk,jb)        = zrg_aeq5(i_startidx,jk,jb)
           ENDDO
-        ENDDO
+        END DO
+        IF (atm_phy_nwp_config(jg)%icpl_rad_reff > 0) THEN 
+          DO jk = 1,nlev_rg
+            DO jc = 1, i_startidx-1
+              zrg_reff_liq(jc,jk,jb)    = zrg_reff_liq(i_startidx,jk,jb)
+              zrg_reff_frz(jc,jk,jb)    = zrg_reff_frz(i_startidx,jk,jb)
+            ENDDO
+          ENDDO
+        ENDIF
       ENDIF
       i_startidx = 1
       !
@@ -677,6 +709,11 @@ CONTAINS
           cosmu0mask(jc) = .TRUE.
         ENDIF
       ENDDO
+
+      IF (atm_phy_nwp_config(jg)%icpl_rad_reff > 0) THEN
+        ptr_reff_qc => zrg_reff_liq(:,:,jb)
+        ptr_reff_qi => zrg_reff_frz(:,:,jb)
+      ENDIF
 
 ! Fill single level configuration type
       CALL ecrad_set_single_level(ecrad_single_level, current_datetime, ptr_pp%cells%center(:,jb),            &
@@ -694,10 +731,11 @@ CONTAINS
         &                zrg_pres(:,:,jb), i_startidx, i_endidx, nlev_rg)
 
 ! Fill clouds configuration type
-      CALL ecrad_set_clouds(ecrad_cloud, ecrad_thermodynamics, zrg_tot_cld(:,:,jb,iqc),  &
-        &                   zrg_tot_cld(:,:,jb,iqi), zrg_clc(:,:,jb),                    &
-        &                   zrg_temp(:,:,jb), zrg_pres(:,:,jb), zrg_acdnc(:,:,jb),       &
-        &                   zrg_fr_glac(:,jb), zrg_fr_land(:,jb),                        &
+      CALL ecrad_set_clouds(ecrad_cloud, ecrad_thermodynamics, zrg_tot_cld(:,:,jb,iqc),     &
+        &                   zrg_tot_cld(:,:,jb,iqi), zrg_clc(:,:,jb),                       &
+        &                   zrg_temp(:,:,jb), zrg_pres(:,:,jb), zrg_acdnc(:,:,jb),          &
+        &                   zrg_fr_glac(:,jb), zrg_fr_land(:,jb),                           &
+        &                   ptr_reff_qc, ptr_reff_qi, atm_phy_nwp_config(jg)%icpl_rad_reff, &
         &                   fact_reffc, ecrad_conf%cloud_fraction_threshold, nlev_rg, i_startidx, i_endidx)
 
 ! Fill aerosol configuration type
@@ -717,7 +755,7 @@ CONTAINS
             &                         zrg_aeq5(:,:,jb),                     &
             &                         ecrad_conf, ecrad_aerosol)
         CASE DEFAULT
-          CALL finish(TRIM(routine),'irad_aero not valid for ecRad')
+          CALL finish(routine, 'irad_aero not valid for ecRad')
       END SELECT
 
       ! Reset output values
@@ -787,6 +825,10 @@ CONTAINS
       &         zrg_acdnc, zrg_albdif, zrg_rtype, zlp_pres_ifc, zlp_tot_cld, zrg_lwflx_clr_sfc,    &
       &         zrg_lwflx_up    , zrg_lwflx_dn    , zrg_swflx_up    , zrg_swflx_dn,                &
       &         zrg_lwflx_up_clr, zrg_lwflx_dn_clr, zrg_swflx_up_clr, zrg_swflx_dn_clr             )
+
+    IF (atm_phy_nwp_config(jg)%icpl_rad_reff > 0) THEN
+      DEALLOCATE(zrg_reff_liq, zrg_reff_frz)
+    ENDIF
 
     DEALLOCATE(cosmu0mask)
 

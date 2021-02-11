@@ -33,7 +33,7 @@ MODULE mo_hydro_adjust
   USE mo_kind,                  ONLY: wp
   USE mo_model_domain,          ONLY: t_patch
   USE mo_exception,             ONLY: finish
-  USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH, SUCCESS, min_rlcell
+  USE mo_impl_constants,        ONLY: SUCCESS, min_rlcell
   USE mo_physical_constants,    ONLY: rd, rdv, cpd, cvd_o_rd, p0ref, vtmpc1, o_m_rdv
   USE mo_parallel_config,       ONLY: nproma
   USE mo_run_config,            ONLY: msg_level
@@ -56,6 +56,7 @@ MODULE mo_hydro_adjust
   PUBLIC :: hydro_adjust_const_thetav
   PUBLIC :: hydro_adjust_iterative
 
+  CHARACTER(len=*), PARAMETER :: modname = 'mo_nh_init_utils'
 
 CONTAINS
 
@@ -289,8 +290,8 @@ CONTAINS
     &                               exner, theta_v, rho, qv, luse_exner_fg,    &
     &                               opt_exner_lbc, opt_exner_ubc)
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-       &  routine = 'mo_nh_init_utils: hydro_adjust_iterative'
+    CHARACTER(len=*), PARAMETER :: &
+       &  routine = modname//':hydro_adjust_iterative'
 
     TYPE(t_patch),      INTENT(IN)   :: p_patch
     TYPE(t_nh_metrics), INTENT(IN)   :: p_nh_metrics
@@ -376,7 +377,7 @@ CONTAINS
     ELSE IF (PRESENT(opt_exner_lbc)) THEN
       lintegrate_topdown=.FALSE.
     ELSE
-      CALL finish(TRIM(routine),"either opt_exner_ubc or opt_exner_lbc must be given")
+      CALL finish(routine, "either opt_exner_ubc or opt_exner_lbc must be given")
     ENDIF
 
     ! choose exner first guess
@@ -389,7 +390,7 @@ CONTAINS
         &                      SIZE(p_nh_metrics%exner_ref_mc,2), &
         &                      SIZE(p_nh_metrics%exner_ref_mc,3) ), STAT=ist)
       IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine), &
+        CALL finish (routine, &
           &  'allocation for exner_ref_mc_wp failed '     )
       ENDIF
       exner_ref_mc_wp(:,:,:) = REAL(p_nh_metrics%exner_ref_mc(:,:,:),wp)
@@ -405,7 +406,7 @@ CONTAINS
       &      diff_max_theta_v_tot(max_iteration),              &
       &      diff_max_exner_tot(max_iteration), STAT=ist)
     IF (ist /= SUCCESS) THEN
-      CALL finish ( TRIM(routine), &
+      CALL finish (routine, &
         &  'allocation for diff_max_theta_v, diff_max_exner, ' // &
         &  'diff_max_theta_v_tot, diff_max_exner_tot failed '     )
     ENDIF

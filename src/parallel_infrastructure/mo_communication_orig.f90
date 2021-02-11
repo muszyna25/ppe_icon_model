@@ -1,8 +1,5 @@
 !>
-!!               This module provides the communication routines.
-!!
-!!               This module provides the communication routines
-!! for parallel runs
+!!               This module provides the communication routines for parallel runs
 !!
 !! @par Revision History
 !! Initial version by Rainer Johanni, Nov 2009
@@ -49,7 +46,7 @@ USE mo_parallel_config,      ONLY: iorder_sendrecv, nproma, itype_exch_barrier
 USE mo_timer,                ONLY: timer_start, timer_stop, timer_exch_data, &
      &                             timer_barrier, &
      &                             timer_exch_data_wait
-USE mo_fortran_tools,        ONLY: t_ptr_3d, t_ptr_3d_sp, t_ptr_1d_int, &
+USE mo_fortran_tools,        ONLY: t_ptr_3d, t_ptr_3d_sp, t_ptr_2d, t_ptr_1d_int, &
      &                             insert_dimension
 USE mo_run_config,           ONLY: msg_level, activate_sync_timers
 USE mo_decomposition_tools,  ONLY: t_glb2loc_index_lookup, get_local_index
@@ -169,7 +166,7 @@ END TYPE t_comm_pattern_orig
 TYPE t_p_comm_pattern_orig
    TYPE(t_comm_pattern_orig), POINTER :: p
 END TYPE t_p_comm_pattern_orig
-  PUBLIC :: t_p_comm_pattern_orig
+   PUBLIC :: t_p_comm_pattern_orig
 
 TYPE, EXTENDS(t_comm_pattern_collection) :: t_comm_pattern_collection_orig
 
@@ -193,6 +190,15 @@ END TYPE t_comm_pattern_collection_orig
 #else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
 #endif
+
+#ifdef __USE_G2G
+LOGICAL, PARAMETER :: global_use_g2g = .TRUE.
+#else
+LOGICAL, PARAMETER :: global_use_g2g = .FALSE.
+#endif
+#else
+! No _OPENACC
+LOGICAL, PARAMETER :: use_g2g = .FALSE.
 #endif
 
 !
@@ -514,7 +520,7 @@ CONTAINS
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
     CONTIGUOUS :: recv_msg, send_msg
 #endif
-    INTEGER :: np_recv, np_send, n_send, n_recv, i, comm_rank, &
+    INTEGER :: np_recv, np_send, n_send, n_recv, comm_rank, &
          n_pnts_recv, n_pnts_send, comm_size
     LOGICAL :: is_inter
     CHARACTER(len=*), PARAMETER :: routine &
@@ -571,7 +577,7 @@ CONTAINS
       INTEGER, INTENT(out) :: nself, nremote, ranks(nmsg), counts(nmsg), &
            starts(nmsg)
       LOGICAL, INTENT(in) :: is_inter
-      INTEGER :: nidx_remote, nidx_local, sz, msg_rank, sz_accum
+      INTEGER :: nidx_remote, nidx_local, sz, msg_rank, sz_accum, i
       nidx_remote = 0
       nidx_local = 0
       sz_accum = 1
@@ -621,7 +627,7 @@ CONTAINS
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
       CONTIGUOUS :: msg, limits, recv_src
 #endif
-      INTEGER :: nmsg, i, sz, sz_psum, msg_rank, jls, jl, jle
+      INTEGER :: nmsg, i, sz, msg_rank, jls, jl, jle
       nmsg = SIZE(msg)
       DO i = 1, nmsg
         msg_rank = msg(i)%rank
@@ -926,6 +932,7 @@ CONTAINS
   !! Initial version by Rainer Johanni, Nov 2009
   !! Modified by Guenther Zaengl for vectorization
   !!
+  !================================================================================================
   ! REAL SECTION ----------------------------------------------------------------------------------
   !
   SUBROUTINE exchange_data_r3d(p_pat, recv, send, add)
@@ -940,24 +947,15 @@ CONTAINS
       recv_buf(SIZE(recv,2),p_pat%n_recv)
 
     REAL(dp), POINTER :: send_ptr(:,:,:)
-    INTEGER, POINTER :: recv_src(:)
-    INTEGER, POINTER :: recv_dst_blk(:)
-    INTEGER, POINTER :: recv_dst_idx(:)
-    INTEGER, POINTER :: send_src_blk(:)
-    INTEGER, POINTER :: send_src_idx(:)
 
     INTEGER :: i, k, np, irs, iss, pid, icount, ndim2
 #ifdef _OPENACC
-    LOGICAL :: use_gpu
+    LOGICAL :: use_gpu, use_g2g, use_staging
 
-    use_gpu = i_am_accel_node .AND. acc_on
+    use_gpu     = i_am_accel_node .AND. acc_on
+    use_g2g     = use_gpu .AND.       global_use_g2g
+    use_staging = use_gpu .AND. .NOT. global_use_g2g
 #endif
-
-    recv_src => p_pat%recv_src(:)
-    recv_dst_blk => p_pat%recv_dst_blk(:)
-    recv_dst_idx => p_pat%recv_dst_idx(:)
-    send_src_blk => p_pat%send_src_blk(:)
-    send_src_idx => p_pat%send_src_idx(:)
 
     !-----------------------------------------------------------------------
     ! special treatment for trivial communication patterns of
@@ -982,7 +980,7 @@ CONTAINS
     ndim2 = SIZE(recv,2)
 
 !$ACC DATA CREATE( send_buf, recv_buf )                                                      &
-!$ACC      PRESENT( recv, recv_src, recv_dst_blk, recv_dst_idx, send_src_blk, send_src_idx ) &
+!$ACC      PRESENT( recv, p_pat ) &
 !$ACC      IF (use_gpu)
 
     IF (iorder_sendrecv == 1 .OR. iorder_sendrecv == 3) THEN
@@ -992,8 +990,7 @@ CONTAINS
         pid    = p_pat%pelist_recv(np) ! ID of receiver PE
         irs    = p_pat%recv_startidx(np)
         icount = p_pat%recv_count(np)*ndim2
-        CALL p_irecv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
-
+        CALL p_irecv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm, use_g2g=use_g2g)
       ENDDO
     ENDIF
 
@@ -1009,17 +1006,17 @@ CONTAINS
 !$ACC PARALLEL DEFAULT(PRESENT) IF (use_gpu)
 !$ACC LOOP GANG VECTOR
       DO i = 1, p_pat%n_send
-        send_buf(1,i) = send_ptr(send_src_idx(i),1,send_src_blk(i))
+        send_buf(1,i) = send_ptr(p_pat%send_src_idx(i),1,p_pat%send_src_blk(i))
       ENDDO
 !$ACC END PARALLEL
     ELSE
 #if defined( __SX__ ) || defined( _OPENACC )
 !$NEC outerloop_unroll(4)
-!$ACC PARALLEL DEFAULT(PRESENT) IF (use_gpu)
+!$ACC PARALLEL DEFAULT(NONE) PRESENT(send_ptr) IF (use_gpu)
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO k = 1, ndim2
         DO i = 1, p_pat%n_send
-          send_buf(k,i) = send_ptr(send_src_idx(i),k,send_src_blk(i))
+          send_buf(k,i) = send_ptr(p_pat%send_src_idx(i),k,p_pat%send_src_blk(i))
         ENDDO
       ENDDO
 !$ACC END PARALLEL
@@ -1028,7 +1025,7 @@ CONTAINS
 !$OMP PARALLEL DO
 #endif
       DO i = 1, p_pat%n_send
-        send_buf(1:ndim2,i) = send_ptr(send_src_idx(i),1:ndim2, send_src_blk(i))
+        send_buf(1:ndim2,i) = send_ptr(p_pat%send_src_idx(i),1:ndim2, p_pat%send_src_blk(i))
       ENDDO
 #ifdef __OMPPAR_COPY__
 !$OMP END PARALLEL DO
@@ -1036,9 +1033,7 @@ CONTAINS
 #endif
     ENDIF
 
-#ifndef __USE_G2G
-!$ACC UPDATE HOST( send_buf ) IF (use_gpu)
-#endif
+!$ACC UPDATE HOST( send_buf ) IF (use_staging)
 
     ! Send our data
     IF (iorder_sendrecv == 1) THEN
@@ -1047,7 +1042,7 @@ CONTAINS
         pid    = p_pat%pelist_send(np) ! ID of sender PE
         iss    = p_pat%send_startidx(np)
         icount = p_pat%send_count(np)*ndim2
-        CALL p_send(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
+        CALL p_send(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm, use_g2g=use_g2g)
 
       ENDDO
     ELSE IF (iorder_sendrecv == 2) THEN ! use isend/recv
@@ -1056,16 +1051,15 @@ CONTAINS
         pid    = p_pat%pelist_send(np) ! ID of sender PE
         iss    = p_pat%send_startidx(np)
         icount = p_pat%send_count(np)*ndim2
-        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
+        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm, use_g2g=use_g2g)
 
       ENDDO
-
       DO np = 1, p_pat%np_recv ! loop over PEs from where to receive the data
 
         pid    = p_pat%pelist_recv(np) ! ID of receiver PE
         irs    = p_pat%recv_startidx(np)
         icount = p_pat%recv_count(np)*ndim2
-        CALL p_recv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
+        CALL p_recv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm, use_g2g=use_g2g)
 
       ENDDO
     ELSE IF (iorder_sendrecv == 3) THEN ! use irecv/isend
@@ -1074,7 +1068,7 @@ CONTAINS
         pid    = p_pat%pelist_send(np) ! ID of sender PE
         iss    = p_pat%send_startidx(np)
         icount = p_pat%send_count(np)*ndim2
-        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
+        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm, use_g2g=use_g2g)
 
       ENDDO
     ENDIF
@@ -1082,9 +1076,8 @@ CONTAINS
     ! Wait for all outstanding requests to finish
     start_sync_timer(timer_exch_data_wait)
     CALL p_wait
-#ifndef __USE_G2G
-!$ACC UPDATE DEVICE( recv_buf ) IF (use_gpu)
-#endif
+
+!$ACC UPDATE DEVICE( recv_buf ) IF (use_staging)
     stop_sync_timer(timer_exch_data_wait)
 
     IF (itype_exch_barrier == 2 .OR. itype_exch_barrier == 3) THEN
@@ -1101,8 +1094,8 @@ CONTAINS
 !$ACC PARALLEL DEFAULT(PRESENT) IF (use_gpu)
 !$ACC LOOP GANG VECTOR
         DO i = 1, p_pat%n_pnts
-          recv(recv_dst_idx(i),k,recv_dst_blk(i)) = &
-            recv_buf(k,recv_src(i)) + add(recv_dst_idx(i),k,recv_dst_blk(i))
+          recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) = &
+            recv_buf(k,p_pat%recv_src(i)) + add(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i))
         ENDDO
 !$ACC END PARALLEL
       ELSE
@@ -1112,8 +1105,8 @@ CONTAINS
 !$NEC outerloop_unroll(4)
         DO k = 1, ndim2
           DO i = 1, p_pat%n_pnts
-            recv(recv_dst_idx(i),k,recv_dst_blk(i)) = &
-              recv_buf(k,recv_src(i)) + add(recv_dst_idx(i),k,recv_dst_blk(i))
+            recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) = &
+              recv_buf(k,p_pat%recv_src(i)) + add(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i))
           ENDDO
         ENDDO
 !$ACC END PARALLEL
@@ -1122,8 +1115,8 @@ CONTAINS
 !$OMP PARALLEL DO
 #endif
         DO i = 1, p_pat%n_pnts
-          recv(recv_dst_idx(i),:,recv_dst_blk(i)) = &
-            recv_buf(:,recv_src(i)) + add(recv_dst_idx(i),1:ndim2,recv_dst_blk(i))
+          recv(p_pat%recv_dst_idx(i),:,p_pat%recv_dst_blk(i)) = &
+            recv_buf(:,p_pat%recv_src(i)) + add(p_pat%recv_dst_idx(i),1:ndim2,p_pat%recv_dst_blk(i))
         ENDDO
 #ifdef __OMPPAR_COPY__
 !$OMP END PARALLEL DO
@@ -1136,7 +1129,7 @@ CONTAINS
 !$ACC PARALLEL DEFAULT(PRESENT) IF (use_gpu)
 !$ACC LOOP GANG VECTOR
         DO i = 1, p_pat%n_pnts
-          recv(recv_dst_idx(i),k,recv_dst_blk(i)) = recv_buf(k,recv_src(i))
+          recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) = recv_buf(k,p_pat%recv_src(i))
         ENDDO
 !$ACC END PARALLEL
       ELSE
@@ -1146,7 +1139,7 @@ CONTAINS
 !$NEC outerloop_unroll(4)
         DO k = 1, ndim2
           DO i = 1, p_pat%n_pnts
-            recv(recv_dst_idx(i),k,recv_dst_blk(i)) = recv_buf(k,recv_src(i))
+            recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) = recv_buf(k,p_pat%recv_src(i))
           ENDDO
         ENDDO
 !$ACC END PARALLEL
@@ -1155,7 +1148,7 @@ CONTAINS
 !$OMP PARALLEL DO
 #endif
         DO i = 1, p_pat%n_pnts
-          recv(recv_dst_idx(i),:,recv_dst_blk(i)) = recv_buf(:,recv_src(i))
+          recv(p_pat%recv_dst_idx(i),:,p_pat%recv_dst_blk(i)) = recv_buf(:,p_pat%recv_src(i))
         ENDDO
 #ifdef __OMPPAR_COPY__
 !$OMP END PARALLEL DO
@@ -1182,6 +1175,7 @@ CONTAINS
   !! Initial version by Rainer Johanni, Nov 2009
   !! Modified by Guenther Zaengl for vectorization
   !!
+  !================================================================================================
   ! REAL SECTION ----------------------------------------------------------------------------------
   !
   SUBROUTINE exchange_data_s3d(p_pat, recv, send, add)
@@ -1204,9 +1198,11 @@ CONTAINS
 
     INTEGER :: i, k, np, irs, iss, pid, icount, ndim2
 #ifdef _OPENACC
-    LOGICAL :: use_gpu
+    LOGICAL :: use_gpu, use_g2g, use_staging
 
-    use_gpu = i_am_accel_node .AND. acc_on
+    use_gpu     = i_am_accel_node .AND. acc_on
+    use_g2g     = use_gpu .AND.       global_use_g2g
+    use_staging = use_gpu .AND. .NOT. global_use_g2g
 #endif
 
     recv_src => p_pat%recv_src(:)
@@ -1248,8 +1244,7 @@ CONTAINS
         pid    = p_pat%pelist_recv(np) ! ID of receiver PE
         irs    = p_pat%recv_startidx(np)
         icount = p_pat%recv_count(np)*ndim2
-        CALL p_irecv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
-
+        CALL p_irecv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm, use_g2g=use_g2g)
       ENDDO
     ENDIF
 
@@ -1292,9 +1287,7 @@ CONTAINS
 #endif
     ENDIF
 
-#ifndef __USE_G2G
-!$ACC UPDATE HOST( send_buf ) IF (use_gpu)
-#endif
+!$ACC UPDATE HOST( send_buf ) IF (use_staging)
 
     ! Send our data
     IF (iorder_sendrecv == 1) THEN
@@ -1303,7 +1296,7 @@ CONTAINS
         pid    = p_pat%pelist_send(np) ! ID of sender PE
         iss    = p_pat%send_startidx(np)
         icount = p_pat%send_count(np)*ndim2
-        CALL p_send(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
+        CALL p_send(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm, use_g2g=use_g2g)
 
       ENDDO
     ELSE IF (iorder_sendrecv == 2) THEN ! use isend/recv
@@ -1312,7 +1305,7 @@ CONTAINS
         pid    = p_pat%pelist_send(np) ! ID of sender PE
         iss    = p_pat%send_startidx(np)
         icount = p_pat%send_count(np)*ndim2
-        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
+        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm, use_g2g=use_g2g)
 
       ENDDO
 
@@ -1321,7 +1314,7 @@ CONTAINS
         pid    = p_pat%pelist_recv(np) ! ID of receiver PE
         irs    = p_pat%recv_startidx(np)
         icount = p_pat%recv_count(np)*ndim2
-        CALL p_recv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
+        CALL p_recv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm, use_g2g=use_g2g)
 
       ENDDO
     ELSE IF (iorder_sendrecv == 3) THEN ! use irecv/isend
@@ -1330,7 +1323,7 @@ CONTAINS
         pid    = p_pat%pelist_send(np) ! ID of sender PE
         iss    = p_pat%send_startidx(np)
         icount = p_pat%send_count(np)*ndim2
-        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
+        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm, use_g2g=use_g2g)
 
       ENDDO
     ENDIF
@@ -1338,9 +1331,7 @@ CONTAINS
     ! Wait for all outstanding requests to finish
     start_sync_timer(timer_exch_data_wait)
     CALL p_wait
-#ifndef __USE_G2G
-!$ACC UPDATE DEVICE( recv_buf ) IF (use_gpu)
-#endif
+!$ACC UPDATE DEVICE( recv_buf ) IF (use_staging)
     stop_sync_timer(timer_exch_data_wait)
 
     IF (itype_exch_barrier == 2 .OR. itype_exch_barrier == 3) THEN
@@ -1625,6 +1616,7 @@ CONTAINS
   END SUBROUTINE exchange_data_s3d_seq
 
 
+  !================================================================================================
   ! INTEGER SECTION -------------------------------------------------------------------------------
   !
   SUBROUTINE exchange_data_i3d(p_pat, recv, send, add)
@@ -1647,9 +1639,11 @@ CONTAINS
 
     INTEGER :: i, k, np, irs, iss, pid, icount, ndim2
 #ifdef _OPENACC
-    LOGICAL :: use_gpu
+    LOGICAL :: use_gpu, use_g2g, use_staging
 
-    use_gpu = i_am_accel_node .AND. acc_on
+    use_gpu     = i_am_accel_node .AND. acc_on
+    use_g2g     = use_gpu .AND.       global_use_g2g
+    use_staging = use_gpu .AND. .NOT. global_use_g2g
 #endif
 
     recv_src => p_pat%recv_src(:)
@@ -1688,8 +1682,7 @@ CONTAINS
         pid    = p_pat%pelist_recv(np) ! ID of receiver PE
         irs    = p_pat%recv_startidx(np)
         icount = p_pat%recv_count(np)*ndim2
-        CALL p_irecv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
-
+        CALL p_irecv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm, use_g2g=use_g2g)
       ENDDO
     ENDIF
 
@@ -1732,10 +1725,7 @@ CONTAINS
 #endif
     ENDIF
 
-#ifndef __USE_G2G
-!$ACC UPDATE HOST( send_buf ) IF (use_gpu)
-#endif
-
+!$ACC UPDATE HOST( send_buf ) IF (use_staging)
     ! Send our data
     IF (iorder_sendrecv == 1) THEN
       DO np = 1, p_pat%np_send ! loop over PEs where to send the data
@@ -1752,7 +1742,7 @@ CONTAINS
         pid    = p_pat%pelist_send(np) ! ID of sender PE
         iss    = p_pat%send_startidx(np)
         icount = p_pat%send_count(np)*ndim2
-        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
+        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm, use_g2g=use_g2g)
 
       ENDDO
 
@@ -1761,16 +1751,16 @@ CONTAINS
         pid    = p_pat%pelist_recv(np) ! ID of receiver PE
         irs    = p_pat%recv_startidx(np)
         icount = p_pat%recv_count(np)*ndim2
-        CALL p_recv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
+        CALL p_recv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm, use_g2g=use_g2g)
 
-      ENDDO
+     ENDDO
     ELSE IF (iorder_sendrecv == 3) THEN ! use irecv/isend
       DO np = 1, p_pat%np_send ! loop over PEs where to send the data
 
         pid    = p_pat%pelist_send(np) ! ID of sender PE
         iss    = p_pat%send_startidx(np)
         icount = p_pat%send_count(np)*ndim2
-        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
+        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm, use_g2g=use_g2g)
 
       ENDDO
     ENDIF
@@ -1778,9 +1768,7 @@ CONTAINS
     ! Wait for all outstanding requests to finish
     start_sync_timer(timer_exch_data_wait)
     CALL p_wait
-#ifndef __USE_G2G
-!$ACC UPDATE DEVICE( recv_buf ) IF (use_gpu)
-#endif
+!$ACC UPDATE DEVICE( recv_buf ) IF (use_staging)
     stop_sync_timer(timer_exch_data_wait)
 
     IF (itype_exch_barrier == 2 .OR. itype_exch_barrier == 3) THEN
@@ -1867,6 +1855,7 @@ CONTAINS
   END SUBROUTINE exchange_data_i3d
 
 
+  !================================================================================================
   ! LOGICAL SECTION -------------------------------------------------------------------------------
   !
   SUBROUTINE exchange_data_l3d(p_pat, recv, send)
@@ -1888,9 +1877,11 @@ CONTAINS
 
     INTEGER :: i, k, np, irs, iss, pid, icount, ndim2
 #ifdef _OPENACC
-    LOGICAL :: use_gpu
+    LOGICAL :: use_gpu, use_g2g, use_staging
 
-    use_gpu = i_am_accel_node .AND. acc_on
+    use_gpu     = i_am_accel_node .AND. acc_on
+    use_g2g     = use_gpu .AND.       global_use_g2g
+    use_staging = use_gpu .AND. .NOT. global_use_g2g
 #endif
 
     recv_src => p_pat%recv_src(:)
@@ -1929,8 +1920,7 @@ CONTAINS
         pid    = p_pat%pelist_recv(np) ! ID of receiver PE
         irs    = p_pat%recv_startidx(np)
         icount = p_pat%recv_count(np)*ndim2
-        CALL p_irecv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
-
+        CALL p_irecv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm, use_g2g=use_g2g)
       ENDDO
     ENDIF
 
@@ -1973,10 +1963,7 @@ CONTAINS
 #endif
     ENDIF
 
-#ifndef __USE_G2G
-!$ACC UPDATE HOST( send_buf ) IF (use_gpu)
-#endif
-
+!$ACC UPDATE HOST( send_buf ) IF (use_staging)
     ! Send our data
     IF (iorder_sendrecv == 1) THEN
       DO np = 1, p_pat%np_send ! loop over PEs where to send the data
@@ -1984,7 +1971,7 @@ CONTAINS
         pid    = p_pat%pelist_send(np) ! ID of sender PE
         iss    = p_pat%send_startidx(np)
         icount = p_pat%send_count(np)*ndim2
-        CALL p_send(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
+        CALL p_send(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm, use_g2g=use_g2g)
 
       ENDDO
     ELSE IF (iorder_sendrecv == 2) THEN ! use isend/recv
@@ -1993,7 +1980,7 @@ CONTAINS
         pid    = p_pat%pelist_send(np) ! ID of sender PE
         iss    = p_pat%send_startidx(np)
         icount = p_pat%send_count(np)*ndim2
-        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
+        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm, use_g2g=use_g2g)
 
       ENDDO
 
@@ -2002,7 +1989,7 @@ CONTAINS
         pid    = p_pat%pelist_recv(np) ! ID of receiver PE
         irs    = p_pat%recv_startidx(np)
         icount = p_pat%recv_count(np)*ndim2
-        CALL p_recv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
+        CALL p_recv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm, use_g2g=use_g2g)
 
       ENDDO
     ELSE IF (iorder_sendrecv == 3) THEN ! use irecv/isend
@@ -2011,7 +1998,7 @@ CONTAINS
         pid    = p_pat%pelist_send(np) ! ID of sender PE
         iss    = p_pat%send_startidx(np)
         icount = p_pat%send_count(np)*ndim2
-        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
+        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm, use_g2g=use_g2g)
 
       ENDDO
     ENDIF
@@ -2019,9 +2006,7 @@ CONTAINS
     ! Wait for all outstanding requests to finish
     start_sync_timer(timer_exch_data_wait)
     CALL p_wait
-#ifndef __USE_G2G
-!$ACC UPDATE DEVICE( recv_buf ) IF (use_gpu)
-#endif
+!$ACC UPDATE DEVICE( recv_buf ) IF (use_staging)
     stop_sync_timer(timer_exch_data_wait)
 
     IF (itype_exch_barrier == 2 .OR. itype_exch_barrier == 3) THEN
@@ -2095,26 +2080,19 @@ CONTAINS
 #if defined( __SX__ ) || defined( _OPENACC )
     REAL(dp), POINTER :: send_ptr(:,:,:), recv_ptr(:,:,:)  ! Refactoring for OpenACC
 #endif
-    INTEGER :: nfields
+    INTEGER :: nfields, accum
     INTEGER :: i, k, kshift(SIZE(recv)), jb,ik, jl, n, np, irs, iss, pid, icount
     LOGICAL :: lsend
-    INTEGER, POINTER :: recv_src(:)
-    INTEGER, POINTER :: recv_dst_blk(:)
-    INTEGER, POINTER :: recv_dst_idx(:)
-    INTEGER, POINTER :: send_src_blk(:)
-    INTEGER, POINTER :: send_src_idx(:)
     INTEGER :: n_send, n_pnts
+    INTEGER :: kshift_n, ndim2_n, noffset_n ! temporary variables to avoid copying data in OpenACC
 #ifdef _OPENACC
-    LOGICAL :: use_gpu
+    LOGICAL :: use_gpu, use_g2g, use_staging
 
-    use_gpu = i_am_accel_node .AND. acc_on
+    use_gpu     = i_am_accel_node .AND. acc_on
+    use_g2g     = use_gpu .AND.       global_use_g2g
+    use_staging = use_gpu .AND. .NOT. global_use_g2g
 #endif
 
-    recv_src => p_pat%recv_src(:)
-    recv_dst_blk => p_pat%recv_dst_blk(:)
-    recv_dst_idx => p_pat%recv_dst_idx(:)
-    send_src_blk => p_pat%send_src_blk(:)
-    send_src_idx => p_pat%send_src_idx(:)
     n_send = p_pat%n_send
     n_pnts = p_pat%n_pnts
 
@@ -2137,8 +2115,8 @@ CONTAINS
       kshift = 0
     ENDIF
 
-!$ACC DATA CREATE(send_buf, recv_buf) COPYIN(kshift)                                         &
-!$ACC      PRESENT( recv_src, recv_dst_blk, recv_dst_idx, send_src_blk, send_src_idx ) &
+!$ACC DATA CREATE(send_buf, recv_buf)                                                  &
+!$ACC      PRESENT( p_pat ) &
 !$ACC      IF (use_gpu)
 
     IF ((iorder_sendrecv == 1 .OR. iorder_sendrecv == 3) .AND. &
@@ -2149,8 +2127,7 @@ CONTAINS
         pid    = p_pat%pelist_recv(np) ! ID of receiver PE
         irs    = p_pat%recv_startidx(np)
         icount = p_pat%recv_count(np)*ndim2tot
-        CALL p_irecv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
-
+        CALL p_irecv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm, use_g2g=use_g2g)
       ENDDO
     ENDIF
 
@@ -2163,18 +2140,17 @@ CONTAINS
         ENDIF
       ENDDO
 
-    ELSE          ! WS: Removed RETURN in order to properly support OpenACC DATA region
-
+    ELSE
       ! Reset kshift to 0 if 2D fields are passed together with 3D fields
       DO n = 1, nfields
         IF (SIZE(recv(n)%p,2) == 1) kshift(n) = 0
       ENDDO
 
-      noffset(1) = 0
-      ndim2(1)   = SIZE(recv(1)%p,2) - kshift(1)
-      DO n = 2, nfields
-        noffset(n) = noffset(n-1)+ndim2(n-1)
-        ndim2(n)   = SIZE(recv(n)%p,2) - kshift(n)
+      accum = 0
+      DO n = 1, nfields
+        noffset(n) = accum
+        ndim2(n) = SIZE(recv(n)%p,2) - kshift(n)
+        accum = accum + ndim2(n)
       ENDDO
 
 !$ACC DATA COPYIN(noffset, ndim2) IF (use_gpu)
@@ -2184,40 +2160,48 @@ CONTAINS
       IF ( lsend ) THEN
         DO n = 1, nfields
           send_ptr => send(n)%p
-!$ACC PARALLEL DEFAULT(PRESENT) IF (use_gpu)
+          ndim2_n   = ndim2(n)
+          noffset_n = noffset(n)
+          kshift_n  = kshift(n)
+!$ACC PARALLEL DEFAULT(NONE) PRESENT(send_ptr) IF (use_gpu) ASYNC(1)
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
 !$NEC outerloop_unroll(4)
-          DO k = 1, ndim2(n)
+          DO k = 1, ndim2_n
             DO i = 1, n_send
-              send_buf(k+noffset(n),i) = &
-                send_ptr(send_src_idx(i),k+kshift(n),send_src_blk(i))
+              send_buf(k+noffset_n,i) = &
+                send_ptr(p_pat%send_src_idx(i),k+kshift_n,p_pat%send_src_blk(i))
             ENDDO
           ENDDO
 !$ACC END PARALLEL
         ENDDO
+!$ACC WAIT
       ELSE
         ! Send and receive arrays are identical (for boundary exchange)
         DO n = 1, nfields
           recv_ptr => recv(n)%p
-!$ACC PARALLEL DEFAULT(PRESENT) IF (use_gpu)
+          ndim2_n   = ndim2(n)
+          noffset_n = noffset(n)
+          kshift_n  = kshift(n)
+!$ACC PARALLEL DEFAULT(NONE) PRESENT(recv_ptr)  IF (use_gpu) ASYNC(1)
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
 !$NEC outerloop_unroll(4)
-          DO k = 1, ndim2(n)
+          DO k = 1, ndim2_n
             DO i = 1, n_send
-              send_buf(k+noffset(n),i) = &
-                recv_ptr(send_src_idx(i),k+kshift(n),send_src_blk(i))
+              send_buf(k+noffset_n,i) = &
+                recv_ptr(p_pat%send_src_idx(i),k+kshift_n,p_pat%send_src_blk(i))
             ENDDO
           ENDDO
 !$ACC END PARALLEL
         ENDDO
+!$ACC WAIT
       ENDIF
 #else
 #ifdef __OMPPAR_COPY__
 !$OMP PARALLEL DO PRIVATE(jb,jl,n,k)
 #endif
       DO i = 1, n_send
-        jb = send_src_blk(i)
-        jl = send_src_idx(i)
+        jb = p_pat%send_src_blk(i)
+        jl = p_pat%send_src_idx(i)
         IF ( lsend ) THEN
           DO n = 1, nfields
             DO k = 1, ndim2(n)
@@ -2237,10 +2221,7 @@ CONTAINS
 #endif
 #endif
 
-#ifndef __USE_G2G
-!$ACC UPDATE HOST( send_buf ) IF (use_gpu)
-#endif
-
+!$ACC UPDATE HOST( send_buf ) IF (use_staging)
       ! Send our data
       IF (iorder_sendrecv == 1) THEN
         DO np = 1, p_pat%np_send ! loop over PEs where to send the data
@@ -2248,7 +2229,7 @@ CONTAINS
           pid    = p_pat%pelist_send(np) ! ID of sender PE
           iss    = p_pat%send_startidx(np)
           icount = p_pat%send_count(np)*ndim2tot
-          CALL p_send(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
+          CALL p_send(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm, use_g2g=use_g2g)
 
         ENDDO
       ELSE IF (iorder_sendrecv == 2) THEN ! use isend/recv
@@ -2257,7 +2238,7 @@ CONTAINS
           pid    = p_pat%pelist_send(np) ! ID of sender PE
           iss    = p_pat%send_startidx(np)
           icount = p_pat%send_count(np)*ndim2tot
-          CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
+          CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm, use_g2g=use_g2g)
 
         ENDDO
 
@@ -2266,7 +2247,7 @@ CONTAINS
           pid    = p_pat%pelist_recv(np) ! ID of receiver PE
           irs    = p_pat%recv_startidx(np)
           icount = p_pat%recv_count(np)*ndim2tot
-          CALL p_recv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
+          CALL p_recv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm, use_g2g=use_g2g)
 
         ENDDO
       ELSE IF (iorder_sendrecv == 3) THEN ! use isend/irecv
@@ -2275,7 +2256,7 @@ CONTAINS
           pid    = p_pat%pelist_send(np) ! ID of sender PE
           iss    = p_pat%send_startidx(np)
           icount = p_pat%send_count(np)*ndim2tot
-          CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
+          CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm, use_g2g=use_g2g)
 
         ENDDO
       ENDIF
@@ -2283,9 +2264,7 @@ CONTAINS
       ! Wait for all outstanding requests to finish
       start_sync_timer(timer_exch_data_wait)
       CALL p_wait
-#ifndef __USE_G2G
-!$ACC UPDATE DEVICE( recv_buf ) IF (use_gpu)
-#endif
+!$ACC UPDATE DEVICE( recv_buf ) IF (use_staging)
       stop_sync_timer(timer_exch_data_wait)
 
       IF (itype_exch_barrier == 2 .OR. itype_exch_barrier == 3) THEN
@@ -2299,25 +2278,30 @@ CONTAINS
 #if defined( __SX__ ) || defined( _OPENACC )
       DO n = 1, nfields
         recv_ptr => recv(n)%p
-!$ACC PARALLEL DEFAULT(PRESENT) IF (use_gpu)
+
+        ndim2_n   = ndim2(n)
+        noffset_n = noffset(n)
+        kshift_n  = kshift(n)
+!$ACC PARALLEL DEFAULT(NONE) PRESENT(recv_ptr) IF (use_gpu) ASYNC(1)
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
 !$NEC outerloop_unroll(4)
-        DO k = 1, ndim2(n)
+        DO k = 1, ndim2_n
           DO i = 1, n_pnts
-            recv_ptr(recv_dst_idx(i),k+kshift(n),recv_dst_blk(i)) =  &
-              recv_buf(k+noffset(n),recv_src(i))
+            recv_ptr(p_pat%recv_dst_idx(i),k+kshift_n,p_pat%recv_dst_blk(i)) =  &
+              recv_buf(k+noffset_n,p_pat%recv_src(i))
           ENDDO
         ENDDO
 !$ACC END PARALLEL
       ENDDO
+!$ACC WAIT
 #else
 #ifdef __OMPPAR_COPY__
 !$OMP PARALLEL DO PRIVATE(jb,jl,ik,n,k)
 #endif
       DO i = 1, n_pnts
-        jb = recv_dst_blk(i)
-        jl = recv_dst_idx(i)
-        ik  = recv_src(i)
+        jb = p_pat%recv_dst_blk(i)
+        jl = p_pat%recv_dst_idx(i)
+        ik  = p_pat%recv_src(i)
         DO n = 1, nfields
           DO k = 1, ndim2(n)
             recv(n)%p(jl,k+kshift(n),jb) = recv_buf(k+noffset(n),ik)
@@ -2330,11 +2314,11 @@ CONTAINS
 #endif
 
 !$ACC END DATA
-
+      
     ENDIF  ! .NOT. my_process_is_mpi_seq()
 
 !$ACC END DATA
-
+      
     stop_sync_timer(timer_exch_data)
 
   END SUBROUTINE exchange_data_mult
@@ -2372,7 +2356,7 @@ CONTAINS
     REAL(dp), POINTER :: send_fld_dp(:,:,:), recv_fld_dp(:,:,:)
 #endif
     INTEGER :: i, k, kshift_dp(nfields_dp), kshift_sp(nfields_sp), &
-         jb, ik, jl, n, np, irs, iss, pid, icount
+         jb, ik, jl, n, np, irs, iss, pid, icount, accum
     LOGICAL :: lsend
     INTEGER, POINTER :: recv_src(:)
     INTEGER, POINTER :: recv_dst_blk(:)
@@ -2381,9 +2365,11 @@ CONTAINS
     INTEGER, POINTER :: send_src_idx(:)
     INTEGER :: n_send, n_pnts
 #ifdef _OPENACC
-    LOGICAL :: use_gpu
+    LOGICAL :: use_gpu, use_g2g, use_staging
 
-    use_gpu = i_am_accel_node .AND. acc_on
+    use_gpu     = i_am_accel_node .AND. acc_on
+    use_g2g     = use_gpu .AND.       global_use_g2g
+    use_staging = use_gpu .AND. .NOT. global_use_g2g
 #endif
 
     recv_src => p_pat%recv_src(:)
@@ -2414,6 +2400,25 @@ CONTAINS
       kshift_sp = 0
     ENDIF
 
+    IF(my_process_is_mpi_seq()) THEN
+      DO n = 1, nfields_dp
+        IF(lsend) THEN
+          CALL exchange_data_r3d_seq(p_pat, recv_dp(n)%p, send_dp(n)%p)
+        ELSE
+          CALL exchange_data_r3d_seq(p_pat, recv_dp(n)%p)
+        ENDIF
+      ENDDO
+      DO n = 1, nfields_sp
+        IF(lsend) THEN
+          CALL exchange_data_s3d_seq(p_pat, recv_sp(n)%p, send_sp(n)%p)
+        ELSE
+          CALL exchange_data_s3d_seq(p_pat, recv_sp(n)%p)
+        ENDIF
+      ENDDO
+      stop_sync_timer(timer_exch_data)
+      RETURN
+    ENDIF
+
 !$ACC DATA CREATE( send_buf_dp, recv_buf_dp, send_buf_sp, recv_buf_sp )                &
 !$ACC      PRESENT( recv_src, recv_dst_blk, recv_dst_idx, send_src_blk, send_src_idx ) &
 !$ACC      IF (use_gpu)
@@ -2426,230 +2431,77 @@ CONTAINS
         pid    = p_pat%pelist_recv(np) ! ID of receiver PE
         irs    = p_pat%recv_startidx(np)
         icount = p_pat%recv_count(np)*ndim2tot_dp
-        IF (icount>0) CALL p_irecv(recv_buf_dp(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
+        IF (icount>0) CALL p_irecv(recv_buf_dp(1,irs), pid, 1, p_count=icount, comm=p_pat%comm, use_g2g=use_g2g)
 
         icount = p_pat%recv_count(np)*ndim2tot_sp
-        IF (icount>0) CALL p_irecv(recv_buf_sp(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
+        IF (icount>0) CALL p_irecv(recv_buf_sp(1,irs), pid, 1, p_count=icount, comm=p_pat%comm, use_g2g=use_g2g)
 
       ENDDO
     ENDIF
 
-    IF(my_process_is_mpi_seq()) THEN
+    ! Reset kshift to 0 if 2D fields are passed together with 3D fields
+    DO n = 1, nfields_dp
+      IF (SIZE(recv_dp(n)%p,2) == 1) kshift_dp(n) = 0
+    ENDDO
+    DO n = 1, nfields_sp
+      IF (SIZE(recv_sp(n)%p,2) == 1) kshift_sp(n) = 0
+    ENDDO
+     
+    accum = 0
+    DO n = 1, nfields_dp
+      noffset_dp(n) = accum
+      ndim2_dp(n)   = SIZE(recv_dp(n)%p,2) - kshift_dp(n)
+      accum = accum + ndim2_dp(n)
+    ENDDO
+    accum = 0
+    DO n = 1, nfields_sp
+      noffset_sp(n) = accum
+      ndim2_sp(n)   = SIZE(recv_sp(n)%p,2) - kshift_sp(n)
+      accum = accum + ndim2_sp(n)
+    ENDDO
+
+ !$ACC DATA COPYIN(kshift_dp,noffset_dp,ndim2_dp,kshift_sp,noffset_sp,ndim2_sp)
+
+    ! Set up send buffer
+#if defined( __SX__ ) || defined( _OPENACC )
+    IF ( lsend ) THEN
       DO n = 1, nfields_dp
-        IF(lsend) THEN
-          CALL exchange_data_r3d_seq(p_pat, recv_dp(n)%p(:,:,:), send_dp(n)%p(:,:,:))
-        ELSE
-          CALL exchange_data_r3d_seq(p_pat, recv_dp(n)%p(:,:,:))
-        ENDIF
+        send_fld_dp => send_dp(n)%p   ! Refactoring for OpenACC
+!$ACC PARALLEL DEFAULT(PRESENT) IF(use_gpu)
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
+!$NEC outerloop_unroll(4)
+        DO k = 1, ndim2_dp(n)
+          DO i = 1, n_send
+            send_buf_dp(k+noffset_dp(n),i) = &
+              send_fld_dp(send_src_idx(i),k+kshift_dp(n),send_src_blk(i))
+          ENDDO
+        ENDDO
+!$ACC END PARALLEL
       ENDDO
       DO n = 1, nfields_sp
-        IF(lsend) THEN
-          CALL exchange_data_s3d_seq(p_pat, recv_sp(n)%p(:,:,:), send_sp(n)%p(:,:,:))
-        ELSE
-          CALL exchange_data_s3d_seq(p_pat, recv_sp(n)%p(:,:,:))
-        ENDIF
-      ENDDO
-
-    ELSE          ! WS: Removed RETURN in order to properly support OpenACC DATA region
-
-      ! Reset kshift to 0 if 2D fields are passed together with 3D fields
-      DO n = 1, nfields_dp
-        IF (SIZE(recv_dp(n)%p,2) == 1) kshift_dp(n) = 0
-      ENDDO
-      DO n = 1, nfields_sp
-        IF (SIZE(recv_sp(n)%p,2) == 1) kshift_sp(n) = 0
-      ENDDO
-
-      IF (nfields_dp > 0) THEN
-        noffset_dp(1) = 0
-        ndim2_dp(1)   = SIZE(recv_dp(1)%p,2) - kshift_dp(1)
-      ENDIF
-      DO n = 2, nfields_dp
-        noffset_dp(n) = noffset_dp(n-1)+ndim2_dp(n-1)
-        ndim2_dp(n)   = SIZE(recv_dp(n)%p,2) - kshift_dp(n)
-      ENDDO
-      IF (nfields_sp > 0) THEN
-        noffset_sp(1) = 0
-        ndim2_sp(1)   = SIZE(recv_sp(1)%p,2) - kshift_sp(1)
-      ENDIF
-      DO n = 2, nfields_sp
-        noffset_sp(n) = noffset_sp(n-1)+ndim2_sp(n-1)
-        ndim2_sp(n)   = SIZE(recv_sp(n)%p,2) - kshift_sp(n)
-      ENDDO
-
-!$ACC DATA COPYIN(kshift_dp,noffset_dp,ndim2_dp,kshift_sp,noffset_sp,ndim2_sp)
-
-      ! Set up send buffer
-#if defined( __SX__ ) || defined( _OPENACC )
-      IF ( lsend ) THEN
-        DO n = 1, nfields_dp
-          send_fld_dp => send_dp(n)%p   ! Refactoring for OpenACC
+        send_fld_sp => send_sp(n)%p   ! Refactoring for OpenACC
 !$ACC PARALLEL DEFAULT(PRESENT) IF(use_gpu)
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
 !$NEC outerloop_unroll(4)
-          DO k = 1, ndim2_dp(n)
-            DO i = 1, n_send
-              send_buf_dp(k+noffset_dp(n),i) = &
-                send_fld_dp(send_src_idx(i),k+kshift_dp(n),send_src_blk(i))
-            ENDDO
+        DO k = 1, ndim2_sp(n)
+          DO i = 1, n_send
+            send_buf_sp(k+noffset_sp(n),i) = &
+              send_fld_sp(send_src_idx(i),k+kshift_sp(n),send_src_blk(i))
           ENDDO
-!$ACC END PARALLEL
         ENDDO
-        DO n = 1, nfields_sp
-          send_fld_sp => send_sp(n)%p   ! Refactoring for OpenACC
-!$ACC PARALLEL DEFAULT(PRESENT) IF(use_gpu)
-!$ACC LOOP GANG VECTOR COLLAPSE(2)
-!$NEC outerloop_unroll(4)
-          DO k = 1, ndim2_sp(n)
-            DO i = 1, n_send
-              send_buf_sp(k+noffset_sp(n),i) = &
-                send_fld_sp(send_src_idx(i),k+kshift_sp(n),send_src_blk(i))
-            ENDDO
-          ENDDO
 !$ACC END PARALLEL
-        ENDDO
-      ELSE
-        ! Send and receive arrays are identical (for boundary exchange)
-        DO n = 1, nfields_dp
-          recv_fld_dp => recv_dp(n)%p
-!$ACC PARALLEL DEFAULT(PRESENT) IF(use_gpu)
-!$ACC LOOP GANG VECTOR COLLAPSE(2)
-!$NEC outerloop_unroll(4)
-          DO k = 1, ndim2_dp(n)
-            DO i = 1, n_send
-              send_buf_dp(k+noffset_dp(n),i) = &
-                recv_fld_dp(send_src_idx(i),k+kshift_dp(n),send_src_blk(i))
-            ENDDO
-          ENDDO
-!$ACC END PARALLEL
-        ENDDO
-        DO n = 1, nfields_sp
-          recv_fld_sp => recv_sp(n)%p
-!$ACC PARALLEL DEFAULT(PRESENT) IF(use_gpu)
-!$ACC LOOP GANG VECTOR COLLAPSE(2)
-!$NEC outerloop_unroll(4)
-          DO k = 1, ndim2_sp(n)
-            DO i = 1, n_send
-              send_buf_sp(k+noffset_sp(n),i) = &
-                recv_fld_sp(send_src_idx(i),k+kshift_sp(n),send_src_blk(i))
-            ENDDO
-          ENDDO
-!$ACC END PARALLEL
-        ENDDO
-      ENDIF
-#else
-#ifdef __OMPPAR_COPY__
-!$OMP PARALLEL DO PRIVATE(jb,jl,n,k)
-#endif
-      DO i = 1, n_send
-        jb = send_src_blk(i)
-        jl = send_src_idx(i)
-        IF ( lsend ) THEN
-          DO n = 1, nfields_dp
-            DO k = 1, ndim2_dp(n)
-              send_buf_dp(k+noffset_dp(n),i) = send_dp(n)%p(jl,k+kshift_dp(n),jb)
-            ENDDO
-          ENDDO
-          DO n = 1, nfields_sp
-            DO k = 1, ndim2_sp(n)
-              send_buf_sp(k+noffset_sp(n),i) = send_sp(n)%p(jl,k+kshift_sp(n),jb)
-            ENDDO
-          ENDDO
-        ELSE
-          DO n = 1, nfields_dp
-            DO k = 1, ndim2_dp(n)
-              send_buf_dp(k+noffset_dp(n),i) = recv_dp(n)%p(jl,k+kshift_dp(n),jb)
-            ENDDO
-          ENDDO
-          DO n = 1, nfields_sp
-            DO k = 1, ndim2_sp(n)
-              send_buf_sp(k+noffset_sp(n),i) = recv_sp(n)%p(jl,k+kshift_sp(n),jb)
-            ENDDO
-          ENDDO
-        ENDIF
       ENDDO
-#ifdef __OMPPAR_COPY__
-!$OMP END PARALLEL DO
-#endif
-#endif
-
-#ifndef __USE_G2G
-!$ACC UPDATE HOST( send_buf_dp, send_buf_sp ) IF (use_gpu)
-#endif
-
-      ! Send our data
-      IF (iorder_sendrecv == 1) THEN
-        DO np = 1, p_pat%np_send ! loop over PEs where to send the data
-
-          pid    = p_pat%pelist_send(np) ! ID of sender PE
-          iss    = p_pat%send_startidx(np)
-          icount = p_pat%send_count(np)*ndim2tot_dp
-          IF (icount>0) CALL p_send(send_buf_dp(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
-          icount = p_pat%send_count(np)*ndim2tot_sp
-          IF (icount>0) CALL p_send(send_buf_sp(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
-
-        ENDDO
-      ELSE IF (iorder_sendrecv == 2) THEN ! use isend/recv
-        DO np = 1, p_pat%np_send ! loop over PEs where to send the data
-
-          pid    = p_pat%pelist_send(np) ! ID of sender PE
-          iss    = p_pat%send_startidx(np)
-          icount = p_pat%send_count(np)*ndim2tot_dp
-          IF (icount>0) CALL p_isend(send_buf_dp(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
-          icount = p_pat%send_count(np)*ndim2tot_sp
-          IF (icount>0) CALL p_isend(send_buf_sp(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
-
-        ENDDO
-
-        DO np = 1, p_pat%np_recv ! loop over PEs from where to receive the data
-
-          pid    = p_pat%pelist_recv(np) ! ID of receiver PE
-          irs    = p_pat%recv_startidx(np)
-          icount = p_pat%recv_count(np)*ndim2tot_dp
-          IF (icount>0) CALL p_recv(recv_buf_dp(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
-          icount = p_pat%recv_count(np)*ndim2tot_sp
-          IF (icount>0) CALL p_recv(recv_buf_sp(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
-
-        ENDDO
-      ELSE IF (iorder_sendrecv == 3) THEN ! use isend/irecv
-        DO np = 1, p_pat%np_send ! loop over PEs where to send the data
-
-          pid    = p_pat%pelist_send(np) ! ID of sender PE
-          iss    = p_pat%send_startidx(np)
-          icount = p_pat%send_count(np)*ndim2tot_dp
-          IF (icount>0) CALL p_isend(send_buf_dp(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
-          icount = p_pat%send_count(np)*ndim2tot_sp
-          IF (icount>0) CALL p_isend(send_buf_sp(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
-
-        ENDDO
-      ENDIF
-
-      ! Wait for all outstanding requests to finish
-      start_sync_timer(timer_exch_data_wait)
-      CALL p_wait
-#ifndef __USE_G2G
-!$ACC UPDATE DEVICE( recv_buf_dp, recv_buf_sp ) IF (use_gpu)
-#endif
-      stop_sync_timer(timer_exch_data_wait)
-
-      IF (itype_exch_barrier == 2 .OR. itype_exch_barrier == 3) THEN
-        start_sync_timer(timer_barrier)
-        CALL p_barrier(p_pat%comm)
-        stop_sync_timer(timer_barrier)
-      ENDIF
-
-      ! Fill in receive buffer
-
-#if defined( __SX__ ) || defined( _OPENACC )
+    ELSE
+      ! Send and receive arrays are identical (for boundary exchange)
       DO n = 1, nfields_dp
         recv_fld_dp => recv_dp(n)%p
 !$ACC PARALLEL DEFAULT(PRESENT) IF(use_gpu)
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
 !$NEC outerloop_unroll(4)
         DO k = 1, ndim2_dp(n)
-          DO i = 1, n_pnts
-            recv_fld_dp(recv_dst_idx(i),k+kshift_dp(n),recv_dst_blk(i)) =  &
-              recv_buf_dp(k+noffset_dp(n),recv_src(i))
+          DO i = 1, n_send
+            send_buf_dp(k+noffset_dp(n),i) = &
+              recv_fld_dp(send_src_idx(i),k+kshift_dp(n),send_src_blk(i))
           ENDDO
         ENDDO
 !$ACC END PARALLEL
@@ -2657,44 +2509,168 @@ CONTAINS
       DO n = 1, nfields_sp
         recv_fld_sp => recv_sp(n)%p
 !$ACC PARALLEL DEFAULT(PRESENT) IF(use_gpu)
-!$ACC LOOP GANG VECTOR COLLAPSE(2) 
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
 !$NEC outerloop_unroll(4)
         DO k = 1, ndim2_sp(n)
-          DO i = 1, n_pnts
-            recv_fld_sp(recv_dst_idx(i),k+kshift_sp(n),recv_dst_blk(i)) =  &
-              recv_buf_sp(k+noffset_sp(n),recv_src(i))
+          DO i = 1, n_send
+            send_buf_sp(k+noffset_sp(n),i) = &
+              recv_fld_sp(send_src_idx(i),k+kshift_sp(n),send_src_blk(i))
           ENDDO
         ENDDO
 !$ACC END PARALLEL
       ENDDO
+    ENDIF
 #else
 #ifdef __OMPPAR_COPY__
-!$OMP PARALLEL DO PRIVATE(jb,jl,ik,n,k)
+!$OMP PARALLEL DO PRIVATE(jb,jl,n,k)
 #endif
-      DO i = 1, n_pnts
-        jb = recv_dst_blk(i)
-        jl = recv_dst_idx(i)
-        ik  = recv_src(i)
+    DO i = 1, n_send
+      jb = send_src_blk(i)
+      jl = send_src_idx(i)
+      IF ( lsend ) THEN
         DO n = 1, nfields_dp
           DO k = 1, ndim2_dp(n)
-            recv_dp(n)%p(jl,k+kshift_dp(n),jb) = recv_buf_dp(k+noffset_dp(n),ik)
+            send_buf_dp(k+noffset_dp(n),i) = send_dp(n)%p(jl,k+kshift_dp(n),jb)
           ENDDO
         ENDDO
         DO n = 1, nfields_sp
           DO k = 1, ndim2_sp(n)
-            recv_sp(n)%p(jl,k+kshift_sp(n),jb) = recv_buf_sp(k+noffset_sp(n),ik)
+            send_buf_sp(k+noffset_sp(n),i) = send_sp(n)%p(jl,k+kshift_sp(n),jb)
           ENDDO
         ENDDO
+      ELSE
+        DO n = 1, nfields_dp
+          DO k = 1, ndim2_dp(n)
+            send_buf_dp(k+noffset_dp(n),i) = recv_dp(n)%p(jl,k+kshift_dp(n),jb)
+          ENDDO
+        ENDDO
+        DO n = 1, nfields_sp
+          DO k = 1, ndim2_sp(n)
+            send_buf_sp(k+noffset_sp(n),i) = recv_sp(n)%p(jl,k+kshift_sp(n),jb)
+          ENDDO
+        ENDDO
+      ENDIF
+    ENDDO
+#ifdef __OMPPAR_COPY__
+!$OMP END PARALLEL DO
+#endif
+#endif
+
+!$ACC UPDATE HOST( send_buf_dp, send_buf_sp ) IF (use_staging)
+    ! Send our data
+    IF (iorder_sendrecv == 1) THEN
+      DO np = 1, p_pat%np_send ! loop over PEs where to send the data
+
+        pid    = p_pat%pelist_send(np) ! ID of sender PE
+        iss    = p_pat%send_startidx(np)
+        icount = p_pat%send_count(np)*ndim2tot_dp
+        IF (icount>0) CALL p_send(send_buf_dp(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
+        icount = p_pat%send_count(np)*ndim2tot_sp
+        IF (icount>0) CALL p_send(send_buf_sp(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
+
       ENDDO
+
+    ELSE IF (iorder_sendrecv == 2) THEN ! use isend/recv
+      DO np = 1, p_pat%np_send ! loop over PEs where to send the data
+
+        pid    = p_pat%pelist_send(np) ! ID of sender PE
+        iss    = p_pat%send_startidx(np)
+        icount = p_pat%send_count(np)*ndim2tot_dp
+        IF (icount>0) CALL p_isend(send_buf_dp(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
+        icount = p_pat%send_count(np)*ndim2tot_sp
+        IF (icount>0) CALL p_isend(send_buf_sp(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
+
+        ENDDO
+
+      DO np = 1, p_pat%np_recv ! loop over PEs from where to receive the data
+
+        pid    = p_pat%pelist_recv(np) ! ID of receiver PE
+        irs    = p_pat%recv_startidx(np)
+        icount = p_pat%recv_count(np)*ndim2tot_dp
+        IF (icount>0) CALL p_recv(recv_buf_dp(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
+        icount = p_pat%recv_count(np)*ndim2tot_sp
+        IF (icount>0) CALL p_recv(recv_buf_sp(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
+
+      ENDDO
+    ELSE IF (iorder_sendrecv == 3) THEN ! use isend/irecv
+      DO np = 1, p_pat%np_send ! loop over PEs where to send the data
+
+        pid    = p_pat%pelist_send(np) ! ID of sender PE
+        iss    = p_pat%send_startidx(np)
+        icount = p_pat%send_count(np)*ndim2tot_dp
+        IF (icount>0) CALL p_isend(send_buf_dp(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
+        icount = p_pat%send_count(np)*ndim2tot_sp
+        IF (icount>0) CALL p_isend(send_buf_sp(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
+
+      ENDDO
+    ENDIF
+
+    ! Wait for all outstanding requests to finish
+    start_sync_timer(timer_exch_data_wait)
+    CALL p_wait
+!$ACC UPDATE DEVICE( recv_buf_dp, recv_buf_sp ) IF (use_staging)
+    stop_sync_timer(timer_exch_data_wait)
+
+    IF (itype_exch_barrier == 2 .OR. itype_exch_barrier == 3) THEN
+      start_sync_timer(timer_barrier)
+      CALL p_barrier(p_pat%comm)
+      stop_sync_timer(timer_barrier)
+    ENDIF
+
+    ! Fill in receive buffer
+
+#if defined( __SX__ ) || defined( _OPENACC )
+    DO n = 1, nfields_dp
+        recv_fld_dp => recv_dp(n)%p
+!$ACC PARALLEL DEFAULT(PRESENT) IF(use_gpu)
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
+!$NEC outerloop_unroll(4)
+      DO k = 1, ndim2_dp(n)
+        DO i = 1, n_pnts
+            recv_fld_dp(recv_dst_idx(i),k+kshift_dp(n),recv_dst_blk(i)) =  &
+              recv_buf_dp(k+noffset_dp(n),recv_src(i))
+        ENDDO
+      ENDDO
+!$ACC END PARALLEL
+    ENDDO
+    DO n = 1, nfields_sp
+      recv_fld_sp => recv_sp(n)%p
+!$ACC PARALLEL DEFAULT(PRESENT) IF(use_gpu)
+!$ACC LOOP GANG VECTOR COLLAPSE(2) 
+!$NEC outerloop_unroll(4)
+      DO k = 1, ndim2_sp(n)
+        DO i = 1, n_pnts
+          recv_fld_sp(recv_dst_idx(i),k+kshift_sp(n),recv_dst_blk(i)) =  &
+            recv_buf_sp(k+noffset_sp(n),recv_src(i))
+        ENDDO
+      ENDDO
+!$ACC END PARALLEL
+    ENDDO
+#else
+#ifdef __OMPPAR_COPY__
+!$OMP PARALLEL DO PRIVATE(jb,jl,ik,n,k)
+#endif
+    DO i = 1, n_pnts
+      jb = recv_dst_blk(i)
+      jl = recv_dst_idx(i)
+      ik  = recv_src(i)
+      DO n = 1, nfields_dp
+        DO k = 1, ndim2_dp(n)
+          recv_dp(n)%p(jl,k+kshift_dp(n),jb) = recv_buf_dp(k+noffset_dp(n),ik)
+        ENDDO
+      ENDDO
+      DO n = 1, nfields_sp
+        DO k = 1, ndim2_sp(n)
+          recv_sp(n)%p(jl,k+kshift_sp(n),jb) = recv_buf_sp(k+noffset_sp(n),ik)
+        ENDDO
+      ENDDO
+    ENDDO
 #ifdef __OMPPAR_COPY__
 !$OMP END PARALLEL DO
 #endif
 #endif
 
 !$ACC END DATA
-
-    ENDIF  ! .NOT. my_process_is_mpi_seq()
-
 !$ACC END DATA
 
     stop_sync_timer(timer_exch_data)
@@ -2734,9 +2710,11 @@ CONTAINS
     INTEGER, POINTER :: send_src_idx(:)
     INTEGER :: n_send, n_pnts
 #ifdef _OPENACC
-    LOGICAL :: use_gpu
+    LOGICAL :: use_gpu, use_g2g, use_staging
 
-    use_gpu = i_am_accel_node .AND. acc_on
+    use_gpu     = i_am_accel_node .AND. acc_on
+    use_g2g     = use_gpu .AND.       global_use_g2g
+    use_staging = use_gpu .AND. .NOT. global_use_g2g
 #endif
 
     recv_src => p_pat%recv_src(:)
@@ -2780,8 +2758,7 @@ CONTAINS
         pid    = p_pat%pelist_recv(np) ! ID of receiver PE
         irs    = p_pat%recv_startidx(np)
         icount = p_pat%recv_count(np)*ndim2tot
-        CALL p_irecv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
-
+        CALL p_irecv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm, use_g2g=use_g2g)
       ENDDO
     ENDIF
 
@@ -2841,12 +2818,9 @@ CONTAINS
 #endif
 #endif
 
-#ifndef __USE_G2G
-!$ACC UPDATE HOST( send_buf ) IF (use_gpu)
-#endif
-
-    ! Send our data 
-    IF (iorder_sendrecv == 1) THEN 
+!$ACC UPDATE HOST( send_buf ) IF (use_staging)
+    ! Send our data
+    IF (iorder_sendrecv == 1) THEN
       DO np = 1, p_pat%np_send ! loop over PEs where to send the data
 
         pid    = p_pat%pelist_send(np) ! ID of sender PE
@@ -2861,7 +2835,7 @@ CONTAINS
         pid    = p_pat%pelist_send(np) ! ID of sender PE
         iss    = p_pat%send_startidx(np)
         icount = p_pat%send_count(np)*ndim2tot
-        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
+        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm, use_g2g=use_g2g)
 
       ENDDO
 
@@ -2870,7 +2844,7 @@ CONTAINS
         pid    = p_pat%pelist_recv(np) ! ID of receiver PE
         irs    = p_pat%recv_startidx(np)
         icount = p_pat%recv_count(np)*ndim2tot
-        CALL p_recv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
+        CALL p_recv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm, use_g2g=use_g2g)
 
       ENDDO
     ELSE IF (iorder_sendrecv == 3) THEN ! use isend/irecv
@@ -2879,7 +2853,7 @@ CONTAINS
         pid    = p_pat%pelist_send(np) ! ID of sender PE
         iss    = p_pat%send_startidx(np)
         icount = p_pat%send_count(np)*ndim2tot
-        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
+        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm, use_g2g=use_g2g)
 
       ENDDO
     ENDIF
@@ -2889,9 +2863,7 @@ CONTAINS
     CALL p_wait
     stop_sync_timer(timer_exch_data_wait)
 
-#ifndef __USE_G2G
-!$ACC UPDATE DEVICE( recv_buf ) IF (use_gpu)
-#endif
+!$ACC UPDATE DEVICE( recv_buf ) IF (use_staging)
 
     IF (itype_exch_barrier == 2 .OR. itype_exch_barrier == 3) THEN
       start_sync_timer(timer_barrier)
@@ -2952,39 +2924,18 @@ CONTAINS
   !! Optimized version by Guenther Zaengl to process up to two 4D fields or up to six 3D fields
   !! for an array-sized communication pattern (as needed for boundary interpolation) in one step
   !!
-  SUBROUTINE exchange_data_grf(p_pat_coll, nfields, ndim2tot, recv1, send1, &
-    recv2, send2, recv3, send3, recv4, send4, &
-    recv5, send5, recv6, send6, recv4d1, send4d1, &
-    recv4d2, send4d2)
+  SUBROUTINE exchange_data_grf(p_pat_coll, nfields, ndim2tot, recv, send)
 
     CLASS(t_comm_pattern_collection_orig), INTENT(INOUT), TARGET :: p_pat_coll
-
-    REAL(dp), INTENT(INOUT), TARGET, OPTIONAL ::  &
-      recv1(:,:,:), recv2(:,:,:), recv3(:,:,:), recv4d1(:,:,:,:), &
-      recv4(:,:,:), recv5(:,:,:), recv6(:,:,:), recv4d2(:,:,:,:)
-    ! Note: the last index of the send fields corresponds to the dimension of p_pat
-    ! On the other hand, they are not blocked and have the vertical index first
-    REAL(dp), INTENT(IN   ), TARGET, OPTIONAL ::  &
-      send1(:,:,:), send2(:,:,:), send3(:,:,:), send4d1(:,:,:,:), &
-      send4(:,:,:), send5(:,:,:), send6(:,:,:), send4d2(:,:,:,:)
 
     CHARACTER(len=*), PARAMETER :: routine = modname//"::exchange_data_grf"
     INTEGER, INTENT(IN)           :: nfields  ! total number of input fields
     INTEGER, INTENT(IN)           :: ndim2tot ! sum of vertical levels of input fields
+    TYPE(t_ptr_3d), PTR_INTENT(in) :: recv(nfields), send(nfields)
 
     INTEGER           :: nsendtot ! total number of send points
     INTEGER           :: nrecvtot ! total number of receive points
 
-    TYPE t_fieldptr_recv
-      REAL(dp), POINTER :: fld(:,:,:)
-    END TYPE t_fieldptr_recv
-
-    TYPE t_fieldptr_send
-      REAL(dp), POINTER :: fld(:,:)
-    END TYPE t_fieldptr_send
-
-    TYPE(t_fieldptr_recv) :: recv(nfields)
-    TYPE(t_fieldptr_send) :: send(nfields*SIZE(p_pat_coll%patterns))
 
     TYPE(t_ptr_1d_int) :: p_send_src_idx(SIZE(p_pat_coll%patterns))
     TYPE(t_ptr_1d_int) :: p_send_src_blk(SIZE(p_pat_coll%patterns))
@@ -3003,14 +2954,16 @@ CONTAINS
 
     INTEGER :: i, j, k, ik, jb, jl, n, np, irs, ire, iss, ise, &
       npats, isum, ioffset, isum1, n4d, pid, num_send, num_recv, &
-      comm_size
+      comm_size, idx_1d_i, accum, accum2
     INTEGER, ALLOCATABLE :: pelist_send(:), pelist_recv(:)
 
     TYPE(t_p_comm_pattern_orig), POINTER :: p_pat(:)
 #ifdef _OPENACC
-    LOGICAL :: use_gpu
+    LOGICAL :: use_gpu, use_g2g, use_staging
 
-    use_gpu = i_am_accel_node .AND. acc_on
+    use_gpu     = i_am_accel_node .AND. acc_on
+    use_g2g     = use_gpu .AND.       global_use_g2g
+    use_staging = use_gpu .AND. .NOT. global_use_g2g
 #endif
 
     !-----------------------------------------------------------------------
@@ -3106,79 +3059,20 @@ CONTAINS
 
     ENDDO
 
-    ! Set pointers to input fields
-    IF (PRESENT(recv4d1) .AND. .NOT. PRESENT(recv4d2)) THEN
-      DO n = 1, nfields
-        recv(n)%fld => recv4d1(:,:,:,n)
-        DO np = 1, npats
-          send(np+(n-1)*npats)%fld => send4d1(:,:,np,n)
-        ENDDO
-      ENDDO
-    ELSE IF (PRESENT(recv4d1) .AND. PRESENT(recv4d2)) THEN
-      n4d = nfields/2
-      DO n = 1, n4d
-        recv(n)%fld => recv4d1(:,:,:,n)
-        DO np = 1, npats
-          send(np+(n-1)*npats)%fld => send4d1(:,:,np,n)
-        ENDDO
-      ENDDO
-      DO n = 1, n4d
-        recv(n4d+n)%fld => recv4d2(:,:,:,n)
-        DO np = 1, npats
-          send(np+(n4d+n-1)*npats)%fld => send4d2(:,:,np,n)
-        ENDDO
-      ENDDO
-    ELSE
-      IF (PRESENT(recv1)) THEN
-        recv(1)%fld => recv1
-        DO np = 1, npats
-          send(np)%fld => send1(:,:,np)
-        ENDDO
-      ENDIF
-      IF (PRESENT(recv2)) THEN
-        recv(2)%fld => recv2
-        DO np = 1, npats
-          send(np+npats)%fld => send2(:,:,np)
-        ENDDO
-      ENDIF
-      IF (PRESENT(recv3)) THEN
-        recv(3)%fld => recv3
-        DO np = 1, npats
-          send(np+2*npats)%fld => send3(:,:,np)
-        ENDDO
-      ENDIF
-      IF (PRESENT(recv4)) THEN
-        recv(4)%fld => recv4
-        DO np = 1, npats
-          send(np+3*npats)%fld => send4(:,:,np)
-        ENDDO
-      ENDIF
-      IF (PRESENT(recv5)) THEN
-        recv(5)%fld => recv5
-        DO np = 1, npats
-          send(np+4*npats)%fld => send5(:,:,np)
-        ENDDO
-      ENDIF
-      IF (PRESENT(recv6)) THEN
-        recv(6)%fld => recv6
-        DO np = 1, npats
-          send(np+5*npats)%fld => send6(:,:,np)
-        ENDDO
-      ENDIF
-    ENDIF
-
-    noffset(1) = 0
-    ndim2(1)   = SIZE(recv(1)%fld,2)
-    DO n = 2, nfields
-      noffset(n) = noffset(n-1)+ndim2(n-1)
-      ndim2(n)   = SIZE(recv(n)%fld,2)
+    accum = 0
+    DO n = 1, nfields
+      noffset(n) = accum
+      ndim2(n) = SIZE(recv(n)%p,2)
+      accum = accum + ndim2(n)
     ENDDO
 
-    ioffset_r(1) = 0
-    ioffset_s(1) = 0
-    DO np = 2, npats
-      ioffset_r(np) = ioffset_r(np-1) + p_pat(np-1)%p%n_recv
-      ioffset_s(np) = ioffset_s(np-1) + p_pat(np-1)%p%n_send
+    accum = 0
+    accum2 = 0
+    DO np = 1, npats
+      ioffset_r(np) = accum
+      accum = accum + p_pat(np)%p%n_recv
+      ioffset_s(np) = accum2
+      accum2 = accum2 + p_pat(np)%p%n_send
     ENDDO
 
     DO np = 1, npats
@@ -3200,9 +3094,9 @@ CONTAINS
 #ifdef _OPENACC
      DO n = 1, nfields
        DO np = 1, npats
-!$ACC ENTER DATA ATTACH( send(np+(n-1)*npats)%fld )
+!$ACC ENTER DATA ATTACH( send(np+(n-1)*npats)%p )
        ENDDO
-!$ACC ENTER DATA ATTACH( recv(n)%fld )
+!$ACC ENTER DATA ATTACH( recv(n)%p )
      ENDDO
 
      DO np = 1, npats
@@ -3219,14 +3113,13 @@ CONTAINS
       DO np = 1, npats
 !$ACC LOOP VECTOR
         DO i = 1, n_pnts(np)
+          idx_1d_i = idx_1d(p_send_src_idx(np)%p(p_recv_src(np)%p(i)),       &
+                            p_send_src_blk(np)%p(p_recv_src(np)%p(i)))
           DO n = 1, nfields
             DO k = 1, ndim2(n)
-              recv(n)%fld( p_recv_dst_idx(np)%p(i), k, &
+              recv(n)%p( p_recv_dst_idx(np)%p(i), k, &
                 p_recv_dst_blk(np)%p(i) ) =            &
-                send(np+(n-1)*npats)%fld( k,           &
-                  idx_1d(p_send_src_idx(np)%p(         &
-                           p_recv_src(np)%p(i)),       &
-                         p_send_src_blk(np)%p(p_recv_src(np)%p(i))))
+                send(n)%p(k, idx_1d_i, np)
             ENDDO
           ENDDO
         ENDDO
@@ -3251,11 +3144,10 @@ CONTAINS
               p_pat(n)%p%recv_limits(pid)
           ENDDO
 
-!TODO: this will probably not work with __USE_G2G
           IF(isum > ioffset) &
             CALL p_irecv(auxr_buf(1,ioffset+1), pid, 1, &
             &            p_count=(isum-ioffset)*ndim2tot, &
-            &            comm=p_pat_coll%patterns(1)%p%comm)
+            &            comm=p_pat_coll%patterns(1)%p%comm, use_g2g=use_g2g)
           ioffset = isum
 
         ENDDO
@@ -3274,9 +3166,8 @@ CONTAINS
           DO k = 1, ndim2(n)
             DO i = 1, n_send(np)
               send_buf(k+noffset(n),i+ioffset_s(np)) =                &
-                & send(np+(n-1)*npats)%fld(k, &
-                &   idx_1d(p_send_src_idx(np)%p(i), &
-                &          p_send_src_blk(np)%p(i)))
+                & send(n)%p(k, idx_1d(p_send_src_idx(np)%p(i),    &
+                &                     p_send_src_blk(np)%p(i)), np)
             ENDDO
           ENDDO
         ENDDO
@@ -3284,18 +3175,17 @@ CONTAINS
 !$ACC END PARALLEL
 #else
 #ifdef __OMPPAR_COPY__
-!$OMP PARALLEL
+!$OMP PARALLEL PRIVATE(np)
 #endif
       DO np = 1, npats
 #ifdef __OMPPAR_COPY__
-!$OMP DO PRIVATE(jl,n,k)
+!$OMP DO PRIVATE(idx_1d_i,n,k)
 #endif
         DO i = 1, n_send(np)
-          jl = idx_1d(p_send_src_idx(np)%p(i), p_send_src_blk(np)%p(i))
+          idx_1d_i = idx_1d(p_send_src_idx(np)%p(i), p_send_src_blk(np)%p(i))
           DO n = 1, nfields
             DO k = 1, ndim2(n)
-              send_buf(k+noffset(n),i+ioffset_s(np)) = &
-                send(np+(n-1)*npats)%fld(k,jl)
+              send_buf(k+noffset(n),i+ioffset_s(np)) = send(n)%p(k, idx_1d_i, np)
             ENDDO
           ENDDO
         ENDDO
@@ -3323,7 +3213,7 @@ CONTAINS
             ise = p_pat(n)%p%send_limits(pid+1) + ioffset_s(n)
             isum1 = ise - iss + 1
             IF (isum1 > 0) THEN
-!$ACC KERNELS DEFAULT(PRESENT) IF (use_gpu)
+!$ACC KERNELS DEFAULT(PRESENT) IF (use_gpu) 
 !
 !  TODO:  Makes sure this is set up correctly
               auxs_buf(:,isum+1:isum+isum1) = send_buf(:,iss:ise)
@@ -3332,14 +3222,10 @@ CONTAINS
             ENDIF
           ENDDO
 
-#ifndef __USE_G2G
-!$ACC UPDATE HOST( auxs_buf(:,ioffset+1:ioffset+isum) ) IF (use_gpu)
-#endif
+!$ACC UPDATE HOST( auxs_buf(:,ioffset+1:ioffset+isum) ) IF (use_staging)
 
-!TODO: this will probably not work with __USE_G2G
-          IF(isum > ioffset) CALL p_send(auxs_buf(1,ioffset+1), pid, 1,             &
-            p_count=(isum-ioffset)*ndim2tot, comm=p_pat_coll%patterns(1)%p%comm)
-
+          IF(isum > ioffset) CALL p_send(auxs_buf(1,ioffset+1), pid, 1, &
+            p_count=(isum-ioffset)*ndim2tot, comm=p_pat_coll%patterns(1)%p%comm, use_g2g=use_g2g)
           ioffset = isum
 
         ENDDO
@@ -3363,14 +3249,10 @@ CONTAINS
             ENDIF
           ENDDO
 
-#ifndef __USE_G2G
-!$ACC UPDATE HOST( auxs_buf(:,ioffset+1:ioffset+isum) ) IF (use_gpu)
-#endif
+!$ACC UPDATE HOST( auxs_buf(:,ioffset+1:ioffset+isum) ) IF (use_staging)
 
-!TODO: this will probably not work with __USE_G2G
-          IF(isum > ioffset) CALL p_isend(auxs_buf(1,ioffset+1), pid, 1,            &
-            p_count=(isum-ioffset)*ndim2tot, comm=p_pat_coll%patterns(1)%p%comm)
-
+          IF(isum > ioffset) CALL p_isend(auxs_buf(1,ioffset+1), pid, 1, &
+            p_count=(isum-ioffset)*ndim2tot, comm=p_pat_coll%patterns(1)%p%comm, use_g2g=use_g2g)
           ioffset = isum
 
         ENDDO
@@ -3387,9 +3269,8 @@ CONTAINS
               p_pat(n)%p%recv_limits(pid)
           ENDDO
 
-!TODO: this will probably not work with __USE_G2G
-          IF(isum > ioffset) CALL p_recv(auxr_buf(1,ioffset+1), pid, 1,             &
-            p_count=(isum-ioffset)*ndim2tot, comm=p_pat_coll%patterns(1)%p%comm)
+          IF(isum > ioffset) CALL p_recv(auxr_buf(1,ioffset+1), pid, 1, &
+            p_count=(isum-ioffset)*ndim2tot, comm=p_pat_coll%patterns(1)%p%comm, use_g2g=use_g2g)
           ioffset = isum
 
         ENDDO
@@ -3424,13 +3305,10 @@ CONTAINS
             ENDIF
           ENDDO
 
-#ifndef __USE_G2G
-!$ACC UPDATE HOST( auxs_buf(:,ioffset+1:ioffset+isum) ) IF (use_gpu)
-#endif
+!$ACC UPDATE HOST( auxs_buf(:,ioffset+1:ioffset+isum) ) IF (use_staging)
 !$OMP MASTER
-!TODO: this will probably not work with __USE_G2G
-          IF(isum > ioffset) CALL p_isend(auxs_buf(1,ioffset+1), pid, 1,            &
-            p_count=(isum-ioffset)*ndim2tot, comm=p_pat_coll%patterns(1)%p%comm)
+          IF(isum > ioffset) CALL p_isend(auxs_buf(1,ioffset+1), pid, 1, &
+            p_count=(isum-ioffset)*ndim2tot, comm=p_pat_coll%patterns(1)%p%comm, use_g2g=use_g2g)
 !$OMP END MASTER
 
           ioffset = isum
@@ -3452,9 +3330,7 @@ CONTAINS
         stop_sync_timer(timer_barrier)
       ENDIF
 
-#ifndef __USE_G2G
-!$ACC UPDATE DEVICE( auxr_buf ) IF (use_gpu)
-#endif
+!$ACC UPDATE DEVICE( auxr_buf ) IF (use_staging)
 
       ! Copy exchanged data back to receive buffer
 
@@ -3469,22 +3345,22 @@ CONTAINS
 
         isum = ioffset
         DO n = 1, npats
-          irs = p_pat(n)%p%recv_limits(pid)+1 + ioffset_r(n)
+          irs = p_pat(n)%p%recv_limits(pid)   + ioffset_r(n)
           ire = p_pat(n)%p%recv_limits(pid+1) + ioffset_r(n)
-          isum1 = ire - irs + 1
+          isum1 = ire - irs
           IF (isum1 > 0) THEN
 #ifdef __OMPPAR_COPY__
 !$OMP DO
 #endif
-!
-!  TODO:  check compiler output:   KERNELS may decide to perform this on the CPU...
-!         replace KERNELS with PARALLEL
-!
-!$ACC KERNELS DEFAULT(PRESENT) IF (use_gpu)
+
+!$ACC PARALLEL DEFAULT(PRESENT) IF (use_gpu)
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
             DO i = 1, isum1
-              recv_buf(:,irs-1+i) = auxr_buf(:,isum+i)
+              DO k = 1, ndim2tot
+                recv_buf(k,irs+i) = auxr_buf(k,isum+i)
+              ENDDO
             ENDDO
-!$ACC END KERNELS
+!$ACC END PARALLEL
 #ifdef __OMPPAR_COPY__
 !$OMP END DO
 #endif
@@ -3507,8 +3383,8 @@ CONTAINS
 !$NEC novector
           DO k = 1, ndim2(n)
             DO i = 1, n_pnts(np)
-              recv(n)%fld(p_recv_dst_idx(np)%p(i),k, &
-                          p_recv_dst_blk(np)%p(i)) =   &
+              recv(n)%p(p_recv_dst_idx(np)%p(i),k, &
+                        p_recv_dst_blk(np)%p(i)) =   &
                 recv_buf(k+noffset(n),p_recv_src(np)%p(i)+ioffset_r(np))
             ENDDO
           ENDDO
@@ -3526,7 +3402,7 @@ CONTAINS
           ik  = p_recv_src(np)%p(i)+ioffset_r(np)
           DO n = 1, nfields
             DO k = 1, ndim2(n)
-              recv(n)%fld(jl,k,jb) = recv_buf(k+noffset(n),ik)
+              recv(n)%p(jl,k,jb) = recv_buf(k+noffset(n),ik)
             ENDDO
           ENDDO
         ENDDO
@@ -3544,9 +3420,9 @@ CONTAINS
 
 #ifdef _OPENACC
      DO n = 1, nfields
-!$ACC EXIT DATA DETACH( recv(n)%fld ) IF (use_gpu)
+!$ACC EXIT DATA DETACH( recv(n)%p ) IF (use_gpu)
        DO np = 1, npats
-!$ACC EXIT DATA DETACH( send(np+(n-1)*npats)%fld ) IF (use_gpu)
+!$ACC EXIT DATA DETACH( send(np+(n-1)*npats)%p ) IF (use_gpu)
        ENDDO
      ENDDO
 
@@ -3574,6 +3450,7 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Rainer Johanni, Nov 2009
   !!
+  !================================================================================================
   ! REAL SECTION ----------------------------------------------------------------------------------
   !
   SUBROUTINE exchange_data_r2d(p_pat, recv, send, add, l_recv_exists)
@@ -3631,6 +3508,7 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Rainer Johanni, Nov 2009
   !!
+  !================================================================================================
   ! REAL SECTION ----------------------------------------------------------------------------------
   !
   SUBROUTINE exchange_data_s2d(p_pat, recv, send, add, l_recv_exists)
@@ -3834,6 +3712,7 @@ CONTAINS
   END SUBROUTINE exchange_data_s2d_seq
 
 
+  !================================================================================================
   ! INTEGER SECTION -------------------------------------------------------------------------------
   !
   SUBROUTINE exchange_data_i2d(p_pat, recv, send, add, l_recv_exists)
@@ -3959,6 +3838,7 @@ CONTAINS
   END SUBROUTINE exchange_data_i2d_seq
 
 
+  !================================================================================================
   ! LOGICAL SECTION -------------------------------------------------------------------------------
   !
   SUBROUTINE exchange_data_l2d(p_pat, recv, send, l_recv_exists)

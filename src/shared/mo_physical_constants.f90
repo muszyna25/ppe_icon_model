@@ -166,6 +166,7 @@ MODULE mo_physical_constants
   REAL(wp), PARAMETER :: o_m_rdv  = 1._wp-rd/rv   !> [ ]
   !$acc declare copyin(o_m_rdv)
   REAL(wp), PARAMETER :: rd_o_cpd = rd/cpd        !! [ ]
+  !$acc declare copyin(rd_o_cpd)
   REAL(wp), PARAMETER :: cvd_o_rd = cvd/rd        !! [ ]
   !
   REAL(wp), PARAMETER :: p0ref     = 100000.0_wp   !> [Pa]  reference pressure for Exner function

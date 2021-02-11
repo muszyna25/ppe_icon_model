@@ -77,8 +77,8 @@ MODULE mo_name_list_output
 
   ! constants
   USE mo_kind,                      ONLY: wp, i4, i8, dp, sp
-  USE mo_impl_constants,            ONLY: max_dom, SUCCESS, MAX_TIME_LEVELS, MAX_CHAR_LENGTH,       &
-    &                                     ihs_ocean, BOUNDARY_MISSVAL
+  USE mo_impl_constants,            ONLY: max_dom, SUCCESS, MAX_TIME_LEVELS,       &
+    &                                     ihs_ocean, BOUNDARY_MISSVAL, nlat_moc
   USE mo_cdi_constants,             ONLY: GRID_REGULAR_LONLAT, GRID_UNSTRUCTURED_VERT,              &
     &                                     GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, GRID_ZONAL
   USE mo_impl_constants_grf,        ONLY: grf_bdywidth_c
@@ -88,7 +88,8 @@ MODULE mo_name_list_output
       &                                   vlistDestroy, streamClose, streamWriteVarSlice, streamWriteVarSliceF, streamDefVlist, &
       &                                   streamSync, taxisDefVdate, taxisDefVtime, GRID_LONLAT, &
       &                                   streamDefCompType, CDI_COMPRESS_SZIP, &
-      &                                   streamOpenAppend, streamInqVlist, vlistInqTaxis, vlistNtsteps
+      &                                   streamOpenAppend, streamInqVlist, vlistInqTaxis, vlistNtsteps, &
+      &                                   cdi_datatype_flt32, cdi_datatype_flt64
   USE mo_util_cdi,                  ONLY: cdiGetStringError
   ! utility functions
   USE mo_io_units,                  ONLY: FILENAME_MAX, find_next_free_unit
@@ -115,7 +116,7 @@ MODULE mo_name_list_output
   USE mo_name_list_output_config,   ONLY: use_async_name_list_io
   ! data types
   USE mo_var_metadata_types,        ONLY: t_var_metadata, POST_OP_SCALE, POST_OP_LUC, POST_OP_LIN2DBZ
-  USE mo_reorder_info,              ONLY: t_reorder_info
+  USE mo_reorder_info,              ONLY: t_reorder_info, ri_cpy_part2whole
   USE mo_name_list_output_types,    ONLY: t_output_file, icell, iedge, ivert, &
     &                                     msg_io_start, msg_io_done, &
     &                                     msg_io_meteogram_flush, &
@@ -123,7 +124,8 @@ MODULE mo_name_list_output
     &                                     t_var_desc, t_output_name_list
   USE mo_output_event_types,        ONLY: t_sim_step_info, t_par_output_event
   ! parallelization
-  USE mo_communication,             ONLY: exchange_data, t_comm_gather_pattern, idx_no, blk_no
+  USE mo_communication,             ONLY: exchange_data, t_comm_gather_pattern,&
+       idx_no, blk_no
   USE mo_mpi,                       ONLY: p_send, p_recv, p_barrier, stop_mpi,                      &
     &                                     p_mpi_wtime, p_irecv, p_wait, p_test, p_isend,            &
     &                                     p_comm_work, p_real_dp, p_real_sp, p_int,                 &
@@ -131,7 +133,7 @@ MODULE mo_name_list_output
     &                                     my_process_is_mpi_workroot, my_process_is_work,           &
     &                                     my_process_is_io, my_process_is_mpi_ioroot,               &
     &                                     process_mpi_all_test_id, process_mpi_all_workroot_id,     &
-    &                                     num_work_procs, p_pe, p_pe_work,                          &
+    &                                     num_work_procs, p_pe, p_pe_work,    &
     &                                     p_max, p_comm_work_2_io, mpi_request_null
 #ifdef _OPENACC
   USE mo_mpi,                       ONLY: i_am_accel_node
@@ -139,7 +141,8 @@ MODULE mo_name_list_output
 #endif
   ! calendar operations
   USE mtime,                        ONLY: datetime, newDatetime, deallocateDatetime, OPERATOR(-),   &
-    &                                     timedelta, MAX_DATETIME_STR_LEN
+    &                                     timedelta, max_datetime_str_len, &
+    &                                     datetimeToString
   ! output scheduling
   USE mo_output_event_handler,      ONLY: is_output_step, check_open_file, check_close_file,        &
     &                                     pass_output_step, get_current_filename,                   &
@@ -155,8 +158,9 @@ MODULE mo_name_list_output
   USE mo_name_list_output_init,     ONLY: init_name_list_output, setup_output_vlist,                &
     &                                     varnames_dict, out_varnames_dict,                         &
     &                                     output_file, patch_info, lonlat_info,                     &
-    &                                     collect_requested_ipz_levels, create_vertical_axes
-  USE mo_name_list_output_metadata, ONLY: metainfo_write_to_memwin, metainfo_get_from_memwin,       &
+    &                                     collect_requested_ipz_levels, &
+    &                                     create_vertical_axes, nlevs_of_var, zonal_ri, profile_ri
+  USE mo_name_list_output_metadata, ONLY: metainfo_write_to_memwin, metainfo_get_from_buffer,       &
     &                                     metainfo_get_size, metainfo_get_timelevel
   USE mo_level_selection,           ONLY: create_mipz_level_selections
   USE mo_grib2_util,                ONLY: set_GRIB2_timedep_keys, set_GRIB2_timedep_local_keys
@@ -169,7 +173,7 @@ MODULE mo_name_list_output
   USE mo_parallel_config,           ONLY: pio_type
   USE mo_impl_constants,            ONLY: pio_type_cdipio
   USE yaxt,                         ONLY: xt_idxlist, xt_stripe, xt_is_null, &
-    xt_idxlist_get_index_stripes, xt_idxstripes_new
+    xt_idxlist_get_index_stripes, xt_idxstripes_new, xt_idxempty_new
 #endif
   ! post-ops
 
@@ -180,7 +184,7 @@ MODULE mo_name_list_output
   USE mo_meteogram_config,          ONLY: meteogram_output_config
   USE mo_intp_lonlat_types,         ONLY: lonlat_grids
 #endif
-  USE mo_fortran_tools, ONLY: insert_dimension
+  USE mo_fortran_tools, ONLY: insert_dimension, init
 
   IMPLICIT NONE
 
@@ -210,6 +214,7 @@ MODULE mo_name_list_output
   INTEGER,          PARAMETER                 :: iREAL    = 2
   INTEGER,          PARAMETER                 :: iREAL_sp = 3
 
+#ifndef NOMPI
   INTERFACE set_boundary_mask
     MODULE PROCEDURE set_boundary_mask_dp
     MODULE procedure set_boundary_mask_sp
@@ -246,6 +251,7 @@ MODULE mo_name_list_output
     MODULE PROCEDURE var_copy_i42sp_ls
     MODULE PROCEDURE var_copy_i42sp_ls_miss
   END INTERFACE var_copy
+#endif
 
 CONTAINS
 
@@ -266,9 +272,14 @@ CONTAINS
     ! local variables:
     CHARACTER(LEN=*), PARAMETER    :: routine = modname//"::open_output_file"
     CHARACTER(LEN=filename_max)    :: filename
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
-    INTEGER                        :: tsID, name_len, part_idx
+    INTEGER                        :: name_len, part_idx
     LOGICAL                        :: lexist, lappend
+#ifdef HAVE_CDI_PIO
+    TYPE(t_reorder_info), POINTER :: p_ri
+    TYPE(xt_idxlist), ALLOCATABLE :: partdescs(:)
+    INTEGER, ALLOCATABLE :: conversions(:)
+    INTEGER :: i_dom, iv, ierror, lonlat_id, nlevs
+#endif
 
     ! open/append file: as this is a preliminary solution only, I do not try to
     ! streamline the conditionals
@@ -341,7 +352,44 @@ CONTAINS
 
     IF (.NOT. lappend) THEN
       ! assign the vlist (which must have ben set before)
-      CALL streamDefVlist(of%cdiFileID, of%cdiVlistID)
+#ifdef HAVE_CDI_PIO
+      IF (pio_type == pio_type_cdipio) THEN
+        ALLOCATE(partdescs(of%num_vars), conversions(of%num_vars), STAT=ierror)
+        IF (ierror /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+        i_dom = of%phys_patch_id
+        DO iv = 1, of%num_vars
+          SELECT CASE (of%var_desc(iv)%info%hgrid)
+          CASE (GRID_UNSTRUCTURED_CELL)
+            p_ri => patch_info(of%phys_patch_id)%ri(icell)
+          CASE (GRID_UNSTRUCTURED_EDGE)
+            p_ri => patch_info(of%phys_patch_id)%ri(iedge)
+          CASE (GRID_UNSTRUCTURED_VERT)
+            p_ri => patch_info(of%phys_patch_id)%ri(ivert)
+#ifndef __NO_ICON_ATMO__
+          CASE (GRID_REGULAR_LONLAT)
+            lonlat_id = of%var_desc(iv)%info%hor_interp%lonlat_id
+            p_ri  => lonlat_info(lonlat_id, of%log_patch_id)%ri
+#endif
+          CASE (GRID_LONLAT)
+            p_ri => profile_ri
+          CASE (GRID_ZONAL)
+            p_ri => zonal_ri
+          CASE DEFAULT
+            CALL finish(routine,'unknown grid type')
+          END SELECT
+          nlevs = nlevs_of_var(of%var_desc(iv)%info, of%level_selection)
+          partdescs(iv) = get_partdesc(p_ri%reorder_idxlst_xt, nlevs, p_ri%n_glb)
+          conversions(iv) = MERGE(CDI_DATATYPE_FLT64, CDI_DATATYPE_FLT32, &
+            &                     use_dp_mpi2io)
+        END DO
+        CALL cdiPioStreamDefDecomposedVlist(of%cdiFileID, of%cdiVlistID, &
+          partdescs, conversions)
+      ELSE
+#endif
+        CALL streamDefVlist(of%cdiFileID, of%cdiVlistID)
+#ifdef HAVE_CDI_PIO
+      END IF
+#endif
       ! set cdi internal time index to 0 for writing time slices in netCDF
       of%cdiTimeIndex = 0
     ENDIF
@@ -388,7 +436,6 @@ CONTAINS
             CALL mpi_free_mem(output_file(i)%mem_win%mem_ptr_sp, ierror)
           END IF
           CALL mpi_win_free(output_file(i)%mem_win%mpi_win_metainfo, ierror)
-          CALL mpi_free_mem(output_file(i)%mem_win%mem_ptr_metainfo_pe0, ierror)
         END IF
 #endif
         IF (output_file(i)%cdiFileID >= 0) THEN
@@ -479,8 +526,8 @@ CONTAINS
     LOGICAL, OPTIONAL, INTENT(OUT)  :: opt_lhas_output
     ! local variables
     CHARACTER(LEN=*), PARAMETER  :: routine = modname//"::write_name_list_output"
-    INTEGER                           :: i, j, idate, itime, iret
-    TYPE(datetime),           POINTER :: io_datetime
+    INTEGER                           :: i, idate, itime, iret
+    TYPE(datetime) :: io_datetime
     CHARACTER(LEN=filename_max+100)   :: text
     TYPE(t_par_output_event), POINTER :: ev
     INTEGER                           :: noutput_pe_list, io_proc_id
@@ -491,6 +538,7 @@ CONTAINS
     LOGICAL :: ofile_is_active(SIZE(output_file)), &
          ofile_has_first_write(SIZE(output_file)), &
          ofile_is_assigned_here(SIZE(output_file))
+    CHARACTER(len=MAX_DATETIME_STR_LEN) :: current_date_string
 
     IF (ltimer) CALL timer_start(timer_write_output)
 
@@ -582,20 +630,22 @@ CONTAINS
 
         ! Notify user
         IF (msg_level >= 8) THEN
+          CALL datetimeToString(get_current_date(output_file(i)%out_event), &
+            &                   current_date_string)
 #ifdef HAVE_CDI_PIO
           IF (pio_type == pio_type_cdipio) THEN
             WRITE(text,'(4a)')                                               &
               & 'Collective asynchronous output to ',                        &
               & TRIM(get_current_filename(output_file(i)%out_event)),        &
               & ' at simulation time ',                                      &
-              & TRIM(get_current_date(output_file(i)%out_event))
+              & TRIM(current_date_string)
           ELSE
 #endif
             WRITE(text,'(5a,i0)')                                            &
               & 'Output to ',                                                &
               & TRIM(get_current_filename(output_file(i)%out_event)),        &
               & ' at simulation time ',                                      &
-              & TRIM(get_current_date(output_file(i)%out_event)), &
+              & TRIM(current_date_string), &
               & ' by PE ', p_pe
 #ifdef HAVE_CDI_PIO
           END IF
@@ -606,14 +656,13 @@ CONTAINS
         ! convert time stamp string into
         ! year/month/day/hour/minute/second values using the mtime
         ! library:
-        io_datetime => newDatetime(TRIM(get_current_date(output_file(i)%out_event)))
+        io_datetime = get_current_date(output_file(i)%out_event)
         idate = cdiEncodeDate(INT(io_datetime%date%year),   &
           &                   INT(io_datetime%date%month),  &
           &                   INT(io_datetime%date%day))
         itime = cdiEncodeTime(INT(io_datetime%time%hour),   &
           &                   INT(io_datetime%time%minute), &
           &                   INT(io_datetime%time%second))
-        CALL deallocateDatetime(io_datetime)
         CALL taxisDefVdate(output_file(i)%cdiTaxisID, idate)
         CALL taxisDefVtime(output_file(i)%cdiTaxisID, itime)
         iret = streamDefTimestep(output_file(i)%cdiFileId, output_file(i)%cdiTimeIndex)
@@ -754,18 +803,16 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER         :: routine = modname//"::write_ready_file"
     CHARACTER(LEN=FILENAME_MAX)         :: rdy_filename
     CHARACTER(LEN=8)         :: forecast_delta_str
-    TYPE(datetime),  POINTER            :: mtime_begin, mtime_date
+    TYPE(datetime)           :: mtime_begin, mtime_date, current_date
     TYPE(timedelta)                     :: forecast_delta
     INTEGER                             :: iunit, tlen
     TYPE (t_keyword_list), POINTER      :: keywords
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dtime_string
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: current_date
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dtime_string, current_date_string
 
     current_date = get_current_date(ev)
-    tlen = LEN_TRIM(current_date)
     ! compute current forecast time (delta):
-    mtime_date     => newDatetime(current_date(1:tlen))
-    mtime_begin    => newDatetime(TRIM(ev%output_event%event_data%sim_start))
+    mtime_date     = current_date
+    mtime_begin    = ev%output_event%event_data%sim_start
     forecast_delta = mtime_date - mtime_begin
 
     WRITE (forecast_delta_str,'(4(i2.2))') forecast_delta%day, forecast_delta%hour, &
@@ -774,15 +821,13 @@ CONTAINS
       &                      mtime_date%date%year, mtime_date%date%month, mtime_date%date%day, 'T',   &
       &                      mtime_date%time%hour, mtime_date%time%minute, mtime_date%time%second, 'Z'
 
-    CALL deallocateDatetime(mtime_date)
-    CALL deallocateDatetime(mtime_begin)
-
     NULLIFY(keywords)
     ! substitute tokens in ready file name
-    CALL associate_keyword("<path>",            TRIM(getModelBaseDir()),    keywords)
-    CALL associate_keyword("<datetime>",        current_date(1:tlen),    keywords)
-    CALL associate_keyword("<ddhhmmss>",        forecast_delta_str,         keywords)
-    CALL associate_keyword("<datetime2>",       TRIM(dtime_string),         keywords)
+    CALL associate_keyword("<path>",      TRIM(getModelBaseDir()),    keywords)
+    CALL datetimeToString(current_date, current_date_string)
+    CALL associate_keyword("<datetime>",  TRIM(current_date_string),  keywords)
+    CALL associate_keyword("<ddhhmmss>",  forecast_delta_str,         keywords)
+    CALL associate_keyword("<datetime2>", TRIM(dtime_string),         keywords)
     rdy_filename = with_keywords(keywords, ev%output_event%event_data%name)
     tlen = LEN_TRIM(rdy_filename)
     IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
@@ -819,7 +864,7 @@ CONTAINS
     ! local variables:
     CHARACTER(LEN=*), PARAMETER                 :: routine = modname//"::write_name_list"
     INTEGER                                     :: tl, i_dom, i_log_dom, iv, jk, &
-      &                                            nlevs, nindex, lonlat_id,          &
+      &                                            nlevs, lonlat_id,          &
       &                                            idata_type
     INTEGER                                     :: ioff
 #ifndef NOMPI
@@ -827,7 +872,6 @@ CONTAINS
 #endif
     TYPE (t_var_metadata), POINTER              :: info
     TYPE (t_reorder_info), POINTER              :: p_ri
-    INTEGER                                     :: ri_n_glb
 
     REAL(wp), ALLOCATABLE, TARGET :: r_ptr_m(:,:,:)
     REAL(sp), ALLOCATABLE, TARGET :: s_ptr_m(:,:,:)
@@ -844,7 +888,7 @@ CONTAINS
     INTEGER :: ipost_op_type, alloc_shape(3), alloc_shape_op(3)
     LOGICAL :: post_op_apply
 
-    LOGICAL :: is_mpi_test, is_stdio
+    LOGICAL :: is_test, is_stdio
 #ifndef NOMPI
     LOGICAL :: participate_in_async_io, lasync_io_metadata_prepare
     LOGICAL :: is_mpi_workroot
@@ -859,12 +903,12 @@ CONTAINS
 
     tl = 0 ! to prevent warning
 
-    is_mpi_test = my_process_is_mpi_test()
+    is_test = my_process_is_mpi_test()
     is_stdio = my_process_is_stdio()
 #ifndef NOMPI
     is_mpi_workroot = my_process_is_mpi_workroot()
     participate_in_async_io &
-      = use_async_name_list_io .AND. .NOT. is_mpi_test
+      = use_async_name_list_io .AND. .NOT. is_test
     lasync_io_metadata_prepare &
       = participate_in_async_io .AND. is_mpi_workroot
     ! In case of async IO: Lock own window before writing to it
@@ -951,8 +995,6 @@ CONTAINS
       ENDIF
 
 
-      nindex = MERGE(info%ncontained, 1, info%lcontained)
-
       ! determine, if this is a REAL or an INTEGER variable:
       IF (ASSOCIATED(of%var_desc(iv)%r_ptr) .OR.  &
         & ASSOCIATED(of%var_desc(iv)%tlev_rptr(tl)%p)) THEN
@@ -966,7 +1008,7 @@ CONTAINS
       END IF
 
       CALL get_ptr_to_var_data(i_ptr, r_ptr, s_ptr, &
-        &                      nindex, tl, of%var_desc(iv), info)
+        &                      tl, of%var_desc(iv), info)
 
       ! --------------------------------------------------------
       ! Perform post-ops (small arithmetic operations on fields)
@@ -1024,73 +1066,34 @@ CONTAINS
         ENDIF
       END IF
 
-      var_ignore_level_selection = .FALSE.
-
-      IF (info%hgrid .eq. GRID_ZONAL) THEN ! zonal grids are 2-dim but WITH a vertical axis
-        nlevs = info%used_dimensions(1)
-      ELSE IF(info%ndims < 3) THEN ! other 2-dim. var are supposed to be horizontal only
-        nlevs = 1
-      ELSE
-        ! handle the case that a few levels have been selected out of
-        ! the total number of levels:
-        info_nlevs = info%used_dimensions(2)
-        IF (ASSOCIATED(of%level_selection)) THEN
-          nlevs = 0
-          ! Sometimes the user mixes level-selected variables with
-          ! other fields on other z-axes (e.g. soil fields) in the
-          ! output namelist. We try to catch this "wrong" user input
-          ! here and handle it in the following way: if the current
-          ! variable does not have one (or more) of the requested
-          ! levels, then we completely ignore the level selection for
-          ! this variable.
-          !
-          ! (... but note that we accept (nlevs+1) for an nlevs variable.)
-          CHECK_LOOP : DO jk=1,MIN(of%level_selection%n_selected, info_nlevs)
-            IF (of%level_selection%global_idx(jk) < 1 .OR.  &
-              & of%level_selection%global_idx(jk) > info_nlevs+1) THEN
-              var_ignore_level_selection = .TRUE.
-              nlevs = info_nlevs
-              EXIT CHECK_LOOP
-            ELSE
-              nlevs = nlevs &
-                & + MERGE(1, 0, &
-                &         of%level_selection%global_idx(jk) >= 1 &
-                &   .AND. of%level_selection%global_idx(jk) <= info_nlevs)
-            END IF
-          END DO CHECK_LOOP
-          IF (var_ignore_level_selection .AND. is_stdio .AND. msg_level >= 15) &
-            &   WRITE (0,'(2a)') &
-            &         "warning: ignoring level selection for variable ", &
-            &         TRIM(info%name)
-        ELSE
-          nlevs = info_nlevs
-        END IF
-      ENDIF
+      nlevs = nlevs_of_var(info, of%level_selection, var_ignore_level_selection)
+      IF (var_ignore_level_selection .AND. is_stdio .AND. msg_level >= 15) &
+          &   WRITE (0,'(2a)') &
+          &         "warning: ignoring level selection for variable ", &
+          &         TRIM(info%name)
 
       ! Get pointer to appropriate reorder_info
       nullify(p_ri, p_pat)
       SELECT CASE (info%hgrid)
       CASE (GRID_UNSTRUCTURED_CELL)
         p_ri     => patch_info(i_dom)%ri(icell)
-        ri_n_glb =  p_ri%n_glb
         p_pat    => patch_info(i_dom)%p_pat_c
       CASE (GRID_LONLAT)
-        ri_n_glb =  -1
+        p_ri => profile_ri
+        NULLIFY(p_pat)
       CASE (GRID_ZONAL)
-        ri_n_glb =  -1
+        p_ri => zonal_ri
+        NULLIFY(p_pat)
       CASE (GRID_UNSTRUCTURED_EDGE)
         p_ri     => patch_info(i_dom)%ri(iedge)
-        ri_n_glb =  p_ri%n_glb
         p_pat    => patch_info(i_dom)%p_pat_e
       CASE (GRID_UNSTRUCTURED_VERT)
         p_ri     => patch_info(i_dom)%ri(ivert)
-        ri_n_glb =  p_ri%n_glb
         p_pat    => patch_info(i_dom)%p_pat_v
 #ifndef __NO_ICON_ATMO__
       CASE (GRID_REGULAR_LONLAT)
         lonlat_id = info%hor_interp%lonlat_id
         p_ri     => lonlat_info(lonlat_id, i_log_dom)%ri
-        ri_n_glb =  lonlat_info(lonlat_id, i_log_dom)%ri%n_glb
         p_pat    => lonlat_grids%list(lonlat_id)%p_pat(i_log_dom)
 #endif
       CASE default
@@ -1098,14 +1101,14 @@ CONTAINS
       END SELECT
 
 #ifdef HAVE_CDI_PIO
-      IF (pio_type == pio_type_cdipio .AND. .NOT. is_mpi_test) THEN
+      IF (pio_type == pio_type_cdipio .AND. .NOT. is_test) THEN
         CALL data_write_cdipio(of, idata_type, r_ptr, s_ptr, i_ptr, iv, &
              nlevs, var_ignore_level_selection, p_ri, info, i_log_dom)
       ELSE
 #endif
-        IF (.NOT.use_async_name_list_io .OR. is_mpi_test) THEN
+        IF (.NOT.use_async_name_list_io .OR. is_test) THEN
           CALL gather_on_workroot_and_write(of, idata_type, r_ptr, s_ptr, &
-            i_ptr, ri_n_glb, iv, last_bdry_index, &
+            i_ptr, p_ri%n_glb, iv, last_bdry_index, &
             nlevs, var_ignore_level_selection, p_pat, info)
 #ifndef NOMPI
         ELSE
@@ -1168,12 +1171,12 @@ CONTAINS
     last_bdry_index = p_max(max_glb_idx, p_comm_work)
   END FUNCTION get_last_bdry_index
 
-  SUBROUTINE get_ptr_to_var_data(i_ptr, r_ptr, s_ptr, nindex, tl, var_desc, info)
+  SUBROUTINE get_ptr_to_var_data(i_ptr, r_ptr, s_ptr, tl, var_desc, info)
     TYPE (t_var_metadata), INTENT(in) :: info
     REAL(wp), POINTER, INTENT(out) :: r_ptr(:,:,:)
     REAL(sp), POINTER, INTENT(out) :: s_ptr(:,:,:)
     INTEGER, POINTER, INTENT(out) :: i_ptr(:,:,:)
-    INTEGER, INTENT(in) :: nindex, tl
+    INTEGER, INTENT(in) :: tl
     TYPE(t_var_desc), TARGET, INTENT(in) :: var_desc
 
     REAL(wp), SAVE, TARGET :: r_dummy(1,1,1)
@@ -1183,7 +1186,7 @@ CONTAINS
     INTEGER, SAVE, TARGET :: i_dummy(1,1,1)
     INTEGER, POINTER :: i_ptr_t(:,:,:,:,:,:), i_ptr_5d(:,:,:,:,:)
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::get_ptr_to_var_data"
-    INTEGER :: var_ref_pos
+    INTEGER :: var_ref_pos, nindex
 
     r_ptr => r_dummy
     s_ptr => s_dummy
@@ -1215,16 +1218,23 @@ CONTAINS
       CALL finish(routine, "Internal error!")
     END IF
 
+    nindex = MERGE(info%ncontained, 1, info%lcontained)
+
     SELECT CASE (info%ndims)
     CASE (1)
       IF (info%lcontained .AND. (info%var_ref_pos /= -1))  &
            & CALL finish(routine, "Internal error (ndims=1, lcontained)")
-      IF (ASSOCIATED(var_desc%r_ptr)) THEN
-        r_ptr => var_desc%r_ptr(:,1:1,1:1,1,1)
-      ELSE IF (ASSOCIATED(var_desc%s_ptr)) THEN
-        s_ptr => var_desc%s_ptr(:,1:1,1:1,1,1)
-      ELSE IF (ASSOCIATED(var_desc%i_ptr)) THEN
-        i_ptr => var_desc%i_ptr(:,1:1,1:1,1,1)
+      IF (ASSOCIATED(r_ptr_5d)) THEN
+        IF (info%hgrid == grid_lonlat) THEN
+          CALL insert_dimension(r_ptr_t, r_ptr_5d, 1)
+          r_ptr => r_ptr_t(:,:,1:1,1,1,1)
+        ELSE
+          r_ptr => r_ptr_5d(:,1:1,1:1,1,1)
+        END IF
+      ELSE IF (ASSOCIATED(s_ptr_5d)) THEN
+        s_ptr => s_ptr_5d(:,1:1,1:1,1,1)
+      ELSE IF (ASSOCIATED(i_ptr_5d)) THEN
+        i_ptr => i_ptr_5d(:,1:1,1:1,1,1)
       ELSE
         CALL finish(routine, "Internal error (not found vardata pointer)")
       ENDIF
@@ -1245,8 +1255,12 @@ CONTAINS
         CASE (2)
           r_ptr => r_ptr_5d(:,nindex:nindex,:,1,1)
         CASE (3)
-          CALL insert_dimension(r_ptr_t, r_ptr_5d, 2)
-          r_ptr => r_ptr_t(:,1:1,:,nindex,1,1)
+          IF (info%hgrid == grid_zonal) THEN
+            CALL insert_dimension(r_ptr, r_ptr_5d(:,:,nindex,1,1), 1)
+          ELSE
+            CALL insert_dimension(r_ptr_t, r_ptr_5d, 2)
+            r_ptr => r_ptr_t(:,1:1,:,nindex,1,1)
+          END IF
         END SELECT
       ELSE IF (ASSOCIATED(s_ptr_5d)) THEN
         SELECT CASE(var_ref_pos)
@@ -1257,7 +1271,11 @@ CONTAINS
           s_ptr => s_ptr_5d(:,nindex:nindex,:,1,1)
         CASE (3)
           CALL insert_dimension(s_ptr_t, s_ptr_5d, 2)
-          s_ptr => s_ptr_t(:,1:1,:,nindex,1,1)
+          IF (info%hgrid == GRID_ZONAL) THEN
+            CALL insert_dimension(s_ptr, s_ptr_t(:,1,:,nindex,1,1), 2)
+          ELSE
+            s_ptr => s_ptr_t(:,1:1,:,nindex,1,1)
+          END IF
         END SELECT
       ELSE IF (ASSOCIATED(i_ptr_5d)) THEN
         SELECT CASE(var_ref_pos)
@@ -1268,7 +1286,11 @@ CONTAINS
           i_ptr => i_ptr_5d(:,nindex:nindex,:,1,1)
         CASE (3)
           CALL insert_dimension(i_ptr_t, i_ptr_5d, 2)
-          i_ptr => i_ptr_t(:,1:1,:,nindex,1,1)
+          IF (info%hgrid == GRID_ZONAL) THEN
+            CALL insert_dimension(i_ptr, i_ptr_t(:,1,:,nindex,1,1), 2)
+          ELSE
+            i_ptr => i_ptr_t(:,1:1,:,nindex,1,1)
+          END IF
         END SELECT
       ENDIF
     CASE (3)
@@ -1308,13 +1330,13 @@ CONTAINS
       ELSE IF (ASSOCIATED(i_ptr_5d)) THEN
         SELECT CASE(var_ref_pos)
         CASE (1)
-          i_ptr => var_desc%i_ptr(nindex,:,:,:,1)
+          i_ptr => i_ptr_5d(nindex,:,:,:,1)
         CASE (2)
-          i_ptr => var_desc%i_ptr(:,nindex,:,:,1)
+          i_ptr => i_ptr_5d(:,nindex,:,:,1)
         CASE (3)
-          i_ptr => var_desc%i_ptr(:,:,nindex,:,1)
+          i_ptr => i_ptr_5d(:,:,nindex,:,1)
         CASE (4)
-          i_ptr => var_desc%i_ptr(:,:,:,nindex,1)
+          i_ptr => i_ptr_5d(:,:,:,nindex,1)
         END SELECT
       END IF
     CASE DEFAULT
@@ -1322,6 +1344,8 @@ CONTAINS
            ": internal error! unhandled info%ndims=", info%ndims
       GO TO 999
     END SELECT
+
+    
 
     IF      (ASSOCIATED(r_ptr_5d)) THEN
 !$ACC UPDATE HOST(r_ptr) IF ( i_am_accel_node .AND. acc_is_present(r_ptr) )
@@ -1358,49 +1382,42 @@ CONTAINS
     TYPE (t_var_metadata), INTENT(in) :: info
 
 
-    INTEGER :: lev, lev_idx, i, n_points, nmiss
+    INTEGER :: lev, lev_idx, i, nmiss
     LOGICAL :: l_error, have_grib, lwrite_single_precision
-    LOGICAL :: is_mpi_test, is_mpi_workroot
+    LOGICAL :: is_test, is_mpi_workroot
     LOGICAL :: make_level_selection
 
     is_mpi_workroot = my_process_is_mpi_workroot()
 
-    is_mpi_test = my_process_is_mpi_test()
-
-    IF (info%hgrid == GRID_LONLAT) THEN
-      n_points = 1
-    ELSE IF (info%hgrid == GRID_ZONAL) THEN
-      n_points = 180
-    ELSE
-      n_points = n_glb
-    END IF
+    is_test = my_process_is_mpi_test()
 
     have_GRIB =      of%output_type == FILETYPE_GRB  &
       &         .OR. of%output_type == FILETYPE_GRB2
-    lwrite_single_precision = (.NOT. use_dp_mpi2io) .AND. (.NOT. have_GRIB)
+    lwrite_single_precision =   (.NOT. use_dp_mpi2io) .AND. (.NOT. have_GRIB) &
+      &                       .OR. idata_type == iREAL_sp
 
     IF (idata_type == iREAL) THEN
-      ALLOCATE(r_out_dp(MERGE(n_points, 0, is_mpi_workroot)))
+      ALLOCATE(r_out_dp(MERGE(n_glb, 0, is_mpi_workroot)))
     END IF
     IF ((idata_type == iREAL_sp) .OR. lwrite_single_precision) THEN
-      ALLOCATE(r_out_sp(MERGE(n_points, 0, is_mpi_workroot)))
+      ALLOCATE(r_out_sp(MERGE(n_glb, 0, is_mpi_workroot)))
     END IF
     IF (idata_type == iINTEGER) THEN
-      IF ( .NOT. ALLOCATED(r_out_sp) ) ALLOCATE(r_out_sp(MERGE(n_points, 0, is_mpi_workroot)))
-      IF ( .NOT. ALLOCATED(r_out_dp) ) ALLOCATE(r_out_dp(MERGE(n_points, 0, is_mpi_workroot)))
-      ALLOCATE(r_out_int(MERGE(n_points, 0, is_mpi_workroot)))
+      IF ( .NOT. ALLOCATED(r_out_sp) ) ALLOCATE(r_out_sp(MERGE(n_glb, 0, is_mpi_workroot)))
+      IF ( .NOT. ALLOCATED(r_out_dp) ) ALLOCATE(r_out_dp(MERGE(n_glb, 0, is_mpi_workroot)))
+      ALLOCATE(r_out_int(MERGE(n_glb, 0, is_mpi_workroot)))
     END IF
 
     IF(is_mpi_workroot) THEN
 
-      IF (is_mpi_test) THEN
+      IF (is_test) THEN
 
-        IF (p_test_run .AND. use_dp_mpi2io) ALLOCATE(r_out_recv(n_points))
+        IF (p_test_run .AND. use_dp_mpi2io) ALLOCATE(r_out_recv(n_glb))
 
       ELSE
 
         CALL set_time_varying_metadata(of, info, of%var_desc(iv)%info_ptr)
-      END IF ! is_mpi_test
+      END IF ! is_test
     END IF ! is_mpi_workroot
 
 
@@ -1424,7 +1441,6 @@ CONTAINS
       ! gather the array on stdio PE and write it out there
       IF ( info%hgrid == GRID_LONLAT ) THEN
         IF (is_mpi_workroot) THEN
-          !write(0,*)'#--- n_points:',n_points,'idata_type:',idata_type,'iREAL:',iREAL,'iINTEGER:',iINTEGER
           IF      (idata_type == iREAL ) THEN
             r_out_dp(:)  = r_ptr(:,1,1)
           ELSE IF (idata_type == iREAL_sp ) THEN
@@ -1437,14 +1453,14 @@ CONTAINS
         lev_idx = lev
         IF (is_mpi_workroot) THEN
           IF      (idata_type == iREAL ) THEN
-            r_out_dp(:)  = r_ptr(lev_idx,1,:)
+            r_out_dp(:)  = r_ptr(1,lev_idx,:)
           ELSE IF (idata_type == iREAL_sp ) THEN
-            r_out_sp(:)  = s_ptr(lev_idx,1,:)
+            r_out_sp(:)  = s_ptr(1,lev_idx,:)
           ELSE IF (idata_type == iINTEGER) THEN
-            r_out_int(:) = i_ptr(lev_idx,1,:)
+            r_out_int(:) = i_ptr(1,lev_idx,:)
           END IF
         END IF
-      ELSE ! n_points
+      ELSE
         IF (idata_type == iREAL) THEN
           r_out_dp(:)  = 0._wp
 
@@ -1464,9 +1480,7 @@ CONTAINS
           lev_idx = lev
           ! handle the case that a few levels have been selected out of
           ! the total number of levels:
-          IF (      ASSOCIATED(of%level_selection)   .AND. &
-            & (.NOT. var_ignore_level_selection)     .AND. &
-            & (info%ndims > 2)) THEN
+          IF (make_level_selection) THEN
             lev_idx = of%level_selection%global_idx(lev_idx)
           END IF
           CALL exchange_data(in_array=s_ptr(:,lev_idx,:),                 &
@@ -1485,7 +1499,7 @@ CONTAINS
             &                out_array=r_out_int(:), gather_pattern=pat)
           ! FIXME: Implement and use fill_value!
         END IF
-      END IF ! n_points
+      END IF ! n_glb
 
       IF (is_mpi_workroot) THEN
 
@@ -1536,7 +1550,7 @@ CONTAINS
         IF (p_test_run  .AND.  use_dp_mpi2io) THEN
           ! Currently we don't do the check for REAL*4, we would need
           ! p_send/p_recv for this type
-          IF (.NOT. is_mpi_test) THEN
+          IF (.NOT. is_test) THEN
             ! Send to test PE
             CALL p_send(r_out_dp, process_mpi_all_test_id, 1)
           ELSE IF (p_pe == process_mpi_all_test_id) THEN
@@ -1544,7 +1558,7 @@ CONTAINS
             CALL p_recv(r_out_recv, process_mpi_all_workroot_id, 1)
             ! check for correctness
             l_error = .FALSE.
-            DO i = 1, n_points
+            DO i = 1, n_glb
               IF (r_out_recv(i) /= r_out_dp(i)) THEN
                 ! do detailed print-out only for "large" errors:
                 IF (ABS(r_out_recv(i) - r_out_dp(i)) > SYNC_ERROR_PRINT_TOL) THEN
@@ -1563,7 +1577,7 @@ CONTAINS
         ! ----------
         ! write data
         ! ----------
-        IF (.NOT. is_mpi_test) THEN
+        IF (.NOT. is_test) THEN
           IF (.NOT. lwrite_single_precision) THEN
             CALL streamWriteVarSlice (of%cdiFileID, info%cdiVarID, lev-1, r_out_dp(:), nmiss)
           ELSE
@@ -1594,6 +1608,7 @@ CONTAINS
     END IF
   END SUBROUTINE set_time_varying_metadata
 
+#ifndef NOMPI
   SUBROUTINE var2buf_sp(buf, ioff, level_selection, &
        idata_type, r_ptr, s_ptr, i_ptr, &
        nlevs, var_ignore_level_selection, ri, info, i_log_dom)
@@ -1697,7 +1712,6 @@ CONTAINS
     REAL(dp) :: missval
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     LOGICAL :: apply_missval, make_level_selection
-#ifndef NOMPI
 
     ! ------------------------
     ! Asynchronous I/O is used
@@ -1768,7 +1782,6 @@ CONTAINS
         END IF
       END IF
     END SELECT
-#endif
   END SUBROUTINE var2buf_dp
 
   SUBROUTINE var_copy_dp2dp(buf, ioff, r, ri, nlevs)
@@ -2367,6 +2380,7 @@ CONTAINS
       END IF
     END IF
   END FUNCTION get_bdry_missval
+#endif
 
   SUBROUTINE get_bdry_blk_idx(i_log_dom, &
        i_startblk, i_endblk, i_startidx, i_endidx)
@@ -2457,19 +2471,23 @@ CONTAINS
     END IF
     IF (xt_is_null(reorder_idxlst_xt(nlevs))) THEN
       CALL xt_idxlist_get_index_stripes(reorder_idxlst_xt(1), stripes)
-      nstripes = SIZE(stripes)
-      ALLOCATE(stripes_project(nstripes, nlevs))
-      DO j = 1, nstripes
-        stripes_project(j, 1) = stripes(j)
-      END DO
-      DO k = 2, nlevs
+      IF (ALLOCATED(stripes)) THEN
+        nstripes = SIZE(stripes)
+        ALLOCATE(stripes_project(nstripes, nlevs))
         DO j = 1, nstripes
-          stripes_project(j, k) &
-            &     = xt_stripe(stripes(j)%start + (k-1) * n_glb, &
-            &                 stripes(j)%stride, stripes(j)%nstrides)
+          stripes_project(j, 1) = stripes(j)
         END DO
-      END DO
-      reorder_idxlst_xt(nlevs) = xt_idxstripes_new(stripes_project)
+        DO k = 2, nlevs
+          DO j = 1, nstripes
+            stripes_project(j, k) &
+              &     = xt_stripe(stripes(j)%start + (k-1) * n_glb, &
+              &                 stripes(j)%stride, stripes(j)%nstrides)
+          END DO
+        END DO
+        reorder_idxlst_xt(nlevs) = xt_idxstripes_new(stripes_project)
+      ELSE
+        reorder_idxlst_xt(nlevs) = xt_idxempty_new()
+      END IF
     END IF
     partdesc = reorder_idxlst_xt(nlevs)
   END FUNCTION get_partdesc
@@ -2564,11 +2582,10 @@ CONTAINS
 
 #ifndef __NO_ICON_ATMO__
     LOGICAL             :: l_complete, lhas_output, &
-      &                    lset_timers_for_idle_pe, is_mpi_test, is_io_root
-    INTEGER             :: jg, jstep, i, action
+      &                    lset_timers_for_idle_pe, is_io_root
+    INTEGER             :: jg, jstep, action
     TYPE(t_par_output_event), POINTER :: ev
 
-    is_mpi_test = my_process_is_mpi_test()
     is_io_root = my_process_is_mpi_ioroot()
 
     ! define initial time stamp used as reference for output statistics
@@ -2663,6 +2680,7 @@ CONTAINS
             END IF
           END IF
         ELSE IF (action == msg_io_meteogram_flush) THEN
+          ! in this case, jstep actually holds the domain number to write
           CALL meteogram_flush_file(jstep)
         END IF
 
@@ -2677,7 +2695,8 @@ CONTAINS
     END DO
 
     DO jg = 1, max_dom
-      DEALLOCATE(meteogram_output_config(jg)%station_list)
+      IF (ALLOCATED(meteogram_output_config(jg)%station_list)) &
+        DEALLOCATE(meteogram_output_config(jg)%station_list)
     END DO
 
 
@@ -2751,26 +2770,37 @@ CONTAINS
 
     INTEGER                        :: nval, nlev_max, iv, jk, nlevs, mpierr, nv_off, np, i_dom, &
       &                               lonlat_id, i_log_dom, ierrstat,                           &
-      &                               dst_start, dst_end, src_start, src_end
+      &                               src_start, src_end
     INTEGER(KIND=MPI_ADDRESS_KIND) :: ioff(0:num_work_procs-1)
-    INTEGER                        :: voff(0:num_work_procs-1), nv_off_np(0:num_work_procs)
-    REAL(sp), ALLOCATABLE          :: var1_sp(:), var3_sp(:)
-    REAL(dp), ALLOCATABLE          :: var1_dp(:), var3_dp(:)
+    !> rma receive buffer when transferring single precision data
+    REAL(sp), ALLOCATABLE          :: var1_sp(:)
+    !> file output buffer for single layer output data to be passed to CDI
+    REAL(sp), ALLOCATABLE          :: var3_sp(:)
+    !> rma receive buffer when transferring double precision or integer data
+    REAL(dp), ALLOCATABLE          :: var1_dp(:)
+    !> file output buffer for single layer output data to be passed to CDI
+    REAL(dp), ALLOCATABLE          :: var3_dp(:)
 
     TYPE (t_var_metadata), POINTER :: info
     TYPE (t_var_metadata)          :: updated_info
     TYPE(t_reorder_info) , POINTER :: p_ri
-    LOGICAL                        :: have_GRIB
-    INTEGER, ALLOCATABLE           :: bufr_metainfo(:)
+    LOGICAL                        :: have_GRIB, is_reduction_var
+    INTEGER, ALLOCATABLE           :: bufr_metainfo(:,:)
     INTEGER                        :: nmiss    ! missing value indicator
     INTEGER                        :: ichunk, nchunks, chunk_start, chunk_end, &
       &                               this_chunk_nlevs, ilev, chunk_size
-#ifndef NO_MPI_RGET
+#if ICON_MPI_VERSION < 3 || ICON_MPI_VERSION == 3 && ICON_MPI_SUBVERSION == 0
+    ! RMA pipelining is not supported in earlier MPI standards
+    INTEGER, PARAMETER             :: req_pool_size = 1
+#else
     INTEGER, PARAMETER             :: req_pool_size = 16
-    INTEGER                        :: mver_mpi, sver_mpi, &
-      &                               req_pool(req_pool_size), req_next, req_rampup
 #endif
-
+    LOGICAL :: req_rampup
+    INTEGER :: req_next
+    INTEGER                        :: req_pool(req_pool_size)
+#ifdef NO_MPI_RGET
+    INTEGER :: num_req
+#endif
     !-- for timing
     CHARACTER(len=10)              :: ctime
     REAL(dp)                       :: t_get, t_write, t_copy, t_0, mb_get, mb_wr
@@ -2793,6 +2823,7 @@ CONTAINS
     ! Get maximum number of data points in a slice and allocate tmp variables
 
     i_dom = of%phys_patch_id
+    i_log_dom = of%log_patch_id
     nval = MAX(patch_info(i_dom)%ri(icell)%n_glb, &
                patch_info(i_dom)%ri(iedge)%n_glb, &
                patch_info(i_dom)%ri(ivert)%n_glb)
@@ -2802,7 +2833,6 @@ CONTAINS
       info => of%var_desc(iv)%info
       IF (info%hgrid == GRID_REGULAR_LONLAT) THEN
         lonlat_id = info%hor_interp%lonlat_id
-        i_log_dom = of%log_patch_id
         p_ri  => lonlat_info(lonlat_id, i_log_dom)%ri
         nval = MAX(nval, p_ri%n_glb)
       END IF
@@ -2812,7 +2842,11 @@ CONTAINS
     nlev_max = 1
     DO iv = 1, of%num_vars
       info => of%var_desc(iv)%info
-      IF(info%ndims == 3) nlev_max = MAX(nlev_max, info%used_dimensions(2))
+      IF (info%ndims == 3) THEN
+        nlev_max = MAX(nlev_max, info%used_dimensions(2))
+      ELSE IF (info%hgrid == grid_zonal .OR. info%hgrid == grid_lonlat) THEN
+        nlev_max = MAX(nlev_max, info%used_dimensions(1))
+      END IF
     ENDDO
 
     ! if no valid io_proc_chunk_size has been set by the parallel name list
@@ -2829,9 +2863,17 @@ CONTAINS
     ENDIF
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
+    have_GRIB = of%output_type == FILETYPE_GRB .OR. of%output_type == FILETYPE_GRB2
+    IF (use_dp_mpi2io .OR. have_GRIB) THEN
+      ALLOCATE(var3_dp(nval), STAT=ierrstat)
+    ELSE
+      ALLOCATE(var3_sp(nval), STAT=ierrstat)
+    ENDIF
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+
     ! retrieve info object from PE#0 (via a separate MPI memory
     ! window)
-    ALLOCATE(bufr_metainfo(of%num_vars*metainfo_get_size()), STAT=ierrstat)
+    ALLOCATE(bufr_metainfo(metainfo_get_size(), of%num_vars), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
     CALL MPI_Win_lock(MPI_LOCK_SHARED, 0, MPI_MODE_NOCHECK, of%mem_win%mpi_win_metainfo, mpierr)
@@ -2842,9 +2884,10 @@ CONTAINS
     ! Go over all name list variables for this output file
 
     ioff(:) = 0_MPI_ADDRESS_KIND
-
-#ifndef NO_MPI_RGET
-    req_pool(:) = MPI_REQUEST_NULL
+#ifdef NO_MPI_RGET
+    req_pool = -1
+#else
+    req_pool = mpi_request_null
     CALL MPI_Win_lock_all(MPI_MODE_NOCHECK, of%mem_win%mpi_win, mpierr)
 #endif
 
@@ -2854,7 +2897,7 @@ CONTAINS
 
       ! WRITE (0,*) ">>>>>>>>>> ", info%name
       ! get also an update for this variable's meta-info (separate object)
-      CALL metainfo_get_from_memwin(bufr_metainfo, iv, updated_info)
+      CALL metainfo_get_from_buffer(bufr_metainfo(:, iv), updated_info)
 
       CALL set_time_varying_metadata(of, info, updated_info)
 
@@ -2864,7 +2907,7 @@ CONTAINS
       ! only. A missing value might be set by the user (info%lmiss) or
       ! automatically on nest boundary regions.
       !
-      IF ( (of%output_type == FILETYPE_GRB) .OR. (of%output_type == FILETYPE_GRB2) ) THEN
+      IF (have_grib) THEN
         IF ( info%lmiss .OR.                                            &
           &  ( info%lmask_boundary    .AND. &
           &    config_lmask_boundary  .AND. &
@@ -2881,7 +2924,8 @@ CONTAINS
       ! first step in this file:
       IF ((info%isteptype == TSTEP_CONSTANT) .AND. .NOT. is_first_write) CYCLE
 
-      IF(info%ndims == 2) THEN
+      is_reduction_var = info%hgrid == grid_zonal .OR. info%hgrid == grid_lonlat
+      IF (info%ndims == 2 .AND. .NOT. is_reduction_var) THEN
         nlevs = 1
       ELSE
         ! handle the case that a few levels have been selected out of
@@ -2902,7 +2946,7 @@ CONTAINS
             END IF
           END DO CHECK_LOOP
         ELSE
-          nlevs = info%used_dimensions(2)
+          nlevs = info%used_dimensions(MERGE(1, 2, is_reduction_var))
         END IF
       ENDIF
 
@@ -2918,10 +2962,12 @@ CONTAINS
 #ifndef __NO_ICON_ATMO__
         CASE (GRID_REGULAR_LONLAT)
           lonlat_id = info%hor_interp%lonlat_id
-          i_log_dom = of%log_patch_id
           p_ri  => lonlat_info(lonlat_id, i_log_dom)%ri
 #endif
-
+        CASE (grid_lonlat)
+          p_ri => profile_ri
+        CASE (grid_zonal)
+          p_ri => zonal_ri
         CASE DEFAULT
           CALL finish(routine,'unknown grid type')
       END SELECT
@@ -2930,14 +2976,7 @@ CONTAINS
       ! get it back into the global storage order
 
       t_0 = p_mpi_wtime() ! performance measurement
-      have_GRIB = of%output_type == FILETYPE_GRB .OR. of%output_type == FILETYPE_GRB2
 
-      IF (use_dp_mpi2io .OR. have_GRIB) THEN
-        ALLOCATE(var3_dp(p_ri%n_glb), STAT=ierrstat) ! Must be allocated to exact size
-      ELSE
-        ALLOCATE(var3_sp(p_ri%n_glb), STAT=ierrstat) ! Must be allocated to exact size
-      ENDIF
-      IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
       t_copy = t_copy + p_mpi_wtime() - t_0 ! performance measurement
 
       ! no. of chunks of levels (each of size "io_proc_chunk_size"):
@@ -2951,12 +2990,10 @@ CONTAINS
         this_chunk_nlevs  = (chunk_end - chunk_start + 1)
 
         ! Retrieve part of variable from every worker PE using MPI_Get
-        nv_off  = 0
-#ifndef NO_MPI_RGET
+        nv_off  = 1
         t_0 = p_mpi_wtime()
         req_next = 0
-        req_rampup = 1
-#endif
+        req_rampup = .TRUE.
         DO np = 0, num_work_procs-1
 
           IF(p_ri%pe_own(np) == 0) CYCLE
@@ -2964,42 +3001,34 @@ CONTAINS
           ! Number of words to transfer
           nval = p_ri%pe_own(np) * this_chunk_nlevs
 
-#if defined NO_MPI_RGET
-          t_0 = p_mpi_wtime()
+          !handle request pool
+          req_next = req_next + 1
+          req_rampup = req_rampup .AND. req_next <= req_pool_size
+
+#ifdef NO_MPI_RGET
+          req_next = MOD(req_next - 1, req_pool_size) + 1
+          IF (.NOT. req_rampup) &
+            CALL MPI_Win_unlock(req_pool(req_next), of%mem_win%mpi_win, mpierr)
           CALL MPI_Win_lock(MPI_LOCK_SHARED, np, MPI_MODE_NOCHECK, &
             &               of%mem_win%mpi_win, mpierr)
-
+          req_pool(req_next) = np
           IF (use_dp_mpi2io) THEN
-            CALL MPI_Get(var1_dp(nv_off+1), nval, p_real_dp, np, ioff(np), &
+            CALL MPI_Get(var1_dp(nv_off), nval, p_real_dp, np, ioff(np), &
               &          nval, p_real_dp, of%mem_win%mpi_win, mpierr)
           ELSE
-            CALL MPI_Get(var1_sp(nv_off+1), nval, p_real_sp, np, ioff(np), &
+            CALL MPI_Get(var1_sp(nv_off), nval, p_real_sp, np, ioff(np), &
               &          nval, p_real_sp, of%mem_win%mpi_win, mpierr)
           ENDIF
-
-          CALL MPI_Win_unlock(np, of%mem_win%mpi_win, mpierr)
-          t_get  = t_get  + p_mpi_wtime() - t_0
 #else
-          !handle request pool
-          IF (req_rampup .EQ. 1) THEN
-            req_next = req_next + 1
-            IF (req_next .GT. req_pool_size) THEN
-              req_rampup = 0
-            ELSE
-              req_pool(req_next) = MPI_REQUEST_NULL
-            ENDIF
-          ENDIF
-          IF (req_rampup .EQ. 0) THEN
+          IF (.NOT. req_rampup) &
             CALL MPI_Waitany(req_pool_size, req_pool, req_next, MPI_STATUS_IGNORE, mpierr)
-            req_pool(req_next) = MPI_REQUEST_NULL
-          ENDIF
           !issue get
           IF (use_dp_mpi2io) THEN
-            CALL MPI_Rget(var1_dp(nv_off+1), nval, p_real_dp, np, ioff(np), &
-              &          nval, p_real_dp, of%mem_win%mpi_win, req_pool(req_next), mpierr)
+            CALL MPI_Rget(var1_dp(nv_off), nval, p_real_dp, np, ioff(np), &
+              &           nval, p_real_dp, of%mem_win%mpi_win, req_pool(req_next), mpierr)
           ELSE
-            CALL MPI_Rget(var1_sp(nv_off+1), nval, p_real_sp, np, ioff(np), &
-              &          nval, p_real_sp, of%mem_win%mpi_win, req_pool(req_next), mpierr)
+            CALL MPI_Rget(var1_sp(nv_off), nval, p_real_sp, np, ioff(np), &
+              &           nval, p_real_sp, of%mem_win%mpi_win, req_pool(req_next), mpierr)
           ENDIF
 #endif
           mb_get = mb_get + nval
@@ -3008,112 +3037,99 @@ CONTAINS
           nv_off = nv_off + nval
 
           ! Update the offset in the memory window on compute PEs
-          ioff(np) = ioff(np) + INT(nval,i8)
+          ioff(np) = ioff(np) + INT(nval, mpi_address_kind)
 
         ENDDO
-#ifndef NO_MPI_RGET
-        CALL MPI_Waitall(req_pool_size, req_pool, MPI_STATUSES_IGNORE, mpierr)
-        t_get  = t_get  + p_mpi_wtime() - t_0
-#endif
-
-        ! compute the total offset for each PE
-        nv_off       = 0
-        nv_off_np(0) = 0
-        DO np = 0, num_work_procs-1
-          voff(np)        = nv_off
-          nval            = p_ri%pe_own(np)*this_chunk_nlevs
-          nv_off          = nv_off + nval
-          nv_off_np(np+1) = nv_off_np(np) + p_ri%pe_own(np)
+#ifdef NO_MPI_RGET
+        IF (req_rampup) THEN
+          num_req = req_next
+          req_next = -1
+        ELSE
+          num_req = req_pool_size
+        END IF
+        DO np = 1, num_req
+          CALL MPI_Win_unlock(req_pool(MOD(req_next+np, req_pool_size)+1), &
+            of%mem_win%mpi_win, mpierr)
         END DO
+#else
+        CALL MPI_Waitall(req_pool_size, req_pool, MPI_STATUSES_IGNORE, mpierr)
+#endif
+        t_get  = t_get  + p_mpi_wtime() - t_0
 
         DO ilev=chunk_start, chunk_end
           t_0 = p_mpi_wtime() ! performance measurement
 
-          IF (use_dp_mpi2io) THEN
-            IF (nv_off_np(num_work_procs) < p_ri%n_glb) var3_dp(:) = 0._wp
-
 !$OMP PARALLEL
-!$OMP DO PRIVATE(dst_start, dst_end, src_start, src_end)
-            DO np = 0, num_work_procs-1
-              dst_start = nv_off_np(np)+1
-              dst_end   = nv_off_np(np+1)
-              src_start = voff(np)+1
-              src_end   = voff(np)+p_ri%pe_own(np)
-              voff(np)  = src_end
-
-              var3_dp(p_ri%reorder_index(dst_start:dst_end)) = &
-                var1_dp(src_start:src_end)
-            ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
-          ELSE
-
-            IF (have_GRIB) THEN
-              IF (nv_off_np(num_work_procs) < p_ri%n_glb) var3_dp(:) = 0._wp
-
-              ! ECMWF GRIB-API/CDI has only a double precision interface at the
-              ! date of coding this
-!$OMP PARALLEL
-!$OMP DO PRIVATE(dst_start, dst_end, src_start, src_end)
-              DO np = 0, num_work_procs-1
-                dst_start = nv_off_np(np)+1
-                dst_end   = nv_off_np(np+1)
-                src_start = voff(np)+1
-                src_end   = voff(np)+p_ri%pe_own(np)
-                voff(np)  = src_end
-
-                var3_dp(p_ri%reorder_index(dst_start:dst_end)) = &
-                  REAL(var1_sp(src_start:src_end), dp)
-              ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
+          IF (p_ri%pe_off(num_work_procs-1)+p_ri%pe_own(num_work_procs-1) &
+            & < p_ri%n_glb) THEN
+            IF (use_dp_mpi2io .OR. have_grib) THEN
+              CALL init(var3_dp)
             ELSE
-              IF (nv_off_np(num_work_procs) < p_ri%n_glb) var3_sp(:) = 0._sp
-!$OMP PARALLEL
-!$OMP DO PRIVATE(dst_start, dst_end, src_start, src_end)
-              DO np = 0, num_work_procs-1
-                dst_start = nv_off_np(np)+1
-                dst_end   = nv_off_np(np+1)
-                src_start = voff(np)+1
-                src_end   = voff(np)+p_ri%pe_own(np)
-                voff(np)  = src_end
-
-                var3_sp(p_ri%reorder_index(dst_start:dst_end)) = &
-                  var1_sp(src_start:src_end)
-              ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
+              CALL init(var3_sp)
             END IF
+          END IF
+          IF (use_dp_mpi2io) THEN
+!$OMP DO PRIVATE(src_start, src_end)
+            DO np = 0, num_work_procs-1
+              src_start = p_ri%pe_off(np) * this_chunk_nlevs + (ilev-chunk_start)*p_ri%pe_own(np) + 1
+              src_end   = p_ri%pe_off(np) * this_chunk_nlevs + (ilev-chunk_start+1)*p_ri%pe_own(np)
+              CALL ri_cpy_part2whole(p_ri, np, var1_dp(src_start:src_end), &
+                &                    var3_dp)
+            ENDDO
+!$OMP END DO NOWAIT
+          ELSE IF (have_GRIB) THEN
+            ! ECMWF GRIB-API/CDI has only a double precision interface at the
+            ! date of coding this
+!$OMP DO PRIVATE(src_start, src_end)
+            DO np = 0, num_work_procs-1
+              src_start = p_ri%pe_off(np) * this_chunk_nlevs &
+                + (ilev-chunk_start)*p_ri%pe_own(np) + 1
+              src_end   = p_ri%pe_off(np) * this_chunk_nlevs &
+                + (ilev-chunk_start+1)*p_ri%pe_own(np)
+              CALL ri_cpy_part2whole(p_ri, np, var1_sp(src_start:src_end), &
+                &                    var3_dp)
+            ENDDO
+!$OMP END DO NOWAIT
+          ELSE
+!$OMP DO PRIVATE(src_start, src_end)
+            DO np = 0, num_work_procs-1
+              src_start = p_ri%pe_off(np) * this_chunk_nlevs &
+                + (ilev-chunk_start)*p_ri%pe_own(np) + 1
+              src_end   = p_ri%pe_off(np) * this_chunk_nlevs &
+                + (ilev-chunk_start+1)*p_ri%pe_own(np)
+              CALL ri_cpy_part2whole(p_ri, np, var1_sp(src_start:src_end), &
+                &                    var3_sp)
+            ENDDO
+!$OMP END DO NOWAIT
           ENDIF
+!$OMP END PARALLEL
           t_copy = t_copy + p_mpi_wtime() - t_0 ! performance measurement
           ! Write calls (via CDIs) of the asynchronous I/O PEs:
           t_0 = p_mpi_wtime() ! performance measurement
 
           IF (use_dp_mpi2io .OR. have_GRIB) THEN
             CALL streamWriteVarSlice(of%cdiFileID, info%cdiVarID, ilev-1, var3_dp, nmiss)
-            mb_wr = mb_wr + REAL(SIZE(var3_dp), wp)
           ELSE
             CALL streamWriteVarSliceF(of%cdiFileID, info%cdiVarID, ilev-1, var3_sp, nmiss)
-            mb_wr = mb_wr + REAL(SIZE(var3_sp),wp)
           ENDIF
+          mb_wr = mb_wr + REAL(p_ri%n_glb, dp)
           t_write = t_write + p_mpi_wtime() - t_0 ! performance measurement
 
         ENDDO ! ilev
 
       ENDDO ! chunk loop
 
-      IF (use_dp_mpi2io .OR. have_GRIB) THEN
-        DEALLOCATE(var3_dp, STAT=ierrstat)
-      ELSE
-        DEALLOCATE(var3_sp, STAT=ierrstat)
-      ENDIF
-      IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
-
     ENDDO ! Loop over output variables
 
 #if ! defined NO_MPI_RGET
     CALL MPI_Win_unlock_all(of%mem_win%mpi_win, mpierr)
 #endif
+    IF (use_dp_mpi2io .OR. have_GRIB) THEN
+      DEALLOCATE(var3_dp, STAT=ierrstat)
+    ELSE
+      DEALLOCATE(var3_sp, STAT=ierrstat)
+    ENDIF
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
     IF (use_dp_mpi2io) THEN
       DEALLOCATE(var1_dp, STAT=ierrstat)
     ELSE
@@ -3143,8 +3159,8 @@ CONTAINS
     IF (msg_level >= 12) THEN
 #endif
       WRITE (0,'(10(a,f10.3))') &  ! remark: CALL message does not work here because it writes only on PE0
-           & ' Got ',mb_get,' MB, time get: ',t_get,' s [',mb_get/MAX(1.e-6_wp,t_get), &
-           & ' MB/s], time write: ',t_write,' s [',mb_wr/MAX(1.e-6_wp,t_write),        &
+           & ' Got ',mb_get,' MB, time get: ',t_get,' s [',mb_get/MAX(1.e-6_dp,t_get), &
+           & ' MB/s], time write: ',t_write,' s [',mb_wr/MAX(1.e-6_dp,t_write),        &
            & ' MB/s], times copy: ',t_copy,' s'
    !   CALL message('',message_text)
     ENDIF
@@ -3286,7 +3302,7 @@ CONTAINS
   SUBROUTINE compute_wait_for_async_io(jstep)
     INTEGER, INTENT(IN) :: jstep         !< model step
     ! local variables
-    INTEGER :: i,j, nwait_list, io_proc_id
+    INTEGER :: i, nwait_list, io_proc_id
     INTEGER :: msg(num_io_procs), wait_list(num_io_procs), reqs(num_io_procs)
     CHARACTER(len=*), PARAMETER :: &
       routine = modname//'::compute_wait_for_async_io'
@@ -3396,18 +3412,16 @@ CONTAINS
       END DO
     END IF
 
-    IF(use_async_name_list_io) THEN
-      DO i = 1, SIZE(output_file)
-        CALL mpi_win_free(output_file(i)%mem_win%mpi_win, ierror)
-          IF (use_dp_mpi2io) THEN
-            CALL mpi_free_mem(output_file(i)%mem_win%mem_ptr_dp, ierror)
-          ELSE
-            CALL mpi_free_mem(output_file(i)%mem_win%mem_ptr_sp, ierror)
-          END IF
-        CALL mpi_win_free(output_file(i)%mem_win%mpi_win_metainfo, ierror)
-        CALL mpi_free_mem(output_file(i)%mem_win%mem_ptr_metainfo_pe0, ierror)
-      END DO
-    END IF
+    DO i = 1, SIZE(output_file)
+      CALL mpi_win_free(output_file(i)%mem_win%mpi_win, ierror)
+      IF (use_dp_mpi2io) THEN
+        CALL mpi_free_mem(output_file(i)%mem_win%mem_ptr_dp, ierror)
+      ELSE
+        CALL mpi_free_mem(output_file(i)%mem_win%mem_ptr_sp, ierror)
+      END IF
+      CALL mpi_win_free(output_file(i)%mem_win%mpi_win_metainfo, ierror)
+      IF (p_pe_work == 0) CALL mpi_free_mem(output_file(i)%mem_win%mem_ptr_metainfo_pe0, ierror)
+    END DO
   END SUBROUTINE compute_shutdown_async_io
 #endif
 

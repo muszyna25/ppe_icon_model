@@ -273,6 +273,14 @@ AC_ARG_ENABLE([intel-consistency],
      [enable_intel_consistency=yes])],
   [enable_intel_consistency=auto])
 
+AC_ARG_ENABLE([memory-tracing],
+  [AC_HELP_STRING([--enable-memory-tracing],
+     [enable native dynamic memory tracing facility
+@<:@default=no@:>@])],
+  [AS_CASE([$enableval],[yes|mtrace], [],
+     [enable_memory_tracing=no])],
+  [enable_memory_tracing=no])
+
 AC_ARG_ENABLE([vectorized-lrtm],
   [AC_HELP_STRING([--enable-vectorized-lrtm],
      [enable the parallelization-invariant version of LRTM
@@ -447,6 +455,9 @@ ACX_COMPILER_CROSS_CHECK_DELAY
 
 dnl Override the default flags set by AC_PROG_FC:
 FCFLAGS=${FCFLAGS-}
+m4_pushdef([AC_LANG(Fortran)],
+  m4_bpatsubst(m4_dquote(m4_defn([AC_LANG(Fortran)])),
+    [FCFLAGS],[FCFLAGS $ICON_FCFLAGS]))dnl
 AC_PROG_FC
 AC_LANG([Fortran])
 
@@ -559,7 +570,7 @@ AS_VAR_IF([enable_rte_rrtmgp], [no],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_RTE_RRTMGP__"])])
 
 AS_VAR_IF([enable_rttov], [yes],
-  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__USE_RTTOV"])])
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__USE_RTTOV ${FC_PP_DEF}_RTTOV_VERSION=13 ${FC_PP_DEF}HAVE_MPI_MOD"])])
 
 AS_VAR_IF([enable_dace], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__DACE__"])])
@@ -626,6 +637,14 @@ AS_VAR_IF([enable_vectorized_lrtm], [yes],
 AS_VAR_IF([enable_mixed_precision], [yes],
   [AS_VAR_APPEND([FCFLAGS],
      [" ${FC_PP_DEF}__MIXED_PRECISION"])])
+
+dnl switch to disable MPI_Rget for systems where it doesn't work
+AC_ARG_ENABLE([mpi-rget],
+  [AS_HELP_STRING([--disable-mpi-rget],
+     [MPI_Rget is normally used on systems with MPI standard 3.0 or later, but can be disabled unconditionally with this switch])],
+     [AS_IF([test x"$enable_mpi_rget" != xyes -a x"$enable_mpi_rget" != xauto],
+        [enable_mpi_rget=no])],
+     [enable_mpi_rget=auto])
 
 ######################### C COMPILER COMMAND AND FLAGS #########################
 dnl Override the default flags set by AC_PROG_CC:
@@ -713,6 +732,15 @@ else
   NVCFLAGS=
 fi
 
+########################## LIBRARY CREATION PROGRAMS AND FLAGS #################
+
+AC_CHECK_PROGS([AR],[xiar ar],[false],,)
+AS_VAR_IF([AR],[false],
+  [AC_MSG_FAILURE([an archiver is needed to build ICON.])])
+AC_ARG_VAR([ARFLAGS],[option arguments/commands to pass to the archiver])
+AS_VAR_SET_IF([ARFLAGS],,[ARFLAGS=cr])
+AC_PROG_RANLIB
+
 ################################ LIBRARY CHECKS ################################
 
 dnl One of the topological orderings of the ICON dependency graph
@@ -762,6 +790,23 @@ test x"$enable_rttov" = xyes],
 interface of MPI library: either disable MPI support (--disable-mpi) or set dnl
 FC to the MPI Fortran compiler wrapper, or set FCFLAGS, LDFLAGS and LIBS dnl
 accordingly])])])
+dnl ######################################################################
+dnl test for MPI standard implementation version
+AS_VAR_IF([enable_mpi], [yes],
+  [ACX_FORTRAN_CHECK_INTEGER_PARAMETER([MPI_VERSION],[0],[100],[1],[use mpi],
+     [ICON_MPI_VERSION],[1],[The value of Fortran parameter MPI_VERSION])
+   ACX_FORTRAN_CHECK_INTEGER_PARAMETER([MPI_SUBVERSION],[0],[100],[1],[use mpi],
+     [ICON_MPI_SUBVERSION],[1],[The value of Fortran parameter MPI_SUBVERSION])
+   ICON_FCFLAGS="${ICON_FCFLAGS+$ICON_FCFLAGS }${FC_PP_DEF}ICON_MPI_VERSION=$ICON_MPI_VERSION ${FC_PP_DEF}ICON_MPI_SUBVERSION=$ICON_MPI_SUBVERSION"])
+
+dnl ######################################################################
+AS_VAR_IF([enable_mpi_rget], [auto],
+  [AS_IF([test $ICON_MPI_VERSION -ge 3],
+     [enable_mpi_rget=yes],
+     [enable_mpi_rget=no])])
+AS_VAR_IF([enable_mpi_rget], [no],
+  [ICON_FCFLAGS="${ICON_FCFLAGS+$ICON_FCFLAGS }${FC_PP_DEF}NO_MPI_RGET"])
+dnl ######################################################################
 
 dnl The configure scripts of the most of the bundled libraries expect
 dnl MPI_LAUNCH to be set in the form of an absolute path, which we try to
@@ -1670,6 +1715,14 @@ library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable dnl
 GPU support (--disable-gpu) or provide an external version of CUB library dnl
 (--with-external-cub) by setting NVCFLAGS accordingly])])
       AS_VAR_APPEND([NVCFLAGS], [" -I${srcdir}/externals/cub"])])])
+
+AS_IF([test "x$enable_memory_tracing" = xyes],
+  [AC_MSG_NOTICE([detecting memory tracing facility])
+   AC_LANG_PUSH([C])
+   AC_CHECK_FUNC([mtrace], [enable_memory_tracing=mtrace])
+   AC_LANG_POP([C])])
+AS_CASE([$enable_memory_tracing],
+  [mtrace], [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}ICON_MEMORY_TRACING=1"])])
 
 ##################### PREPROCESSORS AND AUXILIARY COMMANDS #####################
 

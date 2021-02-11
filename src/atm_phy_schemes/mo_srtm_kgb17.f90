@@ -6,6 +6,7 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
+!NEC$ options "-O1"
 !option! -Nv -NO
 #ifdef VPP
 !OCL SCALAR

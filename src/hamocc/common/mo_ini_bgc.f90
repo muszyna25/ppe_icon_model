@@ -13,18 +13,17 @@ MODULE mo_ini_bgc
        &                     phytomi, grami, remido, dyphy, zinges,        &
        &                     epsher,  spemor, gammap, gammaz, ecan, &
        &                     pi_alpha, fpar, bkphy, bkzoo, bkopal,         &
-       &                     drempoc,             &
-       &                     dremopal, dremn2o, sulfate_reduction,         &
-       &                     dremcalc, n2_fixation, ro2ut, rcar, rnit,     &
-       &                     rnoi, nitdem, n2prod, rcalc, ropal, calmax,   &
+       &                     dremn2o, sulfate_reduction,         &
+       &                     n2_fixation, ro2ut, rcar, rnit,     &
+       &                     rnoi, nitdem, n2prod, rcalc, ropal,   &
        &                     perc_diron, riron, fesoly, relaxfe,     &
        &                     denitrification, kbo, bolay, rn2,             &
        &                     wdust, thresh_o2,   &
        &                     pi_alpha_cya,          &
-       &                     Topt_cya,T1_cya,T2_cya,bkcya_N, bkcya_P, bkcya_fe, &
+       &                     Topt_cya,T1_cya,T2_cya,bkcya_N, &
        &                     buoyancyspeed_cya, bkh2sox, rh2sox, &
        &                     doccya_fac, thresh_aerob, thresh_sred, &
-       &                     wopal, wcal, wcya, p2gtc, ro2bal, dmsp, prodn2o
+       &                     wopal, wcal, wcya, p2gtc, ro2bal, dmsp,prodn2o,docmin
 
   USE mo_sedmnt, ONLY      : powtra, sedlay, sedhpl,disso_op,disso_cal,&
        &                     o2ut, rno3, sred_sed, silsat, &
@@ -34,7 +33,8 @@ MODULE mo_ini_bgc
        &                     sinkspeed_poc, sinkspeed_opal, sinkspeed_calc,&
        &                     ks,cycdec,cya_growth_max,grazra,&
        &                     mc_fac, sinkspeed_martin_ez, mc_depth, denit_sed, disso_po, &
-       &                     atm_co2, atm_o2, atm_n2, deltacalc, deltaorg, deltasil     
+       &                     atm_co2, atm_o2, atm_n2, deltacalc, deltaorg, deltasil, &
+                             drempoc, dremopal, dremcalc   
 
 
   USE mo_control_bgc, ONLY : ldtbgc, dtb, dtbgc, rmasko, rmasks, &
@@ -99,7 +99,7 @@ CONTAINS
     phytomi  = 1.e-11_wp   ! i.e. 1e-5 mmol P/m3 minimum concentration of phytoplankton
     grami    = 1.e-11_wp   ! i.e. 1e-5 mmol P/m3 minimum concentration of zooplankton | test e-11 ->e-8 very slow decay
     cyamin   = 1.e-11_wp   ! minimum cyanobacteria conc. (< initial value)
-
+    docmin   = 1.e-10_wp
 
     remido   = 0.008_wp     ! KS, JS, EMR 12/07/2007
     dyphy    = 0.008_wp     ! 1/d -mortality rate of phytoplankton
@@ -116,7 +116,6 @@ CONTAINS
     thresh_sred = 3.e-6_wp      ! kmol m-3,  O2 threshold for sulfate reduction
     prodn2o = 1.e-4_wp
 
-    calmax = 0.15_wp ! maximum fraction (of "export") for calc production
 
 
     bkphy  = 1.e-8_wp 
@@ -128,8 +127,6 @@ CONTAINS
 
     ! water column remineralisation constants
 
-    drempoc  = 0.026_wp     ! 1/d      ! 0.75/month. H3.1: 0.2/month k=1, 0.1/month k>1
-    dremopal = 0.01_wp 
     rh2sox  = 0.93_wp ! 1/d  H2S oxidation rate
 
 ! ------ cyanobacteria
@@ -138,15 +135,12 @@ CONTAINS
     Topt_cya          = 28._wp       ! deg C
     T1_cya            = 5.5_wp       ! deg C
     T2_cya            = 1._wp        ! deg C
-    bkcya_P           = 5.e-8_wp     ! kmol/m3  
-    bkcya_fe          = 30.e-8_wp     ! kmol/m3  
     bkcya_N           = 1.e-9_wp     ! kmol/m3  
     doccya_fac        = 0.1_wp
 ! ------
 
     dremn2o  = 0.01_wp      ! 1/d
     sulfate_reduction = 0.005_wp
-    dremcalc = 0.075_wp     ! 
 
     ! nitrogen fixation 
     n2_fixation = 0.005_wp

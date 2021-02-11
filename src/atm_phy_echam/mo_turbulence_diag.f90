@@ -760,7 +760,6 @@ CONTAINS
         pcpt_tile(jl,jsfc) = 0._wp
         pqsat_tile(jl,jsfc) = 0._wp
         pri_tile(jl,jsfc) = 0._wp
-        !$ser verbatim pch_tile(jl,jsfc) = 0._wp
       ENDDO
     ENDDO
     !$ACC END PARALLEL
