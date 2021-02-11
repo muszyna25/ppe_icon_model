@@ -1340,9 +1340,8 @@ CONTAINS
           p_of%io_proc_id      = -1 ! undefined MPI rank
           p_of%pe_placement    = pe_placement(ifile_partition)
 
-          IF ( is_work ) THEN ! avoid addidional io or restart processes
-            CALL process_statistics_stream(p_onl, i_typ, p_patch(log_patch_id))
-          ENDIF
+          IF (is_work) &
+            & CALL process_statistics_stream(p_onl, varlist_ptr, p_patch(log_patch_id))
 
           CALL add_varlist_to_output_file(p_of,varlist_ptr)
 

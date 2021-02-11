@@ -14,7 +14,7 @@ MODULE mo_derived_variable_handling
   USE mo_zaxis_type,          ONLY: ZA_OCEAN_SEDIMENT
   USE mo_name_list_output_metadata, ONLY: metainfo_get_timelevel
   USE mo_var_list,            ONLY: add_var, t_var_list_ptr
-  USE mo_var, ONLY: t_var, t_var_ptr, level_type_ml, level_type_pl, level_type_hl, level_type_il
+  USE mo_var,                 ONLY: t_var, t_var_ptr
   USE mo_var_metadata,        ONLY: get_var_name
   USE mo_var_metadata_types,  ONLY: t_var_metadata
   USE mo_var_list_register_utils, ONLY: vlr_find
@@ -57,43 +57,34 @@ MODULE mo_derived_variable_handling
 
   TYPE :: t_derivate_op
     TYPE(t_derivate_event_alloctble), ALLOCATABLE :: events(:)
-    CHARACTER(:), ALLOCATABLE :: opname
-    INTEGER :: opcode = -1
   END TYPE t_derivate_op
 
-  TYPE(t_derivate_op) :: ops(4)
+  INTEGER, PARAMETER :: nops = 4
+  TYPE(t_derivate_op), TARGET :: ops(nops)
   CHARACTER(*), PARAMETER :: dlim = '|'
   CHARACTER(*), PARAMETER :: modname = 'mo_derived_variable_handling'
+  CHARACTER(*), PARAMETER :: opnames(nops) = ["mean  ", "max   ", "min   ", "square"]
+  INTEGER, PARAMETER :: oplen(nops) = [4, 3, 3, 6]
 
 CONTAINS
 
-  SUBROUTINE process_statistics_stream(p_onl, i_typ, patch_2d)
-    TYPE(t_output_name_list), TARGET, INTENT(IN) :: p_onl
-    INTEGER, INTENT(IN) :: i_typ
+  SUBROUTINE process_statistics_stream(p_onl, vlist, patch_2d)
+    TYPE(t_output_name_list), INTENT(IN) :: p_onl
+    CHARACTER(LEN=vname_len), INTENT(INOUT) :: vlist(:)
     TYPE(t_patch), INTENT(IN), TARGET :: patch_2d
+    INTEGER :: i
 
-    IF (ops(1)%opcode .EQ. -1) THEN
-      ops(1)%opcode = 1
-      ops(1)%opname = "mean"
-      ops(2)%opcode = 2
-      ops(2)%opname = "max"
-      ops(3)%opcode = 3
-      ops(3)%opname = "min"
-      ops(4)%opcode = 4
-      ops(4)%opname = "square"
-    END IF
-    CALL process_mvstream(ops(1), p_onl, i_typ, patch_2d)
-    CALL process_mvstream(ops(2), p_onl, i_typ, patch_2d)
-    CALL process_mvstream(ops(3), p_onl, i_typ, patch_2d)
-    CALL process_mvstream(ops(4), p_onl, i_typ, patch_2d)
+    DO i = 1, nops
+      IF (TRIM(p_onl%operation) == opnames(i)(1:oplen(i))) &
+        & CALL process_mvstream(i, p_onl, vlist, patch_2d)
+    ENd DO
   END SUBROUTINE process_statistics_stream
 
-  SUBROUTINE process_mvstream(bundle, p_onl, i_typ, patch_2d)
-    TYPE(t_derivate_op), INTENT(INOUT), TARGET :: bundle
+  SUBROUTINE process_mvstream(iop, p_onl, in_varlist, patch_2d)
+    INTEGER, INTENT(IN) :: iop
     TYPE(t_output_name_list), TARGET :: p_onl
-    INTEGER, INTENT(IN) :: i_typ
+    CHARACTER(LEN=vname_len), INTENT(INOUT) :: in_varlist(:)
     TYPE(t_patch), INTENT(IN), TARGET :: patch_2d
-    CHARACTER(LEN=vname_len), POINTER :: in_varlist(:)
     INTEGER :: eKey, ie, iv, nv_scan, nv_new, nv_old, ne
     TYPE(t_derivate_event), POINTER :: ederiv
     TYPE(t_derivate_event_alloctble), ALLOCATABLE :: etmp(:)
@@ -104,95 +95,83 @@ CONTAINS
     TYPE(t_var_list_ptr) :: src_list
     CHARACTER(*), PARAMETER :: routine = modname//"::process_mvstream"
 
-    IF (bundle%opname == TRIM(p_onl%operation)) THEN
-      IF (ANY(1 < [p_onl%stream_partitions_ml, p_onl%stream_partitions_pl,  &
-        &          p_onl%stream_partitions_hl, p_onl%stream_partitions_il])) &
-        & CALL finish(routine, "only supported on global domain 1 " // &
-        &                      "and without stream partitioning!")
-      SELECT CASE(i_typ)
-      CASE(level_type_ml)
-        in_varlist => p_onl%ml_varlist
-      CASE(level_type_pl)
-        in_varlist => p_onl%pl_varlist
-      CASE(level_type_hl)
-        in_varlist => p_onl%hl_varlist
-      CASE(level_type_il)
-        in_varlist => p_onl%il_varlist
-      END SELECT
-      nv_scan = 0
-      DO WHILE(.NOT.(in_varlist(nv_scan + 1) == ' '))
-        nv_scan = nv_scan + 1
-      END DO
-      ALLOCATE(vderiv(nv_scan))
-      ! uniq identifier for an event based on output start/end/interval
-      eString = TRIM(p_onl%output_start(1)) // '_' // TRIM(p_onl%output_end(1)) // '_' // &
-        &        TRIM(p_onl%output_interval(1))
-      ! this has the advantage that we can compute a uniq id without creating the event itself
-      ! fill main dictionary of variables for different event
-      eKey = text_hash_c(eString)
-      NULLIFY(ederiv)
-      ne = 0
-      IF (ALLOCATED(bundle%events)) ne = SIZE(bundle%events)
-      DO ie = 2, ne
-        IF (bundle%events(ie)%a%eKey .EQ. eKey) THEN
-          IF (bundle%events(ie)%a%eString /= eString) THEN
-            ederiv => bundle%events(ie)%a
-            EXIT
-          END IF
-        END IF
-      END DO
-      nv_old = 0
-      IF (.NOT.ASSOCIATED(ederiv)) THEN
-        IF (ne .GT. 0) CALL MOVE_ALLOC(bundle%events, etmp)
-        ALLOCATE(bundle%events(ne + 1))
-        DO ie = 1, ne
-          CALL MOVE_ALLOC(etmp(ie)%a, bundle%events(ie)%a)
-        END DO
-        ne = ne + 1
-        ALLOCATE(bundle%events(ne)%a)
-        ederiv => bundle%events(ne)%a
-        ederiv%eString = eString
-        ederiv%eKey = eKey
-        ederiv%mtime_event => newEvent(eString, p_onl%output_start(1), &
-          & p_onl%output_start(1), p_onl%output_end(1), p_onl%output_interval(1))
-      ELSE
-        IF (ALLOCATED(ederiv%vars)) THEN
-          CALL MOVE_ALLOC(ederiv%vars, vtmp)
-          nv_old = SIZE(vtmp)
+    IF (ANY(1 < [p_onl%stream_partitions_ml, p_onl%stream_partitions_pl,  &
+      &          p_onl%stream_partitions_hl, p_onl%stream_partitions_il])) &
+      & CALL finish(routine, "only supported on global domain 1 " // &
+      &                      "and without stream partitioning!")
+    nv_scan = 0
+    DO WHILE(.NOT.(in_varlist(nv_scan + 1) == ' '))
+      nv_scan = nv_scan + 1
+    END DO
+    ALLOCATE(vderiv(nv_scan))
+    ! uniq identifier for an event based on output start/end/interval
+    eString = TRIM(p_onl%output_start(1)) // '_' // TRIM(p_onl%output_end(1)) // '_' // &
+      &        TRIM(p_onl%output_interval(1))
+    ! this has the advantage that we can compute a uniq id without creating the event itself
+    ! fill main dictionary of variables for different event
+    eKey = text_hash_c(eString)
+    NULLIFY(ederiv)
+    ne = 0
+    IF (ALLOCATED(ops(iop)%events)) ne = SIZE(ops(iop)%events)
+    DO ie = 2, ne
+      IF (ops(iop)%events(ie)%a%eKey .EQ. eKey) THEN
+        IF (ops(iop)%events(ie)%a%eString /= eString) THEN
+          ederiv => ops(iop)%events(ie)%a
+          EXIT
         END IF
       END IF
-      nv_new = 0
-      DO iv = 1, nv_scan
-        ! collect data variables only
-        IF (INDEX(in_varlist(iv),':') > 0) CYCLE ! to avoid e.g. "grid:clon" stuff
-        ! check for already created meanStream variable (maybe from another output_nml with the same output_interval)
-        ! names consist of original spot-value names PLUS event information (start + interval of output)
-        WRITE(dom_string, "(i1)") p_onl%dom
-        dname = TRIM(in_varlist(iv)) // dlim // bundle%opname // dlim // &
-          & TRIM(p_onl%output_interval(1)) // dlim // TRIM(p_onl%output_start(1)) &
-          & // dlim // 'DOM' // dom_string
-        vl_elem => vlr_find(dname, opt_patch_id=p_onl%dom)
-        IF (.NOT.ASSOCIATED(vl_elem)) THEN !not found -->> create a new one
-          ALLOCATE(vderiv(nv_new+1)%a) ! staging a new var entry
-          CALL find_src_element(TRIM(in_varlist(iv)), vderiv(nv_new+1)%a)
-          IF (TSTEP_CONSTANT .EQ. vderiv(nv_new+1)%a%src(1)%p%info%isteptype) THEN
-            DEALLOCATE(vderiv(nv_new+1)%a) ! discard staged entry
-            dname = TRIM(in_varlist(iv)) ! no aggregation needed, since constant
-          ELSE
-            nv_new = nv_new + 1 ! new entry is valid, so keep
-            CALL copy_var_to_list(vderiv(nv_new)%a) ! add_var to store accumulation
-          END IF
-        END IF
-        in_varlist(iv) = dname
+    END DO
+    nv_old = 0
+    IF (.NOT.ASSOCIATED(ederiv)) THEN
+      IF (ne .GT. 0) CALL MOVE_ALLOC(ops(iop)%events, etmp)
+      ALLOCATE(ops(iop)%events(ne + 1))
+      DO ie = 1, ne
+        CALL MOVE_ALLOC(etmp(ie)%a, ops(iop)%events(ie)%a)
       END DO
-      ALLOCATE(ederiv%vars(nv_new + nv_old))
-      DO iv = 1, nv_old
-        CALL MOVE_ALLOC(vtmp(iv)%a, ederiv%vars(iv)%a)
-      END DO
-      DO iv = 1, nv_new
-        CALL MOVE_ALLOC(vderiv(iv)%a, ederiv%vars(iv+nv_old)%a)
-      END DO
+      ne = ne + 1
+      ALLOCATE(ops(iop)%events(ne)%a)
+      ederiv => ops(iop)%events(ne)%a
+      ederiv%eString = eString
+      ederiv%eKey = eKey
+      ederiv%mtime_event => newEvent(eString, p_onl%output_start(1), &
+        & p_onl%output_start(1), p_onl%output_end(1), p_onl%output_interval(1))
+    ELSE
+      IF (ALLOCATED(ederiv%vars)) THEN
+        CALL MOVE_ALLOC(ederiv%vars, vtmp)
+        nv_old = SIZE(vtmp)
+      END IF
     END IF
+    nv_new = 0
+    DO iv = 1, nv_scan
+      ! collect data variables only
+      IF (INDEX(in_varlist(iv),':') > 0) CYCLE ! to avoid e.g. "grid:clon" stuff
+      ! check for already created meanStream variable (maybe from another output_nml with the same output_interval)
+      ! names consist of original spot-value names PLUS event information (start + interval of output)
+      WRITE(dom_string, "(i1)") p_onl%dom
+      dname = TRIM(in_varlist(iv)) // dlim // opnames(iop)(1:oplen(iop)) // dlim // &
+        & TRIM(p_onl%output_interval(1)) // dlim // TRIM(p_onl%output_start(1)) &
+        & // dlim // 'DOM' // dom_string
+      vl_elem => vlr_find(dname, opt_patch_id=p_onl%dom)
+      IF (.NOT.ASSOCIATED(vl_elem)) THEN !not found -->> create a new one
+        ALLOCATE(vderiv(nv_new+1)%a) ! staging a new var entry
+        CALL find_src_element(TRIM(in_varlist(iv)), vderiv(nv_new+1)%a)
+        IF (TSTEP_CONSTANT .EQ. vderiv(nv_new+1)%a%src(1)%p%info%isteptype) THEN
+          DEALLOCATE(vderiv(nv_new+1)%a) ! discard staged entry
+          dname = TRIM(in_varlist(iv)) ! no aggregation needed, since constant
+        ELSE
+          nv_new = nv_new + 1 ! new entry is valid, so keep
+          CALL copy_var_to_list(vderiv(nv_new)%a) ! add_var to store accumulation
+        END IF
+      END IF
+      in_varlist(iv) = dname
+    END DO
+    ALLOCATE(ederiv%vars(nv_new + nv_old))
+    DO iv = 1, nv_old
+      CALL MOVE_ALLOC(vtmp(iv)%a, ederiv%vars(iv)%a)
+    END DO
+    DO iv = 1, nv_new
+      CALL MOVE_ALLOC(vderiv(iv)%a, ederiv%vars(iv+nv_old)%a)
+    END DO
   CONTAINS
 
   SUBROUTINE find_src_element(vname, deriv)
@@ -523,15 +502,15 @@ CONTAINS
   !! Execute the accumulation forall internal variables and compute mean values
   !! if the corresponding event is active
   SUBROUTINE update_statistics()
+    INTEGER :: i
 
-    CALL update_mvstream(ops(1))
-    CALL update_mvstream(ops(2))
-    CALL update_mvstream(ops(3))
-    CALL update_mvstream(ops(4))
+    DO i = 1, nops
+      CALL update_mvstream(i)
+    END DO
   END SUBROUTINE update_statistics
 
-  SUBROUTINE update_mvstream(bundle)
-    TYPE(t_derivate_op), INTENT(INOUT), TARGET :: bundle
+  SUBROUTINE update_mvstream(iop)
+    INTEGER, INTENT(IN) :: iop
     INTEGER :: tl, iv, ie, it, ne, nv
     INTEGER, POINTER :: ct
     TYPE(t_var), POINTER :: src, dst
@@ -540,10 +519,10 @@ CONTAINS
     LOGICAL :: isactive
 
     ne = 0
-    IF (ALLOCATED(bundle%events)) ne = SIZE(bundle%events)
+    IF (ALLOCATED(ops(iop)%events)) ne = SIZE(ops(iop)%events)
     mtime_date = time_config%tc_current_date
     DO ie = 1, ne
-      ederiv => bundle%events(ie)%a
+      ederiv => ops(iop)%events(ie)%a
       isactive = LOGICAL(isCurrentEventActive(ederiv%mtime_event, mtime_date))
       nv = 0
       IF (ALLOCATED(ederiv%vars)) nv = SIZE(ederiv%vars)
@@ -557,13 +536,13 @@ CONTAINS
           src => ederiv%vars(iv)%a%src(it)%p
         END IF
         IF (ct .EQ. 0) THEN ! initial assignment
-          CALL perform_op(src, dst, MERGE(6, 5, bundle%opcode .EQ. 4))
+          CALL perform_op(src, dst, MERGE(6, 5, iop .EQ. 4))
         ELSE ! actual update
-          CALL perform_op(src, dst, bundle%opcode)
+          CALL perform_op(src, dst, iop)
         END IF
         ct = ct + 1
         IF (isactive) THEN ! output step, so weighting is applied this time
-          IF ((1 .EQ. bundle%opcode .OR. 4 .EQ. bundle%opcode) .AND. ct .GT. 0) &
+          IF ((1 .EQ. iop .OR. 4 .EQ. iop) .AND. ct .GT. 0) &
             & CALL perform_op(src, dst, 7, weight=(1._wp / REAL(ct, wp)))
           IF (dst%info%lmiss) & ! (re)set missval where applicable
             & CALL perform_op(src, dst, 8, miss=dst%info%missval%rval, &
