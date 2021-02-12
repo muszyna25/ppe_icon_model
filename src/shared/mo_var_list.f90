@@ -4495,7 +4495,7 @@ CONTAINS
     hgrid = -1
     CALL assign_if_present(hgrid,opt_hgrid)
     !
-    key = util_hashword(name, INT(LEN_TRIM(name), C_SIZE_T), 0)
+    key = util_hashword(name//c_null_char, INT(LEN_TRIM(name), C_SIZE_T), 0)
     name_has_time_level = has_time_level(name)
     !
     element => this_list%p%first_list_element

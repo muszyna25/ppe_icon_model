@@ -58,7 +58,7 @@ MODULE mo_derived_variable_handling
     TYPE(vector) :: prognostics
   END TYPE stat_state
 
-  TYPE(stat_state), SAVE, TARGET :: stt_mean, stt_max, stt_min, stt_square
+  TYPE(stat_state),SAVE :: stt_mean, stt_max, stt_min, stt_square
   CHARACTER(1), PARAMETER :: separator = achar(124)
 
   PUBLIC :: init_statistics_streams
@@ -628,24 +628,24 @@ CONTAINS
     TYPE (t_sim_step_info), INTENT(IN) :: sim_step_info
     TYPE(t_patch), INTENT(IN)          :: patch_2d
 
-    TYPE(stat_state), POINTER :: stt
-
     SELECT CASE (p_onl%operation)
     CASE (mean)
-      stt => stt_mean
+      CALL process_mvstream(p_onl,in_varlist,sim_step_info, patch_2d, &
+        &                   stt_mean)
     CASE (max)
-      stt => stt_max
+      CALL process_mvstream(p_onl,in_varlist,sim_step_info, patch_2d, &
+        &                   stt_max)
     CASE (min)
-      stt => stt_min
+      CALL process_mvstream(p_onl,in_varlist,sim_step_info, patch_2d, &
+        &                   stt_min)
     CASE (square)
-      stt => stt_square
+      CALL process_mvstream(p_onl,in_varlist,sim_step_info, patch_2d, &
+           &                stt_square)
     CASE default
 #ifdef DEBUG_MVSTREAM
       IF (my_process_is_stdio()) CALL print_routine(routine,'NO "statistic" operation found')
 #endif
-      RETURN
     END SELECT
-    CALL process_mvstream(p_onl,in_varlist,sim_step_info, patch_2d, stt)
   END SUBROUTINE process_statistics_stream
 
   ! methods needed for update statistics each timestep
