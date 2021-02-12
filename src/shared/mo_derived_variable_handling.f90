@@ -450,12 +450,12 @@ CONTAINS
     __acc_attach( dest_element%field%r_ptr )
 
     ! add the subset for later accumulation on all types of horizontal grids
-    SELECT CASE (source_element%field%info%hgrid)
-    CASE (GRID_UNSTRUCTURED_CELL)
+    SELECT case (source_element%field%info%hgrid)
+    case (GRID_UNSTRUCTURED_CELL)
       dest_element%field%info%subset = patch_2d%cells%owned
-    CASE (GRID_UNSTRUCTURED_EDGE)
+    case (GRID_UNSTRUCTURED_EDGE)
       dest_element%field%info%subset = patch_2d%edges%owned
-    CASE (GRID_UNSTRUCTURED_VERT)
+    case (GRID_UNSTRUCTURED_VERT)
       dest_element%field%info%subset = patch_2d%verts%owned
     END SELECT
   END FUNCTION copy_var_to_list
