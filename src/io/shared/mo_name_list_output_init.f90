@@ -36,7 +36,6 @@ MODULE mo_name_list_output_init
                                                 & gridDefProj, GRID_PROJECTION, GRID_CURVILINEAR
   USE mo_cdi_constants,                     ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE, &
                                                 & GRID_REGULAR_LONLAT, GRID_VERTEX, GRID_EDGE, GRID_CELL, GRID_ZONAL
-  USE mo_dynamics_config, ONLY: nnow, nnew, nold
   USE mo_kind,                              ONLY: wp, i8, dp, sp
   USE mo_impl_constants,                    ONLY: max_phys_dom, max_dom, SUCCESS,                   &
     &                                             max_var_ml, max_var_pl, max_var_hl, max_var_il,   &
@@ -70,7 +69,7 @@ MODULE mo_name_list_output_init
   USE mo_cf_convention,                     ONLY: t_cf_var, cf_global_info
   USE mo_restart_nml_and_att,               ONLY: getAttributesForRestarting
   USE mo_key_value_store,                   ONLY: t_key_value_store
-  USE mo_model_domain,                      ONLY: p_patch, p_phys_patch, t_patch
+  USE mo_model_domain,                      ONLY: p_patch, p_phys_patch
   USE mo_math_utilities,                    ONLY: merge_values_into_set
   USE mo_math_constants,                    ONLY: rad2deg
   ! config modules
@@ -197,12 +196,13 @@ MODULE mo_name_list_output_init
   USE mo_master_control,                    ONLY: get_my_process_name
 #endif
 #ifdef HAVE_CDI_PIO
+  USE yaxt, ONLY: xt_idxlist
   USE ppm_extents,                          ONLY: extent
   USE mo_decomposition_tools,               ONLY: uniform_partition_start
   USE mo_name_list_output_gridinfo,         ONLY: distribute_all_grid_info
   USE yaxt,                                 ONLY: xt_idxlist, &
        xt_idxvec_new, xt_idxlist_delete, xt_idxstripes_from_idxlist_new, &
-       xt_int_kind, xt_idxstripes_new, xt_idxempty_new, xt_stripe
+       xt_int_kind
 #endif
   IMPLICIT NONE
 
@@ -217,7 +217,6 @@ MODULE mo_name_list_output_init
   PUBLIC :: output_file
   PUBLIC :: patch_info
   PUBLIC :: lonlat_info
-  PUBLIC :: zonal_ri, profile_ri
   ! subroutines
   PUBLIC :: read_name_list_output_namelists
   PUBLIC :: parse_variable_groups
@@ -235,7 +234,6 @@ MODULE mo_name_list_output_init
   TYPE(t_output_file),   ALLOCATABLE, TARGET :: output_file(:)
   TYPE(t_patch_info),    ALLOCATABLE, TARGET :: patch_info (:)
   TYPE(t_patch_info_ll), ALLOCATABLE, TARGET :: lonlat_info(:,:)
-  TYPE(t_reorder_info), TARGET               :: zonal_ri, profile_ri
   TYPE(vector), SAVE                         :: outputRegister
 
   ! Number of output domains. This depends on l_output_phys_patch and is either the number
@@ -1268,6 +1266,8 @@ CONTAINS
     ENDDO
     CALL deallocateTimeDelta(mtime_day)
 
+    IF (my_process_is_work()) CALL build_mvstream_var_assoc(sim_step_info)
+
     ! Get the number of output files needed (by counting the domains per name list)
 
     p_onl => first_output_name_list
@@ -1303,8 +1303,6 @@ CONTAINS
          CALL replicate_data_on_io_procs
 #endif
 ! NOMPI
-
-    CALL build_mvstream_var_assoc(sim_step_info)
 
     output_file(:)%cdiFileID  = CDI_UNDEFID ! i.e. not opened
     output_file(:)%cdiVlistId = CDI_UNDEFID ! i.e. not defined
@@ -1490,20 +1488,14 @@ CONTAINS
     TYPE(t_sim_step_info), INTENT(IN) :: sim_step_info
     TYPE(t_output_name_list), POINTER :: p_onl
     CHARACTER(len=vname_len), POINTER :: varlist_ptr(:)
-    TYPE(t_patch), TARGET :: dummy_patch
-    TYPE(t_patch), POINTER :: patch_ref
     INTEGER :: idom, i_typ, log_patch_id
-    LOGICAL :: is_io
-
-    is_io = my_process_is_io()
-    IF (is_io) patch_ref => dummy_patch
     p_onl => first_output_name_list
     LOOP_NML : DO WHILE (ASSOCIATED(p_onl))
       idom = p_onl%dom ! domain for which this name list should be used
       ! non-existent domains are simply ignored:
       IF (idom <= n_dom_out) THEN
         log_patch_id = patch_info(idom)%log_patch_id
-        IF (.NOT. is_io) patch_ref => p_patch(log_patch_id)
+
         ! Loop over model/pressure/height levels
         DO i_typ = 1, 4
           ! Check if name_list has variables of corresponding type
@@ -1518,8 +1510,7 @@ CONTAINS
             varlist_ptr  => p_onl%il_varlist
           END SELECT
           IF (varlist_ptr(1) /= ' ') &
-            CALL process_statistics_stream(p_onl, varlist_ptr, sim_step_info, &
-            &                              patch_ref)
+            CALL process_statistics_stream(p_onl, varlist_ptr, sim_step_info, p_patch(log_patch_id))
         END DO
       END IF ! i_typ
       p_onl => p_onl%next
@@ -1982,18 +1973,19 @@ CONTAINS
     TYPE(t_level_selection), POINTER, INTENT(IN) :: level_selection
     LOGICAL, OPTIONAL :: var_ignore_level_selection
     INTEGER :: nlevs, info_nlevs, jk
-    LOGICAL :: var_ignore_level_selection_, is_reduction_var
+    LOGICAL :: var_ignore_level_selection_
 
     var_ignore_level_selection_ = .FALSE.
-    ! zonal grids are 2-dim but with a vertical axis
-    is_reduction_var = info%hgrid == grid_zonal .OR. info%hgrid == grid_lonlat
-    IF (info%ndims < 3 .AND. .NOT. is_reduction_var) THEN
+    IF (info%hgrid .EQ. GRID_ZONAL) THEN
+      ! zonal grids are 2-dim but with a vertical axis
+      nlevs = info%used_dimensions(1)
+    ELSE IF(info%ndims < 3) THEN
       ! other 2-dim. var are supposed to be horizontal only
       nlevs = 1
     ELSE
       ! handle the case that a few levels have been selected out of
       ! the total number of levels:
-      info_nlevs = info%used_dimensions(MERGE(1, 2, is_reduction_var))
+      info_nlevs = info%used_dimensions(2)
       IF (ASSOCIATED(level_selection)) THEN
         nlevs = 0
         ! Sometimes the user mixes level-selected variables with
@@ -2350,59 +2342,8 @@ CONTAINS
     ENDDO ! jl
 #endif
 ! #ifndef __NO_ICON_ATMO__
-    IF (.NOT. is_mpi_test) THEN
-      CALL create_rank0only_ri(zonal_ri, nlat_moc, is_io)
-      CALL create_rank0only_ri(profile_ri, 1, is_io)
-    END IF
   END SUBROUTINE set_patch_info
 
-  SUBROUTINE create_rank0only_ri(ri, n_pnt, is_io)
-    TYPE(t_reorder_info), INTENT(out) :: ri
-    INTEGER, INTENT(in) :: n_pnt
-    LOGICAL, INTENT(in) :: is_io
-    INTEGER :: jl
-    IF (.NOT. is_io) THEN
-      ri%n_glb = n_pnt
-      ri%n_own = MERGE(n_pnt, 0, p_pe_work == 0)
-      ALLOCATE(ri%own_idx(ri%n_own), &
-           ri%own_blk(ri%n_own), &
-           ri%reorder_index_own(ri%n_own), &
-           ri%pe_own(0:p_n_work-1), &
-           ri%pe_off(0:p_n_work-1))
-      IF (p_pe_work == 0) THEN
-        ! hack ahead: note that zonal data is not blocked, we add an
-        ! artificial blocking of nproma=1 in
-        ! mo_name_list_output::get_ptr_to_var_data!
-        DO jl = 1, n_pnt
-          ri%own_idx(jl) = 1
-          ri%own_blk(jl) = jl
-          ri%reorder_index_own(jl) = jl
-        END DO
-      END IF
-      ri%pe_off(0) = 0
-      ri%pe_own(0) = n_pnt
-      DO jl = 1, p_n_work-1
-        ri%pe_off(jl) = n_pnt
-        ri%pe_own(jl) = 0
-      END DO
-#ifdef HAVE_CDI_PIO
-      IF (pio_type == pio_type_cdipio) THEN
-        ALLOCATE(ri%reorder_idxlst_xt(1))
-        IF (p_pe_work == 0) THEN
-          ri%reorder_idxlst_xt(1) = xt_idxstripes_new(xt_stripe(0_xt_int_kind,&
-               1,INT(n_pnt, xt_int_kind)))
-        ELSE
-          ri%reorder_idxlst_xt(1) = xt_idxempty_new()
-        END IF
-      END IF
-#endif
-    END IF
-    IF (use_async_name_list_io) THEN
-      CALL transfer_reorder_info(ri, &
-           &    is_io, bcast_root, p_comm_work_2_io)
-      ! CALL transfer_grid_info(lonlat_info(jl,jg)%grid_info, n_pnt, lonlat_info(jl,jg)%grid_info_mode)
-    END IF
-  END SUBROUTINE create_rank0only_ri
 
   !------------------------------------------------------------------------------------------------
   !> Sets the reorder_info for cells/edges/verts
@@ -3136,7 +3077,7 @@ CONTAINS
     INTEGER                       :: ivct_len
 
     INTEGER :: nvgrid, ivgrid
-    INTEGER :: size_var_groups_dyn, temp(4)
+    INTEGER :: size_var_groups_dyn
     LOGICAL :: is_io, vct_needs_bcast
 
     is_io = my_process_is_io()
@@ -3149,19 +3090,9 @@ CONTAINS
       ELSE
         ivct_len = -1
       END IF
-      temp(1) = ivct_len
-      temp(2) = nold(1)
-      temp(3) = nnow(1)
-      temp(4) = nnew(1)
     END IF
-    CALL p_bcast(temp, bcast_root, p_comm_work_2_io)
+    CALL p_bcast(ivct_len, bcast_root, p_comm_work_2_io)
 
-    IF (is_io) THEN
-      ivct_len = temp(1)
-      nold(1) = temp(2)
-      nnow(1) = temp(3)
-      nnew(1) = temp(4)
-    END IF
     IF (ivct_len > 0) THEN
       IF (is_io) ALLOCATE(vct(ivct_len))
       CALL p_bcast(vct, bcast_root, p_comm_work_2_io)
@@ -3186,7 +3117,7 @@ CONTAINS
 
     ! Map the variable groups given in the output namelist onto the
     ! corresponding variable subsets:
-    IF (is_io) CALL parse_variable_groups()
+    CALL parse_variable_groups()
 
 
 #ifndef __NO_ICON_ATMO__
@@ -3360,10 +3291,6 @@ CONTAINS
           i_log_dom = output_file(i)%log_patch_id
           n_own     = lonlat_info(lonlat_id, i_log_dom)%ri%n_own
 #endif
-        CASE (grid_zonal)
-          n_own = zonal_ri%n_own
-        CASE (grid_lonlat)
-          n_own = profile_ri%n_own
         CASE DEFAULT
           CALL finish(routine,'unknown grid type')
         END SELECT

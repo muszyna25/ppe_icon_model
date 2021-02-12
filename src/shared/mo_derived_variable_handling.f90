@@ -24,7 +24,7 @@ MODULE mo_derived_variable_handling
                               & GRID_ZONAL
   USE mo_name_list_output_types, ONLY: t_output_name_list
   USE mo_zaxis_type, ONLY:  ZA_OCEAN_SEDIMENT
-  USE mo_mpi, ONLY: my_process_is_stdio, my_process_is_io
+  USE mo_mpi, ONLY: my_process_is_stdio
   USE mo_var_list_element, ONLY: level_type_ml, level_type_pl, level_type_hl, level_type_il
   USE mo_name_list_output_metadata, ONLY: metainfo_get_timelevel
   USE mo_var_list, ONLY: new_var_list,&
@@ -286,13 +286,12 @@ CONTAINS
 #endif
 
   SUBROUTINE find_src_element(src_element, varlist_element, dest_element_name, &
-          &  dom, src_list, prognosticsList, prognosticsPointerList, accumulate)
-    TYPE(t_list_element), POINTER, INTENT(out) :: src_element
+          &  dom, src_list, prognosticsList, prognosticsPointerList)
+    TYPE(t_list_element), POINTER :: src_element
     CHARACTER(LEN=VARNAME_LEN), INTENT(IN) :: varlist_element
-    CHARACTER(LEN=VARNAME_LEN), INTENT(in) :: dest_element_name
+    CHARACTER(LEN=VARNAME_LEN) :: dest_element_name
     INTEGER, INTENT(IN) :: dom
-    LOGICAL, INTENT(in) :: accumulate
-    TYPE(t_var_list), POINTER, INTENT(out) :: src_list
+    TYPE(t_var_list), POINTER :: src_list
     TYPE(vector) :: prognosticsList
     TYPE(map)    :: prognosticsPointerList
 
@@ -330,7 +329,7 @@ CONTAINS
 #endif
           src_element => find_element(get_varname_with_timelevel(varlist_element,timelevels(timelevel)),&
               &                       opt_patch_id=dom, opt_returnList=src_list)
-          IF ( ASSOCIATED(src_element) .AND. accumulate) THEN
+          IF ( ASSOCIATED(src_element) ) THEN
 #ifdef DEBUG_MVSTREAM
             IF (my_process_is_stdio()) write(0,*)'found prognostic:',&
                 & TRIM(get_varname_with_timelevel(varlist_element,timelevels(timelevel)))
@@ -509,11 +508,10 @@ CONTAINS
     CLASS(*), pointer :: myBuffer
     TYPE(t_list_element), POINTER :: src_element, dest_element
     CHARACTER(LEN=VARNAME_LEN) :: dest_element_name
-    LOGICAL :: foundPrognostic, is_io
+    LOGICAL :: foundPrognostic
     TYPE(t_var_list), POINTER :: src_list
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::process_mvstream"
 
-    is_io = my_process_is_io()
 #ifdef DEBUG_MVSTREAM
     IF (my_process_is_stdio()) CALL print_routine(routine,'start')
 #endif
@@ -540,7 +538,6 @@ CONTAINS
 #endif
 
     ! fill main dictionary of variables for different events
-    IF (.NOT. is_io) &
     CALL setup_statistics_events_and_lists(stat%Map, &
          & eventKey, &
          & statisticVariables, &
@@ -560,14 +557,14 @@ CONTAINS
       ! names consist of original spot-value names PLUS event information (start + interval of output)
       ! TODO: unify with eventKey definition if possible
       CALL get_statistics_varname(dest_element_name, in_varlist(i),p_onl)
-      dest_element => find_element(dest_element_name,opt_patch_id=p_onl%dom)
+      dest_element => find_element(trim(dest_element_name),opt_patch_id=p_onl%dom)
 #ifdef DEBUG_MVSTREAM
       IF (my_process_is_stdio()) CALL print_summary('destination variable NAME:'//TRIM(dest_element_name),stderr=.TRUE.)
 #endif
       IF (.NOT. ASSOCIATED(dest_element) ) THEN !not found -->> create a new on
         ! find existing source variable on all possible ICON grids with the identical name
         CALL find_src_element(src_element, in_varlist(i), dest_element_name, p_onl%dom, src_list, &
-             & stat%Prognostics, stat%prognostic_pointers, .NOT. is_io)
+             & stat%Prognostics, stat%prognostic_pointers)
         ! avoid mean processing for instantaneous fields
         IF (TSTEP_CONSTANT .EQ. src_element%field%info%isteptype) CYCLE
 
@@ -585,25 +582,23 @@ CONTAINS
         ! 2. update the nc-shortname to internal name of the source variable unless it is already set by the user
         IF("" == dest_element%field%info%cf%short_name) dest_element%field%info%cf%short_name = get_var_name(src_element%field)
 
-        IF (.NOT. is_io) THEN
-          ! Collect variable pointers for source and destination in the same list {{{
-          CALL statisticVariables%add(src_element)
-          CALL statisticVariables%add(dest_element)
-          ! collect the counter for each destination in a separate list
-          CALL stat%var_counter%add(dest_element%field%info%name,0)
+        ! Collect variable pointers for source and destination in the same list {{{
+        CALL statisticVariables%add(src_element)
+        CALL statisticVariables%add(dest_element)
+        ! collect the counter for each destination in a separate list
+        CALL stat%var_counter%add(dest_element%field%info%name,0)
 
-          ! replace existince varname in output_nml with the meanStream Variable
+        ! replace existince varname in output_nml with the meanStream Variable
 #ifdef DEBUG_MVSTREAM
         IF ( my_process_is_stdio()) CALL print_summary('dst(name)     :|'//TRIM(dest_element%field%info%name)//'|',&
-          & stderr=.TRUE.)
+             & stderr=.true.)
         IF ( my_process_is_stdio()) CALL print_summary('dst(shortname):|'//TRIM(dest_element%field%info%cf%short_name)//'|',&
-          & stderr=.TRUE.)
+             & stderr=.true.)
 #endif
-        END IF
       END IF
       in_varlist(i) = dest_element%field%info%name
     END DO
-    IF (.NOT. is_io) CALL stat%Map%add(eventKey,statisticVariables)
+    CALL stat%Map%add(eventKey,statisticVariables)
 #ifdef DEBUG_MVSTREAM
     IF (my_process_is_stdio()) CALL print_error(routine//": stat%Prognostics%to_string()")
     IF (my_process_is_stdio()) CALL print_error(stat%Prognostics%to_string())

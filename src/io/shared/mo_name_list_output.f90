@@ -159,7 +159,7 @@ MODULE mo_name_list_output
     &                                     varnames_dict, out_varnames_dict,                         &
     &                                     output_file, patch_info, lonlat_info,                     &
     &                                     collect_requested_ipz_levels, &
-    &                                     create_vertical_axes, nlevs_of_var, zonal_ri, profile_ri
+    &                                     create_vertical_axes, nlevs_of_var
   USE mo_name_list_output_metadata, ONLY: metainfo_write_to_memwin, metainfo_get_from_buffer,       &
     &                                     metainfo_get_size, metainfo_get_timelevel
   USE mo_level_selection,           ONLY: create_mipz_level_selections
@@ -173,7 +173,7 @@ MODULE mo_name_list_output
   USE mo_parallel_config,           ONLY: pio_type
   USE mo_impl_constants,            ONLY: pio_type_cdipio
   USE yaxt,                         ONLY: xt_idxlist, xt_stripe, xt_is_null, &
-    xt_idxlist_get_index_stripes, xt_idxstripes_new, xt_idxempty_new
+    xt_idxlist_get_index_stripes, xt_idxstripes_new
 #endif
   ! post-ops
 
@@ -370,10 +370,6 @@ CONTAINS
             lonlat_id = of%var_desc(iv)%info%hor_interp%lonlat_id
             p_ri  => lonlat_info(lonlat_id, of%log_patch_id)%ri
 #endif
-          CASE (GRID_LONLAT)
-            p_ri => profile_ri
-          CASE (GRID_ZONAL)
-            p_ri => zonal_ri
           CASE DEFAULT
             CALL finish(routine,'unknown grid type')
           END SELECT
@@ -872,6 +868,7 @@ CONTAINS
 #endif
     TYPE (t_var_metadata), POINTER              :: info
     TYPE (t_reorder_info), POINTER              :: p_ri
+    INTEGER                                     :: ri_n_glb
 
     REAL(wp), ALLOCATABLE, TARGET :: r_ptr_m(:,:,:)
     REAL(sp), ALLOCATABLE, TARGET :: s_ptr_m(:,:,:)
@@ -1077,23 +1074,25 @@ CONTAINS
       SELECT CASE (info%hgrid)
       CASE (GRID_UNSTRUCTURED_CELL)
         p_ri     => patch_info(i_dom)%ri(icell)
+        ri_n_glb =  p_ri%n_glb
         p_pat    => patch_info(i_dom)%p_pat_c
       CASE (GRID_LONLAT)
-        p_ri => profile_ri
-        NULLIFY(p_pat)
+        ri_n_glb =  1
       CASE (GRID_ZONAL)
-        p_ri => zonal_ri
-        NULLIFY(p_pat)
+        ri_n_glb =  nlat_moc
       CASE (GRID_UNSTRUCTURED_EDGE)
         p_ri     => patch_info(i_dom)%ri(iedge)
+        ri_n_glb =  p_ri%n_glb
         p_pat    => patch_info(i_dom)%p_pat_e
       CASE (GRID_UNSTRUCTURED_VERT)
         p_ri     => patch_info(i_dom)%ri(ivert)
+        ri_n_glb =  p_ri%n_glb
         p_pat    => patch_info(i_dom)%p_pat_v
 #ifndef __NO_ICON_ATMO__
       CASE (GRID_REGULAR_LONLAT)
         lonlat_id = info%hor_interp%lonlat_id
         p_ri     => lonlat_info(lonlat_id, i_log_dom)%ri
+        ri_n_glb =  lonlat_info(lonlat_id, i_log_dom)%ri%n_glb
         p_pat    => lonlat_grids%list(lonlat_id)%p_pat(i_log_dom)
 #endif
       CASE default
@@ -1108,7 +1107,7 @@ CONTAINS
 #endif
         IF (.NOT.use_async_name_list_io .OR. is_test) THEN
           CALL gather_on_workroot_and_write(of, idata_type, r_ptr, s_ptr, &
-            i_ptr, p_ri%n_glb, iv, last_bdry_index, &
+            i_ptr, ri_n_glb, iv, last_bdry_index, &
             nlevs, var_ignore_level_selection, p_pat, info)
 #ifndef NOMPI
         ELSE
@@ -1225,12 +1224,7 @@ CONTAINS
       IF (info%lcontained .AND. (info%var_ref_pos /= -1))  &
            & CALL finish(routine, "Internal error (ndims=1, lcontained)")
       IF (ASSOCIATED(r_ptr_5d)) THEN
-        IF (info%hgrid == grid_lonlat) THEN
-          CALL insert_dimension(r_ptr_t, r_ptr_5d, 1)
-          r_ptr => r_ptr_t(:,:,1:1,1,1,1)
-        ELSE
-          r_ptr => r_ptr_5d(:,1:1,1:1,1,1)
-        END IF
+        r_ptr => r_ptr_5d(:,1:1,1:1,1,1)
       ELSE IF (ASSOCIATED(s_ptr_5d)) THEN
         s_ptr => s_ptr_5d(:,1:1,1:1,1,1)
       ELSE IF (ASSOCIATED(i_ptr_5d)) THEN
@@ -1255,12 +1249,8 @@ CONTAINS
         CASE (2)
           r_ptr => r_ptr_5d(:,nindex:nindex,:,1,1)
         CASE (3)
-          IF (info%hgrid == grid_zonal) THEN
-            CALL insert_dimension(r_ptr, r_ptr_5d(:,:,nindex,1,1), 1)
-          ELSE
-            CALL insert_dimension(r_ptr_t, r_ptr_5d, 2)
-            r_ptr => r_ptr_t(:,1:1,:,nindex,1,1)
-          END IF
+          CALL insert_dimension(r_ptr_t, r_ptr_5d, 2)
+          r_ptr => r_ptr_t(:,1:1,:,nindex,1,1)
         END SELECT
       ELSE IF (ASSOCIATED(s_ptr_5d)) THEN
         SELECT CASE(var_ref_pos)
@@ -1271,11 +1261,7 @@ CONTAINS
           s_ptr => s_ptr_5d(:,nindex:nindex,:,1,1)
         CASE (3)
           CALL insert_dimension(s_ptr_t, s_ptr_5d, 2)
-          IF (info%hgrid == GRID_ZONAL) THEN
-            CALL insert_dimension(s_ptr, s_ptr_t(:,1,:,nindex,1,1), 2)
-          ELSE
-            s_ptr => s_ptr_t(:,1:1,:,nindex,1,1)
-          END IF
+          s_ptr => s_ptr_t(:,1:1,:,nindex,1,1)
         END SELECT
       ELSE IF (ASSOCIATED(i_ptr_5d)) THEN
         SELECT CASE(var_ref_pos)
@@ -1286,11 +1272,7 @@ CONTAINS
           i_ptr => i_ptr_5d(:,nindex:nindex,:,1,1)
         CASE (3)
           CALL insert_dimension(i_ptr_t, i_ptr_5d, 2)
-          IF (info%hgrid == GRID_ZONAL) THEN
-            CALL insert_dimension(i_ptr, i_ptr_t(:,1,:,nindex,1,1), 2)
-          ELSE
-            i_ptr => i_ptr_t(:,1:1,:,nindex,1,1)
-          END IF
+          i_ptr => i_ptr_t(:,1:1,:,nindex,1,1)
         END SELECT
       ENDIF
     CASE (3)
@@ -1344,8 +1326,6 @@ CONTAINS
            ": internal error! unhandled info%ndims=", info%ndims
       GO TO 999
     END SELECT
-
-    
 
     IF      (ASSOCIATED(r_ptr_5d)) THEN
 !$ACC UPDATE HOST(r_ptr) IF ( i_am_accel_node .AND. acc_is_present(r_ptr) )
@@ -1453,11 +1433,11 @@ CONTAINS
         lev_idx = lev
         IF (is_mpi_workroot) THEN
           IF      (idata_type == iREAL ) THEN
-            r_out_dp(:)  = r_ptr(1,lev_idx,:)
+            r_out_dp(:)  = r_ptr(lev_idx,1,:)
           ELSE IF (idata_type == iREAL_sp ) THEN
-            r_out_sp(:)  = s_ptr(1,lev_idx,:)
+            r_out_sp(:)  = s_ptr(lev_idx,1,:)
           ELSE IF (idata_type == iINTEGER) THEN
-            r_out_int(:) = i_ptr(1,lev_idx,:)
+            r_out_int(:) = i_ptr(lev_idx,1,:)
           END IF
         END IF
       ELSE
@@ -2471,23 +2451,19 @@ CONTAINS
     END IF
     IF (xt_is_null(reorder_idxlst_xt(nlevs))) THEN
       CALL xt_idxlist_get_index_stripes(reorder_idxlst_xt(1), stripes)
-      IF (ALLOCATED(stripes)) THEN
-        nstripes = SIZE(stripes)
-        ALLOCATE(stripes_project(nstripes, nlevs))
+      nstripes = SIZE(stripes)
+      ALLOCATE(stripes_project(nstripes, nlevs))
+      DO j = 1, nstripes
+        stripes_project(j, 1) = stripes(j)
+      END DO
+      DO k = 2, nlevs
         DO j = 1, nstripes
-          stripes_project(j, 1) = stripes(j)
+          stripes_project(j, k) &
+            &     = xt_stripe(stripes(j)%start + (k-1) * n_glb, &
+            &                 stripes(j)%stride, stripes(j)%nstrides)
         END DO
-        DO k = 2, nlevs
-          DO j = 1, nstripes
-            stripes_project(j, k) &
-              &     = xt_stripe(stripes(j)%start + (k-1) * n_glb, &
-              &                 stripes(j)%stride, stripes(j)%nstrides)
-          END DO
-        END DO
-        reorder_idxlst_xt(nlevs) = xt_idxstripes_new(stripes_project)
-      ELSE
-        reorder_idxlst_xt(nlevs) = xt_idxempty_new()
-      END IF
+      END DO
+      reorder_idxlst_xt(nlevs) = xt_idxstripes_new(stripes_project)
     END IF
     partdesc = reorder_idxlst_xt(nlevs)
   END FUNCTION get_partdesc
@@ -2783,7 +2759,7 @@ CONTAINS
     TYPE (t_var_metadata), POINTER :: info
     TYPE (t_var_metadata)          :: updated_info
     TYPE(t_reorder_info) , POINTER :: p_ri
-    LOGICAL                        :: have_GRIB, is_reduction_var
+    LOGICAL                        :: have_GRIB
     INTEGER, ALLOCATABLE           :: bufr_metainfo(:,:)
     INTEGER                        :: nmiss    ! missing value indicator
     INTEGER                        :: ichunk, nchunks, chunk_start, chunk_end, &
@@ -2841,11 +2817,7 @@ CONTAINS
     nlev_max = 1
     DO iv = 1, of%num_vars
       info => of%var_desc(iv)%info
-      IF (info%ndims == 3) THEN
-        nlev_max = MAX(nlev_max, info%used_dimensions(2))
-      ELSE IF (info%hgrid == grid_zonal .OR. info%hgrid == grid_lonlat) THEN
-        nlev_max = MAX(nlev_max, info%used_dimensions(1))
-      END IF
+      IF(info%ndims == 3) nlev_max = MAX(nlev_max, info%used_dimensions(2))
     ENDDO
 
     ! if no valid io_proc_chunk_size has been set by the parallel name list
@@ -2923,8 +2895,7 @@ CONTAINS
       ! first step in this file:
       IF ((info%isteptype == TSTEP_CONSTANT) .AND. .NOT. is_first_write) CYCLE
 
-      is_reduction_var = info%hgrid == grid_zonal .OR. info%hgrid == grid_lonlat
-      IF (info%ndims == 2 .AND. .NOT. is_reduction_var) THEN
+      IF(info%ndims == 2) THEN
         nlevs = 1
       ELSE
         ! handle the case that a few levels have been selected out of
@@ -2945,7 +2916,7 @@ CONTAINS
             END IF
           END DO CHECK_LOOP
         ELSE
-          nlevs = info%used_dimensions(MERGE(1, 2, is_reduction_var))
+          nlevs = info%used_dimensions(2)
         END IF
       ENDIF
 
@@ -2961,12 +2932,10 @@ CONTAINS
 #ifndef __NO_ICON_ATMO__
         CASE (GRID_REGULAR_LONLAT)
           lonlat_id = info%hor_interp%lonlat_id
+          i_log_dom = of%log_patch_id
           p_ri  => lonlat_info(lonlat_id, i_log_dom)%ri
 #endif
-        CASE (grid_lonlat)
-          p_ri => profile_ri
-        CASE (grid_zonal)
-          p_ri => zonal_ri
+
         CASE DEFAULT
           CALL finish(routine,'unknown grid type')
       END SELECT
