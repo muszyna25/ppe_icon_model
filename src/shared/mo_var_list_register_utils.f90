@@ -18,7 +18,7 @@ MODULE mo_var_list_register_utils
   USE mo_impl_constants,   ONLY: vlname_len, vname_len, SUCCESS
   USE mo_cdi_constants,    ONLY: GRID_UNSTRUCTURED_CELL, GRID_REGULAR_LONLAT
   USE mo_util_sort,        ONLY: quicksort
-  USE mo_var_list_register, ONLY: vlr_get, vlr_add, t_vl_register_iter, get_nvl
+  USE mo_var_list_register, ONLY: vlr_add, t_vl_register_iter, get_nvl
   USE mo_packed_message,   ONLY: t_PackedMessage, kPackOp, kUnpackOp
   USE mo_mpi,              ONLY: p_get_bcast_role
 
