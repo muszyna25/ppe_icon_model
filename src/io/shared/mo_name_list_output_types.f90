@@ -277,25 +277,25 @@ MODULE mo_name_list_output_types
   ! Unfortunately, Fortran does not allow arrays of pointers, so we
   ! have to define extra types
   TYPE t_rptr_5d
-    REAL(wp), POINTER :: p(:,:,:,:,:)
+    REAL(wp), POINTER :: p(:,:,:,:,:) => NULL()
   END TYPE t_rptr_5d
 
   TYPE t_sptr_5d
-    REAL(sp), POINTER :: p(:,:,:,:,:)
+    REAL(sp), POINTER :: p(:,:,:,:,:) => NULL()
   END TYPE t_sptr_5d
 
   TYPE t_iptr_5d
-    INTEGER,  POINTER :: p(:,:,:,:,:)
+    INTEGER,  POINTER :: p(:,:,:,:,:) => NULL()
   END TYPE t_iptr_5d
 
 
   TYPE t_var_desc
     !> Pointer to time level independent REAL data (or NULL)
-    REAL(wp), POINTER                     :: r_ptr(:,:,:,:,:)
+    REAL(wp), POINTER                     :: r_ptr(:,:,:,:,:) => NULL()
     !> Pointer to time level independent REAL(sp) data (or NULL)
-    REAL(sp), POINTER                     :: s_ptr(:,:,:,:,:)
+    REAL(sp), POINTER                     :: s_ptr(:,:,:,:,:) => NULL()
     !> Pointer to time level independent INTEGER data (or NULL)
-    INTEGER,  POINTER                     :: i_ptr(:,:,:,:,:)
+    INTEGER,  POINTER                     :: i_ptr(:,:,:,:,:) => NULL()
     !> Pointers to time level dependent REAL data
     TYPE(t_rptr_5d)                       :: tlev_rptr(MAX_TIME_LEVELS)
     !> Pointers to time level dependent REAL(sp) data
@@ -303,7 +303,7 @@ MODULE mo_name_list_output_types
     !> Pointers to time level dependent INTEGER data
     TYPE(t_iptr_5d)                       :: tlev_iptr(MAX_TIME_LEVELS)
     !> Pointer to the info structure of the variable
-    TYPE(t_var_metadata), POINTER         :: info_ptr
+    TYPE(t_var_metadata), POINTER         :: info_ptr => NULL()
 
     !> Info structure for variable: this is a modified copy of the
     !! variable's "info" data object!
@@ -404,8 +404,8 @@ MODULE mo_name_list_output_types
 
     ! The following members are set during open
     INTEGER                               :: cdiFileId
-    INTEGER                               :: cdiVlistId                       !< cdi vlist handler
-    INTEGER                               :: cdiVlistId_orig                  !< cdi vlist handler, storing the model internal vlist id during append
+    INTEGER                               :: cdiVlistId           !< cdi vlist handler
+    INTEGER                               :: cdiVlistId_orig      !< cdi vlist handler, model internal vlist id during append
     INTEGER                               :: cdiCellGridID
     INTEGER                               :: cdiSingleGridID
     INTEGER                               :: cdiZonal1DegID
@@ -415,8 +415,8 @@ MODULE mo_name_list_output_types
     INTEGER                               :: cdiTaxisID
     INTEGER                               :: cdiTaxisID_orig
     INTEGER                               :: cdiTimeIndex
-    INTEGER                               :: cdi_grb2(3,2)                    !< geographical position: (GRID, latitude/longitude)
-    LOGICAL                               :: appending = .FALSE.              !< the current file is appended (.true.), otherwise .false.
+    INTEGER                               :: cdi_grb2(3,2)        !< geographical position: (GRID, latitude/longitude)
+    LOGICAL                               :: appending = .FALSE.  !< the current file is appended (.true.), otherwise .false.
 
   END TYPE t_output_file
 

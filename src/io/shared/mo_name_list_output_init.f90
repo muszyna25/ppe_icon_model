@@ -35,13 +35,12 @@ MODULE mo_name_list_output_init
                                                 & GRID_REGULAR_LONLAT, GRID_VERTEX, GRID_EDGE, GRID_CELL, GRID_ZONAL
   USE mo_dynamics_config, ONLY: nnow, nnew, nold
   USE mo_kind,                              ONLY: wp, i8, dp, sp
-  USE mo_impl_constants,                    ONLY: max_phys_dom, max_dom, SUCCESS, vname_len,      &
-    &                                             max_var_ml, max_var_pl, max_var_hl, max_var_il,   &
-    &                                             MAX_TIME_LEVELS, pio_type_cdipio, INWP,           &
-    &                                             MAX_CHAR_LENGTH, MAX_NUM_IO_PROCS, nlat_moc,      &
-    &                                             MAX_TIME_INTERVALS, MAX_NPLEVS,                   &
-    &                                             MAX_NZLEVS, MAX_NILEVS, BOUNDARY_MISSVAL,         &
-    &                                             dtime_proleptic_gregorian => proleptic_gregorian, &
+  USE mo_impl_constants,                    ONLY: max_phys_dom, max_dom, SUCCESS, vname_len,         &
+    &                                             max_var_ml, max_var_pl, max_var_hl, max_var_il,    &
+    &                                             MAX_CHAR_LENGTH, MAX_NUM_IO_PROCS, nlat_moc, INWP, &
+    &                                             MAX_TIME_INTERVALS, MAX_NPLEVS, pio_type_cdipio,   &
+    &                                             MAX_NZLEVS, MAX_NILEVS, BOUNDARY_MISSVAL,          &
+    &                                             dtime_proleptic_gregorian => proleptic_gregorian,  &
     &                                             dtime_cly360              => cly360
   USE mo_cdi_constants,                     ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT,            &
     &                                             GRID_UNSTRUCTURED_EDGE, GRID_REGULAR_LONLAT, GRID_VERTEX,  &
@@ -65,7 +64,7 @@ MODULE mo_name_list_output_init
   USE mo_cf_convention,                     ONLY: t_cf_var, cf_global_info
   USE mo_restart_nml_and_att,               ONLY: getAttributesForRestarting
   USE mo_key_value_store,                   ONLY: t_key_value_store
-  USE mo_model_domain,                      ONLY: p_patch, p_phys_patch, t_patch
+  USE mo_model_domain,                      ONLY: p_patch, p_phys_patch
   USE mo_math_utilities,                    ONLY: merge_values_into_set, t_value_set
   USE mo_math_constants,                    ONLY: rad2deg
   ! config modules
@@ -93,18 +92,16 @@ MODULE mo_name_list_output_init
   ! MPI Communication routines
   USE mo_mpi,                               ONLY: p_bcast, p_comm_work, p_comm_work_2_io,         &
     &                                             p_comm_io, p_comm_work_io,                      &
-    &                                             mpi_comm_null, mpi_comm_self,                   &
+    &                                             MPI_COMM_NULL, MPI_COMM_SELF,                   &
     &                                             p_send, p_recv,                                 &
     &                                             p_real_dp, p_real_sp,          &
     &                                             my_process_is_stdio, my_process_is_mpi_test,    &
     &                                             my_process_is_mpi_workroot,                     &
-    &                                             my_process_is_io,        &
+    &                                             my_process_is_io, my_process_is_work,           &
     &                                             my_process_is_mpi_ioroot,                       &
-    &                                             process_work_io0,         &
+    &                                             process_work_io0, p_allgather,        &
     &                                             process_mpi_io_size, p_n_work,  &
-    &                                             p_pe_work, p_io_pe0, p_work_pe0, p_pe, &
-    &                                             my_process_is_work, num_test_procs, &
-    &                                             p_allgather, MPI_COMM_NULL
+    &                                             p_pe_work, p_io_pe0, p_work_pe0, p_pe
   USE mo_communication,                     ONLY: idx_no, blk_no
   ! namelist handling
   USE mo_namelist,                          ONLY: position_nml, positioned, open_nml, close_nml
@@ -1854,42 +1851,43 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   SUBROUTINE add_varlist_to_output_file(of, varlist)
-    TYPE (t_output_file), INTENT(INOUT) :: of
-    CHARACTER(*),     INTENT(IN)    :: varlist(:)
-    ! local variables:
+    TYPE(t_output_file), INTENT(INOUT), TARGET :: of
+    CHARACTER(*), INTENT(IN) :: varlist(:)
     CHARACTER(*), PARAMETER :: routine = modname//"::add_varlist_to_output_file"
-    INTEGER :: iv, nv, tl, ivl, key_notl
+    INTEGER :: iv, nv, cv, tl, ivl, key_notl, svl
     CHARACTER(:), ALLOCATABLE :: vname
     LOGICAL :: found
     TYPE(t_var), POINTER :: elem
-    TYPE(t_var_desc) :: var_desc   !< variable descriptor
+    TYPE(t_var_desc), POINTER :: var_desc   !< variable descriptor
     TYPE(t_cf_var), POINTER :: this_cf
     TYPE(t_vl_register_iter) :: vl_iter
 
     ! Get the number of variables in varlist
     nv = 0
-    DO iv = 1, SIZE(varlist)
-      IF (varlist(iv) == ' ') EXIT ! Last one reached
-      IF (.NOT.is_grid_info_var(varlist(iv)))  nv = nv + 1
+    cv = 0
+    svl = SIZE(varlist)
+    DO WHILE (nv .LT. svl .AND. varlist(nv+1) /= ' ')
+      nv = nv + 1
+      IF (.NOT.is_grid_info_var(varlist(nv))) &
+        & cv = cv + 1
     ENDDO
     ! Allocate a list of variable descriptors:
-    of%max_vars = nv
-    of%num_vars = 0
-    ALLOCATE(of%var_desc(of%max_vars))
-    DO iv = 1, nv
-      CALL nullify_var_desc_ptr(of%var_desc(iv))
-    END DO ! ivar
+    of%max_vars = cv
+    of%num_vars = cv ! we know this already...
+    ALLOCATE(of%var_desc(cv))
     ! Allocate array of variable descriptions
+    cv = 0
     DO iv = 1, nv
       IF (is_grid_info_var(varlist(iv))) CYCLE
+      cv = cv + 1
       IF (of%name_list%remap .EQ. REMAP_REGULAR_LATLON) THEN
         vname = LONLAT_PREFIX//tolower(varlist(iv))
       ELSE
         vname = tolower(varlist(iv))
       END IF
       key_notl = text_hash_c(vname)
+      var_desc => of%var_desc(cv)
       found = .FALSE.
-      CALL nullify_var_desc_ptr(var_desc)
       ! Loop over all var_lists listed in vl_list to find the variable
       ! Please note that there may be several variables with different time levels,
       ! we just add unconditionally all with the name varlist(ivar).
@@ -1972,83 +1970,34 @@ CONTAINS
         ENDDO
       ENDDO ! i = 1, SIZE(vl_list)
       ! Check that at least one element with this name has been found
-      IF (.NOT. found) THEN
-        IF (my_process_is_stdio()) THEN
-          DO WHILE(vl_iter%next())
-            WRITE(message_text,'(3a, i2)') &
-                 'Variable list name: ',TRIM(vl_iter%cur%p%vlname), &
-                 ' Patch: ',vl_iter%cur%p%patch_id
-            CALL message('',message_text)
-            DO ivl = 1, vl_iter%cur%p%nvars
-              elem => vl_iter%cur%p%vl(ivl)%p
-              IF (elem%info%post_op%lnew_cf) THEN
-                this_cf => elem%info%post_op%new_cf
-              ELSE
-                this_cf => elem%info%cf
-              END IF
+      IF (found) CYCLE
+      ! error reporting ...
+      IF (my_process_is_stdio()) THEN
+        DO WHILE(vl_iter%next())
+          WRITE(message_text,'(3a, i2)') &
+               'Variable list name: ',TRIM(vl_iter%cur%p%vlname), &
+               ' Patch: ',vl_iter%cur%p%patch_id
+          CALL message('',message_text)
+          DO ivl = 1, vl_iter%cur%p%nvars
+            elem => vl_iter%cur%p%vl(ivl)%p
+            IF (elem%info%post_op%lnew_cf) THEN
+              this_cf => elem%info%post_op%new_cf
+            ELSE
+              this_cf => elem%info%cf
+            END IF
 
-              WRITE (message_text,'(a,a,l1,a,a)') &
-                   &     '    ',elem%info%name,              &
-                   &            elem%info%loutput, '  ',     &
-                   &            this_cf%long_name
-              CALL message('',message_text)
-            ENDDO
+            WRITE (message_text,'(a,a,l1,a,a)') &
+                 &     '    ',elem%info%name,              &
+                 &            elem%info%loutput, '  ',     &
+                 &            this_cf%long_name
+            CALL message('',message_text)
           ENDDO
-        ENDIF
-        CALL finish(routine,'Output name list variable not found: '//TRIM(varlist(iv))//&
-          &", patch "//int2string(of%log_patch_id,'(i0)'))
+        ENDDO
       ENDIF
-      ! append variable descriptor to list
-      CALL add_var_desc(of, var_desc)
+      CALL finish(routine,'Output name list variable not found: '//TRIM(varlist(iv))//&
+        &", patch "//int2string(of%log_patch_id,'(i0)'))
     ENDDO ! ivar = 1,nvars
   END SUBROUTINE add_varlist_to_output_file
-
-  SUBROUTINE nullify_var_desc_ptr(var_desc)
-    TYPE(t_var_desc), INTENT(inout) :: var_desc
-    INTEGER :: i
-    NULLIFY(var_desc%r_ptr, var_desc%s_ptr, var_desc%i_ptr)
-    DO i = 1, max_time_levels
-      NULLIFY(var_desc%tlev_rptr(i)%p, var_desc%tlev_sptr(i)%p, &
-           &     var_desc%tlev_iptr(i)%p)
-    ENDDO
-  END SUBROUTINE nullify_var_desc_ptr
-
-
-  !------------------------------------------------------------------------------------------------
-  !> Append variable descriptor to the end of a (dynamically growing) list
-  !!
-  !! @author  F. Prill, DWD
-  SUBROUTINE add_var_desc(p_of, var_desc)
-    TYPE(t_output_file), INTENT(INOUT)        :: p_of       !< output file
-    TYPE(t_var_desc),    INTENT(IN)           :: var_desc   !< variable descriptor
-    ! local variables
-    ! Constant defining how many variable entries are added when resizing array:
-    INTEGER, PARAMETER :: nvars_grow = 10
-    CHARACTER(*), PARAMETER :: routine = "mo_name_list_output_init:add_var_desc"
-    INTEGER :: errstat, new_max, ivar, new_nvars
-    TYPE(t_var_desc), ALLOCATABLE :: tmp(:)
-
-    ! increase number of variables currently in use:
-    new_nvars = p_of%num_vars + 1
-    IF (new_nvars > p_of%max_vars) THEN
-      ! array full, enlarge and make a triangle copy:
-      new_max = p_of%max_vars + nvars_grow
-      ALLOCATE(tmp(new_max), STAT=errstat)
-      IF (errstat /= 0)  CALL finish (routine, 'Error in ALLOCATE operation!')
-      IF (new_nvars > 1) &
-        &     tmp(1:new_nvars-1) = p_of%var_desc(1:new_nvars-1)
-      CALL MOVE_ALLOC(tmp, p_of%var_desc)
-      ! Nullify pointers in p_of%var_desc
-      DO ivar = new_nvars, new_max
-        CALL nullify_var_desc_ptr(p_of%var_desc(ivar))
-      END DO
-      p_of%max_vars = new_max
-    END IF
-    ! add new element to array
-    p_of%var_desc(new_nvars) = var_desc
-    p_of%num_vars = new_nvars
-  END SUBROUTINE add_var_desc
-
 
   !------------------------------------------------------------------------------------------------
   !
