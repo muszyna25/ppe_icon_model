@@ -1664,6 +1664,7 @@ CONTAINS
     kend   = ik_slice(4)
 
     DO k = kstart,kend
+!NEC$ ivdep
       DO i = istart,iend
 
         T_a  = atmo%T(i,k)
@@ -4652,8 +4653,8 @@ CONTAINS
 
     ! call from init_2mom_scheme_once without arguments for initialization of tables
     IF (.NOT.PRESENT(ik_slice)) THEN
-      CALL get_otab()     ! original look-up-table from Segal and Khain      
-      CALL equi_table()   ! construct the new equidistant table tab:
+      CALL get_otab(n_r2,n_lsigs,n_ncn,n_wcb)     ! original look-up-table from Segal and Khain      
+      CALL equi_table(nr2,nlsigs,nncn,nwcb)   ! construct the new equidistant table tab:
       RETURN
     END IF
 
@@ -4778,11 +4779,12 @@ CONTAINS
       END DO
     END DO
 
-  CONTAINS
+  END SUBROUTINE ccn_activation_sk_4d
 
-    SUBROUTINE get_otab()
-      IMPLICIT NONE
-      
+  SUBROUTINE get_otab(n_r2,n_lsigs,n_ncn,n_wcb)
+
+      INTEGER, INTENT(IN) :: n_r2,n_lsigs,n_ncn,n_wcb
+
       otab%n1 = n_r2
       otab%n2 = n_lsigs
       otab%n3 = n_ncn + 1
@@ -4891,11 +4893,11 @@ CONTAINS
 
       !!! otab%dx1 ... otab%odx4 remain empty because this is a non-equidistant table.
 
-      RETURN
     END SUBROUTINE get_otab
     
-    SUBROUTINE equi_table()
-      IMPLICIT NONE
+    SUBROUTINE equi_table(nr2,nlsigs,nncn,nwcb)
+      
+      INTEGER, INTENT(IN) :: nr2,nlsigs,nncn,nwcb
 
       INTEGER :: i, j, k, l, ii, iu, ju,ku, lu
       INTEGER, ALLOCATABLE, DIMENSION(:) :: iuv, juv, kuv, luv
@@ -4989,20 +4991,23 @@ CONTAINS
         END DO
       END DO
 
-      ! Tetra-linear interpolation:
-      DO i=1, tab%n1
-        iu = iuv(i)
-        odx1 = 1.0d0 / ( otab%x1(iu+1) - otab%x1(iu) )
-        DO j=1, tab%n2
-          ju = juv(j)
-          odx2 = 1.0d0 / ( otab%x2(ju+1) - otab%x2(ju) )
-          DO l=1, tab%n4
-            lu = luv(l)
-            odx4 = 1.0d0 / ( otab%x4(lu+1) - otab%x4(lu) )
+      ! Tettora-linear interpolation:
+
+      DO l=1, tab%n4
+        lu = luv(l)
+        odx4 = 1.0d0 / ( otab%x4(lu+1) - otab%x4(lu) )
 !NEC$ ivdep
-            DO k=1, tab%n3
-              ku = kuv(k)
-              odx3 = 1.0d0 / ( otab%x3(ku+1) - otab%x3(ku) )
+        DO k=1, tab%n3
+          ku = kuv(k)
+          odx3 = 1.0d0 / ( otab%x3(ku+1) - otab%x3(ku) )
+!NEC$ unroll_completely
+          DO j=1, nlsigs ! It should be equal to tab%n2, but the variable is needed by the Vector compiler
+            ju = juv(j)
+            odx2 = 1.0d0 / ( otab%x2(ju+1) - otab%x2(ju) )
+!NEC$ unroll_completely
+            DO i=1, nr2 !  It should be equal to tab%n1, but the variable is needed by the Vector compiler
+              iu = iuv(i)
+              odx1 = 1.0d0 / ( otab%x1(iu+1) - otab%x1(iu) )
               hilf1 = otab%ltable( iu:iu+1, ju:ju+1, ku:ku+1, lu:lu+1)
               hilf2 = hilf1(1,1:2,1:2,1:2) + (hilf1(2,1:2,1:2,1:2) - hilf1(1,1:2,1:2,1:2)) * odx1 * ( tab%x1(i) - otab%x1(iu) )
               hilf3 = hilf2(1,1:2,1:2)     + (hilf2(2,1:2,1:2)     - hilf2(1,1:2,1:2)  )   * odx2 * ( tab%x2(j) - otab%x2(ju) )
@@ -5019,7 +5024,7 @@ CONTAINS
       RETURN
     END SUBROUTINE equi_table
     
-  END SUBROUTINE ccn_activation_sk_4d
+! END SUBROUTINE ccn_activation_sk_4d
 
   !*******************************************************************************
   ! Sedimentation subroutines for ICON

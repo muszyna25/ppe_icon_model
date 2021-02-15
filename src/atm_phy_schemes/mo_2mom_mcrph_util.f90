@@ -1424,8 +1424,9 @@ CONTAINS
       ! Linear interpolation w.r.t. T of the equidistant Dmin-lookuptable from
       ! the original table in the datafile, which may be non-equidistant
       ! w.r.t. T:
-      DO j=1, ltab%n2
 
+      !NEC$ unroll_completely
+      DO j=1, ndT
         ju = 1
         DO ii=1, anzT_wg_loc-1
           IF (ltab%x2(j) >= Tvec_wg_g_loc(ii) .AND. ltab%x2(j) <= Tvec_wg_g_loc(ii+1)) THEN
