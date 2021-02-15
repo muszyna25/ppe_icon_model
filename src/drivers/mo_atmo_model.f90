@@ -17,15 +17,18 @@ MODULE mo_atmo_model
 
   ! basic modules
   USE mo_exception,               ONLY: message, finish
-  USE mo_mpi,                     ONLY: my_process_is_work, set_mpi_work_communicators,       &
-    &                                   my_process_is_pref, process_mpi_pref_size,            &
-    &                                   my_process_is_radario, process_mpi_radario_size,      &
-    &                                   my_process_is_mpi_test
+  USE mo_mpi,                     ONLY: set_mpi_work_communicators,       &
+    &                                   my_process_is_pref, process_mpi_pref_size
+#ifdef _OPENACC
+  USE mo_mpi,                     ONLY: my_process_is_work
+  USE mo_parallel_config,         ONLY: update_nproma_on_device
+#endif
   USE mo_timer,                   ONLY: init_timer, timer_start, timer_stop,                  &
     &                                   timers_level, timer_model_init,                       &
     &                                   timer_domain_decomp, timer_compute_coeffs,            &
     &                                   timer_ext_data, print_timer
 #ifdef HAVE_RADARFWO
+  USE mo_mpi, ONLY: my_process_is_mpi_test, my_process_is_radario, process_mpi_radario_size
   USE mo_emvorado_init,           ONLY: prep_emvorado_domains
   USE mo_emvorado_interface,      ONLY: radar_mpi_barrier
 #ifndef NOMPI
@@ -33,9 +36,8 @@ MODULE mo_atmo_model
        &                                detach_emvorado_io
 #endif
 #endif
-  USE mo_parallel_config,         ONLY: p_test_run, num_test_pe, l_test_openmp,                  &
-    &                                   update_nproma_on_device, num_io_procs, proc0_shift, &
-    &                                   num_prefetch_proc, pio_type, num_io_procs_radar
+  USE mo_parallel_config,         ONLY: p_test_run, num_test_pe, l_test_openmp, num_io_procs, &
+    &                                   proc0_shift, num_prefetch_proc, pio_type, num_io_procs_radar
   USE mo_master_config,           ONLY: isRestart
   USE mo_memory_log,              ONLY: memory_log_terminate
 #ifndef NOMPI
@@ -249,7 +251,7 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
     ! local variables
     CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:construct_atmo_model"
-    INTEGER                 :: jg, jgp, jstep0, error_status, dedicatedRestartProcs
+    INTEGER                 :: jg, jgp, error_status, dedicatedRestartProcs
 
     ! initialize global registry of lon-lat grids
     CALL lonlat_grids%init()
