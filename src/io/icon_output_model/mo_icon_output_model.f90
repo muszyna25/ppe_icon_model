@@ -23,14 +23,8 @@ MODULE mo_icon_output_model
        &                            pio_type, num_test_pe, num_prefetch_proc
   USE mo_mpi,                 ONLY: set_mpi_work_communicators
 #ifdef HAVE_CDI_PIO
-  USE mo_mpi,                 ONLY: mpi_comm_null, p_comm_work_io
   USE mo_impl_constants,      ONLY: pio_type_cdipio
-  USE mo_cdi_pio_interface,   ONLY: nml_io_cdi_pio_namespace, &
-    &                                   cdi_base_namespace, &
-    &                                   nml_io_cdi_pio_client_comm, &
-    &                                   nml_io_cdi_pio_conf_handle
-  USE mo_name_list_output_init, ONLY: init_cdipio_cb
-  USE mo_name_list_output,    ONLY: write_ready_files_cdipio
+  USE mo_cdi_pio_interface,   ONLY: nml_io_cdi_pio_namespace
   USE mo_cdi,                 ONLY: namespaceGetActive, namespaceSetActive
 #endif
   USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, print_timer, &
