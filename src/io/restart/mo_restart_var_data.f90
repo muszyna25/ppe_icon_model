@@ -24,8 +24,7 @@ MODULE mo_restart_var_data
 #endif
   USE mo_kind,               ONLY: dp, sp
   USE mo_util_string,        ONLY: int2string
-  USE mo_var_list,           ONLY: t_var_list_ptr
-  USE mo_var,                ONLY: t_var, t_var_ptr
+  USE mo_var,                ONLY: t_var
   USE mo_var_metadata_types, ONLY: t_var_metadata
   USE mo_var_metadata,       ONLY: get_var_timelevel
 #ifndef __NO_ICON_ATMO__
