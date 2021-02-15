@@ -1624,7 +1624,7 @@ CONTAINS
       my_arch = 0
 #endif
 
-      IF (p_comm_work_io /= MPI_COMM_NULL) THEN
+      IF (p_comm_work_io /= MPI_COMM_NULL .AND. PRESENT(num_dio_procs)) THEN
         ! gather all architectures on PE0
         ALLOCATE(glb_arch(num_work_procs + num_io_procs))
         CALL p_gather(my_arch, glb_arch, 0, p_comm_work_io)
