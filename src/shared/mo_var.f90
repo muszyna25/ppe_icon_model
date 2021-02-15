@@ -178,11 +178,11 @@ CONTAINS
       CALL message('', category(20))
       message_text = ' + '
       mlen = 3
-      DO i = 1, SIZE(info%in_group)
+      DO i = 1, var_groups_dyn%get_n_grps()
         IF (.NOT.info%in_group(i)) CYCLE
-        gnlen = LEN_TRIM(var_groups_dyn%name(i))
+        gnlen = var_groups_dyn%gname_len(i)
         IF (mlen + 2 + gnlen .GT. LEN(message_text)) CALL finish(routine, "message_text overflow")
-        WRITE(message_text, "(3a)") message_text(1:mlen), var_groups_dyn%name(i)(1:gnlen), ", "
+        WRITE(message_text, "(3a)") message_text(1:mlen), var_groups_dyn%gname(i)(1:gnlen), ", "
         mlen = mlen + 2 + gnlen
       END DO
       CALL message('', message_text(1:mlen-2))

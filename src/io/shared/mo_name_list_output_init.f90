@@ -107,7 +107,7 @@ MODULE mo_name_list_output_init
   USE mo_namelist,                          ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_nml_annotate,                      ONLY: temp_defaults, temp_settings
   ! variable lists
-  USE mo_var_groups,                        ONLY: var_groups_dyn
+  USE mo_var_groups,                        ONLY: var_groups_dyn, MAX_GROUPS
   USE mo_var_metadata_types,                ONLY: t_var_metadata
   USE mo_var_list_register_utils,           ONLY: vlr_group, vlr_replicate
   USE mo_var_list_register,                 ONLY: t_vl_register_iter
@@ -2866,8 +2866,9 @@ CONTAINS
   !
   SUBROUTINE replicate_data_on_io_procs()
     CHARACTER(*), PARAMETER :: routine = modname//"::replicate_data_on_io_procs"
-    INTEGER :: ivct_len, nvgrid, ivgrid, size_var_groups_dyn, temp(4)
+    INTEGER :: ivct_len, nvgrid, ivgrid, temp(4), dummy, vgd_size, i, vgd_sloc
     LOGICAL :: is_io
+    CHARACTER(LEN=vname_len) :: vgd_temp(MAX_GROUPS)
 
     is_io = my_process_is_io()
     !-----------------------------------------------------------------------------------------------
@@ -2903,20 +2904,21 @@ CONTAINS
     CALL vlr_replicate(bcast_root, p_comm_work_2_io)
     ! var_groups_dyn is required in function 'group_id', which is called in
     ! parse_variable_groups. Thus, a broadcast of var_groups_dyn is required.
-    size_var_groups_dyn = 0
-    IF (ALLOCATED(var_groups_dyn%name)) &
-       & size_var_groups_dyn = SIZE(var_groups_dyn%name)
-    CALL p_bcast(size_var_groups_dyn, bcast_root, p_comm_work_2_io)
-    if (size_var_groups_dyn > 0) then
-       IF (.NOT. ALLOCATED(var_groups_dyn%name)) &
-         & ALLOCATE(var_groups_dyn%name(size_var_groups_dyn))
-       CALL p_bcast(var_groups_dyn%name, bcast_root, p_comm_work_2_io)
-    end if
+    dummy = var_groups_dyn%group_id("ALL")
+    vgd_sloc = var_groups_dyn%get_n_grps()
+    vgd_size = vgd_sloc
+    CALL p_bcast(vgd_size, bcast_root, p_comm_work_2_io)
+    IF (.NOT. is_io) vgd_temp(1:vgd_size) = var_groups_dyn%gname(1:vgd_size)
+    CALL p_bcast(vgd_temp(1:vgd_size), bcast_root, p_comm_work_2_io)
+    IF (is_io .AND. vgd_size .GT. vgd_sloc) THEN
+      DO i = vgd_sloc + 1, vgd_size 
+        dummy = var_groups_dyn%group_id(vgd_temp(i))
+      END DO
+    END IF
 
     ! Map the variable groups given in the output namelist onto the
     ! corresponding variable subsets:
     IF (is_io) CALL parse_variable_groups()
-
 
 #ifndef __NO_ICON_ATMO__
     ! Go over all output domains

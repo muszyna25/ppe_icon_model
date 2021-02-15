@@ -69,8 +69,7 @@ MODULE mo_nwp_lnd_state
   USE mo_var_groups,           ONLY: groups
   USE mo_var_metadata_types,   ONLY: POST_OP_SCALE, CLASS_TILE, CLASS_TILE_LAND
   USE mo_var_metadata,         ONLY: create_hor_interp_metadata, &
-    &                                post_op, get_timelevel_string, &
-    &                                new_action, actions
+    &                                post_op, get_timelevel_string
   USE mo_cf_convention,        ONLY: t_cf_var
   USE mo_grib2,                ONLY: t_grib2_var, grib2_var, t_grib2_int_key, OPERATOR(+)
   USE mo_cdi,                  ONLY: DATATYPE_PACK16, DATATYPE_PACK24, DATATYPE_FLT32, &
@@ -82,7 +81,7 @@ MODULE mo_nwp_lnd_state
     &                                ZA_SEDIMENT_BOTTOM_TW_HALF, ZA_LAKE_BOTTOM, &
     &                                ZA_LAKE_BOTTOM_HALF, ZA_MIX_LAYER, ZA_HEIGHT_2M
   USE sfc_terra_data,          ONLY: zzhls, zdzhs, zdzms
-  USE mo_action,               ONLY: ACTION_RESET
+  USE mo_action,               ONLY: ACTION_RESET, actions, new_action
 
 
 #include "add_var_acc_macro.inc"

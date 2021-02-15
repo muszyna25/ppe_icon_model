@@ -141,12 +141,12 @@ CONTAINS
     LOGICAL, INTENT(IN), OPTIONAL :: opt_skip_trivial        !< Flag: skip empty of single-entry groups
     CHARACTER(*), PARAMETER :: routine = modname//"::print_group_details"
     CHARACTER(LEN=vname_len), ALLOCATABLE :: grp_names(:), grp_vars(:), grp_vars_out(:)
-    INTEGER :: ngrp_vars, ngrp_vars_out, ierrstat, i, j, lx_l
+    INTEGER :: ngrp, ngrp_vars, ngrp_vars_out, ierrstat, i, j, lx_l
     LOGICAL :: latex_fmt, reduce_trailing_num, skip_trivial
     CHARACTER(LEN=2), PARAMETER :: lx = ' %'
     TYPE(t_vl_register_iter) :: iter
 
-    latex_fmt = .FALSE.
+    latex_fmt = .TRUE.
     IF (PRESENT(opt_latex_fmt)) latex_fmt = opt_latex_fmt
     lx_l = MERGE(0, 2, latex_fmt)
     reduce_trailing_num = .TRUE.
@@ -163,7 +163,10 @@ CONTAINS
       WRITE (0,*) "% macros 'varname' and 'grpname'."
     END IF
     WRITE (0,*) " "
-    grp_names = var_groups_dyn%alphabetical_list()
+    ngrp = var_groups_dyn%get_n_grps()
+    ALLOCATE(grp_names(ngrp))
+    grp_names(1:ngrp) = var_groups_dyn%gname_upper(1:ngrp)
+    CALL quicksort(grp_names)
     WRITE (0,*) lx(1:lx_l)//"List of groups:"
     CALL pretty_print_string_list(grp_names, opt_prefix=lx(1:lx_l)//"    ")
     ! temporary variables needed for variable group parsing
@@ -175,7 +178,7 @@ CONTAINS
     END DO
     ALLOCATE(grp_vars(i), grp_vars_out(i), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-    DO i = 1, SIZE(grp_names)
+    DO i = 1, ngrp
       ! for each group we collect the contained variables two times
       ! - the first time we collect *all* model level variables on
       ! the triangular grid, and the second time we collect only

@@ -19,7 +19,7 @@ MODULE mo_var_list
   USE mo_kind,             ONLY: sp, dp, i8
   USE mo_cf_convention,    ONLY: t_cf_var
   USE mo_grib2,            ONLY: t_grib2_var, grib2_var
-  USE mo_var_groups,       ONLY: var_groups_dyn, groups, MAX_GROUPS
+  USE mo_var_groups,       ONLY: var_groups_dyn, groups
   USE mo_var_metadata_types,ONLY: t_var_metadata, t_vert_interp_meta, &
     & t_union_vals, CLASS_TILE, t_hor_interp_meta, t_post_op_meta,    &
     & CLASS_TILE_LAND
@@ -31,7 +31,8 @@ MODULE mo_var_list
   USE mo_exception,        ONLY: message, finish, message_text
   USE mo_util_texthash,    ONLY: text_hash_c
   USE mo_util_string,      ONLY: tolower
-  USE mo_impl_constants,   ONLY: REAL_T, SINGLE_T, BOOL_T, INT_T, vlname_len
+  USE mo_impl_constants,   ONLY: REAL_T, SINGLE_T, BOOL_T, INT_T, &
+    & vlname_len, vname_len, TIMELEVEL_SUFFIX
   USE mo_fortran_tools,    ONLY: init_contiguous_dp, init_contiguous_sp, &
     &                            init_contiguous_i4, init_contiguous_l
   USE mo_action_types,     ONLY: t_var_action
@@ -935,8 +936,7 @@ CONTAINS
     TYPE(t_var_metadata), POINTER :: target_info, ref_info
     TYPE(t_union_vals) :: missvalt, initvalt, resetvalt
     CHARACTER(*), PARAMETER :: routine = modname//":add_var_list_reference_util"
-    INTEGER :: var_ref_pos, ndims, di(5), di3, max_ref
-    LOGICAL :: in_group_new(MAX_GROUPS)
+    INTEGER :: var_ref_pos, ndims, di(5), di3, max_ref, ts_pos
 
     ndims = SIZE(ldims)
     target_element => find_list_element(this_list, target_name)
@@ -1024,13 +1024,12 @@ CONTAINS
     ref_info%used_dimensions(:) = 0
     ref_info%used_dimensions(1:ndims) = target_info%used_dimensions(di(1:ndims))
     IF (PRESENT(var_class)) THEN
-      IF ( ANY((/CLASS_TILE, CLASS_TILE_LAND/) == var_class)) THEN
+      IF (ANY((/CLASS_TILE, CLASS_TILE_LAND/) == var_class)) THEN
         ! automatically add tile to its variable specific tile-group
-        CALL var_groups_dyn%add(group_name=target_info%name, &
-          & in_group_new=in_group_new, opt_in_group=in_group)
-        ! update in_group metainfo
-        ref_info%in_group(:) = in_group_new(:)
-      ENDIF
+        ts_pos = INDEX(target_info%name, TIMELEVEL_SUFFIX)
+        ts_pos = MERGE(ts_pos-1, vname_len, ts_pos .GT. 0)
+        ref_info%in_group = groups(target_info%name(1:ts_pos), groups_in=in_group)
+      END IF
     END IF
     IF (target_info%lcontainer) THEN
       ref_info%lcontained                   = .TRUE.
