@@ -43,7 +43,7 @@ SUBROUTINE DIPOWA (start_idx,end_idx)
   &                             ipowno3, ipowasi, iphosph, iano3, &
   &                             isilica, ipowafe, iiron, ialkali, &  
   &                             isco212, igasnit, ipowaph, ipowaal, &
-  &                             ipown2, ipowaic 
+  &                             ipown2, ipowaic, ipowh2s, ih2s
   USE mo_ocean_nml, ONLY      : lsediment_only
 
   IMPLICIT NONE
@@ -105,6 +105,7 @@ SUBROUTINE DIPOWA (start_idx,end_idx)
           if(iv == ipowaph) iv_oc = iphosph
           if(iv == ipown2) iv_oc = igasnit
           if(iv == ipowaic) iv_oc = isco212
+          if(iv == ipowh2s) iv_oc = ih2s
 
           sedb1( k, iv) = 0._wp
            ! tracer_concentration(kbo) * dz(kbo)
@@ -173,6 +174,7 @@ SUBROUTINE DIPOWA (start_idx,end_idx)
         if(iv == ipowaph) iv_oc = iphosph
         if(iv == ipown2) iv_oc = igasnit
         if(iv == ipowaic) iv_oc = isco212
+        if(iv == ipowh2s) iv_oc = ih2s
 
            l = 0
 

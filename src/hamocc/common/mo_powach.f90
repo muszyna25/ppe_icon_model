@@ -146,7 +146,7 @@ CONTAINS
            powtra(j,k,ipowaph)=powtra(j,k,ipowaph)+posol*pors2w(k)
            powtra(j,k,ipowaic)=powtra(j,k,ipowaic)+rcar*posol*pors2w(k)
 
-           powtra(j,k,ipowaal)=powtra(j,k,ipowaal)+posol*nitdem*pors2w(k)
+           powtra(j,k,ipowaal)=powtra(j,k,ipowaal)+posol*(nitdem-ralk)*pors2w(k)
            powtra(j,k,ipowno3)=powtra(j,k,ipowno3)-(2._wp*n2prod - rnit)*posol*pors2w(k)
            powtra(j,k,ipowafe)=powtra(j,k,ipowafe)+ posol*riron*pors2w(k)
            powtra(j,k,ipown2)=powtra(j,k,ipown2)+n2prod*posol*pors2w(k)
