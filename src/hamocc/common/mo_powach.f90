@@ -114,7 +114,7 @@ CONTAINS
          powtra(j,k,ipowaph)=powtra(j,k,ipowaph)+ posol*pors2w(k)
          powtra(j,k,ipowno3)=powtra(j,k,ipowno3)+ posol*rnit*pors2w(k)
          powtra(j,k,ipowafe)=powtra(j,k,ipowafe)+ posol*riron*pors2w(k)
-         powtra(j,k,ipowaal)=powtra(j,k,ipowaal)-posol*rnit*pors2w(k)
+         powtra(j,k,ipowaal)=powtra(j,k,ipowaal)-posol*ralk*pors2w(k)
          powtra(j,k,ipowaox)=powtra(j,k,ipowaox)-posol*pors2w(k)*ro2ut
 
          sedtend(j,k,isremino) = posol*pors2w(k)/dtbgc
@@ -182,7 +182,7 @@ CONTAINS
            powtra(j,k,ipowafe)=powtra(j,k,ipowafe)+ posol*riron*pors2w(k)
            powtra(j,k,ipowh2s) = powtra(j,k,ipowh2s) + posol*pors2w(k)*ralk
            powh2obud(j,k)=powh2obud(j,k)-posol*ro2ut*pors2w(k)
-           pown2bud(j,k) = pown2bud(j,k) + 2._wp*rnit*posol*pors2w(k) 
+           pown2bud(j,k) = pown2bud(j,k) + 2._wp*ralk*posol*pors2w(k) 
 
            sedtend(j,k,isremins) = posol*pors2w(k)/dtbgc
          else
