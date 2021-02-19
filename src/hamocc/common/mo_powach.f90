@@ -141,7 +141,7 @@ CONTAINS
 
            orgsed = max(0._wp,sedlay(j,k,issso12)) 
 
-           posol = denit_sed * MIN(0.5_wp * powtra(j, k, ipowno3)/nitdem, orgsed)
+           posol = denit_sed * MIN(0.5_wp * powtra(j, k, ipowno3)/(nitdem-rnit), orgsed)
            sedlay(j,k,issso12)=sedlay(j,k,issso12)-posol
            powtra(j,k,ipowaph)=powtra(j,k,ipowaph)+posol*pors2w(k)
            powtra(j,k,ipowaic)=powtra(j,k,ipowaic)+rcar*posol*pors2w(k)
