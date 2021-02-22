@@ -2195,13 +2195,13 @@ __acc_attach(diag%clct_avg)
       & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dflux, lrestart=lrestart_flux )
   
     ! &      diag%swflx_up(nproma,nlevp1,nblks_c)
-    cf_desc    = t_cf_var('swflx_up', 'W m-2 ', 'shortave upward flux', datatype_flt)
+    cf_desc    = t_cf_var('swflx_up', 'W m-2 ', 'shortwave upward flux', datatype_flt)
     grib2_desc = grib2_var(255, 255, 203, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'swflx_up', diag%swflx_up,                   &
       & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dflux, lrestart=lrestart_flux )
   
     ! &      diag%swflx_dn(nproma,nlevp1,nblks_c)
-    cf_desc    = t_cf_var('swflx_dn', 'W m-2 ', 'shortave downward flux', datatype_flt)
+    cf_desc    = t_cf_var('swflx_dn', 'W m-2 ', 'shortwave downward flux', datatype_flt)
     grib2_desc = grib2_var(255, 255, 204, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'swflx_dn', diag%swflx_dn,                   &
       & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dflux, lrestart=lrestart_flux )
