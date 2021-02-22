@@ -1020,6 +1020,8 @@ CONTAINS
           ENDDO
         ENDIF
 
+        !$acc update device(ext_data(jg)%atm%i_lc_snow_ice)
+
         ! Derived parameter: minimum allowed land-cover related roughness length in the
         ! presence of low ndvi and/or snow cover
         DO ilu = 1, num_lcc

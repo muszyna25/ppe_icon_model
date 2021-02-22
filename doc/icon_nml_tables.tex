@@ -4906,6 +4906,61 @@ Defined and used in: \verb+src/namelists/mo_nudging_nml.f90+
 
 
 %------------------------------------------------------------------------------
+% nwp_bench_nml:
+%------------------------------------------------------------------------------
+\subsection{nwp\_bench\_nml}
+
+The switches to disable subroutine calls inside the time\_loop. These are used for early GPU benchmarks of ICON while not everything is ported. They should be removed again once the port is ready to support all the subroutine calls in this list.
+
+\begin{longtab}
+
+\hline
+d\_unpb&
+L&
+.FALSE.&
+&
+disables the call to update\_nwp\_phy\_bcs if set to .TRUE.&
+\tabularnewline
+
+\hline
+d\_ndfo&
+L&
+.FALSE.&
+&
+disables the call to nwp\_diag\_for\_output if set to .TRUE.&
+\tabularnewline
+
+\hline
+d\_rld&
+L&
+.FALSE.&
+&
+disables the call to recv\_latbc\_data if set to .TRUE.&
+\tabularnewline
+
+\hline
+d\_n&
+L&
+.FALSE.&
+&
+disables the call to nudging if set to .TRUE.&
+\tabularnewline
+
+\hline
+d\_wnlo&
+L&
+.FALSE.&
+&
+disables the call to write\_name\_list\_output if set to .TRUE.&
+\tabularnewline
+
+\end{longtab}
+
+Defined and used in: \verb+src/namelists/mo_bench_nml.f90+
+
+
+
+%------------------------------------------------------------------------------
 % nwp_phy_nml:
 %------------------------------------------------------------------------------
 \subsection{nwp\_phy\_nml}
