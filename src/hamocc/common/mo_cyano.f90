@@ -136,7 +136,7 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,l_dynamic_pi)
       REAL(wp) :: xa_P, xa_fe, avnit,l_P,l_fe
       REAL(wp) ::  phosy_cya
       REAL(wp) :: dyn_pi_alpha_cya
-   
+      REAL(wp) :: surface_height  
 !HAMOCC_OMP_PARALLEL 
 !HAMOCC_OMP_DO PRIVATE(j,kpke,k,avcyabac,avanut,avanfe,avnit,l_fe,l_I,T_min_Topt,&
 !HAMOCC_OMP           sgnT,l_T,xa_p,l_P,xa_fe,pho,phosy_cya, &
@@ -215,8 +215,9 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,l_dynamic_pi)
 
               bgctend(j,k,knfix) =  -1._wp * rn2 *(bgctra(j,k,igasnit) - oldigasnit)/dtbgc   ! N fixation
               bgctend(j,k,kpho_cya) =  phosy_cya/dtbgc   
-              bgctend(j,k,kn2b) = bgctend(j,k,kn2b) - (phosy_cya -cyapro) * rnit
- 
+              surface_height = MERGE(za(j), 0._wp, k==1)
+              bgctend(j,k,kn2b) = bgctend(j,k,kn2b) - (phosy_cya -cyapro) * rnit*(pddpo(j,k) +surface_height)
+             
               bgctra(j,k,iano3) = bgctra(j,k,iano3) - cyapro*rnit                                                           
 
               ! ---------- change of alkalinity 
