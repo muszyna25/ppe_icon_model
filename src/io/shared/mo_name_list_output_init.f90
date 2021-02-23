@@ -16,6 +16,7 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
+!NEC$ options "-fno-loop-unroll"
 MODULE mo_name_list_output_init
 
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_f_pointer, c_int64_t, c_double, c_null_char, C_SIZE_T
