@@ -601,11 +601,11 @@ CONTAINS
   END FUNCTION coll_theta_12
 
   ! bulk sedimentation velocities
-  subroutine sedi_vel_rain(this,thisCoeffs,q,x,vn,vq,its,ite,qc)
+  subroutine sedi_vel_rain(this,thisCoeffs,q,x,rhocorr,vn,vq,its,ite,qc)
     CLASS(particle), intent(in)            :: this
     TYPE(particle_rain_coeffs), intent(in) :: thisCoeffs
     integer,  intent(in)  :: its,ite
-    real(wp), intent(in)  :: q(:),x(:)
+    real(wp), intent(in)  :: q(:),x(:), rhocorr(:)
     real(wp), intent(in), optional  :: qc(:)
     real(wp), intent(inout) :: vn(:), vq(:)
 
@@ -627,6 +627,8 @@ CONTAINS
           D_p = D_m * exp((-1./3.)*log((mue+3.)*(mue+2.)*(mue+1.)))
           vn(i) = thisCoeffs%alfa - thisCoeffs%beta * exp(-(mue+1.)*log(1.0 + thisCoeffs%gama*D_p))
           vq(i) = thisCoeffs%alfa - thisCoeffs%beta * exp(-(mue+4.)*log(1.0 + thisCoeffs%gama*D_p))
+          vn(i) = vn(i) * rhocorr(i)
+          vq(i) = vq(i) * rhocorr(i)
        else
           vn(i) = 0.0_wp
           vq(i) = 0.0_wp
@@ -635,11 +637,11 @@ CONTAINS
   end subroutine sedi_vel_rain
 
   ! bulk sedimentation velocities
-  subroutine sedi_vel_sphere(this,thisCoeffs,q,x,vn,vq,its,ite)
+  subroutine sedi_vel_sphere(this,thisCoeffs,q,x,rhocorr,vn,vq,its,ite)
     CLASS(particle), intent(in)        :: this
     CLASS(particle_sphere), intent(in) :: thisCoeffs
     integer,  intent(in)  :: its,ite
-    real(wp), intent(in)  :: q(:),x(:)
+    real(wp), intent(in)  :: q(:),x(:),rhocorr(:)
     real(wp), intent(out) :: vn(:), vq(:)
 
     integer  :: i
@@ -654,8 +656,8 @@ CONTAINS
           v_q = MAX(v_q,this%vsedi_min)
           v_n = MIN(v_n,this%vsedi_max)
           v_q = MIN(v_q,this%vsedi_max)
-          vn(i) = v_n
-          vq(i) = v_q
+          vn(i) = v_n * rhocorr(i)
+          vq(i) = v_q * rhocorr(i)
        else
           vn(i) = 0.0_wp
           vq(i) = 0.0_wp
@@ -664,11 +666,11 @@ CONTAINS
   end subroutine sedi_vel_sphere
 
   ! bulk sedimentation velocities
-  subroutine sedi_vel_lwf(this,thisCoeffs,q,ql,x,vn,vq,vl,its,ite)
+  subroutine sedi_vel_lwf(this,thisCoeffs,q,ql,x,rhocorr,vn,vq,vl,its,ite)
     TYPE(particle_lwf), intent(in)     :: this
     CLASS(particle_sphere), intent(in) :: thisCoeffs
     integer,  intent(in)  :: its,ite
-    real(wp), intent(in)  :: q(:),x(:),ql(:)
+    real(wp), intent(in)  :: q(:),x(:),ql(:),rhocorr(:)
     real(wp), intent(out) :: vn(:),vq(:),vl(:)
 
     REAL(wp), DIMENSION(10) :: avq, avl, avn
@@ -676,7 +678,7 @@ CONTAINS
     REAL(wp), PARAMETER     :: eps = 1e-20_wp
 
     integer  :: i
-    real(wp) :: lam,v_n,v_q,v_l,D_p,D_n,lwf
+    real(wp) :: v_n,v_q,v_l,D_p,D_n,lwf
 
     if (this%name .eq. 'hail_vivek') then
       avq = aviwch
@@ -692,6 +694,8 @@ CONTAINS
       bvl = bvlwcg
       avn = avnumg
       bvn = bvnumg
+    else
+      CALL finish(TRIM(routine),'Error: unknown particle name in sedi_vel_lwf')      
     end if
 
     do i=its,ite
@@ -708,9 +712,9 @@ CONTAINS
         v_n = MIN(v_n,this%vsedi_max)
         v_q = MIN(v_q,this%vsedi_max)
         v_l = MIN(v_l,this%vsedi_max)
-        vn(i) = v_n
-        vq(i) = v_q
-        vl(i) = v_l
+        vn(i) = v_n * rhocorr(i)
+        vq(i) = v_q * rhocorr(i)
+        vl(i) = v_l * rhocorr(i)
       else
         vn(i) = 0.0_wp
         vq(i) = 0.0_wp
@@ -3246,6 +3250,10 @@ CONTAINS
       D_lim = 1.e-2_wp
       lwf_lim = 0.6_wp
     else
+      cnvq = convqg  ! avoid compiler warning
+      cnvn = convng
+      D_lim   = 0.0_wp
+      lwf_lim = 0.0_wp
       CALL finish(TRIM(routine),'Error unknown particle name in LWF melting')
     end if
 
@@ -3974,8 +3982,8 @@ CONTAINS
       &                     rime_rate_qb, rime_rate_nb)
    !*******************************************************************************
    !  Riming rate of ice or snow collecting cloud droplets                        *
-   !  This is a process of the form a+b->c, but b is here always rain and         *
-   !  therefore some parameters are hardcoded for rain                            *
+   !  This is a process of the form a+b->c, but b is here always cloud and        *
+   !  therefore some parameters are hardcoded for cloud water                     *
    !*******************************************************************************
    ! start and end indices for 2D slices
    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
@@ -4170,10 +4178,10 @@ CONTAINS
     INTEGER :: istart, iend, kstart, kend
 
     ! local variables
-    INTEGER            :: i,k,nuc_typ
-    REAL(wp)           :: n_c,q_c
-    REAL(wp)           :: nuc_n, nuc_q, zf
-    REAL, PARAMETER    :: eps = 1e-10_wp
+    INTEGER             :: i,k,nuc_typ
+    REAL(wp)            :: n_c,q_c
+    REAL(wp)            :: nuc_n, nuc_q, zf
+    REAL(wp), PARAMETER :: eps = 1e-10_wp
     
     ! for activation tables
     INTEGER, PARAMETER :: n_ncn=8, n_r2=3, n_lsigs=5, n_wcb=4
@@ -4628,7 +4636,7 @@ CONTAINS
     REAL(wp), DIMENSION(:,:), OPTIONAL        :: n_cn
 
     ! local variables
-    REAL, PARAMETER    :: nuc_eps = 1e-20_wp
+    REAL(wp), PARAMETER :: nuc_eps = 1e-20_wp
 
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend

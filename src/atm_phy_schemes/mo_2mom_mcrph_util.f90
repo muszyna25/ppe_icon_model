@@ -932,9 +932,11 @@ CONTAINS
     CHARACTER(len=*), INTENT(in) :: dateiname
     INTEGER, INTENT(in) :: unitnr
     INTEGER :: error, in_aux(4)
+    CHARACTER(len=*), PARAMETER :: routine = 'init_dmin_wetgrowth'
 
     IF (my_process_is_stdio()) THEN
 
+      CALL message (TRIM(routine), " Trying to read "//TRIM(dateiname))      
       OPEN(unitnr, file=TRIM(dateiname), status='old', form='formatted', iostat=error)
       IF (error /= 0) THEN
         WRITE (txt,*) 'init_dmin_wetgrowth: lookup-table ' // TRIM(dateiname) // ' not found'
