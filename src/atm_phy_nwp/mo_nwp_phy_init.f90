@@ -365,7 +365,21 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
     ENDDO
 
     ! tuning factor for rlam_heat depending on skin conductivity and analyzed T2M/RH2M bias
-    IF (itype_canopy == 2 .AND. icpl_da_sfcevap == 2) THEN
+    IF (itype_canopy == 2 .AND. icpl_da_sfcevap == 3) THEN
+      DO jt = 1, ntiles_total + ntiles_water
+        DO jc = i_startidx,i_endidx
+          IF (jt <= ntiles_total) THEN
+            prm_diag%rlamh_fac_t(jc,jb,jt) =                                                                              &
+              1._wp - 0.9_wp*MAX(0._wp,MIN(1._wp,(60._wp-ext_data%atm%skinc_t(jc,jb,jt))/30._wp)) *                       &
+              MAX(0._wp,MIN(1._wp,2.5_wp*(10800._wp/dt_ana*(100._wp*p_diag%rh_avginc(jc,jb)-4._wp*p_diag%t_avginc(jc,jb))-0.4_wp)))
+          ELSE IF (jt == ntiles_total + ntiles_water) THEN ! seaice points
+            prm_diag%rlamh_fac_t(jc,jb,jt) = 0.25_wp
+          ELSE
+            prm_diag%rlamh_fac_t(jc,jb,jt) = 1._wp
+          ENDIF
+        ENDDO
+      ENDDO
+    ELSE IF (itype_canopy == 2 .AND. icpl_da_sfcevap == 2) THEN
       DO jt = 1, ntiles_total + ntiles_water
         DO jc = i_startidx,i_endidx
           IF (jt <= ntiles_total) THEN

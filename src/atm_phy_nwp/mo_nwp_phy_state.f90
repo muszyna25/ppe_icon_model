@@ -2621,7 +2621,7 @@ __acc_attach(diag%clct_avg)
     __acc_attach(diag%gz0)
 
     ! &      diag%t_2m(nproma,nblks_c)
-    IF (icpl_da_sfcevap >= 1) THEN
+    IF (icpl_da_sfcevap == 1 .OR. icpl_da_sfcevap == 2) THEN
       in_group = groups("pbl_vars","dwd_fg_atm_vars","mode_iau_ana_in")
     ELSE
       in_group = groups("pbl_vars","dwd_fg_atm_vars")

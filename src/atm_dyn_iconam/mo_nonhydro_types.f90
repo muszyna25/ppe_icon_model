@@ -136,6 +136,7 @@ MODULE mo_nonhydro_types
     ! c) variables derived from analysis increments
     &  t2m_bias (:,:),       & !! filtered T2M bias from surface analysis [K]
     &  rh_avginc(:,:),       & !! time-averaged/filtered RH increments from DA at lowest model level
+    &  t_avginc(:,:),        & !! time-averaged/filtered T increments from DA at lowest model level
 
     !
     ! d) storage variables for time-averaged first-guess output

@@ -1848,11 +1848,14 @@ CONTAINS
             IF (itype_trvg == 3) THEN
               CALL fetchTiledSurface(params, 'plantevap', jg, ntiles_total, lnd_diag%plantevap_t)
             ENDIF
-            IF (icpl_da_sfcevap >= 1) THEN
+            IF (icpl_da_sfcevap == 1 .OR. icpl_da_sfcevap == 2) THEN
               CALL fetchSurface(params, 't2m_bias', jg, nh_diag%t2m_bias)
             ENDIF
             IF (icpl_da_sfcevap >= 2) THEN
               CALL fetchSurface(params, 'rh_avginc', jg, nh_diag%rh_avginc)
+            ENDIF
+            IF (icpl_da_sfcevap >= 3) THEN
+              CALL fetchSurface(params, 't_avginc', jg, nh_diag%t_avginc)
             ENDIF
 
             IF (itype_snowevap == 3) THEN
@@ -2220,7 +2223,7 @@ CONTAINS
             END IF
 
             ! t_2m bias
-            IF (icpl_da_sfcevap >= 1 .AND. init_mode == MODE_IAU ) THEN
+            IF ((icpl_da_sfcevap == 1 .OR. icpl_da_sfcevap == 2) .AND. init_mode == MODE_IAU ) THEN
                my_ptr2d => initicon(jg)%sfc_inc%t_2m(:,:)
                CALL fetchSurface(params, 't_2m', jg, my_ptr2d)
             ENDIF

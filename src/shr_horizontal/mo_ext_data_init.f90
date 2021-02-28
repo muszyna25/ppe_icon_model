@@ -2346,9 +2346,14 @@ CONTAINS
                                  -1._wp*ext_data%atm%t2m_climgrad(jc,jb))
       ENDDO
 
-      IF (icpl_da_sfcevap >= 1) THEN
+      IF (icpl_da_sfcevap == 1 .OR. icpl_da_sfcevap == 2) THEN
         DO jc = i_startidx, i_endidx
           t2mclim_hc(jc) = t2mclim_hc(jc) + 1.5_wp*SIGN(MIN(2.5_wp,ABS(nh_diag%t2m_bias(jc,jb))),nh_diag%t2m_bias(jc,jb))
+        ENDDO
+      ELSE IF (icpl_da_sfcevap >= 3) THEN
+        DO jc = i_startidx, i_endidx
+          t2mclim_hc(jc) = t2mclim_hc(jc) -                                                               &
+            6._wp*SIGN(MIN(0.625_wp,ABS(10800._wp/dt_ana*nh_diag%t_avginc(jc,jb))),nh_diag%t_avginc(jc,jb))
         ENDDO
       ENDIF
 
@@ -2391,7 +2396,9 @@ CONTAINS
             ext_data%atm%rootdp_t(jc,jb,jt) = ext_data%atm%rootdp_t(jc,jb,jt)*(wfac + (1._wp-wfac)/rd_fac(ilu))
           ENDIF
 
-          IF (icpl_da_sfcevap >= 2) THEN
+          IF (icpl_da_sfcevap >= 3) THEN
+            trh_bias = 10800._wp/dt_ana*(100._wp*nh_diag%rh_avginc(jc,jb)-4._wp*nh_diag%t_avginc(jc,jb))
+          ELSE IF (icpl_da_sfcevap >= 2) THEN
             trh_bias = nh_diag%t2m_bias(jc,jb) + 100._wp*10800._wp/dt_ana*nh_diag%rh_avginc(jc,jb)
           ELSE IF (icpl_da_sfcevap == 1) THEN
             trh_bias = nh_diag%t2m_bias(jc,jb)

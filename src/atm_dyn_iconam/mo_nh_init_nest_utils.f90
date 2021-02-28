@@ -399,8 +399,10 @@ MODULE mo_nh_init_nest_utils
             lndvars_par(jc,jk1+11,jb) = 0._wp
             lndvars_par(jc,jk1+12,jb) = 0._wp
           ENDIF
-          IF (icpl_da_sfcevap >= 1) THEN
+          IF (icpl_da_sfcevap == 1 .OR. icpl_da_sfcevap == 2) THEN
             lndvars_par(jc,jk1+13,jb) = p_parent_diag%t2m_bias(jc,jb)
+          ELSE IF (icpl_da_sfcevap >= 3) THEN
+            lndvars_par(jc,jk1+13,jb) = p_parent_diag%t_avginc(jc,jb)
           ELSE
             lndvars_par(jc,jk1+13,jb) = 0._wp
           ENDIF
@@ -701,8 +703,10 @@ MODULE mo_nh_init_nest_utils
               p_child_ldiag%hsnow_max(jc,jb) = lndvars_chi(jc,jk1+11,jb)
               p_child_ldiag%snow_age(jc,jb)  = lndvars_chi(jc,jk1+12,jb)
             ENDIF
-            IF (icpl_da_sfcevap >= 1) THEN
+            IF (icpl_da_sfcevap == 1 .OR. icpl_da_sfcevap == 2) THEN
               p_child_diag%t2m_bias(jc,jb) = lndvars_chi(jc,jk1+13,jb)
+            ELSE IF (icpl_da_sfcevap >= 3) THEN
+              p_child_diag%t_avginc(jc,jb) = lndvars_chi(jc,jk1+13,jb)
             ENDIF
             p_child_ldiag%t_sk(jc,jb)      = lndvars_chi(jc,jk1+14,jb)
             p_child_lprog%t_sk_t(jc,jb,jt) = p_child_ldiag%t_sk(jc,jb)
@@ -1095,7 +1099,7 @@ MODULE mo_nh_init_nest_utils
         lndvars_par(jc,jk1+4,jb) = initicon(jg)%sfc_inc%freshsnow(jc,jb)
       ENDDO
 
-      IF (icpl_da_sfcevap >= 1) THEN
+      IF (icpl_da_sfcevap == 1 .OR. icpl_da_sfcevap == 2) THEN
         DO jc = i_startidx, i_endidx
           lndvars_par(jc,jk1+5,jb) = initicon(jg)%sfc_inc%t_2m(jc,jb)
         ENDDO
@@ -1171,7 +1175,7 @@ MODULE mo_nh_init_nest_utils
         p_child_ldiag%fr_seaice(jc,jb) = MAX(0._wp,MIN(1._wp,p_child_ldiag%fr_seaice(jc,jb)))
       ENDDO
 
-      IF (icpl_da_sfcevap >= 1) THEN
+      IF (icpl_da_sfcevap == 1 .OR. icpl_da_sfcevap == 2) THEN
         DO jc = i_startidx, i_endidx
           initicon(jgc)%sfc_inc%t_2m(jc,jb) = lndvars_chi(jc,jk1+5,jb)
         ENDDO
@@ -1219,7 +1223,7 @@ MODULE mo_nh_init_nest_utils
     CALL inputInstructions(jgc)%ptr%setSource('freshsnow', var_src)
     !
     ! t_2m (full field: none, increment: ana(intp))
-    IF (icpl_da_sfcevap >= 1) THEN
+    IF (icpl_da_sfcevap == 1 .OR. icpl_da_sfcevap == 2) THEN
       var_src = inputInstructions(jg)%ptr%sourceOfVar('t_2m')
       var_src = MERGE(kInputSourceAnaI, var_src, var_src == kInputSourceAna)
       CALL inputInstructions(jgc)%ptr%setSource('t_2m', var_src)

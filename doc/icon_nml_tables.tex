@@ -2650,10 +2650,11 @@ Coupling between data assimilation and model parameters controlling surface evap
 Choosing values $>$ 0 requires itype\_vegetation\_cycle=2 (in extpar\_nml) :\\
 0: off \\
 1: use time-filtered T2M bias provided by the soil moisture analysis \\
-2: use in addition a time-filtered RH increment at the lowest model level (requires assimilation of RH2M) &
+2: use in addition a time-filtered RH increment at the lowest model level (requires assimilation of RH2M)  \\
+3: as option 2, but use a time-filtered temperature increment at the lowest model level instead of the T2M bias provided by the SMA 
+(requires assimilation of T2M and RH2M)&
 init\_mode=5
 \tabularnewline
-
 
 
 %\hline

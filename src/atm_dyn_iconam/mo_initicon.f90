@@ -1910,7 +1910,7 @@ MODULE mo_initicon
 
           ! Time-filtering of analyzed T2M bias
           ! only if t_2m is read from analysis
-          IF (icpl_da_sfcevap >= 1) THEN
+          IF (icpl_da_sfcevap == 1 .OR. icpl_da_sfcevap == 2) THEN
             IF (ANY((/kInputSourceAna,kInputSourceAnaI/) == inputInstructions(jg)%ptr%sourceOfVar('t_2m'))) THEN
               DO jc = i_startidx, i_endidx
                 p_diag%t2m_bias(jc,jb) = p_diag%t2m_bias(jc,jb) + &
@@ -1951,6 +1951,16 @@ MODULE mo_initicon
               ENDDO
             ENDDO
           ENDIF  ! icpl_da_sfcevap
+
+          IF (icpl_da_sfcevap >= 3) THEN
+            ! Calculate time-filtered T assimilation increment at lowest model level (time scale 2.5 days);
+            ! this serves as a proxy for the averaged T2M bias
+            DO jc = i_startidx, i_endidx
+              p_diag%t_avginc(jc,jb) = p_diag%t_avginc(jc,jb) + &
+                dt_ana/216000._wp*(initicon(jg)%atm_inc%temp(jc,nlev,jb)-p_diag%t_avginc(jc,jb))
+            ENDDO
+          ENDIF  ! icpl_da_sfcevap
+
 
         ENDIF  ! MODE_IAU
 

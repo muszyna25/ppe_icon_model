@@ -2940,7 +2940,7 @@ MODULE mo_nonhydro_state
     ! From a logical point of view, the following two fields make sense only in combination with an IAU cycle,
     ! but allocating them anyway allows using the analysis interpolation mode without changing the namelists  
     !
-    IF (icpl_da_sfcevap >= 1) THEN
+    IF (icpl_da_sfcevap == 1 .OR. icpl_da_sfcevap == 2) THEN
       !  Filtered T2M bias
       cf_desc    = t_cf_var('t2m_bias', 'K', 'Filtered T2M bias', datatype_flt)
       grib2_desc = grib2_var(0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL) &
@@ -2961,6 +2961,19 @@ MODULE mo_nonhydro_state
       CALL add_var( p_diag_list, 'rh_avginc', p_diag%rh_avginc,                       &
         &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,       &
         &           ldims=shape2d_c, lrestart=.true.,                                 &
+        &           in_group=groups("mode_iau_fg_in") )
+    ENDIF
+
+    IF (icpl_da_sfcevap >= 3) THEN
+      !  Time-filtered near-surface level T increment from data assimilation
+      cf_desc    = t_cf_var('t_avginc', '1', 'Filtered T increment', datatype_flt)
+      grib2_desc = grib2_var(0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL) &
+                 + t_grib2_int_key("typeOfGeneratingProcess", 207)     &
+                 + t_grib2_int_key("typeOfSecondFixedSurface", 1)      &
+                 + t_grib2_int_key("scaledValueOfFirstFixedSurface", 20)
+      CALL add_var( p_diag_list, 't_avginc', p_diag%t_avginc,                       &
+        &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,     &
+        &           ldims=shape2d_c, lrestart=.true.,                               &
         &           in_group=groups("mode_iau_fg_in") )
     ENDIF
 

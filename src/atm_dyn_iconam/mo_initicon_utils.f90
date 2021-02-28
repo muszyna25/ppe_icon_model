@@ -1864,14 +1864,14 @@ MODULE mo_initicon_utils
             IF (init_mode == MODE_IAU) THEN
                 ALLOCATE(sfc_inc%h_snow   (nproma,nblks_c), &
                 &        sfc_inc%freshsnow(nproma,nblks_c) )
-                IF (icpl_da_sfcevap >= 1) ALLOCATE(sfc_inc%t_2m(nproma,nblks_c))
+                IF (icpl_da_sfcevap == 1 .OR. icpl_da_sfcevap == 2) ALLOCATE(sfc_inc%t_2m(nproma,nblks_c))
 
                 ! initialize with 0, since some increments are only read
                 ! for specific times
 !$OMP PARALLEL 
                 CALL init(sfc_inc%h_snow   (:,:))
                 CALL init(sfc_inc%freshsnow(:,:))
-                IF (icpl_da_sfcevap >= 1) CALL init(sfc_inc%t_2m(:,:))
+                IF (icpl_da_sfcevap == 1 .OR. icpl_da_sfcevap == 2) CALL init(sfc_inc%t_2m(:,:))
 !$OMP END PARALLEL
             ENDIF  ! MODE_IAU
 

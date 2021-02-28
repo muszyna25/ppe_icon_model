@@ -48,6 +48,7 @@ MODULE mo_ensemble_pert_config
   USE mo_extpar_config,      ONLY: nclass_lu
   USE mo_exception,          ONLY: message_text, message, finish
   USE mtime,                 ONLY: datetime, getDayOfYearFromDateTime
+  USE mo_mpi,                ONLY: p_io, p_comm_work, p_bcast
 
   IMPLICIT NONE
   PRIVATE
@@ -324,6 +325,11 @@ MODULE mo_ensemble_pert_config
         rnd_tkred_sfc(i) = rnd_num
 
       ENDDO
+
+      ! Ensure that perturbations on VH and VE cores are the same
+#if defined (__SX__) || defined (__NEC_VH__)
+      CALL p_bcast(rnd_tkred_sfc, p_io, p_comm_work)
+#endif
 
       DEALLOCATE(rnd_seed)
 
@@ -716,6 +722,10 @@ MODULE mo_ensemble_pert_config
 
       CALL RANDOM_NUMBER(rnd_aux)
 
+      ! Ensure that perturbations on VH and VE cores are the same
+#if defined (__SX__) || defined (__NEC_VH__)
+      CALL p_bcast(rnd_aux, p_io, p_comm_work)
+#endif
       IF (itype_pert_gen == 1) THEN
         rnd_val = rnd_aux
       ELSE IF (itype_pert_gen == 2) THEN
