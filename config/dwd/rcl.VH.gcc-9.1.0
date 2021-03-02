@@ -65,7 +65,7 @@ eval "$BUILD_ENV"
 
 # C compiler wrapper on cray machine
 CC='mpincc -vh'
-CFLAGS='-std=gnu99 -mavx2 -mno-fma -O3 -DUSE_XML2'
+CFLAGS='-std=gnu99 -mavx2 -mno-fma -O3 -DUSE_XML2 -fbacktrace -g'
 ICON_CFLAGS=''
 ICON_BUNDLED_CFLAGS='-O2'
 CPPFLAGS="${ECCODES_INCLUDE} -I${HDF5ROOT}/include -I${NETCDFROOT}/include ${ECCODES_INCLUDE} -I${XML2ROOT}/include/libxml2"
