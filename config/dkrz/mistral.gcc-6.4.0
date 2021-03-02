@@ -40,7 +40,7 @@ CPPFLAGS="-I${HDF5_ROOT}/include -I${NETCDF_ROOT}/include -I${GRIBAPI_ROOT}/incl
 
 FC='mpif90'
 FCFLAGS="-I${NETCDFF_ROOT}/include -std=f2008 -fmodule-private -fimplicit-none -fmax-identifier-length=63 -Wall -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter -Wno-surprising -fall-intrinsics -g -march=native -mpc64"
-ICON_FCFLAGS='-fbacktrace -fbounds-check -fstack-protector-all -finit-real=nan -finit-integer=-2147483648 -finit-character=127 -O2'
+ICON_FCFLAGS='-fbacktrace -fbounds-check -fstack-protector-all -finit-real=nan -finit-integer=-2147483648 -finit-character=127 -O2 -DDO_NOT_COMBINE_PUT_AND_NOCHECK'
 ICON_OCEAN_FCFLAGS='-O3'
 
 LDFLAGS="-L${HDF5_ROOT}/lib -L${NETCDF_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${GRIBAPI_ROOT}/lib -L${MKL_ROOT}/lib/intel64"
