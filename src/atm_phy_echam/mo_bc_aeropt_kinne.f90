@@ -225,11 +225,11 @@ SUBROUTINE read_bc_aeropt_kinne(mtime_current, p_patch)
       IF ( pre_year(jg) > -HUGE(1) ) THEN
         ! second and following years of current run
         imonthb = 2
-        imonthe = 13
+        imonthe = MIN(13,tiw_end%month2_index+1)
       ELSE
         ! first year of current run
         imonthb = 0
-        imonthe = 13
+        imonthe = MAX(0,tiw_beg%month1_index-1)
       ENDIF
 
     ELSE

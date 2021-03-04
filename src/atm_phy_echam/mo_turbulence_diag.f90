@@ -395,7 +395,7 @@ CONTAINS
         zqtmid=zqxmid(jl,jk)+zqmid(jl,jk)                               ! qt
         zfux=zlhmid(jl,jk)/(cpd*ztmid(jl,jk))                           ! L/(cpd*T)
         zfox=zlhmid(jl,jk)/(rd*ztmid(jl,jk))                            ! L/(Rd*T)
-        zmult1=1._wp+vtmpc1*zqtmid                                      ! (1+0.61*qt) = 
+        zmult1=1._wp+vtmpc1*zqtmid                                      ! (1+0.61*qt) =
                                                                         !  A in clear sky
         zmult2=zfux*zmult1-zrvrd
         zmult3=zrdrv*zfox*zqsatmid(jl,jk)/(1._wp+zrdrv*zfux*zfox*zqsatmid(jl,jk))
@@ -416,7 +416,7 @@ CONTAINS
 
         pri(jl,jk) = zri          ! save for output
 
-        ! stability functions for heat and momentum (Mauritsen et al. 2007) 
+        ! stability functions for heat and momentum (Mauritsen et al. 2007)
 
         IF(zri.GT.0._wp) THEN
            f_tau   = f_tau0*(0.25_wp+0.75_wp/(1._wp+4._wp*zri))
@@ -433,7 +433,7 @@ CONTAINS
            e_pot=e_kin*zri/(f_tau0**2/(2._wp*f_theta0**2)+3._wp*zri)
         ELSE
            e_kin=ptottem1(jl,jk)/(1._wp+zri/(2._wp*zri-f_tau0**2/(2._wp*f_theta0**2)))
-           e_pot=e_kin*zri/(2._wp*zri-f_tau0**2/(2._wp*f_theta0**2)) 
+           e_pot=e_kin*zri/(2._wp*zri-f_tau0**2/(2._wp*f_theta0**2))
         END IF
 
         ! mixing length for neutral and stably stratified conditions
@@ -447,7 +447,7 @@ CONTAINS
         ldis=lmix
         pmixlen(jl,jk)=lmix
 
-        ! mixing coefficients 
+        ! mixing coefficients
 
         km(jl,jk)=f_tau**2*e_kin**2                                                       &
                  & /((c_e*e_kin*SQRT(ptottem1(jl,jk))/lmix)-grav/zthetavmid(jl,jk)        &
@@ -469,7 +469,7 @@ CONTAINS
 
         ! introduce unstable stability function (Louis 79)
 
-        IF (zri.LT.0._wp) THEN 
+        IF (zri.LT.0._wp) THEN
            zalh2=lmix*lmix
 
            zucf =   1._wp                                             &
@@ -486,9 +486,9 @@ CONTAINS
         ! buoyancy production, and dissipation of TTE.
         ! See Appendix A in Brinkop and Roeckner (1995, Tellus) for the numerics.
 
-        IF (zri.GT.0._wp) THEN 
+        IF (zri.GT.0._wp) THEN
            zzb=km(jl,jk)*zshear
-        ELSE 
+        ELSE
            zzb=km(jl,jk)*zshear-2._wp*kh(jl,jk)*zbuoy
         END IF
         zdisl=ldis/(c_e*pdtime)
@@ -596,7 +596,7 @@ CONTAINS
     REAL(wp),INTENT(IN) :: pthetav_b(:)  !< (kbdim) virtual potential temp.
     REAL(wp),INTENT(IN) :: pthetal_b(:)  !< (kbdim) liquid water (?) pot. temp.
     REAL(wp),INTENT(IN) :: paclc_b  (:)  !< (kbdim) cloud cover at lowest model level
-    REAL(wp),INTENT(IN) :: ptotte_b (:)  !< (kbdim) TTE 
+    REAL(wp),INTENT(IN) :: ptotte_b (:)  !< (kbdim) TTE
 
     ! For the variance of theta_v, "_b" denotes the lowest computational level
     ! above surface, i.e., the interface between full levels klev-1 and klev.
@@ -605,7 +605,7 @@ CONTAINS
 
     ! "_tile" denotes value at surface
 
-    REAL(wp),INTENT(OUT) :: pqsat_tile (:,:) !< (kbdim,ksfc_type) saturation specific humidity 
+    REAL(wp),INTENT(OUT) :: pqsat_tile (:,:) !< (kbdim,ksfc_type) saturation specific humidity
                                                          !<  at surface
     REAL(wp),INTENT(OUT) :: pcpt_tile  (:,:) !< (kbdim,ksfc_type) dry static energy
     REAL(wp),INTENT(OUT) :: pri_gbm    (:)   !< (kbdim) moist Richardson number
@@ -614,13 +614,13 @@ CONTAINS
     REAL(wp),INTENT(OUT) :: pcfm_gbm   (:)   !< (kbdim) exchange coeff. of momentum
     REAL(wp),INTENT(OUT) :: pcfm_tile  (:,:) !< (kbdim,ksfc_type) exchange coeff. of momentum,
                                              !< for each type of surface
-    REAL(wp),INTENT(OUT) :: pcfh_gbm   (:)   !< (kbdim) exchange coeff. of heat and 
+    REAL(wp),INTENT(OUT) :: pcfh_gbm   (:)   !< (kbdim) exchange coeff. of heat and
                                              !<  vapor
-    REAL(wp),INTENT(OUT) :: pcfh_tile  (:,:) !< (kbdim,ksfc_type) exchange coeff. of heat and 
+    REAL(wp),INTENT(OUT) :: pcfh_tile  (:,:) !< (kbdim,ksfc_type) exchange coeff. of heat and
                                              !<  vapor for each surface type
     REAL(wp),INTENT(OUT) :: pcfv_sfc    (:)  !< (kbdim) exchange coeff. of total water variance
     REAL(wp),INTENT(OUT) :: pcftotte_sfc(:)  !< (kbdim) exchange coeff. of TTE
-    REAL(wp),INTENT(OUT) :: pcfthv_sfc  (:)  !< (kbdim) exchange coeff. of the variance of 
+    REAL(wp),INTENT(OUT) :: pcfthv_sfc  (:)  !< (kbdim) exchange coeff. of the variance of
                                              !<  theta_v
     REAL(wp),INTENT(OUT) :: pprfac_sfc (:)   !< (kbdim) prefactor for exchange coefficients
     REAL(wp),INTENT(OUT) :: jtottevn_sfc(:)  !< (kbdim) boundary condition (sfc value) of TTE
@@ -630,7 +630,7 @@ CONTAINS
     REAL(wp),INTENT(OUT) :: pustarm    (:)   !< (kbdim) friction velocity, grid-box mean
     REAL(wp),INTENT(OUT) :: pwstar     (:)   !< (kbdim) convective velocity scale, grid-box mean
     REAL(wp),INTENT(INOUT),DIMENSION(:,:) :: & ! DIMENSION(kbdim,ksfc_type)
-                            pwstar_tile  !< convective velocity scale, 
+                            pwstar_tile  !< convective velocity scale,
                                          !<  each sfc type
     REAL(wp),INTENT(OUT) :: pthvsig_b (:)    !< (kbdim)
     REAL(wp),INTENT(OUT) :: pbn_tile  (:,:)  !< (kbdim,ksfc_type) for diagnostics
@@ -663,12 +663,12 @@ CONTAINS
     REAL(wp) :: f_tau     (kbdim,ksfc_type) !< stability finction for momentum
     REAL(wp) :: f_theta   (kbdim,ksfc_type) !< stability finction for heat
     REAL(wp) :: z0h       (kbdim,ksfc_type) !
- 
+
     INTEGER(i1)::pfrc_test(kbdim,ksfc_type) !< integer mask to pass to CUB (can be removed later)
     INTEGER  :: loidx     (kbdim,ksfc_type) !< counter for masks
     INTEGER  :: is        (ksfc_type)       !< counter for masks
 
-    
+
     REAL(wp) :: zrdrv, zrvrd, zonethird, ztwothirds
     REAL(wp) :: z2b, z3b, z3bc, zcons17, zepdu2, zepsec
     REAL(wp) :: zqtl, zqtmid, zdqt, zqsmid
@@ -696,28 +696,33 @@ CONTAINS
     wmc      = echam_vdf_config(jg)% wmc
     fsl      = echam_vdf_config(jg)% fsl
     fbl      = echam_vdf_config(jg)% fbl
-    
+
     !$ACC DATA &
-    !---- Argument arrays - intent(in)                                          
+    !---- Argument arrays - intent(in)
     !$ACC PRESENT(pz0m,ptsfc,pfrc,phdtcbl,pocu,pocv,ppsfc,pghf_b,pum1_b) &
     !$ACC PRESENT(pvm1_b,ptm1_b,pqm1_b,pqxm1_b,pqsat_b,plh_b,ptheta_b,pthetav_b) &
     !$ACC PRESENT(pthetal_b,paclc_b,ptotte_b,pthvvar_b) &
     !---- Argument arrays - intent(optional in)
     !$ACC PRESENT(paz0lh,pcsat,pcair) &
-    !---- Argument arrays - intent(out)                                         
+    !---- Argument arrays - intent(out)
     !$ACC PRESENT(pqsat_tile,pcpt_tile,pri_gbm,pri_tile,pcfm_gbm,pcfm_tile,pcfh_gbm) &
     !$ACC PRESENT(pcfh_tile,pcfv_sfc,pcftotte_sfc,pcfthv_sfc,pprfac_sfc,ptottevn_sfc) &
     !$ACC PRESENT(pthvvar_sfc,pustarm,pwstar,pbn_tile,pbhn_tile,pbm_tile,pbh_tile) &
     !$ACC PRESENT(pch_tile) &
-    !---- Argument arrays - intent(inout)                                         
+    !---- Argument arrays - intent(inout)
     !$ACC PRESENT(pwstar_tile,pthvsig_b) &
-    !---- Argument arrays - Local Variables                                    
+    !---- Argument arrays - Local Variables
     !$ACC CREATE(pchn_tile,pcdn_tile,pcfnc_tile,pthvsig_tile,zdu2,zcfnch,zustar,zqts,zthetavmid) &
     !$ACC CREATE(zdthetal,lmix,e_kin,e_pot,f_tau,f_theta,z0h,pfrc_test,loidx,is)
     !-------------------
     ! Some constants
     !-------------------
-    zepsec     = 1.E-2_wp
+
+    ! to prevent floating-point arithmetic inconsistencies later in
+    ! the interpolation to u 10m and 2m T/T_d: has been 0.01 before
+    ! (Cray FP instead of IEEE 754 FP format)
+    zepsec     = 0.028_wp
+
     zrvrd      = rv/rd
     zrdrv      = rd/rv
     z2b        = 2._wp*cb
@@ -735,7 +740,7 @@ CONTAINS
     ! coefficients when building the linear algebraic equations. The density here is
     ! computed using air temperature of the lowest model level at time step n-1.
     !------------------------------------------------------------------------------
-    
+
     !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jl = jcs, kproma
@@ -744,7 +749,7 @@ CONTAINS
                          &   *(1._wp+vtmpc1*pqm1_b(jl)-pqxm1_b(jl)) )
     ENDDO
     !$ACC END PARALLEL
-    
+
     !-------------------------------------------------------------
     ! COMPUTATION OF BASIC QUANTITIES: WIND SHEAR,
     ! RICHARDSON NUMBER,SQUARED MIXING LENGTHS, UNSTABLE
@@ -752,7 +757,7 @@ CONTAINS
     ! COMMON PART OF THE DRAG COEFFICIENTS.
     !-------------------------------------------------------------
     !    preset values to zero
-    
+
     !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR COLLAPSE(2)
      DO jsfc = 1,ksfc_type
@@ -831,7 +836,7 @@ CONTAINS
         zbuoy        = zdus1*zdthetal(js,jsfc) + zdus2*zthetamid*zdqt
         pri_tile(js,jsfc) = pghf_b(js)*grav*zbuoy/(zthetavmid(js,jsfc)*zdu2(js,jsfc))
 
- !  Stability functions for heat and momentum (Mauritsen et al. 2007) 
+ !  Stability functions for heat and momentum (Mauritsen et al. 2007)
 
         IF(pri_tile(js,jsfc).GT.0._wp) THEN
            f_tau(js,jsfc)   = f_tau0*(0.25_wp+0.75_wp/(1._wp+4._wp*pri_tile(js,jsfc)))
@@ -848,7 +853,7 @@ CONTAINS
            e_pot(js,jsfc) = e_kin(js,jsfc)     *pri_tile(js,jsfc)/(pr0+3._wp*pri_tile(js,jsfc))
         ELSE
            e_kin(js,jsfc) = ptotte_b(js)/(1._wp+pri_tile(js,jsfc)/(2._wp*pri_tile(js,jsfc)-pr0))
-           e_pot(js,jsfc) = e_kin(js,jsfc)     *pri_tile(js,jsfc)/(2._wp*pri_tile(js,jsfc)-pr0) 
+           e_pot(js,jsfc) = e_kin(js,jsfc)     *pri_tile(js,jsfc)/(2._wp*pri_tile(js,jsfc)-pr0)
         END IF
 
 !   Near-surface virtual potential temperature variance used by convection scheme:
@@ -876,9 +881,9 @@ CONTAINS
 
         lmix(js,jsfc) = 1._wp/lmix(js,jsfc)
 
- !  Neutral drag coefficient for momentum, z0m is effectively limited to half 
+ !  Neutral drag coefficient for momentum, z0m is effectively limited to half
  !  the first level height.
-       
+
         pcdn_tile(js,jsfc) = lmix(js,jsfc)**2/((fsl*pghf_b(js))**2                        &
                           & *((LOG(MAX(2._wp,pghf_b(js)/pz0m(js,jsfc))))**2))
 
@@ -899,8 +904,8 @@ CONTAINS
            z0h(js,jsfc)=paz0lh(js)
         END IF
 
- ! Neutral drag coefficient for heat/scalars, z0h is effectively limited 
- !  to half the first level height! 
+ ! Neutral drag coefficient for heat/scalars, z0h is effectively limited
+ !  to half the first level height!
 
           pchn_tile(js,jsfc) = lmix(js,jsfc)/((fsl*pghf_b(js))                            &
                             & *LOG(MAX(2._wp,pghf_b(js)/z0h(js,jsfc))))                   &
@@ -939,23 +944,23 @@ CONTAINS
           js=loidx(jls,jsfc)
           IF ( pri_tile(js,jsfc) > 0._wp ) THEN
             pcfm_tile(js,jsfc) = pcfnc_tile(js,jsfc)*f_tau  (js,jsfc)/f_tau0
-            pcfh_tile(js,jsfc) = zcfnch    (js,jsfc)*f_theta(js,jsfc)/f_theta0*SQRT(f_tau(js,jsfc)/f_tau0)  
-            pch_tile (js,jsfc) = pcfh_tile(js,jsfc)/zcfnch(js,jsfc)*pchn_tile(js,jsfc)   
+            pcfh_tile(js,jsfc) = zcfnch    (js,jsfc)*f_theta(js,jsfc)/f_theta0*SQRT(f_tau(js,jsfc)/f_tau0)
+            pch_tile (js,jsfc) = pcfh_tile(js,jsfc)/zcfnch(js,jsfc)*pchn_tile(js,jsfc)
           ENDIF
 
           IF ( pri_tile(js,jsfc) <= 0._wp ) THEN        ! retain Louis stability functions
                                                         ! functions for the unstable case
-            zucf =  SQRT( -pri_tile(js,jsfc)*(1._wp+ pghf_b(js)/pz0m(js,jsfc)) ) 
+            zucf =  SQRT( -pri_tile(js,jsfc)*(1._wp+ pghf_b(js)/pz0m(js,jsfc)) )
                                                         ! sqrt in (5.4)
             zucf =  1._wp+z3bc*pcdn_tile(js,jsfc)*zucf  ! denominator in (5.4)
             zucf =  1._wp/zucf
-            zucfh=  SQRT( -pri_tile(js,jsfc)*(1._wp+ pghf_b(js)/z0h(js,jsfc)) ) 
+            zucfh=  SQRT( -pri_tile(js,jsfc)*(1._wp+ pghf_b(js)/z0h(js,jsfc)) )
                                                         ! sqrt in (5.4)
             zucfh=  1._wp+z3bc*pchn_tile(js,jsfc)*zucfh ! denominator in (5.4)
             zucfh=  1._wp/zucfh
-            pcfm_tile(js,jsfc) = pcfnc_tile (js,jsfc)*(1._wp-z2b*pri_tile(js,jsfc)*zucf)  
+            pcfm_tile(js,jsfc) = pcfnc_tile (js,jsfc)*(1._wp-z2b*pri_tile(js,jsfc)*zucf)
                                                         ! (5.2), (5.4)
-            pcfh_tile(js,jsfc) = zcfnch(js,jsfc)*(1._wp-z3b*pri_tile(js,jsfc)*zucfh) 
+            pcfh_tile(js,jsfc) = zcfnch(js,jsfc)*(1._wp-z3b*pri_tile(js,jsfc)*zucfh)
                                                         ! (5.2), (5.4)
             pch_tile (js,jsfc) = pchn_tile  (js,jsfc)*(1._wp-z3b*pri_tile(js,jsfc)*zucfh)
           ENDIF
@@ -1000,10 +1005,10 @@ CONTAINS
     !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jsfc = 1,ksfc_type
       DO jl = 1, kbdim
-        pbn_tile(jl,jsfc) = 0._wp
+        pbn_tile(jl,jsfc)  = 0._wp
         pbhn_tile(jl,jsfc) = 0._wp
-        pbm_tile(jl,jsfc) = 0._wp
-        pbh_tile(jl,jsfc) = 0._wp
+        pbm_tile(jl,jsfc)  = 0._wp
+        pbh_tile(jl,jsfc)  = 0._wp
       ENDDO
     ENDDO
     !$ACC END PARALLEL
@@ -1012,13 +1017,13 @@ CONTAINS
       !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR
       DO jls = 1,is(jsfc)
-      js=loidx(jls,jsfc)
-        pbn_tile(js,jsfc) = ckap / MAX(zepsec, SQRT(pcdn_tile(js,jsfc)))
+        js=loidx(jls,jsfc)
+        pbn_tile(js,jsfc)  = ckap / MAX(zepsec, SQRT(pcdn_tile(js,jsfc)))
         pbhn_tile(js,jsfc) = ckap / MAX(zepsec, SQRT(pchn_tile(js,jsfc)))
-        pbm_tile(js,jsfc) = MAX(zepsec, SQRT(pcfm_tile(js,jsfc)*pcdn_tile(js,jsfc)*zcons17 / pcfnc_tile(js,jsfc)))
-        pbh_tile(js,jsfc) = MAX(zepsec, pch_tile(js,jsfc)/pbm_tile(js,jsfc)       *zcons17)
-        pbm_tile(js,jsfc) = 1._wp / pbm_tile(js,jsfc)
-        pbh_tile(js,jsfc) = 1._wp / pbh_tile(js,jsfc)
+        pbm_tile(js,jsfc)  = MAX(zepsec, SQRT(pcfm_tile(js,jsfc)*pcdn_tile(js,jsfc)*zcons17 / pcfnc_tile(js,jsfc)))
+        pbh_tile(js,jsfc)  = MAX(zepsec, pch_tile(js,jsfc)/pbm_tile(js,jsfc)       *zcons17)
+        pbm_tile(js,jsfc)  = 1._wp / pbm_tile(js,jsfc)
+        pbh_tile(js,jsfc)  = 1._wp / pbh_tile(js,jsfc)
       END DO
       !$ACC END PARALLEL
     END DO
@@ -1096,7 +1101,7 @@ CONTAINS
           zustar(js,jsfc) = SQRT(zust)
          IF (pri_tile(js,jsfc).LT. 0._wp) THEN
            pwstar_tile(js,jsfc)= 0.5_wp*(pwstar_tile(js,jsfc)                                 &
-                   &                +(phdtcbl(js)*grav/zthetavmid(js,jsfc)*pcfh_tile(js,jsfc)  & 
+                   &                +(phdtcbl(js)*grav/zthetavmid(js,jsfc)*pcfh_tile(js,jsfc)  &
                    &                *abs(zdthetal(js,jsfc)))**zonethird)
          ELSE
            pwstar_tile(js,jsfc) = 0._wp
