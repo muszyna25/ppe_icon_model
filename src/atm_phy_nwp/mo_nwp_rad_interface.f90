@@ -43,7 +43,7 @@ MODULE mo_nwp_rad_interface
   USE mo_albedo,               ONLY: sfc_albedo, sfc_albedo_modis
   USE mtime,                   ONLY: datetime
   USE mo_nwp_gpu_util,         ONLY: gpu_d2h_nh_nwp, gpu_h2d_nh_nwp
-  
+  USE mo_mpi,                  ONLY: i_am_accel_node, my_process_is_work
   IMPLICIT NONE
 
   PRIVATE
@@ -177,6 +177,7 @@ MODULE mo_nwp_rad_interface
     IF(lacc) THEN
       CALL message('mo_nh_interface_nwp', 'Device to host copy before Radiation. This needs to be removed once port is finished!')
       CALL gpu_d2h_nh_nwp(pt_patch, prm_diag, ext_data)
+      i_am_accel_node = .FALSE.
     ENDIF
 #endif
     SELECT CASE (atm_phy_nwp_config(jg)%inwp_radiation)
@@ -234,6 +235,7 @@ MODULE mo_nwp_rad_interface
     IF(lacc) THEN
       CALL message('mo_nh_interface_nwp', 'Host to device copy after Radiation. This needs to be removed once port is finished!')
       CALL gpu_h2d_nh_nwp(pt_patch, prm_diag, ext_data)
+      i_am_accel_node = my_process_is_work()
     ENDIF
 #endif
 
