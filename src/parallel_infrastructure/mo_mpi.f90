@@ -203,7 +203,8 @@ MODULE mo_mpi
   ! Comment: Please use basic WRITE to nerr for messaging in the whole
   !          MPI package to achieve proper output.
 
-  USE ISO_C_BINDING, ONLY: C_CHAR, C_SIGNED_CHAR
+  USE, INTRINISC :: iso_c_binding, ONLY: c_char, c_signed_char, cint
+  
   ! actual method (MPI-2)
 #ifndef NOMPI
 #if !defined (__SUNPRO_F95)
@@ -227,12 +228,20 @@ MODULE mo_mpi
 
   USE mo_emvorado_init, ONLY: init_emvorado_mpi
 
-#ifndef __STANDALONE
-    USE mo_util_system, ONLY: util_exit
+#ifdef __STANDALONE
+  INTERFACE
+    SUBROUTINE exit(iret) BIND(C,name='exit')
+      IMPORT :: c_int
+      INTEGER(c_int), VALUE :: iret
+    END SUBROUTINE exit
+  END INTERFACE
+#endif
+
+  USE mo_util_system, ONLY: util_exit
 #endif
 
   USE mo_master_control, ONLY: get_my_process_type, hamocc_process, ocean_process, process_exists, &
-    & my_process_is_hamocc, my_process_is_ocean
+       &                       my_process_is_hamocc, my_process_is_ocean
 
 #ifdef HAVE_YAXT
   USE yaxt,                   ONLY: xt_initialize, xt_initialized
@@ -2053,8 +2062,7 @@ CONTAINS
 #else
 
     IF (my_mpi_function /= work_mpi_process) THEN
-      WRITE (nerr,'(a,a)') method_name, ' Process type is not work_mpi_process.'
-      STOP
+      CALL finish(method_name, ' Process type is not work_mpi_process.')
     END IF
     num_component = SIZE(p_work_root_processes)
     other_comp_root_global_mpi_id = -1
@@ -2067,8 +2075,7 @@ CONTAINS
     END DO
 
     IF (other_comp_root_global_mpi_id == -1) THEN
-      WRITE (nerr,'(a,a)') method_name, ' Other component not found.'
-      STOP
+      CALL message(method_name, ' Other component not found.')
     END IF
 
     ! Perform the same as above, but create the intra-communicators between
@@ -2160,18 +2167,22 @@ CONTAINS
     ! check if mpi is initialized
     CALL MPI_INITIALIZED(l_mpi_is_initialised, p_error)
     IF (p_error /= MPI_SUCCESS) THEN
+      ! assume MPI is not running
       WRITE (nerr,'(a,a)') routine, ' MPI_INITITIALIZED failed.'
       WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-      STOP
+#ifdef __STANDALONE
+      CALL exit(iexit)
+#else
+      CALL util_exit(iexit)
+#endif
     END IF
     !--------------------------------------------
     ! split global_mpi_communicator
     CALL MPI_Comm_split(global_mpi_communicator, component_no, my_global_mpi_id, &
       & new_communicator, p_error)
     IF (p_error /= MPI_SUCCESS) THEN
-      WRITE (nerr,'(a,a)') routine, ' MPI_Comm_split failed.'
-      WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-      STOP
+      WRITE (message_text,'(a,i4)') ' MPI_Comm_split failed: error =  ', p_error
+      CALL finish(routine, message_text)
     END IF
     CALL set_process_mpi_communicator(new_communicator)
     ALLOCATE(p_work_root_processes(num_components))
@@ -2206,13 +2217,21 @@ CONTAINS
     IF (p_error /= MPI_SUCCESS) THEN
       WRITE (nerr,'(a,a)') routine, ' MPI_INITITIALIZED failed.'
       WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-      STOP
+#ifdef __STANDALONE
+      CALL exit(iexit)
+#else
+      CALL util_exit(iexit)
+#endif
     END IF
 
     IF ( .NOT. l_mpi_is_initialised ) THEN
        WRITE (nerr,'(a,a)') routine, &
          & ' MPI_Init or start_mpi needs to be called first.'
-       STOP
+#ifdef __STANDALONE
+      CALL exit(iexit)
+#else
+      CALL util_exit(iexit)
+#endif
     ENDIF
 
     IF ( process_mpi_all_comm /= MPI_COMM_NULL) THEN
@@ -2342,7 +2361,11 @@ CONTAINS
     IF (p_error /= MPI_SUCCESS) THEN
        WRITE (nerr,'(a,a)') routine, ' MPI_INIT failed.'
        WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-       STOP
+#ifdef __STANDALONE
+      CALL exit(iexit)
+#else
+      CALL util_exit(iexit)
+#endif
     END IF
 
 #ifdef _OPENMP
@@ -2354,7 +2377,11 @@ CONTAINS
        WRITE (nerr,'(a,i0)') " provided: ", provided
        WRITE (nerr,'(a,i0)') " required: ", MPI_THREAD_MULTIPLE
        CALL MPI_Finalize(p_error)
-       STOP
+#ifdef __STANDALONE
+      CALL exit(iexit)
+#else
+      CALL util_exit(iexit)
+#endif       
     END IF
 #else
     IF (provided < MPI_THREAD_FUNNELED) THEN
@@ -2362,16 +2389,18 @@ CONTAINS
          & ' MPI_INIT_THREAD did not return desired level of thread support'
        WRITE (nerr,'(a,i0)') " provided: ", provided
        WRITE (nerr,'(a,i0)') " required: ", MPI_THREAD_FUNNELED
-       ! CALL MPI_Finalize(p_error)
-       ! STOP
-    END IF
+     END IF
 #endif
 #endif
 
     CALL MPI_BUFFER_ATTACH(mpi_buffer, SIZE(mpi_buffer), p_error)
     IF (p_error /= 0) THEN
        WRITE (0,*) "Error in MPI_BUFFER_ATTACH."
-       STOP
+#ifdef __STANDALONE
+      CALL exit(iexit)
+#else
+      CALL util_exit(iexit)
+#endif       
     END IF
 
     process_mpi_all_comm = MPI_COMM_NULL
@@ -2600,8 +2629,9 @@ CONTAINS
   !------------------------------------------------------------------------------
   SUBROUTINE abort_mpi
 
-    ! this routine should be used instead of abort, util_abort() or STOP
-    ! in all routines for proper clean up of all PEs
+    ! this routine should be used instead of abort, util_abort() or
+    ! STOP or any other exit call in all routines for proper clean up
+    ! of all PEs
 
 #ifndef NOMPI
     CALL MPI_ABORT (MPI_COMM_WORLD, 0, p_error)
@@ -2609,13 +2639,12 @@ CONTAINS
     IF (p_error /= MPI_SUCCESS) THEN
        WRITE (nerr,'(a)') ' MPI_ABORT failed.'
        WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-       STOP
-    END IF
-#else
+     END IF
+#endif
 #ifndef __STANDALONE
-    CALL util_exit(1)
+     CALL util_exit(1)
 #else
-    STOP 'mo_mpi: abort_mpi ..'
+     CALL exit(1)
 #endif
 #endif
 
@@ -9731,9 +9760,7 @@ CONTAINS
                      p_dest, p_comm, p_error)
 
      IF (p_error /= MPI_SUCCESS) THEN
-       WRITE (nerr,'(a)') ' p_gather_real_5d6d failed.'
-       WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       STOP
+       CALL finish('p_gather_real_5d6d', message_text)
      END IF
 
 #else
