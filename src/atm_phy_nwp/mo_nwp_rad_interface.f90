@@ -43,7 +43,9 @@ MODULE mo_nwp_rad_interface
   USE mo_albedo,               ONLY: sfc_albedo, sfc_albedo_modis
   USE mtime,                   ONLY: datetime
   USE mo_nwp_gpu_util,         ONLY: gpu_d2h_nh_nwp, gpu_h2d_nh_nwp
+#if defined( _OPENACC )
   USE mo_mpi,                  ONLY: i_am_accel_node, my_process_is_work
+#endif
   IMPLICIT NONE
 
   PRIVATE
