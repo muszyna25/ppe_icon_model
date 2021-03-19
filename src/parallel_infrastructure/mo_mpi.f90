@@ -2606,6 +2606,7 @@ CONTAINS
   !------------------------------------------------------------------------------
   SUBROUTINE stop_mpi
 
+    INTEGER :: iexit = 0    
     ! finish MPI and clean up all PEs
 
 #ifndef NOMPI
@@ -2615,14 +2616,19 @@ CONTAINS
     CALL MPI_FINALIZE (p_error)
 
     IF (p_error /= MPI_SUCCESS) THEN
-       WRITE (nerr,'(a)') ' MPI_FINALIZE failed.'
-       WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL abort_mpi
+      iexit = 1
+      WRITE (nerr,'(a)') ' MPI_FINALIZE failed.'
+      WRITE (nerr,'(a,i4)') ' Error = ', p_error
+      CALL abort_mpi
     END IF
     process_is_mpi_parallel = .FALSE.
     DEALLOCATE(p_request)
 #endif
-
+#ifdef __STANDALONE
+    CALL exit(iexit)
+#else
+    CALL util_exit(iexit)
+#endif
   END SUBROUTINE stop_mpi
   !------------------------------------------------------------------------------
 
