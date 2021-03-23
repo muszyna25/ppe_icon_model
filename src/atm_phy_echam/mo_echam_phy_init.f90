@@ -35,7 +35,7 @@ MODULE mo_echam_phy_init
   USE mo_impl_constants,       ONLY: min_rlcell_int, grf_bdywidth_c
   USE mo_parallel_config,      ONLY: nproma
   USE mo_master_config,        ONLY: isrestart
-  USE mo_run_config,           ONLY: ltestcase, lart,                       &
+  USE mo_run_config,           ONLY: ltestcase, lart, msg_level,            &
     &                                iqv, iqc, iqi, iqs, iqr, iqg, iqm_max, &
     &                                iqt, io3, ico2, ich4, in2o, ntracer
   USE mo_advection_config,     ONLY: advection_config
@@ -335,12 +335,14 @@ CONTAINS
       END IF
       !
       jg=1
-      CALL gscp_set_coefficients(tune_zceff_min      = echam_mig_config(jg)% zceff_min      ,&
+      CALL gscp_set_coefficients(idbg                = msg_level                            ,&
+         &                       tune_zceff_min      = echam_mig_config(jg)% zceff_min      ,&
          &                       tune_v0snow         = echam_mig_config(jg)% v0snow         ,&
          &                       tune_zvz0i          = echam_mig_config(jg)% zvz0i          ,&
          &                       tune_icesedi_exp    = echam_mig_config(jg)% icesedi_exp    ,&
          &                       tune_mu_rain        = echam_mig_config(jg)% mu_rain        ,&
-         &                       tune_rain_n0_factor = echam_mig_config(jg)% rain_n0_factor )
+         &                       tune_rain_n0_factor = echam_mig_config(jg)% rain_n0_factor ,&
+         &                       igscp               = 2 )
     END IF
 
     ! cloud cover diagnostics
