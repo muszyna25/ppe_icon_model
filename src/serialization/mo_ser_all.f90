@@ -257,6 +257,9 @@ MODULE mo_ser_all
 
     do_serialization = .TRUE.
 
+  ! make sure CPU and GPU are synchronous
+  !$acc wait
+
    SELECT CASE(savepoint_base)
       CASE("output_diag")
          output_diag_cnt = output_diag_cnt + 1
