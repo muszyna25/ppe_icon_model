@@ -105,6 +105,7 @@ MODULE mo_nwp_phy_types
     TYPE(t_ptr_2d3d),ALLOCATABLE :: lhfl_bs_t_ptr(:)!< pointer array: lhf from bare soil
     TYPE(t_ptr_2d3d),ALLOCATABLE :: lhfl_pl_t_ptr(:)!< pointer array: lhf from plants
     TYPE(t_ptr_2d3d),ALLOCATABLE :: aerosol_ptr(:)  !< pointer array: prognostic vertically integrated aerosol optical depth
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: uh_max_ptr(:)   !< pointer array: max. updraft helicity in time interval
 
     REAL(wp), POINTER          &
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
@@ -454,7 +455,7 @@ MODULE mo_nwp_phy_types
       q_sedim(:,:,:),      & !> Specific content of precipitation particles
       tcond_max(:,:),      & !< Total column-integrated condensate
       tcond10_max(:,:),    & !< Total column-integrated condensate above z(T=-10 degC) 
-      uh_max(:,:),         & !< Updraft helicity
+      uh_max_3d(:,:,:),    & !< Updraft helicity (integrated over different vertical layers)
       vorw_ctmax(:,:),     & !< Maximum rotation amplitude
       w_ctmax(:,:),        & !< Maximum updraft track
       dbz3d_lin(:,:,:),    & !< Radar reflectivity 3D in linear units mm^6/m^3

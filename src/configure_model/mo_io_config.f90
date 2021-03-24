@@ -80,6 +80,11 @@ MODULE mo_io_config
   LOGICAL :: lnetcdf_flt64_output       !< if .TRUE. floating point valued NetCDF output
                                         !  is written in 64-bit instead of 32-bit accuracy
 
+  INTEGER, PARAMETER :: uh_max_nlayer = 3
+  REAL(wp):: uh_max_zmin(uh_max_nlayer), &  !< minimum and maximum height in m MSL for the vertical
+             uh_max_zmax(uh_max_nlayer)     !  integration of uh_max (output vars uh_max<_low,_med>)
+  LOGICAL :: luh_max_out(uh_max_nlayer)
+
   TYPE t_echotop_meta
     REAL(wp) :: time_interval           !< time interval [seconds] over which echotops are maximized/minimized
                                         !   (ECHOTOP, ECHOTOPinM) for a domain
@@ -115,7 +120,9 @@ MODULE mo_io_config
     LOGICAL :: smi         = .FALSE. !< Flag. TRUE if computation of soil moisture index desired
     LOGICAL :: tcond_max   = .FALSE. !< Flag. TRUE if computation of total column-integrated condensate desired
     LOGICAL :: tcond10_max = .FALSE. !< Flag. TRUE if computation of total column-integrated condensate above z(T=-10 degC) desired
-    LOGICAL :: uh_max      = .FALSE. !< Flag. TRUE if computation of updraft helicity desired
+    LOGICAL :: uh_max_low  = .FALSE. !< Flag. TRUE if computation of updraft helicity (0 - 3000 m) desired
+    LOGICAL :: uh_max_med  = .FALSE. !< Flag. TRUE if computation of updraft helicity (2000 - 5000 m) desired
+    LOGICAL :: uh_max      = .FALSE. !< Flag. TRUE if computation of updraft helicity (2000 - 8000 m) desired
     LOGICAL :: vorw_ctmax  = .FALSE. !< Flag. TRUE if computation of maximum rotation amplitude desired
     LOGICAL :: w_ctmax     = .FALSE. !< Flag. TRUE if computation of maximum updraft track desired
     LOGICAL :: vor_u       = .FALSE. !< Flag. TRUE if computation of zonal component of relative vorticity desired
@@ -214,6 +221,8 @@ CONTAINS
         var_in_output(jg)%q_sedim     = is_variable_in_output_dom(var_name="q_sedim", jg=jg)
         var_in_output(jg)%tcond_max   = is_variable_in_output_dom(var_name="tcond_max", jg=jg)
         var_in_output(jg)%tcond10_max = is_variable_in_output_dom(var_name="tcond10_max", jg=jg)
+        var_in_output(jg)%uh_max_low  = is_variable_in_output_dom(var_name="uh_max_low", jg=jg)
+        var_in_output(jg)%uh_max_med  = is_variable_in_output_dom(var_name="uh_max_med", jg=jg)
         var_in_output(jg)%uh_max      = is_variable_in_output_dom(var_name="uh_max", jg=jg)
         var_in_output(jg)%vorw_ctmax  = is_variable_in_output_dom(var_name="vorw_ctmax", jg=jg)
         var_in_output(jg)%w_ctmax     = is_variable_in_output_dom(var_name="w_ctmax", jg=jg)

@@ -54,7 +54,8 @@ MODULE mo_nwp_diagnosis
   USE mo_physical_constants, ONLY: tmelt, grav, cpd, vtmpc1
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
   USE mo_advection_config,   ONLY: advection_config
-  USE mo_io_config,          ONLY: lflux_avg, t_var_in_output
+  USE mo_io_config,          ONLY: lflux_avg, t_var_in_output, uh_max_zmin, uh_max_zmax, &
+    &                              luh_max_out, uh_max_nlayer
   USE mo_sync,               ONLY: global_max, global_min
   USE mo_vertical_coord_table,  ONLY: vct_a
   USE mo_satad,              ONLY: sat_pres_water, spec_humi
@@ -1603,7 +1604,7 @@ CONTAINS
 
     LOGICAL :: l_active(3), l_lpimax_event_active, l_celltracks_event_active, l_dbz_event_active, &
                l_need_dbz3d, l_need_temp, l_need_pres
-    INTEGER :: jg
+    INTEGER :: jg, k
 
     l_active(1) = is_event_active(lpi_max_Event,    mtime_current, proc0_offloading, plus_slack, opt_lasync=.TRUE.)
     l_active(2) = is_event_active(celltracks_Event, mtime_current, proc0_offloading, plus_slack, opt_lasync=.TRUE.)
@@ -1670,11 +1671,15 @@ CONTAINS
              &                        prm_diag(jg)%tcond_max, prm_diag(jg)%tcond10_max  )
       END IF
 
-      ! update of UH_MAX (updraft helicity, max.  during the time interval "celltracks_interval") if required
-      IF ( var_in_output(jg)%uh_max .AND. (l_output(jg) .OR. l_celltracks_event_active ) ) THEN
-        CALL compute_field_uh_max( p_patch(jg), p_nh(jg)%metrics, p_nh(jg)%prog(nnow(jg)), p_nh(jg)%diag,  &
-             &                     prm_diag(jg)%uh_max  )
-      END IF
+      DO k = 1,uh_max_nlayer
+
+        ! update of UH_MAX (updraft helicity, max.  during the time interval "celltracks_interval") if required
+        IF ( luh_max_out(k) .AND. (l_output(jg) .OR. l_celltracks_event_active ) ) THEN
+          CALL compute_field_uh_max( p_patch(jg), p_nh(jg)%metrics, p_nh(jg)%prog(nnow(jg)), p_nh(jg)%diag,  &
+               &                     uh_max_zmin(k), uh_max_zmax(k), prm_diag(jg)%uh_max_3d(:,:,k) )
+        END IF
+
+      END DO
 
       ! update of VORW_CTMAX (Maximum rotation amplitude during the time interval "celltracks_interval") if required
       IF ( var_in_output(jg)%vorw_ctmax .AND. (l_output(jg) .OR. l_celltracks_event_active ) ) THEN
