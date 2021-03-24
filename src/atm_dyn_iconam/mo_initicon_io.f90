@@ -1717,6 +1717,7 @@ CONTAINS
     TYPE IS (setup_tracer_buf_state)
       IF (.NOT. field%info%lcontainer .AND. field%info%in_group(state%grp_id)) THEN
         idx = state%idx + 1
+        jg = state%patch_id
         name = get_var_name(field)
         IF ( ASSOCIATED(state%atm_in) ) THEN
           state%atm_in%tracer(idx)%var_element => field

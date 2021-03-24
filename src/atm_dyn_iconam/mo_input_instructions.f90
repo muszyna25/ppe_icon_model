@@ -170,12 +170,12 @@ CONTAINS
                 CALL collect_group('mode_dwd_fg_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
                 CALL collect_group('tracer_fg_in', tracerGroup, tracerGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
                 ! fgGroup += tracerGroup
-                CALL add_to_list(outGroup, outGroupSize, tracerGroup(1:tracerGroupSize), tracerGroupSize)
+                CALL add_to_list(outGroup, outGroupSize, tracerGroup, tracerGroupSize)
             CASE(MODE_IAU)
                 CALL collect_group('mode_iau_fg_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
                 CALL collect_group('tracer_fg_in', tracerGroup, tracerGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
                 ! fgGroup += tracerGroup
-                CALL add_to_list(outGroup, outGroupSize, tracerGroup(1:tracerGroupSize), tracerGroupSize)
+                CALL add_to_list(outGroup, outGroupSize, tracerGroup, tracerGroupSize)
             CASE(MODE_IAU_OLD)
                 CALL collect_group('mode_iau_old_fg_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
             CASE(MODE_COMBINED)
