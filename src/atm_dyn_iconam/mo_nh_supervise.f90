@@ -42,7 +42,8 @@ MODULE mo_nh_supervise
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
 #ifdef _OPENACC
-  USE mo_mpi,                 ONLY: i_am_accel_node
+  USE mo_mpi,                   ONLY: i_am_accel_node
+  USE mo_acc_device_management, ONLY: printGPUMem
 #endif
   USE mo_upatmo_impl_const,   ONLY: idamtr
 
@@ -607,6 +608,9 @@ CONTAINS
         WRITE(message_text,'(a,i3,a,2(e18.10,a,i5,a,i3,a))') 'MAXABS VN, W in domain', patch%id, ':', &
           & max_vn, " (on proc #", max_vn_process, ", level ", max_vn_level, "), ", &
           & max_w,  " (on proc #", max_w_process,  ", level ", max_w_level,  "), "
+#ifdef _OPENACC
+        CALL printGPUMem("GPU mem usage")
+#endif
       ELSE
         WRITE(message_text,'(a,i3,a,2(e18.10,a,i3,a))') 'MAXABS VN, W in domain', patch%id, ':', &
           & max_vn, " at level ",  max_vn_level, ", ", &
