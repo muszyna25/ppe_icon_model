@@ -51,7 +51,8 @@ SUBROUTINE rad_aero_diag (                                  &
       & paer_cg_sw_vr                                     , &
       & aer_aod_533     ,aer_ssa_533     ,aer_asy_533     , &
       & aer_aod_2325    ,aer_ssa_2325    ,aer_asy_2325    , &
-      & aer_aod_9731                                        )
+      & aer_aod_9731                                      , &
+      & opt_use_acc                                       )
 
       INTEGER, INTENT(in)    :: kcs     ! actual block length (start index)
       INTEGER, INTENT(in)    :: kce     ! actual block length (end index)
@@ -71,7 +72,12 @@ SUBROUTINE rad_aero_diag (                                  &
            & aer_ssa_2325(kbdim,klev), & ! ssa at 2325 nm
            & aer_asy_2325(kbdim,klev), & ! asy at 2325 nm
            & aer_aod_9731(kbdim,klev)    ! aod at 9731 nm
-           
+      LOGICAL, INTENT(IN), OPTIONAL  :: opt_use_acc
+
+      LOGICAL :: use_acc   = .FALSE.  ! Default: no acceleration
+      IF (PRESENT(opt_use_acc)) use_acc = opt_use_acc
+
+      !$ACC KERNELS DEFAULT(PRESENT) ASYNC(1) IF (use_acc)
       aer_aod_9731(kcs:kce,1:klev) = &
            paer_tau_lw_vr(kcs:kce,klev:1:-1,7)
       aer_aod_533 (kcs:kce,1:klev) = &
@@ -88,6 +94,8 @@ SUBROUTINE rad_aero_diag (                                  &
            paer_cg_sw_vr(kcs:kce,klev:1:-1,3)
       aer_aod_9731(kcs:kce,1:klev) = &
            paer_tau_lw_vr(kcs:kce,klev:1:-1,7)
+      !$ACC END KERNELS
+
 END SUBROUTINE rad_aero_diag
 
 END MODULE mo_rad_diag

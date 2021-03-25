@@ -66,7 +66,11 @@ MODULE mo_upatmo_phy_euv
   USE mo_impl_constants,     ONLY: SUCCESS
   USE mo_upatmo_impl_const,  ONLY: isolvar, iorbit, icycle
   USE mo_math_constants,     ONLY: pi2
+#ifdef __NO_RTE_RRTMGP__
   USE mo_psrad_orbit,        ONLY: orbit_kepler, orbit_vsop87, get_orbit_times
+#else
+  USE mo_radiation_orbit,    ONLY: orbit_kepler, orbit_vsop87, get_orbit_times
+#endif
   USE mtime,                 ONLY: datetime, timedelta, newDateTime, operator(-), getTotalSecondsTimeDelta
 
   IMPLICIT NONE

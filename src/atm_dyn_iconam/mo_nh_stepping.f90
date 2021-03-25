@@ -234,8 +234,9 @@ MODULE mo_nh_stepping
     &                                    upatmoRestartAttributesPrepare, &
     &                                    upatmoRestartAttributesGet,     &
     &                                    upatmoRestartAttributesDeallocate
-
+#ifdef __NO_RTE_RRTMGP__
   USE mo_atmo_psrad_interface,     ONLY: finalize_atmo_radation
+#endif
   use mo_icon2dace,                ONLY: mec_Event, init_dace_op, run_dace_op, dace_op_init
   USE mo_extpar_config,            ONLY: generate_td_filename
   USE mo_nudging_config,           ONLY: nudging_config, l_global_nudging
@@ -1397,10 +1398,12 @@ MODULE mo_nh_stepping
        END IF
     END IF
 
+#ifdef __NO_RTE_RRTMGP__
     IF (mtime_current >= time_config%tc_stopdate) THEN
       ! this needs to be done before writing the restart, but after anything esle that uses/outputs radation fluxes
       CALL finalize_atmo_radation()
     ENDIF
+#endif
 
     IF (lwrite_checkpoint) THEN
 

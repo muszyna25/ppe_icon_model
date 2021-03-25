@@ -73,7 +73,7 @@ MODULE mo_initicon_io
   USE mo_util_string,         ONLY: int2string
   USE mo_atm_phy_nwp_config,  ONLY: iprog_aero, atm_phy_nwp_config
 
-  USE mo_linked_list,         ONLY: t_list_element, t_var_list_intrinsic
+  USE mo_linked_list,         ONLY: t_var_list_intrinsic
   USE mo_var_list_element,    ONLY: t_var_list_element, level_type_ml
   USE mo_var_list,            ONLY: var_lists_apply, get_var_name
   USE mo_var_groups,          ONLY: var_groups_dyn
