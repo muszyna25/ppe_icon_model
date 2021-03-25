@@ -755,6 +755,10 @@ CONTAINS
 
     ENDIF
 
+    !$ACC ENTER DATA COPYIN(advection_config)
+    !$ACC UPDATE DEVICE(advection_config(jg))
+    !$ACC ENTER DATA COPYIN(advection_config(jg)%iadv_slev, advection_config(jg)%trAdvect%list)
+
   END SUBROUTINE configure_advection
 
 

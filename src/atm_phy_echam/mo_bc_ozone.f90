@@ -38,7 +38,11 @@ MODULE mo_bc_ozone
   &                                      calculate_time_interpolation_weights
   IMPLICIT NONE
   PRIVATE
+#ifdef __NO_RTE_RRTMGP__
   REAL(wp), PARAMETER               :: vmr2mmr_o3=amo3/amd  ! Volume mixing ratio to mass mixing ratio
+#else
+  REAL(wp), PARAMETER               :: vmr2mmr_o3=1._wp     ! No conversion for RTE-RRTMGP
+#endif
   INTEGER(i8), SAVE                 :: pre_year(max_dom)=-HUGE(1) ! Variable to check if it is time to read
 
   PUBLIC                            :: ext_ozone
@@ -113,9 +117,13 @@ CONTAINS
         ! year of a simulation that started before this year, meaning that
         ! a year of external monthly ozone data is already stored.
         !
+#ifdef __NO_RTE_RRTMGP__
         IF (echam_rad_config(jg)% irad_o3==8) THEN
+#else
+        IF (echam_rad_config(jg)% irad_o3==5) THEN
+#endif
           !
-          ! If irad_o3=8, ozone is transient and the external monthly ozone data
+          ! ozone is transient and the external monthly ozone data
           ! of this year and January of the next year must be read from file.
           !
           ! For other irad_o3 cases no new data must be read.
@@ -167,7 +175,7 @@ CONTAINS
               &               start_timestep=1,end_timestep=1)
             CALL closeFile(stream_id)
             ext_ozone(jg)% o3_plev(:,:,:,imonth_end) = vmr2mmr_o3*zo3_plev(:,:,:,1)
-           ENDIF
+          ENDIF
 
         END IF
         !
@@ -181,7 +189,11 @@ CONTAINS
         !
         SELECT CASE (echam_rad_config(jg)% irad_o3)
         !
+#ifdef __NO_RTE_RRTMGP__
         CASE (2) ! Ozone has a climatological annual cycle defined by monthly data in an annual file
+#else
+        CASE (6) ! Ozone has a climatological annual cycle defined by monthly data in an annual file
+#endif
           !
           IF ( nyears > 1 ) THEN
             imonth_beg = 0
@@ -220,6 +232,7 @@ CONTAINS
             &                             SIZE(zo3_plev,2), &
             &                             SIZE(zo3_plev,3),0:13))
           !$ACC ENTER DATA PCREATE( ext_ozone(jg)%o3_plev )
+          ext_ozone(jg)% o3_plev = 0.0_wp
           !
           ext_ozone(jg)% o3_plev(:,:,:,kmonth_beg:kmonth_end) = vmr2mmr_o3*zo3_plev(:,:,:,1:nmonths)
           !
@@ -272,12 +285,17 @@ CONTAINS
           !
           ! Now the spatial dimensions are known --> allocate memory for one time slice
           ALLOCATE(ext_ozone(jg)% o3_plev(SIZE(zo3_plev,1),SIZE(zo3_plev,2),SIZE(zo3_plev,3),1))
+          ext_ozone(jg)% o3_plev = 0.0_wp
           !$ACC ENTER DATA PCREATE( ext_ozone(jg)%o3_plev )
           !
           ext_ozone(jg)% o3_plev(:,:,:,1) = vmr2mmr_o3*zo3_plev(:,:,:,1)
           !
           !
+#ifdef __NO_RTE_RRTMGP__
         CASE (8, 10) ! Ozone is transient and defined by monthly data in annual files
+#else
+        CASE (5) ! Ozone is transient and defined by monthly data in annual files
+#endif
           !
           IF ( nyears > 1 ) THEN
             imonth_beg = 0
@@ -315,11 +333,11 @@ CONTAINS
             ! Now the spatial dimensions are known -->
             !       allocate memory for months imonth_beg to imonth_end
             ! o3_plev has to be allocated from 0:13, because
-            ! time dimensions for case 8 are hardcoded in
-            ! o3_timeint as well
+            ! time dimensions are hardcoded in o3_timeint as well
             ALLOCATE(ext_ozone(jg)% o3_plev(SIZE(zo3_plev,1), &
                                             SIZE(zo3_plev,2), &
                                             SIZE(zo3_plev,3), 0:13))
+            ext_ozone(jg)% o3_plev = 0.0_wp
             !$ACC ENTER DATA PCREATE( ext_ozone(jg)%o3_plev )
             !
             ext_ozone(jg)% o3_plev(:,:,:,0) = vmr2mmr_o3*zo3_plev(:,:,:,1)
@@ -347,11 +365,11 @@ CONTAINS
           !       allocate memory for months imonth_beg to imonth_end
           IF ( imonth_beg > 0 ) THEN
             ! o3_plev has to be allocated from 0:13, because
-            ! time dimensions for case 8 are hardcoded in
-            ! o3_timeint as well
+            ! time dimensions are hardcoded in o3_timeint as well
             ALLOCATE(ext_ozone(jg)% o3_plev(SIZE(zo3_plev,1), &
                                             SIZE(zo3_plev,2), &
                                             SIZE(zo3_plev,3), 0:13))
+            ext_ozone(jg)% o3_plev = 0.0_wp
             !$ACC ENTER DATA PCREATE( ext_ozone(jg)%o3_plev )
           ENDIF
           !
@@ -380,11 +398,11 @@ CONTAINS
             !       allocate memory for month 13 only
             IF ( imonth_beg == 13 ) THEN
               ! o3_plev has to be allocated from 0:13, because
-              ! time dimensions for case 8 are hardcoded in
-              ! o3_timeint as well
+              ! time dimensions are hardcoded in o3_timeint as well
               ALLOCATE(ext_ozone(jg)% o3_plev(SIZE(zo3_plev,1), &
                                               SIZE(zo3_plev,2), &
                                               SIZE(zo3_plev,3), 0:13))
+              ext_ozone(jg)% o3_plev = 0.0_wp
               !$ACC ENTER DATA PCREATE( ext_ozone(jg)%o3_plev )
             ENDIF
             !
@@ -428,13 +446,10 @@ CONTAINS
 
         ext_ozone(jg)% plev_half_o3(nplev_o3+1) = 125000._wp
 
-#ifdef _OPENACC
-        CALL warning("GPU:read_bc_ozone", "GPU device synchronization")
-#endif
         ! Set pointer for OpenACC
-        !$ACC UPDATE DEVICE( ext_ozone(jg)%o3_plev, ext_ozone(jg)%plev_half_o3, &
-        !$ACC                ext_ozone(jg)%plev_full_o3 )
+        !$ACC UPDATE DEVICE( ext_ozone(jg)%plev_half_o3, ext_ozone(jg)%plev_full_o3 ) 
       END IF
+      !$ACC UPDATE DEVICE( ext_ozone(jg)%o3_plev ) 
 
       pre_year(jg) = year
 
