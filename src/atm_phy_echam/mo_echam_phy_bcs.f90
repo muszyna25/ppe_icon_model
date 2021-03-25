@@ -36,8 +36,15 @@ MODULE mo_echam_phy_bcs
   USE mo_echam_phy_config           ,ONLY: echam_phy_config, echam_phy_tc, dt_zero
   USE mo_echam_rad_config           ,ONLY: echam_rad_config
   USE mo_ccycle_config              ,ONLY: ccycle_config
+#ifdef __NO_RTE_RRTMGP__
   USE mo_psrad_solar_data           ,ONLY: ssi_radt, tsi_radt, tsi
   USE mo_psrad_radiation            ,ONLY: pre_psrad_radiation
+  USE mo_atmo_psrad_interface       ,ONLY: dtrad_shift
+#else
+  USE mo_radiation_solar_data       ,ONLY: ssi_radt, tsi_radt, tsi
+  USE mo_rte_rrtmgp_radiation       ,ONLY: pre_rte_rrtmgp_radiation
+  USE mo_bc_aeropt_stenchikov       ,ONLY: read_bc_aeropt_stenchikov
+#endif
 
   USE mo_echam_sfc_indices          ,ONLY: nsfc_type, iwtr, iice
 
@@ -51,7 +58,6 @@ MODULE mo_echam_phy_bcs
   USE mo_bc_ozone                   ,ONLY: read_bc_ozone
   USE mo_bc_aeropt_kinne            ,ONLY: read_bc_aeropt_kinne
   USE mo_bc_aeropt_cmip6_volc       ,ONLY: read_bc_aeropt_cmip6_volc
-  USE mo_atmo_psrad_interface       ,ONLY: dtrad_shift
 #if defined( _OPENACC )
   USE mo_mpi                   ,ONLY: i_am_accel_node, my_process_is_work
 #endif
@@ -132,10 +138,6 @@ CONTAINS
     TYPE(t_echam_phy_field) , POINTER    :: field
     !
     !
-#ifdef _OPENACC
-    save_i_am_accel_node = i_am_accel_node
-    i_am_accel_node = .FALSE.    ! Deactivate GPUs
-#endif
     jg        =  patch%id ! grid index
     
     !-------------------------------------------------------------------------
@@ -275,115 +277,154 @@ CONTAINS
     IF (luse_rad) THEN
 
       ! total solar irradiation at the mean sun earth distance
+      ! WS TODO: check that this is identical for RTE-RRTMGP and PSrad 
       IF (echam_rad_config(jg)% isolrad == 1) THEN
         CALL read_bc_solar_irradiance(mtime_old%date%year, .FALSE.)
         CALL ssi_time_interpolation(current_time_interpolation_weights, .FALSE., tsi)
       END IF
 
-    !
-    ! quantities needed for the radiative transfer only
-    !
-    IF (ltrig_rad) THEN
-      !
-      ! Set the time instance datetime_radtran for the zenith angle to be used
-      ! in the radiative transfer. All other input for the radiative transfer
-      ! is for datetime, i.e. the start date and time of the current timestep.
-      !
-      IF (ASSOCIATED(radtime_domains(jg)%radiation_time)) &
-        & CALL deallocateDatetime(radtime_domains(jg)%radiation_time) 
-      radtime_domains(jg)%radiation_time => newDatetime(mtime_old)
-      dtrad_loc = getTotalSecondsTimeDelta(echam_phy_tc(jg)%dt_rad,mtime_old) ! [s] local time step of radiation
-      dsec = 0.5_wp*(dtrad_loc - dtadv_loc) + dtrad_shift                     ! [s] time increment for zenith angle
-      CALL getPTStringFromSeconds(dsec, dstring)
-      td_radiation_offset => newTimedelta(dstring)
-      radtime_domains(jg)%radiation_time = radtime_domains(jg)%radiation_time + td_radiation_offset
-      !
-      ! interpolation weights for linear interpolation
-      ! of monthly means onto the radiation time step
-      radiation_time_interpolation_weights = calculate_time_interpolation_weights(radtime_domains(jg)%radiation_time)
-      !
-      ! total and spectral solar irradiation at the mean sun earth distance
-      IF (echam_rad_config(jg)% isolrad == 1) THEN
-        CALL read_bc_solar_irradiance(mtime_old%date%year,.TRUE.)
-        CALL ssi_time_interpolation(radiation_time_interpolation_weights,.TRUE.,tsi_radt,ssi_radt)
-      END IF
-      !
-      ! ozone concentration
-      IF   (      echam_rad_config(jg)% irad_o3 ==  2 &       ! climatological annual cycle defined by monthly data
-           & .OR. echam_rad_config(jg)% irad_o3 ==  4 &       ! constant in time
-           & .OR. echam_rad_config(jg)% irad_o3 ==  8 &       ! transient monthly means
-           & .OR. echam_rad_config(jg)% irad_o3 == 10 ) THEN  ! coupled to ART
-        CALL read_bc_ozone(mtime_old%date%year, patch)
-      END IF
-      !
-      ! tropospheric aerosol optical properties after S. Kinne
-      IF (echam_rad_config(jg)% irad_aero == 13) THEN
-        CALL read_bc_aeropt_kinne(mtime_old, patch)
-      END IF
-      !
-      ! stratospheric aerosol optical properties
-      IF (echam_rad_config(jg)% irad_aero == 14) THEN
-        CALL read_bc_aeropt_cmip6_volc(mtime_old, patch%id)
-      END IF
-      !
-      ! tropospheric aerosols after S. Kinne and stratospheric aerosol optical properties
-      IF (echam_rad_config(jg)% irad_aero == 15) THEN
-        CALL read_bc_aeropt_kinne     (mtime_old, patch)
-        CALL read_bc_aeropt_cmip6_volc(mtime_old, patch%id)
-      END IF
-      !
-      ! tropospheric background aerosols (Kinne) and stratospheric
-      ! aerosols (CMIP6) + simple plumes (analytical, nothing to be read
-      ! here, initialization see init_echam_phy (mo_echam_phy_init)) 
-      IF (echam_rad_config(jg)% irad_aero == 18) THEN
-        CALL read_bc_aeropt_kinne     (mtime_old, patch)
-        CALL read_bc_aeropt_cmip6_volc(mtime_old, patch%id)
-      END IF
-      ! tropospheric background aerosols (Kinne), no stratospheric
-      ! aerosols + simple plumes (analytical, nothing to be read
-      ! here, initialization see init_echam_phy (mo_echam_phy_init)) 
-      IF (echam_rad_config(jg)% irad_aero == 19) THEN
-        CALL read_bc_aeropt_kinne     (mtime_old, patch)
-      END IF
-      !
-      ! greenhouse gas concentrations, assumed constant in horizontal dimensions
-      ghg_time_interpol_already_done = .FALSE.
-      IF  ( echam_rad_config(jg)%irad_co2   == 4 .OR. &
-          & echam_rad_config(jg)%irad_ch4   == 4 .OR. &
-          & echam_rad_config(jg)%irad_n2o   == 4 .OR. &
-          & echam_rad_config(jg)%irad_cfc11 == 4 .OR. &
-          & echam_rad_config(jg)%irad_cfc12 == 4      ) THEN
-        CALL bc_greenhouse_gases_time_interpolation(mtime_old)
-        ghg_time_interpol_already_done = .TRUE.
-      END IF
-      !
-    END IF ! ltrig_rad
-    !
-    ! co2 concentration for carbon cycle
-    IF  ( ccycle_config(jg)%iccycle  == 2 .AND. &       ! c-cycle is used with prescribed co2 conc.
-        & ccycle_config(jg)%ico2conc == 4 .AND. &       ! co2 conc. is read from scenario file
-        & .NOT. ghg_time_interpol_already_done  ) THEN  ! time interpolation still to be done
-      CALL bc_greenhouse_gases_time_interpolation(mtime_old)
-    END IF
-
-    IF ( luse_rad ) THEN
-       CALL pre_psrad_radiation(                                             &
-            & patch,                     radtime_domains(jg)%radiation_time, &
-            & mtime_old,                 ltrig_rad,                          &
-            & prm_field(jg)%cosmu0,      prm_field(jg)%daylght_frc,          &
-            & prm_field(jg)%cosmu0_rt,   prm_field(jg)%daylght_frc_rt )
 #ifdef _OPENACC
-       CALL warning("GPU:echam_phy_bcs", "GPU device synchronization")
+      save_i_am_accel_node = i_am_accel_node
+      i_am_accel_node = .FALSE. ! Deactivate GPUs; 2021.03.02 needed in read_bc_* if it is called, but why?
 #endif
-       !$ACC UPDATE DEVICE( prm_field(jg)%cosmu0, prm_field(jg)%cosmu0_rt,         &
-       !$ACC                prm_field(jg)%daylght_frc, prm_field(jg)%daylght_frc_rt )
-    END IF
+      !
+      ! quantities needed for the radiative transfer only
+      !
+      IF (ltrig_rad) THEN
+        !
+        ! Set the time instance datetime_radtran for the zenith angle to be used
+        ! in the radiative transfer. All other input for the radiative transfer
+        ! is for datetime, i.e. the start date and time of the current timestep.
+        !
+        IF (ASSOCIATED(radtime_domains(jg)%radiation_time)) &
+          & CALL deallocateDatetime(radtime_domains(jg)%radiation_time) 
+        radtime_domains(jg)%radiation_time => newDatetime(mtime_old)
+        dtrad_loc = getTotalSecondsTimeDelta(echam_phy_tc(jg)%dt_rad,mtime_old) ! [s] local time step of radiation
+#ifdef __NO_RTE_RRTMGP__
+        dsec = 0.5_wp*(dtrad_loc - dtadv_loc) + dtrad_shift       ! [s] time increment for zenith angle
+#else
+        dsec = 0.5_wp*(dtrad_loc - dtadv_loc)                     ! [s] time increment for zenith angle
+#endif
+        CALL getPTStringFromSeconds(dsec, dstring)
+        td_radiation_offset => newTimedelta(dstring)
+        radtime_domains(jg)%radiation_time = radtime_domains(jg)%radiation_time + td_radiation_offset
+        !
+        ! interpolation weights for linear interpolation
+        ! of monthly means onto the radiation time step
+        radiation_time_interpolation_weights = calculate_time_interpolation_weights(radtime_domains(jg)%radiation_time)
+        !
+        ! total and spectral solar irradiation at the mean sun earth distance
+        IF (echam_rad_config(jg)% isolrad == 1) THEN
+          CALL read_bc_solar_irradiance(mtime_old%date%year,.TRUE.)
+          CALL ssi_time_interpolation(radiation_time_interpolation_weights,.TRUE.,tsi_radt,ssi_radt)
+        END IF
+        !
+        ! ozone concentration
+        IF   (      echam_rad_config(jg)% irad_o3 ==  4 &       ! constant in time
+#ifdef __NO_RTE_RRTMGP__
+             & .OR. echam_rad_config(jg)% irad_o3 ==  2 &       ! climatological annual cycle defined by monthly data
+             & .OR. echam_rad_config(jg)% irad_o3 ==  8 &       ! transient monthly means
+#else
+             & .OR. echam_rad_config(jg)% irad_o3 ==  6 &       ! climatological annual cycle defined by monthly data
+             & .OR. echam_rad_config(jg)% irad_o3 ==  5 &       ! transient monthly means
+#endif
+             & .OR. echam_rad_config(jg)% irad_o3 == 10 ) THEN  ! coupled to ART
+          CALL read_bc_ozone(mtime_old%date%year, patch)
+        END IF
+        !
+        ! tropospheric aerosol optical properties after S. Kinne
+        IF (echam_rad_config(jg)% irad_aero == 13) THEN
+          CALL read_bc_aeropt_kinne(mtime_old, patch)
+        END IF
+        !
+        ! stratospheric aerosol optical properties
+        IF (echam_rad_config(jg)% irad_aero == 14) THEN
+#ifdef __NO_RTE_RRTMGP__
+          CALL read_bc_aeropt_cmip6_volc(mtime_old, patch%id)
+#else
+          CALL read_bc_aeropt_stenchikov(mtime_old, patch)
+#endif
+        END IF
+        !
+        ! tropospheric aerosols after S. Kinne and stratospheric aerosol optical properties
+        IF (echam_rad_config(jg)% irad_aero == 15) THEN
+          CALL read_bc_aeropt_kinne     (mtime_old, patch)
+#ifdef __NO_RTE_RRTMGP__
+          CALL read_bc_aeropt_cmip6_volc(mtime_old, patch%id)
+#else
+          CALL read_bc_aeropt_stenchikov(mtime_old, patch)
+#endif
+        END IF
+        !
+        ! tropospheric background aerosols (Kinne) and stratospheric
+        ! aerosols (CMIP6) + simple plumes (analytical, nothing to be read
+        ! here, initialization see init_echam_phy (mo_echam_phy_init)) 
+        IF (echam_rad_config(jg)% irad_aero == 18) THEN
+          CALL read_bc_aeropt_kinne     (mtime_old, patch)
+#ifdef __NO_RTE_RRTMGP__
+          CALL read_bc_aeropt_cmip6_volc(mtime_old, patch%id)
+#else
+          CALL read_bc_aeropt_stenchikov(mtime_old, patch)
+#endif
+        END IF
+        ! tropospheric background aerosols (Kinne), no stratospheric
+        ! aerosols + simple plumes (analytical, nothing to be read
+        ! here, initialization see init_echam_phy (mo_echam_phy_init)) 
+        IF (echam_rad_config(jg)% irad_aero == 19) THEN
+          CALL read_bc_aeropt_kinne     (mtime_old, patch)
+        END IF
+        !
+        ! greenhouse gas concentrations, assumed constant in horizontal dimensions
+        ghg_time_interpol_already_done = .FALSE.
+#ifdef __NO_RTE_RRTMGP__
+        IF  ( echam_rad_config(jg)%irad_co2   == 4 .OR. &
+            & echam_rad_config(jg)%irad_ch4   == 4 .OR. &
+            & echam_rad_config(jg)%irad_n2o   == 4 .OR. &
+            & echam_rad_config(jg)%irad_cfc11 == 4 .OR. &
+            & echam_rad_config(jg)%irad_cfc12 == 4      ) THEN
+#else
+        IF  ( echam_rad_config(jg)%irad_co2   == 3 .OR. &
+            & echam_rad_config(jg)%irad_ch4   == 3 .OR. &
+            & echam_rad_config(jg)%irad_ch4   ==13 .OR. &
+            & echam_rad_config(jg)%irad_n2o   == 3 .OR. &
+            & echam_rad_config(jg)%irad_n2o   ==13 .OR. &
+            & echam_rad_config(jg)%irad_cfc11 == 3 .OR. &
+            & echam_rad_config(jg)%irad_cfc12 == 3      ) THEN
+#endif
+          CALL bc_greenhouse_gases_time_interpolation(mtime_old)
+          ghg_time_interpol_already_done = .TRUE.
+        END IF
+      END IF ! ltrig_rad
+      !
+      ! co2 concentration for carbon cycle
+      IF  ( ccycle_config(jg)%iccycle  == 2 .AND. &       ! c-cycle is used with prescribed co2 conc.
+          & ccycle_config(jg)%ico2conc == 4 .AND. &       ! co2 conc. is read from scenario file
+          & .NOT. ghg_time_interpol_already_done  ) THEN  ! time interpolation still to be done
+        CALL bc_greenhouse_gases_time_interpolation(mtime_old)
+      END IF
+
+#ifdef _OPENACC
+      i_am_accel_node = save_i_am_accel_node    ! Reactivate GPUs if appropriate
+#endif
+      IF ( luse_rad ) THEN
+#ifdef __NO_RTE_RRTMGP__
+        CALL pre_psrad_radiation(                                             &
+             & patch,                     radtime_domains(jg)%radiation_time, &
+             & mtime_old,                 ltrig_rad,                          &
+             & prm_field(jg)%cosmu0,      prm_field(jg)%daylght_frc,          &
+             & prm_field(jg)%cosmu0_rt,   prm_field(jg)%daylght_frc_rt )
+#else
+        CALL pre_rte_rrtmgp_radiation( &
+             & patch,                     radtime_domains(jg)%radiation_time, &
+             & mtime_old,                 ltrig_rad,                          &
+             & prm_field(jg)%cosmu0,      prm_field(jg)%daylght_frc,          &
+             & prm_field(jg)%cosmu0_rt,   prm_field(jg)%daylght_frc_rt        )
+#endif
+!$ACC UPDATE DEVICE( prm_field(jg)%cosmu0, prm_field(jg)%cosmu0_rt,         &
+!$ACC                prm_field(jg)%daylght_frc, prm_field(jg)%daylght_frc_rt )
+      END IF
 
     END IF ! luse_rad
-
-#ifdef _OPENACC
-    i_am_accel_node = save_i_am_accel_node    ! Reactivate GPUs if appropriate
-#endif
 
   END SUBROUTINE echam_phy_bcs
 

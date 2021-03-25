@@ -117,9 +117,6 @@ CONTAINS
        last_year=year
        !$ACC UPDATE DEVICE( tsi_m )
     END IF
-#ifdef _OPENACC
-       CALL warning("GPU:read_bc_solar_irradiance", "GPU device synchronization")
-#endif
 
     CALL nf_check(p_nf_close(ncid))
 
@@ -145,6 +142,8 @@ CONTAINS
         WRITE(ctsi,'(F14.8)') tsi
         CALL message('','Interpolated total solar irradiance and spectral ' &
           &          //'bands for radiation transfer, tsi= '//ctsi)
+        !$ACC ENTER DATA PCREATE( ssi )
+        !$ACC UPDATE DEVICE( ssi )
       END IF
     ELSE
       IF (PRESENT(ssi)) THEN

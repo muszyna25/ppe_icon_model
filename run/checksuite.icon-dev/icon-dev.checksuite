@@ -345,35 +345,40 @@ function tolerance_check
 
     # find relevant config
     case $EXPERIMENT in
-        *atm_amip*)
-            CONFIG_WRAPPER=amip_config.sh
+        *atm*amip*)
+            FILE_IDS="atm_3d"
             ;;
-        *atm_ape*)
-            CONFIG_WRAPPER=amip_config.sh
+        *atm*ape*)
+            FILE_IDS="atm_3d"
             ;;
         *mch_ch*)
-            CONFIG_WRAPPER=lam_config.sh
+            FILE_IDS="atm_3d"
             ;;
         *)
-            echo "no wrapper for ${EXPERIMENT}"
-            return 1
+            echo "no file ids specified for ${EXPERIMENT}"
+            echo "you most likely did not change the entries in"
+            echo "icon-dev.checksuite. The checksuite cannot find"
+            echo "the model output"
+            TOL_STATUS=1
+            return TOL_STATUS
             ;;
     esac
 
     echo "Running tolerance check with compiler-specific reference from builder (${REF_BUILDER})"
 
-    # generate the probtest config file
-    EXP=${EXPERIMENT} BUILDER=${REF_BUILDER} MACHINE=${BB_SYSTEM} bash probtest/wrapper/${CONFIG_WRAPPER}
-
     # generate the aggregated "single-column" stats file
-    PROBTEST_CONFIG=${EXPERIMENT}.cfg python probtest/probtest.py --log-file stats-${EXPERIMENT}.log stats \
+    python probtest/probtest.py --log-file stats-${EXPERIMENT}.log stats \
+        --time-dim "time" \
         --model-output-dir experiments/${EXP_BASE} \
-        --stats-file-name ${EXPERIMENT}.csv
+        --stats-file-name ${EXPERIMENT}.csv \
+        --file-ids $FILE_IDS \
+        --no-ensemble
     # validate the generated stats against the reference
-    PROBTEST_CONFIG=${EXPERIMENT}.cfg python probtest/probtest.py --log-file check-${EXPERIMENT}.log check \
+    python probtest/probtest.py --log-file check-${EXPERIMENT}.log check \
         --input-file-cur ${EXPERIMENT}.csv \
         --input-file-ref icon-test-references/${REF_BUILDER}/reference/${EXPERIMENT}.csv \
-        --tolerance-file-name icon-test-references/${REF_BUILDER}/tolerance/${EXPERIMENT}.csv
+        --tolerance-file-name icon-test-references/${REF_BUILDER}/tolerance/${EXPERIMENT}.csv \
+        --factor 5
 
     # get the relevant success check
     fail=$(grep RESULT check-${EXPERIMENT}.log | grep 'FAIL' | wc -l)
