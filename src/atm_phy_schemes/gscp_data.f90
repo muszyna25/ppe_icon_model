@@ -419,15 +419,13 @@ SUBROUTINE gscp_set_coefficients (igscp, idbg, tune_zceff_min, tune_v0snow, tune
   zvz0r  = 130.0_wp*gamma_fct(mu_rain+4.5_wp)/gamma_fct(mu_rain+4.0_wp)*zar**(-zvzxp)
 
 #ifdef __ICON__  
-  IF (PRESENT(igscp)) THEN    ! WS 2021-03-12: bug fix for igscp not present
-    !CK> for cloud ice sedimentation based on KC05
-    IF (igscp == 3) THEN
-      vtxexp = kc_beta + 2.0_wp - kc_sigma
-      kc_c1  = 4.0_wp / ( do_i**2 * SQRT(co_i) )
-      kc_c2  = do_i **2 / 4.0_wp
-    ENDIF
-    !CK<
+  !CK> for cloud ice sedimentation based on KC05
+  IF (igscp == 3) THEN
+    vtxexp = kc_beta + 2.0_wp - kc_sigma
+    kc_c1  = 4.0_wp / ( do_i**2 * SQRT(co_i) )
+    kc_c2  = do_i **2 / 4.0_wp
   ENDIF
+  !CK<
 #endif    
 
   IF (PRESENT(idbg)) THEN
