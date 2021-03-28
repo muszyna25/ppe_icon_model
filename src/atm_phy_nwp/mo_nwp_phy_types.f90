@@ -261,6 +261,12 @@ MODULE mo_nwp_phy_types
       &  rain_edmf_rate_3d(:,:,:),& !! 3d convective rain rate (EDMF scheme)           [kg/m2/s]
       &  snow_edmf_rate_3d(:,:,:),& !! 3d convective snow_rate (EDMF scheme)           [kg/m2/s]
       !
+      ! Instantaneous grid scale precipitation rate [kg/m2/s] (sum over gsp hydromets):
+      &  prec_gsp_rate    (:,:),  & !! total surface precipitation rate                [kg/m2/s]
+      !
+      ! Instantaneous total precipitation rate [kg/m2/s] (sum of gsp + con hydromets):
+      &  tot_prec_rate    (:,:),  & !! total surface precipitation rate                [kg/m2/s]
+      !
       !  Integrated instantaneous rates since model start (precipitation amount) [kg/m2]
       !  grid scale
       &  rain_gsp         (:,:),  & !! accumulated grid-scale surface rain             [kg/m2]

@@ -282,7 +282,7 @@ CONTAINS
           ! (reset is done on a regular basis in reset_action)
           prm_diag%gust10(jc,jb) = MAX(prm_diag%gust10(jc,jb),                       &
             &                    prm_diag%dyn_gust(jc,jb) + prm_diag%con_gust(jc,jb) )
-
+          
           ! total precipitation
           prm_diag%tot_prec(jc,jb) = prm_diag%prec_gsp(jc,jb) + prm_diag%prec_con(jc,jb)
 
@@ -300,7 +300,6 @@ CONTAINS
 
         ENDDO  ! jc
         !$acc end parallel
-        
 
         IF (atm_phy_nwp_config(jg)%lcalc_moist_integral_avg) THEN
 !DIR$ IVDEP
@@ -1199,7 +1198,60 @@ CONTAINS
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
         & i_startidx, i_endidx, rl_start, rl_end)
 
+      !
+      ! Calculation of grid scale (gsp) and total (gsp+con) instantaneous precipitation rates:
+      !
+      SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
+      CASE(4,5,6,7)
+        DO jc =  i_startidx, i_endidx
+          prm_diag%prec_gsp_rate(jc,jb) = prm_diag%rain_gsp_rate(jc,jb)  &
+               &                        + prm_diag%ice_gsp_rate(jc,jb)   &
+               &                        + prm_diag%snow_gsp_rate(jc,jb)  &
+               &                        + prm_diag%hail_gsp_rate(jc,jb)  &
+               &                        + prm_diag%graupel_gsp_rate(jc,jb)
+          prm_diag%tot_prec_rate(jc,jb) = prm_diag%prec_gsp_rate(jc,jb)
+        ENDDO
+      CASE(2)
+        DO jc =  i_startidx, i_endidx
+          prm_diag%prec_gsp_rate(jc,jb) = prm_diag%rain_gsp_rate(jc,jb)  &
+               ! not sure what to do with ice. To be consistent to prm_diag%prec_gsp, where ice is neglected
+               ! because it predominantly is made of blowing snow, we neglect it also here:
+!               &                        + prm_diag%ice_gsp_rate(jc,jb)   &
+               &                        + prm_diag%snow_gsp_rate(jc,jb)  &
+               &                        + prm_diag%graupel_gsp_rate(jc,jb)
+          prm_diag%tot_prec_rate(jc,jb) = prm_diag%prec_gsp_rate(jc,jb)
+        ENDDO
+      CASE (1)
+        DO jc =  i_startidx, i_endidx
+          prm_diag%prec_gsp_rate(jc,jb) = prm_diag%rain_gsp_rate(jc,jb)  &
+               ! not sure what to do with ice. To be consistent to prm_diag%prec_gsp, where ice is neglected
+               ! because it predominantly is made of blowing snow, we neglect it also here:
+!               &                        + prm_diag%ice_gsp_rate(jc,jb)   &
+               &                        + prm_diag%snow_gsp_rate(jc,jb)
+          prm_diag%tot_prec_rate(jc,jb) = prm_diag%prec_gsp_rate(jc,jb)
+        ENDDO
+      CASE (9)
+        DO jc =  i_startidx, i_endidx
+          prm_diag%prec_gsp_rate(jc,jb) = prm_diag%rain_gsp_rate(jc,jb)
+          prm_diag%tot_prec_rate(jc,jb) = prm_diag%prec_gsp_rate(jc,jb)
+        ENDDO
+      CASE default
+        DO jc =  i_startidx, i_endidx
+          prm_diag%prec_gsp_rate(jc,jb) = 0.0_wp
+          prm_diag%tot_prec_rate(jc,jb) = 0.0_wp
+        ENDDO
+      END SELECT
+      !
+      ! Add convective contributions to the total precipitation rate:
+      !
+      IF (atm_phy_nwp_config(jg)%inwp_convection > 0) THEN
+        DO jc = i_startidx, i_endidx
+          prm_diag%tot_prec_rate(jc,jb) = prm_diag%tot_prec_rate(jc,jb) + prm_diag%rain_con_rate(jc,jb) + &
+               &                          prm_diag%snow_con_rate(jc,jb)
+        ENDDO  ! jc
+      END IF
 
+   
       IF (atm_phy_nwp_config(jg)%lenabled(itconv))THEN !convection parameterization switched on
         !
         ! height of convection base and top, hbas_con, htop_con

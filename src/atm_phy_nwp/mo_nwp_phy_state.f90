@@ -357,8 +357,28 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     kcloud= 3
 
 
+    ! &      diag%tot_prec_rate(nproma,nblks_c)
+    cf_desc    = t_cf_var('tot_prec_rate', 'kg m-2 s-1', 'total precipitation rate', &
+      &                   datatype_flt)
+    grib2_desc = grib2_var(0, 1, 52, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'tot_prec_rate', diag%tot_prec_rate,            &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
+                & ldims=shape2d,                                             &
+                & isteptype=TSTEP_INSTANT, lopenacc=.TRUE. )
+    __acc_attach(diag%tot_prec_rate)
+
+    ! &      diag%prec_gsp_rate(nproma,nblks_c)
+    cf_desc    = t_cf_var('prec_gsp_rate', 'kg m-2 s-1',                      &
+      &          'gridscale precipitation rate', datatype_flt)
+    grib2_desc = grib2_var(0, 1, 54, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'prec_gsp_rate', diag%prec_gsp_rate,             &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                & ldims=shape2d,                                              &
+                & isteptype=TSTEP_INSTANT, lopenacc=.TRUE. )
+    __acc_attach(diag%prec_gsp_rate)
+
     ! &      diag%rain_gsp_rate(nproma,nblks_c)
-    cf_desc    = t_cf_var('rain_gsp_rate', 'kg m-2 s-1', 'gridscale rain rate ', &
+    cf_desc    = t_cf_var('rain_gsp_rate', 'kg m-2 s-1', 'gridscale rain rate', &
       &                   datatype_flt)
     grib2_desc = grib2_var(0, 1, 77, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'rain_gsp_rate', diag%rain_gsp_rate,            &
