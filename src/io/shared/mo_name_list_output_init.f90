@@ -1163,15 +1163,14 @@ CONTAINS
     ALLOCATE(output_file(nfiles))
 
     ! Init temporal accumulation fields etc.
-    IF (my_process_is_work()) THEN
-      p_onl => first_output_name_list
-      DO WHILE(ASSOCIATED(p_onl))
-        idom = p_onl%dom
-        IF (idom .LE. n_dom_out) &
-          & CALL init_statistics(p_onl, p_patch(patch_info(p_onl%dom)%log_patch_id))
-        p_onl => p_onl%next
-      END DO
-    END IF
+    p_onl => first_output_name_list
+    DO WHILE(ASSOCIATED(p_onl))
+      IF (p_onl%dom .LE. n_dom_out) &
+        & CALL init_statistics(p_onl, p_patch(patch_info(p_onl%dom)%log_patch_id), &
+             & my_process_is_work(), use_async_name_list_io .AND. .NOT. is_mpi_test, &
+             & bcast_root, p_comm_work_2_io)
+      p_onl => p_onl%next
+    END DO
 
     ! ---------------------------------------------------------------------------
     ! If async IO is used, replicate data (mainly the variable lists) on IO procs

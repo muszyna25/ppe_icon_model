@@ -23,7 +23,7 @@ MODULE mo_derived_variable_handling
   USE mo_time_config,         ONLY: time_config
   USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_FLT64, GRID_LONLAT, TSTEP_CONSTANT
   USE mo_util_texthash,       ONLY: text_hash_c
-  USE mo_var, ONLY: level_type_ml, level_type_pl, level_type_hl, level_type_il
+  USE mo_mpi,                 ONLY: p_bcast
 ! HB: commented openACC stuff for now -- due to weird memory issues, if nproma is large
 #ifdef _OPENACC
   USE mo_mpi,                 ONLY: i_am_accel_node
@@ -69,35 +69,37 @@ MODULE mo_derived_variable_handling
 CONTAINS
 
   ! wire up namelist mvstream associations
-  SUBROUTINE init_statistics(p_onl, patch_2d)
+  SUBROUTINE init_statistics(p_onl, patch_2d, collector, need_bc, root, comm)
     TYPE(t_output_name_list), POINTER, INTENT(IN) :: p_onl
     TYPE(t_patch), INTENT(IN) :: patch_2d
-    CHARACTER(LEN=vname_len), POINTER :: vlist(:)
-    INTEGER :: i_typ, iop
+    LOGICAL, INTENT(IN) :: collector, need_bc
+    INTEGER, INTENT(IN) :: root, comm
+    TYPE t_vl_arr
+      CHARACTER(LEN=vname_len), POINTER :: p(:)
+    END TYPE t_vl_arr
+    TYPE(t_vl_arr) :: vls(4)
+    INTEGER :: iop, jop, loplen, ivl
 
-    ! Loop over model/pressure/height levels
-    ! HB: a cumbersome way to pick a var-list
-    DO i_typ = 1, 4
-      ! Check if name_list has variables of corresponding type
-      SELECT CASE(i_typ)
-      CASE (level_type_ml)
-        vlist => p_onl%ml_varlist
-      CASE (level_type_pl)
-        vlist => p_onl%pl_varlist
-      CASE (level_type_hl)
-        vlist => p_onl%hl_varlist
-      CASE (level_type_il)
-        vlist => p_onl%il_varlist
-      END SELECT
-      IF (vlist(1)(1:1) /= ' ') THEN
-        DO iop = 1, nops
-          IF (TRIM(p_onl%operation) == opnames(iop)(1:oplen(iop))) THEN
-            CALL init_op(iop, p_onl, vlist, patch_2d)
-            EXIT
-          END IF
-        END DO
-      END IF
+    iop = 0
+    loplen = LEN_TRIM(p_onl%operation)
+    DO jop = 1, nops
+      IF (loplen .NE. oplen(jop)) CYCLE
+      IF (p_onl%operation(1:loplen) /= opnames(jop)(1:oplen(jop))) CYCLE
+      iop = jop
+      EXIT
     END DO
+    vls(1)%p => p_onl%ml_varlist
+    vls(2)%p => p_onl%pl_varlist
+    vls(3)%p => p_onl%hl_varlist
+    vls(4)%p => p_onl%il_varlist
+    IF (iop .NE. 0) THEN
+      DO ivl = 1, 4
+        IF (vls(ivl)%p(1)(1:1) /= ' ') THEN
+          IF (collector) CALL init_op(iop, p_onl, vls(ivl)%p, patch_2d)
+          IF (need_bc) CALL p_bcast(vls(ivl)%p, root, comm)
+        END IF
+      END DO
+    END IF
   END SUBROUTINE init_statistics
 
   SUBROUTINE init_op(iop, p_onl, vlist, patch_2d)
