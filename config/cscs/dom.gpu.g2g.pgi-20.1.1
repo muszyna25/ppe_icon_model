@@ -5,7 +5,8 @@ set -eu
 SCRIPT_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR=$(cd "${SCRIPT_DIR}/../.."; pwd)
 
-MODULES='modules craype cdt/20.08 PrgEnv-pgi pgi-icon/20.1.1 gcc cray-mpich cray-netcdf cray-hdf5 cudatoolkit'
+# gcc 9.3.0 needed because nvcc does not support > 9
+MODULES='modules craype cdt PrgEnv-pgi pgi-icon/20.1.1 gcc/9.3.0 cce cray-mpich cray-netcdf cray-hdf5 cudatoolkit'
 
 XML2_ROOT='/apps/daint/UES/jenkins/6.0.UP07/gpu/easybuild/software/libxml2/2.9.7-CrayGNU-18.08'
 XML2_LIBS='-lxml2'
@@ -86,13 +87,12 @@ for arg in "$@"; do
   esac
 done
 
-# Generate input file for runscript generation:
-./config.status --file=run/set-up.info
-
 # Copy runscript-related files when building out-of-source:
 if test $(pwd) != $(cd "${ICON_DIR}"; pwd); then
   echo "Copying runscript input files from the source directory..."
-  rsync -uavz ${ICON_DIR}/run . --exclude='*in' --exclude='.*'
+  rsync -uavz ${ICON_DIR}/run . --exclude='*.in' --exclude='.*' --exclude='standard_*'
+  ln -sf -t run/ ${ICON_DIR}/run/standard_*
+  ln -sf set-up.info run/SETUP.config
   rsync -uavz ${ICON_DIR}/externals . --exclude='.git' --exclude='*.f90' --exclude='*.F90' --exclude='*.c' --exclude='*.h' --exclude='*.Po' --exclude='tests' --exclude='rrtmgp*.nc' --exclude='*.mod' --exclude='*.o'
   rsync -uavz ${ICON_DIR}/make_runscripts .
   ln -sf ${ICON_DIR}/data
