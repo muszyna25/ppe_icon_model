@@ -29,6 +29,8 @@ use cvmix_kinds_and_types,    only : cvmix_r8,                     &
 use cvmix_utils,              only : cvmix_update_tke, solve_tridiag
 
 
+USE mo_exception,          ONLY: finish
+
 implicit none
 private 
 save
@@ -92,6 +94,9 @@ end type tke_type
 
 type(tke_type), target :: tke_constants_saved 
 
+CHARACTER(LEN=*), PARAMETER :: module_name = 'cvmix_tke'
+
+
  contains
  
 !=================================================================================
@@ -126,11 +131,15 @@ logical, intent(in), optional                  :: &
 type(tke_type), intent(inout),target, optional :: &
   tke_userdef_constants
 
+CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_tke'
+
+
 ! FIXME: not sure about the allowed ranges for TKE parameters
 if (present(c_k)) then
   if(c_k.lt. 0.0d0 .or. c_k .gt. 1.5d0) then
-    print*, "ERROR:c_k can only be allowed_range"
-    stop 1
+!    print*, "ERROR:c_k can only be allowed_range"
+!    stop 1
+    CALL finish(method_name,'ERROR:c_k can only be allowed_range')
   end if
   call put_tke('c_k', c_k, tke_userdef_constants)
 else
@@ -139,8 +148,9 @@ end if
 
 if (present(c_eps)) then
   if(c_eps.lt. 0.d0 .or. c_eps .gt. 10.d0) then
-    print*, "ERROR:c_eps can only be allowed_range"
-    stop 1
+!    print*, "ERROR:c_eps can only be allowed_range"
+!    stop 1
+    CALL finish(method_name,'ERROR:c_eps can only be allowed_range')
   end if
   call put_tke('c_eps', c_eps, tke_userdef_constants)
 else
@@ -149,8 +159,9 @@ end if
 
 if (present(cd)) then
   if(cd.lt. 0.1d0 .or. cd .gt. 30.d0) then
-    print*, "ERROR:cd can only be allowed_range"
-    stop 1
+!    print*, "ERROR:cd can only be allowed_range"
+!    stop 1
+    CALL finish(method_name,'ERROR:cd can only be allowed_range')
   end if
   call put_tke('cd', cd, tke_userdef_constants)
 else
@@ -159,9 +170,10 @@ end if
 
 if (present(alpha_tke)) then
   if(alpha_tke.lt. 1.d0 .or. alpha_tke .gt. 90.d0) then
-    print*, "ERROR:alpha_tke can only be allowed_range"
-    stop 1
-  end if
+!    print*, "ERROR:alpha_tke can only be allowed_range"
+!    stop 1
+    CALL finish(method_name,'ERROR:alpha_tke can only be allowed_range')
+ end if
   call put_tke('alpha_tke', alpha_tke, tke_userdef_constants)
 else
   call put_tke('alpha_tke', 30.d0, tke_userdef_constants)
@@ -169,8 +181,9 @@ end if
 
 if (present(mxl_min)) then
   if(mxl_min.lt. 1.d-12 .or. mxl_min .gt. 0.4d0) then
-    print*, "ERROR:mxl_min can only be allowed_range"
-    stop 1
+!    print*, "ERROR:mxl_min can only be allowed_range"
+!    stop 1
+    CALL finish(method_name,'ERROR:mxl_min can only be allowed_range')
   end if
   call put_tke('mxl_min', mxl_min, tke_userdef_constants)
 else
@@ -179,8 +192,9 @@ end if
 
 if (present(KappaM_min)) then
   if(KappaM_min.lt. 0.d0 .or. KappaM_min .gt. 1.d0) then
-    print*, "ERROR:KappaM_min can only be allowed_range"
-    stop 1
+!    print*, "ERROR:KappaM_min can only be allowed_range"
+!    stop 1
+    CALL finish(method_name,'ERROR:KappaM_min can only be allowed_range')
   end if
   call put_tke('kappaM_min', KappaM_min, tke_userdef_constants)
 else
@@ -189,8 +203,9 @@ end if
 
 if (present(KappaM_max)) then
   if(KappaM_max.lt. 10.d0 .or. KappaM_max .gt. 1000.d0) then
-    print*, "ERROR:kappaM_max can only be allowed_range"
-    stop 1
+!    print*, "ERROR:kappaM_max can only be allowed_range"
+!    stop 1
+    CALL finish(method_name,'ERROR:kappaM_max can only be allowed_range')
   end if
   call put_tke('kappaM_max', KappaM_max, tke_userdef_constants)
 else
@@ -199,8 +214,9 @@ end if
 
 if (present(tke_mxl_choice)) then
   if(tke_mxl_choice.lt. 1 .or. tke_mxl_choice .gt. 2 ) then
-    print*, "ERROR:tke_mxl_choice can only be 1 or 2"
-    stop 1
+!    print*, "ERROR:tke_mxl_choice can only be 1 or 2"
+!    stop 1
+    CALL finish(method_name,'ERROR:tke_mxl_choice can only be 1 or 2')
   end if
   call put_tke('tke_mxl_choice', tke_mxl_choice, tke_userdef_constants)
 else
@@ -209,8 +225,9 @@ end if
 
 if (present(handle_old_vals)) then
   if(handle_old_vals.lt. 1 .or. handle_old_vals.gt. 3 ) then
-    print*, "ERROR:handle_old_vals can only be 1 to 3"
-    stop 1
+!    print*, "ERROR:handle_old_vals can only be 1 to 3"
+!    stop 1
+    CALL finish(method_name,'ERROR:handle_old_vals can only be 1 to 3')
   end if
   call put_tke('handle_old_vals', handle_old_vals, tke_userdef_constants)
 else
@@ -219,8 +236,9 @@ end if
 
 if (present(tke_min)) then
   if(tke_min.lt. 1.d-9 .or. tke_min.gt. 1.d-2 ) then
-    print*, "ERROR:tke_min can only be allowed_range"
-    stop 1
+!    print*, "ERROR:tke_min can only be allowed_range"
+!    stop 1
+    CALL finish(method_name,'ERROR:tke_min can only be allowed_range')
   end if
   call put_tke('tke_min', tke_min, tke_userdef_constants)
 else
@@ -229,8 +247,9 @@ end if
 
 if (present(tke_surf_min)) then
   if(tke_surf_min.lt. 1.d-7 .or. tke_surf_min.gt. 1.d-2 ) then
-    print*, "ERROR:tke_surf_min can only be allowed_range"
-    stop 1
+!    print*, "ERROR:tke_surf_min can only be allowed_range"
+!    stop 1
+    CALL finish(method_name,'ERROR:tke_surf_min can only be allowed_range')
   end if
   call put_tke('tke_surf_min', tke_surf_min, tke_userdef_constants)
 else
@@ -303,10 +322,14 @@ integer :: i, j, tstep_count
 type(tke_type), pointer                       :: &
   tke_constants_in                                 !
 
+CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':tke_wrap'
+
+
 ! FIXME: nils: this routine is never called. 
 ! This is an emergency stop in case th routine is called.
-write(*,*) 'i am wrapping'
-stop
+!write(*,*) 'i am wrapping'
+!stop
+CALL finish(method_name,'i am wrapping')
 
 tke_constants_in => tke_constants_saved
 
@@ -554,6 +577,8 @@ subroutine integrate_tke( &
   integer :: recnum
   
   type(tke_type), pointer :: tke_constants_in
+
+  CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':integrate_tke'
   
   ! FIXME: nils: What happens here?
   tke_constants_in => tke_constants_saved
@@ -659,8 +684,9 @@ subroutine integrate_tke( &
     mxl(1) = mxl(2)
     mxl= max(mxl,mxl_min)
   else
-    write(*,*) 'Wrong choice of tke_mxl_choice. Aborting...'
-    stop
+!    write(*,*) 'Wrong choice of tke_mxl_choice. Aborting...'
+!    stop
+    CALL finish(method_name,'Wrong choice of tke_mxl_choice. Aborting...')
   endif
      
   !---------------------------------------------------------------------------------
@@ -868,14 +894,14 @@ subroutine integrate_tke( &
   !cvmix_int_2 = Nsqr
   !cvmix_int_3 = Ssqr
 
-  if (.false.) then
-    write(*,*) 'i = ', i, 'j = ', j, 'tstep_count = ', tstep_count
-  if (i==8 .and. j==10) then
+!  if (.false.) then
+!    write(*,*) 'i = ', i, 'j = ', j, 'tstep_count = ', tstep_count
+!  if (i==8 .and. j==10) then
   !if (i==45 .and. j==10 .and. tstep_count==10) then
   ! -----------------------------------------------
  
-    write(*,*) '================================================================================'
-    write(*,*) 'i = ', i, 'j = ', j, 'tstep_count = ', tstep_count
+!    write(*,*) '================================================================================'
+!    write(*,*) 'i = ', i, 'j = ', j, 'tstep_count = ', tstep_count
 !!!    write(*,*) 'nlev = ', nlev
 !!!    write(*,*) 'dtime = ', dtime
 !!!    write(*,*) 'dzt = ', dzt
@@ -886,7 +912,7 @@ subroutine integrate_tke( &
 !!!    !write(*,*) 'sao = ', sao(i,j,1:nlev)
 !!!    !write(*,*) 'bottom_fric = ', bottom_fric
 !!!    !write(*,*) 'forc_tke_surf = ', forc_tke_surf
-    write(*,*) 'sqrttke = ', sqrttke
+!    write(*,*) 'sqrttke = ', sqrttke
 !!!    write(*,*) 'mxl = ', mxl
 !!!    write(*,*) 'KappaM_out = ', KappaM_out
 !!!    write(*,*) 'KappaH_out = ', KappaH_out
@@ -933,12 +959,12 @@ subroutine integrate_tke( &
 !!!    write(*,*) 'use_lbound_dirichlet = ', use_lbound_dirichlet
 !!!    !write(*,*) 'tke(nlev) = ', tke(nlev), 'tke(nlev+1) = ', tke(nlev+1)
 !!!    !write(*,*) 'tke(nlev+2) = ', tke(nlev+2)
-    write(*,*) '================================================================================'
+!    write(*,*) '================================================================================'
   !end if
   !if (i==45 .and. j==10 .and. tstep_count==10) then
 !    stop
-  end if ! if (i==, j==, tstep==)
-  end if ! if (.true./.false.)
+!  end if ! if (i==, j==, tstep==)
+!  end if ! if (.true./.false.)
 end subroutine integrate_tke
 
 !=================================================================================
@@ -978,6 +1004,8 @@ subroutine cvmix_tke_put_tke_logical(varname,val,tke_userdef_constants)
     type(tke_type), intent(inout), target, optional:: tke_userdef_constants
     type(tke_type), pointer :: tke_constants_out
 
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_tke_put_tke_logical'
+
   tke_constants_out=>tke_constants_saved
   if (present(tke_userdef_constants)) then
   tke_constants_out=> tke_userdef_constants
@@ -992,8 +1020,9 @@ subroutine cvmix_tke_put_tke_logical(varname,val,tke_userdef_constants)
     case('use_lbound_dirichlet')
       tke_constants_out%use_lbound_dirichlet=val  
     case DEFAULT
-      print*, "ERROR:", trim(varname), " not a valid choice"
-      stop 1
+!      print*, "ERROR:", trim(varname), " not a valid choice"
+!      stop 1
+      CALL finish(method_name,'ERROR: '//TRIM(varname)//' not a valid choice')
   end select
     !!enable_GM etc can go in here
 end subroutine cvmix_tke_put_tke_logical
@@ -1009,6 +1038,7 @@ subroutine cvmix_tke_put_tke_real(varname,val,tke_userdef_constants)
     type(tke_type), intent(inout), target, optional:: tke_userdef_constants
     type(tke_type), pointer :: tke_constants_out
 
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_tke_put_tke_real'
 
   tke_constants_out=>tke_constants_saved
   if (present(tke_userdef_constants)) then
@@ -1036,8 +1066,9 @@ subroutine cvmix_tke_put_tke_real(varname,val,tke_userdef_constants)
     case('tke_surf_min')
       tke_constants_out%tke_surf_min = val    
     case DEFAULT
-      print*, "ERROR:", trim(varname), " not a valid choice"
-      stop 1
+!      print*, "ERROR:", trim(varname), " not a valid choice"
+!      stop 1
+      CALL finish(method_name,'ERROR: '//TRIM(varname)//' not a valid choice')
 
   end select
 

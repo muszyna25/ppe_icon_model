@@ -41,6 +41,8 @@ module cvmix_ddiff
   use cvmix_put_get,         only : cvmix_put
   use cvmix_utils,           only : cvmix_update_wrap
 
+  USE mo_exception,          ONLY: finish
+
 !EOP
 
   implicit none
@@ -111,6 +113,9 @@ module cvmix_ddiff
       integer :: handle_old_vals
 
   end type cvmix_ddiff_params_type
+
+
+  CHARACTER(LEN=*), PARAMETER :: module_name = 'cvmix_ddiff'
 
 !EOP
 
@@ -195,6 +200,8 @@ module cvmix_ddiff
 ! !OUTPUT PARAMETERS:
     type(cvmix_ddiff_params_type), optional, target, intent(inout) ::         &
                                               CVmix_ddiff_params_user
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_init_ddiff'
 !EOP
 !BOC
 
@@ -278,9 +285,12 @@ module cvmix_ddiff
           call cvmix_put_ddiff('handle_old_vals', CVMIX_MAX_OLD_AND_NEW_VALS, &
                                cvmix_ddiff_params_user)
         case DEFAULT
-          print*, "ERROR: ", trim(old_vals), " is not a valid option for ",   &
-                  "handling old values of diff and visc."
-          stop 1
+!          print*, "ERROR: ", trim(old_vals), " is not a valid option for ",   &
+!                  "handling old values of diff and visc."
+!          stop1
+          CALL finish(method_name,'ERROR: '//TRIM(old_vals)//' is not a valid option for &
+               handling old values of diff and visc.')
+
       end select
     else
       call cvmix_put_ddiff('handle_old_vals', CVMIX_OVERWRITE_OLD_VAL,        &
@@ -380,6 +390,8 @@ module cvmix_ddiff
     integer :: k
     real(cvmix_r8) :: ddiff, Rrho
 
+    CHARACTER(LEN=*), PARAMETER :: module_name = 'cvmix_coeffs_ddiff_low'
+
 !EOP
 !BOC
 
@@ -422,9 +434,11 @@ module cvmix_ddiff
             ddiff = CVmix_ddiff_params_in%mol_diff * 8.7_cvmix_r8 *           &
                     (Rrho**1.1_cvmix_r8)
           case DEFAULT
-            print*, "ERROR: ", trim(CVmix_ddiff_params_in%diff_conv_type),    &
-                    " is not a valid value for diff_conv_type"
-            stop 1
+!            print*, "ERROR: ", trim(CVmix_ddiff_params_in%diff_conv_type),    &
+!                    " is not a valid value for diff_conv_type"
+!            stop 1
+            CALL finish(method_name,'ERROR: '//TRIM(CVmix_ddiff_params_in%diff_conv_type)//' &
+                 is not a valid value for diff_conv_type')
         end select
         Tdiff_out(k) = ddiff
         if (Rrho.lt.0.5_cvmix_r8) then
@@ -462,6 +476,7 @@ module cvmix_ddiff
 ! !OUTPUT PARAMETERS:
     type(cvmix_ddiff_params_type), optional, target, intent(inout) ::         &
                                               CVmix_ddiff_params_user
+    CHARACTER(LEN=*), PARAMETER :: module_name = 'cvmix_put_ddiff_str'
 !EOP
 !BOC
 
@@ -481,14 +496,18 @@ module cvmix_ddiff
           case ('K88')
             CVmix_ddiff_params_out%diff_conv_type = 'K88'
           case DEFAULT
-            print*, "ERROR: ", trim(val),                                     &
-                    " is not a valid value for diff_conv_type"
-            stop 1
-        end select
+!            print*, "ERROR: ", trim(val),                                     &
+!                    " is not a valid value for diff_conv_type"
+!            stop 1
+            CALL finish(method_name,'ERROR: '//TRIM(val)//' is not a valid value for &
+				 diff_conv_type')
+
+       end select
 
       case DEFAULT
-        print*, "ERROR: ", trim(varname), " not a valid choice!"
-        stop 1
+!        print*, "ERROR: ", trim(varname), " not a valid choice!"
+!        stop 1
+        CALL finish(method_name,'ERROR: '//TRIM(varname)//' not a valid choice!')
 
     end select
 
@@ -518,6 +537,7 @@ module cvmix_ddiff
 ! !OUTPUT PARAMETERS:
     type(cvmix_ddiff_params_type), optional, target, intent(inout) ::         &
                                               CVmix_ddiff_params_user
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_put_ddiff_real'
 !EOP
 !BOC
 
@@ -547,9 +567,9 @@ module cvmix_ddiff
       case ('mol_diff')
         CVmix_ddiff_params_out%mol_diff = val
       case DEFAULT
-        print*, "ERROR: ", trim(varname), " not a valid choice!"
-        stop 1
-
+!        print*, "ERROR: ", trim(varname), " not a valid choice!"
+!        stop 1
+        CALL finish(method_name,'ERROR: '//TRIM(varname)//' not a valid choice!')
     end select
 
 !EOC
@@ -626,6 +646,9 @@ module cvmix_ddiff
 
 ! !OUTPUT PARAMETERS:
     real(cvmix_r8) :: cvmix_get_ddiff_real
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_get_ddiff_real'
+
 !EOP
 !BOC
 
@@ -656,8 +679,9 @@ module cvmix_ddiff
       case ('mol_diff')
         cvmix_get_ddiff_real = CVmix_ddiff_params_get%mol_diff
       case DEFAULT
-        print*, "ERROR: ", trim(varname), " not a valid choice!"
-        stop 1
+!        print*, "ERROR: ", trim(varname), " not a valid choice!"
+!        stop 1
+        CALL finish(method_name,'ERROR: '//TRIM(varname)//' not a valid choice!')
 
     end select
 
