@@ -1593,6 +1593,7 @@ MODULE mo_nwp_lnd_state
            & initval=0._wp, resetval=0._wp,                              &
            & action_list=actions(new_action(ACTION_RESET,runoff_interval(p_jg))), &
            & lopenacc=.TRUE.)
+    __acc_attach(p_diag_lnd%runoff_s_t)
 
     ! fill the separate variables belonging to the container runoff_s
     ALLOCATE(p_diag_lnd%runoff_s_ptr(ntiles_total))
