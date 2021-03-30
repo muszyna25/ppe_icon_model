@@ -22,7 +22,11 @@ MODULE mo_bc_aeropt_kinne
   USE mo_impl_constants,       ONLY: max_dom
   USE mo_grid_config,          ONLY: n_dom
   USE mo_parallel_config,      ONLY: nproma
+#ifdef __NO_RTE_RRTMGP__
   USE mo_psrad_general,        ONLY: nbndlw, nbndsw
+#else
+  USE mo_radiation_general,    ONLY: nbndlw, nbndsw
+#endif
   USE mo_exception,            ONLY: finish, message, message_text, warning
   USE mo_io_config,            ONLY: default_read_method
   USE mo_time_config,          ONLY: time_config
@@ -59,7 +63,7 @@ MODULE mo_bc_aeropt_kinne
      REAL(wp), ALLOCATABLE :: z_km_aer_c_mo(:,:,:,:)
   END TYPE t_ext_aeropt_kinne
 
-  TYPE(t_ext_aeropt_kinne), ALLOCATABLE, TARGET :: ext_aeropt_kinne(:)
+  TYPE(t_ext_aeropt_kinne), ALLOCATABLE :: ext_aeropt_kinne(:)
 
   INTEGER(i8), SAVE                :: pre_year(max_dom)=-HUGE(1)
   INTEGER, PARAMETER               :: lev_clim=40
@@ -151,9 +155,6 @@ SUBROUTINE su_bc_aeropt_kinne(p_patch)
   ext_aeropt_kinne(jg)% z_km_aer_c_mo(:,:,:,:) = 0._wp
   ext_aeropt_kinne(jg)% z_km_aer_f_mo(:,:,:,:) = 0._wp
 
-#ifdef _OPENACC
-  CALL warning("GPU:su_bc_aeropt_kinne", "GPU device synchronization")
-#endif
   !$ACC UPDATE DEVICE ( ext_aeropt_kinne(jg)%aod_c_s, ext_aeropt_kinne(jg)%aod_f_s,        &
   !$ACC                 ext_aeropt_kinne(jg)%ssa_c_s, ext_aeropt_kinne(jg)%ssa_f_s,        &
   !$ACC                 ext_aeropt_kinne(jg)%asy_c_s, ext_aeropt_kinne(jg)%asy_f_s,        &
@@ -243,23 +244,28 @@ SUBROUTINE read_bc_aeropt_kinne(mtime_current, p_patch)
 
     CALL read_months_bc_aeropt_kinne ( &
                      'aod',            'ssa',    'asy',                        'z_aer_coarse_mo',  &
+                     ext_aeropt_kinne(jg)%aod_c_s, ext_aeropt_kinne(jg)%ssa_c_s,                   &
+                     ext_aeropt_kinne(jg)%asy_c_s, ext_aeropt_kinne(jg)%z_km_aer_c_mo,             &
                      'delta_z',        'lnwl',   'lev',                        imonthb,            &
-                     imonthe,          iyear,    'bc_aeropt_kinne_sw_b14_coa', p_patch             )
+                     imonthe,          iyear,     'bc_aeropt_kinne_sw_b14_coa', p_patch             )
+    ! for the coarse mode, the altitude distribution is wavelength independent and
+    ! therefore for solar and long wave spectrum the same
     CALL read_months_bc_aeropt_kinne ( &
                      'aod',            'ssa',    'asy',                        'z_aer_coarse_mo',  &
+                     ext_aeropt_kinne(jg)%aod_c_f, ext_aeropt_kinne(jg)% ssa_c_f,                  &
+                     ext_aeropt_kinne(jg)%asy_c_f, ext_aeropt_kinne(jg)% z_km_aer_c_mo,            &
                      'delta_z',        'lnwl',   'lev',                        imonthb,            &
                      imonthe,          iyear,    'bc_aeropt_kinne_lw_b16_coa', p_patch             )
     CALL read_months_bc_aeropt_kinne ( &
                      'aod',            'ssa',    'asy',                        'z_aer_fine_mo',    &
+                     ext_aeropt_kinne(jg)%aod_f_s, ext_aeropt_kinne(jg)%ssa_f_s,                   &
+                     ext_aeropt_kinne(jg)%asy_f_s, ext_aeropt_kinne(jg)%z_km_aer_f_mo,             &
                      'delta_z',        'lnwl',   'lev',                        imonthb,            &
                      imonthe,          iyear,    'bc_aeropt_kinne_sw_b14_fin', p_patch             )
 
     rdz_clim = 1._wp/dz_clim
     pre_year(jg) = mtime_current%date%year
 
-#ifdef _OPENACC
-    CALL warning("GPU:read_bc_aeropt_kinne", "GPU device synchronization")
-#endif
     !$ACC UPDATE DEVICE ( ext_aeropt_kinne(jg)%aod_c_s, ext_aeropt_kinne(jg)%aod_f_s,        &
     !$ACC                 ext_aeropt_kinne(jg)%ssa_c_s, ext_aeropt_kinne(jg)%ssa_f_s,        &
     !$ACC                 ext_aeropt_kinne(jg)%asy_c_s, ext_aeropt_kinne(jg)%asy_f_s,        &
@@ -285,7 +291,8 @@ SUBROUTINE set_bc_aeropt_kinne (    current_date,                         &
           & nb_sw,                  nb_lw,                                &
           & zf,                     dz,                                   &
           & paer_tau_sw_vr,         paer_piz_sw_vr,     paer_cg_sw_vr,    &
-          & paer_tau_lw_vr                                                )
+          & paer_tau_lw_vr,                                               & 
+          & opt_use_acc                                                  )
 
   ! !INPUT PARAMETERS
 
@@ -309,10 +316,11 @@ SUBROUTINE set_bc_aeropt_kinne (    current_date,                         &
                        !sum_i(tau_i*omega_i*g_i)
   REAL(wp),INTENT(out),DIMENSION(kbdim,klev,nb_lw):: &
    paer_tau_lw_vr      !aerosol optical depth (far IR)
+  LOGICAL, INTENT(IN), OPTIONAL                          :: opt_use_acc
 
 ! !LOCAL VARIABLES
   
-  INTEGER                           :: jl,jk,jwl
+  INTEGER                           :: jl,jk,jwl,jl_from1
   REAL(wp), DIMENSION(kbdim,klev)   :: zh_vr, &
                                        zdeltag_vr
   REAL(wp), DIMENSION(kbdim)        :: zq_int ! integral height profile
@@ -327,127 +335,186 @@ SUBROUTINE set_bc_aeropt_kinne (    current_date,                         &
                                        ! at various altitudes
   REAL(wp), DIMENSION(kbdim,klev)   :: zq_aod_c, zq_aod_f ! altitude profile
                                        ! on echam grid (coarse and fine mode)
-  INTEGER, DIMENSION(kbdim)         :: kindex ! index field
-
+  INTEGER                           :: kindex ! index field
   TYPE(t_time_interpolation_weights) :: tiw
+  LOGICAL :: use_acc   = .FALSE.  ! Default: no acceleration
+
+  IF (PRESENT(opt_use_acc)) use_acc = opt_use_acc
 
   tiw = calculate_time_interpolation_weights(current_date)
 
+  !$ACC DATA PRESENT(zf, dz, paer_tau_sw_vr, paer_piz_sw_vr, paer_cg_sw_vr,    &
+  !$ACC              paer_tau_lw_vr, ext_aeropt_kinne)                         &
+  !$ACC      CREATE (zh_vr, zdeltag_vr, zq_int, zs_i, zt_c, zt_f, zs_c, zs_f,  &
+  !$ACC              zg_c, zg_f, ztaua_c, ztaua_f, zq_aod_c, zq_aod_f),        &
+  !$ACC      IF ( use_acc )
+
 ! (i) calculate altitude above NN and layer thickness in 
 !     echam for altitude profiles
-     DO jk=1,klev
-        zdeltag_vr(jcs:kproma,jk)=dz(jcs:kproma,klev-jk+1)
-        zh_vr(jcs:kproma,jk)=zf(jcs:kproma,klev-jk+1)
+  !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1) IF ( use_acc )
+  DO jk=1,klev
+     DO jl=jcs,kproma
+        zdeltag_vr(jl,jk)=dz(jl,klev-jk+1)
+        zh_vr(jl,jk)=zf(jl,klev-jk+1)
      END DO
+  END DO
 
 ! (ii) calculate height profiles on echam grid for coarse and fine mode
-     zq_aod_f(jcs:kproma,1:klev)=0._wp
-     zq_aod_c(jcs:kproma,1:klev)=0._wp
-     DO jk=1,klev
-        kindex(jcs:kproma)=MAX(INT(zh_vr(jcs:kproma,jk)*rdz_clim+0.5_wp),1)
-        DO jl=jcs,kproma
-           IF (kindex(jl) > 0 .and. kindex(jl) <= lev_clim ) THEN
-              zq_aod_c(jl,jk)= &
-                & ext_aeropt_kinne(jg)% z_km_aer_c_mo(jl,kindex(jl),krow,tiw%month1_index)*tiw%weight1+ &
-                & ext_aeropt_kinne(jg)% z_km_aer_c_mo(jl,kindex(jl),krow,tiw%month2_index)*tiw%weight2
-              zq_aod_f(jl,jk)= &
-                & ext_aeropt_kinne(jg)% z_km_aer_f_mo(jl,kindex(jl),krow,tiw%month1_index)*tiw%weight1+ &
-                & ext_aeropt_kinne(jg)% z_km_aer_f_mo(jl,kindex(jl),krow,tiw%month2_index)*tiw%weight2
-           END IF
-        END DO
+  !$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF ( use_acc )
+  zq_aod_f(jcs:kproma,1:klev)=0._wp
+  zq_aod_c(jcs:kproma,1:klev)=0._wp
+  !$ACC END KERNELS
+
+  !$ACC PARALLEL LOOP DEFAULT(NONE) FIRSTPRIVATE(tiw) GANG VECTOR COLLAPSE(2) ASYNC(1) IF ( use_acc )
+  DO jk=1,klev
+     DO jl=jcs,kproma
+        kindex = MAX(INT(zh_vr(jl,jk)*rdz_clim+0.5_wp),1)
+        IF (kindex > 0 .and. kindex <= lev_clim ) THEN
+           zq_aod_c(jl,jk)= &
+             & ext_aeropt_kinne(jg)% z_km_aer_c_mo(jl,kindex,krow,tiw%month1_index)*tiw%weight1+ &
+             & ext_aeropt_kinne(jg)% z_km_aer_c_mo(jl,kindex,krow,tiw%month2_index)*tiw%weight2
+           zq_aod_f(jl,jk)= &
+             & ext_aeropt_kinne(jg)% z_km_aer_f_mo(jl,kindex,krow,tiw%month1_index)*tiw%weight1+ &
+             & ext_aeropt_kinne(jg)% z_km_aer_f_mo(jl,kindex,krow,tiw%month2_index)*tiw%weight2
+        END IF
      END DO
+  END DO
+  
 ! normalize height profile for coarse mode
-     zq_int(jcs:kproma)=0._wp
-     DO jk=1,klev
-        zq_int(jcs:kproma)=zq_int(jcs:kproma)+ &
-                       & zq_aod_c(jcs:kproma,jk)*zdeltag_vr(jcs:kproma,jk)
-     ENDDO
-     WHERE (zq_int(jcs:kproma) <= 0._wp)
-        zq_int(jcs:kproma)=1._wp
-     END WHERE
-     DO jk=1,klev
-        zq_aod_c(jcs:kproma,jk)=zdeltag_vr(jcs:kproma,jk)*zq_aod_c(jcs:kproma,jk)/ &
-                            & zq_int(jcs:kproma)
+  !$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF ( use_acc )
+  zq_int(jcs:kproma)=0._wp
+  !$ACC END KERNELS
+
+  !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF ( use_acc )
+  !$ACC LOOP SEQ
+  DO jk=1,klev
+     !$ACC LOOP GANG VECTOR
+     DO jl=jcs,kproma
+        zq_int(jl)=zq_int(jl)+ &
+                       & zq_aod_c(jl,jk)*zdeltag_vr(jl,jk)
      END DO
+  END DO
+  !$ACC END PARALLEL
+
+  !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR ASYNC(1) IF (use_acc)
+  DO jl=jcs,kproma
+     IF (zq_int(jl) <= 0._wp) zq_int(jl)=1._wp
+  END DO
+
+  !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1) IF (use_acc)
+  DO jk=1,klev
+     DO jl=jcs,kproma
+        zq_aod_c(jl,jk)=zdeltag_vr(jl,jk)*zq_aod_c(jl,jk) / zq_int(jl)
+     END DO
+  END DO
+
 ! normalize height profile for fine mode
-     zq_int(jcs:kproma)=0._wp
-     DO jk=1,klev
-        zq_int(jcs:kproma)=zq_int(jcs:kproma)+ &
-                       & zq_aod_f(jcs:kproma,jk)*zdeltag_vr(jcs:kproma,jk)
-     ENDDO
-     WHERE (zq_int(jcs:kproma) <= 0._wp)
-        zq_int(jcs:kproma)=1._wp
-     END WHERE
-     DO jk=1,klev
-        zq_aod_f(jcs:kproma,jk)=zdeltag_vr(jcs:kproma,jk)*zq_aod_f(jcs:kproma,jk)/ &
-                            & zq_int(jcs:kproma)
-     END DO
+  !$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF (use_acc)
+  zq_int(jcs:kproma)=0._wp
+  !$ACC end kernels
+
+  !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF (use_acc) 
+  !$ACC LOOP SEQ
+  DO jk=1,klev
+    !$ACC LOOP GANG VECTOR
+    DO jl=jcs,kproma
+       zq_int(jl)=zq_int(jl) + zq_aod_f(jl,jk)*zdeltag_vr(jl,jk)
+    END DO
+  END DO
+  !$ACC END PARALLEL
+
+  !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR ASYNC(1) IF (use_acc) 
+  DO jl=jcs,kproma
+    IF (zq_int(jl) <= 0._wp) zq_int(jl)=1._wp
+  END DO
+
+  !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1) IF (use_acc)
+  DO jk=1,klev
+    DO jl=jcs,kproma
+      zq_aod_f(jl,jk)=zdeltag_vr(jl,jk)*zq_aod_f(jl,jk)/zq_int(jl)
+    END DO
+  END DO
 
 ! (iii) far infrared
-     zs_i(jcs:kproma,1:nb_lw)=1._wp-(tiw%weight1*ext_aeropt_kinne(jg)% ssa_c_f(jcs:kproma,1:nb_lw,krow,tiw%month1_index)+ &
-                                     tiw%weight2*ext_aeropt_kinne(jg)% ssa_c_f(jcs:kproma,1:nb_lw,krow,tiw%month2_index))
-     DO jk=1,klev
-        DO jwl=1,nb_lw
+  !$ACC KERNELS DEFAULT(NONE) COPYIN(tiw) ASYNC(1) IF (use_acc)  
+  zs_i(jcs:kproma,1:nb_lw)=1._wp-(tiw%weight1*ext_aeropt_kinne(jg)% ssa_c_f(jcs:kproma,1:nb_lw,krow,tiw%month1_index)+ &
+                                  tiw%weight2*ext_aeropt_kinne(jg)% ssa_c_f(jcs:kproma,1:nb_lw,krow,tiw%month2_index))
+  !$ACC END KERNELS
+  !$ACC PARALLEL LOOP DEFAULT(NONE) FIRSTPRIVATE(tiw) GANG VECTOR COLLAPSE(3) ASYNC(1) IF (use_acc)
+  DO jk=1,klev
+     DO jwl=1,nb_lw
+        DO jl=jcs,kproma
            !
            ! ATTENTION: The output data in paer_tau_lw_vr are stored with indices 1:kproma-jcs+1
            !
-           paer_tau_lw_vr(1:kproma-jcs+1,jk,jwl)=zq_aod_c(jcs:kproma,jk) * &
-                zs_i(jcs:kproma,jwl) * &
-                (tiw%weight1*ext_aeropt_kinne(jg)% aod_c_f(jcs:kproma,jwl,krow,tiw%month1_index) + &
-                 tiw%weight2*ext_aeropt_kinne(jg)% aod_c_f(jcs:kproma,jwl,krow,tiw%month2_index)) 
+           paer_tau_lw_vr(jl-jcs+1,jk,jwl)=zq_aod_c(jl,jk) * &
+                 zs_i(jl,jwl) * &
+                 (tiw%weight1*ext_aeropt_kinne(jg)% aod_c_f(jl,jwl,krow,tiw%month1_index) + &
+                 tiw%weight2*ext_aeropt_kinne(jg)% aod_c_f(jl,jwl,krow,tiw%month2_index))
         END DO
      END DO
-
+  END DO
+  
 ! (iv) solar radiation
 ! time interpolated single scattering albedo (omega_f, omega_c)
-     zs_c(jcs:kproma,1:nb_sw) = tiw%weight1*ext_aeropt_kinne(jg)% ssa_c_s(jcs:kproma,1:nb_sw,krow,tiw%month1_index) + &
-                                tiw%weight2*ext_aeropt_kinne(jg)% ssa_c_s(jcs:kproma,1:nb_sw,krow,tiw%month2_index)
-     zs_f(jcs:kproma,1:nb_sw) = tiw%weight1*ext_aeropt_kinne(jg)% ssa_f_s(jcs:kproma,1:nb_sw,krow,tiw%month1_index) + &
-                                tiw%weight2*ext_aeropt_kinne(jg)% ssa_f_s(jcs:kproma,1:nb_sw,krow,tiw%month2_index)
+  !$ACC KERNELS DEFAULT(NONE) COPYIN(tiw) ASYNC(1) IF ( use_acc )
+  zs_c(jcs:kproma,1:nb_sw) = tiw%weight1*ext_aeropt_kinne(jg)% ssa_c_s(jcs:kproma,1:nb_sw,krow,tiw%month1_index) + &
+                             tiw%weight2*ext_aeropt_kinne(jg)% ssa_c_s(jcs:kproma,1:nb_sw,krow,tiw%month2_index)
+  zs_f(jcs:kproma,1:nb_sw) = tiw%weight1*ext_aeropt_kinne(jg)% ssa_f_s(jcs:kproma,1:nb_sw,krow,tiw%month1_index) + &
+                             tiw%weight2*ext_aeropt_kinne(jg)% ssa_f_s(jcs:kproma,1:nb_sw,krow,tiw%month2_index)
 ! time interpolated asymmetry factor (g_c, g_{n,a})
-     zg_c(jcs:kproma,1:nb_sw) = tiw%weight1*ext_aeropt_kinne(jg)% asy_c_s(jcs:kproma,1:nb_sw,krow,tiw%month1_index) + &
-                                tiw%weight2*ext_aeropt_kinne(jg)% asy_c_s(jcs:kproma,1:nb_sw,krow,tiw%month2_index)
-     zg_f(jcs:kproma,1:nb_sw) = tiw%weight1*ext_aeropt_kinne(jg)% asy_f_s(jcs:kproma,1:nb_sw,krow,tiw%month1_index) + &
-                                tiw%weight2*ext_aeropt_kinne(jg)% asy_f_s(jcs:kproma,1:nb_sw,krow,tiw%month2_index)
+  zg_c(jcs:kproma,1:nb_sw) = tiw%weight1*ext_aeropt_kinne(jg)% asy_c_s(jcs:kproma,1:nb_sw,krow,tiw%month1_index) + &
+                             tiw%weight2*ext_aeropt_kinne(jg)% asy_c_s(jcs:kproma,1:nb_sw,krow,tiw%month2_index)
+  zg_f(jcs:kproma,1:nb_sw) = tiw%weight1*ext_aeropt_kinne(jg)% asy_f_s(jcs:kproma,1:nb_sw,krow,tiw%month1_index) + &
+                             tiw%weight2*ext_aeropt_kinne(jg)% asy_f_s(jcs:kproma,1:nb_sw,krow,tiw%month2_index)
 ! time interpolated aerosol optical depths
-     zt_c(jcs:kproma,1:nb_sw) = tiw%weight1*ext_aeropt_kinne(jg)% aod_c_s(jcs:kproma,1:nb_sw,krow,tiw%month1_index) + &
-                                tiw%weight2*ext_aeropt_kinne(jg)% aod_c_s(jcs:kproma,1:nb_sw,krow,tiw%month2_index)
-     zt_f(jcs:kproma,1:nb_sw) = tiw%weight1*ext_aeropt_kinne(jg)% aod_f_s(jcs:kproma,1:nb_sw,krow,tiw%month1_index) + &
-                                tiw%weight2*ext_aeropt_kinne(jg)% aod_f_s(jcs:kproma,1:nb_sw,krow,tiw%month2_index)
+  zt_c(jcs:kproma,1:nb_sw) = tiw%weight1*ext_aeropt_kinne(jg)% aod_c_s(jcs:kproma,1:nb_sw,krow,tiw%month1_index) + &
+                             tiw%weight2*ext_aeropt_kinne(jg)% aod_c_s(jcs:kproma,1:nb_sw,krow,tiw%month2_index)
+  zt_f(jcs:kproma,1:nb_sw) = tiw%weight1*ext_aeropt_kinne(jg)% aod_f_s(jcs:kproma,1:nb_sw,krow,tiw%month1_index) + &
+                             tiw%weight2*ext_aeropt_kinne(jg)% aod_f_s(jcs:kproma,1:nb_sw,krow,tiw%month2_index)
+  !$ACC END KERNELS
+  
 ! height interpolation
 ! calculate optical properties
+  !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(3) ASYNC(1) IF ( use_acc )
   DO jk=1,klev
-! aerosol optical depth 
      DO jwl=1,nb_sw
-        ztaua_c(jcs:kproma,jwl) = zt_c(jcs:kproma,jwl)*zq_aod_c(jcs:kproma,jk)
-        ztaua_f(jcs:kproma,jwl) = zt_f(jcs:kproma,jwl)*zq_aod_f(jcs:kproma,jk)
+        DO jl=jcs,kproma
+           ! aerosol optical depth 
+           ztaua_c(jl,jwl) = zt_c(jl,jwl)*zq_aod_c(jl,jk)
+           ztaua_f(jl,jwl) = zt_f(jl,jwl)*zq_aod_f(jl,jk)
+           !
+           ! ATTENTION: The output data in paer_tau/piz/cg_sw_vr are stored with indices 1:kproma-jcs+1
+           !
+           jl_from1 = jl-jcs+1
+           paer_tau_sw_vr(jl_from1,jk,jwl) = &
+                         & ztaua_c(jl,jwl) + &
+                         & ztaua_f(jl,jwl) 
+           paer_piz_sw_vr(jl_from1,jk,jwl) = &
+                      & ztaua_c(jl,jwl)*zs_c(jl,jwl) + &
+                      & ztaua_f(jl,jwl)*zs_f(jl,jwl)
+           IF (paer_tau_sw_vr(jl_from1,jk,jwl) /= 0._wp) THEN
+              paer_piz_sw_vr(jl_from1,jk,jwl) = paer_piz_sw_vr(jl_from1,jk,jwl) / &
+                                              & paer_tau_sw_vr(jl_from1,jk,jwl)
+           ELSE
+              paer_piz_sw_vr(jl_from1,jk,jwl) = 1._wp
+           END IF
+           paer_cg_sw_vr(jl_from1,jk,jwl)  = &
+                         & ztaua_c(jl,jwl)*zs_c(jl,jwl)*zg_c(jl,jwl) + &
+                         & ztaua_f(jl,jwl)*zs_f(jl,jwl)*zg_f(jl,jwl)
+           IF (paer_tau_sw_vr(jl_from1,jk,jwl) /= 0._wp) THEN
+              paer_cg_sw_vr (jl_from1,jk,jwl) = paer_cg_sw_vr (jl_from1,jk,jwl) / &
+                                              & paer_piz_sw_vr(jl_from1,jk,jwl) / &
+                                              & paer_tau_sw_vr(jl_from1,jk,jwl)
+           ELSE
+              paer_cg_sw_vr(jl_from1,jk,jwl) = 0._wp
+           END IF
+        END DO
      END DO
-     !
-     ! ATTENTION: The output data in paer_tau/piz/cg_sw_vr are stored with indices 1:kproma-jcs+1
-     !
-     paer_tau_sw_vr(1:kproma-jcs+1,jk,1:nb_sw) = &
-                   & ztaua_c(jcs:kproma,1:nb_sw) + &
-                   & ztaua_f(jcs:kproma,1:nb_sw) 
-     paer_piz_sw_vr(1:kproma-jcs+1,jk,1:nb_sw) = &
-                   & ztaua_c(jcs:kproma,1:nb_sw)*zs_c(jcs:kproma,1:nb_sw) + &
-                   & ztaua_f(jcs:kproma,1:nb_sw)*zs_f(jcs:kproma,1:nb_sw)
-     WHERE (paer_tau_sw_vr(1:kproma-jcs+1,jk,1:nb_sw) /= 0._wp) 
-        paer_piz_sw_vr(1:kproma-jcs+1,jk,1:nb_sw) = paer_piz_sw_vr(1:kproma-jcs+1,jk,1:nb_sw) / &
-                                                  & paer_tau_sw_vr(1:kproma-jcs+1,jk,1:nb_sw)
-     ELSEWHERE
-        paer_piz_sw_vr(1:kproma-jcs+1,jk,1:nb_sw) = 1._wp
-     END WHERE
-     paer_cg_sw_vr(1:kproma-jcs+1,jk,1:nb_sw)  = &
-                   & ztaua_c(jcs:kproma,1:nb_sw)*zs_c(jcs:kproma,1:nb_sw)*zg_c(jcs:kproma,1:nb_sw) + &
-                   & ztaua_f(jcs:kproma,1:nb_sw)*zs_f(jcs:kproma,1:nb_sw)*zg_f(jcs:kproma,1:nb_sw)
-     WHERE (paer_tau_sw_vr(1:kproma-jcs+1,jk,1:nb_sw) /= 0._wp) 
-        paer_cg_sw_vr(1:kproma-jcs+1,jk,1:nb_sw) = paer_cg_sw_vr (1:kproma-jcs+1,jk,1:nb_sw) / &
-                                                 & paer_piz_sw_vr(1:kproma-jcs+1,jk,1:nb_sw) / &
-                                                 & paer_tau_sw_vr(1:kproma-jcs+1,jk,1:nb_sw)
-     ELSEWHERE
-        paer_cg_sw_vr(1:kproma-jcs+1,jk,1:nb_sw) = 0._wp
-     END WHERE
-  ENDDO
+  END DO
+
+  !$ACC END DATA
+  
 END SUBROUTINE set_bc_aeropt_kinne
 !-------------------------------------------------------------------------
 ! 
@@ -458,6 +525,7 @@ END SUBROUTINE set_bc_aeropt_kinne
 !!
 SUBROUTINE read_months_bc_aeropt_kinne (                                   &
   caod,             cssa,             casy,               caer_ex,         &
+  zaod,             zssa,             zasy,               zaer_ex,         &
   cdz_clim,         cwldim,           clevdim,            imnthb,          &
   imnthe,           iyear,            cfname,             p_patch          )
 !
@@ -478,50 +546,36 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
                                                ! if month=13, month 1 of subsequent year is read
   CHARACTER(len=*), INTENT(in)   :: cfname     ! file name containing variables
 
-  TYPE(t_patch), TARGET, INTENT(in) :: p_patch
+  TYPE(t_patch), INTENT(in) :: p_patch
 
   INTEGER                        :: ifile_id, kmonthb, kmonthe, nmonths, ilen_cfname
-  TYPE(t_stream_id)              :: stream_id
-  REAL(wp), POINTER              :: zvar(:,:,:,:)
-  REAL(wp), POINTER              :: zaod(:,:,:,:), zssa(:,:,:,:), zasy(:,:,:,:), zaer_ex(:,:,:,:)
-  CHARACTER(LEN=32)              :: cimnthb, cimnthe
-  CHARACTER(LEN=256)             :: cfname2, cfnameyear, cyear
+  REAL(wp), INTENT(out)          :: zaod(:,:,:,0:), zssa(:,:,:,0:), zasy(:,:,:,0:), zaer_ex(:,:,:,0:)
+  ! optional space for _DOM99 suffix
+  CHARACTER(LEN=LEN(cfname)+6)   :: cfname2
+  ! optional space for _YYYY.nc suffix
+  CHARACTER(LEN=LEN(cfname)+6+12+4) :: cfnameyear
+  INTEGER :: cfname2_tlen
 
   INTEGER                        :: jg
 
   jg = p_patch%id
 
   IF (imnthb < 0 .OR. imnthe < imnthb .OR. imnthe > 13 ) THEN
-    CALL finish ('read_months_bc_aeropt_kinne in mo_bc_aeropt_kinne', &
-                 'months to be read outside valid range 0<=imnthb<=imnthe<=13, '// &
-                 'imnthb='//TRIM(ADJUSTL(cimnthb))//', imnthe='//TRIM(ADJUSTL(cimnthe))) 
+    WRITE (message_text, '(a,2(a,i0))') &
+         'months to be read outside valid range 0<=imnthb<=imnthe<=13, ', &
+         'imnthb=', imnthb, ', imnthe=', imnthe
+    CALL finish('read_months_bc_aeropt_kinne in mo_bc_aeropt_kinne', &
+      &         message_text)
   END IF
   ilen_cfname=LEN_TRIM(cfname)
-  IF (cfname(1:ilen_cfname) == 'bc_aeropt_kinne_sw_b14_coa') THEN
-    zaod    => ext_aeropt_kinne(jg)% aod_c_s
-    zssa    => ext_aeropt_kinne(jg)% ssa_c_s
-    zasy    => ext_aeropt_kinne(jg)% asy_c_s
-    zaer_ex => ext_aeropt_kinne(jg)% z_km_aer_c_mo
-  END IF
-  IF (cfname(1:ilen_cfname) == 'bc_aeropt_kinne_lw_b16_coa') THEN
-    zaod    => ext_aeropt_kinne(jg)% aod_c_f
-    zssa    => ext_aeropt_kinne(jg)% ssa_c_f
-    zasy    => ext_aeropt_kinne(jg)% asy_c_f
-    zaer_ex => ext_aeropt_kinne(jg)% z_km_aer_c_mo ! for the coarse mode, the altitude distribution is wavelength independent and
-                                                   ! therefore for solar and long wave spectrum the same
-  END IF
-  IF (cfname(1:ilen_cfname) == 'bc_aeropt_kinne_sw_b14_fin') THEN
-    zaod    => ext_aeropt_kinne(jg)% aod_f_s
-    zssa    => ext_aeropt_kinne(jg)% ssa_f_s
-    zasy    => ext_aeropt_kinne(jg)% asy_f_s
-    zaer_ex => ext_aeropt_kinne(jg)% z_km_aer_f_mo
-  END IF
 
   ! Add domain index if more than 1 grid is used
   IF (n_dom > 1) THEN
-     WRITE(cfname2,'(a,a,i2.2)') cfname,'_DOM',jg
+    WRITE(cfname2,'(a,a,i2.2)') cfname,'_DOM',jg
+    cfname2_tlen = LEN_TRIM(cfname2)
   ELSE
-     cfname2=cfname
+    cfname2=cfname
+    cfname2_tlen = ilen_cfname
   END IF
 
   WRITE(message_text,'(a,i2,a,i2)') ' Reading Kinne aerosols for months ', imnthb, ' to ', imnthe
@@ -531,198 +585,100 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
 
   IF (imnthb == 0) THEN
 
-    WRITE(cyear,*) iyear-1
-
     IF (cfname(1:ilen_cfname) == 'bc_aeropt_kinne_sw_b14_fin' .AND. &
        ( echam_rad_config(p_patch%id)%irad_aero == 13 .OR.          &
       &  echam_rad_config(p_patch%id)%irad_aero == 15 ) ) THEN
-        cfnameyear=TRIM(cfname2)//'_'//TRIM(ADJUSTL(cyear))//'.nc'
+      WRITE(cfnameyear,'(2a,i0,a)') cfname2(1:cfname2_tlen), '_', iyear-1, '.nc'
     ELSE
-      cfnameyear=TRIM(cfname2)//'.nc'
+      cfnameyear=cfname2(1:cfname2_tlen)//'.nc'
     ENDIF
 
-    CALL message ('read_months_bc_aeropt_kinne of mo_bc_aeropt_kinne', &
-   &              'reading from file '//TRIM(ADJUSTL(cfnameyear)))
-    stream_id=openInputFile(cfnameyear, p_patch, default_read_method)
-
-    CALL read_3D_time(stream_id=stream_id, location=on_cells, variable_name=caod, &
-           &          return_pointer=zvar, start_timestep=12, end_timestep=12, &
-           &          levelsDimName=cwldim)
-    CALL shape_check_fields(SHAPE(zaod(:,:,:,0:0)),SHAPE(zvar),cfnameyear,caod, &
-                                  'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
-    zaod(:,:,:,0)=zvar(:,:,:,1)
-    DEALLOCATE(zvar)
-
-    CALL read_3D_time(stream_id=stream_id, location=on_cells, variable_name=cssa, &
-           &          return_pointer=zvar, start_timestep=12, end_timestep=12, &
-           &          levelsDimName=cwldim)
-    CALL shape_check_fields(SHAPE(zssa(:,:,:,0:0)),SHAPE(zvar),cfnameyear,cssa, &
-                                  'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
-    zssa(:,:,:,0)=zvar(:,:,:,1)
-    DEALLOCATE(zvar)
-
-    CALL read_3D_time(stream_id=stream_id, location=on_cells, variable_name=casy, &
-           &          return_pointer=zvar, start_timestep=12, end_timestep=12, &
-           &          levelsDimName=cwldim)
-    CALL shape_check_fields(SHAPE(zasy(:,:,:,0:0)),SHAPE(zvar),cfnameyear,casy, &
-                                  'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
-    zasy(:,:,:,0)=zvar(:,:,:,1)
-    DEALLOCATE(zvar)
-
-    CALL read_3D_time(stream_id=stream_id, location=on_cells, variable_name=caer_ex, &
-           &          return_pointer=zvar, start_timestep=12, end_timestep=12, &
-           &          levelsDimName=clevdim)
-    CALL shape_check_fields(SHAPE(zaer_ex(:,:,:,0:0)),SHAPE(zvar),cfnameyear,caer_ex, &
-                                 'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
-    zaer_ex(:,:,:,0)=zvar(:,:,:,1)
-    DEALLOCATE(zvar)
-    CALL closeFile(stream_id)
+    CALL read_single_month_bc_aeropt_kinne(cfnameyear, &
+         p_patch, caod, cssa, casy, caer_ex, &
+         zaod=zaod(:,:,:,0:0), zssa=zssa(:,:,:,0:0), &
+         zasy=zasy(:,:,:,0:0), zaer_ex=zaer_ex(:,:,:,0:0), &
+         start_timestep=12, end_timestep=12, &
+         cwldim=cwldim, clevdim=clevdim)
   END IF
 
-  ! Read data for current year
 
-  WRITE(cyear,*) iyear
-    
+  ! Read data for current year
   IF (cfname(1:ilen_cfname) == 'bc_aeropt_kinne_sw_b14_fin' .AND. &
      ( echam_rad_config(p_patch%id)%irad_aero == 13 .OR.          &
     &  echam_rad_config(p_patch%id)%irad_aero == 15 ) ) THEN
-      cfnameyear=TRIM(cfname2)//'_'//TRIM(ADJUSTL(cyear))//'.nc'
+    WRITE(cfnameyear,'(2a,i0,a)') cfname2(1:cfname2_tlen), '_', iyear, '.nc'
   ELSE
     cfnameyear=TRIM(cfname2)//'.nc'
   ENDIF
-
-  CALL message ('read_months_bc_aeropt_kinne of mo_bc_aeropt_kinne', &
-   &            'reading from file '//TRIM(ADJUSTL(cfnameyear)))
-
-  stream_id=openInputFile(cfnameyear, p_patch, default_read_method)
-
   kmonthb=MAX(1,imnthb)
   kmonthe=MIN(12,imnthe)
-
-  nmonths = kmonthe-kmonthb+1
-
-  CALL read_3D_time(stream_id=stream_id, location=on_cells, variable_name=caod, &
-         &          return_pointer=zvar, start_timestep=kmonthb, end_timestep=kmonthe, &
-         &          levelsDimName=cwldim)
-  CALL shape_check_fields(SHAPE(zaod(:,:,:,kmonthb:kmonthe)),SHAPE(zvar),cfnameyear,caod, &
-                                'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
-  zaod(:,:,:,kmonthb:kmonthe)=zvar(:,:,:,1:nmonths)
-  DEALLOCATE(zvar)
-
-  CALL read_3D_time(stream_id=stream_id, location=on_cells, variable_name=cssa, &
-         &          return_pointer=zvar, start_timestep=kmonthb, end_timestep=kmonthe, &
-         &          levelsDimName=cwldim)
-  CALL shape_check_fields(SHAPE(zssa(:,:,:,kmonthb:kmonthe)),SHAPE(zvar),cfnameyear,cssa, &
-                                'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
-  zssa(:,:,:,kmonthb:kmonthe)=zvar(:,:,:,1:nmonths)
-  DEALLOCATE(zvar)
-
-  CALL read_3D_time(stream_id=stream_id, location=on_cells, variable_name=casy, &
-         &          return_pointer=zvar, start_timestep=kmonthb, end_timestep=kmonthe, &
-         &          levelsDimName=cwldim)
-  CALL shape_check_fields(SHAPE(zasy(:,:,:,kmonthb:kmonthe)),SHAPE(zvar),cfnameyear,casy, &
-                                'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
-  zasy(:,:,:,kmonthb:kmonthe)=zvar(:,:,:,1:nmonths)
-  DEALLOCATE(zvar)
-
-  CALL read_3D_time(stream_id=stream_id, location=on_cells, variable_name=caer_ex, &
-         &          return_pointer=zvar, start_timestep=kmonthb, end_timestep=kmonthe, &
-         &          levelsDimName=clevdim)
-  CALL shape_check_fields(SHAPE(zaer_ex(:,:,:,kmonthb:kmonthe)),SHAPE(zvar),cfnameyear,caer_ex, &
-                                 'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
-  zaer_ex(:,:,:,kmonthb:kmonthe)=zvar(:,:,:,1:nmonths)
-  DEALLOCATE(zvar)
-
-  CALL closeFile(stream_id)
+  CALL read_single_month_bc_aeropt_kinne(cfnameyear, &
+       p_patch, caod, cssa, casy, caer_ex, &
+       zaod=zaod(:,:,:,kmonthb:kmonthe), zssa=zssa(:,:,:,kmonthb:kmonthe), &
+       zasy=zasy(:,:,:,kmonthb:kmonthe), zaer_ex=zaer_ex(:,:,:,kmonthb:kmonthe), &
+       start_timestep=kmonthb, end_timestep=kmonthe, &
+       cwldim=cwldim, clevdim=clevdim)
 
   ! Read data for first month of next year
-
   IF (imnthe == 13) THEN
-    
-    WRITE(cyear,*) iyear+1
 
     IF (cfname(1:ilen_cfname) == 'bc_aeropt_kinne_sw_b14_fin' .AND. &
        ( echam_rad_config(p_patch%id)%irad_aero == 13 .OR.          &
       &  echam_rad_config(p_patch%id)%irad_aero == 15 ) ) THEN
-        cfnameyear=TRIM(cfname2)//'_'//TRIM(ADJUSTL(cyear))//'.nc'
+      WRITE(cfnameyear,'(2a,i0,a)') cfname2(1:cfname2_tlen), '_', iyear+1, '.nc'
     ELSE
-      cfnameyear=TRIM(cfname2)//'.nc'
+      cfnameyear=cfname2(1:cfname2_tlen)//'.nc'
     ENDIF
 
-    CALL message ('read_months_bc_aeropt_kinne of mo_bc_aeropt_kinne', &
-   &              'reading from file '//TRIM(ADJUSTL(cfnameyear)))
-
-    stream_id=openInputFile(cfnameyear, p_patch, default_read_method)
-
-    CALL read_3D_time(stream_id=stream_id, location=on_cells, variable_name=caod, &
-           &          return_pointer=zvar, start_timestep=1, end_timestep=1, &
-           &          levelsDimName=cwldim)
-    CALL shape_check_fields(SHAPE(zaod(:,:,:,13:13)),SHAPE(zvar),cfnameyear,caod, &
-                                  'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')    
-    zaod(:,:,:,13)=zvar(:,:,:,1)
-    DEALLOCATE(zvar)
-
-    CALL read_3D_time(stream_id=stream_id, location=on_cells, variable_name=cssa, &
-           &          return_pointer=zvar, start_timestep=1, end_timestep=1, &
-           &          levelsDimName=cwldim)
-    CALL shape_check_fields(SHAPE(zssa(:,:,:,13:13)),SHAPE(zvar),cfnameyear,cssa, &
-                                  'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
-    zssa(:,:,:,13)=zvar(:,:,:,1)
-    DEALLOCATE(zvar)
-
-    CALL read_3D_time(stream_id=stream_id, location=on_cells, variable_name=casy, &
-           &          return_pointer=zvar, start_timestep=1, end_timestep=1, &
-           &          levelsDimName=cwldim)
-    CALL shape_check_fields(SHAPE(zasy(:,:,:,13:13)),SHAPE(zvar),cfnameyear,casy, &
-                                  'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
-    zasy(:,:,:,13)=zvar(:,:,:,1)
-    DEALLOCATE(zvar)
-
-    CALL read_3D_time(stream_id=stream_id, location=on_cells, variable_name=caer_ex, &
-           &          return_pointer=zvar, start_timestep=1, end_timestep=1, &
-           &          levelsDimName=clevdim)
-    CALL shape_check_fields(SHAPE(zaer_ex(:,:,:,13:13)),SHAPE(zvar),cfnameyear,caer_ex, &
-                                 'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
-    zaer_ex(:,:,:,13)=zvar(:,:,:,1)
-    DEALLOCATE(zvar)
-    CALL closeFile(stream_id)
-
+    CALL read_single_month_bc_aeropt_kinne(cfnameyear, &
+         p_patch, caod, cssa, casy, caer_ex, &
+         zaod=zaod(:,:,:,13:13), zssa=zssa(:,:,:,13:13), &
+         zasy=zasy(:,:,:,13:13), zaer_ex=zaer_ex(:,:,:,13:13), &
+         start_timestep=1, end_timestep=1, &
+         cwldim=cwldim, clevdim=clevdim)
   END IF
 
   ! we assume here that delta_z (aka dz_clim) does not vary over the files
   ! thus it does not matter from which file we get these values:
 
-  ifile_id = openInputFile(cfnameyear)
+  CALL openInputFile(ifile_id, cfnameyear)
   dz_clim = read_0D_real (file_id=ifile_id, variable_name=cdz_clim)
   CALL closeFile(ifile_id)
 
-  END SUBROUTINE read_months_bc_aeropt_kinne
-!-------------------------------------------------------------------------
-! 
-!> SUBROUTINE size_check_zerofields -- checks the shape of the shape of the 
-!! fields read into the icon program
+END SUBROUTINE read_months_bc_aeropt_kinne
 
-  SUBROUTINE shape_check_fields(kdim_icon,kdim_file,cfname,cvarname,croutine_name,cmodule_name)
-    INTEGER,INTENT(in)            :: kdim_icon(:), kdim_file(:)
-    CHARACTER(LEN=*), INTENT(in)  :: cfname, cvarname, croutine_name, cmodule_name
-    INTEGER                       :: idim
-    CHARACTER(LEN=2)              :: cidim 
-    CHARACTER(LEN=32)             :: cidim_len_file, cidim_len_icon
-    IF (SIZE(kdim_icon) /= SIZE(kdim_file)) THEN
-      CALL finish(TRIM(ADJUSTL(croutine_name))//' of '//TRIM(ADJUSTL(cmodule_name )), &
-                  'variable '//TRIM(ADJUSTL(cvarname))//' has wrong number of dimensions in file ' &
-                  //TRIM(ADJUSTL(cfname)))
-    END IF
-    DO idim=1,SIZE(kdim_icon)
-      IF (kdim_icon(idim) /= kdim_file(idim)) THEN
-        WRITE(cidim,'(i2)') idim
-        WRITE(cidim_len_icon,'(i32)') kdim_icon(idim)
-        WRITE(cidim_len_file,'(i32)') kdim_file(idim)
-        CALL finish(TRIM(ADJUSTL(croutine_name))//' of '//TRIM(ADJUSTL(cmodule_name )), &
-                  'variable '//TRIM(ADJUSTL(cvarname))//' has wrong length in dimension ' &
-                  //TRIM(ADJUSTL(cidim))//' length in icon model: '//TRIM(ADJUSTL(cidim_len_icon)) &
-                  //' but length in file '//TRIM(ADJUSTL(cfname))//' is '//TRIM(ADJUSTL(cidim_len_file)))
-      END IF
-    END DO
-  END SUBROUTINE shape_check_fields
+  SUBROUTINE read_single_month_bc_aeropt_kinne(cfnameyear, p_patch, &
+       caod, cssa, casy, caer_ex, zaod, zssa, zasy, zaer_ex, &
+       start_timestep, end_timestep, cwldim, clevdim)
+    CHARACTER(len=*), INTENT(in) :: cfnameyear, caod, cssa, casy, caer_ex, &
+         cwldim, clevdim
+    TYPE(t_patch), INTENT(in) :: p_patch
+    INTEGER, INTENT(in) :: start_timestep, end_timestep
+    REAL(wp), INTENT(out) :: zaod(:,:,:,:), zssa(:,:,:,:), &
+         zasy(:,:,:,:), zaer_ex(:,:,:,:)
+    TYPE(t_stream_id)              :: stream_id
+
+    CALL message ('read_months_bc_aeropt_kinne of mo_bc_aeropt_kinne', &
+     &            'reading from file '//TRIM(ADJUSTL(cfnameyear)))
+    CALL openInputFile(stream_id, cfnameyear, p_patch, default_read_method)
+
+    CALL read_3D_time(stream_id=stream_id, location=on_cells, &
+           &          variable_name=caod, fill_array=zaod, &
+           &          start_timestep=start_timestep, end_timestep=end_timestep, &
+           &          levelsDimName=cwldim)
+    CALL read_3D_time(stream_id=stream_id, location=on_cells, &
+           &          variable_name=cssa, fill_array=zssa, &
+           &          start_timestep=start_timestep, end_timestep=end_timestep, &
+           &          levelsDimName=cwldim)
+    CALL read_3D_time(stream_id=stream_id, location=on_cells, &
+           &          variable_name=casy, fill_array=zasy, &
+           &          start_timestep=start_timestep, end_timestep=end_timestep, &
+           &          levelsDimName=cwldim)
+    CALL read_3D_time(stream_id=stream_id, location=on_cells, &
+           &          variable_name=caer_ex, fill_array=zaer_ex, &
+           &          start_timestep=start_timestep, end_timestep=end_timestep, &
+           &          levelsDimName=clevdim)
+    CALL closeFile(stream_id)
+
+  END SUBROUTINE read_single_month_bc_aeropt_kinne
 END MODULE mo_bc_aeropt_kinne

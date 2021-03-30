@@ -46,25 +46,24 @@ MODULE mo_action
   USE mo_kind,               ONLY: wp, i8
   USE mo_mpi,                ONLY: my_process_is_stdio, p_pe, p_io, p_comm_work, p_bcast
   USE mo_exception,          ONLY: message, message_text, finish
-  USE mo_impl_constants,     ONLY: vname_len, MAX_CHAR_LENGTH
-  USE mtime,                 ONLY: event, newEvent, datetime, newDatetime,           &
+  USE mo_impl_constants,     ONLY: vname_len
+  USE mtime,                 ONLY: event, newEvent, datetime,                        &
     &                              isCurrentEventActive, deallocateDatetime,         &
     &                              MAX_DATETIME_STR_LEN,                             &
     &                              MAX_EVENTNAME_STR_LEN, timedelta,                 &
     &                              newTimedelta, deallocateTimedelta,                &
     &                              getTriggeredPreviousEventAtDateTime,              &
-    &                              getPTStringFromMS, OPERATOR(>=), OPERATOR(<=),    &
-    &                              datetimetostring
+    &                              getPTStringFromMS, datetimetostring
   USE mo_util_mtime,         ONLY: is_event_active
   USE mo_util_string,        ONLY: remove_duplicates
   USE mo_util_table,         ONLY: initialize_table, finalize_table, add_table_column, &
     &                              set_table_entry, print_table, t_table
-  USE mo_action_types,       ONLY: t_var_action
+  USE mo_action_types,       ONLY: t_var_action, action_names, action_reset
   USE mo_grid_config,        ONLY: n_dom
   USE mo_run_config,         ONLY: msg_level
   USE mo_parallel_config,    ONLY: proc0_offloading
-  USE mo_var_list,           ONLY: nvar_lists, var_lists
-  USE mo_linked_list,        ONLY: t_list_element
+  USE mo_var_list,           ONLY: var_lists_apply
+  USE mo_linked_list,        ONLY: t_var_list_intrinsic
   USE mo_var_list_element,   ONLY: t_var_list_element
   USE mo_var_metadata_types, ONLY: t_var_metadata
   USE mo_fortran_tools,      ONLY: init
@@ -76,24 +75,11 @@ MODULE mo_action
   ! VARIABLES/OBJECTS
   PUBLIC :: reset_act
 
-  ! Functions/Subroutines
-  PUBLIC :: getActiveAction
-
-
   ! PARAMETER
-  PUBLIC :: ACTION_NAMES
+  PUBLIC :: action_names, action_reset
 
   INTEGER, PARAMETER :: NMAX_VARS = 100 ! maximum number of fields that can be
                                         ! assigned to a single action
-
-
-  ! List of available action types
-  !
-  INTEGER, PARAMETER, PUBLIC :: ACTION_RESET = 1   ! re-set field to 0
-  !
-  ! corresponding array of action names
-  CHARACTER(LEN=10), PARAMETER :: ACTION_NAMES(1) =(/"RESET     "/)
-
 
 
   ! type for generating an array of pointers of type t_var_list_element
@@ -177,90 +163,41 @@ CONTAINS
     INTEGER      , INTENT(IN)   :: actionTyp
 
     ! local variables
-    INTEGER :: i, iact
+    INTEGER :: i, l, tlen, sep_len
     INTEGER :: nvars                        ! number of variables assigned to action
 
-    TYPE(t_list_element), POINTER       :: element
     TYPE(t_var_action)  , POINTER       :: action_list
-    CHARACTER(LEN=2)                    :: str_actionTyp
-    CHARACTER(LEN=MAX_EVENTNAME_STR_LEN):: event_name
     CHARACTER(LEN=vname_len)            :: varlist(NMAX_VARS)
+    CHARACTER(len=2), PARAMETER :: sep = ', '
   !-------------------------------------------------------------------------
 
     ! init nvars
-    nvars = 0
+    act_obj%nvars = 0
 
     ! store actionTyp
     act_obj%actionTyp = actionTyp
 
     ! loop over all variable lists and variables
     !
-    DO i = 1,nvar_lists
-      element => NULL()
-
-      LOOPVAR : DO
-        IF(.NOT.ASSOCIATED(element)) THEN
-          element => var_lists(i)%p%first_list_element
-        ELSE
-          element => element%next_list_element
-        ENDIF
-        IF(.NOT.ASSOCIATED(element)) EXIT LOOPVAR
-
-        ! point to variable specific action list
-        action_list => element%field%info%action_list
-
-        ! Loop over all variable-specific actions
-        !
-        LOOPACTION: DO iact = 1,action_list%n_actions
-
-          ! If the variable specific action fits, assign variable
-          ! to the corresponding action.
-          IF (action_list%action(iact)%actionTyp == actionTyp) THEN
-
-            ! Add field to action object
-            nvars = nvars + 1
-            act_obj%var_element_ptr(nvars)%p => element%field
-            act_obj%var_action_index(nvars) = iact
-            act_obj%var_element_ptr(nvars)%patch_id = var_lists(i)%p%patch_id
-
-
-            ! Create event for this specific field
-            write(str_actionTyp,'(i2)') actionTyp
-            event_name = 'act_TYP'//TRIM(str_actionTyp)//'_'//TRIM(action_list%action(iact)%intvl)
-            act_obj%var_element_ptr(nvars)%event =>newEvent(                            &
-              &                                    TRIM(event_name),                    &
-              &                                    TRIM(action_list%action(iact)%ref),  &
-              &                                    TRIM(action_list%action(iact)%start),&
-              &                                    TRIM(action_list%action(iact)%end  ),&
-              &                                    TRIM(action_list%action(iact)%intvl))
-
-          END IF
-        ENDDO  LOOPACTION ! loop over variable-specific actions
-
-        IF(ASSOCIATED(action_list)) action_list => NULL()
-
-      ENDDO LOOPVAR ! loop over vlist "i"
-    ENDDO ! i = 1,nvar_lists
-
-    ! set nvars
-    act_obj%nvars = nvars
+    CALL var_lists_apply(action_collect_var, act_obj)
 
 
     IF (msg_level >= 11) THEN
 
       ! remove duplicate variable names
-      DO i=1,act_obj%nvars
-        varlist(i) = TRIM(act_obj%var_element_ptr(i)%p%info%name)
-      ENDDO
-      CALL remove_duplicates(varlist,nvars)
-
-      WRITE(message_text,'(a,a,a)') 'Variables assigned to action ',TRIM(ACTION_NAMES(act_obj%actionTyp)),':'
+      nvars = act_obj%nvars
       DO i=1, nvars
-        IF (i==1) THEN
-          WRITE(message_text,'(a,a,a)') TRIM(message_text), " ",  TRIM(varlist(i))
-        ELSE
-          WRITE(message_text,'(a,a,a)') TRIM(message_text), ", ", TRIM(varlist(i))
-        END IF
+        varlist(i) = act_obj%var_element_ptr(i)%p%info%name
+      ENDDO
+      CALL remove_duplicates(varlist, nvars)
+
+      WRITE(message_text,'(3a)') 'Variables assigned to action ',TRIM(ACTION_NAMES(actionTyp)),':'
+      tlen = LEN_TRIM(message_text)
+      DO i = 1, nvars
+        sep_len = MERGE(1,2,i==1)
+        l = LEN_TRIM(varlist(i))
+        WRITE(message_text(tlen+1:),'(2a)') sep(3-sep_len:2), varlist(i)(:l)
+        tlen = tlen + sep_len + l
       ENDDO
       CALL message('',message_text)
 
@@ -271,7 +208,63 @@ CONTAINS
 
   END SUBROUTINE action_collect_vars
 
+  !> wrapper, see action_collect_var_ for more information
+  SUBROUTINE action_collect_var(field, state, var_list)
+    TYPE(t_var_list_element), TARGET :: field
+    CLASS(*), TARGET :: state
+    TYPE(t_var_list_intrinsic), INTENT(in) :: var_list
 
+    SELECT TYPE(state)
+    CLASS IS (t_action_obj)
+      CALL action_collect_var_(field, state, var_list%patch_id)
+    END SELECT
+  END SUBROUTINE action_collect_var
+
+  !> inspect single field for applicable actions, if so, transfer
+  !! action_list items into act_obj fields in case of matching
+  !! actionTyp member
+  SUBROUTINE action_collect_var_(field, act_obj, patch_id)
+    TYPE(t_var_list_element), TARGET, INTENT(in) :: field
+    CLASS(t_action_obj), INTENT(inout) :: act_obj
+    INTEGER, INTENT(in) :: patch_id
+    INTEGER :: nvars, i, action_type
+    CHARACTER(LEN=MAX_EVENTNAME_STR_LEN):: event_name
+
+    nvars = act_obj%nvars
+    action_type = act_obj%actionTyp
+    ! point to variable specific action list
+    ASSOCIATE(action_list => field%info%action_list)
+      !
+      ! Loop over all variable-specific actions
+      !
+      LOOPACTION: DO i = 1,action_list%n_actions
+
+        ! If the variable specific action fits, assign variable
+        ! to the corresponding action.
+        IF (action_list%action(i)%actionTyp == action_type) THEN
+
+          ! Add field to action object
+          nvars = nvars + 1
+          act_obj%var_element_ptr(nvars)%p => field
+          act_obj%var_action_index(nvars) = i
+          act_obj%var_element_ptr(nvars)%patch_id = patch_id
+
+
+          ! Create event for this specific field
+          WRITE(event_name,'(a,i2,2a)') 'act_TYP', action_type, &
+               '_', TRIM(action_list%action(i)%intvl)
+          act_obj%var_element_ptr(nvars)%event =>newEvent(                   &
+            &                                 event_name,                    &
+            &                                 action_list%action(i)%ref,  &
+            &                                 action_list%action(i)%start,&
+            &                                 action_list%action(i)%end  ,&
+            &                                 action_list%action(i)%intvl)
+
+        END IF
+      ENDDO  LOOPACTION ! loop over variable-specific actions
+    END ASSOCIATE
+    act_obj%nvars = nvars
+  END SUBROUTINE action_collect_var_
 
   !>
   !! Screen print out of action event setup
@@ -585,8 +578,7 @@ CONTAINS
     CLASS (t_reset_obj)  :: act_obj
     INTEGER, INTENT(IN) :: ivar    ! element number
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_action:reset_kernel'
+    CHARACTER(len=*), PARAMETER :: routine = 'mo_action:reset_kernel'
     !-------------------------------------------------------------------
 
     ! re-set field to its pre-defined reset-value
@@ -605,58 +597,6 @@ CONTAINS
     ENDIF
 
   END SUBROUTINE reset_kernel
-
-
-  !>
-  !! Get index of potentially active action-event
-  !!
-  !! For a specific variable,
-  !! get index of potentially active action-event of selected action-type.
-  !!
-  !! The variable's info state and the action-type must be given.
-  !! The function returns the active action index within the variable's array
-  !! of actions. If no matching action is found, the function returns
-  !! the result -1.
-  !!
-  !! @par Revision History
-  !! Initial revision by Daniel Reinert, DWD (2015-04-08)
-  !!
-  FUNCTION getActiveAction(var_info, actionTyp, cur_date) RESULT(actionId)
-    TYPE(t_var_metadata), INTENT(IN)  :: var_info      ! var metadata
-    INTEGER             , INTENT(IN)  :: actionTyp     ! type of action to be searched for
-    TYPE(datetime)      , INTENT(IN)  :: cur_date      ! current datetime (mtime format)
-    !
-    ! local
-    INTEGER :: actionId
-    INTEGER :: iact             ! loop counter
-    TYPE(datetime), POINTER :: start_date       ! action-event start datetime
-    TYPE(datetime), POINTER :: end_date         ! action-event end datetime
-    !-------------------------------------------------------------------
-
-    actionId = -1
-
-    ! loop over all variable-specific actions
-    !
-    ! We unconditionally take the first active one found, even if there are more active ones.
-    ! (which however would normally make little sense)
-    DO iact = 1,var_info%action_list%n_actions
-      IF (var_info%action_list%action(iact)%actionTyp /= actionTyp ) CYCLE  ! skip all non-matching action types
-
-      start_date => newDatetime(TRIM(var_info%action_list%action(iact)%start))
-      end_date   => newDatetime(TRIM(var_info%action_list%action(iact)%end))
-
-      IF ((cur_date >= start_date) .AND. (cur_date <= end_date)) THEN
-        actionId = iact   ! found active action
-        CALL deallocateDatetime(start_date)
-        CALL deallocateDatetime(end_date)
-        EXIT      ! exit loop
-      ENDIF
-      CALL deallocateDatetime(start_date)
-      CALL deallocateDatetime(end_date)
-    ENDDO
-
-  END FUNCTION getActiveAction
-
 
 END MODULE mo_action
 

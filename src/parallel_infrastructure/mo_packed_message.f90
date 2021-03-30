@@ -20,7 +20,6 @@ MODULE mo_packed_message
   USE mo_exception, ONLY: finish, message_text
   USE mo_impl_constants, ONLY: SUCCESS
   USE mo_kind, ONLY: sp, dp, i8
-  USE mo_util_string, ONLY: int2string
 #ifndef NOMPI
   HANDLE_MPI_ERROR_USE
   USE mo_mpi, ONLY: p_int, p_get_bcast_role, MPI_SUCCESS
@@ -295,7 +294,7 @@ CONTAINS
    CHARACTER(*), INTENT(IN), TARGET :: scalar
    TYPE(c_ptr) :: cptr
 
-   cptr = C_LOC(scalar)
+   cptr = C_LOC(scalar(1:1))
    CALL me%packBlock(cptr, LEN(scalar), 7)
   END SUBROUTINE PackedMessage_packCharacterScalar
 
@@ -405,7 +404,7 @@ CONTAINS
     CHARACTER(*) , INTENT(OUT), TARGET :: scalar
     TYPE(c_ptr) :: cptr
 
-    cptr = C_LOC(scalar)
+    cptr = C_LOC(scalar(1:1))
     CALL me%unpackBlock(cptr, LEN(scalar), 7)
   END SUBROUTINE PackedMessage_unpackCharacterScalar
 

@@ -31,9 +31,11 @@ MODULE mo_interface_echam_rht
   USE mo_timer                  ,ONLY: ltimer, timer_start, timer_stop, timer_rht
 
   USE mo_radheating             ,ONLY: radheating
+#ifdef __NO_RTE_RRTMGP__
   USE mo_psrad_solar_parameters ,ONLY: psctm
-  !$ser verbatim USE mo_ser_echam_rht, ONLY: serialize_rht_input,&
-  !$ser verbatim                             serialize_rht_output
+#else
+  USE mo_radiation_solar_parameters ,ONLY: psctm
+#endif
 
   IMPLICIT NONE
   PRIVATE
@@ -81,9 +83,6 @@ CONTAINS
     fc_rht    => echam_phy_config(jg)%fc_rht
     field     => prm_field(jg)
     tend      => prm_tend (jg)
-
-    ! Serialbox2 input fields serialization
-    !$ser verbatim call serialize_rht_input(jg, jb, jcs, jce, nproma, nlev, field, tend)
 
     IF ( is_in_sd_ed_interval ) THEN
        !$ACC DATA PRESENT( field%cosmu0, field%daylght_frc, field%ts_rad, field%ts_rad_rt, &
@@ -519,9 +518,6 @@ CONTAINS
        !$ACC END DATA
        !
     END IF
-
-    ! Serialbox2 output fields serialization
-    !$ser verbatim call serialize_rht_output(jg, jb, jcs, jce, nproma, nlev, field, tend)
 
     ! disassociate pointers
     NULLIFY(lparamcpl)

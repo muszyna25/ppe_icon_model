@@ -20,7 +20,7 @@ MODULE mo_master_config
   
   IMPLICIT NONE
   
-  PRIVATE
+  PUBLIC
 
   PUBLIC :: calendar_str
   PUBLIC :: addModel, noOfModels, maxNoOfModels
@@ -76,7 +76,31 @@ MODULE mo_master_config
   CHARACTER(len=MAX_DATETIME_STR_LEN)  :: experimentStopDate       = ''
   CHARACTER(len=MAX_TIMEDELTA_STR_LEN) :: checkpointTimeIntval     = ''
   CHARACTER(len=MAX_TIMEDELTA_STR_LEN) :: restartTimeIntval        = ''
-  
+ 
+  ! ------------------------------------------------------------------------
+  ! keep the master memory here to avoid cycle refrences
+  ! it is filled by mo_master_init
+  ! ------------------------------------------------------------------------
+  INTEGER, PARAMETER :: atmo_process         = 1
+  INTEGER, PARAMETER :: ocean_process        = 2
+  INTEGER, PARAMETER :: ps_radiation_process = 3
+  INTEGER, PARAMETER :: hamocc_process       = 4
+  INTEGER, PARAMETER :: testbed_process      = 99
+  INTEGER, PARAMETER :: icon_output_process  = 100
+  ! ------------------------------------------------------------------------
+
+  INTEGER :: my_process_model ! =atmo_process,ocean_process,...
+  INTEGER :: my_model_no ! 1,2,3  (id uniquely this process, even if it has the
+                         ! same my_process_model with other compnents
+                         ! Example: Two different components may run the dummy_process
+  CHARACTER(len=filename_max) :: my_namelist_filename
+  CHARACTER(len=64) :: my_model_name = ""
+
+  CHARACTER(len=filename_max) :: master_namelist_filename = ""
+
+  INTEGER:: my_model_min_rank, my_model_max_rank, my_model_inc_rank 
+  LOGICAL :: multiple_models
+ 
 CONTAINS
 
   SUBROUTINE setInstitution(update_institute)

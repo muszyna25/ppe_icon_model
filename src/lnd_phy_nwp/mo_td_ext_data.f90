@@ -130,7 +130,7 @@ CONTAINS
       ENDIF
 
       ! updates plcov, tai and sai, which depend on ndvi
-      CALL update_ndvi_dependent_fields(p_patch, ext_data, p_lnd_state%diag_lnd)
+      CALL update_ndvi_dependent_fields(p_patch, ext_data, p_nh_state%diag)
     END IF
 
 
@@ -208,7 +208,7 @@ CONTAINS
     TYPE(t_external_data) , INTENT(INOUT) :: ext_data
     TYPE(t_lnd_state)     , INTENT(INOUT) :: p_lnd_state
 
-    CHARACTER(len=max_char_length), PARAMETER :: &
+    CHARACTER(len=*), PARAMETER :: &
       routine = modname//':set_actual_td_ext_data  '
 
     INTEGER                            :: month1, month2, year1, year2
@@ -392,7 +392,8 @@ CONTAINS
 
     CHARACTER(LEN=filename_max) :: extpar_file
     TYPE(t_stream_id)           :: stream_id
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+    INTEGER :: tlen
+    CHARACTER(len=*), PARAMETER :: &
     &  routine = modname//':read_td_ext_data_file:'
 
 !-----------------------------------------------------------------------
@@ -401,31 +402,32 @@ CONTAINS
     ! Set the months needed to interpolate the ext_para to the actual day
 
     IF (p_patch%geometry_info%cell_type == 6) THEN ! hexagonal grid
-      CALL finish(TRIM(ROUTINE),&
+      CALL finish(routine,&
         & 'Hexagonal grid is not supported, yet.')
     ENDIF
-    WRITE( message_text,'(a,2i6,a)') 'n_dom, jg, grid_filename ',n_dom, &
-      &                              p_patch%id, TRIM(p_patch%grid_filename)
-    CALL message  (routine, TRIM(message_text))
+    tlen = LEN_TRIM(p_patch%grid_filename)
+    WRITE (message_text,'(a,2i6,a)') 'n_dom, jg, grid_filename ',n_dom, &
+      &                              p_patch%id, p_patch%grid_filename(1:tlen)
+    CALL message(routine, message_text)
 
     !! READ SST files
     extpar_file = generate_td_filename(sst_td_filename,                   &
       &                                getModelBaseDir(),                 &
-      &                                TRIM(p_patch%grid_filename),   &
+      &                                p_patch%grid_filename(1:tlen),   &
       &                                m1,y1                   )
 
-    CALL message  (routine, TRIM(extpar_file))
-    stream_id = openInputFile(extpar_file, p_patch, default_read_method)
+    CALL message(routine, extpar_file)
+    call openInputFile(stream_id, extpar_file, p_patch, default_read_method)
     CALL read_2D_1time(stream_id, on_cells, 'SST', &
       &          ext_data%atm_td%sst_m(:,:,1))
     CALL closeFile(stream_id)
 
     extpar_file = generate_td_filename(sst_td_filename,                   &
       &                                getModelBaseDir(),                 &
-      &                                TRIM(p_patch%grid_filename),   &
+      &                                p_patch%grid_filename(1:tlen),   &
       &                                m2, y2                   )
-    CALL message  (routine, TRIM(extpar_file))
-    stream_id = openInputFile(extpar_file, p_patch, default_read_method)
+    CALL message(routine, extpar_file)
+    call openInputFile(stream_id, extpar_file, p_patch, default_read_method)
     CALL read_2D_1time(stream_id, on_cells, 'SST', &
       &          ext_data%atm_td%sst_m(:,:,2))
     CALL closeFile(stream_id)
@@ -434,20 +436,20 @@ CONTAINS
 
     extpar_file = generate_td_filename(ci_td_filename,                    &
       &                                getModelBaseDir(),                 &
-      &                                TRIM(p_patch%grid_filename),   &
+      &                                p_patch%grid_filename(1:tlen),   &
       &                                m1,y1                   )
-    CALL message  (routine, TRIM(extpar_file))
-    stream_id = openInputFile(extpar_file, p_patch, default_read_method)
+    CALL message(routine, extpar_file)
+    call openInputFile(stream_id, extpar_file, p_patch, default_read_method)
     CALL read_2D_1time(stream_id, on_cells, 'CI', &
       &          ext_data%atm_td%fr_ice_m(:,:,1))
     CALL closeFile(stream_id)
 
     extpar_file = generate_td_filename(ci_td_filename,                    &
       &                                getModelBaseDir(),                 &
-      &                             TRIM(p_patch%grid_filename),      &
+      &                             p_patch%grid_filename(1:tlen),      &
       &                             m2,y2                   )
-    CALL message  (routine, TRIM(extpar_file))
-    stream_id = openInputFile(extpar_file, p_patch, default_read_method)
+    CALL message(routine, extpar_file)
+    call openInputFile(stream_id, extpar_file, p_patch, default_read_method)
     CALL read_2D_1time(stream_id, on_cells, 'CI', &
       &          ext_data%atm_td%fr_ice_m(:,:,2))
     CALL closeFile(stream_id)

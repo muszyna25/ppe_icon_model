@@ -5,6 +5,7 @@
 !! Please see the file LICENSE in the root of the source tree for this code.
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
+#include "icon_contiguous_defines.h"
 MODULE mo_var_list
 
 #if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
@@ -20,6 +21,7 @@ MODULE mo_var_list
   USE mo_kind,             ONLY: sp, wp, i8
   USE mo_cdi,              ONLY: TSTEP_INSTANT,                     &
        &                         CDI_UNDEFID
+  USE mo_mpi,              ONLY: my_process_is_stdio, p_bcast
   USE mo_cf_convention,    ONLY: t_cf_var
   USE mo_grib2,            ONLY: t_grib2_var, grib2_var
   USE mo_run_config,       ONLY: msg_level
@@ -38,16 +40,20 @@ MODULE mo_var_list
   USE mo_var_groups,       ONLY: groups
   USE mo_tracer_metadata,  ONLY: create_tracer_metadata
   USE mo_tracer_metadata_types,ONLY: t_tracer_meta
-  USE mo_var_list_element, ONLY: t_var_list_element, level_type_ml
+  USE mo_var_list_element, ONLY: t_var_list_element, t_p_var_list_element, &
+    &                            level_type_ml
   USE mo_linked_list,      ONLY: t_var_list, t_list_element,        &
        &                         new_list, delete_list,             &
-       &                         append_list_element
+       &                         append_list_element,               &
+       &                         t_var_list_intrinsic
   USE mo_exception,        ONLY: message, message_text, finish
   USE mo_util_hash,        ONLY: util_hashword
   USE mo_util_string,      ONLY: remove_duplicates, toupper,        &
     &                            pretty_print_string_list, tolower, &
-    &                            difference, find_trailing_number
+    &                            difference, find_trailing_number,  &
+    &                            lowcase
   USE mo_impl_constants,   ONLY: max_var_lists, vname_len,          &
+    &                            max_var_list_name_len,             &
     &                            STR_HINTP_TYPE, MAX_TIME_LEVELS,   &
     &                            TLEV_NNOW, REAL_T, SINGLE_T,       &
     &                            BOOL_T, INT_T, SUCCESS,            &
@@ -79,6 +85,7 @@ MODULE mo_var_list
   PUBLIC :: delete_var_lists          ! delete all output var_lists
   PUBLIC :: get_var_list              ! get a pointer to an existing output var_list
   PUBLIC :: set_var_list              ! set default parameters of an output var_list
+  PUBLIC :: print_var
   PUBLIC :: print_var_list
   PUBLIC :: print_all_var_lists
   PUBLIC :: print_memory_use
@@ -86,7 +93,7 @@ MODULE mo_var_list
   PUBLIC :: default_var_list_settings ! set default settings for a whole list
   PUBLIC :: collect_group
 
-  PUBLIC :: var_lists                 ! vector of output var_lists
+  !PUBLIC :: var_lists                 ! vector of output var_lists
   PUBLIC :: nvar_lists                ! number of output var_lists defined so far
   PUBLIC :: max_var_lists
 
@@ -99,13 +106,16 @@ MODULE mo_var_list
   PUBLIC :: get_var_name              ! return plain variable name (without timelevel)
   PUBLIC :: get_var_timelevel         ! return variable timelevel (or "-1")
   PUBLIC :: get_var_tileidx           ! return variable tile index
+  PUBLIC :: get_var_container
   PUBLIC :: get_var_list_element_info ! return a copy of the metadata for a var_list element
   PUBLIC :: get_tracer_info_dyn_by_idx! return a copy of the dynamic metadata of a certain tracer
   PUBLIC :: get_timelevel_string      ! return the default string with timelevel encoded
   PUBLIC :: get_varname_with_timelevel! join varname with timelevel string
 
   PUBLIC :: total_number_of_variables ! returns total number of defined variables
-
+  PUBLIC :: get_model_types
+  PUBLIC :: get_restart_vars
+  PUBLIC :: var_lists_apply
   PUBLIC :: fget_var_list_element_r1d
   PUBLIC :: fget_var_list_element_r2d
   PUBLIC :: fget_var_list_element_r3d
@@ -123,7 +133,14 @@ MODULE mo_var_list
   INTERFACE find_element
     MODULE PROCEDURE find_list_element
     MODULE PROCEDURE find_element_from_all
+    MODULE PROCEDURE find_field_from_selected
+    MODULE PROCEDURE find_field_from_selected2
   END INTERFACE find_element
+
+  INTERFACE print_var_list
+    MODULE PROCEDURE print_var_list
+    MODULE PROCEDURE print_var_list_intrinsic
+  END INTERFACE print_var_list
 
  INTERFACE add_var  ! create a new list entry
     MODULE PROCEDURE add_var_list_element_5d
@@ -144,6 +161,11 @@ MODULE mo_var_list
     MODULE PROCEDURE add_var_list_element_l2d
     MODULE PROCEDURE add_var_list_element_l1d
   END INTERFACE add_var
+
+  INTERFACE add_var_list_reference
+    MODULE PROCEDURE add_var_list_reference
+    MODULE PROCEDURE add_var_list_reference_named
+  END INTERFACE add_var_list_reference
 
   INTERFACE add_ref
     MODULE PROCEDURE add_var_list_reference_r3d
@@ -187,11 +209,35 @@ MODULE mo_var_list
     MODULE PROCEDURE assign_if_present_action_list
   END INTERFACE struct_assign_if_present
 
-  
+  ABSTRACT INTERFACE
+    FUNCTION list_select(var_list, state) RESULT(is_selected)
+      IMPORT :: t_var_list_intrinsic
+      LOGICAL :: is_selected
+      TYPE(t_var_list_intrinsic), INTENT(in) :: var_list
+      CLASS(*), TARGET :: state
+    END FUNCTION list_select
+    FUNCTION var_filter(field, state, var_list) RESULT(is_selected)
+      IMPORT :: t_var_list_element, t_var_list_intrinsic
+      LOGICAL :: is_selected
+      TYPE(t_var_list_element), INTENT(in) :: field
+      CLASS(*), TARGET :: state
+      TYPE(t_var_list_intrinsic), INTENT(in) :: var_list
+    END FUNCTION var_filter
+    SUBROUTINE var_apply(field, state, var_list)
+      IMPORT :: t_var_list_element, t_var_list_intrinsic
+      TYPE(t_var_list_element), TARGET :: field
+      CLASS(*), TARGET :: state
+      TYPE(t_var_list_intrinsic), INTENT(in) :: var_list
+    END SUBROUTINE var_apply
+  END INTERFACE
+
   INTEGER,                  SAVE :: nvar_lists     =   0      ! var_lists allocated so far
   !
   TYPE(t_var_list), TARGET, SAVE :: var_lists(max_var_lists)  ! memory buffer array
   !
+#ifndef NOMPI
+  PUBLIC :: replicate_var_lists
+#endif
 CONTAINS
   !------------------------------------------------------------------------------------------------
   !
@@ -255,7 +301,7 @@ CONTAINS
     ! set default list characteristics
     !
     this_list%p%name     = name
-    this_list%p%post_suf = '_'//TRIM(name)
+    this_list%p%post_suf = '_'//name
     this_list%p%rest_suf = this_list%p%post_suf
     this_list%p%init_suf = this_list%p%post_suf
     this_list%p%loutput  = .TRUE.
@@ -285,7 +331,7 @@ CONTAINS
   !
   SUBROUTINE get_var_list (this_list, name)
     !
-    TYPE(t_var_list), POINTER    :: this_list ! pointer
+    TYPE(t_var_list), INTENT(out), POINTER    :: this_list ! pointer
     CHARACTER(len=*), INTENT(in) :: name      ! name of output var_list
     !
     INTEGER :: i
@@ -305,8 +351,11 @@ CONTAINS
   !
   ! @return total number of (non-container) variables
   !
-  FUNCTION total_number_of_variables()
+  FUNCTION total_number_of_variables(opt_list_select, opt_state, opt_var_select)
     INTEGER :: total_number_of_variables
+    PROCEDURE(list_select), OPTIONAL :: opt_list_select
+    PROCEDURE(var_filter), OPTIONAL :: opt_var_select
+    CLASS(*), OPTIONAL :: opt_state
     ! local variables
     INTEGER :: i
     TYPE(t_list_element), POINTER :: element
@@ -317,23 +366,159 @@ CONTAINS
     ! Note that there may be several variables with different time
     ! levels, we just add unconditionally all
     DO i = 1,nvar_lists
+      IF (PRESENT(opt_list_select)) THEN
+        IF (.NOT. opt_list_select(var_lists(i)%p, opt_state)) CYCLE
+      END IF
       element => var_lists(i)%p%first_list_element
-      LOOPVAR : DO WHILE (ASSOCIATED(element))
-        ! Do not count element if it is a container
-        total_number_of_variables = total_number_of_variables &
-             + MERGE(1, 0, .NOT. element%field%info%lcontainer)
-        element => element%next_list_element
-      ENDDO LOOPVAR ! loop over vlist "i"
+      IF (.NOT. PRESENT(opt_var_select)) THEN
+        LOOPVAR : DO WHILE (ASSOCIATED(element))
+          ! Do not count element if it is a container
+          total_number_of_variables = total_number_of_variables &
+               + MERGE(1, 0, .NOT. element%field%info%lcontainer)
+          element => element%next_list_element
+        ENDDO LOOPVAR ! loop over vlist "i"
+      ELSE
+        LOOPVAR_CUSTOM_FILTER : DO WHILE (ASSOCIATED(element))
+          ! Do not count element if it is a container
+          total_number_of_variables = total_number_of_variables &
+            &  + MERGE(1, 0, opt_var_select(element%field, opt_state, &
+            &                               var_lists(i)%p))
+          element => element%next_list_element
+        ENDDO LOOPVAR_CUSTOM_FILTER ! loop over vlist "i"
+      END IF
     ENDDO ! i = 1,nvar_lists
   END FUNCTION total_number_of_variables
 
-  !------------------------------------------------------------------------------------------------
+  !> builds array of all model type names seen in any variable list
+  SUBROUTINE get_model_types(model_types, patch_id)
+    CHARACTER(len=8), ALLOCATABLE, INTENT(out) :: model_types(:)
+    INTEGER, intent(in) :: patch_id
+    INTEGER :: i, nmt, ierror
+    CHARACTER(len=8) :: model_types_(nvar_lists)
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//":get_model_types"
+
+    nmt = 0
+    DO i = 1, nvar_lists
+      IF (var_lists(i)%p%patch_id == patch_id &
+          .AND. ALL(model_types_(1:nmt) /= var_lists(i)%p%model_type)) THEN
+        nmt = nmt + 1
+        model_types_(nmt) = var_lists(i)%p%model_type
+      END IF
+    END DO
+    ALLOCATE(model_types(nmt), STAT=ierror)
+    IF (ierror /= SUCCESS) CALL finish(routine, "memory allocation failed")
+    model_types(1:nmt) = model_types_(1:nmt)
+  END SUBROUTINE get_model_types
+
+  !> used as a filter to only select variable lists that match a given
+  !! patch id and model type name
+  LOGICAL FUNCTION list_is_in_patch_restart(varlist, patch_id, model_type)
+    TYPE(t_var_list), INTENT(IN) :: varlist
+    INTEGER, INTENT(IN) :: patch_id
+    CHARACTER(LEN = *), INTENT(IN) :: model_type
+
+    list_is_in_patch_restart = varlist%p%lrestart &
+      .AND. varlist%p%patch_id == patch_id &
+      .AND. varlist%p%model_type == model_type
+  END FUNCTION list_is_in_patch_restart
+
+  ! compute the number of  restart variables for the given logical patch.
+  FUNCTION number_of_restart_variables(patch_id, modelType) RESULT(fld_cnt)
+    INTEGER :: fld_cnt
+    INTEGER, INTENT(in) :: patch_id
+    CHARACTER(LEN = *), INTENT(IN) :: modelType
+    INTEGER :: i
+    TYPE(t_list_element), POINTER :: element
+
+    fld_cnt = 0
+    DO i = 1, nvar_lists
+      IF (list_is_in_patch_restart(var_lists(i), patch_id, modelType)) THEN
+        ! check, if the list has valid restart fields
+        element => var_lists(i)%p%first_list_element
+        DO WHILE (ASSOCIATED(element))
+          fld_cnt = fld_cnt + MERGE(1, 0, element%field%info%lrestart)
+          element => element%next_list_element
+        END DO
+      END IF
+    ENDDO
+  END FUNCTION number_of_restart_variables
+
+  !> collect references to all variables which match patch id and
+  !! model type name into the var_data argument
+  SUBROUTINE get_restart_vars(var_data, patch_id, modelType, out_restartType)
+    TYPE(t_p_var_list_element), ALLOCATABLE, INTENT(out) :: var_data(:)
+    INTEGER, INTENT(in) :: patch_id
+    CHARACTER(LEN = *), INTENT(IN) :: modelType
+    INTEGER, OPTIONAL, INTENT(OUT) :: out_restartType
+    INTEGER :: varCount, varIndex, error, curList, restartType
+    TYPE(t_list_element), POINTER :: element
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":get_restart_vars"
+
+    ! init. main variables
+    restartType = -1
+    ! counts number of restart variables for this file (logical patch ident)
+    varCount = number_of_restart_variables(patch_id, modelType)
+    ! allocate the array of restart variables
+    ALLOCATE(var_data(varCount), STAT = error)
+    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
+    ! fill the array of restart variables
+    varIndex = 1
+    DO curList = 1, nvar_lists
+      IF(list_is_in_patch_restart(var_lists(curList), patch_id, modelType)) THEN
+        IF(restartType == -1) THEN
+          restartType = var_lists(curList)%p%restart_type
+        ELSE IF(restartType /= var_lists(curList)%p%restart_type) THEN
+          CALL finish(routine, "assertion failed: var_lists contains inconsistent restart_type values")
+        END IF
+        ! check, if the list has valid restart fields
+        element => var_lists(curList)%p%first_list_element
+        DO WHILE (ASSOCIATED(element))
+          IF (element%field%info%lrestart) THEN
+            var_data(varIndex)%p => element%field
+            varIndex = varIndex + 1
+          END IF
+          element => element%next_list_element
+        END DO
+      END IF
+    END DO
+    IF(varIndex /= varCount + 1) &
+         CALL finish(routine, "assertion failed: wrong restart variable count")
+    IF (PRESENT(out_restartType)) out_restartType = restartType
+  END SUBROUTINE get_restart_vars
+
+  !> loop over all variable lists and call fn for each variable list field
+  !!
+  !! @param fn callback to evaluate for each field
+  !! @param opt_list_select optional predicate function that needs to
+  !! evaluate to false for variable lists whose variables are to be
+  !! excluded from evaluation.
+  !! @param state is passed to both fn and opt_list_select (if present)
+  SUBROUTINE var_lists_apply(fn, state, opt_list_select)
+    PROCEDURE(var_apply) :: fn
+    CLASS(*), TARGET :: state
+    PROCEDURE(list_select), OPTIONAL :: opt_list_select
+    TYPE(t_list_element), POINTER :: element
+    INTEGER :: i
+
+    DO i = 1,nvar_lists
+      IF (PRESENT(opt_list_select)) THEN
+        IF (.NOT. opt_list_select(var_lists(i)%p, state)) CYCLE
+      END IF
+      element => var_lists(i)%p%first_list_element
+      DO WHILE (ASSOCIATED(element))
+        CALL fn(element%field, state, var_lists(i)%p)
+        element => element%next_list_element
+      ENDDO
+    ENDDO
+  END SUBROUTINE var_lists_apply
+
+  !-------------------------------------------------------------------------
   !
   ! Get a list of variable names matching a given criterion.
   !
-  SUBROUTINE get_all_var_names (varlist, ivar, opt_vlevel_type,                          &
-    &                           opt_vert_intp_type,                                      &
-    &                           opt_hor_intp_type, opt_lcontainer,                       &
+  SUBROUTINE get_all_var_names (varlist, ivar, opt_vlevel_type,           &
+    &                           opt_vert_intp_type,                       &
+    &                           opt_hor_intp_type, opt_lcontainer,        &
     &                           opt_loutput, opt_patch_id)
     CHARACTER(LEN=vname_len), INTENT(INOUT) :: varlist(:)
     INTEGER,                  INTENT(OUT)   :: ivar
@@ -512,6 +697,44 @@ CONTAINS
     IF (get_var_tileidx<=0) &
       CALL finish(routine, 'Illegal time level in '//TRIM(varname))
   END FUNCTION get_var_tileidx
+
+  !------------------------------------------------------------------------------------------------
+  !> @return container variable
+  !
+  FUNCTION get_var_container(patch_id, contained_elt)  RESULT(res)
+    TYPE(t_var_list_element), POINTER :: res
+    INTEGER, INTENT(IN) :: patch_id
+    TYPE(t_var_list_element), TARGET, INTENT(IN) :: contained_elt
+
+    ! local variables
+    TYPE(t_list_element), POINTER :: element
+    INTEGER                       :: i
+
+    ! Unfortunately, there does not (yet) exist a link (pointer)
+    ! between the contained element and the variable
+    ! container. Therefore we need to loop over all variables and
+    ! compare pointers.
+
+    res => contained_elt
+    VARLIST_LOOP : DO i = 1, nvar_lists
+      IF (var_lists(i)%p%patch_id /= patch_id) CYCLE
+
+      element => var_lists(i)%p%first_list_element
+      DO WHILE (ASSOCIATED(element))
+        IF (element%field%info%ncontained > 0) THEN
+          IF (ASSOCIATED(element%field%r_ptr, contained_elt%r_ptr) .OR. &
+            & ASSOCIATED(element%field%s_ptr, contained_elt%s_ptr) .OR. &
+            & ASSOCIATED(element%field%i_ptr, contained_elt%i_ptr) .OR. &
+            & ASSOCIATED(element%field%l_ptr, contained_elt%l_ptr)) THEN
+            res => element%field
+            EXIT VARLIST_LOOP
+          END IF
+        END IF
+
+        element => element%next_list_element
+      END DO
+    END DO VARLIST_LOOP
+  END FUNCTION get_var_container
 
 
   !------------------------------------------------------------------------------------------------
@@ -1118,7 +1341,7 @@ CONTAINS
 
     new_list_element%field%info%ndims                    = ndims
     new_list_element%field%info%used_dimensions(1:ndims) = ldims(1:ndims)
-    new_list_element%field%info%dom                      => this_list%p%patch_id
+    new_list_element%field%info%dom                      = this_list%p%patch_id
     IF (.NOT. referenced) THEN
       idims(1:ndims)    = new_list_element%field%info%used_dimensions(1:ndims)
       idims((ndims+1):) = 1
@@ -3722,57 +3945,53 @@ CONTAINS
   !
   ! add supplementary fields to a different var list (eg. geopotential, surface pressure, ...)
   !
-  SUBROUTINE add_var_list_reference (to_var_list, name, from_var_list, loutput, bit_precision, in_group)
+  SUBROUTINE add_var_list_reference_named(to_var_list, name, &
+       from_var_list_name, loutput, bit_precision, in_group)
+    TYPE(t_var_list), TARGET, INTENT(inout)  :: to_var_list
+    CHARACTER(len=*), INTENT(in)             :: name
+    CHARACTER(len=*), INTENT(in)             :: from_var_list_name
+    LOGICAL,          INTENT(in),   OPTIONAL :: loutput
+    INTEGER,          INTENT(in),   OPTIONAL :: bit_precision
+    LOGICAL,          INTENT(in),   OPTIONAL :: in_group(MAX_GROUPS)  ! groups to which a variable belongs
+    !
+    TYPE(t_var_list), POINTER :: from_var_list
+    !
+    CALL get_var_list(from_var_list, from_var_list_name)
+    IF (ASSOCIATED(from_var_list)) THEN
+      CALL add_var_list_reference(to_var_list, name, from_var_list, &
+        &                         loutput, bit_precision, in_group)
+    END IF
+    !
+  END SUBROUTINE add_var_list_reference_named
+
+  !------------------------------------------------------------------------------------------------
+  !
+  ! add supplementary fields to a different var list (eg. geopotential, surface pressure, ...)
+  !
+  SUBROUTINE add_var_list_reference(to_var_list, name, from_var_list, loutput, bit_precision, in_group)
     TYPE(t_var_list), INTENT(inout)          :: to_var_list
     CHARACTER(len=*), INTENT(in)             :: name
-    CHARACTER(len=*), INTENT(in)             :: from_var_list
+    TYPE(t_var_list), TARGET, INTENT(in)     :: from_var_list
     LOGICAL,          INTENT(in),   OPTIONAL :: loutput
     INTEGER,          INTENT(in),   OPTIONAL :: bit_precision
     LOGICAL,          INTENT(in),   OPTIONAL :: in_group(MAX_GROUPS)  ! groups to which a variable belongs
     !
     TYPE(t_var_list_element), POINTER :: source
-    TYPE(t_list_element),     POINTER :: new_list_element
+    TYPE(t_list_element),     POINTER :: element
     !
-    CALL locate (source, name, from_var_list)
-    IF (ASSOCIATED(source)) THEN
-      CALL append_list_element (to_var_list, new_list_element)
-      new_list_element%field                = source
-      new_list_element%field%info%allocated = .FALSE.
-      new_list_element%field%info%lrestart  = .FALSE.
-      CALL assign_if_present(new_list_element%field%info%loutput, loutput)
-      CALL assign_if_present(new_list_element%field%info%grib2%bits, bit_precision)
+    element => find_list_element(from_var_list, name)
+    IF (ASSOCIATED(element)) THEN
+      source => element%field
+      CALL append_list_element(to_var_list, element)
+      element%field                = source
+      element%field%info%allocated = .FALSE.
+      element%field%info%lrestart  = .FALSE.
+      CALL assign_if_present(element%field%info%loutput, loutput)
+      CALL assign_if_present(element%field%info%grib2%bits, bit_precision)
       if (present(in_group)) then
-        new_list_element%field%info%in_group(:)=in_group(:)
+        element%field%info%in_group(:)=in_group(:)
       end if
     ENDIF
-    !
-  CONTAINS
-    !----------------------------------------------------------------------------------------------
-    !
-    ! find an entry
-    !
-    SUBROUTINE locate (element, name, in_var_list)
-      TYPE(t_var_list_element), POINTER        :: element
-      CHARACTER(len=*), INTENT(in)           :: name
-      CHARACTER(len=*), INTENT(in), OPTIONAL :: in_var_list
-      !
-      INTEGER                     :: i
-      TYPE(t_list_element), POINTER :: link
-      !
-      NULLIFY (element)
-      !
-      DO i = 1, nvar_lists
-        IF (PRESENT(in_var_list)) THEN
-          IF (in_var_list /= var_lists(i)%p%name) CYCLE
-        ENDIF
-        link => find_list_element (var_lists(i), name)
-        IF (ASSOCIATED(link)) THEN
-          element => link%field
-          EXIT
-        ENDIF
-      END DO
-      !
-    END SUBROUTINE locate
     !
   END SUBROUTINE add_var_list_reference
 
@@ -3806,88 +4025,106 @@ CONTAINS
     TYPE(t_var_list),  INTENT(in) :: this_list ! list
     LOGICAL, OPTIONAL :: lshort
     !
+    CALL print_var_list_intrinsic(this_list%p, lshort)
+    !
+  END SUBROUTINE print_var_list
+  !------------------------------------------------------------------------------------------------
+  !
+  ! print current memory table
+  !
+  SUBROUTINE print_var_list_intrinsic(this_list, lshort)
+    TYPE(t_var_list_intrinsic),  INTENT(in) :: this_list ! list
+    LOGICAL, OPTIONAL :: lshort
+    !
     TYPE(t_list_element), POINTER :: this_list_element
-    CHARACTER(len=32) :: dimension_text, dtext,keytext
-    INTEGER :: i, igrp, ivintp_type
-    CHARACTER(len=4) :: localMode = '----'
-    LOGICAL :: short = .FALSE.
 
-    CALL assign_if_present(short,lshort)
     CALL message('','')
     CALL message('','')
-    CALL message('','Status of variable list '//TRIM(this_list%p%name)//':')
+    CALL message('','Status of variable list '//TRIM(this_list%name)//':')
     CALL message('','')
     !
-    this_list_element => this_list%p%first_list_element
-    !
+    this_list_element => this_list%first_list_element
     DO WHILE (ASSOCIATED(this_list_element))
-      !
-      IF (short) THEN
+      CALL print_var(this_list_element%field, lshort)
+      this_list_element => this_list_element%next_list_element
+    ENDDO
+  END SUBROUTINE print_var_list_intrinsic
 
-        IF (this_list_element%field%info%name /= '' .AND. &
-             .NOT. this_list_element%field%info%lcontainer) THEN
-          IF (this_list_element%field%info%lrestart) localMode(1:1) = 'r'
-          IF (this_list_element%field%info%lcontained) localMode(2:2) = 't'
-          SELECT CASE (this_list_element%field%info%isteptype)
-          CASE (1)
-            localMode(3:3) = 'i'
-          CASE (2)
-            localMode(3:3) = 'm'
-          CASE (3)
-            localMode(3:3) = 'a'
-          END SELECT
-          SELECT CASE (this_list_element%field%info%hgrid)
-          CASE (1)
-            localMode(4:4) = 'c'
-          CASE (2)
-            localMode(4:4) = 'v'
-          CASE (3)
-            localMode(4:4) = 'e'
-          END SELECT
+  !---------------------------------------------------------------------
+  !
+  ! print single variable
+  !
+  SUBROUTINE print_var(field, lshort)
+    TYPE(t_var_list_element),  INTENT(in) :: field ! list
+    LOGICAL, OPTIONAL :: lshort
+    !
+    LOGICAL :: short, lfirst
+    CHARACTER(len=32) :: dimension_text, dtext
+    INTEGER :: i, igrp, ivintp_type, tlen, alen
+    CHARACTER(len=4) :: localMode
 
-          WRITE(message_text, '(a4,3i4,a24,a40)') localMode,                                 &
-               &                              this_list_element%field%info%grib2%discipline, &
-               &                              this_list_element%field%info%grib2%category,   &
-               &                              this_list_element%field%info%grib2%number,     &
-               &                              TRIM(this_list_element%field%info%name),       &
-               &                              TRIM(this_list_element%field%info%cf%standard_name)
-          CALL message('', message_text)
+    localMode = '----'
+    short = .FALSE.
+    CALL assign_if_present(short,lshort)
+    IF (short) THEN
+      IF (field%info%name /= '' .AND. .NOT. field%info%lcontainer) THEN
+        IF (field%info%lrestart) localMode(1:1) = 'r'
+        IF (field%info%lcontained) localMode(2:2) = 't'
+        SELECT CASE (field%info%isteptype)
+        CASE (1)
+          localMode(3:3) = 'i'
+        CASE (2)
+          localMode(3:3) = 'm'
+        CASE (3)
+          localMode(3:3) = 'a'
+        END SELECT
+        SELECT CASE (field%info%hgrid)
+        CASE (1)
+          localMode(4:4) = 'c'
+        CASE (2)
+          localMode(4:4) = 'v'
+        CASE (3)
+          localMode(4:4) = 'e'
+        END SELECT
 
-          localMode = '----'
-        ENDIF
-
-      ELSE
-
-      IF (this_list_element%field%info%name /= '' .AND. &
-           .NOT. this_list_element%field%info%lcontainer) THEN
-        !
-        WRITE (message_text,'(a,a)')       &
-             'Table entry name                            : ', &
-             TRIM(this_list_element%field%info%name)
+        WRITE(message_text, '(a4,3i4,a24,a40)') localMode,                                 &
+           &                              field%info%grib2%discipline, &
+           &                              field%info%grib2%category,   &
+           &                              field%info%grib2%number,     &
+           &                              TRIM(field%info%name),       &
+           &                              TRIM(field%info%cf%standard_name)
         CALL message('', message_text)
-        WRITE (keytext,'(i32.1)') this_list_element%field%info%key
 
-        WRITE (message_text,'(a,a)')       &
-             'Key entry                                   : ', &
-             TRIM(keytext)
+      ENDIF
+
+    ELSE
+
+      IF (field%info%name /= '' .AND. .NOT. field%info%lcontainer) THEN
+        !
+        message_text = 'Table entry name                            : ' &
+          // field%info%name
+        CALL message('', message_text)
+        WRITE (message_text,'(a,i32.1)') &
+          'Key entry                                   : ', field%info%key
+
         CALL message('', message_text)
         !
-        IF (ASSOCIATED(this_list_element%field%r_ptr) .OR. &
-          & ASSOCIATED(this_list_element%field%s_ptr) .OR. &
-          & ASSOCIATED(this_list_element%field%i_ptr) .OR. &
-          & ASSOCIATED(this_list_element%field%l_ptr)) THEN
+        IF (ASSOCIATED(field%r_ptr) .OR. &
+          & ASSOCIATED(field%s_ptr) .OR. &
+          & ASSOCIATED(field%i_ptr) .OR. &
+          & ASSOCIATED(field%l_ptr)) THEN
           CALL message ('','Pointer status                              : in use.')
           dimension_text = '('
-          DO i = 1, this_list_element%field%info%ndims
-            WRITE(dtext,'(i0)') this_list_element%field%info%used_dimensions(i)
-            IF (this_list_element%field%info%ndims == i) THEN
-              dimension_text = TRIM(dimension_text)//TRIM(dtext)//')'
-            ELSE
-              dimension_text = TRIM(dimension_text)//TRIM(dtext)//','
-            ENDIF
+          tlen = 1
+          DO i = 1, field%info%ndims
+            WRITE(dtext,'(i0)') field%info%used_dimensions(i)
+            alen = LEN_TRIM(dtext)
+            dimension_text(tlen+1:tlen+alen) = dtext(1:alen)
+            tlen = tlen + alen + 1
+            dimension_text(tlen:tlen) = MERGE(',', ')', field%info%ndims /= i)
           ENDDO
-          WRITE (message_text,'(a,a)') &
-               'Local field dimensions                      : ', TRIM(dimension_text)
+          message_text = 'Local field dimensions                      : ' &
+               // dimension_text(1:tlen)
           CALL message('', message_text)
         ELSE
           CALL message('', 'Pointer status                              : not in use.')
@@ -3895,83 +4132,80 @@ CONTAINS
         !
         WRITE (message_text,'(a,3i4)') &
              'Assigned GRIB discipline/category/parameter : ', &
-             this_list_element%field%info%grib2%discipline,    &
-             this_list_element%field%info%grib2%category,      &
-             this_list_element%field%info%grib2%number
+             field%info%grib2%discipline,    &
+             field%info%grib2%category,      &
+             field%info%grib2%number
         CALL message('', message_text)
         !
         WRITE (message_text,'(a,a,a,a)')                          &
              'CF convention standard name/unit            : ',    &
-             TRIM(this_list_element%field%info%cf%standard_name), &
+             TRIM(field%info%cf%standard_name), &
              '     ',                                             &
-             TRIM(this_list_element%field%info%cf%units)
+             TRIM(field%info%cf%units)
         CALL message('', message_text)
         !
-        WRITE (message_text,'(2a)') &
-             'CF convention long name                     : ', &
-             TRIM(this_list_element%field%info%cf%long_name)
+        message_text = 'CF convention long name                     : ' &
+             // field%info%cf%long_name
         !
-        IF (this_list_element%field%info%lcontained) THEN
+        IF (field%info%lcontained) THEN
           CALL message('', 'Field is in a container                     : yes.')
           WRITE (message_text,'(a,i2)')                        &
              ' Index in container                          : ',&
-             this_list_element%field%info%ncontained
+             field%info%ncontained
           CALL message('', message_text)
         ELSE
           CALL message('', 'Field is in a container                     : no.')
-          WRITE (message_text,'(a)')                           &
-             ' Index in container                          : --'
-          CALL message('', message_text)
+          CALL message('', ' Index in container                          : --')
         ENDIF
         !
         WRITE (message_text,'(a,i2)')                          &
              ' horizontal grid type used (C=1,V=2,E=3)     : ',&
-             this_list_element%field%info%hgrid
+             field%info%hgrid
         CALL message('', message_text)
         !
         WRITE (message_text,'(a,i2)')                          &
              ' vertical grid type used (see cdilib.c)      : ',&
-             this_list_element%field%info%vgrid
+             field%info%vgrid
         CALL message('', message_text)
         !
         WRITE (message_text,'(a,i2)')                          &
              ' type of stat. processing (I=1,AVG=2,ACC=3...: ',&
-             this_list_element%field%info%isteptype
+             field%info%isteptype
         CALL message('', message_text)
         !
-        IF (this_list_element%field%info%lmiss) THEN
-          IF (ASSOCIATED(this_list_element%field%r_ptr)) THEN
+        IF (field%info%lmiss) THEN
+          IF (ASSOCIATED(field%r_ptr)) THEN
             WRITE (message_text,'(a,e20.12)')      &
                  'Missing value                               : ', &
-                 this_list_element%field%info%missval%rval
-          ELSE IF (ASSOCIATED(this_list_element%field%s_ptr)) THEN
+                 field%info%missval%rval
+          ELSE IF (ASSOCIATED(field%s_ptr)) THEN
             WRITE (message_text,'(a,e20.12)')      &
                  'Missing value                               : ', &
-                 this_list_element%field%info%missval%sval
-          ELSE IF (ASSOCIATED(this_list_element%field%i_ptr)) THEN
+                 field%info%missval%sval
+          ELSE IF (ASSOCIATED(field%i_ptr)) THEN
             WRITE (message_text,'(a,i8)')      &
                  'Missing value                               : ', &
-                 this_list_element%field%info%missval%ival
-          ELSE IF (ASSOCIATED(this_list_element%field%l_ptr)) THEN
+                 field%info%missval%ival
+          ELSE IF (ASSOCIATED(field%l_ptr)) THEN
             WRITE (message_text,'(a,l8)')      &
                  'Missing value                               : ', &
-                 this_list_element%field%info%missval%lval
+                 field%info%missval%lval
           ENDIF
           CALL message('', message_text)
         ELSE
           CALL message('', 'Missing values                              : off.')
         ENDIF
         !
-        IF (this_list_element%field%info%lrestart) THEN
+        IF (field%info%lrestart) THEN
           CALL message('', 'Added to restart                            : yes.')
         ELSE
           CALL message('', 'Added to Restart                            : no.')
         ENDIF
         !
-        IF (this_list_element%field%info_dyn%tracer%lis_tracer) THEN
+        IF (field%info_dyn%tracer%lis_tracer) THEN
           CALL message('', 'Tracer field                                : yes.')
 
-          IF (this_list_element%field%info_dyn%tracer%lfeedback) THEN
+          IF (field%info_dyn%tracer%lfeedback) THEN
             CALL message('', 'Child-to-parent feedback                  : yes.')
           ELSE
             CALL message('', 'Child-to-parent feedback                  : no.')
@@ -3979,15 +4213,15 @@ CONTAINS
 
           WRITE (message_text,'(a,3i3)') &
              'Horizontal transport method                 : ', &
-             this_list_element%field%info_dyn%tracer%ihadv_tracer
+             field%info_dyn%tracer%ihadv_tracer
           CALL message('', message_text)
 
           WRITE (message_text,'(a,3i3)') &
              'Vertical transport method                   : ', &
-             this_list_element%field%info_dyn%tracer%ivadv_tracer
+             field%info_dyn%tracer%ivadv_tracer
           CALL message('', message_text)
 
-          IF (this_list_element%field%info_dyn%tracer%lturb_tracer) THEN
+          IF (field%info_dyn%tracer%lturb_tracer) THEN
             CALL message('', 'Turbulent transport                         : yes.')
           ELSE
             CALL message('', 'Turbulent transport                         : no.')
@@ -4000,20 +4234,22 @@ CONTAINS
         ! print variable class/species
         WRITE (message_text,'(a,i2)')       &
              'Variable class/species                      : ', &
-             this_list_element%field%info%var_class
+             field%info%var_class
         CALL message('', message_text)
 
         !
         ! print groups, to which this variable belongs:
-        IF (ANY(this_list_element%field%info%in_group(:))) THEN
-          WRITE (message_text,'(a)')  'Variable group(s)                           :'
-          DO igrp=1,SIZE(this_list_element%field%info%in_group)
-            IF (this_list_element%field%info%in_group(igrp)) THEN
-              IF (igrp == 1) THEN
-                message_text = TRIM(message_text)//" "//TRIM(var_groups_dyn%name(igrp))
-              ELSE
-                message_text = TRIM(message_text)//", "//TRIM(var_groups_dyn%name(igrp))
-              END IF
+        IF (ANY(field%info%in_group(:))) THEN
+          message_text = 'Variable group(s)                           :'
+          tlen = LEN_TRIM(message_text)
+          lfirst = .TRUE.
+          DO igrp=1,SIZE(field%info%in_group)
+            IF (field%info%in_group(igrp)) THEN
+              message_text(tlen+1:tlen+2) = MERGE("  ", ", ", lfirst)
+              tlen = tlen + 1 + MERGE(1, 0, .NOT. lfirst)
+              alen = LEN_TRIM(var_groups_dyn%name(igrp))
+              message_text(tlen+1:tlen+alen) = var_groups_dyn%name(igrp)(1:alen)
+              tlen = tlen + alen
             ENDIF
           END DO
           CALL message('', message_text)
@@ -4021,39 +4257,34 @@ CONTAINS
 
         !
         ! print horizontal and vertical interpolation method(s):
-        WRITE (message_text,'(a)')  &
-          &  'Horizontal interpolation                    : '//  &
-          &  TRIM(STR_HINTP_TYPE(this_list_element%field%info%hor_interp%hor_intp_type))
+        message_text = 'Horizontal interpolation                    : ' &
+             // STR_HINTP_TYPE(field%info%hor_interp%hor_intp_type)
         CALL message('', message_text)
 
         LOOP_VINTP_TYPES : DO ivintp_type=1,SIZE(VINTP_TYPE_LIST)
-          IF (this_list_element%field%info%vert_interp%vert_intp_type(ivintp_type)) THEN
+          IF (field%info%vert_interp%vert_intp_type(ivintp_type)) THEN
             WRITE (message_text,'(a)')  &
               &  'Vertical interpolation                      : '//  &
-              &  toupper(TRIM(VINTP_TYPE_LIST(ivintp_type)))
+              &  toupper(VINTP_TYPE_LIST(ivintp_type))
             CALL message('', message_text)
           END IF
         END DO LOOP_VINTP_TYPES
         CALL message('', '')
       ENDIF
 
-      ENDIF
-      !
-      ! select next element in linked list
-      !
-      this_list_element => this_list_element%next_list_element
-    ENDDO
+    ENDIF
+  END SUBROUTINE print_var
 
-    !
-  END SUBROUTINE print_var_list
+
   !------------------------------------------------------------------------------------------------
   !
   ! print all var lists
   !
-  SUBROUTINE print_all_var_lists
+  SUBROUTINE print_all_var_lists(lshort)
+    LOGICAL, OPTIONAL, INTENT(in) :: lshort
     INTEGER :: i
     DO i=1,nvar_lists
-      CALL print_var_list(var_lists(i))
+      CALL print_var_list(var_lists(i), lshort)
     END DO
   END SUBROUTINE print_all_var_lists
   !------------------------------------------------------------------------------------------------
@@ -4084,7 +4315,7 @@ CONTAINS
     &                      opt_vlevel_type, opt_dom_id,     &
     &                      opt_lquiet)
     CHARACTER(LEN=*),           INTENT(IN)    :: grp_name
-    CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: var_name(:)
+    CHARACTER(LEN=VARNAME_LEN), INTENT(OUT)   :: var_name(:)
     INTEGER,                    INTENT(OUT)   :: nvars
     ! loutputvars_only: If set to .TRUE. all variables in the group
     ! which have the the loutput flag equal to .FALSE. are skipped.
@@ -4264,7 +4495,7 @@ CONTAINS
     hgrid = -1
     CALL assign_if_present(hgrid,opt_hgrid)
     !
-    key = util_hashword(name//c_null_char, INT(LEN_TRIM(name), C_SIZE_T), 0)
+    key = util_hashword(name, INT(LEN_TRIM(name), C_SIZE_T), 0)
     name_has_time_level = has_time_level(name)
     !
     element => this_list%p%first_list_element
@@ -4315,7 +4546,7 @@ CONTAINS
 
   !-----------------------------------------------------------------------------
   !
-  ! Find named list element accross all knows variable lists
+  ! Find named list element across all known variable lists
   !
   FUNCTION find_element_from_all (name, opt_patch_id, opt_hgrid, opt_caseInsensitive,opt_returnList) RESULT(element)
     CHARACTER(len=*),   INTENT(in) :: name
@@ -4346,6 +4577,63 @@ CONTAINS
 
   !-----------------------------------------------------------------------------
   !
+  ! Find named list element across selected known variable lists
+  !
+  FUNCTION find_field_from_selected(name, list_is_selected, opt_state, &
+       opt_caseInsensitive) RESULT(field)
+    CHARACTER(len=*),   INTENT(in) :: name
+    PROCEDURE(list_select) :: list_is_selected
+    CLASS(*), TARGET, OPTIONAL :: opt_state
+    LOGICAL, OPTIONAL :: opt_caseInsensitive
+
+    TYPE(t_list_element), POINTER :: element
+    TYPE(t_var_list_element), POINTER :: field
+    INTEGER :: i
+
+    NULLIFY(field)
+    DO i=1,nvar_lists
+      IF (list_is_selected(var_lists(i)%p, opt_state)) THEN
+        element => find_list_element(var_lists(i), name, &
+             opt_caseInsensitive=opt_caseInsensitive)
+        IF (ASSOCIATED (element)) THEN
+          field => element%field
+          RETURN
+        END IF
+      END IF
+    END DO
+  END FUNCTION find_field_from_selected
+
+  !-----------------------------------------------------------------------------
+  !
+  ! Find named list element across selected known variable lists
+  !
+  FUNCTION find_field_from_selected2(var_is_selected, list_is_selected, &
+       state) RESULT(field)
+    PROCEDURE(var_filter) :: var_is_selected
+    PROCEDURE(list_select) :: list_is_selected
+    CLASS(*), TARGET :: state
+
+    TYPE(t_list_element), POINTER :: element
+    TYPE(t_var_list_element), POINTER :: field
+    INTEGER :: i
+
+    NULLIFY(field)
+    DO i=1,nvar_lists
+      IF (list_is_selected(var_lists(i)%p, state)) THEN
+        element => var_lists(i)%p%first_list_element
+        DO WHILE (ASSOCIATED(element))
+          IF (var_is_selected(element%field, state, var_lists(i)%p)) THEN
+            field => element%field
+            RETURN
+          END IF
+          element => element%next_list_element
+        ENDDO
+      END IF
+    END DO
+  END FUNCTION find_field_from_selected2
+
+  !-----------------------------------------------------------------------------
+  !
   ! (Un)pack the var_lists
   ! This IS needed for the restart modules that need to communicate the var_lists from the worker PEs to dedicated restart PEs.
   !
@@ -4358,7 +4646,7 @@ CONTAINS
     TYPE(t_list_element), POINTER   :: element, newElement
     TYPE(t_var_metadata)            :: info
     TYPE(t_var_list)                :: p_var_list
-    CHARACTER(LEN=128)              :: var_list_name
+    CHARACTER(LEN=max_var_list_name_len) :: var_list_name
     CHARACTER(LEN=32)               :: model_type
     LOGICAL                         :: lrestart
 
@@ -4462,9 +4750,8 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = modname//"::print_group_details"
     CHARACTER(len=VARNAME_LEN), ALLOCATABLE :: group_names(:)
     CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: grp_vars(:), grp_vars_output(:)
-    INTEGER,                    ALLOCATABLE :: slen(:)
-    INTEGER                                 :: ngrp_vars, ngrp_vars_output, ierrstat, i, j, k, t
-    LOGICAL                                 :: latex_fmt, reduce_trailing_num, skip_trivial, lfound
+    INTEGER                                 :: ngrp_vars, ngrp_vars_output, ierrstat, i, j
+    LOGICAL                                 :: latex_fmt, reduce_trailing_num, skip_trivial
 
     latex_fmt = .FALSE.
     IF (PRESENT(opt_latex_fmt))  latex_fmt = opt_latex_fmt 
@@ -4519,33 +4806,10 @@ CONTAINS
      
       IF (ngrp_vars > 0) THEN
         
-        DO j=1,ngrp_vars
-          grp_vars(j) = tolower(grp_vars(j))
-        END DO
+        CALL lowcase(grp_vars(1:ngrp_vars))
         ! (optionally) replace trailing numbers by "*"
-        IF (reduce_trailing_num) THEN
-          ALLOCATE(slen(ngrp_vars))
-          DO j=1,ngrp_vars
-            slen(j) = find_trailing_number(grp_vars(j))
-          END DO
-          DO j=1,ngrp_vars
-            t = slen(j)
-            IF (t /= -1) THEN
-              ! replace trailing number if any other variable of "this
-              ! kind" exists:
-              lfound = .FALSE.
-              INNER_LOOP1 : DO k=1,ngrp_vars
-                IF (j==k)  CYCLE INNER_LOOP1
-                IF (grp_vars(j)(1:(t-1)) == grp_vars(k)(1:(slen(k)-1))) lfound = .TRUE.
-              END DO INNER_LOOP1
-              IF (lfound) THEN
-                grp_vars(j) = grp_vars(j)(1:(t-1))//"*"
-              END IF
-            END IF
-          END DO
-          CALL remove_duplicates(grp_vars(1:ngrp_vars), ngrp_vars)
-          DEALLOCATE(slen)
-        END IF
+        IF (reduce_trailing_num) &
+             CALL star_out_trailing_num(ngrp_vars, grp_vars)
         CALL quicksort(grp_vars(1:ngrp_vars))
 
         IF ((skip_trivial) .AND. (ngrp_vars <= 1))  CYCLE
@@ -4556,34 +4820,11 @@ CONTAINS
           &               opt_vlevel_type  = level_type_ml,        &
           &               opt_dom_id       = idom,                 &
           &               opt_lquiet       = .TRUE.)
-        
-        DO j=1,ngrp_vars_output
-          grp_vars_output(j) = tolower(grp_vars_output(j))
-        END DO
+
+        CALL lowcase(grp_vars_output(1:ngrp_vars_output))
         ! (optionally) replace trailing numbers by "*"
-        IF (reduce_trailing_num) THEN
-          ALLOCATE(slen(ngrp_vars_output))
-          DO j=1,ngrp_vars_output
-            slen(j) = find_trailing_number(grp_vars_output(j))
-          END DO
-          DO j=1,ngrp_vars_output
-            t = slen(j)
-            IF (t /= -1) THEN
-              ! replace trailing number if any other variable of "this
-              ! kind" exists:
-              lfound = .FALSE.
-              INNER_LOOP2 : DO k=1,ngrp_vars_output
-                IF (j==k)  CYCLE INNER_LOOP2
-                IF (grp_vars_output(j)(1:(t-1)) == grp_vars_output(k)(1:(slen(k)-1))) lfound = .TRUE.
-              END DO INNER_LOOP2
-              IF (lfound) THEN
-                grp_vars_output(j) = grp_vars_output(j)(1:(t-1))//"*"
-              END IF
-            END IF
-          END DO
-          CALL remove_duplicates(grp_vars_output(1:ngrp_vars_output), ngrp_vars_output)
-          DEALLOCATE(slen)
-        END IF
+        IF (reduce_trailing_num) &
+          CALL star_out_trailing_num(ngrp_vars_output, grp_vars_output)
         CALL quicksort(grp_vars_output(1:ngrp_vars_output))
 
         IF (latex_fmt) THEN
@@ -4636,5 +4877,178 @@ CONTAINS
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 
   END SUBROUTINE print_group_details
+
+  SUBROUTINE star_out_trailing_num(ngrp_vars, grp_vars)
+    INTEGER, INTENT(inout) :: ngrp_vars
+    CHARACTER(LEN=VARNAME_LEN), INTENT(inout) :: grp_vars(ngrp_vars)
+    INTEGER :: slen(ngrp_vars), j, k, t
+    LOGICAL :: lfound
+    ngrp_vars = SIZE(grp_vars)
+    DO j=1,ngrp_vars
+      slen(j) = find_trailing_number(grp_vars(j))
+    END DO
+    search_loop: DO j=1,ngrp_vars
+      t = slen(j)
+      IF (t /= -1) THEN
+        ! replace trailing number if any other variable of "this
+        ! kind" exists:
+        lfound = .FALSE.
+        DO k=j+1,ngrp_vars
+          IF (t == slen(k)) THEN
+            IF (grp_vars(j)(1:t-1) == grp_vars(k)(1:t-1)) THEN
+              grp_vars(k)(t:) = "*"
+              slen(k) = -1
+              lfound = .TRUE.
+            END IF
+          END IF
+        END DO
+        IF (lfound) grp_vars(j)(t:) = "*"
+      END IF
+    END DO search_loop
+    CALL remove_duplicates(grp_vars, ngrp_vars)
+  END SUBROUTINE star_out_trailing_num
+
+#ifndef NOMPI
+  !> mirrors all variable meta-data in var_lists on another group of processes
+  !! is_sender must be consistently set for the sending group
+  !! (typically workers)
+  SUBROUTINE replicate_var_lists(intercomm, bcast_root, is_sender)
+    INTEGER, INTENT(in) :: intercomm, bcast_root
+    LOGICAL, INTENT(in) :: is_sender
+
+    ! var_list_name should have at least the length of var_list names
+    ! (although this doesn't matter as long as it is big enough for every name)
+    CHARACTER(LEN=max_var_list_name_len) :: var_list_name
+    INTEGER :: info_size, iv, nv,nelems, n, ierror, list_info(4)
+    INTEGER, ALLOCATABLE          :: info_storage(:,:)
+    TYPE(t_list_element), POINTER :: element
+    TYPE(t_var_list)              :: p_var_list
+    TYPE(t_var_metadata)          :: info
+    CHARACTER(len=*), PARAMETER :: routine = modname//'replicate_var_lists'
+    !---------------------------------------------------------------------
+    ! Replicate variable lists
+
+    ! Get the size - in default INTEGER words - which is needed to
+    ! hold the contents of TYPE(t_var_metadata)
+    info_size = SIZE(TRANSFER(info, (/ 0 /)))
+
+    ! Get the number of var_lists
+    IF (is_sender) THEN
+      nv = nvar_lists
+      list_info(1) = nv
+      list_info(2) = 0
+      DO iv = 1, nv
+        element => var_lists(iv)%p%first_list_element
+        nelems = 0
+        DO WHILE (ASSOCIATED(element))
+          nelems = nelems+1
+          element => element%next_list_element
+        ENDDO
+        IF (nelems > list_info(2)) list_info(2) = nelems
+      END DO
+    END IF
+    CALL p_bcast(list_info(1:2), bcast_root, intercomm)
+    nv = list_info(1)
+
+    ALLOCATE(info_storage(info_size, list_info(2)), STAT=ierror)
+    IF (ierror /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+
+    ! For each var list, get its components
+    DO iv = 1, nv
+
+      ! Send name
+      IF (is_sender) var_list_name = var_lists(iv)%p%name
+      CALL p_bcast(var_list_name, bcast_root, intercomm)
+
+      IF (is_sender) THEN
+
+        ! Count the number of variable entries
+        element => var_lists(iv)%p%first_list_element
+        nelems = 0
+        DO WHILE (ASSOCIATED(element))
+          nelems = nelems+1
+          element => element%next_list_element
+        ENDDO
+
+        ! Gather the components needed for name list I/O and send them.
+        ! Please note that not the complete list is replicated, unneeded
+        ! entries are left away!
+
+        list_info(1) = nelems
+        list_info(2) = var_lists(iv)%p%patch_id
+        list_info(3) = var_lists(iv)%p%vlevel_type
+        list_info(4) = MERGE(1,0,var_lists(iv)%p%loutput)
+
+      ENDIF
+
+      ! Send basic info:
+
+      CALL p_bcast(list_info, bcast_root, intercomm)
+
+      IF (.NOT. is_sender) THEN
+        nelems = list_info(1)
+        ! Create var list
+        CALL new_var_list(p_var_list, var_list_name, patch_id=list_info(2), &
+                          vlevel_type=list_info(3), loutput=(list_info(4)/=0) )
+      ENDIF
+
+      ! Get the binary representation of all info members of the variables
+      ! of the list and send it to the receiver.
+      ! Using the Fortran TRANSFER intrinsic may seem like a hack,
+      ! but it has the advantage that it is completely independet of the
+      ! actual declaration if TYPE(t_var_metadata).
+      ! Thus members may added to or removed from TYPE(t_var_metadata)
+      ! without affecting the code below and we don't have an additional
+      ! cross dependency between TYPE(t_var_metadata) and this module.
+
+      IF (is_sender) THEN
+        element => var_lists(iv)%p%first_list_element
+        nelems = 0
+        DO WHILE (ASSOCIATED(element))
+          nelems = nelems+1
+          info_storage(:,nelems) = TRANSFER(element%field%info, (/ 0 /))
+          element => element%next_list_element
+        ENDDO
+      ENDIF
+
+      ! Send binary representation of all info members
+
+      CALL p_bcast(info_storage, bcast_root, intercomm)
+
+      IF (.NOT. is_sender) THEN
+        IF (nelems > 0) THEN
+          ! Insert elements into var list
+          ALLOCATE(var_lists(iv)%p%first_list_element)
+          element => var_lists(iv)%p%first_list_element
+
+          DO n = 1, nelems-1
+            ! Nullify all pointers in element%field,
+            ! reconstruct these later if needed
+            NULLIFY(element%field%r_ptr, element%field%s_ptr, &
+              &     element%field%i_ptr, element%field%l_ptr)
+            element%field%var_base_size = 0 ! Unknown here
+
+            ! Set info structure from binary representation in info_storage
+            element%field%info = TRANSFER(info_storage(:, n), info)
+            ALLOCATE(element%next_list_element)
+            element => element%next_list_element
+          ENDDO
+          element%field%info = TRANSFER(info_storage(:, nelems), info)
+          NULLIFY(element%next_list_element, &
+            &     element%field%r_ptr, element%field%s_ptr, &
+            &     element%field%i_ptr, element%field%l_ptr)
+          element%field%var_base_size = 0 ! Unknown here
+        ELSE
+          NULLIFY(var_lists(iv)%p%first_list_element)
+        END IF
+      ENDIF
+
+    ENDDO
+
+    DEALLOCATE(info_storage, STAT=ierror)
+    IF (ierror /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+
+  END SUBROUTINE replicate_var_lists
+#endif
 
 END MODULE mo_var_list

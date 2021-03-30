@@ -15,7 +15,7 @@ MODULE mo_atmo_nonhydrostatic
 
 USE mo_kind,                 ONLY: wp
 USE mo_exception,            ONLY: message, finish, print_value
-USE mtime,                   ONLY: datetimeToString, OPERATOR(>)
+USE mtime,                   ONLY: OPERATOR(>)
 USE mo_fortran_tools,        ONLY: copy, init
 USE mo_impl_constants,       ONLY: SUCCESS, max_dom, inwp, iecham
 USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, timer_init_latbc, &
@@ -39,7 +39,7 @@ USE mo_run_config,           ONLY: dtime,                & !    namelist paramet
   &                                output_mode,          &
   &                                lvert_nest, ntracer,  &
   &                                ldass_lhn, msg_level, &
-  &                                iqc, iqt, iqv,        &
+  &                                iqc, iqt,             &
   &                                ico2, io3,            &
   &                                number_of_grid_used
 USE mo_initicon_config,      ONLY: pinit_seed, pinit_amplitude
@@ -86,7 +86,7 @@ USE mo_ext_data_init,       ONLY: init_index_lists
 ! meteogram output
 USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize
 USE mo_meteogram_config,    ONLY: meteogram_output_config
-USE mo_name_list_output_config,   ONLY: first_output_name_list, is_variable_in_output
+USE mo_name_list_output_config,   ONLY: is_variable_in_output
 USE mo_name_list_output_init, ONLY:  init_name_list_output,        &
   &                                  parse_variable_groups,        &
   &                                  collect_requested_ipz_levels, &
@@ -127,7 +127,7 @@ USE mo_sync,                ONLY: sync_patch_array, sync_c
 USE mo_upatmo_setup,        ONLY: upatmo_initialize, upatmo_finalize
 USE mo_nudging_config,      ONLY: l_global_nudging
 USE mo_nwp_reff_interface,  ONLY: reff_calc_dom
-USE mo_random_util,         ONLY: add_random_noise_global, add_random_noise
+USE mo_random_util,         ONLY: add_random_noise
 
 USE mo_icon2dace,           ONLY: init_dace, finish_dace
 
@@ -181,7 +181,6 @@ CONTAINS
     INTEGER :: jg, jt, ist
 
     TYPE(t_sim_step_info) :: sim_step_info  
-    INTEGER :: jstep0
     INTEGER :: n_now, n_new, n_now_rcf, n_new_rcf
     REAL(wp) :: sim_time
     TYPE(t_key_value_store), POINTER :: restartAttributes
@@ -223,34 +222,22 @@ CONTAINS
     sim_time = getElapsedSimTimeInSeconds(time_config%tc_current_date) 
 
     DO jg=1, n_dom
-      IF (jg > 1 .AND. start_time(jg) > sim_time .OR. end_time(jg) <= sim_time) THEN
-        p_patch(jg)%ldom_active = .FALSE. ! domain not active
-      ELSE
-        p_patch(jg)%ldom_active = .TRUE.
-      ENDIF
+      p_patch(jg)%ldom_active &
+           =        (jg <= 1 .OR. start_time(jg) <= sim_time) &
+           &  .AND. end_time(jg) > sim_time
     ENDDO
-    
+
     !---------------------------------------------------------------------
     ! 4.c Non-Hydrostatic / NWP
     !---------------------------------------------------------------------
 
-    ALLOCATE (p_nh_state(n_dom), stat=ist)
-    IF (ist /= success) THEN
-      CALL finish(TRIM(routine),'allocation for p_nh_state failed')
-    ENDIF
-
-    ALLOCATE (p_nh_state_lists(n_dom), stat=ist)
-    IF (ist /= success) THEN
-      CALL finish(TRIM(routine),'allocation for p_nh_state_lists failed')
-    ENDIF
-
     ! Note(GZ): Land state now needs to be allocated even if physics is turned
     ! off because ground temperature is included in feedback since r8133
     ! However, setting inwp_surface = 0 effects that only a few 2D fields are allocated
-    ALLOCATE (p_lnd_state(n_dom), stat=ist)
-    IF (ist /= success) THEN
-      CALL finish(TRIM(routine),'allocation for p_lnd_state failed')
-    ENDIF
+    ALLOCATE(p_nh_state(n_dom), p_nh_state_lists(n_dom), p_lnd_state(n_dom), &
+         stat=ist)
+    IF (ist /= success) CALL finish(routine, &
+      &                             'allocation for state failed')
 
     IF(iforcing /= inwp) atm_phy_nwp_config(:)%inwp_surface = 0
 
@@ -296,16 +283,11 @@ CONTAINS
 
     ENDDO
 
-   IF (ldass_lhn) THEN 
-     ALLOCATE (radar_data(n_dom), STAT=ist)
-     IF (ist /= SUCCESS) THEN
-          CALL finish(TRIM(routine),'allocation for radar_data failed')
-     ENDIF
-     ALLOCATE (lhn_fields(n_dom), STAT=ist)
-     IF (ist /= SUCCESS) THEN
-          CALL finish(TRIM(routine),'allocation for lhn_fields failed')
-     ENDIF
-     CALL message(TRIM(routine),'configure_lhn')
+   IF (ldass_lhn) THEN
+     ALLOCATE (radar_data(n_dom), lhn_fields(n_dom), STAT=ist)
+     IF (ist /= SUCCESS) &
+       CALL finish(routine,'allocation for radar_data and lhn_fields failed')
+     CALL message(routine,'configure_lhn')
      DO jg =1,n_dom
        CALL configure_lhn(jg)
      ENDDO 
@@ -320,6 +302,7 @@ CONTAINS
 
     CALL set_nh_metrics(p_patch(1:)     ,&
          &              p_nh_state      ,&
+         &              p_nh_state_lists ,&
          &              p_int_state(1:) ,&
          &              ext_data        )
 
@@ -357,7 +340,7 @@ CONTAINS
         END IF
       END DO
       !
-      CALL message(TRIM(routine),'normal exit from read_restart_files')
+      CALL message(routine,'normal exit from read_restart_files')
       !
       IF (timers_level > 4) CALL timer_stop(timer_read_restart)
       !
@@ -461,8 +444,9 @@ CONTAINS
 !$OMP PARALLEL
             CALL init(p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(:,:,:,ico2),echam_rad_config(jg)% vmr_co2*amco2/amd)
 !$OMP END PARALLEL
-            CALL print_value(TRIM(routine)//': CO2 tracer initialized with constant vmr', &
-              &              echam_rad_config(jg)% vmr_co2*amco2/amd)
+            CALL print_value('CO2 tracer initialized with constant vmr', &
+              &              echam_rad_config(jg)% vmr_co2*amco2/amd,    &
+              &              routine=routine)
           END IF
           !
           ! O3 tracer
@@ -474,12 +458,12 @@ CONTAINS
                 &                     p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(:,:,:,io3)  )
               CALL sync_patch_array ( sync_c,p_patch(jg)                                   ,&
                 &                     p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(:,:,:,io3)  )
-              CALL message(TRIM(routine),'o3 tracer is initialized by the Cariolle lin. o3 scheme')
+              CALL message(routine,'o3 tracer is initialized by the Cariolle lin. o3 scheme')
             ELSE
 !$OMP PARALLEL
               CALL init(p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(:,:,:,io3),0.0_wp)
 !$OMP END PARALLEL
-              CALL message(TRIM(routine),'o3 tracer is initialized to zero, check setup')
+              CALL message(routine,'o3 tracer is initialized to zero, check setup')
             END IF
           END IF
           !
@@ -602,18 +586,18 @@ CONTAINS
     ! with the IO procs and effectively starts async IO
     IF (output_mode%l_nml) THEN
       ! compute sim_start, sim_end
-      CALL datetimeToString(time_config%tc_exp_startdate, sim_step_info%sim_start)
-      CALL datetimeToString(time_config%tc_exp_stopdate, sim_step_info%sim_end)
-      CALL datetimeToString(time_config%tc_startdate, sim_step_info%run_start)
-      CALL datetimeToString(time_config%tc_stopdate, sim_step_info%restart_time)
+      sim_step_info%sim_start = time_config%tc_exp_startdate
+      sim_step_info%sim_end = time_config%tc_exp_stopdate
+      sim_step_info%run_start = time_config%tc_startdate
+      sim_step_info%restart_time = time_config%tc_stopdate
 
       sim_step_info%dtime      = dtime
-      jstep0 = 0
+      sim_step_info%jstep0 = 0
 
       CALL getAttributesForRestarting(restartAttributes)
       ! get start counter for time loop from restart file:
-      IF (ASSOCIATED(restartAttributes)) CALL restartAttributes%get("jstep", jstep0)
-      sim_step_info%jstep0    = jstep0
+      IF (restartAttributes%is_init) &
+           CALL restartAttributes%get("jstep", sim_step_info%jstep0)
       CALL init_statistics_streams
       CALL init_name_list_output(sim_step_info)
 
@@ -653,21 +637,21 @@ CONTAINS
 
     IF (iforcing == inwp) THEN
         atm_phy_nwp_config(1:n_dom)%lcalc_moist_integral_avg = &
-        is_variable_in_output(first_output_name_list, var_name="clct_avg")        .OR. &
-        is_variable_in_output(first_output_name_list, var_name="tracer_vi_avg01") .OR. &
-        is_variable_in_output(first_output_name_list, var_name="tracer_vi_avg02") .OR. &
-        is_variable_in_output(first_output_name_list, var_name="tracer_vi_avg03") .OR. &
-        is_variable_in_output(first_output_name_list, var_name="avg_qv")          .OR. &
-        is_variable_in_output(first_output_name_list, var_name="avg_qc")          .OR. &
-        is_variable_in_output(first_output_name_list, var_name="avg_qi")
+        is_variable_in_output(var_name="clct_avg")        .OR. &
+        is_variable_in_output(var_name="tracer_vi_avg01") .OR. &
+        is_variable_in_output(var_name="tracer_vi_avg02") .OR. &
+        is_variable_in_output(var_name="tracer_vi_avg03") .OR. &
+        is_variable_in_output(var_name="avg_qv")          .OR. &
+        is_variable_in_output(var_name="avg_qc")          .OR. &
+        is_variable_in_output(var_name="avg_qi")
 
         atm_phy_nwp_config(1:n_dom)%lcalc_extra_avg = &
-        is_variable_in_output(first_output_name_list, var_name="astr_u_sso")      .OR. &
-        is_variable_in_output(first_output_name_list, var_name="accstr_u_sso")    .OR. &
-        is_variable_in_output(first_output_name_list, var_name="astr_v_sso")      .OR. &
-        is_variable_in_output(first_output_name_list, var_name="accstr_v_sso")    .OR. &
-        is_variable_in_output(first_output_name_list, var_name="adrag_u_grid")    .OR. &
-        is_variable_in_output(first_output_name_list, var_name="adrag_v_grid")
+        is_variable_in_output(var_name="astr_u_sso")      .OR. &
+        is_variable_in_output(var_name="accstr_u_sso")    .OR. &
+        is_variable_in_output(var_name="astr_v_sso")      .OR. &
+        is_variable_in_output(var_name="accstr_v_sso")    .OR. &
+        is_variable_in_output(var_name="adrag_u_grid")    .OR. &
+        is_variable_in_output(var_name="adrag_v_grid")
      ENDIF
 
     !Anurag Dipankar, MPIM (2015-08-01): always call this routine
@@ -732,7 +716,7 @@ CONTAINS
     ! 6. Integration finished. Clean up.
     !---------------------------------------------------------------------
 
-    CALL message(TRIM(routine),'start to clean up')
+    CALL message(routine,'start to clean up')
 
 #ifdef MESSY
     CALL messy_free_memory
@@ -750,14 +734,8 @@ CONTAINS
     ! Delete state variables
 
     CALL destruct_nh_state( p_nh_state, p_nh_state_lists )
-    DEALLOCATE (p_nh_state, STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for p_nh_state failed')
-    ENDIF
-    DEALLOCATE (p_nh_state_lists, STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for p_nh_state_lists failed')
-    ENDIF
+    DEALLOCATE (p_nh_state, p_nh_state_lists, STAT=ist)
+    IF (ist /= SUCCESS) CALL finish(routine,'deallocation for state failed')
 
     IF (iforcing == inwp) THEN
       DO jg = 1, n_dom
@@ -827,7 +805,7 @@ CONTAINS
       ! deallocate ext_data array
       DEALLOCATE(radar_data, STAT=ist)
       IF (ist /= SUCCESS) THEN
-        CALL finish(TRIM(routine), 'deallocation of radar_data for LHN')
+        CALL finish(routine, 'deallocation of radar_data for LHN')
       ENDIF
       CALL destruct_lhn (lhn_fields)
     ENDIF
@@ -836,7 +814,7 @@ CONTAINS
        CALL finish_dace ()
     END IF
  
-    CALL message(TRIM(routine),'clean-up finished')
+    CALL message(routine,'clean-up finished')
 
   END SUBROUTINE destruct_atmo_nonhydrostatic
   !---------------------------------------------------------------------

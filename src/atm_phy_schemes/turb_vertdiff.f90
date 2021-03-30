@@ -98,7 +98,7 @@ USE data_parallel,  ONLY : &
 
 #ifdef __ICON__
 USE mo_mpi,                ONLY : get_my_global_mpi_id
-
+USE mo_exception,          ONLY : finish
 USE mo_physical_constants, ONLY : &
 !
 ! Physical constants and related variables:
@@ -221,11 +221,13 @@ REAL (KIND=wp), PARAMETER :: &
 !   z2d3=z2/z3     ,&
 !   z3d2=z3/z2
 
+#ifndef __ICON__
 INTEGER :: &
     istat=0
 
 LOGICAL :: &
     lerror=.FALSE.
+#endif
 
 !===============================================================================
 
@@ -233,6 +235,11 @@ CONTAINS
 
 !===============================================================================
 
+#ifndef __ICON__
+#  define err_args , ierrstat, yerrormsg, yroutine
+#else
+#  define err_args
+#endif
 
 SUBROUTINE vertdiff ( &
 !
@@ -259,9 +266,8 @@ SUBROUTINE vertdiff ( &
           qv_tens, qc_tens,                  &
           qv_conv,                           &
 !
-          shfl_s, qvfl_s, umfl_s, vmfl_s,    &
-!
-          ierrstat, yerrormsg, yroutine)
+          shfl_s, qvfl_s, umfl_s, vmfl_s     &
+          err_args)
 
 !-------------------------------------------------------------------------------
 !
@@ -428,10 +434,12 @@ REAL (KIND=wp), DIMENSION(:), OPTIONAL, TARGET, INTENT(INOUT) :: &
   umfl_s,       & ! u-momentum flux at the surface                (N/m2)    (positive downward)
   vmfl_s          ! v-momentum flux at the surface                (N/m2)    (positive downward)
 
-INTEGER, INTENT(INOUT)           :: ierrstat
+#ifndef __ICON__
+INTEGER, INTENT(OUT)           :: ierrstat
 
-CHARACTER (LEN=*), INTENT(INOUT) :: yroutine
-CHARACTER (LEN=*), INTENT(INOUT) :: yerrormsg
+CHARACTER (LEN=*), INTENT(OUT) :: yroutine
+CHARACTER (LEN=*), INTENT(OUT) :: yerrormsg
+#endif
 
 !
 ! Indices concerning ART-tracer:
@@ -576,8 +584,10 @@ INTEGER :: my_cart_id, my_thrd_id
 
 !All variables and their tendencies are defined at horizontal mass positions.
 
+#ifndef __ICON__
   istat=0; ierrstat=0
   yerrormsg = ''; yroutine='vertdiff'; lerror=.FALSE.
+#endif
 
   ldogrdcor=(lexpcor .AND. lturatm)             !gradient correction has to be done
   ldovardif=(lum_dif .OR. lvm_dif .OR. lscadif) !some variable has to be diffused
@@ -588,10 +598,14 @@ INTEGER :: my_cart_id, my_thrd_id
     ntrac=0
   END IF
   IF (ndtr.GT.ntrac) THEN
+#ifdef __ICON__
+    CALL finish('', 'ERROR *** Number of tracers larger than dimension of tracer vector ''prt'' ***')
+#else
     ierrstat = 1004
     yerrormsg= &
     'ERROR *** Number of tracers larger than dimension of tracer vector ''prt'' ***'
     lerror=.TRUE.; RETURN
+#endif
   END IF
 
   ndiff=nmvar+ndtr !number of 1-st order variables used in the turbulence model
@@ -691,10 +705,14 @@ INTEGER :: my_cart_id, my_thrd_id
 
   IF ((lsfli(tem) .AND. .NOT.PRESENT(shfl_s)) .OR. &
       (lsfli(vap) .AND. .NOT.PRESENT(qvfl_s))) THEN
+#ifdef __ICON__
+    CALL finish('', 'ERROR *** forcing with not present surface heat flux densities  ***')
+#else
     ierrstat = 1004; lerror=.TRUE.
     yerrormsg='ERROR *** forcing with not present surface heat flux densities  ***'
 #ifndef _OPENACC
     RETURN
+#endif
 #endif
   ENDIF
 

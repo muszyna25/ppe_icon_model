@@ -452,7 +452,7 @@ CONTAINS
     ! check if the name string matches the name of the currently
     ! opened interval:
     nlen = MIN(FILENAME_MAX, LEN(name))
-    IF (TRIM(name(1:nlen)) /= TRIM(list%intvl(list%current_idx)%annotation(1:nlen))) THEN
+    IF (name(1:nlen) /= list%intvl(list%current_idx)%annotation(1:nlen)) THEN
       CALL finish(routine, "Internal error: String does not match the currently opened interval!")
     END IF
     ! save current time stamp:
@@ -477,7 +477,7 @@ CONTAINS
     TYPE(t_global_list),            INTENT(INOUT) :: tot_list      !< gathered result
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//'::interval_gather_procs'
-    INTEGER :: np, ierrstat, this_pe, istart, iend, max_size(1), pe
+    INTEGER :: np, ierrstat, this_pe, istart, iend, max_size(1), pe, asize
     INTEGER,                     ALLOCATABLE :: nentries(:)
     REAL(wp),                    ALLOCATABLE :: real_buf(:)
     CHARACTER(LEN=FILENAME_MAX), ALLOCATABLE :: char_buf(:)
@@ -501,28 +501,27 @@ CONTAINS
       tot_list%list%current_idx = -1
       CALL resize_list(tot_list%list, tot_list%list%nentries)
       ! allocate array is "t_global_list" data structure
-      ALLOCATE(tot_list%start_idx(np), tot_list%pe_names(np), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+      asize = np
     ELSE
-      ! MoHa: tot_list%pe_names needs to be allocated, otherwise it cannot be
+      ! MoHa: tot_list%pe_names needs to be allocated, otherwise it must not be
       !       passed to p_gather
-      ALLOCATE(tot_list%pe_names(1), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+      asize = 1
     END IF
-    ! allocate temporary arrays:
-    ALLOCATE(real_buf(max_size(1)), char_buf(max_size(1)), STAT=ierrstat)
+    ! allocate arrays:
+    ALLOCATE(tot_list%start_idx(asize), tot_list%pe_names(asize), &
+      &      real_buf(max_size(1)), char_buf(max_size(1)), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
     ! gather PE names:
     CALL p_gather(this_pe_name, tot_list%pe_names, iroot, mpi_comm)
-    ! loop over all processes
-    iend = 0
 
     IF (this_pe /= iroot) THEN
-      DEALLOCATE(tot_list%pe_names, STAT=ierrstat)
+      DEALLOCATE(tot_list%pe_names, tot_list%start_idx, STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
     END IF
 
     IF (this_pe == iroot) THEN
+      ! loop over all processes
+      iend = 0
       DO pe=0,(np-1)
         istart = iend + 1
         iend   = istart+nentries(pe+1)-1
@@ -588,11 +587,11 @@ CONTAINS
       
       CALL ps_define_header(psfile)
       CALL ps_define_routines(psfile)
-      CALL ps_define_constants(psfile, TRIM(title_str))
+      CALL ps_define_constants(psfile, title_str)
       CALL ps_define_prologue(psfile)
       ! loop over all PEs
       DO j=1,SIZE(global_list%pe_names)
-        CALL ps_define_newrow(psfile, TRIM(global_list%pe_names(j)))
+        CALL ps_define_newrow(psfile, global_list%pe_names(j))
         ! loop over all intervals for PE "i":
         start_idx = global_list%start_idx(j)
         end_idx   = global_list%list%nentries

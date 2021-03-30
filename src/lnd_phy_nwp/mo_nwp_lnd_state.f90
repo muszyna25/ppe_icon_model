@@ -62,7 +62,6 @@ MODULE mo_nwp_lnd_state
     &                                lmulti_snow, ntiles_water, lseaice, llake, &
     &                                itype_interception, l2lay_rho_snow, itype_trvg, &
     &                                itype_snowevap, groups_smi, zml_soil
-  USE mo_extpar_config,        ONLY: itype_vegetation_cycle
   USE mo_io_config,            ONLY: lnetcdf_flt64_output, runoff_interval
   USE mo_gribout_config,       ONLY: gribout_config
   USE mo_linked_list,          ONLY: t_var_list
@@ -1313,7 +1312,6 @@ MODULE mo_nwp_lnd_state
     &       p_diag_lnd%snowfrac_t, &
     &       p_diag_lnd%snowfrac_lc_t, &
     &       p_diag_lnd%snowfrac_lcu_t, &
-    &       p_diag_lnd%t2m_bias, &
     &       p_diag_lnd%hsnow_max, &
     &       p_diag_lnd%snow_age, &
     &       p_diag_lnd%t_snow_mult, &
@@ -1462,18 +1460,6 @@ MODULE mo_nwp_lnd_state
            & post_op=post_op(POST_OP_SCALE, arg1=1000._wp, new_cf=new_cf_desc) )
 
     END IF  ! itype_interception == 2
-
-    IF (itype_vegetation_cycle == 3) THEN
-      !  Filtered T2M bias
-      cf_desc    = t_cf_var('t2m_bias', 'K', 'Filtered T2M bias', datatype_flt)
-      grib2_desc = grib2_var(0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL) &
-                 + t_grib2_int_key("typeOfGeneratingProcess", 206)
-      CALL add_var( diag_list, 't2m_bias', p_diag_lnd%t2m_bias,                       &
-        &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
-        &           ldims=shape2d, lrestart=.true.,                                   &
-    !    &           in_group=groups("dwd_fg_sfc_vars","mode_iau_fg_in") ) ! causes trouble in cdi/cdo if present in output
-        &           in_group=groups("mode_iau_fg_in") )
-    ENDIF
 
     IF (itype_snowevap == 3) THEN
       ! maximum snow depth reached within current snow-cover period

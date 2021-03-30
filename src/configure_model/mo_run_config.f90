@@ -92,7 +92,7 @@ MODULE mo_run_config
 
  
     !> output mode (string)
-    !  one or multiple of "none", "nml", "totint"
+    !  one or multiple of "none", "nml", "totint", "maxwinds"
     INTEGER, PARAMETER :: max_output_modes = 5
     CHARACTER(len=32) :: output(max_output_modes)
 

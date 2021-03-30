@@ -23,7 +23,7 @@
 MODULE mo_upatmo_state
 
   USE mo_kind,                 ONLY: wp
-  USE mo_exception,            ONLY: message, finish
+  USE mo_exception,            ONLY: message, message_text, finish
   USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH, VINTP_METHOD_LIN
   USE mo_upatmo_impl_const,    ONLY: iUpatmoStat, iUpatmoPrcStat, iUpatmoGasStat, &
     &                                iUpatmoTendId, iUpatmoGrpId, iUpatmoGasId,   &
@@ -48,7 +48,6 @@ MODULE mo_upatmo_state
   USE mo_var_groups,           ONLY: groups
   USE mo_upatmo_extdat_state,  ONLY: construct_upatmo_extdat_nwp, &
     &                                destruct_upatmo_extdat_nwp
-  USE mo_util_string,          ONLY: int2string
 
   IMPLICIT NONE
   
@@ -67,7 +66,7 @@ MODULE mo_upatmo_state
   ! Please note that we cannot use 'mo_impl_constants: TIMELEVEL_SUFFIX' 
   ! for the different time levels of the total tendencies, 
   ! because of its use in 'mo_var_list'
-  CHARACTER(LEN=3), PARAMETER :: STATELEVEL_SUFFIX = '.SL'
+  CHARACTER(LEN=*), PARAMETER :: STATELEVEL_SUFFIX = '.SL'
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_upatmo_state'
   
@@ -94,22 +93,22 @@ CONTAINS
     ! Local variables 
     INTEGER  :: jg, istat, nblks_c, nblks_e, nlev
     LOGICAL  :: lmessage
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: listname, vname_prefix
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(LEN=80) :: listname
+    CHARACTER(LEN=*), PARAMETER ::  &
       &  routine = modname//':construct_upatmo_state'
 
     !---------------------------------------------------------
 
     IF (.NOT. ANY(upatmo_config( : )%l_status( iUpatmoStat%configured ))) THEN
-      CALL finish (TRIM(routine), 'Information required is not yet available')
+      CALL finish (routine, 'Information required is not yet available')
     ELSEIF (ALLOCATED(prm_upatmo)) THEN
-      CALL finish (TRIM(routine), 'prm_upatmo is already allocated')
+      CALL finish (routine, 'prm_upatmo is already allocated')
     ELSEIF (.NOT. PRESENT(vct_a)) THEN 
-      CALL finish(TRIM(routine), 'vct_a has to be present')
+      CALL finish(routine, 'vct_a has to be present')
     ENDIF
 
     lmessage = ANY(upatmo_config( : )%l_status( iUpatmoStat%message ))
-    IF (lmessage) CALL message (TRIM(routine), 'Construction of upatmo state started')    
+    IF (lmessage) CALL message (routine, 'Construction of upatmo state started')
 
     !------------------------------------
     !     Upper-atmosphere physics
@@ -125,18 +124,18 @@ CONTAINS
     ! * Tendencies from upper-atmosphere physics parameterizations
     ! * External data
     ALLOCATE(prm_upatmo( n_dom ), STAT=istat)
-    IF(istat/=SUCCESS) CALL finish (TRIM(routine), 'Allocation of prm_upatmo failed')
+    IF(istat/=SUCCESS) CALL finish (routine, 'Allocation of prm_upatmo failed')
 
     ! Any upper-atmosphere physics switched on?
     IF (ANY(upatmo_config( : )%nwp_phy%l_phy_stat( iUpatmoPrcStat%enabled ))) THEN
 
       ! List for diagnostic fields
       ALLOCATE(prm_upatmo_diag_list( n_dom ), STAT=istat)
-      IF(istat/=SUCCESS) CALL finish (TRIM(routine), 'Allocation of prm_upatmo_diag_list failed')
+      IF(istat/=SUCCESS) CALL finish (routine, 'Allocation of prm_upatmo_diag_list failed')
       
       ! List for tendencies
       ALLOCATE(prm_upatmo_tend_list( n_dom ), STAT=istat)
-      IF(istat/=SUCCESS) CALL finish (TRIM(routine), 'Allocation of prm_upatmo_tend_list failed')
+      IF(istat/=SUCCESS) CALL finish (routine, 'Allocation of prm_upatmo_tend_list failed')
 
       DO jg = 1, n_dom
 
@@ -151,22 +150,23 @@ CONTAINS
           nlev   = p_patch( jg )%nlev
           
           ! Prefix for variable names
-          vname_prefix = TRIM(upatmo_config( jg )%nwp_phy%vname_prefix)
-          
+
           WRITE(listname,'(a,i2.2)') 'prm_upatmo_diag_of_domain_', jg
-          
+
           ! Allocate diagnostic upper-atmosphere fields
-          CALL new_upatmo_diag_list( jg, nlev, nblks_c, nproma, listname, vname_prefix, & 
+          CALL new_upatmo_diag_list( jg, nlev, nblks_c, nproma, listname,               &
+            &                        upatmo_config( jg )%nwp_phy%vname_prefix,          &
             &                        upatmo_config( jg )%nwp_phy,                       &
             &                        prm_upatmo_diag_list( jg ), prm_upatmo( jg )%diag  )
           
           WRITE(listname,'(a,i2.2)') 'prm_upatmo_tend_of_domain_', jg
           
           ! Allocate tendencies from upper-atmosphere physics parameterizations
-          CALL new_upatmo_tend_list( jg, nlev, nblks_c, nblks_e, nproma, listname, vname_prefix, &
-            &                        upatmo_config( jg )%nwp_phy,                                &
-            &                        prm_upatmo_tend_list( jg ), prm_upatmo( jg )%tend,          &
-            &                        lmessage                                                    )
+          CALL new_upatmo_tend_list( jg, nlev, nblks_c, nblks_e, nproma, listname,      &
+            &                        upatmo_config( jg )%nwp_phy%vname_prefix,          &
+            &                        upatmo_config( jg )%nwp_phy,                       &
+            &                        prm_upatmo_tend_list( jg ), prm_upatmo( jg )%tend, &
+            &                        lmessage                                           )
           
         ENDIF  !Physics switched on on domain?
 
@@ -194,7 +194,7 @@ CONTAINS
 
     ENDIF !Any upper-atmosphere physics switched on?
 
-    IF (lmessage) CALL message (TRIM(routine), 'Upatmo state construction completed')
+    IF (lmessage) CALL message (routine, 'Upatmo state construction completed')
 
   END SUBROUTINE construct_upatmo_state
 
@@ -214,15 +214,14 @@ CONTAINS
     INTEGER  :: jg, jst, istat
     INTEGER  :: nstate
     LOGICAL  :: lmessage
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: cjg
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(LEN=*), PARAMETER ::  &
       &  routine = modname//':destruct_upatmo_state'
 
     !---------------------------------------------------------
 
     lmessage = ANY(upatmo_config( : )%l_status( iUpatmoStat%message ))
 
-    IF (lmessage) CALL message (TRIM(routine), 'Destruction of upatmo state started')
+    IF (lmessage) CALL message (routine, 'Destruction of upatmo state started')
 
     !------------------------------------
     !     Upper-atmosphere physics
@@ -235,8 +234,6 @@ CONTAINS
 
         ! Physics switched on on domain?
         IF (upatmo_config( jg )%nwp_phy%l_phy_stat( iUpatmoPrcStat%enabled )) THEN
-
-          cjg = TRIM(int2string(jg))
 
           CALL delete_var_list( prm_upatmo_diag_list( jg ) )
           
@@ -258,8 +255,9 @@ CONTAINS
           IF (ALLOCATED(prm_upatmo( jg )%diag%gas_ptr)) THEN
             DEALLOCATE(prm_upatmo( jg )%diag%gas_ptr, STAT=istat)
             IF(istat/=SUCCESS) THEN
-              CALL finish (TRIM(routine), & 
-                & 'Deallocation prm_upatmo('//TRIM(cjg)//')%diag%gas_ptr failed')
+              WRITE (message_text, '(a,i0,a)') 'Deallocation prm_upatmo(', jg, &
+                   ')%diag%gas_ptr failed'
+              CALL finish(routine, message_text)
             ENDIF
           ENDIF
 
@@ -267,8 +265,9 @@ CONTAINS
           IF (ALLOCATED(prm_upatmo( jg )%tend%ddt_qx_vdfmol_ptr)) THEN
             DEALLOCATE(prm_upatmo( jg )%tend%ddt_qx_vdfmol_ptr, STAT=istat)
             IF(istat/=SUCCESS) THEN
-              CALL finish (TRIM(routine), & 
-                & 'Deallocation prm_upatmo('//TRIM(cjg)//')%tend%ddt_qx_vdfmol_ptr failed')
+              WRITE (message_text, '(a,i0,a)') 'Deallocation prm_upatmo(', jg, &
+                   ')%tend%ddt_qx_vdfmol_ptr failed'
+              CALL finish(routine, message_text)
             ENDIF
           ENDIF
 
@@ -276,8 +275,9 @@ CONTAINS
           IF (ALLOCATED(prm_upatmo( jg )%tend%ddt%temp)) THEN
             DEALLOCATE(prm_upatmo( jg )%tend%ddt%temp, STAT=istat)
             IF(istat/=SUCCESS) THEN
-              CALL finish (TRIM(routine), & 
-                & 'Deallocation prm_upatmo('//TRIM(cjg)//')%tend%ddt%temp failed')
+              WRITE (message_text, '(a,i0,a)') 'Deallocation prm_upatmo(', jg, &
+                   ')%tend%ddt%temp failed'
+              CALL finish(routine, message_text)
             ENDIF
           ENDIF
 
@@ -285,8 +285,9 @@ CONTAINS
           IF (ALLOCATED(prm_upatmo( jg )%tend%ddt%exner)) THEN
             DEALLOCATE(prm_upatmo( jg )%tend%ddt%exner, STAT=istat)
             IF(istat/=SUCCESS) THEN
-              CALL finish (TRIM(routine), & 
-                & 'Deallocation prm_upatmo('//TRIM(cjg)//')%tend%ddt%exner failed')
+              WRITE (message_text, '(a,i0,a)') 'Deallocation prm_upatmo(', jg, &
+                   ')%tend%ddt%exner failed'
+              CALL finish(routine, message_text)
             ENDIF
           ENDIF
 
@@ -294,8 +295,9 @@ CONTAINS
           IF (ALLOCATED(prm_upatmo( jg )%tend%ddt%vn)) THEN
             DEALLOCATE(prm_upatmo( jg )%tend%ddt%vn, STAT=istat)
             IF(istat/=SUCCESS) THEN
-              CALL finish (TRIM(routine), & 
-                & 'Deallocation prm_upatmo('//TRIM(cjg)//')%tend%ddt%vn failed')
+              WRITE (message_text, '(a,i0,a)') 'Deallocation prm_upatmo(', jg, &
+                   ')%tend%ddt%vn failed'
+              CALL finish(routine, message_text)
             ENDIF
           ENDIF
 
@@ -307,17 +309,18 @@ CONTAINS
               IF (ALLOCATED(prm_upatmo( jg )%tend%ddt%qx( jst )%tot_ptr)) THEN
                 DEALLOCATE(prm_upatmo( jg )%tend%ddt%qx( jst )%tot_ptr, STAT=istat)
                 IF(istat/=SUCCESS) THEN
-                  CALL finish (TRIM(routine),                                 & 
-                    & 'Deallocation prm_upatmo('//TRIM(cjg)//')%tend%ddt%qx(' & 
-                    & //TRIM(int2string(jst))//')%tot_ptr failed')
+                  WRITE (message_text, '(a,i0,a,i0,a)') 'Deallocation prm_upatmo(', jg, &
+                       ')%tend%ddt%qx(', jst, ')%tot_ptr failed'
+                  CALL finish (routine, message_text)
                 ENDIF
               ENDIF
             ENDDO  !jst
             ! prm_upatmo%tend%ddt%qx
             DEALLOCATE(prm_upatmo( jg )%tend%ddt%qx, STAT=istat)
             IF(istat/=SUCCESS) THEN
-              CALL finish (TRIM(routine), & 
-                & 'Deallocation prm_upatmo('//TRIM(cjg)//')%tend%ddt%qx failed')
+              WRITE (message_text, '(a,i0,a)') 'Deallocation prm_upatmo(', jg, &
+                   ')%tend%ddt%qx failed'
+              CALL finish(routine, message_text)
             ENDIF
           ENDIF
 
@@ -325,8 +328,9 @@ CONTAINS
           IF (ALLOCATED(prm_upatmo( jg )%tend%ddt%info)) THEN
             DEALLOCATE(prm_upatmo( jg )%tend%ddt%info, STAT=istat)
             IF(istat/=SUCCESS) THEN
-              CALL finish (TRIM(routine), & 
-                & 'Deallocation prm_upatmo('//TRIM(cjg)//')%tend%ddt%info failed')
+              WRITE (message_text, '(a,i0,a)') 'Deallocation prm_upatmo(', jg, &
+                   ')%tend%ddt%info failed'
+              CALL finish(routine, message_text)
             ENDIF
           ENDIF
 
@@ -334,8 +338,9 @@ CONTAINS
           IF (ALLOCATED(prm_upatmo( jg )%tend%ddt%state)) THEN
             DEALLOCATE(prm_upatmo( jg )%tend%ddt%state, STAT=istat)
             IF(istat/=SUCCESS) THEN
-              CALL finish (TRIM(routine), & 
-                & 'Deallocation prm_upatmo('//TRIM(cjg)//')%tend%ddt%state failed')
+              WRITE (message_text, '(a,i0,a)') 'Deallocation prm_upatmo(', jg, &
+                   ')%tend%ddt%state failed'
+              CALL finish(routine, message_text)
             ENDIF
           ENDIF
 
@@ -351,17 +356,17 @@ CONTAINS
       ENDDO  !jg
 
       DEALLOCATE(prm_upatmo_diag_list, STAT=istat)
-      IF(istat/=SUCCESS) CALL finish (TRIM(routine), 'Deallocation prm_upatmo_diag_list failed')
+      IF(istat/=SUCCESS) CALL finish (routine, 'Deallocation prm_upatmo_diag_list failed')
       
       DEALLOCATE(prm_upatmo_tend_list, STAT=istat)
-      IF(istat/=SUCCESS) CALL finish (TRIM(routine), 'Deallocation prm_upatmo_tend_list failed')
+      IF(istat/=SUCCESS) CALL finish (routine, 'Deallocation prm_upatmo_tend_list failed')
 
     ENDIF !Any upper-atmosphere physics switched on?
 
     DEALLOCATE(prm_upatmo, STAT=istat)
-    IF(istat/=SUCCESS) CALL finish (TRIM(routine), 'Deallocation prm_upatmo failed')
+    IF(istat/=SUCCESS) CALL finish (routine, 'Deallocation prm_upatmo failed')
 
-    IF (lmessage) CALL message (TRIM(routine), 'Upatmo state destruction completed')
+    IF (lmessage) CALL message (routine, 'Upatmo state destruction completed')
 
   END SUBROUTINE destruct_upatmo_state
 
@@ -387,15 +392,16 @@ CONTAINS
     INTEGER  :: datatype_flt
     INTEGER  :: istat
     INTEGER  :: jgas
+    INTEGER  :: vn_pfx_len
 
     TYPE(t_cf_var)    :: cf_desc
     TYPE(t_grib2_var) :: grib2_desc
 
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: cjg, var_name, &
-      & var_unit, var_dscrptn, var_name_ref
+    CHARACTER(len=LEN(vname_prefix)+10) :: var_name
+    CHARACTER(LEN=MAX_CHAR_LENGTH) :: var_name_ref
 
     INTEGER, PARAMETER :: ngas = iUpatmoGasId%nitem
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(LEN=*), PARAMETER ::  &
       &  routine = modname//':new_upatmo_diag_list'
 
     !---------------------------------------------------------
@@ -439,8 +445,6 @@ CONTAINS
     !          Allocate fields
     !------------------------------------
 
-    cjg = TRIM(int2string(jg))
-
     !------------------------------------
     !          General fields
     !   (practically always required)
@@ -449,7 +453,8 @@ CONTAINS
     ! &      diag%mdry(nproma,nlev,nblks_c) 
     !--------------------------------------
     ! Construct variable name
-    var_name   = TRIM(vname_prefix)//'mdry'
+    vn_pfx_len = LEN_TRIM(vname_prefix)
+    var_name   = vname_prefix(1:vn_pfx_len)//'mdry'
     cf_desc    = t_cf_var(var_name, 'kg m-2', 'mass of dry air', datatype_flt)
     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, var_name, diag%mdry,                             &
@@ -462,7 +467,7 @@ CONTAINS
     
     ! &      diag%amd(nproma,nlev,nblks_c) 
     !-------------------------------------
-    var_name   = TRIM(vname_prefix)//'amd'
+    var_name   = vname_prefix(1:vn_pfx_len)//'amd'
     cf_desc    = t_cf_var(var_name, 'g mol-1', 'molar mass of dry air', datatype_flt)
     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, var_name, diag%amd,                              &
@@ -475,7 +480,7 @@ CONTAINS
     
     ! &      diag%cpair(nproma,nlev,nblks_c) 
     !---------------------------------------
-    var_name   = TRIM(vname_prefix)//'cpair'
+    var_name   = vname_prefix(1:vn_pfx_len)//'cpair'
     cf_desc    = t_cf_var(var_name, 'J K-1 kg-1',                               &
       &                   'heat capacity of (moist) air at constant pressure',  &
       &                   datatype_flt                                      )
@@ -490,7 +495,7 @@ CONTAINS
     
     ! &      diag%grav(nproma,nlev,nblks_c) 
     !--------------------------------------
-    var_name   = TRIM(vname_prefix)//'grav'
+    var_name   = vname_prefix(1:vn_pfx_len)//'grav'
     cf_desc    = t_cf_var(var_name, 'm s-2',                                  &
       &                   'gravitational acceleration of Earth',              &
       &                   datatype_flt                                        )
@@ -514,7 +519,7 @@ CONTAINS
 
       ! &      diag%sclrlw(nproma,nlev,nblks_c) 
       !----------------------------------------
-      var_name   = TRIM(vname_prefix)//'sclrlw'
+      var_name   = vname_prefix(1:vn_pfx_len)//'sclrlw'
       cf_desc    = t_cf_var(var_name, '1',                                          &
         &                   'scaling factor for long-wave radiation heating rate',  &
         &                   datatype_flt                                            )
@@ -529,7 +534,7 @@ CONTAINS
 
       ! &      diag%effrsw(nproma,nlev,nblks_c) 
       !----------------------------------------
-      var_name   = TRIM(vname_prefix)//'effrsw'
+      var_name   = vname_prefix(1:vn_pfx_len)//'effrsw'
       cf_desc    = t_cf_var(var_name, '1',                                              &
         &                   'efficiency factor for short-wave radiation heating rate',  &
         &                   datatype_flt                                                )
@@ -554,29 +559,32 @@ CONTAINS
 
       ALLOCATE( diag%gas_ptr( ngas ), STAT=istat )
       IF (istat/=SUCCESS) THEN
-        CALL finish (TRIM(routine), 'Allocation of prm_upatmo_diag('//TRIM(cjg)//')%gas_ptr failed')
+        WRITE (message_text, '(a,i0,a)') 'Allocation of prm_upatmo_diag(', jg, &
+             ')%gas_ptr failed'
+        CALL finish(routine, message_text)
       ENDIF
 
       ! &      diag%gas(nproma,nlev,nblks_c,ngas)
       !------------------------------------------
-      var_name   = TRIM(vname_prefix)//'rad_gases'
+      var_name   = vname_prefix(1:vn_pfx_len)//'rad_gases'
       cf_desc    = t_cf_var(var_name, ' ',                                      &
         &                   'radiatively active gases', datatype_flt            )
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( diag_list, TRIM(vname_prefix)//'rad_gases',                 & 
+      CALL add_var( diag_list, var_name,                                        &
         &           diag%gas,                                                   &
         &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,  &
         &           ldims=shape4d,                                              &
         &           lcontainer=.TRUE., loutput=.FALSE., lrestart=.FALSE.        )   
 
+      var_name_ref(1:vn_pfx_len) = vname_prefix(1:vn_pfx_len)
       DO jgas = 1, ngas
         
         ! &      diag%gas(nproma,nlev,nblks_c,ngas)
         !------------------------------------------
-        var_name_ref = TRIM(vname_prefix)//TRIM(upatmo_nwp_phy_config%gas( jgas )%name)
-        var_dscrptn  = TRIM(upatmo_nwp_phy_config%gas( jgas )%longname)
-        var_unit     = TRIM(upatmo_nwp_phy_config%gas( jgas )%unit)
-        cf_desc    = t_cf_var(var_name_ref, var_unit, var_dscrptn, datatype_flt)
+        var_name_ref(vn_pfx_len+1:) = upatmo_nwp_phy_config%gas(jgas)%name
+        cf_desc    = t_cf_var(var_name_ref, &
+             upatmo_nwp_phy_config%gas(jgas)%unit, &
+             upatmo_nwp_phy_config%gas(jgas)%longname, datatype_flt)
         grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
         CALL add_ref( diag_list, var_name, var_name_ref,                          & 
           &           diag%gas_ptr( jgas )%p_3d,                                  &
@@ -611,38 +619,45 @@ CONTAINS
     TYPE(t_var_list),       INTENT(INOUT) :: tend_list
     TYPE(t_upatmo_tend),    INTENT(INOUT) :: tend
     LOGICAL,                INTENT(IN)    :: lmessage
+    TARGET :: upatmo_nwp_phy_config
 
     ! Local variables 
     INTEGER :: shape3d_c(3), shape3d_e(3), shape4d_c(4)
     INTEGER :: ibits
     INTEGER :: datatype_flt
-    INTEGER :: jtrc, jtnd, jst, jgrp, nstate, nprcname
+    INTEGER :: jtrc, jtnd, jst, jgrp, nstate
     INTEGER :: istartlev, iendlev
     INTEGER :: istat
+    INTEGER :: vn_pfx_len, tlen
 
     LOGICAL :: loutput, ltend( iUpatmoTendId%nitem_2 )
 
     TYPE(t_cf_var)    :: cf_desc
     TYPE(t_grib2_var) :: grib2_desc
 
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: cjg, cjst, ctrc, cstartlev, cendlev, &
-      & var_name_prefix, var_name, var_dscrptn, var_unit, var_name_ref
+    CHARACTER(len=2) :: cjst
+    CHARACTER(len=9) :: ctrc
+    CHARACTER(LEN=MAX_CHAR_LENGTH) :: &
+      & var_name_prefix, var_name, var_dscrptn, var_name_ref
 
-    CHARACTER(LEN = :), ALLOCATABLE :: prc_name_vdfmol, &
-      &                                prc_name_fric, &
-      &                                prc_name_iondrag, &
-      &                                prc_name_joule, &
-      &                                prc_name_srbc, &
-      &                                prc_name_nlte, &
-      &                                prc_name_euv, &
-      &                                prc_name_no, &
-      &                                prc_name_chemheat
+    CHARACTER(len=*), PARAMETER :: unit_m_over_s2 = 'm s-2', &
+         unit_k_over_s = 'K s-1', &
+         unit_kg_over_kg_s = 'kg kg-1 s-1'
+    CHARACTER(LEN = :), POINTER :: prc_name_vdfmol, &
+      &                            prc_name_fric, &
+      &                            prc_name_iondrag, &
+      &                            prc_name_joule, &
+      &                            prc_name_srbc, &
+      &                            prc_name_nlte, &
+      &                            prc_name_euv, &
+      &                            prc_name_no, &
+      &                            prc_name_chemheat
 
     INTEGER, PARAMETER :: ntrc   = iUpatmoTracerId%nitem
     INTEGER, PARAMETER :: ngrp   = iUpatmoGrpId%nitem
     INTEGER, PARAMETER :: ntnd   = iUpatmoTendId%nitem    ! (Excludes Exner pressure)
     INTEGER, PARAMETER :: ntnd_2 = iUpatmoTendId%nitem_2  ! (Includes Exner pressure)
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(LEN=*), PARAMETER ::  &
       &  routine = modname//':new_upatmo_tend_list'
 
     !---------------------------------------------------------
@@ -730,42 +745,37 @@ CONTAINS
     ! The tendencies from the single processes can be selected for output
     loutput = .TRUE.
 
-    cjg = TRIM(int2string(jg))
-
-    ! Maximum length of process short names
-    nprcname = MAXVAL(LEN_TRIM(upatmo_nwp_phy_config%prc( : )%name))
-
+    ! actual useful length of vname_prefix
+    vn_pfx_len = LEN_TRIM(vname_prefix)
     !------------------------------------
     !  Radiation and chemical heating
     !------------------------------------
 
     IF (upatmo_nwp_phy_config%grp( iUpatmoGrpId%rad )%l_stat( iUpatmoPrcStat%enabled )) THEN
 
-      ALLOCATE(CHARACTER(LEN=nprcname) :: prc_name_srbc, prc_name_nlte, prc_name_euv, &
-        & prc_name_no, prc_name_chemheat, STAT=istat)
-      IF (istat/=SUCCESS) CALL finish (TRIM(routine), 'Allocation of prc_name failed')
-
-      prc_name_srbc     = TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%srbc )%name)
-      prc_name_nlte     = TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%nlte )%name)
-      prc_name_euv      = TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%euv )%name)
-      prc_name_no       = TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%no )%name)
-      prc_name_chemheat = TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%chemheat )%name)
+      tlen = LEN_TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%srbc )%name)
+      prc_name_srbc     => upatmo_nwp_phy_config%prc( iUpatmoPrcId%srbc )%name(1:tlen)
+      tlen = LEN_TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%nlte )%name)
+      prc_name_nlte     => upatmo_nwp_phy_config%prc( iUpatmoPrcId%nlte )%name(1:tlen)
+      tlen = LEN_TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%euv )%name)
+      prc_name_euv      => upatmo_nwp_phy_config%prc( iUpatmoPrcId%euv )%name(1:tlen)
+      tlen = LEN_TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%no )%name)
+      prc_name_no       => upatmo_nwp_phy_config%prc( iUpatmoPrcId%no )%name(1:tlen)
+      tlen = LEN_TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%chemheat )%name)
+      prc_name_chemheat => upatmo_nwp_phy_config%prc( iUpatmoPrcId%chemheat )%name(1:tlen)
 
       !------------------------------------
       !      Temperature tendencies
       !------------------------------------
 
       ! Prefix of variable name
-      var_name_prefix = TRIM(vname_prefix)//'ddt_temp_'
-
-      ! Unit
-      var_unit = 'K s-1'
+      var_name_prefix = vname_prefix(1:vn_pfx_len)//'ddt_temp_'
 
       ! &      tend%ddt_temp_srbc(nproma,nlev,nblks_c) 
       !-----------------------------------------------
       ! Construc variable name
-      var_name   = TRIM(var_name_prefix)//TRIM(prc_name_srbc)
-      cf_desc    = t_cf_var(var_name, var_unit,                                             &
+      var_name   = var_name_prefix(1:vn_pfx_len+9)//prc_name_srbc
+      cf_desc    = t_cf_var(var_name, unit_k_over_s,                                             &
         &                   'temperature tendency due to absorbtion by O2 in SRB and SRC',  &
         &                   datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -780,8 +790,8 @@ CONTAINS
 
       ! &      tend%ddt_temp_nlte(nproma,nlev,nblks_c) 
       !--------------------------------------------------
-      var_name   = TRIM(var_name_prefix)//TRIM(prc_name_nlte)
-      cf_desc    = t_cf_var(var_name, var_unit,                                 &
+      var_name   = var_name_prefix(1:vn_pfx_len+9)//prc_name_nlte
+      cf_desc    = t_cf_var(var_name, unit_k_over_s,                                 &
         &                   'temperature tendency due to Non-LTE heating',      &
         &                   datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -796,8 +806,8 @@ CONTAINS
 
       ! &      tend%ddt_temp_euv(nproma,nlev,nblks_c) 
       !----------------------------------------------
-      var_name   = TRIM(var_name_prefix)//TRIM(prc_name_euv)
-      cf_desc    = t_cf_var(var_name, var_unit,                                 &
+      var_name   = var_name_prefix(1:vn_pfx_len+9)//prc_name_euv
+      cf_desc    = t_cf_var(var_name, unit_k_over_s,                                 &
         &                   'temperature tendency due to EUV heating',          &
         &                   datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -812,8 +822,8 @@ CONTAINS
 
       ! &      tend%ddt_temp_no(nproma,nlev,nblks_c) 
       !---------------------------------------------
-      var_name   = TRIM(var_name_prefix)//TRIM(prc_name_no)
-      cf_desc    = t_cf_var(var_name, var_unit,                                 &
+      var_name   = var_name_prefix(1:vn_pfx_len+9)//prc_name_no
+      cf_desc    = t_cf_var(var_name, unit_k_over_s,                                 &
         &                   'temperature tendency due to NO heating at NIR',    &
         &                   datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -828,8 +838,8 @@ CONTAINS
 
       ! &  tend%ddt_temp_chemheat(nproma,nlev,nblks_c) 
       !-----------------------------------------------
-      var_name   = TRIM(var_name_prefix)//TRIM(prc_name_chemheat)
-      cf_desc    = t_cf_var(var_name, var_unit,                                 &
+      var_name   = var_name_prefix(1:vn_pfx_len+9)//prc_name_chemheat
+      cf_desc    = t_cf_var(var_name, unit_k_over_s,                                 &
         &                   'temperature tendency due to chemical heating',     &
         &                   datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -842,9 +852,6 @@ CONTAINS
         &           in_group=groups("upatmo_tendencies"),                       &
         &           loutput=loutput                                             ) 
 
-      DEALLOCATE(prc_name_srbc, prc_name_nlte, prc_name_euv, prc_name_no, prc_name_chemheat, STAT=istat)
-      IF (istat/=SUCCESS) CALL finish (TRIM(routine), 'Deallocation of prc_name failed')
-
     ENDIF !RAD-group switched on?
 
     !------------------------------------
@@ -855,26 +862,25 @@ CONTAINS
 
     IF (upatmo_nwp_phy_config%grp( iUpatmoGrpId%imf )%l_stat( iUpatmoPrcStat%enabled )) THEN
 
-      ALLOCATE(CHARACTER(LEN=nprcname) :: prc_name_vdfmol, prc_name_fric, &
-        & prc_name_iondrag, prc_name_joule, STAT=istat)
-      IF (istat/=SUCCESS) CALL finish (TRIM(routine), 'Allocation of prc_name failed')
-
-      prc_name_vdfmol  = TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%vdfmol )%name)
-      prc_name_fric    = TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%fric )%name)
-      prc_name_iondrag = TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%iondrag )%name)
-      prc_name_joule   = TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%joule )%name)
+      tlen = LEN_TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%vdfmol )%name)
+      prc_name_vdfmol  => upatmo_nwp_phy_config%prc( iUpatmoPrcId%vdfmol )%name(1:tlen)
+      tlen = LEN_TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%fric )%name)
+      prc_name_fric    => upatmo_nwp_phy_config%prc( iUpatmoPrcId%fric )%name(1:tlen)
+      tlen = LEN_TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%iondrag )%name)
+      prc_name_iondrag => upatmo_nwp_phy_config%prc( iUpatmoPrcId%iondrag )%name(1:tlen)
+      tlen = LEN_TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%joule )%name)
+      prc_name_joule   => upatmo_nwp_phy_config%prc( iUpatmoPrcId%joule )%name(1:tlen)
 
       !------------------------------------
       !      Temperature tendencies
       !------------------------------------
 
-      var_name_prefix = TRIM(vname_prefix)//'ddt_temp_'
-      var_unit        = 'K s-1'
+      var_name_prefix = vname_prefix(1:vn_pfx_len)//'ddt_temp_'
 
       ! &      tend%ddt_temp_vdfmol(nproma,nlev,nblks_c) 
       !-------------------------------------------------
-      var_name   = TRIM(var_name_prefix)//TRIM(prc_name_vdfmol)
-      cf_desc    = t_cf_var(var_name, var_unit,                                 &
+      var_name   = var_name_prefix(1:vn_pfx_len+9)//prc_name_vdfmol
+      cf_desc    = t_cf_var(var_name, unit_k_over_s,                                 &
         &                   'temperature tendency due to molecular diffusion',  &
         &                   datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -889,8 +895,8 @@ CONTAINS
 
       ! &      tend%ddt_temp_fric(nproma,nlev,nblks_c) 
       !-----------------------------------------------
-      var_name   = TRIM(var_name_prefix)//TRIM(prc_name_fric)
-      cf_desc    = t_cf_var(var_name, var_unit,                                 &
+      var_name   = var_name_prefix(1:vn_pfx_len+9)//prc_name_fric
+      cf_desc    = t_cf_var(var_name, unit_k_over_s,                                 &
         &                   'temperature tendency due to frictional heating',   &
         &                   datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -905,8 +911,8 @@ CONTAINS
 
       ! &      tend%ddt_temp_joule(nproma,nlev,nblks_c) 
       !------------------------------------------------
-      var_name   = TRIM(var_name_prefix)//TRIM(prc_name_joule)
-      cf_desc    = t_cf_var(var_name, var_unit,                                 &
+      var_name   = var_name_prefix(1:vn_pfx_len+9)//prc_name_joule
+      cf_desc    = t_cf_var(var_name, unit_k_over_s,                                 &
         &                   'temperature tendency due to Joule heating',        &
         &                   datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -923,13 +929,12 @@ CONTAINS
       !         U-wind tendencies
       !------------------------------------
 
-      var_name_prefix = TRIM(vname_prefix)//'ddt_u_'
-      var_unit        = 'm s-2'
+      var_name_prefix = vname_prefix(1:vn_pfx_len)//'ddt_u_'
 
       ! &      tend%ddt_u_vdfmol(nproma,nlev,nblks_c) 
       !----------------------------------------------
-      var_name   = TRIM(var_name_prefix)//TRIM(prc_name_vdfmol)
-      cf_desc    = t_cf_var(var_name, var_unit,                                 &
+      var_name   = var_name_prefix(1:vn_pfx_len+6)//prc_name_vdfmol
+      cf_desc    = t_cf_var(var_name, unit_m_over_s2,                                 &
         &                   'u-wind tendency due to molecular diffusion',       &
         &                   datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -944,8 +949,8 @@ CONTAINS
 
       ! &      tend%ddt_u_iondrag(nproma,nlev,nblks_c) 
       !-----------------------------------------------
-      var_name   = TRIM(var_name_prefix)//TRIM(prc_name_iondrag)
-      cf_desc    = t_cf_var(var_name, var_unit,                                 &
+      var_name   = var_name_prefix(1:vn_pfx_len+6)//prc_name_iondrag
+      cf_desc    = t_cf_var(var_name, unit_m_over_s2,                                 &
         &                   'u-wind tendency due to ion drag',                  &
         &                   datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -962,13 +967,12 @@ CONTAINS
       !         V-wind tendencies
       !------------------------------------
 
-      var_name_prefix = TRIM(vname_prefix)//'ddt_v_'
-      var_unit        = 'm s-2'
+      var_name_prefix = vname_prefix(1:vn_pfx_len)//'ddt_v_'
 
       ! &      tend%ddt_v_vdfmol(nproma,nlev,nblks_c) 
       !----------------------------------------------
-      var_name   = TRIM(var_name_prefix)//TRIM(prc_name_vdfmol)
-      cf_desc    = t_cf_var(var_name, var_unit,                                 &
+      var_name   = var_name_prefix(1:vn_pfx_len+6)//prc_name_vdfmol
+      cf_desc    = t_cf_var(var_name, unit_m_over_s2,                                 &
         &                   'v-wind tendency due to molecular diffusion',       &
         &                   datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -983,8 +987,8 @@ CONTAINS
 
       ! &      tend%ddt_v_iondrag(nproma,nlev,nblks_c) 
       !-----------------------------------------------
-      var_name   = TRIM(var_name_prefix)//TRIM(prc_name_iondrag)
-      cf_desc    = t_cf_var(var_name, var_unit,                                 &
+      var_name   = var_name_prefix(1:vn_pfx_len+6)//prc_name_iondrag
+      cf_desc    = t_cf_var(var_name, unit_m_over_s2,                                 &
         &                   'v-wind tendency due to ion drag',                  &
         &                   datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -1004,16 +1008,17 @@ CONTAINS
       ! Currently only specific humidity
       ALLOCATE(tend%ddt_qx_vdfmol_ptr( ntrc ), STAT=istat)
       IF (istat/=SUCCESS) THEN
-        CALL finish (TRIM(routine), 'Allocation of prm_upatmo_tend('//TRIM(cjg)//')%ddt_qx_vdfmol_ptr failed')
+        WRITE (message_text, '(a,i0,a)') 'Allocation of prm_upatmo_tend(', jg, &
+             ')%ddt_qx_vdfmol_ptr failed'
+        CALL finish(routine, message_text)
       ENDIF
 
-      var_name_prefix = TRIM(vname_prefix)//'ddt_q'
-      var_unit        = 'kg kg-1 s-1'
+      var_name_prefix = vname_prefix(1:vn_pfx_len)//'ddt_q'
 
       ! &     tend%ddt_qx_vdfmol(nproma,nlev,nblks_c,ntrc) 
       !---------------------------------------------------
-      var_name   = TRIM(var_name_prefix)//'x_'//TRIM(prc_name_vdfmol)
-      cf_desc    = t_cf_var(var_name, var_unit,                                 &
+      var_name   = var_name_prefix(1:vn_pfx_len+5)//'x_'//prc_name_vdfmol
+      cf_desc    = t_cf_var(var_name, unit_kg_over_kg_s,                                 &
         &                   'tendencies of mass mixing ratio of tracers '//     &
         &                   'due to molecular diffusion',                       &
         &                   datatype_flt)
@@ -1027,8 +1032,8 @@ CONTAINS
 
       ! &      tend%ddt_qv_vdfmol(nproma,nlev,nblks_c) 
       !-----------------------------------------------
-      var_name_ref = TRIM(var_name_prefix)//'v_'//TRIM(prc_name_vdfmol)
-      cf_desc    = t_cf_var(var_name_ref, var_unit,                                   &
+      var_name_ref = var_name_prefix(1:vn_pfx_len+5)//'v_'//prc_name_vdfmol
+      cf_desc    = t_cf_var(var_name_ref, unit_kg_over_kg_s,                                   &
         &                   'tendency of specific humidity '//                        &
         &                   'due to molecular diffusion',                             &
         &                   datatype_flt)
@@ -1042,9 +1047,6 @@ CONTAINS
         &                       vert_intp_method=VINTP_METHOD_LIN),                   &
         &           in_group=groups("upatmo_tendencies"),                             &
         &           loutput=loutput, lrestart=.TRUE., opt_var_ref_pos=4, ref_idx=jtrc )
-
-      DEALLOCATE(prc_name_vdfmol, prc_name_fric, prc_name_iondrag, prc_name_joule, STAT=istat)
-      IF (istat/=SUCCESS) CALL finish (TRIM(routine), 'Deallocation of prc_name failed')
 
     ENDIF !IMF-group switched on?
 
@@ -1062,12 +1064,16 @@ CONTAINS
 
     ALLOCATE(tend%ddt%info( ntnd_2 ), STAT=istat)
     IF (istat/=SUCCESS) THEN
-      CALL finish (TRIM(routine), 'Allocation of prm_upatmo_tend('//TRIM(cjg)//')%ddt%info failed')
+      WRITE (message_text, '(a,i0,a)') 'Allocation of prm_upatmo_tend(', jg, &
+           ')%ddt%info failed'
+      CALL finish(routine, message_text)
     ENDIF
     
     ALLOCATE(tend%ddt%state( ntnd_2 ), STAT=istat)
     IF (istat/=SUCCESS) THEN
-      CALL finish (TRIM(routine), 'Allocation of prm_upatmo_tend('//TRIM(cjg)//')%ddt%state failed')
+      WRITE (message_text, '(a,i0,a)') 'Allocation of prm_upatmo_tend(', jg, &
+           ')%ddt%state failed'
+      CALL finish(routine, message_text)
     ENDIF
 
     ! Name and number of states
@@ -1150,10 +1156,12 @@ CONTAINS
       IF (lmessage) THEN
         DO jtnd = 1, ntnd_2
           IF (ltend( jtnd )) THEN
-            cstartlev = TRIM(int2string(tend%ddt%info( jtnd )%istartlev))
-            cendlev   = TRIM(int2string(tend%ddt%info( jtnd )%iendlev))
-            CALL message (TRIM(routine), 'Start level of '//TRIM(tend%ddt%info( jtnd )%longname)//': '//TRIM(cstartlev))
-            CALL message (TRIM(routine), 'End level of '//TRIM(tend%ddt%info( jtnd )%longname)//': '//TRIM(cendlev))
+            WRITE (message_text, '(3a,i0)') 'Start level of ', &
+                 TRIM(tend%ddt%info( jtnd )%longname), ': ', tend%ddt%info( jtnd )%istartlev
+            CALL message (routine, message_text)
+            WRITE (message_text, '(3a,i0)') 'End level of ', &
+                 TRIM(tend%ddt%info( jtnd )%longname), ': ', tend%ddt%info( jtnd )%iendlev
+            CALL message (routine, message_text)
           ENDIF  !IF (ltend( jtnd )
         ENDDO  !jtnd
       ENDIF  !IF (lmessage)
@@ -1170,25 +1178,27 @@ CONTAINS
 
         ALLOCATE(tend%ddt%temp( nstate ), STAT=istat)
         IF (istat/=SUCCESS) THEN
-          CALL finish (TRIM(routine), 'Allocation of prm_upatmo_tend('//TRIM(cjg)//')%ddt%temp failed')
+          WRITE (message_text, '(a,i0,a)') 'Allocation of prm_upatmo_tend(', &
+               jg, ')%ddt%temp failed'
+          CALL finish(routine, message_text)
         ENDIF
         
         ! Loop over states
         DO jst = 1, nstate
-          
-          cjst = TRIM(int2string(jst, '(i2.2)'))
-          
+
+          WRITE (cjst, '(i2.2)') jst
+
           NULLIFY(tend%ddt%temp( jst )%tot)
 
           ! &      tend%ddt%temp(jst)%tot(nproma,nlev,nblks_c)
           !---------------------------------------------------
           ! Construct variable name for output
-          var_name = TRIM(vname_prefix)//TRIM(tend%ddt%info( jtnd )%name)//TRIM(STATELEVEL_SUFFIX)//TRIM(cjst)
+          var_name = vname_prefix(1:vn_pfx_len)//TRIM(tend%ddt%info( jtnd )%name)//STATELEVEL_SUFFIX//cjst
           ! Variable description
-          var_dscrptn = TRIM(tend%ddt%info( jtnd )%longname)//' of time level with index '//TRIM(cjst)
+          var_dscrptn = TRIM(tend%ddt%info( jtnd )%longname)//' of time level with index '//cjst
           ! Variable unit
-          var_unit   = TRIM(tend%ddt%info( jtnd )%unit)
-          cf_desc    = t_cf_var(var_name, var_unit, var_dscrptn, datatype_flt)
+          cf_desc    = t_cf_var(var_name, tend%ddt%info( jtnd )%unit, &
+               var_dscrptn, datatype_flt)
           grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
           CALL add_var( tend_list, var_name, tend%ddt%temp( jst )%tot,              &
             &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,  &
@@ -1210,21 +1220,22 @@ CONTAINS
 
         ALLOCATE(tend%ddt%exner( nstate ), STAT=istat)
         IF (istat/=SUCCESS) THEN
-          CALL finish (TRIM(routine), 'Allocation of prm_upatmo_tend('//TRIM(cjg)//')%ddt%exner failed')
+          WRITE (message_text, '(a,i0,a)') 'Allocation of prm_upatmo_tend(', &
+               jg, ')%ddt%exner failed'
+          CALL finish(routine, message_text)
         ENDIF
 
         DO jst = 1, nstate
-          
-          cjst = TRIM(int2string(jst, '(i2.2)'))
-          
+
+          WRITE (cjst, '(i2.2)') jst
+
           NULLIFY(tend%ddt%exner( jst )%tot)
 
           ! &      tend%ddt%exner(jst)%tot(nproma,nlev,nblks_c)
           !----------------------------------------------------
-          var_name   = TRIM(vname_prefix)//TRIM(tend%ddt%info( jtnd )%name)//TRIM(STATELEVEL_SUFFIX)//TRIM(cjst)
-          var_dscrptn = TRIM(tend%ddt%info( jtnd )%longname)//' of time level with index '//TRIM(cjst)
-          var_unit   = TRIM(tend%ddt%info( jtnd )%unit)
-          cf_desc    = t_cf_var(var_name, var_unit, var_dscrptn, datatype_flt)
+          var_name   = vname_prefix(1:vn_pfx_len)//TRIM(tend%ddt%info( jtnd )%name)//STATELEVEL_SUFFIX//cjst
+          var_dscrptn = TRIM(tend%ddt%info( jtnd )%longname)//' of time level with index '//cjst
+          cf_desc    = t_cf_var(var_name, tend%ddt%info( jtnd )%unit, var_dscrptn, datatype_flt)
           grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
           CALL add_var( tend_list, var_name, tend%ddt%exner( jst )%tot,             &
             &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,  &
@@ -1246,21 +1257,22 @@ CONTAINS
 
         ALLOCATE(tend%ddt%vn( nstate ), STAT=istat)
         IF (istat/=SUCCESS) THEN
-          CALL finish (TRIM(routine), 'Allocation of prm_upatmo_tend('//TRIM(cjg)//')%ddt%vn failed')
+          WRITE (message_text, '(a,i0,a)') 'Allocation of prm_upatmo_tend(', &
+               jg, ')%ddt%vn failed'
+          CALL finish(routine, message_text)
         ENDIF
 
         DO jst = 1, nstate
-          
-          cjst = TRIM(int2string(jst, '(i2.2)'))
-          
+
+          WRITE (cjst, '(i2.2)') jst
+
           NULLIFY(tend%ddt%vn( jst )%tot)    
           
           ! &      tend%ddt%vn(jst)%tot(nproma,nlev,nblks_e)
           !-------------------------------------------------
-          var_name   = TRIM(vname_prefix)//TRIM(tend%ddt%info( jtnd )%name)//TRIM(STATELEVEL_SUFFIX)//TRIM(cjst)
-          var_dscrptn = TRIM(tend%ddt%info( jtnd )%longname)//' of time level with index '//TRIM(cjst)
-          var_unit   = TRIM(tend%ddt%info( jtnd )%unit)
-          cf_desc    = t_cf_var(var_name, var_unit, var_dscrptn, datatype_flt)
+          var_name   = vname_prefix(1:vn_pfx_len)//TRIM(tend%ddt%info( jtnd )%name)//STATELEVEL_SUFFIX//cjst
+          var_dscrptn = TRIM(tend%ddt%info( jtnd )%longname)//' of time level with index '//cjst
+          cf_desc    = t_cf_var(var_name, tend%ddt%info( jtnd )%unit, var_dscrptn, datatype_flt)
           grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
           CALL add_var( tend_list, var_name, tend%ddt%vn( jst )%tot,                &
             &           GRID_UNSTRUCTURED_EDGE, ZA_REFERENCE, cf_desc, grib2_desc,  &
@@ -1282,27 +1294,30 @@ CONTAINS
 
         ALLOCATE(tend%ddt%qx( nstate ), STAT=istat)
         IF (istat/=SUCCESS) THEN
-          CALL finish (TRIM(routine), 'Allocation of prm_upatmo_tend('//TRIM(cjg)//')%ddt%qx failed')
+          WRITE (message_text, '(a,i0,a)') 'Allocation of prm_upatmo_tend(', &
+               jg, ')%ddt%qx failed'
+          CALL finish(routine, message_text)
         ENDIF
 
         DO jst = 1, nstate
-          
-          cjst = TRIM(int2string(jst, '(i2.2)'))
-          
+
+          WRITE (cjst, '(i2.2)') jst
+
           ALLOCATE(tend%ddt%qx( jst )%tot_ptr( ntrc ), STAT=istat)
           IF (istat/=SUCCESS) THEN
-            CALL finish (TRIM(routine), 'Allocation of prm_upatmo_tend('//TRIM(cjg) &
-              & //')%dqx%dt('//TRIM(cjst)//')%tot_ptr failed')
+            WRITE (message_text, '(a,i0,a,i0,a)') 'Allocation of prm_upatmo_tend(', &
+                 jg, ')%dqx%dt(', jst, ')%tot_ptr failed'
+            CALL finish (routine, message_text)
           ENDIF
 
           NULLIFY(tend%ddt%qx( jst )%tot)
 
           ! &     tend%ddt%qx(jst)%tot(nproma,nlev,nblks_c,ntrc)
           !-----------------------------------------------------
-          var_name   = TRIM(vname_prefix)//TRIM(tend%ddt%info( jtnd )%name)//TRIM(STATELEVEL_SUFFIX)//TRIM(cjst)
-          var_dscrptn = TRIM(tend%ddt%info( jtnd )%longname)//' of time level with index '//TRIM(cjst)
-          var_unit   = TRIM(tend%ddt%info( jtnd )%unit)
-          cf_desc    = t_cf_var(var_name, var_unit, var_dscrptn, datatype_flt)
+          var_name   = vname_prefix(1:vn_pfx_len)//TRIM(tend%ddt%info( jtnd )%name)//STATELEVEL_SUFFIX//cjst
+          var_dscrptn = TRIM(tend%ddt%info( jtnd )%longname)//' of time level with index '//cjst
+          cf_desc    = t_cf_var(var_name, tend%ddt%info( jtnd )%unit, &
+               var_dscrptn, datatype_flt)
           grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
           CALL add_var( tend_list, var_name, tend%ddt%qx( jst )%tot,                  &
             &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,    &
@@ -1314,15 +1329,16 @@ CONTAINS
             IF (jtrc == iUpatmoTracerId%qv) THEN
               ctrc = 'v'
             ELSE
-              ctrc = TRIM(int2string(jtrc))
+              WRITE (ctrc, '(i0)') jtrc
             ENDIF
 
             ! &     tend%ddt%qx(jst)%tot(nproma,nlev,nblks_c)
             !------------------------------------------------
-            var_name_ref = TRIM(vname_prefix)//'ddt_q'//TRIM(ctrc)//TRIM(STATELEVEL_SUFFIX)//TRIM(cjst)
+            var_name_ref = vname_prefix(1:vn_pfx_len)//'ddt_q'//TRIM(ctrc)//STATELEVEL_SUFFIX//cjst
             var_dscrptn  = 'accumulative tendency of tracer q'//TRIM(ctrc) &
-              & //' of time level with index '//TRIM(cjst)
-            cf_desc    = t_cf_var(var_name_ref, var_unit, var_dscrptn, datatype_flt)
+              & //' of time level with index '//cjst
+            cf_desc    = t_cf_var(var_name_ref, tend%ddt%info( jtnd )%unit, &
+                 var_dscrptn, datatype_flt)
             grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
             CALL add_ref( tend_list, var_name, var_name_ref,                                &
               &           tend%ddt%qx( jst )%tot_ptr( jtrc )%p_3d,                          &

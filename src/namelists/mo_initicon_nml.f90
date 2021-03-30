@@ -50,6 +50,8 @@ MODULE mo_initicon_nml
     & config_lvert_remap_fg      => lvert_remap_fg,      &
     & config_ltile_coldstart     => ltile_coldstart,     &
     & config_ltile_init          => ltile_init,          &
+    & config_icpl_da_sfcevap     => icpl_da_sfcevap,     &
+    & config_dt_ana              => dt_ana,              &
     & config_start_time_avg_fg   => start_time_avg_fg,   &
     & config_end_time_avg_fg     => end_time_avg_fg,     &
     & config_interval_avg_fg     => interval_avg_fg,     &
@@ -127,6 +129,10 @@ CONTAINS
   LOGICAL  :: ltile_coldstart  ! If true, initialize tile-based surface fields from first guess with tile-averaged fields
 
   LOGICAL  :: ltile_init       ! If true, initialize tile-based surface fields from first guess without tiles
+
+  INTEGER  :: icpl_da_sfcevap  ! Type of coupling between data assimilation and medel parameters affecting surface evaporation (plants + bare soil)
+
+  REAL(wp) :: dt_ana           ! Time interval of assimilation cycle [s] (relevant for icpl_da_sfcevap >= 2)
 
   LOGICAL  :: use_lakeiceana   ! If true, use ice fraction analysis data also over lakes (otherwise sea points only)
 
@@ -216,7 +222,7 @@ CONTAINS
                           lvert_remap_fg, iterate_iau, niter_divdamp,       &
                           niter_diffu, qcana_mode, qiana_mode, qrsgana_mode,&
                           qnxana_2mom_mode, itype_vert_expol, pinit_seed,   &
-                          pinit_amplitude
+                          pinit_amplitude, icpl_da_sfcevap, dt_ana
                           
 
   !------------------------------------------------------------
@@ -275,6 +281,13 @@ CONTAINS
   ltile_init            = .FALSE. ! true: initialize tile-based surface fields from first guess without tiles
   lvert_remap_fg        = .FALSE. ! true: perform vertical remapping of first-guess input
 
+  icpl_da_sfcevap = 0   ! Coupling between data assimilation and parameters affecting surface evaporation
+                        ! 0: none
+                        ! 1: use filtered T2M bias 
+                        ! 2: use filtered T2M bias and filtered RH increment at lowest model level
+                        !    more options to follow ...
+
+  dt_ana  = 10800._wp   ! Time interval of assimilation cycle (relevant for icpl_da_sfcevap >= 2; set 3600 s for ICON-D2
 
   start_time_avg_fg = 0._wp
   end_time_avg_fg   = 0._wp
@@ -405,6 +418,8 @@ CONTAINS
   config_lp2cintp_sfcana     = lp2cintp_sfcana
   config_ltile_coldstart     = ltile_coldstart
   config_ltile_init          = ltile_init
+  config_icpl_da_sfcevap     = icpl_da_sfcevap
+  config_dt_ana              = dt_ana
   config_lvert_remap_fg      = lvert_remap_fg
   config_start_time_avg_fg   = start_time_avg_fg
   config_end_time_avg_fg     = end_time_avg_fg

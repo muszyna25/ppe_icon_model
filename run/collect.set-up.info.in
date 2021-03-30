@@ -215,18 +215,22 @@ case "$use_site" in
         case "$use_compiler" in
           intel)
             use_submit='sbatch'
-            use_load_profile='/etc/profile'
+            use_load_profile='. /etc/profile'
             case "$use_compiler_version" in
-              19.*) use_mpi_startrun='/software/all/mpi/openmpi/3.0_intel_19.0/bin/mpirun'
-                    use_load_modules="compiler/intel/19.0 mpi/openmpi/3.0 lib/netcdf/4.6 lib/hdf5/1.10 lib/netcdf-fortran/4.4 eccodes/eccodes_ifort19"
+              19.0.*) use_mpi_startrun='/software/all/mpi/openmpi/2.1_intel_19.0/bin/mpirun'
+                    use_load_modules="compiler/intel/19.0 mpi/openmpi/2.1 lib/netcdf/4.7 lib/hdf5/1.10 lib/netcdf-fortran/4.5 eccodes/eccodes_ifort19"
                     ;;
-              17.*) use_mpi_startrun='/software/all/mpi/openmpi/3.0_intel_19.0/bin/mpirun' 
-                    use_load_modules='compiler/intel/19.0 mpi/openmpi/3.0 lib/netcdf/4.6 lib/hdf5/1.10 lib/netcdf-fortran/4.4 eccodes/eccodes_ifort19'
+              19.1.*) use_mpi_startrun='/software/all/mpi/openmpi/3.1_intel_19.1/bin/mpirun'
+                    use_load_modules="compiler/intel/19.1 mpi/openmpi/3.1 lib/netcdf/4.7 lib/hdf5/1.10 lib/netcdf-fortran/4.5 eccodes/eccodes_ifort19.1"
+                    ;;
+              17.*) use_mpi_startrun='/software/all/mpi/openmpi/2.1_intel_19.0/bin/mpirun' 
+                    use_load_modules='compiler/intel/19.0 mpi/openmpi/2.1 lib/netcdf/4.7 lib/hdf5/1.10 lib/netcdf-fortran/4.5 eccodes/eccodes_ifort19'
                      ;;
             esac
           ;;
           gcc)
-            use_submit='msub'
+            use_load_modules="compiler/gnu/7 numlib/mkl/2018 mpi/openmpi/2.1 lib/netcdf/4.7 lib/hdf5/1.10 lib/netcdf-fortran/4.5 eccodes/eccodes_gnu7"
+            use_submit='sbatch'
             use_mpi_startrun='mpirun'
           ;;
         esac

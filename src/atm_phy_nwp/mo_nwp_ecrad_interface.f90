@@ -42,7 +42,7 @@ MODULE mo_nwp_ecrad_interface
   USE mo_exception,              ONLY: finish, message
   USE mo_math_constants,         ONLY: pi
   USE mo_model_domain,           ONLY: t_patch, p_patch_local_parent
-  USE mo_impl_constants,         ONLY: min_rlcell_int, MAX_CHAR_LENGTH, nexlevs_rrg_vnest
+  USE mo_impl_constants,         ONLY: min_rlcell_int, nexlevs_rrg_vnest
   USE mo_impl_constants_grf,     ONLY: grf_bdywidth_c, grf_ovlparea_start_c, grf_fbk_start_c
   USE mo_fortran_tools,          ONLY: init
   USE mo_parallel_config,        ONLY: nproma
@@ -103,8 +103,7 @@ CONTAINS
   SUBROUTINE nwp_ecrad_radiation ( current_datetime, pt_patch, ext_data,                    &
     &  zaeq1, zaeq2, zaeq3, zaeq4, zaeq5, pt_diag, prm_diag, lnd_prog, ecrad_conf )
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
-      &  routine = modname//'::nwp_ecrad_radiation'
+    CHARACTER(len=*), PARAMETER:: routine = modname//'::nwp_ecrad_radiation'
 
     TYPE(datetime),          INTENT(in)    :: current_datetime !< Current date and time
 
@@ -265,9 +264,9 @@ CONTAINS
             &                         zaeq3(:,:,jb), zaeq4(:,:,jb),                   &
             &                         zaeq5(:,:,jb),                                  &
             &                         ecrad_conf, ecrad_aerosol)
-          CALL finish(TRIM(routine),'irad_aero = 9 not yet fully implemented for ecRad')
+          CALL finish(routine, 'irad_aero = 9 not yet fully implemented for ecRad')
         CASE DEFAULT
-          CALL finish(TRIM(routine),'irad_aero not valid for ecRad')
+          CALL finish(routine, 'irad_aero not valid for ecRad')
       END SELECT
 
       ecrad_flux%cloud_cover_sw(:) = 0._wp
@@ -337,7 +336,7 @@ CONTAINS
     &                                     zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,                      &
     &                                     pt_diag,prm_diag,lnd_prog, ecrad_conf )
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
+    CHARACTER(len=*), PARAMETER :: &
       &  routine = modname//'::nwp_ecrad_radiation_reduced'
 
     TYPE(datetime),          INTENT(in)    :: current_datetime !< Current date and time
@@ -756,7 +755,7 @@ CONTAINS
             &                         zrg_aeq5(:,:,jb),                     &
             &                         ecrad_conf, ecrad_aerosol)
         CASE DEFAULT
-          CALL finish(TRIM(routine),'irad_aero not valid for ecRad')
+          CALL finish(routine, 'irad_aero not valid for ecRad')
       END SELECT
 
       ! Reset output values

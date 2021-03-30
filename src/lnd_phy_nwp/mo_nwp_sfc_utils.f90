@@ -60,7 +60,7 @@ MODULE mo_nwp_sfc_utils
   USE sfc_flake,              ONLY: flake_init
   USE sfc_seaice,             ONLY: seaice_init_nwp, hice_min, frsi_min, &
     &                               seaice_coldinit_albsi_nwp
-  USE sfc_terra_data,         ONLY: cadp, cf_snow     ! soil and vegetation parameters for TILES
+  USE sfc_terra_data,         ONLY: cadp, cf_snow, crhosmin_ml, crhosmax_ml
   USE turb_data,              ONLY: c_lnd, c_sea
   USE mo_satad,               ONLY: sat_pres_water, sat_pres_ice, spec_humi
   USE mo_sync,                ONLY: global_max, global_min
@@ -1241,6 +1241,7 @@ CONTAINS
     INTEGER :: jc, jb, jk, isubs
 
     REAL(wp) :: tilefrac ! fractional area covered by tile
+    REAL(wp) :: rho_snow_lim !< Snow density limited to [crhosmin_ml, crhosmax_ml]
 
     LOGICAL :: lmask(nproma)  ! mask array (TRUE for landpoint)
     INTEGER :: icount         ! index list length per block
@@ -1500,7 +1501,9 @@ CONTAINS
         ! diagnose rho_snow from aggregated values of w_snow and h_snow; 
         ! by convention, snow density is zero in the absence of snow
         DO jc = i_startidx, i_endidx
-          lnd_diag%rho_snow(jc,jb) = rhoh2o*(lnd_diag%w_snow(jc,jb)/MAX(dbl_eps,lnd_diag%h_snow(jc,jb)))
+          rho_snow_lim             = rhoh2o*(lnd_diag%w_snow(jc,jb)/MAX(dbl_eps,lnd_diag%h_snow(jc,jb)))
+          rho_snow_lim             = MAX(MIN(rho_snow_lim,crhosmax_ml),crhosmin_ml)
+          lnd_diag%rho_snow(jc,jb) = MERGE(rho_snow_lim,0._wp,lnd_diag%w_snow(jc,jb)>0._wp)
         ENDDO
 
       ENDIF  ! ntiles_total == 1
@@ -3092,11 +3095,11 @@ CONTAINS
   !! Initial release by Pilar Ripodas (2013-02)
   !!
   !!
-  SUBROUTINE update_ndvi_dependent_fields( p_patch, ext_data, lnd_diag )
+  SUBROUTINE update_ndvi_dependent_fields( p_patch, ext_data, nh_diag )
 
     TYPE(t_patch)        , INTENT(IN)    :: p_patch
     TYPE(t_external_data), INTENT(INOUT) :: ext_data
-    TYPE(t_lnd_diag),      INTENT(IN)    :: lnd_diag
+    TYPE(t_nh_diag),      INTENT(IN)    :: nh_diag
 
     ! local
     INTEGER  :: jb,jt,ic,jc, jt_in
@@ -3188,7 +3191,7 @@ CONTAINS
 
 
     IF (itype_vegetation_cycle >= 2) THEN
-      CALL vege_clim (p_patch, ext_data, lnd_diag)
+      CALL vege_clim (p_patch, ext_data, nh_diag)
     ENDIF
 
     CALL diagnose_ext_aggr (p_patch, ext_data)

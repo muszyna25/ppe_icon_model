@@ -10,10 +10,10 @@ MODULE mo_name_list_output_metadata
 
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_f_pointer
   USE mo_exception,                         ONLY: finish
-  USE mo_kind,                              ONLY: i8
   USE mo_var_metadata_types,                ONLY: t_var_metadata
   USE mo_name_list_output_types,            ONLY: t_mem_win
-  USE mo_mpi,                               ONLY: p_int, p_comm_work_io
+  USE mo_mpi,                               ONLY: p_int, p_comm_work_io,      &
+    &                                             p_comm_rank
   USE mo_dynamics_config,                   ONLY: nnow, nnow_rcf, nnew, nnew_rcf
   USE mo_impl_constants,                    ONLY: TLEV_NNOW, TLEV_NNOW_RCF, TLEV_NNEW, TLEV_NNEW_RCF
 
@@ -23,7 +23,7 @@ MODULE mo_name_list_output_metadata
 
   PUBLIC :: metainfo_allocate_memory_window
   PUBLIC :: metainfo_write_to_memwin
-  PUBLIC :: metainfo_get_from_memwin
+  PUBLIC :: metainfo_get_from_buffer
   PUBLIC :: metainfo_get_size
   PUBLIC :: metainfo_get_timelevel
 
@@ -69,26 +69,39 @@ CONTAINS
 
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::metainfo_allocate_memory_window"
-    INTEGER                         :: mpierr
-    INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size, nbytes_int, mem_bytes, typeLB
+    INTEGER                         :: ierror, comm_rank, mem_size
+    INTEGER, TARGET                 :: dummy(1, 1)
+    INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_bytes, nbytes_int, lb
     TYPE(c_ptr)                     :: c_mem_ptr
 
     ! total number of required integer variables
-    mem_size = nvars * metainfo_get_size()
+    mem_size = metainfo_get_size()
     ! Get amount of bytes per INTEGER variable (in MPI communication)
-    CALL MPI_TYPE_GET_EXTENT(p_int, typeLB, nbytes_int, mpierr)
-    mem_bytes = MAX(mem_size, 1_i8) * nbytes_int
+    CALL MPI_Type_get_extent(p_int, lb, nbytes_int, ierror)
+    IF (ierror /= 0) CALL finish(routine, "MPI error!")
+    mem_bytes = INT(nvars, mpi_address_kind) * INT(mem_size, mpi_address_kind) &
+         * nbytes_int
 
-    CALL MPI_Alloc_mem(mem_bytes, MPI_INFO_NULL, c_mem_ptr, mpierr)
 
-    NULLIFY(memwin%mem_ptr_metainfo_pe0)
-    CALL C_F_POINTER(c_mem_ptr, memwin%mem_ptr_metainfo_pe0, (/ mem_size /) )
+    comm_rank = p_comm_rank(p_comm_work_io)
+
+    IF (comm_rank == 0) THEN
+      CALL MPI_Alloc_mem(mem_bytes, MPI_INFO_NULL, c_mem_ptr, ierror)
+      IF (ierror /= 0) CALL finish(routine, "MPI error!")
+      CALL C_F_POINTER(c_mem_ptr, memwin%mem_ptr_metainfo_pe0, &
+           (/ mem_size, nvars /) )
+      memwin%mem_ptr_metainfo_pe0 = 0
+    ELSE
+      mem_bytes = 0_mpi_address_kind
+      memwin%mem_ptr_metainfo_pe0 => dummy
+    END IF
 
     ! Create memory window for meta-data communication
-    memwin%mem_ptr_metainfo_pe0(:) = 0
-    CALL MPI_Win_create( memwin%mem_ptr_metainfo_pe0, mem_bytes, INT(nbytes_int), MPI_INFO_NULL, &
-      &                  p_comm_work_io, memwin%mpi_win_metainfo, mpierr )
-    IF (mpierr /= 0) CALL finish(routine, "MPI error!")
+    CALL MPI_Win_create(memwin%mem_ptr_metainfo_pe0, mem_bytes, &
+      &                 INT(nbytes_int), mpi_info_null, p_comm_work_io, &
+      &                 memwin%mpi_win_metainfo, ierror)
+    IF (ierror /= 0) CALL finish(routine, "MPI error!")
+    IF (comm_rank /= 0) NULLIFY(memwin%mem_ptr_metainfo_pe0)
 #endif
   END SUBROUTINE metainfo_allocate_memory_window
 
@@ -106,17 +119,12 @@ CONTAINS
     TYPE(t_var_metadata), INTENT(IN)    :: info   ! meta data for variable
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::metainfo_write_to_memwin"
-    INTEGER :: info_size, offset
-
     IF (.NOT. ASSOCIATED(memwin%mem_ptr_metainfo_pe0)) THEN
       CALL finish(routine, "Internal error!")
     END IF
 
-    ! get size of a single meta-info field
-    info_size = metainfo_get_size()
-    offset    = (ivar-1)*info_size
     ! copy the info object into the memory window
-    memwin%mem_ptr_metainfo_pe0((offset+1):(offset+info_size)) =  TRANSFER(info, (/ 0 /))
+    memwin%mem_ptr_metainfo_pe0(:, ivar) =  TRANSFER(info, (/ 0 /))
   END SUBROUTINE metainfo_write_to_memwin
 
 
@@ -127,21 +135,14 @@ CONTAINS
   !
   !  @author F. Prill, DWD
   !
-  SUBROUTINE metainfo_get_from_memwin(bufr_metainfo, ivar, info)
-    INTEGER,              INTENT(IN)    :: bufr_metainfo(:) ! MPI memory window
-    INTEGER,              INTENT(IN)    :: ivar   ! index of variable (corresponds to data memwin)
-    TYPE(t_var_metadata), INTENT(INOUT) :: info   ! meta data for variable
+  SUBROUTINE metainfo_get_from_buffer(buf, info)
+    INTEGER, INTENT(IN)    :: buf(:)
+    TYPE(t_var_metadata), INTENT(OUT) :: info   ! meta data for variable
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::metainfo_get_from_memwin"
-    TYPE(t_var_metadata) :: dummy_info  ! dummy meta data object
-    INTEGER              :: info_size, offset
-
-    ! get size of a single meta-info field
-    info_size = metainfo_get_size()
-    offset    = (ivar-1)*info_size
     ! copy the info object from the memory window
-    info = TRANSFER(bufr_metainfo((offset+1):(offset+info_size)), dummy_info)
-  END SUBROUTINE metainfo_get_from_memwin
+    info = TRANSFER(buf, info)
+  END SUBROUTINE metainfo_get_from_buffer
 
   !-------------------------------------------------------------------------------------------------
   !> Return the output timelevel for given variables info object

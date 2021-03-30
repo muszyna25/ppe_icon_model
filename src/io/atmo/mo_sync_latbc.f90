@@ -390,8 +390,8 @@ MODULE mo_sync_latbc
     CALL p_bcast(no_levels, p_io, p_comm_work)
     CALL allocate_latbc_data(p_patch, p_nh_state, ext_data, no_levels)
 
-    latbc_stream_id = openInputFile(latbc_full_filename, p_patch, &
-      &                             default_read_method)
+    CALL openinputfile(latbc_stream_id, latbc_full_filename, p_patch, &
+      &                default_read_method)
     !
     ! read prognostic 3d fields
     !
@@ -592,8 +592,8 @@ MODULE mo_sync_latbc
     CALL p_bcast(no_levels, p_io, p_comm_work)
     CALL allocate_latbc_data(p_patch, p_nh_state, ext_data, no_levels)
 
-    latbc_stream_id = openInputFile(latbc_full_filename, p_patch, &
-      &                             default_read_method)
+    CALL openinputfile(latbc_stream_id, latbc_full_filename, p_patch, &
+      &                default_read_method)
 
     !
     ! read IFS data

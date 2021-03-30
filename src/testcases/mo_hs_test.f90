@@ -76,11 +76,22 @@ CONTAINS
 
     REAL(wp),INTENT(INOUT) :: fvn_hs( nproma, nlev ) !< forcing on velocity
 
-    REAL(wp) :: ztmp( nproma, nlev )
+    REAL(wp) :: ztmp
+    INTEGER  :: i, jk
     !---
 
-    ztmp  (is:ie,:) = psigma(is:ie,:)*HSvcoeff1 + HSvcoeff2
-    fvn_hs(is:ie,:) = -HSkf*MAX( 0._wp,ztmp(is:ie,:) )*pvn(is:ie,:)
+    !$ACC DATA PRESENT( pvn, psigma, fvn_hs )
+    !$ACC PARALLEL
+    !$ACC LOOP GANG VECTOR COLLAPSE(2)
+    DO jk=1,nlev
+      DO i = is, ie
+        ztmp = psigma(i,jk)*HSvcoeff1 + HSvcoeff2
+        fvn_hs(i,jk) = -HSkf*MAX( 0._wp,ztmp )*pvn(i,jk)
+      ENDDO
+    ENDDO
+    !$ACC END PARALLEL
+    !$ACC END DATA
+   
 
   END SUBROUTINE held_suarez_forcing_vn
   !-------------
@@ -111,9 +122,9 @@ CONTAINS
     REAL(wp),INTENT(OUT):: fT_hs (nproma,nlev) !< forcing on temperature
 
     INTEGER :: jk  !vertical layer index
-
+    INTEGER :: i   ! nproma index
     REAL(wp) :: zsinlat2(nproma), zcoslat2(nproma), zcoslat4(nproma)
-    REAL(wp) :: zsigma0(nproma), zTempEq(nproma), ztmp(nproma), kT_hs(nproma)
+    REAL(wp) :: zsigma0, zTempEq, ztmp, kT_hs
     LOGICAL  :: l_friheat
 
     !------------------------------
@@ -127,40 +138,57 @@ CONTAINS
 
     ! latitude related parameters
 
-    zsinlat2(is:ie) = SIN(plat(is:ie))**2
-    zcoslat2(is:ie) = 1._wp - zsinlat2(is:ie)
-    zcoslat4(is:ie) = zcoslat2(is:ie)**2
-
+    !$ACC DATA CREATE( zsinlat2, zcoslat2, zcoslat4 ) PRESENT( ptemp_mc, ppres_mc, psigma, plat, fT_hs )
+    !$ACC DATA PRESENT( opt_ekinh ) IF( PRESENT( opt_ekinh ) )
+    !$ACC PARALLEL
+    !$ACC LOOP GANG VECTOR
+    DO i=is, ie
+      zsinlat2(i) = SIN(plat(i))**2
+      zcoslat2(i) = 1._wp - zsinlat2(i)
+      zcoslat4(i) = zcoslat2(i)**2
+    ENDDO
+    !$ACC END PARALLEL
+   
+    !$ACC PARALLEL
+    !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = 1,nlev
 
-       ! equilibrium temperature
+      DO i=is,ie
+        ! equilibrium temperature
 
-       zsigma0(is:ie) = ppres_mc(is:ie,jk)/HSp0
-       zTempEq(is:ie) = HSt1 - HSdty*zsinlat2(is:ie)               &
-                      & - HSdthz*LOG(zsigma0(is:ie))*zcoslat2(is:ie)
-       zTempEq(is:ie) = zTempEq(is:ie) * zsigma0(is:ie)**HScappa
-       zTempEq(is:ie) = MAX( 200._wp, zTempEq(is:ie) )
+        zsigma0 = ppres_mc(i,jk)/HSp0
+        zTempEq = HSt1 - HSdty*zsinlat2(i)               &
+                       & - HSdthz*LOG(zsigma0)*zcoslat2(i)
+        zTempEq = zTempEq * zsigma0**HScappa
+        zTempEq = MAX( 200._wp, zTempEq )
 
-       ! pressure-dependent coefficient
+        ! pressure-dependent coefficient
 
-       ztmp (is:ie)   = psigma(is:ie,jk)*HSvcoeff1 + HSvcoeff2
-       kT_hs(is:ie)   = HSka + (HSks-HSka)                       &
-                      & *zcoslat4(is:ie)*MAX(0._wp,ztmp(is:ie))
+        ztmp   = psigma(i,jk)*HSvcoeff1 + HSvcoeff2
+        kT_hs  = HSka + (HSks-HSka)*zcoslat4(i)*MAX(0._wp,ztmp)
 
-       ! Newtonian cooling
+        ! Newtonian cooling
 
-       fT_hs(is:ie,jk) = -kT_hs(is:ie)                        &
-                       & *( ptemp_mc(is:ie,jk)-zTempEq(is:ie) )
+        fT_hs(i,jk) = -kT_hs *( ptemp_mc(i,jk)-zTempEq )
+      ENDDO
 
     ENDDO !vertical layer loop
+    !$ACC END PARALLEL
 
     IF (l_friheat) THEN
+      !$ACC PARALLEL
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = 1,nlev
-        ztmp (is:ie) = psigma(is:ie,jk)*HSvcoeff1 + HSvcoeff2
-        fT_hs(is:ie,jk) = fT_hs(is:ie,jk) &
-        & + HSkf*MAX( 0._wp,ztmp(is:ie))*2.0_wp*opt_ekinh(is:ie,jk)/cvd
-      ENDDO
-    ENDIF
+        DO i = is,ie
+          ztmp = psigma(i,jk)*HSvcoeff1 + HSvcoeff2
+          fT_hs(i,jk) = fT_hs(i,jk) + HSkf*MAX( 0._wp,ztmp)*2.0_wp*opt_ekinh(i,jk)/cvd
+        ENDDO
+     ENDDO
+     !$ACC END PARALLEL
+  ENDIF
+
+  !$ACC END DATA
+  !$ACC END DATA
 
   END SUBROUTINE held_suarez_forcing_temp
   !-------------

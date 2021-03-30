@@ -38,7 +38,7 @@ MODULE mo_ocean_diagnostics
   USE mo_math_constants,     ONLY: rad2deg, dbl_eps
   USE mo_impl_constants,     ONLY: sea_boundary,sea, &
     & min_rlcell, min_rledge, min_rlcell, &
-    & max_char_length, min_dolic
+    & min_dolic, nlat_moc
   USE mo_timer,              ONLY: timer_calc_moc, timer_start, timer_stop
   USE mo_cdi_constants,      ONLY: GRID_EDGE, GRID_CELL, GRID_UNSTRUCTURED_EDGE, &
     & GRID_UNSTRUCTURED_CELL
@@ -98,7 +98,7 @@ MODULE mo_ocean_diagnostics
   USE mo_name_list_output_init, ONLY: isRegistered
 
   USE mtime,                 ONLY: datetime, MAX_DATETIME_STR_LEN, datetimeToPosixString
-  USE mo_ocean_check_salt , ONLY : 	calc_total_salt_content 
+  USE mo_ocean_check_salt , ONLY : calc_total_salt_content
 
   IMPLICIT NONE
 
@@ -108,8 +108,6 @@ MODULE mo_ocean_diagnostics
   INTEGER                     :: idt_src       = 1               ! Level of detail for 1 line debug
 
   INTEGER :: moc_unit  = -1 ! file handle for the global timeseries output
-  CHARACTER(LEN=max_char_length) :: diag_fname, moc_fname
-  INTEGER, PARAMETER :: linecharacters  = 2048
 
   !
   ! PUBLIC INTERFACE
@@ -161,15 +159,14 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2011).
   !!
 !<Optimize:inUse>
-  SUBROUTINE construct_oce_diagnostics( patch_3D, ocean_state, datestring )
+  SUBROUTINE construct_oce_diagnostics( patch_3D, ocean_state )
     TYPE(t_patch_3d),TARGET, INTENT(inout) :: patch_3D
     TYPE(t_hydro_ocean_state), TARGET      :: ocean_state
-    CHARACTER(LEN=32)                      :: datestring
 
     !local variable
     INTEGER :: i,ist
-    CHARACTER(LEN=max_char_length), PARAMETER :: &
-      & routine = ('mo_ocean_diagnostics:construct_oce_diagnostics')
+    CHARACTER(LEN=*), PARAMETER :: &
+      & routine = 'mo_ocean_diagnostics:construct_oce_diagnostics'
     !-----------------------------------------------------------------------
     INTEGER  :: nblks_e,blockNo,jc,jk, region_index,start_index,end_index
     REAL(wp) :: surface_area, surface_height, prism_vol, prism_area, column_volume
@@ -178,7 +175,6 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: owned_cells
     INTEGER, POINTER              :: regions(:,:)
     TYPE(t_ocean_regions)         :: ocean_regions
-    CHARACTER(LEN=max_char_length) :: listname
     INTEGER                       :: datatype_flt
 
     IF ( lnetcdf_flt64_output ) THEN
@@ -187,7 +183,7 @@ CONTAINS
       datatype_flt = DATATYPE_FLT32
     ENDIF
 
-    CALL message (TRIM(routine), 'start')
+    CALL message (routine, 'start')
     !-----------------------------------------------------------------------
     patch_2d => patch_3D%p_patch_2d(1)
     regions => patch_3D%regio_c
@@ -195,8 +191,8 @@ CONTAINS
     owned_cells => patch_2d%cells%owned
     nblks_e = patch_2d%nblks_e
     !-----------------------------------------------------------------------
-    WRITE(listname,'(a)')  'horizontal_velocity_diagnostics'
-    CALL new_var_list(horizontal_velocity_diagnostics, listname, patch_id=patch_2d%id)
+    CALL new_var_list(horizontal_velocity_diagnostics, &
+      &               'horizontal_velocity_diagnostics', patch_id=patch_2d%id)
     CALL default_var_list_settings( horizontal_velocity_diagnostics,            &
       & lrestart=.FALSE.,model_type=TRIM(get_my_process_name()),loutput=.TRUE. )
     !-----------------------------------------------------------------------
@@ -445,7 +441,7 @@ CONTAINS
     ocean_region_areas%total   = global_sum_array(ocean_region_areas%total)
     CALL enable_sync_checks()
 
-    CALL message (TRIM(routine), 'end')
+    CALL message (routine, 'end')
   END SUBROUTINE construct_oce_diagnostics
   !-------------------------------------------------------------------------
   !-------------------------------------------------------------------------
@@ -462,17 +458,15 @@ CONTAINS
     !
     !local variables
     INTEGER :: i,iret
-    CHARACTER(LEN=max_char_length)  :: linkname
-    CHARACTER(LEN=max_char_length)  :: message_text
 
-    CHARACTER(LEN=max_char_length), PARAMETER :: &
-      & routine = ('mo_ocean_diagnostics:destruct_oce_diagnostics')
+    CHARACTER(LEN=*), PARAMETER :: &
+      & routine = 'mo_ocean_diagnostics:destruct_oce_diagnostics'
     !-----------------------------------------------------------------------
     CALL delete_var_list(horizontal_velocity_diagnostics)
 
     IF (diagnostics_level <= 0) RETURN
 
-    CALL message (TRIM(routine), 'end')
+    CALL message (routine, 'end')
   END SUBROUTINE destruct_oce_diagnostics
   !-------------------------------------------------------------------------
 
@@ -846,17 +840,19 @@ CONTAINS
            isRegistered('vT') .OR. isRegistered('vS') .OR. isRegistered('vR') .OR. &
            isRegistered('wT') .OR. isRegistered('wS') .OR. isRegistered('wR') .OR. &
            isRegistered('uu') .OR. isRegistered('uv') .OR. isRegistered('uw') .OR. &
+           isRegistered('RR') .OR. isRegistered('SS') .OR. isRegistered('TT') .OR. &
            isRegistered('vv') .OR. isRegistered('ww') .OR. isRegistered('vw') .OR. &
            isRegistered('sigma0') .OR. isRegistered('hflR') .OR. isRegistered('fwR') .OR. &
            isRegistered('tauxU') .OR. isRegistered('tauyV') ) &
           ) THEN
 
-        CALL calc_eddydiag(patch_3d, p_diag%u, p_diag%v, p_diag%w_prismcenter  &
+        CALL calc_eddydiag(patch_3d, p_diag%u, p_diag%v, p_diag%w, p_diag%w_prismcenter  &
                ,tracers(:,:,:,1), tracers(:,:,:,2),p_diag%rhopot &
                ,p_diag%uT, p_diag%uS, p_diag%uR, p_diag%uu    &
                ,p_diag%vT, p_diag%vS, p_diag%vR, p_diag%vv    &
                ,p_diag%wT, p_diag%wS, p_diag%wR, p_diag%ww    &
-               ,p_diag%uv, p_diag%uw, p_diag%vw, p_diag%sigma0 &
+               ,p_diag%uv, p_diag%uw, p_diag%vw               &
+               ,p_diag%RR, p_diag%SS, p_diag%TT, p_diag%sigma0 &
                ,p_diag%hflR, p_diag%fwR, p_diag%tauxU, p_diag%tauyV &
                ,p_oce_sfc%topbc_windstress_u, p_oce_sfc%topbc_windstress_v &
                ,p_oce_sfc%heatflux_total, p_oce_sfc%frshflux_volumetotal )
@@ -883,7 +879,7 @@ CONTAINS
         IF (isRegistered('mlotstsq')) THEN
 
           ocean_state%p_diag%mlotstsq= &
-	       ocean_state%p_diag%mlotst*ocean_state%p_diag%mlotst
+               ocean_state%p_diag%mlotst*ocean_state%p_diag%mlotst
 
           CALL dbg_print('Diag: mlotstsq',ocean_state%p_diag%mlotstsq, &
                str_module,4,in_subset=owned_cells)
@@ -1252,13 +1248,18 @@ CONTAINS
     INTEGER :: mpi_comm
     INTEGER(i8) :: i1,i2,i3,i4
 
-    REAL(wp) :: z_lat, z_lat_deg, z_lat_dim
-    REAL(wp) :: global_moc(180,n_zlev), atlant_moc(180,n_zlev), pacind_moc(180,n_zlev)
-    REAL(dp) :: local_moc(180), res_moc(180)
+    REAL(wp) :: z_lat, z_lat_deg
+    !> z_lat_dim: scale to 1 deg resolution
+    !! z_lat_dim: latitudinal extent of triangle divided by latitudinal smoothing extent
+    !!   z_lat_dim = patch_2d%edges%primal_edge_length(il_e,ib_e) / &
+    !!     & (REAL(2*jbrei, wp) * 111111._wp*1.3_wp)
+    REAL(wp), PARAMETER :: z_lat_dim = 1.0_wp
+    REAL(wp) :: global_moc(nlat_moc,n_zlev), atlant_moc(nlat_moc,n_zlev), pacind_moc(nlat_moc,n_zlev)
+    REAL(dp) :: local_moc(nlat_moc), res_moc(nlat_moc)
 
     TYPE(t_subset_range), POINTER :: dom_cells
 
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: routine = ('mo_ocean_diagnostics:calc_moc')
+    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_ocean_diagnostics:calc_moc'
 
     !-----------------------------------------------------------------------
 
@@ -1290,31 +1291,26 @@ CONTAINS
           IF ( patch_3D%lsm_c(jc,jk,blockNo) <= sea_boundary ) THEN
 
             ! lbrei: corresponding latitude row of 1 deg extension
-            !       1 south pole
-            !     180 north pole
+            !            1 south pole
+            ! nlat_moc=180 north pole
             z_lat = patch_2d%cells%center(jc,blockNo)%lat
             z_lat_deg = z_lat*rad2deg
-            lbrei = NINT(90.0_wp + z_lat_deg)
+            lbrei = NINT(REAL(nlat_moc, wp)*0.5_wp + z_lat_deg)
             lbrei = MAX(lbrei,1)
-            lbrei = MIN(lbrei,180)
+            lbrei = MIN(lbrei,nlat_moc)
 
             ! get neighbor edge for scaling
             !   il_e = patch_2d%cells%edge_idx(jc,blockNo,1)
             !   ib_e = patch_2d%cells%edge_blk(jc,blockNo,1)
 
-            ! z_lat_dim: scale to 1 deg resolution
-            ! z_lat_dim: latitudinal extent of triangle divided by latitudinal smoothing extent
-            !   z_lat_dim = patch_2d%edges%primal_edge_length(il_e,ib_e) / &
-            !     & (REAL(2*jbrei, wp) * 111111._wp*1.3_wp)
-            z_lat_dim = 1.0_wp
 
             ! distribute MOC over (2*jbrei)+1 latitude rows
             !  - no weighting with latitudes done
             !  - lbrei: index of 180 X 1 deg meridional resolution
             DO lbr = -jbrei, jbrei
-              lbrei = NINT(90.0_wp + z_lat_deg + REAL(lbr, wp) * z_lat_dim)
-              lbrei = MAX(lbrei,1)
-              lbrei = MIN(lbrei,180)
+              lbrei = NINT(REAL(nlat_moc, wp)*0.5_wp + z_lat_deg &
+                &          + REAL(lbr, wp) * z_lat_dim)
+              lbrei = MIN(MAX(1,lbrei),nlat_moc)
 
               global_moc(lbrei,jk) = global_moc(lbrei,jk) - &
               !  multiply with wet (or loop to bottom)
@@ -1366,7 +1362,7 @@ CONTAINS
     END DO  ! n_zlev-loop
 
     IF (my_process_is_stdio()) THEN
-      DO lbr=179,1,-1   ! fixed to 1 deg meridional resolution
+      DO lbr=nlat_moc-1,1,-1   ! fixed to 1 deg meridional resolution
 
         global_moc(lbr,:)=global_moc(lbr+1,:)+global_moc(lbr,:)
         atlant_moc(lbr,:)=atlant_moc(lbr+1,:)+atlant_moc(lbr,:)
@@ -1380,21 +1376,21 @@ CONTAINS
       idate = this_datetime%date%year*10000+this_datetime%date%month*100+this_datetime%date%day
       itime = this_datetime%time%hour*100+this_datetime%time%minute
       WRITE(message_text,*) 'Write MOC at year =',this_datetime%date%year,', date =',idate,' time =', itime
-      CALL message (TRIM(routine), message_text)
+      CALL message (routine, message_text)
 
       DO jk = 1,n_zlev
         i1=INT(idate,i8)
         i2 = INT(777,i8)
         i3 = INT(patch_3D%p_patch_1d(1)%zlev_i(jk),i8)
-        i4 = INT(180,i8)
+        i4 = INT(nlat_moc,i8)
         WRITE(moc_unit) i1,i2,i3,i4
-        WRITE(moc_unit) (global_moc(lbr,jk),lbr=1,180)
+        WRITE(moc_unit) global_moc(:,jk)
         i2 = INT(778,i8)
         WRITE(moc_unit) i1,i2,i3,i4
-        WRITE(moc_unit) (atlant_moc(lbr,jk),lbr=1,180)
+        WRITE(moc_unit) atlant_moc(:,jk)
         i2 = INT(779,i8)
         WRITE(moc_unit) i1,i2,i3,i4
-        WRITE(moc_unit) (pacind_moc(lbr,jk),lbr=1,180)
+        WRITE(moc_unit) pacind_moc(:,jk)
 
       END DO
     END IF
@@ -1405,19 +1401,21 @@ CONTAINS
     TYPE(t_patch),    TARGET, INTENT(in)  :: patch_2d
     TYPE(t_patch_3d ),TARGET, INTENT(in)  :: patch_3D
     REAL(wp), INTENT(in)  :: w(:,:,:)   ! vertical velocity (nproma,nlev+1,alloc_cell_blocks)
-    REAL(wp), INTENT(OUT) :: global_moc(:,:), atlant_moc(:,:), pacind_moc(:,:) ! (n_zlev,180)
+    REAL(wp), INTENT(OUT) :: global_moc(:,:), atlant_moc(:,:), pacind_moc(:,:) ! (n_zlev,nlat_moc)
     !
     ! local variables
     INTEGER, PARAMETER ::  latSmooth = 3   !  latitudinal smoothing area is 2*jbrei-1 rows of 1 deg
     INTEGER :: block, level, start_index, end_index, idx, ilat, l
     INTEGER :: mpi_comm
 
-    REAL(wp) :: lat, deltaMoc, smoothWeight
-    REAL(wp) :: allmocs(3,n_zlev,180)
+    REAL(wp) :: lat, deltaMoc
+    REAL(wp), PARAMETER :: smoothWeight = 1.0_wp / REAL(2*latSmooth + 1, wp)
+
+    REAL(wp) :: allmocs(3,n_zlev,nlat_moc)
 
     TYPE(t_subset_range), POINTER :: cells
 
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: routine = ('mo_ocean_diagnostics:calc_moc')
+    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_ocean_diagnostics:calc_moc'
 
     !-----------------------------------------------------------------------
     mpi_comm = MERGE(p_comm_work_test, p_comm_work, p_test_run)
@@ -1429,8 +1427,6 @@ CONTAINS
     ! limit cells to in-domain because of summation
     cells   => patch_2d%cells%in_domain
 
-    smoothWeight = 1.0_wp / REAL(2*latSmooth + 1, wp)
-
     DO block = cells%start_block, cells%end_block
       CALL get_index_range(cells, block, start_index, end_index)
       DO idx = start_index, end_index
@@ -1440,19 +1436,17 @@ CONTAINS
           deltaMoc = patch_2d%cells%area(idx,block) * OceanReferenceDensity * w(idx,level,block)
 
           ! lat: corresponding latitude row of 1 deg extension
-          !       1 south pole
-          !     180 north pole
-          ilat     = NINT(90.0_wp + lat)
-          ilat     = MAX(ilat,1)
-          ilat     = MIN(ilat,180)
+          !            1 south pole
+          ! nlat_moc=180 north pole
+          ilat     = NINT(REAL(nlat_moc, wp)*0.5_wp + lat)
+          ilat     = MAX(1,MIN(ilat,nlat_moc))
 
           ! distribute MOC over (2*jbrei)+1 latitude rows
           !  - no weighting with latitudes done
           !  - lat: index of 180 X 1 deg meridional resolution
           DO l = -latSmooth, latSmooth
-            ilat = NINT(90.0_wp + lat + REAL(l, wp))
-            ilat = MAX(ilat,1)
-            ilat = MIN(ilat,180)
+            ilat = NINT(REAL(nlat_moc, wp)*0.5_wp + lat + REAL(l, wp))
+            ilat = MAX(1,MIN(ilat,nlat_moc))
 
             global_moc(level,ilat) =       global_moc(level,ilat) - deltaMoc*smoothWeight
             atlant_moc(level,ilat) = MERGE(atlant_moc(level,ilat) - deltaMoc*smoothWeight, 0.0_wp, patch_3D%basin_c(idx,block) == 1)
@@ -1474,7 +1468,7 @@ CONTAINS
     ! }}}
 
     ! compute partial sums along meridian
-    DO l=179,1,-1   ! fixed to 1 deg meridional resolution
+    DO l=nlat_moc-1,1,-1   ! fixed to 1 deg meridional resolution
       global_moc(:,l)=global_moc(:,l+1)+global_moc(:,l)
       atlant_moc(:,l)=atlant_moc(:,l+1)+atlant_moc(:,l)
       pacind_moc(:,l)=pacind_moc(:,l+1)+pacind_moc(:,l)
@@ -1501,19 +1495,19 @@ CONTAINS
     REAL(wp), INTENT(inout)  :: delta_so(:,:,:)   ! salinity tendency (nproma,nlev+1,alloc_cell_blocks)
     REAL(wp), INTENT(inout)  :: amoc26n(:)
 
-    REAL(wp), INTENT(inout) :: global_moc(:,:), atlant_moc(:,:), pacind_moc(:,:) ! (n_zlev,180)
+    REAL(wp), INTENT(inout) :: global_moc(:,:), atlant_moc(:,:), pacind_moc(:,:) ! (n_zlev,nlat_moc)
 
     ! implied ocean heat transport calculated from surface fluxes
-    REAL(wp), INTENT(inout) :: global_hfl(:,:), atlant_hfl(:,:), pacind_hfl(:,:) ! (1,180)
+    REAL(wp), INTENT(inout) :: global_hfl(:,:), atlant_hfl(:,:), pacind_hfl(:,:) ! (1,nlat_moc)
 
     ! implied ocean fw transport calculated from surface fluxes
-    REAL(wp), INTENT(inout) :: global_wfl(:,:), atlant_wfl(:,:), pacind_wfl(:,:) ! (1,180)
+    REAL(wp), INTENT(inout) :: global_wfl(:,:), atlant_wfl(:,:), pacind_wfl(:,:) ! (1,nlat_moc)
 
     ! northward ocean heat transport calculated from tendencies
-    REAL(wp), INTENT(inout) :: global_hfbasin(:,:), atlant_hfbasin(:,:), pacind_hfbasin(:,:) ! (1,180)
+    REAL(wp), INTENT(inout) :: global_hfbasin(:,:), atlant_hfbasin(:,:), pacind_hfbasin(:,:) ! (1,nlat_moc)
 
     ! northward ocean salt transport calculated from tendencies
-    REAL(wp), INTENT(inout) :: global_sltbasin(:,:), atlant_sltbasin(:,:), pacind_sltbasin(:,:) ! (1,180)
+    REAL(wp), INTENT(inout) :: global_sltbasin(:,:), atlant_sltbasin(:,:), pacind_sltbasin(:,:) ! (1,nlat_moc)
 
     ! local variables
     INTEGER, PARAMETER ::  latSmooth = 3   !  latitudinal smoothing area is 2*jbrei-1 rows of 1 deg
@@ -1527,13 +1521,13 @@ CONTAINS
 
     TYPE(t_subset_range), POINTER :: cells
 
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: routine = ('mo_ocean_diagnostics:calc_moc')
+    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_ocean_diagnostics:calc_moc'
 
     !-----------------------------------------------------------------------
     mpi_comm = MERGE(p_comm_work_test, p_comm_work, p_test_run)
 
     n=MAX(12,n_zlev) !needs at leat 12 levels to store the wfl/hfl/hfbasin variables
-    ALLOCATE(allmocs(4,n,180))
+    ALLOCATE(allmocs(4,n,nlat_moc))
 
     allmocs(:,:,:)  = 0.0_wp
 
@@ -1588,19 +1582,17 @@ CONTAINS
           ENDIF
 
           ! lat: corresponding latitude row of 1 deg extension
-          !       1 south pole
-          !     180 north pole
-          ilat     = NINT(90.0_wp + lat)
-          ilat     = MAX(ilat,1)
-          ilat     = MIN(ilat,180)
+          !            1 south pole
+          ! nlat_moc=180 north pole
+          ilat     = NINT(REAL(nlat_moc, wp)*0.5_wp + lat)
+          ilat     = MAX(1,MIN(ilat,nlat_moc))
 
           ! distribute MOC over (2*jbrei)+1 latitude rows
           !  - no weighting with latitudes done
           !  - lat: index of 180 X 1 deg meridional resolution
           DO l = -latSmooth, latSmooth
-            ilat = NINT(90.0_wp + lat + REAL(l, wp))
-            ilat = MAX(ilat,1)
-            ilat = MIN(ilat,180)
+            ilat = NINT(REAL(nlat_moc, wp)*0.5_wp + lat + REAL(l, wp))
+            ilat = MAX(1,MIN(ilat,nlat_moc))
 
             global_moc(level,ilat) =       global_moc(level,ilat) - deltaMoc*smoothWeight
             atlant_moc(level,ilat) = MERGE(atlant_moc(level,ilat) - deltaMoc*smoothWeight, &
@@ -1680,7 +1672,7 @@ CONTAINS
 
 
     ! compute partial sums along meridian
-    DO l=179,1,-1   ! fixed to 1 deg meridional resolution
+    DO l=nlat_moc-1,1,-1   ! fixed to 1 deg meridional resolution
       global_moc(:,l)=global_moc(:,l+1)+global_moc(:,l)
       atlant_moc(:,l)=atlant_moc(:,l+1)+atlant_moc(:,l)
       pacind_moc(:,l)=pacind_moc(:,l+1)+pacind_moc(:,l)
@@ -1763,7 +1755,7 @@ CONTAINS
     TYPE(t_patch), POINTER  :: patch_2d
     TYPE(t_subset_range), POINTER :: all_cells, dom_cells
 
-    !CHARACTER(len=max_char_length), PARAMETER :: routine = ('mo_ocean_diagnostics:calc_psi')
+    !CHARACTER(len=*), PARAMETER :: routine = 'mo_ocean_diagnostics:calc_psi'
 
     !-----------------------------------------------------------------------
 
@@ -1927,7 +1919,7 @@ CONTAINS
     TYPE(t_patch), POINTER  :: patch_2d
     TYPE(t_subset_range), POINTER :: all_edges, all_cells
 
-    !CHARACTER(len=max_char_length), PARAMETER :: routine = ('mo_ocean_diagnostics:calc_psi_vn')
+    !CHARACTER(len=*), PARAMETER :: routine = 'mo_ocean_diagnostics:calc_psi_vn'
 
     !-----------------------------------------------------------------------
 
@@ -2238,10 +2230,10 @@ END SUBROUTINE diag_heat_salt_tendency
   END SUBROUTINE calc_heat_content
 
   
-  SUBROUTINE calc_eddydiag(patch_3d,u,v,w,T,S,R &
+  SUBROUTINE calc_eddydiag(patch_3d,u,v,w,w_prismcenter,T,S,R &
                ,uT, uS, uR, uu    &
                ,vT, vS, vR, vv    &
-               ,wT, wS, wR, ww, uv, uw, vw, sigma0   &
+               ,wT, wS, wR, ww, uv, uw, vw, rr, ss, tt, sigma0   &
                ,hflr, fwr, tauxu, tauyv & 
                , topbc_windstress_u, topbc_windstress_v &
                ,heatflux_total, frshflux_volumetotal)
@@ -2250,7 +2242,8 @@ END SUBROUTINE diag_heat_salt_tendency
 
     REAL(wp), INTENT(IN)   :: u(:,:,:) !< zonal velocity at cell center
     REAL(wp), INTENT(IN)   :: v(:,:,:) !< meridional velocity at cell center
-    REAL(wp), INTENT(IN)   :: w(:,:,:) !< vertical velocity at cell center
+    REAL(wp), INTENT(IN)   :: w(:,:,:) !< vertical velocity at cell interface
+    REAL(wp), INTENT(INOUT):: w_prismcenter(:,:,:) !< vertical velocity at cell center
     REAL(wp), INTENT(IN)   :: T(:,:,:) !< temerature
     REAL(wp), INTENT(IN)   :: S(:,:,:) !< salinity
     REAL(wp), INTENT(IN)   :: R(:,:,:) !< density
@@ -2271,6 +2264,9 @@ END SUBROUTINE diag_heat_salt_tendency
     REAL(wp), INTENT(INOUT)  :: uR(:,:,:) !< product of density and u-velocity
     REAL(wp), INTENT(INOUT)  :: uu(:,:,:) !< square of u-velocity
 
+    REAL(wp), INTENT(INOUT)  :: RR(:,:,:) !< square of density
+    REAL(wp), INTENT(INOUT)  :: SS(:,:,:) !< square of salinity
+    REAL(wp), INTENT(INOUT)  :: TT(:,:,:) !< square of temperature
     REAL(wp), INTENT(INOUT)  :: vT(:,:,:) !< product of temperature and v-velocity
     REAL(wp), INTENT(INOUT)  :: vS(:,:,:) !< product of salinity and v-velocity
     REAL(wp), INTENT(INOUT)  :: vR(:,:,:) !< product of density and v-velocity  
@@ -2305,6 +2301,7 @@ END SUBROUTINE diag_heat_salt_tendency
         DO level=1,subset%vertical_levels(cell,blk)
 
 
+          w_prismcenter(cell,level,blk) = 0.5*(w(cell,level,blk) + w(cell,level+1,blk))
           sigma0(cell,level,blk) = R(cell,level,blk) -1000.0_wp
           uT(cell,level,blk) = T(cell,level,blk) * u(cell,level,blk)
           uS(cell,level,blk) = S(cell,level,blk) * u(cell,level,blk)
@@ -2316,14 +2313,18 @@ END SUBROUTINE diag_heat_salt_tendency
           vR(cell,level,blk) = sigma0(cell,level,blk) * v(cell,level,blk)
           vv(cell,level,blk) = v(cell,level,blk) * v(cell,level,blk)
 
-          wT(cell,level,blk) = T(cell,level,blk) * w(cell,level,blk)
-          wS(cell,level,blk) = S(cell,level,blk) * w(cell,level,blk)
-          wR(cell,level,blk) = sigma0(cell,level,blk) * w(cell,level,blk)
-          ww(cell,level,blk) = w(cell,level,blk) * w(cell,level,blk)
+          wT(cell,level,blk) = T(cell,level,blk) * w_prismcenter(cell,level,blk)
+          wS(cell,level,blk) = S(cell,level,blk) * w_prismcenter(cell,level,blk)
+          wR(cell,level,blk) = sigma0(cell,level,blk) * w_prismcenter(cell,level,blk)
+          ww(cell,level,blk) = w_prismcenter(cell,level,blk) * w_prismcenter(cell,level,blk)
 
           uv(cell,level,blk) = u(cell,level,blk) * v(cell,level,blk)
-          uw(cell,level,blk) = u(cell,level,blk) * w(cell,level,blk)
-          vw(cell,level,blk) = v(cell,level,blk) * w(cell,level,blk)
+          uw(cell,level,blk) = u(cell,level,blk) * w_prismcenter(cell,level,blk)
+          vw(cell,level,blk) = v(cell,level,blk) * w_prismcenter(cell,level,blk)
+
+          RR(cell,level,blk) = sigma0(cell,level,blk) * sigma0(cell,level,blk)
+          SS(cell,level,blk) = S(cell,level,blk) * S(cell,level,blk)
+          TT(cell,level,blk) = T(cell,level,blk) * T(cell,level,blk)
 
 
         END DO ! level
@@ -2386,8 +2387,8 @@ END SUBROUTINE diag_heat_salt_tendency
     TYPE(t_patch), POINTER        :: patch_2d
     TYPE(t_subset_range), POINTER :: owned_cells
 
-    REAL(wp), INTENT(inout) :: 	 condep(:,:)
-    REAL(wp), INTENT(in) :: 	 zgrad_rho(:,:,:)
+    REAL(wp), INTENT(inout) ::   condep(:,:)
+    REAL(wp), INTENT(in) ::      zgrad_rho(:,:,:)
 
 
     INTEGER  :: blockNo, jc, start_index, end_index
@@ -2399,7 +2400,7 @@ END SUBROUTINE diag_heat_salt_tendency
     DO blockNo = owned_cells%start_block, owned_cells%end_block
       CALL get_index_range(owned_cells, blockNo, start_index, end_index)
       DO jc =  start_index, end_index
-        	condep(jc,blockNo) = &
+                condep(jc,blockNo) = &
              REAL(calc_max_condep(zgrad_rho(jc,:,blockNo), &
              patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo)),KIND=wp)
 

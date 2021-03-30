@@ -32,8 +32,8 @@ MODULE mo_io_config
   USE mo_run_config,              ONLY: dtime
   USE mo_util_string,             ONLY: int2string
   USE mtime,                      ONLY: max_timedelta_str_len
-  USE mo_name_list_output_config, ONLY: first_output_name_list, &
-                                        is_variable_in_output, is_variable_in_output_dom
+  USE mo_name_list_output_config, ONLY: is_variable_in_output, &
+    &                                   is_variable_in_output_dom
   USE mo_lnd_nwp_config,          ONLY: groups_smi
 
   IMPLICIT NONE
@@ -81,6 +81,11 @@ MODULE mo_io_config
   LOGICAL :: lnetcdf_flt64_output       !< if .TRUE. floating point valued NetCDF output
                                         !  is written in 64-bit instead of 32-bit accuracy
 
+  INTEGER, PARAMETER :: uh_max_nlayer = 3
+  REAL(wp):: uh_max_zmin(uh_max_nlayer), &  !< minimum and maximum height in m MSL for the vertical
+             uh_max_zmax(uh_max_nlayer)     !  integration of uh_max (output vars uh_max<_low,_med>)
+  LOGICAL :: luh_max_out(uh_max_nlayer)
+
   TYPE t_echotop_meta
     REAL(wp) :: time_interval           !< time interval [seconds] over which echotops are maximized/minimized
                                         !   (ECHOTOP, ECHOTOPinM) for a domain
@@ -116,7 +121,9 @@ MODULE mo_io_config
     LOGICAL :: smi         = .FALSE. !< Flag. TRUE if computation of soil moisture index desired
     LOGICAL :: tcond_max   = .FALSE. !< Flag. TRUE if computation of total column-integrated condensate desired
     LOGICAL :: tcond10_max = .FALSE. !< Flag. TRUE if computation of total column-integrated condensate above z(T=-10 degC) desired
-    LOGICAL :: uh_max      = .FALSE. !< Flag. TRUE if computation of updraft helicity desired
+    LOGICAL :: uh_max_low  = .FALSE. !< Flag. TRUE if computation of updraft helicity (0 - 3000 m) desired
+    LOGICAL :: uh_max_med  = .FALSE. !< Flag. TRUE if computation of updraft helicity (2000 - 5000 m) desired
+    LOGICAL :: uh_max      = .FALSE. !< Flag. TRUE if computation of updraft helicity (2000 - 8000 m) desired
     LOGICAL :: vorw_ctmax  = .FALSE. !< Flag. TRUE if computation of maximum rotation amplitude desired
     LOGICAL :: w_ctmax     = .FALSE. !< Flag. TRUE if computation of maximum updraft track desired
     LOGICAL :: vor_u       = .FALSE. !< Flag. TRUE if computation of zonal component of relative vorticity desired
@@ -190,41 +197,43 @@ CONTAINS
     ALLOCATE(var_in_output(n_dom))
 
     DO jg=1,n_dom
-      var_in_output(jg)%pres_msl = is_variable_in_output(first_output_name_list, var_name="pres_msl") .OR. &
-        &                          is_variable_in_output(first_output_name_list, var_name="psl_m")
-      var_in_output(jg)%omega    = is_variable_in_output(first_output_name_list, var_name="omega")    .OR. &
-        &                          is_variable_in_output(first_output_name_list, var_name="wap_m")
-      var_in_output(jg)%vor_u    = is_variable_in_output_dom(first_output_name_list, var_name="vor_u", jg=jg)
-      var_in_output(jg)%vor_v    = is_variable_in_output_dom(first_output_name_list, var_name="vor_v", jg=jg)
-      var_in_output(jg)%bvf2     = is_variable_in_output_dom(first_output_name_list, var_name="bvf2", jg=jg)
-      var_in_output(jg)%parcelfreq2 = is_variable_in_output_dom(first_output_name_list, var_name="parcelfreq2", jg=jg)
+      var_in_output(jg)%pres_msl = is_variable_in_output(var_name="pres_msl") .OR. &
+        &                          is_variable_in_output(var_name="psl_m")
+      var_in_output(jg)%omega    = is_variable_in_output(var_name="omega")    .OR. &
+        &                          is_variable_in_output(var_name="wap_m")
+      var_in_output(jg)%vor_u    = is_variable_in_output_dom(var_name="vor_u", jg=jg)
+      var_in_output(jg)%vor_v    = is_variable_in_output_dom(var_name="vor_v", jg=jg)
+      var_in_output(jg)%bvf2     = is_variable_in_output_dom(var_name="bvf2", jg=jg)
+      var_in_output(jg)%parcelfreq2 = is_variable_in_output_dom(var_name="parcelfreq2", jg=jg)
     END DO
 
 
     IF (lnwp) THEN
       DO jg=1,n_dom
-        var_in_output(jg)%rh          = is_variable_in_output_dom(first_output_name_list, var_name="rh", jg=jg)
-        var_in_output(jg)%pv          = is_variable_in_output_dom(first_output_name_list, var_name="pv", jg=jg)
-        var_in_output(jg)%sdi2        = is_variable_in_output_dom(first_output_name_list, var_name="sdi2", jg=jg)
-        var_in_output(jg)%lpi         = is_variable_in_output_dom(first_output_name_list, var_name="lpi", jg=jg)
-        var_in_output(jg)%lpi_max     = is_variable_in_output_dom(first_output_name_list, var_name="lpi_max", jg=jg)
-        var_in_output(jg)%ceiling     = is_variable_in_output_dom(first_output_name_list, var_name="ceiling", jg=jg)
-        var_in_output(jg)%hbas_sc     = is_variable_in_output_dom(first_output_name_list, var_name="hbas_sc", jg=jg)
-        var_in_output(jg)%htop_sc     = is_variable_in_output_dom(first_output_name_list, var_name="htop_sc", jg=jg)
-        var_in_output(jg)%twater      = is_variable_in_output_dom(first_output_name_list, var_name="twater", jg=jg)
-        var_in_output(jg)%q_sedim     = is_variable_in_output_dom(first_output_name_list, var_name="q_sedim", jg=jg)
-        var_in_output(jg)%tcond_max   = is_variable_in_output_dom(first_output_name_list, var_name="tcond_max", jg=jg)
-        var_in_output(jg)%tcond10_max = is_variable_in_output_dom(first_output_name_list, var_name="tcond10_max", jg=jg)
-        var_in_output(jg)%uh_max      = is_variable_in_output_dom(first_output_name_list, var_name="uh_max", jg=jg)
-        var_in_output(jg)%vorw_ctmax  = is_variable_in_output_dom(first_output_name_list, var_name="vorw_ctmax", jg=jg)
-        var_in_output(jg)%w_ctmax     = is_variable_in_output_dom(first_output_name_list, var_name="w_ctmax", jg=jg)
-        var_in_output(jg)%dbz         = is_variable_in_output_dom(first_output_name_list, var_name="dbz", jg=jg)
-        var_in_output(jg)%dbz850      = is_variable_in_output_dom(first_output_name_list, var_name="dbz_850", jg=jg)
-        var_in_output(jg)%dbzcmax     = is_variable_in_output_dom(first_output_name_list, var_name="dbz_cmax", jg=jg)
-        var_in_output(jg)%dbzctmax    = is_variable_in_output_dom(first_output_name_list, var_name="dbz_ctmax", jg=jg)
-        var_in_output(jg)%echotop     = is_variable_in_output_dom(first_output_name_list, var_name="echotop", jg=jg)
-        var_in_output(jg)%echotopinm  = is_variable_in_output_dom(first_output_name_list, var_name="echotopinm", jg=jg)
-        var_in_output(jg)%smi         = is_variable_in_output_dom(first_output_name_list, var_name="smi", jg=jg)
+        var_in_output(jg)%rh          = is_variable_in_output_dom(var_name="rh", jg=jg)
+        var_in_output(jg)%pv          = is_variable_in_output_dom(var_name="pv", jg=jg)
+        var_in_output(jg)%sdi2        = is_variable_in_output_dom(var_name="sdi2", jg=jg)
+        var_in_output(jg)%lpi         = is_variable_in_output_dom(var_name="lpi", jg=jg)
+        var_in_output(jg)%lpi_max     = is_variable_in_output_dom(var_name="lpi_max", jg=jg)
+        var_in_output(jg)%ceiling     = is_variable_in_output_dom(var_name="ceiling", jg=jg)
+        var_in_output(jg)%hbas_sc     = is_variable_in_output_dom(var_name="hbas_sc", jg=jg)
+        var_in_output(jg)%htop_sc     = is_variable_in_output_dom(var_name="htop_sc", jg=jg)
+        var_in_output(jg)%twater      = is_variable_in_output_dom(var_name="twater", jg=jg)
+        var_in_output(jg)%q_sedim     = is_variable_in_output_dom(var_name="q_sedim", jg=jg)
+        var_in_output(jg)%tcond_max   = is_variable_in_output_dom(var_name="tcond_max", jg=jg)
+        var_in_output(jg)%tcond10_max = is_variable_in_output_dom(var_name="tcond10_max", jg=jg)
+        var_in_output(jg)%uh_max_low  = is_variable_in_output_dom(var_name="uh_max_low", jg=jg)
+        var_in_output(jg)%uh_max_med  = is_variable_in_output_dom(var_name="uh_max_med", jg=jg)
+        var_in_output(jg)%uh_max      = is_variable_in_output_dom(var_name="uh_max", jg=jg)
+        var_in_output(jg)%vorw_ctmax  = is_variable_in_output_dom(var_name="vorw_ctmax", jg=jg)
+        var_in_output(jg)%w_ctmax     = is_variable_in_output_dom(var_name="w_ctmax", jg=jg)
+        var_in_output(jg)%dbz         = is_variable_in_output_dom(var_name="dbz", jg=jg)
+        var_in_output(jg)%dbz850      = is_variable_in_output_dom(var_name="dbz_850", jg=jg)
+        var_in_output(jg)%dbzcmax     = is_variable_in_output_dom(var_name="dbz_cmax", jg=jg)
+        var_in_output(jg)%dbzctmax    = is_variable_in_output_dom(var_name="dbz_ctmax", jg=jg)
+        var_in_output(jg)%echotop     = is_variable_in_output_dom(var_name="echotop", jg=jg)
+        var_in_output(jg)%echotopinm  = is_variable_in_output_dom(var_name="echotopinm", jg=jg)
+        var_in_output(jg)%smi         = is_variable_in_output_dom(var_name="smi", jg=jg)
 
         ! Check for special case: SMI is not in one of the output lists but it is part of a output group.
         ! In this case, the group can not be checked, as the connection between SMI and the group will be
@@ -238,7 +247,7 @@ CONTAINS
           ! Check for output groups containing SMI
           DO jgr = 1,SIZE(groups_smi)
             IF (.NOT. var_in_output(jg)%smi) THEN
-              var_in_output(jg)%smi = is_variable_in_output_dom(first_output_name_list, &
+              var_in_output(jg)%smi = is_variable_in_output_dom(&
                                       var_name='group:'//TRIM(groups_smi(jgr)), jg=jg)
             END IF
           END DO

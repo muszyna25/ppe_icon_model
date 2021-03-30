@@ -118,9 +118,6 @@ MODULE mo_nh_interface_nwp
   USE mo_mpi,                     ONLY: i_am_accel_node, my_process_is_work
 #endif
 
-  !$ser verbatim USE mo_ser_nh_interface_nwp, ONLY: serialize_nh_interface_nwp_input,&
-  !$ser verbatim                                    serialize_nh_interface_nwp_output
-  !$ser verbatim USE mo_ser_nml,              ONLY: ser_debug
   !$ser verbatim USE mo_ser_all,              ONLY: serialize_all
 
   IMPLICIT NONE
@@ -325,13 +322,6 @@ CONTAINS
     !$acc data create(zddt_v_raylfric,zddt_u_raylfric,sqrt_ri,z_ddt_temp,z_ddt_alpha,z_ddt_v_tot, &
     !$acc             z_ddt_u_tot,z_exner_sv,z_qsum) if(.NOT. linit)
     !$acc data copyin(dt_phy_jg)
-
-    !$ser verbatim IF(.NOT. linit) THEN
-    !$ser verbatim   call serialize_nh_interface_nwp_input(jg, nproma, nlev, pt_prog,&
-    !$ser verbatim                                         pt_prog_rcf, pt_prog_now_rcf, pt_diag, p_metrics,&
-    !$ser verbatim                                         prm_diag, prm_nwp_tend, wtr_prog_now, wtr_prog_new,&
-    !$ser verbatim                                         lnd_prog_now, lnd_prog_now, lnd_diag, ext_data, lcpu_only=.TRUE.)
-    !$ser verbatim ENDIF
 
     IF ( lcall_phy_jg(itturb) .OR. lcall_phy_jg(itconv) .OR.           &
          lcall_phy_jg(itsso)  .OR. lcall_phy_jg(itgwd) .OR. linit ) THEN
@@ -704,7 +694,8 @@ CONTAINS
                             & lcall_phy_jg(itsatad),            & !>input
                             & pt_patch, p_metrics,              & !>input
                             & pt_prog,                          & !>inout
-                            & pt_prog_rcf,                      & !>inout
+                            & pt_prog_rcf%tracer,               & !>inout
+                            & pt_prog_rcf%tke,                  & !>in
                             & pt_diag ,                         & !>inout
                             & prm_diag, prm_nwp_tend,           & !>inout
                             & lcompute_tt_lheat                 ) !>in
@@ -1010,7 +1001,8 @@ CONTAINS
 #ifdef _OPENACC
       IF (.NOT. linit) THEN
         CALL message('mo_nh_interface_nwp', 'Device to host copy before nwp_convection. This needs to be removed once port is finished!')
-        CALL gpu_d2h_nh_nwp(pt_patch, prm_diag)
+        CALL gpu_d2h_nh_nwp(pt_patch, prm_diag, ext_data=ext_data)
+        i_am_accel_node = .FALSE.
       ENDIF
 #endif
 
@@ -1031,6 +1023,7 @@ CONTAINS
       IF (.NOT. linit) THEN
         CALL message('mo_nh_interface_nwp', 'Host to device copy after nwp_convection. This needs to be removed once port is finished!')
         CALL gpu_h2d_nh_nwp(pt_patch, prm_diag)
+        i_am_accel_node = my_process_is_work()
       ENDIF
 #endif
 
@@ -1046,6 +1039,7 @@ CONTAINS
       IF (.NOT. linit) THEN
         CALL message('mo_nh_interface_nwp', 'Device to host copy before cover_koe. This needs to be removed once port is finished!')
         CALL gpu_d2h_nh_nwp(pt_patch, prm_diag)
+        i_am_accel_node = .FALSE.
       ENDIF
 #endif
 
@@ -1133,6 +1127,7 @@ CONTAINS
       IF (.NOT. linit) THEN
         CALL message('mo_nh_interface_nwp', 'Host to device copy after cover_koe. This needs to be removed once port is finished!')
         CALL gpu_h2d_nh_nwp(pt_patch, prm_diag)
+        i_am_accel_node = my_process_is_work()
       ENDIF
 #endif
 
@@ -1210,6 +1205,7 @@ CONTAINS
       IF (.NOT. linit) THEN
         CALL message('mo_nh_interface_nwp', 'Device to host copy before radiative heating. This needs to be removed once port is finished!')
         CALL gpu_d2h_nh_nwp(pt_patch, prm_diag)
+        i_am_accel_node = .FALSE.
       ENDIF
 #endif
 
@@ -1411,6 +1407,7 @@ CONTAINS
       IF (.NOT. linit) THEN
         CALL message('mo_nh_interface_nwp', 'Host to device copy after radiative heating. This needs to be removed once port is finished!')
         CALL gpu_h2d_nh_nwp(pt_patch, prm_diag)
+        i_am_accel_node = my_process_is_work()
       ENDIF
 #endif
 
@@ -1427,6 +1424,7 @@ CONTAINS
       IF (.NOT. linit) THEN
         CALL message('mo_nh_interface_nwp', 'Device to host copy before nwp_gwdrag. This needs to be removed once port is finished!')
         CALL gpu_d2h_nh_nwp(pt_patch, prm_diag)
+        i_am_accel_node = .FALSE.
       ENDIF
 #endif
 
@@ -1450,6 +1448,7 @@ CONTAINS
       IF (.NOT. linit) THEN
         CALL message('mo_nh_interface_nwp', 'Host to device copy after nwp_gwdrag. This needs to be removed once port is finished!')
         CALL gpu_h2d_nh_nwp(pt_patch, prm_diag)
+        i_am_accel_node = my_process_is_work()
       ENDIF
 #endif
     ENDIF ! inwp_sso
@@ -2098,13 +2097,6 @@ CONTAINS
 
     !$acc end data ! copyin
     !$acc end data ! create
-
-    !$ser verbatim IF(.NOT. linit) THEN
-    !$ser verbatim   call serialize_nh_interface_nwp_output(jg, nproma, nlev, pt_prog,&
-    !$ser verbatim                                          pt_prog_rcf, pt_prog_now_rcf, pt_diag, p_metrics,&
-    !$ser verbatim                                          prm_diag, prm_nwp_tend, wtr_prog_now, wtr_prog_new,&
-    !$ser verbatim                                          lnd_prog_now, lnd_prog_now, lnd_diag, ext_data, lcpu_only=.TRUE.)
-    !$ser verbatim ENDIF
 
   END SUBROUTINE nwp_nh_interface
 

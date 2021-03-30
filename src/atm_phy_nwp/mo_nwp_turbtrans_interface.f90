@@ -59,9 +59,6 @@ MODULE mo_nwp_turbtrans_interface
   USE mo_vupdz0_tile,          ONLY: vupdz0_tile
   USE mo_vexcs,                ONLY: vexcs
 
-!$ser verbatim USE mo_ser_nwp_tutra, ONLY: serialize_turbtrans_interface_input,&
-!$ser verbatim                             serialize_turbtrans_interface_output
-
   IMPLICIT NONE
 
   PRIVATE
@@ -118,10 +115,6 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 
   ! local variables for turbdiff
 
-  INTEGER :: ierrstat
-  CHARACTER (LEN=25) :: eroutine=''
-  CHARACTER (LEN=80) :: errormsg=''
-
   INTEGER  :: nlev, nlevp1, nlevcm                  !< number of full, half and canopy levels
   INTEGER  :: lc_class                              !< land-cover class
 
@@ -133,7 +126,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
   ! Local fields needed to reorder turbtran input/output fields for tile approach
 
   ! 1D fields
-  REAL(wp), DIMENSION(nproma)   :: pres_sfc_t, l_hori
+  REAL(wp), DIMENSION(nproma)   :: pres_sfc_t, l_hori, rlamh_fac
 
   ! 2D half-level fields
   REAL(wp), DIMENSION(nproma,3) :: z_ifc_t
@@ -178,7 +171,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 !$acc data create(gz0_t, tcm_t, tch_t, tfm_t, tfh_t, tfv_t, tvm_t, tvh_t, tkr_t, t_2m_t, qv_2m_t, td_2m_t, rh_2m_t, &
 !$acc             u_10m_t, v_10m_t, t_g_t, qv_s_t, sai_t, shfl_s_t, lhfl_s_t, qhfl_s_t, umfl_s_t, vmfl_s_t, &
 !$acc             tkvm_t, tkvh_t, u_t, v_t, temp_t, pres_t, qv_t, qc_t, epr_t, rcld_t, z_ifc_t, pres_sfc_t, l_hori, &
-!$acc             z_tvs, tvs_t, fr_land_t, depth_lk_t, h_ice_t, jk_gust) &
+!$acc             z_tvs, tvs_t, fr_land_t, depth_lk_t, h_ice_t, jk_gust, rlamh_fac) &
 !$acc      if(lzacc)
 
   ! exclude boundary interpolation zone of nested domains
@@ -197,22 +190,14 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
   fact_z0rough = 1.e-5_wp*ATAN(phy_params(jg)%mean_charlen/2250._wp)
 
 
-  ! Serialbox2 input fields serialization
-  !$ser verbatim IF(lzacc) THEN
-  !$ser verbatim     CALL serialize_turbtrans_interface_input(jg, nproma, nlev,&
-  !$ser verbatim                                              p_metrics, p_prog, p_prog_rcf, p_diag, prm_diag,&
-  !$ser verbatim                                              lnd_prog_new, lnd_diag, wtr_prog_new, ext_data)
-  !$ser verbatim ENDIF
-
-
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jt,jc,jk,ic,ilist,i_startidx,i_endidx,i_count,ierrstat,errormsg,eroutine,   &
+!$OMP DO PRIVATE(jb,jt,jc,jk,ic,ilist,i_startidx,i_endidx,i_count,   &
 !$OMP nzprv,lc_class,z_tvs,z0_mod,gz0_t,tcm_t,tch_t,tfm_t,tfh_t,tfv_t,tvm_t,tvh_t,tkr_t,l_hori, &
 !$OMP t_g_t,qv_s_t,t_2m_t,qv_2m_t,td_2m_t,rh_2m_t,u_10m_t,v_10m_t,tvs_t,pres_sfc_t,u_t,v_t,     &
 !$OMP temp_t,pres_t,qv_t,qc_t,tkvm_t,tkvh_t,z_ifc_t,rcld_t,sai_t,fr_land_t,depth_lk_t,h_ice_t,  &
 !$OMP area_frac,shfl_s_t,lhfl_s_t,qhfl_s_t,umfl_s_t,vmfl_s_t,nlevcm,jk_gust,epr_t,              &
 !$OMP PGEOMLEV,PCPTGZLEV,PCPTSTI,PUCURR,PVCURR,ZCFMTI,PCFHTI,PCFQTI,ZBUOMTI,ZZDLTI,             &
-!$OMP ZZ0MTI,ZZ0HTI,ZZ0QTI,rho_s ) ICON_OMP_GUIDED_SCHEDULE
+!$OMP ZZ0MTI,ZZ0HTI,ZZ0QTI,rho_s,rlamh_fac ) ICON_OMP_GUIDED_SCHEDULE
 !MR:>
 
   DO jb = i_startblk, i_endblk
@@ -347,7 +332,6 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 !< COSMO turbulence scheme by M. Raschendorfer
 !-------------------------------------------------------------------------
  
-      ierrstat = 0
 
       ! note that TKE must be converted to the turbulence velocity scale SQRT(2*TKE)
       ! for turbdiff
@@ -393,6 +377,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
           &  fr_land=ext_data%atm%fr_land(:,jb),                                       & !in
           &  depth_lk=ext_data%atm%depth_lk(:,jb),                                     & !in
           &  h_ice=wtr_prog_new%h_ice(:,jb),                                           & !in
+          &  rlamh_fac=prm_diag%rlamh_fac_t(:,jb,1),                                   & !in
           &  sai=ext_data%atm%sai_t(:,jb,1),                                           & !in
           &  gz0=prm_diag%gz0_t(:,jb,1),                                               & !inout
           &  t_g=lnd_prog_new%t_g(:,jb),                                               & !in
@@ -427,7 +412,6 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
           &  qvfl_s=prm_diag%qhfl_s_t(:,jb,1),                                         & !out
           &  umfl_s=prm_diag%umfl_s_t(:,jb,1),                                         & !out
           &  vmfl_s=prm_diag%vmfl_s_t(:,jb,1),                                         & !out
-          &  ierrstat=ierrstat, yerrormsg=errormsg, yroutine=eroutine,                 & !inout
           &  lacc=lzacc                                                                 ) !in
 
         !$acc kernels default(present) if(lzacc)
@@ -562,10 +546,11 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             tkvh_t (ic,1:2,jt)  = prm_diag%tkvh     (jc,nlev-1:nlev,jb)
             tkvh_t (ic,3,jt)    = prm_diag%tkvh_s_t (jc,jb,jt)     ! tile-specific for lowest level
             tkr_t  (ic,jt)      = prm_diag%tkr_t    (jc,jb,jt)
+            rlamh_fac(ic)       = prm_diag%rlamh_fac_t(jc,jb,jt)
 
             !should be dependent on location in future!
             l_hori(ic)=phy_params(jg)%mean_charlen
-            
+
           ENDDO
           !$acc end kernels
 
@@ -592,6 +577,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             &  fr_land=fr_land_t(:),                                        & !in
             &  depth_lk=depth_lk_t(:),                                      & !in
             &  h_ice=h_ice_t(:),                                            & !in
+            &  rlamh_fac=rlamh_fac(:),                                      & !in
             &  sai=sai_t(:,jt),                                             & !in
             &  gz0=gz0_t(:,jt),                                             & !inout
             &  t_g=t_g_t(:,jt),                                             & !in
@@ -626,7 +612,6 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             &  qvfl_s=qhfl_s_t(:,jt),                                       & !out
             &  umfl_s=umfl_s_t(:,jt),                                       & !out
             &  vmfl_s=vmfl_s_t(:,jt),                                       & !out
-            &  ierrstat=ierrstat, yerrormsg=errormsg, yroutine=eroutine,    & !inout
             &  lacc=lzacc                                                   ) !in
 
           ! Decision as to "ice" vs. "no ice" is made on the basis of h_ice_t(:).
@@ -1054,13 +1039,6 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
   ENDDO ! jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-
-  ! Serialbox2 input fields serialization
-  !$ser verbatim IF(lzacc) THEN
-  !$ser verbatim     CALL serialize_turbtrans_interface_output(jg, nproma, nlev,&
-  !$ser verbatim                                               p_prog, p_prog_rcf, p_diag, prm_diag,&
-  !$ser verbatim                                               lnd_prog_new, lnd_diag)
-  !$ser verbatim ENDIF
 
 !$acc end data
 

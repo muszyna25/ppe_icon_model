@@ -38,7 +38,7 @@ MODULE mo_nwp_phy_init
   USE mo_model_domain,        ONLY: t_patch
   USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int, io3_ape,            &
     &                               MODE_COMBINED, MODE_IFSANA, icosmo, ismag,      &
-    &                               iprog, igme, iedmf, SUCCESS, MAX_CHAR_LENGTH,   &
+    &                               iprog, igme, iedmf, SUCCESS,   &
     &                               MODE_COSMO, MODE_ICONVREMAP, iss, iorg, ibc, iso4, idu
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_loopindices,         ONLY: get_indices_c
@@ -97,7 +97,7 @@ MODULE mo_nwp_phy_init
   USE mo_nwp_sfc_utils,       ONLY: nwp_surface_init, init_snowtile_lists, init_sea_lists, &
     &                               aggregate_tg_qvs, copy_lnd_prog_now2new
   USE mo_lnd_nwp_config,      ONLY: ntiles_total, lsnowtile, ntiles_water, &
-    &                               lseaice, zml_soil
+    &                               lseaice, zml_soil, itype_canopy
   USE sfc_terra_data,         ONLY: csalbw!, z0_lu
   USE mo_satad,               ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
     &                               sat_pres_ice, &    !! saturation vapor pressure w.r.t. ice
@@ -110,7 +110,7 @@ MODULE mo_nwp_phy_init
   USE mo_master_config,       ONLY: isRestart
   USE mo_nwp_parameters,      ONLY: t_phy_params
 
-  USE mo_initicon_config,     ONLY: init_mode, lread_tke
+  USE mo_initicon_config,     ONLY: init_mode, lread_tke, icpl_da_sfcevap, dt_ana
 
   USE mo_nwp_tuning_config,   ONLY: tune_zceff_min, tune_v0snow, tune_zvz0i, tune_icesedi_exp
   USE mo_cuparameters,        ONLY: sugwd
@@ -136,6 +136,8 @@ MODULE mo_nwp_phy_init
 
 
   PUBLIC  :: init_nwp_phy, init_cloud_aero_cpl
+
+  CHARACTER(len=*), PARAMETER :: modname = 'mo_nwp_phy_init'
 
 CONTAINS
 
@@ -211,8 +213,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
   INTEGER :: lc_class,i_lc_si
 
   INTEGER :: ierrstat=0
-  CHARACTER (LEN=25) :: eroutine=''
-  CHARACTER (LEN=80) :: errormsg=''
+  CHARACTER (LEN=25) :: eroutine
+  CHARACTER (LEN=80) :: errormsg
 
   INTEGER :: nblks_c
 
@@ -224,8 +226,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
 
   REAL(wp) :: N_cn0,z0_nccn,z1e_nccn,N_in0,z0_nin,z1e_nin     ! for CCN and IN in case of gscp=5
 
-  CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-     routine = 'mo_nwp_phy_init:init_nwp_phy'
+  CHARACTER(len=*), PARAMETER ::  &
+     routine = modname//':init_nwp_phy'
 
   CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datetime_string, yyyymmdd
 
@@ -280,22 +282,22 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
     ! allocate storage var for press to be used in o3_pl2ml
     ALLOCATE (zrefpres(nproma,nlev,nblks_c),STAT=istatus)
     IF(istatus/=SUCCESS)THEN
-      CALL finish (TRIM(routine), &
+      CALL finish(routine, &
                  'allocation of zrefpres failed')
     END IF
     ALLOCATE (zreftemp(nproma,nlev,nblks_c),STAT=istatus)
     IF(istatus/=SUCCESS)THEN
-      CALL finish (TRIM(routine), &
+      CALL finish(routine, &
                  'allocation of zreftemp failed')
     END IF
     ALLOCATE (zpres_sfc(nproma,nblks_c),STAT=istatus)
     IF(istatus/=SUCCESS)THEN
-      CALL finish (TRIM(routine), &
+      CALL finish(routine, &
                  'allocation of zpres_sfc failed')
     END IF
     ALLOCATE (zpres_ifc(nproma,nlevp1,nblks_c),STAT=istatus)
     IF(istatus/=SUCCESS)THEN
-      CALL finish (TRIM(routine), &
+      CALL finish(routine, &
                  'allocation of zpres_ifc failed')
     END IF
     zrefpres = 0.0_wp
@@ -310,7 +312,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
 
 
   IF (.NOT. lreset_mode .AND. itype_vegetation_cycle >= 2) THEN
-    CALL vege_clim (p_patch, ext_data, p_diag_lnd)
+    CALL vege_clim (p_patch, ext_data, p_diag)
   ENDIF
 
 
@@ -363,6 +365,38 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
       prm_diag%pat_len(jc,jb) = 300._wp*EXP(1.5_wp*LOG(MAX(1.e-2_wp,(ext_data%atm%sso_stdh_raw(jc,jb)-150._wp)/300._wp)))
     ENDDO
 
+    ! tuning factor for rlam_heat depending on skin conductivity and analyzed T2M/RH2M bias
+    IF (itype_canopy == 2 .AND. icpl_da_sfcevap == 3) THEN
+      DO jt = 1, ntiles_total + ntiles_water
+        DO jc = i_startidx,i_endidx
+          IF (jt <= ntiles_total) THEN
+            prm_diag%rlamh_fac_t(jc,jb,jt) =                                                                              &
+              1._wp - 0.9_wp*MAX(0._wp,MIN(1._wp,(60._wp-ext_data%atm%skinc_t(jc,jb,jt))/30._wp)) *                       &
+              MAX(0._wp,MIN(1._wp,2.5_wp*(10800._wp/dt_ana*(100._wp*p_diag%rh_avginc(jc,jb)-4._wp*p_diag%t_avginc(jc,jb))-0.4_wp)))
+          ELSE IF (jt == ntiles_total + ntiles_water) THEN ! seaice points
+            prm_diag%rlamh_fac_t(jc,jb,jt) = 0.25_wp
+          ELSE
+            prm_diag%rlamh_fac_t(jc,jb,jt) = 1._wp
+          ENDIF
+        ENDDO
+      ENDDO
+    ELSE IF (itype_canopy == 2 .AND. icpl_da_sfcevap == 2) THEN
+      DO jt = 1, ntiles_total + ntiles_water
+        DO jc = i_startidx,i_endidx
+          IF (jt <= ntiles_total) THEN
+            prm_diag%rlamh_fac_t(jc,jb,jt) =                                                                              &
+              1._wp - 0.9_wp*MAX(0._wp,MIN(1._wp,(60._wp-ext_data%atm%skinc_t(jc,jb,jt))/30._wp)) *                       &
+              MAX(0._wp,MIN(1._wp,2.5_wp*(p_diag%t2m_bias(jc,jb)+100._wp*10800._wp/dt_ana*p_diag%rh_avginc(jc,jb)-0.4_wp)))
+          ELSE IF (jt == ntiles_total + ntiles_water) THEN ! seaice points
+            prm_diag%rlamh_fac_t(jc,jb,jt) = 0.25_wp
+          ELSE
+            prm_diag%rlamh_fac_t(jc,jb,jt) = 1._wp
+          ENDIF
+        ENDDO
+      ENDDO
+    ELSE
+      prm_diag%rlamh_fac_t(:,jb,:) = 1._wp
+    ENDIF
   ENDDO
 
   IF (linit_mode) THEN
@@ -552,7 +586,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
 
     ENDIF  ! ltestcase
 
-    CALL message('mo_nwp_phy_init:', 'initialized surface temp and humidity')
+    CALL message(modname, 'initialized surface temp and humidity')
 
 
   ELSE  ! in case of restart
@@ -667,24 +701,24 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
   SELECT CASE ( atm_phy_nwp_config(jg)%inwp_gscp )
 
   CASE (1,2,3)  ! cloud microphysics from COSMO (V 5.0)
-    IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics')
-    CALL gscp_set_coefficients(tune_zceff_min   = tune_zceff_min,               &
+    IF (msg_level >= 12)  CALL message(modname, 'init microphysics')
+    CALL gscp_set_coefficients(         igscp    = atm_phy_nwp_config(jg)%inwp_gscp, &
+      &                        tune_zceff_min   = tune_zceff_min,               &
       &                        tune_v0snow      = tune_v0snow,                  &
       &                        tune_zvz0i       = tune_zvz0i,                   &
       &                        tune_icesedi_exp = tune_icesedi_exp,             &
       &                        tune_mu_rain        = atm_phy_nwp_config(1)%mu_rain,&
-      &                        tune_rain_n0_factor = atm_phy_nwp_config(1)%rain_n0_factor, &
-      &                        igscp = atm_phy_nwp_config(jg)%inwp_gscp )
+      &                        tune_rain_n0_factor = atm_phy_nwp_config(1)%rain_n0_factor)
 
-  CASE (4,7) !two moment micrphysics
-    IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics: two-moment')
+  CASE (4,7) !two moment microphysics
+    IF (msg_level >= 12)  CALL message(modname, 'init microphysics: two-moment')
 
     IF (jg == 1) CALL two_moment_mcrph_init(igscp=atm_phy_nwp_config(jg)%inwp_gscp, msg_level=msg_level )
 
     ! Init of number concentrations moved to mo_initicon_io.f90 !!!
 
   CASE (5) !two moment microphysics
-    IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics: two-moment')
+    IF (msg_level >= 12)  CALL message(modname, 'init microphysics: two-moment')
 
     IF (jg == 1) CALL two_moment_mcrph_init(atm_phy_nwp_config(jg)%inwp_gscp,&
          &                                  N_cn0,z0_nccn,z1e_nccn,N_in0,z0_nin,z1e_nin,msg_level)
@@ -720,7 +754,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
     END IF
   CASE (6) ! two-moment scheme with prognostic cloud droplet number
            ! and chemical composition taken from the ART extension
-    IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics: ART two-moment')
+    IF (msg_level >= 12)  CALL message(modname, 'init microphysics: ART two-moment')
     
     IF (jg == 1) CALL art_clouds_interface_2mom_init(msg_level)
 
@@ -755,7 +789,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
   SELECT CASE ( atm_phy_nwp_config(jg)%inwp_radiation )
   CASE (1, 3, 4)
 
-    IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init RRTM')
+    IF (msg_level >= 12)  CALL message(modname, 'init RRTM')
 
     SELECT CASE ( irad_aero )
     ! Note (GZ): irad_aero=2 does no action but is the default in radiation_nml
@@ -763,7 +797,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
     CASE (0,2,5,6,9)
       !ok
     CASE DEFAULT
-      CALL finish('mo_nwp_phy_init: init_nwp_phy',  &
+      CALL finish(routine,  &
         &      'Wrong irad_aero. For RRTM radiation, this irad_aero is not implemented.')
     END SELECT
 
@@ -805,7 +839,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
         ! Do ecrad initialization only once
         IF (.NOT.lreset_mode .AND. jg==1) CALL setup_ecrad(ecrad_conf)
 #else
-        CALL finish('mo_nwp_phy_init: init_nwp_phy',  &
+        CALL finish(routine,  &
           &      'atm_phy_nwp_config(jg)%inwp_radiation = 4 needs -D__ECRAD.')
 #endif
     END SELECT
@@ -957,7 +991,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
 
   CASE (2)
 
-    IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init Ritter Geleyn')
+    IF (msg_level >= 12)  CALL message(modname, 'init Ritter Geleyn')
 
     ! Note (GZ): irad_aero=2 does no action but is the default in radiation_nml
     ! and therefore should not cause the model to stop
@@ -965,7 +999,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
     CASE (0,2,5,6,9)
       !ok
     CASE DEFAULT
-      CALL finish('mo_nwp_phy_init: init_nwp_phy',  &
+      CALL finish(routine,  &
         &      'Wrong irad_aero. For Ritter-Geleyn radiation, this irad_aero is not implemented.')
     END SELECT
 
@@ -1098,7 +1132,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
   IF ( atm_phy_nwp_config(jg)%inwp_convection == 1 .OR. &
     &  atm_phy_nwp_config(jg)%inwp_turb == iedmf )     THEN
 
-    IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init convection')
+    IF (msg_level >= 12)  CALL message(modname, 'init convection')
 
     ! Please take care for scale-dependent initializations!
     ! rsltn = Average mesh size of ICON grid
@@ -1108,7 +1142,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
 
 
 !    WRITE(message_text,'(i3,i10,f20.10)') jg, nsmax, phy_params%mean_charlen
-!    CALL message('nwp_phy_init, nsmax=', TRIM(message_text))
+!    CALL message('nwp_phy_init, nsmax=', message_text)
 
     lshallow = atm_phy_nwp_config(jg)%lshallowconv_only
     lgrayzone_dc = atm_phy_nwp_config(jg)%lgrayzone_deepconv
@@ -1119,7 +1153,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
     CALL suvdfs
     CALL sucldp
 
-    CALL message('mo_nwp_phy_init:', 'convection initialized')
+    CALL message(modname, 'convection initialized')
   ELSE
     ! initialize parameters that are accessed outside the convection scheme
     phy_params%rcucov           = 0._wp
@@ -1220,7 +1254,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
     ! results but ensures that the output over non-prognostic grid points (water) is the same
     ! for even and odd multiples of the advection time step
     CALL copy_lnd_prog_now2new(p_patch, p_prog_lnd_now, p_prog_lnd_new)
-    IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init TERRA')
+    IF (msg_level >= 12)  CALL message(modname, 'init TERRA')
   END IF
 
 
@@ -1236,7 +1270,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
     ! gz0 is initialized if we do not start from an own first guess
     IF (lturb_init) THEN
 
-      IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init roughness length')
+      IF (msg_level >= 12)  CALL message(modname, 'init roughness length')
 
       IF (turbdiff_config(jg)%lconst_z0) THEN
         ! constant z0 for idealized tests
@@ -1317,7 +1351,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
     !$ACC ENTER DATA CREATE(turbdiff_config(jg))
     !$ACC ENTER DATA CREATE(turbdiff_config(jg)%impl_weight)
     IF(istatus/=SUCCESS)THEN
-      CALL finish (TRIM(routine), &
+      CALL finish(routine, &
                  'allocation of impl_weight failed')
     ENDIF
 
@@ -1374,7 +1408,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
   !
   IF ( ( ANY( (/icosmo,iedmf/)==atm_phy_nwp_config(jg)%inwp_turb ) ) .AND. linit_mode ) THEN
 
-    IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init COSMO turbulence')
+    IF (msg_level >= 12)  CALL message(modname, 'init COSMO turbulence')
 
     rl_start = 1 ! Initialization is done also for nest boundary points
     rl_end   = min_rlcell_int
@@ -1441,6 +1475,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
        &  fr_land=ext_data%atm%fr_land(:,jb),                                 &
        &  depth_lk=ext_data%atm%depth_lk(:,jb),                               &
        &  h_ice=p_prog_wtr_now%h_ice(:,jb),                                   &
+       &  rlamh_fac=prm_diag%rlamh_fac_t(:,jb,1),                             &
        &  sai=ext_data%atm%sai(:,jb),                                         &
        &  gz0=prm_diag%gz0(:,jb),                                             &
        &  t_g=p_prog_lnd_now%t_g(:,jb),                                       &
@@ -1472,8 +1507,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
        &  u_10m=prm_diag%u_10m(:,jb),                                         &
        &  v_10m=prm_diag%v_10m(:,jb),                                         &
        &  shfl_s=prm_diag%shfl_s(:,jb),                                       &
-       &  qvfl_s=prm_diag%qhfl_s(:,jb),                                       &
-       &  ierrstat=ierrstat, yerrormsg=errormsg, yroutine=eroutine )
+       &  qvfl_s=prm_diag%qhfl_s(:,jb))
 
 
       prm_diag%lhfl_s(i_startidx:i_endidx,jb) = &
@@ -1530,8 +1564,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
           &  vt_sso=REAL(prm_nwp_tend%ddt_v_sso(:,:,jb),wp),          &
           &  shfl_s=prm_diag%shfl_s(:,jb),                            &
           &  qvfl_s=prm_diag%qhfl_s(:,jb),                            &
-          &  zvari=zvariaux,                                          & !out
-          &  ierrstat=ierrstat, yerrormsg=errormsg, yroutine=eroutine )
+          &  zvari=zvariaux                                           & !out
+          &  )
 
       END IF
 
@@ -1563,12 +1597,12 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
 
     ENDDO  ! jb
 
-    IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'Cosmo turbulence initialized')
+    IF (msg_level >= 12)  CALL message(modname, 'Cosmo turbulence initialized')
 
 
   ELSE IF (  atm_phy_nwp_config(jg)%inwp_turb == igme) THEN
 
-    IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init GME turbulence')
+    IF (msg_level >= 12)  CALL message(modname, 'init GME turbulence')
 
     rl_start = grf_bdywidth_c + 1 ! land-cover classes are not set for nest-boundary points
     rl_end   = min_rlcell_int
@@ -1596,13 +1630,13 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
 
   ELSE IF ( ANY( (/ismag,iprog/) == atm_phy_nwp_config(jg)%inwp_turb) .AND. linit_mode ) THEN
 
-    CALL message('mo_nwp_phy_init:', 'init LES turbulence')
+    CALL message(modname, 'init LES turbulence')
 
     IF(atm_phy_nwp_config(jg)%inwp_surface == 0)THEN
       IF (turbdiff_config(jg)%lconst_z0) THEN
         prm_diag%gz0(:,:) = grav * turbdiff_config(jg)%const_z0
       ELSE
-        CALL finish (TRIM(routine), 'Only constant roughness length allowed idealized LES cases!')
+        CALL finish(routine, 'Only constant roughness length allowed idealized LES cases!')
       END IF
     ELSE
       !Default: Already set above
@@ -1631,7 +1665,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
   IF ( atm_phy_nwp_config(jg)%inwp_gwd == 1 ) THEN  ! IFS gwd scheme
 
     CALL sugwwms(nflevg=nlev, ppref=pref, klaunch=phy_params%klaunch)
-    CALL message('mo_nwp_phy_init:', 'non-orog GWs initialized')
+    CALL message(modname, 'non-orog GWs initialized')
 
   END IF
 

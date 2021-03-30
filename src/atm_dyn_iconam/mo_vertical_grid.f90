@@ -41,7 +41,7 @@ MODULE mo_vertical_grid
   USE mo_parallel_config,       ONLY: nproma, p_test_run
   USE mo_run_config,            ONLY: msg_level
   USE mo_vertical_coord_table,  ONLY: vct_a
-  USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH, max_dom, RAYLEIGH_CLASSIC, &
+  USE mo_impl_constants,        ONLY: max_dom, RAYLEIGH_CLASSIC, &
     &                                 RAYLEIGH_KLEMP, min_rlcell_int, min_rlcell, min_rledge_int, &
     &                                 SUCCESS
   USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c, grf_bdywidth_e, grf_fbk_start_c, &
@@ -53,7 +53,7 @@ MODULE mo_vertical_grid
   USE mo_intp_rbf,              ONLY: rbf_vec_interpol_cell
   USE mo_math_constants,        ONLY: pi_2
   USE mo_loopindices,           ONLY: get_indices_e, get_indices_c
-  USE mo_nonhydro_types,        ONLY: t_nh_state
+  USE mo_nonhydro_types,        ONLY: t_nh_state, t_nh_state_lists
   USE mo_init_vgrid,            ONLY: nflatlev
   USE mo_sync,                  ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, global_sum_array, &
                                       sync_patch_array_mult, global_min, global_max
@@ -70,7 +70,8 @@ MODULE mo_vertical_grid
   USE mo_dynamics_config,      ONLY: ldeepatmo
   USE mo_nh_deepatmo_utils,    ONLY: set_deepatmo_metrics
   USE mo_echam_vdf_config,     ONLY: echam_vdf_config
-
+  USE mo_linked_list,          ONLY: t_var_list
+  USE mo_nonhydro_state,       ONLY: new_zd_metrics  
   IMPLICIT NONE
 
   PRIVATE
@@ -88,6 +89,7 @@ MODULE mo_vertical_grid
 
   PUBLIC :: set_nh_metrics, nrdmax, nflat_gradp
 
+  CHARACTER(*), PARAMETER :: modname = 'mo_vertical_grid'
   CONTAINS
 
 
@@ -101,14 +103,14 @@ MODULE mo_vertical_grid
   !! Modification by Almut Gassmann (2009-11-17)
   !! - Adding Rayleigh damping coeff. at upper boundary
   !!
-  SUBROUTINE set_nh_metrics(p_patch, p_nh, p_int, ext_data)
+  SUBROUTINE set_nh_metrics(p_patch, p_nh, p_nh_lists, p_int, ext_data)
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_vertical_grid:set_nh_metrics'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':set_nh_metrics'
 
     TYPE(t_patch),     TARGET, INTENT(INOUT) :: p_patch(n_dom)  !< patch
     TYPE(t_nh_state),          INTENT(INOUT) :: p_nh(n_dom)
     TYPE(t_int_state), TARGET, INTENT(   IN) :: p_int(n_dom)
+    TYPE(t_nh_state_lists),    INTENT(INOUT) :: p_nh_lists(n_dom)
     TYPE(t_external_data),     INTENT(INOUT) :: ext_data(n_dom)
 
     INTEGER :: jg, jk, jk1, jk_start, jb, jc, je, jn, jgc, nlen, &
@@ -160,7 +162,7 @@ MODULE mo_vertical_grid
       ENDIF
 
       IF (jg > 1 .AND. p_patch(jg)%nshift_total > 0 .AND. nflatlev(jg) <= 1) THEN
-        CALL finish (TRIM(routine), &
+        CALL finish (routine, &
                      'flat_height too close to the top of the innermost nested domain')
       ENDIF
 
@@ -433,10 +435,6 @@ MODULE mo_vertical_grid
         ENDIF
       ENDDO
 
-! TODO:  the allocation is in mo_nonhydro_state, which is confusing
-!$ACC UPDATE DEVICE( p_nh(jg)%metrics%rayleigh_w, p_nh(jg)%metrics%rayleigh_vn )
-
-
       ! Enhancement coefficient for nabla4 background diffusion near model top
       DO jk = 1, nrdmax(jg)
         jk1 = jk + p_patch(jg)%nshift_total
@@ -451,21 +449,19 @@ MODULE mo_vertical_grid
           /MAX(1.e-6_wp,0.5_wp*(vct_a(1)+vct_a(2))-damp_height(jg))))
       ENDDO
 
-! TODO:  the allocation is in mo_nonhydro_state, which is confusing
-!$ACC UPDATE DEVICE( p_nh(jg)%metrics%enhfac_diffu )
-
       IF (msg_level >= 10) THEN
         WRITE(message_text,'(a,i4,a,i4)') 'Domain', jg, &
           '; end index of Rayleigh damping layer for w: ', nrdmax(jg)
-        CALL message(TRIM(routine),message_text)
+        CALL message(routine, message_text)
         WRITE(message_text,'(a)') &
           'Damping coefficient for w; diffusion enhancement coefficient:'
-        CALL message('mo_vertical_grid',message_text)
+        CALL message(modname, message_text)
         DO jk = 1, nrdmax(jg)
           jk1 = jk + p_patch(jg)%nshift_total
-          WRITE(message_text,'(a,i5,a,f8.1,2e13.5)') 'level',jk,', half-level height',vct_a(jk1),&
+          WRITE(message_text,'(a,i5,a,f8.1,2e13.5)') 'level',jk, &
+               ', half-level height',vct_a(jk1), &
             p_nh(jg)%metrics%rayleigh_w(jk),p_nh(jg)%metrics%enhfac_diffu(jk)
-          CALL message('mo_vertical_grid',message_text)
+          CALL message(modname, message_text)
         ENDDO
       ENDIF
 
@@ -488,9 +484,6 @@ MODULE mo_vertical_grid
         ENDDO
         kstart_dd3d(jg) = kstart_dd3d(jg) + 1
       ENDIF
-
-! TODO:  the allocation is in mo_nonhydro_state, which is confusing
-!$ACC UPDATE DEVICE( p_nh(jg)%metrics%scalfac_dd3d )
 
       ! Horizontal mask field for 3D divergence damping term; 2D div damping is generally applied in the 
       ! immediate vicinity of nest boundaries
@@ -757,29 +750,6 @@ MODULE mo_vertical_grid
           IF (p_patch(jg)%cells%refin_ctrl(jc,jb)>=1 .AND. &
               p_patch(jg)%cells%refin_ctrl(jc,jb)<=4) THEN
             ic = ic+1
-          ENDIF
-        ENDDO
-      ENDDO
-      p_nh(jg)%metrics%bdy_halo_c_dim = ic
-
-      ! Index list for halo points belonging to the lateral boundary interpolation zone
-
-      IF ( ic == 0 ) THEN
-         ALLOCATE(p_nh(jg)%metrics%bdy_halo_c_idx(0:0),p_nh(jg)%metrics%bdy_halo_c_blk(0:0))
-      ELSE
-         ALLOCATE(p_nh(jg)%metrics%bdy_halo_c_idx(ic),p_nh(jg)%metrics%bdy_halo_c_blk(ic))
-      ENDIF
-
-      ic = 0
-      DO jb = i_startblk, i_endblk
-
-        CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, min_rlcell_int-1, min_rlcell)
-
-        DO jc = i_startidx, i_endidx
-          IF (p_patch(jg)%cells%refin_ctrl(jc,jb)>=1 .AND. &
-              p_patch(jg)%cells%refin_ctrl(jc,jb)<=4) THEN
-            ic = ic+1
             p_nh(jg)%metrics%bdy_halo_c_idx(ic) = jc
             p_nh(jg)%metrics%bdy_halo_c_blk(ic) = jb
           ELSE
@@ -934,7 +904,7 @@ MODULE mo_vertical_grid
 !$ACC                    p_nh(jg)%metrics%ovlp_halo_c_blk )
 
       IF (l_zdiffu_t) THEN
-        CALL prepare_zdiffu(p_patch(jg), p_nh(jg), p_int(jg), z_maxslp, z_maxhgtd)
+        CALL prepare_zdiffu(p_patch(jg), p_nh(jg), p_nh_lists(jg)%metrics_list, p_int(jg), z_maxslp, z_maxhgtd)
       ENDIF
 
 !$OMP PARALLEL
@@ -1012,12 +982,12 @@ MODULE mo_vertical_grid
         z_maxhdiff = MAXVAL(z_maxhgtd)
         z_maxhdiff = global_max(z_maxhdiff)
         WRITE(message_text,'(a,f8.4)') 'Maximum vertical wind offcentering: ', z_offctr
-        CALL message(TRIM(routine),message_text)
+        CALL message(routine, message_text)
         WRITE(message_text,'(a,f8.4)') 'Maximum slope: ', z_maxslope
-        CALL message(TRIM(routine),message_text)
+        CALL message(routine, message_text)
         WRITE(message_text,'(a,f8.1)') 'Maximum height difference between adjacent points: ', &
           z_maxhdiff
-        CALL message(TRIM(routine),message_text)
+        CALL message(routine, message_text)
       ENDIF
 
       DEALLOCATE (z_maxslp,z_maxhgtd)
@@ -1183,7 +1153,7 @@ MODULE mo_vertical_grid
       ENDIF
 
       IF (nflatlev(jg) <= 2 .AND. igradp_method >= 4) THEN
-        CALL finish (TRIM(routine),'flat_height must be at least 2 levels below top&
+        CALL finish(routine, 'flat_height must be at least 2 levels below top&
           & for igradp_method>3')
       ENDIF
 
@@ -1299,7 +1269,7 @@ MODULE mo_vertical_grid
           p_nh(jg)%metrics%coeff_gradp(:,:,:,jb) = 0._vp
 
           ! Workaround for MPI deadlock with cce 8.7.x
-          IF (msg_level > 300) CALL message (TRIM(routine),'igradp_method>=4')
+          IF (msg_level > 300) CALL message(routine, 'igradp_method>=4')
 
           jk_start = nflatlev(jg) - 1
           DO jk = nflatlev(jg),nlev
@@ -1757,13 +1727,13 @@ MODULE mo_vertical_grid
   !! @par Revision History
   !! Developed by Guenther Zaengl, DWD (2010-10-19)
   !!
-  SUBROUTINE prepare_zdiffu(p_patch, p_nh, p_int, maxslp, maxhgtd)
+  SUBROUTINE prepare_zdiffu(p_patch, p_nh, p_nh_metrics_list, p_int, maxslp, maxhgtd)
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_vertical_grid:prepare_zdiffu'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':prepare_zdiffu'
 
     TYPE(t_patch), TARGET, INTENT(INOUT) :: p_patch
     TYPE(t_nh_state), INTENT(INOUT)      :: p_nh
+    TYPE(t_var_list), INTENT(INOUT)      :: p_nh_metrics_list
     TYPE(t_int_state), TARGET,INTENT(IN) :: p_int
     REAL(wp),        INTENT(IN)        :: maxslp(nproma,p_patch%nlev,p_patch%nblks_c)
     REAL(wp),        INTENT(IN)        :: maxhgtd(nproma,p_patch%nlev,p_patch%nblks_c)
@@ -1996,21 +1966,8 @@ MODULE mo_vertical_grid
       numpoints = numpoints+(k_end(jc,jb)-k_start(jc,jb)+1)
     ENDDO
 
-    ! Now allocate fields
-    ALLOCATE(p_nh%metrics%zd_indlist(4,numpoints), &
-             p_nh%metrics%zd_blklist(4,numpoints), &
-             p_nh%metrics%zd_vertidx(4,numpoints), &
-             p_nh%metrics%zd_edgeidx(3,numpoints), &
-             p_nh%metrics%zd_edgeblk(3,numpoints), &
-             p_nh%metrics%zd_geofac (4,numpoints), &
-             p_nh%metrics%zd_e2cell (3,numpoints), &
-             p_nh%metrics%zd_intcoef(3,numpoints), &
-             p_nh%metrics%zd_diffcoef(numpoints)    )
-
-!$ACC ENTER DATA CREATE( p_nh%metrics%zd_indlist, p_nh%metrics%zd_blklist, p_nh%metrics%zd_vertidx,   &
-!$ACC                    p_nh%metrics%zd_edgeidx, p_nh%metrics%zd_edgeblk, p_nh%metrics%zd_geofac,    &
-!$ACC                    p_nh%metrics%zd_e2cell,  p_nh%metrics%zd_intcoef, p_nh%metrics%zd_diffcoef )
-
+    CALL new_zd_metrics(p_nh%metrics, p_nh_metrics_list , numpoints)
+    
     p_nh%metrics%zd_listdim = numpoints
 
     ! Fill index lists
@@ -2057,15 +2014,11 @@ MODULE mo_vertical_grid
       ENDDO
     ENDDO
 
-!$ACC UPDATE DEVICE( p_nh%metrics%zd_indlist, p_nh%metrics%zd_blklist, p_nh%metrics%zd_vertidx,   &
-!$ACC                p_nh%metrics%zd_edgeidx, p_nh%metrics%zd_edgeblk, p_nh%metrics%zd_geofac,    &
-!$ACC                p_nh%metrics%zd_e2cell,  p_nh%metrics%zd_intcoef, p_nh%metrics%zd_diffcoef )
-
     numpoints = global_sum_array(p_nh%metrics%zd_listdim)
 
     IF (msg_level >= 10) THEN
       WRITE(message_text,'(a,i10)') 'Number of z-diffusion points: ', numpoints
-      CALL message(TRIM(routine),message_text)
+      CALL message(routine, message_text)
     ENDIF
 
   END SUBROUTINE prepare_zdiffu
@@ -2079,8 +2032,7 @@ MODULE mo_vertical_grid
   !!
   SUBROUTINE prepare_les_model(p_patch, p_nh, p_int, jg)
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_vertical_grid:prepare_les_model'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':prepare_les_model'
 
     TYPE(t_patch), TARGET, INTENT(INOUT) :: p_patch
     TYPE(t_nh_state), INTENT(INOUT)      :: p_nh
@@ -2196,8 +2148,7 @@ MODULE mo_vertical_grid
     CHARACTER(LEN=16), PARAMETER :: column_jk     = "Full level index"
     CHARACTER(LEN=10), PARAMETER :: column_height = "Height (m)"
     CHARACTER(LEN=35), PARAMETER :: column_coeff  = "Nudging coefficient/max_nudge_coeff"
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_vertical_grid:prepare_nudging'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':prepare_nudging'
 
     !----------------------------------------------------
 
@@ -2303,8 +2254,8 @@ MODULE mo_vertical_grid
     ! Print some info
     IF (msg_level >= nudging_config%msg_thr%high .AND. my_process_is_stdio()) THEN 
       ! Print the vertical profile of the nudging coefficient (nudging strength)
-      WRITE(0,*) TRIM(routine)//': Vertical profile of the nudging coefficient ' &
-        & //'(only levels, where it is non-zero):' 
+      WRITE(0,*) routine, ': Vertical profile of the nudging coefficient ', &
+        & '(only levels, where it is non-zero):'
       ! Set up table
       CALL initialize_table(table)
       ! Set up table columns

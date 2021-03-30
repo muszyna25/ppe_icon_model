@@ -21,7 +21,7 @@
 MODULE mo_pp_tasks
 
   USE mo_kind,                    ONLY: wp
-  USE mo_exception,               ONLY: message, finish
+  USE mo_exception,               ONLY: message, finish, warning
   USE mo_impl_constants,          ONLY: SUCCESS,                      &
     & VINTP_METHOD_VN, VINTP_METHOD_LIN, VINTP_METHOD_QV,             &
     & VINTP_METHOD_LIN_NLEVP1,                                        &
@@ -95,7 +95,7 @@ MODULE mo_pp_tasks
   USE mo_nonhydrostatic_config,   ONLY: kstart_moist
   USE mo_run_config,              ONLY: timers_level, msg_level, debug_check_level
 #ifdef _OPENACC
-  USE mo_mpi,                   ONLY: i_am_accel_node
+  USE mo_mpi,                     ONLY: i_am_accel_node
 #endif
 
   ! Workaround for SMI computation. Not nice, however by making 
@@ -244,7 +244,7 @@ CONTAINS
   !  This is only a wrapper for the corresponding routines from the
   !  interpolation module.
   SUBROUTINE pp_task_lonlat(ptr_task)
-    TYPE(t_job_queue), POINTER :: ptr_task
+    TYPE(t_job_queue), TARGET :: ptr_task
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//"::p_task_lonlat"
     INTEGER                            ::        &
@@ -464,6 +464,7 @@ CONTAINS
             CALL finish(routine, "internal error!")
           END SELECT
 
+         
           ! for cell-based variables: interpolate gradients (finite
           ! differences) and reconstruct
           CALL ptr_int_lonlat%interpolate(          &
@@ -531,12 +532,14 @@ CONTAINS
           CALL finish(routine, "internal error!")
         END SELECT
 
+         
         ! for edge-based variables: simple interpolation
         CALL ptr_int_lonlat%interpolate(              &
           &   tmp_var(:,:,:), nproma,                 &
           &   out_var%r_ptr(:,:,:,out_var_idx,1),     &
           &   out_var_2%r_ptr(:,:,:,out_var_idx_2,1), &
           &   HINTP_TYPE_LONLAT_RBF)
+
         ! clean up:
         DEALLOCATE(tmp_var, STAT=ierrstat)
         IF (ierrstat /= SUCCESS)  CALL finish (routine, 'deallocation failed')
@@ -563,9 +566,12 @@ CONTAINS
           &                              out_var_2%r_ptr(:,:,:,out_var_idx_2,1),     &
           &                              HINTP_TYPE_LONLAT_RBF )
       END IF ! 2D
+
     CASE DEFAULT
       CALL finish(routine, 'Unknown grid type.')
     END SELECT
+
+!$ACC WAIT
 
   END SUBROUTINE pp_task_lonlat
 
@@ -797,7 +803,6 @@ CONTAINS
       &  dim1, dim2, dim3
     TYPE(t_patch),             POINTER :: p_patch
     TYPE(t_nh_metrics),        POINTER :: p_metrics    
-    TYPE(t_nh_prog),           POINTER :: p_prog
     TYPE(t_nh_diag),           POINTER :: p_diag
     TYPE(t_nh_diag_pz),        POINTER :: p_diag_pz
     TYPE(t_nwp_phy_diag),      POINTER :: prm_diag
@@ -822,6 +827,10 @@ CONTAINS
     TYPE (t_vcoeff_cub), POINTER       :: vcoeff_cub
 
     REAL(wp), POINTER :: in_ptr(:,:,:), out_ptr(:,:,:)
+
+#ifdef _OPENACC
+    LOGICAL           :: save_i_am_accel_node
+#endif
 
     ! input/output field for this task
     p_info            => ptr_task%data_input%var%info
@@ -848,7 +857,6 @@ CONTAINS
     jg                =  ptr_task%data_input%jg
     p_patch           => ptr_task%data_input%p_patch
     p_metrics         => ptr_task%data_input%p_nh_state%metrics
-    p_prog            => ptr_task%data_input%p_nh_state%prog(nnow(jg))
     p_diag            => ptr_task%data_input%p_nh_state%diag
     p_diag_pz         => ptr_task%data_input%p_nh_opt_diag%diag_pz
     prm_diag          => ptr_task%data_input%prm_diag
@@ -928,10 +936,17 @@ CONTAINS
       ALLOCATE(p_z3d_edge(nproma,n_ipzlev,nblks), z_me(nproma,p_patch%nlev,nblks), STAT=ierrstat)
       IF (ierrstat /= SUCCESS)  CALL finish (routine, 'ALLOCATE failed')
 
+#ifdef _OPENACC
+      save_i_am_accel_node = i_am_accel_node
+      i_am_accel_node      = .FALSE.
+#endif
       CALL cells2edges_scalar(p_metrics%z_mc, p_patch, intp_hrz%c_lin_e,    &
         &                     z_me, opt_fill_latbc=.TRUE.)
       CALL cells2edges_scalar(p_z3d, p_patch, intp_hrz%c_lin_e, p_z3d_edge, &
         &                     opt_fill_latbc=.TRUE.)
+#ifdef _OPENACC
+      i_am_accel_node      = save_i_am_accel_node
+#endif
       in_z3d            => p_z3d_edge
       in_z_mc           => z_me
     END SELECT
@@ -1023,11 +1038,14 @@ CONTAINS
     !--- actually perform vertical interpolation task
     IF (.NOT. ((nblks == 0) .OR. ((nblks == 1) .AND. (npromz == 0)))) THEN
 
+! Temporary workaround to build up functionality: ultimate the operation needs to be on GPU
+!$ACC UPDATE HOST( in_ptr ) IF ( i_am_accel_node )
+    
       SELECT CASE ( vert_intp_method )
       CASE ( VINTP_METHOD_VN )
         IF (dbg_level > 15)  CALL message(routine, "VINTP_METHOD_VN")
-        IF (.NOT. ASSOCIATED(vcoeff_lin)) CALL finish(routine, "Internal error!")
-        IF (.NOT. ASSOCIATED(vcoeff_cub)) CALL finish(routine, "Internal error!")
+        IF (.NOT. ASSOCIATED(vcoeff_lin) .OR. .NOT. ASSOCIATED(vcoeff_cub)) &
+          CALL finish(routine, "Internal error!")
         CALL uv_intp(in_ptr,                                                        & !in
           &          out_ptr,                                                       & !out
           &          in_z_mc, in_z3d,                                               & !in
@@ -1072,8 +1090,8 @@ CONTAINS
         !
       CASE (VINTP_METHOD_QV )
         IF (dbg_level > 15)  CALL message(routine, "VINTP_METHOD_QV")
-        IF (.NOT. ASSOCIATED(vcoeff_lin)) CALL finish(routine, "Internal error!")
-        IF (.NOT. ASSOCIATED(vcoeff_cub)) CALL finish(routine, "Internal error!")
+        IF (.NOT. ASSOCIATED(vcoeff_lin) .OR. .NOT. ASSOCIATED(vcoeff_cub)) &
+          CALL finish(routine, "Internal error!")
         CALL qv_intp(in_ptr,                                                        & !in
           &          out_ptr,                                                       & !out
           &          in_z_mc, in_z3d, p_diag%temp,                                  & !in
@@ -1090,7 +1108,11 @@ CONTAINS
           &          l_restore_pbldev=l_restore_pbldev )                              !in
       END SELECT ! vert_intp_method
 
-    END IF
+! Temporary workaround to build up functionality: ultimate the operation needs to be on GPU
+! It is not clear why the IF_PRESENT guard is needed, or why HS RESTART test passes with this      
+!$ACC UPDATE DEVICE ( out_ptr ) IF_PRESENT IF ( i_am_accel_node )
+
+   END IF
 
     ! clean up
     IF (p_info%hgrid == GRID_UNSTRUCTURED_EDGE) THEN
@@ -1126,17 +1148,17 @@ CONTAINS
     TYPE(t_var_metadata),      POINTER :: p_info
     TYPE(t_patch),             POINTER :: p_patch
     TYPE(t_nh_metrics),        POINTER :: p_metrics    
-    TYPE(t_nh_prog),           POINTER :: p_prog
     TYPE(t_nh_diag),           POINTER :: p_diag
 
     REAL(wp) :: pmsl_aux(nproma,1,ptr_task%data_input%p_patch%nblks_c), &
                 pmsl_avg(nproma,1,ptr_task%data_input%p_patch%nblks_c)
 
+    REAL(wp), POINTER :: r_ptr(:,:,:,:,:)
+
     ! patch, state, and metrics
     jg             =  ptr_task%data_input%jg
     p_patch        => ptr_task%data_input%p_patch
     p_metrics      => ptr_task%data_input%p_nh_state%metrics
-    p_prog         => ptr_task%data_input%p_nh_state%prog(nnow(jg))
     p_diag         => ptr_task%data_input%p_nh_state%diag
 
     ! input/output field for this task
@@ -1154,37 +1176,46 @@ CONTAINS
     out_var_idx = 1
     IF (out_var%info%lcontained) out_var_idx = out_var%info%ncontained
 
+!$ACC DATA CREATE( pmsl_aux, pmsl_avg ) IF (i_am_accel_node)
+
     SELECT CASE (itype_pres_msl)
     CASE (PRES_MSL_METHOD_SAI) ! stepwise analytical integration 
 
+#if defined(_OPENACC)
+      IF (i_am_accel_node) &
+        CALL warning (routine, 'PRES_MSL_METHOD_SAI: OpenACC version is currently not tested!')
+#endif
       IF (dbg_level >= 10)  CALL message(routine, "PRES_MSL_METHOD_SAI: stepwise analytical integration")
       ! allocate coefficient table:
       CALL vcoeff_allocate(nblks_c, nblks_e, NZLEV, vcoeff)
+
       ! compute extrapolation coefficients:
       CALL prepare_extrap(p_metrics%z_mc,                                     & !in
         &                 nblks_c, npromz_c, nlev,                            & !in
         &                 vcoeff%lin_cell%kpbl1, vcoeff%lin_cell%wfacpbl1,    & !out
         &                 vcoeff%lin_cell%kpbl2, vcoeff%lin_cell%wfacpbl2   )   !out
+
       ! Interpolate pressure on z-level "0": 
-! TODO:  This is a temporary solution to update the needed arrays on host and calculate pmsl_avg there
-!        Ultimately this calculation needs to be performed on the device
-!$ACC UPDATE HOST( p_diag%pres, p_diag%tempv ) IF (i_am_accel_node)
       CALL diagnose_pmsl(p_diag%pres, p_diag%tempv, p_metrics%z_mc,           &
         &                pmsl_aux(:,1,:),                                     &
         &                nblks_c, npromz_c, p_patch%nlev,                       &
         &                vcoeff%lin_cell%wfacpbl1, vcoeff%lin_cell%kpbl1,     &
         &                vcoeff%lin_cell%wfacpbl2, vcoeff%lin_cell%kpbl2,     &
         &                ZERO_HEIGHT, EXTRAPOL_DIST)
+
       ! deallocate coefficient tables:
       CALL vcoeff_deallocate(vcoeff)
 
     CASE (PRES_MSL_METHOD_GME) ! GME-type extrapolation
 
+#if defined(_OPENACC)
+      IF (i_am_accel_node) &
+        CALL warning (routine, 'PRES_MSL_METHOD_GME: OpenACC version is currently not tested!')
+#endif
+
       IF (dbg_level >= 10)  CALL message(routine, "PRES_MSL_METHOD_GME")
       ! Interpolate pressure on z-level "0":
-! TODO:  This is a temporary solution to update the needed arrays on host and calculate pmsl_avg there
-!        Ultimately this calculation needs to be performed on the device
-!$ACC UPDATE HOST( p_diag%pres, p_diag%pres_sfc, p_diag%temp ) IF (i_am_accel_node)
+
       CALL diagnose_pmsl_gme(p_diag%pres, p_diag%pres_sfc, p_diag%temp, &  ! in
         &                    p_metrics%z_ifc,                           &  ! in
         &                    pmsl_aux(:,1,:),                           &  ! out
@@ -1200,20 +1231,20 @@ CONTAINS
         ENDIF
       ENDIF
       CALL vcoeff_allocate(nblks_c, nblks_e, NZLEV, vcoeff)
+
       ! compute extrapolation coefficients:
       CALL prepare_extrap_ifspp(p_metrics%z_ifc, p_metrics%z_mc,              & !in
         &                 nblks_c, npromz_c, nlev,                            & !in
         &                 vcoeff%lin_cell%kpbl1, vcoeff%lin_cell%zextrap,     & !out
         &                 vcoeff%lin_cell%wfacpbl1)                             !out
+
       ! Interpolate pressure on z-level "0":
-! TODO:  This is a temporary solution to update the needed arrays on host and calculate pmsl_avg there
-!        Ultimately this calculation needs to be performed on the device
-!$ACC UPDATE HOST( p_diag%pres_sfc, p_diag%temp ) IF (i_am_accel_node)
       CALL diagnose_pmsl_ifs(p_diag%pres_sfc, p_diag%temp, p_metrics%z_ifc,   & ! in
         &                    pmsl_aux(:,1,:),                                 & ! out
         &                    nblks_c, npromz_c, p_patch%nlev,                 & ! in
         &                    vcoeff%lin_cell%wfacpbl1, vcoeff%lin_cell%kpbl1, & ! in
         &                    vcoeff%lin_cell%zextrap, itype_pres_msl          ) ! in
+
       CALL vcoeff_deallocate(vcoeff)
 
     CASE DEFAULT
@@ -1222,13 +1253,19 @@ CONTAINS
 
     IF (l_limited_area .OR. jg > 1) THEN ! copy outermost nest boundary row in order to avoid missing values
       i_endblk = p_patch%cells%end_blk(1,1)
+      !$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF (i_am_accel_node)
       pmsl_avg(:,1,1:i_endblk) = pmsl_aux(:,1,1:i_endblk)
+      !$ACC END KERNELS
     ENDIF
 
     CALL cell_avg(pmsl_aux, p_patch, p_int_state(jg)%c_bln_avg, pmsl_avg)
-    out_var%r_ptr(:,:,out_var_idx,1,1) = pmsl_avg(:,1,:)
+    r_ptr => out_var%r_ptr
+    !$ACC KERNELS DEFAULT(NONE) PRESENT(r_ptr) ASYNC(1) IF (i_am_accel_node)
+    r_ptr(:,:,out_var_idx,1,1) = pmsl_avg(:,1,:)
+    !$ACC END KERNELS
 
-!$ACC UPDATE DEVICE(  out_var%r_ptr(:,:,out_var_idx,1,1) )  IF (i_am_accel_node)
+!$ACC END DATA
+!$ACC WAIT
 
   END SUBROUTINE pp_task_intp_msl
 
@@ -1407,6 +1444,8 @@ CONTAINS
   !
   !  This is only a wrapper for the corresponding routines from the
   !  interpolation module.
+  !  This routine should be GPU-capable as rbf_vec_interpol_cell
+  !  has been ported with OpenACC
   SUBROUTINE pp_task_edge2cell(ptr_task)
     TYPE(t_job_queue), POINTER :: ptr_task
     ! local variables

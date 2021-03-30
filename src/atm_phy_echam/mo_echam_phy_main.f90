@@ -77,9 +77,9 @@ CONTAINS
 
     ! Arguments
     !
-    TYPE(t_patch)  ,TARGET ,INTENT(inout) :: patch
+    TYPE(t_patch)  ,TARGET ,INTENT(INOUT) :: patch
     TYPE(datetime)         ,POINTER       :: datetime_old
-    REAL(wp)               ,INTENT(in)    :: pdtime
+    REAL(wp)               ,INTENT(IN)    :: pdtime
 
     ! Local variables
     !
@@ -137,6 +137,7 @@ CONTAINS
             &                          (echam_phy_tc(jg)%ed_rad >  datetime_old)
        is_active = isCurrentEventActive(echam_phy_tc(jg)%ev_rad,   datetime_old)
        !
+#ifdef __NO_RTE_RRTMGP__
 #if defined( _OPENACC )
        IF ( is_active ) THEN
           CALL warning('GPU:echam_rad_main','GPU host synchronization should be removed when port is done!')
@@ -158,6 +159,12 @@ CONTAINS
           CALL gpu_h2d_var_list('prm_field_D', jg)
           CALL gpu_h2d_var_list('prm_tend_D', jg)
        END IF
+#endif
+#else
+! RTE-RRTMGP
+       CALL omp_loop_cell_prog(patch, interface_echam_rad      ,&
+            &                  is_in_sd_ed_interval, is_active ,&
+            &                  datetime_old, pdtime            )
 #endif
        !
        ! always compute radiative heating

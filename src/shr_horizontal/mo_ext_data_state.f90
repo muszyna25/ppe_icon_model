@@ -474,7 +474,8 @@ CONTAINS
       CALL add_var( p_ext_atm_list, 'fr_lake', p_ext_atm%fr_lake,   &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,   &
-        &           isteptype=TSTEP_CONSTANT )
+        &           isteptype=TSTEP_CONSTANT, lopenacc=.TRUE. )
+        __acc_attach(p_ext_atm%fr_lake)
 
 
       ! lake depth
@@ -1074,7 +1075,8 @@ CONTAINS
         CALL add_var( p_ext_atm_list, 't2m_clim', p_ext_atm%t2m_clim,   &
           &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc,    &
           &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,      &
-          &           isteptype=TSTEP_CONSTANT )
+          &           isteptype=TSTEP_CONSTANT, lopenacc=.TRUE. )
+        __acc_attach(p_ext_atm%t2m_clim)
 
         ! t2m_clim_hc         p_ext_atm%t2m_clim_hc(nproma,nblks_c)
         cf_desc    = t_cf_var('Height-corrected 2m_temperature', 'K',                  &
@@ -1083,7 +1085,8 @@ CONTAINS
         CALL add_var( p_ext_atm_list, 't2m_clim_hc', p_ext_atm%t2m_clim_hc,   &
           &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc,    &
           &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,      &
-          &           isteptype=TSTEP_CONSTANT )
+          &           isteptype=TSTEP_CONSTANT, lopenacc=.TRUE. )
+        __acc_attach(p_ext_atm%t2m_clim_hc)
 
         ! t2m_climgrad         p_ext_atm%t2m_climgrad(nproma,nblks_c)
         cf_desc    = t_cf_var('2m_temperature_gradient', 'K/month',      &
@@ -1092,7 +1095,8 @@ CONTAINS
         CALL add_var( p_ext_atm_list, 't2m_climgrad', p_ext_atm%t2m_climgrad, &
           &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc,    &
           &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,      &
-          &           isteptype=TSTEP_CONSTANT )
+          &           isteptype=TSTEP_CONSTANT, lopenacc=.TRUE. )
+        __acc_attach(p_ext_atm%t2m_climgrad)
 
       ENDIF
 

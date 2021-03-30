@@ -2484,6 +2484,7 @@ CONTAINS
     ! solve for vectors c-prime and d-prime
 !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP SEQ
+!NEC$ outerloop_unroll(2)
     DO i = slev+1,elev
 !$ACC LOOP GANG VECTOR PRIVATE( m )
       DO jc=startidx, endidx
@@ -2500,6 +2501,7 @@ CONTAINS
     ! solve for varout from the vectors c-prime and d-prime
 !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP SEQ
+!NEC$ outerloop_unroll(4)
     DO i = elev-1, slev, -1
 !$ACC LOOP GANG VECTOR
       DO jc=startidx, endidx
@@ -2522,24 +2524,24 @@ CONTAINS
   !! Developed  by  Stephan Lorenz, MPI-M (2011).
   !!
   SUBROUTINE set_zlev(zlev_i, zlev_m, n_zlev, dzlev_m)
-    INTEGER , INTENT(IN)    :: n_zlev
-    REAL(wp), INTENT(INOUT) :: zlev_i(n_zlev+1), zlev_m(n_zlev)
-    REAL(wp), INTENT(IN)    :: dzlev_m(:)  ! namelist input of layer thickness
+    INTEGER , INTENT(IN)  :: n_zlev
+    REAL(wp), INTENT(OUT) :: zlev_i(n_zlev+1), zlev_m(n_zlev)
+    REAL(wp), INTENT(IN)  :: dzlev_m(:)  ! namelist input of layer thickness
 
     INTEGER :: jk
+    REAL(wp) :: accum
 
-    zlev_m(1) = 0.5_wp * dzlev_m(1)
 
-    zlev_i(1) = 0.0_wp
+    accum = 0.0_wp
     ! zlev_i    : upper border surface of vertical cells
-    DO jk = 2, n_zlev+1
-      zlev_i(jk) = zlev_i(jk-1) + dzlev_m(jk-1)
-    END DO
-
     ! zlev_m    : position of coordinate surfaces in meters below zero surface.
-    DO jk = 2, n_zlev
-      zlev_m(jk) = 0.5_wp * ( zlev_i(jk+1) + zlev_i(jk)  )
+    DO jk = 1, n_zlev
+      zlev_i(jk) = accum
+      zlev_m(jk) = 0.5_wp * ( 2.0_wp * accum + dzlev_m(jk)  )
+      accum = accum + dzlev_m(jk)
     END DO
+    zlev_i(n_zlev+1) = accum
+
   END SUBROUTINE set_zlev
 
   !> normalize latitude to range [-pi/2,pi/2]

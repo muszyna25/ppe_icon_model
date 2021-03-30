@@ -56,7 +56,8 @@ cd checksuite.icon-dev
 case $HOST in
     *daint*)
         export MD='t'
-        source /project/c14/data-eniac/venv/probtest_daint/bin/activate
+        export PYTHONPATH=""
+        source /project/g110/icon/probtest/env/bin/activate
 esac
 
 ./icon-dev.checksuite

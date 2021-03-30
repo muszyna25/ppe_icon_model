@@ -45,7 +45,7 @@ then
 else
     poolFolder_prefix=""
 fi
-export REFERENCE=${poolFolder_prefix}/pool/data/ICON/buildbot_data/aes/reference.63a0d79a_nwp/${BB_SYSTEM}_${BB_SLAVE}/
+export REFERENCE=${poolFolder_prefix}/pool/data/ICON/buildbot_data/aes/reference.49c131e2_icon-cscs/${BB_SYSTEM}_${BB_SLAVE}/
 #--------------------------------------------------------------------------------
 # 
 # 2. Define the checksuite mode

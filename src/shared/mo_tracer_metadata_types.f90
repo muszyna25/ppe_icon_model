@@ -77,8 +77,6 @@ MODULE mo_tracer_metadata_types
   ! Chemical tracer metadata
   TYPE, extends(t_tracer_meta) :: t_chem_meta
     ! Non-optional metadata
-    REAL(wp)        :: mol_weight       ! Molar mass [kg mol-1]
-
     INTEGER :: ised_tracer        ! Sedimentation
                                   !   0 = No sedimentation
                                   !   1 = Monodisperse aerosol
@@ -93,11 +91,6 @@ MODULE mo_tracer_metadata_types
         PROCEDURE, PASS(this) :: set_tracer_meta => create_tracer_metadata_chem
   END TYPE
 
-  ! Passive tracer metadata
-  TYPE, extends(t_tracer_meta) :: t_passive_meta
-    ! Non-optional metadata
-  END TYPE
-
   ! Hydrometeor metadata
   TYPE, extends(t_tracer_meta) :: t_hydro_meta
     ! 
@@ -106,7 +99,6 @@ MODULE mo_tracer_metadata_types
   PUBLIC :: t_tracer_meta
   PUBLIC :: t_aero_meta
   PUBLIC :: t_chem_meta
-  PUBLIC :: t_passive_meta
   PUBLIC :: t_hydro_meta
 
 CONTAINS
@@ -132,7 +124,7 @@ CONTAINS
 
     ! name
     IF ( PRESENT(name) ) THEN
-      meta%name = TRIM(name)
+      meta%name = name
     ELSE
       meta%name = "unnamed"
     ENDIF
@@ -177,7 +169,7 @@ CONTAINS
 
   SUBROUTINE create_tracer_metadata_chem(this, lis_tracer, name, lfeedback, ihadv_tracer,     &
                       &                  ivadv_tracer, lturb_tracer, lconv_tracer,            &
-                      &                  ised_tracer, ldep_tracer, iwash_tracer,  mol_weight)
+                      &                  ised_tracer, ldep_tracer, iwash_tracer)
     ! Base type (t_tracer_meta) content
     CLASS(t_chem_meta), INTENT(INOUT)  :: this
     LOGICAL, INTENT(IN), OPTIONAL  :: lis_tracer       ! this is a tracer field (TRUE/FALSE)
@@ -190,20 +182,12 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL  :: ised_tracer      ! Method for sedimentation
     LOGICAL, INTENT(IN), OPTIONAL  :: ldep_tracer      ! Switch for dry deposition
     INTEGER, INTENT(IN), OPTIONAL  :: iwash_tracer     ! Method for washout
-    ! Extended type (t_chem_meta) content
-    REAL(wp), INTENT(IN), OPTIONAL :: mol_weight       ! Molar mass [kg mol-1]
 
     ! Fill the metadata of the base type
     CALL this%construct_base(lis_tracer, name, lfeedback, ihadv_tracer, ivadv_tracer,  &
       &                                             lturb_tracer, lconv_tracer)
 
     ! Fill the meta of the extended type (t_chem_meta)
-    IF(PRESENT(mol_weight)) THEN
-      this%mol_weight = mol_weight
-    ELSE
-      this%mol_weight = -1._wp
-    ENDIF
-
     ! ised_tracer
     IF ( PRESENT(ised_tracer) ) THEN
       this%ised_tracer = ised_tracer

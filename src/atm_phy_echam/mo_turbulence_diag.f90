@@ -348,9 +348,12 @@ CONTAINS
     !$ACC END PARALLEL
 
     IF ( isrfc_type == 1 ) THEN
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+      !$ACC LOOP GANG VECTOR
       DO jl = jcs,kproma
         zhdyn(jl)=MIN(pghf(jl,1),chneu*ufric/zcor)
       END DO
+      !$ACC END PARALLEL
     END IF
 
     !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
@@ -531,6 +534,7 @@ CONTAINS
 361   END DO
 372 END DO
     !$ACC END PARALLEL
+    !$ACC WAIT
     !$ACC END DATA
   END SUBROUTINE atm_exchange_coeff
   !-------------
@@ -708,7 +712,7 @@ CONTAINS
     !$ACC PRESENT(pqsat_tile,pcpt_tile,pri_gbm,pri_tile,pcfm_gbm,pcfm_tile,pcfh_gbm) &
     !$ACC PRESENT(pcfh_tile,pcfv_sfc,pcftotte_sfc,pcfthv_sfc,pprfac_sfc,ptottevn_sfc) &
     !$ACC PRESENT(pthvvar_sfc,pustarm,pwstar,pbn_tile,pbhn_tile,pbm_tile,pbh_tile) &
-    !$ACC PRESENT(pch_tile) &
+    !$ACC PRESENT(pch_tile, jtottevn_sfc) &
     !---- Argument arrays - intent(inout)                                         
     !$ACC PRESENT(pwstar_tile,pthvsig_b) &
     !---- Argument arrays - Local Variables                                    
@@ -760,7 +764,6 @@ CONTAINS
         pcpt_tile(jl,jsfc) = 0._wp
         pqsat_tile(jl,jsfc) = 0._wp
         pri_tile(jl,jsfc) = 0._wp
-        !$ser verbatim pch_tile(jl,jsfc) = 0._wp
       ENDDO
     ENDDO
     !$ACC END PARALLEL
@@ -1142,7 +1145,9 @@ CONTAINS
           pwstar_tile(jl,jsfc) = 0._wp
         ENDDO
       ENDDO
+      !$ACC END PARALLEL
 
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR
       DO jl = 1, kproma
         pustarm(jl) = 0._wp
@@ -1210,28 +1215,35 @@ CONTAINS
     ENDDO
     !$ACC END PARALLEL
 
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC LOOP GANG VECTOR
     DO jl = jcs, kproma
       jtottevn_sfc(jl) = 0._wp
     ENDDO
+    !$ACC END PARALLEL
 
     IF ( isrfc_type == 1 ) THEN
       DO jsfc = 1,ksfc_type
+        !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+        !$ACC LOOP GANG VECTOR
         DO jls = 1,is(jsfc)
-        js=loidx(jls,jsfc)
+          js=loidx(jls,jsfc)
 
-        IF(pri_tile(js,jsfc).GT.0._wp) THEN
-          ztottev  = (1._wp+e_pot(js,jsfc)/e_kin(js,jsfc))/f_tau(js,jsfc)*(ufric**2)
-        ELSE
-          ztottev  = (1._wp+e_pot(js,jsfc)/e_kin(js,jsfc))/f_tau(js,jsfc)                 &
-                     & *(ufric**3+lmix(js,jsfc)*2._wp*grav/zthetavmid(js,jsfc)      &
-                     & *pcfh_tile(js,jsfc)*abs(zdthetal(js,jsfc)))**ztwothirds
-        END IF
+          IF(pri_tile(js,jsfc).GT.0._wp) THEN
+            ztottev  = (1._wp+e_pot(js,jsfc)/e_kin(js,jsfc))/f_tau(js,jsfc)*(ufric**2)
+          ELSE
+            ztottev  = (1._wp+e_pot(js,jsfc)/e_kin(js,jsfc))/f_tau(js,jsfc)                 &
+                       & *(ufric**3+lmix(js,jsfc)*2._wp*grav/zthetavmid(js,jsfc)      &
+                       & *pcfh_tile(js,jsfc)*abs(zdthetal(js,jsfc)))**ztwothirds
+          END IF
 
-        jtottevn_sfc(js) = jtottevn_sfc(js) + ztottev*pfrc(js,jsfc)
+          jtottevn_sfc(js) = jtottevn_sfc(js) + ztottev*pfrc(js,jsfc)
         END DO
+        !$ACC END PARALLEL
       END DO
     END IF
 
+    !$ACC WAIT
     !$ACC END DATA
   END SUBROUTINE sfc_exchange_coeff
   !-------------

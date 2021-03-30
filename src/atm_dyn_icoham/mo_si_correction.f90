@@ -68,8 +68,8 @@ MODULE mo_si_correction
 !
 ! !USES
   USE mo_kind,               ONLY: wp, dp
-  USE mo_exception,          ONLY: message, finish
-  USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, SUCCESS, min_rlcell
+  USE mo_exception,          ONLY: message, message_text, finish
+  USE mo_impl_constants,     ONLY: SUCCESS, min_rlcell
   USE mo_physical_constants, ONLY: rcpd, rd, grav
   USE mo_math_gradients,     ONLY: grad_fd_norm
   USE mo_math_divrot,        ONLY: div, div_avg
@@ -178,8 +178,7 @@ MODULE mo_si_correction
 
   REAL(wp) :: z_maxi       ! for checking whether the eigenvalues are real
 
-  CHARACTER(len=MAX_CHAR_LENGTH) :: routine = 'mo_si_correction:init_si_params'
-  CHARACTER(len=MAX_CHAR_LENGTH) :: string
+  CHARACTER(len=*), PARAMETER :: routine = 'mo_si_correction:init_si_params'
 !-------------------------------------------------------------------------
 
   asi_n = si_offctr*2._wp
@@ -187,45 +186,11 @@ MODULE mo_si_correction
 
 !-- 0. Allocate memory for time-independent parameters
 
-  ALLOCATE (ralphr(nlev), STAT=ist)
-  IF(ist/=SUCCESS)THEN
-     CALL finish (TRIM(routine), ' allocation of ralphr failed')
-  ENDIF
+  ALLOCATE(ralphr(nlev), rlnmar(nlev), aktlrd(nlev), altrcp(nlev), &
+    &      eigenval(nlev), bb(nlev,nlev), eigenvec(nlev,nlev), &
+    &      reigenvec(nlev,nlev), STAT=ist)
+  IF (ist/=SUCCESS) CALL finish(routine, 'allocation of state failed')
 
-  ALLOCATE (rlnmar(nlev), STAT=ist)
-  IF(ist/=SUCCESS)THEN
-     CALL finish (TRIM(routine), ' allocation of rlnmar failed')
-  ENDIF
-
-  ALLOCATE (aktlrd(nlev), STAT=ist)
-  IF(ist/=SUCCESS)THEN
-     CALL finish (TRIM(routine), ' allocation of aktlrd failed')
-  ENDIF
-
-  ALLOCATE (altrcp(nlev), STAT=ist)
-  IF(ist/=SUCCESS)THEN
-     CALL finish (TRIM(routine), ' allocation of altrcp failed')
-  ENDIF
-
-  ALLOCATE (eigenval(nlev), STAT=ist)
-  IF(ist/=SUCCESS)THEN
-     CALL finish (TRIM(routine), ' allocation of eigenval failed')
-  ENDIF
-
-  ALLOCATE (bb(nlev,nlev), STAT=ist)
-  IF(ist/=SUCCESS)THEN
-     CALL finish (TRIM(routine), ' allocation of bb failed')
-  ENDIF
-
-  ALLOCATE (eigenvec(nlev,nlev), STAT=ist)
-  IF(ist/=SUCCESS)THEN
-     CALL finish (TRIM(routine), ' allocation of eigenvec failed')
-  ENDIF
-
-  ALLOCATE (reigenvec(nlev,nlev), STAT=ist)
-  IF(ist/=SUCCESS)THEN
-     CALL finish (TRIM(routine), ' allocation of reigenvec failed')
-  ENDIF
 
 IF (.NOT. lshallow_water) THEN
 
@@ -314,12 +279,12 @@ ENDIF
   !---------------------------------------
 
     IF (ist /= 0) THEN
-      CALL finish (TRIM(routine),'Calculation of eigenvectors/values failed.')
+      CALL finish(routine,'Calculation of eigenvectors/values failed.')
     ENDIF
 
     z_maxi = MAXVAL(ABS(z_ei(1:nlev)))  !eigenvalue with largest imaginary part
     IF ( z_maxi > 0._wp ) THEN
-         CALL finish (TRIM(routine),&
+         CALL finish(routine,&
          'Found complex eigenvalues. Failure in vertical structure matrix')
     ENDIF
 
@@ -335,15 +300,15 @@ ENDIF
 
     nmodes = 0
     DO jk=1,nlev
-       WRITE(string,'(a,i4,a,f10.5)')   &
+       WRITE(message_text,'(a,i4,a,f10.5)')   &
                     'mode',jk,' phase speed =',SQRT(eigenval(jk))
-       CALL message(TRIM(routine),TRIM(string))
+       CALL message(routine, message_text)
        IF ( SQRT(eigenval(jk)) > si_cmin ) nmodes = nmodes + 1
     ENDDO
 
-    WRITE(string,'(a,f6.2,a,i4)')   &
+    WRITE(message_text,'(a,f6.2,a,i4)')   &
                  'Number of modes with phase speed > ',si_cmin,' is ', nmodes
-    CALL message(TRIM(routine),TRIM(string))
+    CALL message(routine, message_text)
 
 !-- 6.2 The inverse of the eigenvector matrix
 
@@ -382,7 +347,7 @@ ENDIF
   !---------------------------------------
 
     IF (ist /= 0) THEN
-      CALL finish (TRIM(routine), &
+      CALL finish(routine, &
            'Inverting eigenvector matrix, failure in dgesv')
     ENDIF
 
@@ -399,7 +364,7 @@ ENDIF
   ENDIF !only if choose to solve decomposed 2D equations
 
 
-  CALL message(TRIM(routine), &
+  CALL message(routine, &
        'initialization for the semi-implicit correction finished')
 
   END SUBROUTINE init_si_params
@@ -575,8 +540,6 @@ ENDIF
   INTEGER  :: niter
   REAL(wp) :: z_residual(nmax_iter)
   REAL(wp) :: z_wrk_cv(nproma,nlev), z_wrk_vc(nproma,nlev)
-
-  CHARACTER(len=MAX_CHAR_LENGTH) :: string
 
 !-----------------------------------------------------------------------
 
@@ -821,9 +784,9 @@ ENDIF
          CALL finish('GMRES solver: ','NOT YET CONVERGED !!')
       ENDIF
       IF (msg_level >= 5) THEN
-         WRITE(string,'(a,i4,a,e20.10)') 'GMRES solver: iteration ', niter,  &
+         WRITE(message_text,'(a,i4,a,e20.10)') 'GMRES solver: iteration ', niter,  &
                                          ', residual = ', ABS(z_residual(niter))
-         CALL message('',TRIM(string))
+         CALL message('', message_text)
       ENDIF 
 
    ENDDO !mode loop
@@ -1195,8 +1158,6 @@ ENDIF
   LOGICAL :: lmaxiter !.TRUE. on output if nmax_iter was encountered
   INTEGER :: niter    ! number of actually needed iterations
 
-  CHARACTER(len=MAX_CHAR_LENGTH) :: string
-
 !-----------------------------------------------------------------------
 
    ! weighted time step (not to mix up with si_offctr)
@@ -1370,9 +1331,9 @@ ENDIF
    IF (lmaxiter) THEN
       CALL finish('GMRES solver: ','NOT YET CONVERGED !!')
    ELSE  IF (msg_level >= 5) THEN
-      WRITE(string,'(a,i4,a,e20.10)') 'GMRES solver: iteration ', niter,  &
+      WRITE(message_text,'(a,i4,a,e20.10)') 'GMRES solver: iteration ', niter,  &
                                       ', residual = ', ABS(z_residual(niter))
-      CALL message(TRIM(routine),TRIM(string))
+      CALL message(routine, message_text)
    ENDIF
 
 !======================================================================

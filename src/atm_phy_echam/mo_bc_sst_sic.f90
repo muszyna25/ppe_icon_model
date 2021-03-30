@@ -18,20 +18,18 @@
 !!
 !! TODO: ctfreez in echam = 271.38, this is 271.45 K
 !
+#include "icon_contiguous_defines.h"
 MODULE mo_bc_sst_sic
   
   USE mo_kind,               ONLY: dp, i8
   USE mo_exception,          ONLY: finish, message, message_text
-#ifdef _OPENACC
-  USE mo_exception,          ONLY: warning
-#endif
   USE mo_mpi,                ONLY: my_process_is_mpi_workroot, p_bcast, &
     &                              process_mpi_root_id, p_comm_work
   USE mo_model_domain,       ONLY: t_patch
   USE mo_grid_config,        ONLY: n_dom
   USE mo_parallel_config,    ONLY: nproma
   USE mo_physical_constants, ONLY: tf_salt !, tmelt
-  USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
+  USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, max_dom
   USE mo_cdi,                ONLY: streamOpenRead, streamInqVlist, streamClose, &
     & vlistInqTaxis, streamInqTimestep, taxisInqVdate, streamReadVarSlice
   USE mo_util_cdi,           ONLY: cdiGetStringError
@@ -42,11 +40,11 @@ MODULE mo_bc_sst_sic
   PRIVATE
 
   TYPE t_ext_sea
-    REAL(dp), POINTER :: sst(:,:,:) => NULL()
-    REAL(dp), POINTER :: sic(:,:,:) => NULL()
+    REAL(dp), CONTIGUOUS_POINTER :: sst(:,:,:) => NULL()
+    REAL(dp), CONTIGUOUS_POINTER :: sic(:,:,:) => NULL()
   END TYPE t_ext_sea
 
-  TYPE(t_ext_sea), ALLOCATABLE, TARGET :: ext_sea(:)
+  TYPE(t_ext_sea), TARGET :: ext_sea(max_dom)
 
   PUBLIC :: read_bc_sst_sic
   PUBLIC :: bc_sst_sic_time_interpolation
@@ -60,45 +58,42 @@ CONTAINS
     INTEGER(i8),   INTENT(IN) :: year
     TYPE(t_patch), INTENT(IN) :: p_patch
     INTEGER :: jg
-    CHARACTER(LEN=:), ALLOCATABLE :: fn
-    CHARACTER(LEN=8) :: dstr
+    CHARACTER(len=16) :: fn
 
     jg = p_patch%id
-    dstr = ''
-    IF (n_dom > 1) WRITE(dstr, '(a,i2.2)') '_DOM', jg
-    IF (.NOT. ALLOCATED (ext_sea)) THEN 
-      ALLOCATE (ext_sea(n_dom))
-      !$ACC ENTER DATA PCREATE(ext_sea)
-    ENDIF
-    !$ACC ENTER DATA PCREATE(ext_sea(jg))
 
-    fn = 'bc_sst' // TRIM(dstr) // '.nc'
+    IF (n_dom > 1) THEN
+      WRITE(fn, '(a,i2.2)') 'bc_sst_DOM', jg, '.nc'
+    ELSE
+      fn = 'bc_sst.nc'
+    END IF
     IF (my_process_is_mpi_workroot()) THEN
-      WRITE(message_text,'(a,i4)') 'Read SST from ' // fn // ' for ', year
+      WRITE(message_text,'(3a,i0)') 'Read SST from ', TRIM(fn), ' for ', year
       CALL message('',message_text)
     ENDIF
     IF (.NOT.ASSOCIATED(ext_sea(jg)%sst)) THEN
       ALLOCATE (ext_sea(jg)%sst(nproma, p_patch%nblks_c, 0:13))
       !$ACC ENTER DATA PCREATE( ext_sea(jg)%sst)
     ENDIF
-    CALL read_sst_sic_data(p_patch, ext_sea(jg)%sst, fn, year)
+    CALL read_sst_sic_data(p_patch, ext_sea(jg)%sst, TRIM(fn), year)
 
-    fn = 'bc_sic' // TRIM(dstr) // '.nc'
+    IF (n_dom > 1) THEN
+      WRITE(fn, '(a,i2.2)') 'bc_sic_DOM', jg, '.nc'
+    ELSE
+      fn = 'bc_sic.nc'
+    END IF
     IF (my_process_is_mpi_workroot()) THEN
-      WRITE(message_text,'(a,i4)') 'Read sea ice from ' // fn // ' for ', year
+      WRITE(message_text,'(3a,i0)') 'Read sea ice from ',TRIM(fn),' for ',year
       CALL message('',message_text)
     ENDIF
     IF (.NOT.ASSOCIATED(ext_sea(jg)%sic)) THEN
       ALLOCATE (ext_sea(jg)%sic(nproma, p_patch%nblks_c, 0:13))
       !$ACC ENTER DATA PCREATE( ext_sea(jg)%sic)
     ENDIF
-    CALL read_sst_sic_data(p_patch, ext_sea(jg)%sic, fn, year)
+    CALL read_sst_sic_data(p_patch, ext_sea(jg)%sic, TRIM(fn), year)
     
     IF (jg==n_dom) current_year = year
 
-#ifdef _OPENACC
-    CALL warning("GPU:read_bc_sst_sic", "GPU device synchronization")
-#endif
     !$ACC UPDATE DEVICE( ext_sea(jg)%sst, ext_sea(jg)%sic )
 
   END SUBROUTINE read_bc_sst_sic
@@ -106,7 +101,7 @@ CONTAINS
   SUBROUTINE read_sst_sic_data(p_patch, dst, fn, y)
 !TODO: switch to reading via mo_read_netcdf_distributed?
     TYPE(t_patch), INTENT(in) :: p_patch
-    REAL(dp), INTENT(INOUT), POINTER :: dst(:,:,:)
+    REAL(dp), CONTIGUOUS_ARGUMENT(INOUT) :: dst(:,:,0:)
     CHARACTER(len=*), INTENT(IN) :: fn
     INTEGER(i8), INTENT(in) :: y
     REAL(dp), ALLOCATABLE :: zin(:)
@@ -114,17 +109,19 @@ CONTAINS
     INTEGER :: vlID, taxID, tsID, ts_idx, strID, nmiss, vd, vy, vm, ts_found
     LOGICAL :: found_last_ts, lexist
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
+    CHARACTER(len=*), PARAMETER :: routine = 'mo_bc_sst_sic:read_sst_sic_data'
 
     IF (my_process_is_mpi_workroot()) THEN
       INQUIRE (file=fn, exist=lexist)
       IF (.NOT.lexist) THEN
-        CALL message('','Could not open file ' // fn)
-        CALL finish ('mo_bc_sst_sic:read_sst_sic_data', 'run terminated.')
+        WRITE (message_text, '(3a)') 'Could not open file ', fn, ': run terminated.'
+        CALL finish(routine, message_text)
       ENDIF
       strID = streamOpenRead(fn)
       IF ( strID < 0 ) THEN
         CALL cdiGetStringError(strID, cdiErrorText)
-        CALL finish('mo_bc_sst_sic:read_sst_sic_data', TRIM(cdiErrorText))
+        WRITE (message_text, '(4a)') 'Could not open file ', fn, ': ', cdiErrorText
+        CALL finish(routine, message_text)
       END IF
       vlID = streamInqVlist(strID)
       taxID = vlistInqTaxis(vlID)
@@ -196,6 +193,7 @@ CONTAINS
     REAL(dp) :: zts(SIZE(tsw,1),SIZE(tsw,2))
     REAL(dp) :: zic(SIZE(tsw,1),SIZE(tsw,2))
     REAL(dp) :: ztsw(SIZE(tsw,1),SIZE(tsw,2))
+    REAL(dp), CONTIGUOUS_POINTER :: sst(:,:,:), sic(:,:,:)
 
     INTEGER  :: jc, jb, jg
 #ifdef _OPENACC
@@ -210,45 +208,43 @@ CONTAINS
 
     jg = p_patch%id
 
-    !$ACC DATA PRESENT( tsw, seaice, siced, mask, ext_sea(jg)%sst, ext_sea(jg)%sic, p_patch%cells%center ) &
+    sst => ext_sea(jg)%sst
+    sic => ext_sea(jg)%sic
+    !$ACC DATA PRESENT( tsw, seaice, siced, mask, sst, sic, p_patch%cells%center ) &
     !$ACC       CREATE( zts, zic, ztsw )                                                            &
     !$ACC           IF( lzopenacc )
 
     !$ACC PARALLEL DEFAULT(PRESENT) IF( lzopenacc )
     !$ACC LOOP SEQ
+!$omp parallel private(jb,jc)
+!$omp do
     DO jb = 1, SIZE(zts,2)
       !$ACC LOOP GANG VECTOR
       DO jc = 1, SIZE(zts,1)
-        zts(jc,jb) = tiw%weight1 * ext_sea(jg)%sst(jc,jb,tiw%month1_index) + tiw%weight2 * ext_sea(jg)%sst(jc,jb,tiw%month2_index)
-        zic(jc,jb) = tiw%weight1 * ext_sea(jg)%sic(jc,jb,tiw%month1_index) + tiw%weight2 * ext_sea(jg)%sic(jc,jb,tiw%month2_index)
+        zts(jc,jb) = tiw%weight1 * sst(jc,jb,tiw%month1_index) + tiw%weight2 * sst(jc,jb,tiw%month2_index)
+        zic(jc,jb) = tiw%weight1 * sic(jc,jb,tiw%month1_index) + tiw%weight2 * sic(jc,jb,tiw%month2_index)
       END DO
     END DO
+!$omp end do nowait
     !$ACC END PARALLEL
 
     !TODO: missing siced needs to be added
 
     !$ACC PARALLEL DEFAULT(PRESENT) IF( lzopenacc )
     !$ACC LOOP SEQ
+!$omp do
     DO jb = 1, SIZE(tsw,2)
       !$ACC LOOP GANG VECTOR
       DO jc = 1, SIZE(tsw,1)
-        seaice(jc,jb) = 0._dp
+        ! assuming input data is in percent
+        seaice(jc,jb) = zic(jc,jb) * MERGE(0.01_dp, 0.0_dp, mask(jc,jb))
       END DO
     END DO
+!$omp end do nowait
     !$ACC END PARALLEL
     !$ACC PARALLEL DEFAULT(PRESENT) IF( lzopenacc )
     !$ACC LOOP SEQ
-    DO jb = 1, SIZE(tsw,2)
-      !$ACC LOOP GANG VECTOR
-      DO jc = 1, SIZE(tsw,1)
-        IF (mask(jc,jb)) THEN
-          seaice(jc,jb) = zic(jc,jb)*0.01_dp               ! assuming input data is in percent
-        END IF
-      END DO
-    END DO
-    !$ACC END PARALLEL
-    !$ACC PARALLEL DEFAULT(PRESENT) IF( lzopenacc )
-    !$ACC LOOP SEQ
+!$omp do
     DO jb = 1, SIZE(tsw,2)
       !$ACC LOOP GANG VECTOR
       DO jc = 1, SIZE(tsw,1)
@@ -258,21 +254,25 @@ CONTAINS
         ztsw(jc,jb) = MERGE(tf_salt, MAX(zts(jc,jb), tf_salt), seaice(jc,jb) > 0.0_dp) 
       END DO
     END DO
+!$omp end do nowait
     !$ACC END PARALLEL
 
     IF (l_init) THEN
       !$ACC PARALLEL DEFAULT(PRESENT) IF( lzopenacc )
       !$ACC LOOP SEQ
+!$omp do
       DO jb = 1, SIZE(tsw,2)
         !$ACC LOOP GANG VECTOR
         DO jc = 1, SIZE(tsw,1)
           tsw(jc,jb) = ztsw(jc,jb)
         END DO
       END DO
+!$omp end do nowait
       !$ACC END PARALLEL
     ELSE
       !$ACC PARALLEL DEFAULT(PRESENT) IF( lzopenacc )
       !$ACC LOOP SEQ
+!$omp do
       DO jb = 1, SIZE(tsw,2)
         !$ACC LOOP GANG VECTOR
         DO jc = 1, SIZE(tsw,1)
@@ -281,11 +281,13 @@ CONTAINS
           END IF
         END DO
       END DO
+!$omp end do nowait
       !$ACC END PARALLEL
     END IF
 
     !$ACC PARALLEL DEFAULT(PRESENT) IF( lzopenacc )
     !$ACC LOOP SEQ
+!$omp do
     DO jb = 1, SIZE(tsw,2)
       !$ACC LOOP GANG VECTOR
       DO jc = 1, SIZE(tsw,1)
@@ -296,6 +298,8 @@ CONTAINS
         END IF
       END DO
     END DO
+!$omp end do nowait
+!$omp end parallel
     !$ACC END PARALLEL
 
     !CALL message('','Interpolated sea surface temperature and sea ice cover.')

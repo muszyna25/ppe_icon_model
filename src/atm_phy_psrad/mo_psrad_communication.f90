@@ -31,8 +31,7 @@ MODULE mo_psrad_communication
   USE mpi
   USE mo_mpi,                      ONLY: get_mpi_work_intercomm, p_pe_work, &
                                          get_my_global_mpi_communicator
-  USE yaxt,                        ONLY: xt_initialize, xt_initialized, &
-                                         xt_redist, xt_redist_collection_new, &
+  USE yaxt,                        ONLY: xt_redist, xt_redist_collection_new, &
                                          xt_redist_p2p_ext_new, xt_redist_p2p_new, &
                                          xt_offset_ext, xt_redist_p2p_off_new, &
                                          xt_redist_delete, xt_redist_s_exchange, &
@@ -373,8 +372,9 @@ CONTAINS
 
     INTEGER :: i
 
-    IF (.NOT. xt_initialized()) &
-      CALL xt_initialize(get_my_global_mpi_communicator())
+    ! done when setting-up the mpi communicators
+!     IF (.NOT. xt_initialized()) &
+!       CALL xt_initialize(get_my_global_mpi_communicator())
 
     ALLOCATE(exchange_redist_atmo_2_psrad(n_dom_start:n_dom), &
              exchange_redist_psrad_2_atmo(n_dom_start:n_dom))

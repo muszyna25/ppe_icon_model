@@ -264,7 +264,8 @@ MODULE mo_impl_constants
 
   ! maximum allowed number of model domains (10 should be enough for the time being)
   INTEGER, PARAMETER :: max_dom = 10
-
+  ! maximum number of decimal digits to print domain id, roughly(log10(max_dom))
+  INTEGER, PARAMETER :: max_dom_dig10 = 2
   ! Maximum allowed number of physical model domains
   INTEGER, PARAMETER :: max_phys_dom = 30
 
@@ -521,8 +522,10 @@ MODULE mo_impl_constants
   !  MODEL OUTPUT  !
   !----------------!
 
-  ! maximum string length for variable names
-  INTEGER, PARAMETER :: VARNAME_LEN = 256 
+  !> maximum string length for variable names
+  INTEGER, PARAMETER :: VARNAME_LEN = 256
+  !> maximum string length for variable list names
+  INTEGER, PARAMETER :: max_var_list_name_len = 128
 
   INTEGER, PARAMETER :: &
     max_var_lists  = 256, & ! max number of output var_lists
@@ -558,6 +561,8 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: MAX_NPLEVS = 100 !< max. no. of pressure levels
   INTEGER, PARAMETER :: MAX_NZLEVS = 100 !< max. no. of height levels
   INTEGER, PARAMETER :: MAX_NILEVS = 100 !< max. no. of isentropic levels
+
+  INTEGER, PARAMETER :: nlat_moc = 180 !< number of buckets for moc
 
   !-----------------------------------!
   !  POST PROCESSING SCHEDULER TASKS  !

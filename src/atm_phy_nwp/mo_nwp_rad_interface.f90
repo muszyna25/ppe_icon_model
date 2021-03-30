@@ -22,7 +22,7 @@ MODULE mo_nwp_rad_interface
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_parallel_config,      ONLY: nproma
-  USE mo_impl_constants,       ONLY: max_char_length, MODIS 
+  USE mo_impl_constants,       ONLY: MODIS
   USE mo_kind,                 ONLY: wp
   USE mo_nwp_lnd_types,        ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_model_domain,         ONLY: t_patch
@@ -44,7 +44,10 @@ MODULE mo_nwp_rad_interface
   USE mtime,                   ONLY: datetime
   USE mo_nwp_gpu_util,         ONLY: gpu_d2h_nh_nwp, gpu_h2d_nh_nwp
   USE mo_bc_greenhouse_gases,  ONLY: bc_greenhouse_gases_time_interpolation
-  
+#if defined( _OPENACC )
+  USE mo_mpi,                  ONLY: i_am_accel_node, my_process_is_work
+#endif
+
   IMPLICIT NONE
 
   PRIVATE
@@ -68,9 +71,9 @@ MODULE mo_nwp_rad_interface
   SUBROUTINE nwp_radiation ( lredgrid, p_sim_time, mtime_datetime, pt_patch,pt_par_patch, &
     & ext_data, lnd_diag, pt_prog, pt_diag, prm_diag, lnd_prog, wtr_prog, linit)
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
+    CHARACTER(len=*), PARAMETER :: &
       &  routine = 'mo_nwp_rad_interface:nwp_radiation'
-    
+
     LOGICAL,                 INTENT(in)    :: lredgrid        !< use reduced grid for radiation
     LOGICAL, OPTIONAL,       INTENT(in)    :: linit
 
@@ -187,6 +190,7 @@ MODULE mo_nwp_rad_interface
     IF(lacc) THEN
       CALL message('mo_nh_interface_nwp', 'Device to host copy before Radiation. This needs to be removed once port is finished!')
       CALL gpu_d2h_nh_nwp(pt_patch, prm_diag, ext_data)
+      i_am_accel_node = .FALSE.
     ENDIF
 #endif
     SELECT CASE (atm_phy_nwp_config(jg)%inwp_radiation)
@@ -236,7 +240,7 @@ MODULE mo_nwp_rad_interface
           & pt_diag, prm_diag, lnd_prog, ecrad_conf )
       ENDIF
 #else
-      CALL finish(TRIM(routine),  &
+      CALL finish(routine,  &
         &      'atm_phy_nwp_config(jg)%inwp_radiation = 4 needs -D__ECRAD.')
 #endif
     END SELECT ! inwp_radiation
@@ -244,6 +248,7 @@ MODULE mo_nwp_rad_interface
     IF(lacc) THEN
       CALL message('mo_nh_interface_nwp', 'Host to device copy after Radiation. This needs to be removed once port is finished!')
       CALL gpu_h2d_nh_nwp(pt_patch, prm_diag, ext_data)
+      i_am_accel_node = my_process_is_work()
     ENDIF
 #endif
 

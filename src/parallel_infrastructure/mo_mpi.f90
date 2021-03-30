@@ -203,7 +203,7 @@ MODULE mo_mpi
   ! Comment: Please use basic WRITE to nerr for messaging in the whole
   !          MPI package to achieve proper output.
 
-  USE ISO_C_BINDING, ONLY: C_CHAR
+  USE ISO_C_BINDING, ONLY: C_CHAR, C_SIGNED_CHAR
   ! actual method (MPI-2)
 #ifndef NOMPI
 #if !defined (__SUNPRO_F95)
@@ -229,6 +229,13 @@ MODULE mo_mpi
 
 #ifndef __STANDALONE
     USE mo_util_system, ONLY: util_exit
+#endif
+
+  USE mo_master_control, ONLY: get_my_process_type, hamocc_process, ocean_process, process_exists, &
+    & my_process_is_hamocc, my_process_is_ocean
+
+#ifdef HAVE_YAXT
+  USE yaxt,                   ONLY: xt_initialize, xt_initialized
 #endif
 
   IMPLICIT NONE
@@ -282,6 +289,7 @@ MODULE mo_mpi
   PUBLIC :: get_my_mpi_all_comm_size   ! this is the the size of the communicator for the specific component
   PUBLIC :: get_my_mpi_work_communicator   ! the communicator for the workers of this component
   PUBLIC :: get_my_mpi_work_comm_size   ! this is the the size of the workers
+  PUBLIC :: get_hamocc_ocean_mpi_communicator 
 
   PUBLIC :: get_mpi_all_workroot_id, get_my_global_mpi_id, get_my_mpi_all_id
   PUBLIC :: get_mpi_all_ioroot_id
@@ -328,6 +336,8 @@ MODULE mo_mpi
     &       p_pack_int, p_pack_bool, p_pack_real,         &
     &       p_pack_int_1d, p_pack_real_1d,                &
     &       p_pack_string, p_pack_real_2d,                &
+    &       p_pack_size_int, p_pack_size_bool,            &
+    &       p_pack_size_real_dp, p_pack_size_string,         &
     &       p_unpack_int, p_unpack_bool, p_unpack_real,   &
     &       p_unpack_int_1d, p_unpack_real_1d,            &
     &       p_unpack_string, p_unpack_real_2d, p_test
@@ -379,13 +389,14 @@ MODULE mo_mpi
   ! real data type matching real type of MPI implementation
   PUBLIC :: p_real_dp, p_real_sp, p_real
   PUBLIC :: p_int
+  PUBLIC :: p_int_i4
   PUBLIC :: p_int_i8
   PUBLIC :: p_bool
   PUBLIC :: p_address_kind
   PUBLIC :: p_real_dp_byte, p_real_sp_byte, p_int_byte
   PUBLIC :: p_int_i4_byte, p_int_i8_byte
   PUBLIC :: p_mpi_comm_null
-
+  
   ! mpi reduction operators
   PUBLIC :: mpi_lor, mpi_land, mpi_sum, mpi_min, mpi_max, &
        mpi_minloc, mpi_maxloc
@@ -412,7 +423,6 @@ MODULE mo_mpi
   ! general run time information
 
 #ifndef NOMPI
-  INTEGER :: version, subversion   ! MPI version
  ! MPI call inherent variables
   INTEGER :: p_error                     ! MPI error number
   INTEGER :: p_status(MPI_STATUS_SIZE)   ! standard information of MPI_RECV
@@ -434,6 +444,8 @@ MODULE mo_mpi
   ! this is the global communicator
   INTEGER, PARAMETER :: global_mpi_communicator = 0  ! replaces MPI_COMM_WORLD
 #endif
+
+  INTEGER :: hamocc_ocean_mpi_communicator
 
   ! public parallel run information
   CHARACTER(len=64) :: global_mpi_name
@@ -578,7 +590,7 @@ MODULE mo_mpi
   INTEGER :: p_int_i8_byte  = 0
 
   INTEGER :: p_mpi_comm_null = -32766
-
+  
   ! Flag if processor splitting is active
   LOGICAL, PUBLIC :: proc_split = .FALSE.
 #ifdef _OPENACC
@@ -628,6 +640,7 @@ MODULE mo_mpi
      MODULE PROCEDURE p_isend_sreal
      MODULE PROCEDURE p_isend_int
      MODULE PROCEDURE p_isend_bool
+     MODULE PROCEDURE p_isend_char_1d
      MODULE PROCEDURE p_isend_real_1d
      MODULE PROCEDURE p_isend_sreal_1d
      MODULE PROCEDURE p_isend_int_1d
@@ -674,6 +687,7 @@ MODULE mo_mpi
      MODULE PROCEDURE p_irecv_sreal
      MODULE PROCEDURE p_irecv_int
      MODULE PROCEDURE p_irecv_bool
+     MODULE PROCEDURE p_irecv_char_1d
      MODULE PROCEDURE p_irecv_real_1d
      MODULE PROCEDURE p_irecv_sreal_1d
      MODULE PROCEDURE p_irecv_int_1d
@@ -694,6 +708,7 @@ MODULE mo_mpi
     MODULE PROCEDURE p_wait
     MODULE PROCEDURE p_wait_1
     MODULE PROCEDURE p_wait_n
+    MODULE PROCEDURE p_wait_n_stati
   END INTERFACE p_wait
 
   INTERFACE p_clear_request
@@ -708,6 +723,11 @@ MODULE mo_mpi
      MODULE PROCEDURE p_sendrecv_real_4d
      MODULE PROCEDURE p_sendrecv_char_array
   END INTERFACE
+
+  INTERFACE p_send_packed
+    MODULE PROCEDURE p_send_packed
+    MODULE PROCEDURE p_send_packed_2d
+  END INTERFACE p_send_packed
 
   INTERFACE p_bcast
      MODULE PROCEDURE p_bcast_real
@@ -777,6 +797,7 @@ MODULE mo_mpi
   INTERFACE p_scatterv
     MODULE PROCEDURE p_scatterv_real1D2D
     MODULE PROCEDURE p_scatterv_real1D1D
+    MODULE PROCEDURE p_scatterv_int_1d1d
     MODULE PROCEDURE p_scatterv_single1D1D
   END INTERFACE
 
@@ -943,6 +964,12 @@ CONTAINS
   INTEGER FUNCTION get_my_global_mpi_communicator()
     get_my_global_mpi_communicator = global_mpi_communicator
   END FUNCTION get_my_global_mpi_communicator
+  !------------------------------------------------------------------------------
+
+  !------------------------------------------------------------------------------
+  INTEGER FUNCTION get_hamocc_ocean_mpi_communicator()
+    get_hamocc_ocean_mpi_communicator = hamocc_ocean_mpi_communicator
+  END FUNCTION get_hamocc_ocean_mpi_communicator
   !------------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------
@@ -1232,6 +1259,9 @@ CONTAINS
 
 !   !local variables
     INTEGER :: my_color, remote_leader, peer_comm, p_error, global_dup_comm
+    INTEGER :: tmp_common_intracom, tmp_work_intracom, my_common_intracom_mpi_id, my_work_intracom_mpi_id
+    INTEGER :: hamocc_root, ocean_root
+    LOGICAL :: I_am_receiver, I_am_sender
     INTEGER :: my_function_comm
     CHARACTER(*), PARAMETER :: method_name = "set_mpi_work_communicators"
     INTEGER :: grp_process_mpi_all_comm, grp_comm_work_io, input_ranks(1), &
@@ -1594,7 +1624,7 @@ CONTAINS
       my_arch = 0
 #endif
 
-      IF (p_comm_work_io /= MPI_COMM_NULL) THEN
+      IF (p_comm_work_io /= MPI_COMM_NULL .AND. PRESENT(num_dio_procs)) THEN
         ! gather all architectures on PE0
         ALLOCATE(glb_arch(num_work_procs + num_io_procs))
         CALL p_gather(my_arch, glb_arch, 0, p_comm_work_io)
@@ -1641,6 +1671,7 @@ CONTAINS
         CALL cdiPioConfSetIOMode(nml_io_cdi_pio_conf_handle, &
           &                      grib_mode_for_cdi_pio)
         CALL cdiPioConfSetCSRole(nml_io_cdi_pio_conf_handle, my_cdi_pio_role)
+        CALL cdiPioConfSetBatchedRMA(nml_io_cdi_pio_conf_handle, .FALSE.)
 #else
         CALL finish(routine, "ICON was compiled without CDI-PIO")
 #endif
@@ -1868,10 +1899,129 @@ CONTAINS
     DEALLOCATE(root_buffer)
 #endif
 
+! if there is a hamocc proccess, create hamocc-ocean communicator
+#ifndef NOMPI
+      IF (process_exists(hamocc_process)) THEN
+        ALLOCATE(root_buffer(2))
+
+        IF ((get_my_process_type() == hamocc_process .or. get_my_process_type() == ocean_process) &
+            .AND. my_mpi_function == work_mpi_process) THEN
+          my_color = 1 
+        ELSE
+          my_color = 0
+        ENDIF
+        ! create a intracommunicator between hamocc and ocean
+        CALL mpi_comm_split(global_mpi_communicator, my_color, my_global_mpi_id, &
+          tmp_common_intracom, p_error)
+          
+        IF (my_color == 0)  THEN
+          ! we will not use this communicator if not hamocc and ocean
+          CALL MPI_COMM_FREE(tmp_common_intracom, p_error)
+          hamocc_ocean_mpi_communicator = MPI_COMM_NULL 
+        ELSE
+          !------------------------------------------------
+          ! we neet to create an intercommunicator 
+          !   split again to the compoment communicators
+          CALL MPI_COMM_RANK (tmp_common_intracom, my_common_intracom_mpi_id, p_error)
+          my_color = get_my_process_type()
+          CALL mpi_comm_split(tmp_common_intracom, my_color, my_common_intracom_mpi_id, &
+            tmp_work_intracom, p_error)
+          CALL MPI_COMM_RANK (tmp_work_intracom, my_work_intracom_mpi_id, p_error)        
+        
+          ! get the my_common_intracom_mpi_id of the roots to proc 0
+          !   first get the hamocc root_buffer
+          I_am_sender = .false.
+          I_am_receiver = .false.
+          IF (my_process_is_hamocc() .AND. my_work_intracom_mpi_id == 0) THEN
+            root_buffer(1) = my_common_intracom_mpi_id
+            hamocc_root = my_common_intracom_mpi_id
+            I_am_sender = .true.
+          ENDIF
+          IF (my_common_intracom_mpi_id == 0) I_am_receiver = .true.
+          IF (I_am_receiver .and. I_am_sender) THEN
+            ! do nothing 
+            I_am_receiver = .false.
+            I_am_sender   = .false.
+          ENDIF
+          !  sent the hamocc root_buffer
+          IF (I_am_sender) THEN
+            CALL MPI_SEND(root_buffer, 1, p_int, 0, 0, tmp_common_intracom, p_error)
+          ENDIF
+          IF (I_am_receiver) THEN
+            root_buffer(1) = -1        
+            CALL MPI_RECV(root_buffer, 1, p_int, MPI_ANY_SOURCE, 0, &
+              & tmp_common_intracom, p_status, p_error)
+            hamocc_root = root_buffer(1)          
+          ENDIF        
+          
+          ! now get the ocean root_buffer
+          I_am_sender = .false.
+          I_am_receiver = .false.
+          IF (my_process_is_ocean() .AND. my_work_intracom_mpi_id == 0) THEN
+            root_buffer(1) = my_common_intracom_mpi_id
+            ocean_root = my_common_intracom_mpi_id
+            I_am_sender = .true.
+          ENDIF
+          IF (my_common_intracom_mpi_id == 0) I_am_receiver = .true.
+          IF (I_am_receiver .and. I_am_sender) THEN
+            ! do nothing 
+            I_am_receiver = .false.
+            I_am_sender   = .false.
+          ENDIF
+          ! sent the hamocc root_buffer
+          IF (I_am_sender) THEN
+            CALL MPI_SEND(root_buffer, 1, p_int, 0, 0, tmp_common_intracom, p_error)
+          ENDIF
+          IF (I_am_receiver) THEN
+            root_buffer(1) = -1        
+            CALL MPI_RECV(root_buffer, 1, p_int, MPI_ANY_SOURCE, 0, &
+              & tmp_common_intracom, p_status, p_error)
+            ocean_root = root_buffer(1)          
+          ENDIF        
+        
+          ! ok, now broadcast the ocean and hamocc roots
+          IF (my_common_intracom_mpi_id == 0) THEN
+            root_buffer(1) = ocean_root
+            root_buffer(2) = hamocc_root          
+            CALL MPI_BCAST(root_buffer, 2, p_int, 0, tmp_common_intracom, p_error)
+          ELSE
+            CALL MPI_BCAST(root_buffer, 2, p_int, 0, tmp_common_intracom, p_error)
+            ocean_root = root_buffer(1)
+            hamocc_root = root_buffer(2)
+          ENDIF
+          
+          ! now we are ready to create the intercommunicator between haomcc and ocean
+          IF (my_process_is_ocean()) THEN
+            CALL MPI_Intercomm_create(tmp_work_intracom, 0, tmp_common_intracom, &
+              & hamocc_root, 0, hamocc_ocean_mpi_communicator, p_error)
+          ELSE
+              ! this is a hamocc process
+            CALL MPI_Intercomm_create(tmp_work_intracom, 0, tmp_common_intracom, &
+                & ocean_root, 0, hamocc_ocean_mpi_communicator, p_error)
+                                    
+          ENDIF
+          
+          CALL MPI_COMM_FREE(tmp_work_intracom, p_error)
+          CALL MPI_COMM_FREE(tmp_common_intracom, p_error)
+
+          ! -- done -- 
+        ENDIF
+        
+        DEALLOCATE(root_buffer)
+       
+      ENDIF ! hamocc process exists 
+#endif
+    
+#ifdef HAVE_YAXT
+!   initialize here yaxt for all the processors
+      IF (.NOT. xt_initialized()) CALL xt_initialize(global_mpi_communicator)
+#endif
+
     ! still to be filled
 !     process_mpi_local_comm  = process_mpi_all_comm
 !     process_mpi_local_size  = process_mpi_all_size
 !     my_process_mpi_local_id = my_process_mpi_all_id
+   
 
 #ifdef DEBUG
       WRITE (nerr,'(a,a,i5)') method_name, ' p_pe=',            p_pe
@@ -2148,6 +2298,7 @@ CONTAINS
     REAL        :: rrg = 0.0
     REAL(sp)    :: rsp = 0.0_sp
     REAL(dp)    :: rdp = 0.0_dp
+    INTEGER :: version, subversion
 
     CHARACTER(len=132) :: yname
 
@@ -2340,11 +2491,7 @@ CONTAINS
 #endif
 
 
-    IF (global_mpi_size > 1) THEN
-      is_global_mpi_parallel = .TRUE.
-    ELSE
-      global_mpi_size = 1 ! just in case we got wrong size
-    ENDIF
+    is_global_mpi_parallel = global_mpi_size > 1
 
 #ifdef _OPENMP
     ! The number of threads, if varying, will be defined via
@@ -2678,12 +2825,13 @@ CONTAINS
 !=========================================================================
 
   ! send implementation
-
-  SUBROUTINE p_send_real (t_buffer, p_destination, p_tag, p_count, comm)
+  SUBROUTINE p_send_real (t_buffer, p_destination, p_tag, p_count, comm, use_g2g)
 
     REAL (dp), INTENT(in) :: t_buffer
     INTEGER,   INTENT(in) :: p_destination, p_tag
     INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+    LOGICAL, OPTIONAL, INTENT(in) :: use_g2g
+    LOGICAL :: loc_use_g2g
 #ifndef NOMPI
     INTEGER :: p_comm, icount
 
@@ -2697,17 +2845,16 @@ CONTAINS
     ELSE
       icount = 1
     END IF
+    IF (PRESENT(use_g2g)) THEN
+      loc_use_g2g = use_g2g
+    ELSE
+      loc_use_g2g = .false.
+    END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
-
+    !$ACC HOST_DATA USE_DEVICE( t_buffer ) IF ( loc_use_g2g )
     CALL mpi_send(t_buffer, icount, p_real_dp, p_destination, p_tag, &
          p_comm, p_error)
-
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
+    !$ACC END HOST_DATA
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -2724,11 +2871,13 @@ CONTAINS
 
   ! send implementation
 
-  SUBROUTINE p_send_sreal (t_buffer, p_destination, p_tag, p_count, comm)
+  SUBROUTINE p_send_sreal (t_buffer, p_destination, p_tag, p_count, comm, use_g2g)
 
     REAL (sp), INTENT(in) :: t_buffer
     INTEGER,   INTENT(in) :: p_destination, p_tag
     INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+    LOGICAL, OPTIONAL, INTENT(in) :: use_g2g
+    LOGICAL :: loc_use_g2g
 #ifndef NOMPI
     INTEGER :: p_comm, icount
 
@@ -2742,17 +2891,16 @@ CONTAINS
     ELSE
       icount = 1
     END IF
+    IF (PRESENT(use_g2g)) THEN
+      loc_use_g2g = use_g2g
+    ELSE
+      loc_use_g2g = .false.
+    END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node )
-#endif
-
+    !$ACC HOST_DATA USE_DEVICE( t_buffer ) IF ( loc_use_g2g )
     CALL mpi_send(t_buffer, icount, p_real_sp, p_destination, p_tag, &
             p_comm, p_error)
-
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
+    !$ACC END HOST_DATA
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -2781,9 +2929,6 @@ CONTAINS
       p_comm = process_mpi_all_comm
     ENDIF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     IF (PRESENT(p_count)) THEN
       icount = p_count
@@ -2794,9 +2939,6 @@ CONTAINS
     CALL mpi_send(t_buffer, icount, p_real_dp, p_destination, p_tag, &
          &        p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -2829,16 +2971,10 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node )
-#endif
 
     CALL mpi_send(t_buffer, icount, p_real_sp, p_destination, p_tag, &
          &        p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -2871,16 +3007,10 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL mpi_send(t_buffer, icount, p_real_dp, p_destination, p_tag, &
          p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -2913,16 +3043,10 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL mpi_send(t_buffer, icount, p_real_dp, p_destination, p_tag, &
          p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -2955,16 +3079,10 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL mpi_send(t_buffer, icount, p_real_dp, p_destination, p_tag, &
          p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -2997,16 +3115,10 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL mpi_send(t_buffer, icount, p_real_dp, p_destination, p_tag, &
          p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -3020,11 +3132,13 @@ CONTAINS
 
   END SUBROUTINE p_send_real_5d
 
-  SUBROUTINE p_send_int (t_buffer, p_destination, p_tag, p_count, comm)
+  SUBROUTINE p_send_int (t_buffer, p_destination, p_tag, p_count, comm, use_g2g)
 
     INTEGER, INTENT(in) :: t_buffer
     INTEGER, INTENT(in) :: p_destination, p_tag
     INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+    LOGICAL, OPTIONAL, INTENT(in) :: use_g2g
+    LOGICAL :: loc_use_g2g
 #ifndef NOMPI
     INTEGER :: p_comm, icount
 
@@ -3038,17 +3152,16 @@ CONTAINS
     ELSE
       icount = 1
     END IF
+    IF (PRESENT(use_g2g)) THEN
+      loc_use_g2g = use_g2g
+    ELSE
+      loc_use_g2g = .false.
+    END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
-
+    !$ACC HOST_DATA USE_DEVICE( t_buffer ) IF ( loc_use_g2g )
     CALL mpi_send(t_buffer, icount, p_int, p_destination, p_tag, &
          p_comm, p_error)
-
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
+    !$ACC END HOST_DATA
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -3081,16 +3194,10 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL mpi_send(t_buffer, icount, p_int, p_destination, p_tag, &
          p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -3123,16 +3230,10 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL mpi_send(t_buffer, icount, p_int, p_destination, p_tag, &
          p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -3165,16 +3266,10 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL mpi_send(t_buffer, icount, p_int, p_destination, p_tag, &
          p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -3207,16 +3302,10 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL mpi_send(t_buffer, icount, p_int, p_destination, p_tag, &
          p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -3231,11 +3320,13 @@ CONTAINS
   END SUBROUTINE p_send_int_4d
 
 
-  SUBROUTINE p_send_bool (t_buffer, p_destination, p_tag, p_count, comm)
+  SUBROUTINE p_send_bool (t_buffer, p_destination, p_tag, p_count, comm, use_g2g)
 
     LOGICAL, INTENT(in) :: t_buffer
     INTEGER, INTENT(in) :: p_destination, p_tag
     INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+    LOGICAL, OPTIONAL, INTENT(in) :: use_g2g
+    LOGICAL :: loc_use_g2g
 #ifndef NOMPI
     INTEGER :: p_comm, icount
 
@@ -3249,17 +3340,16 @@ CONTAINS
     ELSE
       icount = 1
     END IF
+    IF (PRESENT(use_g2g)) THEN
+      loc_use_g2g = use_g2g
+    ELSE
+      loc_use_g2g = .false.
+    END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
-
+    !$ACC HOST_DATA USE_DEVICE( t_buffer ) IF ( loc_use_g2g )
     CALL mpi_send(t_buffer, icount, p_bool, p_destination, p_tag, &
          p_comm, p_error)
-
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
+    !$ACC END HOST_DATA
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -3292,16 +3382,10 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL mpi_send(t_buffer, icount, p_bool, p_destination, p_tag, &
          p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -3336,17 +3420,11 @@ CONTAINS
     END IF
     icount = icount * LEN(t_buffer(1))
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
 
     CALL mpi_send(t_buffer, icount, p_char, p_destination, p_tag, &
          p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -3380,16 +3458,10 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL mpi_send(t_buffer, icount, p_bool, p_destination, p_tag, &
          p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -3422,16 +3494,10 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL mpi_send(t_buffer, icount, p_bool, p_destination, p_tag, &
          p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -3464,16 +3530,10 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL mpi_send(t_buffer, icount, p_bool, p_destination, p_tag, &
          p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -3507,16 +3567,10 @@ CONTAINS
     END IF
 
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL mpi_send(t_buffer, icount, p_char, p_destination, p_tag, &
          p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -3550,12 +3604,14 @@ CONTAINS
 
   END SUBROUTINE p_inc_request
 
-  SUBROUTINE p_isend_real (t_buffer, p_destination, p_tag, p_count, comm, request)
+  SUBROUTINE p_isend_real (t_buffer, p_destination, p_tag, p_count, comm, request, use_g2g)
 
     REAL (dp), INTENT(inout) :: t_buffer
     INTEGER,   INTENT(in) :: p_destination, p_tag
     INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
     INTEGER,   INTENT(INOUT), OPTIONAL :: request
+    LOGICAL, OPTIONAL, INTENT(in) :: use_g2g
+    LOGICAL :: loc_use_g2g
 #ifndef NOMPI
     INTEGER :: p_comm, icount, out_request
 
@@ -3569,17 +3625,16 @@ CONTAINS
     ELSE
       icount = 1
     END IF
+    IF (PRESENT(use_g2g)) THEN
+      loc_use_g2g = use_g2g
+    ELSE
+      loc_use_g2g = .false.
+    END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
-
+    !$ACC HOST_DATA USE_DEVICE( t_buffer ) IF ( loc_use_g2g )
     CALL mpi_isend(t_buffer, icount, p_real_dp, p_destination, p_tag, &
          p_comm, out_request, p_error)
-
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
+    !$ACC END HOST_DATA
 
     IF (PRESENT(request)) THEN
       request               = out_request
@@ -3601,12 +3656,14 @@ CONTAINS
   END SUBROUTINE p_isend_real
 
 
-  SUBROUTINE p_isend_sreal (t_buffer, p_destination, p_tag, p_count, comm, request)
+  SUBROUTINE p_isend_sreal (t_buffer, p_destination, p_tag, p_count, comm, request, use_g2g)
 
     REAL (sp), INTENT(inout) :: t_buffer
     INTEGER,   INTENT(in) :: p_destination, p_tag
     INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
     INTEGER,   INTENT(INOUT), OPTIONAL :: request
+    LOGICAL, OPTIONAL, INTENT(in) :: use_g2g
+    LOGICAL :: loc_use_g2g
 #ifndef NOMPI
     INTEGER :: p_comm, out_request, icount
 
@@ -3620,17 +3677,16 @@ CONTAINS
     ELSE
       icount = 1
     END IF
+    IF (PRESENT(use_g2g)) THEN
+      loc_use_g2g = use_g2g
+    ELSE
+      loc_use_g2g = .false.
+    END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node )
-#endif
-
+    !$ACC HOST_DATA USE_DEVICE( t_buffer ) IF ( loc_use_g2g )
     CALL mpi_isend(t_buffer, icount, p_real_sp, p_destination, p_tag, &
          &         p_comm, out_request, p_error)
-
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
+    !$ACC END HOST_DATA
 
     IF (PRESENT(request)) THEN
       request               = out_request
@@ -3672,16 +3728,10 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL mpi_isend(t_buffer, icount, p_real_dp, p_destination, p_tag, &
          &         p_comm, out_request, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
     IF (PRESENT(request)) THEN
       request               = out_request
@@ -3723,16 +3773,10 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL mpi_isend(t_buffer, icount, p_real_sp, p_destination, p_tag, &
       &            p_comm, out_request, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
     IF (PRESENT(request)) THEN
       request               = out_request
@@ -3774,17 +3818,11 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL p_inc_request
     CALL mpi_isend(t_buffer, icount, p_real_dp, p_destination, p_tag, &
             p_comm, p_request(p_irequest), p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -3819,17 +3857,11 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node )
-#endif
 
     CALL p_inc_request
     CALL mpi_isend(t_buffer, icount, p_real_sp, p_destination, p_tag, &
          &         p_comm, p_request(p_irequest), p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -3864,17 +3896,11 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL p_inc_request
     CALL mpi_isend(t_buffer, icount, p_real_dp, p_destination, p_tag, &
          &         p_comm, p_request(p_irequest), p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -3908,17 +3934,11 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL p_inc_request
     CALL mpi_isend(t_buffer, icount, p_real_dp, p_destination, p_tag, &
          &         p_comm, p_request(p_irequest), p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -3952,17 +3972,11 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL p_inc_request
     CALL mpi_isend(t_buffer, icount, p_real_dp, p_destination, p_tag, &
          &         p_comm, p_request(p_irequest), p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -3976,12 +3990,14 @@ CONTAINS
 
   END SUBROUTINE p_isend_real_5d
 
-  SUBROUTINE p_isend_int(t_buffer, p_destination, p_tag, p_count, comm, request)
+  SUBROUTINE p_isend_int(t_buffer, p_destination, p_tag, p_count, comm, request, use_g2g)
 
     INTEGER, INTENT(in) :: t_buffer
     INTEGER, INTENT(in) :: p_destination, p_tag
     INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
     INTEGER,   INTENT(INOUT), OPTIONAL :: request
+    LOGICAL, OPTIONAL, INTENT(in) :: use_g2g
+    LOGICAL :: loc_use_g2g
 
 #ifndef NOMPI
     INTEGER :: p_comm, out_request, icount
@@ -3996,17 +4012,16 @@ CONTAINS
     ELSE
       icount = 1
     END IF
+    IF (PRESENT(use_g2g)) THEN
+      loc_use_g2g = use_g2g
+    ELSE
+      loc_use_g2g = .false.
+    END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
-
+    !$ACC HOST_DATA USE_DEVICE( t_buffer ) IF ( loc_use_g2g )
     CALL mpi_isend(t_buffer, icount, p_int, p_destination, p_tag, &
          &         p_comm, out_request, p_error)
-
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
+    !$ACC END HOST_DATA
 
     IF (PRESENT(request)) THEN
       request               = out_request
@@ -4048,16 +4063,10 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL mpi_isend(t_buffer, icount, p_int, p_destination, p_tag, &
          &         p_comm, out_request, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
     IF (PRESENT(request)) THEN
       request               = out_request
@@ -4098,17 +4107,11 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL p_inc_request
     CALL mpi_isend(t_buffer, icount, p_int, p_destination, p_tag, &
          &         p_comm, p_request(p_irequest), p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -4141,17 +4144,11 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL p_inc_request
     CALL mpi_isend(t_buffer, icount, p_int, p_destination, p_tag, &
          p_comm, p_request(p_irequest), p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -4185,17 +4182,11 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL p_inc_request
     CALL mpi_isend(t_buffer, icount, p_int, p_destination, p_tag, &
          p_comm, p_request(p_irequest), p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -4210,11 +4201,13 @@ CONTAINS
   END SUBROUTINE p_isend_int_4d
 
 
-  SUBROUTINE p_isend_bool (t_buffer, p_destination, p_tag, p_count, comm)
+  SUBROUTINE p_isend_bool (t_buffer, p_destination, p_tag, p_count, comm, use_g2g)
 
     LOGICAL, INTENT(inout) :: t_buffer
     INTEGER, INTENT(in) :: p_destination, p_tag
     INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+    LOGICAL, OPTIONAL, INTENT(in) :: use_g2g
+    LOGICAL :: loc_use_g2g
 
 #ifndef NOMPI
     INTEGER :: p_comm, icount
@@ -4229,18 +4222,17 @@ CONTAINS
     ELSE
       icount = 1
     END IF
+    IF (PRESENT(use_g2g)) THEN
+      loc_use_g2g = use_g2g
+    ELSE
+      loc_use_g2g = .false.
+    END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
-
+    !$ACC HOST_DATA USE_DEVICE( t_buffer ) IF ( loc_use_g2g )
     CALL p_inc_request
     CALL mpi_isend(t_buffer, icount, p_bool, p_destination, p_tag, &
          &         p_comm, p_request(p_irequest), p_error)
-
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
+    !$ACC END HOST_DATA
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -4274,17 +4266,11 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL p_inc_request
     CALL mpi_isend(t_buffer, icount, p_bool, p_destination, p_tag, &
          p_comm, p_request(p_irequest), p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -4318,17 +4304,11 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL p_inc_request
     CALL mpi_isend(t_buffer, icount, p_bool, p_destination, p_tag, &
          &         p_comm, p_request(p_irequest), p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -4362,17 +4342,11 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL p_inc_request
     CALL mpi_isend(t_buffer, icount, p_bool, p_destination, p_tag, &
          &         p_comm, p_request(p_irequest), p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -4406,17 +4380,11 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL p_inc_request
     CALL mpi_isend(t_buffer, icount, p_bool, p_destination, p_tag, &
          &         p_comm, p_request(p_irequest), p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -4450,17 +4418,11 @@ CONTAINS
       icount = LEN(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL p_inc_request
     CALL mpi_isend(t_buffer, icount, p_char, p_destination, p_tag, &
          &         p_comm, p_request(p_irequest), p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -4476,11 +4438,13 @@ CONTAINS
 
   ! recv implementation
 
-  SUBROUTINE p_recv_real (t_buffer, p_source, p_tag, p_count, comm)
+  SUBROUTINE p_recv_real (t_buffer, p_source, p_tag, p_count, comm, use_g2g)
 
     REAL (dp), INTENT(out) :: t_buffer
     INTEGER,   INTENT(in)  :: p_source, p_tag
     INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+    LOGICAL, OPTIONAL, INTENT(in) :: use_g2g
+    LOGICAL :: loc_use_g2g
 #ifndef NOMPI
     INTEGER :: p_comm, icount
 
@@ -4494,17 +4458,16 @@ CONTAINS
     ELSE
       icount = 1
     END IF
+    IF (PRESENT(use_g2g)) THEN
+      loc_use_g2g = use_g2g
+    ELSE
+      loc_use_g2g = .false.
+    END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
-
+    !$ACC HOST_DATA USE_DEVICE( t_buffer ) IF ( loc_use_g2g )
     CALL mpi_recv(t_buffer, icount, p_real_dp, p_source, p_tag, &
          p_comm, p_status, p_error)
-
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
+    !$ACC END HOST_DATA
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -4520,11 +4483,13 @@ CONTAINS
 
   ! recv implementation
 
-  SUBROUTINE p_recv_sreal (t_buffer, p_source, p_tag, p_count, comm)
+  SUBROUTINE p_recv_sreal (t_buffer, p_source, p_tag, p_count, comm, use_g2g)
 
     REAL (sp), INTENT(out) :: t_buffer
     INTEGER,   INTENT(in)  :: p_source, p_tag
     INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+    LOGICAL, OPTIONAL, INTENT(in) :: use_g2g
+    LOGICAL :: loc_use_g2g
 #ifndef NOMPI
     INTEGER :: p_comm, icount
 
@@ -4538,17 +4503,16 @@ CONTAINS
     ELSE
       icount = 1
     END IF
+    IF (PRESENT(use_g2g)) THEN
+      loc_use_g2g = use_g2g
+    ELSE
+      loc_use_g2g = .false.
+    END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node )
-#endif
-
+    !$ACC HOST_DATA USE_DEVICE( t_buffer ) IF ( loc_use_g2g )
     CALL mpi_recv(t_buffer, icount, p_real_sp, p_source, p_tag, &
             p_comm, p_status, p_error)
-
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
+    !$ACC END HOST_DATA
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -4561,6 +4525,51 @@ CONTAINS
 #endif
 
   END SUBROUTINE p_recv_sreal
+
+  SUBROUTINE p_isend_char_1d(t_buffer, p_destination, p_tag, p_count, comm)
+    CHARACTER(len=*),  INTENT(inout) :: t_buffer(:)
+    INTEGER,           INTENT(in) :: p_destination, p_tag
+    INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+
+#ifndef NOMPI
+    INTEGER :: p_comm, icount
+
+    IF (PRESENT(comm)) THEN
+      p_comm = comm
+    ELSE
+      p_comm = process_mpi_all_comm
+    ENDIF
+    IF (PRESENT(p_count)) THEN
+      icount = p_count
+    ELSE
+      icount = SIZE(t_buffer)
+    END IF
+    IF (icount > 0) icount = icount * LEN(t_buffer(1))
+
+#ifdef __USE_G2G
+!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+#endif
+
+    CALL p_inc_request
+    CALL mpi_isend(t_buffer, icount, p_char, p_destination, p_tag, &
+         p_comm, p_request(p_irequest), p_error)
+
+#ifdef __USE_G2G
+!$ACC END HOST_DATA
+!$ACC END DATA
+#endif
+
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_ISEND from ', my_process_mpi_all_id, &
+            ' to ', p_destination, ' for tag ', p_tag, ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL abort_mpi
+    END IF
+#endif
+#endif
+  END SUBROUTINE p_isend_char_1d
 
   SUBROUTINE p_recv_real_1d (t_buffer, p_source, p_tag, p_count, comm, displs)
 
@@ -4582,16 +4591,10 @@ CONTAINS
     idispls = 1
     IF (PRESENT(displs)) idispls = displs
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL mpi_recv(t_buffer(idispls), icount, p_real_dp, p_source, p_tag, &
       &           p_comm, p_status, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -4629,16 +4632,10 @@ CONTAINS
       idispls = 1
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node )
-#endif
 
     CALL mpi_recv(t_buffer(idispls), icount, p_real_sp, p_source, p_tag, &
          &        p_comm, p_status, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -4671,16 +4668,10 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL mpi_recv(t_buffer, icount, p_real_dp, p_source, p_tag, &
       &           p_comm, p_status, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -4713,16 +4704,10 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL mpi_recv(t_buffer, icount, p_real_dp, p_source, p_tag, &
       &           p_comm, p_status, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -4755,16 +4740,10 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL mpi_recv(t_buffer, icount, p_real_dp, p_source, p_tag, &
       &           p_comm, p_status, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -4797,16 +4776,10 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL mpi_recv(t_buffer, icount, p_real_dp, p_source, p_tag, &
       &           p_comm, p_status, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -4820,11 +4793,13 @@ CONTAINS
 
   END SUBROUTINE p_recv_real_5d
 
-  SUBROUTINE p_recv_int (t_buffer, p_source, p_tag, p_count, comm)
+  SUBROUTINE p_recv_int (t_buffer, p_source, p_tag, p_count, comm, use_g2g)
 
     INTEGER, INTENT(out) :: t_buffer
     INTEGER, INTENT(in)  :: p_source, p_tag
     INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+    LOGICAL, OPTIONAL, INTENT(in) :: use_g2g
+    LOGICAL :: loc_use_g2g
 #ifndef NOMPI
     INTEGER :: p_comm, icount
 
@@ -4838,17 +4813,16 @@ CONTAINS
     ELSE
       icount = 1
     END IF
+    IF (PRESENT(use_g2g)) THEN
+      loc_use_g2g = use_g2g
+    ELSE
+      loc_use_g2g = .false.
+    END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
-
+    !$ACC HOST_DATA USE_DEVICE( t_buffer ) IF ( loc_use_g2g )
     CALL mpi_recv(t_buffer, icount, p_int, p_source, p_tag, &
       &           p_comm, p_status, p_error)
-
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
+    !$ACC END HOST_DATA
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -4881,16 +4855,10 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL mpi_recv(t_buffer, icount, p_int, p_source, p_tag, &
       &           p_comm, p_status, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -4923,16 +4891,10 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL mpi_recv(t_buffer, icount, p_int, p_source, p_tag, &
       &           p_comm, p_status, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -4965,16 +4927,10 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL mpi_recv(t_buffer, icount, p_int, p_source, p_tag, &
       &           p_comm, p_status, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -5007,16 +4963,10 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL mpi_recv(t_buffer, icount, p_int, p_source, p_tag, &
       &           p_comm, p_status, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -5031,11 +4981,13 @@ CONTAINS
   END SUBROUTINE p_recv_int_4d
 
 
-  SUBROUTINE p_recv_bool (t_buffer, p_source, p_tag, p_count, comm)
+  SUBROUTINE p_recv_bool (t_buffer, p_source, p_tag, p_count, comm, use_g2g)
 
     LOGICAL, INTENT(out) :: t_buffer
     INTEGER, INTENT(in)  :: p_source, p_tag
     INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+    LOGICAL, OPTIONAL, INTENT(in) :: use_g2g
+    LOGICAL :: loc_use_g2g
 #ifndef NOMPI
     INTEGER :: p_comm, icount
 
@@ -5049,17 +5001,16 @@ CONTAINS
     ELSE
       icount = 1
     END IF
+    IF (PRESENT(use_g2g)) THEN
+      loc_use_g2g = use_g2g
+    ELSE
+      loc_use_g2g = .false.
+    END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
-
+    !$ACC HOST_DATA USE_DEVICE( t_buffer ) IF ( loc_use_g2g )
     CALL mpi_recv(t_buffer, icount, p_bool, p_source, p_tag, &
             p_comm, p_status, p_error)
-
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
+    !$ACC END HOST_DATA
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -5092,16 +5043,10 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL mpi_recv(t_buffer, icount, p_bool, p_source, p_tag, &
          p_comm, p_status, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -5136,16 +5081,10 @@ CONTAINS
     END IF
     icount = icount * LEN(t_buffer(1))
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL mpi_recv(t_buffer, icount, p_char, p_source, p_tag, &
          p_comm, p_status, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -5179,16 +5118,10 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL mpi_recv(t_buffer, icount, p_bool, p_source, p_tag, &
          p_comm, p_status, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -5221,16 +5154,10 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL mpi_recv(t_buffer, icount, p_bool, p_source, p_tag, &
       &           p_comm, p_status, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -5263,16 +5190,10 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL mpi_recv(t_buffer, icount, p_bool, p_source, p_tag, &
          p_comm, p_status, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -5309,16 +5230,10 @@ CONTAINS
     END IF
 
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL mpi_recv(t_buffer, icount, p_char, p_source, p_tag, &
          p_comm, p_status, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
@@ -5349,22 +5264,13 @@ CONTAINS
     IF (PRESENT(p_count)) THEN
       icount = p_count
     ELSE
-      ! FIXME: this should probably be LEN(t_buffer) instead of 1 as
-      ! in p_recv_char
-      icount = 1
+      icount = LEN(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL p_inc_request
     CALL mpi_irecv(t_buffer, icount, p_char, p_source, p_tag, &
          p_comm, p_request(p_irequest), p_error)
-
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -5377,14 +5283,69 @@ CONTAINS
 #endif
 
   END SUBROUTINE p_irecv_char
+
+  SUBROUTINE p_irecv_char_1d(t_buffer, p_source, p_tag, p_count, comm, request)
+    CHARACTER(len=*), INTENT(inout) :: t_buffer(:)
+    INTEGER,   INTENT(in) :: p_source, p_tag
+    INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+    INTEGER, OPTIONAL, INTENT(out) :: request
+#ifndef NOMPI
+    INTEGER :: p_comm, icount, out_request
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+    IF (PRESENT(p_count)) THEN
+      icount = p_count
+    ELSE
+      icount = SIZE(t_buffer)
+    END IF
+    IF (icount > 0) icount = icount * LEN(t_buffer(1))
+
+#ifdef __USE_G2G
+!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+#endif
+
+    CALL mpi_irecv(t_buffer, icount, p_char, p_source, p_tag, &
+         p_comm, out_request, p_error)
+
+#ifdef __USE_G2G
+!$ACC END HOST_DATA
+!$ACC END DATA
+#endif
+
+    IF (PRESENT(request)) THEN
+      request               = out_request
+    ELSE
+      CALL p_inc_request
+      p_request(p_irequest) = out_request
+    END IF
+
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_IRECV on ', my_process_mpi_all_id, &
+            ' from ', p_source, ' for tag ', p_tag, ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL abort_mpi
+    END IF
+#endif
+#endif
+  END SUBROUTINE p_irecv_char_1d
+
   !================================================================================================
   ! REAL SECTION ----------------------------------------------------------------------------------
   !
-  SUBROUTINE p_irecv_real (t_buffer, p_source, p_tag, p_count, comm)
+  SUBROUTINE p_irecv_real (t_buffer, p_source, p_tag, p_count, comm, use_g2g)
 
     REAL(dp),  INTENT(inout) :: t_buffer
     INTEGER,   INTENT(in) :: p_source, p_tag
     INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+    LOGICAL, OPTIONAL, INTENT(in) :: use_g2g
+    LOGICAL :: loc_use_g2g
 #ifndef NOMPI
     INTEGER :: p_comm, icount
 
@@ -5398,18 +5359,17 @@ CONTAINS
     ELSE
       icount = 1
     END IF
+    IF (PRESENT(use_g2g)) THEN
+      loc_use_g2g = use_g2g
+    ELSE
+      loc_use_g2g = .false.
+    END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
-
+    !$ACC HOST_DATA USE_DEVICE( t_buffer ) IF ( loc_use_g2g )
     CALL p_inc_request
     CALL mpi_irecv(t_buffer, icount, p_real_dp, p_source, p_tag, &
          p_comm, p_request(p_irequest), p_error)
-
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
+    !$ACC END HOST_DATA
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -5424,11 +5384,13 @@ CONTAINS
   END SUBROUTINE p_irecv_real
 
 
-  SUBROUTINE p_irecv_sreal (t_buffer, p_source, p_tag, p_count, comm)
+  SUBROUTINE p_irecv_sreal (t_buffer, p_source, p_tag, p_count, comm, use_g2g)
 
     REAL(sp),  INTENT(inout) :: t_buffer
     INTEGER,   INTENT(in) :: p_source, p_tag
     INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+    LOGICAL, OPTIONAL, INTENT(in) :: use_g2g
+    LOGICAL :: loc_use_g2g
 #ifndef NOMPI
     INTEGER :: p_comm, icount
 
@@ -5442,18 +5404,17 @@ CONTAINS
     ELSE
       icount = 1
     END IF
+    IF (PRESENT(use_g2g)) THEN
+      loc_use_g2g = use_g2g
+    ELSE
+      loc_use_g2g = .false.
+    END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node )
-#endif
-
+    !$ACC HOST_DATA USE_DEVICE( t_buffer ) IF ( loc_use_g2g )
     CALL p_inc_request
     CALL MPI_IRECV(t_buffer, icount, p_real_sp, p_source, p_tag, &
          p_comm, p_request(p_irequest), p_error)
-
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
+    !$ACC END HOST_DATA
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -5487,17 +5448,11 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL p_inc_request
     CALL mpi_irecv(t_buffer, icount, p_real_dp, p_source, p_tag, &
          p_comm, p_request(p_irequest), p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -5531,17 +5486,11 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL p_inc_request
     CALL mpi_irecv(t_buffer, icount, p_real_sp, p_source, p_tag, &
          p_comm, p_request(p_irequest), p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -5576,17 +5525,11 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL p_inc_request
     CALL mpi_irecv(t_buffer, icount, p_real_dp, p_source, p_tag, &
          p_comm, p_request(p_irequest), p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -5621,17 +5564,11 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node )
-#endif
 
     CALL p_inc_request
     CALL mpi_irecv(t_buffer, icount, p_real_sp, p_source, p_tag, &
          p_comm, p_request(p_irequest), p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -5666,17 +5603,11 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL p_inc_request
     CALL mpi_irecv(t_buffer, icount, p_real_dp, p_source, p_tag, &
          p_comm, p_request(p_irequest), p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -5710,17 +5641,11 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL p_inc_request
     CALL mpi_irecv(t_buffer, icount, p_real_dp, p_source, p_tag, &
          p_comm, p_request(p_irequest), p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -5736,12 +5661,14 @@ CONTAINS
   !================================================================================================
   ! INTEGER SECTION -------------------------------------------------------------------------------
   !
-  SUBROUTINE p_irecv_int (t_buffer, p_source, p_tag, p_count, comm, request)
+  SUBROUTINE p_irecv_int (t_buffer, p_source, p_tag, p_count, comm, request, use_g2g)
 
     INTEGER, INTENT(inout) :: t_buffer
     INTEGER,   INTENT(in) :: p_source, p_tag
     INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
     INTEGER, OPTIONAL, INTENT(INOUT) :: request
+    LOGICAL, OPTIONAL, INTENT(in) :: use_g2g
+    LOGICAL :: loc_use_g2g
 #ifndef NOMPI
     INTEGER :: p_comm, icount, out_request
 
@@ -5755,13 +5682,16 @@ CONTAINS
     ELSE
       icount = 1
     END IF
+    IF (PRESENT(use_g2g)) THEN
+      loc_use_g2g = use_g2g
+    ELSE
+      loc_use_g2g = .false.
+    END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
-
+    !$ACC HOST_DATA USE_DEVICE( t_buffer ) IF ( loc_use_g2g )
     CALL mpi_irecv(t_buffer, icount, p_int, p_source, p_tag, &
          p_comm, out_request, p_error)
+    !$ACC END HOST_DATA
 
     IF (PRESENT(request)) THEN
       request               = out_request
@@ -5769,10 +5699,6 @@ CONTAINS
       CALL p_inc_request
       p_request(p_irequest) = out_request
     END IF
-
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -5786,13 +5712,15 @@ CONTAINS
 
   END SUBROUTINE p_irecv_int
 
-  SUBROUTINE p_irecv_int_1d (t_buffer, p_source, p_tag, p_count, comm)
+  SUBROUTINE p_irecv_int_1d(t_buffer, p_source, p_tag, p_count, comm, &
+    &                       request)
 
     INTEGER, INTENT(inout) :: t_buffer(:)
     INTEGER,   INTENT(in) :: p_source, p_tag
     INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+    INTEGER, OPTIONAL, INTENT(out) :: request
 #ifndef NOMPI
-    INTEGER :: p_comm, icount
+    INTEGER :: p_comm, icount, out_request
 
     IF (PRESENT(comm)) THEN
       p_comm = comm
@@ -5805,17 +5733,16 @@ CONTAINS
       icount = SIZE(t_buffer)
     ENDIF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
-    CALL p_inc_request
     CALL mpi_irecv(t_buffer, icount, p_int, p_source, p_tag, &
-         p_comm, p_request(p_irequest), p_error)
+         p_comm, out_request, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
+    IF (PRESENT(request)) THEN
+      request               = out_request
+    ELSE
+      CALL p_inc_request
+      p_request(p_irequest) = out_request
+    END IF
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -5849,17 +5776,11 @@ CONTAINS
       icount = SIZE(t_buffer)
     ENDIF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL p_inc_request
     CALL mpi_irecv(t_buffer, icount, p_int, p_source, p_tag, &
          p_comm, p_request(p_irequest), p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -5893,17 +5814,11 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL p_inc_request
     CALL mpi_irecv(t_buffer, icount, p_int, p_source, p_tag, &
          p_comm, p_request(p_irequest), p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -5937,17 +5852,11 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL p_inc_request
     CALL mpi_irecv(t_buffer, icount, p_int, p_source, p_tag, &
          p_comm, p_request(p_irequest), p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -5964,11 +5873,13 @@ CONTAINS
   !================================================================================================
   ! LOGICAL SECTION -------------------------------------------------------------------------------
   !
-  SUBROUTINE p_irecv_bool (t_buffer, p_source, p_tag, p_count, comm)
+  SUBROUTINE p_irecv_bool (t_buffer, p_source, p_tag, p_count, comm, use_g2g)
 
     LOGICAL, INTENT(inout) :: t_buffer
     INTEGER,   INTENT(in) :: p_source, p_tag
     INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+    LOGICAL, OPTIONAL, INTENT(in) :: use_g2g
+    LOGICAL :: loc_use_g2g
 #ifndef NOMPI
     INTEGER :: p_comm, icount
 
@@ -5982,18 +5893,17 @@ CONTAINS
     ELSE
       icount = 1
     END IF
+    IF (PRESENT(use_g2g)) THEN
+      loc_use_g2g = use_g2g
+    ELSE
+      loc_use_g2g = .false.
+    END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
-
+    !$ACC HOST_DATA USE_DEVICE( t_buffer ) IF ( loc_use_g2g )
     CALL p_inc_request
     CALL mpi_irecv(t_buffer, icount, p_bool, p_source, p_tag, &
          p_comm, p_request(p_irequest), p_error)
-
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
+    !$ACC END HOST_DATA
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -6026,17 +5936,11 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL p_inc_request
     CALL mpi_irecv(t_buffer, icount, p_bool, p_source, p_tag, &
          p_comm, p_request(p_irequest), p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -6070,17 +5974,11 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL p_inc_request
     CALL mpi_irecv(t_buffer, icount, p_bool, p_source, p_tag, &
          p_comm, p_request(p_irequest), p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -6114,17 +6012,11 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL p_inc_request
     CALL mpi_irecv(t_buffer, icount, p_bool, p_source, p_tag, &
          p_comm, p_request(p_irequest), p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -6158,17 +6050,11 @@ CONTAINS
       icount = SIZE(t_buffer)
     END IF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL p_inc_request
     CALL mpi_irecv(t_buffer, icount, p_bool, p_source, p_tag, &
          p_comm, p_request(p_irequest), p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -6221,7 +6107,7 @@ CONTAINS
 
     CALL MPI_PACK(t_var, 1, p_bool, t_buffer, SIZE(t_buffer), p_pos, p_comm, p_error)
 #ifdef DEBUG
-    IF (p_error /= MPI_SUCCESS) CALL finish ("p_pack_int", 'MPI call failed')
+    IF (p_error /= MPI_SUCCESS) CALL finish ("p_pack_bool", 'MPI call failed')
 #endif
 #endif
   END SUBROUTINE p_pack_bool
@@ -6345,6 +6231,65 @@ CONTAINS
 #endif
 #endif
   END SUBROUTINE p_pack_real_2d
+
+  FUNCTION p_pack_size_int(p_count, comm) RESULT(pack_size)
+    INTEGER, INTENT(in) :: p_count, comm
+    INTEGER :: pack_size
+#ifndef NOMPI
+    CALL mpi_pack_size(p_count, p_int, comm, pack_size, p_error)
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) CALL finish("p_pack_size_int", 'MPI call failed')
+#endif
+#else
+    ! packing is only supported when mpi is available
+    pack_size = -1
+#endif
+  END FUNCTION p_pack_size_int
+
+  FUNCTION p_pack_size_bool(p_count, comm) result(pack_size)
+    INTEGER, INTENT(in) :: p_count, comm
+    INTEGER :: pack_size
+#ifndef NOMPI
+    CALL mpi_pack_size(p_count, p_bool, comm, pack_size, p_error)
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) CALL finish("p_pack_size_bool", 'MPI call failed')
+#endif
+#else
+    ! packing is only supported when mpi is available
+    pack_size = -1
+#endif
+  END FUNCTION p_pack_size_bool
+
+  FUNCTION p_pack_size_real_dp(p_count, comm) RESULT(pack_size)
+    INTEGER, INTENT(in) :: p_count, comm
+    INTEGER :: pack_size
+#ifndef NOMPI
+    CALL mpi_pack_size(p_count, p_real_dp, comm, pack_size, p_error)
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) CALL finish("p_pack_size_int", 'MPI call failed')
+#endif
+#else
+    ! packing is only supported when mpi is available
+    pack_size = -1
+#endif
+  END FUNCTION p_pack_size_real_dp
+
+  FUNCTION p_pack_size_string(maxlen, comm) RESULT(pack_size)
+    INTEGER, INTENT(in) :: maxlen, comm
+    INTEGER :: pack_size, pack_size_int
+#ifndef NOMPI
+    CALL mpi_pack_size(1, p_int, comm, pack_size_int, p_error)
+    IF (p_error == MPI_SUCCESS) &
+         CALL mpi_pack_size(maxlen, p_char, comm, pack_size, p_error)
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) CALL finish("p_pack_size_string", 'MPI call failed')
+#endif
+    pack_size = pack_size + pack_size_int
+#else
+    ! packing is only supported when mpi is available
+    pack_size = -1
+#endif
+  END FUNCTION p_pack_size_string
 
   SUBROUTINE p_unpack_int (t_buffer, p_pos, t_var, comm)
 
@@ -6540,14 +6485,16 @@ CONTAINS
 
   END SUBROUTINE p_recv_packed
 
-  SUBROUTINE p_irecv_packed (t_buffer, p_source, p_tag, p_count, comm)
+  SUBROUTINE p_irecv_packed (t_buffer, p_source, p_tag, p_count, comm, &
+       request)
 
     CHARACTER, INTENT(INOUT) :: t_buffer(:)
     INTEGER,   INTENT(IN)    :: p_source, p_tag
     INTEGER,   INTENT(IN)    :: p_count
     INTEGER, OPTIONAL, INTENT(IN) :: comm
+    INTEGER, OPTIONAL, INTENT(out) :: request
 #ifndef NOMPI
-    INTEGER :: p_comm
+    INTEGER :: p_comm, out_request
 
     IF (PRESENT(comm)) THEN
        p_comm = comm
@@ -6555,9 +6502,15 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    CALL p_inc_request
     CALL MPI_IRECV (t_buffer, p_count, MPI_PACKED, p_source, p_tag, &
-      p_comm, p_request(p_irequest), p_error)
+      p_comm, out_request, p_error)
+
+    IF (PRESENT(request)) THEN
+      request               = out_request
+    ELSE
+      CALL p_inc_request
+      p_request(p_irequest) = out_request
+    END IF
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -6600,8 +6553,39 @@ CONTAINS
 
   END SUBROUTINE p_send_packed
 
+  SUBROUTINE p_send_packed_2d(t_buffer, p_destination, p_tag, p_count, comm)
+
+    CHARACTER, INTENT(in) :: t_buffer(:,:)
+    INTEGER,   INTENT(in) :: p_destination, p_tag
+    INTEGER,   INTENT(in) :: p_count
+    INTEGER, OPTIONAL, INTENT(in) :: comm
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+    CALL MPI_SEND (t_buffer, p_count, MPI_PACKED, p_destination, p_tag, &
+      p_comm, p_error)
+
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_SEND from ', my_process_mpi_all_id, &
+            ' to ', p_destination, ' for tag ', p_tag, ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL abort_mpi
+    END IF
+#endif
+#endif
+
+  END SUBROUTINE p_send_packed_2d
+
   SUBROUTINE p_bcast_packed (t_buffer, p_source, p_count, comm)
-    CHARACTER, INTENT(inout) :: t_buffer(:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    CHARACTER :: t_buffer(:)
     INTEGER,   INTENT(in)    :: p_source
     INTEGER,   INTENT(in)    :: p_count
     INTEGER, OPTIONAL, INTENT(in) :: comm
@@ -6656,17 +6640,11 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( sendbuf, recvbuf ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL MPI_SENDRECV (sendbuf, SIZE(sendbuf), p_real_dp, p_dest,   p_tag, &
                         recvbuf, SIZE(recvbuf), p_real_dp, p_source, p_tag, &
                         p_comm, p_status, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -6699,17 +6677,11 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( sendbuf, recvbuf ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL MPI_SENDRECV (sendbuf, SIZE(sendbuf), p_real_dp, p_dest,   p_tag, &
                         recvbuf, SIZE(recvbuf), p_real_dp, p_source, p_tag, &
                         p_comm, p_status, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -6742,17 +6714,11 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( sendbuf, recvbuf ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL MPI_SENDRECV (sendbuf, SIZE(sendbuf), p_real_dp, p_dest,   p_tag, &
                         recvbuf, SIZE(recvbuf), p_real_dp, p_source, p_tag, &
                         p_comm, p_status, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -6785,17 +6751,11 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( sendbuf, recvbuf ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL MPI_SENDRECV (sendbuf, SIZE(sendbuf), p_real_dp, p_dest,   p_tag, &
                         recvbuf, SIZE(recvbuf), p_real_dp, p_source, p_tag, &
                         p_comm, p_status, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -6812,7 +6772,7 @@ CONTAINS
   SUBROUTINE p_sendrecv_char_array (sendbuf, p_dest, recvbuf, p_source, p_tag, comm)
     CHARACTER(KIND = C_CHAR), INTENT(in) :: sendbuf (:)
     CHARACTER(KIND = C_CHAR), INTENT(out) :: recvbuf (:)
-    INTEGER, INTENT(IN) :: p_dest, p_source, p_tag
+    INTEGER, VALUE :: p_dest, p_source, p_tag
     INTEGER, INTENT(in), OPTIONAL :: comm
 
 #ifndef NOMPI
@@ -6824,17 +6784,11 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( sendbuf, recvbuf ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
     CALL MPI_Sendrecv(sendbuf(1), SIZE(sendbuf, 1), MPI_CHARACTER, p_dest,   p_tag, &
     &                 recvbuf(1), SIZE(recvbuf, 1), MPI_CHARACTER, p_source, p_tag, &
     &                 p_comm, p_status, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -6851,8 +6805,9 @@ CONTAINS
   ! bcast implementation
 
   SUBROUTINE p_bcast_real (t_buffer, p_source, comm)
-
-    REAL (dp), INTENT(inout) :: t_buffer
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    REAL(dp) :: t_buffer
     INTEGER,   INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 #ifndef NOMPI
@@ -6872,16 +6827,10 @@ CONTAINS
        RETURN
     ELSE
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
        CALL MPI_BCAST (t_buffer, 1, p_real_dp, p_source, &
             p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
     ENDIF
 
@@ -6904,8 +6853,9 @@ CONTAINS
   !> wrapper for MPI_Bcast
   !---------------------------------------------------------------------------------------------------------------------------------
   SUBROUTINE p_bcast_real_single (t_buffer, p_source, comm)
-
-    REAL (sp), INTENT(inout) :: t_buffer
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    REAL(sp) :: t_buffer
     INTEGER,   INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 #ifndef NOMPI
@@ -6925,16 +6875,10 @@ CONTAINS
        RETURN
     ELSE
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
        CALL MPI_BCAST (t_buffer, 1, p_real_sp, p_source, &
             p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
     ENDIF
 
@@ -6954,8 +6898,9 @@ CONTAINS
   END SUBROUTINE p_bcast_real_single
 
   SUBROUTINE p_bcast_real_1d (t_buffer, p_source, comm)
-
-    REAL (dp), INTENT(inout) :: t_buffer(:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    REAL(dp) :: t_buffer(:)
     INTEGER,   INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 #ifndef NOMPI
@@ -6975,16 +6920,10 @@ CONTAINS
        RETURN
     ELSE
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_real_dp, p_source, &
             p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
     ENDIF
 
@@ -7007,8 +6946,9 @@ CONTAINS
   !> wrapper for MPI_Bcast
   !---------------------------------------------------------------------------------------------------------------------------------
   SUBROUTINE p_bcast_real_1d_single (t_buffer, p_source, comm)
-
-    REAL (sp), INTENT(inout) :: t_buffer(:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    REAL(sp) :: t_buffer(:)
     INTEGER,   INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 #ifndef NOMPI
@@ -7028,16 +6968,10 @@ CONTAINS
        RETURN
     ELSE
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_real_sp, p_source, &
             p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
     ENDIF
 
@@ -7057,8 +6991,9 @@ CONTAINS
   END SUBROUTINE p_bcast_real_1d_single
 
   SUBROUTINE p_bcast_real_2d (t_buffer, p_source, comm)
-
-    REAL (dp), INTENT(inout) :: t_buffer(:,:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    REAL(dp) :: t_buffer(:,:)
     INTEGER,   INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7079,16 +7014,10 @@ CONTAINS
        RETURN
     ELSE
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_real_dp, p_source, &
             p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
     ENDIF
 
@@ -7109,8 +7038,9 @@ CONTAINS
 
 
   SUBROUTINE p_bcast_real_2d_single (t_buffer, p_source, comm)
-
-    REAL (sp), INTENT(inout) :: t_buffer(:,:) ! SINGLE PRECISION
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    REAL(sp) :: t_buffer(:,:) ! SINGLE PRECISION
     INTEGER,   INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7131,16 +7061,10 @@ CONTAINS
        RETURN
     ELSE
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_real_sp, p_source, &
             p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
     ENDIF
 
@@ -7161,8 +7085,9 @@ CONTAINS
 
 
   SUBROUTINE p_bcast_real_3d (t_buffer, p_source, comm)
-
-    REAL (dp), INTENT(inout) :: t_buffer(:,:,:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    REAL (dp) :: t_buffer(:,:,:)
     INTEGER,   INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7183,16 +7108,10 @@ CONTAINS
        RETURN
     ELSE
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_real_dp, p_source, &
             p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
     ENDIF
 
@@ -7212,8 +7131,9 @@ CONTAINS
   END SUBROUTINE p_bcast_real_3d
 
   SUBROUTINE p_bcast_real_4d (t_buffer, p_source, comm)
-
-    REAL (dp), INTENT(inout) :: t_buffer(:,:,:,:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    REAL(dp) :: t_buffer(:,:,:,:)
     INTEGER,   INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7234,16 +7154,10 @@ CONTAINS
        RETURN
     ELSE
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_real_dp, p_source, &
             p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
     ENDIF
 
@@ -7263,8 +7177,9 @@ CONTAINS
   END SUBROUTINE p_bcast_real_4d
 
   SUBROUTINE p_bcast_real_5d (t_buffer, p_source, comm)
-
-    REAL (dp), INTENT(inout) :: t_buffer(:,:,:,:,:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    REAL(dp) :: t_buffer(:,:,:,:,:)
     INTEGER,   INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7285,16 +7200,10 @@ CONTAINS
        RETURN
     ELSE
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_real_dp, p_source, &
             p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
     ENDIF
 
@@ -7314,8 +7223,9 @@ CONTAINS
   END SUBROUTINE p_bcast_real_5d
 
   SUBROUTINE p_bcast_real_7d (t_buffer, p_source, comm)
-
-    REAL (dp), INTENT(inout) :: t_buffer(:,:,:,:,:,:,:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    REAL(dp) :: t_buffer(:,:,:,:,:,:,:)
     INTEGER,   INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7336,16 +7246,10 @@ CONTAINS
        RETURN
     ELSE
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_real_dp, p_source, &
             p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
     ENDIF
 
@@ -7365,8 +7269,9 @@ CONTAINS
   END SUBROUTINE p_bcast_real_7d
 
   SUBROUTINE p_bcast_int_i4 (t_buffer, p_source, comm)
-
-    INTEGER (i4), INTENT(inout) :: t_buffer
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    INTEGER(i4) :: t_buffer
     INTEGER, INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7387,16 +7292,10 @@ CONTAINS
        RETURN
     ELSE
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
        CALL MPI_BCAST (t_buffer, 1, p_int_i4, p_source, &
             p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
     ENDIF
 
@@ -7416,8 +7315,9 @@ CONTAINS
   END SUBROUTINE p_bcast_int_i4
 
   SUBROUTINE p_bcast_int_i8 (t_buffer, p_source, comm)
-
-    INTEGER (i8), INTENT(inout) :: t_buffer
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    INTEGER(i8) :: t_buffer
     INTEGER, INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7438,16 +7338,10 @@ CONTAINS
        RETURN
     ELSE
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
        CALL MPI_BCAST (t_buffer, 1, p_int_i8, p_source, &
             p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
     ENDIF
 
@@ -7467,8 +7361,9 @@ CONTAINS
   END SUBROUTINE p_bcast_int_i8
 
   SUBROUTINE p_bcast_int_1d (t_buffer, p_source, comm)
-
-    INTEGER, INTENT(inout) :: t_buffer(:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    INTEGER :: t_buffer(:)
     INTEGER, INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7489,16 +7384,10 @@ CONTAINS
        RETURN
     ELSE
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_int, p_source, &
             p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
     ENDIF
 
@@ -7518,8 +7407,9 @@ CONTAINS
   END SUBROUTINE p_bcast_int_1d
 
   SUBROUTINE p_bcast_int_i8_1d (t_buffer, p_source, comm)
-
-    INTEGER(i8), INTENT(inout) :: t_buffer(:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    INTEGER(i8) :: t_buffer(:)
     INTEGER, INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7540,16 +7430,10 @@ CONTAINS
        RETURN
     ELSE
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_int_i8, p_source, &
             p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
     ENDIF
 
@@ -7569,8 +7453,9 @@ CONTAINS
   END SUBROUTINE p_bcast_int_i8_1d
 
   SUBROUTINE p_bcast_int_2d (t_buffer, p_source, comm)
-
-    INTEGER, INTENT(inout) :: t_buffer(:,:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    INTEGER :: t_buffer(:,:)
     INTEGER, INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7591,16 +7476,10 @@ CONTAINS
        RETURN
     ELSE
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_int, p_source, &
             p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
     ENDIF
 
@@ -7620,8 +7499,9 @@ CONTAINS
   END SUBROUTINE p_bcast_int_2d
 
   SUBROUTINE p_bcast_int_3d (t_buffer, p_source, comm)
-
-    INTEGER, INTENT(inout) :: t_buffer(:,:,:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    INTEGER :: t_buffer(:,:,:)
     INTEGER, INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7642,16 +7522,10 @@ CONTAINS
        RETURN
     ELSE
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_int, p_source, &
             p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
     ENDIF
 
@@ -7671,8 +7545,9 @@ CONTAINS
   END SUBROUTINE p_bcast_int_3d
 
   SUBROUTINE p_bcast_int_4d (t_buffer, p_source, comm)
-
-    INTEGER, INTENT(inout) :: t_buffer(:,:,:,:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    INTEGER :: t_buffer(:,:,:,:)
     INTEGER, INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7693,16 +7568,10 @@ CONTAINS
        RETURN
     ELSE
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_int, p_source, &
             p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
     ENDIF
 
@@ -7722,8 +7591,9 @@ CONTAINS
   END SUBROUTINE p_bcast_int_4d
 
   SUBROUTINE p_bcast_int_7d (t_buffer, p_source, comm)
-
-    INTEGER, INTENT(inout) :: t_buffer(:,:,:,:,:,:,:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    INTEGER                :: t_buffer(:,:,:,:,:,:,:)
     INTEGER, INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7744,16 +7614,10 @@ CONTAINS
        RETURN
     ELSE
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_int, p_source, &
             p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
     ENDIF
 
@@ -7773,8 +7637,9 @@ CONTAINS
   END SUBROUTINE p_bcast_int_7d
 
   SUBROUTINE p_bcast_bool (t_buffer, p_source, comm)
-
-    LOGICAL, INTENT(inout) :: t_buffer
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    LOGICAL :: t_buffer
     INTEGER, INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7795,16 +7660,10 @@ CONTAINS
        RETURN
     ELSE
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
        CALL MPI_BCAST (t_buffer, 1, p_bool, p_source, &
             p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
     ENDIF
 
@@ -7824,8 +7683,9 @@ CONTAINS
   END SUBROUTINE p_bcast_bool
 
   SUBROUTINE p_bcast_bool_1d (t_buffer, p_source, comm)
-
-    LOGICAL, INTENT(inout) :: t_buffer(:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    LOGICAL :: t_buffer(:)
     INTEGER, INTENT(in) :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7846,16 +7706,10 @@ CONTAINS
        RETURN
     ELSE
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_bool, p_source, &
             p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
     ENDIF
 
@@ -7875,8 +7729,9 @@ CONTAINS
   END SUBROUTINE p_bcast_bool_1d
 
   SUBROUTINE p_bcast_bool_2d (t_buffer, p_source, comm)
-
-    LOGICAL, INTENT(inout) :: t_buffer(:,:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    LOGICAL :: t_buffer(:,:)
     INTEGER, INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7897,16 +7752,10 @@ CONTAINS
        RETURN
     ELSE
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_bool, p_source, &
             p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
     ENDIF
 
@@ -7926,8 +7775,9 @@ CONTAINS
   END SUBROUTINE p_bcast_bool_2d
 
   SUBROUTINE p_bcast_bool_3d (t_buffer, p_source, comm)
-
-    LOGICAL, INTENT(inout) :: t_buffer(:,:,:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    LOGICAL :: t_buffer(:,:,:)
     INTEGER, INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7948,16 +7798,10 @@ CONTAINS
        RETURN
     ELSE
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_bool, p_source, &
             p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
     ENDIF
 
@@ -7977,8 +7821,9 @@ CONTAINS
   END SUBROUTINE p_bcast_bool_3d
 
   SUBROUTINE p_bcast_bool_4d (t_buffer, p_source, comm)
-
-    LOGICAL, INTENT(inout) :: t_buffer(:,:,:,:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    LOGICAL :: t_buffer(:,:,:,:)
     INTEGER, INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7999,16 +7844,10 @@ CONTAINS
        RETURN
     ELSE
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_bool, p_source, &
             p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
     ENDIF
 
@@ -8028,8 +7867,9 @@ CONTAINS
   END SUBROUTINE p_bcast_bool_4d
 
   SUBROUTINE p_bcast_char (t_buffer, p_source, comm)
-
-    CHARACTER(len=*),  INTENT(inout) :: t_buffer
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    CHARACTER(len=*) :: t_buffer
     INTEGER,           INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -8050,16 +7890,10 @@ CONTAINS
        RETURN
     ELSE
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
        CALL MPI_BCAST (t_buffer, LEN(t_buffer), p_char, p_source, &
             p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
     ENDIF
 
@@ -8079,8 +7913,9 @@ CONTAINS
   END SUBROUTINE p_bcast_char
 
   SUBROUTINE p_bcast_char_1d(t_buffer, p_source, comm)
-
-    CHARACTER (*), INTENT(inout) :: t_buffer(:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    CHARACTER(*) :: t_buffer(:)
     INTEGER,       INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
     INTEGER                      :: lexlength, flength
@@ -8105,15 +7940,9 @@ CONTAINS
        flength=SIZE(t_buffer)
        lexlength=lexlength*flength
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
        CALL MPI_BCAST (t_buffer, lexlength, p_char, p_source, p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
        WRITE (nerr,'(a,i4,a,i4,a)') ' MPI_BCAST from ', p_source, &
@@ -8132,7 +7961,7 @@ CONTAINS
   END SUBROUTINE p_bcast_char_1d
 
   SUBROUTINE p_bcast_char_2d(t_buffer, p_source, comm)
-    CHARACTER(*),  INTENT(inout) :: t_buffer(:,:)
+    CHARACTER(*) :: t_buffer(:,:)
     INTEGER,       INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
     INTEGER :: lexlength, flength
@@ -8175,11 +8004,10 @@ CONTAINS
 
 
   SUBROUTINE p_bcast_cchar (t_buffer, buflen, p_source, p_comm)
-
-    USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_SIGNED_CHAR
-
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
     INTEGER,           INTENT(IN)    :: buflen
-    INTEGER(C_SIGNED_CHAR), INTENT(INOUT) :: t_buffer(buflen)
+    INTEGER(C_SIGNED_CHAR)                :: t_buffer(buflen)
 
     INTEGER,           INTENT(IN)    :: p_source
     INTEGER,           INTENT(IN)    :: p_comm
@@ -8194,15 +8022,9 @@ CONTAINS
        RETURN
     ELSE
 
-#ifdef __USE_G2G
-!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
-#endif
 
        CALL MPI_BCAST (t_buffer, buflen, p_char, p_source, p_comm, p_error)
 
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-#endif
 
 #ifdef DEBUG
        WRITE (nerr,'(a,i4,a,i4,a)') ' MPI_BCAST from ', p_source, &
@@ -8255,7 +8077,7 @@ CONTAINS
 !DR Test
   SUBROUTINE p_bcast_datetime (mtime_datetime, p_source, comm)
 
-    TYPE(datetime), TARGET  , INTENT(inout) :: mtime_datetime
+    TYPE(datetime), TARGET                  :: mtime_datetime
     INTEGER                 , INTENT(in)    :: p_source
     INTEGER       , OPTIONAL, INTENT(in)    :: comm
     !
@@ -8264,7 +8086,7 @@ CONTAINS
     TYPE(datetime), POINTER             :: mtime_datetime_ptr
     TYPE(datetime), POINTER             :: datetime_loc
     INTEGER                             :: errno
-
+ 
 #ifndef NOMPI
     mtime_datetime_ptr => mtime_datetime
     CALL datetimeToString(mtime_datetime_ptr, mtime_datetime_str, errno)
@@ -8279,6 +8101,8 @@ CONTAINS
 #endif
 
   END SUBROUTINE p_bcast_datetime
+
+
 
   ! Collective CALL to determine whether this process IS a sender/receiver IN a broadcast operation.
   ! This routine IS robust IN the presence of inter-communicators (which IS its reason d'etre).
@@ -8384,6 +8208,15 @@ CONTAINS
     CALL p_clear_request(requests)
 #endif
   END SUBROUTINE p_wait_n
+
+  SUBROUTINE p_wait_n_stati(requests, stati)
+    INTEGER, INTENT(INOUT) :: requests(:)
+    INTEGER, INTENT(out) :: stati(:,:)
+#ifndef NOMPI
+    CALL mpi_waitall(SIZE(requests), requests, stati, p_error)
+    CALL p_clear_request(requests)
+#endif
+  END SUBROUTINE p_wait_n_stati
 
   SUBROUTINE p_wait_any(return_pe)
 
@@ -10339,6 +10172,29 @@ CONTAINS
         recvbuf(1:recvcount) = sendbuf((displs(1)+1):(displs(1)+recvcount))
 #endif
    END SUBROUTINE p_scatterv_real1D1D
+
+   SUBROUTINE p_scatterv_int_1d1d(sendbuf, sendcounts, displs, recvbuf, &
+     recvcount, p_src, comm)
+     IMPLICIT NONE
+     INTEGER, INTENT(IN) :: sendbuf(:)
+     INTEGER, INTENT(IN) :: sendcounts(:)
+     INTEGER, INTENT(INOUT) :: recvbuf(:)
+     INTEGER, INTENT(IN)  :: recvcount
+     INTEGER, INTENT(IN)  :: displs(:)
+     INTEGER, INTENT(IN)  :: p_src
+     INTEGER, INTENT(IN)  :: comm
+
+#ifndef NOMPI
+     CHARACTER(*), PARAMETER :: routine = modname//"::p_scatterv_real1D1D"
+     INTEGER :: ierr
+
+     CALL MPI_Scatterv(sendbuf, sendcounts, displs, p_int, &
+       &               recvbuf, recvcount, p_int, p_src, comm, ierr)
+     IF (ierr /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_Scatterv operation!')
+#else
+     recvbuf(1:recvcount) = sendbuf((displs(1)+1):(displs(1)+recvcount))
+#endif
+   END SUBROUTINE p_scatterv_int_1d1d
 
 
   !---------------------------------------------------------------------------------------------------------------------------------

@@ -19,7 +19,7 @@ MODULE mo_nml_crosscheck
 
   USE, INTRINSIC :: iso_c_binding, ONLY: c_int64_t
   USE mo_kind,                     ONLY: wp
-  USE mo_exception,                ONLY: message, message_text, finish
+  USE mo_exception,                ONLY: message, message_text, finish, em_info
   USE mo_impl_constants,           ONLY: ildf_echam, inwp, iheldsuarez,                    &
     &                                    ildf_dry, inoforcing, ihs_atm_temp,               &
     &                                    ihs_atm_theta, tracer_only, inh_atmosphere,       &
@@ -72,7 +72,7 @@ MODULE mo_nml_crosscheck
   USE mo_meteogram_config,         ONLY: meteogram_output_config, check_meteogram_configuration
   USE mo_grid_config,              ONLY: lplane, n_dom, l_limited_area, start_time,        &
     &                                    nroot, is_plane_torus, n_dom_start
-  USE mo_art_config,               ONLY: art_config
+  USE mo_art_config,               ONLY: art_config, ctracer_art
   USE mo_time_management,          ONLY: compute_timestep_settings,                        &
     &                                    compute_restart_settings,                         &
     &                                    compute_date_settings
@@ -85,8 +85,9 @@ MODULE mo_nml_crosscheck
   USE mo_nudging_config,           ONLY: nudging_config, indg_type
   USE mo_nudging_nml,              ONLY: check_nudging
   USE mo_upatmo_config,            ONLY: check_upatmo
-  USE mo_name_list_output_config,  ONLY: first_output_name_list, is_variable_in_output_dom
+  USE mo_name_list_output_config,  ONLY: is_variable_in_output_dom
   USE mo_nh_testcase_check,        ONLY: check_nh_testcase
+  USE mo_art_init_interface,       ONLY: art_calc_ntracer_and_names
 
 #ifdef __ICON_ART
   USE mo_grid_config,              ONLY: lredgrid_phys
@@ -678,7 +679,14 @@ CONTAINS
     END SELECT ! iforcing
 
     IF (lart) THEN
-      
+      ! determine number of ART-tracers (by reading given XML-Files)
+      ! * art_config(1)%iart_ntracer
+      CALL art_calc_ntracer_and_names()
+
+      IF(art_config(1)%iart_ntracer > 0) THEN
+        advection_config(1)%tracer_names(ntracer+1:ntracer+art_config(1)%iart_ntracer) =       &
+          &   ctracer_art(ntracer+1:)
+      END IF
       ntracer = ntracer + art_config(1)%iart_ntracer
       
       WRITE(message_text,'(a,i3,a,i3)') 'Attention: transport of ART tracers is active, '//&
@@ -847,17 +855,15 @@ CONTAINS
 
     IF (activate_sync_timers .AND. .NOT. ltimer) THEN
       activate_sync_timers = .FALSE.
-      WRITE (message_text,*) &
-        & "warning: namelist parameter 'activate_sync_timers' has been set to .FALSE., ", &
-        & "because global 'ltimer' flag is disabled."
-      CALL message(routine, message_text)
+      CALL message(routine, "namelist parameter 'activate_sync_timers' has &
+        &been set to .FALSE., because global 'ltimer' flag is disabled.", &
+        level=em_info)
     END IF
     IF (timers_level > 9 .AND. .NOT. activate_sync_timers) THEN
       activate_sync_timers = .TRUE.
-      WRITE (message_text,*) &
-        & "warning: namelist parameter 'activate_sync_timers' has been set to .TRUE., ", &
-        & "because global 'timers_level' is > 9."
-      CALL message(routine, message_text)
+      CALL message(routine, "namelist parameter 'activate_sync_timers' has &
+        &been set to .TRUE., because global 'timers_level' is > 9.", &
+        level=em_info)
     END IF
 
     DO jg =1,n_dom
@@ -867,25 +873,22 @@ CONTAINS
           echotop_meta(jg)%nechotop = echotop_meta(jg)%nechotop + 1
         END IF
       END DO
-      IF ( is_variable_in_output_dom( first_output_name_list, var_name="echotop" , jg=jg) .AND. &
+      IF ( is_variable_in_output_dom(var_name="echotop" , jg=jg) .AND. &
            echotop_meta(jg)%nechotop == 0 ) THEN
-        message_text(:) = ' '
         WRITE (message_text, '(a,i2,a,i2.2,a)') 'output of "echotop" in ml_varlist on domain ', jg, &
              ' not possible due to invalid echotop_meta(', jg, ')%dbzthresh specification'
-        CALL finish(routine, TRIM(message_text))        
+        CALL finish(routine, message_text)
       END IF
-      IF ( is_variable_in_output_dom( first_output_name_list, var_name="echotopinm" , jg=jg) .AND. &
+      IF ( is_variable_in_output_dom(var_name="echotopinm" , jg=jg) .AND. &
            echotop_meta(jg)%nechotop == 0 ) THEN
-        message_text(:) = ' '
         WRITE (message_text, '(a,i2,a,i2.2,a)') 'output of "echotopinm" in ml_varlist on domain ', jg, &
              ' not possible due to invalid echotop_meta(', jg, ')%dbzthresh specification'
-        CALL finish(routine, TRIM(message_text))        
+        CALL finish(routine, message_text)
       END IF
       IF (echotop_meta(jg)%time_interval < 0.0_wp) THEN
-        message_text(:) = ' '
         WRITE (message_text, '(a,i2.2,a,f0.1,a)') 'invalid echotop_meta(', jg, &
              ')%time_interval = ', echotop_meta(jg)%time_interval, ' [seconds] given in namelist /io_nml/. Must be >= 0.0!'
-        CALL finish(routine, TRIM(message_text))                
+        CALL finish(routine, message_text)
       END IF
     END DO
     
@@ -916,8 +919,7 @@ CONTAINS
         IF (secs_restart    <= 0._wp)  secs_restart    = secs_iau_end
         IF (secs_checkpoint <= 0._wp)  secs_checkpoint = secs_restart
         IF (MIN(secs_checkpoint, secs_restart) < secs_iau_end) THEN
-          WRITE (message_text,'(a)') "Restarting is not allowed within the IAU phase"
-          CALL finish('atm_crosscheck:', message_text)
+          CALL finish('atm_crosscheck:', "Restarting is not allowed within the IAU phase")
         ENDIF
 
         CALL deallocateDatetime(reference_dt)
@@ -926,16 +928,15 @@ CONTAINS
           ! For a negative IAU shift, no extra boundary file can be read. So it has to be taken
           ! from the first guess file.
           IF (timeshift%dt_shift < 0._wp .AND. .NOT. latbc_config%init_latbc_from_fg) THEN
-            WRITE (message_text,'(a)') "For dt_shift<0, latbc has to be taken from first guess (init_latbc_from_fg)"
-            CALL finish('atm_crosscheck:', message_text)
+            CALL finish('atm_crosscheck:', "For dt_shift<0, latbc has &
+              &to be taken from first guess (init_latbc_from_fg)")
           ENDIF
         ENDIF
       ENDIF
 
       DO jg = 2, n_dom
         IF (start_time(jg) > timeshift%dt_shift .AND. start_time(jg) < dt_iau+timeshift%dt_shift) THEN
-          WRITE (message_text,'(a)') "Starting a nest is not allowed within the IAU phase"
-          CALL finish('atm_crosscheck:', message_text)
+          CALL finish('atm_crosscheck:', "Starting a nest is not allowed within the IAU phase")
         ENDIF
       ENDDO
 
@@ -971,7 +972,7 @@ CONTAINS
       &                atm_phy_nwp_config(:)%lupatmo_phy, is_plane_torus, l_limited_area, &
       &                lart, ivctype, flat_height, itype_vert_expol, ltestcase,           &
       &                nh_test_name, init_mode, atm_phy_nwp_config(:)%inwp_turb,          &
-      &                atm_phy_nwp_config(:)%inwp_radiation, first_output_name_list       )
+      &                atm_phy_nwp_config(:)%inwp_radiation)
 
 
     ! ********************************************************************************
@@ -1050,20 +1051,6 @@ CONTAINS
       ENDIF
       IF(art_config(jg)%iart_ari > 0  .AND. irad_aero /= 9) THEN
         CALL finish(routine,'iart_ari > 0 requires irad_aero=9')
-      ENDIF
-    ENDDO
-    
-    ! XML specification checks
-    
-    DO jg= 1,n_dom
-      IF(art_config(jg)%lart_aerosol .AND. art_config(jg)%cart_aerosol_xml =='') THEN
-        CALL finish(routine,'lart_aerosol=.TRUE. but no cart_aerosol_xml specified')
-      ENDIF
-      IF(art_config(jg)%lart_chem .AND. art_config(jg)%cart_chemistry_xml =='') THEN
-        CALL finish(routine,'lart_chem=.TRUE. but no cart_chemistry_xml specified')
-      ENDIF
-      IF(art_config(jg)%lart_passive .AND. art_config(jg)%cart_passive_xml =='' )THEN
-        CALL finish(routine,'lart_passive=.TRUE. but no cart_passive_xml specified')
       ENDIF
     ENDDO
     

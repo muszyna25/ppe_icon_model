@@ -15,9 +15,6 @@
 #include <handle_mpi_error.inc>
 #include <icon_contiguous_defines.h>
 #include <omp_definitions.inc>
-#ifdef NAGFOR
-#define CONTIGUOUS_POINTER POINTER
-#endif
 MODULE mo_async_restart_comm_data
 ! There is no point in pretending this module is usable if NOMPI is defined.
 #ifndef NOMPI
@@ -284,7 +281,7 @@ CONTAINS
       IF (me%in_use >= 0) CALL finish(routine, 'buffer already initialized')
       me%in_use = 0
 #ifdef NO_MPI_RGET
-      this%next_activate = 1
+      me%next_activate = 1
 #endif
       DO i = 1, max_inflight
 #ifndef NO_MPI_RGET

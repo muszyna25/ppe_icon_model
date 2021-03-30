@@ -50,6 +50,8 @@ MODULE mo_2mom_mcrph_util
 
   PRIVATE
 
+  PUBLIC :: init_dmin_wetgrowth
+
   PUBLIC :: &
        & gfct,                       & ! main (could be replaced by intrinsic in Fortran2008)
        & rat2do3,                    & ! main
@@ -930,9 +932,11 @@ CONTAINS
     CHARACTER(len=*), INTENT(in) :: dateiname
     INTEGER, INTENT(in) :: unitnr
     INTEGER :: error, in_aux(4)
+    CHARACTER(len=*), PARAMETER :: routine = 'init_dmin_wetgrowth'
 
     IF (my_process_is_stdio()) THEN
 
+      CALL message (TRIM(routine), " Trying to read "//TRIM(dateiname))      
       OPEN(unitnr, file=TRIM(dateiname), status='old', form='formatted', iostat=error)
       IF (error /= 0) THEN
         WRITE (txt,*) 'init_dmin_wetgrowth: lookup-table ' // TRIM(dateiname) // ' not found'
@@ -1422,8 +1426,9 @@ CONTAINS
       ! Linear interpolation w.r.t. T of the equidistant Dmin-lookuptable from
       ! the original table in the datafile, which may be non-equidistant
       ! w.r.t. T:
-      DO j=1, ltab%n2
 
+      !NEC$ unroll_completely
+      DO j=1, ndT
         ju = 1
         DO ii=1, anzT_wg_loc-1
           IF (ltab%x2(j) >= Tvec_wg_g_loc(ii) .AND. ltab%x2(j) <= Tvec_wg_g_loc(ii+1)) THEN

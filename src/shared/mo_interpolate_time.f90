@@ -8,10 +8,9 @@ MODULE mo_interpolate_time
   USE mo_exception,         ONLY: message, message_text, finish
   USE mo_reader_abstract,   ONLY: t_abstract_reader
   USE mo_impl_constants,    ONLY: MAX_CHAR_LENGTH
-  USE mtime,             ONLY: newdatetime, datetime, deallocateDatetime, &
-    & newTimeDelta, OPERATOR(*), OPERATOR(+), OPERATOR(<), OPERATOR(>), &
-    & datetimetostring, max_datetime_str_len, OPERATOR(-), &
-    & deallocateTimedelta, timedelta
+  USE mtime,             ONLY: datetime, timedelta, &
+    & OPERATOR(*), OPERATOR(+), OPERATOR(<), OPERATOR(>), &
+    & datetimetostring, max_datetime_str_len, OPERATOR(-)
   USE mo_time_config,    ONLY: time_config
   USE mo_mpi,            ONLY: my_process_is_mpi_workroot, &
     & process_mpi_root_id, p_comm_work, p_bcast, p_pe_work
@@ -64,7 +63,7 @@ CONTAINS
 
     CHARACTER(len=max_datetime_str_len)      :: date_str1, date_str2
 
-    TYPE(timedelta), POINTER :: timeSinceDataStart
+    TYPE(timedelta) :: timeSinceDataStart
 
 
     CHARACTER(*), PARAMETER :: routine = &
@@ -88,8 +87,6 @@ CONTAINS
         this%tidx = i
       ENDIF
     ENDDO
-
-    timeSinceDataStart => newTimeDelta("PT0S")
 
     timeSinceDataStart =  local_time - this%times(1)%ptr
 
@@ -117,9 +114,6 @@ CONTAINS
     CALL reader%get_one_timelev(this%tidx+1, this%var_name, this%datab)
     this%datanew => this%datab
 
-    ! Cleanup
-    CALL deallocateTimedelta(timeSinceDataStart)
-
   END SUBROUTINE time_intp_init
 
   SUBROUTINE time_intp_intp(this, local_time, interpolated)
@@ -127,8 +121,7 @@ CONTAINS
     TYPE(datetime),    POINTER, INTENT(in   ) :: local_time
     REAL(wp),      ALLOCATABLE, INTENT(  out) :: interpolated(:,:,:,:)
 
-    TYPE(timedelta), POINTER :: curr_delta
-    TYPE(timedelta), POINTER :: dt
+    TYPE(timedelta) :: curr_delta, dt
     REAL(wp)                 :: weight
     INTEGER                  :: jc,jk,jb,jw
     INTEGER                  :: nlen, nblks, npromz
@@ -136,9 +129,6 @@ CONTAINS
 
     CHARACTER(*), PARAMETER :: routine = &
       & modname//"::time_intp_intp"
-
-    curr_delta         => newTimeDelta('PT0H')
-    dt                 => newTimeDelta('PT0H')
 
     IF (local_time > this%times(this%tidx+1)%ptr) THEN
       this%tidx    = this%tidx + 1
@@ -216,8 +206,6 @@ CONTAINS
 !      this%datanew(1,1,1,1), this%dataold(1,1,1,1)
 !      print *, (1-weight) * this%dataold(1,1,1,1) + weight*this%datanew(1,1,1,1)
 !    ENDIF
-    CALL deallocateTimedelta(curr_delta)
-    CALL deallocateTimedelta(dt)
   END SUBROUTINE time_intp_intp
 
 END MODULE mo_interpolate_time

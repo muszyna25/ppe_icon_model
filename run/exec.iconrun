@@ -181,6 +181,7 @@ read_restart_namelists=${read_restart_namelists:=".true."}
 
 #-----------------------------------------------------------------------------
 # create master_namelist
+if [ x${dont_create_icon_master_namelist+set} != xset ]; then
 master_namelist=icon_master.namelist
 if [ x$end_date = x ]; then
 cat > $master_namelist << EOF
@@ -221,6 +222,7 @@ cat > $master_namelist << EOF
 /
 EOF
 fi
+fi # x${dont_create_icon_master_namelist+set} != xset
 #-----------------------------------------------------------------------------
 
 
@@ -228,15 +230,14 @@ fi
 # add model component to master_namelist
 add_component_to_master_namelist()
 {
-    
-  model_namelist_filename="$1"
-  model_name=$2
-  model_type=$3
-  model_min_rank=$4
-  model_max_rank=$5
-  model_inc_rank=$6
-  
-cat >> $master_namelist << EOF
+  model_namelist_filename=$1
+  if [ x${dont_create_icon_master_namelist+set} != xset ]; then
+    model_name=$2
+    model_type=$3
+    model_min_rank=$4
+    model_max_rank=$5
+    model_inc_rank=$6
+    cat >> $master_namelist << EOF
 &master_model_nml
   model_name="$model_name"
   model_namelist_filename="$model_namelist_filename"
@@ -246,16 +247,16 @@ cat >> $master_namelist << EOF
   model_inc_rank=$model_inc_rank
 /
 EOF
+  fi
 
 #-----------
 #get namelist
   if [ -f ${RUNSCRIPTDIR}/$model_namelist_filename ] ; then
     mv -f ${RUNSCRIPTDIR}/$model_namelist_filename ${EXPDIR}
-    check_error $? "mv -f ${RUNSCRIPTDIR}/$model_namelist_filename"
+    check_error $? "mv -f ${RUNSCRIPTDIR}/$model_namelist_filename ${EXPDIR}"
   else
     check_error 1 "${RUNSCRIPTDIR}/$model_namelist_filename does not exist"
-  fi  
-
+  fi
 }
 #-----------------------------------------------------------------------------
 

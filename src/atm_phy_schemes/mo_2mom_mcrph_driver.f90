@@ -111,7 +111,7 @@ USE mo_2mom_prepare, ONLY: prepare_twomoment, post_twomoment
 
 ! UB: These settings should be converted into namelist parameters in the future!
 
-  INTEGER, PARAMETER :: i2mom_solver = 0  ! (0) explicit (1) semi-implicit solver
+  INTEGER, PARAMETER :: i2mom_solver = 1  ! (0) explicit (1) semi-implicit solve
   
   INTEGER, PARAMETER :: cloud_type_default_gscp4 = 2103, ccn_type_gscp4 = 8 ! UB set from 1 to 8
   INTEGER, PARAMETER :: cloud_type_default_gscp5 = 2603, ccn_type_gscp5 = 8
@@ -327,15 +327,15 @@ CONTAINS
       z_heat_cap_r = cpdr
     ENDIF
 
-    IF (msg_level>dbg_level) CALL message(TRIM(routine),'')
+    IF (msg_level>dbg_level) CALL message(routine,'')
 
     IF (msg_level>dbg_level)THEN
        WRITE (message_text,'(1X,A,I4,3(A,L2))') &
             & "cloud_type = ",cloud_type,", lprogccn = ",lprogccn,", lprogin = ",lprogin,", lprogmelt = ",lprogmelt
-       CALL message(TRIM(routine),TRIM(message_text))
+       CALL message(routine, message_text)
     END IF
 
-    IF (msg_level>dbg_level) CALL message(TRIM(routine), "prepare variables for 2mom")
+    IF (msg_level>dbg_level) CALL message(routine, "prepare variables for 2mom")
 
     DO kk = kts, kte
        DO ii = its, ite
@@ -365,7 +365,7 @@ CONTAINS
          lprogccn, lprogin, lprogmelt, its, ite, kts, kte)
     IF (timers_level > 10) CALL timer_stop(timer_phys_2mom_prepost)    
 
-    IF (msg_level>dbg_level) CALL message(TRIM(routine)," calling clouds_twomoment")
+    IF (msg_level>dbg_level) CALL message(routine," calling clouds_twomoment")
 
     IF (i2mom_solver.eq.0) then
 
@@ -417,7 +417,7 @@ CONTAINS
 
        IF (timers_level > 10) CALL timer_start(timer_phys_2mom_sedi) 
 
-       IF (msg_level>dbg_level) CALL message(TRIM(routine)," calling sedimentation")
+       IF (msg_level>dbg_level) CALL message(routine," calling sedimentation")
 
        ! .. if we solve explicitly, then sedimentation is done here after microphysics
        CALL sedimentation_explicit()
@@ -427,8 +427,8 @@ CONTAINS
 
        ! .. semi-implicit solver includes microphysics and sedimentation
        if (lprogin) THEN
-          CALL message(TRIM(routine)," ERROR: gscp=5 not implemented for implicit solver")
-          CALL finish(TRIM(routine),'Error in two_moment_mcrph')
+          CALL message(routine," ERROR: gscp=5 not implemented for implicit solver")
+          CALL finish(routine,'Error in two_moment_mcrph')
        ELSE
           CALL clouds_twomoment_implicit ()
        END IF
@@ -515,7 +515,7 @@ CONTAINS
 !    WHERE(qg(its:ite,kts:kte) > 0.02_wp) qg(its:ite,kts:kte) = 0.02_wp
 !    WHERE(qh(its:ite,kts:kte) > 0.02_wp) qh(its:ite,kts:kte) = 0.02_wp
 
-    IF (msg_level>dbg_level) CALL message(TRIM(routine), "two moment mcrph ends!")
+    IF (msg_level>dbg_level) CALL message(routine, "two moment mcrph ends!")
 
     IF (timers_level > 10) CALL timer_stop(timer_phys_2mom_prepost) 
 
@@ -676,17 +676,17 @@ CONTAINS
           xh_now(i) = particle_meanmass(hail, qh(i,k),qnh(i,k))
         end do
 
-        call sedi_vel_rain(rain,rain_coeffs,qr(:,k),xr_now,vr_sedn_now,vr_sedq_now,its,ite,qc(:,k))
-        call sedi_vel_sphere(ice,ice_coeffs,qi(:,k),xi_now,vi_sedn_now,vi_sedq_now,its,ite)
-        call sedi_vel_sphere(snow,snow_coeffs,qs(:,k),xs_now,vs_sedn_now,vs_sedq_now,its,ite)
+        call sedi_vel_rain(rain,rain_coeffs,qr(:,k),xr_now,rhocorr(:,k),vr_sedn_now,vr_sedq_now,its,ite,qc(:,k))
+        call sedi_vel_sphere(ice,ice_coeffs,qi(:,k),xi_now,rhocorr(:,k),vi_sedn_now,vi_sedq_now,its,ite)
+        call sedi_vel_sphere(snow,snow_coeffs,qs(:,k),xs_now,rhocorr(:,k),vs_sedn_now,vs_sedq_now,its,ite)
         if (lprogmelt) then
           call sedi_vel_lwf(graupel_lwf,graupel_coeffs,  &
-               & qg(:,k),qgl(:,k),xg_now,vg_sedn_now,vg_sedq_now,vg_sedl_now,its,ite)
+               & qg(:,k),qgl(:,k),xg_now,rhocorr(:,k),vg_sedn_now,vg_sedq_now,vg_sedl_now,its,ite)
           call sedi_vel_lwf(hail_lwf,hail_coeffs,        &
-               & qh(:,k),qhl(:,k),xh_now,vh_sedn_now,vh_sedq_now,vh_sedl_now,its,ite)
+               & qh(:,k),qhl(:,k),xh_now,rhocorr(:,k),vh_sedn_now,vh_sedq_now,vh_sedl_now,its,ite)
         else
-          call sedi_vel_sphere(graupel,graupel_coeffs,qg(:,k),xg_now,vg_sedn_now,vg_sedq_now,its,ite)
-          call sedi_vel_sphere(hail,hail_coeffs,qh(:,k),xh_now,vh_sedn_now,vh_sedq_now,its,ite)
+          call sedi_vel_sphere(graupel,graupel_coeffs,qg(:,k),xg_now,rhocorr(:,k),vg_sedn_now,vg_sedq_now,its,ite)
+          call sedi_vel_sphere(hail,hail_coeffs,qh(:,k),xh_now,rhocorr(:,k),vh_sedn_now,vh_sedq_now,its,ite)
         end if
 
         call implicit_core(qr(:,k), qr_sum,qr_impl,vr_sedq_new,vr_sedq_now,qr_flux_new,qr_flux_now,rdzdt(:,k),its,ite)
@@ -870,7 +870,7 @@ CONTAINS
      
      IF (msg_level > 100)THEN
        WRITE (message_text,'(1X,A,f8.2)') ' sedimentation_explicit  cmax = ',cmax
-       CALL message(routine,TRIM(message_text))
+       CALL message(routine, message_text)
      END IF
 
    END SUBROUTINE sedimentation_explicit
@@ -886,52 +886,52 @@ CONTAINS
          IF (ANY(qh(its:ite,kts:kte)>0._wp)) THEN
             qh(its:ite,kts:kte)  = 0.0_wp
             WRITE (message_text,'(1X,A)') '  qh > 0, after cloud_twomoment for cloud_type < 2000'
-            CALL message(routine,TRIM(message_text))
-            CALL finish(TRIM(routine),'Error in two_moment_mcrph')
+            CALL message(routine, message_text)
+            CALL finish(routine, 'Error in two_moment_mcrph')
          END IF
          IF (ANY(qnh(its:ite,kts:kte)>0._wp)) THEN
             qnh(its:ite,kts:kte)  = 0.0_wp
             WRITE (message_text,'(1X,A)') '  qnh > 0, after cloud_twomoment for cloud_type < 2000'
-            CALL message(routine,TRIM(message_text))
-            CALL finish(TRIM(routine),'Error in two_moment_mcrph')
+            CALL message(routine, message_text)
+            CALL finish(routine, 'Error in two_moment_mcrph')
          END IF
       END IF
-      IF (msg_level>dbg_level) CALL message(TRIM(routine), " test for negative values")
+      IF (msg_level>dbg_level) CALL message(routine, " test for negative values")
       IF (MINVAL(cloud%q(its:ite,kts:kte)) < meps) THEN
-         CALL finish(TRIM(routine),'Error in two_moment_mcrph, cloud%q < 0')
+         CALL finish(routine, 'Error in two_moment_mcrph, cloud%q < 0')
       ENDIF
       IF (MINVAL(rain%q(its:ite,kts:kte)) < meps) THEN
-         CALL finish(TRIM(routine),'Error in two_moment_mcrph, rain%q < 0')
+         CALL finish(routine,'Error in two_moment_mcrph, rain%q < 0')
       ENDIF
       IF (MINVAL(ice%q(its:ite,kts:kte)) < meps) THEN
-         CALL finish(TRIM(routine),'Error in two_moment_mcrph, ice%q < 0,')
+         CALL finish(routine,'Error in two_moment_mcrph, ice%q < 0,')
       ENDIF
       IF (MINVAL(snow%q(its:ite,kts:kte)) < meps) THEN
-         CALL finish(TRIM(routine),'Error in two_moment_mcrph, snow%q < 0')
+         CALL finish(routine,'Error in two_moment_mcrph, snow%q < 0')
       ENDIF
       IF (MINVAL(graupel%q(its:ite,kts:kte)) < meps) THEN
-         CALL finish(TRIM(routine),'Error in two_moment_mcrph, graupel%q < 0')
+         CALL finish(routine,'Error in two_moment_mcrph, graupel%q < 0')
       ENDIF
       IF (MINVAL(hail%q(its:ite,kts:kte)) < meps) THEN
-         CALL finish(TRIM(routine),'Error in two_moment_mcrph, hail%q < 0')
+         CALL finish(routine,'Error in two_moment_mcrph, hail%q < 0')
       ENDIF
       IF (MINVAL(cloud%n) < meps) THEN
-         CALL finish(TRIM(routine),'Error in two_moment_mcrph, cloud%n < 0')
+         CALL finish(routine,'Error in two_moment_mcrph, cloud%n < 0')
       ENDIF
       IF (MINVAL(rain%n(its:ite,kts:kte)) < meps) THEN
-         CALL finish(TRIM(routine),'Error in two_moment_mcrph, rain%n < 0')
+         CALL finish(routine,'Error in two_moment_mcrph, rain%n < 0')
       ENDIF
       IF (MINVAL(ice%n(its:ite,kts:kte)) < meps) THEN
-         CALL finish(TRIM(routine),'Error in two_moment_mcrph, ice%n < 0')
+         CALL finish(routine,'Error in two_moment_mcrph, ice%n < 0')
       ENDIF
       IF (MINVAL(snow%n(its:ite,kts:kte)) < meps) THEN
-         CALL finish(TRIM(routine),'Error in two_moment_mcrph, snow%n < 0')
+         CALL finish(routine,'Error in two_moment_mcrph, snow%n < 0')
       ENDIF
       IF (MINVAL(graupel%n(its:ite,kts:kte)) < meps) THEN
-         CALL finish(TRIM(routine),'Error in two_moment_mcrph, graupel%n < 0')
+         CALL finish(routine,'Error in two_moment_mcrph, graupel%n < 0')
       ENDIF
       IF (MINVAL(hail%n(its:ite,kts:kte)) < meps) THEN
-         CALL finish(TRIM(routine),'Error in two_moment_mcrph, hail%n < 0')
+         CALL finish(routine,'Error in two_moment_mcrph, hail%n < 0')
       ENDIF
     END subroutine check_clouds
 
@@ -1012,11 +1012,13 @@ CONTAINS
     INTEGER        :: unitnr
 
     IF (msg_level>5) THEN
-      CALL message (TRIM(routine), " Initialization of two-moment microphysics scheme") 
-      WRITE(message_text,'(A,I5)')   "   inwp_gscp    = ",igscp ; CALL message(TRIM(routine),TRIM(message_text))
-      WRITE(message_text,'(A,I5)')   "   i2mom_solver = ",i2mom_solver ; CALL message(TRIM(routine),TRIM(message_text))
+      CALL message(routine, " Initialization of two-moment microphysics scheme")
+      WRITE(message_text,'(A,I5)')   "   inwp_gscp    = ",igscp
+      CALL message(routine, message_text)
+      WRITE(message_text,'(A,I5)')   "   i2mom_solver = ",i2mom_solver
+      CALL message(routine, message_text)
     END IF
-    
+
     IF (PRESENT(N_cn0)) THEN
        ccn_type   = ccn_type_gscp5
        cloud_type = cloud_type_default_gscp5 + 10 * ccn_type
@@ -1032,27 +1034,28 @@ CONTAINS
        CALL init_2mom_scheme_once(cloud,rain,ice,snow,graupel,hail,cloud_type)
     END IF
 
-    IF (timers_level > 10) CALL timer_start(timer_phys_2mom_dmin_init) 
+    IF (timers_level > 10) CALL timer_start(timer_phys_2mom_dmin_init)
     IF (luse_dmin_wetgrowth_table .OR. lprintout_comp_table_fit) THEN
+      IF (msg_level>5) CALL message (TRIM(routine), " Looking for dmin_wetgrowth table file for "//TRIM(graupel%name))
       unitnr = 11
       CALL init_dmin_wg_gr_ltab_equi('dmin_wetgrowth_lookup', graupel, &
            unitnr, 61, ltabdminwgg)
     END IF
     IF (.NOT. luse_dmin_wetgrowth_table) THEN
       ! check whether 4d-fit is consistent with graupel parameters
-      IF (dmin_wetgrowth_fit_check(graupel)) THEN 
-        CALL message (TRIM(routine), " Using 4d-fit for dmin_wetgrowth for "//TRIM(graupel%name))
+      IF (dmin_wetgrowth_fit_check(graupel)) THEN
+        CALL message (routine, " Using 4d-fit for dmin_wetgrowth for "//TRIM(graupel%name))
       ELSE
-        CALL finish(TRIM(routine),&
+        CALL finish(routine,&
              & 'Error: luse_dmin_wetgrowth_table=.false., so 4D-fit should be used, '// &
-             & 'but graupel parameters inconsistent with 4d-fit') 
+             & 'but graupel parameters inconsistent with 4d-fit')
       END IF
     END IF
 
-    IF (msg_level>dbg_level) CALL message (TRIM(routine), " finished init_dmin_wetgrowth for "//TRIM(graupel%name))
+    IF (msg_level>dbg_level) CALL message (routine, " finished init_dmin_wetgrowth for "//TRIM(graupel%name))
     !..parameters for CCN and IN are set here. The 3D fields for prognostic CCN are then
     !  initialized in mo_nwp_phy_init.
-    IF (timers_level > 10) CALL timer_stop(timer_phys_2mom_dmin_init) 
+    IF (timers_level > 10) CALL timer_stop(timer_phys_2mom_dmin_init)
    
     !..parameters for exponential decrease of N_ccn with height
     !  z0:  up to this height (m) constant unchanged value
@@ -1100,7 +1103,7 @@ CONTAINS
        ccn_coeffs%R2    = 0.0
        ccn_coeffs%etas  = 0.0
     CASE DEFAULT
-       CALL finish(TRIM(routine),'Error in two_moment_mcrph_init: Invalid value for ccn_type')
+       CALL finish(routine,'Error in two_moment_mcrph_init: Invalid value for ccn_type')
     END SELECT
 
     IF (PRESENT(N_cn0)) THEN
@@ -1108,11 +1111,14 @@ CONTAINS
       z1e_nccn = ccn_coeffs%z1e
       N_cn0    = ccn_coeffs%Ncn0
     END IF
-    
-    WRITE(message_text,'(A)') "  CN properties:" ; CALL message(TRIM(routine),TRIM(message_text))
-    WRITE(message_text,'(A,D10.3)') "    Ncn0 = ",ccn_coeffs%Ncn0 ; CALL message(TRIM(routine),TRIM(message_text))
-    WRITE(message_text,'(A,D10.3)') "    z0   = ",ccn_coeffs%z0  ; CALL message(TRIM(routine),TRIM(message_text))
-    WRITE(message_text,'(A,D10.3)') "    z1e  = ",ccn_coeffs%z1e ; CALL message(TRIM(routine),TRIM(message_text))
+
+    CALL message(routine, "  CN properties:")
+    WRITE(message_text,'(A,D10.3)') "    Ncn0 = ",ccn_coeffs%Ncn0
+    CALL message(routine, message_text)
+    WRITE(message_text,'(A,D10.3)') "    z0   = ",ccn_coeffs%z0
+    CALL message(routine, message_text)
+    WRITE(message_text,'(A,D10.3)') "    z1e  = ",ccn_coeffs%z1e
+    CALL message(routine, message_text)
 
     IF (present(N_in0)) THEN
 
@@ -1124,14 +1130,17 @@ CONTAINS
        z0_nin  = in_coeffs%z0
        z1e_nin = in_coeffs%z1e
 
-       WRITE(message_text,'(A)') "  IN properties:" ; CALL message(TRIM(routine),TRIM(message_text))
-       WRITE(message_text,'(A,D10.3)') "    Ncn0 = ",in_coeffs%N0  ; CALL message(TRIM(routine),TRIM(message_text))
-       WRITE(message_text,'(A,D10.3)') "    z0   = ",in_coeffs%z0  ; CALL message(TRIM(routine),TRIM(message_text))
-       WRITE(message_text,'(A,D10.3)') "    z1e  = ",in_coeffs%z1e ; CALL message(TRIM(routine),TRIM(message_text))
-     END IF
-     
-    IF (msg_level>5) CALL message (TRIM(routine), " finished two_moment_mcrph_init successfully")
-    
+       CALL message(routine, "  IN properties:")
+       WRITE(message_text,'(A,D10.3)') "    Ncn0 = ",in_coeffs%N0
+       CALL message(routine, message_text)
+       WRITE(message_text,'(A,D10.3)') "    z0   = ",in_coeffs%z0
+       CALL message(routine, message_text)
+       WRITE(message_text,'(A,D10.3)') "    z1e  = ",in_coeffs%z1e
+       CALL message(routine, message_text)
+    END IF
+
+    IF (msg_level>5) CALL message(routine, " finished two_moment_mcrph_init successfully")
+
   END SUBROUTINE two_moment_mcrph_init
 
 
@@ -1158,8 +1167,8 @@ CONTAINS
         
     ! Check input return_fct
     IF (.NOT. return_fct) THEN
-      WRITE (message_text,*) 'Reff: Function two_mom_provide_reff_coefficients entered with previous error'
-      CALL message('',message_text)
+      CALL message('','Reff: Function two_mom_provide_reff_coefficients &
+           &entered with previous error')
       RETURN
     END IF
 

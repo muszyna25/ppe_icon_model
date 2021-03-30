@@ -27,6 +27,7 @@
 !----------------------------
 #include "omp_definitions.inc"
 #include "consistent_fma.inc"
+#include "icon_contiguous_defines.h"
 !----------------------------
 
 MODULE mo_nwp_diagnosis
@@ -53,7 +54,8 @@ MODULE mo_nwp_diagnosis
   USE mo_physical_constants, ONLY: tmelt, grav, cpd, vtmpc1
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
   USE mo_advection_config,   ONLY: advection_config
-  USE mo_io_config,          ONLY: lflux_avg, t_var_in_output
+  USE mo_io_config,          ONLY: lflux_avg, t_var_in_output, uh_max_zmin, uh_max_zmax, &
+    &                              luh_max_out, uh_max_nlayer
   USE mo_sync,               ONLY: global_max, global_min
   USE mo_vertical_coord_table,  ONLY: vct_a
   USE mo_satad,              ONLY: sat_pres_water, spec_humi
@@ -280,7 +282,7 @@ CONTAINS
           ! (reset is done on a regular basis in reset_action)
           prm_diag%gust10(jc,jb) = MAX(prm_diag%gust10(jc,jb),                       &
             &                    prm_diag%dyn_gust(jc,jb) + prm_diag%con_gust(jc,jb) )
-
+          
           ! total precipitation
           prm_diag%tot_prec(jc,jb) = prm_diag%prec_gsp(jc,jb) + prm_diag%prec_con(jc,jb)
 
@@ -298,7 +300,6 @@ CONTAINS
 
         ENDDO  ! jc
         !$acc end parallel
-        
 
         IF (atm_phy_nwp_config(jg)%lcalc_moist_integral_avg) THEN
 !DIR$ IVDEP
@@ -820,9 +821,10 @@ CONTAINS
         !$acc end kernels
 
         !$acc parallel default(present) if(lzacc)
-        !$acc loop gang vector private(z_help) collapse(2)
+        !$acc loop seq
         DO jk = kstart_moist, nlev
 !DIR$ IVDEP
+          !$acc loop gang vector private(z_help)
           DO jc = i_startidx, i_endidx
 
            ! (deep-atmosphere modification applied: height-dependence of grid cell volume)
@@ -857,8 +859,9 @@ CONTAINS
           !$acc end parallel
           
           !$acc parallel default(present) if(lzacc)
-          !$acc loop gang vector collapse(2)
+          !$acc loop seq
           DO jk = kstart_moist+1, ih_clch
+            !$acc loop gang vector
             DO jc = i_startidx, i_endidx
               clearsky(jc) = clearsky(jc)*    &
               &  ( 1._wp - MAX( prm_diag%clc(jc,jk  ,jb), prm_diag%clc(jc,jk-1,jb))) &
@@ -877,8 +880,9 @@ CONTAINS
           
           ! continue downward for total cloud cover
           !$acc parallel default(present) if(lzacc)
-          !$acc loop gang vector collapse(2)
+          !$acc loop seq
           DO jk = ih_clch+1, nlev
+            !$acc loop gang vector
             DO jc = i_startidx, i_endidx
               clearsky(jc) = clearsky(jc)*    &
               &  ( 1._wp - MAX( prm_diag%clc(jc,jk,jb), prm_diag%clc(jc,jk-1,jb))) &
@@ -899,8 +903,9 @@ CONTAINS
           
           ! mid-level clouds
           !$acc parallel default(present) if(lzacc)
-          !$acc loop gang vector collapse(2)
+          !$acc loop seq
           DO jk = ih_clch+2, ih_clcm
+            !$acc loop gang vector
             DO jc = i_startidx, i_endidx
               clearsky(jc) = clearsky(jc)*    &
               &  ( 1._wp - MAX( prm_diag%clc(jc,jk,jb), prm_diag%clc(jc,jk-1,jb))) &
@@ -922,8 +927,9 @@ CONTAINS
           
           ! continue downward for mid-level clouds
           !$acc parallel default(present) if(lzacc)
-          !$acc loop gang vector collapse(2)
+          !$acc loop seq
           DO jk = ih_clcm+2, nlev
+            !$acc loop gang vector
             DO jc = i_startidx, i_endidx
               clearsky(jc) = clearsky(jc)*    &
               &  ( 1._wp - MAX( prm_diag%clc(jc,jk,jb), prm_diag%clc(jc,jk-1,jb))) &
@@ -1044,15 +1050,17 @@ CONTAINS
       ENDDO
       !$acc end parallel
 
-      !$acc parallel default(present) if(lzacc)
-      !$acc loop private(jt)
       DO jt = 1, iqm_max
+        !$acc kernels default(present) if(lzacc)
         pt_diag%tracer_vi(i_startidx:i_endidx,jb,jt) = 0.0_wp
+        !$acc end kernels
 
-        !$acc loop collapse(2)
+        !$acc parallel default(present) if(lzacc)
+        !$acc loop seq
         DO jk = advection_config(jg)%iadv_slev(jt), nlev
 
 !DIR$ IVDEP
+          !$acc loop gang vector
           DO jc = i_startidx, i_endidx 
 
             pt_diag%tracer_vi(jc,jb,jt) = pt_diag%tracer_vi(jc,jb,jt)   &
@@ -1060,8 +1068,8 @@ CONTAINS
 
           ENDDO  ! jc
         ENDDO  ! jk
+        !$acc end parallel
       ENDDO  ! jt
-      !$acc end parallel
 
     ENDDO ! nblks   
 !$OMP END DO
@@ -1181,7 +1189,7 @@ CONTAINS
 
     ! time difference since last call of ww_diagnostics
     time_diff => newTimedelta("PT0S")
-    time_diff =  getTimeDeltaFromDateTime(mtime_current, ww_datetime(jg)%ptr)
+    time_diff =  getTimeDeltaFromDateTime(mtime_current, ww_datetime(jg))
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,mlab,ztp,zqp,zbuoy,zqsat,zcond) ICON_OMP_DEFAULT_SCHEDULE
@@ -1190,7 +1198,60 @@ CONTAINS
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
         & i_startidx, i_endidx, rl_start, rl_end)
 
+      !
+      ! Calculation of grid scale (gsp) and total (gsp+con) instantaneous precipitation rates:
+      !
+      SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
+      CASE(4,5,6,7)
+        DO jc =  i_startidx, i_endidx
+          prm_diag%prec_gsp_rate(jc,jb) = prm_diag%rain_gsp_rate(jc,jb)  &
+               &                        + prm_diag%ice_gsp_rate(jc,jb)   &
+               &                        + prm_diag%snow_gsp_rate(jc,jb)  &
+               &                        + prm_diag%hail_gsp_rate(jc,jb)  &
+               &                        + prm_diag%graupel_gsp_rate(jc,jb)
+          prm_diag%tot_prec_rate(jc,jb) = prm_diag%prec_gsp_rate(jc,jb)
+        ENDDO
+      CASE(2)
+        DO jc =  i_startidx, i_endidx
+          prm_diag%prec_gsp_rate(jc,jb) = prm_diag%rain_gsp_rate(jc,jb)  &
+               ! not sure what to do with ice. To be consistent to prm_diag%prec_gsp, where ice is neglected
+               ! because it predominantly is made of blowing snow, we neglect it also here:
+!               &                        + prm_diag%ice_gsp_rate(jc,jb)   &
+               &                        + prm_diag%snow_gsp_rate(jc,jb)  &
+               &                        + prm_diag%graupel_gsp_rate(jc,jb)
+          prm_diag%tot_prec_rate(jc,jb) = prm_diag%prec_gsp_rate(jc,jb)
+        ENDDO
+      CASE (1)
+        DO jc =  i_startidx, i_endidx
+          prm_diag%prec_gsp_rate(jc,jb) = prm_diag%rain_gsp_rate(jc,jb)  &
+               ! not sure what to do with ice. To be consistent to prm_diag%prec_gsp, where ice is neglected
+               ! because it predominantly is made of blowing snow, we neglect it also here:
+!               &                        + prm_diag%ice_gsp_rate(jc,jb)   &
+               &                        + prm_diag%snow_gsp_rate(jc,jb)
+          prm_diag%tot_prec_rate(jc,jb) = prm_diag%prec_gsp_rate(jc,jb)
+        ENDDO
+      CASE (9)
+        DO jc =  i_startidx, i_endidx
+          prm_diag%prec_gsp_rate(jc,jb) = prm_diag%rain_gsp_rate(jc,jb)
+          prm_diag%tot_prec_rate(jc,jb) = prm_diag%prec_gsp_rate(jc,jb)
+        ENDDO
+      CASE default
+        DO jc =  i_startidx, i_endidx
+          prm_diag%prec_gsp_rate(jc,jb) = 0.0_wp
+          prm_diag%tot_prec_rate(jc,jb) = 0.0_wp
+        ENDDO
+      END SELECT
+      !
+      ! Add convective contributions to the total precipitation rate:
+      !
+      IF (atm_phy_nwp_config(jg)%inwp_convection > 0) THEN
+        DO jc = i_startidx, i_endidx
+          prm_diag%tot_prec_rate(jc,jb) = prm_diag%tot_prec_rate(jc,jb) + prm_diag%rain_con_rate(jc,jb) + &
+               &                          prm_diag%snow_con_rate(jc,jb)
+        ENDDO  ! jc
+      END IF
 
+   
       IF (atm_phy_nwp_config(jg)%lenabled(itconv))THEN !convection parameterization switched on
         !
         ! height of convection base and top, hbas_con, htop_con
@@ -1365,10 +1426,7 @@ CONTAINS
 !$OMP END DO
 
 !$OMP END PARALLEL  
-    IF (ASSOCIATED(ww_datetime(jg)%ptr)) THEN 
-      CALL deallocateDatetime(ww_datetime(jg)%ptr)
-    END IF
-    ww_datetime(jg)%ptr => newDateTime(time_config%tc_current_date)
+    ww_datetime(jg) = time_config%tc_current_date
 
     ! compute modified cloud parameters for TV presentation
     CALL calcmod( pt_patch, pt_diag, prm_diag )
@@ -1598,7 +1656,7 @@ CONTAINS
 
     LOGICAL :: l_active(3), l_lpimax_event_active, l_celltracks_event_active, l_dbz_event_active, &
                l_need_dbz3d, l_need_temp, l_need_pres
-    INTEGER :: jg
+    INTEGER :: jg, k
 
     l_active(1) = is_event_active(lpi_max_Event,    mtime_current, proc0_offloading, plus_slack, opt_lasync=.TRUE.)
     l_active(2) = is_event_active(celltracks_Event, mtime_current, proc0_offloading, plus_slack, opt_lasync=.TRUE.)
@@ -1665,11 +1723,15 @@ CONTAINS
              &                        prm_diag(jg)%tcond_max, prm_diag(jg)%tcond10_max  )
       END IF
 
-      ! update of UH_MAX (updraft helicity, max.  during the time interval "celltracks_interval") if required
-      IF ( var_in_output(jg)%uh_max .AND. (l_output(jg) .OR. l_celltracks_event_active ) ) THEN
-        CALL compute_field_uh_max( p_patch(jg), p_nh(jg)%metrics, p_nh(jg)%prog(nnow(jg)), p_nh(jg)%diag,  &
-             &                     prm_diag(jg)%uh_max  )
-      END IF
+      DO k = 1,uh_max_nlayer
+
+        ! update of UH_MAX (updraft helicity, max.  during the time interval "celltracks_interval") if required
+        IF ( luh_max_out(k) .AND. (l_output(jg) .OR. l_celltracks_event_active ) ) THEN
+          CALL compute_field_uh_max( p_patch(jg), p_nh(jg)%metrics, p_nh(jg)%prog(nnow(jg)), p_nh(jg)%diag,  &
+               &                     uh_max_zmin(k), uh_max_zmax(k), prm_diag(jg)%uh_max_3d(:,:,k) )
+        END IF
+
+      END DO
 
       ! update of VORW_CTMAX (Maximum rotation amplitude during the time interval "celltracks_interval") if required
       IF ( var_in_output(jg)%vorw_ctmax .AND. (l_output(jg) .OR. l_celltracks_event_active ) ) THEN
@@ -1938,12 +2000,13 @@ CONTAINS
   !! for run-time min/max output of microphysics variables
   !!
 
-  SUBROUTINE nwp_diag_output_minmax_micro(p_patch, p_prog, p_diag, p_prog_rcf)
+  SUBROUTINE nwp_diag_output_minmax_micro(p_patch, p_prog, p_diag, ptr_tracer)
 
     TYPE(t_nh_prog), INTENT(in) :: p_prog      !< the dyn prog vars
     TYPE(t_patch),   INTENT(in) :: p_patch     !< grid/patch info.
     TYPE(t_nh_diag), INTENT(in) :: p_diag      !< NH diagnostic state
-    TYPE(t_nh_prog), INTENT(in) :: p_prog_rcf  !< state for tracer variables
+    !> tracer variables
+    REAL(wp), CONTIGUOUS_ARGUMENT(in) :: ptr_tracer(:,:,:,:)
 
 
     ! Local variables
@@ -1953,8 +2016,6 @@ CONTAINS
     REAL(wp) ::                                                                          &
          & qvmaxi, qcmaxi, qrmaxi, qimaxi, qsmaxi, qhmaxi, qgmaxi, tmaxi, wmaxi, qncmaxi, qnimaxi, qglmaxi, qhlmaxi,  &
          & qvmini, qcmini, qrmini, qimini, qsmini, qhmini, qgmini, tmini, wmini, qncmini, qnimini, qglmini, qhlmini
-
-
     
     ! loop indices
     INTEGER :: jc,jk,jb,jg
@@ -2022,35 +2083,35 @@ CONTAINS
             wmin(jb)  = MIN(wmin(jb), p_prog%w(jc,jk,jb))
             tmax(jb)  = MAX(tmax(jb), p_diag%temp(jc,jk,jb))
             tmin(jb)  = MIN(tmin(jb), p_diag%temp(jc,jk,jb))
-            qvmax(jb) = MAX(qvmax(jb),p_prog_rcf%tracer(jc,jk,jb,iqv))
-            qvmin(jb) = MIN(qvmin(jb),p_prog_rcf%tracer(jc,jk,jb,iqv))
-            qcmax(jb) = MAX(qcmax(jb),p_prog_rcf%tracer(jc,jk,jb,iqc))
-            qcmin(jb) = MIN(qcmin(jb),p_prog_rcf%tracer(jc,jk,jb,iqc))
-            qrmax(jb) = MAX(qrmax(jb),p_prog_rcf%tracer(jc,jk,jb,iqr))
-            qrmin(jb) = MIN(qrmin(jb),p_prog_rcf%tracer(jc,jk,jb,iqr))
-            qimax(jb) = MAX(qimax(jb),p_prog_rcf%tracer(jc,jk,jb,iqi))
-            qimin(jb) = MIN(qimin(jb),p_prog_rcf%tracer(jc,jk,jb,iqi))
-            qsmax(jb) = MAX(qsmax(jb),p_prog_rcf%tracer(jc,jk,jb,iqs))
-            qsmin(jb) = MIN(qsmin(jb),p_prog_rcf%tracer(jc,jk,jb,iqs))
+            qvmax(jb) = MAX(qvmax(jb),ptr_tracer(jc,jk,jb,iqv))
+            qvmin(jb) = MIN(qvmin(jb),ptr_tracer(jc,jk,jb,iqv))
+            qcmax(jb) = MAX(qcmax(jb),ptr_tracer(jc,jk,jb,iqc))
+            qcmin(jb) = MIN(qcmin(jb),ptr_tracer(jc,jk,jb,iqc))
+            qrmax(jb) = MAX(qrmax(jb),ptr_tracer(jc,jk,jb,iqr))
+            qrmin(jb) = MIN(qrmin(jb),ptr_tracer(jc,jk,jb,iqr))
+            qimax(jb) = MAX(qimax(jb),ptr_tracer(jc,jk,jb,iqi))
+            qimin(jb) = MIN(qimin(jb),ptr_tracer(jc,jk,jb,iqi))
+            qsmax(jb) = MAX(qsmax(jb),ptr_tracer(jc,jk,jb,iqs))
+            qsmin(jb) = MIN(qsmin(jb),ptr_tracer(jc,jk,jb,iqs))
             
             IF(atm_phy_nwp_config(jg)%inwp_gscp==4 &
                  & .OR.atm_phy_nwp_config(jg)%inwp_gscp==5 .OR. atm_phy_nwp_config(jg)%inwp_gscp==7)THEN
-               qgmax(jb) = MAX(qgmax(jb),p_prog_rcf%tracer(jc,jk,jb,iqg))
-               qgmin(jb) = MIN(qgmin(jb),p_prog_rcf%tracer(jc,jk,jb,iqg))
-               qhmax(jb) = MAX(qhmax(jb),p_prog_rcf%tracer(jc,jk,jb,iqh))
-               qhmin(jb) = MIN(qhmin(jb),p_prog_rcf%tracer(jc,jk,jb,iqh))
+               qgmax(jb) = MAX(qgmax(jb),ptr_tracer(jc,jk,jb,iqg))
+               qgmin(jb) = MIN(qgmin(jb),ptr_tracer(jc,jk,jb,iqg))
+               qhmax(jb) = MAX(qhmax(jb),ptr_tracer(jc,jk,jb,iqh))
+               qhmin(jb) = MIN(qhmin(jb),ptr_tracer(jc,jk,jb,iqh))
             END IF
             IF(atm_phy_nwp_config(jg)%inwp_gscp==7)THEN
-               qglmax(jb) = MAX(qglmax(jb),p_prog_rcf%tracer(jc,jk,jb,iqgl))
-               qglmin(jb) = MIN(qglmin(jb),p_prog_rcf%tracer(jc,jk,jb,iqgl))
-               qhlmax(jb) = MAX(qhlmax(jb),p_prog_rcf%tracer(jc,jk,jb,iqhl))
-               qhlmin(jb) = MIN(qhlmin(jb),p_prog_rcf%tracer(jc,jk,jb,iqhl))
+               qglmax(jb) = MAX(qglmax(jb),ptr_tracer(jc,jk,jb,iqgl))
+               qglmin(jb) = MIN(qglmin(jb),ptr_tracer(jc,jk,jb,iqgl))
+               qhlmax(jb) = MAX(qhlmax(jb),ptr_tracer(jc,jk,jb,iqhl))
+               qhlmin(jb) = MIN(qhlmin(jb),ptr_tracer(jc,jk,jb,iqhl))
             END IF
             IF(atm_phy_nwp_config(jg)%inwp_gscp==5)THEN
-               qncmax(jb) = MAX(qncmax(jb),p_prog_rcf%tracer(jc,jk,jb,iqnc))
-               qncmin(jb) = MIN(qncmin(jb),p_prog_rcf%tracer(jc,jk,jb,iqnc))
-               qnimax(jb) = MAX(qnimax(jb),p_prog_rcf%tracer(jc,jk,jb,iqni))
-               qnimin(jb) = MIN(qnimin(jb),p_prog_rcf%tracer(jc,jk,jb,iqni))
+               qncmax(jb) = MAX(qncmax(jb),ptr_tracer(jc,jk,jb,iqnc))
+               qncmin(jb) = MIN(qncmin(jb),ptr_tracer(jc,jk,jb,iqnc))
+               qnimax(jb) = MAX(qnimax(jb),ptr_tracer(jc,jk,jb,iqni))
+               qnimin(jb) = MIN(qnimin(jb),ptr_tracer(jc,jk,jb,iqni))
             END IF
          ENDDO
       ENDDO

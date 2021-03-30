@@ -37,9 +37,9 @@ MODULE mo_ha_2tl_si
     &                               vn_adv_vertical,   vn_adv_horizontal
   USE mo_ha_diag_util,        ONLY: update_diag_state
   USE mo_vertical_coord_table,ONLY: vct_b
-  USE mo_exception,           ONLY: message,finish
+  USE mo_exception,           ONLY: message, finish, message_text
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, EULER_FORWARD, AB2
+  USE mo_impl_constants,      ONLY: EULER_FORWARD, AB2
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_ha_2tl_si_solver,    ONLY: solver
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
@@ -107,7 +107,6 @@ MODULE mo_ha_2tl_si
   LOGICAL  :: lmaxiter
   INTEGER  :: niter
   REAL(wp) :: z_residual(nmax_iter)
-  CHARACTER(LEN=MAX_CHAR_LENGTH) :: string
 
 !----------------------------------------------------------------------------
    IF (ltimer) CALL timer_start(timer_step_2tl_si)
@@ -119,7 +118,7 @@ MODULE mo_ha_2tl_si
 !----------------------------------------------------------
 ! 1. Calculate right-hand side of the increment equations
 !----------------------------------------------------------
- IF (ltheta_dyn) CALL finish(TRIM(routine),'theta dyn. not implimented')
+ IF (ltheta_dyn) CALL finish(routine, 'theta dyn. not implimented')
 
    CALL tend_expl( si_expl_scheme, p_dtime,                &! in
                    p_now, p_patch, p_int_state,            &! in
@@ -218,9 +217,9 @@ MODULE mo_ha_2tl_si
       CALL finish('GMRES solver: ','NOT YET CONVERGED !!')
    ENDIF
    IF (msg_level >= 1) THEN
-     WRITE(string,'(a,i4,a,e20.10)') 'GMRES solver: iteration ', niter,  &
+     WRITE(message_text,'(a,i4,a,e20.10)') 'GMRES solver: iteration ', niter,  &
                                    ', residual = ', ABS(z_residual(niter))
-     CALL message(TRIM(routine),TRIM(string))
+     CALL message(routine, message_text)
    ENDIF
 
 !---------------------------------------------------------
@@ -275,8 +274,7 @@ MODULE mo_ha_2tl_si
                         p_dvn, p_dtemp, p_dps )                   ! out
   !! Arguments
 
-  CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_ha_2tl_si:tend_expl'
+  CHARACTER(len=*), PARAMETER :: routine = 'mo_ha_2tl_si:tend_expl'
 
   INTEGER ,INTENT(IN) :: si_expl_scheme 
   REAL(wp),INTENT(IN) :: p_dtime
@@ -314,8 +312,6 @@ MODULE mo_ha_2tl_si
   INTEGER      :: ischeme
   LOGICAL,SAVE :: lfirst_step = .TRUE.
 
-  CHARACTER(LEN=MAX_CHAR_LENGTH) :: string
-
 ! Dimension parameters
 
    nblks_c   = pt_patch%nblks_c
@@ -330,8 +326,8 @@ MODULE mo_ha_2tl_si
      ischeme = si_expl_scheme
   ENDIF
 
-  WRITE(string,'(a,i2)') 'si slow comp =',ischeme
-  CALL message(TRIM(routine),TRIM(string))
+  WRITE(message_text, '(a,i2)') 'si slow comp =',ischeme
+  CALL message(routine, message_text)
 
   SELECT CASE(ischeme)
   CASE(EULER_FORWARD)

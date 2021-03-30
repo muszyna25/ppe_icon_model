@@ -65,11 +65,11 @@ MODULE mo_name_list_output_zaxes
     &                                             ZA_PRES_FL_390_530, ZA_reference, ZA_reference_half,           &
     &                                             ZA_reference_half_hhl,                                         &
     &                                             ZA_sediment_bottom_tw_half, ZA_snow, ZA_snow_half, ZA_toa,     &
-    &                                             ZA_OCEAN_SEDIMENT, ZA_height_2m_layer, ZA_ECHOTOP
+    &                                             ZA_OCEAN_SEDIMENT, ZA_height_2m_layer, ZA_ECHOTOP, ZA_TROPOPAUSE
   USE mo_level_selection_types,             ONLY: t_level_selection
   USE mo_util_vgrid_types,                  ONLY: vgrid_buffer
   USE mo_math_utilities,                    ONLY: set_zlev, t_value_set
-  USE mo_run_config,                        ONLY: num_lev, iforcing
+  USE mo_run_config,                        ONLY: num_lev, iforcing, nlev
   USE mo_name_list_output_zaxes_types,      ONLY: t_verticalAxis, t_verticalAxisList
 #ifndef __NO_ICON_ATMO__
   USE mo_io_config,                         ONLY: echotop_meta
@@ -77,7 +77,7 @@ MODULE mo_name_list_output_zaxes
   USE mo_lnd_nwp_config,                    ONLY: nlev_snow, zml_soil
 #endif
 #ifndef __NO_ICON_OCEAN__
-  USE mo_ocean_nml,                         ONLY: n_zlev, dzlev_m,lhamocc
+  USE mo_ocean_nml,                         ONLY: dzlev_m,lhamocc, n_zlev
   USE mo_hamocc_nml,                        ONLY: ks, ksp, dzsed
 #endif
 
@@ -167,6 +167,8 @@ CONTAINS
     ! for having ice variable in the atmosphere (like AMIP)
     CALL verticalAxisList%append(t_verticalAxis(zaxisTypeList%getEntry(ZA_GENERIC_ICE), 1))
 
+    ! for having variable on the tropopause niveau
+    CALL verticalAxisList%append(single_level_axis(ZA_TROPOPAUSE, opt_grib2_level_type=7))
 
     ! --------------------------------------------------------------------------------------
     ! Definitions for single layers --------------------------------------------------------
@@ -399,13 +401,13 @@ CONTAINS
   !> Setup of vertical axes for output module: Ocean component
   !
   SUBROUTINE setup_zaxes_oce(verticalAxisList, level_selection)
+  
     TYPE(t_verticalAxisList), INTENT(INOUT) :: verticalAxisList
     TYPE(t_level_selection),  INTENT(IN), POINTER :: level_selection
     ! local variables
     REAL(wp), ALLOCATABLE             :: levels_i(:), levels_m(:)
     REAL(wp), ALLOCATABLE             :: levels_s(:), levels_sp(:)
-
-
+    
 #ifndef __NO_ICON_OCEAN__
     ALLOCATE(levels_i(n_zlev+1), levels_m(n_zlev))
     CALL set_zlev(levels_i, levels_m, n_zlev, dzlev_m)
@@ -441,19 +443,21 @@ CONTAINS
   ! --------------------------------------------------------------------------------------
   !> Utility function: defines z-axis with a single level
   !
-  FUNCTION single_level_axis(za_type, opt_level_value, opt_unit)
+  FUNCTION single_level_axis(za_type, opt_level_value, opt_unit, opt_grib2_level_type)
     TYPE(t_verticalAxis) :: single_level_axis
-    INTEGER,          INTENT(IN)           :: za_type  !< ICON-internal axis ID (see mo_zaxis_type)
-    REAL(dp),         INTENT(IN), OPTIONAL :: opt_level_value   !< level value
-    CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: opt_unit          !< axis unit
+    INTEGER,          INTENT(IN)           :: za_type               !< ICON-internal axis ID (see mo_zaxis_type)
+    REAL(dp),         INTENT(IN), OPTIONAL :: opt_level_value       !< level value
+    CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: opt_unit              !< axis unit
+    INTEGER,          INTENT(in), OPTIONAL :: opt_grib2_level_type  !< level type as defined in GRIB2
     ! local variables
     REAL(dp) :: levels(1)
 
     levels(1) = 0.0_dp
-    IF (PRESENT(opt_level_value))  levels(1) = opt_level_value
+    IF (PRESENT(opt_level_value)) levels(1) = opt_level_value
 
-    single_level_axis = t_verticalAxis(zaxisTypeList%getEntry(za_type), 1,     &
-      &                                zaxisLevels=levels)
+    single_level_axis = t_verticalAxis(zaxisTypeList%getEntry(za_type), 1,  &
+         &                             zaxisLevels=levels,                  &
+         &                             zaxisDefLtype=opt_grib2_level_type)
 
     IF (PRESENT(opt_unit))  CALL single_level_axis%set(zaxisUnits=TRIM(opt_unit))
   END FUNCTION single_level_axis
@@ -488,7 +492,7 @@ CONTAINS
     &                    opt_name, opt_number, opt_nlevref,           &
     &                    opt_uuid, opt_set_vct_as_levels,             &
     &                    opt_vct)  RESULT(axis)
-    
+
     TYPE(t_verticalAxis) :: axis
 
     INTEGER,                 INTENT(IN) :: za_type        !< ICON-internal axis ID (see mo_zaxis_type)

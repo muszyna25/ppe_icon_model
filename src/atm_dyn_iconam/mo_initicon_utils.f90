@@ -36,26 +36,26 @@ MODULE mo_initicon_utils
     &                               t_pi_sfc, t_sfc_inc, ana_varnames_dict, t_init_state_const
   USE mo_initicon_config,     ONLY: init_mode, l_sst_in, qcana_mode, qiana_mode, qrsgana_mode, &
     &                               ana_varnames_map_file, lread_vn,      &
-    &                               lvert_remap_fg, aerosol_fg_present
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, MODE_DWDANA, MODE_IAU,             &
+    &                               lvert_remap_fg, aerosol_fg_present, icpl_da_sfcevap
+  USE mo_impl_constants,      ONLY: MODE_DWDANA, MODE_IAU,                              &
                                     MODE_IAU_OLD, MODE_IFSANA, MODE_COMBINED,           &
     &                               MODE_COSMO, MODE_ICONVREMAP, MODIS,                 &
     &                               min_rlcell_int, grf_bdywidth_c, min_rlcell,         &
-    &                               iss, iorg, ibc, iso4, idu, SUCCESS, iecham
+    &                               iss, iorg, ibc, iso4, idu, SUCCESS, iecham,         &
+    &                               varname_len
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_radiation_config,    ONLY: albedo_type
   USE mo_physical_constants,  ONLY: tf_salt, tmelt
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom
-  USE mo_mpi,                 ONLY: my_process_is_stdio, p_io,  p_comm_work, &
+  USE mo_util_string,         ONLY: tolower
+  USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, &
     &                               p_comm_work, my_process_is_mpi_workroot, &
     &                               p_min, p_max, p_sum, num_work_procs, my_process_is_work
-  USE mo_util_string,         ONLY: tolower
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, lseaice, llake, lmulti_snow,         &
     &                               isub_lake, frlnd_thrhld,             &
     &                               frlake_thrhld, frsea_thrhld, nlev_snow, ntiles_lnd,           &
     &                               l2lay_rho_snow, lprog_albsi
-  USE mo_extpar_config,       ONLY: itype_vegetation_cycle
   USE mo_nwp_sfc_utils,       ONLY: init_snowtile_lists
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
@@ -65,9 +65,9 @@ MODULE mo_initicon_utils
   USE sfc_seaice,             ONLY: frsi_min, seaice_coldinit_nwp
   USE mo_post_op,             ONLY: perform_post_op
   USE mo_var_metadata_types,  ONLY: t_var_metadata, POST_OP_NONE
-  USE mo_linked_list,         ONLY: t_list_element
-  USE mo_var_list,            ONLY: get_var_name, nvar_lists, var_lists
-  USE mo_var_list_element,    ONLY: level_type_ml
+  USE mo_linked_list,         ONLY: t_var_list_intrinsic
+  USE mo_var_list,            ONLY: get_var_name, find_element
+  USE mo_var_list_element,    ONLY: level_type_ml, t_var_list_element
   USE sfc_flake,              ONLY: flake_coldinit
   USE mtime,                  ONLY: datetime, newDatetime, deallocateDatetime, &
     &                               OPERATOR(==), OPERATOR(+) 
@@ -112,8 +112,15 @@ MODULE mo_initicon_utils
   PUBLIC :: init_aerosol
   PUBLIC :: init_qnx_from_qx_twomom
   PUBLIC :: init_qnxinc_from_qxinc_twomom
-  PUBLIC :: get_diag_stat_str_3d
   PUBLIC :: get_diag_stat_comm_work
+
+  !> type holds selection criteria for var_lists matching ilev_type and
+  !! variables matching name_lc (when converted to lower case)
+  TYPE post_op_search_state
+    INTEGER :: ilev_type
+    CHARACTER(LEN=varname_len) :: name_lc
+  END TYPE post_op_search_state
+
 
   CONTAINS
 
@@ -136,61 +143,38 @@ MODULE mo_initicon_utils
     REAL(wp), OPTIONAL, INTENT(INOUT) :: optvar_out3D(:,:,:) !< 2D output field
 
     ! local variables
-    INTEGER                         :: i              ! loop count
+    TYPE(t_var_list_element), POINTER :: field
     TYPE(t_var_metadata), POINTER   :: info           ! variable metadata
-    TYPE(t_list_element), POINTER   :: element
+    TYPE(post_op_search_state) :: search_state
     CHARACTER(len=*), PARAMETER     :: routine = 'initicon_inverse_post_op'
-    CHARACTER(len=100)              :: lc_varname
     !-------------------------------------------------------------------------
 
 
     ! Check consistency of optional arguments
     !
-    IF (PRESENT( optvar_out2D ) .AND. PRESENT( optvar_out3D )) THEN
-      CALL finish(routine, 'Only one optional argument must be present')
-    ELSE IF (.NOT.PRESENT( optvar_out2D ) .AND. .NOT.PRESENT( optvar_out3D )) THEN
-      CALL finish(routine, 'One of 2 optional arguments must be present')
-    ENDIF
+    IF (PRESENT( optvar_out2D ) .EQV. PRESENT( optvar_out3D )) &
+      CALL finish(routine, 'Exactly one optional argument must be present')
 
-    lc_varname = tolower(varname)
     ! get metadata information for field to be read
-    info => NULL()
-    DO i = 1,nvar_lists
-      ! loop only over model level variables
-      IF (var_lists(i)%p%vlevel_type /= level_type_ml) CYCLE 
+    search_state%name_lc = tolower(varname)
+    search_state%ilev_type = level_type_ml
+    ! query all var lists matching level_type_ml for variables with lower
+    ! case name equal to tolower(varname), returns first match or null()
+    field => find_element(var_filter_name_lc, var_list_filter_lev_type, &
+      state=search_state)
 
-      element => NULL()
-      DO
-        IF(.NOT.ASSOCIATED(element)) THEN
-          element => var_lists(i)%p%first_list_element
-        ELSE
-          element => element%next_list_element
-        ENDIF
-        IF(.NOT.ASSOCIATED(element)) EXIT
-
-        ! Check for matching name (take care of suffix of
-        ! time-dependent variables):
-        IF (TRIM(lc_varname) == TRIM(tolower(get_var_name(element%field)))) THEN
-          info => element%field%info
-          EXIT
-        ENDIF
-      END DO
-
-      ! If info handle has been found, exit list loop
-      IF (ASSOCIATED(info)) EXIT
-    ENDDO
-
-    IF (.NOT.ASSOCIATED(info)) THEN
+    IF (.NOT.ASSOCIATED(field)) THEN
       WRITE (message_text,'(a,a)') TRIM(varname), ' not found'
       CALL message('',message_text)
       CALL finish(routine, 'Varname does not match any of the ICON variable names')
     ENDIF
 
+    info => field%info
     ! perform post_op
     IF (info%post_op%ipost_op_type /= POST_OP_NONE) THEN
       IF(my_process_is_stdio() .AND. msg_level>10) THEN
-        WRITE(message_text,'(a)') 'Inverse Post_op for: '//TRIM(varname)
-        CALL message(TRIM(routine), TRIM(message_text))
+        WRITE(message_text,'(2a)') 'Inverse Post_op for: ', varname
+        CALL message(routine, message_text)
       ENDIF
       IF (PRESENT(optvar_out2D)) THEN
         CALL perform_post_op(info%post_op, optvar_out2D, opt_inverse=.TRUE.)
@@ -201,7 +185,28 @@ MODULE mo_initicon_utils
 
   END SUBROUTINE initicon_inverse_post_op
 
+  !> predicate to select variables with a name matching the name passed via state
+  FUNCTION var_filter_name_lc(field, state, var_list) RESULT(is_selected)
+    LOGICAL :: is_selected
+    TYPE(t_var_list_element), INTENT(in) :: field
+    CLASS(*), TARGET :: state
+    TYPE(t_var_list_intrinsic), INTENT(in) :: var_list
+    SELECT TYPE (state)
+    TYPE IS (post_op_search_state)
+      is_selected = state%name_lc == tolower(get_var_name(field))
+    END SELECT
+  END FUNCTION var_filter_name_lc
 
+  !> predicate matching variable lists of level type equal to state%ilev_type
+  FUNCTION var_list_filter_lev_type(var_list, state) RESULT(is_selected)
+    LOGICAL :: is_selected
+    TYPE(t_var_list_intrinsic), INTENT(in) :: var_list
+    CLASS(*), TARGET :: state
+    SELECT TYPE (state)
+    TYPE IS (post_op_search_state)
+      is_selected = var_list%vlevel_type == state%ilev_type
+    END SELECT
+  END FUNCTION var_list_filter_lev_type
 
   !>
   !! SUBROUTINE init_aersosol
@@ -273,7 +278,7 @@ MODULE mo_initicon_utils
       IF ( ANY(.NOT.aerosol_fg_present(jg,1:5))) THEN
         WRITE(message_text,'(a,i3,a,i3,a)') 'Aerosol initialized from climatology, domain ',jg,', for',&
           COUNT(.NOT.aerosol_fg_present(jg,1:5)),' of 5 types'
-        CALL message('init_aerosol', TRIM(message_text))
+        CALL message('init_aerosol', message_text)
       ENDIF
 !$OMP END MASTER
     ENDDO
@@ -881,11 +886,7 @@ MODULE mo_initicon_utils
 !$OMP DO PRIVATE(jb,jk,je,nlen) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_e
 
-        IF (jb /= nblks_e) THEN
-          nlen = nproma
-        ELSE
-          nlen = npromz_e
-        ENDIF
+        nlen = MERGE( nproma, npromz_e, jb /= nblks_e)
 
         ! Wind speed
         DO jk = 1, nlev
@@ -900,11 +901,7 @@ MODULE mo_initicon_utils
 !$OMP DO PRIVATE(jb,jk,jc,nlen,exner,tempv,idx,itracer) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_c
 
-        IF (jb /= nblks_c) THEN
-          nlen = nproma
-        ELSE
-          nlen = npromz_c
-        ENDIF
+        nlen = MERGE(nproma, npromz_c, jb /= nblks_c)
 
         ! 3D fields
         DO jk = 1, nlev
@@ -1127,7 +1124,7 @@ MODULE mo_initicon_utils
     ! debug output
     IF(my_process_is_stdio() .AND. msg_level>=13) THEN
       WRITE(message_text,'(a,I3)') 'step ', p_diag%nsteps_avg(1)
-      CALL message(TRIM(routine), TRIM(message_text))
+      CALL message(routine, message_text)
     ENDIF
 
   END SUBROUTINE average_first_guess
@@ -1190,7 +1187,7 @@ MODULE mo_initicon_utils
     ! debug output
     IF(my_process_is_stdio() .AND. msg_level>=13) THEN
       WRITE(message_text,'(a,I3)') 'step ', p_diag%nsteps_avg(1)
-      CALL message(TRIM(routine), TRIM(message_text))
+      CALL message(routine, message_text)
     ENDIF
 
   END SUBROUTINE reinit_average_first_guess
@@ -1867,14 +1864,14 @@ MODULE mo_initicon_utils
             IF (init_mode == MODE_IAU) THEN
                 ALLOCATE(sfc_inc%h_snow   (nproma,nblks_c), &
                 &        sfc_inc%freshsnow(nproma,nblks_c) )
-                IF (itype_vegetation_cycle == 3) ALLOCATE(sfc_inc%t_2m(nproma,nblks_c))
+                IF (icpl_da_sfcevap == 1 .OR. icpl_da_sfcevap == 2) ALLOCATE(sfc_inc%t_2m(nproma,nblks_c))
 
                 ! initialize with 0, since some increments are only read
                 ! for specific times
 !$OMP PARALLEL 
                 CALL init(sfc_inc%h_snow   (:,:))
                 CALL init(sfc_inc%freshsnow(:,:))
-                IF (itype_vegetation_cycle == 3) CALL init(sfc_inc%t_2m(:,:))
+                IF (icpl_da_sfcevap == 1 .OR. icpl_da_sfcevap == 2) CALL init(sfc_inc%t_2m(:,:))
 !$OMP END PARALLEL
             ENDIF  ! MODE_IAU
 
@@ -1904,7 +1901,7 @@ MODULE mo_initicon_utils
     TYPE(t_pi_atm_in),        INTENT(INOUT) :: atm_in
     TYPE(t_init_state_const), INTENT(INOUT) :: const
     ! Local variables: loop control and dimensions
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = modname//':allocate_extana_atm'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':allocate_extana_atm'
 
 
     IF (nlev_in == 0) THEN
@@ -1971,7 +1968,7 @@ MODULE mo_initicon_utils
     INTEGER,                INTENT(IN)    :: nlevsoil_in    ! number of soil levels
                                                             ! of external analysis data
     ! Local variables: loop control and dimensions
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = modname//':allocate_extana_sfc'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':allocate_extana_sfc'
 
     IF (nlevsoil_in == 0) THEN
       CALL finish(routine, "Number of input soil levels <nlevsoil_in> not yet initialized.")
@@ -3068,12 +3065,7 @@ MODULE mo_initicon_utils
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,nlen,rholoc) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, p_patch%nblks_c
-                  
-      IF (jb /= p_patch%nblks_c) THEN
-        nlen = nproma
-      ELSE
-        nlen = p_patch%npromz_c
-      ENDIF
+      nlen = MERGE(nproma, p_patch%npromz_c, jb /= p_patch%nblks_c)
 
       IF (lqnx_init(iqnc)) THEN
         DO jk = 1, p_patch%nlev
@@ -3129,27 +3121,27 @@ MODULE mo_initicon_utils
 
     IF (lqnx_init(iqnc)) THEN
       ncmaxstr = get_diag_stat_str_3d ( p_patch, my_qnc )
-      CALL message(TRIM(caller)//':', 'init_qnx_from_qx_twomom: set_qnc() from qc, '//TRIM(ncmaxstr))
+      CALL message(caller, 'init_qnx_from_qx_twomom: set_qnc() from qc, '//TRIM(ncmaxstr))
     END IF
     IF (lqnx_init(iqni)) THEN
       ncmaxstr = get_diag_stat_str_3d ( p_patch, my_qni )
-      CALL message(TRIM(caller)//':', 'init_qnx_from_qx_twomom: set_qni() from qi, '//TRIM(ncmaxstr))
+      CALL message(caller, 'init_qnx_from_qx_twomom: set_qni() from qi, '//TRIM(ncmaxstr))
     END IF
     IF (lqnx_init(iqnr)) THEN
       ncmaxstr = get_diag_stat_str_3d ( p_patch, my_qnr )
-      CALL message(TRIM(caller)//':', 'init_qnx_from_qx_twomom: set_qnr() from qr, '//TRIM(ncmaxstr))
+      CALL message(caller, 'init_qnx_from_qx_twomom: set_qnr() from qr, '//TRIM(ncmaxstr))
     END IF
     IF (lqnx_init(iqns)) THEN
       ncmaxstr = get_diag_stat_str_3d ( p_patch, my_qns )
-      CALL message(TRIM(caller)//':', 'init_qnx_from_qx_twomom: set_qns() from qs, '//TRIM(ncmaxstr))
+      CALL message(caller, 'init_qnx_from_qx_twomom: set_qns() from qs, '//TRIM(ncmaxstr))
     END IF
     IF (lqnx_init(iqng)) THEN
       ncmaxstr = get_diag_stat_str_3d ( p_patch, my_qng )
-      CALL message(TRIM(caller)//':', 'init_qnx_from_qx_twomom: set_qng() from qg, '//TRIM(ncmaxstr))
+      CALL message(caller, 'init_qnx_from_qx_twomom: set_qng() from qg, '//TRIM(ncmaxstr))
     END IF
     IF (lqnx_init(iqnh)) THEN
       ncmaxstr = get_diag_stat_str_3d ( p_patch, my_qnh )
-      CALL message(TRIM(caller)//':', 'init_qnx_from_qx_twomom: set_qnh() from qh, '//TRIM(ncmaxstr))
+      CALL message(caller, 'init_qnx_from_qx_twomom: set_qnh() from qh, '//TRIM(ncmaxstr))
     END IF
 
   END SUBROUTINE init_qnx_from_qx_twomom
@@ -3194,12 +3186,8 @@ MODULE mo_initicon_utils
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,nlen,qtmp0,qtmp1,rholoc) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, p_patch%nblks_c
-                  
-      IF (jb /= p_patch%nblks_c) THEN
-        nlen = nproma
-      ELSE
-        nlen = p_patch%npromz_c
-      ENDIF
+
+      nlen = MERGE(nproma, p_patch%npromz_c, jb /= p_patch%nblks_c)
 
       IF (lqnxinc_init(iqnc) .AND. lqx_avail(iqc) .AND. lqxinc_avail(iqc) .AND. qcana_mode > 0) THEN
         DO jk = 1, p_patch%nlev
@@ -3268,24 +3256,24 @@ MODULE mo_initicon_utils
       END IF
 
     END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
     
     IF (qcana_mode > 0 .AND. lqnxinc_init(iqnc)) THEN
       IF (lqx_avail(iqc) .AND. lqxinc_avail(iqc)) THEN
         ncmaxstr = get_diag_stat_str_3d ( p_patch, my_qnc_inc )
-        CALL message(TRIM(caller), 'init_qnxinc_from_qxinc_twomom for IAU: set_qnc_inc() from qc and qcinc, '//TRIM(ncmaxstr))
+        CALL message(caller, 'init_qnxinc_from_qxinc_twomom for IAU: set_qnc_inc() from qc and qcinc, '//TRIM(ncmaxstr))
       ELSE
-        CALL message(TRIM(caller), 'init_qnxinc_from_qxinc_twomom for IAU: set_qnc_inc() failed '// &
+        CALL message(caller, 'init_qnxinc_from_qxinc_twomom for IAU: set_qnc_inc() failed '// &
                                    'due to missing qc (FG) and/or qcinc (ANA)')        
       END IF
     END IF
     IF (qiana_mode > 0 .AND. lqnxinc_init(iqni)) THEN
       IF (lqx_avail(iqi) .AND. lqxinc_avail(iqi)) THEN
         ncmaxstr = get_diag_stat_str_3d ( p_patch, my_qni_inc )
-        CALL message(TRIM(caller), 'init_qnxinc_from_qxinc_twomom for IAU: set_qni_inc() from qi and qiinc, '//TRIM(ncmaxstr))
+        CALL message(caller, 'init_qnxinc_from_qxinc_twomom for IAU: set_qni_inc() from qi and qiinc, '//TRIM(ncmaxstr))
       ELSE
-        CALL message(TRIM(caller), 'init_qnxinc_from_qxinc_twomom for IAU: set_qni_inc() failed '// &
+        CALL message(caller, 'init_qnxinc_from_qxinc_twomom for IAU: set_qni_inc() failed '// &
                                    'due to missing qi (FG) and/or qiinc (ANA)')        
       END IF
     END IF
@@ -3293,36 +3281,36 @@ MODULE mo_initicon_utils
       IF (lqnxinc_init(iqnr)) THEN
         IF (lqx_avail(iqr) .AND. lqxinc_avail(iqr)) THEN
           ncmaxstr = get_diag_stat_str_3d ( p_patch, my_qnr_inc )
-          CALL message(TRIM(caller), 'init_qnxinc_from_qxinc_twomom for IAU: set_qnr_inc() from qr and qrinc, '//TRIM(ncmaxstr))
+          CALL message(caller, 'init_qnxinc_from_qxinc_twomom for IAU: set_qnr_inc() from qr and qrinc, '//TRIM(ncmaxstr))
         ELSE
-          CALL message(TRIM(caller), 'init_qnxinc_from_qxinc_twomom for IAU: set_qnr_inc() failed '// &
+          CALL message(caller, 'init_qnxinc_from_qxinc_twomom for IAU: set_qnr_inc() failed '// &
                                      'due to missing qr (FG) and/or qrinc (ANA)')
         END IF
       END IF
       IF (lqnxinc_init(iqns)) THEN
         IF (lqx_avail(iqs) .AND. lqxinc_avail(iqs)) THEN
           ncmaxstr = get_diag_stat_str_3d ( p_patch, my_qns_inc )
-          CALL message(TRIM(caller), 'init_qnxinc_from_qxinc_twomom for IAU: set_qns_inc() from qs and qsinc, '//TRIM(ncmaxstr))
+          CALL message(caller, 'init_qnxinc_from_qxinc_twomom for IAU: set_qns_inc() from qs and qsinc, '//TRIM(ncmaxstr))
         ELSE
-          CALL message(TRIM(caller), 'init_qnxinc_from_qxinc_twomom for IAU: set_qns_inc() failed '// &
+          CALL message(caller, 'init_qnxinc_from_qxinc_twomom for IAU: set_qns_inc() failed '// &
                                      'due to missing qs (FG) and/or qsinc (ANA)')        
         END IF
       END IF
       IF (lqnxinc_init(iqng)) THEN
         IF (lqx_avail(iqg) .AND. lqxinc_avail(iqg)) THEN
           ncmaxstr = get_diag_stat_str_3d ( p_patch, my_qng_inc )
-          CALL message(TRIM(caller), 'init_qnxinc_from_qxinc_twomom for IAU: set_qng_inc() from qg and qginc, '//TRIM(ncmaxstr))
+          CALL message(caller, 'init_qnxinc_from_qxinc_twomom for IAU: set_qng_inc() from qg and qginc, '//TRIM(ncmaxstr))
         ELSE
-          CALL message(TRIM(caller), 'init_qnxinc_from_qxinc_twomom for IAU: set_qng_inc() failed '// &
+          CALL message(caller, 'init_qnxinc_from_qxinc_twomom for IAU: set_qng_inc() failed '// &
                                      'due to missing qg (FG) and/or qginc (ANA)')        
         END IF
       END IF
       IF (lqnxinc_init(iqnh)) THEN
         IF (lqx_avail(iqh) .AND. lqxinc_avail(iqh)) THEN
           ncmaxstr = get_diag_stat_str_3d ( p_patch, my_qnh_inc )
-          CALL message(TRIM(caller), 'init_qnxinc_from_qxinc_twomom for IAU: set_qnh_inc() from qh and qhinc, '//TRIM(ncmaxstr))
+          CALL message(caller, 'init_qnxinc_from_qxinc_twomom for IAU: set_qnh_inc() from qh and qhinc, '//TRIM(ncmaxstr))
         ELSE
-          CALL message(TRIM(caller), 'init_qnxinc_from_qxinc_twomom for IAU: set_qnh_inc() failed '// &
+          CALL message(caller, 'init_qnxinc_from_qxinc_twomom for IAU: set_qnh_inc() failed '// &
                                      'due to missing qh (FG) and/or qhinc (ANA)')        
         END IF
       END IF
@@ -3344,7 +3332,6 @@ MODULE mo_initicon_utils
 
     IF (my_process_is_work()) THEN
 
-      statstr(:) = ' '
       WRITE(statstr, '("min/mean/max interior domain: ",2(es12.5," / "),es12.5)') stats
 
     ELSE
@@ -3390,11 +3377,11 @@ MODULE mo_initicon_utils
           END DO
         END DO
       END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 #ifndef NOMPI
-      IF (num_work_procs > 1 .AND. my_process_is_work() ) THEN
+      IF (num_work_procs > 1) THEN
         ! Global stats using MPI:
         mn           = p_min(mn          , comm=p_comm_work)
         mx           = p_max(mx          , comm=p_comm_work)

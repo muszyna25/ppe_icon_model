@@ -123,7 +123,7 @@ MODULE mo_output_event_handler
   USE mo_exception,              ONLY: finish, message_text
   USE mo_io_units,               ONLY: FILENAME_MAX, find_next_free_unit
   USE mo_util_string,            ONLY: int2string
-  USE mo_mpi,                    ONLY: p_int, p_real,                                       &
+  USE mo_mpi,                    ONLY: p_int, p_int_i4, p_int_i8, p_real,                   &
     &                                  get_my_global_mpi_id,                                &
     &                                  p_pe,                                                &
     &                                  my_process_is_mpi_workroot,                          &
@@ -406,6 +406,8 @@ CONTAINS
     INTEGER, INTENT(inout) :: irow
     INTEGER, INTENT(in) :: dst, step_idx, num_steps
     TYPE(t_event_step), INTENT(in) :: event_step
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: event_datetime_string
+    CHARACTER(LEN=1+9+9) :: cfilepart
 
     INTEGER :: j, tlen
     LOGICAL :: lclose, lopen
@@ -413,7 +415,8 @@ CONTAINS
       irow = irow + 1
       IF (j==1) THEN
         CALL set_table_entry(table,irow,"model step", int2string(event_step%i_sim_step))
-        CALL set_table_entry(table,irow,"model date", TRIM(event_step%exact_date_string))
+        CALL datetimetostring(event_step%exact_date, event_datetime_string)
+        CALL set_table_entry(table,irow,"model date", TRIM(event_datetime_string))
       ELSE
         CALL set_table_entry(table,irow,"model step", " ")
         CALL set_table_entry(table,irow,"model date", " ")
@@ -424,10 +427,13 @@ CONTAINS
 
       CALL set_table_entry(table,irow,"I/O PE",      int2string(event_step%event_step_data(j)%i_pe))
 
-      CALL set_table_entry(table,irow,"output date", TRIM(event_step%event_step_data(j)%datetime_string))
+      CALL datetimetostring(event_step%event_step_data(j)%datetime, &
+        &                   event_datetime_string)
+      CALL set_table_entry(table,irow,"output date", TRIM(event_datetime_string))
 
-      CALL set_table_entry(table,irow,"#",           &
-        & TRIM(int2string(event_step%event_step_data(j)%jfile))//"."//TRIM(int2string(event_step%event_step_data(j)%jpart)))
+      WRITE (cfilepart, '(i0,a,i0)') event_step%event_step_data(j)%jfile, ".", &
+           event_step%event_step_data(j)%jpart
+      CALL set_table_entry(table,irow,"#", cfilepart)
 
       ! append "+ open" or "+ close" according to event step data:
       lopen = event_step%event_step_data(j)%l_open_file
@@ -533,7 +539,7 @@ CONTAINS
         TYPE(datetime),        INTENT(IN)    :: dates(:)
         TYPE(t_sim_step_info), INTENT(IN)    :: sim_step_info        !< definitions: time step size, etc.
         INTEGER,               INTENT(OUT)   :: result_steps(:)      !< resulting step indices
-        CHARACTER(LEN=*),      INTENT(OUT)   :: result_exactdate(:)  !< resulting (exact) time step strings
+        TYPE(datetime),        INTENT(OUT)   :: result_exactdate(:)  !< resulting (exact) time step
       END SUBROUTINE fct_time2simstep
 
       !> As an argument of this function, the user must provide a
@@ -561,8 +567,9 @@ CONTAINS
     !> Max. no. of event steps (used for local array sizes)
     INTEGER, PARAMETER :: INITIAL_NEVENT_STEPS = 256 ! tested to be a good compromise
     TYPE(datetime) :: mtime_date
-    TYPE(datetime),  POINTER :: mtime_begin, mtime_end, mtime_restart, &
-      &                         sim_end, mtime_dom_start, mtime_dom_end, run_start
+    TYPE(datetime),  POINTER :: mtime_begin, mtime_end
+    TYPE(datetime) :: sim_end, run_start, mtime_restart, &
+      &               mtime_dom_start, mtime_dom_end
     TYPE(datetime), TARGET, ALLOCATABLE :: mtime_dates(:), tmp_dates(:)
     TYPE(timedelta), POINTER :: delta
     INTEGER                  :: ierrstat, i, j, n_event_steps, &
@@ -571,7 +578,7 @@ CONTAINS
     LOGICAL                  :: l_active, l_append_step
     CHARACTER(len=MAX_DATETIME_STR_LEN) :: dtime_string
     INTEGER,                             ALLOCATABLE :: mtime_sim_steps(:)
-    CHARACTER(len=MAX_DATETIME_STR_LEN), ALLOCATABLE :: mtime_exactdate(:)
+    TYPE(datetime), ALLOCATABLE :: mtime_exactdate(:)
     TYPE(t_event_step_data),             ALLOCATABLE :: filename_metadata(:)
     TYPE(t_event_step_data),             ALLOCATABLE :: step_data(:)
     CHARACTER(len=MAX_DATETIME_STR_LEN+1)            :: dt_string
@@ -620,30 +627,34 @@ CONTAINS
              TRIM(evd%end_str(i)), '", "',   &
              TRIM(evd%intvl_str(i)), '"'
       END DO
-      WRITE (0,*) 'Simulation bounds:    "'//TRIM(evd%sim_step_info%sim_start)//'", "'//TRIM(evd%sim_step_info%sim_end)//'"'
-      WRITE (0,*) 'restart bound: "'//TRIM(evd%sim_step_info%restart_time)
+      CALL datetimeToString(evd%sim_step_info%sim_start, begin_str2(1))
+      CALL datetimeToString(evd%sim_step_info%sim_end, begin_str2(2))
+      CALL datetimeToString(evd%sim_step_info%restart_time, begin_str2(3))
+
+      WRITE (0,*) 'Simulation bounds:    "'//TRIM(dtime_string)//'", "'//TRIM(begin_str2(2))//'"'
+      WRITE (0,*) 'restart bound: "'//TRIM(begin_str2(3))
     END IF
 
     ! set some dates used later:
-    sim_end     => newDatetime(TRIM(evd%sim_step_info%sim_end))
-    run_start   => newDatetime(TRIM(evd%sim_step_info%run_start))
+    sim_end     = evd%sim_step_info%sim_end
+    run_start   = evd%sim_step_info%run_start
 
     ! Domains (and their output) can be activated and deactivated
     ! during the simulation. This is determined by the parameters
     ! "dom_start_time" and "dom_end_time". Therefore, we must create
     ! a corresponding event.
-    mtime_dom_start => newDatetime(TRIM(evd%sim_step_info%dom_start_time))
-    mtime_dom_end   => newDatetime(TRIM(evd%sim_step_info%dom_end_time)) ! this carries the domain-specific namelist value "end_time"
+    mtime_dom_start = evd%sim_step_info%dom_start_time
+    mtime_dom_end   = evd%sim_step_info%dom_end_time ! this carries the domain-specific namelist value "end_time"
 
     ! To avoid further case discriminations, sim_end is set to the minimum of the simulation end time
     ! and the time at which a nested domain is turned off
     IF (sim_end > mtime_dom_end) THEN
-      sim_end => newDatetime(TRIM(evd%sim_step_info%dom_end_time))
+      sim_end = evd%sim_step_info%dom_end_time
     ENDIF
 
     ! Compute the end time wrt. "dt_restart": It might be that the
     ! simulation end is limited by this parameter
-    mtime_restart   => newDatetime(TRIM(evd%sim_step_info%restart_time))
+    mtime_restart   = evd%sim_step_info%restart_time
 
     ! loop over the event occurrences
     ALLOCATE(mtime_date_container_a(256), &
@@ -805,8 +816,7 @@ CONTAINS
     IF (n_event_steps > 0) THEN
       IF (evd%l_output_last .AND. mtime_dates(n_event_steps) < sim_end .AND. mtime_end >= sim_end) THEN
         ! check, that we do not duplicate the last time step:
-        l_append_step = .TRUE.
-        IF (mtime_dates(n_event_steps) == sim_end) l_append_step = .FALSE.
+        l_append_step = mtime_dates(n_event_steps) /= sim_end
         IF (l_append_step) THEN
           n_event_steps = n_event_steps + 1
           old_size = SIZE(mtime_dates)
@@ -855,13 +865,13 @@ CONTAINS
     ALLOCATE(p_event%event_step(n_event_steps), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
     DO i=1,n_event_steps
-      p_event%event_step(i)%exact_date_string  = mtime_exactdate(i)
+      p_event%event_step(i)%exact_date         = mtime_exactdate(i)
       p_event%event_step(i)%i_sim_step         = mtime_sim_steps(i)
       p_event%event_step(i)%n_pes              = 1
       ALLOCATE(step_data(1), STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
       step_data(1)%i_pe            = i_pe
-      CALL datetimeToString(mtime_dates(i), step_data(1)%datetime_string)
+      step_data(1)%datetime = mtime_dates(i)
       step_data(1)%i_tag           = evd%i_tag
       step_data(1)%filename_string = filename_metadata(i)%filename_string
       step_data(1)%jfile           = filename_metadata(i)%jfile
@@ -878,11 +888,6 @@ CONTAINS
 
     ! clean up
     CALL deallocateDatetime(mtime_end)
-    CALL deallocateDatetime(mtime_dom_start)
-    CALL deallocateDatetime(mtime_dom_end)
-    CALL deallocateDatetime(mtime_restart)
-    CALL deallocateDatetime(sim_end)
-    CALL deallocateDatetime(run_start)
 
     DEALLOCATE(mtime_sim_steps, &
       &        mtime_exactdate, filename_metadata, STAT=ierrstat)
@@ -1084,7 +1089,7 @@ CONTAINS
         TYPE(datetime),            INTENT(IN)    :: dates(:)
         TYPE(t_sim_step_info),     INTENT(IN)    :: sim_step_info        !< definitions: time step size, etc.
         INTEGER,                   INTENT(OUT)   :: result_steps(:)      !< resulting step indices
-        CHARACTER(LEN=*),          INTENT(OUT)   :: result_exactdate(:)  !< resulting (exact) time step strings
+        TYPE(datetime),            INTENT(OUT)   :: result_exactdate(:)  !< resulting (exact) time step
       END SUBROUTINE fct_time2simstep
 
       !> As an argument of this function, the user must provide a
@@ -1201,7 +1206,7 @@ CONTAINS
         TYPE(datetime),           INTENT(IN)    :: dates(:)
         TYPE(t_sim_step_info),    INTENT(IN)    :: sim_step_info        !< definitions: time step size, etc.
         INTEGER,                  INTENT(OUT)   :: result_steps(:)      !< resulting step indices
-        CHARACTER(LEN=*),         INTENT(OUT)   :: result_exactdate(:)  !< resulting (exact) time step strings
+        TYPE(datetime),           INTENT(OUT)   :: result_exactdate(:)  !< resulting (exact) time step
       END SUBROUTINE fct_time2simstep
 
       !> As an argument of this function, the user must provide a
@@ -1431,8 +1436,7 @@ CONTAINS
       IF (copy_i1) THEN
         ! copy event step i1 from event1:
         new_steps(nsteps)%i_sim_step = event1%event_step(i1)%i_sim_step
-        new_steps(nsteps)%exact_date_string &
-          &    = event1%event_step(i1)%exact_date_string
+        new_steps(nsteps)%exact_date = event1%event_step(i1)%exact_date
         new_steps(nsteps)%n_pes = event1%event_step(i1)%n_pes
         CALL MOVE_ALLOC(from=event1%event_step(i1)%event_step_data, &
           &             to=new_steps(nsteps)%event_step_data)
@@ -1463,12 +1467,12 @@ CONTAINS
 
     IF (l_create) THEN
       dst_event_step%i_sim_step = src_event_step%i_sim_step
-      dst_event_step%exact_date_string = src_event_step%exact_date_string
+      dst_event_step%exact_date = src_event_step%exact_date
     ELSE
       IF (src_event_step%i_sim_step /= dst_event_step%i_sim_step) &
         &   CALL finish(routine, "sim_steps do not match!")
-      IF (src_event_step%exact_date_string /= dst_event_step%exact_date_string) &
-        &   CALL finish(routine, "exact_date_strings do not match!")
+      IF (src_event_step%exact_date /= dst_event_step%exact_date) &
+        &   CALL finish(routine, "exact dates do not match!")
     END IF
     ! event_step%event_step_data
     IF (l_create) THEN
@@ -1614,8 +1618,8 @@ CONTAINS
   !> @return current date-time stamp string.
   !  @author F. Prill, DWD
   !
-  FUNCTION get_current_date(event)
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: get_current_date
+  FUNCTION get_current_date(event) RESULT(current_date)
+    TYPE(datetime) :: current_date
     TYPE(t_output_event), INTENT(in) :: event
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::get_current_date"
@@ -1625,9 +1629,9 @@ CONTAINS
     ! For events that are the union of multiple other events we return
     ! the *model date-time string*:
     IF (event%event_step(istep)%n_pes > 1) THEN
-      get_current_date = event%event_step(istep)%exact_date_string
+      current_date = event%event_step(istep)%exact_date
     ELSE
-      get_current_date = event%event_step(istep)%event_step_data(1)%datetime_string
+      current_date = event%event_step(istep)%event_step_data(1)%datetime
     END IF
   END FUNCTION get_current_date
 
@@ -1635,10 +1639,10 @@ CONTAINS
   !> @return current date-time stamp string.
   !  @author F. Prill, DWD
   !
-  FUNCTION get_current_date_par(event)
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: get_current_date_par
+  FUNCTION get_current_date_par(event) RESULT(current_date)
+    TYPE(datetime) :: current_date
     TYPE(t_par_output_event), INTENT(in) :: event
-    get_current_date_par =  get_current_date(event%output_event)
+    current_date =  get_current_date(event%output_event)
   END FUNCTION get_current_date_par
 
 
@@ -1675,12 +1679,15 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::get_current_filename"
     INTEGER :: istep
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: event_datetime_string
 
     istep = event%output_event%i_event_step
     ! We cannot check events that are the union of multiple other
     ! events:
     IF (event%output_event%event_step(istep)%n_pes > 1) THEN
-      WRITE (0,*) "Event step ", istep,  "(", TRIM(event%output_event%event_step(istep)%exact_date_string), ")", &
+      CALL datetimetostring(event%output_event%event_step(istep)%exact_date, &
+        &                   event_datetime_string)
+      WRITE (0,*) "Event step ", istep,  "(", TRIM(event_datetime_string), ")", &
         &         ", shared by ", event%output_event%event_step(istep)%n_pes, " PEs."
       CALL finish(routine, "Error! Multi-part event step!")
     END IF
@@ -1697,6 +1704,7 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::get_current_jfile"
     INTEGER :: istep
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: event_datetime_string
 
     istep = MIN(event%output_event%i_event_step, event%output_event%n_event_steps)
     IF (istep == 0) THEN
@@ -1706,7 +1714,9 @@ CONTAINS
     ! We cannot check events that are the union of multiple other
     ! events:
     IF (event%output_event%event_step(istep)%n_pes > 1) THEN
-      WRITE (0,*) "Event step ", istep,  "(", TRIM(event%output_event%event_step(istep)%exact_date_string), ")", &
+      CALL datetimetostring(event%output_event%event_step(istep)%exact_date, &
+        &                   event_datetime_string)
+      WRITE (0,*) "Event step ", istep,  "(", TRIM(event_datetime_string), ")", &
         &         ", shared by ", event%output_event%event_step(istep)%n_pes, " PEs."
       CALL finish(routine, "Error! Multi-part event step!")
     END IF
@@ -1738,13 +1748,17 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::check_open_file"
     INTEGER :: istep
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: event_datetime_string
 
     istep = event%output_event%i_event_step
     ! We cannot check events that are the union of multiple other
     ! events:
     IF (event%output_event%event_step(istep)%n_pes > 1) THEN
-      WRITE (0,*) "Event step ", istep,  "(", TRIM(event%output_event%event_step(istep)%exact_date_string), ")", &
-        &         ", shared by ", event%output_event%event_step(istep)%n_pes, " PEs."
+      CALL datetimetostring(event%output_event%event_step(istep)%exact_date, &
+        &                   event_datetime_string)
+      WRITE (0,*) "Event step ", istep,  "(", TRIM(event_datetime_string), ")",&
+        &         ", shared by ", event%output_event%event_step(istep)%n_pes,  &
+        &         " PEs."
       CALL finish(routine, "Error! Multi-part event step!")
     END IF
     check_open_file = event%output_event%event_step(istep)%event_step_data(1)%l_open_file
@@ -1775,13 +1789,16 @@ CONTAINS
     TYPE(t_par_output_event), INTENT(IN) :: event
     INTEGER, INTENT(in) :: istep
     ! local variables
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: event_datetime_string
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::check_close_file"
 
     ! We cannot check events that are the union of multiple other
     ! events:
     IF (istep <= SIZE(event%output_event%event_step)) THEN
       IF (event%output_event%event_step(istep)%n_pes > 1) THEN
-        WRITE (0,*) "Event step ", istep,  "(", TRIM(event%output_event%event_step(istep)%exact_date_string), ")", &
+        CALL datetimetostring(event%output_event%event_step(istep)%exact_date, &
+          &                   event_datetime_string)
+        WRITE (0,*) "Event step ", istep,  "(", TRIM(event_datetime_string), ")", &
         &         ", shared by ", event%output_event%event_step(istep)%n_pes, " PEs."
         CALL finish(routine, "Error! Multi-part event step!")
       END IF
@@ -1987,6 +2004,9 @@ CONTAINS
       = (/ 1, max_time_intervals, max_time_intervals, max_time_intervals, &
       &    1, 1, 1, 1 /)
     TYPE(t_event_data_local), TARGET :: dummy(2)
+    TYPE(datetime), POINTER :: temp_datetime
+    EXTERNAL :: util_memcmp
+    LOGICAL :: util_memcmp
     CALL mpi_type_contiguous(max_event_name_str_len, mpi_character, &
       &                      elem_dt(1), ierror)
     IF (ierror /= mpi_success) CALL finish(routine, 'mpi_type_contiguous error')
@@ -2058,13 +2078,23 @@ CONTAINS
     dummy(1)%intvl_str(2:) = ''
     dummy(1)%i_tag = 700
     dummy(1)%l_output_last = .TRUE.
-    dummy(1)%sim_step_info%sim_start = '1969-01-01'
-    dummy(1)%sim_step_info%sim_end = '1975-12-06'
-    dummy(1)%sim_step_info%run_start = '1970-01-01'
-    dummy(1)%sim_step_info%restart_time = 'who knows'
+    temp_datetime => newDatetime('1969-01-01')
+    dummy(1)%sim_step_info%sim_start = temp_datetime
+    CALL deallocateDatetime(temp_datetime)
+    temp_datetime => newDatetime('1975-12-06')
+    dummy(1)%sim_step_info%sim_end = temp_datetime
+    CALL deallocateDatetime(temp_datetime)
+    temp_datetime => newDatetime('1970-01-01')
+    dummy(1)%sim_step_info%run_start = temp_datetime
+    CALL deallocateDatetime(temp_datetime)
+    dummy(1)%sim_step_info%restart_time = dummy(1)%sim_step_info%sim_end
     dummy(1)%sim_step_info%dtime = 0.5_wp
-    dummy(1)%sim_step_info%dom_start_time = '1970-01-02'
-    dummy(1)%sim_step_info%dom_end_time = '1970-11-23'
+    temp_datetime => newDatetime('1970-01-02')
+    dummy(1)%sim_step_info%dom_start_time = temp_datetime
+    CALL deallocateDatetime(temp_datetime)
+    temp_datetime => newDatetime('1970-11-23')
+    dummy(1)%sim_step_info%dom_end_time = temp_datetime
+    CALL deallocateDatetime(temp_datetime)
     dummy(1)%sim_step_info%jstep0 = 1
     dummy(1)%fname_metadata%steps_per_file = 15
     dummy(1)%fname_metadata%steps_per_file_inclfirst = .FALSE.
@@ -2092,18 +2122,15 @@ CONTAINS
     INTEGER :: elem_dt(num_dt_elem), ierror
     CHARACTER(len=*), PARAMETER :: routine &
       = modname//"::create_sim_step_info_dt"
-    INTEGER, PARAMETER :: blocklens(num_dt_elem) &
-      = (/ MAX_DATETIME_STR_LEN, MAX_DATETIME_STR_LEN, MAX_DATETIME_STR_LEN, &
-      &    MAX_DATETIME_STR_LEN, 1, MAX_DATETIME_STR_LEN, &
-      &    MAX_DATETIME_STR_LEN, 1 /)
-    TYPE(t_sim_step_info) :: dummy(2)
-    elem_dt(1) = mpi_character
-    elem_dt(2) = mpi_character
-    elem_dt(3) = mpi_character
-    elem_dt(4) = mpi_character
-    elem_dt(5) = p_real
-    elem_dt(6) = mpi_character
-    elem_dt(7) = mpi_character
+    INTEGER, PARAMETER :: blocklens(num_dt_elem) = 1
+    TYPE(t_sim_step_info) :: dummy(1)
+    CALL create_datetime_dt(elem_dt(1))
+    elem_dt(2) = elem_dt(1)
+    elem_dt(3) = elem_dt(1)
+    elem_dt(4) = elem_dt(1)
+    elem_dt(5) = elem_dt(1)
+    elem_dt(6) = elem_dt(1)
+    elem_dt(7) = p_real
     elem_dt(8) = mpi_integer
     CALL mpi_get_address(dummy(1), base, ierror)
     IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
@@ -2115,11 +2142,11 @@ CONTAINS
     IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
     CALL mpi_get_address(dummy(1)%restart_time, displs(4), ierror)
     IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
-    CALL mpi_get_address(dummy(1)%dtime, displs(5), ierror)
+    CALL mpi_get_address(dummy(1)%dom_start_time, displs(5), ierror)
     IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
-    CALL mpi_get_address(dummy(1)%dom_start_time, displs(6), ierror)
+    CALL mpi_get_address(dummy(1)%dom_end_time, displs(6), ierror)
     IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
-    CALL mpi_get_address(dummy(1)%dom_end_time, displs(7), ierror)
+    CALL mpi_get_address(dummy(1)%dtime, displs(7), ierror)
     IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
     CALL mpi_get_address(dummy(1)%jstep0, displs(8), ierror)
     IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
@@ -2128,7 +2155,33 @@ CONTAINS
       &                         dt, ierror)
     IF (ierror /= mpi_success) &
       & CALL finish(routine, 'mpi_type_create_struct error')
+    CALL mpi_type_free(elem_dt(1), ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_type_free error')
   END SUBROUTINE create_sim_step_info_dt
+
+  SUBROUTINE create_datetime_dt(dt)
+    INTEGER, INTENT(out) :: dt
+    TYPE(datetime) :: dummy(1)
+    INTEGER, PARAMETER :: num_dt_elem = 2
+    INTEGER(mpi_address_kind) :: base, displs(num_dt_elem)
+    INTEGER :: elem_dt(num_dt_elem), ierror
+    CHARACTER(len=*), PARAMETER :: routine &
+      = modname//"::create_datetime_dt"
+    INTEGER, PARAMETER :: blocklens(num_dt_elem) = (/ 1, 6 /)
+    elem_dt(1) = p_int_i8
+    elem_dt(2) = p_int_i4
+    CALL mpi_get_address(dummy(1), base, ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
+    CALL mpi_get_address(dummy(1)%date%year, displs(1), ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
+    CALL mpi_get_address(dummy(1)%date%month, displs(2), ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
+    displs = displs - base
+    CALL mpi_type_create_struct(num_dt_elem, blocklens, displs, elem_dt, &
+      &                         dt, ierror)
+    IF (ierror /= mpi_success) &
+      & CALL finish(routine, 'mpi_type_create_struct error')
+  END SUBROUTINE create_datetime_dt
 
   SUBROUTINE create_fname_metadata_dt(dt)
     INTEGER, INTENT(out) :: dt

@@ -35,7 +35,7 @@ MODULE mo_nh_init_nest_utils
   USE mo_physical_constants,    ONLY: rd, cvd_o_rd, p0ref, tmelt
   USE sfc_terra_data,           ONLY: crhosminf, cporv, cadp, csalb, ist_seawtr
   USE mo_impl_constants,        ONLY: min_rlcell, min_rlcell_int, &
-    &                                 MAX_CHAR_LENGTH, inwp, nclass_aero, ALB_SI_MISSVAL
+    &                                 inwp, nclass_aero, ALB_SI_MISSVAL
   USE mo_grf_nudgintp,          ONLY: interpol_scal_nudging, interpol_vec_nudging
   USE mo_grf_bdyintp,           ONLY: interpol_scal_grf, interpol2_vec_grf
   USE mo_grid_config,           ONLY: lfeedback, ifeedback_type
@@ -53,7 +53,7 @@ MODULE mo_nh_init_nest_utils
   USE mo_lnd_nwp_config,        ONLY: ntiles_total, ntiles_water, nlev_soil, lseaice, itype_trvg, &
     &                                 llake, isub_lake, frlake_thrhld, frsea_thrhld, lprog_albsi, &
     &                                 itype_snowevap, dzsoil
-  USE mo_extpar_config,         ONLY: itype_vegetation_cycle
+  USE mo_initicon_config,       ONLY: icpl_da_sfcevap
   USE mo_nwp_lnd_state,         ONLY: p_lnd_state
   USE mo_nwp_phy_state,         ONLY: prm_diag
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config, iprog_aero
@@ -96,7 +96,7 @@ MODULE mo_nh_init_nest_utils
   !!
   SUBROUTINE initialize_nest(jg, jgc)
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'initialize_nest'
 
 
@@ -107,6 +107,7 @@ MODULE mo_nh_init_nest_utils
     ! local pointers
     TYPE(t_nh_prog),    POINTER     :: p_parent_prog
     TYPE(t_nh_prog),    POINTER     :: p_child_prog
+    TYPE(t_nh_diag),    POINTER     :: p_parent_diag
     TYPE(t_nh_diag),    POINTER     :: p_child_diag
     TYPE(t_nh_prog),    POINTER     :: p_parent_prog_rcf
     TYPE(t_nh_prog),    POINTER     :: p_child_prog_rcf
@@ -158,13 +159,14 @@ MODULE mo_nh_init_nest_utils
 
     IF (msg_level >= 10) THEN
       WRITE(message_text,'(a,i2,a,i2)') 'Nest initialization, domain ',jg,' =>',jgc
-      CALL message(TRIM(routine),message_text)
+      CALL message(routine,message_text)
     ENDIF
 
     l_parallel = my_process_is_mpi_parallel()
 
     p_parent_prog     => p_nh_state(jg)%prog(nnow(jg))
     p_child_prog      => p_nh_state(jgc)%prog(nnow(jgc))
+    p_parent_diag     => p_nh_state(jg)%diag
     p_child_diag      => p_nh_state(jgc)%diag
     p_parent_prog_rcf => p_nh_state(jg)%prog(nnow_rcf(jg))
     p_child_prog_rcf  => p_nh_state(jgc)%prog(nnow_rcf(jgc))
@@ -202,8 +204,8 @@ MODULE mo_nh_init_nest_utils
     ! turned out to cause occasional conflicts with directly interpolating those variables here; thus
     ! the interpolation of the multi-layer snow fields has been completely removed from this routine
     num_lndvars = 2*nlev_soil+1+ &     ! multi-layer soil variables t_so and w_so (w_so_ice is initialized in terra_multlay_init)
-                  5+9+1                ! single-layer prognostic variables + t_g, t_sk, freshsnow, t_seasfc, qv_s, plantevap, hsnow_max, 
-                                       ! snow_age, t2m_bias + aux variable for lake temp
+                  5+10+1               ! single-layer prognostic variables + t_g, t_sk, freshsnow, t_seasfc, qv_s, plantevap, hsnow_max, 
+                                       ! snow_age, t2m_bias, t_sk, rh_avginc + aux variable for lake temp
     num_wtrvars  = 6                   ! water state fields + fr_seaice + alb_si
     num_phdiagvars = 27                ! number of physics diagnostic variables (copied from interpol_phys_grf)
 
@@ -397,12 +399,19 @@ MODULE mo_nh_init_nest_utils
             lndvars_par(jc,jk1+11,jb) = 0._wp
             lndvars_par(jc,jk1+12,jb) = 0._wp
           ENDIF
-          IF (itype_vegetation_cycle == 3) THEN
-            lndvars_par(jc,jk1+13,jb) = p_parent_ldiag%t2m_bias(jc,jb)
+          IF (icpl_da_sfcevap == 1 .OR. icpl_da_sfcevap == 2) THEN
+            lndvars_par(jc,jk1+13,jb) = p_parent_diag%t2m_bias(jc,jb)
+          ELSE IF (icpl_da_sfcevap >= 3) THEN
+            lndvars_par(jc,jk1+13,jb) = p_parent_diag%t_avginc(jc,jb)
           ELSE
             lndvars_par(jc,jk1+13,jb) = 0._wp
           ENDIF
           lndvars_par(jc,jk1+14,jb) = p_parent_ldiag%t_sk(jc,jb)
+          IF (icpl_da_sfcevap >= 2) THEN
+            lndvars_par(jc,jk1+15,jb) = p_parent_diag%rh_avginc(jc,jb)
+          ELSE
+            lndvars_par(jc,jk1+15,jb) = 0._wp
+          ENDIF
         ENDDO
       ENDIF
 
@@ -694,12 +703,17 @@ MODULE mo_nh_init_nest_utils
               p_child_ldiag%hsnow_max(jc,jb) = lndvars_chi(jc,jk1+11,jb)
               p_child_ldiag%snow_age(jc,jb)  = lndvars_chi(jc,jk1+12,jb)
             ENDIF
-            IF (itype_vegetation_cycle == 3) THEN
-              p_child_ldiag%t2m_bias(jc,jb) = lndvars_chi(jc,jk1+13,jb)
+            IF (icpl_da_sfcevap == 1 .OR. icpl_da_sfcevap == 2) THEN
+              p_child_diag%t2m_bias(jc,jb) = lndvars_chi(jc,jk1+13,jb)
+            ELSE IF (icpl_da_sfcevap >= 3) THEN
+              p_child_diag%t_avginc(jc,jb) = lndvars_chi(jc,jk1+13,jb)
             ENDIF
             p_child_ldiag%t_sk(jc,jb)      = lndvars_chi(jc,jk1+14,jb)
             p_child_lprog%t_sk_t(jc,jb,jt) = p_child_ldiag%t_sk(jc,jb)
             p_child_lprog2%t_sk_t(jc,jb,jt) = p_child_ldiag%t_sk(jc,jb)
+            IF (icpl_da_sfcevap >= 2) THEN
+              p_child_diag%rh_avginc(jc,jb) = lndvars_chi(jc,jk1+15,jb)
+            ENDIF
           ENDDO
         ENDDO
         DO jt = ntiles_total+1, ntiles_total+ntiles_water
@@ -998,7 +1012,7 @@ MODULE mo_nh_init_nest_utils
 
     ! Indices
     INTEGER :: jb, jc, jk, jk1, i_chidx, i_startblk, i_endblk, &
-               i_startidx, i_endidx
+               i_startidx, i_endidx, var_src
 
     INTEGER :: num_lndvars
 
@@ -1085,7 +1099,7 @@ MODULE mo_nh_init_nest_utils
         lndvars_par(jc,jk1+4,jb) = initicon(jg)%sfc_inc%freshsnow(jc,jb)
       ENDDO
 
-      IF (itype_vegetation_cycle == 3) THEN
+      IF (icpl_da_sfcevap == 1 .OR. icpl_da_sfcevap == 2) THEN
         DO jc = i_startidx, i_endidx
           lndvars_par(jc,jk1+5,jb) = initicon(jg)%sfc_inc%t_2m(jc,jb)
         ENDDO
@@ -1161,7 +1175,7 @@ MODULE mo_nh_init_nest_utils
         p_child_ldiag%fr_seaice(jc,jb) = MAX(0._wp,MIN(1._wp,p_child_ldiag%fr_seaice(jc,jb)))
       ENDDO
 
-      IF (itype_vegetation_cycle == 3) THEN
+      IF (icpl_da_sfcevap == 1 .OR. icpl_da_sfcevap == 2) THEN
         DO jc = i_startidx, i_endidx
           initicon(jgc)%sfc_inc%t_2m(jc,jb) = lndvars_chi(jc,jk1+5,jb)
         ENDDO
@@ -1175,11 +1189,9 @@ MODULE mo_nh_init_nest_utils
     ! set information about input source for interpolated fields
     !
     ! w_so (full field: fg, increment: ana(intp))
-    IF (inputInstructions(jg)%ptr%sourceOfVar('w_so') == kInputSourceBoth) THEN
-      CALL inputInstructions(jgc)%ptr%setSource('w_so', kInputSourceFgAnaI)
-    ELSE
-      CALL inputInstructions(jgc)%ptr%setSource('w_so', inputInstructions(jg)%ptr%sourceOfVar('w_so'))
-    ENDIF
+    var_src = inputInstructions(jg)%ptr%sourceOfVar('w_so')
+    var_src = MERGE(kInputSourceFgAnaI, var_src, var_src == kInputSourceBoth)
+    CALL inputInstructions(jgc)%ptr%setSource('w_so', var_src)
     !
     ! sst
     ! Branching is necessary here, as sst can either be read via the field t_seasfc of t_so(0)
@@ -1187,44 +1199,34 @@ MODULE mo_nh_init_nest_utils
       ! since we cannot distinguish between t_so which is read from fg and 
       ! t_so(0)==sst which is read/interpolated from ana, we set
       ! full field: fg, ana(intp), increment: none
-      IF (inputInstructions(jg)%ptr%sourceOfVar('t_so') == kInputSourceBoth) THEN
-        CALL inputInstructions(jgc)%ptr%setSource('t_so', kInputSourceFgAnaI)
-      ELSE
-        CALL inputInstructions(jgc)%ptr%setSource('t_so', inputInstructions(jg)%ptr%sourceOfVar('t_so'))
-      ENDIF
+      var_src = inputInstructions(jg)%ptr%sourceOfVar('t_so')
+      var_src = MERGE(kInputSourceFgAnaI, var_src, var_src == kInputSourceBoth)
+      CALL inputInstructions(jgc)%ptr%setSource('t_so', var_src)
     ELSE
       ! full field: ana(intp), increment: none
       CALL inputInstructions(jgc)%ptr%setSource('t_seasfc', kInputSourceAnaI)
     ENDIF
     !
     ! fr_seaice (full field: ana(intp), increment: none)
-    IF (inputInstructions(jg)%ptr%sourceOfVar('fr_seaice') == kInputSourceAna) THEN
-      CALL inputInstructions(jgc)%ptr%setSource('fr_seaice', kInputSourceAnaI)
-    ELSE
-      CALL inputInstructions(jgc)%ptr%setSource('fr_seaice', inputInstructions(jg)%ptr%sourceOfVar('fr_seaice'))
-    ENDIF
+    var_src = inputInstructions(jg)%ptr%sourceOfVar('fr_seaice')
+    var_src = MERGE(kInputSourceAnaI, var_src, var_src == kInputSourceAna)
+    CALL inputInstructions(jgc)%ptr%setSource('fr_seaice', var_src)
     !
     ! h_snow (full field: fg, increment: ana(intp))
-    IF (inputInstructions(jg)%ptr%sourceOfVar('h_snow') == kInputSourceBoth) THEN
-      CALL inputInstructions(jgc)%ptr%setSource('h_snow', kInputSourceFgAnaI)
-    ELSE
-      CALL inputInstructions(jgc)%ptr%setSource('h_snow', inputInstructions(jg)%ptr%sourceOfVar('h_snow'))
-    ENDIF
+    var_src = inputInstructions(jg)%ptr%sourceOfVar('h_snow')
+    var_src = MERGE(kInputSourceFgAnaI, var_src, var_src == kInputSourceBoth)
+    CALL inputInstructions(jgc)%ptr%setSource('h_snow', var_src)
     !
     ! freshsnow (full field: fg, increment: ana(intp))
-    IF (inputInstructions(jg)%ptr%sourceOfVar('freshsnow') == kInputSourceBoth) THEN
-      CALL inputInstructions(jgc)%ptr%setSource('freshsnow', kInputSourceFgAnaI)
-    ELSE
-      CALL inputInstructions(jgc)%ptr%setSource('freshsnow', inputInstructions(jg)%ptr%sourceOfVar('freshsnow'))
-    ENDIF
+    var_src = inputInstructions(jg)%ptr%sourceOfVar('freshsnow')
+    var_src = MERGE(kInputSourceFgAnaI, var_src, var_src == kInputSourceBoth)
+    CALL inputInstructions(jgc)%ptr%setSource('freshsnow', var_src)
     !
     ! t_2m (full field: none, increment: ana(intp))
-    IF (itype_vegetation_cycle == 3) THEN
-      IF (inputInstructions(jg)%ptr%sourceOfVar('t_2m') == kInputSourceAna) THEN
-        CALL inputInstructions(jgc)%ptr%setSource('t_2m', kInputSourceAnaI)
-      ELSE
-        CALL inputInstructions(jgc)%ptr%setSource('t_2m', inputInstructions(jg)%ptr%sourceOfVar('t_2m'))
-      ENDIF
+    IF (icpl_da_sfcevap == 1 .OR. icpl_da_sfcevap == 2) THEN
+      var_src = inputInstructions(jg)%ptr%sourceOfVar('t_2m')
+      var_src = MERGE(kInputSourceAnaI, var_src, var_src == kInputSourceAna)
+      CALL inputInstructions(jgc)%ptr%setSource('t_2m', var_src)
     ENDIF
 
 

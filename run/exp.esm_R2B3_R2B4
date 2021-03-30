@@ -54,7 +54,7 @@ author_list="Monika Esch, Rene Redler, Stephan Lorenz, Lennart Ramme"
 atmos_gridID="0030"
 atmos_refinement="R02B03"
 
-ocean_gridID="0014"
+ocean_gridID="0036"
 ocean_refinement="R02B04"
 
 nproma_atm=24
@@ -88,8 +88,8 @@ mpi_oce_nodes=2
 # tested: atmTimeStep="PT20M" / atm_substeps=15 with hdiff_smag_fac=0.15
 
 radTimeStep="PT2H"               # radiation time step:    12 time steps per day
-atmTimeStep="PT20M"              # atmosphere time step:   72 time steps per day
-atm_substeps=10                   # atmosphere dynamics substeps, ca. 2 min for atm-dyn-stepping
+atmTimeStep="PT15M"              # atmosphere time step:   72 time steps per day
+atm_substeps=8                   # atmosphere dynamics substeps, ca. 2 min for atm-dyn-stepping
 oceTimeStep="PT60M"              # ocean time step:        24 time steps per day
 couplingTimeStep="PT60M"         # coupling time step:      2 time steps per radTimeStep 
 
@@ -130,6 +130,7 @@ atm_grid_name=icon_grid_${atmos_gridID}_${atmos_refinement}_G
 
 atmo_grid_folder=/pool/data/ICON/grids/private/rene/mpim/${atmos_gridID}  # still some private path!
 atmo_data_InputFolder=${icon_data_poolFolder}/${atmos_gridID}
+atmo_land_data_InputFolder=${icon_data_poolFolder}/${atmos_gridID}-${ocean_gridID}
 atmo_dyn_grid=${atm_grid_name}.nc
 
 #--------------------------------------------------------------------------------------------------
@@ -656,12 +657,13 @@ cat > ${atm_namelist} << EOF
  flat_height      = 16000.      ! [m]
 /
 &diffusion_nml
- hdiff_smag_fac   = 0.15       ! default: 0.015  too high values are very diffusive! Upper limit should be 0.15
+ hdiff_smag_fac   = 0.015       ! default: 0.015  higher values will increase diffusion
 /
 &transport_nml
  tracer_names     = 'hus','clw','cli'
  ivadv_tracer     =    3 ,   3 ,   3
- itype_hlimit     =    3 ,   4 ,   4
+ itype_hlimit     =    4 ,   4 ,   4
+ itype_vlimit     =    3 ,   3 ,   3
  ihadv_tracer     =   52 ,   2 ,   2
 /
 &echam_phy_nml
@@ -717,11 +719,14 @@ cat > ${atm_namelist} << EOF
 &echam_gwd_nml
 /
 &echam_sso_nml
- echam_sso_config(1)%gkdrag     = 0.02      ! default: 0.05
- echam_sso_config(1)%gkwake     = 0.02      ! default: 0.05
+ echam_sso_config(1)%gkdrag     = 0.005      ! default: 0.05
+ echam_sso_config(1)%gkwake     = 0.005      ! default: 0.05
+ echam_sso_config(1)%gklift     = 0.7
 /
 &echam_vdf_nml
- echam_vdf_config(1)%pr0	= 0.8	    ! default: 1.0   ! lower values help to avoid negative humidities
+ echam_vdf_config(1)%c_n        = 1.0
+ echam_vdf_config(1)%fsl        = 0.5
+ echam_vdf_config(1)%pr0	= 0.7	    ! default: 1.0   ! lower values help to avoid negative humidities
 /
 &echam_cnv_nml
  echam_cnv_config(1)%entrpen    = 0.0003    ! default: 0.0003    (old default:  0.0002)
@@ -729,20 +734,20 @@ cat > ${atm_namelist} << EOF
  echam_cnv_config(1)%entrscv    = 0.0003    ! default: 0.0003    (old default:  0.003)
 /
 &echam_cld_nml
- echam_cld_config(1)%csecfrl    = 0.5e-5     ! threshold for ice and water in clouds, default 5.e-6
+ echam_cld_config(1)%csecfrl    = 0.7e-5     ! threshold for ice and water in clouds, default 5.e-6
  echam_cld_config(1)%ccraut     = 2.0       ! default: 2.0      (old default: 15.0)
  echam_cld_config(1)%ccsaut     = 2.0       ! default: 2.0      (old default: 95.0)
  echam_cld_config(1)%cauloc     = 1.0       ! default: 1.0      (old default: 10.0)
 /
 &echam_cov_nml
  echam_cov_config(1)%crs        = 0.968     ! Critical relative humidity at surface, default 0.968
- echam_cov_config(1)%crt        = 0.86      ! Critical relative humidity at toa, default 0.8
+ echam_cov_config(1)%crt        = 0.9      ! Critical relative humidity at toa, default 0.8
 /
 &sea_ice_nml
  albs         = 0.865         ! Albedo of snow (not melting)
- albsm        = 0.65         ! Albedo of snow (melting)
- albi         = 0.6         ! Albedo of ice (not melting)
- albim        = 0.5         ! Albedo of ice (melting)
+ albsm        = 0.7         ! Albedo of snow (melting)
+ albi         = 0.75         ! Albedo of ice (not melting)
+ albim        = 0.7         ! Albedo of ice (melting)
 /
 EOF
 
@@ -851,7 +856,7 @@ datadir=${atmo_data_InputFolder}/initial_condition/r0002
 add_link_file ${datadir}/ifs2icon_1979010100_${atmos_refinement}_G.nc   ./ifs2icon.nc
 #
 # - land: source?, date+time?
-datadir=${atmo_data_InputFolder}/land/r0003
+datadir=${atmo_land_data_InputFolder}/land/r0001
 add_link_file ${datadir}/ic_land_soil_1992.nc                           ./ic_land_soil.nc
 
 # boundary conditions
@@ -878,17 +883,17 @@ add_link_file ${datadir}/swflux_14band_cmip6_1850-2299-v3.2.nc          ./bc_sol
 #
 # - land parameters
 #
-datadir=${atmo_data_InputFolder}/land/r0003
+datadir=${atmo_land_data_InputFolder}/land/r0001
 #
 add_link_file ${datadir}/bc_land_frac_${pft_file_tag}1992.nc            ./bc_land_frac.nc
 add_link_file ${datadir}/bc_land_phys_1992.nc                           ./bc_land_phys.nc
 add_link_file ${datadir}/bc_land_soil_1992.nc                           ./bc_land_soil.nc
 add_link_file ${datadir}/bc_land_sso_1992.nc                            ./bc_land_sso.nc
 #
-# - HD model input by Tom Riddick (test version)
+# - HD model input by Tom Riddick
 #
-datadir=/pool/data/ICON/grids/private/Stephan/mpim/${atmos_gridID}/land
-add_link_file $datadir/hdpara_icon_${atmos_gridID}_G_250719_1545.nc     ./bc_land_hd.nc
+datadir=/work/mh0727/m300732/input/hd       # FIXME move hdpara file to pool directory and adapt path
+add_link_file $datadir/hdpara_r2b3_0030_0036_no_sinks_half_frac_lnd_adjusted.nc     ./bc_land_hd.nc
 #
 # - lctlib file for JSBACH
 #
@@ -1190,18 +1195,15 @@ esac
 #-----------------------------------------------------------------------------
 
 ocean_vertical_levels=40
-ocean_grid="icon_grid_${ocean_gridID}_${ocean_refinement}_O.nc"
+ocean_grid_name="icon_grid_${ocean_gridID}_${ocean_refinement}_O"
+ocean_grid=${ocean_grid_name}.nc
 ocean_grid_folder="/pool/data/ICON/grids/public/mpim/${ocean_gridID}"
-ocean_data_InputFolder="${icon_data_poolFolder}/${ocean_gridID}/ocean"
+ocean_data_InputFolder="/pool/data/ICON/oes/input/r0004/${ocean_grid_name}"
 
 #-----------------------------------------------------------------------------
 # HAMOCC
 #
-
-# CAUTION: HAMOCC tracer transport does not include GMRedi transport, even if ocean does
-
 use_hamocc=no
-
 
 if [  "x${use_hamocc}"  = "xyes" ]; then
 lhamocc=".TRUE."
@@ -1560,7 +1562,7 @@ cat >> ${oce_namelist} << EOF
 !  BiharmonicViscosity_background             = 0.0         ! [m2/s] constant horizontal viscosity coefficient for velocity
 
   HarmonicViscosity_scaling                  = 1
-  HarmonicViscosity_reference                = 1.0E+5      ! [m2/s] constant horizontal viscosity coefficient for velocity
+  HarmonicViscosity_reference                = 5.0E+4      ! [m2/s] constant horizontal viscosity coefficient for velocity
   HarmonicViscosity_background               = 0.0  
 
   TracerHorizontalDiffusion_scaling          = 1
@@ -1589,7 +1591,7 @@ cat >> ${oce_namelist} << EOF
   GMRedi_configuration                       = 1           ! 0=cartesian diffusion; 1=GM-Redi: bolus advection + isopycnal diffusion
   tapering_scheme                            = 1
   GMRedi_usesRelativeMaxSlopes               = .FALSE.
-  S_max                                      = 1.0e-3      ! 1.0
+  S_max                                      = 1.0e-5      ! 1.0
   S_d                                        = 1.0e-4      ! 5e-3 to 5e-4
                                                            !
   k_tracer_GM_kappa_parameter                = 800.0      !
@@ -1615,8 +1617,8 @@ cat >> ${oce_namelist} << EOF
 ! i_Qio_type                                 = 3           ! 3 (default): energy of whole grid-area used for melting (MPIOM-type)
 ! use_constant_tfreez                        = .TRUE.      ! default: TRUE
 ! use_no_flux_gradients                      = .FALSE.     ! default: TRUE
- leadclose_1                                = 0.8        ! default: 0.5 - value of MPIOM: 0.25
- leadclose_2n                               = 0.4       ! default: 0.0 - value of MPIOM: 2/3
+ leadclose_1                                = 0.25        ! default: 0.5 - value of MPIOM: 0.25
+ leadclose_2n                               = 0.666       ! default: 0.0 - value of MPIOM: 2/3
 /
 EOF
 
@@ -1627,9 +1629,9 @@ cat >> ${oce_namelist} << EOF
 l_cyadyn                          = .TRUE.    ! dynamic cyanobacteria
 l_cpl_co2                         = .FALSE.   ! CO2 coupled to land carbon cycle
 l_bgc_check                       = .FALSE.   ! mass check at every time step
-deltacalc                         = 2460.2        ! CaCO3 weathering rate [kmol/s] 
-deltaorg                          = 93.5        ! OC weathering rate [kmol/s]
-deltasil                          = 12627.6        ! Si(OH)4 weathering rate [kmol/s]
+deltacalc                         = 0.0        ! CaCO3 weathering rate [kmol/s] 
+deltaorg                          = 0.0        ! OC weathering rate [kmol/s]
+deltasil                          = 0.0        ! Si(OH)4 weathering rate [kmol/s]
 atm_co2                           = 284.3      ! atmospheric CO2 (default 278)
 atm_n2                            = 802000.   ! atmospheric N2  (default 802000)
 atm_o2                            = 196800.   ! atmospheric O2  (default 196800)
@@ -1640,7 +1642,7 @@ sinkspeed_poc                     = 5.        ! detritus sinking speed [m/d] for
 sinkspeed_martin_ez               = 3.5       ! detritue sinking speed within (0, mc_depth) [m/d] for i_settling=1 (default 3.5)
 mc_depth                          = 100.      ! depth where linear increase of sinking speed starts for i_settling=1 (default 100.)
 mc_fac                            = 2.0       ! slope of sinking speed increase relative to remin rate (default 2.0)
-l_implsed                         =.TRUE.    ! implicit sediment formulation
+l_implsed                         =.FALSE.    ! implicit sediment formulation
 cycdec                            = 0.07
 cya_growth_max                    = 0.3
 grazra                            = 0.7
@@ -1663,6 +1665,7 @@ cat >> ${oce_namelist} << EOF
                                                            ! salt-change due to internal fluxes only
   limit_seaice                               = .TRUE.      ! default: TRUE
   seaice_limit                               = 0.8         ! hard limit set to 80% of upper layer for sea ice
+  lfix_salt_content                          = .TRUE.
   limit_elevation                            = .FALSE.     ! true: adjust daily to zero, default=false: free surface
 ! lswr_jerlov                                = .FALSE.     ! SW-penetration (Jerlov-radiation, default=T)
 /
@@ -1703,6 +1706,7 @@ cat >> ${oce_namelist} << EOF
 &ocean_diagnostics_nml
   diagnostics_level                          = 1
   diagnose_for_horizontalVelocity            = .FALSE.
+  diagnose_for_heat_content                  = .TRUE.
 /
 &io_nml
   restart_file_type                          = 5
@@ -1720,19 +1724,19 @@ add_required_file ${basedir}/run/${oce_namelist} ./
 # Ocean initialisation input
 #
 if [[ "$initialiseOcean" == "fromRestart" ]]; then
- # restart file is spun up for 1500 years after starting from levitus (500 years since last tuning parameter change):
- add_link_file /work/mh0727/m300732/input/0014/ocean/restart/ler0354_restart_oce_25000101T000000Z.nc restart_ocean_DOM01.nc 
- fi
+ # spun-up for 500 (200+300) years
+ add_link_file /work/mh0727/m300732/input/0036/ocean/restart/ler0613_restart_oce_13000101T000000Z.nc    restart_ocean_DOM01.nc
+fi
 
 if [[ "$initialiseOcean" == "fromRestartwithHamocc" ]]; then
- # for a restart file containing Hamocc, interpolated from a cmip6 control run to the icon grid.
- # Ocean restart is from a long tuning run, which arrived at a good state.
- add_link_file /work/mh0727/m300732/input/0014/ocean/restart/ler0203_restart_oce_4601_w_hamocc_from_cmip6.nc restart_ocean_DOM01.nc 
+ #FIXME: add restart file with spun-up Hamocc
+ # Restart file like above + 1 year with Hamocc (initialized from basin averages)
+ add_link_file /work/mh0727/m300732/input/0036/ocean/restart/ler0614_restart_oce_10010101T000000Z.nc    restart_ocean_DOM01.nc
  fi
 
 if [[ "$initialiseOcean" == "fromClimatology" ]]; then
   # for initializing from Levitus:
-  add_link_file ${ocean_data_InputFolder}/initial_condition/r0001/ts_phc3.0_annual_icon_grid_0014_R02B04_O_L40.nc initial_state.nc
+  add_link_file ${ocean_data_InputFolder}/R2B4L40_initial_state.nc initial_state.nc
 fi
 
 #
@@ -1743,13 +1747,10 @@ add_required_file ${ocean_grid_folder}/${ocean_grid} ./
 ## HAMOCC forcing files
 #
 if [  "x${use_hamocc}"  = "xyes" ]; then
-  # this is still a private path
-  # very preliminary!
-  datadir=/work/mh0727/m300732/input/0014/ocean/hamocc/
-  add_link_file $datadir/MAHOWALDDUST_icon_grid_0014_R02B04_O.nc           dust.nc  # iron deposition
-  add_link_file $datadir/ndepo_clim_icon_grid_0014_R02B04_O.nc             nitrogen.nc  # nitrate deposition
-  # caution: nitrate deposition file was not remapped from the original data file, but from 
-  # file used for other runs. Could be very outdated.
+  # FIXME: this is still a private path
+  datadir=/work/mh0727/m300732/input/0036/ocean/hamocc/
+  add_link_file $datadir/MAHOWALDDUST_icon_grid_0036_R02B04_O_remapbil1.nc           dust.nc  # iron deposition
+  add_link_file $datadir/ndepo_1-0_gr_185001-185012-clim_icon_grid_0036_R02B04_O.nc  nitrogen.nc  # nitrate deposition
 fi
 #
 #-----------------------------------------------------------------------------

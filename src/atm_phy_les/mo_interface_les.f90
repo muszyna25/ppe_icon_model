@@ -519,7 +519,8 @@ CONTAINS
                             & lcall_phy_jg(itsatad),            & !>input
                             & pt_patch, p_metrics,              & !>input
                             & pt_prog,                          & !>inout
-                            & pt_prog_rcf,                      & !>inout
+                            & pt_prog_rcf%tracer,               & !>inout
+                            & pt_prog_rcf%tke,                  & !>in
                             & pt_diag ,                         & !>inout
                             & prm_diag, prm_nwp_tend,           & !>inout
                             & lcompute_tt_lheat=.FALSE.         ) !>in
@@ -1409,15 +1410,15 @@ CONTAINS
       !CALL les_cloud_diag(pt_patch, pt_prog_rcf, kstart_moist(jg),   &
       !                    lnd_prog_new, lnd_diag, pt_diag, &
       !                    pt_prog, p_metrics, prm_diag) 
-      CALL les_cloud_diag    ( kstart_moist(jg),		       & !in
-        &		       ih_clch(jg), ih_clcm(jg),	       & !in
-        &		       phy_params(jg),  		       & !in
-        &		       pt_patch,			       & !in
-        &		       p_nh_state(jg)%metrics,  	       & !in
-        &		       p_nh_state(jg)%prog(nnow(jg)),	       & !in
-        &		       p_nh_state(jg)%prog(nnow_rcf(jg)),      & !in
-        &		       p_nh_state(jg)%diag,		       & !in
-        &		       prm_diag 			       ) !inout
+      CALL les_cloud_diag    ( kstart_moist(jg),                       & !in
+        &                      ih_clch(jg), ih_clcm(jg),               & !in
+        &                      phy_params(jg),                         & !in
+        &                      pt_patch,                               & !in
+        &                      p_nh_state(jg)%metrics,                 & !in
+        &                      p_nh_state(jg)%prog(nnow(jg)),          & !in
+        &                      p_nh_state(jg)%prog(nnow_rcf(jg)),      & !in
+        &                      p_nh_state(jg)%diag,                    & !in
+        &                      prm_diag                                ) !inout
 
     IF( is_sampling_time )THEN
 

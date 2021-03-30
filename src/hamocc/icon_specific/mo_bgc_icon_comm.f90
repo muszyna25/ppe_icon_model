@@ -20,7 +20,7 @@
 
       USE mo_model_domain,   ONLY: t_patch_3D, t_patch
 
-      USE mo_ocean_nml,  ONLY: n_zlev
+      USE mo_ocean_nml,  ONLY: n_zlev, lsediment_only
 
       USE mo_kind,     ONLY: wp
 
@@ -124,8 +124,12 @@
 
       USE mo_memory_bgc, ONLY: bgctra, co3, hi, bgctend,  &
  &                         akw3,ak13,ak23,akb3,aksp,satoxy, &
+ &                         akf3,aks3,aksi3,ak1p3,ak2p3,ak3p3, &
  &                         satn2, satn2o, solco2,kbo,bolay,&
 &                          atm
+
+      USE mo_bgc_bcond,  ONLY: ext_data_bgc
+
       USE MO_PARAM1_BGC, ONLY: n_bgctra, issso12,         &
  &                             isssc12, issssil, issster, &
  &                             ipowaic, ipowaal, ipowaph, &
@@ -136,7 +140,8 @@
 &                              iatmco2 
 
 
-      USE mo_sedmnt,  ONLY: pown2bud, powh2obud
+      USE mo_sedmnt,  ONLY: pown2bud, powh2obud, prorca, &
+ &                          silpro, produs, prcaca
 
       REAL(wp)     :: ptracer(nproma,n_zlev,n_bgctra)    
       REAL(wp)     :: pco2mr(nproma)
@@ -173,6 +178,12 @@
           ak23(jc, jk) = p_tend%ak2(jc,jk,jb)    
           akb3(jc, jk) = p_tend%akb(jc,jk,jb)    
           akw3(jc, jk) = p_tend%akw(jc,jk,jb)    
+          aksi3(jc, jk) = p_tend%aksi(jc,jk,jb)    
+          ak1p3(jc, jk) = p_tend%ak1p(jc,jk,jb)    
+          ak2p3(jc, jk) = p_tend%ak2p(jc,jk,jb)    
+          ak3p3(jc, jk) = p_tend%ak3p(jc,jk,jb)    
+          aks3(jc, jk) = p_tend%aks(jc,jk,jb)  
+          akf3(jc, jk) = p_tend%akf(jc,jk,jb)     
           satoxy(jc, jk) = p_tend%satoxy(jc,jk,jb)    
           bgctend(jc,jk,kh2ob) =  p_tend%h2obudget(jc,jk,jb) 
           bgctend(jc,jk,kn2b) =  p_tend%n2budget(jc,jk,jb) 
@@ -181,6 +192,12 @@
          kbo(jc) = p_sed%kbo(jc,jb)
          bolay(jc) = p_sed%bolay(jc,jb)
         ! Burial layers
+         if (lsediment_only) THEN
+             silpro(jc) = ext_data_bgc%silpro(jc,jb)
+             produs(jc) = ext_data_bgc%produs(jc,jb)
+             prcaca(jc) = ext_data_bgc%prcaca(jc,jb)
+             prorca(jc) = ext_data_bgc%prorca(jc,jb)
+         ENDIF
          burial(jc,issso12) = p_sed%bo12(jc,jb) 
          burial(jc,isssc12) = p_sed%bc12(jc,jb)
          burial(jc,issssil) = p_sed%bsil(jc,jb)
@@ -218,6 +235,7 @@
 
       
       USE mo_memory_bgc, ONLY: bgctend, bgcflux, hi, co3, sedfluxo, &
+ &                         aks3, akf3, aksi3, ak1p3, ak2p3, ak3p3, &
  &                         akw3, akb3, aksp, ak13, ak23, satoxy, satn2, &
  &                         satn2o, solco2, atm
 
@@ -316,6 +334,12 @@
              p_tend%akw(jc,jk,jb)    = akw3(jc,jk) 
              p_tend%ak1(jc,jk,jb)    = ak13(jc,jk) 
              p_tend%ak2(jc,jk,jb)    = ak23(jc,jk) 
+             p_tend%aks(jc,jk,jb)    = aks3(jc,jk) 
+             p_tend%akf(jc,jk,jb)    = akf3(jc,jk) 
+             p_tend%ak1p(jc,jk,jb)   = ak1p3(jc,jk) 
+             p_tend%ak2p(jc,jk,jb)   = ak2p3(jc,jk)
+             p_tend%ak3p(jc,jk,jb)   = ak3p3(jc,jk)
+             p_tend%aksi(jc,jk,jb)   = aksi3(jc,jk)
              p_tend%aksp(jc,jk,jb)   = aksp(jc,jk) 
              p_tend%flim(jc,jk,jb) = bgctend(jc,jk,kflim)
              p_tend%nlim(jc,jk,jb) = bgctend(jc,jk,knlim)
@@ -330,6 +354,89 @@
         p_tend%satn2(jc,jb)    = satn2(jc) 
         p_tend%satn2o(jc,jb)    = satn2o(jc) 
         p_tend%solco2(jc,jb)    = solco2(jc) 
+        ! Sediment
+        ! Burial layers
+        p_sed%bo12(jc,jb) = burial(jc,issso12)
+        p_sed%bc12(jc,jb) = burial(jc,isssc12)
+        p_sed%bsil(jc,jb) = burial(jc,issssil)
+        p_sed%bter(jc,jb) = burial(jc,issster) 
+        ! Sediment-ocean fluxes
+        p_tend%sedflic(jc,jb) = sedfluxo(jc,ipowaic) 
+        p_tend%sedflal(jc,jb) = sedfluxo(jc,ipowaal) 
+        p_tend%sedflph(jc,jb) = sedfluxo(jc,ipowaph) 
+        p_tend%sedflox(jc,jb) = sedfluxo(jc,ipowaox) 
+        p_tend%sedflsi(jc,jb) = sedfluxo(jc,ipowasi) 
+        p_tend%sedflfe(jc,jb) = sedfluxo(jc,ipowafe) 
+        p_tend%sedfln2(jc,jb) = sedfluxo(jc,ipown2) 
+        p_tend%sedflno3(jc,jb) = sedfluxo(jc,ipowno3) 
+        p_tend%sedflh2s(jc,jb) = sedfluxo(jc,ipowh2s) 
+        DO jk =1,ks
+             ! Solid sediment
+             p_sed%so12(jc,jk,jb) = sedlay(jc,jk,issso12)
+             p_sed%sc12(jc,jk,jb) = sedlay(jc,jk,isssc12)
+             p_sed%ssil(jc,jk,jb) = sedlay(jc,jk,issssil)
+             p_sed%ster(jc,jk,jb) = sedlay(jc,jk,issster)
+             ! Pore water
+             p_sed%pwic(jc,jk,jb) = powtra(jc,jk,ipowaic)
+             p_sed%pwal(jc,jk,jb) = powtra(jc,jk,ipowaal)
+             p_sed%pwph(jc,jk,jb) = powtra(jc,jk,ipowaph)
+             p_sed%pwox(jc,jk,jb) = powtra(jc,jk,ipowaox)
+             p_sed%pwsi(jc,jk,jb) = powtra(jc,jk,ipowasi)
+             p_sed%pwfe(jc,jk,jb) = powtra(jc,jk,ipowafe)
+             p_sed%pwn2(jc,jk,jb) = powtra(jc,jk,ipown2)
+             p_sed%pwno3(jc,jk,jb) = powtra(jc,jk,ipowno3)
+             p_sed%pwh2s(jc,jk,jb) = powtra(jc,jk,ipowh2s)
+             p_sed%sedhi(jc,jk,jb) = sedhpl(jc,jk)
+             p_sed%pwh2ob(jc,jk,jb) = powh2obud(jc,jk)
+             p_sed%pwn2b(jc,jk,jb) = pown2bud(jc,jk)
+
+             ! tendencies
+             p_tend%sedro2(jc,jk,jb) = sedtend(jc,jk,isremino) 
+             p_tend%sedrn(jc,jk,jb)  = sedtend(jc,jk,isreminn) 
+             p_tend%sedrs(jc,jk,jb)  = sedtend(jc,jk,isremins) 
+             
+        ENDDO
+      ENDIF
+      ENDDO
+!HAMOC_OMP_END_DO
+!HAMOCC_OMP_END_PARALLEL
+
+  END SUBROUTINE 
+
+!================================================================================== 
+  SUBROUTINE set_bgc_tendencies_output_sedon(start_idx,end_idx,pddpo,jb, &
+ &                                           p_tend, p_sed)
+
+      USE mo_memory_bgc, ONLY: sedfluxo
+
+      USE mo_param1_bgc, ONLY: issso12, &
+ &                             isssc12, issssil, issster, &
+ &                             ipowaic, ipowaal, ipowaph, &
+ &                             ipowaox, ipown2, ipowno3,  &
+ &                             ipowasi, ipowafe, ipowh2s
+
+      USE mo_bgc_bcond, ONLY: ext_data_bgc
+  
+      USE mo_sedmnt, ONLY : pown2bud, powh2obud, sedtend, &
+&                           isremino, isreminn, isremins
+
+      TYPE(t_hamocc_sed) :: p_sed
+      TYPE(t_hamocc_tend):: p_tend
+
+      INTEGER, INTENT(in) :: start_idx, end_idx,jb
+      REAL(wp),INTENT(in) :: pddpo(nproma,n_zlev) !< size of scalar grid cell (3rd REAL) [m]
+
+
+      INTEGER :: jc, jk
+
+!HAMOCC_OMP_PARALLEL
+!HAMOCC_OMP_DO PRIVATE(jc,jk) HAMOCC_OMP_DEFAULT_SCHEDULE
+      DO jc=start_idx,end_idx 
+        IF (pddpo(jc, 1) .GT. 0.5_wp) THEN
+        p_tend%prcaca(jc,jb) = ext_data_bgc%prcaca(jc,jb)
+        p_tend%prorca(jc,jb) = ext_data_bgc%prorca(jc,jb)
+        p_tend%silpro(jc,jb) = ext_data_bgc%silpro(jc,jb)
+        p_tend%produs(jc,jb) = ext_data_bgc%produs(jc,jb)
         ! Sediment
         ! Burial layers
         p_sed%bo12(jc,jb) = burial(jc,issso12)
