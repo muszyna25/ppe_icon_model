@@ -13,6 +13,7 @@
 #%  endif
 #SBATCH --output=%{SCRIPT_DIR}/%x.%j.log
 #SBATCH --time=%{JOB.time_limit}
+#SBATCH --dependency=singleton
 
 '''\
 Create monitoring from ICON experiment data for a given period
@@ -24,7 +25,10 @@ import os
 import subprocess
 import sys
 
-sys.path.append(os.path.join('%{MODEL_DIR}', 'lib', 'python'))
+from distutils import sysconfig
+lib_dir = sysconfig.get_python_lib(1, 0, '%{MODEL_DIR}')
+if lib_dir not in sys.path:
+    sys.path.insert(1, lib_dir)
 import mtime
 
 # Process command line options
@@ -62,13 +66,20 @@ end_date = next_date + mtime.TimeDelta('-P1D')
 
 # Define required output
 
-tags = %{JOB.mon_tags}
-
+#%  if JOB.tags is defined:
+#%      set tags = JOB.tags
+#%      set set_tags = []
+#%      for tag in tags.scalars|sort if tags[tag] is set:
+#%          do set_tags.append(tag)
+#%      endfor
+tags = %{set_tags}
+#%  endif
+#%#
 # Set-up template variables
 
 template_dict = {}
-template_dict['start_date'] = args.start_date.translate(None, '-')
-template_dict['end_date'] = str(end_date.date).translate(None, '-')
+template_dict['start_date'] = args.start_date.replace('-', '')
+template_dict['end_date'] = str(end_date.date).replace('-', '')
 template_dict['tags'] = ' '.join(tags)
 
 # Prolog
@@ -173,10 +184,10 @@ os.putenv('SKIPSAMETIME', '1') # workaround for bug in cdo-1.9.6
 
 make_args = ['make', '-k', '-j', '%{JOB.tasks|d(1)}']
 if args.clean: make_args.append('clean')
-make = subprocess.Popen(make_args,
+make = subprocess.Popen(make_args, universal_newlines=True,
                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 for line in make.stdout:
-    logging.info(line.rstrip('\n\r'))
+    logging.info(line.rstrip('\n'))
 
 make_result = make.wait()
 if make_result:
