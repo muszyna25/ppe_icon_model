@@ -42,10 +42,6 @@ MODULE mo_load_multifile_restart
   USE mo_model_domain,           ONLY: t_patch
   USE mo_mpi,                    ONLY: p_comm_work, p_comm_size, p_comm_rank, my_process_is_work, &
     &                                  p_allreduce, mpi_sum, my_process_is_mpi_workroot, p_alltoall, p_alltoallv
-#ifdef DEBUG
-  USE mo_mpi,                    ONLY: p_bcast
-  USE mo_impl_constants,         ONLY: VARNAME_LEN
-#endif
   USE mo_multifile_restart_util, ONLY: multifilePayloadPath, rBuddy, rGroup, vNames_glbIdx
   USE mo_parallel_config,        ONLY: nproma, idx_no, blk_no, restart_load_scale_max
   USE mo_restart_nml_and_att,    ONLY: getAttributesForRestarting, ocean_initFromRestart_OVERRIDE
@@ -409,27 +405,23 @@ CONTAINS
         CALL vname_map%put(cVname, vId)
       END DO
     END IF
+    IF (ocean_initFromRestart_OVERRIDE) CALL vname_map%bcast(0, p_comm_work)
     DO vId = 1, SIZE(vDat)
-      IF(.NOT.has_valid_time_level(vDat(vId)%p%info, dom, nnew(dom), nnew_rcf(dom))) CYCLE
-      ! Check that all processes have a consistent order of variables IN varData(:).
-      IF(timers_level >= 7) CALL timer_start(timer_load_restart_get_var_id)
-      IF(SIZE(files) .GT. 0) THEN
-        CALL vname_map%get(vDat(vId)%p%info%NAME, varId, opt_err=dummy)
+      IF (.NOT.has_valid_time_level(vDat(vId)%p%info, dom, nnew(dom), nnew_rcf(dom))) CYCLE
+      IF (timers_level >= 7) CALL timer_start(timer_load_restart_get_var_id)
+      CALL vname_map%get(vDat(vId)%p%info%NAME, varId, opt_err=dummy)
+      IF (timers_level >= 7) CALL timer_stop(timer_load_restart_get_var_id)
+      IF (dummy .NE. 0) THEN
+        IF (ocean_initFromRestart_OVERRIDE) THEN
 ! fatal hack from coding hell to make init_fromRestart=.true. (ocean) work
-        IF (dummy .NE. 0) THEN
-          IF(ocean_initFromRestart_OVERRIDE) THEN
-            IF(timers_level >= 7) CALL timer_stop(timer_load_restart_get_var_id)
-            CALL warning(routine, "variable '" // TRIM(vDat(vId)%p%info%NAME) // &
-              & "' from restart file not found in the list of restart variables")
-            CALL warning(routine, &
-              & "that MAY be intended if initialize_fromRestart=.true.")
-            CYCLE
-          ELSE
-            CALL finish(routine, "variable not found: "//TRIM(vDat(vId)%p%info%NAME))
-          END IF
+          CALL warning(routine, "variable not found: '" // TRIM(vDat(vId)%p%info%NAME))
+          CALL warning(routine, &
+            & "that MAY be intended if initialize_fromRestart=.true.")
+          CYCLE
+        ELSE IF (SIZE(files) .GT. 0) THEN
+          CALL finish(routine, "variable not found: "//TRIM(vDat(vId)%p%info%NAME))
         END IF
       END IF
-      IF(timers_level >= 7) CALL timer_stop(timer_load_restart_get_var_id)
       hgrid = vDat(vId)%p%info%hgrid
       IF (hgrid < 1 .OR. hgrid > 3) &
         CALL finish(routine, "unexpected varData(varIndex)%info%hgrid")
