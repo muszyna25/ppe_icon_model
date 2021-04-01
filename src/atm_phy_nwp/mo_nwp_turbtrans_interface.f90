@@ -126,7 +126,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
   ! Local fields needed to reorder turbtran input/output fields for tile approach
 
   ! 1D fields
-  REAL(wp), DIMENSION(nproma)   :: pres_sfc_t, l_hori
+  REAL(wp), DIMENSION(nproma)   :: pres_sfc_t, l_hori, rlamh_fac
 
   ! 2D half-level fields
   REAL(wp), DIMENSION(nproma,3) :: z_ifc_t
@@ -171,7 +171,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 !$acc data create(gz0_t, tcm_t, tch_t, tfm_t, tfh_t, tfv_t, tvm_t, tvh_t, tkr_t, t_2m_t, qv_2m_t, td_2m_t, rh_2m_t, &
 !$acc             u_10m_t, v_10m_t, t_g_t, qv_s_t, sai_t, shfl_s_t, lhfl_s_t, qhfl_s_t, umfl_s_t, vmfl_s_t, &
 !$acc             tkvm_t, tkvh_t, u_t, v_t, temp_t, pres_t, qv_t, qc_t, epr_t, rcld_t, z_ifc_t, pres_sfc_t, l_hori, &
-!$acc             z_tvs, tvs_t, fr_land_t, depth_lk_t, h_ice_t, jk_gust) &
+!$acc             z_tvs, tvs_t, fr_land_t, depth_lk_t, h_ice_t, jk_gust, rlamh_fac) &
 !$acc      if(lzacc)
 
   ! exclude boundary interpolation zone of nested domains
@@ -197,7 +197,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 !$OMP temp_t,pres_t,qv_t,qc_t,tkvm_t,tkvh_t,z_ifc_t,rcld_t,sai_t,fr_land_t,depth_lk_t,h_ice_t,  &
 !$OMP area_frac,shfl_s_t,lhfl_s_t,qhfl_s_t,umfl_s_t,vmfl_s_t,nlevcm,jk_gust,epr_t,              &
 !$OMP PGEOMLEV,PCPTGZLEV,PCPTSTI,PUCURR,PVCURR,ZCFMTI,PCFHTI,PCFQTI,ZBUOMTI,ZZDLTI,             &
-!$OMP ZZ0MTI,ZZ0HTI,ZZ0QTI,rho_s ) ICON_OMP_GUIDED_SCHEDULE
+!$OMP ZZ0MTI,ZZ0HTI,ZZ0QTI,rho_s,rlamh_fac ) ICON_OMP_GUIDED_SCHEDULE
 !MR:>
 
   DO jb = i_startblk, i_endblk
@@ -377,6 +377,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
           &  fr_land=ext_data%atm%fr_land(:,jb),                                       & !in
           &  depth_lk=ext_data%atm%depth_lk(:,jb),                                     & !in
           &  h_ice=wtr_prog_new%h_ice(:,jb),                                           & !in
+          &  rlamh_fac=prm_diag%rlamh_fac_t(:,jb,1),                                   & !in
           &  sai=ext_data%atm%sai_t(:,jb,1),                                           & !in
           &  gz0=prm_diag%gz0_t(:,jb,1),                                               & !inout
           &  t_g=lnd_prog_new%t_g(:,jb),                                               & !in
@@ -545,10 +546,11 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             tkvh_t (ic,1:2,jt)  = prm_diag%tkvh     (jc,nlev-1:nlev,jb)
             tkvh_t (ic,3,jt)    = prm_diag%tkvh_s_t (jc,jb,jt)     ! tile-specific for lowest level
             tkr_t  (ic,jt)      = prm_diag%tkr_t    (jc,jb,jt)
+            rlamh_fac(ic)       = prm_diag%rlamh_fac_t(jc,jb,jt)
 
             !should be dependent on location in future!
             l_hori(ic)=phy_params(jg)%mean_charlen
-            
+
           ENDDO
           !$acc end kernels
 
@@ -575,6 +577,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             &  fr_land=fr_land_t(:),                                        & !in
             &  depth_lk=depth_lk_t(:),                                      & !in
             &  h_ice=h_ice_t(:),                                            & !in
+            &  rlamh_fac=rlamh_fac(:),                                      & !in
             &  sai=sai_t(:,jt),                                             & !in
             &  gz0=gz0_t(:,jt),                                             & !inout
             &  t_g=t_g_t(:,jt),                                             & !in

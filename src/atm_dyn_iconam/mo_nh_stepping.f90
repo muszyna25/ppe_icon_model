@@ -90,7 +90,6 @@ MODULE mo_nh_stepping
   USE mo_nwp_lnd_state,            ONLY: p_lnd_state
   USE sfc_seaice,                  ONLY: frsi_min
   USE mo_ext_data_state,           ONLY: ext_data
-  USE mo_turbdiff_config,          ONLY: turbdiff_config
   USE mo_limarea_config,           ONLY: latbc_config
   USE mo_model_domain,             ONLY: p_patch, t_patch, p_patch_local_parent
   USE mo_time_config,              ONLY: time_config
@@ -244,6 +243,7 @@ MODULE mo_nh_stepping
   USE mo_nudging,                  ONLY: nudging_interface  
   USE mo_opt_nwp_diagnostics,      ONLY: compute_field_dbz3d_lin
   USE mo_nwp_gpu_util,             ONLY: gpu_d2h_nh_nwp, gpu_h2d_nh_nwp, devcpy_nwp, hostcpy_nwp
+  USE mo_bench_config,             ONLY: bench_config
 
   !$ser verbatim USE mo_ser_all, ONLY: serialize_all
 
@@ -963,21 +963,13 @@ MODULE mo_nh_stepping
 
     ENDIF
 
-
     ! ToDo:
     ! * replace date comparison below by physics event (triggering daily)
     ! * move call of update_nwp_phy_bcs to beginning of NWP physics interface
     ! * instead of skipping the boundary condition upate after the first of 2 IAU iterations, 
     !   do the update and fire a corresponding reset call. 
-    IF (iforcing == inwp) THEN
+    IF (iforcing == inwp .AND. (.NOT. bench_config%d_unpb)) THEN
 
-#ifdef _OPENACC
-      CALL message('mo_nh_stepping', 'Device to host copy before update_nwp_phy_bcs. This needs to be removed once port is finished!')
-      DO jg=1, n_dom
-         CALL gpu_d2h_nh_nwp(p_patch(jg), prm_diag(jg), ext_data=ext_data(jg))
-      ENDDO
-      i_am_accel_node = .FALSE.
-#endif
 
       ! Update the following surface fields, if a new day is coming
       !
@@ -990,6 +982,13 @@ MODULE mo_nh_stepping
       ! end of the current time step
       IF ( (mtime_current%date%day /= mtime_old%date%day) .AND. .NOT. (jstep == 0 .AND. iau_iter == 1) ) THEN
 
+#ifdef _OPENACC
+        CALL message('mo_nh_stepping', 'Device to host copy before update_nwp_phy_bcs. This needs to be removed once port is finished!')
+        DO jg=1, n_dom
+           CALL gpu_d2h_nh_nwp(p_patch(jg), prm_diag(jg), ext_data=ext_data(jg))
+        ENDDO
+        i_am_accel_node = .FALSE.
+#endif
         ! assume midnight for climatological updates
         target_datetime = assumePrevMidnight(mtime_current)
         ! assume midnight for reference date which is used when computing climatological SST increments 
@@ -1009,9 +1008,24 @@ MODULE mo_nh_stepping
 
         mtime_old = mtime_current
 
+#ifdef _OPENACC
+        CALL message('mo_nh_stepping', 'Host to device copy after update_nwp_phy_bcs. This needs to be removed once port is finished!')
+        DO jg=1, n_dom
+          CALL gpu_h2d_nh_nwp(p_patch(jg), prm_diag(jg), ext_data=ext_data(jg))
+        ENDDO
+        i_am_accel_node = my_process_is_work()
+#endif
+
       END IF ! end update of surface parameter fields
 
       IF (sstice_mode == SSTICE_INST) THEN
+#ifdef _OPENACC
+        CALL message('mo_nh_stepping', 'Device to host copy before update_sst_and_seaice. This needs to be removed once port is finished!')
+        DO jg=1, n_dom
+           CALL gpu_d2h_nh_nwp(p_patch(jg), prm_diag(jg), ext_data=ext_data(jg))
+        ENDDO
+        i_am_accel_node = .FALSE.
+#endif
         DO jg=1, n_dom
           CALL sst_intp%intp(mtime_current, sst_dat)
           WHERE (sst_dat(:,1,:,1) > 0.0_wp)
@@ -1031,15 +1045,16 @@ MODULE mo_nh_stepping
                &              p_nh_state(jg), sstice_mode, time_config%tc_exp_startdate, &
                &              mtime_current )
         ENDDO
+#ifdef _OPENACC
+        CALL message('mo_nh_stepping', 'Host to device copy after update_sst_and_seaice. This needs to be removed once port is finished!')
+        DO jg=1, n_dom
+          CALL gpu_h2d_nh_nwp(p_patch(jg), prm_diag(jg), ext_data=ext_data(jg))
+        ENDDO
+        i_am_accel_node = my_process_is_work()
+#endif
       END IF
 
-#ifdef _OPENACC
-      CALL message('mo_nh_stepping', 'Host to device copy after update_nwp_phy_bcs. This needs to be removed once port is finished!')
-      DO jg=1, n_dom
-         CALL gpu_h2d_nh_nwp(p_patch(jg), prm_diag(jg), ext_data=ext_data(jg))
-      ENDDO
-      i_am_accel_node = my_process_is_work()
-#endif
+
     ENDIF  ! iforcing == inwp
 
 
@@ -1112,7 +1127,7 @@ MODULE mo_nh_stepping
     ! Compute diagnostics for output if necessary
     !
 
-    IF (l_compute_diagnostic_quants .OR. iforcing==iecham .OR. iforcing==inoforcing) THEN
+    IF ((l_compute_diagnostic_quants .OR. iforcing==iecham .OR. iforcing==inoforcing)  .AND. (.NOT. bench_config%d_ndfo)) THEN
     
       CALL diag_for_output_dyn ()
       
@@ -1263,7 +1278,7 @@ MODULE mo_nh_stepping
 
     ! output of results
     ! note: nnew has been replaced by nnow here because the update
-    IF (l_nml_output) THEN
+    IF (l_nml_output .AND. .NOT. bench_config%d_wnlo) THEN
       CALL write_name_list_output(jstep)
     ENDIF
 
@@ -1446,27 +1461,18 @@ MODULE mo_nh_stepping
 #endif
 
     ! prefetch boundary data if necessary
-    IF(num_prefetch_proc >= 1 .AND. latbc_config%itype_latbc > 0 .AND. .NOT.(jstep == 0 .AND. iau_iter == 1)) THEN
-#ifdef _OPENACC
-      CALL message('mo_nh_stepping', 'Device to host copy before recv_latbc_data. This needs to be removed once port is finished!')
-      CALL gpu_d2h_nh_nwp(p_patch(1), prm_diag(1))
-      i_am_accel_node = .FALSE.
-#endif
+    IF(num_prefetch_proc >= 1 .AND. latbc_config%itype_latbc > 0 .AND. &
+    &  .NOT.(jstep == 0 .AND. iau_iter == 1)  .AND. (.NOT. bench_config%d_rld) ) THEN
       !$ser verbatim CALL serialize_all(nproma, 1, "latbc_data", .TRUE., opt_lupdate_cpu=.TRUE.)
       latbc_read_datetime = latbc%mtime_last_read + latbc%delta_dtime
       CALL recv_latbc_data(latbc               = latbc,              &
-        &                  p_patch             = p_patch(1),         &
-        &                  p_nh_state          = p_nh_state(1),      &
-        &                  p_int               = p_int_state(1),     &
-        &                  cur_datetime        = mtime_current,      &
-        &                  latbc_read_datetime = latbc_read_datetime,&
-        &                  lcheck_read         = .TRUE.,             &
-        &                  tlev                = latbc%new_latbc_tlev)
-#ifdef _OPENACC
-        CALL message('mo_nh_stepping', 'Host to device copy after recv_latbc_data. This needs to be removed once port is finished!')
-        CALL gpu_h2d_nh_nwp(p_patch(1), prm_diag(1))
-        i_am_accel_node = my_process_is_work()
-#endif
+         &                  p_patch             = p_patch(1),         &
+         &                  p_nh_state          = p_nh_state(1),      &
+         &                  p_int               = p_int_state(1),     &
+         &                  cur_datetime        = mtime_current,      &
+         &                  latbc_read_datetime = latbc_read_datetime,&
+         &                  lcheck_read         = .TRUE.,             &
+         &                  tlev                = latbc%new_latbc_tlev)
       !$ser verbatim CALL serialize_all(nproma, 1, "latbc_data", .FALSE., opt_lupdate_cpu=.TRUE.)
     ENDIF
 
@@ -2173,7 +2179,7 @@ MODULE mo_nh_stepping
       ENDIF  ! itime_scheme
 
       ! Update nudging tendency fields for limited-area mode
-      IF (jg == 1 .AND. l_limited_area .AND. (.NOT. l_global_nudging)) THEN
+      IF ((jg == 1 .AND. l_limited_area .AND. (.NOT. l_global_nudging))  .AND. (.NOT. bench_config%d_n) ) THEN
 #ifdef _OPENACC
         CALL message('mo_nh_stepping', 'Device to host copy before nudging. This needs to be removed once port is finished!')
         CALL gpu_d2h_nh_nwp(p_patch(jg), prm_diag(jg))

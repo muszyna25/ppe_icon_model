@@ -3095,11 +3095,11 @@ CONTAINS
   !! Initial release by Pilar Ripodas (2013-02)
   !!
   !!
-  SUBROUTINE update_ndvi_dependent_fields( p_patch, ext_data, lnd_diag )
+  SUBROUTINE update_ndvi_dependent_fields( p_patch, ext_data, nh_diag )
 
     TYPE(t_patch)        , INTENT(IN)    :: p_patch
     TYPE(t_external_data), INTENT(INOUT) :: ext_data
-    TYPE(t_lnd_diag),      INTENT(IN)    :: lnd_diag
+    TYPE(t_nh_diag),      INTENT(IN)    :: nh_diag
 
     ! local
     INTEGER  :: jb,jt,ic,jc, jt_in
@@ -3191,7 +3191,7 @@ CONTAINS
 
 
     IF (itype_vegetation_cycle >= 2) THEN
-      CALL vege_clim (p_patch, ext_data, lnd_diag)
+      CALL vege_clim (p_patch, ext_data, nh_diag)
     ENDIF
 
     CALL diagnose_ext_aggr (p_patch, ext_data)

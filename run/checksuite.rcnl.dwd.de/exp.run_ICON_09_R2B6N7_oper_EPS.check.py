@@ -1,4 +1,13 @@
 #!/usr/bin/env python3
+import faulthandler, os
+
+# enable functions to dump Python tracebacks explicitly:
+faulthandler.enable()
+
+# limit number of OpenMP threads;
+#this fixes a NumPy SegFault related to the OpenBLAS threadpool
+# (see https://github.com/numpy/numpy/issues/15691):
+os.environ["OMP_NUM_THREADS"] = "1"
 
 print("""
 ==================================================================================

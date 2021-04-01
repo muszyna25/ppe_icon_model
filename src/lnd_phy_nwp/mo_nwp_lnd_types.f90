@@ -139,7 +139,6 @@ MODULE mo_nwp_lnd_types
     &  t_s          (:,:)   , & ! temperature of the ground surface             (  K  )
     &  t_sk         (:,:)   , & ! skin temperature                              (  K  )
     &  t_seasfc     (:,:)   , & ! temperature of the sea surface                (  K  )
-    &  t2m_bias     (:,:)   , & ! filtered T2M bias from surface analysis         [K]
     &  w_i          (:,:)   , & ! water content of interception water           (m H2O)
     &  w_p          (:,:)   , & ! water content of pond interception water      (m H2O)
     &  w_s          (:,:)   , & ! water content of interception snow            (m H2O)

@@ -54,6 +54,7 @@ MODULE mo_nwp_tuning_nml
     &                               config_tune_minsnowfrac => tune_minsnowfrac, &  
     &                               config_tune_box_liq   => tune_box_liq,       &
     &                               config_tune_box_liq_asy => tune_box_liq_asy, &
+    &                               config_tune_box_liq_sfc_fac => tune_box_liq_sfc_fac, &
     &                               config_tune_thicklayfac => tune_thicklayfac, &
     &                               config_tune_sgsclifac => tune_sgsclifac,     &
     &                               config_icpl_turb_clc  => icpl_turb_clc,      &
@@ -153,6 +154,9 @@ MODULE mo_nwp_tuning_nml
   REAL(wp) :: &                    !< Asymmetry factor liquid cloud parameterization
     &  tune_box_liq_asy            ! (in case of inwp_cldcover = 1)
 
+  REAL(wp) :: &                    !< Tuning factor for box_liq reduction near the surface
+    & tune_box_liq_sfc_fac         ! (in case of inwp_cldcover = 1)
+
   REAL(wp) :: &                    !< Scaling factor for subgrid-scale contribution to diagnosed cloud ice
     &  tune_sgsclifac              ! (in case of inwp_cldcover = 1)
 
@@ -194,7 +198,8 @@ MODULE mo_nwp_tuning_nml
     &                      lcalib_clcov, tune_box_liq_asy, tune_capdcfac_tr,    &
     &                      tune_icesedi_exp, tune_rprcon, tune_gust_factor,     &
     &                      tune_rdepths, tune_thicklayfac, tune_sgsclifac,      &
-    &                      icpl_turb_clc, tune_difrad_3dcont, max_calibfac_clcl
+    &                      icpl_turb_clc, tune_difrad_3dcont, max_calibfac_clcl,&
+    &                      tune_box_liq_sfc_fac
 
 
 CONTAINS
@@ -305,6 +310,7 @@ CONTAINS
     tune_box_liq     = 0.05_wp     ! box width scale of liquid clouds
     tune_thicklayfac = 0.005_wp    ! factor [1/m] for increasing the box with for layer thicknesses exceeding 150 m
     tune_box_liq_asy = 3._wp       ! asymmetry factor for liquid cloud parameterization
+    tune_box_liq_sfc_fac = 1._wp   ! Tuning factor for box_liq reduction near the surface
     tune_sgsclifac   = 0._wp       ! Scaling factor for subgrid-scale contribution to diagnosed cloud ice
     lcalib_clcov     = .TRUE.      ! use calibration of layer-wise cloud cover diagnostics over land
     max_calibfac_clcl = 4._wp      ! maximum calibration factor for low cloud cover (CLCL); affects diagnostics only
@@ -409,6 +415,7 @@ CONTAINS
     config_tune_minsnowfrac      = tune_minsnowfrac
     config_tune_box_liq          = tune_box_liq
     config_tune_box_liq_asy      = tune_box_liq_asy
+    config_tune_box_liq_sfc_fac  = tune_box_liq_sfc_fac
     config_tune_thicklayfac      = tune_thicklayfac
     config_tune_sgsclifac        = tune_sgsclifac
     config_icpl_turb_clc         = icpl_turb_clc

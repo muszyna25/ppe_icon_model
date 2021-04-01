@@ -1001,7 +1001,8 @@ CONTAINS
 #ifdef _OPENACC
       IF (.NOT. linit) THEN
         CALL message('mo_nh_interface_nwp', 'Device to host copy before nwp_convection. This needs to be removed once port is finished!')
-        CALL gpu_d2h_nh_nwp(pt_patch, prm_diag)
+        CALL gpu_d2h_nh_nwp(pt_patch, prm_diag, ext_data=ext_data)
+        i_am_accel_node = .FALSE.
       ENDIF
 #endif
 
@@ -1022,6 +1023,7 @@ CONTAINS
       IF (.NOT. linit) THEN
         CALL message('mo_nh_interface_nwp', 'Host to device copy after nwp_convection. This needs to be removed once port is finished!')
         CALL gpu_h2d_nh_nwp(pt_patch, prm_diag)
+        i_am_accel_node = my_process_is_work()
       ENDIF
 #endif
 
@@ -1037,6 +1039,7 @@ CONTAINS
       IF (.NOT. linit) THEN
         CALL message('mo_nh_interface_nwp', 'Device to host copy before cover_koe. This needs to be removed once port is finished!')
         CALL gpu_d2h_nh_nwp(pt_patch, prm_diag)
+        i_am_accel_node = .FALSE.
       ENDIF
 #endif
 
@@ -1124,6 +1127,7 @@ CONTAINS
       IF (.NOT. linit) THEN
         CALL message('mo_nh_interface_nwp', 'Host to device copy after cover_koe. This needs to be removed once port is finished!')
         CALL gpu_h2d_nh_nwp(pt_patch, prm_diag)
+        i_am_accel_node = my_process_is_work()
       ENDIF
 #endif
 
@@ -1201,6 +1205,7 @@ CONTAINS
       IF (.NOT. linit) THEN
         CALL message('mo_nh_interface_nwp', 'Device to host copy before radiative heating. This needs to be removed once port is finished!')
         CALL gpu_d2h_nh_nwp(pt_patch, prm_diag)
+        i_am_accel_node = .FALSE.
       ENDIF
 #endif
 
@@ -1402,6 +1407,7 @@ CONTAINS
       IF (.NOT. linit) THEN
         CALL message('mo_nh_interface_nwp', 'Host to device copy after radiative heating. This needs to be removed once port is finished!')
         CALL gpu_h2d_nh_nwp(pt_patch, prm_diag)
+        i_am_accel_node = my_process_is_work()
       ENDIF
 #endif
 
@@ -1418,6 +1424,7 @@ CONTAINS
       IF (.NOT. linit) THEN
         CALL message('mo_nh_interface_nwp', 'Device to host copy before nwp_gwdrag. This needs to be removed once port is finished!')
         CALL gpu_d2h_nh_nwp(pt_patch, prm_diag)
+        i_am_accel_node = .FALSE.
       ENDIF
 #endif
 
@@ -1441,6 +1448,7 @@ CONTAINS
       IF (.NOT. linit) THEN
         CALL message('mo_nh_interface_nwp', 'Host to device copy after nwp_gwdrag. This needs to be removed once port is finished!')
         CALL gpu_h2d_nh_nwp(pt_patch, prm_diag)
+        i_am_accel_node = my_process_is_work()
       ENDIF
 #endif
     ENDIF ! inwp_sso

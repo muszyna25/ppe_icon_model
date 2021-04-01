@@ -780,6 +780,8 @@ CONTAINS
       &       "photosynthetically active shortwave downward flux at surface", &
       &              sfc_var_info, prm_diag%swflx_par_sfc(:,:))
 
+    ! There is no 2D-field for SWDIR_S available, so we provide swflx_dn_sfc_diff instead
+    ! The actual values will be diagnosed at a later point
     CALL add_sfc_var(meteogram_config, var_list, &
       &              IBSET(VAR_GROUP_SURFACE, FLAG_DIAG), &
       &              "SWDIR_S", "W m-2", &
