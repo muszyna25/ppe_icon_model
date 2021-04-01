@@ -3643,6 +3643,10 @@ elif $FC --version 2>&1 | grep '^Copyright.*NEC Corporation' >/dev/null 2>&1; th
   acx_cv_fc_compiler_vendor=nec
 elif $FC --version 2>/dev/null | grep '^GNU Fortran' >/dev/null 2>&1; then :
   acx_cv_fc_compiler_vendor=gnu
+elif $FC -V 2>&1 | grep '^f18 compiler' >/dev/null 2>&1; then :
+  acx_cv_fc_compiler_vendor=flang
+elif $FC --version 2>&1 | grep '^clang version' >/dev/null 2>&1; then :
+  acx_cv_fc_compiler_vendor=flang
 else
   acx_cv_fc_compiler_vendor=unknown
 fi
@@ -3673,6 +3677,16 @@ else
     acx_cv_fc_compiler_version=`$FC -dumpfullversion 2>/dev/null`
          if test $? -ne 0 || test -z "$acx_cv_fc_compiler_version"; then :
   acx_cv_fc_compiler_version=`$FC -dumpversion 2>/dev/null`
+fi ;; #(
+  flang) :
+    acx_cv_fc_compiler_version=`$FC -V 2>&1 | sed -n 's/.*version \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)/\1/p'`
+         if test -z "$acx_cv_fc_compiler_version"; then :
+  acx_cv_fc_compiler_version=`$FC --version | sed -n 's/.*version \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p'`
+            if test -n "$acx_cv_fc_compiler_version"; then :
+  acx_cv_fc_compiler_version="classic:${acx_cv_fc_compiler_version}"
+fi
+else
+  acx_cv_fc_compiler_version="f18:${acx_cv_fc_compiler_version}"
 fi ;; #(
   *) :
     acx_cv_fc_compiler_version=unknown ;;
@@ -3990,21 +4004,36 @@ else
       end module
 _ACEOF
 if ac_fn_fc_try_compile "$LINENO"; then :
-  acx_cv_fc_module_naming_ext=`ls | sed -n 's,conftest_module\.,,p'`
-         if ${acx_cv_fc_module_naming_ext:+false} :; then :
-  acx_cv_fc_module_naming_ext=`ls | sed -n 's,CONFTEST_MODULE\.,,p'`
-            if ${acx_cv_fc_module_naming_ext:+false} :; then :
-  acx_cv_fc_module_naming_ext=unknown
+  case "$acx_cv_fc_module_naming_upper" in #(
+  yes) :
+    acx_tmp='CONFTEST_MODULE.*'
+            acx_cv_fc_module_naming_ext=unknown ;; #(
+  no) :
+    acx_tmp='conftest_module.*'
+            acx_cv_fc_module_naming_ext=unknown ;; #(
+  *) :
+    if ${acx_cv_fc_module_naming_ext+:} false; then :
+  acx_tmp="CONFTEST_MODULE.$acx_cv_fc_module_naming_ext conftest_module.$acx_cv_fc_module_naming_ext"
                acx_cv_fc_module_naming_upper=unknown
 else
-  acx_cv_fc_module_naming_upper=yes
+  acx_tmp='CONFTEST_MODULE.* conftest_module.*'
+               acx_cv_fc_module_naming_upper=unknown
+               acx_cv_fc_module_naming_ext=unknown
+fi ;;
+esac
+         acx_tmp=`ls $acx_tmp 2>/dev/null`
+         if test 1 -eq `$as_echo "$acx_tmp" | wc -l` 2>/dev/null; then :
+  case "$acx_tmp" in #(
+  CONFTEST_MODULE.*) :
+    acx_cv_fc_module_naming_upper=yes
+               acx_cv_fc_module_naming_ext=`echo $acx_tmp | sed -n 's,CONFTEST_MODULE\.,,p'` ;; #(
+  conftest_module.*) :
+    acx_cv_fc_module_naming_upper=no
+               acx_cv_fc_module_naming_ext=`echo $acx_tmp | sed -n 's,conftest_module\.,,p'` ;; #(
+  *) :
+     ;;
+esac
 fi
-else
-  acx_cv_fc_module_naming_upper=no
-fi
-else
-  acx_cv_fc_module_naming_ext=unknown
-         acx_cv_fc_module_naming_upper=unknown
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
       cd ..
@@ -5259,6 +5288,8 @@ elif $CC --version 2>&1 | grep '^Copyright.*NEC Corporation' >/dev/null 2>&1; th
   acx_cv_c_compiler_vendor=nec
 elif $CC --version 2>/dev/null | grep '^gcc' >/dev/null 2>&1; then :
   acx_cv_c_compiler_vendor=gnu
+elif $CC --version 2>&1 | grep '^clang version' >/dev/null 2>&1; then :
+  acx_cv_c_compiler_vendor=clang
 else
   acx_cv_c_compiler_vendor=unknown
 fi
@@ -5296,6 +5327,8 @@ fi ;; #(
          if test $? -ne 0 || test -z "$acx_cv_c_compiler_version"; then :
   acx_cv_c_compiler_version=`$CC -dumpversion 2>/dev/null`
 fi ;; #(
+  clang) :
+    acx_cv_c_compiler_version=`$CC --version | sed -n 's/.*version \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p'` ;; #(
   *) :
     acx_cv_c_compiler_version=unknown ;;
 esac
@@ -6648,7 +6681,7 @@ else
 fi
             ICON_RTE_RRTMGP_FCFLAGS=${ICON_RTE_RRTMGP_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
             ICON_RTE_RRTMGP_CFLAGS=${ICON_RTE_RRTMGP_CFLAGS-$ICON_BUNDLED_CFLAGS}
-         acx_config_subdir_args_externals_rte_rrtmgp=
+            acx_config_subdir_args_externals_rte_rrtmgp=
    acx_config_subdir_ignore_arg=no
    eval "set dummy $ac_configure_args"; shift
    for acx_config_subdir_arg; do
@@ -6688,7 +6721,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy CFLAGS="$subdir_CFLAGS $ICON_RTE_RRTMGP_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_RTE_RRTMGP_FCFLAGS" NETCDF_FCFLAGS= NETCDF_FCLIBS= --enable-openacc="$enable_gpu" --enable-silent-rules="$enable_silent_rules" ; shift
+         set dummy CFLAGS="$subdir_CFLAGS $ICON_RTE_RRTMGP_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_RTE_RRTMGP_FCFLAGS" NETCDF_FCFLAGS= NETCDF_FCLIBS= --enable-openacc="$enable_gpu" --enable-silent-rules="$enable_silent_rules" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -6743,7 +6776,7 @@ else
 fi
             ICON_ECRAD_FCFLAGS=${ICON_ECRAD_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
             ICON_ECRAD_CFLAGS=${ICON_ECRAD_CFLAGS-$ICON_BUNDLED_CFLAGS}
-         acx_config_subdir_args_externals_ecrad=
+            acx_config_subdir_args_externals_ecrad=
    acx_config_subdir_ignore_arg=no
    eval "set dummy $ac_configure_args"; shift
    for acx_config_subdir_arg; do
@@ -6783,7 +6816,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy CFLAGS="$subdir_CFLAGS $ICON_ECRAD_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_ECRAD_FCFLAGS" NETCDF_FCFLAGS= NETCDF_FCLIBS= --enable-silent-rules="$enable_silent_rules" ; shift
+         set dummy CFLAGS="$subdir_CFLAGS $ICON_ECRAD_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_ECRAD_FCFLAGS" NETCDF_FCFLAGS= NETCDF_FCLIBS= --enable-silent-rules="$enable_silent_rules" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -6914,7 +6947,7 @@ else
 fi
             ICON_SCT_FCFLAGS=${ICON_SCT_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
             ICON_SCT_CFLAGS=${ICON_SCT_CFLAGS-$ICON_BUNDLED_CFLAGS}
-         acx_config_subdir_args_externals_sct=
+            acx_config_subdir_args_externals_sct=
    acx_config_subdir_ignore_arg=no
    eval "set dummy $ac_configure_args"; shift
    for acx_config_subdir_arg; do
@@ -6974,7 +7007,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy CFLAGS="$subdir_CFLAGS $ICON_SCT_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_SCT_FCFLAGS" MPICC= MPIFC= --enable-static --disable-shared --disable-maintainer-mode --enable-mpi="$enable_mpi" --enable-openmp="$enable_openmp" --disable-rpath --disable-papi --enable-hdf5 --enable-silent-rules="$enable_silent_rules" --without-libpapi-prefix --without-libhdf5-prefix MPI_LAUNCH="$MPI_LAUNCH" ; shift
+         set dummy CFLAGS="$subdir_CFLAGS $ICON_SCT_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_SCT_FCFLAGS" MPICC= MPIFC= --enable-static --disable-shared --disable-maintainer-mode --enable-mpi="$enable_mpi" --enable-openmp="$enable_openmp" --disable-rpath --disable-papi --enable-hdf5 --enable-silent-rules="$enable_silent_rules" --without-libpapi-prefix --without-libhdf5-prefix MPI_LAUNCH="$MPI_LAUNCH" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -7026,7 +7059,7 @@ else
 fi
             ICON_YAXT_FCFLAGS=${ICON_YAXT_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
             ICON_YAXT_CFLAGS=${ICON_YAXT_CFLAGS-$ICON_BUNDLED_CFLAGS}
-         acx_config_subdir_args_externals_yaxt=
+            acx_config_subdir_args_externals_yaxt=
    acx_config_subdir_ignore_arg=no
    eval "set dummy $ac_configure_args"; shift
    for acx_config_subdir_arg; do
@@ -7072,7 +7105,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy CFLAGS="$subdir_CFLAGS $ICON_YAXT_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_YAXT_FCFLAGS" --enable-static --disable-shared --disable-maintainer-mode --enable-dependency-tracking --enable-silent-rules="$enable_silent_rules" --with-regard-for-quality="$enable_mpi_checks" MPI_LAUNCH="$MPI_LAUNCH" ; shift
+         set dummy CFLAGS="$subdir_CFLAGS $ICON_YAXT_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_YAXT_FCFLAGS" --enable-static --disable-shared --disable-maintainer-mode --enable-dependency-tracking --enable-silent-rules="$enable_silent_rules" --with-regard-for-quality="$enable_mpi_checks" MPI_LAUNCH="$MPI_LAUNCH" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -7268,7 +7301,7 @@ fi
 fi
       ICON_CDI_FCFLAGS=${ICON_CDI_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
       ICON_CDI_CFLAGS=${ICON_CDI_CFLAGS-$ICON_BUNDLED_CFLAGS}
-      acx_config_subdir_args_externals_cdi=
+         acx_config_subdir_args_externals_cdi=
    acx_config_subdir_ignore_arg=no
    eval "set dummy $ac_configure_args"; shift
    for acx_config_subdir_arg; do
@@ -7330,7 +7363,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy CFLAGS="$subdir_CFLAGS $ICON_CDI_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_CDI_FCFLAGS" --enable-static --disable-shared --disable-maintainer-mode --enable-silent-rules="$enable_silent_rules" --enable-iso-c-interface --disable-cf-interface --disable-cdi-app --enable-grib --enable-cgribex --disable-mpi --with-grib_api="$enable_grib2" --without-eccodes --without-threads --with-netcdf acx_cv_have_netcdf2=yes acx_cv_have_netcdf4=yes acx_cv_have_libnc_dap=no acx_cv_have_nc4hdf5=no F77=no CXX=no MPI_LAUNCH="$MPI_LAUNCH" ; shift
+         set dummy CFLAGS="$subdir_CFLAGS $ICON_CDI_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_CDI_FCFLAGS" --enable-static --disable-shared --disable-maintainer-mode --enable-silent-rules="$enable_silent_rules" --enable-iso-c-interface --disable-cf-interface --disable-cdi-app --enable-grib --enable-cgribex --disable-mpi --with-grib_api="$enable_grib2" --without-eccodes --without-threads --with-netcdf acx_cv_have_netcdf2=yes acx_cv_have_netcdf4=yes acx_cv_have_libnc_dap=no acx_cv_have_nc4hdf5=no ac_cv_lib_uuid_uuid_generate=no ac_cv_func_uuid_create=no F77=no CXX=no MPI_LAUNCH="$MPI_LAUNCH" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -7409,7 +7442,7 @@ else
 fi
       ICON_MTIME_FCFLAGS=${ICON_MTIME_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
       ICON_MTIME_CFLAGS=${ICON_MTIME_CFLAGS-$ICON_BUNDLED_CFLAGS}
-      acx_config_subdir_args_externals_mtime=
+         acx_config_subdir_args_externals_mtime=
    acx_config_subdir_ignore_arg=no
    eval "set dummy $ac_configure_args"; shift
    for acx_config_subdir_arg; do
@@ -7455,7 +7488,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy CFLAGS="$subdir_CFLAGS $ICON_MTIME_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_MTIME_FCFLAGS" --enable-static --disable-shared --disable-maintainer-mode --enable-silent-rules="$enable_silent_rules" --disable-examples --enable-openmp="$enable_openmp" ; shift
+         set dummy CFLAGS="$subdir_CFLAGS $ICON_MTIME_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_MTIME_FCFLAGS" --enable-static --disable-shared --disable-maintainer-mode --enable-silent-rules="$enable_silent_rules" --disable-examples --enable-openmp="$enable_openmp" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -7545,11 +7578,9 @@ ac_abs_srcdir=$ac_abs_top_srcdir$ac_dir_suffix
          yac_MTIME_CFLAGS="-I${ac_abs_top_srcdir}/externals/mtime/include"
          yac_MTIME_CLIBS="${ac_abs_top_builddir}/externals/mtime/src/.libs/libmtime.a"
 fi
-      yac_MPI_LAUNCH='DUMMY='
-      ${MPI_LAUNCH+:} false && yac_MPI_LAUNCH="MPI_LAUNCH=$MPI_LAUNCH"
             ICON_YAC_FCFLAGS=${ICON_YAC_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
             ICON_YAC_CFLAGS=${ICON_YAC_CFLAGS-$ICON_BUNDLED_CFLAGS}
-         acx_config_subdir_args_externals_yac=
+            acx_config_subdir_args_externals_yac=
    acx_config_subdir_ignore_arg=no
    eval "set dummy $ac_configure_args"; shift
    for acx_config_subdir_arg; do
@@ -7607,7 +7638,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy CFLAGS="$subdir_CFLAGS $ICON_YAC_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_YAC_FCFLAGS" MTIME_CFLAGS="$yac_MTIME_CFLAGS" MTIME_CLIBS= NETCDF_CFLAGS= NETCDF_CLIBS= XML2_CFLAGS= XML2_CLIBS= MPI_CFLAGS= MPI_CLIBS= MPI_FCFLAGS= MPI_FCLIBS= FORTRAN_LAPACK_CLIBS= "$yac_MPI_LAUNCH" --disable-maintainer-mode --enable-silent-rules="$enable_silent_rules" --enable-lib-only --enable-xml --enable-netcdf --enable-mpi="$enable_mpi" --with-external-lapack=fortran --with-external-mtime --enable-mpi-checks="$enable_mpi_checks" acx_cv_c_lib_func_datetimeToString="$yac_MTIME_CLIBS" ; shift
+         set dummy CFLAGS="$subdir_CFLAGS $ICON_YAC_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_YAC_FCFLAGS" MTIME_CFLAGS="$yac_MTIME_CFLAGS" MTIME_CLIBS= NETCDF_CFLAGS= NETCDF_CLIBS= XML2_CFLAGS= XML2_CLIBS= MPI_CFLAGS= MPI_CLIBS= MPI_FCFLAGS= MPI_FCLIBS= FORTRAN_LAPACK_CLIBS= --disable-maintainer-mode --enable-silent-rules="$enable_silent_rules" --enable-lib-only --enable-xml --enable-netcdf --enable-mpi="$enable_mpi" --with-external-lapack=fortran --with-external-mtime --enable-mpi-checks="$enable_mpi_checks" acx_cv_c_lib_func_datetimeToString="$yac_MTIME_CLIBS" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -7618,6 +7649,19 @@ esac
         as_fn_append acx_config_subdir_args_externals_yac " '$acx_config_subdir_arg'"
       done
       as_fn_append subdirs_extra " externals/yac"
+      if ${MPI_LAUNCH+:} false; then :
+        set dummy MPI_LAUNCH="$MPI_LAUNCH" ; shift
+      for acx_config_subdir_arg; do
+        case $acx_config_subdir_arg in #(
+  *\'*) :
+    acx_config_subdir_arg=`$as_echo "$acx_config_subdir_arg" | sed "s/'/'\\\\\\\\''/g"` ;; #(
+  *) :
+     ;;
+esac
+        as_fn_append acx_config_subdir_args_externals_yac " '$acx_config_subdir_arg'"
+      done
+
+fi
       as_fn_append bundled_includes "${FC_MOD_IN}externals/yac/src "
       BUNDLED_LIBFILES="externals/yac/src/libyac.a $BUNDLED_LIBFILES"
 fi
@@ -7659,7 +7703,7 @@ else
 fi
             ICON_TIXI_FCFLAGS=${ICON_TIXI_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
             ICON_TIXI_CFLAGS=${ICON_TIXI_CFLAGS-$ICON_BUNDLED_CFLAGS}
-         acx_config_subdir_args_externals_tixi=
+            acx_config_subdir_args_externals_tixi=
    acx_config_subdir_ignore_arg=no
    eval "set dummy $ac_configure_args"; shift
    for acx_config_subdir_arg; do
@@ -7699,7 +7743,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy CFLAGS="$subdir_CFLAGS $ICON_TIXI_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_TIXI_FCFLAGS" XML2_CFLAGS= XML2_CLIBS= --disable-maintainer-mode --enable-silent-rules="$enable_silent_rules" ; shift
+         set dummy CFLAGS="$subdir_CFLAGS $ICON_TIXI_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_TIXI_FCFLAGS" XML2_CFLAGS= XML2_CLIBS= --disable-maintainer-mode --enable-silent-rules="$enable_silent_rules" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -7753,7 +7797,7 @@ else
 fi
       ICON_SELF_FCFLAGS=${ICON_SELF_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
       ICON_SELF_CFLAGS=${ICON_SELF_CFLAGS-$ICON_BUNDLED_CFLAGS}
-      acx_config_subdir_args_externals_self=
+         acx_config_subdir_args_externals_self=
    acx_config_subdir_ignore_arg=no
    eval "set dummy $ac_configure_args"; shift
    for acx_config_subdir_arg; do
@@ -7791,7 +7835,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy CFLAGS="$subdir_CFLAGS $ICON_SELF_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_SELF_FCFLAGS" --disable-maintainer-mode --enable-silent-rules="$enable_silent_rules" ; shift
+         set dummy CFLAGS="$subdir_CFLAGS $ICON_SELF_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_SELF_FCFLAGS" --disable-maintainer-mode --enable-silent-rules="$enable_silent_rules" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :

@@ -1455,6 +1455,7 @@ dnl command line.
       [acx_cv_have_netcdf2=yes], [acx_cv_have_netcdf4=yes],
 dnl Disable unwanted extra dependencies.
       [acx_cv_have_libnc_dap=no], [acx_cv_have_nc4hdf5=no],
+      [ac_cv_lib_uuid_uuid_generate=no], [ac_cv_func_uuid_create=no],
 dnl Disable the compilers we do not need.
       [F77=no],
 dnl Note that we need to set CXX to 'no' not only to disable the redundant
@@ -1570,8 +1571,6 @@ accordingly])])
          _AC_SRCDIRS([.])
          yac_MTIME_CFLAGS="-I${ac_abs_top_srcdir}/externals/mtime/include"
          yac_MTIME_CLIBS="${ac_abs_top_builddir}/externals/mtime/src/.libs/libmtime.a"])
-      yac_MPI_LAUNCH='DUMMY='
-      AS_VAR_TEST_SET([MPI_LAUNCH]) && yac_MPI_LAUNCH="MPI_LAUNCH=$MPI_LAUNCH"
       AC_ARG_VAR([ICON_YAC_FCFLAGS],
         [Fortran compiler flags to be appended to FCFLAGS when configuring the
 bundled version of YAC library @<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
@@ -1599,13 +1598,15 @@ version of YAC library @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
          [MTIME_CFLAGS="$yac_MTIME_CFLAGS"], [MTIME_CLIBS=],
          [NETCDF_CFLAGS=], [NETCDF_CLIBS=], [XML2_CFLAGS=], [XML2_CLIBS=],
          [MPI_CFLAGS=], [MPI_CLIBS=], [MPI_FCFLAGS=], [MPI_FCLIBS=],
-         [FORTRAN_LAPACK_CLIBS=], ["$yac_MPI_LAUNCH"],
-         [--disable-maintainer-mode],
+         [FORTRAN_LAPACK_CLIBS=], [--disable-maintainer-mode],
          [--enable-silent-rules="$enable_silent_rules"], [--enable-lib-only],
          [--enable-xml], [--enable-netcdf], [--enable-mpi="$enable_mpi"],
          [--with-external-lapack=fortran], [--with-external-mtime],
          [--enable-mpi-checks="$enable_mpi_checks"],
          [acx_cv_c_lib_func_datetimeToString="$yac_MTIME_CLIBS"]])
+      AS_VAR_SET_IF([MPI_LAUNCH],
+        [ACX_CONFIG_SUBDIR_APPEND_ARGS([externals/yac],
+           [[MPI_LAUNCH="$MPI_LAUNCH"]])])
       AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/yac/src "])
       BUNDLED_LIBFILES="externals/yac/src/libyac.a $BUNDLED_LIBFILES"])])
 
