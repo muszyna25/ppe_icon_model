@@ -55,6 +55,7 @@ MODULE mo_initicon_io
     &                               my_process_is_mpi_workroot,    &
     &                               my_process_is_stdio
   USE mo_io_config,           ONLY: default_read_method
+  USE mo_limarea_config,      ONLY: latbc_config
   USE mo_read_interface,      ONLY: t_stream_id, nf, openInputFile, closeFile, &
     &                               read_2d_1time, read_2d_1lev_1time, &
     &                               read_3d_1time, on_cells, on_edges
@@ -1857,6 +1858,9 @@ CONTAINS
             ENDIF
             IF (icpl_da_sfcevap >= 3) THEN
               CALL fetchSurface(params, 't_avginc', jg, nh_diag%t_avginc)
+            ENDIF
+            IF (latbc_config%fac_latbc_presbiascor > 0._wp) THEN
+              CALL fetchSurface(params, 'p_avginc', jg, nh_diag%p_avginc)
             ENDIF
 
             IF (itype_snowevap == 3) THEN

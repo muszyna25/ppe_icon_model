@@ -739,7 +739,7 @@ MODULE mo_ensemble_pert_config
       ENDIF
       rnd_in = rnd_val
     ELSE
-      phaseshift = NINT(25._wp+5._wp*(rnd_in-0.5_wp))*ssny/secyr
+      phaseshift = NINT(25._wp+3._wp*SIN(300._wp*rnd_in))*ssny/secyr
       phaseshift = phaseshift - INT(phaseshift)
       rnd_val = 0.5_wp * (1._wp + SIN(pi2*(rnd_in+phaseshift)))
     ENDIF

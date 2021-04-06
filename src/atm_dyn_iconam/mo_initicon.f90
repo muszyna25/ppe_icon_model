@@ -22,7 +22,7 @@
 
 MODULE mo_initicon
 
-  USE mo_kind,                ONLY: dp, wp, vp
+  USE mo_kind,                ONLY: dp, wp, vp, sp
   USE mo_io_units,            ONLY: filename_max
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, iqg, iqm_max, iforcing, check_uuid_gracefully, &
@@ -41,6 +41,7 @@ MODULE mo_initicon
     &                               niter_divdamp, niter_diffu, lanaread_tseasfc, qcana_mode, qiana_mode, &
     &                               qrsgana_mode, fgFilename, anaFilename, ana_varnames_map_file,         &
     &                               icpl_da_sfcevap, dt_ana
+  USE mo_limarea_config,      ONLY: latbc_config
   USE mo_advection_config,    ONLY: advection_config
   USE mo_nwp_tuning_config,   ONLY: max_freshsnow_inc
   USE mo_impl_constants,      ONLY: SUCCESS, MODE_DWDANA, max_dom,   &
@@ -67,7 +68,7 @@ MODULE mo_initicon
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp, calc_qsum
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
-  USE mo_sync,                ONLY: sync_patch_array, SYNC_E, SYNC_C
+  USE mo_sync,                ONLY: sync_patch_array, SYNC_E, SYNC_C, global_sum_array
   USE mo_math_laplace,        ONLY: nabla2_vec, nabla4_vec
   USE mo_cdi,                 ONLY: cdiDefAdditionalKey, cdiInqMissval
   USE sfc_flake,              ONLY: flake_coldinit
@@ -1107,7 +1108,11 @@ MODULE mo_initicon
     ! Required for computing the water loading term 
     INTEGER, POINTER :: condensate_list(:)
 
-    INTEGER :: iter
+    INTEGER :: iter, npts
+    REAL(wp) :: psinc
+
+    REAL(wp), ALLOCATABLE :: psinc_blk(:)
+    INTEGER, ALLOCATABLE  :: npts_blk(:)
 
     !-------------------------------------------------------------------------
 
@@ -1135,6 +1140,11 @@ MODULE mo_initicon
         CALL finish(routine, 'allocation of auxiliary arrays failed')
       ENDIF
 
+      IF (latbc_config%fac_latbc_presbiascor > 0._wp) THEN
+        ALLOCATE(psinc_blk(nblks_c),npts_blk(nblks_c))
+        psinc_blk(:) = 0._wp
+        npts_blk(:)  = 0
+      ENDIF
 
       ! define some pointers
       p_prog_now     => p_nh_state(jg)%prog(nnow(jg))
@@ -1279,6 +1289,18 @@ MODULE mo_initicon
           END IF
 
         ENDDO  ! jk
+
+        ! Prepare computation of domain-average pressure increment at lowest level
+        ! increments are truncated to single precision in order to (hopefully) achieve insensitivity
+        ! against the domain decomposition
+        IF (latbc_config%fac_latbc_presbiascor > 0._wp) THEN
+          DO jc = i_startidx, i_endidx
+            IF (p_patch(jg)%cells%decomp_info%decomp_domain(jc,jb)==0) THEN
+              psinc_blk(jb) = psinc_blk(jb) + REAL(REAL(initicon(jg)%atm_inc%pres(jc,nlev,jb),sp),wp)
+              npts_blk(jb)  = npts_blk(jb) + 1
+            ENDIF
+          ENDDO
+        ENDIF
 
       ENDDO  ! jb
 !$OMP END DO NOWAIT
@@ -1450,6 +1472,21 @@ MODULE mo_initicon
       DEALLOCATE( nabla2_vn_incr, z_qsum, zvn_incr, alpha, STAT=ist )
       IF (ist /= SUCCESS) THEN
         CALL finish(routine, 'deallocation of auxiliary arrays failed' )
+      ENDIF
+
+      IF (latbc_config%fac_latbc_presbiascor > 0._wp) THEN
+
+        ! calculate domain-averaged pressure increment at lowest model level and its time-filtered
+        ! value, which is used afterwards as pressure offset at the lateral boundaries; the averaging weights
+        ! are deliberately chosen to sum up to more than 1 in order to achieve a bias reduction of more than 50%
+        psinc = SUM(psinc_blk)
+        npts  = SUM(npts_blk)
+        psinc = REAL(REAL(global_sum_array(psinc),sp),wp)
+        npts  = global_sum_array(npts)
+        p_diag%p_avginc(:,:) = 0.8_wp*p_diag%p_avginc(:,:) + 0.4_wp*psinc/(REAL(npts,wp))
+
+        DEALLOCATE(psinc_blk,npts_blk)
+
       ENDIF
 
       !

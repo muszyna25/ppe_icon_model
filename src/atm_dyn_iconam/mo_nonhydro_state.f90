@@ -2966,12 +2966,25 @@ MODULE mo_nonhydro_state
 
     IF (icpl_da_sfcevap >= 3) THEN
       !  Time-filtered near-surface level T increment from data assimilation
-      cf_desc    = t_cf_var('t_avginc', '1', 'Filtered T increment', datatype_flt)
+      cf_desc    = t_cf_var('t_avginc', 'K', 'Filtered T increment', datatype_flt)
       grib2_desc = grib2_var(0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL) &
                  + t_grib2_int_key("typeOfGeneratingProcess", 207)     &
                  + t_grib2_int_key("typeOfSecondFixedSurface", 1)      &
                  + t_grib2_int_key("scaledValueOfFirstFixedSurface", 20)
       CALL add_var( p_diag_list, 't_avginc', p_diag%t_avginc,                       &
+        &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,     &
+        &           ldims=shape2d_c, lrestart=.true.,                               &
+        &           in_group=groups("mode_iau_fg_in") )
+    ENDIF
+
+    IF (latbc_config%fac_latbc_presbiascor > 0._wp) THEN
+      !  Time-filtered near-surface level pressure increment from data assimilation
+      cf_desc    = t_cf_var('p_avginc', 'Pa', 'Filtered P increment', datatype_flt)
+      grib2_desc = grib2_var(0, 3, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL) &
+                 + t_grib2_int_key("typeOfGeneratingProcess", 207)         &
+                 + t_grib2_int_key("typeOfSecondFixedSurface", 1)          &
+                 + t_grib2_int_key("scaledValueOfFirstFixedSurface", 20)
+      CALL add_var( p_diag_list, 'p_avginc', p_diag%p_avginc,                       &
         &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,     &
         &           ldims=shape2d_c, lrestart=.true.,                               &
         &           in_group=groups("mode_iau_fg_in") )
