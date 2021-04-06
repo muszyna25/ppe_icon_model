@@ -1,0 +1,23 @@
+run_script=exp.hc15_02_p1m.run
+number_of_runs=30
+
+i=1
+while (( i <= number_of_runs ))
+do
+#
+# define dependency
+#
+if [ $i -eq 1 ]
+then dependency="--dependency=afterany:26354477"
+else dependency="--dependency=afterok:${jid#"Submitted batch job "}"
+fi
+#
+# submit run script
+#
+echo "run $i : sbatch $dependency $run_script"
+jid=$(sbatch $dependency $run_script)
+#
+i=$((i+1))
+done
+
+squeue -u mgiorget

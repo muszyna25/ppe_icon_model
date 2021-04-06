@@ -1825,6 +1825,44 @@ Variability range for capacity of interception storage (multiplicative) &
 \tabularnewline
 
 \hline
+range\_lhn\_coef &
+R&
+0.0&
+&
+Scaling factor for latent heat nudging increments & 
+latent heat nudging; i.e. ldass\_lhn = .true.
+\tabularnewline
+
+\hline
+range\_lhn\_artif\_fac &
+R&
+0.0&
+&
+Scaling factor for artificial heating profile in latent heat nudging & 
+latent heat nudging; i.e. ldass\_lhn = .true.
+\tabularnewline
+
+\hline
+range\_lhn\_down &
+R&
+0.0&
+&
+ Lower limit for reduction of pre-existing latent heating in LHN & 
+latent heat nudging; i.e. ldass\_lhn = .true.
+\tabularnewline
+
+\hline
+range\_lhn\_up &
+R&
+0.0&
+&
+Upper limit for increase of pre-existing latent heating in LHN & 
+latent heat nudging; i.e. ldass\_lhn = .true.
+\tabularnewline
+
+
+
+\hline
 range\_z0\_lcc&
 R&
 0.25&
@@ -2604,6 +2642,20 @@ Affects the analysis increments of the the number concentrations of those hydrom
 1: analysis increments are taken from the analysis files. If missing for a specific hydrometeor type, they are diagnosed similar to option 0 as a fallback. &
 init\_mode=5, inwp\_gscp=4,5,6
 \tabularnewline
+
+
+icpl\_da\_sfcevap&
+I & 0 & &
+Coupling between data assimilation and model parameters controlling surface evaporation (bare soil and plants). 
+Choosing values $>$ 0 requires itype\_vegetation\_cycle=2 (in extpar\_nml) :\\
+0: off \\
+1: use time-filtered T2M bias provided by the soil moisture analysis \\
+2: use in addition a time-filtered RH increment at the lowest model level (requires assimilation of RH2M)  \\
+3: as option 2, but use a time-filtered temperature increment at the lowest model level instead of the T2M bias provided by the SMA 
+(requires assimilation of T2M and RH2M)&
+init\_mode=5
+\tabularnewline
+
 
 %\hline
 lconsistency\_checks&
@@ -4855,6 +4907,61 @@ Defined and used in: \verb+src/namelists/mo_nudging_nml.f90+
 
 
 %------------------------------------------------------------------------------
+% nwp_bench_nml:
+%------------------------------------------------------------------------------
+\subsection{nwp\_bench\_nml}
+
+The switches to disable subroutine calls inside the time\_loop. These are used for early GPU benchmarks of ICON while not everything is ported. They should be removed again once the port is ready to support all the subroutine calls in this list.
+
+\begin{longtab}
+
+\hline
+d\_unpb&
+L&
+.FALSE.&
+&
+disables the call to update\_nwp\_phy\_bcs if set to .TRUE.&
+\tabularnewline
+
+\hline
+d\_ndfo&
+L&
+.FALSE.&
+&
+disables the call to nwp\_diag\_for\_output if set to .TRUE.&
+\tabularnewline
+
+\hline
+d\_rld&
+L&
+.FALSE.&
+&
+disables the call to recv\_latbc\_data if set to .TRUE.&
+\tabularnewline
+
+\hline
+d\_n&
+L&
+.FALSE.&
+&
+disables the call to nudging if set to .TRUE.&
+\tabularnewline
+
+\hline
+d\_wnlo&
+L&
+.FALSE.&
+&
+disables the call to write\_name\_list\_output if set to .TRUE.&
+\tabularnewline
+
+\end{longtab}
+
+Defined and used in: \verb+src/namelists/mo_bench_nml.f90+
+
+
+
+%------------------------------------------------------------------------------
 % nwp_phy_nml:
 %------------------------------------------------------------------------------
 \subsection{nwp\_phy\_nml}
@@ -5478,6 +5585,15 @@ R&
 2.5&
 &
 Asymmetry factor for liquid cloud cover diagnostic&
+run\_nml:iforcing = inwp; inwp\_cldcover = 1
+\tabularnewline
+
+\hline
+tune\_box\_liq\_sfc\_fac&
+R&
+1.0&
+&
+Tuning factor for box\_liq reduction near the surface&
 run\_nml:iforcing = inwp; inwp\_cldcover = 1
 \tabularnewline
 
@@ -9327,9 +9443,7 @@ itype\_vegetation\_cycle&
 I & 1& &
 1: annual cycle of LAI solely based on NDVI climatology \\
 2: additional use of monthly T2M climatology to get more realistic values in extratropics 
-(requires external parameter data contining this field) \\
-3: as 2 with additional coupling of vegetation parameters to T2M bias in transitional seasons
-(requires DWD assimilation cycle including soil moisture analysis) &
+(requires external parameter data containing this field) &
 \tabularnewline
 
 

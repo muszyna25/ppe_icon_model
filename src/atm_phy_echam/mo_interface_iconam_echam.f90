@@ -613,9 +613,6 @@ CONTAINS
 
     CALL sync_patch_array( SYNC_C, patch, field%wa )
 
-#ifdef _OPENACC
-    CALL warning('GPU:mo_interface_iconam_echam','GPU mode currently disables echam_phy_config(jg)%iqneg_d2p triggered output!')
-#endif
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = jbs_c,jbe_c
@@ -947,9 +944,6 @@ CONTAINS
 
 IF (lart) jt_end = advection_config(jg)%nname
 
-#ifdef _OPENACC
-    CALL warning('GPU:mo_interface_iconam_echam','GPU mode currently disables echam_phy_config(jg)%iqneg_p2d triggered output!')
-#endif
       ! Loop over cells
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE

@@ -111,7 +111,7 @@ USE mo_2mom_prepare, ONLY: prepare_twomoment, post_twomoment
 
 ! UB: These settings should be converted into namelist parameters in the future!
 
-  INTEGER, PARAMETER :: i2mom_solver = 0  ! (0) explicit (1) semi-implicit solver
+  INTEGER, PARAMETER :: i2mom_solver = 1  ! (0) explicit (1) semi-implicit solve
   
   INTEGER, PARAMETER :: cloud_type_default_gscp4 = 2103, ccn_type_gscp4 = 8 ! UB set from 1 to 8
   INTEGER, PARAMETER :: cloud_type_default_gscp5 = 2603, ccn_type_gscp5 = 8
@@ -676,17 +676,17 @@ CONTAINS
           xh_now(i) = particle_meanmass(hail, qh(i,k),qnh(i,k))
         end do
 
-        call sedi_vel_rain(rain,rain_coeffs,qr(:,k),xr_now,vr_sedn_now,vr_sedq_now,its,ite,qc(:,k))
-        call sedi_vel_sphere(ice,ice_coeffs,qi(:,k),xi_now,vi_sedn_now,vi_sedq_now,its,ite)
-        call sedi_vel_sphere(snow,snow_coeffs,qs(:,k),xs_now,vs_sedn_now,vs_sedq_now,its,ite)
+        call sedi_vel_rain(rain,rain_coeffs,qr(:,k),xr_now,rhocorr(:,k),vr_sedn_now,vr_sedq_now,its,ite,qc(:,k))
+        call sedi_vel_sphere(ice,ice_coeffs,qi(:,k),xi_now,rhocorr(:,k),vi_sedn_now,vi_sedq_now,its,ite)
+        call sedi_vel_sphere(snow,snow_coeffs,qs(:,k),xs_now,rhocorr(:,k),vs_sedn_now,vs_sedq_now,its,ite)
         if (lprogmelt) then
           call sedi_vel_lwf(graupel_lwf,graupel_coeffs,  &
-               & qg(:,k),qgl(:,k),xg_now,vg_sedn_now,vg_sedq_now,vg_sedl_now,its,ite)
+               & qg(:,k),qgl(:,k),xg_now,rhocorr(:,k),vg_sedn_now,vg_sedq_now,vg_sedl_now,its,ite)
           call sedi_vel_lwf(hail_lwf,hail_coeffs,        &
-               & qh(:,k),qhl(:,k),xh_now,vh_sedn_now,vh_sedq_now,vh_sedl_now,its,ite)
+               & qh(:,k),qhl(:,k),xh_now,rhocorr(:,k),vh_sedn_now,vh_sedq_now,vh_sedl_now,its,ite)
         else
-          call sedi_vel_sphere(graupel,graupel_coeffs,qg(:,k),xg_now,vg_sedn_now,vg_sedq_now,its,ite)
-          call sedi_vel_sphere(hail,hail_coeffs,qh(:,k),xh_now,vh_sedn_now,vh_sedq_now,its,ite)
+          call sedi_vel_sphere(graupel,graupel_coeffs,qg(:,k),xg_now,rhocorr(:,k),vg_sedn_now,vg_sedq_now,its,ite)
+          call sedi_vel_sphere(hail,hail_coeffs,qh(:,k),xh_now,rhocorr(:,k),vh_sedn_now,vh_sedq_now,its,ite)
         end if
 
         call implicit_core(qr(:,k), qr_sum,qr_impl,vr_sedq_new,vr_sedq_now,qr_flux_new,qr_flux_now,rdzdt(:,k),its,ite)
@@ -1036,6 +1036,7 @@ CONTAINS
 
     IF (timers_level > 10) CALL timer_start(timer_phys_2mom_dmin_init)
     IF (luse_dmin_wetgrowth_table .OR. lprintout_comp_table_fit) THEN
+      IF (msg_level>5) CALL message (TRIM(routine), " Looking for dmin_wetgrowth table file for "//TRIM(graupel%name))
       unitnr = 11
       CALL init_dmin_wg_gr_ltab_equi('dmin_wetgrowth_lookup', graupel, &
            unitnr, 61, ltabdminwgg)
