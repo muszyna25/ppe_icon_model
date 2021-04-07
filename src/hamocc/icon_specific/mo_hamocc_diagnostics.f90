@@ -613,7 +613,7 @@ CALL message(' ', ' ', io_stdo_bgc)
 watersum = rnit * (glob_det + glob_doc + glob_phy + glob_zoo  &
      &     + rcyano*glob_cya ) + glob_nit     &
      &     + rn2 * (glob_gnit + glob_n2o + flux_flag * (glob_n2fl + glob_n2ofl)) &
-     &     + rn2*glob_pwn2 + glob_pwno3 - glob_nitinp
+     &     + rn2*glob_pwn2 + glob_pwno3 - weathering_flag * glob_nitinp
 
 sedsum =  rnit* (glob_sedo12 + glob_bo12)   &
      &     - weathering_flag * rnit * glob_orginp
@@ -660,9 +660,9 @@ watersum = (glob_det + glob_doc + glob_phy + glob_zoo +         &
   &         glob_o2 + glob_phos*2._wp + glob_dic + glob_calc +  &
   &         glob_nit * 1.5_wp + glob_n2o* 0.5_wp + glob_pwno3* 1.5 + &
   &         glob_pwic + glob_pwox + glob_pwph*2._wp + flux_flag * (glob_ofl + &
-  &         glob_n2ofl * 0.5_wp + glob_cfl) + glob_h2ob +         &
-  &         weathering_flag * (glob_orginp*ro2bal - glob_calinp)  &
-  &         - glob_nitinp*1.5_wp
+  &         glob_n2ofl * 0.5_wp + glob_cfl) + glob_h2ob + glob_pwh2ob +    &
+  &         weathering_flag * (glob_orginp*ro2bal - glob_calinp  &
+  &         - glob_nitinp*1.5_wp)
 
 sedsum =   (glob_sedo12 + glob_bo12)*(-ro2bal) + glob_sedc12 + glob_bc12
 
