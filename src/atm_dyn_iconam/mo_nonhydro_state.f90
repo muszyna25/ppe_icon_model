@@ -74,7 +74,7 @@ MODULE mo_nonhydro_state
   USE mo_turbdiff_config,      ONLY: turbdiff_config
   USE mo_initicon_config,      ONLY: init_mode, lcalc_avg_fg, iso8601_start_timedelta_avg_fg, &
     &                                iso8601_end_timedelta_avg_fg, iso8601_interval_avg_fg, &
-    &                                qcana_mode, qiana_mode, qrsgana_mode
+    &                                qcana_mode, qiana_mode, qrsgana_mode, icpl_da_sfcevap
   USE mo_linked_list,          ONLY: t_var_list
   USE mo_var_list,             ONLY: default_var_list_settings, add_var,           &
     &                                add_ref, new_var_list, delete_var_list,       &
@@ -95,7 +95,7 @@ MODULE mo_nonhydro_state
   USE mo_art_tracer_interface, ONLY: art_tracer_interface
   USE mo_art_diagnostics_interface, ONLY: art_diagnostics_interface_init
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
-  USE mo_zaxis_type,           ONLY: ZA_REFERENCE, ZA_REFERENCE_HALF,                &
+  USE mo_zaxis_type,           ONLY: ZA_REFERENCE, ZA_REFERENCE_HALF, ZA_HEIGHT_2M, ZA_HEIGHT_10M, &
     &                                ZA_REFERENCE_HALF_HHL, ZA_SURFACE, ZA_MEANSEA
   USE mo_cdi,                  ONLY: DATATYPE_FLT32, DATATYPE_FLT64,                 &
     &                                DATATYPE_PACK16, DATATYPE_PACK24,               &
@@ -2936,6 +2936,47 @@ MODULE mo_nonhydro_state
         END IF
       END IF
     ENDIF  ! init_mode = MODE_IAU, MODE_IAU_OLD
+
+    ! From a logical point of view, the following two fields make sense only in combination with an IAU cycle,
+    ! but allocating them anyway allows using the analysis interpolation mode without changing the namelists  
+    !
+    IF (icpl_da_sfcevap == 1 .OR. icpl_da_sfcevap == 2) THEN
+      !  Filtered T2M bias
+      cf_desc    = t_cf_var('t2m_bias', 'K', 'Filtered T2M bias', datatype_flt)
+      grib2_desc = grib2_var(0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL) &
+                 + t_grib2_int_key("typeOfGeneratingProcess", 206)
+      CALL add_var( p_diag_list, 't2m_bias', p_diag%t2m_bias,                         &
+        &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
+        &           ldims=shape2d_c, lrestart=.true.,                                 &
+        &           in_group=groups("mode_iau_fg_in") )
+    ENDIF
+
+    IF (icpl_da_sfcevap >= 2) THEN
+      !  Time-filtered near-surface level RH increment from data assimilation
+      cf_desc    = t_cf_var('rh_avginc', '1', 'Filtered RH increment', datatype_flt)
+      grib2_desc = grib2_var(0, 1, 1, ibits, GRID_UNSTRUCTURED, GRID_CELL) &
+                 + t_grib2_int_key("typeOfGeneratingProcess", 207)     &
+                 + t_grib2_int_key("typeOfSecondFixedSurface", 1)      &
+                 + t_grib2_int_key("scaledValueOfFirstFixedSurface", 20)
+      CALL add_var( p_diag_list, 'rh_avginc', p_diag%rh_avginc,                       &
+        &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,       &
+        &           ldims=shape2d_c, lrestart=.true.,                                 &
+        &           in_group=groups("mode_iau_fg_in") )
+    ENDIF
+
+    IF (icpl_da_sfcevap >= 3) THEN
+      !  Time-filtered near-surface level T increment from data assimilation
+      cf_desc    = t_cf_var('t_avginc', '1', 'Filtered T increment', datatype_flt)
+      grib2_desc = grib2_var(0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL) &
+                 + t_grib2_int_key("typeOfGeneratingProcess", 207)     &
+                 + t_grib2_int_key("typeOfSecondFixedSurface", 1)      &
+                 + t_grib2_int_key("scaledValueOfFirstFixedSurface", 20)
+      CALL add_var( p_diag_list, 't_avginc', p_diag%t_avginc,                       &
+        &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,     &
+        &           ldims=shape2d_c, lrestart=.true.,                               &
+        &           in_group=groups("mode_iau_fg_in") )
+    ENDIF
+
 
     IF (p_patch%id == 1 .AND. lcalc_avg_fg) THEN
       ! NOTE: the following time-averaged fields are not written into the restart file, 

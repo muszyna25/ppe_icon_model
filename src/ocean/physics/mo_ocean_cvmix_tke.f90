@@ -120,6 +120,10 @@ MODULE mo_ocean_cvmix_tke
   PUBLIC :: calc_tke
   PUBLIC :: setup_tke
 
+
+  CHARACTER(LEN=*), PARAMETER :: module_name = 'mo_ocean_cvmix_tke'
+
+
 CONTAINS
 
 
@@ -498,6 +502,8 @@ CONTAINS
     INTEGER :: start_index, end_index
     INTEGER :: jc, blockNo, je,jk, tracer_index
 
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':nils_test'
+
     patch_2D         => patch_3d%p_patch_2d(1)
     edges_in_domain  => patch_2D%edges%in_domain
     all_cells => patch_2D%cells%ALL
@@ -506,20 +512,23 @@ CONTAINS
     !uvel => ocean_state%p_diag%p_vn(jc,jk-1,blockNo)%x
     !temp => ocean_state%p_prog(nold(1))%tracer(jc,1:levels-1,blockNo,1)
     !salt => ocean_state%p_prog(nold(1))%tracer(jc,1:levels-1,blockNo,2)
-    write(*,*) "Hi, here I am"
-    DO blockNo = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, blockNo, start_index, end_index)
-      DO jc = start_index, end_index
+!    write(*,*) "Hi, here I am"
+!    DO blockNo = all_cells%start_block, all_cells%end_block
+!      CALL get_index_range(all_cells, blockNo, start_index, end_index)
+!      DO jc = start_index, end_index
         !write(*,*) "blockNo = ", blockNo, "; jc = ", jc
         !write(*,*) "dz(jc,:,blockNo) = ", dz(jc,:,blockNo)
-      ENDDO
-    ENDDO
-    write(*,*) "all_cells%start_block = ", all_cells%start_block
-    write(*,*) "all_cells%end_block = ", all_cells%end_block
-    write(*,*) "start_index = ", start_index
-    write(*,*) "end_index = ", end_index
-    write(*,*) "Stopping..."
-    stop
+!      ENDDO
+!    ENDDO
+!    write(*,*) "all_cells%start_block = ", all_cells%start_block
+!    write(*,*) "all_cells%end_block = ", all_cells%end_block
+!    write(*,*) "start_index = ", start_index
+!   write(*,*) "end_index = ", end_index
+!    write(*,*) "Stopping..."
+!    stop
+
+    CALL finish(method_name,'Stopping...')
+
   END SUBROUTINE nils_test
 
 END MODULE mo_ocean_cvmix_tke

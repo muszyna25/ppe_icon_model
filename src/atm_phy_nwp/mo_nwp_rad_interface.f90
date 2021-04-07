@@ -28,7 +28,7 @@ MODULE mo_nwp_rad_interface
   USE mo_model_domain,         ONLY: t_patch
   USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag
-  USE mo_radiation_config,     ONLY: albedo_type
+  USE mo_radiation_config,     ONLY: albedo_type, irad_aero, irad_co2, irad_n2o, irad_ch4, irad_cfc11, irad_cfc12
   USE mo_radiation,            ONLY: pre_radiation_nwp_steps
   USE mo_nwp_rrtm_interface,   ONLY: nwp_rrtm_radiation,             &
     &                                nwp_rrtm_radiation_reduced,     &
@@ -43,7 +43,11 @@ MODULE mo_nwp_rad_interface
   USE mo_albedo,               ONLY: sfc_albedo, sfc_albedo_modis
   USE mtime,                   ONLY: datetime
   USE mo_nwp_gpu_util,         ONLY: gpu_d2h_nh_nwp, gpu_h2d_nh_nwp
-  
+  USE mo_bc_greenhouse_gases,  ONLY: bc_greenhouse_gases_time_interpolation
+#if defined( _OPENACC )
+  USE mo_mpi,                  ONLY: i_am_accel_node, my_process_is_work
+#endif
+
   IMPLICIT NONE
 
   PRIVATE
@@ -117,6 +121,15 @@ MODULE mo_nwp_rad_interface
     !> Radiation setup
     !-------------------------------------------------------------------------
 
+    IF(ANY((/irad_co2,irad_cfc11,irad_cfc12,irad_n2o,irad_ch4/) == 4)) THEN 
+      ! Interpolate greenhouse gas concentrations to the current date and time, 
+      !   placing the annual means at the mid points of the current and preceding or following year,
+      !   if the current date is in the 1st or 2nd half of the year, respectively.
+      ! The data file containing the greenhouse gas concentration is read in the initialisation 
+      !   of the NWP physics
+      CALL bc_greenhouse_gases_time_interpolation(mtime_datetime)
+    END IF
+
     SELECT CASE (atm_phy_nwp_config(jg)%inwp_radiation )
     CASE (1, 3)
       ! RRTM
@@ -177,6 +190,7 @@ MODULE mo_nwp_rad_interface
     IF(lacc) THEN
       CALL message('mo_nh_interface_nwp', 'Device to host copy before Radiation. This needs to be removed once port is finished!')
       CALL gpu_d2h_nh_nwp(pt_patch, prm_diag, ext_data)
+      i_am_accel_node = .FALSE.
     ENDIF
 #endif
     SELECT CASE (atm_phy_nwp_config(jg)%inwp_radiation)
@@ -234,6 +248,7 @@ MODULE mo_nwp_rad_interface
     IF(lacc) THEN
       CALL message('mo_nh_interface_nwp', 'Host to device copy after Radiation. This needs to be removed once port is finished!')
       CALL gpu_h2d_nh_nwp(pt_patch, prm_diag, ext_data)
+      i_am_accel_node = my_process_is_work()
     ENDIF
 #endif
 

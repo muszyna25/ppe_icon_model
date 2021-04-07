@@ -129,10 +129,17 @@ MODULE mo_echam_phy_init
   USE mo_reader_sst_sic,       ONLY: t_sst_sic_reader
   USE mo_interpolate_time,     ONLY: t_time_intp
 
+#ifdef __NO_RTE_RRTMGP__
   ! psrad
   USE mo_psrad_setup,          ONLY: psrad_basic_setup
   USE mo_psrad_interface,      ONLY: pressure_scale, droplet_scale
   USE mo_atmo_psrad_interface, ONLY: setup_atmo_2_psrad
+#else
+  USE mo_rte_rrtmgp_setup,     ONLY: rte_rrtmgp_basic_setup
+  USE mo_rte_rrtmgp_interface, ONLY: pressure_scale, droplet_scale
+  USE gscp_data,               ONLY: gscp_set_coefficients
+  USE mo_echam_mig_config,     ONLY: echam_mig_config, print_echam_mig_config
+#endif
 
   ! ART
   USE mo_art_config,         ONLY: art_config
@@ -233,6 +240,7 @@ CONTAINS
       CALL print_echam_cop_config
       !
       ! Radiation constants for gas and cloud optics
+#ifdef __NO_RTE_RRTMGP__
       CALL psrad_basic_setup(.false., nlev, pressure_scale, droplet_scale,               &
         &                    echam_cop_config(1)%cinhoml1 ,echam_cop_config(1)%cinhoml2, &
         &                    echam_cop_config(1)%cinhoml3 ,echam_cop_config(1)%cinhomi)
@@ -240,7 +248,12 @@ CONTAINS
       ! If there are concurrent psrad processes, set up communication 
       ! between the atmo and psrad processes
       CALL setup_atmo_2_psrad()
-      !
+#else
+      CALL rte_rrtmgp_basic_setup(nproma, nlev, pressure_scale, droplet_scale,               &
+        &                    echam_cop_config(1)%cinhoml1 ,echam_cop_config(1)%cinhoml2, &
+        &                    echam_cop_config(1)%cinhoml3 ,echam_cop_config(1)%cinhomi)
+#endif
+
     END IF
 
     ! vertical turbulent mixing and surface
@@ -335,7 +348,8 @@ CONTAINS
       END IF
       !
       jg=1
-      CALL gscp_set_coefficients(tune_zceff_min      = echam_mig_config(jg)% zceff_min      ,&
+      CALL gscp_set_coefficients(              igscp = 2                                    ,& 
+         &                       tune_zceff_min      = echam_mig_config(jg)% zceff_min      ,&
          &                       tune_v0snow         = echam_mig_config(jg)% v0snow         ,&
          &                       tune_zvz0i          = echam_mig_config(jg)% zvz0i          ,&
          &                       tune_icesedi_exp    = echam_mig_config(jg)% icesedi_exp    ,&
@@ -736,9 +750,14 @@ CONTAINS
       !
       ! parameterized simple plumes of tropospheric aerosols
       !
+#ifdef __NO_RTE_RRTMGP__
       IF (ANY(echam_rad_config(:)%irad_aero == 18 .OR. echam_rad_config(:)%irad_aero == 19)) THEN
+#else
+      IF (ANY(echam_rad_config(:)%irad_aero == 18)) THEN
+#endif
         CALL setup_bc_aeropt_splumes
       END IF
+
       !
     END IF
 
@@ -751,11 +770,21 @@ CONTAINS
     lany=.FALSE.
     DO jg = 1,n_dom
        lany = lany .OR. ( echam_phy_tc(jg)%dt_rad > dt_zero .AND.         &
+#ifdef __NO_RTE_RRTMGP__
             &             ( echam_rad_config(jg)%irad_co2   == 4 .OR.     &
             &               echam_rad_config(jg)%irad_ch4   == 4 .OR.     &
             &               echam_rad_config(jg)%irad_n2o   == 4 .OR.     &
             &               echam_rad_config(jg)%irad_cfc11 == 4 .OR.     &
             &               echam_rad_config(jg)%irad_cfc12 == 4      ) ) &
+#else
+            &             ( echam_rad_config(jg)%irad_co2   == 3 .OR.     &
+            &               echam_rad_config(jg)%irad_ch4   == 3 .OR.     &
+            &               echam_rad_config(jg)%irad_ch4   ==13 .OR.     &
+            &               echam_rad_config(jg)%irad_n2o   == 3 .OR.     &
+            &               echam_rad_config(jg)%irad_n2o   ==13 .OR.     &
+            &               echam_rad_config(jg)%irad_cfc11 == 3 .OR.     &
+            &               echam_rad_config(jg)%irad_cfc12 == 3      ) ) &
+#endif
             &      .OR. ( ccycle_config(jg)%iccycle  == 2   .AND.         &
             &             ccycle_config(jg)%ico2conc == 4               )
     END DO

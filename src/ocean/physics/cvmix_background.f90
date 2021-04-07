@@ -36,6 +36,8 @@ module cvmix_background
   use cvmix_put_get,         only : cvmix_put
   use cvmix_utils,           only : cvmix_update_wrap
 
+  USE mo_exception,          ONLY: finish
+
 !EOP
 
   implicit none
@@ -98,6 +100,8 @@ module cvmix_background
       logical :: lvary_horizontal ! True => multiple columns
   end type cvmix_bkgnd_params_type
 
+  CHARACTER(LEN=*), PARAMETER :: module_name = 'cvmix_background'
+
 !EOP
 
   type(cvmix_bkgnd_params_type), target :: CVmix_bkgnd_params_saved
@@ -131,6 +135,7 @@ contains
     type(cvmix_bkgnd_params_type), optional, target, intent(inout) :: &
                                               CVmix_bkgnd_params_user
 
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_init_bkgnd_scalar'
 !EOP
 !BOC
 
@@ -163,9 +168,11 @@ contains
           call cvmix_put_bkgnd('handle_old_vals', CVMIX_MAX_OLD_AND_NEW_VALS, &
                                cvmix_bkgnd_params_user)
         case DEFAULT
-          print*, "ERROR: ", trim(old_vals), " is not a valid option for ",   &
-                  "handling old values of diff and visc."
-          stop 1
+!          print*, "ERROR: ", trim(old_vals), " is not a valid option for ",   &
+!                  "handling old values of diff and visc."
+!          stop 1
+          CALL finish(method_name,'ERROR: '//TRIM(old_vals)//' is not a valid option for &
+               handling old values of diff and visc.')
       end select
     else
       call cvmix_put_bkgnd('handle_old_vals', CVMIX_OVERWRITE_OLD_VAL,        &
@@ -205,6 +212,7 @@ contains
 ! !OUTPUT PARAMETERS:
     type(cvmix_bkgnd_params_type),  optional, target, intent(inout) :: &
                                                CVmix_bkgnd_params_user
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_init_bkgnd_1D'
 !EOP
 !BOC
 
@@ -219,9 +227,11 @@ contains
       nlev = CVmix_params_in%max_nlev
     else
       if (.not.present(ncol)) then
-        print*, "ERROR: You must specify either ncol or a global param type", &
-                "containing max_nlev!"
-        stop 1
+!        print*, "ERROR: You must specify either ncol or a global param type", &
+!                "containing max_nlev!"
+!        stop 1
+        CALL finish(method_name,'ERROR: You must specify either ncol or a global param type &
+             containing max_nlev!'
       end if
     endif
 
@@ -263,9 +273,11 @@ contains
           call cvmix_put_bkgnd('handle_old_vals', CVMIX_MAX_OLD_AND_NEW_VALS, &
                                cvmix_bkgnd_params_user)
         case DEFAULT
-          print*, "ERROR: ", trim(old_vals), " is not a valid option for ",   &
-                  "handling old values of diff and visc."
-          stop 1
+!          print*, "ERROR: ", trim(old_vals), " is not a valid option for ",   &
+!                  "handling old values of diff and visc."
+!          stop 1
+          CALL finish(method_name,'ERROR: '//TRIM(old_vals)//' is not a valid option for &
+               handling old values of diff and visc.')
       end select
     else
       call cvmix_put_bkgnd('handle_old_vals', CVMIX_OVERWRITE_OLD_VAL,        &
@@ -305,6 +317,7 @@ contains
 ! !OUTPUT PARAMETERS:
     type(cvmix_bkgnd_params_type),  target, optional, intent(inout) ::        &
                                                CVmix_bkgnd_params_user
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_init_bkgnd_2D'
 !EOP
 !BOC
 
@@ -345,9 +358,11 @@ contains
           call cvmix_put_bkgnd('handle_old_vals', CVMIX_MAX_OLD_AND_NEW_VALS, &
                                cvmix_bkgnd_params_user)
         case DEFAULT
-          print*, "ERROR: ", trim(old_vals), " is not a valid option for ",   &
-                  "handling old values of diff and visc."
-          stop 1
+!          print*, "ERROR: ", trim(old_vals), " is not a valid option for ",   &
+!                  "handling old values of diff and visc."
+!          stop 1
+          CALL finish(method_name,'ERROR: '//TRIM(old_vals)//' is not a valid option for &
+               handling old values of diff and visc.'
       end select
     else
       call cvmix_put_bkgnd('handle_old_vals', CVMIX_OVERWRITE_OLD_VAL,        &
@@ -414,6 +429,8 @@ contains
 ! !OUTPUT PARAMETERS:
     type(cvmix_bkgnd_params_type),  target, optional, intent(inout) ::        &
                                                CVmix_bkgnd_params_user
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_init_bkgnd_BryanLewis'
 !EOP
 !BOC
 
@@ -461,9 +478,11 @@ contains
           call cvmix_put_bkgnd('handle_old_vals', CVMIX_MAX_OLD_AND_NEW_VALS, &
                                cvmix_bkgnd_params_user)
         case DEFAULT
-          print*, "ERROR: ", trim(old_vals), " is not a valid option for ",   &
-                  "handling old values of diff and visc."
-          stop 1
+!          print*, "ERROR: ", trim(old_vals), " is not a valid option for ",   &
+!                  "handling old values of diff and visc."
+!          stop 1
+          CALL finish(method_name,'ERROR: '//TRIM(old_vals)//' is not a valid option for &
+               handling old values of diff and visc.'
       end select
     else
       call cvmix_put_bkgnd('handle_old_vals', CVMIX_OVERWRITE_OLD_VAL,        &
@@ -641,6 +660,8 @@ contains
 
 ! !OUTPUT PARAMETERS:
     real(cvmix_r8) :: cvmix_bkgnd_static_Mdiff
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_bkgnd_static_Mdiff'
 !EOP
 !BOC
 
@@ -657,9 +678,11 @@ contains
       if (present(colid)) then
         cid = colid
       else
-        print*, "ERROR: need to pass colid when static_Mdiff varies across",  &
-                " columns."
-        stop 1
+!        print*, "ERROR: need to pass colid when static_Mdiff varies across",  &
+!                " columns."
+!        stop 1
+        CALL finish(method_name,'ERROR: need to pass colid when static_Mdiff &
+             varies across columns.')
       end if
     else
       cid = 1
@@ -669,9 +692,12 @@ contains
       if (present(kw)) then
         kid = kw
       else
-        print*, "ERROR: need to pass kw (level id) when static_Mdiff varies", &
-                "across levels columns."
-        stop 1
+!        print*, "ERROR: need to pass kw (level id) when static_Mdiff varies", &
+!                "across levels columns."
+!        stop 1
+        CALL finish(method_name,'ERROR: need to pass kw (level id) when &
+             static_Mdiff varies across levels columns.')
+
       end if
     else
       kid = 1
@@ -705,6 +731,8 @@ contains
 
 ! !OUTPUT PARAMETERS:
     real(cvmix_r8) :: cvmix_bkgnd_static_Tdiff
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_bkgnd_static_Tdiff'
 !EOP
 !BOC
 
@@ -721,10 +749,12 @@ contains
       if (present(colid)) then
         cid = colid
       else
-        print*, "ERROR: need to pass colid when static_Tdiff varies across",  &
-                " columns."
-        stop 1
-      end if
+!        print*, "ERROR: need to pass colid when static_Tdiff varies across",  &
+!                " columns."
+!        stop 1
+        CALL finish(method_name,'ERROR: need to pass colid when static_Tdiff varies across &
+             columns.')
+     end if
     else
       cid = 1
     end if
@@ -733,9 +763,11 @@ contains
       if (present(kw)) then
         kid = kw
       else
-        print*, "ERROR: need to pass kw (level id) when static_Tdiff varies",  &
-                "across levels columns."
-        stop 1
+!        print*, "ERROR: need to pass kw (level id) when static_Tdiff varies",  &
+!                "across levels columns."
+!        stop 1
+        CALL finish(method_name,'ERROR: need to pass kw (level id) when static_Tdiff varies &
+             across levels columns.')
       end if
     else
       kid = 1
@@ -815,6 +847,7 @@ contains
     type(cvmix_bkgnd_params_type), target, optional, intent(inout) ::         &
                                               CVmix_bkgnd_params_user
 
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_put_bkgnd_real'
 !EOP
 !BOC
 
@@ -847,9 +880,9 @@ contains
         CVmix_bkgnd_params_out%static_Tdiff(:,:) = val
 
       case DEFAULT
-        print*, "ERROR: ", trim(varname), " not a valid choice!"
-        stop 1
-
+!        print*, "ERROR: ", trim(varname), " not a valid choice!"
+!        stop 1
+        CALL finish(method_name,'ERROR: '//TRIM(varname)//' not a valid choice!')
     end select
 
 !EOC
@@ -883,6 +916,7 @@ contains
     type(cvmix_bkgnd_params_type), target, optional, intent(inout) ::         &
                                               CVmix_bkgnd_params_user
 
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_put_bkgnd_real_1D'
 !EOP
 !BOC
 
@@ -895,15 +929,20 @@ contains
 
     ! Error checking to make sure dimension is specified
     if ((.not.present(ncol)).and.(.not.present(nlev))) then
-      print*, "ERROR: when putting 1D data in cvmix_bkgnd_params_type ", &
-              "you must specify nlev or ncol!"
-      stop 1
+!      print*, "ERROR: when putting 1D data in cvmix_bkgnd_params_type ", &
+!              "you must specify nlev or ncol!"
+!      stop 1
+      CALL finish(method_name,'ERROR: when putting 1D data in cvmix_bkgnd_params_type &
+           you must specify nlev or ncol!')
+
     end if
 
     if ((present(ncol)).and.(present(nlev))) then
-      print*, "ERROR: when putting 1D data in cvmix_bkgnd_params_type ", &
-              "you can not specify both nlev or ncol!"
-      stop 1
+!      print*, "ERROR: when putting 1D data in cvmix_bkgnd_params_type ", &
+!              "you can not specify both nlev or ncol!"
+!      stop 1
+      CALL finish(method_name,'ERROR: when putting 1D data in cvmix_bkgnd_params_type &
+           you can not specify both nlev or ncol!')
     end if
 
     CVmix_bkgnd_params_out => CVmix_bkgnd_params_saved
@@ -914,17 +953,19 @@ contains
     data_dims = size(val)
     if (present(ncol)) then
       if (data_dims.gt.ncol) then
-        print*, "ERROR: data array is bigger than number of columns specified."
-        stop 1
+!        print*, "ERROR: data array is bigger than number of columns specified."
+!        stop 1
+        CALL finish(method_name,'ERROR: data array is bigger than number of columns specified.')
       end if
       lvary_horizontal=.true.
       dims(1) = ncol
       dims(2) = 1
     else
       if (data_dims.gt.nlev+1) then
-        print*, "ERROR: data array is bigger than number of levels specified."
-        stop 1
-      end if
+!        print*, "ERROR: data array is bigger than number of levels specified."
+!        stop 1
+        CALL finish(method_name,'ERROR: data array is bigger than number of levels specified.')
+     end if
       lvary_horizontal=.false.
       dims(1) = 1
       dims(2) = nlev+1
@@ -940,9 +981,11 @@ contains
           print*, "WARNING: overwriting static_Mdiff!"
         end if
         if (any(shape(CVmix_bkgnd_params_out%static_Mdiff).ne.dims)) then
-          print*, "ERROR: dimensions of static_Mdiff do not match what was ", &
-                  "sent to cvmix_put"
-          stop 1
+!          print*, "ERROR: dimensions of static_Mdiff do not match what was ", &
+!                  "sent to cvmix_put"
+!          stop 1
+          CALL finish(method_name,'ERROR: dimensions of static_Mdiff do not match what was &
+                  sent to cvmix_put')
         end if
         if (lvary_horizontal) then
           CVmix_bkgnd_params_out%static_Mdiff(:,1)           = cvmix_zero
@@ -961,9 +1004,11 @@ contains
           print*, "WARNING: overwriting static_Tdiff!"
         end if
         if (any(shape(CVmix_bkgnd_params_out%static_Tdiff).ne.dims)) then
-          print*, "ERROR: dimensions of static_Tdiff do not match what was ", &
-                  "sent to cvmix_put"
-          stop 1
+!          print*, "ERROR: dimensions of static_Tdiff do not match what was ", &
+!                  "sent to cvmix_put"
+!          stop 1
+          CALL finish(method_name,'ERROR: dimensions of static_Tdiff do not match what was &
+               sent to cvmix_put')
         end if
         if (lvary_horizontal) then
           CVmix_bkgnd_params_out%static_Tdiff(:,1)           = cvmix_zero
@@ -974,11 +1019,9 @@ contains
         end if
 
       case DEFAULT
-        print*, "ERROR: ", trim(varname), " not a valid choice!"
-        stop 1
-
-    end select
-
+!        print*, "ERROR: ", trim(varname), " not a valid choice!"
+!        stop 1
+        CALL finish(method_name,'ERROR: '//TRIM(varname)//' not a valid choice!')
 !EOC
 
   end subroutine cvmix_put_bkgnd_real_1D
@@ -1007,7 +1050,7 @@ contains
 ! !OUTPUT PARAMETERS:
     type(cvmix_bkgnd_params_type),  optional, target, intent(inout) ::        &
                                                CVmix_bkgnd_params_user
-
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_put_bkgnd_real_2D'
 !EOP
 !BOC
 
@@ -1024,9 +1067,11 @@ contains
     data_dims = shape(val)
 
     if (any(data_dims.gt.dims)) then
-      print*, "ERROR: data being put in cvmix_bkgnd_params_type is larger ", &
-              "than (ncol, nlev+1)"
-      stop 1
+!      print*, "ERROR: data being put in cvmix_bkgnd_params_type is larger ", &
+!              "than (ncol, nlev+1)"
+!      stop 1
+      CALL finish(method_name,'ERROR: data being put in cvmix_bkgnd_params_type is larger &
+              than (ncol, nlev+1)')
     end if
 
     select case (trim(varname))
@@ -1039,9 +1084,11 @@ contains
           print*, "WARNING: overwriting static_Mdiff!"
         end if
         if (any(shape(CVmix_bkgnd_params_out%static_Mdiff).ne.dims)) then
-          print*, "ERROR: dimensions of static_Mdiff do not match what was ", &
-                  "sent to cvmix_put"
-          stop 1
+!          print*, "ERROR: dimensions of static_Mdiff do not match what was ", &
+!                  "sent to cvmix_put"
+!          stop 1
+          CALL finish(method_name,'ERROR: dimensions of static_Mdiff do not match what was &
+               sent to cvmix_put')
         end if
         CVmix_bkgnd_params_out%static_Mdiff = cvmix_zero
         CVmix_bkgnd_params_out%static_Mdiff(1:data_dims(1),1:data_dims(2))= val
@@ -1055,16 +1102,20 @@ contains
           print*, "WARNING: overwriting static_Tdiff!"
         end if
         if (any(shape(CVmix_bkgnd_params_out%static_Tdiff).ne.dims)) then
-          print*, "ERROR: dimensions of static_Tdiff do not match what was ", &
-                  "sent to cvmix_put"
-          stop 1
-        end if
+!          print*, "ERROR: dimensions of static_Tdiff do not match what was ", &
+!                  "sent to cvmix_put
+!         stop 1
+          CALL finish(method_name,'ERROR: dimensions of static_Tdiff do not match what was &
+               sent to cvmix_put')
+       end if
         CVmix_bkgnd_params_out%static_Tdiff = cvmix_zero
         CVmix_bkgnd_params_out%static_Tdiff(1:data_dims(1),1:data_dims(2))= val
 
       case DEFAULT
-        print*, "ERROR: ", trim(varname), " not a valid choice!"
-        stop 1
+!        print*, "ERROR: ", trim(varname), " not a valid choice!"
+!        stop 1
+        CALL finish(method_name,'ERROR: '//TRIM(varname)//' not a valid choice!')
+
 
     end select
 
@@ -1095,6 +1146,7 @@ contains
 ! !OUTPUT PARAMETERS:
     real(cvmix_r8), allocatable, dimension(:,:) :: cvmix_get_bkgnd_real_2D
 
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_get_bkgnd_real_2D'
 !EOP
 !BOC
 
@@ -1115,8 +1167,9 @@ contains
       case ('static_Tdiff')
         cvmix_get_bkgnd_real_2D = CVmix_bkgnd_params_get%static_Tdiff(:,:)
       case DEFAULT
-        print*, "ERROR: ", trim(varname), " not a valid choice!"
-        stop 1
+!        print*, "ERROR: ", trim(varname), " not a valid choice!"
+!        stop 1
+        CALL finish(method_name,'ERROR: '//TRIM(varname)//' not a valid choice!')
     end select
 
 !EOC

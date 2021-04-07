@@ -103,11 +103,12 @@ MODULE mo_nwp_reff_interface
         CALL message('',message_text)
       END IF
 
-    CASE DEFAULT  ! Initialize 1 moment
-      CALL gscp_set_coefficients(tune_zceff_min = tune_zceff_min,                  &
-           &                        tune_v0snow    = tune_v0snow,                  &
-           &                        tune_zvz0i     = tune_zvz0i,                   &
-           &                      tune_icesedi_exp = tune_icesedi_exp,             &
+    CASE DEFAULT  ! Initialize 1 moment with graupel schme (igscp=2) for subgrid clouds
+      CALL gscp_set_coefficients(            igscp = 2,                             & 
+           &                        tune_zceff_min = tune_zceff_min,                &
+           &                        tune_v0snow    = tune_v0snow,                   &
+           &                        tune_zvz0i     = tune_zvz0i,                    &
+           &                      tune_icesedi_exp = tune_icesedi_exp,              &
            &                        tune_mu_rain   = atm_phy_nwp_config(jg)%mu_rain,&
            &                   tune_rain_n0_factor = atm_phy_nwp_config(jg)%rain_n0_factor)
     END SELECT

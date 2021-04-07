@@ -34,8 +34,8 @@ forcing_timescale=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly d
 init_relax=1
 ocean_vertical_levels=64
 grid_name="OceanOnly_Global_IcosSymmetric_0039km_rotatedZ37d_BlackSea_Greenland_modified_srtm30_1min"
-ocean_grids="${grid_name}.nc"
-ocean_data_InputFolder="/pool/data/ICON/oes/input/r0003/${grid_name}"
+ocean_grids="R2B6_ocean-grid.nc"
+ocean_data_InputFolder="/pool/data/ICON/oes/input/r0004/${grid_name}"
 grids_folder=${ocean_data_InputFolder}
 #-----------------------------------------------------------------------------
 #icon_data_rootFolder=/pool/data/ICON
@@ -260,13 +260,13 @@ cat > ${ocean_namelist} << EOF
   fixedOBLdepth_value     = 30.0               ! value for the fixed OBL depth when fixedOBLdepth=.True.                          
 /
 &ocean_GentMcWilliamsRedi_nml
-  GMRedi_configuration           =   0       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
+  GMRedi_configuration           =   1       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
   tapering_scheme=1
   GMRedi_usesRelativeMaxSlopes = .false.
   S_max=1.0e-3                               
   S_d=0.0001                                 ! 1e-3 to 1e-4
-  k_tracer_GM_kappa_parameter     = 0.0     !
-  k_tracer_isoneutral_parameter   = 0.0     ! value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
+  k_tracer_GM_kappa_parameter     = 400.0     !
+  k_tracer_isoneutral_parameter   = 400.0     ! value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
   k_tracer_dianeutral_parameter   = 0.0       !1.0E-5  !
   SWITCH_OFF_DIAGONAL_VERT_EXPL          =.TRUE.
   GMREDI_COMBINED_DIAGNOSTIC             =.FALSE.
@@ -293,7 +293,7 @@ cat > ${ocean_namelist} << EOF
  albi         = 0.70         ! Albedo of ice (not melting)
  albim        = 0.65         ! Albedo of ice (melting)
 
- Pstar        = 40000
+ !Pstar        = 40000
 /
 &ocean_forcing_nml
   iforc_oce                       = ${iforc}            ! ocean forcing
@@ -332,7 +332,9 @@ cat > ${ocean_namelist} << EOF
 /                                    
 &ocean_diagnostics_nml
   diagnostics_level            = 1
-  diagnose_for_horizontalVelocity = .false.
+  diagnose_for_horizontalvelocity = .false.
+  diagnose_for_heat_content = .true.
+  diagnose_for_tendencies = .true.
 /
 &io_nml
   restart_file_type = 5
@@ -349,8 +351,11 @@ EOF
 # add standard atmo_non-hydrostatic_files
 #. ${thisdir}/add_required_ocean_files
 
-add_link_file $ocean_data_InputFolder/omipInitialState-AnnualAverage-OCEANINP_pre04_LndnoLak_039km_editSLOHH2017_G-64levels.nc initial_state.nc
-add_link_file $ocean_data_InputFolder/omipForcing-mpiomDaily-OCEANINP_pre04_LndnoLak_039km_editSLOHH2017_G.nc ocean-flux.nc
-add_link_file $ocean_data_InputFolder/omipRelaxSurface-OCEANINP_pre04_LndnoLak_039km_editSLOHH2017_G.nc ocean-relax.nc
 
+
+
+
+add_link_file $ocean_data_InputFolder/R2B6L64_initial_state.nc initial_state.nc
+add_link_file $ocean_data_InputFolder/R2B6_ocean-flux.nc ocean-flux.nc
+add_link_file $ocean_data_InputFolder/R2B6_ocean-relax.nc ocean-relax.nc
 #-----------------------------------------------------------------------------

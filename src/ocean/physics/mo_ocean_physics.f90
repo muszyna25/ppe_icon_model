@@ -133,6 +133,8 @@ MODULE mo_ocean_physics
   ! variables
   TYPE (t_var_list), PUBLIC :: ocean_params_list
 
+  CHARACTER(LEN=*), PARAMETER :: module_name = 'mo_ocean_physics'
+
 CONTAINS
 
   !-------------------------------------------------------------------------
@@ -154,6 +156,8 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: all_edges, owned_edges
     TYPE(t_patch), POINTER :: patch_2D
     REAL(wp) :: tracer_basisCoeff(nproma, patch_3D%p_patch_2d(1)%nblks_e)
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ho_params'
 
     !-----------------------------------------------------------------------
     patch_2D   => patch_3d%p_patch_2d(1)
@@ -242,8 +246,7 @@ CONTAINS
         physics_param%a_tracer_v_back(i) = Salinity_VerticalDiffusion_background
       ELSE
 
-        CALL finish ('mo_ocean_physics:init_ho_params',  &
-          & 'number of tracers exceeds number of background values')
+        CALL finish (method_name,'number of tracers exceeds number of background values')
       ENDIF
 
       CALL scale_horizontal_diffusion(patch_3D=patch_3D, &
@@ -274,21 +277,27 @@ CONTAINS
     ! setup tke scheme
     SELECT CASE(vert_mix_type)
     CASE(vmix_pp)
-      write(*,*) ''
+!      write(*,*) ''
+      CALL message(method_name,'Setup vmix_pp scheme.')
 
     CASE(vmix_tke) ! by_nils
-      write(*,*) 'Setup cvmix/tke scheme.'
+!      write(*,*) 'Setup cvmix/tke scheme.'
+      CALL message(method_name,'Setup cvmix/tke scheme.')
       CALL setup_tke()
     CASE(vmix_idemix_tke) ! by_nils
-      write(*,*) 'Setup cvmix/idemix_tke scheme.'
+!      write(*,*) 'Setup cvmix/idemix_tke scheme.'
+      CALL message(method_name,'Setup cvmix/idemix_tke scheme.')
       CALL setup_idemix(patch_3d)
       CALL setup_tke()
     CASE(vmix_kpp) ! by_ogut
-      write(*,*) 'Setup cvmix/kpp scheme.'
+!      write(*,*) 'Setup cvmix/kpp scheme.'
+      CALL message(method_name,'Setup cvmix/kpp scheme.')
       CALL setup_kpp()
     CASE default
-      write(*,*) "Unknown vert_mix_type!"
-      stop
+!      write(*,*) "Unknown vert_mix_type!"
+!      stop
+      CALL finish(method_name, 'Unknown vert_mix_type!')
+
     END SELECT
 
   END SUBROUTINE init_ho_params
@@ -333,6 +342,9 @@ CONTAINS
     REAL(wp) :: minCellArea, meanCellArea, maxCellArea
     TYPE(t_subset_range), POINTER :: all_edges, owned_edges
     REAL(wp):: length_scale, dual_length_scale, prime_length_scale
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':scale_horizontal_diffusion'
+
     !-----------------------------------------------------------------------
     patch_2D   => patch_3d%p_patch_2d(1)
     !-------------------------------------------------------------------------
@@ -572,7 +584,7 @@ CONTAINS
       END DO
 
     CASE DEFAULT
-        CALL finish ('mo_ocean_physics:scale_horizontal_diffusion', 'uknown DiffusionScaling')
+        CALL finish (method_name, 'uknown DiffusionScaling')
 
     END SELECT
 

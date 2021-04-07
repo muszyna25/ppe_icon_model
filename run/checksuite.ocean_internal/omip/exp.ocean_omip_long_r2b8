@@ -33,9 +33,10 @@ iforc=12
 forcing_timescale=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365/else = daily data
 init_relax=1
 ocean_vertical_levels=128
-ocean_grids="OceanOnly_Global_IcosSymmetric_0010km_rotatedZ37d_modified_srtm30_1min.nc"
-grids_folder=/pool/data/ICON/oes/input/r0003/OceanOnly_Global_IcosSymmetric_0010km_rotatedZ37d_modified_srtm30_1min
-ocean_data_InputFolder=/pool/data/ICON/oes/input/r0002/OceanOnly_Global_IcosSymmetric_0010km_rotatedZ37d_modified_srtm30_1min
+grid_name="OceanOnly_Global_IcosSymmetric_0010km_rotatedZ37d_modified_srtm30_1min"
+ocean_grids="R2B8_ocean-grid.nc"
+ocean_data_InputFolder="/pool/data/ICON/oes/input/r0004/${grid_name}"
+grids_folder=${ocean_data_InputFolder}
 #-----------------------------------------------------------------------------
 #icon_data_rootFolder=/pool/data/ICON
 #
@@ -47,6 +48,7 @@ cat > ${ocean_namelist} << EOF
  nproma         = $nproma
  p_test_run     = .false.
  l_fast_sum     = .true.
+ io_process_stride = 6
  num_prefetch_proc = 0 
  pio_type       = 0
  num_io_procs   = 0
@@ -246,7 +248,7 @@ dzlev_m(1:128) = 11.0,   9.0,     8.0,   8.0,     8.0,    8.0,    8.0,    8.0,  
  albi         = 0.70         ! Albedo of ice (not melting)
  albim        = 0.65         ! Albedo of ice (melting)
 
- Pstar        = 40000
+ !Pstar        = 40000
 /
 &ocean_forcing_nml
   iforc_oce                       = ${iforc}            ! ocean forcing
@@ -287,6 +289,8 @@ dzlev_m(1:128) = 11.0,   9.0,     8.0,   8.0,     8.0,    8.0,    8.0,    8.0,  
   diagnostics_level            = 1
   diagnose_for_horizontalVelocity = .false.
   eddydiag = .true.
+  diagnose_for_heat_content = .true.
+  diagnose_for_tendencies = .true.
 /
 &io_nml
   restart_file_type = 5
@@ -303,8 +307,8 @@ EOF
 # add standard atmo_non-hydrostatic_files
 #. ${thisdir}/add_required_ocean_files
 
-add_link_file $ocean_data_InputFolder/ts_phc3.0_annual_icon_OceanOnly_Global_IcosSymmetric_0010km_rotatedZ37d_modified_srtm30_1min_L128.nc initial_state.nc
-add_link_file $ocean_data_InputFolder/omip_icon_OceanOnly_Global_IcosSymmetric_0010km_rotatedZ37d_modified_srtm30_1min_L128-daily.nc ocean-flux.nc
-add_link_file $ocean_data_InputFolder/ts_phc3.0_annual_icon_OceanOnly_Global_IcosSymmetric_0010km_rotatedZ37d_modified_srtm30_1min_surf.nc ocean-relax.nc
+add_link_file $ocean_data_InputFolder/R2B8L128_initial_state.nc initial_state.nc
+add_link_file $ocean_data_InputFolder/R2B8_ocean-flux.nc ocean-flux.nc
+add_link_file $ocean_data_InputFolder/R2B8_ocean-relax.nc ocean-relax.nc
 
 #-----------------------------------------------------------------------------

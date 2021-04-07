@@ -33,6 +33,8 @@
   use cvmix_utils,           only : cvmix_update_wrap
   use cvmix_put_get,         only : cvmix_put
 
+  USE mo_exception,          ONLY: finish
+
 !EOP
 
   implicit none
@@ -102,6 +104,8 @@
 
   type(cvmix_tidal_params_type), target :: CVmix_tidal_params_saved
 
+  CHARACTER(LEN=*), PARAMETER :: module_name = 'cvmix_tidal'
+
 contains
 
 !BOP
@@ -132,6 +136,8 @@ contains
 ! !OUTPUT PARAMETERS:
     type(cvmix_tidal_params_type), optional, target, intent(inout) ::         &
                                               CVmix_tidal_params_user
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_init_tidal'
 
 !EOP
 !BOC
@@ -195,9 +201,12 @@ contains
         end if
 
       case DEFAULT
-        print*, "ERROR: ", trim(mix_scheme), " is not a valid choice for ", &
-                "tidal mixing."
-        stop 1
+!        print*, "ERROR: ", trim(mix_scheme), " is not a valid choice for ", &
+!                "tidal mixing."
+!        stop 1
+        CALL finish(method_name,'ERROR: '//TRIM(mix_scheme)//' is not a valid choice for &
+             tidal mixing.')
+
 
     end select
 
@@ -213,9 +222,11 @@ contains
           call cvmix_put_tidal('handle_old_vals', CVMIX_MAX_OLD_AND_NEW_VALS, &
                                cvmix_tidal_params_user)
         case DEFAULT
-          print*, "ERROR: ", trim(old_vals), " is not a valid option for ",   &
-                  "handling old values of diff and visc."
-          stop 1
+!          print*, "ERROR: ", trim(old_vals), " is not a valid option for ",   &
+!                  "handling old values of diff and visc."
+!          stop 1
+          CALL finish(method_name,'ERROR: '//TRIM(old_vals)//' is not a valid option for &
+               handling old values of diff and visc.')
       end select
     else
       call cvmix_put_tidal('handle_old_vals', CVMIX_OVERWRITE_OLD_VAL,        &
@@ -320,6 +331,8 @@ contains
 
     type(cvmix_tidal_params_type), pointer :: CVmix_tidal_params
 
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_coeffs_tidal_low'
+
     if (present(CVmix_tidal_params_user)) then
       CVmix_tidal_params => CVmix_tidal_params_user
     else
@@ -340,8 +353,9 @@ contains
 
       case DEFAULT
         ! Note: this error should be caught in cvmix_init_tidal
-        print*, "ERROR: invalid choice for type of tidal mixing."
-        stop 1
+!        print*, "ERROR: invalid choice for type of tidal mixing."
+!        stop 1
+        CALL finish(method_name,'ERROR: invalid choice for type of tidal mixing.')
 
     end select
     Mdiff_out = CVmix_params%Prandtl*Tdiff_out
@@ -577,6 +591,7 @@ contains
     type(cvmix_tidal_params_type), optional, target, intent(inout) ::         &
                                               CVmix_tidal_params_user
 
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_put_tidal_real'
 !EOP
 !BOC
 
@@ -600,8 +615,9 @@ contains
       case ('depth_cutoff')
         CVmix_tidal_params_out%depth_cutoff = val
       case DEFAULT
-        print*, "ERROR: ", trim(varname), " not a valid choice!"
-        stop 1
+!        print*, "ERROR: ", trim(varname), " not a valid choice!"
+!        stop 1
+        CALL finish(method_name,'ERROR: '//trim(varname)//' not a valid choice!')
 
     end select
 
@@ -632,6 +648,7 @@ contains
     type(cvmix_tidal_params_type), optional, target, intent(inout) ::         &
                                               CVmix_tidal_params_user
 
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_put_tidal_str'
 !EOP
 !BOC
 
@@ -647,9 +664,9 @@ contains
       case ('mix_scheme')
         CVmix_tidal_params_out%mix_scheme = val
       case DEFAULT
-        print*, "ERROR: ", trim(varname), " not a valid choice!"
-        stop 1
-
+!        print*, "ERROR: ", trim(varname), " not a valid choice!"
+!        stop 1
+        CALL finish(method_name,'ERROR: '//TRIM(varname)//' not a valid choice!')
     end select
 
 !EOC
@@ -679,6 +696,8 @@ contains
 ! !OUTPUT PARAMETERS:
     real(cvmix_r8) :: cvmix_get_tidal_real
 
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_get_tidal_real'
+
 !EOP
 !BOC
 
@@ -703,8 +722,10 @@ contains
       case ('depth_cutoff')
         cvmix_get_tidal_real = CVmix_tidal_params_in%depth_cutoff
       case DEFAULT
-        print*, "ERROR: ", trim(varname), " not a valid choice!"
-        stop 1
+!        print*, "ERROR: ", trim(varname), " not a valid choice!"
+!        stop 1
+        CALL finish(method_name,'ERROR: '//TRIM(varname)//' not a valid choice!')
+
     end select
 
 !EOC
@@ -734,6 +755,8 @@ contains
 ! !OUTPUT PARAMETERS:
     character(len=cvmix_strlen) :: cvmix_get_tidal_str
 
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_get_tidal_str'
+
 !EOP
 !BOC
 
@@ -749,9 +772,9 @@ contains
       case ('mix_scheme')
         cvmix_get_tidal_str = trim(CVmix_tidal_params_in%mix_scheme)
       case DEFAULT
-        print*, "ERROR: ", trim(varname), " not a valid choice!"
-        stop 1
-
+!        print*, "ERROR: ", trim(varname), " not a valid choice!"
+!        stop 1
+        CALL finish(method_name,'ERROR: '//TRIM(varname)//' not a valid choice!')
     end select
 
 !EOC

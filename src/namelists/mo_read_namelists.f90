@@ -56,10 +56,13 @@ MODULE mo_read_namelists
   USE mo_ccycle_nml          ,ONLY: process_ccycle_nml
   
   USE mo_nwp_phy_nml         ,ONLY: read_nwp_phy_namelist
+  USE mo_bench_nml           ,ONLY: read_bench_namelist
   USE mo_nwp_tuning_nml      ,ONLY: read_nwp_tuning_namelist
   USE mo_ensemble_pert_nml   ,ONLY: read_ensemble_pert_namelist
   USE mo_radiation_nml       ,ONLY: read_radiation_namelist
+#ifdef __NO_RTE_RRTMGP__
   USE mo_psrad_interface     ,ONLY: read_psrad_nml
+#endif
   USE mo_synsat_nml          ,ONLY: read_synsat_namelist
   USE mo_turbdiff_nml        ,ONLY: read_turbdiff_namelist
   USE mo_lnd_nwp_nml         ,ONLY: read_nwp_lnd_namelist
@@ -186,11 +189,14 @@ CONTAINS
        !
        CALL read_sea_ice_namelist        (atm_namelist_filename(1:tlen))
        CALL read_art_namelist            (atm_namelist_filename(1:tlen))
+#ifdef __NO_RTE_RRTMGP__
        CALL read_psrad_nml               (atm_namelist_filename(1:tlen))
+#endif
        !
     CASE (INWP)
        !
        CALL read_nwp_phy_namelist        (atm_namelist_filename(1:tlen))
+       CALL read_bench_namelist          (atm_namelist_filename(1:tlen))
        CALL read_nwp_tuning_namelist     (atm_namelist_filename(1:tlen))
        CALL read_ensemble_pert_namelist  (atm_namelist_filename(1:tlen))
        CALL read_radiation_namelist      (atm_namelist_filename(1:tlen))

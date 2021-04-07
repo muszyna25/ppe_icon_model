@@ -28,6 +28,8 @@ use cvmix_kinds_and_types,    only : cvmix_r8,                     &
 use cvmix_utils,              only : cvmix_update_tke, solve_tridiag
 
 
+USE mo_exception,          ONLY: finish
+
 implicit none
 private 
 save
@@ -83,6 +85,9 @@ end type idemix_type
 
 type(idemix_type), target :: idemix_constants_saved 
 
+CHARACTER(LEN=*), PARAMETER :: module_name = 'cvmix_idemix'
+
+
 contains
 
 !=================================================================================
@@ -100,13 +105,16 @@ real(cvmix_r8),optional, intent(in) ::      &
 
 type(idemix_type), intent(inout),target, optional :: idemix_userdef_constants
 
+CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_idemix'
+
 integer,intent(in),optional :: handle_old_vals
 
 ! FIXME: not sure about the allowed ranges for idemix parameters, default values confirm with pyOM testcases
 if (present(tau_v)) then
   if(tau_v.lt.1.d0*86400.0 .or. tau_v .gt. 100.d0*86400.0) then
-    print*, "ERROR:tau_v can only be allowed_range"
-    stop 1
+!    print*, "ERROR:tau_v can only be allowed_range"
+!    stop 1
+    CALL finish(method_name,'ERROR:tau_v can only be allowed_range')
   end if
   call idemix_put('tau_v', tau_v, idemix_userdef_constants)
 else
@@ -115,8 +123,9 @@ end if
 
 if (present(tau_h)) then
   if(tau_h.lt. 0.01*864000. .or. tau_h .gt. 100.*86400.) then
-    print*, "ERROR:tau_h can only be allowed_range"
-    stop 1
+!    print*, "ERROR:tau_h can only be allowed_range"
+!    stop 1
+    CALL finish(method_name,'ERROR:tau_h can only be allowed_range')
   end if
   call idemix_put('tau_h', tau_h, idemix_userdef_constants)
 else
@@ -125,8 +134,9 @@ end if
 
 if (present(gamma)) then
   if(gamma.lt. 1.d0 .or. gamma .gt. 3.d0) then
-    print*, "ERROR:gamma can only be allowed_range"
-    stop 1
+!    print*, "ERROR:gamma can only be allowed_range"
+!    stop 1
+    CALL finish(method_name,'ERROR:gamma can only be allowed_range')
   end if
   call idemix_put('gamma', gamma, idemix_userdef_constants)
 else
@@ -135,8 +145,9 @@ end if
 
 if (present(jstar)) then
   if(jstar.lt. 5.d0 .or. jstar .gt. 15.d0) then
-    print*, "ERROR:jstar can only be allowed_range"
-    stop 1
+!    print*, "ERROR:jstar can only be allowed_range"
+!    stop 1
+    CALL finish(method_name,'ERROR:jstar can only be allowed_range')
   end if
   call idemix_put('jstar', jstar, idemix_userdef_constants)
 else
@@ -145,8 +156,9 @@ end if
 
 if (present(mu0)) then
   if(mu0.lt. 0.d0 .or. mu0 .gt. 3.d0) then
-    print*, "ERROR: mu0 can only be allowed_range"
-    stop 1
+!    print*, "ERROR: mu0 can only be allowed_range"
+!    stop 1
+    CALL finish(method_name,'ERROR: mu0 can only be allowed_range')
   end if
   call idemix_put('mu0', mu0, idemix_userdef_constants)
 else
@@ -155,8 +167,9 @@ end if
 
 if (present(handle_old_vals)) then
   if(handle_old_vals.lt. 1 .or. handle_old_vals.gt. 3 ) then
-    print*, "ERROR:handle_old_vals can only be 1 to 3"
-    stop 1
+!    print*, "ERROR:handle_old_vals can only be 1 to 3"
+!    stop 1
+    CALL finish(method_name,'ERROR:handle_old_vals can only be 1 to 3')
   end if
   call idemix_put('handle_old_vals', handle_old_vals, idemix_userdef_constants)
 else
@@ -206,6 +219,7 @@ logical :: debug
 
 type(idemix_type), pointer :: idemix_constants_in
 
+CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':idemix_wrap'
 
 idemix_constants_in => idemix_constants_saved
 if (present(idemix_userdef_constants)) then
@@ -218,8 +232,9 @@ max_nlev = Vmix_vars%max_nlev
 
 ! FIXME: nils: put a security stop in case this routine is called in the current state
 ! call to actual computation of IDEMIX parameterization
-write(*,*) 'I am wrapping'
-stop
+!write(*,*) 'I am wrapping'
+!stop
+CALL finish(method_name,'I am wrapping')
 
 call cvmix_coeffs_idemix( &
                          ! parameter
@@ -649,40 +664,40 @@ subroutine integrate_idemix( &
  
   ! debugging: 
   !if (debug .eqv. debug) then
-  if (.false.) then
+!  if (.false.) then
   !if (i==45 .and. j==10) then
   !if (i==45 .and. j==45) then
-     write(*,*) ' ===================== '
+!     write(*,*) ' ===================== '
  
-     write(*,*) 'dtime = ', dtime
-     write(*,*) 'delta = ', delta
-     write(*,*) 'dzw = ', dzw
-     write(*,*) 'c0 = ', c0
-     write(*,*) 'a_tri = ', a_tri
-     write(*,*) 'b_tri = ', b_tri
-     write(*,*) 'c_tri = ', c_tri
-     write(*,*) 'd_tri = ', d_tri
-     write(*,*) 'forc_iw_surface = ', forc_iw_surface
-     write(*,*) 'iwe_new = ', iwe_new
+!     write(*,*) 'dtime = ', dtime
+!     write(*,*) 'delta = ', delta
+!     write(*,*) 'dzw = ', dzw
+!     write(*,*) 'c0 = ', c0
+!     write(*,*) 'a_tri = ', a_tri
+!     write(*,*) 'b_tri = ', b_tri
+!     write(*,*) 'c_tri = ', c_tri
+!     write(*,*) 'd_tri = ', d_tri
+!     write(*,*) 'forc_iw_surface = ', forc_iw_surface
+!     write(*,*) 'iwe_new = ', iwe_new
  
-     write(*,*) 'iwe_Ttot = ', iwe_Ttot
-     write(*,*) 'iwe_Tdif = ', iwe_Tdif
-     write(*,*) 'iwe_Thdi = ', iwe_Thdi
-     write(*,*) 'iwe_Tdis = ', iwe_Tdis
-     write(*,*) 'iwe_Tsur = ', iwe_Tsur
-     write(*,*) 'iwe_Tbot = ', iwe_Tbot
-     write(*,*) 'iwe_Tres = ', iwe_Ttot-(iwe_Tdif+iwe_Thdi+iwe_Tdis+iwe_Tsur+iwe_Tbot)
+!     write(*,*) 'iwe_Ttot = ', iwe_Ttot
+!     write(*,*) 'iwe_Tdif = ', iwe_Tdif
+!     write(*,*) 'iwe_Thdi = ', iwe_Thdi
+!     write(*,*) 'iwe_Tdis = ', iwe_Tdis
+!     write(*,*) 'iwe_Tsur = ', iwe_Tsur
+!     write(*,*) 'iwe_Tbot = ', iwe_Tbot
+!     write(*,*) 'iwe_Tres = ', iwe_Ttot-(iwe_Tdif+iwe_Thdi+iwe_Tdis+iwe_Tsur+iwe_Tbot)
  
-    write(*,*) 'tau_v = ', tau_v
-    write(*,*) 'tau_h = ', tau_h
-    write(*,*) 'gamma = ', gamma
-    write(*,*) 'jstar = ', jstar
-    write(*,*) 'mu0 = ', mu0
+!    write(*,*) 'tau_v = ', tau_v
+!    write(*,*) 'tau_h = ', tau_h
+!    write(*,*) 'gamma = ', gamma
+!    write(*,*) 'jstar = ', jstar
+!    write(*,*) 'mu0 = ', mu0
  
     !stop
   !endif
   !endif
-  endif
+!  endif
  
 end subroutine integrate_idemix
 
@@ -734,6 +749,8 @@ subroutine vmix_tke_put_idemix_real(varname,val,idemix_userdef_constants)
   type(idemix_type), intent(inout), target, optional:: idemix_userdef_constants
   type(idemix_type), pointer :: idemix_constants_out
 
+  CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':vmix_tke_put_idemix_real'
+
   idemix_constants_out=>idemix_constants_saved
   if (present(idemix_userdef_constants)) then
     idemix_constants_out=> idemix_userdef_constants
@@ -753,8 +770,10 @@ select case(trim(varname))
       idemix_constants_out%mu0 = val
    
     case DEFAULT
-      print*, "ERROR:", trim(varname), " not a valid choice"
-      stop 1
+!      print*, "ERROR:", trim(varname), " not a valid choice"
+!      stop 1
+      CALL finish(method_name,'ERROR: '//TRIM(varname)//' not a valid choice')
+
 end select
 
 end subroutine vmix_tke_put_idemix_real

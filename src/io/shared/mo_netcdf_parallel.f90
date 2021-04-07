@@ -55,6 +55,7 @@ PUBLIC :: p_nf_get_att_int
 PUBLIC :: p_nf_get_att_double
 PUBLIC :: p_nf_get_var_int
 PUBLIC :: p_nf_get_vara_int
+PUBLIC :: p_nf_get_vara_text
 PUBLIC :: p_nf_get_var_double
 PUBLIC :: p_nf_get_vara_double
 PUBLIC :: p_nf_get_vara_double_
@@ -523,6 +524,70 @@ INTEGER FUNCTION p_nf_get_var_double(ncid, varid, dvals)
    CALL p_bcast(dvals(1:len), p_io, p_comm_work)
 
 END FUNCTION p_nf_get_var_double
+
+!-------------------------------------------------------------------------
+!>
+!!               Wrapper for nf_get_vara_text.
+!!
+!!
+!! @par Revision History
+!! Adapted from p_nf_get_vara_int, G.Hime 2019
+!!
+INTEGER FUNCTION p_nf_get_vara_text(ncid, varid, start, count, vals)
+
+   INTEGER, INTENT(in)  :: ncid, varid, start(*), count(*)
+   CHARACTER(len=*), INTENT(out) :: vals(:)
+
+   INTEGER :: i, o, s, res, ndims, dimids(NF_MAX_VAR_DIMS), &
+              start_(7), count_(7), dimlen(7)
+   CHARACTER(len=size(vals,1) * len(vals(1))) :: hold
+
+   IF (p_pe_work == p_io) THEN
+
+      ! First get the length of the array
+
+      res = nf_inq_varndims(ncid, varid, ndims)
+      IF(res /= nf_noerr) GOTO 9999
+      res = nf_inq_vardimid(ncid, varid, dimids)
+      IF(res /= nf_noerr) GOTO 9999
+
+      dimlen = 1
+      DO i = 1, ndims
+         res = nf_inq_dimlen(ncid, dimids(i), dimlen(i))
+         IF(res /= nf_noerr) GOTO 9999
+      ENDDO
+   ENDIF
+
+   IF (p_pe_work == p_io) THEN
+      res = nf_get_var_text(ncid, varid, hold)
+   ENDIF
+
+9999 CONTINUE
+
+   CALL p_bcast(res, p_io, p_comm_work)
+   p_nf_get_vara_text = res
+
+   ! If there was an error, don't try to broadcast the values
+
+   IF(res /= nf_noerr) THEN
+      RETURN
+   END IF
+
+   ! Broadcast number of values and values themselves
+
+   CALL p_bcast(dimlen, p_io, p_comm_work)
+   CALL p_bcast(ndims, p_io, p_comm_work)
+   CALL p_bcast(hold, p_io, p_comm_work)
+
+   o = 1
+   s = len(vals(1))
+   DO i = 1, size(vals,1)
+     vals(i) = hold(o:o+s-1)
+     o = o + s
+   ENDDO
+
+END FUNCTION p_nf_get_vara_text
+
 
 !-------------------------------------------------------------------------
 !>

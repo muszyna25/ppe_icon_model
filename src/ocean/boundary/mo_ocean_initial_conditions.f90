@@ -3581,7 +3581,7 @@ END DO
 !write(*,*)'leave init'
 !    CALL dbg_print('aft. AdvIndivTrac: trac_old', ocean_tracer(:,2,:), method_name, 3, in_subset=all_cells)
 
-stop
+!stop
   END SUBROUTINE tracer_Redi_test_withdensity0
   !-------------------------------------------------------------------------------
 
@@ -3960,7 +3960,7 @@ END DO
      write(0,*)'in',level,maxval( ocean_tracer(:,level,:)),minval( ocean_tracer(:,level,:))
       END DO
 
-stop
+!stop
 
   END SUBROUTINE de_increaseTracerVertically
   !-------------------------------------------------------------------------------
@@ -6091,6 +6091,8 @@ END DO
     REAL(wp), INTENT(IN) :: p_lat
     INTEGER, INTENT(in) :: direction
 
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':sphere_wind'
+
 ! !RETURN VALUE:  
     REAL(wp)             :: wd        ! wind
 
@@ -6103,11 +6105,10 @@ END DO
     ELSE IF(direction==2)THEN
        wd = 0.0_wp
     ELSE
-       write(*,*) 'Wrong wind direction in mo_sw_testcases, stommel_wind'
-       STOP
+      CALL finish(method_name, "Wrong wind direction")
     END IF
 
-  END FUNCTION sphere_wind
+  END FUNCTION  sphere_wind
 
 
 
@@ -6207,6 +6208,9 @@ END DO
 ! !INPUT PARAMETERS:  
     INTEGER, INTENT(in) :: direction
 
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':vortex_wind'
+
+
 ! !RETURN VALUE:  
     REAL(wp)             :: wd        ! wind
 
@@ -6219,8 +6223,7 @@ END DO
     ELSE IF(direction==2)THEN
        wd = 0.0_wp
     ELSE
-       write(*,*) 'Wrong wind direction in mo_sw_testcases, stommel_wind'
-       STOP
+       CALL finish(method_name, 'Wrong wind direction')
     END IF
 
   END FUNCTION vortex_wind
