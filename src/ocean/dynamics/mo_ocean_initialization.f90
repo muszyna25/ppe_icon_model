@@ -312,7 +312,7 @@ CONTAINS
       !    then grid point is wet; dolic is in that level (l_max_bottom=.false.)
       !  - values for BOUNDARY set below
       
-      IF (l_partial_cells) l_max_bottom = .FALSE.
+!      IF (l_partial_cells) l_max_bottom = .FALSE.
       IF (l_max_bottom) THEN
         
         DO jb = all_cells%start_block, all_cells%end_block
