@@ -23,7 +23,10 @@ MODULE mo_bc_aeropt_kinne
   USE mo_grid_config,          ONLY: n_dom
   USE mo_parallel_config,      ONLY: nproma
   USE mo_psrad_general,        ONLY: nbndlw, nbndsw
-  USE mo_exception,            ONLY: finish, message, message_text, warning
+  USE mo_exception,            ONLY: finish, message, message_text
+#ifdef _OPENACC
+  USE mo_exception,            ONLY: warning
+#endif
   USE mo_io_config,            ONLY: default_read_method
   USE mo_time_config,          ONLY: time_config
   USE mo_read_interface,       ONLY: openInputFile, closeFile, on_cells, &
@@ -66,10 +69,8 @@ MODULE mo_bc_aeropt_kinne
   REAL(wp)                         :: dz_clim
   REAL(wp)                         :: rdz_clim
 
-  INTEGER                            :: nyears
   TYPE(t_time_interpolation_weights) :: tiw_beg
   TYPE(t_time_interpolation_weights) :: tiw_end
-  LOGICAL                            :: lend_of_year
 
 CONTAINS
   !>
@@ -82,56 +83,29 @@ SUBROUTINE su_bc_aeropt_kinne(p_patch)
 
   INTEGER                         :: jg
   INTEGER                         :: nblks_len, nblks
-  INTEGER                         :: imonth_beg, imonth_end
 
   jg = p_patch%id
 
   nblks=p_patch%nblks_c
   nblks_len=nproma
 
-  ! Check after merging icon-aes-link-echam-bc
-
-  tiw_beg = calculate_time_interpolation_weights(time_config%tc_startdate)
-  tiw_end = calculate_time_interpolation_weights(time_config%tc_stopdate)
-
-  lend_of_year = ( time_config%tc_stopdate%date%month  == 1  .AND. &
-    &              time_config%tc_stopdate%date%day    == 1  .AND. &
-    &              time_config%tc_stopdate%time%hour   == 0  .AND. &
-    &              time_config%tc_stopdate%time%minute == 0  .AND. &
-    &              time_config%tc_stopdate%time%second == 0 ) 
-
-  nyears = time_config%tc_stopdate%date%year - time_config%tc_startdate%date%year + 1
-  IF ( lend_of_year ) nyears = nyears - 1
-
   ! ----------------------------------------------------------------------
 
-  IF ( nyears > 1 .OR. lend_of_year ) THEN
-    imonth_beg = 0
-    imonth_end = 13  
-  ELSE
-    imonth_beg = tiw_beg%month1_index
-    imonth_end = tiw_end%month2_index
-  ENDIF
-
-  WRITE(message_text,'(a,i2,a,i2)') &
-     & ' Allocating Kinne aerosols for months ', imonth_beg, ' to ', imonth_end
-  CALL message('mo_bc_aeropt_kinne:su_bc_aeropt_kinne', message_text)
-
-! on first call allocate structure for all grids
+  ! on first call allocate structure for all grids
   IF ( jg == 1 ) ALLOCATE(ext_aeropt_kinne(n_dom))
 
-! allocate memory for optical properties on grid jg
-  ALLOCATE(ext_aeropt_kinne(jg)% aod_c_s(nblks_len,nbndsw,nblks,imonth_beg:imonth_end))
-  ALLOCATE(ext_aeropt_kinne(jg)% aod_f_s(nblks_len,nbndsw,nblks,imonth_beg:imonth_end))
-  ALLOCATE(ext_aeropt_kinne(jg)% ssa_c_s(nblks_len,nbndsw,nblks,imonth_beg:imonth_end))
-  ALLOCATE(ext_aeropt_kinne(jg)% ssa_f_s(nblks_len,nbndsw,nblks,imonth_beg:imonth_end))
-  ALLOCATE(ext_aeropt_kinne(jg)% asy_c_s(nblks_len,nbndsw,nblks,imonth_beg:imonth_end))
-  ALLOCATE(ext_aeropt_kinne(jg)% asy_f_s(nblks_len,nbndsw,nblks,imonth_beg:imonth_end))
-  ALLOCATE(ext_aeropt_kinne(jg)% aod_c_f(nblks_len,nbndlw,nblks,imonth_beg:imonth_end))
-  ALLOCATE(ext_aeropt_kinne(jg)% ssa_c_f(nblks_len,nbndlw,nblks,imonth_beg:imonth_end))
-  ALLOCATE(ext_aeropt_kinne(jg)% asy_c_f(nblks_len,nbndlw,nblks,imonth_beg:imonth_end))
-  ALLOCATE(ext_aeropt_kinne(jg)% z_km_aer_c_mo(nblks_len,lev_clim,nblks,imonth_beg:imonth_end))
-  ALLOCATE(ext_aeropt_kinne(jg)% z_km_aer_f_mo(nblks_len,lev_clim,nblks,imonth_beg:imonth_end))
+  ! allocate memory for optical properties on grid jg
+  ALLOCATE(ext_aeropt_kinne(jg)% aod_c_s(nblks_len,nbndsw,nblks,0:13))
+  ALLOCATE(ext_aeropt_kinne(jg)% aod_f_s(nblks_len,nbndsw,nblks,0:13))
+  ALLOCATE(ext_aeropt_kinne(jg)% ssa_c_s(nblks_len,nbndsw,nblks,0:13))
+  ALLOCATE(ext_aeropt_kinne(jg)% ssa_f_s(nblks_len,nbndsw,nblks,0:13))
+  ALLOCATE(ext_aeropt_kinne(jg)% asy_c_s(nblks_len,nbndsw,nblks,0:13))
+  ALLOCATE(ext_aeropt_kinne(jg)% asy_f_s(nblks_len,nbndsw,nblks,0:13))
+  ALLOCATE(ext_aeropt_kinne(jg)% aod_c_f(nblks_len,nbndlw,nblks,0:13))
+  ALLOCATE(ext_aeropt_kinne(jg)% ssa_c_f(nblks_len,nbndlw,nblks,0:13))
+  ALLOCATE(ext_aeropt_kinne(jg)% asy_c_f(nblks_len,nbndlw,nblks,0:13))
+  ALLOCATE(ext_aeropt_kinne(jg)% z_km_aer_c_mo(nblks_len,lev_clim,nblks,0:13))
+  ALLOCATE(ext_aeropt_kinne(jg)% z_km_aer_f_mo(nblks_len,lev_clim,nblks,0:13))
   !$ACC ENTER DATA CREATE( ext_aeropt_kinne(jg)%aod_c_s, ext_aeropt_kinne(jg)%aod_f_s,        &
   !$ACC                    ext_aeropt_kinne(jg)%ssa_c_s, ext_aeropt_kinne(jg)%ssa_f_s,        &
   !$ACC                    ext_aeropt_kinne(jg)%asy_c_s, ext_aeropt_kinne(jg)%asy_f_s,        &
@@ -178,6 +152,10 @@ SUBROUTINE shift_months_bc_aeropt_kinne(p_patch)
      &  CALL finish('mo_bc_aeropt_kinne:shift_months_bc_aeropt_kinne', &
      &              'ext_aeropt_kinne is not allocated')
 
+  WRITE(message_text,'(a)') &
+     & ' Copy kinne aerosol for months 12:13 to months 0:1 '
+  CALL message('mo_bc_aeropt_kinne:shift_months_bc_aeropt_kinne', message_text)
+
   ext_aeropt_kinne(jg)% aod_c_s(:,:,:,0:1) = ext_aeropt_kinne(jg)% aod_c_s(:,:,:,12:13)
   ext_aeropt_kinne(jg)% aod_f_s(:,:,:,0:1) = ext_aeropt_kinne(jg)% aod_f_s(:,:,:,12:13)
   ext_aeropt_kinne(jg)% ssa_c_s(:,:,:,0:1) = ext_aeropt_kinne(jg)% ssa_c_s(:,:,:,12:13)
@@ -214,31 +192,12 @@ SUBROUTINE read_bc_aeropt_kinne(mtime_current, p_patch)
 
     IF ( pre_year(jg) > -HUGE(1) ) THEN
       CALL shift_months_bc_aeropt_kinne(p_patch)
+      imonthb=2
+      imonthe=13
     ELSE
       CALL su_bc_aeropt_kinne(p_patch)
-    ENDIF
-
-    ! Restrict reading of data to those months that are needed
-
-    IF ( nyears > 1 ) THEN
-
-      IF ( pre_year(jg) > -HUGE(1) ) THEN
-        ! second and following years of current run
-        imonthb = 2
-        imonthe = MIN(13,tiw_end%month2_index+1)
-      ELSE
-        ! first year of current run
-        imonthb = 0
-        imonthe = MAX(0,tiw_beg%month1_index-1)
-      ENDIF
-
-    ELSE
-
-      ! only less or equal one year in current run
-      imonthb = tiw_beg%month1_index
-      imonthe = tiw_end%month2_index
-      IF ( lend_of_year ) imonthe = 13
-
+      imonthb=0
+      imonthe=13
     ENDIF
 
     CALL read_months_bc_aeropt_kinne ( &
@@ -489,8 +448,11 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
 
   TYPE(t_patch), INTENT(in) :: p_patch
 
-  INTEGER                        :: ifile_id, kmonthb, kmonthe, nmonths, ilen_cfname
-  REAL(wp), INTENT(out)          :: zaod(:,:,:,0:), zssa(:,:,:,0:), zasy(:,:,:,0:), zaer_ex(:,:,:,0:)
+  INTEGER                        :: ifile_id, kmonthb, kmonthe, ilen_cfname
+  REAL(wp), INTENT(inout)        :: zaod(:,:,:,0:)    ! has to be inout, otherwise
+  REAL(wp), INTENT(inout)        :: zssa(:,:,:,0:)    ! the NAG compiler will
+  REAL(wp), INTENT(inout)        :: zasy(:,:,:,0:)    ! create NaN when running
+  REAL(wp), INTENT(inout)        :: zaer_ex(:,:,:,0:) ! over the turn of the year.
   ! optional space for _DOM99 suffix
   CHARACTER(LEN=LEN(cfname)+6)   :: cfname2
   ! optional space for _YYYY.nc suffix
@@ -519,9 +481,6 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
     cfname2_tlen = ilen_cfname
   END IF
 
-  WRITE(message_text,'(a,i2,a,i2)') ' Reading Kinne aerosols for months ', imnthb, ' to ', imnthe
-  CALL message('mo_bc_aeropt_kinne:read_months_bc_aeropt_kinne', message_text)
-
   ! Read data for last month of previous year
 
   IF (imnthb == 0) THEN
@@ -542,7 +501,6 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
          cwldim=cwldim, clevdim=clevdim)
   END IF
 
-
   ! Read data for current year
   IF (cfname(1:ilen_cfname) == 'bc_aeropt_kinne_sw_b14_fin' .AND. &
      ( echam_rad_config(p_patch%id)%irad_aero == 13 .OR.          &
@@ -551,8 +509,10 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
   ELSE
     cfnameyear=TRIM(cfname2)//'.nc'
   ENDIF
+
   kmonthb=MAX(1,imnthb)
   kmonthe=MIN(12,imnthe)
+
   CALL read_single_month_bc_aeropt_kinne(cfnameyear, &
        p_patch, caod, cssa, casy, caer_ex, &
        zaod=zaod(:,:,:,kmonthb:kmonthe), zssa=zssa(:,:,:,kmonthb:kmonthe), &
@@ -593,14 +553,17 @@ END SUBROUTINE read_months_bc_aeropt_kinne
        start_timestep, end_timestep, cwldim, clevdim)
     CHARACTER(len=*), INTENT(in) :: cfnameyear, caod, cssa, casy, caer_ex, &
          cwldim, clevdim
-    TYPE(t_patch), INTENT(in) :: p_patch
-    INTEGER, INTENT(in) :: start_timestep, end_timestep
-    REAL(wp), INTENT(out) :: zaod(:,:,:,:), zssa(:,:,:,:), &
-         zasy(:,:,:,:), zaer_ex(:,:,:,:)
-    TYPE(t_stream_id)              :: stream_id
+    TYPE(t_patch), INTENT(in)    :: p_patch
+    INTEGER, INTENT(in)          :: start_timestep, end_timestep
+    REAL(wp), INTENT(inout)      :: zaod(:,:,:,:)    ! has to be inout, otherwise
+    REAL(wp), INTENT(inout)      :: zssa(:,:,:,:)    ! the NAG compiler will
+    REAL(wp), INTENT(inout)      :: zasy(:,:,:,:)    ! create NaN when running
+    REAL(wp), INTENT(inout)      :: zaer_ex(:,:,:,:) ! over the turn of the year.
+    TYPE(t_stream_id)            :: stream_id
 
     CALL message ('read_months_bc_aeropt_kinne of mo_bc_aeropt_kinne', &
-     &            'reading from file '//TRIM(ADJUSTL(cfnameyear)))
+         &            'reading from file '//TRIM(ADJUSTL(cfnameyear)))
+    
     CALL openInputFile(stream_id, cfnameyear, p_patch, default_read_method)
 
     CALL read_3D_time(stream_id=stream_id, location=on_cells, &
