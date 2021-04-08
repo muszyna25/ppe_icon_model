@@ -165,7 +165,9 @@ SUBROUTINE shift_months_bc_aeropt_kinne(p_patch)
   ext_aeropt_kinne(jg)% aod_c_f(:,:,:,0:1) = ext_aeropt_kinne(jg)% aod_c_f(:,:,:,12:13)
   ext_aeropt_kinne(jg)% ssa_c_f(:,:,:,0:1) = ext_aeropt_kinne(jg)% ssa_c_f(:,:,:,12:13)
   ext_aeropt_kinne(jg)% asy_c_f(:,:,:,0:1) = ext_aeropt_kinne(jg)% asy_c_f(:,:,:,12:13)
-  
+  ext_aeropt_kinne(jg)% z_km_aer_c_mo(:,:,:,0:1) = ext_aeropt_kinne(jg)% z_km_aer_c_mo(:,:,:,12:13)
+  ext_aeropt_kinne(jg)% z_km_aer_f_mo(:,:,:,0:1) = ext_aeropt_kinne(jg)% z_km_aer_f_mo(:,:,:,12:13)
+
 END SUBROUTINE shift_months_bc_aeropt_kinne
 
   !> SUBROUTINE read_bc_aeropt_kinne -- read the aerosol optical properties 
