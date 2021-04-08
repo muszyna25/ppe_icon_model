@@ -4334,6 +4334,8 @@ MODULE mo_nonhydro_state
 
       ! index lists for halo points belonging to the nest boundary region
       ! p_metrics%bdy_halo_c_idx
+      ! Note: if bdy_halo_c_dim == 0, the array is still allocated with size 1.
+      !       ldims has to reflect that, because otherwise it causes serialbox to crash
       !
       cf_desc    = t_cf_var('bdy_halo_c_idx', '-',                                      &
       &                     'index lists for halo points belonging to the nest boundary region', &
@@ -4341,11 +4343,13 @@ MODULE mo_nonhydro_state
       grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_metrics_list, 'bdy_halo_c_idx', p_metrics%bdy_halo_c_idx, &
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,        &
-                  & ldims=(/p_metrics%bdy_halo_c_dim/), lopenacc = .TRUE. )
+                  & ldims=(/MAX(p_metrics%bdy_halo_c_dim,1)/), lopenacc = .TRUE. )
       __acc_attach(p_metrics%bdy_halo_c_idx)
 
       ! block lists for halo points belonging to the nest boundary region
       ! bdy_halo_c_blk
+      ! Note: if bdy_halo_c_dim == 0, the array is still allocated with size 1.
+      !       ldims has to reflect that, because otherwise it causes serialbox to crash
       !
       cf_desc    = t_cf_var('bdy_halo_c_blk', '-',                                      &
       &                     'block lists for halo points belonging to the nest boundary region', &
@@ -4353,7 +4357,7 @@ MODULE mo_nonhydro_state
       grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_metrics_list, 'bdy_halo_c_blk', p_metrics%bdy_halo_c_blk, &
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,        &
-                  & ldims=(/p_metrics%bdy_halo_c_dim/), lopenacc = .TRUE. )
+                  & ldims=(/MAX(p_metrics%bdy_halo_c_dim,1)/), lopenacc = .TRUE. )
       __acc_attach(p_metrics%bdy_halo_c_blk)
       
       ! mask field that excludes boundary halo points
