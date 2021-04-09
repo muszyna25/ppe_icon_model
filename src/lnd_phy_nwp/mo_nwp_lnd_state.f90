@@ -84,7 +84,7 @@ MODULE mo_nwp_lnd_state
     &                                ZA_DEPTH_BELOW_LAND_P1,                     &
     &                                ZA_DEPTH_RUNOFF_S, ZA_DEPTH_RUNOFF_G,       &
     &                                ZA_SEDIMENT_BOTTOM_TW_HALF, ZA_LAKE_BOTTOM, &
-    &                                ZA_LAKE_BOTTOM_HALF, ZA_MIX_LAYER, ZA_HEIGHT_2M
+    &                                ZA_LAKE_BOTTOM_HALF, ZA_MIX_LAYER
   USE sfc_terra_data,          ONLY: zzhls, zdzhs, zdzms
   USE mo_action,               ONLY: ACTION_RESET
 
@@ -189,7 +189,7 @@ MODULE mo_nwp_lnd_state
            &   p_lnd_state(jg)%lnd_prog_nwp_list(1:ntl),STAT=ist)
       !$ACC ENTER DATA COPYIN(p_lnd_state(jg)%prog_lnd)
       IF(ist/=SUCCESS)THEN
-        CALL finish ('mo_nwp_lnd_state:construct_lnd_state', &
+        CALL finish (TRIM(routine), &
              'allocation of land prognostic state array failed')
       ENDIF
 
@@ -197,7 +197,7 @@ MODULE mo_nwp_lnd_state
                p_lnd_state(jg)%wtr_prog_nwp_list(1:ntl),STAT=ist)
       !$ACC ENTER DATA COPYIN(p_lnd_state(jg)%prog_wtr)
       IF(ist/=SUCCESS)THEN
-        CALL finish ('mo_nwp_lnd_state:construct_lnd_state', &
+        CALL finish (TRIM(routine), &
            'allocation of water prognostic state array failed')
       ENDIF
 
@@ -255,11 +255,8 @@ MODULE mo_nwp_lnd_state
   !! @par Revision History
   !! Initial release by Kristina Froehlich (2010-11-09)
   !!
-  SUBROUTINE destruct_nwp_lnd_state(p_lnd_state)
-   !
-    TYPE(t_lnd_state),  INTENT(INOUT) :: & 
-      &   p_lnd_state(n_dom)             ! land state at different grid levels
-
+  SUBROUTINE destruct_nwp_lnd_state()
+    !
     INTEGER :: ntl, &! local number of timelevels
       &        ist, &! status
       &         jg, &! grid level counter
@@ -321,6 +318,10 @@ MODULE mo_nwp_lnd_state
     ENDDO
 
     !$ACC EXIT DATA DELETE(p_lnd_state)
+    DEALLOCATE(p_lnd_state, STAT=ist)
+    IF(ist/=success)THEN
+      CALL finish (TRIM(routine), 'deallocation of p_lnd_state failed')
+    ENDIF
 
     CALL message (TRIM(routine), 'Destruction of nwp land state completed')
 

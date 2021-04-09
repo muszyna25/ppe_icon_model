@@ -73,9 +73,9 @@ USE mo_nonhydro_state,       ONLY: p_nh_state, p_nh_state_lists,               &
 USE mo_opt_diagnostics,      ONLY: construct_opt_diag, destruct_opt_diag,      &
   &                                compute_lonlat_area_weights
 USE mo_nwp_phy_state,        ONLY: prm_diag, prm_nwp_tend,                     &
-  &                                construct_nwp_phy_state, destruct_nwp_phy_state
-USE mo_nwp_lnd_state,        ONLY: p_lnd_state, construct_nwp_lnd_state,       &
-  &                                destruct_nwp_lnd_state
+  &                                construct_nwp_phy_state
+USE mo_nwp_lnd_state,        ONLY: p_lnd_state, construct_nwp_lnd_state
+USE mo_nwp_phy_cleanup,      ONLY: cleanup_nwp_phy
 USE mo_interface_les,        ONLY: init_les_phy_interface
 ! Time integration
 USE mo_nh_stepping,          ONLY: perform_nh_stepping
@@ -126,7 +126,6 @@ USE mo_var_list,            ONLY: print_group_details
 USE mo_sync,                ONLY: sync_patch_array, sync_c
 USE mo_upatmo_setup,        ONLY: upatmo_initialize, upatmo_finalize
 USE mo_nudging_config,      ONLY: l_global_nudging
-USE mo_nwp_reff_interface,  ONLY: reff_calc_dom
 USE mo_random_util,         ONLY: add_random_noise
 
 USE mo_icon2dace,           ONLY: init_dace, finish_dace
@@ -737,22 +736,20 @@ CONTAINS
     DEALLOCATE (p_nh_state, p_nh_state_lists, STAT=ist)
     IF (ist /= SUCCESS) CALL finish(routine,'deallocation for state failed')
 
+
+    ! close LES diag files
+    DO jg = 1 , n_dom
+      IF(atm_phy_nwp_config(jg)%is_les_phy .AND. is_plane_torus) &
+        CALL close_les_turbulent_output(jg)
+    END DO
+
+    ! cleanup NWP physics
     IF (iforcing == inwp) THEN
-      DO jg = 1, n_dom
-        IF ( atm_phy_nwp_config(jg)%icalc_reff .GT. 0 ) CALL reff_calc_dom(jg)%destruct()
-      ENDDO
-      CALL destruct_nwp_phy_state
-      CALL destruct_nwp_lnd_state( p_lnd_state )
-      DO jg = 1, n_dom
-        CALL atm_phy_nwp_config(jg)%finalize()
-      ENDDO
+      CALL cleanup_nwp_phy()
     ENDIF
 
-!
-! WS:  why is p_lnd_state not deallocated here?
-!
     IF (iforcing == iecham) THEN
-      CALL cleanup_echam_phy
+      CALL cleanup_echam_phy()
     ENDIF
 
     CALL upatmo_finalize(p_patch)
@@ -795,11 +792,6 @@ CONTAINS
       END DO
     END IF
 
-    !Close LES diag files
-    DO jg = 1 , n_dom
-     IF(atm_phy_nwp_config(jg)%is_les_phy .AND. is_plane_torus) &
-       CALL close_les_turbulent_output(jg)
-    END DO
 
     IF (ldass_lhn) THEN 
       ! deallocate ext_data array

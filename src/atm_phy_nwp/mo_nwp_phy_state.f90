@@ -230,7 +230,7 @@ SUBROUTINE construct_nwp_phy_state( p_patch, var_in_output )
 END SUBROUTINE construct_nwp_phy_state
 
 !
-SUBROUTINE destruct_nwp_phy_state
+SUBROUTINE destruct_nwp_phy_state()
 
   INTEGER :: jg, ist  !< grid level/domain index
 
