@@ -11,26 +11,28 @@ MODULE mo_ser_nml
   IMPLICIT NONE
   PUBLIC
 
-  INTEGER ::  ser_graupel                        !! number of timesteps graupel should be serialized for
-  INTEGER ::  ser_interface_nwp                  !! number of timesteps nwp interface should be serialized for
-  INTEGER ::  ser_turbdiff_interface             !! number of timesteps turbdiff interface should be serialized for
-  INTEGER ::  ser_turbdiff                       !! number of timesteps turbdiff should be serialized for
-  INTEGER ::  ser_vertdiff                       !! number of timesteps vertdiff should be serialized for
-  INTEGER ::  ser_turbtrans_interface            !! number of timesteps turbtrans interface should be serialized for
   INTEGER ::  ser_output_diag
   INTEGER ::  ser_latbc_data
   INTEGER ::  ser_dynamics
   INTEGER ::  ser_diffusion
   INTEGER ::  ser_step_advection
   INTEGER ::  ser_physics
+  INTEGER ::  ser_lhn
   INTEGER ::  ser_nudging
   INTEGER ::  ser_surface
+  INTEGER ::  ser_microphysics
+  INTEGER ::  ser_convection
+  INTEGER ::  ser_cover
+  INTEGER ::  ser_radiation
+  INTEGER ::  ser_radheat
+  INTEGER ::  ser_gwdrag
   INTEGER ::  ser_all_debug                      !! serialize statements using ser_all anywhere for debug purposes
   LOGICAL ::  ser_debug                          !! serialize the debug calls from mo_ser_debug
 
-  NAMELIST /ser_nml/ ser_graupel, ser_interface_nwp, ser_debug, ser_turbdiff_interface, ser_turbdiff, &
-  &                  ser_vertdiff, ser_turbtrans_interface, ser_output_diag, ser_latbc_data, ser_dynamics, &
-  &                  ser_diffusion, ser_step_advection, ser_physics, ser_nudging, ser_all_debug, ser_surface
+  NAMELIST /ser_nml/ ser_output_diag, ser_latbc_data, ser_dynamics, ser_debug, &
+  &                  ser_diffusion, ser_step_advection, ser_physics, ser_lhn, ser_nudging, ser_all_debug, ser_surface, &
+  &                  ser_microphysics, ser_convection, ser_cover, ser_radiation, ser_radheat, &
+  &                  ser_gwdrag
 
   CONTAINS
 
@@ -41,20 +43,21 @@ MODULE mo_ser_nml
    INTEGER :: iunit
 
    ! turn serialization off by default
-   ser_graupel = 0
-   ser_interface_nwp = 0
-   ser_turbdiff_interface = 0
-   ser_turbdiff = 0
-   ser_vertdiff = 0
-   ser_turbtrans_interface = 0
    ser_output_diag = 0
    ser_latbc_data = 0
    ser_dynamics = 0
    ser_diffusion = 0
    ser_step_advection = 0
    ser_physics = 0
+   ser_lhn = 0
    ser_nudging = 0
    ser_surface = 0
+   ser_microphysics = 0
+   ser_convection = 0
+   ser_cover = 0
+   ser_radiation = 0
+   ser_radheat = 0
+   ser_gwdrag = 0
    ser_all_debug = 0
    ser_debug = .FALSE.
 

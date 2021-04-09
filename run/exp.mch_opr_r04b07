@@ -1,22 +1,17 @@
-#--------------------------------------------------------------------------------------------------
-#
-# AMIP experiment
-#
-author_list="Remo Dietlicher, MeteoSwiss"
-#
-#--------------------------------------------------------------------------------------------------
-#
-# This experiment describes a ICON-LAM experiment using the physics packages that are
-# used at MeteoSwiss for production that are already put on the gpu.
-# This simulation computes a few time steps on a low-resolution grid over Switzerland.
-# This setup is for development purposes.
-#
-#--------------------------------------------------------------------------------------------------
+#!/bin/ksh
 
-# (0) unset some setting of create_target_header for mistral
+# ===========================================================================
+# 
+# Name: exp.mch_opr_r04b07.run
+#
+# Purpose: Run script for ICON at on a domain similar to the current COSMO-1E domain
+#          This is a low resolution version used for development purpose.
+#
+# Author: Sascha Bellaire (MeteoSwiss)
+#
+# =========================================================================== 
 
-unset OMPI_MCA_coll_fca_enable
-unset OMPI_MCA_coll_fca_priority
+set -x
 
 #--------------------------------------------------------------------------------------------------
 
@@ -29,23 +24,48 @@ unset OMPI_MCA_coll_fca_priority
 
 icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/mch"
 
-#--------------------------------------------------------------------------------------------------
+# =======================================================================
+# Setup - experiment
+# ======================================================================
 
-# (2) Set variables needed by the scripting mechanism
+# ===========================================================================
+# This experiment describes a ICON-LAM experiment using the physics packages that are
+# used at MeteoSwiss for production. This simulation computes a few time steps on 
+# a low-resolution grid over Switzerland. The setup is for development purposes.
+# ==========================================================================
 
-# horizontal grid(s)
-#
-grids_folder=${icon_data_poolFolder}/grids/ch_lowres
-latbc_path=${icon_data_poolFolder}/input/ch_lowres
-#
-# regional domain over switzerland
+# ========================
+# Some required experiment specific parameters
+# =======================
 
-dynamics_grid_filename=grid.nc
+# Folder containing required grid information
+grids_folder=${icon_data_poolFolder}/grids/opr_r04b07
+
+# Folder containing lateral boundary conditions
+latbc_path=${icon_data_poolFolder}/input/opr_r04b07
+
+dynamics_grid_filename=mch_opr_r4b7_DOM01.nc
 atmo_dyn_grids="'${dynamics_grid_filename}',"
-radiation_grid_filename=grid.parent.nc
+
+radiation_grid_filename=mch_opr_r4b7_DOM01.parent.nc
 atmo_rad_grids="'${radiation_grid_filename}',"
 
-extpar_filename="grid.extpar.sst.nc"
+# start and end date+time
+start_date=${start_date:="2020-12-10T06:00:00Z"}
+  end_date=${end_date:="2020-12-10T06:01:00Z"}
+
+# output intervals
+output_bounds="0.,10000000.,10."
+steps_per_file=7
+
+# namelist files
+atmo_namelist=NAMELIST_${EXPNAME}_atm
+
+# ========================
+# Get required files together
+# ========================
+
+extpar_filename="external_parameter_icon_mch_opr_r4b7_DOM01_tiles.nc"
 add_required_file "${grids_folder}/${extpar_filename}" ./
 
 # files needed for radiation
@@ -56,46 +76,35 @@ add_required_file ${basedir}/data/rrtmg_lw.nc .
 add_required_file ${basedir}/run/ana_varnames_map_file.txt map_file.ana
 
 # Dictionary for the mapping: GRIB2/Netcdf input names <-> ICON internal names
-add_required_file ${latbc_path}/map_file.latbc .
+add_required_file ${latbc_path}/map_file.latbc map_file.latbc
 
 # initial data
-initial_condition=${latbc_path}/igfff00000000.nc
-add_required_file ${initial_condition} .
+initial_condition=${latbc_path}/laf2020121006.nc
+add_link_file ${initial_condition} .
 
 # lateral boundary grid
 add_required_file ${latbc_path}/lateral_boundary.grid.nc lateral_boundary.grid.nc
 
 # lateral boundary data
-add_required_file ${latbc_path}/igfff00000000_lbc.nc .
-add_required_file ${latbc_path}/igfff00030000_lbc.nc .
+add_link_file ${latbc_path}/efsf00000000_lbc.nc .
+add_link_file ${latbc_path}/efsf00010000_lbc.nc .
+add_link_file ${latbc_path}/efsf00020000_lbc.nc .
+
 
 # dictionary file for output variable names
 dict_file="dict.${EXPNAME}"
-cat dict.iconam.mpim  > ${dict_file}
-add_required_file ${basedir}/run/${dict_file}                           ./
-
-# start and end date+time
-start_date=${start_date:="2018-09-21T00:00:00Z"}
-  end_date=${end_date:="2018-09-21T00:01:00Z"}
-
-# output intervals
-output_bounds="0.,10000000.,10."
-steps_per_file=15
+cat ${basedir}/run/dict.iconam.mpim  > ${basedir}/run/${dict_file}
+add_required_file ${basedir}/run/${dict_file} .
 
 
-# namelist files
-atmo_namelist=NAMELIST_${EXPNAME}_atm
-lnd_namelist=NAMELIST_${EXPNAME}_lnd
+# Add IFS2ICON file
+add_link_file ${initial_condition} ifs2icon_R4B10_DOM01.nc
 
-#--------------------------------------------------------------------------------------------------
+# ===========================================================================
+# Create ICON master namelist
+# ==========================================================================
 
-# (3) Define the model configuration
-#
-# ----------------------------------------------------------------------------
-# create ICON master namelist
-# ----------------------------------------------------------------------------
-
-cat > icon_master.namelist << EOF
+cat > ${basedir}/run/icon_master.namelist << EOF
 
 ! master_nml: ----------------------------------------------------------------
 &master_nml
@@ -121,16 +130,16 @@ cat > icon_master.namelist << EOF
 EOF
 
 # ----------------------------------------------------------------------
-# model namelists
+# Model namelists
 # ----------------------------------------------------------------------
 
 
-cat > ${atmo_namelist} << EOF
+cat > ${basedir}/run/${atmo_namelist} << EOF
 ! parallel_nml: MPI parallelization -------------------------------------------
 &parallel_nml
  nproma                      =                   ${nproma}        ! loop chunk length
  p_test_run                  =                     .FALSE.        ! .TRUE. means verification run for MPI parallelization
- num_io_procs                =                          0  !1         ! number of I/O processors
+ num_io_procs                =                          0         ! number of I/O processors
  num_restart_procs           =                          0         ! number of restart processors
  num_prefetch_proc           =                          1         ! number of processors for LBC prefetching
  iorder_sendrecv             =                          3         ! sequence of MPI send/receive calls
@@ -139,7 +148,7 @@ cat > ${atmo_namelist} << EOF
 ! run_nml: general switches ---------------------------------------------------
 &run_nml
  ltestcase                   =                     .FALSE.        ! real case run
- num_lev                     =                         65         ! number of full levels (atm.) for each domain
+ num_lev                     =                         80        ! number of full levels (atm.) for each domain
  lvert_nest                  =                     .FALSE.        ! no vertical nesting
  dtime                       =                         10.        ! timestep in seconds
  ldynamics                   =                      .TRUE.        ! compute adiabatic dynamic tendencies
@@ -149,7 +158,7 @@ cat > ${atmo_namelist} << EOF
  msg_level                   =                         12         ! detailed report during integration
  ltimer                      =                      .TRUE.        ! timer for monitoring the runtime of specific routines
  timers_level                =                         10         ! performance timer granularity
- check_uuid_gracefully       =                      .TRUE.        ! give only warnings for non-matching uuids
+ check_uuid_gracefully       =                      .FALSE.        ! give only warnings for non-matching uuids
  output                      =                        "nml"       ! main switch for enabling/disabling components of the model output
 /
 
@@ -181,17 +190,29 @@ cat > ${atmo_namelist} << EOF
  heightdiff_threshold        =                       3000.        ! height difference between neighb. grid points
  hgtdiff_max_smooth_topo     =                   750.,750.        ! see Namelist doc
  heightdiff_threshold        =                 2250.,1500.
- itype_vegetation_cycle      =                          1         ! tweaks the annual cycle of LAI
+ itype_vegetation_cycle      =                          3         ! gdm orig. 1 tweaks the annual cycle of LAI
 /
 
 ! initicon_nml: specify read-in of initial state ------------------------------
 &initicon_nml
- init_mode                   =                          7         ! start from DWD fg with subsequent vertical remapping 
- lread_ana                   =                     .FALSE.        ! no analysis data will be read
- ana_varnames_map_file       =              "map_file.ana"        ! Dictionary for initial data file
- dwdfg_filename              =          "igfff00000000.nc"        ! initial data filename
- ltile_coldstart             =                      .TRUE.        ! coldstart for surface tiles
- ltile_init                  =                     .FALSE.        ! set it to .TRUE. if FG data originate from run without tiles
+ init_mode                    = 7                          ! For ICON-LAM runs, use 7 when initialized from ICON and 2 from IFS
+ lread_ana                    = .FALSE.                    ! no analysis data will be read
+ lp2cintp_incr                = .FALSE.
+ lp2cintp_sfcana              = .FALSE.
+ check_ana(1)%list            = 'P','QV','T','U','V'
+ check_ana(2)%list            = 'FRESHSNW','H_SNOW','T_SO' ! NOOOOOOOOOOOOO in ens
+ use_lakeiceana               = .TRUE.
+ qcana_mode                   = 0           ! (0) no QC-increments, 
+                                            ! (1) QC+QV-increments added to QV, 
+                                            ! (2) QC-increments added to QC if already present at gridpoint
+                                            !     and added to QV if not
+ qiana_mode                   = 0           ! 0/1: ignore/use QI increments 
+ qrsgana_mode                 = 0           ! 0/1: ignore/use QR,QS,QG 
+ dwdfg_filename               = "laf2020121006.nc"    ! initial data filename init_mode 7
+ filetype                     = -1        
+ ana_varnames_map_file        = "map_file.ana"        ! Dictionary for initial data file
+ ltile_coldstart              = .TRUE.  ! coldstart for surface tiles
+ ltile_init                   = .FALSE.  ! gdm origin .F. set it to .TRUE. if FG data originate from run without tiles
  pinit_seed                  =                         -1         ! seed for perturbation of initial model state. no perturbation by default
  pinit_amplitude             =                          0.        ! amplitude of perturbation
 /
@@ -224,10 +245,10 @@ cat > ${atmo_namelist} << EOF
 &io_nml
  output_nml_dict             =              "${dict_file}"        ! translates the output nml names to icon names
  netcdf_dict                 =              "${dict_file}"        ! specifies the names in the output netcdf file
- lnetcdf_flt64_output        =                      .FALSE.        ! double precision output
+ lnetcdf_flt64_output        =                      .TRUE.        ! double precision output
  itype_pres_msl              =                          5         ! method for computation of mean sea level pressure
  itype_rh                    =                          1         ! method for computation of relative humidity
- lmask_boundary              =                      .FALSE.        ! mask out interpolation zone in output
+ lmask_boundary              =                      .FALSE.       ! mask out interpolation zone in output
 /
 
 ! limarea_nml: settings for limited area mode ---------------------------------
@@ -237,7 +258,7 @@ cat > ${atmo_namelist} << EOF
  latbc_boundary_grid         =   "lateral_boundary.grid.nc"       ! Grid file defining the lateral boundary
  latbc_path                  =              "${latbc_path}"       ! Absolute path to boundary data
  latbc_varnames_map_file     =            'map_file.latbc'
- latbc_filename              =     'igfff00<h>0000_lbc.nc'        ! boundary data input filename
+ latbc_filename              =     'efsf<ddhhmmss>_lbc.nc'        ! boundary data input filename
  init_latbc_from_fg          =                     .FALSE.        ! .TRUE.: take lbc for initial time from first guess
 /
 
@@ -256,9 +277,10 @@ cat > ${atmo_namelist} << EOF
  cwimax_ml                   =                      5.e-4         ! scaling parameter for max. interception storage
  c_soil                      =                       1.25         ! surface area density of the evaporative soil surface
  c_soil_urb                  =                        0.5         ! same for urban areas
- lseaice                     =                      .FALSE.       ! .TRUE. for use of sea-ice model
+ lseaice                     =                     .FALSE.        ! .TRUE. for use of sea-ice model
  llake                       =                      .TRUE.        ! .TRUE. for use of lake model
- itype_snowevap              =                          2         ! Snow evap. in vegetated areas with add. variables for snow age and max. snow height
+ itype_canopy                =                          2         ! Jan Peter scheme gdm orig. default 1
+ itype_snowevap              =                          3         ! gdm: orig.: 2 Snow evap. in vegetated areas with add. variables for snow age and max. snow height
  itype_trvg                  =                          3         ! BATS scheme with add. prog. var. for integrated plant transpiration since sunrise
  sstice_mode                 =                          2         ! 2: SST is updated on a daily basis by climatological increments
 /
@@ -274,7 +296,7 @@ cat > ${atmo_namelist} << EOF
  damp_height                 =                      12500.0       ! height at which Rayleigh damping of vertical wind starts
  rayleigh_coeff              =                          5.0       ! Rayleigh damping coefficient
  divdamp_order               =                         24         ! order of divergence damping 
- divdamp_type                =                         3          ! type of divergence damping
+ divdamp_type                =                         32         ! gdm default: 3 type of divergence damping
  divdamp_fac                 =                          0.004     ! scaling factor for divergence damping
  l_open_ubc                  =                     .FALSE.        ! .TRUE.=use open upper boundary condition
  igradp_method               =                          3         ! discretization of horizontal pressure gradient
@@ -288,19 +310,19 @@ cat > ${atmo_namelist} << EOF
 ! nwp_phy_nml: switches for the physics schemes ------------------------------
 &nwp_phy_nml
  inwp_gscp                   =                          2         ! cloud microphysics and precipitation
- inwp_convection             =                          0         ! convection
+ inwp_convection             =                          1         ! convection
  lshallowconv_only           =                      .TRUE.        ! only shallow convection
- inwp_radiation              =                          0         ! radiation
- inwp_cldcover               =                          0         ! cloud cover scheme for radiation
+ inwp_radiation              =                          1         ! radiation
+ inwp_cldcover               =                          1         ! cloud cover scheme for radiation
  inwp_turb                   =                          1         ! vertical diffusion and transfer
  inwp_satad                  =                          1         ! saturation adjustment
- inwp_sso                    =                          0         ! subgrid scale orographic drag
+ inwp_sso                    =                          1         ! subgrid scale orographic drag
  inwp_gwd                    =                          0         ! non-orographic gravity wave drag
  inwp_surface                =                          1         ! surface scheme
  latm_above_top              =                      .TRUE.        ! take into account atmosphere above model top for radiation computation
  ldetrain_conv_prec          =                      .TRUE.
  efdt_min_raylfric           =                       7200.        ! minimum e-folding time of Rayleigh friction
- itype_z0                    =                          2         ! type of roughness length data
+ itype_z0                    =                          2         ! type of roughness length data : default, 2: turn off SSO part of z0
  icapdcycl                   =                          3         ! apply CAPE modification to improve diurnalcycle over tropical land
  icpl_aero_conv              =                          1         ! coupling between autoconversion and Tegen aerosol climatology
  icpl_aero_gscp              =                          0         ! coupling between autoconversion and Tegen aerosol climatology
@@ -311,16 +333,7 @@ cat > ${atmo_namelist} << EOF
  dt_rad                      =                         720.       ! time step for radiation in s
  dt_conv                     =                 120.,90.,90.       ! time step for convection in s (domain specific)
  dt_sso                      =               120.,360.,360.       ! time step for SSO parameterization
- dt_gwd                      =               360.,360.,360.       ! time step for gravity wave drag parameterization
-/
-
-! bench_nml: switches for the time_loop ------------------------------
-&bench_nml
- d_unpb           =          .FALSE.        ! disable update_nwp_phy_bcs
- d_ndfo           =          .TRUE.         ! disable nwp_diag_for_output
- d_rld            =          .FALSE.        ! disable recv_latbc_data
- d_n              =          .TRUE.         ! disable nudging
- d_wnlo           =          .FALSE.        ! disable write_name_list_output
+ dt_gwd                      =               120.,120.,120.       ! gdm : 360 in guenther
 /
 
 ! nwp_tuning_nml: additional tuning parameters ----------------------------------
@@ -332,6 +345,8 @@ cat > ${atmo_namelist} << EOF
  tune_minsnowfrac            =                        0.3
  tune_box_liq_asy            =                        3.25
  tune_gust_factor            =                        7.25
+ tune_zvz0i                  =                        1.25        ! new tuning since June 2018 ! gdm non in guenther
+ tune_sgsclifac              =                        1.0         ! new tuning becoming operational in July 2019 ! gdm non in guenther
 /
 
 &output_nml
@@ -351,7 +366,7 @@ cat > ${atmo_namelist} << EOF
 
 ! radiation_nml: radiation scheme ---------------------------------------------
 &radiation_nml
- irad_o3                     =                          7         ! ozone climatology
+ irad_o3                     =                          79        ! gdm orig. 7 ozone climatology
  irad_aero                   =                          6         ! aerosols
  albedo_type                 =                          2         ! type of surface albedo
  vmr_co2                     =                    390.e-06
@@ -377,8 +392,9 @@ cat > ${atmo_namelist} << EOF
 &transport_nml
  ivadv_tracer                =              3, 3, 3, 3, 3         ! tracer specific method to compute vertical advection
  itype_hlimit                =              3, 4, 4, 4, 4         ! type of limiter for horizontal transport
- itype_vlimit                =              2, 2, 2, 2, 2         ! type of limiter for vertical transport
- ihadv_tracer                =              2, 2, 2, 2, 2         ! tracer specific method to compute horizontal advection
+ itype_vlimit                =              1, 1, 1, 1, 1         ! gdm: 1: semi-monotone slope limiter orig. 2: monotonous type of limiter for vertical transport
+ ihadv_tracer                =             52, 2, 2, 2, 2         ! gdm: 52 combination of hybrid FFSL/Miura3 with subcycling
+                                                           !     of tracer specific method to compute horizontal advection
  llsq_svd                    =                      .TRUE.        ! use SV decomposition for least squares design matrix
 /
 
@@ -398,7 +414,9 @@ cat > ${atmo_namelist} << EOF
  icldm_turb                  =                            2       ! mode of cloud water representation in turbulence
  q_crit                      =                          2.0       ! critical value for normalized supersaturation
  imode_tkesso                =                            2       ! mode of calculating th SSO source term for TKE production
+ rlam_heat                   =                          1.0       ! gdm default seems to be 10 in code but 1 in Namelist_overview.pdf
 /
+
 ! ser_nml: serialization configuration ----------------------------------------
 &ser_nml
  ser_output_diag             =                            0
@@ -421,5 +439,3 @@ cat > ${atmo_namelist} << EOF
 /
 
 EOF
-
-
