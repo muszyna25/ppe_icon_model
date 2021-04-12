@@ -3,26 +3,25 @@
   !!
 #include "hamocc_omp_definitions.inc"
 
-  SUBROUTINE ocprod (klev,start_idx,end_idx, ptho,pddpo, za,ptiestu, l_dynamic_pi)
-    
-   USE mo_kind, ONLY           : wp
+MODULE mo_ocprod
+
+  USE mo_kind, ONLY           : wp
    
-   USE mo_memory_bgc, ONLY     :phytomi, grami, rnoi, riron, pi_alpha, &
+  USE mo_memory_bgc, ONLY     :phytomi, grami, rnoi, riron, pi_alpha, &
        &                        fpar, bkphy, bkzoo, epsher,         &
-       &                        zinges, drempoc, ro2ut, remido, dyphy, spemor,     &
+       &                        zinges, ro2ut, remido, dyphy, spemor,     &
        &                        gammaz, gammap, ecan, rnit, ropal, bkopal,         &
-       &                        rcar, dremopal, relaxfe, fesoly,            &
+       &                        rcar, relaxfe, fesoly,            &
        &                        denitrification, nitdem, dremn2o,         &
        &                        n2prod, sulfate_reduction, strahl,                 &
        &                        thresh_aerob, thresh_o2, prodn2o, & 
-       &                        thresh_sred, dmsp, calmax, &
+       &                        thresh_sred, dmsp, &
        &                        satoxy, meanswr, ralk, bkh2sox, rh2sox,&
-       &                        bgctra, bgctend
+       &                        bgctra, bgctend,docmin
 
 
-   USE mo_control_bgc, ONLY    : dtb, bgc_nproma, bgc_zlevs, dtbgc 
-   
-   USE mo_param1_bgc, ONLY     : icalc, iopal, ian2o, igasnit, idms, &
+  USE mo_control_bgc, ONLY    : dtb, bgc_nproma, bgc_zlevs, dtbgc 
+  USE mo_param1_bgc, ONLY     : icalc, iopal, ian2o, igasnit, idms, &
        &                         iphy, izoo, isilica, iphosph, &
        &                         iano3, ioxygen, idet, idoc, isco212, &
        &                         ialkali, kphosy, kremin, ih2s,    &
@@ -32,28 +31,36 @@
        &                         kplim, kgraton, kexudp, kexudz, kpdy,kzdy,kaou,&
        &                         kh2sprod, kh2sloss
 
-    USE mo_hamocc_nml, ONLY    : grazra
+    USE mo_hamocc_nml, ONLY    : grazra, calmax, dremopal, drempoc
+
+  PUBLIC :: ocprod
+           
+
+CONTAINS
 
 
-    IMPLICIT NONE
+SUBROUTINE ocprod (klev,start_idx,end_idx, ptho,pddpo, za,ptiestu, l_dynamic_pi)
+    
 
-    ! Arguments
+  IMPLICIT NONE
 
-    INTEGER, INTENT(in), TARGET    :: klev(bgc_nproma)       !<  vertical levels
-    INTEGER, INTENT(in)            :: start_idx              !< start index for j loop (ICON cells, MPIOM lat dir)  
-    INTEGER, INTENT(in)            :: end_idx                !< end index  for j loop  (ICON cells, MPIOM lat dir) 
-    REAL(wp), INTENT(in), TARGET   :: ptho(bgc_nproma,bgc_zlevs)       !<  potential temperature (degC)
-    REAL(wp), INTENT(in), TARGET   :: pddpo(bgc_nproma,bgc_zlevs)      !< size of scalar grid cell (3rd dimension) [m]
+  ! Arguments
 
-    REAL(wp), INTENT(in), TARGET   :: za(bgc_nproma)      !< surface height
-    REAL(wp), INTENT(in) :: ptiestu(bgc_nproma,bgc_zlevs) !< depth of scalar grid cell [m]
+  INTEGER, INTENT(in), TARGET    :: klev(bgc_nproma)       !<  vertical levels
+  INTEGER, INTENT(in)            :: start_idx              !< start index for j loop (ICON cells, MPIOM lat dir)  
+  INTEGER, INTENT(in)            :: end_idx                !< end index  for j loop  (ICON cells, MPIOM lat dir) 
+  REAL(wp), INTENT(in), TARGET   :: ptho(bgc_nproma,bgc_zlevs)       !<  potential temperature (degC)
+  REAL(wp), INTENT(in), TARGET   :: pddpo(bgc_nproma,bgc_zlevs)      !< size of scalar grid cell (3rd dimension) [m]
 
-    LOGICAL, INTENT(in) :: l_dynamic_pi
+  REAL(wp), INTENT(in), TARGET   :: za(bgc_nproma)      !< surface height
+  REAL(wp), INTENT(in) :: ptiestu(bgc_nproma,bgc_zlevs) !< depth of scalar grid cell [m]
 
-   !  Local variables
+  LOGICAL, INTENT(in) :: l_dynamic_pi
 
-    INTEGER                :: j,k, kpke
-    REAL(wp) :: avphy,avanut,avanfe,xa,xn,ya,yn,phosy,                   &
+ !  Local variables
+
+  INTEGER                :: j,k, kpke
+  REAL(wp) :: avphy,avanut,avanfe,xa,xn,ya,yn,phosy,                   &
        &      pho, phofa, temfa,                                         &
        &      avgra,grazing,avsil,graton,                                &
        &      gratpoc,grawa,bacfra,phymor,zoothresh,zoomor,excdoc,exud,  &
@@ -62,9 +69,9 @@
        &      o2lim, actn2o, avdet,   &
        &      maxn2o, avoxy, oxid
 
-   REAL(wp) :: surface_height
+  REAL(wp) :: surface_height
 
-   REAL(wp) :: dms_prod, dms_uv, dms_bac 
+  REAL(wp) :: dms_prod, dms_uv, dms_bac 
  
 
 !HAMOCC_OMP_PARALLEL
@@ -238,7 +245,7 @@
           
            ! DOC decomposition
            avoxy = bgctra(j,k,ioxygen) -remin*ro2ut - thresh_aerob      ! available O2                       
-           xn=bgctra(j,k,idoc)/(1._wp+remido)
+           xn=(bgctra(j,k,idoc)+remido*docmin)/(1._wp+remido)
            bacfra=MAX(0._wp,bgctra(j,k,idoc) - xn)
            bacfra    = MERGE(-0._wp,bacfra, avoxy-bacfra*ro2ut.lt.thresh_aerob)
 
@@ -410,4 +417,5 @@
 !HAMOCC_OMP_END_DO
 !HAMOCC_OMP_END_PARALLEL
 
-  END SUBROUTINE ocprod
+END SUBROUTINE ocprod
+END MODULE

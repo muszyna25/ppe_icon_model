@@ -33,6 +33,8 @@ module cvmix_convection
 
 !EOP
 
+  USE mo_exception,          ONLY: finish
+
   implicit none
   private
   save
@@ -82,6 +84,9 @@ module cvmix_convection
       integer :: handle_old_vals
   end type cvmix_conv_params_type
 
+
+  CHARACTER(LEN=*), PARAMETER :: module_name = 'cvmix_convection'
+
 !EOP
 
   type(cvmix_conv_params_type), target :: CVmix_conv_params_saved
@@ -118,6 +123,7 @@ contains
     logical,        intent(in), optional :: lnoOBL ! False => apply in OBL too
     character(len=cvmix_strlen), optional, intent(in) :: old_vals
 
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_init_conv'
 !EOP
 !BOC
 
@@ -157,9 +163,12 @@ contains
           call cvmix_put_conv('handle_old_vals', CVMIX_MAX_OLD_AND_NEW_VALS,  &
                                cvmix_conv_params_user)
         case DEFAULT
-          print*, "ERROR: ", trim(old_vals), " is not a valid option for ",   &
-                  "handling old values of diff and visc."
-          stop 1
+!          print*, "ERROR: ", trim(old_vals), " is not a valid option for ",   &
+!                  "handling old values of diff and visc."
+!          stop 1
+          CALL finish(method_name,'ERROR: '//trim(old_vals)//' is not a valid option for &
+                      handling old values of diff and visc.')
+
       end select
     else
       call cvmix_put_conv('handle_old_vals', CVMIX_OVERWRITE_OLD_VAL,         &
@@ -431,6 +440,7 @@ contains
     type (cvmix_conv_params_type), optional, target, intent(inout) ::         &
                                                CVmix_conv_params_user
 
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_put_conv_real'
 !EOP
 !BOC
 
@@ -450,9 +460,9 @@ contains
       case ('BVsqr_convect')
         CVmix_conv_params_out%BVsqr_convect = val
       case DEFAULT
-        print*, "ERROR: ", trim(varname), " not a valid choice!"
-        stop 1
-
+!        print*, "ERROR: ", trim(varname), " not a valid choice!"
+!        stop 1
+        CALL finish(method_name,'ERROR: '//trim(varname)//' not a valid choice!')
     end select
 
 !EOC
@@ -482,6 +492,8 @@ contains
     type (cvmix_conv_params_type), optional, target, intent(inout) ::         &
                                                CVmix_conv_params_user
 
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_put_conv_logical'
+
 !EOP
 !BOC
 
@@ -499,8 +511,9 @@ contains
       case ('lnoOBL')
         CVmix_conv_params_out%lnoOBL = val
       case DEFAULT
-        print*, "ERROR: ", trim(varname), " not a valid choice!"
-        stop 1
+!        print*, "ERROR: ", trim(varname), " not a valid choice!"
+!        stop 1
+        CALL finish(method_name,'ERROR: '//trim(varname)//' not a valid choice!')
     end select
 
 !EOC
@@ -529,6 +542,9 @@ contains
 
 ! !OUTPUT PARAMETERS:
     real(cvmix_r8) :: cvmix_get_conv_real
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_put_conv_real'
+
 !EOP
 !BOC
 
@@ -547,9 +563,9 @@ contains
       case ('convect_visc')
         cvmix_get_conv_real = CVmix_conv_params_get%convect_visc
       case DEFAULT
-        print*, "ERROR: ", trim(varname), " not a valid choice!"
-        stop 1
-
+!        print*, "ERROR: ", trim(varname), " not a valid choice!"
+!        stop 1
+        CALL finish(method_name,'ERROR: '//trim(varname)//' not a valid choice!')
     end select
 
 !EOC
