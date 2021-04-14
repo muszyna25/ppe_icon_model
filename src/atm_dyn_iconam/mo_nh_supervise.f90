@@ -903,6 +903,7 @@ CONTAINS
       ENDDO
 !$OMP END DO
 
+      !$acc update host(dps_blk, npoints_blk) if(lacc)
 !$OMP MASTER
       dpsdt_avg = SUM(dps_blk)
       npoints   = SUM(npoints_blk)
