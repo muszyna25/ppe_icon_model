@@ -1628,9 +1628,11 @@ CONTAINS
 
           arch_mismatch = .FALSE.
           ! check all detached std I/O PEs
-          DO p = 1, num_dio_procs
-            IF (my_arch /= glb_arch(p)) arch_mismatch = .TRUE.
-          END DO
+          IF (PRESENT(num_dio_procs)) THEN
+            DO p = 1, num_dio_procs
+              IF (my_arch /= glb_arch(p)) arch_mismatch = .TRUE.
+            END DO
+          END IF
           ! check all I/O PEs
           DO p = num_work_procs + 1, num_work_procs + num_io_procs
             IF (my_arch /= glb_arch(p)) arch_mismatch = .TRUE.
