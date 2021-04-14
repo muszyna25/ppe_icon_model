@@ -1165,10 +1165,15 @@ CONTAINS
     ! Init temporal accumulation fields etc.
     p_onl => first_output_name_list
     DO WHILE(ASSOCIATED(p_onl))
-      IF (p_onl%dom .LE. n_dom_out) &
-        & CALL init_statistics(p_onl, p_patch(patch_info(p_onl%dom)%log_patch_id), &
-             & my_process_is_work(), use_async_name_list_io .AND. .NOT. is_mpi_test, &
-             & bcast_root, p_comm_work_2_io)
+      IF (p_onl%dom .LE. n_dom_out) THEN
+        IF (my_process_is_work()) THEN ! p_patch is not defined on io-procs
+          CALL init_statistics(p_onl, use_async_name_list_io .AND. .NOT.is_mpi_test, &
+            & bcast_root, p_comm_work_2_io, p_patch(patch_info(p_onl%dom)%log_patch_id))
+        ELSE
+          CALL init_statistics(p_onl, use_async_name_list_io .AND. .NOT.is_mpi_test, &
+            & bcast_root, p_comm_work_2_io)
+        END IF
+      END IF
       p_onl => p_onl%next
     END DO
 

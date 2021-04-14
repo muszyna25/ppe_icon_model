@@ -69,10 +69,10 @@ MODULE mo_derived_variable_handling
 CONTAINS
 
   ! wire up namelist mvstream associations
-  SUBROUTINE init_statistics(p_onl, patch_2d, collector, need_bc, root, comm)
+  SUBROUTINE init_statistics(p_onl, need_bc, root, comm, patch_2d)
     TYPE(t_output_name_list), POINTER, INTENT(IN) :: p_onl
-    TYPE(t_patch), INTENT(IN) :: patch_2d
-    LOGICAL, INTENT(IN) :: collector, need_bc
+    TYPE(t_patch), INTENT(IN), OPTIONAL :: patch_2d
+    LOGICAL, INTENT(IN) :: need_bc
     INTEGER, INTENT(IN) :: root, comm
     TYPE t_vl_arr
       CHARACTER(LEN=vname_len), POINTER :: p(:)
@@ -95,7 +95,8 @@ CONTAINS
     IF (iop .NE. 0) THEN
       DO ivl = 1, 4
         IF (vls(ivl)%p(1)(1:1) /= ' ') THEN
-          IF (collector) CALL init_op(iop, p_onl, vls(ivl)%p, patch_2d)
+          IF (PRESENT(patch_2d)) &
+            & CALL init_op(iop, p_onl, vls(ivl)%p, patch_2d)
           IF (need_bc) CALL p_bcast(vls(ivl)%p, root, comm)
         END IF
       END DO
