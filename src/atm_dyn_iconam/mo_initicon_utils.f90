@@ -3157,9 +3157,25 @@ MODULE mo_initicon_utils
     INTEGER                             :: jb, jk, jc, nlen
     REAL(wp), POINTER, DIMENSION(:,:,:) :: my_qc,  my_qi,  my_qr,  my_qs,  my_qg,  my_qh, my_rho, &
                                            my_qc_inc, my_qi_inc, my_qr_inc, my_qs_inc, my_qg_inc, my_qh_inc, &
-                                           my_qnc_inc, my_qni_inc, my_qnr_inc, my_qns_inc, my_qng_inc, my_qnh_inc
-    REAL(wp)                            :: qtmp0, qtmp1, rholoc
+                                           my_qnc_inc, my_qni_inc, my_qnr_inc, my_qns_inc, my_qng_inc, my_qnh_inc, &
+                                           my_qnc,  my_qni,  my_qnr,  my_qns,  my_qng,  my_qnh
+    REAL(wp)                            :: qtmp0, qtmp1, rholoc, meanmass
     CHARACTER(len=110)                  :: ncmaxstr
+
+    REAL(wp), PARAMETER                     :: qc_xmax = 2.60e-10_wp 
+    REAL(wp), PARAMETER                     :: qc_xmin = 4.20e-15_wp
+    REAL(wp), PARAMETER                     :: qr_xmax = 3.00e-06_wp
+    REAL(wp), PARAMETER                     :: qr_xmin = 2.60e-10_wp
+    REAL(wp), PARAMETER                     :: qi_xmax = 1.00e-05_wp
+    REAL(wp), PARAMETER                     :: qi_xmin = 1.00e-12_wp
+    REAL(wp), PARAMETER                     :: qs_xmax = 2.00e-05_wp
+    REAL(wp), PARAMETER                     :: qs_xmin = 1.00e-10_wp
+    REAL(wp), PARAMETER                     :: qg_xmax = 5.30e-04_wp
+    REAL(wp), PARAMETER                     :: qg_xmin = 4.19e-09_wp
+    REAL(wp), PARAMETER                     :: qh_xmax = 5.00e-03_wp
+    REAL(wp), PARAMETER                     :: qh_xmin = 2.60e-09_wp
+    REAL(wp), PARAMETER                     :: myeps_q = 1.0e-6_wp
+    REAL(wp), PARAMETER                     :: myeps_n = 0.1_wp
 
     my_rho => p_prog%rho(:,:,:)
     my_qc  => p_prog%tracer(:,:,:,iqc)
@@ -3168,6 +3184,13 @@ MODULE mo_initicon_utils
     my_qs  => p_prog%tracer(:,:,:,iqs)
     my_qg  => p_prog%tracer(:,:,:,iqg)
     my_qh  => p_prog%tracer(:,:,:,iqh)
+
+    my_qnc  => p_prog%tracer(:,:,:,iqnc)
+    my_qni  => p_prog%tracer(:,:,:,iqni)
+    my_qnr  => p_prog%tracer(:,:,:,iqnr)
+    my_qns  => p_prog%tracer(:,:,:,iqns)
+    my_qng  => p_prog%tracer(:,:,:,iqng)
+    my_qnh  => p_prog%tracer(:,:,:,iqnh)
 
     my_qc_inc => initicon%atm_inc%qc
     my_qi_inc => initicon%atm_inc%qi
@@ -3184,7 +3207,7 @@ MODULE mo_initicon_utils
     my_qnh_inc => initicon%atm_inc%qnh
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,nlen,qtmp0,qtmp1,rholoc) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jc,nlen,qtmp0,qtmp1,rholoc,meanmass) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, p_patch%nblks_c
 
       nlen = MERGE(nproma, p_patch%npromz_c, jb /= p_patch%nblks_c)
@@ -3192,10 +3215,15 @@ MODULE mo_initicon_utils
       IF (lqnxinc_init(iqnc) .AND. lqx_avail(iqc) .AND. lqxinc_avail(iqc) .AND. qcana_mode > 0) THEN
         DO jk = 1, p_patch%nlev
           DO jc = 1, nlen
-            qtmp1 = MAX( my_qc(jc,jk,jb) + my_qc_inc(jc,jk,jb) , 0.0_wp)
-            qtmp0 = MAX( my_qc(jc,jk,jb) , 0.0_wp)
-            rholoc = MAX(my_rho(jc,jk,jb), 1e-20_wp)
-            my_qnc_inc(jc,jk,jb) = ( set_qnc( qtmp1*rholoc ) - set_qnc( qtmp0*rholoc ) ) / rholoc 
+            IF ( my_qc(jc,jk,jb) > myeps_q .AND. my_qnc(jc,jk,jb) > myeps_n) THEN
+              meanmass = MAX(MIN(my_qc(jc,jk,jb)/(my_qnc(jc,jk,jb)+myeps_n),qc_xmax),qc_xmin ) 
+              my_qnc_inc(jc,jk,jb) = my_qc_inc(jc,jk,jb) / meanmass 
+            ELSE
+              qtmp1 = MAX( my_qc(jc,jk,jb) + my_qc_inc(jc,jk,jb) , 0.0_wp)
+              qtmp0 = MAX( my_qc(jc,jk,jb) , 0.0_wp)
+              rholoc = MAX(my_rho(jc,jk,jb), 1e-20_wp)
+              my_qnc_inc(jc,jk,jb) = ( set_qnc( qtmp1*rholoc ) - set_qnc( qtmp0*rholoc ) ) / rholoc 
+            END IF
           END DO
         END DO
       END IF
@@ -3203,10 +3231,15 @@ MODULE mo_initicon_utils
       IF (lqnxinc_init(iqni) .AND. lqx_avail(iqi) .AND. lqxinc_avail(iqi) .AND. qiana_mode > 0) THEN
         DO jk = 1, p_patch%nlev
           DO jc = 1, nlen
-            qtmp1 = MAX( my_qi(jc,jk,jb) + my_qi_inc(jc,jk,jb) , 0.0_wp)
-            qtmp0 = MAX( my_qi(jc,jk,jb) , 0.0_wp)
-            rholoc = MAX(my_rho(jc,jk,jb), 1e-20_wp)
-            my_qni_inc(jc,jk,jb) = ( set_qni( qtmp1*rholoc ) - set_qni( qtmp0*rholoc ) ) / rholoc 
+            IF ( my_qi(jc,jk,jb) > myeps_q .AND. my_qni(jc,jk,jb) > myeps_n) THEN
+              meanmass = MAX(MIN(my_qi(jc,jk,jb)/(my_qni(jc,jk,jb)+myeps_n),qi_xmax),qi_xmin ) 
+              my_qni_inc(jc,jk,jb) = my_qi_inc(jc,jk,jb) / meanmass 
+            ELSE
+              qtmp1 = MAX( my_qi(jc,jk,jb) + my_qi_inc(jc,jk,jb) , 0.0_wp)
+              qtmp0 = MAX( my_qi(jc,jk,jb) , 0.0_wp)
+              rholoc = MAX(my_rho(jc,jk,jb), 1e-20_wp)
+              my_qni_inc(jc,jk,jb) = ( set_qni( qtmp1*rholoc ) - set_qni( qtmp0*rholoc ) ) / rholoc 
+            END IF
           END DO
         END DO
       END IF
@@ -3214,10 +3247,15 @@ MODULE mo_initicon_utils
       IF (lqnxinc_init(iqnr) .AND. lqx_avail(iqr) .AND. lqxinc_avail(iqr) .AND. qrsgana_mode > 0) THEN
         DO jk = 1, p_patch%nlev
           DO jc = 1, nlen
-            qtmp1 = MAX( my_qr(jc,jk,jb) + my_qr_inc(jc,jk,jb) , 0.0_wp)
-            qtmp0 = MAX( my_qr(jc,jk,jb) , 0.0_wp)
-            rholoc = MAX(my_rho(jc,jk,jb), 1e-20_wp)
-            my_qnr_inc(jc,jk,jb) = ( set_qnr( qtmp1*rholoc ) - set_qnr( qtmp0*rholoc ) ) / rholoc 
+            IF ( my_qr(jc,jk,jb) > myeps_q .AND. my_qnr(jc,jk,jb) > myeps_n) THEN
+              meanmass = MAX(MIN(my_qr(jc,jk,jb)/(my_qnr(jc,jk,jb)+myeps_n),qr_xmax),qr_xmin ) 
+              my_qnr_inc(jc,jk,jb) = my_qr_inc(jc,jk,jb) / meanmass 
+            ELSE
+              qtmp1 = MAX( my_qr(jc,jk,jb) + my_qr_inc(jc,jk,jb) , 0.0_wp)
+              qtmp0 = MAX( my_qr(jc,jk,jb) , 0.0_wp)
+              rholoc = MAX(my_rho(jc,jk,jb), 1e-20_wp)
+              my_qnr_inc(jc,jk,jb) = ( set_qnr( qtmp1*rholoc ) - set_qnr( qtmp0*rholoc ) ) / rholoc 
+            END IF
           END DO
         END DO
       END IF
@@ -3225,10 +3263,15 @@ MODULE mo_initicon_utils
       IF (lqnxinc_init(iqns) .AND. lqx_avail(iqs) .AND. lqxinc_avail(iqs) .AND. qrsgana_mode > 0) THEN
         DO jk = 1, p_patch%nlev
           DO jc = 1, nlen
-            qtmp1 = MAX( my_qs(jc,jk,jb) + my_qs_inc(jc,jk,jb) , 0.0_wp)
-            qtmp0 = MAX( my_qs(jc,jk,jb) , 0.0_wp)
-            rholoc = MAX(my_rho(jc,jk,jb), 1e-20_wp)
-            my_qns_inc(jc,jk,jb) = ( set_qns( qtmp1*rholoc ) - set_qns( qtmp0*rholoc ) ) / rholoc 
+            IF ( my_qs(jc,jk,jb) > myeps_q .AND. my_qns(jc,jk,jb) > myeps_n) THEN
+              meanmass = MAX(MIN(my_qs(jc,jk,jb)/(my_qns(jc,jk,jb)+myeps_n),qs_xmax),qs_xmin ) 
+              my_qns_inc(jc,jk,jb) = my_qs_inc(jc,jk,jb) / meanmass 
+            ELSE
+              qtmp1 = MAX( my_qs(jc,jk,jb) + my_qs_inc(jc,jk,jb) , 0.0_wp)
+              qtmp0 = MAX( my_qs(jc,jk,jb) , 0.0_wp)
+              rholoc = MAX(my_rho(jc,jk,jb), 1e-20_wp)
+              my_qns_inc(jc,jk,jb) = ( set_qns( qtmp1*rholoc ) - set_qns( qtmp0*rholoc ) ) / rholoc 
+            END IF
           END DO
         END DO
       END IF
@@ -3236,10 +3279,15 @@ MODULE mo_initicon_utils
       IF (lqnxinc_init(iqng) .AND. lqx_avail(iqg) .AND. lqxinc_avail(iqg) .AND. qrsgana_mode > 0) THEN
         DO jk = 1, p_patch%nlev
           DO jc = 1, nlen
-            qtmp1 = MAX( my_qg(jc,jk,jb) + my_qg_inc(jc,jk,jb) , 0.0_wp)
-            qtmp0 = MAX( my_qg(jc,jk,jb) , 0.0_wp)
-            rholoc = MAX(my_rho(jc,jk,jb), 1e-20_wp)
-            my_qng_inc(jc,jk,jb) = ( set_qng( qtmp1*rholoc ) - set_qng( qtmp0*rholoc ) ) / rholoc 
+            IF ( my_qg(jc,jk,jb) > myeps_q .AND. my_qng(jc,jk,jb) > myeps_n) THEN
+              meanmass = MAX(MIN(my_qg(jc,jk,jb)/(my_qng(jc,jk,jb)+myeps_n),qg_xmax),qg_xmin ) 
+              my_qng_inc(jc,jk,jb) = my_qg_inc(jc,jk,jb) / meanmass 
+            ELSE
+              qtmp1 = MAX( my_qg(jc,jk,jb) + my_qg_inc(jc,jk,jb) , 0.0_wp)
+              qtmp0 = MAX( my_qg(jc,jk,jb) , 0.0_wp)
+              rholoc = MAX(my_rho(jc,jk,jb), 1e-20_wp)
+              my_qng_inc(jc,jk,jb) = ( set_qng( qtmp1*rholoc ) - set_qng( qtmp0*rholoc ) ) / rholoc 
+            END IF
           END DO
         END DO
       END IF
@@ -3247,10 +3295,15 @@ MODULE mo_initicon_utils
       IF (lqnxinc_init(iqnh) .AND. lqx_avail(iqh) .AND. lqxinc_avail(iqh) .AND. qrsgana_mode > 0) THEN
         DO jk = 1, p_patch%nlev
           DO jc = 1, nlen
-            qtmp1 = MAX( my_qh(jc,jk,jb) + my_qh_inc(jc,jk,jb) , 0.0_wp)
-            qtmp0 = MAX( my_qh(jc,jk,jb) , 0.0_wp)
-            rholoc = MAX(my_rho(jc,jk,jb), 1e-20_wp)
-            my_qnh_inc(jc,jk,jb) = ( set_qnh( qtmp1*rholoc ) - set_qnh( qtmp0*rholoc ) ) / rholoc 
+            IF ( my_qh(jc,jk,jb) > myeps_q .AND. my_qnh(jc,jk,jb) > myeps_n) THEN
+              meanmass = MAX(MIN(my_qh(jc,jk,jb)/(my_qnh(jc,jk,jb)+myeps_n),qh_xmax),qh_xmin ) 
+              my_qnh_inc(jc,jk,jb) = my_qh_inc(jc,jk,jb) / meanmass 
+            ELSE
+              qtmp1 = MAX( my_qh(jc,jk,jb) + my_qh_inc(jc,jk,jb) , 0.0_wp)
+              qtmp0 = MAX( my_qh(jc,jk,jb) , 0.0_wp)
+              rholoc = MAX(my_rho(jc,jk,jb), 1e-20_wp)
+              my_qnh_inc(jc,jk,jb) = ( set_qnh( qtmp1*rholoc ) - set_qnh( qtmp0*rholoc ) ) / rholoc 
+            END IF
           END DO
         END DO
       END IF
