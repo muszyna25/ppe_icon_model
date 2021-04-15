@@ -27,6 +27,7 @@ MKL_LDFLAGS='-mkl=sequential'
 XML2_ROOT='/usr'
 XML2_LIBS='-lxml2'
 
+PYTHON='/sw/spack-rhel6/miniforge3-4.9.2-3-Linux-x86_64-pwdbqi/bin/python'
 ################################################################################
 
 AR='xiar'
@@ -64,6 +65,7 @@ ICON_OCEAN_FCFLAGS="${ICON_OCEAN_FCFLAGS}" \
 LDFLAGS="${LDFLAGS}" \
 LIBS="${LIBS}" \
 MPI_LAUNCH="${MPI_LAUNCH}" \
+PYTHON="${PYTHON}" \
 ${EXTRA_CONFIG_ARGS} \
 "$@"
 

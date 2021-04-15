@@ -28,6 +28,7 @@ MKL_LIBS='-lmkl_gf_lp64 -lmkl_sequential -lmkl_core'
 XML2_ROOT='/usr'
 XML2_LIBS='-lxml2'
 
+PYTHON='/sw/spack-rhel6/miniforge3-4.9.2-3-Linux-x86_64-pwdbqi/bin/python'
 ################################################################################
 
 BUILD_ENV=". /sw/rhel6-x64/etc/profile.mistral; . \"${SCRIPT_DIR}/module_switcher\"; switch_for_module ${MODULES}; export LD_LIBRARY_PATH=\"${HDF5_ROOT}/lib:${NETCDF_ROOT}/lib:${NETCDFF_ROOT}/lib:${GRIBAPI_ROOT}/lib:${MKL_ROOT}/lib/intel64:\${LD_LIBRARY_PATH}\";"
@@ -53,6 +54,7 @@ EXTRA_CONFIG_ARGS='--enable-parallel-netcdf'
 ################################################################################
 
 "${ICON_DIR}/configure" \
+PYTHON="${PYTHON}" \
 BUILD_ENV="${BUILD_ENV}" \
 CC="${CC}" \
 CFLAGS="${CFLAGS}" \
