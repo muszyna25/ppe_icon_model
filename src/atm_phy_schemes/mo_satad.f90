@@ -84,13 +84,8 @@ USE mo_convect_tables,     ONLY: b1    => c1es  , & !! constants for computing t
 CONTAINS
 
 SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
-#ifdef __ICON__
                        rhotot,                        & ! IN
-#endif
                        qtvar,                         & ! IN optional
-#ifdef __COSMO__
-                       qle, qie, p0e, ppe,            & ! IN
-#endif
      idim, kdim, ilo, iup, klo, kup,                  & ! IN
                                            errstat)     ! optional
 
@@ -140,25 +135,13 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
   REAL    (KIND=ireals),    INTENT (IN) ::  &
        tol                 ! Desired abs. accuracy in K of the adjusted temperature
 
-#ifdef __COSMO__
-  REAL    (KIND=ireals),    INTENT (IN),  DIMENSION(:,:) ::  &  !  dim (idim,kdim)
-       p0e      , & ! Reference pressure
-       qle      , & ! Liquid hydrometeors which are not affected by saturation adj.
-                    ! (i.e., rain drops)
-       qie          ! Solid hydrometeors (sum of qi, qs, qg and, if present, qh)
-  REAL    (KIND=ireals),    INTENT (INOUT), DIMENSION(:,:) ::  &  !  dim (idim,kdim)
-       ppe          ! Pressure deviation from reference pressure needed in COSMO
-#endif
-
   REAL    (KIND=ireals),    INTENT (INOUT), DIMENSION(:,:) ::  &  !  dim (idim,kdim)
        te      , & ! Temperature on input/ouput
        qve     , & ! Specific humidity on input/output
        qce         ! Specific cloud water content on input/output
 
-#ifdef __ICON__
   REAL    (KIND=ireals),    INTENT (IN),  DIMENSION(:,:) ::  &  !  dim (idim,kdim)
        rhotot    ! density containing dry air and water constituents
-#endif
 
   REAL    (KIND=ireals),    INTENT (IN), OPTIONAL, DIMENSION(:,:)       ::  &  !  dim (idim,kdim)
        qtvar     ! total water variance - needed only for EDMF
@@ -183,11 +166,6 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
   REAL    (KIND=ireals   ) ::  &
        Ttest(idim,kdim), qtest(idim,kdim), qw(idim,kdim), qwd, qwa, dqwd, fT, dfT, & !, cvvmcl, qd,
        zqwmin              ! Minimum cloud water content for adjustment
-
-#ifdef __COSMO__
-  REAL    (KIND=ireals),  DIMENSION(idim,kdim) ::  &
-       rhotot              ! Total density
-#endif
 
   REAL    (KIND=ireals),  DIMENSION(idim,kdim) ::  &
        lwdocvd  ! (Temperature-dependent) latent heat of vaporization over cv
@@ -229,11 +207,6 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
 
 !!!=============================================================================================
 
-#ifdef __COSMO__
-   ! diagnostically (re)compute density of moist air for time-level nnow
-   ! ... using specific moisture quantities
-   CALL calrho( te, ppe,qve,qce,qle+qie, p0e, rhotot, idim, kdim, r_d, rvd_m_o )
-#endif
 
     DO k = klo, kup
       DO i = ilo , iup
@@ -369,25 +342,12 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
 !KF
 ! since ICON re-diagnoses the Exner pressure after satad we do not need
 ! the following:
-#ifdef __COSMO__
-  ! Re-diagnose pressure at all gridpoints:
-  ppe(ilo:iup,:) = rhotot(ilo:iup,:) * r_d * te(ilo:iup,:) * &
-       ( 1.0_ireals + rvd_m_o*qve(ilo:iup,:)   &
-       - qce(ilo:iup,:) &
-       - qle(ilo:iup,:) &
-       - qie(ilo:iup,:) )     -    p0e(ilo:iup,:)
-#endif
 
 END SUBROUTINE satad_v_3D
 
 SUBROUTINE satad_v_3D_gpu (maxiter, tol, te, qve, qce,    & ! IN, INOUT
-#ifdef __ICON__
                        rhotot,                        & ! IN
-#endif
                        qtvar,                         & ! IN optional
-#ifdef __COSMO__
-                       qle, qie, p0e, ppe,            & ! IN
-#endif
      idim, kdim, ilo, iup, klo, kup,                  & ! IN
                                            errstat)     ! optional
 

@@ -482,7 +482,7 @@ I&{4~(hydro)} \\ {5 (NH)}& &
 Order of $\nabla$ operator for diffusion:\\
 -1: no diffusion\\
 2: $\nabla^{2}$ diffusion\\
-3: Smagorinsky $\nabla^{2}$ diffusion \\
+3: Smagorinsky $\nabla^{2}$ diffusion (requires lhdiff\_rcf = .TRUE.) \\
 4: $\nabla^{4}$ diffusion \\
 5: Smagorinsky $\nabla^{2}$ diffusion combined with $\nabla^{4}$
 background diffusion as specified via hdiff\_efdt\_ratio \\
@@ -1805,7 +1805,7 @@ R&
 0.1&
 &
 Variability range for minimum value to which snow cover fraction is artificially reduced in case of melting snow & 
-idiag\_snowfrac = 20/30/40
+idiag\_snowfrac = 20
 \tabularnewline
 
 \hline
@@ -3958,9 +3958,9 @@ maximum depth of uppermost snow layer & lmulti\_snow=.TRUE. or l2lay\_rho\_snow=
 idiag\_snowfrac &
 I & 1 &  & Type of snow-fraction diagnosis:\\ 
 1 = based on SWE only\\
-2--4 = more advanced experimental methods \\ 
-20, 30, 40 = same as 2, 3, 4, respectively, but with artificial reduction of snow fraction in case of melting snow
-(shold be used only in combination with lsnowtile=.TRUE.&
+2 = more advanced method used operationally \\ 
+20 = same as 2, but with artificial reduction of snow fraction in case of melting snow
+(should be used only in combination with lsnowtile=.TRUE.&
 \tabularnewline
 
 %\hline
@@ -5165,7 +5165,7 @@ radiation\\
 0: none\\
 1: RRTM radiation\\
 2: Ritter-Geleyn radiation\\
-3: PSRAD radiation\\
+3: (removed) \\
 4: ecRad radiation
 &run\_nml:iforcing = inwp
 \tabularnewline

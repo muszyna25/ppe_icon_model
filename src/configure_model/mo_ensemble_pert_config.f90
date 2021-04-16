@@ -120,7 +120,7 @@ MODULE mo_ensemble_pert_config
     &  range_qexc, rnd_qexc
 
   REAL(wp) :: &                    !< Minimum value to which the snow cover fraction is artificially reduced
-    &  range_minsnowfrac, rnd_minsnowfrac   !  in case of melting show (in case of idiag_snowfrac = 20/30/40)
+    &  range_minsnowfrac, rnd_minsnowfrac   !  in case of melting show (in case of idiag_snowfrac = 20)
 
   REAL(wp) :: &                    !< Fraction of surface area available for bare soil evaporation
     &  range_c_soil, rnd_c_soil

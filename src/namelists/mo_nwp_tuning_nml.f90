@@ -143,7 +143,7 @@ MODULE mo_nwp_tuning_nml
     &  tune_qexc
 
   REAL(wp) :: &                    !< Minimum value to which the snow cover fraction is artificially reduced
-    &  tune_minsnowfrac            !  in case of melting show (in case of idiag_snowfrac = 20/30/40)
+    &  tune_minsnowfrac            !  in case of melting show (in case of idiag_snowfrac = 20)
 
   REAL(wp) :: &                    !< Box width for liquid clouds assumed in the cloud cover scheme
     &  tune_box_liq                ! (in case of inwp_cldcover = 1)
@@ -304,7 +304,7 @@ CONTAINS
     !
     ! snow cover diagnosis
     tune_minsnowfrac = 0.20_wp     ! Minimum value to which the snow cover fraction is artificially reduced
-                                   ! in case of melting show (in case of idiag_snowfrac = 20/30/40)
+                                   ! in case of melting show (in case of idiag_snowfrac = 20)
     !
     ! cloud cover
     tune_box_liq     = 0.05_wp     ! box width scale of liquid clouds
