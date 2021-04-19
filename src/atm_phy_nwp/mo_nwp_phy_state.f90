@@ -3736,11 +3736,11 @@ __acc_attach(diag%clct_avg)
                   & action_list=actions( new_action( ACTION_RESET, celltracks_int ) ) )
     END IF
 
-    luh_max_out = (/var_in_output%uh_max_low, var_in_output%uh_max_med, var_in_output%uh_max/)
-    uh_max_zmin = (/                   0._wp,                 2000._wp,             2000._wp/)
-    uh_max_zmax = (/                3000._wp,                 5000._wp,             8000._wp/)
+    luh_max_out(k_jg, :) = (/var_in_output%uh_max_low, var_in_output%uh_max_med, var_in_output%uh_max/)
+    uh_max_zmin          = (/                   0._wp,                 2000._wp,             2000._wp/)
+    uh_max_zmax          = (/                3000._wp,                 5000._wp,             8000._wp/)
 
-    IF (ANY(luh_max_out)) THEN
+    IF (ANY(luh_max_out(k_jg, :))) THEN
 
       cf_desc    = t_cf_var('uh_max_3d', 'm2 s-2', 'dummy', datatype_flt)
       grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -3769,7 +3769,7 @@ __acc_attach(diag%clct_avg)
                    TRIM(real2string(uh_max_zmin(k)))//'-'//TRIM(real2string(uh_max_zmax(k)))// &
                    ' m, max. during the last '// celltracks_int(3:)
 
-        IF (luh_max_out(k)) THEN
+        IF (luh_max_out(k_jg, k)) THEN
           cf_desc    = t_cf_var(TRIM(shortname), 'm2 s-2', TRIM(longname), datatype_flt)
           grib2_desc = grib2_var( 0, 7, 15, ibits, GRID_UNSTRUCTURED, GRID_CELL)                  &
             &           + t_grib2_int_key("typeOfFirstFixedSurface",          102)                &

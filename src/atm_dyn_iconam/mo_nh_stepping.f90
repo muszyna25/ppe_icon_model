@@ -1231,7 +1231,8 @@ MODULE mo_nh_stepping
 
     ! Calculate optional diagnostic output variables if requested in the namelist(s)
     IF (iforcing == inwp) THEN
-      CALL nwp_opt_diagnostics(p_patch(1:), p_patch_local_parent, p_int_state_local_parent, p_nh_state, prm_diag, &
+      CALL nwp_opt_diagnostics(p_patch(1:), p_patch_local_parent, p_int_state_local_parent, &
+                               p_nh_state, p_int_state(1:), prm_diag, &
                                l_nml_output_dom, nnow, nnow_rcf, var_in_output, lpi_max_Event, celltracks_Event,  &
                                dbz_Event, mtime_current, time_config%tc_dt_model)
     ENDIF

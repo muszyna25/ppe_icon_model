@@ -48,6 +48,8 @@ MODULE mo_nwp_diagnosis
   USE mo_nonhydro_types,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics, t_nh_state
   USE mo_nwp_phy_types,      ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_intp_data_strc,     ONLY: t_int_state
+  USE mo_math_divrot,        ONLY: rot_vertex
+  USE mo_intp,               ONLY: verts2cells_scalar
   USE mo_parallel_config,    ONLY: nproma, proc0_offloading
   USE mo_lnd_nwp_config,     ONLY: nlev_soil, ntiles_total
   USE mo_nwp_lnd_types,      ONLY: t_lnd_diag, t_wtr_prog, t_lnd_prog
@@ -1637,12 +1639,14 @@ CONTAINS
   !! Developed by Guenther Zaengl, DWD (2020-02-14)
   !!
   !!
-  SUBROUTINE nwp_opt_diagnostics(p_patch, p_patch_lp, p_int_lp, p_nh, prm_diag, l_output, nnow, nnow_rcf, var_in_output, &
+  SUBROUTINE nwp_opt_diagnostics(p_patch, p_patch_lp, p_int_lp, p_nh, p_int, prm_diag, &
+     l_output, nnow, nnow_rcf, var_in_output, &
      lpi_max_Event, celltracks_Event, dbz_Event, mtime_current,  plus_slack)
 
     TYPE(t_patch)       ,INTENT(IN)   :: p_patch(:), p_patch_lp(:)  ! patches and their local parents
     TYPE(t_int_state)   ,INTENT(IN)   :: p_int_lp(:)                ! interpolation state for local parents
     TYPE(t_nh_state)    ,INTENT(INOUT):: p_nh(:)                    ! nonhydro state
+    TYPE(t_int_state)   ,INTENT(IN)   :: p_int(:)                   ! interpolation state
     TYPE(t_nwp_phy_diag),INTENT(INOUT):: prm_diag(:)                ! physics diagnostics
 
     TYPE(event),     POINTER, INTENT(INOUT) :: lpi_max_Event, celltracks_Event, dbz_Event
@@ -1723,10 +1727,20 @@ CONTAINS
              &                        prm_diag(jg)%tcond_max, prm_diag(jg)%tcond10_max  )
       END IF
 
+      ! update vorticity for the calculation of uh_max / vorw_ctmax;
+      ! otherwise, diag%vor is only diagnosed every output time step
+      IF ( (ANY(luh_max_out(jg,:)) .OR. var_in_output(jg)%vorw_ctmax) .AND. &
+            l_celltracks_event_active .AND. .NOT. l_output(jg) ) THEN
+        CALL rot_vertex (p_nh(jg)%prog(nnow(jg))%vn, p_patch(jg), p_int(jg), p_nh(jg)%diag%omega_z)
+        ! Diagnose relative vorticity on cells
+        CALL verts2cells_scalar(p_nh(jg)%diag%omega_z, p_patch(jg), &
+           p_int(jg)%verts_aw_cells, p_nh(jg)%diag%vor)
+      END IF
+
       DO k = 1,uh_max_nlayer
 
         ! update of UH_MAX (updraft helicity, max.  during the time interval "celltracks_interval") if required
-        IF ( luh_max_out(k) .AND. (l_output(jg) .OR. l_celltracks_event_active ) ) THEN
+        IF ( luh_max_out(jg,k) .AND. (l_output(jg) .OR. l_celltracks_event_active ) ) THEN
           CALL compute_field_uh_max( p_patch(jg), p_nh(jg)%metrics, p_nh(jg)%prog(nnow(jg)), p_nh(jg)%diag,  &
                &                     uh_max_zmin(k), uh_max_zmax(k), prm_diag(jg)%uh_max_3d(:,:,k) )
         END IF

@@ -84,7 +84,7 @@ MODULE mo_io_config
   INTEGER, PARAMETER :: uh_max_nlayer = 3
   REAL(wp):: uh_max_zmin(uh_max_nlayer), &  !< minimum and maximum height in m MSL for the vertical
              uh_max_zmax(uh_max_nlayer)     !  integration of uh_max (output vars uh_max<_low,_med>)
-  LOGICAL :: luh_max_out(uh_max_nlayer)
+  LOGICAL :: luh_max_out(max_dom, uh_max_nlayer) = .false.
 
   TYPE t_echotop_meta
     REAL(wp) :: time_interval           !< time interval [seconds] over which echotops are maximized/minimized
