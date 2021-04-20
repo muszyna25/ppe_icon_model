@@ -111,6 +111,8 @@ MODULE mo_ocean_ab_timestepping_zstar
   USE mo_ice_fem_interface,      ONLY: ice_fem_init_vel_restart, ice_fem_update_vel_restart
 
   USE mo_ocean_physics_types,ONLY: v_params
+
+  use ieee_arithmetic ! For ieee_is_nan
  
   !-------------------------------------------------------------------------
   IMPLICIT NONE
@@ -1095,7 +1097,7 @@ CONTAINS
       IF ( abs(minmaxmean(1)) >  300 ) CALL finish("Surface height too large!!")
 
 #ifndef NAGFOR
-      IF ( ISNAN(minmaxmean(1)) ) CALL finish("Surface height too large!!")
+      IF ( ieee_is_nan(minmaxmean(1)) ) CALL finish("Surface height too large!!")
 #endif
 
       IF (createSolverMatrix) &
