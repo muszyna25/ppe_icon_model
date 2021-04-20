@@ -2948,7 +2948,7 @@ MODULE mo_nonhydro_state
       CALL add_var( p_diag_list, 't2m_bias', p_diag%t2m_bias,                         &
         &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
         &           ldims=shape2d_c, lrestart=.true.,                                 &
-        &           in_group=groups("mode_iau_fg_in") )
+        &           in_group=groups("mode_iau_fg_in","mode_combined_in") )
     ENDIF
 
     IF (icpl_da_sfcevap >= 2) THEN
@@ -2961,7 +2961,7 @@ MODULE mo_nonhydro_state
       CALL add_var( p_diag_list, 'rh_avginc', p_diag%rh_avginc,                       &
         &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,       &
         &           ldims=shape2d_c, lrestart=.true.,                                 &
-        &           in_group=groups("mode_iau_fg_in") )
+        &           in_group=groups("mode_iau_fg_in","mode_combined_in") )
     ENDIF
 
     IF (icpl_da_sfcevap >= 3) THEN
