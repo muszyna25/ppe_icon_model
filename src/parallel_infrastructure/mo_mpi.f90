@@ -203,13 +203,11 @@ MODULE mo_mpi
   ! Comment: Please use basic WRITE to nerr for messaging in the whole
   !          MPI package to achieve proper output.
 
-  USE, INTRINISC :: iso_c_binding, ONLY: c_char, c_signed_char, cint
+  USE, INTRINSIC :: iso_c_binding, ONLY: c_char, c_signed_char, c_int
   
   ! actual method (MPI-2)
 #ifndef NOMPI
-#if !defined (__SUNPRO_F95)
   USE mpi
-#endif
 #endif
 
 #ifdef _OPENMP
@@ -224,7 +222,6 @@ MODULE mo_mpi
 #ifdef HAVE_CDI_PIO
   USE mo_cdi_pio_interface, ONLY: nml_io_cdi_pio_conf_handle
 #endif
-!  USE mo_impl_constants, ONLY: SUCCESS
 
   USE mo_emvorado_init, ONLY: init_emvorado_mpi
 
@@ -235,8 +232,7 @@ MODULE mo_mpi
       INTEGER(c_int), VALUE :: iret
     END SUBROUTINE exit
   END INTERFACE
-#endif
-
+#else
   USE mo_util_system, ONLY: util_exit
 #endif
 
@@ -251,11 +247,6 @@ MODULE mo_mpi
 
   PRIVATE                          ! all declarations are private
 
-#ifndef NOMPI
-#if defined (__SUNPRO_F95)
-  INCLUDE "mpif.h"
-#endif
-#endif
 #ifdef HAVE_CDI_PIO
   INCLUDE 'cdipio.inc'
 #endif
@@ -380,20 +371,14 @@ MODULE mo_mpi
   !--------------------------------------------------------------------
 
 #ifndef NOMPI
-#ifdef  __SUNPRO_F95
-  INTEGER,PUBLIC :: MPI_INTEGER, MPI_STATUS_SIZE, MPI_SUCCESS, &
-            MPI_INFO_NULL, MPI_ADDRESS_KIND, MPI_COMM_SELF, &
-            MPI_UNDEFINED, mpi_max, mpi_in_place
-#else
   PUBLIC :: MPI_INTEGER, MPI_STATUS_SIZE, MPI_SUCCESS, &
             MPI_INFO_NULL, MPI_ADDRESS_KIND, &
-            MPI_UNDEFINED, mpi_in_place, mpi_op_null, &
-            mpi_datatype_null
-#endif
+            MPI_UNDEFINED, MPI_IN_PLACE, MPI_OP_NULL, &
+            MPI_DATATYPE_NULL
   PUBLIC :: MPI_2INTEGER
 #endif
   PUBLIC :: MPI_ANY_SOURCE, MPI_COMM_NULL, MPI_COMM_SELF
-  PUBLIC :: mpi_request_null
+  PUBLIC :: MPI_REQUEST_NULL
 
   ! real data type matching real type of MPI implementation
   PUBLIC :: p_real_dp, p_real_sp, p_real
@@ -912,6 +897,8 @@ MODULE mo_mpi
 
   CHARACTER(*), PARAMETER :: modname = "mo_mpi"
 
+  CHARACTER(len=256) :: message_text = ""
+  
 #if defined( _OPENACC )
 #define ACC_DEBUG NOACC
 #if defined(__MPI_NOACC)
@@ -2075,7 +2062,7 @@ CONTAINS
     END DO
 
     IF (other_comp_root_global_mpi_id == -1) THEN
-      CALL message(method_name, ' Other component not found.')
+      CALL finish(method_name, ' Other component not found.')
     END IF
 
     ! Perform the same as above, but create the intra-communicators between
@@ -2171,9 +2158,9 @@ CONTAINS
       WRITE (nerr,'(a,a)') routine, ' MPI_INITITIALIZED failed.'
       WRITE (nerr,'(a,i4)') ' Error =  ', p_error
 #ifdef __STANDALONE
-      CALL exit(iexit)
+      CALL exit(p_error)
 #else
-      CALL util_exit(iexit)
+      CALL util_exit(p_error)
 #endif
     END IF
     !--------------------------------------------
@@ -2218,9 +2205,9 @@ CONTAINS
       WRITE (nerr,'(a,a)') routine, ' MPI_INITITIALIZED failed.'
       WRITE (nerr,'(a,i4)') ' Error =  ', p_error
 #ifdef __STANDALONE
-      CALL exit(iexit)
+      CALL exit(p_error)
 #else
-      CALL util_exit(iexit)
+      CALL util_exit(p_error)
 #endif
     END IF
 
@@ -2228,9 +2215,9 @@ CONTAINS
        WRITE (nerr,'(a,a)') routine, &
          & ' MPI_Init or start_mpi needs to be called first.'
 #ifdef __STANDALONE
-      CALL exit(iexit)
+      CALL exit(p_error)
 #else
-      CALL util_exit(iexit)
+      CALL util_exit(p_error)
 #endif
     ENDIF
 
@@ -2331,10 +2318,7 @@ CONTAINS
 #ifndef NOMPI
     INTEGER :: provided
 #endif
-#ifndef __SX__
-    ! status
-!    INTEGER :: istat
-#else
+#ifdef __SX__
     EXTERNAL :: getenv
 #endif
 #endif
@@ -2362,9 +2346,9 @@ CONTAINS
        WRITE (nerr,'(a,a)') routine, ' MPI_INIT failed.'
        WRITE (nerr,'(a,i4)') ' Error =  ', p_error
 #ifdef __STANDALONE
-      CALL exit(iexit)
+      CALL exit(p_error)
 #else
-      CALL util_exit(iexit)
+      CALL util_exit(p_error)
 #endif
     END IF
 
@@ -2397,9 +2381,9 @@ CONTAINS
     IF (p_error /= 0) THEN
        WRITE (0,*) "Error in MPI_BUFFER_ATTACH."
 #ifdef __STANDALONE
-      CALL exit(iexit)
+      CALL exit(p_error)
 #else
-      CALL util_exit(iexit)
+      CALL util_exit(p_error)
 #endif       
     END IF
 
@@ -2651,7 +2635,6 @@ CONTAINS
      CALL util_exit(1)
 #else
      CALL exit(1)
-#endif
 #endif
 
   END SUBROUTINE abort_mpi
