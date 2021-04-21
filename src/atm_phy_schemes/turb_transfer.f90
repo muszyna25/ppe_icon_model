@@ -525,7 +525,7 @@ SUBROUTINE turbtran (                                                         &
 !
           nvec, ke, ke1, kcm, iblock, ivstart, ivend,                         &
 !
-          l_hori, hhl, fr_land, depth_lk, h_ice, sai, gz0,                    &
+          l_hori, hhl, fr_land, depth_lk, h_ice, rlamh_fac, sai, gz0,         &
 !
           t_g, qv_s, ps, u, v, w, t, qv, qc, prs, epr,                        &
 !
@@ -734,6 +734,7 @@ REAL (KIND=wp), DIMENSION(:,:), INTENT(IN) :: &
 REAL (KIND=wp), DIMENSION(:), INTENT(IN) :: &
 !
     l_hori,       & ! horizontal grid spacing (m)
+    rlamh_fac,    & ! scaling factor for rlam_heat
 !
 ! External parameter fields:
 ! ----------------------------
@@ -1043,7 +1044,7 @@ ENDIF
 
   !GPU data region of all variables except pointers which are set later on
   !$acc data present(hhl,l_hori,fr_land,depth_lk,sai,h_ice,ps)   &
-  !$acc      present(qv_s,t_g,u,v,w,t,qv,qc,prs,epr)             &
+  !$acc      present(qv_s,t_g,u,v,w,t,qv,qc,prs,epr,rlamh_fac)   &
   !$acc      present(gz0,tvm,tvh,tfm,tfh,tfv,tcm,tch,tkr)        &
   !$acc      present(tke,tkvm,tkvh,rcld,hdef2,dwdx,dwdy)         &
   !$acc      present(tketens,edr,t_2m,qv_2m,td_2m,rh_2m)         &
@@ -1498,7 +1499,7 @@ my_thrd_id = omp_get_thread_num()
 !           Effektiven Widerstandslaengen der Rauhigkeits-Schicht:
 
             dz_sg_m(i)=rlam_mom*z_surf
-            dz_sg_h(i)=fakt*rlam_heat*z_surf*(rin_h/rin_m) * &
+            dz_sg_h(i)=fakt*rlam_heat*rlamh_fac(i)*z_surf*(rin_h/rin_m) * &
               MERGE(rat_glac, 1._wp, gz0(i)<0.01_wp .AND. fr_land(i)>=0.5_wp)  ! enhanced by a factor of 'rat_glac' over glaciers
 
           ! ohne lam. Grenzschicht fuer Skalare:

@@ -87,10 +87,10 @@ SUBROUTINE update_weathering ( start_idx,end_idx, pddpo, za)
 
 END SUBROUTINE
 
-SUBROUTINE nitrogen_deposition ( start_idx,end_idx, pddpo,za,nitinp)
+SUBROUTINE nitrogen_deposition ( start_idx,end_idx, pddpo,za,nitinput)
 ! apply nitrogen deposition
-  USE mo_memory_bgc, ONLY     : bgctra, bgctend
-  USE mo_param1_bgc, ONLY     : iano3, ialkali, kn2b
+  USE mo_memory_bgc, ONLY     : bgctra, bgctend,bgcflux
+  USE mo_param1_bgc, ONLY     : iano3, ialkali, kn2b,knitinp
   USE mo_bgc_constants, ONLY  : rmnit
 
 
@@ -99,7 +99,7 @@ SUBROUTINE nitrogen_deposition ( start_idx,end_idx, pddpo,za,nitinp)
   INTEGER, INTENT(in)            :: start_idx              !< start index for j loop (ICON cells, MPIOM lat dir)  
   INTEGER, INTENT(in)            :: end_idx                !< end index  for j loop  (ICON cells, MPIOM lat dir) 
 
-  REAL(wp),INTENT(in) :: nitinp(bgc_nproma )                         !< nitrogen input
+  REAL(wp),INTENT(in) :: nitinput(bgc_nproma )                         !< nitrogen input
   REAL(wp), INTENT(in), TARGET   :: pddpo(bgc_nproma,bgc_zlevs)      !< size of scalar grid cell (3rd dimension) [m]
   REAL(wp), INTENT(in), TARGET   :: za(bgc_nproma)                   !< surface height
   
@@ -113,11 +113,12 @@ SUBROUTINE nitrogen_deposition ( start_idx,end_idx, pddpo,za,nitinp)
   if(pddpo(jc,1) > 0.5_wp) then
 
       ! ndepo : CCMI wet+dry dep of NHx and NOy in kg (N) m-2 s-1
-       ninp = nitinp(jc) / rmnit* dtbgc/(pddpo(jc,1)+za(jc)) ! kmol N m-3 time_step-1
+       ninp = nitinput(jc) / rmnit* dtbgc/(pddpo(jc,1)+za(jc)) ! kmol N m-3 time_step-1
 
        bgctra(jc,1,iano3) = bgctra(jc,1,iano3) + ninp
        bgctra(jc,1,ialkali) = bgctra(jc,1,ialkali) - ninp
        bgctend(jc,1,kn2b)   = bgctend(jc,1,kn2b) - ninp * (pddpo(jc,1) + za(jc)) 
+       bgcflux(jc,knitinp) = ninp
 
   endif
 
@@ -161,7 +162,7 @@ SUBROUTINE dust_deposition ( start_idx,end_idx, pddpo,za,dustinp)
 END SUBROUTINE
 
 
-SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, psao, ptho,  &
+SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, ptho, psao,  &
      &              pfu10, psicomo )
 !! @brief Computes sea-air gass exchange
 !!         for oxygen, O2, N2, N2O, DMS, and CO2.

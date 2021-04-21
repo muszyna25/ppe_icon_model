@@ -35,6 +35,9 @@
                                     CVMIX_MAX_OLD_AND_NEW_VALS
   use cvmix_put_get,         only : cvmix_put
   use cvmix_utils,           only : cvmix_update_wrap
+
+  USE mo_exception,          ONLY: finish
+
 !EOP
 
   implicit none
@@ -104,6 +107,9 @@
       ! Flag for what to do with old values of CVmix_vars%[MTS]diff
       integer :: handle_old_vals
   end type cvmix_shear_params_type
+
+  CHARACTER(LEN=*), PARAMETER :: module_name = 'cvmix_shear'
+
 !EOP
 
   type(cvmix_shear_params_type), target :: CVmix_shear_params_saved
@@ -168,6 +174,8 @@ contains
 ! !OUTPUT PARAMETERS:
     type(cvmix_shear_params_type), optional, target, intent(inout) ::         &
                                               CVmix_shear_params_user
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_init_shear'
 
 !EOP
 !BOC
@@ -245,9 +253,11 @@ contains
         end if
 
       case DEFAULT
-        print*, "ERROR: ", trim(CVmix_shear_params_out%mix_scheme),           &
-                " is not a valid choice for shear mixing."
-        stop 1
+!        print*, "ERROR: ", trim(CVmix_shear_params_out%mix_scheme),           &
+!                " is not a valid choice for shear mixing."
+!        stop 1
+        CALL finish(method_name,'ERROR: '//TRIM(CVmix_shear_params_out%mix_scheme)//' &
+             is not a valid choice for shear mixing.'
 
     end select
 
@@ -263,9 +273,12 @@ contains
           call cvmix_put_shear('handle_old_vals', CVMIX_MAX_OLD_AND_NEW_VALS, &
                                cvmix_shear_params_user)
         case DEFAULT
-          print*, "ERROR: ", trim(old_vals), " is not a valid option for ",   &
-                  "handling old values of diff and visc."
-          stop 1
+!          print*, "ERROR: ", trim(old_vals), " is not a valid option for ",   &
+!                  "handling old values of diff and visc."
+!          stop 1
+          CALL finish(method_name,'ERROR: '//TRIM(old_vals)//' is not a valid option for &
+               handling old values of diff and visc.')
+
       end select
     else
       call cvmix_put_shear('handle_old_vals', CVMIX_OVERWRITE_OLD_VAL,        &
@@ -359,6 +372,8 @@ contains
     real(cvmix_r8), dimension(max_nlev+1), intent(inout) :: Mdiff_out,        &
                                                             Tdiff_out
 
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_coeffs_shear_low'
+
 !EOP
 !BOC
 
@@ -422,8 +437,9 @@ contains
 
       case DEFAULT
         ! Note: this error should be caught in cvmix_init_shear
-        print*, "ERROR: invalid choice for type of shear mixing."
-        stop 1
+!        print*, "ERROR: invalid choice for type of shear mixing."
+!        stop 1
+        CALL finish(method_name,'ERROR: invalid choice for type of shear mixing.')
 
     end select
 
@@ -500,6 +516,7 @@ contains
     type(cvmix_shear_params_type), optional, target, intent(inout) ::         &
                                               CVmix_shear_params_user
 
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_put_shear_real'
 !EOP
 !BOC
 
@@ -529,8 +546,9 @@ contains
       case ('KPP_exp')
         CVmix_shear_params_out%KPP_exp = val
       case DEFAULT
-        print*, "ERROR: ", trim(varname), " not a valid choice!"
-        stop 1
+!        print*, "ERROR: ", trim(varname), " not a valid choice!"
+!        stop 1
+        CALL finish(method_name,'ERROR: '//TRIM(varname)//' not a valid choice!')
 
     end select
 
@@ -561,6 +579,7 @@ contains
     type(cvmix_shear_params_type), optional, target, intent(inout) ::         &
                                               CVmix_shear_params_user
 
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_put_shear_str'
 !EOP
 !BOC
 
@@ -576,8 +595,9 @@ contains
       case ('mix_scheme')
         CVmix_shear_params_out%mix_scheme = val
       case DEFAULT
-        print*, "ERROR: ", trim(varname), " not a valid choice!"
-        stop 1
+!        print*, "ERROR: ", trim(varname), " not a valid choice!"
+!        stop 1
+        CALL finish(method_name,'ERROR: '//TRIM(varname)//' not a valid choice!')
 
     end select
 
@@ -608,6 +628,8 @@ contains
 ! !OUTPUT PARAMETERS:
     real(cvmix_r8) :: cvmix_get_shear_real
 
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_get_shear_real'
+
 !EOP
 !BOC
 
@@ -634,8 +656,9 @@ contains
       case ('KPP_exp')
         cvmix_get_shear_real =CVmix_shear_params_in%KPP_exp
       case DEFAULT
-        print*, "ERROR: ", trim(varname), " not a valid choice!"
-        stop 1
+!        print*, "ERROR: ", trim(varname), " not a valid choice!"
+!        stop 1
+        CALL finish(method_name,'ERROR: '//TRIM(varname)//' not a valid choice!')
 
     end select
 
@@ -666,6 +689,7 @@ contains
 ! !OUTPUT PARAMETERS:
     character(len=cvmix_strlen) :: cvmix_get_shear_str
 
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_get_shear_str'
 !EOP
 !BOC
 
@@ -681,8 +705,9 @@ contains
       case ('mix_scheme')
         cvmix_get_shear_str = trim(CVmix_shear_params_in%mix_scheme)
       case DEFAULT
-        print*, "ERROR: ", trim(varname), " not a valid choice!"
-        stop 1
+!        print*, "ERROR: ", trim(varname), " not a valid choice!"
+!        stop 1
+        CALL finish(method_name,'ERROR: '//TRIM(varname)//' not a valid choice!')
 
     end select
 

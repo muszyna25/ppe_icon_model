@@ -38,9 +38,7 @@ MODULE mo_grib2_util
 #endif
   USE mo_grib2_tile,         ONLY: t_grib2_template_tile
   ! calendar operations
-  USE mtime,                 ONLY: timedelta, newTimedelta,                 &
-    &                              datetime, newDatetime,                   &
-    &                              deallocateTimedelta, deallocateDatetime, &
+  USE mtime,                 ONLY: timedelta, datetime,                &
     &                              OPERATOR(-), getTotalSecondsTimeDelta 
 
   IMPLICIT NONE

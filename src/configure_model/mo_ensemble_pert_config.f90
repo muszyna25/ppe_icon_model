@@ -34,6 +34,7 @@ MODULE mo_ensemble_pert_config
   USE mo_turbdiff_config,    ONLY: turbdiff_config
   USE mo_gribout_config,     ONLY: gribout_config
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
+  USE mo_assimilation_config,ONLY: assimilation_config
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water, c_soil, cwimax_ml
   USE mo_grid_config,        ONLY: n_dom
   USE mo_parallel_config,    ONLY: nproma
@@ -47,6 +48,7 @@ MODULE mo_ensemble_pert_config
   USE mo_extpar_config,      ONLY: nclass_lu
   USE mo_exception,          ONLY: message_text, message, finish
   USE mtime,                 ONLY: datetime, getDayOfYearFromDateTime
+  USE mo_mpi,                ONLY: p_io, p_comm_work, p_bcast
 
   IMPLICIT NONE
   PRIVATE
@@ -60,7 +62,8 @@ MODULE mo_ensemble_pert_config
             range_lowcapefac, range_negpblcape, stdev_sst_pert, sst_pert_corrfac, range_rdepths,        &
             range_rprcon, range_qexc, range_turlen, range_a_hshr, range_rain_n0fac, range_box_liq_asy,  &
             itype_pert_gen, timedep_pert, range_a_stab, range_c_diff, range_q_crit, range_thicklayfac,  &
-            box_liq_sv, thicklayfac_sv, box_liq_asy_sv
+            box_liq_sv, thicklayfac_sv, box_liq_asy_sv, range_lhn_coef, range_lhn_artif_fac,            &
+            range_fac_lhn_down, range_fac_lhn_up
 
   !!--------------------------------------------------------------------------
   !! Basic configuration setup for ensemble perturbations
@@ -167,6 +170,18 @@ MODULE mo_ensemble_pert_config
   REAL(wp) :: &                    !< Upper and lower bound of wind-speed dependent Charnock parameter 
     &  range_charnock, rnd_charnock, rnd_alpha0
 
+  REAL(wp) :: &                    !< Scaling factor for latent heat nudging increments
+    &  range_lhn_coef, rnd_lhn_coef
+
+  REAL(wp) :: &                    !< Scaling factor for artificial heating profile in latent heat nudging
+    &  range_lhn_artif_fac, rnd_lhn_artif_fac
+
+  REAL(wp) :: &                    !< Lower limit for reduction of pre-existing latent heating in LHN
+    &  range_fac_lhn_down, rnd_fac_lhn_down
+
+  REAL(wp) :: &                    !< Upper limit for increase of pre-existing latent heating in LHN
+    &  range_fac_lhn_up, rnd_fac_lhn_up
+
   REAL(wp) :: &                    !< Roughness length attributed to land-cover class 
     &  range_z0_lcc
 
@@ -195,13 +210,15 @@ MODULE mo_ensemble_pert_config
 
   ! Storage for unperturbed tuning parameters:
   !
-  REAL(wp) :: gfluxlaun_sv, zvz0i_sv, rprcon_sv, entrorg_sv, rdepths_sv, texc_sv, qexc_sv, capdcfac_et_sv, capdcfac_tr_sv, &
+  REAL(wp) :: gfluxlaun_sv, zvz0i_sv, rprcon_sv, entrorg_sv, rdepths_sv, texc_sv, qexc_sv, capdcfac_et_sv, capdcfac_tr_sv,     &
               lowcapefac_sv, negpblcape_sv, rhebc_land_sv, rhebc_ocean_sv, rcucov_sv, rhebc_land_trop_sv, rhebc_ocean_trop_sv, &
               rcucov_trop_sv, box_liq_sv, thicklayfac_sv, box_liq_asy_sv, minsnowfrac_sv, c_soil_sv, cwimax_ml_sv
 
-  REAL(wp), DIMENSION(1:max_dom) :: gkwake_sv, gfrcrit_sv, gkdrag_sv, rain_n0_sv, tkhmin_sv, tkhmin_strat_sv, tkmmin_sv, &
+  REAL(wp), DIMENSION(1:max_dom) :: gkwake_sv, gfrcrit_sv, gkdrag_sv, rain_n0_sv, tkhmin_sv, tkhmin_strat_sv, tkmmin_sv,    &
                                     tkmmin_strat_sv, rlam_heat_sv, rat_sea_sv, tur_len_sv, a_hshr_sv, a_stab_sv, c_diff_sv, &
-                                    q_crit_sv, alpha0_sv, alpha0_max_sv
+                                    q_crit_sv, alpha0_sv, alpha0_max_sv, lhn_coef_sv, lhn_artif_fac_sv, fac_lhn_down_sv,    &
+                                    fac_lhn_up_sv
+
 
 
   CONTAINS
@@ -309,6 +326,11 @@ MODULE mo_ensemble_pert_config
 
       ENDDO
 
+      ! Ensure that perturbations on VH and VE cores are the same
+#if defined (__SX__) || defined (__NEC_VH__)
+      CALL p_bcast(rnd_tkred_sfc, p_io, p_comm_work)
+#endif
+
       DEALLOCATE(rnd_seed)
 
       ! Calculate correction term for systematically increased evaporation related to SST perturbations
@@ -392,6 +414,13 @@ MODULE mo_ensemble_pert_config
     minsnowfrac_sv = tune_minsnowfrac
     c_soil_sv      = c_soil
     cwimax_ml_sv   = cwimax_ml
+
+    ! LHN (latent heat nudging)
+    lhn_coef_sv(1:max_dom)      = assimilation_config(1:max_dom)%lhn_coef
+    lhn_artif_fac_sv(1:max_dom) = assimilation_config(1:max_dom)%fac_lhn_artif_tune
+    fac_lhn_down_sv(1:max_dom)  = assimilation_config(1:max_dom)%fac_lhn_down
+    fac_lhn_up_sv(1:max_dom)    = assimilation_config(1:max_dom)%fac_lhn_up
+
 
   END SUBROUTINE save_unperturbed_params
 
@@ -540,6 +569,20 @@ MODULE mo_ensemble_pert_config
     rnd_fac = range_cwimax_ml**(2._wp*(rnd_num-0.5_wp))
     cwimax_ml = cwimax_ml_sv * rnd_fac
 
+    ! LHN
+    CALL random_gen(rnd_lhn_coef, rnd_num)
+    assimilation_config(1:max_dom)%lhn_coef = lhn_coef_sv(1:max_dom) + 2._wp*(rnd_num-0.5_wp)*range_lhn_coef
+
+    CALL random_gen(rnd_lhn_artif_fac, rnd_num)
+    assimilation_config(1:max_dom)%fac_lhn_artif_tune = lhn_artif_fac_sv(1:max_dom) + 2._wp*(rnd_num-0.5_wp)*range_lhn_artif_fac
+
+    CALL random_gen(rnd_fac_lhn_down, rnd_num)
+    assimilation_config(1:max_dom)%fac_lhn_down = MIN(1._wp, fac_lhn_down_sv(1:max_dom) + 2._wp*(rnd_num-0.5_wp)*range_fac_lhn_down)
+
+    CALL random_gen(rnd_fac_lhn_up, rnd_num)
+    assimilation_config(1:max_dom)%fac_lhn_up = MAX(1._wp, fac_lhn_up_sv(1:max_dom) + 2._wp*(rnd_num-0.5_wp)*range_fac_lhn_up)
+
+
     IF (timedep_pert < 2) THEN
 
       ! control output
@@ -679,6 +722,10 @@ MODULE mo_ensemble_pert_config
 
       CALL RANDOM_NUMBER(rnd_aux)
 
+      ! Ensure that perturbations on VH and VE cores are the same
+#if defined (__SX__) || defined (__NEC_VH__)
+      CALL p_bcast(rnd_aux, p_io, p_comm_work)
+#endif
       IF (itype_pert_gen == 1) THEN
         rnd_val = rnd_aux
       ELSE IF (itype_pert_gen == 2) THEN

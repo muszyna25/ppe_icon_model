@@ -39,7 +39,7 @@ USE mo_run_config,           ONLY: dtime,                & !    namelist paramet
   &                                output_mode,          &
   &                                lvert_nest, ntracer,  &
   &                                ldass_lhn, msg_level, &
-  &                                iqc, iqt, iqv,        &
+  &                                iqc, iqt,             &
   &                                ico2, io3,            &
   &                                number_of_grid_used
 USE mo_initicon_config,      ONLY: pinit_seed, pinit_amplitude
@@ -127,7 +127,7 @@ USE mo_sync,                ONLY: sync_patch_array, sync_c
 USE mo_upatmo_setup,        ONLY: upatmo_initialize, upatmo_finalize
 USE mo_nudging_config,      ONLY: l_global_nudging
 USE mo_nwp_reff_interface,  ONLY: reff_calc_dom
-USE mo_random_util,         ONLY: add_random_noise_global, add_random_noise
+USE mo_random_util,         ONLY: add_random_noise
 
 USE mo_icon2dace,           ONLY: init_dace, finish_dace
 

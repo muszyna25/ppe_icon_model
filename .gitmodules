@@ -18,7 +18,7 @@
 	url = git@gitlab.dkrz.de:dkrz-sw/yaxt.git
 [submodule "externals/rte-rrtmgp"]
 	path = externals/rte-rrtmgp
-	url = git@gitlab.dkrz.de:icon-libraries/librte-rrtmgp.git
+        url = https://github.com/earth-system-radiation/rte-rrtmgp.git
 [submodule "externals/cub"]
         path = externals/cub
         url = https://github.com/NVlabs/cub.git
@@ -40,3 +40,9 @@
 [submodule "externals/emvorado"]
 	path = externals/emvorado
 	url = git@gitlab.dkrz.de:dwd-sw/emvorado-for-icon.git
+[submodule "utils/mkexp"]
+	path = utils/mkexp
+	url = https://git.mpimet.mpg.de/public/mkexp
+[submodule "externals/art"]
+	path = externals/art
+	url = git@gitlab.dkrz.de:art/art.git
