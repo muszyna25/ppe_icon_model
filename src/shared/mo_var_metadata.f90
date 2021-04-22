@@ -35,8 +35,7 @@ MODULE mo_var_metadata
   USE mo_util_string,        ONLY: toupper
   USE mo_fortran_tools,      ONLY: assign_if_present
   USE mo_time_config,        ONLY: time_config
-  USE mtime,                 ONLY: datetime, newDatetime, deallocateDatetime,    &
-    &                              timedelta, newTimedelta, deallocateTimedelta, &
+  USE mtime,                 ONLY: datetime, timedelta, newTimedelta, deallocateTimedelta, &
     &                              OPERATOR(+), dateTimeToString, MAX_DATETIME_STR_LEN
 
   IMPLICIT NONE

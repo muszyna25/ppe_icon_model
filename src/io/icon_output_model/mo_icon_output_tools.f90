@@ -44,7 +44,6 @@ MODULE mo_icon_output_tools
   USE mo_level_selection, ONLY: create_mipz_level_selections
   USE mo_zaxis_type,          ONLY: zaxisTypeList, t_zaxisTypeList
 
-  !  USE mo_advection_config,    ONLY: configure_advection
   USE mo_run_config,          ONLY: output_mode, dtime
   USE mo_gribout_config,      ONLY: configure_gribout
 

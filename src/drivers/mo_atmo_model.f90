@@ -17,7 +17,7 @@ MODULE mo_atmo_model
 
   ! basic modules
   USE mo_exception,               ONLY: message, finish
-  USE mo_mpi,                     ONLY: stop_mpi, my_process_is_io, my_process_is_work,       &
+  USE mo_mpi,                     ONLY: stop_mpi, my_process_is_work,                         &
     &                                   set_mpi_work_communicators, process_mpi_io_size,      &
     &                                   my_process_is_pref, process_mpi_pref_size,            &
     &                                   my_process_is_radario, process_mpi_radario_size,      &
@@ -42,7 +42,6 @@ MODULE mo_atmo_model
     &                                   num_prefetch_proc, pio_type, num_io_procs_radar
   USE mo_master_config,           ONLY: isRestart
   USE mo_memory_log,              ONLY: memory_log_terminate
-  USE mo_impl_constants,          ONLY: pio_type_async, pio_type_cdipio
 #ifdef HAVE_CDI_PIO
   USE yaxt,                       ONLY: xt_initialize, xt_initialized
   USE mo_cdi,                     ONLY: namespacegetactive
@@ -57,18 +56,14 @@ MODULE mo_atmo_model
   USE mo_util_sysinfo,            ONLY: util_get_maxrss
 #endif
 #endif
-  USE mo_impl_constants,          ONLY: SUCCESS,                                              &
-    &                                   ihs_atm_temp, ihs_atm_theta, inh_atmosphere,          &
-    &                                   ishallow_water, inwp
+  USE mo_impl_constants,          ONLY: SUCCESS, inh_atmosphere, inwp
   USE mo_zaxis_type,              ONLY: zaxisTypeList, t_zaxisTypeList
   USE mo_load_restart,            ONLY: read_restart_header
   USE mo_key_value_store,         ONLY: t_key_value_store
-  USE mo_restart_nml_and_att,     ONLY: getAttributesForRestarting
 
   ! namelist handling; control parameters: run control, dynamics
   USE mo_read_namelists,          ONLY: read_atmo_namelists
   USE mo_nml_crosscheck,          ONLY: atm_crosscheck
-  USE mo_nonhydrostatic_config,   ONLY: configure_nonhydrostatic
   USE mo_initicon_config,         ONLY: configure_initicon
   USE mo_io_config,               ONLY: restartWritingParameters
   USE mo_lnd_nwp_config,          ONLY: configure_lnd_nwp
@@ -78,7 +73,6 @@ MODULE mo_atmo_model
     &                                   nshift,                                               &
     &                                   num_lev,                                              &
     &                                   msg_level,                                            &
-    &                                   dtime, output_mode,                                   &
     &                                   grid_generatingCenter,                                & ! grid generating center
     &                                   grid_generatingSubcenter,                             & ! grid generating subcenter
     &                                   iforcing, luse_radarfwo
@@ -93,7 +87,6 @@ MODULE mo_atmo_model
   USE mo_master_control,          ONLY: atmo_process
 
   ! time stepping
-  USE mo_atmo_hydrostatic,        ONLY: atmo_hydrostatic
   USE mo_atmo_nonhydrostatic,     ONLY: atmo_nonhydrostatic, construct_atmo_nonhydrostatic
 
   USE mo_nh_testcases,            ONLY: init_nh_testtopo
@@ -109,14 +102,13 @@ MODULE mo_atmo_model
   USE mo_icon_comm_interface,     ONLY: construct_icon_communication,                         &
     &                                   destruct_icon_communication
   ! Vertical grid
-  USE mo_vertical_coord_table,    ONLY: apzero, vct_a, vct_b, vct, allocate_vct_atmo
+  USE mo_vertical_coord_table,    ONLY: vct_a, vct_b, vct, allocate_vct_atmo
   USE mo_init_vgrid,              ONLY: nflatlev
   USE mo_util_vgrid,              ONLY: construct_vertical_grid
 
   ! external data, physics
   USE mo_ext_data_state,          ONLY: ext_data, destruct_ext_data
   USE mo_ext_data_init,           ONLY: init_ext_data
-  USE mo_nwp_ww,                  ONLY: configure_ww
 
   USE mo_diffusion_config,        ONLY: configure_diffusion
 
@@ -144,9 +136,6 @@ MODULE mo_atmo_model
   USE mo_name_list_output_init,   ONLY: init_cdipio_cb
   USE mo_name_list_output,        ONLY: write_ready_files_cdipio
 #endif
-  USE mo_name_list_output_config, ONLY: use_async_name_list_io
-  USE mo_time_config,             ONLY: time_config      ! variable
-  USE mo_output_event_types,      ONLY: t_sim_step_info
   USE mtime,                      ONLY: OPERATOR(<), OPERATOR(+)
 #ifndef NOMPI
   ! Prefetching
@@ -195,6 +184,8 @@ CONTAINS
     CASE(inh_atmosphere)
       CALL construct_atmo_nonhydrostatic(latbc)
 
+    CASE DEFAULT
+      CALL finish(routine, 'unknown choice for iequations.')
     END SELECT
 
     !---------------------------------------------------------------------
@@ -206,12 +197,10 @@ CONTAINS
 
 
     !---------------------------------------------------------------------
-    ! 12. The hydrostatic and nonhydrostatic models branch from this point
+    ! 12. The hydrostatic model has been deleted. Only the non-hydrostatic 
+    !     model is available.
     !---------------------------------------------------------------------
     SELECT CASE(iequations)
-    CASE(ishallow_water,ihs_atm_temp,ihs_atm_theta)
-      CALL atmo_hydrostatic
-
     CASE(inh_atmosphere)
       CALL atmo_nonhydrostatic(latbc)
 
@@ -271,8 +260,7 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
     ! local variables
     CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:construct_atmo_model"
-    INTEGER                 :: jg, jgp, jstep0, error_status, dedicatedRestartProcs
-    TYPE(t_sim_step_info)   :: sim_step_info  
+    INTEGER                 :: jg, jgp, error_status, dedicatedRestartProcs
     TYPE(t_key_value_store), POINTER :: restartAttributes
 
     ! initialize global registry of lon-lat grids
@@ -569,20 +557,11 @@ CONTAINS
     !---------------------------------------------------------------------
 
 
-    CALL configure_diffusion( n_dom, dynamics_parent_grid_id,       &
-      &                       p_patch(1)%nlev, vct_a, vct_b, apzero )
+    CALL configure_diffusion(n_dom, dynamics_parent_grid_id)
 
     CALL configure_gribout(grid_generatingCenter, grid_generatingSubcenter, n_phys_dom)
 
-    IF (iequations == inh_atmosphere) THEN
-      DO jg =1,n_dom
-        CALL configure_nonhydrostatic( jg, p_patch(jg)%nlev,     &
-          &                            p_patch(jg)%nshift_total  )
-        IF ( iforcing == inwp) THEN
-          CALL configure_ww( time_config%tc_startdate, jg, p_patch(jg)%nlev, p_patch(jg)%nshift_total, 'ICON')
-        END IF
-      ENDDO
-    ENDIF
+
 
     !-------------------------------------------------------------------------
     ! EMVORADO: The worker part of the communication with radar IO PEs

@@ -37,17 +37,13 @@ cat > $namelist_filename << EOF
 &testbed_nml
   testbed_model       = 6  ! test_netcdf_read_model
   testfile_3D_time   = "/pool/data/ICON/input/r0002/r2b4_amip/atm/bc_aeropt_kinne/bc_aeropt_kinne_sw_b14_fin_1982.nc"
-!  testfile_3D_time    = "../../grids/bc_ozone_cmip5_1970.nc", "O3"
-!  testfile_3D_time    = "../../grids/bc_aeropt_kinne_sw_b14_fin_2000.nc"
-  testfile_2D_time   = "/pool/data/ICON/input/r0002/r2b4_amip/ocebc_sst_pcmdi_1870-2010.nc/", "sst"
-!  testfile_2D_time    = "../../grids/bc_sst_pcmdi_1870-2010.nc", "sst"
+  testfile_2D_time   = "/pool/data/ICON/input/r0002/r2b4_amip/oce/bc_sst_pcmdi_1870-2010.nc"
 /
 &parallel_nml
  nproma         = ${nproma}
 /
 &grid_nml
- ! dynamics_grid_filename = "/pool/data/ICON/grids//private/r2b4_amip/r2b4_amip.nc"
- dynamics_grid_filename = "../../grids/iconR2B04-grid.nc"
+ dynamics_grid_filename = "/pool/data/ICON/grids//private/r2b4_amip/r2b4_amip.nc"
 /
 &gridref_nml
 /
@@ -66,7 +62,7 @@ cat > $namelist_filename << EOF
  ctest_name  = 'JWw'        ! test case identifier
 /
 &dynamics_nml
- iequations      = ${atmo_model_equations}
+ iequations      = 3
 /
 EOF
 }

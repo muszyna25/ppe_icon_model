@@ -285,17 +285,6 @@ MODULE mo_impl_constants
   ! identifiers for atm time stepping schemes
   INTEGER,PARAMETER :: TRACER_ONLY   = 1 ! pure tracer advection
 
-  ! the hydrostatic model
-  INTEGER,PARAMETER :: TWO_TL_SI     = 12 ! semi-implicit two time level
-  INTEGER,PARAMETER :: LEAPFROG_EXPL = 13 ! explicit leapfrog
-  INTEGER,PARAMETER :: LEAPFROG_SI   = 14 ! semi-implicit leapfrog
-  INTEGER,PARAMETER :: RK4           = 15 ! standard 4th-order Runge-Kutta method
-  INTEGER,PARAMETER :: SSPRK54       = 16 ! SSP RK(5,4)
-
-  ! Scheme for the "slow" component in the TWO_TL_SI time stepping
-  INTEGER,PARAMETER :: EULER_FORWARD = 1
-  INTEGER,PARAMETER :: AB2           = 2
-
   ! Rayleigh damping identifiers
   INTEGER,PARAMETER :: RAYLEIGH_CLASSIC = 1  ! classical Rayleigh damping, which makes use of 
                                              ! a reference state.
@@ -398,15 +387,8 @@ MODULE mo_impl_constants
 
 
   ! equations to be solved
-  INTEGER, PARAMETER :: ihs_atm_temp   =  1 ! - hydrostatic atmosphere, T as progn. var.
-  INTEGER, PARAMETER :: ihs_atm_theta  =  2 ! - hydrostatic atmosphere, Theta as progn. var.
   INTEGER, PARAMETER :: inh_atmosphere =  3 ! - non-hydrost.atm.
-  INTEGER, PARAMETER :: ishallow_water =  0 ! - shallow water model
   INTEGER, PARAMETER :: ihs_ocean      = -1 ! - hydrostatic ocean
-
-  ! cell geometry
-  INTEGER, PARAMETER :: itri           =  3 ! - triangles
-  INTEGER, PARAMETER :: ihex           =  6 ! - hexagons/pentagons
 
   ! parameterized forcing (right hand side) of dynamics
   INTEGER, PARAMETER :: inoforcing     =  0 ! - no forcing

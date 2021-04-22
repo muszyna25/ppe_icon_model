@@ -37,8 +37,7 @@
 MODULE mo_ext_data_state
 
   USE mo_kind,               ONLY: wp
-  USE mo_impl_constants,     ONLY: inwp, MODIS,                                    &
-    &                              ihs_atm_temp, ihs_atm_theta, io3_clim, io3_ape, &
+  USE mo_impl_constants,     ONLY: inwp, MODIS, io3_clim, io3_ape,                 &
     &                              HINTP_TYPE_LONLAT_NNB, MAX_CHAR_LENGTH,         &
     &                              SSTICE_ANA, SSTICE_ANA_CLINC, SSTICE_CLIM,      &
     &                              SSTICE_AVG_MONTHLY, SSTICE_AVG_DAILY,           & 
@@ -61,7 +60,6 @@ MODULE mo_ext_data_state
   USE mo_io_config,          ONLY: lnetcdf_flt64_output
   USE mo_grid_config,        ONLY: n_dom
   USE mo_run_config,         ONLY: iforcing
-  USE mo_dynamics_config,    ONLY: iequations
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_water, llake, &
     &                              sstice_mode
   USE mo_radiation_config,   ONLY: irad_o3, albedo_type
@@ -1173,15 +1171,6 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,             &
         grib2_desc, ldims=shape2d_c )
 
-      IF (iequations == ihs_atm_temp .OR. iequations == ihs_atm_theta ) THEN
-        ! elevation p_ext_atm%elevation_c(nproma,nblks_c)
-        cf_desc    = t_cf_var('elevation at cell center', 'm', &
-          &                     'elevation', datatype_flt)
-        grib2_desc = grib2_var( 192, 140, 219, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-        CALL add_var( p_ext_atm_list, 'elevation_c', p_ext_atm%elevation_c,        &
-          &             GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,          &
-          grib2_desc, ldims=shape2d_c )
-      END IF
 
       ! HDmodel land-sea-mask at surface on cell centers
       ! lsm_hd_c   p_ext_atm%lsm_hd_c(nproma,nblks_c)

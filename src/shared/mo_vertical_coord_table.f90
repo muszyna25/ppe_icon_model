@@ -45,8 +45,7 @@ MODULE mo_vertical_coord_table
   USE mo_kind,               ONLY: wp
   USE mo_io_units,           ONLY: filename_max, find_next_free_unit
   USE mo_exception,          ONLY: message_text, message, finish
-  USE mo_impl_constants,     ONLY: SUCCESS, max_char_length, ishallow_water,   &
-    &                              ihs_atm_temp, ihs_atm_theta, inh_atmosphere
+  USE mo_impl_constants,     ONLY: SUCCESS, max_char_length, inh_atmosphere
   USE mo_physical_constants, ONLY: grav, rcpd, rd
 
   IMPLICIT NONE
@@ -107,54 +106,6 @@ MODULE mo_vertical_coord_table
 
 CONTAINS
 
-  !-------------------------------------------------------------------------
-  !BOC
-
-  !EOC
-  !-------------------------------------------------------------------------
-  !BOP
-  !
-  ! !IROUTINE:  init_vertical_coord
-  !
-  ! !SUBROUTINE INTERFACE:
-
-  SUBROUTINE init_vertical_coord_table(iequations,klev)
-
-    ! !DESCRIPTION:
-    !  Initialization of the hybrid vertical coordinate
-    !
-    ! !REVISION HISTORY:
-    !  Original version by Hui Wan, MPI-M, 2006-02-09
-    !
-    INTEGER, INTENT(IN) :: klev        !< number of ful levels
-    INTEGER, INTENT(IN) :: iequations
-    INTEGER :: jk
-    !EOP
-    !-----------------------------------------------------------------------
-    !BOC
-
-    ! read the A and B parameters of the vertical coordinate
-
-    CALL read_vct(iequations,klev)
-
-    CALL message('vertical_coord_table:init_vertical_coord', '')
-    CALL message('', 'Vertical coordinate table')
-    CALL message('', '   k     vct_a(k) [Pa]   vct_b(k) []')
-    DO jk = 1, SIZE(vct_a)
-      WRITE(message_text,'(i4,f18.10,f14.10)')  jk, vct_a(jk), vct_b(jk)
-      CALL message('', TRIM(message_text))
-    ENDDO
-
-    ! allocate memory for the auxiliary parameters and arrays
-
-    CALL alloc_vct(klev)
-
-    ! assign values to the the auxiliary parameters and arrays
-
-    CALL init_vct(klev)
-
-  END SUBROUTINE init_vertical_coord_table
-
   !EOC
   !-------------------------------------------------------------------------
   !
@@ -166,10 +117,9 @@ CONTAINS
   !! Read the A and B parameters of the hybrid vertical grid,
   !! which define the half level pressure: ph=A+B*ps [Pa]
   !!
-  SUBROUTINE  read_vct (iequations,klev)
+  SUBROUTINE  read_vct (klev)
 
     INTEGER, INTENT(IN) :: klev
-    INTEGER, INTENT(IN) :: iequations
 
     ! Local variables
     CHARACTER(len=max_char_length),PARAMETER :: routine  = &
@@ -186,16 +136,8 @@ CONTAINS
     ! Open file
     WRITE(line,FMT='(i4)') klev
     !
-    SELECT CASE(iequations)
-    CASE(ishallow_water,ihs_atm_temp,ihs_atm_theta)
-      ! use hybrid sigma pressure tables
-      vct_file = 'atm_hyb_sp_'//TRIM(ADJUSTL(line))
-    CASE(inh_atmosphere)
-      ! use hybrid sigma height tables
-      vct_file = 'atm_hyb_sz_'//TRIM(ADJUSTL(line))
-    CASE DEFAULT
-      CALL finish (TRIM(routine), 'no vct file name defined for specified iequations')
-    END SELECT
+    ! use hybrid sigma height tables
+    vct_file = 'atm_hyb_sz_'//TRIM(ADJUSTL(line))
 
     iunit = find_next_free_unit(10,20)
     OPEN (unit=iunit,file=TRIM(vct_file),access='SEQUENTIAL', &

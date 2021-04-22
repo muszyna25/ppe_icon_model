@@ -47,7 +47,7 @@ USE mo_nh_testcases,         ONLY: init_nh_testcase
 USE mo_nh_testcases_nml,      ONLY: nh_test_name
 USE mo_ls_forcing_nml,       ONLY: is_ls_forcing, is_nudging
 USE mo_ls_forcing,           ONLY: init_ls_forcing
-USE mo_dynamics_config,      ONLY: iequations, nnow, nnow_rcf, nnew, nnew_rcf, idiv_method
+USE mo_dynamics_config,      ONLY: nnow, nnow_rcf, nnew, nnew_rcf, idiv_method
 ! Horizontal grid
 USE mo_model_domain,         ONLY: p_patch
 USE mo_grid_config,          ONLY: n_dom, start_time, end_time, &
@@ -60,12 +60,13 @@ USE mo_vertical_grid,        ONLY: set_nh_metrics
 ! Grid nesting
 USE mo_nh_nest_utilities,    ONLY: complete_nesting_setup
 ! NH-namelist state
-USE mo_nonhydrostatic_config,ONLY: kstart_moist, kend_qvsubstep, l_open_ubc,   &
-  &                                itime_scheme, kstart_tracer
+USE mo_nonhydrostatic_config,ONLY: configure_nonhydrostatic, kstart_moist, kend_qvsubstep, &
+  &                                l_open_ubc, itime_scheme, kstart_tracer
 
 USE mo_atm_phy_nwp_config,   ONLY: configure_atm_phy_nwp, atm_phy_nwp_config
 USE mo_ensemble_pert_config, ONLY: configure_ensemble_pert
 USE mo_synsat_config,        ONLY: configure_synsat
+USE mo_nwp_ww,               ONLY: configure_ww
 ! NH-Model states
 USE mo_nonhydro_state,       ONLY: p_nh_state, p_nh_state_lists,               &
   &                                construct_nh_state, destruct_nh_state,      &
@@ -186,6 +187,12 @@ CONTAINS
 
     IF (timers_level > 1) CALL timer_start(timer_model_init)
 
+
+    DO jg =1,n_dom
+      CALL configure_nonhydrostatic( jg, p_patch(jg)%nlev,     &
+        &                            p_patch(jg)%nshift_total  )
+    ENDDO
+
     IF (iforcing == iecham) THEN
       CALL init_echam_phy_params( p_patch(1:) )
       CALL construct_echam_phy_state   ( p_patch(1:), ntracer )
@@ -205,10 +212,12 @@ CONTAINS
 
       CALL configure_synsat()
 
-     ! initialize number of chemical tracers for convection
-     DO jg = 1, n_dom
-       CALL configure_art(jg)
-     ENDDO
+      DO jg = 1, n_dom
+        CALL configure_ww( time_config%tc_startdate, jg, p_patch(jg)%nlev, p_patch(jg)%nshift_total, 'ICON')
+        !
+        ! initialize number of chemical tracers for convection
+        CALL configure_art(jg)
+      ENDDO
 
     ENDIF
 
@@ -272,14 +281,13 @@ CONTAINS
     ! Unfortunately this conflicts with our trying to call the config-routines
     ! as early as possible.
     DO jg =1,n_dom
-     CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,  &
-       &                      iequations, iforcing, iqc, iqt,          &
-       &                      kstart_moist(jg), kend_qvsubstep(jg),    &
-       &                      lvert_nest, l_open_ubc, ntracer,         &
-       &                      idiv_method, itime_scheme,               &
-       &                      p_nh_state_lists(jg)%tracer_list(:),     &
-       &                      kstart_tracer(jg,:))
-
+      CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,   &
+        &                       iforcing, iqc, iqt,                      &
+        &                       kstart_moist(jg), kend_qvsubstep(jg),    &
+        &                       lvert_nest, l_open_ubc, ntracer,         &
+        &                       idiv_method, itime_scheme,               &
+        &                       p_nh_state_lists(jg)%tracer_list(:),     &
+        &                       kstart_tracer(jg,:) )
     ENDDO
 
    IF (ldass_lhn) THEN

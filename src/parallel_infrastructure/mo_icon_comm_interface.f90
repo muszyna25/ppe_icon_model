@@ -19,7 +19,6 @@ MODULE mo_icon_comm_interface
 
   USE mo_parallel_config, ONLY: p_test_run, use_icon_comm
   USE mo_model_domain,    ONLY: t_patch
-!  USE mo_icoham_dyn_memory,ONLY: p_hydro_state
   USE mo_mpi,             ONLY: my_process_is_mpi_parallel, &
     & p_barrier, p_comm_work_test, p_comm_work
   USE mo_icon_comm_lib
@@ -72,12 +71,6 @@ CONTAINS
     DO grid_id = 1, n_dom
       ! create the communication patterns
       CALL init_icon_std_comm_patterns(patch(grid_id))
-
-      ! create the communicators for major variables
-!       p_hydro_state(grid_id)%tend_phy%temp_comm = &
-!         & new_comm_variable(p_hydro_state(grid_id)%tend_phy%temp, on_cells, &
-!         & patch(grid_id))
-
     ENDDO
 
 !     CALL work_mpi_barrier()

@@ -43,8 +43,10 @@ $addexp checksuite.ocean_internal/technical/exp.test_multioutput_model_40km \
 # communication
 $addexp checksuite.infrastructure/testbed/exp.icon-testbed_communication_orig --builders MISTRAL_intel17 --list $listname
 $addexp checksuite.infrastructure/testbed/exp.icon-testbed_communication_yaxt --builders MISTRAL_intel17 --list $listname
-$addexp run/checksuite.infrastructure/testbed/exp.atm_amip_yaxt    --builders MISTRAL_intel17 --list $listname
-$addexp run/checksuite.infrastructure/testbed/exp.ocean_omip_yaxt  --builders MISTRAL_intel17 --list $listname
+$addexp checksuite.infrastructure/testbed/exp.atm_amip_yaxt    --builders MISTRAL_intel17 --list $listname
+$addexp checksuite.infrastructure/testbed/exp.ocean_omip_yaxt  --builders MISTRAL_intel17 --list $listname
+$addexp checksuite.infrastructure/testbed/exp.icon-testbed_read-netcdf --builders MISTRAL_intel17 --list $listname
+
 
 #-----------------------------------------------------------
 # CSCS
