@@ -59,6 +59,8 @@ MODULE mo_radar_data_state
   USE mo_dictionary,         ONLY: t_dictionary
   USE mo_fortran_tools,       ONLY: init
 
+#include "add_var_acc_macro.inc"
+
   IMPLICIT NONE
 
 
@@ -309,7 +311,8 @@ CONTAINS
     CALL add_var( p_radar_ct_list, 'rad_bl', p_radar_ct%blacklist,  &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,             &
       &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,            &
-      &           isteptype=TSTEP_CONSTANT )
+      &           isteptype=TSTEP_CONSTANT, lopenacc=.TRUE. )
+    __acc_attach(p_radar_ct%blacklist)
 
 
   END SUBROUTINE new_radar_data_ct_list
@@ -380,7 +383,8 @@ CONTAINS
     CALL add_var( p_radar_td_list, 'rad_precip', p_radar_td%obs, &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,      &
       &           grib2_desc, ldims=shape3d_c, loutput=.TRUE.,     &
-      &           isteptype=TSTEP_INSTANT )  ! Meta info constituentType missing
+      &           isteptype=TSTEP_INSTANT, lopenacc=.TRUE. )  ! Meta info constituentType missing
+    __acc_attach(p_radar_td%obs)
 
     ! radqual       p_radar_td%spqual(nproma,nblks_c,nobs_times)
     cf_desc    = t_cf_var('rad_qual', '-',   &
@@ -389,7 +393,8 @@ CONTAINS
     CALL add_var( p_radar_td_list, 'rad_qual', p_radar_td%spqual, &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,      &
       &           grib2_desc, ldims=shape3d_c, loutput=.FALSE.,     &
-      &           isteptype=TSTEP_CONSTANT )  ! Meta info constituentType missing
+      &           isteptype=TSTEP_CONSTANT, lopenacc=.TRUE. )  ! Meta info constituentType missing
+    __acc_attach(p_radar_td%spqual)
 
 !    ! radar beam height
     !
@@ -400,7 +405,8 @@ CONTAINS
     CALL add_var( p_radar_td_list, 'rad_height', p_radar_td%radheight,                      &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,              &
       &           grib2_desc, ldims=shape3d_h, loutput=.FALSE.,            &
-      &           isteptype=TSTEP_CONSTANT )
+      &           isteptype=TSTEP_CONSTANT, lopenacc=.TRUE. )
+    __acc_attach(p_radar_td%radheight)
 
   END SUBROUTINE new_radar_data_td_list
   !-------------------------------------------------------------------------
@@ -1008,11 +1014,17 @@ CONTAINS
 
   DO jg = 1, n_dom
     ALLOCATE (lhn_fields(jg)%ttend_lhn(nproma,p_patch(jg)%nlev,p_patch(jg)%nblks_c))
+    !$ACC ENTER DATA CREATE( lhn_fields(jg)%ttend_lhn )
     ALLOCATE (lhn_fields(jg)%qvtend_lhn(nproma,p_patch(jg)%nlev,p_patch(jg)%nblks_c))
+    !$ACC ENTER DATA CREATE( lhn_fields(jg)%qvtend_lhn )
     ALLOCATE (lhn_fields(jg)%brightband(nproma,p_patch(jg)%nblks_c))
+    !$ACC ENTER DATA CREATE( lhn_fields(jg)%brightband )
     ALLOCATE (lhn_fields(jg)%pr_obs_sum(nproma,p_patch(jg)%nblks_c))
+    !$ACC ENTER DATA CREATE( lhn_fields(jg)%pr_obs_sum )
     ALLOCATE (lhn_fields(jg)%pr_mod_sum(nproma,p_patch(jg)%nblks_c))
+    !$ACC ENTER DATA CREATE( lhn_fields(jg)%pr_mod_sum )
     ALLOCATE (lhn_fields(jg)%pr_ref_sum(nproma,p_patch(jg)%nblks_c))
+    !$ACC ENTER DATA CREATE( lhn_fields(jg)%pr_ref_sum )
   
 !$OMP PARALLEL 
     CALL init(lhn_fields(jg)%ttend_lhn(:,:,:))
@@ -1037,11 +1049,17 @@ CONTAINS
   INTEGER :: jg
 
   DO jg = 1, n_dom
+    !$ACC EXIT DATA DELETE( lhn_fields(jg)%ttend_lhn )
     DEALLOCATE (lhn_fields(jg)%ttend_lhn)
+    !$ACC EXIT DATA DELETE( lhn_fields(jg)%qvtend_lhn )
     DEALLOCATE (lhn_fields(jg)%qvtend_lhn)
+    !$ACC EXIT DATA DELETE( lhn_fields(jg)%brightband )
     DEALLOCATE (lhn_fields(jg)%brightband)
+    !$ACC EXIT DATA DELETE( lhn_fields(jg)%pr_obs_sum )
     DEALLOCATE (lhn_fields(jg)%pr_obs_sum)
+    !$ACC EXIT DATA DELETE( lhn_fields(jg)%pr_mod_sum )
     DEALLOCATE (lhn_fields(jg)%pr_mod_sum)
+    !$ACC EXIT DATA DELETE( lhn_fields(jg)%pr_ref_sum )
     DEALLOCATE (lhn_fields(jg)%pr_ref_sum)
   
   ENDDO

@@ -90,7 +90,11 @@ MODULE mo_nh_interface_nwp
   USE mo_nwp_rad_interface,       ONLY: nwp_radiation
   USE mo_sync,                    ONLY: sync_patch_array, sync_patch_array_mult, SYNC_E,      &
                                         SYNC_C, SYNC_C1
-  USE mo_mpi,                     ONLY: my_process_is_mpi_all_parallel, work_mpi_barrier
+#ifdef _OPENACC
+    USE mo_mpi,                     ONLY: my_process_is_mpi_all_parallel, work_mpi_barrier, i_am_accel_node, my_process_is_work
+#else
+    USE mo_mpi,                     ONLY: my_process_is_mpi_all_parallel, work_mpi_barrier
+#endif
   USE mo_nwp_diagnosis,           ONLY: nwp_statistics, nwp_diag_output_1, nwp_diag_output_2
   USE mo_art_diagnostics_interface,ONLY: art_diagnostics_interface
 
@@ -489,10 +493,9 @@ CONTAINS
 
         ! initialize tt_lheat to be in used LHN
         IF (lcompute_tt_lheat) THEN
-#ifdef _OPENACC
-          CALL finish('mo_nh_interface_nwp:','Latent heat nudging not available on GPU')
-#endif
+          !$ACC KERNELS DEFAULT(PRESENT) IF(i_am_accel_node)
           prm_diag%tt_lheat (:,:,jb) = - pt_diag%temp   (:,:,jb)
+          !$ACC END KERNELS
         ENDIF
 
         
@@ -558,10 +561,9 @@ CONTAINS
 
         ! initialize tt_lheat to be in used LHN
         IF (lcompute_tt_lheat) THEN
-#ifdef _OPENACC
-          CALL finish('mo_nh_interface_nwp:','Latent heat nudging not available on GPU')
-#endif
+          !$ACC KERNELS DEFAULT(PRESENT) IF(i_am_accel_node)
           prm_diag%tt_lheat (:,:,jb) = prm_diag%tt_lheat (:,:,jb) + pt_diag%temp   (:,:,jb)
+          !$ACC END KERNELS
         ENDIF
       ENDIF
 
@@ -737,9 +739,6 @@ CONTAINS
     !> Latent heat nudging (optional)
     !!------------------------------------------------------------------
     IF (ldass_lhn .AND. assimilation_config(jg)%lvalid_data .AND. .NOT. linit) THEN
-#ifdef _OPENACC
-      CALL finish('mo_nh_interface_nwp:','Latent heat nudging not supported on GPU')
-#endif
 
       IF (msg_level >= 15) CALL message('mo_nh_interface_nwp:', 'applying LHN')
       IF (timers_level > 1) CALL timer_start(timer_datass)
@@ -790,17 +789,24 @@ CONTAINS
             & i_startidx, i_endidx, rl_start, rl_end )
   
           ! update prognostic variables
+          !$ACC PARALLEL DEFAULT(PRESENT) IF(i_am_accel_node)
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 1, nlev
             DO jc = i_startidx, i_endidx
               pt_diag%temp(jc,jk,jb) = pt_diag%temp(jc,jk,jb) + lhn_fields(jg)%ttend_lhn(jc,jk,jb) * dt_loc
               pt_prog_rcf%tracer(jc,jk,jb,iqv) = pt_prog_rcf%tracer(jc,jk,jb,iqv) + lhn_fields(jg)%qvtend_lhn(jc,jk,jb) * dt_loc
             ENDDO
           ENDDO
+          !$ACC END PARALLEL
           !-------------------------------------------------------------------------
           !   call the saturation adjustment
           !-------------------------------------------------------------------------
   
-          CALL satad_v_3D( &
+#ifdef _OPENACC
+          CALL satad_v_3D_gpu(                            &
+#else
+          CALL satad_v_3D(                                &
+#endif
                & maxiter  = 10                             ,& !> IN
                & tol      = 1.e-3_wp                       ,& !> IN
                & te       = pt_diag%temp       (:,:,jb)    ,& !> INOUT

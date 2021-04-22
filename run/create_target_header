@@ -1263,7 +1263,7 @@ create_target_header()
 
     use_prefetch_procs=0
  	case $job_name in
-	    *mch_ch*)
+	    *mch_*)
 	        use_nodes=3
 	        ;;
 	esac

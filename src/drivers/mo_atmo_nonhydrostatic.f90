@@ -294,6 +294,8 @@ CONTAINS
      ALLOCATE (radar_data(n_dom), lhn_fields(n_dom), STAT=ist)
      IF (ist /= SUCCESS) &
        CALL finish(routine,'allocation for radar_data and lhn_fields failed')
+     !$ACC ENTER DATA CREATE( radar_data(n_dom), lhn_fields(n_dom) )
+
      CALL message(routine,'configure_lhn')
      DO jg =1,n_dom
        CALL configure_lhn(jg)
@@ -803,6 +805,7 @@ CONTAINS
 
     IF (ldass_lhn) THEN 
       ! deallocate ext_data array
+      !$ACC EXIT DATA DELETE( radar_data )
       DEALLOCATE(radar_data, STAT=ist)
       IF (ist /= SUCCESS) THEN
         CALL finish(routine, 'deallocation of radar_data for LHN')

@@ -436,7 +436,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
       grib2_desc = grib2_var(0, 1, 73, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( diag_list, 'hail_gsp_rate', diag%hail_gsp_rate,            &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
-                  & ldims=shape2d, isteptype=TSTEP_INSTANT )
+                  & ldims=shape2d, isteptype=TSTEP_INSTANT, lopenacc=.TRUE. )
+      __acc_attach(diag%hail_gsp_rate)
 
     END SELECT
 
@@ -915,7 +916,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
                 & grib2_desc,ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,  &
                 & isteptype=TSTEP_CONSTANT,                                    &
                 & hor_interp=create_hor_interp_metadata(                       &
-                &    hor_intp_type=HINTP_TYPE_LONLAT_NNB ) )
+                &    hor_intp_type=HINTP_TYPE_LONLAT_NNB ), lopenacc=.TRUE. )
+    __acc_attach(diag%k850)
 
     ! &      diag%k950(nproma,nblks_c)
     cf_desc    = t_cf_var('k950', '', 'level index corresponding to the HAG of the 950hPa level', &
@@ -952,7 +954,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
                 & grib2_desc,ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,  &
                 & isteptype=TSTEP_CONSTANT,                                    &
                 & hor_interp=create_hor_interp_metadata(                       &
-                &    hor_intp_type=HINTP_TYPE_LONLAT_NNB ) )
+                &    hor_intp_type=HINTP_TYPE_LONLAT_NNB ), lopenacc=.TRUE. )
+    __acc_attach(diag%k700)
 
     ! &      diag%k400(nproma,nblks_c)
     cf_desc    = t_cf_var('k400', '', 'level index corresponding to the HAG of the 400hPa level', &
@@ -1166,7 +1169,8 @@ __acc_attach(diag%clct)
                   & lrestart = .FALSE., & ! .TRUE. may be necessary for ART (to be evaluated)
                   & ldims=shape3d,                                              &  
                   & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB), &
-                  & isteptype=TSTEP_INSTANT )
+                  & isteptype=TSTEP_INSTANT, lopenacc=.TRUE. )
+      __acc_attach(diag%lhn_diag)
   
       ! &      diag%lhn_diag(nproma,nlev,nblks_c)
       cf_desc    = t_cf_var('ttend_lhn', 'K s-1',                &
@@ -1178,7 +1182,9 @@ __acc_attach(diag%clct)
                   & ldims=shape3d,                                              &  
                   & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_BCTR, &
                   &                                       fallback_type=HINTP_TYPE_LONLAT_RBF), &
-                  & isteptype=TSTEP_INSTANT )
+                  & isteptype=TSTEP_INSTANT, lopenacc=.TRUE. )
+      __acc_attach(diag%ttend_lhn)
+
       ! &      diag%lhn_diag(nproma,nlev,nblks_c)
       cf_desc    = t_cf_var('qvtend_lhn', 'g/g s-1',                &
         &          'qv increment', DATATYPE_FLT32)
@@ -1189,7 +1195,8 @@ __acc_attach(diag%clct)
                   & ldims=shape3d,                                              &  
                   & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_BCTR, &
                   &                                       fallback_type=HINTP_TYPE_LONLAT_RBF), &
-                  & isteptype=TSTEP_INSTANT )
+                  & isteptype=TSTEP_INSTANT, lopenacc=.TRUE. )
+      __acc_attach(diag%qvtend_lhn)
     ELSE
       ALLOCATE (diag%qrs_flux(1,1,kblks))
       !$ACC ENTER DATA CREATE( diag%qrs_flux )
@@ -3947,7 +3954,8 @@ __acc_attach(diag%clct_avg)
       &           ldims=shape2d, lrestart=.FALSE.,                                   &
 !!$      &           lmiss=.TRUE., missval=-999._wp,                                    &
       &           hor_interp=create_hor_interp_metadata(                             &
-      &                      hor_intp_type=HINTP_TYPE_LONLAT_NNB) )
+      &                      hor_intp_type=HINTP_TYPE_LONLAT_NNB), lopenacc=.TRUE. )
+    __acc_attach(diag%hzerocl)
 
 
     !  significant weather WW
