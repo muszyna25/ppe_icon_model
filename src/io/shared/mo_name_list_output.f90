@@ -2727,7 +2727,6 @@ CONTAINS
 
     ! Shut down MPI
     CALL stop_mpi
-    STOP
 #endif
   END SUBROUTINE name_list_io_main_proc
 

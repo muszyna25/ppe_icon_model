@@ -43,3 +43,6 @@
 [submodule "utils/mkexp"]
 	path = utils/mkexp
 	url = https://git.mpimet.mpg.de/public/mkexp
+[submodule "externals/art"]
+	path = externals/art
+	url = git@gitlab.dkrz.de:art/art.git

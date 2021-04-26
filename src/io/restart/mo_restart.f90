@@ -116,7 +116,6 @@ CONTAINS
     ! This is the end of all things!
     IF(ltimer) CALL print_timer
     CALL stop_mpi
-    STOP
 #endif
   END SUBROUTINE detachRestartProcs
 

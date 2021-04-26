@@ -1,8 +1,16 @@
 MODULE mo_psrad_general
-  use, intrinsic :: iso_c_binding, only: c_float, c_double, c_long, c_int
+
+  USE, INTRINSIC :: iso_c_binding, ONLY: c_float, c_double, c_long, c_int
 
   IMPLICIT NONE
   PUBLIC
+
+  INTERFACE
+    SUBROUTINE exit(iret) BIND(C,name='exit')
+      IMPORT :: c_int
+      INTEGER(c_int), VALUE :: iret
+    END SUBROUTINE exit
+  END INTERFACE
 
   LOGICAL :: upwards
   INTEGER :: jTOA, jSFC, jINC, jABOVE, jBELOW
@@ -74,7 +82,7 @@ CONTAINS
     IF (PRESENT(text) .AND. PRESENT(exit_no)) THEN
       write(*,*) name, ": (", exit_no, ") ", text
     ENDIF
-    STOP 
+    CALL exit(1) 
   END SUBROUTINE
 
   SUBROUTINE finish(name, text, exit_no)

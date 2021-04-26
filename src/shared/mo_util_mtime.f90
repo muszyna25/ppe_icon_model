@@ -310,6 +310,8 @@ CONTAINS
     REAL(dp), INTENT(in) :: dt
     TYPE(datetime), INTENT(in) :: base_dt
     TYPE(timedelta), INTENT(out) :: td
+    INTEGER :: change_sign
+    REAL(dp) :: dtl
     INTERFACE
       SUBROUTINE julianDeltaToTimeDelta(jd, base_dt, td) BIND(c, name='julianDeltaToTimeDelta')
         IMPORT :: juliandelta, datetime, timedelta
@@ -321,8 +323,10 @@ CONTAINS
     TYPE(juliandelta) :: jdelta
 
     jdelta%sign = MERGE(c_char_'+', c_char_'-', dt >= 0.0_dp)
-    jdelta%ms = INT(ABS(MOD(dt, 86400._dp)) * 1000._dp, c_int64_t)
-    jdelta%day = INT(dt/86400._dp, c_int64_t)
+    change_sign = MERGE(1, -1, dt >= 0.0_dp)    
+    dtl = ABS(dt)
+    jdelta%ms = change_sign*INT(ABS(MOD(dtl, 86400.0_dp)) * 1000.0_dp, c_int64_t)
+    jdelta%day = change_sign*INT(dtl/86400.0_dp, c_int64_t)
     CALL juliandeltatotimedelta(jdelta, base_dt, td)
   END SUBROUTINE mtime_timedelta_from_fseconds
 

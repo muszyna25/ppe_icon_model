@@ -37,9 +37,6 @@
 # Dist stage files:
 /icon-*.tar.bz2
 
-# Extra sources that are not treated as submodules:
-externals/art
-
 # Mac OS files:
 *.dSYM
 .DS_Store
