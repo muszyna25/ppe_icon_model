@@ -96,8 +96,8 @@ CONTAINS
          &         zfrw(:),                   &! in
          &         zfri(:),                   &! in
          &         field% zf(:,:,jb),         &! in
-         &         field% presi_old(:,:,jb),  &! in
-         &         field% presm_old(:,:,jb),  &! in
+         &         field% phalf(:,:,jb),      &! in
+         &         field% pfull(:,:,jb),      &! in
          &         field%  ta(:,:,jb),        &! in    tm1
          &         field%  qtrc(:,:,jb,iqv),  &! in    qm1
          &         field%  qtrc(:,:,jb,iqc),  &! in    xlm1

@@ -4564,19 +4564,9 @@ CONTAINS
     END IF
     IF (icount > 0) icount = icount * LEN(t_buffer(1))
 
-#ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-#endif
-
     CALL p_inc_request
     CALL mpi_isend(t_buffer, icount, p_char, p_destination, p_tag, &
          p_comm, p_request(p_irequest), p_error)
-
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-!$ACC END DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -5323,18 +5313,8 @@ CONTAINS
     END IF
     IF (icount > 0) icount = icount * LEN(t_buffer(1))
 
-#ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-#endif
-
     CALL mpi_irecv(t_buffer, icount, p_char, p_source, p_tag, &
          p_comm, out_request, p_error)
-
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-!$ACC END DATA
-#endif
 
     IF (PRESENT(request)) THEN
       request               = out_request

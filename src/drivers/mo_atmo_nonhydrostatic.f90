@@ -97,7 +97,11 @@ USE mo_pp_scheduler,        ONLY: pp_scheduler_init, pp_scheduler_finalize
 
 ! ECHAM physics
 USE mo_echam_phy_memory,    ONLY: construct_echam_phy_state
-USE mo_psrad_forcing_memory, ONLY: construct_psrad_forcing_list
+#ifdef __NO_RTE_RRTMGP__
+USE mo_psrad_forcing_memory, ONLY: construct_rad_forcing_list => construct_psrad_forcing_list
+#else
+USE mo_radiation_forcing_memory, ONLY: construct_rad_forcing_list => construct_radiation_forcing_list
+#endif
 USE mo_physical_constants,  ONLY: amd, amco2
 USE mo_echam_phy_config,    ONLY: echam_phy_tc, dt_zero, echam_phy_config
 USE mo_echam_rad_config,    ONLY: echam_rad_config
@@ -189,8 +193,6 @@ CONTAINS
 
     IF (iforcing == iecham) THEN
       CALL init_echam_phy_params( p_patch(1:) )
-      CALL construct_echam_phy_state   ( p_patch(1:), ntracer )
-      CALL construct_psrad_forcing_list( p_patch(1:) )
     END IF
 
     IF(iforcing == inwp) THEN
@@ -258,6 +260,11 @@ CONTAINS
     IF (iforcing == inwp) THEN
       CALL construct_nwp_phy_state( p_patch(1:), var_in_output)
       CALL construct_nwp_lnd_state( p_patch(1:), p_lnd_state, var_in_output(:)%smi, n_timelevels=2 )
+    END IF
+
+    IF (iforcing == iecham) THEN
+      CALL construct_echam_phy_state ( p_patch(1:), ntracer )
+      CALL construct_rad_forcing_list( p_patch(1:) )
     END IF
 
     CALL upatmo_initialize(p_patch)
@@ -486,14 +493,8 @@ CONTAINS
       !
       ! prepare fields of the physics state, real and test case
       DO jg = 1,n_dom
-        CALL init_echam_phy_field( p_patch(jg)                                        ,&
-          &                        ext_data  (jg)% atm%topography_c       (:,  :)     ,&
-          &                        p_nh_state(jg)% metrics% z_ifc         (:,:,:)     ,&
-          &                        p_nh_state(jg)% metrics% z_mc          (:,:,:)     ,&
-          &                        p_nh_state(jg)% metrics% ddqz_z_full   (:,:,:)     ,&
-          &                        p_nh_state(jg)% metrics% geopot_agl_ifc(:,:,:)     ,&
-          &                        p_nh_state(jg)% metrics% geopot_agl    (:,:,:)     ,&
-          &                        p_nh_state(jg)% diag% temp             (:,:,:)     )
+        CALL init_echam_phy_field( p_patch(jg)                       ,&
+          &                        p_nh_state(jg)% diag% temp(:,:,:) )
       END DO
       !
     END IF

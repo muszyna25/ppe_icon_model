@@ -114,8 +114,12 @@ MODULE mo_rtifc_12
   use mpi     ! prefer MPI module over mpif.h
 #endif
 
-#if defined(_RTTOV_USE_OPENMP) && defined(_DACE_)
+#if defined(_RTTOV_USE_OPENMP)
+#if defined(_DACE_)
   use mo_omp,               only: omp_get_max_threads     !
+#else
+  use omp_lib,              only: omp_get_max_threads     !
+#endif
 #endif
 
   implicit none
