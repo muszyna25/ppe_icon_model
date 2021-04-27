@@ -111,7 +111,9 @@ USE mo_convect_tables,     ONLY: b1    => c1es  , & !! constants for computing t
                                  b2w   => c3les , & !! pressure over water (l) and ice (i)
                                  b4w   => c4les     !!               -- " --
 USE mo_satad,              ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
-                                 sat_pres_ice!,   &  !! saturation vapor pressure w.r.t. ice
+                                 sat_pres_ice,   &  !! saturation vapor pressure w.r.t. ice
+                                 latent_heat_vaporization, &
+                                 latent_heat_sublimation
 !                                 spec_humi          !! Specific humidity 
 USE mo_exception,          ONLY: message, message_text
 USE mo_run_config,         ONLY: ldass_lhn
@@ -198,6 +200,7 @@ SUBROUTINE graupel     (             &
   prr_gsp,prs_gsp,pri_gsp,prg_gsp,   & !! surface precipitation rates
   qrsflux,                           & !  total precipitation flux
   l_cv,                              &
+  ithermo_water,                     & !  water thermodynamics
   ldiag_ttend,     ldiag_qtend     , &
   ddt_tend_t     , ddt_tend_qv     , &
   ddt_tend_qc    , ddt_tend_qi     , & !> ddt_tend_xx are tendencies
@@ -271,6 +274,9 @@ SUBROUTINE graupel     (             &
 
   LOGICAL, INTENT(IN), OPTIONAL :: &
     l_cv                   !! if true, cv is used instead of cp
+
+  INTEGER, INTENT(IN), OPTIONAL :: &
+    ithermo_water          !! water thermodynamics
 
   LOGICAL, INTENT(IN), OPTIONAL :: &
     ldiag_ttend,         & ! if true, temperature tendency shall be diagnosed
@@ -434,6 +440,12 @@ SUBROUTINE graupel     (             &
     zqvsw_up    (nvec),     & ! sat. specitic humidity at ice and water saturation
     zcsdep            ,     & !
     zcidep            
+
+#ifdef __LOOP_EXCHANGE
+   REAL (KIND = wp )  ::  zlhv(ke), zlhs(ke)
+#else
+   REAL (KIND = wp )  ::  zlhv(nvec), zlhs(nvec)
+#endif
     
  REAL    (KIND=wp   ) ::  &    
     zsrmax            ,     & !
@@ -499,6 +511,8 @@ SUBROUTINE graupel     (             &
     dist_cldtop(nvec) !FR: distance from cloud top layer 
 
 
+  LOGICAL :: lvariable_lh   ! Use constant latent heat (default .true.)
+
 !------------ End of header ---------------------------------------------------
 
 !------------------------------------------------------------------------------
@@ -534,6 +548,12 @@ SUBROUTINE graupel     (             &
     lpres_pri = .FALSE.
   ENDIF
 
+  IF (PRESENT(ithermo_water)) THEN
+     lvariable_lh = (ithermo_water .NE. 0)
+  ELSE  ! Default themodynamic is constant latent heat
+     lvariable_lh = .false.
+  END IF
+
 !------------------------------------------------------------------------------
 !  Section 1: Initial setting of local and global variables
 !------------------------------------------------------------------------------
@@ -545,7 +565,7 @@ SUBROUTINE graupel     (             &
   !$ACC CREATE( zvzr, zvzs, zvzg, zvzi )                         &
   !$ACC CREATE( zpkr, zpks, zpkg, zpki )                         &
   !$ACC CREATE( zprvr, zprvs, zprvi, zqvsw_up, zprvg )           &
-  !$ACC CREATE( dist_cldtop )
+  !$ACC CREATE( dist_cldtop, zlhv, zlhs )
 
   !$ACC DATA PRESENT( pri_gsp ) IF (lpres_pri)
 
@@ -688,8 +708,18 @@ SUBROUTINE graupel     (             &
     dist_cldtop(iv) = 0.0_wp
     zqvsw_up(iv) = 0.0_wp
     IF (lpres_pri) pri_gsp (iv) = 0.0_wp
+#ifndef __LOOP_EXCHANGE
+    zlhv(iv)     = lh_v
+    zlhs(iv)     = lh_s    
+#endif
   END DO
   !$ACC END PARALLEL
+
+  ! Initialize latent heats to constant values
+#ifdef __LOOP_EXCHANGE
+  zlhv(:) = lh_v
+  zlhs(:) = lh_s
+#endif
 
 ! *********************************************************************
 ! Loop from the top of the model domain to the surface to calculate the
@@ -700,9 +730,29 @@ SUBROUTINE graupel     (             &
   !$ACC LOOP SEQ
 #ifdef __LOOP_EXCHANGE
   DO iv = iv_start, iv_end  !loop over horizontal domain
+
+! Calculate Latent heats if necessary
+    IF ( lvariable_lh ) THEN
+      DO  k = k_start, ke  ! loop over levels
+        tg      = make_normalized(t(iv,k))
+        zlhv(k) = latent_heat_vaporization(tg)
+        zlhs(k) = latent_heat_sublimation(tg)
+      END DO
+    END IF
+
     DO  k = k_start, ke  ! loop over levels
 #else
   DO  k = k_start, ke  ! loop over levels
+
+! Calculate Latent heats if necessary
+     IF ( lvariable_lh ) THEN
+      !$ACC LOOP GANG VECTOR PRIVATE (tg)
+      DO  iv = iv_start, iv_end  !loop over horizontal domain
+        tg      = make_normalized(t(iv,k))
+        zlhv(iv) = latent_heat_vaporization(tg)
+        zlhs(iv) = latent_heat_sublimation(tg)
+      END DO
+    END IF
 
     !$ACC LOOP GANG VECTOR PRIVATE( alf, bet, fnuc, hlp, llqc, llqg, llqi, llqr, &
     !$ACC                           llqs, m2s, m3s, maxevap, nnr, ppg, qcg,      &
@@ -1385,7 +1435,6 @@ SUBROUTINE graupel     (             &
         sconsg = zcorr * sconsg
       ENDIF
 
-
       zqvt =   sev    - sidep  - ssdep  - sgdep  - snuc   - sconr 
       zqct =   simelt - scau   - scfrz  - scac   - sshed  - srim   - srim2 
       zqit =   snuc   + scfrz  - simelt - sicri  + sidep  - sdau   - sagg   - sagg2  - siau
@@ -1393,7 +1442,11 @@ SUBROUTINE graupel     (             &
       zqst =   siau   + sdau   - ssmelt + srim   + ssdep  + sagg   - sconsg
       zqgt =   sagg2  - sgmelt + sicri  + srcri  + sgdep  + srfrz  + srim2  + sconsg
 
-      ztt = z_heat_cap_r*( lh_v*(zqct+zqrt) + lh_s*(zqit+zqst+zqgt) )
+#ifdef __LOOP_EXCHANGE      
+      ztt = z_heat_cap_r*( zlhv(k)*(zqct+zqrt) + zlhs(k)*(zqit+zqst+zqgt) )
+#else
+      ztt = z_heat_cap_r*( zlhv(iv)*(zqct+zqrt) + zlhs(iv)*(zqit+zqst+zqgt) )
+#endif
 
       ! Update variables and add qi to qrs for water loading
       IF (lsedi_ice ) THEN

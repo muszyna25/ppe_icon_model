@@ -54,7 +54,8 @@ USE mo_physical_constants, ONLY: r_v   => rv    , & !> gas constant for water va
                                  rdv            , & !! r_d / r_v
                                  cvd            , & !!
                                  cl    => clw   , & !! specific heat of water
-                                 lwd   => alv   , & !! latent heat of vapourization
+                                 lwd   => alv   , & !! latent heat of vaporization
+                                 led   => als   , & !! latent heat of sublimation
                                  b3    => tmelt , & !!
                                  tmelt
 
@@ -78,8 +79,33 @@ USE mo_convect_tables,     ONLY: b1    => c1es  , & !! constants for computing t
   PUBLIC  :: dqsatdT
   PUBLIC  :: dqsatdT_ice
   PUBLIC  :: qsat_rho
+  PUBLIC  :: latent_heat_vaporization
+  PUBLIC  :: latent_heat_sublimation
+  PUBLIC  :: latent_heat_melting
+  
+  INTEGER, PARAMETER :: ipsat = 1    ! (1) Tetens (1930)
+                                     ! (2) Murphy-Koop for liq and ice 
 
-
+  REAL (KIND=ireals), PARAMETER :: cp_v = 1850._ireals ! specific heat of water vapor J
+                                                       ! at constant pressure
+                                                       ! (Landolt-Bornstein)
+  REAL (KIND=ireals), PARAMETER :: ci = 2108.0_ireals  ! specific heat of ice
+  
+  real(ireals), parameter  ::      &
+       &  c1i_mk = 9.550426,    &  ! coefficients in Murphy and Koop saturation vapor pressure
+       &  c2i_mk = 5723.265,    &  ! over ice and over  liquid water
+       &  c3i_mk = 3.53068,     &
+       &  c4i_mk = 0.00728332,  &
+       &  c1w_mk = 54.842763,   &
+       &  c2w_mk = 6763.22,     &
+       &  c3w_mk = 4.210,       &
+       &  c4w_mk = 0.000367,    &
+       &  c5w_mk = 53.878,      &
+       &  c6w_mk = 1331.22,     &
+       &  c7w_mk = 9.44523,     &
+       &  c8w_mk = 0.014025,    &
+       &  xi_mk  = 0.0415,      &
+       &  t0_mk  = 218.8
 
 CONTAINS
 
@@ -174,9 +200,6 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
        twork, tworkold
 
 
-  REAL (KIND=ireals), PARAMETER :: cp_v = 1850._ireals ! specific heat of water vapor J
-                                                       !at constant pressure
-                                                       ! (Landolt-Bornstein)
   LOGICAL :: ll_satad, lqtvar
 
 
@@ -219,7 +242,7 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
         ! At such points, the Newton iteration is not necessary and the
         ! adjusted values of T, p, qv and qc can be obtained directly.
 
-        lwdocvd(i,k) = ( lwd + (cp_v - cl)*(te(i,k)-tmelt) - r_v*te(i,k) )/ cvd
+        lwdocvd(i,k) = latent_heat_vaporization(te(i,k)) / cvd
 
         Ttest(i,k) = te(i,k) - lwdocvd(i,k)*qce(i,k)
 
@@ -295,7 +318,7 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
             k = kwrk(indx)
             tworkold(indx) = twork(indx)
             qwd  = qsat_rho(twork(indx), rhotot(i,k))
-            dqwd = dqsatdT_rho(qwd, twork(indx))
+            dqwd = dqsatdT_rho(qwd, twork(indx), rhotot(i,k))
             ! Newton:
             fT = twork(indx) - te(i,k) + lwdocvd(i,k)*(qwd - qve(i,k))
             dfT = 1.0_ireals + lwdocvd(i,k)*dqwd
@@ -475,7 +498,7 @@ SUBROUTINE satad_v_3D_gpu (maxiter, tol, te, qve, qce,    & ! IN, INOUT
       ! At such points, the Newton iteration is not necessary and the
       ! adjusted values of T, p, qv and qc can be obtained directly.
 
-      lwdocvd = ( lwd + (cp_v - cl)*(te(i,k)-tmelt) - r_v*te(i,k) )/ cvd
+      lwdocvd = latent_heat_vaporization(te(i,k)) / cvd
       Ttest = te(i,k) - lwdocvd*qce(i,k)
       qtest = qsat_rho(Ttest, rhotot(i,k))
 
@@ -518,7 +541,7 @@ SUBROUTINE satad_v_3D_gpu (maxiter, tol, te, qve, qce,    & ! IN, INOUT
           ! Here we still have to iterate ...
           tworkold = twork
           qwd  = qsat_rho(twork, rhotot(i,k))
-          dqwd = dqsatdT_rho(qwd, twork)
+          dqwd = dqsatdT_rho(qwd, twork, rhotot(i,k) )
           ! Newton:
           fT = twork - te(i,k) + lwdocvd*(qwd - qve(i,k))
           dfT = 1.0_ireals + lwdocvd*dqwd
@@ -548,42 +571,50 @@ SUBROUTINE satad_v_3D_gpu (maxiter, tol, te, qve, qce,    & ! IN, INOUT
 END SUBROUTINE satad_v_3D_gpu
 
 ELEMENTAL FUNCTION sat_pres_water(temp)
-IMPLICIT NONE
+  IMPLICIT NONE
 
-REAL (KIND=ireals)              :: sat_pres_water
-REAL (KIND=ireals), INTENT(IN)  :: temp
+  REAL (KIND=ireals)              :: sat_pres_water
+  REAL (KIND=ireals), INTENT(IN)  :: temp
 
 !$ACC ROUTINE SEQ
 
-sat_pres_water = b1*EXP( b2w*(temp-b3)/(temp-b4w) )
+  IF (ipsat <= 1) THEN
+    sat_pres_water = b1*EXP( b2w*(temp-b3)/(temp-b4w) )
+  ELSEIF (ipsat == 2) THEN
+    sat_pres_water = psatw_murphykoop(temp)
+  END IF
 
 END FUNCTION sat_pres_water
 
 !==============================================================================
 
 ELEMENTAL FUNCTION sat_pres_ice(temp)
-IMPLICIT NONE
+  IMPLICIT NONE
 
-REAL (KIND=ireals)              :: sat_pres_ice
-REAL (KIND=ireals), INTENT(IN)  :: temp
+  REAL (KIND=ireals)              :: sat_pres_ice
+  REAL (KIND=ireals), INTENT(IN)  :: temp
 
-!$ACC ROUTINE SEQ
+  !$ACC ROUTINE SEQ
 
-sat_pres_ice = b1*EXP( b2i*(temp-b3)/(temp-b4i) )
+  IF (ipsat <= 1) THEN
+    sat_pres_ice = b1*EXP( b2i*(temp-b3)/(temp-b4i) )
+  ELSEIF (ipsat==2 .OR. ipsat==3) THEN
+    sat_pres_ice = psati_murphykoop(temp)
+  ENDIF
 
 END FUNCTION sat_pres_ice
 
 !==============================================================================
 
 ELEMENTAL FUNCTION spec_humi(pvap,pres)
-IMPLICIT NONE
+  IMPLICIT NONE
 
-REAL (KIND=ireals)              :: spec_humi
-REAL (KIND=ireals), INTENT(IN)  :: pres,pvap
+  REAL (KIND=ireals)              :: spec_humi
+  REAL (KIND=ireals), INTENT(IN)  :: pres,pvap
 
-!$ACC ROUTINE SEQ
+  !$ACC ROUTINE SEQ
 
-spec_humi = rdv*pvap/( pres - o_m_rdv*pvap )
+  spec_humi = rdv*pvap/( pres - o_m_rdv*pvap )
 
 END FUNCTION spec_humi
 
@@ -603,8 +634,8 @@ FUNCTION qsat_rho(temp, rhotot)
     !-------------------------------------------------------------------------------
 
   ! input variables: temperature [K], total density [kg/m^2]:
-  REAL (KIND=ireals)            :: qsat_rho
-  REAL(kind=ireals), INTENT(IN) :: temp, rhotot
+  REAL (KIND=ireals)             :: qsat_rho
+  REAL (KIND=ireals), INTENT(IN) :: temp, rhotot
 
   qsat_rho   = sat_pres_water(temp) / (rhotot * r_v * temp)
 
@@ -614,7 +645,7 @@ END FUNCTION qsat_rho
 #ifndef _OPENACC
 ELEMENTAL &
 #endif
-FUNCTION dqsatdT_rho(zqsat, temp)
+FUNCTION dqsatdT_rho(zqsat, temp, rho)
   !$ACC ROUTINE SEQ
 
     !-------------------------------------------------------------------------------
@@ -631,14 +662,19 @@ FUNCTION dqsatdT_rho(zqsat, temp)
 
   ! input variables: specific saturation humidity [-], temperature [K]:
   REAL (KIND=ireals)            :: dqsatdT_rho
-  REAL(kind=ireals), INTENT(in) :: zqsat, temp
+  REAL (KIND=ireals), INTENT(IN):: zqsat, temp, rho
 
   ! local variables:
   REAL(kind=ireals) :: beta
 
-  beta        = b234w/(temp-b4w)**2_iintegers - 1.0_ireals / temp
-  dqsatdT_rho = beta * zqsat
-
+  IF (ipsat == 1) THEN
+    beta        = b234w/(temp-b4w)**2_iintegers - 1.0_ireals / temp
+    dqsatdT_rho = beta * zqsat
+  ELSEIF (ipsat == 2) THEN
+    beta        = psatw_murphykoop_derivative(temp)
+    dqsatdT_rho = beta/(r_v*rho*temp)- zqsat/temp
+  END IF
+  
 END FUNCTION dqsatdT_rho
 
 ! UB_20100525<<
@@ -656,7 +692,7 @@ ELEMENTAL  FUNCTION dqsatdT (zqsat, temp)
 
   ! input variables: specific saturation humidity [-], temperature [K]:
   REAL (KIND=ireals)            :: dqsatdT
-  REAL(kind=ireals), INTENT(in) :: zqsat, temp
+  REAL (KIND=ireals), INTENT(IN):: zqsat, temp
 
   dqsatdT = b234w * ( 1.0_ireals + rvd_m_o*zqsat ) * zqsat &
                              / (temp-b4w)**2
@@ -676,7 +712,7 @@ ELEMENTAL  FUNCTION dqsatdT_ice (zqsat, temp)
 
   ! input variables: specific saturation humidity [-], temperature [K]:
   REAL (KIND=ireals)            :: dqsatdT_ice
-  REAL(kind=ireals), INTENT(in) :: zqsat, temp
+  REAL (KIND=ireals), INTENT(IN):: zqsat, temp
 !$ACC ROUTINE SEQ
 
   dqsatdT_ice = b234i * ( 1.0_ireals + rvd_m_o*zqsat ) * zqsat &
@@ -684,6 +720,111 @@ ELEMENTAL  FUNCTION dqsatdT_ice (zqsat, temp)
 
 END FUNCTION dqsatdT_ice
 
+! Routine with ACC ROUTINE SEQ cannot be elemental
+#ifndef _OPENACC
+ELEMENTAL &
+#endif
+FUNCTION latent_heat_vaporization(temp)
+
+    !-------------------------------------------------------------------------------
+    !>
+    !! Description:
+    !!   Latent heat of vaporization as internal energy and taking into account
+    !!   Kirchoff's relations
+    !-------------------------------------------------------------------------------
+
+  IMPLICIT NONE
+  REAL(KIND=ireals)             :: latent_heat_vaporization
+  REAL(KIND=ireals), INTENT(IN) :: temp
+  !$ACC ROUTINE SEQ
+  
+  latent_heat_vaporization = lwd + (cp_v - cl)*(temp-tmelt) - r_v*temp
+  
+END FUNCTION latent_heat_vaporization
+
+! Routine with ACC ROUTINE SEQ cannot be elemental
+#ifndef _OPENACC
+ELEMENTAL &
+#endif
+FUNCTION latent_heat_sublimation(temp)
+
+    !-------------------------------------------------------------------------------
+    !>
+    !! Description:
+    !!   Latent heat of sublimation as internal energy and taking into account
+    !!   Kirchoff's relations
+    !-------------------------------------------------------------------------------
+
+  IMPLICIT NONE
+  REAL(KIND=ireals)             :: latent_heat_sublimation
+  REAL(KIND=ireals), INTENT(IN) :: temp
+  !$ACC ROUTINE SEQ
+  
+  latent_heat_sublimation = led + (cp_v - ci)*(temp-tmelt) - r_v*temp
+  
+END FUNCTION latent_heat_sublimation
+
+ELEMENTAL FUNCTION latent_heat_melting(temp)
+
+    !-------------------------------------------------------------------------------
+    !>
+    !! Description:
+    !!   Latent heat of sublimation as internal energy and taking into account
+    !!   Kirchoff's relations
+    !-------------------------------------------------------------------------------
+
+  IMPLICIT NONE
+  REAL(KIND=ireals)             :: latent_heat_melting
+  REAL(KIND=ireals), INTENT(IN) :: temp
+  
+  latent_heat_melting = lwd - led + (ci - cl)*(temp-tmelt)
+  
+END FUNCTION latent_heat_melting
+
+ELEMENTAL FUNCTION psatw_murphykoop(tk)
+  IMPLICIT NONE
+  REAL(KIND=ireals)             :: psatw_murphykoop
+  REAL(KIND=ireals), intent(IN) :: tk
+    
+  ! Eq. (10) of Murphy and Koop (2005)
+  psatw_murphykoop = exp( c1w_mk - c2w_mk/tk - c3w_mk*log(tk) + c4w_mk*tk &
+       & + tanh(xi_mk*(tk-t0_mk))*(c5w_mk-c6w_mk/tk-c7w_mk*log(tk)+c8w_mk*tk) )
+    
+END FUNCTION psatw_murphykoop
+
+ELEMENTAL FUNCTION psati_murphykoop(tk)
+  IMPLICIT NONE
+  REAL(KIND=ireals)             :: psati_murphykoop
+  REAL(KIND=ireals), intent(IN) :: tk
+  
+  ! Eq. (7) of Murphy and Koop (2005)
+  psati_murphykoop = exp(c1i_mk - c2i_mk/tk + c3i_mk*log(tk) - c4i_mk*tk )
+    
+END FUNCTION psati_murphykoop
+  
+ELEMENTAL FUNCTION psatw_murphykoop_derivative(tk)
+  IMPLICIT NONE
+  REAL(KIND=ireals)             :: psatw_murphykoop_derivative
+  REAL(KIND=ireals), intent(IN) :: tk
+       
+  ! Derivative of Eq. (10) of Murphy and Koop (2005)
+  psatw_murphykoop_derivative = &
+       & (c2w_mk/tk**2 - c3w_mk/tk + c4w_mk) * exp( c1w_mk - c2w_mk/tk - c3w_mk*log(tk) + c4w_mk*tk)  &
+       & + cosh( xi_mk*(tk-t0_mk))**(-2) * (c5w_mk - c6w_mk/tk - c7w_mk*log(tk) + c8w_mk*tk) &
+       & + tanh( xi_mk*(tk-t0_mk)) * (c6w_mk/tk**2 - c7w_mk/tk + c8w_mk)
+    
+END FUNCTION psatw_murphykoop_derivative
+
+ELEMENTAL FUNCTION psati_murphykoop_derivative(tk)
+  IMPLICIT NONE
+  REAL(KIND=ireals)             :: psati_murphykoop_derivative
+  REAL(KIND=ireals), intent(IN) :: tk
+       
+  ! Derivative of Eq. (7) of Murphy and Koop (2005)
+  psati_murphykoop_derivative = (c2i_mk/tk**2 + c3i_mk/tk - c4i_mk) * psati_murphykoop(tk)
+    
+END FUNCTION psati_murphykoop_derivative
+  
 
 END MODULE mo_satad
 

@@ -5198,6 +5198,31 @@ Parameterization set for diagnostic calculations of effective radius: \\
 \tabularnewline
 
 %\hline
+icpl\_rad\_reff  &
+I (max\_ dom) &
+0 &
+&
+Coupling of the effective radius with radiation: \\
+0 \,\,\,  = No coupling. The calculation of the effective radius happens at the radiation interface. \\
+1 \,\,\, = Radiation uses the effective radius defined by ireff\_calc. All hydrometeors are combined in a frozen and a liquid phase. 
+&run\_nml:iforcing = inwp \\
+inwp\_radiation = 1 or 4  \\
+ireff\_calc > 0
+\tabularnewline
+
+%\hline
+ithermo\_water &
+I (max\_ dom) &
+0 &
+&
+Latent Heat Function \\
+0 \,\,\,  = Temperature-dependent latent heat in saturation adjustment but constant in microphysics: \\
+1 \,\,\,  = Temperature-dependent latent heat in saturation adjustment and microphysics 
+&run\_nml:iforcing = inwp \\
+ inwp\_gscp = 1,2,4,5,7
+\tabularnewline
+
+%\hline
 lupatmo\_phy&
 L (max\_ dom)& .FALSE.&  & 
 Switch for upper-atmosphere physics. \\

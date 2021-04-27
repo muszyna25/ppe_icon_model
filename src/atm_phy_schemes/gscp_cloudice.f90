@@ -110,7 +110,9 @@ USE mo_convect_tables,     ONLY: b1    => c1es  , & !! constants for computing t
                                  b2w   => c3les , & !! pressure over water (l) and ice (i)
                                  b4w   => c4les     !!               -- " --
 USE mo_satad,              ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
-                                 sat_pres_ice!,   &  !! saturation vapor pressure w.r.t. ice
+                                 sat_pres_ice,   &  !! saturation vapor pressure w.r.t. ice
+                                 latent_heat_vaporization, &
+                                 latent_heat_sublimation
 USE mo_exception,          ONLY: message, message_text
 USE mo_run_config,         ONLY: ldass_lhn
 
@@ -182,6 +184,7 @@ SUBROUTINE cloudice (             &
   prr_gsp,prs_gsp,pri_gsp,           & !! surface precipitation rates
   qrsflux,                           & !  total precipitation flux
   l_cv,                              &
+  ithermo_water,                     & !  water thermodynamics
   ldiag_ttend,     ldiag_qtend     , &
   ddt_tend_t     , ddt_tend_qv     , &
   ddt_tend_qc    , ddt_tend_qi     , & !> ddt_tend_xx are tendencies
@@ -243,6 +246,9 @@ SUBROUTINE cloudice (             &
 
   LOGICAL, INTENT(IN), OPTIONAL :: &
     l_cv                   !! if true, cv is used instead of cp
+
+  INTEGER, INTENT(IN), OPTIONAL :: &
+    ithermo_water          !! water thermodynamics
 
   LOGICAL, INTENT(IN), OPTIONAL :: &
     ldiag_ttend,         & ! if true, temperature tendency shall be diagnosed
@@ -427,8 +433,8 @@ SUBROUTINE cloudice (             &
     sev    (nvec), & ! transfer rate due evaporation of rain
     srfrz  (nvec), & ! transfer rate due to rainwater freezing
     reduce_dep(nvec),&!FR: coefficient: reduce deposition at cloud top (Forbes 2012)
-    dist_cldtop(nvec) !FR: distance from cloud top layer
-
+    dist_cldtop(nvec),& !FR: distance from cloud top layer
+    zlhv(nvec), zlhs(nvec) ! Latent heat if vaporization and sublimation
  
   ! Dimensions and loop counter for storing the indices
   INTEGER (KIND=i4)        ::  &
@@ -443,6 +449,8 @@ SUBROUTINE cloudice (             &
     ivdx5(nvec), & !!
     ivdx6(nvec)    !!
 
+
+  LOGICAL :: lvariable_lh   ! Use constant latent heat (default .true.)
 
 !------------ End of header ---------------------------------------------------
 
@@ -472,6 +480,12 @@ SUBROUTINE cloudice (             &
   ELSE
     z_heat_cap_r = cpdr
   ENDIF
+
+  IF (PRESENT(ithermo_water)) THEN
+     lvariable_lh = (ithermo_water .NE. 0)
+  ELSE  ! Default themodynamic is constant latent heat
+     lvariable_lh = .false.
+  END IF
 
 !------------------------------------------------------------------------------
 !  Section 1: Initial setting of local and global variables
@@ -601,7 +615,8 @@ SUBROUTINE cloudice (             &
     CALL message('',message_text)
   ENDIF
 
-
+  zlhv(:) = lh_v
+  zlhs(:) = lh_s
 
 ! *********************************************************************
 ! Loop from the top of the model domain to the surface to calculate the
@@ -609,7 +624,7 @@ SUBROUTINE cloudice (             &
 ! *********************************************************************
 
   loop_over_levels: DO  k = k_start, ke
-
+  
 
   !----------------------------------------------------------------------------
   ! Section 2: Check for existence of rain and snow
@@ -1256,6 +1271,15 @@ SUBROUTINE cloudice (             &
     !            Update the prognostic variables in the interior domain.
     !--------------------------------------------------------------------------
 
+    IF (lvariable_lh) THEN
+      loop_lh : DO iv = iv_start, iv_end
+        tg  = t (iv,k)
+        zlhv(iv) = latent_heat_vaporization(tg)
+        zlhs(iv) = latent_heat_sublimation(tg) 
+      END DO loop_lh
+    END IF 
+
+
     loop_over_all_iv: DO iv = iv_start, iv_end
 
         qrg  = qr(iv,k)
@@ -1278,6 +1302,7 @@ SUBROUTINE cloudice (             &
         IF (ssdep(iv) < 0.0_wp ) THEN
           ssdep(iv) = MAX(ssdep(iv), - zssmax)
         ENDIF
+
         zqvt = sev(iv)   - sidep(iv) - ssdep(iv)  - snuc(iv)
         zqct = simelt(iv)- scau(iv)  - scfrz(iv)  - scac(iv)   - sshed(iv) - srim(iv) 
         zqit = snuc(iv)  + scfrz(iv) - simelt(iv) - sicri(iv)  + sidep(iv) - sdau(iv)            &
@@ -1285,7 +1310,7 @@ SUBROUTINE cloudice (             &
         zqrt = scau(iv)  + sshed(iv) + scac(iv)   + ssmelt(iv) - sev(iv) - srcri(iv) - srfrz(iv) 
         zqst = siau(iv)  + sdau(iv)  + sagg(iv)   - ssmelt(iv) + sicri(iv) + srcri(iv)           &
                                                                + srim(iv) + ssdep(iv) + srfrz(iv)
-        ztt = z_heat_cap_r*( lh_v*(zqct+zqrt) + lh_s*(zqit+zqst) )
+        ztt = z_heat_cap_r*( zlhv(iv)*(zqct+zqrt) + zlhs(iv)*(zqit+zqst) )
 
         ! Update variables and add qi to qrs for water loading 
         IF (lsedi_ice .OR. lorig_icon) THEN
