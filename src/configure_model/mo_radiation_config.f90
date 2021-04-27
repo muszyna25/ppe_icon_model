@@ -110,12 +110,6 @@ MODULE mo_radiation_config
     INTEGER  :: irad_aero   !< aerosols
     LOGICAL  :: lrad_aero_diag  !< diagnose aerosols
     !
-    ! --- Select dynamic greenhouse gases scenario (read from file)
-    !     ighg = 0 : select default gas volume mixing ratios - 1990 values (CMIP5)
-    !     ighg = 1 : transient CMIP5 scenario from file
-    !
-    INTEGER :: ighg
-    !
     ! --- Name of the file that contains  dynamic greenhouse values
     !
     CHARACTER(LEN=filename_max)  :: ghg_filename

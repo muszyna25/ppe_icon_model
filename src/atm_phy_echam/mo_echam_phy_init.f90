@@ -348,7 +348,8 @@ CONTAINS
       END IF
       !
       jg=1
-      CALL gscp_set_coefficients(tune_zceff_min      = echam_mig_config(jg)% zceff_min      ,&
+      CALL gscp_set_coefficients(              igscp = 2                                    ,& 
+         &                       tune_zceff_min      = echam_mig_config(jg)% zceff_min      ,&
          &                       tune_v0snow         = echam_mig_config(jg)% v0snow         ,&
          &                       tune_zvz0i          = echam_mig_config(jg)% zvz0i          ,&
          &                       tune_icesedi_exp    = echam_mig_config(jg)% icesedi_exp    ,&
@@ -880,23 +881,11 @@ CONTAINS
   !! Initial version by Hui Wan, MPI-M (2010-07)
   !!
   SUBROUTINE init_echam_phy_field( p_patch        ,&
-    &                              topography_c   ,&
-    &                              z_ifc          ,&
-    &                              z_mc           ,&
-    &                              ddqz_z_full    ,&
-    &                              geopot_agl_ifc ,&
-    &                              geopot_agl     ,&
     &                              temp           )
 
 !FIXME: PGI + OpenMP produce error in this routine... check correctness of parallel code
 
     TYPE(t_patch)    ,INTENT(in) :: p_patch
-    REAL(wp)         ,INTENT(in) :: topography_c  (:,  :)
-    REAL(wp)         ,INTENT(in) :: z_ifc         (:,:,:)
-    REAL(wp)         ,INTENT(in) :: z_mc          (:,:,:)
-    REAL(wp)         ,INTENT(in) :: ddqz_z_full   (:,:,:)
-    REAL(wp)         ,INTENT(in) :: geopot_agl_ifc(:,:,:)
-    REAL(wp)         ,INTENT(in) :: geopot_agl    (:,:,:)
     REAL(wp)         ,INTENT(in) :: temp          (:,:,:)
 
     ! local variables and pointers
@@ -935,13 +924,6 @@ CONTAINS
       field% areacella(:,  :) = p_patch% cells%   area(:,:)
       field%    coriol(:,  :) = p_patch% cells%    f_c(:,:)
       !
-      field%      orog(:,  :) =   topography_c(:,  :)
-      field%        zh(:,:,:) =          z_ifc(:,:,:)
-      field%        zf(:,:,:) =           z_mc(:,:,:)
-      field%        dz(:,:,:) =    ddqz_z_full(:,:,:)
-      !
-      field%      geoi(:,:,:) = geopot_agl_ifc(:,:,:)
-      field%      geom(:,:,:) =     geopot_agl(:,:,:)
 #ifndef __PGI
 !$OMP END PARALLEL WORKSHARE
 #endif

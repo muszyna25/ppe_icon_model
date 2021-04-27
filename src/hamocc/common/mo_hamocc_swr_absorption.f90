@@ -1,13 +1,23 @@
 #include "hamocc_omp_definitions.inc"
 
-  SUBROUTINE swr_absorption(start_idx,end_idx, klevs, pfswr, psicomo, dzw)
+MODULE mo_hamocc_swr_absorption
 
-    USE mo_memory_bgc, ONLY : bgctra, swr_frac, meanswr, strahl
-    USE mo_param1_bgc, ONLY : iphy, icya
-    USE mo_hamocc_nml, ONLY : l_cyadyn
-    USE mo_kind,    ONLY: wp                                               
-    USE mo_control_bgc, ONLY: bgc_zlevs, bgc_nproma
+  USE mo_memory_bgc, ONLY : bgctra, swr_frac, meanswr, strahl
+  USE mo_param1_bgc, ONLY : iphy, icya
+  USE mo_hamocc_nml, ONLY : l_cyadyn
+  USE mo_kind,    ONLY: wp                                               
+  USE mo_control_bgc, ONLY: bgc_zlevs, bgc_nproma
 
+  IMPLICIT NONE
+
+  PRIVATE
+
+  PUBLIC :: swr_absorption
+           
+
+CONTAINS
+
+SUBROUTINE swr_absorption(start_idx,end_idx, klevs, pfswr, psicomo, dzw)
 
     INTEGER, INTENT(in):: start_idx
     INTEGER, INTENT(IN):: end_idx
@@ -73,7 +83,8 @@
    ENDDO
 !HAMOCC_OMP_END_DO
 !HAMOCC_OMP_END_PARALLEL
-  END SUBROUTINE swr_absorption
 
+END SUBROUTINE swr_absorption
+END MODULE
 
 

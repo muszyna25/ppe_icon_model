@@ -1,5 +1,3 @@
-#ifndef __NO_ICON_OCEAN__
-
 !>
 !! Allocation/deallocation and reading of HAMOCC boundary conditions
 !!
@@ -585,4 +583,3 @@ CONTAINS
   END SUBROUTINE update_bgc_bcond
 END MODULE
 
-#endif

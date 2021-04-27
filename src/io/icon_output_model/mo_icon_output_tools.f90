@@ -131,7 +131,6 @@ MODULE mo_icon_output_tools
       ELSE IF (my_process_is_io()) THEN
         ! Shut down MPI
         CALL stop_mpi
-        STOP
       ENDIF
     ELSE IF (process_mpi_io_size > 0 .AND. pio_type == pio_type_cdipio) THEN
 
@@ -175,7 +174,6 @@ MODULE mo_icon_output_tools
       IF (nml_io_cdi_pio_client_comm == mpi_comm_null) THEN
         ! todo: terminate program cleanly here
         CALL stop_mpi
-        STOP
       END IF
 #else
       CALL finish(routine, 'CDI-PIO requested but unavailable')
@@ -191,7 +189,6 @@ MODULE mo_icon_output_tools
       IF (my_process_is_io()) THEN
         ! Shut down MPI
         CALL stop_mpi
-        STOP
       ENDIF
     END IF
   END SUBROUTINE init_io_processes

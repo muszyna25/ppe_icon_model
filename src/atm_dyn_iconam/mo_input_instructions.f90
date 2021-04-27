@@ -170,12 +170,12 @@ CONTAINS
                 CALL collect_group('mode_dwd_fg_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
                 CALL collect_group('tracer_fg_in', tracerGroup, tracerGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
                 ! fgGroup += tracerGroup
-                CALL add_to_list(outGroup, outGroupSize, tracerGroup(1:tracerGroupSize), tracerGroupSize)
+                CALL add_to_list(outGroup, outGroupSize, tracerGroup, tracerGroupSize)
             CASE(MODE_IAU)
                 CALL collect_group('mode_iau_fg_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
                 CALL collect_group('tracer_fg_in', tracerGroup, tracerGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
                 ! fgGroup += tracerGroup
-                CALL add_to_list(outGroup, outGroupSize, tracerGroup(1:tracerGroupSize), tracerGroupSize)
+                CALL add_to_list(outGroup, outGroupSize, tracerGroup, tracerGroupSize)
             CASE(MODE_IAU_OLD)
                 CALL collect_group('mode_iau_old_fg_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
             CASE(MODE_COMBINED)
@@ -198,12 +198,13 @@ CONTAINS
         CHARACTER(LEN = VARNAME_LEN), INTENT(INOUT) :: outGroup(:)
         INTEGER, INTENT(OUT) :: outGroupSize
 
-        outGroup(1:20) = (/'alb_si       ','rho_snow_mult','aer_ss       ','aer_or       ', &
+        outGroup(1:22) = (/'alb_si       ','rho_snow_mult','aer_ss       ','aer_or       ', &
           &                'aer_bc       ','aer_su       ','aer_du       ','plantevap    ', &
           &                't_sk         ','t2m_bias     ','hsnow_max    ','snow_age     ', &
           &                'qg           ','qh           ','qnc          ','qni          ', &
-          &                'qnr          ','qns          ','qng          ','qnh          '/)
-        outGroupSize  = 20
+          &                'qnr          ','qns          ','qng          ','qnh          ', &
+          &                'rh_avginc    ','t_avginc     '/)
+        outGroupSize  = 22
     END SUBROUTINE collectGroupFgOpt
 
     SUBROUTINE collectGroupAna(outGroup, outGroupSize, init_mode)

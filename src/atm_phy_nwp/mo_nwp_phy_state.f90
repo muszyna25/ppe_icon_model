@@ -79,7 +79,7 @@ USE mo_grid_config,         ONLY: n_dom, n_dom_start
 USE mo_linked_list,         ONLY: t_var_list
 USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config, icpl_aero_conv, iprog_aero
 USE turb_data,              ONLY: ltkecon
-USE mo_extpar_config,       ONLY: itype_vegetation_cycle
+USE mo_initicon_config,     ONLY: icpl_da_sfcevap
 USE mo_radiation_config,    ONLY: irad_aero
 USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water, nlev_soil
 USE mo_var_list,            ONLY: default_var_list_settings, &
@@ -114,9 +114,11 @@ USE mo_action,               ONLY: ACTION_RESET
 USE mo_les_nml,              ONLY: turb_profile_list, turb_tseries_list
 USE mo_io_config,            ONLY: lflux_avg, lnetcdf_flt64_output, gust_interval, &
   &                                celltracks_interval, echotop_meta, &
-  &                                maxt_interval, precip_interval, t_var_in_output
+  &                                maxt_interval, precip_interval, t_var_in_output, &
+  &                                uh_max_zmin, uh_max_zmax, luh_max_out, uh_max_nlayer
 USE mtime,                   ONLY: max_timedelta_str_len, getPTStringFromMS
 USE mo_name_list_output_config, ONLY: is_variable_in_output
+USE mo_util_string,          ONLY: real2string
 
 #include "add_var_acc_macro.inc"
 
@@ -296,7 +298,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     INTEGER :: shape2d(2), shape3d(3), shape3dsubs(3), &
       &        shape3dsubsw(3), shape3d_synsat(3),     &
       &        shape2d_synsat(2), shape3d_aero(3), shape3dechotop(3)
-    INTEGER :: shape3dkp1(3), shape3dflux(3)
+    INTEGER :: shape3dkp1(3), shape3dflux(3), shape3d_uh_max(3)
     INTEGER :: ibits,  kcloud
     INTEGER :: jsfc, ist
     CHARACTER(len=NF_MAX_NAME) :: long_name
@@ -334,6 +336,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     shape3dsubsw   = (/nproma, kblks,        ntiles_total+ntiles_water /)
     shape3d_aero   = (/nproma, nclass_aero,  kblks            /)
     shape3dechotop = (/nproma, echotop_meta(k_jg)%nechotop, kblks/)
+    shape3d_uh_max = (/nproma, kblks,        uh_max_nlayer    /)
 
     ! Register a field list and apply default settings
 
@@ -354,8 +357,28 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     kcloud= 3
 
 
+    ! &      diag%tot_prec_rate(nproma,nblks_c)
+    cf_desc    = t_cf_var('tot_prec_rate', 'kg m-2 s-1', 'total precipitation rate', &
+      &                   datatype_flt)
+    grib2_desc = grib2_var(0, 1, 52, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'tot_prec_rate', diag%tot_prec_rate,            &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
+                & ldims=shape2d,                                             &
+                & isteptype=TSTEP_INSTANT, lopenacc=.TRUE. )
+    __acc_attach(diag%tot_prec_rate)
+
+    ! &      diag%prec_gsp_rate(nproma,nblks_c)
+    cf_desc    = t_cf_var('prec_gsp_rate', 'kg m-2 s-1',                      &
+      &          'gridscale precipitation rate', datatype_flt)
+    grib2_desc = grib2_var(0, 1, 54, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'prec_gsp_rate', diag%prec_gsp_rate,             &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                & ldims=shape2d,                                              &
+                & isteptype=TSTEP_INSTANT, lopenacc=.TRUE. )
+    __acc_attach(diag%prec_gsp_rate)
+
     ! &      diag%rain_gsp_rate(nproma,nblks_c)
-    cf_desc    = t_cf_var('rain_gsp_rate', 'kg m-2 s-1', 'gridscale rain rate ', &
+    cf_desc    = t_cf_var('rain_gsp_rate', 'kg m-2 s-1', 'gridscale rain rate', &
       &                   datatype_flt)
     grib2_desc = grib2_var(0, 1, 77, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'rain_gsp_rate', diag%rain_gsp_rate,            &
@@ -1657,7 +1680,7 @@ __acc_attach(diag%clct_avg)
     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'trsol_up_sfc', diag%trsol_up_sfc,             &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
-      & ldims=shape2d, lrestart=.FALSE., loutput=.FALSE.                    )
+      & ldims=shape2d, lrestart=.TRUE., loutput=.FALSE.                     )
 
     ! &      diag%trsol_par_sfc(nproma,nblks_c)
     cf_desc    = t_cf_var('trsol_par_sfc', '', 'photosynthetically active downward transmisivity at surface', datatype_flt)
@@ -2195,13 +2218,13 @@ __acc_attach(diag%clct_avg)
       & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dflux, lrestart=lrestart_flux )
   
     ! &      diag%swflx_up(nproma,nlevp1,nblks_c)
-    cf_desc    = t_cf_var('swflx_up', 'W m-2 ', 'shortave upward flux', datatype_flt)
+    cf_desc    = t_cf_var('swflx_up', 'W m-2 ', 'shortwave upward flux', datatype_flt)
     grib2_desc = grib2_var(255, 255, 203, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'swflx_up', diag%swflx_up,                   &
       & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dflux, lrestart=lrestart_flux )
   
     ! &      diag%swflx_dn(nproma,nlevp1,nblks_c)
-    cf_desc    = t_cf_var('swflx_dn', 'W m-2 ', 'shortave downward flux', datatype_flt)
+    cf_desc    = t_cf_var('swflx_dn', 'W m-2 ', 'shortwave downward flux', datatype_flt)
     grib2_desc = grib2_var(255, 255, 204, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'swflx_dn', diag%swflx_dn,                   &
       & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dflux, lrestart=lrestart_flux )
@@ -2580,6 +2603,31 @@ __acc_attach(diag%clct_avg)
       & ldims=shape2d, lrestart=.FALSE., lopenacc=.TRUE. )
     __acc_attach(diag%pat_len)
 
+    !        diag%rlamh_fac_t (nproma, nblks, ntiles_total+ntiles_water)
+    cf_desc    = t_cf_var('rlamh_fac_t', '', 'scaling factor for rlam_heat', &
+      &                   datatype_flt)
+    grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'rlamh_fac_t', diag%rlamh_fac_t,          &
+      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,       &
+      & ldims=shape3dsubsw, lcontainer=.TRUE., lrestart=.FALSE.,       &
+      & loutput=.FALSE., lopenacc=.TRUE.)
+    __acc_attach(diag%rlamh_fac_t)
+
+    ! fill the seperate variables belonging to the container rlamh_fac_t
+    ALLOCATE(diag%rlamh_fac_ptr(ntiles_total+ntiles_water))
+    DO jsfc = 1,ntiles_total+ntiles_water
+      WRITE(csfc,'(i1)') jsfc 
+      CALL add_ref( diag_list, 'rlamh_fac_t',                            &
+         & 'rlamh_fac_t_'//TRIM(ADJUSTL(csfc)),                          &
+         & diag%rlamh_fac_ptr(jsfc)%p_2d,                                &
+         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
+         & t_cf_var('rlamh_fac_'//TRIM(csfc), '', '', datatype_flt),     &
+         & grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),  &
+         & ref_idx=jsfc, ldims=shape2d, lrestart=.FALSE.                  )
+    ENDDO
+
+
+
     ! &      diag%gz0(nproma,nblks_c)
     cf_desc     = t_cf_var('gz0', 'm2 s-2 ','roughness length times gravity', datatype_flt)
     new_cf_desc = t_cf_var( 'z0',       'm','roughness length',               datatype_flt)
@@ -2596,7 +2644,7 @@ __acc_attach(diag%clct_avg)
     __acc_attach(diag%gz0)
 
     ! &      diag%t_2m(nproma,nblks_c)
-    IF (itype_vegetation_cycle == 3) THEN
+    IF (icpl_da_sfcevap == 1 .OR. icpl_da_sfcevap == 2) THEN
       in_group = groups("pbl_vars","dwd_fg_atm_vars","mode_iau_ana_in")
     ELSE
       in_group = groups("pbl_vars","dwd_fg_atm_vars")
@@ -3688,25 +3736,56 @@ __acc_attach(diag%clct_avg)
                   & action_list=actions( new_action( ACTION_RESET, celltracks_int ) ) )
     END IF
 
-    IF (var_in_output%uh_max) THEN
+    luh_max_out = (/var_in_output%uh_max_low, var_in_output%uh_max_med, var_in_output%uh_max/)
+    uh_max_zmin = (/                   0._wp,                 2000._wp,             2000._wp/)
+    uh_max_zmax = (/                3000._wp,                 5000._wp,             8000._wp/)
+
+    IF (ANY(luh_max_out)) THEN
+
+      cf_desc    = t_cf_var('uh_max_3d', 'm2 s-2', 'dummy', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( diag_list, 'uh_max_3d', diag%uh_max_3d,              &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                  &
+                  & cf_desc, grib2_desc, ldims=shape3d_uh_max,           &
+                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
+
+      ALLOCATE( diag%uh_max_ptr(uh_max_nlayer) )
+
       celltracks_int(:) = ' '
       CALL getPTStringFromMS(NINT(1000*celltracks_interval(k_jg), i8), celltracks_int)
-      cf_desc    = t_cf_var('uh_max', 'm2 s-2',                   &
-        &                   'updraft helicity, max.  during the last '// &
-        &                   celltracks_int(3:), datatype_flt)
-      grib2_desc = grib2_var( 0, 7, 15, ibits, GRID_UNSTRUCTURED, GRID_CELL)    &
-        &           + t_grib2_int_key("typeOfFirstFixedSurface",          102)  &
-        &           + t_grib2_int_key("typeOfSecondFixedSurface",         102)  &
-        &           + t_grib2_int_key("scaledValueOfFirstFixedSurface",  2000)  &
-        &           + t_grib2_int_key("scaledValueOfSecondFixedSurface", 8000)
-      CALL add_var( diag_list, 'uh_max', diag%uh_max,                        &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                      &
-                  & cf_desc, grib2_desc,                                     &
-                  & ldims=shape2d,                                           &
-                  & lrestart=.TRUE., loutput=.TRUE., isteptype=TSTEP_MAX,    &
-                  & resetval=0.0_wp, initval=0.0_wp,                         &
-                  & action_list=actions( new_action( ACTION_RESET, celltracks_int ) ) )
-    END IF
+
+      DO k = 1,uh_max_nlayer
+
+        SELECT CASE (k)
+          CASE (1)
+            shortname   = 'uh_max_low'
+          CASE (2)
+            shortname   = 'uh_max_med'
+          CASE (3)
+            shortname   = 'uh_max'
+        END SELECT
+
+        longname = 'updraft helicity '// &
+                   TRIM(real2string(uh_max_zmin(k)))//'-'//TRIM(real2string(uh_max_zmax(k)))// &
+                   ' m, max. during the last '// celltracks_int(3:)
+
+        IF (luh_max_out(k)) THEN
+          cf_desc    = t_cf_var(TRIM(shortname), 'm2 s-2', TRIM(longname), datatype_flt)
+          grib2_desc = grib2_var( 0, 7, 15, ibits, GRID_UNSTRUCTURED, GRID_CELL)                  &
+            &           + t_grib2_int_key("typeOfFirstFixedSurface",          102)                &
+            &           + t_grib2_int_key("typeOfSecondFixedSurface",         102)                &
+            &           + t_grib2_int_key("scaledValueOfFirstFixedSurface",  int(uh_max_zmin(k))) &
+            &           + t_grib2_int_key("scaledValueOfSecondFixedSurface", int(uh_max_zmax(k)))
+          CALL add_ref( diag_list, 'uh_max_3d', TRIM(shortname), diag%uh_max_ptr(k)%p_2d, &
+                      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                               &
+                      & cf_desc, grib2_desc, ref_idx=k, ldims=shape2d,                    &
+                      & lrestart=.TRUE., loutput=.TRUE., isteptype=TSTEP_MAX,             &
+                      & resetval=0.0_wp, initval=0.0_wp,                                  &
+                      & action_list=actions( new_action( ACTION_RESET, celltracks_int ) ) )
+        END IF
+      END DO
+
+    END IF ! ANY(luh_max_out)
 
     IF (var_in_output%vorw_ctmax) THEN
       celltracks_int(:) = ' '

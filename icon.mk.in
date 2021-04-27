@@ -470,8 +470,6 @@ extra_f90.d: icon.mk
 	  echo '$(call get_obj_names,src/atm_chem_cariolle/lcariolle_do3dt.f90):| $(call get_obj_names,src/atm_chem_cariolle/lcariolle_o3_column.f90)'; \
 	  echo '$(call get_obj_names,src/atm_phy_echam/mo_echam_phy_init.f90):| $(call get_obj_names,src/atm_chem_cariolle/lcariolle_init.f90 src/atm_chem_cariolle/lcariolle_init_o3.f90)'; \
 	  echo '$(call get_obj_names,src/atm_phy_echam/mo_interface_echam_car.f90):| $(call get_obj_names,src/atm_chem_cariolle/lcariolle_do3dt.f90 src/atm_chem_cariolle/lcariolle_lat_intp_li.f90 src/atm_chem_cariolle/lcariolle_pres_intp_li.f90)'; \
-	  echo '$(call get_obj_names,src/hamocc/icon_specific/bgc_icon.f90):| $(call get_obj_names,src/hamocc/common/chemcon.f90 src/hamocc/common/ocprod.f90 src/hamocc/common/sedshi.f90 src/hamocc/common/swr_absorption.f90)'; \
-	  echo '$(call get_obj_names,src/hamocc/icon_specific/mo_hamocc_ocean_physics.f90):| $(call get_obj_names,src/hamocc/icon_specific/bgc_icon.f90)'; \
 	} >$@
 
 # Dummy dependency file generation rule (called by config.status):

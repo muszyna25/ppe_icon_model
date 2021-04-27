@@ -471,7 +471,7 @@ CONTAINS
                &                 ts_tile(:,:,:),             &! in, surface temperature
                &          field% ocu (:,:),                  &! in, ocean sfc velocity, u-component
                &          field% ocv (:,:),                  &! in, ocean sfc velocity, v-component
-               &          field% presi_old(:,nlevp1,:),      &! in, sfc pressure
+               &          field% phalf(:,nlevp1,:),          &! in, sfc pressure
                &          field%   ua(:,:,:),                &! in, um1
                &          field%   va(:,:,:),                &! in, vm1
                &          field%   wa(:,:,:),                &! in, wp1
@@ -484,8 +484,8 @@ CONTAINS
                &          field% mair(:,:,:),                &! in, moist     air mass
                &          field% mref(:,:,:),                &! in, reference air mass
                &          field% rho(:,:,:),                 &! in, air density
-               &          field% presi_old(:,:,:),           &! in, aphm1
-               &          field% presm_old(:,:,:),           &! in, apm1
+               &          field% phalf(:,:,:),               &! in, aphm1
+               &          field% pfull(:,:,:),               &! in, apm1
                &          field%   tv(:,:,:),                &! in, virtual temperaturea
                &          field% aclc(:,:,:),                &! in, cloud fraction
                &          zxt_emis(:,:,:),                   &! in, zxtems
@@ -808,7 +808,7 @@ CONTAINS
                &              rnds_dif   = field%rnds_dif   (:,jb),           &! in, all-sky downward diffuse near-IR radiation at surface
                !
                &              pmair = field%mair(:,:,jb),                     &! in, moist air mass
-               &              ps = field% presi_old(:,nlevp1,jb),             &! in, paphm1, half level pressure
+               &              ps = field% phalf(:,nlevp1,jb),                 &! in, paphm1, half level pressure
                &              pcosmu0 = field% cosmu0(:,jb),                  &! in, amu0_x, cos of zenith angle
                &              pch_tile = zch_tile(:,jb,:),                    &! in, from "vdiff_down" for JSBACH
                &              pcsat = csat(:,jb),                             &! inout, area fraction with wet land surface
@@ -1629,8 +1629,8 @@ CONTAINS
             &          field%frac_tile(:,jb,:),         &! in
             &          field%  qtrc(:,nlev,jb,iqv),     &! in humidity qm1
             &          field%    ta(:,nlev,jb),         &! in tm1
-            &          field% presm_old(:,nlev,jb),     &! in, apm1
-            &          field% presi_old(:,nlevp1,jb),   &! in, aphm1
+            &          field% pfull(:,nlev,jb),         &! in, apm1
+            &          field% phalf(:,nlevp1,jb),       &! in, aphm1
             &                  zqx(:,nlev,jb),          &! in, xlm1 + xim1
             &          field%   ua(:,nlev,jb),          &! in, um1
             &          field%   va(:,nlev,jb),          &! in, vm1

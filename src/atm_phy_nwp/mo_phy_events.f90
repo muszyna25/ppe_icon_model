@@ -21,16 +21,15 @@
 MODULE mo_phy_events
 
   USE mo_kind,                     ONLY: wp
-  USE mo_impl_constants,           ONLY: max_char_length, SUCCESS, &
-    &                                    max_var_list_name_len
+  USE mo_impl_constants,           ONLY: max_char_length, SUCCESS
   USE mo_exception,                ONLY: finish, message, message_text
-  USE mtime,                       ONLY: datetime, newDatetime, timedelta, newTimedelta, &
+  USE mtime,                       ONLY: datetime, newDatetime, timedelta, &
     &                                    datetimeToString, timedeltaToString, &
     &                                    event, newEvent, isCurrentEventActive,      &
     &                                    MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN, &
     &                                    MAX_EVENTNAME_STR_LEN, &
     &                                    OPERATOR(+), OPERATOR(-), OPERATOR(==), OPERATOR(<=), &
-    &                                    getEventName, getPTStringFromSeconds, &
+    &                                    getEventName, &
     &                                    getEventLastDateTime, getEventFirstDateTime,       &
     &                                    getEventInterval, getTotalSecondsTimedelta,        &
     &                                    getTriggerNextEventAtDateTime, deallocateEvent,    &
@@ -118,7 +117,7 @@ MODULE mo_phy_events
       &                                               isNextTriggerTimeInRange_bcast
     !
     ! finalization routine
-    PROCEDURE  :: finalize => phyProcBase_finalize
+    PROCEDURE  :: final    => phyProcBase_final
   END TYPE t_phyProcBase
 
 
@@ -609,24 +608,21 @@ CONTAINS
   !>
   !! Finalize physical process
   !!
-  !! Finalize physical process.
-  !!
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2017-06-21)
   !!
-  SUBROUTINE phyProcBase_finalize (phyProc)
+  SUBROUTINE phyProcBase_final    (phyProc)
     CLASS(t_phyProcBase), INTENT(INOUT) :: phyProc    !< passed-object dummy argument
 
     ! local
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//":phyProcBase_initialize"
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//":phyProcBase_final"
   !-----------------------------------------------------------------
-
 
     IF (ASSOCIATED(phyProc%ev_ptr)) THEN
       CALL deallocateEvent(phyProc%ev_ptr)
     ENDIF
 
-  END SUBROUTINE phyProcBase_finalize
+  END SUBROUTINE phyProcBase_final
 
 
 
@@ -1076,7 +1072,7 @@ CONTAINS
  
     DO iproc=1,UBOUND(phyProcGrp%proc,1)
       IF (.NOT. ASSOCIATED(phyProcGrp%proc(iproc)%p)) CYCLE
-      CALL phyProcGrp%proc(iproc)%p%finalize()
+      CALL phyProcGrp%proc(iproc)%p%final()
     ENDDO
 
     IF (ALLOCATED(phyProcGrp%proc))  DEALLOCATE(phyProcGrp%proc, STAT=ierrstat)

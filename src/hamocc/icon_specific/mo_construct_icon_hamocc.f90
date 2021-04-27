@@ -1,4 +1,3 @@
-#ifndef __NO_ICON_OCEAN__
 
 MODULE mo_construct_icon_hamocc
 
@@ -267,4 +266,3 @@ END SUBROUTINE INI_BGC_ICON
 
 END MODULE mo_construct_icon_hamocc
 !------------------------------------------------------------
-#endif
