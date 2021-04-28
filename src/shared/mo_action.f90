@@ -63,7 +63,7 @@ MODULE mo_action
   USE mo_run_config,         ONLY: msg_level
   USE mo_parallel_config,    ONLY: proc0_offloading
   USE mo_var_list,           ONLY: var_lists_apply
-  USE mo_linked_list,        ONLY: t_var_list_intrinsic
+  USE mo_linked_list,        ONLY: t_list_element, t_var_list_intrinsic
   USE mo_var_list_element,   ONLY: t_var_list_element
   USE mo_var_metadata_types, ONLY: t_var_metadata
   USE mo_fortran_tools,      ONLY: init

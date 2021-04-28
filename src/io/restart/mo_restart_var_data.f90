@@ -23,6 +23,7 @@ MODULE mo_restart_var_data
   USE mo_io_units,           ONLY: nerr
 #endif
   USE mo_kind,               ONLY: dp, sp
+  USE mo_linked_list,        ONLY: t_list_element, t_var_list
   USE mo_util_string,        ONLY: int2string
   USE mo_var_list,           ONLY: get_var_timelevel
   USE mo_var_list_element,   ONLY: t_var_list_element
