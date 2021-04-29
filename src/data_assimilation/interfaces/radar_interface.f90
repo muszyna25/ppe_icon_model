@@ -52,7 +52,7 @@ MODULE radar_interface
   USE mo_nonhydro_state,        ONLY: p_nh_state
   USE mo_nwp_phy_state,         ONLY: prm_diag
   USE mo_model_domain,          ONLY: p_patch, t_patch
-  USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
+  USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
   USE mo_impl_constants,        ONLY: min_rlcell, min_rlcell_int, max_dom
   USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c
   USE mo_loopindices,           ONLY: get_indices_c
@@ -91,6 +91,7 @@ MODULE radar_interface
 
   USE mo_opt_nwp_diagnostics,   ONLY: compute_field_dbz_1mom, compute_field_dbz_2mom
   USE gscp_data,                ONLY: cloud_num
+  USE mo_emvorado_warmbubbles_type,  ONLY: autobubs_list
 
 !!$ There are other parameters available for the 1mom-scheme, but these are
 !!$  not yet coupled explicitly to the EMVORADO 1mom reflectivity routines (at the moment
@@ -141,7 +142,8 @@ MODULE radar_interface
        fdbk_meta_type, &
        composite_meta_type, &
        list_domains_for_radar, ndoms_max, &
-       bubble_list_type, bubble_list, nautobubbles_max
+       bubble_list_type, bubble_list, nautobubbles_max, &
+       dbzcalc_params
 
   USE radar_data_namelist, ONLY :  &
        ldebug_radsim,              &
@@ -157,7 +159,7 @@ MODULE radar_interface
        ilow_modelgrid, iup_modelgrid, jlow_modelgrid, jup_modelgrid, klow_modelgrid, kup_modelgrid, &
        rain, cloud, snow, ice, graupel, hail, rain_coeffs, &
        Tmax_i_modelgrid, Tmax_s_modelgrid, Tmax_g_modelgrid, Tmax_h_modelgrid, &
-       lgsp_fwo, itype_gscp_fwo, pi6 => pi6_dp
+       lgsp_fwo, itype_gscp_fwo, T0C_fwo, pi6 => pi6_dp
 
   USE radar_parallel_utilities, ONLY :  &
        global_values_radar, distribute_values_radar, distribute_path_radar
@@ -177,6 +179,10 @@ MODULE radar_interface
        get_utc_date,         &
        init_vari
 
+#ifdef GRIBAPI
+  USE radar_data_io, ONLY : t_grib2_modelspec
+#endif
+  
 #endif
 
 !==============================================================================
@@ -340,7 +346,10 @@ MODULE radar_interface
   REAL(KIND=dp), ALLOCATABLE :: &
        rlat     (:,:)    ,   & ! rlat
        rlon     (:,:)    ,   & ! rlon
-       z_radar(:,:,:), z_ext(:,:,:), vt_radar(:,:,:)
+       zh_radar(:,:,:), ah_radar(:,:,:), &
+       zv_radar(:,:,:), rrhv_radar(:,:,:), irhv_radar(:,:,:), &
+       kdp_radar(:,:,:), adp_radar(:,:,:), zvh_radar(:,:,:), &
+       vt_radar(:,:,:)
 
   REAL(KIND=wp), ALLOCATABLE :: &
        vapor_pres(:,:,:)
@@ -361,81 +370,53 @@ MODULE radar_interface
   ! geometric information for hydrometeor testpattern (ltestpattern_hydrometeors=.TRUE.):
   TYPE(t_patch), POINTER :: p_patch_for_testpattern
 
-  !==============================================================================
-  !
-  ! Provisional local bubble parameter vectors. Have to be replaced by ICON
-  !  parameters once the bubble generator is implemented there!
-
-#ifdef HAVE_RADARFWO
-  
-  LOGICAL ::    ltempdist(nautobubbles_max), &  ! Switch(es) (up to 50) to release temperature disturbances  (LOGICAL)
-       ladd_bubblenoise_t(nautobubbles_max), &  ! Switch(es) (up to 50) to overlay temperature disturbances (LOGICAL)
-       lbub_rhconst(nautobubbles_max)           ! For each bubble, specify const. rel. hum. during temperature disturbance (LOGICAL)
-
-  INTEGER :: ntstep_bubble(nautobubbles_max), & ! Beginning of bubble (in time steps)
-       bub_zeitzaehler(nautobubbles_max)        ! Counter of bubbles. it must be set to zero before each start
-
-  CHARACTER(len=12) :: ctype_tempdist(nautobubbles_max)   ! Type of temperature disturbance(s)
-
-  REAL(kind=wp), DIMENSION(nautobubbles_max) :: &
-       htempdist,                        &  ! Time for release of temperature disturbances [h]
-       bub_centlon,                      &  ! Center (i) of temperature disturbances [grid points, real]
-       bub_centlat,                      &  ! Center (j) of temperature disturbances [grid points, real]
-       bub_centz,                        &  ! Center (Z) of temperature disturbances [m]
-       bub_timespan,                     &  ! Duration of release of temperature disturbance(s) [# time steps]
-       bub_radx,                         &  ! Length scale (X) of temperature disturbances [m]
-       bub_rady,                         &  ! Length scale (Y) of temperature disturbances [m]
-       bub_radz,                         &  ! Length scale (Z) of temperature disturbances [m]
-       bub_rotangle,                     &  ! Rotation angle of main axes of temperature disturbances [degrees]
-       bub_heatingrate,                  &  ! Constant heating rate [K*s**-1] for cos-hrd bubble
-       bub_dT,                           &  ! Temperature increment of cos bubble [K]
-       bub_dT_bubblenoise                   ! Rel. amplitude of the noise on the temperature disturbance(s) [K]
-
-#endif
-
 !==============================================================================
 
-  PUBLIC abort_run, setup_auxgrid_for_cellindex, diagnose_and_store_uv_pres_temp, &
-         get_model_variables, get_model_hydrometeors, get_model_config_for_radar, &
-         setup_runtime_timings, get_runtime_timings, run_is_restart
+  PUBLIC :: abort_run, setup_auxgrid_for_cellindex, diagnose_and_store_uv_pres_temp, &
+            get_model_variables, get_model_hydrometeors, get_model_config_for_radar, &
+            setup_runtime_timings, get_runtime_timings, run_is_restart
   
 #ifdef HAVE_RADARFWO
-  PUBLIC get_model_time_sec, get_model_inputdir, get_model_outputdir,               &
-         get_datetime_ini, get_datetime_act, get_loc_domain,                        &
-         bottomlevel, bottomlevel_stag, toplevel, levelincr, get_model_top_height,  &
-         get_fdbk_metadata, get_composite_metadata,                                 &
-         set_testpattern_hydrometeors_mg, initialize_tmax_1mom_vec_par, finalize_tmax,   &
-         initialize_tmax_2mom_vec_par,                                                &
-         get_obstime_ind_of_currtime, get_obs_time_tolerance,                       &
-         check_obstime_within_forecast, check_obstime_within_modelrun,              &
-         check_if_currtime_is_obstime, get_domain_starttime_in_sec,                 &
-         alloc_aux_model_variables, dealloc_aux_model_variables,                    &
-         it_is_time_for_radar, num_regular_obstimes,                                &
-         it_is_time_for_bubblecheck,                                                &
-         grid_length_model, one_level_up, one_level_down, ndoms_max_model,          &
-         get_dbz3dlin_with_model_method_1mom, get_dbz3dlin_with_model_method_2mom
+  PUBLIC :: get_model_time_sec, get_model_inputdir, get_model_outputdir,               &
+            get_model_time_ddhhmmss,                                                   &
+            get_datetime_ini, get_datetime_act, get_loc_domain, nlevels,               &
+            bottomlevel, bottomlevel_stag, toplevel, levelincr, get_model_top_height,  &
+            get_fdbk_metadata, get_composite_metadata,                                 &
+            set_testpattern_hydrometeors_mg, initialize_tmax_1mom_vec_par, finalize_tmax,&
+            initialize_tmax_2mom_vec_par,                                              &
+            get_obstime_ind_of_currtime, get_obs_time_tolerance,                       &
+            check_obstime_within_forecast, check_obstime_within_modelrun,              &
+            check_if_currtime_is_obstime, get_domain_starttime_in_sec,                 &
+            alloc_aux_model_variables, dealloc_aux_model_variables,                    &
+            it_is_time_for_radar, num_regular_obstimes,                                &
+            it_is_time_for_bubblecheck,                                                &
+            grid_length_model, one_level_up, one_level_down, ndoms_max_model,          &
+            get_dbz3dlin_with_model_method_1mom, get_dbz3dlin_with_model_method_2mom
 
-  PUBLIC t, rho, qv, qc, qi, qr, qs ,qg, qh,            &
-         qnc, qni, qnr, qns ,qng, qnh, qgl, qhl, qnc_s, &
-         rlat, rlon, hhl, rho0, u, v, w, p,             &
-         lalloc_qi, lalloc_qs, lalloc_qg, lalloc_qh,    &
-         z_radar, z_ext, vt_radar, hfl, vapor_pres,     &
-         pi_wp
+  PUBLIC :: t, rho, qv, qc, qi, qr, qs ,qg, qh,            &
+            qnc, qni, qnr, qns ,qng, qnh, qgl, qhl, qnc_s, &
+            rlat, rlon, hhl, rho0, u, v, w, p,             &
+            lalloc_qi, lalloc_qs, lalloc_qg, lalloc_qh,    &
+            zh_radar, ah_radar,                            &
+            zv_radar, rrhv_radar, irhv_radar,              &
+            kdp_radar, adp_radar, zvh_radar,               &
+            vt_radar, hfl, vapor_pres,                     &
+            pi_wp
 
-  PUBLIC geo2model_cellindex, geo2model_coord_domaincheck, get_lonlat_domain_center, &
-         setup_model2radarbins_vec, calc_vert_weight_vec, setup_model2azislices_vec, &
-         interp_model2radarbins_scalar, interp2d_model2radarbins_scalar,             &
-         interp_model2radarbins_vr,                                                  &
-         interp_model2azislices_scalar, interp_model2azislices_vr, calc_vert_weight, &
-         interp2D_model2geo_horiz_scalar, interp3D_model2geo_scalar,                 &
-         get_domaincenter_global,                                                    &
-         get_rotlatlon_domain_for_superobing, set_fdbk_metadata
+  PUBLIC :: geo2model_cellindex, geo2model_coord_domaincheck, get_lonlat_domain_center, &
+            setup_model2radarbins_vec, calc_vert_weight_vec, setup_model2azislices_vec, &
+            interp_model2radarbins_scalar, interp2d_model2radarbins_scalar,             &
+            interp_model2radarbins_vr,                                                  &
+            interp_model2azislices_scalar, interp_model2azislices_vr, calc_vert_weight, &
+            interp2D_model2geo_horiz_scalar, interp3D_model2geo_scalar,                 &
+            get_domaincenter_global,                                                    &
+            get_rotlatlon_domain_for_superobing, set_fdbk_metadata
 
 #ifdef GRIBAPI
-  PUBLIC grib2_add_modelspec_info
+  PUBLIC :: grib2_add_modelspec_info
 #endif
 
-  PUBLIC trigger_warm_bubbles
+  PUBLIC :: trigger_warm_bubbles
 #endif
 
 !==============================================================================
@@ -1070,9 +1051,10 @@ CONTAINS
     rain%b_ven = miss_value             !.b_ven..Koeff. Ventilation
 
     ice%name  = 'ice1mom'               !.name...Bezeichnung der Partikelklasse
-    ice%mu    = 1.0000d0                !.mu.....DUMMY, because monodisperse PDF is assumed
-    ice%nu    = 1.0000d0                !.nu.....DUMMY, because monodisperse PDF is assumed
-    ice%n0_const = 1.0d0                  !.n0.....Scaling parameter of distribution (only set if constant)
+    ice%mu    = 20.000d0                !.mu.....large value to mimic a monodisperse PDF, only used for Tmatrix
+
+    ice%nu    = 3.0000d0                !.nu.....large value to mimic a monodisperse PDF, only used for Tmatrix
+    ice%n0_const = 1.0d0                !.n0.....Scaling parameter of distribution (only set if constant)
     ice%a_geo = 130.00d0                !.a_geo..Koeff. Geometrie
     ice%b_geo = 3.0000d0                !.b_geo..Koeff. Geometrie
     ! mean mass of cloud ice crystals; monodisperse distribution
@@ -1161,7 +1143,8 @@ CONTAINS
 
   !============================================================================
   ! 
-  ! Subroutine for getting  the microphysics tracers.
+  ! Subroutine for getting the prognostic model variables except
+  !  the microphysics tracers.
   ! 
   !============================================================================
   
@@ -2263,9 +2246,10 @@ CONTAINS
         zlstop = .FALSE.
       END IF
 
-      IF (lasttimer == -999 .AND. .NOT.zlstart) THEN
-        WRITE (*,*) 'ERROR get_runtime_timings() radar: wrong calling sequence, forgot call with lstart=.TRUE.'
-        STOP
+      IF (lasttimer == -999 .AND. .NOT.zlstart) THEN 
+        CALL abort_run(my_radar_id, 3767, &
+           'ERROR get_runtime_timings() radar: wrong calling sequence, forgot call with lstart=.TRUE.', &
+           'emvorado::interp_model2azislices_scalar')
       END IF
 
       IF (zlstart) THEN
@@ -2485,6 +2469,44 @@ CONTAINS
   END FUNCTION get_model_time_sec
 
   !------------------------------------------------------------------------------
+  
+  !============================================================================
+  ! 
+  ! Subroutine for getting the model time in <ddhhmmss> since model start.
+  ! Alternatively, convert a given time in seconds (optional input) to <ddhhmmss>.
+  ! For negative forecast times, it uses the absolute value.
+  !
+  !============================================================================
+
+  FUNCTION get_model_time_ddhhmmss (time_mod_in) RESULT(ddhhmmss)
+
+    IMPLICIT NONE
+
+    REAL(kind=dp), INTENT(in), OPTIONAL :: time_mod_in
+    
+    CHARACTER(len=8)       :: ddhhmmss
+    INTEGER                :: time_mod_s, dd, hh, mm, ss
+
+    IF (.NOT.PRESENT(time_mod_in)) THEN
+      time_mod_s = ABS(NINT(REAL(time_mod_sec, kind=dp)))   ! [s] since tc_exp_startdate
+    ELSE
+      time_mod_s = ABS(NINT(time_mod_in))
+    END IF
+    ddhhmmss(:) = '0'
+    
+    ! This computatation should work out to about 2*10^5 days (time_mod_s <= HUGE(1)):
+    dd = time_mod_s / (24*3600)
+    hh = MOD(time_mod_s, 24*3600) / 3600
+    mm = MOD(time_mod_s,    3600) / 60
+    ss = MOD(time_mod_s,      60)
+
+    WRITE ( ddhhmmss , '(4I2.2)' ) dd, hh, mm, ss
+        
+    ddhhmmss = TRIM(ddhhmmss)
+
+  END FUNCTION get_model_time_ddhhmmss  
+
+  !------------------------------------------------------------------------------
 
   !============================================================================
   ! 
@@ -2500,7 +2522,7 @@ CONTAINS
     IMPLICIT NONE
 
     REAL(KIND=dp), INTENT(in) :: obs_times(:)
-    LOGICAL                       :: it_is_time
+    LOGICAL                   :: it_is_time
 
     REAL(KIND=dp) :: time_mod
 
@@ -2512,39 +2534,63 @@ CONTAINS
   END FUNCTION it_is_time_for_radar
 
   !------------------------------------------------------------------------------
-
+ 
   !============================================================================
   !
   ! Function for checking if a given model time is one of the bubble
   !  checking times for the automatic bubble generator (ldo_bubbles=.TRUE.).
-  ! Bubble checkting times are characterized by a regular time interval
+  ! Bubble checking times are characterized by a regular time interval
   !  dt_bubblecheck [s] and a time offset t_offset_bubblecheck [s] (relative
   !  to model start) for the first checking interval.
-  ! If t_offset_bubblecheck is 0.0, the model starttime itself is omitted.
+  ! The exact domain end time is omitted for bubble checking.
+  !
+  ! Input parameters:
+  !    idom                  - domain number in the hosting model
+  !    time_mod              - time since model start time in seconds
+  !    tstart_bubblecheck    - first allowed model time for bubble checking in seconds
+  !    dt_bubblecheck        - time interval for bubble checking in seconds
+  !    tend_bubblecheck      - last allowed model time for bubble checking in seconds
+  !    t_offset_bubblecheck  - Normally 0. Additional time offset which is used
+  !                             for determining shifted handshake times
+  !                             after bubble checking times to transfer the
+  !                             informations about needed warm bubbles to the workers
+  !                             in asynchrounous radar IO mode.
+  ! Output:
+  !    LOGICAL .true. / .false.
+  !
+  ! tstart_bubblecheck, dt_bubblecheck and tend_bubblecheck should be
+  !  in sync with the available obs times of reflectivity observations.
+  !
   !
   !============================================================================
 
-  FUNCTION it_is_time_for_bubblecheck (time_mod, dt_bubblecheck, t_offset_bubblecheck) &
-       RESULT (it_is_time)
+  FUNCTION it_is_time_for_bubblecheck (idom, time_mod, &
+       &                               tstart_bubblecheck, dt_bubblecheck, tend_bubblecheck, &
+       &                               t_offset_bubblecheck) &
+       &                               RESULT (it_is_time)
 
     IMPLICIT NONE
 
+    INTEGER, INTENT(in)       :: idom
     REAL(kind=dp), INTENT(in) :: time_mod             ! actual time in seconds since model start
-    REAL(kind=dp), INTENT(in) :: dt_bubblecheck       ! time interval between checks
-    REAL(kind=dp), INTENT(in) :: t_offset_bubblecheck ! time offset for the check intervals relative to model start (=0.0 s)
+    REAL(kind=dp), INTENT(in) :: tstart_bubblecheck   ! start time of checks with subsequent interval dt_bubblecheck [seconds since model start]
+    REAL(kind=dp), INTENT(in) :: dt_bubblecheck       ! time interval between checks [seconds]
+    REAL(kind=dp), INTENT(in) :: tend_bubblecheck     ! end time of checks with subsequent interval dt_bubblecheck [seconds since model start]
+    REAL(kind=dp), INTENT(in) :: t_offset_bubblecheck ! time offset for the check intervals relative to tstart_bubblecheck [s] (normally=0.0 s)
 
     LOGICAL                   :: it_is_time
 
     INTEGER                   :: n
-    REAL(kind=dp)             :: tol, checktime
+    REAL(kind=dp)             :: tol, checktime, endtime
 
-    tol = 0.5_dp * dtime
-    checktime = time_mod - t_offset_bubblecheck
-    n = NINT(checktime/dt_bubblecheck)
+    tol       = 0.5_dp * dtime
+    endtime   = MIN(tend_bubblecheck+t_offset_bubblecheck+tol, get_domain_endtime_in_sec (idom)-tol)
 
-    ! Only times after the model start are possible candidates for bubble checking:
-    IF (n > 0 .AND. time_mod > dt_bubblecheck-tol) THEN
-      it_is_time = (n*dt_bubblecheck-tol < checktime .AND. checktime <= n*dt_bubblecheck+tol)
+    ! Only times after the model start and before model end are possible candidates for bubble checking:
+    IF ( time_mod >= tstart_bubblecheck+t_offset_bubblecheck-tol .AND. time_mod < endtime ) THEN
+      checktime  = time_mod - tstart_bubblecheck - t_offset_bubblecheck
+      n          = NINT(checktime/dt_bubblecheck)
+      it_is_time = (n*dt_bubblecheck-tol <= checktime .AND. checktime < n*dt_bubblecheck+tol)
     ELSE
       it_is_time = .FALSE.
     END IF
@@ -2567,9 +2613,9 @@ CONTAINS
     IMPLICIT NONE
 
     REAL(KIND=dp), INTENT(in) :: obs_times(:)
-    INTEGER       :: i_time
+    INTEGER                   :: i_time
 
-    REAL(KIND=dp)             :: time_mod
+    REAL(KIND=dp) :: time_mod
     INTEGER       :: n
 
     time_mod = get_model_time_sec ()  ! [s] since tc_exp_startdate
@@ -2677,9 +2723,9 @@ CONTAINS
 
     IMPLICIT NONE
 
-    INTEGER, INTENT(in) :: idom
-    REAL(KIND=dp),           INTENT(in) :: obs_time
-    LOGICAL                             :: within
+    INTEGER,       INTENT(in) :: idom
+    REAL(KIND=dp), INTENT(in) :: obs_time
+    LOGICAL                   :: within
 
     within = ( obs_time >= get_domain_starttime_in_sec(idom)-0.5_dp*dtime .AND. &
          obs_time <= get_domain_endtime_in_sec(idom)+0.5_dp*dtime )
@@ -2692,9 +2738,9 @@ CONTAINS
 
     IMPLICIT NONE
 
-    INTEGER, INTENT(in) :: idom
-    REAL(KIND=dp), INTENT(in)           :: obs_time(:)
-    LOGICAL                             :: within(1:size(obs_time))
+    INTEGER,       INTENT(in) :: idom
+    REAL(KIND=dp), INTENT(in) :: obs_time(:)
+    LOGICAL                   :: within(1:size(obs_time))
 
     within = ( obs_time >= get_domain_starttime_in_sec(idom)-0.5_dp*dtime .AND. &
          obs_time <= get_domain_endtime_in_sec(idom)+0.5_dp*dtime )
@@ -2717,9 +2763,9 @@ CONTAINS
 
     IMPLICIT NONE
 
-    INTEGER, INTENT(in) :: idom
-    REAL(KIND=dp),           INTENT(in) :: obs_time
-    LOGICAL                             :: within
+    INTEGER,       INTENT(in) :: idom
+    REAL(KIND=dp), INTENT(in) :: obs_time
+    LOGICAL                   :: within
 
     within = ( obs_time >= get_domain_runstarttime_in_sec(idom)-0.5_dp*dtime .AND. &
          obs_time <= get_domain_runendtime_in_sec(idom)+0.5_dp*dtime )
@@ -2732,9 +2778,9 @@ CONTAINS
 
     IMPLICIT NONE
 
-    INTEGER, INTENT(in) :: idom
-    REAL(KIND=dp), INTENT(in)           :: obs_time(:)
-    LOGICAL                             :: within(1:size(obs_time))
+    INTEGER,       INTENT(in) :: idom
+    REAL(KIND=dp), INTENT(in) :: obs_time(:)
+    LOGICAL                   :: within(1:size(obs_time))
 
     within = ( obs_time >= get_domain_runstarttime_in_sec(idom)-0.5_dp*dtime .AND. &
          obs_time <= get_domain_runendtime_in_sec(idom)+0.5_dp*dtime )
@@ -2757,7 +2803,7 @@ CONTAINS
     IMPLICIT NONE
 
     INTEGER, INTENT(in) :: idom
-    REAL(KIND=dp) :: tol
+    REAL(KIND=dp)       :: tol
 
     tol = 0.5_dp * dtime
 
@@ -2776,9 +2822,9 @@ CONTAINS
 
     IMPLICIT NONE
 
-    INTEGER, INTENT(in) :: idom
-    REAL(KIND=dp),           INTENT(in) :: dt_obs
-    INTEGER       :: n_times
+    INTEGER,       INTENT(in) :: idom
+    REAL(KIND=dp), INTENT(in) :: dt_obs
+    INTEGER                   :: n_times
 
     REAL(KIND=dp) :: time_sec
 
@@ -2915,13 +2961,11 @@ CONTAINS
 #endif
 
   !=================================================================================
-
-  ! Meta data for the composite lat/lon grid. At the moment, this has to
-  !  be equal to the COSMO grid, because we want to use the standard output facilities
-  !  of COSMO for grib output. And these expect the output fields to be
-  !  distributed among the compute nodes.
-  ! However, the code is written in a way that it is possible and easy
-  !  to separate both grids in the future.
+  !
+  ! Meta data for the composite lat/lon grid. At the moment, this is chosen
+  !  as the COSMO-D2 grid. It will be used as the default and can be
+  !  adjusted by the user via namelist parameters in /RADARSIM_PARAMS/.
+  !  See the EMVORADO User's Guide.
 
   ! For ICON, this is used to define the default before namelist reading
   SUBROUTINE get_composite_metadata ( idom, composite_meta_data )
@@ -2929,22 +2973,22 @@ CONTAINS
     IMPLICIT NONE
 
     ! Parameters
-    INTEGER, INTENT(in) :: idom  ! At the moment only a dummy, but in the future the composite grid might
+    INTEGER, INTENT(in) :: idom  ! At the moment only a dummy, but in the future the default for the composite grid might
                                  !  depend on the domain
 
     TYPE(composite_meta_type), INTENT(out)  :: composite_meta_data
 
-    ! .. The following COSMO-DE grid is the default, which can be changed
-    !     in the RADARSIM_PARAMS namelist:
-    composite_meta_data%ni       = 421
-    composite_meta_data%nj       = 461
+    ! .. The following COSMO-D2 grid is the default, which can be changed
+    !     in the /RADARSIM_PARAMS namelist/:
+    composite_meta_data%ni       = 651
+    composite_meta_data%nj       = 716
     composite_meta_data%pollon   = -170.0_dp
     composite_meta_data%pollat   = 40.0_dp
     composite_meta_data%polgam   = 0.0_dp
-    composite_meta_data%dlon     = 0.025_dp
-    composite_meta_data%dlat     = 0.025_dp
-    composite_meta_data%startlon = -5.0_dp
-    composite_meta_data%startlat = -5.0_dp
+    composite_meta_data%dlon     = 0.02_dp
+    composite_meta_data%dlat     = 0.02_dp
+    composite_meta_data%startlon = -7.5_dp
+    composite_meta_data%startlat = -6.3_dp
     composite_meta_data%r_earth  = r_earth_dp ! Not changeable via namelist!
 
   END SUBROUTINE get_composite_metadata
@@ -2972,8 +3016,16 @@ CONTAINS
     nj = p_patch(idom)%nlev
     nk = p_patch(idom)%nblks_c
 
-    IF (.NOT.ALLOCATED(z_radar))    ALLOCATE(z_radar(ni,nj,nk))
-    IF (.NOT.ALLOCATED(z_ext))      ALLOCATE(z_ext(ni,nj,nk))
+    IF (.NOT.ALLOCATED(zh_radar))   ALLOCATE(zh_radar(ni,nj,nk))
+    IF (.NOT.ALLOCATED(ah_radar))   ALLOCATE(ah_radar(ni,nj,nk))
+
+    IF (.NOT.ALLOCATED(zv_radar))   ALLOCATE(zv_radar(ni,nj,nk))
+    IF (.NOT.ALLOCATED(rrhv_radar)) ALLOCATE(rrhv_radar(ni,nj,nk))
+    IF (.NOT.ALLOCATED(irhv_radar)) ALLOCATE(irhv_radar(ni,nj,nk))
+    IF (.NOT.ALLOCATED(kdp_radar))  ALLOCATE(kdp_radar(ni,nj,nk))
+    IF (.NOT.ALLOCATED(adp_radar))  ALLOCATE(adp_radar(ni,nj,nk))
+    IF (.NOT.ALLOCATED(zvh_radar))  ALLOCATE(zvh_radar(ni,nj,nk))
+
     IF (.NOT.ALLOCATED(vt_radar))   ALLOCATE(vt_radar(ni,nj,nk))
     IF (.NOT.ALLOCATED(rlat))       ALLOCATE(rlat(ni,nk))
     IF (.NOT.ALLOCATED(rlon))       ALLOCATE(rlon(ni,nk))
@@ -3005,8 +3057,16 @@ CONTAINS
 
     IMPLICIT NONE
 
-    IF (ALLOCATED(z_radar))    DEALLOCATE(z_radar)
-    IF (ALLOCATED(z_ext))      DEALLOCATE(z_ext)
+    IF (ALLOCATED(zh_radar))   DEALLOCATE(zh_radar)
+    IF (ALLOCATED(ah_radar))   DEALLOCATE(ah_radar)
+
+    IF (ALLOCATED(zv_radar))   DEALLOCATE(zv_radar)
+    IF (ALLOCATED(rrhv_radar)) DEALLOCATE(rrhv_radar)
+    IF (ALLOCATED(irhv_radar)) DEALLOCATE(irhv_radar)
+    IF (ALLOCATED(kdp_radar))  DEALLOCATE(kdp_radar)
+    IF (ALLOCATED(adp_radar))  DEALLOCATE(adp_radar)
+    IF (ALLOCATED(zvh_radar))  DEALLOCATE(zvh_radar)
+
     IF (ALLOCATED(vt_radar))   DEALLOCATE(vt_radar)
     IF (ALLOCATED(rlat))       DEALLOCATE(rlat)
     IF (ALLOCATED(rlon))       DEALLOCATE(rlon)
@@ -3024,7 +3084,7 @@ CONTAINS
     !   This subroutine determines the top height MSL up to which radar
     !   computations should be performed. This is usually the top height
     !   of the model domain in the vertical. This subroutine has to be
-    !   called on all compute- and asynchroneous-output-PEs. The latter
+    !   called on all compute- and asynchronous-output-PEs. The latter
     !   require an MPI communication from the compute- to the output-PEs.
     !
     !--------------------------------------------------------------------------
@@ -3044,7 +3104,7 @@ CONTAINS
       htop_model = -HUGE(1.0_dp)
     END IF
     IF (num_radar > 1 .AND. num_radario > 0) THEN
-      ! Asynchroneous output on separate IO-PEs, therefore communicate htop
+      ! Asynchronous output on separate IO-PEs, therefore communicate htop
       !  to the output PEs using a collective MAX operation:
       yzerrmsg(:) = ' '
       CALL global_values_radar(htop_model, 'MAX', icomm_radar, -1, yzerrmsg, mpierror)
@@ -3066,25 +3126,22 @@ CONTAINS
   !
   !=======================================================================================
 
-  SUBROUTINE initialize_tmax_2mom_vec_par(neigh)
+  SUBROUTINE initialize_tmax_2mom_vec_par(neigh,namlist,do_always)
 
     IMPLICIT NONE
     REAL(KIND=dp), INTENT(in) :: neigh
+    TYPE(dbzcalc_params), INTENT(in) :: namlist
+    LOGICAL, OPTIONAL, INTENT(in)    :: do_always
 
     INTEGER :: iu, ju, i, j, k, im, jm, ierr
-    REAL(KIND=dp) :: qithresh, qsthresh, qgthresh, qhthresh
-
-    ! Q - Thresholds for estimation Tmax for degree-of-melting-parameterization
-    qithresh = 1d-8
-    qsthresh = 1d-8
-    qgthresh = 1d-8
+    LOGICAL :: do_all
 
     ALLOCATE(Tmax_i_modelgrid(ie_fwo,ke_fwo),Tmax_s_modelgrid(ie_fwo,ke_fwo),Tmax_g_modelgrid(ie_fwo,ke_fwo))
 
     ! Initial (minimal) values of Tmax_x: 
-    CALL init_vari(Tmax_i_modelgrid, 3.0d0 + 273.16)
-    CALL init_vari(Tmax_s_modelgrid, 3.0d0 + 273.16)
-    CALL init_vari(Tmax_g_modelgrid, 3.0d0 + 273.16)
+    CALL init_vari(Tmax_i_modelgrid, namlist%Tmax_min_i)
+    CALL init_vari(Tmax_s_modelgrid, namlist%Tmax_min_s)
+    CALL init_vari(Tmax_g_modelgrid, namlist%Tmax_min_g)
 
     ! Tmax is the highest temperature of a point within a neighbourhood (neigh) of the point im, jm, 
     ! where liquid-water-content is still above a small threshold (qthresh).
@@ -3097,13 +3154,13 @@ CONTAINS
       DO k=1,ke_fwo
         DO im=1,ie_fwo
           
-          IF (qi(im,jm,k) > qithresh .AND. qni(im,jm,k) > 1.0d0) THEN
+          IF (qi(im,jm,k) > namlist%qthresh_i .AND. qni(im,jm,k) > namlist%qnthresh_i) THEN
             Tmax_i_modelgrid(im,k) = MAX(Tmax_i_modelgrid(im,k), t(im,jm,k))
           END IF
-          IF (qs(im,jm,k) > qsthresh .AND. qns(im,jm,k) > 1.0d0) THEN
+          IF (qs(im,jm,k) > namlist%qthresh_s .AND. qns(im,jm,k) > namlist%qnthresh_s) THEN
             Tmax_s_modelgrid(im,k) = MAX(Tmax_s_modelgrid(im,k), t(im,jm,k))
           END IF
-          IF (qg(im,jm,k) > qgthresh .AND. qng(im,jm,k) > 1.0d-3) THEN
+          IF (qg(im,jm,k) > namlist%qthresh_g .AND. qng(im,jm,k) > namlist%qnthresh_g) THEN
             Tmax_g_modelgrid(im,k) = MAX(Tmax_g_modelgrid(im,k), t(im,jm,k))
           END IF
 
@@ -3115,19 +3172,17 @@ CONTAINS
     ! Maximum acceptable values of Tmax_x_modelgrid: 
 !$omp parallel
 !$omp workshare
-    Tmax_i_modelgrid = MIN(Tmax_i_modelgrid , 10.0d0 + 273.16)
-    Tmax_s_modelgrid = MIN(Tmax_s_modelgrid , 10.0d0 + 273.16)
-    Tmax_g_modelgrid = MIN(Tmax_g_modelgrid , 15.0d0 + 273.16)
+    Tmax_i_modelgrid = MIN(Tmax_i_modelgrid , namlist%Tmax_max_i)
+    Tmax_s_modelgrid = MIN(Tmax_s_modelgrid , namlist%Tmax_max_s)
+    Tmax_g_modelgrid = MIN(Tmax_g_modelgrid , namlist%Tmax_max_g)
 !$omp end workshare
 !$omp end parallel
    
-    IF (lalloc_qh) THEN
-      
-      qhthresh = 1d-8
+    IF (lalloc_qh .OR. do_all) THEN
       
       ALLOCATE(Tmax_h_modelgrid(ie_fwo,ke_fwo))
       ! Initial (minimal) value of Tmax_h_modelgrid: 
-      CALL init_vari(Tmax_h_modelgrid, 5.0d0 + 273.16)
+      CALL init_vari(Tmax_h_modelgrid, namlist%Tmax_min_h)
 
       DO jm=1,je_fwo
 !!$omp parallel do collapse(2) private(im,k)
@@ -3135,7 +3190,7 @@ CONTAINS
         DO k=1,ke_fwo
           DO im=1,ie_fwo
             
-            IF (qh(im,jm,k) > qhthresh .AND. qnh(im,jm,k) > 1.0d-3) THEN
+            IF (qh(im,jm,k) > namlist%qthresh_h .AND. qnh(im,jm,k) > namlist%qnthresh_h) THEN
               Tmax_h_modelgrid(im,k) = MAX(Tmax_h_modelgrid(im,k), t(im,jm,k))
             END IF
             
@@ -3147,23 +3202,27 @@ CONTAINS
       ! Maximum acceptable value of Tmax_h_modelgrid: 
 !$omp parallel
 !$omp workshare
-      Tmax_h_modelgrid = MIN(Tmax_h_modelgrid , 30.0d0 + 273.16)
+      Tmax_h_modelgrid = MIN(Tmax_h_modelgrid ,  namlist%Tmax_max_h)
 !$omp end workshare
 !$omp end parallel
 
     END IF
 
-
-    RETURN
   END SUBROUTINE initialize_tmax_2mom_vec_par
 
-  SUBROUTINE initialize_tmax_1mom_vec_par(neigh)
+  SUBROUTINE initialize_tmax_1mom_vec_par(neigh,namlist,do_always)
 
     IMPLICIT NONE
     REAL(KIND=dp), INTENT(in) :: neigh
+    TYPE(dbzcalc_params), INTENT(in) :: namlist
+    LOGICAL, OPTIONAL, INTENT(in)    :: do_always
 
     INTEGER :: iu, ju, i, j, k, im, jm, ierr
-    REAL(KIND=dp) :: qithresh, qsthresh, qgthresh, qhthresh
+    LOGICAL :: do_all
+
+
+    do_all = .false.
+    IF(PRESENT(do_always)) do_all=do_always
 
     !!!!******** neigh is ignored here ********!!!
     
@@ -3177,11 +3236,8 @@ CONTAINS
 
       ALLOCATE(Tmax_i_modelgrid(ie_fwo,ke_fwo))
 
-      ! Q - Thresholds for estimation Tmax for degree-of-melting-parameterization
-      qithresh = 1d-8
-
       ! Initial (minimal) value of Tmax_g: 
-      CALL init_vari(Tmax_i_modelgrid, 3.0d0 + 273.16)
+      CALL init_vari(Tmax_i_modelgrid, namlist%Tmax_min_i)
 
       DO jm=1,je_fwo
 !!$omp parallel do collapse(2) private(im,k)
@@ -3189,7 +3245,7 @@ CONTAINS
         DO k=1,ke_fwo
           DO im=1,ie_fwo
           
-            IF (qi(im,jm,k) >= qithresh) THEN
+            IF (qi(im,jm,k) > namlist%qthresh_i) THEN
               Tmax_i_modelgrid(im,k) = MAX(Tmax_i_modelgrid(im,k), t(im,jm,k))
             END IF
 
@@ -3201,7 +3257,7 @@ CONTAINS
       ! Maximum acceptable value of Tmax_i_modelgrid: 
 !$omp parallel
 !$omp workshare
-      Tmax_i_modelgrid = MIN(Tmax_i_modelgrid , 10.0d0 + 273.16)
+      Tmax_i_modelgrid = MIN(Tmax_i_modelgrid , namlist%Tmax_max_i)
 !$omp end workshare
 !$omp end parallel
 
@@ -3211,11 +3267,8 @@ CONTAINS
 
       ALLOCATE(Tmax_s_modelgrid(ie_fwo,ke_fwo))
       
-      ! Q - Thresholds for estimation Tmax for degree-of-melting-parameterization
-      qsthresh = 1d-8
-
       ! Initial (minimal) value of Tmax_s: 
-      CALL init_vari(Tmax_s_modelgrid, 3.0d0 + 273.16)
+      CALL init_vari(Tmax_s_modelgrid, namlist%Tmax_min_s)
 
       DO jm=1,je_fwo
 !!$omp parallel do collapse(2) private(k,im)
@@ -3223,7 +3276,7 @@ CONTAINS
         DO k=1,ke_fwo
           DO im=1,ie_fwo
           
-            IF (qs(im,jm,k) >= qsthresh) THEN
+            IF (qs(im,jm,k) > namlist%qthresh_s) THEN
               Tmax_s_modelgrid(im,k) = MAX(Tmax_s_modelgrid(im,k), t(im,jm,k))
             END IF
 
@@ -3235,7 +3288,7 @@ CONTAINS
       ! Maximum acceptable value of Tmax_s_modelgrid: 
 !$omp parallel
 !$omp workshare
-      Tmax_s_modelgrid = MIN(Tmax_s_modelgrid , 10.0d0 + 273.16)
+      Tmax_s_modelgrid = MIN(Tmax_s_modelgrid , namlist%Tmax_max_s)
 !$omp end workshare
 !$omp end parallel
 
@@ -3245,11 +3298,8 @@ CONTAINS
       
       ALLOCATE(Tmax_g_modelgrid(ie_fwo,ke_fwo))
 
-      ! Q - Thresholds for estimation Tmax for degree-of-melting-parameterization
-      qgthresh = 1d-8
-
       ! Initial (minimal) value of Tmax_g: 
-      CALL init_vari(Tmax_g_modelgrid, 3.0d0 + 273.16)
+      CALL init_vari(Tmax_g_modelgrid, namlist%Tmax_min_g)
 
       DO jm=1,je_fwo
 !!$omp parallel do collapse(2) private(im,k)
@@ -3257,7 +3307,7 @@ CONTAINS
         DO k=1,ke_fwo
            DO im=1,ie_fwo
           
-            IF (qg(im,jm,k) >= qgthresh) THEN
+            IF (qg(im,jm,k) > namlist%qthresh_g) THEN
               Tmax_g_modelgrid(im,k) = MAX(Tmax_g_modelgrid(im,k), t(im,jm,k))
             END IF
             
@@ -3269,7 +3319,7 @@ CONTAINS
       ! Maximum acceptable value of Tmax_g_modelgrid: 
 !$omp parallel
 !$omp workshare
-      Tmax_g_modelgrid = MIN(Tmax_g_modelgrid , 15.0d0 + 273.16)
+      Tmax_g_modelgrid = MIN(Tmax_g_modelgrid , namlist%Tmax_max_g)
 !$omp end workshare
 !$omp end parallel
       
@@ -3308,6 +3358,303 @@ CONTAINS
   !============================================================================
   
   SUBROUTINE set_testpattern_hydrometeors_mg
+
+    IMPLICIT NONE
+
+    INTEGER       :: i, j, k, i_startblk, i_endblk, is, ie, ierr, alt, ni, nj
+    LOGICAL       :: minmaxrange
+    REAL(kind=wp) :: tc_min, tr_min, ti_max, ts_max, tg_min, tg_max, th_min, th_max
+    REAL(kind=wp) :: scalelim, &
+                     qc_mean, qi_mean, qr_mean, qs_mean, qg_mean, qh_mean, &
+                     qnc_mean, qni_mean, qnr_mean, qns_mean, qng_mean, qnh_mean
+    REAL(kind=wp) :: qc_min, qi_min, qr_min, qs_min, qg_min, qh_min, &
+                     qc_max, qi_max, qr_max, qs_max, qg_max, qh_max, &
+                     xc_min, xi_min, xr_min, xs_min, xg_min, xh_min, &
+                     xc_max, xi_max, xr_max, xs_max, xg_max, xh_max
+    REAL(kind=wp) :: lon_min, lon_max, lat_min, lat_max, lon_span, lat_span, &
+                     lon_fold, lat_fold
+    CHARACTER(len=cmaxlen)  :: yerrmsg
+    REAL(kind=wp), ALLOCATABLE, SAVE :: &
+         spatial_modulation(:,:,:)   , spatial_modulation_2d(:,:)   , &
+         spatial_modulation_qn(:,:,:), spatial_modulation_qn_2d(:,:), &
+         lon_mat(:,:), lat_mat(:,:)
+
+    !=================================================================
+    ! Some testpattern control parameters:
+    !
+    ! Number of patches in x- and y-direction:
+    
+    ni = 4
+    nj = 3
+    minmaxrange = .TRUE.
+    
+    ! Temperature limits [°C]:
+    tc_min = -38.0_wp
+    ! rain at -40C seems unrealistic, but is predicted by COSMO in warm bubble
+    ! test case, so we want to test that...
+    tr_min = -38.0_wp
+    ti_max = +5.0_wp
+    ts_max = +10.0_wp
+    ! graupel at 30C and below 220K seems unrealistic, but is predicted by COSMO
+    ! in warm bubble test case, so we want to test that...
+    tg_min = -50.0_wp
+    tg_max = +30.0_wp
+    th_min = -50.0_wp
+    th_max = +30.0_wp
+    
+    ! Mean-based distrib with mean +/- scalelim*mean range:
+    scalelim = 1.0_wp !0.5_wp
+    qc_mean = 0.5e-3_wp
+    qi_mean = 0.1e-3_wp
+    qr_mean = 1.5e-3_wp
+    qs_mean = 1.0e-3_wp
+    qg_mean = 2.0e-3_wp
+    qh_mean = 4.0e-3_wp
+    qnc_mean = 5.0e7_wp
+    qni_mean = 5.0e4_wp
+    qnr_mean = 1.0e3_wp
+    qns_mean = 1.0e4_wp
+    qng_mean = 1.0e4_wp
+    qnh_mean = 0.5e3_wp
+    
+    ! Min-max based distribution:
+    !  here only implemented in log space, but might also be used in lin space
+    !  with minor modifications
+    !  (values derived by JM from IDEAL-WK82 51x51 test case and slightly modified by UB, &
+    !   h-values adapted to actually calculated ranges)
+    qc_min = 4.0e-6_wp
+    qc_max = 2.5e-3_wp
+    xc_min = 4.2e-15_wp   ! cloudstandard
+    xc_max = 2.6e-10_wp
+    qi_min = 1.0e-10_wp
+    qi_max = 2.0e-3_wp
+    xi_min = 1.0e-12_wp   ! iceCRY2test
+    xi_max = 1.0e-6_wp
+    qr_min = 1.0e-7_wp
+    qr_max = 1.0e-2_wp
+    xr_min = 2.6e-10_wp   ! rainULI
+    xr_max = 3.0e-6_wp
+    qs_min = 1.0e-9_wp
+    qs_max = 2.0e-3_wp
+    xs_min = 1.0e-10_wp   ! snowCRYSTALuli2
+    xs_max = 2.0e-6_wp
+    qg_min = 1.0e-8_wp
+    qg_max = 1.0e-2_wp
+    xg_min = 1.0e-9_wp    ! graupelhail2test4
+    xg_max = 5.0e-4_wp
+    qh_min = 1.0e-6_wp
+    qh_max = 1.0e-2_wp
+    xh_min = 2.6e-9_wp    ! hailULItest
+    xh_max = 5.0e-3_wp    !  (should not be larger hail%xmax=5e-3)
+
+    !=================================================================
+
+    WRITE (*,'(a,i4,a,f10.0,a)') '*** WARNING: Experimental run with pre-specified test pattern of '//&
+         'hydrometeor contents in radar_interface.f90 on my_cart_id_fwo = ', my_cart_id_fwo, &
+         ' at time ', get_model_time_sec(), ' ! ***'
+
+    !=================================================================
+
+    IF (.NOT.ALLOCATED(spatial_modulation)) THEN
+
+      ALLOCATE(spatial_modulation(ie_fwo,je_fwo,ke_fwo)) ! 3D
+      ALLOCATE(spatial_modulation_2d(ie_fwo,ke_fwo))    ! 2D horiztonal
+      ALLOCATE(spatial_modulation_qn(ie_fwo,je_fwo,ke_fwo)) ! 3D
+      ALLOCATE(spatial_modulation_qn_2d(ie_fwo,ke_fwo))    ! 2D horiztonal
+
+      ALLOCATE(lon_mat(ie_fwo,ke_fwo), lat_mat(ie_fwo,ke_fwo))
+
+      ! .. 4x3 checkerboard pattern on total domain, provided the domain does not cross the date line:
+
+      lon_mat = -HUGE(1.0_dp)
+      lat_mat = -HUGE(1.0_dp)
+
+      i_startblk = p_patch_for_testpattern % cells % start_block(grf_bdywidth_c+1)
+      i_endblk   = p_patch_for_testpattern % cells % end_block(min_rlcell_int)
+
+      DO k = i_startblk, i_endblk
+        CALL get_indices_c(p_patch_for_testpattern, k, i_startblk, i_endblk, is, ie, grf_bdywidth_c+1, min_rlcell_int)
+        DO i = is, ie
+          lon_mat(i,k) = p_patch_for_testpattern % cells % center(i,k) % lon * raddeg
+          lat_mat(i,k) = p_patch_for_testpattern % cells % center(i,k) % lat * raddeg
+        END DO
+      END DO
+
+      lon_min = MINVAL(lon_mat, mask=lon_mat>-900.0_wp)
+      lon_max = MAXVAL(lon_mat, mask=lon_mat>-900.0_wp)
+      lat_min = MINVAL(lat_mat, mask=lat_mat>-900.0_wp)
+      lat_max = MAXVAL(lat_mat, mask=lat_mat>-900.0_wp)
+
+      ! Get the global min/max of lat/lon:
+      IF (num_compute_fwo > 1) THEN
+        CALL global_values_radar(lon_min, 'MIN', icomm_cart_fwo, -1, yerrmsg, ierr)
+        CALL global_values_radar(lon_max, 'MAX', icomm_cart_fwo, -1, yerrmsg, ierr)
+        CALL global_values_radar(lat_min, 'MIN', icomm_cart_fwo, -1, yerrmsg, ierr)
+        CALL global_values_radar(lat_max, 'MAX', icomm_cart_fwo, -1, yerrmsg, ierr)
+      END IF
+
+      lon_span = (lon_max - lon_min) / ni
+      lat_span = (lat_max - lat_min) / nj
+
+      spatial_modulation_2d(:,:) = 0.0_wp
+      DO k=1, ke_fwo
+        DO i=1, ie_fwo
+          IF (lon_mat(i,k) > -HUGE(1.0_dp)+1e-20_dp .AND. lat_mat(i,k) > -HUGE(1.0_dp)+1e-20_dp) THEN
+            lon_fold = MODULO(lon_mat(i,k)-lon_min, lon_span)
+            lat_fold = MODULO(lat_mat(i,k)-lat_min, lat_span)
+
+            alt = MODULO( INT((lon_mat(i,k)-lon_min)/lon_span) + INT((lat_mat(i,k)-lat_min)/lat_span), 2)            
+            IF (alt == 0) THEN
+              ! horizontal pattern for q and vertical pattern for qn:
+              IF (minmaxrange) THEN
+                spatial_modulation_2d(i,k)    = (lon_fold-lon_min)/lon_span
+                spatial_modulation_qn_2d(i,k) = (lat_fold-lat_min)/lat_span
+              ELSE
+                spatial_modulation_2d(i,k)    = 1.0_dp + scalelim * (lon_fold-0.5_wp*lon_span)/(0.5_wp*lon_span)
+                spatial_modulation_qn_2d(i,k) = 1.0_dp + scalelim * (lat_fold-0.5_wp*lat_span)/(0.5_wp*lat_span)
+              END IF
+            ELSE
+              ! vertical pattern for q and horizontal pattern for qn:
+              IF (minmaxrange) THEN
+                spatial_modulation_2d(i,k)    = (lat_fold-lat_min)/lat_span
+                spatial_modulation_qn_2d(i,k) = (lon_fold-lon_min)/lon_span
+              ELSE
+                spatial_modulation_2d(i,k)    = 1.0_dp + scalelim * (lat_fold-0.5_wp*lat_span)/(0.5_wp*lat_span)
+                spatial_modulation_qn_2d(i,k) = 1.0_dp + scalelim * (lat_fold-0.5_wp*lat_span)/(0.5_wp*lat_span)
+              END IF
+            END IF
+
+          END IF
+        END DO
+      END DO
+      
+      ! Distribute to vertical levels (j):
+      DO j=1, je_fwo
+        spatial_modulation(:,j,:) = spatial_modulation_2d(:,:)
+        spatial_modulation_qn(:,j,:) = spatial_modulation_qn_2d(:,:)
+      END DO
+
+    END IF
+    
+    
+    ! Vertical profiles for model variables:
+    IF (minmaxrange) THEN
+      qc = qc_min * (qc_max/qc_min)**spatial_modulation
+    ELSE
+      qc = qc_mean * spatial_modulation
+    END IF
+    WHERE (t < T0C_fwo+tc_min) qc = 0.0_wp
+
+    IF (lalloc_qi) THEN
+      IF (minmaxrange) THEN
+        qi = qi_min * (qi_max/qi_min)**spatial_modulation
+      ELSE
+        qi = qi_mean * spatial_modulation
+      END IF
+      WHERE (t > T0C_fwo+ti_max) qi = 0.0_wp
+    END IF
+    IF (ASSOCIATED(qr)) THEN
+      IF (minmaxrange) THEN
+        qr = qr_min * (qr_max/qr_min)**spatial_modulation
+      ELSE
+        qr = qr_mean * spatial_modulation
+      END IF
+      WHERE (t < T0C_fwo+tr_min) qr = 0.0_wp
+    END IF
+    IF (lalloc_qs) THEN
+      IF (minmaxrange) THEN
+        qs = qs_min * (qs_max/qs_min)**spatial_modulation
+      ELSE
+        qs = qs_mean * spatial_modulation
+      END IF
+      WHERE (t > T0C_fwo+ts_max) qs = 0.0_wp
+    END IF
+    IF (lalloc_qg) THEN
+      IF (minmaxrange) THEN
+        qg = qg_min * (qg_max/qg_min)**spatial_modulation
+      ELSE
+        qg = qg_mean * spatial_modulation
+      END IF
+      WHERE (t > T0C_fwo+tg_max) qg = 0.0_wp
+      WHERE (t < T0C_fwo+tg_min) qg = 0.0_wp
+    END IF
+
+    IF (lalloc_qh) THEN
+      IF (minmaxrange) THEN
+        qh = qh_min * (qh_max/qh_min)**spatial_modulation
+      ELSE
+        qh = qh_mean * spatial_modulation
+      END IF
+      WHERE (t > T0C_fwo+th_max) qh = 0.0_wp
+      WHERE (t < T0C_fwo+th_min) qh = 0.0_wp
+    END IF
+    IF (ASSOCIATED(qnc)) THEN
+      IF (minmaxrange) THEN
+        ! we should probably make use of rho0...
+        qnc = qc / (xc_min * (xc_max/xc_min)**spatial_modulation_qn)
+      ELSE
+        qnc = qnc_mean / rho0 * spatial_modulation_qn
+      END IF
+    END IF
+    IF (ASSOCIATED(qni)) THEN
+      IF (minmaxrange) THEN
+        ! we should probably make use of rho0...
+        qni = qi / (xi_min * (xi_max/xi_min)**spatial_modulation_qn)
+      ELSE
+        qni = qni_mean / rho0 * spatial_modulation_qn
+      END IF
+    END IF
+    IF (ASSOCIATED(qnr)) THEN
+      IF (minmaxrange) THEN
+        ! we should probably make use of rho0...
+        qnr = qr / (xr_min * (xr_max/xr_min)**spatial_modulation_qn)
+      ELSE
+        qnr = qnr_mean / rho0 * spatial_modulation_qn
+      END IF
+      WHERE (qr < 1e-10_wp) qnr = 0.0_wp
+    END IF
+    IF (ASSOCIATED(qns)) THEN
+      IF (minmaxrange) THEN
+        ! we should probably make use of rho0...
+        qns = qs / (xs_min * (xs_max/xs_min)**spatial_modulation_qn)
+      ELSE
+        qns = qns_mean / rho0 * spatial_modulation_qn
+      END IF
+      WHERE (qs < 1e-12_wp) qns = 0.0_wp
+    END IF
+    IF (ASSOCIATED(qng)) THEN
+      IF (minmaxrange) THEN
+        qng = qg / (xg_min * (xg_max/xg_min)**spatial_modulation_qn)
+      ELSE
+        qng = qng_mean * spatial_modulation_qn
+      END IF
+      WHERE (qg < 1e-10_wp) qng = 0.0_wp
+    END IF
+    IF (ASSOCIATED(qnh)) THEN
+      IF (minmaxrange) THEN
+        qnh = qh / (xh_min * (xh_max/xh_min)**spatial_modulation_qn)
+      ELSE
+        qnh = qnh_mean * spatial_modulation_qn
+      END IF
+      WHERE (qh < 1e-10_wp) qnh = 0.0_wp
+    END IF
+    
+  END SUBROUTINE set_testpattern_hydrometeors_mg
+
+!================================================================================
+
+  !============================================================================
+  ! 
+  ! Subroutine for specifying an artificial test pattern of hydrometeors
+  !  for testing the forward operator during one timestep. Is used in the
+  !  Testsuite if ltestpattern_hydrometeors=.TRUE.
+  ! 
+  ! This routine is for a testpattern on the model grid. It has to be called
+  ! AFTER get_model_hydrometeors() and get_model_variables()!!!
+  !
+  !============================================================================
+  
+  SUBROUTINE set_testpattern_hydrometeors_mg_simple
 
     IMPLICIT NONE
 
@@ -3431,8 +3778,9 @@ CONTAINS
       WHERE (qh < 1e-7_wp) qnh = 0.0_wp
     END IF
 
-  END SUBROUTINE set_testpattern_hydrometeors_mg
+  END SUBROUTINE set_testpattern_hydrometeors_mg_simple
 
+!================================================================================
 !================================================================================
 
   !============================================================================
@@ -3442,6 +3790,11 @@ CONTAINS
   !  to another model
   ! 
   !============================================================================
+
+  PURE FUNCTION nlevels () RESULT (nlev)
+    INTEGER :: nlev
+    nlev = je_fwo
+  END FUNCTION nlevels
 
   PURE FUNCTION bottomlevel () RESULT (kbot)
     INTEGER :: kbot
@@ -3569,7 +3922,7 @@ CONTAINS
     END IF
 
     ! In parallel runs, find global min/max of local BBs and distribute to all radar PEs,
-    !  including the asynchroneous radar IO PEs:
+    !  including the asynchronous radar IO PEs:
     IF (num_radar > 1) THEN
       yzerrmsg(:) = ' '
       CALL global_values_radar(clon_min, 'MIN', icomm_radar, -1, yzerrmsg, mpierror)
@@ -4429,7 +4782,7 @@ CONTAINS
   SUBROUTINE geo2model_coord_domaincheck (idom_model, lon_geo, lat_geo, x_model, y_model, &
                                  is_inside, rlon_min, rlon_max, rlat_min, rlat_max)
     
-    ! To be called by all radar PEs AFTER setup_auxgrid_for_cellindex() !!!
+    ! To be called by at least all worker PEs (lcompute_pe_fwo=.true.) AFTER setup_auxgrid_for_cellindex() !!!
 
     IMPLICIT NONE
 
@@ -4446,8 +4799,8 @@ CONTAINS
 
     is_inside_loc = is_inside_loc_domain (idom_model, lon_geo, lat_geo)
 
-    IF (num_radar > 1) THEN
-      CALL global_values_radar(is_inside_loc, 'OR', icomm_radar, -1, yzerrmsg, mpierror)
+    IF (num_radar > 1 .AND. lcompute_pe_fwo) THEN
+      CALL global_values_radar(is_inside_loc, 'OR', icomm_cart_fwo, -1, yzerrmsg, mpierror)
     END IF
     is_inside = is_inside_loc
 
@@ -4455,6 +4808,7 @@ CONTAINS
     y_model = lat_geo
 
     ! Domain corners of computational domain (excluding the nboundlines) in rotated lon/lat coordinates:
+    !  (DOES NOT MAKE SENSE FOR ICON UNSTRUCTURED GRID, THEREFORE SET TO A MISSING VALUE)
     IF (PRESENT(rlon_min)) rlon_min = -999.99_dp
     IF (PRESENT(rlon_max)) rlon_max = -999.99_dp
     IF (PRESENT(rlat_min)) rlat_min = -999.99_dp
@@ -4603,7 +4957,7 @@ CONTAINS
     ! Parameter list:
 
     INTEGER, INTENT(in)             :: idom_model
-    REAL(KIND=dp), INTENT(in)       :: field3D_model(:,:,:) ! ie,je,ke
+    REAL(KIND=dp), INTENT(in)       :: field3D_model(:,:,:) ! ni,nk,nj
     INTEGER, INTENT(in)             :: k_int                ! level index of the height layer for horiz. interpolation
     REAL(KIND=dp), INTENT(in)       :: lon_geo, lat_geo     ! interpolation point in geogr. lon/lat
     REAL(KIND=dp), INTENT(out)      :: dat2D_geo            ! interpolated value at location lon/lat
@@ -4647,7 +5001,7 @@ CONTAINS
     ! Parameter list:
 
     INTEGER, INTENT(in)             :: idom_model
-    REAL(KIND=dp), INTENT(in)       :: field3D_model(:,:,:)         ! ie,je,ke
+    REAL(KIND=dp), INTENT(in)       :: field3D_model(:,:,:)         ! ni,nk,nj
     REAL(KIND=dp), INTENT(in)       :: lon_geo, lat_geo, height_msl ! interpolation point in geogr. lon/lat/height
     REAL(KIND=dp), INTENT(out)      :: dat3D_geo                    ! interpolated value at location lon/lat
     INTEGER, INTENT(out)            :: k                            ! index of the model level just above dat3D_geo
@@ -4725,7 +5079,7 @@ CONTAINS
     ! Parameter list:
 
     INTEGER, INTENT(in)             :: nobs_above_sfc    ! from rs_data-structure
-    REAL(KIND=dp), INTENT(in)       :: dat_model(:,:,:)  ! ie,je,ke
+    REAL(KIND=dp), INTENT(in)       :: dat_model(:,:,:)  ! ni,nk,nj
     INTEGER, INTENT(in) :: ind_intp(:,:)     ! dim = (nobs,2), interp. indices from rs_data-structure
     REAL(KIND=dp), INTENT(in)       :: w_intp(:,:)       ! dim = (nobs,3), interp. weights from rs_data-structure
     REAL(KIND=dp), INTENT(inout)    :: dat_radarbins(:)  ! nobs
@@ -4932,7 +5286,7 @@ CONTAINS
     ! Parameter list:
 
     INTEGER, INTENT(in)             :: ngrd              ! from rs_grid-structure
-    REAL(KIND=dp), INTENT(in)       :: dat_model(:,:,:)  ! ie,je,ke
+    REAL(KIND=dp), INTENT(in)       :: dat_model(:,:,:)  ! ni,nk,nj
     INTEGER, INTENT(in) :: ind_intp(:,:)     ! dim = (nobs,2), interp. indices from rs_grid-structure
     REAL(KIND=dp), INTENT(in)       :: w_intp(:,:)       ! dim = (nobs,2), interp. weights from rs_grid-structure (dummy)
     REAL(KIND=dp), INTENT(inout)    :: dat_grd(:)        ! dim = (ngrd)
@@ -4960,8 +5314,9 @@ CONTAINS
     END IF
 
     IF (at_k_upper_loc .AND. at_k_lower_loc) THEN
-      WRITE (*,*) 'ERROR in call to interp_model2azislices_scalar: at_k_upper and at_k_lower cannot be both .TRUE.! STOP!'
-      STOP
+      CALL abort_run(my_radar_id, 3765, &
+           'ERROR in call to interp_model2azislices_scalar: at_k_upper and at_k_lower cannot be both .TRUE.!', &
+           'emvorado::interp_model2azislices_scalar')
     END IF
 
     !------------------------------------------------------------------------------
@@ -5055,7 +5410,7 @@ CONTAINS
     ! Parameter list:
 
     INTEGER, INTENT(in)           :: ngrd             ! from rs_grid-structure
-    REAL(KIND=dp), INTENT(in)     :: u(:,:,:), &      ! ie,je,ke
+    REAL(KIND=dp), INTENT(in)     :: u(:,:,:), &      ! ni,nk,nj
                                      v(:,:,:), &
                                      w(:,:,:)
     INTEGER, INTENT(in) :: ind_intp(:,:) ! dim = (nobs,2), interp. indices from rs_grid-structure
@@ -5111,20 +5466,17 @@ CONTAINS
 !  will be most likely wrong.
 !
 !==============================================================================
-
+  
 #ifdef GRIBAPI
-  SUBROUTINE grib2_add_modelspec_info(igribid, idom_model, error)
-
-    USE grib_api,        ONLY : grib_set, GRIB_SUCCESS, grib_get_error_string
+  SUBROUTINE grib2_add_modelspec_info(idom_model, grib_locinfo, error)
 
     IMPLICIT NONE
 
-    INTEGER, INTENT(in)  :: igribid
-    INTEGER, INTENT(in)  :: idom_model
-    INTEGER, INTENT(out) :: error
+    INTEGER, INTENT(in)                  :: idom_model
+    TYPE(t_grib2_modelspec), INTENT(out) :: grib_locinfo
+    INTEGER, INTENT(out)                 :: error
 
-    INTEGER              :: ierr, iprdeftnr, ncenter, nsubcenter
-    LOGICAL              :: leps
+    LOGICAL :: leps
 
     CHARACTER(len=*), PARAMETER :: yzroutine = 'grib2_add_modelspec_info'
 
@@ -5132,109 +5484,43 @@ CONTAINS
 
     leps = (gribout_config(idom_model)%numberOfForecastsInEnsemble > -1)
 
+    grib_locinfo%tablesVersion = MAX(gribout_config(idom_model)%tablesVersion, 19)
+    
     IF (gribout_config(idom_model)%generatingCenter == -1) THEN
       ! grib2 configuration informations have not been properly specified
       ! in the /gribout_nml/ namelist(s) for this domain. We set "DWD" as
       ! the provisional generating center, but use the ICON defaults for
       ! the rest of the parameters.
-      ncenter = 78
-      nsubcenter = 255
+      grib_locinfo%generatingCenter    = gribout_config(idom_model)%generatingCenter
+      grib_locinfo%generatingSubcenter = gribout_config(idom_model)%generatingSubcenter
       WRITE (*,'(a,/,a,i3)') 'WARNING '//TRIM(yzroutine)//': grib2 header infos on generating model and local use section', &
            'and ensemble members are wrong. Please define these informations in the /gribout_nml/ namelist for domain ', &
            idom_model
     ELSE
-      ncenter    = gribout_config(idom_model)%generatingCenter
-      nsubcenter = gribout_config(idom_model)%generatingSubcenter
+      grib_locinfo%generatingCenter    = gribout_config(idom_model)%generatingCenter
+      grib_locinfo%generatingSubcenter = gribout_config(idom_model)%generatingSubcenter
     END IF
 
-    ! local section has to be deleted first before changing the centre 
-    CALL grib_set (igribid, 'grib2LocalSectionPresent',        0, ierr)   ! delete local section
-    CALL check_grib_err(ierr, 'grib2LocalSectionPresent')
-    error = error + ierr
+    grib_locinfo%typeOfProcessedData = gribout_config(idom_model)%typeOfProcessedData
     
-    CALL grib_set (igribid, 'centre', ncenter      , ierr)   ! originating centre
-    CALL check_grib_err(ierr, 'centre')
-    error = error + ierr
-    CALL grib_set (igribid, 'subCentre', nsubcenter, ierr)   ! originating subcentre
-    CALL check_grib_err(ierr, 'subCentre')
-    error = error + ierr
-
-
-    ! Type of processed data
-    ! this is set to "control and perturbed forecast products"
-    CALL grib_set (igribid,'typeOfProcessedData', gribout_config(idom_model)%typeOfProcessedData, ierr)
-    CALL check_grib_err(ierr,'typeOfProcessedData')
-    error = error + ierr
-
-   
     ! Local Use Section
     ! -----------------
 
-    ! For every COSMO application we require a local use section
-    CALL grib_set (igribid, 'grib2LocalSectionPresent', 1, ierr)
-    CALL check_grib_err(ierr, 'grib2LocalSectionPresent')
-    error = error + ierr
-
-
-    CALL grib_set (igribid, 'localDefinitionNumber', gribout_config(idom_model)%localDefinitionNumber, ierr)
-    CALL check_grib_err(ierr, 'localDefinitionNumber')
-    error = error + ierr
-    CALL grib_set (igribid, 'productionStatusOfProcessedData', gribout_config(idom_model)%productionStatusOfProcessedData, ierr)
-    CALL check_grib_err(ierr, 'productionStatusOfProcessedData')
-    error = error + ierr
-    CALL grib_set (igribid, 'localNumberOfExperiment', gribout_config(idom_model)%localNumberOfExperiment, ierr)
-    CALL check_grib_err(ierr, 'localNumberOfExperiment')
-    error = error + ierr
-    CALL grib_set (igribid,'generatingProcessIdentifier', gribout_config(idom_model)%generatingProcessIdentifier, ierr)
-    CALL check_grib_err(ierr,'generatingProcessIdentifier')
-    error = error + ierr
-    CALL grib_set (igribid,'backgroundProcess', gribout_config(idom_model)%backgroundProcess, ierr)
-    CALL check_grib_err(ierr,'backgroundProcess')
-    error = error + ierr
-    CALL grib_set (igribid,'typeOfGeneratingProcess', gribout_config(idom_model)%typeOfGeneratingProcess, ierr)
-    CALL check_grib_err(ierr,'typeOfGeneratingProcess')
-    error = error + ierr
-
+    grib_locinfo%localDefinitionNumber           = gribout_config(idom_model)%localDefinitionNumber
+    grib_locinfo%productionStatusOfProcessedData = gribout_config(idom_model)%productionStatusOfProcessedData
+    grib_locinfo%localNumberOfExperiment         = gribout_config(idom_model)%localNumberOfExperiment
+    grib_locinfo%generatingProcessIdentifier     = gribout_config(idom_model)%generatingProcessIdentifier
+    grib_locinfo%backgroundProcess               = gribout_config(idom_model)%backgroundProcess
+    grib_locinfo%typeOfGeneratingProcess         = gribout_config(idom_model)%typeOfGeneratingProcess
     IF (leps) THEN
-      iprdeftnr =  1     ! individual ensemble forecast
+      grib_locinfo%productDefinitionTemplateNumber  = 1
     ELSE
-      iprdeftnr =  0     ! Standard products
-    ENDIF
-    CALL grib_set (igribid, 'productDefinitionTemplateNumber', iprdeftnr, ierr)
-    CALL check_grib_err(ierr, 'productDefinitionTemplateNumber')
-    error = error + ierr
-
-    IF (leps) THEN
-      CALL grib_set (igribid, 'localTypeOfEnsembleForecast', gribout_config(idom_model)%localTypeOfEnsembleForecast, ierr)
-      CALL check_grib_err(ierr, 'localTypeOfEnsembleForecast')
-      error = error + ierr
-      CALL grib_set (igribid,'typeOfEnsembleForecast', gribout_config(idom_model)%typeOfEnsembleForecast, ierr)
-      CALL check_grib_err(ierr,'typeOfEnsembleForecast')
-      error = error + ierr
-      CALL grib_set (igribid,'perturbationNumber', gribout_config(idom_model)%perturbationNumber, ierr) ! Ensemble Forecast
-      CALL check_grib_err(ierr,'perturbationNumber')
-      error = error + ierr
-      CALL grib_set (igribid,'numberOfForecastsInEnsemble', gribout_config(idom_model)%numberOfForecastsInEnsemble, ierr) ! Ensemble Forecast
-      CALL check_grib_err(ierr,'numberOfForecastsInEnsemble')
-      error = error + ierr
+      grib_locinfo%productDefinitionTemplateNumber  = 0
     END IF
-
-  CONTAINS
-
-    SUBROUTINE check_grib_err (griberr, cident)
-
-      INTEGER         , INTENT(in) :: griberr
-      CHARACTER(len=*), INTENT(in) :: cident
-
-      CHARACTER(len=250)           :: griberrmsg
-
-      IF (griberr /= GRIB_SUCCESS) THEN
-        griberrmsg(:) = ' '
-        CALL grib_get_error_string(griberr, griberrmsg)
-        WRITE (*,'(a)') 'ERROR grib_set('//TRIM(cident)//') in '//TRIM(yzroutine)//': '//TRIM(griberrmsg)
-      END IF
-
-    END SUBROUTINE check_grib_err
+    grib_locinfo%localTypeOfEnsembleForecast  = gribout_config(idom_model)%localTypeOfEnsembleForecast
+    grib_locinfo%typeOfEnsembleForecast       = gribout_config(idom_model)%typeOfEnsembleForecast
+    grib_locinfo%perturbationNumber           = gribout_config(idom_model)%perturbationNumber
+    grib_locinfo%numberOfForecastsInEnsemble  = gribout_config(idom_model)%numberOfForecastsInEnsemble
 
   END SUBROUTINE grib2_add_modelspec_info
 #endif
@@ -5251,17 +5537,17 @@ CONTAINS
   !  by passing the relevant informations (shape, amplitude, location, time)
   !  to respective data vectors used in ICON.
   !
-  ! This routine handles both synchroneous and asynchroneous radar IO:
+  ! This routine handles both synchroneous and asynchronous radar IO:
   !
   ! - in the synchroneous case, it is called right after detect_missing_cells()
   !   in organize_radar().
-  ! - in the asynchroneous case, it is called at a later model time on the
+  ! - in the asynchronous case, it is called at a later model time on the
   !   the workers (determined by namelist parameter "t_offset_bubble_trigger_async"),
   !   so that the workers can continue with model integration while the
-  !   asynchroneous IO PEs construct the composites and detect the missing cells.
+  !   asynchronous IO PEs construct the composites and detect the missing cells.
   !
   ! In any case, this routine must be called on all PEs belonging to the
-  !  icomm_radar_dom(idom_model) group of PEs, i.e., if lradar_pe_dom(idom_in) = .TRUE.
+  !  icomm_radar_dom(idom_model) group of PEs, i.e., if lradar_pe_dom(idom_model) = .TRUE.
   !
   !======================================================================================
 
@@ -5269,16 +5555,14 @@ CONTAINS
   SUBROUTINE trigger_warm_bubbles (idom_model, time_mod_sec, dt_advect, zlow_meanwind_for_advect, &
                                    zup_meanwind_for_advect)
 
-    INTEGER, intent(in)        :: idom_model   ! No. of the model domain in the hosting model
+    INTEGER,        INTENT(in) :: idom_model   ! No. of the model domain in the hosting model
     REAL (kind=dp), INTENT(in) :: time_mod_sec ! model time in seconds since model start
 
     REAL (kind=dp), INTENT(in) :: dt_advect                 ! Time scale for downstream advection of automatic bubbles [seconds]
     REAL (kind=dp), INTENT(in) :: zlow_meanwind_for_advect  ! The lower bound of averaging height interval for bubble advection speed [meters AMSL]
     REAL (kind=dp), INTENT(in) :: zup_meanwind_for_advect   ! The upper bound of averaging height interval for bubble advection speed [meters AMSL]
 
-    LOGICAL, SAVE :: first_call = .TRUE.
-
-    INTEGER       :: zntstep_bub, i, k, ierror
+    INTEGER       :: i, k, ierror
     LOGICAL       :: is_inside
     REAL(kind=dp) :: rlon_model, rlat_model
     CHARACTER(len=cmaxlen) :: yerrmsg
@@ -5290,34 +5574,6 @@ CONTAINS
 
     IF (ldebug_radsim) WRITE (*,*) TRIM(yzroutine), ' on proc ', my_radar_id
     
-    !----------------------------------------------------------------------------------------
-    ! .. In the first call to this routine, gather common constant parameters for 
-    !    automatic bubbles from NAMELIST parameters in /RADARSIM_PARAMS/ and store 
-    !    them in the respectivedata structures of src_artifdata.f90 for later triggering:
-
-    IF (first_call) THEN
-      first_call = .FALSE.
-
-      ctype_tempdist(:)      =  bubble_type             ! Type of perturbation 'cos-hrd', 'cos-instant'
-      bub_centz(:)           =  bubble_centz            ! Center (Z) of temperature disturbances [m]
-      bub_radx(:)            =  bubble_radx             ! Length scale (X) of temperature disturbances [m]
-      bub_rady(:)            =  bubble_rady             ! Length scale (Y) of temperature disturbances [m]
-      bub_radz(:)            =  bubble_radz             ! Length scale (Z) of temperature disturbances [m]
-      bub_rotangle(:)        =  bubble_rotangle         ! Rotation angle of main axes of temperature disturbances [degrees]
-      bub_heatingrate(:)     =  bubble_heatingrate      ! Constant heating rate [K*s**-1] for cos-hrd bubble
-      bub_dT(:)              =  bubble_dT               ! Temperature increment [K] for cos bubble
-      ladd_bubblenoise_t(:)  =  bubble_addnoise_T       ! Switch(es) (up to 50) to overlay temperature disturbances (LOGICAL)
-      bub_dT_bubblenoise(:)  =  bubble_dT_noise         ! In case of ladd_bubblenoise_t=.true., relative noise level, such that
-      ! dT_bubble = dT_bubble * (1 + bub_dT_bubblenoise * random_noise[-1,1])
-      lbub_rhconst(:)        =  bubble_holdrhconst      ! whether or not to keep the relative humidity constant during heating
-      IF (TRIM(bubble_type) == 'cos-instant') THEN
-        bub_timespan(:)      =  1
-      ELSE
-        bub_timespan(:)      =  CEILING(bubble_timespan/dtime) ! timespan of the heating in number of time steps
-      END IF
-
-    END IF
-
     !----------------------------------------------------------------------------------------
     ! .. Distribute the number of bubbles in the bubble_list to all PEs, to
     !    see if there have been any new bubbles to trigger.
@@ -5335,11 +5591,6 @@ CONTAINS
 
     IF (bubble_list%nbubbles > 0) THEN
      
-      !----------------------------------------------------------------------------------------
-      ! .. Initialization of main switch list for bubbles, to deactivate all "old" automatic bubbles:
-
-      ltempdist(1:nautobubbles_max) = .FALSE.
-
       !----------------------------------------------------------------------------------------
       ! .. If there have been new missing cells detected, copy as much as possible of them to
       !    the ICON namelist vectors to trigger bubbles in the next timestep:
@@ -5360,13 +5611,50 @@ CONTAINS
         !----------------------------------------------------------------------------------------
         ! .. Advect bubbles (update-in-place and redistribute among icomm_radar) by calling the model specific advection routine:
         !    Takes into account also the time difference between the actual model time and the timestamp of the bubble,
-        !    so that this routine can also be used for the asynchroneous IO mode, when the call to trigger_warm_bubbles
+        !    so that this routine can also be used for the asynchronous IO mode, when the call to trigger_warm_bubbles
         !    is actually at the next radar output time step, not the actual time step:
 
         CALL advect_bubbles ( idom_model, time_mod_sec, bubble_list, dt_advect, &
                               zlow_meanwind_for_advect, zup_meanwind_for_advect)
-       
+
+        !----------------------------------------------------------------------------------------
+        ! .. (Re-)initialize the ICON warm bubble list for this new set of bubbles:
+        
+        IF (ASSOCIATED(autobubs_list(idom_model)%bubs)) DEALLOCATE(autobubs_list(idom_model)%bubs)
+        ALLOCATE(autobubs_list(idom_model)%bubs(bubble_list%nbubbles))
+
+        ! These parameters are overtaken from the EMVORADO bubble namelist parameters:
+        autobubs_list(idom_model)%num_bubs                =  0
+        autobubs_list(idom_model)%bubs(:)%ctype_tempdist  =  bubble_type             ! Type of perturbation 'cos-hrd', 'cos-instant'
+        autobubs_list(idom_model)%bubs(:)%centz           =  bubble_centz            ! Center height (Z) of temperature disturbances [m AGL]
+        autobubs_list(idom_model)%bubs(:)%radx            =  bubble_radx             ! Horizontal main axis (radius) in X (longitudinal) direction of temperature disturbances [m]
+        autobubs_list(idom_model)%bubs(:)%rady            =  bubble_rady             ! Horizontal main axis (radius) in Y (latitudinal) direction of temperature disturbances [m]
+        autobubs_list(idom_model)%bubs(:)%radz            =  bubble_radz             ! Vertical main axis (radius) of temperature disturbances [m]
+        autobubs_list(idom_model)%bubs(:)%rotangle        =  bubble_rotangle         ! Rotation angle of the horizontal main axes of temperature disturbances [degrees]
+        autobubs_list(idom_model)%bubs(:)%heatingrate     =  bubble_heatingrate      ! Constant heating rate for 'cos-hrd' bubbles [K/s]
+        autobubs_list(idom_model)%bubs(:)%dT              =  bubble_dT               ! Temperature increment for 'cos-instant' bubbles [K]
+        autobubs_list(idom_model)%bubs(:)%ladd_bubblenoise_t  =  bubble_addnoise_T   ! Switch to overlay random temperature noise no the disturbance (LOGICAL)
+        autobubs_list(idom_model)%bubs(:)%dT_bubblenoise  =  bubble_dT_noise         ! In case of ladd_bubblenoise_t=.true., relative noise level, such that
+                                                                                     !   dT          = dT          * (1 + dT_bubblenoise * random_noise[-1,1])   ('cos-instant')
+                                                                                     !   heatingrate = heatingrate * (1 + dT_bubblenoise * random_noise[-1,1])   ('cos-hrd')
+        autobubs_list(idom_model)%bubs(:)%lbub_rhconst    =  bubble_holdrhconst      ! Whether or not to keep the relative humidity constant during heating
+        IF (TRIM(bubble_type) == 'cos-instant') THEN
+          autobubs_list(idom_model)%bubs(:)%timespan      =  dtime
+        ELSE
+          autobubs_list(idom_model)%bubs(:)%timespan      =  bubble_timespan         ! Total duration for release of temperature disturbance [s] for 'cos-hrd' bubble
+        END IF
+        autobubs_list(idom_model)%bubs(:)%timecounter     =  0.0_wp                  ! Reset time counter
+      
+        ! These parameters are actually overtaken from the bubble generator list below:
+        autobubs_list(idom_model)%bubs(:)%ltempdist       = .FALSE.                  ! Switch to set temperature disturbance to ACTIVE
+        autobubs_list(idom_model)%bubs(:)%centlon         = -HUGE(1.0_wp)            ! Center (lon) of temperature disturbance [deg]
+        autobubs_list(idom_model)%bubs(:)%centlat         = -HUGE(1.0_wp)            ! Center (lat) of temperature disturbance [deg]
+        autobubs_list(idom_model)%bubs(:)%htempdist       = -HUGE(1.0_wp)            ! Time for beginning of temperature disturbance since model start time [s]
+
+
+        !----------------------------------------------------------------------------------------
         ! .. Define the new bubble positions and times from the list of newly detected missing cells:
+        
         k = 0
         DO i=1, bubble_list%nbubbles
 
@@ -5374,17 +5662,14 @@ CONTAINS
           CALL geo2model_coord_domaincheck(idom_model, bubble_list%bub_centlon(i), bubble_list%bub_centlat(i), &
                                            rlon_model, rlat_model, is_inside)
           IF (is_inside) THEN
-            k = k + 1
-            bub_centlon(k)     = bubble_list%bub_centlon(i)
-            bub_centlat(k)     = bubble_list%bub_centlat(i)
-            zntstep_bub        = NINT( time_mod_sec / dtime )
-            ntstep_bubble(k)   = zntstep_bub + 1         ! This really denotes the bubble time
-            htempdist(k)       = (ntstep_bubble(k) * dtime) / 3600.0_dp ! This is "decoration"
-            ltempdist(k)       = .TRUE.                  ! This activates the bubble
-            bub_zeitzaehler(k) = 0                       ! This resets the time counter for the bubble
+            k                  = k + 1
+            autobubs_list(idom_model)%bubs(k)%centlon     = bubble_list%bub_centlon(i)
+            autobubs_list(idom_model)%bubs(k)%centlat     = bubble_list%bub_centlat(i)
+            autobubs_list(idom_model)%bubs(k)%htempdist   = time_mod_sec     ! the bubble will be activated in the next model timestep
+            autobubs_list(idom_model)%bubs(k)%ltempdist   = .TRUE.           ! This activates the bubble
 
             IF (my_cart_id_fwo == 0) THEN
-              WRITE(*,'(a,f0.4,a,f0.4,a,f0.1,a,f0.1,a)') 'INFO '//TRIM(yzroutine)//': Bubble of type '//TRIM(bubble_type)//  &
+              WRITE(*,'(a,f0.5,a,f0.5,a,f0.1,a,f0.1,a)') 'INFO '//TRIM(yzroutine)//': Bubble of type '//TRIM(bubble_type)//  &
                    ' triggered at lon = ', bubble_list%bub_centlon(i), ' and lat = ', bubble_list%bub_centlat(i), &
                    ' with timestamp = ', bubble_list%bub_timestamp(i), &
                    ' s triggered at t = ', time_mod_sec, ' s'
@@ -5393,20 +5678,28 @@ CONTAINS
             
             bubble_list%nbubbles_reject = bubble_list%nbubbles_reject + 1
             IF (my_cart_id_fwo == 0) THEN
-              WRITE(*,'(a,f0.4,a,f0.4,a,f0.1,a)') 'WARNING'//TRIM(yzroutine)//': Bubble location after advection '// &
+              WRITE(*,'(a,f0.5,a,f0.5,a,f0.1,a)') 'WARNING '//TRIM(yzroutine)//': Bubble location after advection '// &
                    ' outside of model domain at lon = ', bubble_list%bub_centlon(i), ' and lat = ', bubble_list%bub_centlat(i), &
                    ' with timestamp = ', bubble_list%bub_timestamp(i), ' s'
             END IF
           END IF
           
         END DO
-        bubble_list%nbubbles = k
+        autobubs_list(idom_model)%num_bubs = k
 
         IF (my_cart_id_fwo == 0) THEN
           WRITE(*,'(a,i3,a,f0.1,a)') 'INFO SUMMARY '//TRIM(yzroutine)//': ', &
-               bubble_list%nbubbles, ' automatic bubble(s) triggered at time = ', time_mod_sec, ' s'
+               k, ' automatic bubble(s) triggered at time = ', time_mod_sec, ' s'
         END IF
+
+      ELSE
         
+        !----------------------------------------------------------------------------------------
+        ! .. Define the ICON warm bubble list as an empty list:
+        
+        IF (ASSOCIATED(autobubs_list(idom_model)%bubs)) DEALLOCATE(autobubs_list(idom_model)%bubs)
+        autobubs_list(idom_model)%num_bubs = 0
+
       END IF
 
       !----------------------------------------------------------------------------------------

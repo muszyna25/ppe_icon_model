@@ -122,6 +122,12 @@ MODULE mo_nh_interface_nwp
   USE mo_mpi,                     ONLY: i_am_accel_node, my_process_is_work
 #endif
 
+#ifdef HAVE_RADARFWO
+  USE mo_emvorado_warmbubbles_type, ONLY: autobubs_list
+  USE mo_run_config,                ONLY: luse_radarfwo
+  USE mo_emvorado_warmbubbles,      ONLY: set_artif_heatrate_dist
+#endif
+  
   !$ser verbatim USE mo_ser_all,              ONLY: serialize_all
 
   IMPLICIT NONE
@@ -832,6 +838,45 @@ CONTAINS
     ENDIF ! ldass_lhn
 
 
+#ifdef HAVE_RADARFWO
+    !-------------------------------------------------------------------------
+    !
+    !   Call to "set_artif_heatrate_dist()", the
+    !   automatic warm bubbles generator from EMVORADO to trigger
+    !   missing convective cells in the model based on radar observations
+    !   and simulated radar reflectivities.
+    !
+    !   At this stage, if the respective option is switched on in the EMVORADO namelist
+    !   (ldo_bubbles = .TRUE.), EMVORADO has already detected the locations of missing
+    !   cells and has allocated a list of accordingly needed bubble
+    !   locations, heating amplitudes and durations etc. in the derived type "autobubs_list(jg)"
+    !   for each radar-active domain.
+    !
+    !   The number of needed bubbles is stored in "autobubs_list(jg)%num_bubs".
+    !   This number will only be > 0 if ldo_bubbles = .TRUE. in EMVORADO
+    !   and if some missing convective cells were detected during the
+    !   last cell detection time interval, which is usually between 10
+    !   and 15 minutes.
+    !
+    !   In other words, if luse_radarfwo(jg)=.TRUE., the need for running
+    !   the bubble generator routine "set_artif_heatrate_dist()" for domain jg
+    !   is uniquely determined by the condition "autobubs_list(jg)%num_bubs > 0".
+    !
+    !   The warm bubbles themselves are Weisman&Klempp-type warm bubbles in
+    !   the boundary layer. Their temperature amplitude respectively heating rate
+    !   and their horizontal and vertical radii are given by namelist parameters
+    !   in the EMVORADO namelist.
+    !
+    !-------------------------------------------------------------------------
+
+    IF (luse_radarfwo(jg) .AND. autobubs_list(jg)%num_bubs > 0 .AND. .NOT. linit) THEN
+      ! .. update temperature and moisture for the effect of automatic warm bubbles:
+      CALL set_artif_heatrate_dist(jg, p_sim_time, autobubs_list(jg), dt_loc, pt_patch, p_metrics, &
+           &                       pt_prog_rcf, pt_diag)
+    END IF    
+#endif
+    
+    
     IF (timers_level > 1) CALL timer_start(timer_fast_phys)
 
     ! Remark: in the (unusual) case that satad is used without any other physics,
