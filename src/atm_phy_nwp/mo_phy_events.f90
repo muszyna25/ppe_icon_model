@@ -117,7 +117,7 @@ MODULE mo_phy_events
       &                                               isNextTriggerTimeInRange_bcast
     !
     ! finalization routine
-    PROCEDURE  :: finalize => phyProcBase_finalize
+    PROCEDURE  :: final    => phyProcBase_final
   END TYPE t_phyProcBase
 
 
@@ -608,24 +608,21 @@ CONTAINS
   !>
   !! Finalize physical process
   !!
-  !! Finalize physical process.
-  !!
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2017-06-21)
   !!
-  SUBROUTINE phyProcBase_finalize (phyProc)
+  SUBROUTINE phyProcBase_final    (phyProc)
     CLASS(t_phyProcBase), INTENT(INOUT) :: phyProc    !< passed-object dummy argument
 
     ! local
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//":phyProcBase_initialize"
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//":phyProcBase_final"
   !-----------------------------------------------------------------
-
 
     IF (ASSOCIATED(phyProc%ev_ptr)) THEN
       CALL deallocateEvent(phyProc%ev_ptr)
     ENDIF
 
-  END SUBROUTINE phyProcBase_finalize
+  END SUBROUTINE phyProcBase_final
 
 
 
@@ -1075,7 +1072,7 @@ CONTAINS
  
     DO iproc=1,UBOUND(phyProcGrp%proc,1)
       IF (.NOT. ASSOCIATED(phyProcGrp%proc(iproc)%p)) CYCLE
-      CALL phyProcGrp%proc(iproc)%p%finalize()
+      CALL phyProcGrp%proc(iproc)%p%final()
     ENDDO
 
     IF (ALLOCATED(phyProcGrp%proc))  DEALLOCATE(phyProcGrp%proc, STAT=ierrstat)

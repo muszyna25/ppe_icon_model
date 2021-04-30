@@ -52,13 +52,15 @@ MODULE mo_echam_phy_memory
   USE mo_echam_phy_config,    ONLY: echam_phy_tc, dt_zero
   USE mo_echam_sfc_indices,   ONLY: nsfc_type, csfc
   USE mo_model_domain,        ONLY: t_patch
-
   USE mo_var_list,            ONLY: add_var, add_ref, t_var_list_ptr
   USE mo_var_list_register,   ONLY: vlr_add, vlr_del
   USE mo_var_metadata,        ONLY: create_vert_interp_metadata, vintp_types
   USE mo_action,              ONLY: ACTION_RESET, new_action, actions
+  USE mo_nonhydro_state,      ONLY: p_nh_state_lists
+  USE mo_ext_data_state,      ONLY: ext_data
   USE mo_cf_convention,       ONLY: t_cf_var
-  USE mo_grib2,               ONLY: t_grib2_var, grib2_var
+  USE mo_grib2,               ONLY: t_grib2_var, grib2_var, t_grib2_int_key, OPERATOR(+)
+  USE mo_gribout_config,      ONLY: gribout_config
   USE mo_cdi,                 ONLY: DATATYPE_PACK16, DATATYPE_PACK24,  &
     &                               DATATYPE_FLT32,  DATATYPE_FLT64,   &
     &                               GRID_UNSTRUCTURED, GRID_LONLAT,    &
@@ -66,6 +68,7 @@ MODULE mo_echam_phy_memory
     &                               TSTEP_MIN, TSTEP_MAX,              &
     &                               cdiInqMissval, DATATYPE_INT
   USE mo_zaxis_type,          ONLY: ZA_REFERENCE, ZA_REFERENCE_HALF,           &
+    &                               ZA_REFERENCE_HALF_HHL,                     &
     &                               ZA_SURFACE, ZA_GENERIC_ICE, ZA_TROPOPAUSE, &
     &                               ZA_HEIGHT_2M, ZA_HEIGHT_10M, ZA_TOA,       &
     &                               ZA_ATMOSPHERE
@@ -144,7 +147,6 @@ MODULE mo_echam_phy_memory
     REAL(wp),POINTER ::     &
       & ua        (:,:,:)=>NULL(),  &!< [m/s]   zonal wind
       & va        (:,:,:)=>NULL(),  &!< [m/s]   meridional wind
-      & vor       (:,:,:)=>NULL(),  &!< [1/s]   relative vorticity
       & ta        (:,:,:)=>NULL(),  &!< [K]     temperature          (tm1  of memory_g1a in ECHAM)
       & tv        (:,:,:)=>NULL(),  &!< [K]     virtual temperature  (tvm1 of memory_g1a in ECHAM)
       & qtrc      (:,:,:,:)=>NULL(),&!< [kg/kg] tracer concentration (qm1, xlm1, xim1 of memory_g1a in ECHAM)
@@ -170,10 +172,8 @@ MODULE mo_echam_phy_memory
       & omega     (:,:,:)=>NULL(),  &!< [Pa/s]  vertical velocity in pressure coord. ("vervel" in ECHAM)
       & geoi      (:,:,:)=>NULL(),  &!< [m2/s2] geopotential above ground at half levels (vertical interfaces)
       & geom      (:,:,:)=>NULL(),  &!< [m2/s2] geopotential above ground at full levels (layer ave. or mid-point value)
-      & presi_old (:,:,:)=>NULL(),  &!< [Pa]    pressure at half levels at time step "old"
-      & presm_old (:,:,:)=>NULL(),  &!< [Pa]    pressure at full levels at time step "old"
-      & presi_new (:,:,:)=>NULL(),  &!< [Pa]    pressure at half levels at time step "new"
-      & presm_new (:,:,:)=>NULL()    !< [Pa]    pressure at full levels at time step "new"
+      & pfull     (:,:,:)=>NULL(),  &!< [Pa]    air pressure at model levels
+      & phalf     (:,:,:)=>NULL()    !< [Pa]    air pressure at model half levels
 
     TYPE(t_ptr_3d),ALLOCATABLE :: qtrc_ptr(:)
     TYPE(t_ptr_3d),ALLOCATABLE :: mtrc_ptr(:)
@@ -240,7 +240,11 @@ MODULE mo_echam_phy_memory
       & rldscs      (:,  :)=>NULL(),  &!< [W/m2] surface downwelling clear-sky longwave radiation
       & rluscs      (:,  :)=>NULL(),  &!< [W/m2] surface downwelling clear-sky longwave radiation
       !
+#ifdef __NO_RTE_RRTMGP__
       & o3          (:,:,:)    !< temporary set ozone mass mixing ratio  
+#else
+      & o3          (:,:,:)=>NULL()    !< [mol/mol] ozone volume mixing ratio 
+#endif
     ! aerosol optical properties
     REAL(wp),POINTER ::      &
       & aer_aod_533 (:,:,:)=>NULL(),  &!< aerosol optical depth at 533 nm
@@ -666,7 +670,7 @@ CONTAINS
     INTEGER,INTENT(IN) :: ntracer
     CHARACTER(len=13) :: listname_f
     CHARACTER(len=12) :: listname_t
-    INTEGER :: ndomain, jg, ist, nblks, nlev, jtrc
+    INTEGER :: ndomain, jg, ist, nblks, nlev
 
     !---
 
@@ -696,9 +700,12 @@ CONTAINS
       nlev  = patch_array(jg)%nlev
 
       WRITE(listname_f,'(a,i2.2)') 'prm_field_D',jg
-      CALL new_echam_phy_field_list( jg, nproma, nlev, nblks, ntracer, &
-                                   & nsfc_type, listname_f, '',        &
-                                   & prm_field_list(jg), prm_field(jg) )
+      CALL new_echam_phy_field_list( jg, nproma, nlev, nblks, ntracer, nsfc_type, &
+                                   & listname_f, '',                              &
+                                   & p_nh_state_lists(jg)%diag_list,              &
+                                   & p_nh_state_lists(jg)%metrics_list,           &
+                                   & ext_data(jg)%atm_list,                       &
+                                   & prm_field_list(jg), prm_field(jg)            )
 
       WRITE(listname_t,'(a,i2.2)') 'prm_tend_D',jg
       CALL new_echam_phy_tend_list( jg, nproma, nlev, nblks, ntracer, &
@@ -750,23 +757,27 @@ CONTAINS
   !>
   SUBROUTINE new_echam_phy_field_list( jg, kproma, klev, kblks, ktracer, ksfc_type, &
                                      & listname, prefix,                            &
+                                     & diag_list,                                   &
+                                     & metrics_list,                                &
+                                     & ext_atm_list,                                &
                                      & field_list, field                            )
     INTEGER,INTENT(IN) :: jg !> patch ID
     INTEGER,INTENT(IN) :: kproma, klev, kblks, ktracer, ksfc_type  !< dimension sizes
     CHARACTER(*), INTENT(IN) :: listname, prefix
-    TYPE(t_var_list_ptr), INTENT(INOUT) :: field_list
+    TYPE(t_var_list_ptr), INTENT(INOUT) :: field_list, diag_list, metrics_list, ext_atm_list
     TYPE(t_echam_phy_field), INTENT(INOUT) :: field
     CHARACTER(LEN=vname_len) :: trcname, varname
     LOGICAL :: contvar_is_in_output
     TYPE(t_cf_var)    ::    cf_desc
     TYPE(t_grib2_var) :: grib2_desc, grib2_tmp
     INTEGER :: shape2d(2), shape3d(3), shapesfc(3), shapeice(3), shape3d_layer_interfaces(3)
-    INTEGER :: ibits, iextbits
+    INTEGER :: ibits, iextbits, ivarbits
     INTEGER :: datatype_flt
     INTEGER :: jsfc, jtrc
 
     ibits = DATATYPE_PACK16
     iextbits = DATATYPE_PACK24
+    ivarbits = MERGE(DATATYPE_PACK24, DATATYPE_PACK16, gribout_config(jg)%lgribout_24bit)
     datatype_flt = MERGE(DATATYPE_FLT64, DATATYPE_FLT32, lnetcdf_flt64_output)
     shape2d  = (/kproma,       kblks/)
     shape3d  = (/kproma, klev, kblks/)
@@ -818,49 +829,50 @@ CONTAINS
                 & lopenacc = .TRUE.  )
     __acc_attach(field%areacella)
 
-    cf_desc    = t_cf_var('geometric_height_at_half_level', 'm',                &
-                &         'Geometric height at half level in physics',          &
+    cf_desc    = t_cf_var('height_above_reference_ellipsoid', 'm',             &
+                &         'height above reference ellipsoid, half levels',     &
                 &         datatype_flt)
-    grib2_desc = grib2_var(0, 3, 6, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'zh_phy', field%zh,                       &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,  &
-                & ldims=shape3d_layer_interfaces,                               &
-                & vert_interp=create_vert_interp_metadata(                      &
-                &   vert_intp_type=vintp_types("P","Z","I"),                    &
-                &   vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ),                 &
-                & lrestart = .FALSE.,                                           &
-                & isteptype=TSTEP_CONSTANT,                                     &
-                & lopenacc = .TRUE.  )
+    grib2_desc = grib2_var(0, 3, 6, ivarbits, GRID_UNSTRUCTURED, GRID_CELL)    &
+                & + t_grib2_int_key("typeOfSecondFixedSurface", 101)
+    CALL add_ref( metrics_list, 'z_ifc',                                       &
+                & prefix//'zhalf', field%zh,                                   &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF_HHL,               &
+                & cf_desc, grib2_desc,                                         &
+                & ref_idx=1, ldims=shape3d_layer_interfaces,                   &
+                & vert_interp = create_vert_interp_metadata(                   &
+                &               vert_intp_type=vintp_types("P","Z","I"),       &
+                &               vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ),    &
+                & isteptype=TSTEP_CONSTANT                                     )
     __acc_attach(field%zh)
 
-    cf_desc    = t_cf_var('geometric_height_at_full_level', 'm',                &
-                &         'Geometric height at full level in physics',          &
+    cf_desc    = t_cf_var('height_above_reference_ellipsoid', 'm',             &
+                &         'height above reference ellipsoid, full level',      &
                 &         datatype_flt)
-    grib2_desc = grib2_var(0, 3, 6, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'zf_phy', field%zf,                       &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,       &
-                & ldims=shape3d,                                                &
-                & vert_interp=create_vert_interp_metadata(                      &
-                &   vert_intp_type=vintp_types("P","Z","I"),                    &
-                &   vert_intp_method=VINTP_METHOD_LIN ),                        &
-                & lrestart = .FALSE.,                                           &
-                & isteptype=TSTEP_CONSTANT,                                     &
-                & lopenacc = .TRUE.  )
+    grib2_desc = grib2_var(0,3,6, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_ref( metrics_list, 'z_mc',                                        &
+                & prefix//'zfull', field%zf,                                   &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                        &
+                & cf_desc, grib2_desc,                                         &
+                & ref_idx=1, ldims=shape3d,                                    &
+                & vert_interp = create_vert_interp_metadata(                   &
+                &               vert_intp_type=vintp_types("P","Z","I"),       &
+                &               vert_intp_method=VINTP_METHOD_LIN ),           &
+                & isteptype=TSTEP_CONSTANT                                     )
     __acc_attach(field%zf)
 
-    cf_desc    = t_cf_var('geometric_height_thickness', 'm',                    &
-                &         'Geometric height thickness in physics',              &
+    cf_desc    = t_cf_var('layer_thickness', 'm',                              &
+                &         'layer thickness',                                   &
                 &         datatype_flt)
-    grib2_desc = grib2_var(0, 3, 6, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'dz_phy', field%dz,                       &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,       &
-                & ldims=shape3d,                                                &
-                & vert_interp=create_vert_interp_metadata(                      &
-                &   vert_intp_type=vintp_types("P","Z","I"),                    &
-                &   vert_intp_method=VINTP_METHOD_LIN ),                        &
-                & lrestart = .FALSE.,                                           &
-                & isteptype=TSTEP_CONSTANT,                                     &
-                & lopenacc = .TRUE.  )
+    grib2_desc = grib2_var(0,3,12, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_ref( metrics_list, 'ddqz_z_full',                                 &
+                & prefix//'dzhalf', field%dz,                                  &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                        &
+                & cf_desc, grib2_desc,                                         &
+                & ref_idx=1, ldims=shape3d,                                    &
+                & vert_interp = create_vert_interp_metadata(                   &
+                &               vert_intp_type=vintp_types("P","Z","I"),       &
+                &               vert_intp_method=VINTP_METHOD_LIN ),           &
+                & isteptype=TSTEP_CONSTANT                                     )
     __acc_attach(field%dz)
 
 
@@ -869,68 +881,69 @@ CONTAINS
     !------------------------------
 
     ! &       field% ua        (nproma,nlev  ,nblks),          &
-    cf_desc    = t_cf_var('eastward_wind', 'm s-1', 'u-component of wind in physics', datatype_flt)
+    cf_desc    = t_cf_var('eastward_wind', 'm s-1', 'eastward wind', datatype_flt)
     grib2_desc = grib2_var(0, 2, 2, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'ua_phy', field%ua,                                &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, ldims=shape3d, &
-                & lrestart = .FALSE.,                                                    &
-                & vert_interp = &
-                &   create_vert_interp_metadata( vert_intp_type=vintp_types("P","Z","I") ), &
-                & lopenacc=.TRUE.)
+    CALL add_ref( diag_list, 'u',                                              &
+                & prefix//'ua', field%ua,                                      &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                        &
+                & cf_desc, grib2_desc,                                         &
+                & ref_idx=1, ldims=shape3d,                                    &
+                & lrestart = .FALSE.,                                          &
+                & vert_interp = create_vert_interp_metadata(                   &
+                &               vert_intp_type=vintp_types("P","Z","I") )      )
     __acc_attach(field%ua)
 
     ! &       field% va        (nproma,nlev  ,nblks),          &
-    cf_desc    = t_cf_var('northward_wind', 'm s-1', 'v-component of wind in physics', datatype_flt)
+    cf_desc    = t_cf_var('northward_wind', 'm s-1', 'northward wind', datatype_flt)
     grib2_desc = grib2_var(0, 2, 3, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'va_phy', field%va,                                &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, ldims=shape3d, &
-                & lrestart = .FALSE.,                                                    &
-                & vert_interp = &
-                &   create_vert_interp_metadata( vert_intp_type=vintp_types("P","Z","I") ), &
-                & lopenacc=.TRUE.)
+    CALL add_ref( diag_list, 'v',                                              &
+                & prefix//'va', field%va,                                      &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                        &
+                & cf_desc, grib2_desc,                                         &
+                & ref_idx=1, ldims=shape3d,                                    &
+                & lrestart = .FALSE.,                                          &
+                & vert_interp = create_vert_interp_metadata(                   &
+                &               vert_intp_type=vintp_types("P","Z","I") )      )
     __acc_attach(field%va)
 
-    ! &       field% vor       (nproma,nlev  ,nblks),          &
-    cf_desc    = t_cf_var('vorticity', 's-1', 'relative vorticity in physics', datatype_flt)
-    grib2_desc = grib2_var(0, 2, 12, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'vor_phy', field%vor,                     &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, ldims=shape3d, &
-                & lrestart = .FALSE.,                                           &
-                & vert_interp=create_vert_interp_metadata(                      &
-                &   vert_intp_type=vintp_types("P","Z","I"),                    &
-                &   vert_intp_method=VINTP_METHOD_LIN ),                        &
-                & lopenacc=.TRUE.)
-    __acc_attach(field%vor)
-
     ! &       field% ta        (nproma,nlev  ,nblks),          &
-    cf_desc    = t_cf_var('temperature', 'K', 'temperature in physics', datatype_flt)
+    cf_desc    = t_cf_var('air_temperature', 'K', 'air temperature', datatype_flt)
     grib2_desc = grib2_var(0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'ta_phy', field%ta,                       &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, ldims=shape3d, &
-                & lrestart = .FALSE.,                                           &
-                & vert_interp=create_vert_interp_metadata(                      &
-                &   vert_intp_type=vintp_types("P","Z","I"),                    &
-                &   vert_intp_method=VINTP_METHOD_LIN ),                        &
-                & lopenacc=.TRUE.)
+    CALL add_ref( diag_list, 'temp',                                           &
+                & prefix//'ta', field%ta,                                      &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                        &
+                & cf_desc, grib2_desc,                                         &
+                & ref_idx=1, ldims=shape3d,                                    &
+                & lrestart = .FALSE.,                                          &
+                & vert_interp = create_vert_interp_metadata(                   &
+                &               vert_intp_type=vintp_types("P","Z","I"),       &
+                &               vert_intp_method=VINTP_METHOD_LIN )            )
     __acc_attach(field%ta)
 
     ! &       field% tv        (nproma,nlev  ,nblks),          &
-    cf_desc    = t_cf_var('virtual_temperature', 'K', 'virtual temperature in physics', datatype_flt)
+    cf_desc    = t_cf_var('virtual_temperature', 'K', 'virtual temperature', datatype_flt)
     grib2_desc = grib2_var(0,0,1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'tv_phy', field%tv,                       &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, ldims=shape3d, &
-                & lrestart = .FALSE.,                                           &
-                & vert_interp=create_vert_interp_metadata(                      &
-                &   vert_intp_type=vintp_types("P","Z","I"),                    &
-                &   vert_intp_method=VINTP_METHOD_LIN ),                        &
-                & lopenacc=.TRUE.)
+    CALL add_ref( diag_list, 'tempv',                                          &
+                & prefix//'tv', field%tv,                                      &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                        &
+                & cf_desc, grib2_desc,                                         &
+                & ref_idx=1, ldims=shape3d,                                    &
+                & lrestart = .FALSE.,                                          &
+                & vert_interp = create_vert_interp_metadata(                   &
+                &               vert_intp_type=vintp_types("P","Z","I"),       &
+                &               vert_intp_method=VINTP_METHOD_LIN )            )
     __acc_attach(field%tv)
 
     ! OZONE 
     ! &       field% o3        (nproma,nlev  ,nblks),          &
-    cf_desc    = t_cf_var('ozone', 'kg/kg', 'ozone mixing ratio', datatype_flt)
     grib2_desc = grib2_var(0,14,1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+#ifdef __NO_RTE_RRTMGP__
+    cf_desc    = t_cf_var('ozone', 'kg/kg', 'ozone mixing ratio', datatype_flt)
     CALL add_var( field_list, prefix//'tro3', field%o3,                         &
+#else
+    cf_desc    = t_cf_var('ozone', 'mol/mol', 'ozone volume mixing ratio', datatype_flt)
+    CALL add_var( field_list, prefix//'o3', field%o3,                           &
+#endif
                 & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, ldims=shape3d, &
                 & lrestart = .FALSE.,                                           &
                 & vert_interp=create_vert_interp_metadata(                      &
@@ -945,7 +958,7 @@ CONTAINS
                 & datatype_flt)
     grib2_desc = grib2_var(0,20,102, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'aer_aod_533', field%aer_aod_533,        &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,      &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,   &
                 & ldims=shape3d,                                               &
                 & lrestart = .FALSE.,                                          &
                 & vert_interp=create_vert_interp_metadata(                     &
@@ -958,7 +971,7 @@ CONTAINS
                 & 'aerosol single scattering albedo at 533 nm', datatype_flt)
     grib2_desc = grib2_var(0,20,103, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'aer_ssa_533', field%aer_ssa_533,        &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,      &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,   &
                 & ldims=shape3d,                                               &
                 & lrestart = .FALSE.,                                          &
                 & vert_interp=create_vert_interp_metadata(                     &
@@ -971,7 +984,7 @@ CONTAINS
                 & 'aerosol asymmetry factor at 533 nm', datatype_flt)
     grib2_desc = grib2_var(0,20,104, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'aer_asy_533', field%aer_asy_533,        &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,      &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,   &
                 & ldims=shape3d,                                               &
                 & lrestart = .FALSE.,                                          &
                 & vert_interp=create_vert_interp_metadata(                     &
@@ -984,7 +997,7 @@ CONTAINS
                 & 'aerosol optical depth at 2325 nm', datatype_flt)
     grib2_desc = grib2_var(0,20,102, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'aer_aod_2325', field%aer_aod_2325,      &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,      &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,   &
                 & ldims=shape3d,                                               &
                 & lrestart = .FALSE.,                                          &
                 & vert_interp=create_vert_interp_metadata(                     &
@@ -997,7 +1010,7 @@ CONTAINS
                 & 'aerosol single scattering albedo at 2325 nm', datatype_flt)
     grib2_desc = grib2_var(0,20,103, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'aer_ssa_2325', field%aer_ssa_2325,      &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,      &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,   &
                 & ldims=shape3d,                                               &
                 & lrestart = .FALSE.,                                          &
                 & vert_interp=create_vert_interp_metadata(                     &
@@ -1010,7 +1023,7 @@ CONTAINS
                 & 'aerosol asymmetry factor at 2325 nm', datatype_flt)
     grib2_desc = grib2_var(0,20,104, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'aer_asy_2325', field%aer_asy_2325,      &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,      &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,   &
                 & ldims=shape3d,                                               &
                 & lrestart = .FALSE.,                                          &
                 & vert_interp=create_vert_interp_metadata(                     &
@@ -1024,7 +1037,7 @@ CONTAINS
                 & 'effective aerosol optical depth at 9731 nm', datatype_flt)
     grib2_desc = grib2_var(0,20,102, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'aer_aod_9731', field%aer_aod_9731,      &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,      &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,   &
                 & ldims=shape3d,                                               &
                 & lrestart = .FALSE.,                                          &
                 & vert_interp=create_vert_interp_metadata(                     &
@@ -1219,7 +1232,7 @@ CONTAINS
          &                datatype_flt)
     grib2_desc = grib2_var(0,3,10, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'rho_phy', field%rho,                    &
-         &        GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,      &
+         &        GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,   &
          &        ldims=shape3d, lrestart = .FALSE.,                           &
          &        vert_interp=create_vert_interp_metadata(                     &
          &                    vert_intp_type=vintp_types("P","Z","I"),         & 
@@ -1235,7 +1248,7 @@ CONTAINS
          &                datatype_flt)
     grib2_desc = grib2_var(0,1,21, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'mh2o_phy', field%mh2o,                  &
-         &        GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,      &
+         &        GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,   &
          &        ldims=shape3d, lrestart = .FALSE.,                           &
          &        vert_interp=create_vert_interp_metadata(                     &
          &                    vert_intp_type=vintp_types("P","Z","I"),         & 
@@ -1264,7 +1277,7 @@ CONTAINS
          &                datatype_flt)
     grib2_desc = grib2_var(0,1,21, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'mair_phy', field%mair,                  &
-         &        GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,      &
+         &        GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,   &
          &        ldims=shape3d, lrestart = .FALSE., initval=1.0_wp,           &
          &        vert_interp=create_vert_interp_metadata(                     &
          &                    vert_intp_type=vintp_types("P","Z","I"),         & 
@@ -1351,7 +1364,7 @@ CONTAINS
          &                datatype_flt)
     grib2_desc = grib2_var(0,1,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'xref_phy', field%xref,                  &
-         &        GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,      &
+         &        GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,   &
          &        ldims=shape3d, lrestart = .FALSE., initval=1.0_wp,           &
          &        vert_interp=create_vert_interp_metadata(                     &
          &                    vert_intp_type=vintp_types("P","Z","I"),         & 
@@ -1379,7 +1392,7 @@ CONTAINS
     cf_desc    = t_cf_var('vertical_velocity', 'Pa s-1', 'vertical velocity in physics', datatype_flt)
     grib2_desc = grib2_var(0,2,8, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'omega_phy', field%omega,                &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,      &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,   &
                 & ldims=shape3d, lrestart = .FALSE.,                           &
                 & vert_interp=create_vert_interp_metadata(                     &
                 &             vert_intp_type=vintp_types("P","Z","I"),         &
@@ -1389,81 +1402,60 @@ CONTAINS
     __acc_attach(field%omega)
 
     ! &       field% geom      (nproma,nlev  ,nblks),          &
-    cf_desc    = t_cf_var('geopotential', 'm2 s-2', 'geopotential above surface', datatype_flt)
+    cf_desc    = t_cf_var('geopotential_above_surface', 'm2 s-2', 'geopotential above surface', datatype_flt)
     grib2_desc = grib2_var(0, 3, 4, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'gpsm', field%geom,                      &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,      &
-                & ldims=shape3d, lrestart = .FALSE.,                           &
-                & isteptype=TSTEP_CONSTANT,                                    &
-                & vert_interp=create_vert_interp_metadata(                     &
-                &             vert_intp_type=vintp_types("P","Z","I"),         &
-                &             vert_intp_method=VINTP_METHOD_LIN,               &
-                &             l_extrapol=.TRUE., l_pd_limit=.FALSE.),          &
-                & lopenacc=.TRUE.)
+    CALL add_ref( metrics_list, 'geopot_agl',                                  &
+                & prefix//'gpsm', field%geom,                                  &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                        &
+                & cf_desc, grib2_desc,                                         &
+                & ref_idx=1, ldims=shape3d,                                    &
+                & vert_interp = create_vert_interp_metadata(                   &
+                &               vert_intp_type=vintp_types("P","Z","I"),       &
+                &               vert_intp_method=VINTP_METHOD_LIN,             &
+                &               l_extrapol=.TRUE., l_pd_limit=.FALSE.)         )
     __acc_attach(field%geom)
 
-    ! &       field% presm_old (nproma,nlev  ,nblks),          &
-    cf_desc    = t_cf_var('pressure', 'Pa', 'pressure at old time step', datatype_flt)
+    ! &       field% pfull (nproma,nlev  ,nblks),          &
+    cf_desc    = t_cf_var('air_pressure', 'Pa', 'air pressure on model levels', datatype_flt)
     grib2_desc = grib2_var(0, 3, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'pam_old', field%presm_old,              &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,      &
-                & ldims=shape3d, lrestart = .FALSE.,                           &
+    CALL add_ref( diag_list, 'pres',                                           &
+                & prefix//'pfull', field%pfull,                                &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                        &
+                & cf_desc, grib2_desc,                                         &
+                & ref_idx=1, ldims=shape3d,                                    &
+                & lrestart = .FALSE.,                                          &
                 & vert_interp=create_vert_interp_metadata(                     &
                 &             vert_intp_type=vintp_types("Z","I"),             &
-                &             vert_intp_method=VINTP_METHOD_PRES ),            &
-                & lopenacc=.TRUE.)
-    __acc_attach(field%presm_old)
-
-    ! &       field% presm_new (nproma,nlev  ,nblks),          &
-    cf_desc    = t_cf_var('pressure', 'Pa', 'pressure at new time step', datatype_flt)
-    grib2_desc = grib2_var(0, 3, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'pam_new', field%presm_new,              &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,      &
-                & ldims=shape3d, lrestart = .FALSE.,                           &
-                & vert_interp=create_vert_interp_metadata(                     &
-                &             vert_intp_type=vintp_types("Z","I"),             &
-                &             vert_intp_method=VINTP_METHOD_PRES ),            &
-                & lopenacc=.TRUE.)
-    __acc_attach(field%presm_new)
-
+                &             vert_intp_method=VINTP_METHOD_PRES )             )
+    __acc_attach(field%pfull)
 
     !-- Variables defined at layer interfaces --
     ! &       field% geoi      (nproma,nlevp1,nblks),          &
-    cf_desc    = t_cf_var('geopotential', 'm2 s-2', 'geopotential above surface', datatype_flt)
+    cf_desc    = t_cf_var('geopotential above surface', 'm2 s-2', 'geopotential above surface', datatype_flt)
     grib2_desc = grib2_var(0, 3, 4, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'gpsi', field%geoi,                        &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,   &
-                & ldims=shape3d_layer_interfaces, lrestart = .FALSE.,            &
-                & isteptype=TSTEP_CONSTANT,                                      &
-                & vert_interp=create_vert_interp_metadata(                       &
-                &   vert_intp_type=vintp_types("P","Z","I"),                     &
-                &   vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ),                  &
-                & lopenacc=.TRUE.)
+    CALL add_ref( metrics_list, 'geopot_agl_ifc',                              &
+                & prefix//'gpsi', field%geoi,                                  &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF,                   &
+                & cf_desc, grib2_desc,                                         &
+                & ref_idx=1, ldims=shape3d_layer_interfaces,                   &
+                & vert_interp = create_vert_interp_metadata(                   &
+                &               vert_intp_type=vintp_types("P","Z","I"),       &
+                &               vert_intp_method=VINTP_METHOD_LIN_NLEVP1 )     )
     __acc_attach(field%geoi)
 
-    ! &       field% presi_old (nproma,nlevp1,nblks),          &
-    cf_desc    = t_cf_var('pressure', 'Pa', 'pressure at old time step', datatype_flt)
+    ! &       field% phalf (nproma,nlevp1,nblks),          &
+    cf_desc    = t_cf_var('air_pressure', 'Pa', 'air pressure on model half levels', datatype_flt)
     grib2_desc = grib2_var(0, 3, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'pai_old', field%presi_old,               &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,  &
-                & ldims=shape3d_layer_interfaces, lrestart = .FALSE.,           &
-                & vert_interp=create_vert_interp_metadata(                      &
-                &   vert_intp_type=vintp_types("Z","I"),                        &
-                &   vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ),                 &
-                & lopenacc=.TRUE.)
-    __acc_attach(field%presi_old)
-
-    ! &       field% presi_new (nproma,nlevp1,nblks),          &
-    cf_desc    = t_cf_var('pressure', 'Pa', 'pressure at new time step', datatype_flt)
-    grib2_desc = grib2_var(0, 3, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'pai_new', field%presi_new,               &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,  &
-                & ldims=shape3d_layer_interfaces, lrestart = .FALSE.,           &
-                & vert_interp=create_vert_interp_metadata(                      &
-                &   vert_intp_type=vintp_types("Z","I"),                        &
-                &   vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ),                 &
-                & lopenacc=.TRUE.)
-    __acc_attach(field%presi_new)
+    CALL add_ref( diag_list, 'pres_ifc',                                       &
+                & prefix//'phalf', field%phalf,                                &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF,                   &
+                & cf_desc, grib2_desc,                                         &
+                & ref_idx=1, ldims=shape3d_layer_interfaces,                   &
+                & lrestart = .FALSE.,                                          &
+                & vert_interp=create_vert_interp_metadata(                     &
+                &             vert_intp_type=vintp_types("Z","I"),             &
+                &             vert_intp_method=VINTP_METHOD_LIN_NLEVP1 )       )
+    __acc_attach(field%phalf)
 
     !------------------
     ! Radiation
@@ -3406,12 +3398,14 @@ CONTAINS
 
     cf_desc    = t_cf_var('surface_altitude', 'm',   &
                 &         'surface altitude', datatype_flt)
-    grib2_desc = grib2_var(2,0,7, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'orog', field%orog,                  &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
-                & lrestart = .FALSE., ldims=shape2d,                       &
-                & isteptype=TSTEP_CONSTANT,                                &
-                & lopenacc=.TRUE.)
+    grib2_desc = grib2_var(0,3,6, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_ref( ext_atm_list, 'topography_c',                                &
+                & prefix//'orog', field%orog,                                  &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
+                & cf_desc, grib2_desc,                                         &
+                & ref_idx=1, ldims=shape2d,                                    &
+                & loutput=.TRUE.,                                              &
+                & isteptype=TSTEP_CONSTANT                                     )
     __acc_attach(field%orog)
 
     cf_desc    = t_cf_var('land_area_fraction', 'm2/m2',   &

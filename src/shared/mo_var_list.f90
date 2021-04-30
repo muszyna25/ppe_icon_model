@@ -1097,11 +1097,7 @@ CONTAINS
     new_list_element%r_ptr => target_element%r_ptr
     IF (.NOT. ASSOCIATED(new_list_element%r_ptr)) &
       & WRITE (0,*) 'problem with association of ptr for '//TRIM(refname)
-    IF (PRESENT(lmiss)) THEN
-      ptr = new_list_element%info%missval%rval
-    ELSE
-      ptr = 0.0_dp
-    END IF
+    IF (PRESENT(lmiss)) ptr = new_list_element%info%missval%rval
   END SUBROUTINE add_var_list_reference_r3d
 
   SUBROUTINE add_var_list_reference_r2d(this_list, target_name, refname, ptr,    &
@@ -1158,11 +1154,7 @@ CONTAINS
     new_list_element%r_ptr => target_element%r_ptr
     IF (.NOT. ASSOCIATED(new_list_element%r_ptr)) &
       & WRITE (0,*) 'problem with association of ptr for '//TRIM(refname)
-    IF (PRESENT(lmiss)) THEN
-      ptr = new_list_element%info%missval%rval
-    ELSE
-      ptr = 0.0_dp
-    END IF
+    IF (PRESENT(lmiss)) ptr = new_list_element%info%missval%rval
   END SUBROUTINE add_var_list_reference_r2d
 
   SUBROUTINE add_var_list_reference_s3d(this_list, target_name, refname, ptr,    &
@@ -1219,11 +1211,7 @@ CONTAINS
     new_list_element%s_ptr => target_element%s_ptr
     IF (.NOT. ASSOCIATED(new_list_element%s_ptr)) &
       & WRITE (0,*) 'problem with association of ptr for '//TRIM(refname)
-    IF (PRESENT(lmiss)) THEN
-      ptr = new_list_element%info%missval%sval
-    ELSE
-      ptr = 0.0_sp
-    END IF
+    IF (PRESENT(lmiss)) ptr = new_list_element%info%missval%sval
   END SUBROUTINE add_var_list_reference_s3d
 
   SUBROUTINE add_var_list_reference_s2d(this_list, target_name, refname, ptr,    &
@@ -1278,11 +1266,7 @@ CONTAINS
     new_list_element%s_ptr => target_element%s_ptr
     IF (.NOT. ASSOCIATED(new_list_element%s_ptr)) &
       & WRITE (0,*) 'problem with association of ptr for '//TRIM(refname)
-    IF (PRESENT(lmiss)) THEN
-      ptr = new_list_element%info%missval%sval
-    ELSE
-      ptr = 0.0_sp
-    END IF
+    IF (PRESENT(lmiss)) ptr = new_list_element%info%missval%sval
   END SUBROUTINE add_var_list_reference_s2d
 
   SUBROUTINE add_var_list_reference_i2d(this_list, target_name, refname, ptr,    &
@@ -1336,11 +1320,7 @@ CONTAINS
     new_list_element%i_ptr => target_element%i_ptr
     IF (.NOT. ASSOCIATED(new_list_element%i_ptr)) &
       & WRITE (0,*) 'problem with association of ptr for '//TRIM(refname)
-    IF (PRESENT(lmiss)) THEN
-      ptr = new_list_element%info%missval%ival
-    ELSE
-      ptr = 0
-    END IF
+    IF (PRESENT(lmiss)) ptr = new_list_element%info%missval%ival
   END SUBROUTINE add_var_list_reference_i2d
 
   SUBROUTINE print_var_list(this, lshort)

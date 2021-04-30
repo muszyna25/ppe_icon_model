@@ -381,7 +381,7 @@ CONTAINS
         CALL add_var(dst_varlist, TRIM(vname), p_opt_field_r3d, GRID_REGULAR_LONLAT, &
           & info%vgrid, cf, grib2, ldims=shape3d_ll, lrestart=.FALSE.,               &
           & in_group=elem_u%info%in_group, new_element=new_elem, loutput=.TRUE.,     &
-          & post_op=post_op, var_class=elem_u%info%var_class,                        &
+          & post_op=post_op, var_class=elem_u%info%var_class, lopenacc=.TRUE.,       &
           & tlev_source=info%tlev_source, hor_interp=elem_u%info%hor_interp,         &
           & vert_interp=elem_u%info%vert_interp)
         vname   = LONLAT_PREFIX//TRIM(get_var_name(elem_v%info))//suffix
@@ -391,7 +391,7 @@ CONTAINS
         CALL add_var(dst_varlist, TRIM(vname), p_opt_field_r3d, GRID_REGULAR_LONLAT, &
           & info%vgrid, cf, grib2, ldims=shape3d_ll, lrestart=.FALSE.,               &
           & in_group=elem_v%info%in_group, new_element=new_elem2, loutput=.TRUE.,    &
-          & post_op=post_op, var_class=elem_v%info%var_class,                        &
+          & post_op=post_op, var_class=elem_v%info%var_class, lopenacc=.TRUE.,       &
           & tlev_source=info%tlev_source, hor_interp=elem_v%info%hor_interp,         &
           & vert_interp=elem_v%info%vert_interp)
         ! link these new variables to the lon-lat grid:
@@ -644,7 +644,7 @@ CONTAINS
                 &           post_op=info%post_op,                                 &
                 &           lmiss=info%lmiss,                                     &
                 &           missval=info%missval%rval, var_class=info%var_class,  &
-                &           tlev_source=info%tlev_source )
+                &           tlev_source=info%tlev_source, lopenacc=.TRUE.)
             END IF
             !--- INTEGER fields
             IF (ASSOCIATED(elem%i_ptr)) THEN
@@ -659,7 +659,7 @@ CONTAINS
                 &           post_op=info%post_op,                                 &
                 &           lmiss=info%lmiss,                                     &
                 &           missval=info%missval%ival, var_class=info%var_class,  &
-                &           tlev_source=info%tlev_source )
+                &           tlev_source=info%tlev_source, lopenacc=.TRUE.)
             END IF
             ! SINGLE PRECISION FLOAT fields
             IF (ASSOCIATED(elem%s_ptr)) THEN
@@ -676,7 +676,7 @@ CONTAINS
                 &           lmiss=info%lmiss,                                     &
                 &           missval=REAL(info%missval%sval,wp),                   &
                 &           var_class=info%var_class,                             &
-                &           tlev_source=info%tlev_source )
+                &           tlev_source=info%tlev_source, lopenacc=.TRUE.)
             END IF
             ! LOGICAL fields
             IF (ASSOCIATED(elem%l_ptr)) THEN
@@ -824,7 +824,7 @@ CONTAINS
       & e%info%grib2, ldims=shape3d, tracer_info=e%info_dyn%tracer,               &
       & post_op=e%info%post_op, loutput=.TRUE., var_class=e%info%var_class,       &
       & tlev_source=e%info%tlev_source, hor_interp=e%info%hor_interp,             &
-      & lrestart=.FALSE., vert_interp=e%info%vert_interp)
+      & lrestart=.FALSE., vert_interp=e%info%vert_interp, lopenacc=.TRUE.)
   END SUBROUTINE copy_variable
 
   !---------------------------------------------------------------
@@ -896,7 +896,7 @@ CONTAINS
         CALL add_var(dst_vl, TRIM(info%name), p_opt_field_r3d, elem%info%hgrid, dst_axis,         &
           & info%cf, info%grib2, ldims=shape3d_e, new_element=vn_elem, post_op=info%post_op,      &
           & lrestart=.FALSE., var_class=info%var_class, tlev_source=elem%info%tlev_source,        &
-          & hor_interp=info%hor_interp, vert_interp=info%vert_interp)
+          & hor_interp=info%hor_interp, vert_interp=info%vert_interp, lopenacc=.TRUE.)
         !-- create a post-processing task for vertical interpolation of "vn"
         task => pp_task_insert(DEFAULT_PRIORITY1)
         task%job_name        =  &
@@ -925,7 +925,7 @@ CONTAINS
         grib2   = elem_u%info%grib2
         post_op = elem_u%info%post_op
         CALL add_var(dst_vl, TRIM(name), p_opt_field_r3d, GRID_UNSTRUCTURED_CELL,         &
-          & dst_axis, cf, grib2, ldims=shape3d_c, lrestart=.FALSE.,                       &
+          & dst_axis, cf, grib2, ldims=shape3d_c, lrestart=.FALSE., lopenacc=.TRUE.,      &
           & in_group=elem_u%info%in_group, new_element=new_elem, post_op=post_op,         &
           & var_class=elem_u%info%var_class, tlev_source=elem_u%info%tlev_source,         &
           & hor_interp=elem_u%info%hor_interp, vert_interp=elem_u%info%vert_interp )
@@ -934,7 +934,7 @@ CONTAINS
         grib2   = elem_v%info%grib2
         post_op = elem_v%info%post_op
         CALL add_var(dst_vl, TRIM(name), p_opt_field_r3d, GRID_UNSTRUCTURED_CELL,         &
-          & dst_axis, cf, grib2, ldims=shape3d_c, lrestart=.FALSE.,                       &
+          & dst_axis, cf, grib2, ldims=shape3d_c, lrestart=.FALSE., lopenacc=.TRUE.,      &
           & in_group=elem_v%info%in_group, new_element=new_elem2, post_op=post_op,        &
           & var_class=elem_v%info%var_class, tlev_source=elem_v%info%tlev_source,         &
           & hor_interp=elem_v%info%hor_interp, vert_interp=elem_v%info%vert_interp)
@@ -1084,7 +1084,7 @@ CONTAINS
         grib2_desc = grib2_var(0, 3, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL)
         CALL add_var( p_opt_diag_list_p, 'gh', p_diag_pz%p_gh,                  &
           & GRID_UNSTRUCTURED_CELL, ZA_PRESSURE, cf_desc, grib2_desc,           &
-          & ldims=shape3d, lrestart=.FALSE. )
+          & ldims=shape3d, lrestart=.FALSE.)
         CALL copy_variable("temp",   p_nh_state_lists(jg)%diag_list,    ZA_PRESSURE, shape3d, &
           &                p_diag_pz%p_temp, p_opt_diag_list_p)
       END IF
@@ -1094,7 +1094,7 @@ CONTAINS
         grib2_desc = grib2_var(0, 3, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL)
         CALL add_var( p_opt_diag_list_i, 'gh', p_diag_pz%i_gh,                  &
           & GRID_UNSTRUCTURED_CELL, ZA_ISENTROPIC, cf_desc, grib2_desc,         &
-          & ldims=shape3d, lrestart=.FALSE. )
+          & ldims=shape3d, lrestart=.FALSE.)
         CALL copy_variable("temp",   p_nh_state_lists(jg)%diag_list,    ZA_ISENTROPIC, shape3d, &
           &                p_diag_pz%i_temp, p_opt_diag_list_i)
       END IF
@@ -1248,7 +1248,7 @@ CONTAINS
                 &           post_op=info%post_op, var_class=info%var_class, &
                 &           tlev_source=info%tlev_source,                   &
                 &           hor_interp=info%hor_interp,                     &
-                &           vert_interp=info%vert_interp )
+                &           vert_interp=info%vert_interp, lopenacc=.TRUE.)
 
               !-- add post-processing task for interpolation
 

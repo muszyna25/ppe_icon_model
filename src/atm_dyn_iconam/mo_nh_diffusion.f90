@@ -150,9 +150,8 @@ MODULE mo_nh_diffusion
 
 #ifdef _OPENACC
 ! Workaround limitations in OpenACC of updating derived types
-    REAL(wp), DIMENSION(:,:,:),   POINTER    :: vn_tmp, w_tmp, exner_tmp, theta_v_tmp
-    REAL(wp), DIMENSION(:,:,:),   POINTER    :: theta_v_ic_tmp, div_ic_tmp, hdef_ic_tmp, dwdx_tmp, dwdy_tmp
-    REAL(vp), DIMENSION(:,:,:),   POINTER    :: vt_tmp
+    REAL(wp), DIMENSION(:,:,:),   POINTER    :: vn_tmp, w_tmp, exner_tmp, theta_v_tmp, theta_v_ic_tmp
+    REAL(vp), DIMENSION(:,:,:),   POINTER    :: div_ic_tmp, hdef_ic_tmp, dwdx_tmp, dwdy_tmp, vt_tmp
     REAL(vp), DIMENSION(nproma,p_patch%nlev-1:p_patch%nlev,p_patch%nblks_c) :: enh_diffu_3d
 #endif
 
@@ -208,7 +207,7 @@ MODULE mo_nh_diffusion
 
     IF (linit) THEN ! enhanced diffusion at all levels for initial velocity filtering call
       diff_multfac_vn(:) = diffusion_config(jg)%k4/3._wp*diffusion_config(jg)%hdiff_efdt_ratio
-      smag_offset        =  0.0_wp
+      smag_offset        =  0.0_vp
       diffu_type = 5 ! always combine nabla4 background diffusion with Smagorinsky diffusion for initial filtering call
       smag_limit(:) = 0.125_wp-4._wp*diff_multfac_vn(:)
     ELSE IF (lhdiff_rcf) THEN ! combination with divergence damping inside the dynamical core
@@ -220,8 +219,8 @@ MODULE mo_nh_diffusion
         diff_multfac_vn(:) = MIN(1._wp/128._wp,diffusion_config(jg)%k4*REAL(ndyn_substeps,wp)/3._wp)
       ENDIF
       IF (diffu_type == 3) THEN
-        smag_offset   = 0._wp
-        smag_limit(:) = 0.125_wp
+        smag_offset   = 0._vp
+        smag_limit(:) = 0.125_vp
       ELSE
         smag_offset   = 0.25_wp*diffusion_config(jg)%k4*REAL(ndyn_substeps,wp)
         smag_limit(:) = 0.125_wp-4._wp*diff_multfac_vn(:)
@@ -293,23 +292,8 @@ MODULE mo_nh_diffusion
 !$ACC              z_vn_ie, z_vt_ie, dvndz, dvtdz, dwdz, dthvdz, dwdn, dwdt, kh_smag3d_e ),                  &
 !$ACC      COPYIN( nrdmax, diff_multfac_vn, diff_multfac_n2w, diff_multfac_smag, smag_limit, enh_smag_fac ), &
 !$ACC      PRESENT( p_patch, p_int, p_nh_prog, p_nh_diag, p_nh_metrics,                                      &
-!$ACC               ividx, ivblk, iecidx, iecblk, icidx, icblk, ieidx, ieblk )
-
-! !$ACC      PRESENT( p_patch%edges%primal_normal_vert,  p_patch%edges%dual_normal_vert,                       &
-! !$ACC               p_patch%edges%inv_primal_edge_length, p_patch%edges%inv_dual_edge_length,                &
-! !$ACC               p_patch%edges%inv_vert_vert_length, p_patch%edges%tangent_orientation,                   &
-! !$ACC               p_patch%edges%area_edge, p_patch%cells%area,                                             &
-! !$ACC               p_int%cells_aw_verts, p_int%c_lin_e, p_int%e_bln_c_s, p_int%geofac_div,                  &
-! !$ACC               p_int%geofac_grg, p_int%geofac_n2s, p_int%nudgecoeff_e,                                  &
-! !$ACC               p_nh_prog%exner, p_nh_prog%theta_v, p_nh_prog%vn, p_nh_prog%w,                           &
-! !$ACC               p_nh_diag%theta_v_ic, p_nh_diag%vt,                                                      &
-! !$ACC               p_nh_metrics%ddqz_z_full_e, p_nh_metrics%enhfac_diffu, p_nh_metrics%wgtfac_c,            &
-! !$ACC               p_nh_metrics%wgtfac_e, p_nh_metrics%wgtfacq_e, p_nh_metrics%wgtfacq1_e,                  &
-! !$ACC               p_nh_metrics%zd_blklist, p_nh_metrics%zd_e2cell, p_nh_metrics%zd_edgeidx,                &
-! !$ACC               p_nh_metrics%zd_edgeblk, p_nh_metrics%zd_geofac, p_nh_metrics%zd_indlist,                &
-! !$ACC               p_nh_metrics%zd_intcoef, p_nh_metrics%zd_vertidx, p_nh_metrics%zd_diffcoef,              &
-! !$ACC               p_nh_metrics%theta_ref_mc, ividx, ivblk, iecidx, iecblk, icidx, icblk, ieidx, ieblk ),   &
-! !$ACC      IF ( i_am_accel_node .AND. acc_on )
+!$ACC               ividx, ivblk, iecidx, iecblk, icidx, icblk, ieidx, ieblk )                               &
+!$ACC      IF ( i_am_accel_node .AND. acc_on )
 
 !!! Following variables may be present in certain situations, but we don't want it to fail in the general case.
 !!! Should actually be in a separate data region with correct IF condition.
@@ -339,8 +323,8 @@ MODULE mo_nh_diffusion
 
       IF (p_test_run) THEN
 !$ACC KERNELS PRESENT( u_vert, v_vert ), ASYNC(1) IF ( i_am_accel_node .AND. acc_on )
-        u_vert = 0._wp
-        v_vert = 0._wp
+        u_vert = 0._vp
+        v_vert = 0._vp
 !$ACC END KERNELS
       ENDIF
 
@@ -466,8 +450,8 @@ MODULE mo_nh_diffusion
 
       IF (p_test_run) THEN
 !$ACC KERNELS PRESENT( u_vert, v_vert, z_w_v), ASYNC(1) IF ( i_am_accel_node .AND. acc_on )
-        u_vert = 0._wp
-        v_vert = 0._wp
+        u_vert = 0._vp
+        v_vert = 0._vp
         z_w_v  = 0._wp
 !$ACC END KERNELS
       ENDIF
@@ -1089,7 +1073,6 @@ MODULE mo_nh_diffusion
 !$OMP END DO
 
     ENDIF ! vn boundary diffusion
-
 
     IF (lhdiff_rcf .AND. diffusion_config(jg)%lhdiff_w) THEN ! add diffusion on vertical wind speed
                      ! remark: the surface level (nlevp1) is excluded because w is diagnostic there

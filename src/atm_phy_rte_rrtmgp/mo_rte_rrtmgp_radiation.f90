@@ -305,7 +305,7 @@ MODULE mo_rte_rrtmgp_radiation
     & tk_fl          ,&!< in  tk_fl  = temperature at full level at t-dt
     & xm_dry         ,&!< in  dry air mass in layer [kg/m2]
     & xm_trc         ,&!< in  tracer  mass in layer [kg/m2]
-    & xm_ozn         ,&!< inout ozone mass mixing ratio [kg/kg]
+    & xv_ozn         ,&!< out ozone volume mixing ratio [mol/mol]
     !
     & cdnc           ,&!< in  cloud droplet number concentration
     & cld_frc        ,&!< in  cloud fraction
@@ -367,8 +367,8 @@ MODULE mo_rte_rrtmgp_radiation
     & xm_trc(:,:,:),    & !< tracer mass in layer [kg/m2]
     & cdnc(:,:),        & !< Cloud drop number concentration
     & cld_frc(:,:)        !< Cloud fraction
-    REAL(wp), INTENT(INOUT) :: &
-    & xm_ozn(:,:)         !< ozone mixing ratio  [kg/kg]
+    REAL(wp), INTENT(OUT) :: &
+    & xv_ozn(:,:)         !< ozone volume mixing ratio  [mol/mol]
 
     ! OUT
     REAL(wp), INTENT(INOUT)   :: &
@@ -421,9 +421,13 @@ MODULE mo_rte_rrtmgp_radiation
 
     REAL (wp) :: pp_sfc(nproma)
 
+    INTEGER   :: jl, jk
+
+    !
     ! Shortcuts to components of echam_rad_config
     !
-    !$ACC data create(pp_sfc, tk_hl, xm_liq, xm_ice, xc_frc,          &
+    !$ACC DATA PRESENT(xv_ozn) &
+    !$ACC      CREATE(pp_sfc, tk_hl, xm_liq, xm_ice, xc_frc,          &
     !$ACC             xvmr_vap, xvmr_co2, xvmr_o3, xvmr_o2, xvmr_ch4, &
     !$ACC             xvmr_n2o, xvmr_cfc)
     CALL calculate_temperature_pressure(jcs, jce, nproma, klev, &
@@ -436,6 +440,14 @@ MODULE mo_rte_rrtmgp_radiation
                       & xvmr_vap,     xvmr_co2,              xvmr_o3,         &
                       & xvmr_o2,      xvmr_ch4,              xvmr_n2o,        &
                       & xvmr_cfc                                              )
+    !
+    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
+    DO jk=1,klev
+      DO jl=jcs,jce
+        xv_ozn(jl,jk) = xvmr_o3(jl,jk)
+      END DO
+    END DO
+
     CALL cloud_profiles ( jg,           jcs,            jce,              &
          &                klev,         xm_trc,         cld_frc,          &
          &                xm_liq,       xm_ice,         xc_frc,           &
@@ -462,8 +474,8 @@ MODULE mo_rte_rrtmgp_radiation
       aer_aod_533     ,aer_ssa_533     ,aer_asy_533                      ,&
       aer_aod_2325    ,aer_ssa_2325    ,aer_asy_2325                     ,&
       aer_aod_9731                                                       ) 
-    !$ACC wait   
-    !$ACC end data 
+    !$ACC WAIT
+    !$ACC END DATA 
     !-------------------------------------------------------------------
 
   END SUBROUTINE rte_rrtmgp_radiation
@@ -503,20 +515,20 @@ MODULE mo_rte_rrtmgp_radiation
     ! local counters
     INTEGER              :: jk, jl
     !
-    !$ACC data present(pp_hl, tk_fl, pp_fl, tk_sfc, pp_sfc, tk_hl)
+    !$ACC DATA PRESENT(pp_hl, tk_fl, pp_fl, tk_sfc, pp_sfc, tk_hl)
     !
     ! 1.0 calculate variable input parameters (location and state variables)
     ! --------------------------------
     ! 
     ! --- Pressure (surface and distance between half levels)
     !
-    !$ACC kernels default(none) async(1)
+    !$ACC KERNELS DEFAULT(NONE) ASYNC(1)
     pp_sfc(jcs:jce)   = pp_hl(jcs:jce,klev+1)
-    !$ACC end kernels
+    !$ACC END KERNELS
     !
     ! --- temperature at half levels
     !
-    !$ACC parallel loop default(none) gang vector collapse(2) async(1)
+    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
     DO jk=2,klev
       DO jl = jcs, jce
         tk_hl(jl,jk) = (tk_fl(jl,jk-1)*pp_fl(jl,jk-1)*( pp_fl(jl,jk)          &
@@ -525,17 +537,17 @@ MODULE mo_rte_rrtmgp_radiation
       END DO
     END DO
 
-    !$ACC kernels default(none) async(1)
+    !$ACC KERNELS DEFAULT(NONE) ASYNC(1)
     tk_hl(jcs:jce,klev+1) = tk_sfc(jcs:jce)
-    !$ACC end kernels
+    !$ACC END KERNELS
 
-    !$ACC parallel loop default(none) gang vector async(1)
+    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR ASYNC(1)
     DO jl = jcs, jce
       tk_hl(jl,1)      = tk_fl(jl,1)-pp_fl(jl,1)*(tk_fl(jl,1) - tk_hl(jl,2))  &
             &             / (pp_fl(jl,1)-pp_hl(jl,2))
     END DO
 
-    !$ACC end data
+    !$ACC END DATA
   END SUBROUTINE calculate_temperature_pressure 
   !-------------------------------------------------------------------
 
