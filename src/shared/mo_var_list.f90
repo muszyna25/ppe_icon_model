@@ -907,16 +907,16 @@ CONTAINS
 
   SUBROUTINE add_var_list_reference_util(target_element, new_list_element,      &
     & this_list, target_name, refname, hgrid, vgrid, cf, grib2, ref_idx, ldims, &
-    & dtype, icontainer, loutput, lrestart, lrestart_cont, isteptype, lmiss,    &
-    & tlev_source, tracer_info, info, vert_interp, hor_interp, in_group,        &
-    & new_element, l_pp_scheduler_task, post_op, action_list, idx_diag,&
+    & dtype, icontainer, vrp, loutput, lrestart, lrestart_cont, isteptype,      &
+    & lmiss, tlev_source, tracer_info, info, vert_interp, hor_interp, in_group, &
+    & new_element, l_pp_scheduler_task, post_op, action_list, idx_diag,         &
     & var_class, opt_var_ref_pos, initval_r, initval_s, initval_i, missval_r,   &
     & missval_s, missval_i, resetval_r, resetval_s, resetval_i, idx_tracer)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
     TYPE(t_var), INTENT(OUT), POINTER :: target_element, new_list_element
     CHARACTER(*), INTENT(IN) :: target_name, refname
     INTEGER, INTENT(IN) :: hgrid, vgrid, ref_idx, ldims(:), dtype
-    INTEGER, INTENT(OUT) :: icontainer
+    INTEGER, INTENT(OUT) :: icontainer, vrp
     TYPE(t_cf_var), INTENT(IN) :: cf
     TYPE(t_grib2_var), INTENT(IN) :: grib2
     LOGICAL, INTENT(IN), OPTIONAL :: loutput, lrestart, lrestart_cont, &
@@ -1039,6 +1039,7 @@ CONTAINS
       ref_info%ncontained = ref_idx
     ENDIF
     icontainer = MERGE(ref_info%ncontained, 1, target_info%lcontainer)
+    vrp = var_ref_pos
     IF(PRESENT(info)) info => ref_info
     CALL register_list_element(this_list, new_list_element)
   END SUBROUTINE add_var_list_reference_util
@@ -1068,11 +1069,11 @@ CONTAINS
     TYPE(t_var_action), INTENT(IN), OPTIONAL :: action_list
     CHARACTER(*), PARAMETER :: routine = modname//"::add_var_list_reference_r3d"
     TYPE(t_var), POINTER :: target_element, new_list_element
-    INTEGER :: icontainer
+    INTEGER :: icontainer, vrp
 
     CALL add_var_list_reference_util(target_element, new_list_element,     &
       & this_list, target_name, refname, hgrid, vgrid, cf, grib2, ref_idx, &
-      & ldims, REAL_T, icontainer, loutput=loutput, lrestart=lrestart,      &
+      & ldims, REAL_T, icontainer, vrp, loutput=loutput, lrestart=lrestart,&
       & lrestart_cont=lrestart_cont, isteptype=isteptype, lmiss=lmiss,     &
       & tlev_source=tlev_source, tracer_info=tracer_info, info=info,       &
       & vert_interp=vert_interp, hor_interp=hor_interp, in_group=in_group, &
@@ -1082,7 +1083,7 @@ CONTAINS
       & missval_r=missval, resetval_r=resetval)
     IF (.NOT. ASSOCIATED(target_element%r_ptr)) &
       & CALL finish(routine, TRIM(refname)//' not created.')
-    SELECT CASE(new_list_element%info%var_ref_pos)
+    SELECT CASE(vrp)
     CASE(1)
       ptr => target_element%r_ptr(icontainer,:,:,:,1)
     CASE(2)
@@ -1126,11 +1127,11 @@ CONTAINS
     TYPE(t_var_action), INTENT(IN), OPTIONAL :: action_list         
     CHARACTER(*), PARAMETER :: routine = modname//"::add_var_list_reference_r2d"
     TYPE(t_var), POINTER :: target_element, new_list_element
-    INTEGER :: icontainer
+    INTEGER :: icontainer, vrp
 
     CALL add_var_list_reference_util(target_element, new_list_element,     &
       & this_list, target_name, refname, hgrid, vgrid, cf, grib2, ref_idx, &
-      & ldims, REAL_T, icontainer, loutput=loutput, lrestart=lrestart,      &
+      & ldims, REAL_T, icontainer, vrp, loutput=loutput, lrestart=lrestart,&
       & lrestart_cont=lrestart_cont, isteptype=isteptype, lmiss=lmiss,     &
       & tlev_source=tlev_source, tracer_info=tracer_info, info=info,       &
       & vert_interp=vert_interp, hor_interp=hor_interp, in_group=in_group, &
@@ -1141,7 +1142,7 @@ CONTAINS
       & idx_diag=idx_diag)
     IF (.NOT. ASSOCIATED(target_element%r_ptr)) &
       & CALL finish(routine, TRIM(refname)//' not created.')
-    SELECT CASE(new_list_element%info%var_ref_pos)
+    SELECT CASE(vrp)
     CASE(1)
       ptr => target_element%r_ptr(icontainer,:,:,1,1)
     CASE(2)
@@ -1182,11 +1183,11 @@ CONTAINS
     TYPE(t_var_action), INTENT(IN), OPTIONAL :: action_list
     CHARACTER(*), PARAMETER :: routine = modname//"::add_var_list_reference_s3d"
     TYPE(t_var), POINTER :: target_element, new_list_element
-    INTEGER :: icontainer
+    INTEGER :: icontainer, vrp
 
     CALL add_var_list_reference_util(target_element, new_list_element,     &
       & this_list, target_name, refname, hgrid, vgrid, cf, grib2, ref_idx, &
-      & ldims, SINGLE_T, icontainer, loutput=loutput, lrestart=lrestart,   &
+      & ldims, SINGLE_T, icontainer, vrp, loutput=loutput, lrestart=lrestart, &
       & lrestart_cont=lrestart_cont, isteptype=isteptype, lmiss=lmiss,     &
       & tlev_source=tlev_source, tracer_info=tracer_info, info=info,       &
       & vert_interp=vert_interp, hor_interp=hor_interp, in_group=in_group, &
@@ -1196,7 +1197,7 @@ CONTAINS
       & missval_s=missval, resetval_s=resetval)
     IF (.NOT. ASSOCIATED(target_element%s_ptr)) &
       & CALL finish(routine, TRIM(refname)//' not created.')
-    SELECT CASE(new_list_element%info%var_ref_pos)
+    SELECT CASE(vrp)
     CASE(1)
       ptr => target_element%s_ptr(icontainer,:,:,:,1)
     CASE(2)
@@ -1239,11 +1240,11 @@ CONTAINS
     TYPE(t_var_action), INTENT(IN), OPTIONAL :: action_list
     CHARACTER(*), PARAMETER :: routine = modname//"::add_var_list_reference_s2d"
     TYPE(t_var), POINTER :: target_element, new_list_element
-    INTEGER :: icontainer
+    INTEGER :: icontainer, vrp
 
     CALL add_var_list_reference_util(target_element, new_list_element,     &
       & this_list, target_name, refname, hgrid, vgrid, cf, grib2, ref_idx, &
-      & ldims, SINGLE_T, icontainer, loutput=loutput, lrestart=lrestart,   &
+      & ldims, SINGLE_T, icontainer, vrp, loutput=loutput, lrestart=lrestart, &
       & lrestart_cont=lrestart_cont, isteptype=isteptype, lmiss=lmiss,     &
       & tlev_source=tlev_source, tracer_info=tracer_info, info=info,       &
       & vert_interp=vert_interp, hor_interp=hor_interp, in_group=in_group, &
@@ -1253,7 +1254,7 @@ CONTAINS
       & missval_s=missval, resetval_s=resetval)
     IF (.NOT. ASSOCIATED(target_element%s_ptr)) &
       & CALL finish(routine, TRIM(refname)//' not created.')
-    SELECT CASE(new_list_element%info%var_ref_pos)
+    SELECT CASE(vrp)
     CASE(1)
       ptr => target_element%s_ptr(icontainer,:,:,1,1)
     CASE(2)
@@ -1293,11 +1294,11 @@ CONTAINS
     TYPE(t_var_action), INTENT(IN), OPTIONAL :: action_list
     CHARACTER(*), PARAMETER :: routine = modname//"::add_var_list_reference_i2d"
     TYPE(t_var), POINTER :: target_element, new_list_element
-    INTEGER :: icontainer
+    INTEGER :: icontainer, vrp
 
     CALL add_var_list_reference_util(target_element, new_list_element,     &
       & this_list, target_name, refname, hgrid, vgrid, cf, grib2, ref_idx, &
-      & ldims, INT_T, icontainer, loutput=loutput, lrestart=lrestart,      &
+      & ldims, INT_T, icontainer, vrp, loutput=loutput, lrestart=lrestart, &
       & lrestart_cont=lrestart_cont, isteptype=isteptype, lmiss=lmiss,     &
       & tlev_source=tlev_source, tracer_info=tracer_info, info=info,       &
       & vert_interp=vert_interp, hor_interp=hor_interp, in_group=in_group, &
@@ -1307,7 +1308,7 @@ CONTAINS
       & missval_i=missval, resetval_i=resetval)
     IF (.NOT. ASSOCIATED(target_element%i_ptr)) &
       & CALL finish(routine, TRIM(refname)//' not created.')
-    SELECT CASE(new_list_element%info%var_ref_pos)
+    SELECT CASE(vrp)
     CASE(1)
       ptr => target_element%i_ptr(icontainer,:,:,1,1)
     CASE(2)
