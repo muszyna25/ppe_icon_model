@@ -41,7 +41,8 @@ MODULE mo_ice_init_thermo
     &                                use_IceInitialization_fromTemperature, use_constant_tfreez, &
     &                               init_analytic_conc_param, init_analytic_hi_param, &
     &                               init_analytic_hs_param, init_analytic_temp_under_ice, &
-    &                               albi, albedoW_sim
+    &                               albi, albedoW_sim, initialize_seaice_fromfile
+  USE mo_ocean_nml,           ONLY: limit_seaice, seaice_limit
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state
   USE mo_ocean_state,         ONLY: v_base, ocean_restart_list, ocean_default_list
   USE mo_var_list,            ONLY: add_var
@@ -62,6 +63,7 @@ MODULE mo_ice_init_thermo
   USE mo_ice_fem_init,            ONLY: ice_init_fem
   USE mo_ice_fem_icon_init,        ONLY: init_fem_wgts, init_fem_wgts_extra, destruct_fem_wgts,  &
     &                               ice_fem_grid_init, ice_fem_grid_post
+  USE mo_ocean_initial_conditions, ONLY: init_cell_2D_variable_fromFile
 
   IMPLICIT NONE
 
@@ -85,19 +87,22 @@ CONTAINS
   !! Originally code written by Dirk Notz, following MPI-OM.
   !! Modified        by Vladimir Lapin, MPI-M (2017-04).
   !!
-  SUBROUTINE ice_init( p_patch_3D, p_os, ice, cellThicknessUnderIce)
-    TYPE(t_patch_3D), TARGET, INTENT(in)  :: p_patch_3D
+  SUBROUTINE ice_init( patch_3D, p_os, ice, cellThicknessUnderIce)
+    TYPE(t_patch_3D), TARGET              :: patch_3D
     TYPE(t_hydro_ocean_state)             :: p_os
     TYPE (t_sea_ice),      INTENT (INOUT) :: ice
-    REAL(wp), DIMENSION(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks), &
+    REAL(wp), DIMENSION(nproma,patch_3D%p_patch_2D(1)%alloc_cell_blocks), &
       & INTENT(OUT)                       :: cellThicknessUnderIce
 
     !local variables
-    REAL(wp), DIMENSION(nproma,ice%kice, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) :: &
+    REAL(wp), DIMENSION(nproma,ice%kice, patch_3D%p_patch_2D(1)%alloc_cell_blocks) :: &
       & Tinterface  ! temperature at snow-ice interface
 
     TYPE(t_patch), POINTER                :: p_patch
-
+    LOGICAL  :: has_missValue
+    REAL(wp) :: missValue, hi_max
+    REAL(wp) :: read_in(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+ 
     !INTEGER i,j,k      ! counter for loops
     INTEGER k !, jb, jc, i_startidx_c, i_endidx_c! counter for loops
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ice_init_thermo:ice_init'
@@ -106,7 +111,7 @@ CONTAINS
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'start' )
 
-    p_patch => p_patch_3D%p_patch_2D(1)
+    p_patch => patch_3D%p_patch_2D(1)
 
     ! Calculate the sea surface freezing temperature                        [C]
     IF ( no_tracer < 2 .OR. use_constant_tfreez ) THEN
@@ -120,20 +125,36 @@ CONTAINS
     ice% T2   (:,:,:)  = Tf
     ice% conc (:,:,:)  = 0.0_wp
 
-    ! Stupid initialisation trick for Levitus initialisation
-    IF (use_IceInitialization_fromTemperature) THEN
-      WHERE (p_os%p_prog(nold(1))%tracer(:,1,:,1) <= init_analytic_temp_under_ice .and. v_base%lsm_c(:,1,:) <= sea_boundary )
-        ice%hi(:,1,:)   = init_analytic_hi_param
-        ice%hs(:,1,:)   = init_analytic_hs_param
-        ice%conc(:,1,:) = init_analytic_conc_param
-      ENDWHERE
-    ! or constant initialization for ice, snow and concentration
-    ELSE
-      WHERE (v_base%lsm_c(:,1,:) <= sea_boundary )
-        ice%hi(:,1,:)    = init_analytic_hi_param
-        ice%hs(:,1,:)    = init_analytic_hs_param
-        ice%conc(:,1,:)  = init_analytic_conc_param
-      ENDWHERE
+    IF (initialize_seaice_fromfile) THEN
+      hi_max = seaice_limit * v_base%del_zlev_m(1)
+
+      CALL init_cell_2D_variable_fromFile(patch_3d, read_in, "seaice_hi_2D", has_missValue, missValue)
+      IF (limit_seaice) THEN
+        ice%hi(:,1,:) = MIN(read_in(:,:),hi_max)
+      ELSE
+         ice%hi(:,1,:) = read_in(:,:)
+      ENDIF
+      CALL init_cell_2D_variable_fromFile(patch_3d, read_in, "seaice_hs_2D", has_missValue, missValue)
+      ice%hs(:,1,:) = read_in(:,:)     
+      CALL init_cell_2D_variable_fromFile(patch_3d, read_in, "seaice_conc_2D", has_missValue, missValue)
+      ice%conc(:,1,:) = read_in(:,:)
+     
+    ELSE  
+      ! Stupid initialisation trick for Levitus initialisation
+      IF (use_IceInitialization_fromTemperature) THEN
+        WHERE (p_os%p_prog(nold(1))%tracer(:,1,:,1) <= init_analytic_temp_under_ice .and. v_base%lsm_c(:,1,:) <= sea_boundary )
+          ice%hi(:,1,:)   = init_analytic_hi_param
+          ice%hs(:,1,:)   = init_analytic_hs_param
+          ice%conc(:,1,:) = init_analytic_conc_param
+        ENDWHERE
+      ! or constant initialization for ice, snow and concentration
+      ELSE
+        WHERE (v_base%lsm_c(:,1,:) <= sea_boundary )
+          ice%hi(:,1,:)    = init_analytic_hi_param
+          ice%hs(:,1,:)    = init_analytic_hs_param
+          ice%conc(:,1,:)  = init_analytic_conc_param
+        ENDWHERE
+      ENDIF
     ENDIF
 
 
@@ -158,7 +179,7 @@ CONTAINS
     cellThicknessUnderIce (:,:) = ice%zUnderIce(:,:)
 
     IF ( i_ice_dyn == 1 ) THEN ! AWI dynamics
-      CALL ice_fem_grid_init(p_patch_3D)
+      CALL ice_fem_grid_init(patch_3D)
       CALL ice_init_fem
       CALL ice_fem_grid_post(p_patch)
     ENDIF
@@ -186,8 +207,8 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !
-  SUBROUTINE construct_sea_ice(p_patch_3D, p_ice, i_no_ice_thick_class)
-    TYPE(t_patch_3D),TARGET,INTENT(IN)    :: p_patch_3D
+  SUBROUTINE construct_sea_ice(patch_3D, p_ice, i_no_ice_thick_class)
+    TYPE(t_patch_3D),TARGET,INTENT(IN)    :: patch_3D
     TYPE (t_sea_ice),       INTENT(INOUT) :: p_ice
     INTEGER,                INTENT(IN)    :: i_no_ice_thick_class
 
@@ -207,7 +228,7 @@ CONTAINS
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'start' )
 
-    p_patch           => p_patch_3D%p_patch_2D(1)
+    p_patch           => patch_3D%p_patch_2D(1)
     alloc_cell_blocks =  p_patch%alloc_cell_blocks
     nblks_v           =  p_patch%nblks_v
     nblks_e           =  p_patch%nblks_e
@@ -435,7 +456,7 @@ CONTAINS
     ENDIF
 
     IF ( i_ice_dyn == 1 ) THEN ! AWI dynamics
-      CALL init_fem_wgts(p_patch_3D)
+      CALL init_fem_wgts(patch_3D)
       IF (i_ice_advec == 1) THEN ! AWI advection
         CALL init_fem_wgts_extra(p_patch)
       ENDIF
@@ -444,7 +465,7 @@ CONTAINS
     ! add accumulated fields
     CALL message(TRIM(routine), 'end' )
 
-    CALL construct_sea_ice_budgets(p_patch_3D,p_ice%budgets, ocean_default_list)
+    CALL construct_sea_ice_budgets(patch_3D,p_ice%budgets, ocean_default_list)
   END SUBROUTINE construct_sea_ice
 
   
