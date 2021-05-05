@@ -58,7 +58,6 @@ MODULE mo_ocean_check_salt
   USE mo_util_file,          ONLY: util_symlink, util_rename, util_islink, util_unlink
   USE mo_statistics,         ONLY: subset_sum, levels_horizontal_mean, total_mean, gather_sums, &
     & verticallyIntegrated_field
-  USE mo_fortran_tools,      ONLY: assign_if_present
   USE mo_var_groups,         ONLY: groups
   USE mo_cf_convention
   USE mo_grib2,              ONLY: t_grib2_var, grib2_var

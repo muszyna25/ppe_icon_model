@@ -23,7 +23,6 @@ MODULE mo_statistics
   !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: wp,sp
   USE mo_exception,          ONLY: warning, finish
-  USE mo_fortran_tools,      ONLY: assign_if_present
 #ifdef _OPENMP
   USE omp_lib
 #endif
@@ -2024,9 +2023,8 @@ CONTAINS
 
     my_has_missvals = .FALSE.
     my_miss = 0.0_wp
-
-    CALL assign_if_present(my_has_missvals, has_missvals)
-    CALL assign_if_present(my_miss, missval)
+    IF (PRESENT(has_missvals)) my_has_missvals = has_missvals
+    IF (PRESENT(missval)) my_miss = missval
 
     ! use constant levels
     mylevels                       = SIZE(sum_field, VerticalDim_Position)
@@ -2060,9 +2058,8 @@ CONTAINS
 
     my_has_missvals = .FALSE.
     my_miss = 0.0_wp
-
-    CALL assign_if_present(my_has_missvals, has_missvals)
-    CALL assign_if_present(my_miss, missval)
+    IF (PRESENT(has_missvals)) my_has_missvals = has_missvals
+    IF (PRESENT(missval)) my_miss = missval
 
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
     DO jb = subset%start_block, subset%end_block
@@ -2091,9 +2088,8 @@ CONTAINS
 
     my_has_missvals = .FALSE.
     my_miss = 0.0_wp
-
-    CALL assign_if_present(my_has_missvals, has_missvals)
-    CALL assign_if_present(my_miss, missval)
+    IF (PRESENT(has_missvals)) my_has_missvals = has_missvals
+    IF (PRESENT(missval)) my_miss = missval
 
       ! use constant levels
       mylevels                       = SIZE(sum_field, VerticalDim_Position)
@@ -2127,9 +2123,8 @@ CONTAINS
 
     my_has_missvals = .FALSE.
     my_miss = 0.0_wp
-
-    CALL assign_if_present(my_has_missvals, has_missvals)
-    CALL assign_if_present(my_miss, missval)
+    IF (PRESENT(has_missvals)) my_has_missvals = has_missvals
+    IF (PRESENT(missval)) my_miss = missval
     
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
     DO jb = subset%start_block, subset%end_block

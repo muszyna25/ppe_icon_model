@@ -79,7 +79,6 @@ MODULE mo_ocean_diagnostics
   USE mo_util_file,          ONLY: util_symlink, util_rename, util_islink, util_unlink
   USE mo_statistics,         ONLY: subset_sum, levels_horizontal_mean, total_mean, gather_sums, &
     & verticallyIntegrated_field
-  USE mo_fortran_tools,      ONLY: assign_if_present
   USE mo_var_list,           ONLY: add_var, add_ref, t_var_list_ptr
   USE mo_var_list_register,  ONLY: vlr_add, vlr_del
   USE mo_var_groups,         ONLY: groups

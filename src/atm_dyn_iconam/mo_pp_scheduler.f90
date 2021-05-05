@@ -207,7 +207,6 @@ MODULE mo_pp_scheduler
     &                                   DEFAULT_PRIORITY2, DEFAULT_PRIORITY3,               &
     &                                   DEFAULT_PRIORITY4, LOW_PRIORITY, dbg_level,         &
     &                                   t_activity_status
-  USE mo_fortran_tools,           ONLY: assign_if_present
   USE mo_timer,                   ONLY: timers_level, timer_start, timer_stop, timer_opt_diag_atmo
   USE mo_util_texthash,           ONLY: text_hash_c
 
@@ -1320,8 +1319,8 @@ CONTAINS
     l_output_step = .TRUE.
     priority      = DEFAULT_PRIORITY0
     ! assign optional parameters:
-    CALL assign_if_present(priority, opt_priority)
-    CALL assign_if_present(l_output_step, opt_l_output_step)
+    IF (PRESENT(opt_priority)) priority = opt_priority
+    IF (PRESENT(opt_l_output_step)) l_output_step = opt_l_output_step
     ! create a post-processing task and fill its input/output data:
     task => pp_task_insert(priority)
     WRITE (task%job_name, *) TRIM(name),", DOM ",jg
@@ -1558,10 +1557,10 @@ CONTAINS
     sim_status%status_flags(:) = (/ .FALSE., .FALSE., .FALSE. , .FALSE./)
 
     ! supersede with user definitions
-    CALL assign_if_present(sim_status%status_flags(1), l_output_step)
-    CALL assign_if_present(sim_status%status_flags(2), l_first_step)
-    CALL assign_if_present(sim_status%status_flags(3), l_last_step)
-    CALL assign_if_present(sim_status%status_flags(4), l_accumulation_step)
+    IF (PRESENT(l_output_step)) sim_status%status_flags(1) = l_output_step
+    IF (PRESENT(l_first_step)) sim_status%status_flags(2) = l_first_step
+    IF (PRESENT(l_last_step)) sim_status%status_flags(3) = l_last_step
+    IF (PRESENT(l_accumulation_step)) sim_status%status_flags(4) = l_accumulation_step
 
     ! as a default, all domains are "inactive", i.e. the activity
     ! flags are not considered:
@@ -1574,8 +1573,8 @@ CONTAINS
     ! as a default, no special timelevel is set for (in-)activity:
     sim_status%i_timelevel_dyn(:) = ALL_TIMELEVELS
     sim_status%i_timelevel_phy(:) = ALL_TIMELEVELS
-    CALL assign_if_present(sim_status%i_timelevel_dyn, i_timelevel_dyn)
-    CALL assign_if_present(sim_status%i_timelevel_phy, i_timelevel_phy)
+    IF (PRESENT(i_timelevel_dyn)) sim_status%i_timelevel_dyn = i_timelevel_dyn
+    IF (PRESENT(i_timelevel_phy)) sim_status%i_timelevel_phy = i_timelevel_phy
 
   END FUNCTION new_simulation_status
 
@@ -1601,18 +1600,18 @@ CONTAINS
     activity_status%status_flags(:) = (/ .FALSE., .FALSE., .FALSE., .FALSE. /)
 
     ! supersede with user definitions
-    CALL assign_if_present(activity_status%status_flags(1), l_output_step)
-    CALL assign_if_present(activity_status%status_flags(2), l_first_step)
-    CALL assign_if_present(activity_status%status_flags(3), l_last_step)
+    IF (PRESENT(l_output_step)) activity_status%status_flags(1) = l_output_step
+    IF (PRESENT(l_first_step)) activity_status%status_flags(2) = l_first_step
+    IF (PRESENT(l_last_step)) activity_status%status_flags(3) = l_last_step
 
     ! as a default, all domains are "inactive", i.e. the activity
     ! flags are not considered:
     activity_status%check_dom_active = .FALSE.
-    CALL assign_if_present(activity_status%check_dom_active, check_dom_active)
+    IF (PRESENT(check_dom_active)) activity_status%check_dom_active = check_dom_active
 
     ! as a default, no special timelevel is set for (in-)activity:
     activity_status%i_timelevel = ALL_TIMELEVELS
-    CALL assign_if_present(activity_status%i_timelevel, i_timelevel)
+    IF (PRESENT(i_timelevel)) activity_status%i_timelevel = i_timelevel
 
   END FUNCTION new_activity_status
 

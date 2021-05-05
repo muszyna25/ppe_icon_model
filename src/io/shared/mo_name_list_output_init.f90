@@ -51,7 +51,6 @@ MODULE mo_name_list_output_init
   ! basic utility modules
   USE mo_exception,                         ONLY: finish, message, message_text
   USE mo_dictionary,                        ONLY: t_dictionary
-  USE mo_fortran_tools,                     ONLY: assign_if_present
   USE mo_io_util,                           ONLY: get_file_extension
   USE mo_util_cdi,                          ONLY: create_cdi_variable
   USE mo_util_string,                       ONLY: t_keyword_list, associate_keyword,              &
@@ -920,12 +919,11 @@ CONTAINS
     INTEGER                              :: this_i_lctype
 
     l_print_list = .FALSE.
+    IF (PRESENT(opt_lprintlist)) l_print_list = opt_lprintlist
     is_mpi_test = my_process_is_mpi_test()
 
     is_io = my_process_is_io()
     is_stdio = my_process_is_stdio()
-
-    CALL assign_if_present(l_print_list, opt_lprintlist)
 
     IF (.NOT. p_test_run .AND. is_stdio .AND. &
       & (l_print_list .OR. (msg_level >= 15))) THEN
