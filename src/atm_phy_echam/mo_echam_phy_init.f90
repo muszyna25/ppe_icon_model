@@ -453,6 +453,7 @@ CONTAINS
           iqm_max=iqm_max+1
        CASE('o3')
           io3=jt
+          write(0,*) 'io3=',io3
        CASE('co2')
           ico2=jt
        CASE('ch4')
@@ -526,7 +527,7 @@ CONTAINS
        IF (io3 == 0) THEN
           CALL finish(routine,           &
                &      'For the linearized ozone chemistry of Cariolle, '// &
-               &      'the tracer qo3 must be included in transport_nml'// &
+               &      'the tracer o3 must be included in transport_nml'// &
                &      '/tracer_names')
        END IF
     END IF
