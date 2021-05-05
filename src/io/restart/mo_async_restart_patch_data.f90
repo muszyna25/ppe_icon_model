@@ -67,7 +67,7 @@ CONTAINS
     CALL me%description%init(jg)
     CALL vlr_select_restart_vars(me%varData, jg, modelType, me%restartType)
     CALL me%commData%construct(jg, me%varData)
-    CALL me%transferToRestart()
+    CALL me%description%transferToRestart()
   END SUBROUTINE asyncPatchData_construct
 
   SUBROUTINE asyncPatchData_destruct(me)

@@ -77,7 +77,7 @@ CONTAINS
 
     CALL me%description%init(jg)
     CALL vlr_select_restart_vars(me%varData, jg, modelType, me%restartType)
-    IF (isAsync()) CALL me%transferToRestart()
+    IF (isAsync()) CALL me%description%transferToRestart()
   END SUBROUTINE multifilePatchData_construct
 
   SUBROUTINE multifilePatchData_createCollectors(me, wRnk, srcRnks, lactive)
