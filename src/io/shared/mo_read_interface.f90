@@ -53,10 +53,9 @@ MODULE mo_read_interface
     &                                   netcdf_read_inq_varexists
   USE mo_read_netcdf_distributed, ONLY: t_distrib_read_data, distrib_nf_open, &
     &                                   distrib_read, distrib_nf_close, &
-    &                                   var_data_2d_wp, var_data_2d_int, &
-    &                                   var_data_3d_wp, var_data_3d_int, &
     &                                   distrib_inq_var_dims, idx_lvl_blk, &
     &                                   idx_blk_time, distrib_nf_inq_varexists
+  USE mo_fortran_tools, ONLY: t_ptr_2d, t_ptr_2d_int, t_ptr_3d, t_ptr_3d_int
   USE mo_model_domain, ONLY: t_patch
   USE mo_parallel_config, ONLY: nproma, p_test_run
   USE mo_model_domain, ONLY: t_patch
@@ -95,8 +94,6 @@ MODULE mo_read_interface
   PUBLIC :: read_2D_extdim_int
   PUBLIC :: read_3D_extdim
   PUBLIC :: nf
-
-  PUBLIC :: var_data_2d_int, var_data_2d_wp, var_data_3d_int, var_data_3d_wp
 
   PUBLIC :: on_cells, on_vertices, on_edges
 
@@ -443,13 +440,13 @@ CONTAINS
     INTEGER, INTENT(IN)                    :: location
     CHARACTER(LEN=*), INTENT(IN)           :: variable_name
     INTEGER, INTENT(IN)                    :: n_var
-    TYPE(var_data_2d_int), OPTIONAL        :: fill_array(:)
-    TYPE(var_data_2d_int), OPTIONAL        :: return_pointer(:)
+    TYPE(t_ptr_2d_int), OPTIONAL        :: fill_array(:)
+    TYPE(t_ptr_2d_int), OPTIONAL        :: return_pointer(:)
 
-    TYPE(var_data_2d_int)                  :: tmp_return(n_var)
+    TYPE(t_ptr_2d_int)                  :: tmp_return(n_var)
     TYPE(t_p_scatterPattern)               :: scatter_patterns(n_var)
     INTEGER                                :: n_g, i
-    TYPE(var_data_2d_int), ALLOCATABLE     :: var_data_2d(:)
+    TYPE(t_ptr_2d_int), ALLOCATABLE     :: var_data_2d(:)
     CHARACTER(LEN=NF_MAX_NAME)             :: variable_name_
     CHARACTER(LEN=*), PARAMETER            :: method_name = &
       'mo_read_interface:read_dist_INT_2D_multivar'
@@ -485,18 +482,18 @@ CONTAINS
       ! gather pointers of all output fields
       IF (PRESENT(fill_array)) THEN
         DO i = 1, n_var
-          var_data_2d(i)%data => fill_array(i)%data
+          var_data_2d(i)%p => fill_array(i)%p
         END DO
       ELSE
         DO i = 1, n_var
-          ALLOCATE(var_data_2d(i)%data(nproma, &
+          ALLOCATE(var_data_2d(i)%p(nproma, &
             (stream_id%read_info(location, i)%n_l - 1)/nproma + 1))
-          var_data_2d(i)%data(:,:) = 0
+          var_data_2d(i)%p(:,:) = 0
         END DO
       ENDIF
       IF (PRESENT(return_pointer)) THEN
         DO i = 1, n_var
-          return_pointer(i)%data => var_data_2d(i)%data
+          return_pointer(i)%p => var_data_2d(i)%p
         END DO
       END IF
       DO i = 1, n_var
@@ -573,13 +570,13 @@ CONTAINS
     INTEGER, INTENT(IN)               :: location
     CHARACTER(LEN=*), INTENT(IN)      :: variable_name
     INTEGER, INTENT(IN)               :: n_var
-    TYPE(var_data_2d_wp), OPTIONAL    :: fill_array(:)
-    TYPE(var_data_2d_wp), OPTIONAL    :: return_pointer(:)
+    TYPE(t_ptr_2d), OPTIONAL    :: fill_array(:)
+    TYPE(t_ptr_2d), OPTIONAL    :: return_pointer(:)
 
-    TYPE(var_data_2d_wp)              :: tmp_return(n_var)
+    TYPE(t_ptr_2d)              :: tmp_return(n_var)
     TYPE(t_p_scatterPattern)          :: scatter_patterns(n_var)
     INTEGER                           :: n_g, i
-    TYPE(var_data_2d_wp), ALLOCATABLE :: var_data_2d(:)
+    TYPE(t_ptr_2d), ALLOCATABLE :: var_data_2d(:)
     CHARACTER(LEN=NF_MAX_NAME)        :: variable_name_
     CHARACTER(LEN=*), PARAMETER       :: method_name = &
       'mo_read_interface:read_dist_REAL_2D_multivar'
@@ -616,18 +613,18 @@ CONTAINS
       ! gather pointers of all output fields
       IF (PRESENT(fill_array)) THEN
         DO i = 1, n_var
-          var_data_2d(i)%data => fill_array(i)%data
+          var_data_2d(i)%p => fill_array(i)%p
         END DO
       ELSE
         DO i = 1, n_var
-          ALLOCATE(var_data_2d(i)%data(nproma, &
+          ALLOCATE(var_data_2d(i)%p(nproma, &
             (stream_id%read_info(location, i)%n_l - 1)/nproma + 1))
-          var_data_2d(i)%data(:,:) = 0.0_wp
+          var_data_2d(i)%p(:,:) = 0.0_wp
         END DO
       ENDIF
       IF (PRESENT(return_pointer)) THEN
         DO i = 1, n_var
-          return_pointer(i)%data => var_data_2d(i)%data
+          return_pointer(i)%p => var_data_2d(i)%p
         END DO
       END IF
       DO i = 1, n_var
@@ -1002,15 +999,15 @@ CONTAINS
     INTEGER, INTENT(IN)                    :: location
     CHARACTER(LEN=*), INTENT(IN)           :: variable_name
     INTEGER, INTENT(IN)                    :: n_var
-    TYPE(var_data_3d_wp), OPTIONAL         :: fill_array(:)
-    TYPE(var_data_3d_wp), OPTIONAL         :: return_pointer(:)
+    TYPE(t_ptr_3d), OPTIONAL         :: fill_array(:)
+    TYPE(t_ptr_3d), OPTIONAL         :: return_pointer(:)
     INTEGER, INTENT(in), OPTIONAL          :: start_extdim, end_extdim
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name
 
-    TYPE(var_data_3d_wp)                   :: tmp_return(n_var)
+    TYPE(t_ptr_3d)                   :: tmp_return(n_var)
     TYPE(t_p_scatterPattern)               :: scatter_patterns(n_var)
     INTEGER                                :: n_g, i
-    TYPE(var_data_3d_wp), ALLOCATABLE      :: var_data_3d(:)
+    TYPE(t_ptr_3d), ALLOCATABLE      :: var_data_3d(:)
     INTEGER                                :: var_dimlen(2), var_ndims, &
       &                                       var_start(2), var_end(2)
     CHARACTER(LEN=NF_MAX_NAME)             :: variable_name_
@@ -1034,7 +1031,7 @@ CONTAINS
 
     var_dimlen(:) = (/stream_id%read_info(location, 1)%n_g, -1/)
     IF (PRESENT(fill_array)) THEN
-      var_dimlen(2) = SIZE(fill_array(1)%data, 3)
+      var_dimlen(2) = SIZE(fill_array(1)%p, 3)
     END IF
 
     var_start(:) = (/1, 1/)
@@ -1082,18 +1079,18 @@ CONTAINS
       ! gather pointers of all output fields
       IF (PRESENT(fill_array)) THEN
         DO i = 1, n_var
-          var_data_3d(i)%data => fill_array(i)%data
+          var_data_3d(i)%p => fill_array(i)%p
         END DO
       ELSE
         DO i = 1, n_var
-          ALLOCATE(var_data_3d(i)%data(nproma, &
+          ALLOCATE(var_data_3d(i)%p(nproma, &
             (stream_id%read_info(location, 1)%n_l - 1)/nproma + 1, var_dimlen(2)))
-          var_data_3d(i)%data(:,:,:) = 0.0_wp
+          var_data_3d(i)%p(:,:,:) = 0.0_wp
         END DO
       ENDIF
       IF (PRESENT(return_pointer)) THEN
         DO i = 1, n_var
-          return_pointer(i)%data => var_data_3d(i)%data
+          return_pointer(i)%p => var_data_3d(i)%p
         END DO
       END IF
       DO i = 1, n_var
@@ -1222,15 +1219,15 @@ CONTAINS
     INTEGER, INTENT(IN)                    :: location
     CHARACTER(LEN=*), INTENT(IN)           :: variable_name
     INTEGER, INTENT(IN)                    :: n_var
-    TYPE(var_data_3d_int), OPTIONAL        :: fill_array(:)
-    TYPE(var_data_3d_int), OPTIONAL        :: return_pointer(:)
+    TYPE(t_ptr_3d_int), OPTIONAL        :: fill_array(:)
+    TYPE(t_ptr_3d_int), OPTIONAL        :: return_pointer(:)
     INTEGER, INTENT(in), OPTIONAL          :: start_extdim, end_extdim
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name
 
-    TYPE(var_data_3d_int)                  :: tmp_return(n_var)
+    TYPE(t_ptr_3d_int)                  :: tmp_return(n_var)
     TYPE(t_p_scatterPattern)               :: scatter_patterns(n_var)
     INTEGER                                :: n_g, i
-    TYPE(var_data_3d_int), ALLOCATABLE     :: var_data_3d(:)
+    TYPE(t_ptr_3d_int), ALLOCATABLE     :: var_data_3d(:)
     INTEGER                                :: var_dimlen(2), var_ndims, &
       &                                       var_start(2), var_end(2)
     CHARACTER(LEN=NF_MAX_NAME)             :: variable_name_
@@ -1254,7 +1251,7 @@ CONTAINS
 
     var_dimlen(:) = (/stream_id%read_info(location, 1)%n_g, -1/)
     IF (PRESENT(fill_array)) THEN
-      var_dimlen(2) = SIZE(fill_array(1)%data, 3)
+      var_dimlen(2) = SIZE(fill_array(1)%p, 3)
     END IF
 
     var_start(:) = (/1, 1/)
@@ -1302,18 +1299,18 @@ CONTAINS
       ! gather pointers of all output fields
       IF (PRESENT(fill_array)) THEN
         DO i = 1, n_var
-          var_data_3d(i)%data => fill_array(i)%data
+          var_data_3d(i)%p => fill_array(i)%p
         END DO
       ELSE
         DO i = 1, n_var
-          ALLOCATE(var_data_3d(i)%data(nproma, &
+          ALLOCATE(var_data_3d(i)%p(nproma, &
             (stream_id%read_info(location, 1)%n_l - 1)/nproma + 1, var_dimlen(2)))
-          var_data_3d(i)%data(:,:,:) = 0
+          var_data_3d(i)%p(:,:,:) = 0
         END DO
       ENDIF
       IF (PRESENT(return_pointer)) THEN
         DO i = 1, n_var
-          return_pointer(i)%data => var_data_3d(i)%data
+          return_pointer(i)%p => var_data_3d(i)%p
         END DO
       END IF
       DO i = 1, n_var

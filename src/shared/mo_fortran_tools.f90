@@ -35,12 +35,12 @@ MODULE mo_fortran_tools
   PUBLIC :: assign_if_present
   PUBLIC :: t_ptr_2d3d, t_ptr_2d3d_vp
   PUBLIC :: assign_if_present_allocatable
-  PUBLIC :: t_ptr_1d
-  PUBLIC :: t_ptr_1d_int
+  PUBLIC :: t_ptr_1d, t_ptr_1d_sp, t_ptr_1d_int
   PUBLIC :: t_ptr_1d_ptr_1d
   PUBLIC :: t_ptr_2d, t_ptr_2d_sp, t_ptr_2d_int
-  PUBLIC :: t_ptr_3d, t_ptr_3d_sp
+  PUBLIC :: t_ptr_3d, t_ptr_3d_sp, t_ptr_3d_int
   PUBLIC :: t_ptr_i2d3d
+  PUBLIC :: t_ptr_4d, t_ptr_4d_sp, t_ptr_4d_int
   PUBLIC :: t_ptr_tracer
   PUBLIC :: copy, init, swap, negative2zero
   PUBLIC :: var_scale, var_add
@@ -55,36 +55,56 @@ MODULE mo_fortran_tools
   PRIVATE
 
   TYPE t_ptr_1d
-    REAL(wp),POINTER :: p(:)  ! pointer to 1D (spatial) array
+    REAL(wp), POINTER :: p(:)  ! pointer to 1D (spatial) array
   END TYPE t_ptr_1d
+
+  TYPE t_ptr_1d_sp
+    REAL(sp), POINTER :: p(:)  ! pointer to 1D (spatial) array
+  END TYPE t_ptr_1d_sp
+
+ TYPE t_ptr_1d_int
+    INTEGER, POINTER :: p(:)  ! pointer to 1D (spatial) array
+  END TYPE t_ptr_1d_int
 
   TYPE t_ptr_1d_ptr_1d
     TYPE(t_ptr_1d), POINTER :: p(:)  ! pointer to a 1D array of pointers to 1D (spatial) arrays
   END TYPE t_ptr_1d_ptr_1d
 
   TYPE t_ptr_2d
-    REAL(dp),POINTER :: p(:,:)  ! pointer to 2D (spatial) array
+    REAL(dp), POINTER :: p(:,:)  ! pointer to 2D (spatial) array
   END TYPE t_ptr_2d
 
   TYPE t_ptr_2d_sp
-    REAL(sp),POINTER :: p(:,:)  ! pointer to 2D (spatial) array
+    REAL(sp), POINTER :: p(:,:)  ! pointer to 2D (spatial) array
   END TYPE t_ptr_2d_sp
 
   TYPE t_ptr_2d_int
-    INTEGER,POINTER :: p(:,:)  ! pointer to 2D (spatial) array
+    INTEGER, POINTER :: p(:,:)  ! pointer to 2D (spatial) array
   END TYPE t_ptr_2d_int
 
   TYPE t_ptr_3d
-    REAL(dp),POINTER :: p(:,:,:)  ! pointer to 3D (spatial) array
+    REAL(dp), POINTER :: p(:,:,:)  ! pointer to 3D (spatial) array
   END TYPE t_ptr_3d
 
   TYPE t_ptr_3d_sp
-    REAL(sp),POINTER :: p(:,:,:)  ! pointer to 3D (spatial) array
+    REAL(sp), POINTER :: p(:,:,:)  ! pointer to 3D (spatial) array
   END TYPE t_ptr_3d_sp
 
-  TYPE t_ptr_1d_int
-    INTEGER,POINTER :: p(:)  ! pointer to 1D (spatial) array
-  END TYPE t_ptr_1d_int
+  TYPE t_ptr_3d_int
+    INTEGER, POINTER :: p(:,:,:)  ! pointer to 3D (spatial) array
+  END TYPE t_ptr_3d_int
+
+  TYPE t_ptr_4d
+    REAL(dp), POINTER :: p(:,:,:,:)  ! pointer to 3D (spatial) array
+  END TYPE t_ptr_4d
+
+  TYPE t_ptr_4d_sp
+    REAL(sp), POINTER :: p(:,:,:,:)  ! pointer to 3D (spatial) array
+  END TYPE t_ptr_4d_sp
+
+  TYPE t_ptr_4d_int
+    INTEGER, POINTER :: p(:,:,:,:)  ! pointer to 3D (spatial) array
+  END TYPE t_ptr_4d_int
 
   TYPE t_ptr_2d3d
     REAL(wp),POINTER :: p_3d(:,:,:)  ! REAL pointer to 3D (spatial) array
