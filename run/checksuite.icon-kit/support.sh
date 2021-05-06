@@ -13,10 +13,18 @@ function set_cluster {
      icon_data_poolFolder=/lsdf/kit/imk/projects/icon/INPUT/AMIP/amip_input
      aer_opt="${icon_data_poolFolder}"
      ;;
-   xfh2*) :
-     echo "...FH2  at KIT"; CENTER="IMK"
+   xhk*) :
+     echo "...HoreKa at KIT"; CENTER="IMK"
      input_folder="/lsdf/kit/imk/projects/icon/TESTSUITE"
      FILETYPE="4" 
+     ws=$(ws_list -s)
+     if [[ "${ws}" == "" ]]; then
+         echo "No workspaces found!"
+         exit
+     else
+         ws_id=$(echo $ws | awk '{print $1}')
+     fi
+     WORK=/hkfs/work/workspace/scratch/$(whoami)-$ws_id
      output_folder="${WORK}/TESTSUITE_OUTPUT"
      icon_data_poolFolder=/lsdf/kit/imk/projects/icon/INPUT/AMIP/amip_input
      aer_opt="${icon_data_poolFolder}"
@@ -225,14 +233,14 @@ sbatch job_ICON
 EOF
 ;;
 
-   xfh2*)
+   xhk*)
 cat >> $output_script << EOF
 	   
 cat > job_ICON << ENDFILE
 #!/bin/bash -x
 #SBATCH --$3
 #SBATCH --time=$2
-#SBATCH --ntasks-per-node=20
+#SBATCH --ntasks-per-node=76
 #SBATCH --partition=$4
 #SBATCH --constraint=LSDF
 
