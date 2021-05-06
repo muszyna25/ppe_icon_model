@@ -2595,14 +2595,18 @@ CONTAINS
       &                    lset_timers_for_idle_pe, is_io_root
     INTEGER             :: jg, jstep, action
     TYPE(t_par_output_event), POINTER :: ev
+    LOGICAL             :: is_ocean
 
     is_io_root = my_process_is_mpi_ioroot()
+    is_ocean   = iequations==ihs_ocean ! FIXME: is that really sensible?
 
     ! define initial time stamp used as reference for output statistics
     CALL set_reference_time()
 
+    ! FIXME? ocean the other way round?
     ! Initialize name list output, this is a collective call for all PEs
-    CALL init_name_list_output(sim_step_info)
+    IF (.NOT. is_ocean) &
+      & CALL init_name_list_output(sim_step_info)
 
 #ifdef YAC_coupling
     ! The initialisation of YAC needs to be called by all (!) MPI processes
@@ -2612,6 +2616,11 @@ CONTAINS
     ! processes
     IF ( is_coupled_run() ) CALL construct_io_coupler ( "dummy" )
 #endif
+
+    ! FIXME: Explain this braindead weirdnes.
+    IF (is_ocean) &
+      & CALL init_name_list_output(sim_step_info)
+
     ! setup of meteogram output
     DO jg =1,n_dom
       IF (meteogram_output_config(jg)%lenabled) THEN
