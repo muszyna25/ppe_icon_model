@@ -17,34 +17,29 @@
 !!
 MODULE mo_read_netcdf_distributed
 
-  USE mo_kind, ONLY: wp
+  USE mo_kind, ONLY: wp, sp
   USE mo_exception, ONLY: finish, message, em_warn
-  USE mo_mpi, ONLY: p_n_work, p_pe_work, p_bcast, p_comm_work, &
-    & p_allreduce, mpi_max, process_mpi_root_id
+  USE mo_mpi, ONLY: p_n_work, p_pe_work, p_bcast, p_comm_work, p_max
   USE ppm_extents, ONLY: extent
   USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info, &
-    & t_glb2loc_index_lookup, &
-    & init_glb2loc_index_lookup, &
-    & set_inner_glb_index, &
-    & deallocate_glb2loc_index_lookup, &
+    & t_glb2loc_index_lookup, init_glb2loc_index_lookup, &
+    & set_inner_glb_index, deallocate_glb2loc_index_lookup, &
     & uniform_partition, partidx_of_elem_uniform_deco
   USE mo_communication, ONLY: t_comm_pattern, idx_no, blk_no, &
     & delete_comm_pattern, exchange_data
-  USE mo_parallel_config, ONLY: nproma, &
-       config_io_process_stride => io_process_stride, &
-       config_io_process_rotate => io_process_rotate
+  USE mo_parallel_config, ONLY: nproma, io_process_stride, io_process_rotate
   USE mo_communication_factory, ONLY: setup_comm_pattern
-  USE mo_fortran_tools, ONLY: t_ptr_1d_int, t_ptr_2d, t_ptr_2d_int, t_ptr_3d, &
-    & t_ptr_3d_int, t_ptr_4d, t_ptr_4d_int
-#ifndef NOMPI
+  USE mo_fortran_tools, ONLY: t_ptr_2d, t_ptr_2d_int, t_ptr_2d_sp, &
+    & t_ptr_3d, t_ptr_3d_int, t_ptr_3d_sp, t_ptr_4d, t_ptr_4d_int, &
+    & t_ptr_4d_sp
+#if defined (HAVE_PARALLEL_NETCDF) && !defined (NOMPI)
   USE mpi, ONLY: MPI_INFO_NULL, MPI_UNDEFINED, MPI_Comm_split, MPI_COMM_NULL
 #endif
 
   IMPLICIT NONE
-
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: modname = 'mo_read_netcdf_distributed'
+  CHARACTER(*), PARAMETER :: modname = 'mo_read_netcdf_distributed'
 
   PUBLIC :: distrib_read
   PUBLIC :: distrib_nf_open
@@ -59,21 +54,6 @@ MODULE mo_read_netcdf_distributed
 
   INCLUDE 'netcdf.inc'
 
-  INTERFACE distrib_read
-    MODULE PROCEDURE distrib_read_int_2d_multi_var
-    MODULE PROCEDURE distrib_read_int_3d_multi_var
-    MODULE PROCEDURE distrib_read_int_4d_multi_var
-    MODULE PROCEDURE distrib_read_real_2d_multi_var
-    MODULE PROCEDURE distrib_read_real_3d_multi_var
-    MODULE PROCEDURE distrib_read_real_4d_multi_var
-    MODULE PROCEDURE distrib_read_int_2d
-    MODULE PROCEDURE distrib_read_int_3d
-    MODULE PROCEDURE distrib_read_int_4d
-    MODULE PROCEDURE distrib_read_real_2d
-    MODULE PROCEDURE distrib_read_real_3d
-    MODULE PROCEDURE distrib_read_real_4d
-  END INTERFACE distrib_read
-
   INTEGER, PARAMETER :: idx_lvl_blk = 2
   INTEGER, PARAMETER :: idx_blk_time = 3
 
@@ -81,236 +61,54 @@ MODULE mo_read_netcdf_distributed
   !subroutines
 
   TYPE t_basic_distrib_read_data
-    INTEGER :: n_g ! global number of points (-1 if unused)
+    INTEGER :: n_g = -1 ! global number of points (-1 if unused)
     TYPE(extent) :: io_chunk ! io decomposition
-    TYPE(t_glb2loc_index_lookup), POINTER :: glb2loc_index
-    INTEGER :: io_process_stride, num_io_processes
-    INTEGER :: n_ref ! number of times this data is referenced
+    TYPE(t_glb2loc_index_lookup), POINTER :: glb2loc_index => NULL()
+    INTEGER :: n_ref = 0 ! number of times this data is referenced
   END TYPE t_basic_distrib_read_data
 
   TYPE t_distrib_read_data
-    INTEGER :: basic_data_index
-    CLASS(t_comm_pattern), POINTER :: redistrib_pattern
+    INTEGER :: basic_data_index = -1
+    CLASS(t_comm_pattern), POINTER :: pat => NULL()
   END TYPE t_distrib_read_data
 
   TYPE(t_basic_distrib_read_data), TARGET, ALLOCATABLE :: basic_data(:)
 
   ! This one only depends on n_io_processes and io_process_stride, so it is
   ! save to store it in a module variable.
-  INTEGER :: parRootRank
+  INTEGER :: parRootRank = -1
+#if defined (HAVE_PARALLEL_NETCDF) && !defined (NOMPI)
+  INTEGER :: io_comm = MPI_COMM_NULL
+#endif
+  LOGICAL :: this_PE_does_IO = .FALSE.
 
 CONTAINS
 
-  FUNCTION get_empty_basic_distrib_read_data()
-    INTEGER :: get_empty_basic_distrib_read_data
-    TYPE(t_basic_distrib_read_data), ALLOCATABLE :: temp_basic_distrib_read_data(:)
-    INTEGER :: i, n
-
-    get_empty_basic_distrib_read_data = 0
-
-    DO i = 1, SIZE(basic_data)
-      IF (basic_data(i)%n_g == -1) THEN
-        get_empty_basic_distrib_read_data = i
-        EXIT
-      END IF
-    END DO
-
-    IF (get_empty_basic_distrib_read_data == 0) THEN
-
-      IF (ALLOCATED(basic_data)) THEN
-
-        n = SIZE(basic_data)
-
-        ALLOCATE(temp_basic_distrib_read_data(n))
-
-        temp_basic_distrib_read_data(:) = basic_data(:)
-
-        DEALLOCATE(basic_data)
-
-      ELSE
-        n = 0
-        ALLOCATE(temp_basic_distrib_read_data(0))
-      END IF
-
-      ALLOCATE(basic_data(n+64))
-
-      DO i = n+1, n+64
-        basic_data(i)%n_g = -1
-      END DO
-
-      basic_data(1:n) = temp_basic_distrib_read_data(:)
-
-      DEALLOCATE(temp_basic_distrib_read_data)
-
-      get_empty_basic_distrib_read_data = n + 1
-    END IF
-  END FUNCTION get_empty_basic_distrib_read_data
-
-  !-------------------------------------------------------------------------
-
-  SUBROUTINE init_basic_distrib_read_data(basic_read_data, n_g)
-    TYPE(t_basic_distrib_read_data), INTENT(inout) :: basic_read_data
-    INTEGER, INTENT(in) :: n_g
-    INTEGER :: n_io_processes, io_process_stride
-    ! data required for the communication pattern
-    INTEGER :: i, n
-    INTEGER, ALLOCATABLE :: idxmap(:,:)
-
-    basic_read_data%n_g = n_g
-    CALL distrib_nf_io_rank_distribution(n_io_processes, io_process_stride)
-
-    basic_read_data%io_process_stride = io_process_stride
-    basic_read_data%num_io_processes = n_io_processes
-
-    ALLOCATE(basic_read_data%glb2loc_index)
-
-    CALL init_glb2loc_index_lookup(basic_read_data%glb2loc_index, n_g)
-
-    ! if the process takes part in the reading
-    IF (distrib_nf_rank_does_io(n_io_processes, io_process_stride)) THEN
-      basic_read_data%io_chunk = uniform_partition(extent(1, n_g), &
-           n_io_processes, p_pe_work / io_process_stride + 1)
-      n = basic_read_data%io_chunk%size
-      ALLOCATE(idxmap(n, 2))
-      DO i = 1, n
-        idxmap(i, 1) = i + basic_read_data%io_chunk%first - 1
-        idxmap(i, 2) = i
-      END DO
-      CALL set_inner_glb_index(basic_read_data%glb2loc_index, &
-           idxmap(:, 1), idxmap(:, 2))
-    ELSE
-      basic_read_data%io_chunk = extent(1, 0)
-    END IF
-  END SUBROUTINE init_basic_distrib_read_data
-
-  !-------------------------------------------------------------------------
-
-  FUNCTION get_basic_distrib_read_data(n_g)
-    INTEGER, INTENT(in) :: n_g
-    INTEGER :: get_basic_distrib_read_data
-    INTEGER :: i
-
-    get_basic_distrib_read_data = 0
-
-    IF (.NOT. ALLOCATED(basic_data)) THEN
-
-      ALLOCATE(basic_data(64))
-      basic_data(:)%n_g = -1
-    END IF
-
-    DO i = 1, SIZE(basic_data)
-      IF (basic_data(i)%n_g == n_g) THEN
-        get_basic_distrib_read_data = i
-        EXIT
-      END IF
-    END DO
-
-    IF (get_basic_distrib_read_data == 0) THEN
-      get_basic_distrib_read_data = get_empty_basic_distrib_read_data()
-      CALL init_basic_distrib_read_data(basic_data(get_basic_distrib_read_data), n_g)
-      basic_data(get_basic_distrib_read_data)%n_ref = 1
-    ELSE
-      basic_data(get_basic_distrib_read_data)%n_ref = &
-        & basic_data(get_basic_distrib_read_data)%n_ref + 1
-    END IF
-  END FUNCTION get_basic_distrib_read_data
-
-  !-------------------------------------------------------------------------
-  ELEMENTAL SUBROUTINE distrib_nf_io_rank_distribution(&
-       n_io_processes, io_process_stride)
-    INTEGER, INTENT(out) :: n_io_processes, io_process_stride
-    INTEGER :: io_process_rotate
-    INTEGER :: temp_n_io_processes, temp_io_process_stride
-
-    IF (config_io_process_stride > 0) THEN
-      io_process_stride = MAX(1, MODULO(config_io_process_stride, p_n_work))
-      io_process_rotate = MODULO(config_io_process_rotate, io_process_stride)
-      n_io_processes = (p_n_work - io_process_rotate + io_process_stride - 1)&
-           / io_process_stride
-    ELSE
-      temp_n_io_processes = NINT(SQRT(REAL(p_n_work)))
-      temp_io_process_stride = &
-        (p_n_work + temp_n_io_processes - 1) / temp_n_io_processes
-      ! improve io process stride by rounding to the next power of two
-      io_process_stride = 2**CEILING(LOG(REAL(temp_io_process_stride))/LOG(2.))
-      n_io_processes = (p_n_work + io_process_stride - 1) / io_process_stride
-    END IF
-  END SUBROUTINE distrib_nf_io_rank_distribution
-
-  FUNCTION distrib_nf_rank_does_io(n_io_processes, io_process_stride) &
-       RESULT (do_open)
-    INTEGER, INTENT(in) :: n_io_processes, io_process_stride
-    LOGICAL :: do_open
-    do_open = MOD(p_pe_work, io_process_stride) &
-         == MODULO(config_io_process_rotate, io_process_stride)
-  END FUNCTION distrib_nf_rank_does_io
-
-  SUBROUTINE distrib_read_compute_owner(n, glb_index, owner, basic_io_data)
-    INTEGER, INTENT(in) :: n
-    INTEGER, INTENT(in) :: glb_index(n)
-    INTEGER, INTENT(out) :: owner(n)
-    TYPE(t_basic_distrib_read_data), INTENT(in) :: basic_io_data
-
-    owner = (partidx_of_elem_uniform_deco(extent(1, basic_io_data%n_g), &
-         basic_io_data%num_io_processes, glb_index) - 1) &
-         * basic_io_data%io_process_stride &
-         + MODULO(config_io_process_rotate, basic_io_data%io_process_stride)
-  END SUBROUTINE distrib_read_compute_owner
-
-  !-------------------------------------------------------------------------
-
-  INTEGER FUNCTION distrib_nf_open(path)
-    CHARACTER(LEN=*), INTENT(in) :: path
-    INTEGER :: n_io_processes, io_process_stride
-    LOGICAL, SAVE :: isParRootRankInitialized = .FALSE.
+  INTEGER FUNCTION distrib_nf_open(path) RESULT(nfid)
+    CHARACTER(*), INTENT(in) :: path
 #if defined (HAVE_PARALLEL_NETCDF) && !defined (NOMPI)
-    INTEGER              :: myColor, ierr, nvars, i
+    INTEGER              :: ierr, nvars, i
     INTEGER, ALLOCATABLE :: varids(:)
-    INTEGER, SAVE        :: comm_dist_nfpar = MPI_COMM_NULL
-    LOGICAL, SAVE        :: isCommReady = .FALSE.
-    LOGICAL              :: exists, use_par_access
-    CHARACTER(len=*), PARAMETER :: routine = modname//'::distrib_nf_open'
+    LOGICAL              :: exists
 #endif
+    CHARACTER(*), PARAMETER :: routine = modname//'::distrib_nf_open'
 
-    CALL message ("distrib_nf_open:",path)
-
-    CALL distrib_nf_io_rank_distribution(n_io_processes, io_process_stride)
-    IF (distrib_nf_rank_does_io(n_io_processes, io_process_stride)) THEN
-      parRootRank = p_pe_work
-    ELSE
-      parRootRank = 0
-    ENDIF
-    parRootRank = p_allreduce(parRootRank, mpi_max, p_comm_work)
+    CALL message (routine, path)
+    nfid = -1
+    IF (this_PE_does_IO) THEN
 #if defined (HAVE_PARALLEL_NETCDF) && !defined (NOMPI)
-    IF (distrib_nf_rank_does_io(n_io_processes, io_process_stride)) THEN
-      myColor = 1
-    ELSE
-      myColor = MPI_UNDEFINED
-    ENDIF
-    IF (.NOT. isCommReady) THEN
-      ! This communicator is "lost" and is to be cleaned up eventually
-      ! by MPI_Finalize. Things were better if distrib_nf_open returned some
-      ! kind of object.
-      CALL MPI_Comm_split(p_comm_work, myColor, 0, comm_dist_nfpar, ierr)
-      isCommReady = .TRUE.
-    ENDIF
-#endif
-
-
-    IF (distrib_nf_rank_does_io(n_io_processes, io_process_stride)) THEN
-#if defined (HAVE_PARALLEL_NETCDF) && !defined (NOMPI)
-      ierr = nf_open_par(path, IOR(nf_nowrite, nf_mpiio), comm_dist_nfpar, &
-        & MPI_INFO_NULL, distrib_nf_open)
+      ierr = nf_open_par(path, IOR(nf_nowrite, nf_mpiio), io_comm, &
+        & MPI_INFO_NULL, nfid)
 
       ! We do our own error handling here to give the filename to the user if
       ! a file does not exist.
       IF (ierr == nf_noerr) THEN
         ! Switch all vars to collective. Hopefully this is sufficient.
-        CALL nf(nf_inq_nvars(distrib_nf_open, nvars))
+        CALL nf(nf_inq_nvars(nfid, nvars))
         ALLOCATE(varids(nvars))
-        CALL nf(nf_inq_varids(distrib_nf_open, nvars, varids))
+        CALL nf(nf_inq_varids(nfid, nvars, varids))
         DO i = 1,nvars
-          CALL nf(nf_var_par_access(distrib_nf_open, varids(i), NF_COLLECTIVE))
+          CALL nf(nf_var_par_access(nfid, varids(i), NF_COLLECTIVE))
         ENDDO
       ELSE
         INQUIRE(file=path, exist=exists)
@@ -318,49 +116,60 @@ CONTAINS
           CALL finish("mo_read_netcdf_distributed", "File "//TRIM(path)//" does not exist.")
         ELSE
           ! If file exists just do the usual thing.
-          CALL nf(nf_open(path, nf_nowrite, distrib_nf_open))
+          CALL nf(nf_open(path, nf_nowrite, nfid))
           CALL message(routine, 'warning: falling back to serial semantics for&
                & opening netcdf file '//path)
         ENDIF
       ENDIF
-
 #else
-      CALL nf(nf_open(path, nf_nowrite, distrib_nf_open))
+      CALL nf(nf_open(path, nf_nowrite, nfid))
 #endif
-    ELSE
-      distrib_nf_open = -1
     END IF
   END FUNCTION distrib_nf_open
 
   !-------------------------------------------------------------------------
 
-  FUNCTION distrib_nf_inq_varexists(ncid, var_name) result(ret)
+  LOGICAL FUNCTION distrib_nf_inq_varexists(ncid, vname) result(ret)
     INTEGER, INTENT(in) :: ncid
-    CHARACTER(LEN=*), INTENT(in) :: var_name
-    INTEGER :: n_io_processes, io_process_stride
-    INTEGER :: err, varid
-    LOGICAL :: ret
+    CHARACTER(*), INTENT(in) :: vname
+    INTEGER :: err, vid
 
-    CALL distrib_nf_io_rank_distribution(n_io_processes, io_process_stride)
-
-    IF (p_pe_work == parRootRank) THEN
-      err = nf_inq_varid(ncid, var_name, varid)
-    END IF
+    IF (p_pe_work == parRootRank) err = nf_inq_varid(ncid, vname, vid)
     CALL p_bcast(err, parRootRank, p_comm_work)
-
     ret = (err == nf_noerr)
   END FUNCTION distrib_nf_inq_varexists
+
+  SUBROUTINE distrib_inq_var_dims(file_id, var_name, var_ndims, var_dimlen)
+    INTEGER, INTENT(IN) :: file_id
+    CHARACTER(*), INTENT(IN) :: var_name
+    INTEGER, INTENT(OUT) :: var_ndims, var_dimlen(:)
+    INTEGER :: varid, i
+    INTEGER :: temp_var_dimlen(NF_MAX_VAR_DIMS), var_dimids(NF_MAX_VAR_DIMS)
+
+    IF ( p_pe_work .EQ. parRootRank ) THEN
+      CALL nf(nf_inq_varid(file_id, var_name, varid))
+      CALL nf(nf_inq_varndims(file_id, varid, var_ndims))
+      CALL nf(nf_inq_vardimid(file_id, varid, var_dimids))
+      DO i=1, var_ndims
+        CALL nf(nf_inq_dimlen(file_id, var_dimids(i), temp_var_dimlen(i)))
+      ENDDO
+    END IF
+#ifndef NOMPI
+    CALL p_bcast(var_ndims, parRootRank, p_comm_work)
+    CALL p_bcast(temp_var_dimlen(1:var_ndims), parRootRank, p_comm_work)
+#endif
+    IF (SIZE(var_dimlen) .LT. var_ndims) &
+      CALL finish("distrib_inq_var_dims", &
+        &         "array size of argument var_dimlen is too small")
+    var_dimlen(1:var_ndims) = temp_var_dimlen(1:var_ndims)
+  END SUBROUTINE distrib_inq_var_dims
 
   !-------------------------------------------------------------------------
 
   SUBROUTINE distrib_nf_close(ncid)
     INTEGER, INTENT(in) :: ncid
-    INTEGER :: n_io_processes, io_process_stride
 
-    CALL distrib_nf_io_rank_distribution(n_io_processes, io_process_stride)
-    IF (distrib_nf_rank_does_io(n_io_processes, io_process_stride)) THEN
-      CALL nf(nf_close(ncid))
-    END IF
+    IF (this_PE_does_IO) CALL nf(nf_close(ncid))
   END SUBROUTINE distrib_nf_close
 
   !-------------------------------------------------------------------------
@@ -369,664 +178,439 @@ CONTAINS
     INTEGER, INTENT(in) :: n_g
     TYPE(t_grid_domain_decomp_info), INTENT(in) :: decomp_info
     TYPE(t_distrib_read_data), INTENT(inout) :: io_data
-
     INTEGER :: n, n_inner, i
+    INTEGER, SAVE :: io_stride = -1, n_io_proc = -1
     INTEGER, ALLOCATABLE :: owner(:)
-    TYPE(t_basic_distrib_read_data), POINTER :: basic_io_data
+    TYPE(t_basic_distrib_read_data), POINTER :: bio
 
-    io_data%basic_data_index = get_basic_distrib_read_data(n_g)
-    basic_io_data => basic_data(io_data%basic_data_index)
-
-    n = SIZE(decomp_info%glb_index)
-
+    IF (n_io_proc .EQ. -1) CALL init_module_vars()
+    io_data%basic_data_index = get_data_idx()
+    bio => basic_data(io_data%basic_data_index)
+    n = 0
+    IF (ALLOCATED(decomp_info%glb_index)) n = SIZE(decomp_info%glb_index)
     ALLOCATE(owner(MAX(1,n)))
-
-    IF (n .GT. 0) THEN
-      CALL distrib_read_compute_owner(n, decomp_info%glb_index(:), &
-        & owner(:), basic_io_data)
-    END IF
-    n_inner = SIZE(basic_io_data%glb2loc_index%inner_glb_index, 1)
+    IF (n .GT. 0) &
+      owner = (partidx_of_elem_uniform_deco(extent(1, bio%n_g), & 
+         n_io_proc,  decomp_info%glb_index(:)) - 1) * io_stride &
+         + MODULO(io_process_rotate, io_stride)
+    n_inner = 0
+    IF (ALLOCATED(bio%glb2loc_index%inner_glb_index)) &
+      & n_inner = SIZE(bio%glb2loc_index%inner_glb_index, 1)
     CALL setup_comm_pattern(n, owner(:), decomp_info%glb_index(:), &
-      & basic_io_data%glb2loc_index, n_inner, &
+      & bio%glb2loc_index, n_inner, &
       & (/(p_pe_work, i = 1, n_inner)/), &
-      & basic_io_data%glb2loc_index%inner_glb_index, io_data%redistrib_pattern)
+      & bio%glb2loc_index%inner_glb_index, io_data%pat)
+  CONTAINS
 
-    DEALLOCATE(owner)
+    SUBROUTINE init_module_vars()
+      INTEGER :: rotate, temp_n, temp_stride, ierr, myColor
+
+      rotate = MODULO(io_process_rotate, io_stride)
+      IF (io_process_stride .GT. 0) THEN
+        io_stride = MAX(1, MODULO(io_process_stride, p_n_work))
+        n_io_proc = (p_n_work - rotate + io_stride - 1) / io_stride
+      ELSE
+        temp_n = NINT(SQRT(REAL(p_n_work)))
+        temp_stride = (p_n_work + temp_n - 1) / temp_n
+        ! improve io process stride by rounding to the next power of two
+        io_stride = 2**CEILING(LOG(REAL(temp_stride))/LOG(2.))
+        n_io_proc = (p_n_work + io_stride - 1) / io_stride
+      END IF
+      this_PE_does_IO = MOD(p_pe_work, io_stride) == rotate
+      parRootRank = MERGE(p_pe_work, 0, this_PE_does_IO)
+      parRootRank = p_max(parRootRank, p_comm_work)
+#if defined (HAVE_PARALLEL_NETCDF) && !defined (NOMPI)
+      myColor = MERGE(1, MPI_UNDEFINED, this_PE_does_IO)
+      IF (io_comm .EQ. MPI_COMM_NULL) &
+        CALL MPI_Comm_split(p_comm_work, myColor, 0, io_comm, ierr)
+#endif
+    END SUBROUTINE init_module_vars
+
+    INTEGER FUNCTION get_data_idx() RESULT(idx)
+      INTEGER :: j, m, j_empty
+      TYPE(t_basic_distrib_read_data), ALLOCATABLE :: temp_bio(:)
+
+      m = 0
+      j_empty = 0
+      idx = 0
+      IF (ALLOCATED(basic_data)) m = SIZE(basic_data)
+      DO j = 1, m
+        idx = MERGE(j, 0, basic_data(j)%n_g .EQ. n_g)
+        IF (j_empty .EQ. 0) &
+          j_empty = MERGE(j, 0, basic_data(j)%n_g .EQ. -1)
+        IF (idx .NE. 0) EXIT
+      END DO
+      IF (idx .EQ. 0) idx = j_empty
+      IF (idx .EQ. 0) THEN
+        IF (m .GT. 0) CALL MOVE_ALLOC(basic_data, temp_bio)
+        ALLOCATE(basic_data(m + 16))
+        IF (m .GT. 0) basic_data(1:m) = temp_bio(1:m)
+        idx = m + 1
+      END IF
+      IF (basic_data(idx)%n_ref .EQ. 0) CALL init_data(idx)
+      basic_data(idx)%n_ref = basic_data(idx)%n_ref + 1
+    END FUNCTION get_data_idx
+
+    SUBROUTINE init_data(idx)
+      INTEGER, INTENT(IN) :: idx
+      INTEGER :: j
+      INTEGER, ALLOCATABLE :: idxmap(:,:)
+
+      basic_data(idx)%n_g = n_g
+      ALLOCATE(basic_data(idx)%glb2loc_index)
+      CALL init_glb2loc_index_lookup(basic_data(idx)%glb2loc_index, n_g)
+      ! if the process takes part in the reading
+      IF (this_PE_does_IO) THEN
+        basic_data(idx)%io_chunk = &
+          & uniform_partition(extent(1, n_g), n_io_proc, p_pe_work/io_stride + 1)
+        ALLOCATE(idxmap(basic_data(idx)%io_chunk%size, 2))
+        FORALL(j = 1:basic_data(idx)%io_chunk%size)
+          idxmap(j, 1) = j + basic_data(idx)%io_chunk%first - 1
+          idxmap(j, 2) = j
+        END FORALL
+        CALL set_inner_glb_index(basic_data(idx)%glb2loc_index, &
+             idxmap(:, 1), idxmap(:, 2))
+      ELSE
+        basic_data(idx)%io_chunk = extent(1, 0)
+      END IF
+    END SUBROUTINE init_data
   END SUBROUTINE setup_distrib_read
-
-  !-------------------------------------------------------------------------
-
-  SUBROUTINE delete_basic_distrib_read(idx)
-    INTEGER, INTENT(in) :: idx
-
-    IF (.NOT. ALLOCATED(basic_data)) &
-      & CALL finish("delete_basic_distrib_read", "basic_data is noch allocated")
-    IF (idx > SIZE(basic_data)) &
-      & CALL finish("delete_basic_distrib_read", "invalid basic_data index")
-    IF (basic_data(idx)%n_ref < 1) &
-      & CALL finish("delete_basic_distrib_read", "invalid reference counter")
-
-    basic_data(idx)%n_ref = basic_data(idx)%n_ref - 1
-
-    ! some other distrib_read is still using this basic_distrib_read_data
-    IF (basic_data(idx)%n_ref > 0) RETURN
-
-    basic_data(idx)%n_g = -1
-    CALL deallocate_glb2loc_index_lookup(basic_data(idx)%glb2loc_index)
-    DEALLOCATE(basic_data(idx)%glb2loc_index)
-  END SUBROUTINE delete_basic_distrib_read
 
   !-------------------------------------------------------------------------
 
   SUBROUTINE delete_distrib_read(io_data)
     TYPE(t_distrib_read_data), INTENT(inout) :: io_data
+    INTEGER :: idx
+    CHARACTER(*), PARAMETER :: routine = modname//"::delete_distrib_read"
 
-    CALL delete_comm_pattern(io_data%redistrib_pattern)
-    CALL delete_basic_distrib_read(io_data%basic_data_index)
+    CALL delete_comm_pattern(io_data%pat)
+    idx = io_data%basic_data_index
+    IF (.NOT.ALLOCATED(basic_data)) CALL finish(routine, "basic_data not allocated")
+    IF (idx .GT. SIZE(basic_data)) CALL finish(routine, "invalid index")
+    IF (basic_data(idx)%n_ref .LT. 1) CALL finish(routine, "invalid reference counter")
+    basic_data(idx)%n_ref = basic_data(idx)%n_ref - 1
+    ! some other distrib_read is still using this basic_distrib_read_data
+    IF (basic_data(idx)%n_ref .GT. 0) RETURN
+    basic_data(idx)%n_g = -1
+    CALL deallocate_glb2loc_index_lookup(basic_data(idx)%glb2loc_index)
+    DEALLOCATE(basic_data(idx)%glb2loc_index)
   END SUBROUTINE delete_distrib_read
 
   !-------------------------------------------------------------------------
 
-  ELEMENTAL INTEGER FUNCTION distrib_read_get_buffer_size(io_data)
-    TYPE(t_distrib_read_data), INTENT(in) :: io_data
-
-    distrib_read_get_buffer_size &
-      = basic_data(io_data%basic_data_index)%io_chunk%size
-  END FUNCTION distrib_read_get_buffer_size
-
-  !-------------------------------------------------------------------------
-
-  SUBROUTINE check_basic_data_index(io_data)
-    TYPE(t_distrib_read_data), INTENT(in) :: io_data(:)
-
-    IF (SIZE(io_data) > 1) THEN
-      IF (.NOT. ALL(io_data(2:)%basic_data_index == &
-        & io_data(1)%basic_data_index)) &
-        & CALL finish("check_basic_data_index", "basic_data_index do not match")
-    END IF
-  END SUBROUTINE check_basic_data_index
-
-  !-------------------------------------------------------------------------
-
-  SUBROUTINE distrib_read_int_2d(ncid, var_name, var_data, io_data)
+  SUBROUTINE distrib_read(ncid, vname, vdata, iod, &
+    & edim, dimo, start_ext_dim, end_ext_dim)
     INTEGER, INTENT(IN) :: ncid
-    CHARACTER(LEN=*), INTENT(IN) :: var_name
-    INTEGER, TARGET, INTENT(INOUT) :: var_data(:,:) ! idx, blk
-    TYPE(t_distrib_read_data), INTENT(IN) :: io_data
-    TYPE(t_ptr_2d_int) :: var_data_(1)
+    CHARACTER(*), INTENT(IN) :: vname
+    CLASS(*), INTENT(INOUT) :: vdata(:)
+    TYPE(t_distrib_read_data), INTENT(IN) :: iod(:)
+    INTEGER, INTENT(IN), OPTIONAL :: edim(:), dimo, start_ext_dim(:), end_ext_dim(:)
+    INTEGER, ALLOCATABLE :: bufi_i(:,:,:), bufo_i(:,:,:,:)
+    REAL(wp), ALLOCATABLE :: bufi_d(:,:,:), bufo_d(:,:,:,:)
+    REAL(sp), ALLOCATABLE :: bufi_s(:,:,:), bufo_s(:,:,:,:)
+    INTEGER :: ish(3), osh(4), vid, vtype, strt(3)
+    TYPE(t_basic_distrib_read_data), POINTER :: bio
+    CHARACTER(*), PARAMETER :: routine = modname//"distrib_read"
 
-    var_data_(1)%p => var_data
-    CALL distrib_read_int_2d_multi_var(ncid, var_name, var_data_, (/io_data/))
-  END SUBROUTINE distrib_read_int_2d
-
-  SUBROUTINE distrib_read_int_2d_multi_var(ncid, var_name, var_data, io_data)
-    INTEGER, INTENT(in) :: ncid
-    CHARACTER(*), INTENT(in) :: var_name
-    TYPE(t_ptr_2d_int), INTENT(inout) :: var_data(:)
-    TYPE(t_distrib_read_data), INTENT(in) :: io_data(:)
-    INTEGER, ALLOCATABLE :: local_buffer_1d(:)
-    INTEGER, ALLOCATABLE :: local_buffer_2d(:, :)
-    INTEGER :: buffer_size, buffer_nblks
-    INTEGER :: varid, i, var_type
-    TYPE(t_basic_distrib_read_data), POINTER :: basic_io_data
-
-    IF (SIZE(io_data) == 0) RETURN
-
-    IF (SIZE(var_data) < SIZE(io_data)) &
-      & CALL finish("distrib_read_int_2d_multi_var", "var_data too small")
-
-    CALL check_basic_data_index(io_data(:))
-    basic_io_data => basic_data(io_data(1)%basic_data_index)
-
-    buffer_size = MAXVAL(distrib_read_get_buffer_size(io_data(:)))
-    buffer_nblks = (buffer_size + nproma - 1) / nproma
-    ALLOCATE(local_buffer_1d(buffer_size), &
-      &      local_buffer_2d(nproma, buffer_nblks))
-
-    ! read data from file into io decomposition
-    IF (basic_io_data%io_chunk%size > 0) THEN
-      CALL nf(nf_inq_varid(ncid, var_name, varid))
-      CALL nf(nf_inq_vartype(ncid, varid, var_type))
-
-      IF (var_type /= NF_INT) &
-        CALL finish("distrib_read_int_2d_multi_var", "invalid var_type")
-
-      ! only read io_decomp part
-      CALL nf(nf_get_vara_int(ncid, varid, (/basic_io_data%io_chunk%first/), &
-        & (/basic_io_data%io_chunk%size/), local_buffer_1d(:)))
-
-      DO i = 1, SIZE(local_buffer_1d(:))
-        local_buffer_2d(idx_no(i),blk_no(i)) = local_buffer_1d(i)
-      END DO
+    IF (SIZE(iod) == 0) RETURN
+    IF (SIZE(vdata) < SIZE(iod)) CALL finish(routine, "var_data too small")
+    IF (SIZE(iod) .GT. 1) THEN
+      IF (.NOT.ALL(iod(2:)%basic_data_index .EQ. iod(1)%basic_data_index)) &
+        & CALL finish(routine, "basic_data_index do not match")
     END IF
-
-    ! redistribute data into final decomposition
-    DO i = 1, SIZE(io_data)
-      CALL exchange_data(io_data(i)%redistrib_pattern, var_data(i)%p, &
-        & local_buffer_2d)
-    END DO
-
-    DEALLOCATE(local_buffer_1d, local_buffer_2d)
-  END SUBROUTINE distrib_read_int_2d_multi_var
-
-  !-------------------------------------------------------------------------
-
-  SUBROUTINE distrib_read_real_2d(ncid, var_name, var_data, io_data)
-    INTEGER, INTENT(IN) :: ncid
-    CHARACTER(LEN=*), INTENT(IN) :: var_name
-    REAL(wp), TARGET, INTENT(INOUT) :: var_data(:,:) ! idx, blk
-    TYPE(t_distrib_read_data), INTENT(IN) :: io_data
-    TYPE(t_ptr_2d) :: var_data_(1)
-
-    var_data_(1)%p => var_data
-    CALL distrib_read_real_2d_multi_var(ncid, var_name, var_data_, (/io_data/))
-  END SUBROUTINE distrib_read_real_2d
-
-  SUBROUTINE distrib_read_real_2d_multi_var(ncid, var_name, var_data, io_data)
-    INTEGER, INTENT(in) :: ncid
-    CHARACTER(LEN=*), INTENT(in) :: var_name
-    TYPE(t_ptr_2d), INTENT(inout) :: var_data(:)
-    TYPE(t_distrib_read_data), INTENT(in) :: io_data(:)
-    REAL(wp), ALLOCATABLE :: local_buffer_1d(:)
-    REAL(wp), ALLOCATABLE :: local_buffer_2d(:, :)
-    INTEGER :: buffer_size, buffer_nblks
-    INTEGER :: varid, i
-
-    TYPE(t_basic_distrib_read_data), POINTER :: basic_io_data
-
-    IF (SIZE(io_data) == 0) RETURN
-
-    IF (SIZE(var_data) < SIZE(io_data)) &
-      & CALL finish("distrib_read_real_2d_multi_var", "var_data too small")
-
-    CALL check_basic_data_index(io_data(:))
-    basic_io_data => basic_data(io_data(1)%basic_data_index)
-
-    buffer_size = MAXVAL(distrib_read_get_buffer_size(io_data(:)))
-    buffer_nblks = (buffer_size + nproma - 1) / nproma
-    ALLOCATE(local_buffer_1d(buffer_size), &
-      &      local_buffer_2d(nproma, buffer_nblks))
-
-    ! read data from file into io decomposition
-    IF (basic_io_data%io_chunk%size > 0) THEN
-      CALL nf(nf_inq_varid(ncid, var_name, varid))
-      ! only read io_decomp part
-      CALL nf(nf_get_vara_double(ncid, varid, (/basic_io_data%io_chunk%first/), &
-        & (/basic_io_data%io_chunk%size/), local_buffer_1d(:)))
-      DO i = 1, SIZE(local_buffer_1d(:))
-        local_buffer_2d(idx_no(i),blk_no(i)) = local_buffer_1d(i)
-      END DO
+    bio => basic_data(iod(1)%basic_data_index)
+    ish(:) = [bio%io_chunk%size, 1, 1]
+    osh(:) = [nproma, (ish(1)+nproma-1)/nproma, 1, 1]
+    strt(:) = [bio%io_chunk%first, 1, 1]
+    IF (PRESENT(edim)) THEN
+      IF (SIZE(edim) .EQ. 1) THEN
+        IF (.NOT.PRESENT(dimo)) CALL finish(routine, "invalid arguments")
+        SELECT CASE(dimo)
+        CASE(idx_blk_time)
+          osh(3) = edim(1)
+        CASE(idx_lvl_blk)
+          osh(3) = osh(2)
+          osh(2) = edim(1)
+        CASE DEFAULT
+          CALL finish(routine, "invalid dim_order")
+        END SELECT
+        ish(2) = edim(1)
+      ELSE IF (SIZE(edim) .EQ. 2) THEN
+        osh(3) = osh(2)
+        osh(2) = edim(1)
+        osh(4) = edim(2)
+        ish(2:3) = edim(1:2)
+      END IF
+      IF (PRESENT(start_ext_dim)) THEN
+        IF (.NOT.PRESENT(end_ext_dim)) CALL finish(routine, "invalid arguments")
+        IF (SIZE(edim) .NE. SIZE(start_ext_dim) .OR. SIZE(edim) .NE. SIZE(end_ext_dim)) &
+          & CALL finish(routine, "invalid arguments")
+        IF (ANY((end_ext_dim - start_ext_dim + 1) /= edim)) &
+          & CALL finish(routine, "invalid arguments: edim /= end-start-1")
+        strt(2:SIZE(edim)+1) = start_ext_dim(1:SIZE(edim))
+      END IF
     END IF
-
-    ! redistribute data into final decomposition
-    DO i = 1, SIZE(io_data)
-      CALL exchange_data(io_data(i)%redistrib_pattern, var_data(i)%p, &
-        & local_buffer_2d)
-    END DO
-
-    DEALLOCATE(local_buffer_1d, local_buffer_2d)
-  END SUBROUTINE distrib_read_real_2d_multi_var
-
-  !-------------------------------------------------------------------------
-
-  SUBROUTINE distrib_read_int_3d(ncid, var_name, var_data, ext_dim_size, &
-    &                            dim_order, io_data, start_ext_dim, &
-    &                            end_ext_dim)
-    INTEGER, INTENT(IN) :: ncid
-    CHARACTER(LEN=*), INTENT(IN) :: var_name
-    INTEGER, TARGET, INTENT(INOUT) :: var_data(:,:,:)
-    INTEGER, INTENT(IN) :: ext_dim_size, dim_order
-    TYPE(t_distrib_read_data), INTENT(IN) :: io_data
-    INTEGER, OPTIONAL, INTENT(IN) :: start_ext_dim, end_ext_dim
-    TYPE(t_ptr_3d_int) :: var_data_(1)
-
-    var_data_(1)%p => var_data
-
-    CALL distrib_read_int_3d_multi_var(ncid, var_name, var_data_, &
-      &                                ext_dim_size, dim_order, (/io_data/), &
-      &                                start_ext_dim, end_ext_dim)
-  END SUBROUTINE distrib_read_int_3d
-
-  SUBROUTINE distrib_read_int_3d_multi_var(ncid, var_name, var_data, &
-    &                                      ext_dim_size, dim_order, io_data, &
-    &                                      start_ext_dim, end_ext_dim)
-    INTEGER, INTENT(in) :: ncid
-    CHARACTER(LEN=*), INTENT(in) :: var_name
-    TYPE(t_ptr_3d_int), INTENT(inout) :: var_data(:)
-    INTEGER, INTENT(IN) :: ext_dim_size, dim_order
-    TYPE(t_distrib_read_data), INTENT(in) :: io_data(:)
-    INTEGER, OPTIONAL, INTENT(IN) :: start_ext_dim, end_ext_dim
-    INTEGER, ALLOCATABLE :: local_buffer_2d(:,:) ! (n io points, ext_dim_size)
-    INTEGER, ALLOCATABLE :: local_buffer_3d(:,:,:)
-    INTEGER :: buffer_size, buffer_nblks
-    INTEGER :: varid, i, j, var_type
-    TYPE(t_basic_distrib_read_data), POINTER :: basic_io_data
-
-    IF (SIZE(io_data) == 0) RETURN
-
-    IF (SIZE(var_data) < SIZE(io_data)) &
-      & CALL finish("distrib_read_int_3d_multi_var", "var_data too small")
-
-    IF (PRESENT(start_ext_dim) .NEQV. PRESENT(end_ext_dim)) &
-      CALL finish("distrib_read_real_3d_multi_var", "invalid arguments")
-
-    IF (PRESENT(start_ext_dim)) THEN
-      IF ((end_ext_dim - start_ext_dim + 1) /= ext_dim_size) &
-        CALL finish("distrib_read_real_3d_multi_var", &
-          &         "invalid arguments; (end_ext_dim - start_ext_dim + 1) /= ext_dim_size")
-    END IF
-
-    CALL check_basic_data_index(io_data(:))
-    basic_io_data => basic_data(io_data(1)%basic_data_index)
-
-    buffer_size = MAXVAL(distrib_read_get_buffer_size(io_data(:)))
-    buffer_nblks = (buffer_size + nproma - 1) / nproma
-    ALLOCATE(local_buffer_2d(buffer_size, ext_dim_size))
-    SELECT CASE(dim_order)
-      CASE(idx_blk_time)
-        ALLOCATE(local_buffer_3d(nproma, buffer_nblks, ext_dim_size))
-      CASE(idx_lvl_blk)
-        ALLOCATE(local_buffer_3d(nproma, ext_dim_size, buffer_nblks))
-      CASE DEFAULT
-        CALL finish("distrib_read_real_3d_multi_var", "invalid dim_order")
+    IF (ish(1) .GT. 0) CALL nf(nf_inq_varid(ncid, vname, vid))
+    SELECT TYPE(vdata)
+    TYPE IS(t_ptr_2d)
+      CALL read_multi_var_2dwp(vdata)
+    TYPE IS(t_ptr_2d_sp)
+      CALL read_multi_var_2dsp(vdata)
+    TYPE IS(t_ptr_2d_int)
+      CALL read_multi_var_2dint(vdata)
+    TYPE IS(t_ptr_3d)
+      CALL read_multi_var_3dwp(vdata, dimo)
+    TYPE IS(t_ptr_3d_sp)
+      CALL read_multi_var_3dsp(vdata, dimo)
+    TYPE IS(t_ptr_3d_int)
+      CALL read_multi_var_3dint(vdata, dimo)
+    TYPE IS(t_ptr_4d)
+      CALL read_multi_var_4dwp(vdata)
+    TYPE IS(t_ptr_4d_sp)
+      CALL read_multi_var_4dsp(vdata)
+    TYPE IS(t_ptr_4d_int)
+      CALL read_multi_var_4dint(vdata)
+    CLASS DEFAULT
+      CALL finish("distrib_read_multi_var", "un-recognized type")
     END SELECT
+  CONTAINS
 
-    IF (basic_io_data%io_chunk%size > 0) THEN
+    SUBROUTINE read_multi_var_2dint(vd)
+      TYPE(t_ptr_2d_int), INTENT(INOUT) :: vd(:)
+      INTEGER :: i
 
-      CALL nf(nf_inq_varid(ncid, var_name, varid))
-      CALL nf(nf_inq_vartype(ncid, varid, var_type))
-
-      IF (var_type /= NF_INT) &
-        CALL finish("distrib_read_int_3d_multi_var", "invalid var_type")
-
-      ! only read io_decomp part
-      IF (PRESENT(start_ext_dim)) THEN
-        CALL nf(nf_get_vara_int(ncid, varid, &
-          &                     (/basic_io_data%io_chunk%first, start_ext_dim/), &
-          &                     (/basic_io_data%io_chunk%size, ext_dim_size/), &
-          &                     local_buffer_2d(:,:)))
-      ELSE
-        CALL nf(nf_get_vara_int(ncid, varid, (/basic_io_data%io_chunk%first, 1/), &
-          &                     (/basic_io_data%io_chunk%size, ext_dim_size/), &
-          &                     local_buffer_2d(:,:)))
+      ALLOCATE(bufi_i(ish(1),ish(2),ish(3)), bufo_i(osh(1),osh(2),osh(3),osh(4)))
+      IF (ish(1) > 0) THEN
+        CALL nf(nf_inq_vartype(ncid, vid, vtype))
+        IF (vtype .NE. NF_INT) CALL finish(routine, "not an NF_INT")
+        CALL nf(nf_get_vara_int(ncid, vid, strt(1:1), ish(1:1), bufi_i(:,1,1)))
+        DO i = 1, ish(1)
+          bufo_i(idx_no(i),blk_no(i),1,1) = bufi_i(i,1,1)
+        END DO
       END IF
-    END IF
+      DO i = 1, SIZE(iod)
+        CALL exchange_data(iod(i)%pat, vd(i)%p, bufo_i(:,:,1,1))
+      END DO
+    END SUBROUTINE read_multi_var_2dint
 
-    IF (dim_order == idx_blk_time) THEN
-      DO j = 1, ext_dim_size
-        DO i = 1, basic_io_data%io_chunk%size
-          local_buffer_3d(idx_no(i),blk_no(i), j) = local_buffer_2d(i, j)
+    SUBROUTINE read_multi_var_2dwp(vd)
+      TYPE(t_ptr_2d), INTENT(INOUT) :: vd(:)
+      INTEGER :: i
+
+      ALLOCATE(bufi_d(ish(1),ish(2),ish(3)), bufo_d(osh(1),osh(2),osh(3),osh(4)))
+      IF (ish(1) > 0) THEN
+        CALL nf(nf_get_vara_double(ncid, vid, strt(1:1), ish(1:1), bufi_d(:,1,1)))
+        DO i = 1, ish(1)
+          bufo_d(idx_no(i),blk_no(i),1,1) = bufi_d(i,1,1)
         END DO
-      END DO
-
-      DO i = 1, SIZE(io_data)
-        DO j = 1, ext_dim_size
-          CALL exchange_data(io_data(i)%redistrib_pattern, &
-            & var_data(i)%p(:,:,j), &
-            & local_buffer_3d(:,:,j))
-!            & var_data(i)%p(:,:,LBOUND(var_data(i)%p,3)+j-1), &
-        END DO
-      END DO
-    ELSE
-      DO j = 1, ext_dim_size
-        DO i = 1, basic_io_data%io_chunk%size
-          local_buffer_3d(idx_no(i), j, blk_no(i)) = local_buffer_2d(i, j)
-        END DO
-      END DO
-
-      DO i = 1, SIZE(io_data)
-        CALL exchange_data(io_data(i)%redistrib_pattern, &
-          & var_data(i)%p(:,:,:), &
-          & local_buffer_3d(:,:,:))
-!           & var_data(i)%p(:,LBOUND(var_data(i)%p,2): &
-!           &                    UBOUND(var_data(i)%p,2),:), &
-      END DO
-    END IF
-
-    DEALLOCATE(local_buffer_2d, local_buffer_3d)
-  END SUBROUTINE distrib_read_int_3d_multi_var
-
-  !-------------------------------------------------------------------------
-
-  SUBROUTINE distrib_read_real_3d(ncid, var_name, var_data, ext_dim_size, &
-    &                             dim_order, io_data, start_ext_dim, &
-    &                             end_ext_dim)
-    INTEGER, INTENT(IN) :: ncid
-    CHARACTER(*), INTENT(IN) :: var_name
-    REAL(wp), TARGET, INTENT(INOUT) :: var_data(:,:,:)
-    INTEGER, INTENT(IN) :: ext_dim_size, dim_order
-    TYPE(t_distrib_read_data), INTENT(IN) :: io_data
-    INTEGER, OPTIONAL, INTENT(IN) :: start_ext_dim, end_ext_dim
-    TYPE(t_ptr_3d) :: var_data_(1)
-
-    var_data_(1)%p => var_data
-
-    CALL distrib_read_real_3d_multi_var(ncid, var_name, var_data_, &
-      &                                 ext_dim_size, dim_order, (/io_data/), &
-      &                                 start_ext_dim, end_ext_dim)
-  END SUBROUTINE distrib_read_real_3d
-
-  SUBROUTINE distrib_read_real_3d_multi_var(ncid, var_name, var_data, &
-    &                                       ext_dim_size, dim_order, io_data, &
-    &                                       start_ext_dim, end_ext_dim)
-    INTEGER, INTENT(in) :: ncid
-    CHARACTER(*), INTENT(in) :: var_name
-    TYPE(t_ptr_3d), INTENT(inout) :: var_data(:)
-    INTEGER, INTENT(IN) :: ext_dim_size, dim_order
-    TYPE(t_distrib_read_data), INTENT(in) :: io_data(:)
-    INTEGER, OPTIONAL, INTENT(IN) :: start_ext_dim, end_ext_dim
-    REAL(wp), ALLOCATABLE :: local_buffer_2d(:,:) ! (n io points, ext_dim_size)
-    REAL(wp), ALLOCATABLE :: local_buffer_3d(:,:,:)
-    INTEGER :: buffer_size, buffer_nblks
-    INTEGER :: varid, i, j
-    TYPE(t_basic_distrib_read_data), POINTER :: basic_io_data
-
-    IF (SIZE(io_data) == 0) RETURN
-
-    IF (SIZE(var_data) < SIZE(io_data)) &
-      CALL finish("distrib_read_real_3d_multi_var", "var_data too small")
-
-    IF (PRESENT(start_ext_dim) .NEQV. PRESENT(end_ext_dim)) &
-      CALL finish("distrib_read_real_3d_multi_var", "invalid arguments")
-
-    IF (PRESENT(start_ext_dim)) THEN
-      IF ((end_ext_dim - start_ext_dim + 1) /= ext_dim_size) &
-        CALL finish("distrib_read_real_3d_multi_var", &
-          &         "invalid arguments; (end_ext_dim - start_ext_dim + 1) /= ext_dim_size")
-    END IF
-
-    CALL check_basic_data_index(io_data(:))
-    basic_io_data => basic_data(io_data(1)%basic_data_index)
-
-    buffer_size = MAXVAL(distrib_read_get_buffer_size(io_data(:)))
-    buffer_nblks = (buffer_size + nproma - 1) / nproma
-    ALLOCATE(local_buffer_2d(buffer_size, ext_dim_size))
-    SELECT CASE(dim_order)
-      CASE(idx_blk_time)
-        ALLOCATE(local_buffer_3d(nproma, buffer_nblks, ext_dim_size))
-      CASE(idx_lvl_blk)
-        ALLOCATE(local_buffer_3d(nproma, ext_dim_size, buffer_nblks))
-      CASE DEFAULT
-        CALL finish("distrib_read_real_3d_multi_var", "invalid dim_order")
-    END SELECT
-
-    IF (basic_io_data%io_chunk%size > 0) THEN
-
-      CALL nf(nf_inq_varid(ncid, var_name, varid))
-      ! only read io_decomp part
-      IF (PRESENT(start_ext_dim)) THEN
-        CALL nf(nf_get_vara_double(ncid, varid, &
-          &                        (/basic_io_data%io_chunk%first, start_ext_dim/), &
-          &                        (/basic_io_data%io_chunk%size, ext_dim_size/), &
-          &                        local_buffer_2d(:,:)))
-      ELSE
-        CALL nf(nf_get_vara_double(ncid, varid, (/basic_io_data%io_chunk%first, 1/), &
-          &                        (/basic_io_data%io_chunk%size, ext_dim_size/), &
-          &                        local_buffer_2d(:,:)))
       END IF
-    END IF
+      DO i = 1, SIZE(iod)
+        CALL exchange_data(iod(i)%pat, vd(i)%p, bufo_d(:,:,1,1))
+      END DO
+    END SUBROUTINE read_multi_var_2dwp
 
-    IF (dim_order == idx_blk_time) THEN
-      DO j = 1, ext_dim_size
-        DO i = 1, basic_io_data%io_chunk%size
-          local_buffer_3d(idx_no(i),blk_no(i), j) = local_buffer_2d(i, j)
+    SUBROUTINE read_multi_var_2dsp(vd)
+      TYPE(t_ptr_2d_sp), INTENT(INOUT) :: vd(:)
+      INTEGER :: i
+
+      ALLOCATE(bufi_s(ish(1),ish(2),ish(3)), bufo_s(osh(1),osh(2),osh(3),osh(4)))
+      IF (ish(1) > 0) THEN
+        CALL nf(nf_get_vara_real(ncid, vid, strt(1:1), ish(1:1), bufi_s(:,1,1)))
+        DO i = 1, ish(1)
+          bufo_s(idx_no(i),blk_no(i),1,1) = bufi_s(i,1,1)
         END DO
-      END DO
-
-      DO i = 1, SIZE(io_data)
-        DO j = 1, ext_dim_size
-          CALL exchange_data(io_data(i)%redistrib_pattern, &
-            & var_data(i)%p(:,:,LBOUND(var_data(i)%p,3)+j-1), &
-            & local_buffer_3d(:,:,j))
-        END DO
-      END DO
-    ELSE
-      DO j = 1, ext_dim_size
-        DO i = 1, basic_io_data%io_chunk%size
-          local_buffer_3d(idx_no(i), j, blk_no(i)) = local_buffer_2d(i, j)
-        END DO
-      END DO
-
-      DO i = 1, SIZE(io_data)
-        CALL exchange_data(io_data(i)%redistrib_pattern, &
-          & var_data(i)%p(:,LBOUND(var_data(i)%p,2): &
-          &                    UBOUND(var_data(i)%p,2),:), &
-          & local_buffer_3d(:,:,:))
-      END DO
-    END IF
-
-    DEALLOCATE(local_buffer_2d, local_buffer_3d)
-  END SUBROUTINE distrib_read_real_3d_multi_var
-
-  !-------------------------------------------------------------------------
-
-  SUBROUTINE distrib_read_int_4d(ncid, var_name, var_data, ext_dim_size, &
-    &                            io_data)
-    INTEGER, INTENT(IN) :: ncid
-    CHARACTER(LEN=*), INTENT(IN) :: var_name
-    INTEGER, TARGET, INTENT(INOUT) :: var_data(:,:,:,:)
-    INTEGER, INTENT(IN) :: ext_dim_size(2)
-    TYPE(t_distrib_read_data), INTENT(IN) :: io_data
-    TYPE(t_ptr_4d_int) :: var_data_(1)
-
-    var_data_(1)%p => var_data
-
-    CALL distrib_read_int_4d_multi_var(ncid, var_name, var_data_, &
-      &                                 ext_dim_size, (/io_data/))
-  END SUBROUTINE distrib_read_int_4d
-
-  SUBROUTINE distrib_read_int_4d_multi_var(ncid, var_name, var_data, &
-    &                                      ext_dim_size, io_data)
-    INTEGER, INTENT(in) :: ncid
-    CHARACTER(LEN=*), INTENT(in) :: var_name
-    TYPE(t_ptr_4d_int), INTENT(inout) :: var_data(:)
-    INTEGER, INTENT(IN) :: ext_dim_size(2)
-    TYPE(t_distrib_read_data), INTENT(in) :: io_data(:)
-    INTEGER, ALLOCATABLE :: local_buffer_3d(:,:,:) ! (n io points,
-                                                   !  ext_dim_size(1),
-                                                   !  ext_dim_size(2))
-    INTEGER, ALLOCATABLE :: local_buffer_4d(:,:,:,:)
-    INTEGER :: buffer_size, buffer_nblks
-    INTEGER :: varid, i, j, k, var_type
-    TYPE(t_basic_distrib_read_data), POINTER :: basic_io_data
-
-    IF (SIZE(io_data) == 0) RETURN
-
-    IF (SIZE(var_data) < SIZE(io_data)) &
-      & CALL finish("distrib_read_int_4d_multi_var", "var_data too small")
-
-    CALL check_basic_data_index(io_data(:))
-    basic_io_data => basic_data(io_data(1)%basic_data_index)
-
-    buffer_size = MAXVAL(distrib_read_get_buffer_size(io_data(:)))
-    buffer_nblks = (buffer_size + nproma - 1) / nproma
-    ALLOCATE(local_buffer_3d(buffer_size, ext_dim_size(1), ext_dim_size(2)))
-    ALLOCATE(local_buffer_4d(nproma, ext_dim_size(1), buffer_nblks, &
-      &                      ext_dim_size(2)))
-
-    IF (basic_io_data%io_chunk%size > 0) THEN
-
-      CALL nf(nf_inq_varid(ncid, var_name, varid))
-      CALL nf(nf_inq_vartype(ncid, varid, var_type))
-
-      IF (var_type /= NF_INT) &
-        CALL finish("distrib_read_int_3d_multi_var", "invalid var_type")
-
-      ! only read io_decomp part
-      CALL nf(nf_get_vara_int(ncid, varid, (/basic_io_data%io_chunk%first, 1, 1/), &
-        & (/basic_io_data%io_chunk%size, ext_dim_size(1), ext_dim_size(2)/), &
-        & local_buffer_3d(:,:,:)))
-    END IF
-
-    DO k = 1, ext_dim_size(2)
-      DO j = 1, ext_dim_size(1)
-        DO i = 1, basic_io_data%io_chunk%size
-          local_buffer_4d(idx_no(i),j,blk_no(i), k) = local_buffer_3d(i, j, k)
-        END DO
-      END DO
-    END DO
-
-    DO i = 1, SIZE(io_data)
-      DO j = 1, ext_dim_size(2)
-        CALL exchange_data(io_data(i)%redistrib_pattern, &
-          & var_data(i)%p(:,:,:,j), local_buffer_4d(:,:,:,j))
-      END DO
-    END DO
-
-    DEALLOCATE(local_buffer_3d, local_buffer_4d)
-  END SUBROUTINE distrib_read_int_4d_multi_var
-
-  !-------------------------------------------------------------------------
-
-  SUBROUTINE distrib_read_real_4d(ncid, var_name, var_data, ext_dim_size, &
-    &                             io_data, start_ext_dim, end_ext_dim)
-    INTEGER, INTENT(IN) :: ncid
-    CHARACTER(LEN=*), INTENT(IN) :: var_name
-    REAL(wp), TARGET, INTENT(INOUT) :: var_data(:,:,:,:)
-    INTEGER, INTENT(IN) :: ext_dim_size(2)
-    TYPE(t_distrib_read_data), INTENT(IN) :: io_data
-    INTEGER, OPTIONAL, INTENT(IN) :: start_ext_dim(2), end_ext_dim(2)
-    TYPE(t_ptr_4d) :: var_data_(1)
-
-    var_data_(1)%p => var_data
-
-    CALL distrib_read_real_4d_multi_var(ncid, var_name, var_data_, &
-      &                                 ext_dim_size, (/io_data/), &
-      &                                 start_ext_dim, end_ext_dim)
-  END SUBROUTINE distrib_read_real_4d
-
-  SUBROUTINE distrib_read_real_4d_multi_var(ncid, var_name, var_data, &
-    &                                       ext_dim_size, io_data, &
-    &                                       start_ext_dim, end_ext_dim)
-    INTEGER, INTENT(in) :: ncid
-    CHARACTER(*), INTENT(in) :: var_name
-    TYPE(t_ptr_4d), INTENT(inout) :: var_data(:)
-    INTEGER, INTENT(IN) :: ext_dim_size(2)
-    TYPE(t_distrib_read_data), INTENT(in) :: io_data(:)
-    INTEGER, OPTIONAL, INTENT(IN) :: start_ext_dim(2), end_ext_dim(2)
-    REAL(wp), ALLOCATABLE :: local_buffer_3d(:,:,:) ! (n io points,
-                                                    !  ext_dim_size(1),
-                                                    !  ext_dim_size(2))
-    REAL(wp), ALLOCATABLE :: local_buffer_4d(:,:,:,:)
-    INTEGER :: buffer_size, buffer_nblks
-    INTEGER :: varid, i, j, k
-    TYPE(t_basic_distrib_read_data), POINTER :: basic_io_data
-
-    IF (SIZE(io_data) == 0) RETURN
-
-    IF (SIZE(var_data) < SIZE(io_data)) &
-      & CALL finish("distrib_read_real_4d_multi_var", "var_data too small")
-
-    IF (PRESENT(start_ext_dim) .NEQV. PRESENT(end_ext_dim)) &
-      CALL finish("distrib_read_real_4d_multi_var", "invalid arguments")
-
-    IF (PRESENT(start_ext_dim)) THEN
-      IF (ANY((end_ext_dim(:) - start_ext_dim(:) + 1) /= ext_dim_size(:))) &
-        CALL finish("distrib_read_real_4d_multi_var", &
-          "invalid arguments; (end_ext_dim - start_ext_dim + 1) /= ext_dim_size(2)")
-    END IF
-
-    CALL check_basic_data_index(io_data(:))
-    basic_io_data => basic_data(io_data(1)%basic_data_index)
-
-    buffer_size = MAXVAL(distrib_read_get_buffer_size(io_data(:)))
-    buffer_nblks = (buffer_size + nproma - 1) / nproma
-    ALLOCATE(local_buffer_3d(buffer_size, ext_dim_size(1), ext_dim_size(2)))
-    ALLOCATE(local_buffer_4d(nproma, ext_dim_size(1), buffer_nblks, &
-      &                      ext_dim_size(2)))
-
-    IF (basic_io_data%io_chunk%size > 0) THEN
-
-      CALL nf(nf_inq_varid(ncid, var_name, varid))
-      ! only read io_decomp part
-      IF (PRESENT(start_ext_dim)) THEN
-        CALL nf(nf_get_vara_double(ncid, varid, (/basic_io_data%io_chunk%first, &
-          &                                       start_ext_dim(1), &
-          &                                       start_ext_dim(2)/), &
-          & (/basic_io_data%io_chunk%size, ext_dim_size(1), ext_dim_size(2)/), &
-          & local_buffer_3d(:,:,:)))
-      ELSE
-        CALL nf(nf_get_vara_double(ncid, varid, (/basic_io_data%io_chunk%first, 1, 1/), &
-          & (/basic_io_data%io_chunk%size, ext_dim_size(1), ext_dim_size(2)/), &
-          & local_buffer_3d(:,:,:)))
       END IF
-    END IF
+      DO i = 1, SIZE(iod)
+        CALL exchange_data(iod(i)%pat, vd(i)%p, bufo_s(:,:,1,1))
+      END DO
+    END SUBROUTINE read_multi_var_2dsp
 
-    DO k = 1, ext_dim_size(2)
-      DO j = 1, ext_dim_size(1)
-        DO i = 1, basic_io_data%io_chunk%size
-          local_buffer_4d(idx_no(i),j,blk_no(i), k) = local_buffer_3d(i, j, k)
+    SUBROUTINE read_multi_var_3dint(vd, o)
+      TYPE(t_ptr_3d_int), INTENT(INOUT) :: vd(:)
+      INTEGER, INTENT(IN) :: o
+      INTEGER :: i, j
+
+      ALLOCATE(bufi_i(ish(1),ish(2),ish(3)), bufo_i(osh(1),osh(2),osh(3),osh(4)))
+      IF (ish(1) > 0) THEN
+        CALL nf(nf_inq_vartype(ncid, vid, vtype))
+        IF (vtype .NE. NF_INT) CALL finish(routine, "not an NF_INT")
+        CALL nf(nf_get_vara_int(ncid, vid, strt(1:2), ish(1:2), bufi_i(:,:,1)))
+        IF (o .EQ. idx_blk_time) THEN
+          DO j = 1, ish(2)
+            DO i = 1, ish(1)
+              bufo_i(idx_no(i),blk_no(i),j,1) = bufi_i(i,j,1)
+            END DO
+          END DO
+        ELSE IF(o .EQ. idx_lvl_blk) THEN
+          DO j = 1, ish(2)
+            DO i = 1, ish(1)
+              bufo_i(idx_no(i),j,blk_no(i),1) = bufi_i(i,j,1)
+            END DO
+          END DO          
+        END IF
+      END IF
+      DO i = 1, SIZE(iod)
+        IF (o .EQ. idx_blk_time) THEN
+          DO j = 1, ish(2)
+            CALL exchange_data(iod(i)%pat, vd(i)%p(:,:,j), bufo_i(:,:,j,1))
+          END DO
+        ELSE IF(o .EQ. idx_lvl_blk) THEN
+          CALL exchange_data(iod(i)%pat, vd(i)%p, bufo_i(:,:,:,1))
+        END IF
+      END DO
+    END SUBROUTINE read_multi_var_3dint
+
+    SUBROUTINE read_multi_var_3dwp(vd, o)
+      TYPE(t_ptr_3d), INTENT(INOUT) :: vd(:)
+      INTEGER, INTENT(IN) :: o
+      INTEGER :: i, j
+
+      ALLOCATE(bufi_d(ish(1),ish(2),ish(3)), bufo_d(osh(1),osh(2),osh(3),osh(4)))
+      IF (ish(1) > 0) THEN
+        CALL nf(nf_get_vara_double(ncid, vid, strt(1:2), ish(1:2), bufi_d(:,:,1)))
+        IF (o .EQ. idx_blk_time) THEN
+          DO j = 1, ish(2)
+            DO i = 1, ish(1)
+              bufo_d(idx_no(i),blk_no(i),j,1) = bufi_d(i,j,1)
+            END DO
+          END DO
+        ELSE IF(o .EQ. idx_lvl_blk) THEN
+          DO j = 1, ish(2)
+            DO i = 1, ish(1)
+              bufo_d(idx_no(i),j,blk_no(i),1) = bufi_d(i,j,1)
+            END DO
+          END DO
+        END IF
+      END IF
+      DO i = 1, SIZE(iod)
+        IF (o .EQ. idx_blk_time) THEN
+          DO j = 1, ish(2)
+            CALL exchange_data(iod(i)%pat, vd(i)%p(:,:,j), bufo_d(:,:,j,1))
+          END DO
+        ELSE IF(o .EQ. idx_lvl_blk) THEN
+          CALL exchange_data(iod(i)%pat, vd(i)%p, bufo_d(:,:,:,1))
+        END IF
+      END DO
+    END SUBROUTINE read_multi_var_3dwp
+
+    SUBROUTINE read_multi_var_3dsp(vd, o)
+      TYPE(t_ptr_3d_sp), INTENT(INOUT) :: vd(:)
+      INTEGER, INTENT(IN) :: o
+      INTEGER :: i, j
+
+      ALLOCATE(bufi_s(ish(1),ish(2),ish(3)), bufo_s(osh(1),osh(2),osh(3),osh(4)))
+      IF (ish(1) > 0) THEN
+        CALL nf(nf_get_vara_real(ncid, vid, strt(1:2), ish(1:2), bufi_s(:,:,1)))
+        IF (o .EQ. idx_blk_time) THEN
+          DO j = 1, ish(2)
+            DO i = 1, ish(1)
+              bufo_s(idx_no(i),blk_no(i),j,1) = bufi_s(i,j,1)
+            END DO
+          END DO
+        ELSE IF(o .EQ. idx_lvl_blk) THEN
+          DO j = 1, ish(2)
+            DO i = 1, ish(1)
+              bufo_s(idx_no(i),j,blk_no(i),1) = bufi_s(i,j,1)
+            END DO
+          END DO
+        END IF
+      END IF
+      DO i = 1, SIZE(iod)
+        IF (o .EQ. idx_blk_time) THEN
+          DO j = 1, ish(2)
+            CALL exchange_data(iod(i)%pat, vd(i)%p(:,:,j), bufo_s(:,:,j,1))
+          END DO
+        ELSE IF(o .EQ. idx_lvl_blk) THEN
+          CALL exchange_data(iod(i)%pat, vd(i)%p, bufo_s(:,:,:,1))
+        END IF
+      END DO
+    END SUBROUTINE read_multi_var_3dsp
+
+    SUBROUTINE read_multi_var_4dint(vd)
+      TYPE(t_ptr_4d_int), INTENT(INOUT) :: vd(:)
+      INTEGER :: i, j, k
+
+      ALLOCATE(bufi_i(ish(1),ish(2),ish(3)), bufo_i(osh(1),osh(2),osh(3),osh(4)))
+      IF (ish(1) > 0) THEN
+        CALL nf(nf_inq_vartype(ncid, vid, vtype))
+        IF (vtype .NE. NF_INT) CALL finish(routine, "not an NF_INT")
+        CALL nf(nf_get_vara_int(ncid, vid, strt, ish, bufi_i(:,:,:)))
+        DO k = 1, ish(3)
+          DO j = 1, ish(2)
+            DO i = 1, ish(1)
+              bufo_i(idx_no(i),j,blk_no(i), k) = bufi_i(i, j, k)
+            END DO
+          END DO
+        END DO
+      END IF
+      DO i = 1, SIZE(iod)
+        DO j = 1, ish(3)
+          CALL exchange_data(iod(i)%pat, vd(i)%p(:,:,:,j), bufo_i(:,:,:,j))
         END DO
       END DO
-    END DO
+    END SUBROUTINE read_multi_var_4dint
 
-    DO i = 1, SIZE(io_data)
-      DO j = 1, ext_dim_size(2)
-        CALL exchange_data(io_data(i)%redistrib_pattern, &
-          var_data(i)%p(:, &
-          LBOUND(var_data(i)%p,2):UBOUND(var_data(i)%p,2),:, &
-          LBOUND(var_data(i)%p,4)+j-1), local_buffer_4d(:,:,:,j))
+    SUBROUTINE read_multi_var_4dwp(vd)
+      TYPE(t_ptr_4d), INTENT(INOUT) :: vd(:)
+      INTEGER :: i, j, k
+
+      ALLOCATE(bufi_d(ish(1),ish(2),ish(3)), bufo_d(osh(1),osh(2),osh(3),osh(4)))
+      IF (ish(1) > 0) THEN
+        CALL nf(nf_get_vara_double(ncid, vid, strt, ish, bufi_d(:,:,:)))
+        DO k = 1, ish(3)
+          DO j = 1, ish(2)
+            DO i = 1, ish(1)
+              bufo_d(idx_no(i),j,blk_no(i), k) = bufi_d(i, j, k)
+            END DO
+          END DO
+        END DO
+      END IF
+      DO i = 1, SIZE(iod)
+        DO j = 1, ish(3)
+          CALL exchange_data(iod(i)%pat, vd(i)%p(:,:,:,j), bufo_d(:,:,:,j))
+        END DO
       END DO
-    END DO
+    END SUBROUTINE read_multi_var_4dwp
 
-    DEALLOCATE(local_buffer_3d, local_buffer_4d)
-  END SUBROUTINE distrib_read_real_4d_multi_var
+    SUBROUTINE read_multi_var_4dsp(vd)
+      TYPE(t_ptr_4d_sp), INTENT(INOUT) :: vd(:)
+      INTEGER :: i, j, k
+
+      ALLOCATE(bufi_s(ish(1),ish(2),ish(3)), bufo_s(osh(1),osh(2),osh(3),osh(4)))
+      IF (ish(1) > 0) THEN
+        CALL nf(nf_get_vara_real(ncid, vid, strt, ish, bufi_s(:,:,:)))
+        DO k = 1, ish(3)
+          DO j = 1, ish(2)
+            DO i = 1, ish(1)
+              bufo_s(idx_no(i),j,blk_no(i), k) = bufi_s(i, j, k)
+            END DO
+          END DO
+        END DO
+      END IF
+      DO i = 1, SIZE(iod)
+        DO j = 1, ish(3)
+          CALL exchange_data(iod(i)%pat, vd(i)%p(:,:,:,j), bufo_s(:,:,:,j))
+        END DO
+      END DO
+    END SUBROUTINE read_multi_var_4dsp
+  END SUBROUTINE distrib_read
 
   !-------------------------------------------------------------------------
 
-  SUBROUTINE distrib_inq_var_dims(file_id, var_name, var_ndims, var_dimlen)
-    INTEGER, INTENT(IN) :: file_id
-    CHARACTER(*), INTENT(IN) :: var_name
-    INTEGER, INTENT(OUT) :: var_ndims
-    INTEGER, INTENT(OUT) :: var_dimlen(:)
-    INTEGER :: varid, temp(1), i
-    INTEGER :: temp_var_dimlen(NF_MAX_VAR_DIMS), var_dimids(NF_MAX_VAR_DIMS)
+  SUBROUTINE nf(ierrstat, warnonly, silent)
+    INTEGER, INTENT(in)           :: ierrstat
+    LOGICAL, INTENT(in), OPTIONAL :: warnonly, silent
 
-    IF ( p_pe_work == parRootRank ) THEN
-      CALL nf(nf_inq_varid(file_id, var_name, varid))
-      CALL nf(nf_inq_varndims(file_id, varid, var_ndims))
-      CALL nf(nf_inq_vardimid(file_id, varid, var_dimids))
-      DO i=1, var_ndims
-        CALL nf(nf_inq_dimlen(file_id, var_dimids(i), temp_var_dimlen(i)))
-      ENDDO
-      temp(1) = var_ndims
+    IF(PRESENT(silent)) THEN
+      IF (silent) RETURN
     END IF
-
-#ifndef NOMPI
-    CALL p_bcast(temp, parRootRank, p_comm_work)
-    CALL p_bcast(var_ndims, parRootRank, p_comm_work)
-    CALL p_bcast(temp_var_dimlen(1:var_ndims), parRootRank, p_comm_work)
-    temp(1) = var_ndims
-#endif
-
-    IF (SIZE(var_dimlen) < var_ndims) &
-      CALL finish("distrib_inq_var_dims", &
-        &         "array size of argument var_dimlen is too small")
-
-    var_dimlen(1:var_ndims) = temp_var_dimlen(1:var_ndims)
-  END SUBROUTINE distrib_inq_var_dims
-
-  !-------------------------------------------------------------------------
-
-  SUBROUTINE nf(STATUS, warnonly, silent)
-    INTEGER, INTENT(in)           :: STATUS
-    LOGICAL, INTENT(in), OPTIONAL :: warnonly
-    LOGICAL, INTENT(in), OPTIONAL :: silent
-    LOGICAL :: lwarnonly, lsilent
-
-    lwarnonly = .FALSE.
-    lsilent   = .FALSE.
-    IF(PRESENT(warnonly)) lwarnonly = .TRUE.
-    IF(PRESENT(silent))   lsilent   = silent
-
-    IF (lsilent) RETURN
-    IF (STATUS /= nf_noerr) THEN
-      IF (lwarnonly) THEN
+    IF (ierrstat .NE. nf_noerr) THEN
+      IF (PRESENT(warnonly)) THEN
         CALL message(modname//' netCDF error', &
-          &          nf_strerror(STATUS), level=em_warn)
+          &          nf_strerror(ierrstat), level=em_warn)
       ELSE
         CALL finish(modname//' netCDF error', &
-          &         nf_strerror(STATUS))
+          &         nf_strerror(ierrstat))
       ENDIF
     ENDIF
   END SUBROUTINE nf

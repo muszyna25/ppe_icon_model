@@ -55,7 +55,8 @@ MODULE mo_read_interface
     &                                   distrib_read, distrib_nf_close, &
     &                                   distrib_inq_var_dims, idx_lvl_blk, &
     &                                   idx_blk_time, distrib_nf_inq_varexists
-  USE mo_fortran_tools, ONLY: t_ptr_2d, t_ptr_2d_int, t_ptr_3d, t_ptr_3d_int
+  USE mo_fortran_tools, ONLY: t_ptr_2d, t_ptr_2d_int, t_ptr_3d, t_ptr_3d_int, &
+    & t_ptr_4d
   USE mo_model_domain, ONLY: t_patch
   USE mo_parallel_config, ONLY: nproma, p_test_run
   USE mo_model_domain, ONLY: t_patch
@@ -63,7 +64,6 @@ MODULE mo_read_interface
   USE mo_mpi, ONLY: p_comm_work_test, p_comm_work, p_io, &
        &            my_process_is_mpi_workroot, p_bcast
   USE mo_impl_constants, ONLY: on_cells, on_vertices, on_edges
-
   !-------------------------------------------------------------------------
   IMPLICIT NONE
   PRIVATE
@@ -499,8 +499,7 @@ CONTAINS
       DO i = 1, n_var
         io_data(i)%basic_data_index &
              = stream_id%read_info(location, i)%dist_read_info%basic_data_index
-        io_data(i)%redistrib_pattern &
-             => stream_id%read_info(location, i)%dist_read_info%redistrib_pattern
+        io_data(i)%pat => stream_id%read_info(location, i)%dist_read_info%pat
       END DO
       CALL distrib_read(stream_id%file_id, variable_name_, var_data_2d, io_data)
       DEALLOCATE(var_data_2d)
@@ -520,7 +519,7 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN)     :: variable_name
     define_fill_target_int           :: fill_array(:,:)
     define_return_pointer_int        :: return_pointer(:,:)
-
+    TYPE(t_ptr_2d_int) :: tmp_ptr(1)
     INTEGER, POINTER                 :: tmp_pointer(:,:)
     CHARACTER(LEN=NF_MAX_NAME)       :: variable_name_
     CHARACTER(LEN=*), PARAMETER      :: method_name = &
@@ -552,8 +551,9 @@ CONTAINS
         tmp_pointer(:,:) = 0
       ENDIF
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
-      CALL distrib_read(stream_id%file_id, variable_name_, tmp_pointer, &
-        &               stream_id%read_info(location, 1)%dist_read_info)
+      tmp_ptr(1)%p => tmp_pointer
+      CALL distrib_read(stream_id%file_id, variable_name_, tmp_ptr, &
+        &               (/stream_id%read_info(location, 1)%dist_read_info/))
     CASE default
       CALL finish(method_name, "unknown input_method")
     END SELECT
@@ -630,8 +630,7 @@ CONTAINS
       DO i = 1, n_var
         io_data(i)%basic_data_index &
              = stream_id%read_info(location, i)%dist_read_info%basic_data_index
-        io_data(i)%redistrib_pattern &
-             => stream_id%read_info(location, i)%dist_read_info%redistrib_pattern
+        io_data(i)%pat => stream_id%read_info(location, i)%dist_read_info%pat
       END DO
       CALL distrib_read(stream_id%file_id, variable_name_, var_data_2d, io_data)
       DEALLOCATE(var_data_2d)
@@ -651,7 +650,7 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
     define_fill_target           :: fill_array(:,:)
     define_return_pointer        :: return_pointer(:,:)
-
+    TYPE(t_ptr_2d)               :: tmp_ptr(1)
     REAL(wp), POINTER            :: tmp_pointer(:,:)
     CHARACTER(LEN=NF_MAX_NAME)   :: variable_name_
     CHARACTER(LEN=*), PARAMETER  :: method_name = &
@@ -683,8 +682,9 @@ CONTAINS
         tmp_pointer(:,:) = 0.0_wp
       ENDIF
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
-      CALL distrib_read(stream_id%file_id, variable_name_, tmp_pointer, &
-        &               stream_id%read_info(location, 1)%dist_read_info)
+      tmp_ptr(1)%p => tmp_pointer
+      CALL distrib_read(stream_id%file_id, variable_name_, tmp_ptr, &
+        &               (/stream_id%read_info(location, 1)%dist_read_info/))
     CASE default
       CALL finish(method_name, "unknown input_method")
     END SELECT
@@ -903,8 +903,8 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name
     LOGICAL, OPTIONAL                      :: has_missValue
     REAL(wp), OPTIONAL                     :: missValue
-
     REAL(wp), POINTER                      :: tmp_pointer(:,:,:)
+    TYPE(t_ptr_3d)                         :: tmp_ptr(1)
     INTEGER                                :: var_dimlen(2), var_start(2), &
       &                                       var_end(2), var_ndims
     CHARACTER(LEN=NF_MAX_NAME)             :: variable_name_
@@ -967,17 +967,18 @@ CONTAINS
         ELSE
           CALL distrib_inq_var_dims(stream_id%file_id, variable_name_, &
             &                       var_ndims, var_dimlen)
+          var_end(2) = var_dimlen(2)
         END IF
         ALLOCATE(tmp_pointer(nproma, &
           (stream_id%read_info(location, 1)%n_l - 1)/nproma + 1, var_dimlen(2)))
         tmp_pointer(:,:,:) = 0.0_wp
       ENDIF
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
-
-      CALL distrib_read(stream_id%file_id, variable_name_, tmp_pointer, &
-        &               var_dimlen(2), idx_blk_time, &
-        &               stream_id%read_info(location, 1)%dist_read_info, &
-        &               start_extdim, end_extdim)
+      tmp_ptr(1)%p => tmp_pointer
+      CALL distrib_read(stream_id%file_id, variable_name_, tmp_ptr, &
+        &               (/stream_id%read_info(location, 1)%dist_read_info/), &
+        &               edim=var_dimlen(2:2), dimo=idx_blk_time, &
+        &               start_ext_dim=var_start(2:2), end_ext_dim=var_end(2:2))
     CASE default
       CALL finish(method_name, "unknown input_method")
     END SELECT
@@ -1074,6 +1075,7 @@ CONTAINS
         IF (.NOT. PRESENT(fill_array)) &
           CALL distrib_inq_var_dims(stream_id%file_id, variable_name_, &
             &                       var_ndims, var_dimlen)
+         var_end(2) = var_dimlen(2)
       END IF
 
       ! gather pointers of all output fields
@@ -1096,15 +1098,14 @@ CONTAINS
       DO i = 1, n_var
         io_data(i)%basic_data_index &
              = stream_id%read_info(location, i)%dist_read_info%basic_data_index
-        io_data(i)%redistrib_pattern &
-             => stream_id%read_info(location, i)%dist_read_info%redistrib_pattern
+        io_data(i)%pat => stream_id%read_info(location, i)%dist_read_info%pat
       END DO
 
       CALL distrib_read(stream_id%file_id, variable_name_, var_data_3d, &
-        &               var_dimlen(2), idx_blk_time, io_data, &
-        &               start_extdim, end_extdim)
+        &               io_data, edim=var_dimlen(2:2), dimo=idx_blk_time, &
+        &               start_ext_dim=var_start(2:2), end_ext_dim=var_end(2:2))
       DEALLOCATE(var_data_3d)
-    CASE default
+    CASE DEFAULT
       CALL finish(method_name, "unknown input_method")
     END SELECT
 
@@ -1128,7 +1129,7 @@ CONTAINS
     define_return_pointer_int              :: return_pointer(:,:,:)
     INTEGER, INTENT(in), OPTIONAL          :: start_extdim, end_extdim
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name
-
+    TYPE(t_ptr_3d_int)                     :: tmp_ptr(1)  
     INTEGER, POINTER                       :: tmp_pointer(:,:,:)
     INTEGER                                :: var_dimlen(2), var_start(2), &
       &                                       var_end(2), var_ndims
@@ -1187,17 +1188,18 @@ CONTAINS
         ELSE
           CALL distrib_inq_var_dims(stream_id%file_id, variable_name_, &
             &                       var_ndims, var_dimlen)
+          var_end(2) = var_dimlen(2)
         END IF
         ALLOCATE(tmp_pointer(nproma, &
           (stream_id%read_info(location, 1)%n_l - 1)/nproma + 1, var_dimlen(2)))
         tmp_pointer(:,:,:) = 0
       ENDIF
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
-
-      CALL distrib_read(stream_id%file_id, variable_name_, tmp_pointer, &
-        &               var_dimlen(2), idx_blk_time, &
-        &               stream_id%read_info(location, 1)%dist_read_info, &
-        &               start_extdim, end_extdim)
+      tmp_ptr(1)%p => tmp_pointer
+      CALL distrib_read(stream_id%file_id, variable_name_, tmp_ptr, &
+        &               (/stream_id%read_info(location, 1)%dist_read_info/), &
+        &               edim=var_dimlen(2:2), dimo=idx_blk_time, &
+        &               start_ext_dim=var_start(2:2), end_ext_dim=var_end(2:2))
     CASE default
       CALL finish(method_name, "unknown input_method")
     END SELECT
@@ -1294,6 +1296,7 @@ CONTAINS
         IF (.NOT. PRESENT(fill_array)) &
           CALL distrib_inq_var_dims(stream_id%file_id, variable_name_, &
             &                       var_ndims, var_dimlen)
+        var_end(2) = var_dimlen(2)
       END IF
 
       ! gather pointers of all output fields
@@ -1316,12 +1319,11 @@ CONTAINS
       DO i = 1, n_var
         io_data(i)%basic_data_index &
              = stream_id%read_info(location, i)%dist_read_info%basic_data_index
-        io_data(i)%redistrib_pattern &
-             => stream_id%read_info(location, i)%dist_read_info%redistrib_pattern
+        io_data(i)%pat => stream_id%read_info(location, i)%dist_read_info%pat
       END DO
       CALL distrib_read(stream_id%file_id, variable_name_, var_data_3d, &
-        &               var_dimlen(2), idx_blk_time, io_data, &
-        &               start_extdim, end_extdim)
+        &               io_data, edim=var_dimlen(2:2), dimo=idx_blk_time, &
+        &               start_ext_dim=var_start(2:2), end_ext_dim=var_end(2:2))
       DEALLOCATE(var_data_3d)
     CASE default
       CALL finish(method_name, "unknown input_method")
@@ -1374,7 +1376,7 @@ CONTAINS
     define_fill_target                     :: fill_array(:,:,:)
     define_return_pointer                  :: return_pointer(:,:,:)
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: levelsDimName
-
+    TYPE(t_ptr_3d)                         :: tmp_ptr(1)
     INTEGER                                :: var_ndims, var_dimlen(2)
     REAL(wp), POINTER                      :: tmp_pointer(:,:,:)
     CHARACTER(LEN=NF_MAX_NAME)             :: variable_name_
@@ -1418,12 +1420,11 @@ CONTAINS
           (stream_id%read_info(location, 1)%n_l - 1)/nproma + 1))
         tmp_pointer(:,:,:) = 0.0_wp
       ENDIF
-
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
-
-      CALL distrib_read(stream_id%file_id, variable_name_, tmp_pointer, &
-        &               var_dimlen(2), idx_lvl_blk, &
-        &               stream_id%read_info(location, 1)%dist_read_info)
+      tmp_ptr(1)%p => tmp_pointer
+      CALL distrib_read(stream_id%file_id, variable_name_, tmp_ptr, &
+        &               (/stream_id%read_info(location, 1)%dist_read_info/), &
+        &               edim=var_dimlen(2:2), dimo=idx_lvl_blk)
     CASE default
       CALL finish(method_name, "unknown input_method")
     END SELECT
@@ -1597,7 +1598,7 @@ CONTAINS
 
     INTEGER                                :: var_ndims, var_dimlen(3), &
       &                                       var_start(3), var_end(3)
-    REAL(wp), POINTER                      :: tmp_pointer(:,:,:,:)
+    TYPE(t_ptr_4d)                         :: tmp_pointer(1)
     CHARACTER(LEN=128)                     :: temp_string_array(2)
     CHARACTER(LEN=NF_MAX_NAME)             :: variable_name_
     CHARACTER(LEN=*), PARAMETER            :: method_name = &
@@ -1646,36 +1647,30 @@ CONTAINS
 
     SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
-      tmp_pointer => &
+      tmp_pointer(1)%p => &
          & netcdf_read_3D_extdim(stream_id%file_id, variable_name_, &
          & fill_array, stream_id%read_info(location, 1)%n_g, &
          & stream_id%read_info(location, 1)%scatter_pattern, &
          & start_extdim, end_extdim, levelsDimName, extdim_name )
-      IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
+      IF (PRESENT(return_pointer)) return_pointer => tmp_pointer(1)%p
     CASE (read_netcdf_distribute_method)
       IF (PRESENT(fill_array)) THEN
-        tmp_pointer => fill_array
+        tmp_pointer(1)%p => fill_array
       ELSE
         CALL distrib_inq_var_dims(stream_id%file_id, variable_name_, &
           &                       var_ndims, var_dimlen)
         IF (PRESENT(start_extdim)) var_dimlen(3) = end_extdim - start_extdim + 1
-        ALLOCATE(tmp_pointer(nproma, var_dimlen(2), &
+        ALLOCATE(tmp_pointer(1)%p(nproma, var_dimlen(2), &
           (stream_id%read_info(location, 1)%n_l - 1)/nproma + 1, var_dimlen(3)))
-        tmp_pointer(:,:,:,:) = 0.0_wp
+        tmp_pointer(1)%p(:,:,:,:) = 0.0_wp
       ENDIF
+      var_end(:) = var_start(:) + var_dimlen(:) - 1
+      IF (PRESENT(return_pointer)) return_pointer => tmp_pointer(1)%p
 
-      IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
-
-      IF (PRESENT(start_extdim)) THEN
-        CALL distrib_read(stream_id%file_id, variable_name_, tmp_pointer, &
-          &               var_dimlen(2:3), &
-          &               stream_id%read_info(location, 1)%dist_read_info, &
-          &               (/1,start_extdim/), (/var_dimlen(2), end_extdim/))
-      ELSE
-        CALL distrib_read(stream_id%file_id, variable_name_, tmp_pointer, &
-          &               var_dimlen(2:3), &
-          &               stream_id%read_info(location, 1)%dist_read_info)
-      END IF
+      CALL distrib_read(stream_id%file_id, variable_name_, tmp_pointer, &
+        &               [stream_id%read_info(location, 1)%dist_read_info], &
+        &               edim=var_dimlen(2:3), start_ext_dim=var_start(2:3), &
+        &               end_ext_dim=var_end(2:3))
     CASE default
       CALL finish(method_name, "unknown input_method")
     END SELECT
