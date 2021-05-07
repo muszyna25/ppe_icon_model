@@ -44,7 +44,7 @@ use_host='@host_fqdn@'
 case "$use_host" in
   wizard*|mlogin*|btlogin*|btc*) use_site=dkrz.de ;;
   daint*|tave*|santis*|kesch*) use_site=cscs.ch ;;
-  ic2*|uc1*|fh2*) use_site=kit.edu ;;
+  ic2*|uc1*|fh2*|hk*) use_site=kit.edu ;;
   xc*|rcnl*|oflws*) use_site=dwd.de ;;
   mpipc*mpimet.mpg.de|breeze*mpimet.mpg.de) use_site=mpg.de ;;
   *) use_site='local.net' ;;
@@ -209,6 +209,12 @@ case "$use_site" in
         use_submit='sbatch'
         use_mpi_startrun='runjob --ranks-per-node \$mpi_procs_pernode --envs OMP_NUM_THREADS=\$OMP_NUM_THREADS --exe'
         use_target='ic2'
+      ;;
+      hk*)
+        use_target='hk'
+        use_submit='sbatch'
+        use_load_profile='. /etc/profile'
+        use_load_modules="compiler/intel/19.1 mpi/openmpi/4.0 lib/netcdf/4.7_serial lib/hdf5/1.10_serial lib/netcdf-fortran/4.5_serial lib/eccodes/2.20.0 numlib/mkl/2020"
       ;;
       fh2*)
         use_target='fh2'
