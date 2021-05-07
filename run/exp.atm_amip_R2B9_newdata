@@ -41,7 +41,7 @@ nproma_atm=96
 # (3) icon_data_poolFolder
 
 #icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/grids/private/mpim/icon_preprocessing/source"
-icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/grids/private/rene/mpim"
+icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/grids/public/mpim"
 
 #
 #--------------------------------------------------------------------------------------------------

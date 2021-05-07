@@ -117,14 +117,13 @@ else
     poolFolder_prefix=
 fi
 
-#icon_data_poolFolder="$poolFolder_prefix/work/mh0287/users/rene/public/mpim"
-icon_data_poolFolder="$poolFolder_prefix/pool/data/ICON/grids/private/rene/mpim"
+icon_data_poolFolder="$poolFolder_prefix/pool/data/ICON/grids/public/mpim"
 
 # horizontal grid(s)
 # ------------------
 atm_grid_name=icon_grid_${atmos_gridID}_${atmos_refinement}_G
 
-atmo_grid_folder=/pool/data/ICON/grids/private/rene/mpim/${atmos_gridID}  # still some private path!
+atmo_grid_folder=/pool/data/ICON/grids/public/mpim/${atmos_gridID}  # still some private path!
 atmo_data_InputFolder=${icon_data_poolFolder}/${atmos_gridID}
 atmo_land_data_InputFolder=${icon_data_poolFolder}/${atmos_gridID}-${ocean_gridID}
 atmo_dyn_grid=${atm_grid_name}.nc
