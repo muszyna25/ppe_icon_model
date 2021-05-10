@@ -320,7 +320,7 @@ CONTAINS
     &                              max_nstencil, global_idx, rbf_shape_param)
     INTEGER,               INTENT(IN)           :: dst_nblks_c, dst_npromz_c  !< size of destination grid
     TYPE (t_geographical_coordinates), INTENT(IN) :: center(:,:)              !< cell or edge center
-    INTEGER,               INTENT(INOUT)        :: intp_data_iidx(:,:,:), &
+    INTEGER,               INTENT(IN)           :: intp_data_iidx(:,:,:), &
       &                                            intp_data_iblk(:,:,:), &   !< Indices of interpolation source points
       &                                            intp_data_nstencil(:,:)
     INTEGER,               INTENT(IN)           :: max_nstencil               !< max. stencil size

@@ -51,7 +51,8 @@ MODULE mo_cover_koe
 
   USE mo_impl_constants,     ONLY: iedmf
 
-  USE mo_nwp_tuning_config,  ONLY: tune_box_liq, tune_box_liq_asy, tune_thicklayfac, tune_sgsclifac, icpl_turb_clc
+  USE mo_nwp_tuning_config,  ONLY: tune_box_liq, tune_box_liq_asy, tune_thicklayfac, tune_sgsclifac, icpl_turb_clc, &
+                                   tune_box_liq_sfc_fac
 
   USE mo_ensemble_pert_config, ONLY: box_liq_sv, thicklayfac_sv, box_liq_asy_sv
 
@@ -245,7 +246,6 @@ dq1   = 0.8_wp  + 100._wp*(tune_box_liq-box_liq_sv)*(tune_box_liq_asy-box_liq_as
 dq2   = 1._wp   + 400._wp*(tune_thicklayfac-thicklayfac_sv)*(tune_box_liq_asy-box_liq_asy_sv)
 dq3   = 0.25_wp + 2500._wp*(tune_box_liq-box_liq_sv)*(tune_thicklayfac-thicklayfac_sv)
 
-
 ! Snow is added to qi_dia in three cases: 
 ! 1) No coupling of reff with radiation
 ! 2) No param for reff 
@@ -276,8 +276,8 @@ DO jk = kstart,klev
     zqisat (jl,jk) = fgqs ( fgee(tt(jl,jk)), vap_pres, pp(jl,jk) )
     ! derivative of qsat_w w.r.t. temperature
     zdqlsat_dT(jl,jk) = dqsdt(tt(jl,jk), zqlsat(jl,jk))
-    ! limit on box width near the surface, reaches 0.05 at 500 m AGL
-    zagl_lim(jl,jk) = 0.025_wp + 5.e-5_wp * pgeo(jl,jk)*grav_i
+    ! limit on box width near the surface, reaches unperturbed tune_box_liq (default 0.05) at 500 m AGL
+    zagl_lim(jl,jk) = tune_box_liq_sfc_fac * box_liq_sv * (0.5_wp + 1.e-3_wp*pgeo(jl,jk)*grav_i)
   ENDDO
 ENDDO
 

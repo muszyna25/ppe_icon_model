@@ -76,8 +76,8 @@ MODULE mo_art_emission_interface
   USE mo_art_emission_dust,             ONLY: art_emission_dust,art_prepare_emission_dust
   USE mo_art_emission_chemtracer,       ONLY: art_emiss_chemtracer
   USE mo_art_emission_full_chemistry,   ONLY: art_emiss_full_chemistry
-  USE mo_art_emission_pollen,           ONLY: art_emiss_pollen,                   &
-                                          &   art_prepare_tsum, art_prepare_sdes, &
+  USE mo_art_emission_pollen,           ONLY: art_emiss_pollen, art_pollen_get_nstns, &
+                                          &   art_prepare_tsum, art_prepare_sdes,     &
                                           &   art_prepare_saisl
   USE mo_art_emission_pntSrc,           ONLY: art_emission_pntSrc
   USE mo_art_read_emissions,            ONLY: art_add_emission_to_tracers
@@ -374,6 +374,9 @@ CONTAINS
                 ! time check
                 IF ( current_date%time%hour == 12 .AND.  &
                   &  (current_date%time%minute * 60 + current_date%time%second) < INT(dtime) ) THEN
+                 ! Get n_stns
+                 CALL art_pollen_get_nstns( p_art_data(jg)%ext%pollen_prop, fields%name, n_stns )
+
                  DO jb = art_atmo%i_startblk, art_atmo%i_endblk
                     CALL art_get_indices_c(jg, jb, istart, iend)
 
@@ -382,8 +385,7 @@ CONTAINS
                       &                    fields%name,                    &
                       &                    p_art_data(jg)%ext%pollen_prop, &
                       &                    art_atmo%t_2m(:,jb),            &
-                      &                    jb, istart, iend,               &
-                      &                    n_stns )
+                      &                    jb, istart, iend                )
                   ENDDO !jb
 
                   IF(.NOT.ALLOCATED(saisl_stns)) ALLOCATE(saisl_stns(n_stns))

@@ -203,12 +203,11 @@ MODULE mo_mpi
   ! Comment: Please use basic WRITE to nerr for messaging in the whole
   !          MPI package to achieve proper output.
 
-  USE ISO_C_BINDING, ONLY: C_CHAR, C_SIGNED_CHAR
+  USE, INTRINSIC :: iso_c_binding, ONLY: c_char, c_signed_char, c_int
+  
   ! actual method (MPI-2)
 #ifndef NOMPI
-#if !defined (__SUNPRO_F95)
   USE mpi
-#endif
 #endif
 
 #ifdef _OPENMP
@@ -223,16 +222,22 @@ MODULE mo_mpi
 #ifdef HAVE_CDI_PIO
   USE mo_cdi_pio_interface, ONLY: nml_io_cdi_pio_conf_handle
 #endif
-!  USE mo_impl_constants, ONLY: SUCCESS
 
   USE mo_emvorado_init, ONLY: init_emvorado_mpi
 
-#ifndef __STANDALONE
-    USE mo_util_system, ONLY: util_exit
+#ifdef __STANDALONE
+  INTERFACE
+    SUBROUTINE exit(iret) BIND(C,name='exit')
+      IMPORT :: c_int
+      INTEGER(c_int), VALUE :: iret
+    END SUBROUTINE exit
+  END INTERFACE
+#else
+  USE mo_util_system, ONLY: util_exit
 #endif
 
   USE mo_master_control, ONLY: get_my_process_type, hamocc_process, ocean_process, process_exists, &
-    & my_process_is_hamocc, my_process_is_ocean
+       &                       my_process_is_hamocc, my_process_is_ocean
 
 #ifdef HAVE_YAXT
   USE yaxt,                   ONLY: xt_initialize, xt_initialized
@@ -242,11 +247,6 @@ MODULE mo_mpi
 
   PRIVATE                          ! all declarations are private
 
-#ifndef NOMPI
-#if defined (__SUNPRO_F95)
-  INCLUDE "mpif.h"
-#endif
-#endif
 #ifdef HAVE_CDI_PIO
   INCLUDE 'cdipio.inc'
 #endif
@@ -371,20 +371,14 @@ MODULE mo_mpi
   !--------------------------------------------------------------------
 
 #ifndef NOMPI
-#ifdef  __SUNPRO_F95
-  INTEGER,PUBLIC :: MPI_INTEGER, MPI_STATUS_SIZE, MPI_SUCCESS, &
-            MPI_INFO_NULL, MPI_ADDRESS_KIND, MPI_COMM_SELF, &
-            MPI_UNDEFINED, mpi_max, mpi_in_place
-#else
   PUBLIC :: MPI_INTEGER, MPI_STATUS_SIZE, MPI_SUCCESS, &
             MPI_INFO_NULL, MPI_ADDRESS_KIND, &
-            MPI_UNDEFINED, mpi_in_place, mpi_op_null, &
-            mpi_datatype_null
-#endif
+            MPI_UNDEFINED, MPI_IN_PLACE, MPI_OP_NULL, &
+            MPI_DATATYPE_NULL
   PUBLIC :: MPI_2INTEGER
 #endif
   PUBLIC :: MPI_ANY_SOURCE, MPI_COMM_NULL, MPI_COMM_SELF
-  PUBLIC :: mpi_request_null
+  PUBLIC :: MPI_REQUEST_NULL
 
   ! real data type matching real type of MPI implementation
   PUBLIC :: p_real_dp, p_real_sp, p_real
@@ -903,6 +897,8 @@ MODULE mo_mpi
 
   CHARACTER(*), PARAMETER :: modname = "mo_mpi"
 
+  CHARACTER(len=256) :: message_text = ""
+  
 #if defined( _OPENACC )
 #define ACC_DEBUG NOACC
 #if defined(__MPI_NOACC)
@@ -2053,8 +2049,7 @@ CONTAINS
 #else
 
     IF (my_mpi_function /= work_mpi_process) THEN
-      WRITE (nerr,'(a,a)') method_name, ' Process type is not work_mpi_process.'
-      STOP
+      CALL finish(method_name, ' Process type is not work_mpi_process.')
     END IF
     num_component = SIZE(p_work_root_processes)
     other_comp_root_global_mpi_id = -1
@@ -2067,8 +2062,7 @@ CONTAINS
     END DO
 
     IF (other_comp_root_global_mpi_id == -1) THEN
-      WRITE (nerr,'(a,a)') method_name, ' Other component not found.'
-      STOP
+      CALL finish(method_name, ' Other component not found.')
     END IF
 
     ! Perform the same as above, but create the intra-communicators between
@@ -2160,18 +2154,22 @@ CONTAINS
     ! check if mpi is initialized
     CALL MPI_INITIALIZED(l_mpi_is_initialised, p_error)
     IF (p_error /= MPI_SUCCESS) THEN
+      ! assume MPI is not running
       WRITE (nerr,'(a,a)') routine, ' MPI_INITITIALIZED failed.'
       WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-      STOP
+#ifdef __STANDALONE
+      CALL exit(p_error)
+#else
+      CALL util_exit(p_error)
+#endif
     END IF
     !--------------------------------------------
     ! split global_mpi_communicator
     CALL MPI_Comm_split(global_mpi_communicator, component_no, my_global_mpi_id, &
       & new_communicator, p_error)
     IF (p_error /= MPI_SUCCESS) THEN
-      WRITE (nerr,'(a,a)') routine, ' MPI_Comm_split failed.'
-      WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-      STOP
+      WRITE (message_text,'(a,i4)') ' MPI_Comm_split failed: error =  ', p_error
+      CALL finish(routine, message_text)
     END IF
     CALL set_process_mpi_communicator(new_communicator)
     ALLOCATE(p_work_root_processes(num_components))
@@ -2206,13 +2204,21 @@ CONTAINS
     IF (p_error /= MPI_SUCCESS) THEN
       WRITE (nerr,'(a,a)') routine, ' MPI_INITITIALIZED failed.'
       WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-      STOP
+#ifdef __STANDALONE
+      CALL exit(p_error)
+#else
+      CALL util_exit(p_error)
+#endif
     END IF
 
     IF ( .NOT. l_mpi_is_initialised ) THEN
        WRITE (nerr,'(a,a)') routine, &
          & ' MPI_Init or start_mpi needs to be called first.'
-       STOP
+#ifdef __STANDALONE
+      CALL exit(p_error)
+#else
+      CALL util_exit(p_error)
+#endif
     ENDIF
 
     IF ( process_mpi_all_comm /= MPI_COMM_NULL) THEN
@@ -2312,10 +2318,7 @@ CONTAINS
 #ifndef NOMPI
     INTEGER :: provided
 #endif
-#ifndef __SX__
-    ! status
-!    INTEGER :: istat
-#else
+#ifdef __SX__
     EXTERNAL :: getenv
 #endif
 #endif
@@ -2342,7 +2345,11 @@ CONTAINS
     IF (p_error /= MPI_SUCCESS) THEN
        WRITE (nerr,'(a,a)') routine, ' MPI_INIT failed.'
        WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-       STOP
+#ifdef __STANDALONE
+      CALL exit(p_error)
+#else
+      CALL util_exit(p_error)
+#endif
     END IF
 
 #ifdef _OPENMP
@@ -2354,7 +2361,11 @@ CONTAINS
        WRITE (nerr,'(a,i0)') " provided: ", provided
        WRITE (nerr,'(a,i0)') " required: ", MPI_THREAD_MULTIPLE
        CALL MPI_Finalize(p_error)
-       STOP
+#ifdef __STANDALONE
+      CALL exit(iexit)
+#else
+      CALL util_exit(iexit)
+#endif       
     END IF
 #else
     IF (provided < MPI_THREAD_FUNNELED) THEN
@@ -2362,16 +2373,18 @@ CONTAINS
          & ' MPI_INIT_THREAD did not return desired level of thread support'
        WRITE (nerr,'(a,i0)') " provided: ", provided
        WRITE (nerr,'(a,i0)') " required: ", MPI_THREAD_FUNNELED
-       ! CALL MPI_Finalize(p_error)
-       ! STOP
-    END IF
+     END IF
 #endif
 #endif
 
     CALL MPI_BUFFER_ATTACH(mpi_buffer, SIZE(mpi_buffer), p_error)
     IF (p_error /= 0) THEN
        WRITE (0,*) "Error in MPI_BUFFER_ATTACH."
-       STOP
+#ifdef __STANDALONE
+      CALL exit(p_error)
+#else
+      CALL util_exit(p_error)
+#endif       
     END IF
 
     process_mpi_all_comm = MPI_COMM_NULL
@@ -2577,6 +2590,7 @@ CONTAINS
   !------------------------------------------------------------------------------
   SUBROUTINE stop_mpi
 
+    INTEGER :: iexit = 0    
     ! finish MPI and clean up all PEs
 
 #ifndef NOMPI
@@ -2586,22 +2600,28 @@ CONTAINS
     CALL MPI_FINALIZE (p_error)
 
     IF (p_error /= MPI_SUCCESS) THEN
-       WRITE (nerr,'(a)') ' MPI_FINALIZE failed.'
-       WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL abort_mpi
+      iexit = 1
+      WRITE (nerr,'(a)') ' MPI_FINALIZE failed.'
+      WRITE (nerr,'(a,i4)') ' Error = ', p_error
+      CALL abort_mpi
     END IF
     process_is_mpi_parallel = .FALSE.
     DEALLOCATE(p_request)
 #endif
-
+#ifdef __STANDALONE
+    CALL exit(iexit)
+#else
+    CALL util_exit(iexit)
+#endif
   END SUBROUTINE stop_mpi
   !------------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------
   SUBROUTINE abort_mpi
 
-    ! this routine should be used instead of abort, util_abort() or STOP
-    ! in all routines for proper clean up of all PEs
+    ! this routine should be used instead of abort, util_abort() or
+    ! STOP or any other exit call in all routines for proper clean up
+    ! of all PEs
 
 #ifndef NOMPI
     CALL MPI_ABORT (MPI_COMM_WORLD, 0, p_error)
@@ -2609,14 +2629,12 @@ CONTAINS
     IF (p_error /= MPI_SUCCESS) THEN
        WRITE (nerr,'(a)') ' MPI_ABORT failed.'
        WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-       STOP
-    END IF
-#else
-#ifndef __STANDALONE
-    CALL util_exit(1)
-#else
-    STOP 'mo_mpi: abort_mpi ..'
+     END IF
 #endif
+#ifndef __STANDALONE
+     CALL util_exit(1)
+#else
+     CALL exit(1)
 #endif
 
   END SUBROUTINE abort_mpi
@@ -4546,19 +4564,9 @@ CONTAINS
     END IF
     IF (icount > 0) icount = icount * LEN(t_buffer(1))
 
-#ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-#endif
-
     CALL p_inc_request
     CALL mpi_isend(t_buffer, icount, p_char, p_destination, p_tag, &
          p_comm, p_request(p_irequest), p_error)
-
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-!$ACC END DATA
-#endif
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -5305,18 +5313,8 @@ CONTAINS
     END IF
     IF (icount > 0) icount = icount * LEN(t_buffer(1))
 
-#ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-#endif
-
     CALL mpi_irecv(t_buffer, icount, p_char, p_source, p_tag, &
          p_comm, out_request, p_error)
-
-#ifdef __USE_G2G
-!$ACC END HOST_DATA
-!$ACC END DATA
-#endif
 
     IF (PRESENT(request)) THEN
       request               = out_request
@@ -9731,9 +9729,7 @@ CONTAINS
                      p_dest, p_comm, p_error)
 
      IF (p_error /= MPI_SUCCESS) THEN
-       WRITE (nerr,'(a)') ' p_gather_real_5d6d failed.'
-       WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       STOP
+       CALL finish('p_gather_real_5d6d', message_text)
      END IF
 
 #else

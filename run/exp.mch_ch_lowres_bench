@@ -9,7 +9,7 @@ author_list="Remo Dietlicher, MeteoSwiss"
 # This experiment describes a ICON-LAM experiment using the physics packages that are
 # used at MeteoSwiss for production that are already put on the gpu.
 # This simulation computes a few time steps on a low-resolution grid over Switzerland.
-# The setup is for development purposes.
+# This setup is for development purposes.
 #
 #--------------------------------------------------------------------------------------------------
 
@@ -224,7 +224,7 @@ cat > ${atmo_namelist} << EOF
 &io_nml
  output_nml_dict             =              "${dict_file}"        ! translates the output nml names to icon names
  netcdf_dict                 =              "${dict_file}"        ! specifies the names in the output netcdf file
- lnetcdf_flt64_output        =                      .TRUE.        ! double precision output
+ lnetcdf_flt64_output        =                      .FALSE.        ! double precision output
  itype_pres_msl              =                          5         ! method for computation of mean sea level pressure
  itype_rh                    =                          1         ! method for computation of relative humidity
  lmask_boundary              =                      .FALSE.        ! mask out interpolation zone in output
@@ -312,6 +312,15 @@ cat > ${atmo_namelist} << EOF
  dt_conv                     =                 120.,90.,90.       ! time step for convection in s (domain specific)
  dt_sso                      =               120.,360.,360.       ! time step for SSO parameterization
  dt_gwd                      =               360.,360.,360.       ! time step for gravity wave drag parameterization
+/
+
+! bench_nml: switches for the time_loop ------------------------------
+&bench_nml
+ d_unpb           =          .FALSE.        ! disable update_nwp_phy_bcs
+ d_ndfo           =          .TRUE.         ! disable nwp_diag_for_output
+ d_rld            =          .FALSE.        ! disable recv_latbc_data
+ d_n              =          .TRUE.         ! disable nudging
+ d_wnlo           =          .FALSE.        ! disable write_name_list_output
 /
 
 ! nwp_tuning_nml: additional tuning parameters ----------------------------------

@@ -230,8 +230,7 @@ CONTAINS
         EXIT TEST_LOOP
       END IF
       IF (i == N_RETRIES) THEN
-        WRITE (0,*) "mo_util_file::util_tmpnam : Failed to find a tmp filename!"
-        STOP
+        CALL finish('mo_util_file::util_tmpnam', 'Failed to find a tmp filename!')
       END IF
     END DO TEST_LOOP
   END FUNCTION util_tmpnam

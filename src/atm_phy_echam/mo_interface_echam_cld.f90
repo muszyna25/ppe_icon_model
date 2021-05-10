@@ -111,7 +111,7 @@ CONTAINS
                &     jcs, jce, nproma, nlev,       &! in
                &     pdtime,                       &! in
                &     field% ictop    (:,  jb),     &! in (from "cucall")
-               &     field% presm_old(:,:,jb),     &! in
+               &     field% pfull    (:,:,jb),     &! in
                &     field% dz       (:,:,jb),     &! in
                &     field% mref     (:,:,jb),     &! in
                &     field% rho      (:,:,jb),     &! in

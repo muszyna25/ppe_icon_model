@@ -86,6 +86,9 @@
     USE mo_util_string,         ONLY: tolower
     USE mo_util_sysinfo,        ONLY: check_file_exists
     USE mo_dictionary,          ONLY: t_dictionary
+#if defined( _OPENACC )
+    USE mo_mpi,                 ONLY: i_am_accel_node, my_process_is_work
+#endif
 
     IMPLICIT NONE
     PRIVATE
@@ -1178,6 +1181,16 @@
       ! data are required for correct results
       IF (latbc_read_datetime >= time_config%tc_stopdate + latbc%delta_dtime) RETURN
 
+      ! copy values needed from the GPU to the CPU
+#ifdef _OPENACC
+      CALL message('mo_asyc_latbc_utils', 'Device to host copy of values needed in recv_latbc_data. This needs to be removed once port is finished!')
+      !$ACC UPDATE HOST (p_nh_state%diag%grf_tend_tracer)
+      !$ACC UPDATE HOST (p_nh_state%diag%grf_tend_vn)
+      !$ACC UPDATE HOST (p_nh_state%diag%grf_tend_rho)
+      !$ACC UPDATE HOST (p_nh_state%diag%grf_tend_thv)
+      !$ACC UPDATE HOST (p_nh_state%diag%grf_tend_w)
+      i_am_accel_node = .FALSE.
+#endif
 
       ! compute processors wait for msg from
       ! prefetch processor that they can start
@@ -1216,6 +1229,17 @@
 
       ! Store mtime_last_read
       latbc%mtime_last_read = latbc_read_datetime
+
+      ! copy changed values form CPU to GPU
+#ifdef _OPENACC
+        CALL message('mo_nh_stepping', 'Host to device copy of values changed in recv_latbc_data. This needs to be removed once port is finished!')
+        !$ACC UPDATE DEVICE (p_nh_state%diag%grf_tend_vn)
+        !$ACC UPDATE DEVICE (p_nh_state%diag%grf_tend_rho)
+        !$ACC UPDATE DEVICE (p_nh_state%diag%grf_tend_thv)
+        !$ACC UPDATE DEVICE (p_nh_state%diag%grf_tend_w)
+        !$ACC UPDATE DEVICE (p_nh_state%diag%grf_tend_tracer)
+        i_am_accel_node = my_process_is_work()
+#endif
 #endif
     END SUBROUTINE recv_latbc_data
 

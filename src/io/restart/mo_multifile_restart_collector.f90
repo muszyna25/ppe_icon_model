@@ -21,7 +21,7 @@ MODULE mo_multifile_restart_collector
   HANDLE_MPI_ERROR_USE
   USE mpi, ONLY: addr => MPI_ADDRESS_KIND, MPI_DATATYPE_NULL, MPI_STATUS_IGNORE, &
     & MPI_STATUSES_IGNORE, MPI_TYPECLASS_INTEGER, MPI_COMM_NULL, MPI_INFO_NULL, &
-    & MPI_MODE_NOCHECK, MPI_LOCK_EXCLUSIVE, MPI_WIN_NULL, MPI_Sizeof
+    & MPI_MODE_NOCHECK, MPI_LOCK_EXCLUSIVE, MPI_WIN_NULL, MPI_Sizeof, MPI_UNDEFINED
 #else
   USE mo_kind, ONLY: addr => i8
 #endif
@@ -539,6 +539,9 @@ CONTAINS
       ALLOCATE(this%tOffSv(4))
       this%srcPE(1) = 0
       this%tOffSv(:) = tOffCl(:)
+! this makes "ill" configs work; i.e. using more than 1 writer per worker, but less than 2 -- on average
+      CALL MPI_Comm_split(p_comm_work_restart, MPI_UNDEFINED, 0, this%wComm, ierr)
+      HANDLE_MPI_ERROR(ierr, 'MPI_Comm_split')
     ELSE
       myRank = p_comm_rank(p_comm_work_restart)
       splitKey = MERGE(1, myRank + 2, iAmRestartWriter())

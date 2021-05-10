@@ -69,6 +69,8 @@ td_2m_land          TD_2M_L
 t_2m_land           T_2M_L
 t_2m                T_2M
 t2m_bias            T_2M_FILTBIAS
+rh_avginc           RELHUM_LML_FILTINC
+t_avginc            T_LML_FILTINC
 albdif              ALB_RAD
 alb_si              ALB_SEAICE
 asodifd_s           ASWDIFD_S

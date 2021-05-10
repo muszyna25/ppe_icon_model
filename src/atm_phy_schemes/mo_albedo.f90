@@ -704,11 +704,12 @@ CONTAINS
         !   separate index list.
         ! 
 
-        !$acc data copyin (ntiles_total, ntiles_water, isub_water, isub_seaice, isub_lake, llake,      &
-        !$acc &                  jb, i_startidx,i_endidx, csalb_snow_fe, csalb_snow_fd,zsnow_alb,            &
-        !$acc &                  csalb_snow_min, ext_data%atm%i_lc_snow_ice, zsnowfrac, direct_albedo_water, &
-        !$acc &                  zalbvisdir_t, zalbnirdir_t, ext_data%atm%list_seaice%idx) if (lacc)
+        !$acc data copyin (ntiles_total, ntiles_water, isub_water, isub_seaice,           &
+        !$acc &            isub_lake, llake, jb, i_startidx,i_endidx, zsnow_alb,          &
+        !$acc &            zsnowfrac, direct_albedo_water,  zalbvisdir_t, zalbnirdir_t,   &
+        !$acc &            ext_data%atm%list_seaice%idx                                   ) if (lacc)
 
+        
         !$acc parallel default (present) if (lacc)
         !$acc loop seq
         DO jt = 1, ntiles_total

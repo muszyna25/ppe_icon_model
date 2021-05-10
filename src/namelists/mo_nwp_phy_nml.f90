@@ -45,7 +45,7 @@ MODULE mo_nwp_phy_nml
 
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: read_nwp_phy_namelist 
+  PUBLIC :: read_nwp_phy_namelist
 
    !
    ! user defined calling intervals
@@ -108,7 +108,6 @@ MODULE mo_nwp_phy_nml
     &                    ldetrain_conv_prec, rain_n0_factor,         &
     &                    icalc_reff, lupatmo_phy, icpl_rad_reff,     &
     &                    lgrayzone_deepconv
-
  
 CONTAINS
 

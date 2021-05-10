@@ -21,6 +21,9 @@ module cvmix_utils
                                      CVMIX_MAX_OLD_AND_NEW_VALS,              &
                                      CVMIX_OVERWRITE_OLD_VAL
 
+
+   USE mo_exception,          ONLY: finish
+
 !EOP
 
   implicit none
@@ -34,6 +37,9 @@ module cvmix_utils
   public :: cvmix_att_name
   public :: cvmix_update_tke
   public :: solve_tridiag
+
+
+  CHARACTER(LEN=*), PARAMETER :: module_name = 'cvmix_utils'
 
 !EOP
 
@@ -67,6 +73,8 @@ contains
                                                                   Tdiff_out,  &
                                                                   Sdiff_out
 
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_update_wrap'
+
 !EOP
 !BOC
 
@@ -97,8 +105,9 @@ contains
         if ((present(Sdiff_out)).and.(present(new_Sdiff))) &
           Sdiff_out = new_Sdiff
       case DEFAULT
-        print*, "ERROR: do not know how to handle old values!"
-        stop 1
+!        print*, "ERROR: do not know how to handle old values!"
+!        stop 1
+        CALL finish(method_name,'ERROR: do not know how to handle old values!')
     end select
 
 !EOC
@@ -126,6 +135,8 @@ contains
 
 ! !OUTPUT PARAMETERS:
     character(len=cvmix_strlen) :: cvmix_att_name
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_att_name'
 
 !EOP
 !BOC
@@ -252,9 +263,11 @@ contains
       case ("VertDep", "VertDep_iface", "vert_dep")
         cvmix_att_name = "VertDep_iface"
       case DEFAULT
-        print*, "ERROR: ", trim(varname), " is not tied to an attribute of ", &
-                "the cvmix_data_type structure."
-        stop 1
+!        print*, "ERROR: ", trim(varname), " is not tied to an attribute of ", &
+!                "the cvmix_data_type structure."
+!        stop 1
+        CALL finish(method_name,'ERROR: '//TRIM(varname)//' is not tied to an attribute of &
+             the cvmix_data_type structure.')
     end select
 
 !EOC
@@ -292,6 +305,10 @@ contains
 
 
     integer :: kw
+
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_update_tke'
+
 
 
     select case (old_vals)
@@ -332,8 +349,9 @@ contains
         if ((present(iw_diss_out)).and.(present(new_iw_diss))) &
           iw_diss_out = new_iw_diss
       case DEFAULT
-        print*, "ERROR: do not know how to handle old values!"
-        stop 1
+!        print*, "ERROR: do not know how to handle old values!"
+!        stop 1
+        CALL finish(method_name,'ERROR: do not know how to handle old values!')
     end select
 
   end subroutine cvmix_update_tke

@@ -91,7 +91,6 @@ INTEGER :: i_startblk                ! start block
 INTEGER :: i_endblk                  ! end index
 INTEGER :: i_startidx                ! start index
 INTEGER :: i_endidx                  ! end index
-INTEGER :: i_nchdom                  ! number of child domains
 
 INTEGER :: nlev_c       !< number of vertical full levels (child domain)
 
@@ -145,8 +144,6 @@ nlev_c = ptr_pc%nlev
 ! Shift parameter
 js = nshift
 
-! Number of child domains of nested domain
-i_nchdom = MAX(1,ptr_pc%n_childdom)
 
 !$OMP PARALLEL PRIVATE (i_startblk,i_endblk)
 

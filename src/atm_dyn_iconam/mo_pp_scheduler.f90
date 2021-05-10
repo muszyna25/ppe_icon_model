@@ -485,7 +485,7 @@ CONTAINS
         & new_element=new_element, loutput=.TRUE., post_op=post_op,                     &
         & var_class=state%field_u%info%var_class, tlev_source=info%tlev_source,       &
         & hor_interp=state%field_u%info%hor_interp,                                   &
-        & vert_interp=state%field_u%info%vert_interp )
+        & vert_interp=state%field_u%info%vert_interp, lopenacc=.TRUE. )
 
       name    = TRIM(get_var_name(state%field_v))//suffix
       cf      = state%field_v%info%cf
@@ -497,7 +497,7 @@ CONTAINS
         & new_element=new_element_2, loutput=.TRUE., post_op=post_op,                   &
         & var_class=state%field_v%info%var_class, tlev_source=info%tlev_source,       &
         & hor_interp=state%field_v%info%hor_interp,                                   &
-        & vert_interp=state%field_v%info%vert_interp )
+        & vert_interp=state%field_v%info%vert_interp, lopenacc=.TRUE. )
 
       ! link these new variables to the lon-lat grid:
       new_element%field%info%hor_interp%lonlat_id   = state%ll_grid_id
@@ -840,7 +840,7 @@ CONTAINS
             &           post_op=info%post_op,                                 &
             &           lmiss=info%lmiss,                                     &
             &           missval=info%missval%rval, var_class=info%var_class,  &
-            &           tlev_source=info%tlev_source )
+            &           tlev_source=info%tlev_source, lopenacc=.TRUE. )
         END IF
         !--- INTEGER fields
         IF (ASSOCIATED(field%i_ptr)) THEN
@@ -855,7 +855,7 @@ CONTAINS
             &           post_op=info%post_op,                                 &
             &           lmiss=info%lmiss,                                     &
             &           missval=info%missval%ival, var_class=info%var_class,  &
-            &           tlev_source=info%tlev_source )
+            &           tlev_source=info%tlev_source, lopenacc=.TRUE. )
         END IF
         IF (ASSOCIATED(field%s_ptr)) THEN
           CALL add_var( p_opt_diag_list, info%name, p_opt_field_r3d,          &
@@ -871,7 +871,7 @@ CONTAINS
             &           lmiss=info%lmiss,                                     &
             &           missval=REAL(info%missval%sval,wp),                   &
             &           var_class=info%var_class,                             &
-            &           tlev_source=info%tlev_source )
+            &           tlev_source=info%tlev_source, lopenacc=.TRUE. )
         END IF
         ! LOGICAL fields
         IF (ASSOCIATED(field%l_ptr)) THEN
@@ -1021,8 +1021,9 @@ CONTAINS
       &           post_op=element%field%info%post_op, loutput=.TRUE., lrestart=.FALSE., &
       &           var_class=element%field%info%var_class,                               &
       &           tlev_source=element%field%info%tlev_source,                           &
-      &           hor_interp=element%field%info%hor_interp,                             & 
-      &           vert_interp=element%field%info%vert_interp )
+      &           hor_interp=element%field%info%hor_interp,                             &
+      &           vert_interp=element%field%info%vert_interp,                           &
+      &           lopenacc=.TRUE. )
   END SUBROUTINE copy_variable
 
 
@@ -1118,7 +1119,8 @@ CONTAINS
       &          var_class=info%var_class,                                    &
       &          tlev_source=info%tlev_source,                                &
       &          hor_interp=info%hor_interp,                                  &
-      &          vert_interp=info%vert_interp )
+      &          vert_interp=info%vert_interp,                                &
+      &          lopenacc=.TRUE. )
 
     !-- create a post-processing task for vertical interpolation of "vn"
     task => pp_task_insert(DEFAULT_PRIORITY1)
@@ -1154,7 +1156,8 @@ CONTAINS
       & var_class=state%field_u%info%var_class,                               &
       & tlev_source=state%field_u%info%tlev_source,                           &
       & hor_interp=state%field_u%info%hor_interp,                             &
-      & vert_interp=state%field_u%info%vert_interp )
+      & vert_interp=state%field_u%info%vert_interp,                           &
+      & lopenacc=.TRUE. )
 
     name    = TRIM(get_var_name(state%field_v))//suffix
     CALL add_var(state%dst_varlist, TRIM(name), p_opt_field_r3d,              &
@@ -1165,7 +1168,8 @@ CONTAINS
       & var_class=state%field_v%info%var_class,                               &
       & tlev_source=state%field_v%info%tlev_source,                           &
       & hor_interp=state%field_v%info%hor_interp,                             &
-      & vert_interp=state%field_v%info%vert_interp  )
+      & vert_interp=state%field_v%info%vert_interp,                           &
+      & lopenacc=.TRUE. )
 
     !-- create a post-processing task for edge2cell interpolation "vn" -> "u","v"
     task => pp_task_insert(DEFAULT_PRIORITY2)
@@ -1541,7 +1545,8 @@ CONTAINS
         &          post_op=info%post_op, var_class=info%var_class, &
         &          tlev_source=info%tlev_source,                   &
         &          hor_interp=info%hor_interp,                     &
-        &          vert_interp=info%vert_interp )
+        &          vert_interp=info%vert_interp,                   &
+        &          lopenacc=.TRUE. )
 
       !-- add post-processing task for interpolation
 

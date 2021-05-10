@@ -308,14 +308,16 @@ CONTAINS
 !!  coefficients which are used in "hydci_pp"
 !------------------------------------------------------------------------------
 
-SUBROUTINE gscp_set_coefficients (idbg, tune_zceff_min, tune_v0snow, tune_zvz0i, &
-  &                               tune_mu_rain, tune_rain_n0_factor, tune_icesedi_exp, igscp)
+SUBROUTINE gscp_set_coefficients (igscp, idbg, tune_zceff_min, tune_v0snow, tune_zvz0i, &
+  &                               tune_mu_rain, tune_rain_n0_factor, tune_icesedi_exp)
 
 !------------------------------------------------------------------------------
 !> Description:
 !!   Calculates some coefficients for the microphysics schemes. 
 !!   Usually called only once at model startup.
 !------------------------------------------------------------------------------
+
+  INTEGER  ,INTENT(IN)           ::  igscp
 
   INTEGER  ,INTENT(IN) ,OPTIONAL ::  idbg              !! debug level
   REAL(wp) ,INTENT(IN) ,OPTIONAL ::  tune_zceff_min
@@ -324,7 +326,6 @@ SUBROUTINE gscp_set_coefficients (idbg, tune_zceff_min, tune_v0snow, tune_zvz0i,
   REAL(wp) ,INTENT(IN) ,OPTIONAL ::  tune_icesedi_exp
   REAL(wp) ,INTENT(IN) ,OPTIONAL ::  tune_mu_rain
   REAL(wp) ,INTENT(IN) ,OPTIONAL ::  tune_rain_n0_factor
-  INTEGER  ,INTENT(IN) ,OPTIONAL ::  igscp
   
 ! Local variable
 #ifdef __COSMO__
@@ -336,15 +337,13 @@ SUBROUTINE gscp_set_coefficients (idbg, tune_zceff_min, tune_v0snow, tune_zvz0i,
 !>  Initial setting of local and global variables
 !------------------------------------------------------------------------------
 
-  IF (PRESENT(igscp)) THEN
-    IF (igscp == 2) THEN
-      zams = zams_gr         ! default for graupel scheme
-    ELSE
-      zams = zams_ci         ! default for cloud ice scheme
-    END IF
+
+  IF (igscp == 2) THEN
+    zams = zams_gr         ! default for graupel scheme
   ELSE
-    zams = zams_ci           ! COSMO default
+    zams = zams_ci         ! default for cloud ice scheme
   END IF
+
   ageo_snow = zams           ! zams is local, but ageo_snow will survive
 
   IF (PRESENT(tune_zceff_min)) THEN
@@ -420,15 +419,13 @@ SUBROUTINE gscp_set_coefficients (idbg, tune_zceff_min, tune_v0snow, tune_zvz0i,
   zvz0r  = 130.0_wp*gamma_fct(mu_rain+4.5_wp)/gamma_fct(mu_rain+4.0_wp)*zar**(-zvzxp)
 
 #ifdef __ICON__  
-  IF (PRESENT(igscp)) THEN    ! WS 2021-03-12: bug fix for igscp not present
-    !CK> for cloud ice sedimentation based on KC05
-    IF (igscp == 3) THEN
-      vtxexp = kc_beta + 2.0_wp - kc_sigma
-      kc_c1  = 4.0_wp / ( do_i**2 * SQRT(co_i) )
-      kc_c2  = do_i **2 / 4.0_wp
-    ENDIF
-    !CK<
+  !CK> for cloud ice sedimentation based on KC05
+  IF (igscp == 3) THEN
+    vtxexp = kc_beta + 2.0_wp - kc_sigma
+    kc_c1  = 4.0_wp / ( do_i**2 * SQRT(co_i) )
+    kc_c2  = do_i **2 / 4.0_wp
   ENDIF
+  !CK<
 #endif    
 
   IF (PRESENT(idbg)) THEN

@@ -116,7 +116,6 @@ MODULE mo_hamocc_model
   USE mo_ocean_hamocc_interface, ONLY: hamocc_to_ocean_init, hamocc_to_ocean_end, hamocc_to_ocean_interface
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_ocean_math_operators,   ONLY: update_height_hamocc
-
 #ifdef YAC_coupling
   USE mo_io_coupling,            ONLY: construct_io_coupler, destruct_io_coupler
 #endif

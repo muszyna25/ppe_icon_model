@@ -27,7 +27,6 @@ MODULE mo_dynamics_config
   USE mo_impl_constants,        ONLY: MAX_DOM
   USE mo_restart_nml_and_att,   ONLY: getAttributesForRestarting
   USE mo_key_value_store,       ONLY: t_key_value_store
-  USE mo_util_string,           ONLY: int2string
 
   IMPLICIT NONE
   PRIVATE

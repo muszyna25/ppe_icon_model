@@ -58,7 +58,7 @@ MODULE mo_hamocc_nml
   LOGICAL, PUBLIC :: l_bgc_check      = .FALSE.   ! MASS check at every time step?
   LOGICAL, PUBLIC :: l_up_sedshi      = .FALSE.   ! Upward sediment shifting
   LOGICAL, PUBLIC :: l_implsed        = .FALSE.   ! Implicit sediment formulation
-  LOGICAL, PUBLIC :: l_dynamic_pi     = .FALSE.    ! Depth dependent pi_alpha 
+  LOGICAL, PUBLIC :: l_dynamic_pi     = .TRUE.    ! Depth dependent pi_alpha 
   LOGICAL, PUBLIC :: l_PDM_settling   = .FALSE.   ! PDM scheme for particle settling
   LOGICAL, PUBLIC :: l_init_bgc       = .FALSE.   ! initialise state variables with cold start values
   LOGICAL, PUBLIC :: l_limit_sal      = .TRUE.    ! limit salinity to min. 25 psu?
@@ -66,6 +66,9 @@ MODULE mo_hamocc_nml
   REAL(wp), PUBLIC :: denit_sed, disso_po
   REAL(wp), PUBLIC :: cycdec, cya_growth_max
   REAL(wp), PUBLIC :: grazra
+  REAL(wp), PUBLIC :: drempoc, dremopal, dremcalc
+  REAL(wp), PUBLIC :: calmax
+  REAL(wp), PUBLIC :: bkcya_P, bkcya_Fe
   !LOGICAL, PUBLIC :: l_avflux         = .TRUE.   ! flux redistribution
   
   REAL(wp), PUBLIC :: atm_co2, atm_o2, atm_n2
@@ -99,7 +102,13 @@ MODULE mo_hamocc_nml
     &  cya_growth_max,&
     &  l_init_bgc, &
     &  l_limit_sal, &
-    &  grazra
+    &  grazra, &
+    &  drempoc, &
+    &  dremopal, &
+    &  dremcalc, &
+    &  calmax, &
+    &  bkcya_P, &
+    &  bkcya_Fe
 
 CONTAINS
   !>
@@ -183,6 +192,15 @@ CONTAINS
    cycdec = 0.1_wp 
    cya_growth_max= 0.2_wp      ! d-1
    grazra=1.0_wp
+
+   drempoc = 0.026_wp
+   dremopal = 0.01_wp
+   dremcalc = 0.075_wp
+ 
+   calmax = 0.15_wp            ! maximum fraction (of "export") for calc production
+
+   bkcya_P = 5.e-8_wp
+   bkcya_Fe = 30.e-8_wp
 
 
 

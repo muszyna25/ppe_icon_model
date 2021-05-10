@@ -1940,15 +1940,21 @@ CONTAINS
   !!
   !! @par Revision History
   !! Initial revision by Michael Baldauf, DWD (2019-10-23) 
+  !! Inserted variable boundaries for vertical integration, Vera Maurer, DWD (2021-03-10)
+  !! Vertical integration changed by Uli Blahak, DWD (2021-03-20)
   !!
   SUBROUTINE compute_field_uh_max( ptr_patch,                 &
                                    p_metrics, p_prog, p_diag, &
+                                   zmin_in, zmax_in,          &
                                    uh_max )
 
     TYPE(t_patch),      INTENT(IN)    :: ptr_patch         !< patch on which computation is performed
     TYPE(t_nh_metrics), INTENT(IN)    :: p_metrics
     TYPE(t_nh_prog),    INTENT(IN)    :: p_prog
     TYPE(t_nh_diag),    INTENT(IN)    :: p_diag
+
+    REAL(wp),           INTENT(IN)    :: zmin_in        !< lower boundary for vertical integration
+    REAL(wp),           INTENT(IN)    :: zmax_in        !< upper boundary for vertical integration
 
     REAL(wp),           INTENT(INOUT) :: uh_max(:,:)    !< input/output variable, dim: (nproma,nblks_c)
 
@@ -1977,20 +1983,30 @@ CONTAINS
                           i_startidx, i_endidx, i_rlstart, i_rlend)
 
       DO jc = i_startidx, i_endidx
-        zmin(jc) = MAX( p_metrics%z_ifc( jc, ptr_patch%nlev+1, jb) + 500.0_wp, 2000.0_wp )
-        zmax(jc) = zmin(jc) + 6000.0
+        IF (zmin_in < 500._wp) THEN
+          zmin(jc) = MAX( p_metrics%z_ifc( jc, ptr_patch%nlev+1, jb), zmin_in )
+        ELSE
+          zmin(jc) = MAX( p_metrics%z_ifc( jc, ptr_patch%nlev+1, jb) + 500.0_wp, zmin_in )
+        END IF
+        zmax(jc) = zmin(jc) + zmax_in - zmin_in
       END DO
 
       uhel( i_startidx:i_endidx ) = 0.0_wp
       DO jk = 1, ptr_patch%nlev
         DO jc = i_startidx, i_endidx
 
-          IF ( ( p_metrics%z_mc( jc, jk, jb) >= zmin(jc) ) .AND.     &
-            &  ( p_metrics%z_mc( jc, jk, jb) <= zmax(jc) ) ) THEN
+          ! Parts of the grid boy are within the bounds, integrate over the exact bounds [zmin,zmax]:
+          !  (It also works if the integration layer is so narrow that the bounds are in the same grid box)
+          IF ( ( p_metrics%z_ifc( jc, jk+1, jb) <= zmax(jc) ) .AND.     &
+            &  ( p_metrics%z_ifc( jc, jk, jb)   >= zmin(jc) ) ) THEN
 
             w_c = 0.5_wp * ( p_prog%w(jc,jk,jb) + p_prog%w(jc,jk+1,jb) )
-            ! a simple vertical integration; only updrafts are counted:
-            uhel(jc) = uhel(jc) + MAX( w_c, 0.0_wp) * p_diag%vor(jc,jk,jb) * p_metrics%ddqz_z_full(jc,jk,jb)
+            
+            ! a simple box-integration in the vertical, but honouring the exact integration bounds zmin, zmax;
+            ! only updrafts are counted:
+            uhel(jc) = uhel(jc) + MAX( w_c, 0.0_wp) * p_diag%vor(jc,jk,jb) * &
+                 ( MIN(p_metrics%z_ifc(jc,jk,jb), zmax(jc)) - MAX(p_metrics%z_ifc( jc, jk+1, jb), zmin(jc)) )
+            
           END IF
 
         END DO
@@ -2013,7 +2029,8 @@ CONTAINS
   !! Implementation analogous to those of Uli Blahak in COSMO.
   !!
   !! @par Revision History
-  !! Initial revision by Michael Baldauf, DWD (2019-10-23) 
+  !! Initial revision by Michael Baldauf, DWD (2019-10-23)
+  !! Vertical integration changed by Uli Blahak, DWD (2021-03-20)
   !!
   SUBROUTINE compute_field_vorw_ctmax( ptr_patch,          &
                                        p_metrics, p_diag,  &
@@ -2057,9 +2074,15 @@ CONTAINS
       DO jk = 1, ptr_patch%nlev
         DO jc = i_startidx, i_endidx
 
-          IF ( ( p_metrics%z_mc( jc, jk, jb) >= zmin(jc) ) .AND.     &
-            &  ( p_metrics%z_mc( jc, jk, jb) <= zmax(jc) ) ) THEN
-            vort(jc) = vort(jc) + p_diag%vor(jc,jk,jb) * p_metrics%ddqz_z_full(jc,jk,jb)
+          ! Parts of the grid box are within the bounds, integrate over the exact bounds [zmin,zmax]:
+          !  (It also works if the integration layer is so narrow that the bounds are in the same grid box)
+          IF ( ( p_metrics%z_ifc( jc, jk+1, jb) <= zmax(jc) ) .AND.     &
+            &  ( p_metrics%z_ifc( jc, jk, jb)   >= zmin(jc) ) ) THEN
+
+            ! simple box-integration in the vertical, but honouring the exact integration bounds zmin, zmax:
+            vort(jc) = vort(jc) + p_diag%vor(jc,jk,jb) * &
+                 ( MIN(p_metrics%z_ifc(jc,jk,jb), zmax(jc)) - MAX(p_metrics%z_ifc( jc, jk+1, jb), zmin(jc)) )
+            
           END IF
 
         END DO

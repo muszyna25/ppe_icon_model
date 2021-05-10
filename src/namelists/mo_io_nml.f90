@@ -39,6 +39,7 @@ MODULE mo_io_nml
                                  & config_echotop_meta            => echotop_meta           , &
                                  & t_echotop_meta                                           , &
                                  & config_precip_interval         => precip_interval        , &
+                                 & config_runoff_interval         => runoff_interval        , &
                                  & config_maxt_interval           => maxt_interval          , &
                                  & config_dt_checkpoint           => dt_checkpoint          , &
                                  & config_inextra_2d              => inextra_2d             , &
@@ -107,6 +108,7 @@ CONTAINS
                                              !  (LPI_MAX, UH_MAX, VORW_CTMAX, W_CTMAX, DBZ_CTMAX)
     TYPE(t_echotop_meta) :: echotop_meta(max_dom) ! meta data for echotops (ECHOTOP, ECHOTOPinM)
     CHARACTER(len=max_timedelta_str_len) :: precip_interval(max_dom)   ! time interval over which precipitation variables are accumulated
+    CHARACTER(len=max_timedelta_str_len) :: runoff_interval(max_dom)   ! time interval over which runoff variables are accumulated
     CHARACTER(len=max_timedelta_str_len) :: maxt_interval(max_dom)     ! time interval for tmax_2m and tmin_2m 
     REAL(wp):: dt_lpi                     ! calling frequency [seconds] of lpi diagnosis for hourly maximum calculation
     REAL(wp):: dt_celltracks              ! calling frequency [seconds] of celltrack diagnosis for hourly maximum calculation
@@ -180,7 +182,7 @@ CONTAINS
       &              write_last_restart, timeSteps_per_outputStep,        &
       &              lmask_boundary, gust_interval, restart_write_mode,   &
       &              nrestart_streams, celltracks_interval, echotop_meta, &
-      &              precip_interval, maxt_interval,                      &
+      &              precip_interval, runoff_interval, maxt_interval,     &
       &              nrestart_streams, dt_lpi, dt_celltracks, dt_radar_dbz, &
       &              bvf2_mode, parcelfreq2_mode
 
@@ -204,6 +206,7 @@ CONTAINS
       echotop_meta(jg)%dbzthresh(1:max_echotop)  = -999.99_wp   ! missing value
     END DO
     precip_interval(:)      = "P01Y"       ! 1 year
+    runoff_interval(:)      = "P01Y"       ! 1 year
     maxt_interval(:)        = "PT06H"      ! 6 hours
     dt_lpi                  = 180._wp      ! 3 minutes
     dt_celltracks           = 120._wp      ! 2 minutes
@@ -283,6 +286,7 @@ CONTAINS
     config_celltracks_interval(:)  = celltracks_interval(:)
     config_echotop_meta(:)         = echotop_meta(:)
     config_precip_interval(:)      = precip_interval(:)
+    config_runoff_interval(:)      = runoff_interval(:)
     config_maxt_interval(:)        = maxt_interval(:)
     config_dt_checkpoint           = dt_checkpoint
     config_dt_lpi                  = dt_lpi

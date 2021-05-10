@@ -100,8 +100,8 @@ CONTAINS
                &         jce                      ,&
                &         nc                       ,&
                &         nlev                     ,&
-               &         field% presi_old(:,:,jb) ,&
-               &         field% presm_old(:,:,jb) ,&
+               &         field% phalf(:,:,jb)     ,&
+               &         field% pfull(:,:,jb)     ,&
                &         field%   zh(:,:,jb)      ,&
                &         field%  rho(:,:,jb)      ,&
                &         field% mair(:,:,jb)      ,&

@@ -367,8 +367,6 @@ CONTAINS
       ! Shut down MPI
       CALL stop_mpi
 
-      STOP
-
     END SUBROUTINE prefetch_main_proc
 #endif
     !--------------------------------------------------------------------------

@@ -197,6 +197,7 @@ CONTAINS
 
     INTEGER :: jc,jk,jb,jce      !loop indices
     INTEGER :: jg,jgc            !domain id
+    INTEGER :: convind           !help variable to circument compiler issue
 
     LOGICAL :: ltemp, lpres, ltemp_ifc, l_any_fastphys, l_any_slowphys
     LOGICAL :: lcall_lhn, lcall_lhn_v, lapply_lhn, lcall_lhn_c  !< switches for latent heat nudging
@@ -1001,7 +1002,8 @@ CONTAINS
 #ifdef _OPENACC
       IF (.NOT. linit) THEN
         CALL message('mo_nh_interface_nwp', 'Device to host copy before nwp_convection. This needs to be removed once port is finished!')
-        CALL gpu_d2h_nh_nwp(pt_patch, prm_diag)
+        CALL gpu_d2h_nh_nwp(pt_patch, prm_diag, ext_data=ext_data)
+        i_am_accel_node = .FALSE.
       ENDIF
 #endif
 
@@ -1022,6 +1024,7 @@ CONTAINS
       IF (.NOT. linit) THEN
         CALL message('mo_nh_interface_nwp', 'Host to device copy after nwp_convection. This needs to be removed once port is finished!')
         CALL gpu_h2d_nh_nwp(pt_patch, prm_diag)
+        i_am_accel_node = my_process_is_work()
       ENDIF
 #endif
 
@@ -1037,6 +1040,7 @@ CONTAINS
       IF (.NOT. linit) THEN
         CALL message('mo_nh_interface_nwp', 'Device to host copy before cover_koe. This needs to be removed once port is finished!')
         CALL gpu_d2h_nh_nwp(pt_patch, prm_diag)
+        i_am_accel_node = .FALSE.
       ENDIF
 #endif
 
@@ -1124,6 +1128,7 @@ CONTAINS
       IF (.NOT. linit) THEN
         CALL message('mo_nh_interface_nwp', 'Host to device copy after cover_koe. This needs to be removed once port is finished!')
         CALL gpu_h2d_nh_nwp(pt_patch, prm_diag)
+        i_am_accel_node = my_process_is_work()
       ENDIF
 #endif
 
@@ -1201,6 +1206,7 @@ CONTAINS
       IF (.NOT. linit) THEN
         CALL message('mo_nh_interface_nwp', 'Device to host copy before radiative heating. This needs to be removed once port is finished!')
         CALL gpu_d2h_nh_nwp(pt_patch, prm_diag)
+        i_am_accel_node = .FALSE.
       ENDIF
 #endif
 
@@ -1402,6 +1408,7 @@ CONTAINS
       IF (.NOT. linit) THEN
         CALL message('mo_nh_interface_nwp', 'Host to device copy after radiative heating. This needs to be removed once port is finished!')
         CALL gpu_h2d_nh_nwp(pt_patch, prm_diag)
+        i_am_accel_node = my_process_is_work()
       ENDIF
 #endif
 
@@ -1418,6 +1425,7 @@ CONTAINS
       IF (.NOT. linit) THEN
         CALL message('mo_nh_interface_nwp', 'Device to host copy before nwp_gwdrag. This needs to be removed once port is finished!')
         CALL gpu_d2h_nh_nwp(pt_patch, prm_diag)
+        i_am_accel_node = .FALSE.
       ENDIF
 #endif
 
@@ -1441,6 +1449,7 @@ CONTAINS
       IF (.NOT. linit) THEN
         CALL message('mo_nh_interface_nwp', 'Host to device copy after nwp_gwdrag. This needs to be removed once port is finished!')
         CALL gpu_h2d_nh_nwp(pt_patch, prm_diag)
+        i_am_accel_node = my_process_is_work()
       ENDIF
 #endif
     ENDIF ! inwp_sso
@@ -1741,10 +1750,11 @@ CONTAINS
         ELSE IF (lcall_phy_jg(itconv)) THEN
 !DIR$ IVDEP
           !$acc parallel default(present) if(i_am_accel_node)
-          !$acc loop gang vector private(convfac)
+          !$acc loop gang vector private(convfac,convind)
           DO jc = i_startidx, i_endidx
+            convind = prm_diag%k950(jc,jb) ! using this varibale directly in the next row gave a memory "memory not mapped to object" error in PGI (GPU) 20.8 
             ! rain-snow conversion factor to avoid 'snow showers' at temperatures when they don't occur in practice
-            convfac = MIN(1._wp,MAX(0._wp,pt_diag%temp(jc,prm_diag%k950(jc,jb),jb)-tmelt)* &
+            convfac = MIN(1._wp,MAX(0._wp,pt_diag%temp(jc,convind,jb)-tmelt)* &
               MAX(0._wp,prm_diag%t_2m(jc,jb)-(tmelt+1.5_wp)) )
             prm_diag%rain_con_rate(jc,jb) = prm_diag%rain_con_rate_3d(jc,nlevp1,jb) + &
               convfac*prm_diag%snow_con_rate_3d(jc,nlevp1,jb)

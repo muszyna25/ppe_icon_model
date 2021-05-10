@@ -1,5 +1,3 @@
-#ifndef __NO_ICON_OCEAN__
-
 !>
 !! @file bgc.f90
 !! @brief Main biogeochemical subroutine, called at each time step
@@ -16,7 +14,7 @@
 !!
 #include "icon_definitions.inc"
 
-SUBROUTINE BGC_ICON(p_patch_3D, hamocc_ocean_state)
+MODULE mo_bgc_icon
 
   USE mo_kind,                ONLY: wp
 
@@ -51,6 +49,19 @@ SUBROUTINE BGC_ICON(p_patch_3D, hamocc_ocean_state)
     & t_hamocc_ocean_state
 !   USE mo_util_dbg_prnt,          ONLY: dbg_print
   USE mo_memory_bgc, ONLY      : swr_frac
+  USE mo_chemcon, ONLY         : chemcon
+  USE mo_ocprod, ONLY: ocprod
+  USE mo_sedshi, ONLY: sedshi
+  USE mo_hamocc_swr_absorption, ONLY: swr_absorption
+
+  IMPLICIT NONE
+  PRIVATE
+
+  PUBLIC :: bgc_icon
+
+CONTAINS
+
+SUBROUTINE BGC_ICON(p_patch_3D, hamocc_ocean_state)  
 
   IMPLICIT NONE
 
@@ -118,6 +129,7 @@ IF(l_bgc_check)THEN
  call message('1. before bgc','inventories',io_stdo_bgc)
  call get_inventories(hamocc_state, ocean_to_hamocc_state%h_old, hamocc_state%p_prog(nold(1))%tracer, p_patch_3d, 0._wp, 0._wp) 
 ENDIF
+
 IF (.not. lsediment_only) THEN
 !DIR$ INLINE
   DO jb = all_cells%start_block, all_cells%end_block
@@ -253,7 +265,8 @@ IF (.not. lsediment_only) THEN
         start_detail_timer(timer_bgc_calc,5)
          CALL calc_dissol( start_index, end_index, levels,   & 
    &               p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),& ! cell thickness
-   &               ocean_to_hamocc_state%salinity(:,:,jb))           ! salinity
+   &               ocean_to_hamocc_state%salinity(:,:,jb),         &  ! salinity
+   &               p_patch_3d%p_patch_1d(1)%depth_CellInterface(:,:,jb)) !depths at interface   
  
         stop_detail_timer(timer_bgc_calc,5)
        !----------------------------------------------------------------------
@@ -359,12 +372,13 @@ ENDIF  ! lsediment_only
   !
   ldtrunbgc = ldtrunbgc + 1
 
-IF(l_bgc_check)THEN
- call message('2. after bgc','inventories',io_stdo_bgc)
- call get_inventories(hamocc_state, ocean_to_hamocc_state%h_old, hamocc_state%p_prog(nold(1))%tracer, p_patch_3d, 1._wp, 1._wp) 
-ENDIF
+  IF(l_bgc_check)THEN
+   call message('2. after bgc','inventories',io_stdo_bgc)
+   call get_inventories(hamocc_state, ocean_to_hamocc_state%h_old, hamocc_state%p_prog(nold(1))%tracer, p_patch_3d, 1._wp, 1._wp) 
+  ENDIF
   
 
 END SUBROUTINE 
 
-#endif
+
+END MODULE
