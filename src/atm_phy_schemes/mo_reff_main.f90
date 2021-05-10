@@ -702,20 +702,24 @@ MODULE mo_reff_main
 
 
 ! Combine two hydrometeors fields into one, keeping qtot/rtot = q1/r1 + q2/r2
-  SUBROUTINE  combine_reff( q1,reff_1, q2,reff_2,k_start,k_end,is,ie )
+  SUBROUTINE  combine_reff( q1,reff_1, q2,reff_2,clc,k_start,k_end,is,ie )
     
-    REAL(wp)          , INTENT(INOUT)         :: q1(:,:)                ! Mass concentration of first hydromet. (also store results)
-    REAL(wp)          , INTENT(INOUT)         :: reff_1(:,:)            ! Effective radius of first hydromet. (also store results)
-    REAL(wp)          , INTENT(IN)            :: q2(:,:)                ! Mass concentration of first hydromet.
-    REAL(wp)          , INTENT(IN)            :: reff_2(:,:)            ! Effective radius of first hydromet.    
+    REAL(wp)          , INTENT(INOUT)         :: q1(:,:)                ! Mass concentration of smaller hydromet. (also store results)
+    REAL(wp)          , INTENT(INOUT)         :: reff_1(:,:)            ! Effective radius of smaller hydromet. (also store results)
+    REAL(wp)          , INTENT(IN)            :: q2(:,:)                ! Mass concentration of larger hydromet (ususally not in cloud cover).
+    REAL(wp)          , INTENT(IN)            :: reff_2(:,:)            ! Effective radius of larger hydromet.  
+    REAL(wp)          , INTENT(INOUT)         :: clc(:,:)               ! Cloud cover. It is set to 1 if reff_2 > 1e-5  and q2>qcrit_reff
     INTEGER           , INTENT(IN)            :: k_start, k_end, is, ie ! Start, end total indices    
 
     REAL(wp)                                  :: q_ov_reff     ! Local cross section
     INTEGER                                   :: k,jc           ! Local counters                                                  
 
+    REAL(wp)          , PARAMETER             :: qcrit_reff = 5e-5
+
     DO k = k_start,k_end
       DO jc  = is,ie
-        IF ( reff_2(jc,k) > 1e-6_wp ) THEN  ! Combine only when there is something in second phase
+        IF ( reff_2(jc,k) > 1e-5_wp .AND. q2(jc,k) > qcrit_reff) THEN  ! Combine only when there is something in second phase
+          clc(jc,k) = 1.0_wp        ! Set cloud cover to 1.0 if there is somethin in the larger phase
           IF ( reff_1(jc,k) > 1e-6_wp)  THEN ! Also something in first phase
             q_ov_reff = q1(jc,k)/reff_1(jc,k) + q2(jc,k)/reff_2(jc,k)
             q1(jc,k)     =  q1(jc,k) +  q2(jc,k)
