@@ -1805,6 +1805,7 @@ CONTAINS
           ENDDO
         ELSE IF (lcall_phy_jg(itconv)) THEN
 !DIR$ IVDEP
+          !$acc data present(pt_diag%temp)
           !$acc parallel default(present) if(i_am_accel_node)
           !$acc loop gang vector private(convfac)
           DO jc = i_startidx, i_endidx
@@ -1816,6 +1817,7 @@ CONTAINS
             prm_diag%snow_con_rate(jc,jb) = (1._wp-convfac)*prm_diag%snow_con_rate_3d(jc,nlevp1,jb)
           ENDDO
           !$acc end parallel
+          !$acc end data
         ENDIF
 
       ENDDO  ! jb

@@ -21,7 +21,7 @@ use_host='@host_fqdn@'
 case "$use_host" in
   unknown) ;;
   wizard*|mlogin*|btlogin*|btc*) use_site=dkrz.de ;;
-  daint*|tave*|santis*|kesch*) use_site=cscs.ch ;;
+  daint*|tave*|santis*|kesch*|tsa*|arolla*) use_site=cscs.ch ;;
   ic2*|uc1*|fh2*) use_site=kit.edu ;;
   melian*) use_site=local.net ;;
   *mpimet.mpg.de) use_site=mpg.de ;;
@@ -695,84 +695,216 @@ EOF
 }
 
 #=============================================================================
-set_run_target_tsa_gpu()
+set_run_target_tsa_cpu()
 {
-  # daint.cscs.ch with GPU
-  icon_data_rootFolder=/scratch/dremo/remo_icon_pool
-  icon_data_poolFolder=/scratch/dremo/remo_icon_pool
+    rootFolder_prefix=/scratch/jenkins/icon
+    icon_data_rootFolder=${icon_data_rootFolder:=${rootFolder_prefix}/pool/data/ICON}
 
-  set_default use_nproma 8000
-  set_default use_nodes 1
-  use_OMP_SCHEDULE="static,1"
-
-  is_serial_run="no"
-  if [[ $use_mpi == "yes" ]]; then
-    if [[ $use_openmp == "yes" ]]; then
-      set_default use_mpi_procs_pernode 1
-      set_default use_openmp_threads 1
-    else
-      set_default use_mpi_procs_pernode 1
+    set_default use_nproma 16
+    set_default use_nodes 1
+    # use_OMP_SCHEDULE="static,1"
+    set_default use_account_no "$(id -gn)"
+    if [[ "x$BB_SYSTEM" != "x" ]]
+    then
+	# this is buildbot, do not use job id
+	use_account_no="d56"
     fi
-  else
-    if [[ $use_openmp == "yes" ]]; then
-      set_default use_openmp_threads 1
-      set_default use_mpi_procs_pernode 1
-     else
-       is_serial_run="yes"
-   fi
-  fi
+    use_OMP_SCHEDULE="static,12"
 
-  if [[ "$is_serial_run" == "yes"  ]] ; then
-    use_nodes=1
-    tasks_per_node=1
-    SBATCH_nodes="SBATCH --nodes=1"
-    SBATCH_ntasks_per_node=""
-  else
-    job_type=parallel
-    tasks_per_node=$use_mpi_procs_pernode
-    SBATCH_nodes="SBATCH --nodes=$use_nodes"
-    SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=${tasks_per_node}"
-  fi
+    is_serial_run="no"
+    if [[ $use_mpi == "yes" ]]
+    then
+	if [[ $use_openmp == "yes" ]]
+	then
+	    set_default use_mpi_procs_pernode $((1+use_prefetch_procs))
+	    set_default use_openmp_threads 1
+	else
+	    set_default use_mpi_procs_pernode $((1+use_prefetch_procs))
+	fi
+    else
+	if [[ $use_openmp == "yes" ]]
+	then
+	    set_default use_openmp_threads 1
+	    set_default use_mpi_procs_pernode $((1+use_prefetch_procs))
+	else
+	    is_serial_run="yes"
+	fi
+    fi
 
-  if [[ "x$BB_SYSTEM" != "x" ]]; then
-    # this buildbot, do not use job id
-    job_log_name="LOG.$job_name"
-  else
-    job_log_name="LOG.$job_name.%j"
-  fi
+    case _$use_compiler in
+	"_intel" )
+            use_mpi_startrun="$use_mpi_startrun --verbose"
+            add_free_var KMP_AFFINITY "verbose,granularity=core,compact,1,1"
+            add_free_var KMP_LIBRARY "turnaround"
+            add_free_var KMP_KMP_SETTINGS "1"
+            add_free_var OMP_WAIT_POLICY "active"
+	    ;;
+    esac
 
-  # ------------------------------------
-  s_cpu_time=""
-  if [[ "x$use_cpu_time" != "x" ]] ; then
-     s_cpu_time="SBATCH --time=$use_cpu_time"
-  fi
-  if [[ "x$BB_SYSTEM" != "x" ]]; then
-    # this is buldbot, do not run more than 45 minutes
-    s_cpu_time="SBATCH --time=00:45:00"
-  fi
+    if [[ "$is_serial_run" == "yes"  ]]
+    then
+	use_nodes=1
+	tasks_per_node=1
+	SBATCH_nodes="SBATCH --nodes=1"
+	SBATCH_ntasks_per_node=""
+    else
+	job_type=parallel
+	tasks_per_node=$use_mpi_procs_pernode
+	SBATCH_nodes="SBATCH --nodes=${use_nodes}"
+	SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=${tasks_per_node}"
+    fi
 
-  # ------------------------------------
+    if [[ "x$BB_SYSTEM" != "x" ]]
+    then
+	# this buildbot, do not use job id
+	job_log_name="LOG.$job_name"
+    else
+	job_log_name="LOG.$job_name.%j"
+    fi
+    # ------------------------------------
+    s_cpu_time=""
+    if [[ "x$use_cpu_time" != "x" ]]
+    then
+	s_cpu_time="SBATCH --time=$use_cpu_time"
+    fi
+    if [[ "x$BB_SYSTEM" != "x" ]]
+    then
+	# this is buldbot, do not run more than 15 minutes on Tsa (SLURM delays)
+	s_cpu_time="SBATCH --time=00:15:00"
+    fi
+    # ------------------------------------
 
-  use_nodes=${use_nodes}
-  use_mpi_procs_pernode=${use_mpi_procs_pernode}
+    use_nodes=${use_nodes}
+    use_mpi_procs_pernode=${use_mpi_procs_pernode}
 
-  cat >> $output_script << EOF
-# =====================================
-# daint batch job parameters
-#-----------------------------------------------------------------------------
+    cat >> $output_script << EOF
+#=============================================================================
+
+# tsa cpu batch job parameters
+# ------------------------------
 #SBATCH --job-name=$job_name
 #SBATCH --output=$output_folder/$job_log_name.o
 #SBATCH --error=$output_folder/$job_log_name.o
 #$SBATCH_nodes
 #$SBATCH_ntasks_per_node
 #$s_cpu_time
-#========================================
 EOF
-  # create header
+
   start_header
   cat >>$output_script <<EOF
+export UCX_MEMTYPE_CACHE=n
+export UCX_TLS=tcp,sm
+EOF
+}
+
+set_run_target_tsa_gpu()
+{
+
+    rootFolder_prefix=/scratch/jenkins/icon
+    icon_data_rootFolder=${icon_data_rootFolder:=${rootFolder_prefix}/pool/data/ICON}
+
+    set_default use_nproma 8000
+    set_default use_prefetch_procs 0
+    set_default use_account_no "$(id -gn)"
+    if [[ "x$BB_SYSTEM" != "x" ]]
+    then
+	# this buildbot, do not use job id
+	use_account_no="d56"
+    fi
+    use_OMP_SCHEDULE="static,1"
+
+    is_serial_run="no"
+    if [[ $use_mpi == "yes" ]]
+    then
+     set_default use_nodes 1
+	if [[ $use_openmp == "yes" ]]
+	then
+	    set_default use_mpi_procs_pernode $((1+use_prefetch_procs))
+	    set_default use_openmp_threads 1
+	else
+	    set_default use_mpi_procs_pernode $((1+use_prefetch_procs))
+	fi
+    else
+    	set_default use_nodes 1
+	if [[ $use_openmp == "yes" ]]
+	then
+	    set_default use_openmp_threads 1
+	    set_default use_mpi_procs_pernode $((1+use_prefetch_procs))
+	else
+	    is_serial_run="yes"
+	fi
+    fi
+
+    # Currently ICON on Tsa only works correctly with 1 gpu per node
+    use_mpi_procs_pernode=1
+
+    if [[ "$is_serial_run" == "yes"  ]]
+    then
+	use_nodes=1
+	tasks_per_node=1
+	SBATCH_nodes="SBATCH --nodes=1"
+	SBATCH_ntasks_per_node=""
+    else
+	job_type=parallel
+	tasks_per_node=$use_mpi_procs_pernode
+	SBATCH_nodes="SBATCH --nodes=$use_nodes"
+	SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=${tasks_per_node}"
+    fi
+
+    if [[ "x$BB_SYSTEM" != "x" ]]
+    then
+	# this buildbot, do not use job id
+	job_log_name="LOG.$job_name"
+    else
+	job_log_name="LOG.$job_name.%j"
+    fi
+
+    # ------------------------------------
+    s_cpu_time=""
+    if [[ "x$use_cpu_time" != "x" ]]
+    then
+	s_cpu_time="SBATCH --time=$use_cpu_time"
+    fi
+    if [[ "x$BB_SYSTEM" != "x" ]]
+    then
+	# this is buldbot, do not run more than 45 minutes
+	s_cpu_time="SBATCH --time=00:45:00"
+    fi
+
+    # ------------------------------------
+
+    use_nodes=${use_nodes}
+    use_mpi_procs_pernode=${use_mpi_procs_pernode}
+
+    cat >> $output_script << EOF
+#=============================================================================
+
+# tsa gpu batch job parameters
+# ------------------------------
+#SBATCH --job-name=$job_name
+#SBATCH --output=$output_folder/$job_log_name.o
+#SBATCH --error=$output_folder/$job_log_name.o
+#$SBATCH_nodes
+#$SBATCH_ntasks_per_node
+#SBATCH --gres=gpu:${tasks_per_node}
+#SBATCH --partition=dev
+#$s_cpu_time
+EOF
+
+    start_header
+    cat >>$output_script <<EOF
 export CRAY_CUDA_MPS=1
-#export PGI_ACC_SYNCHRONOUS=1     # For extra safety, disable the OpenACC asynchronicity (performance reduction)
+## WORKAROUNDS FOR TSA
+export UCX_MEMTYPE_CACHE=n
+export UCX_TLS=rc_x,ud_x,mm,shm,cuda_copy,cuda_ipc,cma
+if [ "\$mpi_total_procs" -ne 2 ] && [ "\$mpi_procs_pernode" -ne 1 ]; then
+export PGI_ACC_NOTIFY=1
+export PGI_ACC_SYNCHRONOUS=1
+export UCX_TLS=tcp,sm
+export OMPI_MCA_osc="^rdma"
+export OMPI_MCA_pml="ucx"
+export OMPI_MCA_btl="^uct"
+fi
 EOF
 }
 
