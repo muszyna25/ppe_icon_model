@@ -269,14 +269,33 @@ CONTAINS
     REAL(wp), INTENT(IN) :: stretch_e(nproma, patch_3d%p_patch_2d(1)%nblks_e) !! stretch factor 
 
     INTEGER :: tracer_index
+ 
     !-------------------------------------------------------------------------
     WindAmplitude_at10m => fu10
     SeaIceConcentration => concsum
- 
-      CALL ICON_PP_Edge_scheme_zstar(patch_3d, ocean_state, params_oce, &
-      & eta_c, stretch_c, stretch_e)
-      ! the velovity friction will be updated during dynamics
 
+    SELECT CASE (PPscheme_type)
+    CASE (PPscheme_Constant_type)
+      !nothing to do!In sbr init_ho_params (see above)
+      !tracer mixing coefficient params_oce%A_tracer_v(:,:,:, tracer_index) is already
+      !initialzed with params_oce%A_tracer_v_back(tracer_index)
+      !and velocity diffusion coefficient
+      RETURN
+
+    !! FIXME: scheme2 has no zstar port
+    CASE (PPscheme_ICON_Edge_type)
+      CALL ICON_PP_Edge_scheme_zstar(patch_3d, ocean_state, params_oce, &
+        & eta_c, stretch_c, stretch_e)
+
+
+    CASE (PPscheme_ICON_Edge_vnPredict_type)
+      CALL ICON_PP_Edge_scheme_zstar(patch_3d, ocean_state, params_oce, &
+        & eta_c, stretch_c, stretch_e)
+
+    CASE default
+      CALL finish("update_ho_params", "unknown PPscheme_type")
+    END SELECT
+    !-------------------------------------------------------------------------
 
 
   END SUBROUTINE update_PP_scheme_zstar
