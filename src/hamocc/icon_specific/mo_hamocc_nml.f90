@@ -54,7 +54,6 @@ MODULE mo_hamocc_nml
 
   LOGICAL, PUBLIC :: l_cyadyn         = .TRUE.   !  prognostic cyanobacteria
   LOGICAL, PUBLIC :: l_cpl_co2        = .FALSE.   !  co2 coupling to atm
-  LOGICAL, PUBLIC :: l_diffat         = .FALSE.   !  diffusive atm
   LOGICAL, PUBLIC :: l_bgc_check      = .FALSE.   ! MASS check at every time step?
   LOGICAL, PUBLIC :: l_up_sedshi      = .FALSE.   ! Upward sediment shifting
   LOGICAL, PUBLIC :: l_implsed        = .FALSE.   ! Implicit sediment formulation
@@ -150,14 +149,9 @@ CONTAINS
     deltaorg = 0._wp
     deltasil = 0._wp
 
-  ! Atmospheri concencentrations
-   IF (l_diffat) THEN
-       ! all concentrations will be calculated in carchm
-    ELSE
-       atm_co2 = 278._wp
-       atm_o2  = 196800._wp
-       atm_n2  = 802000._wp
-    ENDIF
+    atm_co2 = 278._wp
+    atm_o2  = 196800._wp
+    atm_n2  = 802000._wp
 
    ks=12
    dzsed(:) =-1._wp

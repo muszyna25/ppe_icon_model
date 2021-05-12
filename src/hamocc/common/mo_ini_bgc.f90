@@ -8,14 +8,14 @@ MODULE mo_ini_bgc
   USE mo_kind, ONLY        : wp
   USE mo_memory_bgc, ONLY   : hi, co3, bgctra,  atm, &
        &                     atmacon, atmacmol,    &
-       &                     atcoa, ozkoa,ralk, ro2ut_cya, cyamin,    &
+       &                     ozkoa,ralk, ro2ut_cya, cyamin,    &
        &                     wpoc, calcinp,orginp,silinp, &
        &                     phytomi, grami, remido, dyphy, zinges,        &
        &                     epsher,  spemor, gammap, gammaz, ecan, &
        &                     pi_alpha, fpar, bkphy, bkzoo, bkopal,         &
        &                     dremn2o, sulfate_reduction,         &
        &                     n2_fixation, ro2ut, rcar, rnit,     &
-       &                     rnoi, nitdem, n2prod, rcalc, ropal,   &
+       &                     rnoi, nitdem, n2prod, ropal,   &
        &                     perc_diron, riron, fesoly, relaxfe,     &
        &                     denitrification, kbo, bolay, rn2,             &
        &                     wdust, thresh_o2,   &
@@ -29,7 +29,7 @@ MODULE mo_ini_bgc
        &                     o2ut, rno3, sred_sed, silsat, &
                              o2thresh 
 
-  USE mo_hamocc_nml, ONLY  : l_diffat, l_cpl_co2, l_diffat, i_settling, &
+  USE mo_hamocc_nml, ONLY  : l_cpl_co2, i_settling, &
        &                     sinkspeed_poc, sinkspeed_opal, sinkspeed_calc,&
        &                     ks,cycdec,cya_growth_max,grazra,&
        &                     mc_fac, sinkspeed_martin_ez, mc_depth, denit_sed, disso_po, &
@@ -77,16 +77,6 @@ CONTAINS
     ! Initialize overall time step counter.
     !
     ldtbgc = 0
-
-    IF (l_diffat) THEN
-       ! all concentrations will be calculated in carchm
-    ELSE
-       atm_co2 = 278._wp
-       atcoa   = atm_co2  ! emr for use in maschk
-
-       atm_o2  = 196800._wp
-       atm_n2  = 802000._wp
-    ENDIF
 
     ozkoa    = 3.e15_wp                      ! ozean kohlenstoff alt, start with dummy value in maschk
     atmacon  = 0.35e-3_wp * 5.1e14_wp*12._wp ! factor for atmospheric concentration of CO2 in g C -> ppm
@@ -172,12 +162,6 @@ CONTAINS
     ! N consumption of denitrification corrected after Paulmier etal, 2009)
     nitdem = 137.6_wp          ! NO3 demand of denitrification
     n2prod = nitdem * 0.5_wp   ! N2 production during denitrification
- 
- 
-    rcalc = 35._wp ! iris 40 !calcium carbonate to organic phosphorous production ratio
-    IF (l_cpl_co2) THEN
-       rcalc = 20._wp ! emr !calcium carbonate to organic phosphorous production ratio
-    END IF
 
     ropal  = 25._wp ! opal to organic phosphorous production ratio
 

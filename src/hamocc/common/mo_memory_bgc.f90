@@ -71,7 +71,7 @@ MODULE mo_memory_bgc
   REAL(wp), DIMENSION(6):: dmsp
 
   REAL(wp) :: calcinp, orginp, silinp
-  REAL(wp) :: roc13, atcoa
+  REAL(wp) :: roc13
   REAL(wp) :: ozkoa, totalarea
   REAL(wp) :: globalmean_co2, globalmean_o2, globalmean_n2
   REAL(wp) :: atmacon, atmacmol
@@ -79,7 +79,7 @@ MODULE mo_memory_bgc
   REAL(wp) :: totarea
   REAL(wp) :: phytomi, grami, grazra, rrrcl,docmin
   REAL(wp) :: remido, dyphy, zinges, epsher, spemor, gammap, gammaz, ecan
-  REAL(wp) :: ro2ut, rcar, rnit, rnoi, rnit23, rnit13, rcalc, ropal, rn2, p2gtc
+  REAL(wp) :: ro2ut, rcar, rnit, rnoi, rnit23, rnit13, ropal, rn2, p2gtc
   REAL(wp) :: bkphy, bkzoo, bkopal, bifr13, bifr14, plafr13, plafr14
   REAL(wp) :: dremdoc, dremn2o
   REAL(wp) :: thresh_aerob ! O2 threshold for aerob POC remineralization
