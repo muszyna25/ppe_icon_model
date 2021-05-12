@@ -315,6 +315,7 @@ cat > ${ocean_namelist} << EOF
   forcing_windstress_u_type       =   1       ! read from file
   forcing_windstress_v_type       =   1       ! read from file
   forcing_fluxes_type             =   1       ! read from file
+  bulk_wind_stress_type           =   0       ! 0: from file, 1: ocean at rest, 2: with ocean currents
 ! forcing_enable_freshwater       = .TRUE.    ! apply freshwater forcing boundary condition (OMIP only)
 ! forcing_set_runoff_to_zero      = .FALSE.   ! set runoff to zero for comparison to MPIOM; default: false
 ! zero_freshwater_flux            = .FALSE.   ! set external freshwater flux to zero; default: false 

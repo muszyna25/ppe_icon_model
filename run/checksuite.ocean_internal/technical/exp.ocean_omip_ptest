@@ -155,6 +155,7 @@ cat > ${ocean_namelist} << EOF
   iforc_oce                       =  12       ! OMIP-type forcing
   forcing_windstress_u_type       =   1       ! read from file
   forcing_windstress_v_type       =   1       ! read from file
+  bulk_wind_stress_type           =   2       ! 0: from file, 1: ocean at rest, 2: with ocean currents
   forcing_fluxes_type             =   1       ! read from file
   forcing_timescale               = $forcing_timescale  ! length of ocean forcing data set, see above
   init_oce_relax                  =   1       ! read ocean surface relaxation file, see above

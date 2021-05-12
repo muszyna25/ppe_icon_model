@@ -48,7 +48,8 @@ MODULE mo_ocean_ext_data
     & forcing_windstress_v_type, &
     & forcing_fluxes_type,       &
     & OMIP_FluxFromFile,         &
-    & use_omip_windstress, use_omip_fluxes, use_omip_forcing
+    & use_omip_windstress, use_omip_fluxes, use_omip_forcing, &
+    & bulk_wind_stress_type, wind_stress_from_file
   USE mo_sea_ice_nml,        ONLY: i_ice_dyn
    
   USE mo_model_domain,       ONLY: t_patch
@@ -623,15 +624,15 @@ CONTAINS
         CALL read_3D(stream_id, on_cells, 'runoff', z_flux)
         ext_data(jg)%oce%flux_forc_mon_c(:,:,:,12) = z_flux(:,:,:)
 
-!        IF (i_ice_dyn==1) THEN
+        IF (bulk_wind_stress_type  /= wind_stress_from_file) THEN
 !          ! zonal wind speed
-!          CALL read_3D(stream_id, on_cells, 'u_wind_10m', z_flux)
-!          ext_data(jg)%oce%flux_forc_mon_c(:,:,:,13) = z_flux(:,:,:)
-!
-!          ! meridional wind speed
-!          CALL read_3D(stream_id, on_cells, 'v_wind_10m', z_flux)
-!          ext_data(jg)%oce%flux_forc_mon_c(:,:,:,14) = z_flux(:,:,:)
-!        ENDIF
+          CALL read_3D(stream_id, on_cells, 'u_wind_10m', z_flux)
+          ext_data(jg)%oce%flux_forc_mon_c(:,:,:,13) = z_flux(:,:,:)
+
+          ! meridional wind speed
+          CALL read_3D(stream_id, on_cells, 'v_wind_10m', z_flux)
+          ext_data(jg)%oce%flux_forc_mon_c(:,:,:,14) = z_flux(:,:,:)
+        ENDIF
 
 
       END IF

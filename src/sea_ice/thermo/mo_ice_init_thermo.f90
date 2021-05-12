@@ -432,11 +432,18 @@ CONTAINS
       &          t_cf_var('ice_u', 'm/s', 'zonal velocity', datatype_flt),&
       &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
       &          ldims=(/nproma,alloc_cell_blocks/), in_group=groups("ice_default"))
+
+    p_ice%u=0.0_wp
+
+
     CALL add_var(ocean_restart_list, 'ice_v', p_ice%v ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &          t_cf_var('ice_v', 'm/s', 'meridional velocity', datatype_flt),&
       &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
       &          ldims=(/nproma,alloc_cell_blocks/), in_group=groups("ice_default"))
+
+    p_ice%v=0.0_wp
+
     CALL add_var(ocean_restart_list, 'ice_vn', p_ice%vn_e ,&
       &          GRID_UNSTRUCTURED_EDGE, ZA_SURFACE, &
       &          t_cf_var('ice_vn', 'm/s', 'zonal velocity', datatype_flt),&
