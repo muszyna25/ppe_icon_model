@@ -189,6 +189,8 @@ CONTAINS
          aer_asy_2325  (:,:), & !< Asymmetry factor at 2325 nm
          aer_aod_9731  (:,:)    !< Aerosol optical density at 9731 nm
 
+    LOGICAL :: lclearsky
+
     ! --------------------------------------------------------------------------
     INTEGER :: ncol_supplied, ncol_needed, ncol_chunk, jchunk_start, jchunk_end
     INTEGER :: nbndsw, nbndlw, i, ilev, iband,  jl, jk, jband
@@ -331,6 +333,10 @@ CONTAINS
     ! Turn geography and number concentrations into effective radii
     !
     ! --------------------------------------------------------------------------
+    ! Set flag for the optional computation of clear-sky fluxes
+    lclearsky     = echam_rad_config(jg)%lclearsky
+    ! --------------------------------------------------------------------------
+    !
     !
     ! Assumption: all arrays share the "column" dimension
     !
@@ -344,6 +350,7 @@ CONTAINS
     IF (jcs==1 .and. ncol_needed == ncol_supplied .and. ncol_chunk == ncol_needed) THEN
 
        CALL rte_rrtmgp_interface_onBlock(                              &
+          & lclearsky,                                                 &
           & ncol_needed,       klev,                                   &
           & ktype(:),                                                  &
           & psctm,             ssi_factor,                             &
@@ -380,6 +387,7 @@ CONTAINS
        DO jchunk_start = jcs,jce, ncol_chunk
         jchunk_end = MIN(jchunk_start + ncol_chunk - 1, jce)
         CALL shift_and_call_rte_rrtmgp_interface_onBlock(                &
+            & lclearsky,                                                 &
             & jchunk_start,      jchunk_end,                             &
             & klev,                                                      &
             & ktype(:),                                                  &
@@ -469,6 +477,7 @@ CONTAINS
   !!
 
   SUBROUTINE rte_rrtmgp_interface_onBlock(                   &
+       & lclearsky,                                          &
        & ncol,           klev,                               &
        & ktype,                                              &
        & psctm,          ssi_factor,                         &
@@ -497,6 +506,8 @@ CONTAINS
 #ifdef __INTEL_COMPILER
 !DIR$ OPTIMIZE:1
 #endif
+
+    LOGICAL,INTENT(IN)  :: lclearsky                     !< flag for clear-sky computations
 
     INTEGER,INTENT(IN)  :: &
          ncol,             & !< number of columns
@@ -750,9 +761,21 @@ CONTAINS
     !
     ! Restrict out-of-bounds temperatures and pressures
     !
+    ! The air pressure on levels plev, on the upper and lower boundaries of a layer,
+    ! is used to determine the air mass transferred by radiation. For safety
+    ! reasons plev is limited to values >= 0 Pa (and <=10**6 Pa so that high is defined).
+    low = 0._wp
+    high = 1000000._wp
+    CALL clamp_pressure(pp_hl, plev, low, high)
+    !
+    ! The pressure in the layer play is used for optical properties and
+    ! is limited here to the range for which tables are defined in the
+    ! RRTMGP data file and stored in k_dist_lw.
+    ! Thus radiation can be computed for pressure values lower or higher
+    ! than the defined range, albeit at lower precision.
+
     low =  k_dist_lw%get_press_min()
     high = k_dist_lw%get_press_max()
-    CALL clamp_pressure(pp_hl, plev, low, high)
     CALL clamp_pressure(pp_fl, play, low, high)
 
     low =  k_dist_lw%get_temp_min()
@@ -903,13 +926,16 @@ CONTAINS
     !
     ! 4.1.3 Longwave clear-sky fluxes
     !
-    fluxes_lwcs%flux_up => flx_uplw_clr
-    fluxes_lwcs%flux_dn => flx_dnlw_clr
-
-    ! RTE-RRTMGP ACC code is synchronous, so need to wait before calling it
-    !$ACC wait
-    CALL stop_on_err(rte_lw(atmos_lw, top_at_1, source_lw, &
-                            zsemiss, fluxes_lwcs))
+    IF (lclearsky) THEN
+       !
+       fluxes_lwcs%flux_up => flx_uplw_clr
+       fluxes_lwcs%flux_dn => flx_dnlw_clr
+       !
+       ! RTE-RRTMGP ACC code is synchronous, so need to wait before calling it
+       !$ACC wait
+       CALL stop_on_err(rte_lw(atmos_lw, top_at_1, source_lw, zsemiss, fluxes_lwcs))
+       !
+    END IF
 
     ! new cloud optics: allocate memory for cloud optical properties:
     CALL stop_on_err(clouds_bnd_lw%alloc_1scl(ncol, klev, &
@@ -1097,14 +1123,16 @@ CONTAINS
     !
     ! 4.2.3 Shortwave clear-sky fluxes
     !
-    fluxes_swcs%flux_up => flx_upsw_clr
-    fluxes_swcs%flux_dn => flx_dnsw_clr
-
-    ! RTE-RRTMGP ACC code is synchronous, so need to wait before calling it
-    !$ACC wait
-    CALL stop_on_err(rte_sw(atmos_sw, top_at_1, &
-                            mu0, toa_flux, albdir, albdif, &
-                            fluxes_swcs))
+    IF (lclearsky) THEN
+       !
+       fluxes_swcs%flux_up => flx_upsw_clr
+       fluxes_swcs%flux_dn => flx_dnsw_clr
+       !
+       ! RTE-RRTMGP ACC code is synchronous, so need to wait before calling it
+       !$ACC wait
+       CALL stop_on_err(rte_sw(atmos_sw, top_at_1, mu0, toa_flux, albdir, albdif, fluxes_swcs))
+       !
+    END IF
     
     ! new cloud optics: allocate memory for cloud optical properties:
     CALL stop_on_err(clouds_bnd_sw%alloc_2str(ncol, klev, &
@@ -1239,6 +1267,7 @@ CONTAINS
   END SUBROUTINE rte_rrtmgp_interface_onBlock
   ! ----------------------------------------------------------------------------
   SUBROUTINE shift_and_call_rte_rrtmgp_interface_onBlock(    &
+    & lclearsky,                                      &
     & jcs,            jce,                            &
     &                 klev,                           &
     !
@@ -1266,6 +1295,8 @@ CONTAINS
     & vis_dn_dir_sfc, par_dn_dir_sfc, nir_dn_dir_sfc, &
     & vis_dn_dff_sfc, par_dn_dff_sfc, nir_dn_dff_sfc, &
     & vis_up_sfc,     par_up_sfc,     nir_up_sfc      )
+
+ LOGICAL,INTENT(IN)  :: lclearsky                     !< flag for clear-sky computations
 
  INTEGER,INTENT(IN)  :: &
       & jcs,            & !< cell/column index, start
@@ -1457,6 +1488,7 @@ CONTAINS
   ! Call radiation with shifted input arguments and receive shifted output arguments
   !
   CALL rte_rrtmgp_interface_onBlock(                                                 &
+      & lclearsky,                                                                   &
       &   ncol,                klev,                                                 &
       !
       &   ktype    (jcs:jce),                                                        &

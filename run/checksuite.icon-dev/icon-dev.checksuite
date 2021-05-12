@@ -243,7 +243,7 @@ function diff_results
     
                 FILE1="${MODEL_DIR1}/experiments/${DEXP1}/${DEXP1}_${TYPE}_${DATE}.nc"
                 FILE2="${MODEL_DIR2}/experiments/${DEXP2}/${DEXP2}_${TYPE}_${DATE}.nc"
-                TEMP_SUFFIX=$(cat /dev/urandom | env LC_CTYPE=C tr -cd 'a-f0-9' | head -c 16)
+                TEMP_SUFFIX=$(cat /dev/urandom | env LC_ALL=C tr -cd 'a-f0-9' | head -c 16)
                 DIFF_FILE="cdo_diffn_${DEXP1}_${DEXP2}_${TYPE}_${DATE}_${TEMP_SUFFIX}.out"
 
                 echo "Compare for TYPE=$TYPE"

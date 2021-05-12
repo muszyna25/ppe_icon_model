@@ -1293,7 +1293,10 @@ CONTAINS
 
             ENDDO
           ENDDO
+!for __LOOP_EXCHANGE there are no ACC statements
+#ifndef __LOOP_EXCHANGE
 !$ACC END PARALLEL
+#endif
         ENDDO
       ENDIF
 
@@ -1484,14 +1487,16 @@ CONTAINS
 
       CALL get_indices_v(p_patch(jgp), jb, i_startblk, i_endblk, i_startidx, i_endidx, 1, min_rlvert_int-1)
 
-!$ACC PARALLEL IF( use_acc )
-!$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
+!$ACC PARALLEL IF( use_acc )
+!$ACC LOOP GANG
       DO jv = i_startidx, i_endidx
         IF (p_grfp%mask_ovlp_v(jv,jb,i_chidx)) THEN
           DO jk = 1, nlev_c
             rot_diff_vn(jk,jv,jb) =   &
 #else
+!$ACC PARALLEL IF( use_acc )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = 1, nlev_c
         DO jv = i_startidx, i_endidx
           IF (p_grfp%mask_ovlp_v(jv,jb,i_chidx)) THEN
@@ -1527,13 +1532,14 @@ CONTAINS
       CALL get_indices_c(p_patch(jgp), jb, i_startblk, i_endblk, i_startidx, i_endidx, 1, min_rlcell_int-1)
 
 !$ACC PARALLEL IF( use_acc )
-!$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
+!$ACC LOOP GANG
       DO jc = i_startidx, i_endidx
         IF (p_grfp%mask_ovlp_ch(jc,jb,i_chidx)) THEN
           DO jk = 1, nlev_c
             div_diff_vn(jk,jc,jb) =   &
 #else
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = 1, nlev_c
         DO jc = i_startidx, i_endidx
           IF (p_grfp%mask_ovlp_ch(jc,jb,i_chidx)) THEN
@@ -1566,8 +1572,8 @@ CONTAINS
       CALL get_indices_e(p_patch(jgp), jb, i_startblk, i_endblk, i_startidx, i_endidx, 1, i_rlend_e)
 
 !$ACC PARALLEL IF( use_acc )
-!$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
+!$ACC LOOP GANG
       DO je = i_startidx, i_endidx
         IF (p_grfp%mask_ovlp_e(je,jb,i_chidx)) THEN
           DO jk = 1, nlev_c
@@ -1583,6 +1589,7 @@ CONTAINS
           ENDDO
         ENDIF
 #else
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = 1, nlev_c
         DO je = i_startidx, i_endidx
           IF (p_grfp%mask_ovlp_e(je,jb,i_chidx)) THEN
@@ -1603,13 +1610,14 @@ CONTAINS
 
       ! 2b. Execute relaxation
 !$ACC PARALLEL IF( use_acc )
-!$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
+!$ACC LOOP GANG
       DO je = i_startidx,i_endidx
         IF (p_grfp%mask_ovlp_e(je,jb,i_chidx)) THEN
 !DIR$ IVDEP
           DO jk = nshift+1,nlev_p
 #else
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = nshift+1,nlev_p
         DO je = i_startidx,i_endidx
           IF (p_grfp%mask_ovlp_e(je,jb,i_chidx)) THEN
@@ -1645,13 +1653,14 @@ CONTAINS
 
       ! Compute differences between feedback fields and corresponding parent fields
 !$ACC PARALLEL IF( use_acc )
-!$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
+!$ACC LOOP GANG
       DO jc = i_startidx,i_endidx
         IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
 !DIR$ IVDEP
           DO jk = nst_fbk, nlev_c
 #else
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = nst_fbk, nlev_c
         DO jc = i_startidx,i_endidx
           IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
@@ -1680,13 +1689,14 @@ CONTAINS
 
       ! Relaxation of dynamical variables
 !$ACC PARALLEL IF( use_acc )
-!$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
+!$ACC LOOP GANG
       DO jc = i_startidx,i_endidx
         IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
 !DIR$ IVDEP
           DO jk = nshift+nst_fbk,nlev_p
 #else
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = nshift+nst_fbk,nlev_p
         DO jc = i_startidx,i_endidx
           IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
@@ -1816,14 +1826,15 @@ CONTAINS
 
     ! Recomputation of exner on halo points (saves communication of one field)
 !$ACC PARALLEL IF( use_acc )
-!$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
+!$ACC LOOP GANG
     DO ic = 1, p_nh_state(jgp)%metrics%ovlp_halo_c_dim(i_chidx)
       jc = p_nh_state(jgp)%metrics%ovlp_halo_c_idx(ic,i_chidx)
       jb = p_nh_state(jgp)%metrics%ovlp_halo_c_blk(ic,i_chidx)
 !DIR$ IVDEP
       DO jk = nshift+nst_fbk, nlev_p
 #else
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = nshift+nst_fbk, nlev_p
 !CDIR NODEP,VOVERTAKE,VOB
       DO ic = 1, p_nh_state(jgp)%metrics%ovlp_halo_c_dim(i_chidx)

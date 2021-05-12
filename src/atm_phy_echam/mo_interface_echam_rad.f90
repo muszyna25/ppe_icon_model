@@ -106,8 +106,8 @@ CONTAINS
               & zf             = field%zf(:,:,:)          ,&!< in  geometric height at full level      [m]
               & zh             = field%zh(:,:,:)          ,&!< in  geometric height at half level      [m]
               & dz             = field%dz(:,:,:)          ,&!< in  geometric height thickness of layer [m]
-              & pp_hl          = field%presi_old(:,:,:)   ,&!< in  pressure at half levels at t-dt [Pa]
-              & pp_fl          = field%presm_old(:,:,:)   ,&!< in  pressure at full levels at t-dt [Pa]
+              & pp_hl          = field%phalf(:,:,:)       ,&!< in  pressure at half levels at t-dt [Pa]
+              & pp_fl          = field%pfull(:,:,:)       ,&!< in  pressure at full levels at t-dt [Pa]
               & tk_fl          = field%ta(:,:,:)          ,&!< in  tk_fl  = temperature at full level at t-dt
               & xm_dry         = field%mdry(:,:,:)        ,&!< in  dry air mass in layer [kg/m2]
               & xm_trc         = field%mtrc(:,:,:,:)      ,&!< in  tracer  mass in layer [kg/m2]
@@ -266,12 +266,12 @@ CONTAINS
               & zf             = field%zf(:,:,jb)          ,&!< in  geometric height at full level      [m]
               & zh             = field%zh(:,:,jb)          ,&!< in  geometric height at half level      [m]
               & dz             = field%dz(:,:,jb)          ,&!< in  geometric height thickness of layer [m]
-              & pp_hl          = field%presi_old(:,:,jb)   ,&!< in  pressure at half levels at t-dt [Pa]
-              & pp_fl          = field%presm_old(:,:,jb)   ,&!< in  pressure at full levels at t-dt [Pa]
+              & pp_hl          = field%phalf(:,:,jb)       ,&!< in  pressure at half levels at t-dt [Pa]
+              & pp_fl          = field%pfull(:,:,jb)       ,&!< in  pressure at full levels at t-dt [Pa]
               & tk_fl          = field%ta(:,:,jb)          ,&!< in  tk_fl  = temperature at full level at t-dt
               & xm_dry         = field%mdry(:,:,jb)        ,&!< in  dry air mass in layer [kg/m2]
               & xm_trc         = mtrc                      ,&!< in  tracer  mass in layer [kg/m2]
-              & xm_ozn         = field%o3(:,:,jb)          ,&!< inout  ozone  mass mixing ratio [kg/kg]
+              & xv_ozn         = field%o3(:,:,jb)          ,&!< out ozone volume mixing ratio [mol/mol]
               !
               & cdnc           = field% acdnc(:,:,jb)      ,&!< in   cloud droplet number conc
               & cld_frc        = field% aclc(:,:,jb)       ,&!< in   cloud fraction [m2/m2]
