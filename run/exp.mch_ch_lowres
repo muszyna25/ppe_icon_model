@@ -398,21 +398,23 @@ cat > ${atmo_namelist} << EOF
 /
 ! ser_nml: serialization configuration ----------------------------------------
 &ser_nml
- ser_output_diag             =                            0
- ser_latbc_data              =                            0
- ser_dynamics                =                            0
- ser_diffusion               =                            0 
- ser_step_advection          =                            0 
- ser_physics                 =                            0 
- ser_surface                 =                            0
- ser_microphysics            =                            0
- ser_lhn                     =                            0
- ser_cover                   =                            0
- ser_radiation               =                            0
- ser_radheat                 =                            0
- ser_gwdrag                  =                            0
- ser_convection              =                            0
- ser_nudging                 =                            0 
+ ser_output_diag             =                            0,12,12
+ ser_latbc_data              =                            0,12,12
+ ser_dynamics                =                            0,12,12
+ ser_diffusion               =                            0,12,12 
+ ser_step_advection          =                            0,12,12 
+ ser_physics                 =                            0,12,12
+ ser_surface                 =                            0,12,12
+ ser_microphysics            =                            0,12,12
+ ser_lhn                     =                            0,12,12
+ ser_cover                   =                            0,12,12
+ ser_radiation               =                            0,12,12
+ ser_radheat                 =                            0,12,12
+ ser_gwdrag                  =                            0,12,12
+ ser_convection              =                            0,12,12
+ ser_nudging                 =                            0,12,12 
+ ser_nfail                   =                            1
+ ser_nreport                 =                            10
  ser_all_debug               =                            0 
  ser_debug                   =                        .FALSE.      ! serialize the debug statements from mo_ser_debug
 /

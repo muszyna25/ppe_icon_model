@@ -12,7 +12,7 @@ XML2_LIBS='-lxml2'
 
 BLAS_LAPACK_LIBS='-llapack -lblas'
 
-SERIALBOX2_ROOT='/project/d56/install/daint/serialbox2/2.6.0/pgi/20.1.0'
+SERIALBOX2_ROOT='/project/d56/install/daint/serialbox2/2.4.3/pgi/19.9/'
 SERIALBOX2_LIBS='-lSerialboxFortran'
 
 # The rest of libraries required by CUDA will be provided by PGI compiler:
@@ -49,7 +49,7 @@ CLAWFLAGS="-I${NETCDF_DIR}/include"
 NVCC='nvcc'
 NVCFLAGS='--std=c++11 -arch=sm_60 -g -O3'
 
-SB2PP="${SERIALBOX2_ROOT}/python/pp_ser/pp_ser.py"
+SB2PP="python2 ${SERIALBOX2_ROOT}/python/pp_ser/pp_ser.py"
 
 #MPI_LAUNCH='/apps/daint/UES/xalt/production/bin/srun -p debug -C gpu'
 MPI_LAUNCH=false

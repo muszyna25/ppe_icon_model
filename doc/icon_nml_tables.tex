@@ -9187,6 +9187,140 @@ left column: NetCDF name, right column: GRIB2 short name. It is required, if ext
 
 Defined and used in: \verb+src/namelists/mo_extpar_nml.f90+
 
+\section{Serialization}
+
+Some developments must not change model results. Serialbox allows reading and writing data at any point in ICON into savepoints. These savepoints can be used to restore model variables to some reference or compare different model versions. The simplest application of Serialbox is using mo\_ser\_debug.f90 (or writing a similar routine fitting ones needs). Following this method will allow reading and writing manually specified fields in ICON. This can be very useful for small subroutines where input and output are clearly specified (i.e. do not involve derived types) and can thus easily be translated to Serialbox read/write statements. For larger components (basically everything hanging from nh\_stepping.f90, e.g. nwp\_physics) the interface is specified by the in and out types. The actual fields that are read or written to in these subroutines are not specified. For this purpose, serialize\_all has been implemented. It provides a wrapper for Serialbox read and write statements by looping through variable lists. This approach does not require managing lists of fields to read or write by Serialbox. At the level of mo\_nh\_stepping.f90 and mo\_nh\_interface\_nwp.f90 many components are wrapped by such serialize\_all calls that allow testing these components. Each of these hard-coded calls to serialize\_all has a name and for each name there is a namelist switch specifying the following triplet (e.g. 0,12,12):
+\begin{itemize}
+  \item the number of times the component is serialized
+  \item the relative threshold for errors (given as $N$ for $N$ in $10^{-N}$)
+  \item the absolute threshold for errors (given as $N$ for $N$ in $10^{-N}$)
+\end{itemize}
+
+\begin{longtab}
+
+  ser\_output\_diag &
+  I (3)&
+  0,12,12&
+  -, $10^{-N}$, $10^{-N}$&
+  Serialization switch for output diagnostics &
+  \tabularnewline
+
+  ser\_latbc\_data &
+  I (3)&
+  0,12,12&
+  -, $10^{-N}$, $10^{-N}$ &
+  Serialization switch for the subroutine recv\_latbc\_data &
+  \tabularnewline
+
+  ser\_dynamics &
+  I (3)&
+  0,12,12&
+  -, $10^{-N}$, $10^{-N}$ &
+  Serialization switch for the subroutine perform\_dyn\_substepping &
+  \tabularnewline
+
+  ser\_step\_advection &
+  I (3)&
+  0,12,12&
+  -, $10^{-N}$, $10^{-N}$ &
+  Serialization switch for the subroutine step\_advection &
+  \tabularnewline
+
+  ser\_physics &
+  I (3)&
+  0,12,12&
+  -, $10^{-N}$, $10^{-N}$ &
+  Serialization switch for the subroutine step\_physics &
+  \tabularnewline
+
+  ser\_lhn &
+  I (3)&
+  0,12,12&
+  -, $10^{-N}$, $10^{-N}$ &
+  Serialization switch for the subroutine organize\_lhn &
+  \tabularnewline
+
+  ser\_nudging &
+  I (3)&
+  0,12,12&
+  -, $10^{-N}$, $10^{-N}$ &
+  Serialization switch for the nudging computations &
+  \tabularnewline
+
+  ser\_microphysics &
+  I (3)&
+  0,12,12&
+  -, $10^{-N}$, $10^{-N}$ &
+  Serialization switch for the subroutine nwp\_microphysics &
+  \tabularnewline
+
+  ser\_convection &
+  I (3)&
+  0,12,12&
+  -, $10^{-N}$, $10^{-N}$ &
+  Serialization switch for the subroutine nwp\_convection &
+  \tabularnewline
+
+  ser\_cover &
+  I (3)&
+  0,12,12&
+  -, $10^{-N}$, $10^{-N}$ &
+  Serialization switch for the subroutine cover\_koe &
+  \tabularnewline
+
+  ser\_radiation &
+  I (3)&
+  0,12,12&
+  -, $10^{-N}$, $10^{-N}$ &
+  Serialization switch for the subroutine nwp\_radiation &
+  \tabularnewline
+
+  ser\_radheat &
+  I (3)&
+  0,12,12&
+  -, $10^{-N}$, $10^{-N}$ &
+  Serialization switch for the computations involving radiative heating &
+  \tabularnewline
+
+  ser\_gwdrag &
+  I (3)&
+  0,12,12&
+  -, $10^{-N}$, $10^{-N}$ &
+  Serialization switch for the subroutine nwp\_gwdrag &
+  \tabularnewline
+
+  ser\_all\_debug &
+  I (3)&
+  0,12,12&
+  -, $10^{-N}$, $10^{-N}$ &
+  Additional calls to serialize\_all (for debugging purposes) can be controlled using this switch. &
+  \tabularnewline
+
+  ser\_nfail &
+  R &
+  1.0 &
+  \% &
+  Fields that fail more elements than the percentage specified by ser\_nfail will be reported. &
+  \tabularnewline
+
+  ser\_nreport &
+  I &
+  10 &
+  &
+  The detailed serialization report will include the ser\_nreport elements with largest relative differences to the reference  &
+  \tabularnewline
+
+  ser\_debug &
+  L &
+  .FALSE. &
+  &
+  Activates the debug serialization defined in mo\_ser\_debug.f90 &
+  \tabularnewline
+
+
+\end{longtab}
+
+Defined and used in: \verb+src/namelists/mo_ser_nml.f90+
 
 \section{External packages}
 
