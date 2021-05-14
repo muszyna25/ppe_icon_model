@@ -15,6 +15,8 @@
 !! headers of the routines.
 !!
 !!
+#include "omp_definitions.inc"
+
 MODULE mo_read_netcdf_distributed
 
   USE mo_kind, ONLY: wp, sp
@@ -25,9 +27,10 @@ MODULE mo_read_netcdf_distributed
     & t_glb2loc_index_lookup, init_glb2loc_index_lookup, &
     & set_inner_glb_index, deallocate_glb2loc_index_lookup, &
     & uniform_partition, partidx_of_elem_uniform_deco
-  USE mo_communication, ONLY: t_comm_pattern, idx_no, blk_no, &
-    & delete_comm_pattern, exchange_data
-  USE mo_parallel_config, ONLY: nproma, io_process_stride, io_process_rotate
+  USE mo_communication, ONLY: t_comm_pattern, exchange_data, &
+    & delete_comm_pattern
+  USE mo_parallel_config, ONLY: nproma, io_process_stride, idx_1d, &
+    & io_process_rotate
   USE mo_communication_factory, ONLY: setup_comm_pattern
   USE mo_fortran_tools, ONLY: t_ptr_2d, t_ptr_2d_int, t_ptr_2d_sp, &
     & t_ptr_3d, t_ptr_3d_int, t_ptr_3d_sp, t_ptr_4d, t_ptr_4d_int, &
@@ -203,7 +206,10 @@ CONTAINS
   CONTAINS
 
     SUBROUTINE init_module_vars()
-      INTEGER :: rotate, temp_n, temp_stride, ierr, myColor
+      INTEGER :: rotate, temp_n, temp_stride
+#if defined (HAVE_PARALLEL_NETCDF) && !defined (NOMPI)
+      INTEGER :: ierr, myColor
+#endif
 
       rotate = MODULO(io_process_rotate, io_stride)
       IF (io_process_stride .GT. 0) THEN
@@ -377,15 +383,19 @@ CONTAINS
 
     SUBROUTINE read_multi_var_2dint(vd)
       TYPE(t_ptr_2d_int), INTENT(INOUT) :: vd(:)
-      INTEGER :: i
+      INTEGER :: i, j, idx
 
       ALLOCATE(bufi_i(ish(1),ish(2),ish(3)), bufo_i(osh(1),osh(2),osh(3),osh(4)))
       IF (ish(1) > 0) THEN
         CALL nf(nf_inq_vartype(ncid, vid, vtype))
         IF (vtype .NE. NF_INT) CALL finish(routine, "not an NF_INT")
         CALL nf(nf_get_vara_int(ncid, vid, strt(1:1), ish(1:1), bufi_i(:,1,1)))
-        DO i = 1, ish(1)
-          bufo_i(idx_no(i),blk_no(i),1,1) = bufi_i(i,1,1)
+!ICON_OMP PARALLEL DO COLLAPSE(2) PRIVATE(idx)
+        DO i = 1, osh(2)
+          DO j = 1, osh(1)
+            idx = MERGE(idx_1d(j,i), ish(1), idx_1d(j,i) .LE. ish(1))
+            bufo_i(j,i,1,1) = bufi_i(idx,1,1)
+          END DO
         END DO
       END IF
       DO i = 1, SIZE(iod)
@@ -395,13 +405,17 @@ CONTAINS
 
     SUBROUTINE read_multi_var_2dwp(vd)
       TYPE(t_ptr_2d), INTENT(INOUT) :: vd(:)
-      INTEGER :: i
+      INTEGER :: i, j, idx
 
       ALLOCATE(bufi_d(ish(1),ish(2),ish(3)), bufo_d(osh(1),osh(2),osh(3),osh(4)))
       IF (ish(1) > 0) THEN
         CALL nf(nf_get_vara_double(ncid, vid, strt(1:1), ish(1:1), bufi_d(:,1,1)))
-        DO i = 1, ish(1)
-          bufo_d(idx_no(i),blk_no(i),1,1) = bufi_d(i,1,1)
+!ICON_OMP PARALLEL DO COLLAPSE(2) PRIVATE(idx)
+        DO i = 1, osh(2)
+          DO j = 1, osh(1)
+            idx = MERGE(idx_1d(j,i), ish(1), idx_1d(j,i) .LE. ish(1))
+            bufo_d(j,i,1,1) = bufi_d(idx,1,1)
+          END DO
         END DO
       END IF
       DO i = 1, SIZE(iod)
@@ -411,13 +425,17 @@ CONTAINS
 
     SUBROUTINE read_multi_var_2dsp(vd)
       TYPE(t_ptr_2d_sp), INTENT(INOUT) :: vd(:)
-      INTEGER :: i
+      INTEGER :: i, j, idx
 
       ALLOCATE(bufi_s(ish(1),ish(2),ish(3)), bufo_s(osh(1),osh(2),osh(3),osh(4)))
       IF (ish(1) > 0) THEN
         CALL nf(nf_get_vara_real(ncid, vid, strt(1:1), ish(1:1), bufi_s(:,1,1)))
-        DO i = 1, ish(1)
-          bufo_s(idx_no(i),blk_no(i),1,1) = bufi_s(i,1,1)
+!ICON_OMP PARALLEL DO COLLAPSE(2) PRIVATE(idx)
+        DO i = 1, osh(2)
+          DO j = 1, osh(1)
+            idx = MERGE(idx_1d(j,i), ish(1), idx_1d(j,i) .LE. ish(1))
+            bufo_s(j,i,1,1) = bufi_s(idx,1,1)
+          END DO
         END DO
       END IF
       DO i = 1, SIZE(iod)
@@ -428,7 +446,7 @@ CONTAINS
     SUBROUTINE read_multi_var_3dint(vd, o)
       TYPE(t_ptr_3d_int), INTENT(INOUT) :: vd(:)
       INTEGER, INTENT(IN) :: o
-      INTEGER :: i, j
+      INTEGER :: i, j, k, idx
 
       ALLOCATE(bufi_i(ish(1),ish(2),ish(3)), bufo_i(osh(1),osh(2),osh(3),osh(4)))
       IF (ish(1) > 0) THEN
@@ -436,17 +454,25 @@ CONTAINS
         IF (vtype .NE. NF_INT) CALL finish(routine, "not an NF_INT")
         CALL nf(nf_get_vara_int(ncid, vid, strt(1:2), ish(1:2), bufi_i(:,:,1)))
         IF (o .EQ. idx_blk_time) THEN
-          DO j = 1, ish(2)
-            DO i = 1, ish(1)
-              bufo_i(idx_no(i),blk_no(i),j,1) = bufi_i(i,j,1)
+!ICON_OMP PARALLEL DO COLLAPSE(3) PRIVATE(idx)
+          DO i = 1, osh(3)
+            DO j = 1, osh(2)
+              DO k = 1, osh(1)
+                idx = MERGE(idx_1d(k,j), ish(1), idx_1d(k,j) .LE. ish(1))
+                bufo_i(k,j,i,1) = bufi_i(idx,i,1)
+              END DO
             END DO
           END DO
         ELSE IF(o .EQ. idx_lvl_blk) THEN
-          DO j = 1, ish(2)
-            DO i = 1, ish(1)
-              bufo_i(idx_no(i),j,blk_no(i),1) = bufi_i(i,j,1)
+!ICON_OMP PARALLEL DO COLLAPSE(3) PRIVATE(idx)
+          DO i = 1, osh(3)
+            DO j = 1, osh(2)
+              DO k = 1, osh(1)
+                idx = MERGE(idx_1d(k,i), ish(1), idx_1d(k,i) .LE. ish(1))
+                bufo_i(k,j,i,1) = bufi_i(idx,j,1)
+              END DO
             END DO
-          END DO          
+          END DO
         END IF
       END IF
       DO i = 1, SIZE(iod)
@@ -463,21 +489,29 @@ CONTAINS
     SUBROUTINE read_multi_var_3dwp(vd, o)
       TYPE(t_ptr_3d), INTENT(INOUT) :: vd(:)
       INTEGER, INTENT(IN) :: o
-      INTEGER :: i, j
+      INTEGER :: i, j, k, idx
 
       ALLOCATE(bufi_d(ish(1),ish(2),ish(3)), bufo_d(osh(1),osh(2),osh(3),osh(4)))
       IF (ish(1) > 0) THEN
         CALL nf(nf_get_vara_double(ncid, vid, strt(1:2), ish(1:2), bufi_d(:,:,1)))
         IF (o .EQ. idx_blk_time) THEN
-          DO j = 1, ish(2)
-            DO i = 1, ish(1)
-              bufo_d(idx_no(i),blk_no(i),j,1) = bufi_d(i,j,1)
+!ICON_OMP PARALLEL DO COLLAPSE(3) PRIVATE(idx)
+          DO i = 1, osh(3)
+            DO j = 1, osh(2)
+              DO k = 1, osh(1)
+                idx = MERGE(idx_1d(k,j), ish(1), idx_1d(k,j) .LE. ish(1))
+                bufo_d(k,j,i,1) = bufi_d(idx,i,1)
+              END DO
             END DO
           END DO
         ELSE IF(o .EQ. idx_lvl_blk) THEN
-          DO j = 1, ish(2)
-            DO i = 1, ish(1)
-              bufo_d(idx_no(i),j,blk_no(i),1) = bufi_d(i,j,1)
+!ICON_OMP PARALLEL DO COLLAPSE(3) PRIVATE(idx)
+          DO i = 1, osh(3)
+            DO j = 1, osh(2)
+              DO k = 1, osh(1)
+                idx = MERGE(idx_1d(k,i), ish(1), idx_1d(k,i) .LE. ish(1))
+                bufo_d(k,j,i,1) = bufi_d(idx,j,1)
+              END DO
             END DO
           END DO
         END IF
@@ -496,21 +530,29 @@ CONTAINS
     SUBROUTINE read_multi_var_3dsp(vd, o)
       TYPE(t_ptr_3d_sp), INTENT(INOUT) :: vd(:)
       INTEGER, INTENT(IN) :: o
-      INTEGER :: i, j
+      INTEGER :: i, j, k, idx
 
       ALLOCATE(bufi_s(ish(1),ish(2),ish(3)), bufo_s(osh(1),osh(2),osh(3),osh(4)))
       IF (ish(1) > 0) THEN
         CALL nf(nf_get_vara_real(ncid, vid, strt(1:2), ish(1:2), bufi_s(:,:,1)))
         IF (o .EQ. idx_blk_time) THEN
-          DO j = 1, ish(2)
-            DO i = 1, ish(1)
-              bufo_s(idx_no(i),blk_no(i),j,1) = bufi_s(i,j,1)
+!ICON_OMP PARALLEL DO COLLAPSE(3) PRIVATE(idx)
+          DO i = 1, osh(3)
+            DO j = 1, osh(2)
+              DO k = 1, osh(1)
+                idx = MERGE(idx_1d(k,j), ish(1), idx_1d(k,j) .LE. ish(1))
+                bufo_s(k,j,i,1) = bufi_s(idx,i,1)
+              END DO
             END DO
           END DO
         ELSE IF(o .EQ. idx_lvl_blk) THEN
-          DO j = 1, ish(2)
-            DO i = 1, ish(1)
-              bufo_s(idx_no(i),j,blk_no(i),1) = bufi_s(i,j,1)
+!ICON_OMP PARALLEL DO COLLAPSE(3) PRIVATE(idx)
+          DO i = 1, osh(3)
+            DO j = 1, osh(2)
+              DO k = 1, osh(1)
+                idx = MERGE(idx_1d(k,i), ish(1), idx_1d(k,i) .LE. ish(1))
+                bufo_s(k,j,i,1) = bufi_s(idx,j,1)
+              END DO
             END DO
           END DO
         END IF
@@ -528,17 +570,21 @@ CONTAINS
 
     SUBROUTINE read_multi_var_4dint(vd)
       TYPE(t_ptr_4d_int), INTENT(INOUT) :: vd(:)
-      INTEGER :: i, j, k
+      INTEGER :: i, j, k, l, idx
 
       ALLOCATE(bufi_i(ish(1),ish(2),ish(3)), bufo_i(osh(1),osh(2),osh(3),osh(4)))
       IF (ish(1) > 0) THEN
         CALL nf(nf_inq_vartype(ncid, vid, vtype))
         IF (vtype .NE. NF_INT) CALL finish(routine, "not an NF_INT")
         CALL nf(nf_get_vara_int(ncid, vid, strt, ish, bufi_i(:,:,:)))
-        DO k = 1, ish(3)
-          DO j = 1, ish(2)
-            DO i = 1, ish(1)
-              bufo_i(idx_no(i),j,blk_no(i), k) = bufi_i(i, j, k)
+!ICON_OMP PARALLEL DO COLLAPSE(4) PRIVATE(idx)
+        DO i = 1, osh(4)
+          DO j = 1, osh(3)
+            DO k = 1, osh(2)
+              DO l = 1, osh(1)
+                idx = MERGE(idx_1d(l,j), ish(1), idx_1d(l,j) .LE. ish(1))
+                bufo_i(l,k,j,i) = bufi_i(idx,k,i)
+              END DO
             END DO
           END DO
         END DO
@@ -552,15 +598,19 @@ CONTAINS
 
     SUBROUTINE read_multi_var_4dwp(vd)
       TYPE(t_ptr_4d), INTENT(INOUT) :: vd(:)
-      INTEGER :: i, j, k
+      INTEGER :: i, j, k, l, idx
 
       ALLOCATE(bufi_d(ish(1),ish(2),ish(3)), bufo_d(osh(1),osh(2),osh(3),osh(4)))
       IF (ish(1) > 0) THEN
         CALL nf(nf_get_vara_double(ncid, vid, strt, ish, bufi_d(:,:,:)))
-        DO k = 1, ish(3)
-          DO j = 1, ish(2)
-            DO i = 1, ish(1)
-              bufo_d(idx_no(i),j,blk_no(i), k) = bufi_d(i, j, k)
+!ICON_OMP PARALLEL DO COLLAPSE(4) PRIVATE(idx)
+        DO i = 1, osh(4)
+          DO j = 1, osh(3)
+            DO k = 1, osh(2)
+              DO l = 1, osh(1)
+                idx = MERGE(idx_1d(l,j), ish(1), idx_1d(l,j) .LE. ish(1))
+                bufo_d(l,k,j,i) = bufi_d(idx,k,i)
+              END DO
             END DO
           END DO
         END DO
@@ -574,15 +624,19 @@ CONTAINS
 
     SUBROUTINE read_multi_var_4dsp(vd)
       TYPE(t_ptr_4d_sp), INTENT(INOUT) :: vd(:)
-      INTEGER :: i, j, k
+      INTEGER :: i, j, k, l, idx
 
       ALLOCATE(bufi_s(ish(1),ish(2),ish(3)), bufo_s(osh(1),osh(2),osh(3),osh(4)))
       IF (ish(1) > 0) THEN
         CALL nf(nf_get_vara_real(ncid, vid, strt, ish, bufi_s(:,:,:)))
-        DO k = 1, ish(3)
-          DO j = 1, ish(2)
-            DO i = 1, ish(1)
-              bufo_s(idx_no(i),j,blk_no(i), k) = bufi_s(i, j, k)
+!ICON_OMP PARALLEL DO COLLAPSE(4) PRIVATE(idx)
+        DO i = 1, osh(4)
+          DO j = 1, osh(3)
+            DO k = 1, osh(2)
+              DO l = 1, osh(1)
+                idx = MERGE(idx_1d(l,j), ish(1), idx_1d(l,j) .LE. ish(1))
+                bufo_s(l,k,j,i) = bufi_s(idx,k,i)
+              END DO
             END DO
           END DO
         END DO
