@@ -69,6 +69,7 @@ extpar_filename="external_parameter_icon_mch_opr_r4b7_DOM01_tiles.nc"
 add_required_file "${grids_folder}/${extpar_filename}" ./
 
 # files needed for radiation
+add_link_file ${basedir}/externals/ecrad/data ecrad_data
 add_required_file ${basedir}/data/ECHAM6_CldOptProps.nc rrtm_cldopt.nc
 add_required_file ${basedir}/data/rrtmg_lw.nc .
 
@@ -153,7 +154,7 @@ cat > ${basedir}/run/${atmo_namelist} << EOF
  ltransport                  =                      .TRUE.        ! compute large-scale tracer transport
  ntracer                     =                          5         ! number of advected tracers
  iforcing                    =                          3         ! forcing of dynamics and transport by parameterized processes
- ldass_lhn                   =                     .TRUE.
+ ldass_lhn                   =                      .TRUE.
  msg_level                   =                         12         ! detailed report during integration
  ltimer                      =                      .TRUE.        ! timer for monitoring the runtime of specific routines
  timers_level                =                         10         ! performance timer granularity
@@ -312,7 +313,7 @@ cat > ${basedir}/run/${atmo_namelist} << EOF
  inwp_gscp                   =                          2         ! cloud microphysics and precipitation
  inwp_convection             =                          1         ! convection
  lshallowconv_only           =                      .TRUE.        ! only shallow convection
- inwp_radiation              =                          1         ! radiation
+ inwp_radiation              =                          4         ! radiation
  inwp_cldcover               =                          1         ! cloud cover scheme for radiation
  inwp_turb                   =                          1         ! vertical diffusion and transfer
  inwp_satad                  =                          1         ! saturation adjustment
@@ -390,15 +391,26 @@ cat > ${basedir}/run/${atmo_namelist} << EOF
  filetype         = 5
  remap            = 0
  output_grid      = .TRUE.
- output_time_unit = 1
  output_bounds    = ${output_bounds}        ! start, end, increment
  steps_per_file   = ${steps_per_file}
- include_last     = .TRUE.
- ml_varlist       = 'ps'      , 'pfull'   , 'zg'      ,
-                    'rho'     , 'ta'      ,
-                    'ua'      , 'va'      , 'wap'     ,
-                    'qv'      , 'qc'      , 'qi'      ,
-		                'tot_prec'
+ include_last     = .FALSE.
+ ml_varlist       =
+  'u','v','vt','qc','qi','qr','qs','qv','rho','theta_v','tke','vn','w',
+  'ddt_vn_phy','ddt_exner_phy','ddt_temp_dyn','exner_pr','exner_dyn_incr',
+  'pres_sfc','ddt_pres_sfc','temp','tempv','temp_ifc','pres','pres_ifc','dpres_mc',
+  'omega','div','div_ic','hdef_ic','dwdx','dwdy','vor','mass_fl_e',
+  'rho_ic','w_concorr_c','theta_v_ic','vn_ie','tqv','tqc','tqi','tqr','tqs','rain_gsp_rate','rain_gsp',
+  'tot_prec','cape','cape_ml','cin_ml','gust10','dyn_gust','clct_mod','cldepth',
+  'tot_qv_dia','tot_qc_dia','tot_qi_dia','tqv_dia','tqc_dia','tqi_dia','avg_qv','avg_qc','avg_qi',
+  'tsfctrad','thbclr_s','thb_t','thb_s','thu_s','lwflxall','t_s','t_sk','t_so','runoff_s',
+  'lwflx_up','lwflx_dn','lwflx_up_clr','lwflx_dn_clr','shfl_s','lhfl_s','lhfl_bs','lhfl_pl','qhfl_s','qcfl_s',
+  't_2m','qv_2m','rh_2m','td_2m','u_10m','v_10m','sp_10m','umfl_s','vmfl_s','str_u_sso',
+  'str_v_sso','drag_u_grid','ddt_temp_radlw','ddt_temp_turb','ddt_temp_drag',
+  'ddt_temp_pconv','ddt_u_turb','ddt_u_sso','ddt_u_pconv','ddt_v_turb','ddt_v_sso',
+  'ddt_qv_turb','ddt_qc_turb','ddt_qv_conv','ddt_qc_conv','ddt_tke','ddt_tke_pconv','ddt_tke_hsh','qv_s',
+  'runoff_g','plantevap','t_snow','rho_snow','h_snow','freshsnow','ddt_vn_adv','ddt_w_adv','exner'
+
+
 /
 
 ! radiation_nml: radiation scheme ---------------------------------------------
@@ -412,8 +424,11 @@ cat > ${basedir}/run/${atmo_namelist} << EOF
  vmr_o2                      =                     0.20946
  vmr_cfc11                   =                    240.e-12
  vmr_cfc12                   =                    532.e-12
- direct_albedo_water         =                           3
- albedo_whitecap             =                           1
+ icld_overlap                =                          2         ! Generalized Random
+ ecrad_data_path             =              './ecrad_data'        ! Optical property files path ecRad (link files as path is truncated inside ecrad)
+ llw_cloud_scat              =                     .TRUE.         ! Longwave cloud scattering
+ iliquid_scat                =                          0         ! Optical properties used for liquid cloud scattering (0 = SOCRATES)
+ iice_scat                   =                          0         ! Optical properties used for ice cloud scattering (0 = Fu)
 /
 
 ! sleve_nml: vertical level specification -------------------------------------

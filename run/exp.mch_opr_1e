@@ -2,7 +2,7 @@
 
 # ===========================================================================
 # 
-# Name: exp.mch_opr_r04b07.run
+# Name: exp.mch_opr_1e.run
 #
 # Purpose: Run script for ICON at on a domain similar to the current COSMO-1E domain
 #          This is a low resolution version used for development purpose.
@@ -39,24 +39,24 @@ icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/mch"
 # =======================
 
 # Folder containing required grid information
-grids_folder=${icon_data_poolFolder}/grids/opr_r04b07
+grids_folder=${icon_data_poolFolder}/grids/opr_i1e
 
 # Folder containing lateral boundary conditions
-latbc_path=${icon_data_poolFolder}/input/opr_r04b07
+latbc_path=${icon_data_poolFolder}/input/opr_i1e_lhn
 
-dynamics_grid_filename=mch_opr_r4b7_DOM01.nc
+dynamics_grid_filename=ICON-1E_DOM01.nc
 atmo_dyn_grids="'${dynamics_grid_filename}',"
 
-radiation_grid_filename=mch_opr_r4b7_DOM01.parent.nc
+radiation_grid_filename=ICON-1E_DOM01.parent.nc
 atmo_rad_grids="'${radiation_grid_filename}',"
 
 # start and end date+time
-start_date=${start_date:="2020-12-10T06:00:00Z"}
-  end_date=${end_date:="2020-12-10T06:01:00Z"}
+start_date=${start_date:="2019-06-15T00:00:00Z"}
+  end_date=${end_date:="2019-06-16T00:00:00Z"}
 
 # output intervals
-output_bounds="0.,10000000.,10."
-steps_per_file=7
+output_bounds="0.,10000000.,3600."
+steps_per_file=1
 
 # namelist files
 atmo_namelist=NAMELIST_${EXPNAME}_atm
@@ -65,7 +65,7 @@ atmo_namelist=NAMELIST_${EXPNAME}_atm
 # Get required files together
 # ========================
 
-extpar_filename="external_parameter_icon_mch_opr_r4b7_DOM01_tiles.nc"
+extpar_filename="external_parameter_icon_ICON-1E_DOM01_tiles.nc"
 add_required_file "${grids_folder}/${extpar_filename}" ./
 
 # files needed for radiation
@@ -80,7 +80,7 @@ add_required_file ${basedir}/run/ana_varnames_map_file.txt map_file.ana
 add_required_file ${latbc_path}/map_file.latbc map_file.latbc
 
 # initial data
-initial_condition=${latbc_path}/laf2020121006.nc
+initial_condition=${latbc_path}/laf2019061500.nc
 add_link_file ${initial_condition} .
 
 # lateral boundary grid
@@ -88,9 +88,13 @@ add_required_file ${latbc_path}/lateral_boundary.grid.nc lateral_boundary.grid.n
 
 # lateral boundary data
 add_link_file ${latbc_path}/efsf00000000_lbc.nc .
-add_link_file ${latbc_path}/efsf00010000_lbc.nc .
-add_link_file ${latbc_path}/efsf00020000_lbc.nc .
-
+add_link_file ${latbc_path}/efsf00030000_lbc.nc .
+add_link_file ${latbc_path}/efsf00060000_lbc.nc .
+add_link_file ${latbc_path}/efsf00090000_lbc.nc .
+add_link_file ${latbc_path}/efsf00120000_lbc.nc .
+add_link_file ${latbc_path}/efsf00150000_lbc.nc .
+add_link_file ${latbc_path}/efsf00180000_lbc.nc .
+add_link_file ${latbc_path}/efsf00210000_lbc.nc .
 
 # dictionary file for output variable names
 dict_file="dict.${EXPNAME}"
@@ -140,7 +144,7 @@ cat > ${basedir}/run/${atmo_namelist} << EOF
 &parallel_nml
  nproma                      =                   ${nproma}        ! loop chunk length
  p_test_run                  =                     .FALSE.        ! .TRUE. means verification run for MPI parallelization
- num_io_procs                =                          0         ! number of I/O processors
+ num_io_procs                =                          1         ! number of I/O processors
  num_restart_procs           =                          0         ! number of restart processors
  num_prefetch_proc           =                          1         ! number of processors for LBC prefetching
  iorder_sendrecv             =                          3         ! sequence of MPI send/receive calls
@@ -156,7 +160,8 @@ cat > ${basedir}/run/${atmo_namelist} << EOF
  ltransport                  =                      .TRUE.        ! compute large-scale tracer transport
  ntracer                     =                          5         ! number of advected tracers
  iforcing                    =                          3         ! forcing of dynamics and transport by parameterized processes
- msg_level                   =                         12         ! detailed report during integration
+ ldass_lhn                   =                      .TRUE.
+ msg_level                   =                         15         ! detailed report during integration
  ltimer                      =                      .TRUE.        ! timer for monitoring the runtime of specific routines
  timers_level                =                         10         ! performance timer granularity
  check_uuid_gracefully       =                      .FALSE.        ! give only warnings for non-matching uuids
@@ -196,7 +201,8 @@ cat > ${basedir}/run/${atmo_namelist} << EOF
 
 ! initicon_nml: specify read-in of initial state ------------------------------
 &initicon_nml
- init_mode                    = 7                          ! For ICON-LAM runs, use 7 when initialized from ICON and 2 from IFS
+ init_mode                    = 2                          ! For ICON-LAM runs, use 7 when initialized from ICON and 2 from IFS
+ ifs2icon_filename            = "ifs2icon_R4B10_DOM01.nc"
  lread_ana                    = .FALSE.                    ! no analysis data will be read
  lp2cintp_incr                = .FALSE.
  lp2cintp_sfcana              = .FALSE.
@@ -209,7 +215,7 @@ cat > ${basedir}/run/${atmo_namelist} << EOF
                                             !     and added to QV if not
  qiana_mode                   = 0           ! 0/1: ignore/use QI increments 
  qrsgana_mode                 = 0           ! 0/1: ignore/use QR,QS,QG 
- dwdfg_filename               = "laf2020121006.nc"    ! initial data filename init_mode 7
+ dwdfg_filename               = "laf2019061500.nc"    ! initial data filename init_mode 7
  filetype                     = -1        
  ana_varnames_map_file        = "map_file.ana"        ! Dictionary for initial data file
  ltile_coldstart              = .TRUE.  ! coldstart for surface tiles
@@ -350,32 +356,58 @@ cat > ${basedir}/run/${atmo_namelist} << EOF
  tune_sgsclifac              =                        1.0         ! new tuning becoming operational in July 2019 ! gdm non in guenther
 /
 
+&assimilation_nml
+ dace_coupling   = .false.
+ dace_debug      = 1
+ dace_time_ctrl  = 0,3600,1800 ! [s] time slices of DACE (start, stop, inc)
+ fac_lhn_down    = 0.2
+ fac_lhn_up      = 1.5
+ lhn_artif       = .true.
+ lhn_artif_only  = .false.
+ lhn_black       = .true.
+   blacklist_file  = 'radblack_meteoswiss_extended.nc'
+   height_file     = 'radheight_meteoswiss_extended.nc'
+   nradar          = 12       ! number of levele with radar heights within height_file
+ lhn_bright      = .true.
+ lhn_coef        = 1.0
+ lhn_diag        = .true.
+ lhn_hum_adj     = .true.
+ lhn_logscale    = .false.
+ lhn_qrs         = .true.
+ lhn_relax       = .true.
+ lhn_wweight     = .true.
+ nlhn_end        = 28800 ! in seconds
+ nlhn_relax      = 2
+ nlhn_start      = 0
+ nlhnverif_end   = 28800
+ nlhnverif_start = 0
+ radar_in        = '${latbc_path}/'
+!radardata_file  = 'radardata_DOM1.nc','radardata_DOM2.nc',
+ radardata_file  = 'rad4icon_M01.nc'
+ rqrsgmax        = 0.5
+ start_fadeout   = 1.0
+ std_artif_max   = 4.
+ tt_artif_max    = 0.009
+ zlev_artif_max  = 3000.
+/
+
 &output_nml
  output_filename  = "${EXPNAME}_atm_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  filetype         = 5
+ dom              = 1
+ mode             = 1 		! 1:forecast, 2:climate
  remap            = 0
- output_grid      = .TRUE.
+ output_grid      = .TRUE.	! crucial for plotting
+ output_time_unit = 1
  output_bounds    = ${output_bounds}        ! start, end, increment
  steps_per_file   = ${steps_per_file}
- include_last     = .FALSE.
- ml_varlist       =
-  'u','v','vt','qc','qi','qr','qs','qv','rho','theta_v','tke','vn','w',
-  'ddt_vn_phy','ddt_exner_phy','ddt_temp_dyn','exner_pr','exner_dyn_incr',
-  'pres_sfc','ddt_pres_sfc','temp','tempv','temp_ifc','pres','pres_ifc','dpres_mc',
-  'omega','div','div_ic','hdef_ic','dwdx','dwdy','vor','mass_fl_e',
-  'rho_ic','w_concorr_c','theta_v_ic','vn_ie','tqv','tqc','tqi','tqr','tqs','rain_gsp_rate','rain_gsp',
-  'tot_prec','cape','cape_ml','cin_ml','gust10','dyn_gust','clct_mod','cldepth',
-  'tot_qv_dia','tot_qc_dia','tot_qi_dia','tqv_dia','tqc_dia','tqi_dia','avg_qv','avg_qc','avg_qi',
-  'tsfctrad','thbclr_s','thb_t','thb_s','thu_s','lwflxall','t_s','t_sk','t_so','runoff_s',
-  'lwflx_up','lwflx_dn','lwflx_up_clr','lwflx_dn_clr','shfl_s','lhfl_s','lhfl_bs','lhfl_pl','qhfl_s','qcfl_s',
-  't_2m','qv_2m','rh_2m','td_2m','u_10m','v_10m','sp_10m','umfl_s','vmfl_s','str_u_sso',
-  'str_v_sso','drag_u_grid','ddt_temp_radlw','ddt_temp_turb','ddt_temp_drag',
-  'ddt_temp_pconv','ddt_u_turb','ddt_u_sso','ddt_u_pconv','ddt_v_turb','ddt_v_sso',
-  'ddt_qv_turb','ddt_qc_turb','ddt_qv_conv','ddt_qc_conv','ddt_tke','ddt_tke_pconv','ddt_tke_hsh','qv_s',
-  'runoff_g','plantevap','t_snow','rho_snow','h_snow','freshsnow','ddt_vn_adv','ddt_w_adv','exner'
-
-
+ include_last     = .TRUE.
+ ml_varlist       = 'ps'      , 'pfull'   , 'zg'      ,
+                    'rho'     , 'ta'      ,
+                    'ua'      , 'va'      , 'wap'     ,
+                    'qv'      , 'qc'      , 'qi'      ,
+		    'tot_prec'
 /
 
 ! radiation_nml: radiation scheme ---------------------------------------------
@@ -389,11 +421,9 @@ cat > ${basedir}/run/${atmo_namelist} << EOF
  vmr_o2                      =                     0.20946
  vmr_cfc11                   =                    240.e-12
  vmr_cfc12                   =                    532.e-12
- icld_overlap                =                          2         ! Generalized Random
- ecrad_data_path             =              './ecrad_data'        ! Optical property files path ecRad (link files as path is truncated inside ecrad)
- llw_cloud_scat              =                     .TRUE.         ! Longwave cloud scattering
- iliquid_scat                =                          0         ! Optical properties used for liquid cloud scattering (0 = SOCRATES)
- iice_scat                   =                          0         ! Optical properties used for ice cloud scattering (0 = Fu)
+ direct_albedo_water         =                           3
+ albedo_whitecap             =                           1
+ ecrad_data_path             =               "./ecrad_data"
 /
 
 ! sleve_nml: vertical level specification -------------------------------------
@@ -438,23 +468,21 @@ cat > ${basedir}/run/${atmo_namelist} << EOF
 
 ! ser_nml: serialization configuration ----------------------------------------
 &ser_nml
- ser_output_diag             =                            0,12,12
- ser_latbc_data              =                            0,12,12
- ser_dynamics                =                            0,12,12
- ser_diffusion               =                            0,12,12 
- ser_step_advection          =                            0,12,12 
- ser_physics                 =                            0,12,12
- ser_surface                 =                            0,12,12
- ser_microphysics            =                            0,12,12
- ser_lhn                     =                            0,12,12
- ser_cover                   =                            0,12,12
- ser_radiation               =                            0,12,12
- ser_radheat                 =                            0,12,12
- ser_gwdrag                  =                            0,12,12
- ser_convection              =                            0,12,12
- ser_nudging                 =                            0,12,12 
- ser_nfail                   =                            1
- ser_nreport                 =                            10
+ ser_output_diag             =                            0
+ ser_latbc_data              =                            0
+ ser_dynamics                =                            0
+ ser_diffusion               =                            0 
+ ser_step_advection          =                            0 
+ ser_physics                 =                            0 
+ ser_surface                 =                            0
+ ser_microphysics            =                            0
+ ser_lhn                     =                            0
+ ser_cover                   =                            0
+ ser_radiation               =                            0
+ ser_radheat                 =                            0
+ ser_gwdrag                  =                            0
+ ser_convection              =                            0
+ ser_nudging                 =                            0 
  ser_all_debug               =                            0 
  ser_debug                   =                        .FALSE.      ! serialize the debug statements from mo_ser_debug
 /

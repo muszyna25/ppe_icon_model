@@ -246,7 +246,7 @@ cat > ${basedir}/run/${atmo_namelist} << EOF
 &io_nml
  output_nml_dict             =              "${dict_file}"        ! translates the output nml names to icon names
  netcdf_dict                 =              "${dict_file}"        ! specifies the names in the output netcdf file
- lnetcdf_flt64_output        =                      .TRUE.        ! double precision output
+ lnetcdf_flt64_output        =                      .FALSE.        ! double precision output
  itype_pres_msl              =                          5         ! method for computation of mean sea level pressure
  itype_rh                    =                          1         ! method for computation of relative humidity
  lmask_boundary              =                      .FALSE.       ! mask out interpolation zone in output
@@ -311,13 +311,13 @@ cat > ${basedir}/run/${atmo_namelist} << EOF
 ! nwp_phy_nml: switches for the physics schemes ------------------------------
 &nwp_phy_nml
  inwp_gscp                   =                          2         ! cloud microphysics and precipitation
- inwp_convection             =                          1         ! convection
+ inwp_convection             =                          0         ! convection
  lshallowconv_only           =                      .TRUE.        ! only shallow convection
- inwp_radiation              =                          4         ! radiation
- inwp_cldcover               =                          1         ! cloud cover scheme for radiation
+ inwp_radiation              =                          0         ! radiation
+ inwp_cldcover               =                          0         ! cloud cover scheme for radiation
  inwp_turb                   =                          1         ! vertical diffusion and transfer
  inwp_satad                  =                          1         ! saturation adjustment
- inwp_sso                    =                          1         ! subgrid scale orographic drag
+ inwp_sso                    =                          0         ! subgrid scale orographic drag
  inwp_gwd                    =                          0         ! non-orographic gravity wave drag
  inwp_surface                =                          1         ! surface scheme
  latm_above_top              =                      .TRUE.        ! take into account atmosphere above model top for radiation computation
@@ -335,6 +335,15 @@ cat > ${basedir}/run/${atmo_namelist} << EOF
  dt_conv                     =                 120.,90.,90.       ! time step for convection in s (domain specific)
  dt_sso                      =               120.,360.,360.       ! time step for SSO parameterization
  dt_gwd                      =               120.,120.,120.       ! gdm : 360 in guenther
+/
+
+! bench_nml: switches for the time_loop ------------------------------
+&bench_nml
+ d_unpb           =          .FALSE.        ! disable update_nwp_phy_bcs
+ d_ndfo           =          .TRUE.         ! disable nwp_diag_for_output
+ d_rld            =          .FALSE.        ! disable recv_latbc_data
+ d_n              =          .TRUE.         ! disable nudging
+ d_wnlo           =          .FALSE.        ! disable write_name_list_output
 /
 
 ! nwp_tuning_nml: additional tuning parameters ----------------------------------
@@ -438,23 +447,21 @@ cat > ${basedir}/run/${atmo_namelist} << EOF
 
 ! ser_nml: serialization configuration ----------------------------------------
 &ser_nml
- ser_output_diag             =                            0,12,12
- ser_latbc_data              =                            0,12,12
- ser_dynamics                =                            0,12,12
- ser_diffusion               =                            0,12,12 
- ser_step_advection          =                            0,12,12 
- ser_physics                 =                            0,12,12
- ser_surface                 =                            0,12,12
- ser_microphysics            =                            0,12,12
- ser_lhn                     =                            0,12,12
- ser_cover                   =                            0,12,12
- ser_radiation               =                            0,12,12
- ser_radheat                 =                            0,12,12
- ser_gwdrag                  =                            0,12,12
- ser_convection              =                            0,12,12
- ser_nudging                 =                            0,12,12 
- ser_nfail                   =                            1
- ser_nreport                 =                            10
+ ser_output_diag             =                            0
+ ser_latbc_data              =                            0
+ ser_dynamics                =                            0
+ ser_diffusion               =                            0 
+ ser_step_advection          =                            0 
+ ser_physics                 =                            0 
+ ser_surface                 =                            0
+ ser_microphysics            =                            0
+ ser_lhn                     =                            0
+ ser_cover                   =                            0
+ ser_radiation               =                            0
+ ser_radheat                 =                            0
+ ser_gwdrag                  =                            0
+ ser_convection              =                            0
+ ser_nudging                 =                            0 
  ser_all_debug               =                            0 
  ser_debug                   =                        .FALSE.      ! serialize the debug statements from mo_ser_debug
 /
