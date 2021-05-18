@@ -48,7 +48,7 @@ LIBS="-Wl,--as-needed ${XML2_LIBS} ${GRIBAPI_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS
 
 MPI_LAUNCH='mpiexec'
 
-EXTRA_CONFIG_ARGS='--enable-intel-consistency --enable-vectorized-lrtm --enable-parallel-netcdf --enable-mixed-precision'
+EXTRA_CONFIG_ARGS='--enable-intel-consistency --enable-vectorized-lrtm --enable-parallel-netcdf --enable-mixed-precision --enable-openmp --enable-ecrad'
 
 ################################################################################
 
