@@ -443,7 +443,7 @@ cat > ${basedir}/run/${atmo_namelist} << EOF
  ser_dynamics                =                            0,12,12
  ser_diffusion               =                            0,12,12 
  ser_step_advection          =                            0,12,12 
- ser_physics                 =                            0,12,12
+ ser_physics                 =                            1,12,12
  ser_surface                 =                            0,12,12
  ser_microphysics            =                            0,12,12
  ser_lhn                     =                            0,12,12

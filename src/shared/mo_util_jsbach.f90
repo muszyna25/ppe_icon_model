@@ -278,13 +278,6 @@ CONTAINS
 
     CHARACTER(len=*), INTENT(in) :: namelist_filename
 
-    LOGICAL :: unit_is_occupied
-
-    CHARACTER(len=*), PARAMETER :: routine = modname//':open_nml'
-
-    INQUIRE(UNIT=nnml, OPENED=unit_is_occupied)
-    IF (unit_is_occupied) CALL finish(TRIM(routine), 'namelist unit is already open')
-
     CALL open_nml_icon(TRIM(namelist_filename))
     open_nml = 1
 

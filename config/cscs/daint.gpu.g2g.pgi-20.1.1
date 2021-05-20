@@ -12,11 +12,11 @@ XML2_LIBS='-lxml2'
 
 BLAS_LAPACK_LIBS='-llapack -lblas'
 
-SERIALBOX2_ROOT='/project/d56/install/daint/serialbox2/2.4.3/pgi/19.9/'
-SERIALBOX2_LIBS='-lSerialboxFortran'
+SERIALBOX2_ROOT='/project/d56/install/daint/serialbox2/2.6.0/pgi/20.1.0'
+SERIALBOX2_LIBS='-lSerialboxFortran -lSerialboxC -lSerialboxCore'
 
 # The rest of libraries required by CUDA will be provided by PGI compiler:
-STDCPP_LIBS='-lstdc++'
+STDCPP_LIBS='-lstdc++fs -lstdc++'
 
 ################################################################################
 
