@@ -33,7 +33,7 @@ MODULE mo_interface_echam_car
   USE mo_physical_constants  ,ONLY: amd, amo3
   USE mo_bcs_time_interpolation ,ONLY: t_time_interpolation_weights, &
        &                               calculate_time_interpolation_weights
-  USE mo_lcariolle_types     ,ONLY: t_avi, t_time_interpolation
+  USE mo_lcariolle     ,ONLY: t_avi, t_time_interpolation
   
   IMPLICIT NONE
   PRIVATE
