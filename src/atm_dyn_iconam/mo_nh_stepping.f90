@@ -112,9 +112,10 @@ MODULE mo_nh_stepping
                                          limarea_bdy_nudging, save_progvars
   USE mo_nh_feedback,              ONLY: feedback, relax_feedback, lhn_feedback
   USE mo_exception,                ONLY: message, message_text, finish
-  USE mo_impl_constants,           ONLY: SUCCESS, inoforcing, iheldsuarez, inwp, iecham,    &
-    &                                    MODE_IAU, MODE_IAU_OLD, SSTICE_CLIM,               &
-    &                                    SSTICE_AVG_MONTHLY, SSTICE_AVG_DAILY, SSTICE_INST, &
+  USE mo_impl_constants,           ONLY: SUCCESS, inoforcing, iheldsuarez, inwp, iecham,       &
+    &                                    MODE_IAU, MODE_IAU_OLD, SSTICE_CLIM,                  &
+    &                                    MODE_IFSANA,MODE_COMBINED,MODE_COSMO,MODE_ICONVREMAP, &
+    &                                    SSTICE_AVG_MONTHLY, SSTICE_AVG_DAILY, SSTICE_INST,    &
     &                                    max_dom, min_rlcell, min_rlvert
   USE mo_math_divrot,              ONLY: rot_vertex, div_avg !, div
   USE mo_solve_nonhydro,           ONLY: solve_nh
@@ -1240,7 +1241,12 @@ MODULE mo_nh_stepping
     ! Adapt number of dynamics substeps if necessary
     !
     IF (lcfl_watch_mode .OR. MOD(jstep-jstep_shift,5) == 0) THEN
-      CALL set_ndyn_substeps(lcfl_watch_mode)
+      IF (ANY((/MODE_IFSANA,MODE_COMBINED,MODE_COSMO,MODE_ICONVREMAP/) == init_mode)) THEN
+        ! For interpolated initial conditions, apply more restrictive criteria for timestep reduction during the spinup phase
+        CALL set_ndyn_substeps(lcfl_watch_mode,jstep <= 100)
+      ELSE
+        CALL set_ndyn_substeps(lcfl_watch_mode,.FALSE.)
+      ENDIF
     ENDIF
 
     !--------------------------------------------------------------------------
@@ -3241,15 +3247,20 @@ MODULE mo_nh_stepping
   !-------------------------------------------------------------------------
   !> Control routine for adaptive number of dynamic substeps
   !!
-  SUBROUTINE set_ndyn_substeps(lcfl_watch_mode)
+  SUBROUTINE set_ndyn_substeps(lcfl_watch_mode,lspinup)
 
     LOGICAL, INTENT(INOUT) :: lcfl_watch_mode
+    LOGICAL, INTENT(IN) :: lspinup
 
-    INTEGER :: jg
-    REAL(wp) :: mvcfl(n_dom)
+    INTEGER :: jg, ndyn_substeps_enh
+    REAL(wp) :: mvcfl(n_dom), thresh1_cfl, thresh2_cfl
     LOGICAL :: lskip
 
     lskip = .FALSE.
+
+    thresh1_cfl = MERGE(0.95_wp,1.05_wp,lspinup)
+    thresh2_cfl = MERGE(0.90_wp,0.95_wp,lspinup)
+    ndyn_substeps_enh = MERGE(1,0,lspinup)
 
     mvcfl(1:n_dom) = p_nh_state(1:n_dom)%diag%max_vcfl_dyn
 
@@ -3269,15 +3280,15 @@ MODULE mo_nh_stepping
             jg,':', mvcfl(jg)
           CALL message('',message_text)
         ENDIF
-        IF (mvcfl(jg) > 1.05_wp) THEN
-          ndyn_substeps_var(jg) = MIN(ndyn_substeps_var(jg)+1,ndyn_substeps_max)
-          advection_config(jg)%ivcfl_max = ndyn_substeps_var(jg)
+        IF (mvcfl(jg) > thresh1_cfl) THEN
+          ndyn_substeps_var(jg) = MIN(ndyn_substeps_var(jg)+1,ndyn_substeps_max+ndyn_substeps_enh)
+          advection_config(jg)%ivcfl_max = MIN(ndyn_substeps_var(jg),ndyn_substeps_max)
           WRITE(message_text,'(a,i3,a,i3)') 'Number of dynamics substeps in domain ', &
             jg,' increased to ', ndyn_substeps_var(jg)
           CALL message('',message_text)
         ENDIF
         IF (ndyn_substeps_var(jg) > ndyn_substeps .AND.                                            &
-            mvcfl(jg)*REAL(ndyn_substeps_var(jg),wp)/REAL(ndyn_substeps_var(jg)-1,wp) < 0.95_wp) THEN
+            mvcfl(jg)*REAL(ndyn_substeps_var(jg),wp)/REAL(ndyn_substeps_var(jg)-1,wp) < thresh2_cfl) THEN
           ndyn_substeps_var(jg) = ndyn_substeps_var(jg)-1
           advection_config(jg)%ivcfl_max = ndyn_substeps_var(jg)
           WRITE(message_text,'(a,i3,a,i3)') 'Number of dynamics substeps in domain ', &

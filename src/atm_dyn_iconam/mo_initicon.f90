@@ -213,7 +213,7 @@ MODULE mo_initicon
         CASE(MODE_IFSANA)   
             CALL message(modname,'MODE_IFS: perform initialization with IFS analysis')
         CASE(MODE_COMBINED)
-            CALL message(modname,'MODE_COMBINED: IFS-atm + GME-soil')
+            CALL message(modname,'MODE_COMBINED: IFS-atm + ICON-soil')
         CASE(MODE_COSMO)
             CALL message(modname,'MODE_COSMO: COSMO-atm + COSMO-soil')
         CASE DEFAULT
@@ -2195,7 +2195,7 @@ MODULE mo_initicon
           ENDIF
 
 
-          ! Catch problematic coast cases: ICON-land but GME ocean for moisture
+          ! Catch problematic coast cases: ICON-land but interpolated ocean for moisture
           !
           DO jk = 1, nlev_soil
 !NEC$ ivdep

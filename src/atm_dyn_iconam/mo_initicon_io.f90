@@ -62,7 +62,7 @@ MODULE mo_initicon_io
   USE mo_nwp_sfc_tiles,       ONLY: t_tileinfo_icon, trivial_tile_att
   USE mo_lnd_nwp_config,      ONLY: ntiles_total,  l2lay_rho_snow, &
     &                               ntiles_water, lmulti_snow, lsnowtile, &
-    &                               isub_lake, llake, lprog_albsi, itype_trvg, &
+    &                               isub_lake, isub_water, llake, lprog_albsi, itype_trvg, &
     &                               itype_snowevap, itype_canopy, nlev_soil
   USE mo_master_config,       ONLY: getModelBaseDir
   USE mo_nwp_sfc_interp,      ONLY: smi_to_wsoil
@@ -1831,6 +1831,8 @@ CONTAINS
             !These two fields are required for the processing step below, AND they are NOT initialized before this SUBROUTINE IS called, so they are fetched as required.
             !This diverges from the code that I found which READ them conditionally.
             CALL fetchRequiredTiledSurface(params, 't_g', jg, ntiles_total + ntiles_water, lnd_prog%t_g_t)
+            ! Limit SST in case of interpolated data to physically reasonable values
+            IF (ltile_coldstart) lnd_prog%t_g_t(:,:,isub_water) = MIN(305._wp,lnd_prog%t_g_t(:,:,isub_water))
             CALL fetchRequiredTiledSurface(params, 'qv_s', jg, ntiles_total + ntiles_water, lnd_diag%qv_s_t)
 
             CALL fetchTiledSurface(params, 'freshsnow', jg, ntiles_total, lnd_diag%freshsnow_t)
@@ -1921,7 +1923,7 @@ CONTAINS
 
             CALL fetchTiled3d(params, 't_so', jg, ntiles_total, lnd_prog%t_so_t)
 
-            ! Skipped in MODE_COMBINED and in MODE_COSMO (i.e. when starting from GME soil)
+            ! Skipped in MODE_COMBINED and in MODE_COSMO (i.e. when starting from ICON/COSMO soil)
             ! Instead z0 is re-initialized (see mo_nwp_phy_init)
             CALL fetchSurface(params, 'gz0', jg, prm_diag(jg)%gz0)
 
@@ -2021,7 +2023,7 @@ CONTAINS
             END DO
 
 
-            ! When starting from GME or COSMO soil (i.e. MODE_COMBINED or MODE_COSMODE).
+            ! When starting from ICON or COSMO soil (i.e. MODE_COMBINED or MODE_COSMODE).
             ! SMI is read if available, with W_SO being the fallback option. If SMI is 
             ! read, it is directly stored in w_so_t. Here, it is converted into w_so
             IF (ANY((/MODE_COMBINED,MODE_COSMO,MODE_ICONVREMAP/) == init_mode)) THEN

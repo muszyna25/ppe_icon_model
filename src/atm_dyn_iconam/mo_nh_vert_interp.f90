@@ -542,15 +542,15 @@ CONTAINS
     IF (lexpol) CALL expol%pres(p_patch, initicon%atm%pres, z_tempv, p_metrics)
 
 
-    CALL qv_intp(initicon%atm_in%qv, initicon%atm%qv, z_mc_in,              &
-                 initicon%const%z_mc, initicon%atm_in%temp, initicon%atm_in%pres, &
-                 initicon%atm%temp, initicon%atm%pres,                      &
-                 p_patch%nblks_c, p_patch%npromz_c, nlev_in, nlev,          &
-                 coef1, coef2, coef3, wfac_lin,                             &
-                 idx0_cub, idx0_lin, bot_idx_cub, bot_idx_lin,              &
-                 wfacpbl1, kpbl1, wfacpbl2, kpbl2, l_satlimit=.TRUE.,       &
-                 lower_limit=2.5e-7_wp, l_restore_pbldev=.TRUE.,            &
-                 opt_qc=initicon%atm%qc, opt_lmask=opt_lmask_c )
+    CALL qv_intp(initicon%atm_in%qv, initicon%atm%qv, z_mc_in,                      &
+                 initicon%const%z_mc, initicon%atm_in%temp, initicon%atm_in%pres,   &
+                 initicon%atm%temp, initicon%atm%pres,                              &
+                 p_patch%nblks_c, p_patch%npromz_c, nlev_in, nlev,                  &
+                 coef1, coef2, coef3, wfac_lin,                                     &
+                 idx0_cub, idx0_lin, bot_idx_cub, bot_idx_lin,                      &
+                 wfacpbl1, kpbl1, wfacpbl2, kpbl2, l_satlimit=.TRUE.,               &
+                 lower_limit=2.5e-7_wp, l_restore_pbldev=.TRUE.,                    &
+                 opt_hires_corr=lc2f, opt_qc=initicon%atm%qc, opt_lmask=opt_lmask_c )
 
     ! Compute virtual temperature with final QV
     CALL virtual_temp(p_patch, initicon%atm%temp, initicon%atm%qv, initicon%atm%qc,    &
@@ -2771,7 +2771,8 @@ CONTAINS
                      coef1, coef2, coef3, wfac_lin,                   &
                      idx0_cub, idx0_lin, bot_idx_cub, bot_idx_lin,    &
                      wfacpbl1, kpbl1, wfacpbl2, kpbl2,                &
-                     lower_limit, l_satlimit, l_restore_pbldev, opt_qc, opt_lmask)
+                     lower_limit, l_satlimit, l_restore_pbldev,       &
+                     opt_hires_corr, opt_qc, opt_lmask)
 
 
     ! Specific humidity fields
@@ -2818,7 +2819,9 @@ CONTAINS
     REAL(wp), INTENT(IN) :: lower_limit     ! lower limit of QV
     LOGICAL , INTENT(IN) :: l_satlimit       ! limit input field to water saturation
     LOGICAL , INTENT(IN) :: l_restore_pbldev ! restore PBL deviation of QV from extrapolated profile
-    LOGICAL, OPTIONAL,  INTENT(IN) :: opt_lmask(:,:)
+
+    LOGICAL, OPTIONAL, INTENT(IN) :: opt_hires_corr   ! apply corrections / limits for coarse-to-fine grid interpolation
+    LOGICAL, OPTIONAL, INTENT(IN) :: opt_lmask(:,:)
 
     ! LOCAL VARIABLES
 
@@ -2829,7 +2832,7 @@ CONTAINS
 
     REAL(wp), DIMENSION(nproma) :: qv1, qv2, dqvdz_up
     LOGICAL , DIMENSION(nproma) :: l_found
-    LOGICAL                     :: l_check_qv_qc
+    LOGICAL                     :: l_check_qv_qc, lhr_corr
 
     REAL(wp), DIMENSION(nproma,nlevs_in)  :: zalml_in, pbl_dev, qv_mod, g1, g2, g3, qsat_in, qv_in_lim
     REAL(wp), DIMENSION(nproma,nlevs_in-1) :: zalml_in_d
@@ -2845,6 +2848,12 @@ CONTAINS
       l_check_qv_qc = .TRUE.
     ELSE
       l_check_qv_qc = .FALSE.
+    ENDIF
+
+    IF (PRESENT(opt_hires_corr)) THEN
+      lhr_corr = opt_hires_corr
+    ELSE
+      lhr_corr = .FALSE.
     ENDIF
 
 !$OMP PARALLEL private(jc, jk, zalml_in, zalml_out)
@@ -3004,6 +3013,12 @@ CONTAINS
             ! approximation of the qsat expression to avoid iterations)
             qv_out(jc,jk,jb) = qv_mod(jc,nlevs_in)/qsat_in(jc,nlevs_in)* &
               rdv*sat_pres_water(temp_out(jc,jk,jb))/pres_out(jc,jk,jb)
+
+            IF (lhr_corr) THEN ! prevent excessively high humidities in valleys not resolved in the source model
+              qv_out(jc,jk,jb) = MIN(qv_out(jc,jk,jb),                                             &
+                qv_mod(jc,nlevs_in) * (1._wp+4.e-4_wp*(z3d_in(jc,nlevs_in,jb)-z3d_out(jc,jk,jb))), &
+                qv_mod(jc,nlevs_in) + 2.5e-6_wp*(z3d_in(jc,nlevs_in,jb)-z3d_out(jc,jk,jb))          )
+            ENDIF
 
           ENDIF
 
