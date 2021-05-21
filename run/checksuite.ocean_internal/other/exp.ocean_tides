@@ -160,7 +160,6 @@ cat > ${ocean_namelist} << EOF
 &ocean_forcing_nml
   iforc_oce = 10  ! 11
   use_tides = .true.
-  tide_startdate='2001-01-01 00:00'
   
 /
 &ocean_initialConditions_nml
