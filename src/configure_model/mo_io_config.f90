@@ -107,6 +107,13 @@ MODULE mo_io_config
     LOGICAL :: sdi2        = .FALSE. !< Flag. TRUE if computation of supercell detection index desired
     LOGICAL :: lpi         = .FALSE. !< Flag. TRUE if computation of lightning potential index desired
     LOGICAL :: lpi_max     = .FALSE. !< Flag. TRUE if computation of max. of lightning potential index desired
+    LOGICAL :: lpi_con     = .FALSE. !< Flag. TRUE if computation of convective lightning potential index desired
+    LOGICAL :: mlpi_con    = .FALSE. !< Flag. TRUE if computation of modified convective lightning potential index desired
+    LOGICAL :: lpi_con_max = .FALSE. !< Flag. TRUE if computation of maximum convective lightning potential index desired
+    LOGICAL :: mlpi_con_max= .FALSE. !< Flag. TRUE if computation of maximum modified convective lightning potential index desired
+    LOGICAL :: lfd_con     = .FALSE. !< Flag. TRUE if computation of lighting flash density  desired
+    LOGICAL :: lfd_con_max = .FALSE. !< Flag. TRUE if computation of maximum lighting flash density  desired
+    LOGICAL :: koi         = .FALSE. !< Flag. TRUE if computation of convection index
     LOGICAL :: ceiling     = .FALSE. !< Flag. TRUE if computation of ceiling height desired
     LOGICAL :: hbas_sc     = .FALSE. !< Flag. TRUE if computation of height of base from shallow convection desired
     LOGICAL :: htop_sc     = .FALSE. !< Flag. TRUE if computation of height of top  from shallow convection desired
@@ -214,6 +221,13 @@ CONTAINS
         var_in_output(jg)%sdi2        = is_variable_in_output_dom(var_name="sdi2", jg=jg)
         var_in_output(jg)%lpi         = is_variable_in_output_dom(var_name="lpi", jg=jg)
         var_in_output(jg)%lpi_max     = is_variable_in_output_dom(var_name="lpi_max", jg=jg)
+        var_in_output(jg)%lpi_con     = is_variable_in_output_dom(var_name="lpi_con", jg=jg)
+        var_in_output(jg)%mlpi_con    = is_variable_in_output_dom(var_name="mlpi_con", jg=jg)
+        var_in_output(jg)%lpi_con_max = is_variable_in_output_dom(var_name="lpi_con_max", jg=jg)
+        var_in_output(jg)%mlpi_con_max= is_variable_in_output_dom(var_name="mlpi_con_max", jg=jg)
+        var_in_output(jg)%lfd_con     = is_variable_in_output_dom(var_name="lfd_con", jg=jg)
+        var_in_output(jg)%lfd_con_max = is_variable_in_output_dom(var_name="lfd_con_max", jg=jg)
+        var_in_output(jg)%koi         = is_variable_in_output_dom(var_name="koi", jg=jg)
         var_in_output(jg)%ceiling     = is_variable_in_output_dom(var_name="ceiling", jg=jg)
         var_in_output(jg)%hbas_sc     = is_variable_in_output_dom(var_name="hbas_sc", jg=jg)
         var_in_output(jg)%htop_sc     = is_variable_in_output_dom(var_name="htop_sc", jg=jg)

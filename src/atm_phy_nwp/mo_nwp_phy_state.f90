@@ -314,12 +314,23 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
       &        wave_no, wave_no_scalfac, iimage, isens, k
     CHARACTER(LEN=VARNAME_LEN) :: shortname
     CHARACTER(LEN=128)         :: longname, unit
-    CHARACTER(len=max_timedelta_str_len) :: gust_int, celltracks_int, echotop_int
+    CHARACTER(len=max_timedelta_str_len) :: gust_int, celltracks_int,   &
+      &                                     echotop_int
+    ! For lpi_con_max need an hourly reset for the first 48 h,
+    ! a 3-hourly reset for day 3 and 4, and a 6 hourly reset thereafter.
+    ! lpi_stop 3 is not needed - it is the end of the simulation
+    ! We use he same variables for mlpi_con_max and lfd_con_max.
+    CHARACTER(len=max_timedelta_str_len) :: lpi_int1, lpi_int2, lpi_int3
+    CHARACTER(len=max_timedelta_str_len) :: lpi_start1, lpi_start2, lpi_start3
+    CHARACTER(len=max_timedelta_str_len) :: lpi_end1, lpi_end2
     !
     INTEGER :: constituentType                 ! for variable of class 'chem'
 
     INTEGER :: datatype_flt
     LOGICAL :: in_group(MAX_GROUPS)            ! for adding a variable to one or more groups 
+
+    CHARACTER(len=*), PARAMETER :: &
+      routine = 'mo_nwp_phy_state:new_nwp_phy_diag_list'
 
     IF ( lnetcdf_flt64_output ) THEN
       datatype_flt = DATATYPE_FLT64
@@ -820,6 +831,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
 !!$                & lmiss=.TRUE., missval=-999.9_wp,                            &
                 & hor_interp=create_hor_interp_metadata(                      &
                 &    hor_intp_type=HINTP_TYPE_LONLAT_NNB) )
+
 
     ! &      diag%gust10(nproma,nblks_c)
     CALL getPTStringFromMS(NINT(1000*gust_interval(k_jg), i8), gust_int)
@@ -3642,6 +3654,207 @@ __acc_attach(diag%clct_avg)
                   & resetval=0.0_wp, initval=0.0_wp,                         &
                   & action_list=actions( new_action( ACTION_RESET, celltracks_int ) ) )
     END IF
+
+
+
+    ! (Modified) convective lightning potential index lpi_con_max, mlpi_con_max 
+    ! and convection index koi. 
+    ! If one of these is requested in the output_nml the diagnosis is run.
+    !
+    IF (var_in_output%lpi_con .OR. var_in_output%lpi_con_max .OR.             &
+      &  var_in_output%mlpi_con .OR. var_in_output%mlpi_con_max .OR.          &
+      &  var_in_output%koi                                                    ) THEN
+
+      ! &      diag%lpi_con(nproma,nblks_c)
+      cf_desc    = t_cf_var('lpi_con', 'J kg-1 ',                               &
+       &           'convective lightning potential index', datatype_flt)
+      grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( diag_list, 'lpi_con', diag%lpi_con   ,                      &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                  & ldims=shape2d, lrestart=.FALSE.,                            &
+                  & hor_interp=create_hor_interp_metadata(                      &
+                  &    hor_intp_type=HINTP_TYPE_LONLAT_NNB) )
+
+      ! For the time being we use as reset intervals:
+      !  0-48 h - hourly
+      ! 48-72 h - 3 hourly
+      ! 72-   h - 6 hourly
+      ! maximisation
+      lpi_int1(:) = ' '
+      lpi_int2(:) = ' '
+      lpi_int3(:) = ' '
+      lpi_start1(:) = ' '
+      lpi_start2(:) = ' '
+      lpi_start3(:) = ' '
+      lpi_end1(:) = ' '
+      lpi_end2(:) = ' '
+      CALL getPTStringFromMS(3600000_i8, lpi_int1)
+      CALL getPTStringFromMS(10800000_i8, lpi_int2)
+      CALL getPTStringFromMS(21600000_i8, lpi_int3)
+      CALL getPTStringFromMS(0_i8, lpi_start1)
+      CALL getPTStringFromMS(172800000_i8, lpi_start2)
+      CALL getPTStringFromMS(259200000_i8, lpi_start3)
+      CALL getPTStringFromMS(172800000_i8, lpi_end1)
+      CALL getPTStringFromMS(259200000_i8, lpi_end2)
+
+
+      ! &      diag%lpi_con_max(nproma,nblks_c)
+      cf_desc    = t_cf_var('lpi_con_max', 'J kg-1 ',                          &
+          &  'lightning potential index, maximum during the last '             &
+          &//'01H (- +48h), 03H (+48 - +72h) and 06h (+72h -) ', datatype_flt)
+      grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( diag_list, 'lpi_con_max', diag%lpi_con_max   ,             &
+                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                      &
+                    & cf_desc, grib2_desc,                                     &
+                    & ldims=shape2d,                                           &
+                    & lrestart=.TRUE., loutput=.TRUE., isteptype=TSTEP_MAX,    &
+                    & resetval=0.0_wp, initval=0.0_wp,                         &
+                    & action_list=actions(                                     &
+                    &    new_action( ACTION_RESET, TRIM(lpi_int1),             &
+                    &                TRIM(lpi_start1), TRIM(lpi_end1) ),       &
+                    &    new_action( ACTION_RESET, TRIM(lpi_int2),             &
+                    &                TRIM(lpi_start2), TRIM(lpi_end2) ),       &
+                    &    new_action( ACTION_RESET, TRIM(lpi_int3),             &
+                    &                TRIM(lpi_start3)                 )     ), &
+        & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_BCTR, &
+        &                                       fallback_type=HINTP_TYPE_LONLAT_RBF)  &
+                    & ) 
+
+
+      ! &      diag%mlpi_con(nproma,nblks_c)
+      cf_desc    = t_cf_var('mlpi_con', 'J kg-1 ', 'modified lightning potential index', datatype_flt)
+      grib2_desc = grib2_var(0, 17, 193, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( diag_list, 'mlpi_con', diag%mlpi_con   ,                    &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                  & ldims=shape2d, lrestart=.FALSE.,                            &
+                  & hor_interp=create_hor_interp_metadata(                      &
+                  &    hor_intp_type=HINTP_TYPE_LONLAT_NNB) )
+
+
+      ! &      diag%mlpi_con_max(nproma,nblks_c)
+      cf_desc    = t_cf_var('mlpi_con_max', 'J kg-1 ',                         &
+          &  'modified lightning potential index, maximum during the last '    &
+          &//'01H (- +48h), 03H (+48 - +72h) and 06h (+72h -) ', datatype_flt)
+      grib2_desc = grib2_var(0, 17, 193, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( diag_list, 'mlpi_con_max', diag%mlpi_con_max   ,           &
+                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                      &
+                    & cf_desc, grib2_desc,                                     &
+                    & ldims=shape2d,                                           &
+                    & lrestart=.TRUE., loutput=.TRUE., isteptype=TSTEP_MAX,    &
+                    & resetval=0.0_wp, initval=0.0_wp,                         &
+                    & action_list=actions(                                     &
+                    &    new_action( ACTION_RESET, TRIM(lpi_int1),             &
+                    &                TRIM(lpi_start1), TRIM(lpi_end1) ),       &
+                    &    new_action( ACTION_RESET, TRIM(lpi_int2),             &
+                    &                TRIM(lpi_start2), TRIM(lpi_end2) ),       &
+                    &    new_action( ACTION_RESET, TRIM(lpi_int3),             &
+                    &                TRIM(lpi_start3)                 )     ), &
+        & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_BCTR, &
+        &                                       fallback_type=HINTP_TYPE_LONLAT_RBF) &
+                    & ) 
+
+
+      ! &      diag%koi(nproma,nblks_c)
+      cf_desc    = t_cf_var('koi', 'K', 'convection index', datatype_flt)
+      grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( diag_list, 'koi', diag%koi   ,                         &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                  & ldims=shape2d, lrestart=.FALSE.,                            &
+                  & hor_interp=create_hor_interp_metadata(                      &
+                  &    hor_intp_type=HINTP_TYPE_LONLAT_NNB) )
+
+    ELSE ! dummy allocation
+      ALLOCATE(diag%lpi_con (0,kblks), STAT=ist)
+      IF (ist/=SUCCESS)  CALL finish(TRIM(routine), 'dummy allocation for diag%lpi_con failed')
+      !
+      ALLOCATE(diag%lpi_con_max (0,kblks), STAT=ist)
+      IF (ist/=SUCCESS)  CALL finish(TRIM(routine), 'dummy allocation for diag%lpi_con_max failed')
+      !
+      ALLOCATE(diag%mlpi_con (0,kblks), STAT=ist)
+      IF (ist/=SUCCESS)  CALL finish(TRIM(routine), 'dummy allocation for diag%mlpi_con failed')
+      !
+      ALLOCATE(diag%mlpi_con_max (0,kblks), STAT=ist)
+      IF (ist/=SUCCESS)  CALL finish(TRIM(routine), 'dummy allocation for diag%mlpi_con_max failed')
+      !
+      ALLOCATE(diag%koi (0,kblks), STAT=ist)
+      IF (ist/=SUCCESS)  CALL finish(TRIM(routine), 'dummy allocation for diag%koi failed')
+    ENDIF
+
+
+
+    ! Lightning flash density lfd_con, lfd_con_max. 
+    ! If one of these fields is requested in the output_nml the diagnosis is run.
+    !
+    IF ( var_in_output%lfd_con .OR.  var_in_output%lfd_con_max ) THEN
+
+      ! &      diag%lfd_con(nproma,nblks_c)
+      cf_desc    = t_cf_var('lfd_con', 'km-2 day-1', 'lightning flash density km-2 day-1', datatype_flt)
+      grib2_desc = grib2_var(0,17,4, ibits, GRID_UNSTRUCTURED, GRID_CELL)  &
+      &           + t_grib2_int_key("typeOfFirstFixedSurface", 1)        &
+      &           + t_grib2_int_key("typeOfSecondFixedSurface", 8)
+      CALL add_var( diag_list, 'lfd_con', diag%lfd_con   ,                      &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                  & ldims=shape2d, lrestart=.FALSE.,                            &
+                  & isteptype=TSTEP_INSTANT,                                    &
+                  & hor_interp=create_hor_interp_metadata(                      &
+                  &    hor_intp_type=HINTP_TYPE_LONLAT_NNB) )
+
+
+      ! For the time being we use as reset intervals:
+      !  0-48 h - hourly
+      ! 48-72 h - 3 hourly
+      ! 72-   h - 6 hourly
+      ! maximisation
+      lpi_int1(:) = ' '
+      lpi_int2(:) = ' '
+      lpi_int3(:) = ' '
+      lpi_start1(:) = ' '
+      lpi_start2(:) = ' '
+      lpi_start3(:) = ' '
+      lpi_end1(:) = ' '
+      lpi_end2(:) = ' '
+      CALL getPTStringFromMS(3600000_i8, lpi_int1)
+      CALL getPTStringFromMS(10800000_i8, lpi_int2)
+      CALL getPTStringFromMS(21600000_i8, lpi_int3)
+      CALL getPTStringFromMS(0_i8, lpi_start1)
+      CALL getPTStringFromMS(172800000_i8, lpi_start2)
+      CALL getPTStringFromMS(259200000_i8, lpi_start3)
+      CALL getPTStringFromMS(172800000_i8, lpi_end1)
+      CALL getPTStringFromMS(259200000_i8, lpi_end2)
+
+
+      ! &      diag%lfd_con_max(nproma,nblks_c)
+      cf_desc    = t_cf_var('lfd_con_max', 'km-2 day-1',                       &
+          &  'maximum lightning flash density km-2 day-1 during the last '     &
+          &//'01H (- +48h), 03H (+48 - +72h) and 06h (+72h -) ', datatype_flt)
+      grib2_desc = grib2_var(0,17,4, ibits, GRID_UNSTRUCTURED, GRID_CELL)  &
+      &           + t_grib2_int_key("typeOfFirstFixedSurface", 1)          &
+      &           + t_grib2_int_key("typeOfSecondFixedSurface", 8)
+      CALL add_var( diag_list, 'lfd_con_max', diag%lfd_con_max   ,             &
+                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                      &
+                    & cf_desc, grib2_desc,                                     &
+                    & ldims=shape2d,                                           &
+                    & lrestart=.TRUE., loutput=.TRUE., isteptype=TSTEP_MAX,    &
+                    & resetval=0.0_wp, initval=0.0_wp,                         &
+                    & action_list=actions(                                     &
+                    &    new_action( ACTION_RESET, TRIM(lpi_int1),             &
+                    &                TRIM(lpi_start1), TRIM(lpi_end1) ),       &
+                    &    new_action( ACTION_RESET, TRIM(lpi_int2),             &
+                    &                TRIM(lpi_start2), TRIM(lpi_end2) ),       &
+                    &    new_action( ACTION_RESET, TRIM(lpi_int3),             &
+                    &                TRIM(lpi_start3)                 )     ), &
+        & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_BCTR, &
+        &                                       fallback_type=HINTP_TYPE_LONLAT_RBF) &
+                    & )
+    ELSE ! dummy allocation
+      ALLOCATE(diag%lfd_con (0,kblks), STAT=ist)
+      IF (ist/=SUCCESS)  CALL finish(TRIM(routine), 'dummy allocation for diag%lfd_con failed')
+      !
+      ALLOCATE(diag%lfd_con_max (0,kblks), STAT=ist)
+      IF (ist/=SUCCESS)  CALL finish(TRIM(routine), 'dummy allocation for diag%lfd_con_max failed')
+    ENDIF
+
+
 
     IF (var_in_output%ceiling) THEN
       cf_desc    = t_cf_var('ceiling', 'm', 'ceiling height', datatype_flt)
