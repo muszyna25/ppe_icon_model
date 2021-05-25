@@ -11,8 +11,8 @@
 !! Please see the file LICENSE in the root of the source tree for this code.
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
-#include <handle_mpi_error.inc>
-#include <omp_definitions.inc>
+#include "handle_mpi_error.inc"
+#include "omp_definitions.inc"
 MODULE mo_multifile_restart_collector
 
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, C_F_POINTER, C_LOC

@@ -20,7 +20,7 @@
 !! "chunk", since the domain loop is located outside of this routine,
 !! in the calling "src/drivers" routine.
 !!
-#include <omp_definitions.inc>
+#include "omp_definitions.inc"
 
 MODULE mo_load_multifile_restart
 
