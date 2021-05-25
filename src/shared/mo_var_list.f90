@@ -5,7 +5,7 @@
 !! Please see the file LICENSE in the root of the source tree for this code.
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
-#include "icon_contiguous_defines.h"
+#include "icon_contiguous_defines.inc"
 MODULE mo_var_list
 
 #if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)

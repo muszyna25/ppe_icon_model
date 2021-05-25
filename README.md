@@ -710,8 +710,8 @@ the assumption that the source files have the following filename extensions:
 
 - `.f90` &mdash; Fortran source files, regardless of whether they contain
 Fortran preprocessor directives;
-- `.inc` &mdash; Fortran header files included with the Fortran preprocessor
-`#include` directives, e.g. `#include "filename.inc"`;
+- `.inc` &mdash; Fortran header files included with the quoted form of the
+Fortran preprocessor `#include` directives, e.g. `#include "filename.inc"`;
 - `.incf` &mdash; Fortran header files included with the Fortran `INCLUDE`
 statements, e.g. `include 'filename.incf'` (these files are not allowed to have
 Fortran preprocessor directives);
