@@ -117,7 +117,7 @@ USE mo_2mom_prepare, ONLY: prepare_twomoment, post_twomoment
 
   INTEGER, PARAMETER :: i2mom_solver = 1  ! (0) explicit (1) semi-implicit solve
   
-  INTEGER, PARAMETER :: cloud_type_default_gscp4 = 2103, ccn_type_gscp4 = 8 ! UB set from 1 to 8
+  INTEGER, PARAMETER :: cloud_type_default_gscp4 = 2603, ccn_type_gscp4 = 7 
   INTEGER, PARAMETER :: cloud_type_default_gscp5 = 2603, ccn_type_gscp5 = 8
 
   ! AS: For gscp=4 use 2103 with ccn_type = 1 (HDCP2 IN and CCN schemes)
@@ -1114,7 +1114,7 @@ CONTAINS
       ccn_coeffs%etas  = 0.9        ! soluble fraction
     CASE(7)
       !... intermediate case
-      ccn_coeffs%Ncn0 = 500.0d06
+      ccn_coeffs%Ncn0 = 250.0d06
       ccn_coeffs%Nmin =  35.0d06
       ccn_coeffs%lsigs = 0.4d0
       ccn_coeffs%R2    = 0.03d0       ! in mum
