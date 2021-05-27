@@ -1395,7 +1395,7 @@ create_target_header()
 
     use_prefetch_procs=0
  	case $job_name in
-        *mch_opr_r04b07*)
+        *mch_opr_r04b07.run)
             use_nodes=1
             use_mpi_procs_pernode=2
             use_nproma=4250

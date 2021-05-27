@@ -818,7 +818,7 @@ if string_in_list $MD $CMODES; then
 fi # MODE
 
 
-CMODES="m um rm nm mo urm unm umo rnm rmo nmo urnm urmo unmo rnmo urnmo rnmot"
+CMODES="m um rm nm mo tm urm unm umo rnm rmo nmo urnm urmo unmo rnmo urnmo rnmot"
 if string_in_list $MD $CMODES; then
     TEST='mpi'
     echo ' '
@@ -1029,7 +1029,7 @@ if string_in_list $MD $CMODES; then
     fi # TEST_POSSIBLE
 fi # MODE
 
-CMODES="t rnmot"
+CMODES="t tm rnmot"
 if string_in_list $MD $CMODES; then
     TEST='tolerance'
     echo ' '

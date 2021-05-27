@@ -24,11 +24,11 @@ export TYPES='atm_3d_ml'
 # DATES is a list of dates identifying the files <EXPNAME>_<TYPE>_<DATE>.nc
 # to be checked.
 #
-export DATES='20180921T000000Z'
+export DATES='20190615T000000Z'
 
 # RESTART_DATE defines the date and time from which restarts should be performed.
 # 
-export RESTART_DATE='20180921T000000Z'
+export RESTART_DATE='20190615T000000Z'
 
 #--------------------------------------------------------------------------------
 # 
@@ -43,7 +43,7 @@ export RESTART_DATE='20180921T000000Z'
 #
 # default: MD='t'
 #
-export MD='t'
+export MD='tm'
 
 #--------------------------------------------------------------------------------
 # 
@@ -55,7 +55,7 @@ cd checksuite.icon-dev
 # load python packages
 case $HOST in
     *daint*)
-        export MD='t'
+        export MD='tm'
         export PYTHONPATH=""
         source /project/g110/icon/probtest/env/bin/activate
 esac
