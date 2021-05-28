@@ -377,13 +377,8 @@ CONTAINS
       DO cFId = 1, SIZE(files)
         n = files(cFId)%iCnts(iG)
         IF (n .LE. 0) CYCLE
-        IF (ALLOCATED(buffer)) THEN
-          IF (n .GT. SIZE(buffer)) DEALLOCATE(buffer)
-        END IF
-        IF (.NOT.ALLOCATED(buffer)) THEN
-          ALLOCATE(buffer(n), STAT = ierr)
-          IF (ierr /= SUCCESS) CALL finish(routine, "memory allocation failed")
-        END IF
+        ALLOCATE(buffer(n), STAT = ierr)
+        IF (ierr /= SUCCESS) CALL finish(routine, "memory allocation failed")
         IF (timers_level >= 7) CALL timer_start(timer_load_restart_io)
         CALL streamReadVar(files(cFId)%streamId, files(cFId)%iVarIds(iG), &
           &                buffer, trash)
@@ -392,6 +387,7 @@ CONTAINS
         DO i = 1, n
           glbidx_read(cOff(iG) + i) = INT(buffer(i))
         END DO
+        DEALLOCATE(buffer)
         cOff(iG) = cOff(iG) + n
       END DO
       SELECT CASE (ig)
