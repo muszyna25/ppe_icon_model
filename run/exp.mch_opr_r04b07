@@ -409,10 +409,11 @@ cat > ${basedir}/run/${atmo_namelist} << EOF
 
 ! transport_nml: tracer transport ---------------------------------------------
 &transport_nml
- ivadv_tracer                =              3, 3, 3, 3, 3         ! tracer specific method to compute vertical advection
- itype_hlimit                =              3, 4, 4, 4, 4         ! type of limiter for horizontal transport
- itype_vlimit                =              1, 1, 1, 1, 1         ! gdm: 1: semi-monotone slope limiter orig. 2: monotonous type of limiter for vertical transport
- ihadv_tracer                =             52, 2, 2, 2, 2         ! gdm: 52 combination of hybrid FFSL/Miura3 with subcycling
+ ivadv_tracer                =           3, 3, 2, 2, 3, 3         ! tracer specific method to compute vertical advection
+ itype_hlimit                =           3, 4, 4, 4, 4, 4         ! type of limiter for horizontal transport
+ itype_vlimit                =           1, 2, 1, 2, 3, 1         ! gdm: 1: semi-monotone slope limiter orig. 2: monotonous type of limiter for vertical transport
+ ivlimit_selective           =           1, 0, 0, 1, 0, 0         ! avoid spurious limiting of smooth (physical) extrema
+ ihadv_tracer                =          52, 2, 2, 2, 2, 2         ! gdm: 52 combination of hybrid FFSL/Miura3 with subcycling
                                                            !     of tracer specific method to compute horizontal advection
  llsq_svd                    =                      .TRUE.        ! use SV decomposition for least squares design matrix
 /
