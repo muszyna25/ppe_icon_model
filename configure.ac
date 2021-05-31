@@ -1,4 +1,13 @@
-AC_PREREQ([2.69])
+dnl We want to make sure that the configure script in the repository is always
+dnl generated with the same version of Autoconf. Currently, we stick to version
+dnl 2.69.
+m4_version_prereq([2.69], [
+dnl At this point, we know that we are using Autoconf 2.69 or higher, which also
+dnl means that the AC_AUTOCONF_VERSION macro is available.
+   m4_if(m4_version_compare(m4_defn([AC_AUTOCONF_VERSION]), [2.69]), [1],
+     [m4_fatal([Autoconf version 2.69 is required but version ]dnl
+m4_defn([AC_AUTOCONF_VERSION])[ is used], [63])])],
+  [m4_fatal([Autoconf version 2.69 is required], [63])])
 AC_INIT([icon], [2.6.0], [], [icon-2.6.0])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([utils])
@@ -62,14 +71,14 @@ run "make distclean" there first])])
 ############################# OPTION DECLARATIONS ##############################
 
 AC_ARG_ENABLE([rpaths],
-  [AC_HELP_STRING([--enable-rpaths],
+  [AS_HELP_STRING([--enable-rpaths],
      [add directories specified with -L flags in LDFLAGS and LIBS to the
 runtime library search paths (RPATH) @<:@default=yes@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_rpaths=yes])],
   [enable_rpaths=yes])
 
 AC_ARG_ENABLE([silent-rules],
-  [AC_HELP_STRING([--enable-silent-rules],
+  [AS_HELP_STRING([--enable-silent-rules],
      [less verbose build output (undo: "make V=1") @<:@default=yes@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_silent_rules=yes])],
   [enable_silent_rules=yes])
@@ -78,70 +87,70 @@ m4_divert_once([HELP_ENABLE], [[
 Model Features:]])
 
 AC_ARG_ENABLE([atmo],
-  [AC_HELP_STRING([--enable-atmo],
+  [AS_HELP_STRING([--enable-atmo],
      [enable the atmosphere component of ICON @<:@default=yes@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_atmo=yes])],
   [enable_atmo=yes])
   
 AC_ARG_ENABLE([ocean],
-  [AC_HELP_STRING([--enable-ocean],
+  [AS_HELP_STRING([--enable-ocean],
      [enable the ocean component of ICON @<:@default=yes@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_ocean=yes])],
   [enable_ocean=yes])
 
 AC_ARG_ENABLE([jsbach],
-  [AC_HELP_STRING([--enable-jsbach],
+  [AS_HELP_STRING([--enable-jsbach],
      [enable the land component JSBACH @<:@default=yes@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_jsbach=yes])],
   [enable_jsbach=yes])
 
 AC_ARG_ENABLE([coupling],
-  [AC_HELP_STRING([--enable-coupling],
+  [AS_HELP_STRING([--enable-coupling],
      [enable the coupling @<:@default=yes@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_coupling=yes])],
   [enable_coupling=yes])
 
 AC_ARG_ENABLE([concurrent-psrad],
-  [AC_HELP_STRING([--enable-concurrent-psrad],
+  [AS_HELP_STRING([--enable-concurrent-psrad],
      [enable the concurrent mode of the radiation component PSRAD
 @<:@default=yes@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_concurrent_psrad=yes])],
   [enable_concurrent_psrad=yes])
 
 AC_ARG_ENABLE([ecrad],
-  [AC_HELP_STRING([--enable-ecrad],
+  [AS_HELP_STRING([--enable-ecrad],
      [enable usage of the ECMWF radiation scheme (ECRAD) @<:@default=no@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_ecrad=yes])],
   [enable_ecrad=no])
 
 AC_ARG_ENABLE([rte-rrtmgp],
-  [AC_HELP_STRING([--enable-rte-rrtmgp],
+  [AS_HELP_STRING([--enable-rte-rrtmgp],
      [enable usage of the RTE+RRTMGP toolbox for radiation calculations
 @<:@default=no@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_rte_rrtmgp=yes])],
   [enable_rte_rrtmgp=no])
 
 AC_ARG_ENABLE([rttov],
-  [AC_HELP_STRING([--enable-rttov],
+  [AS_HELP_STRING([--enable-rttov],
      [enable usage of the radiative transfer model for TOVS
 @<:@default=no@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_rttov=yes])],
   [enable_rttov=no])
 
 AC_ARG_ENABLE([dace],
-  [AC_HELP_STRING([--enable-dace],
+  [AS_HELP_STRING([--enable-dace],
      [enable the DACE modules for data assimilation @<:@default=no@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_dace=yes])],
   [enable_dace=no])
 
 AC_ARG_ENABLE([emvorado],
-  [AC_HELP_STRING([--enable-emvorado],
+  [AS_HELP_STRING([--enable-emvorado],
      [enable the radar forward operator EMVORADO @<:@default=no@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_emvorado=yes])],
   [enable_emvorado=no])
 
 AC_ARG_ENABLE([art],
-  [AC_HELP_STRING([--enable-art],
+  [AS_HELP_STRING([--enable-art],
      [enable the aerosols and reactive trace component ART
 @<:@default=no@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_art=yes])],
@@ -151,64 +160,72 @@ m4_divert_once([HELP_ENABLE], [[
 Infrastructural Features:]])
 
 AC_ARG_ENABLE([mpi],
-  [AC_HELP_STRING([--enable-mpi],
+  [AS_HELP_STRING([--enable-mpi],
      [enable MPI (parallelization) support @<:@default=yes@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_mpi=yes])],
   [enable_mpi=yes])
 
 AC_ARG_ENABLE([mpi-checks],
-  [AC_HELP_STRING([--enable-mpi-checks],
+  [AS_HELP_STRING([--enable-mpi-checks],
      [enable configure-time checks of MPI library for known defects ]dnl
 [@<:@default=yes@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_mpi_checks=yes])],
   [enable_mpi_checks=yes])
 
 AC_ARG_ENABLE([active-target-sync],
-  [AC_HELP_STRING([--enable-active-target-sync],
+  [AS_HELP_STRING([--enable-active-target-sync],
      [enable MPI active target mode (otherwise, passive target mode is used)
 @<:@default=no@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_active_target_sync=yes])],
   [enable_active_target_sync=no])
 
+dnl switch to disable MPI_Rget for systems where it doesn't work
+AC_ARG_ENABLE([mpi-rget],
+  [AS_HELP_STRING([--enable-mpi-rget],
+     [enable usage of the MPI_Rget routine @<:@default=auto@:>@])],
+  [AS_IF([test x"$enableval" != xno && test x"$enableval" != xauto],
+     [enable_mpi_rget=yes])],
+  [enable_mpi_rget=auto])
+
 AC_ARG_ENABLE([openmp],
-  [AC_HELP_STRING([--enable-openmp],
+  [AS_HELP_STRING([--enable-openmp],
      [enable OpenMP support @<:@default=no@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_openmp=yes])],
   [enable_openmp=no])
 
 AC_ARG_ENABLE([gpu],
-  [AC_HELP_STRING([--enable-gpu],
+  [AS_HELP_STRING([--enable-gpu],
      [enable GPU support @<:@default=no@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_gpu=yes])],
   [enable_gpu=no])
 
 AC_ARG_ENABLE([grib2],
-  [AC_HELP_STRING([--enable-grib2],
+  [AS_HELP_STRING([--enable-grib2],
      [enable GRIB2 I/O @<:@default=no@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_grib2=yes])],
   [enable_grib2=no])
 
 AC_ARG_ENABLE([parallel-netcdf],
-  [AC_HELP_STRING([--enable-parallel-netcdf],
+  [AS_HELP_STRING([--enable-parallel-netcdf],
      [enable usage of the parallel features of NetCDF
 @<:@default=no@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_parallel_netcdf=yes])],
   [enable_parallel_netcdf=no])
 
 AC_ARG_ENABLE([cdi-pio],
-  [AC_HELP_STRING([--enable-cdi-pio],
+  [AS_HELP_STRING([--enable-cdi-pio],
      [enable usage of the parallel features of CDI @<:@default=no@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_cdi_pio=yes])],
   [enable_cdi_pio=no])
 
 AC_ARG_ENABLE([sct],
-  [AC_HELP_STRING([--enable-sct],
+  [AS_HELP_STRING([--enable-sct],
      [enable the SCT timer @<:@default=no@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_sct=yes])],
   [enable_sct=no])
 
 AC_ARG_ENABLE([yaxt],
-  [AC_HELP_STRING([--enable-yaxt],
+  [AS_HELP_STRING([--enable-yaxt],
      [enable the YAXT data exchange @<:@default=no@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_yaxt=yes])],
   [enable_yaxt=no])
@@ -228,7 +245,7 @@ AC_ARG_ENABLE([claw],
 [enable_claw=no])
 
 AC_ARG_ENABLE([explicit-fpp],
-  [AC_HELP_STRING([--enable-explicit-fpp],
+  [AS_HELP_STRING([--enable-explicit-fpp],
      [enable explicit Fortran preprocessing @<:@default=auto@:>@])],
   [AS_IF([test x"$enableval" != xno && test x"$enableval" != xauto],
      [enable_explicit_fpp=yes])],
@@ -251,45 +268,51 @@ AC_ARG_ENABLE([serialization],
 [enable_serialization=no])
 
 AC_ARG_ENABLE([testbed],
-  [AC_HELP_STRING([--enable-testbed],
+  [AS_HELP_STRING([--enable-testbed],
      [enable ICON Testbed infrastructure @<:@default=no@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_testbed=yes])],
   [enable_testbed=no])
+
+AC_ARG_ENABLE([memory-tracing],
+[  --enable-memory-tracing enable native dynamic memory tracing facility. The
+                          value of the argument must be one of the following
+                          @<:@default=no@:>@:
+                            mtrace|yes enable tracing with mtrace (glibc)
+                            no         disable memory tracing],
+[AS_CASE(["$enableval"],
+   [yes], [enable_memory_tracing=mtrace],
+   [mtrace|no], [],
+   [AC_MSG_ERROR([unexpected value for the argument dnl
+--enable-memory-tracing='$enableval'; valid values are 'mtrace', 'yes' (same dnl
+as 'mtrace'), 'no'])])],
+[enable_memory_tracing=no])
 
 m4_divert_once([HELP_ENABLE], [[
 Optimization Features:]])
 
 AC_ARG_ENABLE([loop-exchange],
-  [AC_HELP_STRING([--enable-loop-exchange],
+  [AS_HELP_STRING([--enable-loop-exchange],
      [enable loop exchange @<:@default=yes@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_loop_exchange=yes])],
   [enable_loop_exchange=yes])
 
 AC_ARG_ENABLE([intel-consistency],
-  [AC_HELP_STRING([--enable-intel-consistency],
+  [AS_HELP_STRING([--enable-intel-consistency],
      [enable Intel compiler directives enforcing consistency
 @<:@default=auto@:>@])],
   [AS_IF([test x"$enableval" != xno && test x"$enableval" != xauto],
      [enable_intel_consistency=yes])],
   [enable_intel_consistency=auto])
 
-AC_ARG_ENABLE([memory-tracing],
-  [AC_HELP_STRING([--enable-memory-tracing],
-     [enable native dynamic memory tracing facility
-@<:@default=no@:>@])],
-  [AS_CASE([$enableval],[yes|mtrace], [],
-     [enable_memory_tracing=no])],
-  [enable_memory_tracing=no])
-
 AC_ARG_ENABLE([vectorized-lrtm],
-  [AC_HELP_STRING([--enable-vectorized-lrtm],
+  [AS_HELP_STRING([--enable-vectorized-lrtm],
      [enable the parallelization-invariant version of LRTM
 @<:@default=no@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_vectorized_lrtm=yes])],
   [enable_vectorized_lrtm=no])
 
 AC_ARG_ENABLE([mixed-precision],
-  [AC_HELP_STRING([--enable-mixed-precision],
+  [AS_HELP_STRING([--enable-mixed-precision],
      [enable mixed precision dycore @<:@default=no@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_mixed_precision=yes])],
   [enable_mixed_precision=no])
@@ -297,65 +320,65 @@ AC_ARG_ENABLE([mixed-precision],
 dnl Optional Packages:
 
 AC_ARG_WITH([external-ecrad],
-  [AC_HELP_STRING([--with-external-ecrad],
+  [AS_HELP_STRING([--with-external-ecrad],
      [use external ECRAD library @<:@default=no@:>@])],
   [AS_IF([test x"$withval" != xno], [with_external_ecrad=yes])],
   [with_external_ecrad=no])
 
 AC_ARG_WITH([external-rte-rrtmgp],
-     [AC_HELP_STRING([--with-external-rte-rrtmgp],
+     [AS_HELP_STRING([--with-external-rte-rrtmgp],
         [use external RTE+RRTMGP library @<:@default=no@:>@])],
   [AS_IF([test x"$withval" != xno], [with_external_rte_rrtmgp=yes])],
   [with_external_rte_rrtmgp=no])
 
 AC_ARG_WITH([external-sct],
-  [AC_HELP_STRING([--with-external-sct],
+  [AS_HELP_STRING([--with-external-sct],
      [use external SCT library (when the SCT timer is enabled)
 @<:@default=no@:>@])],
   [AS_IF([test x"$withval" != xno], [with_external_sct=yes])],
   [with_external_sct=no])
 
 AC_ARG_WITH([external-yaxt],
-  [AC_HELP_STRING([--with-external-yaxt],
+  [AS_HELP_STRING([--with-external-yaxt],
      [use external YAXT library (when the YAXT data exchange is enabled)
 @<:@default=no@:>@])],
   [AS_IF([test x"$withval" != xno], [with_external_yaxt=yes])],
   [with_external_yaxt=no])
 
 AC_ARG_WITH([external-cdi],
-  [AC_HELP_STRING([--with-external-cdi],
+  [AS_HELP_STRING([--with-external-cdi],
      [use external CDI library @<:@default=no@:>@])],
   [AS_IF([test x"$withval" != xno], [with_external_cdi=yes])],
   [with_external_cdi=no])
 
 AC_ARG_WITH([external-mtime],
-  [AC_HELP_STRING([--with-external-mtime],
+  [AS_HELP_STRING([--with-external-mtime],
      [use external MTIME library @<:@default=no@:>@])],
   [AS_IF([test x"$withval" != xno], [with_external_mtime=yes])],
   [with_external_mtime=no])
 
 AC_ARG_WITH([external-yac],
-  [AC_HELP_STRING([--with-external-yac],
+  [AS_HELP_STRING([--with-external-yac],
      [use external YAC library (when the coupling is enabled)
 @<:@default=no@:>@])],
   [AS_IF([test x"$withval" != xno], [with_external_yac=yes])],
   [with_external_yac=no])
 
 AC_ARG_WITH([external-tixi],
-  [AC_HELP_STRING([--with-external-tixi],
+  [AS_HELP_STRING([--with-external-tixi],
      [use external TIXI library (when ART is enabled)
 @<:@default=no@:>@])],
   [AS_IF([test x"$withval" != xno], [with_external_tixi=yes])],
   [with_external_tixi=no])
 
 AC_ARG_WITH([external-self],
-  [AC_HELP_STRING([--with-external-self],
+  [AS_HELP_STRING([--with-external-self],
      [use external SELF library @<:@default=no@:>@])],
   [AS_IF([test x"$withval" != xno], [with_external_self=yes])],
   [with_external_self=no])
 
 AC_ARG_WITH([external-cub],
-  [AC_HELP_STRING([--with-external-cub],
+  [AS_HELP_STRING([--with-external-cub],
      [use external CUB library @<:@default=no@:>@])],
   [AS_IF([test x"$withval" != xno], [with_external_cub=yes])],
   [with_external_cub=no])
@@ -450,16 +473,41 @@ ACX_HOST_FQDN([], [:])
 AC_SUBST([host_fqdn], [$acx_cv_host_fqdn])
 
 ###################### FORTRAN COMPILER COMMAND AND FLAGS ######################
-dnl Delay the cross-compilation check:
-ACX_COMPILER_CROSS_CHECK_DELAY
-
+AC_LANG([Fortran])
 dnl Override the default flags set by AC_PROG_FC:
 FCFLAGS=${FCFLAGS-}
+dnl Save the flags to pass them later to the bundled libraries:
+subdir_FCFLAGS=$FCFLAGS
+
+dnl Make sure the configure checks are run with ICON_*FLAGS:
+test -n "${ICON_LDFLAGS}" && AS_VAR_APPEND([LDFLAGS], [" ${ICON_LDFLAGS}"])
+dnl We cannot literally append ICON_FCFLAGS to FCFLAGS now because it will be
+dnl difficult to replace ICON_FCFLAGS with ICON_OCEAN_FCFLAGS afterwards.
+dnl Instead, we make sure that all the checks are run with
+dnl '$FCFLAGS $ICON_FCFLAGS':
 m4_pushdef([AC_LANG(Fortran)],
   m4_bpatsubst(m4_dquote(m4_defn([AC_LANG(Fortran)])),
     [FCFLAGS],[FCFLAGS $ICON_FCFLAGS]))dnl
+
+dnl Delay the cross-compilation check:
+ACX_COMPILER_CROSS_CHECK_DELAY
 AC_PROG_FC
-AC_LANG([Fortran])
+
+dnl We put the following declarations here (i.e. after AC_PROG_FC) for better
+dnl readability of the help message:
+AC_ARG_VAR([ICON_FCFLAGS],
+  [Fortran compiler flags to be appended to FCFLAGS when configuring ICON])dnl
+AC_ARG_VAR([ICON_LDFLAGS],
+  [Fortran compiler flags to be appended to LDFLAGS when configuring ICON])dnl
+
+AC_ARG_VAR([ICON_OCEAN_FCFLAGS],
+  [Fortran compiler flags to be appended to FCFLAGS instead of ICON_FCFLAGS when
+compiling the ocean component of ICON @<:@default=$ICON_FCFLAGS@:>@])dnl
+ICON_OCEAN_FCFLAGS=${ICON_OCEAN_FCFLAGS-$ICON_FCFLAGS}
+AC_ARG_VAR([ICON_BUNDLED_FCFLAGS],
+  [Fortran compiler flags to be appended to FCFLAGS when configuring the bundled
+libraries @<:@default=$ICON_FCFLAGS@:>@])dnl
+ICON_BUNDLED_FCFLAGS=${ICON_BUNDLED_FCFLAGS-$ICON_FCFLAGS}
 
 ACX_FC_PP_SRCEXT([f90])
 ACX_COMPILER_FC_VENDOR_SIMPLE
@@ -467,42 +515,16 @@ AC_SUBST([FC_VENDOR], [$acx_cv_fc_compiler_vendor])
 ACX_COMPILER_FC_VERSION_SIMPLE
 AC_SUBST([FC_VERSION], [$acx_cv_fc_compiler_version])
 
-AC_ARG_VAR([ICON_FCFLAGS],
-  [Fortran compiler flags to be appended to FCFLAGS when compiling and linking
-ICON, e.g. optimization flags])dnl
-ICON_FCFLAGS=${ICON_FCFLAGS-}
-
-AC_ARG_VAR([ICON_LDFLAGS],
-  [Fortran compiler flags to be appended to LDFLAGS when linking ICON, e.g.
-to prevent configuration-time failures of the Libtool-based bundled
-libraries])dnl
-ICON_LDFLAGS=${ICON_LDFLAGS-}
-
-AC_ARG_VAR([ICON_OCEAN_FCFLAGS],
-  [Fortran compiler flags to be appended to FCFLAGS when compiling the ocean
-component of ICON @<:@default=$ICON_FCFLAGS@:>@])dnl
-ICON_OCEAN_FCFLAGS=${ICON_OCEAN_FCFLAGS-$ICON_FCFLAGS}
-
-AC_ARG_VAR([ICON_BUNDLED_FCFLAGS],
-  [Fortran compiler flags to be appended to FCFLAGS when compiling and linking
-the bundled libraries @<:@default=$ICON_FCFLAGS@:>@])dnl
-ICON_BUNDLED_FCFLAGS=${ICON_BUNDLED_FCFLAGS-$ICON_FCFLAGS}
-subdir_FCFLAGS=$FCFLAGS
+dnl Generate RPATH flags:
+AS_VAR_IF([enable_rpaths], [yes],
+  [ACX_SHLIB_FC_RPATH_FLAG
+   ASX_EXTRACT_ARGS([icon_L_args], ["$LDFLAGS $LIBS"], ['-L@<:@ @:>@*'])
+   for icon_L_arg in $icon_L_args; do
+     ASX_VAR_APPEND_UNIQ([LDFLAGS], ["$acx_cv_fc_rpath_flag$icon_L_arg"], [' '])
+   done
+   ACX_SHLIB_RPATH_FLAGS_CHECK])
 
 dnl Run the delayed cross-compilation check:
-AS_VAR_IF([acx_save_cross_compiling], [no],
-  [acx_compiler_cross_check_result=ok
-   AC_LINK_IFELSE([AC_LANG_PROGRAM],
-     [./conftest$ac_cv_exeext >/dev/null 2>&1 || dnl
-acx_compiler_cross_check_result=fail],
-     [acx_compiler_cross_check_result=fail])
-   AS_VAR_IF([acx_compiler_cross_check_result], [fail],
-     [AC_MSG_WARN([unable to link and run executables linked with the dnl
-provided linker flags, which might result into a failure of the following dnl
-standard cross compilation check with a misleading message: make sure that dnl
-the dynamic linker is able to find all the shared libraries specified in dnl
-LIBS, e.g. by extending the LD_LIBRARY_PATH environment variable (or its dnl
-analogue)])])])
 ACX_COMPILER_CROSS_CHECK_NOW
 
 ACX_FC_LINE_LENGTH([unlimited])
@@ -529,17 +551,6 @@ ACX_FC_INCLUDE_ORDER_PP(
 AC_SUBST([FC_INC_ORDER_PP_f90])
 
 ACX_LANG_MACRO_FLAG([AC_SUBST([FC_PP_DEF], [$acx_cv_fc_macro_flag])])
-
-dnl Generate RPATH flags:
-AC_SUBST([ICON_RPATH_LDFLAGS], [''])
-AS_VAR_IF([enable_rpaths], [yes],
-  [ACX_SHLIB_FC_RPATH_FLAG
-   ASX_EXTRACT_ARGS([icon_L_args], ["$LDFLAGS $LIBS"], ['-L@<:@ @:>@*'])
-   for icon_L_arg in $icon_L_args; do
-     ASX_VAR_APPEND_UNIQ([ICON_RPATH_LDFLAGS],
-       ["$acx_cv_fc_rpath_flag$icon_L_arg"], [' '])
-   done
-   ACX_SHLIB_RPATH_FLAGS_CHECK([$ICON_RPATH_LDFLAGS])])
 
 ACX_FC_ATTRIBUTE_CONTIGUOUS(
   [AS_VAR_APPEND([FCFLAGS],
@@ -570,7 +581,7 @@ AS_VAR_IF([enable_rte_rrtmgp], [no],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_RTE_RRTMGP__"])])
 
 AS_VAR_IF([enable_rttov], [yes],
-  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__USE_RTTOV ${FC_PP_DEF}_RTTOV_VERSION=13 ${FC_PP_DEF}HAVE_MPI_MOD"])])
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__USE_RTTOV"])])
 
 AS_VAR_IF([enable_dace], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__DACE__"])])
@@ -638,29 +649,28 @@ AS_VAR_IF([enable_mixed_precision], [yes],
   [AS_VAR_APPEND([FCFLAGS],
      [" ${FC_PP_DEF}__MIXED_PRECISION"])])
 
-dnl switch to disable MPI_Rget for systems where it doesn't work
-AC_ARG_ENABLE([mpi-rget],
-  [AS_HELP_STRING([--disable-mpi-rget],
-     [MPI_Rget is normally used on systems with MPI standard 3.0 or later, but can be disabled unconditionally with this switch])],
-     [AS_IF([test x"$enable_mpi_rget" != xyes -a x"$enable_mpi_rget" != xauto],
-        [enable_mpi_rget=no])],
-     [enable_mpi_rget=auto])
-
 ######################### C COMPILER COMMAND AND FLAGS #########################
+AC_LANG([C])
 dnl Override the default flags set by AC_PROG_CC:
 CFLAGS=${CFLAGS-}
+dnl Save the flags to pass them later to the bundled libraries:
+subdir_CFLAGS=$CFLAGS
+
+dnl Make sure the configure checks are run with ICON_CFLAGS:
+test -n "${ICON_CFLAGS}" && AS_VAR_APPEND([CFLAGS], [" ${ICON_CFLAGS}"])
+
 AC_PROG_CC
-AC_LANG([C])
 
-dnl Supporting ISO C89 means that the following header files are available:
-dnl stdlib.h, stdio.h, math.h, time.h, ctype.h, string.h, signal.h, limits.h
-dnl errno.h, ctype.h assert.h.
-AS_VAR_IF([ac_cv_prog_cc_c89], [no],
-  [AC_MSG_FAILURE([C compiler does not support ISO C89])])
+dnl We put the following declaration here (i.e. after AC_PROG_CC) for better
+dnl readability of the help message:
+AC_ARG_VAR([ICON_CFLAGS],
+  [C compiler flags to be appended to CFLAGS when configuring ICON])dnl
 
-dnl Some of the C source files require support for ISO C99. Supporting ISO C99
-dnl also means that the following header files are available:
-dnl stdbool.h.
+AC_ARG_VAR([ICON_BUNDLED_CFLAGS],
+  [C compiler flags to be appended to CFLAGS when configuring the bundled
+libraries @<:@default=$ICON_CFLAGS@:>@])dnl
+ICON_BUNDLED_CFLAGS=${ICON_BUNDLED_CFLAGS-$ICON_CFLAGS}
+
 AC_PROG_CC_C99
 AS_VAR_IF([ac_cv_prog_cc_c99], [no],
   [AC_MSG_FAILURE([C compiler does not support ISO C99])])
@@ -668,28 +678,20 @@ AS_VAR_IF([ac_cv_prog_cc_c99], [no],
 ACX_COMPILER_CC_VENDOR_SIMPLE
 ACX_COMPILER_CC_VERSION_SIMPLE
 
-AC_ARG_VAR([ICON_CFLAGS],
-  [C compiler flags to be appended to CFLAGS when compiling ICON,
-e.g. optimization flags])dnl
-ICON_CFLAGS=${ICON_CFLAGS-}
-
-AC_ARG_VAR([ICON_BUNDLED_CFLAGS],
-  [C compiler flags to be appended to CFLAGS when compiling and linking
-the bundled libraries @<:@default=$ICON_CFLAGS@:>@])dnl
-ICON_BUNDLED_CFLAGS=${ICON_BUNDLED_CFLAGS-$ICON_CFLAGS}
-subdir_CFLAGS=$CFLAGS
-
-dnl Check for headers that are protected with HAVE_* macros in the code
-dnl (override AC_INCLUDES_DEFAULT of autoconf 2.69, which runs additional
-dnl annoying checks; already fixed in the autoconf master branch):
-AC_CHECK_HEADERS([execinfo.h ucontext.h link.h], [], [],
-  [[// override default includes]])
-
-dnl Check for headers that are not protected at all:
-AC_CHECK_HEADERS([unistd.h fcntl.h pwd.h stdint.h sys/types.h sys/stat.h]dnl
-  [sys/param.h sys/resource.h sys/utsname.h sys/time.h sys/times.h dirent.h],
+dnl AC_PROG_CC, AC_PROG_CC_C99, and AC_INCLUDES_DEFAULT do check for some of the
+dnl following header files but the actual list of files they check for might
+dnl vary from version to version. Therefore, we check for all the headers that
+dnl are used in the code unconditionally:
+AC_CHECK_HEADERS([stdlib.h stdio.h math.h time.h ctype.h string.h signal.h ]dnl
+  [limits.h errno.h assert.h stdbool.h unistd.h fcntl.h pwd.h stdint.h ]dnl
+  [sys/types.h sys/stat.h sys/param.h sys/resource.h sys/utsname.h ]dnl
+  [sys/time.h sys/times.h dirent.h],
   [], [AC_MSG_FAILURE([unable to find header file $ac_header])],
   [[// override default includes]])
+
+dnl Check for headers that are protected with HAVE_* macros in the code:
+AC_CHECK_HEADERS([execinfo.h ucontext.h link.h],
+  [], [], [[// override default includes]])
 
 dnl Other header files that are protected in the code but not with the HAVE_*
 dnl macros:
@@ -706,40 +708,31 @@ dnl Don't use neither AS_IF nor AS_VAR_IF to prevent checking for NVCC when
 dnl GPU support is disabled:
 if test x"$enable_gpu" = xyes; then :
   ACX_PROG_NVCC
-   AS_VAR_IF([acx_cv_prog_nvcc_cuda], [no],
-     [AC_MSG_FAILURE([unable to find a working NVIDIA CUDA Compiler: either dnl
+  AS_VAR_IF([acx_cv_prog_nvcc_cuda], [no],
+    [AC_MSG_FAILURE([unable to find a working NVIDIA CUDA Compiler: either dnl
 disable GPU support (--disable-gpu) or set NVCC accordingly])])
-   ACX_PROG_NVCC_CXX11
-   ACX_LANG_PUSH_CUDA
-   AC_CHECK_HEADER([cuda.h], [],
-     [AC_MSG_FAILURE([unable to find header file cuda.h: either disable GPU dnl
+  ACX_PROG_NVCC_CXX11
+  ACX_LANG_PUSH_CUDA
+  AC_CHECK_HEADER([cuda.h], [],
+    [AC_MSG_FAILURE([unable to find header file cuda.h: either disable GPU dnl
 support (--disable-gpu) or set NVCFLAGS accordingly])],
-     [[// override default includes]])
-   ACX_LANG_POP_CUDA
-   AC_LANG_PUSH([Fortran])
-   ACX_FC_CUDA_COMPATIBLE([],
-     [AC_MSG_FAILURE([Fortran compiler cannot link objects compiled with dnl
+    [[// override default includes]])
+  ACX_LANG_POP_CUDA
+  AC_LANG_PUSH([Fortran])
+  ACX_FC_CUDA_COMPATIBLE([],
+    [AC_MSG_FAILURE([Fortran compiler cannot link objects compiled with dnl
 CUDA compiler: a possible reason is that it cannot find CUDA runtime dnl
 libraries (e.g. '-lcudart'): set LDFLAGS and LIBS accordingly])])
-   ACX_FC_CUDA_STDCXX_COMPATIBLE([],
-     [AC_MSG_FAILURE([Fortran compiler cannot link objects compiled with dnl
+  ACX_FC_CUDA_STDCXX_COMPATIBLE([],
+    [AC_MSG_FAILURE([Fortran compiler cannot link objects compiled with dnl
 CUDA compiler that require C++ standard library: a possible reason is that dnl
 it cannot find C++ standard library (i.e. '-lstdc++'): set LDFLAGS and LIBS dnl
 accordingly])])
-   AC_LANG_POP([Fortran])
+  AC_LANG_POP([Fortran])
 else
   NVCC=
   NVCFLAGS=
 fi
-
-########################## LIBRARY CREATION PROGRAMS AND FLAGS #################
-
-AC_CHECK_PROGS([AR],[xiar ar],[false],,)
-AS_VAR_IF([AR],[false],
-  [AC_MSG_FAILURE([an archiver is needed to build ICON.])])
-AC_ARG_VAR([ARFLAGS],[option arguments/commands to pass to the archiver])
-AS_VAR_SET_IF([ARFLAGS],,[ARFLAGS=cr])
-AC_PROG_RANLIB
 
 ################################ LIBRARY CHECKS ################################
 
@@ -773,6 +766,24 @@ dnl A list of include search flags targeting directories of the bundled
 dnl libraries:
 bundled_includes=
 
+AS_VAR_IF([enable_memory_tracing], [mtrace],
+  [AC_MSG_CHECKING([whether C mtrace function is available via the Fortran dnl
+ISO_C_BINDING interface])
+   AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      implicit none
+      interface
+      subroutine mtrace() bind(c, name="mtrace")
+      end subroutine mtrace
+      end interface
+      call mtrace]])],
+     [AC_MSG_RESULT([yes])
+      AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}ICON_MEMORY_TRACING=1"])],
+     [AC_MSG_RESULT([no])
+      AC_MSG_FAILURE([unable to link a test program using mtrace function dnl
+via the Fortran ISO_C_BINDING interface: either disable the native dynamic dnl
+memory tracing facility (--disable-memory-tracing) or set LDFLAGS and LIBS dnl
+accordingly])])])
+
 AS_VAR_IF([enable_mpi], [yes],
   [AC_MSG_CHECKING([whether the Fortran 90 interface of MPI library is dnl
 available])
@@ -789,24 +800,35 @@ test x"$enable_rttov" = xyes],
       AC_MSG_FAILURE([unable to link a test program using the Fortran 90 dnl
 interface of MPI library: either disable MPI support (--disable-mpi) or set dnl
 FC to the MPI Fortran compiler wrapper, or set FCFLAGS, LDFLAGS and LIBS dnl
-accordingly])])])
+accordingly])])
 dnl ######################################################################
 dnl test for MPI standard implementation version
-AS_VAR_IF([enable_mpi], [yes],
-  [ACX_FORTRAN_CHECK_INTEGER_PARAMETER([MPI_VERSION],[0],[100],[1],[use mpi],
-     [ICON_MPI_VERSION],[1],[The value of Fortran parameter MPI_VERSION])
-   ACX_FORTRAN_CHECK_INTEGER_PARAMETER([MPI_SUBVERSION],[0],[100],[1],[use mpi],
-     [ICON_MPI_SUBVERSION],[1],[The value of Fortran parameter MPI_SUBVERSION])
-   ICON_FCFLAGS="${ICON_FCFLAGS+$ICON_FCFLAGS }${FC_PP_DEF}ICON_MPI_VERSION=$ICON_MPI_VERSION ${FC_PP_DEF}ICON_MPI_SUBVERSION=$ICON_MPI_SUBVERSION"])
-
+   AC_MSG_CHECKING([for the version of the supported MPI standard])
+   icon_mpi_version=unknown; icon_mpi_subversion=unknown
+   ACX_FORTRAN_CHECK_INTEGER_EXPRESSION([], [MPI_VERSION], [use mpi],
+     [0], [100], [1], [icon_mpi_version], [:])
+   AS_IF([test x"$icon_mpi_version" != xunknown],
+     [ACX_FORTRAN_CHECK_INTEGER_EXPRESSION([], [MPI_SUBVERSION], [use mpi],
+     [0], [100], [1], [icon_mpi_subversion], [:])])
+   AS_IF([test x"$icon_mpi_version" != xunknown && dnl
+test x"$icon_mpi_subversion" != xunknown],
+     [AC_MSG_RESULT([$icon_mpi_version.$icon_mpi_subversion])
+      AS_VAR_APPEND([FCFLAGS],
+        [" ${FC_PP_DEF}ICON_MPI_VERSION=$icon_mpi_version dnl
+${FC_PP_DEF}ICON_MPI_SUBVERSION=$icon_mpi_subversion"])],
+     [AC_MSG_RESULT([unknown])
+      icon_mpi_version=unknown; icon_mpi_subversion=unknown])
 dnl ######################################################################
-AS_VAR_IF([enable_mpi_rget], [auto],
-  [AS_IF([test $ICON_MPI_VERSION -ge 3],
-     [enable_mpi_rget=yes],
-     [enable_mpi_rget=no])])
-AS_VAR_IF([enable_mpi_rget], [no],
-  [ICON_FCFLAGS="${ICON_FCFLAGS+$ICON_FCFLAGS }${FC_PP_DEF}NO_MPI_RGET"])
-dnl ######################################################################
+   AS_VAR_IF([enable_mpi_rget], [auto],
+     [AS_IF([test x"$icon_mpi_version" != xunknown && dnl
+test "$icon_mpi_version" -ge 3 >/dev/null 2>&1],
+        [AC_MSG_NOTICE([usage of the MPI_Rget routine is enabled because the dnl
+provided MPI library supports standard 3.0 or higher: disable the usage if dnl
+required (--disable-mpi-rget)])
+         enable_mpi_rget=yes],
+        [enable_mpi_rget=no])])
+   AS_VAR_IF([enable_mpi_rget], [no],
+     [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}NO_MPI_RGET"])])])
 
 dnl The configure scripts of the most of the bundled libraries expect
 dnl MPI_LAUNCH to be set in the form of an absolute path, which we try to
@@ -1014,14 +1036,12 @@ provide an external version of RTE+RRTMGP library dnl
 (--with-external-rte-rrtmgp) by setting FCFLAGS, LDFLAGS and LIBS dnl
 accordingly])])
       AC_ARG_VAR([ICON_RTE_RRTMGP_FCFLAGS],
-        [Fortran compiler flags to be appended to FCFLAGS when compiling and
-linking the bundled version of RTE+RRTMGP library
-@<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
+        [Fortran compiler flags to be appended to FCFLAGS when configuring the
+bundled version of RTE+RRTMGP library @<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
       ICON_RTE_RRTMGP_FCFLAGS=${ICON_RTE_RRTMGP_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
       AC_ARG_VAR([ICON_RTE_RRTMGP_CFLAGS],
-        [Fortran compiler flags to be appended to CFLAGS when compiling and
-linking the bundled version of RTE+RRTMGP library
-@<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
+        [C compiler flags to be appended to CFLAGS when configuring the bundled
+version of RTE+RRTMGP library @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
       ICON_RTE_RRTMGP_CFLAGS=${ICON_RTE_RRTMGP_CFLAGS-$ICON_BUNDLED_CFLAGS}
       ACX_CONFIG_SUBDIR([externals/rte-rrtmgp],
         [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*],
@@ -1063,14 +1083,12 @@ the ECMWF radiation scheme (--disable-ecrad) or provide an external version dnl
 of ECRAD library (--with-external-ecrad) by setting FCFLAGS, LDFLAGS and dnl
 LIBS accordingly])])
       AC_ARG_VAR([ICON_ECRAD_FCFLAGS],
-        [Fortran compiler flags to be appended to FCFLAGS when compiling and
-linking the bundled version of ECRAD library
-@<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
+        [Fortran compiler flags to be appended to FCFLAGS when configuring the
+bundled version of ECRAD library @<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
       ICON_ECRAD_FCFLAGS=${ICON_ECRAD_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
       AC_ARG_VAR([ICON_ECRAD_CFLAGS],
-        [Fortran compiler flags to be appended to CFLAGS when compiling and
-linking the bundled version of ECRAD library
-@<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
+        [C compiler flags to be appended to CFLAGS when configuring the bundled
+version of ECRAD library @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
       ICON_ECRAD_CFLAGS=${ICON_ECRAD_CFLAGS-$ICON_BUNDLED_CFLAGS}
       ACX_CONFIG_SUBDIR([externals/ecrad],
         [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*],
@@ -1110,11 +1128,7 @@ AS_VAR_IF([enable_rttov], [yes],
       type(rttov_coefs),target:: coefs(1)
       call rttov_nullify_coef(coefs(1)%coef)]])],
      [AC_MSG_RESULT([yes])
-dnl The only file in ICON (src/data_assimilation/interfaces/mo_rttov_ifc.f90)
-dnl that uses the macro 'RTTOV12' defines it itself. Therefore, we define it
-dnl only when the DACE modules are enabled because their source files need it.
-      AS_VAR_IF([enable_dace], [yes],
-        [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}RTTOV12"])])],
+      AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}_RTTOV_VERSION=13"])],
      [AC_MSG_RESULT([no])
       AC_MSG_FAILURE([unable to link a test program using RTTOV library: dnl
 either disable usage of the radiative transfer model for TOVS dnl
@@ -1132,8 +1146,7 @@ dnl disabled:
 you are trying to configure with the DACE modules for data assimilation but dnl
 usage of the radiative transfer model for TOVS is disabled: either disable dnl
 the DACE modules for data assimilation (--disable-dace) or enable usage of dnl
-the radiative transfer model for TOVS (--enable-rttov)])
-      AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}NO_RTTOV"])])])
+the radiative transfer model for TOVS (--enable-rttov)])])])
 
 AS_VAR_IF([enable_sct], [yes],
   [AS_VAR_IF([with_external_sct], [yes],
@@ -1159,14 +1172,12 @@ disable the SCT timer (--disable-sct) or provide an external dnl
 version of SCT library (--with-external-sct) by setting FCFLAGS, LDFLAGS and dnl
 LIBS accordingly])])
       AC_ARG_VAR([ICON_SCT_FCFLAGS],
-        [Fortran compiler flags to be appended to FCFLAGS when compiling and
-linking the bundled version of SCT library
-@<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
+        [Fortran compiler flags to be appended to FCFLAGS when configuring the
+bundled version of SCT library @<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
       ICON_SCT_FCFLAGS=${ICON_SCT_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
       AC_ARG_VAR([ICON_SCT_CFLAGS],
-        [Fortran compiler flags to be appended to CFLAGS when compiling and
-linking the bundled version of SCT library
-@<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
+        [C compiler flags to be appended to CFLAGS when configuring the bundled
+version of SCT library @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
       ICON_SCT_CFLAGS=${ICON_SCT_CFLAGS-$ICON_BUNDLED_CFLAGS}
       ACX_CONFIG_SUBDIR([externals/sct],
         [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*],
@@ -1250,14 +1261,12 @@ disable the YAXT data exchange (--disable-yaxt) or provide an external dnl
 version of YAXT library (--with-external-yaxt) by setting FCFLAGS, LDFLAGS dnl
 and LIBS accordingly])])
       AC_ARG_VAR([ICON_YAXT_FCFLAGS],
-        [Fortran compiler flags to be appended to FCFLAGS when compiling and
-linking the bundled version of YAXT library
-@<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
+        [Fortran compiler flags to be appended to FCFLAGS when configuring the
+bundled version of YAXT library @<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
       ICON_YAXT_FCFLAGS=${ICON_YAXT_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
       AC_ARG_VAR([ICON_YAXT_CFLAGS],
-        [Fortran compiler flags to be appended to CFLAGS when compiling and
-linking the bundled version of YAXT library
-@<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
+        [C compiler flags to be appended to CFLAGS when configuring the bundled
+version of YAXT library @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
       ICON_YAXT_CFLAGS=${ICON_YAXT_CFLAGS-$ICON_BUNDLED_CFLAGS}
       ACX_CONFIG_SUBDIR([externals/yaxt],
         [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*|MPI_LAUNCH=*],
@@ -1400,14 +1409,12 @@ library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an dnl
 external version of CDI library (--with-external-cdi) by setting FCFLAGS, dnl
 LDFLAGS and LIBS accordingly])])
    AC_ARG_VAR([ICON_CDI_FCFLAGS],
-     [Fortran compiler flags to be appended to FCFLAGS when compiling and
-linking the bundled version of CDI library
-@<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
+     [Fortran compiler flags to be appended to FCFLAGS when configuring the
+bundled version of CDI library @<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
    ICON_CDI_FCFLAGS=${ICON_CDI_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
    AC_ARG_VAR([ICON_CDI_CFLAGS],
-     [Fortran compiler flags to be appended to CFLAGS when compiling and
-linking the bundled version of CDI library
-@<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
+     [C compiler flags to be appended to CFLAGS when configuring the bundled
+version of CDI library @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
    ICON_CDI_CFLAGS=${ICON_CDI_CFLAGS-$ICON_BUNDLED_CFLAGS}
    ACX_CONFIG_SUBDIR([externals/cdi],
      [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*|MPI_LAUNCH=*|F77=*|CXX=*],
@@ -1448,6 +1455,7 @@ dnl command line.
       [acx_cv_have_netcdf2=yes], [acx_cv_have_netcdf4=yes],
 dnl Disable unwanted extra dependencies.
       [acx_cv_have_libnc_dap=no], [acx_cv_have_nc4hdf5=no],
+      [ac_cv_lib_uuid_uuid_generate=no], [ac_cv_func_uuid_create=no],
 dnl Disable the compilers we do not need.
       [F77=no],
 dnl Note that we need to set CXX to 'no' not only to disable the redundant
@@ -1504,14 +1512,12 @@ library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an dnl
 external version of MTIME library (--with-external-mtime) by setting CFLAGS, dnl
 FCFLAGS, LDFLAGS and LIBS accordingly])])
    AC_ARG_VAR([ICON_MTIME_FCFLAGS],
-     [Fortran compiler flags to be appended to FCFLAGS when compiling and
-linking the bundled version of MTIME library
-@<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
+     [Fortran compiler flags to be appended to FCFLAGS when configuring the
+bundled version of MTIME library @<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
    ICON_MTIME_FCFLAGS=${ICON_MTIME_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
    AC_ARG_VAR([ICON_MTIME_CFLAGS],
-     [Fortran compiler flags to be appended to CFLAGS when compiling and
-linking the bundled version of MTIME library
-@<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
+     [C compiler flags to be appended to CFLAGS when configuring the bundled
+version of MTIME library @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
    ICON_MTIME_CFLAGS=${ICON_MTIME_CFLAGS-$ICON_BUNDLED_CFLAGS}
    ACX_CONFIG_SUBDIR([externals/mtime],
      [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*],
@@ -1566,14 +1572,12 @@ accordingly])])
          yac_MTIME_CFLAGS="-I${ac_abs_top_srcdir}/externals/mtime/include"
          yac_MTIME_CLIBS="${ac_abs_top_builddir}/externals/mtime/src/.libs/libmtime.a"])
       AC_ARG_VAR([ICON_YAC_FCFLAGS],
-        [Fortran compiler flags to be appended to FCFLAGS when compiling and
-linking the bundled version of YAC library
-@<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
+        [Fortran compiler flags to be appended to FCFLAGS when configuring the
+bundled version of YAC library @<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
       ICON_YAC_FCFLAGS=${ICON_YAC_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
       AC_ARG_VAR([ICON_YAC_CFLAGS],
-        [Fortran compiler flags to be appended to CFLAGS when compiling and
-linking the bundled version of YAC library
-@<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
+        [C compiler flags to be appended to CFLAGS when configuring the bundled
+version of YAC library @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
       ICON_YAC_CFLAGS=${ICON_YAC_CFLAGS-$ICON_BUNDLED_CFLAGS}
       ACX_CONFIG_SUBDIR([externals/yac],
         [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*|MPI_LAUNCH=*],
@@ -1594,13 +1598,15 @@ linking the bundled version of YAC library
          [MTIME_CFLAGS="$yac_MTIME_CFLAGS"], [MTIME_CLIBS=],
          [NETCDF_CFLAGS=], [NETCDF_CLIBS=], [XML2_CFLAGS=], [XML2_CLIBS=],
          [MPI_CFLAGS=], [MPI_CLIBS=], [MPI_FCFLAGS=], [MPI_FCLIBS=],
-         [FORTRAN_LAPACK_CLIBS=], [MPI_LAUNCH="$MPI_LAUNCH"],
-         [--disable-maintainer-mode],
+         [FORTRAN_LAPACK_CLIBS=], [--disable-maintainer-mode],
          [--enable-silent-rules="$enable_silent_rules"], [--enable-lib-only],
          [--enable-xml], [--enable-netcdf], [--enable-mpi="$enable_mpi"],
          [--with-external-lapack=fortran], [--with-external-mtime],
          [--enable-mpi-checks="$enable_mpi_checks"],
          [acx_cv_c_lib_func_datetimeToString="$yac_MTIME_CLIBS"]])
+      AS_VAR_SET_IF([MPI_LAUNCH],
+        [ACX_CONFIG_SUBDIR_APPEND_ARGS([externals/yac],
+           [[MPI_LAUNCH="$MPI_LAUNCH"]])])
       AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/yac/src "])
       BUNDLED_LIBFILES="externals/yac/src/libyac.a $BUNDLED_LIBFILES"])])
 
@@ -1629,14 +1635,12 @@ disable the aerosols and reactive trace component (--disable-art) or provide dnl
 an external version of TIXI library (--with-external-tixi) by setting dnl
 FCFLAGS, LDFLAGS and LIBS accordingly])])
       AC_ARG_VAR([ICON_TIXI_FCFLAGS],
-        [Fortran compiler flags to be appended to FCFLAGS when compiling and
-linking the bundled version of TIXI library
-@<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
+        [Fortran compiler flags to be appended to FCFLAGS when configuring the
+bundled version of TIXI library @<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
       ICON_TIXI_FCFLAGS=${ICON_TIXI_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
       AC_ARG_VAR([ICON_TIXI_CFLAGS],
-        [Fortran compiler flags to be appended to CFLAGS when compiling and
-linking the bundled version of TIXI library
-@<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
+        [C compiler flags to be appended to CFLAGS when configuring the bundled
+version of TIXI library @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
       ICON_TIXI_CFLAGS=${ICON_TIXI_CFLAGS-$ICON_BUNDLED_CFLAGS}
       ACX_CONFIG_SUBDIR([externals/tixi],
         [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*],
@@ -1675,14 +1679,12 @@ library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an dnl
 external version of SELF library (--with-external-self) by setting FCFLAGS, dnl
 LDFLAGS and LIBS accordingly])])
    AC_ARG_VAR([ICON_SELF_FCFLAGS],
-     [Fortran compiler flags to be appended to FCFLAGS when compiling and
-linking the bundled version of SELF library
-@<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
+     [Fortran compiler flags to be appended to FCFLAGS when configuring the
+bundled version of SELF library @<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
    ICON_SELF_FCFLAGS=${ICON_SELF_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
    AC_ARG_VAR([ICON_SELF_CFLAGS],
-     [Fortran compiler flags to be appended to CFLAGS when compiling and
-linking the bundled version of SELF library
-@<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
+     [C compiler flags to be appended to CFLAGS when configuring the bundled
+version of SELF library @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
    ICON_SELF_CFLAGS=${ICON_SELF_CFLAGS-$ICON_BUNDLED_CFLAGS}
    ACX_CONFIG_SUBDIR([externals/self],
      [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*],
@@ -1716,14 +1718,6 @@ GPU support (--disable-gpu) or provide an external version of CUB library dnl
 (--with-external-cub) by setting NVCFLAGS accordingly])])
       AS_VAR_APPEND([NVCFLAGS], [" -I${srcdir}/externals/cub"])])])
 
-AS_IF([test "x$enable_memory_tracing" = xyes],
-  [AC_MSG_NOTICE([detecting memory tracing facility])
-   AC_LANG_PUSH([C])
-   AC_CHECK_FUNC([mtrace], [enable_memory_tracing=mtrace])
-   AC_LANG_POP([C])])
-AS_CASE([$enable_memory_tracing],
-  [mtrace], [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}ICON_MEMORY_TRACING=1"])])
-
 ##################### PREPROCESSORS AND AUXILIARY COMMANDS #####################
 
 AC_PROG_INSTALL
@@ -1731,6 +1725,20 @@ AC_PROG_MKDIR_P
 dnl The message generated by AC_PROG_LN_S is misleading in our case, therefore
 dnl we do what the standard macro does but without the message:
 AC_SUBST([LN_S], [$as_ln_s])
+
+AC_ARG_VAR([AR], [archiver command])dnl
+AC_ARG_VAR([ARFLAGS], [archiver flags])dnl
+ARFLAGS=${ARFLAGS-cr}
+ACX_PROG_SEARCH([AR], [ar],
+  [AC_COMPILE_IFELSE([AC_LANG_PROGRAM],
+     [icon_prog_try=dnl
+'$acx_candidate ${ARFLAGS} libconftest.a conftest.$ac_objext'
+      AC_TRY_EVAL([icon_prog_try])
+      rm -f libconftest.a])
+   test $ac_status -eq 0],
+  [AR=$acx_candidate])
+AC_ARG_VAR([RANLIB], [archive indexer command])dnl
+AC_PROG_RANLIB
 
 AC_ARG_VAR([PYTHON], [Python interpreter command])dnl
 ACX_PROG_SEARCH([PYTHON], [python python3],

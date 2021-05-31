@@ -25,6 +25,7 @@
 /icon.mk
 
 # Build stage files:
+*.a
 *.i
 *.lst
 *.o
@@ -56,3 +57,8 @@ experiments*
 src/lnd_phy_jsbach
 tags
 
+# cache files from ctags, gnu global and vim
+/GPATH
+/GRTAGS
+/GTAGS
+/Session.vim

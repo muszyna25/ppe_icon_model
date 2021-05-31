@@ -517,6 +517,7 @@ CONTAINS
     CALL timer_start(timer_total)
 
     jstep0 = 0
+    jg = 1
     !------------------------------------------------------------------
     ! IF(.NOT.l_time_marching)THEN
 

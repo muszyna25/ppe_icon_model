@@ -21,11 +21,11 @@
 !!
 MODULE mo_io_coupling
 
-#ifdef YAC_coupling
-
   USE mo_coupling_config,           ONLY: is_coupled_run
   USE mo_impl_constants,            ONLY: MAX_CHAR_LENGTH
   USE mo_exception,                 ONLY: message, message_text
+  USE mo_yac_finterface,            ONLY: yac_finit, yac_fdef_comp, &
+                                        & yac_fsearch, yac_ffinalize
 
   IMPLICIT NONE
 
@@ -89,6 +89,4 @@ CONTAINS
 
   END SUBROUTINE destruct_io_coupler
 
-#endif
-  
 END MODULE mo_io_coupling

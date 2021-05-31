@@ -13,10 +13,10 @@ ppdir:= pp
 # Relative path to the directory with the Fortran module files:
 moddir:= mod
 
-# Relative path to the directory with the resulting executables:
+# Relative path to the directory with the generated executables:
 bindir:= bin
 
-# Relative path to the directory with the resulting archives
+# Relative path to the directory with the generated archives:
 libdir:= lib
 
 # Paths to the installation directories:
@@ -112,43 +112,17 @@ pp_files:=
 @SB2_ENABLED@f90_files:= $(filter-out $(SB2_in_f90_files),$(f90_files)) $(SB2_out_f90_files)
 @SB2_ENABLED@pp_files+= $(SB2_out_f90_files)
 
-############################## OUTPUT EXECUTABLES ##############################
-
-# Output executable files:
-exec_files:=
-
-# Auxiliary function. Receives a space-separated list of relative paths to the
-# original Fortran '.f90' files and returns a space-separated list of paths to
-# the respective object files, which change depending on the preprocessing
-# steps applied to the original source files.
-get_obj_names= $(patsubst %.f90,%.@OBJEXT@,$(filter $(foreach f,$(1),%$(f)), $(f90_files)))
-
-# ICON executable:
-ICON_exec_file:= $(bindir)/icon@EXEEXT@
-ICON_prog_obj_file:= $(call get_obj_names,src/drivers/icon.f90)
-exec_files+= $(ICON_exec_file)
- 
-# JSBACH executable:
-@JSBACH_ENABLED@JSBACH_exec_file:= $(bindir)/jsb4_driver@EXEEXT@
-@JSBACH_ENABLED@JSBACH_prog_obj_file:= $(call get_obj_names,$(JSBACH_subdir)/drivers/jsb4_driver.f90)
-@JSBACH_ENABLED@exec_files+= $(JSBACH_exec_file)
-@JSBACH_ENABLED@JSBACH_list = $(call get_prereq_objs,$(JSBACH_prog_obj_file))
-
-################################ UTILITY FILES #################################
-
-# Dependency files:
+# Dependency files
+# (this finalizes the list of files eligible for compilation):
 dep_files:= $(addsuffix .d,$(f90_files) $(c_files) $(cu_files)) c_binding.d extra_f90.d
-
-# Stamp files of the building subdirectories:
-dir_files:= $(filter-out ./.dirstamp,$(addsuffix .dirstamp,$(sort $(dir $(dep_files) $(pp_files) $(exec_files))) $(moddir)/ $(libdir)/))
 
 ########################### BUILDING TOOLS AND FLAGS ###########################
 
 # Compilers and utilities:
 SHELL= @SHELL@
-AR = @AR@
-ARFLAGS = @ARFLAGS@
-RANLIB = @RANLIB@
+AR= @AR@
+ARFLAGS= @ARFLAGS@
+RANLIB= @RANLIB@
 CC= @CC@
 FC= @FC@
 NVCC= @NVCC@
@@ -178,10 +152,53 @@ NVCFLAGS= @NVCFLAGS@
 
 # Linker flags and libraries:
 LDFLAGS= @LDFLAGS@
-ICON_LDFLAGS= @ICON_LDFLAGS@
-ICON_RPATH_LDFLAGS= @ICON_RPATH_LDFLAGS@
 BUNDLED_LIBFILES= @BUNDLED_LIBFILES@
 LIBS= @LIBS@
+
+############################ GENERATED EXECUTABLES #############################
+
+# Generated executable files:
+exec_files:=
+
+# Auxiliary function. Receives a space-separated list of relative paths to the
+# original Fortran '.f90' files and returns a space-separated list of paths to
+# the respective object files, which change depending on the preprocessing
+# steps applied to the original source files.
+get_obj_names= $(patsubst %.f90,%.@OBJEXT@,$(filter $(foreach f,$(1),%$(f)), $(f90_files)))
+
+# ICON executable:
+ICON_exec_file:= $(bindir)/icon@EXEEXT@
+ICON_prog_obj_file:= $(call get_obj_names,src/drivers/icon.f90)
+exec_files+= $(ICON_exec_file)
+
+# JSBACH executable:
+@JSBACH_ENABLED@JSBACH_exec_file:= $(bindir)/jsb4_driver@EXEEXT@
+@JSBACH_ENABLED@JSBACH_prog_obj_file:= $(call get_obj_names,$(JSBACH_subdir)/drivers/jsb4_driver.f90)
+@JSBACH_ENABLED@exec_files+= $(JSBACH_exec_file)
+
+############################## GENERATED ARCHIVES ##############################
+
+# Generated archive (library) files:
+lib_files:=
+
+# Auxiliary function. Receives a space-separated list of paths to objects and
+# returns a space-separated list of paths to their prerequisite objects. The
+# input paths are excluded from the output.
+get_prereq_objs= $(filter-out $(1),$(filter %.@OBJEXT@, \
+                     $(shell $(DEPLIST) @deplist.config -t $(1) -f $(dep_files))))
+
+
+# Common convenience library (holds prerequisite objects of the generated
+# executables):
+common_lib_file:= $(libdir)/libicon.a
+common_lib_prog_obj_files:= $(ICON_prog_obj_file)
+@JSBACH_ENABLED@common_lib_prog_obj_files+= $(JSBACH_prog_obj_file)
+common_lib_member_files:= $(call get_prereq_objs,$(common_lib_prog_obj_files))
+lib_files+= $(common_lib_file)
+
+# Stamp files of the building subdirectories
+# (this finalizes the list of generated files):
+dir_files:= $(filter-out ./.dirstamp,$(addsuffix .dirstamp,$(sort $(dir $(dep_files) $(pp_files) $(exec_files) $(lib_files))) $(moddir)/))
 
 ############################### MAKEFILE TWEAKS ################################
 
@@ -190,7 +207,6 @@ V= @DEFAULT_VERBOSITY@
 ifeq ($(V),0)
 silent_CC=      @echo "  CC      " $@;
 silent_AR=	@echo "  AR      " $@;
-silent_RANLIB=	@echo "  RANLIB  " $@;
 silent_DEPGEN=  @echo "  DEPGEN  " $@;
 silent_DSL4JSB= @echo "  DSL4JSB " $@;
 silent_FC=      @echo "  FC      " $@;
@@ -202,9 +218,6 @@ silent_NVCC=    @echo "  NVCC    " $@;
 silent_SB2=     @echo "  SB2PP   " $@;
 silent_none=    @
 endif
-
-# Files included with the pp #include "filename.interface" statements:
-incf_files+= $(filter %.interface,$(all_files))
 
 # Disable built-in suffix rules:
 .SUFFIXES:
@@ -243,7 +256,7 @@ preprocess: $(pp_files)
 # Delete the results of compilation and linking:
 mostlyclean: $(bundled_subdirs)
 @CLAW_ENABLED@	test -f claw.mk && $(MAKE) -f claw.mk $(MAKECMDGOALS) || test xdistclean = x$(filter distclean,$(MAKECMDGOALS))
-	rm -f $(exec_files) $(addsuffix .@OBJEXT@,$(basename $(f90_files) $(c_files) $(cu_files))) version.@OBJEXT@
+	rm -f $(exec_files) $(lib_files) $(addsuffix .@OBJEXT@,$(basename $(f90_files) $(c_files) $(cu_files))) version.@OBJEXT@
 	rm -f $(moddir)/*.@FC_MOD_FILE_EXT@ $(moddir)/*.@FC_MOD_FILE_EXT@.proxy
 
 # Delete files generated at the building stage:
@@ -268,7 +281,7 @@ distclean: clean
           fi; \
 	done
 	@if test '.' != '$(srcdir)'; then \
-	  for dir in $(subdirs) externals run; do \
+	  for dir in $(subdirs) $(libdir) externals run; do \
 	    if test -d "$$dir"; then \
 	      echo "find '$$dir' -type d -empty -delete"; \
 	      find "$$dir" -type d -empty -delete; \
@@ -300,24 +313,22 @@ check: all
 
 ######################## COMPILATION AND LINKING RULES #########################
 
-# Auxiliary function. Receives a path to the object and returns a list of paths
-# to its prerequisite objects.
-get_prereq_objs= $(filter %.@OBJEXT@,$(shell $(DEPLIST) @deplist.config -t $(1) -f $(dep_files)))
+# Dependencies of the ICON executable:
+$(ICON_exec_file): $(ICON_prog_obj_file) $(common_lib_file) $(BUNDLED_LIBFILES)
 
-$(libdir)/libicon.a: $(call get_prereq_objs,$(ICON_prog_obj_file)) $(JSBACH_list) | $(dir_files)
-	$(silent_AR)$(AR) $(ARFLAGS) $@ $?
-	$(silent_RANLIB)$(RANLIB) $@
-
-# ICON executable dependencies:
-$(ICON_exec_file): $(ICON_prog_obj_file) $(libdir)/libicon.a $(BUNDLED_LIBFILES)
-
-# JSBACH executable dependencies:
-@JSBACH_ENABLED@$(JSBACH_exec_file): $(JSBACH_prog_obj_file) \
-@JSBACH_ENABLED@	$(libdir)/libicon.a $(BUNDLED_LIBFILES)
+# Dependencies of the JSBACH executable:
+@JSBACH_ENABLED@$(JSBACH_exec_file): $(JSBACH_prog_obj_file) $(common_lib_file) $(BUNDLED_LIBFILES)
 
 # Common linking rule for the executables:
 $(exec_files): | $(dir_files)
-	$(silent_FCLD)$(FC) -o $@ $(FCFLAGS) $(ICON_FCFLAGS) $(LDFLAGS) $(ICON_LDFLAGS) $(ICON_RPATH_LDFLAGS) $+ $(LIBS)
+	$(silent_FCLD)$(FC) -o $@ $(FCFLAGS) $(ICON_FCFLAGS) $(LDFLAGS) $+ $(LIBS)
+
+# Dependencies of the common convenience library:
+$(common_lib_file): $(common_lib_member_files)
+
+# Common archive generation rule:
+$(lib_files): | $(dir_files)
+	$(silent_AR)$(AR) $(ARFLAGS) $@ $? && $(RANLIB) $@
 
 ICON_FC_CMD=       $(FC) -o $@ -c $(FCFLAGS) $(ICON_FCFLAGS) @FCFLAGS_f90@ $<
 ICON_OCEAN_FC_CMD= $(FC) -o $@ -c $(FCFLAGS) $(ICON_OCEAN_FCFLAGS) @FCFLAGS_f90@ $<
