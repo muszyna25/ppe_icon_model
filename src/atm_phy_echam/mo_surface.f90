@@ -896,6 +896,7 @@ CONTAINS
       !$ACC END PARALLEL
 
       IF (echam_phy_config(jg)%lmlo) THEN
+        ztsfc_wtr(jcs:kproma)=ptsfc_tile(jcs:kproma, idx_wtr) 
         CALL ml_ocean ( kbdim, jcs, kproma, pdtime, &
           & pahflw=plhflx_tile(:,idx_wtr),        & ! dependency on kproma has to be checked
           & pahfsw=pshflx_tile(:,idx_wtr),        & ! dependency on kproma has to be checked

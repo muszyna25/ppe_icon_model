@@ -147,7 +147,7 @@ cat > ${atmo_namelist} << EOF
  echam_phy_config(1)%ljsb   = .FALSE.
  echam_phy_config(1)%lamip  = .FALSE.
  echam_phy_config(1)%lice   = .FALSE.
- echam_phy_config(1)%lmlo   = .FALSE.
+ echam_phy_config(1)%lmlo   = .TRUE.
  echam_phy_config(1)%llake  = .FALSE.
 /
 &echam_rad_nml
