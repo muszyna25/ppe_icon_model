@@ -33,8 +33,7 @@ MODULE mo_interface_echam_car
   USE mo_physical_constants  ,ONLY: amd, amo3
   USE mo_bcs_time_interpolation ,ONLY: t_time_interpolation_weights, &
        &                               calculate_time_interpolation_weights
-  USE mo_lcariolle     ,ONLY: t_avi, t_time_interpolation
-  
+  USE mo_lcariolle     ,ONLY: t_avi, t_time_interpolation, lcariolle_do3dt 
   IMPLICIT NONE
   PRIVATE
   PUBLIC  :: interface_echam_car
@@ -72,8 +71,6 @@ CONTAINS
     TYPE(t_time_interpolation_weights)  :: current_time_interpolation_weights
     TYPE(t_avi)                         :: avi
 
-    EXTERNAL :: lcariolle_do3dt, lcariolle_lat_intp_li, lcariolle_pres_intp_li
-
     IF (ltimer) call timer_start(timer_car)
 
     ! associate pointers
@@ -105,7 +102,6 @@ CONTAINS
           CALL lcariolle_do3dt(jcs,                   jce,                    &
                &               nproma,                nlev,                   &
                &               time_interpolation,                            &
-               &               lcariolle_lat_intp_li, lcariolle_pres_intp_li, &
                &               avi,                   tend_qtrc_car(:,:,io3)  )
           !
           DEALLOCATE(avi%o3_vmr, avi%vmr2molm2, avi%cell_center_lat, avi%lday)

@@ -22,14 +22,12 @@ MODULE mo_lcariolle
   USE mo_read_interface, ONLY: read_bcast_REAL_3D, read_1D,  &
     & closeFile, openInputFile
   USE mo_physical_constants, ONLY: avo
-  USE mo_exception,          ONLY: finish
 
   IMPLICIT NONE
   PRIVATE
 
   PUBLIC :: t_avi, t_time_interpolation, lcariolle_init_o3, &
-    & lcariolle_lat_intp_li, lcariolle_pres_intp_li, &
-    & l_cariolle_initialized_o3 
+    & l_cariolle_initialized_o3, lcariolle_init, lcariolle_do3dt 
 
 ! number of latitudes, pressure layers and months used in the Cariolle
 ! climatology
@@ -122,8 +120,7 @@ CONTAINS
 !!
   SUBROUTINE lcariolle_init_o3(                                   &
            & jcb,                 jce,         NCX,               &
-           & nlev,                time_ip,     lat_intp_li,       &
-           & pres_intp_li,        avi,         vmr_o3             )
+           & nlev,                time_ip,     avi,         vmr_o3)
     INTEGER(wi),INTENT(IN) :: &
          & jcb,jce,   & !< begin, end index of column
          & NCX,       & !< first dim of fields as in calling subprogram
@@ -143,13 +140,13 @@ CONTAINS
     REAL(wp)               :: at3(0:nlatx+1,nlevx)
     
     ! calculate linear interpolation weights for latitude interpolation
-    CALL lat_intp_li(                                           &
+    CALL lcariolle_lat_intp_li(                                           &
        & jcb,                 jce,                NCX,          &
        & avi%cell_center_lat, nlatx,              pvi%rlat,     &
        & pvi%delta_lat,       pvi%l_lat_sn,       wgt1_lat,     &
        & wgt2_lat,            inmw1_lat,          inmw2_lat     )
     ! calculate linear interpolation weights for pressure interpolation 
-    CALL pres_intp_li(                                          &
+    CALL lcariolle_pres_intp_li(                                          &
        & jcb,                 jce,                NCX,          &
        & nlev,                avi%pres,           nlevx,        &
        & pvi%plev,            wgt1_p,             wgt2_p,       &
@@ -279,8 +276,7 @@ CONTAINS
 !!
   SUBROUTINE lcariolle_do3dt(                                         &
              & jcb,                 jce,             NCX,               &
-             & nlev,                time_ip,         lat_intp_li,       &
-             & pres_intp_li,        avi,             do3dt              )
+             & nlev,                time_ip,         avi,             do3dt)
     INTEGER(wi),INTENT(IN) :: &
          & jcb,jce,   & !< begin, end index of column
          & NCX,       & !< first dim of fields as in calling subprogram
@@ -315,13 +311,13 @@ CONTAINS
        & avi%ldown,     o3_column                     )
     o3_column(jcb:jce,1:nlev)=o3_column(jcb:jce,1:nlev)*avo*1.e-4_wp
     ! calculate linear interpolation weights for latitude interpolation
-    CALL lat_intp_li(                                                   &
+    CALL lcariolle_lat_intp_li(                                                   &
        & jcb,                 jce,                   NCX,               &
        & avi%cell_center_lat, nlatx,                 pvi%rlat,          &
        & pvi%delta_lat,       pvi%l_lat_sn,          wgt1_lat,          &
        & wgt2_lat,            inmw1_lat,             inmw2_lat          )
     ! calculate linear interpolation weights for pressure interpolation 
-    CALL pres_intp_li(                                                  &
+    CALL lcariolle_pres_intp_li(                                        &
        & jcb,                 jce,                   NCX,               &
        & nlev,                avi%pres,              nlevx,             &
        & pvi%plev,            wgt1_p,                wgt2_p,            &

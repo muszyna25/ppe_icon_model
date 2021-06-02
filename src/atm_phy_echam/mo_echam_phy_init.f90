@@ -133,8 +133,8 @@ MODULE mo_echam_phy_init
   USE gscp_data,               ONLY: gscp_set_coefficients
   USE mo_echam_mig_config,     ONLY: echam_mig_config, print_echam_mig_config
 #endif
-  USE mo_lcariolle,            ONLY: lcariolle_init_o3, lcariolle_lat_intp_li, &
-    & lcariolle_pres_intp_li, l_cariolle_initialized_o3, t_avi, t_time_interpolation
+  USE mo_lcariolle,            ONLY: lcariolle_init_o3, lcariolle_init, &
+    &l_cariolle_initialized_o3, t_avi, t_time_interpolation
   ! ART
   USE mo_art_config,         ONLY: art_config
 
@@ -1322,10 +1322,7 @@ CONTAINS
       latc(:)             =  p_patch% cells% center(:,jb)% lat
       avi%cell_center_lat => latc
       !
-      CALL lcariolle_init_o3(                                               &
-        & jcs,                   jce,                nproma,                &
-        & p_patch%nlev,          time_interpolation, lcariolle_lat_intp_li, &
-        & lcariolle_pres_intp_li,avi,                vmr_o3                 )
+      CALL lcariolle_init_o3(jcs, jce, nproma, p_patch%nlev, time_interpolation, avi, vmr_o3)
       !
       o3(jcs:jce,:,jb) = vmr_o3(jcs:jce,:)*amo3/amd
       !

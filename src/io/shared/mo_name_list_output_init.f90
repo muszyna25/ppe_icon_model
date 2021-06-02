@@ -58,8 +58,8 @@ MODULE mo_name_list_output_init
     &                                             tolower, int2string, difference,                &
     &                                             sort_and_compress_list,                         &
     &                                             real2string, remove_whitespace,                 &
-    &                                             lowcase
-  USE mo_util_texthash,                     ONLY: text_hash_c
+    &                                             lowcase, remove_duplicates
+  USE mo_util_texthash,                         ONLY: text_hash_c
   USE mo_cf_convention,                     ONLY: t_cf_var, cf_global_info
   USE mo_restart_nml_and_att,               ONLY: getAttributesForRestarting
   USE mo_key_value_store,                   ONLY: t_key_value_store
@@ -798,6 +798,7 @@ CONTAINS
           IF (in_varlist(nvars+1) == ' ') EXIT
           nvars = nvars + 1
         END DO
+        CALL remove_duplicates(in_varlist, nvars)
 !         write(0,*) "nvars=", nvars, "  ntotal_vars=", ntotal_vars
         IF (nvars>ntotal_vars)  CALL finish(routine, "Internal error: nvars > ntotal_vars")
 

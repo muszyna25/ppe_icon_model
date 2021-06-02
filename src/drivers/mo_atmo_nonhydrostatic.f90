@@ -249,13 +249,6 @@ CONTAINS
     ! Add optional diagnostic variable lists (might remain empty)
     CALL construct_opt_diag(p_patch(1:), .TRUE.)
 
-    ! Initialize DACE routines
-    IF (assimilation_config(1)% dace_coupling) then
-      IF (timers_level > 4) CALL timer_start(timer_init_dace)
-      CALL init_dace (comm=p_comm_work_only, p_io=0, ldetached=.NOT.my_process_is_work_only())
-      IF (timers_level > 4) CALL timer_stop(timer_init_dace)
-    END IF
-
     IF (iforcing == inwp) THEN
       CALL construct_nwp_phy_state( p_patch(1:), var_in_output)
       CALL construct_nwp_lnd_state( p_patch(1:), p_lnd_state, var_in_output(:)%smi, n_timelevels=2 )
@@ -314,6 +307,13 @@ CONTAINS
 
     IF (n_dom > 1) THEN
       CALL complete_nesting_setup()
+    END IF
+
+    ! Initialize DACE routines
+    IF (assimilation_config(1)% dace_coupling) then
+      IF (timers_level > 4) CALL timer_start(timer_init_dace)
+      CALL init_dace (comm=p_comm_work_only, p_io=0, ldetached=.NOT.my_process_is_work_only())
+      IF (timers_level > 4) CALL timer_stop(timer_init_dace)
     END IF
 
     ! init LES

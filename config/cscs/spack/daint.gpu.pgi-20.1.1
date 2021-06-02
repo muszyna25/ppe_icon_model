@@ -56,8 +56,8 @@ LIBS="-Wl,--as-needed ${XML2_LIBS} ${BLAS_LAPACK_LIBS} ${SERIALBOX_LIBS} ${ECCOD
 # We want to make sure that LD_LIBRARY_PATH will not override RPATHs at
 # runtime. To achive that, we need to set '-Wl,--disable-new-dtags', which, if
 # added to LDFLAGS or LIBS, breaks the configure-time checks of the
-# Libtool-based bundled libraries. Therefore, we add this flag to ICON_FCFLAGS.
-ICON_FCFLAGS+=' -Wl,--disable-new-dtags'
+# Libtool-based bundled libraries. Therefore, we add this flag to ICON_LDFLAGS.
+ICON_LDFLAGS='-Wl,--disable-new-dtags'
 
 MPI_LAUNCH='srun -p debug -C gpu'
 SB2PP="${SERIALBOX_ROOT}/python/pp_ser/pp_ser.py"
@@ -84,6 +84,7 @@ FC="$FC" \
 FCFLAGS="$FCFLAGS" \
 ICON_BUNDLED_FCFLAGS="$ICON_BUNDLED_FCFLAGS" \
 ICON_FCFLAGS="$ICON_FCFLAGS" \
+ICON_LDFLAGS="$ICON_LDFLAGS" \
 LDFLAGS="$LDFLAGS" \
 LIBS="$LIBS" \
 MPI_LAUNCH="$MPI_LAUNCH" \

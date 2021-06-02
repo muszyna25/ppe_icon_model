@@ -12,9 +12,9 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 
-#include <handle_mpi_error.inc>
-#include <icon_contiguous_defines.h>
-#include <omp_definitions.inc>
+#include "handle_mpi_error.inc"
+#include "icon_contiguous_defines.inc"
+#include "omp_definitions.inc"
 MODULE mo_async_restart_comm_data
 ! There is no point in pretending this module is usable if NOMPI is defined.
 #ifndef NOMPI

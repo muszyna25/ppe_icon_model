@@ -5,17 +5,16 @@
 !! Please see the file LICENSE in the root of the source tree for this code.
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
-MODULE mo_var_list
+#include "icon_contiguous_defines.inc"
+#include "omp_definitions.inc"
 
-#include <icon_contiguous_defines.h>
-#include <omp_definitions.inc>
+MODULE mo_var_list
 
 #if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
 #ifdef VARLIST_INITIZIALIZE_WITH_NAN
   USE, INTRINSIC :: ieee_arithmetic
 #endif
 #endif
-
   USE mo_kind,             ONLY: sp, dp, i8
   USE mo_cf_convention,    ONLY: t_cf_var
   USE mo_grib2,            ONLY: t_grib2_var, grib2_var
