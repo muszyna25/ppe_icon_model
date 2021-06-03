@@ -328,7 +328,7 @@ $(common_lib_file): $(common_lib_member_files)
 
 # Common archive generation rule:
 $(lib_files): | $(dir_files)
-	$(silent_AR)$(AR) $(ARFLAGS) $@ $? && $(RANLIB) $@
+	$(silent_AR)rm -f $@ && $(AR) $(ARFLAGS) $@ $^ && $(RANLIB) $@
 
 ICON_FC_CMD=       $(FC) -o $@ -c $(FCFLAGS) $(ICON_FCFLAGS) @FCFLAGS_f90@ $<
 ICON_OCEAN_FC_CMD= $(FC) -o $@ -c $(FCFLAGS) $(ICON_OCEAN_FCFLAGS) @FCFLAGS_f90@ $<

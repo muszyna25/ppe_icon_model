@@ -8,7 +8,7 @@ dnl means that the AC_AUTOCONF_VERSION macro is available.
      [m4_fatal([Autoconf version 2.69 is required but version ]dnl
 m4_defn([AC_AUTOCONF_VERSION])[ is used], [63])])],
   [m4_fatal([Autoconf version 2.69 is required], [63])])
-AC_INIT([icon], [2.6.0], [], [icon-2.6.0])
+AC_INIT([icon], [2.6.3], [], [icon-2.6.3])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([utils])
 AC_CONFIG_SRCDIR([src/drivers/icon.f90])
