@@ -39,7 +39,7 @@
        
       USE mo_parallel_config,     ONLY: nproma
 
-      USE mo_hamocc_nml,         ONLY: io_stdo_bgc, l_cpl_co2, ks
+      USE mo_hamocc_nml,         ONLY: io_stdo_bgc, l_cpl_co2, ks, l_N_cycle
 
 
       IMPLICIT NONE
@@ -575,11 +575,15 @@
        &                     denitrification, pi_alpha_cya,                     &
        &                     Topt_cya,T1_cya,T2_cya,bkcya_N, &
        &                     buoyancyspeed_cya,                                 &
-       &                     doccya_fac, thresh_aerob, thresh_sred
+       &                     doccya_fac, thresh_aerob, thresh_sred, &
+       &                     bkno3, bkfe, bkpo4, bkno3_cya, bknh4, bknh4_cya, &
+       &                     ro2ammo, rmm, kg_denom, no2denit, anamoxra, &
+       &                     nitriox, nitrira, bkno2, rno3nh4, rno3no2
 
    USE mo_hamocc_nml, ONLY: i_settling, l_cyadyn, denit_sed, disso_po, &
       &                 sinkspeed_opal, sinkspeed_calc,grazra,cycdec,l_dynamic_pi, &
-      &                 drempoc,dremopal,dremcalc,bkcya_P,bkcya_fe
+      &                 drempoc,dremopal,dremcalc,bkcya_P,bkcya_fe, &
+      &                 no3nh4red, no3no2red
 
 
    USE mo_sedmnt, ONLY: disso_op, disso_cal,sred_sed
@@ -638,6 +642,33 @@
    CALL to_bgcout("sulfate_reduction 1/d",sulfate_reduction)
    CALL to_bgcout("thresh_aerob",thresh_aerob)
    CALL to_bgcout("thresh_sred",thresh_sred)
+
+   ! extended N-cycle
+   if (l_N_cycle) then
+
+   cpara_name='Ncycle'
+   cpara_val="========"
+   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
+   CALL to_bgcout("bkno3",bkno3)
+   CALL to_bgcout("bkfe",bkfe)
+   CALL to_bgcout("bkpo4",bkpo4)
+   CALL to_bgcout("bkno3_cya",bkno3_cya)
+   CALL to_bgcout("bknh4",bknh4)
+   CALL to_bgcout("bknh4_cya",bknh4_cya)
+   CALL to_bgcout("ro2ammo",ro2ammo)
+   CALL to_bgcout("rmm",rmm)
+   CALL to_bgcout("kg_denom",kg_denom)
+   CALL to_bgcout("no3no2red 1/d", no3no2red*inv_dtb)
+   CALL to_bgcout("no3nh4red 1/d", no3nh4red*inv_dtb)
+   CALL to_bgcout("no2denit 1/d", no2denit*inv_dtb)
+   CALL to_bgcout("anamoxra 1/d", anamoxra*inv_dtb)
+   CALL to_bgcout("nitriox 1/d", nitriox*inv_dtb)
+   CALL to_bgcout("nitrira 1/d", nitrira*inv_dtb)
+   CALL to_bgcout("bkno2",bkno2)
+   CALL to_bgcout("rno3nh4",rno3nh4)
+   CALL to_bgcout("rno3no2",rno3no2)
+
+   endif
 
 
    ! DOC

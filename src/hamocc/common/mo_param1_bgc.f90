@@ -29,20 +29,22 @@ MODULE mo_param1_bgc
        &                iiron      = 14,              &               
        &                idms       = 15,              &
        &                ih2s       = 16,              &
-       &                iagesc     = 17               
+       &                iagesc     = 17
 
+  ! extended N-cycle parameters
+  INTEGER :: iammo, iano2, i_amm_adv
 
   ! total number of advected tracers
-  INTEGER, PARAMETER :: ntraad=i_base_adv
+  INTEGER :: ntraad
 
   ! non-advected (fast sinking) tracers
-  INTEGER, PARAMETER ::  icalc    = ntraad+1,         &
-       &                 iopal    = ntraad+2,         &
-       &                 idust    = ntraad+3,         &
-       &                 i_base   = 3  
+  INTEGER ::             icalc,         &
+       &                 iopal,         &
+       &                 idust,         &
+       &                 i_base  
 
 
-  INTEGER, PARAMETER :: n_bgctra = ntraad + i_base 
+  INTEGER :: n_bgctra
 
 
 
@@ -73,8 +75,11 @@ MODULE mo_param1_bgc
        &                ipowafe    = 8,               &
        &                ipowh2s    = 9,               &
        &                npowa_base = 9
+
+  ! Extended N-cycle parameters
+  INTEGER :: ipownh4, ipowno2, npowa_ammo
   
-  INTEGER, PARAMETER :: npowtra=npowa_base
+  INTEGER :: npowtra
 
  ! Diagnostics
 
@@ -139,4 +144,33 @@ MODULE mo_param1_bgc
       &                 klysocl    = 24,               &
       &                 knitinp    = 25,               &
       &                 nbgcflux   = 25  
+
+CONTAINS
+
+  SUBROUTINE set_tracer_indices
+    USE mo_hamocc_nml, ONLY : l_N_cycle
+
+      iammo      = MERGE(i_base_adv+1,0,l_N_cycle)
+      iano2      = MERGE(i_base_adv+2,0,l_N_cycle)
+      i_amm_adv  = MERGE(2,0,l_N_cycle)
+
+      ntraad = i_base_adv + i_amm_adv
+
+      icalc    = ntraad+1
+      iopal    = ntraad+2
+      idust    = ntraad+3
+      i_base   = 3
+
+      n_bgctra = ntraad + i_base
+
+      ipownh4  = MERGE(npowa_base+1,0,l_N_cycle)
+      ipowno2  = MERGE(npowa_base+2,0,l_N_cycle)
+      npowa_ammo = MERGE(2,0,l_N_cycle)
+
+      npowtra = npowa_base + npowa_ammo
+
+
+  END SUBROUTINE set_tracer_indices
 END MODULE mo_param1_bgc
+
+
