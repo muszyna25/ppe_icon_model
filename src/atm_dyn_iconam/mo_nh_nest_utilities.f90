@@ -356,6 +356,7 @@ CONTAINS
   !>
   !! Computes the time tendencies of the prognostic variables needed for
   !! interpolation to the lateral boundaries of the nested domains
+  !! In addition, compute upper boundary condition for vertical nesting.
   !!
   !! @par Revision History
   !! Developed by Guenther Zaengl, DWD, 2010-02-10
@@ -379,11 +380,11 @@ CONTAINS
     ! local variables
     !
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx,       &
-      ib, jb, ic, jc, ie, je, jk, jt, js, i_nchdom, nshift, jk_start, jshift
+      ib, jb, ic, jc, ie, je, jk, jt, js, nshift, jk_start, jshift
     INTEGER :: nlev, nlevp1           !< number of full and half levels
     INTEGER :: nproma_bdyintp, nblks_bdyintp, npromz_bdyintp, nlen, ntracer_bdyintp, nsubs
 
-    REAL(wp) :: rdt_ubc, dthalf
+    REAL(wp) :: rnsubs        ! inverse: 1/nsubs
     ! Switch to control if the child domain is vertically nested and therefore
     ! needs interpolation of upper boundary conditions
     LOGICAL :: l_child_vertnest
@@ -398,9 +399,8 @@ CONTAINS
 
     !-----------------------------------------------------------------------
 
-    i_nchdom = MAX(1,p_patch(jg)%n_childdom)
-
-    nsubs    = ndyn_substeps_var(jg)
+    nsubs  = ndyn_substeps_var(jg)
+    rnsubs = 1._wp/REAL(nsubs,wp)
 
     p_grf          => p_grf_state(jg)
     p_nh           => p_nh_state(jg)
@@ -433,16 +433,14 @@ CONTAINS
     ! for dynamic nproma blocking
     nproma_bdyintp = cpu_min_nproma(nproma,256)
 
-    rdt_ubc = rdt*REAL(nsubs,wp)/REAL(2*(MAX(1,nsubs-2)),wp)
-    dthalf = 1._wp/(2._wp*rdt)
 
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk,nblks_bdyintp,npromz_bdyintp)
 
-    IF (l_child_vertnest) THEN ! Compute upper boundary condition and its time derivative for nested domain
+    IF (l_child_vertnest) THEN ! Compute upper boundary condition for nested domain
 
       ! cell-based variables
-      i_startblk = p_patch(jg)%cells%start_blk(grf_bdywidth_c+1,1)
-      i_endblk   = p_patch(jg)%cells%end_blk(min_rlcell_int,i_nchdom)
+      i_startblk = p_patch(jg)%cells%start_block(grf_bdywidth_c+1)
+      i_endblk   = p_patch(jg)%cells%end_block(min_rlcell_int)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,js) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
@@ -450,44 +448,41 @@ CONTAINS
         CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
           i_startidx, i_endidx, grf_bdywidth_c+1, min_rlcell_int)
 
-        p_nh%diag%dw_int         (:,jb,nsubs+1)         = 0._wp
-        p_nh%diag%mflx_ic_int    (:,jb,nsubs+1:nsubs+2) = 0._wp
-        p_nh%diag%dtheta_v_ic_int(:,jb,nsubs+1)         = 0._wp
+        DO jc = i_startidx, i_endidx
+          p_nh%diag%w_int          (jc,jb,nsubs+1) = 0._wp
+          p_nh%diag%theta_v_ic_int (jc,jb,nsubs+1) = 0._wp
+          p_nh%diag%rho_ic_int     (jc,jb,nsubs+1) = 0._wp
+          p_nh%diag%mflx_ic_int    (jc,jb,nsubs+1) = 0._wp
+        ENDDO
+        !
         DO js = 1, nsubs
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
-            p_nh%diag%dw_int(jc,jb,nsubs+1)          = p_nh%diag%dw_int(jc,jb,nsubs+1) +          &
-              p_nh%diag%dw_int(jc,jb,js)
-            p_nh%diag%mflx_ic_int(jc,jb,nsubs+1)     = p_nh%diag%mflx_ic_int(jc,jb,nsubs+1) +     &
+            p_nh%diag%w_int(jc,jb,nsubs+1)          = p_nh%diag%w_int(jc,jb,nsubs+1) +           &
+              p_nh%diag%w_int(jc,jb,js)
+            !
+            p_nh%diag%theta_v_ic_int(jc,jb,nsubs+1) = p_nh%diag%theta_v_ic_int(jc,jb,nsubs+1) + &
+              p_nh%diag%theta_v_ic_int(jc,jb,js)
+            !
+            p_nh%diag%rho_ic_int(jc,jb,nsubs+1)     = p_nh%diag%rho_ic_int(jc,jb,nsubs+1) +   &
+              p_nh%diag%rho_ic_int(jc,jb,js)
+            !
+            p_nh%diag%mflx_ic_int(jc,jb,nsubs+1)    = p_nh%diag%mflx_ic_int(jc,jb,nsubs+1) +     &
               p_nh%diag%mflx_ic_int(jc,jb,js)
-            p_nh%diag%dtheta_v_ic_int(jc,jb,nsubs+1) = p_nh%diag%dtheta_v_ic_int(jc,jb,nsubs+1) + &
-              p_nh%diag%dtheta_v_ic_int(jc,jb,js)
           ENDDO
         ENDDO
         DO jc = i_startidx, i_endidx
-          p_nh%diag%dw_int(jc,jb,nsubs+1)          = p_nh%diag%dw_int(jc,jb,nsubs+1)          / REAL(nsubs,wp)
-          p_nh%diag%mflx_ic_int(jc,jb,nsubs+1)     = p_nh%diag%mflx_ic_int(jc,jb,nsubs+1)     / REAL(nsubs,wp)
-          p_nh%diag%dtheta_v_ic_int(jc,jb,nsubs+1) = p_nh%diag%dtheta_v_ic_int(jc,jb,nsubs+1) / REAL(nsubs,wp)
+          p_nh%diag%w_int(jc,jb,nsubs+1)             = p_nh%diag%w_int(jc,jb,nsubs+1)          * rnsubs
+          p_nh%diag%theta_v_ic_int(jc,jb,nsubs+1)    = p_nh%diag%theta_v_ic_int(jc,jb,nsubs+1) * rnsubs
+          p_nh%diag%rho_ic_int(jc,jb,nsubs+1)        = p_nh%diag%rho_ic_int(jc,jb,nsubs+1)     * rnsubs
+          p_nh%diag%mflx_ic_int(jc,jb,nsubs+1)       = p_nh%diag%mflx_ic_int(jc,jb,nsubs+1)    * rnsubs
         ENDDO
-        IF (nsubs >= 3) THEN
-!DIR$ IVDEP
-!NEC$ ivdep
-          DO jc = i_startidx, i_endidx
-            ! Compute time tendency of mass flux upper boundary condition to obtain second-order accuracy in time
-            p_nh%diag%mflx_ic_int(jc,jb,nsubs+2) = (SUM(p_nh%diag%mflx_ic_int(jc,jb,nsubs-1:nsubs)) - &
-              SUM(p_nh%diag%mflx_ic_int(jc,jb,1:2)))*rdt_ubc
-            ! Shift time level of averaged field back to the beginning of the first dynamic substep
-            p_nh%diag%mflx_ic_int(jc,jb,nsubs+1) = p_nh%diag%mflx_ic_int(jc,jb,nsubs+1) - &
-              dthalf*p_nh%diag%mflx_ic_int(jc,jb,nsubs+2)
-          ENDDO
-        ENDIF
-
       ENDDO
 !$OMP END DO
 
       ! edge-based variables
-      i_startblk = p_patch(jg)%edges%start_blk(grf_bdywidth_e+1,1)
-      i_endblk   = p_patch(jg)%edges%end_blk(min_rledge_int-2,i_nchdom)
+      i_startblk = p_patch(jg)%edges%start_block(grf_bdywidth_e+1)
+      i_endblk   = p_patch(jg)%edges%end_block(min_rledge_int-2)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
@@ -648,7 +643,9 @@ CONTAINS
   !
   !>
   !! Interpolates time tendencies of prognostic variables to the lateral boundary
-  !! of a refined mesh
+  !! of a refined mesh.
+  !! In addition, performs interpolations to upper nest boundaries needed for 
+  !! vertical nesting.
   !!
   !! @par Revision History
   !! Developed  by Guenther Zaengl, DWD, 2008-07-10
@@ -691,7 +688,7 @@ CONTAINS
 
     INTEGER :: nlev_c                  ! number of full levels (child domain)
 
-    INTEGER :: i_chidx, i_nchdom, i_sbc, i_ebc
+    INTEGER :: i_chidx, i_sbc, i_ebc
     INTEGER :: ntracer_bdyintp, nsubs
 
     REAL(wp) :: aux3dp(nproma,ntracer+4,p_patch(jg)%nblks_c), &
@@ -728,7 +725,6 @@ CONTAINS
 
 
     i_chidx = p_patch(jgc)%parent_child_index
-    i_nchdom   = MAX(1,p_pc%n_childdom)
 
     nsubs    = ndyn_substeps_var(jg)
 
@@ -767,9 +763,8 @@ CONTAINS
       i_endblk   = p_pp%cells%end_block(min_rlcell_int)
 
       ! For back-copying at child level
-      i_nchdom   = MAX(1,p_pc%n_childdom)
-      i_sbc      = p_pc%cells%start_blk(grf_nudge_start_c,1)
-      i_ebc      = p_pc%cells%end_blk(min_rlcell_int,i_nchdom)
+      i_sbc      = p_pc%cells%start_block(grf_nudge_start_c-2)
+      i_ebc      = p_pc%cells%end_block(min_rlcell_int)
 
       IF (ltransport) THEN
 
@@ -780,9 +775,10 @@ CONTAINS
             0, min_rlcell_int)
 !$NEC ivdep
           DO jc = i_startidx, i_endidx
-            aux3dp(jc,1,jb)   = p_diagp%dw_int(jc,jb,nsubs+1)
-            aux3dp(jc,2:3,jb) = p_diagp%mflx_ic_int(jc,jb,nsubs+1:nsubs+2)
-            aux3dp(jc,4,jb)   = p_diagp%dtheta_v_ic_int(jc,jb,nsubs+1)
+            aux3dp(jc,1,jb) = p_diagp%w_int(jc,jb,nsubs+1)
+            aux3dp(jc,2,jb) = p_diagp%theta_v_ic_int(jc,jb,nsubs+1)
+            aux3dp(jc,3,jb) = p_diagp%rho_ic_int(jc,jb,nsubs+1)
+            aux3dp(jc,4,jb) = p_diagp%mflx_ic_int(jc,jb,nsubs+1)
           ENDDO
           DO jt = 1, ntracer
             DO jc = i_startidx, i_endidx
@@ -801,12 +797,14 @@ CONTAINS
         DO jb = i_sbc, i_ebc
 
           CALL get_indices_c(p_pc, jb, i_sbc, i_ebc, i_startidx, i_endidx, &
-            grf_nudge_start_c, min_rlcell_int)
+            grf_nudge_start_c-2, min_rlcell_int)
+
 !$NEC ivdep
           DO jc = i_startidx, i_endidx
-            p_diagc%dw_ubc(jc,jb)          = aux3dc(jc,1,jb)
-            p_diagc%mflx_ic_ubc(jc,jb,1:2) = aux3dc(jc,2:3,jb)
-            p_diagc%dtheta_v_ic_ubc(jc,jb) = aux3dc(jc,4,jb)
+            p_diagc%w_ubc(jc,jb)          = aux3dc(jc,1,jb)
+            p_diagc%theta_v_ic_ubc(jc,jb) = aux3dc(jc,2,jb)
+            p_diagc%rho_ic_ubc(jc,jb)     = aux3dc(jc,3,jb)
+            p_diagc%mflx_ic_ubc(jc,jb)    = aux3dc(jc,4,jb)
           ENDDO
           DO jt = 1, ntracer
             DO jc = i_startidx, i_endidx
@@ -825,9 +823,10 @@ CONTAINS
             0, min_rlcell_int)
 !$NEC ivdep
           DO jc = i_startidx, i_endidx
-            aux3dp(jc,1,jb)   = p_diagp%dw_int(jc,jb,nsubs+1)
-            aux3dp(jc,2:3,jb) = p_diagp%mflx_ic_int(jc,jb,nsubs+1:nsubs+2)
-            aux3dp(jc,4,jb)   = p_diagp%dtheta_v_ic_int(jc,jb,nsubs+1)
+            aux3dp(jc,1,jb) = p_diagp%w_int(jc,jb,nsubs+1)
+            aux3dp(jc,2,jb) = p_diagp%theta_v_ic_int(jc,jb,nsubs+1)
+            aux3dp(jc,3,jb) = p_diagp%rho_ic_int(jc,jb,nsubs+1)
+            aux3dp(jc,4,jb) = p_diagp%mflx_ic_int(jc,jb,nsubs+1)
           ENDDO
         ENDDO
 !$OMP END PARALLEL DO
@@ -840,12 +839,14 @@ CONTAINS
         DO jb = i_sbc, i_ebc
 
           CALL get_indices_c(p_pc, jb, i_sbc, i_ebc, i_startidx, i_endidx, &
-            grf_nudge_start_c, min_rlcell_int)
+            grf_nudge_start_c-2, min_rlcell_int)
+
 !$NEC ivdep
           DO jc = i_startidx, i_endidx
-            p_diagc%dw_ubc(jc,jb)          = aux3dc(jc,1,jb)
-            p_diagc%mflx_ic_ubc(jc,jb,1:2) = aux3dc(jc,2:3,jb)
-            p_diagc%dtheta_v_ic_ubc(jc,jb) = aux3dc(jc,4,jb)
+            p_diagc%w_ubc(jc,jb)          = aux3dc(jc,1,jb)
+            p_diagc%theta_v_ic_ubc(jc,jb) = aux3dc(jc,2,jb)
+            p_diagc%rho_ic_ubc(jc,jb)     = aux3dc(jc,3,jb)
+            p_diagc%mflx_ic_ubc(jc,jb)    = aux3dc(jc,4,jb)
           ENDDO
         ENDDO
 !$OMP END PARALLEL DO
@@ -886,8 +887,8 @@ CONTAINS
         p_nh_state(jg)%diag%dpres_mc, theta_prc      )
 
       ! Start and end blocks for which interpolation is needed
-      i_startblk = p_pc%cells%start_blk(1,1)
-      i_endblk   = p_pc%cells%end_blk(grf_bdywidth_c,i_nchdom)
+      i_startblk = p_pc%cells%start_block(1)
+      i_endblk   = p_pc%cells%end_block(grf_bdywidth_c)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
@@ -933,8 +934,8 @@ CONTAINS
     IF (ltransport .AND. grf_intmethod_ct == 1) THEN
 
       ! Start and end blocks for which interpolation is needed
-      i_startblk = p_gcp%start_blk(grf_bdyintp_start_c,i_chidx)
-      i_endblk   = p_gcp%end_blk(grf_bdyintp_end_c,i_chidx)
+      i_startblk = p_gcp%start_block(grf_bdyintp_start_c)
+      i_endblk   = p_gcp%end_block(grf_bdyintp_end_c)
 
       CALL exchange_data_mult(p_pc%comm_pat_interpolation_c, ntracer_bdyintp, ntracer_bdyintp*nlev_c, &
         RECV4D=p_diagc%grf_tend_tracer(:,:,:,1:ntracer_bdyintp),                                      &

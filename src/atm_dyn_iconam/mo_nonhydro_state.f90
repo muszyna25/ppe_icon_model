@@ -1735,12 +1735,14 @@ MODULE mo_nonhydro_state
     &       p_diag%grf_tend_tracer, &
     &       p_diag%dvn_ie_int, &
     &       p_diag%dvn_ie_ubc, &
+    &       p_diag%w_int, &
+    &       p_diag%w_ubc, &
+    &       p_diag%theta_v_ic_int, &
+    &       p_diag%theta_v_ic_ubc, &
+    &       p_diag%rho_ic_int, &
+    &       p_diag%rho_ic_ubc, &
     &       p_diag%mflx_ic_int, &
     &       p_diag%mflx_ic_ubc, &
-    &       p_diag%dtheta_v_ic_int, &
-    &       p_diag%dtheta_v_ic_ubc, &
-    &       p_diag%dw_int, &
-    &       p_diag%dw_ubc, &
     &       p_diag%q_int, &
     &       p_diag%q_ubc, &
     &       p_diag%vn_incr, &
@@ -2349,76 +2351,100 @@ MODULE mo_nonhydro_state
       __acc_attach(p_diag%dvn_ie_ubc)
 
 
-      ! mflx_ic_int  p_diag%mflx_ic_int(nproma,nblks_c,ndyn_substeps_max+2)
+      ! w_int       p_diag%w_int(nproma,nblks_c,ndyn_substeps_max+1)
       !
-      cf_desc    = t_cf_var('mass_flux_at_parent_interface_level', 'kg m-3',    &
+      cf_desc    = t_cf_var('w_int', 'm s-1',                                   &
+        &                   'vertical velocity at parent interface level', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'w_int', p_diag%w_int,                         &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                  & ldims=shape3d_ubcp1, lrestart=.FALSE., loutput=.FALSE.,     &
+                  & lopenacc = .TRUE. )
+      __acc_attach(p_diag%w_int)
+
+
+      ! w_ubc       p_diag%w_ubc(nproma,nblks_c)
+      !
+      cf_desc    = t_cf_var('w_ubc', 'm s-1',                                   &
+        &                   'vertical velocity at child upper boundary', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'w_ubc', p_diag%w_ubc,                         &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                  & ldims=shape2d_c, lrestart=.FALSE.,                          &
+                  & lopenacc = .TRUE. )
+      __acc_attach(p_diag%w_ubc)
+
+
+      ! theta_v_ic_int    p_diag%theta_v_ic_int(nproma,nblks_c,ndyn_substeps_max+1)
+      !
+      cf_desc    = t_cf_var('theta_v_ic_int', 'K',                           &
+        &                   'potential temperature at parent interface level', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'theta_v_ic_int', p_diag%theta_v_ic_int,       &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                  & ldims=shape3d_ubcp1, lrestart=.FALSE., loutput=.FALSE.,     &
+                  & lopenacc = .TRUE. )
+      __acc_attach(p_diag%theta_v_ic_int)
+
+
+      ! theta_v_ic_ubc    p_diag%theta_v_ic_ubc(nproma,nblks_c)
+      !
+      cf_desc    = t_cf_var('theta_v_ic_ubc', 'K',                           &
+        &                   'potential temperature at child upper boundary', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'theta_v_ic_ubc', p_diag%theta_v_ic_ubc,       &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                  & ldims=shape2d_c, lrestart=.FALSE., loutput=.TRUE.,          &
+                  & lopenacc = .TRUE. )
+      __acc_attach(p_diag%theta_v_ic_ubc)
+
+
+      ! rho_ic_int    p_diag%rho_ic_int(nproma,nblks_c,ndyn_substeps_max+1)
+      !
+      cf_desc    = t_cf_var('rho_ic_int', 'K',                                  &
+        &                   'density at parent interface level', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'rho_ic_int', p_diag%rho_ic_int,               &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                  & ldims=shape3d_ubcp1, lrestart=.FALSE., loutput=.FALSE.,     &
+                  & lopenacc = .TRUE. )
+      __acc_attach(p_diag%rho_ic_int)
+
+
+      ! rho_ic_ubc    p_diag%rho_ic_ubc(nproma,nblks_c)
+      !
+      cf_desc    = t_cf_var('rho_ic_ubc', 'K',                                  &
+        &                   'density at child upper boundary', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'rho_ic_ubc', p_diag%rho_ic_ubc,               &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                  & ldims=shape2d_c, lrestart=.FALSE., loutput=.TRUE.,          &
+                  & lopenacc = .TRUE. )
+      __acc_attach(p_diag%rho_ic_ubc)
+
+
+      ! mflx_ic_int  p_diag%mflx_ic_int(nproma,nblks_c,ndyn_substeps_max+1)
+      !
+      cf_desc    = t_cf_var('mflx_ic_int', 'kg m-3',                            &
         &                   'mass flux at parent interface level', datatype_flt)
       grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_diag_list, 'mflx_ic_int', p_diag%mflx_ic_int,             &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                  & ldims=shape3d_ubcp, lrestart=.FALSE., loutput=.FALSE.,      &
+                  & ldims=shape3d_ubcp1, lrestart=.FALSE., loutput=.FALSE.,     &
                   & lopenacc = .TRUE. )
       __acc_attach(p_diag%mflx_ic_int)
 
 
-      ! mflx_ic_ubc  p_diag%mflx_ic_ubc(nproma,nblks_c,2)
+      ! mflx_ic_ubc  p_diag%mflx_ic_ubc(nproma,nblks_c)
       !
-      cf_desc    = t_cf_var('mass_flux_at_child_upper_boundary', 'kg m-3',      &
+      cf_desc    = t_cf_var('mflx_ic_ubc', 'kg m-3',                            &
         &                   'mass flux at child upper boundary', datatype_flt)
       grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_diag_list, 'mflx_ic_ubc', p_diag%mflx_ic_ubc,             &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                  & ldims=shape3d_ubcc, lrestart=.FALSE., loutput=.FALSE.,      &
+                  & ldims=shape2d_c, lrestart=.FALSE., loutput=.TRUE.,          &
                   & lopenacc = .TRUE. )
       __acc_attach(p_diag%mflx_ic_ubc)
-
-
-      ! dtheta_v_ic_int    p_diag%dtheta_v_ic_int(nproma,nblks_c,ndyn_substeps_max+1)
-      !
-      cf_desc    = t_cf_var('theta_at_parent_interface_level', 'K',             &
-        &                   'potential temperature at parent interface level', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_diag_list, 'dtheta_v_ic_int', p_diag%dtheta_v_ic_int,     &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                  & ldims=shape3d_ubcp1, lrestart=.FALSE., loutput=.FALSE.,     &
-                  & lopenacc = .TRUE. )
-      __acc_attach(p_diag%dtheta_v_ic_int)
-
-
-      ! dtheta_v_ic_ubc    p_diag%dtheta_v_ic_ubc(nproma,nblks_c)
-      !
-      cf_desc    = t_cf_var('theta_at_child_upper_boundary', 'K',               &
-        &                   'potential temperature at child upper boundary', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_diag_list, 'dtheta_v_ic_ubc', p_diag%dtheta_v_ic_ubc,     &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                  & ldims=shape2d_c, lrestart=.FALSE.,                          &
-                  & lopenacc = .TRUE. )
-      __acc_attach(p_diag%dtheta_v_ic_ubc)
-
-
-      ! dw_int       p_diag%dw_int(nproma,nblks_c,ndyn_substeps_max+1)
-      !
-      cf_desc    = t_cf_var('w_at_parent_interface_level', 'm s-1',             &
-        &                   'vertical velocity at parent interface level', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_diag_list, 'dw_int', p_diag%dw_int,                       &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                  & ldims=shape3d_ubcp1, lrestart=.FALSE., loutput=.FALSE.,     &
-                  & lopenacc = .TRUE. )
-      __acc_attach(p_diag%dw_int)
-
-
-      ! dw_ubc       p_diag%dw_ubc(nproma,nblks_c)
-      !
-      cf_desc    = t_cf_var('w at child upper boundary', 'm s-1',               &
-        &                   'vertical velocity at child upper boundary', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_diag_list, 'dw_ubc', p_diag%dw_ubc,                       &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                  & ldims=shape2d_c, lrestart=.FALSE.,                          &
-                  & lopenacc = .TRUE. )
-      __acc_attach(p_diag%dw_ubc)
 
 
       ! q_int        p_diag%q_int(nproma,nblks_c,ntracer)
@@ -3459,7 +3485,7 @@ MODULE mo_nonhydro_state
     INTEGER :: ibits         !< "entropy" of horizontal slice
     INTEGER :: DATATYPE_PACK_VAR  !< variable "entropy" for selected fields
     INTEGER :: datatype_flt       !< floating point accuracy in NetCDF output
-    INTEGER :: ist, error_status
+    INTEGER :: error_status
     LOGICAL :: group(MAX_GROUPS)
 
     !--------------------------------------------------------------
