@@ -56,7 +56,7 @@
        
       USE mo_parallel_config,     ONLY: nproma
 
-      USE mo_hamocc_nml,         ONLY: io_stdo_bgc
+      USE mo_hamocc_nml,         ONLY: io_stdo_bgc, l_N_cycle
 
       USE mo_var_metadata,       ONLY: post_op
 
@@ -145,7 +145,8 @@
     USE mo_param1_bgc,  ONLY: isco212, ialkali, iphosph,iano3, igasnit, &
         &                     iphy, izoo, icya, ioxygen, isilica, idoc, &
         &                     ian2o, idet, iiron, icalc, iopal,&
-        &                     idust, idms, ih2s, iagesc
+        &                     idust, idms, ih2s, iagesc, &
+        &                     iammo, iano2
 
     TYPE(t_patch_3d), TARGET, INTENT(in)        :: patch_3d
     TYPE(t_hamocc_prog), INTENT(inout)         :: hamocc_state_prog
@@ -377,6 +378,31 @@
           & ref_idx=idust, &
           & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW, &
           & lrestart_cont=.True.,in_group=groups("HAMOCC_BASE"))
+
+
+    IF (l_N_cycle) THEN
+      
+    CALL add_ref( hamocc_restart_list, 'tracers'//TRIM(var_suffix),   &
+          & 'ammo'//TRIM(var_suffix),        &
+          & hamocc_state_prog%tracer_ptr(iammo)%p,                         &
+          & grid_unstructured_cell, za_depth_below_sea,                  &
+          & t_cf_var('nh4','kmol N m-3','dissolved nh4', DATATYPE_FLT64,'nh4'), &
+          & grib2_var(255, 255, iammo, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & ref_idx=iammo, &
+          & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW, &
+          & lrestart_cont=.TRUE.,in_group=groups("HAMOCC_BASE"))
+
+    CALL add_ref( hamocc_restart_list, 'tracers'//TRIM(var_suffix),   &
+          & 'nitrite'//TRIM(var_suffix),        &
+          & hamocc_state_prog%tracer_ptr(iano2)%p,                         &
+          & grid_unstructured_cell, za_depth_below_sea,                  &
+          & t_cf_var('no2','kmol N m-3','dissolved no2', DATATYPE_FLT64,'no2'), &
+          & grib2_var(255, 255, iano2, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & ref_idx=iano2, &
+          & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW, &
+          & lrestart_cont=.TRUE.,in_group=groups("HAMOCC_BASE"))
+
+     ENDIF ! l_N_cycle
  
      ALLOCATE(hamocc_state_prog%tracer_collection%tracer(n_bgctra))
      hamocc_state_prog%tracer_collection%no_of_tracers = n_bgctra
@@ -1471,6 +1497,23 @@
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
       & loutput=.FALSE., lrestart=.FALSE.)
 
+    IF (l_N_cycle) THEN
+
+    CALL add_var(hamocc_sediment_list, 'HAMOCC_sedflux_nh4',hamocc_state_tend%sedflnh4,    &
+      & grid_unstructured_cell, za_surface,&
+      & t_cf_var('sedflux_nh4','kmol N m-2 s-1','sediment-ocean flux ammonium', datatype_flt,'sedflux_nh4'), &
+      & grib2_var(255, 255, 285, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_sediment_list, 'HAMOCC_sedflux_no2',hamocc_state_tend%sedflno2,    &
+      & grid_unstructured_cell, za_surface,&
+      & t_cf_var('sedflux_no2','kmol N m-2 s-1','sediment-ocean flux nitrite', datatype_flt,'sedflux_no2'), &
+      & grib2_var(255, 255, 285, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    ENDIF ! l_N_cycle
 
 
     CALL message(TRIM(routine), 'construct hamocc tend end')
@@ -1649,6 +1692,24 @@
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),&
       & loutput=.TRUE., lrestart=.FALSE.)
+
+    IF (l_N_cycle) THEN
+
+    CALL add_var(hamocc_sediment_list, 'HAMOCC_POW_nh4',hamocc_state_sed%pwnh4,    &
+      & grid_unstructured_cell, za_ocean_sediment,&
+      & t_cf_var('POW_nh4','kmol N m-3','sediment pore water ammonium', DATATYPE_FLT64,'powanh4'), &
+      & grib2_var(255, 255, 58, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,ks,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
+      & loutput=.TRUE., lrestart=.TRUE.,lrestart_cont=.TRUE.)
+
+    CALL add_var(hamocc_sediment_list, 'HAMOCC_POW_no2',hamocc_state_sed%pwno2,    &
+      & grid_unstructured_cell, za_ocean_sediment,&
+      & t_cf_var('POW_no2','kmol N m-3','sediment pore water nitrite', DATATYPE_FLT64,'powano2'), &
+      & grib2_var(255, 255, 58, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,ks,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
+      & loutput=.TRUE., lrestart=.TRUE.,lrestart_cont=.TRUE.)
+
+    ENDIF ! l_N_cycle
 
     CALL message(TRIM(routine), 'construct hamocc sed end')
 

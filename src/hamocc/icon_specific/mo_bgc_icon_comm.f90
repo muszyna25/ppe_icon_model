@@ -136,7 +136,8 @@
  &                             ipowasi, ipowafe, kn2b,    &
  &                             kh2ob,    &
 &                              ipowh2s, &
-&                              iatmco2 
+&                              iatmco2, &
+&                              ipownh4, ipowno2
 
 
       USE mo_sedmnt,  ONLY: pown2bud, powh2obud, prorca, &
@@ -217,6 +218,10 @@
              powtra(jc,jk,ipown2)  = p_sed%pwn2(jc,jk,jb) 
              powtra(jc,jk,ipowno3) = p_sed%pwno3(jc,jk,jb) 
              powtra(jc,jk,ipowh2s) = p_sed%pwh2s(jc,jk,jb) 
+             IF (l_N_cycle) THEN
+                powtra(jc,jk,ipownh4) = p_sed%pwnh4(jc,jk,jb) 
+                powtra(jc,jk,ipowno2) = p_sed%pwno2(jc,jk,jb)
+             ENDIF
              sedhpl(jc,jk)         = p_sed%sedhi(jc,jk,jb) 
              powh2obud(jc,jk)    = p_sed%pwh2ob(jc,jk,jb) 
              pown2bud(jc,jk)     = p_sed%pwn2b(jc,jk,jb) 
@@ -246,6 +251,7 @@
  &                             isssc12, issssil, issster, &
  &                             ipowaic, ipowaal, ipowaph, &
  &                             ipowaox, ipown2, ipowno3,  &
+ &                             ipownh4, ipowno2, &
  &                             ipowasi, ipowafe, kpho_cya, &
  &                             kcyaloss, kn2b, kh2ob, kprodus, &
 &                              kbacfra, kdelsil, kdelcar,  &
@@ -372,6 +378,10 @@
         p_tend%sedfln2(jc,jb) = sedfluxo(jc,ipown2) 
         p_tend%sedflno3(jc,jb) = sedfluxo(jc,ipowno3) 
         p_tend%sedflh2s(jc,jb) = sedfluxo(jc,ipowh2s) 
+        if (l_N_cycle) THEN
+           p_tend%sedflnh4(jc,jb) = sedfluxo(jc,ipownh4) 
+           p_tend%sedflno2(jc,jb) = sedfluxo(jc,ipowno2) 
+        ENDIF
         DO jk =1,ks
              ! Solid sediment
              p_sed%so12(jc,jk,jb) = sedlay(jc,jk,issso12)
@@ -388,6 +398,10 @@
              p_sed%pwn2(jc,jk,jb) = powtra(jc,jk,ipown2)
              p_sed%pwno3(jc,jk,jb) = powtra(jc,jk,ipowno3)
              p_sed%pwh2s(jc,jk,jb) = powtra(jc,jk,ipowh2s)
+             if (l_N_cycle) THEN
+                p_sed%pwnh4(jc,jk,jb) = powtra(jc,jk,ipownh4) 
+                p_sed%pwno2(jc,jk,jb) = powtra(jc,jk,ipowno2) 
+             ENDIF
              p_sed%sedhi(jc,jk,jb) = sedhpl(jc,jk)
              p_sed%pwh2ob(jc,jk,jb) = powh2obud(jc,jk)
              p_sed%pwn2b(jc,jk,jb) = pown2bud(jc,jk)
@@ -415,6 +429,7 @@
  &                             isssc12, issssil, issster, &
  &                             ipowaic, ipowaal, ipowaph, &
  &                             ipowaox, ipown2, ipowno3,  &
+ &                             ipownh4, ipowno2, &
  &                             ipowasi, ipowafe, ipowh2s
 
       USE mo_bgc_bcond, ONLY: ext_data_bgc
@@ -455,6 +470,10 @@
         p_tend%sedfln2(jc,jb) = sedfluxo(jc,ipown2) 
         p_tend%sedflno3(jc,jb) = sedfluxo(jc,ipowno3) 
         p_tend%sedflh2s(jc,jb) = sedfluxo(jc,ipowh2s) 
+        if (l_N_cycle) THEN
+           p_tend%sedflnh4(jc,jb) = sedfluxo(jc,ipownh4) 
+           p_tend%sedflno2(jc,jb) = sedfluxo(jc,ipowno2) 
+        ENDIF
         DO jk =1,ks
              ! Solid sediment
              p_sed%so12(jc,jk,jb) = sedlay(jc,jk,issso12)
@@ -471,6 +490,10 @@
              p_sed%pwn2(jc,jk,jb) = powtra(jc,jk,ipown2)
              p_sed%pwno3(jc,jk,jb) = powtra(jc,jk,ipowno3)
              p_sed%pwh2s(jc,jk,jb) = powtra(jc,jk,ipowh2s)
+             if (l_N_cycle) THEN
+                p_sed%pwnh4(jc,jk,jb) = powtra(jc,jk,ipownh4) 
+                p_sed%pwno2(jc,jk,jb) = powtra(jc,jk,ipowno2) 
+             ENDIF
              p_sed%sedhi(jc,jk,jb) = sedhpl(jc,jk)
              p_sed%pwh2ob(jc,jk,jb) = powh2obud(jc,jk)
              p_sed%pwn2b(jc,jk,jb) = pown2bud(jc,jk)
@@ -498,6 +521,7 @@
  &                             isssc12, issssil, issster, &
  &                             ipowaic, ipowaal, ipowaph, &
  &                             ipowaox, ipown2, ipowno3,  &
+ &                             ipownh4, ipowno2, &
  &                             ipowasi, ipowafe, ipowh2s, &
  &                             kcflux
   
@@ -554,6 +578,10 @@
              p_sed%pwn2(jc,jk,jb) = powtra(jc,jk,ipown2)
              p_sed%pwno3(jc,jk,jb) = powtra(jc,jk,ipowno3)
              p_sed%pwh2s(jc,jk,jb) = powtra(jc,jk,ipowh2s)
+             if (l_N_cycle) THEN
+                p_sed%pwnh4(jc,jk,jb) = powtra(jc,jk,ipownh4) 
+                p_sed%pwno2(jc,jk,jb) = powtra(jc,jk,ipowno2) 
+             ENDIF
              p_sed%sedhi(jc,jk,jb) = sedhpl(jc,jk)
         ENDDO
       ENDIF

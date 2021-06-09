@@ -56,8 +56,8 @@ MODULE mo_ini_bgc
        &                     ipowaph, ipowasi, ipown2, ipowno3,           &
        &                     isco212, isilica, isssc12, issso12, issssil, &
        &                     izoo, ipowafe, issster, &
-       &                     icya, iiron, idms, ih2s, ipowh2s!, &
-!       &                     iammo, iano2, ipownh4, ipowno2
+       &                     icya, iiron, idms, ih2s, ipowh2s, &
+       &                     iammo, iano2, ipownh4, ipowno2
 !  USE mo_planetary_constants, ONLY: g, rhoref_water
   IMPLICIT NONE
 
@@ -387,6 +387,12 @@ CONTAINS
                    bgctra(j,k,isilica) = silat
                    bgctra(j,k,iano3)  = rnit*bgctra(j,k,iphosph)
                 endif
+
+                if (l_N_cycle) then
+                   bgctra(j,k,iammo) = 1.e-2_wp*bgctra(j,k,iano3)
+                   bgctra(j,k,iano2) = 1.e-2_wp*bgctra(j,k,iano3)
+                endif
+
                 if(m.eq.bgc_land)then
                    bgctra(j,k,iagesc)  = rmasko
                    bgctra(j,k,iphosph) = rmasko
@@ -410,6 +416,10 @@ CONTAINS
                    bgctra(j,k,idms)    = rmasko
                    hi(j,k)             = rmasko
                    co3(j,k)            = rmasko
+                   if (l_N_cycle) then
+                      bgctra(j,k,iammo) = rmasko
+                      bgctra(j,k,iano2) = rmasko
+                   endif
                 ENDIF
 
        ENDDO
@@ -444,6 +454,10 @@ CONTAINS
                 powtra(j,k,ipowno3) = bgctra(j,kbo(j),iano3)
                 powtra(j,k,ipowasi) = bgctra(j,kbo(j),isilica)
                 powtra(j,k,ipowafe) = bgctra(j,kbo(j),iiron)
+                IF (l_N_cycle) THEN
+                   powtra(j,k,ipownh4) = bgctra(j,kbo(j),iammo)
+                   powtra(j,k,ipowno2) = bgctra(j,kbo(j),iano2)
+                ENDIF
                 sedlay(j,k,issso12) = 1.e-8_wp
                 sedlay(j,k,isssc12) = 1.e-8_wp
                 sedlay(j,k,issster) = 30._wp
@@ -459,6 +473,10 @@ CONTAINS
                 powtra(j,k,ipowaox) = rmasks
                 powtra(j,k,ipowasi) = rmasks
                 powtra(j,k,ipowafe) = rmasks
+                IF (l_N_cycle) THEN
+                   powtra(j,k,ipownh4) = rmasks
+                   powtra(j,k,ipowno2) = rmasks
+                ENDIF
                 sedlay(j,k,issso12) = rmasks   ! solid sediment
                 sedlay(j,k,isssc12) = rmasks
                 sedlay(j,k,issssil) = rmasks
