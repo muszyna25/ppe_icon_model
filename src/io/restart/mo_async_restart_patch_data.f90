@@ -38,13 +38,13 @@ MODULE mo_async_restart_patch_data
   USE mpi,                          ONLY: MPI_ADDRESS_KIND
 #endif
   USE mo_cdi,                       ONLY: streamWriteVarSlice, streamWriteVarSliceF
-  USE mo_var_list,                  ONLY: get_restart_vars
   USE mo_restart_patch_data,        ONLY: t_RestartPatchData
+  USE mo_var_list_register_utils,   ONLY: vlr_select_restart_vars
 
   IMPLICIT NONE
   PRIVATE
 
-  PUBLIC :: t_AsyncPatchData, toAsyncPatchData
+  PUBLIC :: t_AsyncPatchData
 
   TYPE, EXTENDS(t_RestartPatchData) :: t_AsyncPatchData
     TYPE(t_AsyncRestartCommData) :: commData
@@ -65,9 +65,9 @@ CONTAINS
     INTEGER, INTENT(IN) :: jg
 
     CALL me%description%init(jg)
-    CALL get_restart_vars(me%varData, jg, modelType, me%restartType)
+    CALL vlr_select_restart_vars(me%varData, jg, modelType, me%restartType)
     CALL me%commData%construct(jg, me%varData)
-    CALL me%transferToRestart()
+    CALL me%description%transferToRestart()
   END SUBROUTINE asyncPatchData_construct
 
   SUBROUTINE asyncPatchData_destruct(me)
@@ -76,19 +76,6 @@ CONTAINS
     CALL me%commData%destruct()
     IF(ALLOCATED(me%varData)) DEALLOCATE(me%varData)
   END SUBROUTINE asyncPatchData_destruct
-
-  FUNCTION toAsyncPatchData(patchData) RESULT(resultVar)
-    CLASS(t_RestartPatchData), TARGET :: patchData
-    TYPE(t_AsyncPatchData), POINTER :: resultVar
-
-    resultVar => NULL()
-    SELECT TYPE(patchData)
-      TYPE IS(t_AsyncPatchData)
-        resultVar => patchData
-      CLASS DEFAULT
-        CALL finish("toAsyncPatchData", "not of t_AsyncPatchData type")
-    END SELECT
-  END FUNCTION toAsyncPatchData
 
   !------------------------------------------------------------------------------------------------
   !

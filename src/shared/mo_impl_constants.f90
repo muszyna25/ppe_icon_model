@@ -522,19 +522,16 @@ MODULE mo_impl_constants
   !  MODEL OUTPUT  !
   !----------------!
 
-  !> maximum string length for variable names
-  INTEGER, PARAMETER :: VARNAME_LEN = 256
-  !> maximum string length for variable list names
-  INTEGER, PARAMETER :: max_var_list_name_len = 128
+  ! maximum string length for variable names
 
   INTEGER, PARAMETER :: &
-    max_var_lists  = 256, & ! max number of output var_lists
     MAX_NVARS      = 999, & ! maximum number of output variables (total)
     max_var_ml     = 999, & ! maximum number of output model-level variables
     max_var_pl     = 150, & ! maximum number of pressure-level variables
     max_var_hl     = 150, & ! maximum number of height-level variables
     max_var_il     = 150, & ! maximum number of variables on isentropes
-    vname_len      = VARNAME_LEN ! variable name length in I/O namelists
+    vname_len      = 256, & ! variable name length in I/O namelists
+    vlname_len     = 128    ! variable-list name length in I/O namelists
 
   INTEGER, PARAMETER :: &
     MAX_TIME_INTERVALS = 10 ! maximum number of time intervals specified in "output_nml"

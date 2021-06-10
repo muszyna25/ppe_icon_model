@@ -188,7 +188,7 @@ MODULE mo_nh_stepping
                                          sampl_freq_step, les_cloud_diag
   USE mo_opt_diagnostics,          ONLY: update_opt_acc, reset_opt_acc, &
     &                                    calc_mean_opt_acc, p_nh_opt_diag
-  USE mo_var_list,                 ONLY: print_all_var_lists
+  USE mo_var_list_register_utils,  ONLY: vlr_print_vls
   USE mo_async_latbc_utils,        ONLY: recv_latbc_data, update_lin_interpolation
   USE mo_async_latbc_types,        ONLY: t_latbc_data
   USE mo_nonhydro_types,           ONLY: t_nh_state
@@ -206,7 +206,7 @@ MODULE mo_nh_stepping
     &                                    getElapsedSimTimeInSeconds, is_event_active
   USE mo_event_manager,            ONLY: addEventGroup, getEventGroup, printEventGroup
   USE mo_phy_events,               ONLY: mtime_ctrl_physics
-  USE mo_derived_variable_handling, ONLY: update_statistics, reset_statistics
+  USE mo_derived_variable_handling, ONLY: update_statistics
 #ifdef MESSY
   USE messy_main_channel_bi,       ONLY: messy_channel_write_output &
     &                                  , IOMODE_RST
@@ -624,7 +624,6 @@ MODULE mo_nh_stepping
     IF (p_nh_opt_diag(1)%acc%l_any_m) THEN
       CALL reset_opt_acc(p_nh_opt_diag(1)%acc)
     END IF
-    CALL reset_statistics
 
     ! sample meteogram output
     DO jg = 1, n_dom
@@ -785,10 +784,9 @@ MODULE mo_nh_stepping
   IF (isRestart()) CALL restartAttributes%get("jstep", jstep0)
 
   ! for debug purposes print var lists: for msg_level >= 13 short and for >= 20 long format
-  IF  (.NOT. ltestcase .AND. msg_level >= 13) THEN
-    CALL print_all_var_lists(lshort=(msg_level < 20))
-  ENDIF
-
+  IF  (.NOT. ltestcase .AND. msg_level >= 13) &
+    & CALL vlr_print_vls(lshort=(msg_level < 20))
+  
   ! Check if current number of dynamics substeps is larger than the default value
   ! (this can happen for restarted runs only at this point)
   IF (ANY(ndyn_substeps_var(1:n_dom) > ndyn_substeps)) THEN
@@ -1281,9 +1279,6 @@ MODULE mo_nh_stepping
     IF (l_nml_output .AND. .NOT. bench_config%d_wnlo) THEN
       CALL write_name_list_output(jstep)
     ENDIF
-
-    CALL reset_statistics
-
 
     ! sample meteogram output
     DO jg = 1, n_dom
@@ -3146,20 +3141,39 @@ MODULE mo_nh_stepping
   !> Auxiliary routine to encapsulate initialization of exner_pr variable
   !!
   SUBROUTINE init_exner_pr(jg, nnow)
-
-    INTEGER, INTENT(IN) :: jg   ! domain ID
-    INTEGER, INTENT(IN) :: nnow ! time step indicator
-
-
+    INTEGER, INTENT(IN) :: jg, nnow ! domain ID / time step indicator
 #ifndef _OPENACC
-!$OMP PARALLEL
+    INTEGER :: i,j,k,ie,je,ke
 #endif
+! HB: every OMP-thread creates full-sized implicit arrays to hold intermediate results
+! of expression in argument of copy()
+!    CALL copy(p_nh_state(jg)%prog(nnow)%exner-REAL(p_nh_state(jg)%metrics%exner_ref_mc,wp), &
+!         p_nh_state(jg)%diag%exner_pr)
+#ifdef _OPENACC
     CALL copy(p_nh_state(jg)%prog(nnow)%exner-REAL(p_nh_state(jg)%metrics%exner_ref_mc,wp), &
-         p_nh_state(jg)%diag%exner_pr)
-#ifndef _OPENACC
+    &         p_nh_state(jg)%diag%exner_pr)
+#else
+   ie = SIZE(p_nh_state(jg)%diag%exner_pr, 1)
+   je = SIZE(p_nh_state(jg)%diag%exner_pr, 2)
+   ke = SIZE(p_nh_state(jg)%diag%exner_pr, 3)
+!$OMP PARALLEL
+#if (defined(_CRAYFTN))
+!$OMP DO PRIVATE(i,j,k)
+#else
+!$OMP DO COLLAPSE(3) PRIVATE(i,j,k)
+#endif
+   DO k = 1, ke
+     DO j = 1, je
+       DO i = 1, ie
+         p_nh_state(jg)%diag%exner_pr(i,j,k) = &
+           & p_nh_state(jg)%prog(nnow)%exner(i,j,k) - &
+           & REAL(p_nh_state(jg)%metrics%exner_ref_mc(i,j,k), wp)
+       END DO
+     END DO
+   END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 #endif
-
   END SUBROUTINE init_exner_pr
 
   !-------------------------------------------------------------------------

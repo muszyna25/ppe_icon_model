@@ -177,14 +177,14 @@ CONTAINS
 
  SUBROUTINE restartAttributeList_write_to_cdi(kvs, vlistID)
 #ifdef __PGI
-    USE mo_key_value_store, ONLY: t_char_workaround
+    USE mo_util_texthash, ONLY: t_char_workaround
 #endif
     TYPE(t_key_value_store), INTENT(IN) :: kvs
     INTEGER, INTENT(IN) :: vlistId
     CHARACTER(*), PARAMETER :: routine = modname//"write_to_cdi"
     TYPE(t_HashIterator), POINTER :: iterator
     CLASS(*), POINTER :: curKey, curVal
-    CHARACTER(:), POINTER :: ccKey, ccVal
+    CHARACTER(:), POINTER :: ccKey
     INTEGER :: ierr
 
     iterator => kvs%getIterator()

@@ -43,7 +43,7 @@ MODULE mo_pp_tasks
     & RH_METHOD_IFS_CLIP, TASK_COMPUTE_OMEGA, HINTP_TYPE_LONLAT_BCTR, &
     & TLEV_NNOW, TLEV_NNOW_RCF, HINTP_TYPE_LONLAT_RBF
   USE mo_model_domain,            ONLY: t_patch, p_patch_local_parent
-  USE mo_var_list_element,        ONLY: t_var_list_element
+  USE mo_var,                     ONLY: t_var
   USE mo_var_metadata_types,      ONLY: t_var_metadata, t_vert_interp_meta
   USE mo_intp,                    ONLY: cell_avg, cells2edges_scalar
   USE mo_intp_data_strc,          ONLY: t_int_state, p_int_state,     &
@@ -159,16 +159,14 @@ MODULE mo_pp_tasks
   !  data structures or use POINTERs.
   TYPE t_data_input
     ! pointer for model variable (array)
-    TYPE (t_var_list_element), POINTER :: var
-
-    INTEGER                            :: jg ! domain ID
-
-    TYPE(t_patch),             POINTER :: p_patch         
-    TYPE(t_int_state),         POINTER :: p_int_state     
-    TYPE(t_nh_state),          POINTER :: p_nh_state      
-    TYPE(t_nwp_phy_diag),      POINTER :: prm_diag        
-    TYPE(t_nh_opt_diag),       POINTER :: p_nh_opt_diag   
-    TYPE(t_nh_pzlev_config),   POINTER :: nh_pzlev_config 
+    TYPE (t_var),            POINTER :: var
+    INTEGER                          :: jg ! domain ID
+    TYPE(t_patch),           POINTER :: p_patch         
+    TYPE(t_int_state),       POINTER :: p_int_state     
+    TYPE(t_nh_state),        POINTER :: p_nh_state      
+    TYPE(t_nwp_phy_diag),    POINTER :: prm_diag        
+    TYPE(t_nh_opt_diag),     POINTER :: p_nh_opt_diag   
+    TYPE(t_nh_pzlev_config), POINTER :: nh_pzlev_config 
   END TYPE t_data_input
 
 
@@ -176,11 +174,10 @@ MODULE mo_pp_tasks
   !  See also @p t_data_input.
   TYPE t_data_output
     ! pointer for model variable (array)
-    TYPE (t_var_list_element), POINTER :: var    => NULL()
-
+    TYPE (t_var), POINTER :: var    => NULL()
     ! (optional) pointer for second component of model variable.
     ! necessary for lon-lat interpolation of edge-based fields.
-    TYPE (t_var_list_element), POINTER :: var_2  => NULL()
+    TYPE (t_var), POINTER :: var_2  => NULL()
   END TYPE t_data_output
 
 
@@ -251,7 +248,7 @@ CONTAINS
       &  lonlat_id, jg,                          &
       &  in_var_idx, out_var_idx, out_var_idx_2, &
       &  ierrstat, dim1, dim2, dim3, hintp_type
-    TYPE (t_var_list_element), POINTER :: in_var, out_var, out_var_2
+    TYPE (t_var), POINTER :: in_var, out_var, out_var_2
     TYPE (t_var_metadata),     POINTER :: p_info
     TYPE (t_lon_lat_intp),     POINTER :: ptr_int_lonlat
     REAL(wp), ALLOCATABLE, TARGET      :: tmp_var(:,:,:)
@@ -265,7 +262,6 @@ CONTAINS
     p_info         => ptr_task%data_input%var%info
     in_var         => ptr_task%data_input%var
     out_var        => ptr_task%data_output%var
-
     lonlat_id      =  ptr_task%data_output%var%info%hor_interp%lonlat_id
     jg             =  ptr_task%data_input%jg
     ptr_int_lonlat => lonlat_grids%list(lonlat_id)%intp(jg)
@@ -286,23 +282,19 @@ CONTAINS
         hintp_type = p_info%hor_interp%fallback_type
       END IF
     END IF
-
     in_var_idx        = 1
     IF (in_var%info%lcontained)  in_var_idx  = in_var%info%ncontained
     out_var_idx       = 1
     IF (out_var%info%lcontained) out_var_idx = out_var%info%ncontained
-
     ! For edge-based interpolation: retrieve data on Y-component:
     IF (ASSOCIATED(ptr_task%data_output%var_2)) THEN
       out_var_2      => ptr_task%data_output%var_2
       out_var_idx_2  =  1
       IF (out_var_2%info%lcontained) out_var_idx_2 = out_var_2%info%ncontained
     END IF
-
     IF (zaxisTypeList%is_2d(p_info%vgrid) .AND. (p_info%ndims /= 2)) THEN
       CALL finish(routine, "Inconsistent dimension info!")
     END IF
-
     SELECT CASE (p_info%hgrid)
     CASE (GRID_UNSTRUCTURED_CELL)
       IF (ASSOCIATED(in_var%r_ptr) .OR. ASSOCIATED(in_var%s_ptr)) THEN
@@ -599,18 +591,15 @@ CONTAINS
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//"::pp_task_sync"
     TYPE(t_job_queue),         POINTER :: ptr_task
-    INTEGER                            :: in_var_idx, jg, sync_mode, &
-      &                                   var_ref_pos
-    TYPE (t_var_list_element), POINTER :: in_var
-    TYPE (t_var_metadata),     POINTER :: p_info
-    TYPE(t_patch),             POINTER :: p_patch
-    INTEGER                            :: timelevel
+    INTEGER :: in_var_idx, jg, sync_mode, var_ref_pos, timelevel
+    TYPE (t_var), POINTER :: in_var
+    TYPE (t_var_metadata), POINTER :: p_info
+    TYPE(t_patch), POINTER :: p_patch
 
     ptr_task => job_queue
     ! loop over job queue
     LOOP_JOB : DO
       IF (.NOT. ASSOCIATED(ptr_task)) EXIT
-
       IF (ptr_task%job_type == TASK_INTP_HOR_LONLAT) THEN
         p_patch     => ptr_task%data_input%p_patch
         p_info      => ptr_task%data_input%var%info
@@ -621,19 +610,15 @@ CONTAINS
         CASE DEFAULT
           CALL finish(routine, 'Unsupported tlev_source')
         END SELECT
-        
         IF ((ptr_task%activity%i_timelevel == timelevel) .OR.  &
           & (ptr_task%activity%i_timelevel == ALL_TIMELEVELS))  THEN
           in_var      => ptr_task%data_input%var
           in_var_idx  =  1
           IF (in_var%info%lcontained) in_var_idx = in_var%info%ncontained
-
           IF (zaxisTypeList%is_2d(p_info%vgrid) .AND. (p_info%ndims /= 2)) &
             &  CALL finish(routine, "Inconsistent dimension info!")
-
           IF (dbg_level >= 10) & 
                CALL message(routine, "synchronize variable "//TRIM(p_info%name))
-
           SELECT CASE (p_info%hgrid)
           CASE (GRID_UNSTRUCTURED_CELL)
             sync_mode = SYNC_C
@@ -642,7 +627,6 @@ CONTAINS
           CASE DEFAULT
             CALL finish(routine, 'Unknown grid type.')
           END SELECT
-
           IF (zaxisTypeList%is_2d(p_info%vgrid)) THEN
             var_ref_pos = 3
             IF (in_var%info%lcontained)  var_ref_pos = in_var%info%var_ref_pos
@@ -702,17 +686,13 @@ CONTAINS
               END SELECT
             END IF
           END IF
-
         END IF
       END IF
-      !
       ptr_task => ptr_task%next
     END DO LOOP_JOB
     ! complete pending syncs:
     CALL complete_cumulative_sync()
-
   END SUBROUTINE pp_task_sync
-
 
   !---------------------------------------------------------------
   !> Performs setup of vertical interpolation.
@@ -808,7 +788,7 @@ CONTAINS
     TYPE(t_nwp_phy_diag),      POINTER :: prm_diag
     TYPE(t_vert_interp_meta),  POINTER :: pzlev_flags
 
-    TYPE (t_var_list_element), POINTER :: in_var, out_var
+    TYPE (t_var), POINTER :: in_var, out_var
     TYPE(t_var_metadata),      POINTER :: p_info
     TYPE(t_vcoeff),            POINTER :: vcoeff
     TYPE(t_nh_pzlev_config),   POINTER :: nh_pzlev_config
@@ -1144,7 +1124,7 @@ CONTAINS
     INTEGER                            :: nblks_c, npromz_c, nblks_e, jg,          &
       &                                   out_var_idx, nlev, i_endblk
     TYPE(t_vcoeff)                     :: vcoeff
-    TYPE (t_var_list_element), POINTER :: in_var, out_var
+    TYPE (t_var), POINTER :: in_var, out_var
     TYPE(t_var_metadata),      POINTER :: p_info
     TYPE(t_patch),             POINTER :: p_patch
     TYPE(t_nh_metrics),        POINTER :: p_metrics    
@@ -1288,7 +1268,7 @@ CONTAINS
     TYPE(t_simulation_status), OPTIONAL, INTENT(IN) :: opt_simulation_status
     ! local variables
     INTEGER                            :: jg, out_var_idx
-    TYPE (t_var_list_element), POINTER :: out_var
+    TYPE (t_var), POINTER :: out_var
     TYPE(t_var_metadata),      POINTER :: p_info
     TYPE(t_patch),             POINTER :: p_patch
     !TYPE(t_int_state),         POINTER :: p_int_state
@@ -1454,7 +1434,7 @@ CONTAINS
       &  in_var_idx, out_var_idx_1, out_var_idx_2, &
       &  in_var_ref_pos, out_var_ref_pos_1,        &
       &  out_var_ref_pos_2
-    TYPE (t_var_list_element), POINTER :: in_var, out_var_1, out_var_2
+    TYPE (t_var), POINTER :: in_var, out_var_1, out_var_2
     TYPE (t_var_metadata),     POINTER :: p_info
     TYPE(t_patch),             POINTER :: p_patch
     TYPE(t_int_state),         POINTER :: intp_hrz

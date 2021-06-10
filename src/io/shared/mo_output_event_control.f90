@@ -36,7 +36,7 @@ MODULE mo_output_event_control
     &                              dividedatetimedifferenceinseconds,                   &
     &                              getPTStringFromMS, getPTStringFromSeconds,           &
     &                              timedeltaToString
-  USE mo_var_list_element,   ONLY: lev_type_str
+  USE mo_var,                ONLY: lev_type_str
   USE mo_output_event_types, ONLY: t_sim_step_info, t_event_step_data
   USE mo_util_string,        ONLY: t_keyword_list, associate_keyword, with_keywords,    &
     &                              int2string, tolower
