@@ -28,13 +28,9 @@ USE mo_master_control,       ONLY: get_my_process_name
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_grid_config,        ONLY: n_dom
   USE mo_mpi,                ONLY: my_process_is_stdio
-  USE mo_linked_list,        ONLY: t_var_list
   USE mo_hamocc_types,       ONLY: t_hamocc_bcond
-
-  USE mo_var_list,           ONLY: default_var_list_settings,   &
-    &                              add_var,             &
-    &                              new_var_list,                &
-    &                              delete_var_list
+  USE mo_var_list,           ONLY: add_var, t_var_list_ptr
+  USE mo_var_list_register,  ONLY: vlr_add, vlr_del
   USE mo_master_config,      ONLY: getModelBaseDir
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var, grib2_var
@@ -45,13 +41,11 @@ USE mo_master_control,       ONLY: get_my_process_name
     &                              associate_keyword
   USE mo_cdi,                ONLY: DATATYPE_FLT32, GRID_UNSTRUCTURED
   USE mo_zaxis_type,         ONLY: ZA_SURFACE
-
   USE mo_hamocc_nml,         ONLY: io_stdo_bgc
   USE mo_ext_data_types,     ONLY: t_external_data, t_external_bgc
   USE mo_ocean_ext_data,     ONLY: ext_data
   USE mtime,                 ONLY: datetime
-  USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL,  &                         
-    &                              GRID_CELL
+  USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL
   USE mo_ocean_nml,          ONLY: lsediment_only
   USE mo_run_config,         ONLY: dtime
 
@@ -135,7 +129,7 @@ CONTAINS
     TYPE(t_hamocc_bcond), INTENT(INOUT) :: & !< current external data structure
       &  p_ext_data_bgc 
 
-    TYPE(t_var_list) :: p_ext_bgc_list !< current external data list
+    TYPE(t_var_list_ptr) :: p_ext_bgc_list !< current external data list
 
     CHARACTER(len=*), INTENT(IN)  :: & !< list name
       &  listname
@@ -167,10 +161,8 @@ CONTAINS
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( p_ext_bgc_list, TRIM(listname), patch_id=p_patch%id )
-    CALL default_var_list_settings( p_ext_bgc_list,            &
-                                  & lrestart=.FALSE.,          &
-                                 & model_type=TRIM(get_my_process_name()) )
+    CALL vlr_add(p_ext_bgc_list, TRIM(listname), patch_id=p_patch%id, &
+      &               lrestart=.FALSE., model_type=TRIM(get_my_process_name()))
     IF (.not. lsediment_only) THEN
      cf_desc    = t_cf_var('Dust cell center', 'kg m-2 yr-1', &
        &                   'DUST', DATATYPE_FLT32)
@@ -215,8 +207,6 @@ CONTAINS
      CALL message('new_ext_data_bgc_list','add_var finished for particle fluxes')
     ENDIF
 
-
-
   END SUBROUTINE new_ext_data_bgc_list
   !-------------------------------------------------------------------------
 
@@ -241,7 +231,7 @@ CONTAINS
 
     DO jg = 1,n_dom
       ! Delete list of constant in time oceanic elements
-      CALL delete_var_list( ext_data(jg)%bgc_list )
+      CALL vlr_del(ext_data(jg)%bgc_list)
     ENDDO
 
     CALL message (TRIM(routine), 'Destruction of data structure for ' // &

@@ -27,14 +27,10 @@ MODULE mo_ocean_hamocc_couple_state
     &  TracerHorizontalDiffusion_scaling
   USE mo_impl_constants,      ONLY: success, max_char_length, TLEV_NNEW
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_linked_list,         ONLY: t_var_list
-  USE mo_var_groups,          ONLY: groups
-  USE mo_var_list,            ONLY: add_var,                  &
-    &                               new_var_list,             &
-    &                               delete_var_list,          &
-    &                               get_timelevel_string,     &
-    &                               default_var_list_settings,&
-    &                               add_ref
+  USE mo_var_groups,          ONLY: groups 
+  USE mo_var_list,            ONLY: add_var, add_ref, t_var_list_ptr
+  USE mo_var_list_register,   ONLY: vlr_add, vlr_del
+  USE mo_var_metadata,        ONLY: get_timelevel_string
   USE mo_grib2,               ONLY: grib2_var, t_grib2_var
   USE mo_cdi,                 ONLY: DATATYPE_FLT32 => CDI_DATATYPE_FLT32, &
     &                               datatype_FLT64 => CDI_datatype_FLT64, &
@@ -101,7 +97,7 @@ MODULE mo_ocean_hamocc_couple_state
   !----------------------------------------------
   
   TYPE(t_hamocc_ocean_state), TARGET :: hamocc_ocean_state
-  TYPE(t_var_list)           :: hamocc_ocean_state_list
+  TYPE(t_var_list_ptr)           :: hamocc_ocean_state_list
   TYPE(t_ocean_transport_state), TARGET :: ocean_transport_state
   !-------------------------------------------------------------------------
 
@@ -113,7 +109,6 @@ CONTAINS
 
     TYPE(t_patch), POINTER :: patch_2d
     INTEGER :: alloc_cell_blocks, nblks_e !, nblks_v
-    CHARACTER(LEN=max_char_length) :: listname
     REAL(wp), ALLOCATABLE :: hor_diffusion_coeff_2D(:,:)
     INTEGER :: datatype_flt
     
@@ -131,11 +126,9 @@ CONTAINS
       datatype_flt = DATATYPE_FLT32
     ENDIF
  
-    WRITE(listname,'(a)')  'hamocc_ocean_state_list'
-    CALL new_var_list(hamocc_ocean_state_list, listname, patch_id=patch_2d%id)
-    CALL default_var_list_settings( hamocc_ocean_state_list,             &
-      & lrestart=.FALSE.,loutput=.TRUE.,&
-      & model_type='hamocc' )
+    CALL vlr_add(hamocc_ocean_state_list, 'hamocc_ocean_state_list', &
+      & patch_id=patch_2d%id, lrestart=.FALSE., loutput=.TRUE.,           &
+      & model_type='hamocc')
 
     ! transport state, ocean to hamocc
     CALL add_var(hamocc_ocean_state_list,'vn', ocean_transport_state%vn, &
@@ -294,7 +287,7 @@ CONTAINS
    !-------------------------------------------------------------------------
    SUBROUTINE destruct_hamocc_ocean_state()
    
-      CALL delete_var_list(hamocc_ocean_state_list)
+      CALL vlr_del(hamocc_ocean_state_list)
    
    END SUBROUTINE destruct_hamocc_ocean_state
    !-------------------------------------------------------------------------

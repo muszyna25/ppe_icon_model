@@ -14,17 +14,12 @@
 MODULE mo_icon_output_tools
 
   USE mo_exception,           ONLY: message, finish
-  USE mo_master_config,       ONLY: isRestart
-  USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs, &
-       &                            pio_type, num_test_pe, num_prefetch_proc
-  USE mo_mpi,                 ONLY: set_mpi_work_communicators, process_mpi_io_size, &
-       &                            stop_mpi, my_process_is_io, my_process_is_mpi_test,   &
-       &                            set_mpi_work_communicators, process_mpi_io_size
+  USE mo_parallel_config,     ONLY: pio_type
+  USE mo_mpi,                 ONLY: process_mpi_io_size, stop_mpi, my_process_is_io
   USE mo_impl_constants,      ONLY: pio_type_async, pio_type_cdipio
 #ifdef HAVE_CDI_PIO
   USE mo_mpi,                 ONLY: mpi_comm_null, p_comm_work_io
   USE yaxt,                   ONLY: xt_initialize, xt_initialized
-  USE mo_cdi,                 ONLY: namespacegetactive
   USE mo_cdi_pio_interface,   ONLY: nml_io_cdi_pio_namespace, &
     &                                   cdi_base_namespace, &
     &                                   nml_io_cdi_pio_client_comm, &
@@ -32,45 +27,19 @@ MODULE mo_icon_output_tools
   USE mo_name_list_output_init, ONLY: init_cdipio_cb
   USE mo_name_list_output,    ONLY: write_ready_files_cdipio
   USE mo_cdi,                 ONLY: namespaceGetActive, namespaceSetActive
-  USE mo_cdi_pio_interface,   ONLY: nml_io_cdi_pio_namespace
 #endif
-  USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, print_timer, &
-       &                            timer_model_init, timers_level
+  USE mo_timer,               ONLY: timer_stop, timer_model_init, timers_level
+  USE mo_name_list_output,    ONLY: name_list_io_main_proc
   USE mo_name_list_output_init, ONLY: init_name_list_output, parse_variable_groups, &
     &                                 create_vertical_axes, output_file
-  USE mo_derived_variable_handling, ONLY: init_statistics_streams, finish_statistics_streams
-  USE mo_name_list_output,    ONLY: close_name_list_output, name_list_io_main_proc
   USE mo_name_list_output_config,  ONLY: use_async_name_list_io
   USE mo_level_selection, ONLY: create_mipz_level_selections
-  USE mo_zaxis_type,          ONLY: zaxisTypeList, t_zaxisTypeList
-
-  !  USE mo_advection_config,    ONLY: configure_advection
   USE mo_run_config,          ONLY: output_mode, dtime
-  USE mo_gribout_config,      ONLY: configure_gribout
-
-  ! Control parameters: run control, dynamics, i/o
-  !
-
-
-  ! Horizontal grid
-  USE mo_model_domain,        ONLY: t_patch_3d, p_patch_local_parent
-  !
-  USE mo_grid_config,         ONLY: n_dom, use_dummy_cell_closure
-
-  USE mo_build_decomposition, ONLY: build_decomposition
-  USE mo_complete_subdivision,ONLY: setup_phys_patches
-
-  USE mo_util_dbg_prnt,       ONLY: init_dbg_index
-  USE mo_impl_constants,      ONLY: success
-
-  USE mo_alloc_patches,        ONLY: destruct_patches, destruct_comm_patterns
-  USE mo_icon_output_read_namelists, ONLY: read_icon_output_namelists
-  USE mo_load_restart,         ONLY: read_restart_header, read_restart_files
   USE mo_restart_nml_and_att,  ONLY: getAttributesForRestarting
-  USE mo_icon_comm_interface,  ONLY: construct_icon_communication, destruct_icon_communication
   USE mo_output_event_types,   ONLY: t_sim_step_info
-  USE mo_io_config,            ONLY: restartWritingParameters, write_initial_state
   USE mo_key_value_store,     ONLY: t_key_value_store
+  USE mo_time_config,         ONLY: time_config
+
   !-------------------------------------------------------------
  
   IMPLICIT NONE
@@ -86,12 +55,9 @@ MODULE mo_icon_output_tools
   CONTAINS
   !-------------------------------------------------------------------------
   SUBROUTINE init_io_processes()
-    USE mo_time_config,         ONLY: time_config
-
     TYPE(t_sim_step_info)   :: sim_step_info
     TYPE(t_key_value_store), POINTER :: restartAttributes
-    CHARACTER(LEN=*), PARAMETER :: &
-         & routine = 'mo_icon_output_tools:init_io_processes'
+    CHARACTER(*), PARAMETER :: routine = 'mo_icon_output_tools:init_io_processes'
 
     IF (process_mpi_io_size > 0 .AND. pio_type == pio_type_async) THEN
       ! Decide whether async vlist or name_list IO is to be used,
@@ -131,6 +97,7 @@ MODULE mo_icon_output_tools
       ELSE IF (my_process_is_io()) THEN
         ! Shut down MPI
         CALL stop_mpi
+        STOP
       ENDIF
     ELSE IF (process_mpi_io_size > 0 .AND. pio_type == pio_type_cdipio) THEN
 
@@ -147,17 +114,13 @@ MODULE mo_icon_output_tools
         sim_step_info%run_start = time_config%tc_startdate
         sim_step_info%restart_time = time_config%tc_stopdate
 
-        sim_step_info%dtime = dtime
+        sim_step_info%dtime  = dtime
         sim_step_info%jstep0 = 0
 
         CALL getAttributesForRestarting(restartAttributes)
         ! get start counter for time loop from restart file:
-        IF (restartAttributes%is_init) THEN
-          CALL restartAttributes%get("jstep", sim_step_info%jstep0)
-        ELSE
-          sim_step_info%jstep0 = 0
-        END IF
-        CALL init_statistics_streams
+        IF (restartAttributes%is_init) &
+          & CALL restartAttributes%get("jstep", sim_step_info%jstep0)
       ENDIF
 
       IF (.NOT. xt_initialized()) CALL xt_initialize(p_comm_work_io)
@@ -189,6 +152,7 @@ MODULE mo_icon_output_tools
       IF (my_process_is_io()) THEN
         ! Shut down MPI
         CALL stop_mpi
+        STOP
       ENDIF
     END IF
   END SUBROUTINE init_io_processes
@@ -196,10 +160,7 @@ MODULE mo_icon_output_tools
 
   !--------------------------------------------------------------------------
   SUBROUTINE prepare_output()
-    USE mo_time_config,         ONLY: time_config
-
     CHARACTER(*), PARAMETER :: routine = "mo_ocean_model:prepare_output"
-
     TYPE(t_sim_step_info)               :: sim_step_info
     TYPE(t_key_value_store), POINTER :: restartAttributes
 
@@ -224,8 +185,7 @@ MODULE mo_icon_output_tools
       CALL getAttributesForRestarting(restartAttributes)
       ! get start counter for time loop from restart file:
       IF (restartAttributes%is_init) &
-        CALL restartAttributes%get("jstep", sim_step_info%jstep0)
-      CALL init_statistics_streams
+        & CALL restartAttributes%get("jstep", sim_step_info%jstep0)
       CALL init_name_list_output(sim_step_info, opt_lprintlist=.TRUE.,opt_l_is_ocean=.TRUE.)
       CALL create_mipz_level_selections(output_file)
       CALL create_vertical_axes(output_file)

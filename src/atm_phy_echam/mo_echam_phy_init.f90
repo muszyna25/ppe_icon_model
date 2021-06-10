@@ -104,13 +104,6 @@ MODULE mo_echam_phy_init
   ! WMO tropopause
   USE mo_echam_wmo_config,     ONLY: eval_echam_wmo_config, print_echam_wmo_config, echam_wmo_config
 
-  ! Cariolle interactive ozone scheme
-  USE mo_lcariolle_externals,  ONLY: read_bcast_real_3d_wrap, &
-    &                                read_bcast_real_1d_wrap, &
-    &                                closeFile_wrap, openInputFile_wrap, &
-    &                                get_constants
-  USE mo_lcariolle_types,      ONLY: l_cariolle_initialized_o3, t_avi, t_time_interpolation
-
   ! water vapour production by methane oxidation
   ! and destruction by photolysis
   USE mo_methox,               ONLY: init_methox
@@ -140,7 +133,8 @@ MODULE mo_echam_phy_init
   USE gscp_data,               ONLY: gscp_set_coefficients
   USE mo_echam_mig_config,     ONLY: echam_mig_config, print_echam_mig_config
 #endif
-
+  USE mo_lcariolle,            ONLY: lcariolle_init_o3, lcariolle_init, &
+    &l_cariolle_initialized_o3, t_avi, t_time_interpolation
   ! ART
   USE mo_art_config,         ONLY: art_config
 
@@ -412,10 +406,7 @@ CONTAINS
         CALL finish('init_echam_phy: mo_echam_phy_init.f90', &
                    &'Cariolle initialization not ready for n_dom>1')
       END IF
-      CALL lcariolle_init(                                     &
-         & openInputFile_wrap,       closeFile_wrap,           &
-         & read_bcast_real_3d_wrap,  read_bcast_real_1d_wrap,  &
-         & get_constants                                       )
+      CALL lcariolle_init()
     END IF
 
     ! ch4 oxidation and h2o photolysis
@@ -1305,9 +1296,6 @@ CONTAINS
     REAL(wp)                           :: vmr_o3(nproma, p_patch%nlev)
     TYPE(t_time_interpolation)         :: time_interpolation
     TYPE(t_time_interpolation_weights) :: current_time_interpolation_weights
-    !
-    ! External routines of the Cariolle library
-    EXTERNAL :: lcariolle_init_o3, lcariolle_lat_intp_li, lcariolle_pres_intp_li
 
     avi%ldown=.TRUE.
     current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_current)
@@ -1334,10 +1322,7 @@ CONTAINS
       latc(:)             =  p_patch% cells% center(:,jb)% lat
       avi%cell_center_lat => latc
       !
-      CALL lcariolle_init_o3(                                               &
-        & jcs,                   jce,                nproma,                &
-        & p_patch%nlev,          time_interpolation, lcariolle_lat_intp_li, &
-        & lcariolle_pres_intp_li,avi,                vmr_o3                 )
+      CALL lcariolle_init_o3(jcs, jce, nproma, p_patch%nlev, time_interpolation, avi, vmr_o3)
       !
       o3(jcs:jce,:,jb) = vmr_o3(jcs:jce,:)*amo3/amd
       !

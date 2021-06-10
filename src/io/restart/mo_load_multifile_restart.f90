@@ -47,7 +47,7 @@ MODULE mo_load_multifile_restart
   USE mo_restart_nml_and_att,    ONLY: getAttributesForRestarting, ocean_initFromRestart_OVERRIDE
   USE mo_key_value_store,        ONLY: t_key_value_store
   USE mo_restart_var_data,       ONLY: get_var_3d_ptr, has_valid_time_level
-  USE mo_var_list_element,       ONLY: t_p_var_list_element
+  USE mo_var,                    ONLY: t_var_ptr
   USE mo_timer,                  ONLY: timer_start, timer_stop, timer_load_restart_io, timers_level, &
     &                                  timer_load_restart_comm_setup, timer_load_restart_communication, &
     &                                  timer_load_restart_get_var_id
@@ -334,7 +334,7 @@ CONTAINS
   END FUNCTION makeRedistributionPattern
 
   SUBROUTINE multifileReadPatch(vDat, p_patch, multifilePath)
-    TYPE(t_p_var_list_element), INTENT(IN) :: vDat(:)
+    TYPE(t_var_ptr), INTENT(IN) :: vDat(:)
     TYPE(t_patch), TARGET, INTENT(IN) :: p_patch
     CHARACTER(*), INTENT(IN) :: multifilePath
     TYPE(t_p_comm_pattern) :: cpat(3)

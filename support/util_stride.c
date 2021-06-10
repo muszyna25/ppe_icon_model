@@ -19,3 +19,7 @@ void util_stride_2d(int *out, int elemsize,
   out[1] = (int)(d / elemsize);
 }
 
+size_t util_get_ptrdiff(const void *a, const void *b) {
+  return (size_t)((unsigned char *)a > (unsigned char *)b ? 
+    (unsigned char *)a-(unsigned char *)b : (unsigned char *)b-(unsigned char *)a);
+}

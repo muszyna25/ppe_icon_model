@@ -13,11 +13,9 @@
 #include "omp_definitions.inc"
 MODULE mo_load_singlefile_restart
   USE mo_cdi,                ONLY: vlistInqTaxis, taxisInqVdate, taxisInqVtime, streamOpenRead, &
-    &                              streamInqVlist, vlistNvars, vlistInqVarName, streamClose,    &
-    &                              streamReadVarSlice, streamReadVarSliceF, vlistInqVarGrid, gridInqSize
-  USE mo_communication,      ONLY: t_ScatterPattern
+    &                              streamInqVlist, vlistNvars, vlistInqVarName, streamClose
   USE mo_exception,          ONLY: message, warning, finish
-  USE mo_impl_constants,     ONLY: SUCCESS, SINGLE_T, REAL_T, INT_T
+  USE mo_impl_constants,     ONLY: SINGLE_T, REAL_T, INT_T
   USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE
   USE mo_kind,               ONLY: dp, sp
   USE mo_model_domain,       ONLY: t_patch
@@ -26,13 +24,15 @@ MODULE mo_load_singlefile_restart
   USE mo_key_value_store,    ONLY: t_key_value_store
   USE mo_restart_util,       ONLY: restartSymlinkName
   USE mo_restart_var_data,   ONLY: get_var_3d_ptr
-  USE mo_var_list_element,   ONLY: t_p_var_list_element
-  USE mo_timer,              ONLY: timer_start, timer_stop, timer_load_restart_io, &
-    &                              timer_load_restart_communication, timers_level
+  USE mo_var,                ONLY: t_var_ptr
+  USE mo_timer, ONLY: timer_start, timer_stop, timer_load_restart_io, timers_level
   USE mo_util_string,        ONLY: int2string
-  USE mo_var_metadata_types, ONLY: t_var_metadata
+  USE mo_read_netcdf_distributed, ONLY: t_distrib_read_data, distrib_nf_open, &
+    & distrib_read, distrib_nf_close, idx_lvl_blk
+  USE mo_fortran_tools,      ONLY: t_ptr_3d, t_ptr_3d_int, t_ptr_3d_sp
 
   IMPLICIT NONE
+  PRIVATE
 
   PUBLIC :: singlefileCheckRestartFiles, singlefileReadPatch
 
@@ -75,27 +75,22 @@ CONTAINS
   END SUBROUTINE singlefileCheckRestartFiles
 
   SUBROUTINE singlefileReadPatch(varData, modelType, p_patch, opt_ndom)
-!TODO: swich to read & distribute via mo_read_netcdf_distributed
-    TYPE(t_p_var_list_element), INTENT(in) :: varData(:)
+    TYPE(t_var_ptr), INTENT(in) :: varData(:)
     CHARACTER(*), INTENT(IN) :: modelType
     TYPE(t_patch), TARGET, INTENT(IN) :: p_patch
     INTEGER, INTENT(IN) :: opt_ndom
-    REAL(dp), POINTER :: r_ptr_3d(:,:,:), r1d_d(:)
-    REAL(sp), POINTER :: s_ptr_3d(:,:,:), r1d_s(:)
-    INTEGER,  POINTER :: i_ptr_3d(:,:,:)
+    TYPE(t_ptr_3d) :: r(1)
+    TYPE(t_ptr_3d_sp) :: s(1)
+    TYPE(t_ptr_3d_int) :: i(1)
     CHARACTER(len=80) :: vname
     CHARACTER(:), ALLOCATABLE :: restart_filename
-    INTEGER :: fID, vlID, vID, tID, nV, nread, lev, trash, vIdx, ilev, gSize, dt
-    REAL(dp), TARGET :: dummy_d(0)
-    REAL(sp), TARGET :: dummy_s(0)
+    INTEGER :: fID, dfID, vlID, vID, tID, nV, nread, vIdx, dt
+    TYPE(t_distrib_read_data), POINTER :: dio
     LOGICAL :: is_root
-    CLASS(t_ScatterPattern), POINTER :: scatter_pattern
     CHARACTER(*), PARAMETER :: routine = modname // ":singlefileReadPatch"
 
     CALL restartSymlinkName(modelType, p_patch%id, restart_filename, opt_ndom)
     is_root = my_process_is_mpi_workroot()
-    r1d_d => dummy_d
-    r1d_s => dummy_s
     IF(is_root) THEN
       WRITE(0, "(a)") "streamOpenRead " // restart_filename
       fID  = streamOpenRead(restart_filename)
@@ -107,6 +102,7 @@ CONTAINS
         & TRIM(int2string(taxisInqVtime(tID))) // "Z" // ' from ' // restart_filename
       nV = vlistNvars(vlID)
     END IF
+    dfID = distrib_nf_open(restart_filename) 
     CALL p_bcast(nV, 0, comm=p_comm_work)
     nread = 0
     DO vID = 0, nV - 1
@@ -122,59 +118,42 @@ CONTAINS
       END IF
       SELECT CASE(varData(vIdx)%p%info%hgrid)
       CASE (GRID_UNSTRUCTURED_CELL)
-        scatter_pattern => p_patch%comm_pat_scatter_c
+        dio => p_patch%cells%dist_io_data
       CASE (GRID_UNSTRUCTURED_VERT)
-        scatter_pattern => p_patch%comm_pat_scatter_v
+        dio => p_patch%verts%dist_io_data
       CASE (GRID_UNSTRUCTURED_EDGE)
-        scatter_pattern => p_patch%comm_pat_scatter_e
+        dio => p_patch%edges%dist_io_data
       CASE default
         CALL finish(routine, 'unknown grid type')
       END SELECT
-      gSize = 0
-      IF (is_root) gSize = gridInqSize(vlistInqVarGrid(vlID, vID))
       dt = varData(vIdx)%p%info%data_type
+      IF (timers_level >= 7) CALL timer_start(timer_load_restart_io)
       SELECT CASE(dt)
       CASE(REAL_T, INT_T)
         IF (dt .EQ. INT_T) THEN
-          CALL get_var_3d_ptr(varData(vIdx)%p, i_ptr_3d)
-          ALLOCATE(r_ptr_3d(SIZE(i_ptr_3d, 1), 1, SIZE(i_ptr_3d, 3)))
+          CALL get_var_3d_ptr(varData(vIdx)%p, i(1)%p)
+          ALLOCATE(r(1)%p(SIZE(i(1)%p, 1), SIZE(i(1)%p, 2), SIZE(i(1)%p, 3)))
         ELSE
-          CALL get_var_3d_ptr(varData(vIdx)%p, r_ptr_3d)
+          CALL get_var_3d_ptr(varData(vIdx)%p, r(1)%p)
         END IF
-        ALLOCATE(r1d_d(gSize))
-        DO lev = 1, SIZE(r_ptr_3d, 2)
-          ilev = MERGE(lev, 1, dt .EQ. REAL_T)
-          IF (timers_level >= 7) CALL timer_start(timer_load_restart_io)
-          IF (is_root) CALL streamReadVarSlice(fID, vID, lev-1, r1d_d, trash)
-          IF (timers_level >= 7) CALL timer_stop(timer_load_restart_io)
-          IF (timers_level >= 7) CALL timer_start(timer_load_restart_communication)
-          IF (SIZE(r_ptr_3d, 3) .GT. 0) r_ptr_3d(:,ilev,SIZE(r_ptr_3d, 3)) = 0._dp
-          CALL scatter_pattern%distribute(r1d_d, r_ptr_3d(:,ilev,:), .FALSE.)
-          IF (timers_level >= 7) CALL timer_stop(timer_load_restart_communication)
-          IF (SIZE(r_ptr_3d) .GT. 0 .AND. dt .EQ. INT_T) THEN
+        IF (SIZE(r(1)%p, 3) .GT. 0) r(1)%p(:,:,SIZE(r(1)%p, 3)) = 0._dp
+        CALL distrib_read(dfID, vname, r, (/dio/), &
+          & edim=(/SIZE(r(1)%p, 2)/), dimo=idx_lvl_blk)
+        IF (SIZE(r(1)%p) .GT. 0 .AND. dt .EQ. INT_T) THEN
 !ICON_OMP PARALLEL WORKSHARE
-            i_ptr_3d(:,lev,:) = INT(r_ptr_3d(:,1,:))
+          i(1)%p(:,:,:) = INT(r(1)%p(:,:,:))
 !ICON_OMP END PARALLEL WORKSHARE
-          END IF
-        END DO
-        DEALLOCATE(r1d_d)
-        IF (dt .EQ. INT_T) DEALLOCATE(r_ptr_3d)
+        END IF
+        IF (dt .EQ. INT_T) DEALLOCATE(r(1)%p)
       CASE(SINGLE_T)
-        CALL get_var_3d_ptr(varData(vIdx)%p, s_ptr_3d)
-        ALLOCATE(r1d_s(gSize))
-        DO lev = 1, SIZE(s_ptr_3d, 2)
-          IF (timers_level >= 7) CALL timer_start(timer_load_restart_io)
-          IF (is_root) CALL streamReadVarSliceF(fID, vID, lev-1, r1d_s,trash)
-          IF (timers_level >= 7) CALL timer_stop(timer_load_restart_io)
-          IF (timers_level >= 7) CALL timer_start(timer_load_restart_communication)
-          IF (SIZE(s_ptr_3d, 3) .GT. 0) s_ptr_3d(:,lev,SIZE(s_ptr_3d, 3)) = 0._sp
-          CALL scatter_pattern%distribute(r1d_s, s_ptr_3d(:,lev,:), .FALSE.)
-          IF (timers_level >= 7) CALL timer_stop(timer_load_restart_communication)
-        END DO
-        DEALLOCATE(r1d_s)
+        CALL get_var_3d_ptr(varData(vIdx)%p, s(1)%p)
+        IF (SIZE(s(1)%p, 3) .GT. 0) s(1)%p(:,:,SIZE(s(1)%p, 3)) = 0._sp
+        CALL distrib_read(dfID, vname, s, (/dio/), &
+          & edim=(/SIZE(s(1)%p, 2)/), dimo=idx_lvl_blk)
       CASE DEFAULT
         CALL finish(routine, "Internal error! Variable " // TRIM(vname))
       END SELECT
+      IF (timers_level >= 7) CALL timer_stop(timer_load_restart_io)
       nread = nread + 1
 #ifdef DEBUG
       IF (is_root) WRITE (0,*) ' ... read ' // TRIM(vname)
@@ -182,6 +161,7 @@ CONTAINS
     END DO
     IF (is_root) WRITE (0,'(a,i5,a)') ' ... read ', nread, ' variables'
     IF (is_root)  CALL streamClose(fID)
+    CALL distrib_nf_close(dfID)
   END SUBROUTINE singlefileReadPatch
 
 END MODULE mo_load_singlefile_restart

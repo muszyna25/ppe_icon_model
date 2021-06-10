@@ -23,8 +23,6 @@ MODULE mo_ice_diagnostics
   USE mo_exception,           ONLY: finish
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_dbg_nml,             ONLY: idbg_mxmn, idbg_val
-  USE mo_fortran_tools,       ONLY: assign_if_present
-
   USE mo_model_domain,        ONLY: t_patch
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_ocean_state,         ONLY: v_base
@@ -70,14 +68,14 @@ CONTAINS
 
     !-----------------------------------------------------------------------
     my_dbg_lev          = 4
-    CALL assign_if_present(my_dbg_lev, dbg_lev)
+    IF (PRESENT(dbg_lev)) my_dbg_lev = dbg_lev
     ! exit if actual debug-level < my_dbg_lev
     IF (idbg_mxmn < my_dbg_lev .AND. idbg_val < my_dbg_lev) RETURN
 
     my_computation_type = 0
+    IF (PRESENT(computation_type)) my_computation_type = computation_type
     my_info             = 'salt_in_surface'
-    CALL assign_if_present(my_computation_type, computation_type)
-    CALL assign_if_present(my_info, info)
+    IF (PRESENT(info)) my_info = info
 
     all_cells    => p_patch%cells%all
     area         => p_patch%cells%area(:,:)
@@ -147,14 +145,14 @@ CONTAINS
 
     !-----------------------------------------------------------------------
     my_dbg_lev          = 4
-    CALL assign_if_present(my_dbg_lev, dbg_lev)
+    IF (PRESENT(dbg_lev)) my_dbg_lev = dbg_lev
     ! exit if actual debug-level < my_dbg_lev
     IF (idbg_mxmn < my_dbg_lev .AND. idbg_val < my_dbg_lev) RETURN
 
     my_computation_type = 0
+    IF (PRESENT(computation_type)) my_computation_type = computation_type
     my_info             = 'energy_in_surface'
-    CALL assign_if_present(my_computation_type, computation_type)
-    CALL assign_if_present(my_info, info)
+    IF (PRESENT(info)) my_info = info
 
     all_cells    => p_patch%cells%all
     prism_thick_flat = v_base%del_zlev_m(1) ! thickness of the top layer

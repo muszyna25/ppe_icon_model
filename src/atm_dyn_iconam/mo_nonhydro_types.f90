@@ -26,13 +26,10 @@ MODULE mo_nonhydro_types
 
   USE mo_kind,                 ONLY: wp, vp
   USE mo_fortran_tools,        ONLY: t_ptr_2d3d, t_ptr_2d3d_vp, t_ptr_tracer
-  USE mo_linked_list,          ONLY: t_var_list
-
+  USE mo_var_list,             ONLY: t_var_list_ptr
 
   IMPLICIT NONE
-
   PRIVATE
-
 
   PUBLIC :: t_nh_prog             ! state vector of prognostic variables (type)
   PUBLIC :: t_nh_diag             ! state vector of diagnostic variables (type)
@@ -473,11 +470,11 @@ MODULE mo_nonhydro_types
     ! array of prognostic state lists at different timelevels
     ! splitting this out of t_nh_state allows for a deep copy 
     ! of the p_nh_state variable to accelerator devices with OpenACC
-    TYPE(t_var_list), ALLOCATABLE :: prog_list(:)  !< shape: (timelevels)
-    TYPE(t_var_list)   :: diag_list
-    TYPE(t_var_list)   :: ref_list
-    TYPE(t_var_list)   :: metrics_list
-    TYPE(t_var_list), ALLOCATABLE :: tracer_list(:) !< shape: (timelevels)
+    TYPE(t_var_list_ptr), ALLOCATABLE :: prog_list(:)  !< shape: (timelevels)
+    TYPE(t_var_list_ptr)   :: diag_list
+    TYPE(t_var_list_ptr)   :: ref_list
+    TYPE(t_var_list_ptr)   :: metrics_list
+    TYPE(t_var_list_ptr), ALLOCATABLE :: tracer_list(:) !< shape: (timelevels)
 
   END TYPE t_nh_state_lists
 
