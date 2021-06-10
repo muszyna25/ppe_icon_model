@@ -18,16 +18,21 @@ Post-process ICON experiment data for a given period
 '''
 
 import argparse
+import errno
 import logging
 import os
 import re
 import subprocess
 import sys
 
-from distutils import sysconfig
-lib_dir = sysconfig.get_python_lib(1, 0, '%{MODEL_DIR}')
-if lib_dir not in sys.path:
-    sys.path.insert(1, lib_dir)
+#%  if PREFIX:
+from distutils.sysconfig import get_python_lib
+lib_dir = sysconfig.get_python_lib(prefix='%{PREFIX}')
+#%  else:
+os.chdir('%{BUILD_DIR}/externals/mtime/src')
+lib_dir = ''
+#%  endif
+sys.path.insert(1, lib_dir)
 import mtime
 
 # Process command line options
@@ -42,11 +47,31 @@ def check_date(arg):
 command_line = argparse.ArgumentParser(description=__doc__.split('\n', 1)[0])
 command_line.add_argument('start_date', type=check_date, help=
     'first date of period (YYYY-MM-DD... or YYYYMMDD...)')
-command_line.add_argument('-V', '--version', action='version', version='%{VERSIONS_|join(" ")|trim()}')
+command_line.add_argument('-V', '--version', action='version', version="""
+$Id: DEFAULT.post.tmpl 2 2021-05-20 13:38:47Z m221078 $
+%{VERSIONS_|join('\n')}
+""")
 command_line.add_argument('-c', '--clean', action='store_true', help=
     'remove output files. '
     'Use ONLY after you made absolutely sure that the raw data still exists!')
+command_line.add_argument('-f', '--force', action='store_true', help=
+    'continue to run even if working directory exists. '
+    'Use ONLY after you made absolutely sure that no other job is running!')
 args = command_line.parse_args()
+
+# Set up diagnostic output
+
+logging.basicConfig(format='%(asctime)s: %(levelname)s%(message)s',
+                    level=logging.INFO)
+logging.addLevelName(logging.DEBUG, 'Debug: ')
+logging.addLevelName(logging.INFO, '')
+logging.addLevelName(logging.WARNING, 'Hey: ')
+logging.addLevelName(logging.ERROR, 'Oops: ')
+logging.addLevelName(logging.CRITICAL, 'Sorry: ')
+#%  if JOB.debug_level|d(0)|int > 0:
+logging.getLogger().setLevel(logging.DEBUG)
+#%  endif
+#%#
 
 # Do time computations using mtime
 
@@ -56,7 +81,7 @@ initial_date = mtime.DateTime('%{INITIAL_DATE}')
 start_date = args.start_date
 
 if start_date < initial_date:
-    sys.stderr.write("Oops: start_date is before initial_date\n")
+    logging.error("start_date is before initial_date")
     sys.exit(1)
     
 interval = mtime.TimeDelta('%{INTERVAL}')
@@ -82,8 +107,10 @@ tags.append('%{tag}')
 #%      endfor
 #%      if output.fixed is defined and output.fixed.scalars:
 #%          set fixed = output.fixed
-if start_date == initial_date:
 #%          for tag in fixed.scalars|sort if fixed[tag] and fixed[tag]|lower != 'false':
+#%              if loop.first:
+if start_date == initial_date:
+#%              endif
     tags.append('%{tag}')
 #%          endfor
 #%      endif
@@ -113,30 +140,16 @@ template_dict['restart_tags'] = ' '.join(restart_tags)
 
 # Prolog
 
-logging.basicConfig(format='%(asctime)s: %(levelname)s%(message)s',
-                    level=logging.INFO)
-logging.addLevelName(logging.DEBUG, 'Debug: ')
-logging.addLevelName(logging.INFO, '')
-logging.addLevelName(logging.WARNING, 'Hey: ')
-logging.addLevelName(logging.ERROR, 'Oops: ')
-logging.addLevelName(logging.CRITICAL, 'Sorry: ')
-#%  if JOB.debug_level|d(0)|int > 0:
-logging.getLogger().setLevel(logging.DEBUG)
-#%  endif
-#%#
 logging.info('post processing started '
              'for {start_stamp}-{end_stamp}'.format(**template_dict))
 
 # Set-up directory structure
 
-post_dir = os.path.join('%{WORK_DIR}',
-                        'post_{start_stamp}-{end_stamp}'.format(**template_dict))
 run_dir = os.path.join('%{WORK_DIR}',
                        '%{jobs.run.subdir}'.format(**template_dict))
 restart_dir = '%{RESTART_DIR}'
 data_dir = '%{DATA_DIR}'
 
-if not os.path.isdir(post_dir): os.makedirs(post_dir)
 if not os.path.isdir(restart_dir): os.makedirs(restart_dir)
 if not os.path.isdir(data_dir): os.makedirs(data_dir)
 
@@ -145,9 +158,27 @@ template_dict['run_dir'] = run_dir
 template_dict['restart_dir'] = restart_dir
 template_dict['data_dir'] = data_dir
 
-os.chdir(post_dir)
+post_dir = os.path.join('%{WORK_DIR}',
+                        'post_{start_stamp}-{end_stamp}'.
+                        format(**template_dict))
 
 logging.info('working directory is {0}'.format(post_dir))
+
+try:
+    os.makedirs(post_dir)
+except OSError as xcptn:
+    if xcptn.errno != errno.EEXIST:
+        raise
+    if args.force:
+        logging.info('forcing clean-up of existing working directory')
+        for entry in os.listdir(post_dir):
+            os.remove(os.path.join(post_dir, entry))
+    else:
+        logging.error('working directory exists. '
+                      'Check for running jobs, then consider using --force')
+        sys.exit(1)
+
+os.chdir(post_dir)
 
 # Generate Makefile
 
@@ -173,7 +204,7 @@ clean:
 	$(RM) $(TARGETS)
 
 $(RESTART_DIR)/$(EXP_ID)_restart_%_{next_date}.nc: $(RUN_DIR)/$(EXP_ID)_restart_%_{next_stamp}Z.nc
-	$(NC_COMPRESS) -s $< $@
+	$(NC_COMPRESS) $< $@
 
 $(DATA_DIR)/$(EXP_ID)_atm_%_{start_date}.nc: $(RUN_DIR)/$(EXP_ID)_atm_%_{start_stamp}Z.nc
 	$(CDO) $(CDOFLAGS) {atmo_shift_spec} $< $@
@@ -222,10 +253,11 @@ for entry in os.listdir(post_dir):
     os.remove(os.path.join(post_dir, entry))
 os.removedirs(post_dir)
 #%    if jobs.run.subdir|d(''):
-logging.info("removing run dir '{run_dir}'".format(**template_dict))
-for entry in os.listdir(run_dir):
-    os.remove(os.path.join(run_dir, entry))
-os.removedirs(run_dir)
+if os.path.isdir(run_dir):
+    logging.info("removing run dir '{run_dir}'".format(**template_dict))
+    for entry in os.listdir(run_dir):
+        os.remove(os.path.join(run_dir, entry))
+    os.removedirs(run_dir)
 #%    endif
 
 #%  endif
