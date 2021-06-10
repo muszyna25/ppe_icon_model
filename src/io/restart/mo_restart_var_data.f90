@@ -17,16 +17,16 @@ MODULE mo_restart_var_data
   USE mo_exception,          ONLY: finish
   USE mo_fortran_tools,      ONLY: insert_dimension
   USE mo_grid_config,        ONLY: l_limited_area
-  USE mo_impl_constants,     ONLY: IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER, INH_ATMOSPHERE, &
-    &                              TLEV_NNOW, TLEV_NNOW_RCF, SUCCESS, LEAPFROG_EXPL, LEAPFROG_SI
+  USE mo_impl_constants,     ONLY: IHS_ATM_TEMP, IHS_ATM_THETA, TLEV_NNOW, &
+    & ISHALLOW_WATER, INH_ATMOSPHERE, TLEV_NNOW_RCF, LEAPFROG_EXPL, LEAPFROG_SI
 #ifdef DEBUG
   USE mo_io_units,           ONLY: nerr
 #endif
   USE mo_kind,               ONLY: dp, sp
   USE mo_util_string,        ONLY: int2string
-  USE mo_var_list,           ONLY: get_var_timelevel
-  USE mo_var_list_element,   ONLY: t_var_list_element
+  USE mo_var,                ONLY: t_var
   USE mo_var_metadata_types, ONLY: t_var_metadata
+  USE mo_var_metadata,       ONLY: get_var_timelevel
 #ifndef __NO_ICON_ATMO__
   USE mo_ha_dyn_config, ONLY: ha_dyn_config
 #endif
@@ -35,9 +35,9 @@ MODULE mo_restart_var_data
 #endif
 
   IMPLICIT NONE
+  PRIVATE
 
-  PUBLIC :: get_var_3d_ptr
-  PUBLIC :: has_valid_time_level
+  PUBLIC :: get_var_3d_ptr, has_valid_time_level
 
   INTERFACE get_var_3d_ptr
     MODULE PROCEDURE get_var_3d_ptr_dp
@@ -45,18 +45,16 @@ MODULE mo_restart_var_data
     MODULE PROCEDURE get_var_3d_ptr_int
   END INTERFACE get_var_3d_ptr
 
-  PRIVATE
-
-  CHARACTER(LEN = *), PARAMETER :: modname = "mo_restart_var_data"
+  CHARACTER(*), PARAMETER :: modname = "mo_restart_var_data"
 
 CONTAINS
 
   SUBROUTINE get_var_3d_ptr_dp(vd, r_ptr_3d)
-    TYPE(t_var_list_element), POINTER, INTENT(IN) :: vd
+    TYPE(t_var), POINTER, INTENT(IN) :: vd
     REAL(dp), POINTER, INTENT(OUT) :: r_ptr_3d(:,:,:)
     REAL(dp), POINTER :: r_ptr_2d(:,:)
     INTEGER :: nindex, nlevs, var_ref_pos
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//":get_var_3d_ptr_dp"
+    CHARACTER(*), PARAMETER :: routine = modname//":get_var_3d_ptr_dp"
 
     nindex = MERGE(vd%info%ncontained, 1, vd%info%lcontained)
     nlevs = MERGE(vd%info%used_dimensions(2), 1, vd%info%ndims /= 2)
@@ -96,11 +94,11 @@ CONTAINS
   END SUBROUTINE get_var_3d_ptr_dp
 
   SUBROUTINE get_var_3d_ptr_sp(vd, s_ptr_3d)
-    TYPE(t_var_list_element), POINTER, INTENT(IN) :: vd
+    TYPE(t_var), POINTER, INTENT(IN) :: vd
     REAL(sp), POINTER, INTENT(OUT) :: s_ptr_3d(:,:,:)
     REAL(sp), POINTER :: s_ptr_2d(:,:)
     INTEGER :: nindex, nlevs, var_ref_pos
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//":get_var_3d_ptr_sp"
+    CHARACTER(*), PARAMETER :: routine = modname//":get_var_3d_ptr_sp"
 
     nindex = MERGE(vd%info%ncontained, 1, vd%info%lcontained)
     nlevs = MERGE(vd%info%used_dimensions(2), 1, vd%info%ndims /= 2)
@@ -140,11 +138,11 @@ CONTAINS
   END SUBROUTINE get_var_3d_ptr_sp
 
   SUBROUTINE get_var_3d_ptr_int(vd, i_ptr_3d)
-    TYPE(t_var_list_element), POINTER, INTENT(IN) :: vd
+    TYPE(t_var), POINTER, INTENT(IN) :: vd
     INTEGER, POINTER, INTENT(OUT) :: i_ptr_3d(:,:,:)
     INTEGER, POINTER :: i_ptr_2d(:,:)
     INTEGER :: nindex, nlevs, var_ref_pos
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//":get_var_3d_ptr_i"
+    CHARACTER(*), PARAMETER :: routine = modname//":get_var_3d_ptr_i"
 
     nindex = MERGE(vd%info%ncontained, 1, vd%info%lcontained)
     nlevs = MERGE(vd%info%used_dimensions(2), 1, vd%info%ndims /= 2)
@@ -189,7 +187,7 @@ CONTAINS
     INTEGER, INTENT(in) :: patch_id, nnew, nnew_rcf
     INTEGER :: time_level
     LOGICAL :: lskip_timelev, lskip_extra_timelevs
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//':has_valid_time_level'
+    CHARACTER(*), PARAMETER :: routine = modname//':has_valid_time_level'
 
     has_vtl = .FALSE.
     IF (.NOT. p_info%lrestart) RETURN
@@ -198,7 +196,7 @@ CONTAINS
     lskip_extra_timelevs = iequations == INH_ATMOSPHERE .AND. &
       &                    .NOT. (l_limited_area .AND. patch_id == 1)
     ! get time index of the given field
-    time_level = get_var_timelevel(p_info)
+    time_level = get_var_timelevel(p_info%name)
     !TODO: I found the `time_level >= 0` condition IN the async restart code ONLY. Check whether it should be removed OR NOT.
     IF(time_level >= 0) THEN
       ! get information about time level to be skipped for current field

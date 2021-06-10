@@ -28,5 +28,5 @@ MODULE mo_cdi_constants
 
   INTEGER, PARAMETER :: GRID_REGULAR_LONLAT    = 45
 
-
+  CHARACTER(*), PARAMETER :: LONLAT_PREFIX = "latlon_internal_"
 END MODULE mo_cdi_constants

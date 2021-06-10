@@ -8,7 +8,7 @@ dnl means that the AC_AUTOCONF_VERSION macro is available.
      [m4_fatal([Autoconf version 2.69 is required but version ]dnl
 m4_defn([AC_AUTOCONF_VERSION])[ is used], [63])])],
   [m4_fatal([Autoconf version 2.69 is required], [63])])
-AC_INIT([icon], [2.6.0], [], [icon-2.6.0])
+AC_INIT([icon], [2.6.3], [], [icon-2.6.3])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([utils])
 AC_CONFIG_SRCDIR([src/drivers/icon.f90])
@@ -1654,48 +1654,6 @@ version of TIXI library @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
       AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/tixi/src "])
       BUNDLED_LIBFILES="externals/tixi/src/libicon_tixi.a dnl
 $BUNDLED_LIBFILES"])])
-
-AS_VAR_IF([with_external_self], [yes],
-  [AC_MSG_CHECKING([whether Fortran SELF 0.2 library is available])
-   AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
-      use self_object
-      use self_vector_ref
-      use self_vector
-      use self_map, only: map
-      use self_assert
-      implicit none
-      type(map) :: a
-      call a%init()]])],
-     [AC_MSG_RESULT([yes])],
-     [AC_MSG_RESULT([no])
-      AC_MSG_FAILURE([unable to link a test program using SELF 0.2 dnl
-library: either use the bundled version of SELF library dnl
-(--without-external-self) or set FCFLAGS, LDFLAGS and LIBS accordingly])])],
-  [icon_subdir_srcdir="$srcdir/externals/self"
-   icon_subdir_unique_file="src/self_object.f90"
-   AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
-     [AC_MSG_ERROR([unable to find sources of the bundled version of SELF dnl
-library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an dnl
-external version of SELF library (--with-external-self) by setting FCFLAGS, dnl
-LDFLAGS and LIBS accordingly])])
-   AC_ARG_VAR([ICON_SELF_FCFLAGS],
-     [Fortran compiler flags to be appended to FCFLAGS when configuring the
-bundled version of SELF library @<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
-   ICON_SELF_FCFLAGS=${ICON_SELF_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
-   AC_ARG_VAR([ICON_SELF_CFLAGS],
-     [C compiler flags to be appended to CFLAGS when configuring the bundled
-version of SELF library @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
-   ICON_SELF_CFLAGS=${ICON_SELF_CFLAGS-$ICON_BUNDLED_CFLAGS}
-   ACX_CONFIG_SUBDIR([externals/self],
-     [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*],
-      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([maintainer-mode])],
-      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])]],
-     [[CFLAGS="$subdir_CFLAGS $ICON_SELF_CFLAGS"],
-      [FCFLAGS="$subdir_FCFLAGS $ICON_SELF_FCFLAGS"],
-      [--disable-maintainer-mode],
-      [--enable-silent-rules="$enable_silent_rules"]])
-   AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/self/src "])
-   BUNDLED_LIBFILES="externals/self/src/libself.a $BUNDLED_LIBFILES"])
 
 dnl Prepend the include search flags to FCFLAGS:
 AS_IF([test -n "$bundled_includes"], [FCFLAGS="${bundled_includes}${FCFLAGS}"])

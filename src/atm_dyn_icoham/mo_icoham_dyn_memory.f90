@@ -24,8 +24,7 @@
 !!
 MODULE mo_icoham_dyn_memory
 
-  USE mo_impl_constants,      ONLY: success, max_var_list_name_len, &
-    &                               vname_len, max_ntracer
+  USE mo_impl_constants,      ONLY: success, vlname_len, vname_len, max_ntracer
   USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_CELL,   &
     &                               GRID_EDGE, GRID_CELL, GRID_VERTEX,                &
     &                               GRID_UNSTRUCTURED_VERT
@@ -35,11 +34,8 @@ MODULE mo_icoham_dyn_memory
   USE mo_parallel_config,     ONLY: nproma
   USE mo_advection_config,    ONLY: advection_config
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config
-  USE mo_linked_list,         ONLY: t_var_list
-  USE mo_var_list,            ONLY: default_var_list_settings, &
-                                  & add_var, add_ref,          &
-                                  & new_var_list,              &
-                                  & delete_var_list
+  USE mo_var_list,            ONLY: add_var, add_ref, t_var_list_ptr
+  USE mo_var_list_register,   ONLY: vlr_add, vlr_del
   USE mo_cf_convention,       ONLY: t_cf_var
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
   USE mo_cdi,                 ONLY: DATATYPE_PACK16, DATATYPE_FLT32, DATATYPE_FLT64, GRID_UNSTRUCTURED
@@ -62,13 +58,13 @@ MODULE mo_icoham_dyn_memory
   !--------------------------------------------------------------------------
   !                          VARIABLE LISTS
   !--------------------------------------------------------------------------
-  TYPE(t_var_list),PUBLIC,ALLOCATABLE :: hydro_prog_list(:,:)    !< shape: (n_dom,ntimelevel)
-  TYPE(t_var_list),PUBLIC,ALLOCATABLE :: hydro_diag_list(:)      !< shape: (n_dom)
-  TYPE(t_var_list),PUBLIC,ALLOCATABLE :: hydro_tend_dyn_list(:)  !< shape: (n_dom)
-  TYPE(t_var_list),PUBLIC,ALLOCATABLE :: hydro_tend_phy_list(:)  !< shape: (n_dom)
-  TYPE(t_var_list),PUBLIC,ALLOCATABLE :: hydro_prog_out_list(:)  !< shape: (n_dom)
-  TYPE(t_var_list),PUBLIC,ALLOCATABLE :: hydro_diag_out_list(:)  !< shape: (n_dom)
-  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_icoham_dyn_memory'
+  TYPE(t_var_list_ptr),PUBLIC,ALLOCATABLE :: hydro_prog_list(:,:)    !< shape: (n_dom,ntimelevel)
+  TYPE(t_var_list_ptr),PUBLIC,ALLOCATABLE :: hydro_diag_list(:)      !< shape: (n_dom)
+  TYPE(t_var_list_ptr),PUBLIC,ALLOCATABLE :: hydro_tend_dyn_list(:)  !< shape: (n_dom)
+  TYPE(t_var_list_ptr),PUBLIC,ALLOCATABLE :: hydro_tend_phy_list(:)  !< shape: (n_dom)
+  TYPE(t_var_list_ptr),PUBLIC,ALLOCATABLE :: hydro_prog_out_list(:)  !< shape: (n_dom)
+  TYPE(t_var_list_ptr),PUBLIC,ALLOCATABLE :: hydro_diag_out_list(:)  !< shape: (n_dom)
+  CHARACTER(*), PARAMETER :: modname = 'mo_icoham_dyn_memory'
 
 CONTAINS
 
@@ -79,17 +75,12 @@ CONTAINS
   !! Subroutine that allocates memory for the state vector on ALL grid levels
   !!
   SUBROUTINE construct_icoham_dyn_state( ntimelevel, ntracer, p_patch )
-
     INTEGER,      INTENT(IN) :: ntimelevel, ntracer
     TYPE(t_patch),INTENT(IN) :: p_patch(:)
-
     INTEGER :: ndomain, jg, jt, istat, nblks_c, nblks_e, nblks_v, nlev
-    CHARACTER(len=max_var_list_name_len) :: listname
-    CHARACTER(len=vname_len) :: varname_prefix
-    CHARACTER(len=VNAME_LEN) :: tracer_names(MAX_NTRACER) 
-
-    CHARACTER(len=*), PARAMETER :: &
-             routine = modname//':construct_icoham_dyn_state'
+    CHARACTER(LEN=vlname_len) :: listname
+    CHARACTER(LEN=vname_len) :: varname_prefix, tracer_names(MAX_NTRACER) 
+    CHARACTER(*), PARAMETER :: routine = modname//':construct_icoham_dyn_state'
 
     !---
     CALL message('','')
@@ -242,19 +233,19 @@ CONTAINS
 
       ! Prognostic variables
       DO jt = 1,ntimelevel
-        CALL delete_var_list( hydro_prog_list(jg,jt) )
+        CALL vlr_del(hydro_prog_list(jg,jt))
       END DO
 
       ! Diagnostic variables
-      CALL delete_var_list( hydro_diag_list(jg) )
+      CALL vlr_del(hydro_diag_list(jg))
 
       ! Tendencies
-      CALL delete_var_list( hydro_tend_dyn_list(jg) )
-      CALL delete_var_list( hydro_tend_phy_list(jg) )
+      CALL vlr_del(hydro_tend_dyn_list(jg))
+      CALL vlr_del(hydro_tend_phy_list(jg))
 
-      ! Memory used for organizing output
-      CALL delete_var_list( hydro_prog_out_list(jg) )
-      CALL delete_var_list( hydro_diag_out_list(jg) )
+      ! Memory used for orgnizing output
+      CALL vlr_del(hydro_prog_out_list(jg))
+      CALL vlr_del(hydro_diag_out_list(jg))
 
       DEALLOCATE( p_hydro_state(jg)%prog, STAT=istat )
       IF (istat/=SUCCESS) &
@@ -288,7 +279,7 @@ CONTAINS
     CHARACTER(len=*),INTENT(IN) :: listname, vname_prefix
     CHARACTER(len=VNAME_LEN) :: tracer_names(:)      !< tracer-specific name suffixes
 
-    TYPE(t_var_list)      ,INTENT(INOUT) :: field_list
+    TYPE(t_var_list_ptr)      ,INTENT(INOUT) :: field_list
     TYPE(t_hydro_atm_prog),INTENT(INOUT) :: field
 
     ! Local variables
@@ -310,9 +301,7 @@ CONTAINS
 
     ! Register a variable list and apply default settings
 
-    CALL new_var_list( field_list, listname, patch_id=k_jg )
-    CALL default_var_list_settings( field_list,                &
-                                  & lrestart=store_in_restart  )
+    CALL vlr_add(field_list, TRIM(listname), patch_id=k_jg, lrestart=store_in_restart)
 
     ! Add variables to the list 
 
@@ -394,7 +383,7 @@ CONTAINS
     CHARACTER(len=*),INTENT(IN) :: listname, vname_prefix
     CHARACTER(len=VNAME_LEN) :: tracer_names(:)      !< tracer-specific name suffixes
 
-    TYPE(t_var_list)      ,INTENT(INOUT) :: field_list
+    TYPE(t_var_list_ptr)      ,INTENT(INOUT) :: field_list
     TYPE(t_hydro_atm_diag),INTENT(INOUT) :: field
 
     ! Local variables
@@ -416,8 +405,7 @@ CONTAINS
 
     ! Register a variable list and apply default settings
 
-    CALL new_var_list( field_list, listname, patch_id=k_jg )
-    CALL default_var_list_settings( field_list, lrestart=store_in_restart ) 
+    CALL vlr_add(field_list, TRIM(listname), patch_id=k_jg, lrestart=store_in_restart)
 
     !----------------------------
     ! Add variables to the list 

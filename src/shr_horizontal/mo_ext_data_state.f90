@@ -48,12 +48,11 @@ MODULE mo_ext_data_state
   USE mo_model_domain,       ONLY: t_patch
   USE mo_ext_data_types,     ONLY: t_external_data, t_external_atmos_td, &
     &                              t_external_atmos
-  USE mo_linked_list,        ONLY: t_var_list
   USE mo_var_groups,         ONLY: groups
   USE mo_var_metadata_types, ONLY: POST_OP_SCALE, POST_OP_LUC, CLASS_TILE
   USE mo_var_metadata,       ONLY: post_op, create_hor_interp_metadata
-  USE mo_var_list,           ONLY: new_var_list, delete_var_list, add_var, add_ref, &
-    &                              default_var_list_settings
+  USE mo_var_list_register,  ONLY: vlr_add, vlr_del
+  USE mo_var_list,           ONLY: add_var, add_ref, t_var_list_ptr
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var, grib2_var, t_grib2_int_key, &
     &                              OPERATOR(+)
@@ -189,7 +188,7 @@ CONTAINS
     TYPE(t_external_atmos), INTENT(INOUT):: & !< current external data structure
       &  p_ext_atm
 
-    TYPE(t_var_list)      , INTENT(INOUT):: p_ext_atm_list !< current external data list
+    TYPE(t_var_list_ptr)      , INTENT(INOUT):: p_ext_atm_list !< current external data list
 
     CHARACTER(len=*)      , INTENT(IN)   :: & !< list name
       &  listname
@@ -310,10 +309,7 @@ CONTAINS
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( p_ext_atm_list, TRIM(listname), patch_id=p_patch%id )
-    CALL default_var_list_settings( p_ext_atm_list,            &
-                                  & lrestart=.FALSE.  )
-
+    CALL vlr_add(p_ext_atm_list, TRIM(listname), patch_id=p_patch%id, lrestart=.FALSE.)
 
     ! topography height at cell center
     !
@@ -1219,7 +1215,7 @@ CONTAINS
     TYPE(t_external_atmos_td), INTENT(INOUT):: & !< current external data structure
       &  p_ext_atm_td
 
-    TYPE(t_var_list)         , INTENT(INOUT):: & !< current external data list
+    TYPE(t_var_list_ptr)         , INTENT(INOUT):: & !< current external data list
       &  p_ext_atm_td_list
 
     CHARACTER(len=*)         , INTENT(IN)   :: & !< list name
@@ -1280,11 +1276,8 @@ CONTAINS
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( p_ext_atm_td_list, TRIM(listname), patch_id=jg )
-    CALL default_var_list_settings( p_ext_atm_td_list,         &
-                                  & lrestart=.FALSE.,          &
-                                  & loutput=.TRUE.  )
-
+    CALL vlr_add(p_ext_atm_td_list, TRIM(listname), patch_id=jg, &
+      &               lrestart=.FALSE., loutput=.TRUE.)
 
     !--------------------------------
     ! radiation parameters
@@ -1553,7 +1546,7 @@ CONTAINS
 
     DO jg = 1,n_dom
       ! Delete list of constant in time atmospheric elements
-      CALL delete_var_list( ext_data(jg)%atm_list )
+      CALL vlr_del(ext_data(jg)%atm_list)
       !
       ! destruct index lists
       CALL ext_data(jg)%atm%list_land  %finalize()
@@ -1566,7 +1559,7 @@ CONTAINS
     IF (iforcing > 1 ) THEN
       DO jg = 1,n_dom
         ! Delete list of time-dependent atmospheric elements
-        CALL delete_var_list( ext_data(jg)%atm_td_list )
+        CALL vlr_del(ext_data(jg)%atm_td_list)
       ENDDO
     END IF
 

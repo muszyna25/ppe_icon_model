@@ -16,26 +16,21 @@
 !! headers of the routines.
 !!
 MODULE mo_key_value_store
-  USE ISO_C_BINDING, ONLY: C_DOUBLE, C_INT, C_NULL_CHAR, C_SIZE_T, C_INT32_T
   USE mo_exception,             ONLY: finish, message
   USE mo_hash_table,            ONLY: t_HashTable, hashTable_make, t_HashIterator
-  USE mo_impl_constants,        ONLY: SUCCESS
   USE mo_kind,                  ONLY: wp
   USE mo_mpi,                   ONLY: p_get_bcast_role
   USE mo_packed_message,        ONLY: t_PackedMessage
   USE mo_util_string,           ONLY: tolower
-  USE mo_util_hash,             ONLY: util_hashword
+  USE mo_util_texthash,         ONLY: text_hash, text_isEqual, sel_char
+#ifdef __PGI
+  USE mo_util_texthash,         ONLY: t_char_workaround
+#endif
 
   IMPLICIT NONE
   PRIVATE
 
   PUBLIC :: t_key_value_store
-
-#ifdef __PGI
-  TYPE, PUBLIC :: t_char_workaround
-    CHARACTER(:), ALLOCATABLE :: c
-  END TYPE t_char_workaround
-#endif
 
   TYPE :: t_key_value_store
     PRIVATE
@@ -70,42 +65,6 @@ MODULE mo_key_value_store
 
 CONTAINS
 
-  FUNCTION sel_char(key, routine, err_msg) RESULT(ptr)
-    CLASS(*), POINTER, INTENT(in) :: key
-    CHARACTER(*), INTENT(IN) :: routine, err_msg
-    CHARACTER(:), POINTER :: ptr
-
-    SELECT TYPE(key)
-#ifdef __PGI
-    TYPE IS(t_char_workaround)
-      ptr => key%c
-#endif
-    TYPE IS(CHARACTER(*))
-      ptr => key
-    CLASS DEFAULT
-      CALL finish(routine, err_msg)
-    END SELECT
-  END FUNCTION sel_char
-
-  INTEGER(C_INT32_t) FUNCTION text_hash_cs(key) RESULT(hash)
-    CLASS(*), POINTER, INTENT(in) :: key
-    CHARACTER(*), PARAMETER :: routine = modname//":text_hash_cs"
-    CHARACTER(:), POINTER :: key_p
-
-    key_p => sel_char(key, routine, "Unknown type for key.")
-    hash = INT(util_hashword(key_p//C_NULL_CHAR, INT(LEN(key_p), C_SIZE_T), 0), C_INT32_T)
-  END FUNCTION text_hash_cs
-
-  LOGICAL FUNCTION text_isEqual_cs(keyA, keyB) RESULT(is_equal)
-    CLASS(*), POINTER, INTENT(in) :: keyA, keyB
-    CHARACTER(*), PARAMETER :: routine = modname//":text_isEqual_cs"
-    CHARACTER(:), POINTER :: keyA_p, keyB_p
-
-    keyA_p => sel_char(keyA, routine, "Unknown type for keyA.")
-    keyB_p => sel_char(keyB, routine, "Unknown type for keyB.")
-    is_equal = keyA_p == keyB_p
-  END FUNCTION text_isEqual_cs
-
   SUBROUTINE key_value_store_init(me, cs)
     CLASS(t_key_value_store), INTENT(INOUT) :: me
     LOGICAL, INTENT(IN) :: cs
@@ -116,7 +75,7 @@ CONTAINS
     END IF
     IF (.NOT. me%is_init) THEN
       me%lcase_sensitive = cs
-      me%table => hashTable_make(text_hash_cs, text_isEqual_cs)
+      me%table => hashTable_make(text_hash, text_isEqual)
       me%is_init = .true.
     END IF
   END SUBROUTINE key_value_store_init
@@ -249,7 +208,7 @@ CONTAINS
       TYPE IS(INTEGER)
         IF (.NOT.PRESENT(opt_i)) &
           & CALL finish(routine, "type mismatch '"//trimmed_key//"', is INTEGER")
-        opt_i = INT(valObj, C_INT)
+        opt_i = valObj
       TYPE IS(LOGICAL)
         IF (.NOT.PRESENT(opt_l)) &
           & CALL finish(routine, "type mismatch '"//trimmed_key//"', is LOGICAL")

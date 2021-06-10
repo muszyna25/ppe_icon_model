@@ -45,7 +45,7 @@ MODULE mo_echam_phy_main
 
   USE mo_echam_diagnostics   ,ONLY: echam_global_diagnostics
 #if defined( _OPENACC )
-  USE mo_var_list_gpu        ,ONLY: gpu_h2d_var_list, gpu_d2h_var_list
+  USE mo_var_list_gpu        ,ONLY: gpu_update_var_list
 #endif
 
   USE mo_interface_echam_cov ,ONLY: interface_echam_cov
@@ -141,8 +141,8 @@ CONTAINS
 #if defined( _OPENACC )
        IF ( is_active ) THEN
           CALL warning('GPU:echam_rad_main','GPU host synchronization should be removed when port is done!')
-          CALL gpu_d2h_var_list('prm_field_D', jg)
-          CALL gpu_d2h_var_list('prm_tend_D', jg)
+          CALL gpu_update_var_list('prm_field_D', .false., jg)
+          CALL gpu_update_var_list('prm_tend_D', .false., jg)
        END IF
 #endif
        !
@@ -156,8 +156,8 @@ CONTAINS
 #if defined( _OPENACC )
        IF ( is_active ) THEN
           CALL warning('GPU:echam_rad_main','GPU device synchronization should be removed when port is done!')
-          CALL gpu_h2d_var_list('prm_field_D', jg)
-          CALL gpu_h2d_var_list('prm_tend_D', jg)
+          CALL gpu_update_var_list('prm_field_D', .true., jg)
+          CALL gpu_update_var_list('prm_tend_D', .true., jg)
        END IF
 #endif
 #else
@@ -207,8 +207,8 @@ CONTAINS
     IF ( echam_phy_tc(jg)%dt_car > dt_zero ) THEN
 #if defined( _OPENACC )
        CALL warning('GPU:echam_car_main','GPU host synchronization should be removed when port is done!')
-       CALL gpu_d2h_var_list('prm_field_D', jg)
-       CALL gpu_d2h_var_list('prm_tend_D', jg)
+       CALL gpu_update_var_list('prm_field_D', .false., jg)
+       CALL gpu_update_var_list('prm_tend_D', .false., jg)
 #endif
        !
        is_in_sd_ed_interval =          (echam_phy_tc(jg)%sd_car <= datetime_old) .AND. &
@@ -224,8 +224,8 @@ CONTAINS
        !
 #if defined( _OPENACC )
        CALL warning('GPU:echam_car_main','GPU device synchronization should be removed when port is done!')
-       CALL gpu_h2d_var_list('prm_field_D', jg)
-       CALL gpu_h2d_var_list('prm_tend_D', jg)
+       CALL gpu_update_var_list('prm_field_D', .true., jg)
+       CALL gpu_update_var_list('prm_tend_D', .true., jg)
 #endif
     END IF
 
@@ -237,8 +237,8 @@ CONTAINS
     IF (echam_phy_tc(jg)%dt_art > dt_zero) THEN
 #if defined( _OPENACC )
        CALL warning('GPU:echam_art_main','GPU host synchronization should be removed when port is done!')
-       CALL gpu_d2h_var_list('prm_field_D', jg)
-       CALL gpu_d2h_var_list('prm_tend_D', jg)
+       CALL gpu_update_var_list('prm_field_D', .false., jg)
+       CALL gpu_update_var_list('prm_tend_D', .false., jg)
 #endif
       !
       is_in_sd_ed_interval =          (echam_phy_tc(jg)%sd_art <= datetime_old) .AND. &
@@ -259,8 +259,8 @@ CONTAINS
       !
 #if defined( _OPENACC )
        CALL warning('GPU:echam_art_main','GPU device synchronization should be removed when port is done!')
-       CALL gpu_h2d_var_list('prm_field_D', jg)
-       CALL gpu_h2d_var_list('prm_tend_D', jg)
+       CALL gpu_update_var_list('prm_field_D', .true., jg)
+       CALL gpu_update_var_list('prm_tend_D', .true., jg)
 #endif
     END IF
     !

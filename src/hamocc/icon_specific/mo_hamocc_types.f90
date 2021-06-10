@@ -24,7 +24,6 @@ MODULE mo_hamocc_types
     & f_plane_coriolis, zero_coriolis, halo_levels_ceiling
   USE mo_math_types,         ONLY: t_cartesian_coordinates,      &
     & t_geographical_coordinates
-  USE mo_linked_list,        ONLY: t_var_list
   USE mo_ocean_tracer_transport_types, ONLY: t_tracer_collection
 
 

@@ -75,12 +75,8 @@ MODULE mo_ocean_physics_types
   USE mo_math_constants,      ONLY: dbl_eps
   USE mo_dynamics_config,     ONLY: nold!, nnew
   USE mo_run_config,          ONLY: dtime
-  USE mo_linked_list,         ONLY: t_var_list
-  USE mo_var_list,            ONLY: add_var,                  &
-    & new_var_list,             &
-    & delete_var_list,          &
-    & default_var_list_settings,&
-    & add_ref
+  USE mo_var_list,            ONLY: add_var, add_ref, t_var_list_ptr
+  USE mo_var_list_register,   ONLY: vlr_add, vlr_del
   USE mo_var_groups,          ONLY: groups
   USE mo_cf_convention
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
@@ -107,7 +103,7 @@ MODULE mo_ocean_physics_types
   PUBLIC :: destruct_ho_params
 
   ! variables
-  TYPE (t_var_list) :: ocean_params_list
+  TYPE (t_var_list_ptr) :: ocean_params_list
 
   TYPE t_cvmix_params
     REAL(wp),POINTER ::            &
@@ -247,7 +243,7 @@ CONTAINS
 
     TYPE(t_patch),      INTENT(IN)    :: patch_2D
     TYPE (t_ho_params), INTENT(INOUT) :: params_oce
-    TYPE (t_var_list),  INTENT(INOUT) :: ocean_restart_list
+    TYPE (t_var_list_ptr),  INTENT(INOUT) :: ocean_restart_list
 
     ! Local variables
     INTEGER :: ist, i,jtrc
@@ -266,8 +262,8 @@ CONTAINS
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'construct hydro ocean physics')
 
-    CALL new_var_list(ocean_params_list, 'ocean_params_list', patch_id=patch_2D%id)
-    CALL default_var_list_settings( ocean_params_list, lrestart=.FALSE.,  model_type=TRIM(get_my_process_name()) )
+    CALL vlr_add(ocean_params_list, 'ocean_params_list', patch_id=patch_2D%id, &
+      & lrestart=.FALSE., model_type=TRIM(get_my_process_name()))
 
     ! determine size of arrays
     alloc_cell_blocks = patch_2D%alloc_cell_blocks
@@ -887,7 +883,7 @@ CONTAINS
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'destruct hydro ocean physics')
 
-    CALL delete_var_list(ocean_params_list)
+    CALL vlr_del(ocean_params_list)
 
     DEALLOCATE(params_oce%a_tracer_v_back,               &
       & params_oce%Tracer_HorizontalDiffusion_Reference, &

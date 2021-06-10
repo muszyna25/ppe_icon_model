@@ -49,7 +49,7 @@ MODULE mo_nwp_phy_state
 
 USE mo_kind,                ONLY: wp, i8
 USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag, t_nwp_phy_tend
-USE mo_impl_constants,      ONLY: success, max_var_list_name_len,     &
+USE mo_impl_constants,      ONLY: success, &
   &                               VINTP_METHOD_LIN,VINTP_METHOD_QV,   &
   &                               TASK_COMPUTE_RH, TASK_COMPUTE_PV,   &
   &                               TASK_COMPUTE_SDI2,                  &
@@ -68,7 +68,7 @@ USE mo_impl_constants,      ONLY: success, max_var_list_name_len,     &
   &                               nexlevs_rrg_vnest, RTTOV_BT_CL,     &
   &                               RTTOV_RAD_CL, RTTOV_RAD_CS,         &
   &                               iss, iorg, ibc, iso4,               &
-  &                               idu, nclass_aero
+  &                               idu, nclass_aero, vname_len
 USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL,             &
   &                               GRID_CELL
 USE mo_parallel_config,     ONLY: nproma
@@ -76,20 +76,18 @@ USE mo_run_config,          ONLY: nqtendphy, iqv, iqc, iqi, iqr, iqs, iqg, lart,
 USE mo_exception,           ONLY: message, finish !,message_text
 USE mo_model_domain,        ONLY: t_patch, p_patch, p_patch_local_parent
 USE mo_grid_config,         ONLY: n_dom, n_dom_start
-USE mo_linked_list,         ONLY: t_var_list
 USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config, icpl_aero_conv, iprog_aero
 USE turb_data,              ONLY: ltkecon
 USE mo_initicon_config,     ONLY: icpl_da_sfcevap
 USE mo_radiation_config,    ONLY: irad_aero
 USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water, nlev_soil
-USE mo_var_list,            ONLY: default_var_list_settings, &
-  &                               add_var, add_ref, new_var_list, delete_var_list
+USE mo_var_list,            ONLY: add_var, add_ref, t_var_list_ptr
+USE mo_var_list_register,   ONLY: vlr_add, vlr_del
 USE mo_var_groups,          ONLY: groups, MAX_GROUPS
-USE mo_var_metadata_types,  ONLY: POST_OP_SCALE, POST_OP_LIN2DBZ, CLASS_SYNSAT, CLASS_CHEM, VARNAME_LEN
+USE mo_var_metadata_types,  ONLY: POST_OP_SCALE, POST_OP_LIN2DBZ, CLASS_SYNSAT, CLASS_CHEM
 USE mo_var_metadata,        ONLY: create_vert_interp_metadata,  &
   &                               create_hor_interp_metadata,   &
-  &                               vintp_types, post_op, &
-  &                               new_action, actions
+  &                               vintp_types, post_op
 USE mo_nwp_parameters,      ONLY: t_phy_params
 USE mo_cf_convention,       ONLY: t_cf_var
 USE mo_grib2,               ONLY: t_grib2_var, grib2_var, t_grib2_int_key, OPERATOR(+)
@@ -110,7 +108,7 @@ USE mo_synsat_config,        ONLY: lsynsat, num_images, get_synsat_name, num_sen
   &                                total_numchans, get_synsat_grib_triple
 USE mo_art_config,           ONLY: nart_tendphy
 USE mo_art_tracer_interface, ONLY: art_tracer_interface
-USE mo_action,               ONLY: ACTION_RESET
+USE mo_action,               ONLY: ACTION_RESET, new_action, actions
 USE mo_les_nml,              ONLY: turb_profile_list, turb_tseries_list
 USE mo_io_config,            ONLY: lflux_avg, lnetcdf_flt64_output, gust_interval, &
   &                                celltracks_interval, echotop_meta, &
@@ -151,8 +149,8 @@ PUBLIC :: prm_nwp_tend_list  !< variable lists
 !!--------------------------------------------------------------------------
 !!                          VARIABLE LISTS
 !!--------------------------------------------------------------------------
-  TYPE(t_var_list),ALLOCATABLE :: prm_nwp_diag_list(:)  !< shape: (n_dom)
-  TYPE(t_var_list),ALLOCATABLE :: prm_nwp_tend_list(:)  !< shape: (n_dom)
+  TYPE(t_var_list_ptr),ALLOCATABLE :: prm_nwp_diag_list(:)  !< shape: (n_dom)
+  TYPE(t_var_list_ptr),ALLOCATABLE :: prm_nwp_tend_list(:)  !< shape: (n_dom)
 
 !!-------------------------------------------------------------------------
 !! Parameters of various physics parameterizations that have to be 
@@ -166,20 +164,15 @@ CONTAINS
 !-------------------------------------------------------------------------
 
 SUBROUTINE construct_nwp_phy_state( p_patch, var_in_output )
-
   TYPE(t_patch), TARGET, INTENT(in) :: p_patch(n_dom)
   TYPE(t_var_in_output), INTENT(in) :: var_in_output(n_dom)
-
-                       
-  CHARACTER(len=max_var_list_name_len) :: listname
-  INTEGER ::  jg,ist, nblks_c, nlev, nlevp1
-  CHARACTER(len=*), PARAMETER :: &
-    routine = 'mo_nwp_phy_state:construct_nwp_state'
+  CHARACTER(LEN=21) :: listname
+  INTEGER :: jg, ist, nblks_c, nlev, nlevp1
+  CHARACTER(*), PARAMETER :: routine = 'mo_nwp_phy_state:construct_nwp_state'
 
 !-------------------------------------------------------------------------
 
   CALL message(routine, 'start to construct 3D state vector')
-
 
   ! Allocate pointer arrays prm_diag_nwp and prm_nwp_tend, 
   ! as well as the corresponding list arrays.
@@ -208,23 +201,18 @@ SUBROUTINE construct_nwp_phy_state( p_patch, var_in_output )
      nlevp1 = p_patch(jg)%nlevp1
      
      WRITE(listname,'(a,i2.2)') 'prm_diag_of_domain_',jg
-
-     CALL new_nwp_phy_diag_list( jg, nlev, nlevp1, nblks_c, TRIM(listname),             &
+     CALL new_nwp_phy_diag_list( jg, nlev, nlevp1, nblks_c, listname,             &
        &                         prm_nwp_diag_list(jg), prm_diag(jg), var_in_output(jg) )
-     !
      WRITE(listname,'(a,i2.2)') 'prm_tend_of_domain_',jg
-     CALL new_nwp_phy_tend_list ( jg, nlev, nblks_c,&
-                                & TRIM(listname), prm_nwp_tend_list(jg), prm_nwp_tend(jg))
+     CALL new_nwp_phy_tend_list ( jg, nlev, nblks_c, listname, &
+       &                          prm_nwp_tend_list(jg), prm_nwp_tend(jg))
   ENDDO
 
-
   ! Allocate variable of type t_phy_params containing domain-dependent parameters
-  !
   ALLOCATE(phy_params(n_dom), STAT=ist)
   !$ACC ENTER DATA CREATE(phy_params)
   IF(ist/=success) CALL finish(routine, 'allocation of phy_params array failed')
 
-  
   CALL message(routine, 'construction of state vector finished')
 
 END SUBROUTINE construct_nwp_phy_state
@@ -239,8 +227,8 @@ SUBROUTINE destruct_nwp_phy_state
   CALL message(routine, 'start to destruct 3D state vector')
 
   DO jg = 1,n_dom
-    CALL delete_var_list( prm_nwp_diag_list(jg) )
-    CALL delete_var_list( prm_nwp_tend_list (jg) )
+    CALL vlr_del(prm_nwp_diag_list(jg))
+    CALL vlr_del(prm_nwp_tend_list(jg))
 
     IF (ASSOCIATED(prm_diag(jg)%buffer_rttov))  DEALLOCATE(prm_diag(jg)%buffer_rttov)  
     IF (ALLOCATED(prm_diag(jg)%synsat_image))   DEALLOCATE(prm_diag(jg)%synsat_image)
@@ -285,7 +273,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     CHARACTER(LEN=1)                :: csfc
     CHARACTER(LEN=2)                :: caer
 
-    TYPE(t_var_list)    ,INTENT(INOUT) :: diag_list
+    TYPE(t_var_list_ptr)    ,INTENT(INOUT) :: diag_list
     TYPE(t_nwp_phy_diag),INTENT(INOUT) :: diag
     TYPE(t_var_in_output), INTENT(IN)  :: var_in_output
 
@@ -312,7 +300,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     LOGICAL :: lradiance, lcloudy
     INTEGER :: ichan, idiscipline, icategory, inumber, &
       &        wave_no, wave_no_scalfac, iimage, isens, k
-    CHARACTER(LEN=VARNAME_LEN) :: shortname
+    CHARACTER(LEN=vname_len) :: shortname
     CHARACTER(LEN=128)         :: longname, unit
     CHARACTER(len=max_timedelta_str_len) :: gust_int, celltracks_int, echotop_int
     !
@@ -340,10 +328,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
 
     ! Register a field list and apply default settings
 
-    CALL new_var_list( diag_list, listname, patch_id=k_jg )
-    CALL default_var_list_settings( diag_list,                 &
-                                  & lrestart=.TRUE.  )
-
+    CALL vlr_add(diag_list, TRIM(listname), patch_id=k_jg, lrestart=.TRUE.)
    
     !------------------------------
     ! Meteorological quantities
@@ -4058,7 +4043,7 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
 
     CHARACTER(len=*),INTENT(IN) :: listname
 
-    TYPE(t_var_list)    ,INTENT(INOUT) :: phy_tend_list
+    TYPE(t_var_list_ptr)    ,INTENT(INOUT) :: phy_tend_list
     TYPE(t_nwp_phy_tend),INTENT(INOUT) :: phy_tend
 
     ! Local variables
@@ -4098,10 +4083,7 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
 
     NULLIFY(phy_tend%ddt_temp_gscp, phy_tend%ddt_tracer_gscp)
 
-    CALL new_var_list( phy_tend_list, listname, patch_id=k_jg )
-    CALL default_var_list_settings( phy_tend_list,             &
-                                  & lrestart=.TRUE.  )
-
+    CALL vlr_add(phy_tend_list, TRIM(listname), patch_id=k_jg ,lrestart=.TRUE.)
     
     !------------------------------
     ! Temperature tendencies
