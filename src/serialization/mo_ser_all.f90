@@ -11,7 +11,7 @@ MODULE mo_ser_all
                          ppser_zrperturb
 #endif
 
-  USE mo_impl_constants,     ONLY: REAL_T, SINGLE_T, INT_T, BOOL_T, VARNAME_LEN
+  USE mo_impl_constants,     ONLY: REAL_T, SINGLE_T, INT_T, BOOL_T, VNAME_LEN
   USE mo_kind,               ONLY: vp, wp, sp
   USE mo_exception,          ONLY: warning, message
   USE mo_ser_common,         ONLY: init
@@ -113,7 +113,7 @@ MODULE mo_ser_all
     TYPE(t_var_list_ptr) :: list
     TYPE(t_var_metadata), POINTER :: info
     TYPE(t_list_element), POINTER :: element
-    CHARACTER(len=VARNAME_LEN)    :: listname
+    CHARACTER(len=VNAME_LEN)      :: listname
 
     INTEGER :: dims(5)
 
