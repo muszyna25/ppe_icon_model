@@ -25,6 +25,7 @@
 /icon.mk
 
 # Build stage files:
+*.a
 *.i
 *.lst
 *.o
@@ -36,9 +37,6 @@
 
 # Dist stage files:
 /icon-*.tar.bz2
-
-# Extra sources that are not treated as submodules:
-externals/art
 
 # Mac OS files:
 *.dSYM
@@ -59,3 +57,8 @@ experiments*
 src/lnd_phy_jsbach
 tags
 
+# cache files from ctags, gnu global and vim
+/GPATH
+/GRTAGS
+/GTAGS
+/Session.vim

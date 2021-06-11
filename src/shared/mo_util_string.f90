@@ -195,7 +195,7 @@ CONTAINS
   ! Converts multiple spaces and tabs to single spaces and removes
   ! leading spaces.
   !
-  SUBROUTINE tocompact(string)
+  PURE SUBROUTINE tocompact(string)
     CHARACTER(len=*), INTENT(inout) :: string
     ! local variables
     INTEGER   :: offset, i, i_max
@@ -237,7 +237,7 @@ CONTAINS
   !
   ! returns integer n as a string (often needed in printing messages)
   !
-  FUNCTION int2string(n, opt_fmt)
+  PURE FUNCTION int2string(n, opt_fmt)
     CHARACTER(len=11) :: int2string ! result
     INTEGER, INTENT(in) :: n
     CHARACTER(len=*), INTENT(in), OPTIONAL :: opt_fmt
@@ -257,7 +257,7 @@ CONTAINS
   !
   ! returns real n as a string (often needed in printing messages)
   !
-  FUNCTION float2string(n, opt_fmt) 
+  PURE FUNCTION float2string(n, opt_fmt) 
     CHARACTER(len=32) :: float2string ! result
     REAL, INTENT(in) :: n
     CHARACTER(len=*), INTENT(in), OPTIONAL :: opt_fmt
@@ -274,7 +274,7 @@ CONTAINS
     !
   END FUNCTION float2string
   !
-  FUNCTION double2string(n, opt_fmt) 
+  PURE FUNCTION double2string(n, opt_fmt) 
     CHARACTER(len=32) :: double2string ! result
     DOUBLE PRECISION, INTENT(in) :: n
     CHARACTER(len=*), INTENT(in), OPTIONAL :: opt_fmt
@@ -294,7 +294,7 @@ CONTAINS
   !
   ! returns integer n as a string (often needed in printing messages)
   !
-  FUNCTION logical2string(n)
+  PURE FUNCTION logical2string(n)
     CHARACTER(len=10) :: logical2string ! result
     LOGICAL, INTENT(in) :: n
     !
@@ -360,7 +360,7 @@ CONTAINS
   !  lengths.
   !  Whitespace is ignored.
 
-  SUBROUTINE split_string(zline, n, pos, ilength)
+  PURE SUBROUTINE split_string(zline, n, pos, ilength)
 
     CHARACTER, PARAMETER :: delim = ',' ! delimiter
 
@@ -399,7 +399,7 @@ CONTAINS
   !> searches in a string list that has been previously parsed by
   !> "split_string"
 
-  FUNCTION string_contains_word(zword, zline, n, pos, ilength) RESULT(lflag)
+  PURE FUNCTION string_contains_word(zword, zline, n, pos, ilength) RESULT(lflag)
 
     LOGICAL                       :: lflag              ! result
     CHARACTER(len=*), INTENT(IN)  :: zword              ! search word

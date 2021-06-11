@@ -100,7 +100,7 @@ MODULE mo_nh_interface_nwp
 
   USE mo_art_washout_interface,   ONLY: art_washout_interface
   USE mo_art_reaction_interface,  ONLY: art_reaction_interface
-  USE mo_linked_list,             ONLY: t_var_list
+  USE mo_var_list,                ONLY: t_var_list_ptr
   USE mo_ls_forcing_nml,          ONLY: is_ls_forcing
   USE mo_ls_forcing,              ONLY: apply_ls_forcing
   USE mo_advection_config,        ONLY: advection_config
@@ -190,7 +190,7 @@ CONTAINS
     TYPE(t_wtr_prog),           INTENT(inout) :: wtr_prog_now, wtr_prog_new
     TYPE(t_lnd_diag),           INTENT(inout) :: lnd_diag
 
-    TYPE(t_var_list), INTENT(inout) :: p_prog_list !current prognostic state list
+    TYPE(t_var_list_ptr), INTENT(inout) :: p_prog_list !current prognostic state list
 
     TYPE(t_upatmo), TARGET, INTENT(inout) :: prm_upatmo !<upper-atmosphere variables
 
@@ -207,6 +207,7 @@ CONTAINS
 
     INTEGER :: jc,jk,jb,jce      !loop indices
     INTEGER :: jg,jgc            !domain id
+    INTEGER :: convind           !help variable to circument compiler issue
 
     LOGICAL :: ltemp, lpres, ltemp_ifc, l_any_fastphys, l_any_slowphys
     LOGICAL :: lcall_lhn, lcall_lhn_v, lapply_lhn, lcall_lhn_c  !< switches for latent heat nudging
@@ -1807,10 +1808,11 @@ CONTAINS
 !DIR$ IVDEP
           !$acc data present(pt_diag%temp)
           !$acc parallel default(present) if(i_am_accel_node)
-          !$acc loop gang vector private(convfac)
+          !$acc loop gang vector private(convfac,convind)
           DO jc = i_startidx, i_endidx
+            convind = prm_diag%k950(jc,jb) ! using this varibale directly in the next row gave a memory "memory not mapped to object" error in PGI (GPU) 20.8 
             ! rain-snow conversion factor to avoid 'snow showers' at temperatures when they don't occur in practice
-            convfac = MIN(1._wp,MAX(0._wp,pt_diag%temp(jc,prm_diag%k950(jc,jb),jb)-tmelt)* &
+            convfac = MIN(1._wp,MAX(0._wp,pt_diag%temp(jc,convind,jb)-tmelt)* &
               MAX(0._wp,prm_diag%t_2m(jc,jb)-(tmelt+1.5_wp)) )
             prm_diag%rain_con_rate(jc,jb) = prm_diag%rain_con_rate_3d(jc,nlevp1,jb) + &
               convfac*prm_diag%snow_con_rate_3d(jc,nlevp1,jb)

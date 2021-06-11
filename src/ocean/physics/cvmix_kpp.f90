@@ -43,6 +43,9 @@
   use cvmix_put_get,         only : cvmix_put
   use cvmix_utils,           only : cvmix_update_wrap
 
+  USE mo_exception,          ONLY: finish, message, message_text
+
+
 !EOP
 
   implicit none
@@ -189,6 +192,8 @@
                                        ! in unstable regimes.
   end type cvmix_kpp_params_type
 
+  CHARACTER(LEN=*), PARAMETER :: module_name = 'cvmix_kpp'
+
 !EOP
 
 type(cvmix_kpp_params_type), target :: CVmix_kpp_params_saved
@@ -245,6 +250,8 @@ contains
     type(cvmix_kpp_params_type), intent(inout), target, optional ::           &
                                               CVmix_kpp_params_user
 
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_init_kpp'
+
 !EOP
 !BOC
 
@@ -254,8 +261,9 @@ contains
 
     if (present(ri_crit)) then
       if (ri_crit.lt.cvmix_zero) then
-        print*, "ERROR: ri_crit can not be negative."
-        stop 1
+!        print*, "ERROR: ri_crit can not be negative."
+!        stop 1
+        CALL finish(method_name,'ERROR: ri_crit can not be negative.')
       end if
       call cvmix_put_kpp('Ri_crit', ri_crit, CVmix_kpp_params_user)
     else
@@ -264,8 +272,9 @@ contains
 
     if (present(minOBLdepth)) then
       if (minOBLdepth.lt.cvmix_zero) then
-        print*, "ERROR: minOBLdepth can not be negative."
-        stop 1
+!        print*, "ERROR: minOBLdepth can not be negative."
+!        stop 1
+        CALL finish(method_name,'ERROR: minOBLdepth can not be negative.')
       end if
       call cvmix_put_kpp('minOBLdepth', minOBLdepth, CVmix_kpp_params_user)
     else
@@ -274,8 +283,9 @@ contains
 
     if (present(maxOBLdepth)) then
       if (maxOBLdepth.lt.cvmix_zero) then
-        print*, "ERROR: maxOBLdepth can not be negative."
-        stop 1
+!        print*, "ERROR: maxOBLdepth can not be negative."
+!        stop 1
+        CALL finish(method_name,'ERROR: maxOBLdepth can not be negative.')
       end if
       call cvmix_put_kpp('maxOBLdepth', maxOBLdepth, CVmix_kpp_params_user)
     else
@@ -284,9 +294,10 @@ contains
 
     if (present(minVtsqr)) then
       if (minVtsqr.lt.cvmix_zero) then
-        print*, "ERROR: minVtsqr can not be negative."
-        stop 1
-      end if
+!        print*, "ERROR: minVtsqr can not be negative."
+!        stop 1
+        CALL finish(method_name,'ERROR: minVtsqr can not be negative.')
+     end if
       call cvmix_put_kpp('minVtsqr', minVtsqr, CVmix_kpp_params_user)
     else
       call cvmix_put_kpp('minVtsqr', 1e-10_cvmix_r8, CVmix_kpp_params_user)
@@ -294,8 +305,9 @@ contains
 
     if (present(vonkarman)) then
       if (vonkarman.lt.cvmix_zero) then
-        print*, "ERROR: vonkarman can not be negative."
-        stop 1
+!        print*, "ERROR: vonkarman can not be negative."
+!        stop 1
+        CALL finish(method_name,'ERROR: vonkarman can not be negative.')
       end if
       vonkar_loc = vonkarman
     else
@@ -312,9 +324,10 @@ contains
 
     if (present(zeta_m)) then
       if (zeta_m.ge.cvmix_zero) then
-        print*, "ERROR: zeta_m must be negative."
-        stop 1
-      end if
+!        print*, "ERROR: zeta_m must be negative."
+!        stop 1
+        CALL finish(method_name,'ERROR: zeta_m must be negative.')
+     end if
       zm = zeta_m
     else
       ! default value for zeta_m is -1/5
@@ -324,8 +337,9 @@ contains
 
     if (present(zeta_s)) then
       if (zeta_s.ge.cvmix_zero) then
-        print*, "ERROR: zeta_s must be negative."
-        stop 1
+!        print*, "ERROR: zeta_s must be negative."
+!        stop 1
+        CALL finish(method_name,'ERROR: zeta_s must be negative.')
       end if
       zs = zeta_s
     else
@@ -353,8 +367,10 @@ contains
     if (present(surf_layer_ext)) then
       if ((surf_layer_ext.lt.cvmix_zero).or.(surf_layer_ext.gt.cvmix_one))    &
       then
-        print*, "surf_layer_ext must be between 0 and 1, inclusive."
-        stop 1
+!        print*, "surf_layer_ext must be between 0 and 1, inclusive."
+!        stop 1
+        CALL finish(method_name,'surf_layer_ext must be between 0 and 1, inclusive.')
+
       end if
       surf_layer_ext_loc = surf_layer_ext
     else
@@ -384,10 +400,13 @@ contains
           call cvmix_put_kpp('interp_type', CVMIX_MATH_INTERP_CUBE_SPLINE,    &
                              CVmix_kpp_params_user)
         case DEFAULT
-          print*, "ERROR: ", trim(interp_type), " is not a valid type of ",   &
-                  "interpolation!"
-          stop 1
-      end select
+!          print*, "ERROR: ", trim(interp_type), " is not a valid type of ",   &
+!                  "interpolation!"
+!          stop 1
+        CALL finish(method_name,'ERROR: '//TRIM(interp_type)//' is not a valid type of &
+             interpolation!')
+
+     end select
     else
       call cvmix_put_kpp('interp_type', CVMIX_MATH_INTERP_QUAD,               &
                          CVmix_kpp_params_user)
@@ -408,9 +427,11 @@ contains
           call cvmix_put_kpp('interp_type2', CVMIX_KPP_INTERP_LMD94,          &
                              CVmix_kpp_params_user)
         case DEFAULT
-          print*, "ERROR: ", trim(interp_type2), " is not a valid type of ",  &
-                  "interpolation!"
-          stop 1
+!          print*, "ERROR: ", trim(interp_type2), " is not a valid type of ",  &
+!                  "interpolation!"
+!          stop 1
+          CALL finish(method_name,'ERROR: '//TRIM(interp_type2)//' is not a valid type of &
+               interpolation!')
       end select
     else
       call cvmix_put_kpp('interp_type2', CVMIX_KPP_INTERP_LMD94,              &
@@ -432,10 +453,12 @@ contains
           call cvmix_put_kpp('MatchTechnique', CVMIX_KPP_PARABOLIC_NONLOCAL,  &
                              CVmix_kpp_params_user)
         case DEFAULT
-          print*, "ERROR: ", trim(MatchTechnique), " is not a valid choice ", &
-                  "for MatchTechnique!"
-          stop 1
-        end select
+!          print*, "ERROR: ", trim(MatchTechnique), " is not a valid choice ", &
+!                  "for MatchTechnique!"
+!          stop 1
+          CALL finish(method_name,'ERROR: '//TRIM(MatchTechnique)//' is not a valid choice &
+               for MatchTechnique!')
+       end select
     else
       call cvmix_put_kpp('MatchTechnique', CVMIX_KPP_SIMPLE_SHAPES,           &
                          CVmix_kpp_params_user)
@@ -453,9 +476,11 @@ contains
           call cvmix_put_kpp('handle_old_vals', CVMIX_MAX_OLD_AND_NEW_VALS,   &
                                cvmix_kpp_params_user)
         case DEFAULT
-          print*, "ERROR: ", trim(old_vals), " is not a valid option for ",   &
-                  "handling old values of diff and visc."
-          stop 1
+!          print*, "ERROR: ", trim(old_vals), " is not a valid option for ",   &
+!                  "handling old values of diff and visc."
+!          stop 1
+          CALL finish(method_name,'ERROR: '//TRIM(old_vals)//' is not a valid option for &
+               handling old values of diff and visc.')
       end select
     else
       call cvmix_put_kpp('handle_old_vals', CVMIX_OVERWRITE_OLD_VAL,          &
@@ -549,6 +574,7 @@ contains
 
 ! !INPUT/OUTPUT PARAMETERS:
     type(cvmix_data_type), intent(inout) :: CVmix_vars
+
 
 !EOP
 !BOC
@@ -646,6 +672,8 @@ contains
                                                             Tnonlocal,        &
                                                             Snonlocal
 
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_coeffs_kpp_low'
+
 !EOP
 !BOC
 
@@ -704,6 +732,11 @@ contains
     integer :: ktup, & ! kt index of cell center above OBL_depth
                kwup    ! kw index of iface above OBL_depth (= kt index of
                        ! cell containing OBL_depth)
+
+
+
+
+
 
     CVmix_kpp_params_in => CVmix_kpp_params_saved
     if (present(CVmix_kpp_params_user)) then
@@ -1007,9 +1040,13 @@ contains
                                              Snonlocal(ktup+1),               &
                                              delta, lkteqkw=(ktup.eq.kwup))
       else
-        print*, "ERROR: ktup should be either kwup or kwup-1!"
-        print*, "ktup = ", ktup, " and kwup = ", kwup
-        stop 1
+!        print*, "ERROR: ktup should be either kwup or kwup-1!"
+!        print*, "ktup = ", ktup, " and kwup = ", kwup
+!        stop 1
+        CALL message(method_name,'ERROR: ktup should be either kwup or kwup-1!')
+        WRITE (message_text, '(a,i6,a,i6)') "ktup = ", ktup, " and kwup = ", kwup
+        CALL finish(method_name, message_text)
+
       end if
     end if
 
@@ -1043,6 +1080,8 @@ contains
 ! !OUTPUT PARAMETERS:
     type(cvmix_kpp_params_type), intent(inout), target, optional ::           &
                                               CVmix_kpp_params_user
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_put_kpp_real'
 
 !EOP
 !BOC
@@ -1086,8 +1125,10 @@ contains
       case ('nonlocal_coeff')
         CVmix_kpp_params_out%nonlocal_coeff = val
       case DEFAULT
-        print*, "ERROR: ", trim(varname), " not a valid choice!"
-        stop 1
+!        print*, "ERROR: ", trim(varname), " not a valid choice!"
+!        stop 1
+        CALL finish(method_name,'ERROR: '//TRIM(varname)//' not a valid choice!')
+
     end select
 
 !EOC
@@ -1166,7 +1207,7 @@ contains
 ! !OUTPUT PARAMETERS:
     type(cvmix_kpp_params_type), intent(inout), target, optional ::           &
                                               CVmix_kpp_params_user
-
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_put_kpp_logical'
 !EOP
 !BOC
 
@@ -1196,8 +1237,10 @@ contains
       case ('l_LMD_ws')
         CVmix_kpp_params_out%l_LMD_ws = val
       case DEFAULT
-        print*, "ERROR: ", trim(varname), " is not a boolean variable!"
-        stop 1
+!        print*, "ERROR: ", trim(varname), " is not a boolean variable!"
+!        stop 1
+        CALL finish(method_name,'ERROR: '//TRIM(varname)//' is not a boolean variable!')
+
     end select
 
 !EOC
@@ -1228,6 +1271,8 @@ contains
 
 ! !OUTPUT PARAMETERS:
     real(cvmix_r8) :: cvmix_get_kpp_real
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_put_kpp_real'
 
 !EOP
 !BOC
@@ -1264,8 +1309,9 @@ contains
       case ('Cv')
         cvmix_get_kpp_real = CVmix_kpp_params_get%Cv
       case DEFAULT
-        print*, "ERROR: ", trim(varname), " not a valid choice!"
-        stop 1
+!        print*, "ERROR: ", trim(varname), " not a valid choice!"
+!        stop 1
+        CALL finish(method_name,'ERROR: '//TRIM(varname)//' not a valid choice!')
     end select
 
 !EOC
@@ -1315,6 +1361,10 @@ contains
 
     type(cvmix_kpp_params_type), pointer :: CVmix_kpp_params_in
 
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_kpp_compute_OBL_depth_low'
+
+
     CVmix_kpp_params_in => CVmix_kpp_params_saved
     if (present(CVmix_kpp_params_user)) then
       CVmix_kpp_params_in => CVmix_kpp_params_user
@@ -1326,25 +1376,34 @@ contains
     ! FIXME: check has to be on lEkman not lMonOb   
 !     CVmix_kpp_params_in%lMonOb) then
       CVmix_kpp_params_in%lEkman) then  
-      print*, "ERROR: must pass surf_fric and Coriolis if you want to ",      &
-                "compute Ekman length"
-      stop 1
+!      print*, "ERROR: must pass surf_fric and Coriolis if you want to ",      &
+!                "compute Ekman length"
+!      stop 1
+      CALL finish(method_name,'ERROR: must pass surf_fric and Coriolis if you want to &
+           compute Ekman length')
     end if
 
     ! (2) if using Monin-Obukhov length, need to pass surf_fric and surf_buoy
     if ((.not.(present(surf_fric).and.present(surf_buoy))).and.               &
         CVmix_kpp_params_in%lMonOb) then
-      print*, "ERROR: must pass surf_fric and surf_buoy if you want to ",     &
-                "compute Monin-Obukhov length"
-      stop 1
+!      print*, "ERROR: must pass surf_fric and surf_buoy if you want to ",     &
+!                "compute Monin-Obukhov length"
+!      stop 1
+      CALL finish(method_name,'ERROR: must pass surf_fric and surf_buoy if you want to &
+           compute Monin-Obukhov length')
     end if
 
     ! (3) zt_cntr must be length nlev and zw_iface must be nlev+1
     nlev = size(zt_cntr)
     if (size(zw_iface).ne.nlev+1) then
-      print*, "ERROR: zt_cntr must have exactly one less element than zw_iface!"
-      print*, "size(zt_cntr) = ", nlev, ", size(zw_iface) = ", size(zw_iface)
-      stop 1
+!      print*, "ERROR: zt_cntr must have exactly one less element than zw_iface!"
+!      print*, "size(zt_cntr) = ", nlev, ", size(zw_iface) = ", size(zw_iface)
+!      stop 1
+      CALL message(method_name,'ERROR: zt_cntr must have exactly one less element than zw_iface!')
+      WRITE (message_text, '(a,i6,a,i6)') "size(zt_cntr) = ", nlev, ", size(zw_iface) = ", size(zw_iface)
+      CALL finish(method_name,message_text)
+
+
     end if
 
     ! (4) Ri_bulk needs to be either the size of zw_iface or zt_cntr
@@ -1353,9 +1412,14 @@ contains
     else if (size(Ri_bulk).eq.nlev+1) then
       depth => zw_iface
     else
-      print*, "ERROR: Ri_bulk must have size nlev or nlev+1!"
-      print*, "nlev = ", nlev, ", size(Ri_bulk) = ", size(Ri_bulk)
-      stop 1
+!      print*, "ERROR: Ri_bulk must have size nlev or nlev+1!"
+!      print*, "nlev = ", nlev, ", size(Ri_bulk) = ", size(Ri_bulk)
+!      stop 1
+      CALL message(method_name,'ERROR: Ri_bulk must have size nlev or nlev+1!')
+      WRITE (message_text, '(a,i6,a,i6)') "nlev = ", nlev, ", size(Ri_bulk) = ", size(Ri_bulk)
+      CALL finish(method_name,message_text)
+
+
     end if
 
     ! if lEkman = .true., OBL_depth must be between the surface and the Ekman
@@ -1463,6 +1527,8 @@ contains
 ! !OUTPUT PARAMETERS:
     real(cvmix_r8) :: cvmix_kpp_compute_kOBL_depth
 
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_kpp_compute_kOBL_depth'
+
 !EOP
 !BOC
 
@@ -1471,9 +1537,12 @@ contains
 
     nlev = size(zt_cntr)
     if (size(zw_iface).ne.nlev+1) then
-      print*, "ERROR: there should be one more interface z coordinate than ", &
-              "cell center coordinate!"
-      stop 1
+!      print*, "ERROR: there should be one more interface z coordinate than ", &
+!              "cell center coordinate!"
+!      stop 1
+      CALL finish(method_name,'ERROR: there should be one more interface z coordinate than &
+          cell center coordinate!')
+
     end if
 
     ! Initial value = nlev + 0.75 => OBL_depth at center of bottom cell
@@ -1702,6 +1771,7 @@ contains
 ! !OUTPUT PARAMETERS:
     real(cvmix_r8), dimension(size(zt_cntr)) ::                               &
                              cvmix_kpp_compute_bulk_Richardson
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_kpp_compute_bulk_Richardson'
 
 !EOP
 !BOC
@@ -1722,22 +1792,29 @@ contains
     ! Make sure all arguments are same size
     if (any((/size(delta_buoy_cntr), size(delta_Vsqr_cntr)/).ne.              &
         size(zt_cntr))) then
-      print*, "ERROR: delta_buoy, delta_vel_sqr, and zt_cntr must all be the",&
-              "same size!"
-      stop 1
+!      print*, "ERROR: delta_buoy, delta_vel_sqr, and zt_cntr must all be the",&
+!              "same size!"
+!      stop 1
+      CALL finish(method_name,'ERROR: delta_buoy, delta_vel_sqr, and zt_cntr must all be the &
+           same size!')
+
     end if
     if (present(Vt_sqr_cntr)) then
       if (size(Vt_sqr_cntr).eq.size(zt_cntr)) then
         unresolved_shear_cntr_sqr = Vt_sqr_cntr
       else
-        print*, "ERROR: Vt_sqr_cntr must be the same size as zt_cntr!"
-        stop 1
+!        print*, "ERROR: Vt_sqr_cntr must be the same size as zt_cntr!"
+!        stop 1
+        CALL finish(method_name,'ERROR: Vt_sqr_cntr must be the same size as zt_cntr!')
+
       end if
     else
       if (.not.present(ws_cntr)) then
-        print*, "ERROR: you must pass in either Vt_sqr_cntr or ws_cntr!"
-        stop 1
-      end if
+!        print*, "ERROR: you must pass in either Vt_sqr_cntr or ws_cntr!"
+!        stop 1
+        CALL finish(method_name,'ERROR: you must pass in either Vt_sqr_cntr or ws_cntr!')
+
+     end if
       unresolved_shear_cntr_sqr = cvmix_kpp_compute_unresolved_shear(zt_cntr, &
                                       ws_cntr, N_iface, Nsqr_iface,           &
                                       CVmix_kpp_params_user)
@@ -1756,9 +1833,11 @@ contains
         if (present(stokes_drift)) then
           denom = denom + stokes_drift**2
         else
-          print*, "ERROR: you must pass in stokes_drift if lenhanced_entr ",  &
-                  "is true!"
-          stop 1
+!          print*, "ERROR: you must pass in stokes_drift if lenhanced_entr ",  &
+!                  "is true!"
+!          stop 1
+          CALL finish(method_name,'ERROR: you must pass in stokes_drift if lenhanced_entr &
+                  is true!')
         end if
       end if
       if (denom.ne.cvmix_zero) then
@@ -1888,6 +1967,9 @@ contains
     real(cvmix_r8), optional, dimension(size(sigma_coord)), intent(inout) ::  &
                                                                     w_m, w_s
 
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name// &
+         ':cvmix_kpp_compute_turbulent_scales_1d_sigma'
+
 !EOP
 !BOC
 
@@ -1945,9 +2027,11 @@ contains
               w_m(kw) = w_m(kw)*langmuir_Efactor
             end do
           else
-            print*, "ERROR: you must pass in langmuir_Efactor if ",           &
-                  "llangmuirEF is true!"
-            stop 1
+!            print*, "ERROR: you must pass in langmuir_Efactor if ",           &
+!                  "llangmuirEF is true!"
+!            stop 1
+           CALL finish(method_name,'ERROR: you must pass in langmuir_Efactor if &
+                  llangmuirEF is true!')
           end if
         end if ! QL
       end if
@@ -1974,9 +2058,11 @@ contains
               w_s(kw) = w_s(kw)*langmuir_Efactor
             end do
           else
-            print*, "ERROR: you must pass in langmuir_Efactor if ",           &
-                  "llangmuirEF is true!"
-            stop 1
+!            print*, "ERROR: you must pass in langmuir_Efactor if ",           &
+!                  "llangmuirEF is true!"
+!            stop 1
+            CALL finish(method_name,'ERROR: you must pass in langmuir_Efactor if &
+                 llangmuirEF is true!')
           end if
         end if ! QL
       end if
@@ -2058,6 +2144,9 @@ contains
     real(cvmix_r8), optional, dimension(size(surf_buoy_force)), intent(inout) &
                                                                 :: w_m, w_s
 
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name// &
+         ':cvmix_kpp_compute_turbulent_scales_1d_OBL'
+
 !EOP
 !BOC
 
@@ -2114,9 +2203,11 @@ contains
               w_m(kw) = w_m(kw)*langmuir_Efactor
             end do
           else
-            print*, "ERROR: you must pass in langmuir_Efactor if ",           &
-                  "llangmuirEF is true!"
-            stop 1
+!            print*, "ERROR: you must pass in langmuir_Efactor if ",           &
+!                  "llangmuirEF is true!"
+!            stop 1
+            CALL finish(method_name,'ERROR: you must pass in langmuir_Efactor if &
+                 llangmuirEF is true!')
           end if
         end if ! QL
       end if
@@ -2143,9 +2234,11 @@ contains
               w_s(kw) = w_s(kw)*langmuir_Efactor
             end do
           else
-            print*, "ERROR: you must pass in langmuir_Efactor if ",           &
-                  "llangmuirEF is true!"
-            stop 1
+!            print*, "ERROR: you must pass in langmuir_Efactor if ",           &
+!                 "llangmuirEF is true!"
+!           stop 1
+            CALL finish(method_name,'ERROR: you must pass in langmuir_Efactor if &
+                 llangmuirEF is true!')
           end if
         end if ! QL
       end if
@@ -2233,6 +2326,9 @@ contains
     real(cvmix_r8), dimension(size(zt_cntr)) ::                               &
                              cvmix_kpp_compute_unresolved_shear
 
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name// &
+         ':cvmix_kpp_compute_unresolved_shear'
+
 !EOP
 !BOC
 
@@ -2246,14 +2342,17 @@ contains
 
     nlev = size(zt_cntr)
     if (size(ws_cntr).ne.nlev) then
-      print*, "ERROR: zt_cntr and ws_cntr must be same size"
-      stop 1
+!      print*, "ERROR: zt_cntr and ws_cntr must be same size"
+!      stop 1
+      CALL finish(method_name,'ERROR: zt_cntr and ws_cntr must be same size')
     end if
 
     if (present(N_iface).and.present(Nsqr_iface)) then
-      print*, "ERROR: you must provide N_iface OR Nsqr_iface, can not send",  &
-              "both!"
-      stop 1
+!      print*, "ERROR: you must provide N_iface OR Nsqr_iface, can not send",  &
+!              "both!"
+!stop 1
+      CALL finish(method_name,'ERROR: you must provide N_iface OR Nsqr_iface, can not send &
+              both!')
     end if
 
     CVmix_kpp_params_in => CVmix_kpp_params_saved
@@ -2263,8 +2362,9 @@ contains
 
     if (present(N_iface)) then
       if (size(N_iface).ne.(nlev+1)) then
-        print*, "ERROR: N_iface must have one more element than zt_cntr"
-        stop 1
+!        print*, "ERROR: N_iface must have one more element than zt_cntr"
+!        stop 1
+        CALL finish(method_name,'ERROR: N_iface must have one more element than zt_cntr')
       end if
       do kt=1,nlev
         N_cntr(kt) = N_iface(kt+1)
@@ -2272,15 +2372,17 @@ contains
     else
       if (present(Nsqr_iface)) then
         if (size(Nsqr_iface).ne.(nlev+1)) then
-          print*, "ERROR: Nsqr_iface must have one more element than zt_cntr"
-          stop 1
+!          print*, "ERROR: Nsqr_iface must have one more element than zt_cntr"
+!          stop 1
+          CALL finish(method_name,'ERROR: Nsqr_iface must have one more element than zt_cntr')
         end if
         do kt=1,nlev
           N_cntr(kt)=sqrt(max(Nsqr_iface(kt+1),cvmix_zero))
         end do
       else
-        print*, "ERROR: you must provide N_iface OR Nsqr_iface"
-        stop 1
+!        print*, "ERROR: you must provide N_iface OR Nsqr_iface"
+!        stop 1
+        CALL finish(method_name,'ERROR: you must provide N_iface OR Nsqr_iface')
       end if
     end if
 
@@ -2320,6 +2422,8 @@ contains
 
     real(cvmix_r8) :: compute_phi_inv
 
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':compute_phi_inv'
+
     logical :: lm, ls
 
     ! If not specifying lphi_m or lphi_s, routine will error out, but
@@ -2340,8 +2444,10 @@ contains
     end if
 
     if (lm.eqv.ls) then
-      print*, "ERROR: must compute phi_m or phi_s, can not compute both!"
-      stop 1
+!      print*, "ERROR: must compute phi_m or phi_s, can not compute both!"
+!      stop 1
+      CALL finish(method_name,'ERROR: must compute phi_m or phi_s, can not compute both!')
+
     end if
 
     if (lm) then

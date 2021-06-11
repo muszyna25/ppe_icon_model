@@ -22,6 +22,9 @@ module cvmix_put_get
                                      cvmix_global_params_type
    use cvmix_utils,           only : cvmix_att_name
 
+
+   USE mo_exception,          ONLY: finish, message
+
 !EOP
 
   implicit none
@@ -40,6 +43,10 @@ module cvmix_put_get
     module procedure cvmix_put_global_params_int
     module procedure cvmix_put_global_params_real
   end interface cvmix_put
+
+  CHARACTER(LEN=*), PARAMETER :: module_name = 'cvmix_put_get'
+
+
 !EOP
 
 contains
@@ -67,6 +74,8 @@ contains
 ! !OUTPUT PARAMETERS:
     type(cvmix_data_type), intent(inout) :: CVmix_vars
 
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_put_int'
+
 !EOP
 !BOC
 
@@ -80,10 +89,13 @@ contains
     end if
 
     if ((trim(varname).ne.'nlev').and.(nlev.eq.-1)) then
-      print*, "ERROR: you must specify the number of levels before ", &
-              "you can pack data into a cvmix_data_type!"
-      print*, "You tried to set ", trim(varname)
-      stop 1
+!      print*, "ERROR: you must specify the number of levels before ", &
+!              "you can pack data into a cvmix_data_type!"
+!      print*, "You tried to set ", trim(varname)
+!      stop 1
+      CALL message(method_name,'ERROR: you must specify the number of levels before &
+                                  you can pack data into a cvmix_data_type!')
+      CALL finish(method_name,'You tried to set '//trim(varname))
     end if
 
     select case (trim(cvmix_att_name(varname)))
@@ -127,6 +139,9 @@ contains
 
 ! !OUTPUT PARAMETERS:
     type(cvmix_data_type), intent(inout) :: CVmix_vars
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_put_real'
+
 !EOP
 !BOC
 
@@ -140,10 +155,13 @@ contains
     end if
 
     if (nlev.eq.-1) then
-      print*, "ERROR: you must specify the number of levels before ", &
-              "you can pack data into a cvmix_data_type!"
-      print*, "You tried to set ", trim(varname)
-      stop 1
+!      print*, "ERROR: you must specify the number of levels before ", &
+!              "you can pack data into a cvmix_data_type!"
+!      print*, "You tried to set ", trim(varname)
+!      stop 1
+      CALL message(method_name,'ERROR: you must specify the number of levels before &
+                                  you can pack data into a cvmix_data_type!')
+      CALL finish(method_name,'You tried to set '//trim(varname))
     end if
 
     select case (trim(cvmix_att_name(varname)))
@@ -289,9 +307,9 @@ contains
         CVmix_vars%VertDep_iface(:) = val
 
       case default
-        print*, "ERROR: ", trim(varname), " not a valid choice for cvmix_put!"
-        stop 1
-
+!       print*, "ERROR: ", trim(varname), " not a valid choice for cvmix_put!"
+!       stop 1
+        CALL finish(method_name,'ERROR: '//trim(varname)//' not a valid choice for cvmix_put!')
     end select
 !EOC
 
@@ -319,6 +337,7 @@ contains
 
 ! !OUTPUT PARAMETERS:
     type(cvmix_data_type), intent(inout) :: CVmix_vars
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_put_real_1D'
 !EOP
 !BOC
 
@@ -332,10 +351,13 @@ contains
     end if
 
     if (nlev.eq.-1) then
-      print*, "ERROR: you must specify the number of levels before ", &
-              "you can pack data into a cvmix_data_type!"
-      print*, "You tried to set ", trim(varname)
-      stop 1
+!      print*, "ERROR: you must specify the number of levels before ", &
+!              "you can pack data into a cvmix_data_type!"
+!      print*, "You tried to set ", trim(varname)
+!      stop 1
+      CALL message(method_name,'ERROR: you must specify the number of levels before &
+                                  you can pack data into a cvmix_data_type!')
+      CALL finish(method_name,'You tried to set '//trim(varname))
     end if
 
     select case (trim(cvmix_att_name(varname)))
@@ -494,8 +516,9 @@ contains
         CVmix_vars%alpha_c(:) = val
 
       case default
-        print*, "ERROR: ", trim(varname), " not a valid choice for cvmix_put!"
-        stop 1
+!        print*, "ERROR: ", trim(varname), " not a valid choice for cvmix_put!"
+!        stop 1
+        CALL finish(method_name,'ERROR: '//TRIM(varname)//' not a valid choice for cvmix_put!')
 
     end select
 
@@ -524,6 +547,9 @@ contains
 
 ! !OUTPUT PARAMETERS:
     type (cvmix_global_params_type), intent(inout) :: CVmix_params
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_put_global_params_int'
+
 !EOP
 !BOC
 
@@ -532,8 +558,9 @@ contains
         CVmix_params%max_nlev = val
 
       case default
-        print*, "ERROR: ", trim(varname), " not a valid choice!"
-        stop 1
+!        print*, "ERROR: ", trim(varname), " not a valid choice!"
+!        stop 1
+        CALL finish(method_name,'ERROR: '//TRIM(varname)//' not a valid choice!')
 
     end select
 !EOC
@@ -561,6 +588,7 @@ contains
 
 ! !OUTPUT PARAMETERS:
     type(cvmix_global_params_type), intent(inout) :: CVmix_params
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':cvmix_put_global_params_type'
 !EOP
 !BOC
 
@@ -575,8 +603,9 @@ contains
       case ('g','Gravity')
         CVmix_params%Gravity = val
       case default
-        print*, "ERROR: ", trim(varname), " not a valid choice!"
-        stop 1
+!        print*, "ERROR: ", trim(varname), " not a valid choice!"
+!        stop 1
+        CALL finish(method_name,'ERROR: '//TRIM(varname)//' not a valid choice!')
 
     end select
 !EOC

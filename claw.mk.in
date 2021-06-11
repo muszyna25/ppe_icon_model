@@ -74,6 +74,7 @@ CLAW= @CLAW@
 CLAW_FILTER= $(srcdir)/utils/claw-helpers/claw_filter.sh
 PYTHON= @PYTHON@
 DEPGEN= ${PYTHON} $(srcdir)/utils/mkhelper/depgen.py
+MODCMP= ${PYTHON} $(srcdir)/utils/mkhelper/fortmodcmp.py
 
 # CLAW flags:
 CLAWFLAGS= --no-dep -w 132 --Wf-no-module-cache -J$(xmoddir) $(addprefix -I$(srcdir)/,$(inc_subdirs)) $(addprefix -I$(srcdir)/externals/omni-xmod-pool/,mpi/3.0 self/0.2 yaxt/0.7.0 mtime/1.0.8 cdi/1.8.x) @CLAWFLAGS@
@@ -137,7 +138,7 @@ endif
 # Delete partially updated files:
 .DELETE_ON_ERROR:
 # Targets not associated with files:
-.PHONY: all mostlyclean clean distclean
+.PHONY: all mostlyclean clean distclean sanitize-mod-proxies
 
 # Targets that do not need the dependency files:
 nodep_targets:= dummy-depend mostlyclean clean distclean
@@ -154,7 +155,7 @@ all: $(CLAW_mk_targets)
 clean: mostlyclean
 	rm -f $(dep_files:.claw.d=)
 	rm -f $(addprefix $(ppdir)/$(CLAW_ppdir)/,$(f90_files:.f90=.xmodstamp))
-	rm -f $(xmoddir)/*.xmod
+	rm -f $(xmoddir)/*.xmod $(xmoddir)/*.xmod.proxy
 
 # Delete everything generated at the configure stage:
 distclean: clean
@@ -188,13 +189,17 @@ ICON_OCEAN_XMOD_CMD= $(CLAW) --force $(CLAWFLAGS) $(ICON_OCEAN_CLAWFLAGS) $< >/d
 $(ppdir)/$(CLAW_ppdir)/%.xmodstamp: %.f90 | $(dir_files)
 	$(silent_XMOD)$(if $(call is_ocean_src,$<),$(ICON_OCEAN_XMOD_CMD),$(ICON_XMOD_CMD))
 
-$(xmoddir)/%.xmod:
+$(xmoddir)/%.xmod.proxy:| sanitize-mod-proxies
 	@if test -z '$<'; then \
-	  echo "Cannot find Fortran source file providing module '$(basename $(@F))'." >&2; \
+	  echo "Cannot find Fortran source file providing module '$(basename $(@F:.proxy=))'." >&2; \
 	else \
-	  if test ! -f '$@'; then rm -f '$<'; $(MAKE) -f claw.mk '$<'; fi; \
-	  test -f '$@' && touch '$@'; \
+	  if test ! -f '$(@:.proxy=)'; then rm -f '$<'; $(MAKE) -f claw.mk '$<'; fi; \
+	  if $(MODCMP) '$@' '$(@:.proxy=)' omni 2>/dev/null; then :; \
+	  else cp '$(@:.proxy=)' '$@' 2>/dev/null; fi; \
 	fi
+
+sanitize-mod-proxies:
+	@rm -f $(filter-out $(addsuffix .proxy,$(wildcard $(moddir)/*.xmod)),$(wildcard $(moddir)/*.xmod.proxy))
 
 ############################### AUXILIARY RULES ################################
 
@@ -209,7 +214,7 @@ $(xmoddir)/%.xmod:
 
 DEPGEN_CMD_prefix= $(DEPGEN) @depgen.f90.config \
                    --pp-inc-flag=-I --pp-macro-flag=-D \
-                   --fc-mod-ext=xmod --fc-mod-upper=no \
+                   --fc-mod-ext=xmod.proxy --fc-mod-upper=no \
                    --fc-inc-flag=-I --fc-mod-dir-flag=-J \
                    -o $@ -i $<
 

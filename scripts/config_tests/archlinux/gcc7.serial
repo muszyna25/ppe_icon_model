@@ -49,7 +49,7 @@ ${ICON_DIR}/configure \
   CC="${CC}" \
   FC="${FC}" \
   CXX="${CXX}" \
-  FCFLAGS="${FCFLAGS}" \
+  FCFLAGS="${FCFLAGS} -DHAVE_CDI_ORDERING_DEFECT" \
   LDFLAGS="${BLAS_LDFLAGS} ${NETCDFF_LDFLAGS} ${EXTRA_LIBS}" \
   CPPFLAGS="${CPPFLAGS}" \
   LIBS='-lxml2 -lz -llzma -licui18n -licuuc -licudata -lm -ldl' \

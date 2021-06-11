@@ -30,12 +30,8 @@ MODULE mo_psrad_forcing_memory
   USE mo_parallel_config,     ONLY: nproma
   USE mo_io_config,           ONLY: lnetcdf_flt64_output
   USE mo_model_domain,        ONLY: t_patch
-
-  USE mo_linked_list,         ONLY: t_var_list
-  USE mo_var_list,            ONLY: default_var_list_settings, &
-    &                               add_var,                   &
-    &                               new_var_list,              &
-    &                               delete_var_list
+  USE mo_var_list,            ONLY: add_var, t_var_list_ptr
+  USE mo_var_list_register,   ONLY: vlr_add, vlr_del
   USE mo_var_metadata,        ONLY: create_vert_interp_metadata, vintp_types
   USE mo_cf_convention,       ONLY: t_cf_var
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
@@ -123,7 +119,7 @@ MODULE mo_psrad_forcing_memory
   !!--------------------------------------------------------------------------
   !!                          variable lists
   !!--------------------------------------------------------------------------
-  TYPE(t_var_list),ALLOCATABLE :: prm_psrad_forcing_list(:)  !< shape: (n_dom)
+  TYPE(t_var_list_ptr),ALLOCATABLE :: prm_psrad_forcing_list(:)  !< shape: (n_dom)
 
 CONTAINS
 
@@ -194,7 +190,7 @@ CONTAINS
     ndomain = SIZE(prm_psrad_forcing)
 
     DO jg = 1,ndomain
-      CALL delete_var_list( prm_psrad_forcing_list(jg) )
+      CALL vlr_del(prm_psrad_forcing_list(jg))
     ENDDO
 
     DEALLOCATE( prm_psrad_forcing_list, STAT=ist )
@@ -220,7 +216,7 @@ CONTAINS
 
     CHARACTER(len=*)              ,INTENT(IN) :: listname, prefix
 
-    TYPE(t_var_list),     INTENT(INOUT)   :: field_list
+    TYPE(t_var_list_ptr),     INTENT(INOUT)   :: field_list
     TYPE(t_psrad_forcing),INTENT(INOUT)   :: field
 
     ! Local variables
@@ -246,12 +242,10 @@ CONTAINS
     shape3d  = (/kproma, klev, kblks/)
     shape3d_layer_interfaces = (/kproma,klev+1,kblks/)
 
-
     ! Register a field list and apply default settings
 
-    CALL new_var_list( field_list, TRIM(listname), patch_id=k_jg )
-    CALL default_var_list_settings( field_list,                &
-                                  & lrestart=.TRUE.  )
+    CALL vlr_add(field_list, TRIM(listname), patch_id=k_jg, lrestart=.TRUE.)
+
     ! Auxiliary flux variables
     IF (lradforcing(2)) THEN
     cf_desc    = t_cf_var('emter_for', 'W m-2', 'thermal radiation flux', datatype_flt)

@@ -334,13 +334,12 @@ CONTAINS
       ENDDO !jmu0
 
       !$acc update device (zsmu0) if (lacc)
-      !$acc parallel default (none) present (zsmu0) copyin (n_cosmu0pos, cosmu0_dark, n_zsct, zsct_save) copy (zsct) if (lacc)
-      !$acc loop gang
       DO jb = 1, pt_patch%nblks_c
 
         ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
 
-        !$acc loop vector
+        !$acc parallel default (none) present (zsmu0) copyin (n_cosmu0pos, cosmu0_dark ) copy (zsct) if (lacc)
+        !$acc loop gang vector
         DO jc = 1,ie
           IF ( n_cosmu0pos(jc,jb) > 0 ) THEN
             ! The averaged cosine of zenith angle is limited to 0.05 in order to avoid
@@ -350,6 +349,7 @@ CONTAINS
             zsmu0(jc,jb) = cosmu0_dark
           ENDIF
         ENDDO
+        !$acc end parallel
 
       ENDDO !jb
 
@@ -360,7 +360,6 @@ CONTAINS
           zsct = zsct_save
         ENDIF
       ENDIF
-      !$acc end parallel
       !$acc update host (zsmu0) if (lacc)
 
     ELSEIF (izenith == 5) THEN

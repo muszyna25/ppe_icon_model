@@ -2005,8 +2005,6 @@ CONTAINS
       &    1, 1, 1, 1 /)
     TYPE(t_event_data_local), TARGET :: dummy(2)
     TYPE(datetime), POINTER :: temp_datetime
-    EXTERNAL :: util_memcmp
-    LOGICAL :: util_memcmp
     CALL mpi_type_contiguous(max_event_name_str_len, mpi_character, &
       &                      elem_dt(1), ierror)
     IF (ierror /= mpi_success) CALL finish(routine, 'mpi_type_contiguous error')

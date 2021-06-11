@@ -16,7 +16,7 @@ MODULE mo_input_instructions
 
     USE mo_exception,          ONLY: message, finish, message_text
     USE mo_impl_constants,     ONLY: SUCCESS, MODE_DWDANA, MODE_ICONVREMAP, MODE_IAU, MODE_IAU_OLD, &
-      &                              MODE_COMBINED, MODE_COSMO, max_ntracer
+      &                              MODE_COMBINED, MODE_COSMO, max_ntracer, vname_len
     USE mo_initicon_config,    ONLY: initicon_config, lread_ana, ltile_coldstart, lp2cintp_incr,    &
       &                              lp2cintp_sfcana, lvert_remap_fg
     USE mo_initicon_types,     ONLY: ana_varnames_dict
@@ -26,10 +26,10 @@ MODULE mo_input_instructions
     USE mo_util_string,        ONLY: difference, add_to_list, one_of
     USE mo_util_table,         ONLY: t_table, initialize_table, add_table_column, set_table_entry,  &
       &                              print_table, finalize_table
-    USE mo_var_list,           ONLY: collect_group
-    USE mo_var_metadata_types, ONLY: VARNAME_LEN
+    USE mo_var_list_register_utils, ONLY: vlr_group
 
     IMPLICIT NONE
+    PRIVATE
 
     PUBLIC :: t_readInstructionList, readInstructionList_make, t_readInstructionListPtr
     PUBLIC :: kInputSourceNone, kInputSourceFg, kInputSourceAna, kInputSourceBoth, kInputSourceCold
@@ -123,10 +123,8 @@ MODULE mo_input_instructions
         TYPE(t_readInstructionList), POINTER :: ptr
     END TYPE t_readInstructionListPtr
 
-PRIVATE
-
     TYPE :: t_readInstruction
-        CHARACTER(LEN = VARNAME_LEN) :: varName
+        CHARACTER(LEN = vname_len) :: varName
         ! These reflect the result of interpreting the variable
         ! groups, they are not used in the table output:
         LOGICAL :: lReadFg, lReadAna
@@ -157,31 +155,31 @@ PRIVATE
 CONTAINS
 
     SUBROUTINE collectGroupFg(outGroup, outGroupSize, init_mode)
-        CHARACTER(LEN = VARNAME_LEN), INTENT(INOUT) :: outGroup(:)
+        CHARACTER(LEN = vname_len), INTENT(INOUT) :: outGroup(:)
         INTEGER, INTENT(OUT) :: outGroupSize
         INTEGER, INTENT(IN) :: init_mode
 
         ! local tracerGroup to add all vars in group tracer_fg_in to first guess
-        CHARACTER(LEN = VARNAME_LEN) :: tracerGroup(max_ntracer)
+        CHARACTER(LEN = vname_len) :: tracerGroup(max_ntracer)
         INTEGER :: tracerGroupSize
 
         SELECT CASE(init_mode)
             CASE(MODE_DWDANA, MODE_ICONVREMAP)
-                CALL collect_group('mode_dwd_fg_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
-                CALL collect_group('tracer_fg_in', tracerGroup, tracerGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
+                CALL vlr_group('mode_dwd_fg_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
+                CALL vlr_group('tracer_fg_in', tracerGroup, tracerGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
                 ! fgGroup += tracerGroup
                 CALL add_to_list(outGroup, outGroupSize, tracerGroup, tracerGroupSize)
             CASE(MODE_IAU)
-                CALL collect_group('mode_iau_fg_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
-                CALL collect_group('tracer_fg_in', tracerGroup, tracerGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
+                CALL vlr_group('mode_iau_fg_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
+                CALL vlr_group('tracer_fg_in', tracerGroup, tracerGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
                 ! fgGroup += tracerGroup
                 CALL add_to_list(outGroup, outGroupSize, tracerGroup, tracerGroupSize)
             CASE(MODE_IAU_OLD)
-                CALL collect_group('mode_iau_old_fg_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
+                CALL vlr_group('mode_iau_old_fg_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
             CASE(MODE_COMBINED)
-                CALL collect_group('mode_combined_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
+                CALL vlr_group('mode_combined_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
             CASE(MODE_COSMO)
-                CALL collect_group('mode_cosmo_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
+                CALL vlr_group('mode_cosmo_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
             CASE DEFAULT
                 outGroupSize = 0
         END SELECT
@@ -195,7 +193,7 @@ CONTAINS
     ! So far, this list has to be created manually. In the future this 
     ! should be done automatically via (add_var) metadata flags. 
     SUBROUTINE collectGroupFgOpt(outGroup, outGroupSize)
-        CHARACTER(LEN = VARNAME_LEN), INTENT(INOUT) :: outGroup(:)
+        CHARACTER(LEN = vname_len), INTENT(INOUT) :: outGroup(:)
         INTEGER, INTENT(OUT) :: outGroupSize
 
         outGroup(1:23) = (/'alb_si       ','rho_snow_mult','aer_ss       ','aer_or       ', &
@@ -208,39 +206,39 @@ CONTAINS
     END SUBROUTINE collectGroupFgOpt
 
     SUBROUTINE collectGroupAna(outGroup, outGroupSize, init_mode)
-        CHARACTER(LEN = VARNAME_LEN), INTENT(INOUT) :: outGroup(:)
+        CHARACTER(LEN = vname_len), INTENT(INOUT) :: outGroup(:)
         INTEGER, INTENT(OUT) :: outGroupSize
         INTEGER, INTENT(IN) :: init_mode
 
         SELECT CASE(init_mode)
             CASE(MODE_DWDANA, MODE_ICONVREMAP)
-                CALL collect_group('mode_dwd_ana_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
+                CALL vlr_group('mode_dwd_ana_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
             CASE(MODE_IAU)
-                CALL collect_group('mode_iau_ana_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
+                CALL vlr_group('mode_iau_ana_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
             CASE(MODE_IAU_OLD)
-                CALL collect_group('mode_iau_old_ana_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
+                CALL vlr_group('mode_iau_old_ana_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
             CASE DEFAULT
                 outGroupSize = 0
         END SELECT
     END SUBROUTINE collectGroupAna
 
     SUBROUTINE collectGroupAnaAtm(outGroup, outGroupSize, init_mode)
-        CHARACTER(LEN = VARNAME_LEN), INTENT(INOUT) :: outGroup(:)
+        CHARACTER(LEN = vname_len), INTENT(INOUT) :: outGroup(:)
         INTEGER, INTENT(OUT) :: outGroupSize
         INTEGER, INTENT(IN) :: init_mode
 
         SELECT CASE(init_mode)
             CASE(MODE_IAU, MODE_IAU_OLD)
-                CALL collect_group('mode_iau_anaatm_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
+                CALL vlr_group('mode_iau_anaatm_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
             CASE DEFAULT
                 outGroupSize = 0
         END SELECT
     END SUBROUTINE collectGroupAnaAtm
 
     SUBROUTINE copyGroup(inGroup, inGroupSize, outGroup, outGroupSize)
-        CHARACTER(LEN = VARNAME_LEN), INTENT(IN) :: inGroup(:)
+        CHARACTER(LEN = vname_len), INTENT(IN) :: inGroup(:)
         INTEGER, INTENT(IN) :: inGroupSize
-        CHARACTER(LEN = VARNAME_LEN), INTENT(INOUT) :: outGroup(:)
+        CHARACTER(LEN = vname_len), INTENT(INOUT) :: outGroup(:)
         INTEGER, INTENT(OUT) :: outGroupSize
 
         outGroup(1:inGroupSize) = inGroup(1:inGroupSize)
@@ -248,7 +246,7 @@ CONTAINS
     END SUBROUTINE copyGroup
 
     SUBROUTINE mergeAnaIntoFg(anaGroup, anaGroupSize, fgGroup, fgGroupSize, init_mode)
-        CHARACTER(LEN = VARNAME_LEN), INTENT(INOUT) :: anaGroup(:), fgGroup(:)
+        CHARACTER(LEN = vname_len), INTENT(INOUT) :: anaGroup(:), fgGroup(:)
         INTEGER, INTENT(INOUT) :: anaGroupSize, fgGroupSize
         INTEGER, INTENT(IN)    :: init_mode
 
@@ -267,11 +265,11 @@ CONTAINS
       &                      fgOptGroup, fgOptGroupSize, anaGroup, anaGroupSize)
         TYPE(t_patch), INTENT(IN) :: p_patch
         INTEGER, INTENT(in) :: init_mode
-        CHARACTER(LEN = VARNAME_LEN), INTENT(INOUT) :: anaGroup(:), fgGroup(:), fgOptGroup(:)
+        CHARACTER(LEN = vname_len), INTENT(INOUT) :: anaGroup(:), fgGroup(:), fgOptGroup(:)
         INTEGER, INTENT(OUT) :: anaGroupSize, fgGroupSize, fgOptGroupSize
 
         CHARACTER(LEN = *), PARAMETER :: routine = modname//':collectGroups'
-        CHARACTER(LEN=VARNAME_LEN), DIMENSION(200) :: anaAtmGroup
+        CHARACTER(LEN=vname_len), DIMENSION(200) :: anaAtmGroup
         INTEGER :: anaAtmGroupSize, jg
         LOGICAL :: lRemoveSnowfrac
 
@@ -386,7 +384,7 @@ CONTAINS
         TYPE(t_readInstruction), pointer :: curInstruction
 
         ! lists of variable names
-        CHARACTER(LEN=VARNAME_LEN), DIMENSION(200) :: grp_vars_fg, grp_vars_optfg, grp_vars_ana
+        CHARACTER(LEN=vname_len), DIMENSION(200) :: grp_vars_fg, grp_vars_optfg, grp_vars_ana
 
         ! the corresponding sizes of the lists above
         INTEGER :: ngrp_vars_fg, ngrp_vars_optfg, ngrp_vars_ana

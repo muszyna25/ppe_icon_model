@@ -98,7 +98,11 @@ USE mo_pp_scheduler,        ONLY: pp_scheduler_init, pp_scheduler_finalize
 
 ! ECHAM physics
 USE mo_echam_phy_memory,    ONLY: construct_echam_phy_state
-USE mo_psrad_forcing_memory, ONLY: construct_psrad_forcing_list
+#ifdef __NO_RTE_RRTMGP__
+USE mo_psrad_forcing_memory, ONLY: construct_rad_forcing_list => construct_psrad_forcing_list
+#else
+USE mo_radiation_forcing_memory, ONLY: construct_rad_forcing_list => construct_radiation_forcing_list
+#endif
 USE mo_physical_constants,  ONLY: amd, amco2
 USE mo_echam_phy_config,    ONLY: echam_phy_tc, dt_zero, echam_phy_config
 USE mo_echam_rad_config,    ONLY: echam_rad_config
@@ -121,9 +125,8 @@ USE mo_sync_latbc,          ONLY: deallocate_latbc_data
 USE mo_radar_data_state,    ONLY: radar_data, init_radar_data, construct_lhn, lhn_fields, destruct_lhn
 USE mo_rttov_interface,     ONLY: rttov_finalize, rttov_initialize
 USE mo_synsat_config,       ONLY: lsynsat
-USE mo_derived_variable_handling, ONLY: init_statistics_streams, finish_statistics_streams
 USE mo_mpi,                 ONLY: my_process_is_stdio, p_comm_work_only, my_process_is_work_only
-USE mo_var_list,            ONLY: print_group_details
+USE mo_var_list_register_utils, ONLY: vlr_print_groups
 USE mo_sync,                ONLY: sync_patch_array, sync_c
 USE mo_upatmo_setup,        ONLY: upatmo_initialize, upatmo_finalize
 USE mo_nudging_config,      ONLY: l_global_nudging
@@ -195,8 +198,6 @@ CONTAINS
 
     IF (iforcing == iecham) THEN
       CALL init_echam_phy_params( p_patch(1:) )
-      CALL construct_echam_phy_state   ( p_patch(1:), ntracer )
-      CALL construct_psrad_forcing_list( p_patch(1:) )
     END IF
 
     IF(iforcing == inwp) THEN
@@ -256,16 +257,14 @@ CONTAINS
     ! Add optional diagnostic variable lists (might remain empty)
     CALL construct_opt_diag(p_patch(1:), .TRUE.)
 
-    ! Initialize DACE routines
-    IF (assimilation_config(1)% dace_coupling) then
-      IF (timers_level > 4) CALL timer_start(timer_init_dace)
-      CALL init_dace (comm=p_comm_work_only, p_io=0, ldetached=.NOT.my_process_is_work_only())
-      IF (timers_level > 4) CALL timer_stop(timer_init_dace)
-    END IF
-
     IF (iforcing == inwp) THEN
       CALL construct_nwp_phy_state( p_patch(1:), var_in_output)
       CALL construct_nwp_lnd_state( p_patch(1:), p_lnd_state, var_in_output(:)%smi, n_timelevels=2 )
+    END IF
+
+    IF (iforcing == iecham) THEN
+      CALL construct_echam_phy_state ( p_patch(1:), ntracer )
+      CALL construct_rad_forcing_list( p_patch(1:) )
     END IF
 
     CALL upatmo_initialize(p_patch)
@@ -317,6 +316,13 @@ CONTAINS
 
     IF (n_dom > 1) THEN
       CALL complete_nesting_setup()
+    END IF
+
+    ! Initialize DACE routines
+    IF (assimilation_config(1)% dace_coupling) then
+      IF (timers_level > 4) CALL timer_start(timer_init_dace)
+      CALL init_dace (comm=p_comm_work_only, p_io=0, ldetached=.NOT.my_process_is_work_only())
+      IF (timers_level > 4) CALL timer_stop(timer_init_dace)
     END IF
 
     ! init LES
@@ -495,14 +501,8 @@ CONTAINS
       !
       ! prepare fields of the physics state, real and test case
       DO jg = 1,n_dom
-        CALL init_echam_phy_field( p_patch(jg)                                        ,&
-          &                        ext_data  (jg)% atm%topography_c       (:,  :)     ,&
-          &                        p_nh_state(jg)% metrics% z_ifc         (:,:,:)     ,&
-          &                        p_nh_state(jg)% metrics% z_mc          (:,:,:)     ,&
-          &                        p_nh_state(jg)% metrics% ddqz_z_full   (:,:,:)     ,&
-          &                        p_nh_state(jg)% metrics% geopot_agl_ifc(:,:,:)     ,&
-          &                        p_nh_state(jg)% metrics% geopot_agl    (:,:,:)     ,&
-          &                        p_nh_state(jg)% diag% temp             (:,:,:)     )
+        CALL init_echam_phy_field( p_patch(jg)                       ,&
+          &                        p_nh_state(jg)% diag% temp(:,:,:) )
       END DO
       !
     END IF
@@ -606,8 +606,7 @@ CONTAINS
       CALL getAttributesForRestarting(restartAttributes)
       ! get start counter for time loop from restart file:
       IF (restartAttributes%is_init) &
-           CALL restartAttributes%get("jstep", sim_step_info%jstep0)
-      CALL init_statistics_streams
+        & CALL restartAttributes%get("jstep", sim_step_info%jstep0)
       CALL init_name_list_output(sim_step_info)
 
       !---------------------------------------------------------------------
@@ -691,18 +690,13 @@ CONTAINS
 
     END DO
 
-
     !-------------------------------------------------------!
     !  (Optional) detailed print-out of some variable info  !
     !-------------------------------------------------------!
 
     ! variable group information
-    IF (my_process_is_stdio() .AND. (msg_level >= 15)) THEN
-      CALL print_group_details(idom=1,                            &
-        &                      opt_latex_fmt           = .TRUE., &
-        &                      opt_reduce_trailing_num = .TRUE.,  &
-        &                      opt_skip_trivial        = .TRUE.)
-    END IF
+    IF (my_process_is_stdio() .AND. (msg_level >= 15)) &
+      & CALL vlr_print_groups(idom=1)
 
     IF (timers_level > 1) CALL timer_stop(timer_model_init)
 
@@ -779,7 +773,6 @@ CONTAINS
       CALL message(routine, 'delete output variable lists')
       CALL close_name_list_output
       CALL message(routine, 'finish statistics streams')
-      CALL finish_statistics_streams
     END IF
 #ifdef HAVE_CDI_PIO
     IF (pio_type == pio_type_cdipio) THEN

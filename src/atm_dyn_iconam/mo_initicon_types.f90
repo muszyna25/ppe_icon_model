@@ -26,10 +26,9 @@
 MODULE mo_initicon_types
 
   USE mo_kind,                 ONLY: wp
-  USE mo_impl_constants,       ONLY: max_ntracer
+  USE mo_impl_constants,       ONLY: max_ntracer, vname_len
   USE mo_run_config,           ONLY: ntracer
-  USE mo_var_list_element,     ONLY: t_var_list_element
-  USE mo_var_metadata_types,   ONLY: VARNAME_LEN
+  USE mo_var,                  ONLY: t_var
   USE mo_dictionary,           ONLY: t_dictionary
   USE mo_ifs_coord,            ONLY: t_vct
   USE mo_fortran_tools,        ONLY: DO_DEALLOCATE, DO_PTR_DEALLOCATE
@@ -59,8 +58,7 @@ MODULE mo_initicon_types
   TYPE :: t_pi_tracer
 
     REAL(wp), POINTER, DIMENSION(:,:,:) :: field => NULL()
-    TYPE(t_var_list_element), POINTER   :: var_element => NULL()
-
+    TYPE(t_var), POINTER :: var_element => NULL()
   CONTAINS
     PROCEDURE :: finalize => t_pi_tracer_finalize   !< destructor
   END TYPE t_pi_tracer
@@ -257,8 +255,8 @@ MODULE mo_initicon_types
   END TYPE t_saveinit_state
 
 
-  CHARACTER(LEN=VARNAME_LEN) :: geop_ml_var  ! model level surface geopotential
-  CHARACTER(LEN=VARNAME_LEN) :: alb_snow_var ! snow albedo
+  CHARACTER(LEN=vname_len) :: geop_ml_var  ! model level surface geopotential
+  CHARACTER(LEN=vname_len) :: alb_snow_var ! snow albedo
 
 
   ! dictionary which maps internal variable names onto

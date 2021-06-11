@@ -27,7 +27,7 @@
 !----------------------------
 #include "omp_definitions.inc"
 #include "consistent_fma.inc"
-#include "icon_contiguous_defines.h"
+#include "icon_contiguous_defines.inc"
 !----------------------------
 
 MODULE mo_nwp_diagnosis

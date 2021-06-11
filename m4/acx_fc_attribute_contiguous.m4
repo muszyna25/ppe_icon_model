@@ -40,7 +40,7 @@ dnl
 dnl
 AC_DEFUN([ACX_FC_ATTRIBUTE_CONTIGUOUS],
   [AC_REQUIRE([AC_PROG_FC])dnl
-   AC_CACHE_CHECK([wether $FC supports CONTIGUOUS attribute],
+   AC_CACHE_CHECK([whether $FC supports CONTIGUOUS attribute],
      [acx_cv_fc_attribute_contiguous],
      [AC_LANG_PUSH([Fortran])
       AC_COMPILE_IFELSE([      SUBROUTINE f(x)

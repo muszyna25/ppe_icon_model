@@ -29,7 +29,7 @@
 MODULE mo_lnd_nwp_config
 
   USE mo_kind,               ONLY: wp
-  USE mo_impl_constants,     ONLY: GLOBCOVER2009, GLC2000, VARNAME_LEN
+  USE mo_impl_constants,     ONLY: GLOBCOVER2009, GLC2000, vname_len
   USE mo_io_units,           ONLY: filename_max
   USE mo_nwp_sfc_tiles,      ONLY: t_tile_list, setup_tile_list
   USE mo_exception,          ONLY: finish
@@ -132,7 +132,7 @@ MODULE mo_lnd_nwp_config
 
    CHARACTER(LEN = *), PARAMETER :: modname = "mo_lnd_nwp_config"
 
-   CHARACTER(LEN=VARNAME_LEN),DIMENSION(1) :: groups_smi = (/"mode_iniana"/)
+   CHARACTER(LEN=vname_len),DIMENSION(1) :: groups_smi = (/"mode_iniana"/)
 
 CONTAINS
 

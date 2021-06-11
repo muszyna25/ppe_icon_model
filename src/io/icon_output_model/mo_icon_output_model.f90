@@ -16,83 +16,54 @@
 !=============================================================================================
 MODULE mo_icon_output_model
 
-  USE mo_exception,           ONLY: message, finish, message_text
-  USE mo_master_control,      ONLY: icon_output_process, get_my_process_name, get_my_process_type
+  USE mo_exception,           ONLY: message, message_text
+  USE mo_master_control,      ONLY: get_my_process_name, get_my_process_type
   USE mo_master_config,       ONLY: isRestart
   USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs, &
        &                            pio_type, num_test_pe, num_prefetch_proc
-  USE mo_mpi,                 ONLY: set_mpi_work_communicators, process_mpi_io_size, &
-       &                            stop_mpi, my_process_is_io, my_process_is_mpi_test,   &
-       &                            set_mpi_work_communicators, process_mpi_io_size
-  USE mo_impl_constants,      ONLY: pio_type_async
+  USE mo_mpi,                 ONLY: set_mpi_work_communicators
 #ifdef HAVE_CDI_PIO
-  USE mo_mpi,                 ONLY: mpi_comm_null, p_comm_work_io
   USE mo_impl_constants,      ONLY: pio_type_cdipio
-  USE mo_cdi,                 ONLY: namespacegetactive
-  USE mo_cdi_pio_interface,   ONLY: nml_io_cdi_pio_namespace, &
-    &                                   cdi_base_namespace, &
-    &                                   nml_io_cdi_pio_client_comm, &
-    &                                   nml_io_cdi_pio_conf_handle
-  USE mo_name_list_output_init, ONLY: init_cdipio_cb
-  USE mo_name_list_output,    ONLY: write_ready_files_cdipio
-  USE mo_impl_constants,      ONLY: pio_type_cdipio
-  USE mo_cdi,                 ONLY: namespaceGetActive, namespaceSetActive
   USE mo_cdi_pio_interface,   ONLY: nml_io_cdi_pio_namespace
+  USE mo_cdi,                 ONLY: namespaceGetActive, namespaceSetActive
 #endif
   USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, print_timer, &
        &                            timer_model_init
   USE mo_memory_log,          ONLY: memory_log_terminate
-  USE mtime,                  ONLY: MAX_DATETIME_STR_LEN, datetimeToString, datetime
-  USE mo_name_list_output_init, ONLY: init_name_list_output, parse_variable_groups, &
-    &                                 output_file
-  USE mo_derived_variable_handling, ONLY: init_statistics_streams, finish_statistics_streams
-  USE mo_name_list_output,    ONLY: close_name_list_output, name_list_io_main_proc, write_name_list_output, istime4name_list_output
-  USE mo_name_list_output_config,  ONLY: use_async_name_list_io
-  USE mo_level_selection, ONLY: create_mipz_level_selections
+  USE mtime,                  ONLY: datetimeToString, datetime
+  USE mo_name_list_output,    ONLY: close_name_list_output, write_name_list_output
   USE mo_zaxis_type,          ONLY: zaxisTypeList, t_zaxisTypeList
-
   USE mo_run_config,          ONLY: output_mode
   USE mo_gribout_config,      ONLY: configure_gribout
-
   ! Control parameters: run control, dynamics, i/o
-  !
   USE mo_run_config,          ONLY: &
-    & test_mode,              &
-    & dtime,                  & !    :
     & ltimer,                 & !    :
     & num_lev,                &
     & nshift,                 &
     & grid_generatingcenter,  & ! grid generating center
     & grid_generatingsubcenter  ! grid generating subcenter
-
-
   ! Horizontal grid
-  USE mo_model_domain,        ONLY: t_patch_3d, p_patch_local_parent
-  !
-  USE mo_grid_config,         ONLY: n_dom, use_dummy_cell_closure
-
+  USE mo_model_domain,        ONLY: p_patch_local_parent
+  USE mo_grid_config,         ONLY: n_dom
+!  USE mo_grid_config,         ONLY: use_dummy_cell_closure
   USE mo_build_decomposition, ONLY: build_decomposition
   USE mo_complete_subdivision,ONLY: setup_phys_patches
-
   USE mo_util_dbg_prnt,       ONLY: init_dbg_index
-  USE mo_impl_constants,      ONLY: success
-
-  USE mo_alloc_patches,        ONLY: destruct_patches, destruct_comm_patterns
+  USE mo_alloc_patches,        ONLY: destruct_comm_patterns
   USE mo_icon_output_read_namelists, ONLY: read_icon_output_namelists
-  USE mo_load_restart,         ONLY: read_restart_header, read_restart_files
+  USE mo_load_restart,         ONLY: read_restart_header
   USE mo_icon_comm_interface,  ONLY: construct_icon_communication, destruct_icon_communication
-  USE mo_output_event_types,   ONLY: t_sim_step_info
-  USE mo_io_config,            ONLY: restartWritingParameters, write_initial_state
-  USE mo_icon_output_time_events,   ONLY: init_icon_output_time_events, getCurrentDate_to_String, isEndOfThisRun, &
+  USE mo_io_config,            ONLY: restartWritingParameters
+!  USE mo_io_config,            ONLY: write_initial_state
+  USE mo_icon_output_time_events,   ONLY: init_icon_output_time_events, isEndOfThisRun, &
     & icon_output_time_nextStep, newNullDatetime
   !-------------------------------------------------------------
   USE mo_icon_output_tools,    ONLY: init_io_processes, prepare_output
   ! For the coupling
   USE mo_icon_output_coupling,      ONLY: construct_icon_output_coupling, destruct_icon_output_coupling
-  USE mo_coupling_config,     ONLY: is_coupled_run
   !-------------------------------------------------------------
   USE mo_icon_output_variables, ONLY: construct_icon_output_variables, destruct_icon_output_variables, &
-    & zlevels, patch_3d
+    & patch_3d
 
  
   IMPLICIT NONE
@@ -178,7 +149,7 @@ MODULE mo_icon_output_model
     DO WHILE(.not. isEndOfThisRun())
       output_step = output_step + 1
       ! update model date and time mtime based
-      current_time = icon_output_time_nextStep()
+      current_time => icon_output_time_nextStep()
 
       CALL datetimeToString(current_time, datestring)
       WRITE(message_text,'(2a,i10,2a)') TRIM(get_my_process_name()), ' begin of timestep =',output_step,'  datetime:  ', datestring
@@ -199,28 +170,16 @@ MODULE mo_icon_output_model
   !!
 !<Optimize:inUse>
   SUBROUTINE destruct_icon_output_model()
-
     CHARACTER(*), PARAMETER :: method_name = "mo_icon_output_model:destruct_icon_output_model"
-
-    INTEGER :: error_status
-
 #ifdef HAVE_CDI_PIO
     INTEGER :: prev_cdi_namespace
 #endif
 
-    !------------------------------------------------------------------
     !  cleaning up process
-    !------------------------------------------------------------------
     CALL message(TRIM(method_name),'start to clean up')
-
     CALL destruct_comm_patterns( patch_3d%p_patch_2d, p_patch_local_parent )
-
     CALL destruct_icon_output_variables()
-
-    IF (output_mode%l_nml) THEN
-      CALL close_name_list_output
-      CALL finish_statistics_streams
-    ENDIF
+    IF (output_mode%l_nml) CALL close_name_list_output
 #ifdef HAVE_CDI_PIO
     IF (pio_type == pio_type_cdipio) THEN
       prev_cdi_namespace = namespaceGetActive()
@@ -229,15 +188,11 @@ MODULE mo_icon_output_model
       CALL namespaceSetActive(prev_cdi_namespace)
     END IF
 #endif
-
     CALL destruct_icon_communication()
     CALL destruct_icon_output_coupling ()
-
     ! close memory logging files
     CALL memory_log_terminate
-
     CALL message(TRIM(method_name),'clean-up finished')
-
   END SUBROUTINE destruct_icon_output_model
   !--------------------------------------------------------------------------
 
@@ -252,8 +207,8 @@ MODULE mo_icon_output_model
     CHARACTER(LEN=*), INTENT(in) :: icon_output_namelist_filename,shr_namelist_filename
 
     CHARACTER(*), PARAMETER :: method_name = "mo_icon_output_model:construct_icon_output_model"
-    INTEGER :: ist, error_status, dedicatedRestartProcs
-    INTEGER :: comp_id
+    INTEGER :: dedicatedRestartProcs, comp_id
+!    INTEGER :: ist
     !-------------------------------------------------------------------
 
     CALL message(method_name, "starts...")
@@ -301,7 +256,8 @@ MODULE mo_icon_output_model
 
     ! 4. Import patches
     !-------------------------------------------------------------------
-    CALL build_decomposition(num_lev,nshift, is_ocean_decomposition =.TRUE., & ! FixMe: is_ocean_decomposition =.TRUE. should be parametrized
+    ! FixMe: is_ocean_decomposition =.TRUE. should be parametrized
+    CALL build_decomposition(num_lev,nshift, is_ocean_decomposition =.TRUE., &
       & patch_3d=patch_3d)
     CALL construct_icon_communication(patch_3d%p_patch_2d(:), n_dom=1)
     ! Setup the information for the physical patches
@@ -315,15 +271,9 @@ MODULE mo_icon_output_model
     CALL construct_icon_output_coupling()
     !------------------------------------------------------------------
     ! step 5b: allocate state variables
-    !------------------------------------------------------------------
-!     ALLOCATE (icon_output_state(n_dom), stat=ist)
-!     IF (ist /= success) THEN
-!       CALL finish(TRIM(method_name),'allocation for icon_output_state failed')
-!     ENDIF
     !---------------------------------------------------------------------
     ! 9. Horizontal and vertical grid(s) are now defined.
     !    Assign values to derived variables in the configuration states
-    !---------------------------------------------------------------------
 
     CALL configure_gribout(grid_generatingcenter, grid_generatingsubcenter, n_dom)
 
