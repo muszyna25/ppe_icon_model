@@ -36,7 +36,7 @@ CONTAINS
         &                     pown2bud, powh2obud, sred_sed,              &
         &                     porsol, pors2w, calcon,                     &
         &                     disso_op, disso_cal,                        &
-        &                     sedtend, isremins, isremino, isreminn,      &
+        &                     sedtend,      &
         &                     silsat
 
  
@@ -45,7 +45,7 @@ CONTAINS
    USE mo_param1_bgc, ONLY  : ipowasi, issssil, ipowaox,ipowh2s,  &
         &                     issso12, ipowaph, ipowno3, ipown2, &
         &                     ipowaal, ipowaic, isssc12, issster, &
-        &                     ipowafe
+        &                     ipowafe, isremins, isremino, isreminn
  
    USE mo_hamocc_nml, ONLY  : disso_po,denit_sed
  
@@ -322,7 +322,7 @@ SUBROUTINE powach_impl( start_idx, end_idx, psao )
        &                     porsol, rno3, calcon,               &
        &                     sred_sed, silsat,     &
        &                     seddenit,disso_op,disso_cal, &
-       &                     sedtend, isremins, isremino, isreminn
+       &                     sedtend
 
 
   USE mo_control_bgc, ONLY : dtbgc, bgc_nproma, bgc_zlevs
@@ -330,7 +330,7 @@ SUBROUTINE powach_impl( start_idx, end_idx, psao )
   USE mo_param1_bgc, ONLY  : ipowasi, isilica, issssil, ipowaox, kaou,   &
        &                     ioxygen, issso12, ipowaph, ipowno3, ipown2, &
        &                     ipowaal, ipowaic, isssc12, ipowafe, issster,&
-       &                     ipowh2s
+       &                     ipowh2s, isremins, isremino, isreminn
 
   USE mo_hamocc_nml, ONLY  : disso_po, denit_sed
 

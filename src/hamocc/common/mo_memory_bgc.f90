@@ -107,7 +107,7 @@ MODULE mo_memory_bgc
 
   ! Extended Nitrogen cycle variables
   REAL(wp) :: bkno3_cya, bknh4_cya, ro2ammo, bkno3, bknh4
-  REAL(wp) :: rmm, kg_denom, bkpo4
+  REAL(wp) :: rmm, kg_denom, bkpo4, o2thresh, o2den_lim
   REAL(wp) :: no2denit, anamoxra, bkno2, bkrad, nitriox, nitrira
   REAL(wp) :: bkfe, rno3nh4, rno3no2, rnh4no2, rno2no3, alk_nrn2
   REAL(wp) :: rno2n2

@@ -1499,6 +1499,65 @@
 
     IF (l_N_cycle) THEN
 
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_gppnh4',hamocc_state_tend%gppnh4,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('npp nh4','kmolP m-3 s-1','primary production on nh4', datatype_flt,'npp nh4'), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_cyapro',hamocc_state_tend%cyapro,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('npp_cya_nh4no2','kmolP m-3 s-1','primary production of cyano on nh4 and no2', datatype_flt,'npp_cya_nh4no2'), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_nh3flux',hamocc_state_tend%nh3flux,    &
+      & grid_unstructured_cell, za_surface,&
+      & t_cf_var('nh3flux','kmol N m-2 s-1','', datatype_flt,'nh3flux'), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_ammox',hamocc_state_tend%ammox,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('ammox','kmol N m-3 s-1','nitrification of nh4', datatype_flt,'ammox'), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_nitox',hamocc_state_tend%nitox,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('nitox','kmol N m-3 s-1','nitrification of no2', datatype_flt,'nitox'), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_dnrn',hamocc_state_tend%dnrn,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('dnrn','kmol N m-3 s-1','dnrn of no3 to no2', datatype_flt,'dnrn'), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_dnra',hamocc_state_tend%dnra,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('dnra','kmol N m-3 s-1','dnra of no3 to nh4', datatype_flt,'dnra'), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_anam',hamocc_state_tend%anam,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('anammox','kmol N m-3 s-1','annamox of nh4 and no2', datatype_flt,'anammox'), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+
+
+    ! Sediment
     CALL add_var(hamocc_sediment_list, 'HAMOCC_sedflux_nh4',hamocc_state_tend%sedflnh4,    &
       & grid_unstructured_cell, za_surface,&
       & t_cf_var('sedflux_nh4','kmol N m-2 s-1','sediment-ocean flux ammonium', datatype_flt,'sedflux_nh4'), &
@@ -1511,6 +1570,48 @@
       & t_cf_var('sedflux_no2','kmol N m-2 s-1','sediment-ocean flux nitrite', datatype_flt,'sedflux_no2'), &
       & grib2_var(255, 255, 285, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_sediment_list, 'HAMOCC_sed_ammox',hamocc_state_tend%sedammox,    &
+      & grid_unstructured_cell, za_ocean_sediment,&
+      & t_cf_var('sed_ammox','kmol N m-3 s-1','sediment Nitrification of NH4', datatype_flt,'sed_ammox'), &
+      & grib2_var(255, 255, 302, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,ks,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_sediment_list, 'HAMOCC_sed_nitox',hamocc_state_tend%sednitox,    &
+      & grid_unstructured_cell, za_ocean_sediment,&
+      & t_cf_var('sed_nitox','kmol N m-3 s-1','sediment Nitrification of NO2', datatype_flt,'sed_nitox'), &
+      & grib2_var(255, 255, 302, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,ks,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_sediment_list, 'HAMOCC_sed_anam',hamocc_state_tend%sedanam,    &
+      & grid_unstructured_cell, za_ocean_sediment,&
+      & t_cf_var('sed_anam','kmol N m-3 s-1','sediment anammox of NH4 and NO2', datatype_flt,'sed_anam'), &
+      & grib2_var(255, 255, 302, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,ks,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_sediment_list, 'HAMOCC_sed_dnrn',hamocc_state_tend%seddnrn,    &
+      & grid_unstructured_cell, za_ocean_sediment,&
+      & t_cf_var('sed_dnrn','kmol N m-3 s-1','sediment dnrn of no3 to NO2', datatype_flt,'sed_dnrn'), &
+      & grib2_var(255, 255, 302, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,ks,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_sediment_list, 'HAMOCC_sed_dnra',hamocc_state_tend%seddnra,    &
+      & grid_unstructured_cell, za_ocean_sediment,&
+      & t_cf_var('sed_dnra','kmol N m-3 s-1','sediment dnra of no3 to NH4', datatype_flt,'sed_dnra'), &
+      & grib2_var(255, 255, 302, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,ks,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_sediment_list, 'HAMOCC_sed_nrn2',hamocc_state_tend%sednrn2,    &
+      & grid_unstructured_cell, za_ocean_sediment,&
+      & t_cf_var('sed_nrn2','kmol N m-3 s-1','sediment denitrification', datatype_flt,'sed_nrn2'), &
+      & grib2_var(255, 255, 302, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,ks,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
       & loutput=.TRUE., lrestart=.FALSE.)
 
     ENDIF ! l_N_cycle

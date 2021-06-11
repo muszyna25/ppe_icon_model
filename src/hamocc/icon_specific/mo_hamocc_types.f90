@@ -105,12 +105,15 @@ MODULE mo_hamocc_types
     REAL(wp), POINTER ::  sedhi(:,:,:)       
     REAL(wp), POINTER ::  pwh2ob(:,:,:)       
     REAL(wp), POINTER ::  pwn2b(:,:,:)       
-    REAL(wp), POINTER ::  pwnh4(:,:,:)
-    REAL(wp), POINTER ::  pwno2(:,:,:)    
     REAL(wp), POINTER ::  bo12(:,:)       
     REAL(wp), POINTER ::  bc12(:,:)       
     REAL(wp), POINTER ::  bsil(:,:)       
     REAL(wp), POINTER ::  bter(:,:)       
+
+    ! N-cycle
+    REAL(wp), POINTER ::  pwnh4(:,:,:)
+    REAL(wp), POINTER ::  pwno2(:,:,:)   
+ 
     INTEGER, POINTER ::  kbo(:,:)       
     REAL(wp), POINTER ::  bolay(:,:)       
   END TYPE t_hamocc_sed
@@ -170,8 +173,6 @@ MODULE mo_hamocc_types
     REAL(wp), POINTER ::  sedfln2(:,:)       
     REAL(wp), POINTER ::  sedflno3(:,:)       
     REAL(wp), POINTER ::  sedflh2s(:,:)       
-    REAL(wp), POINTER ::  sedflnh4(:,:)       
-    REAL(wp), POINTER ::  sedflno2(:,:)  
     REAL(wp), POINTER ::  sedro2(:,:,:)       
     REAL(wp), POINTER ::  sedrn(:,:,:)       
     REAL(wp), POINTER ::  sedrs(:,:,:)       
@@ -208,6 +209,25 @@ MODULE mo_hamocc_types
     REAL(wp), POINTER ::  h2sloss(:,:,:)       
     REAL(wp), POINTER ::  lysocline(:,:)
     REAL(wp), POINTER ::  nitrogeninp(:,:)
+
+    ! N-cycle
+    REAL(wp), POINTER ::  nh3flux(:,:)
+    REAL(wp), POINTER ::  gppnh4(:,:,:)
+    REAL(wp), POINTER ::  cyapro(:,:,:)
+    REAL(wp), POINTER ::  ammox(:,:,:)
+    REAL(wp), POINTER ::  nitox(:,:,:)
+    REAL(wp), POINTER ::  dnrn(:,:,:)
+    REAL(wp), POINTER ::  dnra(:,:,:)
+    REAL(wp), POINTER ::  anam(:,:,:)
+    REAL(wp), POINTER ::  sedflnh4(:,:)       
+    REAL(wp), POINTER ::  sedflno2(:,:)  
+    REAL(wp), POINTER ::  sedammox(:,:,:)       
+    REAL(wp), POINTER ::  sednitox(:,:,:)       
+    REAL(wp), POINTER ::  sedanam(:,:,:)
+    REAL(wp), POINTER ::  seddnrn(:,:,:)       
+    REAL(wp), POINTER ::  seddnra(:,:,:)       
+    REAL(wp), POINTER ::  sednrn2(:,:,:)     
+
     TYPE(t_hamocc_monitor) :: monitor
   END TYPE t_hamocc_tend
 

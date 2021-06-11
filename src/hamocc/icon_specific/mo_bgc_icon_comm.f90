@@ -262,10 +262,13 @@
 &                              kopex1000,kopex2000,kcalex1000,&
 &                              kcalex2000, kaou, kcTlim, kcLlim, &
 &                              kcPlim, kcFlim, ipowh2s,kh2sprod, &   
-&                              kh2sloss,iatmco2,kpco2,klysocl,knitinp
+&                              kh2sloss,iatmco2,kpco2,klysocl,knitinp, &
+&                              isremino, isreminn, isremins, &
+&                              knh3flux, kgppnh, kcyapro, kammox, knitox, &
+&                              kdnrn, kdnra, kanam, ksammox, ksnitox, &
+&                              ksdnrn, ksdnra, ksanam, ksnrn2
   
-      USE mo_sedmnt, ONLY : pown2bud, powh2obud, sedtend, &
-&                           isremino, isreminn, isremins
+      USE mo_sedmnt, ONLY : pown2bud, powh2obud, sedtend
 
       TYPE(t_hamocc_tend) :: p_tend
       TYPE(t_hamocc_diag) :: p_diag
@@ -359,6 +362,31 @@
              p_tend%satoxy(jc,jk,jb)    = satoxy(jc,jk) 
              p_tend%aou(jc,jk,jb) = bgctend(jc,jk,kaou)
         ENDDO
+        IF (l_N_cycle) THEN
+             p_tend%nh3flux(jc,jb) = bgcflux(jc,knh3flux)
+             DO jk = 1,kpke
+                p_tend%gppnh4(jc,jk,jb) = bgctend(jc,jk,kgppnh)
+                p_tend%cyapro(jc,jk,jb) = bgctend(jc,jk,kcyapro)
+                p_tend%ammox(jc,jk,jb) = bgctend(jc,jk,kammox)
+                p_tend%nitox(jc,jk,jb) = bgctend(jc,jk,knitox)
+                p_tend%dnrn(jc,jk,jb) = bgctend(jc,jk,kdnrn)
+                p_tend%dnra(jc,jk,jb) = bgctend(jc,jk,kdnra)
+                p_tend%anam(jc,jk,jb) = bgctend(jc,jk,kanam)
+             ENDDO
+             p_tend%sedflnh4(jc,jb) = sedfluxo(jc,ipownh4) 
+             p_tend%sedflno2(jc,jb) = sedfluxo(jc,ipowno2)
+             DO jk = 1,ks
+                p_sed%pwnh4(jc,jk,jb) = powtra(jc,jk,ipownh4) 
+                p_sed%pwno2(jc,jk,jb) = powtra(jc,jk,ipowno2)
+                p_tend%sedammox(jc,jk,jb) = sedtend(jc,jk,ksammox)
+                p_tend%sednitox(jc,jk,jb) = sedtend(jc,jk,ksnitox)
+                p_tend%seddnrn(jc,jk,jb) = sedtend(jc,jk,ksdnrn)
+                p_tend%seddnra(jc,jk,jb) = sedtend(jc,jk,ksdnra)
+                p_tend%sedanam(jc,jk,jb) = sedtend(jc,jk,ksanam)
+                p_tend%sednrn2(jc,jk,jb) = sedtend(jc,jk,ksnrn2)
+             ENDDO
+
+        ENDIF
         p_tend%satn2(jc,jb)    = satn2(jc) 
         p_tend%satn2o(jc,jb)    = satn2o(jc) 
         p_tend%solco2(jc,jb)    = solco2(jc) 
@@ -378,10 +406,6 @@
         p_tend%sedfln2(jc,jb) = sedfluxo(jc,ipown2) 
         p_tend%sedflno3(jc,jb) = sedfluxo(jc,ipowno3) 
         p_tend%sedflh2s(jc,jb) = sedfluxo(jc,ipowh2s) 
-        if (l_N_cycle) THEN
-           p_tend%sedflnh4(jc,jb) = sedfluxo(jc,ipownh4) 
-           p_tend%sedflno2(jc,jb) = sedfluxo(jc,ipowno2) 
-        ENDIF
         DO jk =1,ks
              ! Solid sediment
              p_sed%so12(jc,jk,jb) = sedlay(jc,jk,issso12)
@@ -398,10 +422,6 @@
              p_sed%pwn2(jc,jk,jb) = powtra(jc,jk,ipown2)
              p_sed%pwno3(jc,jk,jb) = powtra(jc,jk,ipowno3)
              p_sed%pwh2s(jc,jk,jb) = powtra(jc,jk,ipowh2s)
-             if (l_N_cycle) THEN
-                p_sed%pwnh4(jc,jk,jb) = powtra(jc,jk,ipownh4) 
-                p_sed%pwno2(jc,jk,jb) = powtra(jc,jk,ipowno2) 
-             ENDIF
              p_sed%sedhi(jc,jk,jb) = sedhpl(jc,jk)
              p_sed%pwh2ob(jc,jk,jb) = powh2obud(jc,jk)
              p_sed%pwn2b(jc,jk,jb) = pown2bud(jc,jk)
@@ -430,12 +450,14 @@
  &                             ipowaic, ipowaal, ipowaph, &
  &                             ipowaox, ipown2, ipowno3,  &
  &                             ipownh4, ipowno2, &
- &                             ipowasi, ipowafe, ipowh2s
+ &                             ipowasi, ipowafe, ipowh2s, &
+ &                             isremino, isreminn, isremins, &
+ &                             ksammox, ksnitox, ksdnrn, ksdnra, &
+ &                             ksanam, ksnrn2
 
       USE mo_bgc_bcond, ONLY: ext_data_bgc
   
-      USE mo_sedmnt, ONLY : pown2bud, powh2obud, sedtend, &
-&                           isremino, isreminn, isremins
+      USE mo_sedmnt, ONLY : pown2bud, powh2obud, sedtend
 
       TYPE(t_hamocc_sed) :: p_sed
       TYPE(t_hamocc_tend):: p_tend
@@ -472,7 +494,17 @@
         p_tend%sedflh2s(jc,jb) = sedfluxo(jc,ipowh2s) 
         if (l_N_cycle) THEN
            p_tend%sedflnh4(jc,jb) = sedfluxo(jc,ipownh4) 
-           p_tend%sedflno2(jc,jb) = sedfluxo(jc,ipowno2) 
+           p_tend%sedflno2(jc,jb) = sedfluxo(jc,ipowno2)
+           DO jk = 1,ks
+                p_sed%pwnh4(jc,jk,jb) = powtra(jc,jk,ipownh4) 
+                p_sed%pwno2(jc,jk,jb) = powtra(jc,jk,ipowno2)
+                p_tend%sedammox(jc,jk,jb) = sedtend(jc,jk,ksammox)
+                p_tend%sednitox(jc,jk,jb) = sedtend(jc,jk,ksnitox)
+                p_tend%seddnrn(jc,jk,jb) = sedtend(jc,jk,ksdnrn)
+                p_tend%seddnra(jc,jk,jb) = sedtend(jc,jk,ksdnra)
+                p_tend%sedanam(jc,jk,jb) = sedtend(jc,jk,ksanam)
+                p_tend%sednrn2(jc,jk,jb) = sedtend(jc,jk,ksnrn2)
+           ENDDO
         ENDIF
         DO jk =1,ks
              ! Solid sediment
@@ -490,10 +522,6 @@
              p_sed%pwn2(jc,jk,jb) = powtra(jc,jk,ipown2)
              p_sed%pwno3(jc,jk,jb) = powtra(jc,jk,ipowno3)
              p_sed%pwh2s(jc,jk,jb) = powtra(jc,jk,ipowh2s)
-             if (l_N_cycle) THEN
-                p_sed%pwnh4(jc,jk,jb) = powtra(jc,jk,ipownh4) 
-                p_sed%pwno2(jc,jk,jb) = powtra(jc,jk,ipowno2) 
-             ENDIF
              p_sed%sedhi(jc,jk,jb) = sedhpl(jc,jk)
              p_sed%pwh2ob(jc,jk,jb) = powh2obud(jc,jk)
              p_sed%pwn2b(jc,jk,jb) = pown2bud(jc,jk)

@@ -27,11 +27,10 @@ MODULE mo_ini_bgc
        &                     no2denit, anamoxra, nitriox, nitrira, ro2ammo, &
        &                     bknh4_cya, bkno3_cya, bkno3, bknh4, rmm, kg_denom, bkpo4, &
        &                     bkno2, bkrad, bkfe, rno3nh4, rno3no2, rno2no3, rnh4no2, &
-       &                     alk_nrn2, rno2n2
+       &                     alk_nrn2, rno2n2, o2thresh, o2den_lim
 
   USE mo_sedmnt, ONLY      : powtra, sedlay, sedhpl,disso_op,disso_cal,&
-       &                     o2ut, rno3, sred_sed, silsat, &
-                             o2thresh 
+       &                     o2ut, rno3, sred_sed, silsat
 
   USE mo_hamocc_nml, ONLY  : l_cpl_co2, i_settling, &
        &                     sinkspeed_poc, sinkspeed_opal, sinkspeed_calc,&
@@ -183,6 +182,7 @@ CONTAINS
     disso_po  = 0.01_wp      ! [m3/(kmol O2) 1/d] degradation rate organic C in sediment
     silsat    = 0.001_wp     ! [mol/m3] Silicate saturation constant  
     o2thresh  = 10.E-6_wp    ! set to 10 umol/l O2 threshold in sediment
+    o2den_lim = 0.5E-6_wp
 
 
     ! weight percent iron in dust deposition (0.035) times Fe solubility (0.01) /55.85 g--> mol
