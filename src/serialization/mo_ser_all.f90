@@ -20,7 +20,8 @@ MODULE mo_ser_all
   USE mo_dynamics_config,    ONLY: nnow, nnew, nnow_rcf, nnew_rcf
   USE mo_var_metadata_types, ONLY: t_var_metadata
   USE mo_model_domain,       ONLY: t_patch
-  USE mo_var_list,           ONLY: t_var_list_ptr, t_list_element
+  USE mo_var_list,           ONLY: t_var_list_ptr
+  USE mo_var,                ONLY: t_var
   USE mo_var_list_register,  ONLY: vlr_get
   USE mo_run_config,         ONLY: iforcing, ldass_lhn
   USE mo_impl_constants,     ONLY: inwp
@@ -112,7 +113,7 @@ MODULE mo_ser_all
 
     TYPE(t_var_list_ptr) :: list
     TYPE(t_var_metadata), POINTER :: info
-    TYPE(t_list_element), POINTER :: element
+    TYPE(t_var),          POINTER :: element
     CHARACTER(len=VNAME_LEN)      :: listname
 
     INTEGER :: dims(5)
