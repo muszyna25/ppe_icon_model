@@ -111,12 +111,12 @@ MODULE mo_ser_all
     CHARACTER(len=*), INTENT(IN), OPTIONAL  :: substr  ! String after domain, before timelev
     INTEGER, INTENT(IN), OPTIONAL           :: timelev ! timelev index to append
 
-    TYPE(t_var_list_ptr) :: list
+    TYPE(t_var_list_ptr)          :: list
     TYPE(t_var_metadata), POINTER :: info
     TYPE(t_var),          POINTER :: element
     CHARACTER(len=VNAME_LEN)      :: listname
 
-    INTEGER :: dims(5)
+    INTEGER :: dims(5), ii
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: ser_name, listhashchar
     INTEGER :: listhash
@@ -140,184 +140,369 @@ MODULE mo_ser_all
 
     CALL vlr_get(list, listname)
 
-    element => list%p%first_list_element
-    for_all_list_elements: DO WHILE (ASSOCIATED(element))
-      info    => element%field%info
-      call char_to_hash(listname, listhash)
-      write(ser_name, '(a,i5.5)') TRIM(info%name)//'_', listhash
-      dims = info%used_dimensions
-      ! IF(info%lopenacc) THEN
-      SELECT CASE(info%data_type)
-      CASE (REAL_T)
-        SELECT CASE ( ser_mode )
-          CASE(0) ! write
-            !$ACC UPDATE HOST( element%field%r_ptr ) IF( lupdate_cpu .and.  info%lopenacc )
-            SELECT CASE ( info%ndims )
-              CASE(1)
-                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%r_ptr(:,1,1,1,1))
-              CASE(2)
-                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%r_ptr(:,:,1,1,1))
-              CASE(3)
-                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%r_ptr(:,:,:,1,1))
-              CASE(4)
-                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%r_ptr(:,:,:,:,1))
-            END SELECT
-          CASE(1) ! read
-            SELECT CASE ( info%ndims )
-              CASE(1)
-                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%r_ptr(:,1,1,1,1))
-              CASE(2)
-                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%r_ptr(:,:,1,1,1))
-              CASE(3)
-                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%r_ptr(:,:,:,1,1))
-              CASE(4)
-                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%r_ptr(:,:,:,:,1))
-            END SELECT
-            !$ACC UPDATE DEVICE( element%field%r_ptr ) if ( info%lopenacc )
-          CASE(2) ! read perturb
-            SELECT CASE ( info%ndims )
-              CASE(1)
-                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%r_ptr(:,1,1,1,1), ppser_zrperturb)
-              CASE(2)
-                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%r_ptr(:,:,1,1,1), ppser_zrperturb)
-              CASE(3)
-                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%r_ptr(:,:,:,1,1), ppser_zrperturb)
-              CASE(4)
-                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%r_ptr(:,:,:,:,1), ppser_zrperturb)
-            END SELECT
-            !$ACC UPDATE DEVICE( element%field%r_ptr ) if ( info%lopenacc )
-          CASE(3) ! compare
-            !$ACC UPDATE HOST( element%field%r_ptr ) IF( lupdate_cpu .and.  info%lopenacc )
-            SELECT CASE ( info%ndims )
-              CASE(1)
-                call compare(ser_name, element%field%r_ptr(:,1,1,1,1), info%lopenacc, abs_threshold, rel_threshold)
-                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%r_ptr(:,1,1,1,1))
-              CASE(2)
-                call compare(ser_name, element%field%r_ptr(:,:,1,1,1), info%lopenacc, abs_threshold, rel_threshold)
-                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%r_ptr(:,:,1,1,1))
-              CASE(3)
-                call compare(ser_name, element%field%r_ptr(:,:,:,1,1), info%lopenacc, abs_threshold, rel_threshold)
-                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%r_ptr(:,:,:,1,1))
-              CASE(4)
-                call compare(ser_name, element%field%r_ptr(:,:,:,:,1), info%lopenacc, abs_threshold, rel_threshold)
-                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%r_ptr(:,:,:,:,1))
-            END SELECT
+
+
+!DR Test
+    IF ( ASSOCIATED(list%p) ) THEN
+      for_all_list_elements: DO ii = 1, list%p%nvars
+        element => list%p%vl(ii)%p
+        info    => element%info
+        call char_to_hash(listname, listhash)
+        write(ser_name, '(a,i5.5)') TRIM(info%name)//'_', listhash
+        dims = info%used_dimensions
+
+        SELECT CASE(info%data_type)
+        CASE (REAL_T)
+          SELECT CASE ( ser_mode )
+            CASE(0) ! write
+              !$ACC UPDATE HOST( element%r_ptr ) IF( lupdate_cpu .and.  info%lopenacc )
+              SELECT CASE ( info%ndims )
+                CASE(1)
+                  call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%r_ptr(:,1,1,1,1))
+                CASE(2)
+                  call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%r_ptr(:,:,1,1,1))
+                CASE(3)
+                  call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%r_ptr(:,:,:,1,1))
+                CASE(4)
+                  call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%r_ptr(:,:,:,:,1))
+              END SELECT
+            CASE(1) ! read
+              SELECT CASE ( info%ndims )
+                CASE(1)
+                  call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%r_ptr(:,1,1,1,1))
+                CASE(2)
+                  call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%r_ptr(:,:,1,1,1))
+                CASE(3)
+                  call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%r_ptr(:,:,:,1,1))
+                CASE(4)
+                  call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%r_ptr(:,:,:,:,1))
+              END SELECT
+              !$ACC UPDATE DEVICE( element%r_ptr ) if ( info%lopenacc )
+            CASE(2) ! read perturb
+              SELECT CASE ( info%ndims )
+                CASE(1)
+                  call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%r_ptr(:,1,1,1,1), ppser_zrperturb)
+                CASE(2)
+                  call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%r_ptr(:,:,1,1,1), ppser_zrperturb)
+                CASE(3)
+                  call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%r_ptr(:,:,:,1,1), ppser_zrperturb)
+                CASE(4)
+                  call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%r_ptr(:,:,:,:,1), ppser_zrperturb)
+              END SELECT
+              !$ACC UPDATE DEVICE( element%r_ptr ) if ( info%lopenacc )
+            CASE(3) ! compare
+              !$ACC UPDATE HOST( element%r_ptr ) IF( lupdate_cpu .and.  info%lopenacc )
+              SELECT CASE ( info%ndims )
+                CASE(1)
+                  call compare(ser_name, element%r_ptr(:,1,1,1,1), info%lopenacc, abs_threshold, rel_threshold)
+                  call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%r_ptr(:,1,1,1,1))
+                CASE(2)
+                  call compare(ser_name, element%r_ptr(:,:,1,1,1), info%lopenacc, abs_threshold, rel_threshold)
+                  call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%r_ptr(:,:,1,1,1))
+                CASE(3)
+                  call compare(ser_name, element%r_ptr(:,:,:,1,1), info%lopenacc, abs_threshold, rel_threshold)
+                  call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%r_ptr(:,:,:,1,1))
+                CASE(4)
+                  call compare(ser_name, element%r_ptr(:,:,:,:,1), info%lopenacc, abs_threshold, rel_threshold)
+                  call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%r_ptr(:,:,:,:,1))
+              END SELECT
+          END SELECT
+        CASE (SINGLE_T)
+          SELECT CASE ( ser_mode )
+            CASE(0)
+              !$ACC UPDATE HOST( element%s_ptr ) IF( lupdate_cpu .and.  info%lopenacc )
+              SELECT CASE ( info%ndims )
+                CASE(1)
+                  call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%s_ptr(:,1,1,1,1))
+                CASE(2)
+                  call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%s_ptr(:,:,1,1,1))
+                CASE(3)
+                  call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%s_ptr(:,:,:,1,1))
+                CASE(4)
+                  call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%s_ptr(:,:,:,:,1))
+              END SELECT
+            CASE(1)
+              SELECT CASE ( info%ndims )
+                CASE(1)
+                  call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%s_ptr(:,1,1,1,1))
+                CASE(2)
+                  call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%s_ptr(:,:,1,1,1))
+                CASE(3)
+                  call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%s_ptr(:,:,:,1,1))
+                CASE(4)
+                  call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%s_ptr(:,:,:,:,1))
+              END SELECT
+              !$ACC UPDATE DEVICE( element%s_ptr ) if ( info%lopenacc )
+            CASE(2)
+              SELECT CASE ( info%ndims )
+                CASE(1)
+                  call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%s_ptr(:,1,1,1,1), ppser_zrperturb)
+                CASE(2)
+                  call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%s_ptr(:,:,1,1,1), ppser_zrperturb)
+                CASE(3)
+                  call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%s_ptr(:,:,:,1,1), ppser_zrperturb)
+                CASE(4)
+                  call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%s_ptr(:,:,:,:,1), ppser_zrperturb)
+              END SELECT
+              !$ACC UPDATE DEVICE( element%s_ptr ) if ( info%lopenacc )
+            CASE(3) ! compare
+              !$ACC UPDATE HOST( element%s_ptr ) IF( lupdate_cpu .and.  info%lopenacc )
+              SELECT CASE ( info%ndims )
+                CASE(1)
+                  call compare(ser_name, element%s_ptr(:,1,1,1,1), info%lopenacc, abs_threshold, rel_threshold)
+                  call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%s_ptr(:,1,1,1,1))
+                CASE(2)
+                  call compare(ser_name, element%s_ptr(:,:,1,1,1), info%lopenacc, abs_threshold, rel_threshold)
+                  call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%s_ptr(:,:,1,1,1))
+                CASE(3)
+                  call compare(ser_name, element%s_ptr(:,:,:,1,1), info%lopenacc, abs_threshold, rel_threshold)
+                  call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%s_ptr(:,:,:,1,1))
+                CASE(4)
+                  call compare(ser_name, element%s_ptr(:,:,:,:,1), info%lopenacc, abs_threshold, rel_threshold)
+                  call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%s_ptr(:,:,:,:,1))
+              END SELECT
+          END SELECT
+        CASE (INT_T)
+          SELECT CASE ( ser_mode )
+            CASE(0)
+              !$ACC UPDATE HOST( element%i_ptr ) IF( lupdate_cpu .and.  info%lopenacc )
+              SELECT CASE ( info%ndims )
+                CASE(1)
+                  call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%i_ptr(:,1,1,1,1))
+                CASE(2)
+                  call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%i_ptr(:,:,1,1,1))
+                CASE(3)
+                  call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%i_ptr(:,:,:,1,1))
+                CASE(4)
+                  call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%i_ptr(:,:,:,:,1))
+              END SELECT
+            CASE(1)
+              SELECT CASE ( info%ndims )
+                CASE(1)
+                  call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%i_ptr(:,1,1,1,1))
+                CASE(2)
+                  call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%i_ptr(:,:,1,1,1))
+                CASE(3)
+                  call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%i_ptr(:,:,:,1,1))
+                CASE(4)
+                  call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%i_ptr(:,:,:,:,1))
+              END SELECT
+              !$ACC UPDATE DEVICE( element%i_ptr ) if ( info%lopenacc )
+            CASE(2)
+              SELECT CASE ( info%ndims )
+                CASE(1)
+                  call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%i_ptr(:,1,1,1,1), ppser_zrperturb)
+                CASE(2)
+                  call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%i_ptr(:,:,1,1,1), ppser_zrperturb)
+                CASE(3)
+                  call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%i_ptr(:,:,:,1,1), ppser_zrperturb)
+                CASE(4)
+                  call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%i_ptr(:,:,:,:,1), ppser_zrperturb)
+              END SELECT
+              !$ACC UPDATE DEVICE( element%i_ptr ) if ( info%lopenacc )
+            CASE(3) ! compare
+              !$ACC UPDATE HOST( element%i_ptr ) IF( lupdate_cpu .and.  info%lopenacc )
+              SELECT CASE ( info%ndims )
+                CASE(1)
+                  call compare(ser_name, element%i_ptr(:,1,1,1,1), info%lopenacc, abs_threshold, rel_threshold)
+                  call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%i_ptr(:,1,1,1,1))
+                CASE(2)
+                  call compare(ser_name, element%i_ptr(:,:,1,1,1), info%lopenacc, abs_threshold, rel_threshold)
+                  call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%i_ptr(:,:,1,1,1))
+                CASE(3)
+                  call compare(ser_name, element%i_ptr(:,:,:,1,1), info%lopenacc, abs_threshold, rel_threshold)
+                  call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%i_ptr(:,:,:,1,1))
+                CASE(4)
+                  call compare(ser_name, element%i_ptr(:,:,:,:,1), info%lopenacc, abs_threshold, rel_threshold)
+                  call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%i_ptr(:,:,:,:,1))
+              END SELECT
+          END SELECT
+        CASE (BOOL_T)
         END SELECT
-      CASE (SINGLE_T)
-        SELECT CASE ( ser_mode )
-          CASE(0)
-            !$ACC UPDATE HOST( element%field%s_ptr ) IF( lupdate_cpu .and.  info%lopenacc )
-            SELECT CASE ( info%ndims )
-              CASE(1)
-                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%s_ptr(:,1,1,1,1))
-              CASE(2)
-                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%s_ptr(:,:,1,1,1))
-              CASE(3)
-                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%s_ptr(:,:,:,1,1))
-              CASE(4)
-                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%s_ptr(:,:,:,:,1))
-            END SELECT
-          CASE(1)
-            SELECT CASE ( info%ndims )
-              CASE(1)
-                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%s_ptr(:,1,1,1,1))
-              CASE(2)
-                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%s_ptr(:,:,1,1,1))
-              CASE(3)
-                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%s_ptr(:,:,:,1,1))
-              CASE(4)
-                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%s_ptr(:,:,:,:,1))
-            END SELECT
-            !$ACC UPDATE DEVICE( element%field%s_ptr ) if ( info%lopenacc )
-          CASE(2)
-            SELECT CASE ( info%ndims )
-              CASE(1)
-                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%s_ptr(:,1,1,1,1), ppser_zrperturb)
-              CASE(2)
-                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%s_ptr(:,:,1,1,1), ppser_zrperturb)
-              CASE(3)
-                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%s_ptr(:,:,:,1,1), ppser_zrperturb)
-              CASE(4)
-                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%s_ptr(:,:,:,:,1), ppser_zrperturb)
-            END SELECT
-            !$ACC UPDATE DEVICE( element%field%s_ptr ) if ( info%lopenacc )
-          CASE(3) ! compare
-            !$ACC UPDATE HOST( element%field%s_ptr ) IF( lupdate_cpu .and.  info%lopenacc )
-            SELECT CASE ( info%ndims )
-              CASE(1)
-                call compare(ser_name, element%field%s_ptr(:,1,1,1,1), info%lopenacc, abs_threshold, rel_threshold)
-                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%s_ptr(:,1,1,1,1))
-              CASE(2)
-                call compare(ser_name, element%field%s_ptr(:,:,1,1,1), info%lopenacc, abs_threshold, rel_threshold)
-                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%s_ptr(:,:,1,1,1))
-              CASE(3)
-                call compare(ser_name, element%field%s_ptr(:,:,:,1,1), info%lopenacc, abs_threshold, rel_threshold)
-                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%s_ptr(:,:,:,1,1))
-              CASE(4)
-                call compare(ser_name, element%field%s_ptr(:,:,:,:,1), info%lopenacc, abs_threshold, rel_threshold)
-                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%s_ptr(:,:,:,:,1))
-            END SELECT
-        END SELECT
-      CASE (INT_T)
-        SELECT CASE ( ser_mode )
-          CASE(0)
-            !$ACC UPDATE HOST( element%field%i_ptr ) IF( lupdate_cpu .and.  info%lopenacc )
-            SELECT CASE ( info%ndims )
-              CASE(1)
-                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%i_ptr(:,1,1,1,1))
-              CASE(2)
-                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%i_ptr(:,:,1,1,1))
-              CASE(3)
-                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%i_ptr(:,:,:,1,1))
-              CASE(4)
-                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%i_ptr(:,:,:,:,1))
-            END SELECT
-          CASE(1)
-            SELECT CASE ( info%ndims )
-              CASE(1)
-                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%i_ptr(:,1,1,1,1))
-              CASE(2)
-                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%i_ptr(:,:,1,1,1))
-              CASE(3)
-                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%i_ptr(:,:,:,1,1))
-              CASE(4)
-                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%i_ptr(:,:,:,:,1))
-            END SELECT
-            !$ACC UPDATE DEVICE( element%field%i_ptr ) if ( info%lopenacc )
-          CASE(2)
-            SELECT CASE ( info%ndims )
-              CASE(1)
-                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%i_ptr(:,1,1,1,1), ppser_zrperturb)
-              CASE(2)
-                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%i_ptr(:,:,1,1,1), ppser_zrperturb)
-              CASE(3)
-                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%i_ptr(:,:,:,1,1), ppser_zrperturb)
-              CASE(4)
-                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%i_ptr(:,:,:,:,1), ppser_zrperturb)
-            END SELECT
-            !$ACC UPDATE DEVICE( element%field%i_ptr ) if ( info%lopenacc )
-          CASE(3) ! compare
-            !$ACC UPDATE HOST( element%field%i_ptr ) IF( lupdate_cpu .and.  info%lopenacc )
-            SELECT CASE ( info%ndims )
-              CASE(1)
-                call compare(ser_name, element%field%i_ptr(:,1,1,1,1), info%lopenacc, abs_threshold, rel_threshold)
-                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%i_ptr(:,1,1,1,1))
-              CASE(2)
-                call compare(ser_name, element%field%i_ptr(:,:,1,1,1), info%lopenacc, abs_threshold, rel_threshold)
-                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%i_ptr(:,:,1,1,1))
-              CASE(3)
-                call compare(ser_name, element%field%i_ptr(:,:,:,1,1), info%lopenacc, abs_threshold, rel_threshold)
-                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%i_ptr(:,:,:,1,1))
-              CASE(4)
-                call compare(ser_name, element%field%i_ptr(:,:,:,:,1), info%lopenacc, abs_threshold, rel_threshold)
-                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%i_ptr(:,:,:,:,1))
-            END SELECT
-        END SELECT
-      CASE (BOOL_T)
-      END SELECT
-      ! END IF
-      element => element%next_list_element
-    END DO for_all_list_elements
+        ! END IF
+
+      ENDDO for_all_list_elements
+    END IF
+!DR End Test
+
+!!$    element => list%p%first_list_element
+!!$    for_all_list_elements: DO WHILE (ASSOCIATED(element))
+!!$      info    => element%field%info
+!!$      call char_to_hash(listname, listhash)
+!!$      write(ser_name, '(a,i5.5)') TRIM(info%name)//'_', listhash
+!!$      dims = info%used_dimensions
+!!$      ! IF(info%lopenacc) THEN
+!!$      SELECT CASE(info%data_type)
+!!$      CASE (REAL_T)
+!!$        SELECT CASE ( ser_mode )
+!!$          CASE(0) ! write
+!!$            !$ACC UPDATE HOST( element%field%r_ptr ) IF( lupdate_cpu .and.  info%lopenacc )
+!!$            SELECT CASE ( info%ndims )
+!!$              CASE(1)
+!!$                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%r_ptr(:,1,1,1,1))
+!!$              CASE(2)
+!!$                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%r_ptr(:,:,1,1,1))
+!!$              CASE(3)
+!!$                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%r_ptr(:,:,:,1,1))
+!!$              CASE(4)
+!!$                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%r_ptr(:,:,:,:,1))
+!!$            END SELECT
+!!$          CASE(1) ! read
+!!$            SELECT CASE ( info%ndims )
+!!$              CASE(1)
+!!$                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%r_ptr(:,1,1,1,1))
+!!$              CASE(2)
+!!$                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%r_ptr(:,:,1,1,1))
+!!$              CASE(3)
+!!$                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%r_ptr(:,:,:,1,1))
+!!$              CASE(4)
+!!$                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%r_ptr(:,:,:,:,1))
+!!$            END SELECT
+!!$            !$ACC UPDATE DEVICE( element%field%r_ptr ) if ( info%lopenacc )
+!!$          CASE(2) ! read perturb
+!!$            SELECT CASE ( info%ndims )
+!!$              CASE(1)
+!!$                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%r_ptr(:,1,1,1,1), ppser_zrperturb)
+!!$              CASE(2)
+!!$                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%r_ptr(:,:,1,1,1), ppser_zrperturb)
+!!$              CASE(3)
+!!$                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%r_ptr(:,:,:,1,1), ppser_zrperturb)
+!!$              CASE(4)
+!!$                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%r_ptr(:,:,:,:,1), ppser_zrperturb)
+!!$            END SELECT
+!!$            !$ACC UPDATE DEVICE( element%field%r_ptr ) if ( info%lopenacc )
+!!$          CASE(3) ! compare
+!!$            !$ACC UPDATE HOST( element%field%r_ptr ) IF( lupdate_cpu .and.  info%lopenacc )
+!!$            SELECT CASE ( info%ndims )
+!!$              CASE(1)
+!!$                call compare(ser_name, element%field%r_ptr(:,1,1,1,1), info%lopenacc, abs_threshold, rel_threshold)
+!!$                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%r_ptr(:,1,1,1,1))
+!!$              CASE(2)
+!!$                call compare(ser_name, element%field%r_ptr(:,:,1,1,1), info%lopenacc, abs_threshold, rel_threshold)
+!!$                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%r_ptr(:,:,1,1,1))
+!!$              CASE(3)
+!!$                call compare(ser_name, element%field%r_ptr(:,:,:,1,1), info%lopenacc, abs_threshold, rel_threshold)
+!!$                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%r_ptr(:,:,:,1,1))
+!!$              CASE(4)
+!!$                call compare(ser_name, element%field%r_ptr(:,:,:,:,1), info%lopenacc, abs_threshold, rel_threshold)
+!!$                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%r_ptr(:,:,:,:,1))
+!!$            END SELECT
+!!$        END SELECT
+!!$      CASE (SINGLE_T)
+!!$        SELECT CASE ( ser_mode )
+!!$          CASE(0)
+!!$            !$ACC UPDATE HOST( element%field%s_ptr ) IF( lupdate_cpu .and.  info%lopenacc )
+!!$            SELECT CASE ( info%ndims )
+!!$              CASE(1)
+!!$                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%s_ptr(:,1,1,1,1))
+!!$              CASE(2)
+!!$                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%s_ptr(:,:,1,1,1))
+!!$              CASE(3)
+!!$                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%s_ptr(:,:,:,1,1))
+!!$              CASE(4)
+!!$                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%s_ptr(:,:,:,:,1))
+!!$            END SELECT
+!!$          CASE(1)
+!!$            SELECT CASE ( info%ndims )
+!!$              CASE(1)
+!!$                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%s_ptr(:,1,1,1,1))
+!!$              CASE(2)
+!!$                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%s_ptr(:,:,1,1,1))
+!!$              CASE(3)
+!!$                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%s_ptr(:,:,:,1,1))
+!!$              CASE(4)
+!!$                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%s_ptr(:,:,:,:,1))
+!!$            END SELECT
+!!$            !$ACC UPDATE DEVICE( element%field%s_ptr ) if ( info%lopenacc )
+!!$          CASE(2)
+!!$            SELECT CASE ( info%ndims )
+!!$              CASE(1)
+!!$                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%s_ptr(:,1,1,1,1), ppser_zrperturb)
+!!$              CASE(2)
+!!$                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%s_ptr(:,:,1,1,1), ppser_zrperturb)
+!!$              CASE(3)
+!!$                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%s_ptr(:,:,:,1,1), ppser_zrperturb)
+!!$              CASE(4)
+!!$                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%s_ptr(:,:,:,:,1), ppser_zrperturb)
+!!$            END SELECT
+!!$            !$ACC UPDATE DEVICE( element%field%s_ptr ) if ( info%lopenacc )
+!!$          CASE(3) ! compare
+!!$            !$ACC UPDATE HOST( element%field%s_ptr ) IF( lupdate_cpu .and.  info%lopenacc )
+!!$            SELECT CASE ( info%ndims )
+!!$              CASE(1)
+!!$                call compare(ser_name, element%field%s_ptr(:,1,1,1,1), info%lopenacc, abs_threshold, rel_threshold)
+!!$                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%s_ptr(:,1,1,1,1))
+!!$              CASE(2)
+!!$                call compare(ser_name, element%field%s_ptr(:,:,1,1,1), info%lopenacc, abs_threshold, rel_threshold)
+!!$                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%s_ptr(:,:,1,1,1))
+!!$              CASE(3)
+!!$                call compare(ser_name, element%field%s_ptr(:,:,:,1,1), info%lopenacc, abs_threshold, rel_threshold)
+!!$                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%s_ptr(:,:,:,1,1))
+!!$              CASE(4)
+!!$                call compare(ser_name, element%field%s_ptr(:,:,:,:,1), info%lopenacc, abs_threshold, rel_threshold)
+!!$                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%s_ptr(:,:,:,:,1))
+!!$            END SELECT
+!!$        END SELECT
+!!$      CASE (INT_T)
+!!$        SELECT CASE ( ser_mode )
+!!$          CASE(0)
+!!$            !$ACC UPDATE HOST( element%field%i_ptr ) IF( lupdate_cpu .and.  info%lopenacc )
+!!$            SELECT CASE ( info%ndims )
+!!$              CASE(1)
+!!$                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%i_ptr(:,1,1,1,1))
+!!$              CASE(2)
+!!$                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%i_ptr(:,:,1,1,1))
+!!$              CASE(3)
+!!$                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%i_ptr(:,:,:,1,1))
+!!$              CASE(4)
+!!$                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%i_ptr(:,:,:,:,1))
+!!$            END SELECT
+!!$          CASE(1)
+!!$            SELECT CASE ( info%ndims )
+!!$              CASE(1)
+!!$                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%i_ptr(:,1,1,1,1))
+!!$              CASE(2)
+!!$                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%i_ptr(:,:,1,1,1))
+!!$              CASE(3)
+!!$                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%i_ptr(:,:,:,1,1))
+!!$              CASE(4)
+!!$                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%i_ptr(:,:,:,:,1))
+!!$            END SELECT
+!!$            !$ACC UPDATE DEVICE( element%field%i_ptr ) if ( info%lopenacc )
+!!$          CASE(2)
+!!$            SELECT CASE ( info%ndims )
+!!$              CASE(1)
+!!$                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%i_ptr(:,1,1,1,1), ppser_zrperturb)
+!!$              CASE(2)
+!!$                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%i_ptr(:,:,1,1,1), ppser_zrperturb)
+!!$              CASE(3)
+!!$                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%i_ptr(:,:,:,1,1), ppser_zrperturb)
+!!$              CASE(4)
+!!$                call fs_read_field(ppser_serializer_ref, ppser_savepoint, TRIM(ser_name), element%field%i_ptr(:,:,:,:,1), ppser_zrperturb)
+!!$            END SELECT
+!!$            !$ACC UPDATE DEVICE( element%field%i_ptr ) if ( info%lopenacc )
+!!$          CASE(3) ! compare
+!!$            !$ACC UPDATE HOST( element%field%i_ptr ) IF( lupdate_cpu .and.  info%lopenacc )
+!!$            SELECT CASE ( info%ndims )
+!!$              CASE(1)
+!!$                call compare(ser_name, element%field%i_ptr(:,1,1,1,1), info%lopenacc, abs_threshold, rel_threshold)
+!!$                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%i_ptr(:,1,1,1,1))
+!!$              CASE(2)
+!!$                call compare(ser_name, element%field%i_ptr(:,:,1,1,1), info%lopenacc, abs_threshold, rel_threshold)
+!!$                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%i_ptr(:,:,1,1,1))
+!!$              CASE(3)
+!!$                call compare(ser_name, element%field%i_ptr(:,:,:,1,1), info%lopenacc, abs_threshold, rel_threshold)
+!!$                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%i_ptr(:,:,:,1,1))
+!!$              CASE(4)
+!!$                call compare(ser_name, element%field%i_ptr(:,:,:,:,1), info%lopenacc, abs_threshold, rel_threshold)
+!!$                call fs_write_field(ppser_serializer, ppser_savepoint, TRIM(ser_name), element%field%i_ptr(:,:,:,:,1))
+!!$            END SELECT
+!!$        END SELECT
+!!$      CASE (BOOL_T)
+!!$      END SELECT
+!!$      ! END IF
+!!$      element => element%next_list_element
+!!$    END DO for_all_list_elements
 #endif
 
   END SUBROUTINE ser_var_list
