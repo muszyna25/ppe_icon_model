@@ -13,7 +13,7 @@ MODULE mo_ser_all
 
   USE mo_impl_constants,     ONLY: REAL_T, SINGLE_T, INT_T, BOOL_T, VARNAME_LEN
   USE mo_kind,               ONLY: vp, wp, sp
-  USE mo_exception,          ONLY: warning, message
+  USE mo_exception,          ONLY: warning, message, finish
   USE mo_ser_common,         ONLY: init
   USE mtime,                 ONLY: datetimeToString, MAX_DATETIME_STR_LEN
   USE mo_time_config,        ONLY: time_config
@@ -53,6 +53,8 @@ MODULE mo_ser_all
   INTEGER :: radheat_cnt = 0
   INTEGER :: gwdrag_cnt = 0
   INTEGER :: debug_cnt = 0
+  INTEGER :: unit_sum = 0 ! file unit for summary txt
+  INTEGER :: unit_long = 0 ! file unit for detailed report
 
   REAL(wp) :: eps_r = EPSILON(1._wp)
   REAL(sp) :: eps_s = EPSILON(1._sp)
@@ -138,6 +140,9 @@ MODULE mo_ser_all
     END IF
 
     CALL get_var_list(list, listname)
+    IF( .NOT. ASSOCIATED(list) ) THEN
+      CALL finish('mo_ser_all:ser_var_list', 'Could not find list for: '//TRIM(listname))
+    END IF
 
     element => list%p%first_list_element
     for_all_list_elements: DO WHILE (ASSOCIATED(element))
@@ -498,21 +503,21 @@ MODULE mo_ser_all
 #ifdef SERIALIZE
        CALL warning('SER:'//TRIM(savepoint_name),'Serialization is active!')
        
+       CALL datetimeToString(time_config%tc_current_date, date)
+       WRITE(compare_file_name, "(A,A1,A,A1,I2.2,A4,I2.2,A5,I2.2)") savepoint_name, "_", TRIM(date), &
+         "_", id, "_dom", jg, "_rank", get_my_mpi_work_id()
+       CALL message('SER working on',compare_file_name)
+       
 #if defined(_OPENACC)
        IF(lupdate_cpu) THEN
          CALL warning('GPU:'//TRIM(savepoint_name),'GPU HOST synchronization forced by serialization!')
        ENDIF
 #endif
 
-       CALL datetimeToString(time_config%tc_current_date, date)
        IF(ser_mode == 3) THEN
-         WRITE(compare_file_name, "(A,A1,A,A1,I2.2,A5,I2.2,A8)") savepoint_name, "_", TRIM(date), "_", id, &
-           "_rank", get_my_mpi_work_id(), "_sum.txt"
-         OPEN( unit=123, file=compare_file_name, action="WRITE")
-         WRITE(compare_file_name, "(A,A1,A,A1,I2.2,A5,I2.2,A4)") savepoint_name, "_", TRIM(date), "_", id, &
-           "_rank", get_my_mpi_work_id(), ".txt"
-         OPEN( unit=1234, file=compare_file_name, action="WRITE")
-         WRITE(123, "(A, T40,A7, T50,A7, T60,A7, T70,A7, T80,A7)"), "field", "rel", "abs", "%", "nfail", "ntot"
+         OPEN( newunit=unit_sum, file=TRIM(compare_file_name)//"_sum.txt", action="WRITE")
+         OPEN( newunit=unit_long, file=TRIM(compare_file_name)//".txt", action="WRITE")
+         WRITE(unit_sum, "(A, T40,A7, T50,A7, T60,A7, T70,A7, T80,A7)"), "field", "rel", "abs", "%", "nfail", "ntot"
        ELSE
       
        ENDIF
@@ -522,6 +527,7 @@ MODULE mo_ser_all
        call fs_add_savepoint_metainfo(ppser_savepoint, 'nproma', nproma)
        call fs_add_savepoint_metainfo(ppser_savepoint, 'date', TRIM(date))
        call fs_add_savepoint_metainfo(ppser_savepoint, 'id', id)
+       call fs_add_savepoint_metainfo(ppser_savepoint, 'domain', jg)
 
        IF(iforcing == inwp) THEN
            ! Serialize NWP fields
@@ -552,7 +558,10 @@ MODULE mo_ser_all
          CALL ser_var_list('nh_state_prog_of_domain_', abs_threshold, rel_threshold, lupdate_cpu, ser_mode, domain=jg, substr='_and_timelev_', timelev=nnew_rcf(jg)) !p_prog_rcf
        ENDIF
 
-       CLOSE( unit=123 )
+       IF(ser_mode == 3) THEN
+         CLOSE( unit=unit_sum )
+         CLOSE( unit=unit_long )
+       ENDIF
        
 #endif
 
@@ -656,11 +665,11 @@ MODULE mo_ser_all
 
     q = REAL(n_fail, wp) / REAL(n_tot, wp) * 100
     IF(q > ser_nfail) THEN 
-      WRITE(123, "(A, T40,E7.1E2, T50,E7.1E2, T60,F7.3, T70,I7, T80,I7)"), TRIM(name), report_rel_diff(1), report_abs_diff(1), q, n_fail, n_tot
-      WRITE(1234, "(A, A, I, A, I, A, F7.3, A)"), TRIM(name), ": ", n_fail, " out of ", n_tot, " elements are off (", q, " %)"
-      WRITE(1234, "(T10,A, T30,A, T50,A, T70,A, T90,A)"), "rel diff", "abs diff", "current", "reference", "index"
+      WRITE(unit_sum, "(A, T40,E7.1E2, T50,E7.1E2, T60,F7.3, T70,I7, T80,I7)"), TRIM(name), report_rel_diff(1), report_abs_diff(1), q, n_fail, n_tot
+      WRITE(unit_long, "(A, A, I, A, I, A, F7.3, A)"), TRIM(name), ": ", n_fail, " out of ", n_tot, " elements are off (", q, " %)"
+      WRITE(unit_long, "(T10,A, T30,A, T50,A, T70,A, T90,A)"), "rel diff", "abs diff", "current", "reference", "index"
       DO z=1,ser_nreport
-        WRITE(1234, "(T10,E14.8E2, T30,E14.8E2, T50,E14.8E2, T70,E14.8E2, T90,A)") report_rel_diff(z), report_abs_diff(z), report_cur(z), report_ref(z), TRIM(report_idx(z))
+        WRITE(unit_long, "(T10,E14.8E2, T30,E14.8E2, T50,E14.8E2, T70,E14.8E2, T90,A)") report_rel_diff(z), report_abs_diff(z), report_cur(z), report_ref(z), TRIM(report_idx(z))
       END DO
     ENDIF
   END SUBROUTINE report
@@ -716,7 +725,7 @@ MODULE mo_ser_all
 
     !$acc end data
 
-    ! call report(name, report_rel_diff, report_abs_diff, report_cur, report_ref, report_idx, n_fail, size(cur))
+    call report(name, report_rel_diff, report_abs_diff, report_cur, report_ref, report_idx, n_fail, size(cur))
 
   END SUBROUTINE compare_r_1d
 
@@ -835,7 +844,7 @@ MODULE mo_ser_all
 
     !$acc end data
 
-    ! call report(name, report_rel_diff, report_abs_diff, report_cur, report_ref, report_idx, n_fail, size(cur))
+    call report(name, report_rel_diff, report_abs_diff, report_cur, report_ref, report_idx, n_fail, size(cur))
 
   END SUBROUTINE compare_r_3d
 
@@ -899,7 +908,7 @@ MODULE mo_ser_all
 
     !$acc end data
 
-    ! call report(name, report_rel_diff, report_abs_diff, report_cur, report_ref, report_idx, n_fail, size(cur))
+    call report(name, report_rel_diff, report_abs_diff, report_cur, report_ref, report_idx, n_fail, size(cur))
 
   END SUBROUTINE compare_r_4d
 
@@ -954,7 +963,7 @@ MODULE mo_ser_all
 
     !$acc end data
 
-    ! call report(name, report_rel_diff, report_abs_diff, report_cur, report_ref, report_idx, n_fail, size(cur))
+    call report(name, report_rel_diff, report_abs_diff, report_cur, report_ref, report_idx, n_fail, size(cur))
 
   END SUBROUTINE compare_s_1d
 
@@ -1012,7 +1021,7 @@ MODULE mo_ser_all
 
     !$acc end data
 
-    ! call report(name, report_rel_diff, report_abs_diff, report_cur, report_ref, report_idx, n_fail, size(cur))
+    call report(name, report_rel_diff, report_abs_diff, report_cur, report_ref, report_idx, n_fail, size(cur))
 
   END SUBROUTINE compare_s_2d
 
@@ -1073,7 +1082,7 @@ MODULE mo_ser_all
 
     !$acc end data
 
-    ! call report(name, report_rel_diff, report_abs_diff, report_cur, report_ref, report_idx, n_fail, size(cur))
+    call report(name, report_rel_diff, report_abs_diff, report_cur, report_ref, report_idx, n_fail, size(cur))
 
   END SUBROUTINE compare_s_3d
 
@@ -1137,7 +1146,7 @@ MODULE mo_ser_all
 
     !$acc end data
 
-    ! call report(name, report_rel_diff, report_abs_diff, report_cur, report_ref, report_idx, n_fail, size(cur))
+    call report(name, report_rel_diff, report_abs_diff, report_cur, report_ref, report_idx, n_fail, size(cur))
 
   END SUBROUTINE compare_s_4d
 
@@ -1194,7 +1203,7 @@ MODULE mo_ser_all
 
     !$acc end data
 
-    ! call report(name, report_rel_diff, REAL(report_abs_diff, wp), REAL(report_cur, wp), REAL(report_ref, wp), report_idx, n_fail, size(cur))
+    call report(name, report_rel_diff, REAL(report_abs_diff, wp), REAL(report_cur, wp), REAL(report_ref, wp), report_idx, n_fail, size(cur))
 
   END SUBROUTINE compare_i_1d
 
@@ -1254,7 +1263,7 @@ MODULE mo_ser_all
 
     !$acc end data
 
-    ! call report(name, report_rel_diff, REAL(report_abs_diff, wp), REAL(report_cur, wp), REAL(report_ref, wp), report_idx, n_fail, size(cur))
+    call report(name, report_rel_diff, REAL(report_abs_diff, wp), REAL(report_cur, wp), REAL(report_ref, wp), report_idx, n_fail, size(cur))
 
   END SUBROUTINE compare_i_2d
 
@@ -1317,7 +1326,7 @@ MODULE mo_ser_all
 
     !$acc end data
 
-    ! call report(name, report_rel_diff, REAL(report_abs_diff, wp), REAL(report_cur, wp), REAL(report_ref, wp), report_idx, n_fail, size(cur))
+    call report(name, report_rel_diff, REAL(report_abs_diff, wp), REAL(report_cur, wp), REAL(report_ref, wp), report_idx, n_fail, size(cur))
 
   END SUBROUTINE compare_i_3d
 
@@ -1383,7 +1392,7 @@ MODULE mo_ser_all
 
     !$acc end data
 
-    ! call report(name, report_rel_diff, REAL(report_abs_diff, wp), REAL(report_cur, wp), REAL(report_ref, wp), report_idx, n_fail, size(cur))
+    call report(name, report_rel_diff, REAL(report_abs_diff, wp), REAL(report_cur, wp), REAL(report_ref, wp), report_idx, n_fail, size(cur))
 
   END SUBROUTINE compare_i_4d
 

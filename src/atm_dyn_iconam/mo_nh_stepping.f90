@@ -1140,7 +1140,9 @@ MODULE mo_nh_stepping
         ENDDO
         i_am_accel_node = .FALSE.
 #endif
-        !$ser verbatim CALL serialize_all(nproma, 1, "output_diag", .TRUE., opt_lupdate_cpu=.TRUE.)
+        !$ser verbatim DO jg = 1, n_dom
+        !$ser verbatim   CALL serialize_all(nproma, jg, "output_diag", .TRUE., opt_lupdate_cpu=.TRUE.)
+        !$ser verbatim ENDDO
         CALL aggr_landvars
 
         DO jg = 1, n_dom
@@ -1202,7 +1204,9 @@ MODULE mo_nh_stepping
         ENDDO
         i_am_accel_node = my_process_is_work()
 #endif
-        !$ser verbatim CALL serialize_all(nproma, 1, "output_diag", .FALSE., opt_lupdate_cpu=.TRUE.)
+        !$ser verbatim DO jg = 1, n_dom
+        !$ser verbatim   CALL serialize_all(nproma, jg, "output_diag", .FALSE., opt_lupdate_cpu=.TRUE.)
+        !$ser verbatim ENDDO
 
       END IF !iforcing=inwp
 
