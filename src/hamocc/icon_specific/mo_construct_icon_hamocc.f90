@@ -15,7 +15,6 @@ MODULE mo_construct_icon_hamocc
 
   USE mo_memory_bgc, ONLY      : alloc_mem_biomod, n90depth,n1000depth,n2000depth,&
   &                              alloc_mem_carbch,totalarea
-  USE mo_param1_bgc, ONLY      : set_tracer_indices
   USE mo_bgc_icon_comm, ONLY  : ini_bgc_regions, initial_update_icon, hamocc_state, &
       &                         print_bgc_parameters,print_wpoc, update_bgc
 
@@ -146,7 +145,6 @@ SUBROUTINE INI_BGC_ICON(hamocc_ocean_state,l_is_restart)
   
   CALL message(TRIM(routine), 'set_parameters_bgc' )
 
-  CALL set_tracer_indices
   CALL set_parameters_bgc
 
 

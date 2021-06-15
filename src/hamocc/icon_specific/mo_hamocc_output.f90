@@ -72,7 +72,7 @@
      
       USE mo_ocean_tracer_transport_types, ONLY: t_ocean_tracer
 
-      USE mo_param1_bgc,       ONLY: ntraad, n_bgctra 
+      USE mo_param1_bgc,       ONLY: ntraad, n_bgctra, set_tracer_indices
   
      IMPLICIT NONE
 
@@ -105,7 +105,7 @@
     prlength = 3
     CALL message(TRIM(routine), 'start to construct hamocc state' )
     
-
+    CALL set_tracer_indices()
 
     CALL construct_hamocc_diag(patch_2d, hamocc_state%p_diag)
      
