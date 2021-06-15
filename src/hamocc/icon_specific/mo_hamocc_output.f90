@@ -855,6 +855,102 @@
       &  arg1=s2year,new_cf=t_cf_var('remin_of_det_by_S','GtC yr-1','remin_of_det_by_S', &
       &  datatype_flt)))
 
+   IF (l_N_cycle) THEN
+
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_NPP_global_nh4', hamocc_state_moni%phosy_nh4 , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('global_primary_production_nh4', &
+      &          'Gt C s-1', &
+      &          'global net primary production on NH4', &
+      &          datatype_flt, &
+      &          'global_primary_production_nh4'),&
+      & grib2_var(255, 255, 500, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('global_primary_production_nh4','GtC yr-1','global net_npp_nh4', &
+      &  datatype_flt)))
+
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_global_npp_cya_nh4', hamocc_state_moni%phosy_cya_nh4 , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('global_npp_cya_nh4', &
+      &          'GtC s-1', &
+      &          'annual net primary production of cyanobacteria on NH4/NO2', &
+      &          datatype_flt, &
+      &          'global_npp_cya_nh4'), &
+      & grib2_var(255, 255, 520, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('global_primary_production_cya_nh4','GtC yr-1',&
+      & 'global annual primary production of cyanobacteria on NH4/NO2', &
+      &  datatype_flt)))
+
+   CALL add_var(hamocc_tendency_list, 'HAMOCC_global_surface_nh4', hamocc_state_moni%sfnh4 , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('global_surface_nh4', &
+      &          'kmol N m-3', &
+      &          'global_surface_dissolved_ammonium', &
+      &          datatype_flt, &
+      &          'global_surface_nh4'), &
+      & grib2_var(255, 255, 550, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_global_net_nh3_flux', hamocc_state_moni%net_nh3_flux , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('global_net_nh3_flux', 'Tg N s-1', 'global net NH3 flux', datatype_flt,'global_net_nh3_flux'),&
+      & grib2_var(255, 255, 551, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('global_net_nh3_flux','Tg N yr-1','global net_nh3_flux', &
+      &  datatype_flt)))
+
+   CALL add_var(hamocc_tendency_list, 'HAMOCC_WC_nitri_no2', hamocc_state_moni%wc_nitri_no2 , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('WC_nitri_no2', 'TgN s-1', 'global water column nitrification of NO2', datatype_flt,'WC_nitri_no2'),&
+      & grib2_var(255, 255, 519, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('WC_nitri_no2','TgN yr-1','global water column nitrification of NO2', &
+      &  datatype_flt)))
+
+   CALL add_var(hamocc_tendency_list, 'HAMOCC_WC_nitri_nh4', hamocc_state_moni%wc_nitri_nh4 , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('WC_nitri_nh4', 'TgN s-1', 'global water column nitrification of NH4', datatype_flt,'WC_nitri_nh4'),&
+      & grib2_var(255, 255, 519, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('WC_nitri_nh4','TgN yr-1','global water column nitrification of NH4', &
+      &  datatype_flt)))
+
+   CALL add_var(hamocc_tendency_list, 'HAMOCC_WC_dnrn', hamocc_state_moni%wc_dnrn , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('WC_dnrn', 'TgN s-1', 'global water column dnrn of NO3 to NO2', datatype_flt,'WC_dnrn'),&
+      & grib2_var(255, 255, 519, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('WC_dnrn','TgN yr-1','global water column DNRN of NO3 to NO2', &
+      &  datatype_flt)))
+
+   CALL add_var(hamocc_tendency_list, 'HAMOCC_WC_dnra', hamocc_state_moni%wc_dnra , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('WC_dnra', 'TgN s-1', 'global water column dnra of NO3 to NH4', datatype_flt,'WC_dnra'),&
+      & grib2_var(255, 255, 519, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('WC_dnra','TgN yr-1','global water column DNRA of NO3 to NH4', &
+      &  datatype_flt)))
+
+   CALL add_var(hamocc_tendency_list, 'HAMOCC_WC_anammox', hamocc_state_moni%wc_anammox , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('WC_anammox', 'TgN s-1', 'global water column anammox of NO2 and NH4', datatype_flt,'WC_anammox'),&
+      & grib2_var(255, 255, 519, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('WC_anammox','TgN yr-1','global water column anammox of NO2 and NH4', &
+      &  datatype_flt)))
+
+  ENDIF
+
   END SUBROUTINE 
 
 

@@ -75,6 +75,18 @@ MODULE mo_hamocc_types
     REAL(wp), POINTER :: delsil(:)
     REAL(wp), POINTER :: delcar(:)
     REAL(wp), POINTER :: zalkn2(:)
+    ! N-cycle
+    REAL(wp), POINTER :: phosy_nh4(:)
+    REAL(wp), POINTER :: phosy_cya_nh4(:)
+    REAL(wp), POINTER :: sfnh4(:)
+    REAL(wp), POINTER :: net_nh3_flux(:)
+    REAL(wp), POINTER :: wc_nitri_no2(:)
+    REAL(wp), POINTER :: wc_nitri_nh4(:)
+    REAL(wp), POINTER :: wc_dnrn(:)
+    REAL(wp), POINTER :: wc_dnra(:)
+    REAL(wp), POINTER :: wc_anammox(:)
+
+
   END TYPE t_hamocc_monitor
 
   TYPE t_hamocc_diag
