@@ -258,17 +258,25 @@ dt_gwd           = 1440.,
 &nwp_tuning_nml
 itune_albedo  = 1
 tune_gkwake   = 1.5
-tune_gfrcrit  = 0.45
-tune_dust_abs = 1.
+tune_gfrcrit  = 0.425
+tune_grcrit   = 0.5
+tune_gkdrag   = 0.16
+tune_zvz0i    = 0.85
+tune_box_liq_asy = 3.25
+tune_minsnowfrac = 0.2
+tune_gfluxlaun  = 3.75e-3
+tune_rcucov = 0.075
+tune_rhebc_land = 0.825
 /
 &turbdiff_nml
-tkhmin       = 0.75
-tkhmin_strat = 0.75
+tkhmin       = 0.6
+tkhmin_strat = 1.0
 tkmmin       = 0.75
 tkmmin_strat = 1.5
 pat_len      =  750.
 c_diff       =  0.2
-rat_sea      =  7.0
+rat_sea      =  0.8
+rlam_heat    = 10.
 ltkesso      = .true.
 frcsmot      = 0.2
 imode_frcsmot = 2
@@ -302,6 +310,8 @@ a_hshr       = 2.0
  irad_aero   = 6
  albedo_type = 2 ! Modis albedo
  direct_albedo = 4
+ direct_albedo_water = 3
+ albedo_whitecap = 1
  vmr_co2    = 390.e-06 ! values representative for 2012
  vmr_ch4    = 1800.e-09
  vmr_n2o    = 322.0e-09
@@ -853,7 +863,7 @@ export NMPI_EXPORT="GFORTRAN_UNBUFFERED_PRECONNECTED"
 #          But when you worry you make it double ..."
 # ----------------------------------------------------------------------
 
-refdir="/hpc/rwork0/routfor/test/icon/Checksuite_data/ref_data_exp09/8bc3f69e"
+refdir="/hpc/rwork0/routfor/test/icon/Checksuite_data/ref_data_exp09/31675285bb"
 
 
 bash << EOFSCRIPT

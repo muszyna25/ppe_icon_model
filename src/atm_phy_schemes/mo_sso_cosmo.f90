@@ -334,8 +334,7 @@ SUBROUTINE sso (                                                       &
       CALL gw_stress (                                   &
          ie     , ke1 , istart , iend   ,                &
          zrho,zstab,zvph,psso_stdh,psso_sigma,zdmod,     &
-         lo_sso,                                         &
-         ztau )
+         lo_sso, zfi, mkenvh, ztau )
 
 ! ========================================================
 !     Gravity wave stress profile
@@ -723,6 +722,8 @@ SUBROUTINE sso_setup (                                      &
         IF(mknub(j1).EQ.mknul(j1)) mknub(j1) = mknub(j1) - 1
       END DO
 
+      mi3h = MIN(ke-2,MINVAL(kknu(istart:iend)))
+
 !     Initialize various arrays
 !     =========================
       DO j1=istart,iend
@@ -903,10 +904,9 @@ SUBROUTINE sso_setup (                                      &
 
 !     define top of 'envelope' layer (cf. eq.4.8)
 !     ===========================================
-      DO j3=2,ke-1     ! vertical loop
+      DO j3=mi3h,ke-1     ! vertical loop
         DO j1=istart,iend
-          IF(lo_sso(j1)) THEN
-            IF (j3.GE.kknu2(j1)) THEN
+          IF(lo_sso(j1) .AND. j3.GE.kknu2(j1)) THEN
             znum (j1)=znu(j1)
             zwind= (pulow(j1)*pu(j1,j3)                           &
      &             +pvlow(j1)*pv(j1,j3))/                         &
@@ -920,7 +920,6 @@ SUBROUTINE sso_setup (                                      &
             IF((znum(j1).LE.gfrcrit).AND.(znu(j1).GT.gfrcrit)          &
      &                          .AND.(kkenvh(j1).EQ.ke))               &
      &      kkenvh(j1)=j3
-            ENDIF
           ENDIF
         END DO
       END DO                ! end of vertical loop
@@ -1004,7 +1003,7 @@ END SUBROUTINE sso_setup
 SUBROUTINE gw_stress (                                  &
            ie     , ke1 , istart , iend   ,             &
            prho,pstab,pvph,psso_stdh,psso_sigma,pdmod,  &
-           lo_sso, ptau )
+           lo_sso,pfi,mkenvh,ptau )
 
 !------------------------------------------------------------------------------
 !
@@ -1040,6 +1039,8 @@ SUBROUTINE gw_stress (                                  &
       ! mean sso-slope                   (-)
       REAL(KIND=wp) :: pdmod(:) ! (ie)
       ! projection parameter = SQRT(D1**2+D2**2)    cf. eq.4.7
+      REAL(KIND=wp) :: pfi (:,:) ! (ie,ke) full-level geopotential
+      INTEGER mkenvh (:) ! (ie) index of top of envelope layer
 
       LOGICAL lo_sso(:) ! (ie)
       !
@@ -1052,11 +1053,10 @@ SUBROUTINE gw_stress (                                  &
 
 !     local variables
 !     ===============
-                                  ! utility variables, which may be used to modify
+                              ! utility variables, which may be used to modify
       REAL(KIND=wp) :: zblock ! the magnitude of the subgrid scale standard
       REAL(KIND=wp) :: zeff   ! deviation which enters the stress amplitude
-                                  ! calculation (zblock=0.0 in operational version)
-
+                              ! calculation
       INTEGER j1  ! loop variable
 
 !     gravity wave stress amplitude (eq.4.11)
@@ -1064,12 +1064,11 @@ SUBROUTINE gw_stress (                                  &
 
       DO j1=istart,iend
         IF(lo_sso(j1)) THEN
-          zblock=0.0_wp
-          zeff=MAX(0._wp,2._wp*psso_stdh(j1)-zblock)
-          ptau(j1,ke1)=Gkdrag*prho(j1,ke1)*psso_sigma(j1)  &
-     &                     *zeff**2/4._wp                  &
-     &                     /psso_stdh(j1)*pvph(j1,ke1)     &
-     &                     *pdmod(j1)*SQRT(pstab(j1,ke1))
+          zblock=pfi(j1,mkenvh(j1))/g
+          zeff=MAX(0._wp,3._wp*psso_stdh(j1)-zblock)
+
+          ptau(j1,ke1)=Gkdrag*prho(j1,ke1)*psso_sigma(j1)*zeff**2*0.5_wp      &
+     &                /psso_stdh(j1)*pvph(j1,ke1)*pdmod(j1)*SQRT(pstab(j1,ke1))
         ELSE
           ptau(j1,ke1)=0.0_wp
         ENDIF
