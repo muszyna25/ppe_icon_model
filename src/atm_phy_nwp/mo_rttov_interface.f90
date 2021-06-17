@@ -84,6 +84,9 @@ MODULE mo_rttov_interface
   !> Number of channels that are actually computed
   INTEGER  :: numchans(jpnsat)
 
+  !> RTTOV-indices of sensors
+  INTEGER  :: rttov_indx(jpnsat)
+
   !> computed channel index (necessary if only a small number of channels is selected)
   INTEGER, ALLOCATABLE :: chan_idx(:,:) ! (1:numchans, isens)
 
@@ -214,7 +217,8 @@ CONTAINS
         num_work_procs                          , &
         p_io                                    , &
         p_comm_work                             , &
-        istatus                                 )
+        istatus                                 , &
+        idx = rttov_indx                        )
 
       IF (istatus /= NO_ERROR) THEN
         WRITE(message_text,'(a)') TRIM(rtifc_errmsg(istatus))
@@ -455,7 +459,7 @@ SUBROUTINE rttov_driver (jg, jgp, nnow)
           &         ", numchans=", numchans(isens)
       END IF
       CALL rtifc_direct(                                          &
-             isens,                                               &
+             rttov_indx(isens),                                   &
              iprof(1:ncalc),                                      &
              ichan(1:ncalc),                                      &
              rttov_opts_def,                                      &
