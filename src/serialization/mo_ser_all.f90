@@ -143,9 +143,6 @@ MODULE mo_ser_all
 
     CALL vlr_get(list, listname)
 
-    IF( .NOT. ASSOCIATED(list) ) THEN
-      CALL finish('mo_ser_all:ser_var_list', 'Could not find list for: '//TRIM(listname))
-    END IF
 
     IF ( ASSOCIATED(list%p) ) THEN
       for_all_list_elements: DO ii = 1, list%p%nvars
