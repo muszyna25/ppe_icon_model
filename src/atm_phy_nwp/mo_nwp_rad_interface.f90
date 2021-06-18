@@ -230,11 +230,11 @@ MODULE mo_nwp_rad_interface
       IF (.NOT. lredgrid) THEN
         CALL nwp_ecRad_radiation ( mtime_datetime, pt_patch, ext_data,      &
           & zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,                              &
-          & pt_diag, prm_diag, lnd_prog, ecrad_conf )
+          & pt_diag, prm_diag, pt_prog, lnd_prog, ecrad_conf )
       ELSE
         CALL nwp_ecRad_radiation_reduced ( mtime_datetime, pt_patch,pt_par_patch, &
           & ext_data, zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,                          &
-          & pt_diag, prm_diag, lnd_prog, ecrad_conf )
+          & pt_diag, prm_diag, pt_prog, lnd_prog, ecrad_conf )
       ENDIF
 #else
       CALL finish(routine,  &

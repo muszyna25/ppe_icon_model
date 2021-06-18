@@ -39,7 +39,7 @@ MODULE mo_nwp_rrtm_interface
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_nwp_lnd_types,        ONLY: t_lnd_prog
   USE mo_model_domain,         ONLY: t_patch, p_patch_local_parent
-  USE mo_phys_nest_utilities,  ONLY: upscale_rad_input, downscale_rad_output
+  USE mo_phys_nest_utilities,  ONLY: t_upscale_fields,upscale_rad_input, downscale_rad_output
   USE mo_nonhydro_types,       ONLY: t_nh_diag
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag
   USE mo_o3_util,              ONLY: calc_o3_clim, calc_o3_gems
@@ -464,7 +464,7 @@ CONTAINS
     TYPE(datetime), POINTER, INTENT(in) :: current_date
     
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
-    TYPE(t_external_data),INTENT(in):: ext_data
+    TYPE(t_external_data),TARGET,INTENT(in) :: ext_data
 
     REAL(wp), INTENT(in) :: &
       & zaeq1(nproma,pt_patch%nlev,pt_patch%nblks_c), &
@@ -479,7 +479,10 @@ CONTAINS
 
     REAL(wp):: aclcov(nproma,pt_patch%nblks_c), dust_tunefac(nproma,nbndlw)
 
-    REAL(wp), DIMENSION(:,:), POINTER :: ptr_reff_qc => NULL(), ptr_reff_qi => NULL()
+    REAL(wp), DIMENSION(:,:), POINTER :: ptr_acdnc => NULL (),    &
+            & ptr_reff_qc => NULL(), ptr_reff_qi => NULL()
+    REAL(wp), DIMENSION(:),    POINTER :: &
+            & ptr_fr_glac => NULL(), ptr_fr_land => NULL()
 
 #ifdef __INTEL_COMPILER
 !DIR$ ATTRIBUTES ALIGN : 64 :: aclcov
@@ -542,7 +545,8 @@ CONTAINS
       END IF
     END IF
 
-!$OMP PARALLEL PRIVATE(jb,i_startidx,i_endidx,dust_tunefac)
+!$OMP PARALLEL PRIVATE(jb,i_startidx,i_endidx,dust_tunefac,                   &
+!$OMP                   ptr_acdnc,ptr_fr_land,ptr_fr_glac,ptr_reff_qc,ptr_reff_qi) 
 !$OMP DO ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk, i_endblk
 
@@ -560,7 +564,13 @@ CONTAINS
         dust_tunefac(:,:) = 1._wp
       ENDIF
 
-      IF (atm_phy_nwp_config(jg)%icpl_rad_reff > 0) THEN
+      NULLIFY(ptr_acdnc,ptr_fr_land,ptr_fr_glac,ptr_reff_qc,ptr_reff_qi)
+
+      IF (atm_phy_nwp_config(jg)%icpl_rad_reff == 0) THEN ! Internal parameterization of reff
+        ptr_acdnc  =>  prm_diag%acdnc(:,:,jb)
+        ptr_fr_land=>  ext_data%atm%fr_land_smt(:,jb)  !< in     land fraction
+        ptr_fr_glac=>  ext_data%atm%fr_glac_smt(:,jb)   !< in     land glacier fraction
+      ELSE
         ptr_reff_qc => prm_diag%reff_qc(:,:,jb)
         ptr_reff_qi => prm_diag%reff_qi(:,:,jb)
       ENDIF
@@ -584,8 +594,8 @@ CONTAINS
         & ktype      =prm_diag%ktype(:,jb) ,&!< in     type of convection
                               !
                               ! surface: albedo + temperature
-        & zland      =ext_data%atm%fr_land_smt(:,jb)   ,&!< in     land fraction
-        & zglac      =ext_data%atm%fr_glac_smt(:,jb)   ,&!< in     land glacier fraction
+        & zland      =ptr_fr_land   ,&!< in     land fraction
+        & zglac      =ptr_fr_glac   ,&!< in     land glacier fraction
                               !
         & cos_mu0    =prm_diag%cosmu0  (:,jb) ,&!< in  cos of zenith angle mu0
         & alb_vis_dir=prm_diag%albvisdir(:,jb) ,&!< in surface albedo for visible range, direct
@@ -603,7 +613,7 @@ CONTAINS
         & qm_liq     =prm_diag%tot_cld  (:,:,jb,iqc) ,&!< in cloud water mass mix ratio at t-dt
         & qm_ice     =prm_diag%tot_cld  (:,:,jb,iqi) ,&!< in cloud ice mass mixing ratio at t-dt
         & qm_o3      =ext_data%atm%o3   (:,:,jb)     ,&!< in o3 mass mixing ratio at t-dt
-        & cdnc       =prm_diag%acdnc    (:,:,jb)     ,&!< in  cloud droplet numb conc. [1/m**3]
+        & cdnc       =ptr_acdnc                      ,&!< in  cloud droplet numb conc. [1/m**3]
         & reff_liq   =ptr_reff_qc                    ,&!< in effective radius liquid phase 
         & reff_frz   =ptr_reff_qi                    ,&!< in effective radius frozen phase 
         & cld_frc    =prm_diag%clc      (:,:,jb)     ,&!< in  cloud fraction [m2/m2]
@@ -680,8 +690,6 @@ CONTAINS
     ! These fields need to be allocatable because they have different dimensions for
     ! the global grid and nested grids, and for runs with/without MPI parallelization
     ! Input fields
-    REAL(wp), ALLOCATABLE, TARGET:: zrg_fr_land  (:,:)
-    REAL(wp), ALLOCATABLE, TARGET:: zrg_fr_glac  (:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_emis_rad (:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_cosmu0   (:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_albvisdir(:,:)
@@ -698,9 +706,10 @@ CONTAINS
     REAL(wp), ALLOCATABLE, TARGET:: zrg_pres     (:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_temp     (:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_o3       (:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET:: zrg_acdnc    (:,:,:)
     REAL(wp), POINTER            :: zrg_reff_liq (:,:,:) => NULL()
     REAL(wp), POINTER            :: zrg_reff_frz (:,:,:) => NULL()
+    REAL(wp), POINTER            :: zrg_extra_flds(:,:,:,:) => NULL()
+    REAL(wp), POINTER            :: zrg_extra_2D(:,:,:) => NULL()
     REAL(wp), ALLOCATABLE, TARGET:: zrg_tot_cld  (:,:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zlp_tot_cld  (:,:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_clc      (:,:,:)
@@ -735,6 +744,14 @@ CONTAINS
 
     REAL(wp), DIMENSION(:,:), POINTER :: ptr_reff_qc => NULL(), ptr_reff_qi => NULL()
 
+    TYPE(t_upscale_fields)   :: input_extra_flds, input_extra_2D   !< pointer array for input in upscale routine
+
+    INTEGER   ::   irg_acdnc, irg_fr_land, irg_fr_glac      ! indices of extra fields
+
+    ! Pointers to extra fields
+    REAL(wp), DIMENSION(:,:), POINTER ::  ptr_acdnc => NULL()
+    REAL(wp), DIMENSION(:),   POINTER ::  ptr_fr_glac => NULL() , ptr_fr_land => NULL()
+
     ! Variables for debug output
     REAL(wp) :: max_albvisdir, min_albvisdir, max_albvisdif, min_albvisdif, &
                 max_albdif, min_albdif, max_tsfc, min_tsfc, max_psfc, min_psfc
@@ -746,12 +763,12 @@ CONTAINS
     REAL(wp), DIMENSION(pt_patch%nlevp1) :: max_lwflx, min_lwflx, max_swtrans, min_swtrans
 #ifdef __INTEL_COMPILER
 !DIR$ ATTRIBUTES ALIGN : 64 :: aclcov,dust_tunefac
-!DIR$ ATTRIBUTES ALIGN : 64 :: zrg_fr_land,zrg_fr_glac,zrg_emis_rad,zrg_cosmu0
+!DIR$ ATTRIBUTES ALIGN : 64 :: zrg_emis_rad,zrg_cosmu0
 !DIR$ ATTRIBUTES ALIGN : 64 :: zrg_albvisdir,zrg_albnirdir,zrg_albvisdif
 !DIR$ ATTRIBUTES ALIGN : 64 :: zrg_albnirdif,zrg_albdif,zrg_tsfc,zrg_rtype
 !DIR$ ATTRIBUTES ALIGN : 64 :: zrg_ktype,zrg_pres_ifc,zlp_pres_ifc,zrg_pres
-!DIR$ ATTRIBUTES ALIGN : 64 :: zrg_temp,zrg_o3,zrg_acdnc,zrg_tot_cld
-!DIR$ ATTRIBUTES ALIGN : 64 :: zrg_reff_liq, zrg_reff_frz
+!DIR$ ATTRIBUTES ALIGN : 64 :: zrg_temp,zrg_o3,zrg_tot_cld
+!DIR$ ATTRIBUTES ALIGN : 64 :: zrg_reff_liq, zrg_reff_frz, zrg_extra_flds, zrg_extra_2D
 !DIR$ ATTRIBUTES ALIGN : 64 :: zlp_tot_cld,zrg_clc,zrg_aeq1,zrg_aeq2,zrg_aeq3
 !DIR$ ATTRIBUTES ALIGN : 64 :: zrg_aeq4,zrg_aeq5,zrg_aclcov,zrg_lwflxall
 !DIR$ ATTRIBUTES ALIGN : 64 :: zrg_trsolall,zrg_lwflx_up_sfc,zrg_trsol_up_toa
@@ -769,7 +786,7 @@ CONTAINS
 #endif
 
     ! Local scalars:
-    INTEGER:: jk,jb
+    INTEGER:: jk,jb,jf
     INTEGER:: jg                      !domain id
     INTEGER:: nlev, nlevp1, nlev_rg   !< number of full and half levels
     INTEGER:: nblks_par_c, nblks_lp_c !nblks for reduced grid
@@ -837,8 +854,6 @@ CONTAINS
 
 
       ALLOCATE (zrg_cosmu0   (nproma,nblks_par_c),     &
-        zrg_fr_land  (nproma,nblks_par_c),             &
-        zrg_fr_glac  (nproma,nblks_par_c),             &
         zrg_emis_rad (nproma,nblks_par_c),             &
         zrg_albvisdir(nproma,nblks_par_c),             &
         zrg_albnirdir(nproma,nblks_par_c),             &
@@ -858,7 +873,6 @@ CONTAINS
         zrg_aeq3     (nproma,nlev_rg  ,nblks_par_c),   &
         zrg_aeq4     (nproma,nlev_rg  ,nblks_par_c),   &
         zrg_aeq5     (nproma,nlev_rg  ,nblks_par_c),   &
-        zrg_acdnc    (nproma,nlev_rg  ,nblks_par_c),   &
         zrg_tot_cld  (nproma,nlev_rg  ,nblks_par_c,3), &
         zlp_tot_cld  (nproma,nlev_rg  ,nblks_lp_c,3),  &
         zrg_clc      (nproma,nlev_rg  ,nblks_par_c),   &
@@ -881,10 +895,31 @@ CONTAINS
         zrg_swflx_up_clr(np, nl, nblks_par_c),         &
         zrg_swflx_dn_clr(np, nl, nblks_par_c) )
 
+
+    ! Set indices for extra fields in the upscaling routine
+      irg_acdnc   = 0
+      irg_fr_land = 0
+      irg_fr_glac = 0
+    
+      CALL input_extra_flds%construct(nlev_rg)  ! Extra fields in upscaling routine. 3D fields with nlev_rg
+      CALL input_extra_2D%construct(1)          ! Extra fields in upscaling routine: 2D fields
+    
       IF (l_coupled_reff) THEN
         ALLOCATE(zrg_reff_liq (nproma,nlev_rg,nblks_par_c),   &
-                 zrg_reff_frz (nproma,nlev_rg,nblks_par_c))
+             zrg_reff_frz (nproma,nlev_rg,nblks_par_c))
+      ELSE
+        CALL input_extra_flds%assign(prm_diag%acdnc(:,:,:), irg_acdnc)
+        CALL input_extra_2D%assign(ext_data%atm%fr_land_smt , irg_fr_land)
+        CALL input_extra_2D%assign(ext_data%atm%fr_glac_smt , irg_fr_glac)
       ENDIF
+
+      ! Allocate output extra arrays
+      IF ( input_extra_flds%ntot > 0 )  THEN
+        ALLOCATE( zrg_extra_flds(nproma,input_extra_flds%nlev_rg,nblks_par_c,input_extra_flds%ntot) )
+      END IF
+      IF ( input_extra_2D%ntot > 0 )  THEN
+        ALLOCATE( zrg_extra_2D(nproma,nblks_par_c,input_extra_2D%ntot) )
+      END IF
 
       rl_start = 1 ! SR radiation is not set up to handle boundaries of nested domains
       rl_end   = min_rlcell_int
@@ -927,24 +962,25 @@ CONTAINS
       ENDDO ! blocks
 
       CALL upscale_rad_input(pt_patch%id, pt_par_patch%id,              &
-        & nlev_rg, ext_data%atm%fr_land_smt, ext_data%atm%fr_glac_smt,  &
+        & nlev_rg,                                                      &
         & prm_diag%lw_emiss, prm_diag%cosmu0,                           &
         & prm_diag%albvisdir, prm_diag%albnirdir, prm_diag%albvisdif,   &
         & prm_diag%albnirdif, prm_diag%albdif, prm_diag%tsfctrad,       &
         & prm_diag%ktype, pt_diag%pres_ifc, pt_diag%pres,               &
-        & pt_diag%temp,prm_diag%acdnc,                                  &
+        & pt_diag%temp,                                                 &
         & prm_diag%tot_cld, prm_diag%clc,                               &
         & ext_data%atm%o3, zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,           &
-        & zrg_fr_land, zrg_fr_glac, zrg_emis_rad,                       &
+        & zrg_emis_rad,                                                 &
         & zrg_cosmu0, zrg_albvisdir, zrg_albnirdir, zrg_albvisdif,      &
         & zrg_albnirdif, zrg_albdif, zrg_tsfc, zrg_rtype, zrg_pres_ifc, &
-        & zrg_pres, zrg_temp, zrg_acdnc,                                &
+        & zrg_pres, zrg_temp,                                           &
         & zrg_tot_cld, zrg_clc, zrg_o3,                                 &
         & zrg_aeq1, zrg_aeq2, zrg_aeq3, zrg_aeq4, zrg_aeq5,             &
         & zlp_pres_ifc, zlp_tot_cld, prm_diag%buffer_rrg,               &
         & atm_phy_nwp_config(jg)%icpl_rad_reff,                         &
         & prm_diag%reff_qc, prm_diag%reff_qi,                           &
-        & zrg_reff_liq, zrg_reff_frz)
+        & zrg_reff_liq, zrg_reff_frz,input_extra_flds, zrg_extra_flds,  &
+        & input_extra_2D, zrg_extra_2D)
     
       IF (jg == 1 .AND. l_limited_area) THEN
         rl_start = grf_fbk_start_c
@@ -1019,7 +1055,6 @@ CONTAINS
           max_pres_ifc(jk) = MAX(max_pres_ifc(jk),MAXVAL(zrg_pres_ifc(i_startidx:i_endidx,jk,jb)))
           max_pres(jk)    = MAX(max_pres(jk),MAXVAL(zrg_pres     (i_startidx:i_endidx,jk,jb)))
           max_temp(jk)     = MAX(max_temp(jk),MAXVAL(zrg_temp     (i_startidx:i_endidx,jk,jb)))
-          max_acdnc(jk)    = MAX(max_acdnc(jk),MAXVAL(zrg_acdnc    (i_startidx:i_endidx,jk,jb)))
           max_qv(jk) = MAX(max_qv(jk),MAXVAL(zrg_tot_cld(i_startidx:i_endidx,jk,jb,iqv)))
           max_qc(jk) = MAX(max_qc(jk),MAXVAL(zrg_tot_cld(i_startidx:i_endidx,jk,jb,iqc)))
           max_qi(jk) = MAX(max_qi(jk),MAXVAL(zrg_tot_cld(i_startidx:i_endidx,jk,jb,iqi)))
@@ -1027,12 +1062,15 @@ CONTAINS
           min_pres_ifc(jk) = MIN(min_pres_ifc(jk),MINVAL(zrg_pres_ifc(i_startidx:i_endidx,jk,jb)))
           min_pres(jk)    = MIN(min_pres(jk),MINVAL(zrg_pres     (i_startidx:i_endidx,jk,jb)))
           min_temp(jk)     = MIN(min_temp(jk),MINVAL(zrg_temp     (i_startidx:i_endidx,jk,jb)))
-          min_acdnc(jk)    = MIN(min_acdnc(jk),MINVAL(zrg_acdnc    (i_startidx:i_endidx,jk,jb)))
           min_qv(jk) = MIN(min_qv(jk),MINVAL(zrg_tot_cld(i_startidx:i_endidx,jk,jb,iqv)))
           min_qc(jk) = MIN(min_qc(jk),MINVAL(zrg_tot_cld(i_startidx:i_endidx,jk,jb,iqc)))
           min_qi(jk) = MIN(min_qi(jk),MINVAL(zrg_tot_cld(i_startidx:i_endidx,jk,jb,iqi)))
           min_cc(jk)  = MIN(min_cc(jk),MINVAL(zrg_clc(i_startidx:i_endidx,jk,jb)))
          ENDDO
+         IF (irg_acdnc > 0) THEN
+           max_acdnc(jk)    = MAX(max_acdnc(jk),MAXVAL(zrg_extra_flds (i_startidx:i_endidx,jb,jk,irg_acdnc)))
+           min_acdnc(jk)    = MIN(min_acdnc(jk),MINVAL(zrg_extra_flds (i_startidx:i_endidx,jb,jk,irg_acdnc)))
+         END IF
          IF (l_coupled_reff) THEN
            DO jk = 1, nlev_rg
              max_reff_liq(jk) = MAX(max_reff_liq(jk),MAXVAL(zrg_reff_liq    (i_startidx:i_endidx,jk,jb)))
@@ -1055,7 +1093,6 @@ CONTAINS
         max_pres_ifc = global_max(max_pres_ifc)
         max_pres    = global_max(max_pres)
         max_temp     = global_max(max_temp)
-        max_acdnc    = global_max(max_acdnc)
         max_qv = global_max(max_qv)
         max_qc = global_max(max_qc)
         max_qi = global_max(max_qi)
@@ -1063,11 +1100,14 @@ CONTAINS
         min_pres_ifc = global_min(min_pres_ifc)
         min_pres    = global_min(min_pres)
         min_temp     = global_min(min_temp)
-        min_acdnc    = global_min(min_acdnc)
         min_qv = global_min(min_qv)
         min_qc = global_min(min_qc)
         min_qi = global_min(min_qi)
         min_cc  = global_min(min_cc)
+        IF (irg_acdnc > 0) THEN
+          max_acdnc    = global_max(max_acdnc)
+          min_acdnc    = global_min(min_acdnc)
+        END IF
         IF (l_coupled_reff) THEN
           max_reff_liq = global_max(max_reff_liq)
           max_reff_frz = global_max(max_reff_frz)        
@@ -1117,9 +1157,10 @@ CONTAINS
 
       ENDIF ! msg_level >= 16
 
+
 #if !defined(__PGI)
 !FIXME: PGI + OpenMP produce deadlock in this loop. Compiler bug suspected
-!ICON_OMP PARALLEL DO PRIVATE(jb,jk,i_startidx,i_endidx,dust_tunefac) ICON_OMP_GUIDED_SCHEDULE
+!ICON_OMP PARALLEL DO PRIVATE(jb,jk,jf,i_startidx,i_endidx) ICON_OMP_GUIDED_SCHEDULE
 #endif
       DO jb = i_startblk, i_endblk
 
@@ -1131,8 +1172,6 @@ CONTAINS
         ! of nested domains. Therefore, the normally unused elements of the first block
         ! need to be filled with dummy values
         IF ( (jg > 1 .OR. l_limited_area) .AND. jb == i_startblk .AND. i_endidx >= i_startidx) THEN
-          zrg_fr_land   (1:i_startidx-1,jb) = zrg_fr_land   (i_startidx,jb)
-          zrg_fr_glac   (1:i_startidx-1,jb) = zrg_fr_glac   (i_startidx,jb)
           zrg_emis_rad  (1:i_startidx-1,jb) = zrg_emis_rad  (i_startidx,jb)
           zrg_cosmu0    (1:i_startidx-1,jb) = zrg_cosmu0    (i_startidx,jb)
           zrg_albvisdir (1:i_startidx-1,jb) = zrg_albvisdir (i_startidx,jb)
@@ -1143,6 +1182,9 @@ CONTAINS
           zrg_tsfc      (1:i_startidx-1,jb) = zrg_tsfc      (i_startidx,jb)
           zrg_rtype     (1:i_startidx-1,jb) = zrg_rtype     (i_startidx,jb)
           zrg_pres_ifc (1:i_startidx-1,nlev_rg+1,jb) = zrg_pres_ifc (i_startidx,nlev_rg+1,jb)
+          DO jf=1,input_extra_2D%ntot
+            zrg_extra_2D   (1:i_startidx-1,jb,jf) = zrg_extra_2D   (i_startidx,jb,jf)
+          END DO
           DO jk = 1, nlev_rg
             zrg_pres_ifc (1:i_startidx-1,jk,jb) = zrg_pres_ifc (i_startidx,jk,jb)
             zrg_pres     (1:i_startidx-1,jk,jb) = zrg_pres     (i_startidx,jk,jb)
@@ -1153,12 +1195,16 @@ CONTAINS
             zrg_aeq3     (1:i_startidx-1,jk,jb) = zrg_aeq3     (i_startidx,jk,jb)
             zrg_aeq4     (1:i_startidx-1,jk,jb) = zrg_aeq4     (i_startidx,jk,jb)
             zrg_aeq5     (1:i_startidx-1,jk,jb) = zrg_aeq5     (i_startidx,jk,jb)
-            zrg_acdnc    (1:i_startidx-1,jk,jb) = zrg_acdnc    (i_startidx,jk,jb)
             zrg_tot_cld  (1:i_startidx-1,jk,jb,iqv) = zrg_tot_cld(i_startidx,jk,jb,iqv)
             zrg_tot_cld  (1:i_startidx-1,jk,jb,iqc) = zrg_tot_cld(i_startidx,jk,jb,iqc)
             zrg_tot_cld  (1:i_startidx-1,jk,jb,iqi) = zrg_tot_cld(i_startidx,jk,jb,iqi)
             zrg_clc      (1:i_startidx-1,jk,jb) = zrg_clc(i_startidx,jk,jb)
           ENDDO
+          DO jf=1,input_extra_flds%ntot
+            DO jk = 1,nlev_rg
+              zrg_extra_flds(1:i_startidx-1,jk,jb,jf) = zrg_extra_flds(i_startidx,jk,jb,jf)
+            END DO
+          END DO
           IF (l_coupled_reff) THEN
             DO jk = 1, nlev_rg
               zrg_reff_liq (1:i_startidx-1,jk,jb) = zrg_reff_liq (i_startidx,jk,jb)
@@ -1167,6 +1213,20 @@ CONTAINS
           END IF
         ENDIF
 
+      END DO
+
+
+
+#if !defined(__PGI)
+!FIXME: PGI + OpenMP produce deadlock in this loop. Compiler bug suspected
+!ICON_OMP PARALLEL DO PRIVATE(jb,jk,i_startidx,i_endidx,dust_tunefac,              &    
+!ICON_OMP              ptr_acdnc, ptr_fr_land,ptr_fr_glac,ptr_reff_qc,ptr_reff_qi) &
+!ICON_OMP ICON_OMP_GUIDED_SCHEDULE
+#endif
+      DO jb = i_startblk, i_endblk
+
+        CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, &
+          &                         i_startidx, i_endidx, rl_start, rl_end)
 
         IF (tune_dust_abs > 0._wp) THEN
 !DIR$ NOINLINE
@@ -1178,10 +1238,16 @@ CONTAINS
         ! Type of convection is required as INTEGER field
         zrg_ktype(1:i_endidx,jb) = NINT(zrg_rtype(1:i_endidx,jb))
 
+      NULLIFY(ptr_acdnc,ptr_fr_land,ptr_fr_glac,ptr_reff_qc,ptr_reff_qi)
+
       IF (l_coupled_reff) THEN
         ptr_reff_qc => zrg_reff_liq(:,:,jb)
         ptr_reff_qi => zrg_reff_frz(:,:,jb)
       ENDIF
+
+      IF ( irg_acdnc   > 0 ) ptr_acdnc   => zrg_extra_flds(:,:,jb,irg_acdnc)
+      IF ( irg_fr_land > 0 ) ptr_fr_land => zrg_extra_2D(:,jb,irg_fr_land)
+      IF ( irg_fr_glac > 0 ) ptr_fr_glac => zrg_extra_2D(:,jb,irg_fr_glac)
 
         CALL radiation_nwp(               &
                                 !
@@ -1201,8 +1267,8 @@ CONTAINS
                                 !
           & ktype       =zrg_ktype(:,jb)     ,&!< in type of convection
                                 !
-          & zland       =zrg_fr_land (:,jb)  ,&!< in land mask,     1. over land
-          & zglac       =zrg_fr_glac (:,jb)  ,&!< in glacier mask,  1. over land ice
+          & zland       =ptr_fr_land         ,&!< in land mask,     1. over land
+          & zglac       =ptr_fr_glac         ,&!< in glacier mask,  1. over land ice
                                 !
           & cos_mu0     =zrg_cosmu0  (:,jb)  ,&!< in    cos of zenith angle mu0
           & alb_vis_dir=zrg_albvisdir(:,jb)  ,&!< in    surface albedo for visible range, direct
@@ -1220,7 +1286,7 @@ CONTAINS
           & qm_liq     =zrg_tot_cld (:,:,jb,iqc),&!< in    cloud water mass mixing ratio at t-dt
           & qm_ice     =zrg_tot_cld (:,:,jb,iqi),&!< in    cloud ice mass mixing ratio at t-dt
           & qm_o3      = zrg_o3     (:,:,jb)    ,&!< in    O3
-          & cdnc       =zrg_acdnc   (:,:,jb)    ,&!< in    cloud droplet numb. conc. [1/m**3]
+          & cdnc       =ptr_acdnc               ,&!< in    cloud droplet numb. conc. [1/m**3]
           & reff_liq   =ptr_reff_qc             ,&!< in    effective radius liquid phase. [m]
           & reff_frz   =ptr_reff_qi             ,&!< in    effective radius frozen phase. [m]
           & cld_frc    =zrg_clc    (:,:,jb)     ,&!< in    cld_frac = cloud fraction [m2/m2]
@@ -1313,13 +1379,18 @@ CONTAINS
 
       DEALLOCATE (zrg_cosmu0, zrg_albvisdir, zrg_albnirdir, zrg_albvisdif, zrg_albnirdif, &
         zrg_albdif, zrg_tsfc, zrg_pres_ifc, zrg_pres, zrg_temp, zrg_o3, zrg_ktype,        &
-        zrg_aeq1,zrg_aeq2,zrg_aeq3,zrg_aeq4,zrg_aeq5, zrg_acdnc, zrg_tot_cld, zrg_clc,    &
+        zrg_aeq1,zrg_aeq2,zrg_aeq3,zrg_aeq4,zrg_aeq5, zrg_tot_cld, zrg_clc,               &
         zrg_aclcov, zrg_lwflxall, zrg_trsolall, zrg_lwflx_up_sfc, zrg_trsol_up_toa,       &
         zrg_trsol_up_sfc, zrg_trsol_par_sfc, zrg_trsol_dn_sfc_diff, zrg_trsol_clr_sfc,    &
-        zrg_lwflx_clr_sfc, zrg_fr_land, zrg_fr_glac, zrg_emis_rad, zlp_pres_ifc, zlp_tot_cld, &
+        zrg_lwflx_clr_sfc, zrg_emis_rad, zlp_pres_ifc, zlp_tot_cld,                       &
         zrg_lwflx_up    , zrg_lwflx_dn    , zrg_swflx_up    , zrg_swflx_dn,               &
         zrg_lwflx_up_clr, zrg_lwflx_dn_clr, zrg_swflx_up_clr, zrg_swflx_dn_clr            )
-      IF (l_coupled_reff) DEALLOCATE(zrg_reff_liq,zrg_reff_frz)            
+      IF (l_coupled_reff) DEALLOCATE(zrg_reff_liq,zrg_reff_frz)     
+      IF (input_extra_flds%ntot > 0 ) DEALLOCATE(zrg_extra_flds)
+      IF (input_extra_2D%ntot > 0   ) DEALLOCATE(zrg_extra_2D  )
+    
+      CALL input_extra_flds%destruct()
+      CALL input_extra_2D%destruct()
 
   END SUBROUTINE nwp_rrtm_radiation_reduced
   !---------------------------------------------------------------------------------------

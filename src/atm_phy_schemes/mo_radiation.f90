@@ -600,8 +600,6 @@ CONTAINS
       &  ktype(kbdim)          !< type of convection
 
     REAL(wp), INTENT(in)  :: &
-      &  zland(kbdim),       & !< land-sea mask. (1. = land, 0. = sea/lakes)
-      &  zglac(kbdim),       & !< fraction of land covered by glaciers
       &  cos_mu0(kbdim),     & !< cos of zenith angle
       &  alb_vis_dir(kbdim), & !< surface albedo for visible range and direct light
       &  alb_nir_dir(kbdim), & !< surface albedo for NIR range and direct light
@@ -615,7 +613,6 @@ CONTAINS
       &  qm_vap(kbdim,klev), & !< Water vapor mixing ratio
       &  qm_liq(kbdim,klev), & !< Liquid water mixing ratio
       &  qm_ice(kbdim,klev), & !< Ice water mixing ratio
-      &  cdnc(kbdim,klev),   & !< Cloud drop number concentration
       &  cld_frc(kbdim,klev),& !< Cloud fraction
       &  zaeq1(kbdim,klev) , & !< aerosol continental
       &  zaeq2(kbdim,klev) , & !< aerosol maritime
@@ -624,10 +621,15 @@ CONTAINS
       &  zaeq5(kbdim,klev) , & !< aerosol stratospheric background
       &  dust_tunefac(kbdim,jpband) !< LW tuning factor for dust aerosol
 
-    REAL(wp), INTENT(in), OPTIONAL  :: &
+
+    REAL(wp), INTENT(in), POINTER, OPTIONAL  :: &
       &  reff_liq(:,:),      & !< Effective radius liquid phase [m]
       &  reff_frz(:,:)         !< Effective radius frozen phase [m]
 
+    REAL(wp), INTENT(in),POINTER  :: &
+      &  cdnc(:,:),          & !< Cloud drop number concentration
+      &  zland(:),           & !< land-sea mask. (1. = land, 0. = sea/lakes)
+      &  zglac(:)              !< fraction of land covered by glaciers
 
     ! output
     ! ------
@@ -985,8 +987,6 @@ CONTAINS
       &  ktype(kbdim)                       !< type of convection
 
     REAL(wp),INTENT(in) ::                &
-      &  zland(kbdim),                    & !< land-sea mask. (1. = land, 0. = sea/lakes)
-      &  zglac(kbdim),                    & !< fraction of land covered by glaciers
       &  pmu0(kbdim),                     & !< mu0 for solar zenith angle
       &  alb_vis_dir(kbdim),              & !< surface albedo for vis range and dir light
       &  alb_nir_dir(kbdim),              & !< surface albedo for NIR range and dir light
@@ -1002,7 +1002,6 @@ CONTAINS
       &  xm_vap(kbdim,klev),              & !< specific humidity in g/g
       &  xm_liq(kbdim,klev),              & !< specific liquid water content
       &  xm_ice(kbdim,klev),              & !< specific ice content in g/g
-      &  cdnc(kbdim,klev),                & !< cloud nuclei concentration
       &  cld_frc(kbdim,klev),             & !< fractional cloud cover
       &  xm_o3(kbdim,klev),               & !< o3 mass mixing ratio
       &  xm_co2(kbdim,klev),              & !< co2 mass mixing ratio
@@ -1017,10 +1016,15 @@ CONTAINS
       &  zaeq4(kbdim,klev),               & !< aerosol volcano ashes
       &  zaeq5(kbdim,klev)                  !< aerosol stratospheric background
 
-    REAL(wp),INTENT(in), OPTIONAL :: &
+    REAL(wp),INTENT(in),POINTER  ::                &
+      &  cdnc(:,:),                       & !< cloud nuclei concentration
+      &  zland(:),                        & !< land-sea mask. (1. = land, 0. = sea/lakes)
+      &  zglac(:)                           !< fraction of land covered by glaciers
+
+
+    REAL(wp),INTENT(in), POINTER, OPTIONAL :: &
       &  reff_liq(:,:),              & !< effective radius liquid phase in m
       &  reff_frz(:,:)                 !< effective radius frozen phase in m
-
 
     REAL(wp), INTENT(out) ::              &
       &  flx_lw_net(kbdim,klev+1),        & !< net downward LW flux profile,
@@ -1072,7 +1076,6 @@ CONTAINS
       &  pm_fl_vr(kbdim,klev),            & !< full level pressure [hPa]
       &  tk_fl_vr(kbdim,klev),            & !< full level temperature [K]
       &  tk_hl_vr(kbdim,klev+1),          & !< half level temperature [K]
-      &  cdnc_vr(kbdim,klev),             & !< cloud nuclei concentration
       &  cld_frc_vr(kbdim,klev),          & !< secure cloud fraction
       &  ziwgkg_vr(kbdim,klev),           & !< specific ice water content
       &  ziwc_vr(kbdim,klev),             & !< ice water content per volume
@@ -1096,10 +1099,14 @@ CONTAINS
       &  flx_upsw(kbdim,klev+1),          & !< upward flux total sky
       &  flx_upsw_clr(kbdim,klev+1),      & !< upward flux clear sky
       &  flx_dnsw(kbdim,klev+1),          & !< downward flux total sky
-      &  flx_dnsw_clr(kbdim,klev+1)         !< downward flux clear sky
-    REAL(wp), POINTER ::       &
-      &  reff_liq_vr(:,:) => NULL(),         & !< effective radius liquid phase [m]
-      &  reff_frz_vr(:,:) => NULL()            !< effective radius frozen phase [m]
+      &  flx_dnsw_clr(kbdim,klev+1),      & !< downward flux clear sky
+      ! Alberto: Using pointers does not work here because the routine is called inside an OMP
+      ! region and produce a race condition when memory is allocated.
+      &  cdnc_vr(kbdim,klev)     ,        & !< cloud nuclei concentration
+      &  reff_liq_vr(kbdim,klev) ,        & !< effective radius liquid phase [m]
+      &  reff_frz_vr(kbdim,klev)            !< effective radius frozen phase [m]
+
+
 
     REAL(wp), TARGET ::                   &
       &  wkl_vr(kbdim,jpinpx,klev)        !< number of molecules/cm2 of
@@ -1135,9 +1142,6 @@ CONTAINS
     flx_upsw_sfc_clr(:) = 0._wp
     
     l_coupled_reff = icpl_reff > 0
-    IF ( l_coupled_reff ) THEN
-      ALLOCATE(reff_liq_vr(kbdim,klev),reff_frz_vr(kbdim,klev) )
-    END IF
 
     IF (atm_phy_nwp_config(jg)%l_3d_rad_fluxes) THEN
       IF (PRESENT(flx_lw_dn))     flx_lw_dn(:,:)      = 0._wp
@@ -1215,7 +1219,6 @@ CONTAINS
         ziwp_vr(jl,jk) = ziwgkg_vr(jl,jk)*delta/grav
         zlwc_vr(jl,jk) = zlwgkg_vr(jl,jk)*zscratch/rd
         zlwp_vr(jl,jk) = zlwgkg_vr(jl,jk)*delta/grav
-        cdnc_vr(jl,jk) = cdnc(jl,jkb)*1.e-6_wp
         !
         ! --- radiatively active gases
         !
@@ -1240,6 +1243,10 @@ CONTAINS
         DO jl = 1, jce
           reff_liq_vr(jl,jk) = reff_liq(jl,jkb)
           reff_frz_vr(jl,jk) = reff_frz(jl,jkb)      
+        END DO
+      ELSE
+        DO jl = 1, jce
+          cdnc_vr(jl,jk) = cdnc(jl,jkb)*1.e-6_wp
         END DO
       END IF
     END DO
@@ -1465,9 +1472,6 @@ CONTAINS
     END IF
     !
 
-    IF ( l_coupled_reff ) THEN
-      DEALLOCATE(reff_liq_vr,reff_frz_vr)
-    END IF
 
     IF (timers_level > 7) CALL timer_stop(timer_rrtm_post)
 
