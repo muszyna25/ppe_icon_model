@@ -101,6 +101,8 @@ MODULE mo_rtifc_base
 #endif
 #if (_RTTOV_VERSION >= 12)
     module procedure p_bcast_rttov_sinteger_4d
+    module procedure p_bcast_rttov_sinteger_3d
+    module procedure p_bcast_rttov_sinteger_2d
     module procedure p_bcast_rttov_complex_1d
 #endif
   end interface
@@ -128,6 +130,7 @@ MODULE mo_rtifc_base
   integer,         parameter :: OUT_CSB         = 1                          ! clear sky brightness temp.
   integer,         parameter :: OUT_ASR         = 2                          ! all sky radiances
   integer,         parameter :: OUT_CSR         = 3                          ! clear sky radiances
+  integer,         parameter :: OUT_VIS         = 4                          ! reflectances (all sky and clear sky)
 
   ! Physical parameters required for weighting function calculation
   real(kind=wp),   parameter :: rd              = 287.05_wp
@@ -136,7 +139,7 @@ MODULE mo_rtifc_base
   ! Possible coefficient level numbers
   integer,         parameter :: levels_rttov(4) = (/ 44, 51, 54, 101 /)
 
-  ! Define variables for NO_RTTOV case, that are used from RTTOV modules otherwise
+  ! Define variables for no-rttov case, that are used from RTTOV modules otherwise
 #if (_RTTOV_VERSION <= 0)
 !  integer,         parameter :: jpim            = selected_int_kind(9)       ! standard integer type
 !  integer,         parameter :: jprb            = selected_real_kind(13,300) ! standard real type
@@ -155,7 +158,7 @@ MODULE mo_rtifc_base
 
 
   ! error codes and messages
-  integer,         parameter :: nerr            = 21                        ! number of different error messages
+  integer,         parameter :: nerr            = 23                        ! number of different error messages
   character(len=100)         :: err_msg(0:nerr)
 #define DEF_ERR(codename, code, msg) integer,parameter::codename=code;data err_msg(code)/msg/
   DEF_ERR(NO_ERROR            ,  0, 'No error. Everything okay.')
@@ -180,6 +183,8 @@ MODULE mo_rtifc_base
   DEF_ERR(ERR_INVALID_NLEVS   , 19, 'Invalid number of levels')
   DEF_ERR(ERR_INVALID_VERSION , 20, 'Invalid RTTOV version')
   DEF_ERR(ERR_PRECISION_INCONS, 21, 'Real data precisions inconsistent (wp /= jprb).')
+  DEF_ERR(ERR_NO_COEFS        , 22, 'No matching coefs found.')
+  DEF_ERR(ERR_MULTIPLE_COEFS  , 23, 'Multiple matching coefs found.')
 ! DEF_ERR(ERR_                , XX, '')
 #undef DEF_ERR
 
@@ -219,7 +224,10 @@ MODULE mo_rtifc_base
   integer                    :: default_clw_scheme        =       2     ! cloud liquid water scheme
   integer                    :: default_gas_units         = def_gas_unit! default gas unit
 
-  integer                    :: verbosity                 =  production
+  integer                    :: verbosity                 = production
+  logical                    :: read1pe                   = .false.      ! Read coeffs.only on I/O PE
+                                                  ! (Only effective with -D_RTIFC_DISTRIBCOEF)
+
 
   ! T/q hard limits
   real(kind=wp)              :: qmin_ifc                  = qmin_rttov
@@ -323,8 +331,8 @@ contains
     integer, intent(in)           :: code
 
     write(msg, '("ERROR (",I4,"):")') code
-    if (code >= lbound(err_msg,1) .and. code <= ubound(err_msg,1)) then
-      msg = trim(msg)//' '//trim(err_msg(code))
+    if (abs(code) >= lbound(err_msg,1) .and. abs(code) <= ubound(err_msg,1)) then
+      msg = trim(msg)//' '//trim(err_msg(abs(code)))
     else
       msg = trim(msg)//' '//'Unknown error'
     end if
@@ -333,6 +341,7 @@ contains
 
 
 #if (_RTTOV_VERSION > 0)
+
   subroutine get_weighting_function(p, t, transm, wf, height)
     real(kind=jprb)           :: p(:)
     real(kind=jprb)           :: t(:)
@@ -756,6 +765,48 @@ contains
       stop 'MPI ERROR'
     endif
   end subroutine p_bcast_rttov_sinteger_4d
+
+
+  subroutine p_bcast_rttov_sinteger_3d(buffer,source,comm)
+    integer(jpis),    intent(inout)   :: buffer(:,:,:)
+    integer,          intent(in)      :: source
+    integer, optional,intent(in)      :: comm
+    !--------------------------------------------------------------
+    ! Broadcast a small integer rank-4 array across all available processors
+    !--------------------------------------------------------------
+    integer :: lcom, errorcode
+
+    lcom = MPI_COMM_WORLD ;if (present (comm)) lcom = comm
+
+    call MPI_Bcast(buffer,size(transfer(buffer,(/' '/))), MPI_BYTE, &
+        source, lcom, errorcode)
+
+    if (errorcode /= MPI_SUCCESS) then
+      print *, 'MPI ERROR in MPI_Bcast: ', errorcode
+      stop 'MPI ERROR'
+    endif
+  end subroutine p_bcast_rttov_sinteger_3d
+
+
+  subroutine p_bcast_rttov_sinteger_2d(buffer,source,comm)
+    integer(jpis),    intent(inout)   :: buffer(:,:)
+    integer,          intent(in)      :: source
+    integer, optional,intent(in)      :: comm
+    !--------------------------------------------------------------
+    ! Broadcast a small integer rank-4 array across all available processors
+    !--------------------------------------------------------------
+    integer :: lcom, errorcode
+
+    lcom = MPI_COMM_WORLD ;if (present (comm)) lcom = comm
+
+    call MPI_Bcast(buffer,size(transfer(buffer,(/' '/))), MPI_BYTE, &
+        source, lcom, errorcode)
+
+    if (errorcode /= MPI_SUCCESS) then
+      print *, 'MPI ERROR in MPI_Bcast: ', errorcode
+      stop 'MPI ERROR'
+    endif
+  end subroutine p_bcast_rttov_sinteger_2d
 
 
   subroutine p_bcast_rttov_complex_1d(buffer,source,comm)
