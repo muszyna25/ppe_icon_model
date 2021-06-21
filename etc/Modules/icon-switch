@@ -17,5 +17,7 @@ prepend-path MKEXP_PATH .
 
 set_dependencies {
     python/2.7.12
+    cdo/1.9.10-magicsxx-gcc64
+    ncl/6.5.0-gccsys
     imagemagick/6.9.1-7-gcc48
 }
