@@ -233,7 +233,7 @@ MODULE mo_2mom_mcrph_processes
   ! Even more parameters for collision and conversion rates
   REAL(wp), PARAMETER :: &
        &    q_crit_ii = 1.000e-6_wp, & ! q-threshold for ice_selfcollection
-       &    D_crit_ii = 100.0e-6_wp, & ! D-threshold for ice_selfcollection
+       &    D_crit_ii = 5.0e-6_wp,   & ! D-threshold for ice_selfcollection  
        &    D_conv_ii = 75.00e-6_wp, & ! D-threshold for conversion in ice_selfcollection
        &    q_crit_r  = 1.000e-5_wp, & ! q-threshold for ice_rain_riming and snow_rain_riming
        &    D_crit_r  = 100.0e-6_wp, & ! D-threshold for ice_rain_riming and snow_rain_riming
@@ -601,11 +601,11 @@ CONTAINS
   END FUNCTION coll_theta_12
 
   ! bulk sedimentation velocities
-  subroutine sedi_vel_rain(this,thisCoeffs,q,x,vn,vq,its,ite,qc)
+  subroutine sedi_vel_rain(this,thisCoeffs,q,x,rhocorr,vn,vq,its,ite,qc)
     CLASS(particle), intent(in)            :: this
     TYPE(particle_rain_coeffs), intent(in) :: thisCoeffs
     integer,  intent(in)  :: its,ite
-    real(wp), intent(in)  :: q(:),x(:)
+    real(wp), intent(in)  :: q(:),x(:), rhocorr(:)
     real(wp), intent(in), optional  :: qc(:)
     real(wp), intent(inout) :: vn(:), vq(:)
 
@@ -627,6 +627,8 @@ CONTAINS
           D_p = D_m * exp((-1./3.)*log((mue+3.)*(mue+2.)*(mue+1.)))
           vn(i) = thisCoeffs%alfa - thisCoeffs%beta * exp(-(mue+1.)*log(1.0 + thisCoeffs%gama*D_p))
           vq(i) = thisCoeffs%alfa - thisCoeffs%beta * exp(-(mue+4.)*log(1.0 + thisCoeffs%gama*D_p))
+          vn(i) = vn(i) * rhocorr(i)
+          vq(i) = vq(i) * rhocorr(i)
        else
           vn(i) = 0.0_wp
           vq(i) = 0.0_wp
@@ -635,11 +637,11 @@ CONTAINS
   end subroutine sedi_vel_rain
 
   ! bulk sedimentation velocities
-  subroutine sedi_vel_sphere(this,thisCoeffs,q,x,vn,vq,its,ite)
+  subroutine sedi_vel_sphere(this,thisCoeffs,q,x,rhocorr,vn,vq,its,ite)
     CLASS(particle), intent(in)        :: this
     CLASS(particle_sphere), intent(in) :: thisCoeffs
     integer,  intent(in)  :: its,ite
-    real(wp), intent(in)  :: q(:),x(:)
+    real(wp), intent(in)  :: q(:),x(:),rhocorr(:)
     real(wp), intent(out) :: vn(:), vq(:)
 
     integer  :: i
@@ -654,8 +656,8 @@ CONTAINS
           v_q = MAX(v_q,this%vsedi_min)
           v_n = MIN(v_n,this%vsedi_max)
           v_q = MIN(v_q,this%vsedi_max)
-          vn(i) = v_n
-          vq(i) = v_q
+          vn(i) = v_n * rhocorr(i)
+          vq(i) = v_q * rhocorr(i)
        else
           vn(i) = 0.0_wp
           vq(i) = 0.0_wp
@@ -664,11 +666,11 @@ CONTAINS
   end subroutine sedi_vel_sphere
 
   ! bulk sedimentation velocities
-  subroutine sedi_vel_lwf(this,thisCoeffs,q,ql,x,vn,vq,vl,its,ite)
+  subroutine sedi_vel_lwf(this,thisCoeffs,q,ql,x,rhocorr,vn,vq,vl,its,ite)
     TYPE(particle_lwf), intent(in)     :: this
     CLASS(particle_sphere), intent(in) :: thisCoeffs
     integer,  intent(in)  :: its,ite
-    real(wp), intent(in)  :: q(:),x(:),ql(:)
+    real(wp), intent(in)  :: q(:),x(:),ql(:),rhocorr(:)
     real(wp), intent(out) :: vn(:),vq(:),vl(:)
 
     REAL(wp), DIMENSION(10) :: avq, avl, avn
@@ -676,7 +678,7 @@ CONTAINS
     REAL(wp), PARAMETER     :: eps = 1e-20_wp
 
     integer  :: i
-    real(wp) :: lam,v_n,v_q,v_l,D_p,D_n,lwf
+    real(wp) :: v_n,v_q,v_l,D_p,D_n,lwf
 
     if (this%name .eq. 'hail_vivek') then
       avq = aviwch
@@ -692,6 +694,8 @@ CONTAINS
       bvl = bvlwcg
       avn = avnumg
       bvn = bvnumg
+    else
+      CALL finish(TRIM(routine),'Error: unknown particle name in sedi_vel_lwf')      
     end if
 
     do i=its,ite
@@ -708,9 +712,9 @@ CONTAINS
         v_n = MIN(v_n,this%vsedi_max)
         v_q = MIN(v_q,this%vsedi_max)
         v_l = MIN(v_l,this%vsedi_max)
-        vn(i) = v_n
-        vq(i) = v_q
-        vl(i) = v_l
+        vn(i) = v_n * rhocorr(i)
+        vq(i) = v_q * rhocorr(i)
+        vl(i) = v_l * rhocorr(i)
       else
         vn(i) = 0.0_wp
         vq(i) = 0.0_wp
@@ -1664,6 +1668,7 @@ CONTAINS
     kend   = ik_slice(4)
 
     DO k = kstart,kend
+!NEC$ ivdep
       DO i = istart,iend
 
         T_a  = atmo%T(i,k)
@@ -3245,6 +3250,10 @@ CONTAINS
       D_lim = 1.e-2_wp
       lwf_lim = 0.6_wp
     else
+      cnvq = convqg  ! avoid compiler warning
+      cnvn = convng
+      D_lim   = 0.0_wp
+      lwf_lim = 0.0_wp
       CALL finish(TRIM(routine),'Error unknown particle name in LWF melting')
     end if
 
@@ -3973,8 +3982,8 @@ CONTAINS
       &                     rime_rate_qb, rime_rate_nb)
    !*******************************************************************************
    !  Riming rate of ice or snow collecting cloud droplets                        *
-   !  This is a process of the form a+b->c, but b is here always rain and         *
-   !  therefore some parameters are hardcoded for rain                            *
+   !  This is a process of the form a+b->c, but b is here always cloud and        *
+   !  therefore some parameters are hardcoded for cloud water                     *
    !*******************************************************************************
    ! start and end indices for 2D slices
    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
@@ -4169,10 +4178,10 @@ CONTAINS
     INTEGER :: istart, iend, kstart, kend
 
     ! local variables
-    INTEGER            :: i,k,nuc_typ
-    REAL(wp)           :: n_c,q_c
-    REAL(wp)           :: nuc_n, nuc_q, zf
-    REAL, PARAMETER    :: eps = 1e-10_wp
+    INTEGER             :: i,k,nuc_typ
+    REAL(wp)            :: n_c,q_c
+    REAL(wp)            :: nuc_n, nuc_q, zf
+    REAL(wp), PARAMETER :: eps = 1e-10_wp
     
     ! for activation tables
     INTEGER, PARAMETER :: n_ncn=8, n_r2=3, n_lsigs=5, n_wcb=4
@@ -4627,7 +4636,7 @@ CONTAINS
     REAL(wp), DIMENSION(:,:), OPTIONAL        :: n_cn
 
     ! local variables
-    REAL, PARAMETER    :: nuc_eps = 1e-20_wp
+    REAL(wp), PARAMETER :: nuc_eps = 1e-20_wp
 
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
@@ -4652,8 +4661,8 @@ CONTAINS
 
     ! call from init_2mom_scheme_once without arguments for initialization of tables
     IF (.NOT.PRESENT(ik_slice)) THEN
-      CALL get_otab()     ! original look-up-table from Segal and Khain      
-      CALL equi_table()   ! construct the new equidistant table tab:
+      CALL get_otab(n_r2,n_lsigs,n_ncn,n_wcb)     ! original look-up-table from Segal and Khain      
+      CALL equi_table(nr2,nlsigs,nncn,nwcb)   ! construct the new equidistant table tab:
       RETURN
     END IF
 
@@ -4778,11 +4787,12 @@ CONTAINS
       END DO
     END DO
 
-  CONTAINS
+  END SUBROUTINE ccn_activation_sk_4d
 
-    SUBROUTINE get_otab()
-      IMPLICIT NONE
-      
+  SUBROUTINE get_otab(n_r2,n_lsigs,n_ncn,n_wcb)
+
+      INTEGER, INTENT(IN) :: n_r2,n_lsigs,n_ncn,n_wcb
+
       otab%n1 = n_r2
       otab%n2 = n_lsigs
       otab%n3 = n_ncn + 1
@@ -4891,11 +4901,11 @@ CONTAINS
 
       !!! otab%dx1 ... otab%odx4 remain empty because this is a non-equidistant table.
 
-      RETURN
     END SUBROUTINE get_otab
     
-    SUBROUTINE equi_table()
-      IMPLICIT NONE
+    SUBROUTINE equi_table(nr2,nlsigs,nncn,nwcb)
+      
+      INTEGER, INTENT(IN) :: nr2,nlsigs,nncn,nwcb
 
       INTEGER :: i, j, k, l, ii, iu, ju,ku, lu
       INTEGER, ALLOCATABLE, DIMENSION(:) :: iuv, juv, kuv, luv
@@ -4989,20 +4999,23 @@ CONTAINS
         END DO
       END DO
 
-      ! Tetra-linear interpolation:
-      DO i=1, tab%n1
-        iu = iuv(i)
-        odx1 = 1.0d0 / ( otab%x1(iu+1) - otab%x1(iu) )
-        DO j=1, tab%n2
-          ju = juv(j)
-          odx2 = 1.0d0 / ( otab%x2(ju+1) - otab%x2(ju) )
-          DO l=1, tab%n4
-            lu = luv(l)
-            odx4 = 1.0d0 / ( otab%x4(lu+1) - otab%x4(lu) )
+      ! Tettora-linear interpolation:
+
+      DO l=1, tab%n4
+        lu = luv(l)
+        odx4 = 1.0d0 / ( otab%x4(lu+1) - otab%x4(lu) )
 !NEC$ ivdep
-            DO k=1, tab%n3
-              ku = kuv(k)
-              odx3 = 1.0d0 / ( otab%x3(ku+1) - otab%x3(ku) )
+        DO k=1, tab%n3
+          ku = kuv(k)
+          odx3 = 1.0d0 / ( otab%x3(ku+1) - otab%x3(ku) )
+!NEC$ unroll_completely
+          DO j=1, nlsigs ! It should be equal to tab%n2, but the variable is needed by the Vector compiler
+            ju = juv(j)
+            odx2 = 1.0d0 / ( otab%x2(ju+1) - otab%x2(ju) )
+!NEC$ unroll_completely
+            DO i=1, nr2 !  It should be equal to tab%n1, but the variable is needed by the Vector compiler
+              iu = iuv(i)
+              odx1 = 1.0d0 / ( otab%x1(iu+1) - otab%x1(iu) )
               hilf1 = otab%ltable( iu:iu+1, ju:ju+1, ku:ku+1, lu:lu+1)
               hilf2 = hilf1(1,1:2,1:2,1:2) + (hilf1(2,1:2,1:2,1:2) - hilf1(1,1:2,1:2,1:2)) * odx1 * ( tab%x1(i) - otab%x1(iu) )
               hilf3 = hilf2(1,1:2,1:2)     + (hilf2(2,1:2,1:2)     - hilf2(1,1:2,1:2)  )   * odx2 * ( tab%x2(j) - otab%x2(ju) )
@@ -5019,7 +5032,7 @@ CONTAINS
       RETURN
     END SUBROUTINE equi_table
     
-  END SUBROUTINE ccn_activation_sk_4d
+! END SUBROUTINE ccn_activation_sk_4d
 
   !*******************************************************************************
   ! Sedimentation subroutines for ICON

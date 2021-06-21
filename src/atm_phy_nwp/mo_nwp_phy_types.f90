@@ -30,6 +30,7 @@
 !! infrastructure by Kristina Froehlich (MPI-M, 2011-04-27)
 !! Added clch, clcm, clcl, hbas_con, htop_con by Helmut Frank (DWD, 2013-01-17)
 !! Added hzerocl and gusts                    by Helmut Frank (DWD, 2013-03-13)
+!! Added LPI, MLPI and koi to t_nwp_phy_diag by Guido Schroeder (DWD, 2021-01-29)
 !!
 !! @par Copyright and License
 !!
@@ -90,6 +91,7 @@ MODULE mo_nwp_phy_types
     TYPE(t_ptr_2d3d),ALLOCATABLE :: tvh_t_ptr(:) !< pointer array: turbulent transfer velocity for heat
     TYPE(t_ptr_2d3d),ALLOCATABLE :: tkr_t_ptr(:) !< pointer array: turbulent reference surface diffusion coefficient
     TYPE(t_ptr_2d3d),ALLOCATABLE :: gz0_t_ptr(:) !< pointer array: roughness length * gravity
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: rlamh_fac_ptr(:) !< pointer array: scaling factor for rlam_heat
 
     TYPE(t_ptr_2d3d),ALLOCATABLE :: tvs_s_t_ptr(:)  !< pointer array: turbulent velocity scale at surface
     TYPE(t_ptr_2d3d),ALLOCATABLE :: tkvm_s_t_ptr(:) !< pointer array: exchange coefficient for momentum at surface
@@ -104,6 +106,7 @@ MODULE mo_nwp_phy_types
     TYPE(t_ptr_2d3d),ALLOCATABLE :: lhfl_bs_t_ptr(:)!< pointer array: lhf from bare soil
     TYPE(t_ptr_2d3d),ALLOCATABLE :: lhfl_pl_t_ptr(:)!< pointer array: lhf from plants
     TYPE(t_ptr_2d3d),ALLOCATABLE :: aerosol_ptr(:)  !< pointer array: prognostic vertically integrated aerosol optical depth
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: uh_max_ptr(:)   !< pointer array: max. updraft helicity in time interval
 
     REAL(wp), POINTER          &
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
@@ -235,9 +238,8 @@ MODULE mo_nwp_phy_types
       &  lhn_diag (:,:,:),     & !! diagnostic output fields of LHN
       &  tt_lheat (:,:,:),     & !! latent heat release
       &  ttend_lhn (:,:,:),    & !! temperature increment of LHN
-      &  qvtend_lhn (:,:,:),   & !! temperature increment of LHN
+      &  qvtend_lhn (:,:,:),   & !! moisture increment of LHN
       &  qrs_flux (:,:,:)        !! precipitation flux
-
 
     !> Precipitation fields
     REAL(wp), POINTER          &
@@ -259,6 +261,12 @@ MODULE mo_nwp_phy_types
       &  snow_con_rate_3d (:,:,:),& !! 3d convective snow_rate (convection scheme)     [kg/m2/s]
       &  rain_edmf_rate_3d(:,:,:),& !! 3d convective rain rate (EDMF scheme)           [kg/m2/s]
       &  snow_edmf_rate_3d(:,:,:),& !! 3d convective snow_rate (EDMF scheme)           [kg/m2/s]
+      !
+      ! Instantaneous grid scale precipitation rate [kg/m2/s] (sum over gsp hydromets):
+      &  prec_gsp_rate    (:,:),  & !! total surface precipitation rate                [kg/m2/s]
+      !
+      ! Instantaneous total precipitation rate [kg/m2/s] (sum of gsp + con hydromets):
+      &  tot_prec_rate    (:,:),  & !! total surface precipitation rate                [kg/m2/s]
       !
       !  Integrated instantaneous rates since model start (precipitation amount) [kg/m2]
       !  grid scale
@@ -306,6 +314,7 @@ MODULE mo_nwp_phy_types
       tkr(:,:)        ,    & !! turbulent reference surface diffusion coeff.  (m2/s) (Ustar*kap*z0)
       tkred_sfc(:,:)  ,    & !! reduction factor for minimum diffusion coefficients near the surface
       pat_len(:,:)    ,    & !! length scale of sub-grid scale roughness elements (m)
+      rlamh_fac_t(:,:,:),  & !! tuning factor for laminar transfer resistance (rlam_heat)
       gz0(:,:),            & !! roughness length * g of the vertically not
                              !! resolved canopy                               (m2/s2)
       tkvm(:,:,:),         & !! turbulent diffusion coefficients for momentum (m/s2 )
@@ -446,6 +455,13 @@ MODULE mo_nwp_phy_types
       sdi2(:,:),           & !> supercell detection index (SDI2)
       lpi(:,:),            & !> lightning potential index (LPI)
       lpi_max(:,:),        & !> lightning potential index, maximum (LPI_MAX)
+      koi(:,:),            & !> KOI (stability measure - equivalent potential temperature difference
+      lpi_con(:,:),        & !> LPI computed with convection scheme variables
+      lpi_con_max(:,:),    & !> Maximum of LPI
+      mlpi_con(:,:),       & !> modified LPI (making use of KOI)
+      mlpi_con_max(:,:),   & !> maximum of modified LPI (making use of KOI)
+      lfd_con(:,:),        & !> lightening flash density computed with convection scheme variables
+      lfd_con_max(:,:),    & !> maximum of LFD
       ceiling_height(:,:), & !> ceiling height
       hbas_sc(:,:),        & !> height of base above MSL from shallow convection parameterization
       htop_sc(:,:),        & !> height of top  above MSL from shallow convection parameterization
@@ -453,7 +469,7 @@ MODULE mo_nwp_phy_types
       q_sedim(:,:,:),      & !> Specific content of precipitation particles
       tcond_max(:,:),      & !< Total column-integrated condensate
       tcond10_max(:,:),    & !< Total column-integrated condensate above z(T=-10 degC) 
-      uh_max(:,:),         & !< Updraft helicity
+      uh_max_3d(:,:,:),    & !< Updraft helicity (integrated over different vertical layers)
       vorw_ctmax(:,:),     & !< Maximum rotation amplitude
       w_ctmax(:,:),        & !< Maximum updraft track
       dbz3d_lin(:,:,:),    & !< Radar reflectivity 3D in linear units mm^6/m^3

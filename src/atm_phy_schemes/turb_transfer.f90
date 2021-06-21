@@ -151,48 +151,13 @@ MODULE turb_transfer
 ! Parameter for precision
 !-------------------------------------------------------------------------------
 
-#ifdef __COSMO__
-USE kind_parameters, ONLY :   &
-#elif defined(__ICON__)
 USE mo_kind,         ONLY :   &
-#endif
     wp              ! KIND-type parameter for real variables
 
 !-------------------------------------------------------------------------------
 ! Mathematical and physical constants
 !-------------------------------------------------------------------------------
 
-#ifdef __COSMO__
-USE data_constants, ONLY : &
-
-! Physical constants and related variables:
-! -------------------------------------------
-
-    r_d,          & ! gas constant for dry air
-    rdv,          & ! r_d / r_v
-    rvd_m_o,      & ! r_v/r_d - 1
-    cp_d,         & ! specific heat for dry air
-    lh_v,         & ! evaporation heat
-    lhocp,        & ! lh_v / cp_d
-    con_m,        & ! kinematic vsicosity of dry air (m2/s)
-    con_h,        & ! scalar conductivity of dry air (m2/s)
-    t0_melt,      & ! absolute zero for temperature (K)
-    tf_salt,      & ! salt water freezing point
-    grav => g,    & ! acceleration due to gravity
-!
-! Parameters for auxilary parametrizations:
-! ------------------------------------------
-
-    b1,           & ! variables for computing the saturation steam pressure
-    b2w,          & ! over water (w) and ice (i)
-    b3,           & !               -- " --
-    b4w             !               -- " --
-
-USE data_parallel,  ONLY : &
-    my_cart_id
-#endif
-
-#ifdef __ICON__
 USE mo_mpi,                ONLY : get_my_global_mpi_id
 
 USE mo_physical_constants, ONLY : &
@@ -219,7 +184,6 @@ USE mo_convect_tables, ONLY : &
     b1       => c1es,     & ! variables for computing the saturation steam pressure
     b2w      => c3les,    & ! over water (w) and ice (e)
     b4w      => c4les       !               -- " --
-#endif
 
 !-------------------------------------------------------------------------------
 ! From Flake model
@@ -436,17 +400,11 @@ USE turb_data, ONLY : &
 !-------------------------------------------------------------------------------
 
 ! Switches controlling other physical parameterizations:
-#ifdef __COSMO__
-USE data_runcontrol, ONLY:   &
-    itype_diag_t2m,  & ! type of T_2M diagnostics
-    lseaice,         & ! forecast with sea ice model
-    llake              ! forecast with lake model FLake
-#elif defined(__ICON__)
 USE mo_lnd_nwp_config,       ONLY: lseaice, llake
 !   
 USE turb_data,         ONLY:   &
     itype_diag_t2m    !
-#endif
+
 !   
 USE turb_utilities,          ONLY:   &
     turb_setup,                      &
@@ -525,7 +483,7 @@ SUBROUTINE turbtran (                                                         &
 !
           nvec, ke, ke1, kcm, iblock, ivstart, ivend,                         &
 !
-          l_hori, hhl, fr_land, depth_lk, h_ice, sai, gz0,                    &
+          l_hori, hhl, fr_land, depth_lk, h_ice, rlamh_fac, sai, gz0,         &
 !
           t_g, qv_s, ps, u, v, w, t, qv, qc, prs, epr,                        &
 !
@@ -734,6 +692,7 @@ REAL (KIND=wp), DIMENSION(:,:), INTENT(IN) :: &
 REAL (KIND=wp), DIMENSION(:), INTENT(IN) :: &
 !
     l_hori,       & ! horizontal grid spacing (m)
+    rlamh_fac,    & ! scaling factor for rlam_heat
 !
 ! External parameter fields:
 ! ----------------------------
@@ -1043,7 +1002,7 @@ ENDIF
 
   !GPU data region of all variables except pointers which are set later on
   !$acc data present(hhl,l_hori,fr_land,depth_lk,sai,h_ice,ps)   &
-  !$acc      present(qv_s,t_g,u,v,w,t,qv,qc,prs,epr)             &
+  !$acc      present(qv_s,t_g,u,v,w,t,qv,qc,prs,epr,rlamh_fac)   &
   !$acc      present(gz0,tvm,tvh,tfm,tfh,tfv,tcm,tch,tkr)        &
   !$acc      present(tke,tkvm,tkvh,rcld,hdef2,dwdx,dwdy)         &
   !$acc      present(tketens,edr,t_2m,qv_2m,td_2m,rh_2m)         &
@@ -1498,7 +1457,7 @@ my_thrd_id = omp_get_thread_num()
 !           Effektiven Widerstandslaengen der Rauhigkeits-Schicht:
 
             dz_sg_m(i)=rlam_mom*z_surf
-            dz_sg_h(i)=fakt*rlam_heat*z_surf*(rin_h/rin_m) * &
+            dz_sg_h(i)=fakt*rlam_heat*rlamh_fac(i)*z_surf*(rin_h/rin_m) * &
               MERGE(rat_glac, 1._wp, gz0(i)<0.01_wp .AND. fr_land(i)>=0.5_wp)  ! enhanced by a factor of 'rat_glac' over glaciers
 
           ! ohne lam. Grenzschicht fuer Skalare:
@@ -2264,12 +2223,7 @@ my_thrd_id = omp_get_thread_num()
                fr_sd_h=MAX( z0, dz_s0_h(i)/z0m_2d(i)+LOG(z0d/z0m_2d(i)) )
 
                IF (imode_trancnf.LT.4) THEN !further corrected profile-factor using an upper node
-#ifdef __ICON__
                   fac_h_2d(i)=(rat_h_2d(i)-z1)*z0d/h_top_2d(i)
-#endif
-#ifdef __COSMO__
-                  fac_h_2d(i)=fac_h_2d(i)*z0d/z0m_2d(i)
-#endif
 !Achtung:
 !'fac_h_2d' sollte wohl eher auch eine Profil-Konstante sein
 ! und nicht mit "z0d/z0m_2d" skaliert werden (also hier nicht mehr veraendert werden)
@@ -2483,12 +2437,7 @@ my_thrd_id = omp_get_thread_num()
                a_10m=h_10m+z0d
 
                IF (imode_trancnf.LT.4) THEN !further corrected profile-factor using an upper node
-#ifdef __ICON__
                   fac_m_2d(i)=(rat_m_2d(i)-z1)*z0d/h_top_2d(i)
-#endif
-#ifdef __COSMO__
-                  fac_m_2d(i)=fac_m_2d(i)*z0d/z0m_2d(i)
-#endif
 !Achtung:
 !'fac_m_2d' sollte wohl eher auch eine Profil-Konstante sein
 ! und nicht mit "z0d/z0m_2d" skaliert werden (also hier nicht mehr veraendert werden)

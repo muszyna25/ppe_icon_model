@@ -1,5 +1,6 @@
 MODULE mo_psrad_flat_data
 
+  USE mo_exception, ONLY: finish, message_text
   USE mo_psrad_general, ONLY: wp, max_minor_species, nbndlw, &
     nbndsw, npressure, ngas
   IMPLICIT NONE
@@ -116,16 +117,16 @@ CONTAINS
     DO i = 1, 5
       ret = nf_inq_dim(fid, i, nf_name, nf_length)
       IF (TRIM(nf_name) /= TRIM(dim_names(i))) THEN
-        WRITE(*,'(a,i1,a)') 'While reading lsdata.nc: dimension ', i, &
+        WRITE(message_text,'(a,i1,a)') 'While reading lsdata.nc: dimension ', i, &
           ' is "' // TRIM(nf_name) // '", expected "' // &
           TRIM(dim_names(i)) // '"'
-        STOP
+        CALL finish('',message_text)
       ENDIF
       IF (i == 5) EXIT
       IF (nf_length /= dims(i)) THEN
-        WRITE(*,'(a,i1,a,i5,a,i5)') 'While reading lsdata.nc: dimension ', i, &
+        WRITE(message_text,'(a,i1,a,i5,a,i5)') 'While reading lsdata.nc: dimension ', i, &
           ' has size ', nf_length, ', expected ', dims(i)
-        STOP
+        CALL finish('',message_text)        
       ENDIF
     ENDDO
     flat_data_size = nf_length

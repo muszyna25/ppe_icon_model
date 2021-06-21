@@ -23,11 +23,12 @@
 !!
 MODULE mo_echam_rad_config
 
-  USE mo_exception            ,ONLY: message, message_text, print_value, finish
+  USE mo_exception            ,ONLY: message, message_text, print_value, warning, finish
   USE mo_kind                 ,ONLY: wp
   USE mo_impl_constants       ,ONLY: max_dom
   USE mo_grid_config          ,ONLY: n_dom
   USE mo_run_config           ,ONLY: iqt, ico2, io3, ntracer, lart
+  USE mo_parallel_config      ,ONLY: nproma
 
   IMPLICIT NONE
 
@@ -126,9 +127,27 @@ MODULE mo_echam_rad_config
      REAL(wp) :: frad_o3
      REAL(wp) :: frad_o2
      REAL(wp) :: frad_ch4
+
+#ifdef __NO_RTE_RRTMGP__
+! For PSrad
      REAL(wp) :: frad_cfc
-     !
      LOGICAL :: lrad_aero_diag !.true. if aerosols have to be diagnosed.
+#else
+! For RTE-RRTMGP
+     REAL(wp) :: frad_cfc11
+     REAL(wp) :: frad_cfc12
+     !
+     ! --- Flag for clear-sky computations
+     !
+     LOGICAL  :: lclearsky
+     !
+     ! --- Number of columns that RRTMGP would process at a time,
+     !     default is just nproma
+     !
+     INTEGER  :: rrtmgp_columns_chunk
+#endif
+
+     !
   END TYPE t_echam_rad_config
 
   !>
@@ -166,8 +185,13 @@ CONTAINS
     !
     echam_rad_config(:)% irad_h2o       = 1
     echam_rad_config(:)% irad_co2       = 2
+#ifdef __NO_RTE_RRTMGP__
     echam_rad_config(:)% irad_ch4       = 3
     echam_rad_config(:)% irad_n2o       = 3
+#else
+    echam_rad_config(:)% irad_ch4       = 2
+    echam_rad_config(:)% irad_n2o       = 2
+#endif
     echam_rad_config(:)% irad_o3        = 0
     echam_rad_config(:)% irad_o2        = 2
     echam_rad_config(:)% irad_cfc11     = 2
@@ -188,9 +212,18 @@ CONTAINS
     echam_rad_config(:)% frad_n2o       = 1.0_wp
     echam_rad_config(:)% frad_o3        = 1.0_wp
     echam_rad_config(:)% frad_o2        = 1.0_wp
+#ifdef __NO_RTE_RRTMGP__
     echam_rad_config(:)% frad_cfc       = 1.0_wp
-    !
     echam_rad_config(:)% lrad_aero_diag = .false.
+#else
+    echam_rad_config(:)% frad_cfc11     = 1.0_wp
+    echam_rad_config(:)% frad_cfc12     = 1.0_wp
+    !
+    echam_rad_config(:)% lclearsky      = .TRUE.
+    !
+    echam_rad_config(:)% rrtmgp_columns_chunk = nproma
+#endif
+    !
   END SUBROUTINE init_echam_rad_config
 
   !----
@@ -207,12 +240,20 @@ CONTAINS
 
     ! Shortcuts to components of echam_rad_config
     !
-    LOGICAL , POINTER :: l_orbvsop87, l_sph_symm_irr, ldiur, lyr_perp, lrad_aero_diag
+    LOGICAL , POINTER :: l_orbvsop87, l_sph_symm_irr, ldiur, lyr_perp
     INTEGER , POINTER :: isolrad, nmonth, yr_perp
     REAL(wp), POINTER :: fsolrad, cecc, cobld, clonp
     INTEGER , POINTER :: irad_h2o, irad_co2, irad_ch4, irad_n2o, irad_o3, irad_o2, irad_cfc11, irad_cfc12, irad_aero
     REAL(wp), POINTER ::            vmr_co2,  vmr_ch4,  vmr_n2o,           vmr_o2,  vmr_cfc11,  vmr_cfc12
-    REAL(wp), POINTER :: frad_h2o, frad_co2, frad_ch4, frad_n2o, frad_o3, frad_o2, frad_cfc
+    REAL(wp), POINTER :: frad_h2o, frad_co2, frad_ch4, frad_n2o, frad_o3, frad_o2
+#ifdef __NO_RTE_RRTMGP__
+    LOGICAL , POINTER :: lrad_aero_diag
+    REAL(wp), POINTER :: frad_cfc
+#else
+    LOGICAL , POINTER :: lclearsky
+    INTEGER , POINTER :: rrtmgp_columns_chunk
+    REAL(wp), POINTER :: frad_cfc11, frad_cfc12
+#endif
 
     CALL message    ('','')
     CALL message    ('','------------------------------------------------------------------------')
@@ -261,8 +302,17 @@ CONTAINS
        frad_n2o   => echam_rad_config(jg)% frad_n2o
        frad_o3    => echam_rad_config(jg)% frad_o3
        frad_o2    => echam_rad_config(jg)% frad_o2
+#ifdef __NO_RTE_RRTMGP__
        frad_cfc   => echam_rad_config(jg)% frad_cfc
        lrad_aero_diag => echam_rad_config(jg)% lrad_aero_diag
+#else
+       frad_cfc11 => echam_rad_config(jg)% frad_cfc11
+       frad_cfc12 => echam_rad_config(jg)% frad_cfc12
+       !
+       lclearsky  => echam_rad_config(jg)% lclearsky
+       !
+       rrtmgp_columns_chunk => echam_rad_config(jg)% rrtmgp_columns_chunk
+#endif
        !
        WRITE(cg,'(i0)') jg
        !
@@ -371,7 +421,11 @@ CONTAINS
           WRITE (message_text, '(a,e16.8)') &
                'CO2   volume mixing ratio =', vmr_co2
           CALL message('',message_text)
+#ifdef __NO_RTE_RRTMGP__
        CASE(4)
+#else
+       CASE(3)
+#endif
           CALL message('','CO2   volume mixing ratio from ghg scenario file')
        CASE default
           WRITE (message_text, '(a,i0,a)') 'ERROR: irad_co2   = ', irad_co2, ' is not supported'
@@ -387,12 +441,23 @@ CONTAINS
           WRITE (message_text, '(a,e16.8)') &
                           'CH4   volume mixing ratio =', vmr_ch4
           CALL message('',message_text)
+#ifdef __NO_RTE_RRTMGP__
        CASE(3)
           WRITE (message_text, '(a,e16.8)') &
                           'CH4   tanh-profile with surface volume mixing ratio =', vmr_ch4
           CALL message('',message_text)
        CASE(4)
           CALL message('','CH4   tanh-profile with surface volume mixing ratio from ghg scenario file')
+#else
+       CASE(3)
+          CALL message('','CH4   vertically constant volume mixing ratio from ghg scenario file')
+       CASE(12)
+          WRITE (message_text, '(a,e16.8)') &
+                          'CH4   tanh-profile with surface volume mixing ratio =', vmr_ch4
+          CALL message('',message_text)
+       CASE(13)
+          CALL message('','CH4   tanh-profile with surface volume mixing ratio from ghg scenario file')
+#endif
        CASE default
           WRITE (message_text, '(a,i0,a)') 'ERROR: irad_ch4   =', irad_ch4, ' is not supported'
           CALL finish(routine,message_text)
@@ -407,11 +472,21 @@ CONTAINS
           WRITE (message_text, '(a,e16.8)') &
                           'N2O   volume mixing ratio =', vmr_n2o
           CALL message('',message_text)
+#ifdef __NO_RTE_RRTMGP__
        CASE(3)
           WRITE (message_text, '(a,e16.8)') &
                           'N2O   tanh-profile with surface volume mixing ratio from echam_rad_config =', vmr_n2o
           CALL message('',message_text)
        CASE(4)
+#else
+       CASE(3)
+          CALL message('','N2O   vertically constant volume mixing ratio from ghg scenario file')
+       CASE(12)
+          WRITE (message_text, '(a,e16.8)') &
+                          'N2O   tanh-profile with surface volume mixing ratio from echam_rad_config =', vmr_n2o
+          CALL message('',message_text)
+       CASE(13)
+#endif
           CALL message('','N2O   tanh-profile with surface volume mixing ratio from ghg scenario file')
        CASE default
           WRITE (message_text, '(a,i0,a)') 'ERROR: irad_n2o   =',irad_n2o,' is not supported'
@@ -427,7 +502,11 @@ CONTAINS
           WRITE (message_text, '(a,e16.8)') &
                           'CFC11 volume mixing ratio =', vmr_cfc11
           CALL message('',message_text)
+#ifdef __NO_RTE_RRTMGP__
        CASE(4)
+#else
+       CASE(3)
+#endif
           CALL message('','CFC11 volume mixing ratio from ghg scenario file')
        CASE default
           WRITE (message_text, '(a,i0,a)') 'ERROR: irad_cfc11 =', irad_cfc11, ' is not supported'
@@ -441,7 +520,11 @@ CONTAINS
           WRITE (message_text, '(a,e16.8)') &
                           'CFC12 volume mixing ratio =', vmr_cfc12
           CALL message('',message_text)
+#ifdef __NO_RTE_RRTMGP__
        CASE(4)
+#else
+       CASE(3)
+#endif
           CALL message('','CFC12 volume mixing ratio from ghg scenario file')
        CASE default
           WRITE (message_text, '(a,i0,a)') 'ERROR: irad_cfc12 =', irad_cfc12, ' is not supported'
@@ -461,14 +544,19 @@ CONTAINS
                   &              'a valid choice because no O3  tracer is available '   // &
                   &              ' or lart = .TRUE.')
           END IF
-       CASE(2)
-          CALL message('','O3    clim. annual cycle 3-dim. volume mixing ratio from file')
        CASE(4)
           CALL message('','O3    constant-in-time 3-dim. volume mixing ratio from file')
+#ifdef __NO_RTE_RRTMGP__
+       CASE(2)
+          CALL message('','O3    clim. annual cycle 3-dim. volume mixing ratio from file')
        CASE(8)
           CALL message('','O3    transient 3-dim. volume mixing ratio from file')
        CASE(10)
           CALL message('','O3    from ART')
+#else
+       CASE(5)
+          CALL message('','O3    transient 3-dim. volume mixing ratio from file')
+#endif
        CASE default
           WRITE (message_text, '(a,i0,a)') 'ERROR: irad_o3    =', irad_o3, ' is not supported'
           CALL finish(routine,message_text)
@@ -539,11 +627,46 @@ CONTAINS
           CALL finish(routine,'ERROR: Negative frad_o2  is not allowed')
        END IF
        !
+#ifdef __NO_RTE_RRTMGP__
        IF (frad_cfc >= 0.0_wp) THEN
           CALL print_value('CFC11 and CFC12 : frad_cfc =',frad_cfc)
        ELSE
           CALL finish(routine,'ERROR: Negative frad_cfc is not allowed')
        END IF
+#else
+       IF (frad_cfc11 >= 0.0_wp) THEN
+          CALL print_value('CFC11           : frad_cfc11 =',frad_cfc11)
+       ELSE
+          CALL finish(routine,'ERROR: Negative frad_cfc11 is not allowed')
+       END IF
+       IF (frad_cfc12 >= 0.0_wp) THEN
+          CALL print_value('CFC12           : frad_cfc12 =',frad_cfc12)
+       ELSE
+          CALL finish(routine,'ERROR: Negative frad_cfc12 is not allowed')
+       END IF
+       !
+       CALL message('','')
+       CALL message('','Computing efficiency')
+       CALL message('','--------------------')
+       !
+       IF (lclearsky) THEN
+          CALL message('','Clear sky fluxes are computed')
+       ELSE
+          CALL message('','Clear sky fluxes are not computed')
+       END IF
+       !
+       CALL message   ('','')
+       !
+       IF (rrtmgp_columns_chunk > 0 ) THEN
+         IF (rrtmgp_columns_chunk > nproma) THEN
+            CALL warning(routine, 'Column chunk size: rrtmgp_columns_chunk cannot be bigger than nproma, adjusted')
+            rrtmgp_columns_chunk = nproma
+         END IF
+         CALL print_value('Column chunk size: rrtmgp_columns_chunk =', rrtmgp_columns_chunk)
+       ELSE
+         CALL finish(routine,'ERROR: Non-positive or > nproma rrtmgp_columns_chunk is not allowed')
+       END IF
+#endif
        !
        CALL message('','')
        !
@@ -621,8 +744,16 @@ CONTAINS
        CALL print_value('    echam_rad_config('//TRIM(cg)//')% frad_n2o      ',echam_rad_config(jg)% frad_n2o      )
        CALL print_value('    echam_rad_config('//TRIM(cg)//')% frad_o3       ',echam_rad_config(jg)% frad_o3       )
        CALL print_value('    echam_rad_config('//TRIM(cg)//')% frad_o2       ',echam_rad_config(jg)% frad_o2       )
+#ifdef __NO_RTE_RRTMGP__
        CALL print_value('    echam_rad_config('//TRIM(cg)//')% frad_cfc      ',echam_rad_config(jg)% frad_cfc      )
        CALL print_value('aerosol optical properties will be diagnosed:',echam_rad_config(jg)% lrad_aero_diag       ) 
+#else
+       CALL print_value('    echam_rad_config('//TRIM(cg)//')% frad_cfc11    ',echam_rad_config(jg)% frad_cfc11    )
+       CALL print_value('    echam_rad_config('//TRIM(cg)//')% frad_cfc12    ',echam_rad_config(jg)% frad_cfc12    )
+       CALL message    ('','')
+       CALL print_value('    echam_rad_config('//TRIM(cg)//')% lclearsky     ',echam_rad_config(jg)% lclearsky     )
+       CALL print_value('    echam_rad_config('//TRIM(cg)//')% rrtmgp_columns_chunk ',echam_rad_config(jg)% rrtmgp_columns_chunk)
+#endif
        CALL message    ('','')
        !
     END DO

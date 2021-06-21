@@ -138,8 +138,6 @@ MODULE mo_ocean_cvmix_kpp
       nold                                        ! old timestep
   USE mo_run_config,                     ONLY:  & ! --> not used 
       dtime                                       ! numerical timestep
-  USE mo_linked_list,                    ONLY:  &
-      t_var_list                                  ! ???
   !USE mo_zaxis_type,                     ONLY:  &
   !    za_depth_below_sea                       ,& ! ???
   !    za_depth_below_sea_half                  ,& ! ???

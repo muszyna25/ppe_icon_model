@@ -242,7 +242,7 @@ MODULE mo_2mom_mcrph_main
        &        'hail_cosmo5' ,& !.name...Bezeichnung
        &        1.000000, & !..nu.....Breiteparameter der Verteil.
        &        0.333333, & !..mu.....Exp.-parameter der Verteil.
-       &        5.40d-04, & !..x_max..maximale Teilchenmasse
+       &        5.00d-03, & !..x_max..maximale Teilchenmasse
        &        2.60d-9,  & !..x_min..minimale Teilchenmasse
        &        0.1366 ,  & !..a_geo..Koeff. Geometrie
        &        0.333333, & !..b_geo..Koeff. Geometrie = 1/3
@@ -351,7 +351,7 @@ MODULE mo_2mom_mcrph_main
        &        0.80,     & !..ecoll_c
        &        150.0d-6, & !..D_crit_c
        &        1.000d-5, & !..q_crit_c
-       &        0.05      & !..sigma_vel
+       &        0.25      & !..sigma_vel 
        &        )
 
   TYPE(particle_frozen), PARAMETER :: &
@@ -749,16 +749,16 @@ CONTAINS
     call particle_frozen_assign(snow,snowSBB)
 
     SELECT TYPE (graupel)
-    CLASS IS (particle_frozen)  
+    TYPE IS (particle_frozen)  
       call particle_frozen_assign(graupel,graupelhail_cosmo5)
-    CLASS IS (particle_lwf) 
+    TYPE IS (particle_lwf) 
       call particle_lwf_assign(graupel,graupel_vivek)
     END SELECT
 
     SELECT TYPE (hail)
-    CLASS IS (particle_frozen) 
+    TYPE IS (particle_frozen) 
       call particle_frozen_assign(hail,hail_cosmo5)
-    CLASS IS (particle_lwf) 
+    TYPE IS (particle_lwf) 
       call particle_lwf_assign(hail,hail_vivek)
     END SELECT
 
@@ -776,8 +776,10 @@ CONTAINS
     CLASS(particle_frozen), INTENT(inout) :: ice, snow, graupel, hail
 
     CHARACTER(len=*), PARAMETER :: routine = 'init_2mom_scheme_once'
-    REAL(wp), DIMENSION(1:1) :: q_r,x_r,q_c,vn_rain_min, vq_rain_min, vn_rain_max, vq_rain_max
+    REAL(wp), DIMENSION(1:1) :: q_r,x_r,q_c,vn_rain_min, vq_rain_min, vn_rain_max, vq_rain_max, rhocorr
     REAL(wp) :: nu, mu, x_s_i
+
+    rhocorr = 1.0_wp
 
     CALL init_2mom_scheme(cloud,rain,ice,snow,graupel,hail)
 
@@ -802,7 +804,13 @@ CONTAINS
     rain_coeffs%cmu5 = rainSBBcoeffs%cmu5
 
     CALL message(TRIM(routine), "calculate run-time coefficients")
-    WRITE(txt,'(A,I10)')   "  cloud_type = ",cloud_type ; CALL message(routine,TRIM(txt))
+    WRITE (txt,'(A,I10)') "  cloud_type = ",cloud_type ; CALL message(routine,TRIM(txt))
+    WRITE (txt,'(2A)') "     cloud   = ",cloud%name    ; CALL message(routine,TRIM(txt))
+    WRITE (txt,'(2A)') "     rain    = ",rain%name     ; CALL message(routine,TRIM(txt))
+    WRITE (txt,'(2A)') "     ice     = ",ice%name      ; CALL message(routine,TRIM(txt))
+    WRITE (txt,'(2A)') "     snow    = ",snow%name     ; CALL message(routine,TRIM(txt))
+    WRITE (txt,'(2A)') "     graupel = ",graupel%name  ; CALL message(routine,TRIM(txt))
+    WRITE (txt,'(2A)') "     hail    = ",hail%name     ; CALL message(routine,TRIM(txt))
 
     ! initialize bulk sedimentation velocities
     ! calculates coeff_alfa_n, coeff_alfa_q, and coeff_lambda
@@ -876,16 +884,16 @@ CONTAINS
       WRITE(txt,'(A,D10.3)') "     cmu3  = ",rain_coeffs%cmu3 ; CALL message(routine,TRIM(txt))
       WRITE(txt,'(A,D10.3)') "     cmu4  = ",rain_coeffs%cmu4 ; CALL message(routine,TRIM(txt))
       WRITE(txt,'(A,I10)')   "     cmu5  = ",rain_coeffs%cmu5 ; CALL message(routine,TRIM(txt))
-      x_r = rain%x_min ; CALL sedi_vel_rain(rain,rain_coeffs,q_r,x_r,vn_rain_min,vq_rain_min,1,1)
-      x_r = rain%x_max ; CALL sedi_vel_rain(rain,rain_coeffs,q_r,x_r,vn_rain_max,vq_rain_max,1,1)
+      x_r = rain%x_min ; CALL sedi_vel_rain(rain,rain_coeffs,q_r,x_r,rhocorr,vn_rain_min,vq_rain_min,1,1)
+      x_r = rain%x_max ; CALL sedi_vel_rain(rain,rain_coeffs,q_r,x_r,rhocorr,vn_rain_max,vq_rain_max,1,1)
       WRITE(txt,'(A)')       "    out-of-cloud: " ; CALL message(routine,TRIM(txt))
       WRITE(txt,'(A,D10.3)') "     vn_rain_min  = ",vn_rain_min ; CALL message(routine,TRIM(txt))
       WRITE(txt,'(A,D10.3)') "     vn_rain_max  = ",vn_rain_max ; CALL message(routine,TRIM(txt))
       WRITE(txt,'(A,D10.3)') "     vq_rain_min  = ",vq_rain_min ; CALL message(routine,TRIM(txt))
       WRITE(txt,'(A,D10.3)') "     vq_rain_max  = ",vq_rain_max ; CALL message(routine,TRIM(txt))
       q_c = 1e-3_wp
-      x_r = rain%x_min ; CALL sedi_vel_rain(rain,rain_coeffs,q_r,x_r,vn_rain_min,vq_rain_min,1,1,q_c)
-      x_r = rain%x_max ; CALL sedi_vel_rain(rain,rain_coeffs,q_r,x_r,vn_rain_max,vq_rain_max,1,1,q_c)
+      x_r = rain%x_min ; CALL sedi_vel_rain(rain,rain_coeffs,q_r,x_r,rhocorr,vn_rain_min,vq_rain_min,1,1,q_c)
+      x_r = rain%x_max ; CALL sedi_vel_rain(rain,rain_coeffs,q_r,x_r,rhocorr,vn_rain_max,vq_rain_max,1,1,q_c)
       WRITE(txt,'(A)')       "    in-cloud: " ; CALL message(routine,TRIM(txt))
       WRITE(txt,'(A,D10.3)') "     vn_rain_min  = ",vn_rain_min ; CALL message(routine,TRIM(txt))
       WRITE(txt,'(A,D10.3)') "     vn_rain_max  = ",vn_rain_max ; CALL message(routine,TRIM(txt))

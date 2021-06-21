@@ -52,7 +52,8 @@ MODULE mo_nwp_phy_init
   USE mo_newcld_optics,       ONLY: setup_newcld_optics
   USE mo_lrtm_setup,          ONLY: lrtm_setup
   USE mo_radiation_config,    ONLY: ssi_radt, tsi_radt,irad_o3, irad_aero, rad_csalbw,&
-    &                               ighg, ghg_filename
+    &                               ghg_filename, irad_co2, irad_cfc11, irad_cfc12,   &
+    &                               irad_n2o,irad_ch4
   USE mo_srtm_config,         ONLY: setup_srtm, ssi_amip
   USE mo_radiation_rg_par,    ONLY: rad_aibi
   USE mo_aerosol_util,        ONLY: init_aerosol_dstrb_tanre,                       &
@@ -96,7 +97,7 @@ MODULE mo_nwp_phy_init
   USE mo_nwp_sfc_utils,       ONLY: nwp_surface_init, init_snowtile_lists, init_sea_lists, &
     &                               aggregate_tg_qvs, copy_lnd_prog_now2new
   USE mo_lnd_nwp_config,      ONLY: ntiles_total, lsnowtile, ntiles_water, &
-    &                               lseaice, zml_soil
+    &                               lseaice, zml_soil, itype_canopy
   USE sfc_terra_data,         ONLY: csalbw!, z0_lu
   USE mo_satad,               ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
     &                               sat_pres_ice, &    !! saturation vapor pressure w.r.t. ice
@@ -109,7 +110,7 @@ MODULE mo_nwp_phy_init
   USE mo_master_config,       ONLY: isRestart
   USE mo_nwp_parameters,      ONLY: t_phy_params
 
-  USE mo_initicon_config,     ONLY: init_mode, lread_tke
+  USE mo_initicon_config,     ONLY: init_mode, lread_tke, icpl_da_sfcevap, dt_ana
 
   USE mo_nwp_tuning_config,   ONLY: tune_zceff_min, tune_v0snow, tune_zvz0i, tune_icesedi_exp
   USE mo_cuparameters,        ONLY: sugwd
@@ -120,7 +121,7 @@ MODULE mo_nwp_phy_init
     &                                  calculate_time_interpolation_weights
   USE mo_timer,               ONLY: timers_level, timer_start, timer_stop,   &
     &                               timer_init_nwp_phy, timer_phys_reff, timer_upatmo
-  USE mo_bc_greenhouse_gases, ONLY: read_bc_greenhouse_gases, bc_greenhouse_gases_time_interpolation
+  USE mo_bc_greenhouse_gases, ONLY: read_bc_greenhouse_gases
   USE mo_nwp_reff_interface,  ONLY: init_reff
   USE mo_upatmo_config,       ONLY: upatmo_config
   USE mo_upatmo_types,        ONLY: t_upatmo
@@ -311,7 +312,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
 
 
   IF (.NOT. lreset_mode .AND. itype_vegetation_cycle >= 2) THEN
-    CALL vege_clim (p_patch, ext_data, p_diag_lnd)
+    CALL vege_clim (p_patch, ext_data, p_diag)
   ENDIF
 
 
@@ -364,6 +365,38 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
       prm_diag%pat_len(jc,jb) = 300._wp*EXP(1.5_wp*LOG(MAX(1.e-2_wp,(ext_data%atm%sso_stdh_raw(jc,jb)-150._wp)/300._wp)))
     ENDDO
 
+    ! tuning factor for rlam_heat depending on skin conductivity and analyzed T2M/RH2M bias
+    IF (itype_canopy == 2 .AND. icpl_da_sfcevap == 3) THEN
+      DO jt = 1, ntiles_total + ntiles_water
+        DO jc = i_startidx,i_endidx
+          IF (jt <= ntiles_total) THEN
+            prm_diag%rlamh_fac_t(jc,jb,jt) =                                                                              &
+              1._wp - 0.9_wp*MAX(0._wp,MIN(1._wp,(60._wp-ext_data%atm%skinc_t(jc,jb,jt))/30._wp)) *                       &
+              MAX(0._wp,MIN(1._wp,2.5_wp*(10800._wp/dt_ana*(100._wp*p_diag%rh_avginc(jc,jb)-4._wp*p_diag%t_avginc(jc,jb))-0.4_wp)))
+          ELSE IF (jt == ntiles_total + ntiles_water) THEN ! seaice points
+            prm_diag%rlamh_fac_t(jc,jb,jt) = 0.25_wp
+          ELSE
+            prm_diag%rlamh_fac_t(jc,jb,jt) = 1._wp
+          ENDIF
+        ENDDO
+      ENDDO
+    ELSE IF (itype_canopy == 2 .AND. icpl_da_sfcevap == 2) THEN
+      DO jt = 1, ntiles_total + ntiles_water
+        DO jc = i_startidx,i_endidx
+          IF (jt <= ntiles_total) THEN
+            prm_diag%rlamh_fac_t(jc,jb,jt) =                                                                              &
+              1._wp - 0.9_wp*MAX(0._wp,MIN(1._wp,(60._wp-ext_data%atm%skinc_t(jc,jb,jt))/30._wp)) *                       &
+              MAX(0._wp,MIN(1._wp,2.5_wp*(p_diag%t2m_bias(jc,jb)+100._wp*10800._wp/dt_ana*p_diag%rh_avginc(jc,jb)-0.4_wp)))
+          ELSE IF (jt == ntiles_total + ntiles_water) THEN ! seaice points
+            prm_diag%rlamh_fac_t(jc,jb,jt) = 0.25_wp
+          ELSE
+            prm_diag%rlamh_fac_t(jc,jb,jt) = 1._wp
+          ENDIF
+        ENDDO
+      ENDDO
+    ELSE
+      prm_diag%rlamh_fac_t(:,jb,:) = 1._wp
+    ENDIF
   ENDDO
 
   IF (linit_mode) THEN
@@ -669,13 +702,13 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
 
   CASE (1,2,3)  ! cloud microphysics from COSMO (V 5.0)
     IF (msg_level >= 12)  CALL message(modname, 'init microphysics')
-    CALL gscp_set_coefficients(tune_zceff_min   = tune_zceff_min,               &
+    CALL gscp_set_coefficients(         igscp    = atm_phy_nwp_config(jg)%inwp_gscp, &
+      &                        tune_zceff_min   = tune_zceff_min,               &
       &                        tune_v0snow      = tune_v0snow,                  &
       &                        tune_zvz0i       = tune_zvz0i,                   &
       &                        tune_icesedi_exp = tune_icesedi_exp,             &
       &                        tune_mu_rain        = atm_phy_nwp_config(1)%mu_rain,&
-      &                        tune_rain_n0_factor = atm_phy_nwp_config(1)%rain_n0_factor, &
-      &                        igscp = atm_phy_nwp_config(jg)%inwp_gscp )
+      &                        tune_rain_n0_factor = atm_phy_nwp_config(1)%rain_n0_factor)
 
   CASE (4,7) !two moment microphysics
     IF (msg_level >= 12)  CALL message(modname, 'init microphysics: two-moment')
@@ -756,8 +789,6 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
   SELECT CASE ( atm_phy_nwp_config(jg)%inwp_radiation )
   CASE (1, 3, 4)
 
-    IF (msg_level >= 12)  CALL message(modname, 'init RRTM')
-
     SELECT CASE ( irad_aero )
     ! Note (GZ): irad_aero=2 does no action but is the default in radiation_nml
     ! and therefore should not cause the model to stop
@@ -794,15 +825,24 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
 
     SELECT CASE(atm_phy_nwp_config(jg)%inwp_radiation)
       CASE(1) ! RRTM init
+        !
+        IF (msg_level >= 12)  CALL message(modname, 'init RRTM')
+        !
         CALL setup_srtm
         CALL lrtm_setup(lrtm_filename)
         CALL setup_newcld_optics(cldopt_filename)
       CASE(3) ! PSRAD init
+        !
+        IF (msg_level >= 12)  CALL message(modname, 'init PSRAD')
+        !
         CALL psrad_basic_setup(.false., nlev, 1.0_wp, 1.0_wp, &
           & echam_cop_config(1)%cinhoml1 ,echam_cop_config(1)%cinhoml2, &
           & echam_cop_config(1)%cinhoml3 ,echam_cop_config(1)%cinhomi)
       CASE(4)
 #ifdef __ECRAD
+        !
+        IF (msg_level >= 12)  CALL message(modname, 'init ECRAD')
+        !
         ! Do ecrad initialization only once
         IF (.NOT.lreset_mode .AND. jg==1) CALL setup_ecrad(ecrad_conf)
 #else
@@ -1442,6 +1482,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
        &  fr_land=ext_data%atm%fr_land(:,jb),                                 &
        &  depth_lk=ext_data%atm%depth_lk(:,jb),                               &
        &  h_ice=p_prog_wtr_now%h_ice(:,jb),                                   &
+       &  rlamh_fac=prm_diag%rlamh_fac_t(:,jb,1),                             &
        &  sai=ext_data%atm%sai(:,jb),                                         &
        &  gz0=prm_diag%gz0(:,jb),                                             &
        &  t_g=p_prog_lnd_now%t_g(:,jb),                                       &
@@ -1640,20 +1681,14 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
   CALL sugwd(nlev, pref, phy_params, jg)
   IF (linit_mode) prm_diag%ktop_envel(:,:) = nlev
 
-   ! read time-dependent boundary conditions from file
-
-    ! well mixed greenhouse gases, horizontally constant
-    IF (ighg > 0) THEN
-      ! read annual means
-
-      CALL read_bc_greenhouse_gases(ghg_filename)
-
-      ! interpolate to the current date and time, placing the annual means at
-      ! the mid points of the current and preceding or following year, if the
-      ! current date is in the 1st or 2nd half of the year, respectively.
-      CALL bc_greenhouse_gases_time_interpolation(ini_date) 
+  ! read time-dependent boundary conditions from file
+  ! well mixed greenhouse gases, horizontally constant
+  IF(ANY((/irad_co2,irad_cfc11,irad_cfc12,irad_n2o,irad_ch4/) == 4)) THEN
+    ! read annual means
+    CALL read_bc_greenhouse_gases(ghg_filename)
+    ! interpolation to the current date and time takes place in the radiation interface
       
-    ENDIF
+  ENDIF
 
   ! Upper-atmosphere physics
   !

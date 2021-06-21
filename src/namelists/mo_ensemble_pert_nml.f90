@@ -59,7 +59,11 @@ MODULE mo_ensemble_pert_nml
     &                               config_range_q_crit    => range_q_crit,    &
     &                               config_range_tkred_sfc => range_tkred_sfc, &
     &                               config_range_rlam_heat => range_rlam_heat, &
-    &                               config_range_charnock  => range_charnock,  &  
+    &                               config_range_charnock  => range_charnock,  &
+    &                               config_range_lhn_coef  => range_lhn_coef,  &
+    &                               config_range_lhn_artif_fac => range_lhn_artif_fac, &
+    &                               config_range_fac_lhn_down => range_fac_lhn_down, &
+    &                               config_range_fac_lhn_up => range_fac_lhn_up, &
     &                               config_range_z0_lcc    => range_z0_lcc,    &
     &                               config_range_rootdp    => range_rootdp,    &
     &                               config_range_rsmin     => range_rsmin,     &
@@ -129,7 +133,7 @@ MODULE mo_ensemble_pert_nml
     &  range_qexc
 
   REAL(wp) :: &                    !< Minimum value to which the snow cover fraction is artificially reduced
-    &  range_minsnowfrac           !  in case of melting show (in case of idiag_snowfrac = 20/30/40)
+    &  range_minsnowfrac           !  in case of melting show (in case of idiag_snowfrac = 20)
 
   REAL(wp) :: &                    !< Fraction of surface area available for bare soil evaporation
     &  range_c_soil
@@ -176,6 +180,18 @@ MODULE mo_ensemble_pert_nml
   REAL(wp) :: &                    !< Upper and lower bound of wind-speed dependent Charnock parameter 
     &  range_charnock
 
+  REAL(wp) :: &                    !< Scaling factor for latent heat nudging increments
+    &  range_lhn_coef
+
+  REAL(wp) :: &                    !< Scaling factor for artificial heating profile in latent heat nudging
+    &  range_lhn_artif_fac
+
+  REAL(wp) :: &                    !< Lower limit for reduction of existing latent heating in LHN
+    &  range_fac_lhn_down
+
+  REAL(wp) :: &                    !< Upper limit for increase of existing latent heating in LHN
+    &  range_fac_lhn_up
+
   REAL(wp) :: &                    !< Roughness length attributed to land-cover class 
     &  range_z0_lcc
 
@@ -204,7 +220,9 @@ MODULE mo_ensemble_pert_nml
     &                         range_lowcapefac, range_negpblcape, stdev_sst_pert, itype_pert_gen,          &
     &                         timedep_pert, range_a_stab, range_c_diff, range_q_crit, range_box_liq_asy,   &
     &                         range_rdepths, range_turlen, range_rain_n0fac, range_a_hshr, range_qexc,     &
-    &                         range_rprcon, range_thicklayfac
+    &                         range_rprcon, range_thicklayfac, range_lhn_coef, range_lhn_artif_fac,        &
+    &                         range_fac_lhn_down, range_fac_lhn_up
+
 
 CONTAINS
 
@@ -287,11 +305,18 @@ CONTAINS
     !
     ! snow cover diagnosis
     range_minsnowfrac = 0.1_wp      ! Minimum value to which the snow cover fraction is artificially reduced
-                                    ! in case of melting show (in case of idiag_snowfrac = 20/30/40)
+                                    ! in case of melting show (in case of idiag_snowfrac = 20)
     !
     ! TERRA
     range_c_soil      = 0.25_wp     ! evaporative surface area
     range_cwimax_ml   = 2._wp       ! capacity of interception storage (multiplicative perturbation)
+
+    !
+    ! LHN
+    range_lhn_coef      = 0.0_wp    ! Scaling factor for latent heat nudging increments
+    range_lhn_artif_fac = 0.0_wp    ! Scaling factor for artificial heating profile in latent heat nudging
+    range_fac_lhn_down  = 0.0_wp    ! Lower limit for reduction of pre-existing latent heating in LHN
+    range_fac_lhn_up    = 0.0_wp    ! Upper limit for increase of pre-existing latent heating in LHN
 
     ! external parameters specified depending on land-cover class
     ! all subsequent ranges indicate relative changes of the respective parameter
@@ -383,6 +408,10 @@ CONTAINS
     config_range_c_diff       = range_c_diff
     config_range_q_crit       = range_q_crit
     config_range_charnock     = range_charnock
+    config_range_lhn_coef     = range_lhn_coef
+    config_range_lhn_artif_fac = range_lhn_artif_fac
+    config_range_fac_lhn_down = range_fac_lhn_down
+    config_range_fac_lhn_up   = range_fac_lhn_up
     config_range_z0_lcc       = range_z0_lcc
     config_range_rootdp       = range_rootdp
     config_range_rsmin        = range_rsmin

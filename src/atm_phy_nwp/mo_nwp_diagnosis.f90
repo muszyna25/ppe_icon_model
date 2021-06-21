@@ -27,7 +27,7 @@
 !----------------------------
 #include "omp_definitions.inc"
 #include "consistent_fma.inc"
-#include "icon_contiguous_defines.h"
+#include "icon_contiguous_defines.inc"
 !----------------------------
 
 MODULE mo_nwp_diagnosis
@@ -48,13 +48,16 @@ MODULE mo_nwp_diagnosis
   USE mo_nonhydro_types,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics, t_nh_state
   USE mo_nwp_phy_types,      ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_intp_data_strc,     ONLY: t_int_state
+  USE mo_math_divrot,        ONLY: rot_vertex
+  USE mo_intp,               ONLY: verts2cells_scalar
   USE mo_parallel_config,    ONLY: nproma, proc0_offloading
   USE mo_lnd_nwp_config,     ONLY: nlev_soil, ntiles_total
   USE mo_nwp_lnd_types,      ONLY: t_lnd_diag, t_wtr_prog, t_lnd_prog
   USE mo_physical_constants, ONLY: tmelt, grav, cpd, vtmpc1
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
   USE mo_advection_config,   ONLY: advection_config
-  USE mo_io_config,          ONLY: lflux_avg, t_var_in_output
+  USE mo_io_config,          ONLY: lflux_avg, t_var_in_output, uh_max_zmin, uh_max_zmax, &
+    &                              luh_max_out, uh_max_nlayer
   USE mo_sync,               ONLY: global_max, global_min
   USE mo_vertical_coord_table,  ONLY: vct_a
   USE mo_satad,              ONLY: sat_pres_water, spec_humi
@@ -281,7 +284,7 @@ CONTAINS
           ! (reset is done on a regular basis in reset_action)
           prm_diag%gust10(jc,jb) = MAX(prm_diag%gust10(jc,jb),                       &
             &                    prm_diag%dyn_gust(jc,jb) + prm_diag%con_gust(jc,jb) )
-
+          
           ! total precipitation
           prm_diag%tot_prec(jc,jb) = prm_diag%prec_gsp(jc,jb) + prm_diag%prec_con(jc,jb)
 
@@ -299,7 +302,6 @@ CONTAINS
 
         ENDDO  ! jc
         !$acc end parallel
-        
 
         IF (atm_phy_nwp_config(jg)%lcalc_moist_integral_avg) THEN
 !DIR$ IVDEP
@@ -1198,7 +1200,60 @@ CONTAINS
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
         & i_startidx, i_endidx, rl_start, rl_end)
 
+      !
+      ! Calculation of grid scale (gsp) and total (gsp+con) instantaneous precipitation rates:
+      !
+      SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
+      CASE(4,5,6,7)
+        DO jc =  i_startidx, i_endidx
+          prm_diag%prec_gsp_rate(jc,jb) = prm_diag%rain_gsp_rate(jc,jb)  &
+               &                        + prm_diag%ice_gsp_rate(jc,jb)   &
+               &                        + prm_diag%snow_gsp_rate(jc,jb)  &
+               &                        + prm_diag%hail_gsp_rate(jc,jb)  &
+               &                        + prm_diag%graupel_gsp_rate(jc,jb)
+          prm_diag%tot_prec_rate(jc,jb) = prm_diag%prec_gsp_rate(jc,jb)
+        ENDDO
+      CASE(2)
+        DO jc =  i_startidx, i_endidx
+          prm_diag%prec_gsp_rate(jc,jb) = prm_diag%rain_gsp_rate(jc,jb)  &
+               ! not sure what to do with ice. To be consistent to prm_diag%prec_gsp, where ice is neglected
+               ! because it predominantly is made of blowing snow, we neglect it also here:
+!               &                        + prm_diag%ice_gsp_rate(jc,jb)   &
+               &                        + prm_diag%snow_gsp_rate(jc,jb)  &
+               &                        + prm_diag%graupel_gsp_rate(jc,jb)
+          prm_diag%tot_prec_rate(jc,jb) = prm_diag%prec_gsp_rate(jc,jb)
+        ENDDO
+      CASE (1)
+        DO jc =  i_startidx, i_endidx
+          prm_diag%prec_gsp_rate(jc,jb) = prm_diag%rain_gsp_rate(jc,jb)  &
+               ! not sure what to do with ice. To be consistent to prm_diag%prec_gsp, where ice is neglected
+               ! because it predominantly is made of blowing snow, we neglect it also here:
+!               &                        + prm_diag%ice_gsp_rate(jc,jb)   &
+               &                        + prm_diag%snow_gsp_rate(jc,jb)
+          prm_diag%tot_prec_rate(jc,jb) = prm_diag%prec_gsp_rate(jc,jb)
+        ENDDO
+      CASE (9)
+        DO jc =  i_startidx, i_endidx
+          prm_diag%prec_gsp_rate(jc,jb) = prm_diag%rain_gsp_rate(jc,jb)
+          prm_diag%tot_prec_rate(jc,jb) = prm_diag%prec_gsp_rate(jc,jb)
+        ENDDO
+      CASE default
+        DO jc =  i_startidx, i_endidx
+          prm_diag%prec_gsp_rate(jc,jb) = 0.0_wp
+          prm_diag%tot_prec_rate(jc,jb) = 0.0_wp
+        ENDDO
+      END SELECT
+      !
+      ! Add convective contributions to the total precipitation rate:
+      !
+      IF (atm_phy_nwp_config(jg)%inwp_convection > 0) THEN
+        DO jc = i_startidx, i_endidx
+          prm_diag%tot_prec_rate(jc,jb) = prm_diag%tot_prec_rate(jc,jb) + prm_diag%rain_con_rate(jc,jb) + &
+               &                          prm_diag%snow_con_rate(jc,jb)
+        ENDDO  ! jc
+      END IF
 
+   
       IF (atm_phy_nwp_config(jg)%lenabled(itconv))THEN !convection parameterization switched on
         !
         ! height of convection base and top, hbas_con, htop_con
@@ -1584,12 +1639,14 @@ CONTAINS
   !! Developed by Guenther Zaengl, DWD (2020-02-14)
   !!
   !!
-  SUBROUTINE nwp_opt_diagnostics(p_patch, p_patch_lp, p_int_lp, p_nh, prm_diag, l_output, nnow, nnow_rcf, var_in_output, &
+  SUBROUTINE nwp_opt_diagnostics(p_patch, p_patch_lp, p_int_lp, p_nh, p_int, prm_diag, &
+     l_output, nnow, nnow_rcf, var_in_output, &
      lpi_max_Event, celltracks_Event, dbz_Event, mtime_current,  plus_slack)
 
     TYPE(t_patch)       ,INTENT(IN)   :: p_patch(:), p_patch_lp(:)  ! patches and their local parents
     TYPE(t_int_state)   ,INTENT(IN)   :: p_int_lp(:)                ! interpolation state for local parents
     TYPE(t_nh_state)    ,INTENT(INOUT):: p_nh(:)                    ! nonhydro state
+    TYPE(t_int_state)   ,INTENT(IN)   :: p_int(:)                   ! interpolation state
     TYPE(t_nwp_phy_diag),INTENT(INOUT):: prm_diag(:)                ! physics diagnostics
 
     TYPE(event),     POINTER, INTENT(INOUT) :: lpi_max_Event, celltracks_Event, dbz_Event
@@ -1603,7 +1660,7 @@ CONTAINS
 
     LOGICAL :: l_active(3), l_lpimax_event_active, l_celltracks_event_active, l_dbz_event_active, &
                l_need_dbz3d, l_need_temp, l_need_pres
-    INTEGER :: jg
+    INTEGER :: jg, k
 
     l_active(1) = is_event_active(lpi_max_Event,    mtime_current, proc0_offloading, plus_slack, opt_lasync=.TRUE.)
     l_active(2) = is_event_active(celltracks_Event, mtime_current, proc0_offloading, plus_slack, opt_lasync=.TRUE.)
@@ -1670,11 +1727,25 @@ CONTAINS
              &                        prm_diag(jg)%tcond_max, prm_diag(jg)%tcond10_max  )
       END IF
 
-      ! update of UH_MAX (updraft helicity, max.  during the time interval "celltracks_interval") if required
-      IF ( var_in_output(jg)%uh_max .AND. (l_output(jg) .OR. l_celltracks_event_active ) ) THEN
-        CALL compute_field_uh_max( p_patch(jg), p_nh(jg)%metrics, p_nh(jg)%prog(nnow(jg)), p_nh(jg)%diag,  &
-             &                     prm_diag(jg)%uh_max  )
+      ! update vorticity for the calculation of uh_max / vorw_ctmax;
+      ! otherwise, diag%vor is only diagnosed every output time step
+      IF ( (ANY(luh_max_out(jg,:)) .OR. var_in_output(jg)%vorw_ctmax) .AND. &
+            l_celltracks_event_active .AND. .NOT. l_output(jg) ) THEN
+        CALL rot_vertex (p_nh(jg)%prog(nnow(jg))%vn, p_patch(jg), p_int(jg), p_nh(jg)%diag%omega_z)
+        ! Diagnose relative vorticity on cells
+        CALL verts2cells_scalar(p_nh(jg)%diag%omega_z, p_patch(jg), &
+           p_int(jg)%verts_aw_cells, p_nh(jg)%diag%vor)
       END IF
+
+      DO k = 1,uh_max_nlayer
+
+        ! update of UH_MAX (updraft helicity, max.  during the time interval "celltracks_interval") if required
+        IF ( luh_max_out(jg,k) .AND. (l_output(jg) .OR. l_celltracks_event_active ) ) THEN
+          CALL compute_field_uh_max( p_patch(jg), p_nh(jg)%metrics, p_nh(jg)%prog(nnow(jg)), p_nh(jg)%diag,  &
+               &                     uh_max_zmin(k), uh_max_zmax(k), prm_diag(jg)%uh_max_3d(:,:,k) )
+        END IF
+
+      END DO
 
       ! update of VORW_CTMAX (Maximum rotation amplitude during the time interval "celltracks_interval") if required
       IF ( var_in_output(jg)%vorw_ctmax .AND. (l_output(jg) .OR. l_celltracks_event_active ) ) THEN

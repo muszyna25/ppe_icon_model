@@ -51,13 +51,10 @@ MODULE mo_icon_output_variables
     & use_dummy_cell_closure
   USE mo_dynamics_config,     ONLY: nnew, nold, nnow
   USE mo_math_types,          ONLY: t_cartesian_coordinates, t_geographical_coordinates
-  USE mo_linked_list,         ONLY: t_var_list
   USE mo_var_list,            ONLY: add_var,                  &
-    &                               new_var_list,             &
-    &                               delete_var_list,          &
-    &                               get_timelevel_string,     &
-    &                               default_var_list_settings,&
-    &                               add_ref
+    &                               add_ref, t_var_list_ptr
+  USE mo_var_list_register,   ONLY: vlr_add, vlr_del
+  USE mo_var_metadata,        ONLY: get_timelevel_string
   USE mo_var_groups,          ONLY: groups 
   USE mo_cf_convention
   USE mo_util_dbg_prnt,       ONLY: dbg_print
@@ -96,7 +93,7 @@ MODULE mo_icon_output_variables
 
   ! variables
   TYPE(t_patch_3d), POINTER :: patch_3d => NULL()
-  TYPE(t_var_list)  :: output_default_list
+  TYPE(t_var_list_ptr)  :: output_default_list
   TYPE(t_output_collection) :: myOutputCollection
 
 CONTAINS
@@ -121,8 +118,7 @@ CONTAINS
     ! IMO the number of variable lists should be as small as possible
     ! default list: elements can be written to disk, but not to the restart file
     WRITE(listname,'(a)')  'output_default_list'
-    CALL new_var_list(output_default_list, listname, patch_id=patch_2d%id)
-    CALL default_var_list_settings(output_default_list,            &
+    CALL vlr_add(output_default_list, listname, patch_id=patch_2d%id, &
       & lrestart=.FALSE.,model_type=TRIM(model_name), loutput=.TRUE.)
 
     ! add an output variable
@@ -146,7 +142,7 @@ CONTAINS
     !-------------------------------------------------------------------------
     CALL message(TRIM(method_name), 'starting...')
 
-    CALL delete_var_list(output_default_list)
+    CALL vlr_del(output_default_list)
 
     !The 3D-icon_output version of previous calls
     CALL destruct_patches( patch_3d%p_patch_2d )

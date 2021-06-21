@@ -44,7 +44,6 @@ MODULE mo_radiation_nml
                                  & config_irad_cfc12 => irad_cfc12,  &
                                  & config_irad_aero  => irad_aero,   &
                                  & config_lrad_aero_diag => lrad_aero_diag,  &
-                                 & config_ighg       => ighg,        &
                                  & config_ghg_filename   => ghg_filename,    &
                                  & config_vmr_co2    => vmr_co2,     &
                                  & config_vmr_ch4    => vmr_ch4,     &
@@ -161,12 +160,6 @@ MODULE mo_radiation_nml
   INTEGER  :: irad_aero
   LOGICAL  :: lrad_aero_diag
   !
-  ! --- Select dynamic greenhouse gases scenario (read from file)
-  !     ighg = 0 : select default gas volume mixing ratios - 1990 values (CMIP5)
-  !     ighg = 1 : transient CMIP5 scenario from file
-  !
-  INTEGER  :: ighg
-  !
   ! --- Name of the file that contains  dynamic greenhouse values
   !
   CHARACTER(LEN=filename_max)  :: ghg_filename
@@ -209,7 +202,6 @@ MODULE mo_radiation_nml
     &                      irad_cfc12, vmr_cfc12, &
     &                      irad_aero,             &
     &                      lrad_aero_diag,        &
-    &                      ighg,                  &
     &                      ghg_filename,          &
     &                      izenith, icld_overlap, &
     &                      islope_rad,            &
@@ -271,7 +263,6 @@ CONTAINS
     irad_aero   = 2
     lrad_aero_diag = .FALSE.
 
-    ighg        = 0
     ghg_filename= 'bc_greenhouse_gases.nc'
 
     vmr_co2     = 348.0e-06_wp
@@ -344,7 +335,6 @@ CONTAINS
     config_irad_cfc12 = irad_cfc12
     config_irad_aero  = irad_aero
     config_lrad_aero_diag = lrad_aero_diag
-    config_ighg       = ighg
     config_ghg_filename   = ghg_filename
     config_vmr_co2    = vmr_co2
     config_vmr_ch4    = vmr_ch4

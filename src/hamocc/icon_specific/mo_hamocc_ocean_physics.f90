@@ -1,4 +1,3 @@
-#ifndef __NO_ICON_OCEAN__
 #include "hamocc_omp_definitions.inc"     
 #include "icon_definitions.inc" 
    MODULE mo_hamocc_ocean_physics
@@ -36,6 +35,7 @@
     USE mo_hamocc_nml,             ONLY: l_bgc_check,io_stdo_bgc
     USE mo_exception, ONLY: message
     USE mo_hamocc_diagnostics,  ONLY: get_inventories
+    USE mo_bgc_icon, ONLY: bgc_icon
     
     ! only temporary solution
     USE mo_ocean_tracer_dev,       ONLY: advect_ocean_tracers_dev
@@ -85,6 +85,7 @@
     if(ltimer) call timer_start(timer_bgc_tot)
     CALL bgc_icon(patch_3d, hamocc_ocean_state)
     if(ltimer) call timer_stop(timer_bgc_tot)
+
 
     IF (l_bgc_check) THEN
       CALL message('3. after bgc + fluxes and weathering', 'inventories', io_stdo_bgc)
@@ -191,4 +192,3 @@
 
    END SUBROUTINE DILUTE_HAMOCC_TRACERS
    END MODULE
-#endif   

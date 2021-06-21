@@ -7,7 +7,7 @@
 !! @author Daniel Reinert, DWD
 !!
 !!
-!! @par Revision HistoryX1
+!! @par Revision History
 !! Initial revision by Daniel Reinert, DWD (2010-03-04)
 !! Modification by Daniel Reinert, DWD (2010-03-04)
 !! - transferred all limiter to this new module
@@ -57,8 +57,8 @@ MODULE mo_advection_vlimit
   PUBLIC :: v_limit_parabola_sm
   PUBLIC :: v_limit_slope_mo
   PUBLIC :: v_limit_slope_sm
-  PUBLIC :: v_limit_face_mo
-  PUBLIC :: v_limit_face_sm
+  PUBLIC :: v_limit_face_mc_mo
+  PUBLIC :: v_limit_face_mc_sm
 
 #if defined( _OPENACC )
 #if defined(__ADVECTION_LIMITER_NOACC)
@@ -124,7 +124,7 @@ CONTAINS
       &  r_m(nproma,SIZE(p_cc,2))    !< of cell jk are multiplied 
                                      !< to guarantee positive definiteness
 
-    REAL(wp) :: p_m(nproma)          !< sum of fluxes out of cell
+    REAL(wp) :: p_m                  !< sum of fluxes out of cell
                                      !< [kg m^-2]
 
     REAL(wp) :: z_signum             !< sign of mass flux
@@ -134,7 +134,7 @@ CONTAINS
     INTEGER  :: jkp1, jkm1
 
 #ifdef __INTEL_COMPILER
-!DIR$ ATTRIBUTES ALIGN :64 :: r_m,p_m
+!DIR$ ATTRIBUTES ALIGN :64 :: r_m
 #endif
   !-------------------------------------------------------------------------
 
@@ -153,21 +153,21 @@ CONTAINS
     ! 1. Compute total outward mass (loop over full levels)
     !
 !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
-    !$ACC LOOP GANG COLLAPSE(2) PRIVATE(p_m)
+    !$ACC LOOP GANG COLLAPSE(2) PRIVATE(jkp1,p_m)
     DO jk = slev, elev
       DO jc = i_startidx, i_endidx
         jkp1 = jk+1
 
         ! Sum of all outgoing fluxes out of cell jk
-        p_m(jc) = p_dtime                               &
-          &     * (MAX(0._wp,p_mflx_tracer_v(jc,jk))    &  ! upper half level
-          &      - MIN(0._wp,p_mflx_tracer_v(jc,jkp1)) )   ! lower half level
+        p_m = p_dtime                               &
+          & * (MAX(0._wp,p_mflx_tracer_v(jc,jk))    &  ! upper half level
+          &  - MIN(0._wp,p_mflx_tracer_v(jc,jkp1)) )   ! lower half level
 
         ! fraction with which all the fluxes out of cell jk must be multiplied 
         ! to guarantee no undershoot
         ! Nominator: maximum allowable mass loss \rho^n q^n
         r_m(jc,jk) = MIN(1._wp, (p_cc(jc,jk)*p_rhodz_now(jc,jk)) &
-          &         /(p_m(jc) + dbl_eps) )
+          &         /(p_m + dbl_eps) )
 
       ENDDO
     ENDDO
@@ -213,10 +213,6 @@ CONTAINS
   !! upper or lower interface values.
   !! Avoids non-physical over/undershoots in advected fields.
   !!
-  !! In this version we do no longer make use of the monotonized slope 
-  !! for detection of local extrema. Therefore this code can be used for 
-  !! PSM as well, where the monotonized slope is not available.
-  !!
   !! Literature
   !! Lin and Rood (1996), MWR, 124, 2046-2070
   !!
@@ -254,89 +250,138 @@ CONTAINS
     INTEGER, INTENT(IN)     :: &   !< vertical start and end index of DO loop
       &  slev, elev
 
+    ! local
+    REAL(wp) :: z_delta(SIZE(p_cc,1),SIZE(p_cc,2)) !< lower minus upper face value
+    REAL(wp) :: z_a6i(SIZE(p_cc,1),SIZE(p_cc,2))   !< curvature of parabola
+    LOGICAL  :: l_limit(SIZE(p_cc,1),SIZE(p_cc,2)) !< is limiting of subgrid parabola 
+                                                   !< in particular cell necessary [yes/no]
+    LOGICAL  :: is_main_crit          !< is main criterion for limiter activation TRUE
+    REAL(wp) :: q_face_up, q_face_low !< face values at upper and lower cell edge
+
     INTEGER  :: jc, jk             !< index of cell and vertical level
-    INTEGER  :: ikp1               !< vertical level plus one
-
-    REAL(wp) :: z_delta            !< lower minus upper face value
-    REAL(wp) :: z_a6i              !< curvature of parabola
-    LOGICAL  :: is_main_crit       !< is main criterion for limiter activation TRUE
-    LOGICAL  :: lselective_limit   !< selective limitation yes/no
-
+    INTEGER  :: jkm2, jkm1,    &   !< neighbour indices  
+      &         jkp1, jkp2, jkp3
+    INTEGER  :: elev_slim          !< end level for spurious extremum dectector
     !-----------------------------------------------------------------------
 
-    ! selective limitation yes or no
-    lselective_limit = (p_ivlimit_selective == 1)
-
 !$ACC DATA PCOPYIN( p_cc, p_face ), PCOPY( p_face_up, p_face_low ), &
+!$ACC      CREATE(z_delta, z_a6i, l_limit), &
 !$ACC      IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( p_cc, p_face ), WAIT(1) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
-!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
-    !$ACC LOOP GANG VECTOR PRIVATE(ikp1, z_delta, z_a6i, is_main_crit) COLLAPSE(2)
-    DO jk = slev, elev
 
+    ! selective limitation yes or no
+    IF (p_ivlimit_selective == 1) THEN
+      ! 
+      elev_slim = MIN(elev+1,UBOUND(p_face,2))
+      !
+!$ACC PARALLEL DEFAULT(NONE) PRESENT(z_delta,z_a6i,l_limit) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG VECTOR PRIVATE(jkp1, jkp2, jkp3, jkm1, jkm2, is_main_crit) COLLAPSE(2)
+      DETECT_SEL:DO jk = slev, elev
+        DO jc = i_startidx, i_endidx
+
+          ! index of bottom half level
+          jkp1 = jk+1
+          jkp2 = MIN(jk+2,elev_slim)
+          jkp3 = MIN(jk+3,elev_slim)
+          jkm1 = MAX(jk-1,slev)
+          jkm2 = MAX(jk-2,slev)
+
+          z_delta(jc,jk) = p_face(jc,jk) - p_face(jc,jkp1)        
+          z_a6i(jc,jk)   = 6._wp * (p_cc(jc,jk)                      &
+            &             - 0.5_wp * (p_face(jc,jk) + p_face(jc,jkp1)))
+
+          ! main criterion upon which it is decided whether an undershoot 
+          ! is spurious and whether the limiter is activated.
+          is_main_crit = ABS(z_delta(jc,jk)) < ABS(z_a6i(jc,jk))
+
+          ! final (more selective) criterion which decides upon limiter activation
+          ! takes into account main criterion is_main_crit 
+          l_limit(jc,jk) = isExtremumSpurious(is_main_crit, z_delta(jc,jk), z_a6i(jc,jk), p_cc(jc,jk), &
+            &                                 p_face(jc,jkm2), p_face(jc,jkm1), p_face(jc,jk),         & 
+            &                                 p_face(jc,jkp1), p_face(jc,jkp2), p_face(jc,jkp3) )
+        ENDDO
+      ENDDO DETECT_SEL
+!$ACC END PARALLEL
+    ELSE
+!$ACC PARALLEL DEFAULT(NONE) PRESENT(z_delta,z_a6i,l_limit) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG VECTOR PRIVATE(jkp1) COLLAPSE(2)
+      DETECT:DO jk = slev, elev
+        DO jc = i_startidx, i_endidx
+
+          ! index of bottom half level
+          jkp1 = jk+1
+
+          z_delta(jc,jk) = p_face(jc,jk) - p_face(jc,jkp1)        
+          z_a6i(jc,jk)   = 6._wp * (p_cc(jc,jk)                      &
+            &             - 0.5_wp * (p_face(jc,jk) + p_face(jc,jkp1)))
+
+          ! main criterion upon which it is decided whether an undershoot 
+          ! is spurious and whether the limiter is activated. 
+          l_limit(jc,jk) = ABS(z_delta(jc,jk)) < ABS(z_a6i(jc,jk))
+        ENDDO
+      ENDDO DETECT
+!$ACC END PARALLEL
+      !
+    ENDIF  ! p_ivlimit_selective
+
+
+!$ACC PARALLEL DEFAULT(NONE) PRESENT(z_delta,z_a6i,l_limit) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+    !$ACC LOOP GANG VECTOR PRIVATE(jkp1, q_face_up, q_face_low) COLLAPSE(2)
+    LIMIT:DO jk = slev, elev
       DO jc = i_startidx, i_endidx
 
         ! index of bottom half level
-        ikp1 = jk+1 ! WS: put inside inner loop to collapse both loops
+        jkp1 = jk+1
 
-        z_delta   = p_face(jc,jk) - p_face(jc,ikp1)        
-        z_a6i     = 6._wp * (p_cc(jc,jk) - 0.5_wp * (p_face(jc,jk) + p_face(jc,ikp1)))
-
-        ! main criterion upon which it is decided whether an extremum 
-        ! is spurious and whether the limiter is activated. 
-        is_main_crit = ABS(z_delta) < ABS(z_a6i)
-
-        ! detect spurious extremum
         !
-        DETECT:IF (isExtremumSpurious(jc,jk,is_main_crit,z_a6i,p_cc(jc,jk),p_face,              & 
-          &                           slev,MIN(elev+1,UBOUND(p_face,2)),lselective_limit) ) THEN
-
-          !
-          ! parabola must be modified to remove local extremum
-          !
+        ! check if parabola must be modified to remove spurious extrema
+        !
+        IF ( l_limit(jc,jk) ) THEN
 
           ! if cell average presents a local extremum, replace parabola 
           ! by piecewise constant function
-          IF ( ((p_cc(jc,jk) - p_face(jc,ikp1))*(p_cc(jc,jk)-p_face(jc,jk))) > 0._wp) THEN
-            p_face_up(jc,jk)  = p_cc(jc,jk)
-            p_face_low(jc,jk) = p_cc(jc,jk)
+          IF ( ((p_cc(jc,jk) - p_face(jc,jkp1))*(p_cc(jc,jk)-p_face(jc,jk))) > 0._wp) THEN
+            q_face_up  = p_cc(jc,jk)
+            q_face_low = p_cc(jc,jk)
 
           ELSE 
             !
             ! monotonize parabola by modifying one of the edge values
-            IF (z_delta * z_a6i > z_delta * z_delta) THEN
-              p_face_up(jc,jk)  = p_face(jc,jk)
-              p_face_low(jc,jk) = 3._wp*p_cc(jc,jk) - 2._wp*p_face(jc,jk)
+            IF (z_delta(jc,jk) * z_a6i(jc,jk) > z_delta(jc,jk) * z_delta(jc,jk)) THEN
+              q_face_up  = p_face(jc,jk)
+              q_face_low = 3._wp*p_cc(jc,jk) - 2._wp*p_face(jc,jk)
               
-            ELSE IF (z_delta * z_a6i < -1._wp * (z_delta * z_delta)) THEN
-              p_face_up(jc,jk)  = 3._wp*p_cc(jc,jk) - 2._wp*p_face(jc,ikp1)
-              p_face_low(jc,jk) = p_face(jc,ikp1)
+            ELSE IF (z_delta(jc,jk) * z_a6i(jc,jk) < -1._wp * (z_delta(jc,jk) * z_delta(jc,jk))) THEN
+              q_face_up  = 3._wp*p_cc(jc,jk) - 2._wp*p_face(jc,jkp1)
+              q_face_low = p_face(jc,jkp1)
               
             ELSE
               ! necessary if z_delta and z_a6i become very tiny.
-              p_face_up(jc,jk)  = p_face(jc,jk)
-              p_face_low(jc,jk) = p_face(jc,ikp1)
+              q_face_up  = p_face(jc,jk)
+              q_face_low = p_face(jc,jkp1)
             ENDIF
             !
           ENDIF
           !
         ELSE
           ! no monotonization required
-          p_face_up(jc,jk)  = p_face(jc,jk)
-          p_face_low(jc,jk) = p_face(jc,ikp1)
-        ENDIF DETECT
+          q_face_up  = p_face(jc,jk)
+          q_face_low = p_face(jc,jkp1)
+        ENDIF
+
+        ! backcopy of eventually modified face values
+        p_face_up(jc,jk)  = q_face_up
+        p_face_low(jc,jk) = q_face_low
 
       END DO  ! jc
-
-    END DO  ! jk
+    END DO LIMIT
 !$ACC END PARALLEL
 
 !$ACC UPDATE HOST( p_face_up, p_face_low ), WAIT(1) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 
   END SUBROUTINE v_limit_parabola_mo 
-
 
 
 
@@ -359,160 +404,150 @@ CONTAINS
     &                           i_endidx, slev, elev     )
 
 
-    INTEGER, INTENT(IN) ::   &    !< avoids limiting of smooth extrema
-      &  p_ivlimit_selective      !< if activated
+    INTEGER, INTENT(IN) ::     &      !< avoids limiting of smooth extrema
+      &  p_ivlimit_selective          !< if activated
 
-    REAL(wp), INTENT(IN) ::  &     !< advected cell centered variable
-      &  p_cc(:,:)                 !< dim: (nproma,nlev)
+    REAL(wp), INTENT(IN) ::    &      !< advected cell centered variable
+      &  p_cc(:,:)                    !< dim: (nproma,nlev)
 
-    REAL(wp), INTENT(IN) ::  &     !< reconstructed face values of the advected field
-      &  p_face(:,:)               !< dim: (nproma,nlevp1)
+    REAL(wp), INTENT(IN) ::    &      !< reconstructed face values of the advected field
+      &  p_face(:,:)                  !< dim: (nproma,nlevp1)
 
-    REAL(wp), INTENT(INOUT) :: &   !< final face value (upper face, height based)
-      &  p_face_up(:,:)            !< dim: (nproma,nlevp)
+    REAL(wp), INTENT(INOUT) :: &      !< final face value (upper face, height based)
+      &  p_face_up(:,:)               !< dim: (nproma,nlevp)
 
-    REAL(wp), INTENT(INOUT) :: &   !< final face value (lower face, height based)
-      &  p_face_low(:,:)           !< dim: (nproma,nlevp)
+    REAL(wp), INTENT(INOUT) :: &      !< final face value (lower face, height based)
+      &  p_face_low(:,:)              !< dim: (nproma,nlevp)
 
-    INTEGER, INTENT(IN)     :: &   !< horizontal start and end index of DO loop
+    INTEGER, INTENT(IN)     :: &      !< horizontal start and end index of DO loop
       &  i_startidx, i_endidx
 
-    INTEGER, INTENT(IN)     :: &   !< vertical start and end index of DO loop
+    INTEGER, INTENT(IN)     :: &      !< vertical start and end index of DO loop
       &  slev, elev
 
-    REAL(wp) :: z_delta            !< lower minus upper face value
-    REAL(wp) :: z_a6i              !< curvature of parabola
+    ! local
+    REAL(wp) :: z_delta               !< undivided cell gradient
+    REAL(wp) :: z_a6i                 !< curvature of parabola
+    LOGICAL  :: is_main_crit          !< main criterion for limiting
+    LOGICAL  :: l_limit(SIZE(p_cc,1),SIZE(p_cc,2)) !< is limiting of subgrid parabola 
+                                                   !< in particular cell necessary [yes/no]
+    REAL(wp) :: q_face_up, q_face_low !< face values at upper and lower cell edge
 
-    INTEGER  :: jc, jk             !< index of cell and vertical level
-    INTEGER  :: ikp1               !< vertical level plus one
-    LOGICAL  :: is_main_crit       !< is main criterion for limiter activation TRUE
-    LOGICAL  :: lselective_limit   !< selective limitation yes/no
+    INTEGER  :: jc, jk                !< index of cell and vertical level
+    INTEGER  :: jkm2, jkm1,    &      !< neighbour indices  
+      &         jkp1, jkp2, jkp3
+    INTEGER  :: elev_slim             !< end level for spurious extremum dectector
 
   !-------------------------------------------------------------------------
 
-    ! selective limitation yes or no
-    lselective_limit = (p_ivlimit_selective == 1)
 
 !$ACC DATA PCOPYIN( p_cc, p_face ), PCOPYOUT( p_face_up, p_face_low ), &
+!$ACC      CREATE(l_limit), &
 !$ACC      IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( p_cc, p_face ), WAIT(1) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
-     ! GZ: unfortunately, the case selection needs to be done outside the loop because the NEC compiler
-     ! otherwise always executes the full code for the selective limiter (factor of 4 slower)
-     IF (lselective_limit) THEN
-!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
-      !$ACC LOOP GANG VECTOR PRIVATE(ikp1, z_delta, z_a6i, is_main_crit) COLLAPSE(2)
-      DO jk = slev, elev
-
+    ! selective limitation yes or no
+    IF (p_ivlimit_selective == 1) THEN
+      ! 
+      elev_slim = MIN(elev+1,UBOUND(p_face,2))
+      !
+!$ACC PARALLEL DEFAULT(NONE) PRESENT(l_limit) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG VECTOR PRIVATE(jkp1, jkp2, jkp3, jkm1, jkm2, z_delta, z_a6i, is_main_crit) COLLAPSE(2)
+      DETECT_SEL:DO jk = slev, elev
         DO jc = i_startidx, i_endidx
 
           ! index of bottom half level
-          ikp1 = jk+1 ! WS: put inside inner loop to collapse both loops
+          jkp1 = jk+1
+          jkp2 = MIN(jk+2,elev_slim)
+          jkp3 = MIN(jk+3,elev_slim)
+          jkm1 = MAX(jk-1,slev)
+          jkm2 = MAX(jk-2,slev)
 
-          z_delta   = p_face(jc,jk) - p_face(jc,ikp1)        
-          z_a6i     = 6._wp * (p_cc(jc,jk)                      &
-            &       - 0.5_wp * (p_face(jc,jk) + p_face(jc,ikp1)))
+          z_delta = p_face(jc,jk) - p_face(jc,jkp1)        
+          z_a6i   = 6._wp * (p_cc(jc,jk)                      &
+            &     - 0.5_wp * (p_face(jc,jk) + p_face(jc,jkp1)))
 
           ! main criterion upon which it is decided whether an undershoot 
-          ! is spurious and whether the limiter is activated. 
+          ! is spurious and whether the limiter is activated.
           is_main_crit = ABS(z_delta) < -1._wp*z_a6i
 
-
-          ! detect spurious undershoots
-          !
-          DETECT:IF (isExtremumSpurious(jc,jk,is_main_crit,z_a6i,p_cc(jc,jk),p_face,              & 
-            &                           slev,MIN(elev+1,UBOUND(p_face,2)),lselective_limit) ) THEN
-
-            !
-            ! parabola must be modified to remove local undershoots
-            !
-
-            ! if cell average presents a local minimum, replace parabola 
-            ! by piecewise constant function
-            IF (p_cc(jc,jk) < MIN(p_face(jc,jk),p_face(jc,ikp1)) ) THEN
-              p_face_up(jc,jk)  = p_cc(jc,jk)
-              p_face_low(jc,jk) = p_cc(jc,jk)
-
-            ELSE
-              !
-              ! monotonize parabola by modifying one of the edge values
-              IF (p_face(jc,jk) > p_face(jc,ikp1)) THEN
-                p_face_up(jc,jk)  = 3._wp*p_cc(jc,jk) - 2._wp*p_face(jc,ikp1)
-                p_face_low(jc,jk) = p_face(jc,ikp1)
-
-              ELSE
-                p_face_up(jc,jk)  = p_face(jc,jk)
-                p_face_low(jc,jk) = 3._wp*p_cc(jc,jk) - 2._wp*p_face(jc,jk)
-
-             ENDIF
-              !
-            ENDIF
-            !
-          ELSE
-            p_face_up(jc,jk)  = p_face(jc,jk)
-            p_face_low(jc,jk) = p_face(jc,ikp1)
-          ENDIF DETECT
-
-        END DO
-
-      END DO
+          ! final (more selective) criterion which decides upon limiter activation
+          ! takes into account main criterion is_main_crit 
+          l_limit(jc,jk) = isExtremumSpurious(is_main_crit, z_delta, z_a6i, p_cc(jc,jk),        &
+            &                                 p_face(jc,jkm2), p_face(jc,jkm1), p_face(jc,jk),  & 
+            &                                 p_face(jc,jkp1), p_face(jc,jkp2), p_face(jc,jkp3) )
+        ENDDO
+      ENDDO DETECT_SEL
 !$ACC END PARALLEL
-     ELSE
-!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
-    !$ACC LOOP GANG VECTOR PRIVATE(ikp1, z_delta, z_a6i, is_main_crit) COLLAPSE(2)
-      DO jk = slev, elev
-
+    ELSE
+!$ACC PARALLEL DEFAULT(NONE) PRESENT(l_limit) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG VECTOR PRIVATE(jkp1, z_delta, z_a6i) COLLAPSE(2)
+      DETECT:DO jk = slev, elev
         DO jc = i_startidx, i_endidx
 
           ! index of bottom half level
-          ikp1 = jk+1 ! WS: put inside inner loop to collapse both loops
+          jkp1 = jk+1
 
-          z_delta   = p_face(jc,jk) - p_face(jc,ikp1)          
-          z_a6i     = 6._wp * (p_cc(jc,jk)                      &
-            &       - 0.5_wp * (p_face(jc,jk) + p_face(jc,ikp1)))
+          z_delta = p_face(jc,jk) - p_face(jc,jkp1)        
+          z_a6i   = 6._wp * (p_cc(jc,jk)                      &
+            &     - 0.5_wp * (p_face(jc,jk) + p_face(jc,jkp1)))
 
           ! main criterion upon which it is decided whether an undershoot 
           ! is spurious and whether the limiter is activated. 
-          is_main_crit = ABS(z_delta) < -1._wp*z_a6i
+          l_limit(jc,jk) = ABS(z_delta) < -1._wp*z_a6i
+        ENDDO
+      ENDDO DETECT
+!$ACC END PARALLEL
+      !
+    ENDIF  ! p_ivlimit_selective
 
-          ! detect spurious undershoots
-          !
-          IF (is_main_crit) THEN
-            !
-            ! parabola must be modified to remove local undershoots
-            !
 
-            ! if cell average presents a local minimum, replace parabola 
-            ! by piecewise constant function
-            IF (p_cc(jc,jk) < MIN(p_face(jc,jk),p_face(jc,ikp1)) ) THEN
-              p_face_up(jc,jk)  = p_cc(jc,jk)
-              p_face_low(jc,jk) = p_cc(jc,jk)
+!$ACC PARALLEL DEFAULT(NONE) PRESENT(l_limit) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+    !$ACC LOOP GANG VECTOR PRIVATE(jkp1, q_face_up, q_face_low) COLLAPSE(2)
+    LIMIT:DO jk = slev, elev
+      DO jc = i_startidx, i_endidx
+
+        ! index of bottom half level
+        jkp1 = jk+1
+
+        !
+        ! check if parabola must be modified to remove local undershoots
+        !
+        IF (l_limit(jc,jk)) THEN
+
+          ! if cell average presents a local minimum, replace parabola 
+          ! by piecewise constant function
+          IF (p_cc(jc,jk) < MIN(p_face(jc,jk),p_face(jc,jkp1)) ) THEN
+            q_face_up  = p_cc(jc,jk)
+            q_face_low = p_cc(jc,jk)
+
+          ELSE
+            !
+            ! monotonize parabola by modifying one of the edge values
+            IF (p_face(jc,jk) > p_face(jc,jkp1)) THEN
+              q_face_up  = 3._wp*p_cc(jc,jk) - 2._wp*p_face(jc,jkp1)
+              q_face_low = p_face(jc,jkp1)
 
             ELSE
-              !
-              ! monotonize parabola by modifying one of the edge values
-              IF (p_face(jc,jk) > p_face(jc,ikp1)) THEN
-                p_face_up(jc,jk)  = 3._wp*p_cc(jc,jk) - 2._wp*p_face(jc,ikp1)
-                p_face_low(jc,jk) = p_face(jc,ikp1)
+              q_face_up  = p_face(jc,jk)
+              q_face_low = 3._wp*p_cc(jc,jk) - 2._wp*p_face(jc,jk)
 
-              ELSE
-                p_face_up(jc,jk)  = p_face(jc,jk)
-                p_face_low(jc,jk) = 3._wp*p_cc(jc,jk) - 2._wp*p_face(jc,jk)
-
-             ENDIF
+           ENDIF
               !
-            ENDIF
-            !
-          ELSE
-            p_face_up(jc,jk)  = p_face(jc,jk)
-            p_face_low(jc,jk) = p_face(jc,ikp1)
           ENDIF
+          !
+        ELSE
+          q_face_up  = p_face(jc,jk)
+          q_face_low = p_face(jc,jkp1)
+        ENDIF
 
-        END DO
+        ! backcopy of eventually modified face values
+        p_face_up(jc,jk)  = q_face_up
+        p_face_low(jc,jk) = q_face_low
 
       END DO
+    END DO LIMIT
 !$ACC END PARALLEL
-    ENDIF
 
 !$ACC UPDATE HOST( p_face_up, p_face_low ), WAIT(1) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
@@ -523,17 +558,15 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  !! Detect if the sub-grid reconstruction has a spurious extremum
+  !! Detect if the subgrid reconstruction has a spurious extremum
   !!
-  !! Detect if the sub-grid reconstruction has a spurious extremum.
-  !! In the default case the extremum is deemed spurious, if it occurs 
-  !! in the cell interior, i.e. if 0<\zeta_ext<1, where \zeta_ext denotes 
+  !! Detect if the subgrid reconstruction has an extremum 
+  !! in the cell interior, i.e. if 0<\zeta_ext<1. \zeta_ext denotes 
   !! the location of the extremum in dimnesionless coordinates.
-  !! This information is provided by the LOGICAL variable is_main_crit.
+  !! This is checked by the main criterion is_main_crit.
   !!
-  !! If lselective_limit=.TRUE., the detection algorithm is less restrictive 
-  !! and avoids clipping of smooth extrema. At least one of 5 additional constraints 
-  !! must be true for the extremum to be deemed spurious.  
+  !! The extremum is deemed spurious, only if at least one of 5 additional 
+  !! constraints is fulfilled. This is checked by is_add_crit.
   !!
   !! Literature
   !! Zerroukat et al. (2005), QJRMS, 131, 2923-2936
@@ -541,60 +574,47 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2019-01-11)
   !!
-  LOGICAL FUNCTION isExtremumSpurious(jc, jk, is_main_crit, z_a6i, p_cc, p_face, &
-    &                                 jk_min, jk_max, lselective_limit)
+  LOGICAL FUNCTION isExtremumSpurious(is_main_crit, z_delta, z_a6i, p_cc, q_face_jkm2,  &
+    &                                 q_face_jkm1, q_face_jk, q_face_jkp1, q_face_jkp2, &
+    &                                 q_face_jkp3)
 !$ACC ROUTINE SEQ
 
-    INTEGER , INTENT(IN) :: jc, jk           !< cell at hand
-    LOGICAL , INTENT(IN) :: is_main_crit     !< is main criterion for limiter activation TRUE 
+    LOGICAL,  INTENT(IN) :: is_main_crit     !< is main criterion for limiter activation TRUE
+    REAL(wp), INTENT(IN) :: z_delta          !< undivided cell gradient
     REAL(wp), INTENT(IN) :: z_a6i            !< curvature of parabola
-    REAL(wp), INTENT(IN) :: p_cc             !< cell average at given point (jc,jk)
-    REAL(wp), INTENT(IN) :: p_face(:,:)      !< face values for vertical column at hand
-                                             !  only required for jk+1,jk+2,jk,jk-1,jk-2 at given jc
-    LOGICAL , INTENT(IN) :: lselective_limit !< distinguishes between selective 
-                                             !  and non-selective limiting
-    INTEGER, INTENT(IN)  :: jk_min           !< minimum half level up to which p_face is filled with 
-                                             !< meaningful values 
-    INTEGER, INTENT(IN)  :: jk_max           !< maximum half level up to which p_face is filled with 
-                                             !< meaningful values
-                                             !< Accessing indices beyond this range leads to 
-                                             !< non-reporducible results.
+    REAL(wp), INTENT(IN) :: p_cc             !< cell average at given cell jk
+    REAL(wp), INTENT(IN) ::   &
+     & q_face_jkm2, q_face_jkm1, q_face_jk,& !< face values for jk-2, jk-1, jk, jk+1, jk+2, jk+3
+     & q_face_jkp1, q_face_jkp2, q_face_jkp3 
+
     ! local
-    LOGICAL  :: is_crit(5)          ! additional criteria of selective limiter
-    INTEGER  :: jkp1, jkp2, jkp3, jkm1, jkm2  ! neighbour indices
+    LOGICAL  :: is_add_crit         ! additional, more selective criterion
+    REAL(wp) :: z_a1                ! linear coefficient of parabolic interpolant
     REAL(wp) :: loc_extremum        ! location of extreme value in dimensionless coordinate
     REAL(wp) :: val_extremum        ! extreme value
-    REAL(wp) :: z_a1                ! linear coefficient of parabolic interpolant
     !-----------------------------------------------------------------------
 
-    IF (is_main_crit.AND.lselective_limit) THEN
 
-      jkp1 = MIN(jk+1,jk_max)
-      jkp2 = MIN(jk+2,jk_max)
-      jkp3 = MIN(jk+3,jk_max)
-      jkm1 = MAX(jk-1,jk_min)
-      jkm2 = MAX(jk-2,jk_min)
+    ! linear coefficient of parabolic interpolant
+    z_a1  = 6._wp * p_cc - 2._wp*q_face_jk - 4._wp*q_face_jkp1
 
-      z_a1  = 6._wp * p_cc - 2._wp*p_face(jc,jk) - 4._wp*p_face(jc,jkp1)
-      is_crit(1) = ((p_face(jc,jkp1) - p_face(jc,jkp2)) * (p_face(jc,jkm1) - p_face(jc,jk))  ) >= 0._wp
-      is_crit(2) = ((p_face(jc,jkp2) - p_face(jc,jkp3)) * (p_face(jc,jkp1) - p_face(jc,jkp2))) <= 0._wp
-      is_crit(3) = ((p_face(jc,jkm1) - p_face(jc,jk)  ) * (p_face(jc,jkm2) - p_face(jc,jkm1))) <= 0._wp
-      is_crit(4) = ((p_face(jc,jkp1) - p_face(jc,jkp2)) * z_a1 )                               <= 0._wp
-      !
-      ! determine location of extremum
-      loc_extremum = 0.5_wp*(1._wp + (p_face(jc,jk) - p_face(jc,jkp1))/(SIGN(ABS(z_a6i)+dbl_eps,z_a6i)))
-      ! determine extremum
-      val_extremum = p_cc - (p_face(jc,jk) - p_face(jc,jkp1))*(0.5_wp - loc_extremum) &
-          &         - z_a6i*(1._wp/6._wp - loc_extremum + loc_extremum*loc_extremum)
-      is_crit(5) = val_extremum < 0._wp
+    ! determine location of extremum
+    loc_extremum = 0.5_wp*(1._wp + z_delta/(SIGN(ABS(z_a6i)+dbl_eps,z_a6i)))
+    ! determine extremum
+    val_extremum = p_cc - z_delta*(0.5_wp - loc_extremum)  &
+      &           - z_a6i*(1._wp/6._wp - loc_extremum + loc_extremum*loc_extremum)
 
-      ! result
-      isExtremumSpurious = ANY(is_crit(:))
 
-    ELSE
-      ! result
-      isExtremumSpurious = is_main_crit
-    ENDIF
+    ! additional, more selective criterion
+    ! Only if any of the following constraints is TRUE, the extremum is deemed spurious 
+    is_add_crit = ((q_face_jkp1 - q_face_jkp2) * (q_face_jkm1 - q_face_jk)  ) >= 0._wp .OR. &
+      &           ((q_face_jkp2 - q_face_jkp3) * (q_face_jkp1 - q_face_jkp2)) <= 0._wp .OR. &
+      &           ((q_face_jkm1 - q_face_jk  ) * (q_face_jkm2 - q_face_jkm1)) <= 0._wp .OR. &
+      &           ((q_face_jkp1 - q_face_jkp2) * z_a1 )                       <= 0._wp .OR. &
+      &           val_extremum                                                <  0._wp
+
+    ! result
+    isExtremumSpurious = is_main_crit .AND. is_add_crit
 
   END FUNCTION isExtremumSpurious
 
@@ -735,26 +755,33 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  !! Limit reconstructed face values.
-  !!
-  !! Make sure that face values lie within the range of values 
-  !! in the neighbouring cells.
-  !!
+  !! Monotonic face value limiter for PSM
+  !! Checks if a face value is bounded by the neighbouring cell averages. 
+  !! If not, a linear reconstruction based on a monotoniced 
+  !! centered-difference (mc) slope is computed for each of the two neighbouring 
+  !! cells, in order to estimate a (bounded) edge value.
   !!
   !! Literature
-  !! Blossey, P. N. and D. R. Durran (2008), JCP, 227, 5160-5183
+  !! - White et al. (2008), JCP, 227, 7394-7422
+  !! - Leveque (2002), Finite Volume Methods for Hyperbolic Problems, 
+  !!                  Cambridge University Press
   !!
   !! @par Revision History
-  !! Initial revision by Daniel Reinert, DWD (2015-11-26)
+  !! Initial revision by Daniel Reinert, DWD (2021-01-18)
+  !! 
   !!
-  SUBROUTINE v_limit_face_mo( p_cc, p_face, i_startidx, i_endidx, slev, elev )
+  SUBROUTINE v_limit_face_mc_mo( p_cc, p_cellhgt_mc_now, p_face, i_startidx, i_endidx, &
+    &                            slev, elev )
 
 
-    REAL(wp), INTENT(IN) ::    &   !< advected cell centered variable
-      &  p_cc(:,:)                 !< dim: (nproma,nlev)
+    REAL(wp), INTENT(IN) ::     &  !< advected cell centered variable
+      &  p_cc(:,:)                 !< dim: (nproma, nlev)
 
-    REAL(wp), INTENT(INOUT) ::  &  !< reconstructed face values of the advected field
-      &  p_face(:,:)               !< dim: (nproma,nlevp1)
+    REAL(wp), INTENT(IN) ::     &  !< layer thickness at cell center
+      &  p_cellhgt_mc_now(:,:)     !< dim: (nproma,nlev)
+
+    REAL(wp), INTENT(INOUT) ::  &  !< reconstructed face values
+      &  p_face(:,:)               !< dim: (nproma, nlevp1)
 
     INTEGER, INTENT(IN)     ::  &  !< horizontal start and end index of DO loop
       &  i_startidx, i_endidx
@@ -762,62 +789,118 @@ CONTAINS
     INTEGER, INTENT(IN)     ::  &  !< vertical start and end index of DO loop
       &  slev, elev
 
-    REAL(wp) :: p_cc_min, p_cc_max    !< 2-point max/min values
 
-    INTEGER  :: jc, jk                !< index of cell and vertical level
-    INTEGER  :: ikp1                  !< vertical level plus one
+    ! local
+    REAL(wp):: mc_slope_u, mc_slope_l !< monotonized central-difference slope 
+                                      !< for adjacent upper (u) and lower (l) cell
+
+    REAL(wp):: faceval_u, faceval_l   !< reconstructed face value
+                                      !< based on the linear reconstruction for the 
+                                      !< adjacent upper (u) and lower (l) cell 
+                                
+    INTEGER :: jc, jk                 !< loop indices
+    INTEGER :: ikm2, ikm1, ikp1       !< vertical level minus two, minus/plus one
+
+    LOGICAL :: l_limit                !< decides whether edge value needs to be limited or not
 
   !-------------------------------------------------------------------------
 
-!$ACC DATA PCOPYIN( p_cc ), PCOPYOUT( p_face ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYIN( p_cc, p_cellhgt_mc_now ), PCOPYOUT( p_face ), IF( i_am_accel_node .AND. acc_on )
 
 !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG VECTOR PRIVATE(ikp1, p_cc_min, p_cc_max) COLLAPSE(2)
-    DO jk = slev, elev
+!$ACC LOOP GANG VECTOR PRIVATE(ikm2, ikm1, ikp1, l_limit, mc_slope_u, mc_slope_l, faceval_u, faceval_l), &
+!$ACC COLLAPSE(2)
+    DO jk= slev, elev
       DO jc = i_startidx, i_endidx
 
-        ikp1 = jk+1
+        ikm2 = MAX(jk-2, slev)
+        ikm1 = MAX(jk-1, slev)
+        ikp1 = MIN(jk+1, elev)
 
-        ! make sure that face values lie within the range of values 
-        ! in the neighbouring cells 
-        p_cc_min = MIN(p_cc(jc,jk),p_cc(jc,ikp1))
-        p_cc_max = MAX(p_cc(jc,jk),p_cc(jc,ikp1))
 
-        p_face(jc,ikp1)= MIN(p_cc_max,MAX(p_cc_min,p_face(jc,ikp1)))
+        ! monotonized central-difference slope for cell jk-1
+        mc_slope_u  = mc_limiter(                                 &
+          &             p_cc_u       = p_cc(jc,ikm2),             &
+          &             p_cc_c       = p_cc(jc,ikm1),             &
+          &             p_cc_l       = p_cc(jc,jk),               &
+          &             cellhgt_mc_u = p_cellhgt_mc_now(jc,ikm2), &
+          &             cellhgt_mc_c = p_cellhgt_mc_now(jc,ikm1), &
+          &             cellhgt_mc_l = p_cellhgt_mc_now(jc,jk)    )
+
+        ! monotonized central-difference slope for cell jk
+        mc_slope_l  = mc_limiter(                                 &
+          &             p_cc_u       = p_cc(jc,ikm1),             &
+          &             p_cc_c       = p_cc(jc,jk),               &
+          &             p_cc_l       = p_cc(jc,ikp1),             &
+          &             cellhgt_mc_u = p_cellhgt_mc_now(jc,ikm1), &
+          &             cellhgt_mc_c = p_cellhgt_mc_now(jc,jk),   &
+          &             cellhgt_mc_l = p_cellhgt_mc_now(jc,ikp1)  )
+
+        ! monotonized, reconstructed face value from adjacent upper cell
+        faceval_u = p_cc(jc,ikm1) - 0.5_wp*p_cellhgt_mc_now(jc,ikm1) * mc_slope_u
+
+        ! monotonized, reconstructed face value from adjacent lower cell
+        faceval_l = p_cc(jc,jk) + 0.5_wp*p_cellhgt_mc_now(jc,jk) * mc_slope_l
+
+        ! edge value must be limited, if it is not bounded by the neighbouring cell averages
+        l_limit = ( (p_cc(jc,ikm1)-p_face(jc,jk))*(p_face(jc,jk)-p_cc(jc,jk)) ) < 0._wp
+
+        !DR: We have replaced the 'IF (l_limit)' condition by a 'MERGE' statement, 
+        !    which leads to a speedup of roughly a factor of 4 on the SX AURORA. 
+        !    The previous 'IF (l_limit)' implementation encapsulated the entire computation, 
+        !    i.e. mc_slope_u/l and faceval_u/l.
+        !      
+        !    The drawback of the current implementation is that it is performed 
+        !    for all cells, no matter if the face value must be limited or not.
+        ! 
+        ! monotonized face value for jk-1/2
+        ! take average of linear reconstructions from adjacent cells
+        p_face(jc,jk) = MERGE( 0.5_wp * (faceval_u + faceval_l), p_face(jc,jk), l_limit)
 
       END DO  ! jc
-
-    END DO  ! jk 
+    END DO  ! jk
 !$ACC END PARALLEL
 
 !$ACC END DATA
-  END SUBROUTINE v_limit_face_mo
-
+  END SUBROUTINE v_limit_face_mc_mo
 
 
 
   !-------------------------------------------------------------------------
   !>
-  !! One-sided limitation of reconstructed face values.
+  !! Semi-monotonic face value limiter for PSM
+  !! Checks if a face value is bounded by the neighbouring cell averages. 
+  !! If not, a linear reconstruction based on a monotoniced 
+  !! centered-difference (mc) slope is computed for each of the two neighbouring 
+  !! cells, in order to estimate a (bounded) edge value.
   !!
-  !! Make sure that face values do not fall below the range of values 
-  !! in the neighbouring cells.
-  !!
+  !! Note that this routine only differs from v_limit_face_mc_mo wrt the 
+  !! detection criterion l_limit. In principle it would be possible to merge 
+  !! both routines with the help of procedure pointers. However, this would 
+  !! introduce some performance penalty, as the procedure pointer hinders 
+  !! inlining of the detection citerion.
   !!
   !! Literature
-  !! Blossey, P. N. and D. R. Durran (2008), JCP, 227, 5160-5183
+  !! - White et al. (2008), JCP, 227, 7394-7422
+  !! - Leveque (2002), Finite Volume Methods for Hyperbolic Problems, 
+  !!                  Cambridge University Press
   !!
   !! @par Revision History
-  !! Initial revision by Daniel Reinert, DWD (2015-11-26)
+  !! Initial revision by Daniel Reinert, DWD (2021-01-18)
+  !! 
   !!
-  SUBROUTINE v_limit_face_sm( p_cc, p_face, i_startidx, i_endidx, slev, elev )
+  SUBROUTINE v_limit_face_mc_sm( p_cc, p_cellhgt_mc_now, p_face, i_startidx, i_endidx, &
+    &                            slev, elev )
 
 
-    REAL(wp), INTENT(IN) ::    &   !< advected cell centered variable
-      &  p_cc(:,:)                 !< dim: (nproma,nlev)
+    REAL(wp), INTENT(IN) ::     &  !< advected cell centered variable
+      &  p_cc(:,:)                 !< dim: (nproma, nlev)
 
-    REAL(wp), INTENT(INOUT) ::  &  !< reconstructed face values of the advected field
-      &  p_face(:,:)               !< dim: (nproma,nlevp1)
+    REAL(wp), INTENT(IN) ::     &  !< layer thickness at cell center
+      &  p_cellhgt_mc_now(:,:)     !< dim: (nproma,nlev)
+
+    REAL(wp), INTENT(INOUT) ::  &  !< reconstructed face values
+      &  p_face(:,:)               !< dim: (nproma, nlevp1)
 
     INTEGER, INTENT(IN)     ::  &  !< horizontal start and end index of DO loop
       &  i_startidx, i_endidx
@@ -825,35 +908,128 @@ CONTAINS
     INTEGER, INTENT(IN)     ::  &  !< vertical start and end index of DO loop
       &  slev, elev
 
-    REAL(wp) :: p_cc_min           !< 2-point min values
 
-    INTEGER  :: jc, jk             !< index of cell and vertical level
-    INTEGER  :: ikp1               !< vertical level plus one
+    ! local
+    REAL(wp):: mc_slope_u, mc_slope_l !< monotonized central-difference slope 
+                                      !< for adjacent upper (u) and lower (l) cell
+
+    REAL(wp):: faceval_u, faceval_l   !< reconstructed face value
+                                      !< based on the linear reconstruction for the 
+                                      !< adjacent upper (u) and lower (l) cell 
+                                
+    INTEGER :: jc, jk                 !< loop indices
+    INTEGER :: ikm2, ikm1, ikp1       !< vertical level minus two, minus/plus one
+
+    LOGICAL :: l_limit                !< decides whether edge value needs to be limited or not
 
   !-------------------------------------------------------------------------
 
-!$ACC DATA PCOPYIN( p_cc ), PCOPYOUT( p_face ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYIN( p_cc, p_cellhgt_mc_now ), PCOPYOUT( p_face ), IF( i_am_accel_node .AND. acc_on )
 
 !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG VECTOR PRIVATE(ikp1, p_cc_min) COLLAPSE(2)
-    DO jk = slev, elev
+!$ACC LOOP GANG VECTOR PRIVATE(ikm2, ikm1, ikp1, l_limit, mc_slope_u, mc_slope_l, faceval_u, faceval_l), &
+!$ACC COLLAPSE(2)
+    DO jk= slev, elev
       DO jc = i_startidx, i_endidx
 
-        ikp1 = jk+1
+        ikm2 = MAX(jk-2, slev)
+        ikm1 = MAX(jk-1, slev)
+        ikp1 = MIN(jk+1, elev)
 
-        ! make sure that face values do not fall below the range of values 
-        ! in the neighbouring cells 
-        p_cc_min = MIN(p_cc(jc,jk),p_cc(jc,ikp1))
 
-        p_face(jc,ikp1)= MAX(p_cc_min,p_face(jc,ikp1))
+        ! monotonized central-difference slope for cell jk-1
+        mc_slope_u  = mc_limiter(                                 &
+          &             p_cc_u       = p_cc(jc,ikm2),             &
+          &             p_cc_c       = p_cc(jc,ikm1),             &
+          &             p_cc_l       = p_cc(jc,jk),               &
+          &             cellhgt_mc_u = p_cellhgt_mc_now(jc,ikm2), &
+          &             cellhgt_mc_c = p_cellhgt_mc_now(jc,ikm1), &
+          &             cellhgt_mc_l = p_cellhgt_mc_now(jc,jk)    )
+
+        ! monotonized central-difference slope for cell jk
+        mc_slope_l  = mc_limiter(                                 &
+          &             p_cc_u       = p_cc(jc,ikm1),             &
+          &             p_cc_c       = p_cc(jc,jk),               &
+          &             p_cc_l       = p_cc(jc,ikp1),             &
+          &             cellhgt_mc_u = p_cellhgt_mc_now(jc,ikm1), &
+          &             cellhgt_mc_c = p_cellhgt_mc_now(jc,jk),   &
+          &             cellhgt_mc_l = p_cellhgt_mc_now(jc,ikp1)  )
+
+
+
+        ! monotonized, reconstructed face value from adjacent upper cell
+        faceval_u = p_cc(jc,ikm1) - 0.5_wp*p_cellhgt_mc_now(jc,ikm1) * mc_slope_u
+
+        ! monotonized, reconstructed face value from adjacent lower cell
+        faceval_l = p_cc(jc,jk) + 0.5_wp*p_cellhgt_mc_now(jc,jk) * mc_slope_l
+
+        ! edge value must be limited, if it is not bounded by the neighbouring cell averages
+        l_limit = p_face(jc,jk) < MIN(p_cc(jc,ikm1),p_cc(jc,jk))
+
+        !DR: We have replaced the 'IF (l_limit)' condition by a 'MERGE' statement, 
+        !    which leads to a speedup of roughly a factor of 4 on the SX AURORA. 
+        !    The previous 'IF (l_limit)' implementation encapsulated the entire computation, 
+        !    i.e. mc_slope_u/l and faceval_u/l.
+        !      
+        !    The drawback of the current implementation is that it is performed 
+        !    for all cells, no matter if the face value must be limited or not.
+        ! 
+        ! monotonized face value for jk-1/2
+        ! take average of linear reconstructions from adjacent cells
+        p_face(jc,jk) = MERGE( 0.5_wp * (faceval_u + faceval_l), p_face(jc,jk), l_limit)
 
       END DO  ! jc
-
-    END DO  ! jk 
+    END DO  ! jk
 !$ACC END PARALLEL
 
 !$ACC END DATA
-  END SUBROUTINE v_limit_face_sm
+  END SUBROUTINE v_limit_face_mc_sm
+
+
+
+  !-------------------------------------------------------------------------
+  !>
+  !! van Leer-type monotonized central-difference slope
+  !!
+  !! Literature
+  !! - White et al. (2008), JCP, 227, 7394-7422
+  !! - Leveque (2002), Finite Volume Methods for Hyperbolic Problems, 
+  !!                 Cambridge University Press
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2021-01-18)
+  !!
+  FUNCTION mc_limiter (p_cc_u, p_cc_c, p_cc_l, cellhgt_mc_u, cellhgt_mc_c, cellhgt_mc_l) &
+    &                  RESULT(mc_slope)
+!$ACC ROUTINE SEQ
+
+    REAL(wp), INTENT(IN)  :: p_cc_u, p_cc_c, p_cc_l  ! advected variable for 
+                                                     ! upper (u) center (c) and lower (l) cell
+    REAL(wp), INTENT(IN)  :: cellhgt_mc_u, cellhgt_mc_c, cellhgt_mc_l
+
+    ! local
+    REAL(wp) :: slope_u, slope_l   ! one-sided slopes
+    REAL(wp) :: slope_c            ! centered-difference slope
+
+    ! monotonized central-difference slope
+    REAL(wp) :: mc_slope
+  !-----------------------------------------------
+
+    ! one-sided upper slope
+    slope_u = 2._wp*(p_cc_u - p_cc_c)/cellhgt_mc_c
+    ! one-sided lower slope
+    slope_l = 2._wp*(p_cc_c - p_cc_l)/cellhgt_mc_c
+    ! centered difference slope
+    slope_c = 2._wp*(p_cc_u - p_cc_l)  &
+      &     /(cellhgt_mc_u + 2._wp*cellhgt_mc_c + cellhgt_mc_l)
+
+    IF ( slope_u*slope_l > 0._wp) THEN
+      mc_slope = SIGN(MIN(ABS(slope_u),ABS(slope_l),ABS(slope_c)),slope_c)
+    ELSE
+      mc_slope = 0._wp
+    ENDIF
+
+  END FUNCTION mc_limiter
 
 END MODULE mo_advection_vlimit
 

@@ -34,9 +34,12 @@ indexfile_text = '''\
     <hr/>
     <h1 align=center>Experiment %{EXP_ID}</h1>
     <table align=center border=0 cellpadding=3>
-#%  for mod in JOB.mon_tags:
-        <tr><th><a href="%{EXP_ID}_%{mod}.html">%{mod|upper}</a></th></tr>
-#%  endfor
+#%  if jobs.mon.tags is defined:
+#%      set tags = jobs.mon.tags
+#%      for tag in tags.scalars|sort if tags[tag] is set:
+        <tr><th><a href="%{EXP_ID}_%{tag}.html">%{tag|split('_')|map('capitalize')|join(' ')}</a></th></tr>
+#%      endfor
+#%  endif
     </table>
     <hr/>
     <address>

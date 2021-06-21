@@ -34,6 +34,7 @@ MODULE mo_ensemble_pert_config
   USE mo_turbdiff_config,    ONLY: turbdiff_config
   USE mo_gribout_config,     ONLY: gribout_config
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
+  USE mo_assimilation_config,ONLY: assimilation_config
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water, c_soil, cwimax_ml
   USE mo_grid_config,        ONLY: n_dom
   USE mo_parallel_config,    ONLY: nproma
@@ -47,6 +48,7 @@ MODULE mo_ensemble_pert_config
   USE mo_extpar_config,      ONLY: nclass_lu
   USE mo_exception,          ONLY: message_text, message, finish
   USE mtime,                 ONLY: datetime, getDayOfYearFromDateTime
+  USE mo_mpi,                ONLY: p_io, p_comm_work, p_bcast
 
   IMPLICIT NONE
   PRIVATE
@@ -60,7 +62,8 @@ MODULE mo_ensemble_pert_config
             range_lowcapefac, range_negpblcape, stdev_sst_pert, sst_pert_corrfac, range_rdepths,        &
             range_rprcon, range_qexc, range_turlen, range_a_hshr, range_rain_n0fac, range_box_liq_asy,  &
             itype_pert_gen, timedep_pert, range_a_stab, range_c_diff, range_q_crit, range_thicklayfac,  &
-            box_liq_sv, thicklayfac_sv, box_liq_asy_sv
+            box_liq_sv, thicklayfac_sv, box_liq_asy_sv, range_lhn_coef, range_lhn_artif_fac,            &
+            range_fac_lhn_down, range_fac_lhn_up
 
   !!--------------------------------------------------------------------------
   !! Basic configuration setup for ensemble perturbations
@@ -117,7 +120,7 @@ MODULE mo_ensemble_pert_config
     &  range_qexc, rnd_qexc
 
   REAL(wp) :: &                    !< Minimum value to which the snow cover fraction is artificially reduced
-    &  range_minsnowfrac, rnd_minsnowfrac   !  in case of melting show (in case of idiag_snowfrac = 20/30/40)
+    &  range_minsnowfrac, rnd_minsnowfrac   !  in case of melting show (in case of idiag_snowfrac = 20)
 
   REAL(wp) :: &                    !< Fraction of surface area available for bare soil evaporation
     &  range_c_soil, rnd_c_soil
@@ -167,6 +170,18 @@ MODULE mo_ensemble_pert_config
   REAL(wp) :: &                    !< Upper and lower bound of wind-speed dependent Charnock parameter 
     &  range_charnock, rnd_charnock, rnd_alpha0
 
+  REAL(wp) :: &                    !< Scaling factor for latent heat nudging increments
+    &  range_lhn_coef, rnd_lhn_coef
+
+  REAL(wp) :: &                    !< Scaling factor for artificial heating profile in latent heat nudging
+    &  range_lhn_artif_fac, rnd_lhn_artif_fac
+
+  REAL(wp) :: &                    !< Lower limit for reduction of pre-existing latent heating in LHN
+    &  range_fac_lhn_down, rnd_fac_lhn_down
+
+  REAL(wp) :: &                    !< Upper limit for increase of pre-existing latent heating in LHN
+    &  range_fac_lhn_up, rnd_fac_lhn_up
+
   REAL(wp) :: &                    !< Roughness length attributed to land-cover class 
     &  range_z0_lcc
 
@@ -195,13 +210,15 @@ MODULE mo_ensemble_pert_config
 
   ! Storage for unperturbed tuning parameters:
   !
-  REAL(wp) :: gfluxlaun_sv, zvz0i_sv, rprcon_sv, entrorg_sv, rdepths_sv, texc_sv, qexc_sv, capdcfac_et_sv, capdcfac_tr_sv, &
+  REAL(wp) :: gfluxlaun_sv, zvz0i_sv, rprcon_sv, entrorg_sv, rdepths_sv, texc_sv, qexc_sv, capdcfac_et_sv, capdcfac_tr_sv,     &
               lowcapefac_sv, negpblcape_sv, rhebc_land_sv, rhebc_ocean_sv, rcucov_sv, rhebc_land_trop_sv, rhebc_ocean_trop_sv, &
               rcucov_trop_sv, box_liq_sv, thicklayfac_sv, box_liq_asy_sv, minsnowfrac_sv, c_soil_sv, cwimax_ml_sv
 
-  REAL(wp), DIMENSION(1:max_dom) :: gkwake_sv, gfrcrit_sv, gkdrag_sv, rain_n0_sv, tkhmin_sv, tkhmin_strat_sv, tkmmin_sv, &
+  REAL(wp), DIMENSION(1:max_dom) :: gkwake_sv, gfrcrit_sv, gkdrag_sv, rain_n0_sv, tkhmin_sv, tkhmin_strat_sv, tkmmin_sv,    &
                                     tkmmin_strat_sv, rlam_heat_sv, rat_sea_sv, tur_len_sv, a_hshr_sv, a_stab_sv, c_diff_sv, &
-                                    q_crit_sv, alpha0_sv, alpha0_max_sv
+                                    q_crit_sv, alpha0_sv, alpha0_max_sv, lhn_coef_sv, lhn_artif_fac_sv, fac_lhn_down_sv,    &
+                                    fac_lhn_up_sv
+
 
 
   CONTAINS
@@ -254,7 +271,7 @@ MODULE mo_ensemble_pert_config
 
       ! Apply perturbations to physics tuning parameters
       linit = .TRUE.
-      CALL set_scalar_ens_pert()
+      CALL set_scalar_ens_pert(timedep_pert<2)
 
       ! Reinitialization of randum number generator in order to make external parameter perturbations
       ! independent of the number of RANDOM_NUMBER calls so far
@@ -308,6 +325,11 @@ MODULE mo_ensemble_pert_config
         rnd_tkred_sfc(i) = rnd_num
 
       ENDDO
+
+      ! Ensure that perturbations on VH and VE cores are the same
+#if defined (__SX__) || defined (__NEC_VH__)
+      CALL p_bcast(rnd_tkred_sfc, p_io, p_comm_work)
+#endif
 
       DEALLOCATE(rnd_seed)
 
@@ -393,6 +415,13 @@ MODULE mo_ensemble_pert_config
     c_soil_sv      = c_soil
     cwimax_ml_sv   = cwimax_ml
 
+    ! LHN (latent heat nudging)
+    lhn_coef_sv(1:max_dom)      = assimilation_config(1:max_dom)%lhn_coef
+    lhn_artif_fac_sv(1:max_dom) = assimilation_config(1:max_dom)%fac_lhn_artif_tune
+    fac_lhn_down_sv(1:max_dom)  = assimilation_config(1:max_dom)%fac_lhn_down
+    fac_lhn_up_sv(1:max_dom)    = assimilation_config(1:max_dom)%fac_lhn_up
+
+
   END SUBROUTINE save_unperturbed_params
 
 
@@ -402,7 +431,9 @@ MODULE mo_ensemble_pert_config
   !! @par Revision History
   !! Initial revision by Guenther Zaengl, DWD (2020-11-16)
   !!
-  SUBROUTINE set_scalar_ens_pert
+  SUBROUTINE set_scalar_ens_pert(lprint)
+
+    LOGICAL, INTENT(in) :: lprint ! print control output
 
     REAL(wp) :: rnd_fac, rnd_num, tkfac
 
@@ -540,7 +571,21 @@ MODULE mo_ensemble_pert_config
     rnd_fac = range_cwimax_ml**(2._wp*(rnd_num-0.5_wp))
     cwimax_ml = cwimax_ml_sv * rnd_fac
 
-    IF (timedep_pert < 2) THEN
+    ! LHN
+    CALL random_gen(rnd_lhn_coef, rnd_num)
+    assimilation_config(1:max_dom)%lhn_coef = lhn_coef_sv(1:max_dom) + 2._wp*(rnd_num-0.5_wp)*range_lhn_coef
+
+    CALL random_gen(rnd_lhn_artif_fac, rnd_num)
+    assimilation_config(1:max_dom)%fac_lhn_artif_tune = lhn_artif_fac_sv(1:max_dom) + 2._wp*(rnd_num-0.5_wp)*range_lhn_artif_fac
+
+    CALL random_gen(rnd_fac_lhn_down, rnd_num)
+    assimilation_config(1:max_dom)%fac_lhn_down = MIN(1._wp, fac_lhn_down_sv(1:max_dom) + 2._wp*(rnd_num-0.5_wp)*range_fac_lhn_down)
+
+    CALL random_gen(rnd_fac_lhn_up, rnd_num)
+    assimilation_config(1:max_dom)%fac_lhn_up = MAX(1._wp, fac_lhn_up_sv(1:max_dom) + 2._wp*(rnd_num-0.5_wp)*range_fac_lhn_up)
+
+
+    IF (lprint) THEN
 
       ! control output
       WRITE(message_text,'(3f8.4,e11.4,2f8.4)') tune_gkwake(1), tune_gkdrag(1), tune_gfrcrit(1), &
@@ -567,6 +612,10 @@ MODULE mo_ensemble_pert_config
 
       WRITE(message_text,'(2f8.4,e11.4)') tune_minsnowfrac, c_soil, cwimax_ml
       CALL message('Perturbed values, minsnowfrac, c_soil, cwimax_ml', TRIM(message_text))
+
+      WRITE(message_text,'(4f8.5)') assimilation_config(1)%lhn_coef, assimilation_config(1)%fac_lhn_artif_tune, &
+        assimilation_config(1)%fac_lhn_down, assimilation_config(1)%fac_lhn_up
+      CALL message('Perturbed values, lhn_coef, fac_lhn_artif_tune, fac_lhn_down, fac_lhn_up', TRIM(message_text))
 
     ENDIF
 
@@ -647,7 +696,7 @@ MODULE mo_ensemble_pert_config
 
     IF (timedep_pert == 2) THEN
       linit = .FALSE.
-      CALL set_scalar_ens_pert()
+      CALL set_scalar_ens_pert(.NOT. lrecomp)
       !
       ! resolution-dependent convection and SSO tuning parameters need to be recomputed during runtime
       IF (lrecomp) THEN
@@ -679,6 +728,10 @@ MODULE mo_ensemble_pert_config
 
       CALL RANDOM_NUMBER(rnd_aux)
 
+      ! Ensure that perturbations on VH and VE cores are the same
+#if defined (__SX__) || defined (__NEC_VH__)
+      CALL p_bcast(rnd_aux, p_io, p_comm_work)
+#endif
       IF (itype_pert_gen == 1) THEN
         rnd_val = rnd_aux
       ELSE IF (itype_pert_gen == 2) THEN
@@ -692,7 +745,7 @@ MODULE mo_ensemble_pert_config
       ENDIF
       rnd_in = rnd_val
     ELSE
-      phaseshift = NINT(25._wp+5._wp*(rnd_in-0.5_wp))*ssny/secyr
+      phaseshift = NINT(25._wp+3._wp*SIN(300._wp*rnd_in))*ssny/secyr
       phaseshift = phaseshift - INT(phaseshift)
       rnd_val = 0.5_wp * (1._wp + SIN(pi2*(rnd_in+phaseshift)))
     ENDIF

@@ -36,7 +36,7 @@
 MODULE mo_echam_phy_memory
 
   USE mo_kind,                ONLY: dp, wp
-  USE mo_impl_constants,      ONLY: SUCCESS, varname_len,      &
+  USE mo_impl_constants,      ONLY: SUCCESS, vname_len,        &
     &                               VINTP_METHOD_PRES,         &
     &                               VINTP_METHOD_LIN,          &
     &                               VINTP_METHOD_LIN_NLEVP1
@@ -52,18 +52,12 @@ MODULE mo_echam_phy_memory
   USE mo_echam_phy_config,    ONLY: echam_phy_tc, dt_zero
   USE mo_echam_sfc_indices,   ONLY: nsfc_type, csfc
   USE mo_model_domain,        ONLY: t_patch
-
-  USE mo_linked_list,         ONLY: t_var_list
-  USE mo_var_list,            ONLY: default_var_list_settings, &
-    &                               add_var, add_ref,          &
-    &                               new_var_list,              &
-    &                               delete_var_list
+  USE mo_var_list,            ONLY: add_var, add_ref, t_var_list_ptr
+  USE mo_var_list_register,   ONLY: vlr_add, vlr_del
+  USE mo_var_metadata,        ONLY: create_vert_interp_metadata, vintp_types
+  USE mo_action,              ONLY: ACTION_RESET, new_action, actions
   USE mo_nonhydro_state,      ONLY: p_nh_state_lists
   USE mo_ext_data_state,      ONLY: ext_data
-
-  USE mo_var_metadata,        ONLY: create_vert_interp_metadata, vintp_types, &
-    &                               new_action, actions
-  USE mo_action,              ONLY: ACTION_RESET
   USE mo_cf_convention,       ONLY: t_cf_var
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var, t_grib2_int_key, OPERATOR(+)
   USE mo_gribout_config,      ONLY: gribout_config
@@ -74,7 +68,7 @@ MODULE mo_echam_phy_memory
     &                               TSTEP_MIN, TSTEP_MAX,              &
     &                               cdiInqMissval, DATATYPE_INT
   USE mo_zaxis_type,          ONLY: ZA_REFERENCE, ZA_REFERENCE_HALF,           &
-    &                               ZA_REFERENCE_HALF_HHL,             &
+    &                               ZA_REFERENCE_HALF_HHL,                     &
     &                               ZA_SURFACE, ZA_GENERIC_ICE, ZA_TROPOPAUSE, &
     &                               ZA_HEIGHT_2M, ZA_HEIGHT_10M, ZA_TOA,       &
     &                               ZA_ATMOSPHERE
@@ -246,7 +240,11 @@ MODULE mo_echam_phy_memory
       & rldscs      (:,  :)=>NULL(),  &!< [W/m2] surface downwelling clear-sky longwave radiation
       & rluscs      (:,  :)=>NULL(),  &!< [W/m2] surface downwelling clear-sky longwave radiation
       !
+#ifdef __NO_RTE_RRTMGP__
       & o3          (:,:,:)    !< temporary set ozone mass mixing ratio  
+#else
+      & o3          (:,:,:)=>NULL()    !< [mol/mol] ozone volume mixing ratio 
+#endif
     ! aerosol optical properties
     REAL(wp),POINTER ::      &
       & aer_aod_533 (:,:,:)=>NULL(),  &!< aerosol optical depth at 533 nm
@@ -652,8 +650,8 @@ MODULE mo_echam_phy_memory
   !!--------------------------------------------------------------------------
   !!                          VARIABLE LISTS
   !!--------------------------------------------------------------------------
-  TYPE(t_var_list),ALLOCATABLE :: prm_field_list(:)  !< shape: (n_dom)
-  TYPE(t_var_list),ALLOCATABLE :: prm_tend_list (:)  !< shape: (n_dom)
+  TYPE(t_var_list_ptr),ALLOCATABLE :: prm_field_list(:)  !< shape: (n_dom)
+  TYPE(t_var_list_ptr),ALLOCATABLE :: prm_tend_list (:)  !< shape: (n_dom)
 
   REAL(dp), SAVE :: cdimissval
 
@@ -737,8 +735,8 @@ CONTAINS
     ndomain = SIZE(prm_field)
 
     DO jg = 1,ndomain
-      CALL delete_var_list( prm_field_list(jg) )
-      CALL delete_var_list( prm_tend_list (jg) )
+      CALL vlr_del(prm_field_list(jg))
+      CALL vlr_del(prm_tend_list (jg))
     ENDDO
 
     DEALLOCATE( prm_field_list, prm_tend_list, STAT=ist )
@@ -763,26 +761,15 @@ CONTAINS
                                      & metrics_list,                                &
                                      & ext_atm_list,                                &
                                      & field_list, field                            )
-
     INTEGER,INTENT(IN) :: jg !> patch ID
     INTEGER,INTENT(IN) :: kproma, klev, kblks, ktracer, ksfc_type  !< dimension sizes
-
-    CHARACTER(len=*)              ,INTENT(IN) :: listname, prefix
-
-    TYPE(t_var_list),       INTENT(INOUT) :: diag_list
-    TYPE(t_var_list),       INTENT(INOUT) :: metrics_list
-    TYPE(t_var_list),       INTENT(INOUT) :: ext_atm_list
-    TYPE(t_var_list),       INTENT(INOUT) :: field_list
-    TYPE(t_echam_phy_field),INTENT(INOUT) :: field
-
-    ! Local variables
-
-    CHARACTER(len=varname_len) :: trcname, varname
+    CHARACTER(*), INTENT(IN) :: listname, prefix
+    TYPE(t_var_list_ptr), INTENT(INOUT) :: field_list, diag_list, metrics_list, ext_atm_list
+    TYPE(t_echam_phy_field), INTENT(INOUT) :: field
+    CHARACTER(LEN=vname_len) :: trcname, varname
     LOGICAL :: contvar_is_in_output
-
     TYPE(t_cf_var)    ::    cf_desc
     TYPE(t_grib2_var) :: grib2_desc, grib2_tmp
-
     INTEGER :: shape2d(2), shape3d(3), shapesfc(3), shapeice(3), shape3d_layer_interfaces(3)
     INTEGER :: ibits, iextbits, ivarbits
     INTEGER :: datatype_flt
@@ -790,31 +777,17 @@ CONTAINS
 
     ibits = DATATYPE_PACK16
     iextbits = DATATYPE_PACK24
-
-    IF (gribout_config(jg)%lgribout_24bit) THEN
-      ivarbits = DATATYPE_PACK24
-    ELSE
-      ivarbits = DATATYPE_PACK16
-    ENDIF
-
-    IF ( lnetcdf_flt64_output ) THEN
-      datatype_flt = DATATYPE_FLT64
-    ELSE
-      datatype_flt = DATATYPE_FLT32
-    ENDIF
-
+    ivarbits = MERGE(DATATYPE_PACK24, DATATYPE_PACK16, gribout_config(jg)%lgribout_24bit)
+    datatype_flt = MERGE(DATATYPE_FLT64, DATATYPE_FLT32, lnetcdf_flt64_output)
     shape2d  = (/kproma,       kblks/)
     shape3d  = (/kproma, klev, kblks/)
     shapesfc = (/kproma, kblks, ksfc_type/)
     shape3d_layer_interfaces = (/kproma,klev+1,kblks/)
 
-
     !$ACC ENTER DATA COPYIN( field )
     ! Register a field list and apply default settings
 
-    CALL new_var_list( field_list, listname, patch_id=jg )
-    CALL default_var_list_settings( field_list,                &
-                                  & lrestart=.TRUE.  )
+    CALL vlr_add(field_list, listname, patch_id=jg ,lrestart=.TRUE.)
 
     !------------------------------
     ! Metrics
@@ -963,9 +936,14 @@ CONTAINS
 
     ! OZONE 
     ! &       field% o3        (nproma,nlev  ,nblks),          &
-    cf_desc    = t_cf_var('ozone', 'kg/kg', 'ozone mixing ratio', datatype_flt)
     grib2_desc = grib2_var(0,14,1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+#ifdef __NO_RTE_RRTMGP__
+    cf_desc    = t_cf_var('ozone', 'kg/kg', 'ozone mixing ratio', datatype_flt)
     CALL add_var( field_list, prefix//'tro3', field%o3,                         &
+#else
+    cf_desc    = t_cf_var('ozone', 'mol/mol', 'ozone volume mixing ratio', datatype_flt)
+    CALL add_var( field_list, prefix//'o3', field%o3,                           &
+#endif
                 & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, ldims=shape3d, &
                 & lrestart = .FALSE.,                                           &
                 & vert_interp=create_vert_interp_metadata(                      &
@@ -4285,44 +4263,29 @@ CONTAINS
   SUBROUTINE new_echam_phy_tend_list( jg, kproma, klev, kblks, ktracer, &
                                     & listname, prefix,                 &
                                     & tend_list, tend )
-
     INTEGER,INTENT(IN) :: jg !> patch ID
     INTEGER,INTENT(IN) :: kproma, klev, kblks, ktracer  !< dimension sizes
-
-    CHARACTER(len=*)              ,INTENT(IN) :: listname, prefix
-
-    TYPE(t_var_list)      ,INTENT(INOUT) :: tend_list
-    TYPE(t_echam_phy_tend),INTENT(INOUT) :: tend
-
-    ! Local variables
-
-    CHARACTER(len=varname_len) :: trcname, varname
+    CHARACTER(*), INTENT(IN) :: listname, prefix
+    TYPE(t_var_list_ptr), INTENT(INOUT) :: tend_list
+    TYPE(t_echam_phy_tend), INTENT(INOUT) :: tend
+    CHARACTER(len=vname_len) :: trcname, varname
     LOGICAL :: contvar_is_in_output
-
     TYPE(t_cf_var)    ::    cf_desc
     TYPE(t_grib2_var) :: grib2_desc, grib2_tmp
-
     INTEGER :: shape2d(2), shape3d(3), shape_trc(4)
     INTEGER :: ibits, jtrc
     INTEGER :: datatype_flt
     !------------------------------
 
     ibits = DATATYPE_PACK16 ! "entropy" of horizontal slice
-
-    IF ( lnetcdf_flt64_output ) THEN
-      datatype_flt = DATATYPE_FLT64
-    ELSE
-      datatype_flt = DATATYPE_FLT32
-    ENDIF
-
+    datatype_flt = MERGE(DATATYPE_FLT64, DATATYPE_FLT32, lnetcdf_flt64_output)
     shape2d   = (/kproma, kblks/)
     shape3d   = (/kproma, klev, kblks/)
     shape_trc = (/kproma, klev, kblks, ktracer/)
 
     !$ACC ENTER DATA COPYIN( tend )
 
-    CALL new_var_list( tend_list, listname, patch_id=jg )
-    CALL default_var_list_settings( tend_list, lrestart=.FALSE. )
+    CALL vlr_add(tend_list, listname, patch_id=jg ,lrestart=.FALSE.)
 
     !------------------------------
     ! Temperature tendencies

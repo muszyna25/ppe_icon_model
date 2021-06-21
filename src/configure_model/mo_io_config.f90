@@ -51,6 +51,7 @@ MODULE mo_io_config
   REAL(wp):: celltracks_interval(max_dom)  ! time interval [seconds] over which extrema of cell track vars are taken
                                            !  (LPI_MAX, UH_MAX, VORW_CTMAX, W_CTMAX, DBZ_CTMAX)
   CHARACTER(len=max_timedelta_str_len) :: precip_interval(max_dom)   ! time interval over which precipitation variables are accumulated
+  CHARACTER(len=max_timedelta_str_len) :: runoff_interval(max_dom)   ! time interval over which runoff variables are accumulated
   CHARACTER(len=max_timedelta_str_len) :: maxt_interval(max_dom)     ! time interval for tmax_2m, tmin_2m
   REAL(wp):: dt_lpi                     ! calling frequency [seconds] of lpi diagnosis for hourly maximum calculation
   REAL(wp):: dt_celltracks              ! calling frequency [seconds] of celltrack diagnosis for hourly maximum calculation
@@ -80,6 +81,11 @@ MODULE mo_io_config
   LOGICAL :: lnetcdf_flt64_output       !< if .TRUE. floating point valued NetCDF output
                                         !  is written in 64-bit instead of 32-bit accuracy
 
+  INTEGER, PARAMETER :: uh_max_nlayer = 3
+  REAL(wp):: uh_max_zmin(uh_max_nlayer), &  !< minimum and maximum height in m MSL for the vertical
+             uh_max_zmax(uh_max_nlayer)     !  integration of uh_max (output vars uh_max<_low,_med>)
+  LOGICAL :: luh_max_out(max_dom, uh_max_nlayer) = .false.
+
   TYPE t_echotop_meta
     REAL(wp) :: time_interval           !< time interval [seconds] over which echotops are maximized/minimized
                                         !   (ECHOTOP, ECHOTOPinM) for a domain
@@ -101,6 +107,13 @@ MODULE mo_io_config
     LOGICAL :: sdi2        = .FALSE. !< Flag. TRUE if computation of supercell detection index desired
     LOGICAL :: lpi         = .FALSE. !< Flag. TRUE if computation of lightning potential index desired
     LOGICAL :: lpi_max     = .FALSE. !< Flag. TRUE if computation of max. of lightning potential index desired
+    LOGICAL :: lpi_con     = .FALSE. !< Flag. TRUE if computation of convective lightning potential index desired
+    LOGICAL :: mlpi_con    = .FALSE. !< Flag. TRUE if computation of modified convective lightning potential index desired
+    LOGICAL :: lpi_con_max = .FALSE. !< Flag. TRUE if computation of maximum convective lightning potential index desired
+    LOGICAL :: mlpi_con_max= .FALSE. !< Flag. TRUE if computation of maximum modified convective lightning potential index desired
+    LOGICAL :: lfd_con     = .FALSE. !< Flag. TRUE if computation of lighting flash density  desired
+    LOGICAL :: lfd_con_max = .FALSE. !< Flag. TRUE if computation of maximum lighting flash density  desired
+    LOGICAL :: koi         = .FALSE. !< Flag. TRUE if computation of convection index
     LOGICAL :: ceiling     = .FALSE. !< Flag. TRUE if computation of ceiling height desired
     LOGICAL :: hbas_sc     = .FALSE. !< Flag. TRUE if computation of height of base from shallow convection desired
     LOGICAL :: htop_sc     = .FALSE. !< Flag. TRUE if computation of height of top  from shallow convection desired
@@ -115,7 +128,9 @@ MODULE mo_io_config
     LOGICAL :: smi         = .FALSE. !< Flag. TRUE if computation of soil moisture index desired
     LOGICAL :: tcond_max   = .FALSE. !< Flag. TRUE if computation of total column-integrated condensate desired
     LOGICAL :: tcond10_max = .FALSE. !< Flag. TRUE if computation of total column-integrated condensate above z(T=-10 degC) desired
-    LOGICAL :: uh_max      = .FALSE. !< Flag. TRUE if computation of updraft helicity desired
+    LOGICAL :: uh_max_low  = .FALSE. !< Flag. TRUE if computation of updraft helicity (0 - 3000 m) desired
+    LOGICAL :: uh_max_med  = .FALSE. !< Flag. TRUE if computation of updraft helicity (2000 - 5000 m) desired
+    LOGICAL :: uh_max      = .FALSE. !< Flag. TRUE if computation of updraft helicity (2000 - 8000 m) desired
     LOGICAL :: vorw_ctmax  = .FALSE. !< Flag. TRUE if computation of maximum rotation amplitude desired
     LOGICAL :: w_ctmax     = .FALSE. !< Flag. TRUE if computation of maximum updraft track desired
     LOGICAL :: vor_u       = .FALSE. !< Flag. TRUE if computation of zonal component of relative vorticity desired
@@ -144,7 +159,6 @@ MODULE mo_io_config
 
   ! currently used by hydrostatic model only
   LOGICAL :: l_outputtime      ! if .true., output is written at the end of the time step.
-  LOGICAL :: l_diagtime        ! if .true., diagnostic output is computed and written at the end of the time step.
 
   LOGICAL :: lmask_boundary    ! flag: true, if interpolation zone should be masked *in output*
 
@@ -207,6 +221,13 @@ CONTAINS
         var_in_output(jg)%sdi2        = is_variable_in_output_dom(var_name="sdi2", jg=jg)
         var_in_output(jg)%lpi         = is_variable_in_output_dom(var_name="lpi", jg=jg)
         var_in_output(jg)%lpi_max     = is_variable_in_output_dom(var_name="lpi_max", jg=jg)
+        var_in_output(jg)%lpi_con     = is_variable_in_output_dom(var_name="lpi_con", jg=jg)
+        var_in_output(jg)%mlpi_con    = is_variable_in_output_dom(var_name="mlpi_con", jg=jg)
+        var_in_output(jg)%lpi_con_max = is_variable_in_output_dom(var_name="lpi_con_max", jg=jg)
+        var_in_output(jg)%mlpi_con_max= is_variable_in_output_dom(var_name="mlpi_con_max", jg=jg)
+        var_in_output(jg)%lfd_con     = is_variable_in_output_dom(var_name="lfd_con", jg=jg)
+        var_in_output(jg)%lfd_con_max = is_variable_in_output_dom(var_name="lfd_con_max", jg=jg)
+        var_in_output(jg)%koi         = is_variable_in_output_dom(var_name="koi", jg=jg)
         var_in_output(jg)%ceiling     = is_variable_in_output_dom(var_name="ceiling", jg=jg)
         var_in_output(jg)%hbas_sc     = is_variable_in_output_dom(var_name="hbas_sc", jg=jg)
         var_in_output(jg)%htop_sc     = is_variable_in_output_dom(var_name="htop_sc", jg=jg)
@@ -214,6 +235,8 @@ CONTAINS
         var_in_output(jg)%q_sedim     = is_variable_in_output_dom(var_name="q_sedim", jg=jg)
         var_in_output(jg)%tcond_max   = is_variable_in_output_dom(var_name="tcond_max", jg=jg)
         var_in_output(jg)%tcond10_max = is_variable_in_output_dom(var_name="tcond10_max", jg=jg)
+        var_in_output(jg)%uh_max_low  = is_variable_in_output_dom(var_name="uh_max_low", jg=jg)
+        var_in_output(jg)%uh_max_med  = is_variable_in_output_dom(var_name="uh_max_med", jg=jg)
         var_in_output(jg)%uh_max      = is_variable_in_output_dom(var_name="uh_max", jg=jg)
         var_in_output(jg)%vorw_ctmax  = is_variable_in_output_dom(var_name="vorw_ctmax", jg=jg)
         var_in_output(jg)%w_ctmax     = is_variable_in_output_dom(var_name="w_ctmax", jg=jg)

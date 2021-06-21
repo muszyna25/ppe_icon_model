@@ -116,9 +116,6 @@ CONTAINS
 
     ghg_base_year = ghg_years(1)
 
-#ifdef _OPENACC
-    CALL warning("GPU:read_bc_greenhouse_gases", "GPU device synchronization")
-#endif
     !$ACC UPDATE DEVICE( ghg_years, ghg_co2, ghg_ch4, ghg_n2o, ghg_cfc )
     
   END SUBROUTINE read_bc_greenhouse_gases
@@ -191,17 +188,23 @@ CONTAINS
       zcfc(:)   = 1.0e-12_wp * ( zw1*ghg_cfc(iyear,:) + zw2*ghg_cfc(iyearp,:) )
     END IF
 
+#ifdef __NO_RTE_RRTMGP__
     ! convert from volume to mass mixing ratio
-
     ghg_co2mmr    = zco2int*amco2/amd 
     ghg_ch4mmr    = zch4int*amch4/amd
     ghg_n2ommr    = zn2oint*amn2o/amd
 
     ghg_cfcmmr(1) = zcfc(1)*amc11/amd
     ghg_cfcmmr(2) = zcfc(2)*amc12/amd
-#ifdef _OPENACC
-    CALL warning("GPU:bc_greenhouse_gases_time_interpolation", "GPU device synchronization")
+#else
+    ghg_co2mmr    = zco2int
+    ghg_ch4mmr    = zch4int
+    ghg_n2ommr    = zn2oint
+
+    ghg_cfcmmr(1) = zcfc(1)
+    ghg_cfcmmr(2) = zcfc(2)
 #endif
+
     !$ACC UPDATE DEVICE( ghg_cfcmmr )
 
   END SUBROUTINE bc_greenhouse_gases_time_interpolation

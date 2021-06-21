@@ -71,7 +71,7 @@ MODULE mo_vertical_grid
   USE mo_dynamics_config,      ONLY: ldeepatmo
   USE mo_nh_deepatmo_utils,    ONLY: set_deepatmo_metrics
   USE mo_echam_vdf_config,     ONLY: echam_vdf_config
-  USE mo_linked_list,          ONLY: t_var_list
+  USE mo_var_list,             ONLY: t_var_list_ptr
   USE mo_nonhydro_state,       ONLY: new_zd_metrics  
   IMPLICIT NONE
 
@@ -1749,7 +1749,7 @@ MODULE mo_vertical_grid
 
     TYPE(t_patch), TARGET, INTENT(INOUT) :: p_patch
     TYPE(t_nh_state), INTENT(INOUT)      :: p_nh
-    TYPE(t_var_list), INTENT(INOUT)      :: p_nh_metrics_list
+    TYPE(t_var_list_ptr), INTENT(INOUT)      :: p_nh_metrics_list
     TYPE(t_int_state), TARGET,INTENT(IN) :: p_int
     REAL(wp),        INTENT(IN)        :: maxslp(nproma,p_patch%nlev,p_patch%nblks_c)
     REAL(wp),        INTENT(IN)        :: maxhgtd(nproma,p_patch%nlev,p_patch%nblks_c)

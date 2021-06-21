@@ -9,7 +9,7 @@ author_list="Remo Dietlicher, MeteoSwiss"
 # This experiment describes a ICON-LAM experiment using the physics packages that are
 # used at MeteoSwiss for production that are already put on the gpu.
 # This simulation computes a few time steps on a low-resolution grid over Switzerland.
-# The setup is for development purposes.
+# This setup is for development purposes.
 #
 #--------------------------------------------------------------------------------------------------
 
@@ -224,7 +224,7 @@ cat > ${atmo_namelist} << EOF
 &io_nml
  output_nml_dict             =              "${dict_file}"        ! translates the output nml names to icon names
  netcdf_dict                 =              "${dict_file}"        ! specifies the names in the output netcdf file
- lnetcdf_flt64_output        =                      .TRUE.        ! double precision output
+ lnetcdf_flt64_output        =                      .FALSE.        ! double precision output
  itype_pres_msl              =                          5         ! method for computation of mean sea level pressure
  itype_rh                    =                          1         ! method for computation of relative humidity
  lmask_boundary              =                      .FALSE.        ! mask out interpolation zone in output
@@ -314,6 +314,15 @@ cat > ${atmo_namelist} << EOF
  dt_gwd                      =               360.,360.,360.       ! time step for gravity wave drag parameterization
 /
 
+! bench_nml: switches for the time_loop ------------------------------
+&bench_nml
+ d_unpb           =          .FALSE.        ! disable update_nwp_phy_bcs
+ d_ndfo           =          .TRUE.         ! disable nwp_diag_for_output
+ d_rld            =          .FALSE.        ! disable recv_latbc_data
+ d_n              =          .TRUE.         ! disable nudging
+ d_wnlo           =          .FALSE.        ! disable write_name_list_output
+/
+
 ! nwp_tuning_nml: additional tuning parameters ----------------------------------
 &nwp_tuning_nml
  itune_albedo                =                          1         ! reduced albedo (w.r.t. MODIS data) over Sahara
@@ -392,19 +401,23 @@ cat > ${atmo_namelist} << EOF
 /
 ! ser_nml: serialization configuration ----------------------------------------
 &ser_nml
- ser_graupel                 =                            0
- ser_interface_nwp           =                            0
- ser_turbdiff_interface      =                            0
- ser_turbdiff                =                            0
- ser_vertdiff                =                            0
- ser_turbtrans_interface     =                            0
- ser_output_diag             =                            0
- ser_latbc_data              =                            0
- ser_dynamics                =                            0
- ser_diffusion               =                            0 
- ser_step_advection          =                            0 
- ser_physics                 =                            0 
- ser_nudging                 =                            0 
+ ser_output_diag             =                            0,12,12
+ ser_latbc_data              =                            0,12,12
+ ser_dynamics                =                            0,12,12
+ ser_diffusion               =                            0,12,12 
+ ser_step_advection          =                            0,12,12 
+ ser_physics                 =                            0,12,12
+ ser_surface                 =                            0,12,12
+ ser_microphysics            =                            0,12,12
+ ser_lhn                     =                            0,12,12
+ ser_cover                   =                            0,12,12
+ ser_radiation               =                            0,12,12
+ ser_radheat                 =                            0,12,12
+ ser_gwdrag                  =                            0,12,12
+ ser_convection              =                            0,12,12
+ ser_nudging                 =                            0,12,12 
+ ser_nfail                   =                            1
+ ser_nreport                 =                            10
  ser_all_debug               =                            0 
  ser_debug                   =                        .FALSE.      ! serialize the debug statements from mo_ser_debug
 /

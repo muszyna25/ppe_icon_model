@@ -1124,7 +1124,9 @@ nflevg=klev
 !     DETRPEN: AVERAGE DETRAINMENT RATE FOR PENETRATIVE CONVECTION (1/M)
 !     -------
 
-phy_params%detrpen=0.75E-4_JPRB*MAX(1._jprb,SQRT(5.e3_jprb/rsltn))
+phy_params%detrpen=0.75E-4_JPRB
+IF (lshallow_only .OR. lgrayzone_deepconv) &
+  phy_params%detrpen = phy_params%detrpen*MAX(1._jprb,SQRT(5.e3_jprb/rsltn))
 
 !         NOTA:SHALLOW/DEEP ENTRAINMENT RATES ARE 
 !              VERTICALLY SCALED BY FUNCTION  (qs/qsb)**3
@@ -1186,7 +1188,9 @@ ENDIF
 !     RDEPTHS:   MAXIMUM ALLOWED SHALLOW CLOUD DEPTH (Pa)
 !     -------
 
-phy_params%rdepths=tune_rdepths/MAX(1._jprb,SQRT(5.e3_jprb/rsltn))
+phy_params%rdepths=tune_rdepths
+IF (lshallow_only .OR. lgrayzone_deepconv) &
+  phy_params%rdepths = phy_params%rdepths/MAX(1._jprb,SQRT(5.e3_jprb/rsltn))
 
 !     RPRCON:    COEFFICIENTS FOR DETERMINING CONVERSION FROM CLOUD WATER
 !     ------
@@ -1247,7 +1251,9 @@ ENDIF
 
 
 ! tuning parameter for organized entrainment of deep convection
-phy_params%entrorg = tune_entrorg*MAX(1._jprb,SQRT(5.e3_jprb/rsltn))
+phy_params%entrorg = tune_entrorg
+IF (lshallow_only .OR. lgrayzone_deepconv) &
+  phy_params%entrorg = phy_params%entrorg*MAX(1._jprb,SQRT(5.e3_jprb/rsltn))
 
 ! resolution-dependent settings for 'excess values' of temperature and QV used for convection triggering (test parcel ascent)
 
@@ -1281,7 +1287,11 @@ phy_params%tau = 1.0_JPRB + rsltn/120.e3_jprb
 phy_params%tau=MIN(3.0_JPRB,phy_params%tau)
 
 ! Increase adjustment time scale at resolutions below 10 km
-IF (rsltn < 10.e3_jprb) phy_params%tau = phy_params%tau + (LOG(10.e3_jprb/rsltn))**2
+IF (rsltn < 10.e3_jprb .AND. (lshallow_only .OR. lgrayzone_deepconv)) THEN
+  phy_params%tau = phy_params%tau + LOG(10.e3_jprb/rsltn)**2
+ELSE IF (rsltn < 10.e3_jprb) THEN
+  phy_params%tau = phy_params%tau + MIN(0.25_jprb, LOG(10.e3_jprb/rsltn)**2)
+ENDIF
 
 ! ** CAPE correction to improve diurnal cycle of convection ** (set now in mo_nwp_phy_nml)
 ! icapdcycl = 0! 0= no CAPE diurnal cycle correction (IFS default prior to cy40r1, i.e. 2013-11-19)

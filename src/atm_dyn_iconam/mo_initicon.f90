@@ -22,7 +22,7 @@
 
 MODULE mo_initicon
 
-  USE mo_kind,                ONLY: dp, wp, vp
+  USE mo_kind,                ONLY: dp, wp, vp, sp
   USE mo_io_units,            ONLY: filename_max
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, iqg, iqm_max, iforcing, check_uuid_gracefully, &
@@ -39,7 +39,9 @@ MODULE mo_initicon
   USE mo_initicon_config,     ONLY: init_mode, dt_iau, lvert_remap_fg, lread_ana, ltile_init, &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart, lconsistency_checks, &
     &                               niter_divdamp, niter_diffu, lanaread_tseasfc, qcana_mode, qiana_mode, &
-    &                               qrsgana_mode, fgFilename, anaFilename, ana_varnames_map_file
+    &                               qrsgana_mode, fgFilename, anaFilename, ana_varnames_map_file,         &
+    &                               icpl_da_sfcevap, dt_ana
+  USE mo_limarea_config,      ONLY: latbc_config
   USE mo_advection_config,    ONLY: advection_config
   USE mo_nwp_tuning_config,   ONLY: max_freshsnow_inc
   USE mo_impl_constants,      ONLY: SUCCESS, MODE_DWDANA, max_dom,   &
@@ -54,11 +56,10 @@ MODULE mo_initicon
   USE mo_nh_init_nest_utils,  ONLY: interpolate_vn_increments
   USE mo_util_phys,           ONLY: virtual_temp
   USE mo_util_string,         ONLY: int2string
-  USE mo_satad,               ONLY: sat_pres_ice, spec_humi
+  USE mo_satad,               ONLY: sat_pres_ice, spec_humi, sat_pres_water
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, ntiles_lnd, llake, &
     &                               isub_lake, isub_water, lsnowtile, frlnd_thrhld, &
     &                               frlake_thrhld, lprog_albsi, dzsoil_icon => dzsoil
-  USE mo_extpar_config,       ONLY: itype_vegetation_cycle
   USE sfc_seaice,             ONLY: frsi_min
   USE mo_atm_phy_nwp_config,  ONLY: iprog_aero, atm_phy_nwp_config
   USE sfc_terra_data,         ONLY: cporv, cadp, cpwp, cfcap, crhosmaxf, crhosmin_ml, crhosmax_ml
@@ -67,7 +68,7 @@ MODULE mo_initicon
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp, calc_qsum
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
-  USE mo_sync,                ONLY: sync_patch_array, SYNC_E, SYNC_C
+  USE mo_sync,                ONLY: sync_patch_array, SYNC_E, SYNC_C, global_sum_array
   USE mo_math_laplace,        ONLY: nabla2_vec, nabla4_vec
   USE mo_cdi,                 ONLY: cdiDefAdditionalKey, cdiInqMissval
   USE sfc_flake,              ONLY: flake_coldinit
@@ -212,7 +213,7 @@ MODULE mo_initicon
         CASE(MODE_IFSANA)   
             CALL message(modname,'MODE_IFS: perform initialization with IFS analysis')
         CASE(MODE_COMBINED)
-            CALL message(modname,'MODE_COMBINED: IFS-atm + GME-soil')
+            CALL message(modname,'MODE_COMBINED: IFS-atm + ICON-soil')
         CASE(MODE_COSMO)
             CALL message(modname,'MODE_COSMO: COSMO-atm + COSMO-soil')
         CASE DEFAULT
@@ -303,12 +304,12 @@ MODULE mo_initicon
     SELECT CASE(init_mode)
         CASE(MODE_DWDANA, MODE_IAU_OLD, MODE_IAU)
             CALL fetch_dwdfg_atm(requestList, p_patch, p_nh_state, initicon, inputInstructions)
-            CALL fetch_dwdfg_sfc(requestList, p_patch, prm_diag, p_lnd_state, inputInstructions)
+            CALL fetch_dwdfg_sfc(requestList, p_patch, prm_diag, p_nh_state, p_lnd_state, inputInstructions)
         CASE(MODE_ICONVREMAP)
             CALL fetch_dwdfg_atm_ii(requestList, p_patch, initicon, inputInstructions)
-            CALL fetch_dwdfg_sfc(requestList, p_patch, prm_diag, p_lnd_state, inputInstructions)
+            CALL fetch_dwdfg_sfc(requestList, p_patch, prm_diag, p_nh_state, p_lnd_state, inputInstructions)
         CASE(MODE_COMBINED, MODE_COSMO)
-            CALL fetch_dwdfg_sfc(requestList, p_patch, prm_diag, p_lnd_state, inputInstructions)
+            CALL fetch_dwdfg_sfc(requestList, p_patch, prm_diag, p_nh_state, p_lnd_state, inputInstructions)
     END SELECT
 
     ! Cleanup.
@@ -1107,7 +1108,11 @@ MODULE mo_initicon
     ! Required for computing the water loading term 
     INTEGER, POINTER :: condensate_list(:)
 
-    INTEGER :: iter
+    INTEGER :: iter, npts
+    REAL(wp) :: psinc
+
+    REAL(wp), ALLOCATABLE :: psinc_blk(:)
+    INTEGER, ALLOCATABLE  :: npts_blk(:)
 
     !-------------------------------------------------------------------------
 
@@ -1135,6 +1140,11 @@ MODULE mo_initicon
         CALL finish(routine, 'allocation of auxiliary arrays failed')
       ENDIF
 
+      IF (latbc_config%fac_latbc_presbiascor > 0._wp) THEN
+        ALLOCATE(psinc_blk(nblks_c),npts_blk(nblks_c))
+        psinc_blk(:) = 0._wp
+        npts_blk(:)  = 0
+      ENDIF
 
       ! define some pointers
       p_prog_now     => p_nh_state(jg)%prog(nnow(jg))
@@ -1279,6 +1289,18 @@ MODULE mo_initicon
           END IF
 
         ENDDO  ! jk
+
+        ! Prepare computation of domain-average pressure increment at lowest level
+        ! increments are truncated to single precision in order to (hopefully) achieve insensitivity
+        ! against the domain decomposition
+        IF (latbc_config%fac_latbc_presbiascor > 0._wp) THEN
+          DO jc = i_startidx, i_endidx
+            IF (p_patch(jg)%cells%decomp_info%decomp_domain(jc,jb)==0) THEN
+              psinc_blk(jb) = psinc_blk(jb) + REAL(REAL(initicon(jg)%atm_inc%pres(jc,nlev,jb),sp),wp)
+              npts_blk(jb)  = npts_blk(jb) + 1
+            ENDIF
+          ENDDO
+        ENDIF
 
       ENDDO  ! jb
 !$OMP END DO NOWAIT
@@ -1450,6 +1472,21 @@ MODULE mo_initicon
       DEALLOCATE( nabla2_vn_incr, z_qsum, zvn_incr, alpha, STAT=ist )
       IF (ist /= SUCCESS) THEN
         CALL finish(routine, 'deallocation of auxiliary arrays failed' )
+      ENDIF
+
+      IF (latbc_config%fac_latbc_presbiascor > 0._wp) THEN
+
+        ! calculate domain-averaged pressure increment at lowest model level and its time-filtered
+        ! value, which is used afterwards as pressure offset at the lateral boundaries; the averaging weights
+        ! are deliberately chosen to sum up to more than 1 in order to achieve a bias reduction of more than 50%
+        psinc = SUM(psinc_blk)
+        npts  = SUM(npts_blk)
+        psinc = REAL(REAL(global_sum_array(psinc),sp),wp)
+        npts  = global_sum_array(npts)
+        p_diag%p_avginc(:,:) = 0.8_wp*p_diag%p_avginc(:,:) + 0.4_wp*psinc/(REAL(npts,wp))
+
+        DEALLOCATE(psinc_blk,npts_blk)
+
       ENDIF
 
       !
@@ -1670,7 +1707,7 @@ MODULE mo_initicon
     INTEGER :: jg, jb, jt, jk, jc, ic              ! loop indices
     INTEGER :: nblks_c                             ! number of blocks
     INTEGER :: rl_start, rl_end
-    INTEGER :: i_startidx, i_endidx
+    INTEGER :: i_startidx, i_endidx, nlev
     INTEGER :: ist
 
     LOGICAL :: lerr                      ! error flag
@@ -1681,7 +1718,7 @@ MODULE mo_initicon
 
     REAL(wp) :: h_snow_t_fg(nproma,ntiles_total)   ! intermediate storage of h_snow first guess
     REAL(wp) :: wso_inc(nproma,nlev_soil)          ! local copy of w_so increment
-    REAL(wp) :: snowfrac_lim, wfac
+    REAL(wp) :: snowfrac_lim, wfac, rh_inc, smival
 
     REAL(wp), PARAMETER :: min_hsnow_inc=0.001_wp  ! minimum hsnow increment (1mm absolute value)
                                                    ! in order to avoid grib precision problems
@@ -1695,6 +1732,7 @@ MODULE mo_initicon
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
       nblks_c   = p_patch(jg)%nblks_c
+      nlev      = p_patch(jg)%nlev
       rl_start  = 1
       rl_end    = min_rlcell
 
@@ -1705,7 +1743,7 @@ MODULE mo_initicon
 
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jt,jk,ic,jc,i_startidx,i_endidx,lerr,h_snow_t_fg,snowfrac_lim,ist,wso_inc,wfac)
+!$OMP DO PRIVATE(jb,jt,jk,ic,jc,i_startidx,i_endidx,lerr,h_snow_t_fg,snowfrac_lim,ist,wso_inc,wfac,rh_inc,smival)
       DO jb = 1, nblks_c
 
         ! (re)-initialize error flag
@@ -1726,6 +1764,7 @@ MODULE mo_initicon
           ! - no addition of water in soil layers 3-5 if soil moisture is already above field capacity
 
           DO jk = 3, 5
+!NEC$ ivdep
             DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
               jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
               ist = ext_data(jg)%atm%soiltyp(jc,jb)
@@ -1741,6 +1780,7 @@ MODULE mo_initicon
           ENDDO
 
           DO jk = 1, nlev_soil
+!NEC$ ivdep
             DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
               jc  = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
               ist = ext_data(jg)%atm%soiltyp(jc,jb)
@@ -1789,7 +1829,7 @@ MODULE mo_initicon
               lnd_diag%snowfrac_lc_t(:,jb,jt) = 1._wp
               lnd_diag%snowfrac_t(:,jb,jt)    = 1._wp
             ENDIF
-
+!NEC$ ivdep
             DO ic = 1, ext_data(jg)%atm%gp_count_t(jb,jt)
               jc = ext_data(jg)%atm%idx_lst_t(ic,jb,jt)
 
@@ -1859,6 +1899,7 @@ MODULE mo_initicon
 
           ! consistency checks for rho_snow
           DO jt = 1, ntiles_total
+!NEC$ ivdep
             DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
               jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
 
@@ -1906,14 +1947,57 @@ MODULE mo_initicon
 
           ! Time-filtering of analyzed T2M bias
           ! only if t_2m is read from analysis
-          IF (itype_vegetation_cycle == 3 ) THEN
+          IF (icpl_da_sfcevap == 1 .OR. icpl_da_sfcevap == 2) THEN
             IF (ANY((/kInputSourceAna,kInputSourceAnaI/) == inputInstructions(jg)%ptr%sourceOfVar('t_2m'))) THEN
               DO jc = i_startidx, i_endidx
-                lnd_diag%t2m_bias(jc,jb) = lnd_diag%t2m_bias(jc,jb) + &
-                  0.4_wp*(initicon(jg)%sfc_inc%t_2m(jc,jb)-lnd_diag%t2m_bias(jc,jb))
+                p_diag%t2m_bias(jc,jb) = p_diag%t2m_bias(jc,jb) + &
+                  0.4_wp*(initicon(jg)%sfc_inc%t_2m(jc,jb)-p_diag%t2m_bias(jc,jb))
               ENDDO
             ENDIF
-          ENDIF  ! itype_vegetation_cycle
+          ENDIF  ! icpl_da_sfcevap
+
+          IF (icpl_da_sfcevap >= 2) THEN
+            ! Calculate time-filtered RH assimilation increment at lowest model level (time scale 2.5 days);
+            ! this serves as a proxy for the averaged RH2M bias
+            DO jc = i_startidx, i_endidx
+              rh_inc = initicon(jg)%atm_inc%qv(jc,nlev,jb)/ &
+                spec_humi(sat_pres_water(p_diag%temp(jc,nlev,jb)),p_diag%pres_sfc(jc,jb))
+              p_diag%rh_avginc(jc,jb) = p_diag%rh_avginc(jc,jb) + dt_ana/216000._wp*(rh_inc-p_diag%rh_avginc(jc,jb))
+            ENDDO
+
+            ! Ensure that some useable soil moisture is available when a dry bias is present
+            ! Specifically, water is added to levels 3-5 when the SMI is below 0.2, and a possible negative w_so increment
+            ! from the SMA is reverted
+            DO jt = 1, ntiles_total
+              DO jk = 3, 5
+!NEC$ ivdep
+                DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
+                  jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
+                  ist = ext_data(jg)%atm%soiltyp(jc,jb)
+                  SELECT CASE(ist)
+                    CASE (3,4,5,6,7,8) ! soil types with non-zero water content
+                    smival = dzsoil_icon(jk)*(0.8_wp*cpwp(ist)+0.2_wp*cfcap(ist)) ! corresponds to SMI = 0.2
+                    ! The relaxation time scale is taken to be 20 days for an averaged 3-hourly RH increment of 1%
+                    ! The scaling factor is constant because it is assumed that the magnitude of rh_avginc is proportional to dt_ana
+                    IF (p_diag%rh_avginc(jc,jb) > 0._wp .AND. lnd_prog_now%w_so_t(jc,jk,jb,jt) <= smival) THEN
+                      lnd_prog_now%w_so_t(jc,jk,jb,jt) = lnd_prog_now%w_so_t(jc,jk,jb,jt) - MIN(0._wp,wso_inc(jc,jk)) + &
+                        0.625_wp*p_diag%rh_avginc(jc,jb)*(smival-lnd_prog_now%w_so_t(jc,jk,jb,jt))
+                    ENDIF
+                  END SELECT
+                ENDDO
+              ENDDO
+            ENDDO
+          ENDIF  ! icpl_da_sfcevap
+
+          IF (icpl_da_sfcevap >= 3) THEN
+            ! Calculate time-filtered T assimilation increment at lowest model level (time scale 2.5 days);
+            ! this serves as a proxy for the averaged T2M bias
+            DO jc = i_startidx, i_endidx
+              p_diag%t_avginc(jc,jb) = p_diag%t_avginc(jc,jb) + &
+                dt_ana/216000._wp*(initicon(jg)%atm_inc%temp(jc,nlev,jb)-p_diag%t_avginc(jc,jb))
+            ENDDO
+          ENDIF  ! icpl_da_sfcevap
+
 
         ENDIF  ! MODE_IAU
 
@@ -2111,7 +2195,7 @@ MODULE mo_initicon
           ENDIF
 
 
-          ! Catch problematic coast cases: ICON-land but GME ocean for moisture
+          ! Catch problematic coast cases: ICON-land but interpolated ocean for moisture
           !
           DO jk = 1, nlev_soil
 !NEC$ ivdep
@@ -2170,6 +2254,7 @@ MODULE mo_initicon
         ! Search for CDI missval and replace it by meaningful value
         ! Reason: GRIB2-output fails otherwise (cumbersome values), probably due to
         ! the huge value range.
+!NEC$ ivdep
         DO jc = i_startidx, i_endidx
           IF (p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) == missval) THEN
             p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) = 0._wp
@@ -2198,7 +2283,7 @@ MODULE mo_initicon
         DO jb = 1, i_endblk
 
           CALL get_indices_c(p_patch(jg), jb, 1, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
-
+!NEC$ ivdep
           DO jc = i_startidx, i_endidx
             IF (ext_data(jg)%atm%fr_land(jc,jb) <= 1-frlnd_thrhld) THEN ! grid points with non-zero water fraction
               IF (lanaread_tseasfc(jg)) THEN

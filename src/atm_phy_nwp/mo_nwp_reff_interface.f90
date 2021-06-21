@@ -103,11 +103,12 @@ MODULE mo_nwp_reff_interface
         CALL message('',message_text)
       END IF
 
-    CASE DEFAULT  ! Initialize 1 moment
-      CALL gscp_set_coefficients(tune_zceff_min = tune_zceff_min,                  &
-           &                        tune_v0snow    = tune_v0snow,                  &
-           &                        tune_zvz0i     = tune_zvz0i,                   &
-           &                      tune_icesedi_exp = tune_icesedi_exp,             &
+    CASE DEFAULT  ! Initialize 1 moment with graupel schme (igscp=2) for subgrid clouds
+      CALL gscp_set_coefficients(            igscp = 2,                             & 
+           &                        tune_zceff_min = tune_zceff_min,                &
+           &                        tune_v0snow    = tune_v0snow,                   &
+           &                        tune_zvz0i     = tune_zvz0i,                    &
+           &                      tune_icesedi_exp = tune_icesedi_exp,              &
            &                        tune_mu_rain   = atm_phy_nwp_config(jg)%mu_rain,&
            &                   tune_rain_n0_factor = atm_phy_nwp_config(jg)%rain_n0_factor)
     END SELECT
@@ -609,6 +610,7 @@ MODULE mo_nwp_reff_interface
        IF ( ASSOCIATED( prm_diag%reff_qr ) ) THEN
          CALL combine_reff( prm_diag%tot_cld(:,:,jb,iqc),  prm_diag%reff_qc(:,:,jb),  &
              &              p_prog%tracer(:,:,jb,iqr),     prm_diag%reff_qr(:,:,jb),  &
+             &              prm_diag%clc(:,:,jb),                                  &
              &              k_start =kstart_moist(jg),k_end = nlev,is = is,ie=ie    )
        END IF
 
@@ -616,13 +618,14 @@ MODULE mo_nwp_reff_interface
        IF ( ASSOCIATED( prm_diag%reff_qs ) ) THEN
          CALL combine_reff( prm_diag%tot_cld(:,:,jb,iqi),  prm_diag%reff_qi(:,:,jb),  &
              &              p_prog%tracer(:,:,jb,iqs),     prm_diag%reff_qs(:,:,jb),  &
+             &              prm_diag%clc(:,:,jb),                                  &
              &              k_start =kstart_moist(jg),k_end = nlev,is = is,ie=ie    )
        END IF
 ! Combine graupel into the ice phase
-       IF ( ANY(atm_phy_nwp_config(jg)%inwp_gscp == (/2,4,5,6,7/)) .AND.               &
-       &      ASSOCIATED( prm_diag%reff_qg ) ) THEN
-          CALL combine_reff( prm_diag%tot_cld(:,:,jb,iqi),  prm_diag%reff_qi(:,:,jb),  &
-           &              p_prog%tracer(:,:,jb,iqg),     prm_diag%reff_qg(:,:,jb),  &
+       IF ( (iqg > 0 ) .AND. ASSOCIATED( prm_diag%reff_qg ) ) THEN
+          CALL combine_reff( prm_diag%tot_cld(:,:,jb,iqi),  prm_diag%reff_qi(:,:,jb), &
+           &              p_prog%tracer(:,:,jb,iqg),     prm_diag%reff_qg(:,:,jb),    &
+           &              prm_diag%clc(:,:,jb),                                    &
            &              k_start =kstart_moist(jg),k_end = nlev,is = is,ie=ie    )
        END IF
 

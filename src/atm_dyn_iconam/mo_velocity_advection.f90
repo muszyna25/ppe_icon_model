@@ -201,7 +201,8 @@ MODULE mo_velocity_advection
 !$ACC DATA COPYIN( z_w_concorr_me, z_kin_hor_e, z_vt_ie ), &
 !$ACC CREATE( z_w_concorr_mc, z_w_con_c, cfl_clipping, z_w_con_c_full, z_v_grad_w, z_w_v, zeta, z_ekinh, levmask, levelmask ), &
 !$ACC PRESENT( p_diag, p_prog, p_int, p_metrics, p_patch ), &
-!$ACC PRESENT( iqidx, iqblk, ividx, icblk, icidx, ieidx, ieblk, incblk, ivblk, incidx )
+!$ACC PRESENT( iqidx, iqblk, ividx, icblk, icidx, ieidx, ieblk, incblk, ivblk, incidx ) &
+!$ACC IF ( i_am_accel_node .AND. acc_on )
 
 #ifdef _OPENACC
 ! In validation mode, update all the needed fields on the device

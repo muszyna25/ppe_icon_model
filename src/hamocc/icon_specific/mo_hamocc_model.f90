@@ -27,7 +27,6 @@ MODULE mo_hamocc_model
   USE mtime,                  ONLY: MAX_DATETIME_STR_LEN, datetimeToString
   USE mo_name_list_output_init, ONLY: init_name_list_output, parse_variable_groups, &
     &                                 output_file
-  USE mo_derived_variable_handling, ONLY: init_statistics_streams, finish_statistics_streams
   USE mo_name_list_output,    ONLY: close_name_list_output, name_list_io_main_proc
   USE mo_name_list_output_config,  ONLY: use_async_name_list_io
   USE mo_level_selection, ONLY: create_mipz_level_selections
@@ -101,7 +100,7 @@ MODULE mo_hamocc_model
     & get_OceanCurrentTime_Pointer
   USE mtime,                   ONLY: datetime, datetimeToString, datetimeToPosixString, MAX_DATETIME_STR_LEN, deallocateDatetime
 
-  USE mo_derived_variable_handling, ONLY: update_statistics, reset_statistics
+  USE mo_derived_variable_handling, ONLY: update_statistics
   USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
   USE mo_restart,                ONLY: t_RestartDescriptor, createRestartDescriptor, deleteRestartDescriptor
  
@@ -116,8 +115,9 @@ MODULE mo_hamocc_model
   USE mo_ocean_hamocc_interface, ONLY: hamocc_to_ocean_init, hamocc_to_ocean_end, hamocc_to_ocean_interface
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_ocean_math_operators,   ONLY: update_height_hamocc
-
+#ifdef YAC_coupling
   USE mo_io_coupling,            ONLY: construct_io_coupler, destruct_io_coupler
+#endif
   USE mo_icon_output_tools,      ONLY: init_io_processes, prepare_output
  
   IMPLICIT NONE
@@ -290,7 +290,6 @@ MODULE mo_hamocc_model
           ! &                             oce_ts)
      !------------------------------------------------------------------
     CALL update_statistics
-     
     !------------------------------------------------------------------
     IF (istime4name_list_output(jstep) ) THEN
       fmtstr = '%Y-%m-%d %H:%M:%S'
@@ -301,9 +300,6 @@ MODULE mo_hamocc_model
       IF (output_mode%l_nml) CALL write_name_list_output(jstep)
     ENDIF
     !------------------------------------------------------------------
-   
-    CALL reset_statistics
-   
   END SUBROUTINE output_hamocc
   !-------------------------------------------------------------------------
 
@@ -351,15 +347,11 @@ MODULE mo_hamocc_model
 
     ! Delete variable lists
 
-    IF (output_mode%l_nml) THEN
-      CALL close_name_list_output
-      CALL finish_statistics_streams
-    ENDIF
+    IF (output_mode%l_nml) CALL close_name_list_output
    
 #ifdef YAC_coupling
      CALL destruct_io_coupler ( get_my_process_name() )
 #endif
-
 
     CALL destruct_icon_communication()
 

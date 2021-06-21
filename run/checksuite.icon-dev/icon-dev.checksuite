@@ -345,35 +345,40 @@ function tolerance_check
 
     # find relevant config
     case $EXPERIMENT in
-        *atm_amip*)
-            CONFIG_WRAPPER=amip_config.sh
+        *atm*amip*)
+            FILE_IDS="atm_3d"
             ;;
-        *atm_ape*)
-            CONFIG_WRAPPER=amip_config.sh
+        *atm*ape*)
+            FILE_IDS="atm_3d"
             ;;
-        *mch_ch*)
-            CONFIG_WRAPPER=lam_config.sh
+        *mch_*)
+            FILE_IDS="atm_3d"
             ;;
         *)
-            echo "no wrapper for ${EXPERIMENT}"
-            return 1
+            echo "no file ids specified for ${EXPERIMENT}"
+            echo "you most likely did not change the entries in"
+            echo "icon-dev.checksuite. The checksuite cannot find"
+            echo "the model output"
+            TOL_STATUS=1
+            return TOL_STATUS
             ;;
     esac
 
     echo "Running tolerance check with compiler-specific reference from builder (${REF_BUILDER})"
 
-    # generate the probtest config file
-    EXP=${EXPERIMENT} BUILDER=${REF_BUILDER} MACHINE=${BB_SYSTEM} bash probtest/wrapper/${CONFIG_WRAPPER}
-
     # generate the aggregated "single-column" stats file
-    PROBTEST_CONFIG=${EXPERIMENT}.cfg python probtest/probtest.py --log-file stats-${EXPERIMENT}.log stats \
+    python probtest/probtest.py --log-file stats-${EXPERIMENT}.log stats \
+        --time-dim "time" \
         --model-output-dir experiments/${EXP_BASE} \
-        --stats-file-name ${EXPERIMENT}.csv
+        --stats-file-name ${EXPERIMENT}.csv \
+        --file-ids $FILE_IDS \
+        --no-ensemble
     # validate the generated stats against the reference
-    PROBTEST_CONFIG=${EXPERIMENT}.cfg python probtest/probtest.py --log-file check-${EXPERIMENT}.log check \
+    python probtest/probtest.py --log-file check-${EXPERIMENT}.log check \
         --input-file-cur ${EXPERIMENT}.csv \
         --input-file-ref icon-test-references/${REF_BUILDER}/reference/${EXPERIMENT}.csv \
-        --tolerance-file-name icon-test-references/${REF_BUILDER}/tolerance/${EXPERIMENT}.csv
+        --tolerance-file-name icon-test-references/${REF_BUILDER}/tolerance/${EXPERIMENT}.csv \
+        --factor 5
 
     # get the relevant success check
     fail=$(grep RESULT check-${EXPERIMENT}.log | grep 'FAIL' | wc -l)
@@ -818,7 +823,7 @@ if string_in_list $MD $CMODES; then
 fi # MODE
 
 
-CMODES="m um rm nm mo urm unm umo rnm rmo nmo urnm urmo unmo rnmo urnmo rnmot"
+CMODES="m um rm nm mo tm urm unm umo rnm rmo nmo urnm urmo unmo rnmo urnmo rnmot"
 if string_in_list $MD $CMODES; then
     TEST='mpi'
     echo ' '
@@ -837,6 +842,8 @@ if string_in_list $MD $CMODES; then
 
             N_NODES=`grep "no_of_nodes=" exp.${SCRIPT}.run`
             eval N_NODES=\""${N_NODES#'no_of_nodes='}"\"
+            OMP_NUM_THREADS=`grep "export OMP_NUM_THREADS=" exp.${SCRIPT}.run`
+            eval OMP_NUM_THREADS=\""${OMP_NUM_THREADS#'export OMP_NUM_THREADS='}"\"
             N_PPNODE=`grep "mpi_procs_pernode=" exp.${SCRIPT}.run`
             eval N_PPNODE=\""${N_PPNODE#'mpi_procs_pernode='}"\"
             N_PROCS=$(( N_NODES * N_PPNODE ))
@@ -969,6 +976,7 @@ if string_in_list $MD $CMODES; then
                 # since the mistral script dynamically adapts the
                 # number of tasks to the number of threads, these need
                 # to be fixed too
+                OMP_NUM_THREADS=$N_OMP_NUM_THREADS
                 N_PPNODE=`grep "mpi_procs_pernode=" exp.${SCRIPT}.run`
                 eval N_PPNODE=\""${N_PPNODE#'mpi_procs_pernode='}"\"
 
@@ -1029,7 +1037,7 @@ if string_in_list $MD $CMODES; then
     fi # TEST_POSSIBLE
 fi # MODE
 
-CMODES="t rnmot"
+CMODES="t tm rnmot"
 if string_in_list $MD $CMODES; then
     TEST='tolerance'
     echo ' '

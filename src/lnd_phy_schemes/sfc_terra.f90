@@ -90,78 +90,6 @@ MODULE sfc_terra
 #endif
 
 
-#ifdef __COSMO__
-USE kind_parameters, ONLY :   &
-    wp           ! KIND-type parameter for real variables
-!------------------------------------------------------------------------------
-
-USE data_constants  , ONLY :   &
-
-! 1. physical constants and related variables
-! -------------------------------------------
-
-    pi,           & ! circle constant
-    t0_melt,      & ! absolute zero for temperature
-    r_d,          & ! gas constant for dry air
-    rdv,          & ! r_d / r_v
-    o_m_rdv,      & ! 1 - r_d/r_v
-    rvd_m_o,      & ! r_v/r_d -1
-    cp_d,         & ! specific heat of dry air at constant pressure
-    rdocp,        & ! r_d / cp_d
-    lh_v,         & ! latent heat of vapourization
-    lh_f,         & ! latent heat of fusion
-    lh_s,         & ! latent heat of sublimation
-    g,            & ! acceleration due to gravity
-    sigma,        & ! Boltzmann-constant
-
-! 2. constants for parametrizations
-! ---------------------------------
-    b1,           & ! variables for computing the saturation vapour pressure
-    b2w,          & ! over water (w) and ice (i)
-    b2i,          & !               -- " --
-    b3,           & !               -- " --
-    b4w,          & !               -- " --
-    b4i,          & !               -- " --
-    rho_w           ! density of liquid water
-
-! end of data_constants
-
-!------------------------------------------------------------------------------
-
-USE data_runcontrol , ONLY :   &
-
-! 3. controlling the physics
-! --------------------------
-    lmulti_snow,  & ! run the multi-layer snow model
-    itype_trvg,   & ! type of vegetation transpiration parameterization
-    itype_evsl,   & ! type of parameterization of bare soil evaporation
-    itype_root,   & ! type of root density distribution
-    itype_heatcond,&! type of soil heat conductivity
-    itype_hydbound,&! type of hydraulic lower boundary condition
-    itype_canopy, & ! type of canopy parameterisation with respect to the surface energy balance
-    itype_mire,   & ! type of mire parameterization
-    lstomata,     & ! map of minimum stomata resistance
-!   lterra_urb,   & ! urban parameterization 
-!   lurbfab,      & ! switch on/off the urban fabric (in a bulk approach)
-!   itype_eisa,   & ! type of evaporation from the impervious surface: 
-
-! 5. additional control variables
-! --------------------------
-    msg_level=>idbg_level      ! to control the verbosity of debug output
-
-! end of data_runcontrol
-
-!------------------------------------------------------------------------------
-
-USE turb_data,          ONLY:  &
-    c_lnd           ! surface area density of the roughness elements over land
-
-!------------------------------------------------------------------------------
-
-USE data_parallel,      ONLY:  &
-    my_cart_id        ! rank of this subdomain in the global communicator
-#endif
-
 !------------------------------------------------------------------------------
 
 USE sfc_terra_data  ! All variables from this data module are used by
@@ -169,7 +97,7 @@ USE sfc_terra_data  ! All variables from this data module are used by
 
 !------------------------------------------------------------------------------
 
-#ifdef __ICON__
+
 USE mo_mpi,                ONLY : get_my_global_mpi_id
 !
 USE mo_kind,               ONLY: wp
@@ -209,8 +137,7 @@ USE mo_lnd_nwp_config,     ONLY: lmulti_snow, l2lay_rho_snow,     &
 !
 USE mo_exception,          ONLY: message, message_text
 USE mo_run_config,         ONLY: msg_level
-!US USE mo_impl_constants,     ONLY: iedmf
-#endif
+
 
 !------------------------------------------------------------------------------
 ! Declarations
@@ -258,9 +185,7 @@ CONTAINS
                   rootdp           , & ! depth of the roots                            ( m  )
                   sai              , & ! surface area index                              --
                   tai              , & ! transpiration area index                        --
-#ifdef __ICON__
                   laifac           , & ! ratio between current LAI and laimax            --
-#endif
                   eai              , & ! earth area (evaporative surface area) index     --
                   skinc            , & ! skin conductivity                        ( W/m**2/K )
                   rsmin2d          , & ! minimum stomata resistance                    ( s/m )
@@ -406,9 +331,7 @@ CONTAINS
                   rootdp           , & ! depth of the roots                            ( m  )
                   sai              , & ! surface area index                              --
                   tai              , & ! transpiration area index                        --
-#ifdef __ICON__
                   laifac           , & ! ratio between current LAI and laimax
-#endif
                   eai              , & ! earth area (evaporative surface area) index     --
                   skinc            , & ! skin conductivity                        ( W/m**2/K )
 ! for TERRA_URB
@@ -521,8 +444,6 @@ CONTAINS
 
 
 
-
-
 !US why +1  REAL    (KIND = wp), DIMENSION(nvec,ke_soil+1), INTENT(OUT) :: &
 !US is really +1 in ICON
   REAL    (KIND = wp), DIMENSION(nvec,ke_soil+1), INTENT(OUT) :: &
@@ -531,9 +452,7 @@ CONTAINS
   REAL    (KIND = wp), DIMENSION(nvec), OPTIONAL, INTENT(OUT) :: &
                   zshfl_sfc        , & ! sensible heat flux surface interface          (W/m2)
                   zlhfl_sfc        , & ! latent   heat flux surface interface          (W/m2)
-!DR start
                   zqhfl_sfc            ! latent   heat flux surface interface          (W/m2)
-!DR end
 
   LOGICAL, OPTIONAL, INTENT(IN) :: lacc
 
@@ -1034,12 +953,6 @@ CONTAINS
     limit_tch (nvec)         ! indicator for flux limitation problem
 #endif
 
-#ifndef _OPENACC
-  INTEGER  ::            &
-    icount_snow        , & ! Counter for snow
-    ! array for storing the indices in lists
-    melt_list(nvec)         ! list of melting snow points
-#endif
 
 #ifdef __SX__
   REAL(wp) :: zfac(nvec),lhfl_pl_int(nvec)
@@ -1058,10 +971,8 @@ CONTAINS
   ! For performance improvement
   REAL    (KIND=wp) :: ln_2, ln_3, ln_10, ln_006
 
-#ifdef __ICON__
   INTEGER :: my_cart_id,        &
              itype_mire   = 0
-#endif
 
   INTEGER :: my_thrd_id, mcid, mtid, mbid, mvid
 
@@ -1076,11 +987,9 @@ ELSE
     lzacc = .FALSE.
 ENDIF
 
-#ifdef __ICON__
 my_cart_id = get_my_global_mpi_id()
 #ifdef _OPENMP
 my_thrd_id = omp_get_thread_num()
-#endif
 #endif
 mbid = 714
 mcid =   0
@@ -1225,9 +1134,7 @@ enddo
   !$acc data                                                         &
   !$acc present(zmls)                                                &
   !$acc present(soiltyp_subs, plcov, rootdp, sai, eai, tai)    &
-#ifdef __ICON__
   !$acc present(laifac)                                              &
-#endif
   !$acc present(skinc)                                               &
   !$acc present(rsmin2d, u, v, t, qv, ptot, ps, h_snow_gp, u_10m)    &
   !$acc present(v_10m, prr_con, prs_con, conv_frac, prr_gsp,prs_gsp,pri_gsp) &
@@ -1300,9 +1207,6 @@ enddo
 
 #ifndef _OPENACC
   ln_10 = LOG(10.0_wp)
-
-  icount_snow     = 0
-  melt_list(:)    = 0
 #endif
 
 ! Temperaturedifference for liquid water content in frozen soil at -40 degC
@@ -1693,14 +1597,12 @@ enddo
         ENDIF
         hzalam(i,kso) = (zKe*(zlamsat - zlamdry) + zlamdry)*(1._wp-zxx) + zxx*0.06_wp
 
-#ifdef __ICON__
         ! heat conductivity is also artificially reduced on snow-free forest-covered tiles generated
         ! by the melting-rate parameterization
         IF (tsnred(i) < -1.0_wp .AND. z0(i) >= 0.2_wp) THEN
           zxx = MAX(0.0_wp,2.0_wp - ABS(tsnred(i)))
           hzalam(i,kso) = zxx*hzalam(i,kso) + (1.0_wp-zxx)*0.06_wp
         ENDIF
-#endif
       ENDDO
     ENDDO
     !$acc end parallel
@@ -1816,12 +1718,8 @@ enddo
     ! net radiative fluxes at surface
     zradfl(i) = sobs(i)+thbs(i)
 
-#ifdef __ICON__
     zxx = MIN(500.0_wp,200.0_wp+0.5_wp*ABS(zradfl(i)))
-#endif
-#ifdef __COSMO__
-    zxx = 500.0_wp
-#endif
+
     IF (zshfl(i)*zlhfl(i) >= 0._wp) THEN
       zthfl(i) = zshfl(i) + zlhfl(i)
     ELSE IF (ABS(zshfl(i)) > ABS(zlhfl(i))) THEN
@@ -2628,15 +2526,8 @@ enddo
           IF (itype_trvg == 3) THEN
             ! Modification of rsmin depending on accumulated plant evaporation; the z0 dependency
             ! is used to get a stronger effect for trees than for low vegetation
-#ifdef __COSMO__
-            IF (z0(i) <= 0.4_wp) zxx = MIN(1.25_wp, zxx)
-            zzz = MAX(0.5_wp, EXP(SQRT(z0(i))*LOG(zxx)) )
-            ! limit reduction of rsmin-factor below 1 at low temperatures
-            zzz = MAX(zzz, MIN(1._wp,(t0_melt+15._wp-t(i))/15._wp))
-#endif
-#ifdef __ICON__
+
             zzz = MAX(0.5_wp+MIN(0.5_wp,1.0_wp-laifac(i)), EXP(SQRT(z0(i))*LOG(zxx)) )
-#endif
 
           ELSE
             zzz = 1.0_wp
@@ -5384,284 +5275,6 @@ enddo
   ENDIF
 
 
-! GZ: this additional computation is obsolete with snow tiles because grid points with completely melted snow
-!     are deleted afterwards
-#ifndef __ICON__
-!>JH New solution of heat conduction for snow points which melted completly
-!    during time step
-!------------------------------------------------------------------------------
-! Section II.6n: Solution of the heat conduction equation, freezing/melting
-!               of soil water/ice (optionally)
-!------------------------------------------------------------------------------
-
-! Index list of completely melting snow points
-  !$acc parallel async if(lzacc)
-  !$acc loop gang vector
-  DO i = ivstart, ivend
-    IF (w_snow_now(i) > eps_soil .AND. w_snow_new(i) < eps_soil) THEN ! Snow vanished during time step
-#ifndef _OPENACC
-      icount_snow=icount_snow+1
-      melt_list(icount_snow)=i
-#endif
-      zfor_s(i)=0._wp ! no soil forcing is needed at this step
-                      ! only distribution of heat
-    END IF
-  END DO
-  !$acc end parallel
-
-  ! New update of soil heat capacity
-  !$acc parallel async if(lzacc)
-  DO   kso = 1,ke_soil+1
-#ifndef _OPENACC
-!$NEC ivdep
-    DO ic=1,icount_snow
-      i=melt_list(ic)
-#else
-    !$acc loop gang vector
-    DO i = ivstart, ivend
-      IF (w_snow_now(i) > eps_soil .AND. w_snow_new(i) < eps_soil) THEN ! Snow vanished during time step
-#endif
-        ziw_fr(i,kso) = w_so_ice_new(i,kso)/zdzhs(kso)   ! ice frac.
-        zlw_fr(i,kso) = w_so_new(i,kso)/zdzhs(kso) - ziw_fr(i,kso)  ! liquid water frac.
-        zroc(i,kso)   = zrocg(i,kso) + rho_w*zlw_fr(i,kso)*chc_w +          &
-                                       rho_w*ziw_fr(i,kso)*chc_i
-#ifdef _OPENACC
-      END IF
-#endif
-    END DO      !soil layers
-  END DO
-  !$acc end parallel
-
-  !$acc parallel async if(lzacc)
-  DO kso = 2,ke_soil
-#ifndef _OPENACC
-!$NEC ivdep
-    DO ic=1,icount_snow
-      i=melt_list(ic)
-#else
-    !$acc loop gang vector private(zakb1, zakb2)
-    DO i = ivstart, ivend
-      IF (w_snow_now(i) > eps_soil .AND. w_snow_new(i) < eps_soil) THEN ! Snow vanished during time step
-#endif
-        ! for heat conductivity: zalam is now 3D
-        zakb1 = zalam(i,kso-1)/zroc(i,kso)
-        zakb2 = zalam(i,kso  )/zroc(i,kso)
-        zaga(i,kso) = -zalfa*zdt*zakb1/(zdzhs(kso)*zdzms(kso))
-        zagc(i,kso) = -zalfa*zdt*zakb2/(zdzhs(kso)*zdzms(kso+1))
-        zagb(i,kso) = 1._wp - zaga(i,kso) - zagc(i,kso)
-        zagd(i,kso) = t_so_new(i,kso) +                                     &    ! distribute heat in (*)
-               (1._wp - zalfa)*( - zaga(i,kso)/zalfa*t_so_new(i,kso-1)+ &
-               (zaga(i,kso)/zalfa + zagc(i,kso)/zalfa)*t_so_new(i,kso) -  &
-                zagc(i,kso)/zalfa*t_so_new(i,kso+1)  )
-#ifdef _OPENACC
-      END IF
-#endif
-    END DO
-  END DO        ! soil layers
-  !$acc end parallel
-
-#ifndef _OPENACC
-!$NEC ivdep
-  DO ic=1,icount_snow
-    i=melt_list(ic)
-#else
-  !$acc parallel async if(lzacc)
-  !$acc loop gang vector private(zakb1, zakb2)
-  DO i = ivstart, ivend
-    IF (w_snow_now(i) > eps_soil .AND. w_snow_new(i) < eps_soil) THEN ! Snow vanished during time step
-#endif
-      ! for heat conductivity: zalam is now 3D: here we need layer 1
-      zakb1 = hzalam(i,1)/zroc(i,1)
-      zakb2 =  zalam(i,1)/zroc(i,1)
-      zaga(i,  1) = -zalfa*zdt*zakb1/(zdzhs(1)*zdzms(1))
-      zagc(i,  1) = -zalfa*zdt*zakb2/(zdzhs(1)*zdzms(2))
-      zagb(i,  1) = 1._wp - zaga(i,1) - zagc(i,1)
-      zagd(i,  1) = t_so_new(i,1) + (1._wp - zalfa)* (                 &
-                      - zaga(i,1)/zalfa * t_s_new(i) +                     &
-                      (zaga(i,1) + zagc(i,1))/zalfa * t_so_new(i,1) -    &
-                       zagc(i,1)/zalfa * t_so_new(i,2)   )
-      zaga(i,0)    = 0.0_wp
-      zagb(i,0)    = zalfa
-      zagc(i,0)    = -zalfa
-      zagd(i,0)    = zdzms(1) * zfor_s(i)/hzalam(i,1)+(1._wp-zalfa)* &
-                      (t_so_new(i,1) - t_s_new(i))
-      zaga(i,ke_soil+1) = 0.0_wp
-      zagb(i,ke_soil+1) = 1.0_wp
-      zagc(i,ke_soil+1) = 0.0_wp
-      zagd(i,ke_soil+1) = t_so_new(i,ke_soil+1)
-#ifdef _OPENACC
-    END IF
-#endif
-  END DO
-  !$acc end parallel
-
-#ifndef _OPENACC
-!$NEC ivdep
-  DO ic=1,icount_snow
-    i=melt_list(ic)
-#else
-  !$acc parallel async if(lzacc)
-  !$acc loop gang vector
-  DO i = ivstart, ivend
-    IF (w_snow_now(i) > eps_soil .AND. w_snow_new(i) < eps_soil) THEN ! Snow vanished during time step
-#endif
-      zagc(i,0) = zagc(i,0)/zagb(i,0)
-      zagd(i,0) = zagd(i,0)/zagb(i,0)
-#ifdef _OPENACC
-    END IF
-#endif
-  END DO
-  !$acc end parallel
-
-  !$acc parallel async if(lzacc)
-  !$acc loop seq
-  DO kso=1,ke_soil
-#ifndef _OPENACC
-!$NEC ivdep
-    DO ic=1,icount_snow
-      i=melt_list(ic)
-#else
-    !$acc loop gang vector private(zzz)
-    DO i = ivstart, ivend
-      IF (w_snow_now(i) > eps_soil .AND. w_snow_new(i) < eps_soil) THEN ! Snow vanished during time step
-#endif
-        zzz = 1._wp/(zagb(i,kso) - zaga(i,kso)*zagc(i,kso-1))
-        zagc(i,kso) = zagc(i,kso) * zzz
-        zagd(i,kso) = (zagd(i,kso) - zaga(i,kso)*zagd(i,kso-1)) * zzz
-#ifdef _OPENACC
-      END IF
-#endif
-    END DO                ! soil layers
-  END DO
-  !$acc end parallel
-
-
-#ifndef _OPENACC
-!$NEC ivdep
-  DO ic=1,icount_snow
-    i=melt_list(ic)
-#else
-  !$acc parallel async if(lzacc)
-  !$acc loop gang vector
-  DO i = ivstart, ivend
-    IF (w_snow_now(i) > eps_soil .AND. w_snow_new(i) < eps_soil) THEN ! Snow vanished during time step
-#endif
-      zage(i,ke_soil+1) = (zagd(i,ke_soil+1) - zaga(i,ke_soil+1)* zagd(i,ke_soil)) / &
-                          (zagb(i,ke_soil+1) - zaga(i,ke_soil+1)* zagc(i,ke_soil))
-#ifdef _OPENACC
-    END IF
-#endif
-  END DO
-  !$acc end parallel
-
-  !$acc parallel async if(lzacc)
-  !$acc loop seq
-  DO kso = ke_soil,0,-1
-#ifndef _OPENACC
-!$NEC ivdep
-    DO ic=1,icount_snow
-      i=melt_list(ic)
-#else
-    !$acc loop gang vector
-    DO i = ivstart, ivend
-      IF (w_snow_now(i) > eps_soil .AND. w_snow_new(i) < eps_soil) THEN ! Snow vanished during time step
-#endif
-        zage(i,kso)     = zagd(i,kso) - zagc(i,kso)*zage(i,kso+1)
-        ! The surface temperature computed by t_so(i,0,nnew)=zage(i,0) is
-        ! presently unused
-        t_so_new(i,kso) = zage(i,kso)
-#ifdef _OPENACC
-      END IF
-#endif
-    END DO                ! soil layers
-  END DO
-  !$acc end parallel
-
-#ifndef _OPENACC
-!$NEC ivdep
-  DO ic=1,icount_snow
-    i=melt_list(ic)
-#else
-  !$acc parallel async if(lzacc)
-  !$acc loop gang vector
-  DO i = ivstart, ivend
-    IF (w_snow_now(i) > eps_soil .AND. w_snow_new(i) < eps_soil) THEN ! Snow vanished during time step
-#endif
-      t_so_new(i,ke_soil+1) = zage(i,ke_soil+1) ! climate value, unchanged
-#ifdef _OPENACC
-    END IF 
-#endif
-  END DO
-  !$acc end parallel
-
-
-
-  !$acc parallel async if(lzacc)
-  !$acc loop seq
-  DO kso = 1,ke_soil
-#ifndef _OPENACC
-!$NEC ivdep
-    DO ic=1,icount_snow
-      i=melt_list(ic)
-#else
-    !$acc loop gang vector &
-    !$acc private(ztx, zxx, zliquid, znen, zfak, zdelwice) &
-    !$acc private(zwso_new, zargu)
-    DO i = ivstart, ivend
-      IF (w_snow_now(i) > eps_soil .AND. w_snow_new(i) < eps_soil) THEN ! Snow vanished during time step
-#endif
-        IF (m_styp(i) >= 3) THEN ! neither ice or rocks
-          ztx      = t0_melt
-          zw_m(i)     = zporv(i,kso)*zdzhs(kso)
-          IF(t_so_new(i,kso).LT.(t0_melt-eps_temp)) THEN
-!US         zxx    = g*zpsis(i)/lh_f
-!US         zw_m(i) = zw_m(i)*EXP(-zedb(i)*LOG((t_so_new(i,kso) - t0_melt)/(t_so_new(i,kso)*zxx)) )
-
-            IF (t_so_new(i,kso) < t_zw_low) THEN
-              zw_m(i) = zw_m_low(i,kso)
-            ELSE IF (t_so_new(i,kso) < t_zw_up) THEN ! Logarithmic Interpolation between -3 degC and -40 degC 
-              zw_m(i) = zw_m_low(i,kso)*EXP((t_so_new(i,kso) - t_zw_low)*                          &
-                (LOG(zporv(i,kso)*zdzhs(kso)*zw_m_up(i)) - LOG(zw_m_low(i,kso)))/(t_zw_up-t_zw_low))
-            ELSE
-              zw_m(i) = zw_m(i)*EXP(-zedb(i)*LOG((t_so_new(i,kso) - t0_melt)/(t_so_new(i,kso)*zaa(i))) )
-            END IF
-
-            zliquid= MAX(eps_div,w_so_now(i,kso) -  w_so_ice_now(i,kso))
-            znen   = 1._wp-zaa(i)*EXP(zb_por(i)*LOG(zporv(i,kso)*zdzhs(kso)/zliquid))
-            ztx    = t0_melt/znen
-          ENDIF
-          ztx      = MIN(t0_melt,ztx)
-          zfak     = zroc(i,kso)*zdzhs(kso)/(lh_f*rho_w)
-          zdelwice = - zfak*(t_so_new(i,kso)-ztx)
-          zwso_new  = w_so_now(i,kso) + zdt*zdwgdt(i,kso)/rho_w
-          zargu = zwso_new - zw_m(i) - w_so_ice_now(i,kso)
-          IF (t_so_new(i,kso) > t0_melt .AND. w_so_ice_now(i,kso) > 0.0_wp) THEN
-            ! melting point adjustment (time scale 30 min)
-            zdelwice = - MIN(w_so_ice_now(i,kso), zdwi_scal*(t_so_new(i,kso)-t0_melt)*zfak)
-          ELSE IF (zdelwice < 0.0_wp) THEN
-            zdelwice = - MIN( - zdelwice,MIN(-zargu,w_so_ice_now(i,kso)))
-            ! limit latent heat consumption due to melting to half the temperature increase since last time step
-            ! or 2.5 K within 30 min
-            zdelwice = - MIN( - zdelwice,MAX(2.5_wp*zdwi_scal,0.5_wp*(t_so_new(i,kso)-t_so_now(i,kso)))*zfak)
-          ELSE
-            zdelwice = MIN(zdelwice,MAX(zargu,0.0_wp))
-            ! limit latent heat release due to freezing to half the differene from the melting point
-            zdelwice = MIN(zdelwice,0.5_wp*(t0_melt-t_so_new(i,kso))*zfak)
-          ENDIF
-          w_so_ice_new(i,kso) = w_so_ice_now(i,kso) + zdelwice
-          t_so_new(i,kso) = t_so_new(i,kso) + zdelwice/zfak
-
-        END IF                   ! m_stpy > 2
-#ifdef _OPENACC
-      END IF
-#endif
-    END DO
-  ENDDO
-  !$acc end parallel
-  ! End of heat transfer
-
-#endif
-
   !$acc parallel async if(lzacc)
   !$acc loop gang vector
   DO i = ivstart, ivend
@@ -6048,12 +5661,11 @@ enddo
 !!!if (PRESENT(plevap))
 
 !$acc end data
-!!!!#ifdef __ICON__
+
   IF (msg_level >= 19) THEN
     DO i = ivstart, ivend
 
      IF (ABS(t_s_now(i)-t_s_new(i)) > 15.0_wp .or. ABS(t_sk_now(i)-t_sk_new(i)) > 15.0_wp) THEN
-!      IF (i== mvid .AND. iblock == mbid .AND. my_cart_id == mcid) THEN
 
         WRITE(*,'(A        )') '                                '
         WRITE(*,'(A,2I5)'  ) 'SFC-DIAGNOSIS terra output:  iblock = ', iblock, i
@@ -6100,7 +5712,7 @@ enddo
       ENDIF
     ENDDO
   ENDIF
-!!!!!!!#endif
+
 
 
 

@@ -53,30 +53,6 @@ MODULE gscp_data
 !
 ! Modules used:
 
-
-#ifdef __COSMO__
-USE kind_parameters, ONLY :   wp       ! KIND-type parameter for real variables
-
-USE data_constants,  ONLY :   &
-    pi,           & !!
-
-!! 2. physical constants and related variables
-!! -------------------------------------------
-    t0=>t0_melt,  & !! melting temperature of ice
-    r_d,          & !! gas constant for dry air
-    r_v,          & !! gas constant for water vapour
-    lh_s,         & !! latent heat of sublimation
-
-!> 5. Precision-dependent security parameters (epsilons)
-!! ------------------------------------------------------
-    repsilon        !! precision of 1.0 in current floating point format
-
-USE utilities,       ONLY :   message
-
-USE pp_utilities,    ONLY : gamma_fct   !! Gamma function
-#endif
-
-#ifdef __ICON__
 USE mo_kind,               ONLY: wp, i4
 
 USE mo_math_constants    , ONLY: pi
@@ -92,7 +68,7 @@ USE mo_math_utilities    , ONLY: gamma_fct
 
 USE mo_exception,          ONLY: finish, message, message_text
 USE mo_reff_types,         ONLY: t_reff_calc
-#endif
+
 
 !==============================================================================
 
@@ -115,11 +91,7 @@ INTEGER,  PARAMETER ::  &
 
 REAL (KIND=wp), PARAMETER ::  &
   zqmin = 1.0E-15_wp, & ! threshold for computations
-#ifdef __COSMO__
-  zeps  = repsilon      ! small precision-dependent number
-#else
   zeps  = 1.0E-15_wp    ! small number
-#endif
 
 
 ! Variables which are (mostly) initialized in gscp_set_coefficients
@@ -176,13 +148,8 @@ REAL (KIND=wp), PARAMETER ::  &
     do_i           =  5.83_wp,      & ! coefficients for drag correction
     co_i           =  0.6_wp          ! coefficients for turbulence correction
 
-#ifdef __COSMO__
-  REAL (KIND=wp)     ::           &
-    cloud_num = 5.00e+08_wp         ! cloud droplet number concentration
-#else
   REAL (KIND=wp)   ::           &
   cloud_num = 200.00e+06_wp       ! cloud droplet number concentration
-#endif
 
 ! Parameters for autoconversion of cloud water and cloud ice 
 ! ----------------------------------------------------------
@@ -308,14 +275,16 @@ CONTAINS
 !!  coefficients which are used in "hydci_pp"
 !------------------------------------------------------------------------------
 
-SUBROUTINE gscp_set_coefficients (idbg, tune_zceff_min, tune_v0snow, tune_zvz0i, &
-  &                               tune_mu_rain, tune_rain_n0_factor, tune_icesedi_exp, igscp)
+SUBROUTINE gscp_set_coefficients (igscp, idbg, tune_zceff_min, tune_v0snow, tune_zvz0i, &
+  &                               tune_mu_rain, tune_rain_n0_factor, tune_icesedi_exp)
 
 !------------------------------------------------------------------------------
 !> Description:
 !!   Calculates some coefficients for the microphysics schemes. 
 !!   Usually called only once at model startup.
 !------------------------------------------------------------------------------
+
+  INTEGER  ,INTENT(IN)           ::  igscp
 
   INTEGER  ,INTENT(IN) ,OPTIONAL ::  idbg              !! debug level
   REAL(wp) ,INTENT(IN) ,OPTIONAL ::  tune_zceff_min
@@ -324,27 +293,21 @@ SUBROUTINE gscp_set_coefficients (idbg, tune_zceff_min, tune_v0snow, tune_zvz0i,
   REAL(wp) ,INTENT(IN) ,OPTIONAL ::  tune_icesedi_exp
   REAL(wp) ,INTENT(IN) ,OPTIONAL ::  tune_mu_rain
   REAL(wp) ,INTENT(IN) ,OPTIONAL ::  tune_rain_n0_factor
-  INTEGER  ,INTENT(IN) ,OPTIONAL ::  igscp
   
 ! Local variable
-#ifdef __COSMO__
-  CHARACTER(132) :: message_text = ''
-#endif
   REAL(wp) :: zams  ! local value of zams
   
 !------------------------------------------------------------------------------
 !>  Initial setting of local and global variables
 !------------------------------------------------------------------------------
 
-  IF (PRESENT(igscp)) THEN
-    IF (igscp == 2) THEN
-      zams = zams_gr         ! default for graupel scheme
-    ELSE
-      zams = zams_ci         ! default for cloud ice scheme
-    END IF
+
+  IF (igscp == 2) THEN
+    zams = zams_gr         ! default for graupel scheme
   ELSE
-    zams = zams_ci           ! COSMO default
+    zams = zams_ci         ! default for cloud ice scheme
   END IF
+
   ageo_snow = zams           ! zams is local, but ageo_snow will survive
 
   IF (PRESENT(tune_zceff_min)) THEN

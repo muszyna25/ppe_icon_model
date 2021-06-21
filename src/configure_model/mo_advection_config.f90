@@ -19,7 +19,7 @@
 !!
 MODULE mo_advection_config
 
-  USE mo_kind,                  ONLY: wp
+  USE mo_kind,                  ONLY: wp, dp
   USE mo_impl_constants,        ONLY: MAX_NTRACER, MAX_CHAR_LENGTH, max_dom,   &
     &                                 MIURA, MIURA3, FFSL, FFSL_HYB, MCYCL,    &
     &                                 MIURA_MCYCL, MIURA3_MCYCL, FFSL_MCYCL,   &
@@ -31,9 +31,10 @@ MODULE mo_advection_config
   USE mo_mpi,                   ONLY: my_process_is_stdio
   USE mo_run_config,            ONLY: msg_level
   USE mo_expression,            ONLY: expression, parse_expression_string
-  USE mo_linked_list,           ONLY: t_var_list, t_list_element
-  USE mo_var_list,              ONLY: fget_var_list_element_r3d, get_timelevel_string
+  USE mo_var_list,              ONLY: t_var_list_ptr, find_list_element
+  USE mo_var, ONLY: t_var
   USE mo_var_metadata_types,    ONLY: t_var_metadata
+  USE mo_var_metadata,          ONLY: get_timelevel_string
   USE mo_tracer_metadata_types, ONLY: t_tracer_meta, t_hydro_meta
   USE mo_util_table,            ONLY: t_table, initialize_table, add_table_column, &
     &                                 set_table_entry, print_table, finalize_table
@@ -280,8 +281,7 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2011-04-20)
   !!
-  SUBROUTINE configure_advection( jg, num_lev, num_lev_1, iequations, iforcing,        &
-    &                            iqc, iqt,                                             &
+  SUBROUTINE configure_advection( jg, num_lev, num_lev_1, iforcing, iqc, iqt,          &
     &                            kstart_moist, kend_qvsubstep,                         &
     &                            lvert_nest, l_open_ubc,                               &
     &                            ntracer, idiv_method, itime_scheme, tracer_list,      &
@@ -290,7 +290,6 @@ CONTAINS
     INTEGER, INTENT(IN) :: jg           !< patch 
     INTEGER, INTENT(IN) :: num_lev      !< number of vertical levels
     INTEGER, INTENT(IN) :: num_lev_1    !< vertical levels of global patch
-    INTEGER, INTENT(IN) :: iequations
     INTEGER, INTENT(IN) :: iforcing
     INTEGER, INTENT(IN) :: iqc, iqt     !< hydrometeor indices
     INTEGER, INTENT(IN) :: kstart_moist
@@ -300,7 +299,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: itime_scheme
     LOGICAL, INTENT(IN) :: lvert_nest
     LOGICAL, INTENT(IN) :: l_open_ubc
-    TYPE(t_var_list), OPTIONAL, INTENT(IN) :: tracer_list(:) ! tracer var_list
+    TYPE(t_var_list_ptr), OPTIONAL, INTENT(IN) :: tracer_list(:) ! tracer var_list
     INTEGER,          OPTIONAL, INTENT(IN) :: kstart_tracer(MAX_NTRACER) !< start index for (art-)tracer related processes
 
     !
@@ -325,7 +324,6 @@ CONTAINS
     ! (solve_nh) and only standard namelist settings are chosen (i.e. flux limiter,
     ! first-order backward trajectory computation, CFL-safe vertical advection, idiv_method = 1)
     !
-    ! lfull_comp is only used by the nonhydrostatic core.
     IF ( ANY( advection_config(jg)%itype_hlimit(1:ntracer) == 1 )     .OR. &
       &  ANY( advection_config(jg)%itype_hlimit(1:ntracer) == 2 )     .OR. &
       &  advection_config(jg)%iord_backtraj == 2                      .OR. &
@@ -355,30 +353,25 @@ CONTAINS
 
     ! set boundary condition for vertical transport
     !
-    IF (iequations == 3) THEN  ! non-hydrostatic equation-set
+    IF (.NOT. lvert_nest ) THEN ! no vertical nesting
 
-      IF (.NOT. lvert_nest ) THEN ! no vertical nesting
-
-        IF (l_open_ubc) THEN
-          advection_config(jg)%iubc_adv = izero_grad ! zero gradient ubc
-        ELSE
-          advection_config(jg)%iubc_adv = ino_flx    ! no flux ubc
-        ENDIF
-
-      ELSE ! vertical nesting
-
-        IF (num_lev < num_lev_1) THEN
-          advection_config(jg)%iubc_adv = iparent_flx
-        ELSE IF ( (num_lev >= num_lev_1) .AND. l_open_ubc) THEN
-          advection_config(jg)%iubc_adv = izero_grad
-        ELSE IF ( (num_lev >= num_lev_1) .AND. .NOT. l_open_ubc) THEN
-          advection_config(jg)%iubc_adv = ino_flx
-        ENDIF
+      IF (l_open_ubc) THEN
+        advection_config(jg)%iubc_adv = izero_grad ! zero gradient ubc
+      ELSE
+        advection_config(jg)%iubc_adv = ino_flx    ! no flux ubc
       ENDIF
 
-    ELSE ! hydrostatic or shallow water equation set
-      advection_config(jg)%iubc_adv = ino_flx    ! no flux ubc
+    ELSE ! vertical nesting
+
+      IF (num_lev < num_lev_1) THEN
+        advection_config(jg)%iubc_adv = iparent_flx
+      ELSE IF ( (num_lev >= num_lev_1) .AND. l_open_ubc) THEN
+        advection_config(jg)%iubc_adv = izero_grad
+      ELSE IF ( (num_lev >= num_lev_1) .AND. .NOT. l_open_ubc) THEN
+        advection_config(jg)%iubc_adv = ino_flx
+      ENDIF
     ENDIF
+
 
     ! dummy initialization of index fields for transport of 2D aerosol fields
     DO jt = 1, 2
@@ -733,7 +726,7 @@ CONTAINS
         ENDIF
       ENDIF
 
-    ELSE  ! tracer_list not available (e.g. for hydrostatic model)
+    ELSE  ! tracer_list not available
 
       ALLOCATE(advection_config(jg)%trAdvect%list(ntracer), stat=ist)
       IF(ist/=SUCCESS) THEN
@@ -755,6 +748,10 @@ CONTAINS
 
     ENDIF
 
+    !$ACC ENTER DATA COPYIN(advection_config)
+    !$ACC UPDATE DEVICE(advection_config(jg))
+    !$ACC ENTER DATA COPYIN(advection_config(jg)%iadv_slev, advection_config(jg)%trAdvect%list)
+
   END SUBROUTINE configure_advection
 
 
@@ -769,64 +766,45 @@ CONTAINS
   !! <ncontained> otherwise.
   !
   TYPE(t_trList) FUNCTION subListExtract (from_list, extraction_rule) RESULT(obj)
-    !
-    TYPE(t_var_list), INTENT(IN) :: from_list         !< variable list (metadata)
-    !
+    TYPE(t_var_list_ptr), INTENT(IN) :: from_list         !< variable list (metadata)
     INTERFACE
       INTEGER FUNCTION extraction_rule(info, tracer_info) RESULT(id)
         IMPORT                            :: t_var_metadata, t_tracer_meta
-        !
         TYPE (t_var_metadata), INTENT(IN) :: info             ! static info state
         CLASS(t_tracer_meta) , INTENT(IN) :: tracer_info      ! dynamic (tracer) info state
       END FUNCTION extraction_rule
     END INTERFACE
-    !
     ! local vars
     CHARACTER(*), PARAMETER :: routine = "subListExtract"
-    TYPE(t_list_element) , POINTER :: this_list_element
+    TYPE(t_var), POINTER :: element
     TYPE(t_var_metadata) , POINTER :: info             ! static info state
     CLASS(t_tracer_meta) , POINTER :: tracer_info      ! dynamic (tracer) info state
     INTEGER, ALLOCATABLE :: tmp(:)                     ! temporary array
-    INTEGER :: ist                                     ! status flag
-    INTEGER :: id
+    INTEGER :: ist, id, i
 
     ! allocate list with maximum size
-    ALLOCATE(obj%list(from_list%p%list_elements), stat=ist)
-    IF(ist/=SUCCESS) THEN
-      CALL finish (TRIM(routine), 'allocation of obj%list failed')
-    ENDIF
+    ALLOCATE(obj%list(from_list%p%nvars), stat=ist)
+    IF(ist/=SUCCESS) CALL finish (TRIM(routine), 'alloc of obj%list failed')
     ! initialize
     obj%len = 0
-
     ! Sub-list extraction (IDs only)
-    this_list_element => from_list%p%first_list_element
-    DO WHILE (ASSOCIATED(this_list_element))
-      !
+    DO i = 1, from_list%p%nvars
+      element => from_list%p%vl(i)%p
       ! retrieve information from actual linked list element
-      !
-      info          => this_list_element%field%info
-      tracer_info   => this_list_element%field%info_dyn%tracer
-      !
+      info          => element%info
+      tracer_info   => element%info_dyn%tracer
       ! extract sublist member
       id = extraction_rule(info, tracer_info)
       IF (id /= -999) THEN
         obj%len           = obj%len+1
         obj%list(obj%len) = id
       ENDIF
-
-      this_list_element => this_list_element%next_list_element
     ENDDO
-    !
-    NULLIFY (this_list_element)
-    !
     ! contract list
     ALLOCATE(tmp(obj%len), stat=ist)
-    IF(ist/=SUCCESS) THEN
-      CALL finish (TRIM(routine), 'allocation of array tmp failed')
-    ENDIF
+    IF(ist/=SUCCESS) CALL finish (TRIM(routine), 'alloc of tmp failed')
     tmp(1:obj%len) = obj%list(1:obj%len)
-    CALL move_alloc(tmp,obj%list)
-
+    CALL MOVE_ALLOC(tmp,obj%list)
   END FUNCTION subListExtract
 
   !-----------------------------------------------------------------------------
@@ -952,7 +930,7 @@ CONTAINS
   !!
   SUBROUTINE init_passive_tracer (tracer_list, advection_config, ntl)
 
-    TYPE(t_var_list)        , INTENT(IN) :: tracer_list(:)
+    TYPE(t_var_list_ptr)        , INTENT(IN) :: tracer_list(:)
     TYPE(t_advection_config), INTENT(IN) :: advection_config ! config state
     INTEGER                 , INTENT(IN) :: ntl              ! time level
 
@@ -992,7 +970,7 @@ CONTAINS
 
       WRITE(message_text,'(2a)') 'Initialize additional passive tracer: ',TRIM(tracer_name)
       CALL message('',message_text)
-
+      !NOTE (HB): if wp /= dp the following is not correct, since r_ptr is of type REAL(dp)
       CALL formula%evaluate( fget_var_list_element_r3d (tracer_list(ntl), &
         &                    TRIM(tracer_name)))
       CALL formula%finalize()
@@ -1001,6 +979,22 @@ CONTAINS
       start_pos=end_pos+1
 
     ENDDO
+
+  CONTAINS
+    FUNCTION fget_var_list_element_r3d (this_list, vname) RESULT(ptr)
+      TYPE(t_var_list_ptr), INTENT(in) :: this_list    ! list
+      CHARACTER(*), INTENT(in) :: vname         ! name of variable
+      REAL(dp), POINTER    :: ptr(:,:,:)   ! reference to allocated field
+      TYPE(t_var), POINTER :: element
+  
+      element => find_list_element(this_list, vname)
+      NULLIFY (ptr)
+      IF (element%info%lcontained) THEN
+        IF (ASSOCIATED(element)) ptr => element%r_ptr(:,:,:,element%info%ncontained,1)
+      ELSE
+        IF (ASSOCIATED(element)) ptr => element%r_ptr(:,:,:,1,1)
+      ENDIF
+    END FUNCTION fget_var_list_element_r3d
 
   END SUBROUTINE init_passive_tracer
 
@@ -1017,22 +1011,16 @@ CONTAINS
   SUBROUTINE advection_print_setup (config_obj, var_list_tracer)
     !
     CLASS(t_advection_config)             :: config_obj        !< object for which the setup will be printed
-    TYPE(t_var_list)         , INTENT(IN) :: var_list_tracer   !< variable list (metadata)
-
+    TYPE(t_var_list_ptr)         , INTENT(IN) :: var_list_tracer   !< variable list (metadata)
     ! local variables
-    TYPE(t_list_element), POINTER :: tracer_list_element
     TYPE(t_var_metadata), POINTER :: info
     CLASS(t_tracer_meta), POINTER :: tracer_info
-
-    INTEGER       :: tracer_id       ! unique tracer_id
     TYPE(t_table) :: table
-    INTEGER       :: irow            ! row to fill
-    !
+    INTEGER       :: irow, tracer_id, i
     CHARACTER(LEN=3) :: str_tracer_id
     CHARACTER(LEN=3) :: str_startlev
     CHARACTER(LEN=7) :: str_substep_range
     CHARACTER(LEN=3) :: str_flag
-    !--------------------------------------------------------------------------
 
     ! could this be transformed into a table header?
     write(0,*) "Tracer meta-information for patch ", var_list_tracer%p%patch_id
@@ -1049,21 +1037,13 @@ CONTAINS
     CALL add_table_column(table, "slev")
     CALL add_table_column(table, "substep range")
 
-
     irow = 0
-
-    tracer_list_element => var_list_tracer%p%first_list_element
-
     ! print tracer meta-information
-    !
-    DO WHILE (ASSOCIATED(tracer_list_element))
-
-      info        => tracer_list_element%field%info
-      tracer_info => tracer_list_element%field%info_dyn%tracer
-
+    DO i = 1, var_list_tracer%p%nvars
+      info => var_list_tracer%p%vl(i)%p%info
+      tracer_info => var_list_tracer%p%vl(i)%p%info_dyn%tracer
 
       tracer_id = info%ncontained
-
       irow = irow + 1
       !
       CALL set_table_entry(table,irow,"VarName", TRIM(tracer_info%name))
@@ -1105,9 +1085,6 @@ CONTAINS
       ENDIF
       CALL set_table_entry(table,irow,"slev", TRIM(str_startlev))
       CALL set_table_entry(table,irow,"substep range", TRIM(str_substep_range))
-
-      ! next tracer in list
-      tracer_list_element => tracer_list_element%next_list_element
     ENDDO
 
     CALL print_table(table, opt_delimiter=' | ')

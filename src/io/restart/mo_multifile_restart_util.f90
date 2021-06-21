@@ -12,7 +12,7 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 
-#include <handle_mpi_error.inc>
+#include "handle_mpi_error.inc"
 
 MODULE mo_multifile_restart_util
   USE mo_kind,           ONLY: dp, sp

@@ -108,7 +108,7 @@ MODULE mo_interface_iconam_echam
     &                                 timer_phy2dyn, timer_p2d_prep, timer_p2d_sync, timer_p2d_couple
   USE mo_run_config,            ONLY: lart
 #if defined( _OPENACC )
-  USE mo_var_list_gpu          ,ONLY: gpu_h2d_var_list, gpu_d2h_var_list
+  USE mo_var_list_gpu          ,ONLY: gpu_update_var_list
 #endif
 
   USE mo_upatmo_config         ,ONLY: upatmo_config
@@ -638,9 +638,6 @@ CONTAINS
 
     CALL sync_patch_array( SYNC_C, patch, field%wa )
 
-#ifdef _OPENACC
-    CALL warning('GPU:mo_interface_iconam_echam','GPU mode currently disables echam_phy_config(jg)%iqneg_d2p triggered output!')
-#endif
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = jbs_c,jbe_c
@@ -766,8 +763,8 @@ CONTAINS
     IF ( is_coupled_run() ) THEN
 #if defined( _OPENACC )
       CALL warning('GPU:interface_echam_ocean','GPU host synchronization should be removed when port is done!')
-      CALL gpu_d2h_var_list('prm_field_D', jg)
-      CALL gpu_d2h_var_list('prm_tend_D', jg)
+      CALL gpu_update_var_list('prm_field_D', .false., jg)
+      CALL gpu_update_var_list('prm_tend_D', .false., jg)
 #endif
 
       IF (ltimer) CALL timer_start(timer_coupling)
@@ -778,8 +775,8 @@ CONTAINS
 
 #if defined( _OPENACC )
       CALL warning('GPU:interface_echam_ocean','GPU device synchronization should be removed when port is done!')
-      CALL gpu_h2d_var_list('prm_field_D', jg)
-      CALL gpu_h2d_var_list('prm_tend_D', jg)
+      CALL gpu_update_var_list('prm_field_D', .true., jg)
+      CALL gpu_update_var_list('prm_tend_D', .true., jg)
 #endif
     END IF
     !
@@ -965,9 +962,6 @@ CONTAINS
 
 IF (lart) jt_end = advection_config(jg)%nname
 
-#ifdef _OPENACC
-    CALL warning('GPU:mo_interface_iconam_echam','GPU mode currently disables echam_phy_config(jg)%iqneg_p2d triggered output!')
-#endif
       ! Loop over cells
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
@@ -1337,10 +1331,6 @@ ENDIF
 
     IF (ltimer) CALL timer_stop(timer_phy2dyn)
 
-!!$#if defined( _OPENACC )
-!!$!!!  This has been deactivated in merge_candidate_8_no_updates; it is only a debugging placeholder
-!!$!!!    CALL gpu_d2h_iconam_echam(patch)
-!!$#endif
     !=====================================================================================
     !
     ! Now the final new state (pt_prog_new/pt_prog_new_rcf) and
@@ -1351,27 +1341,5 @@ ENDIF
 
   END SUBROUTINE interface_iconam_echam
   !----------------------------------------------------------------------------
-
-!!$  SUBROUTINE gpu_d2h_iconam_echam(patch)
-!!$    USE mo_dynamics_config,          ONLY: nnow,nnew, nnow_rcf, nnew_rcf
-!!$    TYPE(t_patch)         , INTENT(inout), TARGET :: patch           !< grid/patch info
-!!$    INTEGER :: jg
-!!$
-!!$    jg = patch%id
-!!$
-!!$    !$ACC UPDATE HOST( patch%edges%cell_idx, patch%edges%primal_normal_cell )
-!!$
-!!$#if defined( _OPENACC )
-!!$      CALL warning('GPU:interface_iconam_echam','GPU host synchronization should be removed when port is done!')
-!!$      CALL gpu_d2h_var_list('nh_state_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnow(jg))
-!!$      CALL gpu_d2h_var_list('nh_state_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnow_rcf(jg))
-!!$      CALL gpu_d2h_var_list('nh_state_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnew(jg))
-!!$      CALL gpu_d2h_var_list('nh_state_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnew_rcf(jg))
-!!$      CALL gpu_d2h_var_list('nh_state_diag_of_domain_', domain=jg )
-!!$      CALL gpu_d2h_var_list('prm_field_D', domain=jg)
-!!$      CALL gpu_d2h_var_list('prm_tend_D', domain=jg)
-!!$#endif
-!!$
-!!$  END SUBROUTINE gpu_d2h_iconam_echam
 
 END MODULE mo_interface_iconam_echam

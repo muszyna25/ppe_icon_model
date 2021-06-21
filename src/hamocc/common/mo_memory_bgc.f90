@@ -77,11 +77,11 @@ MODULE mo_memory_bgc
   REAL(wp) :: atmacon, atmacmol
   REAL(wp) :: ems_per_step
   REAL(wp) :: totarea
-  REAL(wp) :: phytomi, grami, grazra, rrrcl
+  REAL(wp) :: phytomi, grami, grazra, rrrcl,docmin
   REAL(wp) :: remido, dyphy, zinges, epsher, spemor, gammap, gammaz, ecan
   REAL(wp) :: ro2ut, rcar, rnit, rnoi, rnit23, rnit13, rcalc, ropal, rn2, p2gtc
   REAL(wp) :: bkphy, bkzoo, bkopal, bifr13, bifr14, plafr13, plafr14
-  REAL(wp) :: drempoc, dremdoc, dremcalc, dremn2o
+  REAL(wp) :: dremdoc, dremn2o
   REAL(wp) :: thresh_aerob ! O2 threshold for aerob POC remineralization
   REAL(wp) :: thresh_sred ! O2 threshold for sulfate reduction
   REAL(wp) :: thresh_o2, prodn2o 
@@ -92,7 +92,7 @@ MODULE mo_memory_bgc
   REAL(wp) :: wopal ! daily sinking speed of opal (namelist parameter)
   REAL(wp) :: wcal  ! daily sinking speed of cal (namelist parameter)
   REAL(wp) :: wcya  ! daily boyancy speed of cyanos
-  REAL(wp) :: dremopal, calmax, gutc
+  REAL(wp) :: gutc
   REAL(wp) :: psedi, csedi, ssedi
   REAL(wp) :: perc_diron, riron, fesoly, relaxfe, wdust,bolaymin
   REAL(wp) :: pi_alpha, fPAR, bkh2sox, rh2sox
@@ -101,7 +101,7 @@ MODULE mo_memory_bgc
   REAL(wp) :: dustd1, dustd2, dustd3, dustsink
 
   REAL(wp) :: pi_alpha_cya,cya_growth_max,Topt_cya,T1_cya,T2_cya ! (namelist parameter)
-  REAL(wp) :: bkcya_P, bkcya_fe, bkcya_N, doccya_fac           ! (namelist parameter)
+  REAL(wp) :: bkcya_N, doccya_fac           ! (namelist parameter)
   REAL(wp) :: buoyancyspeed_cya      
   REAL(wp) :: ralk, cyamin, ro2ut_cya
 

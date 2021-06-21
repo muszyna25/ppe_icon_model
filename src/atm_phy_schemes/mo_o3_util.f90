@@ -69,31 +69,41 @@ CONTAINS
 
   SUBROUTINE o3_timeint( jcs,jce,kbdim,nlev_pres,     & ! IN
                        & ext_o3, current_date,        & ! IN  jce,nlev_p,jb,nmonth
-                       & o3_time_int                   )! OUT jce,nlev_p
+                       & o3_time_int,                 & ! OUT jce,nlev_p
+                       & opt_use_acc       )            ! IN OPTIONAL
 
  ! In prior version, just a certain month was selected. This is not used anymore
  ! (revision13218) an the routine is now doing true time interpolation
  ! The time interpolation is done to the radiation time step, monthly ozone
  ! values provided that are given at the middle of each month (monthly averages)
 
-    INTEGER, INTENT(in)         :: jcs, jce    ! 
-    INTEGER, INTENT(in)         :: kbdim       ! 
-    INTEGER, INTENT(in)         :: nlev_pres   ! number of o3 data levels
+    INTEGER, INTENT(IN)         :: jcs, jce    ! 
+    INTEGER, INTENT(IN)         :: kbdim       ! 
+    INTEGER, INTENT(IN)         :: nlev_pres   ! number of o3 data levels
     TYPE(datetime), POINTER, INTENT(in) :: current_date
-    REAL(wp), INTENT(in) , DIMENSION(kbdim,nlev_pres,0:13) :: ext_o3
-    REAL(wp), INTENT(out), DIMENSION(kbdim,nlev_pres)      :: o3_time_int
+    REAL(wp), INTENT(in) , DIMENSION(:,:,:)                :: ext_o3
+    LOGICAL, INTENT(IN), OPTIONAL                          :: opt_use_acc
+    REAL(wp), INTENT(OUT), DIMENSION(kbdim,nlev_pres)      :: o3_time_int
     TYPE(t_time_interpolation_weights) :: tiw
+    LOGICAL :: use_acc   = .FALSE.  ! Default: no acceleration
+    IF (PRESENT(opt_use_acc)) use_acc = opt_use_acc
     
     tiw = calculate_time_interpolation_weights(current_date)
-    
-    o3_time_int(jcs:jce,:) =tiw%weight1*ext_o3(jcs:jce,:,tiw%month1_index)+ &
-                            tiw%weight2*ext_o3(jcs:jce,:,tiw%month2_index)
 
+    !$ACC KERNELS DEFAULT(PRESENT) COPYIN(tiw) ASYNC(1) IF (use_acc)
+    ! (SR) Attention: ext_o3 originally has shape (:,:,:,0:13), but
+    !  in this routine it is passed as deferred-shape, so (:,:,:,1:14)
+    !  Therefore need to +1 month indices
+    o3_time_int(jcs:jce,:) = tiw%weight1*ext_o3(jcs:jce,:,tiw%month1_index+1)+ &
+                             tiw%weight2*ext_o3(jcs:jce,:,tiw%month2_index+1)
+    !$ACC END KERNELS
+    
   END SUBROUTINE o3_timeint
 
   SUBROUTINE o3_pl2ml ( jcs,jce,kbdim,nlev_pres,klev,&
     &                   pfoz,phoz,ppf,pph,   &
-    &                   o3_time_int, o3_clim, opt_o3_initval )
+    &                   o3_time_int, o3_clim, opt_o3_initval, &
+    &                   opt_use_acc )
 
     !- Description: o3 pressure levels to o3 sigma hybrid levels
     !
@@ -111,19 +121,19 @@ CONTAINS
     ! INPUT
     ! -----
 
-    INTEGER, INTENT(in)                             :: jcs    ! start and
-    INTEGER, INTENT(in)                             :: jce    ! end index in block
-    INTEGER, INTENT(in)                             :: kbdim  ! first dimension of 2-d arrays
-    INTEGER, INTENT(in)                             :: klev   ! number of levels
-    INTEGER, INTENT(in)                             :: nlev_pres   ! number of o3 data levels
-    REAL(wp),INTENT(in) ,DIMENSION(nlev_pres)       :: pfoz  ! full level pressure of o3 data
-    REAL(wp),INTENT(in) ,DIMENSION(nlev_pres+1)     :: phoz  ! half level pressure of o3 data
-    REAL(wp),INTENT(in) ,DIMENSION(kbdim,klev)      :: ppf  ! full level pressure 
-    REAL(wp),INTENT(in) ,DIMENSION(kbdim,klev+1)    :: pph  ! half level pressure
-    REAL(wp),INTENT(in) ,DIMENSION(kbdim,nlev_pres) :: o3_time_int !zozonec_x
+    INTEGER, INTENT(IN)                             :: jcs    ! start and
+    INTEGER, INTENT(IN)                             :: jce    ! end index in block
+    INTEGER, INTENT(IN)                             :: kbdim  ! first dimension of 2-d arrays
+    INTEGER, INTENT(IN)                             :: klev   ! number of levels
+    INTEGER, INTENT(IN)                             :: nlev_pres   ! number of o3 data levels
+    REAL(wp),INTENT(IN) ,DIMENSION(nlev_pres)       :: pfoz  ! full level pressure of o3 data
+    REAL(wp),INTENT(IN) ,DIMENSION(nlev_pres+1)     :: phoz  ! half level pressure of o3 data
+    REAL(wp),INTENT(IN) ,DIMENSION(kbdim,klev)      :: ppf  ! full level pressure 
+    REAL(wp),INTENT(IN) ,DIMENSION(kbdim,klev+1)    :: pph  ! half level pressure
+    REAL(wp),INTENT(IN) ,DIMENSION(kbdim,nlev_pres) :: o3_time_int !zozonec_x
     REAL(wp),INTENT(OUT),DIMENSION(kbdim,klev)      :: o3_clim ! ozone in g/g
-    REAL(wp),INTENT(in) ,OPTIONAL                   :: opt_o3_initval ! initial value for o3_clim
-
+    REAL(wp),INTENT(IN) ,OPTIONAL                   :: opt_o3_initval ! initial value for o3_clim
+    LOGICAL, INTENT(IN), OPTIONAL                   :: opt_use_acc
 
     ! LOCAL
     ! -----
@@ -138,20 +148,30 @@ CONTAINS
     REAL(wp), DIMENSION(jce,klev)           :: zozonem 
     REAL(wp), DIMENSION(jce)                :: zozintm
 
+    REAL(wp) :: o3_initval
     REAL(wp) :: zdp1,zdp2 ! pressure weights in linear interpolation
     INTEGER  :: jl,jk,jkk ! loop indices
     INTEGER,DIMENSION(jce)  :: jk1,jkn   ! first and last model level in interpolation
 
     INTEGER,DIMENSION(jce)            :: kwork
     LOGICAL,DIMENSION(jce)            :: kk_flag
+    LOGICAL :: use_acc   = .FALSE.  ! Default: no acceleration                                                                                         
+    IF (PRESENT(opt_use_acc)) use_acc = opt_use_acc
 
+    !$ACC DATA PRESENT(pfoz, phoz, ppf, pph, o3_time_int, o3_clim)          &
+    !$ACC      CREATE (zozonem, zozintc, zozintm, jk1, jkn, kwork, kk_flag),&
+    !$ACC      IF (use_acc)
+    
     ! ----------
 
     ! since o3_clim has attribute intent(out) and its assignment below 
     ! extends over o3_clim(jcs:jce,1:klev), not o3_clim(1:kbdim,1:klev),
     ! one might prefer to initialize the entire field with some value
     IF (PRESENT(opt_o3_initval)) THEN
-      o3_clim(:,:) = opt_o3_initval
+      o3_initval = opt_o3_initval
+      !$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF (use_acc)
+      o3_clim(:,:) = o3_initval
+      !$ACC END KERNELS
     ENDIF
 
     ! interpolate ozone profile to model grid
@@ -160,9 +180,15 @@ CONTAINS
     ! the ozone climatology to the value in the uppermost level of 
     ! the ozone climatology
 
+    !$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF (use_acc)
     jk1(:)     = 1
     kk_flag(:) = .TRUE.
+    !$ACC END KERNELS
+
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF (use_acc)
+    !$ACC LOOP SEQ
     DO jk = 1,klev
+       !$ACC LOOP GANG VECTOR
        DO jl=jcs,jce
           IF (ppf(jl,jk)<=pfoz(1) .AND. kk_flag(jl)) THEN 
              zozonem(jl,jk)= o3_time_int(jl,1)
@@ -172,13 +198,19 @@ CONTAINS
           END IF
        END DO
     END DO
-
+    !$ACC END PARALLEL
     ! set ozone concentration at levels below the lowermost level of
     ! the ozone climatology to the value in the lowermost level of 
     ! the ozone climatology
+    !$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF (use_acc)
     jkn(:)=klev
     kk_flag(:) = .TRUE.
+    !$ACC END KERNELS
+    
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF (use_acc)
+    !$ACC LOOP SEQ
     DO jk = klev,1,-1
+       !$ACC LOOP GANG VECTOR
        DO jl=jcs,jce
           IF (ppf(jl,jk)>=pfoz(nlev_pres).AND. kk_flag(jl)) THEN
              zozonem(jl,jk)=o3_time_int(jl,nlev_pres)
@@ -188,11 +220,20 @@ CONTAINS
           END IF
        END DO
     ENDDO
-
+    !$ACC END PARALLEL
+    
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) VECTOR_LENGTH(64) IF (use_acc)
+    !$ACC LOOP SEQ
     DO jk=1,klev
-       kk_flag(:) = .TRUE.
-       kwork(:)   = 1
+       !$ACC LOOP GANG(STATIC:1) VECTOR
+       DO jl=jcs,jce
+          kk_flag(jl) = .TRUE.
+          kwork(jl)   = 1
+       END DO
+
+      !$ACC LOOP SEQ
        DO jkk = 1,nlev_pres
+          !$ACC LOOP GANG(STATIC:1) VECTOR
           DO jl=jcs,jce
              IF(jk >= jk1(jl) .AND. jk <= jkn(jl))  THEN
                 IF (ppf(jl,jk) <= pfoz(jkk) .AND. jkk >= kwork(jl) &
@@ -204,6 +245,7 @@ CONTAINS
           END DO
        END DO
 
+       !$ACC LOOP GANG(STATIC:1) VECTOR
        DO jl=jcs,jce
           IF(jk >= jk1(jl) .AND. jk <= jkn(jl))  THEN
                 jkk = kwork(jl)
@@ -217,15 +259,23 @@ CONTAINS
           END IF
        END DO
     END DO
+    !$ACC END PARALLEL
 
        ! integrate ozone profile on grid of climatology
        ! from top to surface
        ! ----------------------------------------------
-    zozintc=0._wp
-    kk_flag(:) = .TRUE.
-    jk1(:)     = 2
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF (use_acc)
+    !$ACC LOOP GANG(STATIC:1) VECTOR
+    DO jl=jcs,jce
+      zozintc(jl)=0._wp
+      kk_flag(jl) = .TRUE.
+      jk1(jl)     = 2
+    END DO
+
+    !$ACC LOOP SEQ
     DO jk=2,nlev_pres+1
           ! integrate layers of climatology above surface
+       !$ACC LOOP GANG(STATIC:1) VECTOR
        DO jl=jcs,jce
           IF (phoz(jk)<=pph(jl,klev) .AND. kk_flag(jl) ) THEN
               zozintc(jl)=zozintc(jl)+ &
@@ -238,6 +288,7 @@ CONTAINS
     END DO
        ! integrate layer of climatology that is intersected
        ! by the surface from upper boundary to surface
+    !$ACC LOOP GANG(STATIC:1) VECTOR
     DO jl=jcs,jce
        zozintc(jl)=zozintc(jl)+ &
             &  o3_time_int(jl,min(jk1(jl)-1,nlev_pres) )*(pph(jl,klev)-phoz(jk1(jl)-1))
@@ -245,24 +296,35 @@ CONTAINS
 
        ! integrate ozone profile on grid of model
        ! from top to surface
-       ! ----------------------------------------
-    zozintm=0._wp
+    ! ----------------------------------------
+    !$ACC LOOP GANG(STATIC:1) VECTOR
+    DO jl=jcs,jce
+       zozintm(jl)=0._wp
+    END DO
+    !$ACC LOOP SEQ
     DO jk=2,klev+1
+       !$ACC LOOP GANG(STATIC:1) VECTOR
        DO jl=jcs,jce
          zozintm(jl)=zozintm(jl) + zozonem(jl,jk-1)*(pph(jl,jk)-pph(jl,jk-1))
        END DO
     END DO
+    !$ACC END PARALLEL
 
        ! normalize interpolated ozone profile such that the
        ! ozone integral computed on the model grid is equal
        ! to that integrated on the grid of the climatology
        ! --------------------------------------------------
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF (use_acc)
+    !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk=1,klev
        DO jl=jcs,jce
          o3_clim(jl,jk)=zozonem(jl,jk)/zozintm(jl) * zozintc(jl)
        END DO
     END DO
+    !$ACC END PARALLEL
 
+    !$ACC WAIT
+    !$ACC END DATA
   END SUBROUTINE o3_pl2ml
 
   SUBROUTINE o3_zl2ml(nblks,npromz, nlev_o3,nlev, &

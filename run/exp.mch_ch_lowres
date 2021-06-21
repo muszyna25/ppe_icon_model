@@ -66,7 +66,8 @@ add_required_file ${latbc_path}/lateral_boundary.grid.nc lateral_boundary.grid.n
 
 # lateral boundary data
 add_required_file ${latbc_path}/igfff00000000_lbc.nc .
-add_required_file ${latbc_path}/igfff00030000_lbc.nc .
+add_required_file ${latbc_path}/igfff00000030_lbc.nc .
+add_required_file ${latbc_path}/igfff00000100_lbc.nc .
 
 # start and end date+time
 start_date=${start_date:="2018-09-21T00:00:00Z"}
@@ -225,11 +226,11 @@ cat > ${atmo_namelist} << EOF
 ! limarea_nml: settings for limited area mode ---------------------------------
 &limarea_nml
  itype_latbc                 =                          1         ! 1: time-dependent lateral boundary conditions
- dtime_latbc                 =                      10800.        ! time difference between 2 consecutive boundary data
+ dtime_latbc                 =                         30.        ! time difference between 2 consecutive boundary data
  latbc_boundary_grid         =   "lateral_boundary.grid.nc"       ! Grid file defining the lateral boundary
  latbc_path                  =              "${latbc_path}"       ! Absolute path to boundary data
  latbc_varnames_map_file     =            'map_file.latbc'
- latbc_filename              =     'igfff00<h>0000_lbc.nc'        ! boundary data input filename
+ latbc_filename              =     'igfff<ddhhmmss>_lbc.nc'        ! boundary data input filename
  init_latbc_from_fg          =                     .FALSE.        ! .TRUE.: take lbc for initial time from first guess
 /
 
@@ -397,19 +398,23 @@ cat > ${atmo_namelist} << EOF
 /
 ! ser_nml: serialization configuration ----------------------------------------
 &ser_nml
- ser_graupel                 =                            0
- ser_interface_nwp           =                            0
- ser_turbdiff_interface      =                            0
- ser_turbdiff                =                            0
- ser_vertdiff                =                            0
- ser_turbtrans_interface     =                            0
- ser_output_diag             =                            0
- ser_latbc_data              =                            0
- ser_dynamics                =                            0
- ser_diffusion               =                            0 
- ser_step_advection          =                            0 
- ser_physics                 =                            0 
- ser_nudging                 =                            0 
+ ser_output_diag             =                            0,12,12
+ ser_latbc_data              =                            0,12,12
+ ser_dynamics                =                            0,12,12
+ ser_diffusion               =                            0,12,12 
+ ser_step_advection          =                            0,12,12 
+ ser_physics                 =                            0,12,12
+ ser_surface                 =                            0,12,12
+ ser_microphysics            =                            0,12,12
+ ser_lhn                     =                            0,12,12
+ ser_cover                   =                            0,12,12
+ ser_radiation               =                            0,12,12
+ ser_radheat                 =                            0,12,12
+ ser_gwdrag                  =                            0,12,12
+ ser_convection              =                            0,12,12
+ ser_nudging                 =                            0,12,12 
+ ser_nfail                   =                            1
+ ser_nreport                 =                            10
  ser_all_debug               =                            0 
  ser_debug                   =                        .FALSE.      ! serialize the debug statements from mo_ser_debug
 /

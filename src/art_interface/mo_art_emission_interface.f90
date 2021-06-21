@@ -42,7 +42,7 @@ MODULE mo_art_emission_interface
   USE mo_impl_constants,                ONLY: SUCCESS
   USE mo_lnd_nwp_config,                ONLY: dzsoil
   USE mo_exception,                     ONLY: finish, message
-  USE mo_linked_list,                   ONLY: t_var_list
+  USE mo_var_list,                      ONLY: t_var_list_ptr
   USE mo_nonhydro_state,                ONLY: p_nh_state_lists
   USE mo_ext_data_types,                ONLY: t_external_data
   USE mo_nwp_lnd_types,                 ONLY: t_lnd_diag
@@ -76,8 +76,8 @@ MODULE mo_art_emission_interface
   USE mo_art_emission_dust,             ONLY: art_emission_dust,art_prepare_emission_dust
   USE mo_art_emission_chemtracer,       ONLY: art_emiss_chemtracer
   USE mo_art_emission_full_chemistry,   ONLY: art_emiss_full_chemistry
-  USE mo_art_emission_pollen,           ONLY: art_emiss_pollen,                   &
-                                          &   art_prepare_tsum, art_prepare_sdes, &
+  USE mo_art_emission_pollen,           ONLY: art_emiss_pollen, art_pollen_get_nstns, &
+                                          &   art_prepare_tsum, art_prepare_sdes,     &
                                           &   art_prepare_saisl
   USE mo_art_emission_pntSrc,           ONLY: art_emission_pntSrc
   USE mo_art_read_emissions,            ONLY: art_add_emission_to_tracers
@@ -110,7 +110,7 @@ CONTAINS
   !! Initial revision by Daniel Reinert, DWD (2012-01-27)
   !! Modification by Kristina Lundgren, KIT (2012-01-30)
   !! Rewritten by Daniel Rieger, KIT (2013-09-30)
-  TYPE(t_var_list), INTENT(inout) :: &
+  TYPE(t_var_list_ptr), INTENT(inout) :: &
     &  p_prog_list             !< list of prognostic variables
   TYPE(t_external_data), INTENT(in) ::  &
     &  ext_data                !< Atmosphere external data
@@ -374,6 +374,9 @@ CONTAINS
                 ! time check
                 IF ( current_date%time%hour == 12 .AND.  &
                   &  (current_date%time%minute * 60 + current_date%time%second) < INT(dtime) ) THEN
+                 ! Get n_stns
+                 CALL art_pollen_get_nstns( p_art_data(jg)%ext%pollen_prop, fields%name, n_stns )
+
                  DO jb = art_atmo%i_startblk, art_atmo%i_endblk
                     CALL art_get_indices_c(jg, jb, istart, iend)
 
@@ -382,8 +385,7 @@ CONTAINS
                       &                    fields%name,                    &
                       &                    p_art_data(jg)%ext%pollen_prop, &
                       &                    art_atmo%t_2m(:,jb),            &
-                      &                    jb, istart, iend,               &
-                      &                    n_stns )
+                      &                    jb, istart, iend                )
                   ENDDO !jb
 
                   IF(.NOT.ALLOCATED(saisl_stns)) ALLOCATE(saisl_stns(n_stns))

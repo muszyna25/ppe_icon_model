@@ -104,13 +104,6 @@ MODULE mo_echam_phy_init
   ! WMO tropopause
   USE mo_echam_wmo_config,     ONLY: eval_echam_wmo_config, print_echam_wmo_config, echam_wmo_config
 
-  ! Cariolle interactive ozone scheme
-  USE mo_lcariolle_externals,  ONLY: read_bcast_real_3d_wrap, &
-    &                                read_bcast_real_1d_wrap, &
-    &                                closeFile_wrap, openInputFile_wrap, &
-    &                                get_constants
-  USE mo_lcariolle_types,      ONLY: l_cariolle_initialized_o3, t_avi, t_time_interpolation
-
   ! water vapour production by methane oxidation
   ! and destruction by photolysis
   USE mo_methox,               ONLY: init_methox
@@ -129,11 +122,19 @@ MODULE mo_echam_phy_init
   USE mo_reader_sst_sic,       ONLY: t_sst_sic_reader
   USE mo_interpolate_time,     ONLY: t_time_intp
 
+#ifdef __NO_RTE_RRTMGP__
   ! psrad
   USE mo_psrad_setup,          ONLY: psrad_basic_setup
   USE mo_psrad_interface,      ONLY: pressure_scale, droplet_scale
   USE mo_atmo_psrad_interface, ONLY: setup_atmo_2_psrad
-
+#else
+  USE mo_rte_rrtmgp_setup,     ONLY: rte_rrtmgp_basic_setup
+  USE mo_rte_rrtmgp_interface, ONLY: pressure_scale, droplet_scale
+  USE gscp_data,               ONLY: gscp_set_coefficients
+  USE mo_echam_mig_config,     ONLY: echam_mig_config, print_echam_mig_config
+#endif
+  USE mo_lcariolle,            ONLY: lcariolle_init_o3, lcariolle_init, &
+    &l_cariolle_initialized_o3, t_avi, t_time_interpolation
   ! ART
   USE mo_art_config,         ONLY: art_config
 
@@ -233,6 +234,7 @@ CONTAINS
       CALL print_echam_cop_config
       !
       ! Radiation constants for gas and cloud optics
+#ifdef __NO_RTE_RRTMGP__
       CALL psrad_basic_setup(.false., nlev, pressure_scale, droplet_scale,               &
         &                    echam_cop_config(1)%cinhoml1 ,echam_cop_config(1)%cinhoml2, &
         &                    echam_cop_config(1)%cinhoml3 ,echam_cop_config(1)%cinhomi)
@@ -240,7 +242,12 @@ CONTAINS
       ! If there are concurrent psrad processes, set up communication 
       ! between the atmo and psrad processes
       CALL setup_atmo_2_psrad()
-      !
+#else
+      CALL rte_rrtmgp_basic_setup(nproma, nlev, pressure_scale, droplet_scale,               &
+        &                    echam_cop_config(1)%cinhoml1 ,echam_cop_config(1)%cinhoml2, &
+        &                    echam_cop_config(1)%cinhoml3 ,echam_cop_config(1)%cinhomi)
+#endif
+
     END IF
 
     ! vertical turbulent mixing and surface
@@ -400,10 +407,7 @@ CONTAINS
         CALL finish('init_echam_phy: mo_echam_phy_init.f90', &
                    &'Cariolle initialization not ready for n_dom>1')
       END IF
-      CALL lcariolle_init(                                     &
-         & openInputFile_wrap,       closeFile_wrap,           &
-         & read_bcast_real_3d_wrap,  read_bcast_real_1d_wrap,  &
-         & get_constants                                       )
+      CALL lcariolle_init()
     END IF
 
     ! ch4 oxidation and h2o photolysis
@@ -739,9 +743,14 @@ CONTAINS
       !
       ! parameterized simple plumes of tropospheric aerosols
       !
+#ifdef __NO_RTE_RRTMGP__
       IF (ANY(echam_rad_config(:)%irad_aero == 18 .OR. echam_rad_config(:)%irad_aero == 19)) THEN
+#else
+      IF (ANY(echam_rad_config(:)%irad_aero == 18)) THEN
+#endif
         CALL setup_bc_aeropt_splumes
       END IF
+
       !
     END IF
 
@@ -754,11 +763,21 @@ CONTAINS
     lany=.FALSE.
     DO jg = 1,n_dom
        lany = lany .OR. ( echam_phy_tc(jg)%dt_rad > dt_zero .AND.         &
+#ifdef __NO_RTE_RRTMGP__
             &             ( echam_rad_config(jg)%irad_co2   == 4 .OR.     &
             &               echam_rad_config(jg)%irad_ch4   == 4 .OR.     &
             &               echam_rad_config(jg)%irad_n2o   == 4 .OR.     &
             &               echam_rad_config(jg)%irad_cfc11 == 4 .OR.     &
             &               echam_rad_config(jg)%irad_cfc12 == 4      ) ) &
+#else
+            &             ( echam_rad_config(jg)%irad_co2   == 3 .OR.     &
+            &               echam_rad_config(jg)%irad_ch4   == 3 .OR.     &
+            &               echam_rad_config(jg)%irad_ch4   ==13 .OR.     &
+            &               echam_rad_config(jg)%irad_n2o   == 3 .OR.     &
+            &               echam_rad_config(jg)%irad_n2o   ==13 .OR.     &
+            &               echam_rad_config(jg)%irad_cfc11 == 3 .OR.     &
+            &               echam_rad_config(jg)%irad_cfc12 == 3      ) ) &
+#endif
             &      .OR. ( ccycle_config(jg)%iccycle  == 2   .AND.         &
             &             ccycle_config(jg)%ico2conc == 4               )
     END DO
@@ -1286,9 +1305,6 @@ CONTAINS
     REAL(wp)                           :: vmr_o3(nproma, p_patch%nlev)
     TYPE(t_time_interpolation)         :: time_interpolation
     TYPE(t_time_interpolation_weights) :: current_time_interpolation_weights
-    !
-    ! External routines of the Cariolle library
-    EXTERNAL :: lcariolle_init_o3, lcariolle_lat_intp_li, lcariolle_pres_intp_li
 
     avi%ldown=.TRUE.
     current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_current)
@@ -1315,10 +1331,7 @@ CONTAINS
       latc(:)             =  p_patch% cells% center(:,jb)% lat
       avi%cell_center_lat => latc
       !
-      CALL lcariolle_init_o3(                                               &
-        & jcs,                   jce,                nproma,                &
-        & p_patch%nlev,          time_interpolation, lcariolle_lat_intp_li, &
-        & lcariolle_pres_intp_li,avi,                vmr_o3                 )
+      CALL lcariolle_init_o3(jcs, jce, nproma, p_patch%nlev, time_interpolation, avi, vmr_o3)
       !
       o3(jcs:jce,:,jb) = vmr_o3(jcs:jce,:)*amo3/amd
       !

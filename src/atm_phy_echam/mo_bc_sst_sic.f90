@@ -18,14 +18,11 @@
 !!
 !! TODO: ctfreez in echam = 271.38, this is 271.45 K
 !
-#include "icon_contiguous_defines.h"
+#include "icon_contiguous_defines.inc"
 MODULE mo_bc_sst_sic
   
   USE mo_kind,               ONLY: dp, i8
   USE mo_exception,          ONLY: finish, message, message_text
-#ifdef _OPENACC
-  USE mo_exception,          ONLY: warning
-#endif
   USE mo_mpi,                ONLY: my_process_is_mpi_workroot, p_bcast, &
     &                              process_mpi_root_id, p_comm_work
   USE mo_model_domain,       ONLY: t_patch
@@ -97,9 +94,6 @@ CONTAINS
     
     IF (jg==n_dom) current_year = year
 
-#ifdef _OPENACC
-    CALL warning("GPU:read_bc_sst_sic", "GPU device synchronization")
-#endif
     !$ACC UPDATE DEVICE( ext_sea(jg)%sst, ext_sea(jg)%sic )
 
   END SUBROUTINE read_bc_sst_sic

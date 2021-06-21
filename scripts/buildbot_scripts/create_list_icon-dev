@@ -43,8 +43,10 @@ $addexp checksuite.ocean_internal/technical/exp.test_multioutput_model_40km \
 # communication
 $addexp checksuite.infrastructure/testbed/exp.icon-testbed_communication_orig --builders MISTRAL_intel17 --list $listname
 $addexp checksuite.infrastructure/testbed/exp.icon-testbed_communication_yaxt --builders MISTRAL_intel17 --list $listname
-$addexp run/checksuite.infrastructure/testbed/exp.atm_amip_yaxt    --builders MISTRAL_intel17 --list $listname
-$addexp run/checksuite.infrastructure/testbed/exp.ocean_omip_yaxt  --builders MISTRAL_intel17 --list $listname
+$addexp checksuite.infrastructure/testbed/exp.atm_amip_yaxt    --builders MISTRAL_intel17 --list $listname
+$addexp checksuite.infrastructure/testbed/exp.ocean_omip_yaxt  --builders MISTRAL_intel17 --list $listname
+$addexp checksuite.infrastructure/testbed/exp.icon-testbed_read-netcdf --builders MISTRAL_intel17 --list $listname
+
 
 #-----------------------------------------------------------
 # CSCS
@@ -55,28 +57,32 @@ $addexp run/checksuite.infrastructure/testbed/exp.ocean_omip_yaxt  --builders MI
 # atm_heldsaurez (z_at_plevels:: Error in computing interpolation coefficients)
 #./rmexp "checksuite.icon-dev/check.atm_amip_update"                 --builders DAINT_CPU_pgi --list $listname
 #./rmexp "checksuite.icon-dev/check.atm_heldsuarez"                  --builders DAINT_CPU_pgi --list $listname
+# CCE-CPU and PGI-CPU/GPU: remove traditional tests which use PSrad
 
-# PGI for GPU: failing currently are ... 
+./rmexp checksuite.icon-dev/check.atm_ape                  --builders DAINT_CPU_cce DAINT_CPU_pgi DAINT_GPU_pgi --list $listname
+./rmexp checksuite.icon-dev/check.atm_amip                 --builders DAINT_CPU_cce DAINT_CPU_pgi DAINT_GPU_pgi --list $listname
+./rmexp checksuite.icon-dev/check.atm_amip_update          --builders DAINT_CPU_cce DAINT_CPU_pgi DAINT_GPU_pgi --list $listname
+./rmexp checksuite.icon-dev/check.atm_amip_diagparams_constbc_nojsb_notransport_nodynamics --builders DAINT_CPU_cce DAINT_CPU_pgi DAINT_GPU_pgi --list $listname
+
+# But add the RTE-RRTMGP based tests
+$addexp checksuite.icon-dev/check.atm_rte_rrtmgp_ape  --builders DAINT_CPU_cce DAINT_CPU_pgi DAINT_GPU_pgi --list $listname
+$addexp checksuite.icon-dev/check.atm_rte_rrtmgp_amip --builders DAINT_CPU_cce DAINT_CPU_pgi DAINT_GPU_pgi --list $listname
+$addexp checksuite.icon-dev/check.atm_rte_rrtmgp_amip_update --builders DAINT_CPU_cce DAINT_CPU_pgi DAINT_GPU_pgi --list $listname
+$addexp checksuite.icon-dev/check.atm_rte_rrtmgp_amip_diagparams_constbc_nojsb_notransport_nodynamics --builders DAINT_CPU_cce DAINT_CPU_pgi DAINT_GPU_pgi --list $listname
+
+# Activate this after debugging
+#### $addexp checksuite.icon-dev/check.atm_amip_rte_rrtmgp_update --builders DAINT_CPU_pgi DAINT_GPU_pgi --list $listname
+
+# PGI for GPU: failing currently because:
+#              mo_ice_interface:ice_fast_interface: This part has not been ported to GPU.
 ./rmexp checksuite.ocean_internal/technical/exp.ocean_omip_ptest                  --builders DAINT_GPU_pgi --list $listname
 ./rmexp checksuite.ocean_internal/technical/exp.test_ocean_omip_technical         --builders DAINT_GPU_pgi --list $listname
-#./rmexp checksuite.icon-dev/check.atm_heldsuarez                                  --builders DAINT_GPU_pgi --list $listname
-#./rmexp checksuite.icon-dev/check.atm_amip                                        --builders DAINT_GPU_pgi --list $listname
-#./rmexp checksuite.icon-dev/check.atm_amip_update                                 --builders DAINT_GPU_pgi --list $listname
-
-# For CCE 10.0.2 many tests are failing due to a compiler bug
-./rmexp checksuite.icon-dev/check.atm_amip                        --builders DAINT_CPU_cce --list $listname
-./rmexp checksuite.icon-dev/check.atm_amip_diagparams_constbc_nojsb_notransport_nodynamics --builders DAINT_CPU_cce --list $listname
-./rmexp checksuite.icon-dev/check.atm_amip_noparams               --builders DAINT_CPU_cce --list $listname
-./rmexp checksuite.icon-dev/check.atm_amip_update                 --builders DAINT_CPU_cce --list $listname
-./rmexp checksuite.icon-dev/check.atm_ape                         --builders DAINT_CPU_cce --list $listname
-./rmexp checksuite.icon-dev/check.atm_heldsuarez                  --builders DAINT_CPU_cce --list $listname
-./rmexp checksuite.icon-dev/check.atm_amip                        --builders DAINT_CPU_cce --list $listname
-./rmexp checksuite.ocean_internal/technical/exp.ocean_omip_ptest  --builders DAINT_CPU_cce --list $listname
-./rmexp checksuite.ocean_internal/technical/exp.test_ocean_omip_technical --builders DAINT_CPU_cce --list $listname
 
 # add tolerance check to daint builders
 $addexp checksuite.icon-dev/check.mch_ch_lowres                                   --builders DAINT_CPU_pgi --list $listname
 $addexp checksuite.icon-dev/check.mch_ch_lowres                                   --builders DAINT_GPU_pgi --list $listname
+$addexp "checksuite.icon-dev/check.mch_opr_r04b07*"                               --builders DAINT_CPU_pgi --list $listname
+$addexp "checksuite.icon-dev/check.mch_opr_r04b07*"                               --builders DAINT_GPU_pgi --list $listname
 
 # add tracer only test to DAINT builders (for checking equivalence of vertical transport code for GPU vs CPU)
 $addexp checksuite.icon-dev/check.atm_tracer_Hadley                                  --builders DAINT_CPU_pgi --list $listname

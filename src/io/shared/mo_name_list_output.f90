@@ -115,7 +115,8 @@ MODULE mo_name_list_output
        num_io_procs, io_proc_chunk_size, nproma, pio_type
   USE mo_name_list_output_config,   ONLY: use_async_name_list_io
   ! data types
-  USE mo_var_metadata_types,        ONLY: t_var_metadata, POST_OP_SCALE, POST_OP_LUC, POST_OP_LIN2DBZ
+  USE mo_var_metadata_types,        ONLY: t_var_metadata, POST_OP_SCALE, POST_OP_LUC, &
+    &                                     POST_OP_LIN2DBZ, var_metadata_get_size
   USE mo_reorder_info,              ONLY: t_reorder_info, ri_cpy_part2whole
   USE mo_name_list_output_types,    ONLY: t_output_file, icell, iedge, ivert, &
     &                                     msg_io_start, msg_io_done, &
@@ -161,7 +162,7 @@ MODULE mo_name_list_output
     &                                     collect_requested_ipz_levels, &
     &                                     create_vertical_axes, nlevs_of_var, zonal_ri, profile_ri
   USE mo_name_list_output_metadata, ONLY: metainfo_write_to_memwin, metainfo_get_from_buffer,       &
-    &                                     metainfo_get_size, metainfo_get_timelevel
+    &                                     metainfo_get_timelevel
   USE mo_level_selection,           ONLY: create_mipz_level_selections
   USE mo_grib2_util,                ONLY: set_GRIB2_timedep_keys, set_GRIB2_timedep_local_keys
   ! model domain
@@ -2727,7 +2728,6 @@ CONTAINS
 
     ! Shut down MPI
     CALL stop_mpi
-    STOP
 #endif
   END SUBROUTINE name_list_io_main_proc
 
@@ -2873,7 +2873,7 @@ CONTAINS
 
     ! retrieve info object from PE#0 (via a separate MPI memory
     ! window)
-    ALLOCATE(bufr_metainfo(metainfo_get_size(), of%num_vars), STAT=ierrstat)
+    ALLOCATE(bufr_metainfo(var_metadata_get_size(), of%num_vars), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
     CALL MPI_Win_lock(MPI_LOCK_SHARED, 0, MPI_MODE_NOCHECK, of%mem_win%mpi_win_metainfo, mpierr)

@@ -2484,6 +2484,7 @@ CONTAINS
     ! solve for vectors c-prime and d-prime
 !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP SEQ
+!NEC$ outerloop_unroll(4)
     DO i = slev+1,elev
 !$ACC LOOP GANG VECTOR PRIVATE( m )
       DO jc=startidx, endidx
@@ -2500,6 +2501,7 @@ CONTAINS
     ! solve for varout from the vectors c-prime and d-prime
 !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP SEQ
+!NEC$ outerloop_unroll(4)
     DO i = elev-1, slev, -1
 !$ACC LOOP GANG VECTOR
       DO jc=startidx, endidx

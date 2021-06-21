@@ -136,6 +136,7 @@ ln -sf $ICONDIR/run/dict.latbc .
 # specific for EMVORADO:
 luse_radarfwo=".true." # include 3D radar forward operator
 itype_refl=1
+itype_Dref_fmelt=1
 NPIORADAR=2
 ### normally used to precompute and store the Mie tables:
 YDIR_MIELOOKUP=${EXPDIR}/MIETABLES/
@@ -247,6 +248,7 @@ cat > ${atmo_namelist} << EOF
  lp2cintp_incr         = .true.
  lp2cintp_sfcana       = .true.
  ltile_coldstart       = .false.
+ icpl_da_sfcevap       = 1
  qcana_mode            = 2
  qiana_mode            = 0  ! due to KENDA, before: 1
  use_lakeiceana        = .true.
@@ -446,7 +448,7 @@ cat > ${atmo_namelist} << EOF
 /
 &extpar_nml
  itopo                   = 1
- itype_vegetation_cycle  = 3
+ itype_vegetation_cycle  = 2
  n_iter_smooth_topo      = 1,1,1,1,1,1
  heightdiff_threshold    = 2250.,1500.
  hgtdiff_max_smooth_topo = 750.,750.,750.,750.,750.,750.
@@ -671,6 +673,7 @@ dom =  1
   loutradwind = .true.,
     lfill_vr_backgroundwind = .true.,
   loutdbz = .true.,
+    lextdbz = .true.,
     ! Global switch to choose itype_refl for all radars. 
     !  This is then the background value for all radars, which can
     !  later be overwritten for the single stations via namelist.
@@ -678,12 +681,14 @@ dom =  1
     !  value from dbz_namlst_d (3) will win.
     !  You can override it for each station by individual settings 
     !  in the "dbz_meta"- structure below.
-    itype_refl_glob=${itype_refl},
-    lextdbz = .true.,
+    dbz_meta_glob%itype_refl=${itype_refl},
+    dbz_meta_glob%itype_Dref_fmelt=${itype_Dref_fmelt},
     ! Global switch to enable the use of Mie-lookup tables for all radars. 
     !  This is then the background value for all radars, which can
     !  later be overwritten for the single stations via namelist.
-    llookup_mie_glob=.true.,
+    dbz_meta_glob%llookup_mie=.true.,
+      itype_mpipar_lookupgen = 2,
+      pe_start_lookupgen = 1,
       ydir_mielookup_read = '${YDIR_MIELOOKUP}'
       ydir_mielookup_write = '${YDIR_MIELOOKUP}'
   lweightdbz = .true.,
@@ -709,11 +714,17 @@ dom =  1
   lcomm_nonblocking_output = .TRUE.
 !
   lvoldata_output = .true.,
- 
-    voldata_format = 'cdfin'  ! 'ascii', 'ascii-gzip', 'f90-binary', 'cdfin'
-     cdfin_dt   = 0.0,  ! one file for each radar output timestep
-     cdfin_tref = 0.0,
-     voldata_output_list = 'losim', 'lasim', 'hrsim', 'zrsim', 'vrsim', 
+    voldata_ostream(1)%format = 'cdfin'  ! 'ascii', 'ascii-gzip', 'f90-binary', 'cdfin', 'cdfin-mulmom', 'grib2', 'grib2-mulmom'
+    voldata_ostream(1)%file_pattern = 'cdfin_<stationid>_<varname>_<tvvzstart>-<tvvzend>_<scantype>.nc',
+    voldata_ostream(1)%content_dt = 0.0,
+    voldata_ostream(1)%content_tref = 0.0,
+    voldata_ostream(1)%output_list = 'zrsim', 'vrsim'
+
+    voldata_ostream(2)%format = 'cdfin'  ! 'ascii', 'ascii-gzip', 'f90-binary', 'cdfin', 'cdfin-mulmom', 'grib2', 'grib2-mulmom'
+    voldata_ostream(2)%file_pattern = 'cdfin_<stationid>_<varname>_<tvvzstart>_<scantype>.nc',
+    voldata_ostream(2)%content_dt = 0.0,
+    voldata_ostream(2)%content_tref = 0.0,
+    voldata_ostream(2)%output_list = 'losim', 'lasim', 'hrsim'
 
   ldo_composite=.true.,
     nel_composite = 1,

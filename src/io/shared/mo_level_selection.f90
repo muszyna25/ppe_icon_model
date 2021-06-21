@@ -59,8 +59,7 @@ MODULE mo_level_selection
 
   USE mo_kind,                              ONLY: wp
   USE mo_impl_constants,                    ONLY: SUCCESS
-  USE mo_var_list_element,                  ONLY: level_type_ml, level_type_pl, level_type_hl,    &
-    &                                             level_type_il
+  USE mo_var, ONLY: level_type_ml, level_type_pl, level_type_hl, level_type_il
   USE mo_exception,                         ONLY: finish
   USE mo_name_list_output_types,            ONLY: t_output_file
   USE mo_math_utilities,                    ONLY: t_value_set, find_values_in_set
