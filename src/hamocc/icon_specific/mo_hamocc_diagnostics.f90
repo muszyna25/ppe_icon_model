@@ -346,7 +346,7 @@ END SUBROUTINE get_omz
       IF (isRegistered('global_net_nh3_flux')) THEN
         CALL calc_inventory2d(p_patch_3d, &
           &                   hamocc_state%p_tend%nh3flux(:,:), &
-          &                   hamocc_state%p_tend%monitor%net_co2_flux(1), &
+          &                   hamocc_state%p_tend%monitor%net_nh3_flux(1), &
           &                   -2)
       ENDIF
 
