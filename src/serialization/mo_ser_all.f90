@@ -25,7 +25,8 @@ MODULE mo_ser_all
   USE mo_var_list_register,  ONLY: vlr_get
   USE mo_run_config,         ONLY: iforcing, ldass_lhn
   USE mo_impl_constants,     ONLY: inwp
-  USE mo_ser_nml,            ONLY: ser_output_diag, ser_latbc_data, ser_dynamics, ser_diffusion, ser_step_advection, &
+  USE mo_ser_nml,            ONLY: ser_initialization, ser_output_diag, ser_latbc_data, ser_dynamics, &
+                                   ser_diffusion, ser_step_advection, &
                                    ser_physics, ser_lhn, ser_nudging, ser_all_debug, ser_surface, &
                                    ser_microphysics, ser_convection, ser_cover, ser_radiation, &
                                    ser_radheat, ser_gwdrag, ser_nfail, ser_nreport
@@ -36,6 +37,7 @@ MODULE mo_ser_all
   PUBLIC :: serialize_all
 
   PRIVATE
+  INTEGER :: initialization_cnt = 0
   INTEGER :: output_diag_cnt = 0
   INTEGER :: latbc_data_cnt = 0
   INTEGER :: dynamics_cnt = 0
@@ -352,6 +354,13 @@ MODULE mo_ser_all
   !$acc wait
 
    SELECT CASE(savepoint_base)
+      CASE("initialization")
+         initialization_cnt = initialization_cnt + 1
+         rel_threshold = ser_initialization(2)
+         abs_threshold = ser_initialization(3)
+         IF(initialization_cnt > ser_initialization(1)) THEN
+             do_serialization = .FALSE.
+         ENDIF
       CASE("output_diag")
          output_diag_cnt = output_diag_cnt + 1
          rel_threshold = ser_output_diag(2)
@@ -458,6 +467,7 @@ MODULE mo_ser_all
               do_serialization = .FALSE.
           ENDIF
       CASE DEFAULT
+         CALL warning('SER','Use default ser_all_debug settings for savepoint_base = '//savepoint_base)
          debug_cnt = debug_cnt + 1
          rel_threshold = ser_all_debug(2)
          abs_threshold = ser_all_debug(3)

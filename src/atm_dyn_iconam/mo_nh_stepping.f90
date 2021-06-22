@@ -892,6 +892,10 @@ MODULE mo_nh_stepping
   ENDIF
 #endif
 
+  !$ser verbatim DO jg = 1, n_dom
+    !$ser verbatim   CALL serialize_all(nproma, jg, "initialization", .FALSE., opt_lupdate_cpu=.TRUE.)
+  !$ser verbatim ENDDO
+  
   TIME_LOOP: DO
 
     ! optional memory loggin

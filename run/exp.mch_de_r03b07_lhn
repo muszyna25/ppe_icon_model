@@ -503,6 +503,7 @@ cat > ${atmo_namelist} << EOF
 /
 ! ser_nml: serialization configuration ----------------------------------------
 &ser_nml
+ ser_initialization          =                            0,12,12
  ser_output_diag             =                            0,12,12
  ser_latbc_data              =                            0,12,12
  ser_dynamics                =                            0,12,12
