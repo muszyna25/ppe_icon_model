@@ -4,7 +4,7 @@
 #
 # %{mkexp_input}
 #
-# $Id: DEFAULT.run.tmpl 6 2021-03-24 11:51:40Z m221078 $
+# $Id: DEFAULT.run.tmpl 9 2021-06-02 11:42:05Z m221078 $
 #
 # %{VERSIONS_|join('\n# ')}
 #
@@ -162,8 +162,8 @@ unset OMPI_MCA_coll_fca_priority
 
 # start and end date+time of experiment
 # -------------------------------------
-initial_date=${initial_date:="%{INITIAL_DATE}T00:00:00.000"}
-final_date=${final_date:="%{FINAL_DATE}T00:00:00.000"}
+initial_date="%{INITIAL_DATE}"
+final_date="%{FINAL_DATE}"
 
 # restart/checkpoint/output intervals
 # -----------------
@@ -171,11 +171,11 @@ restart_interval="%{INTERVAL}"
 checkpoint_interval="%{INTERVAL}"
 
 # file interval is restart-interval
-atm_file_interval="%{FILE_INTERVAL}T1S"
-oce_file_interval="%{FILE_INTERVAL}T1S"
-lnd_file_interval="%{FILE_INTERVAL}T1S"
+atm_file_interval="%{FILE_INTERVAL}"
+oce_file_interval="%{FILE_INTERVAL}"
+lnd_file_interval="%{FILE_INTERVAL}"
 #%  if WITH_OBGC is set:
-hamocc_file_interval="%{FILE_INTERVAL}T1S"
+hamocc_file_interval="%{FILE_INTERVAL}"
 #%  endif
 #%#
 atm_output_interval="%{OUTPUT_INTERVAL}"
@@ -204,20 +204,28 @@ read start_date < $start_date_file
 #%  endif
 #%#
 code=$(python -c "
-from sys import path
+#%  if PREFIX:
+import sys
 from distutils.sysconfig import get_python_lib
-lib_dir = get_python_lib(1, 0, '$MODEL_DIR')
-if lib_dir not in path:
-    path.insert(1, lib_dir)
+sys.path.insert(1, get_python_lib(prefix='%{PREFIX}'))
+#%  else
+import os
+os.chdir('$BUILD_DIR/externals/mtime/src')
+#%  endif
 import mtime
 mtime.setCalendar(mtime.CALENDAR_TYPE.%{calendar_mtime})
 initial_date = mtime.DateTime('$initial_date')
+final_date = mtime.DateTime('$final_date')
+start_date = mtime.DateTime('$start_date')
 reference_date = initial_date + mtime.TimeDelta('-$restart_interval')
-next_date = mtime.DateTime('$start_date') + mtime.TimeDelta('$restart_interval')
+next_date = start_date + mtime.TimeDelta('$restart_interval')
 end_date = next_date + mtime.TimeDelta('-%{ATMO_TIME_STEP}')
 atmo_reference_jstep = (initial_date, reference_date)//mtime.TimeDelta('%{ATMO_TIME_STEP}')
 ocean_reference_jstep = (initial_date, reference_date)//mtime.TimeDelta('%{OCEAN_TIME_STEP}')
 
+print('initial_date=' + str(initial_date))
+print('final_date=' + str(final_date))
+print('start_date=' + str(start_date))
 print('reference_date=' + str(reference_date))
 print('end_date=' + str(end_date))
 print('next_date=' + str(next_date))
