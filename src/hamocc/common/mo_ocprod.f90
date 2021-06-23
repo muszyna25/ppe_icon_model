@@ -704,7 +704,7 @@ SUBROUTINE ocprod (klev,start_idx,end_idx, ptho,pddpo, za,ptiestu, l_dynamic_pi)
           oxpot = max(0._wp, (bgctra(j,k,ioxygen) - 0.5E-6_wp)/rno2no3)     ! max change in o2
           nitox = min(no2a - newnitr, oxpot)
 
-          oxpot =  max(0., (bgctra(j,k,ioxygen) - 0.5E-6_wp - rno2no3*nitox)/rnh4no2)
+          oxpot =  max(0._wp, (bgctra(j,k,ioxygen) - 0.5E-6_wp - rno2no3*nitox)/rnh4no2)
           ammox = min(nh4a - newammo, oxpot)
 
           bgctra(j,k,iammo) = nh4a - ammox
@@ -723,7 +723,7 @@ SUBROUTINE ocprod (klev,start_idx,end_idx, ptho,pddpo, za,ptiestu, l_dynamic_pi)
           aou   = satoxy(j,k)-bgctra(j,k,ioxygen)
           refra = 1._wp + 3._wp * (0.5_wp + SIGN(0.5_wp, aou - 1.97e-4_wp))
           maxn2o = rnh4no2*ammox * prodn2o * refra
-          avo2 = max(0._wp,bgctra(j,k,ioxygen)- 0.5e-6)
+          avo2 = max(0._wp,bgctra(j,k,ioxygen)- 0.5e-6_wp)
           n2oprod =  min(avo2,maxn2o)
        
           bgctra(j,k,ian2o)   = bgctra(j,k,ian2o) + n2oprod
