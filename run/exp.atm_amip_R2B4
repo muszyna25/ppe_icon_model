@@ -389,7 +389,9 @@ done
 #
 # - tropospheric anthropogenic aerosols, simple plumes
 #
-add_link_file ${basedir}/data/MACv2.0-SP_v1.nc                          ./MACv2.0-SP_v1.nc
+datadir=${icon_data_poolFolder}/independent/MACv2_simple_plumes_merged
+#
+add_link_file ${datadir}/MACv2.0-SP-merged-historical-and-SSP2-45_v1.nc ./MACv2.0-SP_v1.nc
 #
 #   Kinne background aerosols are needed for the year 1850 (irad_aero=18)
 #
@@ -616,5 +618,3 @@ if [[ "$output_lnd" == "yes" ]]; then
 /
 EOF
 fi
-
-#--------------------------------------------------------------------------------------------------
