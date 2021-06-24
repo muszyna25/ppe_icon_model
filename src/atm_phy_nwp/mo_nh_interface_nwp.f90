@@ -1031,10 +1031,9 @@ CONTAINS
       ! Pressure has already been updated at the end of the fast physics part
       lpres = .FALSE.
 
-      ! Temperature at interface levels is needed if irad_aero = 5 or 6
-      ! or if Ritter-Geleyn radiation is called
+      ! Temperature at interface levels is needed if irad_aero = 5, 6 or 9
       IF ( lcall_phy_jg(itrad) .AND. ( irad_aero == 5 .OR. irad_aero == 6 &
-           .OR. irad_aero == 9 .OR. atm_phy_nwp_config(jg)%inwp_radiation == 2 ) ) THEN
+           .OR. irad_aero == 9 ) ) THEN
         ltemp_ifc = .TRUE.
       ELSE
         ltemp_ifc = .FALSE.
@@ -1377,15 +1376,15 @@ CONTAINS
           & trsol_par_sfc=prm_diag%trsol_par_sfc(:,jb), & ! in photosynthetically active downward transm. at the surface
           & trsol_dn_sfc_diff=prm_diag%trsol_dn_sfc_diff(:,jb),&! in shortwave diffuse downward transm. at the surface
           & trsol_clr_sfc=prm_diag%trsolclr_sfc(:,jb),  & ! in clear-sky net transmissivity at surface
-          & use_trsolclr_sfc=atm_phy_nwp_config(jg)%inwp_radiation/=2, &
+          & use_trsolclr_sfc=.TRUE.                ,&     ! in use clear-sky surface transmissivity (optional)
           !
           ! output
           ! ------
           !
-          & pdtdtradsw=prm_nwp_tend%ddt_temp_radsw(:,:,jb),&! out    rad. heating by SW        [K/s]
-          & pdtdtradlw=prm_nwp_tend%ddt_temp_radlw(:,:,jb),&! out    rad. heating by lw        [K/s]
-          & pflxsfcsw =prm_diag%swflxsfc (:,jb)   ,&        ! out shortwave surface net flux [W/m2]
-          & pflxsfclw =prm_diag%lwflxsfc (:,jb)   ,&        ! out longwave surface net flux  [W/m2]
+          & pdtdtradsw=prm_nwp_tend%ddt_temp_radsw(:,:,jb),&! out rad. heating by SW         [K/s]
+          & pdtdtradlw=prm_nwp_tend%ddt_temp_radlw(:,:,jb),&! out rad. heating by LW         [K/s]
+          & pflxsfcsw =prm_diag%swflxsfc (:,jb)        ,&   ! out shortwave surface net flux [W/m2]
+          & pflxsfclw =prm_diag%lwflxsfc (:,jb)        ,&   ! out longwave surface net flux  [W/m2]
           & pflxsfcsw_t=prm_diag%swflxsfc_t (:,jb,:)   ,&   ! out tile-specific shortwave surface net flux [W/m2]
           & pflxsfclw_t=prm_diag%lwflxsfc_t (:,jb,:)   ,&   ! out tile-specific longwave surface net flux  [W/m2]
           & pflxtoasw =prm_diag%swflxtoa (:,jb)        ,&   ! out shortwave toa net flux     [W/m2]
@@ -1467,7 +1466,7 @@ CONTAINS
       ENDIF
 #endif
 
-    ENDIF  ! inwp_radiation
+    ENDIF
 
 
 

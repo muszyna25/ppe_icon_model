@@ -29,7 +29,6 @@ MODULE mo_aerosol_util
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_lrtm_par,             ONLY: jpband => nbndlw
   USE mo_model_domain,         ONLY: t_patch
-  USE mo_radiation_rg_par,     ONLY: jpspec
   USE mo_srtm_config,          ONLY: jpsw
   USE mo_lnd_nwp_config,       ONLY: ntiles_lnd, dzsoil
   USE sfc_terra_data,          ONLY: cadp, cfcap
@@ -49,21 +48,115 @@ MODULE mo_aerosol_util
   zaes_rrtm(jpsw+jpband,5), &  ! analog for the optical thickness of scattering 
   zaeg_rrtm(jpsw+jpband,5)!, zaef_rrtm(jpsw+jpband,5)
 
-  !RG
-  REAL  (wp)              ::           &
-  zaea_rg(jpspec,5), &  ! ratio of optical thickness for the absorption in spectral
-                     ! interval jpspec  and total optical thickness at 0.55m*1.E-06 
-                     ! for an aerosoltyp specified by second array index
-  zaes_rg(jpspec,5), &  ! analog for the optical thickness of scattering 
-  zaeg_rg(jpspec,5), zaef_rg(jpspec,5)
+  PUBLIC :: zaea_rrtm, zaes_rrtm, zaeg_rrtm, &
+    &       aerdis, init_aerosol_dstrb_tanre, init_aerosol_props_tanre_rrtm, &
+    &       init_aerosol_props_tegen_rrtm,  prog_aerosol_2D, tune_dust
 
-
-  PUBLIC :: zaea_rrtm, zaes_rrtm, zaeg_rrtm, zaea_rg, zaes_rg, zaeg_rg, zaef_rg, &
-    &       init_aerosol_dstrb_tanre,init_aerosol_props_tanre_rrtm, &
-    &       init_aerosol_props_tanre_rg, &
-    &       init_aerosol_props_tegen_rrtm, init_aerosol_props_tegen_rg, prog_aerosol_2D, tune_dust
-  
 CONTAINS
+
+  !!  Subroutine aerdis is simplified version from COSMO model (version 4.16).
+  !!
+  !! @par Revision History
+  !! Initial Release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-02-28)
+  !! Transferred to mo_aerosol_util Sophia Schaefer, DWD (2021-06-21)
+   
+  SUBROUTINE aerdis ( klevp1, kbdim, jcs, jce, petah,  pvdaes, pvdael, pvdaeu, pvdaed )
+    
+    !------------------------------------------------------------------------------
+    !
+    ! Description:
+    !
+    ! The module procedure aerdis provides parameters for the vertical distribution
+    ! of aerosols (based on the original code of J.F. Geleyn (ECMWF, 4.11.82).
+    !
+    ! The routine computes the values PVDAE* (* = s, l, u or d for sea, land
+    ! urban or desert) of a surfach-normalised vertical distribution of aerosols'
+    ! optical depth from the argument petah (vertical coordinate) at klevp1 levels.
+    ! It also sets values for non-geograpically weighted total optical depths (at
+    ! 55 micrometer wavelength) paeopn for the same four types and similar optical
+    ! depths diveded by pressure for bachground well-mixed aerosols of three types
+    ! p**bga (** = tr, vo or st for tropospheric, volcanic (stratosperic ashes) or
+    ! stratosperic (sulfuric type)). It finally sets values for the power to be
+    ! applied to a temperature ratio smaller than two in order to obtain an index
+    ! one in the stratosphere and zero in the troposphere with a relatively smooth
+    ! transistion (ptrpt), as well as for adsorption coefficients fo water to the
+    ! three type of troposperic aerosols (paeadk) with a minimum value ( in the 
+    ! whole atmosphere) for the sum of the products paeadk by the optical depths
+    ! divided by pressure thickness: paeadm. 
+    !
+    ! Method:
+    !
+    ! Straightforward, equivalent heights are given in meters (8434 for the
+    ! atmosphere) and tropospheric and stratospheric pressure boundary values
+    ! are set at 101325 and 19330 Pascal. 
+    !
+    !------------------------------------------------------------------------------
+    
+    ! Subroutine arguments:
+    ! --------------------
+    
+    ! Input data
+    ! ----------
+    INTEGER, INTENT (IN) ::  &
+      & klevp1,         &           ! number of model layer interfaces
+      & kbdim,          &
+      & jcs,            &
+      & jce
+
+    REAL    (wp), INTENT (IN) ::  &
+      petah(kbdim,klevp1)    ! normalized vertical coordinate at half levels
+
+    ! Output data
+    ! -----------
+    REAL    (wp), INTENT (OUT) ::  &
+      pvdaes(kbdim,klevp1), & ! normalized vertical distribution (sea)
+      pvdael(kbdim,klevp1), & ! normalized vertical distribution (land)
+      pvdaeu(kbdim,klevp1), & ! normalized vertical distribution (urban)
+      pvdaed(kbdim,klevp1)    ! normalized vertical distrubution (desert)
+
+    ! Local parameters:
+    ! -------------
+    REAL (wp), PARAMETER  ::  &
+      zhss = 8434.0_wp/1000.0_wp ,  & !
+      zhsl = 8434.0_wp/1000.0_wp ,  & !
+      zhsu = 8434.0_wp/1000.0_wp ,  & !
+      zhsd = 8434.0_wp/3000.0_wp      !
+
+    INTEGER :: jc,jk
+    REAL(wp) :: log_eta
+
+    !- End of header
+    !==============================================================================
+
+    !------------------------------------------------------------------------------
+    ! Begin Subroutine aerdis              
+    !------------------------------------------------------------------------------
+
+    DO jc=jcs,jce
+      pvdaes(jc,1) = 0.0_wp
+      pvdael(jc,1) = 0.0_wp
+      pvdaeu(jc,1) = 0.0_wp
+      pvdaed(jc,1) = 0.0_wp
+    ENDDO
+
+!!$  IF(petah(1).NE.0._wp) THEN
+!!$     pvdaes(1) = petah(1)**zhss
+!!$     pvdael(1) = petah(1)**zhsl
+!!$     pvdaeu(1) = petah(1)**zhsu
+!!$     pvdaed(1) = petah(1)**zhsd
+!!$  END IF
+
+    DO jk=2,klevp1
+      DO jc=jcs,jce
+        log_eta       = LOG(petah(jc,jk))
+        pvdaes(jc,jk) = EXP(zhss*log_eta) ! petah(jc,jk)**zhss
+        pvdael(jc,jk) = pvdaes(jc,jk)     ! petah(jc,jk)**zhsl; zhsl is the same as zhss
+        pvdaeu(jc,jk) = pvdaes(jc,jk)     ! petah(jc,jk)**zhsu; zhsu is the same as zhss
+        pvdaed(jc,jk) = EXP(zhsd*log_eta) ! petah(jc,jk)**zhsd
+      ENDDO
+    ENDDO
+
+  END SUBROUTINE aerdis
 
   !>
   !! Initializes aerosol (climatologically).
@@ -525,95 +618,6 @@ CONTAINS
      &0.6941_wp,0.7286_wp,0.7358_wp,0.7177_wp,0.6955_wp,0.0616_wp/),(/jpsw+jpband,5/))      ! SB
 
   END SUBROUTINE init_aerosol_props_tanre_rrtm
-
-  SUBROUTINE init_aerosol_props_tanre_rg
-
-   ! the following aerosol types (second array index) are considered:
-   ! 1 : continental
-   ! 2 : maritime
-   ! 3 : urban
-   ! 4 : vulcano ashes
-   ! 5 : stratospheric background aerosol (SB)
-
-    !absorption
-    zaea_rg=RESHAPE((/0.0477_wp, 0.0875_wp,  0.1198_wp, 0.0458_wp, &
-      0.0387_wp, 0.0439_wp,  0.0599_wp, 0.0396_wp, &
-      0.0381_wp, 0.0129_wp,  0.0130_wp, 0.1304_wp, &
-      0.1757_wp, 0.0949_wp,  0.0653_wp, 0.0795_wp, &
-      0.0962_wp, 0.2046_wp,  0.4116_wp, 0.0169_wp, &
-      0.0204_wp, 0.0263_wp,  0.0348_wp, 0.0361_wp, &
-      0.0030_wp, 0.0271_wp,  0.0613_wp, 0.0118_wp, &
-      0.0160_wp, 0.0231_wp,  0.0287_wp, 0.0127_wp, &
-      0.0103_wp, 0.000016_wp,0.0000_wp, 0.0087_wp, &
-      0.0238_wp, 0.0511_wp,  0.0734_wp, 0.0809_wp/),(/jpspec,5/))
-
-    !scattering
-    zaes_rg=RESHAPE((/0.1407_wp, 0.4256_wp,  1.0066_wp, 0.0279_wp, &
-      0.0391_wp, 0.0445_wp,  0.0485_wp, 0.0362_wp, &
-      0.6746_wp, 0.8761_wp,  1.0139_wp, 0.0443_wp, &
-      0.0624_wp, 0.0921_wp,  0.1491_wp, 0.2327_wp, &
-      0.0605_wp, 0.2761_wp,  0.7449_wp, 0.0023_wp, &
-      0.0034_wp, 0.0051_wp,  0.0065_wp, 0.0045_wp, &
-      0.0284_wp, 0.5524_wp,  0.9683_wp, 0.0001_wp, &
-      0.0004_wp, 0.0024_wp,  0.0049_wp, 0.0030_wp, &
-      0.0467_wp, 0.3854_wp,  1.1008_wp, 0.0000_wp, &
-      0.00005_wp,0.0004_wp,  0.0006_wp, 0.0006_wp/),(/jpspec,5/))
-
-   !asymmetry factor   
-    zaeg_rg=RESHAPE((/0.6989_wp, 0.6329_wp,  0.6418_wp, 0.6243_wp, &
-      0.7299_wp, 0.7430_wp,  0.7086_wp, 0.8569_wp, &
-      0.7833_wp, 0.7575_wp,  0.7456_wp, 0.4997_wp, &
-      0.6130_wp, 0.7440_wp,  0.7426_wp, 0.7590_wp, &
-      0.5753_wp, 0.5867_wp,  0.5957_wp, 0.6027_wp, &
-      0.6766_wp, 0.6117_wp,  0.5439_wp, 0.6905_wp, &
-      0.5170_wp, 0.6674_wp,  0.7004_wp, 0.0340_wp, &
-      0.0570_wp, 0.1289_wp,  0.1597_wp, 0.1906_wp, &
-      0.3751_wp, 0.6353_wp,  0.7259_wp, 0.0037_wp, &
-      0.0083_wp, 0.0177_wp,  0.0201_wp, 0.0332_wp/),(/jpspec,5/))
-    
-  END SUBROUTINE init_aerosol_props_tanre_rg
-
-  SUBROUTINE init_aerosol_props_tegen_rg
-
-  ! the following aerosol types (second array index) are considered:
-  ! 1. continental, 2. maritime, 3. desert, 4. urban, 5. stratospheric background
-
-    zaea_rg=RESHAPE((/0.0345_wp,0.0511_wp,0.0847_wp,0.0336_wp,&
-      0.0499_wp,0.0364_wp,0.0382_wp,0.0260_wp,&
-      0.0457_wp,0.0018_wp,0.0015_wp,0.1361_wp,&
-      0.2346_wp,0.1177_wp,0.0684_wp,0.0808_wp,&
-      0.0707_wp,0.0689_wp,0.1557_wp,0.1258_wp,&
-      0.1588_wp,0.1973_wp,0.2766_wp,0.1134_wp,&
-      0.0597_wp,0.1077_wp,0.2095_wp,0.0299_wp,&
-      0.0456_wp,0.0358_wp,0.0377_wp,0.0304_wp,&
-      0.0103_wp, 0.000016_wp,0.0000_wp, 0.0087_wp, &
-      0.0238_wp, 0.0511_wp,  0.0734_wp, 0.0809_wp/),(/jpspec,5/))
-
-     
-    zaes_rg=RESHAPE((/0.1030_wp,0.3977_wp,1.0680_wp,0.0084_wp,&
-      0.0142_wp,0.0191_wp,0.0234_wp,0.0140_wp,&
-      0.7894_wp,0.9734_wp,1.0110_wp,0.0307_wp,&
-      0.0531_wp,0.0546_wp,0.0839_wp,0.2142_wp,&
-      0.7157_wp,0.8698_wp,0.8604_wp,0.0645_wp,&
-      0.0781_wp,0.1256_wp,0.2317_wp,0.1409_wp,&
-      0.0859_wp,0.3442_wp,0.9496_wp,0.0067_wp,&
-      0.0113_wp,0.0153_wp,0.0187_wp,0.0113_wp,&
-      0.0467_wp, 0.3854_wp,  1.1008_wp, 0.0000_wp, &
-      0.00005_wp,0.0004_wp,  0.0006_wp, 0.0006_wp/),(/jpspec,5/))
-     
-     
-    zaeg_rg=RESHAPE((/0.6562_wp,0.6614_wp,0.7109_wp,0.5043_wp,&
-      0.6486_wp,0.6814_wp,0.6489_wp,0.7799_wp,&
-      0.8105_wp,0.7906_wp,0.7947_wp,0.4374_wp,&
-      0.5203_wp,0.7076_wp,0.7246_wp,0.7535_wp,&
-      0.6932_wp,0.6962_wp,0.7402_wp,0.4029_wp,&
-      0.5587_wp,0.5618_wp,0.4520_wp,0.7120_wp,&
-      0.6462_wp,0.6510_wp,0.6955_wp,0.5041_wp,&
-      0.6482_wp,0.6805_wp,0.6477_wp,0.7753_wp,&
-      0.3751_wp, 0.6353_wp,  0.7259_wp, 0.0037_wp, &
-      0.0083_wp, 0.0177_wp,  0.0201_wp, 0.0332_wp/),(/jpspec,5/))
-    
-  END SUBROUTINE init_aerosol_props_tegen_rg
   
   SUBROUTINE init_aerosol_props_tegen_rrtm
 

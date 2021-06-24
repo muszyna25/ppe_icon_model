@@ -391,7 +391,7 @@ MODULE mo_nwp_phy_types
       p_ctop(:,:) !         & !>cloud top pressure
       !cld_opt_thck(
 
-    ! for old aerosol climatology from COSMO (to be used with inwp_radiation==2)
+    ! for old aerosol climatology from COSMO (to be used with now removed Ritter-Geleyn radiation)
     REAL(wp), POINTER       &
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
       , CONTIGUOUS          &
