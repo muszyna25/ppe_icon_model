@@ -34,6 +34,14 @@ set -e
 #%  if JOB.debug_level|d(0)|int > 0:
 set -x
 #%  endif
+
+# Support log style output
+pipe=%{EXP_ID}_%{JOB.id}_$$.pipe
+mkfifo $pipe
+trap "cd $PWD && rm -f $pipe" EXIT
+awk '{print strftime("%FT%T:"), $0; fflush()}' $pipe &
+exec > $pipe 2>&1
+
 #=============================================================================
 #
 # ICON run script:
