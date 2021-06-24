@@ -10,7 +10,7 @@
 !! Please see the file LICENSE in the root of the source tree for this code.
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
-#include <omp_definitions.inc>
+#include "omp_definitions.inc"
 MODULE mo_load_singlefile_restart
   USE mo_cdi,                ONLY: vlistInqTaxis, taxisInqVdate, taxisInqVtime, streamOpenRead, &
     &                              streamInqVlist, vlistNvars, vlistInqVarName, streamClose,    &

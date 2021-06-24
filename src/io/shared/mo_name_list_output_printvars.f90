@@ -11,7 +11,7 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
-#include "icon_contiguous_defines.h"
+#include "icon_contiguous_defines.inc"
 MODULE mo_name_list_output_printvars
 
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_char

@@ -41,13 +41,15 @@ VERSION_='@PACKAGE_VERSION@'
 
 # Set use_site:
 use_host='@host_fqdn@'
+use_site='local.net'
 case "$use_host" in
   wizard*|mlogin*|btlogin*|btc*) use_site=dkrz.de ;;
   daint*|tave*|santis*|kesch*) use_site=cscs.ch ;;
   ic2*|uc1*|fh2*|hk*) use_site=kit.edu ;;
   xc*|rcnl*|oflws*) use_site=dwd.de ;;
-  mpipc*mpimet.mpg.de|breeze*mpimet.mpg.de) use_site=mpg.de ;;
-  *) use_site='local.net' ;;
+  *mpimet.mpg.de)
+    # Filter out machines in the MPI-M network with dynamically assigned domain names:
+    echo "$use_host" | grep '^[dw]14[6-9]-[1-9][0-9]\{0,2\}\.mpimet\.mpg\.de$' >/dev/null 2>&1 || use_site=mpg.de ;;
 esac
 test x"$ICON_DOCKER" = x1 && use_site=docker
 

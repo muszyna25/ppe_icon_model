@@ -17,7 +17,7 @@
 
 !----------------------------
 #include "omp_definitions.inc"
-#include "icon_contiguous_defines.h"
+#include "icon_contiguous_defines.inc"
 !----------------------------
 
 MODULE mo_nh_nest_utilities
