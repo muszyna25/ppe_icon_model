@@ -753,6 +753,29 @@ lsynsat=.false. ! .false.,.true., ! requires RTTOV library - left out for this t
  ml_varlist           = 'VMAX_10M',
  output_grid          = .false.
 /
+&output_nml
+ ! -------------------------------------------------------------- !
+ ! ---      !!! NON-OPERATIONAL - JUST FOR BUILDBOT !!!       --- !
+ ! ---  ICON-EU: ensemble forecast - native grid (00+12 UTC)  --- !
+ ! ---       test computation of optional diagnostics         --- !
+ ! ---                  lpi_con & lfd_con                     --- !
+ ! -------------------------------------------------------------- !
+ filetype             = 2         ! output format: 2=GRIB2, 4=NETCDFv2
+ dom                  = 2                         ! write global domains
+ remap                = 0                         ! icon grid
+ output_time_unit     = 1                         ! 1: seconds
+ output_bounds        = 21600., 432000., 21600.   ! vv=6h,120h,6h
+ steps_per_file       = 1
+ taxis_tunit          = 2
+ mode                 = 1  ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+ include_last         = .true.
+ output_filename      = 'iefff'                      ! file name base
+ filename_format      = '<output_filename><ddhhmmss><levtype>lpi_lfd_con'
+ stream_partitions_ml = 1
+ pe_placement_ml      = 2
+ ml_varlist           = 'LPI_CON_MAX', 'LFD_CON'
+ output_grid          = .false.
+/
 EOF
 
 cat > map_file.ana << EOF2
