@@ -392,11 +392,18 @@ else
   check_final_status -1 "${START} ${MODEL}"
 fi
 
+#% set atmo_restart = namelists.NAMELIST_atm.run_nml.restart_filename
+#% set ocean_restart = namelists.NAMELIST_oce.run_nml.restart_filename
+
 #%  if JOB.subdir|d(''):
 # Handle restart hand-over
 
-ln -fv %{EXP_ID}_restart_atm_${next_stamp}Z.nc %{WORK_DIR}
-ln -fv %{EXP_ID}_restart_oce_${next_stamp}Z.nc %{WORK_DIR}
+#%    if WITH_ATMO is set:
+cp -lrfv %{atmo_restart|replace('<rsttime>', '${next_stamp}Z')} %{WORK_DIR}
+#%    endif
+#%    if WITH_OCEAN is set:
+cp -lrfv %{ocean_restart|replace('<rsttime>', '${next_stamp}Z')} %{WORK_DIR}
+#%    endif
 
 #%  endif
 
@@ -407,8 +414,12 @@ echo $next_date > $start_date_file
 #%  if JOB.subdir|d(''):
 # Clean up our restart
 
-rm -fv %{WORK_DIR}/%{EXP_ID}_restart_atm_${start_stamp}Z.nc
-rm -fv %{WORK_DIR}/%{EXP_ID}_restart_oce_${start_stamp}Z.nc
+#%    if WITH_ATMO is set:
+rm -rfv %{atmo_restart|replace('<rsttime>', '${start_stamp}Z')}
+#%    endif
+#%    if WITH_OCEAN is set:
+rm -rfv %{ocean_restart|replace('<rsttime>', '${start_stamp}Z')}
+#%    endif
 
 #%  endif
 
