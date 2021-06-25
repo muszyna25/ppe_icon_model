@@ -105,6 +105,13 @@ MODULE mo_memory_bgc
   REAL(wp) :: buoyancyspeed_cya      
   REAL(wp) :: ralk, cyamin, ro2ut_cya
 
+  ! Extended Nitrogen cycle variables
+  REAL(wp) :: bkno3_cya, bknh4_cya, ro2ammo, bkno3, bknh4
+  REAL(wp) :: rmm, kg_denom, bkpo4, o2thresh, o2den_lim
+  REAL(wp) :: no2denit, anamoxra, bkno2, bkrad, nitriox, nitrira
+  REAL(wp) :: bkfe, rno3nh4, rno3no2, rnh4no2, rno2no3, alk_nrn2
+  REAL(wp) :: rno2n2
+
 
   REAL(wp), PARAMETER :: ppm2con=0.35e-3_wp     !> ppm2con: atmospheric weight: ~10000kg/m^2, avrg. ~29 g/mol
                                                 !> --> 350 kmol/m^2 --> 1ppm ~ 0.35e-3 kmol/m^2

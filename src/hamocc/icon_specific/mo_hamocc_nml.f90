@@ -69,6 +69,10 @@ MODULE mo_hamocc_nml
   REAL(wp), PUBLIC :: calmax
   REAL(wp), PUBLIC :: bkcya_P, bkcya_Fe
   !LOGICAL, PUBLIC :: l_avflux         = .TRUE.   ! flux redistribution
+
+  ! extended N-cycle
+  LOGICAL, PUBLIC :: l_N_cycle = .FALSE.
+  REAL(wp), PUBLIC :: no3nh4red, no3no2red
   
   REAL(wp), PUBLIC :: atm_co2, atm_o2, atm_n2
   INTEGER         :: iunit
@@ -107,7 +111,10 @@ MODULE mo_hamocc_nml
     &  dremcalc, &
     &  calmax, &
     &  bkcya_P, &
-    &  bkcya_Fe
+    &  bkcya_Fe, &
+    &  l_N_cycle, &
+    &  no3nh4red, &
+    &  no3no2red
 
 CONTAINS
   !>
@@ -196,6 +203,9 @@ CONTAINS
    bkcya_P = 5.e-8_wp
    bkcya_Fe = 30.e-8_wp
 
+   no3nh4red = 0.002_wp  ! 1/day
+   no3no2red = 0.002_wp  ! 1/day
+
 
 
     !------------------------------------------------------------------
@@ -233,6 +243,11 @@ CONTAINS
     IF (i_settling > 1 ) THEN
       CALL finish(TRIM(routine), 'Aggregation not yet implemented, i_settling must be 0 or 1')
     END IF
+
+    if (l_N_cycle .and. l_implsed) THEN
+      CALL finish(TRIM(routine), 'Extended N-cycle only works with explicit sediment!')
+    END IF
+
 
     ksp=ks+1
     ALLOCATE(porwat(ks))
