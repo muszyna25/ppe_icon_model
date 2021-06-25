@@ -22,6 +22,7 @@ import errno
 import logging
 import os
 import re
+import shutil
 import subprocess
 import sys
 
@@ -119,8 +120,6 @@ if start_date == initial_date:
 tags.extend(%{output.pressure_level.sections|d([])})
 #%  endif
 
-restart_tags = ['atm', 'oce']
-
 #%#
 # Set-up template variables
 
@@ -136,7 +135,6 @@ template_dict['end_stamp'] = re.sub(weed, '', str(end_date))
 template_dict['atmo_shift_spec'] = ' '.join(reversed(atmo_shift_list))
 template_dict['ocean_shift_spec'] = ' '.join(reversed(ocean_shift_list))
 template_dict['tags'] = ' '.join(tags)
-template_dict['restart_tags'] = ' '.join(restart_tags)
 
 # Prolog
 
@@ -158,12 +156,11 @@ template_dict['run_dir'] = run_dir
 template_dict['restart_dir'] = restart_dir
 template_dict['data_dir'] = data_dir
 
+# Set-up working directory
 post_dir = os.path.join('%{WORK_DIR}',
                         'post_{start_stamp}-{end_stamp}'.
                         format(**template_dict))
-
 logging.info('working directory is {0}'.format(post_dir))
-
 try:
     os.makedirs(post_dir)
 except OSError as xcptn:
@@ -180,6 +177,37 @@ except OSError as xcptn:
 
 os.chdir(post_dir)
 
+# Restart file handling
+
+#%  set atmo_restart = namelists.NAMELIST_atm.run_nml.restart_filename
+#%  set ocean_restart = namelists.NAMELIST_oce.run_nml.restart_filename
+#%  set restart_filenames = []
+#%  if WITH_ATMO is set:
+#%      do restart_filenames.append(atmo_restart)
+#%  endif
+#%  if WITH_OCEAN is set:
+#%      do restart_filenames.append(ocean_restart)
+#%  endif
+
+restart_filenames = %{restart_filenames}
+restart_targets = []
+for restart_filename in restart_filenames:
+    restart_file = restart_filename.replace('<rsttime>', template_dict['next_date'])
+    logging.debug("restart_file = {0}".format(restart_file))
+    restart_path = os.path.join(run_dir, restart_filename.replace('<rsttime>', template_dict['next_stamp']+'Z'))
+    logging.debug("restart_path = {0}".format(restart_path))
+    if os.path.isdir(restart_path):
+        logging.debug("{0} is directory".format(restart_path))
+        # Multi file restart directory - explode to all files
+        restart_targets.extend([os.path.join(restart_file, f)
+                                for f in os.listdir(restart_path)])
+    else:
+        # Single file restart
+        restart_targets.append(restart_file)
+logging.debug("restart_targets = {0}".format(str(restart_targets)))
+
+template_dict['restart_targets'] = ' '.join(restart_targets)
+
 # Generate Makefile
 
 makefile_template = '''\
@@ -194,35 +222,45 @@ DATA_DIR = {data_dir}
 RUN_DIR = {run_dir}
 
 TAGS = {tags}
-RESTART_TAGS = {restart_tags}
+RESTART_TARGETS = {restart_targets}
 
-TARGETS = $(TAGS:%=$(DATA_DIR)/$(EXP_ID)_%_{start_date}.nc) $(RESTART_TAGS:%=$(RESTART_DIR)/$(EXP_ID)_restart_%_{next_date}.nc)
+TARGETS = $(TAGS:%=$(DATA_DIR)/$(EXP_ID)_%_{start_date}.nc) $(RESTART_TARGETS:%=$(RESTART_DIR)/%)
 
 all: $(TARGETS)
 
 clean:
 	$(RM) $(TARGETS)
 
-$(RESTART_DIR)/$(EXP_ID)_restart_%_{next_date}.nc: $(RUN_DIR)/$(EXP_ID)_restart_%_{next_stamp}Z.nc
-	$(NC_COMPRESS) $< $@
+#%  for restart_filename in restart_filenames:
+$(RESTART_DIR)/%{restart_filename|replace('<rsttime>','{next_date}')}%: $(RUN_DIR)/%{restart_filename|replace('<rsttime>','{next_stamp}Z')}%
+	mkdir -p $(@D)
+	$(NC_COMPRESS) $< $@~
+	@if [ $$(stat -c %s $@~) -gt $$(stat -c %s $<) ]; then COMMAND="cp -p $< $@~"; echo $$COMMAND; $$COMMAND; fi
+	mv $@~ $@
 
+#%  endfor
 $(DATA_DIR)/$(EXP_ID)_atm_%_{start_date}.nc: $(RUN_DIR)/$(EXP_ID)_atm_%_{start_stamp}Z.nc
-	$(CDO) $(CDOFLAGS) {atmo_shift_spec} $< $@
+	$(CDO) $(CDOFLAGS) {atmo_shift_spec} $< $@~
+	mv $@~ $@
 
 $(DATA_DIR)/$(EXP_ID)_lnd_%_{start_date}.nc: $(RUN_DIR)/$(EXP_ID)_lnd_%_{start_stamp}Z.nc
-	$(CDO) $(CDOFLAGS) {atmo_shift_spec} $< $@
+	$(CDO) $(CDOFLAGS) {atmo_shift_spec} $< $@~
+	mv $@~ $@
 
 $(DATA_DIR)/$(EXP_ID)_oce_%_{start_date}.nc: $(RUN_DIR)/$(EXP_ID)_oce_%_{start_stamp}Z.nc
-	$(CDO) $(CDOFLAGS) {ocean_shift_spec} $< $@
+	$(CDO) $(CDOFLAGS) {ocean_shift_spec} $< $@~
+	mv $@~ $@
 
 $(DATA_DIR)/$(EXP_ID)_hamoc%_{start_date}.nc: $(RUN_DIR)/$(EXP_ID)_hamoc%_{start_stamp}Z.nc
-	$(CDO) $(CDOFLAGS) {ocean_shift_spec} $< $@
+	$(CDO) $(CDOFLAGS) {ocean_shift_spec} $< $@~
+	mv $@~ $@
 
 #%  if output is defined and output.pressure_level is defined:
 #%    for target in output.pressure_level.sections|d([]):
 #%        set info = output.pressure_level[target]
 $(DATA_DIR)/$(EXP_ID)_%{target}_{start_date}.nc: $(DATA_DIR)/$(EXP_ID)_%{info.input_tag}_{start_date}.nc
-	$(CDO) $(CDOFLAGS) selvar,%{info.variable_names|join(',')} -ap2pl,%{info.pressure_levels|join(',')} $< $@
+	$(CDO) $(CDOFLAGS) selvar,%{info.variable_names|join(',')} -ap2pl,%{info.pressure_levels|join(',')} $< $@~
+	mv $@~ $@
 #%    endfor
 #%  endif
 '''
@@ -238,7 +276,10 @@ make_args = ['make', '-k', '-j', '%{JOB.tasks|d(1)}']
 if args.clean: make_args.append('clean')
 make = subprocess.Popen(make_args, universal_newlines=True,
                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-for line in make.stdout:
+
+while True:
+    line = make.stdout.readline()
+    if not line: break
     logging.info(line.rstrip('\n'))
 
 make_result = make.wait()
@@ -255,9 +296,7 @@ os.removedirs(post_dir)
 #%    if jobs.run.subdir|d(''):
 if os.path.isdir(run_dir):
     logging.info("removing run dir '{run_dir}'".format(**template_dict))
-    for entry in os.listdir(run_dir):
-        os.remove(os.path.join(run_dir, entry))
-    os.removedirs(run_dir)
+    shutil.rmtree(run_dir)
 #%    endif
 
 #%  endif
