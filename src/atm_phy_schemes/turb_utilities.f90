@@ -149,20 +149,7 @@ MODULE  turb_utilities
 ! Modules used:
 !------------------------------------------------------------------------------
 
-#ifdef __COSMO__
-USE kind_parameters, ONLY : &
-  wp           ! KIND-type parameters for real variables
-
-USE data_parallel,   ONLY : &
-  my_cart_id
-
-USE data_runcontrol, ONLY : &
-  idbg_level
-#endif
-
-#ifdef __ICON__
 USE mo_kind,                ONLY: wp           ! KIND-type parameter for real variables
-#endif
 
 USE turb_data , ONLY :   &
 #ifdef SCLM
@@ -246,37 +233,6 @@ USE turb_data , ONLY :   &
     c_sea, c_soil, c_lnd, e_surf
 
 
-#ifdef __COSMO__
-USE data_constants, ONLY : &
-
-! Physical constants and related variables:
-! -------------------------------------------
-
-    r_d,          & ! gas constant for dry air
-    rdv,          & ! r_d / r_v
-    o_m_rdv,      & ! 1 - r_d/r_v
-    rvd_m_o,      & ! r_v/r_d - 1
-    cp_d,         & ! specific heat for dry air
-    rcpv,         & ! cp_v/cp_d - 1
-    rcpl,         & ! cp_l/cp_d - 1 (where cp_l=cv_l)
-    rdocp,        & ! r_d / cp_d
-    lhocp,        & ! lh_v / cp_d
-    con_m,        & ! kinematic vsicosity of dry air (m2/s)
-!
-    grav => g,    & ! acceleration due to gravity
-    p0ref,        & ! reference pressure for Exner-function
-    b3,           & ! temperature at melting point
-!
-    uc1, ucl,     & ! params. used in cloud cover diagnostics based on rel. humidity
-    uc2,          & ! SQRT(3) used in cloud cover diagnostics based on rel. humidity
-!
-    b1,           & ! variables for computing the saturation steam pressure
-    b2w,          & ! over water (w) and ice (i)
-    b4w,          & !               -- " --
-    b234w           ! b2w * (b3 - b4w)
-#endif
-
-#ifdef __ICON__
 USE mo_physical_constants, ONLY : &
 !
 ! Physical constants and related variables:
@@ -314,7 +270,6 @@ USE mo_convect_tables, ONLY : &
     b4w      => c4les,    & !               -- " --
     b4i      => c4ies,    & !               -- " --
     b234w    => c5les       ! b2w * (b3 - b4w)
-#endif
 
 !------------------------------------------------------------------------------
 #ifdef SCLM
@@ -479,14 +434,7 @@ LOGICAL, INTENT(IN), OPTIONAL :: lacc ! flag for using GPU code
   IF (PRESENT(h_can) .AND. PRESENT(hhl)) THEN
     ! h_can is a primary external parameter. The initial values of h_can are 0.
     ! If we don't change this, no canopy will be resolved in the vertical direction.
-#ifdef _OPENACC
-#ifdef __COSMO__
-    IF ( ( my_cart_id == 0 ) .AND. ( idbg_level >= 0 ) ) THEN
-       WRITE(*,*) ' GPUINFO: GPU-CPU copy, turb_utilities.f90 , hhl and h_can'
-    ENDIF
-#endif
-!   need a different implementation for ICON
-#endif
+
     !$acc update host (hhl, h_can)
 
     kcm=ke

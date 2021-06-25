@@ -115,6 +115,7 @@ MODULE mo_setup_subdivision
   USE mo_util_uuid,           ONLY: uuid_unparse
   USE mo_read_netcdf_broadcast_2, ONLY: netcdf_open_input, netcdf_close, &
     &                                   netcdf_read_att_int
+  USE mo_fortran_tools,       ONLY: t_ptr_2d_int
 
   IMPLICIT NONE
 
@@ -4961,12 +4962,13 @@ CONTAINS
     TYPE(global_array_desc) :: dist_cell_owner_desc(1)
     TYPE(extent) :: local_chunk(1,1)
     INTEGER, POINTER :: local_ptr(:)
-    INTEGER, ALLOCATABLE :: buffer(:,:)
+    INTEGER, ALLOCATABLE, TARGET :: buffer(:,:)
     INTEGER :: i, ncid
     TYPE(t_grid_domain_decomp_info) :: decomp_info
     TYPE(t_distrib_read_data) :: io_data
     INTEGER :: dist_array_pes_start, dist_array_pes_size
     CHARACTER(*), PARAMETER :: method_name = "read_netcdf_decomposition"
+    TYPE(t_ptr_2d_int) :: tmp_ptr(1)
 
     dist_cell_owner_desc(1)%a_rank = 1
     dist_cell_owner_desc(1)%rect(1)%first = 1
@@ -5006,7 +5008,8 @@ CONTAINS
     IF (p_pe_work == 0) &
       WRITE(0,*) "Read decomposition from file: ", TRIM(netcdf_file_name)
     ncid = distrib_nf_open(netcdf_file_name)
-    CALL distrib_read(ncid, "cell_owner", buffer, io_data)
+    tmp_ptr(1)%p => buffer
+    CALL distrib_read(ncid, "cell_owner", tmp_ptr, (/io_data/))
     CALL distrib_nf_close(ncid)
 
     DO i = 0, SIZE(local_ptr) - 1

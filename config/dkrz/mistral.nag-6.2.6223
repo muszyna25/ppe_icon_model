@@ -37,6 +37,7 @@ BLAS_LAPACK_LIBS='-llapack -lblas'
 XML2_ROOT='/usr'
 XML2_LIBS='-lxml2'
 
+PYTHON='/sw/spack-rhel6/miniforge3-4.9.2-3-Linux-x86_64-pwdbqi/bin/python'
 ################################################################################
 
 BUILD_ENV=". /sw/rhel6-x64/etc/profile.mistral; . \"${SCRIPT_DIR}/module_switcher\"; switch_for_module ${MODULES}; export LD_LIBRARY_PATH=\"${MPICH_ROOT}/lib:${HDF5_ROOT}/lib:${NETCDF_ROOT}/lib:${NETCDFF_ROOT}/lib:${ECCODES_ROOT}/lib:${BLAS_LAPACK_ROOT}/lib64:\${LD_LIBRARY_PATH}\";"
@@ -56,7 +57,8 @@ CPPFLAGS="-I${MPICH_ROOT}/include -I${HDF5_ROOT}/include -I${NETCDF_ROOT}/includ
 FC='nagfor'
 FCFLAGS="-I${MPICH_ROOT}/include -I${NETCDFF_ROOT}/include -kind=byte -colour -f2008 -Wc=${GCC_PATH} -w=uep -O0 -Wc,-g -float-store -nan -gline -g"
 ICON_FCFLAGS='-Wc,-pipe -Wc,-fsanitize=null -Wc,--param,max-vartrack-size=200000000 -Wc,-mno-fma -C=all -wmismatch=mpi_allgather,mpi_allgatherv,mpi_allreduce,mpi_alltoall,mpi_alltoallv,mpi_bcast,mpi_free_mem,mpi_gather,mpi_gatherv,mpi_get,mpi_get_address,mpi_irecv,mpi_isend,mpi_pack,mpi_recv,mpi_reduce,mpi_rget,mpi_scatter,mpi_scatterv,mpi_send,mpi_sendrecv,mpi_unpack,mpi_win_create,nf_def_var,nf_get_att_double,nf_get_att_int,nf_get_vara_int,nf_put_att_double,nf_put_att_int,nf_put_vara_double,nf_put_vara_int'
-ICON_BUNDLED_FCFLAGS='-wmismatch=xt_slice_c_loc'
+ICON_BUNDLED_FCFLAGS=''
+ICON_YAXT_FCFLAGS='-wmismatch=xt_slice_c_loc' # not needed starting YAXT 0.8.0
 
 LDFLAGS="-L${MPICH_ROOT}/lib -L${HDF5_ROOT}/lib -L${NETCDF_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${ECCODES_ROOT}/lib -L${BLAS_LAPACK_ROOT}/lib64"
 LIBS="${XML2_LIBS} ${BLAS_LAPACK_LIBS} ${ECCODES_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${HDF5_LIBS} ${MPICH_LIBS} -lubsan"
@@ -68,9 +70,8 @@ LIBS="${XML2_LIBS} ${BLAS_LAPACK_LIBS} ${ECCODES_LIBS} ${NETCDFF_LIBS} ${NETCDF_
 # tricks:
 #   1) We put '-Wl,-Wl,,--as-needed' not to LDFLAGS or LIBS, which are used by
 #      both Fortran and C compilers (the latter is used for linking by the
-#      bundled libraries), and not to FCFLAGS, which would break libtool (used
-#      by the bundled libraries), but to ICON_FCFLAGS:
-ICON_FCFLAGS+=' -Wl,-Wl,,--as-needed'
+#      bundled libraries) but to ICON_LDFLAGS:
+ICON_LDFLAGS='-Wl,-Wl,,--as-needed'
 #   2) We prepend each '-l<library>' flag with '-Wl,' because otherwise NAG
 #      puts them before '-Wl,--as-needed' when calling gcc for linking and the
 #      flag does not give the desired effect:
@@ -93,9 +94,12 @@ ICON_BUNDLED_CFLAGS="${ICON_BUNDLED_CFLAGS}" \
 ICON_BUNDLED_FCFLAGS="${ICON_BUNDLED_FCFLAGS}" \
 ICON_CFLAGS="${ICON_CFLAGS}" \
 ICON_FCFLAGS="${ICON_FCFLAGS}" \
+ICON_LDFLAGS="${ICON_LDFLAGS}" \
+ICON_YAXT_FCFLAGS="${ICON_YAXT_FCFLAGS}" \
 LDFLAGS="${LDFLAGS}" \
 LIBS="${LIBS}" \
 MPI_LAUNCH="${MPI_LAUNCH}" \
+PYTHON="${PYTHON}" \
 ${EXTRA_CONFIG_ARGS} \
 "$@"
 

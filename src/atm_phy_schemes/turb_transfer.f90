@@ -151,48 +151,13 @@ MODULE turb_transfer
 ! Parameter for precision
 !-------------------------------------------------------------------------------
 
-#ifdef __COSMO__
-USE kind_parameters, ONLY :   &
-#elif defined(__ICON__)
 USE mo_kind,         ONLY :   &
-#endif
     wp              ! KIND-type parameter for real variables
 
 !-------------------------------------------------------------------------------
 ! Mathematical and physical constants
 !-------------------------------------------------------------------------------
 
-#ifdef __COSMO__
-USE data_constants, ONLY : &
-
-! Physical constants and related variables:
-! -------------------------------------------
-
-    r_d,          & ! gas constant for dry air
-    rdv,          & ! r_d / r_v
-    rvd_m_o,      & ! r_v/r_d - 1
-    cp_d,         & ! specific heat for dry air
-    lh_v,         & ! evaporation heat
-    lhocp,        & ! lh_v / cp_d
-    con_m,        & ! kinematic vsicosity of dry air (m2/s)
-    con_h,        & ! scalar conductivity of dry air (m2/s)
-    t0_melt,      & ! absolute zero for temperature (K)
-    tf_salt,      & ! salt water freezing point
-    grav => g,    & ! acceleration due to gravity
-!
-! Parameters for auxilary parametrizations:
-! ------------------------------------------
-
-    b1,           & ! variables for computing the saturation steam pressure
-    b2w,          & ! over water (w) and ice (i)
-    b3,           & !               -- " --
-    b4w             !               -- " --
-
-USE data_parallel,  ONLY : &
-    my_cart_id
-#endif
-
-#ifdef __ICON__
 USE mo_mpi,                ONLY : get_my_global_mpi_id
 
 USE mo_physical_constants, ONLY : &
@@ -219,7 +184,6 @@ USE mo_convect_tables, ONLY : &
     b1       => c1es,     & ! variables for computing the saturation steam pressure
     b2w      => c3les,    & ! over water (w) and ice (e)
     b4w      => c4les       !               -- " --
-#endif
 
 !-------------------------------------------------------------------------------
 ! From Flake model
@@ -436,17 +400,11 @@ USE turb_data, ONLY : &
 !-------------------------------------------------------------------------------
 
 ! Switches controlling other physical parameterizations:
-#ifdef __COSMO__
-USE data_runcontrol, ONLY:   &
-    itype_diag_t2m,  & ! type of T_2M diagnostics
-    lseaice,         & ! forecast with sea ice model
-    llake              ! forecast with lake model FLake
-#elif defined(__ICON__)
 USE mo_lnd_nwp_config,       ONLY: lseaice, llake
 !   
 USE turb_data,         ONLY:   &
     itype_diag_t2m    !
-#endif
+
 !   
 USE turb_utilities,          ONLY:   &
     turb_setup,                      &
@@ -2265,12 +2223,7 @@ my_thrd_id = omp_get_thread_num()
                fr_sd_h=MAX( z0, dz_s0_h(i)/z0m_2d(i)+LOG(z0d/z0m_2d(i)) )
 
                IF (imode_trancnf.LT.4) THEN !further corrected profile-factor using an upper node
-#ifdef __ICON__
                   fac_h_2d(i)=(rat_h_2d(i)-z1)*z0d/h_top_2d(i)
-#endif
-#ifdef __COSMO__
-                  fac_h_2d(i)=fac_h_2d(i)*z0d/z0m_2d(i)
-#endif
 !Achtung:
 !'fac_h_2d' sollte wohl eher auch eine Profil-Konstante sein
 ! und nicht mit "z0d/z0m_2d" skaliert werden (also hier nicht mehr veraendert werden)
@@ -2484,12 +2437,7 @@ my_thrd_id = omp_get_thread_num()
                a_10m=h_10m+z0d
 
                IF (imode_trancnf.LT.4) THEN !further corrected profile-factor using an upper node
-#ifdef __ICON__
                   fac_m_2d(i)=(rat_m_2d(i)-z1)*z0d/h_top_2d(i)
-#endif
-#ifdef __COSMO__
-                  fac_m_2d(i)=fac_m_2d(i)*z0d/z0m_2d(i)
-#endif
 !Achtung:
 !'fac_m_2d' sollte wohl eher auch eine Profil-Konstante sein
 ! und nicht mit "z0d/z0m_2d" skaliert werden (also hier nicht mehr veraendert werden)

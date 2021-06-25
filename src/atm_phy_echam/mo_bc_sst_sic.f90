@@ -18,7 +18,7 @@
 !!
 !! TODO: ctfreez in echam = 271.38, this is 271.45 K
 !
-#include "icon_contiguous_defines.h"
+#include "icon_contiguous_defines.inc"
 MODULE mo_bc_sst_sic
   
   USE mo_kind,               ONLY: dp, i8

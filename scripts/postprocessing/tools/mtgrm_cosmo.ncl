@@ -22,7 +22,7 @@ begin
     dst_val  = 1.e3 * src_val
     return
   end if
-  if ((varname .eq. "qv_s") .and. (src_unit .eq. "kg/kg")) then
+  if ((str_lower(varname) .eq. "qv_s") .and. (src_unit .eq. "kg/kg")) then
     dst_unit = "g/kg"
     dst_val  = 1.e3 * src_val
     return
@@ -74,7 +74,7 @@ begin
   do i=1,ceil(blength/2.)
     result = result + " "
   end do
-  return(result) 
+  return(result)
 end
 
 function lalign (zstr : string, length)
@@ -85,7 +85,7 @@ begin
   do i=1,blength
     result = result + " "
   end do
-  return(result) 
+  return(result)
 end
 
 function ralign (zstr : string, length)
@@ -97,7 +97,7 @@ begin
     result = result + " "
   end do
   result = result + str_strip(zstr)
-  return(result) 
+  return(result)
 end
 
 ; Constants -----------------------------------------------------------
@@ -107,13 +107,35 @@ colwidth = 13; table column width
 ;----------------------------------------------------------------------
 
 ; open netCDF file
-cdf_file = addfile(DataFileName,"r") 
+cdf_file = addfile(DataFileName,"r")
 nstations = dimsizes(cdf_file->station_lon)
 
 nvars    = dimsizes(cdf_file->var_name)
 nsfcvars = dimsizes(cdf_file->sfcvar_name)
 
 ; prepare some data structures
+
+VAR_PHALF    = -1
+VAR_W        = -1
+VAR_TKVM     = -1
+VAR_TKVH     = -1
+VAR_T_SO     = -1
+VAR_W_SO     = -1
+VAR_W_SO_ICE = -1
+VAR_QV_S     = -1
+VAR_RUNOFF_S = -1
+VAR_RUNOFF_G = -1
+VAR_ROOTDP   = -1
+VAR_LAI      = -1
+VAR_PLCOV    = -1
+VAR_TSNOW    = -1
+VAR_WSNOW    = -1
+VAR_TS       = -1
+VAR_WI       = -1
+VAR_TG       = -1
+VAR_FRESHSNW = -1
+VAR_RHO_SNOW = -1
+VAR_H_SNOW   = -1
 
 do ivar=0,(nvars(0)-1)
  zname = charactertostring(cdf_file->var_name(ivar,:))
@@ -152,26 +174,26 @@ do ivar=0,(nvars(0)-1)
    VAR_V = ivar
  end if
  ; half levels
- if(zname .eq. "Phalf") then
+ if(str_lower(zname) .eq. "phalf") then
    VAR_PHALF = ivar
  end if
- if(zname .eq. "W") then
+ if(str_lower(zname) .eq. "w") then
    VAR_W = ivar
  end if
- if(zname .eq. "TKVM") then
+ if(str_lower(zname) .eq. "tkvm") then
    VAR_TKVM = ivar
  end if
- if(zname .eq. "TKVH") then
+ if(str_lower(zname) .eq. "tkvh") then
    VAR_TKVH = ivar
  end if
  ; soil levels
- if(zname .eq. "t_so_1") then
+ if(str_lower(zname) .eq. "t_so_1") then
    VAR_T_SO = ivar
  end if
- if(zname .eq. "w_so_1") then
+ if(str_lower(zname) .eq. "w_so_1") then
    VAR_W_SO = ivar
  end if
- if(zname .eq. "w_so_ice_1") then
+ if(str_lower(zname) .eq. "w_so_ice_1") then
    VAR_W_SO_ICE = ivar
  end if
 end do
@@ -195,22 +217,22 @@ do ivar=0,(nsfcvars(0)-1)
  if(zname .eq. "LHFL") then
    VAR_LHFL = ivar
  end if
- if(zname .eq. "qv_s") then
+ if(str_lower(zname) .eq. "qv_s") then
    VAR_QV_S = ivar
  end if
- if(zname .eq. "RUNOFF_S_1") then
+ if(str_lower(zname) .eq. "runoff_s_1") then
    VAR_RUNOFF_S = ivar
  end if
- if(zname .eq. "RUNOFF_G_1") then
+ if(str_lower(zname) .eq. "runoff_g_1") then
    VAR_RUNOFF_G = ivar
  end if
- if(zname .eq. "LA_Ind") then
+ if(str_lower(zname) .eq. "la_ind") then
    VAR_LAI = ivar
  end if
- if(zname .eq. "PL_Cov") then
+ if(str_lower(zname) .eq. "pl_cov") then
    VAR_PLCOV = ivar
  end if
- if(zname .eq. "RO_Dept") then
+ if(str_lower(zname) .eq. "ro_dept") then
    VAR_ROOTDP = ivar
  end if
  if(zname .eq. "VIO3") then
@@ -219,31 +241,31 @@ do ivar=0,(nsfcvars(0)-1)
  if(zname .eq. "HMO3") then
    VAR_HMO3 = ivar
  end if
- if(zname .eq. "t_snow_1") then
+ if(str_lower(zname) .eq. "t_snow_1") then
    VAR_TSNOW = ivar
  end if
- if(zname .eq. "w_snow_1") then
+ if(str_lower(zname) .eq. "w_snow_1") then
    VAR_WSNOW = ivar
  end if
- if(zname .eq. "w_snow_1") then
+ if(str_lower(zname) .eq. "w_snow_1") then
    VAR_WSNOW = ivar
  end if
- if(zname .eq. "t_s_1") then
+ if(str_lower(zname) .eq. "t_s_1") then
    VAR_TS = ivar
  end if
- if(zname .eq. "w_i_1") then
+ if(str_lower(zname) .eq. "w_i_1") then
    VAR_WI = ivar
  end if
- if(zname .eq. "t_g") then
+ if(str_lower(zname) .eq. "t_g") then
    VAR_TG = ivar
  end if
- if(zname .eq. "FRESHSNW_1") then
+ if(str_lower(zname) .eq. "freshsnw_1") then
    VAR_FRESHSNW = ivar
  end if
- if(zname .eq. "RHO_SNOW_1") then
+ if(str_lower(zname) .eq. "rho_snow_1") then
    VAR_RHO_SNOW = ivar
  end if
- if(zname .eq. "H_SNOW_1") then
+ if(str_lower(zname) .eq. "h_snow_1") then
    VAR_H_SNOW = ivar
  end if
  if(zname .eq. "T2M") then
@@ -298,10 +320,11 @@ print_names      = (/ "Pmain",   "T",   "QV",   "QC",   "QI"  , "QR",   "QS"  ,"
 print_list_half  = (/ VAR_PHALF, VAR_W, VAR_TKVM, VAR_TKVH   /)
 print_names_half = (/ "Phalf",   "W",   "TKVM",   "TKVH"     /)
 
+
 ; loop over meteogram stations:
 do istation = 0,(nstations-1)
 ; istation = 0
- 
+
 ; print header --------------------------------------------------------
 
  str_u  = ""
@@ -330,7 +353,7 @@ do istation = 0,(nstations-1)
   print("   LON   ( dgr ): " + sprintf("%7.3f",     cdf_file->station_lon(istation)     ))
   print("   FC    (1E4/s): " + sprintf("%7.3f",1.e4*cdf_file->station_fc(istation)      ))
   print("   SOIL TYPE    : " + sprinti("%7i",       cdf_file->station_soiltype(istation)))
-  
+
   ; build title string with variable names and units
   ; atmospheric (3D) variables, main levels:
   column_str = "    "+center("K", colwidth+1)
@@ -357,14 +380,16 @@ do istation = 0,(nstations-1)
   column_str_half = "    "+center("K", colwidth+1)
   unit_str_half   = "    "+center("",  colwidth+1)
   do ivar=0,(dimsizes(print_list_half)-1)
-    scolumn = center(charactertostring(cdf_file->var_name(print_list_half(ivar),:)),colwidth)
-    column_str_half = column_str_half + scolumn
+    if (print_list_half(ivar) .ge. 0) then
+      scolumn = center(charactertostring(cdf_file->var_name(print_list_half(ivar),:)),colwidth)
+      column_str_half = column_str_half + scolumn
 
-    var_name = charactertostring(cdf_file->var_name(print_list_half(ivar),:))
-    var_unit = charactertostring(cdf_file->var_unit(print_list_half(ivar),:))
-    transform_unit(var_name, var_unit, str_v, str_u, str_v)
-    scolumn = center(str_u,colwidth)
-    unit_str_half = unit_str_half + scolumn
+      var_name = charactertostring(cdf_file->var_name(print_list_half(ivar),:))
+      var_unit = charactertostring(cdf_file->var_unit(print_list_half(ivar),:))
+      transform_unit(var_name, var_unit, str_v, str_u, str_v)
+      scolumn = center(str_u,colwidth)
+      unit_str_half = unit_str_half + scolumn
+    end if
   end do
   column_str_half = column_str_half + center("HHL", colwidth+1)
   unit_str_half   = unit_str_half   + center("m",   colwidth+1)
@@ -372,13 +397,16 @@ do istation = 0,(nstations-1)
   ntimesteps = dimsizes(cdf_file->time_step)
   max_main_levs  = cdf_file->var_nlevs(VAR_PMAIN)
   max_half_levs  = cdf_file->var_nlevs(VAR_PHALF)
-  max_soil_levs  = cdf_file->var_nlevs(VAR_T_SO)
+  max_soil_levs = 0
+  if (VAR_T_SO .ge. 0) then
+    max_soil_levs  = cdf_file->var_nlevs(VAR_T_SO)
+  end if
 
 ; Enable the following line to print meteogram for all time slices:
 ;  do itime=0,(ntimesteps-1)
 
     title_str = "      Actual date:     " + charactertostring(cdf_file->date(itime,:))  \
-    +           " (time step: " + cdf_file->time_step(itime) + ")" 
+    +           " (time step: " + cdf_file->time_step(itime) + ")"
     print(str_get_nl() + tostring(title_str))
     var_name = charactertostring(cdf_file->sfcvar_name(VAR_PS,:))
     var_unit  = charactertostring(cdf_file->sfcvar_unit(VAR_PS,:))
@@ -453,7 +481,7 @@ do istation = 0,(nstations-1)
     write_matrix (values_half, tostring(dimsizes(print_list_half)+2)+"f"+tostring(colwidth)+".3 ", opt)
 
     ; ------------------------------------------------
-    ; Surface (2D) variables:    
+    ; Surface (2D) variables:
 
     ; Surface variables
     sfc_get_unit_val(cdf_file, VAR_TCM, itime, istation, str_u, str_v)
@@ -468,40 +496,60 @@ do istation = 0,(nstations-1)
     print(" " + ralign("("+str_u+")", 21) + "       " + lalign("LHFL", colwidth) + ":"  + sprintf("%8.3f",str_v))
     sfc_get_unit_val(cdf_file, VAR_QV_S, itime, istation, str_u, str_v)
     print(" " + ralign("("+str_u+")", 21) + "       " + lalign("QV_S", colwidth) + ":"  + sprintf("%8.3f",str_v))
-    sfc_get_unit_val(cdf_file, VAR_RUNOFF_S, itime, istation, str_u, str_v)
-    print(" " + ralign("("+str_u+")", 21) + "       " + lalign("RUNOFF_S", colwidth) + ":"  + sprintf("%8.3f",str_v))
-    sfc_get_unit_val(cdf_file, VAR_RUNOFF_G, itime, istation, str_u, str_v)
-    print(" " + ralign("("+str_u+")", 21) + "       " + lalign("RUNOFF_G", colwidth) + ":"  + sprintf("%8.3f",str_v) + str_get_nl())
+    if (VAR_RUNOFF_S .ge. 0) then
+      sfc_get_unit_val(cdf_file, VAR_RUNOFF_S, itime, istation, str_u, str_v)
+      print(" " + ralign("("+str_u+")", 21) + "       " + lalign("RUNOFF_S", colwidth) + ":"  + sprintf("%8.3f",str_v))
+    end if
+    if (VAR_RUNOFF_G .ge. 0) then
+      sfc_get_unit_val(cdf_file, VAR_RUNOFF_G, itime, istation, str_u, str_v)
+      print(" " + ralign("("+str_u+")", 21) + "       " + lalign("RUNOFF_G", colwidth) + ":"  + sprintf("%8.3f",str_v) + str_get_nl())
+    end if
 
     ; Plants + Ozone
-    sfc_get_unit_val(cdf_file, VAR_LAI,  itime, istation, str_u,  str_v)
+    if (VAR_LAI .ge. 0) then
+      sfc_get_unit_val(cdf_file, VAR_LAI,  itime, istation, str_u,  str_v)
+    end if
     sfc_get_unit_val(cdf_file, VAR_VIO3, itime, istation, str_u2, str_v2)
     print("   Plants:                   " + lalign("LAI", colwidth) + ":"  + sprintf("%8.3f",str_v) +  "          "   \
     +     "   Ozone:                   " + lalign("VIO3", colwidth) + ":"  + sprintf("%8.3f",str_v2))
-    sfc_get_unit_val(cdf_file, VAR_PLCOV, itime, istation, str_u,  str_v)
+    if (VAR_PLCOV .ge. 0) then
+      sfc_get_unit_val(cdf_file, VAR_PLCOV, itime, istation, str_u,  str_v)
+    end if
     sfc_get_unit_val(cdf_file, VAR_HMO3,  itime, istation, str_u2, str_v2)
     print(" " + ralign("("+str_u+")", 21) + "       " + lalign("PLCOV", colwidth) + ":"  + sprintf("%8.3f",str_v) +  "          "   \
     +     " " + ralign("("+str_u2+")", 19) + "        " + lalign("HMO3", colwidth) + ":"  + sprintf("%8.3f",str_v2))
-    sfc_get_unit_val(cdf_file, VAR_ROOTDP, itime, istation, str_u,  str_v)
+    if (VAR_PLCOV .ge. 0) then
+      sfc_get_unit_val(cdf_file, VAR_ROOTDP, itime, istation, str_u,  str_v)
+    end if
     print(" " + ralign("("+str_u+")", 21) + "       " + lalign("ROOTDP", colwidth) + ":"  + sprintf("%8.3f",str_v) + str_get_nl())
 
     ; soil temperatures + moistures
-    sfc_get_unit_val(cdf_file, VAR_TSNOW, itime, istation, str_u,  str_v)
-    sfc_get_unit_val(cdf_file, VAR_WSNOW, itime, istation, str_u2, str_v2)
-    print("   Soil temperatures:        " + lalign("T_SNOW", colwidth) + ":"  + sprintf("%8.3f",str_v) +  "          "   \
-    +     "   Soil moistures/snow      " + lalign("W_SNOW", colwidth) + ":"  + sprintf("%8.3f",str_v2))
-    sfc_get_unit_val(cdf_file, VAR_TS, itime, istation, str_u,  str_v)
-    sfc_get_unit_val(cdf_file, VAR_WI, itime, istation, str_u2, str_v2)
-    print(" " + ralign("("+str_u+")", 21) + "       " + lalign("T_S", colwidth) + ":"  + sprintf("%8.3f",str_v) +  "          "   \
-    +     " " + ralign("("+str_u2+")", 19) + "        " + lalign("W_I", colwidth) + ":"  + sprintf("%8.3f",str_v2))
-    sfc_get_unit_val(cdf_file, VAR_TG, itime, istation, str_u,  str_v)
-    sfc_get_unit_val(cdf_file, VAR_FRESHSNW, itime, istation, str_u2, str_v2)
-    print(" " + ralign("("+str_u+")", 21) + "       " + lalign("T_G", colwidth) + ":"  + sprintf("%8.3f",str_v) +  "          "   \
-    +     " " + ralign("("+str_u2+")", 19) + "        " + lalign("FRESHSNW", colwidth) + ":"  + sprintf("%8.3f",str_v2))
-    sfc_get_unit_val(cdf_file, VAR_RHO_SNOW, itime, istation, str_u,  str_v)
-    print(" " + ralign("("+str_u+")", 80) + "        " + lalign("RHO_SNOW", colwidth) + ":"  + sprintf("%8.3f",str_v))
-    sfc_get_unit_val(cdf_file, VAR_H_SNOW, itime, istation, str_u,  str_v)
-    print(" " + ralign("("+str_u+")", 80) + "        " + lalign("H_SNOW", colwidth) + ":"  + sprintf("%8.3f",str_v) + str_get_nl())
+    if ((VAR_TSNOW .ge. 0) .and. (VAR_WSNOW .ge. 0)) then
+      sfc_get_unit_val(cdf_file, VAR_TSNOW, itime, istation, str_u,  str_v)
+      sfc_get_unit_val(cdf_file, VAR_WSNOW, itime, istation, str_u2, str_v2)
+      print("   Soil temperatures:        " + lalign("T_SNOW", colwidth) + ":"  + sprintf("%8.3f",str_v) +  "          "   \
+      +     "   Soil moistures/snow      " + lalign("W_SNOW", colwidth) + ":"  + sprintf("%8.3f",str_v2))
+    end if
+    if ((VAR_TS .ge. 0) .and. (VAR_WI .ge. 0)) then
+      sfc_get_unit_val(cdf_file, VAR_TS, itime, istation, str_u,  str_v)
+      sfc_get_unit_val(cdf_file, VAR_WI, itime, istation, str_u2, str_v2)
+      print(" " + ralign("("+str_u+")", 21) + "       " + lalign("T_S", colwidth) + ":"  + sprintf("%8.3f",str_v) +  "          "   \
+      +     " " + ralign("("+str_u2+")", 19) + "        " + lalign("W_I", colwidth) + ":"  + sprintf("%8.3f",str_v2))
+    end if
+    if (VAR_FRESHSNW .ge. 0) then
+      sfc_get_unit_val(cdf_file, VAR_TG, itime, istation, str_u,  str_v)
+      sfc_get_unit_val(cdf_file, VAR_FRESHSNW, itime, istation, str_u2, str_v2)
+      print(" " + ralign("("+str_u+")", 21) + "       " + lalign("T_G", colwidth) + ":"  + sprintf("%8.3f",str_v) +  "          "   \
+      +     " " + ralign("("+str_u2+")", 19) + "        " + lalign("FRESHSNW", colwidth) + ":"  + sprintf("%8.3f",str_v2))
+    end if
+    if (VAR_RHO_SNOW .ge. 0) then
+      sfc_get_unit_val(cdf_file, VAR_RHO_SNOW, itime, istation, str_u,  str_v)
+      print(" " + ralign("("+str_u+")", 80) + "        " + lalign("RHO_SNOW", colwidth) + ":"  + sprintf("%8.3f",str_v))
+    end if
+    if (VAR_H_SNOW .ge. 0) then
+      sfc_get_unit_val(cdf_file, VAR_H_SNOW, itime, istation, str_u,  str_v)
+      print(" " + ralign("("+str_u+")", 80) + "        " + lalign("H_SNOW", colwidth) + ":"  + sprintf("%8.3f",str_v) + str_get_nl())
+    end if
 
     do isoil=1,max_soil_levs
       sfc_get_unit_val(cdf_file, VAR_T_SO,     itime, istation, str_u,   str_v)

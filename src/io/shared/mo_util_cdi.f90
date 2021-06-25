@@ -28,7 +28,6 @@ MODULE mo_util_cdi
   USE mo_mpi,                ONLY: p_bcast, p_io, my_process_is_stdio, p_mpi_wtime,  &
     &                              my_process_is_mpi_workroot
   USE mo_util_string,        ONLY: tolower, int2string
-  USE mo_fortran_tools,      ONLY: assign_if_present
   USE mo_dictionary,         ONLY: t_dictionary, DICT_MAX_STRLEN
   USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL
   USE mo_var_metadata_types, ONLY: t_var_metadata
@@ -657,10 +656,9 @@ CONTAINS
     LOGICAL :: lvalue_add
 
     levelDimension = 2
-    CALL assign_if_present(levelDimension, opt_lev_dim)
-
+    IF (PRESENT(opt_lev_dim)) levelDimension = opt_lev_dim
     lvalue_add = .FALSE.
-    CALL assign_if_present(lvalue_add, opt_lvalue_add)
+    IF (PRESENT(opt_lvalue_add)) lvalue_add = opt_lvalue_add
 
     CALL parameters%findVarId(varname, tileinfo, varID, tile_index)
 

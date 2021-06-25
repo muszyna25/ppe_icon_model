@@ -1946,48 +1946,6 @@ CONTAINS
         t_g(ic) = t_snow(ic) + (1.0_wp - snowfrac(ic))*(t_soiltop(ic) - t_snow(ic))
       ENDDO
       !$acc end parallel
-    CASE (3, 30)  ! similar to option 2, but somewhat less snow cover and limit over high vegetation
-      !$acc parallel if(lzacc)
-      !$acc loop gang vector private(h_snow,sso_fac,snowdepth_fac,lc_fac,lc_limit)
-      DO ic = istart, iend
-        IF (w_snow(ic) <= 1.e-6_wp) THEN
-          snowfrac(ic) = 0._wp
-        ELSE
-          h_snow = 1000._wp*w_snow(ic)/rho_snow(ic)  ! snow depth in m
-          sso_fac = SQRT(0.025_wp*MAX(25._wp,sso_sigma(ic)*(1._wp-freshsnow(ic))))
-          snowdepth_fac = h_snow*(17.5_wp*freshsnow(ic)+5._wp+5._wp/sso_fac*(1._wp-freshsnow(ic)))
-          lc_fac   = MAX(1._wp,SQRT(15.0_wp*z0(ic)))
-          IF (lc_class(ic) == i_lc_urban) THEN
-            lc_limit = 0.8_wp ! this accounts for the effect of human activities on snow cover
-          ELSE
-            lc_limit = MAX(0.925_wp,MIN(1._wp,1._wp/MAX(0.1_wp,7.5_wp*z0(ic))**0.125_wp))
-          ENDIF
-          snowfrac(ic) = MIN(lc_limit,snowdepth_fac/lc_fac)
-        ENDIF
-        t_g(ic) = t_snow(ic) + (1.0_wp - snowfrac(ic))*(t_soiltop(ic) - t_snow(ic))
-      ENDDO
-      !$acc end parallel
-    CASE (4, 40)  ! same as option 3, but even more restrictive snow cover limit over high vegetation
-      !$acc parallel if(lzacc)
-      !$acc loop gang vector private(h_snow,sso_fac,snowdepth_fac,lc_fac,lc_limit)
-      DO ic = istart, iend
-        IF (w_snow(ic) <= 1.e-6_wp) THEN
-          snowfrac(ic) = 0._wp
-        ELSE
-          h_snow = 1000._wp*w_snow(ic)/rho_snow(ic)  ! snow depth in m
-          sso_fac = SQRT(0.025_wp*MAX(25._wp,sso_sigma(ic)*(1._wp-freshsnow(ic))))
-          snowdepth_fac = h_snow*(17.5_wp*freshsnow(ic)+5._wp+5._wp/sso_fac*(1._wp-freshsnow(ic)))
-          lc_fac   = MAX(1._wp,SQRT(15.0_wp*z0(ic)))
-          IF (lc_class(ic) == i_lc_urban) THEN
-            lc_limit = 0.8_wp ! this accounts for the effect of human activities on snow cover
-          ELSE
-            lc_limit = MAX(0.85_wp,MIN(1._wp,1._wp/MAX(0.1_wp,7.5_wp*z0(ic))**0.125_wp))
-          ENDIF
-          snowfrac(ic) = MIN(lc_limit,snowdepth_fac/lc_fac)
-        ENDIF
-        t_g(ic) = t_snow(ic) + (1.0_wp - snowfrac(ic))*(t_soiltop(ic) - t_snow(ic))
-      ENDDO
-      !$acc end parallel
     END SELECT
 
     ! For the single-layer scheme, t_soiltop represents the weighted average between the snow-covered
@@ -2011,7 +1969,7 @@ CONTAINS
     ENDIF
 
     SELECT CASE (idiag_snowfrac)
-    CASE (20, 30, 40)
+    CASE (20)
       ! Artificially reduce snow-cover fraction in case of melting snow in order to reduce the ubiquitous
       ! cold bias in such situations
       IF (PRESENT(meltrate)) THEN

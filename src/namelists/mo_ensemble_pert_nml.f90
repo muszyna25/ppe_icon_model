@@ -133,7 +133,7 @@ MODULE mo_ensemble_pert_nml
     &  range_qexc
 
   REAL(wp) :: &                    !< Minimum value to which the snow cover fraction is artificially reduced
-    &  range_minsnowfrac           !  in case of melting show (in case of idiag_snowfrac = 20/30/40)
+    &  range_minsnowfrac           !  in case of melting show (in case of idiag_snowfrac = 20)
 
   REAL(wp) :: &                    !< Fraction of surface area available for bare soil evaporation
     &  range_c_soil
@@ -305,7 +305,7 @@ CONTAINS
     !
     ! snow cover diagnosis
     range_minsnowfrac = 0.1_wp      ! Minimum value to which the snow cover fraction is artificially reduced
-                                    ! in case of melting show (in case of idiag_snowfrac = 20/30/40)
+                                    ! in case of melting show (in case of idiag_snowfrac = 20)
     !
     ! TERRA
     range_c_soil      = 0.25_wp     ! evaporative surface area

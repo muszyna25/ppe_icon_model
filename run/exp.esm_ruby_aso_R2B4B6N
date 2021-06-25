@@ -54,14 +54,15 @@ atmos_refinement="R02B04"
 ocean_gridID="0035"
 ocean_refinement="R02B06"
 
-# use alternatively: full restart, init from (ocean) restart, init from climatology or false
+# use alternatively: full restart (atmos and ocean), init from (ocean) restart, init from climatology or false
 #  - set to false if ocean was already initialised
-initialiseOcean="fromRestart"
 # initialiseOcean="fromClimatology"
 # initialiseOcean="FALSE"
+initialiseOcean="fromRestart"
 # restart=.true.
 
-#mpi_oce_nodes=32   #  this is a suitable value for 60 nodes = 26 atm + 34 oce nodes
+#mpi_oce_nodes=34   #  this is a suitable value for 60 nodes = 26 atm + 34 oce nodes
+#mpi_oce_nodes=74   #  this is a suitable value for 120 nodes = 46 atm + 74 oce nodes
 mpi_oce_nodes=${mpi_oce_nodes:=((no_of_nodes/2))}   # default: half of requested nodes
 ((mpi_oce_procs=mpi_oce_nodes * mpi_procs_pernode))
 
@@ -702,7 +703,7 @@ cat > ${atm_namelist} << EOF
  echam_rad_config(1)%irad_o2    =  2
  echam_rad_config(1)%irad_cfc11 =  0
  echam_rad_config(1)%irad_cfc12 =  0
- echam_rad_config(1)%irad_aero  =  0
+ echam_rad_config(1)%irad_aero  = 12
  echam_rad_config(1)%vmr_co2    = 284.317e-6  ! constant volume mixing ration
  echam_rad_config(1)%vmr_ch4    = 808.249e-9  ! constant volume mixing ration
  echam_rad_config(1)%vmr_n2o    = 273.021e-9  ! constant volume mixing ration
@@ -712,32 +713,34 @@ cat > ${atm_namelist} << EOF
 &echam_gwd_nml
 /
 &echam_sso_nml
- !echam_sso_config(1)%gkdrag     = 0.05      ! default: 0.05
- !echam_sso_config(1)%gkwake     = 0.05      ! default: 0.05
+ echam_sso_config(1)%gkdrag     = 0.03      ! default: 0.05
+ echam_sso_config(1)%gkwake     = 0.03      ! default: 0.05
+ echam_sso_config(:)%gklift     = 0.7       ! default: 0.
 /
 &echam_vdf_nml
- echam_vdf_config(1)%pr0        = 0.8       ! neutral limit Prandtl no - default:  1.0
+ !echam_vdf_config(1)%pr0        = 0.8       ! neutral limit Prandtl number - default: 1.0
+ echam_vdf_config(1)%fsl        = 0.5       ! default: 0.4
 /
 &echam_cnv_nml
- !echam_cnv_config(1)%entrpen    = 0.0003    ! default: 0.0003    (old default:  0.0002)
- !echam_cnv_config(1)%cmfctop    = 0.1       ! default: 0.1       (old default:  0.2)
- !echam_cnv_config(1)%entrscv    = 0.0003    ! default: 0.0003    (old default:  0.003)
+ !echam_cnv_config(1)%entrpen    = 0.0003    ! default: 0.0003  (old default: 0.0002)
+ !echam_cnv_config(1)%cmfctop    = 0.1       ! default: 0.1     (old default: 0.2)
+ !echam_cnv_config(1)%entrscv    = 0.0003    ! default: 0.0003  (old default: 0.003)
 /
 &echam_cld_nml
- !echam_cld_config(1)%csecfrl    = 5.0e-6    ! threshold for ice and water in clouds, default 5.e-6
- !echam_cld_config(1)%ccraut     = 2.0       ! default: 2.0      (default was 15.0)
- !echam_cld_config(1)%ccsaut     = 2.0       ! default: 2.0      (default was 95.0)
- !echam_cld_config(1)%cauloc     = 1.0       ! default: 1.0      (default was 10.0)
+ !echam_cld_config(1)%csecfrl    = 1.0e-5    ! threshold for ice and water in clouds, default 1.5e-5
+ !echam_cld_config(1)%ccraut     = 2.0       ! default: 2.0     (default was 15.0)
+ !echam_cld_config(1)%ccsaut     = 2.0       ! default: 2.0     (default was 95.0)
+ !echam_cld_config(1)%cauloc     = 1.0       ! default: 1.0     (default was 10.0)
 /
 &echam_cov_nml
- echam_cov_config(1)%crs        = 0.978     ! Critical relative humidity at surface, default 0.968
- echam_cov_config(1)%crt        = 0.82      ! Critical relative humidity at toa, default 0.8
+ !echam_cov_config(1)%crs        = 0.978     ! Critical relative humidity at surface, default 0.968
+ !echam_cov_config(1)%crt        = 0.82      ! Critical relative humidity at toa, default 0.8
 /
 &sea_ice_nml
- albs                           =   0.8     ! Albedo of snow (not melting)              !  def: 0.85
- albsm                          =   0.65    ! Albedo of snow (melting)                  !  def: 0.70
- albi                           =   0.6     ! Albedo of ice (not melting)               !  def: 0.75
- albim                          =   0.5     ! Albedo of ice (melting)                   !  def: 0.70
+ !albs                           = 0.8       ! Albedo of snow (not melting)              !  def: 0.85
+ !albsm                          = 0.72      ! Albedo of snow (melting)                  !  def: 0.70
+ !albi                           = 0.6       ! Albedo of ice (not melting)               !  def: 0.75
+ !albim                          = 0.57      ! Albedo of ice (melting)                   !  def: 0.70
 /
 EOF
 
@@ -781,6 +784,7 @@ cat > ${lnd_namelist} << EOF
   bc_filename          = 'bc_land_soil.nc'
   ic_filename          = 'ic_land_soil.nc'
   bc_sso_filename      = 'bc_land_sso.nc'
+  snow_depth_max       = 10.0                ! limit of snow accumulation over land (default: -1, no limit)
 /
 &jsb_assimi_nml
   active               = .TRUE.              ! Use FALSE for jsbach_lite, TRUE for jsbach_pfts
@@ -846,55 +850,77 @@ datadir=${atmo_data_InputFolder}/initial_condition/r0002
 add_link_file ${datadir}/ifs2icon_1979010100_${atmos_refinement}_G.nc   ./ifs2icon.nc
 #
 # - land: source?, date+time? - not yet set to 1850!
-datadir=${atmo_data_InputFolder}/land/r0006
-add_link_file ${datadir}/ic_land_soil_1992.nc                           ./ic_land_soil.nc
+#datadir=${atmo_data_InputFolder}/land/r0006
+#add_link_file ${datadir}/ic_land_soil_1992.nc                           ./ic_land_soil.nc
+#
+# preliminary path for land data at 1850 / pre-industrial (2020-06-19)
+#datadir=/work/mj0060/m212005/data/icon/ruby/0013-0031/land/r0001
+datadir=/pool/data/ICON/grids/private/Stephan/mpim/${atmos_gridID}/land
+add_link_file ${datadir}/ic_land_soil_1850.nc                           ./ic_land_soil.nc
 
 # boundary conditions
 #
+# - well mixed greenhouse gases: 1% per year increase of co2 starting 1850
+#
+#datadir=${icon_data_poolFolder}/independent/greenhouse_gases
+#add_link_file $datadir/greenhouse_1pctCO2.nc                            ./bc_greenhouse_gases.nc
+#
 # - ozone
-# -- for irad_o3=8
+# -- for irad_o3=2: ozone climatology (annual cycle, filename without year) of MPI
 #
 datadir=${atmo_data_InputFolder}/ozone/r0002
-#
 add_link_file ${datadir}/bc_ozone_picontrol.nc                          ./bc_ozone.nc
 #
-# - sst and sic
+# - tropospheric anthropogenic aerosols, simple plumes (irad_aero=19)
+#
+#add_link_file ${basedir}/data/MACv2.0-SP_v1.nc                          ./MACv2.0-SP_v1.nc
+#
+#   Kinne background aerosols for the year 1850 (irad_aero=12, filename without year)
+#
+#   Here we use revised data (r0002) based on work by Sebastian Rast
+#
+datadir=${atmo_data_InputFolder}/aerosol_kinne/r0002
+add_link_file ${datadir}/bc_aeropt_kinne_lw_b16_coa.nc                  ./
+add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_coa.nc                  ./
+#
+#   use exlcusively Kinne background aerosols for the year 1850, filename without year (irad_aero=12)
+add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_fin_1850.nc             ./bc_aeropt_kinne_sw_b14_fin.nc
+#
+# - sst and sic - still needed for the first year and/or initializing atmosphere?
 #
 datadir=${atmo_data_InputFolder}/sst_and_seaice/r0002
-#
 add_link_file ${datadir}/bc_sic_1979_2016.nc                            ./bc_sic.nc
 add_link_file ${datadir}/bc_sst_1979_2016.nc                            ./bc_sst.nc
 #
 # - ssi and tsi
 #
-datadir=${icon_data_poolFolder}/independent/solar_radiation/3.2
+# isolrad=6: use cmip6 constant value
 #
-add_link_file ${datadir}/swflux_14band_cmip6_1850-2299-v3.2.nc          ./bc_solar_irradiance_sw_b14.nc
+# isolrad=1: read ssi and tsi from file
+#datadir=${icon_data_poolFolder}/independent/solar_radiation/3.2
+#add_link_file ${datadir}/swflux_14band_cmip6_1850-2299-v3.2.nc          ./bc_solar_irradiance_sw_b14.nc
 #
 # - land parameters
 #
-datadir=${atmo_data_InputFolder}/land/r0006
-#
-#  - not yet set to 1850!
-add_link_file ${datadir}/bc_land_frac_${pft_file_tag}1992.nc            ./bc_land_frac.nc
-add_link_file ${datadir}/bc_land_phys_1992.nc                           ./bc_land_phys.nc
-add_link_file ${datadir}/bc_land_soil_1992.nc                           ./bc_land_soil.nc
-add_link_file ${datadir}/bc_land_sso_1992.nc                            ./bc_land_sso.nc
+# preliminary path for land data at 1850 / pre-industrial (2020-06-19)
+#datadir=/work/mj0060/m212005/data/icon/ruby/0013-0031/land/r0001
+datadir=/pool/data/ICON/grids/private/Stephan/mpim/${atmos_gridID}/land
+add_link_file ${datadir}/bc_land_frac_${pft_file_tag}1850.nc            ./bc_land_frac.nc
+add_link_file ${datadir}/bc_land_phys_1850.nc                           ./bc_land_phys.nc
+add_link_file ${datadir}/bc_land_soil_1850.nc                           ./bc_land_soil.nc
+add_link_file ${datadir}/bc_land_sso_1850.nc                            ./bc_land_sso.nc
 #
 # - HD model input by Tom Riddick 
 #
-#  prelinminary test version
+#  prelinminary version not exactly at coastline
 datadir=/pool/data/ICON/grids/private/Stephan/mpim/${atmos_gridID}/land
-#add_link_file $datadir/hdpara_icon_${atmos_gridID}_20190927.nc          ./bc_land_hd.nc
-#add_link_file $datadir/hdpara_icon_${atmos_gridID}_${atmos_refinement}_20200303_v2.nc ./bc_land_hd.nc
 add_link_file $datadir/hdpara_icon_0013_R02B04_20200303_v2.nc            ./bc_land_hd.nc
 #
 # - lctlib file for JSBACH
 #
 add_link_file ${basedir}/externals/jsbach/data/lctlib_nlct21.def        ./lctlib_nlct21.def
 #
-# - HD mask for interpolation of runoff
-#
+# - HD mask for interpolation of runoff - reading only
 add_required_file ${atmo_grid_folder}/${atmo_dyn_grid}                  ./hd_mask.nc
 #
 # - the atmosphere grid itself (the grid copy section below from $HGRIDDIR is ignored)
@@ -1144,11 +1170,9 @@ if [[ "$output_lnd_dbg" == "yes" ]]; then
                     'hydro_evapotrans_box'        , 'hydro_w_soil_column_box',
                     'hydro_runoff_box'            , 'hydro_drainage_box'     ,
                     'hydro_discharge_ocean_box'   , 'hydro_discharge_box'    ,
+                    'hydro_w_snow_box',           , 'hydro_trans_box'        ,
 /
 EOF
-# or using - like in exp.esm_R2B3_R2B4
-# ml_varlist       = 'group:jsb_all_basic','hd_water_error_box','hydro_discharge_ocean_box','hydro_discharge_box' 
-
 fi
 
 if [[ "$output_lnd_msk" == "yes" ]]; then
@@ -1199,11 +1223,14 @@ fi
 #-----------------------------------------------------------------------------
 
 ocean_vertical_levels=64
-ocean_grid="icon_grid_${ocean_gridID}_${ocean_refinement}_O.nc"    #  no land points
+#ocean_grid="icon_grid_${ocean_gridID}_${ocean_refinement}_O.nc"    #  no land points
 #ocean_grid="icon_grid_${ocean_gridID}_${ocean_refinement}_G.nc"    #  global ocean mask
-ocean_data_InputFolder="${icon_data_poolFolder}/${ocean_gridID}"
-ocean_grid_folder="$ocean_data_InputFolder"
-#ocean_grid_folder="/pool/data/ICON/grids/public/mpim/${ocean_gridID}"
+#ocean_data_InputFolder="${icon_data_poolFolder}/${ocean_gridID}"
+#ocean_grid_folder="$ocean_data_InputFolder"
+
+# new sill depths, 2020-05
+ocean_grid_folder="/pool/data/ICON/grids/private/Stephan/mpim/${ocean_gridID}"
+ocean_grid="icon_grid_${ocean_gridID}_modsills_${ocean_refinement}_O.nc"    #  no land points
 
 #-----------------------------------------------------------------------------
 #
@@ -1221,7 +1248,7 @@ cat > ${oce_namelist} << EOF
  num_prefetch_proc           = 0
  pio_type                    = 0
  p_test_run                  = .FALSE.
- l_fast_sum                  = .TRUE.
+ l_fast_sum                  = .FALSE.
 /
 &grid_nml
  dynamics_grid_filename      = "${ocean_grid}"
@@ -1276,7 +1303,7 @@ if [[ "$output_oce_def" == "yes" ]]; then
   output_grid                = .FALSE.
   filename_format            = "<output_filename>_<datetime2>"
   operation                  = "mean"
-  ml_varlist                 = 'group:oce_default', 'group:oce_essentials'
+  ml_varlist                 = 'group:oce_default'
 /
 EOF
 fi
@@ -1367,7 +1394,9 @@ if [[ "$output_oce_dbg" == "yes" ]]; then
                       'HeatFlux_Total','atmos_fluxes_HeatFlux_ShortWave','atmos_fluxes_HeatFlux_LongWave',
                       'HeatFlux_ShortWave','HeatFlux_LongWave','HeatFlux_Sensible','HeatFlux_Latent',
                       'FrshFlux_Runoff','FrshFlux_Precipitation','FrshFlux_Evaporation','FrshFlux_SnowFall',
-                      'FrshFlux_TotalOcean','FrshFlux_VolumeIce','totalsnowfall','Wind_Speed_10m'
+                      'FrshFlux_TotalOcean','FrshFlux_VolumeIce','totalsnowfall','Wind_Speed_10m',
+                      'atmos_fluxes_stress_x','atmos_fluxes_stress_y',
+                      'atmos_fluxes_stress_xw','atmos_fluxes_stress_yw'
 /
 EOF
 fi
@@ -1477,14 +1506,14 @@ cat >> ${oce_namelist} << EOF
   use_lbound_dirichlet = .false.
 /
 &ocean_GentMcWilliamsRedi_nml
-  GMRedi_configuration                       = 0           ! 0=cartesian diffusion; 1=GM-Redi: bolus advection + isopycnal diffusion
+  GMRedi_configuration                       = 1           ! 0=cartesian diffusion; 1=GM-Redi: bolus advection + isopycnal diffusion
   tapering_scheme                            = 1
   GMRedi_usesRelativeMaxSlopes               = .FALSE.
   S_max                                      = 1.0e-3      ! 1.0
   S_d                                        = 1.0e-4      ! 5e-3 to 5e-4
                                                            !
-  k_tracer_GM_kappa_parameter                = 1000.0      !
-  k_tracer_isoneutral_parameter              = 1000.0      ! value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
+  k_tracer_GM_kappa_parameter                =  400.0      !
+  k_tracer_isoneutral_parameter              =  400.0      ! value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
   k_tracer_dianeutral_parameter              = 0.0         ! 1.0E-5  !
                                                            !
   switch_off_diagonal_vert_expl              = .TRUE.
@@ -1503,9 +1532,12 @@ cat >> ${oce_namelist} << EOF
   i_ice_dyn                                  = 1           ! 1/0=switch on/off AWI ice dynamics
 ! i_Qio_type                                 = 3           ! 3 (default): energy of whole grid-area used for melting (MPIOM-type)
   albedoW_sim                                = 0.10        ! albedo of the ocean used in sea ice model
-  leadclose_1                                = 0.25        ! default: 0.5 - value of MPIOM: 0.25
+  leadclose_1                                = 0.5         ! default: 0.5 - value of MPIOM: 0.25
   leadclose_2n                               = 0.666       ! default: 0.0 - value of MPIOM: 2/3
-  pstar                                      = 40000.      ! default: 27500.; MPIOM=20000.
+  !pstar                                      = 40000.      ! default: 27500.; MPIOM=20000.
+  therm_conduct_snow                         = 0.7         ! default: ks=0.31
+  !therm_conduct_ice                          = 2.4         ! default: ki=2.1656
+  !therm_emiss                                = 0.97        ! default: zemiss_def=0.996
 /
 &ocean_forcing_nml
   iforc_oce                                  = 14          ! ocean forcing: 14 from coupling via YAC
@@ -1523,6 +1555,12 @@ cat >> ${oce_namelist} << EOF
   lswr_jerlov                                = .TRUE.      ! use jerlov water types for sw absorption (default=T)
   jerlov_atten                               = 0.08        ! jerlov water type IB
   jerlov_bluefrac                            = 0.36        ! jerlov water type IB
+                                                           ! parameters for salt content conservation
+  lfix_salt_content                          = .true.      ! fix global ocean+ice salt content to constant (def=F)
+  !surface_flux_type                          = 1           ! 1: apply_surface_fluxes_slo (def), 2: apply_surface_fluxes (Vladimir L.)
+  !lcheck_salt_content                        = .false.     ! diagnostic output of salt content (def=F)
+  !limit_seaice                               =  .true.     ! use seaice limiter
+  !limit_seaice_type                          = 1           ! 1: ice_thickness_limiter (def), 2: ice_thickness_limiter_hh (H. Haak)
 /
 EOF
 #
@@ -1561,6 +1599,7 @@ cat >> ${oce_namelist} << EOF
 &ocean_diagnostics_nml
   diagnostics_level                          = 1
   diagnose_for_horizontalVelocity            = .FALSE.
+  diagnose_for_heat_content                  = .TRUE.      ! T: add heat content to monitoring (default=F)
 /
 &io_nml
   restart_file_type                          = 5
@@ -1579,8 +1618,14 @@ add_required_file ${basedir}/run/${oce_namelist} ./
 #
 if [[ "$initialiseOcean" == "fromRestart" ]]; then
   # initialise atmosphere and use link to ocean restart:
+  OMIPrestartdir=/pool/data/ICON/grids/private/Stephan/mpim/${ocean_gridID}
+  #
   # link to OMIP-spinup 19346-PCA by Helmuth used for ocean restart-file - second OMIP
-  add_link_file /pool/data/ICON/grids/private/Stephan/mpim/${ocean_gridID}/ocean/restart/ocean_omip_long_tke_r2b6_19346-PCA_restart_oce_21010101T000000Z.nc init-restart-oce.nc
+  #OMIPrestartfile=ocean_omip_long_tke_r2b6_19346-PCA_restart_oce_21010101T000000Z.nc
+  #
+  # link to OMIP-spinup 20133-CIQ 2200y by Helmuth used for ocean restart-file - OMIP with updated sill depth
+  OMIPrestartfile=restart-omipCIQ_2200y.nc
+  add_link_file $OMIPrestartdir/$OMIPrestartfile init-restart-oce.nc
   add_link_file init-restart-oce.nc restart_ocean_DOM01.nc
 fi
 #
@@ -1589,7 +1634,8 @@ if [[ "$initialiseOcean" == "fromClimatology" ]]; then
 fi
 # Ocean grid
 #
-add_required_file ${ocean_grid_folder}/${ocean_grid} ./
+#add_required_file ${ocean_grid_folder}/${ocean_grid} ./
+add_link_file ${ocean_grid_folder}/${ocean_grid} $ocean_grid
 #
 #-----------------------------------------------------------------------------
 

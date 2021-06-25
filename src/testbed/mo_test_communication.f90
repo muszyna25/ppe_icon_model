@@ -47,7 +47,6 @@ MODULE mo_test_communication
 
   USE mo_model_domain,        ONLY: p_patch
   USE mo_atmo_model,          ONLY: construct_atmo_model, destruct_atmo_model
-  USE mo_icoham_dyn_memory,   ONLY: p_hydro_state
   USE mo_math_gradients,      ONLY: grad_fd_norm
 
   !nh utils
@@ -819,8 +818,8 @@ CONTAINS
     INTEGER :: i
 
     DO i=1,calculate_iterations
-      CALL grad_fd_norm (p_hydro_state(n_dom_start)%prog(1)%temp(:,:,:), &
-        & p_patch(n_dom_start), p_hydro_state(n_dom_start)%prog(1)%vn(:,:,:))
+      CALL grad_fd_norm (p_nh_state(n_dom_start)%prog(1)%theta_v(:,:,:), &
+        & p_patch(n_dom_start), p_nh_state(n_dom_start)%prog(1)%vn(:,:,:))
     ENDDO
 
   END SUBROUTINE do_calculations

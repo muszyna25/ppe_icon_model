@@ -19,17 +19,17 @@ MODULE mo_restart_patch_description
     USE mo_communication, ONLY: t_comm_gather_pattern
     USE mo_dynamics_config, ONLY: nold, nnow, nnew, nnew_rcf, nnow_rcf
     USE mo_exception, ONLY: finish
-    USE mo_fortran_tools, ONLY: assign_if_present_allocatable, assign_if_present
+    USE mo_fortran_tools, ONLY: assign_if_present_allocatable
     USE mo_impl_constants, ONLY: SUCCESS
     USE mo_cdi_constants, ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE
     USE mo_io_units, ONLY: filename_max
     USE mo_kind, ONLY: wp
     USE mo_model_domain, ONLY: p_patch, t_patch
     USE mo_mpi, ONLY: p_pe_work, my_process_is_work, process_mpi_all_comm, p_pe_work, process_mpi_root_id, &
-                    & my_process_is_mpi_workroot
+                    & my_process_is_mpi_workroot, p_comm_work_2_restart
     USE mo_packed_message, ONLY: t_PackedMessage, kPackOp, kUnpackOp
     USE mo_upatmo_flowevent_utils, ONLY: t_upatmoRestartAttributes, upatmoRestartAttributesAssign, upatmoRestartAttributesPack
-
+    USE mo_restart_util, ONLY: restartBcastRoot 
 #ifndef __NO_ICON_OCEAN__
     USE mo_ocean_nml, ONLY: lhamocc
     USE mo_hamocc_nml, ONLY: ks, dzsed
@@ -42,17 +42,12 @@ MODULE mo_restart_patch_description
 #endif
 
     IMPLICIT NONE
-
     PRIVATE
-
 
     TYPE optional_integer
       INTEGER :: v !< value if present
       LOGICAL :: present = .FALSE.
     END TYPE optional_integer
-    INTERFACE assign_if_present
-      MODULE PROCEDURE assign_if_present_optional_i
-    END INTERFACE assign_if_present
 
     PUBLIC :: t_restart_patch_description
 
@@ -121,8 +116,9 @@ MODULE mo_restart_patch_description
         ! respective global variables
         PROCEDURE :: setTimeLevels => restartPatchDescription_setTimeLevels
 
-        PROCEDURE :: packer => restartPatchDescription_packer
         PROCEDURE :: updateOnMaster => restartPatchDescription_updateOnMaster
+        PROCEDURE :: transferToRestart => restartPatchDescription_transferToRestart
+        PROCEDURE :: packer => restartPatchDescription_packer
         PROCEDURE :: updateVGrids => restartPatchDescription_updateVGrids
         PROCEDURE :: getGatherPattern => restartPatchDescription_getGatherPattern
         PROCEDURE :: getGlobalGridSize => restartPatchDescription_getGlobalGridSize
@@ -171,147 +167,160 @@ CONTAINS
     END IF
   END SUBROUTINE restartPatchDescription_init
 
-    SUBROUTINE restartPatchDescription_update(me, patch, opt_pvct, opt_t_elapsed_phy, &
-                                             &opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_depth_lnd, &
-                                             &opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels, &
-                                             &opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellInterfaces, &
-                                             &opt_upatmo_restart_atts)
-        CLASS(t_restart_patch_description), INTENT(INOUT) :: me
-        TYPE(t_patch), INTENT(IN) :: patch
-        INTEGER, INTENT(IN), OPTIONAL :: opt_depth_lnd, opt_ndyn_substeps, opt_jstep_adv_marchuk_order, &
-                                       & opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels
-        REAL(wp), INTENT(IN), OPTIONAL :: opt_pvct(:), opt_t_elapsed_phy(:), opt_ocean_zheight_cellMiddle(:), &
-             & opt_ocean_zheight_cellInterfaces(:)
-        TYPE(t_upatmoRestartAttributes), INTENT(IN), OPTIONAL :: opt_upatmo_restart_atts
+  SUBROUTINE restartPatchDescription_update(me, patch, opt_pvct, opt_t_elapsed_phy, &
+                                           &opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_depth_lnd, &
+                                           &opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels, &
+                                           &opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellInterfaces, &
+                                           &opt_upatmo_restart_atts)
+    CLASS(t_restart_patch_description), INTENT(INOUT) :: me
+    TYPE(t_patch), INTENT(IN) :: patch
+    INTEGER, INTENT(IN), OPTIONAL :: opt_depth_lnd, opt_ndyn_substeps, opt_jstep_adv_marchuk_order, &
+                                   & opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels
+    REAL(wp), INTENT(IN), OPTIONAL :: opt_pvct(:), opt_t_elapsed_phy(:), opt_ocean_zheight_cellMiddle(:), &
+         & opt_ocean_zheight_cellInterfaces(:)
+    TYPE(t_upatmoRestartAttributes), INTENT(IN), OPTIONAL :: opt_upatmo_restart_atts
+    CHARACTER(*), PARAMETER :: routine = modname//":restartPatchDescription_update"
 
-        CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartPatchDescription_update"
+    IF(me%id /= patch%id) CALL finish(routine, "assertion failed: wrong patch passed to update()")
 
-        IF(me%id /= patch%id) CALL finish(routine, "assertion failed: wrong patch passed to update()")
+    ! update activity flag - this needs to be done on all compute
+    ! PEs, otherwise starting a nest during runtime would lead to
+    ! incomplete restart files
+    me%l_dom_active = patch%ldom_active
 
-        ! update activity flag - this needs to be done on all compute
-        ! PEs, otherwise starting a nest during runtime would lead to
-        ! incomplete restart files
-        me%l_dom_active = patch%ldom_active
+    ! otherwise, only the patch master process needs the dynamic
+    ! restart arguments, these will be communicated to the other
+    ! processes anyway
+    IF(p_pe_work == 0 .OR. p_pe_work == me%work_pe0_id) THEN
+      ! Patch-dependent attributes
+      CALL assign_if_present_allocatable(me%opt_pvct, opt_pvct)
+      CALL assign_if_present_allocatable(me%opt_t_elapsed_phy, opt_t_elapsed_phy)
+      CALL assign_if_present_allocatable(me%opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellMiddle)
+      CALL assign_if_present_allocatable(me%opt_ocean_zheight_cellInterfaces, opt_ocean_zheight_cellInterfaces)
+      CALL set_opt_int(me%opt_ndyn_substeps, opt_ndyn_substeps)
+      CALL set_opt_int(me%opt_jstep_adv_marchuk_order, opt_jstep_adv_marchuk_order)
+      IF (PRESENT(opt_depth_lnd)) me%opt_depth_lnd = opt_depth_lnd
+      CALL set_opt_int(me%opt_nlev_snow, opt_nlev_snow)
+      CALL set_opt_int(me%opt_nice_class, opt_nice_class)
+      IF (PRESENT(opt_ndom)) me%opt_ndom = opt_ndom
+      CALL set_opt_int(me%opt_ocean_zlevels, opt_ocean_zlevels)
+      CALL upatmoRestartAttributesAssign(me%id, me%opt_upatmo_restart_atts, opt_upatmo_restart_atts)
 
-        ! otherwise, only the patch master process needs the dynamic
-        ! restart arguments, these will be communicated to the other
-        ! processes anyway
-        IF(p_pe_work == 0 .OR. p_pe_work == me%work_pe0_id) THEN
-            ! Patch-dependent attributes
-            CALL assign_if_present_allocatable(me%opt_pvct, opt_pvct)
-            CALL assign_if_present_allocatable(me%opt_t_elapsed_phy, opt_t_elapsed_phy)
-            CALL assign_if_present_allocatable(me%opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellMiddle)
-            CALL assign_if_present_allocatable(me%opt_ocean_zheight_cellInterfaces, opt_ocean_zheight_cellInterfaces)
-            CALL assign_if_present(me%opt_ndyn_substeps, opt_ndyn_substeps)
-            CALL assign_if_present(me%opt_jstep_adv_marchuk_order, opt_jstep_adv_marchuk_order)
-            CALL assign_if_present(me%opt_depth_lnd, opt_depth_lnd)
-            CALL assign_if_present(me%opt_nlev_snow, opt_nlev_snow)
-            CALL assign_if_present(me%opt_nice_class, opt_nice_class)
-            CALL assign_if_present(me%opt_ndom, opt_ndom)
-            CALL assign_if_present(me%opt_ocean_zlevels, opt_ocean_zlevels)
-            CALL upatmoRestartAttributesAssign(me%id, me%opt_upatmo_restart_atts, opt_upatmo_restart_atts)
-
-            ! consistency check for OPTIONAL ocean variables
-            IF(ALLOCATED(me%opt_ocean_zheight_cellMiddle)) THEN
-                IF(.NOT. ALLOCATED(me%opt_ocean_Zheight_CellInterfaces) .OR. .NOT. me%opt_ocean_Zlevels%present) THEN
-                    CALL finish(routine, 'Ocean level parameteres not complete')
-                END IF
-            END IF
+      ! consistency check for OPTIONAL ocean variables
+      IF(ALLOCATED(me%opt_ocean_zheight_cellMiddle)) THEN
+        IF(.NOT. ALLOCATED(me%opt_ocean_Zheight_CellInterfaces) .OR. .NOT. me%opt_ocean_Zlevels%present) THEN
+          CALL finish(routine, 'Ocean level parameteres not complete')
         END IF
-    END SUBROUTINE restartPatchDescription_update
-
-    SUBROUTINE restartPatchDescription_setTimeLevels(me)
-        CLASS(t_restart_patch_description), INTENT(INOUT) :: me
-
-        me%nold = nold(me%id)
-        me%nnow = nnow(me%id)
-        me%nnow_rcf = nnow_rcf(me%id)
-        me%nnew = nnew(me%id)
-        me%nnew_rcf = nnew_rcf(me%id)
-    END SUBROUTINE restartPatchDescription_setTimeLevels
-
-    SUBROUTINE restartPatchDescription_packer(me, operation, packedMessage)
-        INTEGER, INTENT(in) :: operation
-        CLASS(t_restart_patch_description), INTENT(INOUT) :: me
-        CLASS(t_PackedMessage), INTENT(INOUT) :: packedMessage
-
-        ! patch id AND activity flag
-        CALL packedMessage%packer(operation, me%id)
-        CALL packedMessage%packer(operation, me%l_dom_active)
-        CALL packedMessage%packer(operation, me%nlev)
-        CALL packedMessage%packer(operation, me%cell_type)
-        CALL packedMessage%packer(operation, me%n_patch_cells_g)
-        CALL packedMessage%packer(operation, me%n_patch_edges_g)
-        CALL packedMessage%packer(operation, me%n_patch_verts_g)
-        CALL packedMessage%packer(operation, me%work_pe0_id)
-        CALL packedMessage%packer(operation, me%base_filename)
-
-        ! time levels
-        CALL packedMessage%packer(operation, me%nold)
-        CALL packedMessage%packer(operation, me%nnow)
-        CALL packedMessage%packer(operation, me%nnow_rcf)
-        CALL packedMessage%packer(operation, me%nnew)
-        CALL packedMessage%packer(operation, me%nnew_rcf)
-
-        ! optional parameter values
-        CALL packedMessage%packer(operation, me%opt_depth_lnd)
-        CALL pack_optional_integer(packedMessage, operation, me%opt_nlev_snow)
-        CALL pack_optional_integer(packedMessage, operation, me%opt_nice_class)
-        CALL pack_optional_integer(packedMessage, operation, me%opt_ndyn_substeps)
-        CALL pack_optional_integer(packedMessage, operation, me%opt_jstep_adv_marchuk_order)
-        CALL packedMessage%packer(operation, me%opt_ndom)
-        CALL pack_optional_integer(packedMessage, operation, me%opt_ocean_zlevels)
-
-        ! optional parameter arrays
-        CALL packedMessage%packer(operation, me%opt_pvct)
-        CALL packedMessage%packer(operation, me%opt_t_elapsed_phy)
-
-        CALL upatmoRestartAttributesPack(me%id, me%opt_upatmo_restart_atts, packedMessage, operation)
-      END SUBROUTINE restartPatchDescription_packer
-
-  SUBROUTINE assign_if_present_optional_i(o, opt_arg)
-    TYPE(optional_integer), INTENT(out) :: o
-    INTEGER, OPTIONAL, INTENT(in) :: opt_arg
-    o%present = PRESENT(opt_arg)
-    IF (o%present) THEN
-      o%v = opt_arg
-    ELSE
-      o%v = -HUGE(o%v)
+      END IF
     END IF
-  END SUBROUTINE assign_if_present_optional_i
+  CONTAINS
 
-  SUBROUTINE pack_optional_integer(msg, op, oi)
-    CLASS(t_PackedMessage), INTENT(INOUT) :: msg
+    SUBROUTINE set_opt_int(o, opt_arg)
+      TYPE(optional_integer), INTENT(out) :: o
+      INTEGER, OPTIONAL, INTENT(in) :: opt_arg
+      o%present = PRESENT(opt_arg)
+      IF (o%present) THEN
+        o%v = opt_arg
+      ELSE
+        o%v = -HUGE(o%v)
+      END IF
+    END SUBROUTINE set_opt_int
+  END SUBROUTINE restartPatchDescription_update
+
+  SUBROUTINE restartPatchDescription_setTimeLevels(me)
+    CLASS(t_restart_patch_description), INTENT(INOUT) :: me
+
+    me%nold = nold(me%id)
+    me%nnow = nnow(me%id)
+    me%nnow_rcf = nnow_rcf(me%id)
+    me%nnew = nnew(me%id)
+    me%nnew_rcf = nnew_rcf(me%id)
+  END SUBROUTINE restartPatchDescription_setTimeLevels
+
+  ! This ensures that the work master has complete up-to-date
+  ! knowledge of the patch description.  To this END, this calls
+  ! setTimeLevels() on the patchDescription, AND THEN sends the
+  ! description from the subset master to the work master.
+  SUBROUTINE restartPatchDescription_updateOnMaster(me)
+    CLASS(t_restart_patch_description), INTENT(INOUT) :: me
+#ifndef NOMPI
+    TYPE(t_PackedMessage) :: pmsg
+
+    ! First ensure that the patch description IS up to date.
+    CALL me%setTimeLevels() ! copy the global variables (nold, ...) to the patch description
+
+    ! Then communicate it to the work master.
+    IF(me%work_pe0_id == process_mpi_root_id) RETURN   ! nothing to communicate IF PE0 IS already the subset master
+
+    IF(my_process_is_mpi_workroot()) THEN
+      ! receive the package for this patch
+      CALL pmsg%recv(me%work_pe0_id, 0, process_mpi_all_comm)
+      CALL me%packer(kUnpackOp, pmsg)
+    ELSE IF (p_pe_work == me%work_pe0_id) THEN
+      ! send the time dependent DATA to process 0
+      CALL me%packer(kPackOp, pmsg)
+      CALL pmsg%send(process_mpi_root_id, 0, process_mpi_all_comm)
+    END IF
+#endif
+  END SUBROUTINE restartPatchDescription_updateOnMaster
+
+  SUBROUTINE restartPatchDescription_packer(me, op, pmsg)
+    CLASS(t_restart_patch_description), INTENT(INOUT) :: me
     INTEGER, INTENT(in) :: op
-    TYPE(optional_integer) :: oi
-    CALL msg%packer(op, oi%present)
-    IF (oi%present) CALL msg%packer(op, oi%v)
-  END SUBROUTINE pack_optional_integer
+    TYPE(t_PackedMessage), INTENT(INOUT) :: pmsg
 
-    ! This ensures that the work master has complete up-to-date
-    ! knowledge of the patch description.  To this END, this calls
-    ! setTimeLevels() on the patchDescription, AND THEN sends the
-    ! description from the subset master to the work master.
-    SUBROUTINE restartPatchDescription_updateOnMaster(me)
-        CLASS(t_restart_patch_description), INTENT(INOUT) :: me
-        TYPE(t_PackedMessage) :: packedMessage
+    ! patch id AND activity flag
+    CALL pmsg%packer(op, me%id)
+    CALL pmsg%packer(op, me%l_dom_active)
+    CALL pmsg%packer(op, me%nlev)
+    CALL pmsg%packer(op, me%cell_type)
+    CALL pmsg%packer(op, me%n_patch_cells_g)
+    CALL pmsg%packer(op, me%n_patch_edges_g)
+    CALL pmsg%packer(op, me%n_patch_verts_g)
+    CALL pmsg%packer(op, me%work_pe0_id)
+    CALL pmsg%packer(op, me%base_filename)
 
-        ! First ensure that the patch description IS up to date.
-        CALL me%setTimeLevels() ! copy the global variables (nold, ...) to the patch description
+    ! time levels
+    CALL pmsg%packer(op, me%nold)
+    CALL pmsg%packer(op, me%nnow)
+    CALL pmsg%packer(op, me%nnow_rcf)
+    CALL pmsg%packer(op, me%nnew)
+    CALL pmsg%packer(op, me%nnew_rcf)
 
-        ! Then communicate it to the work master.
-        IF(me%work_pe0_id == process_mpi_root_id) RETURN   ! nothing to communicate IF PE0 IS already the subset master
+    ! optional parameter values
+    CALL pmsg%packer(op, me%opt_depth_lnd)
+    CALL packer_opt_int(me%opt_nlev_snow)
+    CALL packer_opt_int(me%opt_nice_class)
+    CALL packer_opt_int(me%opt_ndyn_substeps)
+    CALL packer_opt_int(me%opt_jstep_adv_marchuk_order)
+    CALL pmsg%packer(op, me%opt_ndom)
+    CALL packer_opt_int(me%opt_ocean_zlevels)
 
-        IF(my_process_is_mpi_workroot()) THEN
-            ! receive the package for this patch
-            CALL packedMessage%recv(me%work_pe0_id, 0, process_mpi_all_comm)
-            CALL me%packer(kUnpackOp, packedMessage)
-        ELSE IF (p_pe_work == me%work_pe0_id) THEN
-            ! send the time dependent DATA to process 0
-            CALL me%packer(kPackOp, packedMessage)
-            CALL packedMessage%send(process_mpi_root_id, 0, process_mpi_all_comm)
-        END IF
-    END SUBROUTINE restartPatchDescription_updateOnMaster
+    ! optional parameter arrays
+    CALL pmsg%packer(op, me%opt_pvct)
+    CALL pmsg%packer(op, me%opt_t_elapsed_phy)
+
+    CALL upatmoRestartAttributesPack(me%id, me%opt_upatmo_restart_atts, pmsg, op)
+  CONTAINS
+
+    SUBROUTINE packer_opt_int(oi)
+      TYPE(optional_integer) :: oi
+
+      CALL pmsg%packer(op, oi%present)
+      IF (oi%present) CALL pmsg%packer(op, oi%v)
+    END SUBROUTINE packer_opt_int
+  END SUBROUTINE restartPatchDescription_packer
+
+  SUBROUTINE restartPatchDescription_transferToRestart(me)
+    CLASS(t_restart_patch_description), INTENT(INOUT) :: me
+#ifndef NOMPI
+    TYPE(t_PackedMessage) :: pmsg
+
+    CALL me%packer(kPackOp, pmsg)
+    CALL pmsg%bcast(restartBcastRoot(), p_comm_work_2_restart)   ! transfer data to restart PEs
+    CALL me%packer(kUnpackOp, pmsg)
+#endif
+  END SUBROUTINE restartPatchDescription_transferToRestart
 
     !  Set vertical grid definition.
     SUBROUTINE restartPatchDescription_updateVGrids(me)

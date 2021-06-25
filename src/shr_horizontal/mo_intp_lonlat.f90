@@ -1037,14 +1037,14 @@
 
         END IF
 
-      END DO
+        ! Note: IF (i_am_accel_node) is not used because it is .FALSE. when this is called
+        !$ACC UPDATE DEVICE( ptr_intp%blk ) IF_PRESENT
+        !$ACC UPDATE DEVICE( ptr_intp%idx ) IF_PRESENT
+        !$ACC UPDATE DEVICE( ptr_intp%coeff ) IF_PRESENT
+
+      END DO  
       IF (dbg_level > 1)  CALL message(routine, "done.")
-
-! Note: IF (i_am_accel_node) is not used because it is .FALSE. when this is called
-!$ACC UPDATE DEVICE( ptr_intp%blk ) IF_PRESENT
-!$ACC UPDATE DEVICE( ptr_intp%idx ) IF_PRESENT
-!$ACC UPDATE DEVICE( ptr_intp%coeff ) IF_PRESENT
-
+      
     END SUBROUTINE mask_out_boundary
 
 

@@ -79,7 +79,7 @@ CONTAINS
           !
           CALL methox( jcs, jce,                  &
                &       nproma, nlev,              &
-               &       field% presm_old(:,:,jb),  &
+               &       field% pfull(:,:,jb),      &
                &       field% qtrc(:,:,jb,iqv),   &
                &       tend_qtrc_mox(:,:,iqv)     )
           !

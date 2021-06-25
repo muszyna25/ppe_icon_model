@@ -81,6 +81,8 @@ CONTAINS
     LOGICAL                         :: init_latbc_from_fg
     !> use hydrostatic pressure for lateral boundary nudging
     LOGICAL                         :: nudge_hydro_pres
+    !> factor for pressure bias correction of latbc data
+    REAL(wp)                        :: fac_latbc_presbiascor
 
     ! dictionary which maps internal variable names onto
     ! GRIB2 shortnames or NetCDF var names used for lateral boundary nudging.
@@ -97,7 +99,7 @@ CONTAINS
       &                     latbc_filename, latbc_path, latbc_boundary_grid,             &
       &                     latbc_varnames_map_file, init_latbc_from_fg,                 &
       &                     nudge_hydro_pres, latbc_contains_qcqi,                       &
-      &                     nretries, retry_wait_sec
+      &                     nretries, retry_wait_sec, fac_latbc_presbiascor
 
     !------------------------------------------------------------
     ! Default settings
@@ -115,6 +117,7 @@ CONTAINS
     latbc_contains_qcqi = .TRUE.
     init_latbc_from_fg  = .FALSE.
     nudge_hydro_pres    = .TRUE.
+    fac_latbc_presbiascor = 0._wp
 
     nretries            = 0
     retry_wait_sec      = 10
@@ -175,6 +178,7 @@ CONTAINS
     latbc_config%latbc_varnames_map_file = latbc_varnames_map_file
     latbc_config%init_latbc_from_fg  = init_latbc_from_fg
     latbc_config%nudge_hydro_pres    = nudge_hydro_pres
+    latbc_config%fac_latbc_presbiascor = fac_latbc_presbiascor
     latbc_config%nretries            = nretries
     latbc_config%retry_wait_sec      = retry_wait_sec
 

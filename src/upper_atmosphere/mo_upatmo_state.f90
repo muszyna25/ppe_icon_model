@@ -30,15 +30,14 @@ MODULE mo_upatmo_state
     &                                iUpatmoTracerId, iUpatmoPrcId,               &
     &                                iUpatmoExtdatStat
   USE mo_model_domain,         ONLY: t_patch
-  USE mo_linked_list,          ONLY: t_var_list
   USE mo_upatmo_types,         ONLY: t_upatmo_diag, t_upatmo_tend, t_upatmo
   USE mo_upatmo_config,        ONLY: t_upatmo_config
   USE mo_upatmo_phy_config,    ONLY: t_upatmo_nwp_phy, t_upatmo_phy_config
   USE mo_cf_convention,        ONLY: t_cf_var
   USE mo_grib2,                ONLY: t_grib2_var, grib2_var
   USE mo_io_config,            ONLY: lnetcdf_flt64_output
-  USE mo_var_list,             ONLY: default_var_list_settings, add_var, add_ref, &
-    &                                new_var_list, delete_var_list
+  USE mo_var_list,             ONLY: add_var, add_ref, t_var_list_ptr
+  USE mo_var_list_register,    ONLY: vlr_add, vlr_del
   USE mo_cdi,                  ONLY: DATATYPE_PACK16, DATATYPE_FLT32, DATATYPE_FLT64, & 
     &                                GRID_UNSTRUCTURED
   USE mo_cdi_constants,        ONLY: GRID_CELL, GRID_UNSTRUCTURED_CELL, &
@@ -59,9 +58,9 @@ MODULE mo_upatmo_state
 
   TYPE(t_upatmo),   ALLOCATABLE, TARGET :: prm_upatmo(:)           ! Shape: (n_dom)
 
-  TYPE(t_var_list), ALLOCATABLE         :: prm_upatmo_diag_list(:) ! Shape: (n_dom)
+  TYPE(t_var_list_ptr), ALLOCATABLE         :: prm_upatmo_diag_list(:) ! Shape: (n_dom)
 
-  TYPE(t_var_list), ALLOCATABLE         :: prm_upatmo_tend_list(:) ! Shape: (n_dom)
+  TYPE(t_var_list_ptr), ALLOCATABLE         :: prm_upatmo_tend_list(:) ! Shape: (n_dom)
 
   ! Please note that we cannot use 'mo_impl_constants: TIMELEVEL_SUFFIX' 
   ! for the different time levels of the total tendencies, 
@@ -235,9 +234,9 @@ CONTAINS
         ! Physics switched on on domain?
         IF (upatmo_config( jg )%nwp_phy%l_phy_stat( iUpatmoPrcStat%enabled )) THEN
 
-          CALL delete_var_list( prm_upatmo_diag_list( jg ) )
+          CALL vlr_del(prm_upatmo_diag_list(jg))
           
-          CALL delete_var_list( prm_upatmo_tend_list( jg ) )     
+          CALL vlr_del(prm_upatmo_tend_list(jg))     
 
           ! Deallocate the fields, which have not been allocated via add_var/add_ref.
           ! Currently these are:
@@ -383,7 +382,7 @@ CONTAINS
     CHARACTER(LEN=*),       INTENT(IN)    :: listname
     CHARACTER(LEN=*),       INTENT(IN)    :: vname_prefix
     TYPE(t_upatmo_nwp_phy), INTENT(IN)    :: upatmo_nwp_phy_config
-    TYPE(t_var_list),       INTENT(INOUT) :: diag_list
+    TYPE(t_var_list_ptr),       INTENT(INOUT) :: diag_list
     TYPE(t_upatmo_diag),    INTENT(INOUT) :: diag
 
     ! Local variables 
@@ -428,10 +427,8 @@ CONTAINS
       &      diag%effrsw   )
 
     ! Register the field list and apply default settings
-    CALL new_var_list(diag_list, listname, patch_id=jg)
-
     ! The fields in 'prm_upatmo_diag' are required for restart, in general
-    CALL default_var_list_settings(diag_list, lrestart=.TRUE.)
+    CALL vlr_add(diag_list, listname, patch_id=jg, lrestart=.TRUE.)
 
     ! Please note that apart from a few exceptions (e.g., ozone) 
     ! GRIB2 triplets (discipline, category, number) do net (yet) exist 
@@ -616,7 +613,7 @@ CONTAINS
     CHARACTER(LEN=*),       INTENT(IN)    :: listname
     CHARACTER(LEN=*),       INTENT(IN)    :: vname_prefix
     TYPE(t_upatmo_nwp_phy), INTENT(IN)    :: upatmo_nwp_phy_config
-    TYPE(t_var_list),       INTENT(INOUT) :: tend_list
+    TYPE(t_var_list_ptr),       INTENT(INOUT) :: tend_list
     TYPE(t_upatmo_tend),    INTENT(INOUT) :: tend
     LOGICAL,                INTENT(IN)    :: lmessage
     TARGET :: upatmo_nwp_phy_config
@@ -692,12 +689,11 @@ CONTAINS
       &      tend%ddt_qx_vdfmol      )
 
     ! Register the field list and apply default settings
-    CALL new_var_list(tend_list, listname, patch_id=jg)
-
     ! The tendencies will be written in the restart file as the case may be by default, 
     ! for the special way the total tendencies are computed in 
     ! 'mo_nwp_upatmo_interface: nwp_upatmo_interface' alone
-    CALL default_var_list_settings(tend_list, lrestart=.TRUE.)
+
+    CALL vlr_add(tend_list, listname, patch_id=jg, lrestart=.TRUE.)
 
     ! Please note that for most of the tendencies, which we allocate here, 
     ! either a GRIB2 triplet (discipline, category, number) does not (yet) exist 

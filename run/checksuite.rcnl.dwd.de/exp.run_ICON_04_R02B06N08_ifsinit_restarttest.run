@@ -408,7 +408,7 @@ support_baryctr_intp         =                      .false.        ! use barycen
  ntiles                      =                          3         ! number of tiles
  nlev_snow                   =                          2         ! number of snow layers
  lmulti_snow                 =                     .FALSE.        ! .TRUE. for use of multi-layer snow model
- idiag_snowfrac              =                          4         ! type of snow-fraction diagnosis
+ idiag_snowfrac              =                          2         ! type of snow-fraction diagnosis
  lsnowtile                   =                      .TRUE.        ! .TRUE.=consider snow-covered and snow-free separately
  itype_root                  =                          2         ! root density distribution
  itype_heatcond              =                          2         ! type of soil heat conductivity

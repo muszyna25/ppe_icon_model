@@ -8,12 +8,13 @@ MODULE mo_carchm
 !!
 #include "hamocc_omp_definitions.inc"
 
-USE mo_memory_bgc, ONLY     : hi, aksp, akb3, akw3, ak13, ak23, co3, bgctra,&
-       &                      aks3,akf3,ak1p3,ak2p3,ak3p3,aksi3,rrrcl, dremcalc
+USE mo_memory_bgc, ONLY     : hi, aksp, akb3, akw3, ak13, ak23, co3, bgctra,bgcflux, &
+       &                      aks3,akf3,ak1p3,ak2p3,ak3p3,aksi3,rrrcl
 
 USE mo_kind, ONLY           : wp
 USE mo_control_bgc, ONLY    : bgc_nproma, bgc_zlevs
-USE mo_hamocc_nml, ONLY     : hion_solver
+USE mo_param1_bgc, ONLY     : icalc, ialkali, isco212, isilica, iphosph, klysocl
+USE mo_hamocc_nml, ONLY     : hion_solver, dremcalc
 
 IMPLICIT NONE
 
@@ -40,11 +41,9 @@ INTEGER :: niter_atgen    = jp_maxniter_atgen
 
 CONTAINS
 
-SUBROUTINE calc_dissol ( start_idx, end_idx, klevs, pddpo, psao)
+SUBROUTINE calc_dissol ( start_idx, end_idx, klevs, pddpo, psao,ptiestu)
 
 !! Computes calcium carbonate dissolution
-
-  USE mo_param1_bgc, ONLY     : icalc, ialkali, isco212, isilica, iphosph
   
   IMPLICIT NONE
 
@@ -57,12 +56,15 @@ SUBROUTINE calc_dissol ( start_idx, end_idx, klevs, pddpo, psao)
 
   REAL(wp),INTENT(in) :: pddpo(bgc_nproma,bgc_zlevs) !< size of scalar grid cell (3rd REAL) [m]
   REAL(wp),INTENT(in) :: psao(bgc_nproma,bgc_zlevs)  !< salinity
+  REAL(wp),INTENT(in) :: ptiestu(bgc_nproma,bgc_zlevs)  !< depth of scalar grid cell [m]
 
   !! Local variables
 
   INTEGER :: k, j, kpke 
 
   REAL(wp) :: supsat, undsa, dissol
+  REAL(wp) :: supsatup,satdiff,depthdiff   ! needed to calculate depth of lysocline
+  INTEGER  :: iflag
   !
    !*********************************************************************
   !
@@ -71,11 +73,45 @@ SUBROUTINE calc_dissol ( start_idx, end_idx, klevs, pddpo, psao)
   !*********************************************************************
 !HAMOCC_OMP_PARALLEL
 !HAMOCC_OMP_DO PRIVATE(k,supsat,undsa, dissol) HAMOCC_OMP_DEFAULT_SCHEDULE
+
+ ! Dissolution in surface layer, 
+ ! needs to be separate from subsurface due to lysocline depth different calculation
   DO j= start_idx, end_idx
 
-       kpke=klevs(j)
+        k=1
+        iflag = 0
     
-        DO k = 1, kpke
+        IF(pddpo(j,k) > 0.5_wp) THEN
+
+       
+              hi(j,k) = update_hi(hi(j,k), bgctra(j,k,isco212), ak13(j,k) , &
+          &          ak23(j,k), akw3(j,k),aks3(j,k),akf3(j,k), aksi3(j,k),&
+          &          ak1p3(j,k),ak2p3(j,k),ak3p3(j,k),psao(j,k) , akb3(j,k), &
+          &          bgctra(j,k,isilica),bgctra(j,k,iphosph),bgctra(j,k,ialkali) )
+
+              co3(j,k) = bgctra(j,k,isco212)/(1._wp+hi(j,k)*(1._wp+hi(j,k)/ak13(j,k))/ak23(j,k))
+
+              supsat = co3(j,k)-97._wp*aksp(j,k)   ! 97. = 1./1.03e-2 (MEAN TOTAL [CA++] IN SEAWATER [kmol/m3])
+              undsa  = MAX(0._wp, -supsat)
+             
+              dissol = MIN(undsa,dremcalc*bgctra(j,k,icalc))
+              bgctra(j,k,icalc)   = bgctra(j,k,icalc)-dissol
+              bgctra(j,k,ialkali) = bgctra(j,k,ialkali)+2._wp*dissol
+
+              bgctra(j,k,isco212) = bgctra(j,k,isco212)+dissol
+
+              IF (supsat < 0._wp) THEN
+                 iflag = 1
+                 bgcflux(j,klysocl) = ptiestu(j,1)
+              END IF
+
+        ENDIF   ! wet cell
+
+!  Dissolution of subsurface layers 
+   
+        kpke=klevs(j)
+    
+        DO k = 2, kpke
 
            IF(pddpo(j,k) > 0.5_wp) THEN
 
@@ -96,6 +132,14 @@ SUBROUTINE calc_dissol ( start_idx, end_idx, klevs, pddpo, psao)
 
               bgctra(j,k,isco212) = bgctra(j,k,isco212)+dissol
 
+              IF (supsat < 0._wp .AND. iflag == 0) THEN
+                 iflag = 1
+                 supsatup  = co3(j,k-1)-97._wp*aksp(j,k-1)
+                 depthdiff = 0.5_wp * (pddpo(j,k)+pddpo(j,k-1))
+                 satdiff   = supsatup-supsat
+                 bgcflux(j,klysocl) = ptiestu(j,k-1)+depthdiff*(supsatup/satdiff)  ! depth of lysokline
+              END IF
+
             ENDIF   ! wet cell
 
          END DO
@@ -103,8 +147,6 @@ SUBROUTINE calc_dissol ( start_idx, end_idx, klevs, pddpo, psao)
 !HAMOCC_OMP_END_DO
 !HAMOCC_OMP_END_PARALLEL
 END SUBROUTINE
-
-
 
 
 FUNCTION update_hi(hi,c,ak1,ak2,akw,aks,akf,aksi,ak1p,ak2p,ak3p,s,akb,sit,pt,alk) RESULT (h)
@@ -126,7 +168,7 @@ FUNCTION update_hi(hi,c,ak1,ak2,akw,aks,akf,aksi,ak1p,ak2p,ak3p,s,akb,sit,pt,alk
 
 if (hion_solver == 0) THEN
 
-  ah1=hi
+  ah1=hi+epsilon(1._wp)
   iter  = 0
 
   DO jit = 1,20

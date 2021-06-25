@@ -11,17 +11,20 @@
 !! Please see the file LICENSE in the root of the source tree for this code.
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
-#include <handle_mpi_error.inc>
-#include <omp_definitions.inc>
+#include "handle_mpi_error.inc"
+#include "omp_definitions.inc"
 MODULE mo_multifile_restart_collector
 
-  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, C_F_POINTER, C_LOC
-
+  USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_F_POINTER, C_LOC
 #ifndef NOMPI
+  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr
   HANDLE_MPI_ERROR_USE
   USE mpi, ONLY: addr => MPI_ADDRESS_KIND, MPI_DATATYPE_NULL, MPI_STATUS_IGNORE, &
     & MPI_STATUSES_IGNORE, MPI_TYPECLASS_INTEGER, MPI_COMM_NULL, MPI_INFO_NULL, &
-    & MPI_MODE_NOCHECK, MPI_LOCK_EXCLUSIVE, MPI_WIN_NULL, MPI_Sizeof
+    & MPI_MODE_NOCHECK, MPI_LOCK_EXCLUSIVE, MPI_WIN_NULL, MPI_Sizeof, MPI_UNDEFINED
+  USE mo_impl_constants, ONLY: SINGLE_T, REAL_T, INT_T
+  USE mo_mpi, ONLY: p_int, p_barrier
+  USE mo_multifile_restart_util, ONLY: mpiDtype, typeByte, typeMap
 #else
   USE mo_kind, ONLY: addr => i8
 #endif
@@ -29,24 +32,22 @@ MODULE mo_multifile_restart_collector
   USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info
   USE mo_model_domain, ONLY: p_patch
   USE mo_exception, ONLY: finish
-  USE mo_impl_constants, ONLY: SUCCESS, SINGLE_T, REAL_T, INT_T
   USE mo_kind, ONLY: dp, sp, i8
-  USE mo_mpi, ONLY: p_comm_work_restart, p_comm_rank, p_send, p_recv, &
-    & p_int, my_process_is_work, p_barrier
+  USE mo_mpi, ONLY: p_comm_work_restart, p_comm_rank, p_send, p_recv, my_process_is_work
   USE mo_multifile_restart_util, ONLY: iAmRestartWriter, commonBuf_t, &
-    & typeMax, typeID, typeByte, typeMap, mpiDtype, facTtoSP
+    & typeMax, typeID, facTtoSP
   USE mo_timer, ONLY: timer_start, timer_stop, timer_restart_collector_setup, &
     & timer_restart_indices_setup, timers_level
- 
-  IMPLICIT NONE
-  
-  PUBLIC :: t_MultifileRestartCollector
+  USE mo_fortran_tools, ONLY: t_ptr_1d
 
+  IMPLICIT NONE
   PRIVATE
 
-  TYPE t_ptr_1d_dp
-    REAL(dp),POINTER :: p(:)
-  END TYPE t_ptr_1d_dp
+  PUBLIC :: t_MultifileRestartCollector
+
+  TYPE :: t_ptr_1d_sp
+    REAL(sp), POINTER :: p(:)
+  END TYPE t_ptr_1d_sp
 
   TYPE :: t_CollectorIndices
     INTEGER :: nRecv, nSend
@@ -66,18 +67,15 @@ MODULE mo_multifile_restart_collector
     INTEGER :: wComm, win, nVar, destPE, nSrcPE
     LOGICAL :: allocd, wPosted, wStarted, shortcut
     TYPE(t_CollectorIndices), PUBLIC :: idx(3)
-    TYPE(t_ptr_1d_dp), PUBLIC :: glb_idx(3)
-    TYPE(t_ptr_1d_dp) ::  wptr
+    TYPE(t_ptr_1d), PUBLIC :: glb_idx(3)
+    TYPE(t_ptr_1d_sp) :: wptr
     INTEGER, ALLOCATABLE :: vGrid(:), vType(:), vLevs(:), srcPE(:)
   CONTAINS
     PROCEDURE :: construct     => multifileRestartCollector_construct
     PROCEDURE :: init_win      => multifileRestartCollector_init_win
     PROCEDURE :: defVar        => multifileRestartCollector_defVar
     PROCEDURE :: finalize      => multifileRestartCollector_finalize
-    PROCEDURE :: sendField_dp  => multifileRestartCollector_sendField_dp
-    PROCEDURE :: sendField_sp  => multifileRestartCollector_sendField_sp
-    PROCEDURE :: sendField_i   => multifileRestartCollector_sendField_i
-    GENERIC :: sendField => sendField_dp, sendField_sp, sendField_i
+    PROCEDURE :: sendField     => multifileRestartCollector_sendField
     PROCEDURE :: fetch         => multifileRestartCollector_fetch
     PROCEDURE :: local_access  => multifileRestartCollector_local_access
     PROCEDURE :: remote_access => multifileRestartCollector_remote_access
@@ -98,7 +96,7 @@ CONTAINS
     TYPE(t_grid_domain_decomp_info), INTENT(IN), POINTER :: decompInfo
     LOGICAL,                         INTENT(IN) :: lactive
     CHARACTER(*), PARAMETER :: routine = modname//":CollectorIndices_init"    
-    INTEGER :: myRank, ierr, i, j, nSrcPE
+    INTEGER :: myRank, i, j, nSrcPE
     REAL(dp), ALLOCATABLE :: sBuf_d(:)
     IF (timers_level >= 10)  CALL timer_start(timer_restart_indices_setup)
     myRank = p_comm_rank(p_comm_work_restart)
@@ -111,8 +109,7 @@ CONTAINS
       END DO
     END IF
     ALLOCATE(me%sIdx(me%nSend), me%sBlk(me%nSend), sBuf_d(me%nSend), &
-      & me%nSrcRecv(nSrcPE), STAT=ierr)
-    IF(ierr /= SUCCESS) CALL finish(routine, "memory allocation failure")
+      & me%nSrcRecv(nSrcPE))
     IF (my_process_is_work() .AND. lactive) THEN
       j = 1
       DO i = 1, nLoc
@@ -136,7 +133,7 @@ CONTAINS
     IF (destPE /= myRank .AND. lactive) &
       & CALL p_send(me%nSend, destPE, 0, comm=p_comm_work_restart)
     me%nRecv = SUM(me%nSrcRecv(1:nSrcPE))
-    ALLOCATE(globalIndices(me%nRecv), STAT=ierr)
+    ALLOCATE(globalIndices(me%nRecv))
     IF (lactive) THEN
       IF(destPE .NE. myRank .AND. me%nSend .GT. 0) &
           CALL p_send(sBuf_d, destPE, 0, comm=p_comm_work_restart)
@@ -161,7 +158,6 @@ CONTAINS
     INTEGER, INTENT(IN) :: jg, nVar, destPE, srcPE(:)
     LOGICAL, INTENT(IN) :: lactive
     CHARACTER(*), PARAMETER :: routine = modname//":multifileRestartCollector_construct"
-#ifndef NOMPI
     TYPE(t_grid_domain_decomp_info), POINTER :: deco
     INTEGER :: i, nElem
 
@@ -196,13 +192,12 @@ CONTAINS
     this%rBuf%i => dummy_i
     this%rBuf_size = 0_addr
     this%nVar = nVar
+#ifndef NOMPI
     this%win = MPI_WIN_NULL
     this%wComm = MPI_COMM_NULL
+#endif
     ALLOCATE(this%vGrid(nVar), this%vType(nVar), this%vLevs(nVar))
     IF (timers_level >= 10)  CALL timer_stop(timer_restart_collector_setup)
-#else
-    CALL finish(routine, "Not implemented!")
-#endif
   END SUBROUTINE multifileRestartCollector_construct
 
   SUBROUTINE multifileRestartCollector_defVar(this, iVar, nLevs, iType, iGrid, iOffset)
@@ -221,9 +216,11 @@ CONTAINS
 
   SUBROUTINE multifileRestartCollector_finalize(this)
     CLASS(t_MultifileRestartCollector), INTENT(INOUT) :: this
-    CHARACTER(*), PARAMETER :: routine = modname//":multifileRestartCollector_finalize"
+    INTEGER :: i
 #ifndef NOMPI
-    INTEGER :: rRank, ierr, i
+    CHARACTER(*), PARAMETER :: routine = modname//":multifileRestartCollector_finalize"
+    INTEGER :: rRank, ierr
+#endif
 
     IF (ALLOCATED(this%srcPE)) DEALLOCATE(this%srcPE)
     DO i = 1, 3
@@ -233,6 +230,7 @@ CONTAINS
     END DO
     IF (ALLOCATED(this%vGrid)) DEALLOCATE(this%vGrid, this%vType, this%vLevs)
     IF (this%allocd) THEN
+#ifndef NOMPI
       IF (.NOT.this%shortcut) THEN
         IF (this%wStarted .OR. this%wPosted) &
           & CALL this%local_access()
@@ -248,17 +246,18 @@ CONTAINS
       END IF
       CALL MPI_Free_mem(this%wptr%p, ierr)
       HANDLE_MPI_ERROR(ierr, 'MPI_Free_mem')
+#else
+      DEALLOCATE(this%wptr%p)
+#endif
       NULLIFY(this%wptr%p, this%sBuf%d, this%sBuf%s, this%sBuf%i)
       this%allocd = .false.
     END IF
+#ifndef NOMPI
     IF (this%wComm .NE. MPI_COMM_NULL) THEN
       CALL MPI_Comm_free(this%wComm, ierr)
       HANDLE_MPI_ERROR(ierr, 'MPI_Comm_free')
       this%wComm = MPI_COMM_NULL
     END IF
-    IF (ALLOCATED(this%tOffSv)) DEALLOCATE(this%tOffSv)
-    this%wStarted = .false.
-    this%wPosted = .false.
     this%win = MPI_WIN_NULL
     IF (this%rBuf_size .GT. 0) THEN
       CALL MPI_Free_mem(this%rBuf%d, ierr)
@@ -266,9 +265,10 @@ CONTAINS
       NULLIFY(this%rBuf%d, this%rBuf%s, this%rBuf%i)
       this%rBuf_size = 0_addr
     END IF
-#else
-    CALL finish(routine, "Not implemented!")
 #endif
+    IF (ALLOCATED(this%tOffSv)) DEALLOCATE(this%tOffSv)
+    this%wStarted = .false.
+    this%wPosted = .false.
   END SUBROUTINE multifileRestartCollector_finalize
 
   SUBROUTINE multifileRestartCollector_fetch(me, vWrNow, sub, vSize, cBuf, srcOffset)
@@ -277,16 +277,17 @@ CONTAINS
     INTEGER, ALLOCATABLE, INTENT(INOUT) :: vSize(:)
     TYPE(commonBuf_t), INTENT(  OUT) :: cBuf
     INTEGER(i8), ALLOCATABLE, INTENT(INOUT) :: srcOffset(:,:)
-    CHARACTER(*), PARAMETER :: routine = &
-      & modname//":multifileRestartCollector_receiveBuffer_generic"
+    INTEGER, DIMENSION(SIZE(vWrNow)) :: stride
+    INTEGER :: iV, iV_o, nL, nV
 #ifndef NOMPI
+    CHARACTER(*), PARAMETER :: routine = modname//":multifileRestartCollector_fetch"
     INTEGER(addr) :: t_dsp, fDsp, tBy, bSizeB
-    INTEGER :: i, ierr, o_dTy, dTy, n_oReq, iReq, iTy, iV, iV_o, bSize, nL, nV
+    INTEGER :: i, ierr, o_dTy, dTy, n_oReq, iReq, iTy, bSize
 #ifndef NO_MPI_RGET
     INTEGER :: getReq(nOpenReqMax)
 #endif
     INTEGER(addr), DIMENSION(SIZE(vWrNow)) :: rDsp, rD
-    INTEGER, DIMENSION(SIZE(vWrNow)) :: ones, tmp_ddt, stride
+    INTEGER, DIMENSION(SIZE(vWrNow)) :: ones, tmp_ddt
     INTEGER :: pct(me%nSrcPE,SIZE(vWrNow)), t_cnt(me%nSrcPE)
     TYPE(c_ptr) :: cptr
 
@@ -295,6 +296,8 @@ CONTAINS
     stride(:) = 0
     t_cnt(:) = 0
     rDsp(:) = 0_addr
+    iTy = me%vType(vWrNow(1))
+#endif
     nV = SIZE(vWrNow)
     IF (.NOT.ALLOCATED(srcOffset)) THEN
       ALLOCATE(srcOffset(me%nSrcPE, 3))
@@ -305,19 +308,21 @@ CONTAINS
     vSize(:) = 0
     DO iV_o = 1, nV
       iV = vWrNow(iV_o)
-      iTy = me%vType(iV)
-      pct(:,iV_o) = me%idx(me%vGrid(iV))%nSrcRecv(:)
-      stride(iV_o) = SUM(pct(:,iV_o))
-      rDsp(iV_o) = INT(bSize, addr)
+      stride(iV_o) = SUM(me%idx(me%vGrid(iV))%nSrcRecv(:))
       nL = MERGE(me%vLevs(iV), sub(2) - sub(1), sub(3) .NE. iV)
+      vSize(iV_o) = stride(iV_o) * nL
+#ifndef NOMPI
+      pct(:,iV_o) = me%idx(me%vGrid(iV))%nSrcRecv(:)
+      rDsp(iV_o) = INT(bSize, addr)
       t_cnt(:) = t_cnt(:) + pct(:,iV_o) * nL
       bSize = bSize + stride(iV_o) * nL
-      vSize(iV_o) = stride(iV_o) * nL
+#endif
     END DO
     IF (me%shortcut) THEN
       cBuf%d => me%sBuf%d
       cBuf%s => me%sBuf%s
       cBuf%i => me%sBuf%i
+#ifndef NOMPI
     ELSE
       fDsp = facTtoSp(typeMap(iTy))
       dTy = mpiDtype(typeMap(iTy))
@@ -418,110 +423,81 @@ CONTAINS
       cBuf%d => me%rBuf%d
       cBuf%s => me%rBuf%s
       cBuf%i => me%rBuf%i
-    END IF
-#else
-    CALL finish(routine, "Not implemented!")
 #endif
+    END IF
   END SUBROUTINE multifileRestartCollector_fetch
 
-  SUBROUTINE multifileRestartCollector_sendField_dp(me, iV, input, ioffset)
+  SUBROUTINE multifileRestartCollector_sendField(me, iV, input, ioffset)
     CLASS(t_multifileRestartCollector), INTENT(INOUT) :: me
     INTEGER,     INTENT(IN)    :: iV
-    REAL(dp),    INTENT(IN)    :: input(:,:,:)
+    CLASS(*),    INTENT(IN)    :: input(:,:,:)
     INTEGER(i8), INTENT(INOUT) :: ioffset
     CHARACTER(*), PARAMETER :: routine = modname//":multifileRestartCollector_sendField"
-#ifndef NOMPI
     INTEGER(i8) :: offset, i, iLev, nPnt, iG
+    LOGICAL :: fail
 
     iG = me%vGrid(iV)
     nPnt = INT(me%idx(iG)%nSend, i8)
-    IF (.NOT. ASSOCIATED(me%sBuf%d)) &
-      & CALL finish(routine, "Unassociated send buffer!")
+    fail = .FALSE.
+    SELECT TYPE(input)
+    TYPE IS (REAL(dp))
+      IF (.NOT. ASSOCIATED(me%sBuf%d)) fail = .TRUE.
+    TYPE IS (REAL(sp))
+      IF (.NOT. ASSOCIATED(me%sBuf%s)) fail = .TRUE.
+    TYPE IS (INTEGER)
+      IF (.NOT. ASSOCIATED(me%sBuf%i)) fail = .TRUE.
+    CLASS DEFAULT
+      CALL finish(routine, "unrecognized datatype!")
+    END SELECT
+    IF (fail) CALL finish(routine, "Unassociated send buffer!")
     IF (me%idx(ig)%nSend > 0) THEN
-!ICON_OMP PARALLEL DO PRIVATE(offset) SCHEDULE(STATIC) COLLAPSE(2)
-      DO iLev = 1_i8, INT(me%vLevs(iV), i8)
-        DO i = 1_i8, nPnt
-          offset = i + (iLev - 1_i8) * nPnt + ioffset
-          me%sBuf%d(offset) = input(me%idx(iG)%sIdx(i), iLev, me%idx(iG)%sBlk(i))
+!ICON_OMP PARALLEL PRIVATE(offset, iLev, i)
+      SELECT TYPE(input)
+      TYPE IS (REAL(dp))
+!ICON_OMP DO COLLAPSE(2)
+        DO iLev = 1_i8, INT(me%vLevs(iV), i8)
+          DO i = 1_i8, nPnt
+            offset = i + (iLev - 1_i8) * nPnt + ioffset
+            me%sBuf%d(offset) = input(me%idx(iG)%sIdx(i), iLev, me%idx(iG)%sBlk(i))
+          END DO
         END DO
-      END DO
+      TYPE IS (REAL(sp))
+!ICON_OMP DO COLLAPSE(2)
+        DO iLev = 1_i8, INT(me%vLevs(iV), i8)
+          DO i = 1_i8, nPnt
+            offset = i + (iLev - 1_i8) * nPnt + ioffset
+            me%sBuf%s(offset) = input(me%idx(iG)%sIdx(i), iLev, me%idx(iG)%sBlk(i))
+          END DO
+        END DO
+      TYPE IS (INTEGER)
+!ICON_OMP DO COLLAPSE(2)
+        DO iLev = 1_i8, INT(me%vLevs(iV), i8)
+          DO i = 1_i8, nPnt
+            offset = i + (iLev - 1_i8) * nPnt + ioffset
+            me%sBuf%i(offset) = input(me%idx(iG)%sIdx(i), iLev, me%idx(iG)%sBlk(i))
+          END DO
+        END DO
+      END SELECT
+!ICON_OMP END PARALLEL
       ioffset = ioffset + nPnt * INT(me%vLevs(iV), i8)
     END IF
-#else
-    CALL finish(routine, "Not implemented!")
-#endif
-  END SUBROUTINE multifileRestartCollector_sendField_dp
-
-    SUBROUTINE multifileRestartCollector_sendField_sp(me, iV, input, ioffset)
-    CLASS(t_multifileRestartCollector), INTENT(INOUT) :: me
-    INTEGER,     INTENT(IN   ) :: iV
-    REAL(sp),    INTENT(IN   ) :: input(:,:,:)
-    INTEGER(i8), INTENT(INOUT) :: ioffset
-    CHARACTER(*), PARAMETER :: routine = modname//":multifileRestartCollector_sendField"
-#ifndef NOMPI
-    INTEGER(i8) :: i, iLev, offset, nPnt, iG
-
-    iG = me%vGrid(iV)
-    nPnt = INT(me%idx(iG)%nSend, i8)
-    IF (.NOT. ASSOCIATED(me%sBuf%s)) &
-      & CALL finish(routine, "Unassociated send buffer!")
-    IF (me%idx(iG)%nSend > 0) THEN
-!ICON_OMP PARALLEL DO PRIVATE(offset) SCHEDULE(STATIC) COLLAPSE(2)
-      DO iLev = 1_i8, me%vLevs(iV)
-        DO i = 1_i8, nPnt
-          offset = i + (iLev - 1_i8) * nPnt + ioffset
-          me%sBuf%s(offset) = input(me%idx(iG)%sIdx(i), iLev, me%idx(iG)%sBlk(i))
-        END DO
-      END DO
-      ioffset = ioffset + nPnt * INT(me%vLevs(iV), i8)
-    END IF
-#else
-    CALL finish(routine, "Not implemented!")
-#endif
-  END SUBROUTINE multifileRestartCollector_sendField_sp
-
-  SUBROUTINE multifileRestartCollector_sendField_i(me, iV, input, ioffset)
-    CLASS(t_multifileRestartCollector), INTENT(INOUT) :: me
-    INTEGER,          INTENT(IN   ) :: iV, input(:,:,:)
-    INTEGER(i8),      INTENT(INOUT) :: ioffset
-    CHARACTER(*), PARAMETER :: routine = modname//":multifileRestartCollector_sendField"
-#ifndef NOMPI
-    INTEGER(i8) :: i, iLev, offset, nPnt, iG
-    
-    iG = me%vGrid(iV)
-    nPnt = me%idx(iG)%nSend
-    IF (.NOT. ASSOCIATED(me%sBuf%i)) &
-      & CALL finish(routine, "Unassociated send buffer!")
-    IF (me%idx(iG)%nSend > 0) THEN
-!ICON_OMP PARALLEL DO PRIVATE(offset) SCHEDULE(STATIC) COLLAPSE(2)
-      DO iLev = 1, INT(me%vLevs(iV), i8)
-        DO i = 1, nPnt
-          offset = i + (iLev - 1_i8) * nPnt + ioffset
-          me%sBuf%i(offset) = input(me%idx(iG)%sIdx(i), iLev, me%idx(iG)%sBlk(i))
-        END DO
-      END DO
-      ioffset = ioffset + nPnt * INT(me%vLevs(iV), i8)
-    END IF
-#else
-    CALL finish(routine, "Not implemented!")
-#endif
-  END SUBROUTINE multifileRestartCollector_sendField_i
+  END SUBROUTINE multifileRestartCollector_sendField
 
   SUBROUTINE multifileRestartCollector_init_win(this, isize, shortcut)
     CLASS(t_multifileRestartCollector), INTENT(INOUT) :: this
     INTEGER(i8), INTENT(IN)    :: isize(typeMax)
     LOGICAL, INTENT(IN) :: shortcut
-    CHARACTER(*), PARAMETER :: routine = modname//":CollectorSendBuffer_add_domain"
-#ifdef NOMPI
-    CALL finish(routine, "Not implemented!")
-#else
-    INTEGER :: ierr, splitKey, wComm_size, i, j, ii, myRank, &
+    INTEGER(addr) :: tOffCl(4), wSizes(3)
+    CHARACTER(*), PARAMETER :: routine = modname//":CollectorSendBuffer_init_win"
+    INTEGER :: i
+#ifndef NOMPI
+    INTEGER :: ierr, splitKey, wComm_size, j, ii, myRank, &
       &        p_addr, addrBytes
     INTEGER, ALLOCATABLE, DIMENSION(:) :: rank_map
-    INTEGER(addr) :: memBytes, wSizes(3), tOffCl(4)
+    INTEGER(addr) :: memBytes
     INTEGER(KIND=addr), ALLOCATABLE :: tmpOffSv(:)
     TYPE(c_ptr) :: cMemPtr
-    REAL(KIND=sp), POINTER :: tmp_sp(:)
+#endif
 
     this%shortcut = shortcut
     this%allocd   = .false.
@@ -539,6 +515,10 @@ CONTAINS
       ALLOCATE(this%tOffSv(4))
       this%srcPE(1) = 0
       this%tOffSv(:) = tOffCl(:)
+#ifndef NOMPI
+! this makes "ill" configs work; i.e. using more than 1 writer per worker, but less than 2 -- on average
+      CALL MPI_Comm_split(p_comm_work_restart, MPI_UNDEFINED, 0, this%wComm, ierr)
+      HANDLE_MPI_ERROR(ierr, 'MPI_Comm_split')
     ELSE
       myRank = p_comm_rank(p_comm_work_restart)
       splitKey = MERGE(1, myRank + 2, iAmRestartWriter())
@@ -569,17 +549,21 @@ CONTAINS
         END DO
       END IF
       DEALLOCATE(rank_map, tmpOffSv)
+#else
+    ELSE
+      CALL finish(routine, "you screwed up!")
+#endif
     END IF
     this%destPE = 0
+#ifndef NOMPI
     memBytes = tOffCl(4) * typeByte(2)
 ! as of MPI3.0 standard the following MPI_Alloc_mem interface must be 
 ! present, if the compiler provides ISO_C_BINDING
     CALL MPI_Alloc_mem(MAX(memBytes, 64_addr), MPI_INFO_NULL, cMemPtr, ierr)
     HANDLE_MPI_ERROR(ierr, 'MPI_Alloc_mem')
-    CALL C_F_POINTER(cMemPtr, this%wptr%p, [1_addr])
-    CALL C_F_POINTER(cMemPtr, tmp_sp, [MAX(1_addr, tOffCl(4))])
+    CALL C_F_POINTER(cMemPtr, this%wptr%p, [MAX(1_addr, tOffCl(4))])
     IF (.NOT.shortcut) THEN
-      CALL MPI_Win_create(tmp_sp, memBytes, INT(typeByte(2)), MPI_INFO_NULL, &
+      CALL MPI_Win_create(this%wptr%p, memBytes, INT(typeByte(2)), MPI_INFO_NULL, &
         & this%wComm, this%win, ierr)
       HANDLE_MPI_ERROR(ierr, 'MPI_Win_create')
       IF (my_process_is_work()) THEN ! begin with local access
@@ -588,21 +572,25 @@ CONTAINS
         HANDLE_MPI_ERROR(ierr, 'mpi_win_lock')
       END IF
     END IF
+#else
+    ALLOCATE(this%wptr%p(MAX(1, INT(tOffCl(4)))))
+#endif
     tOffCl(1:3) = tOffCl(1:3) + 1_addr
     IF (wSizes(1) .GT. 0_addr) &
-      & CALL C_F_POINTER(C_LOC(tmp_sp(tOffCl(1))), this%sBuf%d, [wSizes(1)])
+      & CALL C_F_POINTER(C_LOC(this%wptr%p(tOffCl(1))), this%sBuf%d, [wSizes(1)])
     IF (wSizes(2) .GT. 0_addr) &
-      & CALL C_F_POINTER(C_LOC(tmp_sp(tOffCl(2))), this%sBuf%s, [wSizes(2)])
+      & CALL C_F_POINTER(C_LOC(this%wptr%p(tOffCl(2))), this%sBuf%s, [wSizes(2)])
     IF (wSizes(3) .GT. 0_addr) &
-      & CALL C_F_POINTER(C_LOC(tmp_sp(tOffCl(3))), this%sBuf%i, [wSizes(3)])
+      & CALL C_F_POINTER(C_LOC(this%wptr%p(tOffCl(3))), this%sBuf%i, [wSizes(3)])
     this%allocd = .true.
-#endif
   END SUBROUTINE multifileRestartCollector_init_win
 
   SUBROUTINE multifileRestartCollector_local_access(this)
     CLASS(t_multifileRestartCollector), INTENT(INOUT) :: this
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::multifileRestartCollector_local_access"
-#ifndef NOMPI
+#ifdef NOMPI
+    IF (.NOT.this%allocd) CALL finish(routine, "there is no buffer allocd to fill!")
+#else
     INTEGER :: rrank, ierr
 
     IF (.NOT.this%allocd) CALL finish(routine, "there is no buffer allocd to fill!")
@@ -623,15 +611,15 @@ CONTAINS
     END IF
     this%wPosted = .false.
     this%wStarted = .false.
-#else
-    CALL finish(routine, "Not implemented!")
 #endif
   END SUBROUTINE multifileRestartCollector_local_access
 
   SUBROUTINE multifileRestartCollector_remote_access(this)
     CLASS(t_multifileRestartCollector), INTENT(INOUT) :: this
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::multifileRestartCollector_remote_access"
-#ifndef NOMPI
+#ifdef NOMPI
+    IF (.NOT.this%allocd) CALL finish(routine, "there is no window to expose!")
+#else
     INTEGER :: rrank, ierr
 
     IF (.NOT.this%allocd) CALL finish(routine, "there is no window to expose!")
@@ -652,8 +640,6 @@ CONTAINS
 #endif
       this%wStarted = .true.
     END IF
-#else
-    CALL finish(routine, "Not implemented!")
 #endif
   END SUBROUTINE multifileRestartCollector_remote_access
 

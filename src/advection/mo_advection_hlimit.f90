@@ -35,7 +35,7 @@ MODULE mo_advection_hlimit
 
   USE mo_kind,                ONLY: wp, vp
   USE mo_math_constants,      ONLY: dbl_eps
-  USE mo_fortran_tools,       ONLY: assign_if_present, init
+  USE mo_fortran_tools,       ONLY: init
   USE mo_model_domain,        ONLY: t_patch
   USE mo_grid_config,         ONLY: l_limited_area
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
@@ -215,9 +215,9 @@ CONTAINS
     beta_fct  = 1._wp  ! the namelist default is 1.005, but it is passed to the limiter for the Miura3 scheme only
 
     ! Check for optional arguments
-    CALL assign_if_present(i_rlstart,opt_rlstart)
-    CALL assign_if_present(i_rlend  ,opt_rlend)
-    CALL assign_if_present(beta_fct ,opt_beta_fct)
+    IF (PRESENT(opt_rlstart)) i_rlstart = opt_rlstart
+    IF (PRESENT(opt_rlend)) i_rlend = opt_rlend
+    IF (PRESENT(opt_beta_fct)) beta_fct = opt_beta_fct
 
     r_beta_fct = 1._wp/beta_fct
 
@@ -669,9 +669,8 @@ CONTAINS
 
 
     ! Check for optional arguments
-    CALL assign_if_present(i_rlstart,opt_rlstart)
-    CALL assign_if_present(i_rlend  ,opt_rlend)
-
+    IF (PRESENT(opt_rlstart)) i_rlstart = opt_rlstart
+    IF (PRESENT(opt_rlend)) i_rlend = opt_rlend
 
     ! number of child domains
     i_nchdom = MAX(1,ptr_patch%n_childdom)

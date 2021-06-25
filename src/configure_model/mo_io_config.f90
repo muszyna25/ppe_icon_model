@@ -84,7 +84,7 @@ MODULE mo_io_config
   INTEGER, PARAMETER :: uh_max_nlayer = 3
   REAL(wp):: uh_max_zmin(uh_max_nlayer), &  !< minimum and maximum height in m MSL for the vertical
              uh_max_zmax(uh_max_nlayer)     !  integration of uh_max (output vars uh_max<_low,_med>)
-  LOGICAL :: luh_max_out(uh_max_nlayer)
+  LOGICAL :: luh_max_out(max_dom, uh_max_nlayer) = .false.
 
   TYPE t_echotop_meta
     REAL(wp) :: time_interval           !< time interval [seconds] over which echotops are maximized/minimized
@@ -107,6 +107,13 @@ MODULE mo_io_config
     LOGICAL :: sdi2        = .FALSE. !< Flag. TRUE if computation of supercell detection index desired
     LOGICAL :: lpi         = .FALSE. !< Flag. TRUE if computation of lightning potential index desired
     LOGICAL :: lpi_max     = .FALSE. !< Flag. TRUE if computation of max. of lightning potential index desired
+    LOGICAL :: lpi_con     = .FALSE. !< Flag. TRUE if computation of convective lightning potential index desired
+    LOGICAL :: mlpi_con    = .FALSE. !< Flag. TRUE if computation of modified convective lightning potential index desired
+    LOGICAL :: lpi_con_max = .FALSE. !< Flag. TRUE if computation of maximum convective lightning potential index desired
+    LOGICAL :: mlpi_con_max= .FALSE. !< Flag. TRUE if computation of maximum modified convective lightning potential index desired
+    LOGICAL :: lfd_con     = .FALSE. !< Flag. TRUE if computation of lighting flash density  desired
+    LOGICAL :: lfd_con_max = .FALSE. !< Flag. TRUE if computation of maximum lighting flash density  desired
+    LOGICAL :: koi         = .FALSE. !< Flag. TRUE if computation of convection index
     LOGICAL :: ceiling     = .FALSE. !< Flag. TRUE if computation of ceiling height desired
     LOGICAL :: hbas_sc     = .FALSE. !< Flag. TRUE if computation of height of base from shallow convection desired
     LOGICAL :: htop_sc     = .FALSE. !< Flag. TRUE if computation of height of top  from shallow convection desired
@@ -152,7 +159,6 @@ MODULE mo_io_config
 
   ! currently used by hydrostatic model only
   LOGICAL :: l_outputtime      ! if .true., output is written at the end of the time step.
-  LOGICAL :: l_diagtime        ! if .true., diagnostic output is computed and written at the end of the time step.
 
   LOGICAL :: lmask_boundary    ! flag: true, if interpolation zone should be masked *in output*
 
@@ -215,6 +221,13 @@ CONTAINS
         var_in_output(jg)%sdi2        = is_variable_in_output_dom(var_name="sdi2", jg=jg)
         var_in_output(jg)%lpi         = is_variable_in_output_dom(var_name="lpi", jg=jg)
         var_in_output(jg)%lpi_max     = is_variable_in_output_dom(var_name="lpi_max", jg=jg)
+        var_in_output(jg)%lpi_con     = is_variable_in_output_dom(var_name="lpi_con", jg=jg)
+        var_in_output(jg)%mlpi_con    = is_variable_in_output_dom(var_name="mlpi_con", jg=jg)
+        var_in_output(jg)%lpi_con_max = is_variable_in_output_dom(var_name="lpi_con_max", jg=jg)
+        var_in_output(jg)%mlpi_con_max= is_variable_in_output_dom(var_name="mlpi_con_max", jg=jg)
+        var_in_output(jg)%lfd_con     = is_variable_in_output_dom(var_name="lfd_con", jg=jg)
+        var_in_output(jg)%lfd_con_max = is_variable_in_output_dom(var_name="lfd_con_max", jg=jg)
+        var_in_output(jg)%koi         = is_variable_in_output_dom(var_name="koi", jg=jg)
         var_in_output(jg)%ceiling     = is_variable_in_output_dom(var_name="ceiling", jg=jg)
         var_in_output(jg)%hbas_sc     = is_variable_in_output_dom(var_name="hbas_sc", jg=jg)
         var_in_output(jg)%htop_sc     = is_variable_in_output_dom(var_name="htop_sc", jg=jg)

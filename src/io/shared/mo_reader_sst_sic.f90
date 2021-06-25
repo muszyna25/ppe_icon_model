@@ -15,6 +15,7 @@ MODULE mo_reader_sst_sic
        &                                process_mpi_root_id, p_comm_work, p_bcast
   USE mo_read_netcdf_distributed, ONLY: distrib_nf_open, distrib_read, distrib_nf_close, &
        &                                idx_lvl_blk
+  USE mo_fortran_tools,           ONLY: t_ptr_3d
 
   IMPLICIT NONE
 
@@ -125,17 +126,19 @@ CONTAINS
     INTEGER,               INTENT(in   ) :: timelevel
     CHARACTER(len=*),      INTENT(in   ) :: varname
     REAL(dp), ALLOCATABLE, INTENT(  out) :: dat(:,:,:,:)
+    REAL(dp), ALLOCATABLE, TARGET :: temp(:,:,:,:)
+    TYPE(t_ptr_3d) :: tmp(1)
 
-    ALLOCATE(dat(get_nproma(), 1, this%p_patch%nblks_c, 1))
-    dat(:,:,:,:) = -1.0_dp
-    IF (.NOT. this%lopened) THEN
-      CALL finish(modname, '6 hourly SST/Seaice file not open!') 
-    END IF
-    CALL distrib_read(this%dist_fileid, varname, dat(:,:,:,1), &
-         &            1, idx_lvl_blk, this%p_patch%cells%dist_io_data, timelevel, timelevel)
-    
-    CALL sst_sic_replace_missval(this, dat, -1.0_wp)
-  
+    ALLOCATE(temp(get_nproma(), 1, this%p_patch%nblks_c, 1))
+    temp(:,:,:,:) = -1.0_dp
+    IF (.NOT. this%lopened) &
+      CALL finish(modname, '6 hourly SST/Seaice file not open!')
+    tmp(1)%p => temp(:,:,:,1)
+    CALL distrib_read(this%dist_fileid, varname, tmp, &
+         & (/this%p_patch%cells%dist_io_data/), edim=(/1/), dimo=idx_lvl_blk, &
+         & start_ext_dim=(/timelevel/), end_ext_dim=(/timelevel/))
+    CALL sst_sic_replace_missval(this, temp, -1.0_wp)
+    CALL MOVE_ALLOC(temp, dat)
   END SUBROUTINE sst_sic_get_one_timelevel
 
   SUBROUTINE sst_sic_replace_missval (this, dat, new_missval)

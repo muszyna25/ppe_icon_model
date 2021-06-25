@@ -55,6 +55,7 @@ MODULE mo_vertical_grid
   USE mo_loopindices,           ONLY: get_indices_e, get_indices_c
   USE mo_nonhydro_types,        ONLY: t_nh_state, t_nh_state_lists
   USE mo_init_vgrid,            ONLY: nflatlev
+  USE mo_util_vgrid_types,      ONLY: vgrid_buffer
   USE mo_sync,                  ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, global_sum_array, &
                                       sync_patch_array_mult, global_min, global_max
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
@@ -70,7 +71,7 @@ MODULE mo_vertical_grid
   USE mo_dynamics_config,      ONLY: ldeepatmo
   USE mo_nh_deepatmo_utils,    ONLY: set_deepatmo_metrics
   USE mo_echam_vdf_config,     ONLY: echam_vdf_config
-  USE mo_linked_list,          ONLY: t_var_list
+  USE mo_var_list,             ONLY: t_var_list_ptr
   USE mo_nonhydro_state,       ONLY: new_zd_metrics  
   IMPLICIT NONE
 
@@ -135,6 +136,7 @@ MODULE mo_vertical_grid
     INTEGER,  ALLOCATABLE :: flat_idx(:,:), imask(:,:,:),icount(:)
     INTEGER,  DIMENSION(:,:,:), POINTER :: iidx, iblk, inidx, inblk
     LOGICAL :: l_found(nproma), lfound_all
+    INTEGER :: error_status
 
 #ifdef INTEL_COMPILER
 !DIR$ ATTRIBUTES ALIGN : 64 :: ica,z_help,z_temp,z_aux1,z_aux2,l_found
@@ -175,7 +177,15 @@ MODULE mo_vertical_grid
         ELSE
           nlen = npromz_c
           p_nh(jg)%metrics%z_mc(nlen+1:nproma,:,jb) = 0._wp
+          p_nh(jg)%metrics%z_ifc(nlen+1:nproma,:,jb) = 0._wp
         ENDIF
+        DO jk = 1, nlev+1
+          ! geometric height of half levels
+          !   The 3D coordinate field "z_ifc" exists already in a buffer
+          !   variable of module "mo_util_vgrid_types". We move the data to its
+          !   final place here:
+          p_nh(jg)%metrics%z_ifc(1:nlen,jk,jb) = vgrid_buffer(jg)%z_ifc(1:nlen,jk,jb)
+        ENDDO
         DO jk = 1, nlev
           ! geometric height of full levels
           p_nh(jg)%metrics%z_mc(1:nlen,jk,jb) = 0.5_wp*(p_nh(jg)%metrics%z_ifc(1:nlen,jk,jb) + &
@@ -1706,6 +1716,12 @@ MODULE mo_vertical_grid
 
     ENDDO  !jg
 
+    ! Now vgrid_buffer(:)%z_ifc can be deallocated
+    DO jg = 1,n_dom
+      DEALLOCATE(vgrid_buffer(jg)%z_ifc, STAT=error_status)
+      IF (error_status /= SUCCESS) CALL finish (routine, 'DEALLOCATE(vgrid_buffer(jg)%z_ifc) failed.')
+    END DO
+
     !PREPARE LES, Anurag Dipankar MPIM (2013-04)
     DO jg = 1 , n_dom
       IF(atm_phy_nwp_config(jg)%is_les_phy .OR. echam_vdf_config(1)%turb == 2) THEN
@@ -1733,7 +1749,7 @@ MODULE mo_vertical_grid
 
     TYPE(t_patch), TARGET, INTENT(INOUT) :: p_patch
     TYPE(t_nh_state), INTENT(INOUT)      :: p_nh
-    TYPE(t_var_list), INTENT(INOUT)      :: p_nh_metrics_list
+    TYPE(t_var_list_ptr), INTENT(INOUT)      :: p_nh_metrics_list
     TYPE(t_int_state), TARGET,INTENT(IN) :: p_int
     REAL(wp),        INTENT(IN)        :: maxslp(nproma,p_patch%nlev,p_patch%nblks_c)
     REAL(wp),        INTENT(IN)        :: maxhgtd(nproma,p_patch%nlev,p_patch%nblks_c)

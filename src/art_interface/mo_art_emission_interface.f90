@@ -42,7 +42,7 @@ MODULE mo_art_emission_interface
   USE mo_impl_constants,                ONLY: SUCCESS
   USE mo_lnd_nwp_config,                ONLY: dzsoil
   USE mo_exception,                     ONLY: finish, message
-  USE mo_linked_list,                   ONLY: t_var_list
+  USE mo_var_list,                      ONLY: t_var_list_ptr
   USE mo_nonhydro_state,                ONLY: p_nh_state_lists
   USE mo_ext_data_types,                ONLY: t_external_data
   USE mo_nwp_lnd_types,                 ONLY: t_lnd_diag
@@ -110,7 +110,7 @@ CONTAINS
   !! Initial revision by Daniel Reinert, DWD (2012-01-27)
   !! Modification by Kristina Lundgren, KIT (2012-01-30)
   !! Rewritten by Daniel Rieger, KIT (2013-09-30)
-  TYPE(t_var_list), INTENT(inout) :: &
+  TYPE(t_var_list_ptr), INTENT(inout) :: &
     &  p_prog_list             !< list of prognostic variables
   TYPE(t_external_data), INTENT(in) ::  &
     &  ext_data                !< Atmosphere external data
@@ -149,11 +149,22 @@ CONTAINS
   ! --- Get the loop indizes
   jg         = p_patch%id
 
+  ! --- Initialize local variables
+  n_stns           = 0
+  doy_dec1         = 0
+  current_doy_dec1 = 0
+  doy_start_season = 0
+  doy_end_season   = 0
+  ipoll            = 0
+  this_mode        => NULL()
+  art_atmo         => NULL()
+
   IF (lart) THEN
     IF (timers_level > 3) CALL timer_start(timer_art)
     IF (timers_level > 3) CALL timer_start(timer_art_emissInt)
 
     art_atmo => p_art_data(jg)%atmo
+    kstart_emiss     = art_atmo%nlev
 
     IF (art_config(jg)%lart_pntSrc) THEN
       ! Point sources
@@ -305,6 +316,8 @@ CONTAINS
                       &             p_art_data(jg)%ext%volc_data,                   &
                       &             fields%itr3(1), emiss_rate(:,:) ) !< itr3(1) assumes only 1 mass component of mode
                     kstart_emiss = 1
+                  CASE DEFAULT
+                    kstart_emiss = art_atmo%nlev
                 END SELECT
 
                 ! Update mass mixing ratios

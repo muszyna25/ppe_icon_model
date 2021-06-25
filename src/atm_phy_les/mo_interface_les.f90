@@ -54,7 +54,7 @@ MODULE mo_interface_les
     &                                 msg_level, ltimer, timers_level, nqtendphy,  &
     &                                 ltransport, lart, iqni, iqnc
   USE mo_physical_constants,    ONLY: rd, rd_o_cpd, vtmpc1, p0ref, cvd, cvv
-  USE mo_nh_diagnose_pres_temp, ONLY: diagnose_pres_temp
+  USE mo_nh_diagnose_pres_temp, ONLY: diagnose_pres_temp, calc_qsum
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
   USE mo_lnd_nwp_config,        ONLY: ntiles_total, ntiles_water
   USE mo_cover_koe,             ONLY: cover_koe, cover_koe_config
@@ -389,16 +389,7 @@ CONTAINS
               !& count, errstat,                              !> OUT
                )
 
-        DO jk = kstart_moist(jg), nlev
-          DO jc = i_startidx, i_endidx
-
-            ! calculate virtual temperature from condens' output temperature
-            ! taken from SUBROUTINE update_tempv_geopot in hydro_atmos/mo_ha_update_diag.f90
-            z_qsum(jc,jk) = SUM(pt_prog_rcf%tracer (jc,jk,jb,condensate_list))
-
-          ENDDO
-        ENDDO
-
+        CALL calc_qsum (pt_prog_rcf%tracer, z_qsum, condensate_list, jb, i_startidx, i_endidx, 1, kstart_moist(jg), nlev)
 
         DO jk = kstart_moist(jg), nlev
 !DIR$ IVDEP
@@ -600,16 +591,8 @@ CONTAINS
         !!
         !-------------------------------------------------------------------------
 
-        IF (kstart_moist(jg) > 1) z_qsum(:,1:kstart_moist(jg)-1) = 0._wp
 
-        DO jk = kstart_moist(jg), nlev
-          DO jc = i_startidx, i_endidx
-
-            z_qsum(jc,jk) = SUM(pt_prog_rcf%tracer (jc,jk,jb,condensate_list))
-
-          ENDDO
-        ENDDO
-
+        CALL calc_qsum (pt_prog_rcf%tracer, z_qsum, condensate_list, jb, i_startidx, i_endidx, 1, kstart_moist(jg), nlev)
 
         DO jk = 1, nlev
 !DIR$ IVDEP
@@ -1081,16 +1064,8 @@ CONTAINS
    &                                       prm_nwp_tend%ddt_temp_radsw(i_startidx:i_endidx,:,jb) &
    &                                    +  prm_nwp_tend%ddt_temp_radlw(i_startidx:i_endidx,:,jb)
 
-        IF (kstart_moist(jg) > 1) z_qsum(:,1:kstart_moist(jg)-1) = 0._wp
 
-        DO jk = kstart_moist(jg), nlev
-          DO jc = i_startidx, i_endidx
-
-            z_qsum(jc,jk) = SUM(pt_prog_rcf%tracer (jc,jk,jb,condensate_list))
-
-          ENDDO
-        ENDDO
-
+        CALL calc_qsum (pt_prog_rcf%tracer, z_qsum, condensate_list, jb, i_startidx, i_endidx, 1, kstart_moist(jg), nlev)
 
 
         ! Convert temperature tendency into Exner function tendency

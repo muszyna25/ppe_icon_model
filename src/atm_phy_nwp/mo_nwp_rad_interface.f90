@@ -28,7 +28,7 @@ MODULE mo_nwp_rad_interface
   USE mo_model_domain,         ONLY: t_patch
   USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag
-  USE mo_radiation_config,     ONLY: albedo_type, irad_aero, irad_co2, irad_n2o, irad_ch4, irad_cfc11, irad_cfc12
+  USE mo_radiation_config,     ONLY: albedo_type, irad_co2, irad_n2o, irad_ch4, irad_cfc11, irad_cfc12
   USE mo_radiation,            ONLY: pre_radiation_nwp_steps
   USE mo_nwp_rrtm_interface,   ONLY: nwp_rrtm_radiation,             &
     &                                nwp_rrtm_radiation_reduced,     &
@@ -62,7 +62,7 @@ MODULE mo_nwp_rad_interface
   !---------------------------------------------------------------------------------------
   !>
   !! This subroutine is the interface between nwp_nh_interface to the radiation schemes.
-  !! Depending on inwp_radiation, it can call RRTM/PSRAD (1,3), Ritter-Geleyn (2), or 
+  !! Depending on inwp_radiation, it can call RRTM (1), Ritter-Geleyn (2), or 
   !! ecRad(4).
   !!
   !! @par Revision History
@@ -97,8 +97,7 @@ MODULE mo_nwp_rad_interface
       & zaeq4(nproma,pt_patch%nlev,pt_patch%nblks_c), &
       & zaeq5(nproma,pt_patch%nlev,pt_patch%nblks_c)
 
-    
-    INTEGER :: jg, irad
+    INTEGER :: jg
     LOGICAL :: lacc
 
     REAL(wp):: zsct        ! solar constant (at time of year)
@@ -131,7 +130,7 @@ MODULE mo_nwp_rad_interface
     END IF
 
     SELECT CASE (atm_phy_nwp_config(jg)%inwp_radiation )
-    CASE (1, 3)
+    CASE (1)
       ! RRTM
       ! In radiative transfer routine RRTM skips all points with cosmu0<=0. That's why 
       ! points to be skipped need to be marked with a value <=0
@@ -194,9 +193,7 @@ MODULE mo_nwp_rad_interface
     ENDIF
 #endif
     SELECT CASE (atm_phy_nwp_config(jg)%inwp_radiation)
-    CASE (1, 3) ! RRTM / PSRAD
-
-      irad = atm_phy_nwp_config(jg)%inwp_radiation
+    CASE (1) ! RRTM
 
       CALL nwp_ozon_aerosol ( p_sim_time, mtime_datetime, pt_patch, ext_data, &
         & pt_diag, prm_diag, zaeq1, zaeq2, zaeq3, zaeq4, zaeq5 )
@@ -205,13 +202,13 @@ MODULE mo_nwp_rad_interface
           
         CALL nwp_rrtm_radiation ( mtime_datetime, pt_patch, ext_data, &
           & zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,        &
-          & pt_diag, prm_diag, lnd_prog, irad )
+          & pt_diag, prm_diag, lnd_prog )
        
       ELSE 
 
         CALL nwp_rrtm_radiation_reduced ( mtime_datetime, pt_patch,pt_par_patch, ext_data, &
           & zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,                             &
-          & pt_diag, prm_diag, lnd_prog, irad )
+          & pt_diag, prm_diag, lnd_prog )
           
       ENDIF
 
@@ -233,11 +230,11 @@ MODULE mo_nwp_rad_interface
       IF (.NOT. lredgrid) THEN
         CALL nwp_ecRad_radiation ( mtime_datetime, pt_patch, ext_data,      &
           & zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,                              &
-          & pt_diag, prm_diag, lnd_prog, ecrad_conf )
+          & pt_diag, prm_diag, pt_prog, lnd_prog, ecrad_conf )
       ELSE
         CALL nwp_ecRad_radiation_reduced ( mtime_datetime, pt_patch,pt_par_patch, &
           & ext_data, zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,                          &
-          & pt_diag, prm_diag, lnd_prog, ecrad_conf )
+          & pt_diag, prm_diag, pt_prog, lnd_prog, ecrad_conf )
       ENDIF
 #else
       CALL finish(routine,  &

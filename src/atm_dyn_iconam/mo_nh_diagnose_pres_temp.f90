@@ -303,13 +303,6 @@ MODULE mo_nh_diagnose_pres_temp
         pt_diag%pres_ifc(jc,nlev+1,jb) = pt_diag%pres_sfc(jc,jb)
       ENDDO
       !$ACC END PARALLEL
-      
-    !-------------------------------------------------------------------------
-    !> diagnose pressure for physics parameterizations
-    !! this is accomplished by vertical integration of the hydrostatic equation
-    !! because the physics schemes actually need the air mass represented 
-    !! by a given model layer
-    !-------------------------------------------------------------------------
 
       
       !-------------------------------------------------------------------------
