@@ -49,7 +49,7 @@ command_line = argparse.ArgumentParser(description=__doc__.split('\n', 1)[0])
 command_line.add_argument('start_date', type=check_date, help=
     'first date of period (YYYY-MM-DD... or YYYYMMDD...)')
 command_line.add_argument('-V', '--version', action='version', version="""
-$Id: DEFAULT.post.tmpl 2 2021-05-20 13:38:47Z m221078 $
+$Id: DEFAULT.post.tmpl 4 2021-06-28 17:19:38Z m221078 $
 %{VERSIONS_|join('\n')}
 """)
 command_line.add_argument('-c', '--clean', action='store_true', help=
@@ -58,6 +58,8 @@ command_line.add_argument('-c', '--clean', action='store_true', help=
 command_line.add_argument('-f', '--force', action='store_true', help=
     'continue to run even if working directory exists. '
     'Use ONLY after you made absolutely sure that no other job is running!')
+command_line.add_argument('-n', '--dry-run', action='store_true', help=
+    'use dry run more for make')
 args = command_line.parse_args()
 
 # Set up diagnostic output
@@ -126,6 +128,9 @@ tags.extend(%{output.pressure_level.sections|d([])})
 weed = re.compile(r'[-:]|\.\d+$')
 
 template_dict = {}
+#%  for variable in VARIABLES_|sort if context(variable) is defined:
+template_dict['%{variable}'] = '%{context(variable)}'
+#%  endfor
 template_dict['start_date'] = re.sub(weed, '', str(start_date.date))
 template_dict['start_stamp'] = re.sub(weed, '', str(start_date))
 template_dict['next_date'] = re.sub(weed, '', str(next_date.date))
@@ -192,9 +197,10 @@ os.chdir(post_dir)
 restart_filenames = %{restart_filenames}
 restart_targets = []
 for restart_filename in restart_filenames:
-    restart_file = restart_filename.replace('<rsttime>', template_dict['next_date'])
+    restart_expanded = restart_filename.format(**template_dict)
+    restart_file = restart_expanded.replace('<rsttime>', template_dict['next_date'])
     logging.debug("restart_file = {0}".format(restart_file))
-    restart_path = os.path.join(run_dir, restart_filename.replace('<rsttime>', template_dict['next_stamp']+'Z'))
+    restart_path = os.path.join(run_dir, restart_expanded.replace('<rsttime>', template_dict['next_stamp']+'Z'))
     logging.debug("restart_path = {0}".format(restart_path))
     if os.path.isdir(restart_path):
         logging.debug("{0} is directory".format(restart_path))
@@ -273,6 +279,7 @@ makefile.close()
 # Run the actual make process
 
 make_args = ['make', '-k', '-j', '%{JOB.tasks|d(1)}']
+if args.dry_run: make_args.append('-n')
 if args.clean: make_args.append('clean')
 make = subprocess.Popen(make_args, universal_newlines=True,
                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
