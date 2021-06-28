@@ -2034,7 +2034,7 @@ __acc_attach(diag%clct_avg)
       & ldims=shape2d, lrestart=.FALSE. ) 
 
 
-    IF (irad_aero == 5) THEN ! Old Tanre aerosol climatology taken over from the COSMO model (to be used with inwp_radiation==2)
+    IF (irad_aero == 5) THEN ! Old Tanre aerosol climatology taken over from the COSMO model (to be used with now removed Ritter-Geleyn radiation)
       ! &      diag%aersea(nproma,nblks_c)
       cf_desc    = t_cf_var('aersea', '', '', datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)

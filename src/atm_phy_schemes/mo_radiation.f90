@@ -1759,7 +1759,7 @@ CONTAINS
 
       ! Disaggregation of longwave and shortwave fluxes for tile approach
       IF (ntiles > 1) THEN
-        IF (lcalc_trsolclr) THEN ! (relevant for Ritter-Geleyn radiation scheme only)
+        IF (lcalc_trsolclr) THEN
           ! parameterization of clear-air solar transmissivity in order to use the same
           ! formulation as in mo_phys_nest_utilities:downscale_rad_output
           DO jc = jcs, jce

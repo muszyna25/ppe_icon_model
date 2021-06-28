@@ -550,27 +550,6 @@ CONTAINS
 
         END DO    ! loop over first horizontal index
 
-!!$        ! 3-dimensional O3
-!!$        ! top level
-!!$        DO jc = i_startidx,i_endidx
-!!$          zptop32  (jc,jb) = (SQRT(z_pres_ifc(jc,1,jb)))**3
-!!$          zo3_hm   (jc,jb) = (SQRT(zhmo3(jc,jb)))**3
-!!$          zo3_top  (jc,jb) = prm_diag%vio3(jc,jb)*zptop32(jc,jb)/(zptop32(jc,jb)+zo3_hm(jc,jb))
-!!$        ENDDO
-!!$        ! loop over layers
-!!$        DO jk = 1,nlev   
-!!$          DO jc = i_startidx,i_endidx
-!!$            zpbot32  (jc,jb) = (SQRT(z_pres_ifc(jc,jk+1,jb)))**3
-!!$            zo3_bot  (jc,jb) = prm_diag%vio3(jc,jb)* zpbot32(jc,jb)    &
-!!$              /( zpbot32(jc,jb) + zo3_hm(jc,jb))        
-!!$            !O3 content
-!!$            zduo3(jc,jk,jb)= zo3_bot (jc,jb)-zo3_top (jc,jb)
-!!$            z_o3(jc,jk,jb) = (amo3/amd) * &
-!!$              & ((z_pres_ifc(jc,jk+1,jb)-z_pres_ifc(jc,jk,jb))/zduo3(jc,jk,jb))
-!!$            ! store previous bottom values in arrays for top of next layer
-!!$            zo3_top (jc,jb) = zo3_bot (jc,jb)
-!!$          ENDDO
-!!$        ENDDO
 
     ENDDO !jb
 !$OMP END DO NOWAIT

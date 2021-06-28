@@ -681,10 +681,9 @@ CONTAINS
       ! Pressure has already been updated at the end of the fast physics part
       lpres = .FALSE.
 
-      ! Temperature at interface levels is needed if irad_aero = 5 or 6
-      ! or if Ritter-Geleyn radiation is called
+      ! Temperature at interface levels is needed if irad_aero = 5, 6 or 9
       IF ( lcall_phy_jg(itrad) .AND. ( irad_aero == 5 .OR. irad_aero == 6 &
-           .OR. irad_aero == 9 .OR. atm_phy_nwp_config(jg)%inwp_radiation == 2 ) ) THEN
+           .OR. irad_aero == 9 ) ) THEN
         ltemp_ifc = .TRUE.
       ELSE
         ltemp_ifc = .FALSE.
@@ -984,7 +983,7 @@ CONTAINS
 
       IF (timers_level > 2) CALL timer_stop(timer_radheat)
 
-    ENDIF  ! inwp_radiation
+    ENDIF
 
 
     !-------------------------------------------------------------------------

@@ -2050,7 +2050,7 @@ MODULE mo_solve_nonhydro
 
           ! ... and to interface levels
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )  DEFAULT(NONE) ASYNC(1)
-          !$ACC LOOP GANG VECTOR COLLAPSE(2)
+          !$ACC LOOP GANG VECTOR COLLAPSE(2) PRIVATE(z_w_concorr_mc_m1, z_w_concorr_mc_m0)
           DO jk = nflatlev(jg)+1, nlev
 !DIR$ IVDEP
             DO jc = i_startidx, i_endidx
@@ -2072,7 +2072,7 @@ MODULE mo_solve_nonhydro
 !$ACC END PARALLEL
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )  DEFAULT(NONE) ASYNC(1)
-          !$ACC LOOP GANG VECTOR
+          !$ACC LOOP GANG VECTOR PRIVATE(z_w_concorr_mc_m2, z_w_concorr_mc_m1, z_w_concorr_mc_m0)
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
             ! Interpolate contravariant correction to cell centers...

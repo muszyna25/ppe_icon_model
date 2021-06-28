@@ -1,6 +1,5 @@
 !>
-!! This module is the interface between nwp_nh_interface to the radiation schemes
-!! (RRTM or Ritter-Geleyn).
+!! This module is the interface between nwp_nh_interface to the radiation scheme RRTM.
 !!
 !! @author Thorsten Reinhardt, AGeoBw, Offenbach
 !!
@@ -45,8 +44,7 @@ MODULE mo_nwp_rrtm_interface
   USE mo_o3_util,              ONLY: calc_o3_clim, calc_o3_gems
   USE mo_radiation,            ONLY: radiation_nwp
   USE mo_radiation_config,     ONLY: irad_o3, irad_aero
-  USE mo_radiation_rg_par,     ONLY: aerdis
-  USE mo_aerosol_util,         ONLY: tune_dust
+  USE mo_aerosol_util,         ONLY: tune_dust, aerdis
   USE mo_lrtm_par,             ONLY: nbndlw
   USE mo_sync,                 ONLY: global_max, global_min
 
@@ -87,7 +85,7 @@ CONTAINS
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
   SUBROUTINE nwp_ozon_aerosol ( p_sim_time, mtime_datetime, pt_patch, ext_data, &
-    & pt_diag,prm_diag,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,zduo3 )
+    & pt_diag,prm_diag,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5 )
 
 !    CHARACTER(len=*), PARAMETER::  &
 !      &  routine = 'mo_nwp_rad_interface:'
@@ -106,9 +104,6 @@ CONTAINS
       & zaeq3(nproma,pt_patch%nlev,pt_patch%nblks_c), &
       & zaeq4(nproma,pt_patch%nlev,pt_patch%nblks_c), &
       & zaeq5(nproma,pt_patch%nlev,pt_patch%nblks_c)
-
-    ! for Ritter-Geleyn radiation:
-    REAL(wp), OPTIONAL, INTENT(out) :: zduo3(nproma,pt_patch%nlev,pt_patch%nblks_c)
 
     ! for ozone:
     REAL(wp):: &
@@ -433,14 +428,6 @@ CONTAINS
 
       ENDIF
 
-      ! Needed for RG radiation only
-      IF (PRESENT(zduo3)) THEN
-        DO jk = 1,nlev
-          DO jc = 1,i_endidx
-            zduo3(jc,jk,jb) = ext_data%atm%o3(jc,jk,jb)*pt_diag%dpres_mc(jc,jk,jb)
-          ENDDO
-        ENDDO
-      ENDIF
     ENDDO !jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
