@@ -1677,13 +1677,13 @@ CONTAINS
     dom_sim_step_info = sim_step_info
     CALL getPTStringFromSeconds(NINT(start_time(of%log_patch_id),i8), time_offset_str)
     mtime_td   => newTimedelta(time_offset_str)
-    dom_sim_step_info%dom_start_time = time_config%tc_startdate + mtime_td
+    dom_sim_step_info%dom_start_time = time_config%tc_exp_startdate + mtime_td
     CALL deallocateTimedelta(mtime_td)
 
     IF (end_time(of%log_patch_id) < DEFAULT_ENDTIME) THEN
       CALL getPTStringFromSeconds(NINT(end_time(of%log_patch_id),i8), time_offset_str)
       mtime_td   => newTimedelta(time_offset_str)
-      dom_sim_step_info%dom_end_time = time_config%tc_startdate + mtime_td
+      dom_sim_step_info%dom_end_time = time_config%tc_exp_startdate + mtime_td
       CALL deallocateTimedelta(mtime_td)
     ELSE
       dom_sim_step_info%dom_end_time = dom_sim_step_info%sim_end
