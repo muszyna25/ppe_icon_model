@@ -113,7 +113,8 @@ USE mo_les_nml,              ONLY: turb_profile_list, turb_tseries_list
 USE mo_io_config,            ONLY: lflux_avg, lnetcdf_flt64_output, gust_interval, &
   &                                celltracks_interval, echotop_meta, &
   &                                maxt_interval, precip_interval, t_var_in_output, &
-  &                                uh_max_zmin, uh_max_zmax, luh_max_out, uh_max_nlayer
+  &                                uh_max_zmin, uh_max_zmax, luh_max_out, uh_max_nlayer, &
+  &                                sunshine_interval
 USE mtime,                   ONLY: max_timedelta_str_len, getPTStringFromMS
 USE mo_name_list_output_config, ONLY: is_variable_in_output
 USE mo_util_string,          ONLY: real2string
@@ -4142,6 +4143,20 @@ __acc_attach(diag%clct_avg)
 !!$ & lmiss=.TRUE., missval=-999.0_wp,                            &
                   & action_list=actions( new_action( ACTION_RESET, echotop_int ) )  )
     END IF
+
+
+    IF (var_in_output%dursun) THEN
+      ! &      diag%sunshine_duration(nproma,nblks_c)
+      cf_desc    = t_cf_var('duration_of_sunshine', 's', 'sunshine duration', datatype_flt)
+      grib2_desc = grib2_var(0, 6, 33, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( diag_list, 'dursun', diag%sunshine_duration,                &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+        &           ldims=shape2d,                                              &
+        &           isteptype=TSTEP_ACCUM ,                                     &
+        &           initval=0._wp, resetval=0._wp,                              &
+        &           action_list=actions(new_action(ACTION_RESET,sunshine_interval(k_jg))) )
+    END IF
+
 
 
     !  Height of 0 deg C level
