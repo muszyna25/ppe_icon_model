@@ -351,9 +351,7 @@ is_ocean_src= $(strip $(foreach d,src/hamocc/ src/ocean/ src/sea_ice/,$(findstri
 
 # Fortran module file rule:
 $(moddir)/%.@FC_MOD_FILE_EXT@.proxy:| sanitize-mod-proxies
-	@if test -z '$<'; then \
-	  echo "Cannot find Fortran source file providing module '$(basename $(@F:.proxy=))'." >&2; \
-	else \
+	@if test -n '$<'; then \
 	  if test ! -f '$(@:.proxy=)'; then rm -f '$<'; $(MAKE) -f icon.mk '$<'; fi; \
 	  if cmp '$@' '$(@:.proxy=)' >/dev/null 2>&1 || $(MODCMP) '$@' '$(@:.proxy=)' @FC_VENDOR@ 2>/dev/null; then :; \
 	  else cp '$(@:.proxy=)' '$@' 2>/dev/null; fi; \

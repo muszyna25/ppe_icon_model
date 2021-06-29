@@ -865,28 +865,28 @@ dependency graph for the following problems:
     
     This type of inconsistency is reported as follows:
     ```
-    deplist.py: WARNING: 'mod/some_module.mod.proxy' has more than one immediate prerequisite matching pattern '*.o':
-        some/dir/some_file.o
-        some/other/dir/some_other_file.o
+    deplist.py: WARNING: target 'mod/some_module.mod.proxy' has more than one immediate prerequisite matching pattern '*.o':
+    	some/dir/some_file.o
+    	some/other/dir/some_other_file.o
     ```
-    This means that the module `some_module` is declared twice. The first
-    declaration is found in the file `some/dir/some_file.f90` and the second
-    declaration is found in `some/other/dir/some_other_file.f90`.
+    This means that the Fortran module `some_module` is declared twice. The
+    first declaration is found in the file `some/dir/some_file.f90` and the
+    second declaration is found in `some/other/dir/some_other_file.f90`.
 
 2. **Two or more Fortran modules circularly depend on each other.**
     
     This type of inconsistency is reported as follows:
     ```
     deplist.py: WARNING: the dependency graph has a cycle:
-        src/drivers/icon.o
-        ...
-        mod/some_module.mod.proxy
-        some/dir/some_file.o
-        mod/some_module_1.mod.proxy <- start of cycle
-        some/other/dir/some_file_1.o
-        mod/some_module_2.mod.proxy
-        some/other/dir2/some_file_2.o
-        mod/some_module_1.mod.proxy <- end of cycle
+    	src/drivers/icon.o
+    	...
+    	mod/some_module.mod.proxy
+    	some/dir/some_file.o
+    	mod/some_module_1.mod.proxy <- start of cycle
+    	some/other/dir/some_file_1.o
+    	mod/some_module_2.mod.proxy
+    	some/other/dir2/some_file_2.o
+    	mod/some_module_1.mod.proxy <- end of cycle
     ```
     This reads as that the module `some_module_1` (declared in
     `some/dir/some_file_1.f90`) uses module `some_module_2`
@@ -899,25 +899,34 @@ dependency graph for the following problems:
     This problem is reported by the dependency listing script with the
     following message:
     ```
-    deplist.py: WARNING: 'mod/missing_module.mod.proxy' does not have an immediate prerequisite matching any of the patterns: '*.o'
+    deplist.py: WARNING: target 'mod/missing_module.mod.proxy' does not have an immediate prerequisite matching any of the patterns: '*.o'
     ```
     This means that the module `missing_module` is used in one of the source
     files but there is no Fortran source file in the ICON codebase that declares
-    it.
+    it. It might be the case, however, that the module is not actually missing
+    but just not part of the ICON codebase, e.g. `mpi`, `sct`, `yaxt`, etc. Such
+    modules are external to ICON and need to be explicitly specified as such in
+    the file `depgen.f90.config` residing in the current build directory (the
+    file is generated at configuration time based on a template file residing in
+    the source directory. Therefore, in order to make the modifications
+    persistent, you need to introduce them in the file
+    [depgen.f90.config.in](./depgen.f90.config.in).
 
-> **_NOTE:_** Missing Fortran modules are additionaly reported by `make` with
-the message:
->```
->Cannot find Fortran source file providing module 'missing_module'.
->```
->However, it might be the case that the module is not actually missing but just
-not part of the ICON codebase, e.g. `mpi`, `sct`, `yaxt`, etc. Such modules are
-external to ICON and need to be explicitly specified as such in the file
-`depgen.f90.config` residing in the current build directory. The file is
-generated at configuration time based on a template file residing in the
-source directory. Therefore, in order to make the modifications persistent, you
-need to introduce them in the file
-[depgen.f90.config.in](./depgen.f90.config.in).
+4. **Two or more source files have the same basename.**
+    
+    The problem is reported as follows:
+    ```
+    deplist.py: WARNING: the dependency graph contains more than one target with basename 'some_file.o':
+    	some/dir/some_file.o
+    	some/other/dir/some_file.o
+    ```
+    This message reports about two (or more) source (not necessarily Fortran)
+    files `some/dir/some_file.f90` and `some/other/dir/some_file.f90` that
+    compile into objects with the same
+    [basename](https://docs.python.org/2.7/library/os.path.html#os.path.basename).
+    Although handled by the building system in most cases, having several source
+    files with the same basename in a project is considered bad practice,
+    potentially has negative side effects, and, therefore, is deprecated.
 
 ### Compilation cascade prevention
 
