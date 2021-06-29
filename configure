@@ -3657,7 +3657,15 @@ else
   nag) :
     acx_cv_fc_compiler_version=`$FC -V 2>&1 | sed -n 's/^NAG Fortran Compiler Release \([0-9][0-9]*\.[0-9][0-9]*\).*Build \([0-9][0-9]*\)/\1.\2/p'` ;; #(
   portland) :
-    acx_cv_fc_compiler_version=`$FC -V 2>/dev/null | sed -n 's/\(pgfortran\|pgf90\) \([0-9][0-9]*\.[0-9][0-9]*\)-\([0-9][0-9]*\).*/\2.\3/p'` ;; #(
+    acx_cv_fc_compiler_version=`$FC -V 2>/dev/null | sed -n 's/\(pgfortran\|pgf90\) \([0-9][0-9]*\.[0-9][0-9]*\)-\([0-9][0-9]*\).*/\2.\3/p'`
+         if test -z "$acx_cv_fc_compiler_version"; then :
+  acx_cv_fc_compiler_version=`$FC -V 2>/dev/null | sed -n 's/nvfortran \([0-9][0-9]*\.[0-9][0-9]*\)-\([0-9][0-9]*\).*/\1.\2/p'`
+            if test -n "$acx_cv_fc_compiler_version"; then :
+  acx_cv_fc_compiler_version="nv:${acx_cv_fc_compiler_version}"
+fi
+else
+  acx_cv_fc_compiler_version="pg:${acx_cv_fc_compiler_version}"
+fi ;; #(
   cray) :
     acx_cv_fc_compiler_version=`$FC -V 2>&1 | sed -n 's/.*ersion \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p'` ;; #(
   nec) :
@@ -5298,7 +5306,15 @@ else
   nag) :
     acx_cv_c_compiler_version=`$CC -V 2>&1 | sed -n 's/^NAG Fortran Compiler Release \([0-9][0-9]*\.[0-9][0-9]*\).*Build \([0-9][0-9]*\)/\1.\2/p'` ;; #(
   portland) :
-    acx_cv_c_compiler_version=`$CC -V 2>/dev/null | sed -n 's/pgcc \((.*) \)\?\([0-9][0-9]*\.[0-9][0-9]*\)-\([0-9][0-9]*\).*/\2.\3/p'` ;; #(
+    acx_cv_c_compiler_version=`$CC -V 2>/dev/null | sed -n 's/pgcc \((.*) \)\?\([0-9][0-9]*\.[0-9][0-9]*\)-\([0-9][0-9]*\).*/\2.\3/p'`
+         if test -z "$acx_cv_c_compiler_version"; then :
+  acx_cv_c_compiler_version=`$CC -V 2>/dev/null | sed -n 's/nvc \([0-9][0-9]*\.[0-9][0-9]*\)-\([0-9][0-9]*\).*/\1.\2/p'`
+            if test -n "$acx_cv_c_compiler_version"; then :
+  acx_cv_c_compiler_version="nv:${acx_cv_c_compiler_version}"
+fi
+else
+  acx_cv_c_compiler_version="pg:${acx_cv_c_compiler_version}"
+fi ;; #(
   cray) :
     acx_cv_c_compiler_version=`$CC -V 2>&1 | sed -n 's/.*ersion \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p'`
          if test -z "$acx_cv_c_compiler_version"; then :
