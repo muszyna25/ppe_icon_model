@@ -12,7 +12,6 @@ MODULE mo_input_container
                     & cdiIterator_inqDatatype, CDI_DATATYPE_PACK23, CDI_DATATYPE_PACK32, CDI_DATATYPE_FLT64, CDI_DATATYPE_INT32
     USE mo_communication, ONLY: t_ScatterPattern
     USE mo_exception, ONLY: message, finish, message_text
-    USE mo_fortran_tools, ONLY: assign_if_present
     USE mo_hash_table, ONLY: t_HashTable, hashTable_make
     USE mo_impl_constants, ONLY: SUCCESS
     USE mo_kind, ONLY: wp, dp
@@ -260,7 +259,7 @@ CONTAINS
         IF(PRESENT(opt_lDebug)) debugInfo = opt_lDebug
 
         levelDimension = 2
-        CALL assign_if_present(levelDimension, optLevelDimension)
+        IF (PRESENT(optLevelDimension)) levelDimension = optLevelDimension
         IF(SIZE(outData, levelDimension) /= me%levels%valueCount) THEN
             resultVar = .FALSE.
             IF(debugInfo) CALL message(routine, "wrong level count")

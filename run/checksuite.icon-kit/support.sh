@@ -57,7 +57,7 @@ function set_cluster {
      input_folder="~/TESTSUITE/"
 	 FILETYPE="4" 
      output_folder="/scratch/b/${USER}/TESTSUITE_OUTPUT/"
-     aer_opt="/pool/data/ICON/grids/private/rene/mpim/independent"
+     aer_opt="/pool/data/ICON/grids/public/mpim/independent"
 	 ;;
 
    mlogin*)
@@ -66,7 +66,7 @@ function set_cluster {
 	 FILETYPE="4" 
      output_folder="${SCRATCH}/TESTSUITE_OUTPUT"
 	 icon_data_poolFolder=/pool/data/ICON/grids/private/mpim/icon_preprocessing/source/
-     aer_opt="/pool/data/ICON/grids/private/rene/mpim/independent"
+     aer_opt="/pool/data/ICON/grids/public/mpim/independent"
 	 ;;
    *) :
      echo "...unknown HPC" ; exit 202 ;; #(

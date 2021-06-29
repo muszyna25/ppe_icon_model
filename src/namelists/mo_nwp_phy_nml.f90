@@ -86,6 +86,7 @@ MODULE mo_nwp_phy_nml
 
   INTEGER  :: icalc_reff(max_dom)    !! type of effective radius calculation
   INTEGER  :: icpl_rad_reff(max_dom) !! coupling radiation and effective radius
+  INTEGER  :: ithermo_water(max_dom) !! thermodynamic of water
 
   !> NetCDF file containing longwave absorption coefficients and other data
   !> for RRTMG_LW k-distribution model ('rrtmg_lw.nc')
@@ -107,7 +108,7 @@ MODULE mo_nwp_phy_nml
     &                    iprog_aero, lshallowconv_only,              &
     &                    ldetrain_conv_prec, rain_n0_factor,         &
     &                    icalc_reff, lupatmo_phy, icpl_rad_reff,     &
-    &                    lgrayzone_deepconv
+    &                    lgrayzone_deepconv, ithermo_water
  
 CONTAINS
 
@@ -139,7 +140,7 @@ CONTAINS
          &  routine = 'mo_nwp_phy_nml:read_nwp_phy_namelist'
     INTEGER  :: param_def
     REAL(wp) :: dt_conv_def, dt_rad_def, dt_sso_def, dt_gwd_def
-    INTEGER  :: icalc_reff_def, icpl_rad_reff_def
+    INTEGER  :: icalc_reff_def, icpl_rad_reff_def, ithermo_water_def
 
     !-----------------------
     ! 1a. default settings for domain-specific parmeters; will be rest to dummy values afterwards
@@ -153,6 +154,8 @@ CONTAINS
 
     icalc_reff_def = 0    ! Default is no calculation of effectives radius
     icpl_rad_reff_def = 0 ! Default is no coupling of effective radius and radiation
+    ithermo_water_def = 0 ! Default is latent heat as a function of temperature in saturation adjustment 
+                          ! but constant in microphysics. 
 
     inwp_gscp(:)       = param_def
     inwp_satad(:)      = param_def
@@ -230,7 +233,9 @@ CONTAINS
     icpl_rad_reff(:)=  icpl_rad_reff_def ! 0    = no coupling (using old RRTM Parameterization)
                        ! 1      = coupling RRTM/ECRAD with the effective radius parameterization 
 
-
+    ithermo_water(:)=  ithermo_water_def ! 0   = Latent heats (LH) constant in microphysics
+                                         ! 1   = LH as function of temperature in microphysics
+                               
     IF (my_process_is_stdio()) THEN
       iunit = temp_defaults()
       WRITE(iunit, nwp_phy_nml)   ! write defaults to temporary text file
@@ -273,6 +278,7 @@ CONTAINS
 
       icalc_reff(:)      = -1
       icpl_rad_reff(:)   = -1
+      ithermo_water(:)   = -1
 
       READ (nnml, nwp_phy_nml)   ! overwrite default settings
 
@@ -298,6 +304,7 @@ CONTAINS
       ! Extra calculation
       IF (icalc_reff(1)      < 0) icalc_reff(1)      = icalc_reff_def    ! Default no calculation of effective radius
       IF (icpl_rad_reff(1)   < 0) icpl_rad_reff(1)   = icpl_rad_reff_def ! Default no coupling of radiation with effective radius
+      IF (ithermo_water(1)   < 0) ithermo_water(1)   = ithermo_water_def ! Default is constant LH in micro. 
       
       ! Copy values of parent domain (in case of linear nesting) to nested domains where nothing has been specified
 
@@ -323,6 +330,7 @@ CONTAINS
         ! Extra calculations
         IF (icalc_reff(jg)      < 0) icalc_reff(jg)       = icalc_reff(jg-1)
         IF (icpl_rad_reff(jg)   < 0) icpl_rad_reff(jg)    = icpl_rad_reff(jg-1)
+        IF (ithermo_water(jg)   < 0) ithermo_water(jg)    = ithermo_water(jg-1)
 
 
         ! Upper-atmosphere physics
@@ -357,9 +365,17 @@ CONTAINS
       IF ( ALL((/0,1/) /= icpl_rad_reff(jg)) ) THEN
         CALL finish( TRIM(routine), 'Incorrect setting for icpl_rad_reff. Must be 0,1')
       END IF
-
+      
       IF ( (icpl_rad_reff(jg) == 1) .AND. (icalc_reff(jg) == 0) ) THEN
         CALL finish( TRIM(routine), 'Incorrect setting for icpl_rad_reff. It must be 0 if no reff is defined (icalc_reff =0)')
+      END IF
+
+      IF ( ALL((/0,1/) /= ithermo_water(jg)) ) THEN
+        CALL finish( TRIM(routine), 'Incorrect setting for ithermo_water. Must be 0 or 1')
+      END IF
+
+      IF ( (ithermo_water(jg) == 1) .AND. ALL((/1,2,4,5,7/) /= inwp_gscp(jg)) ) THEN
+        CALL finish( TRIM(routine), 'Incorrect setting: ithermo_water = 1 is not developed for chosen inwp_gscp. ')
       END IF
 
 #ifndef __ICON_ART
@@ -433,6 +449,7 @@ CONTAINS
       atm_phy_nwp_config(jg)%icpl_aero_gscp  = icpl_aero_gscp
       atm_phy_nwp_config(jg)%icalc_reff      = icalc_reff (jg)
       atm_phy_nwp_config(jg)%icpl_rad_reff   = icpl_rad_reff (jg)
+      atm_phy_nwp_config(jg)%ithermo_water   = ithermo_water(jg)
       
     ENDDO
 

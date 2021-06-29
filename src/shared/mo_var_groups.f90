@@ -10,27 +10,21 @@
 !!
 MODULE mo_var_groups
 
-  USE mo_impl_constants,        ONLY: VARNAME_LEN, TIMELEVEL_SUFFIX
+  USE mo_impl_constants,        ONLY: vname_len
+  USE mo_util_string,           ONLY: toupper
+  USE mo_key_value_store,       ONLY: t_key_value_store
   USE mo_exception,             ONLY: finish
-  USE mo_util_string,           ONLY: toupper, int2string
-  USE mo_fortran_tools,         ONLY: resize_arr_c1d
-  USE mo_util_sort,             ONLY: quicksort
-
 
   IMPLICIT NONE
-
   PRIVATE
 
-  !> module name string
-  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_var_groups'
+  PUBLIC :: MAX_GROUPS, var_groups_dyn, groups
 
+  !> module name string
+  CHARACTER(*), PARAMETER :: modname = 'mo_var_groups'
 
   ! maximum number of variable groups supported by a single info state
   INTEGER, PARAMETER :: MAX_GROUPS = 120
-
-
-
-
 
   ! ---------------------------------------------------------------
   ! STATICALLY DEFINED VARIABLE GROUPS
@@ -55,9 +49,9 @@ MODULE mo_var_groups
   ! Note that the statically defined group list "var_groups" is
   ! non-public. Its contents are copied to a dynamically growing list
   ! "var_groups_dyn".
-
-  CHARACTER(len=VARNAME_LEN), PARAMETER :: VAR_GROUPS_STATIC(62) = &
-    (/ "ALL                   ",  &
+  INTEGER, PARAMETER :: N_VAR_GROUPS_STATIC = 62
+  CHARACTER(LEN=vname_len), PARAMETER :: VAR_GROUPS_STATIC(N_VAR_GROUPS_STATIC) = &
+     [ "ALL                   ",  &
     &  "ATMO_ML_VARS          ",  &
     &  "ATMO_PL_VARS          ",  &
     &  "ATMO_ZL_VARS          ",  &
@@ -118,228 +112,100 @@ MODULE mo_var_groups
     &  "ART_ROUTINE_DIAG      ",  &  ! ICON-ART fields for routine diagnostic fields
     &  "RTTOV                 ",  &
     &  "UPATMO_TENDENCIES     ",  &  ! Upper-atmosphere physics tendencies
-    &  "UPATMO_RAD_GASES      " /)   ! Upper-atmosphere radiatively active gases
-
+    &  "UPATMO_RAD_GASES      " ]    ! Upper-atmosphere radiatively active gases
 
   ! ---------------------------------------------------------------
   ! DYNAMICALLY DEFINED VARIABLE GROUPS
   ! ---------------------------------------------------------------
-
   TYPE t_var_groups
     ! variable group names. The list ordering is important, since the
     ! entry #i (= ID #i) corresponds to the i'th LOGICAL entry in the
     ! "in_group" of the t_var_metadata type below.
-    !
-    CHARACTER(len=VARNAME_LEN), ALLOCATABLE :: name(:)
-
+    CHARACTER(LEN=vname_len) :: gname(MAX_GROUPS) = ""
+    CHARACTER(LEN=vname_len) :: gname_upper(MAX_GROUPS) = ""
+    INTEGER :: gname_len(MAX_GROUPS) = 0
+    INTEGER, PRIVATE :: n_grps = 0
+    TYPE(t_key_value_store), PRIVATE :: map
   CONTAINS
-
-    PROCEDURE :: init              => t_var_groups_init
-    PROCEDURE :: finalize          => t_var_groups_finalize
-    PROCEDURE :: group_id          => t_var_groups_group_id
-    PROCEDURE :: add               => t_var_groups_add
-    PROCEDURE :: alphabetical_list => t_var_groups_alphabetical_list
+    PROCEDURE :: group_id
+    PROCEDURE :: get_n_grps
   END TYPE t_var_groups
-
 
   ! List of variable groups - including the statically defined group
   ! names from VAR_GROUPS as well as dynamic variable groups, used,
   ! e.g., for tiles.
-  !
   TYPE(t_var_groups) :: var_groups_dyn
-
 
   INTERFACE groups
     MODULE PROCEDURE groups_arg
     MODULE PROCEDURE groups_vec
   END INTERFACE
 
-
-  PUBLIC :: MAX_GROUPS
-  PUBLIC :: t_var_groups
-  PUBLIC :: var_groups_dyn
-  PUBLIC :: groups
-
-
 CONTAINS
 
-  !----------------------------------------------------------------------------------------
-  !> Copy all statically defined variable group names into the
-  !  "var_groups_dyn" data structure. The statically defined group
-  !  list is non-public.
-  SUBROUTINE t_var_groups_init(var_groups)
-    CLASS(t_var_groups), INTENT(INOUT) :: var_groups
+  INTEGER FUNCTION get_n_grps(this)
+    CLASS(t_var_groups), INTENT(IN) :: this
 
-    CHARACTER(*), PARAMETER :: routine = modname//"::t_var_groups_init"
-    INTEGER :: istat ! status
-
-    IF (ALLOCATED(var_groups%name)) THEN
-      CALL finish(routine, "Internal error!")
-    END IF
-    ALLOCATE(var_groups%name(SIZE(VAR_GROUPS_STATIC)), STAT=istat)
-    IF (istat /= 0)  CALL finish(routine, 'ALLOCATE failed!')
-    ! add static groups
-    var_groups%name(1:SIZE(VAR_GROUPS_STATIC)) = VAR_GROUPS_STATIC(1:SIZE(VAR_GROUPS_STATIC))
-  END SUBROUTINE t_var_groups_init
-
-
-  !----------------------------------------------------------------------------------------
-  !> Destructor.
-  !
-  SUBROUTINE t_var_groups_finalize(var_groups)
-    CLASS(t_var_groups), INTENT(INOUT) :: var_groups
-
-    CHARACTER(*), PARAMETER :: routine = modname//"::t_var_groups_finalize"
-    INTEGER :: istat ! status
-
-    IF (ALLOCATED(var_groups%name)) THEN
-      DEALLOCATE(var_groups%name, STAT=istat)
-      IF (istat /= 0)  CALL finish(routine, 'DEALLOCATE failed!')
-    END IF
-  END SUBROUTINE t_var_groups_finalize
-
+    get_n_grps = this%n_grps
+  END FUNCTION get_n_grps
 
   !----------------------------------------------------------------------------------------
   !> Implements a (somewhat randomly chosen) one-to-one mapping
   !  between a string and an integer ID number between 1 and
   !  size(var_groups%name)+1.
-  !
-  FUNCTION t_var_groups_group_id(var_groups, in_str, opt_lcheck)  RESULT(group_id)
-    INTEGER                            :: group_id
-    CLASS(t_var_groups), INTENT(INOUT) :: var_groups
-    CHARACTER(LEN=*) ,   INTENT(IN)    :: in_str
-    LOGICAL, OPTIONAL,   INTENT(IN)    :: opt_lcheck           
-    !
-    ! Local
-    CHARACTER(*), PARAMETER :: routine = modname//"::t_var_groups_group_id"
-    LOGICAL :: lcheck
-    INTEGER :: max_size, igrp, n
-    CHARACTER(LEN=LEN_TRIM(in_str)) :: in_str_uc
+  INTEGER FUNCTION group_id(this, in_str)
+    CLASS(t_var_groups), INTENT(INOUT) :: this
+    CHARACTER(*), INTENT(IN) :: in_str
+    INTEGER :: ierr
+    CHARACTER(*), PARAMETER :: routine = modname//":group_id"
 
-    IF (.NOT. ALLOCATED(var_groups%name))  CALL var_groups%init()
-
+    IF (this%n_grps .EQ. 0) CALL init()
     ! search the variable groups (which includes the statically
     ! defined groups and the dynamically defined ones):
-    group_id = 0
-    n = SIZE(var_groups%name)
-    in_str_uc = toupper(in_str)
-    IF (n > 0) THEN
-      LOOP_GROUPS : DO igrp=1,n
-        IF (in_str_uc == toupper(var_groups%name(igrp))) THEN
-          group_id = igrp
-          EXIT LOOP_GROUPS
-        END IF
-      END DO LOOP_GROUPS
-    END IF
+    CALL this%map%get(in_str, group_id, opt_err=ierr)
     ! If the group does not exist, create it.
-    IF (group_id == 0) THEN
-      !
-      ! increase dynamic groups array by one element
-      CALL resize_arr_c1d(var_groups%name,1)
-      !
-      ! add new group
-      var_groups%name(SIZE(var_groups%name)) = in_str_uc
-      !
-      ! return its group ID (including offset from static groups array)
-      group_id = SIZE(var_groups%name)
-    ENDIF
+    IF (ierr .NE. 0) CALL append() 
+  CONTAINS
 
-    ! paranoia:
-    lcheck = .TRUE.
-    IF (PRESENT(opt_lcheck))  lcheck = opt_lcheck
-    IF (lcheck) THEN
-      max_size = SIZE(var_groups%name)
-      IF ((group_id < 1) .OR. (group_id > max_size)) &
-        &  CALL finish(routine, "Invalid group ID: "//TRIM(in_str)//" = "//TRIM(int2string(group_id,"(i0)")))
-    ENDIF
-  END FUNCTION t_var_groups_group_id
+    SUBROUTINE init()
+      INTEGER :: i
 
+      this%n_grps                            = N_VAR_GROUPS_STATIC
+      CALL this%map%init(.FALSE.)
+      DO i = 1, N_VAR_GROUPS_STATIC
+        this%gname_len(i) = LEN_TRIM(VAR_GROUPS_STATIC(i))
+        this%gname(i) = VAR_GROUPS_STATIC(i)(1:this%gname_len(i))
+        this%gname_upper(i) = toupper(VAR_GROUPS_STATIC(i))
+        CALL this%map%put(this%gname(i), i)
+      END DO
+    END SUBROUTINE init
 
-  !----------------------------------------------------------------------------------------
-  !> Add new (tile) member to variable group
-  !
-  !  Adds new tile member to variable-specific tile-group. 
-  !  If the group does not exist, a group (named after the 
-  !  corresponding container) is added to the dynamic variable 
-  !  groups list first.
-  ! 
-  !  @par Revision History
-  !  Initial revision by Daniel Reinert, DWD (2015-01-29)
-  ! 
-  SUBROUTINE t_var_groups_add(var_groups, group_name, in_group_new, opt_in_group)
-    CLASS(t_var_groups), INTENT(INOUT) :: var_groups
-    CHARACTER(len=*) ,   INTENT(in)    :: group_name
-    LOGICAL          ,   INTENT(out)   :: in_group_new(:)
-    LOGICAL, OPTIONAL,   INTENT(in)    :: opt_in_group(:)
-    !
-    ! Local
-    CHARACTER(*), PARAMETER :: routine = modname//"::t_var_groups_group_add"
-    INTEGER  :: idx, grp_id
-    CHARACTER(len=LEN(group_name)) ::  group_name_plain
+    SUBROUTINE append()
 
-    ! check whether a group with name 'group_name_plain' exists and return its ID.
-    !
-    ! remove time level string from group name
-    idx = INDEX(group_name, TIMELEVEL_SUFFIX)
-    IF (idx < 1) idx = LEN(group_name)+1
-    group_name_plain = group_name(1:idx-1)
-    grp_id = var_groups%group_id(group_name_plain, opt_lcheck=.FALSE.)
-
-    ! If the group does not exist, create it.
-    IF (grp_id == 0) THEN
-      !
-      ! increase dynamic groups array by one element
-      CALL resize_arr_c1d(var_groups%name,1)
-      !
-      ! add new group
-      var_groups%name(SIZE(var_groups%name)) = toupper(group_name_plain)
-      !
-      ! return its group ID (including offset from static groups array)
-      grp_id = var_groups%group_id(group_name_plain)
-    ENDIF
-
-    !
-    ! update in_group metainfo
-    in_group_new(:) = groups()   ! initialization
-    IF (PRESENT(opt_in_group)) THEN
-      in_group_new(1:SIZE(opt_in_group)) = opt_in_group(:)
-    ENDIF
-    !
-    IF (grp_id > MAX_GROUPS)  CALL finish(routine, group_name)
-    in_group_new(grp_id) = .TRUE.
-
-  END SUBROUTINE t_var_groups_add
-
-
-  !----------------------------------------------------------------------------------------
-  !> Returns an alphabetically sorted list of all groups.
-  ! 
-  FUNCTION t_var_groups_alphabetical_list(var_groups)  RESULT(sorted_list)
-    CHARACTER(len=VARNAME_LEN), ALLOCATABLE :: sorted_list(:)
-    CLASS(t_var_groups), INTENT(IN) :: var_groups
-    INTEGER :: i
-
-    ALLOCATE(CHARACTER(VARNAME_LEN) :: sorted_list(SIZE(var_groups%name)))
-    DO i=1,SIZE(var_groups%name(:))
-      sorted_list(i) = toupper(var_groups%name(i))
-    END DO
-    CALL quicksort(sorted_list)
-  END FUNCTION t_var_groups_alphabetical_list
-
+      IF (this%n_grps .EQ. MAX_GROUPS) CALL finish(routine, "too many groups")
+      this%n_grps = this%n_grps + 1
+      this%gname(this%n_grps) = toupper(in_str)
+      this%gname_upper(this%n_grps) = this%gname(this%n_grps)
+      this%gname_len(this%n_grps) = LEN_TRIM(in_str)
+      CALL this%map%put(in_str, this%n_grps)
+      group_id = this%n_grps
+    END  SUBROUTINE append
+  END FUNCTION group_id
 
   !----------------------------------------------------------------------------------------
   !> Utility function with *a lot* of optional string parameters g1,
   !  g2, g3, g4, ...; mapping those onto a
   !  LOGICAL(DIMENSION=MAX_GROUPS) according to the "group_id"
   !  function.
-  !
-  FUNCTION groups_arg(g01, g02, g03, g04, g05, g06, g07, g08, g09, g10, g11, g12, g13)
+  FUNCTION groups_arg(g01, g02, g03, g04, g05, g06, g07, g08, g09, g10, g11, g12, g13, groups_in)
     LOGICAL :: groups_arg(MAX_GROUPS)
-    CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: &
+    CHARACTER(*), INTENT(IN), OPTIONAL :: &
       &   g01, g02, g03, g04, g05, g06, g07, g08, g09, g10, g11, g12, g13
+    LOGICAL, INTENT(IN), OPTIONAL :: groups_in(MAX_GROUPS)
 
-    groups_arg(:) = .FALSE.
-    groups_arg(var_groups_dyn%group_id("ALL")) = .TRUE.
+    groups_arg(1) = .TRUE. ! this is "ALL" - obviously true
+    groups_arg(2:) = .FALSE.
+    IF (PRESENT(groups_in)) groups_arg(2:) = groups_in(2:)
     IF (PRESENT(g01)) groups_arg(var_groups_dyn%group_id(g01)) = .TRUE.
     IF (PRESENT(g02)) groups_arg(var_groups_dyn%group_id(g02)) = .TRUE.
     IF (PRESENT(g03)) groups_arg(var_groups_dyn%group_id(g03)) = .TRUE.
@@ -355,25 +221,18 @@ CONTAINS
     IF (PRESENT(g13)) groups_arg(var_groups_dyn%group_id(g13)) = .TRUE.
   END FUNCTION groups_arg
 
-
   !----------------------------------------------------------------------------------------
   !> The same, but provide list of groups as one character vector of group names.
-  !  Attention: the strings passed in group_list must be of length VARNAME_LEN !
-  !
+  !  Attention: the strings passed in group_list must be of length vname_len !
   FUNCTION groups_vec(group_list)
     LOGICAL :: groups_vec(MAX_GROUPS)
-    CHARACTER(LEN=VARNAME_LEN), INTENT(IN) :: group_list(:)
+    CHARACTER(LEN=vname_len), INTENT(IN) :: group_list(:)
+    INTEGER :: i
 
-    CHARACTER(*), PARAMETER :: routine = modname//"::groups_vec"
-    INTEGER :: i, grp_id
-
-    groups_vec(:) = .FALSE.
-    groups_vec(var_groups_dyn%group_id("ALL")) = .TRUE.
-    DO i=1,SIZE(group_list)
-      IF (group_list(i) == "ALL") CYCLE
-      grp_id = var_groups_dyn%group_id(TRIM(group_list(i)))
-      IF (grp_id > MAX_GROUPS)  CALL finish(routine, group_list(i))
-      groups_vec(grp_id) = .TRUE.
+    groups_vec(1) = .TRUE. ! this is "ALL" - obviously true
+    groups_vec(2:) = .FALSE.
+    DO i = 1, SIZE(group_list)
+      groups_vec(var_groups_dyn%group_id(group_list(i))) = .TRUE.
     END DO
   END FUNCTION groups_vec
 

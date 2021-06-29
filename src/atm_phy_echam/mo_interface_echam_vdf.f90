@@ -1034,7 +1034,8 @@ CONTAINS
                 tend% qtrc_vdf(jl,jk,jb,iqi) = tend_qtrc_vdf(jl,jk,jb,iqi)
                 !$ACC LOOP SEQ
                 DO jt = iqt,ntracer
-                  tend% qtrc_vdf(jl,jk,jb,jt) = tend_qtrc_vdf_iqt(jl,jk,jb,jt-iqt)
+                   !iqt is the index of the first non-water tracer
+                  tend% qtrc_vdf(jl,jk,jb,jt) = tend_qtrc_vdf(jl,jk,jb,jt) 
                 END DO
               END DO
             END DO

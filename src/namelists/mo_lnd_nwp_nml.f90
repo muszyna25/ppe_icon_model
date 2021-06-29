@@ -103,7 +103,7 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
-    INTEGER :: jg, js            ! loop indices
+    INTEGER :: js            ! loop indices
     INTEGER :: iunit
 
     ! Variable to set the sst and seaice fraction mode
@@ -208,7 +208,7 @@ CONTAINS
     max_toplaydepth = 0.25_wp ! maximum depth of uppermost snow layer for multi-layer snow scheme (25 cm)
                               ! (also used for simplified two-layer snow density scheme)
     lsnowtile      = .FALSE. ! if .TRUE., snow is considered as a separate tile
-    idiag_snowfrac = 1       ! 1: old method based on SWE, 2: more advanced experimental method
+    idiag_snowfrac = 1       ! 1: old method based on SWE, 2: more advanced method used in operational system
     itype_snowevap = 2       ! 1: old method, 2: empirical correction, 3: more advanced empirical correction 
     !
     itype_trvg     = 2       ! type of vegetation transpiration parameterization

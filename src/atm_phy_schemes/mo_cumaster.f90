@@ -98,6 +98,8 @@ MODULE mo_cumaster
   USE mo_cuascn,      ONLY: cuascn
   USE mo_cudescn,     ONLY: cudlfsn, cuddrafn
   USE mo_cuflxtends,  ONLY: cuflxn, cudtdqn,cududv,cuctracer
+  USE mo_cucalclpi,   ONLY: cucalclpi, cucalcmlpi
+  USE mo_cucalclfd,   ONLY: cucalclfd
   USE mo_nwp_parameters,  ONLY: t_phy_params
   USE mo_nwp_tuning_config, ONLY: tune_capdcfac_et, tune_capdcfac_tr, tune_lowcapefac, limit_negpblcape
   USE mo_fortran_tools,   ONLY: t_ptr_tracer
@@ -130,7 +132,8 @@ SUBROUTINE cumastrn &
  & ptu,      pqu,      plu,                      &
  & pmflxr,   pmflxs,   prain, pdtke_con,         &
  & pcape,    pvddraf,                            &
- & ktrac, pcen, ptenrhoc) 
+ & ktrac, pcen, ptenrhoc,                        &
+ & l_lpi, l_lfd, lpi, mlpi, koi, lfd)
 
 !
 
@@ -153,6 +156,8 @@ SUBROUTINE cumastrn &
 
 !    *LDLAND*       LAND SEA MASK (.TRUE. FOR LAND)
 !    *LDLAKE*       LAKE MASK (.TRUE. FOR LAKE)
+!    *L_LPI*        COMPUTE LPI, MLPI, KOI
+!    *L_LFD*        COMPUTE LFD
 
 !     INPUT PARAMETERS (REAL)
 
@@ -226,6 +231,10 @@ SUBROUTINE cumastrn &
 !    *PTENRHOI*     ICE CONDENSATE MASS DENSITY TENDENCY          KG/(M3*S)
 !    *PTENRHOR*     DETRAINED RAIN MASS DENSITY TENDENCY          KG/(M3*S)
 !    *PTENRHOS*     DETRAINED SNOW MASS DENSITY TENDENCY          KG/(M3*S)
+!    *LPI*          LIGHTNING POTENTIAL INDEX AS IN LYNN AND YAIR (2010) J/KG
+!    *MLPI*         MODIFIED LPI USING KOI
+!    *KOI*          KONVEKTIONS INDEX                             K
+!    *LFD*          LIGHTNING FLASH DENSITY AS IN LOPEZ(2016)     1/(KM2*DAY)
 
 !     EXTERNALS.
 !     ----------
@@ -381,6 +390,12 @@ REAL(KIND=jprb)   ,INTENT(out)   :: pcape(klon)
 !REAL(KIND=JPRB)   ,INTENT(OUT)   :: PWMEAN(KLON)
 
 REAL(KIND=jprb)   ,INTENT(out)   :: pvddraf(klon)
+LOGICAL           ,OPTIONAL, INTENT(in)      :: l_lpi
+LOGICAL           ,OPTIONAL, INTENT(in)      :: l_lfd
+REAL(KIND=jprb)   ,OPTIONAL, INTENT(inout)   :: lpi(:)
+REAL(KIND=jprb)   ,OPTIONAL, INTENT(inout)   :: mlpi(:)
+REAL(KIND=jprb)   ,OPTIONAL, INTENT(inout)   :: koi(:)
+REAL(KIND=jprb)   ,OPTIONAL, INTENT(inout)   :: lfd(:)
 
 !*UPG change to operations
 REAL(KIND=jprb) :: pwmean(klon)
@@ -1752,6 +1767,35 @@ ENDIF
       ENDDO
     ENDDO
   ENDIF
+
+!----------------------------------------------------------------------
+
+!*    15.0         COMPUTE LIGHTENING POTENTIAL INDEX AND LIGHTENING 
+!                  FLASH DENSITY BASED ON UPDRAFT PROFILE 
+!                  --------------------------------------------------
+
+  IF (PRESENT(l_lpi)) THEN
+    IF (l_lpi) THEN
+      CALL cucalclpi(klon, klev, ktype, ptu, plu, zkineu, pmflxs        &
+      &          , pten, pap, zdgeoh, ldland, lpi)
+
+!! alternative commented out - in the alternative the mass flux
+!! is used to computed the LPI - which is tricky, as the area fraction
+!! of the updraft is unknown
+!!  CALL cucalclpi(klon, klev, ktype, ptu, plu,                           &
+!!  &              2*(pmfu*pten*Rd/(pap+1E-10_jprb))**2, pmflxs        &
+!!  &          , pten, pap, zdgeoh, ldland, lpi)
+      CALL cucalcmlpi(klon, klev, lpi, pten, pqen, pap, paph, koi, mlpi)
+    ENDIF
+  ENDIF
+
+  IF (PRESENT(l_lfd)) THEN
+    IF (l_lfd) THEN
+      CALL cucalclfd(klon, klev, ktype, ptu, plu, kcbot, pcape, pmflxs &
+      &          , pten, pap, zdgeoh, pgeoh, ldland, lfd)
+    ENDIF
+  ENDIF
+
 
 !  DO JL=KIDIA,KFDIA
 !   PMFLXR(JL,KLEV+1)=PMFLXR(JL,KLEV+1)*1.E-3

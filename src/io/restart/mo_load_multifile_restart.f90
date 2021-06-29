@@ -20,7 +20,7 @@
 !! "chunk", since the domain loop is located outside of this routine,
 !! in the calling "src/drivers" routine.
 !!
-#include <omp_definitions.inc>
+#include "omp_definitions.inc"
 
 MODULE mo_load_multifile_restart
 
@@ -47,7 +47,7 @@ MODULE mo_load_multifile_restart
   USE mo_restart_nml_and_att,    ONLY: getAttributesForRestarting, ocean_initFromRestart_OVERRIDE
   USE mo_key_value_store,        ONLY: t_key_value_store
   USE mo_restart_var_data,       ONLY: get_var_3d_ptr, has_valid_time_level
-  USE mo_var_list_element,       ONLY: t_p_var_list_element
+  USE mo_var,                    ONLY: t_var_ptr
   USE mo_timer,                  ONLY: timer_start, timer_stop, timer_load_restart_io, timers_level, &
     &                                  timer_load_restart_comm_setup, timer_load_restart_communication, &
     &                                  timer_load_restart_get_var_id
@@ -334,7 +334,7 @@ CONTAINS
   END FUNCTION makeRedistributionPattern
 
   SUBROUTINE multifileReadPatch(vDat, p_patch, multifilePath)
-    TYPE(t_p_var_list_element), INTENT(IN) :: vDat(:)
+    TYPE(t_var_ptr), INTENT(IN) :: vDat(:)
     TYPE(t_patch), TARGET, INTENT(IN) :: p_patch
     CHARACTER(*), INTENT(IN) :: multifilePath
     TYPE(t_p_comm_pattern) :: cpat(3)
@@ -377,13 +377,8 @@ CONTAINS
       DO cFId = 1, SIZE(files)
         n = files(cFId)%iCnts(iG)
         IF (n .LE. 0) CYCLE
-        IF (ALLOCATED(buffer)) THEN
-          IF (n .GT. SIZE(buffer)) DEALLOCATE(buffer)
-        END IF
-        IF (.NOT.ALLOCATED(buffer)) THEN
-          ALLOCATE(buffer(n), STAT = ierr)
-          IF (ierr /= SUCCESS) CALL finish(routine, "memory allocation failed")
-        END IF
+        ALLOCATE(buffer(n), STAT = ierr)
+        IF (ierr /= SUCCESS) CALL finish(routine, "memory allocation failed")
         IF (timers_level >= 7) CALL timer_start(timer_load_restart_io)
         CALL streamReadVar(files(cFId)%streamId, files(cFId)%iVarIds(iG), &
           &                buffer, trash)
@@ -392,6 +387,7 @@ CONTAINS
         DO i = 1, n
           glbidx_read(cOff(iG) + i) = INT(buffer(i))
         END DO
+        DEALLOCATE(buffer)
         cOff(iG) = cOff(iG) + n
       END DO
       SELECT CASE (ig)

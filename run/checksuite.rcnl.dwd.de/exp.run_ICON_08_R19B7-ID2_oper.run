@@ -578,7 +578,7 @@ cat > ${atmo_namelist} << EOF
                         'T_2M', 'TMAX_2M', 'TMIN_2M', 'TD_2M', 'T_G',
                         'U_10M', 'V_10M', 'VMAX_10M',
                         'TWATER', 'W_I', 'Z0', 'TQC_DIA', 'TQI_DIA', 'TQV_DIA',
-                        'CEILING', 'LPI_MAX', 'DBZ_CTMAX',
+                        'CEILING', 'LPI_MAX', 'DBZ_CTMAX', 'LPI_CON_MAX', 'LFD_CON', 
                         'TCOND_MAX', 'TCOND10_MX', 'UH_MAX', 'VORW_CTMAX', 'W_CTMAX',
                         'H_SNOW', 'RHO_SNOW', 'T_SNOW', 'W_SNOW', 'FRESHSNW', 'SNOWC',
                         'T_SO', 'W_SO', 'W_SO_ICE', 'SMI',

@@ -31,7 +31,7 @@ MODULE mo_dynamics_config
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: iequations, idiv_method, divavg_cntrwgt
-  PUBLIC :: sw_ref_height, lcoriolis, lshallow_water, ltwotime
+  PUBLIC :: lcoriolis
   PUBLIC :: ldeepatmo
   PUBLIC :: nold, nnow, nnew, nsav1, nsav2, nnow_rcf, nnew_rcf
   PUBLIC :: configure_dynamics
@@ -46,16 +46,11 @@ MODULE mo_dynamics_config
     INTEGER  :: iequations      !< Choice of governing equation set
     INTEGER  :: idiv_method     !< Divergence operator
     REAL(wp) :: divavg_cntrwgt  !< Weight of central cell for divergence averaging
-    REAL(wp) :: sw_ref_height   !< reference height to linearize around if using
-                                !< lshallow_water and semi-implicit correction
     LOGICAL  :: lcoriolis       !< if .TRUE., Coriolis force is switched on   
     LOGICAL  :: ldeepatmo       !< if .TRUE., dynamical core assumes a deep atmosphere
                                 !< instead of a shallow atmosphere
 
     ! derived variables
-
-    LOGICAL :: lshallow_water
-    LOGICAL :: ltwotime
 
     INTEGER :: nold(MAX_DOM)      !< variables denoting time levels
     INTEGER :: nnow(MAX_DOM)      !< variables denoting time levels

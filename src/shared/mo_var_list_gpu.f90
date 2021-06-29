@@ -7,119 +7,91 @@
 !! headers of the routines.
 MODULE mo_var_list_gpu
 
-  USE mo_impl_constants,      ONLY: REAL_T, SINGLE_T, INT_T, BOOL_T,           &
-    &                               VARNAME_LEN
-  USE mo_linked_list,         ONLY: t_var_list, t_list_element
+  USE mo_impl_constants,      ONLY: vlname_len, REAL_T, SINGLE_T, INT_T, BOOL_T
   USE mo_var_metadata_types,  ONLY: t_var_metadata
-  USE mo_var_list,            ONLY: get_var_list
+  USE mo_var_list,            ONLY: t_var_list_ptr
+  USE mo_var,                 ONLY: t_var
+  USE mo_var_list_register,   ONLY: vlr_get
 
   IMPLICIT NONE
-
-  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_var_list_gpu'
-
   PRIVATE
 
+  PUBLIC :: gpu_update_var_list
 
-  PUBLIC :: gpu_h2d_var_list
-  PUBLIC :: gpu_d2h_var_list
+  CHARACTER(*), PARAMETER :: modname = 'mo_var_list_gpu'
 
 CONTAINS
 
-  !> Update device data of variable list
-  !
-  SUBROUTINE gpu_h2d_var_list(name, domain, substr, timelev)
-    CHARACTER(len=*), INTENT(IN)            :: name    ! name of output var_list
-    INTEGER, INTENT(IN), OPTIONAL           :: domain  ! domain index to append
-    CHARACTER(len=*), INTENT(IN), OPTIONAL  :: substr  ! String after domain, before timelev
-    INTEGER, INTENT(IN), OPTIONAL           :: timelev ! timelev index to append
-
-    TYPE(t_var_list),     POINTER :: list
+  !> Update data of variable list on device or host
+  ! we expect "trimmed" character variables as input!
+  SUBROUTINE gpu_update_var_list(vlname, to_device, domain, substr, timelev)
+    CHARACTER(*), INTENT(IN) :: vlname    ! name of output var_list
+    LOGICAL, INTENT(IN) :: to_device ! direction of update (true, if host->device)
+    INTEGER, INTENT(IN), OPTIONAL :: domain, timelev  ! domain/timelev index to append
+    CHARACTER(*), INTENT(IN), OPTIONAL :: substr  ! String after domain, before timelev
+    TYPE(t_var_list_ptr) :: list
     TYPE(t_var_metadata), POINTER :: info
-    TYPE(t_list_element), POINTER :: element
-    CHARACTER(len=VARNAME_LEN)   :: listname
+    TYPE(t_var), POINTER :: element
+    CHARACTER(LEN=vlname_len) :: listname
+    INTEGER :: ii,vln_pos, subs_len
+    CHARACTER(LEN=2) :: i2a
 
-    CALL compose_vlist_name(listname, name, domain, substr, timelev)
-    CALL get_var_list(list, listname)
-
-    element => list%p%first_list_element
-    for_all_list_elements: DO WHILE (ASSOCIATED(element))
-      info    => element%field%info
-      SELECT CASE(info%data_type)
-      CASE (REAL_T)
-        !$ACC UPDATE DEVICE( element%field%r_ptr ) IF( info%lopenacc )
-      CASE (SINGLE_T)
-        !$ACC UPDATE DEVICE( element%field%s_ptr ) IF( info%lopenacc )
-      CASE (INT_T)
-        !$ACC UPDATE DEVICE( element%field%i_ptr ) IF( info%lopenacc )
-      CASE (BOOL_T)
-        !$ACC UPDATE DEVICE( element%field%l_ptr ) IF( info%lopenacc )
-      END SELECT
-      element => element%next_list_element
-    END DO for_all_list_elements
-
-  END SUBROUTINE gpu_h2d_var_list
-
-  SUBROUTINE compose_vlist_name(listname, name, domain, substr, timelev)
-    CHARACTER(len=varname_len), INTENT(out) :: listname
-    CHARACTER(len=*), INTENT(IN)            :: name    ! name of output var_list
-    INTEGER, INTENT(IN), OPTIONAL           :: domain  ! domain index to append
-    CHARACTER(len=*), INTENT(IN), OPTIONAL  :: substr  ! String after domain, before timelev
-    INTEGER, INTENT(IN), OPTIONAL           :: timelev ! timelev index to append
-
-    INTEGER :: tlen, alen
-
-    ! Append domain index
-    IF( PRESENT(domain) ) THEN
-      WRITE(listname, '(a,i2.2)') TRIM(name), domain
+    IF (PRESENT(domain)) THEN
+      WRITE(listname, "(a,i2.2)") TRIM(vlname), domain
     ELSE
-      listname = name
+      listname = vlname
     END IF
-    tlen = LEN_TRIM(listname)
-
-    ! Append substr
-    IF( PRESENT(substr) ) THEN
-      alen = LEN_TRIM(substr)
-      listname(tlen+1:) = substr(1:alen)
-      tlen = tlen + alen
+    vln_pos = LEN_TRIM(listname)
+    IF (PRESENT(substr)) THEN
+      subs_len = LEN_TRIM(substr)
+      listname(vln_pos+1:subs_len+vln_pos) = substr(1:subs_len)
+      vln_pos = vln_pos + subs_len
     END IF
-
-    ! Append timelev index
-    IF( PRESENT(timelev) ) THEN
-      WRITE(listname(tlen+1:), '(i2.2)') timelev
+    IF (PRESENT(timelev)) THEN
+      WRITE(listname(vln_pos+1:), "(i2.2)") timelev
+      vln_pos = vln_pos + 2
     END IF
-  END SUBROUTINE compose_vlist_name
-  !> Update host data of variable list
-  !
-  SUBROUTINE gpu_d2h_var_list( name, domain, substr, timelev )
-    CHARACTER(len=*), INTENT(IN)            :: name    ! name of output var_list
-    INTEGER, INTENT(IN), OPTIONAL           :: domain  ! domain index to append
-    CHARACTER(len=*), INTENT(IN), OPTIONAL  :: substr  ! String after domain, before timelev
-    INTEGER, INTENT(IN), OPTIONAL           :: timelev ! timelev index to append
+    CALL vlr_get(list, listname(1:vln_pos))
+    IF (ASSOCIATED(list%p)) THEN
+      DO ii = 1, list%p%nvars
+        element => list%p%vl(ii)%p
+        info    => element%info
+        IF (to_device) THEN
+          CALL upd_dev()
+        ELSE
+          CALL upd_host()
+        END IF
+      END DO
+    END IF
+  CONTAINS
 
-    TYPE(t_var_list),     POINTER :: list
-    TYPE(t_var_metadata), POINTER :: info
-    TYPE(t_list_element), POINTER :: element
-    CHARACTER(len=VARNAME_LEN)   :: listname
+    SUBROUTINE upd_dev()
 
-    CALL compose_vlist_name(listname, name, domain, substr, timelev)
-    CALL get_var_list(list, listname)
-
-    element => list%p%first_list_element
-    for_all_list_elements: DO WHILE (ASSOCIATED(element))
-      info    => element%field%info
       SELECT CASE(info%data_type)
       CASE (REAL_T)
-        !$ACC UPDATE HOST( element%field%r_ptr ) IF( info%lopenacc )
+        !$ACC UPDATE DEVICE(element%r_ptr) IF(info%lopenacc)
       CASE (SINGLE_T)
-        !$ACC UPDATE HOST( element%field%s_ptr ) IF( info%lopenacc )
+        !$ACC UPDATE DEVICE(element%s_ptr) IF(info%lopenacc)
       CASE (INT_T)
-        !$ACC UPDATE HOST( element%field%i_ptr ) IF( info%lopenacc )
+        !$ACC UPDATE DEVICE(element%i_ptr) IF(info%lopenacc)
       CASE (BOOL_T)
-        !$ACC UPDATE HOST( element%field%l_ptr ) IF( info%lopenacc )
+        !$ACC UPDATE DEVICE(element%l_ptr) IF(info%lopenacc)
       END SELECT
-      element => element%next_list_element
-    END DO for_all_list_elements
+    END SUBROUTINE upd_dev
 
-  END SUBROUTINE gpu_d2h_var_list
+    SUBROUTINE upd_host()
+      
+      SELECT CASE(info%data_type)
+      CASE (REAL_T)
+        !$ACC UPDATE HOST(element%r_ptr) IF(info%lopenacc)
+      CASE (SINGLE_T)
+        !$ACC UPDATE HOST(element%s_ptr) IF(info%lopenacc)
+      CASE (INT_T)
+        !$ACC UPDATE HOST(element%i_ptr) IF(info%lopenacc)
+      CASE (BOOL_T)
+        !$ACC UPDATE HOST(element%l_ptr) IF(info%lopenacc)
+      END SELECT
+    END SUBROUTINE upd_host
+  END SUBROUTINE gpu_update_var_list
 
 END MODULE mo_var_list_gpu

@@ -789,8 +789,6 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
   SELECT CASE ( atm_phy_nwp_config(jg)%inwp_radiation )
   CASE (1, 3, 4)
 
-    IF (msg_level >= 12)  CALL message(modname, 'init RRTM')
-
     SELECT CASE ( irad_aero )
     ! Note (GZ): irad_aero=2 does no action but is the default in radiation_nml
     ! and therefore should not cause the model to stop
@@ -827,15 +825,24 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
 
     SELECT CASE(atm_phy_nwp_config(jg)%inwp_radiation)
       CASE(1) ! RRTM init
+        !
+        IF (msg_level >= 12)  CALL message(modname, 'init RRTM')
+        !
         CALL setup_srtm
         CALL lrtm_setup(lrtm_filename)
         CALL setup_newcld_optics(cldopt_filename)
       CASE(3) ! PSRAD init
+        !
+        IF (msg_level >= 12)  CALL message(modname, 'init PSRAD')
+        !
         CALL psrad_basic_setup(.false., nlev, 1.0_wp, 1.0_wp, &
           & echam_cop_config(1)%cinhoml1 ,echam_cop_config(1)%cinhoml2, &
           & echam_cop_config(1)%cinhoml3 ,echam_cop_config(1)%cinhomi)
       CASE(4)
 #ifdef __ECRAD
+        !
+        IF (msg_level >= 12)  CALL message(modname, 'init ECRAD')
+        !
         ! Do ecrad initialization only once
         IF (.NOT.lreset_mode .AND. jg==1) CALL setup_ecrad(ecrad_conf)
 #else

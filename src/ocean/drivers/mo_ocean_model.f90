@@ -14,37 +14,20 @@
 MODULE mo_ocean_model
 
   USE mo_exception,           ONLY: message, finish
-  USE mo_master_control,      ONLY:  ocean_process, get_my_process_name, get_my_process_type
+  USE mo_master_control,      ONLY: get_my_process_name, get_my_process_type
   USE mo_master_config,       ONLY: isRestart
   USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs, &
        &                            pio_type, num_test_pe, num_prefetch_proc
-  USE mo_mpi,                 ONLY: set_mpi_work_communicators, process_mpi_io_size, &
-       &                            stop_mpi, my_process_is_io, my_process_is_mpi_test,   &
-       &                            set_mpi_work_communicators, process_mpi_io_size
-  USE mo_impl_constants,          ONLY: pio_type_async
+  USE mo_mpi,                 ONLY: set_mpi_work_communicators
 #ifdef HAVE_CDI_PIO
-  USE mo_mpi,                     ONLY: mpi_comm_null, p_comm_work_io
-  USE mo_impl_constants,          ONLY: pio_type_cdipio
-  USE mo_cdi,                     ONLY: namespacegetactive
-  USE mo_cdi_pio_interface,       ONLY: nml_io_cdi_pio_namespace, &
-    &                                   cdi_base_namespace, &
-    &                                   nml_io_cdi_pio_client_comm, &
-    &                                   nml_io_cdi_pio_conf_handle
-  USE mo_name_list_output_init,   ONLY: init_cdipio_cb
-  USE mo_name_list_output,        ONLY: write_ready_files_cdipio
   USE mo_impl_constants,      ONLY: pio_type_cdipio
   USE mo_cdi,                 ONLY: namespaceGetActive, namespaceSetActive
   USE mo_cdi_pio_interface,   ONLY: nml_io_cdi_pio_namespace
 #endif
   USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, print_timer, &
        &                            timer_model_init
-  USE mo_memory_log,              ONLY: memory_log_terminate
-  USE mo_name_list_output_init, ONLY: init_name_list_output, parse_variable_groups, &
-    &                                 create_vertical_axes, output_file
-  USE mo_derived_variable_handling, ONLY: init_statistics_streams, finish_statistics_streams
-  USE mo_name_list_output,    ONLY: close_name_list_output, name_list_io_main_proc
-  USE mo_name_list_output_config,  ONLY: use_async_name_list_io
-  USE mo_level_selection, ONLY: create_mipz_level_selections
+  USE mo_memory_log,          ONLY: memory_log_terminate
+  USE mo_name_list_output,    ONLY: close_name_list_output
   USE mo_dynamics_config,     ONLY: configure_dynamics
   USE mo_zaxis_type,          ONLY: zaxisTypeList, t_zaxisTypeList
 
@@ -56,7 +39,6 @@ MODULE mo_ocean_model
   !
   USE mo_run_config,          ONLY: &
     & test_mode,              &
-    & dtime,                  & !    :
     & ltimer,                 & !    :
     & num_lev,                &
     & nshift,                 &
@@ -64,7 +46,7 @@ MODULE mo_ocean_model
     & grid_generatingsubcenter  ! grid generating subcenter
 
   USE mo_ocean_nml_crosscheck,   ONLY: ocean_crosscheck
-  USE mo_ocean_nml,              ONLY: i_sea_ice, no_tracer, use_omip_forcing,  &
+  USE mo_ocean_nml,              ONLY: i_sea_ice, no_tracer, &
     & initialize_fromRestart, ncheckpoints
 
   USE mo_model_domain,        ONLY: t_patch_3d, p_patch_local_parent
@@ -82,7 +64,7 @@ MODULE mo_ocean_model
   USE mo_ocean_state,           ONLY:  v_base, &
     & construct_hydro_ocean_base, &! destruct_hydro_ocean_base, &
     & construct_hydro_ocean_state, destruct_hydro_ocean_state, &
-    & construct_patch_3d, destruct_patch_3d, ocean_default_list, ocean_restart_list, construct_ocean_nudge, &
+    & construct_patch_3d, destruct_patch_3d, ocean_restart_list, construct_ocean_nudge, &
     & construct_ocean_var_lists, ocean_state
   USE mo_ocean_initialization, ONLY: init_ho_base, &
     & init_ho_basins, init_coriolis_oce, init_patch_3d,   &
@@ -111,14 +93,12 @@ MODULE mo_ocean_model
   USE mo_impl_constants,      ONLY: success
 
   USE mo_ocean_nudging,       ONLY: ocean_nudge
-  USE mo_key_value_store,      ONLY: t_key_value_store
   USE mo_alloc_patches,        ONLY: destruct_patches, destruct_comm_patterns
   USE mo_ocean_read_namelists, ONLY: read_ocean_namelists
   USE mo_load_restart,         ONLY: read_restart_header, read_restart_files
   USE mo_restart_nml_and_att,  ONLY: ocean_initFromRestart_OVERRIDE
   USE mo_ocean_patch_setup,    ONLY: complete_ocean_patch
   USE mo_icon_comm_interface,  ONLY: construct_icon_communication, destruct_icon_communication
-  USE mo_output_event_types,   ONLY: t_sim_step_info
   USE mo_grid_tools,           ONLY: create_dummy_cell_closure
   USE mo_ocean_diagnostics,    ONLY: construct_oce_diagnostics, destruct_oce_diagnostics
   USE mo_ocean_testbed,        ONLY: ocean_testbed
@@ -130,7 +110,6 @@ MODULE mo_ocean_model
   !-------------------------------------------------------------
   ! For the coupling
   USE mo_ocean_coupling,      ONLY: construct_ocean_coupling, destruct_ocean_coupling
-  USE mo_coupling_config,     ONLY: is_coupled_run
   !-------------------------------------------------------------
  
   USE mo_ocean_hamocc_interface, ONLY: ocean_to_hamocc_construct, ocean_to_hamocc_init, ocean_to_hamocc_end
@@ -320,10 +299,7 @@ MODULE mo_ocean_model
 
     ! Delete variable lists
 
-    IF (output_mode%l_nml) THEN
-      CALL close_name_list_output
-      CALL finish_statistics_streams
-    ENDIF
+    IF (output_mode%l_nml) CALL close_name_list_output
 #ifdef HAVE_CDI_PIO
     IF (pio_type == pio_type_cdipio) THEN
       prev_cdi_namespace = namespaceGetActive()
@@ -549,7 +525,6 @@ MODULE mo_ocean_model
 
     CALL construct_hydro_ocean_base(patch_3d%p_patch_2d(1), v_base)
     CALL init_ho_base (patch_3d%p_patch_2d(1), external_data(1), v_base)
-!     IF (use_omip_forcing .or. is_coupled_run()) CALL init_ho_basins(patch_3d%p_patch_2d(1), v_base)
     CALL init_ho_basins(patch_3d%p_patch_2d(1), v_base) ! This initializes the wet_c,..., for all cells ! unbelievable !
     CALL init_coriolis_oce(patch_3d%p_patch_2d(1) )
     CALL init_patch_3d    (patch_3d,                external_data(1), v_base)

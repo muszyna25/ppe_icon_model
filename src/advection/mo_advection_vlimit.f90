@@ -124,7 +124,7 @@ CONTAINS
       &  r_m(nproma,SIZE(p_cc,2))    !< of cell jk are multiplied 
                                      !< to guarantee positive definiteness
 
-    REAL(wp) :: p_m(nproma)          !< sum of fluxes out of cell
+    REAL(wp) :: p_m                  !< sum of fluxes out of cell
                                      !< [kg m^-2]
 
     REAL(wp) :: z_signum             !< sign of mass flux
@@ -134,7 +134,7 @@ CONTAINS
     INTEGER  :: jkp1, jkm1
 
 #ifdef __INTEL_COMPILER
-!DIR$ ATTRIBUTES ALIGN :64 :: r_m,p_m
+!DIR$ ATTRIBUTES ALIGN :64 :: r_m
 #endif
   !-------------------------------------------------------------------------
 
@@ -153,21 +153,21 @@ CONTAINS
     ! 1. Compute total outward mass (loop over full levels)
     !
 !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
-    !$ACC LOOP GANG COLLAPSE(2) PRIVATE(p_m)
+    !$ACC LOOP GANG COLLAPSE(2) PRIVATE(jkp1,p_m)
     DO jk = slev, elev
       DO jc = i_startidx, i_endidx
         jkp1 = jk+1
 
         ! Sum of all outgoing fluxes out of cell jk
-        p_m(jc) = p_dtime                               &
-          &     * (MAX(0._wp,p_mflx_tracer_v(jc,jk))    &  ! upper half level
-          &      - MIN(0._wp,p_mflx_tracer_v(jc,jkp1)) )   ! lower half level
+        p_m = p_dtime                               &
+          & * (MAX(0._wp,p_mflx_tracer_v(jc,jk))    &  ! upper half level
+          &  - MIN(0._wp,p_mflx_tracer_v(jc,jkp1)) )   ! lower half level
 
         ! fraction with which all the fluxes out of cell jk must be multiplied 
         ! to guarantee no undershoot
         ! Nominator: maximum allowable mass loss \rho^n q^n
         r_m(jc,jk) = MIN(1._wp, (p_cc(jc,jk)*p_rhodz_now(jc,jk)) &
-          &         /(p_m(jc) + dbl_eps) )
+          &         /(p_m + dbl_eps) )
 
       ENDDO
     ENDDO

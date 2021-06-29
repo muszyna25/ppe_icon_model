@@ -70,6 +70,7 @@ MODULE mo_hash_table
     CONTAINS
         PROCEDURE :: init => hashIterator_init
         PROCEDURE :: nextEntry => hashIterator_nextEntry    ! returns .TRUE. IF the operation was successfull
+        PROCEDURE :: reset => hashIterator_reset
     END TYPE
 
     TYPE :: t_HashEntryPtr
@@ -274,6 +275,13 @@ CONTAINS
 
       me%table => table
     END SUBROUTINE hashIterator_init
+
+    SUBROUTINE hashIterator_reset(me)
+      CLASS(t_HashIterator), INTENT(INOUT) :: me
+
+      me%curBin = 0
+      NULLIFY(me%curEntry)
+    END SUBROUTINE hashIterator_reset
 
     LOGICAL FUNCTION hashIterator_nextEntry(me, key, val) RESULT(resultVar)
       CLASS(t_HashIterator), INTENT(INOUT) :: me

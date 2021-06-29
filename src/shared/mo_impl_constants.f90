@@ -285,17 +285,6 @@ MODULE mo_impl_constants
   ! identifiers for atm time stepping schemes
   INTEGER,PARAMETER :: TRACER_ONLY   = 1 ! pure tracer advection
 
-  ! the hydrostatic model
-  INTEGER,PARAMETER :: TWO_TL_SI     = 12 ! semi-implicit two time level
-  INTEGER,PARAMETER :: LEAPFROG_EXPL = 13 ! explicit leapfrog
-  INTEGER,PARAMETER :: LEAPFROG_SI   = 14 ! semi-implicit leapfrog
-  INTEGER,PARAMETER :: RK4           = 15 ! standard 4th-order Runge-Kutta method
-  INTEGER,PARAMETER :: SSPRK54       = 16 ! SSP RK(5,4)
-
-  ! Scheme for the "slow" component in the TWO_TL_SI time stepping
-  INTEGER,PARAMETER :: EULER_FORWARD = 1
-  INTEGER,PARAMETER :: AB2           = 2
-
   ! Rayleigh damping identifiers
   INTEGER,PARAMETER :: RAYLEIGH_CLASSIC = 1  ! classical Rayleigh damping, which makes use of 
                                              ! a reference state.
@@ -398,15 +387,8 @@ MODULE mo_impl_constants
 
 
   ! equations to be solved
-  INTEGER, PARAMETER :: ihs_atm_temp   =  1 ! - hydrostatic atmosphere, T as progn. var.
-  INTEGER, PARAMETER :: ihs_atm_theta  =  2 ! - hydrostatic atmosphere, Theta as progn. var.
   INTEGER, PARAMETER :: inh_atmosphere =  3 ! - non-hydrost.atm.
-  INTEGER, PARAMETER :: ishallow_water =  0 ! - shallow water model
   INTEGER, PARAMETER :: ihs_ocean      = -1 ! - hydrostatic ocean
-
-  ! cell geometry
-  INTEGER, PARAMETER :: itri           =  3 ! - triangles
-  INTEGER, PARAMETER :: ihex           =  6 ! - hexagons/pentagons
 
   ! parameterized forcing (right hand side) of dynamics
   INTEGER, PARAMETER :: inoforcing     =  0 ! - no forcing
@@ -522,19 +504,16 @@ MODULE mo_impl_constants
   !  MODEL OUTPUT  !
   !----------------!
 
-  !> maximum string length for variable names
-  INTEGER, PARAMETER :: VARNAME_LEN = 256
-  !> maximum string length for variable list names
-  INTEGER, PARAMETER :: max_var_list_name_len = 128
+  ! maximum string length for variable names
 
   INTEGER, PARAMETER :: &
-    max_var_lists  = 256, & ! max number of output var_lists
     MAX_NVARS      = 999, & ! maximum number of output variables (total)
     max_var_ml     = 999, & ! maximum number of output model-level variables
     max_var_pl     = 150, & ! maximum number of pressure-level variables
     max_var_hl     = 150, & ! maximum number of height-level variables
     max_var_il     = 150, & ! maximum number of variables on isentropes
-    vname_len      = VARNAME_LEN ! variable name length in I/O namelists
+    vname_len      = 256, & ! variable name length in I/O namelists
+    vlname_len     = 128    ! variable-list name length in I/O namelists
 
   INTEGER, PARAMETER :: &
     MAX_TIME_INTERVALS = 10 ! maximum number of time intervals specified in "output_nml"

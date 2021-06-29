@@ -478,19 +478,14 @@ Diffusion on the vertical wind field&
 
 %\hline
 hdiff\_order&
-I&{4~(hydro)} \\ {5 (NH)}& &
+I& 5 & &
 Order of $\nabla$ operator for diffusion:\\
 -1: no diffusion\\
 2: $\nabla^{2}$ diffusion\\
-3: Smagorinsky $\nabla^{2}$ diffusion \\
+3: Smagorinsky $\nabla^{2}$ diffusion (requires lhdiff\_rcf = .TRUE.) \\
 4: $\nabla^{4}$ diffusion \\
 5: Smagorinsky $\nabla^{2}$ diffusion combined with $\nabla^{4}$
-background diffusion as specified via hdiff\_efdt\_ratio \\
-24 or 42: $\nabla{2}$ diffusion from model top to a certain level
-(cf. k2\_pres\_max and k2\_klev\_max below);
-$\nabla^{4}$ for the lower levels.  &
-Options 2, 24 and 42 are allowed only in the hydrostatic atm model
-(iequations = 1 or 2 in dynamics\_nml).
+background diffusion as specified via hdiff\_efdt\_ratio  &
 \tabularnewline
 
 %\hline
@@ -516,27 +511,10 @@ Discretization of temperature diffusion: \\
 2: $\nabla \cdot (K_h \nabla T)$  & iequations=3, hdiff\_order=3 or 5
 \tabularnewline
 
-%\hline
-k2\_pres\_max&
-R& -99.& Pa &
-Pressure level above which $\nabla^2$ diffusion is applied.&
-hdiff\_order = 24 or 42, and dynamics\_nml:iequations = 1 or 2.
-\tabularnewline
-
-%\hline
-k2\_klev\_max&
-I& 0&&
-Index of the vertical level till which (from the model top)
-$\nabla^2$ diffusion is applied.
-If a positive value is specified for k2\_pres\_max,
-k2\_klev\_max is reset accordingly during the initialization
-of a model run.&
-hdiff\_order = 24 or 42, and dynamics\_nml:iequations = 1 or 2.
-\tabularnewline
 
 %\hline
 hdiff\_efdt\_ratio&
-R& 1.0 (hydro) \\ 36.0 (NH) & &
+R& 36.0 & &
 ratio of e-folding time to time step (or 2{*} time step when using
 a 3 time level time stepping scheme) (for triangular NH model, values above 30 are recommended when using hdiff\_order=5) &
 \tabularnewline
@@ -568,7 +546,7 @@ n\_dom$>$1\tabularnewline
 
 %\hline
 \textbf{hdiff\_smag\_fac}&
-R& 0.15 (hydro) \\ 0.015 (NH)& &
+R& 0.015 & &
 Scaling factor for Smagorinsky diffusion&
 iequations=3
 \tabularnewline
@@ -591,9 +569,6 @@ This namelist is relevant if run\_nml:ldynamics=.TRUE.
 I& 3& &
 Equations and prognostic variables. Use positive indices for the atmosphere
 and negative indices for the ocean.&\tabularnewline
-&&&&0: shallow water model&\tabularnewline
-&&&&1: hydrostatic atmosphere, T&\tabularnewline
-&&&&2: hydrostatic atm., $\theta \cdot$dp&\tabularnewline
 &&&&3: non-hydrostatic atmosphere&\tabularnewline
 &&&&-1: hydrostatic ocean&
 \tabularnewline
@@ -621,13 +596,6 @@ idiv\_method= 2
 lcoriolis &
 L & .TRUE.& &
 Coriolis force&
-\tabularnewline
-
-%\hline
-sw\_ref\_height &
-R &  0.9* 2.94e4/g & m &
-Reference height of shallow water model used for
-linearization in the semi-implicit time stepping scheme&
 \tabularnewline
 
 %\hline
@@ -1805,7 +1773,7 @@ R&
 0.1&
 &
 Variability range for minimum value to which snow cover fraction is artificially reduced in case of melting snow & 
-idiag\_snowfrac = 20/30/40
+idiag\_snowfrac = 20
 \tabularnewline
 
 \hline
@@ -2386,108 +2354,7 @@ n\_dom>1 .AND. lfeedback = .TRUE. .AND. ifeedback\_type = 2 \tabularnewline
 
 Defined and used in: \verb+src/namelists/mo_gridref_nml.f90+
 
-%-----------------------------------------------------------------------------
-% ha_dyn_nml: hydrostatic atm dynamics
-%-----------------------------------------------------------------------------
-\subsection{ha\_dyn\_nml}
 
-This namelist is relevant if
-run\_nml:ldynamics=.TRUE.
-and dynamics\_nml:iequations=IHS\_ATM\_TEMP or IHS\_ATM\_THETA.
-
-\begin{longtab}
-
-%\hline
-\textbf{itime\_scheme}&
-I& 14& &
-Time integration scheme:& \tabularnewline
-& & & & 11: pure advection (no dynamics)& \tabularnewline
-& & & & 12: 2 time level semi implicit (not yet implemented)&
-\tabularnewline
-& & & & 13: 3 time level explicit&
-\tabularnewline
-& & & & 14: 3 time level with semi implicit correction&
-\tabularnewline
-& & & & 15: standard 4th-order Runge-Kutta method (4-stage)&
-\tabularnewline
-& & & & 16: SSPRK(5,4) scheme (5-stage)&
-\tabularnewline
-
-%\hline
-ileapfrog\_startup&
-I& 1& &
-How to integrate the first time step when the leapfrog scheme
-is chosen. 1 = Euler forward; 2 = a series of sub-steps. &
-itime\_scheme= 13 or 14 \tabularnewline
-
-%\hline
-asselin\_coeff&
-R& 0.1& &
-Asselin filter coefficient&
-itime\_scheme= 13 or 14 \tabularnewline
-
-%\hline
-si\_2tls &
-R & 0.6 & &
-weight of time step n+1. Valid range: [0,1] &
-itime\_scheme=12\tabularnewline
-
-%\hline
-si\_expl\_scheme &
-I & 2 & &
-scheme for the explicit part used in the 2 time level
-semi-implicit time stepping scheme. 1 = Euler forward;
-2 = Adams-Bashforth 2nd order &
-itime\_scheme=12\tabularnewline
-
-%\hline
-si\_cmin&
-R & 30.0 & m/s&
-semi implicit correction is done for eigenmodes with speeds larger
-than si\_cmin&
-itime\_scheme=14 and lsi\_3d=.FALSE.\tabularnewline
-
-%\hline
-si\_coeff&
-R & 1.0 & &
-weight of the semi implicit correction&
-itime\_scheme=14 \tabularnewline
-
-%\hline
-si\_offctr&
-R & 0.7 & &
-&
-itime\_scheme=14 \tabularnewline
-
-%\hline
-si\_rtol &
-R & 1.0e-3 & &
-relative tolerance for GMRES solver&
-itime\_scheme=14 \tabularnewline
-
-%\hline
-lsi\_3d&
-L& .FALSE.& &
-3D GMRES solver or decomposistion into 2D problems&
-lshallow\_water=.FALSE. and itime\_scheme=14\tabularnewline
-%\hline
-
-%\hline
-\textbf{ldry\_dycore} &
-L & .TRUE. & &
-Assume dry atmosphere &
-iequations$\in$\{1,2\}
-\tabularnewline
-
-%\hline
-\textbf{lref\_temp} &
-L & .FALSE. & &
-Set a background temperature profile as base state
-when computing the pressure gradient force &
-iequations$\in$\{1,2\}
-\tabularnewline
-
-\end{longtab}
 
 
 %------------------------------------------------------------------------------
@@ -2989,14 +2856,14 @@ inextra\_2d&
 I &
 0&&
 Number of extra 2D Fields for diagnostic/debugging output. &
-dynamics\_nml:iequations = 3 {\color{red}(to be done for 1, 2)}
+dynamics\_nml:iequations = 3
 \tabularnewline
 %\hline
 inextra\_3d&
 I &
 0&&
 Number of extra 3D Fields for diagnostic/debugging output. &
-dynamics\_nml:iequations = 3 {\color{red}(to be done for 1, 2)}
+dynamics\_nml:iequations = 3
 \tabularnewline
 
 %\hline
@@ -3081,6 +2948,13 @@ iforcing=3
 maxt\_interval&
 C(n\_dom)& "PT06H" & &
 Interval over which max/min 2-m temperatures are calculated &
+iforcing=3
+\tabularnewline
+
+%\hline
+runoff\_interval&
+C(n\_dom)& "P01Y" & &
+Interval over which surface and soil water runoff are accumulated &
 iforcing=3
 \tabularnewline
 
@@ -3698,6 +3572,18 @@ itype\_latbc $\ge$ 1
 
 
 %\hline
+fac\_latbc\_presbiascor&
+R &
+0. & 
+&
+Scaling factor for pressure bias correction at lateral boundaries. Requires running in data assimilation
+cycle. Recommended value for activating the option is 1.
+&
+itype\_latbc $\ge$ 1, init\_mode=5
+\tabularnewline
+
+
+%\hline
 \textbf{latbc\_filename}&
 C &
 &
@@ -3939,9 +3825,9 @@ maximum depth of uppermost snow layer & lmulti\_snow=.TRUE. or l2lay\_rho\_snow=
 idiag\_snowfrac &
 I & 1 &  & Type of snow-fraction diagnosis:\\ 
 1 = based on SWE only\\
-2--4 = more advanced experimental methods \\ 
-20, 30, 40 = same as 2, 3, 4, respectively, but with artificial reduction of snow fraction in case of melting snow
-(shold be used only in combination with lsnowtile=.TRUE.&
+2 = more advanced method used operationally \\ 
+20 = same as 2, but with artificial reduction of snow fraction in case of melting snow
+(should be used only in combination with lsnowtile=.TRUE.&
 \tabularnewline
 
 %\hline
@@ -5146,7 +5032,7 @@ radiation\\
 0: none\\
 1: RRTM radiation\\
 2: Ritter-Geleyn radiation\\
-3: PSRAD radiation\\
+3: (removed) \\
 4: ecRad radiation
 &run\_nml:iforcing = inwp
 \tabularnewline
@@ -5309,6 +5195,31 @@ Parameterization set for diagnostic calculations of effective radius: \\
 100 = Consistent with current microphysics (it sets ireff\_calc = inwp\_gscp) \\
 101 = Reff given by RRTM parameterization
 &run\_nml:iforcing = inwp
+\tabularnewline
+
+%\hline
+icpl\_rad\_reff  &
+I (max\_ dom) &
+0 &
+&
+Coupling of the effective radius with radiation: \\
+0 \,\,\,  = No coupling. The calculation of the effective radius happens at the radiation interface. \\
+1 \,\,\, = Radiation uses the effective radius defined by ireff\_calc. All hydrometeors are combined in a frozen and a liquid phase. 
+&run\_nml:iforcing = inwp \\
+inwp\_radiation = 1 or 4  \\
+ireff\_calc > 0
+\tabularnewline
+
+%\hline
+ithermo\_water &
+I (max\_ dom) &
+0 &
+&
+Latent Heat Function \\
+0 \,\,\,  = Temperature-dependent latent heat in saturation adjustment but constant in microphysics: \\
+1 \,\,\,  = Temperature-dependent latent heat in saturation adjustment and microphysics 
+&run\_nml:iforcing = inwp \\
+ inwp\_gscp = 1,2,4,5,7
 \tabularnewline
 
 %\hline
@@ -8322,292 +8233,8 @@ molecular diffusion (member of \texttt{group:upatmo\_tendencies}) \\
 \section{Namelist parameters for testcases (NAMELIST\_ICON)}
 
 The ICON model code includes several experiments, so-called test cases,
-for the shallow water model as well as the 3-dimensional atmosphere.
-Depending on the specified experiment, initial conditions and boundary
-conditions are computed internally.
-
-%-------------------------------------------------------------------
-% ha_testcase_nml:
-%-------------------------------------------------------------------
-\subsection{ha\_testcase\_nml (Scope: ltestcase=.TRUE. and iequations=[0,1,2] in run\_nml)}
-\begin{longtab}
-
-%\hline
-ctest\_name&
-C& 'JWw'& &
-Name of test case: &
-\tabularnewline
-& & & &
-'SW\_GW': gravity wave&
-lshallow\_water=.TRUE.
-\tabularnewline
-& & & &
-'USBR': unsteady solid body rotation &
-lshallow\_water=.TRUE.
-\tabularnewline
-& & & &
-'Will\_2': Williamson test 2&
-lshallow\_water=.TRUE.
-\tabularnewline
-& & & &
-'Will\_3': Williamson test 3&
-lshallow\_water=.TRUE.
-\tabularnewline
-& & & &
-'Will\_5': Williamson test 5&
-lshallow\_water=.TRUE.
-\tabularnewline
-& & & &
-'Will\_6': Williamson test 6&
-lshallow\_water=.TRUE.
-\tabularnewline
-& & & &
-'GW': gravity wave (nlev=20 only!) &
-lshallow\_water=.FALSE.
-\tabularnewline
-& & & &
-'LDF': local diabatic forcing test without physics&
-lshallow\_water=.FALSE.\\and iforcing=4
-\tabularnewline
-& & & &
-'LDF-Moist': local diabatic forcing test with physics initalised with zonal wind field &
-lshallow\_water=.FALSE.,\\and iforcing=5
-\tabularnewline
-& & & &
-'HS': Held-Suarez test &
-lshallow\_water=.FALSE.
-\tabularnewline
-& & & &
-'JWs': Jablonowski-Will. steady state&
-lshallow\_water=.FALSE.
-\tabularnewline
-& & & &
-'JWw': Jablonowski-Will. wave test&
-lshallow\_water=.FALSE.
-\tabularnewline
-& & & &
-'JWw-Moist': Jablonowski-Will. wave test including moisture&
-lshallow\_water=.FALSE.
-\tabularnewline
-& & & &
-'APE': aqua planet experiment&
-lshallow\_water=.FALSE.
-\tabularnewline
-& & & &
-'MRW': mountain induced Rossby wave&
-lshallow\_water=.FALSE.
-\tabularnewline
-& & & &
-'MRW2': modified mountain induced Rossby wave&
-lshallow\_water=.FALSE.
-\tabularnewline
-& & & &
-'PA': pure advection&
-lshallow\_water=.FALSE.
-\tabularnewline
-& & & &
-'SV': stationary vortex&
-lshallow\_water=.FALSE.,
-ntracer = 2
-\tabularnewline
-& & & &
-'DF1': deformational flow test 1&
-\tabularnewline
-& & & &
-'DF2': deformational flow test 2&
-\tabularnewline
-& & & &
-'DF3': deformational flow test 3&
-\tabularnewline
-& & & &
-'DF4': deformational flow test 4&
-\tabularnewline
-& & & &
-'RH': Rossby-Haurwitz wave test&
-lshallow\_water=.FALSE.
-\tabularnewline
-
-tracer\_inidist\_list & 
-I(:) & 1 &  &
-For a subset of testcases pre-defined initial tracer distributions are available. 
-This namelist parameter specifies the initial distribution for each tracer. 
-In the following the testcases and the pre-defined numbers are given:\\
-`PA': 4,5,6,7,8\\
-'JABW':1,2,3,4\\
-'DF': 5,6,7,8,9\\
-For more details on the initial distributions, please have a look into the code. & ha\_testcase\_nml='PA',\\'JABW','DF'
-\tabularnewline
-
-%\hline
-rotate\_axis\_deg&
-R& 0.0& deg&
-Earth's rotation axis pitch angle&
-ctest\_name= 'Will\_2', 'Will\_3', 'JWs', 'JWw', 'PA', 'DF1234'
-\tabularnewline
-
-%\hline
-gw\_brunt\_vais&
-R& 0.01& 1/s&
-Brunt Vaisala frequency&
-ctest\_name= 'GW'
-\tabularnewline
-
-%\hline
-gw\_u0&
-R& 0.0& m/s&
-zonal wind parameter&
-ctest\_name= 'GW'
-\tabularnewline
-
-%\hline
-gw\_lon\_deg&
-R& 180.0& deg&
-longitude of initial perturbation&
-ctest\_name= 'GW'
-\tabularnewline
-
-%\hline
-gw\_lat\_deg&
-R& 0.0& deg&
-latitude of initial perturbation&
-ctest\_name= 'GW'
-\tabularnewline
-
-%\hline
-jw\_uptb&
-R& 1.0& m/s (?)&
-amplitude of the wave pertubation&
-ctest\_name= 'JWw'
-\tabularnewline
-
-%\hline
-mountctr\_lon\_deg&
-R& 90.0& deg&
-longitude of mountain peak&
-ctest\_name= 'MRW(2)'
-\tabularnewline
-
-%\hline
-mountctr\_lat\_deg&
-R& 30.0& deg&
-latitude of mountain peak&
-ctest\_name= 'MRW(2)'
-\tabularnewline
-
-%\hline
-mountctr\_height&
-R& 2000.0& m&
-mountain height&
-ctest\_name= 'MRW(2)'
-\tabularnewline
-
-%\hline
-mountctr\_half\_width&
-R& 1500000.0& m&
-mountain half width&
-ctest\_name= 'MRW(2)'
-\tabularnewline
-
-%\hline
-mount\_u0&
-R& 20.0& m/s&
-wind speed for MRW cases&
-ctest\_name= 'MRW(2)'
-\tabularnewline
-
-%\hline
-rh\_wavenum&
-I& 4& &
-wave number&
-ctest\_name= 'RH'
-\tabularnewline
-
-%\hline
-rh\_init\_shift\_deg&
-R& 0.0& deg&
-pattern shift&
-ctest\_name= 'RH'
-\tabularnewline
-
-%\hline
-ihs\_init\_type&
-I& 1& &
-Choice of initial condition for the Held-Suarez test. 1: the zonal
-state defined in the JWs test case; other integers: isothermal state
-(T=300~K, ps=1000 hPa, u=v=0.)&
-ctest\_name= 'HS'
-\tabularnewline
-
-%\hline
-lhs\_vn\_ptb&
-L& .TRUE.& &
-Add random noise to the initial wind field in the Held-Suarez test. &
-ctest\_name= 'HS'
-\tabularnewline
-
-%\hline
-hs\_vn\_ptb\_scale&
-R& 1.& m/s &
-Magnitude of the random noise added to the initial wind field in the
-Held-Suarez test. &
-ctest\_name= 'HS'
-\tabularnewline
-
-%\hline
-lrh\_linear\_pres&
-L& .FALSE.& &
-Initialize the relative humidity using a linear function of pressure. &
-ctest\_name= 'JWw-Moist','APE', 'LDF-Moist'
-\tabularnewline
-
-%\hline
-rh\_at\_1000hpa&
-R& 0.75& &
-relative humidity \[0,1\] at 1000 hPa &
-ctest\_name= 'JWw-Moist','APE', 'LDF-Moist'
-\tabularnewline
-
-%\hline
-linit\_tracer\_fv&
-L& .TRUE.& &
-Finite volume initialization for tracer fields &
-ctest\_name='PA'
-\tabularnewline
-
-%\hline
-ape\_sst\_case&
-C& 'sst1'& &
-SST distribution selection\\
-'sst1': Control experiment\\
-'sst2': Peaked experiment\\
-'sst3': Flat experiment\\
-'sst4': Control-5N experiment\\
-'sst\_qobs': Qobs SST distribution exp\\
-'sst\_ice': Control SST distribution with -1.8 C above 64 N/S.
-&ctest\_name='APE'
-\tabularnewline
-
-%\hline
-ildf\_init\_type&
-I& 0& &
-Choice of initial condition for the Local diabatic forcing test. 1: the zonal
-state defined in the JWs test case; other: isothermal state
-(T=300 K, ps=1000 hPa, u=v=0.)&
-ctest\_name= 'LDF'
-\tabularnewline
-
-%\hline
-ldf\_symm&
-L& .TRUE.& &
-Shape of local diabatic forcing:\\
-.TRUE.: local diabatic forcing symmetric about the equator (at 0 N)\\
-.FALSE.: local diabatic forcing asym. about the equator (at 30 N)
-& ctest\_name= 'LDF','LDF-Moist'
-\tabularnewline
-
-\end{longtab}
-
-Defined and used in: \verb+src/testcases/mo_ha_testcases.f90+
+for the 2 and 3-dimensional atmosphere. Depending on the specified experiment, 
+initial conditions and boundary conditions are computed internally.
 
 
 
@@ -9560,6 +9187,140 @@ left column: NetCDF name, right column: GRIB2 short name. It is required, if ext
 
 Defined and used in: \verb+src/namelists/mo_extpar_nml.f90+
 
+\section{Serialization}
+
+Some developments must not change model results. Serialbox allows reading and writing data at any point in ICON into savepoints. These savepoints can be used to restore model variables to some reference or compare different model versions. The simplest application of Serialbox is using mo\_ser\_debug.f90 (or writing a similar routine fitting ones needs). Following this method will allow reading and writing manually specified fields in ICON. This can be very useful for small subroutines where input and output are clearly specified (i.e. do not involve derived types) and can thus easily be translated to Serialbox read/write statements. For larger components (basically everything hanging from nh\_stepping.f90, e.g. nwp\_physics) the interface is specified by the in and out types. The actual fields that are read or written to in these subroutines are not specified. For this purpose, serialize\_all has been implemented. It provides a wrapper for Serialbox read and write statements by looping through variable lists. This approach does not require managing lists of fields to read or write by Serialbox. At the level of mo\_nh\_stepping.f90 and mo\_nh\_interface\_nwp.f90 many components are wrapped by such serialize\_all calls that allow testing these components. Each of these hard-coded calls to serialize\_all has a name and for each name there is a namelist switch specifying the following triplet (e.g. 0,12,12):
+\begin{itemize}
+  \item the number of times the component is serialized
+  \item the relative threshold for errors (given as $N$ for $N$ in $10^{-N}$)
+  \item the absolute threshold for errors (given as $N$ for $N$ in $10^{-N}$)
+\end{itemize}
+
+\begin{longtab}
+
+  ser\_output\_diag &
+  I (3)&
+  0,12,12&
+  -, $10^{-N}$, $10^{-N}$&
+  Serialization switch for output diagnostics &
+  \tabularnewline
+
+  ser\_latbc\_data &
+  I (3)&
+  0,12,12&
+  -, $10^{-N}$, $10^{-N}$ &
+  Serialization switch for the subroutine recv\_latbc\_data &
+  \tabularnewline
+
+  ser\_dynamics &
+  I (3)&
+  0,12,12&
+  -, $10^{-N}$, $10^{-N}$ &
+  Serialization switch for the subroutine perform\_dyn\_substepping &
+  \tabularnewline
+
+  ser\_step\_advection &
+  I (3)&
+  0,12,12&
+  -, $10^{-N}$, $10^{-N}$ &
+  Serialization switch for the subroutine step\_advection &
+  \tabularnewline
+
+  ser\_physics &
+  I (3)&
+  0,12,12&
+  -, $10^{-N}$, $10^{-N}$ &
+  Serialization switch for the subroutine step\_physics &
+  \tabularnewline
+
+  ser\_lhn &
+  I (3)&
+  0,12,12&
+  -, $10^{-N}$, $10^{-N}$ &
+  Serialization switch for the subroutine organize\_lhn &
+  \tabularnewline
+
+  ser\_nudging &
+  I (3)&
+  0,12,12&
+  -, $10^{-N}$, $10^{-N}$ &
+  Serialization switch for the nudging computations &
+  \tabularnewline
+
+  ser\_microphysics &
+  I (3)&
+  0,12,12&
+  -, $10^{-N}$, $10^{-N}$ &
+  Serialization switch for the subroutine nwp\_microphysics &
+  \tabularnewline
+
+  ser\_convection &
+  I (3)&
+  0,12,12&
+  -, $10^{-N}$, $10^{-N}$ &
+  Serialization switch for the subroutine nwp\_convection &
+  \tabularnewline
+
+  ser\_cover &
+  I (3)&
+  0,12,12&
+  -, $10^{-N}$, $10^{-N}$ &
+  Serialization switch for the subroutine cover\_koe &
+  \tabularnewline
+
+  ser\_radiation &
+  I (3)&
+  0,12,12&
+  -, $10^{-N}$, $10^{-N}$ &
+  Serialization switch for the subroutine nwp\_radiation &
+  \tabularnewline
+
+  ser\_radheat &
+  I (3)&
+  0,12,12&
+  -, $10^{-N}$, $10^{-N}$ &
+  Serialization switch for the computations involving radiative heating &
+  \tabularnewline
+
+  ser\_gwdrag &
+  I (3)&
+  0,12,12&
+  -, $10^{-N}$, $10^{-N}$ &
+  Serialization switch for the subroutine nwp\_gwdrag &
+  \tabularnewline
+
+  ser\_all\_debug &
+  I (3)&
+  0,12,12&
+  -, $10^{-N}$, $10^{-N}$ &
+  Additional calls to serialize\_all (for debugging purposes) can be controlled using this switch. &
+  \tabularnewline
+
+  ser\_nfail &
+  R &
+  1.0 &
+  \% &
+  Fields that fail more elements than the percentage specified by ser\_nfail will be reported. &
+  \tabularnewline
+
+  ser\_nreport &
+  I &
+  10 &
+  &
+  The detailed serialization report will include the ser\_nreport elements with largest relative differences to the reference  &
+  \tabularnewline
+
+  ser\_debug &
+  L &
+  .FALSE. &
+  &
+  Activates the debug serialization defined in mo\_ser\_debug.f90 &
+  \tabularnewline
+
+
+\end{longtab}
+
+Defined and used in: \verb+src/namelists/mo_ser_nml.f90+
 
 \section{External packages}
 

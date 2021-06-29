@@ -53,7 +53,6 @@ MODULE mo_sea_ice
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_dbg_nml,             ONLY: idbg_mxmn, idbg_val
-  USE mo_fortran_tools,       ONLY: assign_if_present
 
   IMPLICIT NONE
 
@@ -235,16 +234,15 @@ CONTAINS
     INTEGER                                               :: block, cell, cellStart,cellEnd
 
     my_computation_type = 0
+    IF (PRESENT(computation_type)) my_computation_type = computation_type
     my_info             = 'BEFORE'
+    IF (PRESENT(info)) my_info = info
 
     salinityDiff = 0.0_wp
     salt         = 0.0_wp
 
     ! exit if actual debug-level is < 2
     IF (idbg_mxmn < 2 .AND. idbg_val < 2) RETURN
-
-    CALL assign_if_present(my_computation_type, computation_type)
-    CALL assign_if_present(my_info, info)
 
     subset => p_patch%cells%owned
     DO block = subset%start_block, subset%end_block
@@ -370,7 +368,9 @@ CONTAINS
     REAL(wp)                                              :: t_base, zui
 
     my_computation_type = 0
+    IF (PRESENT(computation_type)) my_computation_type = computation_type
     my_info             = 'BEFORE'
+    IF (PRESENT(info)) my_info = info
     energy              = 0.0_wp
   ! t_base              = Tf
   ! t_base              = -5.0_wp
@@ -378,9 +378,6 @@ CONTAINS
 
     ! exit if actual debug-level is < 2
     IF (idbg_mxmn < 2 .AND. idbg_val < 2) RETURN
-
-    CALL assign_if_present(my_computation_type, computation_type)
-    CALL assign_if_present(my_info, info)
 
     subset => p_patch%cells%owned
     DO block = subset%start_block, subset%end_block

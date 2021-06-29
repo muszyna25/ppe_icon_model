@@ -334,18 +334,17 @@ $ ./configure FC=nagfor <other arguments>
 
 The configure script supports several groups of compiler flags. Each group is
 associated with one of the following environment variables:
-- `FCFLAGS` &mdash; Fortran compiler flags to be used at the configuration
-**and** building stages when compiling **and** linking ICON **and** the bundled
-libraries (the list of flags might be extended by the configure scripts, e.g. to
-enable required compiler features, however, in contrast to standard
+- `FCFLAGS` &mdash; Fortran compiler flags to be used when configuring,
+compiling and linking ICON, as well as passed to the configure scripts of the
+bundled libraries (in contrast to standard
 [Autoconf](https://www.gnu.org/software/autoconf/)-based scripts, the
 [configure](./configure) script of ICON does not set `FCFLAGS` to `-g -O2` by
 default);
-- `ICON_FCFLAGS` &mdash; Fortran compiler flags to be appended to `FCFLAGS` at
-the building stage when compiling **and** linking ICON;
+- `ICON_FCFLAGS` &mdash; Fortran compiler flags to be appended to `FCFLAGS` when
+configuring, compiling and linking ICON;
 - `ICON_OCEAN_FCFLAGS` &mdash; Fortran compiler flags to be appended to
-`FCFLAGS` at the building stage when compiling the ocean component of ICON, i.e.
-the Fortran source files residing in subdirectories of the
+`FCFLAGS` instead of `ICON_FCFLAGS` when compiling the ocean component of ICON,
+i.e. the Fortran source files residing in subdirectories of the
 [src/hamocc](./src/hamocc), [src/ocean](./src/ocean), and
 [src/sea_ice](./src/sea_ice) directories (defaults to `ICON_FCFLAGS`, which can
 be overridden by setting the variable to an empty value: `ICON_OCEAN_FCFLAGS=`);
@@ -358,18 +357,16 @@ flags to be appended to `FCFLAGS` when configuring the respective bundled
 libraries (defaults to `ICON_BUNDLED_FCFLAGS`, which can be overridden by
 setting the variablies to empty values: `ICON_RTE_RRTMGP_FCFLAGS=`,
 `ICON_ECRAD_FCFLAGS=`, etc.);
-- `CFLAGS` &mdash; C compiler flags to be used at the configuration **and**
-building stages when compiling ICON, as well as compiling **and** linking the
-bundled libraries (the list of flags might be extended by the configure scripts,
-e.g. to enable required compiler features, however, in contrast to standard
-[Autoconf](https://www.gnu.org/software/autoconf/)-based scripts, the
-[configure](./configure) script of ICON does not set `CFLAGS` to `-g -O2` by
-default);
-- `CPPFLAGS` &mdash; C preprocessor flags to be used at the configuration
-**and** building stages when compiling ICON, as well as compiling **and**
-linking the bundled libraries;
-- `ICON_CFLAGS` &mdash; C compiler flags to be appended to `CFLAGS` at the
-building stage when compiling ICON;
+- `CFLAGS` &mdash; C compiler flags to be used when configuring and compiling
+ICON, as well as passed to the configure scripts of the bundled libraries (in
+contrast to standard [Autoconf](https://www.gnu.org/software/autoconf/)-based
+scripts, the [configure](./configure) script of ICON does not set `FCFLAGS` to
+`-g -O2` by default);
+- `CPPFLAGS` &mdash; C preprocessor flags to be used when configuring and
+compiling ICON, as well as passed to the configure scripts of the bundled
+libraries;
+- `ICON_CFLAGS` &mdash; C compiler flags to be appended to `CFLAGS` when
+configuring and compiling ICON;
 - `ICON_BUNDLED_CFLAGS` &mdash; C compiler flags to be appended to `CFLAGS` when
 configuring the bundled libraries (defaults to `ICON_CFLAGS`, which can be
 overridden by setting the variable to an empty value: `ICON_BUNDLED_CFLAGS=`);
@@ -379,22 +376,20 @@ appended to `CFLAGS` when configuring the respective bundled libraries
 variablies to empty values: `ICON_CDI_CFLAGS=`, `ICON_MTIME_CFLAGS=`, etc.);
 - `NVCFLAGS` &mdash;
 [NVIDIA CUDA Compiler](https://developer.nvidia.com/cuda-llvm-compiler) flags to
-be used at the configuration **and** building stages when compiling ICON (the
-list of flags might be extended by the [configure](./configure) script, e.g. to
-enable required compiler features);
+be used when configuring and compiling ICON;
 - `CLAWFLAGS` &mdash; extra [CLAW](https://claw-project.github.io/) compiler
 flags to be used at the building stage together with the flags that are composed
 automatically based on the [configure](./configure) options (e.g. Fortran
 compiler flags specifiying search paths (`-I<path>`) and macros
 (`-D<macro=value>`) found in `FCFLAGS` are passed to the CLAW preprocessor);
-- `LDFLAGS` &mdash; common Fortran **and** C compiler flags to be used at the
-configuration **and** building stages when linking ICON **and** the bundled
-libraries;
-- `ICON_LDFLAGS` &mdash; Fortran compiler flags to be appended to `LDFLAGS` at
-the building stage when linking ICON;
+- `LDFLAGS` &mdash; common Fortran and C compiler flags to be used when
+configuring and linking ICON, as well as passed to the configure scripts of the
+bundled libraries;
+- `ICON_LDFLAGS` &mdash; Fortran compiler flags to be appended to `LDFLAGS` when
+configuring and linking ICON;
 - `LIBS` &mdash; a list of libraries (see [Table 1](#icon-deptable) for the
 recommended order) to be passed to the linker by the Fortran compiler when
-linking ICON **and** to the configure scripts of the bundled libraries (which
+linking ICON and to the configure scripts of the bundled libraries (which
 might use both Fortran and C compiler for linking).
 
 > **_NOTE:_** It is recommended to specify the environment variables that
@@ -411,12 +406,13 @@ whether they need to be passed to Fortran or C compiler, respectively.
 2. By default, other flags, e.g. the optimization ones, that are meant for
 Fortran and C compilers should be appended to `FCFLAGS` and `CFLAGS`,
 respectively.
-3. Fortran and C compiler flags that need to be used when compiling and linking
-ICON but at the same time can break the configuration (a flag is too restrictive
-for the configure checks to pass, e.g. `-fimplicit-none` for Gfortran) or the
-functionality of the bundled libraries (e.g. the optimization level required
-for ICON is too high and leads to errors in the functionality of the bundled
-libraries) can be put to `ICON_FCFLAGS`, `ICON_CFLAGS` or `ICON_LDFLAGS`.
+3. Fortran and C compiler flags that need to be used when configuring, compiling
+and linking ICON but at the same time can break the configuration (a flag is too
+restrictive for the configure checks to pass, e.g. `-fimplicit-none` for
+Gfortran) or the functionality of the bundled libraries (e.g. the optimization
+level required for ICON is too high and leads to errors in the functionality of
+the bundled libraries) can be put to `ICON_FCFLAGS`, `ICON_CFLAGS` or
+`ICON_LDFLAGS`.
 4. Special optimization flags for the ocean component of ICON can be put to
 `ICON_OCEAN_FCFLAGS`.
 5. Fortran and C compiler flags that need to be used when compiling and linking
@@ -435,7 +431,7 @@ For each `-L<path>` flag found in the `LDFLAGS` and `LIBS` variables, the
 puts the `<path>` on the list of runtime library search paths of the ICON
 executable. This allows for automatic location of the required libraries by the
 *dynamic linker* at the runtime. The flags are appended to `LDFLAGS` at the
-build time and their actual form depends on the Fortran compiler in use. By
+configure time and their actual form depends on the Fortran compiler in use. By
 default, the flags are composed using the template `-Wl,-rpath -Wl,<path>` with
 currently the only exception for NAG compiler, which accepts the flags in the
 form `-Wl,-Wl,,-rpath -Wl,-Wl,,<path>`. If the `-rpath` flags generated by the
@@ -486,16 +482,17 @@ incorrectly transformed by Libtool into
 for this problem is to add the flags in the form understood by NAG compiler not
 to `LDFLAGS` but to `ICON_LDFLAGS`.
 
-> **_NOTE:_** The generated `-rpath` flags are applied only at the building
-stage and for the ICON executable only. However, some of the checks performed by
-the [configure](./configure) script of ICON and the configure scripts of the
-bundled libraries imply running executables linked with the flags listed in the
-`LIBS` variable. To prevent those checks from false negative results, which
-oftentimes are reported with misleading messages, the dynamic linker needs to be
-able to locate all the libraries referenced in the `LIBS` variable. A way to
-achive that is to list paths to the libraries in the `LD_LIBRARY_PATH` variable
-and export it, i.e. run `export LD_LIBRARY_PATH="<path1>:<path2>:..."` before
-running the configure script.
+> **_NOTE:_** Due to a significant maintenance overhead
+(see https://gitlab.dkrz.de/icon/icon/-/commit/36ab00dd5641419e5afbb918b47cdf697c54b737#87db583be5c13c1f7b3c958b10e03d67b6a2ca06),
+the generated `-rpath` flags are **not** passed to the configure scripts of the
+bundled libraries. However, some of their checks imply running executables
+linked with the flags listed in the `LIBS` variable. To prevent those checks
+from false negative results, which oftentimes are reported with misleading
+messages, the dynamic linker needs to be able to locate all the libraries
+referenced in the `LIBS` variable. A way to achive that is to list paths to the
+libraries in the `LD_LIBRARY_PATH` variable and export it, i.e. run
+`export LD_LIBRARY_PATH="<path1>:<path2>:..."` before running the
+[configure](./configure) script.
 
 ## Configuration and building environments
 
@@ -713,8 +710,8 @@ the assumption that the source files have the following filename extensions:
 
 - `.f90` &mdash; Fortran source files, regardless of whether they contain
 Fortran preprocessor directives;
-- `.inc` &mdash; Fortran header files included with the Fortran preprocessor
-`#include` directives, e.g. `#include "filename.inc"`;
+- `.inc` &mdash; Fortran header files included with the quoted form of the
+Fortran preprocessor `#include` directives, e.g. `#include "filename.inc"`;
 - `.incf` &mdash; Fortran header files included with the Fortran `INCLUDE`
 statements, e.g. `include 'filename.incf'` (these files are not allowed to have
 Fortran preprocessor directives);
