@@ -4,7 +4,7 @@
 #
 # %{mkexp_input}
 #
-# $Id: DEFAULT.run.tmpl 9 2021-06-02 11:42:05Z m221078 $
+# $Id: DEFAULT.run.tmpl 11 2021-06-25 06:53:19Z m221078 $
 #
 # %{VERSIONS_|join('\n# ')}
 #
@@ -34,6 +34,14 @@ set -e
 #%  if JOB.debug_level|d(0)|int > 0:
 set -x
 #%  endif
+
+# Support log style output
+pipe=%{EXP_ID}_%{JOB.id}_$$.pipe
+mkfifo $pipe
+trap "cd $PWD && rm -f $pipe" EXIT
+awk '{print strftime("%FT%T:"), $0; fflush()}' $pipe &
+exec > $pipe 2>&1
+
 #=============================================================================
 #
 # ICON run script:
@@ -168,22 +176,7 @@ final_date="%{FINAL_DATE}"
 # restart/checkpoint/output intervals
 # -----------------
 restart_interval="%{INTERVAL}"
-checkpoint_interval="%{INTERVAL}"
 
-# file interval is restart-interval
-atm_file_interval="%{FILE_INTERVAL}"
-oce_file_interval="%{FILE_INTERVAL}"
-lnd_file_interval="%{FILE_INTERVAL}"
-#%  if WITH_OBGC is set:
-hamocc_file_interval="%{FILE_INTERVAL}"
-#%  endif
-#%#
-atm_output_interval="%{OUTPUT_INTERVAL}"
-lnd_output_interval="%{OUTPUT_INTERVAL}"
-#%  if WITH_OBGC is set:
-hamocc_output_interval="%{OUTPUT_INTERVAL}"
-#%  endif
-#%#
 # Read and compute time control information
 
 start_date_file=$SCRIPT_DIR/$EXPNAME.date
@@ -254,15 +247,6 @@ echo $(date -u +'%Y-%m-%dT%H:%M:%SZ') ${start_date%:*} ${end_date%:*} ${%{JOB.id
 mpi_atm_io_procs=0      # >0 for atmosphere plus land (not working for monitoring)
 mpi_oce_io_procs=0      # >0 for ocean is not working yet
 
-# output file selection
-# ---------------------
-#
-# output_<xyz>=yes : yes --> output files for <xyz>, any other value --> no files for <xyz>
-
-# output interval for large atm/oce files, normally set to general atmos interval:
-atm_output_interval_3d="$atm_output_interval"
-atm_output_interval_2d="$atm_output_interval"
-
 #------------------------------------------------------------------------------
 
 # (5) Define the model configuration
@@ -310,6 +294,7 @@ cat > icon_master.namelist << EOF
 %{format_namelist(namelists['icon_master.namelist'])}
 EOF
 
+#%  if WITH_ATMO is set and WITH_OCEAN is set:
 # I.3 YAC coupling library configuration
 #-----------------------------------------------------------------------------
 # component names in coupling.xml must (!) match with modelname_list[*]
@@ -317,16 +302,22 @@ cat > coupling.xml << EOF
 %{COUPLING_XML}
 EOF
 
+#%  endif
+#%  if WITH_ATMO is set or WITH_LAND is set:
 #-----------------------------------------------------------------------------
 # II. ATMOSPHERE and LAND
 #-----------------------------------------------------------------------------
 #
+#%  endif
+#%  if WITH_ATMO is set:
 # atmosphere namelist
 # -------------------
 cat > NAMELIST_atm << EOF
 %{format_namelist(namelists.NAMELIST_atm)}
 EOF
 
+#%  endif
+#%  if WITH_LAND is set:
 # jsbach namelist
 # ---------------
 
@@ -334,6 +325,7 @@ cat > NAMELIST_lnd << EOF
 %{format_namelist(namelists.NAMELIST_lnd)}
 EOF
 
+#%  endif
 #-----------------------------------------------------------------------------
 # III. OCEAN and SEA-ICE (and HAMOCC) 
 #-----------------------------------------------------------------------------
@@ -400,11 +392,18 @@ else
   check_final_status -1 "${START} ${MODEL}"
 fi
 
+#% set atmo_restart = namelists.NAMELIST_atm.run_nml.restart_filename
+#% set ocean_restart = namelists.NAMELIST_oce.run_nml.restart_filename
+
 #%  if JOB.subdir|d(''):
 # Handle restart hand-over
 
-ln -fv %{EXP_ID}_restart_atm_${next_stamp}Z.nc %{WORK_DIR}
-ln -fv %{EXP_ID}_restart_oce_${next_stamp}Z.nc %{WORK_DIR}
+#%    if WITH_ATMO is set:
+cp -lrfv %{atmo_restart|replace('<rsttime>', '${next_stamp}Z')} %{WORK_DIR}
+#%    endif
+#%    if WITH_OCEAN is set:
+cp -lrfv %{ocean_restart|replace('<rsttime>', '${next_stamp}Z')} %{WORK_DIR}
+#%    endif
 
 #%  endif
 
@@ -415,8 +414,12 @@ echo $next_date > $start_date_file
 #%  if JOB.subdir|d(''):
 # Clean up our restart
 
-rm -fv %{WORK_DIR}/%{EXP_ID}_restart_atm_${start_stamp}Z.nc
-rm -fv %{WORK_DIR}/%{EXP_ID}_restart_oce_${start_stamp}Z.nc
+#%    if WITH_ATMO is set:
+rm -rfv %{atmo_restart|replace('<rsttime>', '${start_stamp}Z')}
+#%    endif
+#%    if WITH_OCEAN is set:
+rm -rfv %{ocean_restart|replace('<rsttime>', '${start_stamp}Z')}
+#%    endif
 
 #%  endif
 
