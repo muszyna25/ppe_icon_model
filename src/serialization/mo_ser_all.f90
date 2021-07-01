@@ -26,7 +26,7 @@ MODULE mo_ser_all
   USE mo_run_config,         ONLY: iforcing, ldass_lhn
   USE mo_impl_constants,     ONLY: inwp
   USE mo_ser_nml,            ONLY: ser_initialization, ser_output_diag, ser_latbc_data, ser_dynamics, &
-                                   ser_diffusion, ser_step_advection, &
+                                   ser_diffusion, ser_step_advection, ser_turbtrans, ser_turbdiff, &
                                    ser_physics, ser_lhn, ser_nudging, ser_all_debug, ser_surface, &
                                    ser_microphysics, ser_convection, ser_cover, ser_radiation, &
                                    ser_radheat, ser_gwdrag, ser_nfail, ser_nreport
@@ -429,6 +429,20 @@ MODULE mo_ser_all
           rel_threshold = ser_microphysics(2)
           abs_threshold = ser_microphysics(3)
           IF(microphysics_cnt > ser_microphysics(1)*2) THEN
+              do_serialization = .FALSE.
+          ENDIF
+      CASE("turbdiff")
+          turbdiff_cnt = turbdiff_cnt + 1
+          rel_threshold = ser_turbdiff(2)
+          abs_threshold = ser_turbdiff(3)
+          IF(turbdiff_cnt > ser_turbdiff(1)*2) THEN
+              do_serialization = .FALSE.
+          ENDIF
+      CASE("turbtrans")
+          turbtrans_cnt = turbtrans_cnt + 1
+          rel_threshold = ser_turbtrans(2)
+          abs_threshold = ser_turbtrans(3)
+          IF(turbtrans_cnt > ser_turbtrans(1)*2) THEN
               do_serialization = .FALSE.
           ENDIF
       CASE("convection")
