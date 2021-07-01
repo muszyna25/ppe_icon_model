@@ -10,6 +10,7 @@
 ; iFile         : input file (e.g. "METEOGRAM_patch001.nc")
 ; iStation      : station number (1,2,3,...)
 ; varName       : name of the variable to (contour) plot
+;                 Use varName=FF to plot wind speed, sqrt(U*U+V*V)
 ;
 ; Optional Parameter:
 ; colormap      : string for predefined colormaps of the plot (e.g. 'colormap="BlAqGrYeOrReVi200"')
@@ -194,7 +195,13 @@ begin
   cdf_file  = addfile(iFile,"r") 
   nstations = dimsizes(cdf_file->station_lon)
 ; get index corresponding to variable
-  ivar      = get_var_index(cdf_file, varName)
+  ivar2 = -1
+  if ( varName .eq. "FF") then
+    ivar      = get_var_index(cdf_file, "U")
+    ivar2     = get_var_index(cdf_file, "V")
+  else
+    ivar      = get_var_index(cdf_file, varName)
+  end if
   nlevs     = cdf_file->var_nlevs(ivar)
 
   if ( lev0 .ge. 0)
@@ -214,7 +221,13 @@ begin
   t0 = date_index(0)
   t1 = date_index(1)
 
-  vals = transpose(cdf_file->values(t0:t1, lev0:nlev1, ivar, iStation)) ; (time, level, var, station)
+  if ( ivar2 .ge. 0 )
+    vals = transpose(cdf_file->values(t0:t1, lev0:nlev1, ivar, iStation)) ; (time, level, var, station)
+    vals2= transpose(cdf_file->values(t0:t1, lev0:nlev1, ivar2,iStation)) ; (time, level, var, station)
+    vals = sqrt( vals*vals + vals2*vals2)
+  else
+    vals = transpose(cdf_file->values(t0:t1, lev0:nlev1, ivar, iStation)) ; (time, level, var, station)
+  end if
 
 ;----------------------------------------------------------------------
 ; plot setup
@@ -240,7 +253,11 @@ begin
   yyyymmdd = sprinti("%0.2i", date@year)+sprinti("%0.2i", date@month)+sprinti("%0.2i", date@day)
 
   res                   = True
-  res@gsnCenterString   = charactertostring(cdf_file->var_long_name(ivar,:))
+  if ( ivar2 .ge. 0) then
+    res@gsnCenterString   = "wind speed"
+  else
+    res@gsnCenterString   = charactertostring(cdf_file->var_long_name(ivar,:))
+  end if
   res@gsnCenterStringOrthogonalPosF = 0.06
   res@gsnLeftString     = expnum
   nl = "~C~"             ;  carriage return to write lat, lon on second line
@@ -254,7 +271,8 @@ begin
   if ( zAxis .eq. "ml")
 ;   model levels as vertical axis
     res@tiYAxisString     = "Model Level"               ; y-axis label
-    res@sfYArray          = cdf_file->var_levels(ivar,lev0:nlev1)
+;   res@sfYArray          = cdf_file->var_levels(ivar,lev0:nlev1)
+    res@sfYArray          = ispan( lev0, nlev1, 1)
     res@trYReverse        = True                        ; reverses y axis
     res@vpXF                 = 0.11                  ; viewport left margin (def: 0.2)
     res@vpWidthF             = 0.69                  ; viewport width (def: 0.6)
@@ -411,8 +429,10 @@ begin
     end do
     xy3 = create "xy3" xyPlotClass wks
     "trYReverse"              : "True"
-    "trYMaxF"                 :  cdf_file->var_levels(ivar, nlev1)
-    "trYMinF"                 :  cdf_file->var_levels(ivar, lev0)
+;   "trYMaxF"                 :  cdf_file->var_levels(ivar, nlev1)
+;   "trYMinF"                 :  cdf_file->var_levels(ivar, lev0)
+    "trYMaxF"                 :  nlev1
+    "trYMinF"                 :  lev0
     "tmYROn"                  : "True"
     "tmYLOn"                  : "False"
     "tmYUseLeft"              : "False"
@@ -424,7 +444,8 @@ begin
     "tmYLOn"                  : "False"
     "tmYROn"                  : "True"
     "tmYRMode"                : "Explicit"
-    "tmYRValues"              : cdf_file->var_levels(ivar,lev0:nlev1:ystride)
+;   "tmYRValues"              : cdf_file->var_levels(ivar,lev0:nlev1:ystride)
+    "tmYRValues"              : ispan( lev0, nlev1, ystride)
     "tmYRLabels"              : expl_labels2(lev0:nlev1:ystride)
     "tmYRLabelJust"           : "CenterRight"
     "tiYAxisSide"             : "Right"

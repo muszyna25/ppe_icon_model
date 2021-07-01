@@ -35,7 +35,7 @@ MODULE mo_echam_phy_init
   USE mo_impl_constants,       ONLY: min_rlcell_int, grf_bdywidth_c
   USE mo_parallel_config,      ONLY: nproma
   USE mo_master_config,        ONLY: isrestart
-  USE mo_run_config,           ONLY: ltestcase, lart,                       &
+  USE mo_run_config,           ONLY: ltestcase, lart, msg_level,            &
     &                                iqv, iqc, iqi, iqs, iqr, iqg, iqm_max, &
     &                                iqt, io3, ico2, ich4, in2o, ntracer
   USE mo_advection_config,     ONLY: advection_config
@@ -342,13 +342,14 @@ CONTAINS
       END IF
       !
       jg=1
-      CALL gscp_set_coefficients(              igscp = 2                                    ,& 
+      CALL gscp_set_coefficients(idbg                = msg_level                            ,&
          &                       tune_zceff_min      = echam_mig_config(jg)% zceff_min      ,&
          &                       tune_v0snow         = echam_mig_config(jg)% v0snow         ,&
          &                       tune_zvz0i          = echam_mig_config(jg)% zvz0i          ,&
          &                       tune_icesedi_exp    = echam_mig_config(jg)% icesedi_exp    ,&
          &                       tune_mu_rain        = echam_mig_config(jg)% mu_rain        ,&
-         &                       tune_rain_n0_factor = echam_mig_config(jg)% rain_n0_factor )
+         &                       tune_rain_n0_factor = echam_mig_config(jg)% rain_n0_factor ,&
+         &                       igscp               = 2 )
     END IF
 
     ! cloud cover diagnostics
@@ -456,6 +457,7 @@ CONTAINS
           iqm_max=iqm_max+1
        CASE('o3')
           io3=jt
+          write(0,*) 'io3=',io3
        CASE('co2')
           ico2=jt
        CASE('ch4')
@@ -529,7 +531,7 @@ CONTAINS
        IF (io3 == 0) THEN
           CALL finish(routine,           &
                &      'For the linearized ozone chemistry of Cariolle, '// &
-               &      'the tracer qo3 must be included in transport_nml'// &
+               &      'the tracer o3 must be included in transport_nml'// &
                &      '/tracer_names')
        END IF
     END IF
@@ -1047,6 +1049,8 @@ CONTAINS
           field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
           field% seaice(jcs:jce,jb) = 0._wp   ! zero sea ice fraction
+          field% emissivity(jcs:jce,jb) = zemiss_def ! use default emissivity
+
           !
         END DO
 !$OMP END PARALLEL DO
@@ -1071,6 +1075,7 @@ CONTAINS
           field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
           field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
+          field% emissivity(jcs:jce,jb) = zemiss_def ! use default emissivity
           !
         END DO
 !$OMP END PARALLEL DO
@@ -1112,6 +1117,7 @@ CONTAINS
           field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
           field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
+          field% emissivity(jcs:jce,jb) = zemiss_def ! use default emissivity
           !
         END DO
 !$OMP END PARALLEL DO
@@ -1151,6 +1157,7 @@ CONTAINS
           field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
           field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
+          field% emissivity(jcs:jce,jb) = zemiss_def ! use default emissivity
           !
         END DO
 !$OMP END PARALLEL DO
@@ -1173,6 +1180,7 @@ CONTAINS
           field% lsmask(jcs:jce,jb) = 1._wp   ! land fraction = 1
           field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
+          field% emissivity(jcs:jce,jb) = zemiss_def ! use default emissivity
           !
           IF (.NOT. isrestart()) THEN
             field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
@@ -1204,6 +1212,7 @@ CONTAINS
           field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
           field% seaice(jcs:jce,jb) = 0._wp   ! zero sea ice fraction
+          field% emissivity(jcs:jce,jb) = zemiss_def ! use default emissivity
         END DO
 !$OMP END DO  NOWAIT
 !$OMP END PARALLEL

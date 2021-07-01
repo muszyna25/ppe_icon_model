@@ -62,18 +62,11 @@ MODULE turb_data
 !
 ! Modules used:
 
-#ifdef __COSMO__
-USE kind_parameters, ONLY : &
-    wp           ! KIND-type parameter for real variables
-#endif
-
-#ifdef __ICON__
 USE mo_kind,                ONLY: wp           ! KIND-type parameter for real variables
 
 USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
 
 USE mo_turbdiff_config,     ONLY: turbdiff_config
-#endif
 
 !==============================================================================
 
@@ -144,14 +137,8 @@ REAL (KIND=wp)     ::        &
   ! Minimal diffusion coefficients in [m^2/s] for vertical
   tkhmin       =  0.75_wp,   & ! scalar (heat) transport
   tkmmin       =  0.75_wp,   & ! momentum transport
-#ifdef __COSMO__
-  tkhmin_strat =  5.00_wp,   & ! scalar (heat) transport, enhanced value for stratosphere
-  tkmmin_strat =  5.00_wp,   & ! momentum transport,      enhanced value for stratosphere
-#endif
-#ifdef __ICON__
   tkhmin_strat =  0.75_wp,   & ! scalar (heat) transport, enhanced value for stratosphere
   tkmmin_strat =  4.00_wp,   & ! momentum transport,      enhanced value for stratosphere
-#endif
 
   ditsmot      =  0.00_wp,   & ! smoothing factor for direct time-step iteration
 
@@ -188,13 +175,7 @@ REAL (KIND=wp)     ::        &
   alpha0_max   =  0.0335_wp, & ! upper limit of velocity-dependent Charnock-parameter
   alpha0_pert  =  0.0_wp,    & ! additive ensemble perturbation of Charnock-parameter
 
-#ifdef __ICON__
   alpha1       =  0.7500_wp    ! parameter scaling the molecular roughness of water waves
-#endif
-
-#ifdef __COSMO__
-  alpha1       =  1.0000_wp    ! parameter scaling the molecular roughness of water waves
-#endif
 
 
 !$acc declare copyin(alpha0,alpha0_max,alpha0_pert)
@@ -250,12 +231,7 @@ REAL (KIND=wp)     ::        &
   ! Dimensionless parameters used in the sub grid scale condensation scheme
   ! (statistical cloud scheme):
   clc_diag     =  0.5_wp,    & !cloud cover at saturation
-#ifdef __COSMO__
-  q_crit       =  4.0_wp,    & !critical value for normalized over-saturation
-#endif
-#ifdef __ICON__
   q_crit       =  1.6_wp,    & !critical value for normalized over-saturation
-#endif
   c_scld       =  1.0_wp       !factor for liquid water flux density in sub grid scale clouds
 
 !==============================================================================
@@ -322,13 +298,11 @@ INTEGER :: &
                       ! 0: only vertical shear of horizontal wind
                       ! 1: previous plus horizontal shear correction
                       ! 2: previous plus shear from vertical velocity
-#ifdef __ICON__
 INTEGER :: &
   itype_diag_t2m=1    ! type of diagnostics of 2m-temperature and -dewpoint
                       ! 1: Considering a fictive surface roughness of a SYNOP lawn
                       ! 2: Considering the mean surface roughness of a grid box
                       !    and using an exponential roughness layer profile
-#endif
 
 ! To reproduce the old ijk turbulence settings as good as possible, all these switches 
 ! have to be set to 1. If loldtur=.TRUE., the re-setting is done in organize_physics.
@@ -611,7 +585,6 @@ CONTAINS
 
 ! MR: Uli, the following SUB 'get_turbdiff' should be ported to the ICON-interface 
 !     for TURBDIFF!!
-#ifdef  __ICON__
 
 ! this subroutines sets the switches defined above during an ICON run
 
@@ -667,7 +640,6 @@ SUBROUTINE get_turbdiff_param (jg)
    loutshs      = ltkeshs .OR. itype_sher > 0
 
 END SUBROUTINE get_turbdiff_param
-#endif
 
 !==============================================================================
 

@@ -44,7 +44,7 @@ use_host='@host_fqdn@'
 use_site='local.net'
 case "$use_host" in
   wizard*|mlogin*|btlogin*|btc*) use_site=dkrz.de ;;
-  daint*|tave*|santis*|kesch*) use_site=cscs.ch ;;
+  daint*|tave*|santis*|kesch*|tsa*) use_site=cscs.ch ;;
   ic2*|uc1*|fh2*) use_site=kit.edu ;;
   xc*|rcnl*|oflws*) use_site=dwd.de ;;
   *mpimet.mpg.de)
@@ -100,6 +100,14 @@ case "$use_site" in
         use_sync_submit='sbatch --wait'
         use_mpi_startrun='srun -n $mpi_total_procs --ntasks-per-node $mpi_procs_pernode --threads-per-core=1 --cpus-per-task $OMP_NUM_THREADS'
         use_target='tave_knl'
+      ;;
+
+      *tsa*)
+        use_load_profile='. /etc/profile.d/modules.sh'
+        use_submit='sbatch'
+        use_sync_submit='sbatch --wait'
+        use_mpi_startrun='srun -n $mpi_total_procs --ntasks-per-node $mpi_procs_pernode --threads-per-core=1 --cpus-per-task $OMP_NUM_THREADS'
+        if test xyes = x"${use_gpu}"; then use_target='tsa_gpu'; else use_target='tsa_cpu'; fi
       ;;
 
       *kesch*)

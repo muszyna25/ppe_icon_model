@@ -37,7 +37,6 @@ MODULE mo_init_vgrid
   USE mo_nonhydrostatic_config, ONLY: ivctype
   USE mo_sleve_config,          ONLY: itype_laydistr, min_lay_thckn, max_lay_thckn, htop_thcknlimit, top_height, &
                                       decay_scale_1, decay_scale_2, decay_exp, flat_height, stretch_fac
-  USE mo_dynamics_config,       ONLY: iequations
   USE mo_vertical_coord_table,  ONLY: read_vct
 
 
@@ -85,10 +84,10 @@ CONTAINS
     ! number of vertical half levels
     nlevp1 = nlev+1
 
-    ! read hybrid parameters as in the hydrostatic model
+    ! read hybrid parameters
     IF ( layer_thickness < 0.0_wp) THEN
 
-      CALL read_vct (iequations,nlev)
+      CALL read_vct (nlev)
 
     ELSE
 

@@ -278,13 +278,6 @@ CONTAINS
 
     CHARACTER(len=*), INTENT(in) :: namelist_filename
 
-    LOGICAL :: unit_is_occupied
-
-    CHARACTER(len=*), PARAMETER :: routine = modname//':open_nml'
-
-    INQUIRE(UNIT=nnml, OPENED=unit_is_occupied)
-    IF (unit_is_occupied) CALL finish(TRIM(routine), 'namelist unit is already open')
-
     CALL open_nml_icon(TRIM(namelist_filename))
     open_nml = 1
 
@@ -355,9 +348,6 @@ MODULE mo_jsb_time_iface
   USE mo_time_config,            ONLY: time_config !configure_time
   USE mo_time_nml,               ONLY: read_time_namelist
   USE mo_dynamics_config,        ONLY: iequations
-  USE mo_impl_constants,         ONLY: ihs_atm_temp, ihs_atm_theta, ishallow_water, &
-    &                                  leapfrog_expl, leapfrog_si
-  USE mo_ha_dyn_config,          ONLY: ha_dyn_config
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights,              &
     &                                  calculate_time_interpolation_weights
   USE mo_echam_phy_config,       ONLY: echam_phy_tc, dt_zero
@@ -655,12 +645,10 @@ CONTAINS
   END SUBROUTINE get_time_interpolation_weights
 
   REAL(wp) FUNCTION get_asselin_coef()
+    CHARACTER(len=*), PARAMETER :: routine = modname//':get_asselin_coef'
 
     SELECT CASE(iequations)
-    CASE(ishallow_water,ihs_atm_temp,ihs_atm_theta)
-      IF (ha_dyn_config%itime_scheme == leapfrog_expl .OR. ha_dyn_config%itime_scheme == leapfrog_si) THEN
-        get_asselin_coef = ha_dyn_config%asselin_coeff
-      END IF
+    !
     CASE DEFAULT
       get_asselin_coef = 0._wp
     END SELECT

@@ -71,7 +71,7 @@ MODULE mo_memory_bgc
   REAL(wp), DIMENSION(6):: dmsp
 
   REAL(wp) :: calcinp, orginp, silinp
-  REAL(wp) :: roc13, atcoa
+  REAL(wp) :: roc13
   REAL(wp) :: ozkoa, totalarea
   REAL(wp) :: globalmean_co2, globalmean_o2, globalmean_n2
   REAL(wp) :: atmacon, atmacmol
@@ -79,7 +79,7 @@ MODULE mo_memory_bgc
   REAL(wp) :: totarea
   REAL(wp) :: phytomi, grami, grazra, rrrcl,docmin
   REAL(wp) :: remido, dyphy, zinges, epsher, spemor, gammap, gammaz, ecan
-  REAL(wp) :: ro2ut, rcar, rnit, rnoi, rnit23, rnit13, rcalc, ropal, rn2, p2gtc
+  REAL(wp) :: ro2ut, rcar, rnit, rnoi, rnit23, rnit13, ropal, rn2, p2gtc
   REAL(wp) :: bkphy, bkzoo, bkopal, bifr13, bifr14, plafr13, plafr14
   REAL(wp) :: dremdoc, dremn2o
   REAL(wp) :: thresh_aerob ! O2 threshold for aerob POC remineralization
@@ -104,6 +104,13 @@ MODULE mo_memory_bgc
   REAL(wp) :: bkcya_N, doccya_fac           ! (namelist parameter)
   REAL(wp) :: buoyancyspeed_cya      
   REAL(wp) :: ralk, cyamin, ro2ut_cya
+
+  ! Extended Nitrogen cycle variables
+  REAL(wp) :: bkno3_cya, bknh4_cya, ro2ammo, bkno3, bknh4
+  REAL(wp) :: rmm, kg_denom, bkpo4, o2thresh, o2den_lim
+  REAL(wp) :: no2denit, anamoxra, bkno2, bkrad, nitriox, nitrira
+  REAL(wp) :: bkfe, rno3nh4, rno3no2, rnh4no2, rno2no3, alk_nrn2
+  REAL(wp) :: rno2n2
 
 
   REAL(wp), PARAMETER :: ppm2con=0.35e-3_wp     !> ppm2con: atmospheric weight: ~10000kg/m^2, avrg. ~29 g/mol

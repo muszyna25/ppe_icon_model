@@ -226,6 +226,10 @@ MODULE mo_icon2dace
   use mo_t_veri,      only: setup_veri_obs,  &! set up obs.interpol. operators
                             add_veri,        &! add entry to feedback file
                             prefix_out        ! feedback output file prefix
+  use mo_tovs,        only: read_tovs_nml,   &! read TOVS_* namelists
+                            superob_tovs
+  use mo_rad,         only: rad_set,         &! Options for radiance datasets
+                            n_set
   !------------------------
   ! feedback file interface
   !------------------------
@@ -1108,6 +1112,28 @@ contains
                "real owner:", owner_v(jc,1,jb)
        end if
        ne = patch% verts% num_edges(jc,jb)
+       if (ne < 6) then
+          !--------------------------------
+          ! Remove duplicate neighbor cells
+          !--------------------------------
+          do k = 2, ne
+             if (any (      (patch% verts% cell_idx(jc,jb,  k  ) == &
+                             patch% verts% cell_idx(jc,jb,1:k-1)    ) &
+                      .and. (patch% verts% cell_blk(jc,jb,  k  ) == &
+                             patch% verts% cell_blk(jc,jb,1:k-1))   ) ) then
+                if (dbg_level > 1) then
+                   write(0,*) "### 'Duplicate' neighbor cells: ne,jc,jb,k=", ne, jc, jb, k
+                   write(0,*) "# patch% verts% cell_idx=", patch% verts% cell_idx(jc,jb,1:k)
+                   write(0,*) "# patch% verts% cell_blk=", patch% verts% cell_blk(jc,jb,1:k)
+                end if
+                !--------------------------------------------------------------------
+                ! Adjust number of edges for boundary points with duplicate neighbors
+                !--------------------------------------------------------------------
+                ne = k - 1
+                exit
+             end if
+          end do
+       end if
        p% verts% num_edges(j,1) = ne
        do k = 1, ne
           nc = patch% verts% neighbor_idx(jc,jb,k)
@@ -1198,7 +1224,8 @@ contains
     do j = j1, j2
        jc = marr_v(2,j)
        jb = marr_v(3,j)
-       ne = patch% verts% num_edges(jc,jb)
+!       ne = patch% verts% num_edges(jc,jb)
+       ne = p% verts% num_edges(j,1)            ! "Adjusted" number of edges
        do k = 1, ne
           nc = patch% verts% cell_idx(jc,jb,k)
           nb = patch% verts% cell_blk(jc,jb,k)
@@ -1535,9 +1562,18 @@ contains
     type(t_nwp_phy_diag), pointer :: phy_d    ! physical model diagnostic vars.
     type(t_lnd_prog),     pointer :: lnd_p    ! land model, prognostic vars.
     type(t_lnd_diag),     pointer :: lnd_d    ! land model, diagnostic vars.
-    character(*), parameter :: fields = &
-         "ps pf t u v q qcl qci z0 t2m td2m rh2m u_10m v_10m&
-         & clct clcl clcm clch tsurf h_snow fr_ice" ! "t_so" currently not used
+    logical                       :: l_rad_cld
+    ! character(*), parameter :: fields = &
+    !      "ps pf ph t u v den q qcl qci qv_s z0 qv_dia qc_dia qi_dia& 
+    !      & t2m td2m rh2m u_10m v_10m clct clcl clcm clch clc&
+    !      & tsurf h_snow fr_ice" ! "t_so" currently not used
+    character(*), parameter :: fields_default = &
+         "ps pf ph t u v den q qcl qci qv_s z0& 
+         & t2m td2m rh2m u_10m v_10m clct clcl clcm clch&
+         & tsurf h_snow fr_ice" ! "t_so" currently not used
+    character(*), parameter :: fields_rad_cld = &
+         "qv_dia qc_dia qi_dia clc"
+    character(512)          :: fields
 
     g  => state% grid
     nz =  g% nz
@@ -1548,6 +1584,16 @@ contains
     lnd_d => p_lnd_state(1)% diag_lnd
     lnd_p => p_lnd_state(1)% prog_lnd(nnow_rcf(1))
 
+    l_rad_cld = .false.
+    do j = 1, n_set
+      if (any(rad_set(j)%iopts(1:rad_set(j)%n_instr)%cloud_mode > 0)) then
+        l_rad_cld = .true.
+      end if
+    end do
+
+    fields = fields_default
+    if (l_rad_cld) fields = trim(fields)//' '//trim(fields_rad_cld)
+    
     call allocate (state, fields)
     
     ! Ensure that diagnostic fields are up-to-date (HR, CW)
@@ -1579,34 +1625,49 @@ contains
        blk = marr_c(3,j)
        state% ps    (j,1,1,1) = atm_d% pres_sfc(idx,blk)
        do k = 1, nz
-          state% pf (j,1,k,1) = atm_d% pres  (idx,k,blk)
-          state% t  (j,1,k,1) = atm_d% temp  (idx,k,blk)
-          state% u  (j,1,k,1) = atm_d% u     (idx,k,blk)
-          state% v  (j,1,k,1) = atm_d% v     (idx,k,blk)
+          state% pf (j,1,k,1) = atm_d% pres     (idx,k,blk)
+          state% t  (j,1,k,1) = atm_d% temp     (idx,k,blk)
+          state% u  (j,1,k,1) = atm_d% u        (idx,k,blk)
+          state% v  (j,1,k,1) = atm_d% v        (idx,k,blk)
        end do
+       do k = 1, nz+1
+          state% ph (j,1,k,1) = atm_d% pres_ifc (idx,k,blk)
+       end do
+
        do k = 1, nz
-          state%          q  (j,1,k,1) = atm_r% tracer(idx,k,blk,iqv)
-          state%          qcl(j,1,k,1) = atm_r% tracer(idx,k,blk,iqc)
-          state%          qci(j,1,k,1) = atm_r% tracer(idx,k,blk,iqi)
+          state% den  (j,1,k,1) = atm_p% rho    (idx,k,blk)
+       end do
+       
+       do k = 1, nz
+          state%          q      (j,1,k,1) = atm_r% tracer(idx,k,blk,iqv)
+          state%          qcl    (j,1,k,1) = atm_r% tracer(idx,k,blk,iqc)
+          state%          qci    (j,1,k,1) = atm_r% tracer(idx,k,blk,iqi)
+          if (l_rad_cld) then
+            state%          clc    (j,1,k,1) = phy_d% clc   (idx,k,blk)*100._wp !convert to percent
+            state%          qv_dia (j,1,k,1) = phy_d% tot_cld  (idx,k,blk,iqv)
+            state%          qc_dia (j,1,k,1) = phy_d% tot_cld  (idx,k,blk,iqc)
+            state%          qi_dia (j,1,k,1) = phy_d% tot_cld  (idx,k,blk,iqi)
+          end if
           if (lqr) state% qr (j,1,k,1) = atm_r% tracer(idx,k,blk,iqr)
           if (lqs) state% qs (j,1,k,1) = atm_r% tracer(idx,k,blk,iqs)
           if (lqg) state% qg (j,1,k,1) = atm_r% tracer(idx,k,blk,iqg)
        end do
 
-       state% z0    (j,1,1,1) = phy_d% gz0      (idx,blk) / gacc
-       state% t2m   (j,1,1,1) = phy_d% t_2m     (idx,blk)
-       state% td2m  (j,1,1,1) = phy_d% td_2m    (idx,blk)
-       state% rh2m  (j,1,1,1) = phy_d% rh_2m    (idx,blk)
-       state% u_10m (j,1,1,1) = phy_d% u_10m    (idx,blk)
-       state% v_10m (j,1,1,1) = phy_d% v_10m    (idx,blk)
-       state% clct  (j,1,1,1) = phy_d% clct     (idx,blk)*100._wp !convert to percent
-       state% clcl  (j,1,1,1) = phy_d% clcl     (idx,blk)*100._wp !convert to percent
-       state% clcm  (j,1,1,1) = phy_d% clcm     (idx,blk)*100._wp !convert to percent
-       state% clch  (j,1,1,1) = phy_d% clch     (idx,blk)*100._wp !convert to percent
-       state% tsurf (j,1,1,1) = lnd_p% t_g      (idx,blk)
-       state% h_snow(j,1,1,1) = lnd_d% h_snow   (idx,blk)
-       state% fr_ice(j,1,1,1) = lnd_d% fr_seaice(idx,blk)
-!      state% t_so  (j,1,:,1) = lnd_p% t_so   (idx,:,blk) ! needs checking
+       state% z0     (j,1,1,1) = phy_d% gz0      (idx,blk) / gacc
+       state% t2m    (j,1,1,1) = phy_d% t_2m     (idx,blk)
+       state% td2m   (j,1,1,1) = phy_d% td_2m    (idx,blk)
+       state% rh2m   (j,1,1,1) = phy_d% rh_2m    (idx,blk)
+       state% u_10m  (j,1,1,1) = phy_d% u_10m    (idx,blk)
+       state% v_10m  (j,1,1,1) = phy_d% v_10m    (idx,blk)
+       state% clct   (j,1,1,1) = phy_d% clct     (idx,blk)*100._wp !convert to percent
+       state% clcl   (j,1,1,1) = phy_d% clcl     (idx,blk)*100._wp !convert to percent
+       state% clcm   (j,1,1,1) = phy_d% clcm     (idx,blk)*100._wp !convert to percent
+       state% clch   (j,1,1,1) = phy_d% clch     (idx,blk)*100._wp !convert to percent
+       state% tsurf  (j,1,1,1) = lnd_p% t_g      (idx,blk)
+       state% h_snow (j,1,1,1) = lnd_d% h_snow   (idx,blk)
+       state% fr_ice (j,1,1,1) = lnd_d% fr_seaice(idx,blk)
+       state% qv_s   (j,1,1,1) = lnd_d% qv_s     (idx,blk)
+!      state% t_so   (j,1,:,1) = lnd_p% t_so   (idx,:,blk) ! needs checking
     end do
 
     call set_geo (state, geof=.true.)
@@ -1741,6 +1802,7 @@ contains
     call init_fdbk_tables () ! initialise tables
     call disable_gh       () ! disable generalized humidity transformation
     call read_nml_report     ! set defaults in table 'rept_use'
+    call read_tovs_nml       ! read namelists /TOVS_OBS/ and /TOVS_OBS_CHAN_NML/
     flush (6)
 
     !===================================
@@ -1768,7 +1830,6 @@ contains
 !   call stop_time ('read observations')
     call message ('init_dace_op','read observations')
     call process_obs (TSK_READ, obs_b, refatm)
-    call process_obs (TSK_R,    obs_b, refatm)
     call flush_buf
     call unique_spot (obs_b% o)
     !-----------------------------------
@@ -1781,10 +1842,9 @@ contains
     ! check for out of domain observations
     ! + for COSMO operators do reject,
     ! + dismiss does not work yet
-    ! horizontal check is already done for read_cdfin input
     !------------------------------------------------------
     rept_use(:)% use (CHK_DOMAIN) = STAT_REJECTED
-    call check_domain (obs_in(1), grid, horizontal=.not. read_cdfin)
+    call check_domain (obs_in(1), grid, horizontal=.true.)
 
     !------------------------------------------
     ! Set up boxes to run observation operators
@@ -2144,6 +2204,9 @@ contains
           !------------------------
           call apply_H  (H_det , obs, atm(mec_slotn:mec_slotn), bg=first)
        end if
+
+       call superob_tovs(obs, H_det)
+       call process_obs (TSK_R,    obs)
 
        if (first) then
           !-------------------------

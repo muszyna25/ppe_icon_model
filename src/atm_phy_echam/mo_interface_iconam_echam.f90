@@ -256,7 +256,7 @@ CONTAINS
     !$ACC               patch%edges%cell_idx, patch%edges%primal_normal_cell,                   &
     !$ACC               field%pfull,                                                            &
     !$ACC               field%rho, field%mair, field%dz, field%mh2o,                            &
-    !$ACC               field%mdry, field%mref, field%xref, field%omega,                        &
+    !$ACC               field%mdry, field%mref, field%xref, field%wa, field%omega,              &
     !$ACC               field%clon, field%clat, field%mtrc, field%qtrc,                         &
     !$ACC               field%mtrcvi, field%mh2ovi, field%mairvi, field%mdryvi, field%mrefvi,   &
     !$ACC               tend%ua, tend%va, tend%ta, tend%ua_dyn, tend%va_dyn, tend%ta_dyn,       &

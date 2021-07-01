@@ -1691,12 +1691,14 @@ MODULE mo_nonhydro_state
     &       p_diag%grf_tend_tracer, &
     &       p_diag%dvn_ie_int, &
     &       p_diag%dvn_ie_ubc, &
+    &       p_diag%w_int, &
+    &       p_diag%w_ubc, &
+    &       p_diag%theta_v_ic_int, &
+    &       p_diag%theta_v_ic_ubc, &
+    &       p_diag%rho_ic_int, &
+    &       p_diag%rho_ic_ubc, &
     &       p_diag%mflx_ic_int, &
     &       p_diag%mflx_ic_ubc, &
-    &       p_diag%dtheta_v_ic_int, &
-    &       p_diag%dtheta_v_ic_ubc, &
-    &       p_diag%dw_int, &
-    &       p_diag%dw_ubc, &
     &       p_diag%q_int, &
     &       p_diag%q_ubc, &
     &       p_diag%vn_incr, &
@@ -2303,76 +2305,100 @@ MODULE mo_nonhydro_state
       __acc_attach(p_diag%dvn_ie_ubc)
 
 
-      ! mflx_ic_int  p_diag%mflx_ic_int(nproma,nblks_c,ndyn_substeps_max+2)
+      ! w_int       p_diag%w_int(nproma,nblks_c,ndyn_substeps_max+1)
       !
-      cf_desc    = t_cf_var('mass_flux_at_parent_interface_level', 'kg m-3',    &
+      cf_desc    = t_cf_var('w_int', 'm s-1',                                   &
+        &                   'vertical velocity at parent interface level', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'w_int', p_diag%w_int,                         &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                  & ldims=shape3d_ubcp1, lrestart=.FALSE., loutput=.FALSE.,     &
+                  & lopenacc = .TRUE. )
+      __acc_attach(p_diag%w_int)
+
+
+      ! w_ubc       p_diag%w_ubc(nproma,nblks_c)
+      !
+      cf_desc    = t_cf_var('w_ubc', 'm s-1',                                   &
+        &                   'vertical velocity at child upper boundary', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'w_ubc', p_diag%w_ubc,                         &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                  & ldims=shape2d_c, lrestart=.FALSE.,                          &
+                  & lopenacc = .TRUE. )
+      __acc_attach(p_diag%w_ubc)
+
+
+      ! theta_v_ic_int    p_diag%theta_v_ic_int(nproma,nblks_c,ndyn_substeps_max+1)
+      !
+      cf_desc    = t_cf_var('theta_v_ic_int', 'K',                           &
+        &                   'potential temperature at parent interface level', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'theta_v_ic_int', p_diag%theta_v_ic_int,       &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                  & ldims=shape3d_ubcp1, lrestart=.FALSE., loutput=.FALSE.,     &
+                  & lopenacc = .TRUE. )
+      __acc_attach(p_diag%theta_v_ic_int)
+
+
+      ! theta_v_ic_ubc    p_diag%theta_v_ic_ubc(nproma,nblks_c)
+      !
+      cf_desc    = t_cf_var('theta_v_ic_ubc', 'K',                           &
+        &                   'potential temperature at child upper boundary', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'theta_v_ic_ubc', p_diag%theta_v_ic_ubc,       &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                  & ldims=shape2d_c, lrestart=.FALSE., loutput=.TRUE.,          &
+                  & lopenacc = .TRUE. )
+      __acc_attach(p_diag%theta_v_ic_ubc)
+
+
+      ! rho_ic_int    p_diag%rho_ic_int(nproma,nblks_c,ndyn_substeps_max+1)
+      !
+      cf_desc    = t_cf_var('rho_ic_int', 'K',                                  &
+        &                   'density at parent interface level', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'rho_ic_int', p_diag%rho_ic_int,               &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                  & ldims=shape3d_ubcp1, lrestart=.FALSE., loutput=.FALSE.,     &
+                  & lopenacc = .TRUE. )
+      __acc_attach(p_diag%rho_ic_int)
+
+
+      ! rho_ic_ubc    p_diag%rho_ic_ubc(nproma,nblks_c)
+      !
+      cf_desc    = t_cf_var('rho_ic_ubc', 'K',                                  &
+        &                   'density at child upper boundary', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'rho_ic_ubc', p_diag%rho_ic_ubc,               &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                  & ldims=shape2d_c, lrestart=.FALSE., loutput=.TRUE.,          &
+                  & lopenacc = .TRUE. )
+      __acc_attach(p_diag%rho_ic_ubc)
+
+
+      ! mflx_ic_int  p_diag%mflx_ic_int(nproma,nblks_c,ndyn_substeps_max+1)
+      !
+      cf_desc    = t_cf_var('mflx_ic_int', 'kg m-3',                            &
         &                   'mass flux at parent interface level', datatype_flt)
       grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_diag_list, 'mflx_ic_int', p_diag%mflx_ic_int,             &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                  & ldims=shape3d_ubcp, lrestart=.FALSE., loutput=.FALSE.,      &
+                  & ldims=shape3d_ubcp1, lrestart=.FALSE., loutput=.FALSE.,     &
                   & lopenacc = .TRUE. )
       __acc_attach(p_diag%mflx_ic_int)
 
 
-      ! mflx_ic_ubc  p_diag%mflx_ic_ubc(nproma,nblks_c,2)
+      ! mflx_ic_ubc  p_diag%mflx_ic_ubc(nproma,nblks_c)
       !
-      cf_desc    = t_cf_var('mass_flux_at_child_upper_boundary', 'kg m-3',      &
+      cf_desc    = t_cf_var('mflx_ic_ubc', 'kg m-3',                            &
         &                   'mass flux at child upper boundary', datatype_flt)
       grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_diag_list, 'mflx_ic_ubc', p_diag%mflx_ic_ubc,             &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                  & ldims=shape3d_ubcc, lrestart=.FALSE., loutput=.FALSE.,      &
+                  & ldims=shape2d_c, lrestart=.FALSE., loutput=.TRUE.,          &
                   & lopenacc = .TRUE. )
       __acc_attach(p_diag%mflx_ic_ubc)
-
-
-      ! dtheta_v_ic_int    p_diag%dtheta_v_ic_int(nproma,nblks_c,ndyn_substeps_max+1)
-      !
-      cf_desc    = t_cf_var('theta_at_parent_interface_level', 'K',             &
-        &                   'potential temperature at parent interface level', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_diag_list, 'dtheta_v_ic_int', p_diag%dtheta_v_ic_int,     &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                  & ldims=shape3d_ubcp1, lrestart=.FALSE., loutput=.FALSE.,     &
-                  & lopenacc = .TRUE. )
-      __acc_attach(p_diag%dtheta_v_ic_int)
-
-
-      ! dtheta_v_ic_ubc    p_diag%dtheta_v_ic_ubc(nproma,nblks_c)
-      !
-      cf_desc    = t_cf_var('theta_at_child_upper_boundary', 'K',               &
-        &                   'potential temperature at child upper boundary', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_diag_list, 'dtheta_v_ic_ubc', p_diag%dtheta_v_ic_ubc,     &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                  & ldims=shape2d_c, lrestart=.FALSE.,                          &
-                  & lopenacc = .TRUE. )
-      __acc_attach(p_diag%dtheta_v_ic_ubc)
-
-
-      ! dw_int       p_diag%dw_int(nproma,nblks_c,ndyn_substeps_max+1)
-      !
-      cf_desc    = t_cf_var('w_at_parent_interface_level', 'm s-1',             &
-        &                   'vertical velocity at parent interface level', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_diag_list, 'dw_int', p_diag%dw_int,                       &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                  & ldims=shape3d_ubcp1, lrestart=.FALSE., loutput=.FALSE.,     &
-                  & lopenacc = .TRUE. )
-      __acc_attach(p_diag%dw_int)
-
-
-      ! dw_ubc       p_diag%dw_ubc(nproma,nblks_c)
-      !
-      cf_desc    = t_cf_var('w at child upper boundary', 'm s-1',               &
-        &                   'vertical velocity at child upper boundary', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_diag_list, 'dw_ubc', p_diag%dw_ubc,                       &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                  & ldims=shape2d_c, lrestart=.FALSE.,                          &
-                  & lopenacc = .TRUE. )
-      __acc_attach(p_diag%dw_ubc)
 
 
       ! q_int        p_diag%q_int(nproma,nblks_c,ntracer)
@@ -2902,7 +2928,7 @@ MODULE mo_nonhydro_state
       CALL add_var( p_diag_list, 't2m_bias', p_diag%t2m_bias,                         &
         &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
         &           ldims=shape2d_c, lrestart=.true.,                                 &
-        &           in_group=groups("mode_iau_fg_in") )
+        &           in_group=groups("mode_iau_fg_in","mode_dwd_fg_in","mode_combined_in") )
     ENDIF
 
     IF (icpl_da_sfcevap >= 2) THEN
@@ -2915,17 +2941,30 @@ MODULE mo_nonhydro_state
       CALL add_var( p_diag_list, 'rh_avginc', p_diag%rh_avginc,                       &
         &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,       &
         &           ldims=shape2d_c, lrestart=.true.,                                 &
-        &           in_group=groups("mode_iau_fg_in") )
+        &           in_group=groups("mode_iau_fg_in","mode_dwd_fg_in","mode_combined_in") )
     ENDIF
 
     IF (icpl_da_sfcevap >= 3) THEN
       !  Time-filtered near-surface level T increment from data assimilation
-      cf_desc    = t_cf_var('t_avginc', '1', 'Filtered T increment', datatype_flt)
+      cf_desc    = t_cf_var('t_avginc', 'K', 'Filtered T increment', datatype_flt)
       grib2_desc = grib2_var(0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL) &
                  + t_grib2_int_key("typeOfGeneratingProcess", 207)     &
                  + t_grib2_int_key("typeOfSecondFixedSurface", 1)      &
                  + t_grib2_int_key("scaledValueOfFirstFixedSurface", 20)
       CALL add_var( p_diag_list, 't_avginc', p_diag%t_avginc,                       &
+        &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,     &
+        &           ldims=shape2d_c, lrestart=.true.,                               &
+        &           in_group=groups("mode_iau_fg_in","mode_dwd_fg_in","mode_combined_in") )
+    ENDIF
+
+    IF (latbc_config%fac_latbc_presbiascor > 0._wp) THEN
+      !  Time-filtered near-surface level pressure increment from data assimilation
+      cf_desc    = t_cf_var('p_avginc', 'Pa', 'Filtered P increment', datatype_flt)
+      grib2_desc = grib2_var(0, 3, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL) &
+                 + t_grib2_int_key("typeOfGeneratingProcess", 207)         &
+                 + t_grib2_int_key("typeOfSecondFixedSurface", 1)          &
+                 + t_grib2_int_key("scaledValueOfFirstFixedSurface", 20)
+      CALL add_var( p_diag_list, 'p_avginc', p_diag%p_avginc,                       &
         &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,     &
         &           ldims=shape2d_c, lrestart=.true.,                               &
         &           in_group=groups("mode_iau_fg_in") )
@@ -3398,7 +3437,6 @@ MODULE mo_nonhydro_state
     INTEGER :: ibits         !< "entropy" of horizontal slice
     INTEGER :: DATATYPE_PACK_VAR  !< variable "entropy" for selected fields
     INTEGER :: datatype_flt       !< floating point accuracy in NetCDF output
-    INTEGER :: ist
     LOGICAL :: group(MAX_GROUPS)
 
     !--------------------------------------------------------------
@@ -4264,6 +4302,8 @@ MODULE mo_nonhydro_state
 
       ! index lists for halo points belonging to the nest boundary region
       ! p_metrics%bdy_halo_c_idx
+      ! Note: if bdy_halo_c_dim == 0, the array is still allocated with size 1.
+      !       ldims has to reflect that, because otherwise it causes serialbox to crash
       !
       cf_desc    = t_cf_var('bdy_halo_c_idx', '-',                                      &
       &                     'index lists for halo points belonging to the nest boundary region', &
@@ -4271,11 +4311,13 @@ MODULE mo_nonhydro_state
       grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_metrics_list, 'bdy_halo_c_idx', p_metrics%bdy_halo_c_idx, &
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,        &
-                  & ldims=(/p_metrics%bdy_halo_c_dim/), lopenacc = .TRUE. )
+                  & ldims=(/MAX(p_metrics%bdy_halo_c_dim,1)/), lopenacc = .TRUE. )
       __acc_attach(p_metrics%bdy_halo_c_idx)
 
       ! block lists for halo points belonging to the nest boundary region
       ! bdy_halo_c_blk
+      ! Note: if bdy_halo_c_dim == 0, the array is still allocated with size 1.
+      !       ldims has to reflect that, because otherwise it causes serialbox to crash
       !
       cf_desc    = t_cf_var('bdy_halo_c_blk', '-',                                      &
       &                     'block lists for halo points belonging to the nest boundary region', &
@@ -4283,7 +4325,7 @@ MODULE mo_nonhydro_state
       grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_metrics_list, 'bdy_halo_c_blk', p_metrics%bdy_halo_c_blk, &
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,        &
-                  & ldims=(/p_metrics%bdy_halo_c_dim/), lopenacc = .TRUE. )
+                  & ldims=(/MAX(p_metrics%bdy_halo_c_dim,1)/), lopenacc = .TRUE. )
       __acc_attach(p_metrics%bdy_halo_c_blk)
       
       ! mask field that excludes boundary halo points

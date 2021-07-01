@@ -1049,7 +1049,7 @@ CONTAINS
 
     ! &       field% qtrc      (nproma,nlev  ,nblks,ntracer),  &
     CALL add_var( field_list, prefix//'qtrc_phy', field%qtrc,                  &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                           &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                        &
                 & t_cf_var('mass_fraction_of_tracer_in_air', 'kg kg-1',        &
                 &          'mass fraction of tracer in air (physics)',         &
                 &          datatype_flt),                                      &
@@ -1061,7 +1061,7 @@ CONTAINS
 
     ! &       field% mtrc      (nproma,nlev  ,nblks,ntracer),  &
     CALL add_var( field_list, prefix//'mtrc_phy', field%mtrc,                  &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                           &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                        &
                 & t_cf_var('mass_of_tracer_in_air', 'kg m-2',                  &
                 &          'mass of tracer in air (physics)',                  &
                 &          datatype_flt),                                      &
@@ -1430,6 +1430,7 @@ CONTAINS
     __acc_attach(field%pfull)
 
     !-- Variables defined at layer interfaces --
+
     ! &       field% geoi      (nproma,nlevp1,nblks),          &
     cf_desc    = t_cf_var('geopotential above surface', 'm2 s-2', 'geopotential above surface', datatype_flt)
     grib2_desc = grib2_var(0, 3, 4, ibits, GRID_UNSTRUCTURED, GRID_CELL)

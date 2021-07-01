@@ -47,7 +47,7 @@ USE mo_nh_testcases,         ONLY: init_nh_testcase
 USE mo_nh_testcases_nml,      ONLY: nh_test_name
 USE mo_ls_forcing_nml,       ONLY: is_ls_forcing, is_nudging
 USE mo_ls_forcing,           ONLY: init_ls_forcing
-USE mo_dynamics_config,      ONLY: iequations, nnow, nnow_rcf, nnew, nnew_rcf, idiv_method
+USE mo_dynamics_config,      ONLY: nnow, nnow_rcf, nnew, nnew_rcf, idiv_method
 ! Horizontal grid
 USE mo_model_domain,         ONLY: p_patch
 USE mo_grid_config,          ONLY: n_dom, start_time, end_time, &
@@ -60,12 +60,13 @@ USE mo_vertical_grid,        ONLY: set_nh_metrics
 ! Grid nesting
 USE mo_nh_nest_utilities,    ONLY: complete_nesting_setup
 ! NH-namelist state
-USE mo_nonhydrostatic_config,ONLY: kstart_moist, kend_qvsubstep, l_open_ubc,   &
-  &                                itime_scheme, kstart_tracer
+USE mo_nonhydrostatic_config,ONLY: configure_nonhydrostatic, kstart_moist, kend_qvsubstep, &
+  &                                l_open_ubc, itime_scheme, kstart_tracer
 
 USE mo_atm_phy_nwp_config,   ONLY: configure_atm_phy_nwp, atm_phy_nwp_config
 USE mo_ensemble_pert_config, ONLY: configure_ensemble_pert
 USE mo_synsat_config,        ONLY: configure_synsat
+USE mo_nwp_ww,               ONLY: configure_ww
 ! NH-Model states
 USE mo_nonhydro_state,       ONLY: p_nh_state, p_nh_state_lists,               &
   &                                construct_nh_state, destruct_nh_state,      &
@@ -73,9 +74,9 @@ USE mo_nonhydro_state,       ONLY: p_nh_state, p_nh_state_lists,               &
 USE mo_opt_diagnostics,      ONLY: construct_opt_diag, destruct_opt_diag,      &
   &                                compute_lonlat_area_weights
 USE mo_nwp_phy_state,        ONLY: prm_diag, prm_nwp_tend,                     &
-  &                                construct_nwp_phy_state, destruct_nwp_phy_state
-USE mo_nwp_lnd_state,        ONLY: p_lnd_state, construct_nwp_lnd_state,       &
-  &                                destruct_nwp_lnd_state
+  &                                construct_nwp_phy_state
+USE mo_nwp_lnd_state,        ONLY: p_lnd_state, construct_nwp_lnd_state
+USE mo_nwp_phy_cleanup,      ONLY: cleanup_nwp_phy
 USE mo_interface_les,        ONLY: init_les_phy_interface
 ! Time integration
 USE mo_nh_stepping,          ONLY: perform_nh_stepping
@@ -129,7 +130,6 @@ USE mo_var_list_register_utils, ONLY: vlr_print_groups
 USE mo_sync,                ONLY: sync_patch_array, sync_c
 USE mo_upatmo_setup,        ONLY: upatmo_initialize, upatmo_finalize
 USE mo_nudging_config,      ONLY: l_global_nudging
-USE mo_nwp_reff_interface,  ONLY: reff_calc_dom
 USE mo_random_util,         ONLY: add_random_noise
 
 USE mo_icon2dace,           ONLY: init_dace, finish_dace
@@ -190,6 +190,12 @@ CONTAINS
 
     IF (timers_level > 1) CALL timer_start(timer_model_init)
 
+
+    DO jg =1,n_dom
+      CALL configure_nonhydrostatic( jg, p_patch(jg)%nlev,     &
+        &                            p_patch(jg)%nshift_total  )
+    ENDDO
+
     IF (iforcing == iecham) THEN
       CALL init_echam_phy_params( p_patch(1:) )
     END IF
@@ -207,10 +213,12 @@ CONTAINS
 
       CALL configure_synsat()
 
-     ! initialize number of chemical tracers for convection
-     DO jg = 1, n_dom
-       CALL configure_art(jg)
-     ENDDO
+      DO jg = 1, n_dom
+        CALL configure_ww( time_config%tc_startdate, jg, p_patch(jg)%nlev, p_patch(jg)%nshift_total, 'ICON')
+        !
+        ! initialize number of chemical tracers for convection
+        CALL configure_art(jg)
+      ENDDO
 
     ENDIF
 
@@ -272,20 +280,21 @@ CONTAINS
     ! Unfortunately this conflicts with our trying to call the config-routines
     ! as early as possible.
     DO jg =1,n_dom
-     CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,  &
-       &                      iequations, iforcing, iqc, iqt,          &
-       &                      kstart_moist(jg), kend_qvsubstep(jg),    &
-       &                      lvert_nest, l_open_ubc, ntracer,         &
-       &                      idiv_method, itime_scheme,               &
-       &                      p_nh_state_lists(jg)%tracer_list(:),     &
-       &                      kstart_tracer(jg,:))
-
+      CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,   &
+        &                       iforcing, iqc, iqt,                      &
+        &                       kstart_moist(jg), kend_qvsubstep(jg),    &
+        &                       lvert_nest, l_open_ubc, ntracer,         &
+        &                       idiv_method, itime_scheme,               &
+        &                       p_nh_state_lists(jg)%tracer_list(:),     &
+        &                       kstart_tracer(jg,:) )
     ENDDO
 
    IF (ldass_lhn) THEN
      ALLOCATE (radar_data(n_dom), lhn_fields(n_dom), STAT=ist)
      IF (ist /= SUCCESS) &
        CALL finish(routine,'allocation for radar_data and lhn_fields failed')
+     !$ACC ENTER DATA CREATE( radar_data(n_dom), lhn_fields(n_dom) )
+
      CALL message(routine,'configure_lhn')
      DO jg =1,n_dom
        CALL configure_lhn(jg)
@@ -731,22 +740,20 @@ CONTAINS
     DEALLOCATE (p_nh_state, p_nh_state_lists, STAT=ist)
     IF (ist /= SUCCESS) CALL finish(routine,'deallocation for state failed')
 
+
+    ! close LES diag files
+    DO jg = 1 , n_dom
+      IF(atm_phy_nwp_config(jg)%is_les_phy .AND. is_plane_torus) &
+        CALL close_les_turbulent_output(jg)
+    END DO
+
+    ! cleanup NWP physics
     IF (iforcing == inwp) THEN
-      DO jg = 1, n_dom
-        IF ( atm_phy_nwp_config(jg)%icalc_reff .GT. 0 ) CALL reff_calc_dom(jg)%destruct()
-      ENDDO
-      CALL destruct_nwp_phy_state
-      CALL destruct_nwp_lnd_state( p_lnd_state )
-      DO jg = 1, n_dom
-        CALL atm_phy_nwp_config(jg)%finalize()
-      ENDDO
+      CALL cleanup_nwp_phy()
     ENDIF
 
-!
-! WS:  why is p_lnd_state not deallocated here?
-!
     IF (iforcing == iecham) THEN
-      CALL cleanup_echam_phy
+      CALL cleanup_echam_phy()
     ENDIF
 
     CALL upatmo_finalize(p_patch)
@@ -788,14 +795,10 @@ CONTAINS
       END DO
     END IF
 
-    !Close LES diag files
-    DO jg = 1 , n_dom
-     IF(atm_phy_nwp_config(jg)%is_les_phy .AND. is_plane_torus) &
-       CALL close_les_turbulent_output(jg)
-    END DO
 
     IF (ldass_lhn) THEN 
       ! deallocate ext_data array
+      !$ACC EXIT DATA DELETE( radar_data )
       DEALLOCATE(radar_data, STAT=ist)
       IF (ist /= SUCCESS) THEN
         CALL finish(routine, 'deallocation of radar_data for LHN')

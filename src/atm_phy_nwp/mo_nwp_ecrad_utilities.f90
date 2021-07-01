@@ -259,7 +259,7 @@ CONTAINS
       DO jk = 1, nlev
         DO jc = i_startidx, i_endidx
           ecrad_cloud%re_liq(jc,jk) = MAX(MIN(reff_liq(jc,jk),32.0e-6_wp),2.0e-6_wp)  
-          ecrad_cloud%re_ice(jc,jk) = MAX(MIN(reff_frz(jc,jk),99.0e-6_wp),4.0e-6_wp) 
+          ecrad_cloud%re_ice(jc,jk) = MAX(MIN(reff_frz(jc,jk),99.0e-6_wp),5.0e-6_wp) 
         ENDDO
       ENDDO
     ENDIF

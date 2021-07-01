@@ -52,6 +52,7 @@ MODULE mo_rtifc_nort
   ! subroutines
   public :: rtifc_version          ! Version string
   public :: rtifc_init             ! Initialise RTTOV modules, read coeffs
+  public :: rtifc_coef_index       ! Returns index of coeffs for given satid/instr
   public :: rtifc_cleanup          ! frees memory allocated by rtifc_init
   public :: rtifc_get_preslev      ! Get pressure levels
   public :: rtifc_fill_input       ! fills the profile-dependent part for RTTOV
@@ -98,8 +99,7 @@ contains
 
 
   subroutine rtifc_init(instruments,channels,nchans_inst,ropts,my_proc_id,n_proc,  &
-                        io_proc_id,mpi_comm_type,status,&
-                        path_coefs)
+                        io_proc_id,mpi_comm_type,status,path_coefs,idx)
     integer,             intent(in)          :: instruments(:,:)
     integer,             intent(in)          :: channels(:,:)
     integer,             intent(in)          :: nchans_inst(:)
@@ -110,11 +110,22 @@ contains
     integer,             intent(in)          :: mpi_comm_type          
     integer,             intent(out)         :: status                ! exit status
     character(*),        intent(in), optional:: path_coefs 
+    integer,             intent(out),optional:: idx(:)            ! Coeff. indices
 
     status = ERR_NO_RTTOV_LIB
 
   end subroutine rtifc_init
 
+
+  function rtifc_coef_index(satid, platf, instr) result(idx)
+    integer             :: idx
+    integer, intent(in) :: satid
+    integer, intent(in) :: platf
+    integer, intent(in) :: instr
+    
+    idx = -ERR_NO_RTTOV_LIB
+
+  end function rtifc_coef_index
 
 
   subroutine rtifc_cleanup(status)

@@ -567,7 +567,8 @@ CONTAINS
         nlen = patch_horz%npromz_c
       END IF
       DO n = 1, nlen
-        buffer(nn+n,1) = ocean_state%p_diag%u(n,1,i_blk)
+        buffer(nn+n,1) = (1.0_wp-ice%conc(n,1,i_blk))*ocean_state%p_diag%u(n,1,i_blk) &
+             + (ice%conc(n,1,i_blk)*ice%u(n,i_blk))
       ENDDO
     ENDDO
 !ICON_OMP_END_PARALLEL_DO
@@ -596,7 +597,8 @@ CONTAINS
         nlen = patch_horz%npromz_c
       END IF
       DO n = 1, nlen
-        buffer(nn+n,1) = ocean_state%p_diag%v(n,1,i_blk)
+        buffer(nn+n,1) = (1.0_wp-ice%conc(n,1,i_blk))*ocean_state%p_diag%v(n,1,i_blk) &
+             + (ice%conc(n,1,i_blk)*ice%v(n,i_blk))
       ENDDO
     ENDDO
 !ICON_OMP_END_PARALLEL_DO

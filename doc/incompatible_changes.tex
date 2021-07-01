@@ -450,5 +450,24 @@ from ...mpi\_phy... to ...echam\_phy... because programmers felt that the acrony
   \end{itemize}
 \end{changeitem}
 
+\begin{changeitem}{ha\_dyn\_nml / ha\_testcase\_nml}{2021-03-29}{icon-nwp:icon-nwp-dev 599f03e5}
+  \begin{itemize}
+   \item The namelists for configuring the hydrostatic model \texttt{ha\_dyn\_nml} as well as the hydrostatic testcases 
+   \texttt{ha\_testcase\_nml} have been removed completely, as the hydrostatic model is no longer part of the official code.
+  \end{itemize}
+\end{changeitem}
 
+\begin{changeitem}{dynamics\_nml}{2021-03-30}{icon-nwp:icon-nwp-dev 959fb5db}
+  \begin{itemize}
+   \item \texttt{iequations=0,1,2} (shallow water and hydrostatic atmosphere ($T$ or $\theta\cdot dp$)) no longer supported.
+   \item removed obsolete Namelist parameter \texttt{sw\_ref\_height} (reference height of shallow water model)
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{diffusion\_nml}{2021-04-16}{icon-nwp:icon-nwp-dev 806be7b0}
+  \begin{itemize}
+   \item removed obsolete Namelist parameter \texttt{k2\_pres\_max} and \texttt{k2\_klev\_max}, which were specific to the hydrostatic dynamical core.
+   \item removed horizontal diffusion options \texttt{hdiff\_order=24,42}
+  \end{itemize}
+\end{changeitem}
 % --------------------------------------------------------------------------------------------

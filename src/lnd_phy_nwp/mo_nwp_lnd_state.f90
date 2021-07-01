@@ -79,7 +79,7 @@ MODULE mo_nwp_lnd_state
     &                                ZA_DEPTH_BELOW_LAND_P1,                     &
     &                                ZA_DEPTH_RUNOFF_S, ZA_DEPTH_RUNOFF_G,       &
     &                                ZA_SEDIMENT_BOTTOM_TW_HALF, ZA_LAKE_BOTTOM, &
-    &                                ZA_LAKE_BOTTOM_HALF, ZA_MIX_LAYER, ZA_HEIGHT_2M
+    &                                ZA_LAKE_BOTTOM_HALF, ZA_MIX_LAYER
   USE sfc_terra_data,          ONLY: zzhls, zdzhs, zdzms
   USE mo_action,               ONLY: ACTION_RESET, actions, new_action
 
@@ -184,7 +184,7 @@ MODULE mo_nwp_lnd_state
            &   p_lnd_state(jg)%lnd_prog_nwp_list(1:ntl),STAT=ist)
       !$ACC ENTER DATA COPYIN(p_lnd_state(jg)%prog_lnd)
       IF(ist/=SUCCESS)THEN
-        CALL finish ('mo_nwp_lnd_state:construct_lnd_state', &
+        CALL finish (TRIM(routine), &
              'allocation of land prognostic state array failed')
       ENDIF
 
@@ -192,7 +192,7 @@ MODULE mo_nwp_lnd_state
                p_lnd_state(jg)%wtr_prog_nwp_list(1:ntl),STAT=ist)
       !$ACC ENTER DATA COPYIN(p_lnd_state(jg)%prog_wtr)
       IF(ist/=SUCCESS)THEN
-        CALL finish ('mo_nwp_lnd_state:construct_lnd_state', &
+        CALL finish (TRIM(routine), &
            'allocation of water prognostic state array failed')
       ENDIF
 
@@ -250,11 +250,8 @@ MODULE mo_nwp_lnd_state
   !! @par Revision History
   !! Initial release by Kristina Froehlich (2010-11-09)
   !!
-  SUBROUTINE destruct_nwp_lnd_state(p_lnd_state)
-   !
-    TYPE(t_lnd_state),  INTENT(INOUT) :: & 
-      &   p_lnd_state(n_dom)             ! land state at different grid levels
-
+  SUBROUTINE destruct_nwp_lnd_state()
+    !
     INTEGER :: ntl, &! local number of timelevels
       &        ist, &! status
       &         jg, &! grid level counter
@@ -316,6 +313,10 @@ MODULE mo_nwp_lnd_state
     ENDDO
 
     !$ACC EXIT DATA DELETE(p_lnd_state)
+    DEALLOCATE(p_lnd_state, STAT=ist)
+    IF(ist/=success)THEN
+      CALL finish (TRIM(routine), 'deallocation of p_lnd_state failed')
+    ENDIF
 
     CALL message (TRIM(routine), 'Destruction of nwp land state completed')
 
@@ -1100,7 +1101,7 @@ MODULE mo_nwp_lnd_state
          & initval = ALB_SI_MISSVAL,                                             &
          & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ), & 
          & in_group=groups("dwd_fg_sfc_vars","mode_dwd_fg_in", "mode_iau_fg_in", &
-         &                 "mode_iau_old_fg_in","mode_cosmo_in","mode_iniana"),                &
+         &  "mode_iau_old_fg_in","mode_cosmo_in","mode_iniana","mode_combined_in"), &
          & post_op=post_op(POST_OP_SCALE, arg1=100._wp, new_cf=new_cf_desc),     &
          & lopenacc=.TRUE. )   
          __acc_attach(p_prog_wtr%alb_si)   
@@ -1392,7 +1393,7 @@ MODULE mo_nwp_lnd_state
     CALL add_var( diag_list, vname_prefix//'t_sk', p_diag_lnd%t_sk,                &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,                &
          & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE., in_group=              &
-         & groups("dwd_fg_sfc_vars", "mode_iau_fg_in", "mode_dwd_fg_in")           )
+         & groups("dwd_fg_sfc_vars", "mode_iau_fg_in", "mode_dwd_fg_in", "mode_combined_in") )
 
 
     ! & p_diag_lnd%t_seasfc(nproma,nblks_c)
@@ -1458,7 +1459,7 @@ MODULE mo_nwp_lnd_state
              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
              & ldims=shape2d, lrestart=.TRUE.,                                   &
              & in_group=groups("dwd_fg_sfc_vars","mode_iau_fg_in",               &
-             &                 "mode_dwd_fg_in","mode_iniana"),                  &
+             &                "mode_dwd_fg_in","mode_iniana","mode_combined_in"),&
              & lopenacc=.TRUE.)
       __acc_attach(p_diag_lnd%hsnow_max)
 
@@ -1469,7 +1470,7 @@ MODULE mo_nwp_lnd_state
              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
              & ldims=shape2d, lrestart=.TRUE.,                                   &
              & in_group=groups("dwd_fg_sfc_vars","mode_iau_fg_in",               &
-             &                 "mode_dwd_fg_in","mode_iniana"),                  &
+             &                "mode_dwd_fg_in","mode_iniana","mode_combined_in"),&
              & lopenacc=.TRUE.)
       __acc_attach(p_diag_lnd%snow_age)
 
@@ -1670,7 +1671,7 @@ MODULE mo_nwp_lnd_state
       CALL add_var( diag_list, vname_prefix//'plantevap', p_diag_lnd%plantevap,   &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,             &
            & ldims=shape2d,in_group=groups("dwd_fg_sfc_vars", "mode_iau_fg_in",   &
-           & "mode_dwd_fg_in","mode_iniana"), lrestart=.FALSE., loutput=.TRUE. )
+           & "mode_dwd_fg_in","mode_iniana","mode_combined_in"), lrestart=.FALSE., loutput=.TRUE. )
 
       ! & p_diag_lnd%plantevap_t(nproma,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('plantevap_t', 'kg m-2', &

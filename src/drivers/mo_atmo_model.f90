@@ -46,19 +46,16 @@ MODULE mo_atmo_model
   USE mo_util_sysinfo,            ONLY: util_get_maxrss
 #endif
 #endif
-  USE mo_impl_constants,          ONLY: SUCCESS,                                              &
-    &                                   ihs_atm_temp, ihs_atm_theta, inh_atmosphere,          &
-    &                                   ishallow_water, inwp
+  USE mo_impl_constants,          ONLY: SUCCESS, inh_atmosphere, inwp
   USE mo_zaxis_type,              ONLY: zaxisTypeList, t_zaxisTypeList
   USE mo_load_restart,            ONLY: read_restart_header
 
   ! namelist handling; control parameters: run control, dynamics
   USE mo_read_namelists,          ONLY: read_atmo_namelists
   USE mo_nml_crosscheck,          ONLY: atm_crosscheck
-  USE mo_nonhydrostatic_config,   ONLY: configure_nonhydrostatic
   USE mo_initicon_config,         ONLY: configure_initicon
   USE mo_io_config,               ONLY: restartWritingParameters
-  USE mo_lnd_nwp_config,          ONLY: configure_lnd_nwp, tile_list
+  USE mo_lnd_nwp_config,          ONLY: configure_lnd_nwp
   USE mo_dynamics_config,         ONLY: configure_dynamics, iequations
   USE mo_run_config,              ONLY: configure_run,                                        &
     &                                   ltimer, ltestcase,                                    &
@@ -79,7 +76,6 @@ MODULE mo_atmo_model
   USE mo_master_control,          ONLY: atmo_process
 
   ! time stepping
-  USE mo_atmo_hydrostatic,        ONLY: atmo_hydrostatic
   USE mo_atmo_nonhydrostatic,     ONLY: atmo_nonhydrostatic, construct_atmo_nonhydrostatic
 
   USE mo_nh_testcases,            ONLY: init_nh_testtopo
@@ -95,14 +91,13 @@ MODULE mo_atmo_model
   USE mo_icon_comm_interface,     ONLY: construct_icon_communication,                         &
     &                                   destruct_icon_communication
   ! Vertical grid
-  USE mo_vertical_coord_table,    ONLY: apzero, vct_a, vct_b, vct, allocate_vct_atmo
+  USE mo_vertical_coord_table,    ONLY: vct_a, vct_b, vct, allocate_vct_atmo
   USE mo_init_vgrid,              ONLY: nflatlev
   USE mo_util_vgrid,              ONLY: construct_vertical_grid
 
   ! external data, physics
   USE mo_ext_data_state,          ONLY: ext_data, destruct_ext_data
   USE mo_ext_data_init,           ONLY: init_ext_data
-  USE mo_nwp_ww,                  ONLY: configure_ww
 
   USE mo_diffusion_config,        ONLY: configure_diffusion
 
@@ -126,7 +121,6 @@ MODULE mo_atmo_model
   ! I/O
   USE mo_restart,                 ONLY: detachRestartProcs
   USE mo_icon_output_tools,       ONLY: init_io_processes
-  USE mo_time_config,             ONLY: time_config      ! variable
   USE mtime,                      ONLY: OPERATOR(<), OPERATOR(+)
 #ifndef NOMPI
   ! Prefetching
@@ -175,6 +169,8 @@ CONTAINS
     CASE(inh_atmosphere)
       CALL construct_atmo_nonhydrostatic(latbc)
 
+    CASE DEFAULT
+      CALL finish(routine, 'unknown choice for iequations.')
     END SELECT
 
     !---------------------------------------------------------------------
@@ -186,12 +182,10 @@ CONTAINS
 
 
     !---------------------------------------------------------------------
-    ! 12. The hydrostatic and nonhydrostatic models branch from this point
+    ! 12. The hydrostatic model has been deleted. Only the non-hydrostatic 
+    !     model is available.
     !---------------------------------------------------------------------
     SELECT CASE(iequations)
-    CASE(ishallow_water,ihs_atm_temp,ihs_atm_theta)
-      CALL atmo_hydrostatic
-
     CASE(inh_atmosphere)
       CALL atmo_nonhydrostatic(latbc)
 
@@ -546,20 +540,11 @@ CONTAINS
     !---------------------------------------------------------------------
 
 
-    CALL configure_diffusion( n_dom, dynamics_parent_grid_id,       &
-      &                       p_patch(1)%nlev, vct_a, vct_b, apzero )
+    CALL configure_diffusion(n_dom, dynamics_parent_grid_id)
 
     CALL configure_gribout(grid_generatingCenter, grid_generatingSubcenter, n_phys_dom)
 
-    IF (iequations == inh_atmosphere) THEN
-      DO jg =1,n_dom
-        CALL configure_nonhydrostatic( jg, p_patch(jg)%nlev,     &
-          &                            p_patch(jg)%nshift_total  )
-        IF ( iforcing == inwp) THEN
-          CALL configure_ww( time_config%tc_startdate, jg, p_patch(jg)%nlev, p_patch(jg)%nshift_total, 'ICON')
-        END IF
-      ENDDO
-    ENDIF
+
 
     !-------------------------------------------------------------------------
     ! EMVORADO: The worker part of the communication with radar IO PEs
@@ -626,10 +611,6 @@ CONTAINS
       CALL finish(routine, 'deallocation of ext_data')
     ENDIF
 
-    ! destruct surface tile list
-    IF (iforcing == inwp) THEN
-      CALL tile_list%destruct()
-    ENDIF
 
     ! destruct interpolation patterns generate in create_grf_index_lists
     IF (n_dom_start==0 .OR. n_dom > 1) THEN

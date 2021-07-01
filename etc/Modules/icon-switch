@@ -4,6 +4,7 @@ source [file join [file dirname $ModulesCurrentModulefile] .pkg]
 
 set ICON_DIR [file dirname [file dirname [file dirname $ModulesCurrentModulefile]]]
 prepend-path-if-exists PATH $ICON_DIR/utils/mkexp
+prepend-path-if-exists PYTHONPATH $ICON_DIR/utils/mkexp
 prepend-path-if-exists PATH $ICON_DIR/utils/plotems
 
 set build_dir build
@@ -17,5 +18,7 @@ prepend-path MKEXP_PATH .
 
 set_dependencies {
     python/2.7.12
+    cdo/1.9.10-magicsxx-gcc64
+    ncl/6.5.0-gccsys
     imagemagick/6.9.1-7-gcc48
 }

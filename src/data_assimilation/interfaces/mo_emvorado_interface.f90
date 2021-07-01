@@ -159,9 +159,12 @@ CONTAINS
 
 #ifdef HAVE_RADARFWO
     ! Shut down async. radar I/O:
-    WRITE (*,'(a,f0.1,a,i5)') 'Finished with asynchroneous radar IO at time ',time_mod_sec, &
+    WRITE (*,'(a,f0.1,a,i5)') 'Finished with asynchronous radar IO at time ',time_mod_sec, &
          ' sec on proc ', get_my_mpi_all_id()
     CALL stop_mpi()
+    ! Info for Luis: This STOP is not an error stop but it ends the program
+    ! regularly on an asynchronous PE. It is mandatory an cannot be replaced by
+    ! finish()!
     STOP
 #endif
 
