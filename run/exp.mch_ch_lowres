@@ -407,6 +407,8 @@ cat > ${atmo_namelist} << EOF
  ser_physics                 =                            0,12,12
  ser_surface                 =                            0,12,12
  ser_microphysics            =                            0,12,12
+ ser_turbtrans               =                            0,12,12
+ ser_turbdiff                =                            0,12,12
  ser_lhn                     =                            0,12,12
  ser_cover                   =                            0,12,12
  ser_radiation               =                            0,12,12
