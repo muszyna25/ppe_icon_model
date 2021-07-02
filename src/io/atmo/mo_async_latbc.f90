@@ -1037,10 +1037,6 @@ CONTAINS
          END IF
        END IF
 
-       ! Consistency checks
-       IF (latbc_config%init_latbc_from_fg .AND. .NOT. buffer%lread_hhl) &
-         & CALL finish(routine, "Init LATBC from first guess requires BCs from non-hydrostatic model!")
-
        ! Write some status output:
        IF (buffer%lread_theta_rho) &
          & CALL message(routine,'Prognostic thermodynamic variables (RHO and THETA_V) are read from file.')
