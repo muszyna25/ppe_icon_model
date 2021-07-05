@@ -65,7 +65,7 @@ MODULE mo_nwp_diagnosis
   USE mo_opt_nwp_diagnostics,ONLY: calsnowlmt, cal_cape_cin, maximize_field_lpi, compute_field_tcond_max, &
                                    compute_field_uh_max, compute_field_vorw_ctmax, compute_field_w_ctmax, &
                                    compute_field_dbz3d_lin, maximize_field_dbzctmax, &
-                                   compute_field_echotop, compute_field_echotopinm, compute_field_sunshine_duration
+                                   compute_field_echotop, compute_field_echotopinm
   USE mo_nwp_ww,             ONLY: ww_diagnostics, ww_datetime
   USE mtime,                 ONLY: datetime, timeDelta, getTimeDeltaFromDateTime,  &
     &                              deallocateTimedelta, newTimeDelta, newDatetime, &
@@ -1641,7 +1641,7 @@ CONTAINS
   !!
   SUBROUTINE nwp_opt_diagnostics(p_patch, p_patch_lp, p_int_lp, p_nh, p_int, prm_diag, &
      l_output, nnow, nnow_rcf, var_in_output, &
-     lpi_max_Event, celltracks_Event, dbz_Event, mtime_current,  plus_slack, dt_phy)
+     lpi_max_Event, celltracks_Event, dbz_Event, mtime_current,  plus_slack)
 
     TYPE(t_patch)       ,INTENT(IN)   :: p_patch(:), p_patch_lp(:)  ! patches and their local parents
     TYPE(t_int_state)   ,INTENT(IN)   :: p_int_lp(:)                ! interpolation state for local parents
@@ -1655,8 +1655,6 @@ CONTAINS
 
     TYPE(t_var_in_output),    INTENT(IN   ) :: var_in_output(:)
 
-    REAL(wp),INTENT(IN) :: dt_phy(:,:)    !< time interval for all physics
-                                          !< packages on domain jg
     LOGICAL, INTENT(IN) :: l_output(:)
     INTEGER, INTENT(IN) :: nnow(:), nnow_rcf(:)
 
@@ -1789,14 +1787,6 @@ CONTAINS
         CALL compute_field_echotopinm ( p_patch(jg), jg, p_nh(jg)%metrics, &
                                         prm_diag(jg)%dbz3d_lin, prm_diag(jg)%echotopinm )
       END IF
-
-      IF (var_in_output(jg)%dursun) THEN
-        ! sunshine duration is an accumulative value like precipitation or runoff
-        CALL compute_field_sunshine_duration( p_patch(jg), dt_phy(jg,itfastphy),                                        &
-             &                        prm_diag(jg)%sunshine_duration, prm_diag(jg)%swflxsfc, prm_diag(jg)%swflx_up_sfc, &
-             &                        prm_diag(jg)%swflx_dn_sfc_diff, prm_diag(jg)%cosmu0 )
-      ENDIF
-
     END DO
 
     IF (ltimer) CALL timer_stop(timer_nh_diagnostics)
