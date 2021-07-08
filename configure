@@ -753,7 +753,6 @@ with_external_cdi
 with_external_mtime
 with_external_yac
 with_external_tixi
-with_external_self
 with_external_cub
 '
       ac_precious_vars='build_alias
@@ -1507,7 +1506,6 @@ Optional Packages:
                           enabled) [default=no]
   --with-external-tixi    use external TIXI library (when ART is enabled)
                           [default=no]
-  --with-external-self    use external SELF library [default=no]
   --with-external-cub     use external CUB library [default=no]
 
 Some influential environment variables:
@@ -2793,17 +2791,6 @@ if test "${with_external_tixi+set}" = set; then :
 fi
 else
   with_external_tixi=no
-fi
-
-
-
-# Check whether --with-external-self was given.
-if test "${with_external_self+set}" = set; then :
-  withval=$with_external_self; if test x"$withval" != xno; then :
-  with_external_self=yes
-fi
-else
-  with_external_self=no
 fi
 
 
