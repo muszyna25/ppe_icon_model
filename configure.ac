@@ -371,12 +371,6 @@ AC_ARG_WITH([external-tixi],
   [AS_IF([test x"$withval" != xno], [with_external_tixi=yes])],
   [with_external_tixi=no])
 
-AC_ARG_WITH([external-self],
-  [AS_HELP_STRING([--with-external-self],
-     [use external SELF library @<:@default=no@:>@])],
-  [AS_IF([test x"$withval" != xno], [with_external_self=yes])],
-  [with_external_self=no])
-
 AC_ARG_WITH([external-cub],
   [AS_HELP_STRING([--with-external-cub],
      [use external CUB library @<:@default=no@:>@])],
@@ -739,7 +733,7 @@ fi
 dnl One of the topological orderings of the ICON dependency graph
 dnl (run ./utils/icon_sorted_deps.sh):
 dnl
-dnl '-lself', '-licon_tixi', '-lyac', '-lmtime', '-lSerialboxFortranShared',
+dnl '-licon_tixi', '-lyac', '-lmtime', '-lSerialboxFortranShared',
 dnl '-lcdi_f2003 -lcdi', '-leccodes_f90', '-lyaxt -lyaxt_c', '-lsct',
 dnl '-lradiance -lrttov10.2 (etc.)', '-llapack -lblas (or other)',
 dnl '-lradiation -lifsrrtm -lutilities -lifsaux', '-lrrtmgp -lrte',
