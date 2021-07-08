@@ -29,11 +29,10 @@ MODULE mo_opt_diagnostics
 
   USE mo_kind,                 ONLY: wp
   USE mo_parallel_config,      ONLY: nproma
-  USE mo_linked_list,          ONLY: t_var_list
   USE mo_model_domain,         ONLY: t_patch, t_subset_range
   USE mo_nonhydro_types,       ONLY: t_nh_diag,t_nh_prog,      &
                                      t_nh_state_lists
-  USE mo_impl_constants,       ONLY: success, max_var_list_name_len,     &
+  USE mo_impl_constants,       ONLY: success,     &
     &                                VINTP_METHOD_QV,                    &
     &                                VINTP_METHOD_PRES,                  &
     &                                VINTP_METHOD_LIN,                   &
@@ -46,17 +45,15 @@ MODULE mo_opt_diagnostics
   USE mo_advection_config,     ONLY: t_advection_config, advection_config
   USE mo_zaxis_type,           ONLY: ZA_REFERENCE, ZA_REFERENCE_HALF, ZA_SURFACE, &
     &                                ZA_MEANSEA
-  USE mo_var_list,             ONLY: default_var_list_settings
   USE mo_cdi,                  ONLY: DATATYPE_FLT32, DATATYPE_PACK16,                  &
     &                                DATATYPE_PACK24,                                  & 
     &                                DATATYPE_FLT64, GRID_UNSTRUCTURED,                &
     &                                TSTEP_CONSTANT
   USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_CELL,                           &
     &                                GRID_CELL, GRID_REGULAR_LONLAT
-  USE mo_var_list,             ONLY: default_var_list_settings,                        &
-    &                                new_var_list, delete_var_list, add_var, add_ref
-  USE mo_var_list_element,     ONLY: level_type_ml, level_type_pl,                     &
-    &                                level_type_hl, level_type_il
+  USE mo_var_list,             ONLY: add_var, add_ref, t_var_list_ptr
+  USE mo_var_list_register,    ONLY: vlr_add, vlr_del
+  USE mo_var, ONLY: level_type_ml, level_type_pl, level_type_hl, level_type_il
   USE mo_name_list_output_config, ONLY: is_variable_in_output
   USE mo_io_config,            ONLY: lnetcdf_flt64_output
   USE mo_gribout_config,       ONLY: gribout_config
@@ -66,12 +63,12 @@ MODULE mo_opt_diagnostics
   USE mo_var_metadata,         ONLY: create_vert_interp_metadata,                      &
     &                                create_hor_interp_metadata,                       &
     &                                vintp_types
+  USE mo_var,                  ONLY: t_var
   USE mo_tracer_metadata,      ONLY: create_tracer_metadata
   USE mo_statistics,           ONLY: add_fields
   USE mo_util_dbg_prnt,        ONLY: dbg_print
   USE mo_lonlat_grid,          ONLY: t_lon_lat_grid, latlon_compute_area_weights
   USE mo_intp_lonlat_types,    ONLY: t_lon_lat_intp, t_lon_lat_list
-  USE mo_linked_list,          ONLY: t_list_element
 
   IMPLICIT NONE
 
@@ -234,7 +231,7 @@ MODULE mo_opt_diagnostics
     !
     ! The "opt_diag_list_*" lists contain all variables that have been
     ! interpolated onto p/z-levels
-    TYPE(t_var_list)   :: opt_diag_list,   opt_diag_list_p, &
+    TYPE(t_var_list_ptr)   :: opt_diag_list,   opt_diag_list_p, &
       &                   opt_diag_list_z, opt_diag_list_i, &
       &                   opt_acc_list
 
@@ -250,7 +247,7 @@ CONTAINS
   ! setup of accumulation variables
   SUBROUTINE construct_opt_acc(p_patch,list,p_acc)
     TYPE(t_patch),        INTENT(IN) :: p_patch
-    TYPE(t_var_list)                 :: list
+    TYPE(t_var_list_ptr)                 :: list
     TYPE(t_nh_acc)                   :: p_acc
 
     ! LOCAL ===================================================================
@@ -657,7 +654,7 @@ CONTAINS
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":construct_opt_diag"
     INTEGER                            :: jg, ist
-    CHARACTER(len=max_var_list_name_len) :: listname
+    CHARACTER(LEN=2) :: dom_str
 
     ! initialize data structure for optional diagnostics
     ALLOCATE(p_nh_opt_diag(n_dom), STAT=ist)
@@ -665,38 +662,30 @@ CONTAINS
       CALL finish (routine, 'Allocation of optional diagnostics failed')
 
     DO jg = 1, n_dom
+      WRITE(dom_str, "(i2.2)") jg
 
-      WRITE(listname,'(a,i2.2)') 'nh_state_opt_diag_of_domain_',jg
-      CALL new_var_list( p_nh_opt_diag(jg)%opt_diag_list, listname, &
-        & patch_id=p_patch(jg)%id, vlevel_type=level_type_ml )
-      CALL default_var_list_settings( p_nh_opt_diag(jg)%opt_diag_list,    &
-        & lrestart=.FALSE. )
+      CALL vlr_add(p_nh_opt_diag(jg)%opt_diag_list, &
+        & 'nh_state_opt_diag_of_domain_'//dom_str, &
+        & patch_id=p_patch(jg)%id, vlevel_type=level_type_ml, lrestart=.FALSE.)
 
       IF (.NOT. l_init_pz) CYCLE
 
-      WRITE(listname,'(a,i2.2)') 'nh_state_opt_diag_z_of_domain_',jg
-      CALL new_var_list( p_nh_opt_diag(jg)%opt_diag_list_z, listname, &
-        & patch_id=p_patch(jg)%id, vlevel_type=level_type_hl )
-      CALL default_var_list_settings( p_nh_opt_diag(jg)%opt_diag_list_z,    &
-        & lrestart=.FALSE. )
+      CALL vlr_add(p_nh_opt_diag(jg)%opt_diag_list_z, &
+        & 'nh_state_opt_diag_z_of_domain_'//dom_str, &
+        & patch_id=p_patch(jg)%id, vlevel_type=level_type_hl, lrestart=.FALSE.)
 
-      WRITE(listname,'(a,i2.2)') 'nh_state_opt_diag_p_of_domain_',jg
-      CALL new_var_list( p_nh_opt_diag(jg)%opt_diag_list_p, listname, &
-        & patch_id=p_patch(jg)%id, vlevel_type=level_type_pl )
-      CALL default_var_list_settings( p_nh_opt_diag(jg)%opt_diag_list_p,    &
-        & lrestart=.FALSE. )
+      CALL vlr_add(p_nh_opt_diag(jg)%opt_diag_list_p, &
+        & 'nh_state_opt_diag_p_of_domain_'//dom_str, &
+        & patch_id=p_patch(jg)%id, vlevel_type=level_type_pl, lrestart=.FALSE.)
 
-      WRITE(listname,'(a,i2.2)') 'nh_state_opt_diag_i_of_domain_',jg
-      CALL new_var_list( p_nh_opt_diag(jg)%opt_diag_list_i, listname, &
-        & patch_id=p_patch(jg)%id, vlevel_type=level_type_il )
-      CALL default_var_list_settings( p_nh_opt_diag(jg)%opt_diag_list_i,    &
-        & lrestart=.FALSE. )
+      CALL vlr_add(p_nh_opt_diag(jg)%opt_diag_list_i, &
+        & 'nh_state_opt_diag_i_of_domain_'//dom_str, &
+        & patch_id=p_patch(jg)%id, vlevel_type=level_type_il, lrestart=.FALSE.)
 
-      WRITE(listname,'(a,i2.2)') 'nh_accumulation_for_ProgAndDiag_of_domain_',jg
-      CALL new_var_list( p_nh_opt_diag(jg)%opt_acc_list, listname, &
-        & patch_id=p_patch(jg)%id, vlevel_type=level_type_ml )
-      CALL default_var_list_settings( p_nh_opt_diag(jg)%opt_acc_list,    &
-        & lrestart=.FALSE.,loutput=.TRUE. )
+      CALL vlr_add(p_nh_opt_diag(jg)%opt_acc_list, &
+        & 'nh_accumulation_for_ProgAndDiag_of_domain_'//dom_str, &
+        & patch_id=p_patch(jg)%id, vlevel_type=level_type_ml,            &
+        & lrestart=.FALSE.,loutput=.TRUE.)
     ENDDO ! jg
 
     ! provisional construction of memory for a hardwired set of variables on domain 1
@@ -717,11 +706,11 @@ CONTAINS
     INTEGER :: jg, ist
 
     DO jg = 1, n_dom
-      CALL delete_var_list( p_nh_opt_diag(jg)%opt_diag_list_z )
-      CALL delete_var_list( p_nh_opt_diag(jg)%opt_diag_list_p )
-      CALL delete_var_list( p_nh_opt_diag(jg)%opt_diag_list_i )
-      CALL delete_var_list( p_nh_opt_diag(jg)%opt_diag_list   )
-      CALL delete_var_list( p_nh_opt_diag(jg)%opt_acc_list    )
+      CALL vlr_del(p_nh_opt_diag(jg)%opt_diag_list_z)
+      CALL vlr_del(p_nh_opt_diag(jg)%opt_diag_list_p)
+      CALL vlr_del(p_nh_opt_diag(jg)%opt_diag_list_i)
+      CALL vlr_del(p_nh_opt_diag(jg)%opt_diag_list  )
+      CALL vlr_del(p_nh_opt_diag(jg)%opt_acc_list   )
     ENDDO ! jg
 
     ! Delete optional diagnostics
@@ -941,25 +930,18 @@ CONTAINS
 !DR !!! Using the POINTER attribute for area_weights(:) mysteriously leads
 !DR !!! to a bus error on NEC SX9 (tested with compiler revision 450). However,
 !DR !!! using the ALLOCATABLE attribute, instead, works.
-    REAL(wp), ALLOCATABLE          :: area_weights(:)
-    REAL(wp),              POINTER :: p_dummy(:,:,:)
-    TYPE(t_list_element),  POINTER :: new_element
+    REAL(wp), ALLOCATABLE :: area_weights(:)
+    REAL(wp), POINTER :: p_dummy(:,:,:)
+    TYPE(t_var), POINTER :: new_element
 
     ! define NetCDF output precision
-    IF ( lnetcdf_flt64_output ) THEN
-      datatype_flt = DATATYPE_FLT64
-    ELSE
-      datatype_flt = DATATYPE_FLT32
-    ENDIF
-
+    datatype_flt = MERGE(DATATYPE_FLT64, DATATYPE_FLT32, lnetcdf_flt64_output)
     ! Add area weights
     DO i=1, lonlat_data%ngrids
       DO jg=1,n_dom
         IF (lonlat_data%list(i)%l_dom(jg)) THEN
-          
           grid           => lonlat_data%list(i)%grid
           ptr_int_lonlat => lonlat_data%list(i)%intp(jg)
-          
           nblks_lonlat   =  ptr_int_lonlat%nblks_lonlat(nproma)
           var_shape = (/ nproma, 1, nblks_lonlat /)
           cf_desc    = t_cf_var('aw', '1', 'area weights for regular lat-lon grid', datatype_flt)
@@ -977,7 +959,7 @@ CONTAINS
             &             hor_intp_type=HINTP_TYPE_NONE ),                    &
             &           isteptype=TSTEP_CONSTANT )
           ! link this new variable to the lon-lat grid:
-          new_element%field%info%hor_interp%lonlat_id = i
+          new_element%info%hor_interp%lonlat_id = i
           ! compute area weights:
 !CDIR NOIEXPAND
           CALL latlon_compute_area_weights(grid, earth_radius, area_weights)
@@ -992,14 +974,12 @@ CONTAINS
             ! set area weight:
             p_dummy(jc,1,jb) = area_weights(i_lat)
           END DO
-          
           DEALLOCATE(area_weights, STAT=ierrstat)
           IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
         END IF
       END DO
     END DO
   END SUBROUTINE compute_lonlat_area_weights
-    
 
 END MODULE mo_opt_diagnostics
 

@@ -40,7 +40,7 @@ CONTAINS
 
     INTEGER, INTENT(in) :: radar_master_icon,   & ! Start-PE of comm_radar in comm_world_icon
                            radario_master_icon, & ! Start-PE of comm_radario in comm_world_icon
-                           nprocio_radar_icon     ! Number of asynchroneous radar IO PEs provided by ICON
+                           nprocio_radar_icon     ! Number of asynchronous radar IO PEs provided by ICON
 
     LOGICAL, INTENT(in) :: luse_radarfwo(:), lwork_pe_icon
 

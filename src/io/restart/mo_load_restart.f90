@@ -21,12 +21,12 @@ MODULE mo_load_restart
   USE mo_multifile_restart_util, ONLY: multifileRestartLinkName
   USE mo_restart_nml_and_att,ONLY: restartAttributeList_read, ocean_initFromRestart_OVERRIDE
   USE mo_restart_util,       ONLY: restartSymlinkName
-  USE mo_var_list_element,   ONLY: t_p_var_list_element
+  USE mo_var,                ONLY: t_var_ptr
   USE mo_timer,              ONLY: timer_start, timer_stop, timer_load_restart, timer_load_restart_io, &
     & timer_load_restart_comm_setup, timer_load_restart_communication, &
     & timer_load_restart_get_var_id, timers_level
   USE mo_util_string,        ONLY: separator, toCharacter
-  USE mo_var_list,           ONLY: get_restart_vars, get_model_types
+  USE mo_var_list_register_utils, ONLY: vlr_select_restart_vars, vlr_collect_modelTypes
   USE mo_master_control,     ONLY: get_my_process_name
 
   IMPLICIT NONE
@@ -34,7 +34,7 @@ MODULE mo_load_restart
 
   PUBLIC :: read_restart_files, read_restart_header
 
-  CHARACTER(LEN = *), PARAMETER :: modname = "mo_load_restart"
+  CHARACTER(*), PARAMETER :: modname = "mo_load_restart"
 
 CONTAINS
 
@@ -124,10 +124,9 @@ CONTAINS
 
   ! Reads attributes and namelists for all available domains from restart file.
   SUBROUTINE read_restart_header(modelType)
-    CHARACTER(LEN=*), INTENT(IN) :: modelType
+    CHARACTER(*), INTENT(IN) :: modelType
     CHARACTER(:), ALLOCATABLE :: filename, mfaname
     LOGICAL :: lIsMultifile
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//":read_restart_header"
 
     ! Must NOT USE a timer here as the timers are NOT initialized yet,
     CALL findRestartFile(modelType, lIsMultifile, filename)
@@ -145,59 +144,52 @@ CONTAINS
     TYPE(t_patch), INTENT(in) :: p_patch
     INTEGER, OPTIONAL, INTENT(in) :: opt_ndom
     CHARACTER(:), ALLOCATABLE :: restartPath
-    LOGICAL :: lIsMultifileRestart, lMultifileTimersInitialized
-    CHARACTER(len=8), ALLOCATABLE :: model_types(:)
-    INTEGER :: i, ndom_deopt, tlen
-    TYPE(t_p_var_list_element), ALLOCATABLE :: varData(:)
+    LOGICAL :: is_MF, is_timer_init
+    INTEGER :: ndom_deopt, imodel, mt_len
+    TYPE(t_var_ptr), ALLOCATABLE :: varData(:)
+    CHARACTER(LEN=8), ALLOCATABLE :: mTypes(:)
 
     IF(timers_level >= 5) CALL timer_start(timer_load_restart)
-
     IF (ocean_initFromRestart_OVERRIDE) CALL read_restart_header(TRIM(get_my_process_name()))
     ! Make sure that all the subcounters are recognized as subcounters on all work processes.
     IF(timers_level >= 7) THEN
-        CALL timer_start(timer_load_restart_io)
-        CALL timer_stop(timer_load_restart_io)
-        CALL timer_start(timer_load_restart_communication)
-        CALL timer_stop(timer_load_restart_communication)
+      CALL timer_start(timer_load_restart_io)
+      CALL timer_stop(timer_load_restart_io)
+      CALL timer_start(timer_load_restart_communication)
+      CALL timer_stop(timer_load_restart_communication)
     END IF
-    lMultifileTimersInitialized = .FALSE.
-
+    is_timer_init = .FALSE.
     IF (my_process_is_mpi_workroot()) &
-         WRITE(0,'(a,i0,a,i0)') "restart: reading restart data for patch ", &
-         p_patch%id
-    CALL get_model_types(model_types, p_patch%id)
-    DO i = 1, SIZE(model_types)
-      tlen = LEN_TRIM(model_types(i))
-      CALL get_restart_vars(varData, p_patch%id, model_types(i)(1:tlen))
+       WRITE(0,'(a,i0)') "restart: reading restart data for patch ", p_patch%id
+    CALL vlr_collect_modelTypes(p_patch%id, mTypes)
+    DO imodel = 1, SIZE(mTypes)
+      mt_len = LEN_TRIM(mTypes(imodel))
+      CALL vlr_select_restart_vars(varData, p_patch%id, mTypes(imodel)(1:mt_len))
       !determine whether we have a multifile to READ
-      CALL findRestartFile(model_types(i)(1:tlen), lIsMultifileRestart, restartPath)
-        IF(lIsMultifileRestart) THEN
-            !multifile loading also uses these two timers
-            IF(timers_level >= 7 .AND..NOT.lMultifileTimersInitialized) THEN
-                CALL timer_start(timer_load_restart_comm_setup)
-                CALL timer_stop(timer_load_restart_comm_setup)
-                CALL timer_start(timer_load_restart_get_var_id)
-                CALL timer_stop(timer_load_restart_get_var_id)
-                lMultifileTimersInitialized = .TRUE.
-            END IF
-
-            !load the multifile
-            CALL multifileReadPatch(varData, p_patch, restartPath)
-        ELSE
-            !can't USE restartPath here because the path IS patch dependent IN the single file CASE
-            ndom_deopt = -1
-            IF (PRESENT(opt_ndom)) ndom_deopt = opt_ndom
-            CALL singlefileReadPatch(varData, model_types(i)(1:tlen), p_patch, ndom_deopt)
+      CALL findRestartFile(mTypes(imodel)(1:mt_len), is_MF, restartPath)
+      IF(is_MF) THEN
+        !multifile loading also uses these two timers
+        IF(timers_level >= 7 .AND. .NOT.is_timer_init) THEN
+          CALL timer_start(timer_load_restart_comm_setup)
+          CALL timer_stop(timer_load_restart_comm_setup)
+          CALL timer_start(timer_load_restart_get_var_id)
+          CALL timer_stop(timer_load_restart_get_var_id)
+          is_timer_init = .TRUE.
         END IF
-
+        !load the multifile
+        CALL multifileReadPatch(varData, p_patch, restartPath)
+      ELSE
+        !can't USE restartPath here because the path IS patch dependent IN the single file CASE
+        ndom_deopt = -1
+        IF (PRESENT(opt_ndom)) ndom_deopt = opt_ndom
+        CALL singlefileReadPatch(varData, mTypes(imodel)(1:mt_len), p_patch, ndom_deopt)
+      END IF
+      DEALLOCATE(varData)
     END DO
-
     IF(timers_level >= 5) CALL timer_stop(timer_load_restart)
-
     CALL message('','')
     CALL message('',separator)
     CALL message('','')
-
   END SUBROUTINE read_restart_files
 
 END MODULE mo_load_restart

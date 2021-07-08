@@ -600,8 +600,6 @@ MKDIR_P
 INSTALL_DATA
 INSTALL_SCRIPT
 INSTALL_PROGRAM
-ICON_SELF_CFLAGS
-ICON_SELF_FCFLAGS
 ICON_TIXI_CFLAGS
 ICON_TIXI_FCFLAGS
 ICON_YAC_CFLAGS
@@ -793,8 +791,6 @@ ICON_YAC_FCFLAGS
 ICON_YAC_CFLAGS
 ICON_TIXI_FCFLAGS
 ICON_TIXI_CFLAGS
-ICON_SELF_FCFLAGS
-ICON_SELF_CFLAGS
 AR
 ARFLAGS
 RANLIB
@@ -1603,13 +1599,6 @@ Some influential environment variables:
   ICON_TIXI_CFLAGS
               C compiler flags to be appended to CFLAGS when configuring the
               bundled version of TIXI library [default=$ICON_BUNDLED_CFLAGS]
-  ICON_SELF_FCFLAGS
-              Fortran compiler flags to be appended to FCFLAGS when
-              configuring the bundled version of SELF library
-              [default=$ICON_BUNDLED_FCFLAGS]
-  ICON_SELF_CFLAGS
-              C compiler flags to be appended to CFLAGS when configuring the
-              bundled version of SELF library [default=$ICON_BUNDLED_CFLAGS]
   AR          archiver command
   ARFLAGS     archiver flags
   RANLIB      archive indexer command
@@ -7757,97 +7746,6 @@ esac
       as_fn_append bundled_includes "${FC_MOD_IN}externals/tixi/src "
       BUNDLED_LIBFILES="externals/tixi/src/libicon_tixi.a $BUNDLED_LIBFILES"
 fi
-fi
-
-if test "x$with_external_self" = xyes; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran SELF 0.2 library is available" >&5
-$as_echo_n "checking whether Fortran SELF 0.2 library is available... " >&6; }
-   cat > conftest.$ac_ext <<_ACEOF
-      program main
-
-      use self_object
-      use self_vector_ref
-      use self_vector
-      use self_map, only: map
-      use self_assert
-      implicit none
-      type(map) :: a
-      call a%init()
-      end
-_ACEOF
-if ac_fn_fc_try_link "$LINENO"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-      { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using SELF 0.2 library: either use the bundled version of SELF library (--without-external-self) or set FCFLAGS, LDFLAGS and LIBS accordingly
-See \`config.log' for more details
-${icon_usr_note}" "$LINENO" 5; }
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-else
-  icon_subdir_srcdir="$srcdir/externals/self"
-   icon_subdir_unique_file="src/self_object.f90"
-   if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
-  as_fn_error $? "unable to find sources of the bundled version of SELF library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an external version of SELF library (--with-external-self) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
-fi
-      ICON_SELF_FCFLAGS=${ICON_SELF_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
-      ICON_SELF_CFLAGS=${ICON_SELF_CFLAGS-$ICON_BUNDLED_CFLAGS}
-         acx_config_subdir_args_externals_self=
-   acx_config_subdir_ignore_arg=no
-   eval "set dummy $ac_configure_args"; shift
-   for acx_config_subdir_arg; do
-     if test "x$acx_config_subdir_ignore_arg" = xno; then :
-  case $acx_config_subdir_arg in #(
-  -cache-file|--cache-file|--cache-fil|--cache-fi| \
-           --cache-f|--cache-|--cache|--cach|--cac|--ca|--c| \
-           -srcdir|--srcdir|--srcdi|--srcd|--src|--sr| \
-           -prefix|--prefix|--prefi|--pref|--pre|--pr|--p) :
-    acx_config_subdir_ignore_arg=yes ;; #(
-  -cache-file=*|--cache-file=*|--cache-fil=*|--cache-fi=*| \
-           --cache-f=*|--cache-=*|--cache=*|--cach=*|--cac=*|--ca=*|--c=*| \
-           --config-cache|-C| \
-           -srcdir=*|--srcdir=*|--srcdi=*|--srcd=*|--src=*|--sr=*| \
-           -prefix=*|--prefix=*|--prefi=*|--pref=*|--pre=*|--pr=*|--p=*| \
-           --disable-option-checking) :
-     ;; #(
-  BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*) :
-     ;; #(
-  -enable-maintainer-mode|-enable-maintainer-mode=*|--enable-maintainer-mode|--enable-maintainer-mode=*|-disable-maintainer-mode|--disable-maintainer-mode) :
-     ;; #(
-  -enable-silent-rules|-enable-silent-rules=*|--enable-silent-rules|--enable-silent-rules=*|-disable-silent-rules|--disable-silent-rules) :
-     ;; #(
-  *) :
-
-           case $acx_config_subdir_arg in #(
-  *\'*) :
-    acx_config_subdir_arg=`$as_echo "$acx_config_subdir_arg" | sed "s/'/'\\\\\\\\''/g"` ;; #(
-  *) :
-     ;;
-esac
-            as_fn_append acx_config_subdir_args_externals_self " '$acx_config_subdir_arg'" ;;
-esac
-else
-  acx_config_subdir_ignore_arg=no
-fi
-   done
-         set dummy CFLAGS="$subdir_CFLAGS $ICON_SELF_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_SELF_FCFLAGS" --disable-maintainer-mode --enable-silent-rules="$enable_silent_rules" ; shift
-      for acx_config_subdir_arg; do
-        case $acx_config_subdir_arg in #(
-  *\'*) :
-    acx_config_subdir_arg=`$as_echo "$acx_config_subdir_arg" | sed "s/'/'\\\\\\\\''/g"` ;; #(
-  *) :
-     ;;
-esac
-        as_fn_append acx_config_subdir_args_externals_self " '$acx_config_subdir_arg'"
-      done
-      as_fn_append subdirs_extra " externals/self"
-   as_fn_append bundled_includes "${FC_MOD_IN}externals/self/src "
-   BUNDLED_LIBFILES="externals/self/src/libself.a $BUNDLED_LIBFILES"
 fi
 
 if test -n "$bundled_includes"; then :

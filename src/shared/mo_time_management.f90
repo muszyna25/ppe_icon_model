@@ -49,8 +49,7 @@ MODULE mo_time_management
     &                                    calendar_index2string
   USE mo_run_config,               ONLY: dtime, mtime_modelTimeStep => modelTimeStep
   USE mo_master_control,           ONLY: atmo_process, get_my_process_type
-  USE mo_impl_constants,           ONLY: max_dom, IHS_ATM_TEMP, IHS_ATM_THETA,             &
-    &                                    inh_atmosphere,                                   &
+  USE mo_impl_constants,           ONLY: max_dom, inh_atmosphere,                          &
     &                                    dtime_proleptic_gregorian => proleptic_gregorian, &
     &                                    dtime_cly360              => cly360,              &
     &                                    dtime_julian_gregorian    => julian_gregorian
@@ -752,26 +751,6 @@ CONTAINS
     IF (mtime_restart_stop == mtime_start) CALL deallocateDatetime(mtime_restart_stop)
     
     IF (nsteps >= 0) THEN   
-
-      ! Special treatment for the hydro atm model
-      !
-      ! TODO: Is this weird workaround really needed?
-      IF ( (iequations == IHS_ATM_TEMP) .OR. &
-        &  (iequations == IHS_ATM_THETA)     ) THEN
-        
-        ! If running the HYDROSTATIC version, let the model integrate
-        ! one more step after the desired end of simulation in order
-        ! to get the proper output. This additional step is necessary
-        ! because the HYDROSTATIC model writes out values of step N
-        ! after the integration from N to N+1 is finished. Also note
-        ! that this additional step is done only for the regular
-        ! output, and is ignored for restart.
-        nsteps = nsteps + 1
-
-        ! The additional step is not needed in the NON-hydrostatic
-        ! version because in this case the model writes out values of
-        ! step N after the integration from N-1 to N is finished.
-      END IF
       mtime_nsteps_stop  => newDatetime(mtime_start, errno)
       IF (errno /= 0)  CALL finish(routine, "Error in initialization of nsteps stop date")
       mtime_nsteps_stop = mtime_nsteps_stop + mtime_dtime * INT(nsteps,c_int32_t)

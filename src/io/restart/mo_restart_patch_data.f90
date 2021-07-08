@@ -10,11 +10,8 @@
 !! headers of the routines.
 
 MODULE mo_restart_patch_data
-  USE mo_mpi,                       ONLY: p_comm_work_2_restart
-  USE mo_packed_message,            ONLY: t_PackedMessage, kPackOp, kUnpackOp
   USE mo_restart_patch_description, ONLY: t_restart_patch_description
-  USE mo_restart_util,              ONLY: restartBcastRoot
-  USE mo_var_list_element,          ONLY: t_p_var_list_element
+  USE mo_var,                       ONLY: t_var_ptr
 
   IMPLICIT NONE
   PRIVATE
@@ -24,12 +21,11 @@ MODULE mo_restart_patch_data
   ! this type stores all the information that we need to know about a patch and its variables
   TYPE, ABSTRACT :: t_RestartPatchData
     TYPE(t_restart_patch_description) :: description
-    TYPE(t_p_var_list_element), ALLOCATABLE :: varData(:)
+    TYPE(t_var_ptr), ALLOCATABLE :: varData(:)
     INTEGER :: restartType
   CONTAINS
     PROCEDURE(i_construct), DEFERRED :: construct
     PROCEDURE(i_writeData), DEFERRED :: writeData
-    PROCEDURE :: transferToRestart => restartPatchData_transferToRestart
     PROCEDURE(i_destruct), DEFERRED :: destruct
   END TYPE t_RestartPatchData
 
@@ -52,21 +48,5 @@ MODULE mo_restart_patch_data
     CLASS(t_RestartPatchData), INTENT(INOUT) :: me
   END SUBROUTINE i_destruct
   END INTERFACE
-
-  CHARACTER(*), PARAMETER :: modname = "mo_restart_patch_data"
-
-CONTAINS
-
-  ! collective across restart AND worker PEs
-  SUBROUTINE restartPatchData_transferToRestart(me)
-    CLASS(t_RestartPatchData), INTENT(INOUT) :: me
-#ifndef NOMPI
-    TYPE(t_PackedMessage) :: packedMessage
-
-    CALL me%description%packer(kPackOp, packedMessage)
-    CALL packedMessage%bcast(restartBcastRoot(), p_comm_work_2_restart)   ! transfer data to restart PEs
-    CALL me%description%packer(kUnpackOp, packedMessage)
-#endif
-  END SUBROUTINE restartPatchData_transferToRestart
 
 END MODULE mo_restart_patch_data

@@ -37,7 +37,7 @@ MODULE mo_nh_dcmip_terminator
   USE mo_exception,           ONLY: finish, message_text, message
   USE mo_nh_testcases_nml,    ONLY: toy_chem
   USE mo_action_types,        ONLY: t_var_action_element
-  USE mo_var_metadata,        ONLY: new_action
+  USE mo_action,              ONLY: new_action
   USE mtime,                  ONLY: event, newEvent, isCurrentEventActive, &
     &                               newDatetime, newTimedelta, timedelta,  &
     &                               datetime, getPTStringFromMS,           &

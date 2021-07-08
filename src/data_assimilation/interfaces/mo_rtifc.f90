@@ -103,6 +103,7 @@ MODULE mo_rtifc
   use mo_rtifc_13,       only: rtifc_vers,             &! RTTOV version number this interface is compiled for
                                rtifc_version,          &! version string
                                rtifc_init,             &! Initialize RTTOV, i.e. read coeffs
+                               rtifc_coef_index,       &! Return index of coeffs for given satid/instr
                                rtifc_cleanup,          &! Cleanup RTTOV and mo_rtifc structures
                                rtifc_get_preslev,      &! Get RTTOV levels
                                rtifc_fill_input,       &! Fill rttov profile structure
@@ -119,13 +120,16 @@ MODULE mo_rtifc
 #if defined(_RTTOV_ATLAS)
   use mo_rtifc_13,       only: rtifc_init_mw_atlas,    &!
                                rtifc_emis_atlas,       &! get emissivity from atlas
-                               rtifc_emis_retrieve      ! retrieve emissivity (by Karbou-method)
+                               rtifc_emis_retrieve,    &! retrieve emissivity (by Karbou-method)
+                               rtifc_init_brdf_atlas,  &!
+                               rtifc_brdf_atlas
 #endif
 
 #elif (_RTTOV_VERSION == 12) 
   use mo_rtifc_12,       only: rtifc_vers,             &! RTTOV version number this interface is compiled for
                                rtifc_version,          &! version string
                                rtifc_init,             &! Initialize RTTOV, i.e. read coeffs
+                               rtifc_coef_index,       &! Return index of coeffs for given satid/instr
                                rtifc_cleanup,          &! Cleanup RTTOV and mo_rtifc structures
                                rtifc_get_preslev,      &! Get RTTOV levels
                                rtifc_fill_input,       &! Fill rttov profile structure
@@ -142,13 +146,16 @@ MODULE mo_rtifc
 #if defined(_RTTOV_ATLAS)
   use mo_rtifc_12,       only: rtifc_init_mw_atlas,    &!
                                rtifc_emis_atlas,       &! get emissivity from atlas
-                               rtifc_emis_retrieve      ! retrieve emissivity (by Karbou-method)
+                               rtifc_emis_retrieve,    &! retrieve emissivity (by Karbou-method)
+                               rtifc_init_brdf_atlas,  &!
+                               rtifc_brdf_atlas
 #endif
 
 #elif (_RTTOV_VERSION == 10)
   use mo_rtifc_10,       only: rtifc_vers,             &! RTTOV version this interface is compiled for
                                rtifc_version,          &! version string
                                rtifc_init,             &! Initialize RTTOV, i.e. read coeffs
+                               rtifc_coef_index,       &! Return index of coeffs for given satid/instr
                                rtifc_cleanup,          &! Cleanup RTTOV and mo_rtifc structures
                                rtifc_get_preslev,      &! Get RTTOV levels
                                rtifc_fill_input,       &! Fill rttov profile structure
@@ -163,6 +170,7 @@ MODULE mo_rtifc
   use mo_rtifc_nort,     only: rtifc_vers,             &! RTTOV version this interface is compiled for
                                rtifc_version,          &! version string
                                rtifc_init,             &! Initialize RTTOV, i.e. read coeffs
+                               rtifc_coef_index,       &! Return index of coeffs for given satid/instr
                                rtifc_cleanup,          &! Cleanup RTTOV and mo_rtifc structures
                                rtifc_get_preslev,      &! Get RTTOV levels
                                rtifc_fill_input,       &! Fill rttov profile structure
@@ -191,6 +199,7 @@ MODULE mo_rtifc
   public :: rtifc_version          ! RTTOV and interface version string
   public :: rtifc_set_opts         ! set RTTOV options
   public :: rtifc_init             ! Initialise RTTOV modules, read coeffs
+  public :: rtifc_coef_index       ! Returns index of coeffs for given satid/instr
   public :: rtifc_cleanup          ! frees memory allocated by rtifc_init
   public :: rtifc_fill_input       ! fills the profile-dependent part for RTTOV
   public :: rtifc_get_preslev      ! Get pressure levels
@@ -202,9 +211,14 @@ MODULE mo_rtifc
 #if defined(_RTTOV_ATLAS)
   ! Emissivity atlases
   public :: rtifc_init_mw_atlas
+  public :: rtifc_init_brdf_atlas
   public :: rtifc_emis_atlas
   public :: rtifc_emis_retrieve
+  public :: rtifc_brdf_atlas
 #endif
+
+  ! Reading/distribution of coeffs
+  public :: read1pe
 
   ! error codes/messages
   public :: NO_ERROR             ! everything was ok.
@@ -219,6 +233,7 @@ MODULE mo_rtifc
   public :: OUT_CSB
   public :: OUT_ASR
   public :: OUT_CSR
+  public :: OUT_VIS
 
   ! RTTOV levels above user levels
   public :: nlevs_top
@@ -239,6 +254,7 @@ MODULE mo_rtifc
 #else
   public :: default_idg
 #endif
+  public :: default_clw_scheme
   public :: default_gas_units  
 
   ! hard limits on profile variables
@@ -300,6 +316,7 @@ contains
                             clw_data,           &!
                             dom_rayleigh,       &!
                             dom_nstreams,       &!
+                            ir_scatt_model,     &!
                             vis_scatt_model     &!
                            )
     type(rttov_options), intent(inout), optional :: rttov_opts
@@ -332,6 +349,7 @@ contains
     logical,             intent(in),    optional :: clw_data
     logical,             intent(in),    optional :: dom_rayleigh
     integer,             intent(in),    optional :: dom_nstreams
+    integer,             intent(in),    optional :: ir_scatt_model
     integer,             intent(in),    optional :: vis_scatt_model
 
 #if (_RTTOV_VERSION == 13)
@@ -365,6 +383,7 @@ contains
                             clw_data          = clw_data,           &!
                             dom_rayleigh      = dom_rayleigh,       &!
                             dom_nstreams      = dom_nstreams,       &!
+                            ir_scatt_model    = ir_scatt_model,     &!
                             vis_scatt_model   = vis_scatt_model     &!
                            )
 #elif (_RTTOV_VERSION == 12)

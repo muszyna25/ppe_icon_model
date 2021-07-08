@@ -32,18 +32,16 @@ MODULE mo_multifile_restart_patch_data
     &                                       timer_write_restart_communication, timers_level,                   &
     &                                       timer_write_restart_setup, timer_write_restart_wait
   USE mo_var_metadata_types,          ONLY: t_var_metadata
-  USE mo_var_list_element,            ONLY: t_p_var_list_element
+  USE mo_var,                         ONLY: t_var_ptr
   USE mo_parallel_config,             ONLY: restart_chunk_size
-  USE mo_var_list,                    ONLY: get_restart_vars
+  USE mo_var_list_register_utils,     ONLY: vlr_select_restart_vars
 
   IMPLICIT NONE
-  
-  PUBLIC :: t_MultifilePatchData, toMultifilePatchData
-
   PRIVATE
+  
+  PUBLIC :: t_MultifilePatchData
 
   TYPE, EXTENDS(t_RestartPatchData) :: t_MultifilePatchData
-    PRIVATE
     INTEGER :: cnkLvs
     LOGICAL :: shortcut
     TYPE(t_MultifileRestartCollector) :: coll
@@ -72,27 +70,14 @@ CONTAINS
     CALL finish(modname//"writeData", "not implemented!")
   END SUBROUTINE multifilePatchData_writeData
 
-  FUNCTION toMultifilePatchData(me) RESULT(resultVar)
-    CLASS(t_RestartPatchData), TARGET, INTENT(INOUT) :: me(:)
-    TYPE(t_MultifilePatchData), POINTER :: resultVar(:)
-    CHARACTER(*), PARAMETER :: routine = modname//":toMultifilePatchData"
-
-    SELECT TYPE(me)
-    TYPE IS(t_MultifilePatchData)
-      resultVar => me
-    CLASS DEFAULT
-      CALL finish(routine, "assertion failed: wrong dynamic type")
-    END SELECT
-  END FUNCTION toMultifilePatchData
-
   SUBROUTINE multifilePatchData_construct(me, modelType, jg)
     CLASS(t_MultifilePatchData), INTENT(INOUT) :: me
     CHARACTER(*),                INTENT(IN)    :: modelType
     INTEGER,                     INTENT(IN)    :: jg
 
     CALL me%description%init(jg)
-    CALL get_restart_vars(me%varData, jg, modelType, me%restartType)
-    IF (isAsync()) CALL me%transferToRestart()
+    CALL vlr_select_restart_vars(me%varData, jg, modelType, me%restartType)
+    IF (isAsync()) CALL me%description%transferToRestart()
   END SUBROUTINE multifilePatchData_construct
 
   SUBROUTINE multifilePatchData_createCollectors(me, wRnk, srcRnks, lactive)
@@ -103,7 +88,7 @@ CONTAINS
     INTEGER :: curVar, jg, nLev, iType, nVar, i
     INTEGER(i8)                     :: iOffset(typeMax)
     TYPE(t_var_metadata), POINTER   :: curInfo
-    TYPE(t_p_var_list_element), ALLOCATABLE :: varReordered(:)
+    TYPE(t_var_ptr), ALLOCATABLE :: varReordered(:)
 
     IF (timers_level >= 7) CALL timer_start(timer_write_restart_setup)
     jg = me%description%id
@@ -389,7 +374,7 @@ CONTAINS
     CLASS(t_MultifilePatchData), INTENT(INOUT) :: me
 
     CALL me%coll%finalize()
-    IF(ALLOCATED(me%varData)) DEALLOCATE(me%varData)
+    IF (ALLOCATED(me%varData)) DEALLOCATE(me%varData)
   END SUBROUTINE multifilePatchData_destruct
 
 END MODULE mo_multifile_restart_patch_data

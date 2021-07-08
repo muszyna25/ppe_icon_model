@@ -270,7 +270,7 @@ do
 done
 #
 # - stratospheric aerosol (CMIP6)
-datadir=/pool/data/ICON/grids/private/rene/mpim/independent/CMIP6Forcing
+datadir=/pool/data/ICON/grids/public/mpim/independent/CMIP6Forcing
 #
 if [ ! -d $datadir ]; then
   echo 'directory '$datadir' for stratospheric aerosol data does not exist'

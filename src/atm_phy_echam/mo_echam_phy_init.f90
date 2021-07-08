@@ -35,7 +35,7 @@ MODULE mo_echam_phy_init
   USE mo_impl_constants,       ONLY: min_rlcell_int, grf_bdywidth_c
   USE mo_parallel_config,      ONLY: nproma
   USE mo_master_config,        ONLY: isrestart
-  USE mo_run_config,           ONLY: ltestcase, lart,                       &
+  USE mo_run_config,           ONLY: ltestcase, lart, msg_level,            &
     &                                iqv, iqc, iqi, iqs, iqr, iqg, iqm_max, &
     &                                iqt, io3, ico2, ich4, in2o, ntracer
   USE mo_advection_config,     ONLY: advection_config
@@ -104,13 +104,6 @@ MODULE mo_echam_phy_init
   ! WMO tropopause
   USE mo_echam_wmo_config,     ONLY: eval_echam_wmo_config, print_echam_wmo_config, echam_wmo_config
 
-  ! Cariolle interactive ozone scheme
-  USE mo_lcariolle_externals,  ONLY: read_bcast_real_3d_wrap, &
-    &                                read_bcast_real_1d_wrap, &
-    &                                closeFile_wrap, openInputFile_wrap, &
-    &                                get_constants
-  USE mo_lcariolle_types,      ONLY: l_cariolle_initialized_o3, t_avi, t_time_interpolation
-
   ! water vapour production by methane oxidation
   ! and destruction by photolysis
   USE mo_methox,               ONLY: init_methox
@@ -140,7 +133,8 @@ MODULE mo_echam_phy_init
   USE gscp_data,               ONLY: gscp_set_coefficients
   USE mo_echam_mig_config,     ONLY: echam_mig_config, print_echam_mig_config
 #endif
-
+  USE mo_lcariolle,            ONLY: lcariolle_init_o3, lcariolle_init, &
+    &l_cariolle_initialized_o3, t_avi, t_time_interpolation
   ! ART
   USE mo_art_config,         ONLY: art_config
 
@@ -348,13 +342,14 @@ CONTAINS
       END IF
       !
       jg=1
-      CALL gscp_set_coefficients(              igscp = 2                                    ,& 
+      CALL gscp_set_coefficients(idbg                = msg_level                            ,&
          &                       tune_zceff_min      = echam_mig_config(jg)% zceff_min      ,&
          &                       tune_v0snow         = echam_mig_config(jg)% v0snow         ,&
          &                       tune_zvz0i          = echam_mig_config(jg)% zvz0i          ,&
          &                       tune_icesedi_exp    = echam_mig_config(jg)% icesedi_exp    ,&
          &                       tune_mu_rain        = echam_mig_config(jg)% mu_rain        ,&
-         &                       tune_rain_n0_factor = echam_mig_config(jg)% rain_n0_factor )
+         &                       tune_rain_n0_factor = echam_mig_config(jg)% rain_n0_factor ,&
+         &                       igscp               = 2 )
     END IF
 
     ! cloud cover diagnostics
@@ -412,10 +407,7 @@ CONTAINS
         CALL finish('init_echam_phy: mo_echam_phy_init.f90', &
                    &'Cariolle initialization not ready for n_dom>1')
       END IF
-      CALL lcariolle_init(                                     &
-         & openInputFile_wrap,       closeFile_wrap,           &
-         & read_bcast_real_3d_wrap,  read_bcast_real_1d_wrap,  &
-         & get_constants                                       )
+      CALL lcariolle_init()
     END IF
 
     ! ch4 oxidation and h2o photolysis
@@ -465,6 +457,7 @@ CONTAINS
           iqm_max=iqm_max+1
        CASE('o3')
           io3=jt
+          write(0,*) 'io3=',io3
        CASE('co2')
           ico2=jt
        CASE('ch4')
@@ -538,7 +531,7 @@ CONTAINS
        IF (io3 == 0) THEN
           CALL finish(routine,           &
                &      'For the linearized ozone chemistry of Cariolle, '// &
-               &      'the tracer qo3 must be included in transport_nml'// &
+               &      'the tracer o3 must be included in transport_nml'// &
                &      '/tracer_names')
        END IF
     END IF
@@ -1056,6 +1049,8 @@ CONTAINS
           field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
           field% seaice(jcs:jce,jb) = 0._wp   ! zero sea ice fraction
+          field% emissivity(jcs:jce,jb) = zemiss_def ! use default emissivity
+
           !
         END DO
 !$OMP END PARALLEL DO
@@ -1080,6 +1075,7 @@ CONTAINS
           field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
           field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
+          field% emissivity(jcs:jce,jb) = zemiss_def ! use default emissivity
           !
         END DO
 !$OMP END PARALLEL DO
@@ -1121,6 +1117,7 @@ CONTAINS
           field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
           field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
+          field% emissivity(jcs:jce,jb) = zemiss_def ! use default emissivity
           !
         END DO
 !$OMP END PARALLEL DO
@@ -1160,6 +1157,7 @@ CONTAINS
           field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
           field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
+          field% emissivity(jcs:jce,jb) = zemiss_def ! use default emissivity
           !
         END DO
 !$OMP END PARALLEL DO
@@ -1182,6 +1180,7 @@ CONTAINS
           field% lsmask(jcs:jce,jb) = 1._wp   ! land fraction = 1
           field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
+          field% emissivity(jcs:jce,jb) = zemiss_def ! use default emissivity
           !
           IF (.NOT. isrestart()) THEN
             field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
@@ -1213,6 +1212,7 @@ CONTAINS
           field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
           field% seaice(jcs:jce,jb) = 0._wp   ! zero sea ice fraction
+          field% emissivity(jcs:jce,jb) = zemiss_def ! use default emissivity
         END DO
 !$OMP END DO  NOWAIT
 !$OMP END PARALLEL
@@ -1305,9 +1305,6 @@ CONTAINS
     REAL(wp)                           :: vmr_o3(nproma, p_patch%nlev)
     TYPE(t_time_interpolation)         :: time_interpolation
     TYPE(t_time_interpolation_weights) :: current_time_interpolation_weights
-    !
-    ! External routines of the Cariolle library
-    EXTERNAL :: lcariolle_init_o3, lcariolle_lat_intp_li, lcariolle_pres_intp_li
 
     avi%ldown=.TRUE.
     current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_current)
@@ -1334,10 +1331,7 @@ CONTAINS
       latc(:)             =  p_patch% cells% center(:,jb)% lat
       avi%cell_center_lat => latc
       !
-      CALL lcariolle_init_o3(                                               &
-        & jcs,                   jce,                nproma,                &
-        & p_patch%nlev,          time_interpolation, lcariolle_lat_intp_li, &
-        & lcariolle_pres_intp_li,avi,                vmr_o3                 )
+      CALL lcariolle_init_o3(jcs, jce, nproma, p_patch%nlev, time_interpolation, avi, vmr_o3)
       !
       o3(jcs:jce,:,jb) = vmr_o3(jcs:jce,:)*amo3/amd
       !

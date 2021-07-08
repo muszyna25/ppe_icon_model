@@ -108,7 +108,7 @@ MODULE mo_interface_iconam_echam
     &                                 timer_phy2dyn, timer_p2d_prep, timer_p2d_sync, timer_p2d_couple
   USE mo_run_config,            ONLY: lart
 #if defined( _OPENACC )
-  USE mo_var_list_gpu          ,ONLY: gpu_h2d_var_list, gpu_d2h_var_list
+  USE mo_var_list_gpu          ,ONLY: gpu_update_var_list
 #endif
 
   USE mo_upatmo_config         ,ONLY: upatmo_config
@@ -256,7 +256,7 @@ CONTAINS
     !$ACC               patch%edges%cell_idx, patch%edges%primal_normal_cell,                   &
     !$ACC               field%pfull,                                                            &
     !$ACC               field%rho, field%mair, field%dz, field%mh2o,                            &
-    !$ACC               field%mdry, field%mref, field%xref, field%omega,                        &
+    !$ACC               field%mdry, field%mref, field%xref, field%wa, field%omega,              &
     !$ACC               field%clon, field%clat, field%mtrc, field%qtrc,                         &
     !$ACC               field%mtrcvi, field%mh2ovi, field%mairvi, field%mdryvi, field%mrefvi,   &
     !$ACC               tend%ua, tend%va, tend%ta, tend%ua_dyn, tend%va_dyn, tend%ta_dyn,       &
@@ -763,8 +763,8 @@ CONTAINS
     IF ( is_coupled_run() ) THEN
 #if defined( _OPENACC )
       CALL warning('GPU:interface_echam_ocean','GPU host synchronization should be removed when port is done!')
-      CALL gpu_d2h_var_list('prm_field_D', jg)
-      CALL gpu_d2h_var_list('prm_tend_D', jg)
+      CALL gpu_update_var_list('prm_field_D', .false., jg)
+      CALL gpu_update_var_list('prm_tend_D', .false., jg)
 #endif
 
       IF (ltimer) CALL timer_start(timer_coupling)
@@ -775,8 +775,8 @@ CONTAINS
 
 #if defined( _OPENACC )
       CALL warning('GPU:interface_echam_ocean','GPU device synchronization should be removed when port is done!')
-      CALL gpu_h2d_var_list('prm_field_D', jg)
-      CALL gpu_h2d_var_list('prm_tend_D', jg)
+      CALL gpu_update_var_list('prm_field_D', .true., jg)
+      CALL gpu_update_var_list('prm_tend_D', .true., jg)
 #endif
     END IF
     !

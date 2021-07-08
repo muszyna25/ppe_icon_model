@@ -204,36 +204,12 @@ MODULE turb_diffusion
 ! Parameter for precision
 !-------------------------------------------------------------------------------
 
-#ifdef __COSMO__
-USE kind_parameters, ONLY : wp, vp=> wp
-#elif defined(__ICON__)
 USE mo_kind,         ONLY : wp, vp
-#endif
 
 !-------------------------------------------------------------------------------
 ! Mathematical and physical constants
 !-------------------------------------------------------------------------------
 
-#ifdef __COSMO__
-USE data_constants, ONLY : &
-
-! Physical constants and related variables:
-! -------------------------------------------
-
-    r_d,          & ! gas constant for dry air
-    rvd_m_o,      & ! r_v/r_d - 1
-    cp_d,         & ! specific heat for dry air
-    lh_v,         & ! evaporation heat
-    lhocp,        & ! lh_v / cp_d
-    con_m,        & ! kinematic vsicosity of dry air (m2/s)
-    con_h,        & ! scalar conductivity of dry air (m2/s)
-    grav => g       ! acceleration due to gravity
-
-USE data_parallel,  ONLY : &
-    my_cart_id
-#endif
-
-#ifdef __ICON__
 USE mo_mpi,                ONLY : get_my_global_mpi_id
 USE mo_exception,          ONLY : finish
 USE mo_physical_constants, ONLY : &
@@ -249,7 +225,6 @@ USE mo_physical_constants, ONLY : &
     con_m,                & ! kinematic vsicosity of dry air (m2/s)
     con_h,                & ! scalar conductivity of dry air (m2/s)
     grav                    ! acceleration due to gravity
-#endif
 
 !-------------------------------------------------------------------------------
 ! From Flake model
@@ -496,24 +471,13 @@ REAL (KIND=wp), PARAMETER :: &
     z2d3=z2/z3     ,&
     z3d2=z3/z2
 
-#ifndef __ICON__
-INTEGER :: &
-    istat=0, ilocstat=0
-
-LOGICAL :: &
-    lerror=.FALSE.
-#endif
 !===============================================================================
 
 CONTAINS
 
 !===============================================================================
 
-#ifndef __ICON__
-#  define err_args ,ierrstat, yerrormsg, yroutine
-#else
 #  define err_args
-#endif
 
 SUBROUTINE turbdiff ( &
 !
@@ -868,15 +832,6 @@ REAL (KIND=wp), DIMENSION(:),   TARGET, OPTIONAL, INTENT(INOUT) :: &
   qvfl_s           ! water vapor   flux at the surface             (kg/m2/s) (positive downward)
 
 
-! Error handling
-! --------------
-
-#ifndef __ICON__
-INTEGER,           INTENT(INOUT) :: ierrstat
-
-CHARACTER (LEN=*), INTENT(INOUT) :: yroutine
-CHARACTER (LEN=*), INTENT(INOUT) :: yerrormsg
-#endif
 !-------------------------------------------------------------------------------
 !Local Parameters:
 !-------------------------------------------------------------------------------
@@ -1050,9 +1005,7 @@ INTEGER                ::  &
 
 LOGICAL, PARAMETER :: ldebug=.FALSE.
 
-#ifdef __ICON__
 INTEGER :: my_cart_id, my_thrd_id
-#endif
 
 LOGICAL :: lzacc
 
@@ -1063,10 +1016,6 @@ LOGICAL :: lzacc
 !All variables and their tendencies are defined at horizontal mass positions.
 
  lzacc = iini == 0
-#ifndef __ICON__
- istat=0; ilocstat=0; ierrstat=0
- yerrormsg = ''; yroutine='turbdiff'; lerror=.FALSE.
-#endif
 
  lssintact=((ltkesso.OR.ltkeshs.OR.ltkecon) .AND. imode_adshear.EQ.1)
 
@@ -1243,12 +1192,7 @@ LOGICAL :: lzacc
   !$acc update device(tinc,ivtp) if(lzacc)
 
   IF (l3dturb .AND..NOT. (PRESENT(tkhm) .AND. PRESENT(tkhh))) THEN
-#ifdef __ICON__
     CALL finish("", 'ERROR *** 3D-diffusion with not present horiz. diff.coeffs. ***')
-#else
-    ierrstat = 1004; lerror=.TRUE.
-    yerrormsg='ERROR *** 3D-diffusion with not present horiz. diff.coeffs. ***'
-#endif
   END IF
 
 !-------------------------------------------------------------------------------
@@ -1259,11 +1203,9 @@ LOGICAL :: lzacc
                    lacc=lzacc)
 !-------------------------------------------------------------------------------
 
-#ifdef __ICON__
 my_cart_id = get_my_global_mpi_id()
 #ifdef _OPENMP
 my_thrd_id = omp_get_thread_num()
-#endif
 #endif
 
 ! Just do some check printouts:
@@ -2017,15 +1959,8 @@ my_thrd_id = omp_get_thread_num()
           DO i=ivstart, ivend
             ! Factor for variable 3D horizontal-vertical length scale proportional to 1/SQRT(Ri),
             ! decreasing to zero in the lowest two kilometer above ground
-
-#ifdef __COSMO__
-            x4 = MIN( 1._wp, 1.0e-3_wp*(hhl(i,k)-hhl(i,ke1)) ) ! low-level reduction factor
-#endif
-#ifdef __ICON__
-            ! from ICON 180206
             x4i = MIN( 1._wp, 0.5e-3_wp*(hhl(i,k)-hhl(i,ke1)) )
             x4 = 3._wp*x4i**2 - 2._wp*x4i**3                   ! low-level reduction factor
-#endif
             hor_scale(i,k) = lay(i)*MIN( 5.0_wp, MAX( 0.01_wp, x4*xri(i,k) ) )
           END DO
         END DO

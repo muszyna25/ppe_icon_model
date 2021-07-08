@@ -64,17 +64,12 @@ MODULE mo_nwp_lnd_state
     &                                itype_snowevap, groups_smi, zml_soil
   USE mo_io_config,            ONLY: lnetcdf_flt64_output, runoff_interval
   USE mo_gribout_config,       ONLY: gribout_config
-  USE mo_linked_list,          ONLY: t_var_list
-  USE mo_var_list,             ONLY: default_var_list_settings,  &
-    &                                add_var, add_ref,           &
-    &                                new_var_list,               &
-    &                                delete_var_list,            &
-    &                                get_timelevel_string
+  USE mo_var_list,             ONLY: add_var, add_ref, t_var_list_ptr
+  USE mo_var_list_register,    ONLY: vlr_add, vlr_del
   USE mo_var_groups,           ONLY: groups
   USE mo_var_metadata_types,   ONLY: POST_OP_SCALE, CLASS_TILE, CLASS_TILE_LAND
   USE mo_var_metadata,         ONLY: create_hor_interp_metadata, &
-    &                                post_op, &
-    &                                new_action, actions
+    &                                post_op, get_timelevel_string
   USE mo_cf_convention,        ONLY: t_cf_var
   USE mo_grib2,                ONLY: t_grib2_var, grib2_var, t_grib2_int_key, OPERATOR(+)
   USE mo_cdi,                  ONLY: DATATYPE_PACK16, DATATYPE_PACK24, DATATYPE_FLT32, &
@@ -84,9 +79,9 @@ MODULE mo_nwp_lnd_state
     &                                ZA_DEPTH_BELOW_LAND_P1,                     &
     &                                ZA_DEPTH_RUNOFF_S, ZA_DEPTH_RUNOFF_G,       &
     &                                ZA_SEDIMENT_BOTTOM_TW_HALF, ZA_LAKE_BOTTOM, &
-    &                                ZA_LAKE_BOTTOM_HALF, ZA_MIX_LAYER, ZA_HEIGHT_2M
+    &                                ZA_LAKE_BOTTOM_HALF, ZA_MIX_LAYER
   USE sfc_terra_data,          ONLY: zzhls, zdzhs, zdzms
-  USE mo_action,               ONLY: ACTION_RESET
+  USE mo_action,               ONLY: ACTION_RESET, actions, new_action
 
 
 #include "add_var_acc_macro.inc"
@@ -189,7 +184,7 @@ MODULE mo_nwp_lnd_state
            &   p_lnd_state(jg)%lnd_prog_nwp_list(1:ntl),STAT=ist)
       !$ACC ENTER DATA COPYIN(p_lnd_state(jg)%prog_lnd)
       IF(ist/=SUCCESS)THEN
-        CALL finish ('mo_nwp_lnd_state:construct_lnd_state', &
+        CALL finish (TRIM(routine), &
              'allocation of land prognostic state array failed')
       ENDIF
 
@@ -197,7 +192,7 @@ MODULE mo_nwp_lnd_state
                p_lnd_state(jg)%wtr_prog_nwp_list(1:ntl),STAT=ist)
       !$ACC ENTER DATA COPYIN(p_lnd_state(jg)%prog_wtr)
       IF(ist/=SUCCESS)THEN
-        CALL finish ('mo_nwp_lnd_state:construct_lnd_state', &
+        CALL finish (TRIM(routine), &
            'allocation of water prognostic state array failed')
       ENDIF
 
@@ -255,11 +250,8 @@ MODULE mo_nwp_lnd_state
   !! @par Revision History
   !! Initial release by Kristina Froehlich (2010-11-09)
   !!
-  SUBROUTINE destruct_nwp_lnd_state(p_lnd_state)
-   !
-    TYPE(t_lnd_state),  INTENT(INOUT) :: & 
-      &   p_lnd_state(n_dom)             ! land state at different grid levels
-
+  SUBROUTINE destruct_nwp_lnd_state()
+    !
     INTEGER :: ntl, &! local number of timelevels
       &        ist, &! status
       &         jg, &! grid level counter
@@ -285,18 +277,18 @@ MODULE mo_nwp_lnd_state
 
       DO jt = 1, ntl
         ! delete prognostic state list elements
-        CALL delete_var_list(p_lnd_state(jg)%lnd_prog_nwp_list(jt) )
+        CALL vlr_del(p_lnd_state(jg)%lnd_prog_nwp_list(jt))
       ENDDO
 
       IF (lseaice .OR. llake) THEN
         DO jt = 1, ntl
           ! delete prognostic state list elements
-          CALL delete_var_list(p_lnd_state(jg)%wtr_prog_nwp_list(jt) )
+          CALL vlr_del(p_lnd_state(jg)%wtr_prog_nwp_list(jt))
         ENDDO
       ENDIF
 
       ! delete diagnostic state list elements
-      CALL delete_var_list( p_lnd_state(jg)%lnd_diag_nwp_list )
+      CALL vlr_del(p_lnd_state(jg)%lnd_diag_nwp_list)
 
       !$ACC EXIT DATA DELETE(p_lnd_state(jg)%prog_lnd)
       ! destruct state lists and arrays
@@ -321,6 +313,10 @@ MODULE mo_nwp_lnd_state
     ENDDO
 
     !$ACC EXIT DATA DELETE(p_lnd_state)
+    DEALLOCATE(p_lnd_state, STAT=ist)
+    IF(ist/=success)THEN
+      CALL finish (TRIM(routine), 'deallocation of p_lnd_state failed')
+    ENDIF
 
     CALL message (TRIM(routine), 'Destruction of nwp land state completed')
 
@@ -348,7 +344,7 @@ MODULE mo_nwp_lnd_state
     CHARACTER(len=*),INTENT(IN) :: listname, vname_prefix
     CHARACTER(LEN=2)            :: csfc
 
-    TYPE(t_var_list),INTENT(INOUT) :: prog_list
+    TYPE(t_var_list_ptr),INTENT(INOUT) :: prog_list
     TYPE(t_lnd_prog),INTENT(INOUT) :: p_prog_lnd
 
     INTEGER, INTENT(IN) :: timelev
@@ -423,9 +419,7 @@ MODULE mo_nwp_lnd_state
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( prog_list, TRIM(listname), patch_id=p_jg )
-    CALL default_var_list_settings( prog_list,                 &
-                                  & lrestart=.TRUE.  )
+    CALL vlr_add(prog_list, TRIM(listname), patch_id=p_jg, lrestart=.TRUE.)
 
     !------------------------------
 
@@ -981,7 +975,7 @@ MODULE mo_nwp_lnd_state
 
     CHARACTER(len=*),INTENT(IN) :: listname, vname_prefix
 
-    TYPE(t_var_list),INTENT(INOUT) :: prog_list
+    TYPE(t_var_list_ptr),INTENT(INOUT) :: prog_list
     TYPE(t_wtr_prog),INTENT(INOUT) :: p_prog_wtr
 
     INTEGER, INTENT(IN) :: timelev
@@ -1037,9 +1031,7 @@ MODULE mo_nwp_lnd_state
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( prog_list, TRIM(listname), patch_id=p_jg )
-    CALL default_var_list_settings( prog_list,                 &
-                                  & lrestart=.TRUE.  )
+    CALL vlr_add(prog_list, TRIM(listname), patch_id=p_jg, lrestart=.TRUE.)
 
     !------------------------------
 
@@ -1109,7 +1101,7 @@ MODULE mo_nwp_lnd_state
          & initval = ALB_SI_MISSVAL,                                             &
          & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ), & 
          & in_group=groups("dwd_fg_sfc_vars","mode_dwd_fg_in", "mode_iau_fg_in", &
-         &                 "mode_iau_old_fg_in","mode_cosmo_in","mode_iniana"),                &
+         &  "mode_iau_old_fg_in","mode_cosmo_in","mode_iniana","mode_combined_in"), &
          & post_op=post_op(POST_OP_SCALE, arg1=100._wp, new_cf=new_cf_desc),     &
          & lopenacc=.TRUE. )   
          __acc_attach(p_prog_wtr%alb_si)   
@@ -1240,7 +1232,7 @@ MODULE mo_nwp_lnd_state
     CHARACTER(len=*),INTENT(IN) :: listname, vname_prefix
     CHARACTER(LEN=2)            :: csfc
 
-    TYPE(t_var_list),INTENT(INOUT) :: diag_list
+    TYPE(t_var_list_ptr),INTENT(INOUT) :: diag_list
     TYPE(t_lnd_diag),INTENT(INOUT) :: p_diag_lnd
     LOGICAL,         INTENT(IN)    :: l_smi   !< Flag. TRUE if computation 
                                               !< of soil moisture index desired
@@ -1324,9 +1316,7 @@ MODULE mo_nwp_lnd_state
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( diag_list, TRIM(listname), patch_id=p_jg )
-    CALL default_var_list_settings( diag_list,                 &
-                                  & lrestart=.TRUE.  )
+    CALL vlr_add(diag_list, TRIM(listname), patch_id=p_jg, lrestart=.TRUE.)
 
     !------------------------------
 
@@ -1403,7 +1393,7 @@ MODULE mo_nwp_lnd_state
     CALL add_var( diag_list, vname_prefix//'t_sk', p_diag_lnd%t_sk,                &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,                &
          & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE., in_group=              &
-         & groups("dwd_fg_sfc_vars", "mode_iau_fg_in", "mode_dwd_fg_in")           )
+         & groups("dwd_fg_sfc_vars", "mode_iau_fg_in", "mode_dwd_fg_in", "mode_combined_in") )
 
 
     ! & p_diag_lnd%t_seasfc(nproma,nblks_c)
@@ -1469,7 +1459,7 @@ MODULE mo_nwp_lnd_state
              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
              & ldims=shape2d, lrestart=.TRUE.,                                   &
              & in_group=groups("dwd_fg_sfc_vars","mode_iau_fg_in",               &
-             &                 "mode_dwd_fg_in","mode_iniana"),                  &
+             &                "mode_dwd_fg_in","mode_iniana","mode_combined_in"),&
              & lopenacc=.TRUE.)
       __acc_attach(p_diag_lnd%hsnow_max)
 
@@ -1480,7 +1470,7 @@ MODULE mo_nwp_lnd_state
              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
              & ldims=shape2d, lrestart=.TRUE.,                                   &
              & in_group=groups("dwd_fg_sfc_vars","mode_iau_fg_in",               &
-             &                 "mode_dwd_fg_in","mode_iniana"),                  &
+             &                "mode_dwd_fg_in","mode_iniana","mode_combined_in"),&
              & lopenacc=.TRUE.)
       __acc_attach(p_diag_lnd%snow_age)
 
@@ -1681,7 +1671,7 @@ MODULE mo_nwp_lnd_state
       CALL add_var( diag_list, vname_prefix//'plantevap', p_diag_lnd%plantevap,   &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,             &
            & ldims=shape2d,in_group=groups("dwd_fg_sfc_vars", "mode_iau_fg_in",   &
-           & "mode_dwd_fg_in","mode_iniana"), lrestart=.FALSE., loutput=.TRUE. )
+           & "mode_dwd_fg_in","mode_iniana","mode_combined_in"), lrestart=.FALSE., loutput=.TRUE. )
 
       ! & p_diag_lnd%plantevap_t(nproma,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('plantevap_t', 'kg m-2', &

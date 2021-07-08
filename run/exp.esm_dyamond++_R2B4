@@ -99,7 +99,7 @@ couplingTimeStep="PT15M"         # coupling time step:      1 time step  per rad
 # nproma                        = blocking length for array dimensioning and inner loop lengths
 #                                 -> deprecated. nproma_atm and nproma_ocn are used here.
 
-icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/grids/private/rene/mpim"
+icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/grids/public/mpim"
 
 #--------------------------------------------------------------------------------------------------
 
@@ -907,7 +907,7 @@ add_link_file ${datadir}/swflux_14band_cmip6_1850-2299-v3.2.nc             ./bc_
 #
 # - land parameters
 #
-datadir=${atmo_data_InputFolder}/land/r0009
+datadir=${icon_data_poolFolder}/${atmos_gridID}-${ocean_gridID}/land
 #
 add_link_file ${datadir}/ic_land_soil_1992.nc                              ./ic_land_soil.nc
 add_link_file ${datadir}/bc_land_soil_1992.nc                              ./bc_land_soil.nc
@@ -921,7 +921,7 @@ add_link_file ${basedir}/externals/jsbach/data/lctlib_nlct21.def           ./lct
 #
 # - HD files
 #
-datadir=${atmo_data_InputFolder}/land/r0003
+datadir=${icon_data_poolFolder}/${atmos_gridID}-${ocean_gridID}/land
 #
 add_link_file ${datadir}/hdrestart_R02B04_013_G_210120_1334_with_grid_file_mask.nc ./ic_land_hd.nc
 add_link_file ${datadir}/hdpara_icon_r2b4_013_using_grid_lsmask.nc        ./bc_land_hd.nc

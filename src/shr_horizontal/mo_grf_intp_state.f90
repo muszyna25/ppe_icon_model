@@ -824,7 +824,7 @@ FUNCTION scal_ubc_select_func(idx, blk, n, p_patch) RESULT(p)
   TYPE(t_patch), INTENT(IN) :: p_patch
   LOGICAL :: p
 
-  p = (p_patch%cells%refin_ctrl(idx,blk) >= grf_bdywidth_c + 1 .OR. &
+  p = (p_patch%cells%refin_ctrl(idx,blk) >= grf_bdywidth_c - 1 .OR. &
     &  p_patch%cells%refin_ctrl(idx,blk) <= 0) .AND. &
     &  p_patch%cells%pc_idx(idx,blk) == n
 
@@ -918,7 +918,7 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
             p_patch%cells%child_id(jc,jb) == icid) THEN
           npoints_lbc = npoints_lbc + 1
         ENDIF
-        IF (p_patch%cells%refin_ctrl(jc,jb) <= grf_nudgintp_start_c .AND. &
+        IF (p_patch%cells%refin_ctrl(jc,jb) <= grf_nudgintp_start_c+1 .AND. &
             p_patch%cells%child_id(jc,jb) == icid) THEN
           npoints_ubc = npoints_ubc + 1
         ENDIF
@@ -1072,7 +1072,7 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
           p_grf_s%coeff_bdyintp_c(1:10,1:2,icount_lbc) = p_int%rbf_c2grad_coeff(1:10,1:2,jc,jb)
           p_grf_s%dist_pc2cc_bdy(1:4,1:2,icount_lbc)   = p_grf_s%grf_dist_pc2cc(jc,1:4,1:2,jb)
         ENDIF
-        IF (p_patch%cells%refin_ctrl(jc,jb) <= grf_nudgintp_start_c .AND. &
+        IF (p_patch%cells%refin_ctrl(jc,jb) <= grf_nudgintp_start_c+1 .AND. &
             p_patch%cells%child_id(jc,jb) == icid) THEN
           icount_ubc = icount_ubc + 1
           p_grf_s%idxlist_ubcintp_c(1,icount_ubc) = jc

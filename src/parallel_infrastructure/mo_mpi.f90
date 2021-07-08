@@ -165,7 +165,7 @@
 !!     - a communicator for the radar I/O Pes      : icomm_radario
 !!     - a combined communicator                   : icomm_radar = icomm_cart_fwo + icomm_radario
 !!
-!!   In case EMVORADO runs asynchroneously for more than 1 (N) different model domains, i.e.,
+!!   In case EMVORADO runs asynchronously for more than 1 (N) different model domains, i.e.,
 !!   run_nml::luse_radarfwo(1:N) = .TRUE. and parallel_nml::num_io_procs_radar > 0,
 !!   and if parallel_nml::num_io_procs_radar > N,
 !!   there are also separate radar I/O sub-communicators for each model domain:
@@ -1630,9 +1630,11 @@ CONTAINS
 
           arch_mismatch = .FALSE.
           ! check all detached std I/O PEs
-          DO p = 1, num_dio_procs
-            IF (my_arch /= glb_arch(p)) arch_mismatch = .TRUE.
-          END DO
+          IF (PRESENT(num_dio_procs)) THEN
+            DO p = 1, num_dio_procs
+              IF (my_arch /= glb_arch(p)) arch_mismatch = .TRUE.
+            END DO
+          END IF
           ! check all I/O PEs
           DO p = num_work_procs + 1, num_work_procs + num_io_procs
             IF (my_arch /= glb_arch(p)) arch_mismatch = .TRUE.

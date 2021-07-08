@@ -25,7 +25,8 @@ MODULE mo_test_netcdf_read
 
   USE mo_model_domain,        ONLY: t_patch, p_patch
   USE mo_atmo_model,          ONLY: construct_atmo_model, destruct_atmo_model
-  USE mo_atmo_hydrostatic,    ONLY: construct_atmo_hydrostatic, destruct_atmo_hydrostatic
+!!$ hydrostatic model no longer available
+!!$  USE mo_atmo_hydrostatic,    ONLY: construct_atmo_hydrostatic, destruct_atmo_hydrostatic
   USE mo_read_interface,      ONLY: openInputFile, closeFile, on_cells, nf, &
     &                               t_stream_id, read_1D, read_2D_time, &
     &                               read_3D_time, read_netcdf_broadcast_method
@@ -75,7 +76,8 @@ CONTAINS
     timers_level = 0
     activate_sync_timers = .false.
     CALL construct_atmo_model(namelist_filename,shr_namelist_filename)
-    CALL construct_atmo_hydrostatic()
+!!$ hydrostatic model no longer available
+!!$    CALL construct_atmo_hydrostatic()
     patch => p_patch(1)
     levels  = patch%nlev
     !---------------------------------------------------------------------
@@ -142,7 +144,8 @@ CONTAINS
 
     !---------------------------------------------------------------------
     ! Carry out the shared clean-up processes
-    CALL destruct_atmo_hydrostatic()
+!!$ hydrostatic model no longer available
+!!$    CALL destruct_atmo_hydrostatic()
     CALL destruct_atmo_model()
 
 
@@ -170,7 +173,8 @@ CONTAINS
     timers_level = 0
     activate_sync_timers = .false.
     CALL construct_atmo_model(namelist_filename,shr_namelist_filename)
-    CALL construct_atmo_hydrostatic()
+!!$ hydrostatic model no longer available
+!!$    CALL construct_atmo_hydrostatic()
     patch => p_patch(1)
     !---------------------------------------------------------------------
 
@@ -243,7 +247,8 @@ CONTAINS
 
     !---------------------------------------------------------------------
     ! Carry out the shared clean-up processes
-    CALL destruct_atmo_hydrostatic()
+!!$ hydrostatic model no longer available
+!!$    CALL destruct_atmo_hydrostatic()
     CALL destruct_atmo_model()
      
 

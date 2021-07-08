@@ -49,7 +49,7 @@ atmTimeStep="PT45S"              # atmosphere time step: 2880 time steps per day
 # icon_data_poolFolder          = base directory, where grids/, input/ and setup/ exist
 # nproma                        = blocking length for array dimensioning and inner loop lengths
 
-icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/grids/private/rene/mpim"
+icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/grids/public/mpim"
 
 #--------------------------------------------------------------------------------------------------
 
@@ -422,7 +422,7 @@ do
 done
 #
 # - stratospheric aerosol (CMIP6)
-datadir=/pool/data/ICON/grids/private/rene/mpim/independent/CMIP6Forcing
+datadir=/pool/data/ICON/grids/public/mpim/independent/CMIP6Forcing
 #
 if [ ! -d $datadir ]; then
   echo 'directory '$datadir' for stratospheric aerosol data does not exist'

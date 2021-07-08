@@ -99,6 +99,11 @@ for model levels. Possible other values C<h> for height.
 
 =over
 
+=item 16.04.2021
+
+Use the ncl-scripts in directory $NCL_SCRIPT_DIR to make the plots. The default is
+C<NCL_SCRIPT_DIR=.> .
+
 =item 31.01.2019
 
 Add option B<-t>.
@@ -262,6 +267,8 @@ $title = $metgram_file unless ( defined($title));
 
 my ( $oFile, $ncl_arg, $ncl_script, $ncl_cmd, $station);
 $title =~ s/ /\\ /g;
+
+my $ncl_dir = defined( $ENV{NCL_SCRIPT_DIR}) ? $ENV{NCL_SCRIPT_DIR} : '.';
 foreach $station ( @stations) {
     unless ( defined($station_no{$station})) {
 	print STDERR "Station $station is not in meteogram file $metgram_file!\n";
@@ -276,21 +283,16 @@ foreach $station ( @stations) {
 	$ncl_arg =~ s/"/\\"/g;
 
 	if ( defined($var_name{$var})) {
-            $ncl_script = "mtgrm_plot.ncl"
+            $ncl_script = $ncl_dir . "/mtgrm_plot.ncl"
 	} elsif ( defined($sfcvar_name{$var})) {
-            $ncl_script = "mtgrm_plot_sfc.ncl"
+            $ncl_script = $ncl_dir . "/mtgrm_plot_sfc.ncl"
 	} else {
             print STDERR "Variable $var not in meteogram file $metgram_file!\n";
 	    next;
         }
+        die "ncl-script $ncl_script not readable!" unless ( -r $ncl_script);
         print STDERR qq(ncl -n $ncl_script $ncl_arg\n) if ($debug);
 	if ( $debug <= 2) {
-#           $result = qx(ncl -n $ncl_script $ncl_arg);
-#	    if ( $result == 0) {
-#		print "Created file $oFile\n";
-#	    } else{
-#		print STDERR "Error calling ncl!\n";
-#	    }
             $ncl_cmd = qq(ncl -n $ncl_script $ncl_arg);
             $result = 0xffff & system( $ncl_cmd);
 	    if ( $result == 0xff00) {

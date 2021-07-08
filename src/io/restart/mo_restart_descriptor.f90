@@ -18,8 +18,7 @@ MODULE mo_restart_descriptor
   USE mo_kind,                      ONLY: wp
   USE mo_model_domain,              ONLY: t_patch
   USE mo_mpi, ONLY: my_process_is_work, p_bcast, p_comm_work_2_restart, &
-    & p_get_bcast_role, p_pe_work, my_process_is_mpi_test, process_mpi_restart_size
-  USE mo_packed_message,            ONLY: t_PackedMessage, kPackOp, kUnpackOp
+    & p_pe_work, my_process_is_mpi_test, process_mpi_restart_size
   USE mo_restart_nml_and_att,       ONLY: restartAttributeList_make, bcastNamelistStore, &
     & restartAttributeList_write_to_cdi
   USE mo_key_value_store,           ONLY: t_key_value_store
@@ -27,7 +26,7 @@ MODULE mo_restart_descriptor
   USE mo_restart_util, ONLY: t_restart_args, create_restart_file_link, &
     & getRestartFilename, restartBcastRoot
   USE mo_restart_var_data,          ONLY: has_valid_time_level
-  USE mo_var_list,                  ONLY: varlistPacker
+  USE mo_var_list_register_utils,   ONLY: vlr_replicate
   USE mo_upatmo_flowevent_utils,    ONLY: t_upatmoRestartAttributes, upatmoRestartAttributesSet
   USE mo_cdi_ids,                   ONLY: t_CdiIds
   USE mo_cdi,                       ONLY: FILETYPE_NC2, FILETYPE_NC4
@@ -35,6 +34,11 @@ MODULE mo_restart_descriptor
   USE mo_cdi,                       ONLY: CDI_UNDEFID
 #endif
   USE mo_restart_patch_data, ONLY: t_restartPatchData
+#ifndef NOMPI
+  USE mo_async_restart_patch_data, ONLY: t_asyncPatchData
+#endif
+  USE mo_sync_restart_patch_data, ONLY: t_syncPatchData
+  USE mo_multifile_restart_patch_data, ONLY: t_multifilePatchData
 
   IMPLICIT NONE
   PRIVATE
@@ -55,16 +59,21 @@ MODULE mo_restart_descriptor
   ! Finally, destruct() must be called for cleanup. This IS especially important IN the CASE of asynchronous restart writing,
   ! because the destruct() CALL will signal the restart PEs to finish their work, AND wait for them to stop.
   TYPE, ABSTRACT :: t_RestartDescriptor
-    CLASS(t_RestartPatchData), ALLOCATABLE :: patchData(:)
+    CLASS(t_RestartPatchData), POINTER :: patchData(:)
+#ifndef NOMPI
+    TYPE(t_asyncPatchData), ALLOCATABLE :: aPatchData(:)
+#endif
+    TYPE(t_syncPatchData), ALLOCATABLE :: sPatchData(:)
+    TYPE(t_multifilePatchData), ALLOCATABLE :: mPatchData(:)
     CHARACTER(:), ALLOCATABLE :: modelType
   CONTAINS
-    PROCEDURE(i_construct), DEFERRED :: construct
     PROCEDURE :: updatePatch => restartDescriptor_updatePatch
-    PROCEDURE(i_writeRestart), DEFERRED :: writeRestart
     PROCEDURE :: writeFiles => restartDescriptor_writeFiles
-    PROCEDURE(i_destruct), DEFERRED :: destruct
     PROCEDURE :: transferGlobalParameters => restartDescriptor_transferGlobalParameters
     PROCEDURE :: defineRestartAttributes => restartDescriptor_defineRestartAttributes
+    PROCEDURE(i_construct), DEFERRED :: construct
+    PROCEDURE(i_writeRestart), DEFERRED :: writeRestart
+    PROCEDURE(i_destruct), DEFERRED :: destruct
   END TYPE t_RestartDescriptor
 
   ABSTRACT INTERFACE
@@ -83,7 +92,7 @@ MODULE mo_restart_descriptor
     END SUBROUTINE i_writeRestart
 
     SUBROUTINE i_destruct(me)
-      IMPORT t_RestartDescriptor, datetime
+      IMPORT t_RestartDescriptor
       CLASS(t_RestartDescriptor), INTENT(INOUT) :: me
     END SUBROUTINE i_destruct
   END INTERFACE
@@ -97,8 +106,6 @@ CONTAINS
     CLASS(t_RestartDescriptor), INTENT(INOUT) :: me
 #ifndef NOMPI
     INTEGER :: error, length, bcast_root
-    TYPE(t_PackedMessage) :: packedMessage
-    LOGICAL :: lIsSender, lIsReceiver
     CHARACTER(*), PARAMETER :: routine = modname//":restartDescriptor_transferGlobalParameters"
 
     bcast_root = restartBcastRoot()
@@ -111,10 +118,7 @@ CONTAINS
     END IF
     CALL p_bcast(me%modelType, bcast_root, p_comm_work_2_restart)
     CALL p_bcast(n_dom, bcast_root, p_comm_work_2_restart)
-    CALL p_get_bcast_role(bcast_root, p_comm_work_2_restart, lIsSender, lIsReceiver)
-    IF(lIsSender) CALL varlistPacker(kPackOp, packedMessage)
-    CALL packedMessage%bcast(bcast_root, p_comm_work_2_restart)
-    IF(lIsReceiver) CALL varlistPacker(kUnpackOp, packedMessage)
+    CALL vlr_replicate(bcast_root, p_comm_work_2_restart)
     CALL bcastNamelistStore(bcast_root, p_comm_work_2_restart)
 #endif
   END SUBROUTINE restartDescriptor_transferGlobalParameters
@@ -242,7 +246,15 @@ CONTAINS
         CALL desc%updateVGrids()
         CALL restartfile_open()
       END IF
-      CALL me%patchData(jg)%writeData(cdiIds%fHndl)
+      IF (ALLOCATED(me%sPatchData)) THEN
+        CALL me%sPatchData(jg)%writeData(cdiIds%fHndl)
+#ifndef NOMPI
+      ELSE IF (ALLOCATED(me%aPatchData)) THEN
+        CALL me%aPatchData(jg)%writeData(cdiIds%fHndl)
+#endif
+      ELSE
+        CALL finish(routine, "multifile does not use this routine!")
+      END IF
       IF(lIsWriteProcess) THEN
         CALL create_restart_file_link(fname, TRIM(rArgs%modelType), &
           & desc%id, opt_ndom=desc%opt_ndom)

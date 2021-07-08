@@ -70,33 +70,13 @@ MODULE turb_vertdiff
 ! Parameter for precision
 !-------------------------------------------------------------------------------
 
-#ifdef __COSMO__
-USE kind_parameters, ONLY :   &
-#elif defined(__ICON__)
 USE mo_kind,         ONLY :   &
-#endif
     wp              ! KIND-type parameter for real variables
 
 !-------------------------------------------------------------------------------
 ! Mathematical and physical constants
 !-------------------------------------------------------------------------------
 
-#ifdef __COSMO__
-USE data_constants, ONLY : &
-
-! Physical constants and related variables:
-! -------------------------------------------
-
-    r_d,          & ! gas constant for dry air
-    rvd_m_o,      & ! r_v/r_d - 1
-    cp_d,         & ! specific heat for dry air
-    lh_v            ! evaporation heat
-
-USE data_parallel,  ONLY : &
-    my_cart_id
-#endif
-
-#ifdef __ICON__
 USE mo_mpi,                ONLY : get_my_global_mpi_id
 USE mo_exception,          ONLY : finish
 USE mo_physical_constants, ONLY : &
@@ -108,7 +88,6 @@ USE mo_physical_constants, ONLY : &
     rvd_m_o  => vtmpc1,   & ! r_v/r_d - 1
     cp_d     => cpd,      & ! specific heat for dry air
     lh_v     => alv         ! evaporation heat
-#endif
 
 !-------------------------------------------------------------------------------
 ! Turbulence data (should be the same in ICON and COSMO)
@@ -221,13 +200,6 @@ REAL (KIND=wp), PARAMETER :: &
 !   z2d3=z2/z3     ,&
 !   z3d2=z3/z2
 
-#ifndef __ICON__
-INTEGER :: &
-    istat=0
-
-LOGICAL :: &
-    lerror=.FALSE.
-#endif
 
 !===============================================================================
 
@@ -235,11 +207,7 @@ CONTAINS
 
 !===============================================================================
 
-#ifndef __ICON__
-#  define err_args , ierrstat, yerrormsg, yroutine
-#else
 #  define err_args
-#endif
 
 SUBROUTINE vertdiff ( &
 !
@@ -434,12 +402,6 @@ REAL (KIND=wp), DIMENSION(:), OPTIONAL, TARGET, INTENT(INOUT) :: &
   umfl_s,       & ! u-momentum flux at the surface                (N/m2)    (positive downward)
   vmfl_s          ! v-momentum flux at the surface                (N/m2)    (positive downward)
 
-#ifndef __ICON__
-INTEGER, INTENT(OUT)           :: ierrstat
-
-CHARACTER (LEN=*), INTENT(OUT) :: yroutine
-CHARACTER (LEN=*), INTENT(OUT) :: yerrormsg
-#endif
 
 !
 ! Indices concerning ART-tracer:
@@ -574,9 +536,7 @@ REAL (KIND=wp), TARGET ::   &
 
 LOGICAL :: ldebug=.FALSE.
 
-#ifdef __ICON__
 INTEGER :: my_cart_id, my_thrd_id
-#endif
 
 !---- End of header ------------------------------------------------------------
 
@@ -584,10 +544,6 @@ INTEGER :: my_cart_id, my_thrd_id
 
 !All variables and their tendencies are defined at horizontal mass positions.
 
-#ifndef __ICON__
-  istat=0; ierrstat=0
-  yerrormsg = ''; yroutine='vertdiff'; lerror=.FALSE.
-#endif
 
   ldogrdcor=(lexpcor .AND. lturatm)             !gradient correction has to be done
   ldovardif=(lum_dif .OR. lvm_dif .OR. lscadif) !some variable has to be diffused
@@ -598,14 +554,7 @@ INTEGER :: my_cart_id, my_thrd_id
     ntrac=0
   END IF
   IF (ndtr.GT.ntrac) THEN
-#ifdef __ICON__
     CALL finish('', 'ERROR *** Number of tracers larger than dimension of tracer vector ''prt'' ***')
-#else
-    ierrstat = 1004
-    yerrormsg= &
-    'ERROR *** Number of tracers larger than dimension of tracer vector ''prt'' ***'
-    lerror=.TRUE.; RETURN
-#endif
   END IF
 
   ndiff=nmvar+ndtr !number of 1-st order variables used in the turbulence model
@@ -705,15 +654,7 @@ INTEGER :: my_cart_id, my_thrd_id
 
   IF ((lsfli(tem) .AND. .NOT.PRESENT(shfl_s)) .OR. &
       (lsfli(vap) .AND. .NOT.PRESENT(qvfl_s))) THEN
-#ifdef __ICON__
     CALL finish('', 'ERROR *** forcing with not present surface heat flux densities  ***')
-#else
-    ierrstat = 1004; lerror=.TRUE.
-    yerrormsg='ERROR *** forcing with not present surface heat flux densities  ***'
-#ifndef _OPENACC
-    RETURN
-#endif
-#endif
   ENDIF
 
   IF (lsfli(tem)) dvar(tem)%sv => shfl_s
@@ -760,11 +701,9 @@ INTEGER :: my_cart_id, my_thrd_id
   IF ((ldovardif .OR. ldogrdcor) .AND. iini.NE.1) THEN !Vertikaldiffusion wird hier berechnet
 !--------------------------------------------------
 
-#ifdef __ICON__
 my_cart_id = get_my_global_mpi_id()
 #ifdef _OPENMP
 my_thrd_id = omp_get_thread_num()
-#endif
 #endif
 
 ! Just do some check printouts:

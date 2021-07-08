@@ -20,10 +20,7 @@ MODULE mo_nml_crosscheck
   USE, INTRINSIC :: iso_c_binding, ONLY: c_int64_t
   USE mo_kind,                     ONLY: wp
   USE mo_exception,                ONLY: message, message_text, finish, em_info
-  USE mo_impl_constants,           ONLY: ildf_echam, inwp, iheldsuarez,                    &
-    &                                    ildf_dry, inoforcing, ihs_atm_temp,               &
-    &                                    ihs_atm_theta, tracer_only, inh_atmosphere,       &
-    &                                    ishallow_water, LEAPFROG_EXPL, LEAPFROG_SI,       &
+  USE mo_impl_constants,           ONLY: inwp, tracer_only, inh_atmosphere,                &
     &                                    NO_HADV, UP, MIURA, MIURA3, FFSL, FFSL_HYB,       &
     &                                    MCYCL, MIURA_MCYCL, MIURA3_MCYCL,                 &
     &                                    FFSL_MCYCL, FFSL_HYB_MCYCL, iecham,               &
@@ -32,29 +29,26 @@ MODULE mo_nml_crosscheck
     &                                    max_echotop
   USE mo_time_config,              ONLY: time_config, dt_restart
   USE mo_extpar_config,            ONLY: itopo                                             
-  USE mo_io_config,                ONLY: dt_checkpoint, lflux_avg,                         &
-    &                                    lnetcdf_flt64_output, echotop_meta
+  USE mo_io_config,                ONLY: dt_checkpoint, lnetcdf_flt64_output, echotop_meta
   USE mo_parallel_config,          ONLY: check_parallel_configuration,                     &
     &                                    num_io_procs, itype_comm,                         &
     &                                    num_prefetch_proc, use_dp_mpi2io, num_io_procs_radar
   USE mo_limarea_config,           ONLY: latbc_config, LATBC_TYPE_CONST, LATBC_TYPE_EXT
   USE mo_master_config,            ONLY: isRestart
   USE mo_run_config,               ONLY: nsteps, dtime, iforcing, output_mode,             &
-    &                                    ltransport, ntracer, nlev, ltestcase,             &
+    &                                    ltransport, ntracer, ltestcase,                   &
     &                                    nqtendphy, iqtke, iqv, iqc, iqi,                  &
     &                                    iqs, iqr, iqt, iqtvar, ltimer,                    &
-    &                                    ico2,                                             &
     &                                    iqni, iqni_nuc, iqg, iqm_max,                     &
     &                                    iqh, iqnr, iqns, iqng, iqnh, iqnc, iqgl, iqhl,    & 
     &                                    inccn, ininact, ininpot,                          &
     &                                    activate_sync_timers, timers_level, lart,         &
     &                                    msg_level, luse_radarfwo
-  USE mo_dynamics_config,          ONLY: iequations, lshallow_water, ltwotime, ldeepatmo
+  USE mo_dynamics_config,          ONLY: iequations, ldeepatmo
   USE mo_advection_config,         ONLY: advection_config
   USE mo_nonhydrostatic_config,    ONLY: itime_scheme_nh => itime_scheme,                  &
     &                                    lhdiff_rcf, rayleigh_type,                        &
     &                                    ivctype, ndyn_substeps
-  USE mo_ha_dyn_config,            ONLY: ha_dyn_config
   USE mo_diffusion_config,         ONLY: diffusion_config
   USE mo_atm_phy_nwp_config,       ONLY: atm_phy_nwp_config, icpl_aero_conv, iprog_aero
   USE mo_lnd_nwp_config,           ONLY: ntiles_lnd, lsnowtile
@@ -67,8 +61,6 @@ MODULE mo_nml_crosscheck
   USE mo_initicon_config,          ONLY: init_mode, dt_iau, ltile_coldstart, timeshift,    &
     &                                    itype_vert_expol
   USE mo_nh_testcases_nml,         ONLY: nh_test_name, layer_thickness
-  USE mo_ha_testcases,             ONLY: ctest_name, ape_sst_case
-
   USE mo_meteogram_config,         ONLY: meteogram_output_config, check_meteogram_configuration
   USE mo_grid_config,              ONLY: lplane, n_dom, l_limited_area, start_time,        &
     &                                    nroot, is_plane_torus, n_dom_start
@@ -191,33 +183,10 @@ CONTAINS
     IF (lplane) CALL finish( routine,&
       'Currently a plane version is not available')
 
-    SELECT CASE (iequations)
-    CASE(IHS_ATM_TEMP,IHS_ATM_THETA)         ! hydrostatic atm model
-
-      SELECT CASE(iforcing)
-      CASE(INOFORCING,IHELDSUAREZ,ILDF_DRY)  ! without moist processes
-        ha_dyn_config%ldry_dycore = .TRUE.
-      CASE(IECHAM,ILDF_ECHAM)                ! with ECHAM physics
-        CALL finish(routine, 'Hydrostatic dynamics cannot be used with ECHAM physics')
-      END SELECT
-
-    END SELECT
-
-    lshallow_water = (iequations==ISHALLOW_WATER)
-
-    SELECT CASE (iequations)
-    CASE (IHS_ATM_TEMP,IHS_ATM_THETA,ISHALLOW_WATER)
-
-      ltwotime = (ha_dyn_config%itime_scheme/=LEAPFROG_EXPL).AND. &
-                 (ha_dyn_config%itime_scheme/=LEAPFROG_SI)
-
-    END SELECT
-
     !--------------------------------------------------------------------
     ! If ltestcase is set to .FALSE. in run_nml set testcase name to empty
     ! (in case it is still set in the run script)
     IF (.NOT. ltestcase) THEN
-      ctest_name = ''
       nh_test_name = ''
     END IF
     !--------------------------------------------------------------------
@@ -229,46 +198,6 @@ CONTAINS
       CALL finish(routine, "ivctype = 12 requires layer_thickness < 0.")
     ENDIF
 
-    !--------------------------------------------------------------------
-    ! Testcases (hydrostatic)
-    !--------------------------------------------------------------------
-
-
-    IF ((ctest_name=='GW') .AND. (nlev /= 20)) THEN
-      CALL finish(routine,'nlev MUST be 20 for the gravity-wave test case')
-    ENDIF
-
-    IF ((ctest_name=='SV') .AND. ntracer /= 2 ) THEN
-
-      CALL finish(routine, &
-        & 'ntracer MUST be 2 for the stationary vortex test case')
-    ENDIF
-
-    IF ((ctest_name=='DF1') .AND. ntracer == 1 ) THEN
-      CALL finish(routine, &
-        & 'ntracer MUST be >=2 for the deformational flow test case 1')
-    ENDIF
-
-    IF ((ctest_name=='DF2') .AND. ntracer == 1 ) THEN
-      CALL finish(routine, &
-        & 'ntracer MUST be >=2 for the deformational flow test case 2')
-    ENDIF
-
-    IF ((ctest_name=='DF3') .AND. ntracer == 1 ) THEN
-      CALL finish(routine, &
-        & 'ntracer MUST be >=2 for the deformational flow test case 3')
-    ENDIF
-
-    IF ((ctest_name=='DF4') .AND. ntracer == 1 ) THEN
-      CALL finish(routine, &
-        & 'ntracer MUST be >=2 for the deformational flow test case 4')
-    ENDIF
-
-    IF ((ctest_name=='APE') .AND. (ape_sst_case=='sst_ice')  ) THEN
-      IF (.NOT. lflux_avg)&
-      CALL finish(routine, &
-        & 'lflux_avg must be set true to run this setup')
-    ENDIF
 
     !--------------------------------------------------------------------
     ! Testcases (nonhydrostatic)
@@ -287,20 +216,6 @@ CONTAINS
 
     IF (ltestcase) CALL check_nh_testcase()
 
-    !--------------------------------------------------------------------
-    ! Shallow water
-    !--------------------------------------------------------------------
-    IF (iequations==ISHALLOW_WATER.AND.ha_dyn_config%lsi_3d) THEN
-      CALL message( routine, 'lsi_3d = .TRUE. not applicable to shallow water model')
-    ENDIF
-
-    IF ((iequations==ISHALLOW_WATER).AND.(nlev/=1)) &
-    CALL finish(routine,'Multiple vertical level specified for shallow water model')
-
-    !--------------------------------------------------------------------
-    ! Hydrostatic atm
-    !--------------------------------------------------------------------
-    IF (iequations==IHS_ATM_THETA) ha_dyn_config%ltheta_dyn = .TRUE.
 
     !--------------------------------------------------------------------
     ! Nonhydrostatic atm
@@ -765,21 +680,14 @@ CONTAINS
         CALL finish( routine,message_text)
       END IF
 
-    CASE (IHS_ATM_TEMP,IHS_ATM_THETA,ISHALLOW_WATER)
+    CASE default
 
-      IF ( (ha_dyn_config%itime_scheme==tracer_only).AND. &
-           (.NOT.ltransport)) THEN
-        WRITE(message_text,'(A,i2,A)') &
-          'ha_dyn_nml:itime_scheme set to ', tracer_only, &
-          '(TRACER_ONLY), but ltransport to .FALSE.'
-        CALL finish( routine,message_text)
-      END IF
-
+      CALL finish(routine, 'iequations /= INH_ATMOSPHERE no longer supported')
     END SELECT
+
 
     IF (ltransport) THEN
     DO jg = 1,n_dom
-
 
       !----------------------------------------------
       ! Flux computation methods - consistency check
@@ -813,21 +721,15 @@ CONTAINS
       CASE(2,3,4,5)
         CONTINUE
 
-      CASE(24,42)
-        IF (.NOT.( iequations==IHS_ATM_TEMP)) CALL finish(routine, &
-        ' hdiff_order = 24 or 42 only implemented for the hydrostatic atm model')
-
       CASE DEFAULT
         CALL finish(routine,                       &
           & 'Error: Invalid choice for  hdiff_order. '// &
-          & 'Choose from -1, 2, 3, 4, 5, 24, and 42.')
+          & 'Choose from -1, 2, 3, 4, and 5.')
       END SELECT
 
       IF ( diffusion_config(jg)%hdiff_efdt_ratio<=0._wp) THEN
         CALL message(routine,'No horizontal background diffusion is used')
       ENDIF
-
-      IF (lshallow_water)  diffusion_config(jg)%lhdiff_temp=.FALSE.
 
       IF (itype_comm == 3 .AND. diffusion_config(jg)%hdiff_order /= 5)  &
         CALL finish(routine, 'itype_comm=3 requires hdiff_order = 5')

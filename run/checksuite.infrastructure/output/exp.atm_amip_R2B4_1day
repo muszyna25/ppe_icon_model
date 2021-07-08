@@ -54,7 +54,7 @@ unset OMPI_MCA_coll_fca_priority
 # nproma                        = blocking length for array dimensioning and inner loop lengths
 #                                 -> deprecated. nproma_atm is used here.
 
-icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/grids/private/rene/mpim"
+icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/grids/public/mpim"
 
 #--------------------------------------------------------------------------------------------------
 

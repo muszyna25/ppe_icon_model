@@ -14,7 +14,7 @@ MODULE mo_nwp_gpu_util
   USE mo_nwp_phy_state,           ONLY: phy_params
 
 #ifdef _OPENACC
-  USE mo_var_list_gpu,            ONLY: gpu_h2d_var_list, gpu_d2h_var_list
+  USE mo_var_list_gpu,            ONLY: gpu_update_var_list
 #endif
 
   IMPLICIT NONE
@@ -91,21 +91,21 @@ MODULE mo_nwp_gpu_util
     jg = pt_patch%id
 
     ! Update NWP fields
-    CALL gpu_d2h_var_list('prm_diag_of_domain_', domain=jg)
-    CALL gpu_d2h_var_list('prm_tend_of_domain_', domain=jg)
-    CALL gpu_d2h_var_list('lnd_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnow(jg))
-    CALL gpu_d2h_var_list('lnd_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnew(jg))
-    CALL gpu_d2h_var_list('lnd_diag_of_domain_', domain=jg)
-    CALL gpu_d2h_var_list('wtr_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnow(jg))
-    CALL gpu_d2h_var_list('wtr_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnew(jg))
-    CALL gpu_d2h_var_list('ext_data_atm_D', domain=jg)
+    CALL gpu_update_var_list('prm_diag_of_domain_', .false., domain=jg)
+    CALL gpu_update_var_list('prm_tend_of_domain_', .false., domain=jg)
+    CALL gpu_update_var_list('lnd_prog_of_domain_', .false., domain=jg, substr='_and_timelev_', timelev=nnow(jg))
+    CALL gpu_update_var_list('lnd_prog_of_domain_', .false., domain=jg, substr='_and_timelev_', timelev=nnew(jg))
+    CALL gpu_update_var_list('lnd_diag_of_domain_', .false., domain=jg)
+    CALL gpu_update_var_list('wtr_prog_of_domain_', .false., domain=jg, substr='_and_timelev_', timelev=nnow(jg))
+    CALL gpu_update_var_list('wtr_prog_of_domain_', .false., domain=jg, substr='_and_timelev_', timelev=nnew(jg))
+    CALL gpu_update_var_list('ext_data_atm_D', .false., domain=jg)
 
     ! Update dynamics fields
-    CALL gpu_d2h_var_list('nh_state_metrics_of_domain_', domain=jg)
-    CALL gpu_d2h_var_list('nh_state_diag_of_domain_', domain=jg)
-    CALL gpu_d2h_var_list('nh_state_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnew(jg)) !p_prog
-    CALL gpu_d2h_var_list('nh_state_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnow_rcf(jg)) !p_prog_now_rcf
-    CALL gpu_d2h_var_list('nh_state_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnew_rcf(jg)) !p_prog_rcf
+    CALL gpu_update_var_list('nh_state_metrics_of_domain_', .false., domain=jg)
+    CALL gpu_update_var_list('nh_state_diag_of_domain_', .false., domain=jg)
+    CALL gpu_update_var_list('nh_state_prog_of_domain_', .false., domain=jg, substr='_and_timelev_', timelev=nnew(jg)) !p_prog
+    CALL gpu_update_var_list('nh_state_prog_of_domain_', .false., domain=jg, substr='_and_timelev_', timelev=nnow_rcf(jg)) !p_prog_now_rcf
+    CALL gpu_update_var_list('nh_state_prog_of_domain_', .false., domain=jg, substr='_and_timelev_', timelev=nnew_rcf(jg)) !p_prog_rcf
 #endif
 
   END SUBROUTINE gpu_d2h_nh_nwp
@@ -180,22 +180,22 @@ MODULE mo_nwp_gpu_util
     jg = pt_patch%id
 
     ! Update NWP fields
-    CALL gpu_h2d_var_list('prm_diag_of_domain_', domain=jg)
-    CALL gpu_h2d_var_list('prm_tend_of_domain_', domain=jg)
-    CALL gpu_h2d_var_list('lnd_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnow(jg))
-    CALL gpu_h2d_var_list('lnd_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnew(jg))
-    CALL gpu_h2d_var_list('lnd_diag_of_domain_', domain=jg)
-    CALL gpu_h2d_var_list('wtr_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnow(jg))
-    CALL gpu_h2d_var_list('wtr_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnew(jg))
-    CALL gpu_h2d_var_list('lnd_diag_of_domain_', domain=jg)
-    CALL gpu_h2d_var_list('ext_data_atm_D', domain=jg)
+    CALL gpu_update_var_list('prm_diag_of_domain_', .true., domain=jg)
+    CALL gpu_update_var_list('prm_tend_of_domain_', .true., domain=jg)
+    CALL gpu_update_var_list('lnd_prog_of_domain_', .true., domain=jg, substr='_and_timelev_', timelev=nnow(jg))
+    CALL gpu_update_var_list('lnd_prog_of_domain_', .true., domain=jg, substr='_and_timelev_', timelev=nnew(jg))
+    CALL gpu_update_var_list('lnd_diag_of_domain_', .true., domain=jg)
+    CALL gpu_update_var_list('wtr_prog_of_domain_', .true., domain=jg, substr='_and_timelev_', timelev=nnow(jg))
+    CALL gpu_update_var_list('wtr_prog_of_domain_', .true., domain=jg, substr='_and_timelev_', timelev=nnew(jg))
+    CALL gpu_update_var_list('lnd_diag_of_domain_', .true., domain=jg)
+    CALL gpu_update_var_list('ext_data_atm_D', .true., domain=jg)
 
     ! Update dynamics fields
-    CALL gpu_h2d_var_list('nh_state_metrics_of_domain_', domain=jg)
-    CALL gpu_h2d_var_list('nh_state_diag_of_domain_', domain=jg)
-    CALL gpu_h2d_var_list('nh_state_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnew(jg)) !p_prog
-    CALL gpu_h2d_var_list('nh_state_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnow_rcf(jg)) !p_prog_now_rcf
-    CALL gpu_h2d_var_list('nh_state_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnew_rcf(jg)) !p_prog_new_rcf
+    CALL gpu_update_var_list('nh_state_metrics_of_domain_', .true., domain=jg)
+    CALL gpu_update_var_list('nh_state_diag_of_domain_', .true., domain=jg)
+    CALL gpu_update_var_list('nh_state_prog_of_domain_', .true., domain=jg, substr='_and_timelev_', timelev=nnew(jg)) !p_prog
+    CALL gpu_update_var_list('nh_state_prog_of_domain_', .true., domain=jg, substr='_and_timelev_', timelev=nnow_rcf(jg)) !p_prog_now_rcf
+    CALL gpu_update_var_list('nh_state_prog_of_domain_', .true., domain=jg, substr='_and_timelev_', timelev=nnew_rcf(jg)) !p_prog_new_rcf
 #endif
 
   END SUBROUTINE gpu_h2d_nh_nwp
