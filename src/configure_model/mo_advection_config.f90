@@ -281,8 +281,7 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2011-04-20)
   !!
-  SUBROUTINE configure_advection( jg, num_lev, num_lev_1, iequations, iforcing,        &
-    &                            iqc, iqt,                                             &
+  SUBROUTINE configure_advection( jg, num_lev, num_lev_1, iforcing, iqc, iqt,          &
     &                            kstart_moist, kend_qvsubstep,                         &
     &                            lvert_nest, l_open_ubc,                               &
     &                            ntracer, idiv_method, itime_scheme, tracer_list,      &
@@ -291,7 +290,6 @@ CONTAINS
     INTEGER, INTENT(IN) :: jg           !< patch 
     INTEGER, INTENT(IN) :: num_lev      !< number of vertical levels
     INTEGER, INTENT(IN) :: num_lev_1    !< vertical levels of global patch
-    INTEGER, INTENT(IN) :: iequations
     INTEGER, INTENT(IN) :: iforcing
     INTEGER, INTENT(IN) :: iqc, iqt     !< hydrometeor indices
     INTEGER, INTENT(IN) :: kstart_moist
@@ -326,7 +324,6 @@ CONTAINS
     ! (solve_nh) and only standard namelist settings are chosen (i.e. flux limiter,
     ! first-order backward trajectory computation, CFL-safe vertical advection, idiv_method = 1)
     !
-    ! lfull_comp is only used by the nonhydrostatic core.
     IF ( ANY( advection_config(jg)%itype_hlimit(1:ntracer) == 1 )     .OR. &
       &  ANY( advection_config(jg)%itype_hlimit(1:ntracer) == 2 )     .OR. &
       &  advection_config(jg)%iord_backtraj == 2                      .OR. &
@@ -356,30 +353,25 @@ CONTAINS
 
     ! set boundary condition for vertical transport
     !
-    IF (iequations == 3) THEN  ! non-hydrostatic equation-set
+    IF (.NOT. lvert_nest ) THEN ! no vertical nesting
 
-      IF (.NOT. lvert_nest ) THEN ! no vertical nesting
-
-        IF (l_open_ubc) THEN
-          advection_config(jg)%iubc_adv = izero_grad ! zero gradient ubc
-        ELSE
-          advection_config(jg)%iubc_adv = ino_flx    ! no flux ubc
-        ENDIF
-
-      ELSE ! vertical nesting
-
-        IF (num_lev < num_lev_1) THEN
-          advection_config(jg)%iubc_adv = iparent_flx
-        ELSE IF ( (num_lev >= num_lev_1) .AND. l_open_ubc) THEN
-          advection_config(jg)%iubc_adv = izero_grad
-        ELSE IF ( (num_lev >= num_lev_1) .AND. .NOT. l_open_ubc) THEN
-          advection_config(jg)%iubc_adv = ino_flx
-        ENDIF
+      IF (l_open_ubc) THEN
+        advection_config(jg)%iubc_adv = izero_grad ! zero gradient ubc
+      ELSE
+        advection_config(jg)%iubc_adv = ino_flx    ! no flux ubc
       ENDIF
 
-    ELSE ! hydrostatic or shallow water equation set
-      advection_config(jg)%iubc_adv = ino_flx    ! no flux ubc
+    ELSE ! vertical nesting
+
+      IF (num_lev < num_lev_1) THEN
+        advection_config(jg)%iubc_adv = iparent_flx
+      ELSE IF ( (num_lev >= num_lev_1) .AND. l_open_ubc) THEN
+        advection_config(jg)%iubc_adv = izero_grad
+      ELSE IF ( (num_lev >= num_lev_1) .AND. .NOT. l_open_ubc) THEN
+        advection_config(jg)%iubc_adv = ino_flx
+      ENDIF
     ENDIF
+
 
     ! dummy initialization of index fields for transport of 2D aerosol fields
     DO jt = 1, 2
@@ -734,7 +726,7 @@ CONTAINS
         ENDIF
       ENDIF
 
-    ELSE  ! tracer_list not available (e.g. for hydrostatic model)
+    ELSE  ! tracer_list not available
 
       ALLOCATE(advection_config(jg)%trAdvect%list(ntracer), stat=ist)
       IF(ist/=SUCCESS) THEN

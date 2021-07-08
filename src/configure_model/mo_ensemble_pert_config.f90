@@ -120,7 +120,7 @@ MODULE mo_ensemble_pert_config
     &  range_qexc, rnd_qexc
 
   REAL(wp) :: &                    !< Minimum value to which the snow cover fraction is artificially reduced
-    &  range_minsnowfrac, rnd_minsnowfrac   !  in case of melting show (in case of idiag_snowfrac = 20/30/40)
+    &  range_minsnowfrac, rnd_minsnowfrac   !  in case of melting show (in case of idiag_snowfrac = 20)
 
   REAL(wp) :: &                    !< Fraction of surface area available for bare soil evaporation
     &  range_c_soil, rnd_c_soil
@@ -271,7 +271,7 @@ MODULE mo_ensemble_pert_config
 
       ! Apply perturbations to physics tuning parameters
       linit = .TRUE.
-      CALL set_scalar_ens_pert()
+      CALL set_scalar_ens_pert(timedep_pert<2)
 
       ! Reinitialization of randum number generator in order to make external parameter perturbations
       ! independent of the number of RANDOM_NUMBER calls so far
@@ -431,7 +431,9 @@ MODULE mo_ensemble_pert_config
   !! @par Revision History
   !! Initial revision by Guenther Zaengl, DWD (2020-11-16)
   !!
-  SUBROUTINE set_scalar_ens_pert
+  SUBROUTINE set_scalar_ens_pert(lprint)
+
+    LOGICAL, INTENT(in) :: lprint ! print control output
 
     REAL(wp) :: rnd_fac, rnd_num, tkfac
 
@@ -583,7 +585,7 @@ MODULE mo_ensemble_pert_config
     assimilation_config(1:max_dom)%fac_lhn_up = MAX(1._wp, fac_lhn_up_sv(1:max_dom) + 2._wp*(rnd_num-0.5_wp)*range_fac_lhn_up)
 
 
-    IF (timedep_pert < 2) THEN
+    IF (lprint) THEN
 
       ! control output
       WRITE(message_text,'(3f8.4,e11.4,2f8.4)') tune_gkwake(1), tune_gkdrag(1), tune_gfrcrit(1), &
@@ -610,6 +612,10 @@ MODULE mo_ensemble_pert_config
 
       WRITE(message_text,'(2f8.4,e11.4)') tune_minsnowfrac, c_soil, cwimax_ml
       CALL message('Perturbed values, minsnowfrac, c_soil, cwimax_ml', TRIM(message_text))
+
+      WRITE(message_text,'(4f8.5)') assimilation_config(1)%lhn_coef, assimilation_config(1)%fac_lhn_artif_tune, &
+        assimilation_config(1)%fac_lhn_down, assimilation_config(1)%fac_lhn_up
+      CALL message('Perturbed values, lhn_coef, fac_lhn_artif_tune, fac_lhn_down, fac_lhn_up', TRIM(message_text))
 
     ENDIF
 
@@ -690,7 +696,7 @@ MODULE mo_ensemble_pert_config
 
     IF (timedep_pert == 2) THEN
       linit = .FALSE.
-      CALL set_scalar_ens_pert()
+      CALL set_scalar_ens_pert(.NOT. lrecomp)
       !
       ! resolution-dependent convection and SSO tuning parameters need to be recomputed during runtime
       IF (lrecomp) THEN
@@ -739,7 +745,7 @@ MODULE mo_ensemble_pert_config
       ENDIF
       rnd_in = rnd_val
     ELSE
-      phaseshift = NINT(25._wp+5._wp*(rnd_in-0.5_wp))*ssny/secyr
+      phaseshift = NINT(25._wp+3._wp*SIN(300._wp*rnd_in))*ssny/secyr
       phaseshift = phaseshift - INT(phaseshift)
       rnd_val = 0.5_wp * (1._wp + SIN(pi2*(rnd_in+phaseshift)))
     ENDIF

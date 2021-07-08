@@ -37,13 +37,11 @@ MODULE mo_util_vgrid
   USE mo_gribout_config,                    ONLY: gribout_config
   USE mo_run_config,                        ONLY: number_of_grid_used, msg_level, check_uuid_gracefully
   !
-  USE mo_impl_constants,                    ONLY: ihs_atm_temp, ihs_atm_theta, inh_atmosphere,          &
-    &                                             ishallow_water, SUCCESS, MAX_CHAR_LENGTH
+  USE mo_impl_constants,                    ONLY: inh_atmosphere, SUCCESS, MAX_CHAR_LENGTH
   USE mo_model_domain,                      ONLY: t_patch
   USE mo_ext_data_types,                    ONLY: t_external_data
   USE mo_intp_data_strc,                    ONLY: t_int_state
   USE mo_nh_testcases_nml,                  ONLY: layer_thickness, n_flat_level
-  USE mo_vertical_coord_table,              ONLY: init_vertical_coord_table
   USE mo_init_vgrid,                        ONLY: init_hybrid_coord, init_sleve_coord,                  &
     &                                             prepare_hybrid_coord, prepare_sleve_coord,            &
     &                                             init_vert_coord
@@ -102,12 +100,6 @@ CONTAINS
 
     !--- Initialize vertical coordinate table vct_a, vct_b (grid stretching)
     SELECT CASE (iequations)
-
-    CASE (ishallow_water)
-      CALL init_vertical_coord_table(iequations, p_patch(1)%nlev)
-
-    CASE (ihs_atm_temp, ihs_atm_theta)
-      CALL init_vertical_coord_table(iequations, p_patch(1)%nlev)
 
     CASE (inh_atmosphere)
 

@@ -120,6 +120,7 @@ MODULE mo_atm_phy_nwp_config
                                    !! (reduced grid only)
     INTEGER  :: icalc_reff         !! type of effective radius calculation
     INTEGER  :: icpl_rad_reff      !! couplig of radiation and effective radius
+    INTEGER  :: ithermo_water      !! thermodynamic of water
 
     ! upper atmosphere
     LOGICAL ::  lupatmo_phy        !! use upper atmosphere physics

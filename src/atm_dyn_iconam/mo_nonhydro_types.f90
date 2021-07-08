@@ -118,22 +118,25 @@ MODULE mo_nonhydro_types
                               ! (nproma,nlev,nblks_c)                          [K/s]
     &  grf_tend_tracer(:,:,:,:), & ! tracer tendency field for use in grid refinement
                                    ! (nproma,nlev,nblks_c,ntracer)          [kg/kg/s]
-    &  dvn_ie_int(:,:),    & ! Storage field for vertical nesting: vn at parent interface level
-    &  dvn_ie_ubc(:,:),    & ! Storage field for vertical nesting: vn at child upper boundary
-    &  mflx_ic_int(:,:,:), & ! Storage field for vertical nesting: mass flux at parent interface level
-    &  mflx_ic_ubc(:,:,:), & ! Storage field for vertical nesting: mass flux at child upper boundary
-    &  dtheta_v_ic_int(:,:,:),& ! Storage field for vertical nesting: theta at parent interface level
-    &  dtheta_v_ic_ubc(:,:),& ! Storage field for vertical nesting: theta at child upper boundary
-    &  dw_int(:,:,:),      & ! Storage field for vertical nesting: w at parent interface level
-    &  dw_ubc(:,:),        & ! Storage field for vertical nesting: w at child upper boundary
-    &  q_int(:,:,:),       & ! Storage field for vertical nesting: q at parent interface level
-    &  q_ubc(:,:,:),       & ! Storage field for vertical nesting: q at child upper boundary
+    &  dvn_ie_int(:,:),         & ! Storage field for vertical nesting: vn at parent interface level
+    &  dvn_ie_ubc(:,:),         & ! Storage field for vertical nesting: vn at child upper boundary
+    &  w_int(:,:,:),            & ! Storage field for vertical nesting: w at parent interface level
+    &  w_ubc(:,:),              & ! Storage field for vertical nesting: w at child upper boundary
+    &  theta_v_ic_int(:,:,:),   & ! Storage field for vertical nesting: theta at parent interface level
+    &  theta_v_ic_ubc(:,:),     & ! Storage field for vertical nesting: theta at child upper boundary
+    &  rho_ic_int(:,:,:),       & ! Storage field for vertical nesting: rho at parent interface level
+    &  rho_ic_ubc(:,:),         & ! Storage field for vertical nesting: rho at child upper boundary
+    &  mflx_ic_int(:,:,:),      & ! Storage field for vertical nesting: mass flux at parent interface level
+    &  mflx_ic_ubc(:,:),        & ! Storage field for vertical nesting: mass flux at child upper boundary
+    &  q_int(:,:,:),            & ! Storage field for vertical nesting: q at parent interface level
+    &  q_ubc(:,:,:),            & ! Storage field for vertical nesting: q at child upper boundary
 
     !
     ! c) variables derived from analysis increments
     &  t2m_bias (:,:),       & !! filtered T2M bias from surface analysis [K]
     &  rh_avginc(:,:),       & !! time-averaged/filtered RH increments from DA at lowest model level
     &  t_avginc(:,:),        & !! time-averaged/filtered T increments from DA at lowest model level
+    &  p_avginc(:,:),        & !! time-averaged/filtered P increments from DA at lowest model level
 
     !
     ! d) storage variables for time-averaged first-guess output

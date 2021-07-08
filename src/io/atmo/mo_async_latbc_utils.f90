@@ -750,7 +750,29 @@
         CALL get_data(latbc, 'v', latbc%latbc_data(tlev)%atm_in%v, read_params(icell))
       ENDIF
 
+      IF (latbc_config%fac_latbc_presbiascor > 0._wp) THEN
 
+!$OMP PARALLEL DO PRIVATE (jk,jb,jc,i_startidx,i_endidx)
+        DO jb = 1, i_endblk
+
+          CALL get_indices_c(p_patch, jb, 1, i_endblk, i_startidx, i_endidx, 1, rl_end)
+
+          DO jk = 1, nlev_in
+            DO jc = i_startidx, i_endidx
+
+              IF (.NOT. latbc%patch_data%cell_mask(jc,jb)) CYCLE
+
+              latbc%latbc_data(tlev)%atm_in%pres(jc,jk,jb) =                                                  &
+                latbc%latbc_data(tlev)%atm_in%pres(jc,jk,jb) + latbc_config%fac_latbc_presbiascor*            &
+                p_nh_state%diag%p_avginc(jc,jb)*EXP(-latbc%latbc_data_const%z_mc_in(jc,nlev_in,jb)/8000._wp)* &
+                latbc%latbc_data(tlev)%atm_in%pres(jc,jk,jb)/latbc%latbc_data(tlev)%atm_in%pres(jc,nlev_in,jb)
+
+              ENDDO
+            ENDDO
+        ENDDO
+!$OMP END PARALLEL DO
+
+      ENDIF
 
       ! Read vertical component of velocity (W) or OMEGA
 

@@ -39,7 +39,7 @@
        
       USE mo_parallel_config,     ONLY: nproma
 
-      USE mo_hamocc_nml,         ONLY: io_stdo_bgc, l_cpl_co2, ks
+      USE mo_hamocc_nml,         ONLY: io_stdo_bgc, l_cpl_co2, ks, l_N_cycle
 
 
       IMPLICIT NONE
@@ -136,7 +136,8 @@
  &                             ipowasi, ipowafe, kn2b,    &
  &                             kh2ob,    &
 &                              ipowh2s, &
-&                              iatmco2 
+&                              iatmco2, &
+&                              ipownh4, ipowno2
 
 
       USE mo_sedmnt,  ONLY: pown2bud, powh2obud, prorca, &
@@ -217,6 +218,10 @@
              powtra(jc,jk,ipown2)  = p_sed%pwn2(jc,jk,jb) 
              powtra(jc,jk,ipowno3) = p_sed%pwno3(jc,jk,jb) 
              powtra(jc,jk,ipowh2s) = p_sed%pwh2s(jc,jk,jb) 
+             IF (l_N_cycle) THEN
+                powtra(jc,jk,ipownh4) = p_sed%pwnh4(jc,jk,jb) 
+                powtra(jc,jk,ipowno2) = p_sed%pwno2(jc,jk,jb)
+             ENDIF
              sedhpl(jc,jk)         = p_sed%sedhi(jc,jk,jb) 
              powh2obud(jc,jk)    = p_sed%pwh2ob(jc,jk,jb) 
              pown2bud(jc,jk)     = p_sed%pwn2b(jc,jk,jb) 
@@ -246,6 +251,7 @@
  &                             isssc12, issssil, issster, &
  &                             ipowaic, ipowaal, ipowaph, &
  &                             ipowaox, ipown2, ipowno3,  &
+ &                             ipownh4, ipowno2, &
  &                             ipowasi, ipowafe, kpho_cya, &
  &                             kcyaloss, kn2b, kh2ob, kprodus, &
 &                              kbacfra, kdelsil, kdelcar,  &
@@ -256,10 +262,13 @@
 &                              kopex1000,kopex2000,kcalex1000,&
 &                              kcalex2000, kaou, kcTlim, kcLlim, &
 &                              kcPlim, kcFlim, ipowh2s,kh2sprod, &   
-&                              kh2sloss,iatmco2,kpco2,klysocl,knitinp
+&                              kh2sloss,iatmco2,kpco2,klysocl,knitinp, &
+&                              isremino, isreminn, isremins, &
+&                              knh3flux, kgppnh, kcyapro, kammox, knitox, &
+&                              kdnrn, kdnra, kanam, ksammox, ksnitox, &
+&                              ksdnrn, ksdnra, ksanam, ksnrn2
   
-      USE mo_sedmnt, ONLY : pown2bud, powh2obud, sedtend, &
-&                           isremino, isreminn, isremins
+      USE mo_sedmnt, ONLY : pown2bud, powh2obud, sedtend
 
       TYPE(t_hamocc_tend) :: p_tend
       TYPE(t_hamocc_diag) :: p_diag
@@ -353,6 +362,31 @@
              p_tend%satoxy(jc,jk,jb)    = satoxy(jc,jk) 
              p_tend%aou(jc,jk,jb) = bgctend(jc,jk,kaou)
         ENDDO
+        IF (l_N_cycle) THEN
+             p_tend%nh3flux(jc,jb) = bgcflux(jc,knh3flux)
+             DO jk = 1,kpke
+                p_tend%gppnh4(jc,jk,jb) = bgctend(jc,jk,kgppnh)
+                p_tend%cyapro(jc,jk,jb) = bgctend(jc,jk,kcyapro)
+                p_tend%ammox(jc,jk,jb) = bgctend(jc,jk,kammox)
+                p_tend%nitox(jc,jk,jb) = bgctend(jc,jk,knitox)
+                p_tend%dnrn(jc,jk,jb) = bgctend(jc,jk,kdnrn)
+                p_tend%dnra(jc,jk,jb) = bgctend(jc,jk,kdnra)
+                p_tend%anam(jc,jk,jb) = bgctend(jc,jk,kanam)
+             ENDDO
+             p_tend%sedflnh4(jc,jb) = sedfluxo(jc,ipownh4) 
+             p_tend%sedflno2(jc,jb) = sedfluxo(jc,ipowno2)
+             DO jk = 1,ks
+                p_sed%pwnh4(jc,jk,jb) = powtra(jc,jk,ipownh4) 
+                p_sed%pwno2(jc,jk,jb) = powtra(jc,jk,ipowno2)
+                p_tend%sedammox(jc,jk,jb) = sedtend(jc,jk,ksammox)
+                p_tend%sednitox(jc,jk,jb) = sedtend(jc,jk,ksnitox)
+                p_tend%seddnrn(jc,jk,jb) = sedtend(jc,jk,ksdnrn)
+                p_tend%seddnra(jc,jk,jb) = sedtend(jc,jk,ksdnra)
+                p_tend%sedanam(jc,jk,jb) = sedtend(jc,jk,ksanam)
+                p_tend%sednrn2(jc,jk,jb) = sedtend(jc,jk,ksnrn2)
+             ENDDO
+
+        ENDIF
         p_tend%satn2(jc,jb)    = satn2(jc) 
         p_tend%satn2o(jc,jb)    = satn2o(jc) 
         p_tend%solco2(jc,jb)    = solco2(jc) 
@@ -415,12 +449,15 @@
  &                             isssc12, issssil, issster, &
  &                             ipowaic, ipowaal, ipowaph, &
  &                             ipowaox, ipown2, ipowno3,  &
- &                             ipowasi, ipowafe, ipowh2s
+ &                             ipownh4, ipowno2, &
+ &                             ipowasi, ipowafe, ipowh2s, &
+ &                             isremino, isreminn, isremins, &
+ &                             ksammox, ksnitox, ksdnrn, ksdnra, &
+ &                             ksanam, ksnrn2
 
       USE mo_bgc_bcond, ONLY: ext_data_bgc
   
-      USE mo_sedmnt, ONLY : pown2bud, powh2obud, sedtend, &
-&                           isremino, isreminn, isremins
+      USE mo_sedmnt, ONLY : pown2bud, powh2obud, sedtend
 
       TYPE(t_hamocc_sed) :: p_sed
       TYPE(t_hamocc_tend):: p_tend
@@ -455,6 +492,20 @@
         p_tend%sedfln2(jc,jb) = sedfluxo(jc,ipown2) 
         p_tend%sedflno3(jc,jb) = sedfluxo(jc,ipowno3) 
         p_tend%sedflh2s(jc,jb) = sedfluxo(jc,ipowh2s) 
+        if (l_N_cycle) THEN
+           p_tend%sedflnh4(jc,jb) = sedfluxo(jc,ipownh4) 
+           p_tend%sedflno2(jc,jb) = sedfluxo(jc,ipowno2)
+           DO jk = 1,ks
+                p_sed%pwnh4(jc,jk,jb) = powtra(jc,jk,ipownh4) 
+                p_sed%pwno2(jc,jk,jb) = powtra(jc,jk,ipowno2)
+                p_tend%sedammox(jc,jk,jb) = sedtend(jc,jk,ksammox)
+                p_tend%sednitox(jc,jk,jb) = sedtend(jc,jk,ksnitox)
+                p_tend%seddnrn(jc,jk,jb) = sedtend(jc,jk,ksdnrn)
+                p_tend%seddnra(jc,jk,jb) = sedtend(jc,jk,ksdnra)
+                p_tend%sedanam(jc,jk,jb) = sedtend(jc,jk,ksanam)
+                p_tend%sednrn2(jc,jk,jb) = sedtend(jc,jk,ksnrn2)
+           ENDDO
+        ENDIF
         DO jk =1,ks
              ! Solid sediment
              p_sed%so12(jc,jk,jb) = sedlay(jc,jk,issso12)
@@ -498,6 +549,7 @@
  &                             isssc12, issssil, issster, &
  &                             ipowaic, ipowaal, ipowaph, &
  &                             ipowaox, ipown2, ipowno3,  &
+ &                             ipownh4, ipowno2, &
  &                             ipowasi, ipowafe, ipowh2s, &
  &                             kcflux
   
@@ -554,6 +606,10 @@
              p_sed%pwn2(jc,jk,jb) = powtra(jc,jk,ipown2)
              p_sed%pwno3(jc,jk,jb) = powtra(jc,jk,ipowno3)
              p_sed%pwh2s(jc,jk,jb) = powtra(jc,jk,ipowh2s)
+             if (l_N_cycle) THEN
+                p_sed%pwnh4(jc,jk,jb) = powtra(jc,jk,ipownh4) 
+                p_sed%pwno2(jc,jk,jb) = powtra(jc,jk,ipowno2) 
+             ENDIF
              p_sed%sedhi(jc,jk,jb) = sedhpl(jc,jk)
         ENDDO
       ENDIF
@@ -575,11 +631,15 @@
        &                     denitrification, pi_alpha_cya,                     &
        &                     Topt_cya,T1_cya,T2_cya,bkcya_N, &
        &                     buoyancyspeed_cya,                                 &
-       &                     doccya_fac, thresh_aerob, thresh_sred
+       &                     doccya_fac, thresh_aerob, thresh_sred, &
+       &                     bkno3, bkfe, bkpo4, bkno3_cya, bknh4, bknh4_cya, &
+       &                     ro2ammo, rmm, kg_denom, no2denit, anamoxra, &
+       &                     nitriox, nitrira, bkno2, rno3nh4, rno3no2
 
    USE mo_hamocc_nml, ONLY: i_settling, l_cyadyn, denit_sed, disso_po, &
       &                 sinkspeed_opal, sinkspeed_calc,grazra,cycdec,l_dynamic_pi, &
-      &                 drempoc,dremopal,dremcalc,bkcya_P,bkcya_fe
+      &                 drempoc,dremopal,dremcalc,bkcya_P,bkcya_fe, &
+      &                 no3nh4red, no3no2red
 
 
    USE mo_sedmnt, ONLY: disso_op, disso_cal,sred_sed
@@ -638,6 +698,33 @@
    CALL to_bgcout("sulfate_reduction 1/d",sulfate_reduction)
    CALL to_bgcout("thresh_aerob",thresh_aerob)
    CALL to_bgcout("thresh_sred",thresh_sred)
+
+   ! extended N-cycle
+   if (l_N_cycle) then
+
+   cpara_name='Ncycle'
+   cpara_val="========"
+   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
+   CALL to_bgcout("bkno3",bkno3)
+   CALL to_bgcout("bkfe",bkfe)
+   CALL to_bgcout("bkpo4",bkpo4)
+   CALL to_bgcout("bkno3_cya",bkno3_cya)
+   CALL to_bgcout("bknh4",bknh4)
+   CALL to_bgcout("bknh4_cya",bknh4_cya)
+   CALL to_bgcout("ro2ammo",ro2ammo)
+   CALL to_bgcout("rmm",rmm)
+   CALL to_bgcout("kg_denom",kg_denom)
+   CALL to_bgcout("no3no2red 1/d", no3no2red*inv_dtb)
+   CALL to_bgcout("no3nh4red 1/d", no3nh4red*inv_dtb)
+   CALL to_bgcout("no2denit 1/d", no2denit*inv_dtb)
+   CALL to_bgcout("anamoxra 1/d", anamoxra*inv_dtb)
+   CALL to_bgcout("nitriox 1/d", nitriox*inv_dtb)
+   CALL to_bgcout("nitrira 1/d", nitrira*inv_dtb)
+   CALL to_bgcout("bkno2",bkno2)
+   CALL to_bgcout("rno3nh4",rno3nh4)
+   CALL to_bgcout("rno3no2",rno3no2)
+
+   endif
 
 
    ! DOC

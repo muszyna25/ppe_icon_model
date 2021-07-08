@@ -113,6 +113,7 @@ MODULE mo_sea_ice_nml
   REAL(wp),PUBLIC :: theta_io          ! ice/ocean rotation angle. Implemented in EVP, can beadded to VP
 
   INTEGER         :: iunit
+  LOGICAL, PUBLIC :: initialize_seaice_fromfile = .false.
 
   NAMELIST /sea_ice_nml/ &
     &  kice, &
@@ -157,7 +158,8 @@ MODULE mo_sea_ice_nml
 !    &  alpha_evp, &
 !    &  beta_evp, &
     &  i_ice_advec, &
-    &  theta_io
+    &  theta_io,    &
+    &  initialize_seaice_fromfile
 
 CONTAINS
   !>

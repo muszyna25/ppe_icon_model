@@ -54,37 +54,6 @@ MODULE sfc_terra_init
 
 !------------------------------------------------------------------------------
 
-#ifdef __COSMO__
-USE kind_parameters , ONLY :   wp   ! KIND-type parameter for real variables
-
-USE data_constants  , ONLY :   &
-
-! 1. physical constants and related variables
-! -------------------------------------------
-
-    t0_melt,      & ! absolute zero for temperature
-    lh_f,         & ! latent heat of fusion
-    g,            & ! acceleration due to gravity
-    rho_w           ! density of liquid water
-
-USE data_io         , ONLY :   &
-    lana_rho_snow   ! if .TRUE., take rho_snow-values from analysis file
-                    ! else, it is set in the model
-
-USE data_runcontrol , ONLY :   &
-
-! 3. controlling the physics
-! --------------------------
-    lmulti_snow,  & ! run the multi-layer snow model
-    lmelt,        & ! soil model with melting process
-    lmelt_var       ! freezing temperature dependent on water content
-
-  USE sfc_terra_data,        ONLY:                                &
-    max_toplaydepth , & ! maximum depth of uppermost snow layer for multi-layer snow scheme (25 cm)
-    l2lay_rho_snow      ! use two-layer snow density for single-layer snow model
-#endif
-
-#ifdef __ICON__
   USE mo_kind,               ONLY: wp
   USE mo_physical_constants, ONLY: t0_melt => tmelt,& ! absolute zero for temperature
     &                              rho_w => rhoh2o, & ! density of liquid water (kg/m^3)
@@ -94,7 +63,6 @@ USE data_runcontrol , ONLY :   &
   USE mo_lnd_nwp_config,     ONLY: lmulti_snow, lana_rho_snow, &
     &                              lmelt, lmelt_var,           &
     &                              max_toplaydepth, l2lay_rho_snow
-#endif
 
   USE sfc_terra_data,        ONLY:                                &
       eps_soil        , & ! Multi-purpose epsilon in soil model (former zepsi)
@@ -155,9 +123,7 @@ SUBROUTINE terra_init (            &
                 plcov            , & ! fraction of surface covered by plants         ( -  )
                 t_snow_now       , & ! temperature of the snow-surface               (  K  )
                 t_snow_mult_now  , & ! temperature of the snow-surface               (  K  )
-#ifdef __ICON__
                 t_rhosnowini     , & ! temperature used for snow density initialization on glaciers (  K  )
-#endif
                 t_s_now          , & ! temperature of the ground surface             (  K  )
                 t_s_new          , & ! temperature of the ground surface             (  K  )
                 w_snow_now       , & ! water content of snow                         (m H2O)
@@ -199,10 +165,8 @@ SUBROUTINE terra_init (            &
                   t_snow_now              ! temperature of the snow-surface (K)
   REAL    (KIND = wp)    , DIMENSION(nvec,0:ke_snow), INTENT(INOUT) :: &
                   t_snow_mult_now      ! temperature of the snow-surface               (  K  )
-#ifdef __ICON__
   REAL    (KIND = wp)    , DIMENSION(nvec), INTENT(IN) :: &
                   t_rhosnowini         ! temperature used for snow density initialization on glaciers (K)
-#endif
   REAL    (KIND = wp)    , DIMENSION(nvec), INTENT(INOUT) :: &
                   t_s_now              ! temperature of the ground surface             (  K  )
   REAL    (KIND = wp)    , DIMENSION(nvec), INTENT(OUT) :: &
@@ -309,9 +273,7 @@ SUBROUTINE terra_init (            &
 
   ! Subroutine parameters INOUT
   !$noacc present(t_snow_now, t_snow_mult_now, t_s_now                   ) &
-#ifdef __ICON__
   !$noacc present(t_rhosnowini                                           ) &
-#endif
   !$noacc present(w_snow_now, h_snow, rho_snow_now, rho_snow_mult_now    ) &
   !$noacc present(t_so_now, w_so_now, w_so_ice_now, wliq_snow_now        ) &
   !$noacc present(wtot_snow_now, dzh_snow_now                            ) &
@@ -402,12 +364,6 @@ SUBROUTINE terra_init (            &
         ! soil list
         w_so_now (i,kso) = MAX(w_so_now(i,kso), 1.01_wp*zadp(i,kso)*zdzhs(kso) )
         w_so_new (i,kso) = MAX(w_so_new(i,kso), 1.01_wp*zadp(i,kso)*zdzhs(kso) )
-
-#ifdef __COSMO__
-        !UB: clipping of soil water content to its maximum allowed value:
-        w_so_now (i,kso) = MIN(w_so_now(i,kso), 1.0_wp*zporv(i,kso)*zdzhs(kso))
-        w_so_new (i,kso) = MIN(w_so_new(i,kso), 1.0_wp*zporv(i,kso)*zdzhs(kso))
-#endif
       ELSE
         ! rock and ice list
         w_so_now (i,kso) = 0.0_wp
@@ -1011,11 +967,7 @@ SUBROUTINE terra_init (            &
       ! rho_snow_now and w_snow_now contain the first guess.
       CALL get_wsnow(h_snow,         &  ! in
                      rho_snow_now,   &  ! inout
-#ifdef __ICON__
                      t_rhosnowini,   &  ! in
-#else
-                     t_snow_now,     &  ! in
-#endif
                      ivstart, ivend, &  ! in
                      soiltyp_subs,   &  ! in
                      w_snow_now      )  ! out
