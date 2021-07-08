@@ -4,6 +4,7 @@
 # * Exit immediately if a command exits with a  non-zero  status
 # * Treat unset variables as an error
 set -e -u
+
 # * Unset search path for the cd command
 unset CDPATH
 
@@ -12,24 +13,20 @@ SCRIPT_DIR=$( cd "$(dirname "$0")";     pwd )
 ICON_DIR=$(   cd "${SCRIPT_DIR}/../.."; pwd )
 
 # Configure build requirements
-COMPILER_NAME="intel"
-COMPILER_VERSION="19.1"
-MPI_NAME="openmpi"
-MPI_VERSION="4.0"
-ECCODES_VERSION="2.22.0"
+COMPILER_NAME="nvidia"
+COMPILER_VERSION="21.2"
+CUDA_VERSION="11.2"
+ECCODES_VERSION="2.20.0"
 NETCDF_VERSION="4.7"
 NETCDFF_VERSION="4.5"
 HDF5_VERSION="1.10"
-MKL_VERSION="2020"
 
 MODULES=(
-    compiler/${COMPILER_NAME}/${COMPILER_VERSION}
-    mpi/${MPI_NAME}/${MPI_VERSION}
+    toolkit/nvidia-hpc-sdk/${COMPILER_VERSION}
     lib/netcdf/${NETCDF_VERSION}_serial
     lib/hdf5/${HDF5_VERSION}_serial
     lib/netcdf-fortran/${NETCDFF_VERSION}_serial
     lib/eccodes/${ECCODES_VERSION}
-    numlib/mkl/${MKL_VERSION}
 )
 module purge
 module add "${MODULES[@]}"
@@ -74,19 +71,32 @@ if [[ ! -d "${GRIBAPI_LIB}"  ||
     exit 1
 fi
 
-# MKL config
-BLAS_LAPACK_LDFLAGS='-mkl=sequential'
+# BLAS and LAPACK config
+# -> Requires GPU node for ./configure
+BLAS_LAPACK_LDFLAGS='-llapack -lblas'
+
+# CUDA
+CUDA_ROOT=${NVHPC}/Linux_x86_64/${COMPILER_VERSION}/cuda/"${CUDA_VERSION}"
+if [[ ! -d "${CUDA_ROOT}" ]]; then
+    echo "Required CUDA directories '${CUDA_ROOT}' not found"
+    exit 1
+fi
+# Append gnu compatible C++ libraries to the link line
+# -> The rest of libraries required by CUDA will be provided by PGI compiler:
+STDCPP_LIBS='-lstdc++'
+
+# CUDA compiler driver
+NVCC="$(type -p nvcc)"
+if [[ -z "${NVCC}" ]]; then
+    echo "Required CUDA compiler driver not found"
+    exit 1
+fi
+NVCFLAGS='--std=c++11 -arch=sm_80 -g -O3'
 
 # libxml config
 XML2_ROOT='/usr'
 XML2_INCL="${XML2_ROOT}/include/libxml2"
 XML2_LIBS='-lxml2'
-
-# Debug config
-C_DEBUG_FLAGS="-g"
-CXX_DEBUG_FLAGS="-g"
-FC_DEBUG_FLAGS="-g"
-USE_DEBUG=${USE_DEBUG:-false}
 
 ################################################################################
 
@@ -108,27 +118,34 @@ BUILD_ENV+='export FC=$(type -p mpifort);'
 BUILD_ENV+='export MPI_LAUNCH=$(type -p mpiexec);'
 BUILD_ENV+='export LC_ALL=en_US;'
 
-CFLAGS='-O2 -xCORE-AVX2 -pc64'
-if [[ "${USE_DEBUG}" == true ]]; then
-    CFLAGS+=" ${C_DEBUG_FLAGS}"
-fi
-CXXFLAGS='-O2 -xCORE-AVX2 -pc64'
-if [[ "${USE_DEBUG}" == true ]]; then
-    CXXFLAGS+=" ${CXX_DEBUG_FLAGS}"
-fi
+CFLAGS='-O2'
+CXXFLAGS='-O2'
 CPPFLAGS="-I${HDF5_INCL} -I${NETCDF_INCL} -I${GRIBAPI_INCL} -I${XML2_INCL}"
 
-FC_OPT_FLAGS="-O2 -xCORE-AVX2"
+FC_OPT_FLAGS="-O2"
 FC_SEARCH_FLAGS="-I${NETCDFF_INCL}"
-FCFLAGS="${FC_SEARCH_FLAGS} ${FC_OPT_FLAGS} -standard-semantics -assume nostd_mod_proc_name -assume realloc_lhs -pc64 -fltconsistency"
-if [[ "${USE_DEBUG}" == true ]]; then
-    FCFLAGS+=" ${FC_DEBUG_FLAGS}"
-fi
 
-LDFLAGS="-L${HDF5_LIB} -L${NETCDF_LIB} -L${NETCDFF_LIB} -L${GRIBAPI_LIB} ${BLAS_LAPACK_LDFLAGS}"
-LIBS="${XML2_LIBS} ${GRIBAPI_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${HDF5_LIBS} "
+#  FC       src/atm_phy_schemes/mo_radiation.o
+#  NVFORTRAN-S-1069-Data clause required with default(none) - pt_patch (/home/hk-project-scs/bq0742/git/icon-kit.dkrz/src/atm_phy_schemes/mo_radiation.f90: 344)
+#    0 inform,   0 warnings,   1 severes, 0 fatal for pre_radiation_nwp_steps
+#
+# -acc=verystrict
+# -Mrecursive: Generate code to allow recursive subprograms
+# -Mallocatable=03 Select Fortran 2003 semantics for assignments to allocatables
+# -gpu=cc80,cuda11.2:
+#     Select specific options for GPU code generation:
+#     * Compile for compute capability 8.0
+#     * Use CUDA 11.2 Toolkit compatibility, where installed
+# OpenMP directives are compiled for GPU execution
+# -acc=gpu:
+#     Enable OpenACC directives:
+#     * OpenACC directives are compiled for GPU execution only
+FCFLAGS="${FC_SEARCH_FLAGS} ${FC_OPT_FLAGS} -Mrecursive -Mallocatable=03 -gpu=cc80,cuda11.2 -acc=gpu -D__SWAPDIM"
 
-EXTRA_CONFIG_ARGS='--disable-rpaths --enable-grib2'
+LDFLAGS="-L${HDF5_LIB} -L${NETCDF_LIB} -L${NETCDFF_LIB} -L${GRIBAPI_LIB} ${BLAS_LAPACK_LDFLAGS} -L${CUDA_ROOT}/lib64"
+LIBS="${XML2_LIBS} ${GRIBAPI_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${HDF5_LIBS} ${STDCPP_LIBS} -lcudart"
+
+EXTRA_CONFIG_ARGS='--disable-loop-exchange --enable-gpu --disable-rpaths --enable-rte-rrtmgp --enable-grib2'
 eval "${BUILD_ENV}"
 
 
@@ -136,13 +153,16 @@ eval "${BUILD_ENV}"
 
 "${ICON_DIR}/configure" \
     BUILD_ENV="${BUILD_ENV}" \
-    AR="$(type -p xiar)" \
     CC="${CC}" \
     CFLAGS="${CFLAGS}" \
+    CXX="${CXX}" \
+    CXXFLAGS="${CXXFLAGS}" \
     CPPFLAGS="${CPPFLAGS}" \
     FC="${FC}" \
     FCFLAGS="${FCFLAGS}" \
     LDFLAGS="${LDFLAGS}" \
+    NVCC="${NVCC}" \
+    NVCFLAGS="${NVCFLAGS}" \
     LIBS="${LIBS}" \
     MPI_LAUNCH="${MPI_LAUNCH}" \
     ${EXTRA_CONFIG_ARGS} \

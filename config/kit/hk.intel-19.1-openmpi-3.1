@@ -15,7 +15,7 @@ ICON_DIR=$(   cd "${SCRIPT_DIR}/../.."; pwd )
 COMPILER_NAME="intel"
 COMPILER_VERSION="19.1"
 MPI_NAME="openmpi"
-MPI_VERSION="4.0"
+MPI_VERSION="3.1"
 ECCODES_VERSION="2.22.0"
 NETCDF_VERSION="4.7"
 NETCDFF_VERSION="4.5"
@@ -118,7 +118,7 @@ if [[ "${USE_DEBUG}" == true ]]; then
 fi
 CPPFLAGS="-I${HDF5_INCL} -I${NETCDF_INCL} -I${GRIBAPI_INCL} -I${XML2_INCL}"
 
-FC_OPT_FLAGS="-O2 -xCORE-AVX2"
+FC_OPT_FLAGS='-O2 -xCORE-AVX2'
 FC_SEARCH_FLAGS="-I${NETCDFF_INCL}"
 FCFLAGS="${FC_SEARCH_FLAGS} ${FC_OPT_FLAGS} -standard-semantics -assume nostd_mod_proc_name -assume realloc_lhs -pc64 -fltconsistency"
 if [[ "${USE_DEBUG}" == true ]]; then

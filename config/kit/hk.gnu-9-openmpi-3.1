@@ -12,10 +12,10 @@ SCRIPT_DIR=$( cd "$(dirname "$0")";     pwd )
 ICON_DIR=$(   cd "${SCRIPT_DIR}/../.."; pwd )
 
 # Configure build requirements
-COMPILER_NAME="intel"
-COMPILER_VERSION="19.1"
+COMPILER_NAME="gnu"
+COMPILER_VERSION="9"
 MPI_NAME="openmpi"
-MPI_VERSION="4.0"
+MPI_VERSION="3.1"
 ECCODES_VERSION="2.22.0"
 NETCDF_VERSION="4.7"
 NETCDFF_VERSION="4.5"
@@ -75,7 +75,12 @@ if [[ ! -d "${GRIBAPI_LIB}"  ||
 fi
 
 # MKL config
-BLAS_LAPACK_LDFLAGS='-mkl=sequential'
+MKL_LIB="${MKLROOT}/lib/intel64"
+if [[ ! -d "${MKL_LIB}" ]]; then
+    echo "Required MKL directory '${MKL_LIB}' not found"
+    exit 1
+fi
+BLAS_LAPACK_LDFLAGS="-L${MKL_LIB} -Wl,--no-as-needed -lmkl_gf_lp64 -lmkl_sequential -lmkl_core -lpthread -lm -ldl"
 
 # libxml config
 XML2_ROOT='/usr'
@@ -108,19 +113,19 @@ BUILD_ENV+='export FC=$(type -p mpifort);'
 BUILD_ENV+='export MPI_LAUNCH=$(type -p mpiexec);'
 BUILD_ENV+='export LC_ALL=en_US;'
 
-CFLAGS='-O2 -xCORE-AVX2 -pc64'
+CFLAGS='-O2 -march=native -flto'
 if [[ "${USE_DEBUG}" == true ]]; then
     CFLAGS+=" ${C_DEBUG_FLAGS}"
 fi
-CXXFLAGS='-O2 -xCORE-AVX2 -pc64'
+CXXFLAGS='O2 -march=native -flto'
 if [[ "${USE_DEBUG}" == true ]]; then
     CXXFLAGS+=" ${CXX_DEBUG_FLAGS}"
 fi
 CPPFLAGS="-I${HDF5_INCL} -I${NETCDF_INCL} -I${GRIBAPI_INCL} -I${XML2_INCL}"
 
-FC_OPT_FLAGS="-O2 -xCORE-AVX2"
+FC_OPT_FLAGS='-O2 -march=native -flto -ffree-line-length-none'
 FC_SEARCH_FLAGS="-I${NETCDFF_INCL}"
-FCFLAGS="${FC_SEARCH_FLAGS} ${FC_OPT_FLAGS} -standard-semantics -assume nostd_mod_proc_name -assume realloc_lhs -pc64 -fltconsistency"
+FCFLAGS="${FC_SEARCH_FLAGS} ${FC_OPT_FLAGS}"
 if [[ "${USE_DEBUG}" == true ]]; then
     FCFLAGS+=" ${FC_DEBUG_FLAGS}"
 fi
@@ -136,7 +141,9 @@ eval "${BUILD_ENV}"
 
 "${ICON_DIR}/configure" \
     BUILD_ENV="${BUILD_ENV}" \
-    AR="$(type -p xiar)" \
+    AR="$(type -p gcc-ar)" \
+    NM="$(type -p gcc-nm)" \
+    RANLIB="$(type -p gcc-ranlib)" \
     CC="${CC}" \
     CFLAGS="${CFLAGS}" \
     CPPFLAGS="${CPPFLAGS}" \
