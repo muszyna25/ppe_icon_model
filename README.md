@@ -153,7 +153,7 @@ submodules and refered to as *bundled* later in the text.
 in [.gitmodules](/.gitmodules): some of them, e.g. JSBACH and ART, have circular
 dependencies with the ICON source code and therefore are treated as part of it.
 
-<a name="icon-depgraph"/>![ICON dependency graph](./doc/config/icon-config-doc-depgraph.png)
+<a name="icon-depgraph"/>![ICON dependency graph](./doc/config/icon-config-doc-depgraph.svg)
 
 *Fig. 1. ICON dependency graph*
 

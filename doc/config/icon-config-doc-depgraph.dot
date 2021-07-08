@@ -1,0 +1,103 @@
+digraph ICON {
+
+	node [style=filled; shape=oval; fontname="italic"; fillcolor="#79C547"];
+
+	subgraph clusterMain {
+
+		graph [peripheries=0];
+
+		"ICON" [shape=box; fillcolor=white; fontsize=20; penwidth=2.0];
+		"ICON" -> {"STDC++"; "CUDA"; "CUB"; "MPI"; "NetCDF-Fortran"; "RTE+RRTMGP";
+			       "ECRAD"; "RTTOV"; "SCT"; "YAXT"; "CDI*"; "CDI-PIO*"; "SERIALBOX";
+			       "MTIME"; "BLAS"; "LAPACK"; "YAC"; "ICON-TIXI";
+			       "ECCODES\n/\nGRIB-API"; "HDF5"; "ZLIB"};
+
+		"STDC++";
+
+		"CUDA";
+
+		"CUB" [shape=box];
+		"CUB" -> {"CUDA"; "STDC++"};
+
+
+		"MPI";
+
+		"NetCDF-Fortran" [shape=oval; fillcolor="#47A1F1"]
+		"NetCDF-Fortran" -> {"NetCDF-C"};
+
+		"RTE+RRTMGP" [shape=box];
+
+		"ECRAD" [shape=box];
+		"ECRAD" -> {"NetCDF-Fortran"};
+
+		"RTTOV";
+		"RTTOV" -> {"NetCDF-Fortran"; "LAPACK"; "HDF5"};
+
+		"SCT" [shape=box];
+		"SCT" -> {"MPI"; "HDF5"};
+
+		"YAXT" [shape=box];
+		"YAXT" -> {"MPI"};
+
+		"CDI*" [shape=box; fillcolor="#47A1F1"];
+		"CDI*" -> {"ECCODES\n/\nGRIB-API"; "NetCDF-C"; "AEC / SZIP"};
+
+		"CDI-PIO*";
+		"CDI-PIO*" -> {"MPI"; "YAXT"; "CDI*"};
+
+		"SERIALBOX";
+		"SERIALBOX" -> {"STDC++"; "NetCDF-C"};
+
+		"MTIME" [shape=box; fillcolor="#47A1F1"];
+
+		"BLAS" [fillcolor="#47A1F1"];
+
+		"LAPACK" [fillcolor="#47A1F1"];
+		"LAPACK" -> {"BLAS"};
+
+		"YAC" [shape=box];
+		"YAC" -> {"MPI"; "MTIME"; "LAPACK"; "NetCDF-C"; "XML2"};
+
+		"ICON-TIXI" [shape=box];
+		"ICON-TIXI" -> {"XML2"};
+
+		"ECCODES\n/\nGRIB-API";
+		"ECCODES\n/\nGRIB-API" -> {"AEC / SZIP"};
+
+		"HDF5";
+		"HDF5" -> {"MPI"; "ZLIB"; "AEC / SZIP"};
+
+		"ZLIB";
+
+		"NetCDF-C" [fillcolor="#D1E8FC"];
+		"NetCDF-C" -> {"HDF5"; "ZLIB"};
+
+		"AEC / SZIP" [fillcolor="#DEF1D1"];
+		"AEC / SZIP";
+
+		"XML2" [fillcolor="#D1E8FC"];
+		"XML2" -> {"ZLIB"};
+
+		{
+			rank=sink;
+			bottomNode [label="* CDI and CDI-PIO are technically one package. Unfortunately, the bundled version of CDI cannot currently provide CDI-PIO features.\lTherefore, an external version of CDI (with CDI-PIO features enabled) needs to be provided if those features are required."; shape=plaintext; fillcolor=white];
+			# bottomNode [shape=point; style=invis];
+		}
+	}
+
+	subgraph clusterLegend {
+		{
+			rank=same;
+			external -> bundled -> mandatoryIcon -> optionalIcon -> mandatoryBundled -> optionalBundled [style=invis];
+			external [label="External\npackages"; fillcolor=white];
+			bundled [label="Optionally\nbundled\npackages"; shape=box; fillcolor=white];
+			mandatoryIcon [label="Immediate mandatory\ndependencies of ICON"; shape=plaintext; fillcolor="#47A1F1"];
+			optionalIcon [label="Immediate optional\ndependencies of ICON"; shape=plaintext];
+			mandatoryBundled [label="Immediate mandatory\ndependencies of\nthe bundled packages"; shape=plaintext; fillcolor="#D1E8FC"];
+			optionalBundled [label="Immediate optional\ndependencies of\nthe bundled packages"; shape=plaintext; fillcolor="#DEF1D1"];
+		}
+	}
+
+	bottomNode -> optionalIcon:nw [style=invis];
+	# bottomNode -> external:nw [style=invis];
+}
