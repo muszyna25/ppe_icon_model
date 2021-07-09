@@ -146,7 +146,7 @@ MODULE mo_nwp_tuning_config
     &  tune_qexc
 
   REAL(wp) :: &                    !< Minimum value to which the snow cover fraction is artificially reduced
-    &  tune_minsnowfrac            !  in case of melting show (in case of idiag_snowfrac = 20/30/40)
+    &  tune_minsnowfrac            !  in case of melting show (in case of idiag_snowfrac = 20)
 
   REAL(wp) :: &                    !< Box width for liquid clouds assumed in the cloud cover scheme
     &  tune_box_liq                ! (in case of inwp_cldcover = 1)

@@ -113,7 +113,7 @@ MODULE mo_ocean_testbed_zstar
   USE mo_ocean_bulk_forcing,  ONLY: apply_surface_relaxation, update_ocean_surface_stress
   USE mo_swr_absorption,     ONLY: dynamic_swr_absorption
   USE mo_ocean_diagnostics,      ONLY: calc_fast_oce_diagnostics, calc_psi
-  USE mo_derived_variable_handling, ONLY: update_statistics, reset_statistics
+  USE mo_derived_variable_handling, ONLY: update_statistics
   USE mo_master_config,          ONLY: isRestart
   USE mo_sea_ice_nml,            ONLY: i_ice_dyn
   USE mo_restart,                ONLY: t_RestartDescriptor, createRestartDescriptor, deleteRestartDescriptor

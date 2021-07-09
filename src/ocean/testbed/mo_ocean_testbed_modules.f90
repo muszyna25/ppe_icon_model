@@ -69,7 +69,6 @@ MODULE mo_ocean_testbed_modules
   USE mo_time_config,            ONLY: time_config
   USE mo_statistics
   USE mo_util_dbg_prnt,          ONLY: dbg_print
-  USE mo_ocean_statistics
   USE mo_ocean_output
   USE mo_parallel_config,        ONLY: nproma
   USE mo_statistics
@@ -81,8 +80,8 @@ MODULE mo_ocean_testbed_modules
       & map_cell2edges_3D, map_edges2edges_viacell_3d_const_z
   USE mo_ocean_tracer_transport_horz, ONLY: diffuse_horz
   USE mo_hydro_ocean_run
-  USE mo_var_list
-  USE mo_linked_list
+  USE mo_var_list_register,      ONLY: vlr_add, vlr_del
+  USE mo_var_list,               ONLY: add_var, t_var_list_ptr
   USE mo_cdi
   use mo_cdi_constants
   use mo_zaxis_type
@@ -180,7 +179,6 @@ CONTAINS
         CALL test_sea_ice( patch_3d, ocean_state,  &
           & this_datetime, ocean_surface,        &
           & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice, operators_coefficients)
-
       CASE (5)
         CALL test_neutralcoeff( patch_3d, ocean_state)
 
@@ -1731,8 +1729,7 @@ CONTAINS
   SUBROUTINE checkVarlistKeys(patch_2d)
     TYPE(t_patch), TARGET, INTENT(in) :: patch_2d
     
-    CHARACTER(LEN=max_char_length) :: listname
-    TYPE(t_var_list)     :: varnameCheckList
+    TYPE(t_var_list_ptr)     :: varnameCheckList
     integer :: alloc_cell_blocks
 
     REAL(wp), POINTER :: var0(:,:,:)
@@ -1740,11 +1737,8 @@ CONTAINS
     REAL(wp), POINTER :: var2(:,:,:)
     REAL(wp), POINTER :: var3(:,:,:)
     
-    WRITE(listname,'(a)')  'varnameCheck_list'
-    CALL new_var_list(varnameCheckList, listname, patch_id=patch_2d%id)
-    CALL default_var_list_settings( varnameCheckList,  &
-      & lrestart=.TRUE.,loutput=.TRUE.,&
-      & model_type=TRIM(get_my_process_name()) )
+    CALL vlr_add(varnameCheckList, 'varnameCheck_list', patch_id=patch_2d%id, &
+      & lrestart=.TRUE., loutput=.TRUE., model_type=TRIM(get_my_process_name()))
 
     alloc_cell_blocks = patch_2d%alloc_cell_blocks
     call add_var(varnamechecklist,'h',var0,grid_unstructured_cell, za_depth_below_sea_half, &
@@ -1773,8 +1767,8 @@ CONTAINS
         & ldims=(/nproma, n_zlev, alloc_cell_blocks/))
 
 
-    call print_var_list(varnameCheckList)
-    call delete_var_list(varnameCheckList)
+    call varnameCheckList%print()
+    call vlr_del(varnameCheckList)
   END SUBROUTINE checkVarlistKeys
  
   

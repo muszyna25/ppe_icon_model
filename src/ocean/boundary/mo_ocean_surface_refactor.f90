@@ -2042,7 +2042,7 @@ CONTAINS
       CALL update_flux_fromFile(p_patch_3D, p_as, this_datetime)
 
       !   b) calculate heat fluxes from p_as
-      CALL calc_omip_budgets_oce(p_patch, p_as, p_os, atmos_fluxes)
+      CALL calc_omip_budgets_oce(p_patch_3d, p_as, p_os, p_ice, atmos_fluxes)
 
       IF (i_sea_ice >= 1) THEN ! sea ice is on
 

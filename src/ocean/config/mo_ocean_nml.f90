@@ -871,8 +871,15 @@ MODULE mo_ocean_nml
 
   LOGICAL      :: use_tides  = .FALSE.
   INTEGER      :: tides_mod = 1 !1: tidal potential by Logemann, HZG 2020. 2: tidal potential from MPI-OM.
-  CHARACTER*16 :: tide_startdate = '2001-01-01 00:00' ! date when tidal spin-up (over 30 days) should start                                                              
+! CHARACTER*16 :: tide_startdate = '2001-01-01 00:00' ! date when tidal spin-up (over 30 days) should start                                                              
   REAL(wp)     :: tides_esl_damping_coeff = 0.69_wp
+
+  INTEGER, PARAMETER :: wind_stress_from_file = 0
+  INTEGER, PARAMETER :: wind_stress_type_noocean = 1
+  INTEGER, PARAMETER :: wind_stress_type_ocean = 2  
+  INTEGER :: bulk_wind_stress_type = wind_stress_from_file
+
+
   LOGICAL      :: use_tides_SAL  = .FALSE.
   REAL(wp)     :: tides_SAL_coeff = 0.085_wp
   INTEGER      :: tides_smooth_iterations = 0
@@ -945,11 +952,12 @@ MODULE mo_ocean_nml
     &                 jerlov_bluefrac                     , &
     &                 use_tides                           , &
     &                 tides_mod                           , &
-    &                 tide_startdate                      , &
     &                 tides_esl_damping_coeff             , &
     &                 use_tides_SAL                      , &
     &                 tides_SAL_coeff                    , &
-    &                 tides_smooth_iterations
+    &                 tides_smooth_iterations            , &
+    &                 bulk_wind_stress_type
+
   ! } END FORCING
 
   !----------------------------------------------------------------------------

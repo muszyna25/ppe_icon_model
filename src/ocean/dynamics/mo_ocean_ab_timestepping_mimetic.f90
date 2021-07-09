@@ -45,7 +45,7 @@ MODULE mo_ocean_ab_timestepping_mimetic
     & PPscheme_type, PPscheme_ICON_Edge_vnPredict_type, &
     & solver_FirstGuess, MassMatrix_solver_tolerance,     &
     & createSolverMatrix, l_solver_compare, solver_comp_nsteps, &
-    & use_ssh_in_momentum_eq
+    & use_ssh_in_momentum_eq, vert_mix_type, vmix_pp
   USE mo_run_config,                ONLY: dtime, debug_check_level
   USE mo_timer, ONLY: timer_start, timer_stop, timers_level, timer_extra1, &
     & timer_extra2, timer_extra3, timer_extra4, timer_ab_expl, timer_ab_rhs4sfc
@@ -523,7 +523,7 @@ CONTAINS
         CALL calculate_explicit_vn_pred_3D_onBlock( patch_3d, ocean_state, z_gradh_e(:),    &
         & start_edge_index, end_edge_index, blockNo)
         ! calculate vertical friction, ie p_phys_param%a_veloc_v
-        IF (PPscheme_type == PPscheme_ICON_Edge_vnPredict_type) &
+        IF (vert_mix_type == vmix_pp .AND. PPscheme_type == PPscheme_ICON_Edge_vnPredict_type) &
           CALL ICON_PP_Edge_vnPredict_scheme(patch_3d, blockNo, start_edge_index, end_edge_index, &
             & ocean_state, ocean_state%p_diag%vn_pred(:,:,blockNo))
         !In 3D case implicit vertical velocity diffusion is chosen

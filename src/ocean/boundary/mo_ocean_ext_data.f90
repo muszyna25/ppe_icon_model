@@ -48,7 +48,8 @@ MODULE mo_ocean_ext_data
     & forcing_windstress_v_type, &
     & forcing_fluxes_type,       &
     & OMIP_FluxFromFile,         &
-    & use_omip_windstress, use_omip_fluxes, use_omip_forcing
+    & use_omip_windstress, use_omip_fluxes, use_omip_forcing, &
+    & bulk_wind_stress_type, wind_stress_from_file
   USE mo_sea_ice_nml,        ONLY: i_ice_dyn
    
   USE mo_model_domain,       ONLY: t_patch
@@ -58,13 +59,10 @@ MODULE mo_ocean_ext_data
     &                              p_comm_work_test, p_comm_work
   USE mo_sync,               ONLY: global_sum_array
   USE mo_parallel_config,    ONLY: p_test_run
-  USE mo_linked_list,        ONLY: t_var_list
   USE mo_ext_data_types,     ONLY: t_external_data, t_external_atmos,    &
     &                              t_external_atmos_td, t_external_ocean
-  USE mo_var_list,           ONLY: default_var_list_settings,   &
-    &                              add_var, add_ref,            &
-    &                              new_var_list,                &
-    &                              delete_var_list
+  USE mo_var_list,           ONLY: add_var, add_ref, t_var_list_ptr
+  USE mo_var_list_register,  ONLY: vlr_add, vlr_del
   USE mo_master_config,      ONLY: getModelBaseDir
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var, grib2_var
@@ -191,7 +189,7 @@ CONTAINS
     TYPE(t_external_ocean), INTENT(INOUT) :: & !< current external data structure
       &  p_ext_oce 
 
-    TYPE(t_var_list) :: p_ext_oce_list !< current external data list
+    TYPE(t_var_list_ptr) :: p_ext_oce_list !< current external data list
 
     CHARACTER(len=*), INTENT(IN)  :: & !< list name
       &  listname
@@ -251,10 +249,8 @@ CONTAINS
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( p_ext_oce_list, TRIM(listname), patch_id=p_patch%id )
-    CALL default_var_list_settings( p_ext_oce_list,            &
-                                  & lrestart=.FALSE.,          &
-                                 & model_type=TRIM(get_my_process_name()) )
+    CALL vlr_add(p_ext_oce_list, TRIM(listname), patch_id=p_patch%id, &
+      & lrestart=.FALSE., model_type=TRIM(get_my_process_name()))
 
     ! bathymetric height at cell center
     !
@@ -330,7 +326,7 @@ CONTAINS
 
     DO jg = 1,n_dom
       ! Delete list of constant in time oceanic elements
-      CALL delete_var_list( ext_data(jg)%oce_list )
+      CALL vlr_del(ext_data(jg)%oce_list)
     ENDDO
 
     CALL message (TRIM(routine), 'Destruction of data structure for ' // &
@@ -623,15 +619,15 @@ CONTAINS
         CALL read_3D(stream_id, on_cells, 'runoff', z_flux)
         ext_data(jg)%oce%flux_forc_mon_c(:,:,:,12) = z_flux(:,:,:)
 
-!        IF (i_ice_dyn==1) THEN
+        IF (bulk_wind_stress_type  /= wind_stress_from_file) THEN
 !          ! zonal wind speed
-!          CALL read_3D(stream_id, on_cells, 'u_wind_10m', z_flux)
-!          ext_data(jg)%oce%flux_forc_mon_c(:,:,:,13) = z_flux(:,:,:)
-!
-!          ! meridional wind speed
-!          CALL read_3D(stream_id, on_cells, 'v_wind_10m', z_flux)
-!          ext_data(jg)%oce%flux_forc_mon_c(:,:,:,14) = z_flux(:,:,:)
-!        ENDIF
+          CALL read_3D(stream_id, on_cells, 'u_wind_10m', z_flux)
+          ext_data(jg)%oce%flux_forc_mon_c(:,:,:,13) = z_flux(:,:,:)
+
+          ! meridional wind speed
+          CALL read_3D(stream_id, on_cells, 'v_wind_10m', z_flux)
+          ext_data(jg)%oce%flux_forc_mon_c(:,:,:,14) = z_flux(:,:,:)
+        ENDIF
 
 
       END IF

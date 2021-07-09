@@ -10,7 +10,7 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 
-#include <handle_mpi_error.inc>
+#include "handle_mpi_error.inc"
 
 MODULE mo_packed_message
   USE ISO_C_BINDING, ONLY: c_ptr, C_LOC, C_F_POINTER, C_SIGNED_CHAR

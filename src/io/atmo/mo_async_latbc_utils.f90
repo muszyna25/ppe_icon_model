@@ -25,8 +25,9 @@
 
 #ifndef NOMPI
     USE mpi
-    USE mo_mpi,                 ONLY: my_process_is_pref, my_process_is_work, &
-         &                            my_process_is_stdio, p_comm_work
+    USE mo_mpi,                 ONLY: my_process_is_pref, my_process_is_work,   &
+         &                            p_comm_work, my_process_is_stdio,         &
+         &                            my_process_is_mpi_test
     ! Processor numbers
     USE mo_mpi,                 ONLY: p_pref_pe0, p_pe_work, p_work_pe0, num_work_procs
     ! MPI Communication routines
@@ -51,8 +52,7 @@
     USE mo_intp_data_strc,      ONLY: t_int_state
     USE mo_nh_vert_interp,      ONLY: vert_interp
     USE mo_physical_constants,  ONLY: cpd, rd, cvd_o_rd, p0ref, vtmpc1
-    USE mo_nh_init_utils,       ONLY: convert_omega2w, &
-      &                               compute_input_pressure_and_height
+    USE mo_nh_init_utils,       ONLY: convert_omega2w, compute_input_pressure_and_height
     USE mo_sync,                ONLY: sync_patch_array, SYNC_E
     USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
     USE mtime,                  ONLY: timedelta, newTimedelta, deallocateTimedelta, &
@@ -119,12 +119,11 @@
       MODULE PROCEDURE get_data_3D 
     END INTERFACE
 
-
     TYPE t_read_params
       TYPE(t_inputParameters) :: cdi_params
-      INTEGER                 :: npoints
+      INTEGER                 :: npoints = 0
       INTEGER                 :: imode_asy
-      INTEGER, POINTER        :: idx_ptr(:)
+      INTEGER, POINTER        :: idx_ptr(:) => NULL()
     END TYPE t_read_params
 
 
@@ -319,21 +318,17 @@
       TYPE(t_nh_state),       INTENT(INOUT) :: p_nh_state  !< nonhydrostatic state on the global domain
       INTEGER,                INTENT(OUT)   :: timelev
       TYPE(t_dictionary), INTENT(IN) :: latbc_dict
-
-      ! local variables
       TYPE(datetime) :: nextActive          ! next trigger date for prefetch event
       TYPE(datetime) :: latbc_read_datetime ! next input date to be read
-      INTEGER        :: ierr, nblks_c, nlev_in, jk,jb,jc
+      INTEGER :: ierr, nblks_c, nlev_in, jk, jb, jc
       REAL(wp)       :: seconds
       INTEGER        :: prev_latbc_tlev
       CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: td_string
       CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: latbc_read_datetime_str
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::read_init_latbc_data"
       REAL(wp), ALLOCATABLE                 :: z_ifc_in(:,:,:)
-
       INTEGER, TARGET                       :: idummy(1)
       LOGICAL                               :: is_restart
-
       TYPE(t_read_params) :: read_params(2) ! parameters for cdi read routine, 1 = for cells, 2 = for edges
 
       is_restart = isrestart()
@@ -755,7 +750,29 @@
         CALL get_data(latbc, 'v', latbc%latbc_data(tlev)%atm_in%v, read_params(icell))
       ENDIF
 
+      IF (latbc_config%fac_latbc_presbiascor > 0._wp) THEN
 
+!$OMP PARALLEL DO PRIVATE (jk,jb,jc,i_startidx,i_endidx)
+        DO jb = 1, i_endblk
+
+          CALL get_indices_c(p_patch, jb, 1, i_endblk, i_startidx, i_endidx, 1, rl_end)
+
+          DO jk = 1, nlev_in
+            DO jc = i_startidx, i_endidx
+
+              IF (.NOT. latbc%patch_data%cell_mask(jc,jb)) CYCLE
+
+              latbc%latbc_data(tlev)%atm_in%pres(jc,jk,jb) =                                                  &
+                latbc%latbc_data(tlev)%atm_in%pres(jc,jk,jb) + latbc_config%fac_latbc_presbiascor*            &
+                p_nh_state%diag%p_avginc(jc,jb)*EXP(-latbc%latbc_data_const%z_mc_in(jc,nlev_in,jb)/8000._wp)* &
+                latbc%latbc_data(tlev)%atm_in%pres(jc,jk,jb)/latbc%latbc_data(tlev)%atm_in%pres(jc,nlev_in,jb)
+
+              ENDDO
+            ENDDO
+        ENDDO
+!$OMP END PARALLEL DO
+
+      ENDIF
 
       ! Read vertical component of velocity (W) or OMEGA
 

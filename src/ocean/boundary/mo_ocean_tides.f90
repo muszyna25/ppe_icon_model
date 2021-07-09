@@ -24,7 +24,7 @@ MODULE mo_ocean_tides
        &                               addEventToEventGroup, isCurrentEventActive
   USE mo_exception,              ONLY: message, finish, warning, message_text
   USE mo_model_domain,           ONLY: t_patch, t_patch_3d
-  USE mo_ocean_nml,              ONLY: n_zlev, tide_startdate, tides_esl_damping_coeff, use_tides,   &
+  USE mo_ocean_nml,              ONLY: n_zlev, tides_esl_damping_coeff, use_tides,   &
     & tides_mod, use_tides_SAL, tides_SAL_coeff, OceanReferenceDensity_inv, ab_beta,               &
     & tides_smooth_iterations, OceanReferenceDensity
   USE mo_physical_constants,     ONLY: grav
@@ -181,7 +181,6 @@ CONTAINS
   INTEGER  :: jahr,monat,tag,stunde,minute
   REAL(dp) :: sekunde,gezhochfahr,rs,rm
   REAL(dp) :: dtim,gst,dcl_m,alp_m,h_m,dcl_s,alp_s,h_s,mpot,spot,longitude,latitude
-  REAL(dp) :: tide_start
   REAL(wp) :: smooth
   
   
@@ -189,14 +188,6 @@ CONTAINS
   patch_2D        => patch_3d%p_patch_2d(1)
   all_cells       => patch_2D%cells%ALL
   
-  read(tide_startdate(1:4),'(i4)') jahr
-  read(tide_startdate(6:7),'(i2.2)') monat
-  read(tide_startdate(9:10),'(i2.2)') tag
-  read(tide_startdate(12:13),'(i2.2)') stunde
-  read(tide_startdate(15:16),'(i2.2)') minute
-  sekunde = 0.0_dp
-  
-  call timing(jahr,monat,tag,stunde,minute,sekunde,tide_start)  ! start time of tidal spin-up (number of days since 2010 January 0.0)
   
   CALL datetimeToString(mtime_current, datestri)
   
@@ -222,7 +213,8 @@ CONTAINS
   call dist_earth_sun_moon(jahr,monat,tag,stunde+minute*1.0_dp/60.0_dp,rs,rm)  ! distance between rs = Earth - Sun and rm = Earth - Moon  (m)
   
   
-   gezhochfahr = min(1.0_dp,(dtim-tide_start)/30.0_dp)  ! spin-up over the first 30 days, when starting at "tide_start"
+   gezhochfahr = 1.0_dp  ! no spin-up 
+!  gezhochfahr = min(1.0_dp,(dtim-tide_start)/30.0_dp)  ! spin-up over the first 30 days, when starting at "tide_start"
 !  gezhochfahr = min(1.0_dp,(dtim+3286.0_dp)/30.0_dp)  ! spin-up over the first 30 days, when starting at 2001-01-01 00:00
 !  gezhochfahr = min(1.0_dp,(dtim+2160.0_dp)/30.0_dp)  ! spin-up over the first 30 days, when starting at 2004-02-01 00:00
   
@@ -825,7 +817,6 @@ end subroutine findee
   INTEGER  :: jahr,monat,tag,stunde,minute
   REAL(dp) :: sekunde,gezhochfahr,rs,rm
   REAL(dp) :: dtim,gst,dcl_m,alp_m,h_m,dcl_s,alp_s,h_s,mpot,spot,longitude,latitude
-  REAL(dp) :: tide_start
   
   REAL(dp) :: pic,pi2,dt,T,sidt,ecl,nutob,nutl,res(3,2),res2(3,2)
   REAL(dp) :: rkomp,rkosp,erdrad,rekts,dekls,cris3,rektm,deklm,crim3,deklm2,dekls2,sidm,sidmq
@@ -846,14 +837,6 @@ end subroutine findee
     tide_iteration = tide_iteration + 1
   ENDIF
  
-  read(tide_startdate(1:4),'(i4)') jahr
-  read(tide_startdate(6:7),'(i2.2)') monat
-  read(tide_startdate(9:10),'(i2.2)') tag
-  read(tide_startdate(12:13),'(i2.2)') stunde
-  read(tide_startdate(15:16),'(i2.2)') minute
-  sekunde = 0.0_dp
-  
-  call timing(jahr,monat,tag,stunde,minute,sekunde,tide_start)  ! start time of tidal spin-up (number of days since 2010 January 0.0)
   
   CALL datetimeToString(mtime_current, datestri)
   
@@ -866,7 +849,8 @@ end subroutine findee
   
   call timing(jahr,monat,tag,stunde,minute,sekunde,dtim)  ! compute the number of days since 2010 January 0.0
   
-  gezhochfahr = min(1.0_dp,(dtim-tide_start)/30.0_dp)  ! spin-up over the first 30 days, when starting at "tide_start"
+  gezhochfahr = 1.0_dp  ! no spin-up 
+! gezhochfahr = min(1.0_dp,(dtim-tide_start)/30.0_dp)  ! spin-up over the first 30 days, when starting at "tide_start"
 !  gezhochfahr = min(1.0_dp,(dtim+3286.0_dp)/30.0_dp)  ! spin-up over the first 30 days, when starting at 2001-01-01 00:00
 !  gezhochfahr = min(1.0_dp,(dtim+2160.0_dp)/30.0_dp)  ! spin-up over the first 30 days, when starting at 2004-02-01 00:00
 

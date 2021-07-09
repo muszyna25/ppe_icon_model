@@ -25,7 +25,7 @@ MODULE mo_sma_turbulence_diag
   USE mo_echam_vdf_config  ,ONLY: echam_vdf_config
   USE mo_echam_vdiff_params,ONLY: ckap
   USE mo_physical_constants,ONLY: grav, rd, cpd, cpv, rd_o_cpd,             &
-    &                             vtmpc1, p0ref, rgrav 
+    &                             vtmpc1, p0ref, rgrav
   USE mo_model_domain      ,ONLY: t_patch
   USE mo_nonhydro_types    ,ONLY: t_nh_prog, t_nh_metrics
   USE mo_intp_data_strc    ,ONLY: t_int_state
@@ -174,12 +174,12 @@ CONTAINS
 
   !Variables for the module
     REAL(wp), INTENT(OUT), DIMENSION(kbdim,klev,nblks_c)   :: km_c
-    REAL(wp), INTENT(OUT), DIMENSION(kbdim,klevp1,nblks_v) :: km_iv 
+    REAL(wp), INTENT(OUT), DIMENSION(kbdim,klevp1,nblks_v) :: km_iv
     REAL(wp), INTENT(OUT), DIMENSION(kbdim,klevp1,nblks_e) :: km_ie
     REAL(wp), INTENT(OUT), DIMENSION(kbdim,klevp1,nblks_c) :: kh_ic, km_ic
     REAL(wp), INTENT(OUT), DIMENSION(kbdim,klev,nblks_v)   :: u_vert, v_vert
     REAL(wp), INTENT(OUT), DIMENSION(kbdim,klev,nblks_c)   :: div_c
-    REAL(wp), INTENT(OUT), DIMENSION(kbdim,klevp1,nblks_v) :: w_vert 
+    REAL(wp), INTENT(OUT), DIMENSION(kbdim,klevp1,nblks_v) :: w_vert
     REAL(wp), INTENT(OUT), DIMENSION(kbdim,klevp1,nblks_e) :: w_ie
     REAL(wp), INTENT(OUT), DIMENSION(kbdim,klevp1,nblks_c) :: rho_ic
     REAL(wp), INTENT(OUT), DIMENSION(kbdim,klev,nblks_e)   :: vn !< normal wind vector
@@ -230,7 +230,7 @@ CONTAINS
     INTEGER  :: is    (ksfc_type)               !< counter for masks
     INTEGER  :: jsfc, jls, js
     INTEGER  :: jcn,jbn                         !< jc and jb of neighbor cells sharing an edge je
-    REAL(wp),parameter :: zcons17 = 1._wp / ckap**2 
+    REAL(wp),parameter :: zcons17 = 1._wp / ckap**2
 
     ! - surface variables (mo_surface_les.f90)
     REAL(wp) :: umfl_tile(kbdim,nblks_c,ksfc_type)
@@ -251,6 +251,11 @@ CONTAINS
     REAL(wp) :: zrdp
     REAL(wp) :: zsdep1
     REAL(wp) :: zsdep2
+
+    ! to prevent floating-point arithmetic inconsistencies later in
+    ! the interpolation to u 10m and 2m T/T_d: has been 0.01 before
+    ! (Cray FP instead of IEEE 754 FP format)
+    REAL(wp) :: zepsec = 0.028_wp
 
     ! Shortcuts to components of echam_vdf_config
     !
@@ -291,7 +296,7 @@ CONTAINS
         pqsat_tile(jc,jb,:)= 0._wp
         pri_tile(jc,jb,:)  = 0._wp
         pch_tile(jc,jb,:)  = 0._wp
-        pcpt_tile(jc,jb,:) = 0._wp 
+        pcpt_tile(jc,jb,:) = 0._wp
 
         pthvsig(jc,jb)     = 0._wp
       END DO
@@ -449,7 +454,7 @@ CONTAINS
 
         !First guess for tch and tcm using bulk approach
         RIB = grav * (ztheta(js,klev,jb)-theta_sfc) * (z_mc-zrough) / (theta_sfc * mwind**2)
-        tcn_mom = (ckap/LOG(z_mc/zrough))**2 
+        tcn_mom = (ckap/LOG(z_mc/zrough))**2
         tcm(js,jb,jsfc) = tcn_mom * stability_function_mom(RIB,z_mc/zrough,tcn_mom)
 
         tcn_heat        = ckap**2/(LOG(z_mc/zrough)*LOG(z_mc/zrough))
@@ -484,19 +489,19 @@ CONTAINS
         pcfh(js,klev,jb) = pcfh(js,klev,jb) + pfrc(js,jb,jsfc)*pcfh_tile(js,jb,jsfc)
 
 
-        pbn_tile(js,jb,jsfc) = ckap / MAX( 1.E-2_wp,sqrt(tcn_mom) )
-        pbhn_tile(js,jb,jsfc)= ckap / MAX( 1.E-2_wp,sqrt(tcn_heat) )
-        pbm_tile(js,jb,jsfc) = MAX( 1.E-2_wp, sqrt(pcfm_tile(js,jb,jsfc) * tch(js,jb,jsfc)*zcons17/ (tcn_mom*mwind)) )
-        pbh_tile(js,jb,jsfc) = MAX( 1.E-2_wp, tch(js,jb,jsfc)/pbm_tile(js,jb,jsfc)*zcons17)
+        pbn_tile(js,jb,jsfc) = ckap / MAX( zepsec, sqrt(tcn_mom) )
+        pbhn_tile(js,jb,jsfc)= ckap / MAX( zepsec, sqrt(tcn_heat) )
+        pbm_tile(js,jb,jsfc) = MAX( zepsec, sqrt(pcfm_tile(js,jb,jsfc) * tch(js,jb,jsfc)*zcons17/ (tcn_mom*mwind)) )
+        pbh_tile(js,jb,jsfc) = MAX( zepsec, tch(js,jb,jsfc)/pbm_tile(js,jb,jsfc)*zcons17)
         pbm_tile(js,jb,jsfc) = 1._wp / pbm_tile(js,jb,jsfc)
         pbh_tile(js,jb,jsfc) = 1._wp / pbh_tile(js,jb,jsfc)
 
         zthetavmid(js,jb,jsfc) = fsl*ptvm1(js,nlev,jb)*(p0ref/papm1(js,nlev,jb))**rd_o_cpd + &
-                               & (1._wp-fsl) * theta_sfc * (1._wp+vtmpc1*zqts) 
+                               & (1._wp-fsl) * theta_sfc * (1._wp+vtmpc1*zqts)
 
         pri_tile(js,jb,jsfc) = pghf(js,klev,jb) * grav *                                   &
-                             & ( ptvm1(js,nlev,jb)*(p0ref/papm1(js,nlev,jb))**rd_o_cpd -   & 
-                             &   theta_sfc * (1._wp+vtmpc1*zqts)                       ) / & 
+                             & ( ptvm1(js,nlev,jb)*(p0ref/papm1(js,nlev,jb))**rd_o_cpd -   &
+                             &   theta_sfc * (1._wp+vtmpc1*zqts)                       ) / &
                              & ( zthetavmid(js,jb,jsfc) * mwind )
       END DO !jls
     END DO !jsfc
@@ -510,7 +515,7 @@ CONTAINS
 
 
 !#########################################################################
-!## initialize 
+!## initialize
 !#########################################################################
 
 !$OMP PARALLEL
@@ -543,7 +548,7 @@ CONTAINS
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                           i_startidx, i_endidx, rl_start, rl_end)
       DO jc = i_startidx, i_endidx
-        theta(jc,1:nlev,jb) = ptm1(jc,1:nlev,jb)*(p0ref/papm1(jc,1:nlev,jb))**rd_o_cpd 
+        theta(jc,1:nlev,jb) = ptm1(jc,1:nlev,jb)*(p0ref/papm1(jc,1:nlev,jb))**rd_o_cpd
         theta_v(jc,1:nlev,jb) = ptvm1(jc,1:nlev,jb)*(p0ref/papm1(jc,1:nlev,jb))**rd_o_cpd
       END DO
     END DO
@@ -996,7 +1001,7 @@ CONTAINS
   !! Initial release by Anurag Dipankar, MPI-M (2013-02-05)
   SUBROUTINE diffuse_hori_velocity( nproma,                &
                                   & p_patch,               &
-                                  & km_c, km_iv, km_ie,    & 
+                                  & km_c, km_iv, km_ie,    &
                                   & u_vert, v_vert, div_c, &
                                   & rho, pum1, pvm1, vn,   &
                                   & ddt_u, ddt_v, dt)
@@ -1010,7 +1015,7 @@ CONTAINS
     REAL(wp), INTENT(IN), DIMENSION(nproma,p_patch%nlev+1,p_patch%nblks_v) :: km_iv
     REAL(wp), INTENT(IN), DIMENSION(nproma,p_patch%nlev+1,p_patch%nblks_e) :: km_ie
     REAL(wp), INTENT(IN), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_v) :: u_vert, v_vert
-    REAL(wp), INTENT(IN), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c) :: div_c 
+    REAL(wp), INTENT(IN), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c) :: div_c
     REAL(wp), INTENT(INOUT), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c) :: rho, pum1, pvm1
 
     REAL(wp), INTENT(out) :: ddt_u(nproma,p_patch%nlev,p_patch%nblks_c) !< u tendency
@@ -1207,7 +1212,7 @@ CONTAINS
                                   & p_patch,               &
                                   & rho_ic, w_vert, w_ie,  &
                                   & km_c, km_iv, km_ic,    &
-                                  & u_vert, v_vert, div_c, & 
+                                  & u_vert, v_vert, div_c, &
                                   & pum1, pvm1, pwp1, vn,  &
                                   & dt)
 
@@ -1219,7 +1224,7 @@ CONTAINS
     REAL(wp),          INTENT(in)        :: km_ic(nproma,p_patch%nlev+1,p_patch%nblks_c)
     REAL(wp),          INTENT(in)        :: dt
 
-    REAL(wp), INTENT(IN), DIMENSION(nproma,p_patch%nlev+1,p_patch%nblks_c) :: rho_ic 
+    REAL(wp), INTENT(IN), DIMENSION(nproma,p_patch%nlev+1,p_patch%nblks_c) :: rho_ic
     REAL(wp), INTENT(IN), DIMENSION(nproma,p_patch%nlev+1,p_patch%nblks_v) :: w_vert
     REAL(wp), INTENT(IN), DIMENSION(nproma,p_patch%nlev+1,p_patch%nblks_e) :: w_ie
     REAL(wp), INTENT(IN), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c) :: km_c
@@ -1554,7 +1559,7 @@ CONTAINS
   !!------------------------------------------------------------------------
   !! @par Revision History
   !! Initial release by Anurag Dipankar, MPI-M (2013-02-05)
-  SUBROUTINE diffuse_scalar( nproma, var_temp, &  
+  SUBROUTINE diffuse_scalar( nproma, var_temp, &
                            & p_patch,          &
                            & kh_ic, km_ie,     &
                            & hori_tend,        &
@@ -1604,7 +1609,7 @@ CONTAINS
     ieblk => p_patch%cells%edge_blk
 
     hori_tend = 0._wp
- 
+
     var = var_temp
     CALL sync_patch_array(SYNC_C, p_patch, var)
 
@@ -1703,8 +1708,8 @@ CONTAINS
 
        !H&B
        stab_fun = 1._wp / ( 1._wp + 10._wp*RIB*(1._wp+8._wp*RIB) )
-     ELSE
-       hz0_fac = ( hz0**(1._wp/3._wp) - 1._wp )**1.5_wp
+    ELSE
+       hz0_fac = ( max(hz0, 1._wp)**(1._wp/3._wp) - 1._wp )**1.5_wp ! FLO - hz0 can be < 1 then, the **1.5 is invalid.
        !for water surface (z0/h)**(1/3)<<1 giving hz0_fac=SQRT(h/z0)
        !Generally it is explicitly written for water surface but i don't
        !see any reason to do that.
@@ -1727,7 +1732,7 @@ CONTAINS
        !H&B
        stab_fun = 1._wp / ( 1._wp + 10._wp*RIB*(1._wp+8._wp*RIB) )
      ELSE
-       hzh_fac = ( hzh**(1._wp/3._wp) - 1._wp )**1.5_wp
+       hzh_fac = ( max(hzh, 1._wp)**(1._wp/3._wp) - 1._wp )**1.5_wp
        !for water surface (zh/h)**(1/3)<<1 giving hzh_fac=SQRT(h/zh)
        !Generally it is explicitly written for water surface but i don't
        !see any reason to do that.

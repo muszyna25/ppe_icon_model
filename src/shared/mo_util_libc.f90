@@ -14,11 +14,9 @@ MODULE mo_util_libc
   USE ISO_C_BINDING, ONLY: C_PTR, C_INT, C_SIZE_T
 
   IMPLICIT NONE
-
   PRIVATE
 
-  PUBLIC :: memset
-  PUBLIC :: memcmp
+  PUBLIC :: memset, memcmp, memcpy
 
 CONTAINS
 
@@ -28,12 +26,11 @@ CONTAINS
     INTEGER(C_SIZE_T), VALUE :: n
 
     INTERFACE
-      FUNCTION c_memset(str, c, n) BIND(C, NAME='memset') RESULT(c_result)
+      TYPE(C_PTR) FUNCTION c_memset(str, c, n) BIND(C, NAME='memset')
         IMPORT C_PTR, C_INT, C_SIZE_T
         TYPE(C_PTR), VALUE :: str
         INTEGER(C_INT), VALUE :: c
         INTEGER(C_SIZE_T), VALUE :: n
-        TYPE(C_PTR) :: c_result
       END FUNCTION c_memset
     END INTERFACE
 
@@ -46,16 +43,32 @@ CONTAINS
     LOGICAL :: f_result
 
     INTERFACE
-      FUNCTION c_memcmp(str1, str2, n) BIND(C, NAME='memcmp') RESULT(c_result)
+      INTEGER(C_INT) FUNCTION c_memcmp(a, b, n) BIND(C, NAME='memcmp')
         IMPORT C_PTR, C_INT, C_SIZE_T
-        TYPE(C_PTR), VALUE, INTENT(IN) :: str1, str2
+        TYPE(C_PTR), VALUE, INTENT(IN) :: a, b
         INTEGER(C_SIZE_T), VALUE :: n
-        INTEGER(C_INT) :: c_result
       END FUNCTION c_memcmp
     END INTERFACE
 
     f_result = (c_memcmp(str1, str2, n) /= 0)
   END FUNCTION memcmp
+
+  TYPE(C_PTR) FUNCTION memcpy(dest, src ,bsize) RESULT(ret)
+    TYPE(C_PTR), VALUE :: dest
+    TYPE(C_PTR), INTENT(IN), VALUE :: src
+    INTEGER(C_SIZE_T), INTENT(IN) :: bsize
+
+    INTERFACE
+      TYPE(C_PTR) FUNCTION c_memcpy(a, b, s) BIND(C,NAME='memcpy')
+        IMPORT C_SIZE_T, C_PTR
+        TYPE(C_PTR), VALUE :: a
+        TYPE(C_PTR), INTENT(IN), VALUE :: b
+        INTEGER(C_SIZE_T), INTENT(IN), VALUE :: s
+      END FUNCTION c_memcpy
+    END INTERFACE
+
+    ret = c_memcpy(dest, src, bsize)
+  END FUNCTION memcpy
 
 END MODULE mo_util_libc
 

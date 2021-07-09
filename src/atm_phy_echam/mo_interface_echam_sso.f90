@@ -125,8 +125,8 @@ CONTAINS
                &       field% zf  (:,:,jb)          ,& ! in,  full level height (m)
                &       field% zh  (:,nlev+1,jb)     ,& ! in,  surface height    (m)
                !
-               &       field% presi_old(:,:,jb)     ,& ! in,  p at half levels
-               &       field% presm_old(:,:,jb)     ,& ! in,  p at full levels
+               &       field% phalf(:,:,jb)         ,& ! in,  p at half levels
+               &       field% pfull(:,:,jb)         ,& ! in,  p at full levels
                &       field% mair(:,:,jb)          ,& ! in,  air mass
                &       field%   ta(:,:,jb)          ,& ! in,  T
                &       field%   ua(:,:,jb)          ,& ! in,  u

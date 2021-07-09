@@ -456,7 +456,7 @@ CONTAINS
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
   SUBROUTINE nwp_rrtm_radiation ( current_date, pt_patch, ext_data,                      &
-    &  zaeq1, zaeq2, zaeq3, zaeq4, zaeq5, pt_diag, prm_diag, lnd_prog, irad )
+    &  zaeq1, zaeq2, zaeq3, zaeq4, zaeq5, pt_diag, prm_diag, lnd_prog )
 
     CHARACTER(len=*), PARAMETER::  &
       &  routine = modname//'::nwp_rrtm_radiation'
@@ -476,8 +476,6 @@ CONTAINS
     TYPE(t_nh_diag), TARGET, INTENT(in)  :: pt_diag     !<the diagnostic variables
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
     TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog
-
-    INTEGER, INTENT(IN) :: irad ! To distinguish between RRTM (1) and PSRAD (3)
 
     REAL(wp):: aclcov(nproma,pt_patch%nblks_c), dust_tunefac(nproma,nbndlw)
 
@@ -576,7 +574,6 @@ CONTAINS
                               ! indices and dimensions
         & jg         =jg                   ,&!< in domain index
         & jb         =jb                   ,&!< in block index
-        & irad       =irad                 ,&!< in option for radiation scheme (RRTM/PSRAD)
         & icpl_reff  =atm_phy_nwp_config(jg)%icpl_rad_reff,&  !< in option for radiation reff coupling
         & jcs        =i_startidx           ,&!< in  start index for loop over block
         & jce        =i_endidx             ,&!< in  end   index for loop over block
@@ -657,7 +654,7 @@ CONTAINS
   !!
   SUBROUTINE nwp_rrtm_radiation_reduced ( current_date, pt_patch, pt_par_patch, ext_data, &
     &                                     zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,    &
-    &                                     pt_diag,prm_diag,lnd_prog,irad    )
+    &                                     pt_diag,prm_diag,lnd_prog )
 
     CHARACTER(len=*), PARAMETER::  &
       &  routine = modname//'::nwp_rrtm_radiation_reduced'
@@ -677,9 +674,6 @@ CONTAINS
     TYPE(t_nh_diag), TARGET,    INTENT(inout):: pt_diag     !<the diagnostic variables
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
     TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog
-
-    INTEGER, INTENT(IN) :: irad ! To distinguish between RRTM (1) and PSRAD (3)
-
 
     REAL(wp):: aclcov(nproma,pt_patch%nblks_c), dust_tunefac(nproma,nbndlw)
     ! For radiation on reduced grid
@@ -1198,7 +1192,6 @@ CONTAINS
                                 ! indices and dimensions
           & jg          =jg                  ,&!< in domain index
           & jb          =jb                  ,&!< in block index
-          & irad        =irad                ,&!< in option for radiation scheme (RRTM/PSRAD)
           & icpl_reff  =atm_phy_nwp_config(jg)%icpl_rad_reff,&  !< in option for radiation reff coupling
           & jcs         =i_startidx          ,&!< in  start index for loop over block
           & jce         =i_endidx            ,&!< in  end   index for loop over block

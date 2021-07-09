@@ -53,30 +53,6 @@ MODULE gscp_data
 !
 ! Modules used:
 
-
-#ifdef __COSMO__
-USE kind_parameters, ONLY :   wp       ! KIND-type parameter for real variables
-
-USE data_constants,  ONLY :   &
-    pi,           & !!
-
-!! 2. physical constants and related variables
-!! -------------------------------------------
-    t0=>t0_melt,  & !! melting temperature of ice
-    r_d,          & !! gas constant for dry air
-    r_v,          & !! gas constant for water vapour
-    lh_s,         & !! latent heat of sublimation
-
-!> 5. Precision-dependent security parameters (epsilons)
-!! ------------------------------------------------------
-    repsilon        !! precision of 1.0 in current floating point format
-
-USE utilities,       ONLY :   message
-
-USE pp_utilities,    ONLY : gamma_fct   !! Gamma function
-#endif
-
-#ifdef __ICON__
 USE mo_kind,               ONLY: wp, i4
 
 USE mo_math_constants    , ONLY: pi
@@ -92,7 +68,7 @@ USE mo_math_utilities    , ONLY: gamma_fct
 
 USE mo_exception,          ONLY: finish, message, message_text
 USE mo_reff_types,         ONLY: t_reff_calc
-#endif
+
 
 !==============================================================================
 
@@ -115,11 +91,7 @@ INTEGER,  PARAMETER ::  &
 
 REAL (KIND=wp), PARAMETER ::  &
   zqmin = 1.0E-15_wp, & ! threshold for computations
-#ifdef __COSMO__
-  zeps  = repsilon      ! small precision-dependent number
-#else
   zeps  = 1.0E-15_wp    ! small number
-#endif
 
 
 ! Variables which are (mostly) initialized in gscp_set_coefficients
@@ -176,13 +148,8 @@ REAL (KIND=wp), PARAMETER ::  &
     do_i           =  5.83_wp,      & ! coefficients for drag correction
     co_i           =  0.6_wp          ! coefficients for turbulence correction
 
-#ifdef __COSMO__
-  REAL (KIND=wp)     ::           &
-    cloud_num = 5.00e+08_wp         ! cloud droplet number concentration
-#else
   REAL (KIND=wp)   ::           &
   cloud_num = 200.00e+06_wp       ! cloud droplet number concentration
-#endif
 
 ! Parameters for autoconversion of cloud water and cloud ice 
 ! ----------------------------------------------------------
@@ -328,9 +295,6 @@ SUBROUTINE gscp_set_coefficients (igscp, idbg, tune_zceff_min, tune_v0snow, tune
   REAL(wp) ,INTENT(IN) ,OPTIONAL ::  tune_rain_n0_factor
   
 ! Local variable
-#ifdef __COSMO__
-  CHARACTER(132) :: message_text = ''
-#endif
   REAL(wp) :: zams  ! local value of zams
   
 !------------------------------------------------------------------------------

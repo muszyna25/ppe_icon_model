@@ -233,7 +233,7 @@ MODULE mo_2mom_mcrph_processes
   ! Even more parameters for collision and conversion rates
   REAL(wp), PARAMETER :: &
        &    q_crit_ii = 1.000e-6_wp, & ! q-threshold for ice_selfcollection
-       &    D_crit_ii = 100.0e-6_wp, & ! D-threshold for ice_selfcollection
+       &    D_crit_ii = 5.0e-6_wp,   & ! D-threshold for ice_selfcollection  
        &    D_conv_ii = 75.00e-6_wp, & ! D-threshold for conversion in ice_selfcollection
        &    q_crit_r  = 1.000e-5_wp, & ! q-threshold for ice_rain_riming and snow_rain_riming
        &    D_crit_r  = 100.0e-6_wp, & ! D-threshold for ice_rain_riming and snow_rain_riming

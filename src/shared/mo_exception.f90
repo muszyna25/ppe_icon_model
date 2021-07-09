@@ -26,17 +26,21 @@
 !!
 MODULE mo_exception
 
-  USE mo_io_units, ONLY: nerr, nlog, filename_max
-  USE mo_mpi,      ONLY: run_is_global_mpi_parallel, abort_mpi, my_process_is_stdio, &
-    & get_my_global_mpi_id, p_pe_work, get_glob_proc0, proc_split, comm_lev
-  USE mo_kind,     ONLY: wp, i8
-  USE mo_impl_constants,  ONLY: MAX_CHAR_LENGTH
+  USE mo_io_units,       ONLY: nerr, nlog, filename_max
+  USE mo_mpi,            ONLY: run_is_global_mpi_parallel, abort_mpi, my_process_is_stdio, &
+    &                          get_my_global_mpi_id, p_pe_work, get_glob_proc0, proc_split, comm_lev
+  USE mo_kind,           ONLY: wp, i8
+  USE mo_impl_constants, ONLY: MAX_CHAR_LENGTH
   
-#ifndef __STANDALONE
-    USE mo_util_backtrace, ONLY: util_backtrace
-    USE mo_util_system, ONLY: util_exit
-#elif defined __INTEL_COMPILER
-    USE ifcore, ONLY: tracebackqq
+#ifdef __STANDALONE
+  USE, INTRINSIC :: iso_c_binding, ONLY: c_int
+#else
+  USE mo_util_system, ONLY: util_exit
+#if defined __INTEL_COMPILER
+  USE ifcore, ONLY: tracebackqq
+#else
+  USE mo_util_backtrace, ONLY: util_backtrace
+#endif
 #endif
 
   IMPLICIT NONE
@@ -52,6 +56,15 @@ MODULE mo_exception
   PUBLIC :: get_filename_noext
   PUBLIC :: msg_timestamp
 
+#ifdef __STANDALONE
+  INTERFACE
+    SUBROUTINE exit(iret) BIND(C,name='exit')
+      IMPORT :: c_int
+      INTEGER(c_int), VALUE :: iret
+    END SUBROUTINE exit
+  END INTERFACE
+#endif
+  
   INTEGER, PARAMETER :: em_none  = 0   !< normal message
   INTEGER, PARAMETER :: em_info  = 1   !< informational message
   INTEGER, PARAMETER :: em_warn  = 2   !< warning message: number of warnings counted
@@ -122,7 +135,6 @@ CONTAINS
 
     INTEGER           :: iexit
 
-
     WRITE (nerr,'(/,80("="),/)')
     IF (l_log) WRITE (nlog,'(/,80("="),/)')
 
@@ -156,28 +168,27 @@ CONTAINS
     WRITE (nerr,'(/,80("-"),/,/)')
     IF (l_log) WRITE (nlog,'(/,80("-"),/,/)')
 
-#ifdef __STANDALONE
-
+#ifndef __STANDALONE
 #ifdef __INTEL_COMPILER
     CALL tracebackqq
 #elif defined __xlC__
     CALL xl__trbk
-#endif
-
 #else
     CALL util_backtrace
 #endif
-
+#endif
+    
     WRITE (nerr,'(/,80("="),/)')
     IF (l_log) WRITE (nlog,'(/,80("="),/)')
 
     IF (run_is_global_mpi_parallel()) THEN
       CALL abort_mpi
     ELSE
-#ifndef __STANDALONE
-       CALL util_exit(iexit)
+      CALL message('','finish ..')
+#ifdef __STANDALONE
+      CALL exit(iexit)
 #else
-       STOP 'mo_exception: finish ..'
+      CALL util_exit(iexit)
 #endif
     END IF
 

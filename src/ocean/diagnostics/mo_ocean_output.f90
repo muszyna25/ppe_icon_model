@@ -42,12 +42,10 @@ MODULE mo_ocean_output
   !USE mo_ocean_physics,            ONLY: t_ho_params
   USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
   USE mo_ocean_diagnostics, ONLY: destruct_oce_diagnostics, calc_moc, calc_psi
-  USE mo_linked_list,            ONLY: t_list_element
   USE mo_mpi,                    ONLY: my_process_is_stdio
   USE mo_statistics
   USE mo_sea_ice_nml,            ONLY: i_ice_dyn
   USE mo_util_dbg_prnt,          ONLY: dbg_print
-  USE mo_ocean_statistics
   USE mtime,                     ONLY: datetime, MAX_DATETIME_STR_LEN, datetimeToPosixString
   
   IMPLICIT NONE
@@ -121,9 +119,6 @@ CONTAINS
    !write(0,*) "write ....."
 
     !------------------------------------------------------------------
-
-    IF (output_mode%l_nml) CALL write_name_list_output(out_step)
-
     fmtstr = '%Y-%m-%d %H:%M:%S'
     call datetimeToPosixString(this_datetime, datestring, fmtstr)
     WRITE(message_text,'(a,a)') 'Write output at:', TRIM(datestring)

@@ -50,7 +50,6 @@ MODULE mo_ocean_testbed_vertical_diffusion
   USE mo_statistics
   USE mo_sea_ice_nml,            ONLY: i_ice_dyn
   USE mo_util_dbg_prnt,          ONLY: dbg_print
-  USE mo_ocean_statistics
   USE mo_ocean_output
   USE mo_ocean_tracer_diffusion, ONLY: tracer_diffusion_vertical_implicit
   USE mo_ocean_velocity_diffusion,ONLY: velocity_diffusion_vertical_implicit

@@ -91,9 +91,8 @@ MODULE mo_hydro_ocean_run
   USE mo_statistics
   USE mo_var_list
   USE mo_swr_absorption,         ONLY: jerlov_swr_absorption
-  USE mo_ocean_statistics
   USE mo_ocean_hamocc_interface, ONLY: ocean_to_hamocc_interface
-  USE mo_derived_variable_handling, ONLY: update_statistics, reset_statistics
+  USE mo_derived_variable_handling, ONLY: update_statistics
   USE mo_ocean_output
   USE mo_ocean_coupling,         ONLY: couple_ocean_toatmo_fluxes  
   USE mo_hamocc_nml,             ONLY: l_cpl_co2
@@ -610,8 +609,6 @@ CONTAINS
           &                p_oce_sfc,             &
           &                sea_ice,                 &
           &                jstep, jstep0)
-        
-        CALL reset_statistics
         ! send and receive coupling fluxes for ocean at the end of time stepping loop
         IF (iforc_oce == Coupled_FluxFromAtmo) THEN  !  14
 
@@ -904,8 +901,6 @@ CONTAINS
           &                sea_ice,                 &
           &                jstep, jstep0)
         
-        CALL reset_statistics
-
         ! send and receive coupling fluxes for ocean at the end of time stepping loop
         ! FIXME zstar: Does this make sense for zstar 
         IF (iforc_oce == Coupled_FluxFromAtmo) THEN  !  14
@@ -1019,8 +1014,6 @@ CONTAINS
           &                sea_ice,                 &
           &                jstep, jstep0)
         
-        CALL reset_statistics
-
         ! check whether time has come for writing restart file
         IF (isCheckpoint()) THEN
           IF (.NOT. output_mode%l_none ) THEN
@@ -1260,8 +1253,6 @@ CONTAINS
 
     CALL write_name_list_output(jstep=0)
 
-    CALL reset_statistics
- 
   END SUBROUTINE write_initial_ocean_timestep
   !-------------------------------------------------------------------------
 

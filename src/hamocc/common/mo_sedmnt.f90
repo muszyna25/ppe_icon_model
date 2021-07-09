@@ -6,7 +6,7 @@
 MODULE mo_sedmnt
 
   USE mo_kind, ONLY        : wp
-  USE mo_param1_bgc, ONLY  : nsedtra, npowtra, n_bgctra
+  USE mo_param1_bgc, ONLY  : nsedtra, npowtra, n_bgctra, nsed_diag
   USE mo_control_bgc, ONLY: dtbgc, bgc_nproma, bgc_zlevs 
   USE mo_hamocc_nml, ONLY : isac,ks,ksp,dzs,porwat
   USE mo_memory_bgc, ONLY : kbo, bolay, bolaymin, wdust
@@ -15,12 +15,6 @@ MODULE mo_sedmnt
   IMPLICIT NONE
 
   PUBLIC
-  INTEGER, PARAMETER::  &
-  &        nsed_diag =3,&
-  &        isremino =1,&
-  &        isreminn =2,&
-  &        isremins =3   
-
 
   REAL(wp), ALLOCATABLE, TARGET :: sedlay (:,:,:)
   REAL(wp), ALLOCATABLE, TARGET :: powtra (:,:,:)

@@ -36,7 +36,6 @@ MODULE mo_read_namelists
   USE mo_dynamics_nml        ,ONLY: read_dynamics_namelist
   USE mo_interpol_nml        ,ONLY: read_interpol_namelist
   USE mo_sleve_nml           ,ONLY: read_sleve_namelist
-  USE mo_ha_dyn_nml          ,ONLY: read_ha_dyn_namelist
   USE mo_nonhydrostatic_nml  ,ONLY: read_nonhydrostatic_namelist
   USE mo_diffusion_nml       ,ONLY: read_diffusion_namelist
 
@@ -69,7 +68,6 @@ MODULE mo_read_namelists
   USE mo_art_nml             ,ONLY: read_art_namelist
 
   USE mo_initicon_nml        ,ONLY: read_initicon_namelist
-  USE mo_ha_testcases        ,ONLY: read_ha_testcase_namelist
   USE mo_nh_testcases_nml    ,ONLY: read_nh_testcase_namelist
   USE mo_meteogram_nml       ,ONLY: read_meteogram_namelist
 
@@ -156,7 +154,6 @@ CONTAINS
     ! Dynamics
     !
     CALL read_dynamics_namelist       (atm_namelist_filename(1:tlen))
-    CALL read_ha_dyn_namelist         (atm_namelist_filename(1:tlen))
     CALL read_nonhydrostatic_namelist (atm_namelist_filename(1:tlen))
     CALL read_diffusion_namelist      (atm_namelist_filename(1:tlen))
 
@@ -215,7 +212,6 @@ CONTAINS
     ! Initial conditions
     !
     CALL read_initicon_namelist       (atm_namelist_filename(1:tlen))
-    CALL read_ha_testcase_namelist    (atm_namelist_filename(1:tlen))
     CALL read_nh_testcase_namelist    (atm_namelist_filename(1:tlen))
 
     ! Boundary conditions

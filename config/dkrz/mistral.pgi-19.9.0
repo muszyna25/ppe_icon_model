@@ -45,6 +45,7 @@ XML2_LIBS='-lxml2'
 
 CLAW="${SW_ROOT}/claw-2.0.2-naetxf/bin/clawfc"
 
+PYTHON='/sw/spack-rhel6/miniforge3-4.9.2-3-Linux-x86_64-pwdbqi/bin/python'
 ###############################################################################
 
 BUILD_ENV=". /sw/rhel6-x64/etc/profile.mistral; module use /sw/spack-rhel6/spack/modules/linux-rhel6-haswell; . \"${SCRIPT_DIR}/module_switcher\"; switch_for_module ${MODULES}; export LD_LIBRARY_PATH=\"${ZLIB_ROOT}/lib:${AEC_ROOT}/lib64:${HDF5_ROOT}/lib:${NETCDF_ROOT}/lib:${NETCDFF_ROOT}/lib:${ECCODES_ROOT}/lib64:${XML2_ROOT}/lib:\${LD_LIBRARY_PATH}\";"
@@ -77,6 +78,7 @@ CPPFLAGS="$CPPFLAGS" \
 FC="$FC" \
 FCFLAGS="$FCFLAGS" \
 LDFLAGS="$LDFLAGS" \
+PYTHON="${PYTHON}" \
 LIBS="$LIBS" \
 MPI_LAUNCH="$MPI_LAUNCH" \
 ${EXTRA_CONFIG_ARGS} \

@@ -39,7 +39,7 @@
 
 !----------------------------
 #include "omp_definitions.inc"
-#include "icon_contiguous_defines.h"
+#include "icon_contiguous_defines.inc"
 !----------------------------
 
 MODULE mo_nwp_gscp_interface
@@ -345,9 +345,9 @@ CONTAINS
             & ddt_tend_qr = ddt_tend_qr                ,    & !< out: tendency QR
             & ddt_tend_qs = ddt_tend_qs                ,    & !< out: tendency QS
             & idbg=msg_level/2                         ,    &
-            & l_cv=.TRUE. )
+            & l_cv=.TRUE.                              ,    &
+            & ithermo_water=atm_phy_nwp_config(jg)%ithermo_water) !< in: latent heat choice
           
-
         CASE(2)  ! COSMO-DE (3-cat ice: snow, cloud ice, graupel)
 
           CALL graupel (                                     &
@@ -384,7 +384,8 @@ CONTAINS
             & ddt_tend_qr = ddt_tend_qr                 ,    & !< out: tendency QR
             & ddt_tend_qs = ddt_tend_qs                 ,    & !< out: tendency QS
             & idbg=msg_level/2                          ,    &
-            & l_cv=.TRUE. )
+            & l_cv=.TRUE.                               ,    &
+            & ithermo_water=atm_phy_nwp_config(jg)%ithermo_water) !< in: latent heat choice
 
         CASE(3)  ! improved ice nucleation scheme by C. Koehler based on hydci_pp
 
@@ -461,7 +462,8 @@ CONTAINS
                        prec_h = prm_diag%hail_gsp_rate (:,jb),  &!inout precp rate hail
                        qrsflux= prm_diag%qrs_flux(:,:,jb),      & !inout: 3D precipitation flux for LHN
                        msg_level = msg_level,                   &
-                       l_cv=.TRUE.          )    
+                       & l_cv=.TRUE.,                           &
+                       & ithermo_water=atm_phy_nwp_config(jg)%ithermo_water) !< in: latent heat choice
 
         CASE(5)  ! two-moment scheme with prognostic cloud droplet number
                  ! and budget equations for CCN and IN
@@ -502,8 +504,9 @@ CONTAINS
                        prec_h = prm_diag%hail_gsp_rate (:,jb),   &!inout precp rate hail
                        qrsflux= prm_diag%qrs_flux(:,:,jb),      & !inout: 3D precipitation flux for LHN
                        msg_level = msg_level                ,    &
-                       l_cv=.TRUE.     )
-    
+                       & l_cv=.TRUE.                        ,    &
+                       & ithermo_water=atm_phy_nwp_config(jg)%ithermo_water) !< in: latent heat choice
+
         CASE(6)  ! two-moment scheme with prognostic cloud droplet number
                  ! and chemical composition taken from the ART extension
 
@@ -570,7 +573,8 @@ CONTAINS
                        prec_h = prm_diag%hail_gsp_rate (:,jb),   &!inout precp rate hail
                        qrsflux= prm_diag%qrs_flux  (:,:,jb)     ,    & !inout: 3D precipitation flux for LHN
                        msg_level = msg_level                ,    &
-                       l_cv=.TRUE.          )    
+                       & l_cv=.TRUE.                        ,    &
+                       & ithermo_water=atm_phy_nwp_config(jg)%ithermo_water) !< in: latent heat choice
 
         CASE(9)  ! Kessler scheme (warm rain scheme)
 

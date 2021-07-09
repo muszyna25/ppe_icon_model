@@ -33,7 +33,7 @@ MODULE mo_nh_held_suarez_interface
   USE mo_intp_rbf,              ONLY: rbf_vec_interpol_cell
   USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_loopindices,           ONLY: get_indices_c, get_indices_e
-  USE mo_hs_test,               ONLY: held_suarez_forcing_temp, &
+  USE mo_nh_hs_test,            ONLY: held_suarez_forcing_temp, &
                                       & held_suarez_forcing_vn
   USE mo_nh_diagnose_pres_temp, ONLY: diagnose_pres_temp
   USE mo_physical_constants,    ONLY: rd_o_cpd

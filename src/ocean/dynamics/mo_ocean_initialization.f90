@@ -53,15 +53,8 @@ MODULE mo_ocean_initialization
   USE mo_math_constants,      ONLY: deg2rad,rad2deg
   USE mo_sync,                ONLY: sync_e, sync_c, sync_v,sync_patch_array, global_sum_array, sync_idx, &
     & enable_sync_checks, disable_sync_checks
-  
-  USE mo_linked_list,         ONLY: t_var_list
-  USE mo_var_list,            ONLY: add_var,                  &
-    & new_var_list,             &
-    & delete_var_list,          &
-    & default_var_list_settings,&
-    & add_ref
   USE mo_cf_convention
-  USE mo_grib2
+!  USE mo_grib2
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range, fill_subset
   ! USE mo_ocean_config,        ONLY: ignore_land_points
   USE mo_ocean_types, ONLY: t_hydro_ocean_base
