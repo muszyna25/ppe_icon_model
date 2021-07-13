@@ -21,17 +21,13 @@
 !! in the calling "src/drivers" routine.
 !!
 #include "omp_definitions.inc"
+#include "icon_contiguous_defines.inc"
 
 MODULE mo_load_multifile_restart
 
-  USE ISO_C_BINDING,             ONLY: C_INT
+  USE ISO_C_BINDING,             ONLY: C_PTR, C_LOC, C_F_POINTER
   USE mo_c_restart_util,         ONLY: checkMultifileDir
   USE mo_impl_constants,         ONLY: SUCCESS, SINGLE_T, REAL_T, INT_T
-  USE mo_cdi_constants,          ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT
-  USE mo_cdi,                    ONLY: streamOpenRead, streamInqVlist, vlistNvars, vlistinqvarname, &
-    &                                  streamClose, streamReadVar, streamReadVarF, cdiInqAttInt, &
-    &                                  CDI_GLOBAL, streamReadVarSlice, streamReadVarSliceF, &
-    &                                  cdi_max_name, CDI_UNDEFID
   USE mo_communication,          ONLY: t_comm_pattern, t_p_comm_pattern, exchange_data
   USE mo_communication_factory,  ONLY: setup_comm_pattern
   USE mo_decomposition_tools,    ONLY: t_glb2loc_index_lookup, init_glb2loc_index_lookup, set_inner_glb_index, &
@@ -40,8 +36,8 @@ MODULE mo_load_multifile_restart
   USE mo_exception,              ONLY: finish, warning
   USE mo_kind,                   ONLY: sp, dp
   USE mo_model_domain,           ONLY: t_patch
-  USE mo_mpi,                    ONLY: p_comm_work, p_comm_size, p_comm_rank, my_process_is_work, &
-    &                                  p_allreduce, mpi_sum, my_process_is_mpi_workroot, p_alltoall, p_alltoallv
+  USE mo_mpi,                    ONLY: p_comm_work, p_n_work, p_pe_work, my_process_is_work, p_bcast, &
+    &                                  p_sum, p_alltoall, p_alltoallv
   USE mo_multifile_restart_util, ONLY: multifilePayloadPath, rBuddy, rGroup, vNames_glbIdx
   USE mo_parallel_config,        ONLY: nproma, idx_no, blk_no, restart_load_scale_max
   USE mo_restart_nml_and_att,    ONLY: getAttributesForRestarting, ocean_initFromRestart_OVERRIDE
@@ -51,15 +47,18 @@ MODULE mo_load_multifile_restart
   USE mo_timer,                  ONLY: timer_start, timer_stop, timer_load_restart_io, timers_level, &
     &                                  timer_load_restart_comm_setup, timer_load_restart_communication, &
     &                                  timer_load_restart_get_var_id
+  USE mo_read_netcdf_distributed, ONLY: nf
+  USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE
 
   IMPLICIT NONE
   PRIVATE
 
+  INCLUDE 'netcdf.inc'
+
   PUBLIC :: multifileCheckRestartFiles, multifileReadPatch
 
   TYPE t_PayloadFile
-    INTEGER :: streamId, vlistId, varCount
-    INTEGER :: iCnts(3), iVarIds(3)
+    INTEGER :: ncid, iCnts(3), iVarIds(3)
   END TYPE t_PayloadFile
 
   CHARACTER(*), PARAMETER :: modname = "mo_load_multifile_restart"
@@ -93,39 +92,36 @@ CONTAINS
     INTEGER, INTENT(OUT) :: tCnt(3)
     TYPE(t_PayloadFile), INTENT(INOUT), ALLOCATABLE :: files(:)
     LOGICAL, INTENT(OUT) :: at_once
-    INTEGER :: ierr, pCnt, myR, myFCnt, myFF, i
+    INTEGER :: myFCnt, myFF, i
     CHARACTER(*), PARAMETER :: routine = modname//":openPayloadFiles"
 
     IF(.NOT.my_process_is_work()) CALL finish(routine, "this is not a work process")
-    pCnt = p_comm_size(p_comm_work)
-    myR = p_comm_rank(p_comm_work)
 ! number of reader ranks buffering one full 3d field of at max restart_load_scale_max worker ranks
 ! default : restart_load_scale_max = 1
 ! if restart_load_scale_max == 0 - - - - - - - -> read data in a LEVEL-based loop
 ! if restart_load_scale_max <  #ranks / #files -> read data in a LEVEL-based loop
 ! if restart_load_scale_max >= #ranks / #files -> read data in a VARIABLE-based loop
 ! if restart_load_scale_max < 0  - - - - - - - -> read data in a VARIABLE-based loop
-    at_once = pCnt .LE. mfCnt * &
-      & MERGE(restart_load_scale_max, pCnt, restart_load_scale_max .GE. 0)
+    at_once = p_n_work .LE. mfCnt * &
+      & MERGE(restart_load_scale_max, p_n_work, restart_load_scale_max .GE. 0)
     myFF = -1
-    IF (pCnt .GE. mfCnt) THEN
-      myFCnt = MERGE(1, 0, rBuddy(nr_in=mfCnt) .EQ. myR)
+    IF (p_n_work .GE. mfCnt) THEN
+      myFCnt = MERGE(1, 0, rBuddy(nr_in=mfCnt) .EQ. p_pe_work)
       IF (myFCnt .GT. 0) myFF = rGroup(nr_in=mfCnt)
     ELSE
-      myFCnt = COUNT( (/ (rGroup(nr_in=pCnt, nw_in=mfCnt, pe_in=i) .EQ. myR, &
-        &                    i = myR, mfCnt-1) /) )
-      i = myR
+      myFCnt = COUNT( (/ (rGroup(nr_in=p_n_work, nw_in=mfCnt, pe_in=i) .EQ. p_pe_work, &
+        &                    i = p_pe_work, mfCnt-1) /) )
+      i = p_pe_work
       DO WHILE(myFF .LT. 0)
-        IF (rGroup(nr_in=pCnt, nw_in=mfCnt, pe_in=i) .EQ. myR) myFF = i
+        IF (rGroup(nr_in=p_n_work, nw_in=mfCnt, pe_in=i) .EQ. p_pe_work) myFF = i
         i = i + 1
       END DO
     END IF
 #ifdef DEBUG
-    WRITE(0, "(3(a,i4),a)") "restart: rank ", myR, " will start reading from file ", &
+    WRITE(0, "(3(a,i4),a)") "restart: rank ", p_pe_work, " will start reading from file ", &
       &                      myFF, ", ", myFCnt, " files in total"
 #endif
-    ALLOCATE(files(myFCnt), STAT = ierr)
-    IF(ierr /= SUCCESS) CALL finish(routine, "memory allocation failure")
+    ALLOCATE(files(myFCnt))
     tCnt(:) = 0
     DO i = 1, myFCnt
       CALL payloadfile_open(files(i), myFF - 1 + i)
@@ -136,38 +132,20 @@ CONTAINS
     SUBROUTINE payloadFile_open(me, partId)
       TYPE(t_PayloadFile), INTENT(INOUT) :: me
       INTEGER, INTENT(in) :: partId
-      INTEGER :: varId, trash, icount(1), iG
-      CHARACTER(*), PARAMETER :: routine = modname//":payloadFile_init", &
-       & attNames(3) = (/"cellCount", "vertCount", "edgeCount"/)
+      INTEGER :: iG, ndim, dimid(4)
+      CHARACTER(*), PARAMETER :: routine = modname//":payloadFile_init"
       CHARACTER(:), ALLOCATABLE :: pathname
-      CHARACTER(len=cdi_max_name) :: varname
   
       IF(timers_level >= 7) CALL timer_start(timer_load_restart_io)
       CALL multifilePayloadPath(mfPath, dom, partId, pathname)
-      me%streamId = streamOpenRead(pathname)
-      IF (me%streamId < 0) CALL finish( routine, "failed to open file "//pathname)
-      me%vlistId = streamInqVlist(me%streamId)
-      me%varCount = vlistNvars(me%vlistId)
-      me%iVarIds(:) = CDI_UNDEFID
-      varId = 0
-      DO WHILE(ANY(me%iVarIds(:) .EQ. CDI_UNDEFID) .AND. &
-        &      me%varCount .GT. varId)
-        varname = ''
-        CALL vlistInqVarName(me%vlistId, varId, varname)
-        DO iG = 1, 3
-          IF (varname == vNames_glbIdx(iG)) THEN
-            IF(me%iVarIds(iG) .NE. CDI_UNDEFID) &
-              & CALL finish(routine, "corrupted: doubly defined "//vNames_glbIdx(iG))
-            trash = cdiInqAttInt(me%vlistId, CDI_GLOBAL, attNames(iG), 1, icount);
-            me%iCnts(iG) = icount(1)
-            me%iVarIds(iG) = varId
-          END IF
-        END DO
-        varId = varId + 1
+      CALL nf(nf_open(pathname, NF_NOWRITE, me%ncid))
+      DO iG = 1, 3
+        CALL nf(nf_inq_varid(me%ncid, vNames_glbIdx(iG), me%iVarIds(iG)))
+        CALL nf(nf_inq_varndims(me%ncid, me%iVarIds(iG), ndim))
+        CALL nf(nf_inq_vardimid(me%ncid, me%iVarIds(iG), dimid(1:ndim)))
+        CALL nf(nf_inq_dimlen(me%ncid, dimid(1), me%iCnts(iG)))
       END DO
       IF (timers_level >= 7) CALL timer_stop(timer_load_restart_io)
-      IF (ANY(me%iVarIds(:) .EQ. CDI_UNDEFID)) &
-        & CALL finish(routine, "corrupted: index variable missing")
     END SUBROUTINE payloadFile_open
   END SUBROUTINE openPayloadFiles
 
@@ -210,7 +188,6 @@ CONTAINS
         & error, " out of ", oSize
       CALL finish(routine, "comm pattern does not work as expected")
     END IF
-    DEALLOCATE(input, output)
   END SUBROUTINE checkRedistributionPattern
 
   ! Create a t_comm_pattern that IS able to redistribute the DATA as
@@ -223,23 +200,20 @@ CONTAINS
   FUNCTION makeRedistributionPattern(pIds, rIds) RESULT(pat)
     CLASS(t_comm_pattern), POINTER :: pat
     INTEGER, INTENT(IN) :: pIds(:), rIds(:)
-    INTEGER :: glbSize, locSize, cuml, np, rnk, ii
+    INTEGER :: glbSize, locSize, cuml, ii
     INTEGER, ALLOCATABLE :: own_src(:), own_dst(:), bd(:)
     TYPE(t_glb2loc_index_lookup) :: lupTbl
     CHARACTER(*), PARAMETER :: routine = modname//":makeRedistributionPattern"
 
     IF(timers_level >= 7) CALL timer_start(timer_load_restart_comm_setup)
     locSize = SIZE(pIds)
-    np = p_comm_size(p_comm_work)
-    rnk = p_comm_rank(p_comm_work)
-    glbSize = p_allreduce(locSize, mpi_sum, p_comm_work)
+    glbSize = p_sum(locSize, comm=p_comm_work)
     CALL get_owners()
     CALL init_glb2loc_index_lookup(lupTbl, glbSize)
     CALL set_inner_glb_index(lupTbl, pIds, [(ii, ii = 1, locSize)])
     CALL setup_comm_pattern(SIZE(rIds), own_dst, rIds, lupTbl, locSize, &
       & own_src, pIds, pat, inplace=.FALSE., comm=p_comm_work)
     CALL deallocate_glb2loc_index_lookup(lupTbl)
-    DEALLOCATE(own_dst, own_src)
 #ifdef DEBUG
     CALL checkRedistributionPattern(pat, pGlbIds, rGlbIds)
 #endif
@@ -253,43 +227,43 @@ CONTAINS
 
 #ifdef DEBUG 
       ! consistency checks
-      IF(1 > MINVAL(pIds)) &
+      IF(1 > MINVAL(pIds,1)) &
         & CALL finish(routine, "global index out of RANGE (<1)")
-      IF(glbSize < MAXVAL(pIds)) &
+      IF(glbSize < MAXVAL(pIds,1)) &
         &  CALL finish(routine, "global index out of range (>globalSize)")
 #endif
-      ALLOCATE(bd(0:np), nI_i(np), nI_o(np))
-      bd(:) = (/(INT(REAL(i,dp)*(REAL(glbSize,dp)/REAL(np,dp))), i=0,np)/)
-      bd(np) = glbSize
+      ALLOCATE(bd(0:p_n_work), nI_i(p_n_work), nI_o(p_n_work))
+      bd(:) = [(INT(REAL(i,dp)*(REAL(glbSize,dp)/REAL(p_n_work,dp))), i=0,p_n_work)]
+      bd(p_n_work) = glbSize
       CALL get_disps(dI_s, nI_s, iPk_s, pIds)
       CALL get_disps(dI_c, nI_c, iPk_c, rIds)
       CALL p_alltoall(nI_s, nI_i, p_comm_work)
       CALL p_alltoall(nI_c, nI_o, p_comm_work)
-      ALLOCATE(dI_o(np+1), dI_i(np+1))
+      ALLOCATE(dI_o(p_n_work+1), dI_i(p_n_work+1))
       dI_o(1) = 0
       dI_i(1) = 0
-      DO i = 2, np+1
+      DO i = 2, p_n_work+1
         dI_o(i) = dI_o(i-1) + nI_o(i-1)
         dI_i(i) = dI_i(i-1) + nI_i(i-1)
       END DO
-      ALLOCATE(oPk_i(dI_i(np+1)), o_m(bd(rnk)+1:bd(rnk+1)), &
-        & oPk_o(dI_o(np+1)), iPk_o(dI_o(np+1)), oPk_c(dI_c(np+1)), &
-        & iPk_i(dI_i(np+1)))
+      ALLOCATE(oPk_i(dI_i(p_n_work+1)), o_m(bd(p_pe_work)+1:bd(p_pe_work+1)), &
+        & oPk_o(dI_o(p_n_work+1)), iPk_o(dI_o(p_n_work+1)), &
+        & oPk_c(dI_c(p_n_work+1)), iPk_i(dI_i(p_n_work+1)))
       CALL p_alltoallv(iPk_s, nI_s, dI_s, iPk_i, nI_i, dI_i, p_comm_work)
       CALL p_alltoallv(iPk_c, nI_c, dI_c, iPk_o, nI_o, dI_o, p_comm_work)
       DEALLOCATE(dI_s, nI_s, nI_i, iPk_s, iPk_c)
 !ICON_OMP PARALLEL PRIVATE(i)
 !ICON_OMP DO SCHEDULE(GUIDED)
-      DO i = 1, np
+      DO i = 1, p_n_work
         IF (dI_i(i)+1 .LE. dI_i(i+1)) &
           & oPk_i(dI_i(i)+1:dI_i(i+1)) = i - 1
       END DO
 !ICON_OMP DO SCHEDULE(GUIDED)
-      DO i = 1, dI_i(np+1)
+      DO i = 1, dI_i(p_n_work+1)
         o_m(iPk_i(i)) = oPk_i(i)
       END DO
 !ICON_OMP DO SCHEDULE(GUIDED)
-      DO i = 1, dI_o(np+1)
+      DO i = 1, dI_o(p_n_work+1)
         oPk_o(i) = o_m(iPk_o(i))
       END DO
 !ICON_OMP END PARALLEL
@@ -297,7 +271,7 @@ CONTAINS
       DEALLOCATE(o_m, oPk_o, iPk_o, iPk_i, dI_i, nI_o, dI_o)
       ALLOCATE(own_dst(SIZE(rIds)), own_src(locSize))
 !ICON_OMP PARALLEL DO SCHEDULE(DYNAMIC,1) PRIVATE(cuml,j)
-      DO i = 1, np
+      DO i = 1, p_n_work
         IF (dI_c(i+1)-dI_c(i) .GT. 0) THEN
           cuml = dI_c(i)
           DO j = 1, SIZE(rIds)
@@ -308,8 +282,7 @@ CONTAINS
           END DO
         END IF
       END DO
-      DEALLOCATE(bd, oPk_c, nI_c, dI_c)
-      own_src(:) = rnk
+      own_src(:) = p_pe_work
     END SUBROUTINE get_owners
 
     SUBROUTINE get_disps(dId, nId, idPk, id)
@@ -317,9 +290,9 @@ CONTAINS
       INTEGER, INTENT(IN), CONTIGUOUS :: id(:)
       INTEGER :: i, j
 
-      ALLOCATE(dId(np+1), idPk(SIZE(id)), nId(np))
+      ALLOCATE(dId(p_n_work+1), idPk(SIZE(id)), nId(p_n_work))
       cuml = 0
-      DO i = 1, np
+      DO i = 1, p_n_work
         dId(i) = cuml
         DO j = 1, SIZE(id)
           IF (id(j) .GT. bd(i-1) .AND. id(j) .LE. bd(i)) THEN
@@ -329,19 +302,22 @@ CONTAINS
         END DO
         nId(i) = cuml - dId(i)
       END DO
-      dId(np+1) = cuml
+      dId(p_n_work+1) = cuml
     END SUBROUTINE get_disps
   END FUNCTION makeRedistributionPattern
 
-  SUBROUTINE multifileReadPatch(vDat, p_patch, multifilePath)
+  SUBROUTINE multifileReadPatch(vDat, ptc, multifilePath)
     TYPE(t_var_ptr), INTENT(IN) :: vDat(:)
-    TYPE(t_patch), TARGET, INTENT(IN) :: p_patch
+    TYPE(t_patch), TARGET, INTENT(IN) :: ptc
     CHARACTER(*), INTENT(IN) :: multifilePath
     TYPE(t_p_comm_pattern) :: cpat(3)
-    LOGICAL :: load_var_at_once
-    INTEGER :: hi
+    LOGICAL :: load_var_at_once, int_is_int
+    INTEGER :: hi, hmap(MAX(GRID_UNSTRUCTURED_CELL,GRID_UNSTRUCTURED_VERT,GRID_UNSTRUCTURED_EDGE))
     TYPE(t_PayloadFile), ALLOCATABLE :: files(:)
 
+    hmap(GRID_UNSTRUCTURED_CELL) = 1
+    hmap(GRID_UNSTRUCTURED_VERT) = 2
+    hmap(GRID_UNSTRUCTURED_EDGE) = 3
     CALL construct()
     CALL readData()
     DO hi = 1, 3
@@ -350,7 +326,7 @@ CONTAINS
     IF(timers_level >= 7) CALL timer_start(timer_load_restart_io)
     IF(ALLOCATED(files)) THEN
       DO hi = 1, SIZE(files)
-        CALL streamClose(files(hi)%streamId)
+        CALL nf(nf_close(files(hi)%ncid))
       END DO
     END IF
     IF(timers_level >= 7) CALL timer_stop(timer_load_restart_io)
@@ -358,7 +334,6 @@ CONTAINS
 
   SUBROUTINE construct()
     INTEGER :: mfileCnt, ierr, cFId, tCnt(3), cOff(3), iG, i, n
-    INTEGER(C_INT) :: trash
     INTEGER, ALLOCATABLE :: glbidx_read(:)
     INTEGER, POINTER :: glb_index(:)
     REAL(dp), ALLOCATABLE :: buffer(:)
@@ -367,226 +342,205 @@ CONTAINS
 
     CALL getAttributesForRestarting(restartAttributes)
     CALL restartAttributes%get('multifile_file_count', mfileCnt)
-    IF (my_process_is_mpi_workroot()) &
-      & WRITE(0, *) "reading from ", mfileCnt, " files/patch."
-    CALL openPayloadFiles(multifilePath, mfileCnt, p_patch%id, tCnt, files, load_var_at_once)
+    IF (p_pe_work .EQ. 0) WRITE(0, *) "reading from ", mfileCnt, " files/patch."
+    CALL restartAttributes%get('int_is_int', int_is_int, opt_err=ierr)
+    IF (ierr .NE. 0) int_is_int = .FALSE.
+    CALL openPayloadFiles(multifilePath, mfileCnt, ptc%id, tCnt, files, load_var_at_once)
     cOff(:) = 0
-    ALLOCATE(glbidx_read(MAXVAL(tCnt(:),1)), STAT = ierr)
-    IF (ierr /= SUCCESS) CALL finish(routine, "memory allocation failure")
+    ALLOCATE(glbidx_read(MAXVAL(tCnt(:),1)))
     DO iG = 1, 3
       DO cFId = 1, SIZE(files)
         n = files(cFId)%iCnts(iG)
         IF (n .LE. 0) CYCLE
-        ALLOCATE(buffer(n), STAT = ierr)
-        IF (ierr /= SUCCESS) CALL finish(routine, "memory allocation failed")
         IF (timers_level >= 7) CALL timer_start(timer_load_restart_io)
-        CALL streamReadVar(files(cFId)%streamId, files(cFId)%iVarIds(iG), &
-          &                buffer, trash)
+        IF (int_is_int) THEN
+          CALL nf(nf_get_vara_int(files(cFId)%ncid, files(cFId)%iVarIds(iG), [1,1], [n,1], glbidx_read(cOff(iG)+1:cOff(iG)+n)))
+        ELSE
+          ALLOCATE(buffer(n))
+          CALL nf(nf_get_vara_double(files(cFId)%ncid, files(cFId)%iVarIds(iG), [1,1], [n,1], buffer))
+          !ICON_OMP PARALLEL DO SCHEDULE(STATIC)
+          DO i = 1, n
+            glbidx_read(cOff(iG) + i) = INT(buffer(i))
+          END DO
+          DEALLOCATE(buffer)
+        END IF
         IF (timers_level >= 7) CALL timer_stop(timer_load_restart_io)
-!ICON_OMP PARALLEL DO SCHEDULE(STATIC)
-        DO i = 1, n
-          glbidx_read(cOff(iG) + i) = INT(buffer(i))
-        END DO
-        DEALLOCATE(buffer)
         cOff(iG) = cOff(iG) + n
       END DO
-      SELECT CASE (ig)
+      SELECT CASE (iG)
       CASE (GRID_UNSTRUCTURED_CELL)
-        glb_index => p_patch%cells%decomp_info%glb_index
+        glb_index => ptc%cells%decomp_info%glb_index
       CASE (GRID_UNSTRUCTURED_VERT)
-        glb_index => p_patch%verts%decomp_info%glb_index
+        glb_index => ptc%verts%decomp_info%glb_index
       CASE (GRID_UNSTRUCTURED_EDGE)
-        glb_index => p_patch%edges%decomp_info%glb_index
+        glb_index => ptc%edges%decomp_info%glb_index
       END SELECT
       cpat(ig)%p => makeRedistributionPattern(glbidx_read(:cOff(iG)), glb_index)
     END DO
   END SUBROUTINE construct
 
   SUBROUTINE readData()
-    INTEGER :: vId, lId, lcnt, fId, varID, pCt(SIZE(files)), vlID
-    INTEGER :: rbuf_size, ofs, nxt, dummy, i, hgrid, mock_nblk, dom
-    REAL(KIND=dp), POINTER :: ptr_3d_d(:,:,:), buf_3d_d(:,:,:), buf_d(:)
-    REAL(KIND=sp), POINTER :: ptr_3d_s(:,:,:), buf_3d_s(:,:,:), buf_s(:)
-    INTEGER,       POINTER :: ptr_3d_i(:,:,:), buf_3d_i(:,:,:), buf_i(:)
-    TYPE(t_key_value_store) :: vname_map
-    CHARACTER(LEN=cdi_max_name) :: cVname
+    INTEGER :: iV, lId, llId, lCnt, fId, vIDs(SIZE(files), SIZE(vDat)), st(3), ct(3)
+    INTEGER :: ofs, i, hgrid, nblk, nds(SIZE(vDat)), pCt(SIZE(files)), max_r, max_e
+    REAL(dp), ALLOCATABLE, TARGET :: buf_e(:), buf_r(:)
+    REAL(dp), POINTER :: ptr_3d_d(:,:,:)
+    REAL(dp), CONTIGUOUS_POINTER :: buf_3d_d(:,:,:), buf_d(:)
+    REAL(sp), POINTER :: ptr_3d_s(:,:,:)
+    REAL(sp), CONTIGUOUS_POINTER :: buf_3d_s(:,:,:), buf_s(:)
+    INTEGER, POINTER :: ptr_3d_i(:,:,:)
+    INTEGER, CONTIGUOUS_POINTER :: buf_3d_i(:,:,:), buf_i(:)
     CHARACTER(*), PARAMETER :: routine = modname//":multifilePatchReader_readData"
-    
-    CALL vname_map%init(.FALSE.)
-    IF (SIZE(files) .GT. 0) THEN
-      vlID = streamInqVlist(files(1)%streamId)
-      DO vId = 0, vlistNvars(vlID) - 1
-        CALL vlistInqVarName(vlID, vId, cVname)
-        CALL vname_map%put(cVname, vId)
-      END DO
-    END IF
-    dom = p_patch%id
-    IF (ocean_initFromRestart_OVERRIDE) CALL vname_map%bcast(0, p_comm_work)
-    DO vId = 1, SIZE(vDat)
-      IF (.NOT.has_valid_time_level(vDat(vId)%p%info, dom, nnew(dom), nnew_rcf(dom))) CYCLE
-      IF (timers_level >= 7) CALL timer_start(timer_load_restart_get_var_id)
-      CALL vname_map%get(vDat(vId)%p%info%NAME, varId, opt_err=dummy)
-      IF (timers_level >= 7) CALL timer_stop(timer_load_restart_get_var_id)
-      IF (dummy .NE. 0) THEN
-        IF (ocean_initFromRestart_OVERRIDE) THEN
+    LOGICAL :: en_bloc
+    TYPE(C_PTR) :: cptr_r, cptr_e
+
+    nds(:) = -1; max_r = 1; max_e = 1
+    IF (timers_level >= 7) CALL timer_start(timer_load_restart_get_var_id)
+    IF (ALLOCATED(files)) THEN
+      IF (SIZE(files) .GT. 0) THEN
+        DO iV = 1, SIZE(vDat)
+          IF (.NOT.has_valid_time_level(vDat(iV)%p%info, ptc%id, nnew(ptc%id), nnew_rcf(ptc%id))) CYCLE
+          i = nf_inq_varid(files(1)%ncid, vDat(iV)%p%info%name, vIDs(1,iV))
+          IF (i .EQ. NF_NOERR) THEN
+            CALL nf(nf_inq_varndims(files(1)%ncid, vIDs(1, iV), nds(iV)))
+            DO fId = 2, SIZE(files)
+              CALL nf(nf_inq_varid(files(fId)%ncid, vDat(iV)%p%info%name, vIDs(fId,iV)))
+            END DO
+            lCnt = MERGE(vDat(iV)%p%info%used_dimensions(2), 1, vDat(iV)%p%info%ndims .GT. 2)
+            en_bloc = load_var_at_once .AND. lCnt .GT. 1
+            hgrid = hmap(vDat(iV)%p%info%hgrid)
+            nblk = blk_no(SUM(files(:)%iCnts(hgrid)))*nproma
+            max_r = MAX(max_r, MERGE(MAXVAL(files(:)%iCnts(hgrid),1)*lCnt, nblk, en_bloc))
+            max_e = MAX(max_e, MERGE(nblk*lCnt, 1, en_bloc))
+          ELSE
+            IF (ocean_initFromRestart_OVERRIDE) THEN
 ! fatal hack from coding hell to make init_fromRestart=.true. (ocean) work
-          CALL warning(routine, "variable not found: '" // TRIM(vDat(vId)%p%info%NAME))
-          CALL warning(routine, &
-            & "that MAY be intended if initialize_fromRestart=.true.")
-          CYCLE
-        ELSE IF (SIZE(files) .GT. 0) THEN
-          CALL finish(routine, "variable not found: "//TRIM(vDat(vId)%p%info%NAME))
-        END IF
+              CALL warning(routine, "variable not found: "//TRIM(vDat(iV)%p%info%NAME))
+              CALL warning(routine, &
+                & "that MAY be intended if initialize_fromRestart=.true.")
+            ELSE
+              CALL finish(routine, "variable not found: "//TRIM(vDat(iV)%p%info%NAME))
+            END IF
+          END IF
+        END DO
       END IF
-      hgrid = vDat(vId)%p%info%hgrid
-      IF (hgrid < 1 .OR. hgrid > 3) &
-        CALL finish(routine, "unexpected varData(varIndex)%info%hgrid")
+    END IF
+    IF (timers_level >= 7) CALL timer_stop(timer_load_restart_get_var_id)
+    CALL p_bcast(nds, 0, comm=p_comm_work)
+    ALLOCATE(buf_r(max_r), buf_e(max_e))
+    cptr_r = C_LOC(buf_r(1))
+    cptr_e = C_LOC(buf_e(1))
+    DO iV = 1, SIZE(vDat)
+      IF (nds(iV) .EQ. -1) CYCLE
+      hgrid = hmap(vDat(iV)%p%info%hgrid)
       pCt = files(:)%iCnts(hgrid)
-      rbuf_size = SUM(pCt)
-      mock_nblk = blk_no(rbuf_size)
-      rbuf_size = mock_nblk * nproma
-      IF (load_var_at_once) THEN
-        SELECT CASE(vDat(vId)%p%info%data_type)
-        CASE(REAL_T)
-          CALL get_var_3d_ptr(vDat(vId)%p, ptr_3d_d)
-          lcnt = SIZE(ptr_3d_d, 2)
-          ALLOCATE(buf_d(MAXVAL(pCt)*lCnt), buf_3d_d(nproma,lcnt,mock_nblk))
+      nblk = blk_no(SUM(pCt(:)))
+      lCnt = MERGE(vDat(iV)%p%info%used_dimensions(2), 1, vDat(iV)%p%info%ndims .GT. 2)
+      en_bloc = load_var_at_once .AND. lCnt .GT. 1
+      SELECT CASE(vDat(iV)%p%info%data_type)
+      CASE(REAL_T)
+        CALL get_var_3d_ptr(vDat(iV)%p, ptr_3d_d)
+        CALL C_F_POINTER(cptr_r, buf_d, [MERGE(MAXVAL(pCt,1)*lCnt, nblk*nproma, en_bloc)])
+        IF (en_bloc) CALL C_F_POINTER(cptr_e, buf_3d_d, [nproma,lcnt,nblk])
+        DO llId = 1, MERGE(1, lCnt, en_bloc)
+          IF(timers_level >= 7) CALL timer_start(timer_load_restart_io)
           ofs = 0
-          IF (timers_level >= 7) CALL timer_start(timer_load_restart_io)
+          st(:) = [1, llId, 1]
           DO fId = 1, SIZE(files)
             IF (pCt(fId) .LT. 1) CYCLE
-            CALL streamReadVar(files(fId)%streamId, varId, buf_d, dummy)
-!ICON_OMP PARALLEL DO SCHEDULE(STATIC) COLLAPSE(2)
-            DO lId = 1, lCnt
-              DO i = 1, pCt(fId)
-                buf_3d_d(idx_no(i+ofs), lId, blk_no(i+ofs)) = &
-                  & buf_d(i+(lId-1)*pCt(fId))
+            ct(:) = [pCt(fId), MERGE(lCnt, 1, en_bloc), 1]
+            CALL nf(nf_get_vara_double(files(fId)%ncid, vIDs(fId, iV), st(:nds(iV)), ct(:nds(iV)), &
+              & buf_d(MERGE(1, ofs+1, en_bloc):MERGE(ct(1)*lcnt, ofs+ct(1), en_bloc))))
+            IF (en_bloc) THEN
+              !ICON_OMP PARALLEL DO SCHEDULE(STATIC) COLLAPSE(2)
+              DO lId = 1, lCnt
+                DO i = 1, pCt(fId)
+                  buf_3d_d(idx_no(i+ofs), lId, blk_no(i+ofs)) = buf_d(i+(lId-1)*pCt(fId))
+                END DO
               END DO
-            END DO
-            ofs = ofs + pCt(fId)
+            END IF
+            ofs = ofs + ct(1)
           END DO
           IF (timers_level >= 7) CALL timer_stop(timer_load_restart_io)
           IF (timers_level >= 7) CALL timer_start(timer_load_restart_communication)
-          CALL exchange_data(cpat(hgrid)%p, ptr_3d_d, buf_3d_d)
+          IF (.NOT.en_bloc) CALL C_F_POINTER(cptr_r, buf_3d_d, [nproma,1,nblk])
+          CALL exchange_data(cpat(hgrid)%p, ptr_3d_d(:,llId:MERGE(lCnt, llId, en_bloc),:), buf_3d_d)
           IF (timers_level >= 7) CALL timer_stop(timer_load_restart_communication)
-          DEALLOCATE(buf_3d_d, buf_d)
-        CASE(SINGLE_T)
-          CALL get_var_3d_ptr(vDat(vId)%p, ptr_3d_s)
-          lcnt = SIZE(ptr_3d_s, 2)
-          ALLOCATE(buf_s(MAXVAL(pCt)*lCnt), buf_3d_s(nproma,lcnt,mock_nblk))
+        END DO
+      CASE(SINGLE_T)
+        CALL get_var_3d_ptr(vDat(iV)%p, ptr_3d_s)
+        CALL C_F_POINTER(cptr_r, buf_s, [MERGE(MAXVAL(pCt,1)*lCnt, nblk*nproma, en_bloc)])
+        IF (en_bloc) CALL C_F_POINTER(cptr_e, buf_3d_s, [nproma,lcnt,nblk])
+        DO llId = 1, MERGE(1, lCnt, en_bloc)
+          IF(timers_level >= 7) CALL timer_start(timer_load_restart_io)
           ofs = 0
-          IF (timers_level >= 7) CALL timer_start(timer_load_restart_io)
+          st(:) = [1, llId, 1]
           DO fId = 1, SIZE(files)
             IF (pCt(fId) .LT. 1) CYCLE
-            CALL streamReadVarF(files(fId)%streamId, varId, buf_s, dummy)
-!ICON_OMP PARALLEL DO SCHEDULE(STATIC) COLLAPSE(2)
-            DO lId = 1, lCnt
-              DO i = 1, pCt(fId)
-                buf_3d_s(idx_no(i+ofs), lId, blk_no(i+ofs)) = &
-                  & buf_s(i+(lId-1)*pCt(fId))
+            ct(:) = [pCt(fId), MERGE(lCnt, 1, en_bloc), 1]
+            CALL nf(nf_get_vara_real(files(fId)%ncid, vIDs(fId, iV), st(:nds(iV)), ct(:nds(iV)), &
+              & buf_s(MERGE(1, ofs+1, en_bloc):MERGE(ct(1)*lcnt, ofs+ct(1), en_bloc))))
+            IF (en_bloc) THEN
+              !ICON_OMP PARALLEL DO SCHEDULE(STATIC) COLLAPSE(2)
+              DO lId = 1, lCnt
+                DO i = 1, pCt(fId)
+                  buf_3d_s(idx_no(i+ofs), lId, blk_no(i+ofs)) = buf_s(i+(lId-1)*pCt(fId))
+                END DO
               END DO
-            END DO
-            ofs = ofs + pCt(fId) 
+            END IF
+            ofs = ofs + ct(1)
           END DO
           IF (timers_level >= 7) CALL timer_stop(timer_load_restart_io)
           IF (timers_level >= 7) CALL timer_start(timer_load_restart_communication)
-          CALL exchange_data(cpat(hgrid)%p, ptr_3d_s, buf_3d_s)
+          IF (.NOT.en_bloc) CALL C_F_POINTER(cptr_r, buf_3d_s, [nproma,1,nblk])
+          CALL exchange_data(cpat(hgrid)%p, ptr_3d_s(:,llId:MERGE(lCnt, llId, en_bloc),:), buf_3d_s)
           IF (timers_level >= 7) CALL timer_stop(timer_load_restart_communication)
-          DEALLOCATE(buf_3d_s, buf_s)
-        CASE(INT_T)
-          CALL get_var_3d_ptr(vDat(vId)%p, ptr_3d_i)
-          lcnt = SIZE(ptr_3d_i, 2)
-          ALLOCATE(buf_d(MAXVAL(pCt)*lCnt), buf_3d_i(nproma,lcnt,mock_nblk))
-          ofs = 0
-          IF (timers_level >= 7) CALL timer_start(timer_load_restart_io)
+        END DO
+      CASE(INT_T)
+        CALL get_var_3d_ptr(vDat(iV)%p, ptr_3d_i)
+        IF (int_is_int) THEN
+          CALL C_F_POINTER(cptr_r, buf_i, [MERGE(MAXVAL(pCt,1)*lCnt, nblk*nproma, en_bloc)])
+          IF (en_bloc) CALL C_F_POINTER(cptr_e, buf_3d_i, [nproma,MERGE(lcnt,1,en_bloc),nblk])
+        ELSE
+          CALL C_F_POINTER(cptr_r, buf_d, [MERGE(MAXVAL(pCt,1)*lCnt, nblk*nproma, en_bloc)])
+          CALL C_F_POINTER(cptr_e, buf_3d_i, [nproma,MERGE(lcnt,1,en_bloc),nblk])
+        END IF
+        DO llId = 1, MERGE(1, lCnt, en_bloc)
+          ofs = 0 
+          st(:) = [1, llId, 1]
+          IF(timers_level >= 7) CALL timer_start(timer_load_restart_io)
           DO fId = 1, SIZE(files)
             IF (pCt(fId) .LT. 1) CYCLE
-            CALL streamReadVar(files(fId)%streamId, varId, buf_d, dummy)
-!ICON_OMP PARALLEL DO SCHEDULE(STATIC) COLLAPSE(2)
-            DO lId = 1, lCnt
-              DO i = 1, pCt(fId)
-                buf_3d_i(idx_no(i+ofs), lId, blk_no(i+ofs)) = &
-                  & INT(buf_d(i+(lId-1)*pCt(fId)))
+            ct(:) = [pCt(fId), MERGE(lCnt, 1, en_bloc), 1]
+            IF (int_is_int) THEN
+              CALL nf(nf_get_vara_int(files(fId)%ncid, vIDs(fId, iV), st(:nds(iV)), ct(:nds(iV)), &
+                & buf_i(MERGE(1, ofs+1, en_bloc):MERGE(ct(1)*lcnt, ofs+ct(1), en_bloc))))
+              IF (en_bloc) THEN
+                !ICON_OMP PARALLEL DO SCHEDULE(STATIC) COLLAPSE(2)
+                DO lId = 1, lCnt
+                  DO i = 1, pCt(fId)
+                    buf_3d_i(idx_no(i+ofs), lId, blk_no(i+ofs)) = buf_i(i+(lId-1)*pCt(fId))
+                  END DO
+                END DO
+              END IF
+            ELSE
+              CALL nf(nf_get_vara_double(files(fId)%ncid, vIDs(fId, iV), st(:nds(iV)), ct(:nds(iV)), &
+                & buf_d(1:ct(1)*MERGE(lcnt, 1, en_bloc))))
+              !ICON_OMP PARALLEL DO SCHEDULE(STATIC) COLLAPSE(2)
+              DO lId = 1, MERGE(lCnt, 1, en_bloc)
+                DO i = 1, pCt(fId)
+                  buf_3d_i(idx_no(i+ofs), lId, blk_no(i+ofs)) = INT(buf_d(i+(lId-1)*pCt(fId)))
+                END DO
               END DO
-            END DO
-            ofs = ofs + pCt(fId)
+            END IF
+            ofs = ofs + ct(1)
           END DO
           IF (timers_level >= 7) CALL timer_stop(timer_load_restart_io)
           IF (timers_level >= 7) CALL timer_start(timer_load_restart_communication)
-          CALL exchange_data(cpat(hgrid)%p, ptr_3d_i, buf_3d_i)
+          IF (.NOT.en_bloc .AND. int_is_int) CALL C_F_POINTER(cptr_r, buf_3d_i, [nproma,1,nblk])
+          CALL exchange_data(cpat(hgrid)%p, ptr_3d_i(:,llId:MERGE(lCnt, llId, en_bloc),:), buf_3d_i)
           IF (timers_level >= 7) CALL timer_stop(timer_load_restart_communication)
-          DEALLOCATE(buf_3d_i, buf_d)
-        END SELECT
-      ELSE
-        SELECT CASE(vDat(vId)%p%info%data_type)
-        CASE(REAL_T)
-          CALL get_var_3d_ptr(vDat(vId)%p, ptr_3d_d)
-          lcnt = SIZE(ptr_3d_d, 2)
-          ALLOCATE(buf_d(rbuf_size))
-          DO lId = 1, lcnt
-            ofs = 0
-            IF(timers_level >= 7) CALL timer_start(timer_load_restart_io)
-            DO fId = 1, SIZE(files)
-              IF (pCt(fId) .LT. 1) CYCLE
-              nxt = ofs + pCt(fId)
-              CALL streamReadVarSlice(files(fId)%streamId, varId, lid-1, &
-                   buf_d(ofs+1:nxt), dummy)
-              ofs = nxt
-            END DO
-            IF (timers_level >= 7) CALL timer_stop(timer_load_restart_io)
-            IF (timers_level >= 7) CALL timer_start(timer_load_restart_communication)
-            buf_3d_d(1:nproma, 1:1, 1:mock_nblk) => buf_d
-           CALL exchange_data(cpat(hgrid)%p, ptr_3d_d(:,lid:lid,:), buf_3d_d)
-            IF (timers_level >= 7) CALL timer_stop(timer_load_restart_communication)
-          END DO
-          DEALLOCATE(buf_d)
-        CASE(SINGLE_T)
-          ALLOCATE(buf_s(rbuf_size))
-          CALL get_var_3d_ptr(vDat(vId)%p, ptr_3d_s)
-          lcnt = SIZE(ptr_3d_s, 2)
-          DO lId = 1, lcnt
-            ofs = 0
-            IF (timers_level >= 7) CALL timer_start(timer_load_restart_io)
-            DO fId = 1, SIZE(files)
-              IF (pCt(fId) .LT. 1) CYCLE
-              nxt = ofs + pCt(fId)
-              CALL streamReadVarSliceF(files(fId)%streamId, varId, lid-1, &
-                   buf_s(ofs+1:nxt), dummy)
-              ofs = nxt
-            END DO
-            IF (timers_level >= 7) CALL timer_stop(timer_load_restart_io)
-            IF (timers_level >= 7) CALL timer_start(timer_load_restart_communication)
-            buf_3d_s(1:nproma, 1:1, 1:mock_nblk) => buf_s
-            CALL exchange_data(cpat(hgrid)%p, ptr_3d_s(:,lid:lid,:), buf_3d_s)
-            IF (timers_level >= 7) CALL timer_stop(timer_load_restart_communication)
-          END DO
-          DEALLOCATE(buf_s)
-        CASE(INT_T)
-          ALLOCATE(buf_i(rbuf_size), buf_d(MAX(1,MAXVAL(pCt))))
-          CALL get_var_3d_ptr(vDat(vId)%p, ptr_3d_i)
-          lcnt = SIZE(ptr_3d_i, 2)
-          DO lId = 1, lcnt
-            ofs = 0
-            IF (timers_level >= 7) CALL timer_start(timer_load_restart_io)
-            DO fId = 1, SIZE(files)
-              IF (pCt(fId) .LT. 1) CYCLE
-              CALL streamReadVarSlice(files(fId)%streamId, varId, lid-1, &
-                   buf_d(:pCt(fId)), dummy)
-!ICON_OMP PARALLEL DO SCHEDULE(STATIC)
-              DO i = 1, pCt(fId)
-                buf_i(ofs+i) = INT(buf_d(i))
-              END DO
-              ofs = ofs + pCt(fId)
-            END DO
-            IF (timers_level >= 7) CALL timer_stop(timer_load_restart_io)
-            IF (timers_level >= 7) CALL timer_start(timer_load_restart_communication)
-            buf_3d_i(1:nproma, 1:1, 1:mock_nblk) => buf_i
-            CALL exchange_data(cpat(hgrid)%p, ptr_3d_i(:,lid:lid,:), buf_3d_i)
-            IF (timers_level >= 7) CALL timer_stop(timer_load_restart_communication)
-          END DO
-          DEALLOCATE(buf_d, buf_i)
-        END SELECT
-      END IF
+        END DO
+      END SELECT
     END DO
   END SUBROUTINE readData
 

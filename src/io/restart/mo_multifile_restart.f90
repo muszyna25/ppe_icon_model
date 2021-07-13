@@ -42,9 +42,6 @@
 !!     Three integer arrays are added with the global indices for each
 !!     cell/vert/edge.
 !!
-!!     Note: CDI does not allow writing of integer data, so those
-!!     index arrays are written as double precision floats.
-!!
 !!     TODO: Add the NetCDF attribute 'icon-restart-uuid' to all files
 !!     (same value everywhere), and sanity check their values when
 !!     loading the restart.
@@ -172,11 +169,6 @@
 !!
 MODULE mo_multifile_restart
   USE mo_c_restart_util,               ONLY: createEmptyMultifileDir
-  USE mo_cdi,                          ONLY: streamOpenWrite, vlistCreate, streamDefVlist, streamClose, &
-    &                                        vlistDestroy, FILETYPE_NC4, streamDefRecord, CDI_UNDEFID,  &
-    &                                        gridCreate, GRID_GENERIC, zaxisCreate, ZAXIS_GENERIC,      &
-    &                                        vlistDefVar, TSTEP_CONSTANT, gridDestroy, zaxisDestroy
-  USE mo_cdi_ids,                      ONLY: t_CdiIds
   USE mo_exception,                    ONLY: finish, message
   USE mo_grid_config,                  ONLY: n_dom
   USE mo_impl_constants,               ONLY: SUCCESS
@@ -198,14 +190,16 @@ MODULE mo_multifile_restart
     &                                        timers_level, timer_write_restart_setup,                    &
     &                                        timer_write_restart_wait
   USE mo_util_string,                  ONLY: int2string, real2string
-  USE mo_restart_nml_and_att,          ONLY: restartAttributeList_write_to_cdi
+  USE mo_restart_nml_and_att,          ONLY: restartAttributeList_write_to_ncdf
+  USE mo_read_netcdf_distributed, ONLY: nf
 
   IMPLICIT NONE
+  PRIVATE
+
+  INCLUDE 'netcdf.inc'
 
   PUBLIC :: t_MultifileRestartDescriptor
   PUBLIC :: multifileRestart_mainLoop
-
-  PRIVATE
 
   TYPE, EXTENDS(t_RestartDescriptor) :: t_MultifileRestartDescriptor
   CONTAINS
@@ -326,7 +320,6 @@ CONTAINS
     INTEGER(i8)                           :: totBWritten, bWritten
     REAL(dp)                              :: gbWritten, dpTime
     CHARACTER(:), ALLOCATABLE             :: filename
-    TYPE(t_CdiIds)                        :: cdiIds(SIZE(me%mPatchData))
 
     dpTime = p_mpi_wtime()
     bWritten = 0_i8
@@ -367,10 +360,7 @@ CONTAINS
       DO jg = 1, SIZE(me%mPatchData)
         IF (me%mPatchData(jg)%description%l_dom_active .AND. SIZE(me%mPatchData(jg)%varData) > 0) THEN
           findex = n_rstreams*rGroup() + (jg-1)/n_dom
-          cdiIds(jg) = me%mPatchData(jg)%openPayloadFile(filename, findex, &
-            & restartArgs%restart_datetime, bWritten)
-          CALL me%mPatchData(jg)%collectData(cdiIds(jg)%fHndl, bWritten)
-          CALL cdiIds(jg)%closeAndDestroyIds()
+          CALL me%mPatchData(jg)%fileStuff(filename, findex, bWritten)
         END IF
       END DO
     END IF
@@ -398,8 +388,7 @@ CONTAINS
   CONTAINS
 
     SUBROUTINE writeAttributeFile()
-      INTEGER :: metaFile, grid, zaxis, var, vlist, n_dom_active
-      CHARACTER(:), ALLOCATABLE :: mafname
+      INTEGER :: ncid, n_dom_active
       CHARACTER(*), PARAMETER :: routine = modname//":writeAttributeFile"
       TYPE(t_key_value_store), ALLOCATABLE :: rAttribs
 
@@ -408,24 +397,12 @@ CONTAINS
       n_dom_active = COUNT(me%mPatchData(:)%description%l_dom_active)
       CALL rAttribs%put('multifile_n_dom_active', n_dom_active)
       IF(timers_level >= 7) CALL timer_start(timer_write_restart_io)
-      mafname = filename//"/attributes.nc"
-      metaFile = streamOpenWrite(mafname, FILETYPE_NC4)
-      IF (metaFile .EQ. CDI_UNDEFID) &
-        & CALL finish(routine, "error opening file '" // mafname // "'")
-      vlist = vlistCreate() ! ... to keep CDI happy ...
-      grid = gridCreate(GRID_GENERIC, 1)
-      zaxis = zaxisCreate(ZAXIS_GENERIC, 1)
-      var = vlistDefVar(vlist, grid, zaxis, TSTEP_CONSTANT)
-      CALL restartAttributeList_write_to_cdi(rAttribs, vlist)
-      CALL streamDefVlist(metaFile, vlist)
-      CALL streamDefRecord(metaFile, var, 0)
-      CALL streamClose(metaFile)
-      CALL vlistDestroy(vlist)
-      CALL gridDestroy(grid)
-      CALL zaxisDestroy(zaxis)
+      CALL nf(nf_create(filename//"/attributes.nc", NF_NETCDF4, ncid))
+      CALL restartAttributeList_write_to_ncdf(rAttribs, ncid)
+      CALL nf(nf_enddef(ncid))
+      CALL nf(nf_close(ncid))
       IF(timers_level >= 7) CALL timer_stop(timer_write_restart_io)
       CALL rAttribs%destruct()
-      DEALLOCATE(rAttribs)
     END SUBROUTINE writeAttributeFile
 
     SUBROUTINE updatePatchData()
@@ -451,9 +428,6 @@ CONTAINS
          CALL me%mPatchData(i)%description%packer(kUnpackOp, packedMessage)
       END DO
       IF(timers_level >= 7) CALL timer_stop(timer_write_restart_setup)
-      DO i = 1, SIZE(me%mPatchData)
-        CALL me%mPatchData(i)%description%updateVGrids()
-      END DO
     END SUBROUTINE updatePatchData
   END SUBROUTINE multifileRestartDescriptor_writeRestartInternal
 
