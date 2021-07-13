@@ -944,8 +944,6 @@ MODULE mo_nh_stepping
 
     IF (lprint_timestep) THEN
 
-      CALL message('','')
-
       IF (iforcing == inwp) THEN
         WRITE(message_text,'(a,i8,a,i0,a,5(i2.2,a),i3.3,a,a)') &
              &             'Time step: ', jstep, ', model time: ',                              &
@@ -1354,6 +1352,7 @@ MODULE mo_nh_stepping
     !--------------------------------------------------------------------------
     ! check whether time has come for writing restart file
 
+    CALL message('','')
     !
     ! default is to assume we do not write a checkpoint/restart file
     lwrite_checkpoint = .FALSE.

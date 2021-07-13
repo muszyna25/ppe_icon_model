@@ -38,8 +38,8 @@ MODULE mo_util_table
   ! ---------------------------------------------------------------------
 
   INTEGER, PARAMETER :: MAX_TABLE_COLUMNS = 100
-  INTEGER, PARAMETER :: MAX_TITLE_LEN     = 250
-  INTEGER, PARAMETER :: MAX_COLUMN_LEN    = 250
+  INTEGER, PARAMETER :: MAX_TITLE_LEN     =  64
+  INTEGER, PARAMETER :: MAX_COLUMN_LEN    =  64
 
   CHARACTER(LEN=*), PARAMETER :: modname   = 'mo_util_table'
 
