@@ -349,7 +349,7 @@ CONTAINS
       IF (selector(1)) THEN
         CALL output_pmsg()
       ELSE IF (selector(2)) THEN
-        IF (ccKey(1:4) /= 'nml_') CYCLE
+        IF (ccKey(1:MIN(4,LEN(ccKey))) /= 'nml_') CYCLE
         ccVal => sel_char(curVal, routine, "nml-archive copy: only character valued pairs!")
         CALL key_value_store_put_c(archive, ccKey, ccVal)
       ELSE IF (selector(3)) THEN

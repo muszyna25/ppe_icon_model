@@ -37,10 +37,10 @@ MODULE mo_restart_patch_data
     INTEGER, INTENT(IN) :: jg
   END SUBROUTINE i_construct
 
-  SUBROUTINE i_writeData(me, file_handle)
+  SUBROUTINE i_writeData(me, ncid)
     IMPORT t_RestartPatchData
-    CLASS(t_RestartPatchData), INTENT(INOUT) :: me
-    INTEGER, INTENT(IN) :: file_handle
+    CLASS(t_RestartPatchData), INTENT(INOUT), TARGET :: me
+    INTEGER, INTENT(IN) :: ncid
   END SUBROUTINE i_writeData
 
   SUBROUTINE i_destruct(me)

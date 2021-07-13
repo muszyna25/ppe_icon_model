@@ -47,9 +47,9 @@ MODULE mo_multifile_restart_util
     INTEGER,  POINTER :: i(:)
   END TYPE commonBuf_t
 
-  CHARACTER(*), PARAMETER, PUBLIC :: vNames_glbIdx(3) = (/"global_cell_indices", &
-    &                                             "global_vert_indices", &
-    &                                             "global_edge_indices"/)
+  CHARACTER(*), PARAMETER, PUBLIC :: vNames_glbIdx(3) = &
+    ["global_cell_indices", "global_vert_indices", "global_edge_indices"]
+
   CHARACTER(*), PARAMETER :: modname = "mo_multifile_restart_util"
 
   INTEGER, PUBLIC, PARAMETER :: typeID(3) = (/ REAL_T, SINGLE_T, INT_T /)

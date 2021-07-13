@@ -1405,22 +1405,24 @@ END MODULE mo_jsb_varlist_iface
 MODULE mo_jsb_vertical_axes_iface
 
   USE mo_kind, ONLY: wp !, dp
-
   USE mo_name_list_output_zaxes_types, ONLY: t_verticalAxis, t_verticalAxisList
-  USE mo_cdi_ids,                      ONLY: set_vertical_grid, t_Vgrid
   USE mo_zaxis_type,                   ONLY: zaxisTypeList
 
   IMPLICIT NONE
   PRIVATE
 
-  PUBLIC :: t_verticalAxisList, Setup_jsb_vertical_axis, t_Vgrid, Set_jsb_restart_vgrid
-
+  PUBLIC :: t_verticalAxisList, Setup_jsb_vertical_axis, Set_jsb_restart_vgrid
   CHARACTER(len=*), PARAMETER :: modname = 'mo_jsb_vertical_axes_iface'
+
+  TYPE, PUBLIC :: t_Vgrid !just tp keep JSB happy
+  !TODO: remove dependencies hereof in external JSB code
+    INTEGER :: type
+    REAL(wp), ALLOCATABLE :: levels(:)
+  END type t_Vgrid
 
 CONTAINS
 
   SUBROUTINE Setup_jsb_vertical_axis(verticalAxisList, zaxis_id, name, length, longname, units, levels, lbounds, ubounds)
-
     TYPE(t_verticalAxisList), INTENT(inout) :: verticalAxisList
     INTEGER,                  INTENT(in)    :: zaxis_id
     CHARACTER(len=*),         INTENT(in)    :: name
@@ -1440,18 +1442,15 @@ CONTAINS
       &                zaxisLongname = longname          &
       &               ) &
       & )
-
   END SUBROUTINE Setup_jsb_vertical_axis
 
   SUBROUTINE Set_jsb_restart_vgrid(vgrid_defs, count, zaxis_id, levels)
-
     TYPE(t_Vgrid), INTENT(inout) :: vgrid_defs(:)
     INTEGER,       INTENT(inout) :: count
     INTEGER, VALUE               :: zaxis_id
     REAL(wp),      INTENT(in)    :: levels(:)
-
-    CALL set_vertical_grid(vgrid_defs, count, zaxis_id, levels)
-
+    !just tp keep JSB happy
+    !TODO: remove dependencies hereof in external JSB code
   END SUBROUTINE Set_jsb_restart_vgrid
 
 END MODULE mo_jsb_vertical_axes_iface

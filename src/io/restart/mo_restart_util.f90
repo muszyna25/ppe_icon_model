@@ -13,7 +13,7 @@
 MODULE mo_restart_util
   USE mo_exception,          ONLY: get_filename_noext, finish
   USE mo_fortran_tools,      ONLY: assign_if_present_allocatable
-  USE mo_impl_constants,     ONLY: SUCCESS
+  USE mo_impl_constants,     ONLY: SUCCESS, SINGLE_T, REAL_T, INT_T
   USE mo_io_config,          ONLY: restartWritingParameters, kMultifileRestartModule
   USE mo_kind,               ONLY: i8
   USE mo_packed_message,     ONLY: t_PackedMessage, kPackOp
@@ -22,19 +22,20 @@ MODULE mo_restart_util
   USE mo_util_file,          ONLY: createSymlink
   USE mo_util_string,        ONLY: int2string, associate_keyword, with_keywords, t_keyword_list
   USE mtime,                 ONLY: datetime, newDatetime, deallocateDatetime
+  USE mo_var_metadata_types, ONLY: t_var_metadata
+  USE mo_read_netcdf_distributed, ONLY: nf
 #ifndef NOMPI
   USE mo_mpi, ONLY: p_pe_work, my_process_is_restart
   USE mpi, ONLY: MPI_PROC_NULL, MPI_ROOT
 #endif
 
   IMPLICIT NONE
-
   PRIVATE
 
-  PUBLIC :: t_restart_args
+  INCLUDE 'netcdf.inc'
 
-  PUBLIC :: getRestartFilename
-  PUBLIC :: restartSymlinkName, create_restart_file_link
+  PUBLIC :: t_restart_args, t_rfids
+  PUBLIC :: getRestartFilename, restartSymlinkName, create_restart_file_link
   PUBLIC :: restartBcastRoot
   ! patch independent restart arguments
   TYPE t_restart_args
@@ -47,6 +48,15 @@ MODULE mo_restart_util
     PROCEDURE :: packer => restartArgs_packer   ! unpacking IS considered construction
     PROCEDURE :: destruct => restartArgs_destruct
   END TYPE t_restart_args
+
+  TYPE t_rfids
+    LOGICAL :: isinit = .FALSE.
+    INTEGER :: ncid, nlayids, ftid, gids(3)
+    INTEGER, ALLOCATABLE :: layids(:), nlays(:)
+  CONTAINS
+    PROCEDURE :: init => rfids_init
+    PROCEDURE :: def_ncdfvar => rfids_def_ncdfvar
+  END TYPE t_rfids
 
   CHARACTER(LEN = *), PARAMETER :: modname = "mo_restart_util"
 
@@ -170,5 +180,71 @@ CONTAINS
     IF(ASSOCIATED(me%restart_datetime)) CALL deallocateDatetime(me%restart_datetime)
     IF(ALLOCATED(me%output_jfile)) DEALLOCATE(me%output_jfile)
   END SUBROUTINE restartArgs_destruct
+
+  SUBROUTINE rfids_init(rfids, ncid_in, nelem)
+    CLASS(t_rfids), INTENT(OUT) :: rfids
+    INTEGER, INTENT(IN) :: ncid_in, nelem(3)
+
+    rfids%ncid = ncid_in
+    IF (rfids%isinit) DEALLOCATE(rfids%layids, rfids%nlays)
+    rfids%nlayids = 0
+    ALLOCATE(rfids%layids(32), rfids%nlays(32))
+    CALL nf(nf_def_dim(rfids%ncid, "fake_time", NF_UNLIMITED, rfids%ftid))
+    CALL nf(nf_def_dim(rfids%ncid, "cells", nelem(1), rfids%gids(1)))
+    CALL nf(nf_def_dim(rfids%ncid, "verts", nelem(2), rfids%gids(2)))
+    CALL nf(nf_def_dim(rfids%ncid, "edges", nelem(3), rfids%gids(3)))
+    rfids%isinit = .TRUE.
+  END SUBROUTINE rfids_init
+
+  SUBROUTINE rfids_def_ncdfvar(rfids, ci, gid)
+    CLASS(t_rfids), INTENT(INOUT) :: rfids
+    INTEGER, INTENT(IN) :: gid
+    TYPE(t_var_metadata), POINTER, INTENT(INOUT) :: ci
+    INTEGER :: dtid, ivid, iivid, dids(3), nd
+    INTEGER, ALLOCATABLE :: tmpa(:), tmpb(:)
+    CHARACTER(LEN=10) :: layname
+
+    IF (.NOT.rfids%isinit) CALL finish(modname//":rfids_def_ncdfvar", "not initialized")
+    nd = ci%ndims
+    dids(1) = rfids%gids(gid)
+    SELECT CASE(ci%data_type)
+    CASE(REAL_T)
+      dtid = NF_DOUBLE
+    CASE(SINGLE_T)
+      dtid = NF_REAL
+    CASE(INT_T)
+      dtid = NF_INT
+    END SELECT
+    SELECT CASE(nd)
+    CASE(2)
+      dids(2) = rfids%ftid
+    CASE(3)
+      ivid = 0
+      DO iivid = 1, rfids%nlayids
+        IF (rfids%nlays(iivid) .EQ. ci%used_dimensions(2)) THEN
+          ivid = iivid
+          EXIT
+        END IF
+      END DO
+      IF (ivid .EQ. 0) THEN
+        IF (rfids%nlayids .EQ. SIZE(rfids%nlays)) THEN
+          CALL MOVE_ALLOC(rfids%nlays, tmpa)
+          CALL MOVE_ALLOC(rfids%layids, tmpb)
+          ALLOCATE(rfids%nlays(rfids%nlayids+32), rfids%layids(rfids%nlayids+32))
+          rfids%nlays(:rfids%nlayids) = tmpa
+          rfids%layids(:rfids%nlayids) = tmpb
+        END IF
+        rfids%nlayids = rfids%nlayids + 1
+        rfids%nlays(rfids%nlayids) = ci%used_dimensions(2)
+        WRITE(layname, "(a,i0)") "layers_", rfids%nlays(rfids%nlayids)
+        CALL nf(nf_def_dim(rfids%ncid, TRIM(layname), &
+          &                rfids%nlays(rfids%nlayids), rfids%layids(rfids%nlayids)))
+        ivid = rfids%nlayids
+      END IF
+      dids(2) = rfids%layids(ivid)
+      dids(3) = rfids%ftid
+    END SELECT
+    CALL nf(nf_def_var(rfids%ncid, TRIM(ci%name), dtid, nd, dids(:nd), ci%cdiVarId))
+  END SUBROUTINE rfids_def_ncdfvar
 
 END MODULE mo_restart_util
