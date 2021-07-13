@@ -44,7 +44,7 @@ CPPFLAGS="-I${XML2_ROOT}/include/libxml2 -I${EBROOTNETCDF}/include"
 FC='mpif90'
 FCFLAGS="-g -traceback -O -Mrecursive -Mallocatable=03 -acc=verystrict -ta=nvidia:cc70 -ta=tesla:lineinfo -Minfo=accel,inline -I${SERIALBOX2_ROOT}/include -I${ECCODES_ROOT}/include -I${EBROOTNETCDFMINFORTRAN}/include -D__SWAPDIM -D__USE_G2G"
 
-LDFLAGS="-L${SERIALBOX2_ROOT}/lib -L${ECCODES_ROOT}/lib -L${XML2_ROOT}/lib -L${EBROOTNETCDF}/lib64 -L${EBROOTNETCDFMINFORTRAN}/lib"
+LDFLAGS="-L${SERIALBOX2_ROOT}/lib -L${ECCODES_ROOT}/lib64 -L${XML2_ROOT}/lib -L${EBROOTNETCDF}/lib64 -L${EBROOTNETCDFMINFORTRAN}/lib"
 
 # ICON executable will be linked to /opt/cray/pe/lib64/libmpichf90_pgi.so.3,
 # which depends on libomptarget.so but doesn't have an RPATH to it. For this
