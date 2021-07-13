@@ -33,6 +33,7 @@ MODULE mo_nh_vert_interp_ipz
   USE mo_physical_constants,  ONLY: grav, rd, dtdz_standardatm
   USE mo_run_config,          ONLY: iforcing, num_lev
   USE mo_io_config,           ONLY: itype_pres_msl
+  USE mo_grid_config,         ONLY: l_limited_area
   USE mo_impl_constants,      ONLY: inwp, iecham, PRES_MSL_METHOD_GME, PRES_MSL_METHOD_IFS, &
     &                               PRES_MSL_METHOD_DWD, PRES_MSL_METHOD_IFS_CORR,          &
     &                               SUCCESS
@@ -187,7 +188,7 @@ CONTAINS
       &                   extrapol_dist=0._wp, l_pz_mode=.TRUE., zextrap=vcoeff_z%lin_cell%zextrap) !in
 
 
-    IF (jg > 1) THEN ! copy outermost nest boundary row in order to avoid missing values
+    IF (jg > 1 .OR. l_limited_area) THEN ! copy outermost nest boundary row in order to avoid missing values
       i_endblk = p_patch%cells%end_blk(1,1)
       temp_z_out(:,:,1:i_endblk) = z_auxz(:,:,1:i_endblk)
     ENDIF
@@ -204,7 +205,7 @@ CONTAINS
       &                vcoeff_z%lin_cell%kpbl2, vcoeff_z%lin_cell%zextrap,                  & !in
       &                opt_lconstgrav=lconstgrav                                            ) !optin
     
-    IF (jg > 1) THEN ! copy outermost nest boundary row in order to avoid missing values
+    IF (jg > 1 .OR. l_limited_area) THEN ! copy outermost nest boundary row in order to avoid missing values
       i_endblk = p_patch%cells%end_blk(1,1)
       pres_z_out(:,:,1:i_endblk) = z_auxz(:,:,1:i_endblk)
     ENDIF
@@ -340,7 +341,7 @@ CONTAINS
       &               vcoeff_p%lin_cell%zextrap,                                            & !in
       &               opt_lconstgrav=lconstgrav                                             ) !optin
     
-    IF (jg > 1) THEN ! copy outermost nest boundary row in order to avoid missing values
+    IF (jg > 1 .OR. l_limited_area) THEN ! copy outermost nest boundary row in order to avoid missing values
       i_endblk = p_patch%cells%end_blk(1,1)
       gh_p_out(:,:,1:i_endblk) = z_auxp(:,:,1:i_endblk)
     ENDIF
@@ -372,7 +373,7 @@ CONTAINS
       &                   l_hires_corr=.FALSE., extrapol_dist=0._wp, l_pz_mode=.TRUE.,      & !in
       &                   zextrap=vcoeff_p%lin_cell%zextrap)
 
-    IF (jg > 1) THEN ! copy outermost nest boundary row in order to avoid missing values
+    IF (jg > 1 .OR. l_limited_area) THEN ! copy outermost nest boundary row in order to avoid missing values
       i_endblk = p_patch%cells%end_blk(1,1)
       temp_p_out(:,:,1:i_endblk) = z_auxp(:,:,1:i_endblk)
     ENDIF
