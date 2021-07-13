@@ -680,6 +680,7 @@ MODULE mo_vertical_grid
         ENDDO
       ENDDO
       p_nh(jg)%metrics%nudge_c_dim = ic
+      !$ACC UPDATE DEVICE(p_nh(jg)%metrics%nudge_c_dim)
 
       IF ( ic == 0 ) THEN
          ALLOCATE(p_nh(jg)%metrics%nudge_c_idx(0:0),p_nh(jg)%metrics%nudge_c_blk(0:0))
@@ -718,6 +719,7 @@ MODULE mo_vertical_grid
         ENDDO
       ENDDO
       p_nh(jg)%metrics%nudge_e_dim = ic
+      !$ACC UPDATE DEVICE(p_nh(jg)%metrics%nudge_e_dim)
 
       IF ( ic == 0 ) THEN
          ALLOCATE(p_nh(jg)%metrics%nudge_e_idx(0:0),p_nh(jg)%metrics%nudge_e_blk(0:0))
@@ -802,6 +804,7 @@ MODULE mo_vertical_grid
         ENDDO
       ENDDO
       p_nh(jg)%metrics%bdy_mflx_e_dim = ic
+      !$ACC UPDATE DEVICE(p_nh(jg)%metrics%bdy_mflx_e_dim)
 
       ! Allocate index lists and storage field for boundary mass flux
       IF ( ic == 0 ) THEN
@@ -812,6 +815,8 @@ MODULE mo_vertical_grid
                   p_nh(jg)%diag%grf_bdy_mflx(nlev,ic,2))
       ENDIF
       p_nh(jg)%diag%grf_bdy_mflx(:,:,:) = 0._wp
+
+      !$ACC ENTER DATA COPYIN( p_nh(jg)%diag%grf_bdy_mflx )
 
       ! part 3: fill index list with nest boundary points of row 9
       i_startblk = p_patch(jg)%edges%start_block(grf_bdywidth_e)
@@ -830,9 +835,6 @@ MODULE mo_vertical_grid
         ENDDO
       ENDDO
 
-!$ACC ENTER DATA COPYIN( p_nh(jg)%metrics%bdy_mflx_e_idx,p_nh(jg)%metrics%bdy_mflx_e_blk, &
-!$ACC                    p_nh(jg)%diag%grf_bdy_mflx )
-
       ! part 4: fill index list with halo points of levels 1 and 2 belonging to nest boundary points of row 9
       i_startblk = p_patch(jg)%edges%start_block(min_rledge_int-1)
       i_endblk   = p_patch(jg)%edges%end_block(min_rledge_int-2)
@@ -850,6 +852,8 @@ MODULE mo_vertical_grid
           ENDIF
         ENDDO
       ENDDO
+
+      !$ACC ENTER DATA COPYIN( p_nh(jg)%metrics%bdy_mflx_e_idx,p_nh(jg)%metrics%bdy_mflx_e_blk)
 
       ! Index list for halo points belonging to the nest overlap zone
       i_startblk = p_patch(jg)%cells%start_block(min_rlcell_int-1)
@@ -1665,6 +1669,7 @@ MODULE mo_vertical_grid
         ! Generate index list for grid points requiring downward extrapolation of the pressure gradient
         icount_total = SUM(icount(i_startblk:nblks_e))
         p_nh(jg)%metrics%pg_listdim = icount_total
+        !$ACC UPDATE DEVICE(p_nh(jg)%metrics%pg_listdim)
         ic = 0
 
         ALLOCATE (p_nh(jg)%metrics%pg_edgeidx(icount_total),&
@@ -1985,6 +1990,7 @@ MODULE mo_vertical_grid
     CALL new_zd_metrics(p_nh%metrics, p_nh_metrics_list , numpoints)
     
     p_nh%metrics%zd_listdim = numpoints
+    !$ACC UPDATE DEVICE(p_nh%metrics%zd_listdim)
 
     ! Fill index lists
     ji1 = 0

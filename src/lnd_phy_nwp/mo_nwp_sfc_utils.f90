@@ -1650,12 +1650,13 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Daniel Reinert, DWD (2012-08-03)
   !!
-  SUBROUTINE init_sea_lists(p_patch, ext_data, p_lnd_diag, lseaice)
+  SUBROUTINE init_sea_lists(p_patch, ext_data, p_lnd_diag, lseaice, opt_lverbose)
 
-    TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch        !< grid/patch info.
-    TYPE(t_external_data), INTENT(INOUT) :: ext_data
-    TYPE(t_lnd_diag)     , INTENT(INOUT) :: p_lnd_diag     !< diag vars for sfc
-    LOGICAL              , INTENT(IN)    :: lseaice        !< seaice model on/off
+    TYPE(t_patch), TARGET, INTENT(IN)              :: p_patch        !< grid/patch info.
+    TYPE(t_external_data), INTENT(INOUT)           :: ext_data
+    TYPE(t_lnd_diag)     , INTENT(INOUT)           :: p_lnd_diag     !< diag vars for sfc
+    LOGICAL              , INTENT(IN)              :: lseaice        !< seaice model on/off
+    LOGICAL              , INTENT(IN), OPTIONAL    :: opt_lverbose   !< trigger message() output
 
     ! Local array bounds:
 
@@ -1670,10 +1671,16 @@ CONTAINS
     INTEGER :: i_count_sea, i_count_ice, i_count_water
     INTEGER :: npoints_ice, npoints_wtr, npoints_sea
     REAL(wp):: frac_sea                  ! for sanity check
+    LOGICAL :: lverbose
 
     CHARACTER(len=*), PARAMETER :: routine = 'mo_nwp_sfc_utils:init_sea_lists'
 !-------------------------------------------------------------------------
 
+    IF (.NOT. PRESENT(opt_lverbose)) THEN
+      lverbose = .TRUE.  ! the default
+    ELSE
+      lverbose = opt_lverbose
+    ENDIF
 
     ! patch ID
     jg = p_patch%id
@@ -1844,21 +1851,22 @@ CONTAINS
 !$OMP END PARALLEL
 
 
-      ! Some diagnostics: compute total number of sea-ice and open water points
-      npoints_ice = ext_data%atm%list_seaice%get_sum_global(i_startblk,i_endblk)
-      npoints_wtr = ext_data%atm%list_seawtr%get_sum_global(i_startblk,i_endblk)
-      npoints_sea = ext_data%atm%list_sea   %get_sum_global(i_startblk,i_endblk)
-      !
-      WRITE(message_text,'(a,i3,a,i10)') 'Number of (partly) seaice covered points in domain',jg, &
-        &  ':',npoints_ice
-      CALL message('', TRIM(message_text))
-      WRITE(message_text,'(a,i3,a,i10)') 'Number of (partly) ice-free sea points in domain',jg, &
-        &  ':',npoints_wtr
-      CALL message('', TRIM(message_text))
-      WRITE(message_text,'(a,i3,a,i10)') 'Number of sea points in domain',jg, &
-           &  ':',npoints_sea
-      CALL message('', TRIM(message_text))
-
+      IF ( lverbose .OR. msg_level >= 13 ) THEN
+        ! Some diagnostics: compute total number of sea-ice and open water points
+        npoints_ice = ext_data%atm%list_seaice%get_sum_global(i_startblk,i_endblk)
+        npoints_wtr = ext_data%atm%list_seawtr%get_sum_global(i_startblk,i_endblk)
+        npoints_sea = ext_data%atm%list_sea   %get_sum_global(i_startblk,i_endblk)
+        !
+        WRITE(message_text,'(a,i3,a,i10)') 'Number of (partly) seaice covered points in domain',jg, &
+          &  ':',npoints_ice
+        CALL message('', TRIM(message_text))
+        WRITE(message_text,'(a,i3,a,i10)') 'Number of (partly) ice-free sea points in domain',jg, &
+          &  ':',npoints_wtr
+        CALL message('', TRIM(message_text))
+        WRITE(message_text,'(a,i3,a,i10)') 'Number of sea points in domain',jg, &
+             &  ':',npoints_sea
+        CALL message('', TRIM(message_text))
+      ENDIF
 
     ELSE   ! seaice model switched off
 
@@ -2564,7 +2572,8 @@ CONTAINS
         CALL init_sea_lists(p_patch    = p_patch,   &
              &              ext_data   = ext_data,  &
              &              p_lnd_diag = p_lnd_state%diag_lnd,&
-             &              lseaice    = lseaice    )
+             &              lseaice    = lseaice,   &
+             &              opt_lverbose   = .FALSE.    )
 
 
         ! store updated index lists
