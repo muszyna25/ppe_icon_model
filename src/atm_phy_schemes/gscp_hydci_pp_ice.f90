@@ -319,6 +319,7 @@ IMPLICIT NONE
 
 REAL (KIND=ireals)              :: sat_pres_water
 REAL (KIND=ireals), INTENT(IN)  :: temp
+!$acc routine seq
 
 sat_pres_water = b1*EXP( b2w*(temp-b3)/(temp-b4w) )
 
@@ -331,6 +332,7 @@ IMPLICIT NONE
 
 REAL (KIND=ireals)              :: sat_pres_ice
 REAL (KIND=ireals), INTENT(IN)  :: temp
+!$acc routine seq
 
 sat_pres_ice = b1*EXP( b2i*(temp-b3)/(temp-b4i) )
 
@@ -343,6 +345,7 @@ IMPLICIT NONE
 
 REAL (KIND=ireals)              :: spec_humi
 REAL (KIND=ireals), INTENT(IN)  :: pres,pvap
+!$acc routine seq
 
 spec_humi = rdv*pvap/( pres - o_m_rdv*pvap )
 
@@ -1060,8 +1063,7 @@ SUBROUTINE hydci_pp_ice (             &
           & + mmb(5)*ztc**2 + mmb(6)*nnr**2 + mmb(7)*ztc**2*nnr &
           & + mmb(8)*ztc*nnr**2 + mmb(9)*ztc**3 + mmb(10)*nnr**3
 
-        ! Here is the exponent bms=2.0 hardwired! not ideal! (Uli Blahak)
-        m2s = qsg * rho(iv,k) / zams   ! UB rho added as bugfix
+        m2s = qsg * rho(iv,k) / zams_ci
         m3s = alf*EXP(bet*LOG(m2s))
 
         hlp  = zn0s1*EXP(zn0s2*ztc)

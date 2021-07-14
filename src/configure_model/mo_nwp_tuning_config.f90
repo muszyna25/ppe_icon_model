@@ -53,13 +53,16 @@ MODULE mo_nwp_tuning_config
   PUBLIC :: tune_minsnowfrac
   PUBLIC :: tune_box_liq
   PUBLIC :: tune_box_liq_asy
+  PUBLIC :: tune_box_liq_sfc_fac
   PUBLIC :: tune_thicklayfac
   PUBLIC :: tune_sgsclifac
   PUBLIC :: icpl_turb_clc
   PUBLIC :: tune_dust_abs
+  PUBLIC :: tune_difrad_3dcont
   PUBLIC :: tune_gust_factor
   PUBLIC :: itune_albedo
   PUBLIC :: lcalib_clcov
+  PUBLIC :: max_calibfac_clcl
   PUBLIC :: max_freshsnow_inc
 
 
@@ -143,7 +146,7 @@ MODULE mo_nwp_tuning_config
     &  tune_qexc
 
   REAL(wp) :: &                    !< Minimum value to which the snow cover fraction is artificially reduced
-    &  tune_minsnowfrac            !  in case of melting show (in case of idiag_snowfrac = 20/30/40)
+    &  tune_minsnowfrac            !  in case of melting show (in case of idiag_snowfrac = 20)
 
   REAL(wp) :: &                    !< Box width for liquid clouds assumed in the cloud cover scheme
     &  tune_box_liq                ! (in case of inwp_cldcover = 1)
@@ -153,6 +156,9 @@ MODULE mo_nwp_tuning_config
 
   REAL(wp) :: &                    !< Asymmetry factor liquid cloud parameterization
     &  tune_box_liq_asy            ! (in case of inwp_cldcover = 1)
+
+  REAL(wp) :: &                    !< Tuning factor for box_liq reduction near the surface
+    & tune_box_liq_sfc_fac         ! (in case of inwp_cldcover = 1)
 
   REAL(wp) :: &                    !< Scaling factor for subgrid-scale contribution to diagnosed cloud ice
     &  tune_sgsclifac              ! (in case of inwp_cldcover = 1)
@@ -164,8 +170,12 @@ MODULE mo_nwp_tuning_config
   REAL(wp) :: &                    !< Tuning factor for enhanced LW absorption of mineral dust in the Saharan region
     &  tune_dust_abs               !
 
+  REAL(wp) :: &                    !< Tuning factor for 3D contribution to diagnosed diffuse radiation
+    &  tune_difrad_3dcont          !
+
   REAL(wp) :: &                    !< Tuning factor for gust parameterization
     &  tune_gust_factor            !
+  !$acc declare create(tune_gust_factor)
 
   INTEGER :: &                     !< (MODIS) albedo tuning
     &  itune_albedo                ! 1: dimmed Sahara
@@ -173,6 +183,9 @@ MODULE mo_nwp_tuning_config
 
   LOGICAL :: &                     ! cloud cover calibration over land points
     &  lcalib_clcov
+
+  REAL(wp) :: &                    !< maximum calibration factor for low cloud cover (CLCL)
+    &  max_calibfac_clcl
 
   REAL(wp) :: &                    !< maximum allowed positive freshsnow increment
     &  max_freshsnow_inc

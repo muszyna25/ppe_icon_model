@@ -10,32 +10,33 @@
 !! Please see the file LICENSE in the root of the source tree for this code.
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
-
+#include "omp_definitions.inc"
 MODULE mo_load_singlefile_restart
-    USE mo_cdi,                ONLY: vlistInqTaxis, taxisInqVdate, taxisInqVtime, streamOpenRead, &
-      &                              streamInqVlist, vlistNvars, vlistInqVarName, streamClose,    &
-      &                              streamReadVarSlice, streamReadVarSliceF, vlistInqVarGrid, gridInqSize
-    USE mo_communication,      ONLY: t_ScatterPattern
-    USE mo_exception,          ONLY: message, warning, finish
-    USE mo_fortran_tools,      ONLY: t_ptr_2d, t_ptr_2d_sp, t_ptr_2d_int, alloc
-    USE mo_impl_constants,     ONLY: SUCCESS, SINGLE_T, REAL_T, INT_T
-    USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE
-    USE mo_kind,               ONLY: dp, sp
-    USE mo_model_domain,       ONLY: t_patch
-    USE mo_mpi,                ONLY: my_process_is_mpi_workroot, p_bcast, p_comm_work
-    USE mo_restart_attributes, ONLY: t_RestartAttributeList, getAttributesForRestarting
-    USE mo_restart_util,       ONLY: restartSymlinkName
-    USE mo_restart_var_data,   ONLY: t_restartVarData, getLevelPointers
-    USE mo_timer,              ONLY: timer_start, timer_stop, timer_load_restart_io, &
-      &                              timer_load_restart_communication, timers_level
-    USE mo_util_string,        ONLY: int2string
-    USE mo_var_metadata_types, ONLY: t_var_metadata
+  USE mo_cdi,                ONLY: vlistInqTaxis, taxisInqVdate, taxisInqVtime, streamOpenRead, &
+    &                              streamInqVlist, vlistNvars, vlistInqVarName, streamClose
+  USE mo_exception,          ONLY: message, warning, finish
+  USE mo_impl_constants,     ONLY: SINGLE_T, REAL_T, INT_T
+  USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE
+  USE mo_kind,               ONLY: dp, sp
+  USE mo_model_domain,       ONLY: t_patch
+  USE mo_mpi,                ONLY: my_process_is_mpi_workroot, p_bcast, p_comm_work
+  USE mo_restart_nml_and_att,ONLY: getAttributesForRestarting
+  USE mo_key_value_store,    ONLY: t_key_value_store
+  USE mo_restart_util,       ONLY: restartSymlinkName
+  USE mo_restart_var_data,   ONLY: get_var_3d_ptr
+  USE mo_var,                ONLY: t_var_ptr
+  USE mo_timer, ONLY: timer_start, timer_stop, timer_load_restart_io, timers_level
+  USE mo_util_string,        ONLY: int2string
+  USE mo_read_netcdf_distributed, ONLY: t_distrib_read_data, distrib_nf_open, &
+    & distrib_read, distrib_nf_close, idx_lvl_blk
+  USE mo_fortran_tools,      ONLY: t_ptr_3d, t_ptr_3d_int, t_ptr_3d_sp
 
-    IMPLICIT NONE
+  IMPLICIT NONE
+  PRIVATE
 
-    PUBLIC :: singlefileCheckRestartFiles, singlefileReadPatch
+  PUBLIC :: singlefileCheckRestartFiles, singlefileReadPatch
 
-    CHARACTER(*), PARAMETER :: modname = "mo_load_singlefile_restart"
+  CHARACTER(*), PARAMETER :: modname = "mo_load_singlefile_restart"
 
 CONTAINS
 
@@ -53,18 +54,14 @@ CONTAINS
   ! of the other files.
   SUBROUTINE singlefileCheckRestartFiles(modelType)
     CHARACTER(*), INTENT(IN) :: modelType
-
     INTEGER :: jg, n_dom
     LOGICAL :: lexists
     CHARACTER(:), ALLOCATABLE :: filename
-    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    TYPE(t_key_value_store), POINTER :: restartAttributes
     CHARACTER(*), PARAMETER :: routine = modname//":singlefileCheckRestartFiles"
 
-    ! since we do not know about the total number of domains yet,
-    ! we have to ask the restart file for this information:
-    restartAttributes => getAttributesForRestarting()
-    n_dom = restartAttributes%getInteger('n_dom')
-
+    CALL getAttributesForRestarting(restartAttributes)
+    CALL restartAttributes%get('n_dom', n_dom)
     ! check whether we have all the restart files we expect
     DO jg = 1, n_dom
         CALL restartSymlinkName(modelType, jg, filename, n_dom)
@@ -77,168 +74,94 @@ CONTAINS
     END DO
   END SUBROUTINE singlefileCheckRestartFiles
 
-  FUNCTION vtimeString(vlistId) RESULT(resultVar)
-    CHARACTER(:), ALLOCATABLE :: resultVar
-    INTEGER, VALUE :: vlistId
-
-    INTEGER :: taxisId
-
-    taxisId = vlistInqTaxis(vlistId)
-    resultVar = TRIM(int2string(taxisInqVdate(taxisId)))//"T"//&
-              & TRIM(int2string(taxisInqVtime(taxisId)))//"Z"
-  END FUNCTION vtimeString
-
-  FUNCTION getScatterPattern(p_patch, info) RESULT(resultVar)
-    CLASS(t_ScatterPattern), POINTER :: resultVar
-    TYPE(t_patch), TARGET, INTENT(IN) :: p_patch
-    TYPE(t_var_metadata), INTENT(IN) :: info
-
-    CHARACTER(*), PARAMETER :: routine = modname//":getScatterPattern"
-
-    SELECT CASE(info%hgrid)
-        CASE (GRID_UNSTRUCTURED_CELL)
-            resultVar => p_patch%comm_pat_scatter_c
-        CASE (GRID_UNSTRUCTURED_VERT)
-            resultVar => p_patch%comm_pat_scatter_v
-        CASE (GRID_UNSTRUCTURED_EDGE)
-            resultVar => p_patch%comm_pat_scatter_e
-        CASE default
-            CALL finish(routine, 'unknown grid type')
-    END SELECT
-  END FUNCTION getScatterPattern
-
   SUBROUTINE singlefileReadPatch(varData, modelType, p_patch, opt_ndom)
-    TYPE(t_restartVarData), INTENT(INOUT) :: varData(:)
+    TYPE(t_var_ptr), INTENT(in) :: varData(:)
     CHARACTER(*), INTENT(IN) :: modelType
     TYPE(t_patch), TARGET, INTENT(IN) :: p_patch
-    INTEGER, OPTIONAL, INTENT(IN) :: opt_ndom
-
-    TYPE(t_ptr_2d), ALLOCATABLE :: levelPointers_d(:)
-    TYPE(t_ptr_2d_sp), ALLOCATABLE :: levelPointers_s(:)
-    TYPE(t_ptr_2d_int), ALLOCATABLE :: levelPointers_i(:)
-    CHARACTER(len=80) :: NAME
+    INTEGER, INTENT(IN) :: opt_ndom
+    TYPE(t_ptr_3d) :: r(1)
+    TYPE(t_ptr_3d_sp) :: s(1)
+    TYPE(t_ptr_3d_int) :: i(1)
+    CHARACTER(len=80) :: vname
     CHARACTER(:), ALLOCATABLE :: restart_filename
-    INTEGER :: fileID, vlistID, gridID, varID, nvars, level, trash, varIndex, levelCount
-    REAL(dp), ALLOCATABLE :: r1d_d(:)
-    REAL(sp), ALLOCATABLE :: r1d_s(:)
-    INTEGER, ALLOCATABLE :: i1d(:)
-    CLASS(t_ScatterPattern), POINTER :: scatter_pattern
-    CHARACTER(*), PARAMETER :: routine = modname//":singlefileReadPatch"
-
-    CALL alloc(r1d_d, 1)  !dummy allocation so that there IS no process without a valid allocation
-    CALL alloc(r1d_s, 1)  !dummy allocation so that there IS no process without a valid allocation
-    CALL alloc(i1d,   1)  !dummy allocation so that there IS no process without a valid allocation
+    INTEGER :: fID, dfID, vlID, vID, tID, nV, nread, vIdx, dt
+    TYPE(t_distrib_read_data), POINTER :: dio
+    LOGICAL :: is_root
+    CHARACTER(*), PARAMETER :: routine = modname // ":singlefileReadPatch"
 
     CALL restartSymlinkName(modelType, p_patch%id, restart_filename, opt_ndom)
-
-    IF(my_process_is_mpi_workroot()) THEN
-        WRITE(0,*) "streamOpenRead ", TRIM(restart_filename)
-
-        fileID  = streamOpenRead(restart_filename)
-        IF(fileID < 0) CALL finish(routine, "could not open file '"//TRIM(restart_filename)//"'")
-        vlistID = streamInqVlist(fileID)
-
-        WRITE(0,*) routine//': Read restart for: '//vtimeString(vlistId)//' from '//TRIM(restart_filename)
-
-        nvars = vlistNvars(vlistID)
+    is_root = my_process_is_mpi_workroot()
+    IF(is_root) THEN
+      WRITE(0, "(a)") "streamOpenRead " // restart_filename
+      fID  = streamOpenRead(restart_filename)
+      IF(fID < 0) CALL finish(routine, "could not open file '" // restart_filename // "'")
+      vlID = streamInqVlist(fID)
+      tID = vlistInqTaxis(vlID)
+      WRITE(0, "(a)") routine // ': Read restart for: ' // &
+        & TRIM(int2string(taxisInqVdate(tID))) // "T" // &
+        & TRIM(int2string(taxisInqVtime(tID))) // "Z" // ' from ' // restart_filename
+      nV = vlistNvars(vlID)
     END IF
-    CALL p_bcast(nvars, 0, comm=p_comm_work)
-
-    DO varID = 0, nvars - 1
-        IF(my_process_is_mpi_workroot()) CALL vlistInqVarName(vlistID, varID, NAME)
-        CALL p_bcast(NAME, 0, comm=p_comm_work)
-
-        !lookup the varData corresponding to this variable AND get the corresponding DATA pointers
-        DO varIndex = 1, SIZE(varData)
-            IF(NAME == varData(varIndex)%info%NAME) EXIT
-        END DO
-        IF(varIndex > SIZE(varData)) THEN
-            CALL warning(routine, "variable '"//TRIM(NAME)//"' from restart file not found in the list of restart variables")
-            CYCLE
+    dfID = distrib_nf_open(restart_filename) 
+    CALL p_bcast(nV, 0, comm=p_comm_work)
+    nread = 0
+    DO vID = 0, nV - 1
+      IF(is_root) CALL vlistInqVarName(vlID, vID, vname)
+      CALL p_bcast(vname, 0, comm=p_comm_work)
+      !lookup the varData corresponding to this variable AND get the corresponding DATA pointers
+      DO vIdx = 1, SIZE(varData)
+        IF(vname == varData(vIdx)%p%info%NAME) EXIT
+      END DO
+      IF (vIdx > SIZE(varData)) THEN
+        CALL warning(routine, "variable '" // TRIM(vname) // "' in restart file, but not in list of restart variables")
+        CYCLE
+      END IF
+      SELECT CASE(varData(vIdx)%p%info%hgrid)
+      CASE (GRID_UNSTRUCTURED_CELL)
+        dio => p_patch%cells%dist_io_data
+      CASE (GRID_UNSTRUCTURED_VERT)
+        dio => p_patch%verts%dist_io_data
+      CASE (GRID_UNSTRUCTURED_EDGE)
+        dio => p_patch%edges%dist_io_data
+      CASE default
+        CALL finish(routine, 'unknown grid type')
+      END SELECT
+      dt = varData(vIdx)%p%info%data_type
+      IF (timers_level >= 7) CALL timer_start(timer_load_restart_io)
+      SELECT CASE(dt)
+      CASE(REAL_T, INT_T)
+        IF (dt .EQ. INT_T) THEN
+          CALL get_var_3d_ptr(varData(vIdx)%p, i(1)%p)
+          ALLOCATE(r(1)%p(SIZE(i(1)%p, 1), SIZE(i(1)%p, 2), SIZE(i(1)%p, 3)))
+        ELSE
+          CALL get_var_3d_ptr(varData(vIdx)%p, r(1)%p)
         END IF
-
-        SELECT CASE(varData(varIndex)%getDatatype())
-        CASE(REAL_T)
-          CALL getLevelPointers(varData(varIndex)%info, varData(varIndex)%r_ptr, levelPointers_d)
-          levelCount = SIZE(levelPointers_d)
-          !
-        CASE(SINGLE_T)
-          CALL getLevelPointers(varData(varIndex)%info, varData(varIndex)%s_ptr, levelPointers_s)
-          levelCount = SIZE(levelPointers_s)
-          !
-        CASE(INT_T)
-          ! Read-in of INTEGER fields: we read them as
-          ! REAL-valued arrays and transform them using NINT.
-          CALL getLevelPointers(varData(varIndex)%info, varData(varIndex)%i_ptr, levelPointers_i)
-          levelCount = SIZE(levelPointers_i)
-        CASE DEFAULT
-          CALL finish(routine, "Internal error! Variable "//TRIM(varData(varIndex)%info%name))
-        END SELECT
-
-        !lookup the correct scatter pattern
-        scatter_pattern => getScatterPattern(p_patch, varData(varIndex)%info)
-
-        !READ IN the DATA AND distribute it to the processes
-        DO level = 1, levelCount
-          IF(my_process_is_mpi_workroot()) THEN
-            gridID  = vlistInqVarGrid(vlistID, varID)
-            SELECT CASE(varData(varIndex)%getDatatype())
-            CASE(REAL_T)
-              CALL alloc(r1d_s, 1)
-              CALL alloc(r1d_d, gridInqSize(gridID))
-              CALL alloc(i1d, 1)
-              IF(timers_level >= 7) CALL timer_start(timer_load_restart_io)
-              CALL streamReadVarSlice(fileId, varId, level - 1, r1d_d, trash)
-              IF(timers_level >= 7) CALL timer_stop(timer_load_restart_io)
-              !
-            CASE(SINGLE_T)
-              CALL alloc(r1d_d, 1)
-              CALL alloc(r1d_s, gridInqSize(gridID))
-              CALL alloc(i1d, 1)
-              IF(timers_level >= 7) CALL timer_start(timer_load_restart_io)
-              CALL streamReadVarSliceF(fileId, varId, level - 1, r1d_s, trash)
-              IF(timers_level >= 7) CALL timer_stop(timer_load_restart_io)
-              !
-            CASE(INT_T)
-              CALL alloc(r1d_s, 1)
-              CALL alloc(r1d_d, gridInqSize(gridID))
-              CALL alloc(i1d, gridInqSize(gridID))
-              IF(timers_level >= 7) CALL timer_start(timer_load_restart_io)
-              CALL streamReadVarSlice(fileId, varId, level - 1, r1d_d, trash)
-              i1d(:) = INT(r1d_d)
-              IF(timers_level >= 7) CALL timer_stop(timer_load_restart_io)
-              !
-            CASE DEFAULT
-              CALL finish(routine, "Internal error! Variable "//TRIM(varData(varIndex)%info%name))
-            END SELECT
-          END IF
-          IF(timers_level >= 7) CALL timer_start(timer_load_restart_communication)
-
-          SELECT CASE(varData(varIndex)%getDatatype())
-          CASE(REAL_T)
-            CALL scatter_pattern%distribute(r1d_d, levelPointers_d(level)%p, .FALSE.)
-            !
-          CASE(SINGLE_T)
-            CALL scatter_pattern%distribute(r1d_s, levelPointers_s(level)%p, .FALSE.)
-            !
-          CASE(INT_T)
-            CALL scatter_pattern%distribute(i1d, levelPointers_i(level)%p, .FALSE.)
-            !
-          CASE DEFAULT
-            CALL finish(routine, "Internal error! Variable "//TRIM(varData(varIndex)%info%name))
-          END SELECT
-
-          IF(timers_level >= 7) CALL timer_stop(timer_load_restart_communication)
-        END DO
-
-        IF (my_process_is_mpi_workroot()) WRITE (0,*) ' ... read '//TRIM(NAME)
+        IF (SIZE(r(1)%p, 3) .GT. 0) r(1)%p(:,:,SIZE(r(1)%p, 3)) = 0._dp
+        CALL distrib_read(dfID, vname, r, (/dio/), &
+          & edim=(/SIZE(r(1)%p, 2)/), dimo=idx_lvl_blk)
+        IF (SIZE(r(1)%p) .GT. 0 .AND. dt .EQ. INT_T) THEN
+!ICON_OMP PARALLEL WORKSHARE
+          i(1)%p(:,:,:) = INT(r(1)%p(:,:,:))
+!ICON_OMP END PARALLEL WORKSHARE
+        END IF
+        IF (dt .EQ. INT_T) DEALLOCATE(r(1)%p)
+      CASE(SINGLE_T)
+        CALL get_var_3d_ptr(varData(vIdx)%p, s(1)%p)
+        IF (SIZE(s(1)%p, 3) .GT. 0) s(1)%p(:,:,SIZE(s(1)%p, 3)) = 0._sp
+        CALL distrib_read(dfID, vname, s, (/dio/), &
+          & edim=(/SIZE(s(1)%p, 2)/), dimo=idx_lvl_blk)
+      CASE DEFAULT
+        CALL finish(routine, "Internal error! Variable " // TRIM(vname))
+      END SELECT
+      IF (timers_level >= 7) CALL timer_stop(timer_load_restart_io)
+      nread = nread + 1
+#ifdef DEBUG
+      IF (is_root) WRITE (0,*) ' ... read ' // TRIM(vname)
+#endif
     END DO
-
-    IF (my_process_is_mpi_workroot())  CALL streamClose(fileID)
-
-    DEALLOCATE (r1d_d)
-    DEALLOCATE (r1d_s)
-    DEALLOCATE (i1d)
+    IF (is_root) WRITE (0,'(a,i5,a)') ' ... read ', nread, ' variables'
+    IF (is_root)  CALL streamClose(fID)
+    CALL distrib_nf_close(dfID)
   END SUBROUTINE singlefileReadPatch
 
 END MODULE mo_load_singlefile_restart

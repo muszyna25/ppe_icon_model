@@ -32,6 +32,8 @@
 
 MODULE mo_ocean_ext_data
 
+  USE mo_master_control,       ONLY: get_my_process_name
+  
   USE mo_kind,               ONLY: wp
   USE mo_io_units,           ONLY: filename_max
   USE mo_parallel_config,    ONLY: nproma
@@ -56,13 +58,10 @@ MODULE mo_ocean_ext_data
     &                              p_comm_work_test, p_comm_work
   USE mo_sync,               ONLY: global_sum_array
   USE mo_parallel_config,    ONLY: p_test_run
-  USE mo_linked_list,        ONLY: t_var_list
   USE mo_ext_data_types,     ONLY: t_external_data, t_external_atmos,    &
     &                              t_external_atmos_td, t_external_ocean
-  USE mo_var_list,           ONLY: default_var_list_settings,   &
-    &                              add_var, add_ref,            &
-    &                              new_var_list,                &
-    &                              delete_var_list
+  USE mo_var_list,           ONLY: add_var, add_ref, t_var_list_ptr
+  USE mo_var_list_register,  ONLY: vlr_add, vlr_del
   USE mo_master_config,      ONLY: getModelBaseDir
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var, grib2_var
@@ -189,7 +188,7 @@ CONTAINS
     TYPE(t_external_ocean), INTENT(INOUT) :: & !< current external data structure
       &  p_ext_oce 
 
-    TYPE(t_var_list) :: p_ext_oce_list !< current external data list
+    TYPE(t_var_list_ptr) :: p_ext_oce_list !< current external data list
 
     CHARACTER(len=*), INTENT(IN)  :: & !< list name
       &  listname
@@ -249,10 +248,8 @@ CONTAINS
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( p_ext_oce_list, TRIM(listname), patch_id=p_patch%id )
-    CALL default_var_list_settings( p_ext_oce_list,            &
-                                  & lrestart=.FALSE.,          &
-                                 & model_type='oce'  )
+    CALL vlr_add(p_ext_oce_list, TRIM(listname), patch_id=p_patch%id, &
+      & lrestart=.FALSE., model_type=TRIM(get_my_process_name()))
 
     ! bathymetric height at cell center
     !
@@ -299,6 +296,7 @@ CONTAINS
       grib2_desc = grib2_var( 192, 140, 219, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_oce_list, 'flux_forc_mon_c', p_ext_oce%flux_forc_mon_c,  &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape4d_c )
+      p_ext_oce%flux_forc_mon_c = 0.0_wp
     END IF
 
   END SUBROUTINE new_ext_data_oce_list
@@ -327,7 +325,7 @@ CONTAINS
 
     DO jg = 1,n_dom
       ! Delete list of constant in time oceanic elements
-      CALL delete_var_list( ext_data(jg)%oce_list )
+      CALL vlr_del(ext_data(jg)%oce_list)
     ENDDO
 
     CALL message (TRIM(routine), 'Destruction of data structure for ' // &
@@ -429,7 +427,7 @@ CONTAINS
       CALL nf(nf_close(ncid), routine)
     ENDIF
 
-    stream_id = openInputFile(grid_file, p_patch(jg))
+    CALL openinputfile(stream_id, grid_file, p_patch(jg))
 
     !-------------------------------------------------------
     !
@@ -532,7 +530,7 @@ CONTAINS
         CALL nf(nf_close(ncid), routine)
       ENDIF
 
-      stream_id = openInputFile(omip_file, p_patch(jg))
+      CALL openinputfile(stream_id, omip_file, p_patch(jg))
       
       IF(p_test_run) THEN
         mpi_comm = p_comm_work_test

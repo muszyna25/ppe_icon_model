@@ -2179,16 +2179,49 @@ CONTAINS
   !-----------------------------------------------------------------------
   !>
   !! Description:
-  !!  Gamma-function from Numerical Recipes (F77)
+  !!       Gamma function from Numerical Recipes (F77),
+  !!       reformulated to enable inlining and vectorisation.
   !! Method:
   !!
-  FUNCTION gamma_fct(x)
+  FUNCTION gamma_fct(x) RESULT(g)
 
     USE mo_kind, ONLY: wp
 
     IMPLICIT NONE
 
-    REAL (wp):: gamma_fct
+    REAL(wp) :: g
+    REAL(wp), INTENT(IN) :: x
+
+    REAL(wp) :: tmp, p
+
+    REAL(wp), PARAMETER :: c1 =  76.18009173_wp
+    REAL(wp), PARAMETER :: c2 = -86.50532033_wp
+    REAL(wp), PARAMETER :: c3 =  24.01409822_wp
+    REAL(wp), PARAMETER :: c4 = -1.231739516_wp
+    REAL(wp), PARAMETER :: c5 =  0.120858003e-2_wp
+    REAL(wp), PARAMETER :: c6 = -0.536382e-5_wp
+    REAL(wp), PARAMETER :: stp = 2.50662827465_wp
+
+    tmp = x + 4.5_wp;
+    p = stp * (1.0_wp + c1/x + c2/(x+1.0_wp) + c3/(x+2.0_wp) + c4/(x+3.0_wp) + c5/(x+4.0_wp) + c6/(x+5.0_wp))
+    g = EXP( (x-0.5_wp) * LOG(tmp) - tmp + LOG(p) )
+
+  END FUNCTION gamma_fct
+  !-------------------------------------------------------------------------
+
+  !-----------------------------------------------------------------------
+  !>
+  !! Description:
+  !!  Original Gamma-function from Numerical Recipes (F77), left in the code for reference
+  !! Method:
+  !!
+  FUNCTION gamma_fct_orig(x) RESULT(g)
+
+    USE mo_kind, ONLY: wp
+
+    IMPLICIT NONE
+
+    REAL (wp):: g
 
     REAL (wp):: cof(6) = (/76.18009173_wp, -86.50532033_wp, &
       & 24.01409822_wp, -1.231739516_wp, &
@@ -2209,9 +2242,9 @@ CONTAINS
     gamma = tmp + LOG(stp*ser)
     gamma = EXP(gamma)
 
-    gamma_fct = gamma
+    g = gamma
 
-  END FUNCTION gamma_fct
+  END FUNCTION gamma_fct_orig
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
@@ -2367,6 +2400,8 @@ CONTAINS
     intersect(2) = line1%p1%lat + m1*(intersect(1) - line1%p1%lon)
 
   END FUNCTION line_intersect
+
+
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
@@ -2439,7 +2474,7 @@ CONTAINS
 !$ACC PCOPYOUT( varout ), IF( i_am_accel_node .AND. acc_on )
 
     ! initialize c-prime and d-prime
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR
     DO jc=startidx, endidx
       cp(jc,slev) = c(jc,slev)/b(jc,slev)
@@ -2447,8 +2482,9 @@ CONTAINS
     ENDDO
 !$ACC END PARALLEL
     ! solve for vectors c-prime and d-prime
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP SEQ
+!NEC$ outerloop_unroll(4)
     DO i = slev+1,elev
 !$ACC LOOP GANG VECTOR PRIVATE( m )
       DO jc=startidx, endidx
@@ -2459,12 +2495,13 @@ CONTAINS
     ENDDO
 !$ACC END PARALLEL
     ! initialize varout
-!$ACC KERNELS IF( i_am_accel_node .AND. acc_on )
+!$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
     varout(startidx:endidx,elev) = dp(startidx:endidx,elev)
 !$ACC END KERNELS
     ! solve for varout from the vectors c-prime and d-prime
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP SEQ
+!NEC$ outerloop_unroll(4)
     DO i = elev-1, slev, -1
 !$ACC LOOP GANG VECTOR
       DO jc=startidx, endidx
@@ -2487,24 +2524,24 @@ CONTAINS
   !! Developed  by  Stephan Lorenz, MPI-M (2011).
   !!
   SUBROUTINE set_zlev(zlev_i, zlev_m, n_zlev, dzlev_m)
-    INTEGER , INTENT(IN)    :: n_zlev
-    REAL(wp), INTENT(INOUT) :: zlev_i(n_zlev+1), zlev_m(n_zlev)
-    REAL(wp), INTENT(IN)    :: dzlev_m(:)  ! namelist input of layer thickness
+    INTEGER , INTENT(IN)  :: n_zlev
+    REAL(wp), INTENT(OUT) :: zlev_i(n_zlev+1), zlev_m(n_zlev)
+    REAL(wp), INTENT(IN)  :: dzlev_m(:)  ! namelist input of layer thickness
 
     INTEGER :: jk
+    REAL(wp) :: accum
 
-    zlev_m(1) = 0.5_wp * dzlev_m(1)
 
-    zlev_i(1) = 0.0_wp
+    accum = 0.0_wp
     ! zlev_i    : upper border surface of vertical cells
-    DO jk = 2, n_zlev+1
-      zlev_i(jk) = zlev_i(jk-1) + dzlev_m(jk-1)
-    END DO
-
     ! zlev_m    : position of coordinate surfaces in meters below zero surface.
-    DO jk = 2, n_zlev
-      zlev_m(jk) = 0.5_wp * ( zlev_i(jk+1) + zlev_i(jk)  )
+    DO jk = 1, n_zlev
+      zlev_i(jk) = accum
+      zlev_m(jk) = 0.5_wp * ( 2.0_wp * accum + dzlev_m(jk)  )
+      accum = accum + dzlev_m(jk)
     END DO
+    zlev_i(n_zlev+1) = accum
+
   END SUBROUTINE set_zlev
 
   !> normalize latitude to range [-pi/2,pi/2]

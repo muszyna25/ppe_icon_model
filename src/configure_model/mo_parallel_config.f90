@@ -30,25 +30,26 @@ MODULE mo_parallel_config
        &  l_log_checks, l_fast_sum,   &
        &  ldiv_phys_dom, p_test_run, num_test_pe, l_test_openmp,    &
        &  pio_type, itype_comm, iorder_sendrecv, num_io_procs,      &
-       &  num_restart_procs, num_prefetch_proc,                     &
+       &  num_restart_procs, num_prefetch_proc, num_io_procs_radar, &
        &  use_icon_comm, icon_comm_debug, max_send_recv_buffer_size,&
        &  use_dycore_barrier, itype_exch_barrier, use_dp_mpi2io,    &
        &  icon_comm_method, icon_comm_openmp, max_no_of_comm_variables, &
        &  max_no_of_comm_processes, max_no_of_comm_patterns,        &
        &  sync_barrier_mode, max_mpi_message_size, use_physics_barrier, &
-       &  restart_chunk_size, ext_div_from_file, write_div_to_file, &
-       &  use_div_from_file, io_proc_chunk_size,                    &
+       &  restart_chunk_size, restart_load_scale_max, ext_div_from_file, &
+       &  write_div_to_file, use_div_from_file, io_proc_chunk_size, &
        &  num_dist_array_replicas, comm_pattern_type_orig,          &
        &  comm_pattern_type_yaxt, default_comm_pattern_type,        &
-       &  io_process_stride, io_process_rotate
+       &  io_process_stride, io_process_rotate, proc0_shift,        &
+       &  use_omp_input
 
-  PUBLIC :: set_nproma, get_nproma, cpu_min_nproma, check_parallel_configuration,   &
-       &    use_async_restart_output, blk_no, idx_no, idx_1d
+  PUBLIC :: set_nproma, get_nproma, cpu_min_nproma, update_nproma_on_device, proc0_offloading, &
+       &    check_parallel_configuration, use_async_restart_output, blk_no, idx_no, idx_1d
 
   ! computing setup
   ! ---------------
   INTEGER  :: nproma = 1              ! inner loop length/vector length
-  !$ACC DECLARE COPYIN(nproma)
+!$ACC DECLARE COPYIN(nproma)
 
   ! Number of rows of ghost cells
   INTEGER :: n_ghost_rows = 1
@@ -116,11 +117,24 @@ MODULE mo_parallel_config
 
   INTEGER :: num_io_procs = 0
 
+  ! Output procs for radar forward operator
+  INTEGER :: num_io_procs_radar = 0
+
   ! The number of PEs used for writing restart files (0 means, the worker PE0 writes)
   INTEGER :: num_restart_procs = 0
 
   ! The number of PEs used for async prefetching of input (0 means, the PE0 prefetches input)
   INTEGER :: num_prefetch_proc = 0
+
+  ! Shift of processor 0 in domain decomposition, e.g. to use proc 0 for input only
+  INTEGER :: proc0_shift = 0
+
+  ! Derived variable to indicate hybrid mode with proc 0 doing stdio only
+  LOGICAL :: proc0_offloading
+
+  ! Use OpenMP-parallelized input for atmospheric input data (in initicon), 
+  ! i.e. overlapping of reading data, communicating data and computing statistics
+  LOGICAL :: use_omp_input = .FALSE.
 
   ! Type of (halo) communication:
   ! 1 = synchronous communication with local memory for exchange buffers
@@ -142,9 +156,13 @@ MODULE mo_parallel_config
   !
   LOGICAL :: use_dp_mpi2io
 
-  ! The (asynchronous) restart is capable of writing and communicating
-  ! more than one 2D slice at once
+  ! The asynchronous and multifile checkpointing frameworks are capable of writing
+  ! and communicating more than one 2D slice at once.
   INTEGER :: restart_chunk_size
+
+  ! The multifile checkpointing framework is capable of reading and distributing
+  ! full 3d arrays (if there are less than restart_load_scale_max work PE per file.
+  INTEGER :: restart_load_scale_max = 1
 
   ! The (asynchronous) name list output is capable of writing and communicating
   ! more than one 2D slice at once
@@ -178,11 +196,14 @@ CONTAINS
     !  check the consistency of the parameters
     !------------------------------------------------------------
     IF (nproma<=0) CALL finish(TRIM(method_name),'"nproma" must be positive')
-#ifndef __SX__
+#if !defined (__SX__) && !defined (__NEC_VH__)
     ! migration helper: catch nproma's that were obviously intended
     !                   for a vector machine.
     IF (nproma>256) CALL warning(TRIM(method_name),'The value of "nproma" seems to be set for a vector machine!')
 #endif
+
+    IF (proc0_shift < 0) CALL finish(TRIM(method_name),'"proc0_shift" currently must be 0 (disable) or a positive number')
+    proc0_offloading = proc0_shift > 0
 
     icon_comm_openmp = .false.
 ! check l_test_openmp
@@ -263,9 +284,19 @@ CONTAINS
     INTEGER, INTENT(IN) :: new_nproma
 
     nproma = new_nproma
-    !$ACC UPDATE DEVICE(nproma)
+
 
   END SUBROUTINE set_nproma
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  SUBROUTINE update_nproma_on_device( i_am_worker )
+  LOGICAL, INTENT(IN)   :: i_am_worker
+
+!$ACC UPDATE DEVICE(nproma) IF ( i_am_worker )
+
+  END SUBROUTINE update_nproma_on_device
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------

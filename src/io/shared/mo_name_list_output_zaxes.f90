@@ -50,7 +50,7 @@ MODULE mo_name_list_output_zaxes
 
   USE ISO_C_BINDING,                        ONLY: C_SIGNED_CHAR
   USE mo_kind,                              ONLY: wp, dp
-  USE mo_impl_constants,                    ONLY: zml_soil, SUCCESS
+  USE mo_impl_constants,                    ONLY: SUCCESS, inwp
   USE mo_exception,                         ONLY: finish
   USE mo_zaxis_type,                        ONLY: zaxisTypeList,                                                 &
     &                                             ZA_depth_below_sea, ZA_depth_below_sea_half, ZA_GENERIC_ICE,   &
@@ -65,18 +65,19 @@ MODULE mo_name_list_output_zaxes
     &                                             ZA_PRES_FL_390_530, ZA_reference, ZA_reference_half,           &
     &                                             ZA_reference_half_hhl,                                         &
     &                                             ZA_sediment_bottom_tw_half, ZA_snow, ZA_snow_half, ZA_toa,     &
-    &                                             ZA_OCEAN_SEDIMENT, ZA_height_2m_layer
+    &                                             ZA_OCEAN_SEDIMENT, ZA_height_2m_layer, ZA_ECHOTOP, ZA_TROPOPAUSE
   USE mo_level_selection_types,             ONLY: t_level_selection
   USE mo_util_vgrid_types,                  ONLY: vgrid_buffer
   USE mo_math_utilities,                    ONLY: set_zlev, t_value_set
-  USE mo_run_config,                        ONLY: num_lev
+  USE mo_run_config,                        ONLY: num_lev, iforcing, nlev
   USE mo_name_list_output_zaxes_types,      ONLY: t_verticalAxis, t_verticalAxisList
 #ifndef __NO_ICON_ATMO__
+  USE mo_io_config,                         ONLY: echotop_meta
   USE mo_nonhydrostatic_config,             ONLY: ivctype
-  USE mo_lnd_nwp_config,                    ONLY: nlev_snow
+  USE mo_lnd_nwp_config,                    ONLY: nlev_snow, zml_soil
 #endif
 #ifndef __NO_ICON_OCEAN__
-  USE mo_ocean_nml,                         ONLY: n_zlev, dzlev_m,lhamocc
+  USE mo_ocean_nml,                         ONLY: dzlev_m,lhamocc, n_zlev
   USE mo_hamocc_nml,                        ONLY: ks, ksp, dzsed
 #endif
 
@@ -108,6 +109,7 @@ CONTAINS
     ! local variables
     REAL(dp), ALLOCATABLE             :: levels(:), lbounds(:), ubounds(:)
     INTEGER                           :: k, nlev, nlevp1, znlev_soil
+    INTEGER                           :: n_echotop
     TYPE(t_verticalAxisList), POINTER :: it
 #ifndef __NO_ICON_ATMO__
 
@@ -116,7 +118,11 @@ CONTAINS
 
     ! introduce temporary variable znlev_soil, since global variable
     ! nlev_soil is unknown to the I/O-Processor.
-    znlev_soil = SIZE(zml_soil)
+    IF ( iforcing == inwp ) THEN
+      znlev_soil = SIZE(zml_soil)
+    ELSE
+      znlev_soil = 0
+    ENDIF
 
     ! --------------------------------------------------------------------------------------
     ! Definitions for single levels --------------------------------------------------------
@@ -161,6 +167,8 @@ CONTAINS
     ! for having ice variable in the atmosphere (like AMIP)
     CALL verticalAxisList%append(t_verticalAxis(zaxisTypeList%getEntry(ZA_GENERIC_ICE), 1))
 
+    ! for having variable on the tropopause niveau
+    CALL verticalAxisList%append(single_level_axis(ZA_TROPOPAUSE, opt_grib2_level_type=7))
 
     ! --------------------------------------------------------------------------------------
     ! Definitions for single layers --------------------------------------------------------
@@ -208,6 +216,17 @@ CONTAINS
     CALL verticalAxisList%append(single_level_axis(ZA_ATMOSPHERE))
 
     ! --------------------------------------------------------------------------------------
+    ! Definitions for echotops of simulated radar reflectivity
+    ! --------------------------------------------------------------------------------------
+    n_echotop = echotop_meta(log_patch_id)%nechotop
+    IF ( n_echotop > 0) THEN
+      CALL verticalAxisList%append(t_verticalAxis(zaxisTypeList%getEntry(ZA_ECHOTOP), &
+                                   n_echotop, &
+                                   zaxisLevels=echotop_meta(log_patch_id)%dbzthresh(1:n_echotop), &
+                                   zaxisUnits="dBZ") )
+    END IF
+
+    ! --------------------------------------------------------------------------------------
     ! Definitions for reference grids (ZAXIS_REFERENCE) ------------------------------------
     ! --------------------------------------------------------------------------------------
 
@@ -243,32 +262,33 @@ CONTAINS
     ! Axes for soil model (ZAXIS_DEPTH_BELOW_LAND) -----------------------------------------
     ! --------------------------------------------------------------------------------------
 
-    ALLOCATE(levels(znlev_soil+1))
-    levels(1) = 0._dp
-    DO k = 1, znlev_soil
-      levels(k+1) = REAL(zml_soil(k)*1000._wp,dp)  ! in mm
-    END DO
-    CALL verticalAxisList%append(t_verticalAxis(zaxisTypeList%getEntry(ZA_depth_below_land_p1), &
-      &                                         znlev_soil+1, zaxisLevels=levels, zaxisUnits="mm"))
-    DEALLOCATE(levels)
+    IF ( iforcing == inwp ) THEN
+      ALLOCATE(levels(znlev_soil+1))
+      levels(1) = 0._dp
+      DO k = 1, znlev_soil
+        levels(k+1) = REAL(zml_soil(k)*1000._wp,dp)  ! in mm
+      END DO
+      CALL verticalAxisList%append(t_verticalAxis(zaxisTypeList%getEntry(ZA_depth_below_land_p1), &
+        &                                         znlev_soil+1, zaxisLevels=levels, zaxisUnits="mm"))
+      DEALLOCATE(levels)
 
-    ALLOCATE(lbounds(znlev_soil), ubounds(znlev_soil), levels(znlev_soil))
-    lbounds(1) = 0._dp   ! surface
-    DO k = 2, znlev_soil
-      lbounds(k)   = REAL((zml_soil(k-1) + (zml_soil(k-1) - lbounds(k-1))),dp)
-    ENDDO
-    DO k = 1, znlev_soil
-      ubounds(k) = REAL((zml_soil(k) + (zml_soil(k) - lbounds(k))),dp)
-      levels(k)  = REAL(zml_soil(k)*1000._wp,dp)
-    ENDDO
-    ubounds(:) = ubounds(:) * 1000._dp        ! in mm
-    lbounds(:) = lbounds(:) * 1000._dp        ! in mm
-    CALL verticalAxisList%append(t_verticalAxis(zaxisTypeList%getEntry(ZA_depth_below_land), &
-      &                                         znlev_soil, zaxisLevels=levels,              &
-      &                                         zaxisLbounds=lbounds, zaxisUbounds=ubounds,  &
-      &                                         zaxisUnits="mm"))
-    DEALLOCATE(lbounds, ubounds, levels)
-
+      ALLOCATE(lbounds(znlev_soil), ubounds(znlev_soil), levels(znlev_soil))
+      lbounds(1) = 0._dp   ! surface
+      DO k = 2, znlev_soil
+        lbounds(k)   = REAL((zml_soil(k-1) + (zml_soil(k-1) - lbounds(k-1))),dp)
+      ENDDO
+      DO k = 1, znlev_soil
+        ubounds(k) = REAL((zml_soil(k) + (zml_soil(k) - lbounds(k))),dp)
+        levels(k)  = REAL(zml_soil(k)*1000._wp,dp)
+      ENDDO
+      ubounds(:) = ubounds(:) * 1000._dp        ! in mm
+      lbounds(:) = lbounds(:) * 1000._dp        ! in mm
+      CALL verticalAxisList%append(t_verticalAxis(zaxisTypeList%getEntry(ZA_depth_below_land), &
+        &                                         znlev_soil, zaxisLevels=levels,              &
+        &                                         zaxisLbounds=lbounds, zaxisUbounds=ubounds,  &
+        &                                         zaxisUnits="mm"))
+      DEALLOCATE(lbounds, ubounds, levels)
+    ENDIF
 
     ! --------------------------------------------------------------------------------------
     ! Axes for multi-layer snow model (ZAXIS_SNOW) -----------------------------------------
@@ -381,13 +401,13 @@ CONTAINS
   !> Setup of vertical axes for output module: Ocean component
   !
   SUBROUTINE setup_zaxes_oce(verticalAxisList, level_selection)
+  
     TYPE(t_verticalAxisList), INTENT(INOUT) :: verticalAxisList
     TYPE(t_level_selection),  INTENT(IN), POINTER :: level_selection
     ! local variables
     REAL(wp), ALLOCATABLE             :: levels_i(:), levels_m(:)
     REAL(wp), ALLOCATABLE             :: levels_s(:), levels_sp(:)
-
-
+    
 #ifndef __NO_ICON_OCEAN__
     ALLOCATE(levels_i(n_zlev+1), levels_m(n_zlev))
     CALL set_zlev(levels_i, levels_m, n_zlev, dzlev_m)
@@ -423,19 +443,21 @@ CONTAINS
   ! --------------------------------------------------------------------------------------
   !> Utility function: defines z-axis with a single level
   !
-  FUNCTION single_level_axis(za_type, opt_level_value, opt_unit)
+  FUNCTION single_level_axis(za_type, opt_level_value, opt_unit, opt_grib2_level_type)
     TYPE(t_verticalAxis) :: single_level_axis
-    INTEGER,          INTENT(IN)           :: za_type  !< ICON-internal axis ID (see mo_zaxis_type)
-    REAL(dp),         INTENT(IN), OPTIONAL :: opt_level_value   !< level value
-    CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: opt_unit          !< axis unit
+    INTEGER,          INTENT(IN)           :: za_type               !< ICON-internal axis ID (see mo_zaxis_type)
+    REAL(dp),         INTENT(IN), OPTIONAL :: opt_level_value       !< level value
+    CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: opt_unit              !< axis unit
+    INTEGER,          INTENT(in), OPTIONAL :: opt_grib2_level_type  !< level type as defined in GRIB2
     ! local variables
     REAL(dp) :: levels(1)
 
     levels(1) = 0.0_dp
-    IF (PRESENT(opt_level_value))  levels(1) = opt_level_value
+    IF (PRESENT(opt_level_value)) levels(1) = opt_level_value
 
-    single_level_axis = t_verticalAxis(zaxisTypeList%getEntry(za_type), 1,     &
-      &                                zaxisLevels=levels)
+    single_level_axis = t_verticalAxis(zaxisTypeList%getEntry(za_type), 1,  &
+         &                             zaxisLevels=levels,                  &
+         &                             zaxisDefLtype=opt_grib2_level_type)
 
     IF (PRESENT(opt_unit))  CALL single_level_axis%set(zaxisUnits=TRIM(opt_unit))
   END FUNCTION single_level_axis
@@ -470,7 +492,7 @@ CONTAINS
     &                    opt_name, opt_number, opt_nlevref,           &
     &                    opt_uuid, opt_set_vct_as_levels,             &
     &                    opt_vct)  RESULT(axis)
-    
+
     TYPE(t_verticalAxis) :: axis
 
     INTEGER,                 INTENT(IN) :: za_type        !< ICON-internal axis ID (see mo_zaxis_type)

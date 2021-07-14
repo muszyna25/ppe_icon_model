@@ -21,7 +21,7 @@
 MODULE mo_random_util
 
   USE mo_kind,                ONLY: wp
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, ON_CELLS, ON_EDGES, ON_VERTICES
+  USE mo_impl_constants,      ONLY: SUCCESS, ON_CELLS, ON_EDGES, ON_VERTICES
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
  ! USE mo_mpi,                 ONLY: get_my_global_mpi_id, global_mpi_barrier
@@ -29,7 +29,7 @@ MODULE mo_random_util
   IMPLICIT NONE
   PRIVATE
  
-  PUBLIC :: add_random_noise_global
+  PUBLIC :: add_random_noise_global, add_random_noise
 
 CONTAINS
 
@@ -129,6 +129,10 @@ CONTAINS
         DO js = 0, seed_size-1
            seed_array(js+1) = seed_trigger + js * add_thisSeed
         ENDDO
+        ! Since this routine is not called from OpenMP, no need to change the seed
+        ! WARNING: changing the seed produced LOW-QUALITY and CORRELATED sequences
+        ! WS 2019-11-15: reenabled in order to pass Mistral atm_rce_les tests
+        !                but Dmitry's comment above has to be addressed...
         CALL RANDOM_SEED( PUT=seed_array )
         CALL RANDOM_NUMBER( noise_1D(start_level:end_level))
 
@@ -149,5 +153,41 @@ CONTAINS
  !   CALL finish(method_name, " global_vertical_seed")
 
   END SUBROUTINE add_random_noise_global
+
+  SUBROUTINE add_random_noise( &
+    subset, nproma, nlev, nblk, &
+    amplitude, seed_in, &
+    field)
+
+    TYPE(t_subset_range), INTENT(IN) :: subset
+    REAL(wp), INTENT(IN) :: amplitude
+    INTEGER, INTENT(IN) :: nproma, nlev, nblk, seed_in
+    REAL(wp), INTENT(INOUT) :: field(:,:,:)
+
+    REAL(wp) :: noise(nproma, nlev, nblk)
+    INTEGER :: seed_size, start_idx, end_idx, i, jl, jk, jb
+    INTEGER, ALLOCATABLE :: seed(:)
+
+    CALL RANDOM_SEED(SIZE = seed_size)
+    ALLOCATE(seed(seed_size))
+
+    DO i=1,seed_size
+        seed(i) = seed_in + i
+    ENDDO
+
+    CALL RANDOM_SEED(PUT = seed)
+    CALL RANDOM_NUMBER(noise)
+
+    DO jb=subset%start_block,subset%end_block
+      CALL get_index_range( subset, jb, start_idx, end_idx)
+      DO jk=1,nlev
+        DO jl=start_idx,end_idx
+          field(jl,jk,jb) = field(jl,jk,jb) * ((noise(jl,jk,jb) * 2._wp - 1._wp) * amplitude + 1._wp)
+        ENDDO !jk
+      ENDDO !jl
+    ENDDO !jb
+
+  END SUBROUTINE add_random_noise
+
 
 END MODULE mo_random_util

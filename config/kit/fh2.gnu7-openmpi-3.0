@@ -1,0 +1,85 @@
+#!/bin/bash
+
+set -eu
+
+SCRIPT_DIR=$(cd "$(dirname "$0")"; pwd)
+ICON_DIR=$(cd "${SCRIPT_DIR}/../.."; pwd)
+
+MODULES='compiler/gnu/7 mpi/openmpi/3.0 lib/netcdf/4.7 lib/hdf5/1.10 lib/netcdf-fortran/4.5 eccodes/eccodes_gnu7 numlib/mkl/2018'
+
+HDF5_ROOT="/software/all/lib/hdf5/1.10_gnu_7_openmpi_3.0"
+HDF5_LIBS='-lhdf5'
+
+NETCDF_ROOT="/software/all/lib/netcdf/4.7_gnu_7_openmpi_3.0"
+NETCDF_LIBS='-lnetcdf'
+
+NETCDFF_ROOT="/software/all/lib/netcdf-fortran/4.5_gnu_7_openmpi_3.0"
+NETCDFF_LIBS='-lnetcdff'
+
+GRIBAPI_ROOT="/software/community/ICON/lib/eccodes/2.12.0_gnu7"
+GRIBAPI_LIBS='-leccodes'
+
+BLAS_LAPACK_LDFLAGS='-lmkl_gf_lp64 -lmkl_sequential -lmkl_core'
+
+XML2_ROOT='/usr'
+XML2_LIBS='-lxml2'
+MKL_ROOT=$MKLROOT
+MKL_LIBS='-L${MKLROOT}/lib/intel64 -lmkl_gf_lp64 -lmkl_sequential -lmkl_core'
+
+################################################################################
+
+BUILD_ENV="module load compiler/gnu/7 numlib/mkl/2019 mpi/openmpi/3.0 lib/netcdf/4.7 lib/hdf5/1.10 lib/netcdf-fortran/4.5 eccodes/eccodes_gnu7; export CFLAGS=\"-O2 -g -march=native -mpc64\"; export FCFLAGS=\"-O2 -std=f2008 -fmodule-private -fimplicit-none -fmax-identifier-length=63 -Wall -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter -Wno-surprising -fall-intrinsics -g -march=native -mpc64  -I${NETCDFF_ROOT}/include -I/software/all/mpi/openmpi/3.0_gnu_7/lib -I/software/all/mpi/openmpi/3.0_gnu_7/include\"; export LD_LIBRARY_PATH=\"${HDF5_ROOT}/lib:${NETCDF_ROOT}/lib:${NETCDFF_ROOT}/lib:${GRIBAPI_ROOT}/lib:\${LD_LIBRARY_PATH}\";"
+#BUILD_ENV=""
+#LD_LIBRARY_PATH="/software/all/lib/netcdf-fortran/4.4_intel_19.0_openmpi_3.0/lib:/software/all/lib/hdf5/1.10_intel_19.0_openmpi_3.0/lib:/software/all/lib/netcdf/4.6_intel_19.0_openmpi_3.0/lib:/software/all/mpi/openmpi/3.0_intel_19.0/lib:/opt/intel/compilers_and_libraries_2019/linux/lib/intel64:/opt/intel/compilers_and_libraries_2018/linux/mkl/lib/intel64"
+CC='/opt/gcc/7/bin/gcc -I/software/all/mpi/openmpi/3.0_gnu_7/lib -I/software/all/mpi/openmpi/3.0_gnu_7/include'
+CFLAGS='-g -O2 -march=native -pc64'
+CPPFLAGS="-I${HDF5_ROOT}/include -I${NETCDF_ROOT}/include -I${GRIBAPI_ROOT}/include -I${XML2_ROOT}/include/libxml2"
+ICON_FCFLAGS='-fbacktrace -fbounds-check -fstack-protector-all -finit-real=nan -finit-integer=-2147483648 -finit-character=127 -O2'
+
+FC='/opt/gcc/7/bin/gfortran -I/software/all/mpi/openmpi/3.0_gnu_7/lib -I/software/all/mpi/openmpi/3.0_gnu_7/include'
+#ICON_FCFLAGS='-O2 -standard-semantics -assume realloc_lhs -ftz -I/software/all/mpi/openmpi/3.0_gnu_7/lib -I/software/all/mpi/openmpi/3.0_intel_19.0/include'
+FCFLAGS="-I${NETCDFF_ROOT}/include -I${NETCDFF_ROOT}/lib -I/software/all/mpi/openmpi/3.0_gnu_7/lib -I/software/all/mpi/openmpi/3.0_gnu_7/include "
+
+LDFLAGS="-L${HDF5_ROOT}/lib -L${NETCDF_ROOT}/lib -L${NETCDFF_ROOT}/lib  -I${NETCDF_ROOT}/include -I/software/all/mpi/openmpi/3.0_gnu_7/lib -I/software/all/mpi/openmpi/3.0_gnu_7/include -L${HDF5_ROOT}/lib -L${NETCDF_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${GRIBAPI_ROOT}/lib ${BLAS_LAPACK_LDFLAGS} -L/software/all/mpi/openmpi/3.0_gnu_7/lib -L/software/all/mpi/openmpi/3.0_gnu_7/include -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -L${MKL_ROOT}/lib/intel64"
+LIBS="${XML2_LIBS} ${GRIBAPI_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${HDF5_LIBS} "
+
+MPI_LAUNCH='mpiexec'
+
+EXTRA_CONFIG_ARGS='--disable-rpaths --enable-grib2'
+
+
+################################################################################
+
+"${ICON_DIR}/configure" \
+BUILD_ENV="${BUILD_ENV}" \
+CC="${CC}" \
+CFLAGS="${CFLAGS}" \
+CPPFLAGS="${CPPFLAGS}" \
+FC="${FC}" \
+FCFLAGS="${FCFLAGS}" \
+LDFLAGS="${LDFLAGS}" \
+LIBS="${LIBS}" \
+MPI_LAUNCH="${MPI_LAUNCH}" \
+${EXTRA_CONFIG_ARGS} \
+"$@"
+
+for arg in "$@"; do
+  case $arg in
+    -help | --help | --hel | --he | -h | -help=r* | --help=r* | --hel=r* | --he=r* | -hr* | -help=s* | --help=s* | --hel=s* | --he=s* | -hs*)
+      test -n "${EXTRA_CONFIG_ARGS}" && echo '' && echo "This wrapper script ('$0') calls the configure script with the following extra arguments, which might override the default values listed above: ${EXTRA_CONFIG_ARGS}"
+      exit 0 ;;
+  esac
+done
+
+# Generate input file for runscript generation:
+./config.status --file=run/exec.iconrun --file=run/add_run_routines --file=run/set-up.info
+
+# Copy runscript-related files when building out-of-source:
+if test $(pwd) != $(cd "${ICON_DIR}"; pwd); then
+  echo "Copying runscript input files from the source directory..."
+  rsync -uavz ${ICON_DIR}/run . --exclude='*in' --exclude='.*'
+  rsync -uavz ${ICON_DIR}/externals . --exclude='.git' --exclude='*.f90' --exclude='*.F90' --exclude='*.c' --exclude='*.h' --exclude='*.Po' --exclude='tests' --exclude='rrtmgp*.nc' --exclude='*.mod' --exclude='*.o'
+  rsync -uavz ${ICON_DIR}/make_runscripts .
+  ln -sf ${ICON_DIR}/data
+fi
+

@@ -17,6 +17,7 @@
 
 !----------------------------
 #include "omp_definitions.inc"
+#include "icon_contiguous_defines.inc"
 !----------------------------
 
 MODULE mo_nh_nest_utilities
@@ -41,7 +42,7 @@ MODULE mo_nh_nest_utilities
   USE mo_nwp_phy_state,       ONLY: prm_diag
   USE mo_nonhydrostatic_config,ONLY: ndyn_substeps_var
   USE mo_atm_phy_nwp_config,  ONLY: iprog_aero
-  USE mo_impl_constants,      ONLY: min_rlcell_int, min_rledge_int, MAX_CHAR_LENGTH, min_rlcell, min_rledge
+  USE mo_impl_constants,      ONLY: min_rlcell_int, min_rledge_int, min_rlcell, min_rledge
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c,                       &
     grf_bdyintp_end_c,                         &
@@ -68,6 +69,7 @@ MODULE mo_nh_nest_utilities
     prep_bdy_nudging, nest_boundary_nudging, save_progvars,                     &
     prep_rho_bdy_nudging, density_boundary_nudging, limarea_bdy_nudging
 
+  CHARACTER(len=*), PARAMETER :: modname = 'mo_nh_nest_utilities'
 CONTAINS
 
   !>
@@ -121,7 +123,7 @@ CONTAINS
         ! Copy layer thicknesses to local parent of current child
 
         p_lp => p_patch_local_parent(jgc)
-        ALLOCATE(p_lp%cells%ddqz_z_full(nproma, p_lp%nlev, p_lp%n_patch_cells))
+        ALLOCATE(p_lp%cells%ddqz_z_full(nproma, p_lp%nlev, p_lp%nblks_c))
         p_lp%cells%ddqz_z_full(:,:,:) = 0._wp ! Safety only
         CALL exchange_data(p_lp%comm_pat_glb_to_loc_c, p_lp%cells%ddqz_z_full, &
           &                p_nh_state(jg)%metrics%ddqz_z_full)
@@ -202,6 +204,11 @@ CONTAINS
           ENDDO
         ENDDO
 
+!
+! rho_ref_corr is one of several variables which is not defined with ADD_VAR, and needs to be explicitly copied to DEVICE
+!
+!$ACC ENTER DATA COPYIN( p_nh_state(jgc)%metrics%rho_ref_corr )
+
         DEALLOCATE(z_rho_ref)
 
       ENDDO
@@ -275,7 +282,7 @@ CONTAINS
         DO jk = 1, nlev
 #else
       DO jk = 1, nlev
-!CDIR NODEP
+!$NEC ivdep
         DO ic = jshift+1, jshift+nlen
           jc = p_grf%idxlist_bdyintp_src_c(ic)
           jb = p_grf%blklist_bdyintp_src_c(ic)
@@ -325,7 +332,7 @@ CONTAINS
         DO jk = 1, nlev
 #else
       DO jk = 1, nlev
-!CDIR NODEP
+!$NEC ivdep
         DO ie = jshift+1, jshift+nlen
           je = p_grf%idxlist_bdyintp_src_e(ie)
           jb = p_grf%blklist_bdyintp_src_e(ie)
@@ -349,6 +356,7 @@ CONTAINS
   !>
   !! Computes the time tendencies of the prognostic variables needed for
   !! interpolation to the lateral boundaries of the nested domains
+  !! In addition, compute upper boundary condition for vertical nesting.
   !!
   !! @par Revision History
   !! Developed by Guenther Zaengl, DWD, 2010-02-10
@@ -372,11 +380,11 @@ CONTAINS
     ! local variables
     !
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx,       &
-      ib, jb, ic, jc, ie, je, jk, jt, js, i_nchdom, nshift, jk_start, jshift
+      ib, jb, ic, jc, ie, je, jk, jt, js, nshift, jk_start, jshift
     INTEGER :: nlev, nlevp1           !< number of full and half levels
     INTEGER :: nproma_bdyintp, nblks_bdyintp, npromz_bdyintp, nlen, ntracer_bdyintp, nsubs
 
-    REAL(wp) :: rdt_ubc, dthalf
+    REAL(wp) :: rnsubs        ! inverse: 1/nsubs
     ! Switch to control if the child domain is vertically nested and therefore
     ! needs interpolation of upper boundary conditions
     LOGICAL :: l_child_vertnest
@@ -391,9 +399,8 @@ CONTAINS
 
     !-----------------------------------------------------------------------
 
-    i_nchdom = MAX(1,p_patch(jg)%n_childdom)
-
-    nsubs    = ndyn_substeps_var(jg)
+    nsubs  = ndyn_substeps_var(jg)
+    rnsubs = 1._wp/REAL(nsubs,wp)
 
     p_grf          => p_grf_state(jg)
     p_nh           => p_nh_state(jg)
@@ -426,16 +433,14 @@ CONTAINS
     ! for dynamic nproma blocking
     nproma_bdyintp = cpu_min_nproma(nproma,256)
 
-    rdt_ubc = rdt*REAL(nsubs,wp)/REAL(2*(MAX(1,nsubs-2)),wp)
-    dthalf = 1._wp/(2._wp*rdt)
 
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk,nblks_bdyintp,npromz_bdyintp)
 
-    IF (l_child_vertnest) THEN ! Compute upper boundary condition and its time derivative for nested domain
+    IF (l_child_vertnest) THEN ! Compute upper boundary condition for nested domain
 
       ! cell-based variables
-      i_startblk = p_patch(jg)%cells%start_blk(grf_bdywidth_c+1,1)
-      i_endblk   = p_patch(jg)%cells%end_blk(min_rlcell_int,i_nchdom)
+      i_startblk = p_patch(jg)%cells%start_block(grf_bdywidth_c+1)
+      i_endblk   = p_patch(jg)%cells%end_block(min_rlcell_int)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,js) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
@@ -443,43 +448,41 @@ CONTAINS
         CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
           i_startidx, i_endidx, grf_bdywidth_c+1, min_rlcell_int)
 
-        p_nh%diag%dw_int         (:,jb,nsubs+1)         = 0._wp
-        p_nh%diag%mflx_ic_int    (:,jb,nsubs+1:nsubs+2) = 0._wp
-        p_nh%diag%dtheta_v_ic_int(:,jb,nsubs+1)         = 0._wp
+        DO jc = i_startidx, i_endidx
+          p_nh%diag%w_int          (jc,jb,nsubs+1) = 0._wp
+          p_nh%diag%theta_v_ic_int (jc,jb,nsubs+1) = 0._wp
+          p_nh%diag%rho_ic_int     (jc,jb,nsubs+1) = 0._wp
+          p_nh%diag%mflx_ic_int    (jc,jb,nsubs+1) = 0._wp
+        ENDDO
+        !
         DO js = 1, nsubs
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
-            p_nh%diag%dw_int(jc,jb,nsubs+1)          = p_nh%diag%dw_int(jc,jb,nsubs+1) +          &
-              p_nh%diag%dw_int(jc,jb,js)
-            p_nh%diag%mflx_ic_int(jc,jb,nsubs+1)     = p_nh%diag%mflx_ic_int(jc,jb,nsubs+1) +     &
+            p_nh%diag%w_int(jc,jb,nsubs+1)          = p_nh%diag%w_int(jc,jb,nsubs+1) +           &
+              p_nh%diag%w_int(jc,jb,js)
+            !
+            p_nh%diag%theta_v_ic_int(jc,jb,nsubs+1) = p_nh%diag%theta_v_ic_int(jc,jb,nsubs+1) + &
+              p_nh%diag%theta_v_ic_int(jc,jb,js)
+            !
+            p_nh%diag%rho_ic_int(jc,jb,nsubs+1)     = p_nh%diag%rho_ic_int(jc,jb,nsubs+1) +   &
+              p_nh%diag%rho_ic_int(jc,jb,js)
+            !
+            p_nh%diag%mflx_ic_int(jc,jb,nsubs+1)    = p_nh%diag%mflx_ic_int(jc,jb,nsubs+1) +     &
               p_nh%diag%mflx_ic_int(jc,jb,js)
-            p_nh%diag%dtheta_v_ic_int(jc,jb,nsubs+1) = p_nh%diag%dtheta_v_ic_int(jc,jb,nsubs+1) + &
-              p_nh%diag%dtheta_v_ic_int(jc,jb,js)
           ENDDO
         ENDDO
         DO jc = i_startidx, i_endidx
-          p_nh%diag%dw_int(jc,jb,nsubs+1)          = p_nh%diag%dw_int(jc,jb,nsubs+1)          / REAL(nsubs,wp)
-          p_nh%diag%mflx_ic_int(jc,jb,nsubs+1)     = p_nh%diag%mflx_ic_int(jc,jb,nsubs+1)     / REAL(nsubs,wp)
-          p_nh%diag%dtheta_v_ic_int(jc,jb,nsubs+1) = p_nh%diag%dtheta_v_ic_int(jc,jb,nsubs+1) / REAL(nsubs,wp)
+          p_nh%diag%w_int(jc,jb,nsubs+1)             = p_nh%diag%w_int(jc,jb,nsubs+1)          * rnsubs
+          p_nh%diag%theta_v_ic_int(jc,jb,nsubs+1)    = p_nh%diag%theta_v_ic_int(jc,jb,nsubs+1) * rnsubs
+          p_nh%diag%rho_ic_int(jc,jb,nsubs+1)        = p_nh%diag%rho_ic_int(jc,jb,nsubs+1)     * rnsubs
+          p_nh%diag%mflx_ic_int(jc,jb,nsubs+1)       = p_nh%diag%mflx_ic_int(jc,jb,nsubs+1)    * rnsubs
         ENDDO
-        IF (nsubs >= 3) THEN
-!DIR$ IVDEP
-          DO jc = i_startidx, i_endidx
-            ! Compute time tendency of mass flux upper boundary condition to obtain second-order accuracy in time
-            p_nh%diag%mflx_ic_int(jc,jb,nsubs+2) = (SUM(p_nh%diag%mflx_ic_int(jc,jb,nsubs-1:nsubs)) - &
-              SUM(p_nh%diag%mflx_ic_int(jc,jb,1:2)))*rdt_ubc
-            ! Shift time level of averaged field back to the beginning of the first dynamic substep
-            p_nh%diag%mflx_ic_int(jc,jb,nsubs+1) = p_nh%diag%mflx_ic_int(jc,jb,nsubs+1) - &
-              dthalf*p_nh%diag%mflx_ic_int(jc,jb,nsubs+2)
-          ENDDO
-        ENDIF
-
       ENDDO
 !$OMP END DO
 
       ! edge-based variables
-      i_startblk = p_patch(jg)%edges%start_blk(grf_bdywidth_e+1,1)
-      i_endblk   = p_patch(jg)%edges%end_blk(min_rledge_int-2,i_nchdom)
+      i_startblk = p_patch(jg)%edges%start_block(grf_bdywidth_e+1)
+      i_endblk   = p_patch(jg)%edges%end_block(min_rledge_int-2)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
@@ -528,7 +531,7 @@ CONTAINS
         DO jk = jk_start, nlev
 #else
       DO jk = jk_start, nlev
-!CDIR NODEP
+!$NEC ivdep
         DO ic = jshift+1, jshift+nlen
           jc = p_grf%idxlist_bdyintp_src_c(ic)
           jb = p_grf%blklist_bdyintp_src_c(ic)
@@ -572,7 +575,7 @@ CONTAINS
 #else
       DO jt = 1,ntracer_bdyintp
         DO jk = jk_start, nlev
-!CDIR NODEP
+!$NEC ivdep
           DO ic = jshift+1, jshift+nlen
             jc = p_grf%idxlist_bdyintp_src_c(ic)
             jb = p_grf%blklist_bdyintp_src_c(ic)
@@ -618,7 +621,7 @@ CONTAINS
         DO jk = jk_start, nlev
 #else
       DO jk = jk_start, nlev
-!CDIR NODEP
+!$NEC ivdep
         DO ie = jshift+1, jshift+nlen
           je = p_grf%idxlist_bdyintp_src_e(ie)
           jb = p_grf%blklist_bdyintp_src_e(ie)
@@ -640,7 +643,9 @@ CONTAINS
   !
   !>
   !! Interpolates time tendencies of prognostic variables to the lateral boundary
-  !! of a refined mesh
+  !! of a refined mesh.
+  !! In addition, performs interpolations to upper nest boundaries needed for 
+  !! vertical nesting.
   !!
   !! @par Revision History
   !! Developed  by Guenther Zaengl, DWD, 2008-07-10
@@ -648,8 +653,8 @@ CONTAINS
   SUBROUTINE boundary_interpolation (jg,jgc,ntp_dyn,ntc_dyn,ntp_tr,ntc_tr, &
     mass_flx_p,mass_flx_c)
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_nh_nest_utilities:boundary_interpolation'
+    CHARACTER(len=*), PARAMETER ::  &
+      &  routine = modname//':boundary_interpolation'
 
 
     INTEGER, INTENT(IN)     :: jg, jgc      ! domain ID of parent and child grid
@@ -683,7 +688,7 @@ CONTAINS
 
     INTEGER :: nlev_c                  ! number of full levels (child domain)
 
-    INTEGER :: i_chidx, i_nchdom, i_sbc, i_ebc
+    INTEGER :: i_chidx, i_sbc, i_ebc
     INTEGER :: ntracer_bdyintp, nsubs
 
     REAL(wp) :: aux3dp(nproma,ntracer+4,p_patch(jg)%nblks_c), &
@@ -702,7 +707,7 @@ CONTAINS
 
     IF (msg_level >= 10) THEN
       WRITE(message_text,'(a,i2,a,i2)') '========= Interpolate:',jg,' =>',jgc
-      CALL message(TRIM(routine),message_text)
+      CALL message(routine, message_text)
     ENDIF
 
     !$  num_threads_omp = omp_get_max_threads()
@@ -720,7 +725,6 @@ CONTAINS
 
 
     i_chidx = p_patch(jgc)%parent_child_index
-    i_nchdom   = MAX(1,p_pc%n_childdom)
 
     nsubs    = ndyn_substeps_var(jg)
 
@@ -759,9 +763,8 @@ CONTAINS
       i_endblk   = p_pp%cells%end_block(min_rlcell_int)
 
       ! For back-copying at child level
-      i_nchdom   = MAX(1,p_pc%n_childdom)
-      i_sbc      = p_pc%cells%start_blk(grf_nudge_start_c,1)
-      i_ebc      = p_pc%cells%end_blk(min_rlcell_int,i_nchdom)
+      i_sbc      = p_pc%cells%start_block(grf_nudge_start_c-2)
+      i_ebc      = p_pc%cells%end_block(min_rlcell_int)
 
       IF (ltransport) THEN
 
@@ -770,11 +773,12 @@ CONTAINS
 
           CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
             0, min_rlcell_int)
-
+!$NEC ivdep
           DO jc = i_startidx, i_endidx
-            aux3dp(jc,1,jb)   = p_diagp%dw_int(jc,jb,nsubs+1)
-            aux3dp(jc,2:3,jb) = p_diagp%mflx_ic_int(jc,jb,nsubs+1:nsubs+2)
-            aux3dp(jc,4,jb)   = p_diagp%dtheta_v_ic_int(jc,jb,nsubs+1)
+            aux3dp(jc,1,jb) = p_diagp%w_int(jc,jb,nsubs+1)
+            aux3dp(jc,2,jb) = p_diagp%theta_v_ic_int(jc,jb,nsubs+1)
+            aux3dp(jc,3,jb) = p_diagp%rho_ic_int(jc,jb,nsubs+1)
+            aux3dp(jc,4,jb) = p_diagp%mflx_ic_int(jc,jb,nsubs+1)
           ENDDO
           DO jt = 1, ntracer
             DO jc = i_startidx, i_endidx
@@ -786,19 +790,21 @@ CONTAINS
 
         CALL sync_patch_array(SYNC_C,p_pp,aux3dp)
 
-        CALL interpol_scal_ubc (p_pp, p_pc, p_grf%p_dom(i_chidx),  &
+        CALL interpol_scal_ubc (p_pc, p_grf%p_dom(i_chidx),  &
           ntracer+4, aux3dp, aux3dc)
 
 !$OMP PARALLEL DO PRIVATE(jb,i_startidx,i_endidx,jc,jt) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_sbc, i_ebc
 
           CALL get_indices_c(p_pc, jb, i_sbc, i_ebc, i_startidx, i_endidx, &
-            grf_nudge_start_c, min_rlcell_int)
+            grf_nudge_start_c-2, min_rlcell_int)
 
+!$NEC ivdep
           DO jc = i_startidx, i_endidx
-            p_diagc%dw_ubc(jc,jb)          = aux3dc(jc,1,jb)
-            p_diagc%mflx_ic_ubc(jc,jb,1:2) = aux3dc(jc,2:3,jb)
-            p_diagc%dtheta_v_ic_ubc(jc,jb) = aux3dc(jc,4,jb)
+            p_diagc%w_ubc(jc,jb)          = aux3dc(jc,1,jb)
+            p_diagc%theta_v_ic_ubc(jc,jb) = aux3dc(jc,2,jb)
+            p_diagc%rho_ic_ubc(jc,jb)     = aux3dc(jc,3,jb)
+            p_diagc%mflx_ic_ubc(jc,jb)    = aux3dc(jc,4,jb)
           ENDDO
           DO jt = 1, ntracer
             DO jc = i_startidx, i_endidx
@@ -815,29 +821,32 @@ CONTAINS
 
           CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
             0, min_rlcell_int)
-
+!$NEC ivdep
           DO jc = i_startidx, i_endidx
-            aux3dp(jc,1,jb)   = p_diagp%dw_int(jc,jb,nsubs+1)
-            aux3dp(jc,2:3,jb) = p_diagp%mflx_ic_int(jc,jb,nsubs+1:nsubs+2)
-            aux3dp(jc,4,jb)   = p_diagp%dtheta_v_ic_int(jc,jb,nsubs+1)
+            aux3dp(jc,1,jb) = p_diagp%w_int(jc,jb,nsubs+1)
+            aux3dp(jc,2,jb) = p_diagp%theta_v_ic_int(jc,jb,nsubs+1)
+            aux3dp(jc,3,jb) = p_diagp%rho_ic_int(jc,jb,nsubs+1)
+            aux3dp(jc,4,jb) = p_diagp%mflx_ic_int(jc,jb,nsubs+1)
           ENDDO
         ENDDO
 !$OMP END PARALLEL DO
 
         CALL sync_patch_array(SYNC_C,p_pp,aux3dp)
 
-        CALL interpol_scal_ubc(p_pp, p_pc, p_grf%p_dom(i_chidx), 4, aux3dp, aux3dc)
+        CALL interpol_scal_ubc(p_pc, p_grf%p_dom(i_chidx), 4, aux3dp, aux3dc)
 
 !$OMP PARALLEL DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_sbc, i_ebc
 
           CALL get_indices_c(p_pc, jb, i_sbc, i_ebc, i_startidx, i_endidx, &
-            grf_nudge_start_c, min_rlcell_int)
+            grf_nudge_start_c-2, min_rlcell_int)
 
+!$NEC ivdep
           DO jc = i_startidx, i_endidx
-            p_diagc%dw_ubc(jc,jb)          = aux3dc(jc,1,jb)
-            p_diagc%mflx_ic_ubc(jc,jb,1:2) = aux3dc(jc,2:3,jb)
-            p_diagc%dtheta_v_ic_ubc(jc,jb) = aux3dc(jc,4,jb)
+            p_diagc%w_ubc(jc,jb)          = aux3dc(jc,1,jb)
+            p_diagc%theta_v_ic_ubc(jc,jb) = aux3dc(jc,2,jb)
+            p_diagc%rho_ic_ubc(jc,jb)     = aux3dc(jc,3,jb)
+            p_diagc%mflx_ic_ubc(jc,jb)    = aux3dc(jc,4,jb)
           ENDDO
         ENDDO
 !$OMP END PARALLEL DO
@@ -878,8 +887,8 @@ CONTAINS
         p_nh_state(jg)%diag%dpres_mc, theta_prc      )
 
       ! Start and end blocks for which interpolation is needed
-      i_startblk = p_pc%cells%start_blk(1,1)
-      i_endblk   = p_pc%cells%end_blk(grf_bdywidth_c,i_nchdom)
+      i_startblk = p_pc%cells%start_block(1)
+      i_endblk   = p_pc%cells%end_block(grf_bdywidth_c)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
@@ -925,8 +934,8 @@ CONTAINS
     IF (ltransport .AND. grf_intmethod_ct == 1) THEN
 
       ! Start and end blocks for which interpolation is needed
-      i_startblk = p_gcp%start_blk(grf_bdyintp_start_c,i_chidx)
-      i_endblk   = p_gcp%end_blk(grf_bdyintp_end_c,i_chidx)
+      i_startblk = p_gcp%start_block(grf_bdyintp_start_c)
+      i_endblk   = p_gcp%end_block(grf_bdyintp_end_c)
 
       CALL exchange_data_mult(p_pc%comm_pat_interpolation_c, ntracer_bdyintp, ntracer_bdyintp*nlev_c, &
         RECV4D=p_diagc%grf_tend_tracer(:,:,:,1:ntracer_bdyintp),                                      &
@@ -987,8 +996,7 @@ CONTAINS
   !! Developed  by Guenther Zaengl, DWD, 2010-06-18
   SUBROUTINE prep_bdy_nudging(jgp, jg)
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_nh_nest_utilities:prep_bdy_nudging'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':prep_bdy_nudging'
 
 
     INTEGER, INTENT(IN) :: jg   ! child grid level
@@ -1005,7 +1013,6 @@ CONTAINS
     TYPE(t_grid_cells), POINTER     :: p_gcp => NULL()
     TYPE(t_grid_edges), POINTER     :: p_gep => NULL()
     TYPE(t_gridref_state), POINTER  :: p_grf => NULL()
-    TYPE(t_gridref_state), POINTER  :: p_grfc => NULL()
     TYPE(t_int_state), POINTER      :: p_int => NULL()
     TYPE(t_patch),      POINTER     :: p_pp => NULL()
     TYPE(t_patch),      POINTER     :: p_pc => NULL()
@@ -1034,7 +1041,7 @@ CONTAINS
 
     IF (msg_level >= 10) THEN
       WRITE(message_text,'(a,i2,a,i2)') '1-way nesting: == Boundary nudging:',jg
-      CALL message(TRIM(routine),message_text)
+      CALL message(routine, message_text)
     ENDIF
 
     l_parallel = my_process_is_mpi_parallel()
@@ -1050,7 +1057,6 @@ CONTAINS
     p_parent_prog_rcf => p_nh_state(jgp)%prog(nnow_rcf(jgp))
     p_child_prog_rcf  => p_nh_state(jg)%prog(nnow_rcf(jg))
     p_diag            => p_nh_state(jg)%diag
-    p_grfc            => p_grf_state(jg)
     p_pc              => p_patch(jg)
 
     p_grf => p_grf_state_local_parent(jg)
@@ -1153,7 +1159,6 @@ CONTAINS
       DO jc = i_startidx, i_endidx
         DO jk = 1, nlev_c
 #else
-!CDIR UNROLL=5
       DO jk = 1, nlev_c
         DO jc = i_startidx, i_endidx
 #endif
@@ -1189,7 +1194,6 @@ CONTAINS
           DO jc = i_startidx, i_endidx
             DO jk = 1, nlev_c
 #else
-!CDIR UNROLL=8
           DO jk = 1, nlev_c
             DO jc = i_startidx, i_endidx
 #endif
@@ -1225,7 +1229,6 @@ CONTAINS
       DO je = i_startidx, i_endidx
         DO jk = 1, nlev_c
 #else
-!CDIR UNROLL=5
       DO jk = 1, nlev_c
         DO je = i_startidx, i_endidx
 #endif
@@ -1254,13 +1257,13 @@ CONTAINS
     ! wind tendencies because this turns out to improve noise filtering
 
     IF(l_parallel) CALL exchange_data(p_pp%comm_pat_e, diff_vn)
-    CALL interpol_vec_nudging (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), p_grfc,    &
-      &                        i_chidx, 0, istartblk_e, diff_vn,p_diag%grf_tend_vn )
+    CALL interpol_vec_nudging (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx),   &
+      &                        0, istartblk_e, diff_vn,p_diag%grf_tend_vn )
     CALL sync_patch_array(SYNC_E,p_pc,p_diag%grf_tend_vn)
 
     IF(l_parallel) CALL exchange_data_mult(p_pp%comm_pat_c, 3, 3*nlev_c+1, &
       recv1=diff_thv, recv2=diff_rho, recv3=diff_w)
-    CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx, 0, 3, istartblk_c, &
+    CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), 0, 3, istartblk_c,          &
       &                         f3din1=diff_thv, f3dout1=p_diag%grf_tend_thv,                  &
       &                         f3din2=diff_rho, f3dout2=p_diag%grf_tend_rho,                  &
       &                         f3din3=diff_w,   f3dout3=p_diag%grf_tend_w                     )
@@ -1270,7 +1273,7 @@ CONTAINS
     IF (ltransport) THEN
       IF(l_parallel) CALL exchange_data_mult(p_pp%comm_pat_c, ntracer_nudge, ntracer_nudge*nlev_c, recv4d=diff_tr)
 
-      CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx,          &
+      CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx),                   &
         &                         0, ntracer_nudge, istartblk_c, f4din=diff_tr,        &
         &                         f4dout=p_diag%grf_tend_tracer(:,:,:,1:ntracer_nudge) )
       CALL sync_patch_array_mult(SYNC_C,p_pc,ntracer_nudge,f4din=p_diag%grf_tend_tracer(:,:,:,1:ntracer_nudge))
@@ -1403,7 +1406,6 @@ CONTAINS
       DO jc = i_startidx, i_endidx
         DO jk = 1, nlev_c
 #else
-!CDIR UNROLL=8
       DO jk = 1, nlev_c
         DO jc = i_startidx, i_endidx
 #endif
@@ -1435,7 +1437,7 @@ CONTAINS
     ! those, the nudging tendencies are applied outside the dynamical core for reasons of mass consistency
 
     IF(l_parallel) CALL exchange_data(p_pp%comm_pat_c, diff_rho)
-    CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx, 0, 1, istartblk_c, &
+    CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), 0, 1, istartblk_c, &
       &                         f3din1=diff_rho, f3dout1=p_diag%grf_tend_rho                   )
     CALL sync_patch_array(SYNC_C,p_pc,p_diag%grf_tend_rho)
 
@@ -1451,11 +1453,12 @@ CONTAINS
   !!
   !! @par Revision History
   !! Developed  by Guenther Zaengl, DWD, 2013-21-10
-  SUBROUTINE limarea_bdy_nudging (p_patch, p_prog, p_prog_rcf, p_metrics, p_diag, &
+  SUBROUTINE limarea_bdy_nudging (p_patch, p_prog, ptr_tracer, p_metrics, p_diag, &
                                   p_int, tsrat, p_latbc_const, p_latbc_old, p_latbc_new)
 
     TYPE(t_patch),   INTENT(IN)    :: p_patch
-    TYPE(t_nh_prog), INTENT(IN)    :: p_prog, p_prog_rcf
+    TYPE(t_nh_prog), INTENT(IN)    :: p_prog
+    REAL(wp), CONTIGUOUS_ARGUMENT(inout) ::  ptr_tracer(:,:,:,:)
     TYPE(t_nh_metrics), INTENT(IN) :: p_metrics
     TYPE(t_nh_diag), INTENT(INOUT) :: p_diag
     TYPE(t_int_state), INTENT(IN)  :: p_int
@@ -1526,7 +1529,7 @@ CONTAINS
         DO jk = 1, nlev
 #else
       DO jk = 1, nlev
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         DO ic = 1, p_metrics%nudge_c_dim
           jc = p_metrics%nudge_c_idx(ic)
           jb = p_metrics%nudge_c_blk(ic)
@@ -1551,7 +1554,7 @@ CONTAINS
           DO jk = 1, nlev
 #else
         DO jk = 1, nlev
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
           DO ic = 1, p_metrics%nudge_e_dim
             je = p_metrics%nudge_e_idx(ic)
             jb = p_metrics%nudge_e_blk(ic)
@@ -1584,7 +1587,7 @@ CONTAINS
           DO jk = nshift+1, nlev
 #else
         DO jk = nshift+1, nlev
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
           DO ic = 1, p_metrics%nudge_c_dim
             jc = p_metrics%nudge_c_idx(ic)
             jb = p_metrics%nudge_c_blk(ic)
@@ -1594,7 +1597,7 @@ CONTAINS
             qv   = wfac_old*p_latbc_old%qv(jc,jk,jb)   + wfac_new*p_latbc_new%qv(jc,jk,jb)
 
             tempv_inc = (temp-p_diag%temp(jc,jk,jb))*(1._wp+vtmpc1*qv) + &
-               (qv-p_prog_rcf%tracer(jc,jk,jb,iqv))*vtmpc1*temp
+               (qv-ptr_tracer(jc,jk,jb,iqv))*vtmpc1*temp
             pres_inc  = pres-p_diag%pres(jc,jk,jb)
 
             thv_tend = tempv_inc/p_prog%exner(jc,jk,jb) - rd_o_cpd*p_prog%theta_v(jc,jk,jb)/pres*pres_inc
@@ -1620,7 +1623,7 @@ CONTAINS
           DO jk = nshift+1, nlev
 #else
         DO jk = nshift+1, nlev
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
           DO ic = 1, p_metrics%nudge_c_dim
             jc = p_metrics%nudge_c_idx(ic)
             jb = p_metrics%nudge_c_blk(ic)
@@ -1648,19 +1651,19 @@ CONTAINS
           DO jk = 1, nlev
 #else
         DO jk = 1, nlev
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
           DO ic = 1, p_metrics%nudge_c_dim
             jc = p_metrics%nudge_c_idx(ic)
             jb = p_metrics%nudge_c_blk(ic)
 #endif
-            qv_tend = wfac_old*p_latbc_old%qv(jc,jk,jb) + wfac_new*p_latbc_new%qv(jc,jk,jb) - p_prog_rcf%tracer(jc,jk,jb,iqv)
+            qv_tend = wfac_old*p_latbc_old%qv(jc,jk,jb) + wfac_new*p_latbc_new%qv(jc,jk,jb) - ptr_tracer(jc,jk,jb,iqv)
 
             ! Suppress positive nudging tendencies in saturated (=cloudy) regions in order to avoid runaway effects
-            qv_tend = MERGE(MIN(0._wp,qv_tend), qv_tend, p_prog_rcf%tracer(jc,jk,jb,iqc) > 1.e-10_wp)
+            qv_tend = MERGE(MIN(0._wp,qv_tend), qv_tend, ptr_tracer(jc,jk,jb,iqc) > 1.e-10_wp)
 
             ! using a weaker nudging coefficient for QV than for thermodynamic variables turned out to have a slightly
             ! beneficial impact on forecast quality
-            p_prog_rcf%tracer(jc,jk,jb,iqv) = p_prog_rcf%tracer(jc,jk,jb,iqv) + 0.5_wp*tsrat*p_int%nudgecoeff_c(jc,jb)*qv_tend
+            ptr_tracer(jc,jk,jb,iqv) = ptr_tracer(jc,jk,jb,iqv) + 0.5_wp*tsrat*p_int%nudgecoeff_c(jc,jb)*qv_tend
 
           ENDDO
         ENDDO
@@ -1677,7 +1680,7 @@ CONTAINS
           DO jk = nshift+1, nlev
 #else
         DO jk = nshift+1, nlev
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
           DO ic = 1, p_metrics%nudge_e_dim
             je = p_metrics%nudge_e_idx(ic)
             jb = p_metrics%nudge_e_blk(ic)
@@ -1722,7 +1725,7 @@ CONTAINS
             qv   = wfac_old*p_latbc_old%qv(jc,jk,jb)   + wfac_new*p_latbc_new%qv(jc,jk,jb)
 
             tempv_inc = (temp-p_diag%temp(jc,jk,jb))*(1._wp+vtmpc1*qv) + &
-               (qv-p_prog_rcf%tracer(jc,jk,jb,iqv))*vtmpc1*temp
+               (qv-ptr_tracer(jc,jk,jb,iqv))*vtmpc1*temp
             pres_inc  = pres-p_diag%pres(jc,jk,jb)
 
             thv_tend = tempv_inc/p_prog%exner(jc,jk,jb) - rd_o_cpd*p_prog%theta_v(jc,jk,jb)/pres*pres_inc
@@ -1854,7 +1857,7 @@ CONTAINS
       DO jk = 1, nlev
 #else
     DO jk = 1, nlev
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
       DO ic = 1, p_nh%metrics%nudge_c_dim
         jc = p_nh%metrics%nudge_c_idx(ic)
         jb = p_nh%metrics%nudge_c_blk(ic)
@@ -1893,7 +1896,7 @@ CONTAINS
       DO jk = 1, nlev
 #else
     DO jk = 1, nlev
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
       DO ic = 1, p_nh%metrics%nudge_e_dim
         je = p_nh%metrics%nudge_e_idx(ic)
         jb = p_nh%metrics%nudge_e_blk(ic)
@@ -1916,7 +1919,7 @@ CONTAINS
 #else
       DO jt = 1, ntracer_nudge
         DO jk = 1, nlev
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
           DO ic = 1, p_nh%metrics%nudge_c_dim
             jc = p_nh%metrics%nudge_c_idx(ic)
             jb = p_nh%metrics%nudge_c_blk(ic)
@@ -1988,7 +1991,7 @@ CONTAINS
       DO jk = 1, nlev
 #else
     DO jk = 1, nlev
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
       DO ic = 1, p_nh%metrics%nudge_c_dim
         jc = p_nh%metrics%nudge_c_idx(ic)
         jb = p_nh%metrics%nudge_c_blk(ic)

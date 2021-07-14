@@ -1,7 +1,7 @@
 #! /bin/ksh
 #-----------------------------------------------------------------------------
 #PBS -q xc_norm_h
-#PBS -l select=15:ompthreads=4
+#PBS -l select=6:ompthreads=4
 #PBS -l place=scatter
 #PBS -l walltime=00:15:00
 #PBS -j oe
@@ -19,6 +19,7 @@
 #           xce.dwd.de
 #
 # 02/2017 : F. Prill, D. Reinert, DWD
+# 04/2020 : Changed radiation scheme from RRTM to ecRad (D. Rieger, DWD)
 # ----------------------------------------------------------------------
 # ============================================================================
 #
@@ -64,7 +65,7 @@ EDIR="exp12"
 EXPDIR=$TMPDIR/${EDIR}/
 
 # path to model binary, including the executable:
-MODEL=${ICONDIR}/build/x86_64-unknown-linux-gnu/bin/icon
+MODEL=${ICONDIR}/bin/icon
 
 
 
@@ -101,13 +102,10 @@ ln -sf $INIDIR/init_DOM02_ML_20170112T000000Z.nc init_DOM02_ML_20170112T000000Z.
 
 
 # files needed for radiation
-ln -sf ${ICONDIR}/data/ECHAM6_CldOptProps.nc rrtm_cldopt.nc
-ln -sf ${ICONDIR}/data/rrtmg_lw.nc .
-
+ln -sf ${ICONDIR}/externals/ecrad/data ecrad_data
 
 # Dictionary for the mapping: GRIB2/Netcdf input names <-> ICON internal names
 ln -s ${GRIDDIR}/map_file.latbc .
-
 
 # ----------------------------------------------------------------------------
 # grid namelist settings
@@ -309,7 +307,7 @@ cat > NAMELIST_NWP << EOF
  inwp_gscp                   =                          2         ! cloud microphysics and precipitation
  inwp_convection             =                          1         ! convection
  lshallowconv_only           =                      .TRUE.        ! only shallow convection
- inwp_radiation              =                          1         ! radiation
+ inwp_radiation              =                          4         ! radiation
  inwp_cldcover               =                          1         ! cloud cover scheme for radiation
  inwp_turb                   =                          1         ! vertical diffusion and transfer
  inwp_satad                  =                          1         ! saturation adjustment
@@ -371,6 +369,11 @@ cat > NAMELIST_NWP << EOF
  vmr_o2                      =                     0.20946
  vmr_cfc11                   =                    240.e-12
  vmr_cfc12                   =                    532.e-12
+ icld_overlap                =                          2         ! Generalized Random
+ ecrad_data_path             =              './ecrad_data'        ! Optical property files path ecRad (link files as path is truncated inside ecrad)
+ llw_cloud_scat              =                     .TRUE.         ! Longwave cloud scattering
+ iliquid_scat                =                          0         ! Optical properties used for liquid cloud scattering (0 = SOCRATES)
+ iice_scat                   =                          0         ! Optical properties used for ice cloud scattering (0 = Fu)
 /
 
 ! sleve_nml: vertical level specification -------------------------------------
@@ -416,6 +419,6 @@ EOF
 # run the model!
 # ----------------------------------------------------------------------
  cp -p $MODEL icon.exe
- aprun  -n 180 -N 12 -j 2 -d 4 -m 3g icon.exe
+ aprun  -n 72 -N 12 -j 2 -d 4 -m 3g icon.exe
 
 

@@ -244,20 +244,14 @@ ABSTRACT INTERFACE
     CLASS(t_comm_pattern_collection), INTENT(INOUT) :: pattern_collection
   END SUBROUTINE interface_delete_comm_pattern_collection
 
-  SUBROUTINE interface_exchange_data_grf(p_pat_coll, nfields, ndim2tot, recv1, send1, &
-                               recv2, send2, recv3, send3, recv4, send4, &
-                               recv5, send5, recv6, send6, recv4d1, send4d1, &
-                               recv4d2, send4d2)
-    IMPORT t_comm_pattern_collection, dp
+  SUBROUTINE interface_exchange_data_grf(p_pat_coll, nfields, ndim2tot, &
+       recv, send)
+    IMPORT t_comm_pattern_collection, t_ptr_3d
     CLASS(t_comm_pattern_collection), TARGET, INTENT(INOUT) :: p_pat_coll
-    REAL(dp), INTENT(INOUT), TARGET, OPTIONAL ::  &
-      recv1(:,:,:), recv2(:,:,:), recv3(:,:,:), recv4d1(:,:,:,:), &
-      recv4(:,:,:), recv5(:,:,:), recv6(:,:,:), recv4d2(:,:,:,:)
-    REAL(dp), INTENT(IN   ), TARGET, OPTIONAL ::  &
-      send1(:,:,:), send2(:,:,:), send3(:,:,:), send4d1(:,:,:,:), &
-      send4(:,:,:), send5(:,:,:), send6(:,:,:), send4d2(:,:,:,:)
     INTEGER, INTENT(IN) :: nfields
     INTEGER, INTENT(IN) :: ndim2tot
+    ! recv itself is intent(in), but the pointed to data will be modified
+    TYPE(t_ptr_3d), PTR_INTENT(in) :: recv(nfields), send(nfields)
   END SUBROUTINE interface_exchange_data_grf
 END INTERFACE
 

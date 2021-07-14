@@ -49,7 +49,10 @@ cat > ${ocean_namelist} << EOF
 &parallel_nml
  nproma         = ${nproma}
  p_test_run     = .false.     
- l_fast_sum     = .true.          ! false: results are reproducable, gmres_oce_old is used; true: production run
+ l_fast_sum     = .true.
+ num_prefetch_proc = 0 
+ pio_type       = 0
+ num_io_procs   = 0
 /
 &grid_nml
  dynamics_grid_filename = "${ocean_grids}",
@@ -211,10 +214,10 @@ cat > ${ocean_namelist} << EOF
 EOF
 #-----------------------------------------------------------------------------
 # add required standard input files
-#[[ ! -d "${ICON_BASE_PATH}/experiments/${EXPNAME}" ]] && mkdir -p "${ICON_BASE_PATH}/experiments/${EXPNAME}"
+#[[ ! -d "${basedir}/experiments/${EXPNAME}" ]] && mkdir -p "${basedir}/experiments/${EXPNAME}"
 #python add_required_ocean_files.py \
 #  -d /pool/data/ICON/ocean_data/ \
-#  -e "${ICON_BASE_PATH}/experiments/${EXPNAME}" \
+#  -e "${basedir}/experiments/${EXPNAME}" \
 #  -g ocean_grid/iconR2B02-ocean_etopo40_planet.nc \
 #  -i ocean_init/ts_phc_annual-iconR2B02-L20_20-700m.nc \
 #  -f ocean_forcing/omip_icon_R2B02_forcing-daily.nc \

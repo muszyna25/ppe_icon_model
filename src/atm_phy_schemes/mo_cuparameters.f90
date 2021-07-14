@@ -80,7 +80,9 @@ MODULE mo_cuparameters
   REAL(KIND=jprb) :: rmv
   REAL(KIND=jprb) :: rmo3
   REAL(KIND=jprb) :: rd
+  !$acc declare copyin(rd)
   REAL(KIND=jprb) :: rv
+  !$acc declare copyin(rv)
   REAL(KIND=jprb) :: rcpd
   REAL(KIND=jprb) :: rcpv
   REAL(KIND=jprb) :: rcvd
@@ -330,10 +332,10 @@ MODULE mo_cuparameters
   
   ! REAL(KIND=jprb) :: entrorg
   REAL(KIND=jprb) :: entshalp
-  REAL(KIND=jprb) :: entstpc1
-  REAL(KIND=jprb) :: entstpc2
-  REAL(KIND=jprb) :: entrdd
-  REAL(KIND=jprb) :: detrpen
+  ! REAL(KIND=jprb) :: entstpc1 -> moved into phy_params because it is configuration-dependent
+  ! REAL(KIND=jprb) :: entstpc2 -> moved into phy_params because it is configuration-dependent
+  ! REAL(KIND=jprb) :: entrdd -> moved into phy_params because it is configuration-dependent
+  ! REAL(KIND=jprb) :: detrpen -> moved into phy_params because it is resolution-dependent
   ! REAL(KIND=jprb) :: rmfcfl -> moved into phy_params because it is resolution-dependent
   REAL(KIND=jprb) :: rmflic
   REAL(KIND=jprb) :: rmflia
@@ -480,15 +482,12 @@ MODULE mo_cuparameters
           & rkappa   ,ratm     ,rpi      ,rlmlt     ,&
           & rcvd     ,rsigma
   !yoecumf
-  PUBLIC :: entshalp ,entstpc1 ,entstpc2            ,&
-          & rmfcmax  ,rmfcmin   ,detrpen            ,&
+  PUBLIC :: entshalp ,rmfcmax  ,rmfcmin             ,&
           & lmfdd    ,lmfdudv                       ,&
           & lmfit    ,rmflic                       ,&
           & rmflia   ,rmfsoluv ,rmflmax, rmfdef    ,&
           & ruvper   ,rmfsoltq ,rmfsolct ,&
           & lmfsmooth,lmfwstar ,LMFUVDIS ,lmftrac  ,&
-          & entrdd   ,& ! njkt1     ,&
-        ! & njkt2    ,njkt3    ,njkt4    ,njkt5    ,&
           & rcpecons ,rtaumel  ,& ! rcucov, rhebc  ,&
           & rmfdeps, rmfdeps_ocean, icapdcycl, lmfglac, lmfwetb
   !yoephli
@@ -1048,7 +1047,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
   
-  SUBROUTINE sucumf(rsltn,klev,pmean,phy_params,lshallow_only,ldetrain_conv_prec)
+  SUBROUTINE sucumf(rsltn,klev,phy_params,lshallow_only,lgrayzone_deepconv,ldetrain_conv_prec,pmean)
 
 !     THIS ROUTINE DEFINES DISPOSABLE PARAMETERS FOR MASSFLUX SCHEME
 
@@ -1099,10 +1098,10 @@ IMPLICIT NONE
 INTEGER(KIND=jpim) :: nflevg
 INTEGER(KIND=jpim), INTENT(in) :: klev
 REAL(KIND=jprb)   , INTENT(in) :: rsltn
-REAL(KIND=jprb)   , INTENT(in) :: pmean(klev)
 TYPE(t_phy_params), INTENT(inout) :: phy_params
-LOGICAL           , INTENT(in) :: lshallow_only
+LOGICAL           , INTENT(in) :: lshallow_only, lgrayzone_deepconv
 LOGICAL           , INTENT(in) :: ldetrain_conv_prec
+REAL(KIND=jprb)   , INTENT(in), OPTIONAL :: pmean(klev)
 
 !* change to operations
 
@@ -1125,7 +1124,9 @@ nflevg=klev
 !     DETRPEN: AVERAGE DETRAINMENT RATE FOR PENETRATIVE CONVECTION (1/M)
 !     -------
 
-detrpen=0.75E-4_JPRB*MAX(1._jprb,SQRT(5.e3_jprb/rsltn))
+phy_params%detrpen=0.75E-4_JPRB
+IF (lshallow_only .OR. lgrayzone_deepconv) &
+  phy_params%detrpen = phy_params%detrpen*MAX(1._jprb,SQRT(5.e3_jprb/rsltn))
 
 !         NOTA:SHALLOW/DEEP ENTRAINMENT RATES ARE 
 !              VERTICALLY SCALED BY FUNCTION  (qs/qsb)**3
@@ -1144,12 +1145,12 @@ ENTSHALP=2.0_JPRB
 
 !     ENTSTPC1,2: SHALLOW ENTRAINMENT CONSTANTS FOR TRIGGER TEST PARCEL ONLY
 !     ----------
-IF (lshallow_only .OR. rsltn < 5.e3_jprb) THEN
-  entstpc1 = 1.0_JPRB
-  entstpc2 = 2.E-4_JPRB
+IF (lshallow_only) THEN
+  phy_params%entstpc1 = 1.0_JPRB
+  phy_params%entstpc2 = 2.E-4_JPRB
 ELSE
-  entstpc1 = 0.55_JPRB
-  entstpc2 = 1.E-4_JPRB
+  phy_params%entstpc1 = 0.55_JPRB
+  phy_params%entstpc2 = 1.E-4_JPRB
 ENDIF
 !ENTSTPC1=0.8_JPRB        !40r3 default
 !ENTSTPC2=2.E-4_JPRB      !40r3 default
@@ -1157,9 +1158,9 @@ ENDIF
 !     ENTRDD: AVERAGE ENTRAINMENT RATE FOR DOWNDRAFTS
 !     ------
 IF (lshallow_only) THEN
-  entrdd       = 2.0E-4_JPRB
+  phy_params%entrdd       = 2.0E-4_JPRB
 ELSE
-  entrdd       = 3.0E-4_JPRB
+  phy_params%entrdd       = 3.0E-4_JPRB
 ENDIF
 !entrdd =3.0E-4_JPRB      !40r3 default
 
@@ -1176,7 +1177,7 @@ rmfcmin=1.e-10_JPRB
 !     RMFDEPS:   FRACTIONAL MASSFLUX FOR DOWNDRAFTS AT LFS
 !     -------
 
-IF (lshallow_only) THEN
+IF (lshallow_only .OR. lgrayzone_deepconv) THEN
   rmfdeps       = 0.30_JPRB
   rmfdeps_ocean = rmfdeps
 ELSE
@@ -1187,7 +1188,9 @@ ENDIF
 !     RDEPTHS:   MAXIMUM ALLOWED SHALLOW CLOUD DEPTH (Pa)
 !     -------
 
-phy_params%rdepths=tune_rdepths/MAX(1._jprb,SQRT(5.e3_jprb/rsltn))
+phy_params%rdepths=tune_rdepths
+IF (lshallow_only .OR. lgrayzone_deepconv) &
+  phy_params%rdepths = phy_params%rdepths/MAX(1._jprb,SQRT(5.e3_jprb/rsltn))
 
 !     RPRCON:    COEFFICIENTS FOR DETERMINING CONVERSION FROM CLOUD WATER
 !     ------
@@ -1248,7 +1251,9 @@ ENDIF
 
 
 ! tuning parameter for organized entrainment of deep convection
-phy_params%entrorg = tune_entrorg*MAX(1._jprb,SQRT(5.e3_jprb/rsltn))
+phy_params%entrorg = tune_entrorg
+IF (lshallow_only .OR. lgrayzone_deepconv) &
+  phy_params%entrorg = phy_params%entrorg*MAX(1._jprb,SQRT(5.e3_jprb/rsltn))
 
 ! resolution-dependent settings for 'excess values' of temperature and QV used for convection triggering (test parcel ascent)
 
@@ -1282,7 +1287,11 @@ phy_params%tau = 1.0_JPRB + rsltn/120.e3_jprb
 phy_params%tau=MIN(3.0_JPRB,phy_params%tau)
 
 ! Increase adjustment time scale at resolutions below 10 km
-IF (rsltn < 10.e3_jprb) phy_params%tau = phy_params%tau + (LOG(10.e3_jprb/rsltn))**2
+IF (rsltn < 10.e3_jprb .AND. (lshallow_only .OR. lgrayzone_deepconv)) THEN
+  phy_params%tau = phy_params%tau + LOG(10.e3_jprb/rsltn)**2
+ELSE IF (rsltn < 10.e3_jprb) THEN
+  phy_params%tau = phy_params%tau + MIN(0.25_jprb, LOG(10.e3_jprb/rsltn)**2)
+ENDIF
 
 ! ** CAPE correction to improve diurnal cycle of convection ** (set now in mo_nwp_phy_nml)
 ! icapdcycl = 0! 0= no CAPE diurnal cycle correction (IFS default prior to cy40r1, i.e. 2013-11-19)
@@ -1300,9 +1309,18 @@ phy_params%lmfscv  =.TRUE.   ! shallow convection
 IF (lshallow_only) THEN
   phy_params%lmfmid  =.FALSE.   ! mid-level convection
   phy_params%lmfpen  =.FALSE.   ! deep convection
+ELSE IF (lgrayzone_deepconv) THEN
+  phy_params%lmfmid  =.FALSE.   ! mid-level convection
+  phy_params%lmfpen  =.TRUE.    ! deep convection
 ELSE
-  phy_params%lmfmid  =.TRUE.   ! mid-level convection
-  phy_params%lmfpen  =.TRUE.   ! deep convection
+  phy_params%lmfmid  =.TRUE.    ! mid-level convection
+  phy_params%lmfpen  =.TRUE.    ! deep convection
+ENDIF
+
+IF (lgrayzone_deepconv) THEN
+  phy_params%lgrayzone_deepconv = .TRUE.
+ELSE
+  phy_params%lgrayzone_deepconv = .FALSE.
 ENDIF
 
 IF (ldetrain_conv_prec) THEN
@@ -1324,11 +1342,13 @@ lmfglac =.TRUE.   ! glaciation of precip in updraught
 
 !     RMFCFL:     MASSFLUX MULTIPLE OF CFL STABILITY CRITERIUM
 !     -------
-IF (lshallow_only .OR. rsltn < 5.e3_jprb) THEN
+IF (lshallow_only) THEN
   phy_params%mfcfl = 1.5_JPRB
 ELSE
   phy_params%mfcfl = 2._JPRB*MIN(2._JPRB,1._JPRB + 2.5e-5_JPRB*rsltn)
 ENDIF
+
+IF (.NOT. PRESENT(pmean)) RETURN
 
 rmflic=1.0_JPRB   ! use CFL mass flux limit (1) or absolut limit (0)
 rmflia=0.0_JPRB   ! value of absolut mass flux limit

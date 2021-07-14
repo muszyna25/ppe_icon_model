@@ -6,8 +6,9 @@ MODULE mo_echam_diagnostics
   USE mo_statistics          ,ONLY: levels_horizontal_mean
   USE mo_name_list_output_init, ONLY: isRegistered
   USE mo_echam_phy_memory    ,ONLY: t_echam_phy_field, prm_field
-  !$ser verbatim USE mo_ser_echam_global_diag, ONLY: serialize_input,&
-  !$ser verbatim                                     serialize_output
+  USE mo_loopindices         ,ONLY: get_indices_c
+  USE mo_impl_constants      ,ONLY: min_rlcell_int
+  USE mo_impl_constants_grf  ,ONLY: grf_bdywidth_c
 
   PUBLIC echam_global_diagnostics
 
@@ -18,10 +19,13 @@ CONTAINS
 
     REAL(wp) :: tas_gmean, rsdt_gmean, rsut_gmean, rlut_gmean, prec_gmean, evap_gmean, radtop_gmean, fwfoce_gmean
     TYPE(t_echam_phy_field), POINTER    :: field
-    INTEGER  :: jc, jk
+    INTEGER  :: jc, jcs, jce, jk, jks, jke, rls, rle
 
-    ! Serialbox2 input fields serialization
-    !$ser verbatim call serialize_input(patch%id, prm_field(patch%id))
+    ! Compute row and block bounds for derived variables
+    rls = grf_bdywidth_c + 1
+    rle = min_rlcell_int
+    jks = patch%cells%start_blk(rls, 1)
+    jke = patch%cells%end_blk(rle, MAX(1, patch%n_childdom))
 
     ! global mean t2m, tas_gmean, if requested for output
     tas_gmean = 0.0_wp
@@ -94,9 +98,10 @@ CONTAINS
 
       !$ACC PARALLEL DEFAULT(PRESENT)
       !$ACC LOOP SEQ
-      DO jk = 1, patch%alloc_cell_blocks
+      DO jk = jks, jke
+        CALL get_indices_c(patch, jk, jks, jke, jcs, jce, rls, rle)
         !$ACC LOOP GANG VECTOR
-        DO jc = 1, nproma
+        DO jc = jcs, jce
           scr(jc,jk) = 0.0_wp
           scr(jc,jk) = field%rsdt(jc,jk) - field%rsut(jc,jk) - field%rlut(jc,jk)
         END DO
@@ -152,9 +157,6 @@ CONTAINS
  !        & icefrc_gmean)
  !  END IF
  !  prm_field(patch%id)%icefrc_gmean = icefrc_gmean
-
-    ! Serialbox2 output fields serialization
-    !$ser verbatim call serialize_output(patch%id, prm_field(patch%id))
 
   END SUBROUTINE echam_global_diagnostics
 END MODULE mo_echam_diagnostics

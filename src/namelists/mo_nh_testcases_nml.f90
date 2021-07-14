@@ -63,12 +63,13 @@ MODULE mo_nh_testcases_nml
     &       ape_sst_case, ape_sst_val, w_perturb, th_perturb,                &
     &       mount_height, mount_width, mount_width_2,                        & 
     &       torus_domain_length, nh_brunt_vais, nh_u0, nh_t0,                &
-    &       jw_up, jw_u0, jw_temp0, rh_at_1000hpa,  qv_max,                  &
-    &       tpe_moist, tpe_psfc, tpe_temp,                                   &
-    &       rotate_axis_deg, lhs_nh_vn_ptb, hs_nh_vn_ptb_scale,              & 
+    &       jw_up, jw_u0, jw_temp0, rh_at_1000hpa,  qv_max, lapse_r,         &
+    &       tpe_moist, tpe_psfc, tpe_temp, temp_case, temp_fwhm_frac,        &
+    &       rotate_axis_deg, lhs_nh_vn_ptb, hs_nh_vn_ptb_scale, tpe_mu,      & 
     &       linit_tracer_fv, lhs_fric_heat, lcoupled_rho, u_cbl, v_cbl,      &
     &       th_cbl, psfc_cbl, sol_const, zenithang, bubctr_x, bubctr_y,      &
-    &       tracer_inidist_list
+    &       tracer_inidist_list, zp_ape, ztmc_ape, is_dry_cbl, isrfc_type,   &
+    &       shflx, lhflx, ufric
 
   PUBLIC :: dcmip_bw
   PUBLIC :: is_toy_chem, toy_chem
@@ -76,6 +77,7 @@ MODULE mo_nh_testcases_nml
   PUBLIC :: ltestcase_update
 
   CHARACTER(len=MAX_CHAR_LENGTH) :: nh_test_name
+  CHARACTER(len=MAX_CHAR_LENGTH) :: temp_case
   CHARACTER(len=MAX_CHAR_LENGTH) :: ape_sst_case      !SST for APE experiments
 
   LOGICAL  :: lhs_nh_vn_ptb          ! if true, random noise is added to vn in HS_nh test case
@@ -87,6 +89,7 @@ MODULE mo_nh_testcases_nml
   REAL(wp) :: mount_height           ! (m)
   REAL(wp) :: mount_width            ! (m)
   REAL(wp) :: mount_width_2          ! (m)
+  REAL(wp) :: lapse_r                ! lapse rate
   REAL(wp) :: nh_brunt_vais          ! (1/s)
   REAL(wp) :: nh_u0                  ! (m/s)
   REAL(wp) :: nh_t0                  ! (K)
@@ -99,12 +102,22 @@ MODULE mo_nh_testcases_nml
   REAL(wp) :: rh_at_1000hpa          ! relative humidity at 1000 hPa [%]
   REAL(wp) :: qv_max                 ! limit of maximum specific humidity in the tropics [kg/kg]
   REAL(wp) :: tpe_moist              ! initial total moisture content for terra planet [kg/m2]
+  REAL(wp) :: tpe_mu                 ! location of the anomaly maximum in x-direction
   REAL(wp) :: tpe_psfc               ! initial surface pressure for terra planet [Pa]
   REAL(wp) :: tpe_temp               ! iitial atmospheric temperature for terra planet [K]
+  REAL(wp) :: temp_fwhm_frac         ! size fraction of temp. perturbation at FWHM
   REAL(wp) :: ape_sst_val            ! (degC) value to be used for SST computation for aqua planet
+  REAL(wp) :: zp_ape                 ! surface pressure (Pa)
+  REAL(wp) :: ztmc_ape               ! total atmospheric moisture content (g/m3 ?)
   REAL(wp) :: w_perturb, th_perturb !Random perturbation scale for torus based experiments
   REAL(wp) :: sol_const              ! [W/m2] solar constant
   REAL(wp) :: zenithang              ! [degrees] zenith angle 
+
+  LOGICAL  :: is_dry_cbl             ! switch for dry convective boundary layer simulations
+  INTEGER  :: isrfc_type             ! 0:No effect, 1:fixed surface  heat fluxes
+  REAL(wp) :: shflx                  ! Kinematic sensible heat flux at surface (K m/s) for isrfc_type=1
+  REAL(wp) :: lhflx                  ! Kinematic latent heat flux at surface (m/s) for isrfc_type=1
+  REAL(wp) :: ufric
 
   !Linear profiles of variables for LES testcases
   REAL(wp) :: u_cbl(2)   !u_cbl(1) = constant, u_cbl(2) = gradient
@@ -157,11 +170,11 @@ MODULE mo_nh_testcases_nml
                             temp_i_mwbr_const,  bruntvais_u_mwbr_const,      &
                             rotate_axis_deg,                                 &
                             lhs_nh_vn_ptb, hs_nh_vn_ptb_scale,               &
-                            rh_at_1000hpa, qv_max,                           &
-                            tpe_moist, tpe_psfc, tpe_temp,                   &
-                            ape_sst_case, ape_sst_val,                       &
-                            linit_tracer_fv, lhs_fric_heat,                  &
-                            qv_max_wk, u_infty_wk,                           &
+                            rh_at_1000hpa, qv_max, temp_fwhm_frac,           &
+                            tpe_moist, tpe_psfc, tpe_temp, temp_case,        &
+                            ape_sst_case, ape_sst_val, zp_ape, ztmc_ape,     &
+                            linit_tracer_fv, lhs_fric_heat, tpe_mu,          &
+                            qv_max_wk, u_infty_wk, lapse_r,                  &
                             bubctr_lat, bubctr_lon, bubctr_z,                &
                             bub_hor_width, bub_ver_width, bub_amp,           &
                             nlayers_nconst,                                  &
@@ -179,7 +192,8 @@ MODULE mo_nh_testcases_nml
                             u_cbl, v_cbl, th_cbl, w_perturb, th_perturb,     &
                             psfc_cbl, sol_const, zenithang, bubctr_x,        &
                             bubctr_y, is_toy_chem, toy_chem, dcmip_bw,       &
-                            tracer_inidist_list, lahade
+                            tracer_inidist_list, lahade, is_dry_cbl,         &
+                            isrfc_type, shflx, lhflx, ufric
 
   ! Non-namelist-variables
   LOGICAL :: ltestcase_update  ! Is current testcase subject to update during integration?
@@ -208,6 +222,7 @@ MODULE mo_nh_testcases_nml
 
     ! default values
     nh_test_name           = 'jabw'
+    temp_case              = 'const'
     mount_height           = 100.0_wp
     layer_thickness        = -999.0_wp
     n_flat_level           = 2
@@ -229,18 +244,28 @@ MODULE mo_nh_testcases_nml
     bruntvais_u_mwbr_const = 0.025_wp
     rotate_axis_deg        = 0.0_wp
     torus_domain_length    = 100000.0_wp
+    lapse_r                = 0.006_wp ! atmospheric lapse rate
     lhs_nh_vn_ptb          = .TRUE.
     lhs_fric_heat          = .FALSE.
     hs_nh_vn_ptb_scale     = 1._wp  ! magnitude of the random noise
     rh_at_1000hpa          = 0.7_wp
     tpe_moist              = 25._wp
+    tpe_mu                 = 0._wp
     tpe_psfc               = 1.e5_wp
     tpe_temp               = 290._wp
+    temp_fwhm_frac         = 0.25_wp
     qv_max                 = 20.e-3_wp ! 20 g/kg
     ape_sst_case           = 'sst1'
     ape_sst_val            = 29.0_wp ! 29 degC
+    zp_ape                 = 101325._wp
+    ztmc_ape               = 25.006_wp
     sol_const              = 1361.371_wp ! [W/m2] default value for amip
     zenithang              = 38._wp ! value used for Popke et al. exps with no diurn cycle
+    is_dry_cbl             = .FALSE.
+    isrfc_type             = 0
+    shflx                  = 0.1_wp
+    lhflx                  = 0.0_wp
+    ufric                  = 0.45_wp
     ! assuming that default is on triangles the next switch is set
     ! crosscheck follows in the respective module
     linit_tracer_fv        = .TRUE. ! finite volume initialization for tracer

@@ -40,7 +40,7 @@ create_config_h()
 create_setup_info()
 {
 echo Creating set-up.info...
-cat > config/set-up.info << EOF
+cat > run/set-up.info << EOF
 #############################
 # set-up.info created by configure
 # do not modify this file
@@ -193,7 +193,7 @@ distclean:
 	-rm -rf build
 	-rm Makefile
 	-rm build_command
-	-rm config/set-up.info
+	-rm run/set-up.info
 	-rm -rf doc/html
 	-rm -rf doc/latex
 	-rm -rf html/[a-z]*
@@ -395,7 +395,7 @@ echo "  create_target_setup_machine_compiler ... finished"
   # create the enviroment
   create_enivoriment
 echo "  create_enivoriment ... finished"
-  #write the config/set-up.info
+  #write the run/set-up.info
   create_setup_info
 echo "  create_setup_info ... finished"
   #create the config.h

@@ -204,38 +204,14 @@ MODULE turb_diffusion
 ! Parameter for precision
 !-------------------------------------------------------------------------------
 
-#ifdef __COSMO__
-USE kind_parameters, ONLY : wp, vp=> wp
-#elif defined(__ICON__)
 USE mo_kind,         ONLY : wp, vp
-#endif
 
 !-------------------------------------------------------------------------------
 ! Mathematical and physical constants
 !-------------------------------------------------------------------------------
 
-#ifdef __COSMO__
-USE data_constants, ONLY : &
-
-! Physical constants and related variables:
-! -------------------------------------------
-
-    r_d,          & ! gas constant for dry air
-    rvd_m_o,      & ! r_v/r_d - 1
-    cp_d,         & ! specific heat for dry air
-    lh_v,         & ! evaporation heat
-    lhocp,        & ! lh_v / cp_d
-    con_m,        & ! kinematic vsicosity of dry air (m2/s)
-    con_h,        & ! scalar conductivity of dry air (m2/s)
-    grav => g       ! acceleration due to gravity
-
-USE data_parallel,  ONLY : &
-    my_cart_id
-#endif
-
-#ifdef __ICON__
 USE mo_mpi,                ONLY : get_my_global_mpi_id
-
+USE mo_exception,          ONLY : finish
 USE mo_physical_constants, ONLY : &
 !
 ! Physical constants and related variables:
@@ -249,7 +225,6 @@ USE mo_physical_constants, ONLY : &
     con_m,                & ! kinematic vsicosity of dry air (m2/s)
     con_h,                & ! scalar conductivity of dry air (m2/s)
     grav                    ! acceleration due to gravity
-#endif
 
 !-------------------------------------------------------------------------------
 ! From Flake model
@@ -273,6 +248,7 @@ USE turb_data, ONLY : &
     tkmmin_strat, & ! additional minimal diffusion coefficients for momentum for stratosphere
     tndsmot,      & ! vertical smoothing factor for diffusion tendencies
     frcsmot,      & ! vertical smoothing factor for TKE forcing
+    imode_frcsmot,& ! mode for TKE forcing
     epsi,         & ! relative limit of accuracy for comparison of numbers
     it_end,       & ! number of initialization iterations (>=0)
 
@@ -495,18 +471,13 @@ REAL (KIND=wp), PARAMETER :: &
     z2d3=z2/z3     ,&
     z3d2=z3/z2
 
-INTEGER :: &
-    istat=0, ilocstat=0
-
-LOGICAL :: &
-    lerror=.FALSE.
-
 !===============================================================================
 
 CONTAINS
 
 !===============================================================================
 
+#  define err_args
 
 SUBROUTINE turbdiff ( &
 !
@@ -539,9 +510,9 @@ SUBROUTINE turbdiff ( &
 !
           shfl_s, qvfl_s,                                            &
 !
-          zvari,                                                     &
+          zvari                                                      &
 !
-          ierrstat, yerrormsg, yroutine)
+          err_args)
 
 !-------------------------------------------------------------------------------
 !
@@ -861,14 +832,6 @@ REAL (KIND=wp), DIMENSION(:),   TARGET, OPTIONAL, INTENT(INOUT) :: &
   qvfl_s           ! water vapor   flux at the surface             (kg/m2/s) (positive downward)
 
 
-! Error handling
-! --------------
-
-INTEGER,           INTENT(INOUT) :: ierrstat
-
-CHARACTER (LEN=*), INTENT(INOUT) :: yroutine
-CHARACTER (LEN=*), INTENT(INOUT) :: yerrormsg
-
 !-------------------------------------------------------------------------------
 !Local Parameters:
 !-------------------------------------------------------------------------------
@@ -1040,11 +1003,11 @@ INTEGER                ::  &
   lev(nvec,2)
 #endif
 
-LOGICAL :: ldebug=.FALSE.
+LOGICAL, PARAMETER :: ldebug=.FALSE.
 
-#ifdef __ICON__
 INTEGER :: my_cart_id, my_thrd_id
-#endif
+
+LOGICAL :: lzacc
 
 !---- End of header ------------------------------------------------------------
 
@@ -1052,8 +1015,7 @@ INTEGER :: my_cart_id, my_thrd_id
 
 !All variables and their tendencies are defined at horizontal mass positions.
 
- istat=0; ilocstat=0; ierrstat=0
- yerrormsg = ''; yroutine='turbdiff'; lerror=.FALSE.
+ lzacc = iini == 0
 
  lssintact=((ltkesso.OR.ltkeshs.OR.ltkecon) .AND. imode_adshear.EQ.1)
 
@@ -1141,7 +1103,7 @@ INTEGER :: my_cart_id, my_thrd_id
 
   ! check if vertical smoothing of TKE forcing terms is needed
   IF (frcsmot > z0) THEN
-    IF (.NOT. PRESENT(trop_mask)) THEN
+    IF (.NOT. PRESENT(trop_mask) .OR. imode_frcsmot == 1) THEN
       lcalc_frcsmot = .TRUE.
     ELSE IF (ANY(trop_mask(ivstart:ivend) > z0)) THEN
       lcalc_frcsmot = .TRUE.
@@ -1183,16 +1145,24 @@ INTEGER :: my_cart_id, my_thrd_id
   !$acc present(rhoh,rhon,tke,tkvm,tkvh,zvari,rcld)                      &
   !Working arrays                                                        !
   !$acc create(ivtp,tinc,hig,ltend,lsfli)                                &
+#ifdef ALLOC_WKARR
   !$acc present(diss_tar,c_big,c_sml,r_air)                              &
   !$acc present(len_scale,hor_scale,xri,l_scal,fc_min,ediss)             &
   !$acc present(shv,frh,frm,ftm,prss,tmps,vaps,liqs,dicke)               &
-  !$acc present(hlp,zaux,can,lay,lays,src,dzsm,dzsh,grad,hig,lev)
+  !$acc present(hlp,zaux,can,lay,lays,src,dzsm,dzsh,grad,hig,lev)        &
+#else
+  !$acc create(diss_tar,c_big,c_sml,r_air)                              &
+  !$acc create(len_scale,hor_scale,xri,l_scal,fc_min,ediss)             &
+  !$acc create(shv,frh,frm,ftm,prss,tmps,vaps,liqs,dicke)               &
+  !$acc create(hlp,zaux,can,lay,lays,src,dzsm,dzsh,grad,hig,lev)        &
+  !$acc if(lzacc)
+#endif
 
   !Pointers (already assigned)
-  !$acc data present(utens,vtens,ttens,qvtens,qctens)
+  !$acc data present(utens,vtens,ttens,qvtens,qctens) if(lzacc)
   !Optinal input variables used in several sections (separate data region)
-  !$acc data present(tketens) if (PRESENT(tketens))
-  !$acc data present(tketadv) if (PRESENT(tketadv))
+  !$acc data present(tketens) if (PRESENT(tketens) .and. lzacc)
+  !$acc data present(tketadv) if (PRESENT(tketadv) .and. lzacc)
       
   !Note ACC : optional hdef2,hdiv,dwdx,dwdy,tketens,tketadv,trop_mask,ut_sso,vt_sso,edr,
   ! tket_sso,tket_hshr,tkhm,tkhh,tket_conv,shfl_s,qvfl_s have separate data region 
@@ -1219,25 +1189,23 @@ INTEGER :: my_cart_id, my_thrd_id
       ivtp(n)=sca
     END IF
   END DO
-  !$acc update device(tinc,ivtp) 
+  !$acc update device(tinc,ivtp) if(lzacc)
 
   IF (l3dturb .AND..NOT. (PRESENT(tkhm) .AND. PRESENT(tkhh))) THEN
-    ierrstat = 1004; lerror=.TRUE.
-    yerrormsg='ERROR *** 3D-diffusion with not present horiz. diff.coeffs. ***'
+    CALL finish("", 'ERROR *** 3D-diffusion with not present horiz. diff.coeffs. ***')
   END IF
-  
+
 !-------------------------------------------------------------------------------
   CALL turb_setup (ivstart=ivstart, ivend=ivend, ke1=ke1, &
                    iini=iini, dt_tke=dt_tke, nprv=nprv, l_hori=l_hori, qc_a=qc(:,ke), &
                    lini=lini, it_start=it_start, nvor=nvor, fr_tke=fr_tke, &
-                   l_scal=l_scal, fc_min=fc_min, liqs=liqs(:,ke1), rcld=rcld, tfm=tfm, tfh=tfh)
+                   l_scal=l_scal, fc_min=fc_min, liqs=liqs(:,ke1), rcld=rcld, tfm=tfm, tfh=tfh, &
+                   lacc=lzacc)
 !-------------------------------------------------------------------------------
 
-#ifdef __ICON__
 my_cart_id = get_my_global_mpi_id()
 #ifdef _OPENMP
 my_thrd_id = omp_get_thread_num()
-#endif
 #endif
 
 ! Just do some check printouts:
@@ -1330,12 +1298,13 @@ my_thrd_id = omp_get_thread_num()
                                                  g_h2o=zaux(:,:,5), &
  
            tet_l=zvari(:,:,tet_l), q_h2o=zvari(:,:,h2o_g),          &
-                                   q_liq=zvari(:,:,liq) )
+                                   q_liq=zvari(:,:,liq),            &
+           lacc=lzacc )
 
   ! Thermodynamische Hilfsvariablen auf Unterrand der Prandtl-Schicht:
 
 !DIR$ IVDEP
-  !$acc parallel
+  !$acc parallel if(lzacc)
   !$acc loop gang vector
   DO i=ivstart, ivend
     prss(i,ke1)=ps(i)
@@ -1368,7 +1337,8 @@ my_thrd_id = omp_get_thread_num()
            g_tet=zaux(:,ke1:ke1,4), g_h2o=zaux(:,ke1:ke1,5),        &
  
            tet_l=zvari(:,ke:ke1,tet_l), q_h2o=zvari(:,ke:ke1,h2o_g),&
-                                        q_liq=zvari(:,ke:ke1,liq) )
+                                        q_liq=zvari(:,ke:ke1,liq),  &
+           lacc=lzacc )
 
   ! Note: 
   !     After a proper rearrangement, it should no longer be necessary that surface layer
@@ -1390,7 +1360,7 @@ my_thrd_id = omp_get_thread_num()
     !Transformation of Tet_l at zero-level into the value following from the old
     !treatment of interpolation in terms of T_l (rather than Tet_l):
 
-    !$acc parallel
+    !$acc parallel if(lzacc)
     !$acc loop gang vector
     DO i=ivstart, ivend
        zvari(i,ke1,tet_l) = zvari(i,ke1,tet_l)  &
@@ -1401,7 +1371,7 @@ my_thrd_id = omp_get_thread_num()
   END IF
 
   ! Berechnung der horizontalen Windgeschwindigkeiten im Massenzentrum der Gitterbox:
-  !$acc parallel
+  !$acc parallel if(lzacc)
   DO k=1,ke
 !DIR$ IVDEP
     !$acc loop gang vector
@@ -1413,7 +1383,7 @@ my_thrd_id = omp_get_thread_num()
   !$acc end parallel
 
 !DIR$ IVDEP
-  !$acc parallel
+  !$acc parallel if(lzacc)
   !$acc loop gang vector
   DO i=ivstart, ivend
          zvari(i,ke1,u_m)=zvari(i,ke,u_m)*(z1-tfm(i))
@@ -1422,7 +1392,7 @@ my_thrd_id = omp_get_thread_num()
   !$acc end parallel
 
   ! Berechnung der Schichtdicken und der Dichte auf Nebenflaechen:
-  !$acc parallel
+  !$acc parallel if(lzacc)
   DO k=1,ke
 !DIR$ IVDEP
     !$acc loop gang vector
@@ -1443,7 +1413,7 @@ my_thrd_id = omp_get_thread_num()
     !test: mass weighted interpolation
     !  nvars=1, pvar=(/varprf(prhon,prhoh)/), depth=dicke)
     !Achtung: Macht minimale Unterschiede
-       nvars=1, pvar=(/varprf(prhon,prhoh)/), depth=dp0)
+       nvars=1, pvar=(/varprf(prhon,prhoh)/), depth=dp0, lacc=lzacc)
     !-----------------------------------------------------
 
   pvar(1)%bl => rcld       ; pvar(1)%ml => rcld  !NF-Werte wieder nach 'rcld'
@@ -1458,12 +1428,12 @@ my_thrd_id = omp_get_thread_num()
   !'bl'-values (output) at the same place as the 'ml'-values (input).
       
   CALL bound_level_interp( ivstart, ivend, 2, ke,               &
-                           nvars=naux+1, pvar=pvar, depth=dp0, rpdep=hlp)
+                           nvars=naux+1, pvar=pvar, depth=dp0, rpdep=hlp, lacc=lzacc)
 
   !Spezifische effektive Dicke der Prandtlschicht:
 
 !DIR$ IVDEP
-  !$acc parallel
+  !$acc parallel if(lzacc)
   !$acc loop gang vector
   DO i=ivstart, ivend
 
@@ -1484,7 +1454,7 @@ my_thrd_id = omp_get_thread_num()
   ! Berechnung der turbulenten Laengenscalen:
 
 !DIR$ IVDEP
-  !$acc parallel
+  !$acc parallel if(lzacc)
   !$acc loop gang vector
   DO i=ivstart, ivend
     len_scale(i,ke1)=gz0(i)/grav
@@ -1496,7 +1466,7 @@ my_thrd_id = omp_get_thread_num()
     !US up to now it is kcm = ke+1 and the next vertical loop will not be executed!!
     !   if a canopy layer is implemented, kcm will be <= ke
 
-    !$acc parallel
+    !$acc parallel if(lzacc)
     !$acc loop seq
     DO k=ke,kcm,-1 !Innerhalb des Bestandesmodells
 !DIR$ IVDEP
@@ -1516,7 +1486,7 @@ my_thrd_id = omp_get_thread_num()
     !$acc end parallel
   ENDIF
 
-  !$acc parallel
+  !$acc parallel if(lzacc)
   !$acc loop seq
   DO k=kcm-1,1,-1
 !DIR$ IVDEP
@@ -1531,7 +1501,7 @@ my_thrd_id = omp_get_thread_num()
   ! Uebergang von der maximalen turbulenten Laengenskala zur
   ! effektiven turbulenten Laengenskala:
 
-  !$acc parallel
+  !$acc parallel if(lzacc)
   DO k=ke1,1,-1
 !DIR$ IVDEP
     !$acc loop gang vector
@@ -1549,7 +1519,7 @@ my_thrd_id = omp_get_thread_num()
   IF (lini) THEN  !nur beim allerersten Durchgang
 
     ! Erste Schaetzwerte aus vereinfachtem TKE-Gleichgewicht:
-    !$acc parallel
+    !$acc parallel if(lzacc)
     !$acc loop seq
     DO k=2,kem
 !DIR$ IVDEP
@@ -1612,14 +1582,14 @@ my_thrd_id = omp_get_thread_num()
     !$acc end parallel
 
 !DIR$ IVDEP
-    !$acc parallel
+    !$acc parallel if(lzacc)
     !$acc loop gang vector
     DO i=ivstart, ivend
       tke(i,1,1)=tke(i,2,1)
     END DO
     !$acc end parallel
 
-    !$acc parallel
+    !$acc parallel if(lzacc)
     !$acc loop seq
     DO n=2,ntim
       DO k=1,kem
@@ -1641,7 +1611,7 @@ my_thrd_id = omp_get_thread_num()
   ! Am unteren Modellrand:
 
 !DIR$ IVDEP
-  !$acc parallel
+  !$acc parallel if(lzacc)
   !$acc loop gang vector
   DO i=ivstart, ivend
     lays(i,mom)=z1/dzsm(i)
@@ -1649,7 +1619,7 @@ my_thrd_id = omp_get_thread_num()
   END DO
   !$acc end parallel
 
-  !$acc parallel
+  !$acc parallel if(lzacc)
   DO n=1,nmvar
 !DIR$ IVDEP
     !$acc loop gang vector
@@ -1662,7 +1632,7 @@ my_thrd_id = omp_get_thread_num()
   ! An den darueberliegenden Nebenflaechen:
   IF (lnonloc) THEN   ! nonlocal calculation of vertical gradients used for turb. diff.
 
-    !$acc parallel
+    !$acc parallel if(lzacc)
     !$acc loop gang vector
     DO i=ivstart, ivend
       hlp(i,ke1)=z0
@@ -1674,7 +1644,7 @@ my_thrd_id = omp_get_thread_num()
 
       ! Berechnung der vertikalen Integralfunktionen in hlp():
 
-      !$acc parallel
+      !$acc parallel if(lzacc)
       !$acc loop seq
       DO k=ke,2,-1
 !DIR$ IVDEP
@@ -1686,7 +1656,7 @@ my_thrd_id = omp_get_thread_num()
       !$acc end parallel
  
 !DIR$ IVDEP
-      !$acc parallel
+      !$acc parallel if(lzacc)
       !$acc loop gang vector private(h,hu,kk,k1,k2,ku,wert)
       DO i=ivstart, ivend
         k1=1
@@ -1765,7 +1735,7 @@ my_thrd_id = omp_get_thread_num()
       !$acc end parallel
 
       ! Sichern der nicht-lokalen Gradienten im Feld zvari():
-      !$acc parallel
+      !$acc parallel if(lzacc)
       DO k=2,ke
 !DIR$ IVDEP
         !$acc loop gang vector
@@ -1780,7 +1750,7 @@ my_thrd_id = omp_get_thread_num()
     ! Belegung von dicke() mit den Schichtdicken*rhon/dt_tke
     ! bzgl. Nebenflaechen:
 
-    !$acc parallel
+    !$acc parallel if(lzacc)
     !$acc loop seq
     DO k=2,ke
 !DIR$ IVDEP
@@ -1794,7 +1764,7 @@ my_thrd_id = omp_get_thread_num()
   ELSE    ! lnonloc
 
     ! Berechnung lokaler Gradienten:
-    !$acc parallel
+    !$acc parallel if(lzacc)
     !$acc loop seq
     DO k=ke,2,-1
 !DIR$ IVDEP
@@ -1807,7 +1777,7 @@ my_thrd_id = omp_get_thread_num()
     END DO
     !$acc end parallel
 
-    !$acc parallel
+    !$acc parallel if(lzacc)
     DO n=1,nmvar
 
 #ifdef __INTEL_COMPILER
@@ -1841,7 +1811,7 @@ my_thrd_id = omp_get_thread_num()
   ! Achtung:
   !'frh'(ke1) wird fuer Zirkulationsterm und Temperaturkorrektur benoetigt
 
-  !$acc parallel
+  !$acc parallel if(lzacc)
   DO k=2,ke1 
 !DIR$ IVDEP
     !$acc loop gang vector
@@ -1877,8 +1847,8 @@ my_thrd_id = omp_get_thread_num()
 
     !Include 3D-shear correction by the vertical wind (employing incomressibility):
 
-    !$acc data present(dwdx, dwdy, hdiv)
-    !$acc parallel
+    !$acc data present(dwdx, dwdy, hdiv) if(lzacc)
+    !$acc parallel if(lzacc)
     DO k=2,kem
 !DIR$ IVDEP
       !$acc loop gang vector
@@ -1894,7 +1864,7 @@ my_thrd_id = omp_get_thread_num()
 
     !Load pure single column shear:
 
-    !$acc parallel
+    !$acc parallel if(lzacc)
     DO k=2,kem 
 !DIR$ IVDEP
       !$acc loop gang vector
@@ -1910,8 +1880,8 @@ my_thrd_id = omp_get_thread_num()
 
   IF (PRESENT(hdef2)) THEN 
     IF (itype_sher.GE.1) THEN   !Apply horizontal 3D-shear correction:
-      !$acc data present(hdef2)
-      !$acc parallel
+      !$acc data present(hdef2) if(lzacc)
+      !$acc parallel if(lzacc)
       DO k=2,kem 
 !DIR$ IVDEP
         !$acc loop gang vector
@@ -1925,7 +1895,7 @@ my_thrd_id = omp_get_thread_num()
   END IF
 
   IF (lssintact) THEN !save pure turbulent shear
-    !$acc parallel 
+    !$acc parallel if(lzacc) 
     DO k=2,kem
 !DIR$ IVDEP
       !$acc loop gang vector
@@ -1940,7 +1910,7 @@ my_thrd_id = omp_get_thread_num()
   !     Preparation for Richardson-number-dependent factor used for correcting 
   !     the minimum diffusion coefficient and the horizontal shear production term:
 
-  !$acc parallel
+  !$acc parallel if(lzacc)
   DO k=2,ke
 !DIR$ IVDEP
     !$acc loop gang vector
@@ -1961,9 +1931,9 @@ my_thrd_id = omp_get_thread_num()
 
   !>For_Tuning
   IF (PRESENT(hdef2)) THEN
-    !$acc data present(hdef2)
-    !$acc data present(tket_hshr) if(PRESENT(tket_hshr))
-    !$acc data present(hdiv) if(PRESENT(hdiv))
+    !$acc data present(hdef2) if(lzacc)
+    !$acc data present(tket_hshr) if(PRESENT(tket_hshr) .and. lzacc)
+    !$acc data present(hdiv) if(PRESENT(hdiv) .and. lzacc)
 
     !Additional impact by separated horizontal shear:
     IF ((ltkeshs .OR. (loutshs .AND. PRESENT(tket_hshr))) .AND. PRESENT(hdiv)) THEN 
@@ -1972,7 +1942,7 @@ my_thrd_id = omp_get_thread_num()
       fakt=z1/(z2*sm_0)**2; wert=a_hshr*akt*z1d2
 
 !DIR$ IVDEP
-      !$acc parallel
+      !$acc parallel if(lzacc)
       !$acc loop gang vector
       DO i=ivstart, ivend
         lay(i)=wert*l_hori(i) !uncorrected effective horizontal length scale
@@ -1982,22 +1952,15 @@ my_thrd_id = omp_get_thread_num()
       IF (imode_shshear.EQ.2) THEN
         !>Tuning
 
-        !$acc parallel
+        !$acc parallel if(lzacc)
         DO k=2,kem
 !DIR$ IVDEP
           !$acc loop gang vector private(x4)
           DO i=ivstart, ivend
             ! Factor for variable 3D horizontal-vertical length scale proportional to 1/SQRT(Ri),
             ! decreasing to zero in the lowest two kilometer above ground
-
-#ifdef __COSMO__
-            x4 = MIN( 1._wp, 1.0e-3_wp*(hhl(i,k)-hhl(i,ke1)) ) ! low-level reduction factor
-#endif
-#ifdef __ICON__
-            ! from ICON 180206
             x4i = MIN( 1._wp, 0.5e-3_wp*(hhl(i,k)-hhl(i,ke1)) )
             x4 = 3._wp*x4i**2 - 2._wp*x4i**3                   ! low-level reduction factor
-#endif
             hor_scale(i,k) = lay(i)*MIN( 5.0_wp, MAX( 0.01_wp, x4*xri(i,k) ) )
           END DO
         END DO
@@ -2007,7 +1970,7 @@ my_thrd_id = omp_get_thread_num()
 
       ELSE
 
-        !$acc parallel
+        !$acc parallel if(lzacc)
         DO k=2,kem
 !DIR$ IVDEP
           !$acc loop gang vector
@@ -2021,7 +1984,7 @@ my_thrd_id = omp_get_thread_num()
 
       !strain velocity (shv) of the separated horizontal shear mode:
       IF (imode_shshear.EQ.0) THEN !former variant based on 3D-shear and incompressibility
-        !$acc parallel
+        !$acc parallel if(lzacc)
         DO k=2,kem
 !DIR$ IVDEP
           !$acc loop gang vector
@@ -2031,7 +1994,7 @@ my_thrd_id = omp_get_thread_num()
         END DO
         !$acc end parallel
       ELSE !new variant in accordance with the trace constraint for the separated horizontal strain tensor
-        !$acc parallel
+        !$acc parallel if(lzacc)
         DO k=2,kem
 !DIR$ IVDEP
           !$acc loop gang vector private(wert)
@@ -2043,7 +2006,7 @@ my_thrd_id = omp_get_thread_num()
         !$acc end parallel
       END IF
 
-      !$acc parallel
+      !$acc parallel if(lzacc)
       DO k=2,kem
 !DIR$ IVDEP
         !$acc loop gang vector
@@ -2055,7 +2018,7 @@ my_thrd_id = omp_get_thread_num()
 
       IF (loutshs .AND. PRESENT(tket_hshr)) THEN
         !Load output variable for the TKE-source by separated horiz. shear:
-        !$acc parallel
+        !$acc parallel if(lzacc)
         DO k=2,kem 
 !DIR$ IVDEP
           !$acc loop gang vector
@@ -2068,7 +2031,7 @@ my_thrd_id = omp_get_thread_num()
 
       IF (ltkeshs) THEN 
         !Consider separated horizontal shear mode in mechanical forcing:
-        !$acc parallel
+        !$acc parallel if(lzacc)
         DO k=2,kem 
 !DIR$ IVDEP
           !$acc loop gang vector
@@ -2081,7 +2044,7 @@ my_thrd_id = omp_get_thread_num()
         IF (l3dturb) THEN
           ! Load related horizontal diffusion coefficients:
           fakt=sh_0/sm_0
-          !$acc parallel
+          !$acc parallel if(lzacc)
           DO k=2,kem
 !DIR$ IVDEP
             !$acc loop gang vector
@@ -2108,10 +2071,10 @@ my_thrd_id = omp_get_thread_num()
 
     !Special data regions for optional variables
     !$acc data present(ut_sso,vt_sso) if(PRESENT(ut_sso) .AND. PRESENT(vt_sso))
-    !$acc data present(tket_sso) if(PRESENT(tket_sso))
-    !$acc data present(tket_conv) if(PRESENT(tket_conv))
+    !$acc data present(tket_sso) if(PRESENT(tket_sso) .AND. lzacc)
+    !$acc data present(tket_conv) if(PRESENT(tket_conv) .AND. lzacc)
         
-    !$acc parallel
+    !$acc parallel if(lzacc)
     !$acc loop seq
     DO k=2,kem
       !$acc loop gang vector private(vel1,vel2)
@@ -2170,7 +2133,7 @@ my_thrd_id = omp_get_thread_num()
   IF (PRESENT(c_big) .AND. PRESENT(c_sml)) THEN
 
     !US: at the moment kcm = kem+1, so this vertical loop is never executed
-    !$acc parallel
+    !$acc parallel if(lzacc)
     !$acc loop seq
     DO k=kcm,kem !von oben nach unten durch Rauhiggkeitsschicht
       !$acc loop gang vector private(velo,wert)
@@ -2228,7 +2191,7 @@ my_thrd_id = omp_get_thread_num()
   END IF
 
   ! Belegung von tkvh und tkvm mit den stabilitaetsabhaengigen Laengenmassen:
-  !$acc parallel
+  !$acc parallel if(lzacc)
   DO k=2,kem
 !DIR$ IVDEP
     !$acc loop gang vector
@@ -2266,7 +2229,8 @@ my_thrd_id = omp_get_thread_num()
 #ifdef SCLM
                              grd=zvari,                                               &
 #endif
-                             fcd=can, tls=len_scale, tvt=tketens, avt=tketadv)
+                             fcd=can, tls=len_scale, tvt=tketens, avt=tketadv,        &
+                             lacc=lzacc)
 
     IF (it_durch.LT.it_end .AND. .NOT.ltkeinp) THEN
       nvor=ntur !benutze nun aktuelle TKE-Werte als Vorgaengerwerte
@@ -2276,7 +2240,7 @@ my_thrd_id = omp_get_thread_num()
 
   ! Kein TKE-Gradient am Oberrand:
 !DIR$ IVDEP
-  !$acc parallel
+  !$acc parallel if(lzacc)
   !$acc loop gang vector
   DO i=ivstart, ivend
     tke(i,1,ntur)=tke(i,2,ntur)
@@ -2288,8 +2252,8 @@ my_thrd_id = omp_get_thread_num()
 
   IF (iini.EQ.1) THEN !only for separate initialization before the time loop
 
-    !$acc data present(tkvh,tkvm,tke)
-    !$acc parallel
+    !$acc data present(tkvh,tkvm,tke) if(lzacc)
+    !$acc parallel if(lzacc)
     DO k=2, kem
 !DIR$ IVDEP
       !$acc loop gang vector private(val1,val2)
@@ -2323,7 +2287,7 @@ my_thrd_id = omp_get_thread_num()
 
       !  Berechnung des vert. Temp.grad. fuer den Phasendiffusionsterm:
 
-      !$acc parallel
+      !$acc parallel if(lzacc)
       DO k=2, ke1
 !DIR$ IVDEP
         !$acc loop gang vector
@@ -2334,7 +2298,7 @@ my_thrd_id = omp_get_thread_num()
 
       !$acc end parallel
       IF (icldm_turb.NE.-1) THEN !water phase changes are possible
-        !$acc parallel
+        !$acc parallel if(lzacc)
         DO k=2, ke1
 !DIR$ IVDEP
           !$acc loop gang vector
@@ -2349,7 +2313,8 @@ my_thrd_id = omp_get_thread_num()
       !  durch die effiktiven Gradienten ueberschrieben wird.
     END IF
 
-    !$acc parallel
+    !$acc parallel if(lzacc)
+    !$acc loop seq
     DO k=2, ke1
 !DIR$ IVDEP
       !$acc loop gang vector
@@ -2365,7 +2330,8 @@ my_thrd_id = omp_get_thread_num()
 
     IF (icldm_turb.NE.-1) THEN !consideration of water phase changes
 
-      !$acc parallel
+      !$acc parallel if(lzacc)
+      !$acc loop seq
       DO k=2, ke1
 !DIR$ IVDEP
         !$acc loop gang vector private(flw_h2o_g,flw_tet_l)
@@ -2399,7 +2365,8 @@ my_thrd_id = omp_get_thread_num()
 
       !'zvari(:,:,liq)' bleibt unveraendert, genauso wie auch
       !'zvari(:,:,tet)'='zvari(:,:,tet_l)' und 'zvari(:,:,vap)'='zvari(:,:,h2o_g)'.
-      !$acc parallel
+      !$acc parallel if(lzacc)
+      !$acc loop seq
       DO k=2, ke1
 !DIR$ IVDEP
         !$acc loop gang vector
@@ -2424,7 +2391,7 @@ my_thrd_id = omp_get_thread_num()
 
     ! Beschraenkung der Diffusionskoeffizienten:
 
-    !$acc parallel
+    !$acc parallel if(lzacc)
     DO k=2, ke
 !DIR$ IVDEP
       !$acc loop gang vector private(fakt,val1,val2)
@@ -2436,7 +2403,11 @@ my_thrd_id = omp_get_thread_num()
         !>Tuning
           ! Factor for variable minimum diffusion coefficient proportional to 1/SQRT(Ri);
           ! the namelist parameters tkhmin/tkmmin specify the value for Ri=1:
-          fakt=MIN( z1, tkred_sfc(i)*(0.25_wp+7.5e-3_wp*(hhl(i,k)-hhl(i,ke1))) ) !low-level red.-fact.
+          IF (gz0(i) < 0.01_wp .AND. l_pat(i) > 0._wp) THEN ! glaciers
+            fakt=MIN( z1, tkred_sfc(i)*4.e-3_wp*(hhl(i,k)-hhl(i,ke1)) ) !low-level red.-fact.
+          ELSE
+            fakt=MIN( z1, tkred_sfc(i)*(0.25_wp+7.5e-3_wp*(hhl(i,k)-hhl(i,ke1))) ) !low-level red.-fact.
+          ENDIF
           fakt=MIN( 2.5_wp, MAX( 0.01_wp, fakt*xri(i,k) ) )
 
           val1=tkmmin*fakt; val2=tkhmin*fakt
@@ -2496,7 +2467,7 @@ my_thrd_id = omp_get_thread_num()
       !Consider horizontal diffusion coefficients:
       IF (PRESENT(hdef2) .AND. PRESENT(hdiv) .AND. ltkeshs) THEN
         !Add isotropic turbulent part to that part due to the sep. horiz. shear mode:
-        !$acc parallel
+        !$acc parallel if(lzacc)
         DO k=2,kem
 !DIR$ IVDEP
           !$acc loop gang vector
@@ -2508,7 +2479,7 @@ my_thrd_id = omp_get_thread_num()
         !$acc end parallel
       ELSE !no treatment of sep. horiz. shear mode has taken place
         !Load only the isotropic turbulent part:
-        !$acc parallel
+        !$acc parallel if(lzacc)
         DO k=2,kem
 !DIR$ IVDEP
           !$acc loop gang vector
@@ -2530,9 +2501,9 @@ my_thrd_id = omp_get_thread_num()
     !         auch 'edr' fuer "k=ke1" belegt sein!
 
     IF (lsfli(tem)) THEN !use explicit shfl_s
-      !$acc data present(shfl_s)
+      !$acc data present(shfl_s) if(lzacc)
 !DIR$ IVDEP
-      !$acc parallel
+      !$acc parallel if(lzacc)
       !$acc loop gang vector
       DO i=ivstart, ivend
         zvari(i,ke1,tet)=shfl_s(i)/(cp_d*rhon(i,ke1)*tkvh(i,ke1)*zaux(i,ke1,1))
@@ -2545,9 +2516,9 @@ my_thrd_id = omp_get_thread_num()
     END IF
 
     IF (lsfli(vap)) THEN !use explicit qvfl_s
-      !$acc data present(qvfl_s)
+      !$acc data present(qvfl_s) if(lzacc)
 !DIR$ IVDEP
-      !$acc parallel
+      !$acc parallel if(lzacc)
       !$acc loop gang vector
       DO i=ivstart, ivend
         zvari(i,ke1,vap)=qvfl_s(i)/(rhon(i,ke1)*tkvh(i,ke1))
@@ -2565,7 +2536,7 @@ my_thrd_id = omp_get_thread_num()
     IF (ltmpcor) THEN
       IF (.NOT.PRESENT(edr)) THEN
 !DIR$ IVDEP
-        !$acc parallel
+        !$acc parallel if(lzacc)
         !$acc loop gang vector
         DO i=ivstart, ivend
           ediss(i,ke1)=tke(i,ke1,ntur)**3/(d_m*len_scale(i,ke1))
@@ -2573,7 +2544,8 @@ my_thrd_id = omp_get_thread_num()
         !$acc end parallel
       END IF
 
-      !$acc parallel
+      !$acc parallel if(lzacc)
+      !$acc loop seq
       DO k=2, ke1
 !DIR$ IVDEP
         !$acc loop gang vector private(thermik,phasdif)
@@ -2592,7 +2564,7 @@ my_thrd_id = omp_get_thread_num()
       !$acc end parallel
 
 !DIR$ IVDEP
-      !$acc parallel
+      !$acc parallel if(lzacc)
       !$acc loop gang vector
       DO i=ivstart, ivend
         ttens(i,1)=ttens(i,1)+tinc(tem)*tketens(i,2) /(len_scale(i,1)+len_scale(i,2))
@@ -2600,7 +2572,7 @@ my_thrd_id = omp_get_thread_num()
       END DO
       !$acc end parallel
 
-      !$acc parallel
+      !$acc parallel if(lzacc)
       !$acc loop seq
       DO k=2,ke
 !DIR$ IVDEP
@@ -2619,7 +2591,8 @@ my_thrd_id = omp_get_thread_num()
     !Achtung: Zirkulationsterm revidieren:
 
     IF (lcircterm) THEN !Der Zirkulationsterm muss berechnet werden
-      !$acc parallel
+      !$acc parallel if(lzacc)
+      !$acc loop seq
       DO k=2,ke1
 !DIR$ IVDEP
         !$acc loop gang vector private(fakt,com_len,kohae_len)
@@ -2679,7 +2652,7 @@ my_thrd_id = omp_get_thread_num()
     upd_prof => zaux(:,:,1)
     sav_prof => zaux(:,:,5)
 
-    !$acc data present(cur_prof,upd_prof,sav_prof)
+    !$acc data present(cur_prof,upd_prof,sav_prof) if(lzacc)
 
     IF (ldotkedif .OR. lcircdiff) THEN
               ! ldotkedif: partly implicit vertical diffusion for TKE:  c_diff > 0.0
@@ -2689,11 +2662,11 @@ my_thrd_id = omp_get_thread_num()
       expl_mom => zaux(:,:,2)
       impl_mom => zaux(:,:,3)
       invs_mom => zaux(:,:,4)
-      !$acc data present(expl_mom,impl_mom,invs_mom)
+      !$acc data present(expl_mom,impl_mom,invs_mom) if(lzacc)
 
 
       ! Diffusions-Koeffizienten auf NF:
-      !$acc parallel
+      !$acc parallel if(lzacc)
       DO k=2, ke1
         !$acc loop gang vector
 !DIR$ IVDEP
@@ -2711,7 +2684,7 @@ my_thrd_id = omp_get_thread_num()
       END DO
       !$acc end parallel
 
-      !$acc parallel
+      !$acc parallel if(lzacc)
       !$acc loop seq
       DO k=3, ke1
 !DIR$ IVDEP
@@ -2739,7 +2712,8 @@ my_thrd_id = omp_get_thread_num()
       ! lcircterm: circulation term has to be computed: =(pat_len > 0.0)
 
       IF (imode_tkediff.EQ.2) THEN !Diffusion in terms of TKE
-        !$acc parallel
+        !$acc parallel if(lzacc)
+        !$acc loop seq
         DO k=2, ke1
 !DIR$ IVDEP
           !$acc loop gang vector
@@ -2749,7 +2723,8 @@ my_thrd_id = omp_get_thread_num()
         END DO
         !$acc end parallel
       ELSE !Diffusion in terms of q=SQRT(2*TKE)
-        !$acc parallel
+        !$acc parallel if(lzacc)
+        !$acc loop seq
         DO k=2, ke
 !DIR$ IVDEP
           !$acc loop gang vector
@@ -2761,7 +2736,7 @@ my_thrd_id = omp_get_thread_num()
         !$acc end parallel
 
         !Das Feld 'dicke' wird bei "k=ke1" nicht benoetigt und war zuvor dort auch nicht belegt!
-        !$acc parallel present(tke)
+        !$acc parallel if(lzacc) present(tke)
         !$acc loop gang vector
 !DIR$ IVDEP
         DO i=ivstart, ivend
@@ -2788,7 +2763,7 @@ my_thrd_id = omp_get_thread_num()
       ! was zumindest in der Prandtl-Schicht prop. zu 1/len_scale ist.
       !Die Interpolation von "rhon*frh" auf Hauptflaechen erfolgt daher mit
       ! 'rhon*frh*len_scale'. Anderenfalls ist mit grossen Interpolationsfehlern zu rechnen.
-      !$acc parallel
+      !$acc parallel if(lzacc)
       DO k=2,ke1
 !DIR$ IVDEP
         !$acc loop gang vector
@@ -2813,7 +2788,7 @@ my_thrd_id = omp_get_thread_num()
       IF (imode_calcirc.EQ.1) THEN !expliziten Berechnung der Zirkulationstendenz
 
         cur_prof => sav_prof
-        !$acc parallel
+        !$acc parallel if(lzacc)
         DO k=3,ke1
 !DIR$ IVDEP
           !$acc loop gang vector
@@ -2825,7 +2800,7 @@ my_thrd_id = omp_get_thread_num()
 
         k=2
 !DIR$ IVDEP
-        !$acc parallel
+        !$acc parallel if(lzacc)
         !$acc loop gang vector
         DO i=ivstart, ivend
           upd_prof(i,k)=sav_prof(i,k)+frm(i,k+1)/dicke(i,k)
@@ -2838,7 +2813,7 @@ my_thrd_id = omp_get_thread_num()
         END DO
         !$acc end parallel
 
-        !$acc parallel
+        !$acc parallel if(lzacc)
         !$acc loop seq
         DO k=3,ke
 !DIR$ IVDEP
@@ -2869,7 +2844,7 @@ my_thrd_id = omp_get_thread_num()
             upd_prof(i,k)=upd_prof(i,k)+frh(i,k)*z1d2*(r_air(i,k-1)-r_air(i,k+1)) &
                                                         /(len_scale(i,k)*dicke(i,k))
 #else
-          !$acc parallel
+          !$acc parallel if(lzacc)
           !$acc loop seq
           DO k=ke,kcm,-1 !innerhalb der Rauhigkeitsschicht
 !DIR$ IVDEP
@@ -2898,14 +2873,14 @@ my_thrd_id = omp_get_thread_num()
            ! quasi implizite Berechnung der Zirkulatinstendenz (entspricht "lcircdiff=T")
 
 !DIR$ IVDEP
-        !$acc parallel
+        !$acc parallel if(lzacc)
         !$acc loop gang vector
         DO i=ivstart, ivend
           cur_prof(i,2)=sav_prof(i,2)
         END DO
         !$acc end parallel
 
-        !$acc parallel
+        !$acc parallel if(lzacc)
         !$acc loop seq
         DO k=3,ke1
 !DIR$ IVDEP
@@ -2950,7 +2925,8 @@ my_thrd_id = omp_get_thread_num()
                                 i_st=ivstart, i_en=ivend, k_tp=1, k_sf=ke1,                &
                                 disc_mom=dicke,    expl_mom=expl_mom,                      &
                                 impl_mom=impl_mom, invs_mom=invs_mom,                      &
-                                invs_fac=frh, scal_fac=frm, impl_weight=impl_weight )
+                                invs_fac=frh, scal_fac=frm, impl_weight=impl_weight,       &
+                                lacc=lzacc )
 
            !Achtung: q_Diff:    disc_mom=sav_prof*dicke !!!
 
@@ -2964,7 +2940,7 @@ my_thrd_id = omp_get_thread_num()
                                  disc_mom=dicke,    expl_mom=expl_mom,                     &
                                  impl_mom=impl_mom, invs_mom=invs_mom,                     &
                                  invs_fac=frh, scal_fac=frm, cur_prof=cur_prof,            &
-                                 upd_prof=upd_prof, eff_flux=eff_flux )
+                                 upd_prof=upd_prof, eff_flux=eff_flux, lacc=lzacc )
 
            !Achtung: q_Diff:    disc_mom=sav_prof*dicke !!!
 
@@ -2977,7 +2953,7 @@ my_thrd_id = omp_get_thread_num()
       ! Vertikaldiffusion.
 
       IF (lcircdiff) THEN !es wurden virtuelle Effektiv-Profile benutzt
-        !$acc parallel
+        !$acc parallel if(lzacc)
         DO k=2,ke
 !DIR$ IVDEP
           !$acc loop gang vector
@@ -2990,7 +2966,7 @@ my_thrd_id = omp_get_thread_num()
 
       IF (PRESENT(r_air)) THEN
         ! Zuschlag durch Volumenterm innerhalb der Rauhigkeitsschicht:
-        !$acc parallel
+        !$acc parallel if(lzacc)
         !$acc loop seq
         DO k=ke,kcm,-1 !innerhalb der Rauhigkeitsschicht
 !DIR$ IVDEP
@@ -3018,7 +2994,8 @@ my_thrd_id = omp_get_thread_num()
 
       IF (imode_tkediff.EQ.2) THEN !Diffusion in terms of TKE
         !'upd_prof' ist ein TKE-Profil:
-        !$acc parallel
+        !$acc parallel if(lzacc)
+        !$acc loop seq
         DO k=2,ke 
 !DIR$ IVDEP
           !$acc loop gang vector
@@ -3035,7 +3012,8 @@ my_thrd_id = omp_get_thread_num()
       ELSE !Diffusion in terms of q=SQRT(2*TKE)
         !'upd_prof' ist ein q-Profil:
 
-        !$acc parallel
+        !$acc parallel if(lzacc)
+        !$acc loop seq
         DO k=2,ke
 !DIR$ IVDEP
           !$acc loop gang vector
@@ -3053,7 +3031,7 @@ my_thrd_id = omp_get_thread_num()
 
       !Am Unterrand gibt es keine q-Tendenz durch Diffusionsterme:
 !DIR$ IVDEP
-      !$acc parallel
+      !$acc parallel if(lzacc)
       !$acc loop gang vector
       DO i=ivstart, ivend
         tketens(i,ke1)=z0
@@ -3069,7 +3047,7 @@ my_thrd_id = omp_get_thread_num()
     ELSE !keine q-Tendenzen, weder durch TKE-Diffusion noch durch den Zirkulationsterm
 
       ! Zuruecksetzen der q-Tendenzen:
-      !$acc parallel
+      !$acc parallel if(lzacc)
       DO k=2,ke1
 !DIR$ IVDEP
         !$acc loop gang vector
@@ -3090,7 +3068,7 @@ my_thrd_id = omp_get_thread_num()
 !------------------------------------------------------------------------------------
 
 !DIR$ IVDEP
-    !$acc parallel
+    !$acc parallel if(lzacc)
     !$acc loop gang vector
     DO i=ivstart, ivend
       rcld(i,1)=rcld(i,2)
@@ -3101,7 +3079,7 @@ my_thrd_id = omp_get_thread_num()
     FORALL(k=2:kem-1, i=ivstart:ivend) &
         rcld(i,k)=(rcld(i,k)+rcld(i,k+1))*z1d2
 #else
-    !$acc parallel
+    !$acc parallel if(lzacc)
     !$acc loop seq
     DO k=2,kem-1
 !DIR$ IVDEP

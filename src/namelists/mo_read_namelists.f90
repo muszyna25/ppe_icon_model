@@ -36,7 +36,6 @@ MODULE mo_read_namelists
   USE mo_dynamics_nml        ,ONLY: read_dynamics_namelist
   USE mo_interpol_nml        ,ONLY: read_interpol_namelist
   USE mo_sleve_nml           ,ONLY: read_sleve_namelist
-  USE mo_ha_dyn_nml          ,ONLY: read_ha_dyn_namelist
   USE mo_nonhydrostatic_nml  ,ONLY: read_nonhydrostatic_namelist
   USE mo_diffusion_nml       ,ONLY: read_diffusion_namelist
 
@@ -47,6 +46,8 @@ MODULE mo_read_namelists
   USE mo_echam_mig_nml       ,ONLY: process_echam_mig_nml
   USE mo_echam_cnv_nml       ,ONLY: process_echam_cnv_nml
   USE mo_echam_cov_nml       ,ONLY: process_echam_cov_nml
+  USE mo_echam_cop_nml       ,ONLY: process_echam_cop_nml
+  USE mo_echam_wmo_nml       ,ONLY: process_echam_wmo_nml
   USE mo_echam_gwd_nml       ,ONLY: process_echam_gwd_nml
   USE mo_echam_rad_nml       ,ONLY: process_echam_rad_nml
   USE mo_echam_sso_nml       ,ONLY: process_echam_sso_nml
@@ -54,17 +55,19 @@ MODULE mo_read_namelists
   USE mo_ccycle_nml          ,ONLY: process_ccycle_nml
   
   USE mo_nwp_phy_nml         ,ONLY: read_nwp_phy_namelist
+  USE mo_bench_nml           ,ONLY: read_bench_namelist
   USE mo_nwp_tuning_nml      ,ONLY: read_nwp_tuning_namelist
   USE mo_ensemble_pert_nml   ,ONLY: read_ensemble_pert_namelist
   USE mo_radiation_nml       ,ONLY: read_radiation_namelist
+#ifdef __NO_RTE_RRTMGP__
   USE mo_psrad_interface     ,ONLY: read_psrad_nml
+#endif
   USE mo_synsat_nml          ,ONLY: read_synsat_namelist
   USE mo_turbdiff_nml        ,ONLY: read_turbdiff_namelist
   USE mo_lnd_nwp_nml         ,ONLY: read_nwp_lnd_namelist
   USE mo_art_nml             ,ONLY: read_art_namelist
 
   USE mo_initicon_nml        ,ONLY: read_initicon_namelist
-  USE mo_ha_testcases        ,ONLY: read_ha_testcase_namelist
   USE mo_nh_testcases_nml    ,ONLY: read_nh_testcase_namelist
   USE mo_meteogram_nml       ,ONLY: read_meteogram_namelist
 
@@ -83,6 +86,7 @@ MODULE mo_read_namelists
   USE mo_assimilation_nml    ,ONLY: read_assimilation_namelist
   USE mo_nudging_nml         ,ONLY: read_nudging_namelist
   USE mo_upatmo_nml          ,ONLY: read_upatmo_namelist
+  USE mo_ser_nml             ,ONLY: read_ser_namelist
 
   IMPLICIT NONE
 
@@ -150,7 +154,6 @@ CONTAINS
     ! Dynamics
     !
     CALL read_dynamics_namelist       (atm_namelist_filename(1:tlen))
-    CALL read_ha_dyn_namelist         (atm_namelist_filename(1:tlen))
     CALL read_nonhydrostatic_namelist (atm_namelist_filename(1:tlen))
     CALL read_diffusion_namelist      (atm_namelist_filename(1:tlen))
 
@@ -171,6 +174,8 @@ CONTAINS
        CALL process_echam_mig_nml        (atm_namelist_filename(1:tlen))
        CALL process_echam_cnv_nml        (atm_namelist_filename(1:tlen))
        CALL process_echam_cov_nml        (atm_namelist_filename(1:tlen))
+       CALL process_echam_cop_nml        (atm_namelist_filename(1:tlen))
+       CALL process_echam_wmo_nml        (atm_namelist_filename(1:tlen))
        CALL process_echam_gwd_nml        (atm_namelist_filename(1:tlen))
        CALL process_echam_rad_nml        (atm_namelist_filename(1:tlen))
        CALL process_echam_sso_nml        (atm_namelist_filename(1:tlen))
@@ -181,11 +186,14 @@ CONTAINS
        !
        CALL read_sea_ice_namelist        (atm_namelist_filename(1:tlen))
        CALL read_art_namelist            (atm_namelist_filename(1:tlen))
+#ifdef __NO_RTE_RRTMGP__
        CALL read_psrad_nml               (atm_namelist_filename(1:tlen))
+#endif
        !
     CASE (INWP)
        !
        CALL read_nwp_phy_namelist        (atm_namelist_filename(1:tlen))
+       CALL read_bench_namelist          (atm_namelist_filename(1:tlen))
        CALL read_nwp_tuning_namelist     (atm_namelist_filename(1:tlen))
        CALL read_ensemble_pert_namelist  (atm_namelist_filename(1:tlen))
        CALL read_radiation_namelist      (atm_namelist_filename(1:tlen))
@@ -204,7 +212,6 @@ CONTAINS
     ! Initial conditions
     !
     CALL read_initicon_namelist       (atm_namelist_filename(1:tlen))
-    CALL read_ha_testcase_namelist    (atm_namelist_filename(1:tlen))
     CALL read_nh_testcase_namelist    (atm_namelist_filename(1:tlen))
 
     ! Boundary conditions
@@ -222,6 +229,9 @@ CONTAINS
 
     ! Assimilation
     CALL read_assimilation_namelist   (atm_namelist_filename(1:tlen))
+
+    ! Serialization
+    !$ser verbatim CALL read_ser_namelist(atm_namelist_filename(1:tlen))
     !-----------------------------------------------------------------
     ! Close the file in which all the namelist variables and their
     ! actual values were stored.

@@ -29,12 +29,13 @@ MODULE mo_nh_torus_exp
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message, finish
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, SUCCESS
+  USE mo_impl_constants,      ONLY: SUCCESS
   USE mo_io_units,            ONLY: find_next_free_unit
   USE mo_physical_constants,  ONLY: rd, cpd, p0ref, cvd_o_rd, rd_o_cpd, &
      &                              grav, alv, vtmpc1
-  USE mo_nh_testcases_nml,    ONLY: u_cbl, v_cbl, th_cbl, psfc_cbl, &
-                                    bubctr_x, bubctr_y, nh_test_name
+  USE mo_nh_testcases_nml,    ONLY: u_cbl, v_cbl, th_cbl, psfc_cbl,   &
+     &                              bubctr_x, bubctr_y, nh_test_name, &
+     &                              is_dry_cbl
   USE mo_nh_wk_exp,           ONLY: bub_amp, bub_ver_width, bub_hor_width, bubctr_z
   USE mo_model_domain,        ONLY: t_patch
   USE mo_math_constants,      ONLY: rad2deg, pi_2
@@ -127,7 +128,7 @@ MODULE mo_nh_torus_exp
       ENDIF
 
       !Tracers
-      IF(.NOT.les_config(jg)%is_dry_cbl)THEN
+      IF(.NOT.les_config(jg)%is_dry_cbl .AND. .NOT.is_dry_cbl)THEN
         DO jk = 1, nlev
           ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) = rh_sfc * spec_humi(sat_pres_water(th_cbl(1)),psfc_cbl) * &
                     EXP(-ptr_metrics%z_mc(1:nlen,jk,jb)/lambda)
@@ -173,6 +174,7 @@ MODULE mo_nh_torus_exp
       DO jk = 1 , nlev
          ptr_nh_prog%rho(1:nlen,jk,jb) = (ptr_nh_prog%exner(1:nlen,jk,jb)**cvd_o_rd)*p0ref/rd / &
                                          ptr_nh_prog%theta_v(1:nlen,jk,jb)     
+         ptr_nh_diag%pres(1:nlen,jk,jb) = ptr_nh_prog%rho(1:nlen,jk,jb)*rd*th_cbl(1)
       END DO !jk
 
     ENDDO !jb
@@ -246,7 +248,7 @@ MODULE mo_nh_torus_exp
     REAL(wp) :: zvn1, zvn2, zu, zv, psfc_in, ex_sfc
     REAL(wp) :: z_exner_h(1:nproma,ptr_patch%nlev+1), z_help(1:nproma) 
 
-    CHARACTER(len=max_char_length), PARAMETER :: &
+    CHARACTER(len=*), PARAMETER :: &
        &  routine = 'mo_nh_torus_exp:init_torus_with_sounding'
   !-------------------------------------------------------------------------
     
@@ -270,7 +272,7 @@ MODULE mo_nh_torus_exp
     ptr_nh_diag%pres_sfc(:,:) = psfc_in
     ex_sfc   = (psfc_in/p0ref)**rd_o_cpd
     IF ( les_config(jg)%psfc /= psfc_in ) THEN
-      CALL finish(TRIM(routine),'Value of psfc in les_nml is inconsistent with data in sounding file!')
+      CALL finish(routine,'Value of psfc in les_nml is inconsistent with data in sounding file!')
     END IF
 
 
@@ -644,7 +646,7 @@ MODULE mo_nh_torus_exp
     REAL(wp),  INTENT(OUT) :: psfc_in
   
     REAL(wp), ALLOCATABLE, DIMENSION(:):: zs, ths, qvs, us, vs
-    CHARACTER(len=max_char_length),PARAMETER :: routine  = &
+    CHARACTER(len=*),PARAMETER :: routine  = &
          &   'mo_nh_torus_exp:read_ext_profile'
   
     INTEGER :: ist, iunit
@@ -652,14 +654,14 @@ MODULE mo_nh_torus_exp
     
     !-------------------------------------------------------------------------
   
-    CALL message(TRIM(routine), 'READING FROM SOUNDING!')
+    CALL message(routine, 'READING FROM SOUNDING!')
     
     !open file again to read data this time
     iunit = find_next_free_unit(10,100)
     OPEN (unit=iunit,file='sound_in', access='SEQUENTIAL', &
             form='FORMATTED',action='READ', status='OLD', IOSTAT=ist) 
     IF(ist/=success)THEN
-      CALL finish (TRIM(routine), 'open verticaling sound file failed')
+      CALL finish (routine, 'open verticaling sound file failed')
     ENDIF
   
     !Read the header : ps,klev
@@ -672,7 +674,7 @@ MODULE mo_nh_torus_exp
     DO jk = klev,1,-1 
       READ (iunit,*,IOSTAT=ist) zs(jk),ths(jk),qvs(jk),us(jk),vs(jk)
       IF(ist/=success)THEN
-        CALL finish (TRIM(routine), 'reading sounding file failed')
+        CALL finish (routine, 'reading sounding file failed')
       ENDIF
     END DO
 
@@ -680,7 +682,7 @@ MODULE mo_nh_torus_exp
 
     !Check if the file is written in descending order
     IF(zs(1) < zs(klev)) &
-         CALL finish (TRIM(routine), 'Writing souding data in descending order!')
+         CALL finish (routine, 'Writing souding data in descending order!')
 
     !Now perform interpolation to grid levels assuming:
     !a) linear interpolation
@@ -719,11 +721,12 @@ MODULE mo_nh_torus_exp
     REAL(wp), DIMENSION(ptr_patch%nlev) :: theta_in, qv_in, qc_in, tmp
     INTEGER  :: jc,jk,jb   !< loop indices
     INTEGER  :: nblks_c,npromz_c
-    INTEGER  :: nlev, nlevp1                  
+    INTEGER  :: nlev, nlevp1
+    LOGICAL  :: qc_fail, is_2d_bubble
     INTEGER  :: nlen, jg, itr
 
     REAL(wp), DIMENSION(3) :: x_bubble 
-    CHARACTER(len=max_char_length),PARAMETER :: routine  = &
+    CHARACTER(len=*),PARAMETER :: routine  = &
          &   'mo_nh_torus_exp:init_warm_bubble'
   !-------------------------------------------------------------------------
 
@@ -817,6 +820,10 @@ MODULE mo_nh_torus_exp
     !the th0 ratio
     inv_th0 = 1._wp / 300._wp
 
+    qc_fail = .FALSE.
+    is_2d_bubble = nh_test_name == '2D_BUBBLE'
+
+
     DO jb = 1, nblks_c
       IF (jb /= nblks_c) THEN
          nlen = nproma
@@ -829,7 +836,7 @@ MODULE mo_nh_torus_exp
           x_loc(2) = ptr_patch%cells%cartesian_center(jc,jb)%x(2)/bub_hor_width
           x_loc(3) = ptr_metrics%z_mc(jc,jk,jb)/bub_ver_width
             
-          IF(nh_test_name.eq.'2D_BUBBLE')THEN
+          IF (is_2d_bubble) THEN
            x_c(2)   = x_loc(2)
           END IF
 
@@ -847,8 +854,8 @@ MODULE mo_nh_torus_exp
              temp_new = th_new * ptr_nh_prog%exner(jc,jk,jb)
              qv_new   = spec_humi(sat_pres_water(temp_new),pres_new)
              qc_new   = qv_in(jk) + qc_in(jk) - qv_new
+             qc_fail = qc_fail .OR. qc_new < 0._wp
 
-             IF(qc_new<0._wp)CALL finish(TRIM(routine), 'qc < 0')
             END DO
 
             !assign values to proper prog vars
@@ -862,6 +869,7 @@ MODULE mo_nh_torus_exp
       END DO
     END DO 
 
+    if (qc_fail) CALL finish(routine, 'qc < 0')
 
     !calculate some of the variables
     DO jb = 1, nblks_c

@@ -29,18 +29,8 @@ MODULE mo_echam_phy_diag
 
   USE mo_physical_constants  ,ONLY: cpd, cpv, cvd, cvv, Tf, tmelt
   USE mo_run_config          ,ONLY: iqv
-  USE mo_echam_cld_config    ,ONLY: echam_cld_config
+  USE mo_echam_cop_config    ,ONLY: echam_cop_config
   USE mo_echam_sfc_indices   ,ONLY: nsfc_type, iwtr, iice, ilnd
-  !$ser verbatim USE mo_ser_echam_diag, ONLY: serialize_fractions_input,&
-  !$ser verbatim                              serialize_droplet_number_input,&
-  !$ser verbatim                              serialize_cpair_cvair_qconv_input,&
-  !$ser verbatim                              serialize_initialize_input,&
-  !$ser verbatim                              serialize_finalize_input,&
-  !$ser verbatim                              serialize_fractions_output,&
-  !$ser verbatim                              serialize_droplet_number_output,&
-  !$ser verbatim                              serialize_cpair_cvair_qconv_output,&
-  !$ser verbatim                              serialize_initialize_output,&
-  !$ser verbatim                              serialize_finalize_output
 
   IMPLICIT NONE
   PRIVATE
@@ -70,9 +60,6 @@ CONTAINS
     INTEGER                             :: jc
 
     field => prm_field(jg)
-
-    ! Serialbox2 input fields serialization
-    !$ser verbatim call serialize_fractions_input(jg, jb, jcs, jce, nproma, nlev, field)
 
     !$ACC DATA PRESENT( field%lsmask, field%alake, field%seaice, field%lake_ice_frc, field%ts_tile, &
     !$ACC               field%frac_tile )                                                           &
@@ -161,9 +148,6 @@ CONTAINS
 
     !$ACC END DATA
 
-    ! Serialbox2 output fields serialization
-    !$ser verbatim call serialize_fractions_output(jg, jb, jcs, jce, nproma, nlev, field)
-
     NULLIFY(field)
 
   END SUBROUTINE surface_fractions
@@ -186,21 +170,18 @@ CONTAINS
     LOGICAL                             :: lglac(nproma)
     REAL(wp)                            :: zprat, zn1, zn2, zcdnc
 
-    ! Shortcuts to components of echam_cld_config
+    ! Shortcuts to components of echam_cop_config
     !
     REAL(wp) :: cn1lnd, cn2lnd, cn1sea, cn2sea
     !
-    cn1lnd = echam_cld_config(jg)% cn1lnd
-    cn2lnd = echam_cld_config(jg)% cn2lnd
-    cn1sea = echam_cld_config(jg)% cn1sea
-    cn2sea = echam_cld_config(jg)% cn2sea
+    cn1lnd = echam_cop_config(jg)% cn1lnd
+    cn2lnd = echam_cop_config(jg)% cn2lnd
+    cn1sea = echam_cop_config(jg)% cn1sea
+    cn2sea = echam_cop_config(jg)% cn2sea
 
     field => prm_field(jg)
 
-    ! Serialbox2 input fields serialization
-    !$ser verbatim call serialize_droplet_number_input(jg, jb, jcs, jce, nproma, nlev, field)
-
-    !$ACC DATA PRESENT( field%sftlf, field%sftgif, field%presm_old, field%acdnc ) &
+    !$ACC DATA PRESENT( field%sftlf, field%sftgif, field%pfull, field%acdnc ) &
     !$ACC       CREATE( lland, lglac )
 
     !$ACC PARALLEL DEFAULT(PRESENT)
@@ -212,12 +193,11 @@ CONTAINS
     !$ACC END PARALLEL
 
     !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP GANG
+    !$ACC LOOP GANG VECTOR COLLAPSE(2) PRIVATE( zprat, zn1, zn2, zcdnc )
     DO jk = 1,nlev
-      !$ACC LOOP VECTOR PRIVATE( zprat, zn1, zn2, zcdnc )
       DO jc = jcs,jce
         !
-        zprat=(MIN(8._wp,80000._wp/field%presm_old(jc,jk,jb)))**2
+        zprat=(MIN(8._wp,80000._wp/field%pfull(jc,jk,jb)))**2
 
         IF (lland(jc).AND.(.NOT.lglac(jc))) THEN
           zn1= cn1lnd
@@ -226,7 +206,7 @@ CONTAINS
           zn1= cn1sea
           zn2= cn2sea
         END IF
-        IF (field%presm_old(jc,jk,jb).LT.80000._wp) THEN
+        IF (field%pfull(jc,jk,jb).LT.80000._wp) THEN
           zcdnc=1.e6_wp*(zn1+(zn2-zn1)*(EXP(1._wp-zprat)))
         ELSE
           zcdnc=zn2*1.e6_wp
@@ -238,9 +218,6 @@ CONTAINS
     !$ACC END PARALLEL
 
     !$ACC END DATA
-
-    ! Serialbox2 output fields serialization
-    !$ser verbatim call serialize_droplet_number_output(jg, jb, jcs, jce, nproma, nlev, field)
 
     NULLIFY(field)
 
@@ -262,16 +239,12 @@ CONTAINS
     INTEGER                             :: jc, jk
 
     field => prm_field(jg)
-
-    ! Serialbox2 input fields serialization
-    !$ser verbatim call serialize_cpair_cvair_qconv_input(jg, jb, jcs, jce, nproma, nlev, field)
     
     !$ACC DATA PRESENT( field%cpair, field%qtrc, field%cvair, field%qconv, field%mair )
 
     !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP GANG
+    !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = 1,nlev
-      !$ACC LOOP VECTOR
       DO jc=jcs,jce
         field%cpair(jc,jk,jb) = cpd+(cpv-cpd)*field%qtrc(jc,jk,jb,iqv)
         field%cvair(jc,jk,jb) = cvd+(cvv-cvd)*field%qtrc(jc,jk,jb,iqv)
@@ -282,9 +255,6 @@ CONTAINS
     !$ACC END PARALLEL
 
     !$ACC END DATA
-
-    ! Serialbox2 output fields serialization
-    !$ser verbatim call serialize_cpair_cvair_qconv_output(jg, jb, jcs, jce, nproma, nlev, field)
     
     NULLIFY(field)
 
@@ -306,9 +276,6 @@ CONTAINS
     INTEGER                             :: jc, jk
 
     field => prm_field(jg)
-
-    ! Serialbox2 input fields serialization
-    !$ser verbatim call serialize_initialize_input(jg, jb, jcs, jce, nproma, nlev, field)
     
     IF (ASSOCIATED(field% q_phy)) THEN
       !$ACC PARALLEL DEFAULT(PRESENT)
@@ -329,9 +296,6 @@ CONTAINS
       END DO
       !$ACC END PARALLEL
     END IF
-
-    ! Serialbox2 output fields serialization
-    !$ser verbatim call serialize_initialize_output(jg, jb, jcs, jce, nproma, nlev, field)
 
     NULLIFY(field)
 
@@ -356,9 +320,6 @@ CONTAINS
     field => prm_field(jg)
     tend  => prm_tend (jg)
 
-    ! Serialbox2 input fields serialization
-    !$ser verbatim call serialize_finalize_input(jg, jb, jcs, jce, nproma, nlev, field, tend)
-
     !$ACC DATA PRESENT( field%pr, field%rsfl, field%ssfl, field%rsfc, field%ssfc, tend%ta_phy, field%cpair, field%cvair )
     
     ! precipitation flux from all processes
@@ -367,18 +328,17 @@ CONTAINS
     !$ACC LOOP GANG VECTOR
     DO jc=jcs,jce
     field% pr(jc,jb) =  field% rsfl(jc,jb) & ! rain large scale
-         &                  +field% ssfl(jc,jb) & ! snow large scale
-         &                  +field% rsfc(jc,jb) & ! rain convection
-         &                  +field% ssfc(jc,jb)   ! snow convection
+         &             +field% ssfl(jc,jb) & ! snow large scale
+         &             +field% rsfc(jc,jb) & ! rain convection
+         &             +field% ssfc(jc,jb)   ! snow convection
     END DO
     !$ACC END PARALLEL
  
     ! convert the temperature tendency from physics, as computed for constant pressure conditions,
     ! to constant volume conditions, as needed for the coupling to the dynamics
     !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP GANG
+    !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = 1,nlev
-      !$ACC LOOP VECTOR
       DO jc=jcs,jce
         tend% ta_phy(jc,jk,jb) = tend% ta_phy(jc,jk,jb) * field% cpair(jc,jk,jb) / field% cvair(jc,jk,jb)
       END DO
@@ -386,9 +346,6 @@ CONTAINS
     !$ACC END PARALLEL
 
     !$ACC END DATA
-
-    ! Serialbox2 output fields serialization
-    !$ser verbatim call serialize_finalize_output(jg, jb, jcs, jce, nproma, nlev, field, tend)
 
     NULLIFY(field)
     NULLIFY(tend )

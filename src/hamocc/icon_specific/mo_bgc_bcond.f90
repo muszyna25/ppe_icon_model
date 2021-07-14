@@ -1,5 +1,3 @@
-#ifndef __NO_ICON_OCEAN__
-
 !>
 !! Allocation/deallocation and reading of HAMOCC boundary conditions
 !!
@@ -20,7 +18,9 @@
 !----------------------------
 
 MODULE mo_bgc_bcond
-USE mo_kind,               ONLY: wp
+
+USE mo_master_control,       ONLY: get_my_process_name
+  USE mo_kind,               ONLY: wp
   USE mo_io_units,           ONLY: filename_max
   USE mo_parallel_config,    ONLY: nproma
   USE mo_impl_constants,     ONLY: max_char_length
@@ -28,13 +28,9 @@ USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_grid_config,        ONLY: n_dom
   USE mo_mpi,                ONLY: my_process_is_stdio
-  USE mo_linked_list,        ONLY: t_var_list
   USE mo_hamocc_types,       ONLY: t_hamocc_bcond
-
-  USE mo_var_list,           ONLY: default_var_list_settings,   &
-    &                              add_var,             &
-    &                              new_var_list,                &
-    &                              delete_var_list
+  USE mo_var_list,           ONLY: add_var, t_var_list_ptr
+  USE mo_var_list_register,  ONLY: vlr_add, vlr_del
   USE mo_master_config,      ONLY: getModelBaseDir
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var, grib2_var
@@ -45,13 +41,13 @@ USE mo_kind,               ONLY: wp
     &                              associate_keyword
   USE mo_cdi,                ONLY: DATATYPE_FLT32, GRID_UNSTRUCTURED
   USE mo_zaxis_type,         ONLY: ZA_SURFACE
-
   USE mo_hamocc_nml,         ONLY: io_stdo_bgc
   USE mo_ext_data_types,     ONLY: t_external_data, t_external_bgc
   USE mo_ocean_ext_data,     ONLY: ext_data
   USE mtime,                 ONLY: datetime
-  USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL,  &                         
-    &                              GRID_CELL
+  USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL
+  USE mo_ocean_nml,          ONLY: lsediment_only
+  USE mo_run_config,         ONLY: dtime
 
   
   IMPLICIT NONE
@@ -108,8 +104,11 @@ CONTAINS
       &                          'external data finished')
 
 
-    !
-    CALL read_ext_data_bgc (p_patch, ext_data)
+    IF (lsediment_only) THEN
+     CALL read_ext_data_sedon(p_patch, ext_data)
+    ELSE
+     CALL read_ext_data_bgc(p_patch, ext_data)
+    ENDIF
 
   END SUBROUTINE construct_bgc_ext_data
   !-------------------------------------------------------------------------
@@ -130,7 +129,7 @@ CONTAINS
     TYPE(t_hamocc_bcond), INTENT(INOUT) :: & !< current external data structure
       &  p_ext_data_bgc 
 
-    TYPE(t_var_list) :: p_ext_bgc_list !< current external data list
+    TYPE(t_var_list_ptr) :: p_ext_bgc_list !< current external data list
 
     CHARACTER(len=*), INTENT(IN)  :: & !< list name
       &  listname
@@ -162,27 +161,51 @@ CONTAINS
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( p_ext_bgc_list, TRIM(listname), patch_id=p_patch%id )
-    CALL default_var_list_settings( p_ext_bgc_list,            &
-                                  & lrestart=.FALSE.,          &
-                                 & model_type='oce'  )
-
-    cf_desc    = t_cf_var('Dust cell center', 'kg m-2 yr-1', &
-      &                   'DUST', DATATYPE_FLT32)
-    grib2_desc = grib2_var( 192, 140, 219, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( p_ext_bgc_list, 'DUSTin', p_ext_bgc%dust,      &
-      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
-    CALL add_var( p_ext_bgc_list, 'DUSTY', p_ext_data_bgc%dusty,      &
-      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
-    cf_desc    = t_cf_var('Nitrogen cell center', 'kg m-2 yr-1', &
-      &                   'NDEP', DATATYPE_FLT32)
-    grib2_desc = grib2_var( 192, 140, 239, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( p_ext_bgc_list, 'NDEP', p_ext_bgc%nitro,      &
-      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
-    CALL add_var( p_ext_bgc_list, 'NITRO', p_ext_data_bgc%nitro,      &
-      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
-
-
+    CALL vlr_add(p_ext_bgc_list, TRIM(listname), patch_id=p_patch%id, &
+      &               lrestart=.FALSE., model_type=TRIM(get_my_process_name()))
+    IF (.not. lsediment_only) THEN
+     cf_desc    = t_cf_var('Dust cell center', 'kg m-2 yr-1', &
+       &                   'DUST', DATATYPE_FLT32)
+     grib2_desc = grib2_var( 192, 140, 219, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+     CALL add_var( p_ext_bgc_list, 'DUSTin', p_ext_bgc%dust,      &
+       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
+     CALL add_var( p_ext_bgc_list, 'DUSTY', p_ext_data_bgc%dusty,      &
+       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+     cf_desc    = t_cf_var('Nitrogen cell center', 'kg m-2 yr-1', &
+       &                   'NDEP', DATATYPE_FLT32)
+     grib2_desc = grib2_var( 192, 140, 239, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+     CALL add_var( p_ext_bgc_list, 'NDEP', p_ext_bgc%nitro,      &
+       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
+     CALL add_var( p_ext_bgc_list, 'NITRO', p_ext_data_bgc%nitro,      &
+       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+    ELSE
+     cf_desc    = t_cf_var('dust sediment flx', 'kmol m-2 s', &
+       &                   'produs', DATATYPE_FLT32)
+     grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+     CALL add_var( p_ext_bgc_list, 'PRO_DUS', p_ext_bgc%produs,      &
+       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+     CALL add_var( p_ext_bgc_list, 'produs', p_ext_data_bgc%produs,      &
+       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+     cf_desc    = t_cf_var('organic sediment flx', 'kmol m-2 s', &
+       &                   'prorca', DATATYPE_FLT32)
+     CALL add_var( p_ext_bgc_list, 'pr_orca', p_ext_bgc%prorca,      &
+       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+     CALL add_var( p_ext_bgc_list, 'prorca', p_ext_data_bgc%prorca,      &
+       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+     cf_desc    = t_cf_var('calc sediment flx', 'kmol m-2 s', &
+       &                   'prcaca', DATATYPE_FLT32)
+     CALL add_var( p_ext_bgc_list, 'pr_caca', p_ext_bgc%prcaca,      &
+       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+     CALL add_var( p_ext_bgc_list, 'prcaca', p_ext_data_bgc%prcaca,      &
+       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+     cf_desc    = t_cf_var('opal sediment flx', 'kmol m-2 s', &
+       &                   'silpro', DATATYPE_FLT32)
+     CALL add_var( p_ext_bgc_list, 'sil_pro', p_ext_bgc%silpro,      &
+       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+     CALL add_var( p_ext_bgc_list, 'silpro', p_ext_data_bgc%silpro,      &
+       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+     CALL message('new_ext_data_bgc_list','add_var finished for particle fluxes')
+    ENDIF
 
   END SUBROUTINE new_ext_data_bgc_list
   !-------------------------------------------------------------------------
@@ -208,7 +231,7 @@ CONTAINS
 
     DO jg = 1,n_dom
       ! Delete list of constant in time oceanic elements
-      CALL delete_var_list( ext_data(jg)%bgc_list )
+      CALL vlr_del(ext_data(jg)%bgc_list)
     ENDDO
 
     CALL message (TRIM(routine), 'Destruction of data structure for ' // &
@@ -301,7 +324,7 @@ CONTAINS
         CALL nf(nf_close(ncid), routine)
       ENDIF
 
-      stream_id = openInputFile(dust_file, p_patch)
+      CALL openinputfile(stream_id, dust_file, p_patch)
       
       no_tst = 12
       !-------------------------------------------------------
@@ -369,7 +392,7 @@ CONTAINS
         CALL nf(nf_close(ncid), routine)
       ENDIF
 
-      stream_id = openInputFile(dust_file, p_patch)
+      CALL openinputfile(stream_id, dust_file, p_patch)
       
       no_tst = 12
       !-------------------------------------------------------
@@ -391,6 +414,113 @@ CONTAINS
 
   END SUBROUTINE read_ext_data_bgc
   !--------------------------------------------------
+  !>
+  !!
+  !! Read HAMOCC external data from netcdf
+  !!
+  !!
+!<Optimize:inUse>
+  SUBROUTINE read_ext_data_sedon (p_patch, ext_data)
+
+    TYPE(t_patch), INTENT(IN)            :: p_patch
+    TYPE(t_external_data), INTENT(INOUT) :: ext_data
+
+    CHARACTER(len=max_char_length), PARAMETER :: &
+      routine = 'read_ext_data_bgc'
+
+    CHARACTER(filename_max) :: dust_file   !< file name for reading in
+
+    LOGICAL :: l_exist
+    INTEGER ::  no_cells,  no_tst
+    INTEGER :: ncid, dimid
+    TYPE(t_stream_id) :: stream_id
+
+    REAL(wp):: z_flux(nproma,1,p_patch%alloc_cell_blocks)
+    TYPE (t_keyword_list), POINTER :: keywords => NULL()
+
+    CALL message (TRIM(routine), 'start')
+
+    !-------------------------------------------------------------------------
+    !  READ DUST
+    !-------------------------------------------------------------------------
+
+!     jg = 1
+
+    z_flux(:,:,:) = 0.0_wp
+
+    CALL associate_keyword("<path>", TRIM(getModelBaseDir()), keywords)
+    
+      dust_file='particle_fluxes.nc'
+
+      CALL message( TRIM(routine),'HAMOCC sediment flux file is: '//TRIM(dust_file) )
+
+      IF(my_process_is_stdio()) THEN
+        !
+        INQUIRE (FILE=dust_file, EXIST=l_exist)
+        IF (.NOT.l_exist) THEN
+          write(io_stdo_bgc,*)'FORCING FILE: ',TRIM(dust_file)
+          CALL finish(TRIM(routine),'Particle flux file is not found - ABORT')
+        ENDIF
+
+        !
+        ! open file
+        !
+        CALL nf(nf_open(TRIM(dust_file), NF_NOWRITE, ncid), routine)
+        CALL message( TRIM(routine),'HAMOCC particle flux file opened for read' )
+
+        !
+        !
+        CALL nf(nf_inq_dimid (ncid, 'ncells', dimid), routine)
+        CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
+
+        IF(p_patch%n_patch_cells_g /= no_cells) THEN
+          CALL finish(TRIM(ROUTINE),&
+          & 'Number of patch cells and cells in HAMOCC particle_flux file do not match - ABORT')
+        ENDIF
+
+        !
+        ! get number of timesteps
+        !
+        CALL nf(nf_inq_dimid (ncid, 'time', dimid), routine)
+        CALL nf(nf_inq_dimlen(ncid, dimid, no_tst), routine)
+        !
+        ! check
+        !
+        WRITE(message_text,'(A,I6,A)')  'HAMOCC particle flux file contains',no_tst,' data sets'
+        CALL message( TRIM(routine), TRIM(message_text) )
+
+        CALL nf(nf_close(ncid), routine)
+      ENDIF
+
+      CALL openInputFile(stream_id, dust_file, p_patch)
+      
+      no_tst = 12
+      !-------------------------------------------------------
+      !
+      ! Read sediment fluxes for triangle centers
+      !
+      !-------------------------------------------------------
+
+        CALL read_3D(stream_id, on_cells, 'prorca', z_flux)
+        ext_data%bgc%prorca(:,:) = z_flux(:,1,:)*dtime
+        CALL read_3D(stream_id, on_cells, 'prcaca', z_flux)
+        ext_data%bgc%prcaca(:,:) = z_flux(:,1,:)*dtime
+        CALL read_3D(stream_id, on_cells, 'silpro', z_flux)
+        ext_data%bgc%silpro(:,:) = z_flux(:,1,:)*dtime
+        CALL read_3D(stream_id, on_cells, 'produs', z_flux)
+        ext_data%bgc%produs(:,:) = z_flux(:,1,:)*dtime     
+
+      !
+      ! close file
+      !
+      CALL closeFile(stream_id)
+
+
+      CALL message( TRIM(routine),'HAMOCC particle-flux file read' )
+
+  END SUBROUTINE read_ext_data_sedon
+  !--------------------------------------------------
+
 !<Optimize:inUse>
 
    SUBROUTINE update_bgc_bcond(p_patch_3D, bgc_ext, this_datetime)
@@ -427,15 +557,19 @@ CONTAINS
       IF (jmon2 ==  0) jmon2=12
       IF (jmon2 == 13) jmon2=1
 
-   
-
-      bgc_ext%dusty(:,:) = rday1*ext_data(1)%bgc%dust(:,jmon1,:) + &
-      &                                   rday2*ext_data(1)%bgc%dust(:,jmon2,:)
+      IF (lsediment_only) THEN
+       bgc_ext%prorca(:,:) = ext_data(1)%bgc%prorca(:,:) 
+       bgc_ext%prcaca(:,:) = ext_data(1)%bgc%prcaca(:,:) 
+       bgc_ext%produs(:,:) = ext_data(1)%bgc%produs(:,:) 
+       bgc_ext%silpro(:,:) = ext_data(1)%bgc%silpro(:,:) 
+      ELSE 
+       bgc_ext%dusty(:,:) = rday1*ext_data(1)%bgc%dust(:,jmon1,:) + &
+       &                                   rday2*ext_data(1)%bgc%dust(:,jmon2,:)
     
-      bgc_ext%nitro(:,:) = rday1*ext_data(1)%bgc%nitro(:,jmon1,:) + &
-      &                                   rday2*ext_data(1)%bgc%nitro(:,jmon2,:)
+       bgc_ext%nitro(:,:) = rday1*ext_data(1)%bgc%nitro(:,jmon1,:) + &
+       &                                   rday2*ext_data(1)%bgc%nitro(:,jmon2,:)
+      ENDIF
 
   END SUBROUTINE update_bgc_bcond
 END MODULE
 
-#endif

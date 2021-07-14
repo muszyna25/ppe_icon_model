@@ -5,13 +5,12 @@ MODULE mo_interpolate_time
   USE mo_parallel_config,   ONLY: nproma
   USE mo_util_mtime,        ONLY: t_datetime_ptr, mtime_divide_timedelta
   USE mo_kind,              ONLY: wp
-  USE mo_exception,         ONLY: finish
+  USE mo_exception,         ONLY: message, message_text, finish
   USE mo_reader_abstract,   ONLY: t_abstract_reader
   USE mo_impl_constants,    ONLY: MAX_CHAR_LENGTH
-  USE mtime,             ONLY: newdatetime, datetime, deallocateDatetime, &
-    & newTimeDelta, OPERATOR(*), OPERATOR(+), OPERATOR(<), OPERATOR(>), &
-    & datetimetostring, max_datetime_str_len, OPERATOR(-), &
-    & deallocateTimedelta, timedelta
+  USE mtime,             ONLY: datetime, timedelta, &
+    & OPERATOR(*), OPERATOR(+), OPERATOR(<), OPERATOR(>), &
+    & datetimetostring, max_datetime_str_len, OPERATOR(-)
   USE mo_time_config,    ONLY: time_config
   USE mo_mpi,            ONLY: my_process_is_mpi_workroot, &
     & process_mpi_root_id, p_comm_work, p_bcast, p_pe_work
@@ -59,13 +58,12 @@ CONTAINS
     CHARACTER(*),                     INTENT(in   ) :: var_name
     INTEGER,                OPTIONAL, INTENT(in   ) :: int_mode
 
-    INTEGER :: errno
     INTEGER :: ntimes
     INTEGER :: i
 
     CHARACTER(len=max_datetime_str_len)      :: date_str1, date_str2
 
-    TYPE(timedelta), POINTER :: timeSinceDataStart
+    TYPE(timedelta) :: timeSinceDataStart
 
 
     CHARACTER(*), PARAMETER :: routine = &
@@ -90,32 +88,31 @@ CONTAINS
       ENDIF
     ENDDO
 
-    timeSinceDataStart => newTimeDelta("PT0S")
-
     timeSinceDataStart =  local_time - this%times(1)%ptr
 
-    IF (time_config%tc_exp_startdate < this%times(1)%ptr) THEN
-      CALL datetimetostring(time_config%tc_exp_startdate, date_str1)
+    IF (time_config%tc_startdate < this%times(1)%ptr) THEN
+      CALL datetimetostring(time_config%tc_startdate, date_str1)
       CALL datetimetostring(this%times(1)%ptr, date_str2)
-      CALL finish(routine, "Start of simulation ("//TRIM(date_str1)//") before start of data ("//TRIM(date_str2)//")")
+      CALL finish(routine, "Start of this run ("//TRIM(date_str1)//") before start of data ("//TRIM(date_str2)//")")
     ENDIF
-    IF (time_config%tc_exp_stopdate > this%times(ntimes)%ptr) THEN
-      CALL datetimetostring(time_config%tc_exp_stopdate, date_str1)
+    IF (time_config%tc_stopdate > this%times(ntimes)%ptr) THEN
+      CALL datetimetostring(time_config%tc_stopdate, date_str1)
       CALL datetimetostring(this%times(ntimes)%ptr, date_str2)
-      CALL finish(routine, "End of simulation ("//TRIM(date_str1)//") after end of data ("//TRIM(date_str2)//")")
+      CALL finish(routine, "End of this run ("//TRIM(date_str1)//") after end of data ("//TRIM(date_str2)//")")
     ENDIF
 
-    if (my_process_is_mpi_workroot()) THEN
-      print *, routine//":  loading data, tidx", this%tidx, "and", this%tidx+1
-    ENDIF
+    ! log message
+    CALL datetimetostring(this%times(this%tidx)%ptr, date_str1)
+    CALL datetimetostring(this%times(this%tidx+1)%ptr, date_str2)
+    WRITE(message_text,'(a,i3,a,i3,a)') " loading data, tidx", this%tidx,   " ("//TRIM(date_str1)//") and", &
+      &                                                        this%tidx+1, " ("//TRIM(date_str2)//")"
+    CALL message(TRIM(routine),message_text)
+
 
     CALL reader%get_one_timelev(this%tidx,   this%var_name, this%dataa)
     this%dataold => this%dataa
     CALL reader%get_one_timelev(this%tidx+1, this%var_name, this%datab)
     this%datanew => this%datab
-
-    ! Cleanup
-    CALL deallocateTimedelta(timeSinceDataStart)
 
   END SUBROUTINE time_intp_init
 
@@ -124,24 +121,22 @@ CONTAINS
     TYPE(datetime),    POINTER, INTENT(in   ) :: local_time
     REAL(wp),      ALLOCATABLE, INTENT(  out) :: interpolated(:,:,:,:)
 
-    TYPE(timedelta), POINTER :: curr_delta
-    TYPE(timedelta), POINTER :: dt
+    TYPE(timedelta) :: curr_delta, dt
     REAL(wp)                 :: weight
     INTEGER                  :: jc,jk,jb,jw
     INTEGER                  :: nlen, nblks, npromz
+    CHARACTER(len=max_datetime_str_len) :: date_str
 
     CHARACTER(*), PARAMETER :: routine = &
       & modname//"::time_intp_intp"
 
-    curr_delta         => newTimeDelta('PT0H')
-    dt                 => newTimeDelta('PT0H')
-
     IF (local_time > this%times(this%tidx+1)%ptr) THEN
       this%tidx    = this%tidx + 1
 
-      IF (my_process_is_mpi_workroot()) THEN
-        print *, routine//": loading new data, with tidx:", this%tidx
-      ENDIF
+      ! log message
+      CALL datetimetostring(this%times(this%tidx+1)%ptr, date_str)
+      WRITE(message_text,'(a,i3,a)') "loading new data, with tidx:", this%tidx+1, " ("//TRIM(date_str)//")"
+      CALL message(TRIM(routine),message_text)
 
       ! FORTRAN!?!1! this should look like:
       ! DEALLOCATE(this%dataold)
@@ -211,8 +206,6 @@ CONTAINS
 !      this%datanew(1,1,1,1), this%dataold(1,1,1,1)
 !      print *, (1-weight) * this%dataold(1,1,1,1) + weight*this%datanew(1,1,1,1)
 !    ENDIF
-    CALL deallocateTimedelta(curr_delta)
-    CALL deallocateTimedelta(dt)
   END SUBROUTINE time_intp_intp
 
 END MODULE mo_interpolate_time

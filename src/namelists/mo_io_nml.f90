@@ -21,24 +21,33 @@ MODULE mo_io_nml
 !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: max_char_length, max_ntracer, max_dom, &
-    &                              PRES_MSL_METHOD_GME, RH_METHOD_WMO
+    &                              PRES_MSL_METHOD_GME, RH_METHOD_WMO, max_echotop
   USE mo_io_units,           ONLY: nnml, nnml_output, filename_max
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: my_process_is_stdio, p_n_work
   USE mo_master_control,     ONLY: use_restart_namelists
-  USE mo_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist,   &
+  USE mo_restart_nml_and_att,ONLY: open_tmpfile, store_and_close_namelist,   &
                                  & open_and_restore_namelist, close_tmpfile
   USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
   USE mo_io_config,          ONLY: config_lkeep_in_sync           => lkeep_in_sync          , &
                                  & config_dt_diag                 => dt_diag                , &
                                  & config_gust_interval           => gust_interval          , &
+                                 & config_celltracks_interval     => celltracks_interval    , &
+                                 & config_dt_lpi                  => dt_lpi                 , &
+                                 & config_dt_celltracks           => dt_celltracks          , &
+                                 & config_dt_radar_dbz            => dt_radar_dbz           , &
+                                 & config_echotop_meta            => echotop_meta           , &
+                                 & t_echotop_meta                                           , &
+                                 & config_precip_interval         => precip_interval        , &
+                                 & config_runoff_interval         => runoff_interval        , &
+                                 & config_maxt_interval           => maxt_interval          , &
                                  & config_dt_checkpoint           => dt_checkpoint          , &
                                  & config_inextra_2d              => inextra_2d             , &
                                  & config_inextra_3d              => inextra_3d             , &
                                  & config_lflux_avg               => lflux_avg              , &
                                  & config_itype_pres_msl          => itype_pres_msl         , &
                                  & config_output_nml_dict         => output_nml_dict        , &
-                                 & config_linvert_dict            => linvert_dict            , &
+                                 & config_linvert_dict            => linvert_dict           , &
                                  & config_netcdf_dict             => netcdf_dict            , &
                                  & config_lnetcdf_flt64_output    => lnetcdf_flt64_output   , &
                                  & config_itype_rh                => itype_rh               , &
@@ -48,10 +57,13 @@ MODULE mo_io_nml
                                  & config_timeSteps_per_outputStep  => timeSteps_per_outputStep, &
                                  & config_lmask_boundary            => lmask_boundary          , &
                                  & config_restart_write_mode        => restart_write_mode   , &
-                                 & config_nrestart_streams          => nrestart_streams  
+                                 & config_nrestart_streams          => nrestart_streams     , &
+                                 & config_bvf2_mode                 => bvf2_mode            , &
+                                 & config_parcelfreq2_mode          => parcelfreq2_mode  
 
   USE mo_exception,        ONLY: finish
   USE mo_util_string,      ONLY: tolower
+  USE mtime,               ONLY: max_timedelta_str_len
 
 
   IMPLICIT NONE
@@ -83,7 +95,7 @@ CONTAINS
 
     CHARACTER(*), PARAMETER :: routine = modname//":read_io_namelist"
     INTEGER                        :: istat, funit
-    INTEGER                        :: iunit
+    INTEGER                        :: iunit, jg
 
     !-------------------------------------------------------------------------
     ! Namelist variables
@@ -92,6 +104,17 @@ CONTAINS
     LOGICAL :: lkeep_in_sync              ! if .true., sync stream after each timestep
     REAL(wp):: dt_diag                    ! diagnostic output timestep [seconds]
     REAL(wp):: gust_interval(max_dom)     ! time interval over which maximum wind gusts are taken
+    REAL(wp):: celltracks_interval(max_dom)  ! time interval over which extrema of cell track vars are taken
+                                             !  (LPI_MAX, UH_MAX, VORW_CTMAX, W_CTMAX, DBZ_CTMAX)
+    TYPE(t_echotop_meta) :: echotop_meta(max_dom) ! meta data for echotops (ECHOTOP, ECHOTOPinM)
+    CHARACTER(len=max_timedelta_str_len) :: precip_interval(max_dom)   ! time interval over which precipitation variables are accumulated
+    CHARACTER(len=max_timedelta_str_len) :: runoff_interval(max_dom)   ! time interval over which runoff variables are accumulated
+    CHARACTER(len=max_timedelta_str_len) :: maxt_interval(max_dom)     ! time interval for tmax_2m and tmin_2m 
+    REAL(wp):: dt_lpi                     ! calling frequency [seconds] of lpi diagnosis for hourly maximum calculation
+    REAL(wp):: dt_celltracks              ! calling frequency [seconds] of celltrack diagnosis for hourly maximum calculation
+                                          ! this pertains to the following variables: tcond_max/tcond10_max, uh_max, vorw_ctmax, w_ctmax
+    REAL(wp):: dt_radar_dbz               ! calling frequency [seconds] of radar reflectivity diagnosis for hourly maximum calculation
+
     REAL(wp):: dt_checkpoint              ! timestep [seconds] for triggering new restart file
 
     INTEGER :: inextra_2d                 ! number of extra output fields for debugging
@@ -139,16 +162,29 @@ CONTAINS
     ! involved. This speeds up the read-in process, since all the
     ! files may then be read in parallel.
     INTEGER :: nrestart_streams
+
+    INTEGER :: bvf2_mode                  !< computation mode for square of Brunt-Vaisala frequency:
+                                          !< 1: standard
+                                          !< 2: hydrostatic
+                                          !< 3: after Durran & Klemp (1982)
+    INTEGER :: parcelfreq2_mode           !< computation mode for square of general air parcel oscillation frequency:
+                                          !< 11: standard + unrestricted oscillation
+                                          !< 12: standard + vertical oscillation
+                                          !< 21: hydrostatic + unrestricted oscillation
+                                          !< 22: hydrostatic + vertical oscillation
     
-    NAMELIST/io_nml/ lkeep_in_sync, dt_diag, dt_checkpoint,             &
-      &              inextra_2d, inextra_3d,                            &
-      &              lflux_avg, itype_pres_msl, itype_rh,               &
-      &              output_nml_dict, netcdf_dict, linvert_dict,        &
-      &              lnetcdf_flt64_output,                              &
-      &              restart_file_type, write_initial_state,            &
-      &              write_last_restart, timeSteps_per_outputStep,      &
-      &              lmask_boundary, gust_interval, restart_write_mode, &
-      &              nrestart_streams
+    NAMELIST/io_nml/ lkeep_in_sync, dt_diag, dt_checkpoint,               &
+      &              inextra_2d, inextra_3d,                              &
+      &              lflux_avg, itype_pres_msl, itype_rh,                 &
+      &              output_nml_dict, netcdf_dict, linvert_dict,          &
+      &              lnetcdf_flt64_output,                                &
+      &              restart_file_type, write_initial_state,              &
+      &              write_last_restart, timeSteps_per_outputStep,        &
+      &              lmask_boundary, gust_interval, restart_write_mode,   &
+      &              nrestart_streams, celltracks_interval, echotop_meta, &
+      &              precip_interval, runoff_interval, maxt_interval,     &
+      &              nrestart_streams, dt_lpi, dt_celltracks, dt_radar_dbz, &
+      &              bvf2_mode, parcelfreq2_mode
 
     !-----------------------
     ! 1. default settings
@@ -162,6 +198,19 @@ CONTAINS
     dt_checkpoint           = 0._wp  ! unspecified
 
     gust_interval(:)        = 3600._wp     ! 1 hour
+    celltracks_interval(:)  = 3600._wp     ! 1 hour
+    DO jg=1, max_dom 
+      ! echotop_meta(jg)%nechotop will be re-computed later in mo_nml_crosscheck.f90
+      echotop_meta(jg)%nechotop                  = 0
+      echotop_meta(jg)%time_interval             = 3600._wp     ! 1 hour
+      echotop_meta(jg)%dbzthresh(1:max_echotop)  = -999.99_wp   ! missing value
+    END DO
+    precip_interval(:)      = "P01Y"       ! 1 year
+    runoff_interval(:)      = "P01Y"       ! 1 year
+    maxt_interval(:)        = "PT06H"      ! 6 hours
+    dt_lpi                  = 180._wp      ! 3 minutes
+    dt_celltracks           = 120._wp      ! 2 minutes
+    dt_radar_dbz            = 120._wp      ! 2 minutes
     inextra_2d              = 0     ! no extra output 2D fields
     inextra_3d              = 0     ! no extra output 3D fields
     lflux_avg               = .TRUE.
@@ -181,6 +230,9 @@ CONTAINS
 
     restart_write_mode = ""
     nrestart_streams   = 1
+
+    bvf2_mode          = 1
+    parcelfreq2_mode   = 11
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above
@@ -212,13 +264,34 @@ CONTAINS
     CALL close_nml
 
     !----------------------------------------------------
-    ! 4. Fill the configuration state
+    ! 4. Fill echotop_meta with defaults, if nothing
+    !    has been specified in the namelist
+    !----------------------------------------------------
+
+    DO jg=1, max_dom
+      ! echotop_meta(jg)%nechotop will be computed later in mo_nml_crosscheck.f90
+      IF ( ALL(echotop_meta(jg)%dbzthresh(1:max_echotop) < -900.0_wp) ) THEN
+        echotop_meta(jg)%dbzthresh(1)              = 18.0_wp
+        echotop_meta(jg)%dbzthresh(2:max_echotop)  = -999.99_wp ! missing value
+      END IF
+    END DO
+
+    !----------------------------------------------------
+    ! 5. Fill the configuration state
     !----------------------------------------------------
 
     config_lkeep_in_sync           = lkeep_in_sync
     config_dt_diag                 = dt_diag
     config_gust_interval(:)        = gust_interval(:)
+    config_celltracks_interval(:)  = celltracks_interval(:)
+    config_echotop_meta(:)         = echotop_meta(:)
+    config_precip_interval(:)      = precip_interval(:)
+    config_runoff_interval(:)      = runoff_interval(:)
+    config_maxt_interval(:)        = maxt_interval(:)
     config_dt_checkpoint           = dt_checkpoint
+    config_dt_lpi                  = dt_lpi
+    config_dt_celltracks           = dt_celltracks
+    config_dt_radar_dbz            = dt_radar_dbz
     config_inextra_2d              = inextra_2d
     config_inextra_3d              = inextra_3d
     config_lflux_avg               = lflux_avg
@@ -235,6 +308,8 @@ CONTAINS
     config_lmask_boundary          = lmask_boundary
     config_restart_write_mode      = tolower(restart_write_mode)
     config_nrestart_streams        = nrestart_streams
+    config_bvf2_mode               = bvf2_mode
+    config_parcelfreq2_mode        = parcelfreq2_mode
 
     ! --- consistency check:
 
@@ -245,7 +320,7 @@ CONTAINS
     END IF
 
     !-----------------------------------------------------
-    ! 5. Store the namelist for restart
+    ! 6. Store the namelist for restart
     !-----------------------------------------------------
     IF(my_process_is_stdio())  THEN
       funit = open_tmpfile()

@@ -47,7 +47,7 @@ MODULE mo_timer
   PUBLIC :: print_timer, cleanup_timer, delete_timer          !< procedures imported and renamed
   PUBLIC :: init_timer                                        !< procedure of this module
 
-  PUBLIC :: timer_total                         !< IDs of timers
+  PUBLIC :: timer_total                                       !< IDs of timers
   PUBLIC :: timer_exch_data, timer_exch_data_rv, timer_exch_data_async, timer_exch_data_wait
   PUBLIC :: timer_global_sum, timer_omp_global_sum, timer_ordglb_sum, timer_omp_ordglb_sum
   PUBLIC :: timer_icon_comm_sync
@@ -66,9 +66,13 @@ MODULE mo_timer
 
   PUBLIC :: timer_div, timer_grad, timer_gmres
   PUBLIC :: timer_corio, timer_intp
+  PUBLIC :: timer_nh_hdiffusion
+
+  ! tracer transport (atmosphere)
   PUBLIC :: timer_transport
   PUBLIC :: timer_back_traj
-  PUBLIC :: timer_nh_hdiffusion
+  PUBLIC :: timer_adv_horz, timer_adv_vert
+  PUBLIC :: timer_adv_hflx, timer_adv_vflx
 
   PUBLIC :: timer_update_prog_phy
   PUBLIC :: timer_diagnose_pres_temp
@@ -119,6 +123,15 @@ MODULE mo_timer
   PUBLIC :: timer_phys_acc_par
   PUBLIC :: timer_phys_sync_ddt_u
   PUBLIC :: timer_phys_sync_vn
+  PUBLIC :: timer_phys_reff
+  PUBLIC :: timer_phys_2mom_dmin_init
+  PUBLIC :: timer_phys_2mom_wetgrowth
+  PUBLIC :: timer_phys_2mom_prepost
+  PUBLIC :: timer_phys_2mom_proc
+  PUBLIC :: timer_phys_2mom_sedi
+  PUBLIC :: timer_phys_micro_specific
+  PUBLIC :: timer_phys_micro_satad
+
 
   PUBLIC :: timer_held_suarez_intr
 
@@ -139,24 +152,17 @@ MODULE mo_timer
   PUBLIC :: timer_solve_ab, timer_tracer_ab, timer_vert_veloc, timer_normal_veloc
   PUBLIC :: timer_upd_phys, timer_upd_flx, timer_calc_moc
   PUBLIC :: timer_ab_expl, timer_ab_rhs4sfc
-  PUBLIC :: timer_adv_horz, timer_dif_horz, timer_hflx_lim
-  PUBLIC :: timer_adv_vert, timer_dif_vert, timer_ppm_slim, timer_adpo_vert
+  PUBLIC :: timer_dif_horz, timer_hflx_lim
+  PUBLIC :: timer_dif_vert, timer_ppm_slim, timer_adpo_vert
   PUBLIC :: timer_dbg_prnt
-  PUBLIC :: timer_si_correction
   PUBLIC :: timer_cube_root
-  PUBLIC :: timer_RK_tend, timer_RK_update, timer_step_RK
 
   PUBLIC :: timer_intrp_diagn
-  PUBLIC :: timer_step_2tl_si
   PUBLIC :: timer_prep_echam_phy
   PUBLIC :: timer_prep_phy
-  PUBLIC :: timer_prep_tracer_leapfrog
   PUBLIC :: timer_prep_tracer
-  PUBLIC :: timer_prep_tracer_RK
   PUBLIC :: timer_hdiff_expl
   PUBLIC :: timer_dyn_theta, timer_dyn_temp
-
-  PUBLIC :: timer_con_l_theta2t, timer_con_l_t2theta, timer_con_theta2t, timer_con_t2theta
 
   PUBLIC :: timer_nesting
   PUBLIC :: timer_nudging
@@ -167,6 +173,9 @@ MODULE mo_timer
 
   ! upper atmosphere / deep atmosphere
   PUBLIC :: timer_deepatmo_ztrafo, timer_expol
+  PUBLIC :: timer_upatmo, timer_upatmo_constr, timer_upatmo_destr, timer_upatmo_phy, &
+    &       timer_upatmo_phy_init, timer_upatmo_phy_tend, timer_upatmo_phy_diag,     &
+    &       timer_upatmo_phy_imf, timer_upatmo_phy_rad, timer_upatmo_phy_acc
 
   ! ocean
   PUBLIC :: timer_scalar_prod_veloc
@@ -180,7 +189,8 @@ MODULE mo_timer
   PUBLIC :: timer_bgc_up_bgc, timer_bgc_swr, timer_bgc_wea, timer_bgc_depo, &
        &    timer_bgc_chemcon, timer_bgc_ocprod, timer_bgc_sett, timer_bgc_cya,&
        &    timer_bgc_gx, timer_bgc_calc, timer_bgc_powach, timer_bgc_up_ic, &
-       &    timer_bgc_tend,timer_bgc_ini, timer_bgc_inv, timer_bgc_tot 
+       &    timer_bgc_tend,timer_bgc_ini, timer_bgc_inv, timer_bgc_tot, &
+       &    timer_exchange_ocean_hamocc
 
   ! restart timers
   PUBLIC :: timer_load_restart
@@ -197,7 +207,7 @@ MODULE mo_timer
   PUBLIC :: timer_restart_indices_setup
 
   ! Timer for data assimilation
-  PUBLIC :: timer_datass, timer_lhn
+  PUBLIC :: timer_datass, timer_lhn, timer_init_dace, timer_dace_coupling
 
   PUBLIC :: timer_extra1,  timer_extra2,  timer_extra3,  timer_extra4,  timer_extra5,  &
             timer_extra6,  timer_extra7,  timer_extra8,  timer_extra9,  timer_extra10, &
@@ -213,6 +223,28 @@ MODULE mo_timer
             timer_art_cldInt, timer_art_diagInt, timer_art_sedInt, timer_art_toolInt,          &
             timer_art_tracInt, timer_art_turbdiffInt, timer_art_washoutInt, timer_art_initInt, &
             timer_art_radInt, timer_art_photo, timer_art_losschem
+
+  ! Timers for EMVORADO
+  PUBLIC :: timer_radar_tot      , &
+       &    timer_radar_ini      , &
+       &    timer_radar_asynio   , &
+       &    timer_radar_asynio_barrier   , &
+       &    timer_radar_prep_compute, &
+       &    timer_radar_bubbles  , &
+       &    timer_radar_composites, &
+       &    timer_radar_compgrid , &
+       &    timer_radar_comm     , &
+       &    timer_radar_ongeom   , &
+       &    timer_radar_comppolar, &
+       &    timer_radar_out      , & 
+       &    timer_radar_barrier
+
+  ! Timers for optional diagnostics
+  ! Model atmosphere
+  PUBLIC :: timer_opt_diag_atmo,             &
+    &       timer_opt_diag_atmo_vor,         &
+    &       timer_opt_diag_atmo_bvf2,        &
+    &       timer_opt_diag_atmo_parcelfreq2
 
   ! low level timing routine
   PUBLIC :: tic, toc
@@ -261,6 +293,15 @@ MODULE mo_timer
   INTEGER :: timer_phys_acc_par
   INTEGER :: timer_phys_sync_ddt_u
   INTEGER :: timer_phys_sync_vn
+  INTEGER :: timer_phys_reff
+  INTEGER :: timer_phys_2mom_dmin_init
+  INTEGER :: timer_phys_2mom_wetgrowth
+  INTEGER :: timer_phys_2mom_prepost
+  INTEGER :: timer_phys_2mom_proc
+  INTEGER :: timer_phys_2mom_sedi
+  INTEGER :: timer_phys_micro_specific
+  INTEGER :: timer_phys_micro_satad
+
   INTEGER :: timer_dyn_theta, timer_dyn_temp
 !   INTEGER :: timer_sync_wait
 !   INTEGER :: timer_sync_delay,timer_sync_outbuffer
@@ -276,7 +317,10 @@ MODULE mo_timer
   INTEGER :: timer_corio
   INTEGER :: timer_intp
 
-  INTEGER :: timer_transport    ! tracer transport
+  ! tracer transport (atmosphere)
+  INTEGER :: timer_transport
+  INTEGER :: timer_adv_horz, timer_adv_vert
+  INTEGER :: timer_adv_hflx, timer_adv_vflx
   INTEGER :: timer_back_traj
 
   ! Timer ID's for forcings and testcases
@@ -307,6 +351,7 @@ MODULE mo_timer
   INTEGER :: timer_rrtm_prep, timer_rrtm_post
   INTEGER :: timer_lrtm, timer_srtm
 #ifdef PSRAD_TIMING
+  ! Timers for EMVORADO
   INTEGER :: timer_gas_optics_lw, timer_gas_optics_sw, timer_cloud_optics, &
     timer_sample_cloud_lw, timer_sample_cloud_sw, &
     timer_rrtm_coeffs, timer_psrad_scaling, timer_psrad_aerosol
@@ -320,20 +365,15 @@ MODULE mo_timer
   INTEGER :: timer_solve_ab, timer_tracer_ab, timer_vert_veloc, timer_normal_veloc
   INTEGER :: timer_upd_phys, timer_upd_flx, timer_calc_moc
   INTEGER :: timer_ab_expl, timer_ab_rhs4sfc
-  INTEGER :: timer_adv_horz, timer_dif_horz, timer_hflx_lim
-  INTEGER :: timer_adv_vert, timer_dif_vert, timer_ppm_slim, timer_adpo_vert
+  INTEGER :: timer_dif_horz, timer_hflx_lim
+  INTEGER :: timer_dif_vert, timer_ppm_slim, timer_adpo_vert
   INTEGER :: timer_dbg_prnt
-  INTEGER :: timer_si_correction
   INTEGER :: timer_cube_root
-  INTEGER :: timer_RK_tend, timer_RK_update, timer_step_RK
 
   INTEGER :: timer_intrp_diagn
-  INTEGER :: timer_step_2tl_si
   INTEGER :: timer_prep_echam_phy
   INTEGER :: timer_prep_phy
-  INTEGER :: timer_prep_tracer_leapfrog
   INTEGER :: timer_prep_tracer
-  INTEGER :: timer_prep_tracer_RK
   INTEGER :: timer_hdiff_expl
 
   ! Timer ID for optional lon-lat interpolation
@@ -347,10 +387,11 @@ MODULE mo_timer
 
   INTEGER :: timer_global_nudging
 
-  INTEGER :: timer_con_l_theta2t, timer_con_l_t2theta, timer_con_theta2t, timer_con_t2theta
-
   ! upper atmosphere / deep atmosphere
   INTEGER :: timer_deepatmo_ztrafo, timer_expol
+  INTEGER :: timer_upatmo, timer_upatmo_constr, timer_upatmo_destr, timer_upatmo_phy, &
+    &        timer_upatmo_phy_init, timer_upatmo_phy_tend, timer_upatmo_phy_diag,     &
+    &        timer_upatmo_phy_imf, timer_upatmo_phy_rad, timer_upatmo_phy_acc
 
   ! ocean
   INTEGER :: timer_scalar_prod_veloc
@@ -362,7 +403,8 @@ MODULE mo_timer
   INTEGER :: timer_bgc_up_bgc, timer_bgc_swr, timer_bgc_wea, timer_bgc_depo, &
        &     timer_bgc_chemcon, timer_bgc_ocprod, timer_bgc_sett, timer_bgc_cya,&
        &     timer_bgc_gx, timer_bgc_calc, timer_bgc_powach, timer_bgc_up_ic, &
-       &     timer_bgc_tend, timer_bgc_ini, timer_bgc_inv, timer_bgc_tot
+       &     timer_bgc_tend, timer_bgc_ini, timer_bgc_inv, timer_bgc_tot, &
+       &     timer_exchange_ocean_hamocc
 
   ! restart timers
   INTEGER :: timer_load_restart
@@ -379,7 +421,7 @@ MODULE mo_timer
   INTEGER :: timer_restart_indices_setup
 
   ! Data assimilation
-  INTEGER :: timer_datass, timer_lhn
+  INTEGER :: timer_datass, timer_lhn, timer_init_dace, timer_dace_coupling
 
   ! The purpose of these "extra" timers is to have otherwise unused timers available for
   ! special-purpose measurements. Please do not remove them and do not use them permanently.
@@ -399,6 +441,29 @@ MODULE mo_timer
              timer_art_cldInt, timer_art_diagInt, timer_art_sedInt, timer_art_toolInt,          &
              timer_art_tracInt, timer_art_turbdiffInt, timer_art_washoutInt, timer_art_initInt, &
              timer_art_radInt, timer_art_photo, timer_art_losschem
+
+  ! Timers for EMVORADO
+  INTEGER :: timer_radar_tot      , &
+       &     timer_radar_asynio   , &
+       &     timer_radar_asynio_barrier   , &
+       &     timer_radar_ini      , &
+       &     timer_radar_prep_compute, &
+       &     timer_radar_bubbles  , &
+       &     timer_radar_composites, &
+       &     timer_radar_compgrid , &
+       &     timer_radar_comm     , &
+       &     timer_radar_ongeom   , &
+       &     timer_radar_comppolar, &
+       &     timer_radar_out      , & 
+       &     timer_radar_barrier
+
+  ! Timers for optional diagnostics
+  ! Model atmosphere
+  INTEGER :: timer_opt_diag_atmo,             &
+    &        timer_opt_diag_atmo_vor,         &
+    &        timer_opt_diag_atmo_bvf2,        &
+    &        timer_opt_diag_atmo_parcelfreq2
+
 
 CONTAINS
 
@@ -543,28 +608,27 @@ CONTAINS
     timer_solve_nh_vimpl    = new_timer  ("nh_solve.vimpl")
     timer_solve_nh_exch     = new_timer  ("nh_solve.exch")
 
-    timer_step_2tl_si = new_timer("2tl_si_solve")
-    timer_step_RK     = new_timer("RK_solve")
     timer_nh_hdiffusion= new_timer("nh_hdiff")
 
     timer_physics   = new_timer("physics")
-    timer_transport = new_timer("transport")
-    timer_back_traj = new_timer("back_traj")
     timer_dyn_theta = new_timer("dyn_theta")
     timer_dyn_temp  = new_timer("dyn_temp")
 
     timer_held_suarez_intr = new_timer("held_suarez_intr")
 
+    ! tracer transport (atmosphere)
+    timer_transport = new_timer("transport")
+    timer_back_traj = new_timer("back_traj")
+    timer_adv_horz  = new_timer("adv_horiz")
+    timer_adv_vert  = new_timer("adv_vert")
+    timer_adv_hflx  = new_timer("adv_hflx")
+    timer_adv_vflx  = new_timer("adv_vflx")
+ 
     ! dynamics timers
-    timer_RK_tend = new_timer("RK_tend")
-    timer_RK_update = new_timer("RK_update")
-    timer_si_correction = new_timer("si_correction")
 
     timer_intrp_diagn = new_timer   ("intrp_diagn")
     timer_prep_tracer = new_timer   ("prep_tracer")
-    timer_prep_tracer_RK = new_timer("prep_tracer_RK")
     timer_hdiff_expl = new_timer    ("hdiff_expl")
-    timer_prep_tracer_leapfrog = new_timer("prep_trc_leapfrog")
     timer_div       = new_timer("div")
     timer_grad      = new_timer("grad")
     timer_corio     = new_timer("corio")
@@ -646,6 +710,14 @@ CONTAINS
     timer_phys_sync_vn  = new_timer("phys_sync_vn")
     timer_prep_echam_phy = new_timer("prep_echam_phy")
     timer_prep_phy = new_timer("prep_phy")
+    timer_phys_reff = new_timer("phys_reff") 
+    timer_phys_2mom_dmin_init = new_timer("phys_2mom_dmin_init")
+    timer_phys_2mom_wetgrowth = new_timer("phys_2mom_wetgrowth")  
+    timer_phys_2mom_prepost = new_timer("phys_2mom_prepost")  
+    timer_phys_2mom_proc = new_timer("phys_2mom_proc")  
+    timer_phys_2mom_sedi = new_timer("phys_2mom_sedi")  
+    timer_phys_micro_specific = new_timer("phys_micro_specific")  
+    timer_phys_micro_satad = new_timer("phys_micro_satad")  
 
     timer_update_prog_phy = new_timer("update_prog_phy")
     timer_nh_diagnostics = new_timer("nh_diagnostics")
@@ -680,10 +752,8 @@ CONTAINS
     timer_ab_expl       = new_timer("ab_expl")
     timer_ab_rhs4sfc    = new_timer("ab_rhs4sfc")
     timer_tracer_ab     = new_timer("tracer_ab")
-    timer_adv_horz      = new_timer("adv_horiz")
     timer_dif_horz      = new_timer("dif_horiz")
     timer_hflx_lim      = new_timer("hflx_lim")
-    timer_adv_vert      = new_timer("adv_vert")
     timer_dif_vert      = new_timer("dif_vert")
     timer_ppm_slim      = new_timer("ppm_slim")
     timer_adpo_vert     = new_timer("adpo_vert")
@@ -693,11 +763,6 @@ CONTAINS
 
     timer_cube_root = new_timer("cube_root")
     timer_lonlat_setup = new_timer("lonlat_setup")
-
-    timer_con_l_theta2t = new_timer("con_l_theta2t")
-    timer_con_l_t2theta = new_timer("con_l_t2theta")
-    timer_con_theta2t = new_timer("con_theta2t")
-    timer_con_t2theta = new_timer("con_t2theta")
 
     ! timers for boundary interpolation, feedback & nudging
     timer_nesting    = new_timer("nesting")
@@ -709,7 +774,17 @@ CONTAINS
 
     ! upper atmosphere / deep atmosphere
     timer_deepatmo_ztrafo = new_timer("deepatmo_ztrafo")
-    timer_expol           = new_timer("upatmo_expol") 
+    timer_expol           = new_timer("upatmo_expol")
+    timer_upatmo          = new_timer("upper_atmosphere")
+    timer_upatmo_constr   = new_timer("upatmo_construction") 
+    timer_upatmo_destr    = new_timer("upatmo_destruction")
+    timer_upatmo_phy      = new_timer("upatmo_physics")
+    timer_upatmo_phy_init = new_timer("upatmo_phy_initialization")
+    timer_upatmo_phy_tend = new_timer("upatmo_phy_update_tendencies")
+    timer_upatmo_phy_diag = new_timer("upatmo_phy_update_diag_vars")
+    timer_upatmo_phy_imf  = new_timer("upatmo_phy_group_imf") 
+    timer_upatmo_phy_rad  = new_timer("upatmo_phy_group_rad")
+    timer_upatmo_phy_acc  = new_timer("upatmo_phy_accmlt_tendencies")
 
     !ocean timers
     timer_gmres     = new_timer("gmres")
@@ -741,6 +816,7 @@ CONTAINS
     timer_bgc_ini     = new_timer("hamocc_ini") 
     timer_bgc_inv     = new_timer("hamocc_inventories") 
     timer_bgc_tot     = new_timer("hamocc_total") 
+    timer_exchange_ocean_hamocc = new_timer("exch_hamocc_ocean") 
 
     ! timers for restart writing/loading
     timer_load_restart = new_timer("load_restart")
@@ -760,6 +836,8 @@ CONTAINS
     ! Timer for data assimilation
     timer_datass  = new_timer("datass")
     timer_lhn     = new_timer("lhn")
+    timer_init_dace     = new_timer("init_dace")
+    timer_dace_coupling = new_timer("dace_coupling")
 
   ! extra timers for on-demand (non-permanent) timings
     timer_extra1  = new_timer("extra1")
@@ -820,6 +898,31 @@ CONTAINS
     timer_art_tracInt = new_timer("art_tracInt") 
     timer_art_turbdiffInt = new_timer("art_turbdiffInt") 
     timer_art_washoutInt = new_timer("art_washoutInt")
+
+    ! Timers for EMVORADO
+    IF (iforcing /= iecham) THEN
+      timer_radar_tot       = new_timer("EMVORADO_total")
+      timer_radar_asynio    = new_timer("EMVORADO_asynio")
+      timer_radar_asynio_barrier    = new_timer("EMVORADO_asynio_barrier (minimize!)")
+      timer_radar_ini       = new_timer("EMVORADO_init_constgeom")
+      timer_radar_prep_compute= new_timer("EMVORADO_prep_compute")
+      timer_radar_bubbles   = new_timer("EMVORADO_bubbles")
+      timer_radar_composites= new_timer("EMVORADO_composites")
+      timer_radar_compgrid  = new_timer("EMVORADO_gridpoint_values")
+      timer_radar_comm      = new_timer("EMVORADO_mpi_comm")
+      timer_radar_ongeom    = new_timer("EMVORADO_online_beampropag")
+      timer_radar_comppolar = new_timer("EMVORADO_comp_polargrid")
+      timer_radar_out       = new_timer("EMVORADO_output")
+      timer_radar_barrier   = new_timer("EMVORADO_barrier_waiting")
+    END IF
+
+    ! Timers for optional diagnostics
+    ! Model atmosphere
+    timer_opt_diag_atmo             = new_timer("optional_diagnostics_atmosphere")
+    timer_opt_diag_atmo_vor         = new_timer("opt_diag_atmo_vorticity")
+    timer_opt_diag_atmo_bvf2        = new_timer("opt_diag_atmo_bruntvaisala")
+    timer_opt_diag_atmo_parcelfreq2 = new_timer("opt_diag_atmo_parcelfrequency")
+
   END SUBROUTINE init_timer
 
 

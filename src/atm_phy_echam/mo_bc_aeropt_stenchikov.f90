@@ -20,7 +20,7 @@ MODULE mo_bc_aeropt_stenchikov
 
   USE mo_kind,                   ONLY: wp, i8
   USE mo_model_domain,           ONLY: t_patch
-  USE mo_psrad_general,          ONLY: nbndlw, nbndsw
+  USE mo_radiation_general,      ONLY: nbndlw, nbndsw
   USE mo_exception,              ONLY: finish, message_text, warning
   USE mo_read_interface,         ONLY: openInputFile, closeFile, read_1D, &
     &                                  read_1D_extdim_time, &
@@ -89,9 +89,6 @@ SUBROUTINE su_bc_aeropt_stenchikov
   ext_v_t(:,:,:,:) = 0._wp
   ssa_v_t(:,:,:,:) = 0._wp
   p_lim_clim(lev_clim+1) = 0._wp
-#ifdef _OPENACC
-  CALL warning("GPU:su_bc_aeropt_stenchikov", "GPU device synchronization")
-#endif
   !$ACC UPDATE DEVICE( aod_v_s, ext_v_s, ssa_v_s, asy_v_s, aod_v_t, ext_v_t, ssa_v_t, &
   !$ACC                p_lim_clim )
 END SUBROUTINE su_bc_aeropt_stenchikov
@@ -176,9 +173,6 @@ SUBROUTINE read_bc_aeropt_stenchikov(current_date, p_patch)
     END DO
 
   ENDIF
-#ifdef _OPENACC
-  CALL warning("GPU:read_bc_aeropt_stenchikov", "GPU device synchronization")
-#endif
   !$ACC UPDATE DEVICE( aod_v_s, ext_v_s, ssa_v_s, asy_v_s, aod_v_t, ext_v_t, ssa_v_t, &
   !$ACC                p_lim_clim, r_lat_clim )
 
@@ -523,7 +517,7 @@ END SUBROUTINE pressure_index
 
   ENDIF
 
-  ifile_id=openInputFile(cfname)
+  CALL openInputFile(ifile_id,cfname)
   cdim_names(1)=cwave_dim
   cdim_names(2)=clat_dim
   cdim_names(3)='time'

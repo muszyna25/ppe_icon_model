@@ -19,7 +19,7 @@
 MODULE mo_nh_testcase_interface
 
   USE mo_kind,                   ONLY: wp
-  USE mo_impl_constants,         ONLY: MAX_CHAR_LENGTH, TRACER_ONLY
+  USE mo_impl_constants,         ONLY: TRACER_ONLY
   USE mo_grid_config,            ONLY: grid_sphere_radius
   USE mo_model_domain,           ONLY: t_patch
   USE mo_nonhydro_types,         ONLY: t_nh_state
@@ -33,7 +33,7 @@ MODULE mo_nh_testcase_interface
   USE mo_integrate_density_pa,   ONLY: integrate_density_pa
   USE mo_nh_dcmip_hadley,        ONLY: set_nh_velocity_hadley
   USE mo_nh_lahade,              ONLY: lahade, nh_lahade_interface
-  USE mtime,                     ONLY: datetime
+
 
   IMPLICIT NONE
 
@@ -59,7 +59,6 @@ CONTAINS
   SUBROUTINE nh_testcase_interface( jstep,                   &  !in
     &                               dt_loc,                  &  !in
     &                               sim_time,                &  !in
-    &                               mtime_datetime,          &  !in
     &                               p_patch,                 &  !in 
     &                               p_nh_state,              &  !inout
     &                               p_int_state,             &  !in
@@ -69,7 +68,6 @@ CONTAINS
     INTEGER,                    INTENT(IN)    :: jstep                    !< global time step
     REAL(wp),                   INTENT(IN)    :: dt_loc                   !< advective time step on this grid level
     REAL(wp),                   INTENT(IN)    :: sim_time                 !< elapsed simulation time on this grid level
-    TYPE(datetime),    POINTER, INTENT(IN)    :: mtime_datetime           !< date/time information
     TYPE(t_patch),     TARGET,  INTENT(INOUT) :: p_patch                  !< grid/patch info
     TYPE(t_nh_state),  TARGET,  INTENT(INOUT) :: p_nh_state               !< prognostic and diagnostic variables etc.
     TYPE(t_int_state), TARGET,  INTENT(IN)    :: p_int_state              !< interpolation state
@@ -78,7 +76,7 @@ CONTAINS
     ! Local variables
     INTEGER :: jg
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &  routine = modname//':nh_testcase_interface'
     
     !--------------------------------------------------------------

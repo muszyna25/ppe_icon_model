@@ -24,24 +24,24 @@
 MODULE mo_nwp_sfc_interface
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: message
+  USE mo_exception,           ONLY: message, message_text, finish
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_impl_constants,      ONLY: min_rlcell_int, zml_soil, iedmf, icosmo
+  USE mo_impl_constants,      ONLY: min_rlcell_int, iedmf, icosmo
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_ext_data_types,      ONLY: t_external_data
-  USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag 
+  USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE mo_nwp_phy_state,       ONLY: phy_params
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: iqv, msg_level
+  USE mo_run_config,          ONLY: iqv, iqi, msg_level
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, ibot_w_so, ntiles_total,    &
     &                               ntiles_water, lseaice, llake, lmulti_snow,        &
     &                               ntiles_lnd, lsnowtile, isub_water, isub_seaice,   &
     &                               isub_lake, itype_interception, l2lay_rho_snow,    &
-    &                               lprog_albsi, itype_trvg, itype_snowevap
+    &                               lprog_albsi, itype_trvg, itype_snowevap, zml_soil
   USe mo_extpar_config,       ONLY: itype_vegetation_cycle
   USE mo_ensemble_pert_config,ONLY: sst_pert_corrfac
   USE mo_satad,               ONLY: sat_pres_water, sat_pres_ice, spec_humi, dqsatdT_ice
@@ -51,9 +51,8 @@ MODULE mo_nwp_sfc_interface
   USE sfc_flake_data,         ONLY: h_Ice_min_flk
   USE sfc_seaice,             ONLY: seaice_timestep_nwp
   USE sfc_terra_data                ! soil and vegetation parameters for TILES
-  USE mo_physical_constants,  ONLY: tmelt, grav, salinity_fac
+  USE mo_physical_constants,  ONLY: tmelt, grav, salinity_fac, rhoh2o
 
-  
   IMPLICIT NONE 
 
   PRIVATE
@@ -64,9 +63,8 @@ MODULE mo_nwp_sfc_interface
 
 
 #ifdef __SX__
-! parameters for loop unrolling
+! parameter for loop unrolling
 INTEGER, PARAMETER :: nlsoil= 8
-INTEGER, PARAMETER :: nlsnow= 2
 #endif
 
 
@@ -77,17 +75,20 @@ CONTAINS
   SUBROUTINE nwp_surface( tcall_sfc_jg,                   & !>in
                         & p_patch,                        & !>in
                         & ext_data,                       & !>in
-                        & p_prog_rcf,                     & !>in/inout
-                        & p_diag ,                        & !>inout
+                        & p_prog, p_prog_rcf,             & !>in/inout
+                        & p_diag, p_metrics,              & !>inout
                         & prm_diag,                       & !>inout 
                         & lnd_prog_now, lnd_prog_new,     & !>inout
                         & p_prog_wtr_now, p_prog_wtr_new, & !>inout
-                        & lnd_diag                        ) !>inout
+                        & lnd_diag,                       & !>inout
+                        & lacc                            ) !>in
 
     TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch       !< grid/patch info
     TYPE(t_external_data),       INTENT(inout):: ext_data      !< external data
+    TYPE(t_nh_prog),      TARGET,INTENT(inout):: p_prog        !< dynamic prognostic vars
     TYPE(t_nh_prog),      TARGET,INTENT(inout):: p_prog_rcf    !< call freq
     TYPE(t_nh_diag),      TARGET,INTENT(inout):: p_diag        !< diag vars
+    TYPE(t_nh_metrics),   TARGET,INTENT(in)   :: p_metrics     !< metrics vars
     TYPE(t_nwp_phy_diag),        INTENT(inout):: prm_diag      !< atm phys vars
     TYPE(t_lnd_prog),            INTENT(inout):: lnd_prog_now  !< prog vars for sfc
     TYPE(t_lnd_prog),            INTENT(inout):: lnd_prog_new  !< prog vars for sfc
@@ -95,7 +96,8 @@ CONTAINS
     TYPE(t_wtr_prog),            INTENT(inout):: p_prog_wtr_new !< prog vars for wtr
     TYPE(t_lnd_diag),            INTENT(inout):: lnd_diag      !< diag vars for sfc
     REAL(wp),                    INTENT(in)   :: tcall_sfc_jg  !< time interval for 
-                                                               !< surface
+    LOGICAL, OPTIONAL,           INTENT(in)   :: lacc          !< GPU flag
+    LOGICAL :: lzacc
 
     ! Local array bounds:
     !
@@ -117,6 +119,7 @@ CONTAINS
     REAL(wp) :: conv_frac   (nproma)
     REAL(wp) :: prr_gsp_t   (nproma)
     REAL(wp) :: prs_gsp_t   (nproma)
+    REAL(wp) :: pri_gsp_t   (nproma)
     REAL(wp) :: prg_gsp_t   (nproma)
 
     REAL(wp) :: u_t (nproma)
@@ -133,6 +136,9 @@ CONTAINS
 
     REAL(wp) :: t_s_now_t  (nproma)
     REAL(wp) :: t_s_new_t  (nproma)
+
+    REAL(wp) :: t_sk_now_t (nproma)
+    REAL(wp) :: t_sk_new_t (nproma)
 
     REAL(wp) :: t_g_t      (nproma)
     REAL(wp) :: qv_s_t     (nproma)
@@ -180,6 +186,7 @@ CONTAINS
     REAL(wp) :: tai_t     (nproma)
     REAL(wp) :: laifac_t  (nproma)
     REAL(wp) :: eai_t     (nproma)
+    REAL(wp) :: skinc_t   (nproma)
     REAL(wp) :: rsmin2d_t (nproma)
 
     ! local dummy variable for precipitation rate of graupel, grid-scale
@@ -217,6 +224,7 @@ CONTAINS
                 sntunefac(nproma), sntunefac2(nproma, ntiles_total)
     REAL(wp) :: rain_gsp_rate(nproma, ntiles_total)
     REAL(wp) :: snow_gsp_rate(nproma, ntiles_total)
+    REAL(wp) :: ice_gsp_rate (nproma, ntiles_total)
     REAL(wp) :: rain_con_rate(nproma, ntiles_total)
     REAL(wp) :: snow_con_rate(nproma, ntiles_total)
     REAL(wp) :: graupel_gsp_rate(nproma, ntiles_total)
@@ -236,13 +244,20 @@ CONTAINS
     REAL(wp) :: rstom_t     (nproma)
     REAL(wp) :: z0_t        (nproma)
 
+    CHARACTER(len=*), PARAMETER :: routine = 'mo_nwp_sfc_interface:nwp_surface'
+
 !--------------------------------------------------------------
+    IF(PRESENT(lacc)) THEN
+        lzacc = lacc
+    ELSE
+        lzacc = .FALSE.
+    ENDIF
 
     ! get patch ID
     jg = p_patch%id
 
 
-    IF (atm_phy_nwp_config(jg)%inwp_gscp == 2) THEN
+    IF (atm_phy_nwp_config(jg)%lhave_graupel) THEN
       ! COSMO-DE (3-cat ice: snow, cloud ice, graupel)
       p_graupel_gsp_rate => prm_diag%graupel_gsp_rate(:,:)
     ELSE
@@ -281,8 +296,8 @@ CONTAINS
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,isubs,i_count,ic,isubs_snow,i_count_snow,                     &
 !$OMP   tmp1,tmp2,tmp3,fact1,fact2,frac_sv,frac_snow_sv,icount_init,init_list,it1,it2,is1,is2,              &
-!$OMP   rain_gsp_rate,snow_gsp_rate,rain_con_rate,snow_con_rate,ps_t,prr_con_t,prs_con_t,                   &
-!$OMP   prr_gsp_t,prs_gsp_t,u_t,v_t,t_t,qv_t,p0_t,sso_sigma_t,lc_class_t,t_snow_now_t,t_s_now_t,            &
+!$OMP   rain_gsp_rate,snow_gsp_rate,ice_gsp_rate,rain_con_rate,snow_con_rate,ps_t,prr_con_t,prs_con_t,      &
+!$OMP   prr_gsp_t,prs_gsp_t,pri_gsp_t,u_t,v_t,t_t,qv_t,p0_t,sso_sigma_t,lc_class_t,t_snow_now_t,t_s_now_t,  &
 !$OMP   t_g_t,qv_s_t,w_snow_now_t,rho_snow_now_t,w_i_now_t,w_p_now_t,w_s_now_t,freshsnow_t,                 &
 !$OMP   snowfrac_t,runoff_s_inst_t,runoff_g_inst_t,u_10m_t,v_10m_t,tch_t,tcm_t,tfv_t,sobs_t,thbs_t,pabs_t,  &
 !$OMP   soiltyp_t,plcov_t,rootdp_t,sai_t,tai_t,eai_t,rsmin2d_t,t_snow_mult_now_t,wliq_snow_now_t,           &
@@ -291,14 +306,20 @@ CONTAINS
 !$OMP   lhfl_bs_t,rstom_t,shfl_s_t,lhfl_s_t,qhfl_s_t,t_snow_mult_new_t,rho_snow_mult_new_t,                 &
 !$OMP   wliq_snow_new_t,wtot_snow_new_t,dzh_snow_new_t,w_so_new_t,w_so_ice_new_t,lhfl_pl_t,                 &
 !$OMP   shfl_soil_t,lhfl_soil_t,shfl_snow_t,lhfl_snow_t,t_snow_new_t,graupel_gsp_rate,prg_gsp_t,            &
-!$OMP   meltrate,h_snow_gp_t,conv_frac,tsnred,plevap_t,z0_t,laifac_t,qsat1,dqsdt1,qsat2,dqsdt2,             &
-!$OMP   sntunefac,sntunefac2,snowfrac_lcu_t) ICON_OMP_GUIDED_SCHEDULE
- 
+!$OMP   meltrate,h_snow_gp_t,conv_frac,t_sk_now_t,t_sk_new_t,skinc_t,tsnred,plevap_t,z0_t,laifac_t,         &
+!$OMP   qsat1,dqsdt1,qsat2,dqsdt2,sntunefac,sntunefac2,snowfrac_lcu_t) ICON_OMP_GUIDED_SCHEDULE
+
+    !$acc enter data copyin (zml_soil)                                             &
+    !$acc            create (sntunefac, sntunefac2, rain_con_rate, snow_con_rate)  &
+    !$acc            create (rain_gsp_rate, snow_gsp_rate, graupel_gsp_rate)       &
+    !$acc            create (init_list, it1, it2, fact1, fact2, frac_sv)           &
+    !$acc            create (frac_snow_sv, ice_gsp_rate),                          &
+    !$acc if(lzacc)
+
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
         & i_startidx, i_endidx, rl_start, rl_end)
-
       IF( atm_phy_nwp_config(jg)%inwp_surface == 0) THEN
         ! check dry case
         IF( atm_phy_nwp_config(jg)%inwp_satad == 0) THEN
@@ -307,18 +328,24 @@ CONTAINS
           ! 
           !> adjust humidity at water surface because of changed surface pressure
           !
+          !$acc parallel if(lzacc)
+          !$acc loop gang vector
           DO jc = i_startidx, i_endidx
             lnd_diag%qv_s (jc,jb) = &
               &            spec_humi(sat_pres_water(lnd_prog_now%t_g(jc,jb)),&
               &                                      p_diag%pres_sfc(jc,jb) )
           ENDDO
+          !$acc end parallel
         ENDIF
       ELSE  ! inwp_surface/=0
          ! 
          !> adjust humidity at water surface because of changing surface pressure
          !
-         DO ic=1,ext_data%atm%spw_count(jb)
-           jc = ext_data%atm%idx_lst_spw(ic,jb)
+!$NEC ivdep
+         !$acc parallel if(lzacc)
+         !$acc loop gang vector private(jc)
+         DO ic=1,ext_data%atm%list_seawtr%ncount(jb)
+           jc = ext_data%atm%list_seawtr%idx(ic,jb)
 
            ! salinity_fac accounts for the average reduction of saturation pressure caused by the salt content of oceans
            ! sst_pert_corrfac is a tuning factor to compensate the increased evaporation due to SST ensemble perturbations
@@ -326,29 +353,45 @@ CONTAINS
              &         spec_humi(sat_pres_water(lnd_prog_now%t_g_t(jc,jb,isub_water)),&
              &                                   p_diag%pres_sfc(jc,jb) )
          ENDDO
+         !$acc end parallel
       ENDIF
 
 
       IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
 
-       IF (ext_data%atm%lp_count(jb) == 0) CYCLE ! skip loop if there is no land point
+       IF (ext_data%atm%list_land%ncount(jb) == 0) CYCLE ! skip loop if there is no land point
 
        ! Copy precipitation fields for subsequent downscaling
+       !$acc parallel if(lzacc)
+       !$acc loop gang vector private(i_count)
        DO isubs = 1,ntiles_total
          i_count = ext_data%atm%gp_count_t(jb,isubs) 
          IF (i_count == 0) CYCLE ! skip loop if the index list for the given tile is empty
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
+         !$acc loop private(jc)
          DO ic = 1, i_count
            jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
            rain_gsp_rate(jc,isubs)    = prm_diag%rain_gsp_rate(jc,jb)
            snow_gsp_rate(jc,isubs)    = prm_diag%snow_gsp_rate(jc,jb)
+           ice_gsp_rate(jc,isubs)     = prm_diag%ice_gsp_rate(jc,jb)
            rain_con_rate(jc,isubs)    = prm_diag%rain_con_rate(jc,jb)
            snow_con_rate(jc,isubs)    = prm_diag%snow_con_rate(jc,jb)
            graupel_gsp_rate(jc,isubs) = p_graupel_gsp_rate    (jc,jb)
          END DO
+         IF( atm_phy_nwp_config(jg)%l2moment) THEN
+           DO ic = 1, i_count
+             jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
+             ! here we ignore the different densities of graupel and hail in TERRA (at least for now)
+             graupel_gsp_rate(jc,isubs) = graupel_gsp_rate(jc,isubs) + prm_diag%hail_gsp_rate(jc,jb) 
+           END DO
+         ENDIF
        END DO
+       !$acc end parallel
+
 
        IF (lsnowtile .AND. itype_snowevap == 3) THEN
+         !$acc parallel if(lzacc)
+         !$acc loop gang vector 
          DO jc = i_startidx, i_endidx
            IF (lnd_diag%h_snow(jc,jb) > 5.e-4_wp) THEN ! traces of snow are ignored
              lnd_diag%hsnow_max(jc,jb) = MAX(lnd_diag%hsnow_max(jc,jb), lnd_diag%h_snow(jc,jb))
@@ -366,8 +409,14 @@ CONTAINS
              sntunefac(jc) = 1._wp
            ENDIF
          ENDDO
+         !$acc end parallel
+
+         !$acc parallel if(lzacc)
+         !$acc loop gang vector private(i_count)
          DO isubs = ntiles_lnd+1, ntiles_total
            i_count = ext_data%atm%gp_count_t(jb,isubs) 
+!$NEC ivdep
+           !$acc loop private(jc,tmp1)
            DO ic = 1, i_count
              jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
              ! Another tuning factor in order to treat partial snow cover different for fresh snow and 'old' snow
@@ -377,30 +426,59 @@ CONTAINS
              ELSE
                sntunefac2(jc,isubs) = 1._wp
              ENDIF
+             !
+             ! parameterization for snow drift, treated as a source term for cloud ice (restricted to glaciers in order
+             ! to avoid erroneous side effects on snow density)
+             ! Note that, consistent with the approximations made for evaporation and deposition of precipitation,
+             ! the related change of total air mass is neglected here. The physical dependency on the near-surface snow density,
+             ! which would require a multi-layer snow scheme to be properly represented, is approximated by a combination of the
+             ! glacier snow density (which depends on the climatological 2m-temperature) and the freshsnow factor
+             !
+             IF (ext_data%atm%lc_class_t(jc,jb,isubs) == ext_data%atm%i_lc_snow_ice) THEN
+               tmp1 = tcall_sfc_jg * 7.5e-9_wp * (600._wp-lnd_prog_now%rho_snow_t(jc,jb,isubs))*       &
+                 MAX(0._wp,SQRT(SQRT(lnd_diag%freshsnow_t(jc,jb,isubs)))*prm_diag%dyn_gust(jc,jb)-7.5_wp)
+
+               p_prog_rcf%tracer(jc,nlev,jb,iqi) = p_prog_rcf%tracer(jc,nlev,jb,iqi) + tmp1 * &
+                 ext_data%atm%frac_t(jc,jb,isubs) / (p_prog%rho(jc,nlev,jb)*p_metrics%ddqz_z_full(jc,nlev,jb))
+
+               lnd_prog_now%w_snow_t(jc,jb,isubs) = lnd_prog_now%w_snow_t(jc,jb,isubs) - tmp1/rhoh2o
+               lnd_diag%h_snow_t(jc,jb,isubs) = rhoh2o*lnd_prog_now%w_snow_t(jc,jb,isubs)/lnd_prog_now%rho_snow_t(jc,jb,isubs)
+             ENDIF
+
            ENDDO
          ENDDO
+         !$acc end parallel
        ELSE IF (lsnowtile) THEN
+         !$acc parallel if(lzacc)
+         !$acc loop gang vector
          DO jc = i_startidx, i_endidx
            sntunefac(jc) = 1._wp
          ENDDO
+         !$acc end parallel
+         !$acc parallel if (lzacc)
+         !$acc loop gang vector private(i_count)
          DO isubs = ntiles_lnd+1, ntiles_total
            i_count = ext_data%atm%gp_count_t(jb,isubs) 
+           !$acc loop private(jc)
            DO ic = 1, i_count
              jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
              sntunefac2(jc,isubs) = lnd_diag%snowfrac_lc_t(jc,jb,isubs)
            ENDDO
          ENDDO
+         !$acc end parallel
        ENDIF
 
 !---------- Preparations for TERRA in the case if snow tiles are considered
        IF(lsnowtile) THEN      ! snow is considered as separate tiles
-
+         !$acc parallel if(lzacc)
+         !$acc loop gang vector private(isubs_snow,i_count_snow)
          DO isubs = 1, ntiles_lnd
 
            isubs_snow = isubs + ntiles_lnd
            i_count_snow = ext_data%atm%gp_count_t(jb,isubs_snow) 
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
+           !$acc loop private(jc, tmp3, tmp1, tmp2)
            DO ic = 1, i_count_snow
              jc = ext_data%atm%idx_lst_t(ic,jb,isubs_snow)
   
@@ -424,20 +502,42 @@ CONTAINS
 
                rain_gsp_rate(jc,isubs)    = rain_gsp_rate(jc,isubs)*tmp2
                snow_gsp_rate(jc,isubs)    = snow_gsp_rate(jc,isubs)*tmp2
+               ice_gsp_rate(jc,isubs)     = ice_gsp_rate(jc,isubs)*tmp2
                rain_con_rate(jc,isubs)    = rain_con_rate(jc,isubs)*tmp2
                snow_con_rate(jc,isubs)    = snow_con_rate(jc,isubs)*tmp2
                graupel_gsp_rate(jc,isubs) = graupel_gsp_rate(jc,isubs)*tmp2
                rain_gsp_rate(jc,isubs_snow)    = rain_gsp_rate(jc,isubs_snow)*tmp1
                snow_gsp_rate(jc,isubs_snow)    = snow_gsp_rate(jc,isubs_snow)*tmp1
+               ice_gsp_rate(jc,isubs_snow)     = ice_gsp_rate(jc,isubs_snow)*tmp1
                rain_con_rate(jc,isubs_snow)    = rain_con_rate(jc,isubs_snow)*tmp1
                snow_con_rate(jc,isubs_snow)    = snow_con_rate(jc,isubs_snow)*tmp1
                graupel_gsp_rate(jc,isubs_snow) = graupel_gsp_rate(jc,isubs_snow)*tmp1
              END IF
            END DO
          END DO
+         !$acc end parallel
        END IF
 
 !---------- Copy input fields for each tile
+
+       !$acc enter data create (soiltyp_t, plcov_t, rootdp_t, sai_t, eai_t, tai_t, laifac_t,      &
+       !$acc                    skinc_t, rsmin2d_t, u_t, v_t, t_t, qv_t, p0_t, ps_t, h_snow_gp_t, &
+       !$acc                    u_10m_t, v_10m_t, prr_con_t, prs_con_t, conv_frac, prr_gsp_t,     &
+       !$acc                    prs_gsp_t, pri_gsp_t, prg_gsp_t, sobs_t, thbs_t, pabs_t, tsnred,  &
+       !$acc                    t_snow_now_t, t_s_now_t, t_sk_now_t, t_g_t, qv_s_t, w_snow_now_t, &
+       !$acc                    rho_snow_now_t, h_snow_t, w_i_now_t, w_p_now_t, w_s_now_t,        &
+       !$acc                    freshsnow_t, snowfrac_t, tch_t, tcm_t, tfv_t, runoff_s_inst_t,    &
+       !$acc                    runoff_g_inst_t, t_snow_mult_now_t, rho_snow_mult_now_t,          &
+       !$acc                    wliq_snow_now_t, wtot_snow_now_t, dzh_snow_now_t, t_so_now_t,     &
+       !$acc                    w_so_now_t, w_so_ice_now_t, t_snow_new_t, t_s_new_t, t_sk_new_t,  &
+       !$acc                    w_snow_new_t, rho_snow_new_t, meltrate, w_i_new_t, w_p_new_t,     &
+       !$acc                    w_s_new_t, shfl_soil_t, lhfl_soil_t, shfl_snow_t, lhfl_snow_t,    &
+       !$acc                    rstom_t, lhfl_bs_t, t_snow_mult_new_t, rho_snow_mult_new_t,       &
+       !$acc                    wliq_snow_new_t, wtot_snow_new_t, dzh_snow_new_t, t_so_new_t,     &
+       !$acc                    w_so_new_t, w_so_ice_new_t, lhfl_pl_t, shfl_s_t, lhfl_s_t,        &
+       !$acc                    qhfl_s_t, plevap_t, z0_t, sso_sigma_t,                            &
+       !$acc                    snowfrac_lcu_t, lc_class_t),                                      &
+       !$acc if(lzacc)
 
 !----------------------------------
        DO isubs = 1,ntiles_total
@@ -447,6 +547,10 @@ CONTAINS
 
         IF (i_count == 0) CYCLE ! skip loop if the index list for the given tile is empty
 
+
+!$NEC ivdep
+        !$acc parallel if(lzacc)
+        !$acc loop gang vector private(jc)
         DO ic = 1, i_count
           jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
 
@@ -457,6 +561,7 @@ CONTAINS
                            phy_params(jg)%rcucov_trop*         prm_diag%tropics_mask(jc,jb)
           prr_gsp_t(ic) =  rain_gsp_rate(jc,isubs)
           prs_gsp_t(ic) =  snow_gsp_rate(jc,isubs)
+          pri_gsp_t(ic) =  ice_gsp_rate(jc,isubs)
           prg_gsp_t(ic) =  graupel_gsp_rate(jc,isubs)
 
           u_t(ic)       =  p_diag%u         (jc,nlev,jb)
@@ -470,6 +575,7 @@ CONTAINS
 
           t_snow_now_t(ic)          =  lnd_prog_now%t_snow_t(jc,jb,isubs) 
           t_s_now_t(ic)             =  lnd_prog_now%t_s_t(jc,jb,isubs)   
+          t_sk_now_t(ic)            =  lnd_prog_now%t_sk_t(jc,jb,isubs)
           t_g_t (ic)                =  lnd_prog_now%t_g_t(jc,jb,isubs)
           qv_s_t(ic)                =  lnd_diag%qv_s_t(jc,jb,isubs)
           w_snow_now_t(ic)          =  lnd_prog_now%w_snow_t(jc,jb,isubs)
@@ -534,6 +640,7 @@ CONTAINS
           sai_t(ic)                 =  ext_data%atm%sai_t(jc,jb,isubs)
           tai_t(ic)                 =  ext_data%atm%tai_t(jc,jb,isubs)
           eai_t(ic)                 =  ext_data%atm%eai_t(jc,jb,isubs)
+          skinc_t(ic)               =  ext_data%atm%skinc_t(jc,jb,isubs)
           rsmin2d_t(ic)             =  ext_data%atm%rsmin2d_t(jc,jb,isubs)
 
           t_so_now_t(ic,nlev_soil+1)= lnd_prog_now%t_so_t(jc,nlev_soil+1,jb,isubs)
@@ -547,15 +654,22 @@ CONTAINS
           ENDIF
 
         ENDDO
+        !$acc end parallel
 
         IF (itype_snowevap == 1 .OR. .NOT. lsnowtile) THEN
+          !$acc parallel if(lzacc)
+          !$acc loop gang vector
           DO ic = 1, i_count
             tsnred(ic) = 0._wp
           ENDDO
+          !$acc end parallel
         ELSE IF (isubs > ntiles_lnd) THEN
           ! compute temperature offset for reducing snow evaporation in vegetated areas,
           ! parameterizing the temperature difference between the snow and the snow-vegetation-mixture
           ! represented by the variable t_snow and the related snow albedo
+
+          !$acc parallel if(lzacc)
+          !$acc loop gang vector private(jc,tmp1,qsat1,dqsdt1,tmp2,qsat2,dqsdt2,tmp2)
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
             tmp1 = 0.06_wp * sntunefac(jc) * sobs_t(ic) * (1._wp - MIN(1._wp,                     &
@@ -569,25 +683,33 @@ CONTAINS
             tmp2 = tmp1 * (0.1_wp + 1000._wp*MAX(0._wp,qsat1-qv_t(ic))) / (1._wp + tmp1*500._wp*(dqsdt1+dqsdt2))
             tsnred(ic) = MIN(10._wp*SQRT(sntunefac(jc)),tmp2) / (1._wp + 4.e-5_wp*z0_t(ic)*sso_sigma_t(ic)**2)
           ENDDO
+          !$acc end parallel
         ELSE
           ! If the snow-cover fraction is artificially reduced by the melting-rate parameterization, the bare soil evaporation
           ! in TERRA is turned off on the corresponding snow-free tile.
           ! This is controlled by negative values of tsnred
+
+          !$acc parallel if(lzacc)
+          !$acc loop gang vector private(jc)
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
             tsnred(ic) = MIN(2._wp,sntunefac(jc))*(lnd_diag%snowfrac_lc_t(jc,jb,isubs)-snowfrac_lcu_t(ic))/ &
                          (1._wp-lnd_diag%snowfrac_lc_t(jc,jb,isubs))
           ENDDO
+          !$acc end parallel
         ENDIF
 
        MSNOWI: IF(lmulti_snow) THEN
-
+        
+       !$acc parallel if(lzacc)
 #ifdef __LOOP_EXCHANGE
+        !$acc loop gang vector private (jc)
         DO ic = 1, i_count
           jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
+          !$acc loop
           DO jk=1,nlev_snow
 #else
-!CDIR UNROLL=nlsnow
+        !$acc loop gang vector collapse(2) private(jc)  
         DO jk=1,nlev_snow
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
@@ -599,15 +721,19 @@ CONTAINS
             dzh_snow_now_t     (ic,jk) = lnd_prog_now%dzh_snow_t     (jc,jk,jb,isubs) 
           ENDDO
         ENDDO
-
+        !$acc end parallel
        END IF MSNOWI
 
+        !$acc parallel if(lzacc)
 #ifdef __LOOP_EXCHANGE
+        !$acc loop gang vector private(jc)
         DO ic = 1, i_count   
           jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
+          !$acc loop 
           DO jk=1,nlev_soil
 #else
-!CDIR UNROLL=nlsoil
+!$NEC outerloop_unroll(nlsoil)
+        !$acc loop gang vector collapse(2) private(jc)
         DO jk=1,nlev_soil
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
@@ -617,7 +743,8 @@ CONTAINS
             w_so_ice_now_t(ic,jk) = lnd_prog_now%w_so_ice_t(jc,jk,jb,isubs)
           ENDDO
         ENDDO
-!
+       !$acc end parallel
+
 !---------- END Copy index list fields
 
         CALL terra (                                           &
@@ -639,6 +766,7 @@ CONTAINS
         &  tai          = tai_t                              , & !IN surface area index                  --
         &  laifac       = laifac_t                           , & !IN ratio between current LAI and laimax                 --
         &  eai          = eai_t                              , & !IN surface area index                  --
+        &  skinc        = skinc_t                            , & !IN skin conductivity                 ( W/m**2/K )
         &  rsmin2d      = rsmin2d_t                          , & !IN minimum stomata resistance        ( s/m )
         &  z0           = z0_t                               , & !IN vegetation roughness length        ( m )
 !
@@ -657,6 +785,9 @@ CONTAINS
 !
         &  t_s_now       = t_s_now_t                         , & !INOUT temperature of the ground surface (  K  )
         &  t_s_new       = t_s_new_t                         , & !OUT temperature of the ground surface   (  K  )
+!
+        &  t_sk_now      = t_sk_now_t                        , & !INOUT skin temperature                  (  K  )
+        &  t_sk_new      = t_sk_new_t                        , & !OUT skin temperature                    (  K  )
 !
         &  t_g           = t_g_t                             , & !INOUT weighted surface temperature      (  K  )
         &  qv_s          = qv_s_t                            , & !INOUT specific humidity at the surface  (kg/kg)
@@ -712,6 +843,7 @@ CONTAINS
         &  conv_frac     = conv_frac                         , & !IN convective area fraction
         &  prr_gsp       = prr_gsp_t                         , & !IN precipitation rate of rain, grid-scale       (kg/m2*s)
         &  prs_gsp       = prs_gsp_t                         , & !IN precipitation rate of snow, grid-scale       (kg/m2*s)
+        &  pri_gsp       = pri_gsp_t                         , & !IN precipitation rate of cloud ice, grid-scale  (kg/m2*s)
         &  prg_gsp       = prg_gsp_t                         , & !IN precipitation rate of graupel, grid-scale    (kg/m2*s)
 !
         &  tch           = tch_t                             , & !INOUT turbulent transfer coefficient for heat     ( -- )
@@ -735,41 +867,51 @@ CONTAINS
         &  rstom         = rstom_t                           , & !OUT stomatal resistance                      ( s/m )
         &  zshfl_sfc     = shfl_s_t                          , & !OUT sensible heat flux surface interface     (W/m2) 
         &  zlhfl_sfc     = lhfl_s_t                          , & !OUT latent   heat flux surface interface     (W/m2) 
-        &  zqhfl_sfc     = qhfl_s_t                ) !OUT moisture flux surface interface          (kg/m2/s) 
-
+        &  zqhfl_sfc     = qhfl_s_t                          , & !OUT moisture flux surface interface          (kg/m2/s)
+        &  lacc          = lzacc                             )   !IN flag to run OpenACC code
 
         ! Multiply w_snow with old snow fraction in order to obtain the area-average SWE needed for
         ! diagnosing the new snow fraction
         IF (lsnowtile .AND. isubs > ntiles_lnd) THEN
+          !$acc parallel if(lzacc)
+          !$acc loop gang vector private(jc)
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
             w_snow_now_t(ic) = w_snow_new_t(ic)*MAX(lnd_diag%snowfrac_lc_t(jc,jb,isubs),0.01_wp)
             meltrate(ic) = meltrate(ic)*MAX(lnd_diag%snowfrac_lc_t(jc,jb,isubs),0.01_wp)
           ENDDO
+          !$acc end parallel
         ELSE
+          !$acc parallel if(lzacc)
+          !$acc loop gang vector
           DO ic = 1, i_count
             w_snow_now_t(ic) = w_snow_new_t(ic)
           ENDDO
+          !$acc end parallel
         ENDIF
 
-        CALL diag_snowfrac_tg(               &
-          &  istart = 1, iend = i_count    , & ! start/end indices
-          &  lc_class  = lc_class_t        , & ! land-cover class
-          &  i_lc_urban = ext_data%atm%i_lc_urban  , & ! land-cover class index for urban areas
-          &  t_snow    = t_snow_new_t      , & ! snow temp
-          &  t_soiltop = t_s_new_t         , & ! soil top temp
-          &  w_snow    = w_snow_now_t      , & ! snow WE
-          &  rho_snow  = rho_snow_new_t    , & ! snow density
-          &  freshsnow = freshsnow_t       , & ! fresh snow fraction
-          &  meltrate  = meltrate          , & ! snow melting rate
-          &  sso_sigma = sso_sigma_t       , & ! sso stdev
-          &  z0        = z0_t              , & ! vegetation roughness length
-          &  snowfrac  = snowfrac_t        , & ! OUT: snow cover fraction
-          &  snowfrac_u= snowfrac_lcu_t    , & ! OUT: unmodified snow cover fraction
-          &  t_g       = t_g_t               ) ! OUT: averaged ground temp
+
+        CALL diag_snowfrac_tg(                      &
+          &  istart     = 1, iend = i_count       , & ! start/end indices
+          &  lc_class   = lc_class_t              , & ! land-cover class
+          &  i_lc_urban = ext_data%atm%i_lc_urban , & ! land-cover class index for urban areas
+          &  t_snow     = t_snow_new_t            , & ! snow temperature
+          &  t_soiltop  = t_sk_new_t              , & ! soil top temperature or skin temperature
+          &  w_snow     = w_snow_now_t            , & ! snow WE
+          &  rho_snow   = rho_snow_new_t          , & ! snow density
+          &  freshsnow  = freshsnow_t             , & ! fresh snow fraction
+          &  meltrate   = meltrate                , & ! snow melting rate
+          &  sso_sigma  = sso_sigma_t             , & ! sso stdev
+          &  z0         = z0_t                    , & ! vegetation roughness length
+          &  snowfrac   = snowfrac_t              , & ! OUT: snow cover fraction
+          &  snowfrac_u = snowfrac_lcu_t          , & ! OUT: unmodified snow cover fraction
+          &  t_g        = t_g_t                   , & ! OUT: averaged ground temperature
+          &  lacc       = lzacc                     ) ! flag for OpenACC
 
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
+        !$acc parallel if(lzacc)
+        !$acc loop gang vector private(jc,tmp1,tmp2)
         DO ic = 1, i_count
           jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
 
@@ -781,7 +923,7 @@ CONTAINS
               tmp1 = MAX(0._wp,0.02_wp*(50._wp-prm_diag%swflxsfc_t(jc,jb,isubs-ntiles_lnd)))
               tmp2 = MIN(1._wp,MAX(0._wp,tmelt+1._wp-lnd_prog_new%t_s_t(jc,jb,isubs-ntiles_lnd)))
               snowfrac_t(ic) = MIN(snowfrac_t(ic),lnd_diag%snowfrac_lc_t(jc,jb,isubs)+MAX(tmp1,tmp2)*tcall_sfc_jg/10800._wp)
-            ELSE IF (prs_gsp_t(ic) + prs_con_t(ic) + prg_gsp_t(ic) == 0._wp) THEN
+            ELSE IF (prs_gsp_t(ic) + pri_gsp_t(ic) + prs_con_t(ic) + prg_gsp_t(ic) == 0._wp) THEN
               snowfrac_t(ic) = MIN(snowfrac_t(ic),lnd_diag%snowfrac_lc_t(jc,jb,isubs)+tcall_sfc_jg/7200._wp)
             ELSE
               snowfrac_t(ic) = MIN(snowfrac_t(ic),lnd_diag%snowfrac_lc_t(jc,jb,isubs)+tcall_sfc_jg/1800._wp)
@@ -797,6 +939,7 @@ CONTAINS
 
           lnd_prog_new%t_snow_t  (jc,jb,isubs) = t_snow_new_t  (ic)         
           lnd_prog_new%t_s_t     (jc,jb,isubs) = t_s_new_t     (ic)              
+          lnd_prog_new%t_sk_t    (jc,jb,isubs) = t_sk_new_t    (ic)
           lnd_prog_new%t_g_t     (jc,jb,isubs) = t_g_t         (ic)
           ! qv_s may violate the saturation constraint in cases of numerical instability
           lnd_diag%qv_s_t        (jc,jb,isubs) = MIN(qv_s_t    (ic), &
@@ -833,26 +976,34 @@ CONTAINS
           ENDIF
 
         ENDDO
+        !$acc end parallel 
 
         IF (lsnowtile .AND. isubs > ntiles_lnd) THEN ! copy snowfrac_t to snow-free tile
-!CDIR NODEP,VOVERTAKE,VOB                            ! (needed for index list computation)
+!$NEC ivdep                                          ! (needed for index list computation)
+          !$acc parallel if(lzacc)
+          !$acc loop gang vector private(jc)
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
             lnd_diag%snowfrac_lc_t(jc,jb,isubs-ntiles_lnd)  = lnd_diag%snowfrac_lc_t(jc,jb,isubs)
             lnd_diag%snowfrac_lcu_t(jc,jb,isubs-ntiles_lnd) = lnd_diag%snowfrac_lcu_t(jc,jb,isubs)
           ENDDO
+          !$acc end parallel
         ENDIF
+
 
         MSNOWO: IF(lmulti_snow) THEN
 
+        !$acc parallel if(lzacc)
 #ifdef __LOOP_EXCHANGE
+        !$acc loop gang vector private(jc)
         DO ic = 1, i_count
           jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
+          !$acc loop
           DO jk=1,nlev_snow
 #else
-!CDIR UNROLL=nlsnow
+        !$acc loop gang vector private(jc) collapse(2)   
         DO jk=1,nlev_snow
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
 #endif
@@ -863,18 +1014,21 @@ CONTAINS
             lnd_prog_new%dzh_snow_t     (jc,jk,jb,isubs) = dzh_snow_new_t     (ic,jk)      
           ENDDO
         ENDDO
-        
+        !$acc end parallel
         END IF MSNOWO
 
-
+        !$acc parallel if(lzacc)
 #ifdef __LOOP_EXCHANGE
+        !$acc loop gang vector private(jc)
         DO ic = 1, i_count
           jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
+          !$acc loop
           DO jk=1,nlev_soil
 #else
-!CDIR UNROLL=nlsoil
+!$NEC outerloop_unroll(nlsoil)
+        !$acc loop gang vector private(jc) collapse(2)
         DO jk=1,nlev_soil
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
 #endif
@@ -886,8 +1040,30 @@ CONTAINS
             prm_diag%lhfl_pl_t     (jc,jk,jb,isubs) = lhfl_pl_t     (ic,jk)     
           ENDDO
         ENDDO
+        !$acc end parallel
+
 
        END DO ! isubs - loop over tiles
+
+       !$acc exit data delete (soiltyp_t, plcov_t, rootdp_t, sai_t, eai_t, tai_t, laifac_t,      &
+       !$acc                   skinc_t, rsmin2d_t, u_t, v_t, t_t, qv_t, p0_t, ps_t, h_snow_gp_t, &
+       !$acc                   u_10m_t, v_10m_t, prr_con_t, prs_con_t, conv_frac, prr_gsp_t,     &
+       !$acc                   prs_gsp_t, pri_gsp_t, prg_gsp_t, sobs_t, thbs_t, pabs_t, tsnred,  &
+       !$acc                   t_snow_now_t, t_s_now_t, t_sk_now_t, t_g_t, qv_s_t, w_snow_now_t, &
+       !$acc                   rho_snow_now_t, h_snow_t, w_i_now_t, w_p_now_t, w_s_now_t,        &
+       !$acc                   freshsnow_t, snowfrac_t, tch_t, tcm_t, tfv_t, runoff_s_inst_t,    &
+       !$acc                   runoff_g_inst_t, t_snow_mult_now_t, rho_snow_mult_now_t,          &
+       !$acc                   wliq_snow_now_t, wtot_snow_now_t, dzh_snow_now_t, t_so_now_t,     &
+       !$acc                   w_so_now_t, w_so_ice_now_t, t_snow_new_t, t_s_new_t, t_sk_new_t,  &
+       !$acc                   w_snow_new_t, rho_snow_new_t, meltrate, w_i_new_t, w_p_new_t,     &
+       !$acc                   w_s_new_t, shfl_soil_t, lhfl_soil_t, shfl_snow_t, lhfl_snow_t,    &
+       !$acc                   rstom_t, lhfl_bs_t, t_snow_mult_new_t, rho_snow_mult_new_t,       &
+       !$acc                   wliq_snow_new_t, wtot_snow_new_t, dzh_snow_new_t, t_so_new_t,     &
+       !$acc                   w_so_new_t, w_so_ice_new_t, lhfl_pl_t, shfl_s_t, lhfl_s_t,        &
+       !$acc                   qhfl_s_t, plevap_t, z0_t, sso_sigma_t,                            &
+       !$acc                   snowfrac_lcu_t, lc_class_t),                                      &
+       !$acc if(lzacc)
+
 
        IF(lsnowtile) THEN      ! snow is considered as separate tiles
          DO isubs = 1, ntiles_lnd
@@ -895,8 +1071,10 @@ CONTAINS
            isubs_snow = isubs + ntiles_lnd
 
            ! save previous area fractions for subsequent redistribution computations
+           !$acc kernels if(lzacc)
            frac_sv(:)      = ext_data%atm%frac_t(:,jb,isubs)
            frac_snow_sv(:) = ext_data%atm%frac_t(:,jb,isubs_snow)
+           !$acc end kernels
 
            ! update index lists for snow tiles
            CALL update_idx_lists_lnd (idx_lst_lp       = ext_data%atm%idx_lst_lp_t(:,jb,isubs),         &
@@ -910,13 +1088,17 @@ CONTAINS
                                     partial_frac_snow  = ext_data%atm%frac_t(:,jb,isubs_snow),          &
                                     snowtile_flag      = ext_data%atm%snowtile_flag_t(:,jb,isubs),      &
                                     snowtile_flag_snow = ext_data%atm%snowtile_flag_t(:,jb,isubs_snow), &
-                                    snowfrac           = lnd_diag%snowfrac_lc_t(:,jb,isubs)             )
+                                    snowfrac           = lnd_diag%snowfrac_lc_t(:,jb,isubs), &
+                                    lacc               = lzacc)
   
            i_count = ext_data%atm%gp_count_t(jb,isubs) 
            i_count_snow = ext_data%atm%gp_count_t(jb,isubs_snow)
 
            ! Check for newly activated grid points that need to be initialized
            icount_init = 0
+!$NEC ivdep
+           !$acc parallel if(lzacc)
+           !$acc loop seq 
            DO ic = 1, i_count
              jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
              IF (ext_data%atm%snowtile_flag_t(jc,jb,isubs) == 2) THEN
@@ -926,6 +1108,10 @@ CONTAINS
                it2(icount_init) = isubs_snow ! source of copy operation
              ENDIF
            ENDDO
+           !$acc end parallel
+!$NEC ivdep
+           !$acc parallel if(lzacc)
+           !$acc loop seq
            DO ic = 1, i_count_snow
              jc = ext_data%atm%idx_lst_t(ic,jb,isubs_snow)
              IF (ext_data%atm%snowtile_flag_t(jc,jb,isubs_snow) == 2) THEN
@@ -935,13 +1121,17 @@ CONTAINS
                it2(icount_init) = isubs      ! source of copy operation
              ENDIF
            ENDDO
-
+           !$acc end parallel
+!$NEC ivdep
+           !$acc parallel if(lzacc)
+           !$acc loop gang vector private(jc, is1, is2)
            DO ic = 1, icount_init
              jc = init_list(ic)
              is1 = it1(ic)
              is2 = it2(ic)
              lnd_prog_new%t_snow_t  (jc,jb,is1) = lnd_prog_new%t_snow_t  (jc,jb,is2)        
              lnd_prog_new%t_s_t     (jc,jb,is1) = lnd_prog_new%t_s_t     (jc,jb,is2)       
+             lnd_prog_new%t_sk_t    (jc,jb,is1) = lnd_prog_new%t_sk_t    (jc,jb,is2)
              lnd_prog_new%t_g_t     (jc,jb,is1) = lnd_prog_new%t_g_t     (jc,jb,is2) 
              lnd_diag%qv_s_t        (jc,jb,is1) = lnd_diag%qv_s_t        (jc,jb,is2)             
              lnd_prog_new%w_snow_t  (jc,jb,is1) = lnd_prog_new%w_snow_t  (jc,jb,is2)     
@@ -962,23 +1152,36 @@ CONTAINS
              prm_diag%lhfl_s_t      (jc,jb,is1) = prm_diag%lhfl_s_t      (jc,jb,is2)
              prm_diag%qhfl_s_t      (jc,jb,is1) = prm_diag%qhfl_s_t      (jc,jb,is2)
              prm_diag%albdif_t      (jc,jb,is1) = prm_diag%albdif_t      (jc,jb,is2)
-
-             lnd_prog_new%t_so_t    (jc,:,jb,is1) = lnd_prog_new%t_so_t    (jc,:,jb,is2)          
-             lnd_prog_new%w_so_t    (jc,:,jb,is1) = lnd_prog_new%w_so_t    (jc,:,jb,is2)        
-             lnd_prog_new%w_so_ice_t(jc,:,jb,is1) = lnd_prog_new%w_so_ice_t(jc,:,jb,is2)
-             prm_diag%lhfl_pl_t     (jc,:,jb,is1) = prm_diag%lhfl_pl_t     (jc,:,jb,is2)     
-
+             !$acc loop
+             DO jk= 1, nlev_soil+1
+               lnd_prog_new%t_so_t    (jc,jk,jb,is1) = lnd_prog_new%t_so_t    (jc,jk,jb,is2)          
+             ENDDO
+             !$acc loop
+             DO jk = 1, nlev_soil
+               lnd_prog_new%w_so_t    (jc,jk,jb,is1) = lnd_prog_new%w_so_t    (jc,jk,jb,is2)        
+               lnd_prog_new%w_so_ice_t(jc,jk,jb,is1) = lnd_prog_new%w_so_ice_t(jc,jk,jb,is2)
+               prm_diag%lhfl_pl_t     (jc,jk,jb,is1) = prm_diag%lhfl_pl_t     (jc,jk,jb,is2)     
+             ENDDO 
              IF (itype_trvg == 3) lnd_diag%plantevap_t(jc,jb,is1) = lnd_diag%plantevap_t(jc,jb,is2)     
 
              IF (l2lay_rho_snow .OR. lmulti_snow) THEN
-               lnd_prog_new%rho_snow_mult_t(jc,:,jb,is1) = lnd_prog_new%rho_snow_mult_t(jc,:,jb,is2)
+               !$acc loop
+               DO jk=1,nlev_snow
+                 lnd_prog_new%rho_snow_mult_t(jc,jk,jb,is1) = lnd_prog_new%rho_snow_mult_t(jc,jk,jb,is2)
+               ENDDO
              ENDIF
 
              IF (lmulti_snow) THEN
-               lnd_prog_new%t_snow_mult_t  (jc,:,jb,is1) = lnd_prog_new%t_snow_mult_t  (jc,:,jb,is2)
-               lnd_prog_new%wliq_snow_t    (jc,:,jb,is1) = lnd_prog_new%wliq_snow_t    (jc,:,jb,is2)
-               lnd_prog_new%wtot_snow_t    (jc,:,jb,is1) = lnd_prog_new%wtot_snow_t    (jc,:,jb,is2)
-               lnd_prog_new%dzh_snow_t     (jc,:,jb,is1) = lnd_prog_new%dzh_snow_t     (jc,:,jb,is2)
+               !$acc loop
+               DO jk=1,nlev_snow+1
+                 lnd_prog_new%t_snow_mult_t(jc,jk,jb,is1) = lnd_prog_new%t_snow_mult_t  (jc,jk,jb,is2)
+               ENDDO
+               !$acc loop
+               DO jk=1,nlev_snow
+                 lnd_prog_new%wliq_snow_t  (jc,jk,jb,is1) = lnd_prog_new%wliq_snow_t    (jc,jk,jb,is2)
+                 lnd_prog_new%wtot_snow_t  (jc,jk,jb,is1) = lnd_prog_new%wtot_snow_t    (jc,jk,jb,is2)
+                 lnd_prog_new%dzh_snow_t   (jc,jk,jb,is1) = lnd_prog_new%dzh_snow_t     (jc,jk,jb,is2)
+               ENDDO
              ENDIF
 
              IF (itype_interception == 2) THEN
@@ -987,8 +1190,10 @@ CONTAINS
              END IF
 
            ENDDO
-
-!CDIR NODEP,VOVERTAKE,VOB
+           !$acc end parallel
+!$NEC ivdep
+           !$acc parallel if(lzacc)
+           !$acc loop gang vector private(jc)
            DO ic = 1, i_count_snow
              jc = ext_data%atm%idx_lst_t(ic,jb,isubs_snow)
 
@@ -1001,11 +1206,14 @@ CONTAINS
              ENDIF
 
            END DO
+           !$acc end parallel
 
            ! redistribution of heat and moisture between snow-covered and snow-free tiles 
            ! according to their new fractions, in order to keep heat and moisture balances
+           !$acc parallel if(lzacc)
+           !$acc loop gang vector private(jc, tmp1, tmp2, tmp3) collapse(2)
            DO jk = 1, nlev_soil
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
              DO ic = 1, i_count_snow
                jc = ext_data%atm%idx_lst_t(ic,jb,isubs_snow)
 
@@ -1031,8 +1239,10 @@ CONTAINS
                   &               + lnd_prog_new%w_so_ice_t(jc,jk,jb,isubs_snow)*fact2(jc)
 
                  IF (jk == 1) THEN
-                   lnd_prog_new%t_s_t(jc,jb,isubs)      = lnd_prog_new%t_so_t(jc,jk,jb,isubs)
-                   lnd_prog_new%t_s_t(jc,jb,isubs_snow) = lnd_prog_new%t_so_t(jc,jk,jb,isubs_snow)
+                   lnd_prog_new%t_s_t(jc,jb,isubs)       = lnd_prog_new%t_so_t(jc,jk,jb,isubs)
+                   lnd_prog_new%t_s_t(jc,jb,isubs_snow)  = lnd_prog_new%t_so_t(jc,jk,jb,isubs_snow)
+                   lnd_prog_new%t_sk_t(jc,jb,isubs)      = lnd_prog_new%t_so_t(jc,jk,jb,isubs)
+                   lnd_prog_new%t_sk_t(jc,jb,isubs_snow) = lnd_prog_new%t_so_t(jc,jk,jb,isubs_snow)
 
                    tmp1 = lnd_prog_new%w_i_t(jc,jb,isubs) 
                    lnd_prog_new%w_i_t(jc,jb,isubs) = tmp1*fact1(jc)           &
@@ -1044,7 +1254,11 @@ CONTAINS
 
              END DO
            END DO        ! soil layers
-!CDIR NODEP,VOVERTAKE,VOB
+           !$acc end parallel
+!$NEC ivdep
+
+           !$acc parallel if(lzacc)
+           !$acc loop gang vector private(jc)
            DO ic = 1, i_count_snow
              jc = ext_data%atm%idx_lst_t(ic,jb,isubs_snow)
 
@@ -1073,7 +1287,7 @@ CONTAINS
              lnd_prog_new%w_snow_t(jc,jb,isubs)    = 0._wp
              lnd_diag%h_snow_t(jc,jb,isubs)        = 0._wp
              lnd_prog_new%t_snow_t(jc,jb,isubs)    = lnd_prog_new%t_s_t(jc,jb,isubs)
-             lnd_prog_new%t_g_t(jc,jb,isubs)       = lnd_prog_new%t_s_t(jc,jb,isubs)
+             lnd_prog_new%t_g_t(jc,jb,isubs)       = lnd_prog_new%t_sk_t(jc,jb,isubs)
 
              ! copy rho_snow and freshsnow in order to get the right tile-averaged values
              lnd_prog_new%rho_snow_t(jc,jb,isubs)  = lnd_prog_new%rho_snow_t(jc,jb,isubs_snow)
@@ -1088,22 +1302,25 @@ CONTAINS
              ! Rediagnose t_g according to the modified snow-cover fraction
              lnd_prog_new%t_g_t(jc,jb,isubs_snow) =  &
                lnd_diag%snowfrac_t(jc,jb,isubs_snow) * lnd_prog_new%t_snow_t(jc,jb,isubs_snow) + &
-               (1._wp-lnd_diag%snowfrac_t(jc,jb,isubs_snow))*lnd_prog_new%t_s_t(jc,jb,isubs_snow)
+               (1._wp-lnd_diag%snowfrac_t(jc,jb,isubs_snow))*lnd_prog_new%t_sk_t(jc,jb,isubs_snow)
 
              IF (lmulti_snow) THEN
                lnd_prog_new%t_snow_mult_t(jc,nlev_snow+1,jb,isubs) = lnd_prog_new%t_s_t(jc,jb,isubs)
              ENDIF
 
              IF (l2lay_rho_snow) THEN
-               lnd_prog_new%rho_snow_mult_t(jc,1:2,jb,isubs) = lnd_prog_new%rho_snow_mult_t(jc,1:2,jb,isubs_snow)
+               lnd_prog_new%rho_snow_mult_t(jc,1,jb,isubs) = lnd_prog_new%rho_snow_mult_t(jc,1,jb,isubs_snow)
+               lnd_prog_new%rho_snow_mult_t(jc,2,jb,isubs) = lnd_prog_new%rho_snow_mult_t(jc,2,jb,isubs_snow)
              ENDIF
 
            END DO
+           !$acc end parallel
 
            IF (lmulti_snow) THEN
-!CDIR UNROLL=nlsnow
+             !$acc parallel if(lzacc)
+             !$acc loop gang vector private(jc) collapse(2)
              DO jk=1,nlev_snow
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
                DO ic = 1, i_count_snow
                  jc = ext_data%atm%idx_lst_t(ic,jb,isubs_snow)
                  lnd_prog_new%t_snow_mult_t(jc,jk,jb,isubs) = lnd_prog_new%t_s_t(jc,jb,isubs)
@@ -1124,10 +1341,10 @@ CONTAINS
 
                ENDDO
              ENDDO
+             !$acc end parallel
            ENDIF
 
          END DO
-
        ENDIF  !snow tiles
 
     
@@ -1141,16 +1358,27 @@ CONTAINS
      
       ENDIF !inwp_sfc
 
-    ENDDO    
+    ENDDO  
+
 !$OMP END DO
 !$OMP END PARALLEL
 
-
+    !$acc exit data delete (zml_soil)                                             &
+    !$acc           delete (sntunefac, sntunefac2, rain_con_rate, snow_con_rate)  &
+    !$acc           delete (rain_gsp_rate, snow_gsp_rate, graupel_gsp_rate)       &
+    !$acc           delete (init_list, it1, it2, fact1, fact2, frac_sv)           &
+    !$acc           delete (frac_snow_sv, ice_gsp_rate),                          &
+    !$acc if(lzacc)
 
     !
     ! Call seaice parameterization
     !
     IF ( (atm_phy_nwp_config(jg)%inwp_surface == 1) .AND. (lseaice) ) THEN
+      
+#ifdef _OPENACC
+      CALL finish (routine, 'nwp_seaice:  OpenACC version currently not implemented')
+#endif
+
       CALL nwp_seaice(p_patch, p_diag, prm_diag, p_prog_wtr_now, p_prog_wtr_new, &
         &             lnd_prog_now, lnd_prog_new, ext_data, lnd_diag, tcall_sfc_jg)
     ENDIF
@@ -1158,12 +1386,11 @@ CONTAINS
     !
     ! Call fresh water lake model (Flake)
     !
+
     IF ( (atm_phy_nwp_config(jg)%inwp_surface == 1) .AND. (llake) ) THEN
       CALL nwp_lake(p_patch, p_diag, prm_diag, p_prog_wtr_now, p_prog_wtr_new, &
-        &           lnd_prog_now, lnd_prog_new, ext_data, lnd_diag, tcall_sfc_jg)
+        &           lnd_prog_now, lnd_prog_new, ext_data, lnd_diag, tcall_sfc_jg, lacc=lzacc)
     ENDIF
-
-
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     ! Final step: aggregate t_g, qv_s and surface fluxes !!
@@ -1173,13 +1400,19 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,isubs,i_startidx,i_endidx,t_g_s,area_frac)
+    !$acc enter data create(t_g_s)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
         & i_startidx, i_endidx, rl_start, rl_end)
 
-
        IF (ntiles_total == 1) THEN 
+
+        ! WARNING: This has been ported to GPU but has not been tested. If ntiles_total == 1 is
+        ! read from the namelist with GPU enabled, the code finishes.
+
+         !$acc parallel if(lzacc)
+         !$acc loop gang vector
          DO jc = i_startidx, i_endidx
            prm_diag%shfl_s (jc,jb)  = prm_diag%shfl_s_t (jc,jb,1) 
            prm_diag%lhfl_s (jc,jb)  = prm_diag%lhfl_s_t (jc,jb,1)
@@ -1188,31 +1421,47 @@ CONTAINS
            prm_diag%umfl_s (jc,jb)  = prm_diag%umfl_s_t (jc,jb,1)
            prm_diag%vmfl_s (jc,jb)  = prm_diag%vmfl_s_t (jc,jb,1) 
          ENDDO
+         !$acc end parallel
          IF (atm_phy_nwp_config(jg)%inwp_surface > 0) THEN
+           !$acc parallel if(lzacc)
+           !$acc loop gang vector
            DO jc = i_startidx, i_endidx
              lnd_prog_new%t_g(jc,jb)  = lnd_prog_new%t_g_t(jc,jb,1)
              lnd_diag%qv_s   (jc,jb)  = lnd_diag%qv_s_t   (jc,jb,1)
              lnd_diag%h_snow (jc,jb)  = lnd_diag%h_snow_t (jc,jb,1)
            ENDDO
+           !$acc loop gang vector collapse(2)
            DO jk=1,nlev_soil
              DO jc = i_startidx, i_endidx
                prm_diag%lhfl_pl(jc,jk,jb)= prm_diag%lhfl_pl_t(jc,jk,jb,1)
              ENDDO  ! jc
            ENDDO  ! jk
+           !$acc end parallel
          ENDIF
        ELSE ! aggregate fields over tiles
-         t_g_s(:)      = 0._wp
-         lnd_diag%qv_s   (i_startidx:i_endidx,jb) = 0._wp
-         lnd_diag%h_snow (i_startidx:i_endidx,jb) = 0._wp
-         prm_diag%shfl_s (i_startidx:i_endidx,jb) = 0._wp
-         prm_diag%lhfl_s (i_startidx:i_endidx,jb) = 0._wp
-         prm_diag%qhfl_s (i_startidx:i_endidx,jb) = 0._wp
-         prm_diag%umfl_s (i_startidx:i_endidx,jb) = 0._wp
-         prm_diag%vmfl_s (i_startidx:i_endidx,jb) = 0._wp
-         prm_diag%lhfl_bs(i_startidx:i_endidx,jb) = 0._wp
-         prm_diag%lhfl_pl(i_startidx:i_endidx,1:nlev_soil,jb) = 0._wp
 
+         !$acc parallel if(lzacc)
+         !$acc loop gang vector 
+         DO jc = i_startidx, i_endidx
+           t_g_s(jc)      = 0._wp
+           lnd_diag%qv_s   (jc,jb) = 0._wp
+           lnd_diag%h_snow (jc,jb) = 0._wp
+           prm_diag%shfl_s (jc,jb) = 0._wp
+           prm_diag%lhfl_s (jc,jb) = 0._wp
+           prm_diag%qhfl_s (jc,jb) = 0._wp
+           prm_diag%umfl_s (jc,jb) = 0._wp
+           prm_diag%vmfl_s (jc,jb) = 0._wp
+           prm_diag%lhfl_bs(jc,jb) = 0._wp
+           DO jk = 1, nlev_soil
+             prm_diag%lhfl_pl(jc,jk,jb) = 0._wp
+           ENDDO
+         ENDDO
+         !$acc end parallel
+
+         !$acc parallel if(lzacc)
+         !$acc loop seq 
          DO isubs = 1,ntiles_total+ntiles_water
+           !$acc loop gang vector private(area_frac)
            DO jc = i_startidx, i_endidx
              area_frac = ext_data%atm%frac_t(jc,jb,isubs)
              t_g_s (jc)           = t_g_s(jc)  + lnd_prog_new%t_g_t(jc,jb,isubs)**4 * area_frac 
@@ -1229,8 +1478,12 @@ CONTAINS
                &                    + prm_diag%vmfl_s_t (jc,jb,isubs) * area_frac 
            ENDDO
          ENDDO
+         !$acc end parallel
 
+         !$acc parallel if(lzacc)
+         !$acc loop seq  
          DO isubs = 1,ntiles_total
+           !$acc loop gang vector private(area_frac)
            DO jc = i_startidx, i_endidx
              ! use rescaled area fraction on mixed land-water points in order to obtain aggregated values
              ! representative for the land part
@@ -1238,6 +1491,7 @@ CONTAINS
              prm_diag%lhfl_bs(jc,jb) = prm_diag%lhfl_bs(jc,jb) + prm_diag%lhfl_bs_t(jc,jb,isubs) * area_frac
              lnd_diag%h_snow(jc,jb)  = lnd_diag%h_snow(jc,jb) + lnd_diag%h_snow_t(jc,jb,isubs) * area_frac
            ENDDO  ! jc
+           !$acc loop gang vector collapse(2)
            DO jk=1,nlev_soil
              DO jc = i_startidx, i_endidx
                prm_diag%lhfl_pl(jc,jk,jb) = prm_diag%lhfl_pl(jc,jk,jb) + ext_data%atm%frac_t(jc,jb,isubs) &
@@ -1245,17 +1499,21 @@ CONTAINS
              ENDDO  ! jc
            ENDDO  ! jk
          ENDDO  ! isubs
+         !$acc end parallel
 
+         !$acc parallel if(lzacc)
+         !$acc loop gang vector
          DO jc = i_startidx, i_endidx
            lnd_prog_new%t_g(jc,jb)  = SQRT(SQRT(t_g_s(jc)))
          ENDDO  ! jc
-
+         !$acc end parallel
        ENDIF    ! with or without tiles
 
     ENDDO  ! jb
+    !$acc exit data delete(t_g_s)
 !$OMP END DO
 !$OMP END PARALLEL
-
+ 
   END SUBROUTINE nwp_surface
 
 
@@ -1344,20 +1602,20 @@ CONTAINS
       !
       ! Copy input fields
       !
-      i_count = ext_data%atm%spi_count(jb) 
+      i_count = ext_data%atm%list_seaice%ncount(jb)
 
 
       IF (i_count == 0) CYCLE ! skip loop if the index list for the given block is empty
 
       DO ic = 1, i_count
-        jc = ext_data%atm%idx_lst_spi(ic,jb)
+        jc = ext_data%atm%list_seaice%idx(ic,jb)
 
         shfl_s   (ic) = prm_diag%shfl_s_t  (jc,jb,isub_seaice)   ! sensible heat flux at sfc    [W/m^2]
         lhfl_s   (ic) = prm_diag%lhfl_s_t  (jc,jb,isub_seaice)   ! latent heat flux at sfc      [W/m^2]
         lwflxsfc (ic) = prm_diag%lwflxsfc_t(jc,jb,isub_seaice)   ! net lw radiation flux at sfc [W/m^2]
         swflxsfc (ic) = prm_diag%swflxsfc_t(jc,jb,isub_seaice)   ! net solar radiation flux at sfc [W/m^2]
         snow_rate(ic) = prm_diag%snow_gsp_rate(jc,jb)  &         ! snow rate (convecive + grid-scale) [kg/(m^2 s)]
-          &           + prm_diag%snow_con_rate(jc,jb)
+          &           + prm_diag%snow_con_rate(jc,jb) + prm_diag%ice_gsp_rate(jc,jb)
         rain_rate(ic) = prm_diag%rain_gsp_rate(jc,jb)  &         !  rain rate (convecive + grid-scale) [kg/(m^2 s)]
           &           + prm_diag%rain_con_rate(jc,jb)
         tice_now (ic) = p_prog_wtr_now%t_ice    (jc,jb)
@@ -1395,8 +1653,9 @@ CONTAINS
 
       !  Recover fields from index list
       !
+!$NEC ivdep
       DO ic = 1, i_count
-        jc = ext_data%atm%idx_lst_spi(ic,jb)
+        jc = ext_data%atm%list_seaice%idx(ic,jb)
 
         p_prog_wtr_new%t_ice(jc,jb)     = tice_new(ic)
         p_prog_wtr_new%h_ice(jc,jb)     = hice_new(ic)
@@ -1416,28 +1675,29 @@ CONTAINS
 
       ! Update dynamic sea-ice index list
       !
-      CALL update_idx_lists_sea (                                               &
-        &              hice_n        = p_prog_wtr_new%h_ice(:,jb),              &!in
-        &              pres_sfc      = p_diag%pres_sfc(:,jb),                   &!in
-        &              idx_lst_spw   = ext_data%atm%idx_lst_spw(:,jb),          &!inout
-        &              spw_count     = ext_data%atm%spw_count(jb),              &!inout
-        &              idx_lst_spi   = ext_data%atm%idx_lst_spi(:,jb),          &!inout
-        &              spi_count     = ext_data%atm%spi_count(jb),              &!inout
-        &              frac_t_ice    = ext_data%atm%frac_t(:,jb,isub_seaice),   &!inout
-        &              frac_t_water  = ext_data%atm%frac_t(:,jb,isub_water),    &!inout
-        &              lc_frac_t_water = ext_data%atm%lc_frac_t(:,jb,isub_water), &!inout
-        &              fr_seaice     = p_lnd_diag%fr_seaice(:,jb),              &!inout
-        &              hice_old      = p_prog_wtr_now%h_ice(:,jb),              &!inout
-        &              tice_old      = p_prog_wtr_now%t_ice(:,jb),              &!inout
-        &              albsi_now     = p_prog_wtr_now%alb_si(:,jb),             &!inout
-        &              albsi_new     = p_prog_wtr_new%alb_si(:,jb),             &!inout
-        &              t_g_t_now     = lnd_prog_now%t_g_t(:,jb,isub_water),     &!inout
-        &              t_g_t_new     = lnd_prog_new%t_g_t(:,jb,isub_water),     &!inout
-        &              t_s_t_now     = lnd_prog_now%t_s_t(:,jb,isub_water),     &!inout
-        &              t_s_t_new     = lnd_prog_new%t_s_t(:,jb,isub_water),     &!inout
-        &              qv_s_t        = p_lnd_diag%qv_s_t(:,jb,isub_water),      &!inout
-        &              t_seasfc      = p_lnd_diag%t_seasfc(:,jb)                )!inout
-
+      CALL update_idx_lists_sea (                                                 &
+        &              hice_n           = p_prog_wtr_new%h_ice(:,jb),             &!in
+        &              pres_sfc         = p_diag%pres_sfc(:,jb),                  &!in
+        &              list_seawtr_idx  = ext_data%atm%list_seawtr%idx(:,jb),     &!inout
+        &              list_seawtr_count= ext_data%atm%list_seawtr%ncount(jb),    &!inout
+        &              list_seaice_idx  = ext_data%atm%list_seaice%idx(:,jb),     &!inout
+        &              list_seaice_count= ext_data%atm%list_seaice%ncount(jb),    &!inout
+        &              frac_t_ice       = ext_data%atm%frac_t(:,jb,isub_seaice),  &!inout
+        &              frac_t_water     = ext_data%atm%frac_t(:,jb,isub_water),   &!inout
+        &              lc_frac_t_water  = ext_data%atm%lc_frac_t(:,jb,isub_water),&!inout
+        &              fr_seaice        = p_lnd_diag%fr_seaice(:,jb),             &!inout
+        &              hice_old         = p_prog_wtr_now%h_ice(:,jb),             &!inout
+        &              tice_old         = p_prog_wtr_now%t_ice(:,jb),             &!inout
+        &              albsi_now        = p_prog_wtr_now%alb_si(:,jb),            &!inout
+        &              albsi_new        = p_prog_wtr_new%alb_si(:,jb),            &!inout
+        &              t_g_t_now        = lnd_prog_now%t_g_t(:,jb,isub_water),    &!inout
+        &              t_g_t_new        = lnd_prog_new%t_g_t(:,jb,isub_water),    &!inout
+        &              t_s_t_now        = lnd_prog_now%t_s_t(:,jb,isub_water),    &!inout
+        &              t_s_t_new        = lnd_prog_new%t_s_t(:,jb,isub_water),    &!inout
+        &              t_sk_t_now       = lnd_prog_now%t_sk_t(:,jb,isub_water),   &!inout
+        &              t_sk_t_new       = lnd_prog_new%t_sk_t(:,jb,isub_water),   &!inout
+        &              qv_s_t           = p_lnd_diag%qv_s_t(:,jb,isub_water),     &!inout
+        &              t_seasfc         = p_lnd_diag%t_seasfc(:,jb)               )!inout
 
     ENDDO  ! jb
 !$OMP END DO
@@ -1459,7 +1719,7 @@ CONTAINS
   !!
   SUBROUTINE nwp_lake (p_patch, p_diag, prm_diag, p_prog_wtr_now,    &
     &                    p_prog_wtr_new, lnd_prog_now, lnd_prog_new, &
-    &                    ext_data, p_lnd_diag, dtime)
+    &                    ext_data, p_lnd_diag, dtime, lacc)
 
     TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch        !< grid/patch info
     TYPE(t_nh_diag),      TARGET,INTENT(in)   :: p_diag         !< diag vars
@@ -1471,6 +1731,7 @@ CONTAINS
     TYPE(t_external_data),       INTENT(in)   :: ext_data       !< external data
     TYPE(t_lnd_diag),            INTENT(inout):: p_lnd_diag     !< diag vars for sfc
     REAL(wp),                    INTENT(in)   :: dtime          !< time interval for 
+    LOGICAL, OPTIONAL,           INTENT(IN)   :: lacc           !< openACC flag
                                                                 !< surface
 
     ! Local arrays  (local copies)
@@ -1511,9 +1772,28 @@ CONTAINS
     INTEGER :: jc, jb, ic              !loop indices
     INTEGER :: icount_flk
 
+    ! openACC flag
+    !
+    LOGICAL :: lzacc
+
+    ! routine name
+    !
     CHARACTER(len=*), PARAMETER :: routine = 'mo_nwp_sfc_interface:nwp_lake'
     !-------------------------------------------------------------------------
 
+    IF(PRESENT(lacc)) THEN
+      lzacc = lacc
+    ELSE
+      lzacc = .FALSE.
+    ENDIF
+
+    ! put local variables on gpu
+    !$acc enter data &
+    !$acc create (f_c, depth_lk, fetch_lk, dp_bs_lk, t_bs_lk, gamso_lk, qmom, shfl_s, lhfl_s) &
+    !$acc create (swflxsfc, lwflxsfc, t_snow_lk_now, h_snow_lk_now, t_ice_now, h_ice_now, t_mnw_lk_now) &
+    !$acc create (t_wml_lk_now, t_bot_lk_now, c_t_lk_now, h_ml_lk_now, t_b1_lk_now, h_b1_lk_now, t_scf_lk_now) &
+    !$acc create (t_snow_lk_new, h_snow_lk_new,t_ice_new,h_ice_new,t_mnw_lk_new,t_wml_lk_new) &
+    !$acc create (t_bot_lk_new, c_t_lk_new, h_ml_lk_new, t_b1_lk_new, h_b1_lk_new, t_scf_lk_new) if (lzacc)
 
     ! exclude nest boundary and halo points
     rl_start = grf_bdywidth_c+1
@@ -1527,6 +1807,8 @@ CONTAINS
     IF (msg_level >= 15) THEN
       CALL message(routine, 'call nwp_lake scheme')
     ENDIF
+
+    
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,ic,jc,icount_flk,f_c,depth_lk,fetch_lk,dp_bs_lk,t_bs_lk,  &
@@ -1542,12 +1824,15 @@ CONTAINS
       !
       ! Copy input fields
       !
-      icount_flk = ext_data%atm%fp_count(jb) 
+      icount_flk = ext_data%atm%list_lake%ncount(jb) 
 
       ! Collect data for lake points in 1D-arrays
+
+      !$acc parallel default (present) if (lzacc)
+      !$acc loop gang vector private (jc)
       DO ic=1,icount_flk
 
-        jc = ext_data%atm%idx_lst_fp(ic,jb)
+        jc = ext_data%atm%list_lake%idx(ic,jb)
 
         f_c      (ic) = p_patch%cells%f_c     (jc,jb)    ! Coriolis parameter   [s^-1]
  
@@ -1556,7 +1841,7 @@ CONTAINS
         dp_bs_lk (ic) = ext_data%atm%dp_bs_lk (jc,jb)
         t_bs_lk  (ic) = ext_data%atm%t_bs_lk  (jc,jb)
         gamso_lk (ic) = ext_data%atm%gamso_lk (jc,jb)
-
+        
         ! absolute value of momentum flux at sfc
         qmom     (ic) = SQRT(prm_diag%umfl_s_t(jc,jb,isub_lake)**2  &
           &             +    prm_diag%vmfl_s_t(jc,jb,isub_lake)**2 )
@@ -1581,7 +1866,8 @@ CONTAINS
                                                                       ! which is omitted so far 
                                                                       ! (optional arg of flake_interface) 
       ENDDO
-
+      !$acc end parallel
+      
       CALL flake_interface (                                  & !in
                      &  dtime       = dtime           ,       & !in
                      &  nflkgb      = icount_flk      ,       & !in
@@ -1619,15 +1905,19 @@ CONTAINS
                      &  h_ml_lk_n   = h_ml_lk_new  (:),       & !out
                      &  t_b1_lk_n   = t_b1_lk_new  (:),       & !out
                      &  h_b1_lk_n   = h_b1_lk_new  (:),       & !out
-                     &  t_scf_lk_n  = t_scf_lk_new (:)        ) !out
+                     &  t_scf_lk_n  = t_scf_lk_new (:),       & !out
+                     &  lacc        = lzacc                   ) !in openACC flag
 ! optional arguments (tendencies) are omitted
 
 
       !  Recover fields from index list
       !
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
+
+      !$acc parallel default (present) if (lzacc)
+      !$acc loop gang vector
       DO ic = 1,icount_flk
-        jc = ext_data%atm%idx_lst_fp(ic,jb)
+        jc = ext_data%atm%list_lake%idx(ic,jb)
 
         p_prog_wtr_new%t_snow_lk(jc,jb)     = t_snow_lk_new(ic)
         p_prog_wtr_new%h_snow_lk(jc,jb)     = h_snow_lk_new(ic)
@@ -1662,10 +1952,19 @@ CONTAINS
         ENDIF
 
       ENDDO  ! ic
+      !$acc end parallel
 
     ENDDO  !jb
 !$OMP END DO
 !$OMP END PARALLEL
+
+! remove local variables from gpu
+!$acc exit data &
+!$acc delete (f_c, depth_lk, fetch_lk, dp_bs_lk, t_bs_lk, gamso_lk, qmom, shfl_s, lhfl_s) &
+!$acc delete (swflxsfc, lwflxsfc, t_snow_lk_now, h_snow_lk_now, t_ice_now, h_ice_now, t_mnw_lk_now) &
+!$acc delete (t_wml_lk_now, t_bot_lk_now, c_t_lk_now, h_ml_lk_now, t_b1_lk_now, h_b1_lk_now, t_scf_lk_now) &
+!$acc delete (t_snow_lk_new, h_snow_lk_new,t_ice_new,h_ice_new,t_mnw_lk_new,t_wml_lk_new) &
+!$acc delete (t_bot_lk_new, c_t_lk_new, h_ml_lk_new, t_b1_lk_new, h_b1_lk_new, t_scf_lk_new) if (lzacc)
 
   END SUBROUTINE nwp_lake
 

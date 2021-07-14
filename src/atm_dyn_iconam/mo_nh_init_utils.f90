@@ -770,6 +770,7 @@ CONTAINS
                 saveinit(jg)%vn(nproma,nlev,nblks_e),      &
                 saveinit(jg)%gz0_t(nproma,nblks_c,ntw),    &
                 saveinit(jg)%t_g_t(nproma,nblks_c,ntw),    &
+                saveinit(jg)%t_sk_t(nproma,nblks_c,ntw),   &
                 saveinit(jg)%qv_s_t(nproma,nblks_c,ntw),   &
                 saveinit(jg)%freshsnow_t(nproma,nblks_c,ntl), &
                 saveinit(jg)%snowfrac_t(nproma,nblks_c,ntl), &
@@ -828,6 +829,7 @@ CONTAINS
 
       CALL copy(prm_diag(jg)%gz0_t, saveinit(jg)%gz0_t)
       CALL copy(lnd_prog%t_g_t, saveinit(jg)%t_g_t)
+      CALL copy(lnd_prog%t_sk_t, saveinit(jg)%t_sk_t)
       CALL copy(lnd_diag%qv_s_t, saveinit(jg)%qv_s_t)
       CALL copy(lnd_diag%freshsnow_t, saveinit(jg)%freshsnow_t)
       CALL copy(lnd_diag%snowfrac_t, saveinit(jg)%snowfrac_t)
@@ -928,6 +930,7 @@ CONTAINS
 
       CALL copy(saveinit(jg)%gz0_t, prm_diag(jg)%gz0_t)
       CALL copy(saveinit(jg)%t_g_t, lnd_prog%t_g_t)
+      CALL copy(saveinit(jg)%t_sk_t, lnd_prog%t_sk_t)
       CALL copy(saveinit(jg)%qv_s_t, lnd_diag%qv_s_t)
       CALL copy(saveinit(jg)%freshsnow_t, lnd_diag%freshsnow_t)
       CALL copy(saveinit(jg)%snowfrac_t, lnd_diag%snowfrac_t)
@@ -978,6 +981,7 @@ CONTAINS
       CALL init (p_nh(jg)%diag%exner_dyn_incr)
       CALL init (prm_diag(jg)%rain_gsp_rate)
       CALL init (prm_diag(jg)%snow_gsp_rate)
+      CALL init (prm_diag(jg)%ice_gsp_rate)
       CALL init (prm_diag(jg)%shfl_s_t)
       CALL init (prm_diag(jg)%qhfl_s_t)
       CALL init (lnd_diag%runoff_s_t)
@@ -994,7 +998,7 @@ CONTAINS
                   saveinit(jg)%c_t_lk, saveinit(jg)%t_b1_lk, saveinit(jg)%h_b1_lk )
 
       DEALLOCATE (saveinit(jg)%theta_v, saveinit(jg)%rho,saveinit(jg)%exner, saveinit(jg)%w, saveinit(jg)%tke,      &
-                  saveinit(jg)%vn, saveinit(jg)%t_g_t, saveinit(jg)%qv_s_t, saveinit(jg)%freshsnow_t,                   &
+                  saveinit(jg)%vn, saveinit(jg)%t_g_t, saveinit(jg)%t_sk_t, saveinit(jg)%qv_s_t, saveinit(jg)%freshsnow_t, &
                   saveinit(jg)%snowfrac_t, saveinit(jg)%snowfrac_lc_t, saveinit(jg)%w_snow_t,                         &
                   saveinit(jg)%w_i_t, saveinit(jg)%h_snow_t, saveinit(jg)%t_snow_t, saveinit(jg)%rho_snow_t,          &
                   saveinit(jg)%snowtile_flag_t, saveinit(jg)%idx_lst_t, saveinit(jg)%frac_t, saveinit(jg)%gp_count_t, &

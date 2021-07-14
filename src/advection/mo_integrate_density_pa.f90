@@ -39,12 +39,15 @@ MODULE mo_integrate_density_pa
   USE mo_intp,                ONLY: cells2edges_scalar
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_edge
   USE mo_sync,                ONLY: sync_patch_array, SYNC_E, SYNC_C
+  USE mo_exception,           ONLY: finish
 
 
   IMPLICIT NONE
 
   PRIVATE
 
+  !> module name string
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_integrate_density_pa'
 
 
 
@@ -108,8 +111,13 @@ CONTAINS
     REAL(wp), POINTER ::  &
       & ptr_current_rho(:,:,:) => NULL()  !< pointer to density field
 
+    CHARACTER(len=*), PARAMETER :: routine = modname//':integrate_density_pa'
+
     !---------------------------------------------------------------------------
 
+#ifdef _OPENACC
+    CALL finish (routine,': OpenACC version currently not implemented')
+#endif
 
     ! get patch ID
     pid = p_patch%id

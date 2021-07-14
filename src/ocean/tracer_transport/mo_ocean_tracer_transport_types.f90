@@ -33,6 +33,8 @@ MODULE mo_ocean_tracer_transport_types
     onCells_HalfLevels :: ver_diffusion_coeff
 
     onCells_2D :: top_bc, bottom_bc
+    
+    onCells_3D :: vertical_trasnport_tendencies
 
     LOGICAL :: is_advected
 
@@ -54,6 +56,7 @@ MODULE mo_ocean_tracer_transport_types
   !-------------------------------------------------------------------------------
   TYPE t_tracer_collection
     TYPE(t_patch_3d ),POINTER :: patch_3d
+    CHARACTER(LEN=max_char_length) :: typeOfTracers
     INTEGER :: no_of_tracers
     TYPE(t_ocean_tracer), POINTER :: tracer(:)
   END TYPE t_tracer_collection
@@ -69,6 +72,7 @@ MODULE mo_ocean_tracer_transport_types
     onEdges    :: vn
 
     onCells_HalfLevels :: w
+
   END TYPE t_ocean_transport_state
   !----------------------------------------------
     

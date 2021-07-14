@@ -1,4 +1,3 @@
-#ifndef __NO_ICON_OCEAN__
 ! calculates HAMOCC diagnostics:
 ! monitoring variables, global inventories
 !--------------------------------------
@@ -362,12 +361,13 @@ END SUBROUTINE get_omz
 
   END SUBROUTINE get_monitoring
 
-SUBROUTINE get_inventories(hamocc_state,ssh, tracer, p_patch_3d)
+SUBROUTINE get_inventories(hamocc_state,ssh, tracer, p_patch_3d, weathering_flag, flux_flag)
 
-USE mo_memory_bgc,      ONLY: rnit,rn2, ro2bal,rcar
+USE mo_memory_bgc,      ONLY: rnit,rn2, ro2bal,rcar,ralk
 
 REAL(wp),INTENT(IN) :: ssh(:,:)
 REAL(wp),INTENT(IN) :: tracer(:,:,:,:)
+REAL(wp),INTENT(IN) :: weathering_flag, flux_flag
 TYPE(t_hamocc_state) :: hamocc_state
 TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
 
@@ -375,7 +375,7 @@ TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
 REAL(wp) :: glob_det, glob_doc, glob_phy, glob_zoo
 REAL(wp) :: glob_phos, glob_sedo12, glob_bo12
 REAL(wp) :: glob_sedc12, glob_nit, glob_gnit, glob_pwn2b, glob_pwh2ob
-REAL(wp) :: glob_n2o,glob_n2fl,glob_n2ofl, glob_orginp
+REAL(wp) :: glob_n2o,glob_n2fl,glob_n2ofl, glob_orginp,glob_nitinp
 REAL(wp) :: glob_calinp, glob_silinp, glob_alk, glob_calc
 REAL(wp) :: glob_sil, glob_opal, glob_sedsi, glob_pwsi
 REAL(wp) :: glob_bsil, glob_silpro, glob_n2b, glob_h2ob
@@ -467,10 +467,11 @@ CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%produs(:,:), glob_produs,-
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%cflux(:,:), glob_cfl, -2)
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%oflux(:,:), glob_ofl, -2)
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%nflux(:,:), glob_n2fl, -2)
-CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%n2oflux(:,:), glob_n2ofl, 1)
+CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%n2oflux(:,:), glob_n2ofl, -2)
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%orginp(:,:), glob_orginp, 1, ssh)
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%silinp(:,:), glob_silinp, 1, ssh)
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%calinp(:,:), glob_calinp, 1, ssh)
+CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%nitrogeninp(:,:), glob_nitinp, 1, ssh)
 CALL calc_inventory3d(p_patch_3d, ssh, hamocc_state%p_tend%h2obudget(:,:,:), glob_h2ob,.TRUE.)
 CALL calc_inventory3d(p_patch_3d, ssh, hamocc_state%p_tend%n2budget(:,:,:), glob_n2b,.TRUE.)
 
@@ -542,7 +543,7 @@ CALL to_bgcout('Burial CaCO3',glob_bc12)
 CALL to_bgcout('Solid opal',glob_sedsi)
 CALL to_bgcout('Burial opal',glob_bsil)
 CALL to_bgcout('Solid clay',glob_sedclay)
-CALL to_bgcout('Burial opal',glob_bclay)
+CALL to_bgcout('Burial clay',glob_bclay)
 
 CALL message(' ', ' ', io_stdo_bgc)
 cpara_name='======================='
@@ -575,7 +576,7 @@ CALL to_bgcout('produs',glob_produs)
 CALL to_bgcout('zalkn2',glob_n2b+glob_pwn2b)
 
 CALL message(' ', ' ', io_stdo_bgc)
-CALL message('Global waethering fluxes', ' [kmol]', io_stdo_bgc)
+CALL message('Global weathering fluxes', ' [kmol]', io_stdo_bgc)
 cpara_name='-----------------------'
 cpara_val="-----------"
 CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
@@ -597,7 +598,7 @@ CALL message(' ', ' ', io_stdo_bgc)
 watersum = glob_det + glob_doc + glob_phy + glob_zoo + glob_phos  &
      &     + rcyano*glob_cya
 
-sedsum =  glob_sedo12 + glob_bo12 +  glob_orginp + glob_pwph
+sedsum =  glob_sedo12 + glob_bo12 - weathering_flag *  glob_orginp + glob_pwph
 
 total_ocean = watersum + sedsum
 
@@ -611,11 +612,12 @@ CALL message(' ', ' ', io_stdo_bgc)
 !-------- Nitrate
 watersum = rnit * (glob_det + glob_doc + glob_phy + glob_zoo  &
      &     + rcyano*glob_cya ) + glob_nit     &
-     &     + rn2 * (glob_gnit + glob_n2o + glob_n2fl + glob_n2ofl)&
-     &     + glob_pwn2 + glob_pwno3
+     &     + rn2 * (glob_gnit + glob_n2o + flux_flag * (glob_n2fl + glob_n2ofl)) &
+     &     + rn2*glob_pwn2 + glob_pwno3 - weathering_flag * glob_nitinp
 
 sedsum =  rnit* (glob_sedo12 + glob_bo12)   &
-     &     - glob_orginp
+     &     - weathering_flag * rnit * glob_orginp
+
 
 total_ocean = watersum + sedsum
 
@@ -627,7 +629,7 @@ CALL message(' ', ' ', io_stdo_bgc)
 !-------- Silicate
 watersum =  glob_sil + glob_opal + glob_pwsi
     
-sedsum = glob_sedsi + glob_bsil  - glob_silinp
+sedsum = glob_sedsi + glob_bsil  - weathering_flag * glob_silinp
 
 total_ocean = watersum + sedsum
 
@@ -638,11 +640,11 @@ CALL message(' ', ' ', io_stdo_bgc)
 
 ! Alkalinity
 
-watersum = glob_alk - rnit* (glob_det + glob_doc + glob_phy + glob_zoo &
-  &        + rcyano* glob_cya) - glob_n2b          &
-  &        + 2._wp * glob_calc + rnit * glob_orginp - 2._wp * glob_calinp
+watersum = glob_alk - ralk* (glob_det + glob_doc + glob_phy + glob_zoo &
+  &        + rcyano* glob_cya) - (glob_n2b+glob_pwn2b)          &
+  &        + 2._wp * glob_calc + weathering_flag * (ralk * glob_orginp - 2._wp * glob_calinp)
 
-sedsum =  glob_sedc12 + glob_bc12 
+sedsum =  2._wp * (glob_sedc12 + glob_bc12) + glob_pwal - ralk * (glob_sedo12 + glob_bo12)
 
 total_ocean = watersum + sedsum
 
@@ -657,9 +659,10 @@ watersum = (glob_det + glob_doc + glob_phy + glob_zoo +         &
   &         rcyano*glob_cya )*(-ro2bal) + &
   &         glob_o2 + glob_phos*2._wp + glob_dic + glob_calc +  &
   &         glob_nit * 1.5_wp + glob_n2o* 0.5_wp + glob_pwno3* 1.5 + &
-  &         glob_pwic + glob_pwox + glob_pwph*2._wp + glob_ofl + &
-  &         glob_n2ofl * 0.5_wp + glob_cfl + glob_h2ob +         &
-  &         glob_orginp*ro2bal - glob_calinp 
+  &         glob_pwic + glob_pwox + glob_pwph*2._wp + flux_flag * (glob_ofl + &
+  &         glob_n2ofl * 0.5_wp + glob_cfl) + glob_h2ob + glob_pwh2ob +    &
+  &         weathering_flag * (glob_orginp*ro2bal - glob_calinp  &
+  &         - glob_nitinp*1.5_wp)
 
 sedsum =   (glob_sedo12 + glob_bo12)*(-ro2bal) + glob_sedc12 + glob_bc12
 
@@ -675,8 +678,8 @@ CALL message(' ', ' ', io_stdo_bgc)
 
 watersum = (glob_det + glob_doc + glob_phy + glob_zoo   &
      &     + rcyano*glob_cya ) *rcar + &
-     &     glob_dic + glob_calc - glob_calinp - rcar * glob_orginp + &
-     &     glob_cfl
+     &     glob_dic + glob_calc + flux_flag * glob_cfl - weathering_flag * (glob_calinp + &
+     &     rcar * glob_orginp) + glob_pwic
     
 sedsum =  (glob_sedo12 + glob_bo12 ) * rcar + glob_sedc12 + glob_bc12
 
@@ -690,7 +693,6 @@ CALL to_bgcout('Global total carbon [kmol]',total_ocean)
 CALL message(' ', ' ', io_stdo_bgc)
 
 
-cpara_name='======================='
 cpara_name='======================='
 cpara_val="==========="
 CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
@@ -817,4 +819,3 @@ END SUBROUTINE
 
 END MODULE mo_hamocc_diagnostics
 
-#endif

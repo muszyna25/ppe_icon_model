@@ -21,6 +21,7 @@ MODULE mo_surface_diag
   USE mo_echam_convect_tables,     ONLY: lookup_ua_list_spline
   USE mo_echam_vdiff_params,ONLY: tpfac2
   USE mo_echam_phy_memory,  ONLY: cdimissval
+  USE mo_index_list,        ONLY: generate_index_list_batched
 
 
   IMPLICIT NONE
@@ -87,27 +88,17 @@ CONTAINS
     !$ACC               pevap_lice, pevap_tile, plhflx_lnd, plhflx_lwtr,       &
     !$ACC               pshflx_tile )
 
-    !===================================================================
-    ! If surface heat fluxes (incl. latent) are switched off, set
-    ! corresponding values to zero and return to the calling subroutine.
-    !===================================================================
-
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP SEQ
     DO jsfc = 1,ksfc_type
       !$ACC LOOP GANG VECTOR
       DO jk = 1, kbdim
         plhflx_tile(jk,jsfc) = 0._wp
         pshflx_tile(jk,jsfc) = 0._wp
+        pevap_tile (jk,jsfc) = 0._wp
       END DO
     END DO
     !$ACC END PARALLEL
-    ! DO jsfc = 1,ksfc_type
-    !   IF (jsfc /= idx_lnd) THEN  ! for JSBACH land, the fluxes are already in these arrays
-    !     plhflx_tile(jcs:kproma,jsfc) = 0._wp
-    !     pshflx_tile(jcs:kproma,jsfc) = 0._wp
-    !   END IF
-    ! END DO
 
     !===================================================================
     ! Otherwise compute diagnostics
@@ -119,17 +110,7 @@ CONTAINS
     !-------------------------------------------------------------------
     ! Instantaneous moisture flux on each tile
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP SEQ
-    DO jsfc = 1,ksfc_type
-      !$ACC LOOP GANG VECTOR
-      DO jk = 1, kbdim
-        pevap_tile(jk,jsfc) = 0._wp
-      END DO
-    END DO
-    !$ACC END PARALLEL
-
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP SEQ
     DO jsfc = 1,ksfc_type
       !$ACC LOOP GANG VECTOR PRIVATE( zdqv )
@@ -145,8 +126,8 @@ CONTAINS
         ! bb was replaced by bb_btm (according to E. Roeckner), now not blended
         ! quantity used.
 
-        zdqv =   bb_btm(jl,jsfc,iqv)*pca(jl,jsfc)          &
-                       & - tpfac2*pqsat_tile(jl,jsfc)*pcs(jl,jsfc)
+        zdqv =   bb_btm(jl,jsfc,iqv) * pca(jl,jsfc)           &
+          &    - tpfac2 * pqsat_tile(jl,jsfc) * pcs(jl,jsfc)
 
         ! Moisture flux ( = evaporation). Formula:
         ! (g*psteplen)**(-1)*[  tpfac1*g*psteplen*(air density)*(exchange coef)
@@ -155,48 +136,32 @@ CONTAINS
         ! On solid land (i.e. without lakes)
         !
         IF (jsfc == idx_lnd) THEN
-          pevap_tile(jl,jsfc) = pevap_lnd(jl)
+          IF (lsmask(jl) > 0._wp) THEN
+            pevap_tile(jl,jsfc) = pevap_lnd(jl)
+          END IF
         END IF
 
         ! On open water, ocean and lakes
         !
         IF (jsfc == idx_wtr) THEN
-  !!$        WHERE (alake(jl) > 0._wp)
-  !!$          pevap_tile(jl,idx_wtr) = pevap_lwtr(jl)
-  !!$        ELSE WHERE
-  !!$          pevap_tile(jl,idx_wtr) =  zconst*pfac_sfc(jl)   &
-  !!$                                       & *pcfh_tile(jl,idx_wtr) &
-  !!$                                       & *zdqv
-  !!$        END WHERE
           IF (lsmask(jl) < 1._wp) THEN
-              pevap_tile(jl,jsfc) = alake(jl)*pevap_lwtr(jl)               & ! lakes
-                   &                     +(1._wp-lsmask(jl)-alake(jl))           & ! ocean
-                   &                     *zconst*pfac_sfc(jl)*pcfh_tile(jl,jsfc) &
-                   &                     *zdqv
-              pevap_tile(jl,jsfc) = pevap_tile(jl,jsfc)/(1._wp-lsmask(jl))
-          ELSE
-              pevap_tile(jl,jsfc) = 0.0_wp
+              pevap_tile(jl,jsfc) =   alake(jl) * pevap_lwtr(jl)                   & ! lakes
+                   &                + (1._wp - lsmask(jl) - alake(jl))             & ! ocean
+                   &                  * zconst * pfac_sfc(jl) * pcfh_tile(jl,jsfc) &
+                   &                  * zdqv
+              pevap_tile(jl,jsfc) = pevap_tile(jl,jsfc) / (1._wp - lsmask(jl))
           END IF
         END IF
 
         ! On ice covered water, ocean and lakes
         !
         IF (jsfc == idx_ice) THEN
-  !!$        WHERE (alake(jl) > 0._wp)
-  !!$          pevap_tile(jl,idx_ice) = pevap_lice(jl)
-  !!$        ELSE WHERE
-  !!$          pevap_tile(jl,idx_ice) =  zconst*pfac_sfc(jl)   &
-  !!$                                       & *pcfh_tile(jl,idx_ice) &
-  !!$                                       & *zdqv
-  !!$        END WHERE
            IF (lsmask(jl) < 1._wp) THEN
-              pevap_tile(jl,jsfc) = alake(jl)*pevap_lice(jl)               & ! lakes
-                   &                     +(1._wp-lsmask(jl)-alake(jl))           & ! ocean
-                   &                     *zconst*pfac_sfc(jl)*pcfh_tile(jl,jsfc) &
-                   &                     *zdqv
-              pevap_tile(jl,jsfc) = pevap_tile(jl,jsfc)/(1._wp-lsmask(jl))
-           ELSE
-              pevap_tile(jl,jsfc) = 0.0_wp
+              pevap_tile(jl,jsfc) =   alake(jl) * pevap_lice(jl)                   & ! lakes
+                   &                + (1._wp - lsmask(jl) - alake(jl))             & ! ocean
+                   &                  * zconst * pfac_sfc(jl) * pcfh_tile(jl,jsfc) &
+                   &                  * zdqv
+              pevap_tile(jl,jsfc) = pevap_tile(jl,jsfc) / (1._wp - lsmask(jl))
            END IF
         END IF
 
@@ -208,7 +173,7 @@ CONTAINS
     ! The instantaneous grid box mean moisture flux will be passed on
     ! to the cumulus convection scheme.
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jk = 1, kbdim
       pevap_gbm(jk) = 0._wp   ! "pqhfla" in echam
@@ -216,10 +181,10 @@ CONTAINS
     !$ACC END PARALLEL
 
     DO jsfc = 1,ksfc_type
-      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR
       DO jl = jcs, kproma
-        pevap_gbm(jl) = pevap_gbm(jl) + pfrc(jl,jsfc)*pevap_tile(jl,jsfc)
+        pevap_gbm(jl) = pevap_gbm(jl) + pfrc(jl,jsfc) * pevap_tile(jl,jsfc)
       END DO
       !$ACC END PARALLEL
     ENDDO
@@ -230,33 +195,35 @@ CONTAINS
     ! Instantaneous values
 
     IF (idx_lnd <= ksfc_type) THEN
-      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR
       DO jl = jcs, kproma
-        plhflx_tile(jl,idx_lnd) = plhflx_lnd(jl)
+        IF (lsmask(jl) > 0._wp) THEN
+          plhflx_tile(jl,idx_lnd) = plhflx_lnd(jl)
+        END IF
       END DO
       !$ACC END PARALLEL
     END IF
     IF (idx_wtr <= ksfc_type) THEN
-      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR
       DO jl = jcs, kproma
         IF (alake(jl) > 0._wp) THEN
           plhflx_tile(jl,idx_wtr) = plhflx_lwtr(jl)
         ELSE
-          plhflx_tile(jl,idx_wtr) = alv*pevap_tile(jl,idx_wtr)
+          plhflx_tile(jl,idx_wtr) = alv * pevap_tile(jl,idx_wtr)
         END IF
       END DO
       !$ACC END PARALLEL
     END IF
     IF (idx_ice <= ksfc_type) THEN
-      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR
       DO jl = jcs, kproma
         IF (alake(jl) > 0._wp) THEN
           plhflx_tile(jl,idx_ice) = plhflx_lice(jl)
         ELSE
-          plhflx_tile(jl,idx_ice) = als*pevap_tile(jl,idx_ice)
+          plhflx_tile(jl,idx_ice) = als * pevap_tile(jl,idx_ice)
         END IF
       END DO
       !$ACC END PARALLEL
@@ -264,7 +231,7 @@ CONTAINS
 
     ! Accumulated grid box mean
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jk = 1, kbdim
        plhflx_gbm(jk) = 0.0_wp
@@ -272,7 +239,7 @@ CONTAINS
     !$ACC END PARALLEL
 
     DO jsfc = 1,ksfc_type
-      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR
       DO jl = jcs, kproma
         plhflx_gbm(jl) = plhflx_gbm(jl) + pfrc(jl,jsfc)*plhflx_tile(jl,jsfc)
@@ -285,7 +252,7 @@ CONTAINS
     !-------------------------------------------------------------------
     ! Instantaneous flux on each tile
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP SEQ
     DO jsfc = 1,ksfc_type
       !$ACC LOOP GANG VECTOR PRIVATE( zdcptv )
@@ -297,25 +264,27 @@ CONTAINS
         ! bb was replaced by bb_btm (according to E. Roeckner), now not blended
         ! quantity used.
 
-        zdcptv = bb_btm(jl,jsfc,ih) - tpfac2*pcptv_tile(jl,jsfc)
+        zdcptv = bb_btm(jl,jsfc,ih) - tpfac2 * pcptv_tile(jl,jsfc)
 
         ! Flux of dry static energy
 
         IF (jsfc == idx_lnd) THEN
-          pshflx_tile(jl,jsfc) = pshflx_lnd(jl)
+          IF (lsmask(jl) > 0._wp) THEN
+            pshflx_tile(jl,jsfc) = pshflx_lnd(jl)
+          END IF
         END IF
         IF (jsfc == idx_wtr) THEN
           IF (alake(jl) > 0._wp) THEN
             pshflx_tile(jl,jsfc) = pshflx_lwtr(jl)
           ELSE
-            pshflx_tile(jl,jsfc) =  zconst*pfac_sfc(jl)*pcfh_tile(jl,jsfc)*zdcptv
+            pshflx_tile(jl,jsfc) = zconst * pfac_sfc(jl) * pcfh_tile(jl,jsfc) * zdcptv
           END IF
         END IF
         IF (jsfc == idx_ice) THEN
           IF (alake(jl) > 0._wp) THEN
             pshflx_tile(jl,jsfc) = pshflx_lice(jl)
           ELSE
-           pshflx_tile(jl,jsfc) =  zconst*pfac_sfc(jl)*pcfh_tile(jl,jsfc)*zdcptv
+            pshflx_tile(jl,jsfc) = zconst * pfac_sfc(jl) * pcfh_tile(jl,jsfc) * zdcptv
           END IF
         END IF
 
@@ -325,7 +294,7 @@ CONTAINS
 
     ! grid box mean
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jk = 1, kbdim
       pshflx_gbm(jk) = 0.0_wp
@@ -333,10 +302,10 @@ CONTAINS
     !$ACC END PARALLEL
 
     DO jsfc = 1,ksfc_type
-      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR
       DO jl = jcs, kproma
-        pshflx_gbm(jl) = pshflx_gbm(jl) + pfrc(jl,jsfc)*pshflx_tile(jl,jsfc)
+        pshflx_gbm(jl) = pshflx_gbm(jl) + pfrc(jl,jsfc) * pshflx_tile(jl,jsfc)
       END DO
       !$ACC END PARALLEL
     ENDDO
@@ -350,6 +319,7 @@ CONTAINS
   !!
   SUBROUTINE wind_stress( jcs, kproma, kbdim, ksfc_type,        &! in
                         & psteplen,                             &! in
+                        & loidx, is,                            &! in
                         & pfrc, pcfm_tile, pfac_sfc,            &! in
                         & pu_rtpfac1, pv_rtpfac1,               &! in
                         & pu_stress_gbm,  pv_stress_gbm,        &! out
@@ -357,6 +327,9 @@ CONTAINS
 
     REAL(wp),INTENT(IN)    :: psteplen
     INTEGER, INTENT(IN)    :: jcs, kproma, kbdim, ksfc_type
+
+    INTEGER, INTENT(IN)    :: loidx(kbdim,ksfc_type) !< counter for masks
+    INTEGER, INTENT(IN)    :: is   (      ksfc_type) !< counter for masks
 
     REAL(wp),INTENT(IN)    :: pfrc            (:,:) ! (kbdim,ksfc_type)
     REAL(wp),INTENT(IN)    :: pcfm_tile       (:,:) ! (kbdim,ksfc_type)
@@ -372,8 +345,7 @@ CONTAINS
     REAL(wp) :: zconst
     ! Local variables
 
-    INTEGER  :: loidx  (kbdim,ksfc_type) !< counter for masks
-    INTEGER  :: is     (ksfc_type)       !< counter for masks
+
     INTEGER  :: jls, jl, js
 
     zconst = 1._wp/psteplen
@@ -388,9 +360,9 @@ CONTAINS
     !$ACC DATA PRESENT( pu_stress_tile, pv_stress_tile, pfac_sfc, pfrc,        &
     !$ACC               pu_stress_gbm, pv_stress_gbm, pcfm_tile, pu_rtpfac1,   &
     !$ACC               pv_rtpfac1 )  &
-    !$ACC      CREATE( is, loidx )
+    !$ACC      PRESENT( is, loidx )
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP SEQ
     DO jsfc = 1,ksfc_type
       !$ACC LOOP GANG VECTOR
@@ -401,7 +373,7 @@ CONTAINS
     END DO
     !$ACC END PARALLEL
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jl = 1, kbdim
       pu_stress_gbm (jl)   = 0.0_wp
@@ -409,22 +381,7 @@ CONTAINS
     END DO
     !$ACC END PARALLEL
 
-    ! check for masks
-    !
-    ! GPU: Compute index list on CPU due to issues with ACC ATOMIC
-    !$ACC UPDATE HOST( pfrc )
-    DO jsfc = 1,ksfc_type
-       is(jsfc) = 0
-       DO jl = jcs,kproma
-          IF(pfrc(jl,jsfc).GT.0.0_wp) THEN
-             is(jsfc) = is(jsfc) + 1
-             loidx(is(jsfc),jsfc) = jl
-          ENDIF
-       ENDDO
-    ENDDO
-    !$ACC UPDATE DEVICE( is, loidx )
-
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP SEQ
     DO jsfc = 1,ksfc_type
        !$ACC LOOP GANG VECTOR PRIVATE( js )
@@ -439,7 +396,7 @@ CONTAINS
     !$ACC END PARALLEL
 
     DO jsfc = 1,ksfc_type
-       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
        !$ACC LOOP GANG VECTOR PRIVATE( js )
        DO jls = 1,is(jsfc)
           ! set index
@@ -523,7 +480,7 @@ CONTAINS
 
     ! Local variables
 
-    INTEGER  :: loidx  (kbdim,ksfc_type) !< counter for masks
+    INTEGER  :: loidx  (kbdim,ksfc_type), icond  (kbdim,ksfc_type) !< counter for masks
     INTEGER  :: is     (ksfc_type)       !< counter for masks
     INTEGER  :: jls, jl, jsfc, js
     REAL(wp)     :: zhuv, zhtq, zephum, zc2es, zc3les, zc3ies, zc4les, zc4ies
@@ -532,9 +489,6 @@ CONTAINS
     REAL(wp)     :: zaph2m(kbdim), zqs2(kbdim), zq2m(kbdim), zfrac(kbdim)
     REAL(wp)     :: ua(kbdim)
     REAL(wp), POINTER :: pbtile(:,:)
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-    CONTIGUOUS :: pbtile
-#endif
 
     !$ACC DATA PRESENT( pfrc, pqm1, pzf, pzs, pcptgz, pcpt_tile, pbn_tile,     &
     !$ACC               pbhn_tile, pbh_tile, pbm_tile, pri_tile, ptm1, papm1,  &
@@ -544,7 +498,7 @@ CONTAINS
     !$ACC               pdew2_gbm, pdew2_tile, puas_gbm, puas_tile, pvas_gbm,  &
     !$ACC               pvas_tile )                                            &
     !$ACC      PCREATE( zh2m, zqs1, zrh2m, zcvm3, zcvm4, zaph2m, zqs2, zq2m,   &
-    !$ACC               zfrac, ua, is, loidx )
+    !$ACC               zfrac, ua, is, loidx, icond )
 
     !CONSTANTS
     zhuv          =  10._wp ! 10m
@@ -573,20 +527,15 @@ CONTAINS
     END DO
     !$ACC END PARALLEL
 
-    ! GPU: Compute index list on CPU due to issues with ACC ATOMIC
-    !$ACC UPDATE HOST( pfrc )
+    !$ACC PARALLEL LOOP DEFAULT(PRESENT)
     DO jsfc = 1,ksfc_type
-      ! check for masks
-      !
-      is(jsfc) = jcs-1
       DO jl = jcs,kproma
-        IF(pfrc(jl,jsfc).GT.0.0_wp) THEN
-          is(jsfc) = is(jsfc) + 1
-          loidx(is(jsfc),jsfc) = jl
-        ENDIF
+        icond(jl,jsfc) = MERGE(1, 0, pfrc(jl,jsfc).GT.0.0_wp)
       ENDDO
     ENDDO
-    !$ACC UPDATE DEVICE( is, loidx )
+
+    CALL generate_index_list_batched(icond(jcs:,:), loidx(jcs:,:), jcs, kproma, is, 1)
+    !$ACC UPDATE WAIT SELF(is)
 
     !     Compute new t2m
     !

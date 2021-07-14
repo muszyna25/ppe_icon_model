@@ -1,3 +1,4 @@
+!NEC$ options "-finline-max-depth=3 -finline-max-function-size=10000"
 !===============================================================================!
 !
 ! Two-moment bulk microphysics by Axel Seifert, Klaus Beheng and Uli Blahak
@@ -132,10 +133,12 @@ MODULE mo_2mom_mcrph_main
        &  setup_graupel_selfcollection, graupel_selfcollection, ice_melting, &
        &  particle_cloud_riming, particle_rain_riming, graupel_melting,      &
        &  hail_melting_simple, graupel_hail_conv_wet_gamlook, ice_riming,    &
-       &  snow_riming, ccn_activation_sk, ccn_activation_hdcp2
+       &  snow_riming, ccn_activation_sk, ccn_activation_hdcp2, ccn_activation_sk_4d
   ! Some switches...
   USE mo_2mom_mcrph_processes, ONLY:                                         &
        &  ice_typ, nuc_i_typ, nuc_c_typ, auto_typ, isdebug, isprint
+
+  USE mo_timer, ONLY: timers_level, timer_start, timer_stop, timer_phys_2mom_wetgrowth
 
   IMPLICIT NONE
 
@@ -170,37 +173,38 @@ MODULE mo_2mom_mcrph_main
   REAL(wp) :: rain_gfak   ! this is set in init_twomoment depending on mu_Dm_rain_typ
 
   ! debug switches
-  LOGICAL, PARAMETER     :: ischeck = .true.    ! frequently check for positive definite q's
+  LOGICAL, PARAMETER     :: ischeck = .false.    ! frequently check for positive definite q's
   
   ! some cloud microphysical switches
   LOGICAL, PARAMETER     :: ice_multiplication = .TRUE.  ! default is .true.
   LOGICAL, PARAMETER     :: enhanced_melting   = .TRUE.  ! default is .true.
   LOGICAL, PARAMETER     :: classic_melting_in_lwf_scheme = .False.
 
-  !..Pre-defined particle types
+  !..Pre-defined particle types (used in init_2mom_scheme)
+  
   TYPE(particle_frozen), PARAMETER :: &
        &        graupelhail_cosmo5 = particle_frozen( & ! graupelhail2test4
-       &        'graupelhail_cosmo5' ,& !.name...Bezeichnung
-       &        1.000000, & !..nu.....Breiteparameter der Verteil.
-       &        0.333333, & !..mu.....Exp.-parameter der Verteil.
-       &        5.00d-04, & !..x_max..maximale Teilchenmasse
-       &        1.00d-09, & !..x_min..minimale Teilchenmasse
-       &        1.42d-01, & !..a_geo..Koeff. Geometrie
-       &        0.314000, & !..b_geo..Koeff. Geometrie = 1/3.10
-       &        86.89371, & !..a_vel..Koeff. Fallgesetz
-       &        0.268325, & !..b_vel..Koeff. Fallgesetz
-       &        0.780000, & !..a_ven..Koeff. Ventilation (PK, S.541)
-       &        0.308000, & !..b_ven..Koeff. Ventilation (PK, S.541)
-       &        2.00,     & !..cap....Koeff. Kapazitaet
-       &        30.0,     & !..vsedi_max
-       &        0.10,     & !..vsedi_min
-       &        null(),   & !..n pointer
-       &        null(),   & !..q pointer
-       &        null(),   & !..rho_v pointer
-       &        1.0,      & !..ecoll_c
-       &        100.0d-6, & !..D_crit_c
-       &        1.000d-6, & !..q_crit_c
-       &        0.0       & !..sigma_vel
+       &        'graupelhail_cosmo5' ,& !.name
+       &        1.000000, & !..nu.........1st shape parameter of the distribution
+       &        0.333333, & !..mu.........2nd shape parameter of the distribution
+       &        5.30d-04, & !..x_max......maximum particle mean mass
+       &        4.19d-09, & !..x_min......minimum particle mean mass
+       &        1.42d-01, & !..a_geo......particle geometry prefactor
+       &        0.314000, & !..b_geo......particle geometry exponent = 1/3.10
+       &        86.89371, & !..a_vel......terminal fall velocity prefactor
+       &        0.268325, & !..b_vel......terminal fall velocity exponent
+       &        0.780000, & !..a_ven......1st ventilation coefficient (PK, S.541)
+       &        0.308000, & !..b_ven......2nd ventilation coefficient (PK, S.541)
+       &        2.00,     & !..cap........capacity coefficient
+       &        30.0,     & !..vsedi_max..maximum bulk sedimentation velocity
+       &        0.10,     & !..vsedi_min..minimum bulk sedimentation velocity
+       &        null(),   & !..n pointer..pointer to number density array
+       &        null(),   & !..q pointer..pointer to mass density array
+       &        null(),   & !..rho_v......pointer to density correction array
+       &        1.0,      & !..ecoll_c....maximum collision efficiency with cloud droplets
+       &        100.0d-6, & !..D_crit_c...D-threshold for cloud riming
+       &        1.000d-6, & !..q_crit_c...q-threshold for cloud riming
+       &        0.0       & !..sigma_vel..dispersion of fall velocity for collection kernel
        &        )    
   
   TYPE(particle_lwf), PARAMETER :: graupel_vivek = particle_lwf( & ! graupelhail2test4
@@ -238,7 +242,7 @@ MODULE mo_2mom_mcrph_main
        &        'hail_cosmo5' ,& !.name...Bezeichnung
        &        1.000000, & !..nu.....Breiteparameter der Verteil.
        &        0.333333, & !..mu.....Exp.-parameter der Verteil.
-       &        5.00d-04, & !..x_max..maximale Teilchenmasse
+       &        5.00d-03, & !..x_max..maximale Teilchenmasse
        &        2.60d-9,  & !..x_min..minimale Teilchenmasse
        &        0.1366 ,  & !..a_geo..Koeff. Geometrie
        &        0.333333, & !..b_geo..Koeff. Geometrie = 1/3
@@ -347,7 +351,7 @@ MODULE mo_2mom_mcrph_main
        &        0.80,     & !..ecoll_c
        &        150.0d-6, & !..D_crit_c
        &        1.000d-5, & !..q_crit_c
-       &        0.05      & !..sigma_vel
+       &        0.25      & !..sigma_vel 
        &        )
 
   TYPE(particle_frozen), PARAMETER :: &
@@ -471,7 +475,6 @@ MODULE mo_2mom_mcrph_main
   PUBLIC :: init_2mom_scheme, init_2mom_scheme_once, clouds_twomoment
   PUBLIC :: rain_coeffs, ice_coeffs, snow_coeffs, graupel_coeffs, hail_coeffs, &
        &    ccn_coeffs, in_coeffs, cloud_coeffs
-
   PUBLIC :: qnc_const
 
   ! DR: The following block is necessarily public as these parameters/coefficients
@@ -557,10 +560,9 @@ CONTAINS
        IF (isdebug) CALL message(TRIM(routine), &
             & '  ... CCN activation using look-up tables according to Segal& Khain')
        IF (PRESENT(n_cn)) THEN
-          CALL ccn_activation_sk(ik_slice,ccn_coeffs,atmo,cloud,n_cn)
+          CALL ccn_activation_sk_4d(ik_slice,ccn_coeffs,atmo,cloud,n_cn)
        ELSE
-          CALL finish(TRIM(routine),&
-               & 'Error in two_moment_mcrph: Segal and Khain activation only supported for progn. aerosol')
+          CALL ccn_activation_sk_4d(ik_slice,ccn_coeffs,atmo,cloud)
        END IF
     END IF
 
@@ -609,9 +611,11 @@ CONTAINS
     IF (ischeck) CALL check(ik_slice, 'graupel collection',cloud,rain,ice,snow,graupel,hail)
 
     ! conversion of graupel to hail in wet growth regime
+    IF (timers_level > 10) CALL timer_start(timer_phys_2mom_wetgrowth) 
     CALL graupel_hail_conv_wet_gamlook(ik_slice, graupel_ltable1, graupel_ltable2,       &
          &                             graupel_nm1, graupel_nm2, graupel_g1, graupel_g2, &
          &                             atmo, graupel, cloud, rain, ice, snow, hail)
+    IF (timers_level > 10) CALL  timer_stop(timer_phys_2mom_wetgrowth) 
     IF (ischeck) CALL check(ik_slice, 'graupel_hail_conv_wet_gamlook',cloud,rain,ice,snow,graupel,hail)
 
     ! hail collisions
@@ -745,16 +749,16 @@ CONTAINS
     call particle_frozen_assign(snow,snowSBB)
 
     SELECT TYPE (graupel)
-    CLASS IS (particle_frozen)  
+    TYPE IS (particle_frozen)  
       call particle_frozen_assign(graupel,graupelhail_cosmo5)
-    CLASS IS (particle_lwf) 
+    TYPE IS (particle_lwf) 
       call particle_lwf_assign(graupel,graupel_vivek)
     END SELECT
 
     SELECT TYPE (hail)
-    CLASS IS (particle_frozen) 
+    TYPE IS (particle_frozen) 
       call particle_frozen_assign(hail,hail_cosmo5)
-    CLASS IS (particle_lwf) 
+    TYPE IS (particle_lwf) 
       call particle_lwf_assign(hail,hail_vivek)
     END SELECT
 
@@ -772,8 +776,10 @@ CONTAINS
     CLASS(particle_frozen), INTENT(inout) :: ice, snow, graupel, hail
 
     CHARACTER(len=*), PARAMETER :: routine = 'init_2mom_scheme_once'
-    REAL(wp), DIMENSION(1:1) :: q_r,x_r,q_c,vn_rain_min, vq_rain_min, vn_rain_max, vq_rain_max
+    REAL(wp), DIMENSION(1:1) :: q_r,x_r,q_c,vn_rain_min, vq_rain_min, vn_rain_max, vq_rain_max, rhocorr
     REAL(wp) :: nu, mu, x_s_i
+
+    rhocorr = 1.0_wp
 
     CALL init_2mom_scheme(cloud,rain,ice,snow,graupel,hail)
 
@@ -798,7 +804,13 @@ CONTAINS
     rain_coeffs%cmu5 = rainSBBcoeffs%cmu5
 
     CALL message(TRIM(routine), "calculate run-time coefficients")
-    WRITE(txt,'(A,I10)')   "  cloud_type = ",cloud_type ; CALL message(routine,TRIM(txt))
+    WRITE (txt,'(A,I10)') "  cloud_type = ",cloud_type ; CALL message(routine,TRIM(txt))
+    WRITE (txt,'(2A)') "     cloud   = ",cloud%name    ; CALL message(routine,TRIM(txt))
+    WRITE (txt,'(2A)') "     rain    = ",rain%name     ; CALL message(routine,TRIM(txt))
+    WRITE (txt,'(2A)') "     ice     = ",ice%name      ; CALL message(routine,TRIM(txt))
+    WRITE (txt,'(2A)') "     snow    = ",snow%name     ; CALL message(routine,TRIM(txt))
+    WRITE (txt,'(2A)') "     graupel = ",graupel%name  ; CALL message(routine,TRIM(txt))
+    WRITE (txt,'(2A)') "     hail    = ",hail%name     ; CALL message(routine,TRIM(txt))
 
     ! initialize bulk sedimentation velocities
     ! calculates coeff_alfa_n, coeff_alfa_q, and coeff_lambda
@@ -840,7 +852,7 @@ CONTAINS
       !  (this is the default and the cmus are set in the particle constructor)
       rain_gfak = 1.0
     ELSEIF (mu_Dm_rain_typ.EQ.2) THEN
-      !..Modifikation of mu-Dm-relation for experiments with increased evaporation
+      !..Modification of mu-Dm-relation for experiments with increased evaporation
       rain_coeffs%cmu0 = 11.0            ! instead of 6.0
       rain_coeffs%cmu1 = 30.0            !
       rain_coeffs%cmu2 = 1.00d+3         !
@@ -872,16 +884,16 @@ CONTAINS
       WRITE(txt,'(A,D10.3)') "     cmu3  = ",rain_coeffs%cmu3 ; CALL message(routine,TRIM(txt))
       WRITE(txt,'(A,D10.3)') "     cmu4  = ",rain_coeffs%cmu4 ; CALL message(routine,TRIM(txt))
       WRITE(txt,'(A,I10)')   "     cmu5  = ",rain_coeffs%cmu5 ; CALL message(routine,TRIM(txt))
-      x_r = rain%x_min ; CALL sedi_vel_rain(rain,rain_coeffs,q_r,x_r,vn_rain_min,vq_rain_min,1,1)
-      x_r = rain%x_max ; CALL sedi_vel_rain(rain,rain_coeffs,q_r,x_r,vn_rain_max,vq_rain_max,1,1)
+      x_r = rain%x_min ; CALL sedi_vel_rain(rain,rain_coeffs,q_r,x_r,rhocorr,vn_rain_min,vq_rain_min,1,1)
+      x_r = rain%x_max ; CALL sedi_vel_rain(rain,rain_coeffs,q_r,x_r,rhocorr,vn_rain_max,vq_rain_max,1,1)
       WRITE(txt,'(A)')       "    out-of-cloud: " ; CALL message(routine,TRIM(txt))
       WRITE(txt,'(A,D10.3)') "     vn_rain_min  = ",vn_rain_min ; CALL message(routine,TRIM(txt))
       WRITE(txt,'(A,D10.3)') "     vn_rain_max  = ",vn_rain_max ; CALL message(routine,TRIM(txt))
       WRITE(txt,'(A,D10.3)') "     vq_rain_min  = ",vq_rain_min ; CALL message(routine,TRIM(txt))
       WRITE(txt,'(A,D10.3)') "     vq_rain_max  = ",vq_rain_max ; CALL message(routine,TRIM(txt))
       q_c = 1e-3_wp
-      x_r = rain%x_min ; CALL sedi_vel_rain(rain,rain_coeffs,q_r,x_r,vn_rain_min,vq_rain_min,1,1,q_c)
-      x_r = rain%x_max ; CALL sedi_vel_rain(rain,rain_coeffs,q_r,x_r,vn_rain_max,vq_rain_max,1,1,q_c)
+      x_r = rain%x_min ; CALL sedi_vel_rain(rain,rain_coeffs,q_r,x_r,rhocorr,vn_rain_min,vq_rain_min,1,1,q_c)
+      x_r = rain%x_max ; CALL sedi_vel_rain(rain,rain_coeffs,q_r,x_r,rhocorr,vn_rain_max,vq_rain_max,1,1,q_c)
       WRITE(txt,'(A)')       "    in-cloud: " ; CALL message(routine,TRIM(txt))
       WRITE(txt,'(A,D10.3)') "     vn_rain_min  = ",vn_rain_min ; CALL message(routine,TRIM(txt))
       WRITE(txt,'(A,D10.3)') "     vn_rain_max  = ",vn_rain_max ; CALL message(routine,TRIM(txt))
@@ -1247,7 +1259,16 @@ CONTAINS
       WRITE(txt,'(A,D10.3)') "    c_z= ",cloud_coeffs%c_z
       CALL message(routine,TRIM(txt))
     ENDIF
+
+    ! Init SK Activation table
+    IF (nuc_c_typ > 5) THEN 
+      call ccn_activation_sk_4d()
+      IF (isprint) THEN      
+        CALL message(routine,"Equidistant lookup table for Segal-Khain created")
+      ENDIF
+    END IF
    
+
   END SUBROUTINE init_2mom_scheme_once
 
   SUBROUTINE check(ik_slice, mtxt,cloud,rain,ice,snow,graupel,hail)
@@ -1256,44 +1277,83 @@ CONTAINS
     INTEGER, INTENT(in) :: ik_slice(4)
     CHARACTER(len=*), INTENT(in) :: mtxt
     CLASS(particle), INTENT(in) :: cloud, rain, ice, snow, graupel, hail
-    INTEGER :: k, kstart, kend
-    REAL(wp), PARAMETER  :: meps = -1e-12
+
+    INTEGER :: k, kstart, kend, k_neg(6)
+    REAL(wp), PARAMETER  :: meps = -1e-12_wp
+    CHARACTER(len=2), PARAMETER  :: qname(6) = (/ 'qc', 'qr', 'qi', 'qs', 'qg', 'qh' /)
+
 
     kstart = ik_slice(3)
     kend   = ik_slice(4)
 
+#if defined (__SX__) || defined (__NEC_VH__) || defined (__NECSX__)
+
+    k_neg = -1
     DO k = kstart,kend
-       IF (MINVAL(cloud%q(:,k)) < meps) THEN
-          WRITE (txt,'(1X,A,I4,A)') '  qc < 0 at k = ',k,' after '//TRIM(mtxt)
-          CALL message(routine,TRIM(txt))
-          CALL finish(TRIM(routine),txt)
-       ENDIF
-       IF (MINVAL(rain%q(:,k)) < meps) THEN
-          WRITE (txt,'(1X,A,I4,A)') '  qr < 0 at k = ',k,' after '//TRIM(mtxt)
-          CALL message(routine,TRIM(txt))
-          CALL finish(TRIM(routine),txt)
-       ENDIF
-       IF (MINVAL(ice%q(:,k)) < meps) THEN
-          WRITE (txt,'(1X,A,I4,A)') '  qi < 0 at k = ',k,' after '//TRIM(mtxt)
-          CALL message(routine,TRIM(txt))
-          CALL finish(TRIM(routine),txt)
-       ENDIF
-       IF (MINVAL(snow%q(:,k)) < meps) THEN
-          WRITE (txt,'(1X,A,I4,A)') '  qs < 0 at k = ',k,' after '//TRIM(mtxt)
-          CALL message(routine,TRIM(txt))
-          CALL finish(TRIM(routine),txt)
-       ENDIF
-       IF (MINVAL(graupel%q(:,k)) < meps) THEN
-          WRITE (txt,'(1X,A,I4,A)') '  qg < 0 at k = ',k,' after '//TRIM(mtxt)
-          CALL message(routine,TRIM(txt))
-          CALL finish(TRIM(routine),txt)
-       ENDIF
-       IF (MINVAL(hail%q(:,k)) < meps) THEN
-          WRITE (txt,'(1X,A,I4,A)') '  qh < 0 at k = ',k,' after '//TRIM(mtxt)
-          CALL message(routine,TRIM(txt))
-          CALL finish(TRIM(routine),txt)
-       ENDIF
+      IF (MINVAL(cloud%q(:,k)) < meps) THEN
+        k_neg(1) = k
+      ENDIF
+      IF (MINVAL(rain%q(:,k)) < meps) THEN
+        k_neg(2) = k
+      ENDIF
+      IF (MINVAL(ice%q(:,k)) < meps) THEN
+        k_neg(3) = k
+      ENDIF
+      IF (MINVAL(snow%q(:,k)) < meps) THEN
+        k_neg(4) = k
+      ENDIF
+      IF (MINVAL(graupel%q(:,k)) < meps) THEN
+        k_neg(5) = k
+      ENDIF
+      IF (MINVAL(hail%q(:,k)) < meps) THEN
+        k_neg(6) = k
+      ENDIF
     END DO
+
+    DO k = 1, SIZE(k_neg)
+      IF (k_neg(k) > -1) THEN
+        WRITE (txt,'(1X,A,I4,A)') '  '//TRIM(qname(k))//' < 0 at k = ',k_neg(k),' after '//TRIM(mtxt)
+        CALL message(TRIM(routine),TRIM(txt))
+        CALL finish (TRIM(routine),TRIM(txt))
+      END IF
+    END DO
+
+#else
+
+    DO k = kstart,kend
+      IF (MINVAL(cloud%q(:,k)) < meps) THEN
+        WRITE (txt,'(1X,A,I4,A)') '  qc < 0 at k = ',k,' after '//TRIM(mtxt)
+        CALL message(TRIM(routine),TRIM(txt))
+        CALL finish (TRIM(routine),TRIM(txt))
+      ENDIF
+      IF (MINVAL(rain%q(:,k)) < meps) THEN
+        WRITE (txt,'(1X,A,I4,A)') '  qr < 0 at k = ',k,' after '//TRIM(mtxt)
+        CALL message(TRIM(routine),TRIM(txt))
+        CALL finish (TRIM(routine),TRIM(txt))
+      ENDIF
+      IF (MINVAL(ice%q(:,k)) < meps) THEN
+        WRITE (txt,'(1X,A,I4,A)') '  qi < 0 at k = ',k,' after '//TRIM(mtxt)
+        CALL message(TRIM(routine),TRIM(txt))
+        CALL finish (TRIM(routine),TRIM(txt))
+      ENDIF
+      IF (MINVAL(snow%q(:,k)) < meps) THEN
+        WRITE (txt,'(1X,A,I4,A)') '  qs < 0 at k = ',k,' after '//TRIM(mtxt)
+        CALL message(TRIM(routine),TRIM(txt))
+        CALL finish (TRIM(routine),TRIM(txt))
+      ENDIF
+      IF (MINVAL(graupel%q(:,k)) < meps) THEN
+        WRITE (txt,'(1X,A,I4,A)') '  qg < 0 at k = ',k,' after '//TRIM(mtxt)
+        CALL message(TRIM(routine),TRIM(txt))
+        CALL finish (TRIM(routine),TRIM(txt))
+      ENDIF
+      IF (MINVAL(hail%q(:,k)) < meps) THEN
+        WRITE (txt,'(1X,A,I4,A)') '  qh < 0 at k = ',k,' after '//TRIM(mtxt)
+        CALL message(TRIM(routine),TRIM(txt))
+        CALL finish (TRIM(routine),TRIM(txt))
+      ENDIF
+    END DO
+    
+#endif
 
   END SUBROUTINE check
 

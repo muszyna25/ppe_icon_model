@@ -18,7 +18,8 @@ MODULE mo_run_nml
                          & config_ltransport      => ltransport,      &
                          & config_ntracer         => ntracer,         &
                          & config_lart            => lart,            &
-                         & config_ldass_lhn         => ldass_lhn,         &
+                         & config_ldass_lhn       => ldass_lhn,       &
+                         & config_luse_radarfwo   => luse_radarfwo,   &
                          & config_lvert_nest      => lvert_nest,      &
                          & config_nlev            => nlev,            &
                          & config_num_lev         => num_lev,         &
@@ -48,12 +49,12 @@ MODULE mo_run_nml
                                MAX_CHAR_LENGTH
   USE mo_io_units,       ONLY: nnml, nnml_output
   USE mo_namelist,       ONLY: position_nml, positioned, open_nml, close_nml
-  USE mo_mpi,            ONLY: my_process_is_stdio 
+  USE mo_mpi,            ONLY: my_process_is_stdio
   USE mo_master_control,      ONLY: use_restart_namelists
   USE mo_util_string,    ONLY: one_of
   USE mo_nml_annotate,   ONLY: temp_defaults, temp_settings
 
-  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist,   &
+  USE mo_restart_nml_and_att, ONLY: open_tmpfile, store_and_close_namelist,   &
        &                            open_and_restore_namelist, close_tmpfile
   USE mtime,                  ONLY: max_timedelta_str_len
   
@@ -61,82 +62,7 @@ MODULE mo_run_nml
   PRIVATE
   PUBLIC :: read_run_namelist
 
-  !------------------------------------------------------------------------
-  ! Namelist variables
-  !------------------------------------------------------------------------
-
-  LOGICAL :: ltestcase       ! if .TRUE. then
-                             ! - compute analytical initial state,
-                             !   depending on the specified test case,
-                             ! - compute analytical boundary conditions,
-                             ! - if applicable, compute analytical forcing
-
-  LOGICAL :: ldynamics       ! if .TRUE., switch on adiabatic dynamics
-  INTEGER :: iforcing        ! adiabatic forcing
-
-  LOGICAL :: ltransport      ! if .TRUE., switch on large-scale tracer transport
-  INTEGER :: ntracer         ! number of advected tracers
-  LOGICAL :: lart            ! switch for ICON-ART (Treatment of Aerosols and Trace Gases)
-  LOGICAL :: ldass_lhn         ! switch for assimilation of radar data using latent heat nudging
-
-  LOGICAL :: lvert_nest         ! if .TRUE., switch on vertical nesting
-  INTEGER :: num_lev(max_dom)   ! number of full levels for each domain
-  INTEGER :: nshift (max_dom)   ! half level of parent domain which coincides 
-                                    ! with the upper boundary of the current domain jg
-
-  INTEGER  :: nsteps            ! number of time steps
-  REAL(wp) :: dtime             ! [s] length of a time step
-
-  LOGICAL :: ltimer        ! if .TRUE., wallclock timers are switched on
-  INTEGER :: timers_level  ! what level of timers to run
-  LOGICAL :: activate_sync_timers
-
-  LOGICAL :: logmaxrss     ! log maxrss for three mpi ranks
-  LOGICAL :: logmaxrss_all ! log maxrss for all mpi ranks
-  INTEGER :: msg_level     ! how much printout is generated during runtime
-
-  LOGICAL :: msg_timestamp ! If .TRUE.: Precede output messages by time stamp.
-
-
-  INTEGER :: test_mode  ! if =0 then run the standard version,
-                        ! otherwise special setup for (performance) tests, see Namelist_overview
-  INTEGER :: debug_check_level
-
-  CHARACTER(len=max_timedelta_str_len) :: modelTimeStep
-  
-  !> output mode (logicals)
-  !  one or multiple of "none", "nml", "totint"
-  CHARACTER(len=32) :: output(max_output_modes)
-
-  INTEGER :: profiling_output  !< switch defining the kind of timer output
-
-  LOGICAL :: check_uuid_gracefully !< Flag. If .TRUE. then we give only warnings for non-matching UUIDs
-
-  !> file name for restart/checkpoint files (containg keyword
-  !> substition patterns)
-  CHARACTER(len=MAX_CHAR_LENGTH) :: restart_filename
-
-  NAMELIST /run_nml/ ltestcase,    ldynamics,       &
-                     iforcing,     ltransport,      &
-                     ntracer,                       &
-                     lart,                          &
-                     ldass_lhn,                       &
-                     lvert_nest,                    &
-                     num_lev,      nshift,          &
-                     nsteps,       dtime,           &
-                     ltimer,       timers_level,    &
-                     activate_sync_timers,          &
-                     logmaxrss,                     &
-                     logmaxrss_all,                 &
-                     msg_level,                     &
-                     test_mode,                     &
-                     output,                        &
-                     msg_timestamp,                 &
-                     debug_check_level,             &
-                     restart_filename,              &
-                     profiling_output,              &
-                     check_uuid_gracefully,         &
-                     modelTimeStep
+  CHARACTER(len=*), PARAMETER :: modname = 'mo_run_nml'
 
 CONTAINS
   !>
@@ -146,7 +72,76 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
     INTEGER :: iunit
-    CHARACTER(len=*), PARAMETER :: routine = 'mo_run_nml:read_run_namelist'
+    CHARACTER(len=*), PARAMETER :: routine = modname//'::read_run_namelist'
+
+    !------------------------------------------------------------------------
+    ! Namelist variables
+    !------------------------------------------------------------------------
+
+    LOGICAL :: ltestcase       ! if .TRUE. then
+    ! - compute analytical initial state,
+    !   depending on the specified test case,
+    ! - compute analytical boundary conditions,
+    ! - if applicable, compute analytical forcing
+
+    LOGICAL :: ldynamics       ! if .TRUE., switch on adiabatic dynamics
+    INTEGER :: iforcing        ! adiabatic forcing
+
+    LOGICAL :: ltransport      ! if .TRUE., switch on large-scale tracer transport
+    INTEGER :: ntracer         ! number of advected tracers
+    !> switch for ICON-ART (Treatment of Aerosols and Trace Gases)
+    LOGICAL :: lart
+
+    !> switch for assimilation of radar data using latent heat nudging
+    LOGICAL :: ldass_lhn
+
+    LOGICAL :: luse_radarfwo(max_dom)  !< switch for radar forward operator EMVORADO
+    LOGICAL :: lvert_nest         ! if .TRUE., switch on vertical nesting
+    INTEGER :: num_lev(max_dom)   ! number of full levels for each domain
+    INTEGER :: nshift (max_dom)   ! half level of parent domain which coincides 
+    ! with the upper boundary of the current domain jg
+
+    INTEGER  :: nsteps            ! number of time steps
+    REAL(wp) :: dtime             ! [s] length of a time step
+
+    LOGICAL :: ltimer        ! if .TRUE., wallclock timers are switched on
+    INTEGER :: timers_level  ! what level of timers to run
+    LOGICAL :: activate_sync_timers
+
+    LOGICAL :: logmaxrss     ! log maxrss for three mpi ranks
+    LOGICAL :: logmaxrss_all ! log maxrss for all mpi ranks
+    
+    INTEGER :: msg_level     ! how much printout is generated during runtime
+    LOGICAL :: msg_timestamp ! If .TRUE.: Precede output messages by time stamp.
+
+
+    INTEGER :: test_mode  ! if =0 then run the standard version,
+    ! otherwise special setup for (performance) tests, see Namelist_overview
+    INTEGER :: debug_check_level
+
+    CHARACTER(len=max_timedelta_str_len) :: modelTimeStep
+
+    !> output mode (logicals)
+    !  one or multiple of "none", "nml", "totint"
+    CHARACTER(len=32) :: output(max_output_modes)
+
+    INTEGER :: profiling_output  !< switch defining the kind of timer output
+
+    LOGICAL :: check_uuid_gracefully !< Flag. If .TRUE. then we give only warnings for non-matching UUIDs
+
+    !> file name for restart/checkpoint files (containg keyword
+    !> substition patterns)
+    CHARACTER(len=MAX_CHAR_LENGTH) :: restart_filename
+
+    NAMELIST /run_nml/ ltestcase, ldynamics, iforcing, ltransport,     &
+      &                ntracer, lart, ldass_lhn, luse_radarfwo, ltimer,&
+      &                lvert_nest, num_lev, nshift, nsteps, dtime,     &
+      &                timers_level, activate_sync_timers, logmaxrss,  &
+      &                logmaxrss_all, msg_level, test_mode, output,    &
+      &                msg_timestamp, debug_check_level,               &
+      &                restart_filename, profiling_output,             &
+      &                check_uuid_gracefully, modelTimeStep
+
 
     !------------------------------------------------------------
     ! Default settings
@@ -160,6 +155,8 @@ CONTAINS
     ntracer         = 0
     lart            = .FALSE.
     ldass_lhn         = .FALSE.
+
+    luse_radarfwo(:) = .FALSE.
 
     lvert_nest = .FALSE. ! no vertical nesting
     num_lev(:) = 31    ! number of full levels for each domain
@@ -230,16 +227,8 @@ CONTAINS
       CALL finish( TRIM(routine),'wrong value for iforcing')
     END SELECT
 
-    ! If we choose to have NWP-forcing for the nonhydrostatic model, we want 
-    ! to avoid the necessity of setting ntracer explicitly. Thus, a sanity 
-    ! check for ntracer is triggered only, if iforcing /= INWP.
-    IF (iforcing /= INWP) THEN
-      IF ((ntracer<0).OR.(ntracer>max_ntracer)) CALL finish( TRIM(routine), &
-      'wrong number of tracers. Valid range: 0<= ntracer <=20')
-
-      IF (ltransport .AND. ntracer<1) CALL finish(TRIM(routine), &
-      'Tracer transport is switched on, but number of advected tracers is smaller than 1')
-    ENDIF
+    IF ((ntracer<0).OR.(ntracer>max_ntracer)) CALL finish( TRIM(routine), &
+      & 'wrong number of tracers. Valid range: 0 <= ntracer <= max_ntracer')
 
     IF (ANY(num_lev < 0)) CALL finish(TRIM(routine),'"num_lev" must be positive')
     IF (ANY(nshift  < 0)) CALL finish(TRIM(routine),'"nshift" must be positive')
@@ -260,6 +249,8 @@ CONTAINS
     config_ntracer         = ntracer 
     config_lart            = lart
     config_ldass_lhn         = ldass_lhn
+
+    config_luse_radarfwo(:)   = luse_radarfwo(:)
 
     config_lvert_nest      = lvert_nest
     config_nlev            = num_lev(1)
@@ -318,40 +309,38 @@ CONTAINS
     TYPE (t_output_mode), INTENT(OUT) :: om
     ! local variables
     CHARACTER(len=*), PARAMETER :: routine = &
-      &  TRIM('mo_run_nml:parse_output_mode')
-    CHARACTER(len=32) :: valid_names(4)
-    INTEGER :: i
+      &  modname//'::parse_output_mode'
+    CHARACTER(len=8), PARAMETER :: valid_names(4) &
+         = (/ "none    ", "nml     ", "totint  ", "maxwinds" /)
+    INTEGER, PARAMETER :: midx_none = 1, midx_nml = 2, midx_totint = 3, &
+         midx_maxwinds = 4
+    INTEGER :: i, match_idx(max_output_modes)
 
-    ! define a list of valid names, check if user input is valid:
-    valid_names(1) = "none"
-    valid_names(2) = "nml"
-    valid_names(3) = "totint"
-    valid_names(4) = "maxwinds"
+    ! check if user input is in list of valid names:
     DO i=1,max_output_modes
-      IF (TRIM(output(i)) /= "") THEN
-        IF (one_of(output(i), valid_names) == -1) THEN
+      IF (LEN_TRIM(output(i)) /= 0) THEN
+        match_idx(i) = one_of(output(i), valid_names)
+        IF  (match_idx(i) == -1) THEN
           CALL finish(routine, "Syntax error: unknown output mode.")
         END IF
+      ELSE
+        match_idx(i) = -1
       END IF
     END DO
 
     ! for each logical of type t_output_mode, check if the
     ! corresponding keyword is in the list of strings
-    om%l_none     = ( one_of("none",     output(:)) /= -1)
-    om%l_nml      = ( one_of("nml",      output(:)) /= -1)
-    om%l_totint   = ( one_of("totint",   output(:)) /= -1)
-    om%l_maxwinds = ( one_of("maxwinds", output(:)) /= -1)
+    om%l_nml      = ANY(match_idx == midx_nml)
+    om%l_totint   = ANY(match_idx == midx_totint)
+    om%l_maxwinds = ANY(match_idx == midx_maxwinds)
+    om%l_none     = ANY(match_idx == midx_none) &
+      .OR. .NOT. (om%l_nml .OR. om%l_totint .OR. om%l_maxwinds)
 
-    ! consistency checks:
-    !
-    IF (.NOT. (om%l_nml .OR. om%l_totint .OR. om%l_maxwinds)) THEN
-      om%l_none = .TRUE.
-    END IF
+    ! consistency check:
     ! error: "none" has been chosen in combination with others:
-    IF (om%l_none .AND. (om%l_nml .OR. om%l_totint .OR. om%l_maxwinds)) THEN
+    IF (om%l_none .AND. (om%l_nml .OR. om%l_totint .OR. om%l_maxwinds)) &
       CALL finish(routine, "Syntax error when setting output to 'none'.")
-    END IF
-    
+
   END SUBROUTINE parse_output_mode
 
 END MODULE mo_run_nml

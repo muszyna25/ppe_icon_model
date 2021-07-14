@@ -278,13 +278,6 @@ CONTAINS
 
     CHARACTER(len=*), INTENT(in) :: namelist_filename
 
-    LOGICAL :: unit_is_occupied
-
-    CHARACTER(len=*), PARAMETER :: routine = modname//':open_nml'
-
-    INQUIRE(UNIT=nnml, OPENED=unit_is_occupied)
-    IF (unit_is_occupied) CALL finish(TRIM(routine), 'namelist unit is already open')
-
     CALL open_nml_icon(TRIM(namelist_filename))
     open_nml = 1
 
@@ -355,9 +348,6 @@ MODULE mo_jsb_time_iface
   USE mo_time_config,            ONLY: time_config !configure_time
   USE mo_time_nml,               ONLY: read_time_namelist
   USE mo_dynamics_config,        ONLY: iequations
-  USE mo_impl_constants,         ONLY: ihs_atm_temp, ihs_atm_theta, ishallow_water, &
-    &                                  leapfrog_expl, leapfrog_si
-  USE mo_ha_dyn_config,          ONLY: ha_dyn_config
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights,              &
     &                                  calculate_time_interpolation_weights
   USE mo_echam_phy_config,       ONLY: echam_phy_tc, dt_zero
@@ -655,12 +645,10 @@ CONTAINS
   END SUBROUTINE get_time_interpolation_weights
 
   REAL(wp) FUNCTION get_asselin_coef()
+    CHARACTER(len=*), PARAMETER :: routine = modname//':get_asselin_coef'
 
     SELECT CASE(iequations)
-    CASE(ishallow_water,ihs_atm_temp,ihs_atm_theta)
-      IF (ha_dyn_config%itime_scheme == leapfrog_expl .OR. ha_dyn_config%itime_scheme == leapfrog_si) THEN
-        get_asselin_coef = ha_dyn_config%asselin_coeff
-      END IF
+    !
     CASE DEFAULT
       get_asselin_coef = 0._wp
     END SELECT
@@ -850,8 +838,8 @@ CONTAINS
     netcdf_open_input_generic%filename = TRIM(filename)
 
     netcdf_open_input_generic%type      = 1
-    ! netcdf_open_input%stream_id = openInputFile(TRIM(filename), patch, read_netcdf_broadcast_method)
-    netcdf_open_input_generic%file_id = openInputFile(TRIM(filename))
+    ! CALL openInputFile(netcdf_open_input%stream_id, TRIM(filename), patch, read_netcdf_broadcast_method)
+    CALL openInputFile(netcdf_open_input_generic%file_id, TRIM(filename))
     netcdf_open_input_generic%is_open = netcdf_open_input_generic%file_id > 0
 
   END FUNCTION netcdf_open_input_generic
@@ -867,8 +855,8 @@ CONTAINS
 
     IF (patch%id > 0) THEN
       netcdf_open_input_patch%type      = 1
-      ! netcdf_open_input_patch%stream_id = openInputFile(TRIM(filename), patch, read_netcdf_broadcast_method)
-      netcdf_open_input_patch%stream_id = openInputFile(TRIM(filename), patch)
+      ! CALL openInputFile(netcdf_open_input_patch%stream_id, TRIM(filename), patch, read_netcdf_broadcast_method)
+      CALL openInputFile(netcdf_open_input_patch%stream_id, TRIM(filename), patch)
       netcdf_open_input_patch%file_id   = netcdf_open_input_patch%stream_id%file_id
       netcdf_open_input_patch%is_open   = netcdf_open_input_patch%file_id > 0
     ELSE
@@ -1183,14 +1171,13 @@ MODULE mo_jsb_varlist_iface
 
   USE mo_kind,               ONLY: wp, dp
   USE mo_exception,          ONLY: finish
-  USE mo_var_list,           ONLY: new_var_list_icon => new_var_list, &
-                                   get_var_list,                      &
-                                   add_var_icon => add_var,           &
-                                   find_list_element
+  USE mo_var_list_register,  ONLY: vlr_get, vlr_add
+  USE mo_var_list, ONLY: add_var_icon => add_var, t_var_list => t_var_list_ptr
+  USE mo_var, ONLY: t_var
+  USE mo_name_list_output_config, ONLY: var_in_out => is_variable_in_output
   USE mo_var_groups,         ONLY: groups
-  USE mo_var_metadata_types, ONLY: t_var_metadata, VARNAME_LEN
-  USE mo_linked_list,        ONLY: t_var_list, t_list_element
-
+  USE mo_var_metadata_types, ONLY: t_var_metadata
+  USE mo_impl_constants,     ONLY: VARNAME_LEN => vname_len
   USE mo_jsb_io_iface, ONLY: t_cf_var, t_grib2_var
 
   IMPLICIT NONE
@@ -1198,19 +1185,34 @@ MODULE mo_jsb_varlist_iface
 
   PUBLIC :: VARNAME_LEN
   PUBLIC :: t_var_list, t_var_metadata, t_list_element, get_var_list
-  PUBLIC :: new_var_list
+  PUBLIC :: new_var_list, is_variable_in_output
   PUBLIC :: add_var_list_element_r2d, add_var_list_element_r3d
 
   CHARACTER(len=*), PARAMETER :: modname = 'mo_jsb_varlist_iface'
 
+  TYPE :: t_list_element
+    TYPE(t_var), POINTER :: field => NULL()
+  END TYPE t_list_element
+
 CONTAINS
 
-  SUBROUTINE new_var_list (this_list, name, patch_id, output_type, restart_type, &
-       &                       post_suf, rest_suf, init_suf, loutput, lrestart,  &
-       &                       linitial, table)
-    !
+  SUBROUTINE get_var_list(this_list, vlname)
+    TYPE(t_var_list), INTENT(OUT), POINTER :: this_list
+    CHARACTER(*), INTENT(IN) :: vlname
+    TYPE(t_var_list) :: tmp
+
+    NULLIFY(this_list)
+    CALL vlr_get(tmp, vlname)
+    IF (ASSOCIATED(tmp%p)) THEN
+      ALLOCATE(this_list)
+      this_list%p => tmp%p
+    END IF
+  END SUBROUTINE get_var_list
+
+  SUBROUTINE new_var_list(this_list, vname, patch_id, output_type, restart_type, &
+       & post_suf, rest_suf, init_suf, loutput, lrestart, linitial, table)
     TYPE(t_var_list), POINTER, INTENT(inout) :: this_list    ! anchor
-    CHARACTER(len=*), INTENT(in)             :: name         ! name of output var_list
+    CHARACTER(len=*), INTENT(in)             :: vname         ! name of output var_list
     INTEGER,          INTENT(in)             :: patch_id     ! patch ID
     INTEGER,          INTENT(in), OPTIONAL   :: output_type  ! 'GRIB1', 'GRIB2' or 'NetCDF[12]'
     INTEGER,          INTENT(in), OPTIONAL   :: restart_type ! 'NetCDF[12]'
@@ -1223,15 +1225,25 @@ CONTAINS
     INTEGER,          INTENT(in), OPTIONAL   :: table        ! used only for ECHAM
 
     IF (PRESENT(table)) CONTINUE ! Only here to avoid compiler warning about "table" not being used
-
-    CALL new_var_list_icon(this_list, name,                                    &
-                      output_type=output_type, restart_type=restart_type,      &
-                      post_suf=post_suf, rest_suf=rest_suf, init_suf=init_suf, &
-                      loutput=loutput, lrestart=lrestart, linitial=linitial,   &
-                      patch_id=patch_id                                        &
-                     )
-
+    CALL vlr_add(this_list, vname, output_type=output_type, restart_type=restart_type, &
+      & post_suf=post_suf, rest_suf=rest_suf, init_suf=init_suf, loutput=loutput,      &
+      & lrestart=lrestart, linitial=linitial, patch_id=patch_id)
   END SUBROUTINE new_var_list
+
+  LOGICAL FUNCTION is_variable_in_output(vname, in_groups)
+    CHARACTER(*), INTENT(in) :: vname
+    CHARACTER(LEN=VARNAME_LEN), OPTIONAL, INTENT(in) :: in_groups(:) ! groups to which this variable belongs to
+    INTEGER :: i
+
+    is_variable_in_output = var_in_out(vname)
+    IF (is_variable_in_output) RETURN
+    IF (PRESENT(in_groups)) THEN
+      DO i = 1, SIZE(in_groups)
+        is_variable_in_output = is_variable_in_output .OR. var_in_out('group:'//TRIM(in_groups(i)))
+        IF (is_variable_in_output) EXIT
+      END DO
+    END IF
+  END FUNCTION is_variable_in_output
 
   SUBROUTINE add_var_list_element_r2d(this_list, name, ptr,                             &
     hgrid, vgrid, cf, grib2, code, table, ldims, gdims, levelindx, loutput, lcontainer, &
@@ -1272,10 +1284,8 @@ CONTAINS
       ,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     CHARACTER(len=VARNAME_LEN), INTENT(in), OPTIONAL :: in_groups(:)  ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
-    TYPE(t_list_element), POINTER, OPTIONAL  :: new_element           ! pointer to new var list element
-
-    TYPE (t_list_element), POINTER :: element
-
+    TYPE(t_list_element), POINTER, OPTIONAL :: new_element           ! pointer to new var list element
+    TYPE (t_var), POINTER :: nelem
     CHARACTER(len=*), PARAMETER :: routine = modname//':add_var_list_element_r2d'
 
     ! These variables are not used for ICON, but avoid compiler warnings about dummy arguments not being used
@@ -1283,27 +1293,29 @@ CONTAINS
     IF (table > 0) CONTINUE
     IF (PRESENT(gdims)) CONTINUE
     IF (PRESENT(levelindx)) CONTINUE
-
+    IF (PRESENT(verbose)) CONTINUE
     IF (PRESENT(p5)) THEN
       IF (SIZE(p5, DIM=5) > 1) &
         CALL finish(TRIM(routine), 'p5: only four dimensions allowed currently because of ECHAM compatibility')
     END IF
-
     IF (PRESENT(in_groups)) THEN
-      CALL add_var_icon(this_list, TRIM(name), ptr, hgrid, vgrid, cf, grib2, &
-        ldims=ldims, loutput=loutput, lcontainer=lcontainer, lrestart=lrestart, lrestart_cont=lrestart_cont,     &
-        initval=initval_r, isteptype=isteptype, resetval=resetval_r, lmiss=lmiss, missval=missval_r,             &
-        tlev_source=tlev_source, info=info, p5=p5, in_group=groups(in_groups), verbose=verbose, new_element=new_element)
+      CALL add_var_icon(this_list, TRIM(name), ptr, hgrid, vgrid, cf, grib2, ldims, loutput=loutput, &
+        lcontainer=lcontainer, lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval_r,    &
+        isteptype=isteptype, resetval=resetval_r, lmiss=lmiss, missval=missval_r, info=info, p5=p5,  &
+        tlev_source=tlev_source, in_group=groups(in_groups), lopenacc=.TRUE., new_element=nelem)
     ELSE
-      CALL add_var_icon(this_list, TRIM(name), ptr, hgrid, vgrid, cf, grib2, &
-        ldims=ldims, loutput=loutput, lcontainer=lcontainer, lrestart=lrestart, lrestart_cont=lrestart_cont,     &
-        initval=initval_r, isteptype=isteptype, resetval=resetval_r, lmiss=lmiss, missval=missval_r,             &
-        tlev_source=tlev_source, info=info, p5=p5, verbose=verbose, new_element=new_element)
+      CALL add_var_icon(this_list, TRIM(name), ptr, hgrid, vgrid, cf, grib2, ldims, loutput=loutput, &
+        lcontainer=lcontainer, lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval_r,    &
+        isteptype=isteptype, resetval=resetval_r, lmiss=lmiss, missval=missval_r, info=info, p5=p5,  &
+        tlev_source=tlev_source, lopenacc=.TRUE., new_element=nelem)
     END IF
-    element => find_list_element(this_list, TRIM(name))
-    element%field%info%ndims = 2
-    element%field%info%used_dimensions(1:2) = ldims(1:2)
-
+    ! HB: kind of hacky way: are there changes needed in jsb for t_list_element -> t_var ?
+    IF (PRESENT(new_element)) THEN
+      ALLOCATE(new_element)
+      new_element%field => nelem
+    END IF
+    nelem%info%ndims = 2
+    nelem%info%used_dimensions(1:2) = ldims(1:2)
   END SUBROUTINE add_var_list_element_r2d
 
   SUBROUTINE add_var_list_element_r3d(this_list, name, ptr,                             &
@@ -1346,37 +1358,36 @@ CONTAINS
     CHARACTER(len=VARNAME_LEN), INTENT(in), OPTIONAL :: in_groups(:)  ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element           ! pointer to new var list element
-
-    TYPE (t_list_element), POINTER :: element
-
-    CHARACTER(len=*), PARAMETER :: routine = modname//':add_var_list_element_r3d'
+    TYPE (t_var), POINTER :: nelem
+    CHARACTER(*), PARAMETER :: routine = modname//':add_var_list_element_r3d'
 
     ! These variables are not used for ICON, but avoid compiler warnings about dummy arguments not being used
     IF (code > 0) CONTINUE
     IF (table > 0) CONTINUE
     IF (PRESENT(gdims)) CONTINUE
     IF (PRESENT(levelindx)) CONTINUE
-
+    IF (PRESENT(verbose)) CONTINUE
     IF (PRESENT(p5)) THEN
       IF (SIZE(p5, DIM=5) > 1) &
         CALL finish(TRIM(routine), 'p5: only four dimensions allowed currently because of ECHAM compatibility')
     END IF
-
     IF (PRESENT(in_groups)) THEN
-      CALL add_var_icon(this_list, TRIM(name), ptr, hgrid, vgrid, cf, grib2, &
-        ldims=ldims, loutput=loutput, lcontainer=lcontainer, lrestart=lrestart, lrestart_cont=lrestart_cont,     &
-        initval=initval_r, isteptype=isteptype, resetval=resetval_r, lmiss=lmiss, missval=missval_r,             &
-        tlev_source=tlev_source, info=info, p5=p5, verbose=verbose, in_group=groups(in_groups), new_element=new_element)
+      CALL add_var_icon(this_list, TRIM(name), ptr, hgrid, vgrid, cf, grib2, ldims, loutput=loutput, &
+        lcontainer=lcontainer, lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval_r,    &
+        isteptype=isteptype, resetval=resetval_r, lmiss=lmiss, missval=missval_r, info=info, p5=p5,  &
+        tlev_source=tlev_source, in_group=groups(in_groups), lopenacc=.TRUE., new_element=nelem)
     ELSE
-      CALL add_var_icon(this_list, TRIM(name), ptr, hgrid, vgrid, cf, grib2, &
-        ldims=ldims, loutput=loutput, lcontainer=lcontainer, lrestart=lrestart, lrestart_cont=lrestart_cont,     &
-        initval=initval_r, isteptype=isteptype, resetval=resetval_r, lmiss=lmiss, missval=missval_r,             &
-        tlev_source=tlev_source, info=info, p5=p5, verbose=verbose, new_element=new_element)
+      CALL add_var_icon(this_list, TRIM(name), ptr, hgrid, vgrid, cf, grib2, ldims, loutput=loutput, &
+        lcontainer=lcontainer, lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval_r,    &
+        isteptype=isteptype, resetval=resetval_r, lmiss=lmiss, missval=missval_r, info=info, p5=p5,  &
+        tlev_source=tlev_source, lopenacc=.TRUE., new_element=nelem)
     END IF
-    element => find_list_element(this_list, TRIM(name))
-    element%field%info%ndims = 3
-    element%field%info%used_dimensions(1:3) = ldims(1:3)
-
+    IF (PRESENT(new_element)) THEN
+      ALLOCATE(new_element)
+      new_element%field => nelem
+    END IF
+    nelem%info%ndims = 3
+    nelem%info%used_dimensions(1:3) = ldims(1:3)
   END SUBROUTINE add_var_list_element_r3d
 
 END MODULE mo_jsb_varlist_iface

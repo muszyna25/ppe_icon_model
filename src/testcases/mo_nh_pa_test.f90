@@ -36,7 +36,7 @@ MODULE mo_nh_pa_test
 !
 
 USE mo_kind,                ONLY: wp
-USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
+USE mo_impl_constants,      ONLY: SUCCESS
 USE mo_physical_constants,  ONLY: rd, cpd, p0ref
 USE mo_math_constants,      ONLY: pi_2, pi
 USE mo_model_domain,        ONLY: t_patch
@@ -263,11 +263,7 @@ CONTAINS
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,nlen,zlon,zlat,zheight,zq4,zq5,zq6,zq7,zq8)
     DO jb = 1, nblks_c
-      IF (jb /= nblks_c) THEN
-         nlen = nproma
-      ELSE
-         nlen = npromz_c
-      ENDIF
+      nlen = MERGE(nproma, npromz_c, jb /= nblks_c)
       DO jk = 1, nlev
 
 
@@ -383,7 +379,7 @@ CONTAINS
 
     ! for writing data
     INTEGER, SAVE :: n_file_ti          ! file identifier
-    CHARACTER (LEN=MAX_CHAR_LENGTH) :: file_ti
+    CHARACTER(LEN=*), PARAMETER :: file_ti = 'vertical_velocity.dat'
     REAL(wp) :: zsim_days
 
 !--------------------------------------------------------------------
@@ -406,7 +402,6 @@ CONTAINS
 
     ! Open the datafile in first time step
     IF ( my_process_is_stdio() .AND. k_step == 1 ) THEN
-      file_ti   = 'vertical_velocity.dat'
       n_file_ti = find_next_free_unit(10,20)
       OPEN( UNIT=n_file_ti, FILE=TRIM(file_ti), FORM='FORMATTED', IOSTAT=ist )
       IF (ist/=SUCCESS) THEN
@@ -427,11 +422,7 @@ CONTAINS
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,nlen)
     DO jb = 1, nblks_c
-      IF (jb /= nblks_c) THEN
-         nlen = nproma
-      ELSE
-         nlen = npromz_c
-      ENDIF
+      nlen = MERGE(nproma, npromz_c, jb /= nblks_c)
 
       DO jk = 1, nlev
 
@@ -450,11 +441,7 @@ CONTAINS
     ! compute pressure and density at interface levels (time level n)
 !$OMP DO PRIVATE(jb,jk,jc,nlen)
     DO jb = 1, nblks_c
-      IF (jb /= nblks_c) THEN
-         nlen = nproma
-      ELSE
-         nlen = npromz_c
-      ENDIF
+      nlen = MERGE(nproma, npromz_c, jb /= nblks_c)
 
       ! lower boundary
       z_pres_ic(1:nlen,nlevp1,jb) = zp0
@@ -493,11 +480,7 @@ CONTAINS
     ! add time independent part to time dependent part zomega_t
 !$OMP DO PRIVATE(jb,jk,jc,nlen,zshape) LASTPRIVATE(zomega_mid,zw)
     DO jb = 1, nblks_c
-      IF (jb /= nblks_c) THEN
-         nlen = nproma
-      ELSE
-         nlen = npromz_c
-      ENDIF
+      nlen = MERGE(nproma, npromz_c, jb /= nblks_c)
 
       ! top and bottom boundary values
       p_w_prog(:,1,jb)        = 0._wp
@@ -554,11 +537,7 @@ CONTAINS
 !    ! (time level n+1)
 !    !
 !    DO jb = 1, nblks_c
-!      IF (jb /= nblks_c) THEN
-!         nlen = nproma
-!      ELSE
-!         nlen = npromz_c
-!      ENDIF
+!      nlen = MERGE(nproma, npromz_c, jb /= nblks_c)
 
 !      DO jk = 1, nlev
 

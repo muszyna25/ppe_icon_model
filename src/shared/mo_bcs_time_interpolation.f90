@@ -38,7 +38,7 @@ CONTAINS
 
   FUNCTION calculate_time_interpolation_weights(current_date) RESULT(time_interpolation_weight)
     TYPE(t_time_interpolation_weights) :: time_interpolation_weight
-    TYPE(datetime), POINTER, INTENT(in) :: current_date
+    TYPE(datetime), INTENT(in) :: current_date
 
     TYPE(datetime), POINTER :: next_month
     TYPE(datetime), POINTER :: previous_month

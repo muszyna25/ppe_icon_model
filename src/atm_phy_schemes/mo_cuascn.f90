@@ -46,7 +46,7 @@ MODULE mo_cuascn
     &                        lphylin  ,rlptrc,           &
     &                        entshalp ,rmfcmin,          &
     &                        rmflic   ,rmflia ,rvdifts  ,&
-    &                        rmfcmax, rlmin, detrpen    ,&
+    &                        rmfcmax, rlmin             ,&
     &                        lhook,   dr_hook, lmfglac
 
   USE mo_adjust ,ONLY: cuadjtq
@@ -65,10 +65,8 @@ CONTAINS
   !
   SUBROUTINE cuascn &
     & ( kidia,    kfdia,    klon,    ktdia,  klev, rmfcfl, &
-    & entrorg, rprcon, lmfmid, ptsphy,&
-    & paer_ss,&
-    & ptenh,    pqenh,   &
-    & ptenq,             &
+    & entrorg, detrpen, rprcon, lmfmid, lgrz_deepconv, ptsphy,&
+    & paer_ss,  ptenh,    pqenh,    ptenq,             &
     & pten,     pqen,     pqsen,    plitot,&
     & pgeo,     pgeoh,    pap,      paph,&
     & zdph,     zdgeoh,                  &
@@ -233,8 +231,8 @@ INTEGER(KIND=jpim),INTENT(in)    :: kidia
 INTEGER(KIND=jpim),INTENT(in)    :: kfdia 
 INTEGER(KIND=jpim),INTENT(in)    :: ktdia
 REAL(KIND=jprb)   ,INTENT(in)    :: rmfcfl 
-REAL(KIND=jprb)   ,INTENT(in)    :: entrorg, rprcon
-LOGICAL           ,INTENT(in)    :: lmfmid
+REAL(KIND=jprb)   ,INTENT(in)    :: entrorg, rprcon, detrpen
+LOGICAL           ,INTENT(in)    :: lmfmid, lgrz_deepconv
 REAL(KIND=jprb)   ,INTENT(in)    :: ptsphy 
 !KF
 REAL(KIND=jprb)   ,INTENT(in), OPTIONAL:: paer_ss(klon)
@@ -302,7 +300,7 @@ REAL(KIND=jprb) :: z_cldmax, z_cprc2, z_cwdrag, z_cwifrac, zalfaw,&
  & zleen, zlnew, zmfmax, zmftest, zmfulk, zmfun, &
  & zmfuqk, zmfusk, zoealfa, zoealfap, zprcdgw, &
  & zprcon, zqeen, zqude, zrnew, zrold, zscde, &
- & zseen, ztglace, zvi, zvv, zvw, zwu, zzco, zzzmb, zdz, zmf, zglac
+ & zseen, ztglace, zvi, zvv, zvw, zwu, zzco, zzzmb, zdz, zmf, zglac, zentr_prof
 
 REAL(KIND=jprb) ::  zchange,zxs,zxe
 REAL(KIND=jprb) :: zhook_handle
@@ -459,9 +457,9 @@ ENDDO
         zdnoprc(jl) = zdnoprc(jl) + zc*zd*1.25e-4_jprb  ! enhancement by at most 0.25 g/kg
       ENDDO
       DO jl=kidia,kfdia
-        IF(.NOT. ldland(jl) .AND. .NOT. ldlake(jl)) THEN
-          zdrain(jl)  = MIN(0.5E4_JPRB,  zdrain(jl) ) ! ... but over ocean at most 50 hPa
-          zdnoprc(jl) = MIN(2.5e-4_JPRB, zdnoprc(jl)) ! ... but over ocean at most 0.25 g/kg
+        IF(.NOT. ldland(jl) .AND. .NOT. ldlake(jl) .AND. .NOT. lgrz_deepconv) THEN
+          zdrain(jl)  = MIN(0.6E4_JPRB, zdrain(jl) ) ! ... but over ocean at most 60 hPa
+          zdnoprc(jl) = MIN(3.e-4_JPRB, zdnoprc(jl)) ! ... but over ocean at most 0.3 g/kg
         ENDIF
       ENDDO
     ELSE IF (ltuning_kessler) THEN
@@ -642,7 +640,7 @@ DO jk=klev-1,ktdia+2,-1
     DO jl=kidia,kfdia
       zqold(jl)=0.0_JPRB
     ENDDO
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
     DO jll=1,jlm  
         jl=jlx(jll)
         zdmfde(jl)=MIN(zdmfde(jl),0.75_JPRB*pmfu(jl,jk+1))
@@ -724,8 +722,7 @@ DO jk=klev-1,ktdia+2,-1
     IF (lphylin) THEN
 
 !DIR$ IVDEP
-!OCL NOVREC
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
       DO jll=1,jlm  
         jl=jlx(jll)
         IF(pqu(jl,jk) /= zqold(jl)) THEN
@@ -743,8 +740,7 @@ DO jk=klev-1,ktdia+2,-1
     ELSE
 
 !DIR$ IVDEP
-!OCL NOVREC
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
       DO jll=1,jlm  
         jl=jlx(jll)
         IF(pqu(jl,jk) /= zqold(jl)) THEN
@@ -760,7 +756,8 @@ DO jk=klev-1,ktdia+2,-1
 
     ENDIF
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
+!$NEC sparse
     DO jll=1,jlm  
       jl=jlx(jll)
       IF(pqu(jl,jk) /= zqold(jl)) THEN
@@ -824,8 +821,9 @@ DO jk=klev-1,ktdia+2,-1
 
           IF(zbuo(jl,jk) > -0.2_JPRB) THEN !.AND.klab(jl,jk+1) == 2) THEN
             ikb=kcbot(jl)
+            zentr_prof = MERGE((pqsen(jl,jk)/pqsen(jl,ikb))**2, (pqsen(jl,jk)/pqsen(jl,ikb))**3, lgrz_deepconv)
             zoentr(jl)=zentrorg(jl)*(1.3_JPRB-MIN(1.0_JPRB,pqen(jl,jk-1)/pqsen(jl,jk-1)))*&
-              &(pgeoh(jl,jk-1)-pgeoh(jl,jk))*zrg*MIN(1.0_JPRB,pqsen(jl,jk)/pqsen(jl,ikb))**3
+              &(pgeoh(jl,jk-1)-pgeoh(jl,jk))*zrg*MIN(1.0_JPRB,zentr_prof)
             zoentr(jl)=MIN(0.4_JPRB,zoentr(jl))*pmfu(jl,jk)
           ELSE
             zoentr(jl)=0.0_JPRB
@@ -861,7 +859,7 @@ DO jk=klev-1,ktdia+2,-1
 
     ENDDO !jll
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
     DO jll=1,jlm
       jl=jlx(jll)
 !     ELSEIF(LLFLAG(JL).AND.KTYPE(JL)==2.AND.PQU(JL,JK) == ZQOLD(JL)) THEN
@@ -953,7 +951,7 @@ DO jk=klev-1,ktdia+2,-1
       ENDDO
 
     ENDIF
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
     DO jll=1,jlm  
       jl=jlx(jll)
       pmful(jl,jk)=plu(jl,jk)*pmfu(jl,jk)
@@ -968,7 +966,7 @@ ENDDO
 
 !     5.           FINAL CALCULATIONS 
 !                  ------------------
-
+!$NEC sparse
 DO jl=kidia,kfdia
   IF(kctop(jl) == -1) ldcum(jl)=.FALSE.
   kcbot(jl)=MAX(kcbot(jl),kctop(jl))
@@ -1154,7 +1152,7 @@ END SUBROUTINE cuascn
   SUBROUTINE cuentr &
     & ( kidia,    kfdia,    klon,     klev,&
     & kk,       kcbot,&
-    & ldcum,    ldwork,&
+    & ldcum,    ldwork, detrpen, &
     & paph,     pgeoh,  zdgeoh,      &
     & pmfu,&
     & pcbase,   pdmfen,   pdmfde )
@@ -1244,6 +1242,7 @@ END SUBROUTINE cuascn
     INTEGER(KIND=jpim),INTENT(in)    :: kcbot(klon)
     LOGICAL           ,INTENT(in)    :: ldcum(klon)
     LOGICAL           ,INTENT(in)    :: ldwork
+    REAL(KIND=jprb)   ,INTENT(in)    :: detrpen
     REAL(KIND=jprb)   ,INTENT(in)    :: paph(klon,klev+1)
     REAL(KIND=jprb)   ,INTENT(in)    :: pgeoh(klon,klev+1)
     REAL(KIND=jprb)   ,INTENT(in)    :: zdgeoh(klon,klev)

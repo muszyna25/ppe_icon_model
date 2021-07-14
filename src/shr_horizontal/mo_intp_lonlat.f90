@@ -41,7 +41,7 @@
     USE mo_cdi_constants,       ONLY: GRID_REGULAR_LONLAT, GRID_CELL
     USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
     USE mo_model_domain,        ONLY: t_patch
-    USE mo_run_config,          ONLY: ltimer
+    USE mo_run_config,          ONLY: timers_level
     USE mo_grid_config,         ONLY: n_dom, grid_sphere_radius, is_plane_torus, l_limited_area
     USE mo_timer,               ONLY: timer_start, timer_stop, timer_lonlat_setup
     USE mo_math_types,          ONLY: t_cartesian_coordinates, t_geographical_coordinates
@@ -123,7 +123,7 @@
 
         DO i=1, lonlat_grids%ngrids
           IF (lonlat_grids%list(i)%l_dom(jg)) THEN
-            IF (ltimer) CALL timer_start(timer_lonlat_setup)
+            IF (timers_level > 3) CALL timer_start(timer_lonlat_setup)
 
             ! allocate global arrays for distributed computation:
             ALLOCATE(tri_idx(2, nproma, lonlat_grids%list(i)%grid%nblks),                           &
@@ -199,7 +199,7 @@
               CALL mask_out_boundary( p_patch(jg), lonlat_grids%list(i)%intp(jg) )
             END IF
 
-            IF (ltimer) CALL timer_stop(timer_lonlat_setup)
+            IF (timers_level > 3) CALL timer_stop(timer_lonlat_setup)
             lonlat_grids%list(i)%intp(jg)%l_initialized = .TRUE.
 
             ! clean-ip:
@@ -426,7 +426,12 @@
 
         CALL finish(routine, "Unknown stencil!")
 
-      END IF
+     END IF
+
+! Note: IF (i_am_accel_node) is not used because it is .FALSE. when this is called
+!$ACC UPDATE DEVICE( ptr_int_lonlat%rbf_c2l%idx ) IF_PRESENT
+!$ACC UPDATE DEVICE( ptr_int_lonlat%rbf_c2l%blk ) IF_PRESENT
+!$ACC UPDATE DEVICE( ptr_int_lonlat%rbf_c2l%stencil ) IF_PRESENT
 
     END SUBROUTINE rbf_c2l_index
 
@@ -474,7 +479,7 @@
       !--------------------------------------------------------------------
 
       CALL message(routine, '')
-      IF (ptr_patch%n_patch_cells == 0) RETURN;
+      IF (.NOT. ptr_patch%domain_is_owned) RETURN;
 
       nblks_lonlat  = ptr_int_lonlat%nblks_lonlat(nproma)
       npromz_lonlat = ptr_int_lonlat%npromz_lonlat(nproma)
@@ -507,6 +512,7 @@
         ! for each cell, build the vector RBF interpolation matrix
         DO je1 = 1, rbf_vec_dim_c
           DO je2 = 1, je1
+!$NEC ivdep
             DO jc = i_startidx, i_endidx
 
               ! Get actual number of stencil points
@@ -547,13 +553,12 @@
 
         ! apply Cholesky decomposition to matrix
         !
-!CDIR NOIEXPAND
 #ifdef __SX__
         CALL choldec_v(i_startidx,i_endidx,istencil,rbf_vec_dim_c,z_rbfmat,z_diag)
 #else
         CALL choldec_v(i_startidx,i_endidx,istencil,              z_rbfmat,z_diag)
 #endif
-
+!$NEC ivdep
         DO jc = i_startidx, i_endidx
 
           !
@@ -588,6 +593,7 @@
         ! set up right hand side for interpolation system
         !
         DO je2 = 1, rbf_vec_dim_c
+!$NEC ivdep
           DO jc = i_startidx, i_endidx
 
             IF (je2 > istencil(jc)) CYCLE
@@ -620,7 +626,6 @@
         END DO
 
         ! compute vector coefficients
-!CDIR NOIEXPAND
 #ifdef __SX__
         CALL solve_chol_v(i_startidx, i_endidx, istencil, rbf_vec_dim_c, z_rbfmat,  &
           &               z_diag, z_rhs1, ptr_int_lonlat%rbf_vec%coeff(:,1,:,jb))
@@ -628,7 +633,6 @@
         CALL solve_chol_v(i_startidx, i_endidx, istencil,                z_rbfmat,  &
           &               z_diag, z_rhs1, ptr_int_lonlat%rbf_vec%coeff(:,1,:,jb))
 #endif
-!CDIR NOIEXPAND
 #ifdef __SX__
         CALL solve_chol_v(i_startidx, i_endidx, istencil, rbf_vec_dim_c, z_rbfmat,  &
           &               z_diag, z_rhs2, ptr_int_lonlat%rbf_vec%coeff(:,2,:,jb))
@@ -674,6 +678,9 @@
       IF (ist /= SUCCESS)  CALL finish (routine, 'deallocation for working arrays failed')
 !$OMP END PARALLEL
 
+! Note: IF (i_am_accel_node) is not used because it is .FALSE. when this is called
+!$ACC UPDATE DEVICE( ptr_int_lonlat%rbf_vec%coeff ) IF_PRESENT
+
     END SUBROUTINE rbf_compute_coeff_vec
 
 
@@ -714,7 +721,7 @@
       !--------------------------------------------------------------------
 
       CALL message(routine, '')
-      IF (ptr_patch%n_patch_cells == 0) RETURN;
+      IF (.NOT. ptr_patch%domain_is_owned) RETURN;
 
       nblks_lonlat  = ptr_int_lonlat%nblks_lonlat(nproma)
       npromz_lonlat = ptr_int_lonlat%npromz_lonlat(nproma)
@@ -741,6 +748,7 @@
         z_rbfmat(:,:,:) = 0._wp
         DO je1 = 1, rbf_dim_c2l
           DO je2 = 1, je1
+!$NEC ivdep
             DO jc = i_startidx, i_endidx
 
               ! Get actual number of stencil points
@@ -775,7 +783,6 @@
 
         ! apply Cholesky decomposition to matrix
         !
-!CDIR NOIEXPAND
 #ifdef __SX__
         CALL choldec_v(i_startidx,i_endidx,istencil,rbf_dim_c2l,z_rbfmat,z_diag)
 #else
@@ -783,6 +790,7 @@
 #endif
 
         ! compute RHS for coefficient computation
+!$NEC ivdep
         DO jc = i_startidx, i_endidx
 
           grid_point = ptr_int_lonlat%ll_coord(jc,jb)
@@ -796,6 +804,7 @@
         ! set up right hand side for interpolation system
         !
         DO je2 = 1, rbf_dim_c2l
+!$NEC ivdep
           DO jc = i_startidx, i_endidx
 
             IF (je2 > istencil(jc)) CYCLE
@@ -818,7 +827,6 @@
         END DO
 
         ! compute vector coefficients
-!CDIR NOIEXPAND
 #ifdef __SX__
         CALL solve_chol_v(i_startidx, i_endidx, istencil, rbf_dim_c2l, z_rbfmat,  &
           &               z_diag, z_rbfval, ptr_int_lonlat%rbf_c2l%coeff(:,:,jb))
@@ -846,6 +854,9 @@
       DEALLOCATE( z_rbfmat, z_diag, z_rbfval, STAT=ist )
       IF (ist /= SUCCESS)  CALL finish (routine, 'deallocation for working arrays failed')
 !$OMP END PARALLEL
+
+! Note: IF (i_am_accel_node) is not used because it is .FALSE. when this is called
+!$ACC UPDATE DEVICE( ptr_int_lonlat%rbf_c2l%coeff ) IF_PRESENT
 
     END SUBROUTINE rbf_compute_coeff_c2l
 
@@ -875,7 +886,8 @@
       !--------------------------------------------------------------------
 
       IF (dbg_level > 1)  CALL message(routine,'')
-      IF (ptr_patch%n_patch_cells == 0) RETURN;
+
+      IF (.NOT. ptr_patch%domain_is_owned) RETURN
 
       ! set local values for "nblks" and "npromz"
       nblks_lonlat  = ptr_int_lonlat%nblks_lonlat(nproma)
@@ -1025,9 +1037,14 @@
 
         END IF
 
-      END DO
-      IF (dbg_level > 1)  CALL message(routine, "done.")
+        ! Note: IF (i_am_accel_node) is not used because it is .FALSE. when this is called
+        !$ACC UPDATE DEVICE( ptr_intp%blk ) IF_PRESENT
+        !$ACC UPDATE DEVICE( ptr_intp%idx ) IF_PRESENT
+        !$ACC UPDATE DEVICE( ptr_intp%coeff ) IF_PRESENT
 
+      END DO  
+      IF (dbg_level > 1)  CALL message(routine, "done.")
+      
     END SUBROUTINE mask_out_boundary
 
 
@@ -1397,6 +1414,13 @@
         END DO
       END DO
 !$OMP END PARALLEL DO
+
+! Note: IF (i_am_accel_node) is not used because it is .FALSE. when this is called
+!$ACC UPDATE DEVICE( ptr_int_lonlat%nnb%stencil ) IF_PRESENT
+!$ACC UPDATE DEVICE( ptr_int_lonlat%nnb%coeff ) IF_PRESENT      
+!$ACC UPDATE DEVICE( ptr_int_lonlat%nnb%idx ) IF_PRESENT      
+!$ACC UPDATE DEVICE( ptr_int_lonlat%nnb%idx ) IF_PRESENT      
+
     END SUBROUTINE nnb_setup_interpol_lonlat_grid
 
 
@@ -1453,6 +1477,11 @@
       ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
+      
+! Note: IF (i_am_accel_node) is not used because it is .FALSE. when this is called
+!$ACC UPDATE DEVICE( ptr_int_lonlat%rbf_vec%stencil ) IF_PRESENT
+!$ACC UPDATE DEVICE( ptr_int_lonlat%rbf_vec%idx ) IF_PRESENT
+!$ACC UPDATE DEVICE( ptr_int_lonlat%rbf_vec%blk ) IF_PRESENT
 
       IF (dbg_level > 1) CALL message(routine, "compute lon-lat interpolation coefficients")
 

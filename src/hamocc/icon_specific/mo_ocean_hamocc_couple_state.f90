@@ -27,23 +27,18 @@ MODULE mo_ocean_hamocc_couple_state
     &  TracerHorizontalDiffusion_scaling
   USE mo_impl_constants,      ONLY: success, max_char_length, TLEV_NNEW
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_linked_list,         ONLY: t_var_list
   USE mo_var_groups,          ONLY: groups 
-  USE mo_var_list,            ONLY: add_var,                  &
-    &                               new_var_list,             &
-    &                               delete_var_list,          &
-    &                               get_timelevel_string,     &
-    &                               default_var_list_settings,&
-    &                               add_ref
+  USE mo_var_list,            ONLY: add_var, add_ref, t_var_list_ptr
+  USE mo_var_list_register,   ONLY: vlr_add, vlr_del
+  USE mo_var_metadata,        ONLY: get_timelevel_string
   USE mo_grib2,               ONLY: grib2_var, t_grib2_var
   USE mo_cdi,                 ONLY: DATATYPE_FLT32 => CDI_DATATYPE_FLT32, &
     &                               datatype_FLT64 => CDI_datatype_FLT64, &
     &                               DATATYPE_INT8 => CDI_DATATYPE_INT8, &
     &                               DATATYPE_PACK16 => CDI_DATATYPE_PACK16, &
-    &                               tstep_constant, GRID_LONLAT, GRID_UNSTRUCTURED, &
-    &                               GRID_ZONAL
+    &                               tstep_constant, GRID_UNSTRUCTURED
   USE mo_cdi_constants,       ONLY: grid_cell, grid_edge, grid_unstructured_cell, grid_unstructured_edge, &
-      &                             grid_unstructured_vert, grid_vertex 
+      &                             grid_unstructured_vert, grid_vertex
   USE mo_zaxis_type,          ONLY: za_depth_below_sea, za_depth_below_sea_half, za_surface
   USE mo_ocean_physics,       ONLY: scale_horizontal_diffusion, copy2Dto3D
   USE mo_cf_convention
@@ -61,6 +56,7 @@ MODULE mo_ocean_hamocc_couple_state
     onCells_2D :: top_dilution_coeff
     onCells_2D :: h_old
     onCells_2D :: h_new
+    onCells_2D :: h_old_withIce
     onCells_2D :: ice_concentration_sum
     
     onCells    :: temperature
@@ -81,11 +77,11 @@ MODULE mo_ocean_hamocc_couple_state
   !----------------------------------------------
   TYPE t_hamocc_to_ocean_state
   
-!    onCells ::  swr_fraction ! for later use
-  
    ! this is actually to the atmosphere, but for the moment we keep it here
    onCells_2D :: co2_flux
-  
+
+   onCells ::  swr_fraction 
+    
   END TYPE t_hamocc_to_ocean_state
   !----------------------------------------------
   
@@ -100,8 +96,8 @@ MODULE mo_ocean_hamocc_couple_state
   END TYPE t_hamocc_ocean_state
   !----------------------------------------------
   
-  TYPE(t_hamocc_ocean_state) :: hamocc_ocean_state
-  TYPE(t_var_list)           :: hamocc_ocean_state_list
+  TYPE(t_hamocc_ocean_state), TARGET :: hamocc_ocean_state
+  TYPE(t_var_list_ptr)           :: hamocc_ocean_state_list
   TYPE(t_ocean_transport_state), TARGET :: ocean_transport_state
   !-------------------------------------------------------------------------
 
@@ -113,7 +109,6 @@ CONTAINS
 
     TYPE(t_patch), POINTER :: patch_2d
     INTEGER :: alloc_cell_blocks, nblks_e !, nblks_v
-    CHARACTER(LEN=max_char_length) :: listname
     REAL(wp), ALLOCATABLE :: hor_diffusion_coeff_2D(:,:)
     INTEGER :: datatype_flt
     
@@ -131,28 +126,25 @@ CONTAINS
       datatype_flt = DATATYPE_FLT32
     ENDIF
  
-    WRITE(listname,'(a)')  'hamocc_ocean_state_list'
-    CALL new_var_list(hamocc_ocean_state_list, listname, patch_id=patch_2d%id)
-    CALL default_var_list_settings( hamocc_ocean_state_list,             &
-      & lrestart=.FALSE.,loutput=.TRUE.,&
-      & model_type='hamocc' )
+    CALL vlr_add(hamocc_ocean_state_list, 'hamocc_ocean_state_list', &
+      & patch_id=patch_2d%id, lrestart=.FALSE., loutput=.TRUE.,           &
+      & model_type='hamocc')
 
     ! transport state, ocean to hamocc
-    CALL add_var(hamocc_ocean_state_list,'vn_time_weighted', ocean_transport_state%vn, &
+    CALL add_var(hamocc_ocean_state_list,'vn', ocean_transport_state%vn, &
       & grid_unstructured_edge, za_depth_below_sea, &
-      & t_cf_var('vn_time_weighted', '', 'vn_time_weighted', datatype_flt),&
+      & t_cf_var('vn', '', 'vn', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_edge),&
       & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("hamocc_ocean_state"))
     ocean_transport_state%vn = 0.0_wp
-    
-    CALL add_var(hamocc_ocean_state_list, 'mass_flux', ocean_transport_state%mass_flux_e, &
-      & grid_unstructured_edge,&
-      & za_depth_below_sea, t_cf_var('mass flux','',' mass flux at edges', datatype_flt),&
+
+    CALL add_var(hamocc_ocean_state_list,'mass_flux_e', ocean_transport_state%mass_flux_e, &
+      & grid_unstructured_edge, za_depth_below_sea, &
+      & t_cf_var('mass flux e', '', 'mass flux at edges', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_edge),&
-      & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("hamocc_ocean_state"),lrestart_cont=.FALSE.)
-    ocean_transport_state%mass_flux_e = 0.0_wp
-
-
+      & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("hamocc_ocean_state"))
+    ocean_transport_state%vn = 0.0_wp
+ 
     CALL add_var(hamocc_ocean_state_list, 'w', ocean_transport_state%w, &
       & grid_unstructured_cell, za_depth_below_sea_half, &
       & t_cf_var('w','m/s','vertical velocity at cells', datatype_flt),&
@@ -175,6 +167,14 @@ CONTAINS
       & ldims=(/nproma,alloc_cell_blocks/),&
       & in_group=groups("hamocc_ocean_state"))
     ocean_transport_state%h_new = 0.0_wp
+
+    CALL add_var(hamocc_ocean_state_list, 'h_old_withIce', hamocc_ocean_state%ocean_to_hamocc_state%h_old_withIce , &
+      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,    &
+      & t_cf_var('h_old_withIce', 'm', 'h_old_withIce', datatype_flt,'h_old_withIce'),&
+      & grib2_var(255, 255, 1, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),&
+      & in_group=groups("hamocc_ocean_state"))
+    hamocc_ocean_state%ocean_to_hamocc_state%h_old_withIce = 0.0_wp
     
     ! ocean to hamocc
     ! just add pointers for the h_old, h_new to the transport
@@ -272,13 +272,22 @@ CONTAINS
       & in_group=groups("hamocc_ocean_state"))
     hamocc_ocean_state%hamocc_to_ocean_state%co2_flux = 0.0_wp
     
+   ! relative swr absorption factor from hamocc (LFB_BGC_OCE)
+    CALL add_var(hamocc_ocean_state_list, 'swr_fraction', hamocc_ocean_state%hamocc_to_ocean_state%swr_fraction,&
+      & grid_unstructured_cell, &
+      & za_depth_below_sea, &
+      & t_cf_var('swr_fraction','1','swr_fraction', datatype_flt),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("hamocc_ocean_state"))
+    
+    
    END SUBROUTINE construct_hamocc_ocean_state
    !-------------------------------------------------------------------------
 
    !-------------------------------------------------------------------------
    SUBROUTINE destruct_hamocc_ocean_state()
    
-      CALL delete_var_list(hamocc_ocean_state_list)
+      CALL vlr_del(hamocc_ocean_state_list)
    
    END SUBROUTINE destruct_hamocc_ocean_state
    !-------------------------------------------------------------------------

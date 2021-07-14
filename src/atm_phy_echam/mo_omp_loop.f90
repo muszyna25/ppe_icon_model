@@ -33,6 +33,7 @@ MODULE mo_omp_loop
   USE mo_loopindices        ,ONLY: get_indices_c
   USE mo_impl_constants     ,ONLY: min_rlcell_int
   USE mo_impl_constants_grf ,ONLY: grf_bdywidth_c
+  USE mo_intp_data_strc     ,ONLY: t_int_state
 
   IMPLICIT NONE
   PRIVATE
@@ -117,7 +118,6 @@ CONTAINS
 !$OMP END PARALLEL DO 
 
   END SUBROUTINE omp_loop_cell_prog
-
 
   SUBROUTINE omp_loop_cell_diag(patch  ,&
        &                        routine)

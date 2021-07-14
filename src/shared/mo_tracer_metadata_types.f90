@@ -20,8 +20,8 @@
 !!
 MODULE mo_tracer_metadata_types
 
-  USE mo_kind,           ONLY: wp
-  USE mo_storage,        ONLY: t_storage
+  USE mo_kind,            ONLY: wp
+  USE mo_key_value_store, ONLY: t_key_value_store
 
   IMPLICIT NONE
 
@@ -47,7 +47,7 @@ MODULE mo_tracer_metadata_types
     LOGICAL :: lturb_tracer       ! Turbulent transport (TRUE/FALSE)
     LOGICAL :: lconv_tracer       ! Convection  (TRUE/FALSE)
     ! Processes not covered by ICON (requires ART extension)
-    TYPE(t_storage) :: opt_meta   ! Storage container for optional metadata
+    TYPE(t_key_value_store) :: opt_meta   ! Storage container for optional metadata
     
     CONTAINS
       procedure :: construct_base => construct_t_tracer_meta
@@ -77,8 +77,6 @@ MODULE mo_tracer_metadata_types
   ! Chemical tracer metadata
   TYPE, extends(t_tracer_meta) :: t_chem_meta
     ! Non-optional metadata
-    REAL(wp)        :: mol_weight       ! Molar mass [kg mol-1]
-
     INTEGER :: ised_tracer        ! Sedimentation
                                   !   0 = No sedimentation
                                   !   1 = Monodisperse aerosol
@@ -88,11 +86,9 @@ MODULE mo_tracer_metadata_types
                                   !   0 = No washout
                                   !   1 = Monodisperse aerosol
                                   !   2 = As part of an according aerosol mode
-  END TYPE
 
-  ! Passive tracer metadata
-  TYPE, extends(t_tracer_meta) :: t_passive_meta
-    ! Non-optional metadata
+    CONTAINS
+        PROCEDURE, PASS(this) :: set_tracer_meta => create_tracer_metadata_chem
   END TYPE
 
   ! Hydrometeor metadata
@@ -103,7 +99,6 @@ MODULE mo_tracer_metadata_types
   PUBLIC :: t_tracer_meta
   PUBLIC :: t_aero_meta
   PUBLIC :: t_chem_meta
-  PUBLIC :: t_passive_meta
   PUBLIC :: t_hydro_meta
 
 CONTAINS
@@ -129,7 +124,7 @@ CONTAINS
 
     ! name
     IF ( PRESENT(name) ) THEN
-      meta%name = TRIM(name)
+      meta%name = name
     ELSE
       meta%name = "unnamed"
     ENDIF
@@ -170,5 +165,51 @@ CONTAINS
     ENDIF
 
   END SUBROUTINE construct_t_tracer_meta
+
+
+  SUBROUTINE create_tracer_metadata_chem(this, lis_tracer, name, lfeedback, ihadv_tracer,     &
+                      &                  ivadv_tracer, lturb_tracer, lconv_tracer,            &
+                      &                  ised_tracer, ldep_tracer, iwash_tracer)
+    ! Base type (t_tracer_meta) content
+    CLASS(t_chem_meta), INTENT(INOUT)  :: this
+    LOGICAL, INTENT(IN), OPTIONAL  :: lis_tracer       ! this is a tracer field (TRUE/FALSE)
+    CHARACTER(LEN=*),INTENT(IN),OPTIONAL :: name       ! Name of tracer
+    LOGICAL, INTENT(IN), OPTIONAL  :: lfeedback        ! feedback from child- to parent domain
+    INTEGER, INTENT(IN), OPTIONAL  :: ihadv_tracer     ! Method for horizontal transport
+    INTEGER, INTENT(IN), OPTIONAL  :: ivadv_tracer     ! Method for vertical transport
+    LOGICAL, INTENT(IN), OPTIONAL  :: lturb_tracer     ! Switch for turbulent transport
+    LOGICAL, INTENT(IN), OPTIONAL  :: lconv_tracer     ! Switch for convection
+    INTEGER, INTENT(IN), OPTIONAL  :: ised_tracer      ! Method for sedimentation
+    LOGICAL, INTENT(IN), OPTIONAL  :: ldep_tracer      ! Switch for dry deposition
+    INTEGER, INTENT(IN), OPTIONAL  :: iwash_tracer     ! Method for washout
+
+    ! Fill the metadata of the base type
+    CALL this%construct_base(lis_tracer, name, lfeedback, ihadv_tracer, ivadv_tracer,  &
+      &                                             lturb_tracer, lconv_tracer)
+
+    ! Fill the meta of the extended type (t_chem_meta)
+    ! ised_tracer
+    IF ( PRESENT(ised_tracer) ) THEN
+      this%ised_tracer = ised_tracer
+    ELSE
+      this%ised_tracer = 0
+    ENDIF
+
+    ! ldep_tracer
+    IF ( PRESENT(ldep_tracer) ) THEN
+      this%ldep_tracer = ldep_tracer
+    ELSE
+      this%ldep_tracer = .FALSE.
+    ENDIF
+
+    ! iwash_tracer
+    IF ( PRESENT(iwash_tracer) ) THEN
+      this%iwash_tracer = iwash_tracer
+    ELSE
+      this%iwash_tracer = 0
+    ENDIF
+
+
+END SUBROUTINE create_tracer_metadata_chem
 
 END MODULE mo_tracer_metadata_types

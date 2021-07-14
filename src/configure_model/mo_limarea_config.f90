@@ -73,12 +73,14 @@ MODULE mo_limarea_config
     CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: dt_latbc
     CHARACTER(LEN=filename_max)     :: latbc_filename      ! prefix of latbc files
     CHARACTER(LEN=MAX_CHAR_LENGTH)  :: latbc_path          ! directory containing external latbc files
+    LOGICAL                         :: latbc_contains_qcqi ! latbc data contain qc and qi (=T) or not (=F)
     REAL(wp)                        :: lc1, lc2            ! linear interpolation coefficients
     CHARACTER(LEN=FILENAME_MAX)     :: latbc_boundary_grid ! grid file defining the lateral boundary
     TYPE(timedelta), POINTER        :: dtime_latbc_mtime ! dt between two consequtive external latbc files
     
     LOGICAL                         :: init_latbc_from_fg  ! take initial lateral boundary conditions from first guess
     LOGICAL                         :: nudge_hydro_pres    ! use hydrostatic pressure for lateral boundary nudging
+    REAL(wp)                        :: fac_latbc_presbiascor ! factor for pressure bias correction of latbc data
 
     ! settings derived from the namelist parameters above:
     LOGICAL                         :: lsparse_latbc       ! Flag: TRUE if only boundary rows are read.

@@ -31,8 +31,6 @@ MODULE mo_interface_echam_cnv
 
   USE mo_run_config          ,ONLY: iqv, iqc, iqi, iqt
   USE mo_cumastr             ,ONLY: cumastr
-  !$ser verbatim USE mo_ser_echam_cnv, ONLY: serialize_cnv_input,&
-  !$ser verbatim                             serialize_cnv_output
 
   IMPLICIT NONE
   PRIVATE
@@ -103,9 +101,6 @@ CONTAINS
     field     => prm_field(jg)
     tend      => prm_tend (jg)
 
-    ! Serialbox2 input fields serialization
-    !$ser verbatim call serialize_cnv_input(jg, jb, jcs, jce, nproma, nlev, field, tend)
-
     nlevm1 = nlev-1
     nlevp1 = nlev+1
 
@@ -155,7 +150,7 @@ CONTAINS
           END DO
           !$ACC END PARALLEL
           !
-          IF(ntracer .GT. iqt) THEN
+          IF(ntrac .GT. 0) THEN
             zqtrc_iqt => zqtrc(:,:,iqt:)
             tend_qtrc_cnv_iqt => tend_qtrc_cnv  (:,:,iqt:)
           ELSE
@@ -180,8 +175,8 @@ CONTAINS
                &             zqtrc_iqt (:,:,:),&! in
                &       field% omega    (:,:,jb),     &! in
                &       field% evap     (:,  jb),     &! in
-               &       field% presm_new(:,:,jb),     &! in
-               &       field% presi_new(:,:,jb),     &! in
+               &       field% pfull    (:,:,jb),     &! in
+               &       field% phalf    (:,:,jb),     &! in
                &       field% geom     (:,:,jb),     &! in
                &       field% geoi     (:,:,jb),     &! in
                &             ztend_qv  (:,:),        &! in
@@ -589,9 +584,6 @@ CONTAINS
     END IF
 
     !$ACC END DATA
-
-    ! Serialbox2 output fields serialization
-    !$ser verbatim call serialize_cnv_output(jg, jb, jcs, jce, nproma, nlev, field, tend)
 
     ! disassociate pointers
     NULLIFY(field)

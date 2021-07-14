@@ -53,6 +53,9 @@ MODULE mo_nh_vert_interp
   USE mo_upatmo_config,       ONLY: upatmo_config
   USE mo_nh_deepatmo_utils,   ONLY: height_transform
   USE mo_nh_vert_extrap_utils,ONLY: t_expol_state
+#ifdef _OPENACC
+  USE mo_mpi,                 ONLY: i_am_accel_node
+#endif
 
   IMPLICIT NONE
   PRIVATE
@@ -370,10 +373,9 @@ CONTAINS
                             p_patch%nblks_c, p_patch%npromz_c, nlev_in, nlev, &
                             coef1, coef2, coef3, idx0_cub, bot_idx_cub)
 
-    ! (Initialize upper-atmosphere extrapolation type.
-    ! Note: not intended for the limited-area mode.)
-    lexpol = upatmo_config(jg)%exp%l_expol .AND. (.NOT. latbcmode)
-    IF (lexpol) CALL expol%initialize(p_patch)
+    ! (Initialize upper-atmosphere extrapolation type.)
+    lexpol = upatmo_config(jg)%exp%l_expol
+    IF (lexpol) CALL expol%initialize(p_patch, latbcmode)
 
 
     ! Perform vertical interpolation
@@ -540,15 +542,15 @@ CONTAINS
     IF (lexpol) CALL expol%pres(p_patch, initicon%atm%pres, z_tempv, p_metrics)
 
 
-    CALL qv_intp(initicon%atm_in%qv, initicon%atm%qv, z_mc_in,              &
-                 initicon%const%z_mc, initicon%atm_in%temp, initicon%atm_in%pres, &
-                 initicon%atm%temp, initicon%atm%pres,                      &
-                 p_patch%nblks_c, p_patch%npromz_c, nlev_in, nlev,          &
-                 coef1, coef2, coef3, wfac_lin,                             &
-                 idx0_cub, idx0_lin, bot_idx_cub, bot_idx_lin,              &
-                 wfacpbl1, kpbl1, wfacpbl2, kpbl2, l_satlimit=.TRUE.,       &
-                 lower_limit=2.5e-7_wp, l_restore_pbldev=.TRUE.,            &
-                 opt_qc=initicon%atm%qc, opt_lmask=opt_lmask_c )
+    CALL qv_intp(initicon%atm_in%qv, initicon%atm%qv, z_mc_in,                      &
+                 initicon%const%z_mc, initicon%atm_in%temp, initicon%atm_in%pres,   &
+                 initicon%atm%temp, initicon%atm%pres,                              &
+                 p_patch%nblks_c, p_patch%npromz_c, nlev_in, nlev,                  &
+                 coef1, coef2, coef3, wfac_lin,                                     &
+                 idx0_cub, idx0_lin, bot_idx_cub, bot_idx_lin,                      &
+                 wfacpbl1, kpbl1, wfacpbl2, kpbl2, l_satlimit=.TRUE.,               &
+                 lower_limit=2.5e-7_wp, l_restore_pbldev=.TRUE.,                    &
+                 opt_hires_corr=lc2f, opt_qc=initicon%atm%qc, opt_lmask=opt_lmask_c )
 
     ! Compute virtual temperature with final QV
     CALL virtual_temp(p_patch, initicon%atm%temp, initicon%atm%qv, initicon%atm%qc,    &
@@ -876,35 +878,63 @@ CONTAINS
 
     INTEGER :: jb, jk, jc, jk_start
     INTEGER :: nlen
-
+    REAL(wp):: kpbl1_min, kpbl2_min
 
 !-------------------------------------------------------------------------
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,nlen,jk,jc,jk_start) ICON_OMP_DEFAULT_SCHEDULE
 
+!$ACC DATA PRESENT( z3d_in, kpbl1, kpbl2, wfacpbl1, wfacpbl2 ) IF (i_am_accel_node)
+
     DO jb = 1, nblks
 
+      !$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF (i_am_accel_node)
       kpbl1(1:nproma,jb) = -1
       kpbl2(1:nproma,jb) = -1
+      !$ACC END KERNELS
 
       IF (jb /= nblks) THEN
         nlen = nproma
       ELSE
         nlen = npromz
+        !$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF (i_am_accel_node)
         kpbl1(nlen+1:nproma,jb) = nlevs_in
         kpbl2(nlen+1:nproma,jb) = nlevs_in
 
         wfacpbl1(nlen+1:nproma,jb) = 0.5_wp
         wfacpbl2(nlen+1:nproma,jb) = 0.5_wp
+        !$ACC END KERNELS
       ENDIF
+
+      jk_start = nlevs_in-1
+      ! OpenACC requires a different approach, as MINVAL within device code
+      !  would be very inefficient
+#ifndef _OPENACC
       DO jk = 1, nlevs_in
         IF (MINVAL(z3d_in(1:nlen,jk,jb)-z3d_in(1:nlen,nlevs_in,jb)) <= zpbl2) THEN
           jk_start = jk - 1
           EXIT
         ENDIF
       ENDDO
+#else
+      !$ACC WAIT
+      !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) REDUCTION( min:jk_start ) COLLAPSE(2) &
+      !$ACC               IF (i_am_accel_node)
+      DO jk = 1, nlevs_in
+        DO jc = 1, nlen
+          IF ( z3d_in(jc,jk,jb)-z3d_in(jc,nlevs_in,jb) <= zpbl2 ) THEN
+            jk_start = min(jk_start, jk-1)
+          END IF
+        END DO
+      END DO
 
+      ! OpenACC does its own initialization of reductions variables, make sure
+      !  that the value is correct
+      IF ( jk_start > nlevs_in-1 ) jk_start = nlevs_in-1
+#endif
+
+      !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) COLLAPSE(2) ASYNC(1) IF (i_am_accel_node)
       DO jk = jk_start, nlevs_in-1
         DO jc = 1, nlen
 
@@ -930,7 +960,17 @@ CONTAINS
 !$OMP END PARALLEL
 
     ! If the input data is corrupted, no kpbl1 or kpbl2 is found, i.e. still equal -1
-    IF ( ANY(kpbl1(:,1:nblks) < 0) .OR. ANY(kpbl2(:,1:nblks) < 0) ) THEN
+    !$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF (i_am_accel_node)
+    kpbl1_min = MINVAL(kpbl1(:,1:nblks))
+    !$ACC END KERNELS
+    !$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF (i_am_accel_node)
+    kpbl2_min = MINVAL(kpbl2(:,1:nblks))
+    !$ACC END KERNELS
+
+!$ACC END DATA
+!$ACC WAIT
+
+    IF ( kpbl1_min < 0 .OR. kpbl2_min < 0 ) THEN
       CALL finish("prepare_extrap:", &
         &         "No kpbl found, check vertical coordinate input data.")
     ENDIF
@@ -991,17 +1031,24 @@ CONTAINS
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,nlen,jk,jc,jk_start) ICON_OMP_DEFAULT_SCHEDULE
 
+!$ACC DATA PRESENT( z3d_h_in, z3d_in, kextrap, zextrap, wfac_extrap ) IF (i_am_accel_node)
+
     DO jb = 1, nblks
+      !$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF (i_am_accel_node)
       kextrap(:,jb) = -1
+      !$ACC END KERNELS
       IF (jb /= nblks) THEN
         nlen = nproma
       ELSE
         nlen = npromz
+        !$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF (i_am_accel_node)
         kextrap(nlen+1:nproma,jb) = nlevs_in
         wfac_extrap(nlen+1:nproma,jb) = 0.5_wp
+        !$ACC END KERNELS
       ENDIF
 
       ! Compute start height above ground for downward extrapolation, depending on topography height
+      !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) ASYNC(1) IF (i_am_accel_node)
       DO jc = 1, nlen
         IF (z3d_h_in(jc,nlevs_in+1,jb) <= topo_extrap_1) THEN
           zextrap(jc,jb) = zagl_extrap
@@ -1014,19 +1061,40 @@ CONTAINS
       ENDDO
 
       jk_start = nlevs_in-1
+      ! OpenACC requires a different approach, as MINVAL within device code
+      !  would be very inefficient
+#ifndef _OPENACC
       DO jk = 1, nlevs_in
         IF (MINVAL(z3d_in(1:nlen,jk,jb)-z3d_h_in(1:nlen,nlevs_in+1,jb)) <= zagl_extrap_2) THEN
           jk_start = jk - 1
           EXIT
         ENDIF
       ENDDO
+#else
+      !$ACC WAIT
+      !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) REDUCTION( min:jk_start ) COLLAPSE(2) &
+      !$ACC               IF (i_am_accel_node)
+      DO jk = 1, nlevs_in
+        DO jc = 1, nlen
+          IF ( z3d_in(jc,jk,jb)-z3d_h_in(jc,nlevs_in+1,jb) <= zagl_extrap_2 ) THEN
+            jk_start = min(jk_start, jk-1)
+          END IF
+        END DO
+      END DO
 
+      ! OpenACC does its own initialization of reductions variables, make sure
+      !  that the value is correct
+      IF ( jk_start > nlevs_in-1 ) jk_start = nlevs_in-1
+#endif
+
+! These two loops cannot be collapsed because it would not be thread safe
       DO jk = jk_start, nlevs_in-1
+        !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) ASYNC(1) IF (i_am_accel_node)
         DO jc = 1, nlen
 
           IF (z3d_in(jc,jk,jb)  >= z3d_h_in(jc,nlevs_in+1,jb)+zextrap(jc,jb) .AND. &
-              z3d_in(jc,jk+1,jb) < z3d_h_in(jc,nlevs_in+1,jb)+zextrap(jc,jb) .OR.  & 
-              kextrap(jc,jb) == -1 .AND. jk == nlevs_in-1) THEN
+              z3d_in(jc,jk+1,jb) < z3d_h_in(jc,nlevs_in+1,jb)+zextrap(jc,jb) .OR.  &
+              kextrap(jc,jb) == -1 .AND. jk == nlevs_in-1) THEN 
             kextrap(jc,jb) = jk
             wfac_extrap(jc,jb) = (z3d_h_in(jc,nlevs_in+1,jb)+zextrap(jc,jb) - z3d_in(jc,jk+1,jb)) / &
                                  (z3d_in(jc,jk,jb)                          - z3d_in(jc,jk+1,jb))
@@ -1036,6 +1104,10 @@ CONTAINS
       ENDDO
 
     ENDDO
+
+!$ACC END DATA
+!$ACC WAIT
+
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
@@ -2699,7 +2771,8 @@ CONTAINS
                      coef1, coef2, coef3, wfac_lin,                   &
                      idx0_cub, idx0_lin, bot_idx_cub, bot_idx_lin,    &
                      wfacpbl1, kpbl1, wfacpbl2, kpbl2,                &
-                     lower_limit, l_satlimit, l_restore_pbldev, opt_qc, opt_lmask)
+                     lower_limit, l_satlimit, l_restore_pbldev,       &
+                     opt_hires_corr, opt_qc, opt_lmask)
 
 
     ! Specific humidity fields
@@ -2746,7 +2819,9 @@ CONTAINS
     REAL(wp), INTENT(IN) :: lower_limit     ! lower limit of QV
     LOGICAL , INTENT(IN) :: l_satlimit       ! limit input field to water saturation
     LOGICAL , INTENT(IN) :: l_restore_pbldev ! restore PBL deviation of QV from extrapolated profile
-    LOGICAL, OPTIONAL,  INTENT(IN) :: opt_lmask(:,:)
+
+    LOGICAL, OPTIONAL, INTENT(IN) :: opt_hires_corr   ! apply corrections / limits for coarse-to-fine grid interpolation
+    LOGICAL, OPTIONAL, INTENT(IN) :: opt_lmask(:,:)
 
     ! LOCAL VARIABLES
 
@@ -2757,7 +2832,7 @@ CONTAINS
 
     REAL(wp), DIMENSION(nproma) :: qv1, qv2, dqvdz_up
     LOGICAL , DIMENSION(nproma) :: l_found
-    LOGICAL                     :: l_check_qv_qc
+    LOGICAL                     :: l_check_qv_qc, lhr_corr
 
     REAL(wp), DIMENSION(nproma,nlevs_in)  :: zalml_in, pbl_dev, qv_mod, g1, g2, g3, qsat_in, qv_in_lim
     REAL(wp), DIMENSION(nproma,nlevs_in-1) :: zalml_in_d
@@ -2773,6 +2848,12 @@ CONTAINS
       l_check_qv_qc = .TRUE.
     ELSE
       l_check_qv_qc = .FALSE.
+    ENDIF
+
+    IF (PRESENT(opt_hires_corr)) THEN
+      lhr_corr = opt_hires_corr
+    ELSE
+      lhr_corr = .FALSE.
     ENDIF
 
 !$OMP PARALLEL private(jc, jk, zalml_in, zalml_out)
@@ -2932,6 +3013,12 @@ CONTAINS
             ! approximation of the qsat expression to avoid iterations)
             qv_out(jc,jk,jb) = qv_mod(jc,nlevs_in)/qsat_in(jc,nlevs_in)* &
               rdv*sat_pres_water(temp_out(jc,jk,jb))/pres_out(jc,jk,jb)
+
+            IF (lhr_corr) THEN ! prevent excessively high humidities in valleys not resolved in the source model
+              qv_out(jc,jk,jb) = MIN(qv_out(jc,jk,jb),                                             &
+                qv_mod(jc,nlevs_in) * (1._wp+4.e-4_wp*(z3d_in(jc,nlevs_in,jb)-z3d_out(jc,jk,jb))), &
+                qv_mod(jc,nlevs_in) + 2.5e-6_wp*(z3d_in(jc,nlevs_in,jb)-z3d_out(jc,jk,jb))          )
+            ENDIF
 
           ENDIF
 

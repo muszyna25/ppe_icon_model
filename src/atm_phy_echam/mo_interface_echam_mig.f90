@@ -30,15 +30,10 @@ MODULE mo_interface_echam_mig
   USE mo_run_config          ,ONLY: iqv, iqc, iqi, iqr, iqs, iqg, msg_level
   USE gscp_graupel           ,ONLY: graupel
   USE gscp_data              ,ONLY: cloud_num
-  USE mo_satad               ,ONLY: satad_v_3d        ! new saturation adjustment
+  USE mo_satad               ,ONLY: satad_v_3d, satad_v_3D_gpu        ! new saturation adjustment
   USE mo_echam_mig_config    ,ONLY: echam_mig_config
   USE mo_fortran_tools       ,ONLY: init
   USE mo_exception           ,ONLY: warning
-
-  !$ser verbatim USE mo_ser_echam_mig, ONLY: serialize_mig_input,&
-  !$ser verbatim                             serialize_mig_output,&
-  !$ser verbatim                             serialize_mig_after_satad1,&
-  !$ser verbatim                             serialize_mig_before_satad2
 
   IMPLICIT NONE
   PRIVATE
@@ -99,8 +94,6 @@ CONTAINS
     field     => prm_field(jg)
     tend      => prm_tend (jg)
 
-    !$ser verbatim call serialize_mig_input(jg, jb, jcs, jce, nproma, nlev, field)
-
     !$ACC DATA PCREATE( zqrsflux, zqnc           , &
     !$ACC               tend_ta_mig              , &
     !$ACC               tend_qtrc_mig            , &
@@ -119,9 +112,8 @@ CONTAINS
     ! preset local mig tendencies to avoid NaNs
 
        !$ACC PARALLEL DEFAULT(PRESENT)
-       !$ACC LOOP GANG
+       !$ACC LOOP GANG VECTOR COLLAPSE(2)
        DO jk = 1, nlev
-         !$ACC LOOP VECTOR
          DO jl = jcs, jce
          tend_ta_mig(jl,jk)       = 0.0_wp
          tend_qtrc_mig(jl,jk,iqv) = 0.0_wp
@@ -149,9 +141,8 @@ CONTAINS
        !
        !$ACC DATA PRESENT(field%ta, field%qtrc)
        !$ACC PARALLEL
-       !$ACC LOOP GANG
+       !$ACC LOOP GANG VECTOR COLLAPSE(2)
        DO jk = 1,nlev
-         !$ACC LOOP VECTOR
          DO jl = jcs,jce
            xlta(jl,jk) = field% ta   (jl,jk,jb)
            xlqv(jl,jk) = field% qtrc (jl,jk,jb,iqv)
@@ -165,15 +156,14 @@ CONTAINS
        !$ACC END PARALLEL
        !$ACC END DATA
 
-#if defined( _OPENACC )
-       CALL warning('GPU:interface_echam_mig','GPU host synchronization should be removed when port is done!')
-#endif
-       ! satad_v_3D is not yet ported.
-       !$ACC UPDATE HOST(xlta, xlqv, xlqc)
       !!-------------------------------------------------------------------------
       !> Initial saturation adjustment (a second one follows at the end of the microphysics)
       !!-------------------------------------------------------------------------
-       CALL satad_v_3D( &
+#ifdef _OPENACC
+       CALL satad_v_3d_gpu(                                &
+#else
+       CALL satad_v_3d(                                    &
+#endif
               & maxiter  = 10                             ,& !> IN
               & tol      = 1.e-3_wp                       ,& !> IN
               & te       = xlta               (:,:)       ,& !> INOUT
@@ -187,14 +177,7 @@ CONTAINS
               & klo      = jkscov                         ,& !> IN
               & kup      = nlev                            & !> IN
               )
-#if defined( _OPENACC )
-       CALL warning('GPU:interface_echam_mig','GPU device synchronization should be removed when port is done!')
-#endif
-       !$ACC UPDATE DEVICE(xlta, xlqv, xlqc)
 !
-    !$ser verbatim call serialize_mig_after_satad1(jg, jb, jcs, jce, nproma, nlev, field,&
-    !$ser verbatim        xlta, xlqv, xlqc, xlqi, xlqr, xlqs, xlqg, zqnc,&
-    !$ser verbatim        zqrsflux)
        !
        CALL graupel (                            &
               & nvec   =nproma                      , & !> in:  actual array size
@@ -208,7 +191,7 @@ CONTAINS
               & qc0    =echam_mig_config(jg)%qc0    , & !< in: cloud water threshold for autoconversion
               & dz     =field% dz       (:,:,jb)    , & !< in: vertical layer thickness
               & t      =xlta            (:,:)       , & !< inout: temp
-              & p      =field% presm_old(:,:,jb)    , & !< in:  pressure
+              & p      =field% pfull    (:,:,jb)    , & !< in:  pressure
               & rho    =field% rho      (:,:,jb)    , & !< in:  density
               & qv     =xlqv            (:,:)       , & !< inout:sp humidity
               & qc     =xlqc            (:,:)       , & !< inout:cloud water
@@ -226,18 +209,14 @@ CONTAINS
               & ldiag_qtend = echam_mig_config(jg)%ldiag_qtend )   !< in:  if moisture tendencies shall be diagnosed
                                                                    ! IF true tendencies have to be re-implemented
 
-    !$ser verbatim call serialize_mig_before_satad2(jg, jb, jcs, jce, nproma, nlev, field,&
-    !$ser verbatim      & xlta, xlqv, xlqc, xlqi, xlqr, xlqs, xlqg, zqnc,&
-    !$ser verbatim      & zqrsflux)
-
-#if defined( _OPENACC )
-       CALL warning('GPU:interface_echam_mig','GPU host synchronization should be removed when port is done!')
-#endif
-       !$ACC UPDATE HOST(xlta, xlqv, xlqc)
       !!-------------------------------------------------------------------------
       !> Final saturation adjustment (as this has been removed from the end of the microphysics)
       !!-------------------------------------------------------------------------
-       CALL satad_v_3D( &
+#ifdef _OPENACC
+       CALL satad_v_3d_gpu(                                &
+#else
+       CALL satad_v_3d(                                    &
+#endif
               & maxiter  = 10                             ,& !> IN
               & tol      = 1.e-3_wp                       ,& !> IN
               & te       = xlta (:,:)                     ,& !> INOUT
@@ -251,10 +230,7 @@ CONTAINS
               & klo      = jkscov                         ,& !> IN
               & kup      = nlev                            & !> IN
               )
-#if defined( _OPENACC )
-       CALL warning('GPU:interface_echam_mig','GPU device synchronization should be removed when port is done!')
-#endif
-       !$ACC UPDATE DEVICE(xlta, xlqv, xlqc)
+
        !
        ! Calculate rain and snow
        !
@@ -274,9 +250,8 @@ CONTAINS
        !
        !$ACC DATA PRESENT( field%ta, field%qtrc, field% cpair )
        !$ACC PARALLEL DEFAULT(PRESENT)
-       !$ACC LOOP GANG
+       !$ACC LOOP GANG VECTOR COLLAPSE(2)
        DO jk = jkscov, nlev
-         !$ACC LOOP VECTOR
          DO jl = jcs, jce
          tend_ta_mig(jl,jk) = (xlta(jl,jk)-field% ta(jl,jk,jb))*zdtr                &
                                      & * cvd/field% cpair(jl,jk,jb)
@@ -302,9 +277,8 @@ CONTAINS
        IF (ASSOCIATED(tend% ta_mig)) THEN 
          !$ACC DATA PRESENT( tend%ta_mig, tend_ta_mig )
          !$ACC PARALLEL DEFAULT(PRESENT)
-         !$ACC LOOP GANG
+         !$ACC LOOP GANG VECTOR COLLAPSE(2)
          DO jk = jkscov,nlev
-           !$ACC LOOP VECTOR
            DO jl = jcs,jce
              tend% ta_mig(jl,jk,jb) = tend_ta_mig(jl,jk)
            ENDDO
@@ -316,9 +290,8 @@ CONTAINS
        IF (ASSOCIATED(tend% qtrc_mig)) THEN
          !$ACC DATA PRESENT( tend%qtrc_mig, tend_qtrc_mig )
          !$ACC PARALLEL DEFAULT(PRESENT)
-         !$ACC LOOP GANG
+         !$ACC LOOP GANG VECTOR COLLAPSE(2)
          DO jk = jkscov,nlev
-           !$ACC LOOP VECTOR
            DO jl = jcs,jce
              tend% qtrc_mig(jl,jk,jb,iqv) = tend_qtrc_mig(jl,jk,iqv)
              tend% qtrc_mig(jl,jk,jb,iqc) = tend_qtrc_mig(jl,jk,iqc)
@@ -339,9 +312,8 @@ CONTAINS
          IF (ASSOCIATED(tend% ta_mig)) THEN 
            !$ACC DATA PRESENT( tend%ta_mig, tend_ta_mig )
            !$ACC PARALLEL DEFAULT(PRESENT)
-           !$ACC LOOP GANG
+           !$ACC LOOP GANG VECTOR COLLAPSE(2)
            DO jk = jkscov,nlev
-             !$ACC LOOP VECTOR
              DO jl = jcs,jce
                tend_ta_mig(jl,jk) = tend% ta_mig(jl,jk,jb)
              ENDDO
@@ -353,9 +325,8 @@ CONTAINS
          IF (ASSOCIATED(tend% qtrc_mig)) THEN
            !$ACC DATA PRESENT( tend%qtrc_mig, tend_qtrc_mig )
            !$ACC PARALLEL DEFAULT(PRESENT)
-           !$ACC LOOP GANG
+           !$ACC LOOP GANG VECTOR COLLAPSE(2)
            DO jk = jkscov,nlev
-             !$ACC LOOP VECTOR
              DO jl = jcs,jce
                tend_qtrc_mig(jl,jk,iqv) = tend% qtrc_mig(jl,jk,jb,iqv)
                tend_qtrc_mig(jl,jk,iqc) = tend% qtrc_mig(jl,jk,jb,iqc)
@@ -379,9 +350,8 @@ CONTAINS
        CASE(1)
           !$ACC DATA PRESENT( tend%ta_phy, tend%qtrc_phy, tend_ta_mig, tend_qtrc_mig )
           !$ACC PARALLEL DEFAULT(PRESENT)
-          !$ACC LOOP GANG
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 1, nlev
-            !$ACC LOOP VECTOR
             DO jl = jcs, jce
               ! use tendency to update the model state
               tend%   ta_phy(jl,jk,jb)      = tend%   ta_phy(jl,jk,jb)     + tend_ta_mig  (jl,jk)
@@ -408,9 +378,8 @@ CONTAINS
          CASE(1)
              !$ACC DATA PRESENT( field%ta, field%qtrc, tend_ta_mig, tend_qtrc_mig )
              !$ACC PARALLEL DEFAULT(PRESENT)
-             !$ACC LOOP GANG
+             !$ACC LOOP GANG VECTOR COLLAPSE(2)
              DO jk = 1, nlev
-               !$ACC LOOP VECTOR
                DO jl = jcs, jce
                  field%   ta(jl,jk,jb)      = field%   ta(jl,jk,jb)      + tend_ta_mig  (jl,jk)    *pdtime
                  field% qtrc(jl,jk,jb,iqv)  = field% qtrc(jl,jk,jb,iqv)  + tend_qtrc_mig(jl,jk,iqv)*pdtime
@@ -435,9 +404,8 @@ CONTAINS
        IF (ASSOCIATED(tend% ta_mig)) THEN 
          !$ACC DATA PRESENT( tend%ta_mig )
          !$ACC PARALLEL DEFAULT(PRESENT)
-         !$ACC LOOP GANG
+         !$ACC LOOP GANG VECTOR COLLAPSE(2)
          DO jk = 1, nlev
-           !$ACC LOOP VECTOR
            DO jl = jcs, jce
              tend% ta_mig(jl,jk,jb) = 0.0_wp
            END DO
@@ -449,9 +417,8 @@ CONTAINS
        IF (ASSOCIATED(tend% qtrc_mig )) THEN
           !$ACC DATA PRESENT( tend%qtrc_mig )
           !$ACC PARALLEL DEFAULT(PRESENT)
-          !$ACC LOOP GANG
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 1, nlev
-            !$ACC LOOP VECTOR
             DO jl = jcs, jce
               tend% qtrc_mig(jl,jk,jb,iqv) = 0.0_wp
               tend% qtrc_mig(jl,jk,jb,iqc) = 0.0_wp
@@ -469,7 +436,6 @@ CONTAINS
 
     !$ACC END DATA
 
-    !$ser verbatim call serialize_mig_output(jg, jb, jcs, jce, nproma, nlev, field)
     ! disassociate pointers
 
     NULLIFY(field)

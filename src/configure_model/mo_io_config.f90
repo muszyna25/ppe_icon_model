@@ -25,12 +25,16 @@
 MODULE mo_io_config
   USE mo_cdi,                     ONLY: FILETYPE_NC2
   USE mo_exception,               ONLY: finish, message
-  USE mo_impl_constants,          ONLY: max_dom
+  USE mo_impl_constants,          ONLY: max_dom, max_echotop
   USE mo_io_units,                ONLY: filename_max
   USE mo_kind,                    ONLY: wp
   USE mo_parallel_config,         ONLY: num_restart_procs
   USE mo_run_config,              ONLY: dtime
   USE mo_util_string,             ONLY: int2string
+  USE mtime,                      ONLY: max_timedelta_str_len
+  USE mo_name_list_output_config, ONLY: is_variable_in_output, &
+    &                                   is_variable_in_output_dom
+  USE mo_lnd_nwp_config,          ONLY: groups_smi
 
   IMPLICIT NONE
   PUBLIC
@@ -43,7 +47,17 @@ MODULE mo_io_config
 
   LOGICAL :: lkeep_in_sync              ! if .true., sync stream after each timestep
   REAL(wp):: dt_diag                    ! diagnostic output timestep [seconds]
-  REAL(wp):: gust_interval(max_dom)     ! time interval over which maximum wind gusts are taken
+  REAL(wp):: gust_interval(max_dom)     ! time interval [seconds] over which maximum wind gusts are taken
+  REAL(wp):: celltracks_interval(max_dom)  ! time interval [seconds] over which extrema of cell track vars are taken
+                                           !  (LPI_MAX, UH_MAX, VORW_CTMAX, W_CTMAX, DBZ_CTMAX)
+  CHARACTER(len=max_timedelta_str_len) :: precip_interval(max_dom)   ! time interval over which precipitation variables are accumulated
+  CHARACTER(len=max_timedelta_str_len) :: runoff_interval(max_dom)   ! time interval over which runoff variables are accumulated
+  CHARACTER(len=max_timedelta_str_len) :: maxt_interval(max_dom)     ! time interval for tmax_2m, tmin_2m
+  REAL(wp):: dt_lpi                     ! calling frequency [seconds] of lpi diagnosis for hourly maximum calculation
+  REAL(wp):: dt_celltracks              ! calling frequency [seconds] of celltrack diagnosis for hourly maximum calculation
+                                        ! this pertains to the following variables: tcond_max/tcond10_max, uh_max, vorw_ctmax, w_ctmax
+  REAL(wp):: dt_radar_dbz               ! calling frequency [seconds] of radar reflectivity diagnosis for hourly maximum calculation
+
   REAL(wp):: dt_checkpoint              ! timestep [seconds] for triggering new restart file
 
   INTEGER :: inextra_2d                 ! number of extra output fields for debugging
@@ -67,6 +81,66 @@ MODULE mo_io_config
   LOGICAL :: lnetcdf_flt64_output       !< if .TRUE. floating point valued NetCDF output
                                         !  is written in 64-bit instead of 32-bit accuracy
 
+  INTEGER, PARAMETER :: uh_max_nlayer = 3
+  REAL(wp):: uh_max_zmin(uh_max_nlayer), &  !< minimum and maximum height in m MSL for the vertical
+             uh_max_zmax(uh_max_nlayer)     !  integration of uh_max (output vars uh_max<_low,_med>)
+  LOGICAL :: luh_max_out(max_dom, uh_max_nlayer) = .false.
+
+  TYPE t_echotop_meta
+    REAL(wp) :: time_interval           !< time interval [seconds] over which echotops are maximized/minimized
+                                        !   (ECHOTOP, ECHOTOPinM) for a domain
+    INTEGER  :: nechotop                !< number of actual echotop levels for domain
+    REAL(wp) :: dbzthresh(max_echotop)  !< actual echotop levels from namelist
+  END TYPE t_echotop_meta
+
+  TYPE(t_echotop_meta) :: echotop_meta(max_dom)
+
+  INTEGER :: bvf2_mode                  !< computation mode for square of Brunt-Vaisala frequency
+  INTEGER :: parcelfreq2_mode           !< computation mode for square of general air parcel oscillation frequency
+
+  ! Derived type to collect logical variables indicating if optional diagnostics are requested for output
+  TYPE t_var_in_output
+    LOGICAL :: pres_msl    = .FALSE. !< Flag. TRUE if computation of mean sea level pressure desired
+    LOGICAL :: omega       = .FALSE. !< Flag. TRUE if computation of vertical velocity desired
+    LOGICAL :: rh          = .FALSE. !< Flag. TRUE if computation of relative humidity desired
+    LOGICAL :: pv          = .FALSE. !< Flag. TRUE if computation of potential vorticity desired
+    LOGICAL :: sdi2        = .FALSE. !< Flag. TRUE if computation of supercell detection index desired
+    LOGICAL :: lpi         = .FALSE. !< Flag. TRUE if computation of lightning potential index desired
+    LOGICAL :: lpi_max     = .FALSE. !< Flag. TRUE if computation of max. of lightning potential index desired
+    LOGICAL :: lpi_con     = .FALSE. !< Flag. TRUE if computation of convective lightning potential index desired
+    LOGICAL :: mlpi_con    = .FALSE. !< Flag. TRUE if computation of modified convective lightning potential index desired
+    LOGICAL :: lpi_con_max = .FALSE. !< Flag. TRUE if computation of maximum convective lightning potential index desired
+    LOGICAL :: mlpi_con_max= .FALSE. !< Flag. TRUE if computation of maximum modified convective lightning potential index desired
+    LOGICAL :: lfd_con     = .FALSE. !< Flag. TRUE if computation of lighting flash density  desired
+    LOGICAL :: lfd_con_max = .FALSE. !< Flag. TRUE if computation of maximum lighting flash density  desired
+    LOGICAL :: koi         = .FALSE. !< Flag. TRUE if computation of convection index
+    LOGICAL :: ceiling     = .FALSE. !< Flag. TRUE if computation of ceiling height desired
+    LOGICAL :: hbas_sc     = .FALSE. !< Flag. TRUE if computation of height of base from shallow convection desired
+    LOGICAL :: htop_sc     = .FALSE. !< Flag. TRUE if computation of height of top  from shallow convection desired
+    LOGICAL :: twater      = .FALSE. !< Flag. TRUE if computation of total column integrated water desired
+    LOGICAL :: q_sedim     = .FALSE. !< Flag. TRUE if computation of specific content of precipitation particles desired
+    LOGICAL :: dbz         = .FALSE. !< Flag. TRUE if computation of radar reflectivity is desired
+    LOGICAL :: dbz850      = .FALSE. !< Flag. TRUE if computation of radar reflectivity in approx. 850 hPa is desired
+    LOGICAL :: dbzcmax     = .FALSE. !< Flag. TRUE if computation of radar reflectivity column maximum is desired
+    LOGICAL :: dbzctmax    = .FALSE. !< Flag. TRUE if computation of radar reflectivity column and time maximum is desired
+    LOGICAL :: echotop     = .FALSE. !< Flag. TRUE if computation of echo tops in hPa of radar reflectivity is desired
+    LOGICAL :: echotopinm  = .FALSE. !< Flag. TRUE if computation of echo tops in m MSL of radar reflectivity is desired
+    LOGICAL :: smi         = .FALSE. !< Flag. TRUE if computation of soil moisture index desired
+    LOGICAL :: tcond_max   = .FALSE. !< Flag. TRUE if computation of total column-integrated condensate desired
+    LOGICAL :: tcond10_max = .FALSE. !< Flag. TRUE if computation of total column-integrated condensate above z(T=-10 degC) desired
+    LOGICAL :: uh_max_low  = .FALSE. !< Flag. TRUE if computation of updraft helicity (0 - 3000 m) desired
+    LOGICAL :: uh_max_med  = .FALSE. !< Flag. TRUE if computation of updraft helicity (2000 - 5000 m) desired
+    LOGICAL :: uh_max      = .FALSE. !< Flag. TRUE if computation of updraft helicity (2000 - 8000 m) desired
+    LOGICAL :: vorw_ctmax  = .FALSE. !< Flag. TRUE if computation of maximum rotation amplitude desired
+    LOGICAL :: w_ctmax     = .FALSE. !< Flag. TRUE if computation of maximum updraft track desired
+    LOGICAL :: vor_u       = .FALSE. !< Flag. TRUE if computation of zonal component of relative vorticity desired
+    LOGICAL :: vor_v       = .FALSE. !< Flag. TRUE if computation of meridional component of relative vorticity desired
+    LOGICAL :: bvf2        = .FALSE. !< Flag. TRUE if computation of square of Brunt-Vaisala frequency desired
+    LOGICAL :: parcelfreq2 = .FALSE. !< Flag. TRUE if computation of square of general parcel oscillation frequency desired
+  END TYPE t_var_in_output
+
+  TYPE(t_var_in_output), ALLOCATABLE :: var_in_output(:)
+  
   ! derived variables
   !
   INTEGER, PARAMETER :: read_netcdf_broadcast_method  = 1
@@ -85,7 +159,6 @@ MODULE mo_io_config
 
   ! currently used by hydrostatic model only
   LOGICAL :: l_outputtime      ! if .true., output is written at the end of the time step.
-  LOGICAL :: l_diagtime        ! if .true., diagnostic output is computed and written at the end of the time step.
 
   LOGICAL :: lmask_boundary    ! flag: true, if interpolation zone should be masked *in output*
 
@@ -109,6 +182,94 @@ MODULE mo_io_config
 
 
 CONTAINS
+
+  !>
+  !! Precomputation of derived type collecting logical variables indicating whether
+  !! optional diagnostics are requested in the output namelists
+  !!
+  !! Replaces repeated calculations of the same that used to be scattered around various places in the model code
+  !!
+  !! @par Revision History
+  !! Initial revision by Guenther Zaengl, DWD (2020-02-13)
+  !!
+  SUBROUTINE init_var_in_output(n_dom, lnwp)
+
+    INTEGER, INTENT(in)  :: n_dom  ! number of model domains
+    LOGICAL, INTENT(in)  :: lnwp   ! true if ICON runs in NWP mode, implying that the full set of variables 
+                                   ! needs to be computed
+
+    INTEGER :: jg, jgr
+
+    ALLOCATE(var_in_output(n_dom))
+
+    DO jg=1,n_dom
+      var_in_output(jg)%pres_msl = is_variable_in_output(var_name="pres_msl") .OR. &
+        &                          is_variable_in_output(var_name="psl_m")
+      var_in_output(jg)%omega    = is_variable_in_output(var_name="omega")    .OR. &
+        &                          is_variable_in_output(var_name="wap_m")
+      var_in_output(jg)%vor_u    = is_variable_in_output_dom(var_name="vor_u", jg=jg)
+      var_in_output(jg)%vor_v    = is_variable_in_output_dom(var_name="vor_v", jg=jg)
+      var_in_output(jg)%bvf2     = is_variable_in_output_dom(var_name="bvf2", jg=jg)
+      var_in_output(jg)%parcelfreq2 = is_variable_in_output_dom(var_name="parcelfreq2", jg=jg)
+    END DO
+
+
+    IF (lnwp) THEN
+      DO jg=1,n_dom
+        var_in_output(jg)%rh          = is_variable_in_output_dom(var_name="rh", jg=jg)
+        var_in_output(jg)%pv          = is_variable_in_output_dom(var_name="pv", jg=jg)
+        var_in_output(jg)%sdi2        = is_variable_in_output_dom(var_name="sdi2", jg=jg)
+        var_in_output(jg)%lpi         = is_variable_in_output_dom(var_name="lpi", jg=jg)
+        var_in_output(jg)%lpi_max     = is_variable_in_output_dom(var_name="lpi_max", jg=jg)
+        var_in_output(jg)%lpi_con     = is_variable_in_output_dom(var_name="lpi_con", jg=jg)
+        var_in_output(jg)%mlpi_con    = is_variable_in_output_dom(var_name="mlpi_con", jg=jg)
+        var_in_output(jg)%lpi_con_max = is_variable_in_output_dom(var_name="lpi_con_max", jg=jg)
+        var_in_output(jg)%mlpi_con_max= is_variable_in_output_dom(var_name="mlpi_con_max", jg=jg)
+        var_in_output(jg)%lfd_con     = is_variable_in_output_dom(var_name="lfd_con", jg=jg)
+        var_in_output(jg)%lfd_con_max = is_variable_in_output_dom(var_name="lfd_con_max", jg=jg)
+        var_in_output(jg)%koi         = is_variable_in_output_dom(var_name="koi", jg=jg)
+        var_in_output(jg)%ceiling     = is_variable_in_output_dom(var_name="ceiling", jg=jg)
+        var_in_output(jg)%hbas_sc     = is_variable_in_output_dom(var_name="hbas_sc", jg=jg)
+        var_in_output(jg)%htop_sc     = is_variable_in_output_dom(var_name="htop_sc", jg=jg)
+        var_in_output(jg)%twater      = is_variable_in_output_dom(var_name="twater", jg=jg)
+        var_in_output(jg)%q_sedim     = is_variable_in_output_dom(var_name="q_sedim", jg=jg)
+        var_in_output(jg)%tcond_max   = is_variable_in_output_dom(var_name="tcond_max", jg=jg)
+        var_in_output(jg)%tcond10_max = is_variable_in_output_dom(var_name="tcond10_max", jg=jg)
+        var_in_output(jg)%uh_max_low  = is_variable_in_output_dom(var_name="uh_max_low", jg=jg)
+        var_in_output(jg)%uh_max_med  = is_variable_in_output_dom(var_name="uh_max_med", jg=jg)
+        var_in_output(jg)%uh_max      = is_variable_in_output_dom(var_name="uh_max", jg=jg)
+        var_in_output(jg)%vorw_ctmax  = is_variable_in_output_dom(var_name="vorw_ctmax", jg=jg)
+        var_in_output(jg)%w_ctmax     = is_variable_in_output_dom(var_name="w_ctmax", jg=jg)
+        var_in_output(jg)%dbz         = is_variable_in_output_dom(var_name="dbz", jg=jg)
+        var_in_output(jg)%dbz850      = is_variable_in_output_dom(var_name="dbz_850", jg=jg)
+        var_in_output(jg)%dbzcmax     = is_variable_in_output_dom(var_name="dbz_cmax", jg=jg)
+        var_in_output(jg)%dbzctmax    = is_variable_in_output_dom(var_name="dbz_ctmax", jg=jg)
+        var_in_output(jg)%echotop     = is_variable_in_output_dom(var_name="echotop", jg=jg)
+        var_in_output(jg)%echotopinm  = is_variable_in_output_dom(var_name="echotopinm", jg=jg)
+        var_in_output(jg)%smi         = is_variable_in_output_dom(var_name="smi", jg=jg)
+
+        ! Check for special case: SMI is not in one of the output lists but it is part of a output group.
+        ! In this case, the group can not be checked, as the connection between SMI and the group will be
+        ! established during the add_var call. However, add_var for SMI will only be called if l_smi =.true.
+        ! As a crutch, a character array containing the output groups of SMI from mo_lnd_nwp_config is used
+        ! here and also at the add_var call.
+        ! The check loops through the output groups. It has to be checked if l_smi is already .true., to not
+        ! overwrite an existing .true. with a false. 
+
+        IF (.NOT. var_in_output(jg)%smi) THEN 
+          ! Check for output groups containing SMI
+          DO jgr = 1,SIZE(groups_smi)
+            IF (.NOT. var_in_output(jg)%smi) THEN
+              var_in_output(jg)%smi = is_variable_in_output_dom(&
+                                      var_name='group:'//TRIM(groups_smi(jgr)), jg=jg)
+            END IF
+          END DO
+        END IF
+      END DO
+    END IF
+
+  END SUBROUTINE init_var_in_output
+
 
   !>
   !! Set up derived components of the I/O config state

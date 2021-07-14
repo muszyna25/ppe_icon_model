@@ -17,20 +17,19 @@ MODULE mo_ocean_solve
   USE mo_ocean_solve_legacy_gmres, ONLY: t_ocean_solve_legacy_gmres
   USE mo_ocean_solve_mres, ONLY: t_ocean_solve_mres
   USE mo_ocean_solve_aux, ONLY: solve_gmres, solve_cg, solve_mres, &
-    & t_destructible, solve_precon_jac, solve_bcgs, solve_legacy_gmres, &
+    & solve_precon_jac, solve_bcgs, solve_legacy_gmres, &
     & t_ocean_solve_parm
   USE mo_run_config, ONLY: ltimer
   USE mo_timer, ONLY: new_timer, timer_start, timer_stop
  
   IMPLICIT NONE
-  
   PRIVATE
  
-  PUBLIC :: t_ocean_solve, ocean_solve_ptr
+  PUBLIC :: t_ocean_solve
   CHARACTER(LEN=*), PARAMETER :: this_mod_name = 'mo_ocean_solve'
 
 ! general solver object type
-  TYPE, EXTENDS(t_destructible) :: t_ocean_solve
+  TYPE :: t_ocean_solve
     PRIVATE
 ! abstract backend-type
     CLASS(t_ocean_solve_backend), ALLOCATABLE :: act
@@ -43,6 +42,7 @@ MODULE mo_ocean_solve
     INTEGER :: sol_type, timer, timer_init
 ! name of actual backend chosen
     CHARACTER(LEN=64), PUBLIC :: sol_type_name
+    LOGICAL, PUBLIC :: is_init = .false.
 #ifdef __INTEL_COMPILER
 !DIR$ ATTRIBUTES ALIGN : 64 :: x_loc_wp, res_loc_wp
 #endif
@@ -50,26 +50,10 @@ MODULE mo_ocean_solve
 ! interfaces
     PROCEDURE :: dump_matrix => ocean_solve_dump_matrix
     PROCEDURE :: construct => ocean_solve_construct
-    PROCEDURE :: destruct => ocean_solve_destruct
     PROCEDURE :: solve => ocean_solve_solve
   END TYPE t_ocean_solve
 
 CONTAINS
-
-! returns pointer to t_primal_flip_flop_lhs object, if provided a matching
-! object of corresponding abstract type
-  FUNCTION ocean_solve_ptr(this) RESULT(this_ptr)
-    CLASS(t_destructible), INTENT(IN), TARGET :: this
-    CLASS(t_ocean_solve), POINTER :: this_ptr
-
-    SELECT TYPE (this)
-    CLASS IS (t_ocean_solve)
-      this_ptr => this
-    CLASS DEFAULT
-      NULLIFY(this_ptr)
-      CALL finish("primal_flip_flop_ptr()", "not correct type!")
-    END SELECT
-  END FUNCTION ocean_solve_ptr
 
 ! dumps lhs-matrix to text-file
   SUBROUTINE ocean_solve_dump_matrix(this, id, lprecon_in)
@@ -90,13 +74,12 @@ CONTAINS
     CLASS(t_ocean_solve), TARGET, INTENT(INOUT) :: this
     INTEGER, INTENT(IN) :: st
     TYPE(t_ocean_solve_parm), INTENT(IN) :: par, par_sp
-    CLASS(t_lhs_agen), POINTER, INTENT(IN) :: lhs_agen
-    CLASS(t_transfer), POINTER, INTENT(IN) :: trans
+    CLASS(t_lhs_agen), TARGET, INTENT(IN) :: lhs_agen
+    CLASS(t_transfer), TARGET, INTENT(IN) :: trans
     CHARACTER(LEN=*), PARAMETER :: routine = this_mod_name// &
       & "::t_ocean_solve::ocean_solve_construct()"
 
     IF (ALLOCATED(this%act)) CALL finish(routine, "already initialized!")
-    CALL this%destruct()
     IF (ltimer) THEN
       this%timer_init = new_timer("solver init")
       CALL timer_start(this%timer_init)
@@ -161,6 +144,7 @@ CONTAINS
         CALL timer_stop(this%timer)
       END IF
     END IF
+    this%is_init = .true.
   END SUBROUTINE ocean_solve_construct
 
 ! general interface for solve
@@ -179,18 +163,5 @@ CONTAINS
     CALL this%act%solve(niter, niter_sp, MERGE(1, 0, this%sol_type .NE. solve_legacy_gmres))
     IF (ltimer) CALL timer_stop(this%timer)
   END SUBROUTINE ocean_solve_solve
-
-! destruct solver object (destruct and deallocate backend and general arrays)
-  SUBROUTINE ocean_solve_destruct(this)
-    CLASS(t_ocean_solve), INTENT(INOUT) :: this
-
-    IF (ALLOCATED(this%act)) THEN
-      CALL this%act%destruct()
-      DEALLOCATE(this%act)
-    END IF
-    IF (ALLOCATED(this%x_loc_wp)) DEALLOCATE(this%x_loc_wp)
-    IF (ALLOCATED(this%res_loc_wp)) DEALLOCATE(this%res_loc_wp)
-    NULLIFY(this%b_loc_wp)
-  END SUBROUTINE ocean_solve_destruct
 
 END MODULE mo_ocean_solve

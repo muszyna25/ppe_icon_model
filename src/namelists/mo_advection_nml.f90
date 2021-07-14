@@ -24,17 +24,17 @@
 MODULE mo_advection_nml
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: finish, message_text, message
+  USE mo_exception,           ONLY: finish, message_text, message, print_value
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_master_control,      ONLY: use_restart_namelists
   USE mo_run_config,          ONLY: ntracer
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_ntracer, max_dom,      &
-    &                               MIURA, FFSL_HYB_MCYCL, ippm_v, ippm4gpu_v,  &
+    &                               MIURA, FFSL_HYB_MCYCL, ippm_v,              &
     &                               inol, ifluxl_sm, inol_v,                    &
-    &                               islopel_vsm, ifluxl_vpd, VNAME_LEN
+    &                               islopel_vsm, ifluxl_vpd, VNAME_LEN, NO_VADV
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
-  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist,     &
+  USE mo_restart_nml_and_att, ONLY: open_tmpfile, store_and_close_namelist,     &
     &                               open_and_restore_namelist, close_tmpfile
   USE mo_advection_config,    ONLY: advection_config 
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
@@ -75,8 +75,8 @@ MODULE mo_advection_nml
   INTEGER :: &                     !< selects vertical transport scheme
     &  ivadv_tracer(max_ntracer)   !< 0 : no vertical advection
                                    !< 1 : 1st order upwind
-                                   !< 3 : 3rd order PPM for CFL>
-                                   !< 30: 3rd order PPM
+                                   !< 2 : 3rd order PSM for CFL>                            
+                                   !< 3 : 3rd order PPM for CFL>               
 
   INTEGER :: &                     !< advection of TKE
     &  iadv_tke                    !< 0 : none
@@ -86,8 +86,6 @@ MODULE mo_advection_nml
 
   LOGICAL :: lvadv_tracer          !< if .TRUE., calculate vertical tracer advection
   LOGICAL :: lclip_tracer          !< if .TRUE., clip negative tracer values
-  LOGICAL :: lstrang               !< if .TRUE., use complete Strang splitting
-                                   !< (\Delta t/2 vert)+(\Delta t hor)+(\Delta t/2 vert)
 
   LOGICAL :: llsq_svd              !< least squares reconstruction with 
                                    !< singular value decomposition (TRUE) or 
@@ -137,7 +135,7 @@ MODULE mo_advection_nml
     &                     ivcfl_max, itype_hlimit,                        &
     &                     iadv_tke, beta_fct,                             &
     &                     iord_backtraj, lclip_tracer, tracer_names,      &
-    &                     ctracer_list, igrad_c_miura, lstrang, llsq_svd, &
+    &                     ctracer_list, igrad_c_miura, llsq_svd,          &
     &                     npassive_tracer, init_formula
 
 
@@ -170,6 +168,7 @@ CONTAINS
     INTEGER :: jg          !< patch loop index
     INTEGER :: iunit
     INTEGER :: it          !< loop counter
+    INTEGER :: nname       !< number of names given in transport_nml/tracer_names
     CHARACTER(len=VNAME_LEN) :: tname
 
     CHARACTER(len=*), PARAMETER ::  &
@@ -190,7 +189,6 @@ CONTAINS
     iord_backtraj        = 1         ! 1st order backward trajectory
     lvadv_tracer         = .TRUE.    ! vertical advection yes/no
     lclip_tracer         = .FALSE.   ! clipping of negative values yes/no
-    lstrang              = .FALSE.   ! Strang splitting yes/no
 
     igrad_c_miura        = 1         ! MIURA linear least squares reconstruction
 
@@ -198,10 +196,7 @@ CONTAINS
     npassive_tracer      = 0         ! no additional passive tracers
     init_formula         = ''        ! no explizit initialization of passive tracers
 
-    DO it=1,max_ntracer         ! use tracer index as name suffix
-      WRITE(tname,'(I3)') it
-      tracer_names(it) = TRIM(ADJUSTL(tname)) 
-    ENDDO
+    tracer_names(:) = '...'          ! default name for undefined tracers
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
@@ -238,45 +233,98 @@ CONTAINS
     ! 4. Sanity check
     !----------------------------------------------------
 
+    ! check consistency of run_nml/ntracer and the number of tracer
+    ! names given in transport
+    !
+    ! Count the number of names given in tracer_names(:) before the first
+    ! default name '...' is found.
+    CALL message(' ',' ')
+    CALL message(routine,'Evaluate the number of names in transport_nml/tracer_names')
+    nname=0
+    DO
+      IF (TRIM(ADJUSTL(tracer_names(nname+1))) /= '...') THEN
+        nname=nname+1
+        CALL print_value('tracer name '//TRIM(ADJUSTL(tracer_names(nname)))//' in position',nname)
+      ELSE
+        CALL print_value('number of named tracers',nname)
+        EXIT
+      END IF
+    END DO
+    !
+    ! Set ntracer if zero so far but tracer names are given
+    IF (ntracer==0 .AND. nname > 0) THEN
+      ntracer=nname
+      CALL print_value('ntracer changed from 0 to',nname)
+    END IF
+    !
+    ! Stop if ntracer has been set to non-zero but less than the number of tracer names
+    IF (0<ntracer .AND. ntracer<nname) THEN
+      CALL finish(routine,'Found inconsistent setup: 0 < run_nml/ntracer < ' //&
+           &      'number of names in transport_nml/tracer_names')
+    END IF
+    !
+    ! If ntracer has been set and ntracer > nname, then fill in default names 'q<no>'
+    ! for tracers with indices nname+1 to ntracer.
+    IF (nname<ntracer) THEN
+      CALL message(routine,'Setting default names for tracers without names.')
+      CALL print_value('number of tracers without names',ntracer-nname)
+      DO it=nname+1,ntracer
+        WRITE(tname,'(i3)') it
+        tracer_names(it) = 'q'//TRIM(ADJUSTL(tname))
+        CALL print_value('tracer name '//TRIM(ADJUSTL(tracer_names(it)))//' in position',it)
+      END DO
+    END IF
+    CALL message(' ',' ')
+
     ! flux computation methods - sanity check
     !
-    IF ( ANY(ihadv_tracer(1:ntracer) > FFSL_HYB_MCYCL) .OR.            &
-      &  ANY(ihadv_tracer(1:ntracer) < 0) )    THEN
-      CALL finish( TRIM(routine),                                     &
+    IF ( ANY(ihadv_tracer(1:max_ntracer) > FFSL_HYB_MCYCL) .OR.       &
+      &  ANY(ihadv_tracer(1:max_ntracer) < 0) )    THEN
+      CALL finish(routine,                                              &
         &  'incorrect settings for ihadv_tracer. Must be 0,1,2,3,4,5,'//&
         &  '20,22,32,42 or 52 ')
     ENDIF
 
-    IF ( ANY(ivadv_tracer(1:ntracer) > ippm4gpu_v) .OR.                   &
-      &  ANY(ivadv_tracer(1:ntracer) < 0)) THEN
-      CALL finish( TRIM(routine),                                     &
-        &  'incorrect settings for ivadv_tracer. Must be 0,1,3,4 or 5 ')
+    IF ( ANY(ivadv_tracer(1:max_ntracer) > ippm_v) .OR.               &
+      &  ANY(ivadv_tracer(1:max_ntracer) < 0) ) THEN
+      CALL finish(routine,                                     &
+        &  'incorrect settings for ivadv_tracer. Must be 0,1,2, or 3 ')
+    ENDIF
+
+    IF (.NOT. lvadv_tracer) THEN
+      IF ( ANY(ivadv_tracer(1:max_ntracer) /= NO_VADV) ) THEN
+        ivadv_tracer(1:max_ntracer) = NO_VADV
+        WRITE(message_text,'(a,I2,a,a)') &
+          &  'Resetting ivadv_tracer(1:max_ntracer)=',NO_VADV,' for all tracers, ', &
+          &  'as vertical tracer transport is disabled (lvadv_tracer=.FALSE.).'
+        CALL message(TRIM(routine), message_text)
+      ENDIF
     ENDIF
 
 
 
     ! limiter - sanity check
     !
-    IF ( ANY(itype_vlimit(1:ntracer) < inol_v ) .OR.                  &
-      &  ANY(itype_vlimit(1:ntracer) > ifluxl_vpd)) THEN
-      CALL finish( TRIM(routine),                                     &
+    IF ( ANY(itype_vlimit(1:max_ntracer) < inol_v ) .OR.              &
+      &  ANY(itype_vlimit(1:max_ntracer) > ifluxl_vpd)) THEN
+      CALL finish(routine,                                     &
         &  'incorrect settings for itype_vlimit. Permissible choices [0,..,3]')
     ENDIF
-    IF ( ANY(itype_hlimit(1:ntracer) < inol ) .OR.                    &
-      &  ANY(itype_hlimit(1:ntracer) > ifluxl_sm)) THEN
-      CALL finish( TRIM(routine),                                     &
+    IF ( ANY(itype_hlimit(1:max_ntracer) < inol ) .OR.                &
+      &  ANY(itype_hlimit(1:max_ntracer) > ifluxl_sm)) THEN
+      CALL finish(routine,                                     &
         &  'incorrect settings for itype_hlimit. Permissible choices [0,..,4]')
     ENDIF
-    IF ( ANY(ivlimit_selective(1:ntracer) < 0 ) .OR.                  &
-      &  ANY(ivlimit_selective(1:ntracer) > 1 )) THEN
-      CALL finish( TRIM(routine),                                     &
+    IF ( ANY(ivlimit_selective(1:max_ntracer) < 0 ) .OR.              &
+      &  ANY(ivlimit_selective(1:max_ntracer) > 1 )) THEN
+      CALL finish(routine,                                     &
         &  'incorrect settings for ivlimit_selective. Permissible values 0 or 1')
     ENDIF
 
     ! FCT multiplicative spreading - sanity check
     ! 
     IF ( (beta_fct < 1.0_wp) .OR. (beta_fct >= 2.0_wp) ) THEN
-      CALL finish( TRIM(routine),                                     & 
+      CALL finish(routine,                                     & 
         & 'permissible range of values for beta_fct:  [1,2[ ')
     ENDIF
 
@@ -284,7 +332,7 @@ CONTAINS
     ! TKE advection - sanity check
     !
     IF ( ALL((/0,1,2/) /= iadv_tke) ) THEN
-      CALL finish( TRIM(routine),                                     &
+      CALL finish(routine,                                     &
         &  'incorrect settings for iadv_tke. Must be 0, 1 or 2')
     ENDIF
 
@@ -301,11 +349,11 @@ CONTAINS
 
     DO jg= 0,max_dom
       advection_config(jg)%tracer_names(:)     = ADJUSTL(tracer_names(:))
+      advection_config(jg)%nname               = nname
       advection_config(jg)%ihadv_tracer(:)     = ihadv_tracer(:)
       advection_config(jg)%ivadv_tracer(:)     = ivadv_tracer(:)
       advection_config(jg)%lvadv_tracer        = lvadv_tracer
       advection_config(jg)%lclip_tracer        = lclip_tracer
-      advection_config(jg)%lstrang             = lstrang
       advection_config(jg)%llsq_svd            = llsq_svd
       advection_config(jg)%itype_vlimit(:)     = itype_vlimit(:)
       advection_config(jg)%itype_hlimit(:)     = itype_hlimit(:)

@@ -21,7 +21,7 @@ MODULE mo_extpar_nml
   USE mo_master_control,      ONLY: use_restart_namelists
   USE mo_impl_constants,      ONLY: max_dom
 
-  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist         , &
+  USE mo_restart_nml_and_att, ONLY: open_tmpfile, store_and_close_namelist         , &
                                   & open_and_restore_namelist, close_tmpfile
 
   USE mo_extpar_config,       ONLY: config_itopo                    => itopo             ,           &
@@ -34,6 +34,7 @@ MODULE mo_extpar_nml
                                   & config_extpar_filename          => extpar_filename,              &
                                   & config_extpar_varnames_map_file => extpar_varnames_map_file,     &
                                   & config_lrevert_sea_height       => lrevert_sea_height,           &
+                                  & config_pp_glacier_sso           => pp_glacier_sso    ,           &
                                   & config_itype_vegetation_cycle   => itype_vegetation_cycle
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
 
@@ -54,6 +55,7 @@ MODULE mo_extpar_nml
   LOGICAL  :: read_nc_via_cdi ! read netcdf input via cdi library (alternative: parallel netcdf)
   REAL(wp) :: heightdiff_threshold(max_dom)
   LOGICAL  :: lrevert_sea_height  ! if true: bring sea points back to original height
+  LOGICAL  :: pp_glacier_sso      ! if true: postprocess SSO over glaciers to reduce contribution of mean slope
   INTEGER  :: itype_vegetation_cycle
   CHARACTER(LEN=filename_max) :: extpar_filename
 
@@ -62,7 +64,7 @@ MODULE mo_extpar_nml
   CHARACTER(LEN=filename_max) :: extpar_varnames_map_file
 
   NAMELIST /extpar_nml/ itopo, fac_smooth_topo,n_iter_smooth_topo,itype_lwemiss, &
-                        heightdiff_threshold, extpar_filename,                   &
+                        heightdiff_threshold, extpar_filename, pp_glacier_sso,   &
                         extpar_varnames_map_file, hgtdiff_max_smooth_topo,       &
                         lrevert_sea_height, itype_vegetation_cycle, read_nc_via_cdi
 
@@ -87,6 +89,7 @@ CONTAINS
     read_nc_via_cdi         = .FALSE.
     heightdiff_threshold(:) = 3000._wp
     lrevert_sea_height      = .FALSE.
+    pp_glacier_sso          = .TRUE.
     itype_vegetation_cycle  = 1
     extpar_filename         = "<path>extpar_<gridfile>"
     extpar_varnames_map_file = " "
@@ -140,6 +143,7 @@ CONTAINS
     config_read_nc_via_cdi    = read_nc_via_cdi
     config_heightdiff_threshold = heightdiff_threshold
     config_lrevert_sea_height = lrevert_sea_height
+    config_pp_glacier_sso     = pp_glacier_sso
     config_itype_vegetation_cycle = itype_vegetation_cycle
     config_extpar_filename    = extpar_filename
     config_extpar_varnames_map_file = extpar_varnames_map_file

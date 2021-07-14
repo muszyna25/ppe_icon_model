@@ -85,6 +85,7 @@ MODULE mo_nh_testcases
   USE mo_upatmo_config,        ONLY: upatmo_config
   USE mo_vertical_coord_table, ONLY: vct_a
   USE mo_hydro_adjust,         ONLY: hydro_adjust_const_thetav
+  USE mo_les_config,           ONLY: les_config
 
   IMPLICIT NONE  
   
@@ -101,9 +102,9 @@ MODULE mo_nh_testcases
   REAL(wp), PARAMETER :: pres_sp  = 93000.0_wp  !< pressure surface at the south pole
   REAL(wp), PARAMETER :: temp_mrw = 288._wp     !< temperature of isothermal atmosphere
 
-  ! !DEFINED PARAMETERS for APE
-  REAL(wp), PARAMETER :: zp_ape   = 101325._wp  !< surface pressure
-  REAL(wp), PARAMETER :: ztmc_ape = 25.006_wp   !< total moisture content 
+  ! !DEFINED PARAMETERS for APE (now read from namelist)
+  !REAL(wp), PARAMETER :: zp_ape   = 101325._wp  !< surface pressure
+  !REAL(wp), PARAMETER :: ztmc_ape = 25.006_wp   !< total moisture content 
 
   CONTAINS  
   
@@ -458,6 +459,10 @@ MODULE mo_nh_testcases
 
    ! The topography has been initialized to 0 at the begining of this SUB
     CALL message(TRIM(routine),'running Convective Boundary Layer Experiment')
+
+  CASE ('CBL_flxconst')
+
+   CALL message(TRIM(routine),'running Convective Boundary Layer Experiment with fixed heat flux')
 
   CASE ('2D_BUBBLE', '3D_BUBBLE')
 
@@ -1228,6 +1233,26 @@ MODULE mo_nh_testcases
 
     CALL message(TRIM(routine),'End setup CBL test')
 
+  CASE ('CBL_flxconst')
+
+    ! u,v,w are initialized to zero.  exner and rho are similar/identical to CBL
+    DO jg = 1, n_dom
+      nlev   = p_patch(jg)%nlev
+
+      CALL init_nh_state_cbl ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
+                      & p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics )
+
+      CALL add_random_noise_global(in_subset=p_patch(jg)%cells%all,            &
+                      & in_var=p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:),   &
+                      & start_level=nlev-3,                                    &
+                      & end_level=nlev,                                        &
+                      & noise_scale=th_perturb )
+
+      CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
+!
+      CALL message(TRIM(routine),'End setup global CBL_flxconst test')
+    END DO !jg
+
   CASE ('RCE_glb','RCE_Tconst')
 
     ! u,v,w are initialized to zero.  exner and rho are similar/identical to CBL
@@ -1236,12 +1261,13 @@ MODULE mo_nh_testcases
       CALL init_nh_state_rce_glb ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
                       & p_nh_state(jg)%diag, p_nh_state(jg)%metrics )
 
-      CALL add_random_noise_global(in_subset=p_patch(jg)%cells%all,            &
+      IF (temp_case /= 'blob') THEN
+        CALL add_random_noise_global(in_subset=p_patch(jg)%cells%all,          &
                       & in_var=p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:),   &
                       & start_level=nlev-3,                                    &
                       & end_level=nlev,                                        &
                       & noise_scale=th_perturb )   
-
+      END IF
       CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
 !
       CALL message(TRIM(routine),'End setup global RCE test')

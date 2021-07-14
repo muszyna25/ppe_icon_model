@@ -38,8 +38,8 @@ MODULE mo_util_table
   ! ---------------------------------------------------------------------
 
   INTEGER, PARAMETER :: MAX_TABLE_COLUMNS = 100
-  INTEGER, PARAMETER :: MAX_TITLE_LEN     =  64
-  INTEGER, PARAMETER :: MAX_COLUMN_LEN    =  64
+  INTEGER, PARAMETER :: MAX_TITLE_LEN     = 250
+  INTEGER, PARAMETER :: MAX_COLUMN_LEN    = 250
 
   CHARACTER(LEN=*), PARAMETER :: modname   = 'mo_util_table'
 
@@ -127,29 +127,25 @@ CONTAINS
     INTEGER,         INTENT(IN)    :: n_rows
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//"::resize_column"
-    INTEGER :: new_size, errstat
+    INTEGER :: old_size, new_size, errstat
     CHARACTER(LEN=MAX_COLUMN_LEN), TARGET, ALLOCATABLE :: tmp(:)
 
     ! triangle copy
+    old_size = column%n_rows
     new_size = n_rows
     IF (ALLOCATED(column%row)) THEN
-      IF (new_size <= column%n_rows) RETURN
-      IF (column%n_rows > SIZE(column%row)) &
+      IF (new_size <= old_size) RETURN
+      IF (old_size > SIZE(column%row)) &
         & CALL finish (routine, 'Unexpected array size!')
-      ALLOCATE(tmp(column%n_rows), STAT=errstat)
+      ALLOCATE(tmp(new_size), STAT=errstat)
       IF (errstat /= 0) CALL finish (routine, 'Error in ALLOCATE operation!')
-      tmp(1:column%n_rows) = column%row(1:column%n_rows)
-      DEALLOCATE(column%row, STAT=errstat)
-      IF (errstat /= 0) CALL finish (routine, 'Error in DEALLOCATE operation!')
+      tmp(1:old_size) = column%row(1:old_size)
+      CALL MOVE_ALLOC(tmp, column%row)
+    ELSE
+      ALLOCATE(column%row(new_size), STAT=errstat)
+      IF (errstat /= 0)  CALL finish (routine, 'Error in ALLOCATE operation!')
     END IF
-    ALLOCATE(column%row(new_size), STAT=errstat)
-    IF (errstat /= 0)  CALL finish (routine, 'Error in ALLOCATE operation!')
-    column%row((column%n_rows+1):new_size) = " "
-    IF (ALLOCATED(tmp)) THEN
-      column%row(1:column%n_rows) = tmp(1:column%n_rows)
-      DEALLOCATE(tmp, STAT=errstat)
-      IF (errstat /= 0)  CALL finish (routine, 'Error in DEALLOCATE operation!')
-    END IF
+    column%row(old_size+1:new_size) = " "
     column%n_rows = new_size
   END SUBROUTINE resize_column
 

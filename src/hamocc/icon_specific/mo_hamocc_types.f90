@@ -24,7 +24,6 @@ MODULE mo_hamocc_types
     & f_plane_coriolis, zero_coriolis, halo_levels_ceiling
   USE mo_math_types,         ONLY: t_cartesian_coordinates,      &
     & t_geographical_coordinates
-  USE mo_linked_list,        ONLY: t_var_list
   USE mo_ocean_tracer_transport_types, ONLY: t_tracer_collection
 
 
@@ -156,6 +155,7 @@ MODULE mo_hamocc_types
     REAL(wp), POINTER ::  orginp(:,:)   ! for now constant value read via nml    
     REAL(wp), POINTER ::  silinp(:,:)   ! later riverine input possible     
     REAL(wp), POINTER ::  calinp(:,:)   ! via mo_bgc_bcond    
+  !  REAL(wp), POINTER ::  nitinp(:,:)     ! nitrogen input 
     REAL(wp), POINTER ::  h2obudget(:,:,:)       
     REAL(wp), POINTER ::  n2budget(:,:,:)       
     REAL(wp), POINTER ::  sedflic(:,:)       
@@ -182,6 +182,12 @@ MODULE mo_hamocc_types
     REAL(wp), POINTER ::  akw(:,:,:)       
     REAL(wp), POINTER ::  ak1(:,:,:)       
     REAL(wp), POINTER ::  ak2(:,:,:)       
+    REAL(wp), POINTER ::  aksi(:,:,:)
+    REAL(wp), POINTER ::  aks(:,:,:)
+    REAL(wp), POINTER ::  akf(:,:,:)
+    REAL(wp), POINTER ::  ak1p(:,:,:)
+    REAL(wp), POINTER ::  ak2p(:,:,:)
+    REAL(wp), POINTER ::  ak3p(:,:,:)
     REAL(wp), POINTER ::  satoxy(:,:,:)       
     REAL(wp), POINTER ::  satn2(:,:)       
     REAL(wp), POINTER ::  satn2o(:,:)       
@@ -195,6 +201,8 @@ MODULE mo_hamocc_types
     REAL(wp), POINTER ::  zo2min(:,:)       
     REAL(wp), POINTER ::  h2sprod(:,:,:)       
     REAL(wp), POINTER ::  h2sloss(:,:,:)       
+    REAL(wp), POINTER ::  lysocline(:,:)
+    REAL(wp), POINTER ::  nitrogeninp(:,:)
     TYPE(t_hamocc_monitor) :: monitor
   END TYPE t_hamocc_tend
 
@@ -217,6 +225,10 @@ MODULE mo_hamocc_types
   TYPE t_hamocc_bcond
    REAL(wp), POINTER:: dusty(:,:)       !  index1=1,nproma, nblks_e
    REAL(wp), POINTER:: nitro(:,:)       !  index1=1,nproma, nblks_e
+   REAL(wp), POINTER:: prorca(:,:)       !  index1=1,nproma, nblks_e
+   REAL(wp), POINTER:: prcaca(:,:)       !  index1=1,nproma, nblks_e
+   REAL(wp), POINTER:: silpro(:,:)       !  index1=1,nproma, nblks_e
+   REAL(wp), POINTER:: produs(:,:)       !  index1=1,nproma, nblks_e
   END TYPE t_hamocc_bcond
 
 END MODULE 

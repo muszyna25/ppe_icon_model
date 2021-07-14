@@ -47,7 +47,7 @@ MODULE mo_nh_mrw_exp
    USE mo_run_config,          ONLY: iqv
    USE mo_intp_data_strc,      ONLY: t_int_state
    USE mo_exception,           ONLY: finish
-   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH,inwp
+   USE mo_impl_constants,      ONLY: inwp
    USE mo_sync,                ONLY: sync_patch_array, SYNC_C
    USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
    USE mo_grid_config,         ONLY: grid_sphere_radius, grid_angular_velocity
@@ -382,7 +382,7 @@ MODULE mo_nh_mrw_exp
 
 
    REAL(wp), ALLOCATABLE              :: z_int_c(:,:)    ! z at interface in mwbr_const
-   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+   CHARACTER(len=*), PARAMETER :: &
     &  routine = '(mo_nh_mrw_exp) init_nh_prog_mwbr_const:'
 
 !-------------------------------------------------------------------------
@@ -420,8 +420,8 @@ MODULE mo_nh_mrw_exp
 
   ALLOCATE (z_int_c(nproma,ptr_patch%nblks_c))
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk,jc,zlat,z_pres,z_temp,z_sfc,z_klev,zcoslat,zhelp4,icount)
+!$OMP PARALLEL PRIVATE(icount)
+!$OMP DO PRIVATE(jb,nlen,jk,jc,zlat,z_pres,z_temp,z_sfc,z_klev,zcoslat,zhelp4)
   DO jb = 1, nblks_c
       IF (jb /= nblks_c) THEN
          nlen = nproma
@@ -450,8 +450,6 @@ MODULE mo_nh_mrw_exp
                                bruntvaissq_i/bruntvaissq_u )**rkappa
         ENDIF
       ENDDO !jc
-      IF (icount > 0) CALL finish(TRIM(routine), &
-        & 'z at interface is negative, needed p_int_mwbr_const < pres_sp')
       DO jk = nlev, 1, -1
             DO jc = 1, nlen
               z_sfc  = topo_c(jc,jb)
@@ -479,6 +477,8 @@ MODULE mo_nh_mrw_exp
       ENDDO !jk     
   ENDDO !jb
 !$OMP END DO
+  IF (icount > 0) CALL finish(routine, &
+    & 'z at interface is negative, needed p_int_mwbr_const < pres_sp')
 !$OMP END PARALLEL
 
 ! As long as we do not have water vapour, ptr_nh_diag%temp is also the virtual temperature

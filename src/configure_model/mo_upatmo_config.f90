@@ -21,29 +21,38 @@ MODULE mo_upatmo_config
 
   USE mo_kind,                     ONLY: wp
   USE mo_exception,                ONLY: message, message_text, finish
-  USE mo_impl_constants,           ONLY: max_dom, MAX_CHAR_LENGTH,   &
+  USE mo_impl_constants,           ONLY: max_dom,                    &
     &                                    MODE_IFSANA, MODE_COMBINED, &
-    &                                    inwp, iecham, inoforcing,   &
-    &                                    SUCCESS
+    &                                    MODE_DWDANA, inoforcing,    &
+    &                                    SUCCESS, inwp, iecham,      &
+    &                                    inh_atmosphere, ivexpol
   USE mo_model_domain,             ONLY: t_patch
-  USE mo_util_string,              ONLY: int2string, logical2string, &
-    &                                    real2string
+  USE mo_upatmo_impl_const,        ONLY: iUpatmoStat, imsg_thr, itmr_thr, &
+    &                                    iUpatmoGrpId, iUpatmoPrcStat,    &
+    &                                    iUpatmoExtdatStat
+  USE mo_upatmo_phy_config,        ONLY: t_upatmo_echam_phy,       &
+    &                                    t_upatmo_nwp_phy,         &
+    &                                    t_upatmo_phy_config,      &
+    &                                    configure_upatmo_physics, &
+    &                                    print_config_upatmo_physics
+  USE mo_upatmo_utils,             ONLY: init_logical_1d
+  USE mo_name_list_output_types,   ONLY: t_output_name_list
+  USE mo_name_list_output_config,  ONLY: is_variable_in_output
+  USE mtime,                       ONLY: datetime
 
   IMPLICIT NONE
 
   PRIVATE
 
-  PUBLIC :: imsg_thr
-  PUBLIC :: itmr_thr
-  PUBLIC :: idamtr
-  PUBLIC :: istatus
   PUBLIC :: t_upatmo_dyn_config
   PUBLIC :: upatmo_dyn_config
   PUBLIC :: upatmo_exp_config
+  PUBLIC :: upatmo_phy_config
   PUBLIC :: t_upatmo_config
   PUBLIC :: upatmo_config
   PUBLIC :: configure_upatmo
   PUBLIC :: destruct_upatmo
+  PUBLIC :: check_upatmo
 
   CHARACTER(LEN = *), PARAMETER :: modname = 'mo_upatmo_config'
 
@@ -51,114 +60,6 @@ MODULE mo_upatmo_config
   ! and upper-atmosphere extrapolation are regarded as three elements 
   ! of the upper-atmosphere extension of ICON. 
   ! This is why we treat them in one module (as well as code economy).
-
-  !------------------------------------------------------------
-  !                      Parameter types
-  !------------------------------------------------------------
-
-  ! (The like you find in 'src/shared/mo_impl_constants'.)
-
-  ! Thresholds...
-  !
-  TYPE t_ithr
-    INTEGER :: low    ! Low threshold
-    INTEGER :: med    ! Medium threshold
-    INTEGER :: high   ! High threshold
-  END TYPE t_ithr
-  !
-  ! ... for message output:
-  TYPE(t_ithr), PARAMETER :: imsg_thr = t_ithr(  8, &  ! Low threshold for message output
-    &                                           10, &  ! Med(ium) threshold for message output
-    &                                           15  )  ! High threshold for message output  
-  !
-  ! ... for timers:
-  TYPE(t_ithr), PARAMETER :: itmr_thr = t_ithr(  2, &  ! Low threshold for timer-call
-    &                                            5, &  ! Med(ium) threshold for timer-call
-    &                                            8  )  ! High threshold for timer-call  
-
-  !------------------------------------------------------------
-
-  ! Identifiers for deep-atmosphere metrical modification factors.
-  !
-  ! 1) Full levels, index order (jk, jtype)
-  !
-  TYPE t_idamtr_idxlist_type_1_mc
-    INTEGER :: gradh     ! Horizontal derivatives 
-    INTEGER :: divh      ! Horizontal part of divergence
-    INTEGER :: vol       ! Cell volume
-    INTEGER :: invr      ! = 1 / ( a + z )
-    INTEGER :: centri    ! Centrifugal acceleration
-    ! 
-    INTEGER :: nitem     ! Number of identifiers
-  END TYPE t_idamtr_idxlist_type_1_mc
-  !
-  ! 2) Half levels, index order (jk, jtype)
-  !
-  TYPE t_idamtr_idxlist_type_1_ifc
-    INTEGER :: gradh     ! Horizontal derivatives 
-    INTEGER :: invr      ! = 1 / ( a + z )   
-    INTEGER :: centri    ! Centrifugal acceleration
-    ! 
-    INTEGER :: nitem     ! Number of identifiers
-  END TYPE t_idamtr_idxlist_type_1_ifc
-  !
-  ! 3) Full levels, index order (jtype, jk)
-  !
-  TYPE t_idamtr_idxlist_type_2_mc
-    INTEGER :: divzU     ! Vertical part of divergence (Upper interface of cell)
-    INTEGER :: divzL     ! Vertical part of divergence (Lower interface of cell)
-    !
-    INTEGER :: nitem     ! Number of identifiers
-  END TYPE t_idamtr_idxlist_type_2_mc
-  !
-  ! Collector
-  !
-  TYPE t_idamtr
-    TYPE(t_idamtr_idxlist_type_1_mc)  :: t1mc
-    TYPE(t_idamtr_idxlist_type_1_ifc) :: t1ifc
-    TYPE(t_idamtr_idxlist_type_2_mc)  :: t2mc
-  END TYPE t_idamtr
-  !
-  ! Assign values 
-  ! (Please, update the 'nitem', if you modify the identifier lists. Thank you!) 
-  !
-  TYPE(t_idamtr), PARAMETER :: idamtr = t_idamtr(  &
-    &                                   t_idamtr_idxlist_type_1_mc(  1,     &  ! idamtr%t1mc%gradh
-    &                                                                2,     &  ! idamtr%t1mc%divh 
-    &                                                                3,     &  ! idamtr%t1mc%vol 
-    &                                                                4,     &  ! idamtr%t1mc%invr 
-    &                                                                5,     &  ! idamtr%t1mc%centri 
-    !
-    &                                                                5  ),  &  ! idamtr%t1mc%nitem
-    !-------------------------------------------------------------------------------
-    &                                   t_idamtr_idxlist_type_1_ifc( 1,     &  ! idamtr%t1ifc%gradh
-    &                                                                2,     &  ! idamtr%t1ifc%invr
-    &                                                                3,     &  ! idamtr%t1ifc%centri
-    !
-    &                                                                3  ),  &  ! idamtr%t1ifc%nitem 
-    !-------------------------------------------------------------------------------
-    &                                   t_idamtr_idxlist_type_2_mc(  1,     &  ! idamtr%t2mc%divzU 
-    &                                                                2,     &  ! idamtr%t2mc%divzL 
-    !
-    &                                                                2  )   &  ! idamtr%t2mc%nitem
-    &                                              )  
-
-  !------------------------------------------------------------
-
-  ! Identifiers for configuration status.
-  !
-  TYPE t_istatus
-    INTEGER :: checked      ! Upper-atmosphere namelist settings crosschecked?
-    INTEGER :: configured   ! Upper-atmosphere configured?
-    INTEGER :: required     ! Upper-atmosphere settings required at all?
-    !
-    INTEGER :: nitem        ! Number of identifiers
-  END TYPE t_istatus
-  TYPE(t_istatus), PARAMETER :: istatus = t_istatus( 1, &  ! checked
-    &                                                2, &  ! configured
-    &                                                3, &  ! required
-    !
-    &                                                3  )  ! nitem
 
   !------------------------------------------------------------
   !                    Configuration types
@@ -176,6 +77,8 @@ MODULE mo_upatmo_config
                                ! are modified for the deep atmosphere, if required 
                                ! .FALSE. -> the input fields are computed in accordance 
                                ! with the shallow-atmosphere approximation (standard) in any case
+    ! Status
+    LOGICAL :: lset = .FALSE.  ! .TRUE. after assignment of namelist entries
   END TYPE t_upatmo_dyn_config
   
   !------------------------------------------------------------
@@ -190,35 +93,29 @@ MODULE mo_upatmo_config
                                       ! horizontal wind component (for stability reasons)
     REAL(wp) :: expol_temp_infty      ! [K] Climatological temperature of exosphere (for z -> infinity)
     LOGICAL  :: lexpol_sanitycheck    ! .TRUE. -> Apply sanity check to extrapolated fields
+    ! Status
+    LOGICAL :: lset = .FALSE.         ! .TRUE. after assignment of namelist entries
   END TYPE t_upatmo_exp_config
 
   !------------------------------------------------------------
 
   ! For reasons of easier generalizability 
-  ! (e.g., for the upcoming upper-atmosphere physics extension) 
   ! the variables of the above types become domain-dependent. 
   ! Since they are used, to store the namelist input, 
   ! i.e. at a point in the program sequence before the actual number of domains is known, 
   ! they have to be allocated for the maximum permissible domain range '0:max_dom'.
   ! A significant number of parameters are derived from the namelist settings 
-  ! (especially in the context of the upcoming upper-atmosphere physics extension),  
+  ! (especially in the context of the upper-atmosphere physics),  
   ! so they are not gathered in the above, but in the following type(s), 
   ! which can be allocated for the actual number of domains 'n_dom_start:n_dom', 
   ! in order to save some memory in standard simulations without upper-atmosphere.
-  !
-  TYPE t_phy
-    LOGICAL :: l_constgrav    ! Const. gravitational acceleration for ECHAM physics
-    LOGICAL :: l_shallowatmo  ! Shallow-atmosphere metrics for ECHAM physics
-    ! Status variables
-    LOGICAL :: l_status(istatus%nitem)
-  END TYPE t_phy
   !
   TYPE t_dyn
     LOGICAL :: l_constgrav    ! .TRUE. -> gravitational acceleration is assumed to be constant
     LOGICAL :: l_centrifugal  ! .TRUE. -> centrifugal acceleration is switched on
     LOGICAL :: l_initonzgpot  ! .TRUE. -> initial data are living on geopotential heights
     ! Status variables
-    LOGICAL :: l_status(istatus%nitem)
+    LOGICAL :: l_status(iUpatmoStat%nitem)
   END TYPE t_dyn
   !
   TYPE t_exp
@@ -229,13 +126,14 @@ MODULE mo_upatmo_config
     LOGICAL :: l_initicon_config = .FALSE. ! .TRUE. -> first step of configuration of extrapolation 
                              ! after namelist read-in has taken place
     ! Status variables
-    LOGICAL :: l_status(istatus%nitem)
+    LOGICAL :: l_status(iUpatmoStat%nitem)
   END TYPE t_exp
   !
   ! Collector
   !
   TYPE t_upatmo_config
-    TYPE(t_phy) :: phy
+    TYPE(t_upatmo_echam_phy) :: echam_phy
+    TYPE(t_upatmo_nwp_phy)   :: nwp_phy
     TYPE(t_dyn) :: dyn
     TYPE(t_exp) :: exp
     ! Miscellaneous
@@ -246,13 +144,14 @@ MODULE mo_upatmo_config
     ! (Although desirable, the creation 
     ! of a status object is currently too complicated 
     ! and not worth the effort.)
-    LOGICAL :: l_status(istatus%nitem)
+    LOGICAL :: l_status(iUpatmoStat%nitem)
   END TYPE t_upatmo_config
 
   !------------------------------------------------------------
 
   TYPE(t_upatmo_dyn_config), TARGET              :: upatmo_dyn_config(0:max_dom)
   TYPE(t_upatmo_exp_config), TARGET              :: upatmo_exp_config(0:max_dom)
+  TYPE(t_upatmo_phy_config), TARGET              :: upatmo_phy_config(0:max_dom)
   TYPE(t_upatmo_config),     TARGET, ALLOCATABLE :: upatmo_config(:) 
 
   !------------------------------------------------------------
@@ -269,37 +168,69 @@ CONTAINS !......................................................................
   !! - Deep-atmosphere dynamics
   !! - Upper-atmosphere extrapolation
   !!
-  !! (Called in 'src/drivers/mo_atmo_nonhydrostatic: construct_atmo_nonhydrostatic')
+  !! (Called in 'src/upper_atmosphere/mo_upatmo_setup: upatmo_initialize')
   !!
-  SUBROUTINE configure_upatmo( n_dom_start,   & !in
-    &                          n_dom,         & !in
-    &                          p_patch,       & !in
-    &                          ldeepatmo,     & !in
-    &                          init_mode,     & !in
-    &                          iforcing,      & !in
-    &                          dtime,         & !in
-    &                          ndyn_substeps, & !in
-    &                          flat_height,   & !in
-    &                          msg_level,     & !in
-    &                          vct_a          ) !(opt)in
+  SUBROUTINE configure_upatmo( n_dom_start,            & !in
+    &                          n_dom,                  & !in
+    &                          p_patch,                & !in
+    &                          lrestart,               & !in
+    &                          ldeepatmo,              & !in
+    &                          lupatmo_phy,            & !in
+    &                          init_mode,              & !in
+    &                          iforcing,               & !in
+    &                          tc_exp_startdate,       & !in
+    &                          tc_exp_stopdate,        & !in
+    &                          start_time,             & !in
+    &                          end_time,               & !in
+    &                          dtime,                  & !in
+    &                          dt_rad_nwp,             & !in
+    &                          ndyn_substeps,          & !in
+    &                          flat_height,            & !in
+    &                          l_orbvsop87,            & !in
+    &                          cecc,                   & !in
+    &                          cobld,                  & !in
+    &                          clonp,                  & !in
+    &                          lyr_perp,               & !in
+    &                          yr_perp,                & !in
+    &                          model_base_dir,         & !in
+    &                          msg_level,              & !in
+    &                          timers_level,           & !in
+    &                          vct_a                   ) !(opt)in
 
     ! In/out variables
     INTEGER,            INTENT(IN) :: n_dom_start            ! Start index of domains
     INTEGER,            INTENT(IN) :: n_dom                  ! End index of domains
-    TYPE(t_patch),      INTENT(IN) :: p_patch(n_dom_start:)  ! Domain properties    
+    TYPE(t_patch),      INTENT(IN) :: p_patch(n_dom_start:)  ! Domain properties
+    LOGICAL,            INTENT(IN) :: lrestart               ! Switch for restart mode
     LOGICAL,            INTENT(IN) :: ldeepatmo              ! Switch for deep-atmosphere dynamics
+    LOGICAL,            INTENT(IN) :: lupatmo_phy(:)         ! (max_dom) Switch for upper-atmosphere physics in nwp-mode
     INTEGER,            INTENT(IN) :: init_mode              ! Initialization mode
-    INTEGER,            INTENT(IN) :: iforcing               ! Switch for physics package (nwp, echam etc.) 
+    INTEGER,            INTENT(IN) :: iforcing               ! Switch for physics package (NWP, ECHAM etc.) 
+    TYPE(datetime),     INTENT(IN) :: tc_exp_startdate       ! Experiment start date
+    TYPE(datetime),     INTENT(IN) :: tc_exp_stopdate        ! Experiment end date
+    REAL(wp),           INTENT(IN) :: start_time(:)          ! (max_dom) Time at which execution of domain starts
+    REAL(wp),           INTENT(IN) :: end_time(:)            ! (max_dom) Time at which execution of domain ends
     REAL(wp),           INTENT(IN) :: dtime                  ! Fast-physics/advective time step for primary domain
+    REAL(wp),           INTENT(IN) :: dt_rad_nwp(:)          ! Tendency update period for radiation under NWP forcing
     INTEGER,            INTENT(IN) :: ndyn_substeps          ! Number of dynamics' substeps per fast-physics time step
     REAL(wp),           INTENT(IN) :: flat_height            ! Below 'flat_height' grid layer interfaces follow topography
+    LOGICAL,            INTENT(IN) :: l_orbvsop87(:)         ! (max_dom) .TRUE. for VSOP87 orbit, .FALSE. for Kepler orbit
+    REAL(wp),           INTENT(IN) :: cecc(:)                ! (max_dom) Eccentricity  of  orbit
+    REAL(wp),           INTENT(IN) :: cobld(:)               ! (max_dom) Obliquity of Earth axis
+    REAL(wp),           INTENT(IN) :: clonp(:)               ! (max_dom) Long. of the perihelion
+    LOGICAL,            INTENT(IN) :: lyr_perp(:)            ! (max_dom) Switch for perpetuation of Earth orbit
+    INTEGER,            INTENT(IN) :: yr_perp(:)             ! (max_dom) Year, for which Earth orbit is perpetuated
+    CHARACTER(LEN=*),   INTENT(IN) :: model_base_dir         ! Path for input files
     INTEGER,            INTENT(IN) :: msg_level              ! Message level
-    REAL(wp), OPTIONAL, INTENT(IN) :: vct_a(:)               ! Nominal heights of grid layer interfaces
+    INTEGER,            INTENT(IN) :: timers_level           ! Control parameter for timer
+    REAL(wp), OPTIONAL, INTENT(IN) :: vct_a(:)               ! (nlev+1) Nominal heights of grid layer interfaces
 
     ! Local variables
-    INTEGER :: jg, jg_ordered, jg_ref
-    INTEGER :: nlev, nlevp1, nshift_total, n_dom_shift
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    REAL(wp) :: dt_grp_prevdom(iUpatmoGrpId%nitem)
+    INTEGER  :: jg, jg_ordered, jg_ref, jg_aux
+    INTEGER  :: nlev, nlevp1, nshift_total, n_dom_shift
+    LOGICAL  :: l_upatmo_phy
+    CHARACTER(len=*), PARAMETER ::  &
       &  routine = modname//':configure_upatmo'
 
     !---------------------------------------------------------
@@ -310,18 +241,15 @@ CONTAINS !......................................................................
 
     ! (We assume that the setup of 'p_patch' took already place.)
 
-    IF (.NOT. ALLOCATED(upatmo_config)) THEN
-      ! 'upatmo' should have been allocated in 'src/namelists/mo_upatmo_nml: check_upatmo'
-      CALL finish(TRIM(routine), "Check calling sequence: upatmo_config is not allocated.")
-    ELSEIF (.NOT. ANY((/0, 1/) == n_dom_start)) THEN
+    IF (.NOT. ANY((/0, 1/) == n_dom_start)) THEN
       ! For domain-dependent fields the max. range of allocation 
       ! with which we can reckon is '0:max_dom'
       !                              -
-      CALL finish(TRIM(routine), 'Something has changed regarding n_dom_start.' )
+      CALL finish(routine, 'Something has changed regarding n_dom_start.' )
     ELSEIF (.NOT. PRESENT(vct_a)) THEN
       ! For the setup of the upper-atmosphere extrapolation, we need 'vct_a', 
       ! and we take its absence as an indicator that it has not been allocated yet
-      CALL finish(TRIM(routine), 'vct_a still uninitialized.')
+      CALL finish(routine, 'vct_a still uninitialized.')
     ENDIF
 
     ! Some of the settings below (especially for the upper-atmosphere extrapolation) 
@@ -344,7 +272,7 @@ CONTAINS !......................................................................
       
       ! Shift of grid layer index, 
       ! to account for vertical nesting
-      IF (jg >= 1) THEN
+      IF (jg > 0) THEN
         nshift_total = p_patch(jg)%nshift_total
       ELSE
         ! 'nshift_total' is not initialized for 'jg = n_dom_start', 
@@ -359,22 +287,35 @@ CONTAINS !......................................................................
       IF ((jg < n_dom_start) .OR. (jg > n_dom)) THEN
         ! Some rudimentary checks of the reordering 
         ! of the domain sequence may be in order
-        CALL finish(TRIM(routine), "Domain index jg has unexpected value.")
+        CALL finish(routine, "Domain index jg has unexpected value.")
       ELSEIF ((jg_ordered == n_dom_start) .AND. (jg /= 1)) THEN
-        CALL finish(TRIM(routine), "First domain to be configured has to be jg=1.")
-      ELSEIF (.NOT. upatmo_config(jg)%l_status(istatus%checked)) THEN
+        CALL finish(routine, "First domain to be configured has to be jg=1.")
+      ELSEIF (.NOT. upatmo_config(jg)%l_status(iUpatmoStat%checked)) THEN
         ! (Just to make sure. Actually it should have been set to .true. 
         ! right after the allocation of 'upatmo_config')
-        CALL finish(TRIM(routine), "Check calling sequence: check_upatmo -> configure_upatmo.")  
+        CALL finish(routine, "Check calling sequence: check_upatmo -> configure_upatmo.")
       ELSEIF (.NOT. upatmo_config(jg)%exp%l_initicon_config) THEN
         ! For the final configuration of the upper-atmosphere extrapolation it is required 
         ! that the preliminary configuration in 'src/configure_model/mo_initicon_config' has taken place
-        CALL finish(TRIM(routine), "Check calling sequence: configure_initicon -> configure_upatmo.")
+        CALL finish(routine, "Check calling sequence: configure_initicon -> configure_upatmo.")
       ENDIF
 
       !-----------------------------------------------------
       !                   Configuration
       !-----------------------------------------------------
+
+      ! On several occasions we need the domain-specific value of dtime, 
+      ! but 'iforcing /= inwp', so that 'atm_phy_nwp_config(jg)%dt_fastphy' is not available. 
+      ! So we compute it here following its computation in 
+      ! 'src/configure_model/mo_atm_phy_nwp_config: configure_atm_phy_nwp'. 
+      ! A potential rescaling of 'dtime' with 'src/configure_model/mo_grid_config: grid_rescale_factor' 
+      ! took already place in 'src/shared/mo_time_management: compute_timestep_settings', 
+      ! which is called in 'src/configure_model/mo_nml_crosscheck: atm_crosscheck'.
+      upatmo_config(jg)%dt_fastphy = dtime / 2._wp**(p_patch(jg)%level-p_patch(1)%level)
+      
+      ! We take the opportunity, to compute the nominal dynamics time step
+      ! ("nominal", because 'ndyn_substeps' may change its value during runtime)
+      upatmo_config(jg)%dt_dyn_nom = upatmo_config(jg)%dt_fastphy / REAL(ndyn_substeps, wp)
       
       !---------------
       !   Dynamics
@@ -389,10 +330,59 @@ CONTAINS !......................................................................
       !    Physics
       !---------------
 
-      CALL configure_upatmo_physics( ldeepatmo         = ldeepatmo,             & !in
-        &                            iforcing          = iforcing,              & !in
-        &                            upatmo_dyn_config = upatmo_dyn_config(jg), & !in
-        &                            upatmo_config     = upatmo_config(jg)      ) !inout
+      IF (jg > 0) THEN 
+        l_upatmo_phy = lupatmo_phy(jg)
+        jg_aux       = jg
+      ELSE
+        ! Upper-atmosphere physics are not required 
+        ! on the radiation grid 'jg = 0'.
+        ! In addition, there is no entry available, since 'lupatmo_phy(1:max)'. 
+        l_upatmo_phy = .FALSE.
+        ! Likewise, input for 'l_orbvsop87', 'cecc', 'cobld', 'clonp', 'lyr_perp', 'yr_perp', 
+        ! 'start_time' and 'end_time' is only available for domains >= 1, so for 'jg = 0' 
+        ! we simply take the values from the primary domain (that should do no harm)
+        jg_aux = 1
+      ENDIF
+
+      ! Initialize update period for physics tendencies on previous domain for domain 1 (and 0). 
+      ! It is such that it should have no effect on the update period modification in 
+      ! 'src/upper_atmosphere/mo_upatmo_phy_config: configure_nwp_event' for domain 1.
+      ! (For the subsequent domains 'configure_upatmo_physics' will return 
+      ! the corresponding updates of 'dt_grp_prevdom'.)
+      IF (jg < 2) THEN
+        dt_grp_prevdom(:) = (2._wp + AINT(upatmo_phy_config(jg)%nwp_grp(:)%dt / upatmo_config(jg)%dt_fastphy)) * &
+          &                 upatmo_config(jg)%dt_fastphy
+      ENDIF
+
+      CALL configure_upatmo_physics( jg                      = jg,                                   & !in
+        &                            lupatmo_phy             = l_upatmo_phy,                         & !in
+        &                            ldeepatmo               = ldeepatmo,                            & !in
+        &                            ldeepatmo2phys          = upatmo_dyn_config(jg)%ldeepatmo2phys, & !in
+        &                            lconstgrav              = upatmo_config(jg)%dyn%l_constgrav,    & !in
+        &                            iforcing                = iforcing,                             & !in
+        &                            l_orbvsop87             = l_orbvsop87(jg_aux),                  & !in
+        &                            cecc                    = cecc(jg_aux),                         & !in
+        &                            cobld                   = cobld(jg_aux),                        & !in
+        &                            clonp                   = clonp(jg_aux),                        & !in
+        &                            lyr_perp                = lyr_perp(jg_aux),                     & !in
+        &                            yr_perp                 = yr_perp(jg_aux),                      & !in
+        &                            nlev                    = nlev,                                 & !in
+        &                            nshift_total            = nshift_total,                         & !in
+        &                            tc_exp_startdate        = tc_exp_startdate,                     & !in
+        &                            tc_exp_stopdate         = tc_exp_stopdate,                      & !in
+        &                            start_time              = start_time(jg_aux),                   & !in
+        &                            end_time                = end_time(jg_aux),                     & !in
+        &                            dtime                   = dtime,                                & !in
+        &                            dt_fastphy              = upatmo_config(jg)%dt_fastphy,         & !in
+        &                            dt_rad_nwp              = dt_rad_nwp(jg_aux),                   & !in
+        &                            dt_grp_prevdom          = dt_grp_prevdom,                       & !inout
+        &                            model_base_dir          = model_base_dir,                       & !in
+        &                            msg_level               = msg_level,                            & !in
+        &                            timers_level            = timers_level,                         & !in
+        &                            upatmo_phy_config       = upatmo_phy_config(jg),                & !inout                     
+        &                            upatmo_echam_phy_config = upatmo_config(jg)%echam_phy,          & !inout
+        &                            upatmo_nwp_phy_config   = upatmo_config(jg)%nwp_phy,            & !inout
+        &                            vct_a                   = vct_a                                 ) !(opt)in
 
       !---------------
       ! Extrapolation
@@ -405,7 +395,7 @@ CONTAINS !......................................................................
       ! Because of the consistency check within 'configure_upatmo_extrapolation', 
       ! the initialization of 'l_status' has to be done here
       CALL init_logical_1d( variable=upatmo_config(jg)%exp%l_status, value=.FALSE., &
-        &                   opt_ilist=(/istatus%checked/), opt_mask="list"          )
+        &                   opt_ilist=(/iUpatmoStat%checked/), opt_mask="list"      )
 
       IF (jg == jg_ref) THEN
         CALL configure_upatmo_extrapolation( jg                = jg,                    & !in
@@ -433,41 +423,40 @@ CONTAINS !......................................................................
       !---------------
       ! Miscellaneous
       !---------------
-      
-      ! On several occasions we need the domain-specific value of dtime, 
-      ! but 'iforcing /= inwp', so that 'atm_phy_nwp_config(jg)%dt_fastphy' is not available. 
-      ! So we compute it here following its computation in 
-      ! 'src/configure_model/mo_atm_phy_nwp_config: configure_atm_phy_nwp'. 
-      ! A potential rescaling of 'dtime' with 'src/configure_model/mo_grid_config: grid_rescale_factor' 
-      ! took already place in 'src/shared/mo_time_management: compute_timestep_settings', 
-      ! which is called in 'src/configure_model/mo_nml_crosscheck: atm_crosscheck'.
-      upatmo_config(jg)%dt_fastphy = dtime / 2._wp**(p_patch(jg)%level-p_patch(1)%level)
-      
-      ! We take the opportunity, to compute the nominal dynamics time step
-      ! ("nominal", because 'ndyn_substeps' may change its value during runtime)
-      upatmo_config(jg)%dt_dyn_nom = upatmo_config(jg)%dt_fastphy / REAL(ndyn_substeps, wp)
 
+      ! General purpose message output desired?
+      upatmo_config(jg)%l_status(iUpatmoStat%message) = msg_level >= imsg_thr%high
+
+      ! Timer monitoring desired?
+      upatmo_config(jg)%l_status(iUpatmoStat%timer) = timers_level > itmr_thr%med
+      
       ! 'upatmo_config' is allocated in any case, but not necessarily required
-      upatmo_config(jg)%l_status(istatus%required) = upatmo_config(jg)%dyn%l_status(istatus%required) .OR. &
-        &                                            upatmo_config(jg)%phy%l_status(istatus%required) .OR. &
-        &                                            upatmo_config(jg)%exp%l_status(istatus%required)
+      upatmo_config(jg)%l_status(iUpatmoStat%required) = upatmo_config(jg)%dyn%l_status(iUpatmoStat%required)       .OR. &
+        &                                                upatmo_config(jg)%echam_phy%l_status(iUpatmoStat%required) .OR. &
+        &                                                upatmo_config(jg)%nwp_phy%l_status(iUpatmoStat%required)   .OR. &
+        &                                                upatmo_config(jg)%exp%l_status(iUpatmoStat%required)
       
       ! Indicate that configuration has taken place
-      upatmo_config(jg)%l_status(istatus%configured) = upatmo_config(jg)%dyn%l_status(istatus%configured) .OR. &
-        &                                              upatmo_config(jg)%phy%l_status(istatus%configured) .OR. &
-        &                                              upatmo_config(jg)%exp%l_status(istatus%configured)
+      upatmo_config(jg)%l_status(iUpatmoStat%configured) = upatmo_config(jg)%dyn%l_status(iUpatmoStat%configured)       .OR. &
+        &                                                  upatmo_config(jg)%echam_phy%l_status(iUpatmoStat%configured) .OR. &
+        &                                                  upatmo_config(jg)%nwp_phy%l_status(iUpatmoStat%configured)   .OR. &
+        &                                                  upatmo_config(jg)%exp%l_status(iUpatmoStat%configured)
 
       !---------------
       !   Messages
       !---------------
       
-      IF (upatmo_config(jg)%l_status(istatus%required)) THEN
-        CALL print_message( jg,                & !in
-          &                 iforcing,          & !in
-          &                 nshift_total,      & !in
-          &                 msg_level,         & !in
-          &                 upatmo_config(jg), & !in
-          &                 vct_a              ) !(opt)in
+      IF (upatmo_config(jg)%l_status(iUpatmoStat%required)) THEN
+        CALL print_config( jg,                    & !in
+          &                n_dom,                 & !in
+          &                iforcing,              & !in
+          &                nshift_total,          & !in
+          &                lrestart,              & !in
+          &                l_upatmo_phy,          & !in
+          &                msg_level,             & !in
+          &                upatmo_phy_config(jg), & !in
+          &                upatmo_config(jg),     & !in
+          &                vct_a                  ) !(opt)in
       ENDIF
       
     ENDDO  !jg_ordered
@@ -490,10 +479,6 @@ CONTAINS !......................................................................
     TYPE(t_upatmo_dyn_config), INTENT(IN)    :: upatmo_dyn_config ! Namelist parameters
     TYPE(t_upatmo_config),     INTENT(INOUT) :: upatmo_config     ! Upper-atmosphere configuration
 
-    ! Local variables
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = modname//':configure_upatmo_dynamics'
-
     !---------------------------------------------------------
 
     !-----------------------------------------------------
@@ -504,7 +489,7 @@ CONTAINS !......................................................................
     upatmo_config%dyn%l_centrifugal = .FALSE.  ! No explicit centrifugal acceleration
     upatmo_config%dyn%l_initonzgpot = .FALSE.  ! Initial data are living on geometric heights 
     CALL init_logical_1d( variable=upatmo_config%dyn%l_status, value=.FALSE., &
-      &                   opt_ilist=(/istatus%checked/), opt_mask="list"      )
+      &                   opt_ilist=(/iUpatmoStat%checked/), opt_mask="list"  )
 
     !-----------------------------------------------------
     !                   Configuration
@@ -533,78 +518,12 @@ CONTAINS !......................................................................
       &                                 init_mode == MODE_COMBINED              )
     
     ! 'upatmo_config' is allocated in any case, but not necessarily required
-    upatmo_config%dyn%l_status(istatus%required) = ldeepatmo
+    upatmo_config%dyn%l_status(iUpatmoStat%required) = ldeepatmo
     
     ! Indicate that configuration has taken place
-    upatmo_config%dyn%l_status(istatus%configured) = .TRUE.
+    upatmo_config%dyn%l_status(iUpatmoStat%configured) = .TRUE.
 
   END SUBROUTINE configure_upatmo_dynamics
-
-  !====================================================================================
-
-  !>
-  !! Configure (upper-atmosphere) physics.
-  !!
-  SUBROUTINE configure_upatmo_physics( ldeepatmo,         & !in
-    &                                  iforcing,          & !in
-    &                                  upatmo_dyn_config, & !in
-    &                                  upatmo_config      ) !inout
-
-    ! In/out variables
-    LOGICAL,                   INTENT(IN)    :: ldeepatmo         ! Main deep-atmosphere switch
-    INTEGER,                   INTENT(IN)    :: iforcing          ! Switch for physics package (nwp, echam etc.) 
-    TYPE(t_upatmo_dyn_config), INTENT(IN)    :: upatmo_dyn_config ! Namelist parameters
-    TYPE(t_upatmo_config),     INTENT(INOUT) :: upatmo_config     ! Upper-atmosphere configuration
-
-    ! Local variables
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = modname//':configure_upatmo_physics'
-
-    !---------------------------------------------------------
-
-    !-----------------------------------------------------
-    !         Initialization with default values
-    !-----------------------------------------------------
-
-    upatmo_config%phy%l_constgrav   = .TRUE.  ! Constant gravitational acceleration in physics interface 
-                                              ! (applies to ECHAM-physics only!)
-    upatmo_config%phy%l_shallowatmo = .TRUE.  ! Shallow-atmosphere metrics in physics interface 
-                                              ! (applies to ECHAM-physics only!)
-    ! Initialize the status switches, 
-    ! but skip 'istatus%checked', so as not to overwrite 
-    ! its assignment in 'src/namelists/mo_upatmo_nml: check_upatmo'
-    CALL init_logical_1d( variable=upatmo_config%phy%l_status, value=.FALSE., &
-      &                   opt_ilist=(/istatus%checked/), opt_mask="list"      )
-
-    !-----------------------------------------------------
-    !                   Configuration
-    !-----------------------------------------------------
-
-    ! Should the input fields to the physics parameterizations 
-    ! be modified for the deep atmosphere?
-    ! Note: this applies to ECHAM-physics only
-    IF (iforcing == iecham) THEN
-      ! Gravitational acceleration:
-      upatmo_config%phy%l_constgrav = MERGE( upatmo_config%dyn%l_constgrav,   & 
-        &                                    .TRUE.,                          & 
-        &                                    upatmo_dyn_config%ldeepatmo2phys ) 
-      ! Metrics (concerns especially the cell volume):
-      upatmo_config%phy%l_shallowatmo = MERGE( .NOT. ldeepatmo,                 &
-        &                                      .TRUE.,                          &
-        &                                      upatmo_dyn_config%ldeepatmo2phys )
-    ELSE  ! (E.g., iforcing == inwp)
-      ! Adopt the settings for the dynamics in any case
-      upatmo_config%phy%l_constgrav   = upatmo_config%dyn%l_constgrav
-      upatmo_config%phy%l_shallowatmo = .NOT. ldeepatmo
-    ENDIF  !IF (iforcing == iecham)
-    
-    ! 'upatmo_config' is allocated in any case, but not necessarily required
-    upatmo_config%phy%l_status(istatus%required) = ldeepatmo
-    
-    ! Indicate that configuration has taken place
-    upatmo_config%phy%l_status(istatus%configured) = .TRUE.
-    
-  END SUBROUTINE configure_upatmo_physics
 
   !====================================================================================
 
@@ -637,7 +556,7 @@ CONTAINS !......................................................................
     INTEGER :: jk, jks
     LOGICAL :: l_found
     LOGICAL :: l_present_ref, l_configured_ref, l_expol_ref
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &  routine = modname//':configure_upatmo_extrapolation'
 
     !---------------------------------------------------------
@@ -652,11 +571,11 @@ CONTAINS !......................................................................
     !-----------------------------------------------------
 
     ! Actually, vct_a is only optional, because it is already optional one level higher
-    IF (.NOT. PRESENT(vct_a)) CALL finish(TRIM(routine), 'vct_a has to be present.')
+    IF (.NOT. PRESENT(vct_a)) CALL finish(routine, 'vct_a has to be present.')
 
     IF (PRESENT(opt_upatmo_config_ref)) THEN
       l_present_ref    = .TRUE.
-      l_configured_ref = opt_upatmo_config_ref%exp%l_status(istatus%configured)
+      l_configured_ref = opt_upatmo_config_ref%exp%l_status(iUpatmoStat%configured)
       l_expol_ref      = opt_upatmo_config_ref%exp%l_expol
     ELSE
       l_present_ref    = .FALSE.
@@ -667,11 +586,11 @@ CONTAINS !......................................................................
     IF (l_present_ref .EQV. (jg == jg_ref)) THEN
       ! The reference configuration has to be present, 
       ! if the current domain is not the reference domain, but only then
-      CALL finish(TRIM(routine), "Presence/absence of optional reference has to coincide with jg/=jg_ref/jg=jg_ref.")
+      CALL finish(routine, "Presence/absence of optional reference has to coincide with jg/=jg_ref/jg=jg_ref.")
     ELSEIF (l_present_ref .AND. (.NOT. l_configured_ref)) THEN
       ! The reference domain should be the first one, 
       ! which enters this subroutine
-      CALL finish(TRIM(routine), "Optional reference is present, but not yet configured.")
+      CALL finish(routine, "Optional reference is present, but not yet configured.")
     ENDIF
 
     !-----------------------------------------------------
@@ -716,7 +635,7 @@ CONTAINS !......................................................................
           EXIT
         ENDIF
       ENDDO  !jk
-      IF (.NOT. l_found) CALL finish(TRIM(routine), 'Could not find nexpollev.')
+      IF (.NOT. l_found) CALL finish(routine, 'Could not find nexpollev.')
       ! Just to make sure
       upatmo_config%exp%nexpollev = MIN( MAX( 1, upatmo_config%exp%nexpollev ), nlev )
     ELSEIF (upatmo_config%exp%l_expol .AND. (jg/=jg_ref)) THEN
@@ -728,10 +647,10 @@ CONTAINS !......................................................................
     ENDIF  !IF (upatmo_config%exp%l_expol .AND. (jg==jg_ref))
     
     ! 'upatmo_config' is allocated in any case, but not necessarily required
-    upatmo_config%exp%l_status(istatus%required) = upatmo_config%exp%l_expol
+    upatmo_config%exp%l_status(iUpatmoStat%required) = upatmo_config%exp%l_expol
     
     ! Indicate that configuration has taken place
-    upatmo_config%exp%l_status(istatus%configured) = .TRUE.
+    upatmo_config%exp%l_status(iUpatmoStat%configured) = .TRUE.
     
   END SUBROUTINE configure_upatmo_extrapolation
 
@@ -740,26 +659,37 @@ CONTAINS !......................................................................
   !>
   !! Print message on upper-atmosphere configuration.
   !!
-  SUBROUTINE print_message( jg,            & !in
-    &                       iforcing,      & !in
-    &                       nshift_total,  & !in
-    &                       msg_level,     & !in
-    &                       upatmo_config, & !in
-    &                       vct_a          ) !(opt)in
+  SUBROUTINE print_config( jg,                & !in
+    &                      n_dom,             & !in
+    &                      iforcing,          & !in
+    &                      nshift_total,      & !in
+    &                      lrestart,          & !in
+    &                      lupatmo_phy,       & !in
+    &                      msg_level,         & !in
+    &                      upatmo_phy_config, & !in
+    &                      upatmo_config,     & !in
+    &                      vct_a              ) !(opt)in
 
     ! In/out variables
-    INTEGER,                         INTENT(IN) :: jg            ! Domain index
-    INTEGER,                         INTENT(IN) :: iforcing      ! Switch for physics package (nwp, echam etc.)  
-    INTEGER,                         INTENT(IN) :: nshift_total  ! Shift of vertical grid index for vertical nesting
-    INTEGER,                         INTENT(IN) :: msg_level     ! Message level
-    TYPE(t_upatmo_config),           INTENT(IN) :: upatmo_config ! Upper-atmosphere configuration
-    REAL(wp),              OPTIONAL, INTENT(IN) :: vct_a(:)      ! Nominal heights of grid layer interfaces
+    INTEGER,                         INTENT(IN)    :: jg                ! Domain index
+    INTEGER,                         INTENT(IN)    :: n_dom             ! Number of domains
+    INTEGER,                         INTENT(IN)    :: iforcing          ! Switch for physics package 
+                                                                        ! (NWP, ECHAM etc.)  
+    INTEGER,                         INTENT(IN)    :: nshift_total      ! Shift of vertical grid index 
+    LOGICAL,                         INTENT(IN)    :: lrestart          ! Switch for restart mode
+    LOGICAL,                         INTENT(IN)    :: lupatmo_phy       ! Switch for upper-atmosphere physics (NWP)
+                                                                        ! for vertical nesting
+    INTEGER,                         INTENT(IN)    :: msg_level         ! Message level
+    TYPE(t_upatmo_phy_config),       INTENT(IN)    :: upatmo_phy_config ! Upper-atmosphere physics configuration 
+                                                                        ! with namelist settings
+    TYPE(t_upatmo_config),           INTENT(INOUT) :: upatmo_config     ! Upper-atmosphere configuration
+    REAL(wp),              OPTIONAL, INTENT(IN)    :: vct_a(:)          ! Nominal heights of
+                                                                        ! grid layer interfaces
 
     ! Local variables
     LOGICAL :: l_onlyPrimDom
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: msg_prefix
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = modname//':print_message'
+    CHARACTER(LEN=*), PARAMETER ::  &
+      &  routine = modname//':print_config'
 
     !---------------------------------------------------------
 
@@ -771,25 +701,29 @@ CONTAINS !......................................................................
     !-----------------------------------------------------
 
     ! Deep atmosphere:
-    IF (l_onlyPrimDom .AND. upatmo_config%dyn%l_status(istatus%required)) THEN
-      CALL message(TRIM(routine), "Deep-atmosphere modification of non-hydrostatic atmosphere switched on.")
-      CALL message(TRIM(routine), "Please note: for efficiency reasons and code economy"// &
+    IF (l_onlyPrimDom .AND. upatmo_config%dyn%l_status(iUpatmoStat%required)) THEN
+      CALL message(routine, "Deep-atmosphere modification of non-hydrostatic atmosphere switched on.")
+      CALL message(routine, "Please note: for efficiency reasons and code economy"// &
         & " the deep-atmosphere modification of the dynamical core disregards:")
       CALL message("", " - horizontal variation of grid layer heights due to terrain")
       CALL message("", " - any kind of diffusion, damping and the like (including LES physics)")
       CALL message("", " - special numerical 'tricks' beyond the main dynamics line,"//&
         & " such as sub-stepping for tracer advection")
       CALL message("", " - the feedback procedures for state relaxation between domains")
-      IF (iforcing /= inoforcing) CALL message(TRIM(routine), "Please note: no physics parameterization"// &
+      IF (iforcing /= inoforcing) CALL message(routine, "Please note: no physics parameterization"// &
         & " is modified for the deep atmosphere!")
     ENDIF
 
     ! Miscellaneous:
-    IF (l_onlyPrimDom .AND. upatmo_config%l_status(istatus%required)) THEN
-      CALL message(TRIM(routine), "(Info: most upper-atmosphere-related message output requires msg_level >= " & 
-        & //TRIM(int2string(imsg_thr%high))//")")
-      CALL message(TRIM(routine), "(Info: most upper-atmosphere-related timers require timers_level >= " &
-        & //TRIM(int2string(itmr_thr%med))//")")
+    IF (l_onlyPrimDom .AND. upatmo_config%l_status(iUpatmoStat%required)) THEN
+      WRITE (message_text, '(a,i0,a)') &
+        "(Info: most upper-atmosphere-related message output requires &
+        &msg_level >= ", imsg_thr%high, ")"
+      CALL message(routine, message_text)
+      WRITE (message_text, '(a,i0,a)') &
+        "(Info: most upper-atmosphere-related timers require timers_level >= ",&
+        itmr_thr%med, ")"
+      CALL message(routine, message_text)
     ENDIF
 
     IF (msg_level >= imsg_thr%low) THEN
@@ -811,162 +745,70 @@ CONTAINS !......................................................................
           !-----------------------------------------------------
 
           ! Deep atmosphere:
-          IF (upatmo_config%dyn%l_status(istatus%required)) THEN
-            msg_prefix = 'upatmo_config('//TRIM(int2string(jg))//')%dyn%'
-            ! 
-            WRITE(message_text,'(a)') TRIM(msg_prefix)//'l_constgrav: '// &
-              & TRIM(logical2string(upatmo_config%dyn%l_constgrav))
-            CALL message(TRIM(routine), TRIM(message_text))
+          IF (upatmo_config%dyn%l_status(iUpatmoStat%required)) THEN
+#define msg_prefix 'upatmo_config(', jg, ')%dyn%'
             !
-            WRITE(message_text,'(a)') TRIM(msg_prefix)//'l_centrifugal: '// &
-              & TRIM(logical2string(upatmo_config%dyn%l_centrifugal))
-            CALL message(TRIM(routine), TRIM(message_text))
+            WRITE (message_text, '(a,i0,2a,l1)') &
+              msg_prefix, 'l_constgrav: ', upatmo_config%dyn%l_constgrav
+            CALL message(routine, message_text)
             !
-            WRITE(message_text,'(a)') TRIM(msg_prefix)//'l_initonzgpot: '// &
-              & TRIM(logical2string(upatmo_config%dyn%l_initonzgpot))
-            CALL message(TRIM(routine), TRIM(message_text))
-          ENDIF
-
-          ! Physics:
-          IF (upatmo_config%phy%l_status(istatus%required)) THEN
-            msg_prefix = 'upatmo_config('//TRIM(int2string(jg))//')%phy%'
+            WRITE (message_text, '(a,i0,2a,l1)') &
+              msg_prefix, 'l_centrifugal: ', upatmo_config%dyn%l_centrifugal
+            CALL message(routine, message_text)
             !
-            WRITE(message_text,'(a)') TRIM(msg_prefix)//'l_constgrav: '// &
-              & TRIM(logical2string(upatmo_config%phy%l_constgrav))
-            CALL message(TRIM(routine), TRIM(message_text))
-            !
-            WRITE(message_text,'(a)') TRIM(msg_prefix)//'l_shallowatmo: '// &
-              & TRIM(logical2string(upatmo_config%phy%l_shallowatmo))
-            CALL message(TRIM(routine), TRIM(message_text))
+            WRITE (message_text, '(a,i0,2a,l1)') &
+              msg_prefix, 'l_initonzgpot: ', upatmo_config%dyn%l_initonzgpot
+            CALL message(routine, message_text)
+#undef msg_prefix
           ENDIF
 
           ! Upper-atmosphere extrapolation:
-          IF (upatmo_config%exp%l_status(istatus%required) .AND. PRESENT(vct_a)) THEN
-            msg_prefix = 'upatmo-expol('//TRIM(int2string(jg))//'): '
-            WRITE(message_text,'(a)') TRIM(msg_prefix)//'nexpollev: '// &
-              & TRIM(int2string(upatmo_config%exp%nexpollev))
-            CALL message(TRIM(routine), TRIM(message_text))
-            WRITE(message_text,'(a)') TRIM(msg_prefix)//'interface height above which extrapolation '// &
-              & 'potentially takes place: '//                                                           &
-              & TRIM(real2string(vct_a(upatmo_config%exp%nexpollev + nshift_total)))
-            CALL message(TRIM(routine), TRIM(message_text))
+          IF (upatmo_config%exp%l_status(iUpatmoStat%required) .AND. PRESENT(vct_a)) THEN
+#define msg_prefix 'upatmo-expol(', jg, '): '
+            WRITE (message_text, '(a,i0,2a,i0)') &
+              msg_prefix, 'nexpollev: ', upatmo_config%exp%nexpollev
+            CALL message(routine, message_text)
+            WRITE (message_text, '(a,i0,2a,g32.5)') &
+              msg_prefix, 'interface height above which extrapolation &
+              &potentially takes place: ', &
+              vct_a(upatmo_config%exp%nexpollev + nshift_total)
+            CALL message(routine, message_text)
+#undef msg_prefix
           ENDIF
 
         ENDIF  !imsg_thr%high
       ENDIF  !imsg_thr%med
     ENDIF  !imsg_thr%low
 
-  END SUBROUTINE print_message
+    ! Physics:
+    CALL print_config_upatmo_physics( jg                      = jg,                      & !in
+      &                               n_dom                   = n_dom,                   & !in
+      &                               iforcing                = iforcing,                & !in
+      &                               lrestart                = lrestart,                & !in
+      &                               lupatmo_phy             = lupatmo_phy,             & !in
+      &                               msg_level               = msg_level,               & !in
+      &                               upatmo_phy_config       = upatmo_phy_config,       & !in
+      &                               upatmo_echam_phy_config = upatmo_config%echam_phy, & !in
+      &                               upatmo_nwp_phy_config   = upatmo_config%nwp_phy    ) !inout
 
-  !====================================================================================
-
-  !>
-  !! Initialize logical 1d-array.
-  !! (Introduced, because 'src/shared/mo_fortran_tools: init_contiguous_l' 
-  !! does not suit our purposes.)
-  !!
-  SUBROUTINE init_logical_1d( variable,   & !inout
-    &                         value,      & !in
-    &                         opt_ilist,  & !optin
-    &                         opt_istart, & !optin
-    &                         opt_mask    ) !optin
-    ! In/out variables
-    LOGICAL,                    INTENT(INOUT) :: variable(:)  ! Logical array to be assigned with 'value'
-    LOGICAL,                    INTENT(IN)    :: value         
-    INTEGER,          OPTIONAL, INTENT(IN)    :: opt_ilist(:) ! Optional list with indices of 'variable' 
-                                                              ! that shall or shall not be assigned with 'value'. 
-                                                              ! The indices are assumed to be 
-                                                              ! in '[opt_istart, opt_istart+size(variable)-1]', 
-                                                              ! if present, or in '[1, SIZE(variable)]' otherwise.
-    INTEGER,          OPTIONAL, INTENT(IN)    :: opt_istart   ! Optional input, if "true" index range 
-                                                              ! of 'variable' does not start with 1
-    CHARACTER(LEN=*), OPTIONAL, INTENT(IN)    :: opt_mask     ! "list" -> those indices of 'variable' stored 
-                                                              ! in 'opt_ilist' are not assigned with 'value'
-                                                              ! "complement" -> those indices of 'variable' 
-                                                              ! not stored in 'opt_ilist' are not assigned with 'value'. 
-                                                              ! The case that 'opt_ilist' is present, 
-                                                              ! while 'opt_mask' is absent, is interpreted 
-                                                              ! as 'opt_mask = "list"'.
-
-    ! Local variables
-    LOGICAL, ALLOCATABLE :: mask(:)
-    LOGICAL :: lmask
-    INTEGER :: varsize, istart, iend, ishift, jloop, istat
-    INTEGER, PARAMETER :: MASKLEN = 20
-    CHARACTER(LEN=MASKLEN), PARAMETER :: mask_list       = "list"
-    CHARACTER(LEN=MASKLEN), PARAMETER :: mask_complement = "complement"
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = modname//':init_logical_1d'
-
-    !---------------------------------------------------------
-
-    varsize = SIZE(variable)
-
-    IF (PRESENT(opt_istart)) THEN
-      istart = opt_istart
-    ELSE
-      istart = 1
-    ENDIF
-
-    iend   = istart + varsize - 1
-    ishift = 1 - istart
-
-    IF (PRESENT(opt_ilist)) THEN
-      lmask = .TRUE.
-      IF ( MINVAL(opt_ilist) < istart .OR. &
-        &  MAXVAL(opt_ilist) > iend        ) THEN
-        CALL finish(TRIM(routine), "Index in opt_ilist outside index range of variable.")
-      ENDIF
-      ALLOCATE(mask(varsize), STAT=istat)
-      IF (istat /= SUCCESS) CALL finish(TRIM(routine), "Allocation of mask failed.")
-
-      IF (PRESENT(opt_mask)) THEN
-        SELECT CASE(TRIM(opt_mask))
-        CASE(TRIM(mask_list))
-          mask(:) = .FALSE.
-        CASE(TRIM(mask_complement))
-          mask(:) = .TRUE.
-        CASE default
-          CALL finish(TRIM(routine), "Invalid opt_mask.")
-        END SELECT
-      ELSE
-        mask(:) = .FALSE.
-      ENDIF
-
-      DO jloop = 1, SIZE(opt_ilist)
-        mask(opt_ilist(jloop) - ishift) = .NOT. mask(opt_ilist(jloop) - ishift)
-      ENDDO
-    ELSE
-      lmask = .FALSE.
-    ENDIF
-    
-    IF (lmask) THEN
-      DO jloop = 1, varsize
-        IF (.NOT. mask(jloop)) variable(jloop) = value
-      ENDDO
-    ELSE
-      DO jloop = 1, varsize
-        variable(jloop) = value
-      ENDDO
-    ENDIF
-
-    IF (lmask) THEN
-      DEALLOCATE(mask, STAT=istat)
-      IF (istat /= SUCCESS) CALL finish(TRIM(routine), "Deallocation of mask failed.")
-    ENDIF
-
-  END SUBROUTINE init_logical_1d
+  END SUBROUTINE print_config
 
   !====================================================================================
 
   !>
   !! Destruct upper-atmosphere configuration.
   !!
-  SUBROUTINE destruct_upatmo() 
+  SUBROUTINE destruct_upatmo( n_dom_start, & !in
+    &                         n_dom        ) !in
+
+    ! In/out variables
+    INTEGER, INTENT(IN) :: n_dom_start ! Start index of domains
+    INTEGER, INTENT(IN) :: n_dom       ! End index of domains
 
     ! Local variables
+    INTEGER :: jg
     INTEGER :: istat
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &  routine = modname//':destruct_upatmo'
 
     !---------------------------------------------------------
@@ -974,10 +816,231 @@ CONTAINS !......................................................................
     ! Deallocate upatmo_config
     ! (Allocated in 'src/namelists/mo_upatmo_nml: check_upatmo')
     IF (ALLOCATED(upatmo_config)) THEN
+      ! Deallocate the event management variables, if required
+      DO jg = n_dom_start, n_dom
+        IF (upatmo_config(jg)%nwp_phy%l_phy_stat(iUpatmoPrcStat%enabled)) THEN
+          CALL upatmo_config(jg)%nwp_phy%event_mgmt_grp%finalize()
+        ENDIF
+        IF (upatmo_config(jg)%nwp_phy%l_extdat_stat(iUpatmoExtdatStat%required)) THEN
+          CALL upatmo_config(jg)%nwp_phy%event_mgmt_extdat%finalize()
+        ENDIF
+      ENDDO  !jg
       DEALLOCATE(upatmo_config, STAT=istat)
-      IF (istat /= SUCCESS) CALL finish(TRIM(routine), "Deallocation of upatmo_config failed.")
+      IF (istat /= SUCCESS) CALL finish(routine, "Deallocation of upatmo_config failed.")
     ENDIF
 
   END SUBROUTINE destruct_upatmo
+
+  !====================================================================================
+
+  !>
+  !! Check for conflicts with other namelist settings.
+  !!
+  SUBROUTINE check_upatmo( n_dom_start,           & !in
+    &                      n_dom,                 & !in
+    &                      iequations,            & !in
+    &                      iforcing,              & !in
+    &                      ldeepatmo,             & !in
+    &                      lupatmo_phy,           & !in
+    &                      is_plane_torus,        & !in
+    &                      l_limited_area,        & !in
+    &                      lart,                  & !in
+    &                      ivctype,               & !in
+    &                      flat_height,           & !in
+    &                      itype_vert_expol,      & !in
+    &                      ltestcase,             & !in
+    &                      nh_test_name,          & !in
+    &                      init_mode,             & !in
+    &                      inwp_turb,             & !in
+    &                      inwp_radiation)          !in
+
+    ! In/out variables
+    INTEGER,                               INTENT(IN)    :: n_dom_start            ! Start index of domains
+    INTEGER,                               INTENT(IN)    :: n_dom                  ! End index of domains
+    INTEGER,                               INTENT(IN)    :: iequations             ! Switch for model equations 
+                                                                                   ! (non-hydrostatic etc.)
+    INTEGER,                               INTENT(IN)    :: iforcing               ! Switch for physics package 
+                                                                                   ! (nwp, echam etc.)  
+    LOGICAL,                               INTENT(IN)    :: ldeepatmo              ! Switch for deep-atmosphere dynamics
+    LOGICAL,                               INTENT(IN)    :: lupatmo_phy(:)         ! Switch for upper-atmosphere physics
+                                                                                   ! in nwp-mode
+    LOGICAL,                               INTENT(IN)    :: is_plane_torus         ! Switch for torus mode
+    LOGICAL,                               INTENT(IN)    :: l_limited_area         ! Switch for limited-area mode
+    LOGICAL,                               INTENT(IN)    :: lart                   ! Switch for ART interface
+    INTEGER,                               INTENT(IN)    :: ivctype                ! Type of vertical grid (SLEVE etc.)
+    REAL(wp),                              INTENT(IN)    :: flat_height            ! Below 'flat_height' grid layer 
+                                                                                   ! interfaces follow topography
+    INTEGER,                               INTENT(IN)    :: itype_vert_expol       ! Type of vertical extrapolation 
+                                                                                   ! of initial atmosphere state
+    LOGICAL,                               INTENT(IN)    :: ltestcase              ! Switch for test case mode
+    CHARACTER(LEN=*),                      INTENT(IN)    :: nh_test_name           ! Test case name
+    INTEGER,                               INTENT(IN)    :: init_mode              ! Initialization mode 
+    INTEGER,                               INTENT(IN)    :: inwp_turb(:)           ! Switch for turbulence scheme (NWP)
+    INTEGER,                               INTENT(IN)    :: inwp_radiation(:)      ! Switch for radiation scheme (NWP)
+
+    ! Local variables
+    INTEGER :: jg, istat
+    CHARACTER(len=*), PARAMETER ::  &
+      &  routine = modname//':check_upatmo'
+
+    !------------------------------------------------
+
+    !---------------
+    !    Physics
+    !---------------
+
+    IF (lupatmo_phy(1)) THEN 
+      
+      ! If upper-atmosphere physics are switched on for the NWP-mode ...
+      
+      IF (iforcing /= inwp) THEN
+        ! ... the NWP-mode should be switched on
+        WRITE (message_text, '(a,i0)') "nwp_phy_nml: lupatmo_phy only &
+          &available, if run_nml: iforcing = inwp = ", inwp
+        CALL finish(routine, message_text)
+      ELSEIF (.NOT. ANY((/MODE_DWDANA, MODE_IFSANA, MODE_COMBINED/) == init_mode)) THEN
+        ! ... only initialization with IFS or DWD analyses is allowed
+        ! (it has not yet been figured out, how to include the upper-atmosphere physics into the IAU-infrastructure)
+        WRITE (message_text, '(3(a,i0))') "NWP + upper-atmosphere physics &
+          &exclusively allowed for MODE_DWDANA = ", MODE_DWDANA, &
+          ", MODE_IFSANA = ", MODE_IFSANA, " and MODE_COMBINED = ",MODE_COMBINED
+        CALL finish(routine, message_text)
+      ENDIF
+
+      ! Domain-wise checks
+      DO jg = 1, n_dom
+        ! A turbulence model has to be switched on (otherwise upper-atmosphere wind tendencies will not be accumulated)
+        IF (lupatmo_phy(jg) .AND. inwp_turb(jg) == 0) THEN
+          WRITE (message_text, '(a,i0)') &
+            "Upper-atmosphere physics require inwp_turb > 0 in dom ", jg
+          CALL finish(routine, message_text)
+        ENDIF
+        ! Some diagnostic variables, such as the cosine of the solar zenith angle, are computed by 
+        ! the 'standard' radiation schemes, and they are required by the upper-atmosphere radiation schemes as well, 
+        ! so we have to make sure that some standard scheme is switched on
+        IF (lupatmo_phy(jg) .AND. inwp_radiation(jg) == 0) THEN
+          WRITE (message_text, '(a,i0)') &
+            "Upper-atmosphere physics require inwp_radiation > 0 in dom ", jg
+          CALL finish(routine, message_text)
+        ENDIF
+      ENDDO  !jg
+
+      ! ... OpenACC-parallelization is not available in combination with upper-atmosphere physics in NWP mode
+#ifdef _OPENACC
+      CALL finish(routine, "Upper-atmosphere physics (NWP) are not available in combination with Open-ACC.")
+#endif
+
+    ELSEIF (ANY(lupatmo_phy(2:max_dom))) THEN
+
+      ! Just to be on the safe side:
+      ! if 'lupatmo_phy' is switched off on dom 1, this should hold for all other doms > 1. 
+      ! Skipping domains - for instance switch on domain 1, switch off domain 2, switch on domain 3 - 
+      ! is not possible for the time being. This is because 'lupatmo_phy' has only two states, 
+      ! so that domain skipping cannot be implemented into 'src/namelists/mo_nwp_phy_nml' 
+      ! in a way comparable to the integer switches, such as 'inwp_satad'.
+      CALL finish(routine, "Something is wrong with setting of lupatmo_phy in mo_nwp_phy_nml.")
+
+    ENDIF    
+
+    !---------------
+    !   Dynamics
+    !---------------  
+
+    IF (ldeepatmo) THEN
+
+      ! If deep-atmosphere dynamics have been switched on ...
+      IF (iequations /= inh_atmosphere) THEN
+        ! ... only the non-hydrostatic set of equations is allowed
+        CALL finish(routine, &
+          & "Deep-atmosphere configuration is not available for other than the non-hydrostatic equations.")
+      ELSEIF(.NOT. ANY((/inoforcing, inwp, iecham/) == iforcing)) THEN
+        ! ... only no physics forcing, ECHAM forcing or NWP forcing are allowed
+        WRITE (message_text, '(3(a,i0),a)') "Deep-atmosphere configuration is &
+          &not available for all forcings but iforcing = ", inoforcing, &
+          ', or ', iecham, ', or ', inwp, '.'
+        CALL finish(routine, message_text)
+      ELSEIF (ltestcase .AND. (.NOT. (nh_test_name == 'dcmip_bw_11' .OR. nh_test_name == 'lahade'))) THEN
+        ! ... most test cases are not available for the time being
+        ! (only the baroclinic wave test case of Ullrich et al. (2014),
+        ! and the lahade-testcase are currently intended to test the deep-atmosphere equations)
+        CALL finish(routine, &
+          & "Deep-atmosphere configuration is not available for all test cases but dcmip_bw_11 and lahade.")
+      ELSEIF (is_plane_torus) THEN 
+        ! ... the torus configuration is not available for the time being (-> no spherical geometry)
+        CALL finish(routine, &
+          & "Deep-atmosphere configuration is not available in combination with the torus mode.")
+      ENDIF
+
+      ! ... the limited-area mode requires a warning for the time being
+      IF (l_limited_area) THEN 
+        CALL message(routine, "WARNING, are the deep-atmosphere dynamics really necessary,"// &
+          & " and consistent with the driving model?")
+      ENDIF
+
+      ! ... a run in combination with ART necessitates at least a warning for the time being
+      IF (lart) THEN 
+        CALL message(routine, "WARNING, (dynamical) cross-consistency/compatibility of ART"// &
+          & " in combination with the deep atmosphere has not been checked!")
+      ENDIF
+
+      ! ... the computation of the output variable 'potential vorticity' is not modified 
+      ! for the deep atmosphere for the time being
+      IF (is_variable_in_output(var_name="pv")) THEN
+        CALL message(routine,'WARNING, PV-computation is not modified for deep atmosphere!')
+      ENDIF
+
+      ! ... OpenACC-parallelization is not available in combination with the deep-atmosphere configuration
+#ifdef _OPENACC
+      CALL finish(routine, "Deep-atmosphere configuration is not available in combination with Open-ACC.")
+#endif
+
+    ENDIF  !IF (ldeepatmo)
+
+    !---------------
+    ! Extrapolation
+    !---------------
+
+    IF (itype_vert_expol == ivexpol%upatmo) THEN
+
+      IF ((ivctype == 2 .OR. ivctype == 12) .AND. &
+        & ANY(upatmo_exp_config(:)%expol_start_height < flat_height)) THEN
+        ! Upper-atmosphere extrapolation: start height above which extrapolation takes place 
+        ! should not lie below 'flat_height'
+        CALL finish(routine, &
+          & "Upper-atmosphere extrapolation: start height has to be above flat_height.")
+      ELSEIF (l_limited_area) THEN
+        ! This type of extrapolation is not intended for the limited-area mode
+        WRITE (message_text, '(a,i0)') &
+          "The limited-area mode requires: itype_vert_expol = ", ivexpol%lin
+        CALL finish(routine, message_text)
+      ENDIF
+
+    ENDIF  !IF (itype_vert_expol == ivexpol%upatmo)
+
+    !---------------
+    ! Miscellaneous
+    !---------------
+
+    IF (ALLOCATED(upatmo_config)) THEN
+      CALL finish(routine, "Error in calling sequence: upatmo_config is already allocated.")
+    ELSE
+      ! Some of the variables in 'upatmo_config' might be necessary for a coarser radiation grid as well, 
+      ! so the index range starts with 'n_dom_start' (which is zero, if a coarser radiation grid is used).
+      ALLOCATE(upatmo_config(n_dom_start:n_dom), STAT=istat)
+      IF (istat /= SUCCESS) CALL finish(routine, "Allocation of upatmo_config failed.")
+    ENDIF
+
+    !---------------
+    ! Status update
+    !---------------
+    
+    ! Indicate that crosscheck took place
+    upatmo_config(n_dom_start:n_dom)%dyn%l_status(iUpatmoStat%checked)       = .TRUE.
+    upatmo_config(n_dom_start:n_dom)%echam_phy%l_status(iUpatmoStat%checked) = .TRUE.
+    upatmo_config(n_dom_start:n_dom)%nwp_phy%l_status(iUpatmoStat%checked)   = .TRUE.
+    upatmo_config(n_dom_start:n_dom)%exp%l_status(iUpatmoStat%checked)       = .TRUE.
+    upatmo_config(n_dom_start:n_dom)%l_status(iUpatmoStat%checked)           = .TRUE.
+
+  END SUBROUTINE check_upatmo
 
 END MODULE mo_upatmo_config

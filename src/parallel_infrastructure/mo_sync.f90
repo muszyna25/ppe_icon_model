@@ -57,7 +57,7 @@ USE mo_communication,      ONLY: exchange_data, exchange_data_4de1,            &
 
 USE mo_timer,           ONLY: timer_start, timer_stop, activate_sync_timers, &
   & timer_global_sum, timer_omp_global_sum, timer_ordglb_sum!, timer_omp_ordglb_sum
-USE mo_fortran_tools,   ONLY: t_ptr_3d, insert_dimension
+USE mo_fortran_tools,   ONLY: t_ptr_3d, t_ptr_3d_sp, insert_dimension
 
 IMPLICIT NONE
 
@@ -68,7 +68,7 @@ PRIVATE
 !subroutines
 PUBLIC :: sync_patch_array, check_patch_array, sync_idx,              &
           global_sum_array, omp_global_sum_array,                     &
-          global_sum_array2, global_sum_array3,                       &
+          global_sum_array2, global_sum_array3, global_sum,           &
           sync_patch_array_mult, global_min, global_max,              &
           sync_patch_array_4de1, decomposition_statistics,            &
           enable_sync_checks, disable_sync_checks,                    &
@@ -84,8 +84,8 @@ INTEGER, PARAMETER, PUBLIC :: SYNC_V = 3
 INTEGER, PARAMETER, PUBLIC :: SYNC_C1 = 4
 
 #if defined( __ROUNDOFF_CHECK )
-REAL(wp), PARAMETER :: ABS_TOL  = 1.0D-09
-REAL(wp), PARAMETER :: REL_TOL  = 1.0D-09
+REAL(wp), PARAMETER :: ABS_TOL  = 1.0D-06
+REAL(wp), PARAMETER :: REL_TOL  = 1.0D-06
 REAL(wp), PARAMETER :: MACH_TOL = 3.0D-14
 #endif
 
@@ -113,6 +113,13 @@ END INTERFACE
 INTERFACE global_max
   MODULE PROCEDURE global_max_0d
   MODULE PROCEDURE global_max_1d
+END INTERFACE
+
+INTERFACE global_sum
+  MODULE PROCEDURE global_sum_0d
+  MODULE PROCEDURE global_sum_0di
+  MODULE PROCEDURE global_sum_1d
+  MODULE PROCEDURE global_sum_1di
 END INTERFACE
 
 INTERFACE global_sum_array
@@ -160,6 +167,13 @@ TYPE(t_cumulative_sync) :: cumul_sync(4,max_dom,MAX_CUMULATIVE_SYNC)
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
 #endif
 #endif
+
+  INTERFACE sync_patch_array_mult
+    MODULE PROCEDURE sync_patch_array_mult_dp
+    MODULE PROCEDURE sync_patch_array_mult_sp
+  END INTERFACE sync_patch_array_mult
+
+  CHARACTER(len=*), PARAMETER :: modname = 'mo_sync'
 
 CONTAINS
 
@@ -350,14 +364,14 @@ END SUBROUTINE sync_patch_array_i2
 !! Optimized version by Guenther Zaengl, Apr 2010, based on routines
 !! developed by Rainer Johanni
 !!
-SUBROUTINE sync_patch_array_mult(typ, p_patch, nfields, f3din1, f3din2, f3din3, &
+SUBROUTINE sync_patch_array_mult_dp(typ, p_patch, nfields, f3din1, f3din2, f3din3, &
                                  f3din4, f3din5, f4din, f3din_arr, opt_varname)
 
    INTEGER, INTENT(IN)             :: typ
    TYPE(t_patch), INTENT(IN), TARGET :: p_patch
    INTEGER,     INTENT(IN)         :: nfields
 
-   REAL(wp), OPTIONAL, INTENT(INOUT) ::  f3din1(:,:,:), f3din2(:,:,:), f3din3(:,:,:), &
+   REAL(dp), OPTIONAL, INTENT(INOUT) ::  f3din1(:,:,:), f3din2(:,:,:), f3din3(:,:,:), &
       &                                  f3din4(:,:,:), f3din5(:,:,:), f4din(:,:,:,:)
    TYPE(t_ptr_3d), OPTIONAL, INTENT(INOUT) :: f3din_arr(:)
 
@@ -414,7 +428,93 @@ SUBROUTINE sync_patch_array_mult(typ, p_patch, nfields, f3din1, f3din2, f3din3, 
        &                     recv3d_arr=f3din_arr)
    ENDIF
 
-END SUBROUTINE sync_patch_array_mult
+END SUBROUTINE sync_patch_array_mult_dp
+
+!-------------------------------------------------------------------------
+!>
+!! Does boundary exchange for up to 5 3D cell-based fields and/or a 4D field.
+!! The 4D field can alternatively be passed as an array of 3D fields.
+!!
+!! @par Revision History
+!! Optimized version by Guenther Zaengl, Apr 2010, based on routines
+!! developed by Rainer Johanni
+!!
+SUBROUTINE sync_patch_array_mult_sp(typ, p_patch, nfields, f3din1, f3din2, f3din3, &
+                                 f3din4, f3din5, f4din, f3din_arr, opt_varname)
+
+   INTEGER, INTENT(IN)             :: typ
+   TYPE(t_patch), INTENT(IN), TARGET :: p_patch
+   INTEGER,     INTENT(IN)         :: nfields
+
+   REAL(sp), TARGET, INTENT(INOUT) :: f3din1(:,:,:)
+   REAL(sp), TARGET, OPTIONAL, INTENT(INOUT) :: f3din2(:,:,:), f3din3(:,:,:), &
+      &                           f3din4(:,:,:), f3din5(:,:,:), f4din(:,:,:,:)
+   TYPE(t_ptr_3d_sp), OPTIONAL, INTENT(INOUT) :: f3din_arr(:)
+
+   CLASS(t_comm_pattern), POINTER :: p_pat
+   CHARACTER(len=*), TARGET, INTENT(IN), OPTIONAL :: opt_varname
+   INTEGER :: i, nfields_
+   INTEGER :: ndim2tot ! Sum of second dimensions over all input fields
+   TYPE(t_ptr_3d_sp) :: fld(nfields)
+   CHARACTER(len=*), PARAMETER :: routine &
+        = modname//'::sync_patch_array_mult_sp'
+!-----------------------------------------------------------------------
+
+   p_pat => comm_pat_of_type(p_patch, typ)
+
+   nfields_ = 0
+   nfields_ = nfields_ + 1
+   ndim2tot = SIZE(f3din1,2)
+   fld(nfields_)%p => f3din1
+   IF (PRESENT(f3din2)) THEN
+     nfields_ = nfields_ + 1
+     ndim2tot = ndim2tot + SIZE(f3din2,2)
+     fld(nfields_)%p => f3din2
+   END IF
+   IF (PRESENT(f3din3)) THEN
+     nfields_ = nfields_ + 1
+     ndim2tot = ndim2tot + SIZE(f3din3,2)
+     fld(nfields_)%p => f3din3
+   END IF
+   IF (PRESENT(f3din4)) THEN
+     nfields_ = nfields_ + 1
+     ndim2tot = ndim2tot + SIZE(f3din4,2)
+     fld(nfields_)%p => f3din4
+   END IF
+   IF (PRESENT(f3din5)) THEN
+     nfields_ = nfields_ + 1
+     ndim2tot = ndim2tot + SIZE(f3din5,2)
+     fld(nfields_)%p => f3din5
+   END IF
+   IF (PRESENT(f4din)) THEN
+     DO i = 1, SIZE(f4din,4)
+       nfields_ = nfields_ + 1
+       fld(nfields_)%p => f4din(:,:,:,i)
+     ENDDO
+   ENDIF
+   IF (PRESENT(f3din_arr)) THEN
+     DO i = 1, SIZE(f3din_arr)
+       ndim2tot = ndim2tot + SIZE(f3din_arr(i)%p, 2)
+       fld(nfields_+i)%p => f3din_arr(i)%p
+     ENDDO
+   ENDIF
+   IF (nfields_ /= nfields) THEN
+     CALL finish(routine, 'internal error')
+   END IF
+   ! If this is a verification run, check consistency before doing boundary exchange
+   IF (p_test_run .AND. do_sync_checks) THEN
+     DO i = 1, nfields
+       CALL check_patch_array_sp(typ, p_patch, fld(i)%p, opt_varname)
+     ENDDO
+   ENDIF
+
+   ! Boundary exchange for work PEs
+   IF(my_process_is_mpi_parallel()) THEN
+     CALL p_pat%exchange_data_mult_mixprec(0, 0, nfields, ndim2tot, &
+          recv_sp=fld)
+   ENDIF
+
+ END SUBROUTINE sync_patch_array_mult_sp
 
 
 !-------------------------------------------------------------------------
@@ -951,6 +1051,10 @@ SUBROUTINE sync_idx(type_arr, type_idx, p_patch, idx, blk, opt_remap, opt_varnam
   REAL(wp), ALLOCATABLE :: z_idx(:,:)
   TYPE(t_grid_domain_decomp_info), POINTER :: decomp_info
 
+#ifdef __SX__
+  INTEGER :: ind_v(nproma)
+#endif
+
   ! opt_remap: Flag if index values pointing outside local domain
   ! should be remapped to values within local domain
 
@@ -1026,8 +1130,13 @@ SUBROUTINE sync_idx(type_arr, type_idx, p_patch, idx, blk, opt_remap, opt_varnam
       i_g = INT(z_idx(jl,jb))
 
       IF(i_g <= 0 .or. i_g > n_idx_g) THEN
+#ifndef __SX__
         idx(jl,jb) = idx_no(0)
         blk(jl,jb) = blk_no(0)
+#else
+        !NEC_RP: skip initialization of idx and blk here and instead store index in order
+        ind_v(jl) = 0
+#endif
       ELSE
         IF (remap) THEN
           i_l = MAX(get_valid_local_index(decomp_info%glb2loc_index, i_g), 1)
@@ -1039,17 +1148,122 @@ SUBROUTINE sync_idx(type_arr, type_idx, p_patch, idx, blk, opt_remap, opt_varnam
           ! MoHa: ...does this make sense?
           IF (i_l <= 0) i_l = - i_g
         END IF
+#ifndef __SX__
         idx(jl,jb) = idx_no(i_l)
         blk(jl,jb) = blk_no(i_l)
+#else
+       !NEC: skip initialization of idx and blk here and instead store index
+        ind_v(jl) = i_l
+#endif
       ENDIF
 
     END DO
+
+#ifdef __SX__
+    !NEC: initialize idx and blk in vectroized loop 
+    DO jl = 1, nproma
+      idx(jl,jb) = idx_no(ind_v(jl))
+      blk(jl,jb) = blk_no(ind_v(jl))
+    END DO
+#endif
+
   END DO
 !$ACC END PARALLEL
 
 !$ACC END DATA
 
 END SUBROUTINE sync_idx
+
+! Routines for global summation of scalar quantities or arrays of scalar quantities
+! Unlike the subsequent global_sum_array routines, no summation is made over the array elements
+!
+FUNCTION global_sum_0d (z_in, opt_iroot) RESULT (global_sum)
+
+  REAL(wp),          INTENT(in) :: z_in
+  INTEGER, OPTIONAL,INTENT(IN)  :: opt_iroot
+  REAL(wp)                      :: global_sum
+
+  INTEGER :: p_comm_glob
+!-----------------------------------------------------------------------
+
+  IF(comm_lev==0) THEN
+    p_comm_glob = p_comm_work
+  ELSE
+    p_comm_glob = glob_comm(comm_lev)
+  ENDIF
+
+  global_sum = p_sum(z_in, comm=p_comm_glob, root=opt_iroot)
+
+
+END FUNCTION global_sum_0d
+
+! integer variant of global_sum_0d
+!
+FUNCTION global_sum_0di (z_in, opt_iroot) RESULT (global_sum)
+
+  INTEGER,          INTENT(in) :: z_in
+  INTEGER, OPTIONAL,INTENT(IN) :: opt_iroot
+  INTEGER                      :: global_sum
+ 
+  INTEGER :: p_comm_glob, i_in(1), i_out(1)
+!-----------------------------------------------------------------------
+
+  IF(comm_lev==0) THEN
+    p_comm_glob = p_comm_work
+  ELSE
+    p_comm_glob = glob_comm(comm_lev)
+  ENDIF
+
+  i_in(1)    = z_in
+  i_out      = p_sum(i_in, comm=p_comm_glob, root=opt_iroot)
+  global_sum = i_out(1)
+
+END FUNCTION global_sum_0di
+
+! Variant for 1D arrays
+!
+FUNCTION global_sum_1d (zfield, opt_iroot) RESULT (global_sum)
+
+  REAL(wp),          INTENT(in) :: zfield(:)
+  INTEGER, OPTIONAL,INTENT(IN)  :: opt_iroot
+  REAL(wp)                      :: global_sum(SIZE(zfield))
+
+  INTEGER :: p_comm_glob
+!-----------------------------------------------------------------------
+
+  IF(comm_lev==0) THEN
+    p_comm_glob = p_comm_work
+  ELSE
+    p_comm_glob = glob_comm(comm_lev)
+  ENDIF
+
+  global_sum = p_sum(zfield, comm=p_comm_glob, root=opt_iroot)
+
+
+END FUNCTION global_sum_1d
+
+
+! integer variant of global_sum_1d
+!
+FUNCTION global_sum_1di (zfield, opt_iroot) RESULT (global_sum)
+
+  INTEGER,          INTENT(in) :: zfield(:)
+  INTEGER, OPTIONAL,INTENT(IN) :: opt_iroot
+  INTEGER                      :: global_sum(SIZE(zfield))
+ 
+  INTEGER :: p_comm_glob
+!-----------------------------------------------------------------------
+
+  IF(comm_lev==0) THEN
+    p_comm_glob = p_comm_work
+  ELSE
+    p_comm_glob = glob_comm(comm_lev)
+  ENDIF
+
+  global_sum = p_sum(zfield, comm=p_comm_glob, root=opt_iroot)
+
+
+END FUNCTION global_sum_1di
 
 !-------------------------------------------------------------------------
 !>
@@ -1146,9 +1360,10 @@ END FUNCTION global_sum_array_0d
 !! @par Revision History
 !! Initial version by Rainer Johanni, Nov 2009
 !!
-FUNCTION global_sum_array_1d (zfield) RESULT (global_sum)
+FUNCTION global_sum_array_1d (zfield, opt_iroot) RESULT (global_sum)
 
   REAL(wp),          INTENT(in) :: zfield(:)
+  INTEGER,  INTENT(IN),OPTIONAL :: opt_iroot
   REAL(wp)                      :: global_sum
   REAL(wp)                      :: sum_on_testpe(1)
 
@@ -1162,7 +1377,7 @@ FUNCTION global_sum_array_1d (zfield) RESULT (global_sum)
   ENDIF
 
   IF(l_fast_sum) THEN
-    global_sum = simple_sum(zfield, SIZE(zfield), p_comm_glob)
+    global_sum = simple_sum(zfield, SIZE(zfield), p_comm_glob, opt_iroot)
   ELSE
     global_sum = order_insensit_ieee64_sum(zfield, SIZE(zfield), p_comm_glob)
   ENDIF
@@ -1178,6 +1393,7 @@ FUNCTION global_sum_array_1d (zfield) RESULT (global_sum)
 
 
 END FUNCTION global_sum_array_1d
+
 
 !-------------------------------------------------------------------------
 !>
@@ -1388,7 +1604,7 @@ FUNCTION global_sum_array2 (zfield) RESULT (global_sum)
    REAL(dp), PARAMETER :: two_40 = 1099511627776._dp ! 2.**40
    REAL(dp), PARAMETER :: r_two_40 = 1._dp/two_40
 
-#if defined (__SX__) || defined (__PGI)
+#if defined (__PGI)
    INTEGER(i8) :: mask40
    DATA mask40 / z'000000ffffffffff' / ! last 40 bits set
 #else
@@ -1545,7 +1761,7 @@ FUNCTION global_sum_array3 (nfields,ldiff,f3din,f3dd,f3din2,f3dd2,f4din,f4dd,dif
    REAL(dp), PARAMETER :: two_40 = 1099511627776._dp ! 2.**40
    REAL(dp), PARAMETER :: r_two_40 = 1._dp/two_40
 
-#if defined (__SX__) || defined (__PGI)
+#if defined (__PGI)
    INTEGER(i8) :: mask40
    DATA mask40 / z'000000ffffffffff' / ! last 40 bits set
 #else
@@ -1945,7 +2161,7 @@ FUNCTION omp_order_insensit_ieee64_sum(vals, num_vals, mpi_comm) RESULT(global_s
    REAL(dp), PARAMETER :: two_30 = 1073741824._dp ! 2.**30
    REAL(dp), PARAMETER :: r_two_30 = 1._dp/two_30
 
-#if defined (__SX__) || defined (__PGI)
+#if defined (__PGI)
    INTEGER(i8) :: mask30
    DATA mask30 / z'000000003fffffff' / ! last 30 bits set
 #else
@@ -2097,7 +2313,7 @@ FUNCTION order_insensit_ieee64_sum(vals, num_vals, mpi_comm) RESULT(global_sum)
    REAL(dp), PARAMETER :: two_30 = 1073741824._dp ! 2.**30
    REAL(dp), PARAMETER :: r_two_30 = 1._dp/two_30
 
-#if defined (__SX__) || defined (__PGI)
+#if defined (__PGI)
    INTEGER(i8) :: mask30
    DATA mask30 / z'000000003fffffff' / ! last 30 bits set
 #else
@@ -2512,7 +2728,7 @@ SUBROUTINE cumulative_sync_patch_array(typ, p_patch, f3d)
   TYPE(t_patch), INTENT(IN),    TARGET :: p_patch
   REAL(wp),      INTENT(INOUT), TARGET :: f3d(:,:,:)
   ! local variables
-  CHARACTER(*), PARAMETER :: routine = TRIM("mo_sync:cumulative_sync_patch_array")
+  CHARACTER(*), PARAMETER :: routine = modname//"::cumulative_sync_patch_array"
   INTEGER :: idx
 
   ! add pointer to list of cumulative sync fields:
@@ -2538,7 +2754,7 @@ RECURSIVE SUBROUTINE complete_cumulative_sync(opt_typ, opt_patch_id)
   INTEGER, OPTIONAL, INTENT(IN) :: opt_typ
   INTEGER, OPTIONAL, INTENT(IN) :: opt_patch_id
   ! local variables
-  CHARACTER(*), PARAMETER :: routine = TRIM("mo_sync:complete_cumulative_sync")
+  CHARACTER(*), PARAMETER :: routine = modname//"::complete_cumulative_sync"
   TYPE(t_patch), POINTER :: p_patch
   INTEGER :: i
 

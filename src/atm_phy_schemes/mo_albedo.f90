@@ -33,6 +33,7 @@
 
 MODULE mo_albedo
 
+  USE mo_exception,            ONLY: finish
   USE mo_kind,                 ONLY: wp
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_model_domain,         ONLY: t_patch
@@ -41,10 +42,11 @@ MODULE mo_albedo
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_parallel_config,      ONLY: nproma
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
-  USE mo_radiation_config,     ONLY: rad_csalbw, direct_albedo
+  USE mo_radiation_config,     ONLY: rad_csalbw, direct_albedo, direct_albedo_water, albedo_whitecap
   USE mo_lnd_nwp_config,       ONLY: ntiles_total, ntiles_water, ntiles_lnd,             &
     &                                lseaice, lprog_albsi, llake, isub_water, isub_lake, &
     &                                isub_seaice
+  USE mo_extpar_config,        ONLY: itype_vegetation_cycle
   USE sfc_terra_data,          ONLY: csalb, csalb_snow_fe, csalb_snow_fd,     &
     &                                csalb_snow_min, csalb_snow_max, csalb_p, csalb_snow, &
     &                                ist_seawtr, ist_seaice
@@ -111,6 +113,8 @@ CONTAINS
     REAL(wp):: t_fac                   !< factor for temperature dependency of zminsnow_alb over glaciers
     REAL(wp):: zsalb_snow              !< snow albedo (predictor)
     REAL(wp):: zsnow_alb               !< snow albedo (corrector)
+    REAL(wp):: wc_fraction             !< whitecap fraction
+    REAL(wp):: wc_albedo               !< whitecap albedo
 
     INTEGER :: jg                      !< patch ID
     INTEGER :: jb, jc, ic, jt          !< loop indices
@@ -140,7 +144,9 @@ CONTAINS
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jt,jc,ic,i_startidx,i_endidx,ist,zvege,zsnow,  &
 !$OMP            zsalb_snow,zsnow_alb,ilu,i_count_lnd,i_count_sea, &
-!$OMP            i_count_flk,i_count_seaice,zminsnow_alb,t_fac) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            i_count_flk,i_count_seaice,zminsnow_alb,t_fac,    &
+!$OMP            wc_fraction, wc_albedo) ICON_OMP_DEFAULT_SCHEDULE
+
     DO jb = i_startblk, i_endblk
 
 
@@ -170,7 +176,7 @@ CONTAINS
 
           IF (i_count_lnd == 0) CYCLE ! skip loop if the index list for the given tile is empty
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
           DO ic = 1, i_count_lnd
 
             jc = ext_data%atm%idx_lst_t(ic,jb,jt)
@@ -189,7 +195,7 @@ CONTAINS
           IF (ntiles_lnd > 1) THEN     ! tile approach
 
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
             DO ic = 1, i_count_lnd
 
               jc = ext_data%atm%idx_lst_t(ic,jb,jt)
@@ -236,7 +242,7 @@ CONTAINS
 
           ELSE  ! without tiles
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
             DO ic = 1, i_count_lnd
 
               jc = ext_data%atm%idx_lst_t(ic,jb,jt)
@@ -293,25 +299,40 @@ CONTAINS
           !
           ! - loop over sea points (points which are at least partly ice-free) 
           !
-          i_count_sea = ext_data%atm%spw_count(jb)
+          i_count_sea = ext_data%atm%list_seawtr%ncount(jb)
 
           DO ic = 1, i_count_sea
-            jc = ext_data%atm%idx_lst_spw(ic,jb)
+            jc = ext_data%atm%list_seawtr%idx(ic,jb)
 
             prm_diag%albdif_t(jc,jb,isub_water) = csalb(ist_seawtr)
           ENDDO
+
+          ! whitecap albedo by breaking ocean waves
+
+          IF (albedo_whitecap == 1) THEN
+            DO ic = 1, i_count_sea
+              jc = ext_data%atm%list_seawtr%idx(ic,jb)
+
+              wc_fraction = 0.000397_wp * min(prm_diag%sp_10m(jc,jb),20.0_wp) ** 1.59_wp
+              wc_albedo   = 0.174_wp
+  
+              prm_diag%albdif_t(jc,jb,isub_water) = wc_fraction * wc_albedo + &
+            & prm_diag%albdif_t(jc,jb,isub_water) * (1.0_wp - wc_fraction)
+
+            ENDDO
+          ENDIF
 
           !
           ! Sea-ice points
           !
           ! - loop over sea-ice points (points which are at least partly ice-covered)
           !
-          i_count_seaice = ext_data%atm%spi_count(jb)
+          i_count_seaice = ext_data%atm%list_seaice%ncount(jb)
 
           PrognosticSeaIceAlbedo: IF ( lprog_albsi ) THEN
             ! Use prognostic sea-ice albedo (computed within the routines of the sea-ice scheme)
             DO ic = 1, i_count_seaice
-              jc = ext_data%atm%idx_lst_spi(ic,jb)
+              jc = ext_data%atm%list_seaice%idx(ic,jb)
               prm_diag%albdif_t(jc,jb,isub_seaice) = MAX(0._wp,wtr_prog%alb_si(jc,jb))
               ! Note that missing values for alb_si are chosen to be negative (usually -1)
               ! If something goes wrong with the sea-ice index list, or if the initialization 
@@ -322,7 +343,7 @@ CONTAINS
           ELSE 
             ! Use diagnostic sea-ice albedo (computed here)
             DO ic = 1, i_count_seaice
-              jc = ext_data%atm%idx_lst_spi(ic,jb)
+              jc = ext_data%atm%list_seaice%idx(ic,jb)
               ! In case the sea ice model is used, compute ice albedo for seaice 
               ! points with an empirical formula taken from GME.
               ! The ice albedo is the lower the warmer, and therefore wetter 
@@ -344,10 +365,10 @@ CONTAINS
           !
           ! - loop over sea points (including sea-ice points)
           !
-          i_count_sea = ext_data%atm%spw_count(jb)
+          i_count_sea = ext_data%atm%list_seawtr%ncount(jb)
 
           DO ic = 1, i_count_sea
-            jc = ext_data%atm%idx_lst_spw(ic,jb)
+            jc = ext_data%atm%list_seawtr%idx(ic,jb)
 
             ! special handling of sea ice points
             IF (lnd_prog%t_g_t(jc,jb,isub_water) < tf_salt) THEN 
@@ -357,7 +378,23 @@ CONTAINS
             ENDIF
 
             prm_diag%albdif_t(jc,jb,isub_water) = csalb(ist)
+
           ENDDO
+
+          ! whitecap albedo by breaking ocean waves
+
+          IF (albedo_whitecap == 1) THEN
+            DO ic = 1, i_count_sea
+              jc = ext_data%atm%list_seawtr%idx(ic,jb)
+
+              wc_fraction = 0.000397_wp * min(prm_diag%sp_10m(jc,jb),20.0_wp) ** 1.59_wp
+              wc_albedo   = 0.174_wp
+  
+              prm_diag%albdif_t(jc,jb,isub_water) = wc_fraction * wc_albedo + &
+            & prm_diag%albdif_t(jc,jb,isub_water) * (1.0_wp - wc_fraction)
+
+            ENDDO
+          ENDIF
 
         ENDIF  ! seaice
 
@@ -372,12 +409,11 @@ CONTAINS
           !
           ! - loop over lake points
           !
-          i_count_flk = ext_data%atm%fp_count(jb)
+          i_count_flk = ext_data%atm%list_lake%ncount(jb)
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
           DO ic = 1, i_count_flk
-            jc = ext_data%atm%idx_lst_fp(ic,jb)
-
+            jc = ext_data%atm%list_lake%idx(ic,jb)
 
             !  In case ice is present at lake points, compute ice albedo 
             !  for lake points with an empirical formulation 
@@ -404,10 +440,10 @@ CONTAINS
           !
           ! - loop over lake points
           !
-          i_count_flk = ext_data%atm%fp_count(jb)
+          i_count_flk = ext_data%atm%list_lake%ncount(jb)
 
           DO ic = 1, i_count_flk
-            jc = ext_data%atm%idx_lst_fp(ic,jb)
+            jc = ext_data%atm%list_lake%idx(ic,jb)
 
             ! special handling of sea ice points
             IF (lnd_prog%t_g_t(jc,jb,isub_lake) < tpl_T_f) THEN 
@@ -574,7 +610,7 @@ CONTAINS
   !!   either prognostic sea-ice albedo (computed within the routines of the sea-ice scheme), 
   !!   or diagnostic sea-ice albedo (computed here) is used. 
   !!
-  SUBROUTINE sfc_albedo_modis(pt_patch, ext_data, lnd_prog, wtr_prog, lnd_diag, prm_diag)
+  SUBROUTINE sfc_albedo_modis(pt_patch, ext_data, lnd_prog, wtr_prog, lnd_diag, prm_diag, lacc)
 
     TYPE(t_patch),          INTENT(   in):: pt_patch  !< grid/patch info.
 
@@ -588,6 +624,8 @@ CONTAINS
 
     TYPE(t_nwp_phy_diag),   INTENT(inout):: prm_diag
 
+    LOGICAL,                INTENT(   in):: lacc      !< accelerator flag
+
     ! Local scalars:
     REAL(wp):: snow_frac               !< snow cover fraction
     REAL(wp):: zminsnow_alb            !< temperature-dependent minimum snow albedo
@@ -595,12 +633,17 @@ CONTAINS
     REAL(wp):: zlimsnow_alb            !< upper limit snow albedo depending on snow depth and roughness length
     REAL(wp):: zsnowalb_lu             !< maximum snow albedo specified in landuse table
     REAL(wp):: t_fac                   !< factor for temperature dependency of zminsnow_alb over glaciers
-    REAL(wp):: zsnow_alb               !< snow albedo
     REAL(wp):: zsnowfrac(nproma)       !< aggregated snow-cover fraction
+    REAL(wp):: wc_fraction             !< whitecap fraction
+    REAL(wp):: wc_albedo               !< whitecap albedo
+
+    REAL(wp):: zsnow_alb(nproma,ntiles_total) !< snow albedo
 
     ! Auxiliaries for tile-specific calculation of direct beam albedo
     REAL(wp):: zalbvisdir_t(nproma,ntiles_total+ntiles_water)
     REAL(wp):: zalbnirdir_t(nproma,ntiles_total+ntiles_water)
+
+    LOGICAL :: lfrozenwater
 
     INTEGER :: jg                      !< patch ID
     INTEGER :: jb, jc, ic, jt          !< loop indices
@@ -625,13 +668,16 @@ CONTAINS
 
     i_startblk = pt_patch%cells%start_blk(rl_start,1)
     i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
-
+    
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jt,jc,ic,i_startidx,i_endidx,ist,snow_frac,t_fac,               &
 !$OMP            zsnow_alb,ilu,i_count_lnd,i_count_sea,i_count_flk,                 &
 !$OMP            i_count_seaice,zminsnow_alb,zmaxsnow_alb,zlimsnow_alb,zsnowalb_lu, &
-!$OMP            zalbvisdir_t,zalbnirdir_t,zsnowfrac) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            zalbvisdir_t,zalbnirdir_t,zsnowfrac, wc_fraction, wc_albedo,       &
+!$OMP            lfrozenwater)                                                      &
+!$OMP            ICON_OMP_DEFAULT_SCHEDULE
+
     DO jb = i_startblk, i_endblk
 
 
@@ -645,7 +691,7 @@ CONTAINS
       !------------------------------------------------------------------------------
       ! Calculation of land surface albedo based on MODIS input data
       !------------------------------------------------------------------------------
-      
+
       IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
 
 
@@ -657,13 +703,25 @@ CONTAINS
         !   of active tiles (1<=ntiles<=ntiles_total). Therefore each tile has a 
         !   separate index list.
         ! 
+
+        !$acc data copyin (ntiles_total, ntiles_water, isub_water, isub_seaice,           &
+        !$acc &            isub_lake, llake, jb, i_startidx,i_endidx, zsnow_alb,          &
+        !$acc &            zsnowfrac, direct_albedo_water,  zalbvisdir_t, zalbnirdir_t,   &
+        !$acc &            ext_data%atm%list_seaice%idx                                   ) if (lacc)
+
+        
+        !$acc parallel default (present) if (lacc)
+        !$acc loop seq
         DO jt = 1, ntiles_total
 
           i_count_lnd = ext_data%atm%gp_count_t(jb,jt)
 
           IF (i_count_lnd == 0) CYCLE ! skip loop if the index list for the given tile is empty
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep 
+          !$acc loop gang vector &
+          !$acc private (jc,snow_frac,t_fac,ilu) &
+          !$acc private (zminsnow_alb,zmaxsnow_alb,zlimsnow_alb,zsnowalb_lu)
           DO ic = 1, i_count_lnd
 
             jc = ext_data%atm%idx_lst_t(ic,jb,jt)
@@ -674,11 +732,15 @@ CONTAINS
             ! maximum snow albedo specified in landuse table
             zsnowalb_lu = ABS(ext_data%atm%snowalb_lcc(ilu))
 
-            IF (ext_data%atm%alb_dif(jc,jb) > csalb_snow_min .AND. ilu == ext_data%atm%i_lc_snow_ice) THEN
-              ! temperature-dependent minimum snow albedo over glaciers (i.e. alb_dif = 0.7)
+            IF (ilu == ext_data%atm%i_lc_snow_ice) THEN
+              ! temperature-dependent minimum snow albedo over glaciers, ranging between 0.5 and 0.7
               ! this is needed to prevent unrealistically low albedos over Antarctica
-              t_fac = MIN(1._wp,0.1_wp*(tmelt-lnd_prog%t_snow_t(jc,jb,jt)))
-              zminsnow_alb = (1._wp-t_fac)*csalb_snow_min + t_fac*ext_data%atm%alb_dif(jc,jb)
+              IF (itype_vegetation_cycle > 1) THEN ! use climatological T2M to avoid unphysical diurnal cycle of albedo
+                t_fac = MIN(1._wp,0.1_wp*MAX(0._wp,tmelt-ext_data%atm%t2m_clim_hc(jc,jb)))
+              ELSE
+                t_fac = MIN(1._wp,0.1_wp*(tmelt-lnd_prog%t_snow_t(jc,jb,jt)))
+              ENDIF
+              zminsnow_alb = (1._wp-t_fac)*csalb_snow_min + t_fac*0.7_wp
             ELSE
               ! otherwise take minimum snow albedo as 60% of the landuse-class specific maximum snow albedo
               zminsnow_alb = MAX(0.4_wp*csalb_snow_min,MIN(csalb_snow_min,0.6_wp*zsnowalb_lu))
@@ -706,13 +768,13 @@ CONTAINS
 
             ! Consider effects of aging on solar snow albedo
             !
-            zsnow_alb = zminsnow_alb + lnd_diag%freshsnow_t(jc,jb,jt)*(zmaxsnow_alb-zminsnow_alb)
+            zsnow_alb(jc,jt) = zminsnow_alb + lnd_diag%freshsnow_t(jc,jb,jt)*(zmaxsnow_alb-zminsnow_alb)
 
             IF (ntiles_lnd == 1) THEN
               ! special treatment for forests
               ! - no landuse-class specific limitation of snow albedo
               ! - instead, snow albedo is limited as a function of the forest fraction
-              zsnow_alb = zsnow_alb*(1._wp-ext_data%atm%for_e(jc,jb)-ext_data%atm%for_d(jc,jb))       &
+              zsnow_alb(jc,jt) = zsnow_alb(jc,jt)*(1._wp-ext_data%atm%for_e(jc,jb)-ext_data%atm%for_d(jc,jb))  &
                 + csalb_snow_fe * ext_data%atm%for_e(jc,jb) + csalb_snow_fd * ext_data%atm%for_d(jc,jb)
             ENDIF
 
@@ -720,21 +782,86 @@ CONTAINS
             snow_frac = lnd_diag%snowfrac_t(jc,jb,jt)
 
             ! shortwave broadband surface albedo (white sky)
-            prm_diag%albdif_t(jc,jb,jt) = snow_frac * zsnow_alb  &
+            prm_diag%albdif_t(jc,jb,jt) = snow_frac * zsnow_alb(jc,jt)  &
               &                  + (1._wp - snow_frac)* ext_data%atm%alb_dif(jc,jb)
 
             ! UV visible broadband surface albedo (white sky)
-            prm_diag%albvisdif_t(jc,jb,jt) = snow_frac * zsnow_alb  &
+            prm_diag%albvisdif_t(jc,jb,jt) = snow_frac * zsnow_alb(jc,jt)  &
               &                  + (1._wp - snow_frac)* ext_data%atm%albuv_dif(jc,jb)
 
             ! near IR broadband surface albedo (white sky)
-            prm_diag%albnirdif_t(jc,jb,jt) = snow_frac * zsnow_alb  &
+            prm_diag%albnirdif_t(jc,jb,jt) = snow_frac * zsnow_alb(jc,jt)  &
               &                  + (1._wp - snow_frac)* ext_data%atm%albni_dif(jc,jb)
 
+          ENDDO  ! ic
+
+        ENDDO  !ntiles
+        !$acc end parallel
+
+
+        ! Albedo correction for artificially reduced snow-cover fractions (melting-rate parameterization):
+        ! The albedo of the snow-free tile is adjusted such that the tile-averaged albedo equals that obtained
+        ! without the artificial snow-cover reduction
+        !$acc parallel default (present) if (lacc)
+        !$acc loop seq
+        DO jt = ntiles_lnd+1, ntiles_total
+
+          i_count_lnd = ext_data%atm%gp_count_t(jb,jt)
+
+          IF (i_count_lnd == 0) CYCLE ! skip loop if the index list for the given tile is empty
+
+!$NEC ivdep
+          !$acc loop gang vector private (jc)
+          DO ic = 1, i_count_lnd
+
+            jc = ext_data%atm%idx_lst_t(ic,jb,jt)
+
+            IF (lnd_diag%snowfrac_lcu_t(jc,jb,jt) > lnd_diag%snowfrac_lc_t(jc,jb,jt) .AND. &
+                lnd_diag%snowfrac_lc_t(jc,jb,jt) > 0._wp) THEN
+
+              prm_diag%albdif_t(jc,jb,jt-ntiles_lnd) = 1._wp / (1._wp-lnd_diag%snowfrac_lc_t(jc,jb,jt)) *     (    &
+                prm_diag%albdif_t(jc,jb,jt)*(lnd_diag%snowfrac_lcu_t(jc,jb,jt)-lnd_diag%snowfrac_lc_t(jc,jb,jt)) + &
+                prm_diag%albdif_t(jc,jb,jt-ntiles_lnd)*(1._wp-lnd_diag%snowfrac_lcu_t(jc,jb,jt))              )
+
+              prm_diag%albnirdif_t(jc,jb,jt-ntiles_lnd) = 1._wp / (1._wp-lnd_diag%snowfrac_lc_t(jc,jb,jt)) *     (    &
+                prm_diag%albnirdif_t(jc,jb,jt)*(lnd_diag%snowfrac_lcu_t(jc,jb,jt)-lnd_diag%snowfrac_lc_t(jc,jb,jt)) + &
+                prm_diag%albnirdif_t(jc,jb,jt-ntiles_lnd)*(1._wp-lnd_diag%snowfrac_lcu_t(jc,jb,jt))              )
+
+              prm_diag%albvisdif_t(jc,jb,jt-ntiles_lnd) = 1._wp / (1._wp-lnd_diag%snowfrac_lc_t(jc,jb,jt)) *     (    &
+                prm_diag%albvisdif_t(jc,jb,jt)*(lnd_diag%snowfrac_lcu_t(jc,jb,jt)-lnd_diag%snowfrac_lc_t(jc,jb,jt)) + &
+                prm_diag%albvisdif_t(jc,jb,jt-ntiles_lnd)*(1._wp-lnd_diag%snowfrac_lcu_t(jc,jb,jt))              )
+
+            ENDIF
+
+          ENDDO  ! ic
+
+        ENDDO  !ntiles
+        !$acc end parallel
+
+
+        !$acc parallel default (present) if (lacc)
+        !$acc loop seq
+        DO jt = 1, ntiles_total
+
+          i_count_lnd = ext_data%atm%gp_count_t(jb,jt)
+
+          IF (i_count_lnd == 0) CYCLE ! skip loop if the index list for the given tile is empty
+
+!$NEC ivdep
+          !$acc loop gang vector private (jc,ilu,snow_frac)
+          DO ic = 1, i_count_lnd
+
+            jc = ext_data%atm%idx_lst_t(ic,jb,jt)
+
+            ! current land-cover class
+            ilu = ext_data%atm%lc_class_t(jc,jb,jt)
+
+            ! snow cover fraction
+            snow_frac = lnd_diag%snowfrac_t(jc,jb,jt)
 
             ! direct albedo (black sky) (vis and nir)
             !
-            IF ( direct_albedo == 1 ) THEN ! Ritter-Geleyn
+            IF ( direct_albedo == 1 ) THEN       ! Ritter and Geleyn (1992)
               zalbvisdir_t(jc,jt) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
                 &                                        prm_diag%albvisdif_t(jc,jb,jt))
               zalbnirdir_t(jc,jt) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
@@ -751,10 +878,10 @@ CONTAINS
                 &                                          ext_data%atm%z0_lcc(ilu),       &
                 &                                          ext_data%atm%sso_stdh_raw(jc,jb))
 
-            ELSE IF ( direct_albedo == 3 ) THEN  ! Yang (2008)
+            ELSE IF ( direct_albedo == 3 ) THEN  ! Yang et al (2008)
               zalbvisdir_t(jc,jt) = snow_frac                                                  &
                 &                 * sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),             &
-                &                                          zsnow_alb,                          &
+                &                                          zsnow_alb(jc,jt),                   &
                 &                                          ext_data%atm%z0_lcc(ilu),           &
                 &                                          ext_data%atm%sso_stdh_raw(jc,jb))   &
                 &                 + (1._wp-snow_frac)                                          &
@@ -763,17 +890,17 @@ CONTAINS
 
               zalbnirdir_t(jc,jt) = snow_frac                                                  &
                 &                 * sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),             &
-                &                                          zsnow_alb,                          &
+                &                                          zsnow_alb(jc,jt),                   &
                 &                                          ext_data%atm%z0_lcc(ilu),           &
                 &                                          ext_data%atm%sso_stdh_raw(jc,jb))   &
                 &                 + (1._wp-snow_frac)                                          &
                 &                 * sfc_albedo_dir_yang(prm_diag%cosmu0(jc,jb),                &
                 &                                       ext_data%atm%albni_dif(jc,jb))
 
-            ELSE IF ( direct_albedo == 4 ) THEN  ! Briegleb (1992)
+            ELSE IF ( direct_albedo == 4 ) THEN  ! Briegleb and Ramanathan (1992)
               zalbvisdir_t(jc,jt) = snow_frac                                                  &
                 &                 * sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),             &
-                &                                          zsnow_alb,                          &
+                &                                          zsnow_alb(jc,jt),                   &
                 &                                          ext_data%atm%z0_lcc(ilu),           &
                 &                                          ext_data%atm%sso_stdh_raw(jc,jb))   &
                 &                 + (1._wp-snow_frac)                                          &
@@ -783,7 +910,7 @@ CONTAINS
 
               zalbnirdir_t(jc,jt) = snow_frac                                                  &
                 &                 * sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),             &
-                &                                          zsnow_alb,                          &
+                &                                          zsnow_alb(jc,jt),                   &
                 &                                          ext_data%atm%z0_lcc(ilu),           &
                 &                                          ext_data%atm%sso_stdh_raw(jc,jb))   &
                 &                 + (1._wp-snow_frac)                                          &
@@ -796,10 +923,7 @@ CONTAINS
           ENDDO  ! ic
 
         ENDDO  !ntiles
-
-
-
-
+        !$acc end parallel
 
         ! 2. Consider water points with/without seaice model
         !
@@ -810,21 +934,66 @@ CONTAINS
           !
           ! - loop over sea points  (points which are at least partly ice-free) 
           !
-          i_count_sea = ext_data%atm%spw_count(jb)
-
+          i_count_sea = ext_data%atm%list_seawtr%ncount(jb)
+!$NEC ivdep
+          !$acc parallel default (present) if (lacc)
+          !$acc loop gang vector private (jc)
           DO ic = 1, i_count_sea
-            jc = ext_data%atm%idx_lst_spw(ic,jb)
+            jc = ext_data%atm%list_seawtr%idx(ic,jb)
+
+            ! diffuse albedo
 
             prm_diag%albdif_t   (jc,jb,isub_water) = csalb(ist_seawtr)
             prm_diag%albvisdif_t(jc,jb,isub_water) = csalb(ist_seawtr)
             prm_diag%albnirdif_t(jc,jb,isub_water) = csalb(ist_seawtr)
 
             ! direct albedo
-            zalbvisdir_t(jc,isub_water) = sfc_albedo_dir_yang(prm_diag%cosmu0(jc,jb), &
-              &                                             prm_diag%albvisdif_t(jc,jb,isub_water))
-            zalbnirdir_t(jc,isub_water) = sfc_albedo_dir_yang(prm_diag%cosmu0(jc,jb), &
-              &                                             prm_diag%albnirdif_t(jc,jb,isub_water))
+
+            SELECT CASE (direct_albedo_water)
+              CASE (1)                      ! Ritter and Geleyn (1992)
+                zalbvisdir_t(jc,isub_water) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
+                  &                          prm_diag%albvisdif_t(jc,jb,isub_water))
+                zalbnirdir_t(jc,isub_water) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
+                  &                          prm_diag%albnirdif_t(jc,jb,isub_water))
+              CASE (2,4)                    ! Yang et al (2008)
+                zalbvisdir_t(jc,isub_water) = sfc_albedo_dir_yang(prm_diag%cosmu0(jc,jb), &
+                  &                          prm_diag%albvisdif_t(jc,jb,isub_water))
+                zalbnirdir_t(jc,isub_water) = sfc_albedo_dir_yang(prm_diag%cosmu0(jc,jb), &
+                  &                          prm_diag%albnirdif_t(jc,jb,isub_water))
+              CASE (3)                      ! Taylor et al (1996)
+                zalbvisdir_t(jc,isub_water) = sfc_albedo_dir_taylor(prm_diag%cosmu0(jc,jb))
+                zalbnirdir_t(jc,isub_water) = sfc_albedo_dir_taylor(prm_diag%cosmu0(jc,jb))
+            END SELECT
+
           ENDDO
+          !$acc end parallel
+
+          ! whitecap albedo by breaking ocean waves
+
+          IF (albedo_whitecap == 1) THEN
+!$NEC ivdep
+            !$acc parallel default (present) if (lacc)
+            !$acc loop gang vector private (jc,wc_fraction, wc_albedo)
+            DO ic = 1, i_count_sea
+              jc = ext_data%atm%list_seawtr%idx(ic,jb)
+
+              wc_fraction = 0.000397_wp * min(prm_diag%sp_10m(jc,jb),20.0_wp) ** 1.59_wp
+              wc_albedo   = 0.174_wp
+  
+              prm_diag%albdif_t   (jc,jb,isub_water) = wc_fraction * wc_albedo + &
+            & prm_diag%albdif_t   (jc,jb,isub_water) * (1.0_wp - wc_fraction)
+              prm_diag%albvisdif_t(jc,jb,isub_water) = wc_fraction * wc_albedo + &
+            & prm_diag%albvisdif_t(jc,jb,isub_water) * (1.0_wp - wc_fraction)
+              prm_diag%albnirdif_t(jc,jb,isub_water) = wc_fraction * wc_albedo + &
+            & prm_diag%albnirdif_t(jc,jb,isub_water) * (1.0_wp - wc_fraction)
+              zalbvisdir_t           (jc,isub_water) = wc_fraction * wc_albedo + &
+            & zalbvisdir_t           (jc,isub_water) * (1.0_wp - wc_fraction)
+              zalbnirdir_t           (jc,isub_water) = wc_fraction * wc_albedo + &
+            & zalbnirdir_t           (jc,isub_water) * (1.0_wp - wc_fraction)
+
+            ENDDO
+            !$acc end parallel
+          ENDIF
 
           !
           ! Sea-ice points
@@ -832,12 +1001,15 @@ CONTAINS
           ! - loop over sea-ice points (points which are at least partly ice-covered)
           !
           !
-          i_count_seaice = ext_data%atm%spi_count(jb)
+          i_count_seaice = ext_data%atm%list_seaice%ncount(jb)
 
           PrognosticSeaIceAlbedo_modis: IF ( lprog_albsi ) THEN 
             ! Use prognostic diffuse sea-ice albedo (computed within the routines of the sea-ice scheme)
+!$NEC ivdep
+            !$acc parallel default (present) if (lacc)
+            !$acc loop gang vector private (jc)
             DO ic = 1, i_count_seaice
-              jc = ext_data%atm%idx_lst_spi(ic,jb)
+              jc = ext_data%atm%list_seaice%idx(ic,jb)
 
               prm_diag%albdif_t(jc,jb,isub_seaice) = MAX(0._wp,wtr_prog%alb_si(jc,jb))
               ! Note that missing values for alb_si are chosen to be negative (usually -1)
@@ -845,17 +1017,24 @@ CONTAINS
               ! fails, there is the danger that we make use negative albedo values. To force a
               ! model crash in this case, we set negative albedo values to 0.
               ! 
-            ENDDO                         
+            ENDDO
+            !$acc end parallel                       
           ELSE 
             ! Use diagnostic diffuse sea-ice albedo (computed here)
+!$NEC ivdep
+            !$acc parallel default (present) if (lacc)
+            !$acc loop gang vector private (jc)
             DO ic = 1, i_count_seaice
-              jc = ext_data%atm%idx_lst_spi(ic,jb)
+              jc = ext_data%atm%list_seaice%idx(ic,jb)
               prm_diag%albdif_t(jc,jb,isub_seaice) = alb_seaice_equil( wtr_prog%t_ice(jc,jb) )
             ENDDO
+            !$acc end parallel
           ENDIF PrognosticSeaIceAlbedo_modis
-
+!$NEC ivdep
+          !$acc parallel default (present) if (lacc)
+          !$acc loop gang vector private (jc)
           DO ic = 1, i_count_seaice
-            jc = ext_data%atm%idx_lst_spi(ic,jb)
+            jc = ext_data%atm%list_seaice%idx(ic,jb)
 
             ! diffuse albedo             
             prm_diag%albvisdif_t(jc,jb,isub_seaice) = prm_diag%albdif_t(jc,jb,isub_seaice)
@@ -867,6 +1046,7 @@ CONTAINS
             zalbnirdir_t(jc,isub_seaice) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),                &
               &                                              prm_diag%albnirdif_t(jc,jb,isub_seaice))
           ENDDO
+          !$acc end parallel
 
         ELSE
 
@@ -875,15 +1055,19 @@ CONTAINS
           !
           ! - loop over sea points
           !
-          i_count_sea = ext_data%atm%spw_count(jb)
-
+          i_count_sea = ext_data%atm%list_seawtr%ncount(jb)
+!$NEC ivdep
+          !$acc parallel default (present) if (lacc)
+          !$acc loop gang vector private (jc,ist,lfrozenwater)
           DO ic = 1, i_count_sea
-            jc = ext_data%atm%idx_lst_spw(ic,jb)
+            jc = ext_data%atm%list_seawtr%idx(ic,jb)
 
             ! special handling of sea ice points
             IF (lnd_prog%t_g_t(jc,jb,isub_water) < tf_salt) THEN 
+              lfrozenwater = .TRUE.
               ist = ist_seaice  ! sea ice
             ELSE
+              lfrozenwater = .FALSE.
               ist = ist_seawtr  ! sea water
             ENDIF
 
@@ -893,11 +1077,58 @@ CONTAINS
             prm_diag%albnirdif_t(jc,jb,isub_water) = csalb(ist)
 
             ! direct albedo
-            zalbvisdir_t(jc,isub_water) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),                &
-              &                                             prm_diag%albvisdif_t(jc,jb,isub_water))
-            zalbnirdir_t(jc,isub_water) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),                &
-              &                                             prm_diag%albnirdif_t(jc,jb,isub_water))
+            SELECT CASE (direct_albedo_water)
+              CASE (1)                        ! Ritter and Geleyn (1992)
+                zalbvisdir_t(jc,isub_water)   = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
+                  &                             prm_diag%albvisdif_t(jc,jb,isub_water))
+                zalbnirdir_t(jc,isub_water)   = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
+                  &                             prm_diag%albnirdif_t(jc,jb,isub_water))
+              CASE (2,4)                      ! Yang et al (2008)
+                zalbvisdir_t(jc,isub_water)   = sfc_albedo_dir_yang(prm_diag%cosmu0(jc,jb), &
+                  &                             prm_diag%albvisdif_t(jc,jb,isub_water))
+                zalbnirdir_t(jc,isub_water)   = sfc_albedo_dir_yang(prm_diag%cosmu0(jc,jb), &
+                  &                             prm_diag%albnirdif_t(jc,jb,isub_water))
+              CASE (3)
+                IF (lfrozenwater) THEN        ! Ritter and Geleyn (1992)
+                  zalbvisdir_t(jc,isub_water) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
+                    &                           prm_diag%albvisdif_t(jc,jb,isub_water))
+                  zalbnirdir_t(jc,isub_water) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
+                    &                           prm_diag%albnirdif_t(jc,jb,isub_water))
+                ELSE                          ! Taylor et al (1996)
+                  zalbvisdir_t(jc,isub_water) = sfc_albedo_dir_taylor(prm_diag%cosmu0(jc,jb))
+                  zalbnirdir_t(jc,isub_water) = sfc_albedo_dir_taylor(prm_diag%cosmu0(jc,jb))
+                ENDIF
+            END SELECT
+
           ENDDO
+          !$acc end parallel
+
+          ! whitecap albedo by breaking ocean waves
+
+          IF ( albedo_whitecap == 1 .AND. .NOT. lfrozenwater ) THEN
+
+            !$acc parallel default (present) if (lacc)
+            !$acc loop gang vector private (jc,wc_fraction, wc_albedo)
+            DO ic = 1, i_count_sea
+              jc = ext_data%atm%list_seawtr%idx(ic,jb)
+
+              wc_fraction = 0.000397_wp * min(prm_diag%sp_10m(jc,jb),20.0_wp) ** 1.59_wp
+              wc_albedo   = 0.174_wp
+  
+              prm_diag%albdif_t   (jc,jb,isub_water) = wc_fraction * wc_albedo + &
+            & prm_diag%albdif_t   (jc,jb,isub_water) * (1.0_wp - wc_fraction)
+              prm_diag%albvisdif_t(jc,jb,isub_water) = wc_fraction * wc_albedo + &
+            & prm_diag%albvisdif_t(jc,jb,isub_water) * (1.0_wp - wc_fraction)
+              prm_diag%albnirdif_t(jc,jb,isub_water) = wc_fraction * wc_albedo + &
+            & prm_diag%albnirdif_t(jc,jb,isub_water) * (1.0_wp - wc_fraction)
+              zalbvisdir_t           (jc,isub_water) = wc_fraction * wc_albedo + &
+            & zalbvisdir_t           (jc,isub_water) * (1.0_wp - wc_fraction)
+              zalbnirdir_t           (jc,isub_water) = wc_fraction * wc_albedo + &
+            & zalbnirdir_t           (jc,isub_water) * (1.0_wp - wc_fraction)
+            ENDDO
+            !$acc end parallel
+
+          ENDIF
 
         ENDIF
 
@@ -912,12 +1143,13 @@ CONTAINS
           !
           ! - loop over lake points
           !
-          i_count_flk = ext_data%atm%fp_count(jb)
+          i_count_flk = ext_data%atm%list_lake%ncount(jb)
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
+          !$acc parallel default (present) if (lacc)
+          !$acc loop gang vector private (jc,lfrozenwater)
           DO ic = 1, i_count_flk
-            jc = ext_data%atm%idx_lst_fp(ic,jb)
-
+            jc = ext_data%atm%list_lake%idx(ic,jb)
 
             !  In case ice is present at lake points, compute ice albedo 
             !  for lake points with an empirical formulation 
@@ -929,12 +1161,13 @@ CONTAINS
             !
             ! diffuse albedo 
             IF (wtr_prog%h_ice(jc,jb) > h_Ice_min_flk) THEN 
-
+              lfrozenwater = .TRUE.
               prm_diag%albdif_t(jc,jb,isub_lake) = albedo_whiteice_ref                      &
                 &              - (albedo_whiteice_ref - albedo_blueice_ref)                 &
                 &              * EXP(-c_albice_MR*(tpl_T_f-lnd_prog%t_g_t(jc,jb,isub_lake)) &
                 &              /tpl_T_f)
             ELSE
+              lfrozenwater = .FALSE.
               prm_diag%albdif_t(jc,jb,isub_lake) = csalb(ist_seawtr)
             ENDIF
 
@@ -942,12 +1175,31 @@ CONTAINS
             prm_diag%albnirdif_t(jc,jb,isub_lake) = prm_diag%albdif_t(jc,jb,isub_lake)
 
             ! direct albedo
-            zalbvisdir_t(jc,isub_lake) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),              &
-              &                                            prm_diag%albvisdif_t(jc,jb,isub_lake))
-            zalbnirdir_t(jc,isub_lake) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),              &
-              &                                            prm_diag%albnirdif_t(jc,jb,isub_lake))
-          ENDDO
+            SELECT CASE (direct_albedo_water)
+              CASE (1,4)                     ! Ritter and Geleyn (1992)
+                zalbvisdir_t(jc,isub_lake)   = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
+                  &                            prm_diag%albvisdif_t(jc,jb,isub_lake))
+                zalbnirdir_t(jc,isub_lake)   = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
+                  &                            prm_diag%albnirdif_t(jc,jb,isub_lake))
+              CASE (2)                       ! Yang et al (2008)
+                zalbvisdir_t(jc,isub_lake)   = sfc_albedo_dir_yang(prm_diag%cosmu0(jc,jb), &
+                  &                            prm_diag%albvisdif_t(jc,jb,isub_lake))
+                zalbnirdir_t(jc,isub_lake)   = sfc_albedo_dir_yang(prm_diag%cosmu0(jc,jb), &
+                  &                            prm_diag%albnirdif_t(jc,jb,isub_lake))
+              CASE (3)
+                IF (lfrozenwater) THEN       ! Mironov and Ritter (2004) & Ritter and Geleyn (1992)
+                  zalbvisdir_t(jc,isub_lake) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
+                    &                          prm_diag%albvisdif_t(jc,jb,isub_lake))
+                  zalbnirdir_t(jc,isub_lake) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
+                    &                          prm_diag%albnirdif_t(jc,jb,isub_lake))
+                ELSE                         ! Taylor et al (1996)
+                  zalbvisdir_t(jc,isub_lake) = sfc_albedo_dir_taylor(prm_diag%cosmu0(jc,jb))
+                  zalbnirdir_t(jc,isub_lake) = sfc_albedo_dir_taylor(prm_diag%cosmu0(jc,jb))
+                ENDIF
+            END SELECT
 
+          ENDDO
+          !$acc end parallel
 
         ELSE
 
@@ -956,15 +1208,19 @@ CONTAINS
           !
           ! - loop over lake points
           !
-          i_count_flk = ext_data%atm%fp_count(jb)
-
+          i_count_flk = ext_data%atm%list_lake%ncount(jb)
+!$NEC ivdep
+          !$acc parallel default (present) if (lacc)
+          !$acc loop gang vector private (jc,ist,lfrozenwater)
           DO ic = 1, i_count_flk
-            jc = ext_data%atm%idx_lst_fp(ic,jb)
+            jc = ext_data%atm%list_lake%idx(ic,jb)
 
             ! special handling of sea ice points
             IF (lnd_prog%t_g_t(jc,jb,isub_lake) < tpl_T_f) THEN 
-              ist = ist_seaice ! sea ice
+              lfrozenwater = .TRUE.
+              ist = ist_seaice  ! sea ice
             ELSE
+              lfrozenwater = .FALSE.
               ist = ist_seawtr  ! water
             ENDIF
 
@@ -974,11 +1230,31 @@ CONTAINS
             prm_diag%albnirdif_t(jc,jb,isub_lake) = csalb(ist)
 
             ! direct albedo
-            zalbvisdir_t(jc,isub_lake) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),              &
-              &                                            prm_diag%albvisdif_t(jc,jb,isub_lake))
-            zalbnirdir_t(jc,isub_lake) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),              &
-              &                                            prm_diag%albnirdif_t(jc,jb,isub_lake))
+            SELECT CASE (direct_albedo_water)
+              CASE (1,4)                     ! Ritter and Geleyn (1992)
+                zalbvisdir_t(jc,isub_lake)   = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
+                  &                            prm_diag%albvisdif_t(jc,jb,isub_lake))
+                zalbnirdir_t(jc,isub_lake)   = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
+                  &                            prm_diag%albnirdif_t(jc,jb,isub_lake))
+              CASE (2)                       ! Yang et al (2008)
+                zalbvisdir_t(jc,isub_lake)   = sfc_albedo_dir_yang(prm_diag%cosmu0(jc,jb), &
+                  &                            prm_diag%albvisdif_t(jc,jb,isub_lake))
+                zalbnirdir_t(jc,isub_lake)   = sfc_albedo_dir_yang(prm_diag%cosmu0(jc,jb), &
+                  &                            prm_diag%albnirdif_t(jc,jb,isub_lake))
+              CASE (3)
+                IF (lfrozenwater) THEN       ! Ritter and Geleyn (1992)
+                  zalbvisdir_t(jc,isub_lake) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
+                    &                          prm_diag%albvisdif_t(jc,jb,isub_lake))
+                  zalbnirdir_t(jc,isub_lake) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
+                    &                          prm_diag%albnirdif_t(jc,jb,isub_lake))
+                ELSE                         ! Taylor et al (1996)
+                  zalbvisdir_t(jc,isub_lake) = sfc_albedo_dir_taylor(prm_diag%cosmu0(jc,jb))
+                  zalbnirdir_t(jc,isub_lake) = sfc_albedo_dir_taylor(prm_diag%cosmu0(jc,jb))
+                ENDIF
+            END SELECT
+
           ENDDO
+          !$acc end parallel
 
 
         ENDIF
@@ -1016,13 +1292,18 @@ CONTAINS
 
         ELSE ! aggregate fields over tiles
 
+          !$acc kernels if (lacc)
           prm_diag%albdif   (i_startidx:i_endidx,jb) = 0._wp
           prm_diag%albvisdif(i_startidx:i_endidx,jb) = 0._wp
           prm_diag%albnirdif(i_startidx:i_endidx,jb) = 0._wp
           prm_diag%albvisdir(i_startidx:i_endidx,jb) = 0._wp
           prm_diag%albnirdir(i_startidx:i_endidx,jb) = 0._wp
+          !$acc end kernels
 
+          !$acc parallel default (present) if (lacc)
+          !$acc loop seq
           DO jt = 1, ntiles_total+ntiles_water
+            !$acc loop gang vector
             DO jc = i_startidx, i_endidx
 
               prm_diag%albdif(jc,jb) = prm_diag%albdif(jc,jb)         &
@@ -1047,10 +1328,16 @@ CONTAINS
 
             ENDDO
           ENDDO
+          !$acc end parallel
 
           ! aggregated snow-cover fraction for LW emissivity
+          !$acc kernels if (lacc)
           zsnowfrac(:) = 0._wp
+          !$acc end kernels
+          !$acc parallel default (present) if (lacc)
+          !$acc loop seq
           DO jt = 1, ntiles_total
+            !$acc loop gang vector
             DO jc = i_startidx, i_endidx
               IF (ext_data%atm%fr_land(jc,jb) > 0._wp) THEN
               zsnowfrac(jc) = zsnowfrac(jc) + ext_data%atm%frac_t(jc,jb,jt) * &
@@ -1058,14 +1345,21 @@ CONTAINS
               ENDIF
             ENDDO
           ENDDO
+          !$acc end parallel
 
         ENDIF  ! ntiles_total = 1
 
-        ! Account for snow effect on LW emissivity
+        ! Account for snow effect on LW emissivity, using values consistent with the CAMEL climatology
+        !$acc parallel default (present) if (lacc)
+        !$acc loop gang vector
         DO jc = i_startidx, i_endidx
-          prm_diag%lw_emiss(jc,jb) = (1._wp-zsnowfrac(jc))*ext_data%atm%emis_rad(jc,jb) + &
-                                     MIN(0.999_wp,1._wp-1.e-3_wp*prm_diag%gz0(jc,jb))*zsnowfrac(jc)
+          prm_diag%lw_emiss(jc,jb) = (1._wp-zsnowfrac(jc))*ext_data%atm%emis_rad(jc,jb) + 0.978_wp*zsnowfrac(jc)
+          ! analogously use lower values for sea ice than for open water
+          IF (lnd_diag%fr_seaice(jc,jb) > 0._wp) prm_diag%lw_emiss(jc,jb) = 0.975_wp
         ENDDO
+        !$acc end parallel     
+
+        !$acc end data
 
       ELSE  ! surface model switched OFF
 
@@ -1119,6 +1413,10 @@ CONTAINS
     REAL(wp), INTENT(IN) :: alb_dif          !< diffuse albedo (NIR or VIS or broadband)
 
     REAL(wp) :: alb_dir
+
+#ifdef _OPENACC
+    !$acc routine seq
+#endif
   !------------------------------------------------------------------------------
 
      alb_dir = MIN(0.999_wp,( 1.0_wp                             &
@@ -1126,6 +1424,32 @@ CONTAINS
        &     / (1.0_wp + (cosmu0 * (1.0_wp/alb_dif - 1.0_wp)))**2)
 
   END FUNCTION sfc_albedo_dir_rg
+
+
+  !>
+  !! Surface albedo for direct beam - water surface (ocean or lake)
+  !! accoring to IFS (43r1)
+  !!
+  !! Reference: Taylor et al. (1996, QJRMS), based on aircraft data
+  !!
+  !! @par Revision History
+  !! Initial revision by Martin Koehler, DWD (2019-05-03)
+  !!
+  FUNCTION sfc_albedo_dir_taylor (cosmu0)  RESULT (alb_dir)
+
+    REAL(wp), INTENT(IN) :: cosmu0           !< cosine of solar zenith angle (SZA)
+
+    REAL(wp) :: alb_dir
+
+#ifdef _OPENACC
+    !$acc routine seq
+#endif
+  !------------------------------------------------------------------------------
+
+    alb_dir = MAX( 1.E-10_wp,                                    &
+      &  0.037_wp / (1.1_wp * MIN(MAX(cosmu0,0.0_wp),1.0_wp) ** 1.4_wp + 0.15_wp) )
+
+  END FUNCTION sfc_albedo_dir_taylor
 
 
   !>
@@ -1158,6 +1482,9 @@ CONTAINS
     REAL(wp) :: zalbdirlim                   !< limit, which the computed albedo must not exceed
     REAL(wp) :: zalbdirfac                   !< factor for limit computation
 
+#ifdef _OPENACC
+    !$acc routine seq
+#endif
   !------------------------------------------------------------------------------
 
     ! unlimited direct beam albedo according to Ritter-Geleyn's formulation
@@ -1196,6 +1523,10 @@ CONTAINS
     REAL(wp), INTENT(IN) :: alb_dif          !< diffuse albedo (NIR or VIS or broadband)
 
     REAL(wp) :: alb_dir
+
+#ifdef _OPENACC
+    !$acc routine seq
+#endif
   !------------------------------------------------------------------------------
 
      alb_dir = MIN(0.999_wp, alb_dif*( 1.0_wp + 1.14_wp)/(1._wp + 1.48*cosmu0) )
@@ -1236,6 +1567,10 @@ CONTAINS
                                  ! Therefore we use 0.4, if z0<=0.15 and 0.1 otherwise
 
     REAL(wp) :: alb_dir
+
+#ifdef _OPENACC
+    !$acc routine seq
+#endif
   !------------------------------------------------------------------------------
 
      d       = MERGE(0.4_wp,0.1_wp,z0<=0.15_wp)

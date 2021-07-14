@@ -34,21 +34,9 @@ MODULE mo_ocean_solve_gmres
     PROCEDURE, PRIVATE :: recover_arrays_wp => ocean_solve_gmres_recover_arrays_wp
     PROCEDURE, PRIVATE :: recover_arrays_sp => ocean_solve_gmres_recover_arrays_sp
     GENERIC, PRIVATE :: recover_arrays => recover_arrays_wp, recover_arrays_sp
-    PROCEDURE, PUBLIC :: destruct => ocean_solve_gmres_destruct ! override deferred
   END TYPE t_ocean_solve_gmres
 
 CONTAINS
-
-! destruct lhs-object and de-allocate arrays
-  SUBROUTINE ocean_solve_gmres_destruct(this)
-    CLASS(t_ocean_solve_gmres), INTENT(INOUT) :: this
-
-    CALL this%destruct_commons()
-    IF (ALLOCATED(this%v_wp)) DEALLOCATE(this%v_wp, this%w_wp, this%z_wp, &
-      & this%res_t_wp, this%h_wp, this%s_wp, this%c_wp)
-    IF (ALLOCATED(this%x_sp)) DEALLOCATE(this%v_sp, this%w_sp, this%z_sp, &
-      & this%res_t_sp, this%h_sp, this%s_sp, this%c_sp, this%x_sp, this%b_sp)
-  END SUBROUTINE ocean_solve_gmres_destruct
 
 ! get solver arrays (alloc them, if not done so, yet) - wp-variant
   SUBROUTINE ocean_solve_gmres_recover_arrays_wp(this, v, x, b, w, z, &

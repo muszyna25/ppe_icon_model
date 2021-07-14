@@ -38,10 +38,11 @@ MODULE mo_ocean_physics
     & BiharmonicViscosity_reference,                          &
     & tracer_RichardsonCoeff, velocity_RichardsonCoeff,                    &
     & use_wind_mixing,                                        &
+    & vert_mix_type, vmix_pp, vmix_tke, vmix_kpp, vmix_idemix_tke,         & ! by_nils / by_ogut
     & HorizontalViscosity_SmoothIterations,                   &
     & convection_InstabilityThreshold,                        &
     & RichardsonDiffusion_threshold,                          &
-    & lambda_wind, wma_visc,                                  &
+    & lambda_wind,                                            &
     & use_reduced_mixing_under_ice,                           &
     & k_tracer_dianeutral_parameter,                          &
     & k_tracer_isoneutral_parameter, k_tracer_GM_kappa_parameter,    &
@@ -66,6 +67,8 @@ MODULE mo_ocean_physics
     &  TracerDiffusion_LeithWeight,             &
     &  max_turbulenece_TracerDiffusion,                       &
     &  LeithViscosity_SmoothIterations, LeithViscosity_SpatialSmoothFactor 
+  USE mo_ocean_surface_types,            ONLY:  &
+      t_ocean_surface                             ! contains p_oce_sfc
 
   USE mo_ocean_physics_types, ONLY: t_ho_params, v_params, WindMixingDecay, WindMixingLevel
    !, l_convection, l_pp_scheme
@@ -81,13 +84,8 @@ MODULE mo_ocean_physics
   USE mo_math_constants,      ONLY: dbl_eps, pi, rad2deg
   USE mo_dynamics_config,     ONLY: nold!, nnew
   USE mo_run_config,          ONLY: dtime
-  USE mo_linked_list,         ONLY: t_var_list
-  USE mo_var_list,            ONLY: add_var,                  &
-    & new_var_list,             &
-    & delete_var_list,          &
-    & default_var_list_settings,&
-    & add_ref
-  USE mo_cf_convention
+  USE mo_var_list,            ONLY: t_var_list_ptr
+!  USE mo_cf_convention
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
   USE mo_cdi,                 ONLY: datatype_pack16, DATATYPE_FLT32, DATATYPE_FLT64, filetype_nc2, &
     &                               GRID_UNSTRUCTURED
@@ -101,10 +99,14 @@ MODULE mo_ocean_physics
   USE mo_statistics,          ONLY: global_minmaxmean
   USE mo_io_config,           ONLY: lnetcdf_flt64_output
   USE mo_ocean_pp_scheme,     ONLY: update_PP_scheme
+  USE mo_ocean_cvmix_tke,     ONLY: calc_tke, setup_tke
+  USE mo_ocean_cvmix_idemix,  ONLY: calc_idemix, setup_idemix
+  USE mo_ocean_cvmix_kpp,     ONLY: calc_kpp, setup_kpp
   USE mo_ocean_physics_types, ONLY: t_ho_params, v_params, &
    & WindMixingDecay, WindMixingLevel
+  USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes
   USE mo_ocean_velocity_diffusion, ONLY: veloc_diff_harmonic_div_grad
-  
+  USE mo_ocean_GM_Redi,       ONLY: init_GMRedi
 
   IMPLICIT NONE
 
@@ -119,11 +121,13 @@ MODULE mo_ocean_physics
   !PUBLIC :: init_ho_physics
   PUBLIC :: init_ho_params
   PUBLIC :: update_ho_params
-  PUBLIC :: calc_characteristic_physical_numbers
+!   PUBLIC :: calc_characteristic_physical_numbers
   PUBLIC :: scale_horizontal_diffusion, copy2Dto3D
   
   ! variables
-  TYPE (t_var_list), PUBLIC :: ocean_params_list
+  TYPE (t_var_list_ptr), PUBLIC :: ocean_params_list
+
+  CHARACTER(LEN=*), PARAMETER :: module_name = 'mo_ocean_physics'
 
 CONTAINS
 
@@ -147,6 +151,8 @@ CONTAINS
     TYPE(t_patch), POINTER :: patch_2D
     REAL(wp) :: tracer_basisCoeff(nproma, patch_3D%p_patch_2d(1)%nblks_e)
 
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ho_params'
+
     !-----------------------------------------------------------------------
     patch_2D   => patch_3d%p_patch_2d(1)
     !-------------------------------------------------------------------------
@@ -160,6 +166,8 @@ CONTAINS
     IF(GMRedi_configuration==GMRedi_combined&
       &.OR.GMRedi_configuration==GM_only.OR.GMRedi_configuration==Redi_only)THEN
 
+      CALL init_GMRedi(patch_3d) 
+      
       physics_param%k_tracer_isoneutral = k_tracer_isoneutral_parameter
       physics_param%k_tracer_dianeutral = k_tracer_dianeutral_parameter
 
@@ -232,8 +240,7 @@ CONTAINS
         physics_param%a_tracer_v_back(i) = Salinity_VerticalDiffusion_background
       ELSE
 
-        CALL finish ('mo_ocean_physics:init_ho_params',  &
-          & 'number of tracers exceeds number of background values')
+        CALL finish (method_name,'number of tracers exceeds number of background values')
       ENDIF
 
       CALL scale_horizontal_diffusion(patch_3D=patch_3D, &
@@ -261,9 +268,54 @@ CONTAINS
       WindMixingLevel(jk) = lambda_wind * patch_3d%p_patch_1d(1)%inv_del_zlev_m(jk-1)
     ENDDO 
 
+    ! setup tke scheme
+    SELECT CASE(vert_mix_type)
+    CASE(vmix_pp)
+!      write(*,*) ''
+      CALL message(method_name,'Setup vmix_pp scheme.')
+
+    CASE(vmix_tke) ! by_nils
+!      write(*,*) 'Setup cvmix/tke scheme.'
+      CALL message(method_name,'Setup cvmix/tke scheme.')
+      CALL setup_tke()
+    CASE(vmix_idemix_tke) ! by_nils
+!      write(*,*) 'Setup cvmix/idemix_tke scheme.'
+      CALL message(method_name,'Setup cvmix/idemix_tke scheme.')
+      CALL setup_idemix(patch_3d)
+      CALL setup_tke()
+    CASE(vmix_kpp) ! by_ogut
+!      write(*,*) 'Setup cvmix/kpp scheme.'
+      CALL message(method_name,'Setup cvmix/kpp scheme.')
+      CALL setup_kpp()
+    CASE default
+!      write(*,*) "Unknown vert_mix_type!"
+!      stop
+      CALL finish(method_name, 'Unknown vert_mix_type!')
+
+    END SELECT
+
   END SUBROUTINE init_ho_params
   !-------------------------------------------------------------------------
 
+   !-------------------------------------------------------------------------
+  REAL(wp) FUNCTION edge_area(patch_2D, je,jb) 
+    TYPE(t_patch), POINTER :: patch_2D
+    INTEGER, INTENT(in) :: je, jb
+  
+    INTEGER :: c1_idx, c1_blk,  c2_idx, c2_blk
+    
+    c1_idx = patch_2D%edges%cell_idx(je,jb,1)
+    c1_blk = patch_2D%edges%cell_blk(je,jb,1)
+    c2_idx = patch_2D%edges%cell_idx(je,jb,2)
+    c2_blk = patch_2D%edges%cell_blk(je,jb,2)
+  
+    edge_area = (patch_2D%cells%area(c1_idx, c1_blk) + patch_2D%cells%area(c2_idx, c2_blk)) * 0.5_wp
+    
+!     edge_area = patch_2D%edges%primal_edge_length(je,jb)*patch_2D%edges%dual_edge_length(je,jb))
+  END FUNCTION edge_area
+  !-------------------------------------------------------------------------
+  
+  
   !-------------------------------------------------------------------------
   SUBROUTINE scale_horizontal_diffusion(patch_3D, &
     & DiffusionScaling, DiffusionReferenceValue, DiffusionBackgroundValue, out_DiffusionCoefficients)
@@ -284,6 +336,9 @@ CONTAINS
     REAL(wp) :: minCellArea, meanCellArea, maxCellArea
     TYPE(t_subset_range), POINTER :: all_edges, owned_edges
     REAL(wp):: length_scale, dual_length_scale, prime_length_scale
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':scale_horizontal_diffusion'
+
     !-----------------------------------------------------------------------
     patch_2D   => patch_3d%p_patch_2d(1)
     !-------------------------------------------------------------------------
@@ -317,7 +372,6 @@ CONTAINS
 !       out_DiffusionCoefficients(:,:) = 3.82E-12_wp * &
 !         & (points_in_munk_layer * maxEdgeLength)**3
 
-#define edge_area(je,jb) (patch_2D%edges%primal_edge_length(je,jb)*patch_2D%edges%dual_edge_length(je,jb))
 
    CASE(2)
       ! linear scale
@@ -328,7 +382,7 @@ CONTAINS
 
           out_DiffusionCoefficients(je,jb) = &
             & DiffusionBackgroundValue + DiffusionReferenceValue * &
-            & SQRT(edge_area(je,jb))
+            & SQRT(edge_area(patch_2D,je,jb))
 
         END DO
       END DO
@@ -354,7 +408,7 @@ CONTAINS
 
           out_DiffusionCoefficients(je,jb) = &
             & DiffusionBackgroundValue + DiffusionReferenceValue * &
-            & edge_area(je,jb)
+            & edge_area(patch_2D,je,jb)
 
         END DO
       END DO
@@ -368,7 +422,7 @@ CONTAINS
 
           out_DiffusionCoefficients(je,jb) = &
             & DiffusionBackgroundValue + DiffusionReferenceValue * &
-            & SQRT(edge_area(je,jb))**3
+            & SQRT(edge_area(patch_2D,je,jb))**3
 
         END DO
       END DO
@@ -427,7 +481,7 @@ CONTAINS
 
           out_DiffusionCoefficients(je,jb) = &
             & DiffusionBackgroundValue + DiffusionReferenceValue * &
-            & edge_area(je,jb)**2
+            & edge_area(patch_2D,je,jb)**2
 
         END DO
       END DO
@@ -464,7 +518,7 @@ CONTAINS
         DO je = start_index, end_index
 
           length_scale = &
-          & sqrt(edge_area(je,jb))
+          & sqrt(edge_area(patch_2D,je,jb))
 
           out_DiffusionCoefficients(je,jb)=C_MPIOM*length_scale**2
 
@@ -524,11 +578,9 @@ CONTAINS
       END DO
 
     CASE DEFAULT
-        CALL finish ('mo_ocean_physics:scale_horizontal_diffusion', 'uknown DiffusionScaling')
+        CALL finish (method_name, 'uknown DiffusionScaling')
 
     END SELECT
-
-#undef edge_area
 
     ! smooth if requested
     DO i=1, HorizontalViscosity_SmoothIterations
@@ -573,6 +625,7 @@ CONTAINS
 
   END SUBROUTINE calc_lower_bound_veloc_diff
   !-------------------------------------------------------------------------
+ 
   !-------------------------------------------------------------------------
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2011-08)
@@ -652,6 +705,88 @@ CONTAINS
     ! Local variables
     TYPE(t_patch), POINTER  :: patch_2D
     INTEGER :: je,jv,jk, jev, ile, ibe, level
+    INTEGER :: il_c1,ib_c1, il_c2,ib_c2
+    INTEGER :: start_index, end_index, blockNo
+    REAL(wp), POINTER :: z_k_ave_c(:,:,:)
+    INTEGER  :: sea_edges_onLevel(n_zlev)
+    !-------------------------------------------------------------------------
+    TYPE(t_subset_range), POINTER ::all_edges, cells_in_domain
+    !-------------------------------------------------------------------------
+    patch_2D => patch_3d%p_patch_2D(1)
+    all_edges => patch_2D%edges%all
+    cells_in_domain => patch_2D%cells%in_domain
+
+    ALLOCATE(z_k_ave_c(nproma,n_zlev, patch_2D%alloc_cell_blocks))
+ 
+!ICON_OMP_PARALLEL_DO PRIVATE(blockNo, start_index, end_index, jv, jev, ile, ibe, sea_edges_onLevel, level)
+    DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+    
+      z_k_ave_c(:,:,blockNo) = 0.0_wp
+
+      CALL get_index_range(cells_in_domain, blockNo, start_index, end_index)
+      DO jv = start_index, end_index
+        sea_edges_onLevel(:) = 0
+        DO jev = 1, patch_2D%cells%num_edges(jv,blockNo)
+          ile = patch_2D%cells%edge_idx(jv,blockNo,jev)
+          ibe = patch_2D%cells%edge_blk(jv,blockNo,jev)
+          DO level=1,patch_3D%p_patch_1D(1)%dolic_e(ile,ibe)
+            z_k_ave_c(jv,level,blockNo)= z_k_ave_c(jv,level,blockNo) + k_h(ile,level,ibe)
+            sea_edges_onLevel(level) = sea_edges_onLevel(level) + 1
+          END DO 
+        END DO 
+        DO level=1,n_zlev
+          IF (sea_edges_onLevel(level) > 1) &
+            z_k_ave_c(jv,level,blockNo) = z_k_ave_c(jv,level,blockNo) / REAL(sea_edges_onLevel(level),wp)
+        ENDDO
+      ENDDO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+
+    ! we do need to sync here
+    CALL sync_patch_array(sync_c, patch_2D, z_k_ave_c)    
+        
+!ICON_OMP_PARALLEL_DO PRIVATE(blockNo, start_index, end_index, je, il_c1, ib_c1, il_c2, ib_c2, level)
+    DO blockNo = all_edges%start_block, all_edges%end_block
+      CALL get_index_range(all_edges, blockNo, start_index, end_index)
+      DO je = start_index, end_index
+
+        il_c1 = patch_2D%edges%cell_idx(je,blockNo,1)
+        ib_c1 = patch_2D%edges%cell_blk(je,blockNo,1)
+        il_c2 = patch_2D%edges%cell_idx(je,blockNo,2)
+        ib_c2 = patch_2D%edges%cell_blk(je,blockNo,2)
+   
+        DO level=1,patch_3D%p_patch_1D(1)%dolic_e(je,blockNo)
+          k_h(je,level,blockNo)= 0.5_wp * smoothFactor * (z_k_ave_c(il_c1,level,ib_c1) + z_k_ave_c(il_c2,level,ib_c2)) + &
+            & (1.0_wp - smoothFactor) * k_h(je,level,blockNo)
+        ENDDO
+      ENDDO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+
+    ! we do not need to sync edge coefficients
+    ! CALL sync_patch_array(sync_e, patch_2D, k_h)   
+    
+    !---------Debug Diagnostics-------------------------------------------
+    idt_src=1  ! output print levels - 0: print in any case
+    CALL dbg_print('smoothed Laplac Diff.'     ,k_h                     ,str_module,idt_src, &
+      & in_subset=patch_2D%edges%owned)
+    !---------------------------------------------------------------------
+    DEALLOCATE(z_k_ave_c)
+
+  END SUBROUTINE smooth_lapl_diff_3D
+  !-------------------------------------------------------------------------
+ 
+  !-------------------------------------------------------------------------
+  !! @par Revision History
+  !! Initial release by Peter Korn, MPI-M (2011-08)
+!<Optimize:inUse:initOnly>
+  SUBROUTINE smooth_lapl_diff_verts_3D( patch_3d, k_h, smoothFactor )
+    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
+    REAL(wp), INTENT(inout)    :: k_h(:,:,:)
+    REAL(wp), INTENT(in)       ::smoothFactor
+    ! Local variables
+    TYPE(t_patch), POINTER  :: patch_2D
+    INTEGER :: je,jv,jk, jev, ile, ibe, level
     INTEGER :: il_v1,ib_v1, il_v2,ib_v2
     INTEGER :: start_index, end_index, blockNo
     INTEGER :: i_startidx_v, i_endidx_v
@@ -719,7 +854,7 @@ CONTAINS
     !---------------------------------------------------------------------
     DEALLOCATE(z_k_ave_v)
 
-  END SUBROUTINE smooth_lapl_diff_3D
+  END SUBROUTINE smooth_lapl_diff_verts_3D
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
@@ -740,16 +875,20 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2011-02)
 !<Optimize:inUse:done>
-  SUBROUTINE update_ho_params(patch_3d, ocean_state, fu10, concsum, params_oce,op_coeffs) !, calculate_density_func)
+  SUBROUTINE update_ho_params(patch_3d, ocean_state, fu10, concsum, params_oce,op_coeffs, atmos_fluxes, p_oce_sfc)
+    !, calculate_density_func)
 
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET    :: ocean_state
     REAL(wp), TARGET                     :: fu10   (:,:) ! t_atmos_for_ocean%fu10
     REAL(wp), TARGET                     :: concsum(:,:) ! t_sea_ice%concsum
     TYPE(t_ho_params), INTENT(inout)     :: params_oce
+    TYPE (t_ocean_surface), INTENT(IN)   :: p_oce_sfc
     TYPE(t_operator_coeff),INTENT(in)    :: op_coeffs
+    TYPE(t_atmos_fluxes)                 :: atmos_fluxes
 
     INTEGER :: tracer_index
+    !INTEGER :: vert_mix_type=2 ! by_nils ! FIXME: make this a namelist parameter
     !-------------------------------------------------------------------------
     start_timer(timer_upd_phys,1)
 
@@ -759,7 +898,22 @@ CONTAINS
 !   and the Richardson Number ; shall be used in PP and possibly TKE
     CALL calc_vertical_stability(patch_3d, ocean_state)
 
-    CALL update_PP_scheme(patch_3d, ocean_state, fu10, concsum, params_oce,op_coeffs)
+    SELECT CASE(vert_mix_type)
+    CASE(vmix_pp)
+      CALL update_PP_scheme(patch_3d, ocean_state, fu10, concsum, params_oce,op_coeffs)
+    CASE(vmix_tke)
+      !write(*,*) 'Do calc_tke...'
+      CALL calc_tke(patch_3d, ocean_state, params_oce, atmos_fluxes)
+    CASE(vmix_idemix_tke)
+      !write(*,*) 'Do calc_idemix...'
+      CALL calc_idemix(patch_3d, ocean_state, params_oce, op_coeffs, atmos_fluxes)
+      CALL calc_tke(patch_3d, ocean_state, params_oce, atmos_fluxes)
+    CASE(3) ! by_ogut 
+      CALL calc_kpp(patch_3d, ocean_state, params_oce, atmos_fluxes, p_oce_sfc, concsum)
+    CASE default
+      write(*,*) "Unknown vert_mix_type!"
+    END SELECT
+ 
 
     IF (LeithClosure_order == 1 .or.  LeithClosure_order == 21) THEN
       IF (LeithClosure_form == 1) THEN
@@ -1126,14 +1280,14 @@ CONTAINS
     ! tracer diffusion 
 !     IF (TracerDiffusion_LeithWeight > 0.0_wp) THEN
 !       DO i=1,no_tracer
-! 	param%TracerDiffusion_coeff(je,level,blockNo,i) = &
-! 	  & param%TracerDiffusion_BasisCoeff(je,blockNo,i) + &
-! 	  & MIN(param%HarmonicViscosity_coeff(je,1,blockNo) * TracerDiffusion_LeithWeight,    &
-! 	  &     max_turbulenece_TracerDiffusion)
+!       param%TracerDiffusion_coeff(je,level,blockNo,i) = &
+!         & param%TracerDiffusion_BasisCoeff(je,blockNo,i) + &
+!         & MIN(param%HarmonicViscosity_coeff(je,1,blockNo) * TracerDiffusion_LeithWeight,    &
+!         &     max_turbulenece_TracerDiffusion)
 !       END DO
 ! !       DO i=1,no_tracer
 !       CALL dbg_print('LeithClosure: tracer diff',param%TracerDiffusion_coeff(:,:,:,1),&
-! 	&str_module,idt_src, in_subset=edges_in_domain)
+!       &str_module,idt_src, in_subset=edges_in_domain)
 ! !       END DO
 !     ENDIF
 

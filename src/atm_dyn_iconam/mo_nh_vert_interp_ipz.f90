@@ -33,6 +33,7 @@ MODULE mo_nh_vert_interp_ipz
   USE mo_physical_constants,  ONLY: grav, rd, dtdz_standardatm
   USE mo_run_config,          ONLY: iforcing, num_lev
   USE mo_io_config,           ONLY: itype_pres_msl
+  USE mo_grid_config,         ONLY: l_limited_area
   USE mo_impl_constants,      ONLY: inwp, iecham, PRES_MSL_METHOD_GME, PRES_MSL_METHOD_IFS, &
     &                               PRES_MSL_METHOD_DWD, PRES_MSL_METHOD_IFS_CORR,          &
     &                               SUCCESS
@@ -44,6 +45,9 @@ MODULE mo_nh_vert_interp_ipz
     &                               temperature_intp, prepare_extrap_ifspp, pressure_intp
   USE mo_upatmo_config,       ONLY: upatmo_config
   USE mo_nh_deepatmo_utils,   ONLY: height_transform
+#ifdef _OPENACC
+  USE mo_mpi,                 ONLY: i_am_accel_node
+#endif  
 
   IMPLICIT NONE
   PRIVATE
@@ -82,7 +86,9 @@ CONTAINS
   !! - routine duplicated for use in ICON
   !! Modification by F. Prill, DWD (2012-02-29)
   !! - Separated coefficient computation from interpolation
-  !!
+  !! Modification by W. Sawyer, CSCS (2019-11-26)
+  !! - simplistic OpenACC implementation
+
   SUBROUTINE prepare_vert_interp_z(p_patch, p_diag, p_metrics, intp_hrz, nzlev,  &
     &                              temp_z_out, pres_z_out, p_z3d_out, vcoeff_z)
 
@@ -107,6 +113,10 @@ CONTAINS
     ! Pointer to virtual temperature / temperature, depending on whether the run is moist or dry
     REAL(wp), POINTER, DIMENSION(:,:,:) :: ptr_tempv
     LOGICAL :: lconstgrav
+#ifdef _OPENACC
+    LOGICAL :: save_i_am_accel_node
+#endif
+
 
     !-------------------------------------------------------------------------
 
@@ -122,6 +132,20 @@ CONTAINS
     jg       = p_patch%id
 
     lconstgrav = upatmo_config(jg)%dyn%l_constgrav
+
+!$ACC UPDATE HOST( p_diag%temp, p_diag%pres ) IF ( i_am_accel_node )
+    IF (  iforcing == inwp .OR. iforcing == iecham  ) THEN
+      ptr_tempv => p_diag%tempv(:,:,:)
+!$ACC UPDATE HOST( ptr_tempv ) IF ( i_am_accel_node )
+    ELSE
+      ptr_tempv => p_diag%temp(:,:,:)
+! temp already updated above
+    END IF
+
+#ifdef _OPENACC
+    save_i_am_accel_node = i_am_accel_node
+    i_am_accel_node = .FALSE.
+#endif
 
     !--- Coefficients: Interpolation to z-level fields
 
@@ -151,6 +175,7 @@ CONTAINS
       &                     vcoeff_z%cub_cell%idx0_cub, vcoeff_z%cub_cell%bot_idx_cub )        !out
 
     ! Perform vertical interpolation
+
     CALL temperature_intp(p_diag%temp, z_auxz, p_metrics%z_mc, p_z3d_out,                   & !in,out
       &                   nblks_c, npromz_c, nlev, nzlev,                                   & !in
       &                   vcoeff_z%cub_cell%coef1, vcoeff_z%cub_cell%coef2,                 & !in
@@ -163,17 +188,12 @@ CONTAINS
       &                   extrapol_dist=0._wp, l_pz_mode=.TRUE., zextrap=vcoeff_z%lin_cell%zextrap) !in
 
 
-    IF (jg > 1) THEN ! copy outermost nest boundary row in order to avoid missing values
+    IF (jg > 1 .OR. l_limited_area) THEN ! copy outermost nest boundary row in order to avoid missing values
       i_endblk = p_patch%cells%end_blk(1,1)
       temp_z_out(:,:,1:i_endblk) = z_auxz(:,:,1:i_endblk)
     ENDIF
+   
     CALL cell_avg(z_auxz, p_patch, p_int_state(jg)%c_bln_avg, temp_z_out)
-
-    IF (  iforcing == inwp .OR. iforcing == iecham  ) THEN
-      ptr_tempv => p_diag%tempv(:,:,:)
-    ELSE
-      ptr_tempv => p_diag%temp(:,:,:)
-    END IF
 
     ! Interpolate pressure on z-levels
     CALL pressure_intp(p_diag%pres, ptr_tempv, p_metrics%z_mc,                              & !in
@@ -185,10 +205,11 @@ CONTAINS
       &                vcoeff_z%lin_cell%kpbl2, vcoeff_z%lin_cell%zextrap,                  & !in
       &                opt_lconstgrav=lconstgrav                                            ) !optin
     
-    IF (jg > 1) THEN ! copy outermost nest boundary row in order to avoid missing values
+    IF (jg > 1 .OR. l_limited_area) THEN ! copy outermost nest boundary row in order to avoid missing values
       i_endblk = p_patch%cells%end_blk(1,1)
       pres_z_out(:,:,1:i_endblk) = z_auxz(:,:,1:i_endblk)
     ENDIF
+
     CALL cell_avg(z_auxz, p_patch, p_int_state(jg)%c_bln_avg, pres_z_out)
 
     IF ( ANY((/PRES_MSL_METHOD_IFS, PRES_MSL_METHOD_IFS_CORR, PRES_MSL_METHOD_DWD/)== itype_pres_msl) ) THEN
@@ -225,6 +246,10 @@ CONTAINS
       &                     vcoeff_z%cub_edge%coef3,                                        & !out
       &                     vcoeff_z%cub_edge%idx0_cub, vcoeff_z%cub_edge%bot_idx_cub )       !out
 
+#ifdef _OPENACC
+    i_am_accel_node = save_i_am_accel_node
+#endif
+
   END SUBROUTINE prepare_vert_interp_z
 
 
@@ -235,7 +260,8 @@ CONTAINS
   !!
   !! @par Revision History
   !! Initial version: see SR prepare_vert_interp_z
-  !!
+  !! Modification by W. Sawyer, CSCS (2019-11-26)
+  !! - simplistic OpenACC implementation
   SUBROUTINE prepare_vert_interp_p(p_patch, p_diag, p_metrics, intp_hrz, nplev,     &
     &                              gh_p_out, temp_p_out, p_p3d_out, vcoeff_p)
 
@@ -260,6 +286,9 @@ CONTAINS
     ! Pointer to virtual temperature / temperature, depending on whether the run is moist or dry
     REAL(wp), POINTER, DIMENSION(:,:,:) :: ptr_tempv
     LOGICAL :: lconstgrav
+#ifdef _OPENACC
+    LOGICAL :: save_i_am_accel_node
+#endif
 
     vcoeff_p%l_initialized = .TRUE.
     IF (p_patch%n_patch_cells==0) RETURN
@@ -273,6 +302,18 @@ CONTAINS
     jg       = p_patch%id
 
     lconstgrav = upatmo_config(jg)%dyn%l_constgrav
+
+!$ACC UPDATE HOST( p_diag%temp, p_diag%pres ) IF ( i_am_accel_node )    ! temp required farther down
+    IF (  iforcing == inwp .OR. iforcing == iecham  ) THEN
+      ptr_tempv => p_diag%tempv
+!$ACC UPDATE HOST( ptr_tempv ) IF ( i_am_accel_node )
+    ELSE
+      ptr_tempv => p_diag%temp
+    ENDIF
+#ifdef _OPENACC
+    save_i_am_accel_node = i_am_accel_node
+    i_am_accel_node = .FALSE.
+#endif
 
     ! allocate coefficient table:
     CALL vcoeff_allocate(nblks_c, nblks_e, nplev, vcoeff_p)
@@ -293,11 +334,6 @@ CONTAINS
     ! Compute height at pressure levels (i.e. geopot/g); this height
     ! field is afterwards also used as target coordinate for vertical
     ! interpolation
-    IF (  iforcing == inwp .OR. iforcing == iecham  ) THEN
-      ptr_tempv => p_diag%tempv
-    ELSE
-      ptr_tempv => p_diag%temp
-    ENDIF
     CALL z_at_plevels(p_diag%pres, ptr_tempv, p_metrics%z_mc,                               & !in
       &               p_p3d_out, z_auxp, nblks_c, npromz_c, nlev, nplev,                    & !in,out,in
       &               vcoeff_p%lin_cell%kpbl1, vcoeff_p%lin_cell%wfacpbl1,                  & !in
@@ -305,10 +341,11 @@ CONTAINS
       &               vcoeff_p%lin_cell%zextrap,                                            & !in
       &               opt_lconstgrav=lconstgrav                                             ) !optin
     
-    IF (jg > 1) THEN ! copy outermost nest boundary row in order to avoid missing values
+    IF (jg > 1 .OR. l_limited_area) THEN ! copy outermost nest boundary row in order to avoid missing values
       i_endblk = p_patch%cells%end_blk(1,1)
       gh_p_out(:,:,1:i_endblk) = z_auxp(:,:,1:i_endblk)
     ENDIF
+
     CALL cell_avg(z_auxp, p_patch, p_int_state(jg)%c_bln_avg, gh_p_out)
 
     ! Prepare again interpolation coefficients (now for pressure levels)
@@ -336,10 +373,11 @@ CONTAINS
       &                   l_hires_corr=.FALSE., extrapol_dist=0._wp, l_pz_mode=.TRUE.,      & !in
       &                   zextrap=vcoeff_p%lin_cell%zextrap)
 
-    IF (jg > 1) THEN ! copy outermost nest boundary row in order to avoid missing values
+    IF (jg > 1 .OR. l_limited_area) THEN ! copy outermost nest boundary row in order to avoid missing values
       i_endblk = p_patch%cells%end_blk(1,1)
       temp_p_out(:,:,1:i_endblk) = z_auxp(:,:,1:i_endblk)
     ENDIF
+
     CALL cell_avg(z_auxp, p_patch, p_int_state(jg)%c_bln_avg, temp_p_out)
 
     IF ( ANY((/PRES_MSL_METHOD_IFS, PRES_MSL_METHOD_IFS_CORR, PRES_MSL_METHOD_DWD/)== itype_pres_msl) ) THEN
@@ -375,6 +413,10 @@ CONTAINS
       &                     vcoeff_p%cub_edge%coef3,                                         & !out
       &                     vcoeff_p%cub_edge%idx0_cub, vcoeff_p%cub_edge%bot_idx_cub )        !out
 
+#ifdef _OPENACC
+    i_am_accel_node = save_i_am_accel_node
+#endif
+
   END SUBROUTINE prepare_vert_interp_p
 
 
@@ -385,6 +427,8 @@ CONTAINS
   !!
   !! @par Revision History
   !! Initial version: see SR prepare_vert_interp_i
+  !! Modification by W. Sawyer, CSCS (2019-11-26)
+  !! - simplistic OpenACC implementation
   !!
   SUBROUTINE prepare_vert_interp_i(p_patch, p_prog, p_diag, p_metrics, intp_hrz, nilev,     &
     &                              gh_i_out, temp_i_out, p_i3d_out, vcoeff_i)
@@ -405,6 +449,9 @@ CONTAINS
     INTEGER :: nlev, nlevp1, nblks_c, nblks_e, npromz_c,npromz_e !< blocking parameters
     REAL(wp), DIMENSION(nproma,nilev,p_patch%nblks_e)        :: gh_i_edge
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e) :: z_me
+#ifdef _OPENACC
+    LOGICAL :: save_i_am_accel_node
+#endif
 
     vcoeff_i%l_initialized = .TRUE.
 
@@ -415,6 +462,12 @@ CONTAINS
     nblks_e  = p_patch%nblks_e
     npromz_e = p_patch%npromz_e
 
+!$ACC UPDATE HOST( p_prog%theta_v, p_diag%temp ) IF ( i_am_accel_node ) ! required farther down
+#ifdef _OPENACC
+    save_i_am_accel_node = i_am_accel_node
+    i_am_accel_node = .FALSE.
+#endif
+    
     ! allocate coefficient table:
     CALL vcoeff_allocate(nblks_c, nblks_e, nilev, vcoeff_i)
 
@@ -487,12 +540,16 @@ CONTAINS
       &                     vcoeff_i%cub_edge%coef3,                                         & !out
       &                     vcoeff_i%cub_edge%idx0_cub, vcoeff_i%cub_edge%bot_idx_cub )        !out
 
+#ifdef _OPENACC
+    i_am_accel_node = save_i_am_accel_node
+#endif
+
   END SUBROUTINE prepare_vert_interp_i
 
 
   !-------------
   !>
-  !! SUBROUTINE z_at_plevels
+  !! SUBROUTINE z_at_ple
   !! Computes height for a given set of pressure levels based on the same extrapolation
   !! assumptions as used in ECMWF's IFS.
   !! The purpose of this is to prepare diagnostic output on pressure levels.

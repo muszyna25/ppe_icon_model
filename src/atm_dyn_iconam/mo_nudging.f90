@@ -41,7 +41,7 @@ MODULE mo_nudging
 
   USE mo_kind,                  ONLY: wp
   USE mo_exception,             ONLY: finish, message, message_text
-  USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH, SUCCESS, &
+  USE mo_impl_constants,        ONLY: SUCCESS, &
     &                                 min_rlcell, min_rledge,   &
     &                                 min_rlcell_int
   USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c, grf_bdywidth_e
@@ -55,7 +55,7 @@ MODULE mo_nudging
   USE mo_nudging_config,        ONLY: t_nudging_config,    &
     &                                 indg_type, indg_var, &
     &                                 ithermdyn_type
-  USE mo_upatmo_config,         ONLY: t_upatmo_config, idamtr
+  USE mo_upatmo_config,         ONLY: t_upatmo_config
   USE mo_time_config,           ONLY: t_time_config
   USE mo_model_domain,          ONLY: t_patch
   USE mo_nonhydro_types,        ONLY: t_nh_state, t_nh_prog, &
@@ -69,9 +69,7 @@ MODULE mo_nudging
   USE mo_loopindices,           ONLY: get_indices_c, get_indices_e
   USE mo_async_latbc_utils,     ONLY: update_lin_interpolation
   USE mo_sync_latbc,            ONLY: update_lin_interc
-  USE mo_nh_diagnose_pres_temp, ONLY: diagnose_pres_temp, &
-    &                                 diag_temp, diag_pres
-  USE mo_util_string,           ONLY: int2string, real2string
+  USE mo_nh_diagnose_pres_temp, ONLY: diagnose_pres_temp
   USE mo_math_divrot,           ONLY: div
   USE mo_mpi,                   ONLY: my_process_is_stdio,          &
     &                                 get_my_mpi_work_communicator, &
@@ -80,6 +78,7 @@ MODULE mo_nudging
     &                                 timer_global_nudging
   USE mo_io_units,              ONLY: find_next_free_unit
   USE mo_io_config,             ONLY: inextra_2d
+  USE mo_upatmo_impl_const,     ONLY: idamtr
 
   IMPLICIT NONE
 
@@ -138,7 +137,7 @@ CONTAINS !..................................................................
     REAL(wp) :: tsrat, wfac_old, wfac_new
     INTEGER  :: jg
     LOGICAL  :: l_thermdyn, l_hydrostatic, l_qv, l_message
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: &
+    CHARACTER(LEN=*), PARAMETER :: &
       & routine = modname//":nudging_interface"
     
     !----------------------------------------
@@ -190,7 +189,7 @@ CONTAINS !..................................................................
       IF (nudging_config%ltimer) CALL timer_start(timer_global_nudging)
 
       l_message = nudging_config%lmessage
-      IF(l_message) CALL message(TRIM(routine), 'Start global nudging.')
+      IF(l_message) CALL message(routine, 'Start global nudging.')
 
       !---------------------------------------------------------------
       !                        Preparation
@@ -321,7 +320,7 @@ CONTAINS !..................................................................
       p_latbc_old => NULL()
       p_latbc_new => NULL()
 
-      IF(l_message) CALL message(TRIM(routine), 'End of global nudging.')
+      IF(l_message) CALL message(routine, 'End of global nudging.')
       
       IF (nudging_config%ltimer) CALL timer_stop(timer_global_nudging)
 
@@ -379,7 +378,7 @@ CONTAINS !..................................................................
     REAL(wp), PARAMETER :: rd_o_p0ref  = rd / p0ref
     REAL(wp), PARAMETER :: rrd         = 1._wp / rd
     REAL(wp), PARAMETER :: eps_qc      = 1.e-10_wp
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: &
+    CHARACTER(LEN=*), PARAMETER :: &
       & routine = modname//":global_nudging"
 
     !----------------------------------------
@@ -846,7 +845,7 @@ CONTAINS !..................................................................
     REAL(wp), PARAMETER :: rd_o_cvd       = 1._wp / cvd_o_rd
     REAL(wp), PARAMETER :: rd_o_p0ref     = rd / p0ref
     REAL(wp), PARAMETER :: eps            = dbl_eps * 1000._wp
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: &
+    CHARACTER(LEN=*), PARAMETER :: &
       & routine = modname//":nudging_diagnostics"
 
     !----------------------------------------
@@ -916,8 +915,9 @@ CONTAINS !..................................................................
           & 'Mean_sea_level_pressure_correlation_(1)', 'Noise_by_<|div|>_(s-1)',    &
           & 'Noise_by_<|dPS/dt|>_(Pa_s-1)'
         IF (l_message) THEN
-          WRITE(message_text,'(a)') 'ASCII file '//TRIM(nudging_config%diag_kit%filename)//' successfully opened.'
-          CALL message(TRIM(routine), message_text)
+          WRITE(message_text,'(3a)') 'ASCII file ', TRIM(nudging_config%diag_kit%filename), &
+               ' successfully opened.'
+          CALL message(routine, message_text)
         ENDIF
       ENDIF  !IF (l_stdio_process ...)
       
@@ -1170,11 +1170,12 @@ CONTAINS !..................................................................
         IF (l_message) THEN
           ! (The global mean of |dPS/dt| is printed by 'src/atm_dyn_iconam/mo_nh_supervise: compute_dpsdt', 
           ! so we do not repeat that here)
-          WRITE(message_text,'(a)') 'Ncount = '//TRIM(int2string(nudging_config%diag_kit%ncount)) &
-            & //', sim_time = '//TRIM(real2string(output(ISIM_TIME)))                             &
-            & //' s, correl = '//TRIM(real2string(output(ICORREL)))                               &
-            & //', mean |div| = '//TRIM(real2string(output(IDIV_MEAN_2)))//' s-1'
-          CALL message(TRIM(routine), message_text)
+          WRITE(message_text,'(a,i0,3(a,g32.5),a)') &
+               'Ncount = ', nudging_config%diag_kit%ncount, &
+               ', sim_time = ', output(ISIM_TIME),          &
+               ' s, correl = ', output(ICORREL),            &
+               ', mean |div| = ', output(IDIV_MEAN_2), ' s-1'
+          CALL message(routine, message_text)
         ENDIF
       ENDIF  !IF (l_stdio_process .AND. l_file_opened)
 
@@ -1204,8 +1205,9 @@ CONTAINS !..................................................................
         ! which would open the file again
         nudging_config%diag_kit%lfileclosed = .TRUE.
         IF (l_message) THEN
-          WRITE(message_text,'(a)') 'ASCII file '//TRIM(nudging_config%diag_kit%filename)//' successfully closed.'
-          CALL message(TRIM(routine), message_text)
+          WRITE(message_text,'(3a)') 'ASCII file ', TRIM(nudging_config%diag_kit%filename), &
+               ' successfully closed.'
+          CALL message(routine, message_text)
         ENDIF
       ENDIF  !IF (l_close_file ...)
       ! If the file has been closed, this subroutine should not be called any more. 
@@ -1253,7 +1255,7 @@ CONTAINS !..................................................................
     REAL(wp), PARAMETER :: grav_o_rd = grav / rd
     REAL(wp), PARAMETER :: t_low     = 255.0_wp
     REAL(wp), PARAMETER :: t_high    = 290.5_wp
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: &
+    CHARACTER(LEN=*), PARAMETER :: &
       & routine = modname//":diag_pmsl"
 
     !----------------------------------------
@@ -1303,7 +1305,7 @@ CONTAINS !..................................................................
         pres_msl(jc,jb) = pres_sfc * EXP( prt * ( 1.0_wp - prtal * ( 0.5_wp - one_third * prtal ) ) )
       ENDDO  !jc
     ENDDO  !jb
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
     
   END SUBROUTINE diag_pmsl

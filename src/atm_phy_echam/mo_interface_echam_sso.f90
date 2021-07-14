@@ -31,8 +31,6 @@ MODULE mo_interface_echam_sso
 
   USE mo_echam_sso_config    ,ONLY: echam_sso_config
   USE mo_ssodrag             ,ONLY: ssodrag
-  !$ser verbatim USE mo_ser_echam_sso, ONLY: serialize_sso_input,&
-  !$ser verbatim                             serialize_sso_output
   
   IMPLICIT NONE
   PRIVATE
@@ -89,9 +87,6 @@ CONTAINS
     tend      => prm_tend (jg)
     lsftlf    = echam_sso_config(jg)%lsftlf        ! <-- provisional
 
-    ! Serialbox2 input fields serialization
-    !$ser verbatim call serialize_sso_input(jg, jb, jcs, jce, nproma, nlev, field, tend)
-
     IF ( is_in_sd_ed_interval ) THEN
        !
        !$ACC DATA PRESENT( field%qconv ) &
@@ -130,8 +125,8 @@ CONTAINS
                &       field% zf  (:,:,jb)          ,& ! in,  full level height (m)
                &       field% zh  (:,nlev+1,jb)     ,& ! in,  surface height    (m)
                !
-               &       field% presi_old(:,:,jb)     ,& ! in,  p at half levels
-               &       field% presm_old(:,:,jb)     ,& ! in,  p at full levels
+               &       field% phalf(:,:,jb)         ,& ! in,  p at half levels
+               &       field% pfull(:,:,jb)         ,& ! in,  p at full levels
                &       field% mair(:,:,jb)          ,& ! in,  air mass
                &       field%   ta(:,:,jb)          ,& ! in,  T
                &       field%   ua(:,:,jb)          ,& ! in,  u
@@ -495,9 +490,6 @@ CONTAINS
        END IF
        !
     END IF
-
-    ! Serialbox2 output fields serialization
-    !$ser verbatim call serialize_sso_output(jg, jb, jcs, jce, nproma, nlev, field, tend)
     
     ! disassociate pointers
     NULLIFY(field)

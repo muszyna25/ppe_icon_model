@@ -13,10 +13,7 @@ MODULE mo_ocean_hamocc_communication
 #endif
 
   USE iso_c_binding,               ONLY: c_ptr
-
-#ifndef USE_OCEAN_HAMOCC_COMMUNICATION
-  USE mo_exception,                ONLY: finish
-#endif
+  USE mo_exception,                ONLY: message, finish
 
 !  USE mo_kind,                     ONLY: wp
   USE mo_master_control,           ONLY: ocean_process, hamocc_process
@@ -28,17 +25,16 @@ MODULE mo_ocean_hamocc_communication
 
 #ifdef USE_OCEAN_HAMOCC_COMMUNICATION
   USE mpi
-  USE mo_mpi,                      ONLY: get_mpi_work_intercomm, p_pe_work, &
-                                         get_my_global_mpi_communicator
-  USE yaxt,                        ONLY: xt_initialize, xt_initialized, &
-                                         xt_redist, xt_redist_collection_new, &
+  USE mo_mpi,                      ONLY: get_hamocc_ocean_mpi_communicator, p_pe_work
+  USE yaxt,                        ONLY: xt_redist, xt_redist_collection_new, &
                                          xt_redist_p2p_ext_new, xt_redist_p2p_new, &
                                          xt_offset_ext, xt_redist_p2p_off_new, &
                                          xt_redist_delete, xt_redist_s_exchange, &
                                          xt_int_kind, xt_xmap, xt_xmap_delete, &
                                          xt_xmap_dist_dir_intercomm_new, &
                                          xt_idxvec_new, xt_idxempty_new, &
-                                         xt_idxlist_delete, xt_idxlist
+                                         xt_idxlist_delete, xt_idxlist,  &
+                                         xt_mpi_comm_mark_exclusive 
   USE mo_communication,            ONLY: blk_no, idx_no
 #endif
 
@@ -99,7 +95,7 @@ CONTAINS
     TYPE(xt_redist) :: hamocc_2_ocean_redist_cells_3d
  
     INTEGER :: ierr
-
+    
     num_unmasked_cells = &
       COUNT(p_patch%cells%decomp_info%owner_local == p_pe_work)
     n_patch_cells_g = INT(p_patch%n_patch_cells_g, xt_int_kind)
@@ -134,14 +130,14 @@ CONTAINS
     END DO
     DO i = 2, no_of_levels
       global_index_edges_3d(i,:) = &
-        global_index_edges_3d(1,:) + n_patch_cells_g * INT(i - 1, xt_int_kind)
+        global_index_edges_3d(1,:) + n_patch_edges_g * INT(i - 1, xt_int_kind)
     END DO
 
     idxlist_empty               = xt_idxempty_new()
     idxlist_cells_2d            = xt_idxvec_new(global_index_cells_3d_halfLevels(1,:))
     idxlist_cells_3d            = xt_idxvec_new(global_index_cells_3d_halfLevels(1:no_of_levels,:))
-    idxlist_cells_3d_halfLevels = xt_idxvec_new(global_index_cells_3d_halfLevels(:,:))
-    idxlist_edges_3d            = xt_idxvec_new(global_index_edges_3d(:,:))   
+    idxlist_cells_3d_halfLevels = xt_idxvec_new(global_index_cells_3d_halfLevels(1:no_of_levels+1,:))
+    idxlist_edges_3d            = xt_idxvec_new(global_index_edges_3d(1:no_of_levels,:))   
 
     DEALLOCATE(global_index_cells_3d_halfLevels, global_index_edges_3d)
     
@@ -233,6 +229,9 @@ CONTAINS
     hamocc_2_ocean_redist_cells_3d = &
       xt_redist_p2p_ext_new( &
         hamocc_2_ocean_xmap_cells_3d, extents_cells_3d, extents_cells_3d, MPI_DOUBLE_PRECISION)
+    ocean_2_hamocc_redist_edges_3d = &
+      xt_redist_p2p_ext_new( &
+        ocean_2_hamocc_xmap_edges_3d, extents_edges_3d, extents_edges_3d, MPI_DOUBLE_PRECISION)
     ocean_2_hamocc_redist_cells_3d_halfLevels = &
       xt_redist_p2p_ext_new( &
         ocean_2_hamocc_xmap_cells_3d_halfLevels, extents_cells_3d_halfLevels, extents_cells_3d_halfLevels, &
@@ -242,11 +241,11 @@ CONTAINS
       xt_redist_collection_new((/ocean_2_hamocc_redist_cells_2d, & ! top_dilution_coeff
                                  ocean_2_hamocc_redist_cells_2d, & ! h_old
                                  ocean_2_hamocc_redist_cells_2d, & ! h_new
+                                 ocean_2_hamocc_redist_cells_2d, & ! h_old_withIce
                                  ocean_2_hamocc_redist_cells_2d, & ! ice_concentration_sum
                                  ocean_2_hamocc_redist_cells_3d, & ! temperature
                                  ocean_2_hamocc_redist_cells_3d, & ! salinity
                                  ocean_2_hamocc_redist_cells_3d_halfLevels, & !ver_diffusion_coeff
-!                                  ocean_2_hamocc_redist_edges_3d, & ! hor_diffusion_coeff
                                  ocean_2_hamocc_redist_cells_2d, & ! short_wave_flux
                                  ocean_2_hamocc_redist_cells_2d, & ! wind10m
                                  ocean_2_hamocc_redist_cells_2d, & ! co2 mixing ratio
@@ -255,11 +254,12 @@ CONTAINS
                                  ocean_2_hamocc_redist_cells_3d_halfLevels & ! transport:w
                                  /), & !
                                ocean_hamocc_intercomm)
+                              ! ocean_2_hamocc_redist_edges_3d, & ! hor_diffusion_coeff
 
     exchange_redist_hamocc_2_ocean = &
-      xt_redist_collection_new((/hamocc_2_ocean_redist_cells_2d/), & !  co2_flux
+      xt_redist_collection_new((/hamocc_2_ocean_redist_cells_2d,    &  ! co2_flux
+                                 hamocc_2_ocean_redist_cells_3d /), &  ! swr_fraction
                                 ocean_hamocc_intercomm)
-      ! hamocc_2_ocean_redist_cells_3d,   & !  swr_fraction, in the future
       
     ! clean up
     CALL xt_redist_delete(ocean_2_hamocc_redist_cells_2d)
@@ -293,8 +293,20 @@ CONTAINS
     TYPE(t_patch), INTENT(IN)       :: p_patch
     INTEGER, INTENT(in) :: no_of_levels
 
-    IF (.NOT. xt_initialized()) &
-      CALL xt_initialize(get_my_global_mpi_communicator())
+    ! done when setting-up the mpi communicators
+!     IF (.NOT. xt_initialized()) THEN
+!       IF (is_ocean) THEN
+!         CALL message("mo_ocean_hamocc_communication", "ocean xt_initialize starts")
+!         CALL xt_initialize(get_my_global_mpi_communicator())
+!         CALL message("mo_ocean_hamocc_communication", "ocean xt_initialize returnedd")
+!       ELSE
+!         CALL message("mo_ocean_hamocc_communication", "hamocc xt_initialize starts")
+!         CALL xt_initialize(get_my_global_mpi_communicator())
+!         CALL message("mo_ocean_hamocc_communication", "hamocc xt_initialize returnedd")
+!       ENDIF
+!     ENDIF
+
+    CALL xt_mpi_comm_mark_exclusive(ocean_hamocc_intercomm)
 
     CALL generate_redists(is_ocean, p_patch, no_of_levels, &
                             exchange_redist_ocean_2_hamocc, &
@@ -308,7 +320,10 @@ CONTAINS
     INTEGER, INTENT(in) :: no_of_levels
 
 #ifdef USE_OCEAN_HAMOCC_COMMUNICATION
-    ocean_hamocc_intercomm = get_mpi_work_intercomm(hamocc_process)
+
+!     write(0,*) "setup_ocean_2_hamocc_communication to ", hamocc_process
+    CALL message("setup_ocean_2_hamocc_communication", "...")
+    ocean_hamocc_intercomm = get_hamocc_ocean_mpi_communicator()
 
     CALL setup_communication(.TRUE., p_patch, no_of_levels)
 #endif
@@ -320,7 +335,9 @@ CONTAINS
     INTEGER, INTENT(in) :: no_of_levels
 
 #ifdef USE_OCEAN_HAMOCC_COMMUNICATION
-    ocean_hamocc_intercomm = get_mpi_work_intercomm(ocean_process)
+!     write(0,*) "setup_hamocc_2_ocean_communication to ", ocean_process
+    CALL message("setup_hamocc_2_ocean_communication", "...")
+    ocean_hamocc_intercomm = get_hamocc_ocean_mpi_communicator()
 
     CALL setup_communication(.FALSE., p_patch, no_of_levels)
 #endif
@@ -344,6 +361,7 @@ CONTAINS
     &  top_dilution_coeff, &
     &  h_old, &
     &  h_new, &
+    &  h_old_withIce, &
     &  ice_concentration_sum, &
     &  temperature, &
     &  salinity, &
@@ -361,6 +379,7 @@ CONTAINS
       &  top_dilution_coeff, &
       &  h_old, &
       &  h_new, &
+      &  h_old_withIce, &
       &  ice_concentration_sum, &
       &  temperature, &
       &  salinity, &
@@ -373,21 +392,22 @@ CONTAINS
       &  w
 
 
-    TYPE(c_ptr) :: src_data_cptr(13), dst_data_cptr(13)
+    TYPE(c_ptr) :: src_data_cptr(14), dst_data_cptr(14)
 
     src_data_cptr( 1) =  top_dilution_coeff
     src_data_cptr( 2) =  h_old
     src_data_cptr( 3) =  h_new
-    src_data_cptr( 4) =  ice_concentration_sum
-    src_data_cptr( 5) =  temperature
-    src_data_cptr( 6) =  salinity
-    src_data_cptr( 7) =  ver_diffusion_coeff
-    src_data_cptr( 8) =  short_wave_flux
-    src_data_cptr( 9) =  wind10m
-    src_data_cptr(10) =  co2_mixing_ratio
-    src_data_cptr(11) =  mass_flux_e
-    src_data_cptr(12) =  vn
-    src_data_cptr(13) =  w
+    src_data_cptr( 4) =  h_old_withIce
+    src_data_cptr( 5) =  ice_concentration_sum
+    src_data_cptr( 6) =  temperature
+    src_data_cptr( 7) =  salinity
+    src_data_cptr( 8) =  ver_diffusion_coeff
+    src_data_cptr( 9) =  short_wave_flux
+    src_data_cptr(10) =  wind10m
+    src_data_cptr(11) =  co2_mixing_ratio
+    src_data_cptr(12) =  mass_flux_e
+    src_data_cptr(13) =  vn
+    src_data_cptr(14) =  w
 
     dst_data_cptr = src_data_cptr
 
@@ -402,13 +422,15 @@ CONTAINS
   END SUBROUTINE exchange_data_ocean_2_hamocc
 
 
-  SUBROUTINE exchange_data_hamocc_2_ocean(co2_flux)
+  SUBROUTINE exchange_data_hamocc_2_ocean(co2_flux, swr_fraction)
 
     TYPE(c_ptr), INTENT(IN)  :: co2_flux
+    TYPE(c_ptr), INTENT(IN)  :: swr_fraction
 
-    TYPE(c_ptr) :: src_data_cptr(1), dst_data_cptr(1)
+    TYPE(c_ptr) :: src_data_cptr(2), dst_data_cptr(2)
    
     src_data_cptr( 1) = co2_flux
+    src_data_cptr( 2) = swr_fraction
     dst_data_cptr = src_data_cptr
 
 #ifdef USE_OCEAN_HAMOCC_COMMUNICATION

@@ -25,7 +25,7 @@ MODULE mo_ensemble_pert_nml
   USE mo_master_control,      ONLY: use_restart_namelists
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
-  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist,     &
+  USE mo_restart_nml_and_att, ONLY: open_tmpfile, store_and_close_namelist,     &
     &                               open_and_restore_namelist, close_tmpfile
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
   USE mo_ensemble_pert_config,ONLY: config_range_gkwake    => range_gkwake,    &
@@ -49,6 +49,7 @@ MODULE mo_ensemble_pert_nml
     &                               config_range_qexc      => range_qexc,      &
     &                               config_range_box_liq   => range_box_liq,   &
     &                               config_range_box_liq_asy => range_box_liq_asy, &
+    &                               config_range_thicklayfac => range_thicklayfac, &
     &                               config_range_tkhmin    => range_tkhmin,    &  
     &                               config_range_tkmmin    => range_tkmmin,    &
     &                               config_range_turlen    => range_turlen,    &
@@ -58,7 +59,11 @@ MODULE mo_ensemble_pert_nml
     &                               config_range_q_crit    => range_q_crit,    &
     &                               config_range_tkred_sfc => range_tkred_sfc, &
     &                               config_range_rlam_heat => range_rlam_heat, &
-    &                               config_range_charnock  => range_charnock,  &  
+    &                               config_range_charnock  => range_charnock,  &
+    &                               config_range_lhn_coef  => range_lhn_coef,  &
+    &                               config_range_lhn_artif_fac => range_lhn_artif_fac, &
+    &                               config_range_fac_lhn_down => range_fac_lhn_down, &
+    &                               config_range_fac_lhn_up => range_fac_lhn_up, &
     &                               config_range_z0_lcc    => range_z0_lcc,    &
     &                               config_range_rootdp    => range_rootdp,    &
     &                               config_range_rsmin     => range_rsmin,     &
@@ -128,7 +133,7 @@ MODULE mo_ensemble_pert_nml
     &  range_qexc
 
   REAL(wp) :: &                    !< Minimum value to which the snow cover fraction is artificially reduced
-    &  range_minsnowfrac           !  in case of melting show (in case of idiag_snowfrac = 20/30/40)
+    &  range_minsnowfrac           !  in case of melting show (in case of idiag_snowfrac = 20)
 
   REAL(wp) :: &                    !< Fraction of surface area available for bare soil evaporation
     &  range_c_soil
@@ -137,7 +142,10 @@ MODULE mo_ensemble_pert_nml
     &  range_cwimax_ml
 
   REAL(wp) :: &                    !< Box width for liquid clouds assumed in the cloud cover scheme
-    &  range_box_liq                ! (in case of inwp_cldcover = 1)
+    &  range_box_liq               ! (in case of inwp_cldcover = 1)
+
+  REAL(wp) :: &                    !< factor [1/m] for increasing the box with for layer thicknesses exceeding 150 m
+    &  range_thicklayfac           ! (in case of inwp_cldcover = 1)
 
   REAL(wp) :: &                    !< Asymmetry factor for sub-grid scale liquid cloud distribution
     &  range_box_liq_asy           ! (in case of inwp_cldcover = 1)
@@ -172,6 +180,18 @@ MODULE mo_ensemble_pert_nml
   REAL(wp) :: &                    !< Upper and lower bound of wind-speed dependent Charnock parameter 
     &  range_charnock
 
+  REAL(wp) :: &                    !< Scaling factor for latent heat nudging increments
+    &  range_lhn_coef
+
+  REAL(wp) :: &                    !< Scaling factor for artificial heating profile in latent heat nudging
+    &  range_lhn_artif_fac
+
+  REAL(wp) :: &                    !< Lower limit for reduction of existing latent heating in LHN
+    &  range_fac_lhn_down
+
+  REAL(wp) :: &                    !< Upper limit for increase of existing latent heating in LHN
+    &  range_fac_lhn_up
+
   REAL(wp) :: &                    !< Roughness length attributed to land-cover class 
     &  range_z0_lcc
 
@@ -200,7 +220,9 @@ MODULE mo_ensemble_pert_nml
     &                         range_lowcapefac, range_negpblcape, stdev_sst_pert, itype_pert_gen,          &
     &                         timedep_pert, range_a_stab, range_c_diff, range_q_crit, range_box_liq_asy,   &
     &                         range_rdepths, range_turlen, range_rain_n0fac, range_a_hshr, range_qexc,     &
-    &                         range_rprcon
+    &                         range_rprcon, range_thicklayfac, range_lhn_coef, range_lhn_artif_fac,        &
+    &                         range_fac_lhn_down, range_fac_lhn_up
+
 
 CONTAINS
 
@@ -265,28 +287,36 @@ CONTAINS
     ! cloud cover
     range_box_liq     = 0.01_wp      ! box width scale of liquid clouds
     range_box_liq_asy = 0.25_wp      ! Asymmetry factor for sub-grid scale liquid cloud distribution
+    range_thicklayfac = 0.0025_wp    ! factor [1/m] for increasing the box with for layer thicknesses exceeding 150 m
     !
     ! turbulence scheme
     range_tkhmin     = 0.2_wp       ! minimum vertical diffusion (m**2/s) for heat/moisture
     range_tkmmin     = 0.2_wp       ! minimum vertical diffusion (m**2/s) for momentum
     range_tkred_sfc  = 4.0_wp       ! multiplicative change of reduction of minimum diffusion coefficients near the surface
-    range_rlam_heat  = 3.0_wp       ! multiplicative change of laminar transport resistance parameter
+    range_rlam_heat  = 8.0_wp       ! additive change of laminar transport resistance parameter
                                     ! (compensated by an inverse change of rat_sea)
     range_turlen     = 150._wp      ! turbulent length scale (m)
     range_a_hshr     = 1._wp        ! scaling factor for extended horizontal shear term
-    range_a_stab     = 0._wp        ! scaling factor for stability correction in turbulence scheme
-    range_c_diff     = 1._wp        ! length scale factor for vertical diffusion in turbulence scheme (multiplicative)
-    range_q_crit     = 0._wp        ! critical value for normalized super-saturation in turbulent cloud scheme
+    range_a_stab     = 1._wp        ! scaling factor for stability correction in turbulence scheme
+    range_c_diff     = 2._wp        ! length scale factor for vertical diffusion in turbulence scheme (multiplicative)
+    range_q_crit     = 1._wp        ! critical value for normalized super-saturation in turbulent cloud scheme
     range_charnock   = 1.5_wp       ! multiplicative change of upper and lower bound of wind-speed dependent
                                     ! Charnock parameter
     !
     ! snow cover diagnosis
     range_minsnowfrac = 0.1_wp      ! Minimum value to which the snow cover fraction is artificially reduced
-                                    ! in case of melting show (in case of idiag_snowfrac = 20/30/40)
+                                    ! in case of melting show (in case of idiag_snowfrac = 20)
     !
     ! TERRA
     range_c_soil      = 0.25_wp     ! evaporative surface area
     range_cwimax_ml   = 2._wp       ! capacity of interception storage (multiplicative perturbation)
+
+    !
+    ! LHN
+    range_lhn_coef      = 0.0_wp    ! Scaling factor for latent heat nudging increments
+    range_lhn_artif_fac = 0.0_wp    ! Scaling factor for artificial heating profile in latent heat nudging
+    range_fac_lhn_down  = 0.0_wp    ! Lower limit for reduction of pre-existing latent heating in LHN
+    range_fac_lhn_up    = 0.0_wp    ! Upper limit for increase of pre-existing latent heating in LHN
 
     ! external parameters specified depending on land-cover class
     ! all subsequent ranges indicate relative changes of the respective parameter
@@ -301,6 +331,7 @@ CONTAINS
                                     ! 2: use either default or extrema of perturbation range
     timedep_pert      = 0           ! 0: no time-dependence of ensemble perturbations
                                     ! 1: perturbations depend on start date, but remain fixed during forecast 
+                                    ! 2: time-dependent perturbations varying sinusoidally within their range
 
     stdev_sst_pert    = 0._wp       ! No compensation for SST perturbations is applied by default
 
@@ -365,6 +396,7 @@ CONTAINS
     config_range_c_soil       = range_c_soil
     config_range_cwimax_ml    = range_cwimax_ml
     config_range_box_liq      = range_box_liq
+    config_range_thicklayfac  = range_thicklayfac
     config_range_box_liq_asy  = range_box_liq_asy
     config_range_tkhmin       = range_tkhmin
     config_range_tkmmin       = range_tkmmin
@@ -376,6 +408,10 @@ CONTAINS
     config_range_c_diff       = range_c_diff
     config_range_q_crit       = range_q_crit
     config_range_charnock     = range_charnock
+    config_range_lhn_coef     = range_lhn_coef
+    config_range_lhn_artif_fac = range_lhn_artif_fac
+    config_range_fac_lhn_down = range_fac_lhn_down
+    config_range_fac_lhn_up   = range_fac_lhn_up
     config_range_z0_lcc       = range_z0_lcc
     config_range_rootdp       = range_rootdp
     config_range_rsmin        = range_rsmin

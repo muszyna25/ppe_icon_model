@@ -1,11 +1,10 @@
-#ifndef __NO_ICON_OCEAN__
 #include "hamocc_omp_definitions.inc"     
 #include "icon_definitions.inc" 
    MODULE mo_hamocc_ocean_physics
 
     USE mo_kind,                         ONLY: wp
     USE mo_exception,                    ONLY: finish
-    USE mo_param1_bgc,                   ONLY: n_bgctra
+    USE mo_param1_bgc,                   ONLY: n_bgctra, isco212
     USE mo_parallel_config,              ONLY: nproma
     USE mo_model_domain,                 ONLY: t_patch_3D, t_patch
     USE mo_grid_subset,                  ONLY: get_index_range, t_subset_range
@@ -13,25 +12,36 @@
     &                                          timer_tracer_ab, timer_bgc_tot,&
     &                                          timers_level
     USE mo_ocean_tracer,                 ONLY: advect_ocean_tracers
-    USE mo_ocean_tracer_GMRedi,          ONLY: advect_ocean_tracers_GMRedi
+!    USE mo_ocean_tracer_GMRedi,          ONLY: advect_ocean_tracers_GMRedi
     USE mo_ocean_types,                  ONLY: t_hydro_ocean_state, &
     &                                          t_operator_coeff
     USE mo_ocean_tracer_transport_types, ONLY: t_tracer_collection, t_ocean_transport_state
     USE mo_ocean_surface_types,          ONLY: t_ocean_surface, t_atmos_for_ocean
     USE mo_sea_ice_types,                ONLY: t_sea_ice
     USE mo_run_config,                   ONLY: ltimer
-    USE mo_ocean_nml,                    ONLY: Cartesian_Mixing, GMRedi_configuration
-    USE mo_ocean_physics,                ONLY: update_ho_params
+    USE mo_ocean_nml,                    ONLY: Cartesian_Mixing, GMRedi_configuration, &
+    &                                          lsediment_only
     USE mo_hamocc_types,                 ONLY: t_hamocc_prog, t_hamocc_state
-    USE mo_ocean_physics_types,          ONLY: t_ho_params 
     USE mo_bgc_icon_comm,                ONLY: hamocc_state
     USE mo_dynamics_config,              ONLY: nold, nnew 
     USE mo_ocean_hamocc_couple_state, ONLY: t_ocean_to_hamocc_state, t_hamocc_to_ocean_state, &
       & t_hamocc_ocean_state
-    USE mo_hamocc_diagnostics, ONLY: get_monitoring 
+    USE mo_hamocc_diagnostics,     ONLY: get_monitoring 
     USE mo_bgc_bcond,              ONLY: ext_data_bgc, update_bgc_bcond
     USE mtime,                     ONLY: datetime
+    USE mo_util_dbg_prnt,          ONLY: dbg_print
+    USE mo_master_control,         ONLY: my_process_is_hamocc
+
+    USE mo_hamocc_nml,             ONLY: l_bgc_check,io_stdo_bgc
+    USE mo_exception, ONLY: message
+    USE mo_hamocc_diagnostics,  ONLY: get_inventories
+    USE mo_bgc_icon, ONLY: bgc_icon
     
+    ! only temporary solution
+    USE mo_ocean_tracer_dev,       ONLY: advect_ocean_tracers_dev
+    USE mo_ocean_physics_types,    ONLY: v_params
+    USE mo_ocean_state,            ONLY: ocean_state
+ 
     IMPLICIT NONE
     PRIVATE
 
@@ -50,6 +60,7 @@
     TYPE(t_hamocc_to_ocean_state), POINTER           :: hamocc_to_ocean_state
     TYPE(t_patch_3d ),POINTER                        :: patch_3d
     TYPE(t_ocean_transport_state), POINTER           :: transport_state
+    TYPE(t_hamocc_prog), POINTER                     :: hamocc_state_prog
 
     INTEGER :: i
     
@@ -57,16 +68,30 @@
     patch_3d => transport_state%patch_3d
     ocean_to_hamocc_state => hamocc_ocean_state%ocean_to_hamocc_state
     hamocc_to_ocean_state => hamocc_ocean_state%hamocc_to_ocean_state
+    hamocc_state_prog => hamocc_state%p_prog(nold(1))
 
-    CALL dilute_hamocc_tracers(patch_3d, ocean_to_hamocc_state%top_dilution_coeff, hamocc_state%p_prog(nold(1)))
+    IF (lsediment_only) THEN
+      CALL offline_sediment(hamocc_ocean_state, operators_coefficients, current_time)
+      RETURN
+    ENDIF
     
-    CALL update_bgc_bcond( patch_3d, ext_data_bgc,  current_time)
-       
+    CALL dilute_hamocc_tracers(patch_3d, ocean_to_hamocc_state%top_dilution_coeff, hamocc_state%p_prog(nold(1)))
+    !------------------------------------------------------------------------
+    
+    CALL update_bgc_bcond( patch_3d, ext_data_bgc,  current_time)   
+      
     !------------------------------------------------------------------------
     ! call HAMOCC
     if(ltimer) call timer_start(timer_bgc_tot)
     CALL bgc_icon(patch_3d, hamocc_ocean_state)
     if(ltimer) call timer_stop(timer_bgc_tot)
+
+
+    IF (l_bgc_check) THEN
+      CALL message('3. after bgc + fluxes and weathering', 'inventories', io_stdo_bgc)
+      CALL get_inventories(hamocc_state, ocean_to_hamocc_state%h_old, hamocc_state%p_prog(nold(1))%tracer, patch_3d, 0._wp, 0._wp)
+    ENDIF
+
 
     !------------------------------------------------------------------------
     ! transport tracers and diffuse them
@@ -81,27 +106,61 @@
     ENDDO
 
     start_timer(timer_tracer_ab,1)
+    hamocc_state_prog => hamocc_state%p_prog(nnew(1))
 
-    IF (GMRedi_configuration==Cartesian_Mixing) THEN
-        CALL advect_ocean_tracers(old_tracer_collection, new_tracer_collection, transport_state, operators_coefficients)
+    IF (GMRedi_configuration == Cartesian_Mixing) THEN
+      CALL advect_ocean_tracers(old_tracer_collection, new_tracer_collection, transport_state, operators_coefficients)
     ELSE
-      CALL finish("tracer_biochemistry_transport", "GMRedi_configuration is not activated")
+      IF (my_process_is_hamocc() ) THEN
+        CALL finish("concurrent HAMOCC", "GMRedi is not possible at present")
+      ELSE
+        CALL  advect_ocean_tracers_dev(old_tracer_collection, new_tracer_collection, &
+          &  ocean_state(1), transport_state, v_params, operators_coefficients)
+      ENDIF
     ENDIF
-        ! the GMRedi will be treated in the sequential case; for the moment we will skip it
-!       ELSE
-!         CALL  advect_ocean_tracers_GMRedi(old_tracer_collection, new_tracer_collection, &
-!           &  ocean_state, transport_state, p_phys_param, operators_coefficients)
-!       ENDIF
-
+    
      stop_timer(timer_tracer_ab,1)
-     !------------------------------------------------------------------------
+
+    IF (l_bgc_check) THEN
+      CALL message('4. after transport', 'inventories', io_stdo_bgc)
+      CALL get_inventories(hamocc_state, ocean_to_hamocc_state%h_new, hamocc_state%p_prog(nnew(1))%tracer, patch_3d, 0._wp, 0._wp)
+    ENDIF
+    !------------------------------------------------------------------------
     
      CALL get_monitoring( hamocc_state, hamocc_state%p_prog(nnew(1))%tracer, ocean_to_hamocc_state%h_new, patch_3d)
     !------------------------------------------------------------------------
 
-
     END SUBROUTINE tracer_biochemistry_transport
 
+
+  SUBROUTINE offline_sediment(hamocc_ocean_state, operators_coefficients, current_time)
+
+    TYPE(t_hamocc_ocean_state), TARGET               :: hamocc_ocean_state
+    TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
+    TYPE(datetime), POINTER, INTENT(in)              :: current_time
+
+    TYPE(t_patch_3d ),POINTER                        :: patch_3d
+    TYPE(t_ocean_transport_state), POINTER           :: transport_state
+
+    TYPE(t_hamocc_prog), POINTER                     :: hamocc_state_prog
+
+
+
+    transport_state => hamocc_ocean_state%ocean_transport_state
+    patch_3d => transport_state%patch_3d
+
+
+    CALL update_bgc_bcond( patch_3d, ext_data_bgc,  current_time)
+ 
+    !------------------------------------------------------------------------
+    ! call HAMOCC
+    if(ltimer) call timer_start(timer_bgc_tot)
+    CALL bgc_icon(patch_3d, hamocc_ocean_state)
+    if(ltimer) call timer_stop(timer_bgc_tot)
+
+    !------------------------------------------------------------------------
+
+    END SUBROUTINE offline_sediment
 
 
     SUBROUTINE DILUTE_HAMOCC_TRACERS(p_patch_3D, top_dilution_coeff, hamocc_state_prog)
@@ -133,4 +192,3 @@
 
    END SUBROUTINE DILUTE_HAMOCC_TRACERS
    END MODULE
-#endif   

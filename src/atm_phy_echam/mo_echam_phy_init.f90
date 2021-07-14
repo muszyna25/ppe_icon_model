@@ -30,7 +30,6 @@ MODULE mo_echam_phy_init
     &                                t_stream_id, on_cells
   USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, &
     &                                timer_prep_echam_phy
-  USE mo_impl_constants,       ONLY: max_char_length
 
   ! model configuration
   USE mo_impl_constants,       ONLY: min_rlcell_int, grf_bdywidth_c
@@ -39,6 +38,7 @@ MODULE mo_echam_phy_init
   USE mo_run_config,           ONLY: ltestcase, lart,                       &
     &                                iqv, iqc, iqi, iqs, iqr, iqg, iqm_max, &
     &                                iqt, io3, ico2, ich4, in2o, ntracer
+  USE mo_advection_config,     ONLY: advection_config
 
   ! horizontal grid and indices
   USE mo_model_domain,         ONLY: t_patch
@@ -88,6 +88,9 @@ MODULE mo_echam_phy_init
   USE mo_convect_tables,       ONLY: init_convect_tables
   USE mo_echam_convect_tables, ONLY: init_echam_convect_tables => init_convect_tables
 
+  ! cloud optical properties
+  USE mo_echam_cop_config,     ONLY: print_echam_cop_config, echam_cop_config
+
   ! "echam"   cloud microphysics
   USE mo_echam_cld_config,     ONLY: eval_echam_cld_config, print_echam_cld_config, echam_cld_config
 
@@ -96,14 +99,10 @@ MODULE mo_echam_phy_init
   USE mo_echam_mig_config,    ONLY: echam_mig_config, print_echam_mig_config
 
   ! cloud cover
-  USE mo_echam_cov_config,     ONLY: eval_echam_cov_config, print_echam_cov_config, echam_cov_config
+  USE mo_echam_cov_config,     ONLY: eval_echam_cov_config, print_echam_cov_config
 
-  ! Cariolle interactive ozone scheme
-  USE mo_lcariolle_externals,  ONLY: read_bcast_real_3d_wrap, &
-    &                                read_bcast_real_1d_wrap, &
-    &                                closeFile_wrap, openInputFile_wrap, &
-    &                                get_constants
-  USE mo_lcariolle_types,      ONLY: l_cariolle_initialized_o3, t_avi, t_time_interpolation
+  ! WMO tropopause
+  USE mo_echam_wmo_config,     ONLY: eval_echam_wmo_config, print_echam_wmo_config, echam_wmo_config
 
   ! water vapour production by methane oxidation
   ! and destruction by photolysis
@@ -123,14 +122,19 @@ MODULE mo_echam_phy_init
   USE mo_reader_sst_sic,       ONLY: t_sst_sic_reader
   USE mo_interpolate_time,     ONLY: t_time_intp
 
+#ifdef __NO_RTE_RRTMGP__
   ! psrad
   USE mo_psrad_setup,          ONLY: psrad_basic_setup
   USE mo_psrad_interface,      ONLY: pressure_scale, droplet_scale
   USE mo_atmo_psrad_interface, ONLY: setup_atmo_2_psrad
-  ! for microphysics  (graupel)
-  USE gscp_data,              ONLY: gscp_set_coefficients
-  USE mo_echam_mig_config,    ONLY: echam_mig_config, print_echam_mig_config
-
+#else
+  USE mo_rte_rrtmgp_setup,     ONLY: rte_rrtmgp_basic_setup
+  USE mo_rte_rrtmgp_interface, ONLY: pressure_scale, droplet_scale
+  USE gscp_data,               ONLY: gscp_set_coefficients
+  USE mo_echam_mig_config,     ONLY: echam_mig_config, print_echam_mig_config
+#endif
+  USE mo_lcariolle,            ONLY: lcariolle_init_o3, lcariolle_init, &
+    &l_cariolle_initialized_o3, t_avi, t_time_interpolation
   ! ART
   USE mo_art_config,         ONLY: art_config
 
@@ -141,6 +145,7 @@ MODULE mo_echam_phy_init
   PUBLIC  :: init_echam_phy_params, init_echam_phy_external, init_echam_phy_field
   PUBLIC  :: init_o3_lcariolle
 
+  CHARACTER(len=*), PARAMETER :: modname = 'mo_echam_phy_init'
   TYPE(t_sst_sic_reader), TARGET :: sst_sic_reader
   TYPE(t_time_intp)      :: sst_intp
   TYPE(t_time_intp)      :: sic_intp
@@ -207,7 +212,7 @@ CONTAINS
     ! Set tracer indices for physics
     ! ------------------------------
 
-    CALL init_echam_phy_itracer
+    CALL init_echam_phy_tracer
 
 
     ! Parameterizations (with time control)
@@ -221,18 +226,28 @@ CONTAINS
     END DO
     IF (lany) THEN
       !
+      ! Radiation configuration
       CALL  eval_echam_rad_config
       CALL print_echam_rad_config
       !
+      ! Cloud optical properties
+      CALL print_echam_cop_config
+      !
       ! Radiation constants for gas and cloud optics
+#ifdef __NO_RTE_RRTMGP__
       CALL psrad_basic_setup(.false., nlev, pressure_scale, droplet_scale,               &
-        &                    echam_cld_config(1)%cinhoml1 ,echam_cld_config(1)%cinhoml2, &
-        &                    echam_cld_config(1)%cinhoml3 ,echam_cld_config(1)%cinhomi)
+        &                    echam_cop_config(1)%cinhoml1 ,echam_cop_config(1)%cinhoml2, &
+        &                    echam_cop_config(1)%cinhoml3 ,echam_cop_config(1)%cinhomi)
       !
       ! If there are concurrent psrad processes, set up communication 
       ! between the atmo and psrad processes
       CALL setup_atmo_2_psrad()
-      !
+#else
+      CALL rte_rrtmgp_basic_setup(nproma, nlev, pressure_scale, droplet_scale,               &
+        &                    echam_cop_config(1)%cinhoml1 ,echam_cop_config(1)%cinhoml2, &
+        &                    echam_cop_config(1)%cinhoml3 ,echam_cop_config(1)%cinhomi)
+#endif
+
     END IF
 
     ! vertical turbulent mixing and surface
@@ -327,7 +342,8 @@ CONTAINS
       END IF
       !
       jg=1
-      CALL gscp_set_coefficients(tune_zceff_min      = echam_mig_config(jg)% zceff_min      ,&
+      CALL gscp_set_coefficients(              igscp = 2                                    ,& 
+         &                       tune_zceff_min      = echam_mig_config(jg)% zceff_min      ,&
          &                       tune_v0snow         = echam_mig_config(jg)% v0snow         ,&
          &                       tune_zvz0i          = echam_mig_config(jg)% zvz0i          ,&
          &                       tune_icesedi_exp    = echam_mig_config(jg)% icesedi_exp    ,&
@@ -335,12 +351,22 @@ CONTAINS
          &                       tune_rain_n0_factor = echam_mig_config(jg)% rain_n0_factor )
     END IF
 
-    ! cloud cover
+    ! cloud cover diagnostics
+    !
+    CALL  eval_echam_cov_config
+    CALL print_echam_cov_config
+
+    ! WMO tropopause diagnostics
+    !
+    CALL  eval_echam_wmo_config
+    CALL print_echam_wmo_config
+
+    ! WMO tropopause
     !
     lany=.TRUE.
     IF (lany) THEN
-      CALL  eval_echam_cov_config
-      CALL print_echam_cov_config
+      CALL  eval_echam_wmo_config
+      CALL print_echam_wmo_config
     END IF
 
     ! atmospheric gravity wave drag
@@ -380,10 +406,7 @@ CONTAINS
         CALL finish('init_echam_phy: mo_echam_phy_init.f90', &
                    &'Cariolle initialization not ready for n_dom>1')
       END IF
-      CALL lcariolle_init(                                     &
-         & openInputFile_wrap,       closeFile_wrap,           &
-         & read_bcast_real_3d_wrap,  read_bcast_real_1d_wrap,  &
-         & get_constants                                       )
+      CALL lcariolle_init()
     END IF
 
     ! ch4 oxidation and h2o photolysis
@@ -401,92 +424,131 @@ CONTAINS
   END SUBROUTINE init_echam_phy_params
 
 
-  SUBROUTINE init_echam_phy_itracer
+  SUBROUTINE init_echam_phy_tracer
 
-    INTEGER :: jg
+    INTEGER :: jg, jt
     LOGICAL :: lany
+    CHARACTER(len=*), PARAMETER :: routine = modname//':init_echam_phy_tracer'
 
-    ! indices for water species mass mixing ratios used in the cloud microphyiscs
+    ! Set the indices for specific tracers, if they occur among the named tracers.
     !
-    ! is echam cloud microphysics active?
+    iqm_max = 0 ! number of water species tracers
+    !
+    DO jt=1,advection_config(1)%nname
+       SELECT CASE (TRIM(advection_config(1)%tracer_names(jt)))
+       CASE('qv','hus')
+          iqv=jt
+          iqm_max=iqm_max+1
+       CASE('qc','clw')
+          iqc=jt
+          iqm_max=iqm_max+1
+       CASE('qi','cli')
+          iqi=jt
+          iqm_max=iqm_max+1
+       CASE('qr')
+          iqr=jt
+          iqm_max=iqm_max+1
+       CASE('qs')
+          iqs=jt
+          iqm_max=iqm_max+1
+       CASE('qg')
+          iqg=jt
+          iqm_max=iqm_max+1
+       CASE('o3')
+          io3=jt
+       CASE('co2')
+          ico2=jt
+       CASE('ch4')
+          ich4=jt
+       CASE('n2o')
+          in2o=jt
+       END SELECT
+    END DO
+
+    iqt=iqm_max+1
+    
+    ! Is echam cloud microphysics active?
+    ! Then iqv, iqc, and iqi must be non-zero and in {1,2,3}
     lany=.FALSE.
     DO jg = 1,n_dom
        lany = lany .OR. (echam_phy_tc(jg)%dt_cld > dt_zero)
     END DO
-    !
     IF (lany) THEN
-       IF (ntracer <3) CALL finish('mo_echam_phy_init:init_echam_phy_itracer', &
-            &                      'ntracer must be >=3 for ECHAM cloud microphysics')
-       iqv       = 1         ! water vapour
-       iqc       = 2         ! cloud water
-       iqi       = 3         ! cloud ice
-       iqr       = 0         ! no rain water
-       iqs       = 0         ! no snow
-       iqg       = 0         ! no graupel
-       iqm_max   = iqi       ! last index of water species mass mixing ratios
+       IF (iqv*iqc*iqi == 0) THEN
+          CALL finish(routine,         &
+               &      'For ECHAM cloud microphysics, the 3 tracers '  // &
+               &      'qv/hus, qc/clw, and qi/cli must be included '  // &
+               &      'in transport_nml/tracer_names')
+       END IF
+       IF (MAX(iqv,iqc,iqi) > 3) THEN ! <-- is this needed? depends on usage of iqm_max and iqt
+          CALL finish(routine,         &
+               &      'For ECHAM cloud microphysics, the 3 tracers '  // &
+               &      'qv/hus, qc/clw, and qi/cli must be among the ' // &
+               &      'first 3 included in transport_nml/tracer_names')
+       END IF
+       IF (iqm_max > 3) THEN
+          CALL print_value('ATTENTION! '  // &
+               &           'ECHAM cloud microphyiscs is used with more than 3 '    // &
+               &           'water tracers: iqm_max',iqm_max, routine=routine)
+       END IF
     END IF
-    !
-    ! is "graupel" cloud microphysics active?
+
+    ! Is "graupel" cloud microphysics active?
+    ! Then iqv, iqc, iqi, iqr, iqs, and iqg must be non-zero and in {1,2,3,4,5,6}
     lany=.FALSE.
     DO jg = 1,n_dom
        lany = lany .OR. (echam_phy_tc(jg)%dt_mig > dt_zero)
     END DO
-    !
     IF (lany) THEN
-       IF (ntracer <6) CALL finish('mo_echam_phy_init:init_echam_phy_itracer', &
-            &                      'ntracer must be >=6 for "graupel" cloud microphysics')
-       iqv       = 1         ! water vapour
-       iqc       = 2         ! cloud water
-       iqi       = 3         ! cloud ice
-       iqr       = 4         ! rain water
-       iqs       = 5         ! snow
-       iqg       = 6         ! graupel
-       iqm_max   = iqg       ! last index of water species mass mixing ratios
+       IF (iqv*iqc*iqi*iqr*iqs*iqg == 0) THEN
+          CALL finish(routine,           &
+               &      'For "Graupel" cloud microphysics, the 6 tracers '// &
+               &      'qv/hus, qc/clw, qi/cli, qr, qs, and qg must be ' // &
+               &      'included in transport_nml/tracer_names')
+       END IF
+       IF (MAX(iqv,iqc,iqi,iqr,iqs,iqg) > 6) THEN ! <-- is this needed? depends on usage of iqm_max and iqt
+          CALL finish(routine,            &
+               &      'For "Graupel" cloud microphysics, the 6 tracers ' // &
+               &      'qv/hus, qc/clw, qi/cli, qr, qs, and qg must be '  // &
+               &      'among the first 6 included in transport_nml/tracer_names')
+       END IF
+       IF (iqm_max > 6) THEN
+          CALL print_value('ATTENTION! '   // &
+               &           '"Graupel" cloud microphyiscs is used with more than 6 ' // &
+               &           'water tracers: iqm_max',iqm_max, routine=routine)
+       END IF
     END IF
 
-    ! indices for extra tracer mass mixing ratios used for convective transport and vertical diffusion
-    ! indices are set only in range [iqt,ntracer], otherwise the index value is zero
-    !
-    iqt       = iqm_max+1 ! first index of non-water species
-    io3       = MERGE(iqt+0,0,ntracer>=iqt+0) ! O3
-    ico2      = MERGE(iqt+1,0,ntracer>=iqt+1) ! CO2
-    ich4      = MERGE(iqt+2,0,ntracer>=iqt+2) ! CH4
-    in2o      = MERGE(iqt+3,0,ntracer>=iqt+3) ! N2O
+    ! Is Cariolle's linearized ozone chemistry active?
+    ! Then io3 must be non-zero.
+    lany=.FALSE.
+    DO jg = 1,n_dom
+       lany = lany .OR. (echam_phy_tc(jg)%dt_car > dt_zero)
+    END DO
+    IF (lany) THEN
+       IF (io3 == 0) THEN
+          CALL finish(routine,           &
+               &      'For the linearized ozone chemistry of Cariolle, '// &
+               &      'the tracer qo3 must be included in transport_nml'// &
+               &      '/tracer_names')
+       END IF
+    END IF
 
-    ! extra treatment if ART is active, probably wrong
-       
-    IF (lart) THEN
-        
-       ntracer = ntracer + art_config(1)%iart_echam_ghg + art_config(1)%iart_ntracer
-       io3    = 0     !! O3
-       ico2   = 0     !! CO2
-       ich4   = 0     !! CH4
-       in2o   = 0     !! N2O
+    ! Is methane oxidation active?
+    ! Then iqv must be non-zero.
+    lany=.FALSE.
+    DO jg = 1,n_dom
+       lany = lany .OR. (echam_phy_tc(jg)%dt_mox > dt_zero)
+    END DO
+    IF (lany) THEN
+       IF (iqv == 0) THEN
+          CALL finish(routine,           &
+               &      'For the methane oxidation parameterization, the '// &
+               &      'tracer qv/hus must be included in transport_nml' // &
+               &      '/tracer_names')
+       END IF
+    END IF
 
-       SELECT CASE (art_config(1)%iart_echam_ghg)  
-
-       CASE(1)
-          io3    = 4
-       CASE(2)
-          ico2   = 5
-       CASE(3)
-          ich4   = 6
-       CASE(4)
-          in2o   = 7
-
-       CASE(0)
-
-       CASE DEFAULT
-          CALL finish('mo_atm_nml_crosscheck', 'iart_echam_ghg > 4 is not supported')
-
-       END SELECT
-
-       WRITE(message_text,'(a,i3,a,i3)') 'Attention: transport of ART tracers is active, '//&
-                                         'ntracer is increased by ',art_config(1)%iart_ntracer, &
-                                         ' to ',ntracer
-       CALL message('mo_echam_phy_init:init_echam_phy_itracer',message_text)
-
-    ENDIF
 
     CALL message('','')
     CALL message('','Tracer configuration')
@@ -495,16 +557,16 @@ CONTAINS
     CALL message('','total number of tracers')
     CALL print_value('ntracer',ntracer)
     CALL message('','index variables defined for active tracers')
-    IF (iqv  > 0) CALL print_value('iqv    ',iqv )
-    IF (iqc  > 0) CALL print_value('iqc    ',iqc )
-    IF (iqi  > 0) CALL print_value('iqi    ',iqi )
-    IF (iqr  > 0) CALL print_value('iqr    ',iqr )
-    IF (iqs  > 0) CALL print_value('iqs    ',iqs )
-    IF (iqg  > 0) CALL print_value('iqg    ',iqg )
-    IF (io3  > 0) CALL print_value('io3    ',io3 )
-    IF (ico2 > 0) CALL print_value('ico2   ',ico2)
-    IF (ich4 > 0) CALL print_value('ich4   ',ich4)
-    IF (in2o > 0) CALL print_value('in2o   ',in2o)
+    IF (iqv  > 0) CALL print_value('tracer "'//TRIM(advection_config(1)%tracer_names(iqv))//'"  : iqv    ',iqv )
+    IF (iqc  > 0) CALL print_value('tracer "'//TRIM(advection_config(1)%tracer_names(iqc))//'"  : iqc    ',iqc )
+    IF (iqi  > 0) CALL print_value('tracer "'//TRIM(advection_config(1)%tracer_names(iqi))//'"  : iqi    ',iqi )
+    IF (iqr  > 0) CALL print_value('tracer "'//TRIM(advection_config(1)%tracer_names(iqr))//'"  : iqr    ',iqr )
+    IF (iqs  > 0) CALL print_value('tracer "'//TRIM(advection_config(1)%tracer_names(iqs))//'"  : iqs    ',iqs )
+    IF (iqg  > 0) CALL print_value('tracer "'//TRIM(advection_config(1)%tracer_names(iqg))//'"  : iqg    ',iqg )
+    IF (io3  > 0) CALL print_value('tracer "'//TRIM(advection_config(1)%tracer_names(io3))//'"  : io3    ',io3 )
+    IF (ico2 > 0) CALL print_value('tracer "'//TRIM(advection_config(1)%tracer_names(ico2))//'" : ico2   ',ico2)
+    IF (ich4 > 0) CALL print_value('tracer "'//TRIM(advection_config(1)%tracer_names(ich4))//'" : ich4   ',ich4)
+    IF (in2o > 0) CALL print_value('tracer "'//TRIM(advection_config(1)%tracer_names(in2o))//'" : in2o   ',in2o)
     CALL message('','last  index for water species mass mixing ratios')
     CALL print_value('iqm_max',iqm_max)
     CALL message('','first index for other species mass mixing ratios')
@@ -512,7 +574,7 @@ CONTAINS
     CALL message('','number of other species mass mixing ratios')
     CALL print_value('ntrac  ',ntracer-iqt+1)
 
-  END SUBROUTINE init_echam_phy_itracer
+  END SUBROUTINE init_echam_phy_tracer
 
 
   SUBROUTINE init_echam_phy_external( p_patch, mtime_current)
@@ -524,11 +586,12 @@ CONTAINS
     LOGICAL :: lany
     TYPE(t_stream_id) :: stream_id
 
-    CHARACTER(len=max_char_length) :: land_frac_fn
-    CHARACTER(len=max_char_length) :: land_phys_fn
-    CHARACTER(len=max_char_length) :: land_sso_fn
+    CHARACTER(len=26+2+3) :: land_frac_fn
+    CHARACTER(len=26+2+3) :: land_phys_fn
+    CHARACTER(len=25+2+3) :: land_sso_fn
 
     TYPE(t_time_interpolation_weights) :: current_time_interpolation_weights
+    CHARACTER(len=*), PARAMETER :: routine = modname//':init_echam_phy_external'
 
     IF (timers_level > 1) CALL timer_start(timer_prep_echam_phy)
 
@@ -551,9 +614,9 @@ CONTAINS
         ! land, glacier and lake masks
         !
         WRITE(message_text,'(2a)') 'Read notsea, glac and lake from file ', TRIM(land_frac_fn)
-        CALL message('mo_echam_phy_init:init_echam_phy_external', message_text)
+        CALL message(routine, message_text)
         !
-        stream_id = openInputFile(land_frac_fn, p_patch(jg), default_read_method)
+        CALL openInputFile(stream_id, land_frac_fn, p_patch(jg))
         CALL read_2D(stream_id=stream_id, location=on_cells,&
              &          variable_name='notsea',               &
              &          fill_array=prm_field(jg)%lsmask(:,:))
@@ -592,12 +655,12 @@ CONTAINS
         !
         IF (echam_phy_tc(jg)%dt_vdf > dt_zero .OR. echam_phy_tc(jg)%dt_rad > dt_zero) THEN
           !
-          stream_id = openInputFile(land_phys_fn, p_patch(jg), default_read_method)
+          CALL openInputFile(stream_id, land_phys_fn, p_patch(jg))
           !
           IF (echam_phy_tc(jg)%dt_vdf > dt_zero) THEN
             !
             WRITE(message_text,'(2a)') 'Read roughness_length from file: ', TRIM(land_phys_fn)
-            CALL message('mo_echam_phy_init:init_echam_phy_external', message_text)
+            CALL message(routine, message_text)
             !
             CALL read_2D(stream_id=stream_id, location=on_cells, &
                   &       variable_name='roughness_length',      &
@@ -608,7 +671,7 @@ CONTAINS
           IF (echam_phy_tc(jg)%dt_rad > dt_zero) THEN
             !
             WRITE(message_text,'(2a)') 'Read albedo           from file: ', TRIM(land_phys_fn)
-            CALL message('mo_echam_phy_init:init_echam_phy_external', message_text)
+            CALL message(routine, message_text)
             !
             CALL read_2D(stream_id=stream_id, location=on_cells, &
                  &       variable_name='albedo',                &
@@ -618,7 +681,7 @@ CONTAINS
             ! But currently this is not available. Instead a default constant
             ! is used as source.
             WRITE(message_text,'(2a)') 'Use default surface emissivity zemiss_def from mo_physical_constants'
-            CALL message('mo_echam_phy_init:init_echam_phy_external', message_text)
+            CALL message(routine, message_text)
             !
             prm_field(jg)% emissivity(:,:) = zemiss_def
             !
@@ -632,9 +695,9 @@ CONTAINS
         IF (echam_phy_tc(jg)%dt_sso > dt_zero) THEN
           !
           WRITE(message_text,'(2a)') 'Read oroxyz from file: ', TRIM(land_sso_fn)
-          CALL message('mo_echam_phy_init:init_echam_phy_external', message_text)
+          CALL message(routine, message_text)
           !
-          stream_id = openInputFile(land_sso_fn, p_patch(jg), default_read_method)
+          CALL openInputFile(stream_id, land_sso_fn, p_patch(jg))
           CALL read_2D(stream_id=stream_id, location=on_cells, &
                &       variable_name='oromea',                &
                &       fill_array=prm_field(jg)% oromea(:,:))
@@ -678,9 +741,14 @@ CONTAINS
       !
       ! parameterized simple plumes of tropospheric aerosols
       !
+#ifdef __NO_RTE_RRTMGP__
+      IF (ANY(echam_rad_config(:)%irad_aero == 18 .OR. echam_rad_config(:)%irad_aero == 19)) THEN
+#else
       IF (ANY(echam_rad_config(:)%irad_aero == 18)) THEN
+#endif
         CALL setup_bc_aeropt_splumes
       END IF
+
       !
     END IF
 
@@ -693,11 +761,21 @@ CONTAINS
     lany=.FALSE.
     DO jg = 1,n_dom
        lany = lany .OR. ( echam_phy_tc(jg)%dt_rad > dt_zero .AND.         &
+#ifdef __NO_RTE_RRTMGP__
             &             ( echam_rad_config(jg)%irad_co2   == 4 .OR.     &
             &               echam_rad_config(jg)%irad_ch4   == 4 .OR.     &
             &               echam_rad_config(jg)%irad_n2o   == 4 .OR.     &
             &               echam_rad_config(jg)%irad_cfc11 == 4 .OR.     &
             &               echam_rad_config(jg)%irad_cfc12 == 4      ) ) &
+#else
+            &             ( echam_rad_config(jg)%irad_co2   == 3 .OR.     &
+            &               echam_rad_config(jg)%irad_ch4   == 3 .OR.     &
+            &               echam_rad_config(jg)%irad_ch4   ==13 .OR.     &
+            &               echam_rad_config(jg)%irad_n2o   == 3 .OR.     &
+            &               echam_rad_config(jg)%irad_n2o   ==13 .OR.     &
+            &               echam_rad_config(jg)%irad_cfc11 == 3 .OR.     &
+            &               echam_rad_config(jg)%irad_cfc12 == 3      ) ) &
+#endif
             &      .OR. ( ccycle_config(jg)%iccycle  == 2   .AND.         &
             &             ccycle_config(jg)%ico2conc == 4               )
     END DO
@@ -707,7 +785,7 @@ CONTAINS
       !
       ! read annual means
       IF (.NOT. bc_greenhouse_gases_file_read) THEN
-        CALL read_bc_greenhouse_gases
+        CALL read_bc_greenhouse_gases('bc_greenhouse_gases.nc')
       END IF
       ! interpolate to the current date and time, placing the annual means at
       ! the mid points of the current and preceding or following year, if the
@@ -794,21 +872,11 @@ CONTAINS
   !! Initial version by Hui Wan, MPI-M (2010-07)
   !!
   SUBROUTINE init_echam_phy_field( p_patch        ,&
-    &                              topography_c   ,&
-    &                              z_ifc          ,&
-    &                              z_mc           ,&
-    &                              ddqz_z_full    ,&
-    &                              geopot_agl_ifc ,&
-    &                              geopot_agl     ,&
     &                              temp           )
 
+!FIXME: PGI + OpenMP produce error in this routine... check correctness of parallel code
+
     TYPE(t_patch)    ,INTENT(in) :: p_patch
-    REAL(wp)         ,INTENT(in) :: topography_c  (:,  :)
-    REAL(wp)         ,INTENT(in) :: z_ifc         (:,:,:)
-    REAL(wp)         ,INTENT(in) :: z_mc          (:,:,:)
-    REAL(wp)         ,INTENT(in) :: ddqz_z_full   (:,:,:)
-    REAL(wp)         ,INTENT(in) :: geopot_agl_ifc(:,:,:)
-    REAL(wp)         ,INTENT(in) :: geopot_agl    (:,:,:)
     REAL(wp)         ,INTENT(in) :: temp          (:,:,:)
 
     ! local variables and pointers
@@ -834,8 +902,10 @@ CONTAINS
 
       ! Assign initial values for some components of the "field" and
       ! "tend" state vectors.
-
+#ifndef __PGI
+!FIXME: PGI + OpenMP produce error in this routine... check correctness of parallel code
 !$OMP PARALLEL WORKSHARE
+#endif
       !
       ! constant-in-time fields
       ! initial and re-start
@@ -845,16 +915,9 @@ CONTAINS
       field% areacella(:,  :) = p_patch% cells%   area(:,:)
       field%    coriol(:,  :) = p_patch% cells%    f_c(:,:)
       !
-      field%      orog(:,  :) =   topography_c(:,  :)
-      field%        zh(:,:,:) =          z_ifc(:,:,:)
-      field%        zf(:,:,:) =           z_mc(:,:,:)
-      field%        dz(:,:,:) =    ddqz_z_full(:,:,:)
-      !
-      field%      geoi(:,:,:) = geopot_agl_ifc(:,:,:)
-      field%      geom(:,:,:) =     geopot_agl(:,:,:)
- 
+#ifndef __PGI
 !$OMP END PARALLEL WORKSHARE
-
+#endif
       ! in case of restart, reset output fields of unused parameterizations,
       ! to their intial value
       !
@@ -871,11 +934,16 @@ CONTAINS
             field% rtype (:,:) = 0.0_wp
          END IF
          !
-         IF ( echam_phy_tc(jg)%dt_cld == dt_zero ) THEN
+         IF ( echam_phy_tc(jg)%dt_cld == dt_zero .AND. echam_phy_tc(jg)%dt_mig == dt_zero) THEN
             field% rsfl (:,:) = 0.0_wp
             field% ssfl (:,:) = 0.0_wp
          END IF
          !
+      END IF
+
+      ! set initial co2 flux to 0 everywhere if no restart
+      IF (.NOT. isrestart()) THEN
+         field% co2_flux_tile(:,:,:) = 0.0_wp
       END IF
 
       ! vertical diffusion
@@ -959,7 +1027,7 @@ CONTAINS
       ! For idealized test cases
 
       SELECT CASE (nh_test_name)
-      CASE('APE','APE_echam','RCEhydro','RCE_glb','RCE_Tconst') !Note that there is only one surface type in this case
+      CASE('APE','APE_echam','RCEhydro','RCE_glb','RCE_Tconst','CBL_flxconst') !Note that there is only one surface type in this case
         !
 !$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = jbs,jbe
@@ -1228,9 +1296,6 @@ CONTAINS
     REAL(wp)                           :: vmr_o3(nproma, p_patch%nlev)
     TYPE(t_time_interpolation)         :: time_interpolation
     TYPE(t_time_interpolation_weights) :: current_time_interpolation_weights
-    !
-    ! External routines of the Cariolle library
-    EXTERNAL :: lcariolle_init_o3, lcariolle_lat_intp_li, lcariolle_pres_intp_li
 
     avi%ldown=.TRUE.
     current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_current)
@@ -1257,10 +1322,7 @@ CONTAINS
       latc(:)             =  p_patch% cells% center(:,jb)% lat
       avi%cell_center_lat => latc
       !
-      CALL lcariolle_init_o3(                                               &
-        & jcs,                   jce,                nproma,                &
-        & p_patch%nlev,          time_interpolation, lcariolle_lat_intp_li, &
-        & lcariolle_pres_intp_li,avi,                vmr_o3                 )
+      CALL lcariolle_init_o3(jcs, jce, nproma, p_patch%nlev, time_interpolation, avi, vmr_o3)
       !
       o3(jcs:jce,:,jb) = vmr_o3(jcs:jce,:)*amo3/amd
       !

@@ -26,12 +26,22 @@
 !!
 MODULE mo_exception
 
-  USE mo_io_units, ONLY: nerr, nlog, filename_max
-  USE mo_mpi,      ONLY: run_is_global_mpi_parallel, abort_mpi, my_process_is_stdio, &
-    & get_my_global_mpi_id, get_my_mpi_work_id, get_glob_proc0, proc_split, comm_lev
-  USE mo_kind,     ONLY: wp, i8
-  USE mo_impl_constants,  ONLY: MAX_CHAR_LENGTH
+  USE mo_io_units,       ONLY: nerr, nlog, filename_max
+  USE mo_mpi,            ONLY: run_is_global_mpi_parallel, abort_mpi, my_process_is_stdio, &
+    &                          get_my_global_mpi_id, p_pe_work, get_glob_proc0, proc_split, comm_lev
+  USE mo_kind,           ONLY: wp, i8
+  USE mo_impl_constants, ONLY: MAX_CHAR_LENGTH
   
+#ifdef __STANDALONE
+  USE, INTRINSIC :: iso_c_binding, ONLY: c_int
+#else
+  USE mo_util_system, ONLY: util_exit
+#if defined __INTEL_COMPILER
+  USE ifcore, ONLY: tracebackqq
+#else
+  USE mo_util_backtrace, ONLY: util_backtrace
+#endif
+#endif
 
   IMPLICIT NONE
 
@@ -46,6 +56,15 @@ MODULE mo_exception
   PUBLIC :: get_filename_noext
   PUBLIC :: msg_timestamp
 
+#ifdef __STANDALONE
+  INTERFACE
+    SUBROUTINE exit(iret) BIND(C,name='exit')
+      IMPORT :: c_int
+      INTEGER(c_int), VALUE :: iret
+    END SUBROUTINE exit
+  END INTERFACE
+#endif
+  
   INTEGER, PARAMETER :: em_none  = 0   !< normal message
   INTEGER, PARAMETER :: em_info  = 1   !< informational message
   INTEGER, PARAMETER :: em_warn  = 2   !< warning message: number of warnings counted
@@ -110,22 +129,11 @@ CONTAINS
   !!
   SUBROUTINE finish (name, text, exit_no)
 
-#ifdef __INTEL_COMPILER
-    USE ifcore
-#endif
-
     CHARACTER(len=*), INTENT(in)           :: name
     CHARACTER(len=*), INTENT(in), OPTIONAL :: text
     INTEGER,          INTENT(in), OPTIONAL :: exit_no
 
     INTEGER           :: iexit
-
-#ifndef __STANDALONE
-    EXTERNAL :: util_exit
-#if ! (defined (__SX__) || defined (__INTEL_COMPILER) || defined (__xlC__))
-    EXTERNAL :: util_backtrace
-#endif
-#endif
 
     WRITE (nerr,'(/,80("="),/)')
     IF (l_log) WRITE (nlog,'(/,80("="),/)')
@@ -160,26 +168,27 @@ CONTAINS
     WRITE (nerr,'(/,80("-"),/,/)')
     IF (l_log) WRITE (nlog,'(/,80("-"),/,/)')
 
+#ifndef __STANDALONE
 #ifdef __INTEL_COMPILER
     CALL tracebackqq
 #elif defined __xlC__
     CALL xl__trbk
-#elif defined __SX__
-    CALL mesput('Traceback: ', 11, 1)
-#elif !defined __STANDALONE
+#else
     CALL util_backtrace
 #endif
-
+#endif
+    
     WRITE (nerr,'(/,80("="),/)')
     IF (l_log) WRITE (nlog,'(/,80("="),/)')
 
     IF (run_is_global_mpi_parallel()) THEN
       CALL abort_mpi
     ELSE
-#ifndef __STANDALONE
-       CALL util_exit(iexit)
+      CALL message('','finish ..')
+#ifdef __STANDALONE
+      CALL exit(iexit)
 #else
-       STOP 'mo_exception: finish ..'
+      CALL util_exit(iexit)
 #endif
     END IF
 
@@ -208,16 +217,17 @@ CONTAINS
 
     CHARACTER (len=*), INTENT(in) :: name
     CHARACTER (len=*), INTENT(in) :: text
+    !> unit to write to, defaults to standard error
     INTEGER,           INTENT(in), OPTIONAL :: out
     INTEGER,           INTENT(in), OPTIONAL :: level
     LOGICAL,           INTENT(in), OPTIONAL :: all_print
     LOGICAL,           INTENT(in), OPTIONAL :: adjust_right
 
     INTEGER :: iout
-    INTEGER :: ilevel
+    INTEGER :: ilevel, glob_proc0
     LOGICAL :: lprint
     LOGICAL :: ladjust
-    LOGICAL :: lactive
+    LOGICAL :: lactive, is_proc_split_root
 
     CHARACTER(len=8) :: prefix
 
@@ -260,36 +270,34 @@ CONTAINS
     END SELECT
 
     IF (.NOT. ladjust) THEN
-      message_text = TRIM(ADJUSTL(text))
+      message_text = ADJUSTL(text)
     ELSE
-      message_text = TRIM(text)
+      message_text = text
     ENDIF
     IF (name /= '')  THEN
-      message_text = TRIM(name) // ': ' // TRIM(message_text)
+      message_text = TRIM(name) // ': ' // message_text
     ENDIF
     IF (ilevel > em_none) THEN
-      message_text = prefix // ' ' // TRIM(message_text)
+      message_text = prefix // ' ' // message_text
     ENDIF
+
+    IF (proc_split) THEN
+      glob_proc0 = get_glob_proc0()
+      is_proc_split_root = p_pe_work == glob_proc0
+    ELSE
+      is_proc_split_root = .FALSE.
+    END IF
 
     IF (run_is_global_mpi_parallel() .AND. &
       & (l_debug .OR. ilevel == em_warn .OR. ilevel == em_error)) THEN
       WRITE(write_text,'(1x,a,i6,a,a)') 'PE ', get_my_global_mpi_id(), ' ', &
         & TRIM(message_text)
       lprint = .TRUE.
+    ELSE IF ( proc_split .AND. comm_lev > 0 .AND. is_proc_split_root ) THEN
+      WRITE(write_text,*) 'PROC_SPLIT: PE ', glob_proc0, ' ', &
+        & TRIM(message_text)
     ELSE
-
-      IF ( proc_split ) THEN
-        IF ( (comm_lev>0)  .AND.   &
-        & (get_my_mpi_work_id() == get_glob_proc0()) ) THEN
-        WRITE(write_text,*) 'PROC_SPLIT: PE ', get_glob_proc0(), ' ', &
-          & TRIM(message_text)
-        ELSE
-          write_text = message_text
-        ENDIF
-      ELSE
-        write_text = message_text
-      END IF
-
+      write_text = message_text
     END IF
 
     ! conditions under which this process actually prints out a message:
@@ -298,9 +306,7 @@ CONTAINS
     ! - or: this process is stdio process
     lactive = lactive .OR. my_process_is_stdio()
     ! - or: this process is root process in processor splitting
-    IF (proc_split) &
-     &lactive = lactive .OR. &
-       &       (proc_split .AND. (get_my_mpi_work_id() == get_glob_proc0()))
+    lactive = lactive .OR. is_proc_split_root
 
     IF (lactive) THEN
       IF (msg_timestamp) THEN
@@ -338,53 +344,86 @@ CONTAINS
   !! Report the value of a logical, integer or real variable
   !! Convenience routine interfaced by print_value(mstring, value)
   !!
-  SUBROUTINE print_lvalue (mstring, lvalue)
+  SUBROUTINE print_lvalue (mstring, lvalue, routine)
 
     CHARACTER(len=*), intent(in)   :: mstring
-    LOGICAL, intent(in)            :: lvalue
+    LOGICAL, INTENT(in)            :: lvalue
+    CHARACTER(len=*), TARGET, OPTIONAL, INTENT(in) :: routine
+    CHARACTER(len=:), POINTER :: rtn
+    CHARACTER(len=1), TARGET :: dummy
 
-    IF (lvalue) THEN
-      WRITE(message_text,'(a60,1x,": ",a)') mstring,'TRUE'
+    IF (PRESENT(routine)) THEN
+      rtn => routine
     ELSE
-      WRITE(message_text,'(a60,1x,": ",a)') mstring,'FALSE'
+      dummy = ' '
+      rtn => dummy(1:0)
     END IF
-    CALL message('', message_text, level=em_param)
+    WRITE(message_text,'(a60,1x,": ",a)') mstring, &
+         MERGE('TRUE ', 'FALSE', lvalue)
+    CALL message(rtn, message_text, level=em_param)
 
   END SUBROUTINE print_lvalue
   !-------------
   !>
   !!
-  SUBROUTINE print_ivalue (mstring, ivalue)
+  SUBROUTINE print_ivalue(mstring, ivalue, routine)
 
     CHARACTER(len=*), intent(in)   :: mstring
     INTEGER, intent(in)            :: ivalue
+    CHARACTER(len=*), TARGET, OPTIONAL, INTENT(in) :: routine
+    CHARACTER(len=:), POINTER :: rtn
+    CHARACTER(len=1), TARGET :: dummy
 
+    IF (PRESENT(routine)) THEN
+      rtn => routine
+    ELSE
+      dummy = ' '
+      rtn => dummy(1:0)
+    END IF
     WRITE(message_text,'(a60,1x,":",i10)') mstring, ivalue
-    CALL message('', message_text, level=em_param)
+    CALL message(rtn, message_text, level=em_param)
 
   END SUBROUTINE print_ivalue
   !-------------
   !>
   !!
-  SUBROUTINE print_i8value (mstring, i8value)
+  SUBROUTINE print_i8value (mstring, i8value, routine)
 
     CHARACTER(len=*), intent(in)   :: mstring
     INTEGER(i8), intent(in)        :: i8value
+    CHARACTER(len=*), TARGET, OPTIONAL, INTENT(in) :: routine
+    CHARACTER(len=:), POINTER :: rtn
+    CHARACTER(len=1), TARGET :: dummy
 
+    IF (PRESENT(routine)) THEN
+      rtn => routine
+    ELSE
+      dummy = ' '
+      rtn => dummy(1:0)
+    END IF
     WRITE(message_text,'(a60,1x,":",i10)') mstring, i8value
-    CALL message('', message_text, level=em_param)
+    CALL message(rtn, message_text, level=em_param)
 
   END SUBROUTINE print_i8value
   !-------------
   !>
   !!
-  SUBROUTINE print_rvalue (mstring, rvalue)
+  SUBROUTINE print_rvalue (mstring, rvalue, routine)
 
     CHARACTER(len=*), intent(in)   :: mstring
     REAL(wp), intent(in)           :: rvalue
+    CHARACTER(len=*), TARGET, OPTIONAL, INTENT(in) :: routine
+    CHARACTER(len=:), POINTER :: rtn
+    CHARACTER(len=1), TARGET :: dummy
 
+    IF (PRESENT(routine)) THEN
+      rtn => routine
+    ELSE
+      dummy = ' '
+      rtn => dummy(1:0)
+    END IF
     WRITE(message_text,'(a60,1x,":",g12.5)') mstring, rvalue
-    CALL message('', message_text, level=em_param)
+    CALL message(rtn, message_text, level=em_param)
 
   END SUBROUTINE print_rvalue
   !-------------

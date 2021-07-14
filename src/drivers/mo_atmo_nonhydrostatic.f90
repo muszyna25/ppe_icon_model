@@ -15,22 +15,22 @@ MODULE mo_atmo_nonhydrostatic
 
 USE mo_kind,                 ONLY: wp
 USE mo_exception,            ONLY: message, finish, print_value
-USE mtime,                   ONLY: datetimeToString, OPERATOR(>)
+USE mtime,                   ONLY: OPERATOR(>)
 USE mo_fortran_tools,        ONLY: copy, init
 USE mo_impl_constants,       ONLY: SUCCESS, max_dom, inwp, iecham
 USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, timer_init_latbc, &
-  &                                timer_model_init, timer_init_icon, timer_read_restart
+  &                                timer_model_init, timer_init_icon, timer_read_restart, timer_init_dace
 USE mo_master_config,        ONLY: isRestart
 USE mo_time_config,          ONLY: time_config
 USE mo_load_restart,         ONLY: read_restart_files
-USE mo_restart_attributes,   ONLY: t_RestartAttributeList, getAttributesForRestarting
-USE mo_io_config,            ONLY: configure_io
+USE mo_key_value_store,      ONLY: t_key_value_store
+USE mo_restart_nml_and_att,  ONLY: getAttributesForRestarting
+USE mo_io_config,            ONLY: configure_io, init_var_in_output, var_in_output
 USE mo_parallel_config,      ONLY: nproma, num_prefetch_proc
 USE mo_nh_pzlev_config,      ONLY: configure_nh_pzlev
 USE mo_advection_config,     ONLY: configure_advection
 USE mo_art_config,           ONLY: configure_art
-USE mo_assimilation_config,  ONLY: configure_lhn
-USE mo_lnd_nwp_config,       ONLY: groups_smi
+USE mo_assimilation_config,  ONLY: configure_lhn, assimilation_config
 USE mo_run_config,           ONLY: dtime,                & !    namelist parameter
   &                                ltestcase,            &
   &                                ldynamics,            &
@@ -42,15 +42,16 @@ USE mo_run_config,           ONLY: dtime,                & !    namelist paramet
   &                                iqc, iqt,             &
   &                                ico2, io3,            &
   &                                number_of_grid_used
+USE mo_initicon_config,      ONLY: pinit_seed, pinit_amplitude
 USE mo_nh_testcases,         ONLY: init_nh_testcase
+USE mo_nh_testcases_nml,      ONLY: nh_test_name
 USE mo_ls_forcing_nml,       ONLY: is_ls_forcing, is_nudging
 USE mo_ls_forcing,           ONLY: init_ls_forcing
-USE mo_dynamics_config,      ONLY: iequations, nnow, nnow_rcf, nnew, nnew_rcf, idiv_method, &
-  &                                ldeepatmo
+USE mo_dynamics_config,      ONLY: nnow, nnow_rcf, nnew, nnew_rcf, idiv_method
 ! Horizontal grid
 USE mo_model_domain,         ONLY: p_patch
 USE mo_grid_config,          ONLY: n_dom, start_time, end_time, &
-     &                             is_plane_torus, l_limited_area, n_dom_start
+     &                             is_plane_torus, l_limited_area
 USE mo_intp_data_strc,       ONLY: p_int_state
 USE mo_intp_lonlat_types,    ONLY: lonlat_grids
 USE mo_grf_intp_data_strc,   ONLY: p_grf_state
@@ -59,21 +60,23 @@ USE mo_vertical_grid,        ONLY: set_nh_metrics
 ! Grid nesting
 USE mo_nh_nest_utilities,    ONLY: complete_nesting_setup
 ! NH-namelist state
-USE mo_nonhydrostatic_config,ONLY: kstart_moist, kend_qvsubstep, l_open_ubc,   &
-  &                                itime_scheme, ndyn_substeps, kstart_tracer
+USE mo_nonhydrostatic_config,ONLY: configure_nonhydrostatic, kstart_moist, kend_qvsubstep, &
+  &                                l_open_ubc, itime_scheme, kstart_tracer
 
 USE mo_atm_phy_nwp_config,   ONLY: configure_atm_phy_nwp, atm_phy_nwp_config
-USE mo_ensemble_pert_config, ONLY: configure_ensemble_pert, compute_ensemble_pert
+USE mo_ensemble_pert_config, ONLY: configure_ensemble_pert
 USE mo_synsat_config,        ONLY: configure_synsat
+USE mo_nwp_ww,               ONLY: configure_ww
 ! NH-Model states
 USE mo_nonhydro_state,       ONLY: p_nh_state, p_nh_state_lists,               &
-  &                                construct_nh_state, destruct_nh_state
+  &                                construct_nh_state, destruct_nh_state,      &
+  &                                duplicate_prog_state
 USE mo_opt_diagnostics,      ONLY: construct_opt_diag, destruct_opt_diag,      &
   &                                compute_lonlat_area_weights
 USE mo_nwp_phy_state,        ONLY: prm_diag, prm_nwp_tend,                     &
-  &                                construct_nwp_phy_state, destruct_nwp_phy_state
-USE mo_nwp_lnd_state,        ONLY: p_lnd_state, construct_nwp_lnd_state,       &
-  &                                destruct_nwp_lnd_state
+  &                                construct_nwp_phy_state
+USE mo_nwp_lnd_state,        ONLY: p_lnd_state, construct_nwp_lnd_state
+USE mo_nwp_phy_cleanup,      ONLY: cleanup_nwp_phy
 USE mo_interface_les,        ONLY: init_les_phy_interface
 ! Time integration
 USE mo_nh_stepping,          ONLY: perform_nh_stepping
@@ -84,8 +87,7 @@ USE mo_ext_data_init,       ONLY: init_index_lists
 ! meteogram output
 USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize
 USE mo_meteogram_config,    ONLY: meteogram_output_config
-USE mo_name_list_output_config,   ONLY: first_output_name_list, &
-  &                               is_variable_in_output
+USE mo_name_list_output_config,   ONLY: is_variable_in_output
 USE mo_name_list_output_init, ONLY:  init_name_list_output,        &
   &                                  parse_variable_groups,        &
   &                                  collect_requested_ipz_levels, &
@@ -96,10 +98,15 @@ USE mo_pp_scheduler,        ONLY: pp_scheduler_init, pp_scheduler_finalize
 
 ! ECHAM physics
 USE mo_echam_phy_memory,    ONLY: construct_echam_phy_state
-USE mo_psrad_forcing_memory, ONLY: construct_psrad_forcing_list
+#ifdef __NO_RTE_RRTMGP__
+USE mo_psrad_forcing_memory, ONLY: construct_rad_forcing_list => construct_psrad_forcing_list
+#else
+USE mo_radiation_forcing_memory, ONLY: construct_rad_forcing_list => construct_radiation_forcing_list
+#endif
 USE mo_physical_constants,  ONLY: amd, amco2
 USE mo_echam_phy_config,    ONLY: echam_phy_tc, dt_zero, echam_phy_config
 USE mo_echam_rad_config,    ONLY: echam_rad_config
+USE mo_echam_vdf_config,    ONLY: echam_vdf_config
 USE mo_echam_phy_init,      ONLY: init_echam_phy_params, init_echam_phy_external, &
    &                              init_echam_phy_field, init_o3_lcariolle
 USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
@@ -118,15 +125,14 @@ USE mo_sync_latbc,          ONLY: deallocate_latbc_data
 USE mo_radar_data_state,    ONLY: radar_data, init_radar_data, construct_lhn, lhn_fields, destruct_lhn
 USE mo_rttov_interface,     ONLY: rttov_finalize, rttov_initialize
 USE mo_synsat_config,       ONLY: lsynsat
-USE mo_derived_variable_handling, ONLY: init_statistics_streams, finish_statistics_streams
-USE mo_mpi,                 ONLY: my_process_is_stdio
-USE mo_var_list,            ONLY: print_group_details
+USE mo_mpi,                 ONLY: my_process_is_stdio, p_comm_work_only, my_process_is_work_only
+USE mo_var_list_register_utils, ONLY: vlr_print_groups
 USE mo_sync,                ONLY: sync_patch_array, sync_c
-USE mo_initicon_config,     ONLY: init_mode
-USE mo_sleve_config,        ONLY: flat_height
-USE mo_vertical_coord_table, ONLY: vct_a
-USE mo_upatmo_config,       ONLY: configure_upatmo, destruct_upatmo
+USE mo_upatmo_setup,        ONLY: upatmo_initialize, upatmo_finalize
 USE mo_nudging_config,      ONLY: l_global_nudging
+USE mo_random_util,         ONLY: add_random_noise
+
+USE mo_icon2dace,           ONLY: init_dace, finish_dace
 
 !-------------------------------------------------------------------------
 #ifdef HAVE_CDI_PIO
@@ -146,12 +152,12 @@ PUBLIC :: construct_atmo_nonhydrostatic, destruct_atmo_nonhydrostatic
 CONTAINS
 
   !---------------------------------------------------------------------
-  SUBROUTINE atmo_nonhydrostatic
+  SUBROUTINE atmo_nonhydrostatic(latbc)
     TYPE(t_latbc_data) :: latbc !< data structure for async latbc prefetching
 
 !!$    CHARACTER(*), PARAMETER :: routine = "atmo_nonhydrostatic"
 
-    CALL construct_atmo_nonhydrostatic(latbc)
+!   CALL construct_atmo_nonhydrostatic(latbc)
 
     !------------------------------------------------------------------
     ! Now start the time stepping:
@@ -175,37 +181,23 @@ CONTAINS
 
     CHARACTER(*), PARAMETER :: routine = "construct_atmo_nonhydrostatic"
 
-    INTEGER :: jg, jt, ist, jgroup
-    LOGICAL :: l_pres_msl(n_dom) !< Flag. TRUE if computation of mean sea level pressure desired
-    LOGICAL :: l_omega(n_dom)    !< Flag. TRUE if computation of vertical velocity desired
-    LOGICAL :: l_rh(n_dom)       !< Flag. TRUE if computation of relative humidity desired
-    LOGICAL :: l_pv(n_dom)       !< Flag. TRUE if computation of potential vorticity desired
-    LOGICAL :: l_sdi2(n_dom)     !< Flag. TRUE if computation of supercell detection index desired
-    LOGICAL :: l_lpi(n_dom)      !< Flag. TRUE if computation of lightning potential index desired
-    LOGICAL :: l_lpi_max(n_dom)  !< Flag. TRUE if computation of max. of lightning potential index desired
-    LOGICAL :: l_ceiling(n_dom)  !< Flag. TRUE if computation of ceiling height desired
-    LOGICAL :: l_hbas_sc(n_dom)  !< Flag. TRUE if computation of height of base from shallow convection desired
-    LOGICAL :: l_htop_sc(n_dom)  !< Flag. TRUE if computation of height of top  from shallow convection desired
-    LOGICAL :: l_twater(n_dom)   !< Flag. TRUE if computation of total column integrated water desired
-    LOGICAL :: l_q_sedim(n_dom)  !< Flag. TRUE if computation of specific content of precipitation particles desired
-    LOGICAL :: l_smi(n_dom)      !< Flag. TRUE if computation of soil moisture index desired
-    LOGICAL :: l_tcond_max(n_dom)   !< Flag. TRUE if computation of total column-integrated condensate desired
-    LOGICAL :: l_tcond10_max(n_dom) !< Flag. TRUE if computation of total column-integrated condensate above z(T=-10 degC) desired
-    LOGICAL :: l_uh_max(n_dom)      !< Flag. TRUE if computation of updraft helicity desired
-    LOGICAL :: l_vorw_ctmax(n_dom)  !< Flag. TRUE if computation of maximum rotation amplitude desired
-    LOGICAL :: l_w_ctmax(n_dom)     !< Flag. TRUE if computation of maximum updraft track desired
+    INTEGER :: jg, jt, ist
+
     TYPE(t_sim_step_info) :: sim_step_info  
-    INTEGER :: jstep0
     INTEGER :: n_now, n_new, n_now_rcf, n_new_rcf
     REAL(wp) :: sim_time
-    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    TYPE(t_key_value_store), POINTER :: restartAttributes
 
-    IF (timers_level > 3) CALL timer_start(timer_model_init)
+    IF (timers_level > 1) CALL timer_start(timer_model_init)
+
+
+    DO jg =1,n_dom
+      CALL configure_nonhydrostatic( jg, p_patch(jg)%nlev,     &
+        &                            p_patch(jg)%nshift_total  )
+    ENDDO
 
     IF (iforcing == iecham) THEN
-      CALL init_echam_phy_params       ( p_patch(1:) )
-      CALL construct_echam_phy_state   ( p_patch(1:), ntracer )
-      CALL construct_psrad_forcing_list( p_patch(1:) )
+      CALL init_echam_phy_params( p_patch(1:) )
     END IF
 
     IF(iforcing == inwp) THEN
@@ -221,18 +213,17 @@ CONTAINS
 
       CALL configure_synsat()
 
-     ! initialize number of chemical tracers for convection
-     DO jg = 1, n_dom
-       CALL configure_art(jg)
-     ENDDO
+      DO jg = 1, n_dom
+        CALL configure_ww( time_config%tc_startdate, jg, p_patch(jg)%nlev, p_patch(jg)%nshift_total, 'ICON')
+        !
+        ! initialize number of chemical tracers for convection
+        CALL configure_art(jg)
+      ENDDO
 
     ENDIF
 
-    ! upper atmosphere
-    CALL configure_upatmo( n_dom_start=n_dom_start, n_dom=n_dom,                 & 
-      & p_patch=p_patch(n_dom_start:), ldeepatmo=ldeepatmo, init_mode=init_mode, &
-      & iforcing=iforcing, dtime=dtime, ndyn_substeps=ndyn_substeps,             &
-      & flat_height=flat_height, msg_level=msg_level, vct_a=vct_a                ) 
+    ! Check if optional diagnostics are requested for output
+    CALL init_var_in_output(n_dom, iforcing == inwp)
 
     ! initialize ldom_active flag if this is not a restart run
 
@@ -240,95 +231,43 @@ CONTAINS
     sim_time = getElapsedSimTimeInSeconds(time_config%tc_current_date) 
 
     DO jg=1, n_dom
-      IF (jg > 1 .AND. start_time(jg) > sim_time .OR. end_time(jg) <= sim_time) THEN
-        p_patch(jg)%ldom_active = .FALSE. ! domain not active
-      ELSE
-        p_patch(jg)%ldom_active = .TRUE.
-      ENDIF
+      p_patch(jg)%ldom_active &
+           =        (jg <= 1 .OR. start_time(jg) <= sim_time) &
+           &  .AND. end_time(jg) > sim_time
     ENDDO
-    
+
     !---------------------------------------------------------------------
     ! 4.c Non-Hydrostatic / NWP
     !---------------------------------------------------------------------
 
-    ALLOCATE (p_nh_state(n_dom), stat=ist)
-    IF (ist /= success) THEN
-      CALL finish(TRIM(routine),'allocation for p_nh_state failed')
-    ENDIF
-
-    ALLOCATE (p_nh_state_lists(n_dom), stat=ist)
-    IF (ist /= success) THEN
-      CALL finish(TRIM(routine),'allocation for p_nh_state_lists failed')
-    ENDIF
-
     ! Note(GZ): Land state now needs to be allocated even if physics is turned
     ! off because ground temperature is included in feedback since r8133
     ! However, setting inwp_surface = 0 effects that only a few 2D fields are allocated
-    ALLOCATE (p_lnd_state(n_dom), stat=ist)
-    IF (ist /= success) THEN
-      CALL finish(TRIM(routine),'allocation for p_lnd_state failed')
-    ENDIF
+    ALLOCATE(p_nh_state(n_dom), p_nh_state_lists(n_dom), p_lnd_state(n_dom), &
+         stat=ist)
+    IF (ist /= success) CALL finish(routine, &
+      &                             'allocation for state failed')
 
     IF(iforcing /= inwp) atm_phy_nwp_config(:)%inwp_surface = 0
 
-
-
     ! Now allocate memory for the states
-    DO jg=1,n_dom
-      l_pres_msl(jg) = is_variable_in_output(first_output_name_list, var_name="pres_msl") .OR. &
-        &              is_variable_in_output(first_output_name_list, var_name="psl_m")
-      l_omega(jg)    = is_variable_in_output(first_output_name_list, var_name="omega")    .OR. &
-        &              is_variable_in_output(first_output_name_list, var_name="wap_m")
-    END DO
     CALL construct_nh_state(p_patch(1:), p_nh_state, p_nh_state_lists, n_timelevels=2, &
-      &                     l_pres_msl=l_pres_msl, l_omega=l_omega)
+      &                     var_in_output=var_in_output(:))
 
     ! Add optional diagnostic variable lists (might remain empty)
     CALL construct_opt_diag(p_patch(1:), .TRUE.)
 
-    IF(iforcing == inwp) THEN
-      DO jg=1,n_dom
-        l_rh(jg)      = is_variable_in_output(first_output_name_list, var_name="rh")
-        l_pv(jg)      = is_variable_in_output(first_output_name_list, var_name="pv")
-        l_sdi2(jg)    = is_variable_in_output(first_output_name_list, var_name="sdi2")
-        l_lpi(jg)     = is_variable_in_output(first_output_name_list, var_name="lpi")
-        l_lpi_max(jg) = is_variable_in_output(first_output_name_list, var_name="lpi_max")
-        l_ceiling(jg) = is_variable_in_output(first_output_name_list, var_name="ceiling")
-        l_hbas_sc(jg) = is_variable_in_output(first_output_name_list, var_name="hbas_sc")
-        l_htop_sc(jg) = is_variable_in_output(first_output_name_list, var_name="htop_sc")
-        l_twater(jg)  = is_variable_in_output(first_output_name_list, var_name="twater")
-        l_q_sedim(jg) = is_variable_in_output(first_output_name_list, var_name="q_sedim")
-        l_tcond_max(jg)   = is_variable_in_output(first_output_name_list, var_name="tcond_max")
-        l_tcond10_max(jg) = is_variable_in_output(first_output_name_list, var_name="tcond10_max")
-        l_uh_max(jg)      = is_variable_in_output(first_output_name_list, var_name="uh_max")
-        l_vorw_ctmax(jg)  = is_variable_in_output(first_output_name_list, var_name="vorw_ctmax")
-        l_w_ctmax(jg)     = is_variable_in_output(first_output_name_list, var_name="w_ctmax")
-        l_smi(jg)         = is_variable_in_output(first_output_name_list, var_name="smi")
-        ! Check for special case: SMI is not in one of the output lists but it is part of a output group.
-        ! In this case, the group can not be checked, as the connection between SMI and the group will be
-        ! established during the add_var call. However, add_var for SMI will only be called if l_smi =.true.
-        ! As a crutch, a character array containing the output groups of SMI from mo_lnd_nwp_config is used
-        ! here and also at the add_var call.
-        ! The check loops through the output groups. It has to be checked if l_smi is already .true., to not
-        ! overwrite an existing .true. with a false. 
-        IF(.not.l_smi(jg) ) THEN 
-          ! Check for output groups containing SMI
-          DO jgroup = 1,SIZE(groups_smi)
-            IF(.not.l_smi(jg) ) THEN
-              l_smi(jg) = is_variable_in_output(first_output_name_list, var_name='group:'//TRIM(groups_smi(jgroup)))
-            END IF
-          END DO
-        END IF
-      END DO
+    IF (iforcing == inwp) THEN
+      CALL construct_nwp_phy_state( p_patch(1:), var_in_output)
+      CALL construct_nwp_lnd_state( p_patch(1:), p_lnd_state, var_in_output(:)%smi, n_timelevels=2 )
     END IF
 
-    IF (iforcing == inwp) THEN
-      CALL construct_nwp_phy_state( p_patch(1:), l_rh, l_pv, l_sdi2, l_lpi, l_lpi_max, l_ceiling,   &
-                                    l_hbas_sc, l_htop_sc, l_twater, l_q_sedim, l_tcond_max,         &
-                                    l_tcond10_max, l_uh_max, l_vorw_ctmax, l_w_ctmax )
-      CALL construct_nwp_lnd_state( p_patch(1:), p_lnd_state, l_smi, n_timelevels=2 )
-      CALL compute_ensemble_pert  ( p_patch(1:), ext_data, prm_diag, time_config%tc_current_date)
+    IF (iforcing == iecham) THEN
+      CALL construct_echam_phy_state ( p_patch(1:), ntracer )
+      CALL construct_rad_forcing_list( p_patch(1:) )
     END IF
+
+    CALL upatmo_initialize(p_patch)
 
 #ifdef MESSY
     CALL messy_init_memory(n_dom)
@@ -341,26 +280,22 @@ CONTAINS
     ! Unfortunately this conflicts with our trying to call the config-routines
     ! as early as possible.
     DO jg =1,n_dom
-     CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,  &
-       &                      iequations, iforcing, iqc, iqt,          &
-       &                      kstart_moist(jg), kend_qvsubstep(jg),    &
-       &                      lvert_nest, l_open_ubc, ntracer,         &
-       &                      idiv_method, itime_scheme,               &
-       &                      p_nh_state_lists(jg)%tracer_list(:),     &
-       &                      kstart_tracer(jg,:))
-
+      CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,   &
+        &                       iforcing, iqc, iqt,                      &
+        &                       kstart_moist(jg), kend_qvsubstep(jg),    &
+        &                       lvert_nest, l_open_ubc, ntracer,         &
+        &                       idiv_method, itime_scheme,               &
+        &                       p_nh_state_lists(jg)%tracer_list(:),     &
+        &                       kstart_tracer(jg,:) )
     ENDDO
 
-   IF (ldass_lhn) THEN 
-     ALLOCATE (radar_data(n_dom), STAT=ist)
-     IF (ist /= SUCCESS) THEN
-          CALL finish(TRIM(routine),'allocation for radar_data failed')
-     ENDIF
-     ALLOCATE (lhn_fields(n_dom), STAT=ist)
-     IF (ist /= SUCCESS) THEN
-          CALL finish(TRIM(routine),'allocation for lhn_fields failed')
-     ENDIF
-     CALL message(TRIM(routine),'configure_lhn')
+   IF (ldass_lhn) THEN
+     ALLOCATE (radar_data(n_dom), lhn_fields(n_dom), STAT=ist)
+     IF (ist /= SUCCESS) &
+       CALL finish(routine,'allocation for radar_data and lhn_fields failed')
+     !$ACC ENTER DATA CREATE( radar_data(n_dom), lhn_fields(n_dom) )
+
+     CALL message(routine,'configure_lhn')
      DO jg =1,n_dom
        CALL configure_lhn(jg)
      ENDDO 
@@ -375,6 +310,7 @@ CONTAINS
 
     CALL set_nh_metrics(p_patch(1:)     ,&
          &              p_nh_state      ,&
+         &              p_nh_state_lists ,&
          &              p_int_state(1:) ,&
          &              ext_data        )
 
@@ -382,9 +318,21 @@ CONTAINS
       CALL complete_nesting_setup()
     END IF
 
+    ! Initialize DACE routines
+    IF (assimilation_config(1)% dace_coupling) then
+      IF (timers_level > 4) CALL timer_start(timer_init_dace)
+      CALL init_dace (comm=p_comm_work_only, p_io=0, ldetached=.NOT.my_process_is_work_only())
+      IF (timers_level > 4) CALL timer_stop(timer_init_dace)
+    END IF
+
     ! init LES
     DO jg = 1 , n_dom
       IF(atm_phy_nwp_config(jg)%is_les_phy) THEN
+        CALL init_les_phy_interface(jg, p_patch(jg)       ,&
+           &                        p_int_state(jg)       ,&
+           &                        p_nh_state(jg)%metrics)
+      END IF
+      IF(echam_vdf_config(jg)%turb==2) THEN
         CALL init_les_phy_interface(jg, p_patch(jg)       ,&
            &                        p_int_state(jg)       ,&
            &                        p_nh_state(jg)%metrics)
@@ -399,7 +347,7 @@ CONTAINS
       !
       ! This is a resumed integration. Read model state from restart file(s).
       !
-      IF (timers_level > 5) CALL timer_start(timer_read_restart)
+      IF (timers_level > 4) CALL timer_start(timer_read_restart)
       !
       DO jg = 1,n_dom
         IF (p_patch(jg)%ldom_active) THEN
@@ -407,9 +355,9 @@ CONTAINS
         END IF
       END DO
       !
-      CALL message(TRIM(routine),'normal exit from read_restart_files')
+      CALL message(routine,'normal exit from read_restart_files')
       !
-      IF (timers_level > 5) CALL timer_stop(timer_read_restart)
+      IF (timers_level > 4) CALL timer_stop(timer_read_restart)
       !
 #ifndef __NO_JSBACH__
       DO jg = 1,n_dom
@@ -442,7 +390,7 @@ CONTAINS
         !
         ! Initialize with real atmospheric data
         !
-        IF (timers_level > 5) CALL timer_start(timer_init_icon)
+        IF (timers_level > 4) CALL timer_start(timer_init_icon)
         !
         IF (iforcing == inwp) THEN
           !
@@ -468,9 +416,36 @@ CONTAINS
           !
         END IF ! iforcing
         !
-        IF (timers_level > 5) CALL timer_stop(timer_init_icon)
+        IF (timers_level > 4) CALL timer_stop(timer_init_icon)
         !
       END IF ! ltestcase
+
+      IF(pinit_seed > 0) THEN
+        DO jg=1,n_dom
+          CALL add_random_noise(p_patch(jg)%cells%all, nproma, p_patch(jg)%nlev, &
+                                p_patch(jg)%nblks_c, pinit_amplitude, pinit_seed, &
+                                p_nh_state(jg)%prog(nnow(jg))%w)
+          CALL add_random_noise(p_patch(jg)%cells%all, nproma, p_patch(jg)%nlev, &
+                                p_patch(jg)%nblks_c, pinit_amplitude, pinit_seed, &
+                                p_nh_state(jg)%prog(nnow(jg))%vn)
+          CALL add_random_noise(p_patch(jg)%cells%all, nproma, p_patch(jg)%nlev, &
+                                p_patch(jg)%nblks_c, pinit_amplitude, pinit_seed, &
+                                p_nh_state(jg)%prog(nnow(jg))%theta_v)
+          CALL add_random_noise(p_patch(jg)%cells%all, nproma, p_patch(jg)%nlev, &
+                                p_patch(jg)%nblks_c, pinit_amplitude, pinit_seed, &
+                                p_nh_state(jg)%prog(nnow(jg))%exner)
+          CALL add_random_noise(p_patch(jg)%cells%all, nproma, p_patch(jg)%nlev, &
+                                p_patch(jg)%nblks_c, pinit_amplitude, pinit_seed, &
+                                p_nh_state(jg)%prog(nnow(jg))%rho)
+          IF(nh_test_name == 'dcmip_pa_12') THEN
+             CALL add_random_noise(p_patch(jg)%cells%all, nproma, p_patch(jg)%nlev, &
+                                   p_patch(jg)%nblks_c, pinit_amplitude, pinit_seed, &
+                                   p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,1))
+          ENDIF
+          CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%prog(nnew(jg)))
+        ENDDO
+      ENDIF
+
       !
       ! Initialize tracers fields jt=iqt to jt=ntracer, which are not available in the analysis file,
       ! but may be used with ECHAM physics, for real cases or test cases.
@@ -484,8 +459,9 @@ CONTAINS
 !$OMP PARALLEL
             CALL init(p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(:,:,:,ico2),echam_rad_config(jg)% vmr_co2*amco2/amd)
 !$OMP END PARALLEL
-            CALL print_value(TRIM(routine)//': CO2 tracer initialized with constant vmr', &
-              &              echam_rad_config(jg)% vmr_co2*amco2/amd)
+            CALL print_value('CO2 tracer initialized with constant vmr', &
+              &              echam_rad_config(jg)% vmr_co2*amco2/amd,    &
+              &              routine=routine)
           END IF
           !
           ! O3 tracer
@@ -497,12 +473,12 @@ CONTAINS
                 &                     p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(:,:,:,io3)  )
               CALL sync_patch_array ( sync_c,p_patch(jg)                                   ,&
                 &                     p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(:,:,:,io3)  )
-              CALL message(TRIM(routine),'o3 tracer is initialized by the Cariolle lin. o3 scheme')
+              CALL message(routine,'o3 tracer is initialized by the Cariolle lin. o3 scheme')
             ELSE
 !$OMP PARALLEL
               CALL init(p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(:,:,:,io3),0.0_wp)
 !$OMP END PARALLEL
-              CALL message(TRIM(routine),'o3 tracer is initialized to zero, check setup')
+              CALL message(routine,'o3 tracer is initialized to zero, check setup')
             END IF
           END IF
           !
@@ -525,14 +501,8 @@ CONTAINS
       !
       ! prepare fields of the physics state, real and test case
       DO jg = 1,n_dom
-        CALL init_echam_phy_field( p_patch(jg)                                        ,&
-          &                        ext_data  (jg)% atm%topography_c       (:,  :)     ,&
-          &                        p_nh_state(jg)% metrics% z_ifc         (:,:,:)     ,&
-          &                        p_nh_state(jg)% metrics% z_mc          (:,:,:)     ,&
-          &                        p_nh_state(jg)% metrics% ddqz_z_full   (:,:,:)     ,&
-          &                        p_nh_state(jg)% metrics% geopot_agl_ifc(:,:,:)     ,&
-          &                        p_nh_state(jg)% metrics% geopot_agl    (:,:,:)     ,&
-          &                        p_nh_state(jg)% diag% temp             (:,:,:)     )
+        CALL init_echam_phy_field( p_patch(jg)                       ,&
+          &                        p_nh_state(jg)% diag% temp(:,:,:) )
       END DO
       !
     END IF
@@ -578,9 +548,9 @@ CONTAINS
     ! If async prefetching is in effect, init_prefetch is a collective call
     ! with the prefetching processor and effectively starts async prefetching
     IF ((num_prefetch_proc == 1) .AND. (latbc_config%itype_latbc > 0)) THEN
-      IF (timers_level > 5) CALL timer_start(timer_init_latbc)
+      IF (timers_level > 4) CALL timer_start(timer_init_latbc)
       CALL init_prefetch(latbc)
-      IF (timers_level > 5) CALL timer_stop(timer_init_latbc)
+      IF (timers_level > 4) CALL timer_stop(timer_init_latbc)
     ENDIF
 
     !------------------------------------------------------------------
@@ -625,21 +595,18 @@ CONTAINS
     ! with the IO procs and effectively starts async IO
     IF (output_mode%l_nml) THEN
       ! compute sim_start, sim_end
-      CALL datetimeToString(time_config%tc_exp_startdate, sim_step_info%sim_start)
-      CALL datetimeToString(time_config%tc_exp_stopdate, sim_step_info%sim_end)
-      CALL datetimeToString(time_config%tc_startdate, sim_step_info%run_start)
-      CALL datetimeToString(time_config%tc_stopdate, sim_step_info%restart_time)
+      sim_step_info%sim_start = time_config%tc_exp_startdate
+      sim_step_info%sim_end = time_config%tc_exp_stopdate
+      sim_step_info%run_start = time_config%tc_startdate
+      sim_step_info%restart_time = time_config%tc_stopdate
 
       sim_step_info%dtime      = dtime
-      jstep0 = 0
+      sim_step_info%jstep0 = 0
 
-      restartAttributes => getAttributesForRestarting()
-      IF (ASSOCIATED(restartAttributes)) THEN
-        ! get start counter for time loop from restart file:
-        jstep0 = restartAttributes%getInteger("jstep")
-      END IF
-      sim_step_info%jstep0    = jstep0
-      CALL init_statistics_streams
+      CALL getAttributesForRestarting(restartAttributes)
+      ! get start counter for time loop from restart file:
+      IF (restartAttributes%is_init) &
+        & CALL restartAttributes%get("jstep", sim_step_info%jstep0)
       CALL init_name_list_output(sim_step_info)
 
       !---------------------------------------------------------------------
@@ -678,21 +645,21 @@ CONTAINS
 
     IF (iforcing == inwp) THEN
         atm_phy_nwp_config(1:n_dom)%lcalc_moist_integral_avg = &
-        is_variable_in_output(first_output_name_list, var_name="clct_avg")        .OR. &
-        is_variable_in_output(first_output_name_list, var_name="tracer_vi_avg01") .OR. &
-        is_variable_in_output(first_output_name_list, var_name="tracer_vi_avg02") .OR. &
-        is_variable_in_output(first_output_name_list, var_name="tracer_vi_avg03") .OR. &
-        is_variable_in_output(first_output_name_list, var_name="avg_qv")          .OR. &
-        is_variable_in_output(first_output_name_list, var_name="avg_qc")          .OR. &
-        is_variable_in_output(first_output_name_list, var_name="avg_qi")
+        is_variable_in_output(var_name="clct_avg")        .OR. &
+        is_variable_in_output(var_name="tracer_vi_avg01") .OR. &
+        is_variable_in_output(var_name="tracer_vi_avg02") .OR. &
+        is_variable_in_output(var_name="tracer_vi_avg03") .OR. &
+        is_variable_in_output(var_name="avg_qv")          .OR. &
+        is_variable_in_output(var_name="avg_qc")          .OR. &
+        is_variable_in_output(var_name="avg_qi")
 
         atm_phy_nwp_config(1:n_dom)%lcalc_extra_avg = &
-        is_variable_in_output(first_output_name_list, var_name="astr_u_sso")      .OR. &
-        is_variable_in_output(first_output_name_list, var_name="accstr_u_sso")    .OR. &
-        is_variable_in_output(first_output_name_list, var_name="astr_v_sso")      .OR. &
-        is_variable_in_output(first_output_name_list, var_name="accstr_v_sso")    .OR. &
-        is_variable_in_output(first_output_name_list, var_name="adrag_u_grid")    .OR. &
-        is_variable_in_output(first_output_name_list, var_name="adrag_v_grid")
+        is_variable_in_output(var_name="astr_u_sso")      .OR. &
+        is_variable_in_output(var_name="accstr_u_sso")    .OR. &
+        is_variable_in_output(var_name="astr_v_sso")      .OR. &
+        is_variable_in_output(var_name="accstr_v_sso")    .OR. &
+        is_variable_in_output(var_name="adrag_u_grid")    .OR. &
+        is_variable_in_output(var_name="adrag_v_grid")
      ENDIF
 
     !Anurag Dipankar, MPIM (2015-08-01): always call this routine
@@ -719,24 +686,19 @@ CONTAINS
 
       IF(atm_phy_nwp_config(jg)%is_les_phy .AND. is_plane_torus) &
            CALL init_les_turbulent_output(p_patch(jg), p_nh_state(jg)%metrics, &
-           &                              time_config%tc_startdate, l_rh(jg), ldelete=(.NOT. isRestart()))
+           &    time_config%tc_startdate, var_in_output(jg)%rh, ldelete=(.NOT. isRestart()))
 
     END DO
-
 
     !-------------------------------------------------------!
     !  (Optional) detailed print-out of some variable info  !
     !-------------------------------------------------------!
 
     ! variable group information
-    IF (my_process_is_stdio() .AND. (msg_level >= 15)) THEN
-      CALL print_group_details(idom=1,                            &
-        &                      opt_latex_fmt           = .TRUE., &
-        &                      opt_reduce_trailing_num = .TRUE.,  &
-        &                      opt_skip_trivial        = .TRUE.)
-    END IF
+    IF (my_process_is_stdio() .AND. (msg_level >= 15)) &
+      & CALL vlr_print_groups(idom=1)
 
-    IF (timers_level > 3) CALL timer_stop(timer_model_init)
+    IF (timers_level > 1) CALL timer_stop(timer_model_init)
 
   END SUBROUTINE construct_atmo_nonhydrostatic
 
@@ -757,7 +719,7 @@ CONTAINS
     ! 6. Integration finished. Clean up.
     !---------------------------------------------------------------------
 
-    CALL message(TRIM(routine),'start to clean up')
+    CALL message(routine,'start to clean up')
 
 #ifdef MESSY
     CALL messy_free_memory
@@ -775,31 +737,26 @@ CONTAINS
     ! Delete state variables
 
     CALL destruct_nh_state( p_nh_state, p_nh_state_lists )
-    DEALLOCATE (p_nh_state, STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for p_nh_state failed')
-    ENDIF
-    DEALLOCATE (p_nh_state_lists, STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for p_nh_state_lists failed')
-    ENDIF
+    DEALLOCATE (p_nh_state, p_nh_state_lists, STAT=ist)
+    IF (ist /= SUCCESS) CALL finish(routine,'deallocation for state failed')
 
+
+    ! close LES diag files
+    DO jg = 1 , n_dom
+      IF(atm_phy_nwp_config(jg)%is_les_phy .AND. is_plane_torus) &
+        CALL close_les_turbulent_output(jg)
+    END DO
+
+    ! cleanup NWP physics
     IF (iforcing == inwp) THEN
-      CALL destruct_nwp_phy_state
-      CALL destruct_nwp_lnd_state( p_lnd_state )
-      DO jg = 1, n_dom
-        CALL atm_phy_nwp_config(jg)%finalize()
-      ENDDO
+      CALL cleanup_nwp_phy()
     ENDIF
 
-!
-! WS:  why is p_lnd_state not deallocated here?
-!
     IF (iforcing == iecham) THEN
-      CALL cleanup_echam_phy
+      CALL cleanup_echam_phy()
     ENDIF
 
-    CALL destruct_upatmo()
+    CALL upatmo_finalize(p_patch)
 
     ! call close name list prefetch
     IF ((l_limited_area .OR. l_global_nudging) .AND. latbc_config%itype_latbc > 0) THEN
@@ -816,7 +773,6 @@ CONTAINS
       CALL message(routine, 'delete output variable lists')
       CALL close_name_list_output
       CALL message(routine, 'finish statistics streams')
-      CALL finish_statistics_streams
     END IF
 #ifdef HAVE_CDI_PIO
     IF (pio_type == pio_type_cdipio) THEN
@@ -839,22 +795,22 @@ CONTAINS
       END DO
     END IF
 
-    !Close LES diag files
-    DO jg = 1 , n_dom
-     IF(atm_phy_nwp_config(jg)%is_les_phy .AND. is_plane_torus) &
-       CALL close_les_turbulent_output(jg)
-    END DO
 
     IF (ldass_lhn) THEN 
       ! deallocate ext_data array
+      !$ACC EXIT DATA DELETE( radar_data )
       DEALLOCATE(radar_data, STAT=ist)
       IF (ist /= SUCCESS) THEN
-        CALL finish(TRIM(routine), 'deallocation of radar_data')
+        CALL finish(routine, 'deallocation of radar_data for LHN')
       ENDIF
       CALL destruct_lhn (lhn_fields)
     ENDIF
+
+    IF (assimilation_config(1)% dace_coupling .AND. my_process_is_work_only()) then
+       CALL finish_dace ()
+    END IF
  
-    CALL message(TRIM(routine),'clean-up finished')
+    CALL message(routine,'clean-up finished')
 
   END SUBROUTINE destruct_atmo_nonhydrostatic
   !---------------------------------------------------------------------

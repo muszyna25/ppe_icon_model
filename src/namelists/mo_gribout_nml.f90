@@ -28,7 +28,7 @@ MODULE mo_gribout_nml
   USE mo_master_control,      ONLY: use_restart_namelists
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
-  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist,     &
+  USE mo_restart_nml_and_att, ONLY: open_tmpfile, store_and_close_namelist,     &
     &                               open_and_restore_namelist, close_tmpfile
   USE mo_gribout_config,      ONLY: gribout_config
   USE mo_grib2_tile,          ONLY: grib2_keys_tile
@@ -65,6 +65,7 @@ MODULE mo_gribout_nml
   CHARACTER(LEN=32) :: preset
 
   INTEGER :: tablesVersion              ! Main switch for table version
+  INTEGER :: localTablesVersion         ! Switch for centre local table version
 
   INTEGER :: &                          ! Table 1.2
     & significanceOfReferenceTime       ! 0: Analysis
@@ -89,7 +90,7 @@ MODULE mo_gribout_nml
                                         ! 1  : Initialization
                                         ! 2  : Forecast
                                         ! 3  : ...
-                                        ! 196: invariant data 
+                                        ! 196: invariant data
 
   INTEGER :: &                          ! Table: backgroundProcess
     & backgroundProcess                 ! 0: main run
@@ -132,6 +133,7 @@ MODULE mo_gribout_nml
   LOGICAL :: lgribout_24bit             ! write thermodynamic fields rho, theta_v, T, p
                                         ! with 24bit precision
 
+  LOGICAL :: lgribout_compress_ccsds    ! enable CCSDS second level compression
 
   INTEGER :: typeOfEnsembleForecast,        &
     &        localTypeOfEnsembleForecast,   &
@@ -144,6 +146,7 @@ MODULE mo_gribout_nml
 
   NAMELIST/gribout_nml/  &
     &                    preset, tablesVersion,           &
+    &                    localTablesVersion,              &
     &                    significanceOfReferenceTime,     &
     &                    productionStatusOfProcessedData, &
     &                    typeOfProcessedData,             &
@@ -161,6 +164,7 @@ MODULE mo_gribout_nml
     &                    numberOfForecastsInEnsemble,     &
     &                    perturbationNumber,              &
     &                    lgribout_24bit,                  &
+    &                    lgribout_compress_ccsds,         &
     &                    typeOfGrib2TileTemplate
 
 
@@ -201,6 +205,8 @@ CONTAINS
     preset                               = "deterministic"
 
     tablesVersion                        = 15
+    localTablesVersion                   = 1
+
     significanceOfReferenceTime          = 1   ! 1: Start of forecast
     productionStatusOfProcessedData      = 1   ! 1: Oper. test products
     backgroundProcess                    = 0   ! 0: main run
@@ -209,6 +215,7 @@ CONTAINS
     lspecialdate_invar                   = .FALSE.  ! no special date for invar fields
     ldate_grib_act                       = .TRUE.
     lgribout_24bit                       = .FALSE.  ! use 16bit precision for all fields
+    lgribout_compress_ccsds              = .FALSE.  ! do not use second level compression by default
 
     typeOfGrib2TileTemplate              = 'dwd'    ! use DWD templates 40455, etc
 
@@ -272,6 +279,8 @@ CONTAINS
     DO jg= 1,max_dom
       gribout_config(jg)%tablesVersion                     = &
         &                tablesVersion
+      gribout_config(jg)%localTablesVersion                = &
+        &                localTablesVersion
       gribout_config(jg)%significanceOfReferenceTime       = &
         &                significanceOfReferenceTime
       gribout_config(jg)%productionStatusOfProcessedData   = &
@@ -306,6 +315,8 @@ CONTAINS
         &                perturbationNumber
       gribout_config(jg)%lgribout_24bit                    = &
         &                lgribout_24bit
+      gribout_config(jg)%lgribout_compress_ccsds           = &
+        &                lgribout_compress_ccsds
       gribout_config(jg)%typeOfGrib2TileTemplate           = &
         &                tolower(typeOfGrib2TileTemplate)
     ENDDO
@@ -316,7 +327,7 @@ CONTAINS
     ! 5b. Define the set of employed GRIB2 tile templates for writing
     !----------------------------------------------------------------
     !
-    ! By placing it here we make sure that this information is also 
+    ! By placing it here we make sure that this information is also
     ! known to the output PEs, which are detached right after.
     !
     DO jg = 1, max_dom
@@ -357,7 +368,7 @@ CONTAINS
           &                                str_numberOfUsedTileAttributes      = "numberOfTileAttributes",          &
           &                                str_attributeOfTile                 = "tileAttribute"                    )
       ENDIF
-    ENDDO 
+    ENDDO
 
 
     !-----------------------------------------------------

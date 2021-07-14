@@ -53,8 +53,7 @@ MODULE mo_name_list_output_gridinfo
     &                                             ILATLON, ICELL, IEDGE, IVERT, IRLAT,      &
     &                                             IRLON, GRB2_GRID_INFO_NAME
   USE mo_name_list_output_zaxes_types,      ONLY: t_verticalAxis
-  USE mo_var_list_element,                  ONLY: level_type_ml, level_type_pl, level_type_hl, &
-    &                                             level_type_il
+  USE mo_var, ONLY: level_type_ml, level_type_pl, level_type_hl, level_type_il
   USE mo_reorder_info,                      ONLY: t_reorder_info
 #ifdef HAVE_CDI_PIO
   USE mo_reorder_info,                      ONLY: ri_cpy_blk2part

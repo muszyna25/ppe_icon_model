@@ -23,7 +23,6 @@ MODULE mo_statistics
   !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: wp,sp
   USE mo_exception,          ONLY: warning, finish
-  USE mo_fortran_tools,      ONLY: assign_if_present
 #ifdef _OPENMP
   USE omp_lib
 #endif
@@ -36,6 +35,9 @@ MODULE mo_statistics
   USE mo_impl_constants, ONLY: on_cells, on_edges, on_vertices
   USE mo_math_types,     ONLY: t_geographical_coordinates
   USE mo_math_constants, ONLY: rad2deg
+#ifdef _OPENACC
+  USE mo_mpi,            ONLY: i_am_accel_node
+#endif
 
   IMPLICIT NONE
 
@@ -44,8 +46,8 @@ MODULE mo_statistics
 
   !-------------------------------------------------------------------------  
   ! NOTE: in order to get correct results make sure you provide the proper in_subset (ie, owned)!
-  PUBLIC :: global_minmaxmean, subset_sum, add_fields, add_fields_3d, add_sqr_fields
-  PUBLIC :: assign_fields
+  PUBLIC :: global_minmaxmean, subset_sum, add_fields_3d
+  PUBLIC :: add_fields
   PUBLIC :: L2Norm, LInfNorm
   PUBLIC :: accumulate_mean, levels_horizontal_mean, horizontal_mean, total_mean
   PUBLIC :: horizontal_sum
@@ -53,7 +55,6 @@ MODULE mo_statistics
   PUBLIC :: add_verticallyIntegrated_field, verticallyIntegrated_field
   PUBLIC :: add_verticalSum_field
   PUBLIC :: gather_sums
-  PUBLIC :: min_fields, max_fields
 
   ! simple min max mean (no weights)
   ! uses the range in_subset
@@ -73,7 +74,10 @@ MODULE mo_statistics
     MODULE PROCEDURE LInfNorm_2D_InRange
   END INTERFACE LInfNorm
 
-
+  INTERFACE verticallyIntegrated_field
+    MODULE PROCEDURE verticallyIntegrated_field_weighted
+    MODULE PROCEDURE verticallyIntegrated_field_notWeighted
+  END INTERFACE verticallyIntegrated_field
 
   ! weighted total sum, uses indexed subset
   ! used for calculating total fluxes acros given paths
@@ -249,59 +253,20 @@ MODULE mo_statistics
   INTERFACE add_fields
     MODULE PROCEDURE add_fields_3d
     MODULE PROCEDURE add_fields_2d
-    MODULE PROCEDURE add_fields_2d_nosubset
     MODULE PROCEDURE add_fields_3d_sp
     MODULE PROCEDURE add_fields_2d_sp
-    MODULE PROCEDURE add_fields_2d_nosubset_sp
   END INTERFACE add_fields
-
-  INTERFACE add_sqr_fields
-    MODULE PROCEDURE add_sqr_fields_2d
-    MODULE PROCEDURE add_sqr_fields_3d
-    MODULE PROCEDURE add_sqr_fields_2d_nosubset
-    MODULE PROCEDURE add_sqr_fields_2d_sp
-    MODULE PROCEDURE add_sqr_fields_3d_sp
-    MODULE PROCEDURE add_sqr_fields_2d_nosubset_sp
-  END INTERFACE add_sqr_fields
-
-  INTERFACE assign_fields
-    MODULE PROCEDURE assign_fields_3d
-    MODULE PROCEDURE assign_fields_2d
-    MODULE PROCEDURE assign_fields_2d_nosubset
-    MODULE PROCEDURE assign_fields_3d_sp
-    MODULE PROCEDURE assign_fields_2d_sp
-    MODULE PROCEDURE assign_fields_2d_nosubset_sp
-  END INTERFACE assign_fields
 
   INTERFACE print_value_location
     MODULE PROCEDURE print_2Dvalue_location
     MODULE PROCEDURE print_3Dvalue_location
   END INTERFACE print_value_location
 
-  INTERFACE max_fields
-    MODULE PROCEDURE max_fields_3d
-    MODULE PROCEDURE max_fields_2d
-    MODULE PROCEDURE max_fields_2d_nosubset
-    MODULE PROCEDURE max_fields_3d_sp
-    MODULE PROCEDURE max_fields_2d_sp
-    MODULE PROCEDURE max_fields_2d_nosubset_sp
-  END INTERFACE max_fields
-  INTERFACE min_fields
-    MODULE PROCEDURE min_fields_3d
-    MODULE PROCEDURE min_fields_2d
-    MODULE PROCEDURE min_fields_2d_nosubset
-    MODULE PROCEDURE min_fields_3d_sp
-    MODULE PROCEDURE min_fields_2d_sp
-    MODULE PROCEDURE min_fields_2d_nosubset_sp
-  END INTERFACE min_fields
-
  CHARACTER(LEN=*), PARAMETER :: module_name="mo_statistics"
 
 CONTAINS
 
-
   !-----------------------------------------------------------------------
-  !>
   FUNCTION MinMaxMean_2D(values) result(minmaxmean)
     REAL(wp), INTENT(in) :: values(:,:)
     REAL(wp) :: minmaxmean(3)
@@ -2042,186 +2007,6 @@ CONTAINS
   !-----------------------------------------------------------------------
 
   !-----------------------------------------------------------------------
-  SUBROUTINE assign_fields_3d(out_field,field,subset,levels,has_missvals, missval)
-    REAL(wp),INTENT(inout)          :: out_field(:,:,:)
-    REAL(wp),INTENT(in)             :: field(:,:,:)
-    TYPE(t_subset_range),INTENT(in) :: subset
-    INTEGER,INTENT(in),OPTIONAL :: levels
-    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
-    REAL(wp), INTENT(IN), OPTIONAL :: missval
-
-    INTEGER :: idx,block,level,start_index,end_index
-
-    INTEGER :: mylevels
-    LOGICAL :: my_force_level, my_has_missvals
-    REAL(wp) :: my_miss
-
-    my_has_missvals = .FALSE.
-    my_miss = 0.0_wp
-
-    CALL assign_if_present(my_has_missvals, has_missvals)
-    CALL assign_if_present(my_miss, missval)
-
-    ! use constant levels
-    mylevels                       = SIZE(out_field, VerticalDim_Position)
-    IF (PRESENT(levels))  mylevels = levels
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
-    DO block = subset%start_block, subset%end_block
-      CALL get_index_range(subset, block, start_index, end_index)
-      DO idx = start_index, end_index
-        DO level = 1, mylevels
-        out_field(idx,level,block) = MERGE(my_miss, &
-                                        &  field(idx,level,block), &
-                                        &  my_has_missvals .AND. (field(idx,level,block) == my_miss))
-        END DO
-      END DO
-    END DO
-!ICON_OMP_END_PARALLEL_DO
-
-  END SUBROUTINE assign_fields_3d
-  SUBROUTINE assign_fields_2d(out_field,field,subset,has_missvals, missval)
-    REAL(wp),INTENT(inout)          :: out_field(:,:)
-    REAL(wp),INTENT(in)             :: field(:,:)
-    TYPE(t_subset_range),INTENT(in) :: subset
-    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
-    REAL(wp), INTENT(IN), OPTIONAL :: missval
-
-    INTEGER :: jb,jc,start_index,end_index
-    LOGICAL :: my_has_missvals
-    REAL(wp) :: my_miss
-
-    my_has_missvals = .FALSE.
-    my_miss = 0.0_wp
-
-    CALL assign_if_present(my_has_missvals, has_missvals)
-    CALL assign_if_present(my_miss, missval)
-
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
-    DO jb = subset%start_block, subset%end_block
-      CALL get_index_range(subset, jb, start_index, end_index)
-      DO jc = start_index, end_index
-        out_field(jc,jb) = MERGE(my_miss, field(jc,jb), my_has_missvals .AND. (field(jc,jb) == my_miss))
-      END DO
-    END DO
-!ICON_OMP_END_PARALLEL_DO
-  END SUBROUTINE assign_fields_2d
-
-  SUBROUTINE assign_fields_2d_nosubset(out_field,field,has_missvals, missval)
-    REAL(wp),INTENT(inout)          :: out_field(:,:)
-    REAL(wp),INTENT(in)             :: field(:,:)
-    LOGICAL, INTENT(in), OPTIONAL :: has_missvals
-    REAL(wp), INTENT(in), OPTIONAL :: missval
-
-    INTEGER :: jb,jc,start_index,end_index
-    LOGICAL :: my_has_missvals
-    REAL(wp) :: my_miss
-
-    my_has_missvals = .FALSE.
-    my_miss = 0.0_wp
-
-    CALL assign_if_present(my_has_missvals, has_missvals)
-    CALL assign_if_present(my_miss, missval)
-
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
-    DO jb = LBOUND(field,2),UBOUND(field,2)
-      DO jc = LBOUND(field,1),UBOUND(field,1)
-        out_field(jc,jb) = MERGE(my_miss, field(jc,jb), my_has_missvals .AND. (field(jc,jb) == my_miss))
-      END DO
-    END DO
-!ICON_OMP_END_PARALLEL_DO
-  END SUBROUTINE assign_fields_2d_nosubset
-
-  SUBROUTINE assign_fields_3d_sp(out_field,field,subset,levels,has_missvals, missval)
-    REAL(wp),INTENT(inout)          :: out_field(:,:,:)
-    REAL(sp),INTENT(in)             :: field(:,:,:)
-    TYPE(t_subset_range),INTENT(in) :: subset
-    INTEGER,INTENT(in),OPTIONAL :: levels
-    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
-    REAL(wp), INTENT(IN), OPTIONAL :: missval
-
-    INTEGER :: idx,block,level,start_index,end_index
-
-    INTEGER :: mylevels
-    LOGICAL :: my_force_level, my_has_missvals
-    REAL(wp) :: my_miss
-
-    my_has_missvals = .FALSE.
-    my_miss = 0.0_wp
-
-    CALL assign_if_present(my_has_missvals, has_missvals)
-    CALL assign_if_present(my_miss, missval)
-
-    ! use constant levels
-    mylevels                       = SIZE(out_field, VerticalDim_Position)
-    IF (PRESENT(levels))  mylevels = levels
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
-    DO block = subset%start_block, subset%end_block
-      CALL get_index_range(subset, block, start_index, end_index)
-      DO idx = start_index, end_index
-        DO level = 1, mylevels
-        out_field(idx,level,block) = MERGE(my_miss, &
-                                        &  REAL(field(idx,level,block),wp), &
-                                        &  my_has_missvals .AND. (REAL(field(idx,level,block),wp) == my_miss))
-        END DO
-      END DO
-    END DO
-!ICON_OMP_END_PARALLEL_DO
-
-  END SUBROUTINE assign_fields_3d_sp
-  SUBROUTINE assign_fields_2d_sp(out_field,field,subset,has_missvals, missval)
-    REAL(wp),INTENT(inout)          :: out_field(:,:)
-    REAL(sp),INTENT(in)             :: field(:,:)
-    TYPE(t_subset_range),INTENT(in) :: subset
-    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
-    REAL(wp), INTENT(IN), OPTIONAL :: missval
-
-    INTEGER :: jb,jc,start_index,end_index
-    LOGICAL :: my_has_missvals
-    REAL(wp) :: my_miss
-
-    my_has_missvals = .FALSE.
-    my_miss = 0.0_wp
-
-    CALL assign_if_present(my_has_missvals, has_missvals)
-    CALL assign_if_present(my_miss, missval)
-
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
-    DO jb = subset%start_block, subset%end_block
-      CALL get_index_range(subset, jb, start_index, end_index)
-      DO jc = start_index, end_index
-        out_field(jc,jb) = MERGE(my_miss, REAL(field(jc,jb),wp), &
-          & my_has_missvals .AND. (REAL(field(jc,jb),wp) == my_miss))
-      END DO
-    END DO
-!ICON_OMP_END_PARALLEL_DO
-  END SUBROUTINE assign_fields_2d_sp
-
-  SUBROUTINE assign_fields_2d_nosubset_sp(out_field,field,has_missvals, missval)
-    REAL(wp),INTENT(inout)          :: out_field(:,:)
-    REAL(sp),INTENT(in)             :: field(:,:)
-    LOGICAL, INTENT(in), OPTIONAL :: has_missvals
-    REAL(wp), INTENT(in), OPTIONAL :: missval
-
-    INTEGER :: jb,jc,start_index,end_index
-    LOGICAL :: my_has_missvals
-    REAL(wp) :: my_miss
-
-    my_has_missvals = .FALSE.
-    my_miss = 0.0_wp
-
-    CALL assign_if_present(my_has_missvals, has_missvals)
-    CALL assign_if_present(my_miss, missval)
-
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
-    DO jb = LBOUND(field,2),UBOUND(field,2)
-      DO jc = LBOUND(field,1),UBOUND(field,1)
-        out_field(jc,jb) = MERGE(my_miss, REAL(field(jc,jb),wp), &
-            & my_has_missvals .AND. (REAL(field(jc,jb),wp) == my_miss))
-      END DO
-    END DO
-!ICON_OMP_END_PARALLEL_DO
-  END SUBROUTINE assign_fields_2d_nosubset_sp
-  !-----------------------------------------------------------------------
   SUBROUTINE add_fields_3d(sum_field,field,subset,levels,has_missvals, missval)
     REAL(wp),INTENT(inout)          :: sum_field(:,:,:)
     REAL(wp),INTENT(in)             :: field(:,:,:)
@@ -2238,9 +2023,8 @@ CONTAINS
 
     my_has_missvals = .FALSE.
     my_miss = 0.0_wp
-
-    CALL assign_if_present(my_has_missvals, has_missvals)
-    CALL assign_if_present(my_miss, missval)
+    IF (PRESENT(has_missvals)) my_has_missvals = has_missvals
+    IF (PRESENT(missval)) my_miss = missval
 
     ! use constant levels
     mylevels                       = SIZE(sum_field, VerticalDim_Position)
@@ -2248,9 +2032,10 @@ CONTAINS
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
     DO block = subset%start_block, subset%end_block
       CALL get_index_range(subset, block, start_index, end_index)
-      DO idx = start_index, end_index
-        DO level = 1, mylevels
-        sum_field(idx,level,block) = MERGE(my_miss, &
+      !$ACC PARALLEL LOOP PRESENT(sum_field, field) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( i_am_accel_node )
+      DO level = 1, mylevels
+        DO idx = start_index, end_index
+          sum_field(idx,level,block) = MERGE(my_miss, &
                                         & sum_field(idx,level,block) + field(idx,level,block), &
                                         & my_has_missvals .AND. (field(idx,level,block) == my_miss))
         END DO
@@ -2273,44 +2058,19 @@ CONTAINS
 
     my_has_missvals = .FALSE.
     my_miss = 0.0_wp
-
-    CALL assign_if_present(my_has_missvals, has_missvals)
-    CALL assign_if_present(my_miss, missval)
+    IF (PRESENT(has_missvals)) my_has_missvals = has_missvals
+    IF (PRESENT(missval)) my_miss = missval
 
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
     DO jb = subset%start_block, subset%end_block
       CALL get_index_range(subset, jb, start_index, end_index)
+      !$ACC PARALLEL LOOP PRESENT(sum_field, field) GANG VECTOR ASYNC(1) IF( i_am_accel_node )
       DO jc = start_index, end_index
         sum_field(jc,jb) = MERGE(my_miss, sum_field(jc,jb) + field(jc,jb), my_has_missvals .AND. (field(jc,jb) == my_miss))
       END DO
     END DO
 !ICON_OMP_END_PARALLEL_DO
   END SUBROUTINE add_fields_2d
-
-  SUBROUTINE add_fields_2d_nosubset(sum_field,field,has_missvals, missval)
-    REAL(wp),INTENT(inout)          :: sum_field(:,:)
-    REAL(wp),INTENT(in)             :: field(:,:)
-    LOGICAL, INTENT(in), OPTIONAL :: has_missvals
-    REAL(wp), INTENT(in), OPTIONAL :: missval
-
-    INTEGER :: jb,jc,start_index,end_index
-    LOGICAL :: my_has_missvals
-    REAL(wp) :: my_miss
-
-    my_has_missvals = .FALSE.
-    my_miss = 0.0_wp
-
-    CALL assign_if_present(my_has_missvals, has_missvals)
-    CALL assign_if_present(my_miss, missval)
-
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
-    DO jb = LBOUND(field,2),UBOUND(field,2)
-      DO jc = LBOUND(field,1),UBOUND(field,1)
-        sum_field(jc,jb) = MERGE(my_miss, sum_field(jc,jb) + field(jc,jb), my_has_missvals .AND. (field(jc,jb) == my_miss))
-      END DO
-    END DO
-!ICON_OMP_END_PARALLEL_DO
-  END SUBROUTINE add_fields_2d_nosubset
 
   SUBROUTINE add_fields_3d_sp(sum_field,field,subset,levels,has_missvals, missval)
     REAL(wp),INTENT(inout)          :: sum_field(:,:,:)
@@ -2328,9 +2088,8 @@ CONTAINS
 
     my_has_missvals = .FALSE.
     my_miss = 0.0_wp
-
-    CALL assign_if_present(my_has_missvals, has_missvals)
-    CALL assign_if_present(my_miss, missval)
+    IF (PRESENT(has_missvals)) my_has_missvals = has_missvals
+    IF (PRESENT(missval)) my_miss = missval
 
       ! use constant levels
       mylevels                       = SIZE(sum_field, VerticalDim_Position)
@@ -2338,8 +2097,9 @@ CONTAINS
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
       DO block = subset%start_block, subset%end_block
         CALL get_index_range(subset, block, start_index, end_index)
-        DO idx = start_index, end_index
-          DO level = 1, mylevels
+        !$ACC PARALLEL LOOP PRESENT(sum_field, field) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( i_am_accel_node )
+        DO level = 1, mylevels
+          DO idx = start_index, end_index
             sum_field(idx,level,block) = MERGE(my_miss, &
                                              & sum_field(idx,level,block) + REAL(field(idx,level,block),wp), &
                                              & my_has_missvals .AND. (field(idx,level,block) == REAL(my_miss,sp)))
@@ -2363,13 +2123,13 @@ CONTAINS
 
     my_has_missvals = .FALSE.
     my_miss = 0.0_wp
-
-    CALL assign_if_present(my_has_missvals, has_missvals)
-    CALL assign_if_present(my_miss, missval)
+    IF (PRESENT(has_missvals)) my_has_missvals = has_missvals
+    IF (PRESENT(missval)) my_miss = missval
     
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
     DO jb = subset%start_block, subset%end_block
       CALL get_index_range(subset, jb, start_index, end_index)
+      !$ACC PARALLEL LOOP PRESENT(sum_field, field) GANG VECTOR ASYNC(1) IF( i_am_accel_node )
       DO jc = start_index, end_index
         sum_field(jc,jb) = MERGE(my_miss, &
                                & sum_field(jc,jb) + REAL(field(jc,jb),wp), &
@@ -2378,216 +2138,6 @@ CONTAINS
     END DO
 !ICON_OMP_END_PARALLEL_DO
   END SUBROUTINE add_fields_2d_sp
-  SUBROUTINE add_fields_2d_nosubset_sp(sum_field,field,has_missvals, missval)
-    REAL(wp),INTENT(inout)          :: sum_field(:,:)
-    REAL(sp),INTENT(in)             :: field(:,:)
-    LOGICAL, INTENT(in), OPTIONAL :: has_missvals
-    REAL(wp), INTENT(in), OPTIONAL :: missval
-    
-    INTEGER :: jb,jc,start_index,end_index
-    LOGICAL :: my_has_missvals
-    REAL(wp) :: my_miss
-
-    my_has_missvals = .FALSE.
-    my_miss = 0.0_wp
-
-    CALL assign_if_present(my_has_missvals, has_missvals)
-    CALL assign_if_present(my_miss, missval)
-    
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
-    DO jb = LBOUND(field,2),UBOUND(field,2)
-      DO jc = LBOUND(field,1),UBOUND(field,1)
-        sum_field(jc,jb) = MERGE(my_miss, &
-                               & sum_field(jc,jb) + REAL(field(jc,jb),wp), &
-                               & my_has_missvals .AND. (field(jc,jb) == REAL(my_miss,wp)))
-      END DO
-    END DO
-!ICON_OMP_END_PARALLEL_DO
-  END SUBROUTINE add_fields_2d_nosubset_sp
-
-
-  SUBROUTINE add_sqr_fields_3d(sum_field,field,subset,levels,has_missvals, missval)
-    REAL(wp),INTENT(inout)          :: sum_field(:,:,:)
-    REAL(wp),INTENT(in)             :: field(:,:,:)
-    TYPE(t_subset_range),INTENT(in) :: subset
-    INTEGER,INTENT(in),OPTIONAL :: levels
-    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
-    REAL(wp), INTENT(IN), OPTIONAL :: missval
-
-    INTEGER :: idx,block,level,start_index,end_index
-
-    INTEGER :: mylevels
-    LOGICAL :: my_force_level, my_has_missvals
-    REAL(wp) :: my_miss
-
-    my_has_missvals = .FALSE.
-    my_miss = 0.0_wp
-
-    CALL assign_if_present(my_has_missvals, has_missvals)
-    CALL assign_if_present(my_miss, missval)
-
-    ! use constant levels
-    mylevels                       = SIZE(sum_field, VerticalDim_Position)
-    IF (PRESENT(levels))  mylevels = levels
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
-    DO block = subset%start_block, subset%end_block
-      CALL get_index_range(subset, block, start_index, end_index)
-      DO idx = start_index, end_index
-        DO level = 1, mylevels
-        sum_field(idx,level,block) = MERGE(my_miss, &
-                                        & sum_field(idx,level,block) + field(idx,level,block)**2, &
-                                        & my_has_missvals .AND. (field(idx,level,block) == my_miss))
-        END DO
-      END DO
-    END DO
-!ICON_OMP_END_PARALLEL_DO
-
-  END SUBROUTINE add_sqr_fields_3d
-
-  SUBROUTINE add_sqr_fields_2d(sum_field,field,subset,has_missvals, missval)
-    REAL(wp),INTENT(inout)          :: sum_field(:,:)
-    REAL(wp),INTENT(in)             :: field(:,:)
-    TYPE(t_subset_range),INTENT(in) :: subset
-    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
-    REAL(wp), INTENT(IN), OPTIONAL :: missval
-
-    INTEGER :: jb,jc,start_index,end_index
-    LOGICAL :: my_has_missvals
-    REAL(wp) :: my_miss
-
-    my_has_missvals = .FALSE.
-    my_miss = 0.0_wp
-
-    CALL assign_if_present(my_has_missvals, has_missvals)
-    CALL assign_if_present(my_miss, missval)
-
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
-    DO jb = subset%start_block, subset%end_block
-      CALL get_index_range(subset, jb, start_index, end_index)
-      DO jc = start_index, end_index
-        sum_field(jc,jb) = MERGE(my_miss, sum_field(jc,jb) + field(jc,jb)**2, my_has_missvals .AND. (field(jc,jb) == my_miss))
-      END DO
-    END DO
-!ICON_OMP_END_PARALLEL_DO
-  END SUBROUTINE add_sqr_fields_2d
-
-  SUBROUTINE add_sqr_fields_2d_nosubset(sum_field,field,has_missvals, missval)
-    REAL(wp),INTENT(inout)          :: sum_field(:,:)
-    REAL(wp),INTENT(in)             :: field(:,:)
-    LOGICAL, INTENT(in), OPTIONAL :: has_missvals
-    REAL(wp), INTENT(in), OPTIONAL :: missval
-
-    INTEGER :: jb,jc,start_index,end_index
-    LOGICAL :: my_has_missvals
-    REAL(wp) :: my_miss
-
-    my_has_missvals = .FALSE.
-    my_miss = 0.0_wp
-
-    CALL assign_if_present(my_has_missvals, has_missvals)
-    CALL assign_if_present(my_miss, missval)
-
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
-    DO jb = LBOUND(field,2),UBOUND(field,2)
-      DO jc = LBOUND(field,1),UBOUND(field,1)
-        sum_field(jc,jb) = MERGE(my_miss, sum_field(jc,jb) + field(jc,jb)**2, my_has_missvals .AND. (field(jc,jb) == my_miss))
-      END DO
-    END DO
-!ICON_OMP_END_PARALLEL_DO
-  END SUBROUTINE add_sqr_fields_2d_nosubset
-  !-----------------------------------------------------------------------
-
-  SUBROUTINE add_sqr_fields_3d_sp(sum_field,field,subset,levels,has_missvals, missval)
-    REAL(wp),INTENT(inout)          :: sum_field(:,:,:)
-    REAL(sp),INTENT(in)             :: field(:,:,:)
-    TYPE(t_subset_range),INTENT(in) :: subset
-    INTEGER,INTENT(in),OPTIONAL :: levels
-    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
-    REAL(wp), INTENT(IN), OPTIONAL :: missval
-
-    INTEGER :: idx,block,level,start_index,end_index
-
-    INTEGER :: mylevels
-    LOGICAL :: my_force_level, my_has_missvals
-    REAL(wp) :: my_miss
-
-    my_has_missvals = .FALSE.
-    my_miss = 0.0_wp
-
-    CALL assign_if_present(my_has_missvals, has_missvals)
-    CALL assign_if_present(my_miss, missval)
-
-    ! use constant levels
-    mylevels                       = SIZE(sum_field, VerticalDim_Position)
-    IF (PRESENT(levels))  mylevels = levels
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
-    DO block = subset%start_block, subset%end_block
-      CALL get_index_range(subset, block, start_index, end_index)
-      DO idx = start_index, end_index
-        DO level = 1, mylevels
-        sum_field(idx,level,block) = MERGE(my_miss, &
-                                        & sum_field(idx,level,block) + REAL(field(idx,level,block),wp)**2, &
-                                        & my_has_missvals .AND. (REAL(field(idx,level,block),wp) == my_miss))
-        END DO
-      END DO
-    END DO
-!ICON_OMP_END_PARALLEL_DO
-
-  END SUBROUTINE add_sqr_fields_3d_sp
-
-  SUBROUTINE add_sqr_fields_2d_sp(sum_field,field,subset,has_missvals, missval)
-    REAL(wp),INTENT(inout)          :: sum_field(:,:)
-    REAL(sp),INTENT(in)             :: field(:,:)
-    TYPE(t_subset_range),INTENT(in) :: subset
-    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
-    REAL(wp), INTENT(IN), OPTIONAL :: missval
-
-    INTEGER :: jb,jc,start_index,end_index
-    LOGICAL :: my_has_missvals
-    REAL(wp) :: my_miss
-
-    my_has_missvals = .FALSE.
-    my_miss = 0.0_wp
-
-    CALL assign_if_present(my_has_missvals, has_missvals)
-    CALL assign_if_present(my_miss, missval)
-
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
-    DO jb = subset%start_block, subset%end_block
-      CALL get_index_range(subset, jb, start_index, end_index)
-      DO jc = start_index, end_index
-        sum_field(jc,jb) = MERGE(my_miss, sum_field(jc,jb) + REAL(field(jc,jb),wp)**2, &
-            & my_has_missvals .AND. (REAL(field(jc,jb),wp) == my_miss))
-      END DO
-    END DO
-!ICON_OMP_END_PARALLEL_DO
-  END SUBROUTINE add_sqr_fields_2d_sp
-
-  SUBROUTINE add_sqr_fields_2d_nosubset_sp(sum_field,field,has_missvals, missval)
-    REAL(wp),INTENT(inout)          :: sum_field(:,:)
-    REAL(sp),INTENT(in)             :: field(:,:)
-    LOGICAL, INTENT(in), OPTIONAL :: has_missvals
-    REAL(wp), INTENT(in), OPTIONAL :: missval
-
-    INTEGER :: jb,jc,start_index,end_index
-    LOGICAL :: my_has_missvals
-    REAL(wp) :: my_miss
-
-    my_has_missvals = .FALSE.
-    my_miss = 0.0_wp
-
-    CALL assign_if_present(my_has_missvals, has_missvals)
-    CALL assign_if_present(my_miss, missval)
-
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
-    DO jb = LBOUND(field,2),UBOUND(field,2)
-      DO jc = LBOUND(field,1),UBOUND(field,1)
-        sum_field(jc,jb) = MERGE(my_miss, sum_field(jc,jb) + REAL(field(jc,jb),wp)**2, &
-            & my_has_missvals .AND. (REAL(field(jc,jb),wp) == my_miss))
-      END DO
-    END DO
-!ICON_OMP_END_PARALLEL_DO
-  END SUBROUTINE add_sqr_fields_2d_nosubset_sp
 
   !-----------------------------------------------------------------------
   SUBROUTINE add_verticallyIntegrated_field(vint_field_acc,field_3D,subset,height,levels)
@@ -2618,7 +2168,8 @@ CONTAINS
       ! use constant levels
       mylevels   = SIZE(field_3D, VerticalDim_Position)
       IF (PRESENT(levels)) mylevels = levels
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level)
+!SCHEDULE(dynamic)
       DO block = subset%start_block, subset%end_block
         CALL get_index_range(subset, block, start_index, end_index)
         DO idx = start_index, end_index
@@ -2631,10 +2182,9 @@ CONTAINS
 
     ENDIF
   END SUBROUTINE add_verticallyIntegrated_field
-  !-----------------------------------------------------------------------
 
   !-----------------------------------------------------------------------
-  SUBROUTINE verticallyIntegrated_field(vint_field,field_3D,subset,height,levels)
+  SUBROUTINE verticallyIntegrated_field_weighted(vint_field,field_3D,subset,height,levels)
     REAL(wp),INTENT(inout)          :: vint_field(:,:)
     REAL(wp),INTENT(in)             :: field_3D(:,:,:)
     TYPE(t_subset_range),INTENT(in) :: subset
@@ -2676,7 +2226,52 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
 
     ENDIF
-  END SUBROUTINE verticallyIntegrated_field
+  END SUBROUTINE verticallyIntegrated_field_weighted
+  !-----------------------------------------------------------------------
+
+  !-----------------------------------------------------------------------
+  SUBROUTINE verticallyIntegrated_field_notWeighted(vint_field,field_3D,subset,levels)
+    REAL(wp),INTENT(inout)          :: vint_field(:,:)
+    REAL(wp),INTENT(in)             :: field_3D(:,:,:)
+    TYPE(t_subset_range),INTENT(in) :: subset
+    INTEGER,INTENT(in),OPTIONAL :: levels
+
+    INTEGER :: idx,block,level,start_index,end_index
+
+    INTEGER :: mylevels
+    LOGICAL :: my_force_level
+
+    IF (ASSOCIATED(subset%vertical_levels) .AND. .NOT. PRESENT(levels)) THEN
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
+      DO block = subset%start_block, subset%end_block
+        CALL get_index_range(subset, block, start_index, end_index)
+        DO idx = start_index, end_index
+          vint_field(idx,block) = 0.0_wp
+          DO level = 1, subset%vertical_levels(idx,block)
+            vint_field(idx,block) = vint_field(idx,block) + field_3D(idx,level,block)
+          END DO
+        END DO
+      END DO
+!ICON_OMP_END_PARALLEL_DO
+
+    ELSE
+      ! use constant levels
+      mylevels   = SIZE(field_3D, VerticalDim_Position)
+      IF (PRESENT(levels)) mylevels = levels
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
+      DO block = subset%start_block, subset%end_block
+        CALL get_index_range(subset, block, start_index, end_index)
+        DO idx = start_index, end_index
+           vint_field(idx,block) = 0.0_wp
+           DO level = 1, mylevels
+            vint_field(idx,block) = vint_field(idx,block) + field_3D(idx,level,block)
+          END DO
+        END DO
+      END DO
+!ICON_OMP_END_PARALLEL_DO
+
+    ENDIF
+  END SUBROUTINE verticallyIntegrated_field_notWeighted
   !-----------------------------------------------------------------------
 
   !-----------------------------------------------------------------------
@@ -2722,398 +2317,6 @@ CONTAINS
   END SUBROUTINE add_verticalSum_field
   !-----------------------------------------------------------------------
 
-  ! routine for computing max of two fields ------------------------------
-  SUBROUTINE max_fields_2d(max_field,field,subset,has_missvals, missval)
-    REAL(wp),INTENT(inout)          :: max_field(:,:)
-    REAL(wp),INTENT(in)             :: field(:,:)
-    TYPE(t_subset_range),INTENT(in) :: subset
-    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
-    REAL(wp), INTENT(IN), OPTIONAL :: missval
-
-    INTEGER :: jb,jc,start_index,end_index
-    LOGICAL :: my_has_missvals
-    REAL(wp) :: my_miss
-
-    my_has_missvals = .FALSE.
-    my_miss = 0.0_wp
-
-    CALL assign_if_present(my_has_missvals, has_missvals)
-    CALL assign_if_present(my_miss, missval)
-
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
-    DO jb = subset%start_block, subset%end_block
-      CALL get_index_range(subset, jb, start_index, end_index)
-      DO jc = start_index, end_index
-        max_field(jc,jb) = MERGE(my_miss, &
-            &                    MERGE(max_field(jc,jb), &
-            &                          field(jc,jb), &
-            &                          max_field(jc,jb) .gt. field(jc,jb)), &
-            &                    my_has_missvals .AND. (field(jc,jb) == my_miss))
-      END DO
-    END DO
-!ICON_OMP_END_PARALLEL_DO
-  END SUBROUTINE max_fields_2d
-  SUBROUTINE max_fields_2d_nosubset(max_field,field,has_missvals, missval)
-    REAL(wp),INTENT(inout)          :: max_field(:,:)
-    REAL(wp),INTENT(in)             :: field(:,:)
-    LOGICAL, INTENT(in), OPTIONAL :: has_missvals
-    REAL(wp), INTENT(in), OPTIONAL :: missval
-
-    INTEGER :: jb,jc,start_index,end_index
-    LOGICAL :: my_has_missvals
-    REAL(wp) :: my_miss
-
-    my_has_missvals = .FALSE.
-    my_miss = 0.0_wp
-
-    CALL assign_if_present(my_has_missvals, has_missvals)
-    CALL assign_if_present(my_miss, missval)
-
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
-    DO jb = LBOUND(field,2),UBOUND(field,2)
-      DO jc = LBOUND(field,1),UBOUND(field,1)
-        max_field(jc,jb) = MERGE(my_miss, &
-            &                    MERGE(max_field(jc,jb), &
-            &                          field(jc,jb), &
-            &                          max_field(jc,jb) .gt. field(jc,jb)), &
-            &                    my_has_missvals .AND. (field(jc,jb) == my_miss))
-      END DO
-    END DO
-!ICON_OMP_END_PARALLEL_DO
-  END SUBROUTINE max_fields_2d_nosubset
-  SUBROUTINE max_fields_3d(max_field,field,subset,levels,has_missvals, missval)
-    REAL(wp),INTENT(inout)          :: max_field(:,:,:)
-    REAL(wp),INTENT(in)             :: field(:,:,:)
-    TYPE(t_subset_range),INTENT(in) :: subset
-    INTEGER,INTENT(in),OPTIONAL :: levels
-    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
-    REAL(wp), INTENT(IN), OPTIONAL :: missval
-
-    INTEGER :: idx,block,level,start_index,end_index
-
-    INTEGER :: mylevels
-    LOGICAL :: my_force_level, my_has_missvals
-    REAL(wp) :: my_miss
-
-    my_has_missvals = .FALSE.
-    my_miss = 0.0_wp
-
-    CALL assign_if_present(my_has_missvals, has_missvals)
-    CALL assign_if_present(my_miss, missval)
-
-      ! use constant levels
-      mylevels                       = SIZE(max_field, VerticalDim_Position)
-      IF (PRESENT(levels))  mylevels = levels
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
-      DO block = subset%start_block, subset%end_block
-        CALL get_index_range(subset, block, start_index, end_index)
-        DO idx = start_index, end_index
-          DO level = 1, mylevels
-            max_field(idx,level,block) = MERGE(my_miss, &
-                                          &    MERGE(max_field(idx,level,block), &
-                                          &          field(idx,level,block), &
-                                          &          max_field(idx,level,block) .gt. field(idx, level, block)), &
-                                          & my_has_missvals .AND. (field(idx,level,block) == my_miss))
-          END DO
-        END DO
-      END DO
-!ICON_OMP_END_PARALLEL_DO
-
-  END SUBROUTINE max_fields_3d
-  ! routine for computing max of two fields ------------------------------
-  SUBROUTINE max_fields_2d_sp(max_field,field,subset,has_missvals, missval)
-    REAL(wp),INTENT(inout)          :: max_field(:,:)
-    REAL(sp),INTENT(in)             :: field(:,:)
-    TYPE(t_subset_range),INTENT(in) :: subset
-    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
-    REAL(wp), INTENT(IN), OPTIONAL :: missval
-
-    INTEGER :: jb,jc,start_index,end_index
-    LOGICAL :: my_has_missvals
-    REAL(wp) :: my_miss
-
-    my_has_missvals = .FALSE.
-    my_miss = 0.0_wp
-
-    CALL assign_if_present(my_has_missvals, has_missvals)
-    CALL assign_if_present(my_miss, missval)
-
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
-    DO jb = subset%start_block, subset%end_block
-      CALL get_index_range(subset, jb, start_index, end_index)
-      DO jc = start_index, end_index
-        max_field(jc,jb) = MERGE(my_miss, &
-            &                    MERGE(max_field(jc,jb), &
-            &                          REAL(field(jc,jb),wp), &
-            &                          max_field(jc,jb) .gt. REAL(field(jc,jb),wp)), &
-            &                    my_has_missvals .AND. (REAL(field(jc,jb),wp) == my_miss))
-      END DO
-    END DO
-!ICON_OMP_END_PARALLEL_DO
-  END SUBROUTINE max_fields_2d_sp
-  SUBROUTINE max_fields_2d_nosubset_sp(max_field,field,has_missvals, missval)
-    REAL(wp),INTENT(inout)          :: max_field(:,:)
-    REAL(sp),INTENT(in)             :: field(:,:)
-    LOGICAL, INTENT(in), OPTIONAL :: has_missvals
-    REAL(wp), INTENT(in), OPTIONAL :: missval
-
-    INTEGER :: jb,jc,start_index,end_index
-    LOGICAL :: my_has_missvals
-    REAL(wp) :: my_miss
-
-    my_has_missvals = .FALSE.
-    my_miss = 0.0_wp
-
-    CALL assign_if_present(my_has_missvals, has_missvals)
-    CALL assign_if_present(my_miss, missval)
-
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
-    DO jb = LBOUND(field,2),UBOUND(field,2)
-      DO jc = LBOUND(field,1),UBOUND(field,1)
-        max_field(jc,jb) = MERGE(my_miss, &
-            &                    MERGE(max_field(jc,jb), &
-            &                          REAL(field(jc,jb),wp), &
-            &                          max_field(jc,jb) .gt. REAL(field(jc,jb),wp)), &
-            &                    my_has_missvals .AND. (REAL(field(jc,jb),wp) == my_miss))
-      END DO
-    END DO
-!ICON_OMP_END_PARALLEL_DO
-  END SUBROUTINE max_fields_2d_nosubset_sp
-  SUBROUTINE max_fields_3d_sp(max_field,field,subset,levels,has_missvals, missval)
-    REAL(wp),INTENT(inout)          :: max_field(:,:,:)
-    REAL(sp),INTENT(in)             :: field(:,:,:)
-    TYPE(t_subset_range),INTENT(in) :: subset
-    INTEGER,INTENT(in),OPTIONAL :: levels
-    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
-    REAL(wp), INTENT(IN), OPTIONAL :: missval
-
-    INTEGER :: idx,block,level,start_index,end_index
-
-    INTEGER :: mylevels
-    LOGICAL :: my_force_level, my_has_missvals
-    REAL(wp) :: my_miss
-
-    my_has_missvals = .FALSE.
-    my_miss = 0.0_wp
-
-    CALL assign_if_present(my_has_missvals, has_missvals)
-    CALL assign_if_present(my_miss, missval)
-
-      ! use constant levels
-      mylevels                       = SIZE(max_field, VerticalDim_Position)
-      IF (PRESENT(levels))  mylevels = levels
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
-      DO block = subset%start_block, subset%end_block
-        CALL get_index_range(subset, block, start_index, end_index)
-        DO idx = start_index, end_index
-          DO level = 1, mylevels
-            max_field(idx,level,block) = MERGE(my_miss, &
-                                          &    MERGE(max_field(idx,level,block), &
-                                          &          REAL(field(idx,level,block),wp), &
-                                          &          max_field(idx,level,block) .gt. REAL(field(idx, level, block),wp)), &
-                                          & my_has_missvals .AND. (REAL(field(idx,level,block),wp) == my_miss))
-          END DO
-        END DO
-      END DO
-!ICON_OMP_END_PARALLEL_DO
-
-  END SUBROUTINE max_fields_3d_sp
-  ! routines for computing min of two fields ------------------------------
-  SUBROUTINE min_fields_2d(min_field,field,subset,has_missvals, missval)
-    REAL(wp),INTENT(inout)          :: min_field(:,:)
-    REAL(wp),INTENT(in)             :: field(:,:)
-    TYPE(t_subset_range),INTENT(in) :: subset
-    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
-    REAL(wp), INTENT(IN), OPTIONAL :: missval
-
-    INTEGER :: jb,jc,start_index,end_index
-    LOGICAL :: my_has_missvals
-    REAL(wp) :: my_miss
-
-    my_has_missvals = .FALSE.
-    my_miss = 0.0_wp
-
-    CALL assign_if_present(my_has_missvals, has_missvals)
-    CALL assign_if_present(my_miss, missval)
-
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
-    DO jb = subset%start_block, subset%end_block
-      CALL get_index_range(subset, jb, start_index, end_index)
-      DO jc = start_index, end_index
-        min_field(jc,jb) = MERGE(my_miss, &
-            &                    MERGE(min_field(jc,jb), &
-            &                          field(jc,jb), &
-            &                          min_field(jc,jb) .lt. field(jc,jb)), &
-            &                    my_has_missvals .AND. (field(jc,jb) == my_miss))
-      END DO
-    END DO
-!ICON_OMP_END_PARALLEL_DO
-  END SUBROUTINE min_fields_2d
-  SUBROUTINE min_fields_2d_nosubset(min_field,field,has_missvals, missval)
-    REAL(wp),INTENT(inout)          :: min_field(:,:)
-    REAL(wp),INTENT(in)             :: field(:,:)
-    LOGICAL, INTENT(in), OPTIONAL :: has_missvals
-    REAL(wp), INTENT(in), OPTIONAL :: missval
-
-    INTEGER :: jb,jc,start_index,end_index
-    LOGICAL :: my_has_missvals
-    REAL(wp) :: my_miss
-
-    my_has_missvals = .FALSE.
-    my_miss = 0.0_wp
-
-    CALL assign_if_present(my_has_missvals, has_missvals)
-    CALL assign_if_present(my_miss, missval)
-
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
-    DO jb = LBOUND(field,2),UBOUND(field,2)
-      DO jc = LBOUND(field,1),UBOUND(field,1)
-        min_field(jc,jb) = MERGE(my_miss, &
-            &                    MERGE(min_field(jc,jb), &
-            &                          field(jc,jb), &
-            &                          min_field(jc,jb) .lt. field(jc,jb)), &
-            &                    my_has_missvals .AND. (field(jc,jb) == my_miss))
-      END DO
-    END DO
-!ICON_OMP_END_PARALLEL_DO
-  END SUBROUTINE min_fields_2d_nosubset
-  
-  
-  SUBROUTINE min_fields_3d(min_field,field,subset,levels,has_missvals, missval)
-    REAL(wp),INTENT(inout)          :: min_field(:,:,:)
-    REAL(wp),INTENT(in)             :: field(:,:,:)
-    TYPE(t_subset_range),INTENT(in) :: subset
-    INTEGER,INTENT(in),OPTIONAL :: levels
-    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
-    REAL(wp), INTENT(IN), OPTIONAL :: missval
-
-    INTEGER :: idx,block,level,start_index,end_index
-
-    INTEGER :: mylevels
-    LOGICAL :: my_force_level, my_has_missvals
-    REAL(wp) :: my_miss
-
-    my_has_missvals = .FALSE.
-    my_miss = 0.0_wp
-
-    CALL assign_if_present(my_has_missvals, has_missvals)
-    CALL assign_if_present(my_miss, missval)
-
-      ! use constant levels
-      mylevels                       = SIZE(min_field, VerticalDim_Position)
-      IF (PRESENT(levels))  mylevels = levels
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
-      DO block = subset%start_block, subset%end_block
-        CALL get_index_range(subset, block, start_index, end_index)
-        DO idx = start_index, end_index
-          DO level = 1, mylevels
-            min_field(idx,level,block) = MERGE(my_miss, &
-                                          &    MERGE(min_field(idx,level,block), &
-                                          &          field(idx,level,block), &
-                                          &          min_field(idx,level,block) .lt. field(idx, level, block)), &
-                                          & my_has_missvals .AND. (field(idx,level,block) == my_miss))
-          END DO
-        END DO
-      END DO
-!ICON_OMP_END_PARALLEL_DO
-  END SUBROUTINE min_fields_3d
-  SUBROUTINE min_fields_2d_sp(min_field,field,subset,has_missvals, missval)
-    REAL(wp),INTENT(inout)          :: min_field(:,:)
-    REAL(sp),INTENT(in)             :: field(:,:)
-    TYPE(t_subset_range),INTENT(in) :: subset
-    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
-    REAL(wp), INTENT(IN), OPTIONAL :: missval
-
-    INTEGER :: jb,jc,start_index,end_index
-    LOGICAL :: my_has_missvals
-    REAL(wp) :: my_miss
-
-    my_has_missvals = .FALSE.
-    my_miss = 0.0_wp
-
-    CALL assign_if_present(my_has_missvals, has_missvals)
-    CALL assign_if_present(my_miss, missval)
-
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
-    DO jb = subset%start_block, subset%end_block
-      CALL get_index_range(subset, jb, start_index, end_index)
-      DO jc = start_index, end_index
-        min_field(jc,jb) = MERGE(my_miss, &
-            &                    MERGE(min_field(jc,jb), &
-            &                          REAL(field(jc,jb),wp), &
-            &                          min_field(jc,jb) .lt. REAL(field(jc,jb),wp)), &
-            &                    my_has_missvals .AND. (REAL(field(jc,jb),wp) == my_miss))
-      END DO
-    END DO
-!ICON_OMP_END_PARALLEL_DO
-  END SUBROUTINE min_fields_2d_sp
-  SUBROUTINE min_fields_2d_nosubset_sp(min_field,field,has_missvals, missval)
-    REAL(wp),INTENT(inout)          :: min_field(:,:)
-    REAL(sp),INTENT(in)             :: field(:,:)
-    LOGICAL, INTENT(in), OPTIONAL :: has_missvals
-    REAL(wp), INTENT(in), OPTIONAL :: missval
-
-    INTEGER :: jb,jc,start_index,end_index
-    LOGICAL :: my_has_missvals
-    REAL(wp) :: my_miss
-
-    my_has_missvals = .FALSE.
-    my_miss = 0.0_wp
-
-    CALL assign_if_present(my_has_missvals, has_missvals)
-    CALL assign_if_present(my_miss, missval)
-
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
-    DO jb = LBOUND(field,2),UBOUND(field,2)
-      DO jc = LBOUND(field,1),UBOUND(field,1)
-        min_field(jc,jb) = MERGE(my_miss, &
-            &                    MERGE(min_field(jc,jb), &
-            &                          REAL(field(jc,jb),wp), &
-            &                          min_field(jc,jb) .lt. REAL(field(jc,jb),wp)), &
-            &                    my_has_missvals .AND. (REAL(field(jc,jb),wp) == my_miss))
-      END DO
-    END DO
-!ICON_OMP_END_PARALLEL_DO
-  END SUBROUTINE min_fields_2d_nosubset_sp
-  SUBROUTINE min_fields_3d_sp(min_field,field,subset,levels,has_missvals, missval)
-    REAL(wp),INTENT(inout)          :: min_field(:,:,:)
-    REAL(sp),INTENT(in)             :: field(:,:,:)
-    TYPE(t_subset_range),INTENT(in) :: subset
-    INTEGER,INTENT(in),OPTIONAL :: levels
-    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
-    REAL(wp), INTENT(IN), OPTIONAL :: missval
-
-    INTEGER :: idx,block,level,start_index,end_index
-
-    INTEGER :: mylevels
-    LOGICAL :: my_force_level, my_has_missvals
-    REAL(wp) :: my_miss
-
-    my_has_missvals = .FALSE.
-    my_miss = 0.0_wp
-
-    CALL assign_if_present(my_has_missvals, has_missvals)
-    CALL assign_if_present(my_miss, missval)
-
-      ! use constant levels
-      mylevels                       = SIZE(min_field, VerticalDim_Position)
-      IF (PRESENT(levels))  mylevels = levels
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
-      DO block = subset%start_block, subset%end_block
-        CALL get_index_range(subset, block, start_index, end_index)
-        DO idx = start_index, end_index
-          DO level = 1, mylevels
-            min_field(idx,level,block) = MERGE(my_miss, &
-                                          &    MERGE(min_field(idx,level,block), &
-                                          &          REAL(field(idx,level,block),wp), &
-                                          &          min_field(idx,level,block) .lt. REAL(field(idx, level, block),wp)), &
-                                          & my_has_missvals .AND. (REAL(field(idx,level,block),wp) == my_miss))
-          END DO
-        END DO
-      END DO
-!ICON_OMP_END_PARALLEL_DO
-  END SUBROUTINE min_fields_3d_sp
-
   !-----------------------------------------------------------------------
   !>
   !! Computes updated time average
@@ -3136,6 +2339,10 @@ CONTAINS
 
     ! Result
     REAL(wp) :: psi_avg_new                   !< updated time average
+
+#ifdef _OPENACC
+    !$acc routine seq
+#endif
 
     !--------------------------------------------------------------------
 

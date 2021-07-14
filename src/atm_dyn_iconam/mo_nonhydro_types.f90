@@ -24,15 +24,12 @@
 !!
 MODULE mo_nonhydro_types
 
-  USE mo_kind,                 ONLY: wp, vp, vp2
+  USE mo_kind,                 ONLY: wp, vp
   USE mo_fortran_tools,        ONLY: t_ptr_2d3d, t_ptr_2d3d_vp, t_ptr_tracer
-  USE mo_linked_list,          ONLY: t_var_list
-
+  USE mo_var_list,             ONLY: t_var_list_ptr
 
   IMPLICIT NONE
-
   PRIVATE
-
 
   PUBLIC :: t_nh_prog             ! state vector of prognostic variables (type)
   PUBLIC :: t_nh_diag             ! state vector of diagnostic variables (type)
@@ -93,9 +90,7 @@ MODULE mo_nonhydro_types
     &  pres_sfc(:,:),       & ! diagnosed surface pressure (nproma,nblks_c)     [Pa]
     &  pres_sfc_old(:,:),   & ! diagnosed surface pressure at previous timestep (nproma,nblks_c) [Pa]
     &  ddt_pres_sfc(:,:),   & ! current time tendency of diagnosed surface pressure (nproma,nblks_c) [Pa/s]
-    &  pres_msl(:,:),       & ! diagnosed mean sea level pressure (nproma,nblks_c)  [Pa]
     &  dpres_mc(:,:,:),     & ! pressure thickness at masspoints(nproma,nlevp,nblks_c)  [Pa]
-    &  omega(:,:,:),        & ! vertical velocity ( omega=dp/dt )           [Pa/s]
     &  hfl_tracer(:,:,:,:), & ! horizontal tracer flux at edges             [kg/m/s]
                               ! (nproma,nlev,nblks_e,ntracer)
     &  vfl_tracer(:,:,:,:), & ! vertical tracer flux at cells               [kg/m/s]
@@ -123,24 +118,46 @@ MODULE mo_nonhydro_types
                               ! (nproma,nlev,nblks_c)                          [K/s]
     &  grf_tend_tracer(:,:,:,:), & ! tracer tendency field for use in grid refinement
                                    ! (nproma,nlev,nblks_c,ntracer)          [kg/kg/s]
-    &  dvn_ie_int(:,:),    & ! Storage field for vertical nesting: vn at parent interface level
-    &  dvn_ie_ubc(:,:),    & ! Storage field for vertical nesting: vn at child upper boundary
-    &  mflx_ic_int(:,:,:), & ! Storage field for vertical nesting: mass flux at parent interface level
-    &  mflx_ic_ubc(:,:,:), & ! Storage field for vertical nesting: mass flux at child upper boundary
-    &  dtheta_v_ic_int(:,:,:),& ! Storage field for vertical nesting: theta at parent interface level
-    &  dtheta_v_ic_ubc(:,:),& ! Storage field for vertical nesting: theta at child upper boundary
-    &  dw_int(:,:,:),      & ! Storage field for vertical nesting: w at parent interface level
-    &  dw_ubc(:,:),        & ! Storage field for vertical nesting: w at child upper boundary
-    &  q_int(:,:,:),       & ! Storage field for vertical nesting: q at parent interface level
-    &  q_ubc(:,:,:),       & ! Storage field for vertical nesting: q at child upper boundary
+    &  dvn_ie_int(:,:),         & ! Storage field for vertical nesting: vn at parent interface level
+    &  dvn_ie_ubc(:,:),         & ! Storage field for vertical nesting: vn at child upper boundary
+    &  w_int(:,:,:),            & ! Storage field for vertical nesting: w at parent interface level
+    &  w_ubc(:,:),              & ! Storage field for vertical nesting: w at child upper boundary
+    &  theta_v_ic_int(:,:,:),   & ! Storage field for vertical nesting: theta at parent interface level
+    &  theta_v_ic_ubc(:,:),     & ! Storage field for vertical nesting: theta at child upper boundary
+    &  rho_ic_int(:,:,:),       & ! Storage field for vertical nesting: rho at parent interface level
+    &  rho_ic_ubc(:,:),         & ! Storage field for vertical nesting: rho at child upper boundary
+    &  mflx_ic_int(:,:,:),      & ! Storage field for vertical nesting: mass flux at parent interface level
+    &  mflx_ic_ubc(:,:),        & ! Storage field for vertical nesting: mass flux at child upper boundary
+    &  q_int(:,:,:),            & ! Storage field for vertical nesting: q at parent interface level
+    &  q_ubc(:,:,:),            & ! Storage field for vertical nesting: q at child upper boundary
 
     !
-    ! c) storage variables for time-averaged first-guess output
+    ! c) variables derived from analysis increments
+    &  t2m_bias (:,:),       & !! filtered T2M bias from surface analysis [K]
+    &  rh_avginc(:,:),       & !! time-averaged/filtered RH increments from DA at lowest model level
+    &  t_avginc(:,:),        & !! time-averaged/filtered T increments from DA at lowest model level
+    &  p_avginc(:,:),        & !! time-averaged/filtered P increments from DA at lowest model level
+
+    !
+    ! d) storage variables for time-averaged first-guess output
     &  u_avg    (:,:,:),    & ! normal velocity average          [m/s]
     &  v_avg    (:,:,:),    & ! normal velocity average          [m/s]
     &  pres_avg (:,:,:),    & ! exner average                    [-]
     &  temp_avg   (:,:,:),  & ! moist density average            [kg/m^3]
-    &  qv_avg    (:,:,:)    &  ! specific humidity average        [kg/kg]
+    &  qv_avg    (:,:,:),   &  ! specific humidity average        [kg/kg]
+
+    !
+    ! e) optional diagnostics
+    &  pres_msl(:,:),       & ! diagnosed mean sea level pressure (nproma,nblks_c)  [Pa]
+    &  omega(:,:,:),        & ! vertical velocity ( omega=dp/dt )           [Pa/s]
+    &  vor_u(:,:,:),        & ! zonal component of relative vorticity
+                              ! (nproma,nlev,nblks_c)            [s-1]
+    &  vor_v(:,:,:),        & ! meridional component of relative vorticity
+                              ! (nproma,nlev,nblks_c)            [s-1]
+    &  bvf2(:,:,:),         & ! square of Brunt-Vaisala frequency
+                              ! (nproma,nlev,nblks_c)            [s-2]
+    &  parcelfreq2(:,:,:)   & ! square of general parcel oscillation frequency
+                              ! (nproma,nlev,nblks_c)            [s-2]
     &  => NULL()
 
     ! d) variables that are in single precision when "__MIXED_PRECISION" is defined
@@ -159,6 +176,14 @@ MODULE mo_nonhydro_types
     &  rhor_incr (:,:,:),   & ! rain partial density increment [kg/m^3]
     &  rhos_incr (:,:,:),   & ! snow partial density increment [kg/m^3]
     &  rhog_incr (:,:,:),   & ! graupel partial density increment [kg/m^3]
+    &  rhoh_incr (:,:,:),   & ! hail partial density increment [kg/m^3]
+    &  rhonc_incr (:,:,:),   & ! cloud water number density increment [1/m^3]
+    &  rhoni_incr (:,:,:),   & ! cloud ice number density increment [1/m^3]
+    &  rhonr_incr (:,:,:),   & ! rain number density increment [1/m^3]
+    &  rhons_incr (:,:,:),   & ! snow number density increment [1/m^3]
+    &  rhong_incr (:,:,:),   & ! graupel number density increment [1/m^3]
+    &  rhonh_incr (:,:,:),   & ! hail number density increment [1/m^3]
+    !
     ! tendencies, physics increments and derived velocity fields
     &  vt(:,:,:),           & ! tangential wind (nproma,nlev,nblks_e)          [m/s]
     &  ddt_exner_phy(:,:,:),& ! exner pressure tendency from physical forcing 
@@ -179,7 +204,7 @@ MODULE mo_nonhydro_types
     &  dwdy(:,:,:)          & ! meridional gradient of vertical wind speed (nproma,nlevp1,nblks_c)     [1/s]
     &  => NULL()              ! (nproma,nlevp1,nblks_c,1:3)                  [m/s^2]
 
-    REAL(vp2), POINTER      & ! single precision if "__MIXED_PRECISION_2" is defined
+    REAL(vp), POINTER       & ! single precision if "__MIXED_PRECISION" is defined
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
     , CONTIGUOUS            &
 #endif
@@ -448,11 +473,11 @@ MODULE mo_nonhydro_types
     ! array of prognostic state lists at different timelevels
     ! splitting this out of t_nh_state allows for a deep copy 
     ! of the p_nh_state variable to accelerator devices with OpenACC
-    TYPE(t_var_list), ALLOCATABLE :: prog_list(:)  !< shape: (timelevels)
-    TYPE(t_var_list)   :: diag_list
-    TYPE(t_var_list)   :: ref_list
-    TYPE(t_var_list)   :: metrics_list
-    TYPE(t_var_list), ALLOCATABLE :: tracer_list(:) !< shape: (timelevels)
+    TYPE(t_var_list_ptr), ALLOCATABLE :: prog_list(:)  !< shape: (timelevels)
+    TYPE(t_var_list_ptr)   :: diag_list
+    TYPE(t_var_list_ptr)   :: ref_list
+    TYPE(t_var_list_ptr)   :: metrics_list
+    TYPE(t_var_list_ptr), ALLOCATABLE :: tracer_list(:) !< shape: (timelevels)
 
   END TYPE t_nh_state_lists
 

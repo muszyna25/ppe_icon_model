@@ -54,10 +54,10 @@ MODULE mo_interface_les
     &                                 msg_level, ltimer, timers_level, nqtendphy,  &
     &                                 ltransport, lart, iqni, iqnc
   USE mo_physical_constants,    ONLY: rd, rd_o_cpd, vtmpc1, p0ref, cvd, cvv
-  USE mo_nh_diagnose_pres_temp, ONLY: diagnose_pres_temp
+  USE mo_nh_diagnose_pres_temp, ONLY: diagnose_pres_temp, calc_qsum
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
   USE mo_lnd_nwp_config,        ONLY: ntiles_total, ntiles_water
-  USE mo_cover_koe,             ONLY: cover_koe
+  USE mo_cover_koe,             ONLY: cover_koe, cover_koe_config
   USE mo_satad,                 ONLY: satad_v_3D
   USE mo_radiation,             ONLY: radheat, pre_radiation_nwp
   USE mo_radiation_config,      ONLY: irad_aero
@@ -389,16 +389,7 @@ CONTAINS
               !& count, errstat,                              !> OUT
                )
 
-        DO jk = kstart_moist(jg), nlev
-          DO jc = i_startidx, i_endidx
-
-            ! calculate virtual temperature from condens' output temperature
-            ! taken from SUBROUTINE update_tempv_geopot in hydro_atmos/mo_ha_update_diag.f90
-            z_qsum(jc,jk) = SUM(pt_prog_rcf%tracer (jc,jk,jb,condensate_list))
-
-          ENDDO
-        ENDDO
-
+        CALL calc_qsum (pt_prog_rcf%tracer, z_qsum, condensate_list, jb, i_startidx, i_endidx, 1, kstart_moist(jg), nlev)
 
         DO jk = kstart_moist(jg), nlev
 !DIR$ IVDEP
@@ -466,8 +457,8 @@ CONTAINS
          CALL nwp_surface    (  dt_phy_jg(itfastphy),              & !>input
                                & pt_patch,                         & !>input
                                & ext_data,                         & !>input
-                               & pt_prog_rcf,                      & !>in/inout rcf=reduced calling freq.
-                               & pt_diag ,                         & !>inout
+                               & pt_prog, pt_prog_rcf,             & !>in/inout rcf=reduced calling freq.
+                               & pt_diag, p_metrics,               & !>inout
                                & prm_diag,                         & !>inout
                                & lnd_prog_now, lnd_prog_new,       & !>inout
                                & wtr_prog_now, wtr_prog_new,       & !>inout
@@ -519,7 +510,8 @@ CONTAINS
                             & lcall_phy_jg(itsatad),            & !>input
                             & pt_patch, p_metrics,              & !>input
                             & pt_prog,                          & !>inout
-                            & pt_prog_rcf,                      & !>inout
+                            & pt_prog_rcf%tracer,               & !>inout
+                            & pt_prog_rcf%tke,                  & !>in
                             & pt_diag ,                         & !>inout
                             & prm_diag, prm_nwp_tend,           & !>inout
                             & lcompute_tt_lheat=.FALSE.         ) !>in
@@ -599,16 +591,8 @@ CONTAINS
         !!
         !-------------------------------------------------------------------------
 
-        IF (kstart_moist(jg) > 1) z_qsum(:,1:kstart_moist(jg)-1) = 0._wp
 
-        DO jk = kstart_moist(jg), nlev
-          DO jc = i_startidx, i_endidx
-
-            z_qsum(jc,jk) = SUM(pt_prog_rcf%tracer (jc,jk,jb,condensate_list))
-
-          ENDDO
-        ENDDO
-
+        CALL calc_qsum (pt_prog_rcf%tracer, z_qsum, condensate_list, jb, i_startidx, i_endidx, 1, kstart_moist(jg), nlev)
 
         DO jk = 1, nlev
 !DIR$ IVDEP
@@ -697,10 +681,9 @@ CONTAINS
       ! Pressure has already been updated at the end of the fast physics part
       lpres = .FALSE.
 
-      ! Temperature at interface levels is needed if irad_aero = 5 or 6
-      ! or if Ritter-Geleyn radiation is called
+      ! Temperature at interface levels is needed if irad_aero = 5, 6 or 9
       IF ( lcall_phy_jg(itrad) .AND. ( irad_aero == 5 .OR. irad_aero == 6 &
-           .OR. irad_aero == 9 .OR. atm_phy_nwp_config(jg)%inwp_radiation == 2 ) ) THEN
+           .OR. irad_aero == 9 ) ) THEN
         ltemp_ifc = .TRUE.
       ELSE
         ltemp_ifc = .FALSE.
@@ -764,9 +747,8 @@ CONTAINS
         CALL cover_koe &
 &             (kidia  = i_startidx ,   kfdia  = i_endidx  ,       & !! in:  horizonal begin, end indices
 &              klon = nproma,  kstart = kstart_moist(jg)  ,       & !! in:  horiz. and vert. vector length
-&              klev   = nlev,                                     &
-&              icldscheme = atm_phy_nwp_config(jg)%inwp_cldcover, & !! in:  cloud cover option
-&              inwp_turb  = atm_phy_nwp_config(jg)%inwp_turb,     & !! in:  turbulence scheme number
+&              klev   = nlev                              ,       &
+&              cover_koe_config = cover_koe_config(jg)    ,       & !! in:  physics config state
 &              tt     = pt_diag%temp         (:,:,jb)     ,       & !! in:  temperature at full levels
 &              pp     = pt_diag%pres         (:,:,jb)     ,       & !! in:  pressure at full levels
 &              ps     = pt_diag%pres_sfc     (:,jb)       ,       & !! in:  surface pressure at full levels
@@ -875,6 +857,7 @@ CONTAINS
         prm_diag%swflxsfc (:,jb)=0._wp
         prm_diag%lwflxsfc (:,jb)=0._wp
         prm_diag%swflxtoa (:,jb)=0._wp
+        prm_diag%lwflxtoa (:,jb)=0._wp
 
         IF (atm_phy_nwp_config(jg)%inwp_surface >= 1) THEN
 
@@ -904,14 +887,14 @@ CONTAINS
           & ppres_ifc=pt_diag%pres_ifc(:,:,jb)     ,&! in     pressure at layer boundaries [Pa]
           & albedo=prm_diag%albdif(:,jb)           ,&! in     grid-box average shortwave albedo
           & albedo_t=prm_diag%albdif_t(:,jb,:)     ,&! in     tile-specific shortwave albedo
-          & lp_count=ext_data%atm%lp_count(jb)     ,&! in     number of land points
-          & gp_count_t=ext_data%atm%gp_count_t(jb,:),&! in   number of land points per tile
-          & spi_count =ext_data%atm%spi_count(jb)  ,&! in     number of seaice points
-          & fp_count  =ext_data%atm%fp_count(jb)   ,&! in     number of (f)lake points
-          & idx_lst_lp=ext_data%atm%idx_lst_lp(:,jb), &! in   index list of land points
-          & idx_lst_t=ext_data%atm%idx_lst_t(:,jb,:), &! in   index list of land points per tile
-          & idx_lst_spi=ext_data%atm%idx_lst_spi(:,jb),&! in  index list of seaice points
-          & idx_lst_fp=ext_data%atm%idx_lst_fp(:,jb),&! in    index list of (f)lake points
+          & list_land_count  = ext_data%atm%list_land%ncount(jb),  &! in number of land points
+          & list_land_idx    = ext_data%atm%list_land%idx(:,jb),   &! in index list of land points
+          & list_seaice_count= ext_data%atm%list_seaice%ncount(jb),&! in number of seaice points
+          & list_seaice_idx  = ext_data%atm%list_seaice%idx(:,jb), &! in index list of seaice points
+          & list_lake_count  = ext_data%atm%list_lake%ncount(jb),  &! in number of (f)lake points
+          & list_lake_idx    = ext_data%atm%list_lake%idx(:,jb),   &! in index list of (f)lake points
+          & gp_count_t       = ext_data%atm%gp_count_t(jb,:),      &! in number of land points per tile
+          & idx_lst_t        = ext_data%atm%idx_lst_t(:,jb,:),     &! in index list of land points per tile
           & cosmu0=zcosmu0(:,jb)                   ,&! in     cosine of solar zenith angle
           & opt_nh_corr=.TRUE.                     ,&! in     switch for NH mode
           & ptsfc=lnd_prog_new%t_g(:,jb)           ,&! in     surface temperature         [K]
@@ -935,6 +918,7 @@ CONTAINS
           & pflxsfcsw_t=prm_diag%swflxsfc_t (:,jb,:)   ,&   ! out tile-specific shortwave surface net flux [W/m2]
           & pflxsfclw_t=prm_diag%lwflxsfc_t (:,jb,:)   ,&   ! out tile-specific longwave surface net flux  [W/m2]
           & pflxtoasw =prm_diag%swflxtoa (:,jb)        ,&   ! out shortwave toa net flux     [W/m2]
+          & pflxtoalw =prm_diag%lwflxtoa (:,jb)        ,&   ! out longwave  toa net flux     [W/m2]
           & lwflx_up_sfc=prm_diag%lwflx_up_sfc(:,jb)   ,&   ! out longwave upward flux at surface [W/m2]
           & swflx_up_toa=prm_diag%swflx_up_toa(:,jb)   ,&   ! out shortwave upward flux at the TOA [W/m2]
           & swflx_up_sfc=prm_diag%swflx_up_sfc(:,jb)   ,&   ! out shortwave upward flux at the surface [W/m2]
@@ -983,6 +967,7 @@ CONTAINS
           & pflxsfcsw =prm_diag%swflxsfc (:,jb)   ,&        ! out shortwave surface net flux [W/m2]
           & pflxsfclw =prm_diag%lwflxsfc (:,jb)   ,&        ! out longwave surface net flux  [W/m2]
           & pflxtoasw =prm_diag%swflxtoa (:,jb)   ,&        ! out shortwave toa net flux     [W/m2]
+          & pflxtoalw =prm_diag%lwflxtoa (:,jb)   ,&        ! out longwave  toa net flux     [W/m2]
           & lwflx_up_sfc=prm_diag%lwflx_up_sfc(:,jb)   ,&   ! out longwave upward flux at surface [W/m2]
           & swflx_up_toa=prm_diag%swflx_up_toa(:,jb)   ,&   ! out shortwave upward flux at the TOA [W/m2]
           & swflx_up_sfc=prm_diag%swflx_up_sfc(:,jb)   ,&   ! out shortwave upward flux at the surface [W/m2]
@@ -998,7 +983,7 @@ CONTAINS
 
       IF (timers_level > 2) CALL timer_stop(timer_radheat)
 
-    ENDIF  ! inwp_radiation
+    ENDIF
 
 
     !-------------------------------------------------------------------------
@@ -1078,16 +1063,8 @@ CONTAINS
    &                                       prm_nwp_tend%ddt_temp_radsw(i_startidx:i_endidx,:,jb) &
    &                                    +  prm_nwp_tend%ddt_temp_radlw(i_startidx:i_endidx,:,jb)
 
-        IF (kstart_moist(jg) > 1) z_qsum(:,1:kstart_moist(jg)-1) = 0._wp
 
-        DO jk = kstart_moist(jg), nlev
-          DO jc = i_startidx, i_endidx
-
-            z_qsum(jc,jk) = SUM(pt_prog_rcf%tracer (jc,jk,jb,condensate_list))
-
-          ENDDO
-        ENDDO
-
+        CALL calc_qsum (pt_prog_rcf%tracer, z_qsum, condensate_list, jb, i_startidx, i_endidx, 1, kstart_moist(jg), nlev)
 
 
         ! Convert temperature tendency into Exner function tendency
@@ -1395,7 +1372,7 @@ CONTAINS
     ! time averages, accumulations and vertical integrals
     CALL nwp_statistics(lcall_phy_jg,                    & !in
                         & dt_phy_jg,p_sim_time,          & !in
-                        & kstart_moist(jg),              & !in
+                        & ext_data, kstart_moist(jg),    & !in
                         & ih_clch(jg), ih_clcm(jg),      & !in
                         & pt_patch, p_metrics,           & !in
                         & pt_prog, pt_prog_rcf,          & !in
@@ -1407,15 +1384,15 @@ CONTAINS
       !CALL les_cloud_diag(pt_patch, pt_prog_rcf, kstart_moist(jg),   &
       !                    lnd_prog_new, lnd_diag, pt_diag, &
       !                    pt_prog, p_metrics, prm_diag) 
-      CALL les_cloud_diag    ( kstart_moist(jg),		       & !in
-        &		       ih_clch(jg), ih_clcm(jg),	       & !in
-        &		       phy_params(jg),  		       & !in
-        &		       pt_patch,			       & !in
-        &		       p_nh_state(jg)%metrics,  	       & !in
-        &		       p_nh_state(jg)%prog(nnow(jg)),	       & !in
-        &		       p_nh_state(jg)%prog(nnow_rcf(jg)),      & !in
-        &		       p_nh_state(jg)%diag,		       & !in
-        &		       prm_diag 			       ) !inout
+      CALL les_cloud_diag    ( kstart_moist(jg),                       & !in
+        &                      ih_clch(jg), ih_clcm(jg),               & !in
+        &                      phy_params(jg),                         & !in
+        &                      pt_patch,                               & !in
+        &                      p_nh_state(jg)%metrics,                 & !in
+        &                      p_nh_state(jg)%prog(nnow(jg)),          & !in
+        &                      p_nh_state(jg)%prog(nnow_rcf(jg)),      & !in
+        &                      p_nh_state(jg)%diag,                    & !in
+        &                      prm_diag                                ) !inout
 
     IF( is_sampling_time )THEN
 

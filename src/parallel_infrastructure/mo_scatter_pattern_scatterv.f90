@@ -19,12 +19,8 @@ MODULE mo_scatter_pattern_scatterv
     USE mo_impl_constants, ONLY: SUCCESS
     USE mo_scatter_pattern_base
     USE mo_kind, ONLY: wp, dp, sp, i8
-#ifndef NOMPI
-    USE mpi
-#endif
-    USE mo_mpi, ONLY: p_io, my_process_is_stdio, &
-    &                 p_real_dp, p_real_sp, p_int, &
-    &                 p_gather, p_gatherv
+    USE mo_mpi, ONLY: p_real_dp, p_real_sp, p_int, &
+    &                 p_gather, p_gatherv, p_scatterv
     USE mo_parallel_config, ONLY: blk_no, idx_no
     USE mo_exception, ONLY: finish
 
@@ -66,46 +62,36 @@ CONTAINS
         INTEGER, OPTIONAL, INTENT(in) :: root_rank
 
         CHARACTER(*), PARAMETER :: routine = modname//":constructScatterPatternScatterV"
-        INTEGER :: comm_size, i, ierr
-        LOGICAL :: l_write_debug_info, is_scatter_root
+        INTEGER :: comm_size, i, ierr, asize, accum
+        LOGICAL :: l_write_debug_info
 
-        is_scatter_root = my_process_is_stdio()
-        IF (debugModule) THEN
-          l_write_debug_info = is_scatter_root
-        ELSE
-          l_write_debug_info = .FALSE.
-        END IF
+        l_write_debug_info = debugmodule .AND. me%root_rank == me%rank
 
         IF (l_write_debug_info) WRITE(0,*) "entering ", routine
 
         CALL constructScatterPattern(me, jg, loc_arr_len, glb_index, &
              communicator, root_rank)
-        IF (me%rank == me%root_rank) THEN
-            comm_size = me%comm_size
-            ALLOCATE(me%pointCounts(comm_size), stat = ierr)
-            IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
-            ALLOCATE(me%displacements(comm_size), stat = ierr)
-            IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
-        ELSE
-            ALLOCATE(me%pointCounts(1), stat = ierr)
-            IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
-            ALLOCATE(me%displacements(1), stat = ierr)
-            IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
-        END IF
+        comm_size = me%comm_size
+        asize = MERGE(comm_size, 1, me%rank == me%root_rank)
+        ALLOCATE(me%pointCounts(asize), &
+          &      me%displacements(asize), stat = ierr)
+        IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
         CALL p_gather(me%myPointCount, me%pointCounts, me%root_rank, communicator)
         IF (me%rank == me%root_rank) THEN
-            me%pointCount = 0
-            DO i = 1, comm_size
-                me%displacements(i) = me%pointCount
-                me%pointCount = me%pointCount + me%pointCounts(i)
-            END DO
-            ALLOCATE(me%pointIndices(me%pointCount), stat = ierr)
-            IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
+          accum = 0
+          DO i = 1, comm_size
+            me%displacements(i) = accum
+            accum = accum + me%pointCounts(i)
+          END DO
+          me%pointCount = accum
+          asize = accum
         ELSE
-            ALLOCATE(me%pointIndices(1), stat = ierr)
-            IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
+          asize = 1
         END IF
-        CALL p_gatherv(glb_index, loc_arr_len, me%pointIndices, me%pointCounts, me%displacements, me%root_rank, communicator)
+        ALLOCATE(me%pointIndices(asize), stat = ierr)
+        IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
+        CALL p_gatherv(glb_index, loc_arr_len, me%pointIndices, &
+             me%pointCounts, me%displacements, me%root_rank, communicator)
 
         IF (l_write_debug_info) WRITE(0,*) "leaving ", routine
     END SUBROUTINE constructScatterPatternScatterV
@@ -122,42 +108,27 @@ CONTAINS
 
         CHARACTER(*), PARAMETER :: routine = modname//":distributeDataScatterV_dp"
         REAL(dp), ALLOCATABLE :: sendArray(:), recvArray(:)
-        INTEGER :: i, blk, idx, ierr
+        INTEGER :: i, blk, idx, ierr, asize
         LOGICAL :: l_write_debug_info
 
-        IF (debugModule) THEN
-          l_write_debug_info = my_process_is_stdio()
-        ELSE
-          l_write_debug_info = .FALSE.
-        END IF
+        l_write_debug_info = debugmodule .AND. me%rank == me%root_rank
 
         IF (l_write_debug_info) WRITE(0,*) "entering ", routine
 
         CALL me%startDistribution()
 
+        asize = MERGE(me%pointCount, 1, me%rank == me%root_rank)
+        ALLOCATE(sendArray(asize), &
+          &      recvArray(me%myPointCount), stat = ierr)
+        IF (ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
         IF (me%rank == me%root_rank) THEN
-            ALLOCATE(sendArray(me%pointCount), stat = ierr)
-            IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
-            DO i = 1, me%pointCount
-                sendArray(i) = globalArray(me%pointIndices(i))
-            END DO
-        ELSE
-            ALLOCATE(sendArray(1), stat = ierr)
-            IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
+          DO i = 1, me%pointCount
+            sendArray(i) = globalArray(me%pointIndices(i))
+          END DO
         END IF
-        ALLOCATE(recvArray(me%myPointCount), stat = ierr)
-        IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
 
-        !For some very weird reason, I always get a crash on my system if the following block is moved to its own subroutine.
-!       CALL p_scatterv(sendArray, me%pointCounts, me%displacements, recvArray, me%myPointCount, p_io, me%communicator)
-#ifndef NOMPI
-        CALL MPI_Scatterv(sendArray, me%pointCounts, me%displacements, &
-          &               p_real_dp, recvArray, me%myPointCount, &
-          &               p_real_dp, me%root_rank, me%communicator, ierr)
-        IF (ierr /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_Scatterv operation!')
-#else
-        recvArray(1:me%myPointCount) = sendArray((me%displacements(1)+1):(me%displacements(1)+me%myPointCount))
-#endif
+        CALL p_scatterv(sendArray, me%pointCounts, me%displacements, &
+          recvArray, me%myPointCount, me%root_rank, me%communicator)
 
         IF(ladd_value) THEN
             DO i = 1, me%myPointCount
@@ -171,8 +142,7 @@ CONTAINS
             END DO
         END IF
 
-        DEALLOCATE(recvArray)
-        DEALLOCATE(sendArray)
+        DEALLOCATE(recvArray, sendArray)
         CALL me%endDistribution(INT(me%pointCount, i8) * 8_i8)
         IF (l_write_debug_info) WRITE(0,*) "leaving ", routine
     END SUBROUTINE distributeDataScatterV_dp
@@ -189,41 +159,27 @@ CONTAINS
 
         CHARACTER(*), PARAMETER :: routine = modname//":distributeDataScatterV_spdp"
         REAL(sp), ALLOCATABLE :: sendArray(:), recvArray(:)
-        INTEGER :: i, blk, idx, ierr
+        INTEGER :: i, blk, idx, ierr, asize
         LOGICAL :: l_write_debug_info
 
-        IF (debugModule) THEN
-          l_write_debug_info = my_process_is_stdio()
-        ELSE
-          l_write_debug_info = .FALSE.
-        END IF
+        l_write_debug_info = debugmodule .AND. me%rank == me%root_rank
 
         IF (l_write_debug_info) WRITE(0,*) "entering ", routine
 
         CALL me%startDistribution()
 
-        IF(my_process_is_stdio()) THEN
-            ALLOCATE(sendArray(me%pointCount), stat = ierr)
-            IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
-            DO i = 1, me%pointCount
-                sendArray(i) = globalArray(me%pointIndices(i))
-            END DO
-        ELSE
-            ALLOCATE(sendArray(1), stat = ierr)
-            IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
+        asize = MERGE(me%pointCount, 1, me%rank == me%root_rank)
+        ALLOCATE(sendArray(asize), &
+          &      recvArray(me%myPointCount), stat = ierr)
+        IF (ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
+        IF (me%rank == me%root_rank) THEN
+          DO i = 1, me%pointCount
+            sendArray(i) = globalArray(me%pointIndices(i))
+          END DO
         END IF
-        ALLOCATE(recvArray(me%myPointCount), stat = ierr)
-        IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
 
-        !For some very weird reason, I always get a crash on my system if the following block is moved to its own subroutine.
-!       CALL p_scatterv(sendArray, me%pointCounts, me%displacements, recvArray, me%myPointCount, p_io, me%communicator)
-#ifndef NOMPI
-        CALL MPI_Scatterv(sendArray, me%pointCounts, me%displacements, p_real_sp, recvArray, me%myPointCount, p_real_sp, p_io, &
-        &                 me%communicator, ierr)
-        IF (ierr /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_Scatterv operation!')
-#else
-        recvArray(1:me%myPointCount) = sendArray((me%displacements(1)+1):(me%displacements(1)+me%myPointCount))
-#endif
+        CALL p_scatterv(sendArray, me%pointCounts, me%displacements, &
+          recvArray, me%myPointCount, me%root_rank, me%communicator)
 
         IF(ladd_value) THEN
             DO i = 1, me%myPointCount
@@ -237,8 +193,7 @@ CONTAINS
             END DO
         END IF
 
-        DEALLOCATE(recvArray)
-        DEALLOCATE(sendArray)
+        DEALLOCATE(recvArray, sendArray)
         CALL me%endDistribution(INT(me%pointCount, i8) * 4_i8)
         IF (l_write_debug_info) WRITE(0,*) "leaving ", routine
     END SUBROUTINE distributeDataScatterV_spdp
@@ -256,42 +211,27 @@ CONTAINS
 
         CHARACTER(*), PARAMETER :: routine = modname//":distributeDataScatterV_sp"
         REAL(sp), ALLOCATABLE :: sendArray(:), recvArray(:)
-        INTEGER :: i, blk, idx, ierr
+        INTEGER :: i, blk, idx, ierr, asize
         LOGICAL :: l_write_debug_info
 
-        IF (debugModule) THEN
-          l_write_debug_info = my_process_is_stdio()
-        ELSE
-          l_write_debug_info = .FALSE.
-        END IF
+        l_write_debug_info = debugmodule .AND. me%rank == me%root_rank
 
         IF (l_write_debug_info) WRITE(0,*) "entering ", routine
 
         CALL me%startDistribution()
 
+        asize = MERGE(me%pointCount, 1, me%rank == me%root_rank)
+        ALLOCATE(sendArray(asize), &
+          &      recvArray(me%myPointCount), stat = ierr)
+        IF (ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
         IF (me%rank == me%root_rank) THEN
-            ALLOCATE(sendArray(me%pointCount), stat = ierr)
-            IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
-            DO i = 1, me%pointCount
-                sendArray(i) = globalArray(me%pointIndices(i))
-            END DO
-        ELSE
-            ALLOCATE(sendArray(1), stat = ierr)
-            IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
+          DO i = 1, me%pointCount
+            sendArray(i) = globalArray(me%pointIndices(i))
+          END DO
         END IF
-        ALLOCATE(recvArray(me%myPointCount), stat = ierr)
-        IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
 
-        !For some very weird reason, I always get a crash on my system if the following block is moved to its own subroutine.
-!       CALL p_scatterv(sendArray, me%pointCounts, me%displacements, recvArray, me%myPointCount, p_io, me%communicator)
-#ifndef NOMPI
-        CALL MPI_Scatterv(sendArray, me%pointCounts, me%displacements, &
-             &            p_real_sp, recvArray, me%myPointCount, &
-             &            p_real_sp, me%root_rank, me%communicator, ierr)
-        IF (ierr /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_Scatterv operation!')
-#else
-        recvArray(1:me%myPointCount) = sendArray((me%displacements(1)+1):(me%displacements(1)+me%myPointCount))
-#endif
+        CALL p_scatterv(sendArray, me%pointCounts, me%displacements, &
+          recvArray, me%myPointCount, me%root_rank, me%communicator)
 
         IF(ladd_value) THEN
             DO i = 1, me%myPointCount
@@ -305,8 +245,7 @@ CONTAINS
             END DO
         END IF
 
-        DEALLOCATE(recvArray)
-        DEALLOCATE(sendArray)
+        DEALLOCATE(recvArray, sendArray)
         CALL me%endDistribution(INT(me%pointCount, i8) * 4_i8)
         IF (l_write_debug_info) WRITE(0,*) "leaving ", routine
     END SUBROUTINE distributeDataScatterV_sp
@@ -323,42 +262,27 @@ CONTAINS
 
         CHARACTER(*), PARAMETER :: routine = modname//":distributeDataScatterV_sp"
         INTEGER, ALLOCATABLE :: sendArray(:), recvArray(:)
-        INTEGER :: i, blk, idx, ierr
+        INTEGER :: i, blk, idx, ierr, asize
         LOGICAL :: l_write_debug_info
 
-        IF (debugModule) THEN
-          l_write_debug_info = my_process_is_stdio()
-        ELSE
-          l_write_debug_info = .FALSE.
-        END IF
+        l_write_debug_info = debugmodule .AND. me%rank == me%root_rank
 
         IF (l_write_debug_info) WRITE(0,*) "entering ", routine
 
         CALL me%startDistribution()
 
+        asize = MERGE(me%pointCount, 1, me%rank == me%root_rank)
+        ALLOCATE(sendArray(asize), &
+          &      recvArray(me%myPointCount), stat = ierr)
+        IF (ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
         IF (me%rank == me%root_rank) THEN
-            ALLOCATE(sendArray(me%pointCount), stat = ierr)
-            IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
-            DO i = 1, me%pointCount
-                sendArray(i) = globalArray(me%pointIndices(i))
-            END DO
-        ELSE
-            ALLOCATE(sendArray(1), stat = ierr)
-            IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
+          DO i = 1, me%pointCount
+            sendArray(i) = globalArray(me%pointIndices(i))
+          END DO
         END IF
-        ALLOCATE(recvArray(me%myPointCount), stat = ierr)
-        IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
 
-        !For some very weird reason, I always get a crash on my system if the following block is moved to its own subroutine.
-!       CALL p_scatterv(sendArray, me%pointCounts, me%displacements, recvArray, me%myPointCount, p_io, me%communicator)
-#ifndef NOMPI
-        CALL MPI_Scatterv(sendArray, me%pointCounts, me%displacements, &
-             &            p_int, recvArray, me%myPointCount, &
-             &            p_int, me%root_rank, me%communicator, ierr)
-        IF (ierr /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_Scatterv operation!')
-#else
-        recvArray(1:me%myPointCount) = sendArray((me%displacements(1)+1):(me%displacements(1)+me%myPointCount))
-#endif
+        CALL p_scatterv(sendArray, me%pointCounts, me%displacements, &
+          recvArray, me%myPointCount, me%root_rank, me%communicator)
 
         IF(ladd_value) THEN
             DO i = 1, me%myPointCount
@@ -372,8 +296,7 @@ CONTAINS
             END DO
         END IF
 
-        DEALLOCATE(recvArray)
-        DEALLOCATE(sendArray)
+        DEALLOCATE(recvArray, sendArray)
         CALL me%endDistribution(INT(me%pointCount, i8) * 4_i8)
         IF (l_write_debug_info) WRITE(0,*) "leaving ", routine
     END SUBROUTINE distributeDataScatterV_int
@@ -387,16 +310,10 @@ CONTAINS
         CHARACTER(*), PARAMETER :: routine = modname//":destructScatterPatternScatterV"
         LOGICAL :: l_write_debug_info
 
-        IF (debugModule) THEN
-          l_write_debug_info = my_process_is_stdio()
-        ELSE
-          l_write_debug_info = .FALSE.
-        END IF
+        l_write_debug_info = debugmodule .AND. me%rank == me%root_rank
 
         IF (l_write_debug_info) WRITE(0,*) "entering ", routine
-        DEALLOCATE(me%pointCounts)
-        DEALLOCATE(me%displacements)
-        DEALLOCATE(me%pointIndices)
+        DEALLOCATE(me%pointCounts, me%displacements, me%pointIndices)
         CALL destructScatterPattern(me)
         IF (l_write_debug_info) WRITE(0,*) "leaving ", routine
     END SUBROUTINE destructScatterPatternScatterV

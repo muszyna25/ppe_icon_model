@@ -24,9 +24,7 @@ MODULE mo_art_turbdiff_interface
 
 
   USE mo_kind,                          ONLY: wp
-  USE mo_parallel_config,               ONLY: nproma
   USE mo_model_domain,                  ONLY: t_patch
-  USE mo_exception,                     ONLY: message, message_text, finish
   USE mo_nonhydro_types,                ONLY: t_nh_metrics, t_nh_diag, t_nh_prog
   USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE turb_data,                        ONLY: modvar
@@ -38,6 +36,9 @@ MODULE mo_art_turbdiff_interface
   USE mo_art_diag_types,                ONLY: t_art_diag
   USE mo_art_surface_value,             ONLY: art_surface_value
   USE mo_art_config,                    ONLY: art_config
+#ifdef _OPENACC
+  USE mo_exception,                     ONLY: warning
+#endif
 #endif
 
   IMPLICIT NONE
@@ -109,9 +110,12 @@ SUBROUTINE art_turbdiff_interface( defcase,  & !>in
     &  art_diag                  !< Pointer to ART diagnostic fields
   INTEGER                   :: &
     &  jg, idx_trac, jk, jc,   & !< loop indices
-    &  nblks, istat, nlev,     & !<
-    &  i_startidx, i_endidx,   & !<
+    &  nlev,                   & !<
     &  idx_tot                   !< counter for total number of fields (add. cloud vars + tracer vars) to be diffused
+
+#ifdef _OPENACC
+  CALL warning('GPU:mo_art_turbdiff_interface:art_turbdiff_interface', 'ART is not supported on GPUs yet!')
+#endif
   
   jg  = p_patch%id
   IF ( lart ) THEN
@@ -173,7 +177,7 @@ SUBROUTINE art_turbdiff_interface( defcase,  & !>in
         idx_tot = idx_trac + ncloud_offset
 
         DO jk = 1, nlev
-  !DIR$ IVDEP
+!NEC$ IVDEP
           DO jc = i_st, i_en
             ptr(idx_tot)%av(jc,jk) = MAX( 0._wp, ptr(idx_tot)%av(jc,jk)     &
               &                     + dt * ptr(idx_tot)%at(jc,jk) )

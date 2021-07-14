@@ -1,0 +1,450 @@
+#! %{JOB.ksh|default('/bin/ksh')} #%# -*- mode: sh -*- vi: set ft=sh :
+#
+# %{EXP_ID}.%{JOB.id}
+#
+# %{mkexp_input}
+#
+# $Id: DEFAULT.run.tmpl 6 2021-03-24 11:51:40Z m221078 $
+#
+# %{VERSIONS_|join('\n# ')}
+#
+#%from 'standard_experiments/format.tmpl' import format_files
+#=============================================================================
+
+# mistral cpu batch job parameters
+# --------------------------------
+#SBATCH --account=%{ACCOUNT}
+#% if JOB.qos is defined:
+#SBATCH --qos=%{JOB.qos}
+#% endif
+#SBATCH --job-name=%{EXP_ID}.run
+#SBATCH --partition=%{JOB.partition|d('compute2,compute')|join(',')}
+#SBATCH --nodes=%{JOB.nodes}
+#SBATCH --threads-per-core=2
+# the following is needed to work around a bug that otherwise leads to
+# a too low number of ranks when using compute,compute2 as queue
+#SBATCH --mem=0
+#SBATCH --output=%{SCRIPT_DIR}/%{EXP_ID}.run.%j.log
+#SBATCH --error=%{SCRIPT_DIR}/%{EXP_ID}.run.%j.log
+#SBATCH --exclusive
+#SBATCH --time=%{JOB.time_limit}
+
+#=============================================================================
+set -e
+#%  if JOB.debug_level|d(0)|int > 0:
+set -x
+#%  endif
+#=============================================================================
+#
+# ICON run script:
+# !ATTENTION! Do not change the format of the following lines.
+#             They are evaluated by checksuite scripts.
+# created by ./run/make_target_runscript
+# target machine is %{use_target}
+# target use_compiler is %{use_compiler}
+# with_mpi=%{use_mpi}
+# with_openmp=%{use_openmp}
+# memory_model=large
+# submit with %{use_submit}
+#
+#=============================================================================
+
+#% do VARIABLES_.add('MODEL_DIR')
+#% do VARIABLES_.add('SCRIPT_DIR')
+#% do VARIABLES_.add('BUILD_DIR')
+#% for var in VARIABLES_|sort:
+#%   if context(var):
+%{var}=%{context(var)}
+#%   endif
+#% endfor
+#%#
+# Make sure that 'add_run_routines' picks up the right base directory
+cd $BUILD_DIR/run
+. ./add_run_routines
+
+#=============================================================================
+#
+# OpenMP environment variables
+# ----------------------------
+export OMP_NUM_THREADS=1
+export ICON_THREADS=1
+export OMP_SCHEDULE=dynamic,1
+export OMP_DYNAMIC="false"
+export OMP_STACKSIZE=200M
+#
+# MPI variables
+# -------------
+no_of_nodes=${SLURM_JOB_NUM_NODES:=%{JOB.nodes}}
+mpi_procs_pernode=$((${SLURM_JOB_CPUS_PER_NODE%%\(*} / 2))
+((mpi_total_procs=no_of_nodes * mpi_procs_pernode))
+#
+#=============================================================================
+
+# load local setting, if existing
+# -------------------------------
+if [ -a ../setting ]
+then
+  echo "Load Setting"
+  . ../setting
+fi
+
+# environment variables for the experiment and the target system
+# --------------------------------------------------------------
+export EXPNAME="%{EXP_ID}"
+export KMP_AFFINITY="verbose,granularity=core,compact,1,1"
+export KMP_LIBRARY="turnaround"
+export KMP_KMP_SETTINGS="1"
+export OMP_WAIT_POLICY="active"
+export OMPI_MCA_pml="cm"
+export OMPI_MCA_mtl="mxm"
+export OMPI_MCA_coll="^fca"
+export MXM_RDMA_PORTS="mlx5_0:1"
+export HCOLL_MAIN_IB="mlx5_0:1"
+export HCOLL_ML_DISABLE_BARRIER="1"
+export HCOLL_ML_DISABLE_IBARRIER="1"
+export HCOLL_ML_DISABLE_BCAST="1"
+export HCOLL_ENABLE_MCAST_ALL="1"
+export HCOLL_ENABLE_MCAST="1"
+export OMPI_MCA_coll_sync_barrier_after_alltoallv="1"
+export OMPI_MCA_coll_sync_barrier_after_alltoallw="1"
+export MXM_HANDLE_ERRORS="bt"
+export UCX_HANDLE_ERRORS="bt"
+export MALLOC_TRIM_THRESHOLD_="-1"
+
+# directories with absolute paths
+# -------------------------------
+icon_data_rootFolder="/pool/data/ICON"
+
+# how to start the icon model
+# ---------------------------
+export START="%{MPI.command} --cpu-freq=HighM1 --nodes=${SLURM_JOB_NUM_NODES:-1} --ntasks=$((no_of_nodes * mpi_procs_pernode)) --ntasks-per-node=${mpi_procs_pernode} --cpus-per-task=$((2 * OMP_NUM_THREADS))"
+export MODEL="%{BIN_DIR}/%{MODEL_EXE}"
+
+# how to submit the next job
+# --------------------------
+job_name="%{EXP_ID}.run"
+
+# cdo for post-processing
+# -----------------------
+cdo="cdo"
+cdo_diff="cdo diffn"
+
+#=============================================================================
+
+ulimit -s 2097152
+ulimit -c 0
+
+# ----------------------------------------------------------------------------
+# %{EXP_DESCRIPTION|split("\n")|join("\n# ")|replace("# \n", "#\n")}
+# ----------------------------------------------------------------------------
+
+# (0) Basic model configuration
+# -----------------------------
+
+# 1 ocean node is sufficient for low resolution, 9 nodes for coupled is suitable.
+# faster: 2 nodes for ocean, 16 nodes in total
+#         running with Hamocc: 8 nodes for ocean, 22 in total for similar performance
+mpi_oce_nodes=%{JOB.ocean_nodes}
+#mpi_oce_nodes=${mpi_oce_nodes:=((no_of_nodes/2))}   # default: half of requested nodes
+((mpi_oce_procs=mpi_oce_nodes * mpi_procs_pernode))
+#
+#--------------------------------------------------------------------------------------------------
+
+# (2) unset some setting of create_target_header for mistral
+
+unset OMPI_MCA_coll_fca_enable
+unset OMPI_MCA_coll_fca_priority
+
+#--------------------------------------------------------------------------------------------------
+
+# (4) Set variables to configure the experiment:
+# ----------------------------------------------
+
+# start and end date+time of experiment
+# -------------------------------------
+initial_date=${initial_date:="%{INITIAL_DATE}T00:00:00.000"}
+final_date=${final_date:="%{FINAL_DATE}T00:00:00.000"}
+
+# restart/checkpoint/output intervals
+# -----------------
+restart_interval="%{INTERVAL}"
+checkpoint_interval="%{INTERVAL}"
+
+# file interval is restart-interval
+atm_file_interval="%{FILE_INTERVAL}T1S"
+oce_file_interval="%{FILE_INTERVAL}T1S"
+lnd_file_interval="%{FILE_INTERVAL}T1S"
+#%  if WITH_OBGC is set:
+hamocc_file_interval="%{FILE_INTERVAL}T1S"
+#%  endif
+#%#
+atm_output_interval="%{OUTPUT_INTERVAL}"
+lnd_output_interval="%{OUTPUT_INTERVAL}"
+#%  if WITH_OBGC is set:
+hamocc_output_interval="%{OUTPUT_INTERVAL}"
+#%  endif
+#%#
+# Read and compute time control information
+
+start_date_file=$SCRIPT_DIR/$EXPNAME.date
+exp_log_file=$SCRIPT_DIR/$EXPNAME.log
+
+#%  if JOB.entry_point is set:
+if [[ -f $start_date_file ]]
+then
+    exec >&2
+    echo "Oops: you have tried to begin an experiment that had already been started."
+    echo "      Remove '$start_date_file' if you want to continue"
+    exit 1
+fi
+start_date=$initial_date
+rm -f $exp_log_file
+#%  else:
+read start_date < $start_date_file
+#%  endif
+#%#
+code=$(python -c "
+from sys import path
+from distutils.sysconfig import get_python_lib
+lib_dir = get_python_lib(1, 0, '$MODEL_DIR')
+if lib_dir not in path:
+    path.insert(1, lib_dir)
+import mtime
+mtime.setCalendar(mtime.CALENDAR_TYPE.%{calendar_mtime})
+initial_date = mtime.DateTime('$initial_date')
+reference_date = initial_date + mtime.TimeDelta('-$restart_interval')
+next_date = mtime.DateTime('$start_date') + mtime.TimeDelta('$restart_interval')
+end_date = next_date + mtime.TimeDelta('-%{ATMO_TIME_STEP}')
+atmo_reference_jstep = (initial_date, reference_date)//mtime.TimeDelta('%{ATMO_TIME_STEP}')
+ocean_reference_jstep = (initial_date, reference_date)//mtime.TimeDelta('%{OCEAN_TIME_STEP}')
+
+print('reference_date=' + str(reference_date))
+print('end_date=' + str(end_date))
+print('next_date=' + str(next_date))
+print('atmo_reference_jstep=' + str(atmo_reference_jstep))
+print('ocean_reference_jstep=' + str(ocean_reference_jstep))
+")
+eval "$code"
+
+# Dates used as timestamps
+start_stamp=${start_date%.*}
+start_stamp=${start_stamp//[-:]/}
+end_stamp=${end_date%.*}
+end_stamp=${end_stamp//[-:]/}
+next_stamp=${next_date%.*}
+next_stamp=${next_stamp//[-:]/}
+y0=${start_date%%-*}
+yN=${end_date%%-*}
+
+# Mark current run as started in log
+echo $(date -u +'%Y-%m-%dT%H:%M:%SZ') ${start_date%:*} ${end_date%:*} ${%{JOB.id_environ}} start >> $exp_log_file
+
+# asynchronous diagnostic output processes
+# ----------------------------------------
+
+# Note that "mpi_atm_io_procs" must match the number of output files
+mpi_atm_io_procs=0      # >0 for atmosphere plus land (not working for monitoring)
+mpi_oce_io_procs=0      # >0 for ocean is not working yet
+
+# output file selection
+# ---------------------
+#
+# output_<xyz>=yes : yes --> output files for <xyz>, any other value --> no files for <xyz>
+
+# output interval for large atm/oce files, normally set to general atmos interval:
+atm_output_interval_3d="$atm_output_interval"
+atm_output_interval_2d="$atm_output_interval"
+
+#------------------------------------------------------------------------------
+
+# (5) Define the model configuration
+#-----------------------------------
+
+# Write namelist files directly to working directory, create this if missing
+
+EXPDIR=%{WORK_DIR}/%{JOB.subdir}
+
+#%  if JOB.subdir|d(''):
+if [[ -d $EXPDIR ]]
+then
+    echo "$(date +'%Y-%m-%dT%H:%M:%S'): removing run dir '$EXPDIR'"
+    rm -fvr $EXPDIR
+fi
+
+#%    endif
+mkdir -vp $EXPDIR
+cd $EXPDIR
+
+#------------------------------------------------------------------------------
+# I. coupling section
+#------------------------------------------------------------------------------
+
+if [ $mpi_total_procs -lt 2 ] ; then
+  check_error 0 "This setup requires at least 2 mpi processes. Exit"
+fi
+
+# I.1 Split the number of total procs and assign to each component
+# ----------------------------------------------------------------
+oce_min_rank=`expr ${mpi_total_procs} - ${mpi_oce_procs}`
+oce_max_rank=`expr ${oce_min_rank} + ${mpi_oce_procs} - 1`
+oce_inc_rank=1
+atm_min_rank=0
+atm_max_rank=`expr ${oce_min_rank} - 1`
+atm_inc_rank=1
+
+#
+# create ICON master, coupling and model namelists
+# ------------------------------------------------
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+#
+
+cat > icon_master.namelist << EOF
+%{format_namelist(namelists['icon_master.namelist'])}
+EOF
+
+# I.3 YAC coupling library configuration
+#-----------------------------------------------------------------------------
+# component names in coupling.xml must (!) match with modelname_list[*]
+cat > coupling.xml << EOF
+%{COUPLING_XML}
+EOF
+
+#-----------------------------------------------------------------------------
+# II. ATMOSPHERE and LAND
+#-----------------------------------------------------------------------------
+#
+# atmosphere namelist
+# -------------------
+cat > NAMELIST_atm << EOF
+%{format_namelist(namelists.NAMELIST_atm)}
+EOF
+
+# jsbach namelist
+# ---------------
+
+cat > NAMELIST_lnd << EOF
+%{format_namelist(namelists.NAMELIST_lnd)}
+EOF
+
+#-----------------------------------------------------------------------------
+# III. OCEAN and SEA-ICE (and HAMOCC) 
+#-----------------------------------------------------------------------------
+
+# ----------------------------------------------------------------------------
+#
+# ocean namelist
+# --------------
+
+cat > NAMELIST_oce << EOF
+%{format_namelist(namelists.NAMELIST_oce)}
+EOF
+
+#-----------------------------------------------------------------------------
+
+if [ $mpi_total_procs -lt `expr $mpi_oce_procs + 1` ] ; then
+   echo "Too few mpi_total_procs for requested mpi_oce_procs."
+   echo "-> check mpi_total_procs and mpi_oce_procs. Exiting."
+   check_error 0
+   exit
+fi
+
+#=============================================================================
+#
+# This section of the run script prepares and starts the model integration. 
+#
+# MODEL and START must be defined as environment variables or
+# they must be substituted with appropriate values.
+#
+# Marco Giorgetta, MPI-M, 2010-04-21
+#
+#-----------------------------------------------------------------------------
+# Reset files and file names for check_error and check_final_status
+final_status_file=${SCRIPT_DIR}/${job_name}.final_status
+current_status_file=${SCRIPT_DIR}/${job_name}.status
+rm -f ${final_status_file} ${current_status_file}
+
+#-----------------------------------------------------------------------------
+# Provide input files
+%{format_files(files, 'yr', 'y0', 'yN')}
+
+#-----------------------------------------------------------------------------
+#  get model
+#
+ls -l ${MODEL}
+check_error $? "${MODEL} does not exist?"
+#
+ldd -v ${MODEL}
+#
+#-----------------------------------------------------------------------------
+#
+# start experiment
+#
+
+rm -f finish.status
+#
+date
+${START} ${MODEL} # > out.txt 2>&1
+date
+#
+if [ -r finish.status ] ; then
+  check_final_status 0 "${START} ${MODEL}"
+else
+  check_final_status -1 "${START} ${MODEL}"
+fi
+
+#%  if JOB.subdir|d(''):
+# Handle restart hand-over
+
+ln -fv %{EXP_ID}_restart_atm_${next_stamp}Z.nc %{WORK_DIR}
+ln -fv %{EXP_ID}_restart_oce_${next_stamp}Z.nc %{WORK_DIR}
+
+#%  endif
+
+# Update date info for next run
+
+echo $next_date > $start_date_file
+
+#%  if JOB.subdir|d(''):
+# Clean up our restart
+
+rm -fv %{WORK_DIR}/%{EXP_ID}_restart_atm_${start_stamp}Z.nc
+rm -fv %{WORK_DIR}/%{EXP_ID}_restart_oce_${start_stamp}Z.nc
+
+#%  endif
+
+#
+#-----------------------------------------------------------------------------
+#
+finish_status=`cat finish.status`
+echo $finish_status
+echo "============================"
+echo "Script run successfully: $finish_status"
+echo "============================"
+
+#%  if WITH_OBGC is set:
+#-----------------------------------------------------------------------------
+# store HAMOCC log file
+mv bgcout bgcout_${start_date}
+#%  endif
+
+#-----------------------------------------------------------------------------
+
+# Mark current run as successful in log
+echo $(date -u +'%Y-%m-%dT%H:%M:%SZ') ${start_date%:*} ${end_date%:*} ${%{JOB.id_environ}}  end >> $exp_log_file
+
+cd $SCRIPT_DIR
+
+if [ $finish_status = "RESTART" ]
+then
+  echo "restart next experiment..."
+  echo "this_script: $job_name"
+  %{JOB.batch_command} ${job_name}
+fi
+
+#% for job in JOB['.trigger']|list:
+%{JOB.batch_command} %{EXP_ID}.%{job} $start_date
+#% endfor
+
+#-----------------------------------------------------------------------------
+# vim:ft=sh
+#-----------------------------------------------------------------------------

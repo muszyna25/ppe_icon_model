@@ -179,10 +179,9 @@ END SUBROUTINE interpol_vec_ubc
 !! @par Revision History
 !! Developed  by Guenther Zaengl, DWD (2011-03-16)
 !!
-SUBROUTINE interpol_scal_ubc(p_pp, p_pc, p_grf, nfields, f3din, f3dout, llimit_nneg)
+SUBROUTINE interpol_scal_ubc(p_pc, p_grf, nfields, f3din, f3dout, llimit_nneg)
 
   !
-  TYPE(t_patch), INTENT(in) :: p_pp
   TYPE(t_patch), INTENT(inout) :: p_pc
 
   ! Indices of source points and interpolation coefficients
@@ -258,7 +257,7 @@ SUBROUTINE interpol_scal_ubc(p_pp, p_pc, p_grf, nfields, f3din, f3dout, llimit_n
     DO jc = nshift+1, nshift+nlen
       DO jn = 1, nfields
 #else
-!CDIR NOLOOPCHG
+!$NEC novector
     DO jn = 1, nfields
       DO jc = nshift+1, nshift+nlen
 #endif
@@ -315,7 +314,7 @@ SUBROUTINE interpol_scal_ubc(p_pp, p_pc, p_grf, nfields, f3din, f3dout, llimit_n
     DO jc = nshift+1, nshift+nlen
       DO jn = 1, nfields
 #else
-!CDIR NOLOOPCHG
+!$NEC novector
     DO jn = 1, nfields
       DO jc = nshift+1, nshift+nlen
 #endif
@@ -371,7 +370,7 @@ SUBROUTINE interpol_scal_ubc(p_pp, p_pc, p_grf, nfields, f3din, f3dout, llimit_n
       DO jc = nshift+1, nshift+nlen
         DO jn = 1, nfields
 #else
-!CDIR NOLOOPCHG
+!$NEC novector
       DO jn = 1, nfields
         DO jc = nshift+1, nshift+nlen
 #endif
@@ -396,7 +395,7 @@ SUBROUTINE interpol_scal_ubc(p_pp, p_pc, p_grf, nfields, f3din, f3dout, llimit_n
       DO jc = nshift+1, nshift+nlen
         DO jn = 1, nfields
 #else
-!CDIR NOLOOPCHG
+!$NEC novector
       DO jn = 1, nfields
         DO jc = nshift+1, nshift+nlen
 #endif

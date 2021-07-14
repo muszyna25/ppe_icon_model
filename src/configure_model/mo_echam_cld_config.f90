@@ -83,30 +83,10 @@ MODULE mo_echam_cld_config
      REAL(wp) :: ccsaut   !          coefficient of autoconversion of cloud ice to snow
      REAL(wp) :: ccsacl   !          coefficient of accretion of cloud droplets by falling snow
      !
-     ! cloud droplet number concentration
-     REAL(wp) :: cn1lnd   ! [1e6/m3] over land, p <= 100 hPa
-     REAL(wp) :: cn2lnd   ! [1e6/m3] over land, p >= 800 hPa
-     REAL(wp) :: cn1sea   ! [1e6/m3] over sea , p <= 100 hPa
-     REAL(wp) :: cn2sea   ! [1e6/m3] over sea , p >= 800 hPa
-     !
-     ! cloud optics
-     REAL(wp) :: cinhomi  !          ice    cloud inhomogeneity factor
-     !
-     !                    !          liquid cloud inhomogeneity factor:
-     REAL(wp) :: cinhoml1 !          - ktype = 0 = stratiform clouds
-     REAL(wp) :: cinhoml2 !          - ktype = 4 = shallow conv. (cf. clwprat)
-     REAL(wp) :: cinhoml3 !          - ktype = 1 = deep convection             and
-     !                    !            ktype = 2 = shallow conv. (cf. clwprat) and
-     !                    !            ktype = 3 = mid-level conv.
+     ! cloud liquid/ice path ratio
      REAL(wp) :: clwprat  !          critical ratio of cloud liq.+ice paths below and above
      !                    !          the top of shallow convection
      !                    !          for ratio > clwprat -> change ktype from 2 to 4
-     !
-     ! tropopause diagnostics
-!!$     REAL(wp) :: cptop    ! [Pa]     pressure of highest level for tropopause calculation
-!!$     REAL(wp) :: cpbot    ! [Pa]     pressure of lowest  level for tropopause calculation
-     INTEGER  :: ncctop   !          index of highest level for tropopause calculation
-     INTEGER  :: nccbot   !          index of lowest  level for tropopause calculation
      !
   END TYPE t_echam_cld_config
 
@@ -155,24 +135,8 @@ CONTAINS
     echam_cld_config(:)% ccsaut   =  2.0_wp
     echam_cld_config(:)% ccsacl   = 0.10_wp
     !
-    ! cloud droplet number concentration
-    echam_cld_config(:)% cn1lnd   =  20._wp
-    echam_cld_config(:)% cn2lnd   = 180._wp
-    echam_cld_config(:)% cn1sea   =  20._wp
-    echam_cld_config(:)% cn2sea   =  80._wp
-    !
-    ! cloud optics
-    echam_cld_config(:)% cinhomi  = 0.80_wp
-    echam_cld_config(:)% cinhoml1 = 0.80_wp
-    echam_cld_config(:)% cinhoml2 = 0.40_wp
-    echam_cld_config(:)% cinhoml3 = 0.80_wp
+    ! cloud liquid/ice path ratio
     echam_cld_config(:)% clwprat  = 4.0_wp
-    !
-    ! tropopause diagnostics
-!!$    echam_cld_config(:)% cptop  = 1000.0_wp
-!!$    echam_cld_config(:)% cpbot  = 50000.0_wp
-    echam_cld_config(:)% ncctop   = 13
-    echam_cld_config(:)% nccbot   = 35
     !
   END SUBROUTINE init_echam_cld_config
 
@@ -216,7 +180,7 @@ CONTAINS
   !!
   SUBROUTINE print_echam_cld_config
     !
-    INTEGER           :: jg
+    INTEGER           :: jg,lg
     CHARACTER(LEN=2)  :: cg
     !
     CALL message    ('','')
@@ -229,49 +193,35 @@ CONTAINS
     DO jg = 1,n_dom
        !
        WRITE(cg,'(i0)') jg
+       lg = MERGE(2, 1, jg > 9)
        !
        CALL message    ('','For domain '//cg)
        CALL message    ('','------------')
        CALL message    ('','')
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% zmaxcld  ',echam_cld_config(jg)% zmaxcld )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% jkscld   ',echam_cld_config(jg)% jkscld  )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% zmaxcld  ',echam_cld_config(jg)% zmaxcld )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% jkscld   ',echam_cld_config(jg)% jkscld  )
        CALL message    ('','')
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% ccwmin   ',echam_cld_config(jg)% ccwmin  )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% cqtmin   ',echam_cld_config(jg)% cqtmin  )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% ccwmin   ',echam_cld_config(jg)% ccwmin  )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% cqtmin   ',echam_cld_config(jg)% cqtmin  )
        CALL message    ('','')
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% cthomi   ',echam_cld_config(jg)% cthomi  )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% csecfrl  ',echam_cld_config(jg)% csecfrl )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% cthomi   ',echam_cld_config(jg)% cthomi  )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% csecfrl  ',echam_cld_config(jg)% csecfrl )
        CALL message    ('','')
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% ccraut   ',echam_cld_config(jg)% ccraut  )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% ccracl   ',echam_cld_config(jg)% ccracl  )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% cauloc   ',echam_cld_config(jg)% cauloc  )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% clmin    ',echam_cld_config(jg)% clmin   )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% clmax    ',echam_cld_config(jg)% clmax   )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% ccraut   ',echam_cld_config(jg)% ccraut  )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% ccracl   ',echam_cld_config(jg)% ccracl  )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% cauloc   ',echam_cld_config(jg)% cauloc  )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% clmin    ',echam_cld_config(jg)% clmin   )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% clmax    ',echam_cld_config(jg)% clmax   )
        CALL message    ('','')
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% cvtfall  ',echam_cld_config(jg)% cvtfall )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% ceffmin  ',echam_cld_config(jg)% ceffmin )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% ceffmax  ',echam_cld_config(jg)% ceffmax )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% crhoi    ',echam_cld_config(jg)% crhoi   )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% crhosno  ',echam_cld_config(jg)% crhosno )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% cn0s     ',echam_cld_config(jg)% cn0s  )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% ccsaut   ',echam_cld_config(jg)% ccsaut  )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% ccsacl   ',echam_cld_config(jg)% ccsacl  )
-       CALL message    ('','')
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% cn1lnd   ',echam_cld_config(jg)% cn1lnd  )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% cn2lnd   ',echam_cld_config(jg)% cn2lnd  )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% cn1sea   ',echam_cld_config(jg)% cn1sea  )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% cn2sea   ',echam_cld_config(jg)% cn2sea  )
-       CALL message    ('','')
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% cinhomi  ',echam_cld_config(jg)% cinhomi )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% cinhoml1 ',echam_cld_config(jg)% cinhoml1)
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% cinhoml2 ',echam_cld_config(jg)% cinhoml2)
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% cinhoml3 ',echam_cld_config(jg)% cinhoml3)
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% clwprat  ',echam_cld_config(jg)% clwprat )
-       CALL message    ('','')
-!!$       CALL print_value('    echam_cld_config('//TRIM(cg)//')% cptop    ',echam_cld_config(jg)% cptop   )
-!!$       CALL print_value('    echam_cld_config('//TRIM(cg)//')% cpbot    ',echam_cld_config(jg)% cpbot   )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% ncctop   ',echam_cld_config(jg)% ncctop  )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% nccbot   ',echam_cld_config(jg)% nccbot  )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% cvtfall  ',echam_cld_config(jg)% cvtfall )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% ceffmin  ',echam_cld_config(jg)% ceffmin )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% ceffmax  ',echam_cld_config(jg)% ceffmax )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% crhoi    ',echam_cld_config(jg)% crhoi   )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% crhosno  ',echam_cld_config(jg)% crhosno )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% cn0s     ',echam_cld_config(jg)% cn0s    )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% ccsaut   ',echam_cld_config(jg)% ccsaut  )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% ccsacl   ',echam_cld_config(jg)% ccsacl  )
+       CALL print_value('    echam_cld_config('//cg(1:lg)//')% clwprat  ',echam_cld_config(jg)% clwprat )
        CALL message    ('','')
        !
     END DO

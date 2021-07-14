@@ -26,7 +26,7 @@ MODULE mo_limarea_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_master_control,      ONLY: use_restart_namelists
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH
-  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist     , &
+  USE mo_restart_nml_and_att, ONLY: open_tmpfile, store_and_close_namelist     , &
                                   & open_and_restore_namelist, close_tmpfile
   USE mo_limarea_config,      ONLY: latbc_config
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
@@ -75,10 +75,14 @@ CONTAINS
     CHARACTER(LEN=MAX_CHAR_LENGTH)  :: latbc_path
     !> grid file defining the lateral boundary
     CHARACTER(LEN=FILENAME_MAX)     :: latbc_boundary_grid
+    !> if set to TRUE, qi and qc are read from latbc data
+    LOGICAL                         :: latbc_contains_qcqi
     !> take initial lateral boundary conditions from first guess
     LOGICAL                         :: init_latbc_from_fg
     !> use hydrostatic pressure for lateral boundary nudging
     LOGICAL                         :: nudge_hydro_pres
+    !> factor for pressure bias correction of latbc data
+    REAL(wp)                        :: fac_latbc_presbiascor
 
     ! dictionary which maps internal variable names onto
     ! GRIB2 shortnames or NetCDF var names used for lateral boundary nudging.
@@ -94,8 +98,8 @@ CONTAINS
     NAMELIST /limarea_nml/ itype_latbc, dtime_latbc, nlev_latbc,                         &
       &                     latbc_filename, latbc_path, latbc_boundary_grid,             &
       &                     latbc_varnames_map_file, init_latbc_from_fg,                 &
-      &                     nudge_hydro_pres,                                            &
-      &                     nretries, retry_wait_sec
+      &                     nudge_hydro_pres, latbc_contains_qcqi,                       &
+      &                     nretries, retry_wait_sec, fac_latbc_presbiascor
 
     !------------------------------------------------------------
     ! Default settings
@@ -110,8 +114,10 @@ CONTAINS
     latbc_path          = "./"
     latbc_boundary_grid = ""  ! empty string means: whole domain is read for lateral boundary
     latbc_varnames_map_file = " "
+    latbc_contains_qcqi = .TRUE.
     init_latbc_from_fg  = .FALSE.
     nudge_hydro_pres    = .TRUE.
+    fac_latbc_presbiascor = 0._wp
 
     nretries            = 0
     retry_wait_sec      = 10
@@ -167,10 +173,12 @@ CONTAINS
     latbc_config%latbc_filename      = latbc_filename
     latbc_config%latbc_path          = TRIM(latbc_path)//'/'
     latbc_config%latbc_boundary_grid = latbc_boundary_grid
+    latbc_config%latbc_contains_qcqi = latbc_contains_qcqi
     latbc_config%lsparse_latbc       = (LEN_TRIM(latbc_boundary_grid) > 0)
     latbc_config%latbc_varnames_map_file = latbc_varnames_map_file
     latbc_config%init_latbc_from_fg  = init_latbc_from_fg
     latbc_config%nudge_hydro_pres    = nudge_hydro_pres
+    latbc_config%fac_latbc_presbiascor = fac_latbc_presbiascor
     latbc_config%nretries            = nretries
     latbc_config%retry_wait_sec      = retry_wait_sec
 

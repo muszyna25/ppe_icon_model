@@ -31,8 +31,6 @@ MODULE mo_interface_echam_cld
 
   USE mo_run_config          ,ONLY: iqv, iqc, iqi
   USE mo_cloud               ,ONLY: cloud
-  !$ser verbatim USE mo_ser_echam_cld, ONLY: serialize_cld_input,&
-  !$ser verbatim                             serialize_cld_output
 
   IMPLICIT NONE
   PRIVATE
@@ -85,9 +83,6 @@ CONTAINS
     field     => prm_field(jg)
     tend      => prm_tend(jg)
 
-    ! Serialbox2 input fields serialization
-    !$ser verbatim call serialize_cld_input(jg, jb, jcs, jce, nproma, nlev, field, tend)
-
     IF ( is_in_sd_ed_interval ) THEN
        !$ACC DATA PRESENT( field%rtype, field% qconv, field% aclc, field% aclcov ) &
        !$ACC       CREATE( itype, hur, q_cld, tend_ta_cld, tend_qtrc_cld, aclc, aclcov )
@@ -116,7 +111,7 @@ CONTAINS
                &     jcs, jce, nproma, nlev,       &! in
                &     pdtime,                       &! in
                &     field% ictop    (:,  jb),     &! in (from "cucall")
-               &     field% presm_old(:,:,jb),     &! in
+               &     field% pfull    (:,:,jb),     &! in
                &     field% dz       (:,:,jb),     &! in
                &     field% mref     (:,:,jb),     &! in
                &     field% rho      (:,:,jb),     &! in
@@ -375,9 +370,6 @@ CONTAINS
        END IF
        !
     END IF
-
-    ! Serialbox2 output fields serialization
-    !$ser verbatim call serialize_cld_output(jg, jb, jcs, jce, nproma, nlev, field, tend)
 
     ! disassociate pointers
     NULLIFY(lparamcpl)

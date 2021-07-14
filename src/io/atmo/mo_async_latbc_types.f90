@@ -20,17 +20,18 @@
 !!
 MODULE mo_async_latbc_types
 
-  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_null_ptr, C_F_POINTER
+  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, C_F_POINTER
   USE mo_kind,                     ONLY: sp
   USE mo_dictionary,               ONLY: DICT_MAX_STRLEN
   USE mtime,                       ONLY: event, datetime, timedelta, &
     &                                    deallocateTimedelta, deallocateEvent, deallocateDatetime
   USE mo_initicon_types,           ONLY: t_init_state, t_init_state_const
-  USE mo_impl_constants,           ONLY: SUCCESS, max_ntracer, VARNAME_LEN
+  USE mo_impl_constants,           ONLY: SUCCESS, max_ntracer, vname_len
   USE mo_exception,                ONLY: finish, message
   USE mo_run_config,               ONLY: msg_level
   USE mo_reorder_info,             ONLY: t_reorder_info, release_reorder_info
-  USE mo_mpi,                      ONLY: get_my_global_mpi_id, p_comm_work, p_comm_work_pref, p_barrier
+  USE mo_mpi,                      ONLY: p_comm_work_pref, p_barrier
+  USE mo_cdi,                      ONLY: cdi_undefid, streamclose
 #ifndef NOMPI
   USE mpi
 #endif
@@ -89,7 +90,7 @@ MODULE mo_async_latbc_types
 
      ! for additional tracer variables, e.g. ART tracers
      LOGICAL                                     :: lread_tracer(max_ntracer) ! provided as input?
-     CHARACTER(LEN=VARNAME_LEN)                  :: name_tracer(max_ntracer)  ! names
+     CHARACTER(LEN=vname_len)                  :: name_tracer(max_ntracer)  ! names
      INTEGER                                     :: idx_tracer(max_ntracer)   ! indices in tracer container
 
      LOGICAL                                     :: lread_vn           ! is vn provided as input?
@@ -182,7 +183,11 @@ MODULE mo_async_latbc_types
   !
   TYPE t_latbc_data
 
-    TYPE(datetime),  POINTER :: mtime_last_read => NULL()
+    !> full path of currently open file, unallocated if not open
+    CHARACTER(:), ALLOCATABLE :: open_filepath
+    !> CDI handle of currently open stream, CDI_UNDEFID if not open
+    INTEGER :: open_cdi_stream_handle = cdi_undefid
+    TYPE(datetime) :: mtime_last_read
     TYPE(event),     POINTER :: prefetchEvent   => NULL()
     TYPE(timedelta), POINTER :: delta_dtime     => NULL()
 
@@ -318,13 +323,16 @@ CONTAINS
     END IF
 
     ! deallocating date and time data structures
-    IF (ASSOCIATED(latbc%mtime_last_read)) &
-      CALL deallocateDatetime(latbc%mtime_last_read)
     IF (ASSOCIATED(latbc%delta_dtime)) &
       CALL deallocateTimedelta(latbc%delta_dtime)
     IF (ASSOCIATED(latbc%latbc_data_const)) THEN
       DEALLOCATE(latbc%latbc_data_const, stat=ierror)
       IF (ierror /= SUCCESS) CALL finish(routine, "deallocate failed!")
+    END IF
+    ! close input file if open
+    IF (latbc%open_cdi_stream_handle /= cdi_undefid) THEN
+      CALL streamclose(latbc%open_cdi_stream_handle)
+      latbc%open_cdi_stream_handle = cdi_undefid
     END IF
     IF  (msg_level >= 15)  CALL message(routine, 'done.')
   END SUBROUTINE t_latbc_data_finalize

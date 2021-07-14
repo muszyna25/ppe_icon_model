@@ -7,7 +7,7 @@
 !! headers of the routines.
 MODULE mo_util_file
 
-  USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT, C_CHAR, C_NULL_CHAR, C_LONG, C_SIZE_T
+  USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT, C_CHAR, C_NULL_CHAR, C_LONG
   USE mo_exception, ONLY: finish
   USE mo_impl_constants, ONLY: SUCCESS
   USE mo_kind, ONLY: i8
@@ -230,8 +230,7 @@ CONTAINS
         EXIT TEST_LOOP
       END IF
       IF (i == N_RETRIES) THEN
-        WRITE (0,*) "mo_util_file::util_tmpnam : Failed to find a tmp filename!"
-        STOP
+        CALL finish('mo_util_file::util_tmpnam', 'Failed to find a tmp filename!')
       END IF
     END DO TEST_LOOP
   END FUNCTION util_tmpnam

@@ -28,8 +28,7 @@ MODULE mo_util_cdi
   USE mo_mpi,                ONLY: p_bcast, p_io, my_process_is_stdio, p_mpi_wtime,  &
     &                              my_process_is_mpi_workroot
   USE mo_util_string,        ONLY: tolower, int2string
-  USE mo_fortran_tools,      ONLY: assign_if_present
-  USE mo_dictionary,         ONLY: t_dictionary, dict_get, dict_init, dict_copy, dict_finalize, DICT_MAX_STRLEN
+  USE mo_dictionary,         ONLY: t_dictionary, DICT_MAX_STRLEN
   USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL
   USE mo_var_metadata_types, ONLY: t_var_metadata
   USE mo_gribout_config,     ONLY: t_gribout_config
@@ -40,13 +39,13 @@ MODULE mo_util_cdi
   USE mo_nwp_sfc_tiles,      ONLY: t_tileinfo_icon, t_tileinfo_grb2, trivial_tile_att
 
   USE mo_cdi,                ONLY: FILETYPE_NC, FILETYPE_NC2, FILETYPE_NC4, streamInqVlist, vlistNvars, vlistInqVarDatatype, &
-                                 & vlistInqVarIntKey, vlistInqVarZaxis, zaxisInqType, zaxisInqNlevRef, &
+                                 & vlistInqVarIntKey, vlistInqVarZaxis, &
                                  & vlistInqVarGrid, gridInqSize, zaxisInqSize, CDI_DATATYPE_FLT64, CDI_DATATYPE_INT32, &
                                  & streamInqTimestep, &
-                                 & vlistInqVarTsteptype, TSTEP_CONSTANT, TSTEP_INSTANT, TSTEP_MAX, TSTEP_MIN, vlistInqTaxis, &
-                                 & taxisInqTunit, TUNIT_SECOND, TUNIT_MINUTE, TUNIT_HOUR, vlistDefVarIntKey, &
-                                 & vlistDefVarTypeOfGeneratingProcess, streamReadVarSliceF, streamReadVarSlice, vlistInqVarName, &
-                                 & TSTEP_AVG,TSTEP_ACCUM,TSTEP_MAX,TSTEP_MIN, vlistInqVarSubtype, subtypeInqSize, &
+                                 & vlistDefVarIntKey, &
+                                 & streamReadVarSliceF, streamReadVarSlice, vlistInqVarName, &
+                                 & vlistInqVarSubtype, subtypeInqSize, &
+                                 & cdi_max_name, &
                                  & subtypeDefActiveIndex, CDI_DATATYPE_PACK23, CDI_DATATYPE_PACK32, cdiStringError, &
                                  & FILETYPE_GRB2, vlistDefVar, cdiEncodeParam, &
                                  & vlistDefVarName, vlistDefVarLongname,        &
@@ -115,10 +114,7 @@ MODULE mo_util_cdi
 
   CONTAINS
     PROCEDURE :: findVarId => inputParametersFindVarId  !< determine the ID of an named variable
-    PROCEDURE :: findVarDatatype => inputParametersFindVarDatatype  !< determine the type with which this variable is stored on disk
-    PROCEDURE :: lookupDatatype => inputParametersLookupDatatype    !< determine datatype based on the variable ID
 
-    GENERIC :: getDatatype => findVarDatatype, lookupDatatype
   END TYPE
 
 CONTAINS
@@ -147,18 +143,19 @@ CONTAINS
     TYPE(t_dictionary), INTENT(IN), OPTIONAL :: opt_dict
 
     CHARACTER(len=*), PARAMETER :: routine = modname//':makeInputParameters'
-    INTEGER :: vlistId, variableCount, i, ierrstat
+    INTEGER :: vlistId, variableCount, i, j, ierrstat
     INTEGER :: subtypeID
     INTEGER :: ientry
     INTEGER :: cnt
 
-    INTEGER, ALLOCATABLE :: tileIdx_container(:)
-    INTEGER, ALLOCATABLE :: tileAtt_container(:)
-    INTEGER, ALLOCATABLE :: tileTid_container(:)
+    INTEGER, ALLOCATABLE :: tileIdxAttTidTemp(:,:)
     INTEGER, ALLOCATABLE :: subtypeSize(:)
 
     INTEGER :: idx, att, tile_index
     TYPE(t_tileinfo_icon) :: tileinfo_icon
+    LOGICAL :: is_workroot
+
+    is_workroot = my_process_is_mpi_workroot()
 
 
     !first forward the arguments to the object we are building
@@ -167,32 +164,27 @@ CONTAINS
 
     me%have_dict = .FALSE.
     IF(PRESENT(opt_dict)) THEN
-      CALL dict_init(me%dict, lcase_sensitive=.FALSE.)
-      CALL dict_copy(opt_dict, me%dict)
+      CALL me%dict%init(.FALSE.)
+      CALL opt_dict%copy(me%dict)
       me%have_dict = .TRUE.
     END IF
     me%distribution => distribution
     CALL me%distribution%resetStatistics()
 
     !now the interesting part: introspect the file and broadcast the variable info needed to avoid broadcasting it later.
-    IF(my_process_is_mpi_workroot()) THEN
+    IF (is_workroot) THEN
         vlistId = streamInqVlist(streamId)
         variableCount = vlistNvars(vlistId)
     END IF
     CALL p_bcast(variableCount, p_io, distribution%communicator)
 
-    ALLOCATE(me%variableNames(variableCount), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-    ALLOCATE(me%variableDatatype(variableCount), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-    ALLOCATE(me%variableTileinfo(variableCount), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-
-    ! local arrays
-    ALLOCATE(subtypeSize(variableCount), STAT=ierrstat)
+    ALLOCATE(me%variableNames(variableCount), &
+      &      me%variableDatatype(variableCount), &
+      &      me%variableTileinfo(variableCount), &
+      &      subtypeSize(variableCount), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
-    IF(my_process_is_mpi_workroot()) THEN
+    IF (is_workroot) THEN
         subtypeSize(1:variableCount) = 0
         do i = 1, variableCount
             CALL vlistInqVarName(vlistId, i-1, me%variableNames(i))
@@ -222,9 +214,9 @@ CONTAINS
 
                 me%variableTileinfo(i)%tile(ientry)       = t_tileinfo_grb2( idx, att )
                 me%variableTileinfo(i)%tile_index(ientry) = tile_index
-                ! reset active index
-                CALL subtypeDefActiveIndex(subtypeID,0)
               END DO
+              ! reset active index
+              CALL subtypeDefActiveIndex(subtypeID,0)
             ENDIF  ! totalNumberOfTileAttributePairs <= 0
 
         END do
@@ -235,42 +227,39 @@ CONTAINS
 
     ! put tile info into local 1D arrays, for broadcasting
     ! currently direct bradcast of variable variableTileinfo not possible
-    ALLOCATE(tileIdx_container(SUM(subtypeSize(1:variableCount))), &
-      &      tileAtt_container(SUM(subtypeSize(1:variableCount))), &
-      &      tileTId_container(SUM(subtypeSize(1:variableCount))), &
+    ALLOCATE(tileIdxAttTidTemp(SUM(subtypeSize(1:variableCount)),3), &
       &      STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
-    IF(my_process_is_mpi_workroot()) THEN
+    IF (is_workroot) THEN
       cnt = 0
       DO i=1, variableCount
-        tileIdx_container(cnt+1:cnt+subtypeSize(i)) = me%variableTileinfo(i)%tile(1:subtypeSize(i))%idx
-        tileAtt_container(cnt+1:cnt+subtypeSize(i)) = me%variableTileinfo(i)%tile(1:subtypeSize(i))%att
-        tileTid_container(cnt+1:cnt+subtypeSize(i)) = me%variableTileinfo(i)%tile_index(1:subtypeSize(i))
+        DO j = 1, subtypeSize(i)
+          tileIdxAttTidTemp(cnt+j, 1) = me%variableTileinfo(i)%tile(j)%idx
+          tileIdxAttTidTemp(cnt+j, 2) = me%variableTileinfo(i)%tile(j)%att
+          tileIdxAttTidTemp(cnt+j, 3) = me%variableTileinfo(i)%tile_index(j)
+        END DO
         cnt = cnt + subtypeSize(i)
       END DO
     ENDIF
 
     CALL p_bcast(me%variableNames   , p_io, distribution%communicator)
     CALL p_bcast(me%variableDatatype, p_io, distribution%communicator)
-    CALL p_bcast(tileIdx_container  , p_io, distribution%communicator)
-    CALL p_bcast(tileAtt_container  , p_io, distribution%communicator)
-    CALL p_bcast(tileTid_container  , p_io, distribution%communicator)
+    CALL p_bcast(tileIdxAttTidTemp  , p_io, distribution%communicator)
 
     ! read tile info from broadcasted 1D array and store in array variableTileinfo of TYPE t_tileinfo
-    IF (.NOT. my_process_is_mpi_workroot()) THEN
+    IF (.NOT. is_workroot) THEN
       cnt = 0
       DO i=1, variableCount
         IF (subtypeSize(i) > 0) THEN
           ALLOCATE(me%variableTileinfo(i)%tile(subtypeSize(i)), &
             &      me%variableTileinfo(i)%tile_index(subtypeSize(i)), STAT=ierrstat)
           IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-          me%variableTileinfo(i)%tile(1:subtypeSize(i))%idx        = &
-            &      tileIdx_container(cnt+1:cnt+subtypeSize(i))
-          me%variableTileinfo(i)%tile(1:subtypeSize(i))%att        = &
-            &      tileAtt_container(cnt+1:cnt+subtypeSize(i))
-          me%variableTileinfo(i)%tile_index(1:subtypeSize(i))      = &
-            &      tileTid_container(cnt+1:cnt+subtypeSize(i))
+          DO j = 1, subtypeSize(i)
+            me%variableTileinfo(i)%tile(j)%idx   = tileIdxAttTidTemp(cnt+j, 1)
+            me%variableTileinfo(i)%tile(j)%att   = tileIdxAttTidTemp(cnt+j, 2)
+            me%variableTileinfo(i)%tile_index(j) = tileIdxAttTidTemp(cnt+j, 3)
+          END DO
           cnt = cnt + subtypeSize(i)
         ENDIF
       ENDDO
@@ -280,21 +269,19 @@ CONTAINS
     me%readBytes = 0_i8
 
     ! cleanup
-    DEALLOCATE(tileIdx_container, tileAtt_container, tileTid_container, subtypeSize, STAT=ierrstat)
+    DEALLOCATE(tileIdxAttTidTemp, subtypeSize, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
   END FUNCTION makeInputParameters
 
   ! This function is only a workaround for a compiler bug on the
   ! blizzard. May be reintegrated into inputParametersFindVarId() once
   ! we are not concerned about xlf anymore.
-  LOGICAL FUNCTION compareTiledVars(name1, idx1, att1, name2, idx2, att2) RESULT(resultvar)
+  PURE FUNCTION compareTiledVars(name1, idx1, att1, name2, idx2, att2) &
+       RESULT(is_equal)
     CHARACTER(LEN = *), INTENT(IN) :: name1, name2
-    INTEGER, VALUE :: idx1, att1, idx2, att2
-
-    resultVar = .TRUE.
-    IF(TRIM(tolower(name1)) /= TRIM(tolower(name2))) resultVar = .FALSE.
-    IF(idx1 /= idx2) resultVar = .FALSE.
-    IF(att1 /= att2) resultVar = .FALSE.
+    INTEGER, INTENT(in) :: idx1, att1, idx2, att2
+    LOGICAL :: is_equal
+    is_equal = idx1 == idx2 .AND. att1 == att2 .AND. tolower(name1) == name2
   END FUNCTION compareTiledVars
 
   !---------------------------------------------------------------------------------------------------------------------------------
@@ -309,14 +296,13 @@ CONTAINS
 
     CHARACTER(len=*), PARAMETER :: routine = modname//':inputParametersFindVarId'
     CHARACTER(len=DICT_MAX_STRLEN) :: mapped_name
-    INTEGER :: i, j
+    INTEGER :: i, j, tlen
 
-    mapped_name = trim(name)
-    IF(me%have_dict) THEN
-      ! Search name mapping for name in NetCDF/GRIB2 file
-      mapped_name = TRIM(dict_get(me%dict, TRIM(name), DEFAULT=name))
-    END IF
-    mapped_name = tolower(trim(mapped_name))
+    mapped_name = name
+    IF (me%have_dict) &
+      & mapped_name = me%dict%get(TRIM(name), DEFAULT=name)
+    mapped_name = tolower(mapped_name)
+    tlen = LEN_TRIM(mapped_name)
 
     varID      = -1
     tile_index = -1
@@ -324,7 +310,7 @@ CONTAINS
     DO i = 1, SIZE(me%variableNames)
       DO j = 1, SIZE(me%variableTileinfo(i)%tile)
         IF (compareTiledVars(me%variableNames(i), me%variableTileinfo(i)%tile(j)%idx, me%variableTileinfo(i)%tile(j)%att, &
-          &                  mapped_name, tileinfo%idx, tileinfo%att)) THEN
+          &                  mapped_name(1:tlen), tileinfo%idx, tileinfo%att)) THEN
           varID      = i-1
           tile_index = me%variableTileinfo(i)%tile_index(j)
           RETURN
@@ -336,7 +322,7 @@ CONTAINS
     ! insanity check
     IF(varID < 0) THEN
       IF(my_process_is_stdio()) THEN
-        PRINT '(5a)', routine, ": mapped_name = '", TRIM(mapped_name), "'", "", &
+        PRINT '(5a)', routine, ": mapped_name = '", mapped_name(1:tlen), "'", "", &
              routine, ": tile idx = ", tileinfo%idx, ", att = ", tileinfo%att, &
              routine, ": list of variables:"
         DO i = 1, SIZE(me%variableNames)
@@ -351,35 +337,9 @@ CONTAINS
           END DO
         END DO
       END IF
-      CALL finish(routine, "Variable "//TRIM(name)//" not found!")
+      CALL finish(routine, "Variable "//name(1:tlen)//" not found!")
     END IF
   END SUBROUTINE inputParametersFindVarId
-
-  !---------------------------------------------------------------------------------------------------------------------------------
-  !> Lookup the datatype of a variable given its cdi varId
-  !---------------------------------------------------------------------------------------------------------------------------------
-  INTEGER FUNCTION inputParametersLookupDatatype(me, varId) RESULT(resultVar)
-    IMPLICIT NONE
-    CLASS(t_inputParameters), INTENT(IN) :: me
-    INTEGER, INTENT(IN) :: varId
-
-    resultVar = me%variableDatatype(varId+1)
-  END FUNCTION inputParametersLookupDatatype
-
-  !---------------------------------------------------------------------------------------------------------------------------------
-  !> Find a variable and determine its datatype
-  !---------------------------------------------------------------------------------------------------------------------------------
-  INTEGER FUNCTION inputParametersFindVarDatatype(me, name, tileinfo) RESULT(resultVar)
-    IMPLICIT NONE
-    CLASS(t_inputParameters), INTENT(IN) :: me
-    CHARACTER(len=*),         INTENT(IN) :: name
-    TYPE(t_tileinfo_grb2),    INTENT(IN) :: tileinfo
-    ! local variables
-    INTEGER :: varID, tile_index
-    CALL me%findVarId(name, tileinfo, varID, tile_index)
-    resultVar = me%lookupDatatype(varID)
-  END FUNCTION inputParametersFindVarDatatype
-
 
   !---------------------------------------------------------------------------------------------------------------------------------
   !> Destroys a t_inputParameters object
@@ -400,7 +360,7 @@ CONTAINS
     END IF
     CALL me%distribution%printStatistics()
 
-    IF(me%have_dict) CALL dict_finalize(me%dict)
+    IF(me%have_dict) CALL me%dict%finalize()
     DEALLOCATE(me%variableNames)
     DEALLOCATE(me%variableDatatype)
     DEALLOCATE(me%variableTileinfo)
@@ -419,13 +379,13 @@ CONTAINS
     CHARACTER (LEN=*), INTENT(IN)           :: name                !< variable name
     TYPE (t_dictionary), INTENT(IN), OPTIONAL :: opt_dict          !< optional: variable name dictionary
     ! local variables
-    CHARACTER(len=MAX_CHAR_LENGTH)  :: zname
+    CHARACTER(len=CDI_MAX_NAME) :: zname
     INTEGER                         :: nvars, varID, vlistID
     CHARACTER(LEN=DICT_MAX_STRLEN)  :: mapped_name
 
     IF (PRESENT(opt_dict)) THEN
       ! Search name mapping for name in NetCDF/GRIB2 file
-      mapped_name = tolower(dict_get(opt_dict, name, DEFAULT=name))
+      mapped_name = tolower(opt_dict%get(name, DEFAULT=name))
     ELSE
       mapped_name = tolower(name)
     END IF
@@ -575,21 +535,21 @@ CONTAINS
   SUBROUTINE read_cdi_3d_wp(parameters, varID, nlevs, levelDimension, var_out, lvalue_add)
     TYPE(t_inputParameters), INTENT(INOUT) :: parameters
     INTEGER, INTENT(IN) :: varID, nlevs, levelDimension
-    REAL(wp), INTENT(INOUT) :: var_out(:,:,:) !< output field
+    REAL(wp), TARGET, INTENT(INOUT) :: var_out(:,:,:) !< output field
     LOGICAL, INTENT(IN) :: lvalue_add         !< If .TRUE., add values to given field
 
+    REAL(wp), POINTER :: var_out_lev(:,:)
     CHARACTER(len=*), PARAMETER :: routine = modname//':read_cdi_3d_wp'
     INTEGER :: jk, ierrstat, nmiss
     REAL(wp), ALLOCATABLE :: tmp_buf(:) ! temporary local array
+    LOGICAL :: is_workroot
+
+    is_workroot = my_process_is_mpi_workroot()
 
     ! allocate a buffer for one vertical level
-    IF(my_process_is_mpi_workroot()) THEN
-        ALLOCATE(tmp_buf(parameters%glb_arr_len), STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-    ELSE
-        ALLOCATE(tmp_buf(1), STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-    END IF
+    ALLOCATE(tmp_buf(MERGE(parameters%glb_arr_len, 1, is_workroot)), &
+      &      STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
     ! initialize output field:
     !XXX: It stands to reason whether we really need to do this. It's only effective iff there are points in var_out that are not
@@ -597,21 +557,22 @@ CONTAINS
     !     lvalue_add.
     IF(.not. lvalue_add) var_out(:,:,:) = 0._wp
 
+    IF (leveldimension < 2 .OR. leveldimension > 3) &
+      CALL finish(routine, "Internal error!")
     !FIXME: This code is most likely latency bound, not throughput bound. Needs some asynchronicity to hide the latencies.
     DO jk=1,nlevs
-      IF(my_process_is_mpi_workroot()) THEN
+      IF (is_workroot) THEN
         ! read record as 1D field
         CALL timeStreamReadVarSlice(parameters, varID, jk-1, tmp_buf(:), nmiss)
       END IF
 
       SELECT CASE(levelDimension)
-          CASE(2)
-              CALL parameters%distribution%distribute(tmp_buf(:), var_out(:, jk, :), lvalue_add)
-          CASE(3)
-              CALL parameters%distribution%distribute(tmp_buf(:), var_out(:, :, jk), lvalue_add)
-          CASE DEFAULT
-              CALL finish(routine, "Internal error!")
+      CASE(2)
+        var_out_lev => var_out(:, jk, :)
+      CASE(3)
+        var_out_lev => var_out(:, :, jk)
       END SELECT
+      CALL parameters%distribution%distribute(tmp_buf(:), var_out_lev, lvalue_add)
     END DO ! jk=1,nlevs
 
     ! clean up
@@ -627,21 +588,21 @@ CONTAINS
   SUBROUTINE read_cdi_3d_sp(parameters, varID, nlevs, levelDimension, var_out, lvalue_add)
     TYPE(t_inputParameters), INTENT(INOUT) :: parameters
     INTEGER, INTENT(IN) :: varID, nlevs, levelDimension
-    REAL(wp), INTENT(INOUT) :: var_out(:,:,:) !< output field
+    REAL(wp), TARGET, INTENT(INOUT) :: var_out(:,:,:) !< output field
     LOGICAL, INTENT(IN) :: lvalue_add         !< If .TRUE., add values to given field
 
     CHARACTER(len=*), PARAMETER :: routine = modname//':read_cdi_3d_sp'
     INTEGER :: jk, ierrstat, nmiss
+    REAL(wp), POINTER :: var_out_lev(:,:)
     REAL(sp), ALLOCATABLE :: tmp_buf(:) ! temporary local array
+    LOGICAL :: is_workroot
+
+    is_workroot = my_process_is_mpi_workroot()
 
     ! allocate a buffer for one vertical level
-    IF(my_process_is_mpi_workroot()) THEN
-        ALLOCATE(tmp_buf(parameters%glb_arr_len), STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-    ELSE
-        ALLOCATE(tmp_buf(1), STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-    END IF
+    ALLOCATE(tmp_buf(MERGE(parameters%glb_arr_len, 1, is_workroot)), &
+      &      STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
     ! initialize output field:
     !XXX: It stands to reason whether we really need to do this. It's only effective iff there are points in var_out that are not
@@ -649,21 +610,22 @@ CONTAINS
     !     lvalue_add.
     IF(.not. lvalue_add) var_out(:,:,:) = 0._wp
 
+    IF (leveldimension < 2 .OR. leveldimension > 3) &
+      CALL finish(routine, "Internal error!")
     !FIXME: This code is most likely latency bound, not throughput bound. Needs some asynchronicity to hide the latencies.
     DO jk=1,nlevs
-      IF(my_process_is_mpi_workroot()) THEN
+      IF (is_workroot) THEN
         ! read record as 1D field
         CALL timeStreamReadVarSliceF(parameters, varID, jk-1, tmp_buf(:), nmiss)
       END IF
 
       SELECT CASE(levelDimension)
-          CASE(2)
-              CALL parameters%distribution%distribute(tmp_buf(:), var_out(:, jk, :), lvalue_add)
-          CASE(3)
-              CALL parameters%distribution%distribute(tmp_buf(:), var_out(:, :, jk), lvalue_add)
-          CASE DEFAULT
-              CALL finish(routine, "Internal error!")
+      CASE(2)
+        var_out_lev => var_out(:, jk, :)
+      CASE(3)
+        var_out_lev => var_out(:, :, jk)
       END SELECT
+      CALL parameters%distribution%distribute(tmp_buf(:), var_out_lev, lvalue_add)
     END DO ! jk=1,nlevs
 
     ! clean up
@@ -694,10 +656,9 @@ CONTAINS
     LOGICAL :: lvalue_add
 
     levelDimension = 2
-    CALL assign_if_present(levelDimension, opt_lev_dim)
-
+    IF (PRESENT(opt_lev_dim)) levelDimension = opt_lev_dim
     lvalue_add = .FALSE.
-    CALL assign_if_present(lvalue_add, opt_lvalue_add)
+    IF (PRESENT(opt_lvalue_add)) lvalue_add = opt_lvalue_add
 
     CALL parameters%findVarId(varname, tileinfo, varID, tile_index)
 
@@ -722,7 +683,7 @@ CONTAINS
       END IF
     END IF
 
-    SELECT CASE(parameters%lookupDatatype(varId))
+    SELECT CASE(parameters%variableDatatype(varId+1))
         CASE(CDI_DATATYPE_PACK23:CDI_DATATYPE_PACK32, CDI_DATATYPE_FLT64, CDI_DATATYPE_INT32)
             ! int32 is treated as double precision because single precision floats would cut off up to seven bits from the integer
             CALL read_cdi_3d_wp(parameters, varId, nlevs, levelDimension, var_out, lvalue_add)
@@ -773,14 +734,16 @@ CONTAINS
 
     CHARACTER(len=*), PARAMETER :: routine = modname//':read_cdi_3d_lbc'
     INTEGER :: jk, ierrstat, nmiss, i
-    INTEGER :: vlistId, varId, zaxisId, gridId, tile_index
+    INTEGER :: vlistId, varId, zaxisId, gridId, tile_index, grid_size
     REAL(sp), ALLOCATABLE :: tmp_buf(:), map_buf(:) ! temporary local array
-    LOGICAL :: lmap_buf
+    LOGICAL :: lmap_buf, is_workroot
+
+    is_workroot = my_process_is_mpi_workroot()
 
     CALL parameters%findVarId(varname, trivial_tile_att%getTileinfo_grb2(), varID, tile_index)
     lmap_buf = .FALSE.
 
-    IF(my_process_is_mpi_workroot()) THEN
+    IF (is_workroot) THEN
       vlistId = streamInqVlist(parameters%streamId)
       ! sanity check of the variable dimensions
       zaxisId = vlistInqVarZaxis(vlistId, varId)
@@ -790,11 +753,12 @@ CONTAINS
       END IF
 
       gridId = vlistInqVarGrid(vlistId, varId)
-      IF (gridInqSize(gridId) /= parameters%glb_arr_len) THEN
-        IF (npoints == gridInqSize(gridId)) THEN
+      grid_size = gridInqSize(gridId)
+      IF (grid_size /= parameters%glb_arr_len) THEN
+        IF (npoints == grid_size) THEN
           lmap_buf = .TRUE.
         ELSE
-          CALL finish(routine, "Incompatible dimensions! Grid size = "//trim(int2string(gridInqSize(gridId)))//&
+          CALL finish(routine, "Incompatible dimensions! Grid size = "//trim(int2string(grid_size))//&
           &                    " (expected "//trim(int2string(npoints))//")")
         ENDIF
       END IF
@@ -802,7 +766,7 @@ CONTAINS
 
 
     ! allocate a buffer for one vertical level
-    IF(my_process_is_mpi_workroot()) THEN
+    IF (is_workroot) THEN
       IF (lmap_buf) THEN
         ALLOCATE(tmp_buf(npoints), map_buf(parameters%glb_arr_len), STAT=ierrstat)
         map_buf(:) = 0._sp
@@ -819,7 +783,7 @@ CONTAINS
 
     !FIXME: This code is most likely latency bound, not throughput bound. Needs some asynchronicity to hide the latencies.
     DO jk=1,nlevs
-      IF(my_process_is_mpi_workroot()) THEN
+      IF (is_workroot) THEN
         ! read record as 1D field
         IF (lmap_buf) THEN
           CALL timeStreamReadVarSliceF(parameters, varID, jk-1, tmp_buf(:), nmiss)
@@ -855,22 +819,25 @@ CONTAINS
 
     CHARACTER(len=*), PARAMETER :: routine = modname//':read_cdi_2d_lbc'
     INTEGER :: jk, ierrstat, nmiss, i
-    INTEGER :: vlistId, varId, zaxisId, gridId, tile_index
+    INTEGER :: vlistId, varId, zaxisId, gridId, tile_index, grid_size
     REAL(sp), ALLOCATABLE :: tmp_buf(:), map_buf(:) ! temporary local array
-    LOGICAL :: lmap_buf
+    LOGICAL :: lmap_buf, is_workroot
+
+    is_workroot = my_process_is_mpi_workroot()
 
     CALL parameters%findVarId(varname, trivial_tile_att%getTileinfo_grb2(), varID, tile_index)
     lmap_buf = .FALSE.
 
-    IF(my_process_is_mpi_workroot()) THEN
+    IF (is_workroot) THEN
       vlistId = streamInqVlist(parameters%streamId)
 
       gridId = vlistInqVarGrid(vlistId, varId)
-      IF (gridInqSize(gridId) /= parameters%glb_arr_len) THEN
-        IF (npoints == gridInqSize(gridId)) THEN
+      grid_size = gridInqSize(gridId)
+      IF (grid_size /= parameters%glb_arr_len) THEN
+        IF (npoints == grid_size) THEN
           lmap_buf = .TRUE.
         ELSE
-          CALL finish(routine, "Incompatible dimensions! Grid size = "//trim(int2string(gridInqSize(gridId)))//&
+          CALL finish(routine, "Incompatible dimensions! Grid size = "//trim(int2string(grid_size))//&
           &                    " (expected "//trim(int2string(npoints))//")")
         ENDIF
       END IF
@@ -878,7 +845,7 @@ CONTAINS
 
 
     ! allocate a buffer for one vertical level
-    IF(my_process_is_mpi_workroot()) THEN
+    IF (is_workroot) THEN
       IF (lmap_buf) THEN
         ALLOCATE(tmp_buf(npoints), map_buf(parameters%glb_arr_len), STAT=ierrstat)
         map_buf(:) = 0._sp
@@ -894,7 +861,7 @@ CONTAINS
 
 
     !FIXME: This code is most likely latency bound, not throughput bound. Needs some asynchronicity to hide the latencies.
-      IF(my_process_is_mpi_workroot()) THEN
+      IF (is_workroot) THEN
         ! read record as 1D field
         IF (lmap_buf) THEN
           CALL timeStreamReadVarSliceF(parameters, varID, 0, tmp_buf(:), nmiss)
@@ -1007,7 +974,7 @@ CONTAINS
       IF (gridInqSize(gridId) /= parameters%glb_arr_len) CALL finish(routine, "Incompatible dimensions!"//&
       & " Grid size = "//trim(int2string(gridInqSize(gridId)))//" (expected "//trim(int2string(parameters%glb_arr_len))//")")
     END IF
-    SELECT CASE(parameters%lookupDatatype(varId))
+    SELECT CASE(parameters%variableDatatype(varId+1))
         CASE(CDI_DATATYPE_PACK23:CDI_DATATYPE_PACK32, CDI_DATATYPE_FLT64, CDI_DATATYPE_INT32)
             ! int32 is treated as double precision because single precision floats would cut off up to seven bits from the integer
             CALL read_cdi_2d_wp(parameters, varId, var_out)
@@ -1109,6 +1076,9 @@ CONTAINS
     ! local variables:
     CHARACTER(len=*), PARAMETER :: routine = modname//':read_cdi_2d_time_tiles'
     INTEGER :: jt, nrecs, varId, subtypeID, tile_index, vlistID
+    LOGICAL :: is_workroot
+
+    is_workroot = my_process_is_mpi_workroot()
 
     ! Get var ID
     CALL parameters%findVarId(varname, tileinfo, varID, tile_index)
@@ -1118,14 +1088,14 @@ CONTAINS
     END IF
 
     DO jt = 1, ntime
-      IF (my_process_is_mpi_workroot()) THEN
+      IF (is_workroot) THEN
         ! set active tile index, if this is a tile-based variable
         vlistId    = streamInqVlist(parameters%streamId)
         subtypeID  = vlistInqVarSubtype(vlistID, varID)
         IF (tile_index > 0)  CALL subtypeDefActiveIndex(subtypeID, tile_index)
         nrecs = streamInqTimestep(parameters%streamId, (jt-1))
       END IF
-      SELECT CASE(parameters%lookupDatatype(varId))
+      SELECT CASE(parameters%variableDatatype(varId+1))
         CASE(CDI_DATATYPE_PACK23:CDI_DATATYPE_PACK32, CDI_DATATYPE_FLT64, CDI_DATATYPE_INT32)
             ! int32 is treated as double precision because single precision floats would cut off up to seven bits from the integer
             CALL read_cdi_2d_wp(parameters, varId, var_out(:,:,jt))
@@ -1136,7 +1106,7 @@ CONTAINS
             CALL read_cdi_2d_sp(parameters, varId, var_out(:,:,jt))
       END SELECT
     END DO
-    IF(my_process_is_mpi_workroot()) THEN
+    IF (is_workroot) THEN
       ! reset tile index
       IF (tile_index > 0)  CALL subtypeDefActiveIndex(subtypeID, 0)
     END IF
@@ -1198,9 +1168,9 @@ CONTAINS
 
     ! Search name mapping for name in NetCDF file
     IF (info%cf%short_name /= '') THEN
-      mapped_name = dict_get(out_varnames_dict, info%cf%short_name, default=info%cf%short_name)
+      mapped_name = out_varnames_dict%get(info%cf%short_name, default=info%cf%short_name)
     ELSE
-      mapped_name = dict_get(out_varnames_dict, info%name, default=info%name)
+      mapped_name = out_varnames_dict%get(info%name, default=info%name)
     END IF
 
     ! note that an explicit call of vlistDefVarTsteptype is obsolete, since

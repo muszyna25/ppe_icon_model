@@ -26,7 +26,7 @@
 # _bb_table_Model_        hydrost. atm + ocean
 # _bb_table_Grid_         triangle
 #-----------------------------------------------------------------------------
-grids_folder=${icon_data_poolFolder}/grids/buildbot
+grids_folder=${icon_data_rootFolder}/grids/buildbot
 #
 # Number of ocean processes
 #
@@ -368,7 +368,6 @@ cat > $atmo_namelist << EOF
  ltestcase            = .TRUE.       ! run testcase                 --> testcase_ctl
  ldynamics            = .TRUE.       ! dynamics                     --> dynamics_ctl, diffusion_ctl
  ltransport           = .TRUE.       ! switch on tracer transport   --> transport_ctl
- ntracer              = 3            ! number of tracers
  iforcing             = 2            ! ECHAM phyiscs
  msg_level            = 1            ! detailed report during integration
  ltimer               = .TRUE.
@@ -389,10 +388,10 @@ cat > $atmo_namelist << EOF
 &diffusion_nml
 /
 &transport_nml
- tracer_names     = 'v','w','i'   ! water vapour, cloud water, cloud ice
- ivadv_tracer     = 3,3,3
- itype_hlimit     = 3,4,4
- ihadv_tracer     = 52,2,2
+ tracer_names     = 'hus','clw','cli'
+ ivadv_tracer     =    3 ,   3 ,   3
+ itype_hlimit     =    3 ,   4 ,   4
+ ihadv_tracer     =   52 ,   2 ,   2
 /
 &echam_phy_nml
 !
@@ -693,8 +692,8 @@ cat > ${ocean_namelist} << EOF
   bottom_drag_coeff               =   2.5E-3  ! bottom drag coefficient default= 2.5E-3
 !  use_wind_mixing                 = .true.    ! true: use wind mixing scheme in MPIOM-type pp-scheme
 !  lambda_wind                     = 0.03
-!  tracer_TopWindMixing            = 4.0E-6
-!  velocity_TopWindMixing          = 4.0E-6
+!  !  tracer_TopWindMixing            = 4.0E-6
+!  !  velocity_TopWindMixing          = 4.0E-6
 /
 &ocean_GentMcWilliamsRedi_nml
   GMRedi_configuration           =   0       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
@@ -794,7 +793,7 @@ add_required_file ${thisdir}/${atmo_namelist}                           ./
 # ------------------------------
 #
 # - ozone
-datadir=/pool/data/ICON/grids/private/mpim/icon_preprocessing/source/ozone/ape/R02B04
+datadir=${icon_data_rootFolder}/grids/private/mpim/icon_preprocessing/source/ozone/ape/R02B04
 add_link_file ${datadir}/bc_ozone_ape.nc                                ./bc_ozone.nc
 #
 # dictionary for variable names
@@ -809,7 +808,7 @@ add_required_file ${basedir}/run/${dict_file}  ./
 # -------------------------
 #
 add_required_file ${basedir}/run/coupling.xml  ./
-add_required_file ${basedir}/externals/yac/input/coupling.xsd.in  ./coupling.xsd
-add_required_file ${basedir}/externals/yac/input/component.xsd.in ./component.xsd
+add_required_file ${basedir}/externals/yac/input/coupling.xsd  ./coupling.xsd
+add_required_file ${basedir}/externals/yac/input/component.xsd ./component.xsd
 #
 #-----------------------------------------------------------------------------

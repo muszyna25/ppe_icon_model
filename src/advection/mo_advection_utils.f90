@@ -38,15 +38,14 @@ MODULE mo_advection_utils
   USE mo_fortran_tools,         ONLY: t_ptr_2d3d
   USE mo_cf_convention,         ONLY: t_cf_var
   USE mo_grib2,                 ONLY: t_grib2_var
-  USE mo_var_list,              ONLY: add_ref, find_list_element
-  USE mo_linked_list,           ONLY: t_var_list, t_list_element
+  USE mo_var_list, ONLY: add_ref, find_list_element, t_var_list_ptr
+  USE mo_var, ONLY: t_var
   USE mo_var_metadata_types,    ONLY: t_var_metadata,                    &
     &                                 t_vert_interp_meta,                &
     &                                 t_hor_interp_meta,                 &
-    &                                 MAX_GROUPS,                        &
     &                                 t_post_op_meta
   USE mo_tracer_metadata_types, ONLY: t_tracer_meta
-
+  USE mo_var_groups,            ONLY: MAX_GROUPS
   USE mo_advection_config,      ONLY: t_advection_config
 
   IMPLICIT NONE
@@ -162,7 +161,7 @@ CONTAINS
     &        isteptype, tlev_source, vert_interp, hor_interp, in_group, post_op,   &
     &        tracer_info)
 
-    TYPE(t_var_list)    , INTENT(inout)        :: this_list
+    TYPE(t_var_list_ptr)    , INTENT(inout)        :: this_list
     CHARACTER(len=*)    , INTENT(in)           :: target_name
     CHARACTER(len=*)    , INTENT(in)           :: tracer_name
     INTEGER             , INTENT(inout)        :: tracer_idx       ! index in 4D tracer container
@@ -183,7 +182,7 @@ CONTAINS
     CLASS(t_tracer_meta), INTENT(in), OPTIONAL :: tracer_info      ! tracer meta data
 
     ! Local variables:
-    TYPE(t_list_element), POINTER :: target_element
+    TYPE(t_var), POINTER :: target_var
     TYPE(t_var_metadata), POINTER :: target_info
 
     INTEGER :: zihadv_tracer, zivadv_tracer
@@ -193,9 +192,9 @@ CONTAINS
   !------------------------------------------------------------------
 
     ! get pointer to target element (in this case 4D tracer container)
-    target_element => find_list_element (this_list, target_name)
+    target_var => find_list_element (this_list, target_name)
     ! get tracer field metadata
-    target_info => target_element%field%info
+    target_info => target_var%info
 
     ! get index of current field in 4D container and set
     ! tracer index accordingly.
@@ -241,6 +240,7 @@ CONTAINS
     ! create new table entry reference including additional tracer metadata
     CALL add_ref( this_list, target_name, tracer_name, ptr_arr(tracer_idx)%p_3d, &
        &          target_info%hgrid, target_info%vgrid, cf, grib2,               &
+       &          ref_idx=tracer_idx,                                            &
        &          ldims=ldims, loutput=loutput, lrestart=lrestart,               &
        &          isteptype=isteptype, tlev_source=tlev_source,                  &
        &          vert_interp=vert_interp, hor_interp=hor_interp,                &

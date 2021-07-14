@@ -18,7 +18,6 @@ MODULE mo_dynamics_nml
   USE mo_dynamics_config,     ONLY: config_iequations     => iequations,     &
                                   & config_idiv_method    => idiv_method,    &
                                   & config_divavg_cntrwgt => divavg_cntrwgt, &
-                                  & config_sw_ref_height  => sw_ref_height,  &
                                   & config_lcoriolis      => lcoriolis,      &
                                   & config_ldeepatmo      => ldeepatmo
 
@@ -31,7 +30,7 @@ MODULE mo_dynamics_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio 
 
   USE mo_master_control,      ONLY: use_restart_namelists
-  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist,   &
+  USE mo_restart_nml_and_att, ONLY: open_tmpfile, store_and_close_namelist,   &
                                   & open_and_restore_namelist, close_tmpfile
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
 
@@ -60,9 +59,6 @@ MODULE mo_dynamics_nml
 
   REAL(wp) :: divavg_cntrwgt ! weight of central cell for divergence averaging
 
-  REAL(wp) :: sw_ref_height  ! reference height to linearize around if using
-                             ! lshallow_water and semi-implicit correction
-
   LOGICAL  :: lcoriolis      ! if .TRUE.,  the Coriolis force is switched on
 
   LOGICAL  :: ldeepatmo      ! if .TRUE., deep-atmosphere modification is applied 
@@ -70,8 +66,7 @@ MODULE mo_dynamics_nml
 
   NAMELIST/dynamics_nml/ iequations,                  &
                          idiv_method, divavg_cntrwgt, &
-                         sw_ref_height,  lcoriolis,   &
-                         ldeepatmo
+                         lcoriolis, ldeepatmo
 
 CONTAINS
   !>
@@ -89,7 +84,6 @@ CONTAINS
     iequations     = INH_ATMOSPHERE
     idiv_method    = 1
     divavg_cntrwgt = 0.5_wp
-    sw_ref_height  = 0.9_wp*2.94e4_wp/grav
     lcoriolis      = .TRUE.
     ldeepatmo      = .FALSE.
  
@@ -149,7 +143,6 @@ CONTAINS
     config_iequations     = iequations
     config_idiv_method    = idiv_method
     config_divavg_cntrwgt = divavg_cntrwgt
-    config_sw_ref_height  = sw_ref_height
     config_lcoriolis      = lcoriolis
     config_ldeepatmo      = ldeepatmo
 

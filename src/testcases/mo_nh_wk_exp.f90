@@ -31,13 +31,17 @@ MODULE mo_nh_wk_exp
 !
 !
 !
-
+  
    USE mo_kind,                 ONLY: wp
-   USE mo_physical_constants,   ONLY: rd_o_cpd, p0ref, grav, tmelt,  &
+   USE mo_physical_constants,   ONLY: rd_o_cpd, p0ref, grav, &
      &                                cvd_o_rd, cpd ,     &
      &                                vtmpc1 , rdv,  rd,             &
-     &                                cp_d => cpd
+     &                                cp_d => cpd, &
+     &                                earth_radius
+   USE mo_math_types,           ONLY: t_cartesian_coordinates, t_geographical_coordinates
    USE mo_math_constants,       ONLY: pi, deg2rad
+   USE mo_math_utilities,       ONLY: gc2cc, arc_length, plane_torus_distance
+   USE mo_grid_geometry_info,   ONLY: planar_torus_geometry, sphere_geometry
    USE mo_model_domain,         ONLY: t_patch
    USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
    USE mo_run_config,           ONLY: iqv
@@ -55,7 +59,6 @@ MODULE mo_nh_wk_exp
    USE mo_nh_init_utils,        ONLY: init_w
    USE mo_hydro_adjust,         ONLY: hydro_adjust
    USE mo_vertical_coord_table, ONLY: vct_a
-    USE mo_grid_config,         ONLY: grid_sphere_radius
 
    IMPLICIT NONE
 
@@ -63,6 +66,8 @@ MODULE mo_nh_wk_exp
   
    PRIVATE
 
+   CHARACTER(len=*), PARAMETER :: modname = 'mo_nh_wk_exp'
+   
    REAL(wp), PARAMETER :: cpd_o_rd = 1._wp / rd_o_cpd
    REAL(wp), PARAMETER :: grav_o_cpd = grav / cpd
 
@@ -231,11 +236,11 @@ MODULE mo_nh_wk_exp
     exner_aux   = exner_tropo-grav_o_cpd*(z_full(jk)-h_tropo_wk)/(theta_v_aux-theta_v_tropo)*&
                   LOG(theta_v_aux/theta_v_tropo)
     temp_aux    = theta(jk)*exner_aux
-    IF (temp_aux > tmelt) THEN
+! UB    IF (temp_aux > tmelt) THEN
       e_aux     = rh(jk)*sat_pres_water(temp_aux)
-    ELSE
-      e_aux     = rh(jk)*sat_pres_ice(temp_aux)
-    ENDIF
+! UB    ELSE
+! UB      e_aux     = rh(jk)*sat_pres_ice(temp_aux)
+! UB    ENDIF
     pres_aux    = p0ref*(exner_aux**cpd_o_rd)
     qv_aux      = spec_humi(e_aux,pres_aux)
     theta_v_aux = theta(jk)*(1._wp+vtmpc1*qv_aux) 
@@ -244,11 +249,11 @@ MODULE mo_nh_wk_exp
     exner(jk)   = exner_tropo-grav_o_cpd*(z_full(jk)-h_tropo_wk)/(theta_v_aux-theta_v_tropo)*&
                   LOG(theta_v_aux/theta_v_tropo)
     temp(jk)    = theta(jk)*exner(jk)
-    IF (temp(jk) > tmelt) THEN
+! UB    IF (temp(jk) > tmelt) THEN
       e_aux     = rh(jk)*sat_pres_water(temp(jk))
-    ELSE
-      e_aux     = rh(jk)*sat_pres_ice(temp(jk))
-    ENDIF
+! UB    ELSE
+! UB      e_aux     = rh(jk)*sat_pres_ice(temp(jk))
+! UB    ENDIF
     pres(jk)    = p0ref*(exner(jk)**cpd_o_rd)
     qv(jk)      = spec_humi(e_aux,pres(jk))
     theta_v(jk) = theta(jk)*(1._wp+vtmpc1*qv(jk)) 
@@ -267,11 +272,11 @@ MODULE mo_nh_wk_exp
       exner_aux   = exner(jk-1)-grav_o_cpd*(z_full(jk)-z_full(jk-1))/ &
                    (theta_v_aux-theta_v(jk-1))*LOG(theta_v_aux/theta_v(jk-1))
       temp_aux    = theta(jk)*exner_aux
-      IF (temp_aux > tmelt) THEN
+! UB      IF (temp_aux > tmelt) THEN
         e_aux     = rh(jk)*sat_pres_water(temp_aux)
-      ELSE
-        e_aux     = rh(jk)*sat_pres_ice(temp_aux)
-      ENDIF
+! UB      ELSE
+! UB        e_aux     = rh(jk)*sat_pres_ice(temp_aux)
+! UB      ENDIF
       pres_aux    = p0ref*(exner_aux**cpd_o_rd)
 !>FR
       qv_aux      = MIN(qv_max_wk,spec_humi(e_aux,pres_aux))
@@ -283,11 +288,11 @@ MODULE mo_nh_wk_exp
       exner(jk)   = exner(jk-1)-grav_o_cpd*(z_full(jk)-z_full(jk-1))/ &
                    (theta_v_aux-theta_v(jk-1))*LOG(theta_v_aux/theta_v(jk-1))
       temp(jk)    = theta(jk)*exner(jk)
-      IF (temp(jk) > tmelt) THEN
+! UB      IF (temp(jk) > tmelt) THEN
         e_aux     = rh(jk)*sat_pres_water(temp(jk))
-      ELSE
-        e_aux     = rh(jk)*sat_pres_ice(temp(jk))
-      ENDIF
+! UB      ELSE
+! UB       e_aux     = rh(jk)*sat_pres_ice(temp(jk))
+! UB      ENDIF
       pres(jk)    = p0ref*(exner(jk)**cpd_o_rd)
 !>FR
       qv(jk)      = MIN(qv_max_wk,spec_humi(e_aux,pres(jk)))
@@ -383,74 +388,120 @@ MODULE mo_nh_wk_exp
   !!
   SUBROUTINE init_nh_buble_wk( ptr_patch, p_metrics, ptr_nh_prog, ptr_nh_diag )
 
-
-  USE mo_math_utilities,      ONLY: plane_torus_distance
-
+  
     TYPE(t_patch), TARGET, INTENT(INOUT):: &  !< patch on which computation is performed
-      &  ptr_patch
+         &  ptr_patch
 
     TYPE(t_nh_metrics), INTENT(IN)     :: p_metrics !< NH metrics state
     TYPE(t_nh_prog), INTENT(INOUT)      :: &  !< prognostic state vector
-      &  ptr_nh_prog
+         &  ptr_nh_prog
 
     TYPE(t_nh_diag), INTENT(INOUT)      :: &  !< diagnostic state vector
-      &  ptr_nh_diag
+         &  ptr_nh_diag
  ! local variables  
 
-   INTEGER        :: jc, jk, jb, nlen, nlev
-   INTEGER        :: nblks_c, npromz_c
-   REAL(wp)       :: z_lon_ctr, z_lat_ctr
-   REAL(wp)       :: z_lon, z_lat, z_klev, z_cosr, z_r, z_h
-   REAL(wp)       :: z_rR_2, z_hH_2, z_rad
+    INTEGER        :: jc, jk, jb, nlen, nlev
+    INTEGER        :: nblks_c, npromz_c
 
-   REAL(wp) :: x_loc(3), x_c(3), x_bubble(3), dis
+    REAL(wp) :: x_loc(3), x_c(3), x_bubble(3), dis, dis_hor, dis_vert
+    TYPE(t_geographical_coordinates) :: geo_bub
+    TYPE(t_cartesian_coordinates)  :: cart_loc, cart_bub
+
+    CHARACTER(len=250) :: message_text
 !--------------------------------------------------------------------
 
-    z_lon_ctr = bubctr_lon*deg2rad
-    z_lat_ctr = bubctr_lat*deg2rad
+    ! number of vertical levels
+    nlev   = ptr_patch%nlev
+    nblks_c   = ptr_patch%nblks_c
+    npromz_c  = ptr_patch%npromz_c
+    
+    SELECT CASE(ptr_patch%geometry_info%geometry_type)
 
-   ! number of vertical levels
-   nlev   = ptr_patch%nlev
-   nblks_c   = ptr_patch%nblks_c
-   npromz_c  = ptr_patch%npromz_c
+    CASE (planar_torus_geometry)
 
-  ! Bubble center : valid on the torus domain
-  x_bubble = (/bubctr_lon,bubctr_lat,bubctr_z/)
+      message_text(:) = ' '
+      WRITE (message_text, '(2(a,f0.5),a,f0.1,a,f0.2)') 'wk82: bubble on torus domain lon=', bubctr_lon, &
+           ' lat=', bubctr_lat, ' height=', bubctr_z, ' ampl=', bub_amp
+      CALL message(modname//': init_nh_buble_wk', TRIM(message_text))
 
-  ! Non-dimensionalize the bubble center
-  x_c(1) = x_bubble(1) / bub_hor_width
-  x_c(2) = x_bubble(2) / bub_hor_width
-  x_c(3) = x_bubble(3) / bub_ver_width
+      ! Bubble center : valid on the torus domain
+      x_bubble = (/ bubctr_lon, bubctr_lat, bubctr_z /)
+
+      ! Non-dimensionalize the bubble center
+      x_c(1) = x_bubble(1) / bub_hor_width
+      x_c(2) = x_bubble(2) / bub_hor_width
+      x_c(3) = x_bubble(3) / bub_ver_width
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,nlen,jk,jc,x_loc,dis)
-  DO jb = 1, nblks_c
-    IF (jb /= nblks_c) THEN
-       nlen = nproma
-    ELSE
-       nlen = npromz_c
-    ENDIF
-
-    DO jc = 1 , nlen
-      DO jk = 1 , nlev
-        x_loc(1) = ptr_patch%cells%cartesian_center(jc,jb)%x(1)/bub_hor_width
-        x_loc(2) = ptr_patch%cells%cartesian_center(jc,jb)%x(2)/bub_hor_width
-        x_loc(3) = p_metrics%z_mc(jc,jk,jb)/bub_ver_width
-        dis = plane_torus_distance(x_loc,x_c,ptr_patch%geometry_info)
-        IF(dis < 1._wp)THEN
-          ptr_nh_prog%theta_v(jc,jk,jb) = ptr_nh_prog%theta_v(jc,jk,jb) + &
-               & bub_amp*COS(dis*pi/2._wp )**2  *               &
-               &(1._wp + vtmpc1*ptr_nh_prog%tracer(jc,jk,jb,iqv))
-          ptr_nh_prog%rho(jc,jk,jb) = ptr_nh_prog%exner(jc,jk,jb)**cvd_o_rd  &
-               *p0ref/rd/ptr_nh_prog%theta_v(jc,jk,jb)
-        END IF
-      END DO !jk
-    END DO !jc
-  ENDDO !jb
+      DO jb = 1, nblks_c
+        IF (jb /= nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = npromz_c
+        ENDIF
+        
+        DO jk = 1 , nlev
+          DO jc = 1 , nlen
+            x_loc(1) = ptr_patch%cells%cartesian_center(jc,jb)%x(1)/bub_hor_width
+            x_loc(2) = ptr_patch%cells%cartesian_center(jc,jb)%x(2)/bub_hor_width
+            x_loc(3) = p_metrics%z_mc(jc,jk,jb)/bub_ver_width
+            dis = plane_torus_distance(x_loc,x_c,ptr_patch%geometry_info)
+            IF(dis < 1._wp)THEN
+              ptr_nh_prog%theta_v(jc,jk,jb) = ptr_nh_prog%theta_v(jc,jk,jb) + &
+                   bub_amp * COS(dis*pi/2._wp )**2  * (1.0_wp + vtmpc1*ptr_nh_prog%tracer(jc,jk,jb,iqv))
+              ptr_nh_prog%rho(jc,jk,jb) = ptr_nh_prog%exner(jc,jk,jb)**cvd_o_rd * &
+                   p0ref / (rd * ptr_nh_prog%theta_v(jc,jk,jb) )
+            END IF
+          END DO !jk
+        END DO !jc
+      ENDDO !jb
 !$OMP END DO
 !$OMP END PARALLEL
 
-  CALL diagnose_pres_temp ( p_metrics, ptr_nh_prog,     &
+    CASE (sphere_geometry)
+
+      message_text(:) = ' '
+      WRITE (message_text, '(2(a,f0.5),a,f0.1,a,f0.2)') 'wk82: bubble on spherical domain lon=', bubctr_lon, &
+           ' lat=', bubctr_lat, ' height=', bubctr_z, ' ampl=', bub_amp
+      CALL message(modname//': init_nh_buble_wk', TRIM(message_text))
+
+      geo_bub % lon = bubctr_lon * deg2rad
+      geo_bub % lat = bubctr_lat * deg2rad
+      cart_bub = gc2cc( geo_bub )
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,nlen,jk,jc,x_loc,dis)
+      DO jb = 1, nblks_c
+        IF (jb /= nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = npromz_c
+        ENDIF
+        
+        DO jk = 1 , nlev
+          DO jc = 1 , nlen
+            cart_loc = gc2cc( ptr_patch%cells%center(jc,jb) )
+            dis_hor  = arc_length(cart_bub, cart_loc, ptr_patch%geometry_info) * earth_radius / bub_hor_width
+            dis_vert = ( p_metrics%z_mc(jc,jk,jb) - bubctr_z ) / bub_ver_width
+            dis = SQRT( dis_hor*dis_hor + dis_vert*dis_vert )
+            IF(dis < 1._wp)THEN
+              ptr_nh_prog%theta_v(jc,jk,jb) = ptr_nh_prog%theta_v(jc,jk,jb) +     &
+                   bub_amp * COS(dis*pi/2._wp )**2  * (1.0_wp + vtmpc1*ptr_nh_prog%tracer(jc,jk,jb,iqv))
+              ptr_nh_prog%rho(jc,jk,jb) = ptr_nh_prog%exner(jc,jk,jb)**cvd_o_rd * &
+                   p0ref / (rd * ptr_nh_prog%theta_v(jc,jk,jb))
+            END IF
+          END DO !jk
+        END DO !jc
+      ENDDO !jb
+!$OMP END DO
+!$OMP END PARALLEL
+      
+    CASE DEFAULT
+      CALL finish(modname//': init_nh_buble_wk', "Undefined geometry type for wk82 bubbles")
+    END SELECT
+      
+    CALL diagnose_pres_temp ( p_metrics, ptr_nh_prog,     &
                               ptr_nh_prog, ptr_nh_diag,   &
                               ptr_patch,                  &
                               opt_calc_temp=.TRUE.,       &

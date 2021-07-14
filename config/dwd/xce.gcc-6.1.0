@@ -1,0 +1,121 @@
+#!/bin/bash
+
+set -eu
+
+SCRIPT_DIR=$(cd "$(dirname "$0")">/dev/null; pwd)
+ICON_DIR=$(cd "${SCRIPT_DIR}/../..">/dev/null; pwd)
+
+# module command and path setup from  /etc/profile.local:
+MODULE_SETTINGS=". $MODULESHOME/init/bash && export MODULEPATH=${MODULEPATH}:/usr/local/pkg/modulefiles && module purge"
+
+
+MODULES='craype cray-mpich/7.6.0 gcc/6.1.0 PrgEnv-gnu cray-libsci/13.2.0 craype-haswell cray-netcdf/4.3.3.1 cray-hdf5/1.8.14 eccodes/2.9.0 aec/1.0.0-3'
+
+# Libtool (used by the bundled CDI and some other bundled libraries) is not
+# fully compatible with Cray compiler. For each library specified with -l
+# (e.g. -laec) argument on the command line, libtool tries to find the
+# corresponding *.la file (e.g. libaec.la). If the file is found, the library
+# is treated in a special way. In particular, the arguments -l (e.g. -laec)
+# are replaced with the full paths to the library files
+# (e.g. /hpc/rhome/software/aec/xc/1.0.0-3/CRAY/lib/libaec.a).
+# Unfortunately, Cray compiler ignores such arguments if they are specified
+# after any other argument -l. For example, we need to link to libeccodes.a,
+# which requires libaec.a. Normally, we would pass '-leccodes -laec', which the
+# compiler would understand, but libtool converts the arguments into
+# '-leccodes /hpc/rhome/software/aec/xc/1.0.0-3/CRAY/lib/libaec.a', which the
+# compiler does not interpret correctly. Here, the argument '-leccodes' is not
+# changed because libeccodes.a is not a libtool-generated library (i.e. there
+# is no libeccodes.la) but libaec is. Therefore, the compiler ignores the
+# argument related to libaec and fails the linking. There are two possible
+# solutions to the described problem:
+#   1) remove /hpc/rhome/software/aec/xc/1.0.0-3/CRAY/lib/libaec.la and pass
+#      '-laec', which in this case will not be modified by libtool;
+#   2) pass '-l:libaec.a', which is understood by the compiler and is left as
+#      it is by libtool.
+# We implement the second solution here:
+ECCODES_LIBS='-leccodes_f90 -leccodes -l:libaec.a'
+
+XML2_ROOT='/opt/cray/xc-sysroot/default/usr'
+# As it was mentioned before, libtool is not fully compatible with Cray
+# compiler. Another example of this is that libtool neither can determine on
+# its own that we need to link statically nor allows us to help it. The flag
+# '-static' understood by the compiler has a different meaning for libtool and
+# does not help. The flags '-static-libtool-libs' and '-all-static' understood
+# by libtool are not understood by the compiler, which fails the
+# configuration. Therefore, when libtool detects the flag '-libxml2' and finds
+# the file libxml2.la, it passes to the compiler the absolute path to the
+# shared version of the library libxml2.so. To avoid that, we use the same
+# workaround as above: we specify '-l:libxml2.a'. It should be also noted that
+# libxml2 depends on libz and we link statically. Although the Cray compiler
+# wrapper adds '-lz' to the linking command when the module cray-netcdf is
+# loaded, it is not correct to rely on it, therefore we specify the flag
+# explicitly. The library also depends on libm but the flag '-lm' is added by
+# the wrapper unconditionally.
+XML2_LIBS='-l:libxml2.a -lz'
+
+
+################################################################################
+
+BUILD_ENV="${MODULE_SETTINGS} && . \"${SCRIPT_DIR}/module_switcher\"; switch_for_module ${MODULES};"
+
+# We need some of the environment variables set by the modules now:
+eval "$BUILD_ENV"
+
+# C compiler wrapper on cray machine
+CC='cc'
+CFLAGS='-std=gnu99 -march=native -fopenmp'
+ICON_CFLAGS='-O2'
+ICON_BUNDLED_CFLAGS='-O2'
+CPPFLAGS="${ECCODES_INCLUDE} -I${XML2_ROOT}/include/libxml2"
+
+# Fortran compiler wrapper on cray machine
+FC='ftn'
+FCFLAGS="-std=f2008 -fmodule-private -fimplicit-none -fmax-identifier-length=63 -ffree-line-length-132 -Wall -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter -Wno-surprising -fall-intrinsics -g -march=native -mpc64 -O2"
+
+ICON_FCFLAGS='-fbacktrace -fbounds-check -fstack-protector-all -finit-real=nan -finit-integer=-2147483648 -finit-character=127 -march=native'
+ICON_OCEAN_FCFLAGS='-O3'
+
+LDFLAGS="-static -L${ECCODES_LIB_DIR} -L${AEC_DIR}/lib"
+LIBS="${XML2_LIBS} ${ECCODES_LIBS}"
+
+MPI_LAUNCH=''  # needed e.g. for yac configuration. What is the correct setting for gnu ?? 
+
+EXTRA_CONFIG_ARGS='--disable-mpi-checks --disable-rpaths --enable-active-target-sync --enable-loop-exchange --enable-grib2 --enable-mpi --enable-openmp --disable-coupling'
+
+################################################################################
+
+"${ICON_DIR}/configure" \
+BUILD_ENV="${BUILD_ENV}" \
+CC="${CC}" \
+CFLAGS="${CFLAGS}" \
+CPPFLAGS="${CPPFLAGS}" \
+FC="${FC}" \
+FCFLAGS="${FCFLAGS}" \
+ICON_BUNDLED_CFLAGS="${ICON_BUNDLED_CFLAGS}" \
+ICON_CFLAGS="${ICON_CFLAGS}" \
+ICON_FCFLAGS="${ICON_FCFLAGS}" \
+ICON_OCEAN_FCFLAGS="${ICON_OCEAN_FCFLAGS}" \
+LDFLAGS="${LDFLAGS}" \
+LIBS="${LIBS}" \
+MPI_LAUNCH="${MPI_LAUNCH}" \
+${EXTRA_CONFIG_ARGS} \
+"$@"
+
+for arg in "$@"; do
+  case $arg in
+    -help | --help | --hel | --he | -h | -help=r* | --help=r* | --hel=r* | --he=r* | -hr* | -help=s* | --help=s* | --hel=s* | --he=s* | -hs*)
+      test -n "${EXTRA_CONFIG_ARGS}" && echo '' && echo "This wrapper script ('$0') calls the configure script with the following extra arguments, which might override the default values listed above: ${EXTRA_CONFIG_ARGS}"
+      exit 0 ;;
+  esac
+done
+
+# Copy runscript-related files when building out-of-source:
+if test $(pwd) != $(cd "${ICON_DIR}"; pwd); then
+  echo "Copying runscript input files from the source directory..."
+  rsync -uavz ${ICON_DIR}/run . --exclude='*.in' --exclude='.*'
+  rsync -uavz ${ICON_DIR}/externals . --exclude='.git' --exclude='*.f90' --exclude='*.F90' --exclude='*.c' --exclude='*.h' --exclude='*.Po' --exclude='tests' --exclude='rrtmgp*.nc' --exclude='*.mod' --exclude='*.o'
+  rsync -uavz ${ICON_DIR}/make_runscripts .
+  ln -sf ${ICON_DIR}/data
+  ln -sf ${ICON_DIR}/vertical_coord_tables
+fi
+

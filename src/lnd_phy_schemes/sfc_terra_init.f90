@@ -54,39 +54,7 @@ MODULE sfc_terra_init
 
 !------------------------------------------------------------------------------
 
-#ifdef __COSMO__
-USE kind_parameters , ONLY :   wp   ! KIND-type parameter for real variables
-
-USE data_constants  , ONLY :   &
-
-! 1. physical constants and related variables
-! -------------------------------------------
-
-    t0_melt,      & ! absolute zero for temperature
-    lh_f,         & ! latent heat of fusion
-    g,            & ! acceleration due to gravity
-    rho_w           ! density of liquid water
-
-USE data_io         , ONLY :   &
-    lana_rho_snow   ! if .TRUE., take rho_snow-values from analysis file
-                    ! else, it is set in the model
-
-USE data_runcontrol , ONLY :   &
-
-! 3. controlling the physics
-! --------------------------
-    lmulti_snow,  & ! run the multi-layer snow model
-    lmelt,        & ! soil model with melting process
-    lmelt_var       ! freezing temperature dependent on water content
-
-  USE sfc_terra_data,        ONLY:                                &
-    max_toplaydepth , & ! maximum depth of uppermost snow layer for multi-layer snow scheme (25 cm)
-    l2lay_rho_snow      ! use two-layer snow density for single-layer snow model
-#endif
-
-#ifdef __ICON__
   USE mo_kind,               ONLY: wp
-  USE mo_run_config,         ONLY: msg_level
   USE mo_physical_constants, ONLY: t0_melt => tmelt,& ! absolute zero for temperature
     &                              rho_w => rhoh2o, & ! density of liquid water (kg/m^3)
     &                              lh_f  => alf   , & ! latent heat of fusion
@@ -95,7 +63,6 @@ USE data_runcontrol , ONLY :   &
   USE mo_lnd_nwp_config,     ONLY: lmulti_snow, lana_rho_snow, &
     &                              lmelt, lmelt_var,           &
     &                              max_toplaydepth, l2lay_rho_snow
-#endif
 
   USE sfc_terra_data,        ONLY:                                &
       eps_soil        , & ! Multi-purpose epsilon in soil model (former zepsi)
@@ -156,15 +123,9 @@ SUBROUTINE terra_init (            &
                 plcov            , & ! fraction of surface covered by plants         ( -  )
                 t_snow_now       , & ! temperature of the snow-surface               (  K  )
                 t_snow_mult_now  , & ! temperature of the snow-surface               (  K  )
-#ifdef __ICON__
                 t_rhosnowini     , & ! temperature used for snow density initialization on glaciers (  K  )
-#endif
                 t_s_now          , & ! temperature of the ground surface             (  K  )
                 t_s_new          , & ! temperature of the ground surface             (  K  )
-#ifdef __COSMO__
-                t_sk_now         , & ! skin temperature                              (  K  )
-                t_sk_new         , & ! skin temperature                              (  K  )
-#endif
                 w_snow_now       , & ! water content of snow                         (m H2O)
                 h_snow           , & ! snow depth                                   (m H2O)
                 rho_snow_now     , & ! snow density                                  (kg/m**3)
@@ -204,20 +165,12 @@ SUBROUTINE terra_init (            &
                   t_snow_now              ! temperature of the snow-surface (K)
   REAL    (KIND = wp)    , DIMENSION(nvec,0:ke_snow), INTENT(INOUT) :: &
                   t_snow_mult_now      ! temperature of the snow-surface               (  K  )
-#ifdef __ICON__
   REAL    (KIND = wp)    , DIMENSION(nvec), INTENT(IN) :: &
                   t_rhosnowini         ! temperature used for snow density initialization on glaciers (K)
-#endif
   REAL    (KIND = wp)    , DIMENSION(nvec), INTENT(INOUT) :: &
                   t_s_now              ! temperature of the ground surface             (  K  )
   REAL    (KIND = wp)    , DIMENSION(nvec), INTENT(OUT) :: &
                   t_s_new              ! temperature of the ground surface             (  K  )
-#ifdef __COSMO__
-  REAL    (KIND = wp)    , DIMENSION(nvec), INTENT(INOUT) :: &
-                  t_sk_now              ! skin temperature                             (  K  )
-  REAL    (KIND = wp)    , DIMENSION(nvec), INTENT(OUT) :: &
-                  t_sk_new              ! skin temperature                             (  K  )
-#endif
   REAL    (KIND = wp)    , DIMENSION(nvec), INTENT(INOUT) :: &
                   w_snow_now       , & ! water content of snow                         (m H2O)
                   rho_snow_now         ! snow density                                  (kg/m**3)
@@ -315,37 +268,29 @@ SUBROUTINE terra_init (            &
 !------------------------------------------------------------------------------
 
   ! Subroutine parameters IN
-  !$acc data                                                             &
-  !$acc present(zmls, soiltyp_subs, rootdp, plcov                      ) &
+  !$noacc data                                                             &
+  !$noacc present(zmls, soiltyp_subs, rootdp, plcov                      ) &
 
   ! Subroutine parameters INOUT
-  !$acc present(t_snow_now, t_snow_mult_now, t_s_now                   ) &
-#ifdef __COSMO__
-  !$acc present(t_sk_now                                               ) &
-#endif
-#ifdef __ICON__
-  !$acc present(t_rhosnowini                                           ) &
-#endif
-  !$acc present(w_snow_now, h_snow, rho_snow_now, rho_snow_mult_now    ) &
-  !$acc present(t_so_now, w_so_now, w_so_ice_now, wliq_snow_now        ) &
-  !$acc present(wtot_snow_now, dzh_snow_now                            ) &
+  !$noacc present(t_snow_now, t_snow_mult_now, t_s_now                   ) &
+  !$noacc present(t_rhosnowini                                           ) &
+  !$noacc present(w_snow_now, h_snow, rho_snow_now, rho_snow_mult_now    ) &
+  !$noacc present(t_so_now, w_so_now, w_so_ice_now, wliq_snow_now        ) &
+  !$noacc present(wtot_snow_now, dzh_snow_now                            ) &
 
   ! Subroutine parameters OUT
-  !$acc present(t_s_new,           t_so_new, w_so_new, w_so_ice_new    ) &
-#ifdef __COSMO__
-  !$acc present(t_sk_new                                               ) &
-#endif
+  !$noacc present(t_s_new, t_so_new, w_so_new, w_so_ice_new              ) &
 
   ! Local arrays
-  !$acc present(m_styp, zicount1, zicount2                             ) &
-  !$acc present(zroota, zdzhs, zbwt, zsandf, zsiltf                    ) &
-  !$acc present(zclayf, zb_por, zpsis, zw_m, zadp, zporv, zedb         ) &
-  !$acc present(zw_snow_old, zrho_snow_old, h_snow_fg, h_snow_incr     ) &
-  !$acc present(sum_weight, zhh_snow, zhm_snow, t_new, rho_new         ) &
-  !$acc present(wl_new, z_old, dz_old                                  ) &
+  !$noacc present(m_styp, zicount1, zicount2                             ) &
+  !$noacc present(zroota, zdzhs, zbwt, zsandf, zsiltf                    ) &
+  !$noacc present(zclayf, zb_por, zpsis, zw_m, zadp, zporv, zedb         ) &
+  !$noacc present(zw_snow_old, zrho_snow_old, h_snow_fg, h_snow_incr     ) &
+  !$noacc present(sum_weight, zhh_snow, zhm_snow, t_new, rho_new         ) &
+  !$noacc present(wl_new, z_old, dz_old                                  ) &
 
   ! Terra data module fields
-  !$acc present(cporv, cadp, csandf, cclayf)
+  !$noacc present(cporv, cadp, csandf, cclayf)
 
 !------------------------------------------------------------------------------
 ! Begin Subroutine terra_init
@@ -364,8 +309,8 @@ SUBROUTINE terra_init (            &
 
 ! Prepare basic surface properties (for land-points only)
 
-  !$acc parallel
-  !$acc loop gang vector private(mstyp)
+  !$noacc parallel
+  !$noacc loop gang vector private(mstyp)
   DO i = ivstart, ivend
     mstyp       = soiltyp_subs(i)           ! soil type
     m_styp(i)   = mstyp                     ! array for soil type
@@ -386,7 +331,7 @@ SUBROUTINE terra_init (            &
     zb_por(i)   = 2.91_wp+ 0.159_wp*zclayf(i)
     zedb  (i)   = 1.0_wp/zb_por(i)
   ENDDO
-  !$acc end parallel
+  !$noacc end parallel
  
   ! Further parameters for soil water freezing/melting
   t_zw_up  = 270.15_wp     ! temp -3 degC
@@ -405,26 +350,20 @@ SUBROUTINE terra_init (            &
 ! For ntstep=0 : Some preparations
 ! ================================
 
-  !$acc kernels
+  !$noacc kernels
   w_so_new(:,:) = w_so_now(:,:)
-  !$acc end kernels
+  !$noacc end kernels
 
 ! Provide for a soil moisture 1 % above air dryness point, reset soil
 ! moisture to zero in case of ice and rock
-  !$acc parallel
+  !$noacc parallel
   DO kso   = 1,ke_soil+1
-    !$acc loop gang vector private(mstyp)
+    !$noacc loop gang vector private(mstyp)
     DO i = ivstart, ivend
       IF (m_styp(i) >= 3) THEN
         ! soil list
         w_so_now (i,kso) = MAX(w_so_now(i,kso), 1.01_wp*zadp(i,kso)*zdzhs(kso) )
         w_so_new (i,kso) = MAX(w_so_new(i,kso), 1.01_wp*zadp(i,kso)*zdzhs(kso) )
-
-#ifdef __COSMO__
-        !UB: clipping of soil water content to its maximum allowed value:
-        w_so_now (i,kso) = MIN(w_so_now(i,kso), 1.0_wp*zporv(i,kso)*zdzhs(kso))
-        w_so_new (i,kso) = MIN(w_so_new(i,kso), 1.0_wp*zporv(i,kso)*zdzhs(kso))
-#endif
       ELSE
         ! rock and ice list
         w_so_now (i,kso) = 0.0_wp
@@ -432,14 +371,14 @@ SUBROUTINE terra_init (            &
       ENDIF
     END DO
   END DO
-  !$acc end parallel
+  !$noacc end parallel
 
 
 ! adjust temperature profile in lower soil layers, if temperature of first soil
 ! layer was reduced due to the detection of snow (e.g. in the analysis)
 ! loop over grid points
-  !$acc parallel
-  !$acc loop gang vector
+  !$noacc parallel
+  !$noacc loop gang vector
   DO i = ivstart, ivend
     IF (w_snow_now(i) <= eps_soil) THEN
       ! spurious snow is removed
@@ -451,22 +390,18 @@ SUBROUTINE terra_init (            &
 
     t_s_now(i)  = t_so_now(i,0)
     t_s_new(i)  = t_so_now(i,0)
-#ifdef __COSMO__
-    t_sk_now(i) = t_s_now(i)
-    t_sk_new(i) = t_s_new(i)
-#endif
 
     ! Set level 1 to level 0 for t_so for every landpoint
     t_so_now(i,1) = t_so_now(i,0)
     t_so_new(i,1) = t_so_now(i,0)
     t_so_new(i,0) = t_so_now(i,0)
   END DO
-  !$acc end parallel
+  !$noacc end parallel
 
   IF(lmulti_snow) THEN
-    !$acc parallel
+    !$noacc parallel
     DO ksn = 0, ke_snow
-      !$acc loop gang vector
+      !$noacc loop gang vector
       DO i = ivstart, ivend
         IF (w_snow_now(i) <= eps_soil) THEN
           t_snow_mult_now   (i,ksn) = t_so_now(i,0)
@@ -481,7 +416,7 @@ SUBROUTINE terra_init (            &
         ENDIF
       END DO
     END DO
-    !$acc end parallel
+    !$noacc end parallel
   ENDIF
 
   ! Note that a few parts need to be shifted to the .NOT. is_coldstart branch.
@@ -505,8 +440,8 @@ SUBROUTINE terra_init (            &
 
          ksn = 1
 
-         !$acc parallel
-         !$acc loop gang vector
+         !$noacc parallel
+         !$noacc loop gang vector
          DO i = ivstart, ivend
            rho_snow_mult_now(i,ksn) = 250.0_wp    ! average initial density
            t_snow_mult_now  (i,ksn) = t_snow_now(i)
@@ -517,12 +452,12 @@ SUBROUTINE terra_init (            &
            wtot_snow_now    (i,ksn) = dzh_snow_now(i,ksn)*rho_snow_mult_now(i,ksn)/rho_w
            t_snow_mult_now  (i,0  ) = t_snow_now(i)
          ENDDO
-         !$acc end parallel
+         !$noacc end parallel
 
          k = MIN(2, ke_snow-1)
-         !$acc parallel
+         !$noacc parallel
          DO ksn = 2, ke_snow
-           !$acc loop gang vector
+           !$noacc loop gang vector
            DO i = ivstart, ivend
              rho_snow_mult_now(i,ksn) = 250.0_wp    ! average initial density
              t_snow_mult_now  (i,ksn) = t_snow_now(i)
@@ -538,10 +473,10 @@ SUBROUTINE terra_init (            &
              wtot_snow_now    (i,ksn) = dzh_snow_now(i,ksn)*rho_snow_mult_now(i,ksn)/rho_w
            ENDDO
          ENDDO
-         !$acc end parallel
+         !$noacc end parallel
        ELSE
-         !$acc parallel
-         !$acc loop gang vector
+         !$noacc parallel
+         !$noacc loop gang vector
          DO i = ivstart, ivend
            rho_snow_now(i) = 250.0_wp    ! average initial density
            IF (l2lay_rho_snow) THEN
@@ -550,7 +485,7 @@ SUBROUTINE terra_init (            &
              rho_snow_mult_now(i,2) = 250.0_wp
            ENDIF
          ENDDO
-         !$acc end parallel
+         !$noacc end parallel
        ENDIF
 
 !US so far for COSMO, the rest is ICON
@@ -560,8 +495,8 @@ SUBROUTINE terra_init (            &
       IF (lmulti_snow) THEN
 
         ! The sum of wtot_snow, i.e. the "old" total water equivalent depth
-        !$acc parallel
-        !$acc loop gang vector
+        !$noacc parallel
+        !$noacc loop gang vector
         DO i = ivstart, ivend
           zw_snow_old  (i) = 0.0_wp
           zrho_snow_old(i) = 0.0_wp
@@ -569,11 +504,11 @@ SUBROUTINE terra_init (            &
           zicount2(i)      = 0
           sum_weight(i)    = 0.0_wp
         ENDDO
-        !$acc end parallel
+        !$noacc end parallel
 
-        !$acc parallel
+        !$noacc parallel
         DO ksn = 1, ke_snow
-          !$acc loop gang vector
+          !$noacc loop gang vector
           DO i = ivstart, ivend
             zw_snow_old(i) = zw_snow_old(i) + wtot_snow_now(i,ksn)
             zrho_snow_old(i) = zrho_snow_old(i) + dzh_snow_now(i,ksn)
@@ -581,20 +516,20 @@ SUBROUTINE terra_init (            &
             IF (dzh_snow_now(i,ksn) > eps_soil)  zicount2(i) = zicount2(i)+1
           END DO
         END DO
-        !$acc end parallel
+        !$noacc end parallel
 
         !The "old" snow density
-        !$acc parallel
-        !$acc loop gang vector
+        !$noacc parallel
+        !$noacc loop gang vector
         DO i = ivstart, ivend
           zrho_snow_old(i) = zw_snow_old(i) / MAX(zrho_snow_old(i),1.0E-09_wp) *rho_w
         END DO
-        !$acc end parallel
+        !$noacc end parallel
 
         k = MIN(2, ke_snow-1)
-        !$acc parallel
+        !$noacc parallel
         DO ksn = 1, ke_snow
-          !$acc loop gang vector
+          !$noacc loop gang vector
           DO i = ivstart, ivend
             IF(zicount1(i).EQ.ke_snow .AND. zicount2(i).EQ.ke_snow) THEN
               rho_snow_mult_now(i,ksn) = wtot_snow_now(i,ksn)/dzh_snow_now(i,ksn)*rho_w
@@ -628,17 +563,17 @@ SUBROUTINE terra_init (            &
             END IF
           END DO
         END DO
-        !$acc end parallel
+        !$noacc end parallel
 
-        !$acc parallel
-        !$acc loop gang vector
+        !$noacc parallel
+        !$noacc loop gang vector
         DO i = ivstart, ivend
           t_snow_mult_now  (i,0  ) = t_snow_now(i)
         END DO
-        !$acc end parallel
+        !$noacc end parallel
       ELSE
-        !$acc parallel
-        !$acc loop gang vector
+        !$noacc parallel
+        !$noacc loop gang vector
         DO i = ivstart, ivend
           IF(rho_snow_now(i) .EQ. 0._wp) rho_snow_now(i) = 250._wp
           IF (l2lay_rho_snow) THEN
@@ -646,7 +581,7 @@ SUBROUTINE terra_init (            &
             IF(rho_snow_mult_now(i,2) == 0._wp) rho_snow_mult_now(i,2) = rho_snow_now(i)
           ENDIF
         END DO
-        !$acc end parallel
+        !$noacc end parallel
       END IF
     ENDIF
 
@@ -660,9 +595,9 @@ SUBROUTINE terra_init (            &
 !   a pre run.
 !   ----------------------------------
     IF (lmelt .AND. .NOT. lmelt_var) THEN
-      !$acc parallel
+      !$noacc parallel
       DO kso   = 1,ke_soil+1
-        !$acc loop gang vector
+        !$noacc loop gang vector
         DO i = ivstart, ivend
           w_so_ice_now(i,kso) = 0.0_wp
           w_so_ice_new(i,kso) = 0.0_wp
@@ -673,12 +608,12 @@ SUBROUTINE terra_init (            &
           END IF ! t_so(kso) < t0_melt
         END DO
       END DO
-      !$acc end parallel
+      !$noacc end parallel
     END IF           ! lmelt .AND. .NOT. lmelt_var
     IF(lmelt .AND. lmelt_var) THEN
-      !$acc parallel
+      !$noacc parallel
       DO kso   = 1,ke_soil+1
-        !$acc loop gang vector
+        !$noacc loop gang vector
         DO i = ivstart, ivend
           IF (t_so_now(i,kso) < (t0_melt-eps_temp)) THEN 
 
@@ -721,7 +656,7 @@ SUBROUTINE terra_init (            &
           END IF
         END DO
       END DO
-      !$acc end parallel
+      !$noacc end parallel
     END IF           ! lmelt .AND. lmelt_var
 
 
@@ -729,26 +664,26 @@ SUBROUTINE terra_init (            &
 !   -----------------------------------------------------
 
     IF(lmulti_snow) THEN
-      !$acc parallel
-      !$acc loop gang vector
+      !$noacc parallel
+      !$noacc loop gang vector
       DO i = ivstart, ivend
         sum_weight(i) = 0.0_wp
         h_snow    (i) = 0.0_wp
       END DO
-      !$acc end parallel
+      !$noacc end parallel
 
-      !$acc parallel
+      !$noacc parallel
       DO ksn = 1, ke_snow
-        !$acc loop gang vector
+        !$noacc loop gang vector
         DO i = ivstart, ivend
           h_snow(i) = h_snow(i) + dzh_snow_now(i,ksn)
         END DO
       END DO
-      !$acc end parallel
+      !$noacc end parallel
 
-      !$acc parallel
+      !$noacc parallel
       DO ksn = 1,ke_snow
-        !$acc loop gang vector
+        !$noacc loop gang vector
         DO i = ivstart, ivend
           IF(h_snow(i) > 0.0_wp) THEN
             t_snow_mult_now(i,ksn) = t_snow_now(i) + &
@@ -757,14 +692,14 @@ SUBROUTINE terra_init (            &
           END IF
         END DO
       END DO
-      !$acc end parallel
+      !$noacc end parallel
     ELSE
-      !$acc parallel
-      !$acc loop gang vector
+      !$noacc parallel
+      !$noacc loop gang vector
       DO i = ivstart, ivend
         h_snow(i) = w_snow_now(i)/MAX(crhosmin_ml,rho_snow_now(i))*rho_w
       END DO
-      !$acc end parallel
+      !$noacc end parallel
     END IF
 
   ELSE  ! init_mode > 1, i.e. warmstart (i.e. assimilation cycle and forecast)
@@ -1032,11 +967,7 @@ SUBROUTINE terra_init (            &
       ! rho_snow_now and w_snow_now contain the first guess.
       CALL get_wsnow(h_snow,         &  ! in
                      rho_snow_now,   &  ! inout
-#ifdef __ICON__
                      t_rhosnowini,   &  ! in
-#else
-                     t_snow_now,     &  ! in
-#endif
                      ivstart, ivend, &  ! in
                      soiltyp_subs,   &  ! in
                      w_snow_now      )  ! out
@@ -1055,7 +986,7 @@ SUBROUTINE terra_init (            &
 
   ENDIF  ! init_mode
 
-!$acc end data
+!$noacc end data
 
 ! End of timestep 0 preparations
 ! ==============================

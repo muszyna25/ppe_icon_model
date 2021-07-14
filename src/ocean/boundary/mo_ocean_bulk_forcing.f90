@@ -62,7 +62,7 @@ MODULE mo_ocean_bulk_forcing
 
   USE mo_math_utilities,      ONLY: gvec2cvec
   USE mtime,                  ONLY: datetime, getDayOfYearFromDateTime, getNoOfDaysInYearDateTime
-
+  USE mo_ocean_time_events,   ONLY: isEndOfThisRun 
   
   IMPLICIT NONE
   
@@ -395,28 +395,27 @@ CONTAINS
       ELSE IF (forcing_timescale == 28*24 .OR. forcing_timescale == 29*24  &
                                .OR. forcing_timescale == 30*24 .OR. forcing_timescale == 31*24 )  THEN
         jmon1 = 1 + ((jdmon-1) * 86400.0_wp/forcing_frequency) + INT( sodt / forcing_frequency )
+      ELSE IF (forcing_timescale == 24 )  THEN ! is one day forcing, just take the seconds in this day
+        jmon1 = MIN(1 + INT( sodt / forcing_frequency ), 24)
+        IF (isEndOfThisRun()) jmon1 = 24
       ELSE
         jmon1 = 1 + ((yday-1) * 86400.0_wp/forcing_frequency) + INT( sodt / forcing_frequency )
       ENDIF
 
-      idt_src = 10
+      idt_src = 5 ! 10
       IF ((my_process_is_stdio()) .AND. (idbg_mxmn >= idt_src)) &
-      & write(0,"(a,i6,a,3i8)")' use forcing record ',jmon1,' at ', yday, this_datetime%time%hour,this_datetime%time%minute &
+      & write(0,"(a,i6,a,4i8)")' use forcing record ',jmon1,' at ', yday, this_datetime%time%hour,this_datetime%time%minute &
                   ,this_datetime%time%second
 
       jmon2 = jmon1
       rday1 = 1.0_wp
       rday2 = 0.0_wp
 
-
       ! Leap year in OMIP forcing: read Feb, 28 twice since only 365 data-sets are available
       IF (ylen == 366 .and. forcing_timescale == 365 ) then
         IF (yday>59) jmon1=yday-1
         jmon2=jmon1
       ENDIF
-
-
-
 
     END IF
 
@@ -1134,17 +1133,20 @@ CONTAINS
   !! Initial revision by Stephan Lorenz, MPI (2013-04)
   !!
   !!
-  SUBROUTINE balance_elevation (p_patch_3D, h_old)
+  SUBROUTINE balance_elevation (p_patch_3D, h_old,p_oce_sfc,p_ice)
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)    :: p_patch_3D
     REAL(wp), INTENT(INOUT)                 :: h_old(1:nproma,1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    TYPE(t_ocean_surface) , INTENT(INOUT)   :: p_oce_sfc
+    TYPE(t_sea_ice),INTENT(IN)              :: p_ice
+
 
     TYPE(t_patch), POINTER                  :: p_patch
     TYPE(t_subset_range), POINTER           :: all_cells
 
     INTEGER  :: i_startidx_c, i_endidx_c
-    INTEGER  :: jc, jb
-    REAL(wp) :: ocean_are, glob_slev, corr_slev
+    INTEGER  :: jc, jb 
+    REAL(wp) :: ocean_are, glob_slev, corr_slev , hold_b,hnew_a
 
     p_patch         => p_patch_3D%p_patch_2D(1)
     all_cells       => p_patch%cells%all
@@ -1163,6 +1165,11 @@ CONTAINS
       DO jc =  i_startidx_c, i_endidx_c
         IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
           ! subtract or scale?
+
+          hold_b = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)+h_old(jc,jb) - p_ice%draftave(jc,jb)
+          hnew_a = hold_b - corr_slev
+
+          p_oce_sfc%top_dilution_coeff(jc,jb) =p_oce_sfc%top_dilution_coeff(jc,jb) * hold_b / hnew_a ! for hamocc tracers dilution dilution=hold/hnew *dilution(old from surface fluxes)
           h_old(jc,jb) = h_old(jc,jb) - corr_slev
           !h_old(jc,jb) = h_old(jc,jb) * (1.0_wp - corr_slev)
           !h_old(jc,jb) = h_old(jc,jb) - h_old(jc,jb)*corr_slev

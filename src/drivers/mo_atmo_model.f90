@@ -17,60 +17,54 @@ MODULE mo_atmo_model
 
   ! basic modules
   USE mo_exception,               ONLY: message, finish
-  USE mo_mpi,                     ONLY: stop_mpi, my_process_is_io,   &
-    &                                   set_mpi_work_communicators, process_mpi_io_size,      &
+  USE mo_mpi,                     ONLY: set_mpi_work_communicators,       &
     &                                   my_process_is_pref, process_mpi_pref_size
-#ifdef HAVE_CDI_PIO
-  USE mo_mpi,                     ONLY: mpi_comm_null, p_comm_work_io
+#ifdef _OPENACC
+  USE mo_mpi,                     ONLY: my_process_is_work
+  USE mo_parallel_config,         ONLY: update_nproma_on_device
 #endif
   USE mo_timer,                   ONLY: init_timer, timer_start, timer_stop,                  &
     &                                   timers_level, timer_model_init,                       &
     &                                   timer_domain_decomp, timer_compute_coeffs,            &
     &                                   timer_ext_data, print_timer
-  USE mo_parallel_config,         ONLY: p_test_run, num_test_pe, l_test_openmp,               &
-    &                                   num_io_procs,                                         &
-    &                                   num_prefetch_proc, pio_type
+#ifdef HAVE_RADARFWO
+  USE mo_mpi, ONLY: my_process_is_mpi_test, my_process_is_radario, process_mpi_radario_size
+  USE mo_emvorado_init,           ONLY: prep_emvorado_domains
+  USE mo_emvorado_interface,      ONLY: radar_mpi_barrier
+#ifndef NOMPI
+  USE mo_emvorado_interface,      ONLY: exchg_with_detached_emvorado_io,                      &
+       &                                detach_emvorado_io
+#endif
+#endif
+  USE mo_parallel_config,         ONLY: p_test_run, num_test_pe, l_test_openmp, num_io_procs, &
+    &                                   proc0_shift, num_prefetch_proc, pio_type, num_io_procs_radar
   USE mo_master_config,           ONLY: isRestart
   USE mo_memory_log,              ONLY: memory_log_terminate
-  USE mo_impl_constants,          ONLY: pio_type_async, pio_type_cdipio
-#ifdef HAVE_CDI_PIO
-  USE yaxt,                       ONLY: xt_initialize, xt_initialized
-  USE mo_cdi,                     ONLY: namespacegetactive
-  USE mo_cdi_pio_interface,       ONLY: nml_io_cdi_pio_namespace, &
-    &                                   cdi_base_namespace, &
-    &                                   nml_io_cdi_pio_client_comm, &
-    &                                   nml_io_cdi_pio_conf_handle
-#endif
 #ifndef NOMPI
 #if defined(__GET_MAXRSS__)
   USE mo_mpi,                     ONLY: get_my_mpi_all_id
   USE mo_util_sysinfo,            ONLY: util_get_maxrss
 #endif
 #endif
-  USE mo_impl_constants,          ONLY: SUCCESS,                                              &
-    &                                   ihs_atm_temp, ihs_atm_theta, inh_atmosphere,          &
-    &                                   ishallow_water, inwp
+  USE mo_impl_constants,          ONLY: SUCCESS, inh_atmosphere, inwp
   USE mo_zaxis_type,              ONLY: zaxisTypeList, t_zaxisTypeList
   USE mo_load_restart,            ONLY: read_restart_header
-  USE mo_restart_attributes,      ONLY: t_RestartAttributeList, getAttributesForRestarting
 
   ! namelist handling; control parameters: run control, dynamics
   USE mo_read_namelists,          ONLY: read_atmo_namelists
   USE mo_nml_crosscheck,          ONLY: atm_crosscheck
-  USE mo_nonhydrostatic_config,   ONLY: configure_nonhydrostatic
   USE mo_initicon_config,         ONLY: configure_initicon
   USE mo_io_config,               ONLY: restartWritingParameters
-  USE mo_lnd_nwp_config,          ONLY: configure_lnd_nwp, tile_list
+  USE mo_lnd_nwp_config,          ONLY: configure_lnd_nwp
   USE mo_dynamics_config,         ONLY: configure_dynamics, iequations
   USE mo_run_config,              ONLY: configure_run,                                        &
     &                                   ltimer, ltestcase,                                    &
     &                                   nshift,                                               &
     &                                   num_lev,                                              &
     &                                   msg_level,                                            &
-    &                                   dtime, output_mode,                                   &
     &                                   grid_generatingCenter,                                & ! grid generating center
     &                                   grid_generatingSubcenter,                             & ! grid generating subcenter
-    &                                   iforcing
+    &                                   iforcing, luse_radarfwo
   USE mo_gribout_config,          ONLY: configure_gribout
 #ifndef __NO_JSBACH__
   USE mo_echam_phy_config,        ONLY: echam_phy_config
@@ -82,8 +76,7 @@ MODULE mo_atmo_model
   USE mo_master_control,          ONLY: atmo_process
 
   ! time stepping
-  USE mo_atmo_hydrostatic,        ONLY: atmo_hydrostatic
-  USE mo_atmo_nonhydrostatic,     ONLY: atmo_nonhydrostatic
+  USE mo_atmo_nonhydrostatic,     ONLY: atmo_nonhydrostatic, construct_atmo_nonhydrostatic
 
   USE mo_nh_testcases,            ONLY: init_nh_testtopo
 
@@ -98,14 +91,13 @@ MODULE mo_atmo_model
   USE mo_icon_comm_interface,     ONLY: construct_icon_communication,                         &
     &                                   destruct_icon_communication
   ! Vertical grid
-  USE mo_vertical_coord_table,    ONLY: apzero, vct_a, vct_b, vct, allocate_vct_atmo
+  USE mo_vertical_coord_table,    ONLY: vct_a, vct_b, vct, allocate_vct_atmo
   USE mo_init_vgrid,              ONLY: nflatlev
   USE mo_util_vgrid,              ONLY: construct_vertical_grid
 
   ! external data, physics
   USE mo_ext_data_state,          ONLY: ext_data, destruct_ext_data
   USE mo_ext_data_init,           ONLY: init_ext_data
-  USE mo_nwp_ww,                  ONLY: configure_ww
 
   USE mo_diffusion_config,        ONLY: configure_diffusion
 
@@ -128,17 +120,13 @@ MODULE mo_atmo_model
 
   ! I/O
   USE mo_restart,                 ONLY: detachRestartProcs
-  USE mo_name_list_output,        ONLY: name_list_io_main_proc
-#ifdef HAVE_CDI_PIO
-  USE mo_name_list_output_init,   ONLY: init_cdipio_cb
-  USE mo_name_list_output,        ONLY: write_ready_files_cdipio
-#endif
-  USE mo_name_list_output_config, ONLY: use_async_name_list_io
-  USE mo_time_config,             ONLY: time_config      ! variable
-  USE mo_output_event_types,      ONLY: t_sim_step_info
-  USE mtime,                      ONLY: datetimeToString, OPERATOR(<), OPERATOR(+)
-  ! Prefetching  
+  USE mo_icon_output_tools,       ONLY: init_io_processes
+  USE mtime,                      ONLY: OPERATOR(<), OPERATOR(+)
+#ifndef NOMPI
+  ! Prefetching
   USE mo_async_latbc,             ONLY: prefetch_main_proc
+#endif
+  USE mo_async_latbc_types,       ONLY: t_latbc_data
   ! ART
   USE mo_art_init_interface,      ONLY: art_init_interface
 
@@ -164,16 +152,26 @@ CONTAINS
 
     CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:atmo_model"
 
+    TYPE(t_latbc_data) :: latbc !< data structure for async latbc prefetching
+
 #ifndef NOMPI
 #if defined(__SX__)
     INTEGER  :: maxrss
 #endif
 #endif
 
-
     !---------------------------------------------------------------------
     ! construct the atmo model
     CALL construct_atmo_model(atm_namelist_filename,shr_namelist_filename)
+
+    SELECT CASE(iequations)
+
+    CASE(inh_atmosphere)
+      CALL construct_atmo_nonhydrostatic(latbc)
+
+    CASE DEFAULT
+      CALL finish(routine, 'unknown choice for iequations.')
+    END SELECT
 
     !---------------------------------------------------------------------
     ! construct the coupler
@@ -182,15 +180,14 @@ CONTAINS
       CALL construct_atmo_coupler(p_patch)
     ENDIF
 
+
     !---------------------------------------------------------------------
-    ! 12. The hydrostatic and nonhydrostatic models branch from this point
+    ! 12. The hydrostatic model has been deleted. Only the non-hydrostatic 
+    !     model is available.
     !---------------------------------------------------------------------
     SELECT CASE(iequations)
-    CASE(ishallow_water,ihs_atm_temp,ihs_atm_theta)
-      CALL atmo_hydrostatic
-
     CASE(inh_atmosphere)
-      CALL atmo_nonhydrostatic
+      CALL atmo_nonhydrostatic(latbc)
 
     CASE DEFAULT
       CALL finish(routine, 'unknown choice for iequations.')
@@ -199,6 +196,19 @@ CONTAINS
     ! print performance timers:
     IF (ltimer) CALL print_timer
 
+#ifdef HAVE_RADARFWO
+#ifndef __SCT__
+    IF (process_mpi_radario_size > 0) THEN
+      IF (ltimer) THEN
+#ifndef NOMPI
+        ! To synchronize the EMVORADO async. IO timing output, so that this 
+        !  timing printout appears after the "normal" timing printout for the workers
+        CALL radar_mpi_barrier ()
+#endif
+      END IF
+    END IF
+#endif
+#endif
 
     !---------------------------------------------------------------------
     ! 13. Integration finished. Carry out the shared clean-up processes
@@ -235,9 +245,7 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
     ! local variables
     CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:construct_atmo_model"
-    INTEGER                 :: jg, jgp, jstep0, error_status, dedicatedRestartProcs
-    TYPE(t_sim_step_info)   :: sim_step_info  
-    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    INTEGER                 :: jg, jgp, error_status, dedicatedRestartProcs
 
     ! initialize global registry of lon-lat grids
     CALL lonlat_grids%init()
@@ -246,7 +254,6 @@ CONTAINS
     ! 0. If this is a resumed or warm-start run...
     !---------------------------------------------------------------------
 
-    restartAttributes => NULL()
     IF (isRestart()) THEN
       CALL message('','Read restart file meta data ...')
       CALL read_restart_header("atm")
@@ -287,16 +294,30 @@ CONTAINS
     ! 3.1 Initialize the mpi work groups
     !-------------------------------------------------------------------
     CALL restartWritingParameters(opt_dedicatedProcCount = dedicatedRestartProcs)
-    CALL set_mpi_work_communicators(p_test_run, l_test_openmp, &
-         &                          num_io_procs, dedicatedRestartProcs, &
-         &                          num_prefetch_proc, num_test_pe,      &
-         &                          pio_type, opt_comp_id=atmo_process)
+
+#ifdef HAVE_RADARFWO
+    IF (iequations == inh_atmosphere .AND. iforcing == inwp .AND. ANY(luse_radarfwo(1:n_dom))) THEN
+      CALL prep_emvorado_domains (n_dom, luse_radarfwo(1:n_dom))
+    ENDIF
+#endif
+
+    CALL set_mpi_work_communicators(p_test_run, l_test_openmp,                    &
+         &                          num_io_procs, dedicatedRestartProcs,          &
+         &                          atmo_process, num_prefetch_proc, num_test_pe, &
+         &                          pio_type,                                     &
+         &                          num_io_procs_radar=num_io_procs_radar,        &
+         &                          radar_flag_doms_model=luse_radarfwo(1:n_dom), &
+         &                          num_dio_procs=proc0_shift)
+
+#ifdef _OPENACC
+    CALL update_nproma_on_device( my_process_is_work() )
+#endif
 
     !-------------------------------------------------------------------
     ! 3.2 Initialize various timers
     !-------------------------------------------------------------------
     IF (ltimer) CALL init_timer
-    IF (timers_level > 3) CALL timer_start(timer_model_init)
+    IF (timers_level > 1) CALL timer_start(timer_model_init)
 
     !-------------------------------------------------------------------
     ! initialize dynamic list of vertical axes
@@ -321,8 +342,9 @@ CONTAINS
     !-------------------------------------------------------------------
 
     ! This won't RETURN on dedicated restart PEs, starting their main loop instead.
-    CALL detachRestartProcs()
+    CALL detachRestartProcs(timers_level > 1)
 
+#ifndef NOMPI
     ! If we belong to the prefetching PEs just call prefetch_main_proc before reading patches.
     ! This routine will never return
     IF (process_mpi_pref_size > 0) THEN
@@ -330,76 +352,51 @@ CONTAINS
       CALL message(routine, 'asynchronous input prefetching is enabled.')
       IF (my_process_is_pref()) CALL prefetch_main_proc
     ENDIF
-
-    ! If we belong to the I/O PEs just call xxx_io_main_proc before
-    ! reading patches.  This routine will never return
-    IF (process_mpi_io_size > 0 .AND. pio_type == pio_type_async) THEN
-      ! Decide whether async vlist or name_list IO is to be used,
-      ! only one of both may be enabled!
-
-      IF (output_mode%l_nml) THEN
-        ! -----------------------------------------
-        ! asynchronous I/O
-        ! -----------------------------------------
-        !
-        use_async_name_list_io = .TRUE.
-        CALL message(routine, 'asynchronous namelist I/O scheme is enabled.')
-        ! consistency check
-        IF (my_process_is_io()) THEN
-          ! Stop timer which is already started but would not be stopped
-          ! since xxx_io_main_proc never returns
-          IF (timers_level > 3) CALL timer_stop(timer_model_init)
-
-          ! compute sim_start, sim_end
-          CALL datetimeToString(time_config%tc_exp_startdate, sim_step_info%sim_start)
-          CALL datetimeToString(time_config%tc_exp_stopdate, sim_step_info%sim_end)
-          CALL datetimeToString(time_config%tc_startdate, sim_step_info%run_start)
-          CALL datetimeToString(time_config%tc_stopdate, sim_step_info%restart_time)
-          sim_step_info%dtime      = dtime
-          jstep0 = 0
-
-          restartAttributes => getAttributesForRestarting()
-          IF (ASSOCIATED(restartAttributes)) THEN
-            ! get start counter for time loop from restart file:
-            jstep0 = restartAttributes%getInteger("jstep")
-          END IF
-          sim_step_info%jstep0    = jstep0
-          CALL name_list_io_main_proc(sim_step_info)
-        END IF
-      ELSE IF (my_process_is_io()) THEN
-        ! Shut down MPI
-        CALL stop_mpi
-        STOP
-      ENDIF
-    ELSE IF (process_mpi_io_size > 0 .AND. pio_type == pio_type_cdipio) THEN
-      ! initialize parallel output via CDI-PIO
-#ifdef HAVE_CDI_PIO
-      IF (.NOT. xt_initialized()) CALL xt_initialize(p_comm_work_io)
-      cdi_base_namespace = namespaceGetActive()
-      CALL cdiPioConfSetCallBackActions(nml_io_cdi_pio_conf_handle, &
-        cdipio_callback_postcommsetup, init_cdipio_cb)
-      CALL cdiPioConfSetCallBackActions(nml_io_cdi_pio_conf_handle, &
-        cdipio_callback_postwritebatch, write_ready_files_cdipio)
-      nml_io_cdi_pio_client_comm = &
-        &   cdiPioInit(p_comm_work_io, nml_io_cdi_pio_conf_handle, &
-        &              nml_io_cdi_pio_namespace)
-      IF (nml_io_cdi_pio_client_comm == mpi_comm_null) THEN
-        ! todo: terminate program cleanly here
-        CALL stop_mpi
-        STOP
-      END IF
-#else
-      CALL finish(routine, 'CDI-PIO requested but unavailable')
 #endif
-    ELSE
-      ! -----------------------------------------
-      ! non-asynchronous I/O (performed by PE #0)
-      ! -----------------------------------------
+
+
+    CALL init_io_processes()
+
+#ifdef HAVE_RADARFWO
+#ifndef NOMPI
+    IF ( .NOT. my_process_is_mpi_test() .AND. &
+         iequations == inh_atmosphere .AND. iforcing == inwp .AND. &
+         ANY(luse_radarfwo(1:n_dom)) .AND. num_io_procs_radar > 0   ) THEN
+
+      ! -------------------------------------------------------------------------
+      ! Radar forward operator EMVORADO
+      ! -------------------------------------------------------------------------
       !
-      IF (output_mode%l_nml) THEN
-        CALL message(routine, 'synchronous namelist I/O scheme is enabled.')
-      ENDIF
-    ENDIF
+      ! - Initialize data here which must be available on
+      !   all radar PEs (workers + radario). 
+      !
+      ! - also detach the separate radario-procs after this initialisation here.
+      !
+      ! -------------------------------------------------------------------------
+
+      IF (my_process_is_radario()) THEN
+        
+        ! We have to call configure_gribout(...) also on the separate radar-IO-procs
+        !  due to composite-output. For this, grid_generatingCenter and grid_generatingSubcenter
+        !  have to be received on the radar-IO procs from the workers first. Both things are done here.
+        ! The counterpart on the worker nodes is called after model initialization below,
+        !  because only then the grid_generatingCenter and grid_generatingSubcenter are known:
+        CALL exchg_with_detached_emvorado_io (grid_generatingCenter, grid_generatingSubcenter)
+
+        CALL configure_gribout(grid_generatingCenter, grid_generatingSubcenter, n_dom)
+
+        ! This is a pure radar IO PE, so the below "detach_emvorado_io" will never return.
+        ! So we STOP the already started timer "timer_model_init", because it is useless on this PE:
+        IF (timers_level > 1) CALL timer_stop(timer_model_init)
+        
+        CALL detach_emvorado_io (n_dom, luse_radarfwo(1:n_dom))
+        
+      END IF
+    END IF
+#endif
+#endif
+
+
 
     !------------------
     ! Next, define the horizontal and vertical grids since they are aready
@@ -411,16 +408,16 @@ CONTAINS
     ! 4. Import patches, perform domain decomposition
     !-------------------------------------------------------------------
 
-    IF (timers_level > 5) CALL timer_start(timer_domain_decomp)
-    CALL build_decomposition(num_lev, nshift, is_ocean_decomposition = .false.)
-    IF (timers_level > 5) CALL timer_stop(timer_domain_decomp)
+    IF (timers_level > 4) CALL timer_start(timer_domain_decomp)
+    CALL build_decomposition(num_lev, nshift, is_ocean_decomposition = .FALSE.)
+    IF (timers_level > 4) CALL timer_stop(timer_domain_decomp)
 
 
     !--------------------------------------------------------------------------------
     ! 5. Construct interpolation state, compute interpolation coefficients.
     !--------------------------------------------------------------------------------
 
-    IF (timers_level > 5) CALL timer_start(timer_compute_coeffs)
+    IF (timers_level > 4) CALL timer_start(timer_compute_coeffs)
     CALL configure_interpolation( n_dom, p_patch(1:)%level, &
                                   p_patch(1:)%geometry_info )
 
@@ -437,10 +434,10 @@ CONTAINS
     ENDIF
 
     ALLOCATE( p_int_state_local_parent(n_dom_start+1:n_dom), &
-      &       p_grf_state_local_parent(n_dom_start+1:n_dom), &
-      &       STAT=error_status)
+         &    p_grf_state_local_parent(n_dom_start+1:n_dom), &
+         &    STAT=error_status)
     IF (error_status /= SUCCESS) &
-      CALL finish(routine, 'allocation for local parents failed')
+         CALL finish(routine, 'allocation for local parents failed')
 
     ! Construct interpolation state
     ! Please note that for parallel runs the divided state is constructed here
@@ -450,7 +447,7 @@ CONTAINS
     DO jg = n_dom_start+1, n_dom
       jgp = p_patch(jg)%parent_id
       CALL transfer_interpol_state(p_patch(jgp),p_patch_local_parent(jg), &
-        &  p_int_state(jgp), p_int_state_local_parent(jg))
+           &  p_int_state(jgp), p_int_state_local_parent(jg))
     ENDDO
 
     !-----------------------------------------------------------------------------
@@ -458,7 +455,7 @@ CONTAINS
     !-----------------------------------------------------------------------------
     ! For the NH model, the initialization routines called from
     ! construct_2d_gridref_state require the metric terms to be present
-
+      
     IF (n_dom_start==0 .OR. n_dom > 1) THEN
 
       ! Construct gridref state
@@ -466,7 +463,7 @@ CONTAINS
       ! for parallel runs, the main part of the gridref state is constructed on the
       ! local parent with the following call
       CALL construct_2d_gridref_state (p_patch, p_grf_state)
-
+        
       ! Transfer gridref state from local parent to p_grf_state
       DO jg = n_dom_start+1, n_dom
         jgp = p_patch(jg)%parent_id
@@ -480,11 +477,11 @@ CONTAINS
     !-------------------------------------------------------------------
     ! Initialize icon_comm_lib
     !-------------------------------------------------------------------
-!    IF (use_icon_comm) THEN
-      CALL construct_icon_communication(p_patch, n_dom)
-!    ENDIF
+    !    IF (use_icon_comm) THEN
+    CALL construct_icon_communication(p_patch, n_dom)
+    !    ENDIF
 
-
+    
     !--------------------------------------------
     ! Setup the information for the physical patches
     CALL setup_phys_patches
@@ -498,11 +495,12 @@ CONTAINS
     IF (n_dom_start==0 .OR. n_dom > 1) THEN
       CALL create_grf_index_lists(p_patch, p_grf_state, p_int_state)
     ENDIF
-    IF (timers_level > 5) CALL timer_stop(timer_compute_coeffs)
+    IF (timers_level > 4) CALL timer_stop(timer_compute_coeffs)
 
-   !---------------------------------------------------------------------
-   ! Prepare dynamics and land
-   !---------------------------------------------------------------------
+
+    !---------------------------------------------------------------------
+    ! Prepare dynamics and land
+    !---------------------------------------------------------------------
 
     CALL configure_dynamics ( n_dom )
 
@@ -520,13 +518,13 @@ CONTAINS
 
     ! allocate memory for atmospheric/oceanic external data and
     ! optionally read those data from netCDF file.
-    IF (timers_level > 5) CALL timer_start(timer_ext_data)
+    IF (timers_level > 4) CALL timer_start(timer_ext_data)
     CALL init_ext_data (p_patch(1:), p_int_state(1:), ext_data)
-    IF (timers_level > 5) CALL timer_stop(timer_ext_data)
+    IF (timers_level > 4) CALL timer_stop(timer_ext_data)
 
-   !---------------------------------------------------------------------
-   ! Import vertical grid/ define vertical coordinate
-   !---------------------------------------------------------------------
+    !---------------------------------------------------------------------
+    ! Import vertical grid/ define vertical coordinate
+    !---------------------------------------------------------------------
 
     CALL allocate_vct_atmo(p_patch(1)%nlevp1)
     IF (iequations == inh_atmosphere .AND. ltestcase) THEN
@@ -542,20 +540,31 @@ CONTAINS
     !---------------------------------------------------------------------
 
 
-    CALL configure_diffusion( n_dom, dynamics_parent_grid_id,       &
-      &                       p_patch(1)%nlev, vct_a, vct_b, apzero )
+    CALL configure_diffusion(n_dom, dynamics_parent_grid_id)
 
     CALL configure_gribout(grid_generatingCenter, grid_generatingSubcenter, n_phys_dom)
 
-    IF (iequations == inh_atmosphere) THEN
-      DO jg =1,n_dom
-        CALL configure_nonhydrostatic( jg, p_patch(jg)%nlev,     &
-          &                            p_patch(jg)%nshift_total  )
-        IF ( iforcing == inwp) THEN
-          CALL configure_ww( time_config%tc_startdate, jg, p_patch(jg)%nlev, p_patch(jg)%nshift_total, 'ICON')
-        END IF
-      ENDDO
-    ENDIF
+
+
+    !-------------------------------------------------------------------------
+    ! EMVORADO: The worker part of the communication with radar IO PEs
+    ! To send informations on grid_generatingCenter, grid_generatingSubcenter
+    !-------------------------------------------------------------------------
+
+#ifdef HAVE_RADARFWO
+#ifndef NOMPI
+    IF ( .NOT. my_process_is_mpi_test() .AND. &
+         iequations == inh_atmosphere .AND. iforcing == inwp .AND. &
+         ANY(luse_radarfwo(1:n_dom)) .AND. num_io_procs_radar > 0   ) THEN
+
+      ! Only workers reach this point here. Send
+      !  grid_generatingCenter and grid_generatingSubcenter to the radar I/O PEs:
+      CALL exchg_with_detached_emvorado_io(grid_generatingCenter, grid_generatingSubcenter)
+      
+    END IF
+#endif
+#endif
+
 
 #ifndef __NO_JSBACH__
     ! Setup horizontal grids and tiles for JSBACH
@@ -580,7 +589,7 @@ CONTAINS
 
     !------------------------------------------------------------------
 
-    IF (timers_level > 3) CALL timer_stop(timer_model_init)
+    IF (timers_level > 1) CALL timer_stop(timer_model_init)
 
   END SUBROUTINE construct_atmo_model
 
@@ -602,10 +611,6 @@ CONTAINS
       CALL finish(routine, 'deallocation of ext_data')
     ENDIF
 
-    ! destruct surface tile list
-    IF (iforcing == inwp) THEN
-      CALL tile_list%destruct()
-    ENDIF
 
     ! destruct interpolation patterns generate in create_grf_index_lists
     IF (n_dom_start==0 .OR. n_dom > 1) THEN

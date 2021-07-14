@@ -14,32 +14,34 @@
 
 MODULE mo_input_instructions
 
-    USE mo_dictionary,         ONLY: dict_get
-    USE mo_exception,          ONLY: message, finish
+    USE mo_exception,          ONLY: message, finish, message_text
     USE mo_impl_constants,     ONLY: SUCCESS, MODE_DWDANA, MODE_ICONVREMAP, MODE_IAU, MODE_IAU_OLD, &
-      &                              MODE_COMBINED, MODE_COSMO, max_ntracer
+      &                              MODE_COMBINED, MODE_COSMO, max_ntracer, vname_len
     USE mo_initicon_config,    ONLY: initicon_config, lread_ana, ltile_coldstart, lp2cintp_incr,    &
       &                              lp2cintp_sfcana, lvert_remap_fg
     USE mo_initicon_types,     ONLY: ana_varnames_dict
     USE mo_input_request_list, ONLY: t_InputRequestList
     USE mo_lnd_nwp_config,     ONLY: lsnowtile
     USE mo_model_domain,       ONLY: t_patch
-    USE mo_util_string,        ONLY: difference, add_to_list, int2string, one_of
+    USE mo_util_string,        ONLY: difference, add_to_list, one_of
     USE mo_util_table,         ONLY: t_table, initialize_table, add_table_column, set_table_entry,  &
       &                              print_table, finalize_table
-    USE mo_var_list,           ONLY: collect_group
-    USE mo_var_metadata_types, ONLY: VARNAME_LEN
+    USE mo_var_list_register_utils, ONLY: vlr_group
 
     IMPLICIT NONE
+    PRIVATE
 
     PUBLIC :: t_readInstructionList, readInstructionList_make, t_readInstructionListPtr
     PUBLIC :: kInputSourceNone, kInputSourceFg, kInputSourceAna, kInputSourceBoth, kInputSourceCold
-    PUBLIC :: kStateNoFetch, kStateFailedFetch, kStateRead
+    PUBLIC :: kStateNoFetch, kStateFailedFetch, kStateRead,  kInputSourceAnaI, kInputSourceFgAnaI
 
     ! The possible RETURN values of readInstructionList_sourceOfVar().
+    ! kInputSourceBoth  : First guess and analysis increment read from file
+    ! kInputSourceAnaI  : Analysis interpolated from parent grid
+    ! kInputSourceFgAnaI: First guess read from file, analysis increment interpolated from parent grid
     ENUM, BIND(C)
         ENUMERATOR :: kInputSourceUnset = 1, kInputSourceNone, kInputSourceFg, kInputSourceAna, &
-          &           kInputSourceBoth, kInputSourceCold
+          &           kInputSourceBoth, kInputSourceCold, kInputSourceAnaI, kInputSourceFgAnaI
     END ENUM
 
     ! The possible values for statusFg AND statusAna:
@@ -121,10 +123,8 @@ MODULE mo_input_instructions
         TYPE(t_readInstructionList), POINTER :: ptr
     END TYPE t_readInstructionListPtr
 
-PRIVATE
-
     TYPE :: t_readInstruction
-        CHARACTER(LEN = VARNAME_LEN) :: varName
+        CHARACTER(LEN = vname_len) :: varName
         ! These reflect the result of interpreting the variable
         ! groups, they are not used in the table output:
         LOGICAL :: lReadFg, lReadAna
@@ -155,31 +155,31 @@ PRIVATE
 CONTAINS
 
     SUBROUTINE collectGroupFg(outGroup, outGroupSize, init_mode)
-        CHARACTER(LEN = VARNAME_LEN), INTENT(INOUT) :: outGroup(:)
+        CHARACTER(LEN = vname_len), INTENT(INOUT) :: outGroup(:)
         INTEGER, INTENT(OUT) :: outGroupSize
-        INTEGER, VALUE :: init_mode
+        INTEGER, INTENT(IN) :: init_mode
 
         ! local tracerGroup to add all vars in group tracer_fg_in to first guess
-        CHARACTER(LEN = VARNAME_LEN) :: tracerGroup(max_ntracer)
+        CHARACTER(LEN = vname_len) :: tracerGroup(max_ntracer)
         INTEGER :: tracerGroupSize
 
         SELECT CASE(init_mode)
             CASE(MODE_DWDANA, MODE_ICONVREMAP)
-                CALL collect_group('mode_dwd_fg_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
-                CALL collect_group('tracer_fg_in', tracerGroup, tracerGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
+                CALL vlr_group('mode_dwd_fg_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
+                CALL vlr_group('tracer_fg_in', tracerGroup, tracerGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
                 ! fgGroup += tracerGroup
-                CALL add_to_list(outGroup, outGroupSize, tracerGroup(1:tracerGroupSize), tracerGroupSize)
+                CALL add_to_list(outGroup, outGroupSize, tracerGroup, tracerGroupSize)
             CASE(MODE_IAU)
-                CALL collect_group('mode_iau_fg_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
-                CALL collect_group('tracer_fg_in', tracerGroup, tracerGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
+                CALL vlr_group('mode_iau_fg_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
+                CALL vlr_group('tracer_fg_in', tracerGroup, tracerGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
                 ! fgGroup += tracerGroup
-                CALL add_to_list(outGroup, outGroupSize, tracerGroup(1:tracerGroupSize), tracerGroupSize)
+                CALL add_to_list(outGroup, outGroupSize, tracerGroup, tracerGroupSize)
             CASE(MODE_IAU_OLD)
-                CALL collect_group('mode_iau_old_fg_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
+                CALL vlr_group('mode_iau_old_fg_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
             CASE(MODE_COMBINED)
-                CALL collect_group('mode_combined_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
+                CALL vlr_group('mode_combined_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
             CASE(MODE_COSMO)
-                CALL collect_group('mode_cosmo_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
+                CALL vlr_group('mode_cosmo_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
             CASE DEFAULT
                 outGroupSize = 0
         END SELECT
@@ -193,49 +193,52 @@ CONTAINS
     ! So far, this list has to be created manually. In the future this 
     ! should be done automatically via (add_var) metadata flags. 
     SUBROUTINE collectGroupFgOpt(outGroup, outGroupSize)
-        CHARACTER(LEN = VARNAME_LEN), INTENT(INOUT) :: outGroup(:)
+        CHARACTER(LEN = vname_len), INTENT(INOUT) :: outGroup(:)
         INTEGER, INTENT(OUT) :: outGroupSize
 
-        outGroup(1:12) = (/'alb_si       ','rho_snow_mult','aer_ss       ','aer_or       ', &
+        outGroup(1:23) = (/'alb_si       ','rho_snow_mult','aer_ss       ','aer_or       ', &
           &                'aer_bc       ','aer_su       ','aer_du       ','plantevap    ', &
-          &                't2m_bias     ','hsnow_max    ','snow_age     ','qg           '/)
-        outGroupSize  = 12
+          &                't_sk         ','t2m_bias     ','hsnow_max    ','snow_age     ', &
+          &                'qg           ','qh           ','qnc          ','qni          ', &
+          &                'qnr          ','qns          ','qng          ','qnh          ', &
+          &                'rh_avginc    ','t_avginc     ','p_avginc     '/)
+        outGroupSize  = 23
     END SUBROUTINE collectGroupFgOpt
 
     SUBROUTINE collectGroupAna(outGroup, outGroupSize, init_mode)
-        CHARACTER(LEN = VARNAME_LEN), INTENT(INOUT) :: outGroup(:)
+        CHARACTER(LEN = vname_len), INTENT(INOUT) :: outGroup(:)
         INTEGER, INTENT(OUT) :: outGroupSize
-        INTEGER, VALUE :: init_mode
+        INTEGER, INTENT(IN) :: init_mode
 
         SELECT CASE(init_mode)
             CASE(MODE_DWDANA, MODE_ICONVREMAP)
-                CALL collect_group('mode_dwd_ana_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
+                CALL vlr_group('mode_dwd_ana_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
             CASE(MODE_IAU)
-                CALL collect_group('mode_iau_ana_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
+                CALL vlr_group('mode_iau_ana_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
             CASE(MODE_IAU_OLD)
-                CALL collect_group('mode_iau_old_ana_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
+                CALL vlr_group('mode_iau_old_ana_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
             CASE DEFAULT
                 outGroupSize = 0
         END SELECT
     END SUBROUTINE collectGroupAna
 
     SUBROUTINE collectGroupAnaAtm(outGroup, outGroupSize, init_mode)
-        CHARACTER(LEN = VARNAME_LEN), INTENT(INOUT) :: outGroup(:)
+        CHARACTER(LEN = vname_len), INTENT(INOUT) :: outGroup(:)
         INTEGER, INTENT(OUT) :: outGroupSize
-        INTEGER, VALUE :: init_mode
+        INTEGER, INTENT(IN) :: init_mode
 
         SELECT CASE(init_mode)
             CASE(MODE_IAU, MODE_IAU_OLD)
-                CALL collect_group('mode_iau_anaatm_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
+                CALL vlr_group('mode_iau_anaatm_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
             CASE DEFAULT
                 outGroupSize = 0
         END SELECT
     END SUBROUTINE collectGroupAnaAtm
 
     SUBROUTINE copyGroup(inGroup, inGroupSize, outGroup, outGroupSize)
-        CHARACTER(LEN = VARNAME_LEN), INTENT(IN) :: inGroup(:)
-        INTEGER, VALUE :: inGroupSize
-        CHARACTER(LEN = VARNAME_LEN), INTENT(INOUT) :: outGroup(:)
+        CHARACTER(LEN = vname_len), INTENT(IN) :: inGroup(:)
+        INTEGER, INTENT(IN) :: inGroupSize
+        CHARACTER(LEN = vname_len), INTENT(INOUT) :: outGroup(:)
         INTEGER, INTENT(OUT) :: outGroupSize
 
         outGroup(1:inGroupSize) = inGroup(1:inGroupSize)
@@ -243,12 +246,12 @@ CONTAINS
     END SUBROUTINE copyGroup
 
     SUBROUTINE mergeAnaIntoFg(anaGroup, anaGroupSize, fgGroup, fgGroupSize, init_mode)
-        CHARACTER(LEN = VARNAME_LEN), INTENT(INOUT) :: anaGroup(:), fgGroup(:)
+        CHARACTER(LEN = vname_len), INTENT(INOUT) :: anaGroup(:), fgGroup(:)
         INTEGER, INTENT(INOUT) :: anaGroupSize, fgGroupSize
         INTEGER, INTENT(IN)    :: init_mode
 
         ! fgGroup += anaGroup
-        CALL add_to_list(fgGroup, fgGroupSize, anaGroup(1:anaGroupSize), anaGroupSize)
+        CALL add_to_list(fgGroup, fgGroupSize, anaGroup, anaGroupSize)
 
         ! Remove fields 'u', 'v', 'temp', 'pres' except in VREMAP mode, where the diagnostic variable set
         ! is allowed as an alternative to the corresponding prognostic variable set (vn, theta_v, rho)
@@ -261,15 +264,14 @@ CONTAINS
     SUBROUTINE collectGroups(p_patch, init_mode, fgGroup, fgGroupSize, &
       &                      fgOptGroup, fgOptGroupSize, anaGroup, anaGroupSize)
         TYPE(t_patch), INTENT(IN) :: p_patch
-        INTEGER, VALUE :: init_mode
-        CHARACTER(LEN = VARNAME_LEN), INTENT(INOUT) :: anaGroup(:), fgGroup(:), fgOptGroup(:)
+        INTEGER, INTENT(in) :: init_mode
+        CHARACTER(LEN = vname_len), INTENT(INOUT) :: anaGroup(:), fgGroup(:), fgOptGroup(:)
         INTEGER, INTENT(OUT) :: anaGroupSize, fgGroupSize, fgOptGroupSize
 
         CHARACTER(LEN = *), PARAMETER :: routine = modname//':collectGroups'
-        CHARACTER(LEN=VARNAME_LEN), DIMENSION(200) :: anaAtmGroup
+        CHARACTER(LEN=vname_len), DIMENSION(200) :: anaAtmGroup
         INTEGER :: anaAtmGroupSize, jg
         LOGICAL :: lRemoveSnowfrac
-        CHARACTER(LEN = 256) :: message_text
 
         ! get the raw DATA
         CALL collectGroupFg(fgGroup, fgGroupSize, init_mode)
@@ -286,7 +288,7 @@ CONTAINS
                     ! lump together fgGroup and anaGroup
                     CALL mergeAnaIntoFg(anaGroup, anaGroupSize, fgGroup, fgGroupSize, init_mode)
                 ENDIF
-                IF (init_mode == MODE_ICONVREMAP) CALL add_to_list(fgGroup, fgGroupSize, (/'smi'/) , 1)
+                IF (init_mode == MODE_ICONVREMAP) CALL add_to_list(fgGroup, fgGroupSize, 'smi')
 
             CASE(MODE_IAU, MODE_IAU_OLD)
                 ! in case of tile coldstart, we can omit snowfrac_lc
@@ -314,19 +316,19 @@ CONTAINS
                 ELSE
                     WRITE(message_text,'(a,l1,a,l1,a)') 'Combination lp2cintp_incr=',lp2cintp_incr(jg), &
                     &                       ' and lp2cintp_sfcana=',lp2cintp_sfcana(jg),' not allowed'
-                    CALL finish(routine, TRIM(message_text))
+                    CALL finish(routine, message_text)
                 ENDIF
 
                 ! when vertical remapping of the FG-fields is applied, z_ifc is required 
                 ! as FG input field
                 IF (lvert_remap_fg) THEN
-                  CALL add_to_list(fgGroup, fgGroupSize, (/'z_ifc'/) , 1)
+                  CALL add_to_list(fgGroup, fgGroupSize, 'z_ifc')
                 ENDIF
 
             CASE(MODE_COMBINED,MODE_COSMO)
                 ! add SMI to the default list
                 ! I.e. ICON tries to read SMI, with W_SO being the fallback-option
-                CALL add_to_list(fgGroup, fgGroupSize, (/'smi'/) , 1)
+                CALL add_to_list(fgGroup, fgGroupSize, 'smi')
 
                 ! no analysis group
                 anaGroupSize = 0
@@ -372,7 +374,7 @@ CONTAINS
     !! Returns a new instruction list object.
     FUNCTION readInstructionList_make(p_patch, init_mode) RESULT(resultVar)
         TYPE(t_patch), INTENT(IN) :: p_patch
-        INTEGER, VALUE :: init_mode
+        INTEGER, INTENT(IN) :: init_mode
         ! the resulting list of variable names to be READ together with flags defining which input file may be used
         TYPE(t_readInstructionList), POINTER :: resultVar
 
@@ -382,11 +384,10 @@ CONTAINS
         TYPE(t_readInstruction), pointer :: curInstruction
 
         ! lists of variable names
-        CHARACTER(LEN=VARNAME_LEN), DIMENSION(200) :: grp_vars_fg, grp_vars_optfg, grp_vars_ana
+        CHARACTER(LEN=vname_len), DIMENSION(200) :: grp_vars_fg, grp_vars_optfg, grp_vars_ana
 
         ! the corresponding sizes of the lists above
         INTEGER :: ngrp_vars_fg, ngrp_vars_optfg, ngrp_vars_ana
-        CHARACTER(LEN = 256) :: message_text
         !
         !-------------------------------------------------------------------------
 
@@ -404,7 +405,7 @@ CONTAINS
             ! mark optional first guess fields in the instruction list. 
             IF (one_of(TRIM(grp_vars_fg(ivar)), grp_vars_optfg)/=-1) THEN
                 WRITE(message_text,'(a,a,a,i2)') 'Declare ',TRIM(grp_vars_fg(ivar)),' as OPTIONAL for DOM ', p_patch%id
-                CALL message(routine, TRIM(message_text))                
+                CALL message(routine, message_text)
                 curInstruction%lOptionalFg=.TRUE.
             ENDIF
         END DO
@@ -424,7 +425,7 @@ CONTAINS
         DO ivar=1,SIZE(initicon_config(p_patch%id)%fg_checklist)
             IF (initicon_config(p_patch%id)%fg_checklist(ivar) == ' ') EXIT
 
-            curInstruction => resultVar%findInstruction(TRIM(dict_get(ana_varnames_dict, &
+            curInstruction => resultVar%findInstruction(TRIM(ana_varnames_dict%get( &
                  &                                                  initicon_config(p_patch%id)%fg_checklist(ivar), &
                  &                                                  linverse=.TRUE.)), opt_expand=.FALSE.)
             ! Note that depending on the Namelist settings, not every field listed in 
@@ -433,10 +434,10 @@ CONTAINS
             IF (ASSOCIATED(curInstruction) .AND. curInstruction%lOptionalFg) THEN
                 curInstruction%lOptionalFg = .FALSE.
 
-                WRITE(message_text,'(a,a,a,i2)') 'Transform ',TRIM(dict_get(ana_varnames_dict, &
+                WRITE(message_text,'(a,a,a,i2)') 'Transform ',TRIM(ana_varnames_dict%get( &
                  &                                initicon_config(p_patch%id)%fg_checklist(ivar), linverse=.TRUE.)), &
                  &                               ' into a mandatory first guess field for DOM', p_patch%id
-                CALL message(routine, TRIM(message_text))
+                CALL message(routine, message_text)
             ENDIF
         ENDDO
 
@@ -448,7 +449,7 @@ CONTAINS
             DO ivar=1,SIZE(initicon_config(p_patch%id)%ana_checklist)
                 IF (initicon_config(p_patch%id)%ana_checklist(ivar) == ' ') EXIT
 
-                curInstruction => resultVar%findInstruction(TRIM(dict_get(ana_varnames_dict, &
+                curInstruction => resultVar%findInstruction(TRIM(ana_varnames_dict%get( &
                 &                                                      initicon_config(p_patch%id)%ana_checklist(ivar), &
                 &                                                      linverse=.TRUE.)))
                 curInstruction%lReadAna = .TRUE.
@@ -512,7 +513,7 @@ CONTAINS
 
     SUBROUTINE readInstructionList_resize(me, newSize)
         CLASS(t_readInstructionList), INTENT(INOUT) :: me
-        INTEGER, VALUE :: newSize
+        INTEGER, INTENT(IN) :: newSize
 
         TYPE(t_readInstruction), POINTER :: tempList(:)
         INTEGER :: i, error
@@ -546,7 +547,7 @@ CONTAINS
     SUBROUTINE readInstructionList_fileRequests(me, requestList, lIsFg)
         CLASS(t_readInstructionList), INTENT(IN) :: me
         TYPE(t_inputRequestList), INTENT(INOUT) :: requestList
-        LOGICAL, VALUE :: lIsFg
+        LOGICAL, INTENT(IN) :: lIsFg
 
         INTEGER :: i
 
@@ -562,7 +563,7 @@ CONTAINS
     LOGICAL FUNCTION readInstructionList_wantVar(me, varName, lIsFg) RESULT(resultVar)
         CLASS(t_readInstructionList), INTENT(IN) :: me
         CHARACTER(LEN = *), INTENT(IN) :: varName
-        LOGICAL, VALUE :: lIsFg
+        LOGICAL, INTENT(IN) :: lIsFg
 
         IF(lIsFg) THEN
             resultVar = me%wantVarFg(varName)
@@ -602,7 +603,7 @@ CONTAINS
     END FUNCTION readInstructionList_wantVarAna
 
     SUBROUTINE readInstructionList_handleError(me, lSuccess, varName, caller, lIsFg)
-        LOGICAL, VALUE :: lSuccess, lIsFg
+        LOGICAL, INTENT(IN) :: lSuccess, lIsFg
         CLASS(t_readInstructionList), INTENT(INOUT) :: me
         CHARACTER(LEN = *), INTENT(IN) :: varName, caller
 
@@ -614,7 +615,7 @@ CONTAINS
     END SUBROUTINE readInstructionList_handleError
 
     SUBROUTINE readInstructionList_handleErrorFg(me, lSuccess, varName, caller)
-        LOGICAL, VALUE :: lSuccess
+        LOGICAL, INTENT(IN) :: lSuccess
         CLASS(t_readInstructionList), INTENT(INOUT) :: me
         CHARACTER(LEN = *), INTENT(IN) :: varName, caller
 
@@ -651,7 +652,7 @@ CONTAINS
     END SUBROUTINE readInstructionList_handleErrorFg
 
     SUBROUTINE readInstructionList_handleErrorAna(me, lSuccess, varName, caller)
-        LOGICAL, VALUE :: lSuccess
+        LOGICAL, INTENT(IN) :: lSuccess
         CLASS(t_readInstructionList), INTENT(INOUT) :: me
         CHARACTER(LEN = *), INTENT(IN) :: varName, caller
 
@@ -684,7 +685,7 @@ CONTAINS
 
 
     SUBROUTINE readInstructionList_optionalReadResult(me, lSuccess, varName, caller, lIsFg)
-        LOGICAL, VALUE :: lSuccess, lIsFg
+        LOGICAL, INTENT(IN) :: lSuccess, lIsFg
         CLASS(t_readInstructionList), INTENT(INOUT) :: me
         CHARACTER(LEN = *), INTENT(IN) :: varName, caller
 
@@ -696,7 +697,7 @@ CONTAINS
     END SUBROUTINE readInstructionList_optionalReadResult
 
     SUBROUTINE readInstructionList_optionalReadResultFg(me, lSuccess, varName, caller)
-        LOGICAL, VALUE :: lSuccess
+        LOGICAL, INTENT(IN) :: lSuccess
         CLASS(t_readInstructionList), INTENT(INOUT) :: me
         CHARACTER(LEN = *), INTENT(IN) :: varName, caller
 
@@ -709,15 +710,11 @@ CONTAINS
         IF(.NOT.instruction%lReadFg) CALL finish(routine, "internal error: variable '"//varName//"' was read even though there &
             &are no read instructions for it")
 
-        IF(lSuccess) THEN
-            instruction%statusFg = kStateRead
-        ELSE
-            instruction%statusFg = kStateFailedFetch
-        END IF
+        instruction%statusFg = MERGE(kStateRead, kStateFailedFetch, lsuccess)
     END SUBROUTINE readInstructionList_optionalReadResultFg
 
     SUBROUTINE readInstructionList_optionalReadResultAna(me, lSuccess, varName, caller)
-        LOGICAL, VALUE :: lSuccess
+        LOGICAL, INTENT(IN) :: lSuccess
         CLASS(t_readInstructionList), INTENT(INOUT) :: me
         CHARACTER(LEN = *), INTENT(IN) :: varName, caller
 
@@ -730,11 +727,7 @@ CONTAINS
         IF(.NOT.instruction%lReadAna) CALL finish(routine, "internal error: variable '"//varName//"' was read even though there &
             &are no read instructions for it")
 
-        IF(lSuccess) THEN
-            instruction%statusAna = kStateRead
-        ELSE
-            instruction%statusAna = kStateFailedFetch
-        END IF
+        instruction%statusAna = MERGE(kStateRead, kStateFailedFetch, lSuccess)
     END SUBROUTINE readInstructionList_optionalReadResultAna
 
 
@@ -743,16 +736,14 @@ CONTAINS
 
         IF(me%sourceOverride /= kInputSourceUnset) THEN
             resultVar = me%sourceOverride
+        ELSE IF (me%statusAna == kStateRead) THEN
+          resultVar = kInputSourceAna
+        ELSE IF (me%statusFg == kStateRead) THEN
+          resultVar = kInputSourceFg
+        ELSE IF (me%statusFg == kStateFailedOptFetch) THEN
+          resultVar = kInputSourceCold
         ELSE
-            IF(me%statusAna == kStateRead) THEN
-                resultVar = kInputSourceAna
-            ELSE IF(me%statusFg == kStateRead) THEN
-                resultVar = kInputSourceFg
-            ELSE IF(me%statusFg == kStateFailedOptFetch) THEN
-                resultVar = kInputSourceCold
-            ELSE
-                resultVar = kInputSourceNone
-            END IF
+          resultVar = kInputSourceNone
         END IF
     END FUNCTION readInstruction_source
 
@@ -769,13 +760,14 @@ CONTAINS
     SUBROUTINE readInstructionList_setSource(me, varName, source)
         CLASS(t_readInstructionList), INTENT(INOUT) :: me
         CHARACTER(LEN = *), INTENT(IN) :: varName
-        INTEGER, VALUE :: source
+        INTEGER, INTENT(IN) :: source
 
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":readInstructionList_setSource"
         TYPE(t_readInstruction), POINTER :: instruction
 
         SELECT CASE(source)
-            CASE(kInputSourceNone, kInputSourceFg, kInputSourceAna, kInputSourceBoth, kInputSourceCold)
+            CASE(kInputSourceNone, kInputSourceFg, kInputSourceAna, kInputSourceBoth, &
+              &  kInputSourceCold, kInputSourceAnaI, kInputSourceFgAnaI)
 
                 instruction => me%findInstruction(varName)
                 instruction%sourceOverride = source
@@ -788,7 +780,7 @@ CONTAINS
     INTEGER FUNCTION readInstructionList_fetchStatus(me, varName, lIsFg) RESULT(resultVar)
         CLASS(t_readInstructionList), INTENT(INOUT) :: me
         CHARACTER(LEN = *), INTENT(IN) :: varName
-        LOGICAL, VALUE :: lIsFg
+        LOGICAL, INTENT(IN) :: lIsFg
 
         TYPE(t_readInstruction), POINTER :: instruction
 
@@ -803,13 +795,14 @@ CONTAINS
 
 
 
-    ! The table that is printed by this function deliberately depends on the actual read attempts and their results, not on `lReadFg` or `lReadAna`.
-    ! This is due to the fact that there are existing discrepancies between the input groups and the actual read attempts made by the `fetch...()` routines
-    ! in `mo_initicon_io`: The table is supposed to show the reality of which data was read from where, and which inputs were used,
+    ! The table that is printed by this function deliberately depends on the actual read attempts and their results, 
+    ! not on `lReadFg` or `lReadAna`. This is due to the fact that there are existing discrepancies between the 
+    ! input groups and the actual read attempts made by the `fetch...()` routines in `mo_initicon_io`: 
+    ! The table is supposed to show the reality of which data was read from where, and which inputs were used,
     ! not some hypothetical this-is-what-should-have-been-done info.
-    SUBROUTINE readInstructionList_printSummary(me, domain)
+    SUBROUTINE readInstructionList_printSummary(me, jg)
         CLASS(t_readInstructionList), INTENT(INOUT) :: me
-        INTEGER, VALUE :: domain
+        INTEGER, INTENT(IN) :: jg
 
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":readInstructionList_printSummary"
         INTEGER :: i
@@ -825,13 +818,13 @@ CONTAINS
 
         IF(me%nInstructions == 0) THEN
             ! Don't print empty tables, just give a message that there are no input instructions.
-            WRITE(0, *) "no input results available for domain "//TRIM(int2string(domain))
+            WRITE(0, '(a,i0)') "no input results available for domain ", jg
             RETURN
         END IF
 
         ! Print the title of the list.
         WRITE(0,*) ""
-        WRITE(0,*) "input results for domain "//TRIM(int2string(domain))//":"
+        WRITE(0, '(a,i0,a)') "input results for domain ", jg, ":"
 
         CALL initialize_table(table)
         CALL add_table_column(table, variableCol)
@@ -893,6 +886,10 @@ CONTAINS
                     CALL set_table_entry(table, i, useCol, "ana")
                 CASE(kInputSourceBoth)
                     CALL set_table_entry(table, i, useCol, "both")
+                CASE(kInputSourceAnaI)
+                    CALL set_table_entry(table, i, useCol, "ana(intp)")
+                CASE(kInputSourceFgAnaI)
+                    CALL set_table_entry(table, i, useCol, "fg,ana(intp)")
                 CASE DEFAULT
                     CALL finish(routine, "unexpected RESULT from curInstruction%source()")
             END SELECT

@@ -85,11 +85,8 @@ MODULE sfc_terra_data
 ! Declarations:
 !
 ! Modules used:
-#ifdef __COSMO__
-USE kind_parameters, ONLY :   &
-#elif __ICON__
+
 USE mo_kind, ONLY:     &
-#endif
     wp           ! KIND-type parameter for real variables
 
 !==============================================================================
@@ -105,7 +102,7 @@ PUBLIC           ! All constants and variables in this module are public
 ! 1. Data arrays for properties of different soil types (array index)     
 ! -------------------------------------------------------------------
  
-  REAL  (KIND=wp)     ::  &
+  REAL  (KIND=wp) , TARGET    ::  &
 !   a) parameters describing the soil water budget
     cporv (10), &  !  pore volume (fraction of volume)
     cfcap (10), &  !  field capacity (fraction of volume)
@@ -124,7 +121,7 @@ PUBLIC           ! All constants and variables in this module are public
     crhoc (10), &  !  soil heat capacity  (J/K*m**3)
     cala0 (10), &  !  parameters for the determination of
     cala1 (10), &  !      the soil heat conductivity (W/(K*m))
-    csalb (10), &  !  solar albedo for dry soil                            
+    csalb1(10), csalb2(10), &  !  options for diffuse solar albedo; selection is made in mo_radiation_nml
     csalbw(10), &  !  slope of solar albedo with respect to soil water content     
 
 !   c) additional parameters for the BATS scheme (Dickinson)
@@ -136,7 +133,9 @@ PUBLIC           ! All constants and variables in this module are public
     csandf(10), &  !  mean fraction of sand (weight percent)
     cclayf(10)     !  mean fraction of clay (weight percent)
  
-  !$acc declare copyin(clgk0)
+  REAL  (KIND=wp) , POINTER ::  csalb(:)
+
+  !$acc declare copyin(clgk0) create (csalb)
 
   ! Initialization of soil type parameters except cdz1 
   ! (being calculated during execution)
@@ -150,26 +149,23 @@ PUBLIC           ! All constants and variables in this module are public
   DATA  cadp  / 0.0_wp   , 0.0_wp   , 0.012_wp  , 0.030_wp  , 0.035_wp  , 0.060_wp  , 0.065_wp  , 0.098_wp  , 0.0_wp   ,  0.0_wp   /
   DATA  crhoc / 1.92E6_wp, 2.10E6_wp, 1.28E6_wp , 1.35E6_wp , 1.42E6_wp , 1.50E6_wp , 1.63E6_wp , 0.58E6_wp , 4.18E6_wp, 1.92E6_wp /
   DATA  cik2  / 0.0_wp   , 0.0_wp   , 0.0035_wp , 0.0023_wp , 0.0010_wp , 0.0006_wp , 0.0001_wp , 0.0002_wp , 0.0_wp   ,  0.0_wp   /
-#ifdef __COSMO__
-  DATA  ckw0  / 0.0_wp   , 0.0_wp   , 479.E-7_wp, 943.E-8_wp, 531.E-8_wp, 764.E-9_wp, 17.E-9_wp , 58.E-9_wp , 0.0_wp   ,  0.0_wp   /
-#endif
-#ifdef __ICON__
   DATA  ckw0  / 0.0_wp   , 0.0_wp   , 479.E-7_wp, 943.E-8_wp, 531.E-8_wp, 764.E-9_wp, 85.E-9_wp , 58.E-9_wp , 0.0_wp   ,  0.0_wp   /
-#endif
   DATA  ckw1  / 0.0_wp   , 0.0_wp   , -19.27_wp , -20.86_wp , -19.66_wp , -18.52_wp , -16.32_wp , -16.48_wp , 0.0_wp   ,  0.0_wp   /
   DATA  cdw0  / 0.0_wp   , 0.0_wp   , 184.E-7_wp, 346.E-8_wp, 357.E-8_wp, 118.E-8_wp, 442.E-9_wp, 106.E-9_wp, 0.0_wp   ,  0.0_wp   /
   DATA  cdw1  / 0.0_wp   , 0.0_wp   , -8.45_wp  , -9.47_wp  , -7.44_wp  , -7.76_wp  , -6.74_wp  , -5.97_wp  , 0.0_wp   ,  0.0_wp   /
   DATA  crock / 0.0_wp   , 0.0_wp   , 1.0_wp    , 1.0_wp    , 1.0_wp    , 1.0_wp    , 1.0_wp    , 1.0_wp    , 0.0_wp   ,  0.0_wp   /
   DATA  cala0 / 2.26_wp  , 2.41_wp  , 0.30_wp   , 0.28_wp   , 0.25_wp   , 0.21_wp   , 0.18_wp   , 0.06_wp   , 1.0_wp   ,  2.26_wp  /
   DATA  cala1 / 2.26_wp  , 2.41_wp  , 2.40_wp   , 2.40_wp   , 1.58_wp   , 1.55_wp   , 1.50_wp   , 0.50_wp   , 1.0_wp   ,  2.26_wp  /
-  DATA  csalb / 0.70_wp  , 0.30_wp  , 0.30_wp   , 0.25_wp   , 0.25_wp   , 0.25_wp   , 0.25_wp   , 0.20_wp   , 0.07_wp  ,  0.70_wp  /
+  DATA  csalb1/ 0.70_wp  , 0.30_wp  , 0.30_wp   , 0.25_wp   , 0.25_wp   , 0.25_wp   , 0.25_wp   , 0.20_wp   , 0.07_wp  ,  0.70_wp  /
+  DATA  csalb2/ 0.70_wp  , 0.30_wp  , 0.30_wp   , 0.25_wp   , 0.25_wp   , 0.25_wp   , 0.25_wp   , 0.20_wp   , 0.06_wp  ,  0.70_wp  /
   DATA  csalbw/ 0.00_wp  , 0.00_wp  , 0.44_wp   , 0.27_wp   , 0.24_wp   , 0.23_wp   , 0.22_wp   , 0.10_wp   , 0.00_wp  ,  0.00_wp  /
   DATA  ck0di / 1.E-4_wp , 1.E-4_wp , 2.E-4_wp  , 2.E-5_wp  , 6.E-6_wp  , 2.E-6_wp  , 1.E-6_wp  , 1.5E-6_wp , 0.00_wp  ,  0.00_wp  /
   DATA  cbedi / 1.00_wp  , 1.00_wp  , 3.5_wp    , 4.8_wp    , 6.1_wp    , 8.6_wp    , 10.0_wp   , 9.0_wp    , 0.00_wp  ,  0.00_wp  /
   DATA  csandf/ 0.0_wp   , 0.0_wp   , 90._wp    , 65._wp    , 40._wp    , 35._wp    , 15._wp    , 90._wp    , 0.00_wp  ,  0.00_wp /
   DATA  cclayf/ 0.0_wp   , 0.0_wp   , 5.0_wp    , 10._wp    , 20._wp    , 35._wp    , 70._wp    , 5.0_wp    , 0.00_wp  ,  0.00_wp /
  
-
+  !$acc declare copyin(cporv, cfcap, cpwp, cadp, cik2, ckw0, ckw1, cdw0, cdw1, crock, cala0, cala1)
+  !$acc declare copyin(csalb1, csalb2, csalbw, crhoc, ck0di, cbedi, csandf, cclayf)
 !==============================================================================
 ! Soiltype IDs
 !------------------------------------------------------------------------------
@@ -186,22 +182,14 @@ PUBLIC           ! All constants and variables in this module are public
     csalb_p        = 0.15_wp  , & !  solar albedo of ground covered by plants
     csalb_snow     = 0.70_wp  , & !  solar albedo of ground covered by snow
 
-#ifdef __COSMO__
-    csalb_snow_min = 0.400_wp , & ! min. solar albedo of snow for forest free surfaces
-    csalb_snow_max = 0.700_wp , & ! max. solar albedo of snow for forest free surfaces
-  ! for possible later use:
-    csalb_snow_fe  = 0.200_wp , &  ! solar albedo of snow for surfaces with evergreen forest
-    csalb_snow_fd  = 0.200_wp , &  ! solar albedo of snow for surfaces with deciduous forest
-#elif __ICON__
     ! T.R. 2011-09-21 csalb_snow_min/max set to values used in GME
     csalb_snow_min = 0.500_wp , &
                            ! min. solar albedo of snow for forest free surfaces
-    csalb_snow_max = 0.850_wp , &
+    csalb_snow_max = 0.800_wp , &
                            ! max. solar albedo of snow for forest free surfaces
     ! T.R. 2011-09-21 snow albedos for forests set to values used in GME
     csalb_snow_fe  = 0.270_wp , &  ! solar albedo of snow for surfaces with evergreen forest
     csalb_snow_fd  = 0.320_wp , &  ! solar albedo of snow for surfaces with deciduous forest
-#endif
 
     ctalb          = 0.004_wp , & !  thermal albedo ( of all soil types )   
     cf_snow        = 0.0150_wp, & !  parameter for the calculation of the 
@@ -220,13 +208,7 @@ PUBLIC           ! All constants and variables in this module are public
                                   !  variation of orography
     cik1       = 0.0020_wp    , & !  parameter for the determination of the 
                                   !  maximum infiltaration
-#ifdef __COSMO__
-    cwimax_ml                 , & !  maximum interception water content
-              ! this is now a namelist variable in PHYCTL
-    ctau_i     = 1000.0_wp    , & !  time constant for the drainage from the interception storage
-#elif __ICON__
     ctau_i     = 7200.0_wp    , & !  time constant for the drainage from the interception storage
-#endif
     cakw       = 0.8000_wp    , & !  parameter for averaging the water contents
                                   !  of the top and middle soil water layers to 
                                   !  calculate the hydraulic diffusivity and 
@@ -258,12 +240,8 @@ PUBLIC           ! All constants and variables in this module are public
     crhosmaxf  = 150.00_wp    , & !  maximum density of fresh snow
     crhogminf  = 100.00_wp    , & !  minimum density of fresh graupel / convective snow
     crhogmaxf  = 200.00_wp    , & !  maximum density of fresh graupel / convective snow
-#ifdef __COSMO__
-    crhosmint  =   0.20_wp    , & !  minimum value of time constant for ageing of snow
-#elif __ICON__
-    crhosmint  =   0.125_wp    ,& !  value of time constant for ageing 
+    crhosmint  =  0.125_wp    , & !  value of time constant for ageing 
                                   !  of snow at csnow_tmin (8 days)
-#endif
     crhosmaxt  =   0.40_wp    , & !  maximum value of time constant for ageing 
                                   !  of snow
     crhosmax_tmin = 200.00_wp , & ! maximum density of snow at csnow_tmin
@@ -293,11 +271,6 @@ PUBLIC           ! All constants and variables in this module are public
     crsmax     = 4000.0_wp        !  BATS (s/m)
     ! crsmax increased from 1000 to 4000 s/m (to reduce latent heat flux).
 
-  ! Parameters for the skin temperature formulation
-
-  REAL  (KIND=wp)           ::  &
-    cskinc                    , & ! skin conductivity (W/m**2/K)
-    cimpl                         ! stability parameter for the computation of the skin temperature
 
 ! 3. Additional variables for the soil geometry
 ! ---------------------------------------------
@@ -401,25 +374,12 @@ PUBLIC           ! All constants and variables in this module are public
     ! precision (6-7 decimal digits), however, the value has to be larger
     ! in order not to vanish. The current formulation is save for
     ! temperatures up to 500K.
-    eps_temp = MAX(1.0E-6_wp,500.0_wp*EPSILON(1.0_wp))
+    eps_temp = MAX(1.0E-6_wp,500.0_wp*EPSILON(1.0_wp)), &
 
+    ! Extremely small value in order to prevent a floating point underflow 
+    ! in double precision.  
+    eps_nounderflow = 1.0E-5_wp * EPSILON(1.0_wp)
 
-#ifdef __COSMO__
-! 7. Taken from ICON (at least for the moment being: ICON declares these variables somewhere different)
-! --------------------------------
-
-  REAL  (KIND=wp)            ::  &
-    max_toplaydepth  =  0.25_wp, & ! maximum depth of uppermost snow layer for multi-layer snow scheme (25 cm)
-    tune_minsnowfrac = 0.125_wp    ! Minimum value to which the snow cover fraction is artificially reduced
-                                   ! in case of melting show (in case of idiag_snowfrac = 20/30/40)
-
-  INTEGER                    ::  &
-    itype_interception = 1,      & ! type of plant interception
-    idiag_snowfrac                 ! method for diagnosis of snow-cover fraction
-
-  LOGICAL                    ::  &
-    l2lay_rho_snow = .FALSE.       ! use two-layer snow density for single-layer snow model
-#endif
 
 ! 8. Soil ice parameterization
 ! ----------------------------
@@ -934,42 +894,42 @@ SUBROUTINE terra_wkarr_alloc (ke_soil, ke_snow, nproma, istat)
             l_redist  (nproma)             , &  !
        STAT=istat)
 
-  !$acc enter data create(m_styp,ke_soil_hy_b)                      &
-  !$acc create(zicount1, zicount2)                                  &
-  !$acc create(h_snow_now, h_snow_new)                              &
-  !$acc create(zdz_snow_fl, zhh_snow, zhm_snow, zdzh_snow)          &
-  !$acc create(zdzm_snow, zdtsnowdt_mult, zbwt, zrock, zsandf)      &
-  !$acc create(zclayf, zsiltf, zb_por, zpsis, zw_m)                 &
-  !$acc create(zrr, zrs,zesoil, zsfc_frac_bs)                       &
-  !$acc create(zw_m_org, zw_m_soil, zw_m_up, zw_m_low)              &
-  !$acc create(zrhoch, zth_low, zf_wi, ztmch, zep_s, zep_snow)      &
-  !$acc create(zverbo, zversn, zthsoi, zthsnw, zfor_s, zgsb)        &
-  !$acc create(zrnet_s, zsprs, zdwidt, zdwsndt, zdtsdt)             &
-  !$acc create(zdtsnowdt, zdwgdt, zwinstr, zinfmx, zwimax, zvers)   &
-  !$acc create(zwisnstr, zwpnstr, zfd_wi, zf_pd, zwisn, zwpn)       &
-  !$acc create(zewi, zepd, zept, zesn, zdrr, zrrs, zg1, zlhfl)      &
-  !$acc create(zshfl, zthfl, zradfl, ze_melt, zch_snow, zeb1)       &
-  !$acc create(ztchv, ztchv_max, zrho_atm, zdt_atm, zdq_atm)        &
-  !$acc create(zroota, zwrootdz, zwrootdz_int, zrootdz_int)         &
-  !$acc create(zqhfl_s, zqhfl_snow, zroc, zfcap, zadp, zporv)       &
-  !$acc create(zdlam, zdw, zdw1, zkw, zkw1, zik2, zpwp, ztlpmwp)    &
-  !$acc create(zkw0, zkwm)                                          &
-  !$acc create(zedb, ztrang, ztrangs, zwin, zwsnow, zwsnew, zdwsnm) &
-  !$acc create(zaa, zw_fr, zinfil, zlw_fr, ziw_fr, zwsnn, zflmg)    &
-  !$acc create(zrunoff_grav, zk0di, zbedi, zsnull, zs1, zf_rad)     &
-  !$acc create(ztraleav, zwroot, zropartw, zts, ztsk, ztsnow)       &
-  !$acc create(ztsnow_mult, zalamtmp, zalam, zrocg, zrocg_soil)     &
-  !$acc create(zrocs, ztsn, ztskn, ztsnown, ztsnown_mult, znlgw1f)  &
-  !$acc create(zqbase, zrefr, zmelt, ze_out, zrho_dry_old)          &
-  !$acc create(zp, zcounter, ze_rad, zswitch, tmp_num, sum_weight)  &
-  !$acc create(t_new, rho_new, wl_new, dz_old, z_old)               &
-  !$acc create(t_so_free_new, t_so_snow_new, sn_frac)               &
-  !$acc create(zf_snow_lim, zdz_snow, zalas_mult, ztsnownew_mult)   &
-  !$acc create(zextinct, zfor_snow_mult, hzalam, zdqvtsnow)         &
-  !$acc create(zrho_snow, zts_pm, ztsk_pm, ztfunc, ztsnow_pm, zeisa)&
-  !$acc create(zw_snow_old, zrho_snow_old, h_snow_fg, h_snow_incr)  &
-  !$acc create(zaga, zagb, zagc, zagd, zage)                        &
-  !$acc create(limit_tch, lzurban, l_redist)
+  !$noacc enter data create(m_styp,ke_soil_hy_b)                      &
+  !$noacc create(zicount1, zicount2)                                  &
+  !$noacc create(h_snow_now, h_snow_new)                              &
+  !$noacc create(zdz_snow_fl, zhh_snow, zhm_snow, zdzh_snow)          &
+  !$noacc create(zdzm_snow, zdtsnowdt_mult, zbwt, zrock, zsandf)      &
+  !$noacc create(zclayf, zsiltf, zb_por, zpsis, zw_m)                 &
+  !$noacc create(zrr, zrs,zesoil, zsfc_frac_bs)                       &
+  !$noacc create(zw_m_org, zw_m_soil, zw_m_up, zw_m_low)              &
+  !$noacc create(zrhoch, zth_low, zf_wi, ztmch, zep_s, zep_snow)      &
+  !$noacc create(zverbo, zversn, zthsoi, zthsnw, zfor_s, zgsb)        &
+  !$noacc create(zrnet_s, zsprs, zdwidt, zdwsndt, zdtsdt)             &
+  !$noacc create(zdtsnowdt, zdwgdt, zwinstr, zinfmx, zwimax, zvers)   &
+  !$noacc create(zwisnstr, zwpnstr, zfd_wi, zf_pd, zwisn, zwpn)       &
+  !$noacc create(zewi, zepd, zept, zesn, zdrr, zrrs, zg1, zlhfl)      &
+  !$noacc create(zshfl, zthfl, zradfl, ze_melt, zch_snow, zeb1)       &
+  !$noacc create(ztchv, ztchv_max, zrho_atm, zdt_atm, zdq_atm)        &
+  !$noacc create(zroota, zwrootdz, zwrootdz_int, zrootdz_int)         &
+  !$noacc create(zqhfl_s, zqhfl_snow, zroc, zfcap, zadp, zporv)       &
+  !$noacc create(zdlam, zdw, zdw1, zkw, zkw1, zik2, zpwp, ztlpmwp)    &
+  !$noacc create(zkw0, zkwm)                                          &
+  !$noacc create(zedb, ztrang, ztrangs, zwin, zwsnow, zwsnew, zdwsnm) &
+  !$noacc create(zaa, zw_fr, zinfil, zlw_fr, ziw_fr, zwsnn, zflmg)    &
+  !$noacc create(zrunoff_grav, zk0di, zbedi, zsnull, zs1, zf_rad)     &
+  !$noacc create(ztraleav, zwroot, zropartw, zts, ztsk, ztsnow)       &
+  !$noacc create(ztsnow_mult, zalamtmp, zalam, zrocg, zrocg_soil)     &
+  !$noacc create(zrocs, ztsn, ztskn, ztsnown, ztsnown_mult, znlgw1f)  &
+  !$noacc create(zqbase, zrefr, zmelt, ze_out, zrho_dry_old)          &
+  !$noacc create(zp, zcounter, ze_rad, zswitch, tmp_num, sum_weight)  &
+  !$noacc create(t_new, rho_new, wl_new, dz_old, z_old)               &
+  !$noacc create(t_so_free_new, t_so_snow_new, sn_frac)               &
+  !$noacc create(zf_snow_lim, zdz_snow, zalas_mult, ztsnownew_mult)   &
+  !$noacc create(zextinct, zfor_snow_mult, hzalam, zdqvtsnow)         &
+  !$noacc create(zrho_snow, zts_pm, ztsk_pm, ztfunc, ztsnow_pm, zeisa)&
+  !$noacc create(zw_snow_old, zrho_snow_old, h_snow_fg, h_snow_incr)  &
+  !$noacc create(zaga, zagb, zagc, zagd, zage)                        &
+  !$noacc create(limit_tch, lzurban, l_redist)
 
 END SUBROUTINE terra_wkarr_alloc
 
@@ -982,42 +942,42 @@ SUBROUTINE terra_wkarr_dealloc (istat)
 
   istat = 0
 
-  !$acc exit data delete(m_styp,ke_soil_hy_b)                       &
-  !$acc delete(zicount1, zicount2)                                  &
-  !$acc delete(h_snow_now, h_snow_new)                              &
-  !$acc delete(zdz_snow_fl, zhh_snow, zhm_snow, zdzh_snow)          &
-  !$acc delete(zdzm_snow, zdtsnowdt_mult, zbwt, zrock, zsandf)      &
-  !$acc delete(zclayf, zsiltf, zb_por, zpsis, zw_m)                 &
-  !$acc delete(zrr, zrs,zesoil, zsfc_frac_bs)                       &
-  !$acc delete(zw_m_org, zw_m_soil, zw_m_up, zw_m_low)              &
-  !$acc delete(zrhoch, zth_low, zf_wi, ztmch, zep_s, zep_snow)      &
-  !$acc delete(zverbo, zversn, zthsoi, zthsnw, zfor_s, zgsb)        &
-  !$acc delete(zrnet_s, zsprs, zdwidt, zdwsndt, zdtsdt)             &
-  !$acc delete(zdtsnowdt, zdwgdt, zwinstr, zinfmx, zwimax, zvers)   &
-  !$acc delete(zwisnstr, zwpnstr, zfd_wi, zf_pd, zwisn, zwpn)       &
-  !$acc delete(zewi, zepd, zept, zesn, zdrr, zrrs, zg1, zlhfl)      &
-  !$acc delete(zshfl, zthfl, zradfl, ze_melt, zch_snow, zeb1)       &
-  !$acc delete(ztchv, ztchv_max, zrho_atm, zdt_atm, zdq_atm)        &
-  !$acc delete(zroota, zwrootdz, zwrootdz_int, zrootdz_int)         &
-  !$acc delete(zqhfl_s, zqhfl_snow, zroc, zfcap, zadp, zporv)       &
-  !$acc delete(zdlam, zdw, zdw1, zkw, zkw1, zik2, zpwp, ztlpmwp)    &
-  !$acc delete(zkw0, zkwm)                                          &
-  !$acc delete(zedb, ztrang, ztrangs, zwin, zwsnow, zwsnew, zdwsnm) &
-  !$acc delete(zaa, zw_fr, zinfil, zlw_fr, ziw_fr, zwsnn, zflmg)    &
-  !$acc delete(zrunoff_grav, zk0di, zbedi, zsnull, zs1, zf_rad)     &
-  !$acc delete(ztraleav, zwroot, zropartw, zts, ztsk, ztsnow)       &
-  !$acc delete(ztsnow_mult, zalamtmp, zalam, zrocg, zrocg_soil)     &
-  !$acc delete(zrocs, ztsn, ztskn, ztsnown, ztsnown_mult, znlgw1f)  &
-  !$acc delete(zqbase, zrefr, zmelt, ze_out, zrho_dry_old)          &
-  !$acc delete(zp, zcounter, ze_rad, zswitch, tmp_num, sum_weight)  &
-  !$acc delete(t_new, rho_new, wl_new, dz_old, z_old)               &
-  !$acc delete(t_so_free_new, t_so_snow_new, sn_frac)               &
-  !$acc delete(zf_snow_lim, zdz_snow, zalas_mult, ztsnownew_mult)   &
-  !$acc delete(zextinct, zfor_snow_mult, hzalam, zdqvtsnow)         &
-  !$acc delete(zrho_snow, zts_pm, ztsk_pm, ztfunc, ztsnow_pm, zeisa)&
-  !$acc delete(zw_snow_old, zrho_snow_old, h_snow_fg, h_snow_incr)  &
-  !$acc delete(zaga, zagb, zagc, zagd, zage)                        &
-  !$acc delete(limit_tch, lzurban, l_redist)
+  !$noacc exit data delete(m_styp,ke_soil_hy_b)                       &
+  !$noacc delete(zicount1, zicount2)                                  &
+  !$noacc delete(h_snow_now, h_snow_new)                              &
+  !$noacc delete(zdz_snow_fl, zhh_snow, zhm_snow, zdzh_snow)          &
+  !$noacc delete(zdzm_snow, zdtsnowdt_mult, zbwt, zrock, zsandf)      &
+  !$noacc delete(zclayf, zsiltf, zb_por, zpsis, zw_m)                 &
+  !$noacc delete(zrr, zrs,zesoil, zsfc_frac_bs)                       &
+  !$noacc delete(zw_m_org, zw_m_soil, zw_m_up, zw_m_low)              &
+  !$noacc delete(zrhoch, zth_low, zf_wi, ztmch, zep_s, zep_snow)      &
+  !$noacc delete(zverbo, zversn, zthsoi, zthsnw, zfor_s, zgsb)        &
+  !$noacc delete(zrnet_s, zsprs, zdwidt, zdwsndt, zdtsdt)             &
+  !$noacc delete(zdtsnowdt, zdwgdt, zwinstr, zinfmx, zwimax, zvers)   &
+  !$noacc delete(zwisnstr, zwpnstr, zfd_wi, zf_pd, zwisn, zwpn)       &
+  !$noacc delete(zewi, zepd, zept, zesn, zdrr, zrrs, zg1, zlhfl)      &
+  !$noacc delete(zshfl, zthfl, zradfl, ze_melt, zch_snow, zeb1)       &
+  !$noacc delete(ztchv, ztchv_max, zrho_atm, zdt_atm, zdq_atm)        &
+  !$noacc delete(zroota, zwrootdz, zwrootdz_int, zrootdz_int)         &
+  !$noacc delete(zqhfl_s, zqhfl_snow, zroc, zfcap, zadp, zporv)       &
+  !$noacc delete(zdlam, zdw, zdw1, zkw, zkw1, zik2, zpwp, ztlpmwp)    &
+  !$noacc delete(zkw0, zkwm)                                          &
+  !$noacc delete(zedb, ztrang, ztrangs, zwin, zwsnow, zwsnew, zdwsnm) &
+  !$noacc delete(zaa, zw_fr, zinfil, zlw_fr, ziw_fr, zwsnn, zflmg)    &
+  !$noacc delete(zrunoff_grav, zk0di, zbedi, zsnull, zs1, zf_rad)     &
+  !$noacc delete(ztraleav, zwroot, zropartw, zts, ztsk, ztsnow)       &
+  !$noacc delete(ztsnow_mult, zalamtmp, zalam, zrocg, zrocg_soil)     &
+  !$noacc delete(zrocs, ztsn, ztskn, ztsnown, ztsnown_mult, znlgw1f)  &
+  !$noacc delete(zqbase, zrefr, zmelt, ze_out, zrho_dry_old)          &
+  !$noacc delete(zp, zcounter, ze_rad, zswitch, tmp_num, sum_weight)  &
+  !$noacc delete(t_new, rho_new, wl_new, dz_old, z_old)               &
+  !$noacc delete(t_so_free_new, t_so_snow_new, sn_frac)               &
+  !$noacc delete(zf_snow_lim, zdz_snow, zalas_mult, ztsnownew_mult)   &
+  !$noacc delete(zextinct, zfor_snow_mult, hzalam, zdqvtsnow)         &
+  !$noacc delete(zrho_snow, zts_pm, ztsk_pm, ztfunc, ztsnow_pm, zeisa)&
+  !$noacc delete(zw_snow_old, zrho_snow_old, h_snow_fg, h_snow_incr)  &
+  !$noacc delete(zaga, zagb, zagc, zagd, zage)                        &
+  !$noacc delete(limit_tch, lzurban, l_redist)
 
   DEALLOCATE (                                                                  &
             m_styp         , zicount1       , zicount2       ,                  &

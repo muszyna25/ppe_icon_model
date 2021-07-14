@@ -212,22 +212,30 @@ MODULE mo_ocean_types
       & w_bolus,                      &
       & opottemptend,                 &
       & osalttend,                    &
-      & delta_thetao, & 
+      & delta_thetao, &
+      & delta_so, &
       & uT, &  !< product of temperature and u-velocity
       & uS, &  !< product of salinity and u-velocity
       & uR, &  !< product of density and u-velocity
       & uu, &  !< square of u-velocity
       & vT, &  !< product of temperature and v-velocity
       & vS, &  !< product of salinity and v-velocity
-      & vR, &  !< product of density and v-velocity  
+      & vR, &  !< product of density and v-velocity
       & vv, &  !< square of  v-velocity
       & wT, &  !< product of temperature and w-velocity
       & wS, &  !< product of salinity and w-velocity
       & wR, &  !< product of density and w-velocity
-      & ww, &  !< square of w-velocity 
-      & uw, &  !< product of u-velocity and w-velocity 
+      & ww, &  !< square of w-velocity
+      & RR, &  !< square of density
+      & SS, &  !< square of salinity
+      & TT, &  !< square of temperature
+      & uw, &  !< product of u-velocity and w-velocity
       & vw, &  !< product of v-velocity and w-velocity
       & uv, &  !< product of u-velocity and v-velocity
+      & swrab, &  !< relative swr absorption factor
+      & rsdoabsorb, &  !< Net Rate of Absorption of Shortwave Energy in Ocean Layer
+!      & dummy3d,&
+      & swr_frac, &  !< relative swr absorption factor from hamocc (LFB_BGC_OCE)
       & sigma0, &  !< potential density anomaly (desitity - 1000)
       & heat_content_liquid_water,    &
       & odensitytend
@@ -241,6 +249,15 @@ MODULE mo_ocean_types
       & mlotst           ,& ! mixed layer depth [m]. (CMIP6)
       & mlotstsq        ,& ! squared mixed layer depth [m]. (CMIP6)
       & condep           ,&! convection depth index
+      & swsum            ,& ! swr fraction absorbed in the surface layer
+      & heatabs          ,& ! ( total subsurface ) heating due to absorption [J m-2]
+!      & dummy2d          ,&
+      & heatabs_t        ,&
+      & heatabb          ,&
+      & hflR, &  !< product of net heatflux and density
+      & fwR, &  !< product of fw flux and density
+      & tauxU, &  !< product of x-windstress and u-velocity
+      & tauyV, &  !< product of y-windstress and v-velocity
       & heat_content_snow ,&
       & heat_content_seaice ,&
       & delta_ice, & 
@@ -255,14 +272,26 @@ MODULE mo_ocean_types
       & global_hfl       ,& ! implied ocean heat transport global
       & atlantic_hfl     ,& ! implied ocean heat transport atlantic
       & pacific_hfl      ,& ! implied ocean heat transport pacific
+      & global_wfl       ,& ! implied ocean freshwater transport global
+      & atlantic_wfl     ,& ! implied ocean freshwater transport atlantic
+      & pacific_wfl      ,& ! implied ocean freshwater transport pacific
       & global_hfbasin   ,& ! northward ocean heat transport global
       & atlantic_hfbasin ,& ! northward ocean heat transport atlantic
-      & pacific_hfbasin     ! northward ocean heat transport pacific
+      & pacific_hfbasin  ,& ! northward ocean heat transport pacific
+      & global_sltbasin   ,& ! northward ocean salt transport global
+      & atlantic_sltbasin ,& ! northward ocean salt transport atlantic
+      & pacific_sltbasin     ! northward ocean salt transport pacific
 
    onCells_2D :: &
       & northernHemisphere ,&
       & southernHemisphere
       
+    onCells_2D :: &
+      & u_50m,    &
+      & v_50m,    &
+      & T_50m,    &
+      & vort_f_cells_50m
+
     onCells_Type(t_cartesian_coordinates) :: &
       & p_vn              ! reconstructed velocity at cell center in cartesian coordinates
       
@@ -307,6 +336,10 @@ MODULE mo_ocean_types
     onVertices :: &
       & vort            ! vorticity at triangle vertices. Unit [1/s]
       
+    onVertices_2D :: &
+      & vort_50m,    &     ! vorticity at 20 and 70 meters
+      & vort_70m
+
     onVertices_Type(t_cartesian_coordinates) :: &
       & p_vn_dual
     
@@ -359,8 +392,10 @@ MODULE mo_ocean_types
       & bc_top_w        ,& ! vertical velocity boundary condition at surface
       & bc_bot_w        ,&   ! vertical velocity boundary condition at bottom
       & bc_tides_potential, &
-      & bc_total_top_potential
-      
+      & bc_tides_load,   &
+      & bc_total_top_potential, &
+      & bc_SAL_potential
+            
     onCells_2D_tracers :: &
       & bc_top_tracer,    &
       & bc_bot_tracer 
@@ -430,8 +465,8 @@ MODULE mo_ocean_types
 !     REAL(wp),POINTER :: orientation(:,:,:,:)!(nproma,nlev,nblks_v,1:NO_DUAL_EDGES-2)
 
     ! this is a edge-to-one-cell pointer, needs to be rethinked
-    onEdges_3D_Int :: upwind_cell_idx
-    onEdges_3D_Int :: upwind_cell_blk
+!     onEdges_3D_Int :: upwind_cell_idx
+!     onEdges_3D_Int :: upwind_cell_blk
 
     !3) Scalarproduct: The following arrays are required for the reconstruction process.
     !------------------------------------------------------------------------------
@@ -503,6 +538,7 @@ MODULE mo_ocean_types
     onCells_2D :: Wind_Speed_10m, HeatFlux_Total, HeatFlux_Shortwave, HeatFlux_LongWave 
     onCells_2D :: HeatFlux_Sensible,HeatFlux_Latent,concSum,Tfw,heatOceW,newice
     onCells_2D :: FrshFlux_Precipitation, FrshFlux_Evaporation, FrshFlux_SnowFall, FrshFlux_Runoff
+    onCells_2D :: CO2_Mixing_Ratio
 
     onCells_2D :: zUnderIce,albvisdirw, albvisdifw, albnirdirw, albnirdifw,draftave
     onCells_2D :: SaltFlux_Relax, FrshFlux_Relax, HeatFlux_Relax, TempFlux_Relax 
@@ -551,6 +587,7 @@ MODULE mo_ocean_types
     TYPE(t_operator_coeff), POINTER :: operator_coeff
     TYPE(t_ocean_checkpoint), POINTER :: p_check(:)
     TYPE(t_ocean_adjoint) :: p_adjoint
+    TYPE(t_ocean_transport_state)  :: transport_state
 
   END TYPE t_hydro_ocean_state
   

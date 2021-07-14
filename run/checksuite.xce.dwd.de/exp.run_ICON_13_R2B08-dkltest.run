@@ -1,7 +1,7 @@
 #! /bin/ksh
 #-----------------------------------------------------------------------------
 #PBS -q xc_norm_b
-#PBS -l select=10:ompthreads=4
+#PBS -l select=6:ompthreads=4
 #PBS -l place=scatter
 #PBS -l walltime=01:00:00
 #PBS -j oe
@@ -59,7 +59,7 @@ EDIR="exp13"
 EXPDIR=$TMPDIR/${EDIR}/
 
 # path to model binary, including the executable:
-MODEL=${ICONDIR}/build/x86_64-unknown-linux-gnu/bin/icon
+MODEL=${ICONDIR}/bin/icon
 
 
 # ----------------------------------------------------------------------
@@ -151,7 +151,7 @@ cat > ${atmo_namelist} << EOF
  p_test_run                   = .FALSE.
  l_test_openmp                = .FALSE.
  l_log_checks                 = .FALSE.
- num_io_procs                 = 3
+ num_io_procs                 = 2
  itype_comm                   = 1
  iorder_sendrecv              = 1
  num_prefetch_proc            = 1
@@ -510,6 +510,6 @@ EOF2
 # run the model!
 # ----------------------------------------------------------------------
  cp -p $MODEL icon.exe
- aprun  -n 180 -N 18 -j 2 -d 4 -m 3g icon.exe
+ aprun  -n 108 -N 18 -j 2 -d 4 -m 3g icon.exe
 
 

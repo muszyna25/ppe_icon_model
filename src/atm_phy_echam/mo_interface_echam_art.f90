@@ -23,10 +23,9 @@ MODULE mo_interface_echam_art
   USE mo_kind                   ,ONLY: wp
   USE mtime                     ,ONLY: datetime
 
-  USE mo_dynamics_config        ,ONLY: nnew, nnew_rcf
-  USE mo_ext_data_state         ,ONLY: ext_data
+  USE mo_dynamics_config        ,ONLY: nnew_rcf
   USE mo_model_domain           ,ONLY: t_patch
-  USE mo_nonhydro_state         ,ONLY: p_nh_state, p_nh_state_lists
+  USE mo_nonhydro_state         ,ONLY: p_nh_state_lists
   
 !!$  USE mo_echam_phy_config       ,ONLY: echam_phy_config
   USE mo_echam_phy_memory       ,ONLY: t_echam_phy_field, prm_field, &
@@ -77,16 +76,11 @@ CONTAINS
        !
        IF ( is_active ) THEN
           !
-          CALL art_reaction_interface(ext_data(jg),                                 & !> in
-               &                      patch      ,                                  & !> in
+          CALL art_reaction_interface(jg,                                           & !> in
                &                      datetime_old,                                 & !> in
                &                      pdtime,                                       & !> in
                &                      p_nh_state_lists(jg)%prog_list(nnew_rcf(jg)), & !> in
-               &                      p_nh_state(jg)%prog(nnew(jg)),                &
-               &                      p_nh_state(jg)%metrics,                       & !> in
-               &                      p_nh_state(jg)%diag,                          & !> inout
-               &                      field%qtrc,                                   &
-               &                      tend = tend )
+               &                      field%qtrc)
           !
        END IF
        !

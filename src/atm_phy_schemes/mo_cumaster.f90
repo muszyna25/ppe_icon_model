@@ -84,7 +84,6 @@ MODULE mo_cumaster
 !  USE yomhook   ,ONLY : lhook,   dr_hook
   !KF
   USE mo_cuparameters , ONLY :                                   &
-    & rtwat                                                     ,&
     & lmfdd    ,lmfdudv            ,lmfit                       ,&
     & rmflic  ,rmflia  ,rmflmax, rmfsoluv, rmfdef               ,&
     & ruvper    ,rmfsoltq,rmfsolct,rmfcmin  ,lmfsmooth,lmfwstar ,&
@@ -99,6 +98,8 @@ MODULE mo_cumaster
   USE mo_cuascn,      ONLY: cuascn
   USE mo_cudescn,     ONLY: cudlfsn, cuddrafn
   USE mo_cuflxtends,  ONLY: cuflxn, cudtdqn,cududv,cuctracer
+  USE mo_cucalclpi,   ONLY: cucalclpi, cucalcmlpi
+  USE mo_cucalclfd,   ONLY: cucalclfd
   USE mo_nwp_parameters,  ONLY: t_phy_params
   USE mo_nwp_tuning_config, ONLY: tune_capdcfac_et, tune_capdcfac_tr, tune_lowcapefac, limit_negpblcape
   USE mo_fortran_tools,   ONLY: t_ptr_tracer
@@ -131,7 +132,8 @@ SUBROUTINE cumastrn &
  & ptu,      pqu,      plu,                      &
  & pmflxr,   pmflxs,   prain, pdtke_con,         &
  & pcape,    pvddraf,                            &
- & ktrac, pcen, ptenrhoc) 
+ & ktrac, pcen, ptenrhoc,                        &
+ & l_lpi, l_lfd, lpi, mlpi, koi, lfd)
 
 !
 
@@ -154,6 +156,8 @@ SUBROUTINE cumastrn &
 
 !    *LDLAND*       LAND SEA MASK (.TRUE. FOR LAND)
 !    *LDLAKE*       LAKE MASK (.TRUE. FOR LAKE)
+!    *L_LPI*        COMPUTE LPI, MLPI, KOI
+!    *L_LFD*        COMPUTE LFD
 
 !     INPUT PARAMETERS (REAL)
 
@@ -227,6 +231,10 @@ SUBROUTINE cumastrn &
 !    *PTENRHOI*     ICE CONDENSATE MASS DENSITY TENDENCY          KG/(M3*S)
 !    *PTENRHOR*     DETRAINED RAIN MASS DENSITY TENDENCY          KG/(M3*S)
 !    *PTENRHOS*     DETRAINED SNOW MASS DENSITY TENDENCY          KG/(M3*S)
+!    *LPI*          LIGHTNING POTENTIAL INDEX AS IN LYNN AND YAIR (2010) J/KG
+!    *MLPI*         MODIFIED LPI USING KOI
+!    *KOI*          KONVEKTIONS INDEX                             K
+!    *LFD*          LIGHTNING FLASH DENSITY AS IN LOPEZ(2016)     1/(KM2*DAY)
 
 !     EXTERNALS.
 !     ----------
@@ -382,6 +390,12 @@ REAL(KIND=jprb)   ,INTENT(out)   :: pcape(klon)
 !REAL(KIND=JPRB)   ,INTENT(OUT)   :: PWMEAN(KLON)
 
 REAL(KIND=jprb)   ,INTENT(out)   :: pvddraf(klon)
+LOGICAL           ,OPTIONAL, INTENT(in)      :: l_lpi
+LOGICAL           ,OPTIONAL, INTENT(in)      :: l_lfd
+REAL(KIND=jprb)   ,OPTIONAL, INTENT(inout)   :: lpi(:)
+REAL(KIND=jprb)   ,OPTIONAL, INTENT(inout)   :: mlpi(:)
+REAL(KIND=jprb)   ,OPTIONAL, INTENT(inout)   :: koi(:)
+REAL(KIND=jprb)   ,OPTIONAL, INTENT(inout)   :: lfd(:)
 
 !*UPG change to operations
 REAL(KIND=jprb) :: pwmean(klon)
@@ -424,7 +438,7 @@ REAL(KIND=jprb) ::   zcons2, zcons, zdh,&
   & zdqmin, zdz, zeps, zfac, &
   & zmfmax, zpbmpt, zqumqe, zro, zmfa, zerate, zderate, zorcpd, zrdocpd,&
   & ZDUTEN, ZDVTEN, ZTDIS,&
-  & zalv, zsfl(klon), zcapefac
+  & zalv, zsfl(klon), zcapefac, zcapethr
 
 REAL(KIND=jprb) :: ztau(klon), ztaupbl(klon)  ! adjustment time
 
@@ -575,8 +589,9 @@ CALL cuinin &
 
 CALL cubasen &
   & ( kidia,    kfdia,    klon,   ktdia,    klev, &
-  & phy_params%kcon1, phy_params%kcon2, phy_params%entrorg, phy_params%rdepths, &
-  & phy_params%texc, phy_params%qexc, mtnmask, ldland, ldlake, &
+  & phy_params%kcon1, phy_params%kcon2, phy_params%entrorg, &
+  & phy_params%entstpc1, phy_params%entstpc2, phy_params%rdepths, &
+  & phy_params%texc, phy_params%qexc, phy_params%lgrayzone_deepconv, mtnmask, ldland, ldlake, &
   & ztenh,    zqenh,    pgeoh,    paph,&
   & pqhfl,    pahfs,    &
   & pten,     pqen,     pqsen,    pgeo,&
@@ -729,8 +744,8 @@ ENDDO
 
 CALL cuascn &
   & ( kidia,    kfdia,    klon,   ktdia,   klev, phy_params%mfcfl, &
-  & phy_params%entrorg, phy_params%rprcon, phy_params%lmfmid, ptsphy,&
-  & paer_ss, &
+  & phy_params%entrorg, phy_params%detrpen, phy_params%rprcon, phy_params%lmfmid,      &
+  & phy_params%lgrayzone_deepconv, ptsphy, paer_ss,                &
   & ztenh,    zqenh,&
   & ptenq, &
   & pten,     pqen,     pqsen,    plitot,&
@@ -811,7 +826,7 @@ IF(lmfdd) THEN
 
   CALL cuddrafn &
     & ( kidia,    kfdia,    klon,   ktdia,  klev,&
-    & k950, llddraf, ztenh,    zqenh            ,&
+    & k950, llddraf, phy_params%entrdd, ztenh,    zqenh,&
     & pgeo,     pgeoh,    paph,     zrfl,&
     & zdph,     zdgeoh,                  &
     & ztd,      zqd,      pmfu,&
@@ -842,12 +857,12 @@ DO jk=ktdia,klev
   DO jl=kidia,kfdia
     llo1=ldcum(jl).AND.ktype(jl) == 1
     IF(llo1.AND.jk <= kcbot(jl).AND.jk > kctop(jl)) THEN
-      ZDZ=(PGEOH(JL,JK-1)-PGEOH(JL,JK))
+      ZDZ=(PGEO(JL,JK-1)-PGEO(JL,JK))
       zheat(jl)=zheat(jl) +&
        & (  (pten(jl,jk-1)-pten(jl,jk) + zdz*zorcpd)/ztenh(jl,jk)&
        & +  retv*(pqen(jl,jk-1)-pqen(jl,jk))  ) *&
        & (rg*(pmfu(jl,jk)+pmfd(jl,jk)))
-      zdz=(paph(JL,JK)-paph(JL,JK-1))
+      zdz=(pap(JL,JK)-pap(JL,JK-1))
       zcape(jl)=zcape(jl) +&
        & ((ptu(jl,jk)-ztenh(jl,jk))/ztenh(jl,jk)&
        & +retv*(pqu(jl,jk)-zqenh(jl,jk))&
@@ -867,10 +882,14 @@ DO jl = kidia, kfdia
     IF (llo1 .AND. ldland(jl)) THEN
       ! Use PBL CAPE for diurnal cycle correction, including a reduction term for low-CAPE situations
       ! and an increased correction over small-scale mountain peaks to reduce excessive precipitation maxima
+      zcapethr = MERGE(100._jprb,-100._jprb,phy_params%lgrayzone_deepconv)
       zcapefac = (tune_capdcfac_et*(1._jprb-trop_mask(jl)) + tune_capdcfac_tr*trop_mask(jl)) *      &
-                 MIN(1._jprb,MAX(0._jprb,(tune_lowcapefac*pcape(jl)-100._jprb)/300._jprb))
+                 MIN(1._jprb,MAX(0._jprb,(tune_lowcapefac*pcape(jl)+zcapethr)/300._jprb))
       zcapdcycl(jl) = (zcapefac+mtnmask(jl))*MAX(limit_negpblcape,zcappbl(jl))*ztau(jl)*phy_params%tau0
     ENDIF
+    ! This largely suppresses convective drizzle over mountain ridges in grayzone deep convection mode
+    IF (phy_params%lgrayzone_deepconv) zcapdcycl(jl) = MAX(zcapdcycl(jl),                     &
+      MAX(0._jprb,mtnmask(jl)-0.2_jprb)*MERGE(10._jprb,0.1_jprb,llo1)*ztau(jl)*phy_params%tau0)
     ! Reduce adjustment time scale for extreme CAPE values
     IF (pcape(jl) > zcapethresh) ztau(jl) = ztau(jl)/phy_params%tau
   ELSE IF (ldcum(jl) .AND. ktype(jl) == 1) THEN
@@ -1001,8 +1020,8 @@ IF(lmfit) THEN
 
   CALL cuascn &
     & ( kidia,    kfdia,    klon,   ktdia,   klev, phy_params%mfcfl, &
-    & phy_params%entrorg, phy_params%rprcon, phy_params%lmfmid, ptsphy,&
-    & paer_ss,&
+    & phy_params%entrorg, phy_params%detrpen, phy_params%rprcon, phy_params%lmfmid,  &
+    & phy_params%lgrayzone_deepconv, ptsphy, paer_ss,                &
     & ztenh,    zqenh,    &
     & ptenq,            &
     & pten,     pqen,     pqsen,    plitot,&
@@ -1748,6 +1767,35 @@ ENDIF
       ENDDO
     ENDDO
   ENDIF
+
+!----------------------------------------------------------------------
+
+!*    15.0         COMPUTE LIGHTENING POTENTIAL INDEX AND LIGHTENING 
+!                  FLASH DENSITY BASED ON UPDRAFT PROFILE 
+!                  --------------------------------------------------
+
+  IF (PRESENT(l_lpi)) THEN
+    IF (l_lpi) THEN
+      CALL cucalclpi(klon, klev, ktype, ptu, plu, zkineu, pmflxs        &
+      &          , pten, pap, zdgeoh, ldland, lpi)
+
+!! alternative commented out - in the alternative the mass flux
+!! is used to computed the LPI - which is tricky, as the area fraction
+!! of the updraft is unknown
+!!  CALL cucalclpi(klon, klev, ktype, ptu, plu,                           &
+!!  &              2*(pmfu*pten*Rd/(pap+1E-10_jprb))**2, pmflxs        &
+!!  &          , pten, pap, zdgeoh, ldland, lpi)
+      CALL cucalcmlpi(klon, klev, lpi, pten, pqen, pap, paph, koi, mlpi)
+    ENDIF
+  ENDIF
+
+  IF (PRESENT(l_lfd)) THEN
+    IF (l_lfd) THEN
+      CALL cucalclfd(klon, klev, ktype, ptu, plu, kcbot, pcape, pmflxs &
+      &          , pten, pap, zdgeoh, pgeoh, ldland, lfd)
+    ENDIF
+  ENDIF
+
 
 !  DO JL=KIDIA,KFDIA
 !   PMFLXR(JL,KLEV+1)=PMFLXR(JL,KLEV+1)*1.E-3

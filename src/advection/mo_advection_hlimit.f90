@@ -35,7 +35,7 @@ MODULE mo_advection_hlimit
 
   USE mo_kind,                ONLY: wp, vp
   USE mo_math_constants,      ONLY: dbl_eps
-  USE mo_fortran_tools,       ONLY: assign_if_present, init
+  USE mo_fortran_tools,       ONLY: init
   USE mo_model_domain,        ONLY: t_patch
   USE mo_grid_config,         ONLY: l_limited_area
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
@@ -145,6 +145,7 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
       &  opt_rlend                     !< (to avoid calculation of halo points)
 
+
     REAL(wp) ::                 &    !< first order tracer mass flux
       &  z_mflx_low(nproma,slev:elev,ptr_patch%nblks_e)
 
@@ -214,9 +215,9 @@ CONTAINS
     beta_fct  = 1._wp  ! the namelist default is 1.005, but it is passed to the limiter for the Miura3 scheme only
 
     ! Check for optional arguments
-    CALL assign_if_present(i_rlstart,opt_rlstart)
-    CALL assign_if_present(i_rlend  ,opt_rlend)
-    CALL assign_if_present(beta_fct ,opt_beta_fct)
+    IF (PRESENT(opt_rlstart)) i_rlstart = opt_rlstart
+    IF (PRESENT(opt_rlend)) i_rlend = opt_rlend
+    IF (PRESENT(opt_beta_fct)) beta_fct = opt_beta_fct
 
     r_beta_fct = 1._wp/beta_fct
 
@@ -240,13 +241,13 @@ CONTAINS
 !$ACC DATA CREATE( z_mflx_low, z_anti, z_mflx_anti_in, z_mflx_anti_out, r_m, r_p ),          &
 !$ACC      CREATE( z_tracer_new_low, z_tracer_max, z_tracer_min, z_min, z_max, z_fluxdiv_c ),&
 !$ACC      PCOPYIN( p_cc, p_mass_flx_e, p_rhodz_now, p_rhodz_new ), PCOPY( p_mflx_tracer_h ),&
-!$ACC      PRESENT( ptr_patch%cells%refin_ctrl, ptr_int%geofac_div,                          &
-!$ACC               iilc, iibc, iilnc, iibnc, iidx, iblk ),&
+!$ACC      PRESENT( ptr_patch, ptr_int, iilc, iibc, iilnc, iibnc, iidx, iblk ),              &
 !$ACC      IF( i_am_accel_node .AND. acc_on )
+
 !$ACC UPDATE DEVICE( p_cc, p_mass_flx_e, p_mflx_tracer_h ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     IF (p_test_run) THEN
-!$ACC KERNELS PRESENT( r_p, r_m), IF( i_am_accel_node .AND. acc_on )
+!$ACC KERNELS PRESENT( r_p, r_m) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
       r_p = 0._wp
       r_m = 0._wp
 !$ACC END KERNELS
@@ -271,13 +272,13 @@ CONTAINS
       CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
         &                i_startidx, i_endidx, i_rlstart_e, i_rlend_e)
 
-!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
       !$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
       DO je = i_startidx, i_endidx
         DO jk = slev, elev
 #else
-!CDIR UNROLL=5
+!$NEC outerloop_unroll(4)
       DO jk = slev, elev
         DO je = i_startidx, i_endidx
 #endif
@@ -321,14 +322,14 @@ CONTAINS
       CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk,        &
                          i_startidx, i_endidx, i_rlstart_c, i_rlend_c)
 
-!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
-      !$ACC LOOP GANG VECTOR PRIVATE(z_mflx_anti_1,z_mflx_anti_2,z_mflx_anti_3) COLLAPSE(2)
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
 !DIR$ IVDEP,PREFERVECTOR
       DO jc = i_startidx, i_endidx
         DO jk = slev, elev
 #else
-!CDIR UNROLL=4
+!$NEC outerloop_unroll(4)
       DO jk = slev, elev
         DO jc = i_startidx, i_endidx
 #endif
@@ -398,8 +399,8 @@ CONTAINS
         ! in the boundary interpolation zone, the low-order advected tracer fields may be
         ! nonsense and therefore need artificial limitation
 
-!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
-        !$ACC LOOP GANG
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG
         DO jc = i_startidx, i_endidx
           IF (ptr_patch%cells%refin_ctrl(jc,jb) == grf_bdywidth_c-1 .OR. &
               ptr_patch%cells%refin_ctrl(jc,jb) == grf_bdywidth_c) THEN
@@ -448,13 +449,13 @@ CONTAINS
       CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, i_rlstart_c, i_rlend_c)
 
-!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
       !$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx, i_endidx
         DO jk = slev, elev
 #else
-!CDIR UNROLL=2
+!$NEC outerloop_unroll(4)
       DO jk = slev, elev
         DO jc = i_startidx, i_endidx
 #endif
@@ -476,7 +477,7 @@ CONTAINS
       ENDDO
 !$ACC END PARALLEL
 
-!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
       !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = slev, elev
         DO jc = i_startidx, i_endidx
@@ -503,7 +504,7 @@ CONTAINS
 
     ! Synchronize r_m and r_p and determine i_rlstart/i_rlend
     !
-
+    !$ACC WAIT
     CALL sync_patch_array_mult(SYNC_C1, ptr_patch, 2, r_m, r_p, opt_varname='r_m and r_p')
 
     !
@@ -530,13 +531,12 @@ CONTAINS
       !
       ! compute final limited fluxes
       !
-!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
-      !$ACC LOOP GANG VECTOR PRIVATE(z_signum,r_frac) COLLAPSE(2)
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
       DO je = i_startidx, i_endidx
         DO jk = slev, elev
 #else
-!CDIR UNROLL=3
       DO jk = slev, elev
         DO je = i_startidx, i_endidx
 #endif
@@ -564,7 +564,8 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-!$ACC UPDATE HOST( p_mflx_tracer_h ), IF (acc_validate .AND. i_am_accel_node .AND. acc_on)
+!$ACC WAIT
+!$ACC UPDATE HOST( p_mflx_tracer_h ) IF (acc_validate .AND. i_am_accel_node .AND. acc_on)
 !$ACC END DATA
 
   END SUBROUTINE hflx_limiter_mo
@@ -627,12 +628,11 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
      &  opt_rlend                      !< (to avoid calculation of halo points)
 
-#ifndef __INTEL_COMPILER
+#if defined(__INTEL_COMPILER) || defined(__SX__) || defined(_OPENACC)
+    REAL(wp) :: z_mflx1,  z_mflx2, z_mflx3
+#else
     REAL(wp) ::                 &    !< tracer mass flux ( total mass crossing the edge )
       &  z_mflx(nproma,slev:elev,3) !< [kg m^-3]
-
-#else
-     REAL(wp) :: z_mflx1,  z_mflx2, z_mflx3
 #endif
     ! remark: single precision would be sufficient for r_m, but SP-sync is not yet available
     REAL(wp) ::                 &    !< fraction which must multiply all outgoing fluxes
@@ -644,7 +644,6 @@ CONTAINS
 #ifndef __INTEL_COMPILER
     REAL(wp) :: p_m                          !< sum of fluxes out of cell jc
                                              !< [kg m^-3]
-
 #else
     REAL(wp) :: p_m(nproma,slev:elev)
 #endif
@@ -670,9 +669,8 @@ CONTAINS
 
 
     ! Check for optional arguments
-    CALL assign_if_present(i_rlstart,opt_rlstart)
-    CALL assign_if_present(i_rlend  ,opt_rlend)
-
+    IF (PRESENT(opt_rlstart)) i_rlstart = opt_rlstart
+    IF (PRESENT(opt_rlend)) i_rlend = opt_rlend
 
     ! number of child domains
     i_nchdom = MAX(1,ptr_patch%n_childdom)
@@ -688,13 +686,13 @@ CONTAINS
     iidx => ptr_patch%cells%edge_idx
     iblk => ptr_patch%cells%edge_blk
 
-!$ACC DATA CREATE( z_mflx, r_m ), PCOPYIN( p_cc, p_rhodz_now ), PCOPY( p_mflx_tracer_h ),     &
-!$ACC      PRESENT( ptr_patch%edges%refin_ctrl, ptr_int%geofac_div, iilc, iibc, iidx, iblk ), &
+!$ACC DATA CREATE( r_m ), PCOPYIN( p_cc, p_rhodz_now ), PCOPY( p_mflx_tracer_h ),  &
+!$ACC      PRESENT( ptr_patch, ptr_int, iilc, iibc, iidx, iblk ),                          &
 !$ACC      IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( p_cc, p_mflx_tracer_h ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     IF (p_test_run) THEN
-!$ACC KERNELS PRESENT( r_m ), IF( i_am_accel_node .AND. acc_on )
+!$ACC KERNELS PRESENT( r_m ) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
       r_m = 0._wp
 !$ACC END KERNELS
     ENDIF
@@ -723,30 +721,45 @@ CONTAINS
     !    z_mflx < 0: inward
     !
 
-#ifdef __INTEL_COMPILER
+#if defined (__INTEL_COMPILER) || defined (__SX__)
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,p_m, &
 !$OMP            z_mflx1,z_mflx2,z_mflx3) ICON_OMP_DEFAULT_SCHEDULE
 #else
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,p_m,z_mflx) ICON_OMP_DEFAULT_SCHEDULE
-
 #endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk,        &
                          i_startidx, i_endidx, i_rlstart_c, i_rlend_c)
 
-!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
       !$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx, i_endidx
         DO jk = slev, elev
 #else
-!CDIR UNROLL=4
+!$NEC outerloop_unroll(4)
       DO jk = slev, elev
         DO jc = i_startidx, i_endidx
 #endif
 
-#ifndef __INTEL_COMPILER
+#if defined (__SX__) || defined ( _OPENACC )
+          z_mflx1 = ptr_int%geofac_div(jc,1,jb) * p_dtime &
+            &                * p_mflx_tracer_h(iidx(jc,jb,1),jk,iblk(jc,jb,1))
+          z_mflx2 = ptr_int%geofac_div(jc,2,jb) * p_dtime &
+            &                * p_mflx_tracer_h(iidx(jc,jb,2),jk,iblk(jc,jb,2))
+          z_mflx3 = ptr_int%geofac_div(jc,3,jb) * p_dtime &
+            &                * p_mflx_tracer_h(iidx(jc,jb,3),jk,iblk(jc,jb,3))
+
+          ! Sum of all outgoing fluxes out of cell jc
+          p_m =  MAX(0._wp,z_mflx1) + MAX(0._wp,z_mflx2) + MAX(0._wp,z_mflx3)
+
+          ! fraction which must multiply all fluxes out of cell jc to guarantee no undershoot
+          ! Nominator: maximum allowable decrease of \rho q
+          r_m(jc,jk,jb) = MIN(1._wp, (p_cc(jc,jk,jb)*p_rhodz_now(jc,jk,jb)) / (p_m + dbl_eps) )
+
+#elif !defined (__INTEL_COMPILER)
+
           z_mflx(jc,jk,1) = ptr_int%geofac_div(jc,1,jb) * p_dtime &
             &                * p_mflx_tracer_h(iidx(jc,jb,1),jk,iblk(jc,jb,1))
 
@@ -763,8 +776,8 @@ CONTAINS
       !
       ! 2. Compute total outward mass
       !
-!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
-      !$ACC LOOP GANG VECTOR PRIVATE(p_m) COLLAPSE(2)
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = slev, elev
 !DIR$ IVDEP
         DO jc = i_startidx, i_endidx
@@ -814,7 +827,8 @@ CONTAINS
 !$OMP END PARALLEL
 
     ! synchronize r_m
-
+    !
+    !$ACC WAIT
     CALL sync_patch_array(SYNC_C1,ptr_patch,r_m,opt_varname='r_m')
 
     !
@@ -831,18 +845,18 @@ CONTAINS
       CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk,    &
                          i_startidx, i_endidx, i_rlstart, i_rlend)
 
-!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
-      !$ACC LOOP GANG
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 #ifdef __LOOP_EXCHANGE
+      !$ACC LOOP GANG
       DO je = i_startidx, i_endidx
         ! this is potentially needed for calls from miura_cycl
         IF (ptr_patch%edges%refin_ctrl(je,jb) == grf_bdywidth_e-2) CYCLE
         !$ACC LOOP VECTOR PRIVATE( z_signum )
         DO jk = slev, elev
 #else
-!CDIR UNROLL=5
+!$NEC outerloop_unroll(4)
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = slev, elev
-        !$ACC LOOP VECTOR PRIVATE( z_signum )
         DO je = i_startidx, i_endidx
           IF (ptr_patch%edges%refin_ctrl(je,jb) == grf_bdywidth_e-2) CYCLE
 #endif
@@ -863,7 +877,8 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-!$ACC UPDATE HOST( p_mflx_tracer_h ), IF (acc_validate .AND. i_am_accel_node .AND. acc_on )
+!$ACC WAIT
+!$ACC UPDATE HOST( p_mflx_tracer_h ) IF (acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 
   END SUBROUTINE hflx_limiter_pd

@@ -264,7 +264,8 @@ MODULE mo_impl_constants
 
   ! maximum allowed number of model domains (10 should be enough for the time being)
   INTEGER, PARAMETER :: max_dom = 10
-
+  ! maximum number of decimal digits to print domain id, roughly(log10(max_dom))
+  INTEGER, PARAMETER :: max_dom_dig10 = 2
   ! Maximum allowed number of physical model domains
   INTEGER, PARAMETER :: max_phys_dom = 30
 
@@ -274,23 +275,15 @@ MODULE mo_impl_constants
   ! maximum allowed number of tracers (20 should be enough for the time being) ! DRIEG: For ART, more than 20 tracers are needed
   INTEGER, PARAMETER :: max_ntracer = 200
 
+  ! maximum allowed number of echotop levels:
+  INTEGER, PARAMETER :: max_echotop = 10
+  
   ! identifiers for model initialization
   INTEGER, PARAMETER :: ianalytic      =  0 ! - from analytical functions
   INTEGER, PARAMETER :: irestart       =  1 ! - from restart file
 
   ! identifiers for atm time stepping schemes
   INTEGER,PARAMETER :: TRACER_ONLY   = 1 ! pure tracer advection
-
-  ! the hydrostatic model
-  INTEGER,PARAMETER :: TWO_TL_SI     = 12 ! semi-implicit two time level
-  INTEGER,PARAMETER :: LEAPFROG_EXPL = 13 ! explicit leapfrog
-  INTEGER,PARAMETER :: LEAPFROG_SI   = 14 ! semi-implicit leapfrog
-  INTEGER,PARAMETER :: RK4           = 15 ! standard 4th-order Runge-Kutta method
-  INTEGER,PARAMETER :: SSPRK54       = 16 ! SSP RK(5,4)
-
-  ! Scheme for the "slow" component in the TWO_TL_SI time stepping
-  INTEGER,PARAMETER :: EULER_FORWARD = 1
-  INTEGER,PARAMETER :: AB2           = 2
 
   ! Rayleigh damping identifiers
   INTEGER,PARAMETER :: RAYLEIGH_CLASSIC = 1  ! classical Rayleigh damping, which makes use of 
@@ -363,7 +356,6 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: MIURA3  = 3
   INTEGER, PARAMETER :: FFSL    = 4
   INTEGER, PARAMETER :: FFSL_HYB= 5
-  INTEGER, PARAMETER :: UP3     = 6
   INTEGER, PARAMETER :: MCYCL   = 20
   INTEGER, PARAMETER :: MIURA_MCYCL  = 22
   INTEGER, PARAMETER :: MIURA3_MCYCL = 32
@@ -373,9 +365,9 @@ MODULE mo_impl_constants
   ! identifier for vertical transport scheme
   INTEGER, PARAMETER :: NO_VADV     = 0
   INTEGER, PARAMETER :: iup_v       = 1
+  INTEGER, PARAMETER :: ipsm_v      = 2
   INTEGER, PARAMETER :: ippm_v      = 3
-  INTEGER, PARAMETER :: ipsm_v      = 4
-  INTEGER, PARAMETER :: ippm4gpu_v  = 5
+
 
   ! identifier for horizontal limiter
   INTEGER, PARAMETER :: inol       = 0
@@ -395,15 +387,8 @@ MODULE mo_impl_constants
 
 
   ! equations to be solved
-  INTEGER, PARAMETER :: ihs_atm_temp   =  1 ! - hydrostatic atmosphere, T as progn. var.
-  INTEGER, PARAMETER :: ihs_atm_theta  =  2 ! - hydrostatic atmosphere, Theta as progn. var.
   INTEGER, PARAMETER :: inh_atmosphere =  3 ! - non-hydrost.atm.
-  INTEGER, PARAMETER :: ishallow_water =  0 ! - shallow water model
   INTEGER, PARAMETER :: ihs_ocean      = -1 ! - hydrostatic ocean
-
-  ! cell geometry
-  INTEGER, PARAMETER :: itri           =  3 ! - triangles
-  INTEGER, PARAMETER :: ihex           =  6 ! - hexagons/pentagons
 
   ! parameterized forcing (right hand side) of dynamics
   INTEGER, PARAMETER :: inoforcing     =  0 ! - no forcing
@@ -425,25 +410,18 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: SSTICE_CLIM        = 3     ! SST and sea ice based on climatology (monthly fields)
   INTEGER, PARAMETER :: SSTICE_AVG_MONTHLY = 4     ! SST and sea ice based on monthly averages
   INTEGER, PARAMETER :: SSTICE_AVG_DAILY   = 5     ! SST and sea ice based on daily averages
+  INTEGER, PARAMETER :: SSTICE_INST        = 6     ! SST and sea ice based on instantanous values
 
 
   !---------------------!
   !        LAND         !
   !---------------------!
 
-  ! full level heights [m]
-  REAL(wp), PARAMETER, DIMENSION(8)::                               &
-    & zml_soil=(/ 0.005_wp,0.02_wp,0.06_wp,0.18_wp,0.54_wp,1.62_wp, &
-    & 4.86_wp,14.58_wp /)
-
-  ! Soil layer thicknesses [m]
-  REAL(wp), PARAMETER, DIMENSION(8)::                               &
-    & dzsoil=(/ 0.01_wp,0.02_wp,0.06_wp,0.18_wp,0.54_wp,1.62_wp,    &
-    & 4.86_wp,14.58_wp/)
-
   ! identifier for MODIS albedo
   INTEGER, PARAMETER :: MODIS   = 2
 
+  ! maximum number of soil layers
+  INTEGER, PARAMETER :: max_nsoil = 20
 
   !---------------------!
   !        OCEAN        !
@@ -520,22 +498,22 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: SINGLE_T = 2
   INTEGER, PARAMETER :: BOOL_T   = 3
   INTEGER, PARAMETER :: INT_T    = 4
+  INTEGER, PARAMETER :: CHAR_T   = 5
 
   !----------------!
   !  MODEL OUTPUT  !
   !----------------!
 
   ! maximum string length for variable names
-  INTEGER, PARAMETER :: VARNAME_LEN = 256 
 
   INTEGER, PARAMETER :: &
-    max_var_lists  = 256, & ! max number of output var_lists
     MAX_NVARS      = 999, & ! maximum number of output variables (total)
     max_var_ml     = 999, & ! maximum number of output model-level variables
     max_var_pl     = 150, & ! maximum number of pressure-level variables
     max_var_hl     = 150, & ! maximum number of height-level variables
     max_var_il     = 150, & ! maximum number of variables on isentropes
-    vname_len      = VARNAME_LEN ! variable name length in I/O namelists
+    vname_len      = 256, & ! variable name length in I/O namelists
+    vlname_len     = 128    ! variable-list name length in I/O namelists
 
   INTEGER, PARAMETER :: &
     MAX_TIME_INTERVALS = 10 ! maximum number of time intervals specified in "output_nml"
@@ -562,6 +540,8 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: MAX_NPLEVS = 100 !< max. no. of pressure levels
   INTEGER, PARAMETER :: MAX_NZLEVS = 100 !< max. no. of height levels
   INTEGER, PARAMETER :: MAX_NILEVS = 100 !< max. no. of isentropic levels
+
+  INTEGER, PARAMETER :: nlat_moc = 180 !< number of buckets for moc
 
   !-----------------------------------!
   !  POST PROCESSING SCHEDULER TASKS  !
@@ -593,6 +573,12 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_HTOP_SC   = 21 !< task: compute height of top  from shallow conv. param.
   INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_TWATER    = 22 !< task: compute total column integrated water
   INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_Q_SEDIM   = 23 !< task: compute specific content of precipitation particles
+  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_DBZCMAX   = 24 !< task: compute radar reflectivity column maximum
+  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_DBZ850    = 25 !< task: compute radar reflectivity in approx. 850 hPa
+  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_VOR_U     = 26 !< task: compute zonal component of relative vorticity
+  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_VOR_V     = 27 !< task: compute meridional component of relative vorticity
+  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_BVF2      = 28 !< task: compute square of Brunt-Vaisala frequency
+  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_PARCELFREQ2 = 29 !< task: compute square of general parcel oscillation frequency
 
   !--------------------------------------------------------------------!
   !  VARIABLE TIMELEVEL SPECIFICATION (FOR POST-PROCESSING SCHEDULER)  !
@@ -666,6 +652,7 @@ MODULE mo_impl_constants
   END TYPE t_ivexpol
   TYPE(t_ivexpol), PARAMETER :: ivexpol = t_ivexpol( 1, &  !lin 
     &                                                2  )  !upatmo
+
 
 
 !--------------------------------------------------------------------

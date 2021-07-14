@@ -25,17 +25,18 @@ MODULE mo_cdi_ids
     &                              CDI_UNDEFID, gridCreate, gridDefNvertex, gridDefXname,       &
     &                              gridDefXlongname, gridDefXunits, gridDefYname,               &
     &                              gridDefYlongname, gridDefYunits, GRID_UNSTRUCTURED,          &
-    &                              streamDefVlist, DATATYPE_FLT32, cdiDefAttInt, CDI_GLOBAL,  &
+    &                              streamDefVlist, DATATYPE_FLT32, cdiDefAttInt, CDI_GLOBAL,    &
     &                              DATATYPE_INT32, zaxisDefVct, zaxisDefLbounds,                &
     &                              zaxisDefUbounds, zaxisDefUnits, streamClose, vlistDestroy,   &
-    &                              taxisDestroy, gridDestroy, zaxisDestroy,  vlistdeftaxis
-  USE mo_zaxis_type,         ONLY: ZA_REFERENCE, ZA_REFERENCE_HALF, ZA_LAKE_BOTTOM,                     &
-    &                              ZA_LAKE_BOTTOM_HALF, ZA_MIX_LAYER, ZA_SEDIMENT_BOTTOM_TW_HALF, &
+    &                              taxisDestroy, gridDestroy, zaxisDestroy,  vlistdeftaxis,     &
+    &                              zaxisDefLtype
+  USE mo_zaxis_type,         ONLY: ZA_REFERENCE, ZA_REFERENCE_HALF, ZA_LAKE_BOTTOM, ZA_TROPOPAUSE, &
+    &                              ZA_LAKE_BOTTOM_HALF, ZA_MIX_LAYER, ZA_SEDIMENT_BOTTOM_TW_HALF,  &
     &                              zaxisTypeList
   USE mtime,                 ONLY: datetime
   USE mo_exception,          ONLY: finish, message
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, SUCCESS, REAL_t, SINGLE_t, INT_t
-  USE mo_cdi_constants,      only: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE,               &
+  USE mo_cdi_constants,      only: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE,                 &
     &                              GRID_UNSTRUCTURED_VERT
   USE mo_kind,               ONLY: wp
   USE mo_util_cdi,           ONLY: cdiGetStringError
@@ -82,19 +83,19 @@ MODULE mo_cdi_ids
 CONTAINS
 
     ! If no opt_levelValues are given, this defaults to numbering the levels from 1 to levelCount.
-    INTEGER FUNCTION defineVAxis(cdiAxisType, levelValues) RESULT(resultVar)
-        INTEGER, VALUE :: cdiAxisType
+    INTEGER FUNCTION defineVAxis(cdiAxisType, levelValues) RESULT(zaxisID)
+        INTEGER, INTENT(in) :: cdiAxisType
         REAL(KIND = wp), INTENT(IN) :: levelValues(:)
 
         INTEGER :: levelCount
 
         levelCount = SIZE(levelValues, 1)
-        resultVar = zaxisCreate(cdiAxisType, levelCount)
-        CALL zaxisDefLevels(resultVar, levelValues)
+        zaxisID = zaxisCreate(cdiAxisType, levelCount)
+        CALL zaxisDefLevels(zaxisID, levelValues)
     END FUNCTION defineVAxis
 
     SUBROUTINE createVgrids(axisIds, gridDescriptions, opt_vct)
-        INTEGER, INTENT(INOUT) :: axisIds(:)
+        INTEGER, INTENT(OUT) :: axisIds(:)
         TYPE(t_Vgrid), INTENT(IN) :: gridDescriptions(:)
         REAL(wp), OPTIONAL, INTENT(IN) :: opt_vct(:)
 
@@ -129,6 +130,10 @@ CONTAINS
             IF (ANY(gridDescriptions(i)%type == [ZA_LAKE_BOTTOM_HALF, ZA_SEDIMENT_BOTTOM_TW_HALF])) THEN
               CALL zaxisDefUnits(gridId, "m")
             END IF
+            IF (gridDescriptions(i)%type == ZA_TROPOPAUSE) THEN
+              CALL zaxisDefLtype(gridId, 7)
+            ENDIF
+
         ENDDO
     END SUBROUTINE createVgrids
 
@@ -146,42 +151,42 @@ CONTAINS
 
     ! Creates a horizontal grid definition from the given parameters, returns the new CDI gridId.
     INTEGER FUNCTION create_cdi_hgrid_def(iCnt, iNVert, cNameX, cLNameX, cUnitsX, &
-        &                                               cNameY, cLNameY, cUnitsY) RESULT(resultVar)
+        &                                               cNameY, cLNameY, cUnitsY) RESULT(gridID)
 
-        INTEGER, VALUE :: iCnt, iNVert
+        INTEGER, INTENT(in) :: iCnt, iNVert
         CHARACTER(LEN = *), INTENT(IN) :: cNameX, cLNameX, cUnitsX
         CHARACTER(LEN = *), INTENT(IN) :: cNameY, cLNameY, cUnitsY
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":create_cdi_hgrid_def"
 
         ! Note: We do not want to create 0-size grids which result in
         ! unlimited NetCDF dimensions:
-        resultVar = gridCreate(GRID_UNSTRUCTURED, MAX(1,iCnt))
+        gridID = gridCreate(GRID_UNSTRUCTURED, MAX(1,iCnt))
 
-        IF(resultVar == CDI_UNDEFID) CALL finish(routine, "error creating CDI grid")
-        CALL gridDefNvertex(resultVar, iNVert)
+        IF(gridID == CDI_UNDEFID) CALL finish(routine, "error creating CDI grid")
+        CALL gridDefNvertex(gridID, iNVert)
 
-        CALL gridDefXname(resultVar, TRIM(cNameX))
-        CALL gridDefXlongname(resultVar, TRIM(cLNameX))
-        CALL gridDefXunits(resultVar, TRIM(cUnitsX))
+        CALL gridDefXname(gridID, TRIM(cNameX))
+        CALL gridDefXlongname(gridID, TRIM(cLNameX))
+        CALL gridDefXunits(gridID, TRIM(cUnitsX))
 
-        CALL gridDefYname(resultVar, TRIM(cNameY))
-        CALL gridDefYlongname(resultVar, TRIM(cLNameY))
-        CALL gridDefYunits(resultVar, TRIM(cUnitsY))
+        CALL gridDefYname(gridID, TRIM(cNameY))
+        CALL gridDefYlongname(gridID, TRIM(cLNameY))
+        CALL gridDefYunits(gridID, TRIM(cUnitsY))
     END FUNCTION create_cdi_hgrid_def
 
-    FUNCTION createHgrids(cellCount, vertexCount, edgeCount, cellType) RESULT(resultVar)
-        INTEGER, VALUE :: cellCount, vertexCount, edgeCount, cellType
-        INTEGER :: resultVar(3)
+    FUNCTION createHgrids(cellCount, vertexCount, edgeCount, cellType) RESULT(hgridIDs)
+        INTEGER, INTENT(in) :: cellCount, vertexCount, edgeCount, cellType
+        INTEGER :: hgridIDs(3)
 
-        resultVar(GRID_UNSTRUCTURED_CELL) = create_cdi_hgrid_def(cellCount, cellType, &
+        hgridIDs(GRID_UNSTRUCTURED_CELL) = create_cdi_hgrid_def(cellCount, cellType, &
                                                              &'clon', 'center longitude', 'radian', &
                                                              &'clat', 'center latitude', 'radian')
 
-        resultVar(GRID_UNSTRUCTURED_VERT) = create_cdi_hgrid_def(vertexCount, 9 - cellType, &
+        hgridIDs(GRID_UNSTRUCTURED_VERT) = create_cdi_hgrid_def(vertexCount, 9 - cellType, &
                                                              &'vlon', 'vertex longitude', 'radian', &
                                                              &'vlat', 'vertex latitude', 'radian')
 
-        resultVar(GRID_UNSTRUCTURED_EDGE) = create_cdi_hgrid_def(edgeCount, 4, &
+        hgridIDs(GRID_UNSTRUCTURED_EDGE) = create_cdi_hgrid_def(edgeCount, 4, &
                                                              &'elon', 'edge midpoint longitude', 'radian', &
                                                              &'elat', 'edge midpoint latitude', 'radian')
 
@@ -191,7 +196,7 @@ CONTAINS
                                                     &vgridDefs, opt_vct)
         CLASS(t_CdiIds), INTENT(INOUT) :: me
         CHARACTER(LEN = *), INTENT(IN) :: filename
-        INTEGER, VALUE :: restartType, cellCount, vertCount, edgeCount, cellType
+        INTEGER, INTENT(in) :: restartType, cellCount, vertCount, edgeCount, cellType
         TYPE(t_Vgrid), INTENT(IN) :: vgridDefs(:)
         REAL(wp), INTENT(IN), OPTIONAL :: opt_vct(:)
 
@@ -262,7 +267,7 @@ CONTAINS
     ! Encapsulates the CDI calls to define a variable.
     INTEGER FUNCTION restartCdiIds_defineVariableSimple(me, hgrid, vgrid, datatype, vName) RESULT(varId)
         CLASS(t_CdiIds), INTENT(IN) :: me
-        INTEGER, VALUE :: hgrid, vgrid, datatype
+        INTEGER, INTENT(in) :: hgrid, vgrid, datatype
         CHARACTER(*), INTENT(IN) :: vName
 
         INTEGER :: gridId, zaxisId
@@ -346,7 +351,7 @@ CONTAINS
     SUBROUTINE set_vertical_grid_array(gridDefinitions, gridCount, type, levels)
         TYPE(t_Vgrid), INTENT(INOUT) :: gridDefinitions(:)
         INTEGER, INTENT(INOUT) :: gridCount
-        INTEGER, VALUE :: type
+        INTEGER, INTENT(in) :: type
         REAL(wp), INTENT(in) :: levels(:)
 
         INTEGER :: levelCount, error
@@ -368,20 +373,21 @@ CONTAINS
     SUBROUTINE set_vertical_grid_counted(gridDefinitions, gridCount, TYPE, levelCount)
         TYPE(t_Vgrid), INTENT(INOUT) :: gridDefinitions(:)
         INTEGER, INTENT(INOUT) :: gridCount
-        INTEGER, VALUE :: TYPE, levelCount
+        INTEGER, INTENT(in) :: type, levelCount
 
         INTEGER :: i
 
-        CALL set_vertical_grid(gridDefinitions, gridCount, TYPE, [(REAL(i, wp), i = 1, levelCount)])
+        CALL set_vertical_grid(gridDefinitions, gridCount, type, [(REAL(i, wp), i = 1, levelCount)])
     END SUBROUTINE set_vertical_grid_counted
 
-    SUBROUTINE set_vertical_grid_single(gridDefinitions, gridCount, TYPE, levelValue)
+    SUBROUTINE set_vertical_grid_single(gridDefinitions, gridCount, type, levelValue)
         TYPE(t_Vgrid), INTENT(INOUT) :: gridDefinitions(:)
         INTEGER, INTENT(INOUT) :: gridCount
-        INTEGER, VALUE :: TYPE
-        REAL(wp), VALUE :: levelValue
+        INTEGER, INTENT(in) :: type
+        REAL(wp), INTENT(in) :: levelValue
 
         CALL set_vertical_grid(gridDefinitions, gridCount, TYPE, [levelValue])
+
     END SUBROUTINE set_vertical_grid_single
 
 END MODULE mo_cdi_ids

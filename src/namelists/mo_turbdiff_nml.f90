@@ -26,7 +26,7 @@ MODULE mo_turbdiff_nml
   USE mo_impl_constants,      ONLY: max_dom
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
-  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist,     &
+  USE mo_restart_nml_and_att, ONLY: open_tmpfile, store_and_close_namelist,     &
     &                               open_and_restore_namelist, close_tmpfile
   USE mo_turbdiff_config,     ONLY: turbdiff_config 
 
@@ -37,7 +37,7 @@ MODULE mo_turbdiff_nml
     & tur_len, pat_len, a_stab, tkhmin, tkmmin, c_diff, ltkeshs, &
     & rlam_heat, rlam_mom, rat_sea, tkesmot, frcsmot, impl_s, impl_t, q_crit, &
     & a_hshr, imode_frcsmot, lfreeslip, alpha0, alpha1, alpha0_max, alpha0_pert, &
-    & tkhmin_strat, tkmmin_strat
+    & tkhmin_strat, tkmmin_strat, rat_glac
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
   
   IMPLICIT NONE
@@ -66,7 +66,7 @@ MODULE mo_turbdiff_nml
     & imode_tran, imode_turb, icldm_tran, icldm_turb, imode_tkesso, &
     & ltkesso, ltkecon, lexpcor, ltmpcor, lprfcor, lnonloc, lcpfluc, lsflcnd, &
     & tur_len, pat_len, a_stab, tkhmin, tkmmin, c_diff, ltkeshs, &
-    & rlam_heat, rlam_mom, rat_sea, tkesmot, frcsmot, impl_s, impl_t, q_crit, &
+    & rlam_heat, rlam_mom, rat_sea, rat_glac, tkesmot, frcsmot, impl_s, impl_t, q_crit, &
     & a_hshr, imode_frcsmot, alpha0, alpha1, alpha0_max, tkhmin_strat, tkmmin_strat, &
 !   additional namelist parameters:
     & lconst_z0, const_z0, lfreeslip, ldiff_qi, ldiff_qs
@@ -195,6 +195,7 @@ CONTAINS
       turbdiff_config(jg)%rlam_heat    = rlam_heat
       turbdiff_config(jg)%rlam_mom     = rlam_mom
       turbdiff_config(jg)%rat_sea      = rat_sea
+      turbdiff_config(jg)%rat_glac     = rat_glac
       turbdiff_config(jg)%tkesmot      = tkesmot
       turbdiff_config(jg)%frcsmot      = frcsmot
       turbdiff_config(jg)%impl_s       = impl_s

@@ -22,10 +22,10 @@ MODULE mo_name_list_output_zaxes_types
   USE mo_cdi,                               ONLY: CDI_UNDEFID, zaxisCreate, zaxisDefNumber, zaxisDefUUID,        &
     &                                             zaxisDefLevels, zaxisDefLbounds, zaxisDefUbounds, zaxisDefVct, &
     &                                             zaxisDefUnits, zaxisDefNlevRef, zaxisDefName, zaxisDestroy,    &
-    &                                             zaxisDefLongname
+    &                                             zaxisDefLongname, zaxisDefLtype
   USE mo_zaxis_type,                        ONLY: t_zaxisType
   USE mo_kind,                              ONLY: wp, dp
-  USE mo_exception,                         ONLY: finish, message
+  USE mo_exception,                         ONLY: finish
   USE mo_packed_message,                    ONLY: t_PackedMessage
   USE mo_mpi,                               ONLY: p_get_bcast_role
 
@@ -53,19 +53,21 @@ MODULE mo_name_list_output_zaxes_types
 
     INTEGER                              :: cdi_id = CDI_UNDEFID       !< CDI object ID (or undefined)
 
-    REAL(dp),                    POINTER :: zaxisLevels(:)   => NULL() !< level list
-    REAL(dp),                    POINTER :: zaxisLbounds(:)  => NULL() !< lower bounds
-    REAL(dp),                    POINTER :: zaxisUbounds(:)  => NULL() !< upper bounds
+    REAL(dp),                    ALLOCATABLE :: zaxisLevels(:)  !< level list
+    REAL(dp),                    ALLOCATABLE :: zaxisLbounds(:) !< lower bounds
+    REAL(dp),                    ALLOCATABLE :: zaxisUbounds(:) !< upper bounds
 
-    CHARACTER(LEN=:),            POINTER :: zaxisName        => NULL() !< name string
-    CHARACTER(LEN=:),            POINTER :: zaxisLongname    => NULL() !< extended name string
-    CHARACTER(LEN=:),            POINTER :: zaxisUnits       => NULL() !< axis units
+    CHARACTER(LEN=:),            ALLOCATABLE :: zaxisName       !< name string
+    CHARACTER(LEN=:),            ALLOCATABLE :: zaxisLongname   !< extended name string
+    CHARACTER(LEN=:),            ALLOCATABLE :: zaxisUnits      !< axis units
 
-    INTEGER,                     POINTER :: zaxisNumber      => NULL() !< reference no. for unstructured grid
-    INTEGER,                     POINTER :: zaxisNlevRef     => NULL() !< no. of half levels of generalized Z-axis
+    INTEGER,                     ALLOCATABLE :: zaxisNumber     !< reference no. for unstructured grid
+    INTEGER,                     ALLOCATABLE :: zaxisNlevRef    !< no. of half levels of generalized Z-axis
 
-    INTEGER(KIND=C_SIGNED_CHAR), POINTER :: zaxisUUID(:)     => NULL() !< UUID of vertical grid
-    REAL(dp),                    POINTER :: zaxisVct(:)      => NULL() !< vertical coordinate table
+    INTEGER(KIND=C_SIGNED_CHAR), ALLOCATABLE :: zaxisUUID(:)    !< UUID of vertical grid
+    REAL(dp),                    ALLOCATABLE :: zaxisVct(:)     !< vertical coordinate table
+
+    INTEGER,                     ALLOCATABLE :: zaxisDefLtype   !< additional GRIB2 level type
 
   CONTAINS
     PROCEDURE :: finalize       => t_verticalAxis_finalize        !< destructor
@@ -123,16 +125,18 @@ CONTAINS
 
     axis%zaxisNlev = 0
     
-    IF (ASSOCIATED(axis%zaxisLevels))    DEALLOCATE(axis%zaxisLevels)
-    IF (ASSOCIATED(axis%zaxisLbounds))   DEALLOCATE(axis%zaxisLbounds)
-    IF (ASSOCIATED(axis%zaxisUbounds))   DEALLOCATE(axis%zaxisUbounds)
-    IF (ASSOCIATED(axis%zaxisName))      DEALLOCATE(axis%zaxisName)
-    IF (ASSOCIATED(axis%zaxisLongname))  DEALLOCATE(axis%zaxisLongname)
-    IF (ASSOCIATED(axis%zaxisUnits))     DEALLOCATE(axis%zaxisUnits)
-    IF (ASSOCIATED(axis%zaxisNumber))    DEALLOCATE(axis%zaxisNumber)
-    IF (ASSOCIATED(axis%zaxisNlevRef))   DEALLOCATE(axis%zaxisNlevRef)
-    IF (ASSOCIATED(axis%zaxisUUID))      DEALLOCATE(axis%zaxisUUID)
-    IF (ASSOCIATED(axis%zaxisVct))       DEALLOCATE(axis%zaxisVct)
+    IF (ALLOCATED(axis%zaxisLevels))    DEALLOCATE(axis%zaxisLevels)
+    IF (ALLOCATED(axis%zaxisLbounds))   DEALLOCATE(axis%zaxisLbounds)
+    IF (ALLOCATED(axis%zaxisUbounds))   DEALLOCATE(axis%zaxisUbounds)
+    IF (ALLOCATED(axis%zaxisName))      DEALLOCATE(axis%zaxisName)
+    IF (ALLOCATED(axis%zaxisLongname))  DEALLOCATE(axis%zaxisLongname)
+    IF (ALLOCATED(axis%zaxisUnits))     DEALLOCATE(axis%zaxisUnits)
+    IF (ALLOCATED(axis%zaxisNumber))    DEALLOCATE(axis%zaxisNumber)
+    IF (ALLOCATED(axis%zaxisNlevRef))   DEALLOCATE(axis%zaxisNlevRef)
+    IF (ALLOCATED(axis%zaxisUUID))      DEALLOCATE(axis%zaxisUUID)
+    IF (ALLOCATED(axis%zaxisVct))       DEALLOCATE(axis%zaxisVct)
+    IF (ALLOCATED(axis%zaxisDefLtype))  DEALLOCATE(axis%zaxisDefLtype)
+
     IF (axis%cdi_id /= CDI_UNDEFID) THEN
       CALL zaxisDestroy(axis%cdi_id)
       axis%cdi_id = CDI_UNDEFID
@@ -154,26 +158,29 @@ CONTAINS
     END IF
     axis%cdi_id = cdiID
 
-    IF (ASSOCIATED(axis%zaxisLevels))   &
+    IF (ALLOCATED(axis%zaxisLevels))   &
       CALL zaxisDefLevels(cdiID, axis%zaxisLevels)
-    IF (ASSOCIATED(axis%zaxisLbounds) ) &
+    IF (ALLOCATED(axis%zaxisLbounds) ) &
       CALL zaxisDefLbounds(cdiID, axis%zaxisLbounds)
-    IF (ASSOCIATED(axis%zaxisUbounds))  &
+    IF (ALLOCATED(axis%zaxisUbounds))  &
       CALL zaxisDefUbounds(cdiID, axis%zaxisUbounds)
-    IF (ASSOCIATED(axis%zaxisName))     &
+    IF (ALLOCATED(axis%zaxisName))     &
       CALL zaxisDefName(cdiID, TRIM(axis%zaxisName))
-    IF (ASSOCIATED(axis%zaxisLongname)) &
+    IF (ALLOCATED(axis%zaxisLongname)) &
       CALL zaxisDefLongname(cdiID, TRIM(axis%zaxisLongname))
-    IF (ASSOCIATED(axis%zaxisUnits))    &
+    IF (ALLOCATED(axis%zaxisUnits))    &
       CALL zaxisDefUnits(cdiID, TRIM(axis%zaxisUnits))
-    IF (ASSOCIATED(axis%zaxisNumber))   &
+    IF (ALLOCATED(axis%zaxisNumber))   &
       CALL zaxisDefNumber(cdiID, axis%zaxisNumber)
-    IF (ASSOCIATED(axis%zaxisNlevRef))   &
+    IF (ALLOCATED(axis%zaxisNlevRef))  &
       CALL zaxisDefNlevRef(cdiID, axis%zaxisNlevRef)
-    IF (ASSOCIATED(axis%zaxisUUID))     &
+    IF (ALLOCATED(axis%zaxisUUID))     &
       CALL zaxisDefUUID (cdiID, axis%zaxisUUID)
-    IF (ASSOCIATED(axis%zaxisVct))      &
+    IF (ALLOCATED(axis%zaxisVct))      &
       CALL zaxisDefVct(cdiID, SIZE(axis%zaxisVct), axis%zaxisVct)
+    IF (ALLOCATED(axis%zaxisDefLtype)) &
+      CALL zaxisDefLtype(cdiID, axis%zaxisDefLtype)
+
   END SUBROUTINE t_verticalAxis_cdiZaxisCreate
 
 
@@ -182,7 +189,7 @@ CONTAINS
   !
   SUBROUTINE t_verticalAxis_set(axis, &
     &                           zaxisLevels,  zaxisLbounds, zaxisUbounds, zaxisName, zaxisLongname, &
-    &                           zaxisUnits, zaxisNumber, zaxisNlevRef, zaxisUUID, zaxisVct)
+    &                           zaxisUnits, zaxisNumber, zaxisNlevRef, zaxisUUID, zaxisVct, zaxisDefLtype)
 
     CLASS(t_verticalAxis),       INTENT(INOUT) :: axis
     REAL(dp),                    INTENT(IN), OPTIONAL :: zaxisLevels(:)
@@ -195,58 +202,64 @@ CONTAINS
     INTEGER,                     INTENT(IN), OPTIONAL :: zaxisNlevRef
     INTEGER(KIND=C_SIGNED_CHAR), INTENT(IN), OPTIONAL :: zaxisUUID(:)
     REAL(dp),                    INTENT(IN), OPTIONAL :: zaxisVct(:)
+    INTEGER,                     INTENT(IN), OPTIONAL :: zaxisDefLtype
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//'::t_verticalAxis_set'
 
     IF (PRESENT(zaxisLevels)) THEN
-      IF (ASSOCIATED(axis%zaxisLevels))   CALL finish(routine, "'zaxisLevels' already initialized!")
+      IF (ALLOCATED(axis%zaxisLevels))   CALL finish(routine, "'zaxisLevels' already initialized!")
       ALLOCATE(axis%zaxisLevels(SIZE(zaxisLevels)))
       axis%zaxisLevels = zaxisLevels
     END IF
     IF (PRESENT(zaxisLbounds)) THEN
-      IF (ASSOCIATED(axis%zaxisLbounds))  CALL finish(routine, "'zaxisLbounds' already initialized!")
+      IF (ALLOCATED(axis%zaxisLbounds))  CALL finish(routine, "'zaxisLbounds' already initialized!")
       ALLOCATE(axis%zaxisLbounds(SIZE(zaxisLbounds)))
       axis%zaxisLbounds = zaxisLbounds
     END IF
     IF (PRESENT(zaxisUbounds)) THEN
-      IF (ASSOCIATED(axis%zaxisUbounds))  CALL finish(routine, "'zaxisUbounds' already initialized!")
+      IF (ALLOCATED(axis%zaxisUbounds))  CALL finish(routine, "'zaxisUbounds' already initialized!")
       ALLOCATE(axis%zaxisUbounds(SIZE(zaxisUbounds)))
       axis%zaxisUbounds = zaxisUbounds
     END IF
     IF (PRESENT(zaxisName)) THEN
-      IF (ASSOCIATED(axis%zaxisName))     CALL finish(routine, "'zaxisName' already initialized!")
-      ALLOCATE(CHARACTER(LEN(zaxisName)) :: axis%zaxisName)
+      IF (ALLOCATED(axis%zaxisName))     CALL finish(routine, "'zaxisName' already initialized!")
+      ALLOCATE(CHARACTER(LEN_TRIM(zaxisName)) :: axis%zaxisName)
       axis%zaxisName = zaxisName
     END IF
     IF (PRESENT(zaxisLongname)) THEN
-      IF (ASSOCIATED(axis%zaxisLongname)) CALL finish(routine, "'zaxisLongname' already initialized!")
-      ALLOCATE(CHARACTER(LEN(zaxisLongname)) :: axis%zaxisLongname)
+      IF (ALLOCATED(axis%zaxisLongname)) CALL finish(routine, "'zaxisLongname' already initialized!")
+      ALLOCATE(CHARACTER(LEN_TRIM(zaxisLongname)) :: axis%zaxisLongname)
       axis%zaxisLongname = zaxisLongname
     END IF
     IF (PRESENT(zaxisUnits)) THEN
-      IF (ASSOCIATED(axis%zaxisUnits))    CALL finish(routine, "'zaxisUnits' already initialized!")
-      ALLOCATE(CHARACTER(LEN(zaxisUnits)) :: axis%zaxisUnits)
+      IF (ALLOCATED(axis%zaxisUnits))    CALL finish(routine, "'zaxisUnits' already initialized!")
+      ALLOCATE(CHARACTER(LEN_TRIM(zaxisUnits)) :: axis%zaxisUnits)
       axis%zaxisUnits = zaxisUnits
     END IF
     IF (PRESENT(zaxisNumber)) THEN
-      IF (ASSOCIATED(axis%zaxisNumber))   CALL finish(routine, "'zaxisNumber' already initialized!")
+      IF (ALLOCATED(axis%zaxisNumber))   CALL finish(routine, "'zaxisNumber' already initialized!")
       ALLOCATE(axis%zaxisNumber)
       axis%zaxisNumber = zaxisNumber
     END IF
     IF (PRESENT(zaxisNlevRef)) THEN
-      IF (ASSOCIATED(axis%zaxisNlevRef))   CALL finish(routine, "'zaxisNlevRef' already initialized!")
+      IF (ALLOCATED(axis%zaxisNlevRef))   CALL finish(routine, "'zaxisNlevRef' already initialized!")
       ALLOCATE(axis%zaxisNlevRef)
       axis%zaxisNlevRef = zaxisNlevRef
     END IF
     IF (PRESENT(zaxisUUID)) THEN
-      IF (ASSOCIATED(axis%zaxisUUID))     CALL finish(routine, "'zaxisUUID' already initialized!")
+      IF (ALLOCATED(axis%zaxisUUID))     CALL finish(routine, "'zaxisUUID' already initialized!")
       ALLOCATE(axis%zaxisUUID(SIZE(zaxisUUID)))
       axis%zaxisUUID = zaxisUUID
     END IF
     IF (PRESENT(zaxisVct)) THEN
-      IF (ASSOCIATED(axis%zaxisVct))      CALL finish(routine, "'zaxisVct' already initialized!")
+      IF (ALLOCATED(axis%zaxisVct))      CALL finish(routine, "'zaxisVct' already initialized!")
       ALLOCATE(axis%zaxisVct(SIZE(zaxisVct)))
       axis%zaxisVct = zaxisVct
+    END IF
+    IF (PRESENT(zaxisDefLtype)) THEN
+      IF (ALLOCATED(axis%zaxisDefLtype))  CALL finish(routine, "'zaxisDefLtype' already initialized!")
+      ALLOCATE(axis%zaxisDefLtype)
+      axis%zaxisDefLtype = zaxisDefLtype
     END IF
   END SUBROUTINE t_verticalAxis_set
 
@@ -255,42 +268,46 @@ CONTAINS
   !> Send object via MPI point-to-point communication.
   !
   SUBROUTINE t_verticalAxis_packMPI(axis, packedMessage)
-    CLASS(t_verticalAxis),       INTENT(IN)    :: axis
+    CLASS(t_verticalAxis),       INTENT(IN), TARGET    :: axis
     TYPE(t_PackedMessage),       INTENT(INOUT) :: packedMessage
+    LOGICAL :: is_zaxisName, is_zaxisLongname, is_zaxisUnits, &
+      & is_zaxisNumber, is_zaxisNlevRef
 
-    LOGICAL :: is_zaxisName, is_zaxisLongname, is_zaxisUnits
-
-    is_zaxisName     = ASSOCIATED(axis%zaxisName)
-    is_zaxisLongname = ASSOCIATED(axis%zaxisLongname)
-    is_zaxisUnits    = ASSOCIATED(axis%zaxisUnits)
+    is_zaxisName     = ALLOCATED(axis%zaxisName)
+    is_zaxisLongname = ALLOCATED(axis%zaxisLongname)
+    is_zaxisUnits    = ALLOCATED(axis%zaxisUnits)
+    is_zaxisNumber   = ALLOCATED(axis%zaxisNumber)
+    is_zaxisNlevRef  = ALLOCATED(axis%zaxisNlevRef)
 
     CALL packedMessage%pack(axis%zaxisNlev)
     CALL packedMessage%pack(axis%zaxisType%icon_zaxis_type)
     CALL packedMessage%pack(axis%zaxisType%cdi_zaxis_type)
     CALL packedMessage%pack(axis%zaxisType%is_2d)
     CALL packedMessage%pack(axis%cdi_id)
-    CALL packedMessage%packPointer(axis%zaxisLevels)
-    CALL packedMessage%packPointer(axis%zaxisLbounds)
-    CALL packedMessage%packPointer(axis%zaxisUbounds)
+    CALL packedMessage%pack(axis%zaxisLevels)
+    CALL packedMessage%pack(axis%zaxisLbounds)
+    CALL packedMessage%pack(axis%zaxisUbounds)
     CALL packedMessage%pack(is_zaxisName)
-    IF (is_zaxisName) THEN
-      CALL packedMessage%pack(LEN(axis%zaxisName))
-      CALL packedMessage%pack(axis%zaxisName)
-    END IF
+    IF (is_zaxisName) CALL pack_string(axis%zaxisName)
     CALL packedMessage%pack(is_zaxisLongName)
-    IF (is_zaxisLongName) THEN
-      CALL packedMessage%pack(LEN(axis%zaxisLongname))
-      CALL packedMessage%pack(axis%zaxisLongname)
-    END IF
+    IF (is_zaxisLongName) CALL pack_string(axis%zaxisLongname)
     CALL packedMessage%pack(is_zaxisUnits)
-    IF (is_zaxisUnits) THEN
-      CALL packedMessage%pack(LEN(axis%zaxisUnits))
-      CALL packedMessage%pack(axis%zaxisUnits)
-    END IF
-    CALL packedMessage%packPointer(axis%zaxisNumber)
-    CALL packedMessage%packPointer(axis%zaxisNlevRef)
-    CALL packedMessage%packPointer(axis%zaxisUUID)
-    CALL packedMessage%packPointer(axis%zaxisVct)
+    IF (is_zaxisUnits) CALL pack_string(axis%zaxisUnits)
+    CALL packedMessage%pack(is_zaxisNumber)
+    IF (is_zaxisNumber) CALL packedMessage%pack(axis%zaxisNumber)
+    CALL packedMessage%pack(is_zaxisNlevRef)
+    IF (is_zaxisNlevRef) CALL packedMessage%pack(axis%zaxisNlevRef)
+    CALL packedMessage%pack(axis%zaxisUUID)
+    CALL packedMessage%pack(axis%zaxisVct)
+    CALL packedMessage%pack(axis%zaxisDefLType)
+  CONTAINS
+
+    SUBROUTINE pack_string(string)
+      CHARACTER(*), INTENT(IN) :: string
+
+      CALL packedMessage%pack(LEN(string))
+      CALL packedMessage%pack(string)
+    END SUBROUTINE pack_string
   END SUBROUTINE t_verticalAxis_packMPI
 
 
@@ -298,10 +315,10 @@ CONTAINS
   !> Receive object via MPI point-to-point communication.
   !
   SUBROUTINE t_verticalAxis_unpackMPI(axis, packedMessage)
-    CLASS(t_verticalAxis),       INTENT(INOUT) :: axis
+    CLASS(t_verticalAxis),       INTENT(INOUT), TARGET :: axis
     TYPE(t_PackedMessage),       INTENT(INOUT) :: packedMessage
-
-    LOGICAL :: is_zaxisName, is_zaxisLongname, is_zaxisUnits
+    LOGICAL :: is_zaxisName, is_zaxisLongname, is_zaxisUnits, &
+      & is_zaxisNumber, is_zaxisNlevRef
     INTEGER :: strlen
 
     CALL packedMessage%unpack(axis%zaxisNlev)
@@ -309,31 +326,47 @@ CONTAINS
     CALL packedMessage%unpack(axis%zaxisType%cdi_zaxis_type)
     CALL packedMessage%unpack(axis%zaxisType%is_2D)
     CALL packedMessage%unpack(axis%cdi_id)
-    CALL packedMessage%unpackPointer(axis%zaxisLevels)
-    CALL packedMessage%unpackPointer(axis%zaxisLbounds)
-    CALL packedMessage%unpackPointer(axis%zaxisUbounds)
+    CALL packedMessage%unpack(axis%zaxisLevels)
+    CALL packedMessage%unpack(axis%zaxisLbounds)
+    CALL packedMessage%unpack(axis%zaxisUbounds)
     CALL packedMessage%unpack(is_zaxisName)
     IF (is_zaxisName) THEN
       CALL packedMessage%unpack(strlen)
       ALLOCATE(CHARACTER(strlen) :: axis%zaxisName)
-      CALL packedMessage%unpack(axis%zaxisName)
+      CALL unpack_string(axis%zaxisName)
     END IF
     CALL packedMessage%unpack(is_zaxisLongName)
     IF (is_zaxisLongName) THEN
       CALL packedMessage%unpack(strlen)
       ALLOCATE(CHARACTER(strlen) :: axis%zaxisLongname)
-      CALL packedMessage%unpack(axis%zaxisLongname)
+      CALL unpack_string(axis%zaxisLongname)
     END IF
     CALL packedMessage%unpack(is_zaxisUnits)
     IF (is_zaxisUnits) THEN
       CALL packedMessage%unpack(strlen)
       ALLOCATE(CHARACTER(strlen) :: axis%zaxisUnits)
-      CALL packedMessage%unpack(axis%zaxisUnits)
+      CALL unpack_string(axis%zaxisUnits)
     END IF
-    CALL packedMessage%unpackPointer(axis%zaxisNumber)
-    CALL packedMessage%unpackPointer(axis%zaxisNlevRef)
-    CALL packedMessage%unpackPointer(axis%zaxisUUID)
-    CALL packedMessage%unpackPointer(axis%zaxisVct)
+    CALL packedMessage%unpack(is_zaxisNumber)
+    IF (is_zaxisNumber) THEN
+      ALLOCATE(axis%zaxisNumber)
+      CALL packedMessage%unpack(axis%zaxisNumber)
+    END IF
+    CALL packedMessage%unpack(is_zaxisNlevRef)
+    IF (is_zaxisNlevRef) THEN
+      ALLOCATE(axis%zaxisNlevRef)
+      CALL packedMessage%unpack(axis%zaxisNlevRef)
+    END IF
+    CALL packedMessage%unpack(axis%zaxisUUID)
+    CALL packedMessage%unpack(axis%zaxisVct)
+    CALL packedMessage%unpack(axis%zaxisDefLtype)
+  CONTAINS
+
+    SUBROUTINE unpack_string(string)
+      CHARACTER(*), INTENT(OUT) :: string
+
+      CALL packedMessage%unpack(string)
+    END SUBROUTINE unpack_string
   END SUBROUTINE t_verticalAxis_unpackMPI
 
 
@@ -345,10 +378,8 @@ CONTAINS
     INTEGER,                     INTENT(IN) :: dest  !< destination PE
     INTEGER,                     INTENT(IN) :: comm  !< MPI communicator
     TYPE(t_PackedMessage) :: packedMessage
-
     CALL axis%packMPI(packedMessage)
     CALL packedMessage%send(dest, 0, comm)
-    CALL packedMessage%destruct()
   END SUBROUTINE t_verticalAxis_sendMPI
 
 
@@ -359,13 +390,11 @@ CONTAINS
     CLASS(t_verticalAxis),       INTENT(INOUT) :: axis
     INTEGER,                     INTENT(IN) :: src   !< source PE
     INTEGER,                     INTENT(IN) :: comm  !< MPI communicator
-
     TYPE(t_PackedMessage) :: packedMessage
 
     CALL packedMessage%recv(src, 0, comm)
     CALL axis%finalize()  ! clear receive object
     CALL axis%unpackMPI(packedMessage)
-    CALL packedMessage%destruct()
   END SUBROUTINE t_verticalAxis_recvMPI
 
 
@@ -376,7 +405,6 @@ CONTAINS
     CLASS(t_verticalAxis),   INTENT(INOUT) :: axis
     INTEGER,                 INTENT(IN)    :: root  !< root PE
     INTEGER,                 INTENT(IN)    :: comm  !< MPI communicator
-
     TYPE(t_PackedMessage) :: packedMessage
     LOGICAL               :: isRoot, isReceiver
 
@@ -384,7 +412,6 @@ CONTAINS
     IF (isRoot)  CALL axis%packMPI(packedMessage)
     CALL packedMessage%bcast(root, comm)
     IF (isReceiver)  CALL axis%unpackMPI(packedMessage)
-    CALL packedMessage%destruct()
   END SUBROUTINE t_verticalAxis_bcastMPI
 
 
@@ -392,16 +419,16 @@ CONTAINS
   !> Auxiliary function: Check two REAL(dp) arrays for equality.
   !
   LOGICAL FUNCTION array_eqv_dp(array1, array2)
-    REAL(wp), POINTER, INTENT(IN) :: array1(:), array2(:)
+    REAL(wp), ALLOCATABLE, INTENT(IN) :: array1(:), array2(:)
     
     array_eqv_dp = .TRUE.
     ! check pointer association status
-    IF (.NOT. (ASSOCIATED(array1) .EQV. ASSOCIATED(array2))) THEN
+    IF (.NOT. (ALLOCATED(array1) .EQV. ALLOCATED(array2))) THEN
       array_eqv_dp=.FALSE.
       RETURN
     END IF
     ! check array size
-    IF (ASSOCIATED(array1)) THEN
+    IF (ALLOCATED(array1)) THEN
       IF (.NOT. (SIZE(array1) == SIZE(array2))) THEN
         array_eqv_dp=.FALSE.
       ELSE
@@ -415,16 +442,16 @@ CONTAINS
   !> Auxiliary function: Check two REAL(dp) arrays for equality.
   !
   LOGICAL FUNCTION array_eqv_intc(array1, array2)
-    INTEGER(KIND=C_SIGNED_CHAR), POINTER, INTENT(IN) :: array1(:), array2(:)
+    INTEGER(KIND=C_SIGNED_CHAR), ALLOCATABLE, INTENT(IN) :: array1(:), array2(:)
     
     array_eqv_intc = .TRUE.
     ! check pointer association status
-    IF (.NOT. (ASSOCIATED(array1) .EQV. ASSOCIATED(array2))) THEN
+    IF (.NOT. (ALLOCATED(array1) .EQV. ALLOCATED(array2))) THEN
       array_eqv_intc=.FALSE.
       RETURN
     END IF
     ! check array size
-    IF (ASSOCIATED(array1)) THEN
+    IF (ALLOCATED(array1)) THEN
       IF (.NOT. (SIZE(array1) == SIZE(array2))) THEN
         array_eqv_intc=.FALSE.
       ELSE
@@ -446,28 +473,31 @@ CONTAINS
     ! (note that we do not check the cdi_id!)
 
     ! check pointer association status 
-    IF (.NOT. (ASSOCIATED(axis1%zaxisName    ) .EQV. ASSOCIATED(axis2%zaxisName    )))  t_verticalAxis_eqv=.FALSE.
-    IF (.NOT. (ASSOCIATED(axis1%zaxisLongname) .EQV. ASSOCIATED(axis2%zaxisLongname)))  t_verticalAxis_eqv=.FALSE.
-    IF (.NOT. (ASSOCIATED(axis1%zaxisUnits   ) .EQV. ASSOCIATED(axis2%zaxisUnits   )))  t_verticalAxis_eqv=.FALSE.
-    IF (.NOT. (ASSOCIATED(axis1%zaxisNumber  ) .EQV. ASSOCIATED(axis2%zaxisNumber  )))  t_verticalAxis_eqv=.FALSE.
-    IF (.NOT. (ASSOCIATED(axis1%zaxisNlevRef ) .EQV. ASSOCIATED(axis2%zaxisNlevRef )))  t_verticalAxis_eqv=.FALSE.
+    IF (.NOT. (ALLOCATED(axis1%zaxisName    ) .EQV. ALLOCATED(axis2%zaxisName    )))  t_verticalAxis_eqv=.FALSE.
+    IF (.NOT. (ALLOCATED(axis1%zaxisLongname) .EQV. ALLOCATED(axis2%zaxisLongname)))  t_verticalAxis_eqv=.FALSE.
+    IF (.NOT. (ALLOCATED(axis1%zaxisUnits   ) .EQV. ALLOCATED(axis2%zaxisUnits   )))  t_verticalAxis_eqv=.FALSE.
+    IF (.NOT. (ALLOCATED(axis1%zaxisNumber  ) .EQV. ALLOCATED(axis2%zaxisNumber  )))  t_verticalAxis_eqv=.FALSE.
+    IF (.NOT. (ALLOCATED(axis1%zaxisNlevRef ) .EQV. ALLOCATED(axis2%zaxisNlevRef )))  t_verticalAxis_eqv=.FALSE.
 
     ! check data members (if available):
     IF (t_verticalAxis_eqv) THEN
-      IF (ASSOCIATED(axis1%zaxisName)) THEN
+      IF (ALLOCATED(axis1%zaxisName)) THEN
         IF (axis1%zaxisName /= axis2%zaxisName)          t_verticalAxis_eqv=.FALSE.
       END IF
-      IF (ASSOCIATED(axis1%zaxisLongname)) THEN
+      IF (ALLOCATED(axis1%zaxisLongname)) THEN
         IF (axis1%zaxisLongname /= axis2%zaxisLongname)  t_verticalAxis_eqv=.FALSE.
       END IF
-      IF (ASSOCIATED(axis1%zaxisUnits)) THEN
+      IF (ALLOCATED(axis1%zaxisUnits)) THEN
         IF (axis1%zaxisUnits /= axis2%zaxisUnits)        t_verticalAxis_eqv=.FALSE.
       END IF
-      IF (ASSOCIATED(axis1%zaxisNumber)) THEN
+      IF (ALLOCATED(axis1%zaxisNumber)) THEN
         IF (axis1%zaxisNumber /= axis2%zaxisNumber)      t_verticalAxis_eqv=.FALSE.
       END IF
-      IF (ASSOCIATED(axis1%zaxisNlevRef)) THEN
+      IF (ALLOCATED(axis1%zaxisNlevRef)) THEN
         IF (axis1%zaxisNlevRef /= axis2%zaxisNlevRef)    t_verticalAxis_eqv=.FALSE.
+      END IF
+      IF (ALLOCATED(axis1%zaxisDefLtype)) THEN
+        IF (axis1%zaxisDefLtype /= axis2%zaxisDefLtype)  t_verticalAxis_eqv=.FALSE.
       END IF
    
       ! check array contents (if available):
@@ -486,7 +516,7 @@ CONTAINS
   FUNCTION new_verticalAxis(zaxisType, zaxisNlev,                                 &
     &                       zaxisLevels,  zaxisLbounds, zaxisUbounds, zaxisName,  &
     &                       zaxisLongname, zaxisUnits, zaxisNumber, zaxisNlevRef, &
-    &                       zaxisUUID, zaxisVct)
+    &                       zaxisUUID, zaxisVct, zaxisDefLtype)
 
     TYPE(t_verticalAxis) :: new_verticalAxis
     TYPE(t_zaxisType),           INTENT(IN)           :: zaxisType
@@ -501,6 +531,7 @@ CONTAINS
     INTEGER,                     INTENT(IN), OPTIONAL :: zaxisNlevRef
     INTEGER(KIND=C_SIGNED_CHAR), INTENT(IN), OPTIONAL :: zaxisUUID(:)
     REAL(dp),                    INTENT(IN), OPTIONAL :: zaxisVct(:)
+    INTEGER,                     INTENT(IN), OPTIONAL :: zaxisDefLtype
     CHARACTER(LEN=*), PARAMETER :: routine = modname//'::new_verticalAxis'
 
     new_verticalAxis%zaxisType = zaxisType
@@ -512,7 +543,7 @@ CONTAINS
 
     CALL new_verticalAxis%set(zaxisLevels,  zaxisLbounds, zaxisUbounds, zaxisName,  &
       &                       zaxisLongname, zaxisUnits, zaxisNumber, zaxisNlevRef, &
-      &                       zaxisUUID, zaxisVct)
+      &                       zaxisUUID, zaxisVct, zaxisDefLtype)
   END FUNCTION new_verticalAxis
 
 
@@ -619,7 +650,7 @@ CONTAINS
         IF (it%axis%zaxisType%cdi_zaxis_type /= cdi_zaxis_type)  match=.FALSE.
       END IF
       IF (PRESENT(zaxisName)) THEN
-        IF (TRIM(it%axis%zaxisName) /= TRIM(zaxisName))  match=.FALSE.
+        IF (it%axis%zaxisName /= zaxisName)  match=.FALSE.
       END IF
       IF (PRESENT(zaxisNlev)) THEN
         IF (it%axis%zaxisNlev /= zaxisNlev)  match=.FALSE.
