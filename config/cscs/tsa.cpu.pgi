@@ -11,16 +11,19 @@ MODULES='PrgEnv-pgi/20.4 netcdf netcdf-fortran'
 
 # Requirements
 if [ -z "${XML2_ROOT+x}" ]; then
-    echo "Warning : XML2_ROOT is not set"
+    echo "Warning: XML2_ROOT is not set"
 fi
 if [ -z "${SERIALBOX2_ROOT+x}" ]; then
-    echo "Warning : SERIALBOX2_ROOT is not set, please use spack or set manually, if you intend to use serialization"
+    echo "Warning: SERIALBOX2_ROOT is not set, please use spack or set manually, if you intend to use serialization"
 fi
 if [ -z "${ECCODES_ROOT+x}" ]; then
     echo "Warning: ECCODES_ROOT is not set, please use spack or set manually if you intend to use ECCODES"
 fi
 if [ -z "${CLAW+x}" ]; then
     echo "Warning: CLAW is not set, please use spack or set manually if you intend to use CLAW"
+fi
+if [ -z "${CSCS_APPS_PATH+x}" ]; then
+    echo "Warning: CSCS_APPS_PATH is not set, please use spack or set it manually"
 fi
 
 # LIBS
@@ -34,7 +37,7 @@ STDCPP_LIBS='-lstdc++'
 
 ################################################################################
 
-BUILD_ENV=". \"${SCRIPT_DIR}/module_switcher\"; module use /apps/arolla/UES/jenkins/RH7.7/MCH-PE20.08/generic/easybuild/modules/all/; switch_for_module ${MODULES}; export LD_LIBRARY_PATH=\"${XML2_ROOT}/lib:}\${LD_LIBRARY_PATH}\";"
+BUILD_ENV=". \"${SCRIPT_DIR}/module_switcher\"; module use ${CSCS_APPS_PATH}/generic/easybuild/modules/all/; switch_for_module ${MODULES}; export LD_LIBRARY_PATH=\"${XML2_ROOT}/lib:}\${LD_LIBRARY_PATH}\";"
 
 # We need some of the environment variables set by the modules now:
 eval "$BUILD_ENV"
