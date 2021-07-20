@@ -66,6 +66,7 @@ MODULE mo_nh_interface_nwp
   USE mo_parallel_config,         ONLY: nproma, p_test_run, use_physics_barrier
   USE mo_diffusion_config,        ONLY: diffusion_config
   USE mo_initicon_config,         ONLY: is_iau_active
+  USE mo_io_config,               ONLY: var_in_output
   USE mo_run_config,              ONLY: ntracer, iqv, iqc, iqi, iqs, iqtvar, iqtke,  &
     &                                   msg_level, ltimer, timers_level, lart, ldass_lhn
   USE mo_grid_config,             ONLY: l_limited_area
@@ -95,7 +96,8 @@ MODULE mo_nh_interface_nwp
 #else
     USE mo_mpi,                     ONLY: my_process_is_mpi_all_parallel, work_mpi_barrier
 #endif
-  USE mo_nwp_diagnosis,           ONLY: nwp_statistics, nwp_diag_output_1, nwp_diag_output_2
+  USE mo_nwp_diagnosis,           ONLY: nwp_statistics, nwp_opt_diagnostics_2, &
+                                    &   nwp_diag_output_1, nwp_diag_output_2
   USE mo_art_diagnostics_interface,ONLY: art_diagnostics_interface
 
   USE mo_art_washout_interface,   ONLY: art_washout_interface
@@ -2128,6 +2130,12 @@ CONTAINS
 #endif
       CALL nwp_diag_output_2(pt_patch, pt_prog_rcf, prm_nwp_tend)
     ENDIF
+
+    CALL nwp_opt_diagnostics_2(pt_patch,             & !in
+      &                        prm_diag,             & !inout
+      &                        zcosmu0,              & !in
+      &                        var_in_output(jg),    & !in
+      &                        dt_phy_jg(itfastphy))   !in
 
     ! time averages, accumulations and vertical integrals
     CALL nwp_statistics(lcall_phy_jg,                    & !in

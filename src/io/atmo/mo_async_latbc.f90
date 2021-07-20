@@ -956,7 +956,7 @@ CONTAINS
        ! Check if vertical velocity (or OMEGA) is provided as input
        buffer%lread_w = (test_cdi_varID(fileID_latbc, 'W', latbc_dict) /= -1)
 
-       ! Check if surface pressure (VN) is provided as input
+       ! Check if normal velocity (VN) field or U/V are provided as input
        lhave_vn = (test_cdi_varID(fileID_latbc, 'VN', latbc_dict) /= -1)
        lhave_u  = (test_cdi_varID(fileID_latbc, 'U', latbc_dict)  /= -1)
        lhave_v  = (test_cdi_varID(fileID_latbc, 'V', latbc_dict)  /= -1)
