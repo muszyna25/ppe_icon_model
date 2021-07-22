@@ -17,7 +17,7 @@ listname=icon-dev
 $addexp "checksuite.icon-dev/check.atm_amip*"      --list $listname
 $addexp "checksuite.icon-dev/check.atm_ape"        --list $listname
 $addexp "checksuite.icon-dev/check.atm_heldsuarez" --list $listname
-
+$addexp "checksuite.icon-dev/check.atm_2mom_bubble_rceTorus" --list $listname
 #-----------------------------------------------------------
 # OES
 # add omip technical tests only for builders with mpi parallelization

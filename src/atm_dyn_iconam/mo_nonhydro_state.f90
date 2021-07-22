@@ -776,7 +776,7 @@ MODULE mo_nonhydro_state
             &           tracer_name, p_prog%tracer_ptr(iqr)%p_3d,                      &
             &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
             &           t_cf_var(tracer_name(1:vntl+tlen),                             &
-            &            'kg kg-1','rain mixing ratio', datatype_flt),                 &
+            &            'kg kg-1','specific rain content', datatype_flt),             &
             &           grib2_var(0, 1, 24, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
             &           ref_idx=iqr,                                                   &
             &           ldims=shape3d_c,                                               &
@@ -807,7 +807,7 @@ MODULE mo_nonhydro_state
             &           tracer_name, p_prog%tracer_ptr(iqs)%p_3d,                      &
             &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
             &           t_cf_var(tracer_name(1:tlen+vntl),                             &
-            &            'kg kg-1','snow mixing ratio', datatype_flt),                 &
+            &            'kg kg-1','specific snow content', datatype_flt),             &
             &           grib2_var(0, 1, 25, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
             &           ref_idx=iqs,                                                   &
             &           ldims=shape3d_c,                                               &
@@ -870,7 +870,7 @@ MODULE mo_nonhydro_state
             &           tracer_name, p_prog%tracer_ptr(iqh)%p_3d,                    &
             &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                        &
             &           t_cf_var(tracer_name(1:vntl+tlen),                           &
-            &            'kgkg-1 ','specific_hail_content', datatype_flt),           &
+            &            'kg kg-1 ','specific hail content', datatype_flt),          &
             &           grib2_var(0, 1, 71, ibits, GRID_UNSTRUCTURED, GRID_CELL),    &
             &           ref_idx=iqh,                                                 &
             &           ldims=shape3d_c,                                             &
