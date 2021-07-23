@@ -27,6 +27,8 @@
 !! - Included OpenMP statements
 !! Modification by Jonas Straub, KIT (2017-02-08)
 !! - Emission of pollen
+!! Modification by Jonas Straub, KIT (2021-06-01)
+!! - Second emission parameterization for sea salt
 !! @par Copyright and License
 !!
 !! This code is subject to the DWD and MPI-M-Software-License-Agreement in
@@ -72,7 +74,10 @@ MODULE mo_art_emission_interface
                                           &   art_calculate_emission_volc
   USE mo_art_emission_seas,             ONLY: art_seas_emiss_martensson,    &
                                           &   art_seas_emiss_monahan,       &
-                                          &   art_seas_emiss_smith
+                                          &   art_seas_emiss_smith,         &
+                                          &   art_seas_emiss_mode1,         &
+                                          &   art_seas_emiss_mode2,         &
+                                          &   art_seas_emiss_mode3
   USE mo_art_emission_dust,             ONLY: art_emission_dust,art_prepare_emission_dust
   USE mo_art_emission_chemtracer,       ONLY: art_emiss_chemtracer
   USE mo_art_emission_full_chemistry,   ONLY: art_emiss_full_chemistry
@@ -250,23 +255,56 @@ CONTAINS
 
                 SELECT CASE(TRIM(fields%name))
                   CASE ('seasa')
-                    CALL art_seas_emiss_martensson(art_atmo%u_10m(:,jb), art_atmo%v_10m(:,jb),  &
-                      &             art_atmo%dz(:,art_atmo%nlev,jb), p_diag_lnd%t_s(:,jb),      &
-                      &             art_atmo%fr_land(:,jb),p_diag_lnd%fr_seaice(:,jb),          &
-                      &             ext_data%atm%fr_lake(:,jb), istart,iend,                    &
-                      &             emiss_rate(:,art_atmo%nlev))
+                    SELECT CASE(art_config(jg)%iart_seasalt)
+                      CASE(1)
+                        CALL art_seas_emiss_martensson(art_atmo%u_10m(:,jb), art_atmo%v_10m(:,jb),&
+                          &             art_atmo%dz(:,art_atmo%nlev,jb), p_diag_lnd%t_s(:,jb),    &
+                          &             art_atmo%fr_land(:,jb),p_diag_lnd%fr_seaice(:,jb),        &
+                          &             ext_data%atm%fr_lake(:,jb), istart,iend,                  &
+                          &             emiss_rate(:,art_atmo%nlev))
+                      CASE(2)
+                        CALL art_seas_emiss_mode1(art_atmo%u_10m(:,jb),                           &
+                          &             art_atmo%v_10m(:,jb),art_atmo%dz(:,art_atmo%nlev,jb),     &
+                          &             p_diag_lnd%t_s(:,jb),ext_data%atm%fr_land(:,jb),          &
+                          &             p_diag_lnd%fr_seaice(:,jb), ext_data%atm%fr_lake(:,jb),   &
+                          &             istart,iend,emiss_rate(:,art_atmo%nlev))
+                      CASE DEFAULT
+                        ! Nothing to do
+                    END SELECT
                     kstart_emiss = art_atmo%nlev
                   CASE ('seasb')
-                    CALL art_seas_emiss_monahan(art_atmo%u_10m(:,jb), art_atmo%v_10m(:,jb),    &
-                      &             art_atmo%dz(:,art_atmo%nlev,jb), art_atmo%fr_land(:,jb),   &
-                      &             p_diag_lnd%fr_seaice(:,jb),ext_data%atm%fr_lake(:,jb),     &
-                      &             istart,iend,emiss_rate(:,art_atmo%nlev))
+                    SELECT CASE(art_config(jg)%iart_seasalt)
+                      CASE(1)
+                        CALL art_seas_emiss_monahan(art_atmo%u_10m(:,jb), art_atmo%v_10m(:,jb),   &
+                          &             art_atmo%dz(:,art_atmo%nlev,jb), art_atmo%fr_land(:,jb),  &
+                          &             p_diag_lnd%fr_seaice(:,jb),ext_data%atm%fr_lake(:,jb),    &
+                          &             istart,iend,emiss_rate(:,art_atmo%nlev))
+                      CASE(2)
+                        CALL art_seas_emiss_mode2(art_atmo%u_10m(:,jb),                           &
+                          &             art_atmo%v_10m(:,jb), art_atmo%dz(:,art_atmo%nlev,jb),    &
+                          &             p_diag_lnd%t_s(:,jb), ext_data%atm%fr_land(:,jb),         &
+                          &             p_diag_lnd%fr_seaice(:,jb), ext_data%atm%fr_lake(:,jb),   &
+                          &             istart, iend, emiss_rate(:,art_atmo%nlev))
+                      CASE DEFAULT
+                        ! Nothing to do
+                    END SELECT
                     kstart_emiss = art_atmo%nlev
                   CASE ('seasc')
-                    CALL art_seas_emiss_smith(art_atmo%u_10m(:,jb), art_atmo%v_10m(:,jb),      &
-                      &             art_atmo%dz(:,art_atmo%nlev,jb), art_atmo%fr_land(:,jb),   &
-                      &             p_diag_lnd%fr_seaice(:,jb),ext_data%atm%fr_lake(:,jb),     &
-                      &             istart,iend,emiss_rate(:,art_atmo%nlev))
+                    SELECT CASE(art_config(jg)%iart_seasalt)
+                      CASE(1)
+                        CALL art_seas_emiss_smith(art_atmo%u_10m(:,jb), art_atmo%v_10m(:,jb),     &
+                          &             art_atmo%dz(:,art_atmo%nlev,jb), art_atmo%fr_land(:,jb),  &
+                          &             p_diag_lnd%fr_seaice(:,jb),ext_data%atm%fr_lake(:,jb),    &
+                          &             istart,iend,emiss_rate(:,art_atmo%nlev))
+                      CASE(2)
+                        CALL art_seas_emiss_mode3(art_atmo%u_10m(:,jb),                           &
+                          &             art_atmo%v_10m(:,jb), art_atmo%dz(:,art_atmo%nlev,jb),    &
+                          &             p_diag_lnd%t_s(:,jb), ext_data%atm%fr_land(:,jb),         &
+                          &             p_diag_lnd%fr_seaice(:,jb), ext_data%atm%fr_lake(:,jb),   &
+                          &             istart, iend, emiss_rate(:,art_atmo%nlev))
+                      CASE DEFAULT
+                        ! Nothing to do
+                    END SELECT
                     kstart_emiss = art_atmo%nlev
                   CASE ('dusta')
                     CALL art_emission_dust(art_atmo%dz(:,art_atmo%nlev,jb),                            &
