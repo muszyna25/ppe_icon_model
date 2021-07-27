@@ -25,7 +25,7 @@ MODULE mo_initicon_nml
   USE mo_impl_constants,     ONLY: max_char_length, max_dom, vname_len,      &
     &                              max_var_ml, MODE_IFSANA, MODE_DWDANA,     &
     &                              MODE_IAU, MODE_IAU_OLD, MODE_COMBINED,    &
-    &                              MODE_COSMO, MODE_ICONVREMAP
+    &                              MODE_COSMO, MODE_ICONVREMAP, ivexpol
   USE mo_io_units,           ONLY: nnml, nnml_output, filename_max
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: my_process_is_stdio 
@@ -35,6 +35,10 @@ MODULE mo_initicon_nml
     & config_zpbl1               => zpbl1,               &
     & config_zpbl2               => zpbl2,               &
     & config_lread_ana           => lread_ana,           &
+    & config_qcana_mode          => qcana_mode,          &
+    & config_qiana_mode          => qiana_mode,          &
+    & config_qrsgana_mode        => qrsgana_mode,        &
+    & config_qnxana_2mom_mode    => qnxana_2mom_mode,    &
     & config_use_lakeiceana      => use_lakeiceana,      &
     & config_lconsistency_checks => lconsistency_checks, &
     & config_ifs2icon_filename   => ifs2icon_filename,   &
@@ -46,6 +50,8 @@ MODULE mo_initicon_nml
     & config_lvert_remap_fg      => lvert_remap_fg,      &
     & config_ltile_coldstart     => ltile_coldstart,     &
     & config_ltile_init          => ltile_init,          &
+    & config_icpl_da_sfcevap     => icpl_da_sfcevap,     &
+    & config_dt_ana              => dt_ana,              &
     & config_start_time_avg_fg   => start_time_avg_fg,   &
     & config_end_time_avg_fg     => end_time_avg_fg,     &
     & config_interval_avg_fg     => interval_avg_fg,     &
@@ -56,7 +62,10 @@ MODULE mo_initicon_nml
     & config_type_iau_wgt        => type_iau_wgt,        &
     & config_niter_divdamp       => niter_divdamp,       &
     & config_niter_diffu         => niter_diffu,         &
-    & config_ana_varnames_map_file => ana_varnames_map_file
+    & config_itype_vert_expol    => itype_vert_expol,    &
+    & config_ana_varnames_map_file => ana_varnames_map_file, &
+    & config_pinit_seed          => pinit_seed,          &
+    & config_pinit_amplitude     => pinit_amplitude
 
   USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
 
@@ -121,10 +130,15 @@ CONTAINS
 
   LOGICAL  :: ltile_init       ! If true, initialize tile-based surface fields from first guess without tiles
 
+  INTEGER  :: icpl_da_sfcevap  ! Type of coupling between data assimilation and medel parameters affecting surface evaporation (plants + bare soil)
+
+  REAL(wp) :: dt_ana           ! Time interval of assimilation cycle [s] (relevant for icpl_da_sfcevap >= 2)
+
   LOGICAL  :: use_lakeiceana   ! If true, use ice fraction analysis data also over lakes (otherwise sea points only)
 
   LOGICAL  :: lvert_remap_fg   ! If true, vertical remappting of first guess input is performed
 
+  INTEGER  :: qcana_mode, qiana_mode, qrsgana_mode, qnxana_2mom_mode  ! mode of processing QC/QI/QR/QS/QG/QH/QNX increments
 
   ! Variables controlling computation of temporally averaged first guess fields for DA
   ! The calculation is switched on by setting end_time > start_time
@@ -149,6 +163,11 @@ CONTAINS
 
   INTEGER  :: niter_divdamp ! number of divergence damping iterations on wind increment from DA
   INTEGER  :: niter_diffu   ! number of diffusion iterations on wind increment from DA
+
+  INTEGER :: itype_vert_expol ! Type of vertical extrapolation of initial data. 
+                              ! 1: Linear extrapolation (standard setting) 
+                              ! 2: Blending with climatology 
+                              ! (intended for simulations with the upper-atmosphere configuration)
 
 
   TYPE(t_check_input) :: check_ana(max_dom)  ! patch-specific list of mandatory analysis fields.
@@ -186,6 +205,10 @@ CONTAINS
   ! GRIB2 shortnames or NetCDF var names.
   CHARACTER(LEN=filename_max) :: ana_varnames_map_file
 
+  ! perturb initial conditions. perturbation is only applied for pinit_seed > 0
+  INTEGER :: pinit_seed = 0
+  REAL(wp) :: pinit_amplitude = 0._wp
+
   NAMELIST /initicon_nml/ init_mode, zpbl1, zpbl2, l_coarse2fine_mode,      &
                           nlevsoil_in, l_sst_in, lread_ana,                 &
                           lconsistency_checks,                              &
@@ -197,7 +220,9 @@ CONTAINS
                           start_time_avg_fg, end_time_avg_fg,               &
                           interval_avg_fg, ltile_coldstart, ltile_init,     &
                           lvert_remap_fg, iterate_iau, niter_divdamp,       &
-                          niter_diffu
+                          niter_diffu, qcana_mode, qiana_mode, qrsgana_mode,&
+                          qnxana_2mom_mode, itype_vert_expol, pinit_seed,   &
+                          pinit_amplitude, icpl_da_sfcevap, dt_ana
                           
 
   !------------------------------------------------------------
@@ -211,6 +236,11 @@ CONTAINS
   zpbl2       = 1000._wp       ! gradients
   lread_ana   = .TRUE.         ! true: read analysis fields from file dwdana_filename
                                ! false: start ICON from first guess file (no analysis)
+  qcana_mode  = 0              ! 1: add QC increments on QV increments (0: ignore them)
+                               ! 2: add QC increments on QV increments in case of subsaturation and to QC otherwise
+  qiana_mode  = 0              ! 0/1: use/ignore QI increments
+  qrsgana_mode= 0              ! 0/1: use/ignore QR/QS/QG/QH increments
+  qnxana_2mom_mode= 0          ! 0/1: use/ignore QNX increments
   use_lakeiceana = .FALSE.     ! do not use ice fraction analysis data over freshwater lakes
   lconsistency_checks = .TRUE. ! check validity of input fields  
   filetype    = -1             ! "-1": undefined
@@ -220,6 +250,7 @@ CONTAINS
   niter_diffu = 10             ! number of diffusion iterations on wind increment from DA
   niter_divdamp = 25           ! number of divergence damping iterations on wind increment from DA
   type_iau_wgt= 1              ! Top-hat weighting function
+  itype_vert_expol = ivexpol%lin ! linear vertical extrapolation of initial data
 
   DO jg=1,SIZE(check_ana)
     check_ana(jg)%list(:) = '' ! list of mandatory analysis fields. This list can include a subset 
@@ -250,10 +281,20 @@ CONTAINS
   ltile_init            = .FALSE. ! true: initialize tile-based surface fields from first guess without tiles
   lvert_remap_fg        = .FALSE. ! true: perform vertical remapping of first-guess input
 
+  icpl_da_sfcevap = 0   ! Coupling between data assimilation and parameters affecting surface evaporation
+                        ! 0: none
+                        ! 1: use filtered T2M bias 
+                        ! 2: use filtered T2M bias and filtered RH increment at lowest model level
+                        !    more options to follow ...
+
+  dt_ana  = 10800._wp   ! Time interval of assimilation cycle (relevant for icpl_da_sfcevap >= 2; set 3600 s for ICON-D2
 
   start_time_avg_fg = 0._wp
   end_time_avg_fg   = 0._wp
   interval_avg_fg   = 0._wp
+
+  pinit_seed        = 0           ! <0: do not perturb initial data. >0: perturb initial data with this as seed
+  pinit_amplitude   = 0._wp       ! amplitude of the initial perturbation for numerical tolerance test
 
   !------------------------------------------------------------
   ! 3.0 Read the initicon namelist.
@@ -341,6 +382,14 @@ CONTAINS
     iterate_iau = .FALSE.
   END IF
 
+  ! Check setting for vertical extrapolation
+  SELECT CASE(itype_vert_expol)
+  CASE(ivexpol%lin, ivexpol%upatmo) 
+    ! Ok
+  CASE DEFAULT
+    CALL finish( TRIM(routine),'Invalid value for itype_vert_expol.' )
+  END SELECT
+
   ! 
   WRITE(message_text,'(a)') &
     &  'Namelist switch l_sst_in is obsolete and will soon be removed!'
@@ -355,6 +404,10 @@ CONTAINS
   config_zpbl1               = zpbl1
   config_zpbl2               = zpbl2
   config_lread_ana           = lread_ana
+  config_qcana_mode          = qcana_mode
+  config_qiana_mode          = qiana_mode
+  config_qrsgana_mode        = qrsgana_mode
+  config_qnxana_2mom_mode    = qnxana_2mom_mode
   config_use_lakeiceana      = use_lakeiceana
   config_lconsistency_checks = lconsistency_checks
   config_ifs2icon_filename   = ifs2icon_filename
@@ -365,6 +418,8 @@ CONTAINS
   config_lp2cintp_sfcana     = lp2cintp_sfcana
   config_ltile_coldstart     = ltile_coldstart
   config_ltile_init          = ltile_init
+  config_icpl_da_sfcevap     = icpl_da_sfcevap
+  config_dt_ana              = dt_ana
   config_lvert_remap_fg      = lvert_remap_fg
   config_start_time_avg_fg   = start_time_avg_fg
   config_end_time_avg_fg     = end_time_avg_fg
@@ -377,6 +432,9 @@ CONTAINS
   config_ana_varnames_map_file = ana_varnames_map_file
   config_niter_divdamp         = niter_divdamp
   config_niter_diffu           = niter_diffu
+  config_itype_vert_expol      = itype_vert_expol
+  config_pinit_seed            = pinit_seed
+  config_pinit_amplitude       = pinit_amplitude
 
   DO jg=1,max_dom
     initicon_config(jg)%ana_checklist = check_ana(jg)%list

@@ -1,0 +1,152 @@
+#!/bin/bash
+
+set -eu
+unset CDPATH
+
+SCRIPT_DIR=$(cd "$(dirname "$0")">/dev/null; pwd)
+ICON_DIR=$(cd "${SCRIPT_DIR}/../..">/dev/null; pwd)
+
+# module command and path setup from  /etc/profile.local:
+MODULE_SETTINGS=". $MODULESHOME/init/bash && export MODULEPATH=${MODULEPATH}:/usr/local/pkg/modulefiles && module purge"
+
+
+MODULES='PrgEnv-cray cray-mpich cce/8.4.1 craype-haswell cray-netcdf cray-hdf5 eccodes aec'
+
+
+# Uncomment the following line if you want to prevent as many tests from
+# failing as possible when running 'make check' on the login nodes with Sandy
+# Bridge processors. Note that the following line should be commented out when
+# building the application for compute nodes with Haswell processors.
+# MODULES+=' craype-sandybridge'
+
+RTTOV_ROOT=''
+RTTOV_LIBS=''
+
+# Libtool (used by the bundled CDI and some other bundled libraries) is not
+# fully compatible with Cray compiler. For each library specified with -l
+# (e.g. -laec) argument on the command line, libtool tries to find the
+# corresponding *.la file (e.g. libaec.la). If the file is found, the library
+# is treated in a special way. In particular, the arguments -l (e.g. -laec)
+# are replaced with the full paths to the library files
+# (e.g. /hpc/rhome/software/aec/xc/1.0.0-3/CRAY/lib/libaec.a).
+# Unfortunately, Cray compiler ignores such arguments if they are specified
+# after any other argument -l. For example, we need to link to libeccodes.a,
+# which requires libaec.a. Normally, we would pass '-leccodes -laec', which the
+# compiler would understand, but libtool converts the arguments into
+# '-leccodes /hpc/rhome/software/aec/xc/1.0.0-3/CRAY/lib/libaec.a', which the
+# compiler does not interpret correctly. Here, the argument '-leccodes' is not
+# changed because libeccodes.a is not a libtool-generated library (i.e. there
+# is no libeccodes.la) but libaec is. Therefore, the compiler ignores the
+# argument related to libaec and fails the linking. There are two possible
+# solutions to the described problem:
+#   1) remove /hpc/rhome/software/aec/xc/1.0.0-3/CRAY/lib/libaec.la and pass
+#      '-laec', which in this case will not be modified by libtool;
+#   2) pass '-l:libaec.a', which is understood by the compiler and is left as
+#      it is by libtool.
+# We implement the second solution here:
+ECCODES_LIBS='-leccodes -l:libaec.a'
+
+XML2_ROOT='/opt/cray/xc-sysroot/default/usr'
+# As it was mentioned before, libtool is not fully compatible with Cray
+# compiler. Another example of this is that libtool neither can determine on
+# its own that we need to link statically nor allows us to help it. The flag
+# '-static' understood by the compiler has a different meaning for libtool and
+# does not help. The flags '-static-libtool-libs' and '-all-static' understood
+# by libtool are not understood by the compiler, which fails the
+# configuration. Therefore, when libtool detects the flag '-libxml2' and finds
+# the file libxml2.la, it passes to the compiler the absolute path to the
+# shared version of the library libxml2.so. To avoid that, we use the same
+# workaround as above: we specify '-l:libxml2.a'. It should be also noted that
+# libxml2 depends on libz and we link statically. Although the Cray compiler
+# wrapper adds '-lz' to the linking command when the module cray-netcdf is
+# loaded, it is not correct to rely on it, therefore we specify the flag
+# explicitly. The library also depends on libm but the flag '-lm' is added by
+# the wrapper unconditionally.
+XML2_LIBS='-l:libxml2.a -lz'
+
+# Note that the lack of support for the Cray compiler in libtool cannot always
+# be circumvented by the aforementioned workaround. In some situations,
+# libtool tries to figure out the full list of libraries to which the Fortran
+# compiler implicitly links to and puts all of them to the dependencies of the
+# programs and libraries of the package (e.g. CDI). The list is generated based
+# on the output of 'ftn -v' command. This way, libtool might decide that on top
+# of the libraries that were specified explicitly by the user or by the
+# developers of the package, it should link to, for example, the runtime
+# libraries of GNU Fortran compiler, i.e. -lquadmath, -lgfortran, etc. And now
+# we face a problem that is very similar to the one described above: libtool
+# finds '/opt/gcc/4.8.1/snos/lib/../lib64/libquadmath.la' and starts treating
+# it in a special way. In particular, it replaces '-lquadmath' with the
+# absolute path to the library. The problem is that libtool does not know that
+# we link statically, therefore, instead of setting the absolute path to
+# 'libquadmath.a', it sets the path to 'libquadmath.so', which confuses the
+# linker and it fails. We cannot solve this problem using the same workaround
+# as before, because the dependency on '-lquadmath' does not come from the
+# arguments of the configure script. According to the design of libtool, the
+# linking to the Fortran runtime libraries should take place unconditionally
+# but due to a bug in libtool this is done only for packages that use Fortran
+# AND C++ compilers. This is why, for example, we can always build YAXT (uses
+# only CC and FC) AND its test suite statically with Cray compiler without
+# having the described problem and cannot do the same for CDI (uses CC, FC, and
+# CXX) without passing the argument 'CXX=no' to its configure script (see
+# 'configure.ac' of ICON). Thus, in order to be able to link statically, we
+# have to exploit a bug in libtool by enforcing its manifistation. A common
+# approach to compensating the lack of support for the Cray compiler in libtool
+# is to enable the dynamic linking either by setting the value of the
+# environment variable CRAYPE_LINK_TYPE to 'dynamic' or by providing an extra
+# linker flag '-dynamic' (i.e. LDFLAGS='-dynamic'). Unfortunately, on this
+# machine this approach is complicated by the configuration of the dynamic
+# linker (see another example 'cray.bundled_dynamic' for the details).
+
+################################################################################
+
+BUILD_ENV="${MODULE_SETTINGS} && . \"${SCRIPT_DIR}/module_switcher\"; switch_for_module ${MODULES};"
+
+# We need some of the environment variables set by the modules now:
+eval "$BUILD_ENV"
+
+CC='cc'
+CFLAGS='-O3'
+CPPFLAGS="${ECCODES_INCLUDE} -I${XML2_ROOT}/include/libxml2"
+
+FC='ftn'
+FCFLAGS="-I${RTTOV_ROOT}/include/radiance -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc -O cache0 -r am -Ktrap=divz,ovf,inv"
+
+LDFLAGS="-static -L${RTTOV_ROOT}/lib -L${RTTOV_ROOT}/lib/unsupported -L${ECCODES_LIB_DIR} -L${AEC_DIR}/lib"
+LIBS="${XML2_LIBS} ${ECCODES_LIBS} ${RTTOV_LIBS}"
+
+EXTRA_CONFIG_ARGS='--disable-mpi-checks --disable-rpaths --enable-active-target-sync --enable-grib2 --enable-loop-exchange --enable-mixed-precision --enable-openmp'
+
+################################################################################
+
+"${ICON_DIR}/configure" \
+BUILD_ENV="$BUILD_ENV" \
+CC="$CC" \
+CFLAGS="$CFLAGS" \
+CPPFLAGS="$CPPFLAGS" \
+FC="$FC" \
+FCFLAGS="$FCFLAGS" \
+LDFLAGS="$LDFLAGS" \
+LIBS="$LIBS" \
+${EXTRA_CONFIG_ARGS} \
+"$@"
+
+for arg in "$@"; do
+  case $arg in
+    -help | --help | --hel | --he | -h | -help=r* | --help=r* | --hel=r* | --he=r* | -hr* | -help=s* | --help=s* | --hel=s* | --he=s* | -hs*)
+      test -n "${EXTRA_CONFIG_ARGS}" && echo '' && echo "This wrapper script ('$0') calls the configure script with the following extra arguments, which might override the default values listed above: ${EXTRA_CONFIG_ARGS}"
+      exit 0 ;;
+  esac
+done
+
+# Copy runscript-related files when building out-of-source:
+if test $(pwd) != $(cd "${ICON_DIR}"; pwd); then
+  echo "Copying runscript input files from the source directory..."
+  rsync -uavz ${ICON_DIR}/run . --exclude='*.in' --exclude='.*' --exclude='standard_*'
+  ln -sf -t run/ ${ICON_DIR}/run/standard_*
+  ln -sf set-up.info run/SETUP.config
+  rsync -uavz ${ICON_DIR}/externals . --exclude='.git' --exclude='*.f90' --exclude='*.F90' --exclude='*.c' --exclude='*.h' --exclude='*.Po' --exclude='tests' --exclude='rrtmgp*.nc' --exclude='*.mod' --exclude='*.o'
+  rsync -uavz ${ICON_DIR}/make_runscripts .
+  ln -sf ${ICON_DIR}/data
+  ln -sf ${ICON_DIR}/vertical_coord_tables
+fi
+

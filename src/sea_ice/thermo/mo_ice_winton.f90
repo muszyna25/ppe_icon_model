@@ -23,8 +23,8 @@ MODULE mo_ice_winton
   USE mo_run_config,          ONLY: dtime
   USE mo_model_domain,        ONLY: t_patch
   USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref,ki,ks,&
-    &                               mus,ci, alf, I_0!, mu,Tf
-  USE mo_sea_ice_nml,         ONLY: hci_layer
+    &                               mu ,ci, alf, I_0!,Tf
+  USE mo_sea_ice_nml,         ONLY: hci_layer, sice
   USE mo_sea_ice_types,       ONLY: t_sea_ice
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range 
   USE mo_util_dbg_prnt,       ONLY: dbg_print
@@ -107,19 +107,35 @@ CONTAINS
       & Tsurfm,      & ! Surface melting temperature
       & I              ! Penetrating shortwave radiation (taking snow cover into account)
     
+    REAL(wp) :: muS
     REAL(wp) :: idt2 ! 1 / (2*dt)
 
-    INTEGER :: k, jc ! loop indices
+    INTEGER :: k, jk, jc ! loop indices
     
+    muS = mu*Sice
     
    !-------------------------------------------------------------------------------
+    !$ACC DATA PRESENT ( Tsurf, T1, T2, hi, hs, Qtop, Qbot, SWnet, nonsolar,   &
+    !$ACC                dnonsolardT, Tfw )
 
     ! initialization
-    Qbot(:,:) = 0._wp
-    Qtop(:,:) = 0._wp
+    !$ACC PARALLEL
+    !$ACC LOOP SEQ
+    DO k = 1,kice
+      !$ACC LOOP GANG VECTOR
+      DO jk = 1,nbdim
+        Qbot(jk,k) = 0._wp
+        Qtop(jk,k) = 0._wp
+      END DO
+    END DO
+    !$ACC END PARALLEL
     idt2   =  1.0_wp / (2.0_wp*pdtime)
     
+    !$ACC PARALLEL
+    !$ACC LOOP SEQ
     DO k=1,kice
+      !$ACC LOOP GANG VECTOR PRIVATE(B, A, K1, K2, D, iK1B, Tsurfm, A1a, A1,   &
+      !$ACC                          B1a, B1, C1)
       DO jc = i_startidx_c,i_endidx_c
         IF ( hi(jc,k) > 0._wp ) THEN
 
@@ -184,6 +200,9 @@ CONTAINS
         END IF
       END DO
     END DO
+    !$ACC END PARALLEL
+
+    !$ACC END DATA
 
   END SUBROUTINE set_ice_temp_winton
 
@@ -239,6 +258,9 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: all_cells
     
     INTEGER :: k, jb, jc, i_startidx_c, i_endidx_c     ! loop indices
+    REAL(wp) :: muS
+
+    muS = mu*Sice
 
     ! Necessary initialisation
     Q_surplus(:,:,:) = 0.0_wp

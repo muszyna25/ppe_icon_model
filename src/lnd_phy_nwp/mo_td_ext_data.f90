@@ -29,7 +29,7 @@ MODULE mo_td_ext_data
   USE mo_master_config,       ONLY: getModelBaseDir
   USE mo_io_config,           ONLY: default_read_method
   USE mo_grid_config,         ONLY: n_dom
-  USE mo_extpar_config,       ONLY: generate_td_filename, itopo, itype_vegetation_cycle
+  USE mo_extpar_config,       ONLY: generate_td_filename, itopo, itype_vegetation_cycle, itype_lwemiss
   USE mo_lnd_nwp_config,      ONLY: sst_td_filename, ci_td_filename, sstice_mode
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_radiation_config,    ONLY: albedo_type
@@ -46,7 +46,7 @@ MODULE mo_td_ext_data
   USE mo_nwp_sfc_utils,       ONLY: update_sst_and_seaice, update_ndvi_dependent_fields
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
-  USE mo_seaice_nwp,          ONLY: frsi_min
+  USE sfc_seaice,             ONLY: frsi_min
   USE mtime,                  ONLY: datetime, newDatetime, deallocateDatetime, &
     &                               datetimeToString, MAX_DATETIME_STR_LEN
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights,         &
@@ -130,12 +130,12 @@ CONTAINS
       ENDIF
 
       ! updates plcov, tai and sai, which depend on ndvi
-      CALL update_ndvi_dependent_fields(p_patch, ext_data, p_lnd_state%diag_lnd)
+      CALL update_ndvi_dependent_fields(p_patch, ext_data, p_nh_state%diag)
     END IF
 
 
     ! Check if the SST and Sea ice fraction have to be updated (sstice_mode 3,4,5)
-    IF ( ANY((/SSTICE_ANA_CLINC, SSTICE_CLIM,SSTICE_AVG_MONTHLY,SSTICE_AVG_DAILY/) == sstice_mode) &
+    IF ( ANY((/SSTICE_ANA_CLINC,SSTICE_CLIM,SSTICE_AVG_MONTHLY,SSTICE_AVG_DAILY/) == sstice_mode) &
       & ) THEN
 
       CALL set_sst_and_seaice (.FALSE., target_datetime,                   &
@@ -172,6 +172,16 @@ CONTAINS
 
     ENDIF
 
+    ! Interpolate also longwave emissivity data if monthly climatology is available
+    IF (itype_lwemiss == 2) THEN
+
+      CALL interpol_monthly_mean(p_patch,                   &! in
+        &                        target_datetime,           &! in
+        &                        ext_data%atm_td%lw_emiss,  &! in
+        &                        ext_data%atm%emis_rad      )! out
+
+    ENDIF
+
   END SUBROUTINE update_nwp_phy_bcs
 
 
@@ -198,7 +208,7 @@ CONTAINS
     TYPE(t_external_data) , INTENT(INOUT) :: ext_data
     TYPE(t_lnd_state)     , INTENT(INOUT) :: p_lnd_state
 
-    CHARACTER(len=max_char_length), PARAMETER :: &
+    CHARACTER(len=*), PARAMETER :: &
       routine = modname//':set_actual_td_ext_data  '
 
     INTEGER                            :: month1, month2, year1, year2
@@ -352,7 +362,7 @@ CONTAINS
     CASE (SSTICE_AVG_DAILY) !SST and sea ice fraction updated based
       !  on the actual daily values
       !Not implemented
-      WRITE( message_text,'(a)') 'ext_data_mode == 4 not yet implemented '
+      WRITE( message_text,'(a)') 'ext_data_mode == 5 not yet implemented '
       CALL finish  (routine, TRIM(message_text))
 
     CASE DEFAULT
@@ -382,7 +392,8 @@ CONTAINS
 
     CHARACTER(LEN=filename_max) :: extpar_file
     TYPE(t_stream_id)           :: stream_id
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+    INTEGER :: tlen
+    CHARACTER(len=*), PARAMETER :: &
     &  routine = modname//':read_td_ext_data_file:'
 
 !-----------------------------------------------------------------------
@@ -391,31 +402,32 @@ CONTAINS
     ! Set the months needed to interpolate the ext_para to the actual day
 
     IF (p_patch%geometry_info%cell_type == 6) THEN ! hexagonal grid
-      CALL finish(TRIM(ROUTINE),&
+      CALL finish(routine,&
         & 'Hexagonal grid is not supported, yet.')
     ENDIF
-    WRITE( message_text,'(a,2i6,a)') 'n_dom, jg, grid_filename ',n_dom, &
-      &                              p_patch%id, TRIM(p_patch%grid_filename)
-    CALL message  (routine, TRIM(message_text))
+    tlen = LEN_TRIM(p_patch%grid_filename)
+    WRITE (message_text,'(a,2i6,a)') 'n_dom, jg, grid_filename ',n_dom, &
+      &                              p_patch%id, p_patch%grid_filename(1:tlen)
+    CALL message(routine, message_text)
 
     !! READ SST files
     extpar_file = generate_td_filename(sst_td_filename,                   &
       &                                getModelBaseDir(),                 &
-      &                                TRIM(p_patch%grid_filename),   &
+      &                                p_patch%grid_filename(1:tlen),   &
       &                                m1,y1                   )
 
-    CALL message  (routine, TRIM(extpar_file))
-    stream_id = openInputFile(extpar_file, p_patch, default_read_method)
+    CALL message(routine, extpar_file)
+    call openInputFile(stream_id, extpar_file, p_patch, default_read_method)
     CALL read_2D_1time(stream_id, on_cells, 'SST', &
       &          ext_data%atm_td%sst_m(:,:,1))
     CALL closeFile(stream_id)
 
     extpar_file = generate_td_filename(sst_td_filename,                   &
       &                                getModelBaseDir(),                 &
-      &                                TRIM(p_patch%grid_filename),   &
+      &                                p_patch%grid_filename(1:tlen),   &
       &                                m2, y2                   )
-    CALL message  (routine, TRIM(extpar_file))
-    stream_id = openInputFile(extpar_file, p_patch, default_read_method)
+    CALL message(routine, extpar_file)
+    call openInputFile(stream_id, extpar_file, p_patch, default_read_method)
     CALL read_2D_1time(stream_id, on_cells, 'SST', &
       &          ext_data%atm_td%sst_m(:,:,2))
     CALL closeFile(stream_id)
@@ -424,20 +436,20 @@ CONTAINS
 
     extpar_file = generate_td_filename(ci_td_filename,                    &
       &                                getModelBaseDir(),                 &
-      &                                TRIM(p_patch%grid_filename),   &
+      &                                p_patch%grid_filename(1:tlen),   &
       &                                m1,y1                   )
-    CALL message  (routine, TRIM(extpar_file))
-    stream_id = openInputFile(extpar_file, p_patch, default_read_method)
+    CALL message(routine, extpar_file)
+    call openInputFile(stream_id, extpar_file, p_patch, default_read_method)
     CALL read_2D_1time(stream_id, on_cells, 'CI', &
       &          ext_data%atm_td%fr_ice_m(:,:,1))
     CALL closeFile(stream_id)
 
     extpar_file = generate_td_filename(ci_td_filename,                    &
       &                                getModelBaseDir(),                 &
-      &                             TRIM(p_patch%grid_filename),      &
+      &                             p_patch%grid_filename(1:tlen),      &
       &                             m2,y2                   )
-    CALL message  (routine, TRIM(extpar_file))
-    stream_id = openInputFile(extpar_file, p_patch, default_read_method)
+    CALL message(routine, extpar_file)
+    call openInputFile(stream_id, extpar_file, p_patch, default_read_method)
     CALL read_2D_1time(stream_id, on_cells, 'CI', &
       &          ext_data%atm_td%fr_ice_m(:,:,2))
     CALL closeFile(stream_id)

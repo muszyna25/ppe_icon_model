@@ -30,10 +30,14 @@ MODULE mo_hydro_ocean_run
   USE mo_grid_config,            ONLY: n_dom
   USE mo_coupling_config,        ONLY: is_coupled_run
   USE mo_memory_log,             ONLY: memory_log_add
-  USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, lhamocc, &
+  USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
     &  i_sea_ice, cfl_check, cfl_threshold, cfl_stop_on_violation,   &
     &  cfl_write, surface_module, run_mode, RUN_FORWARD, RUN_ADJOINT, &
-    &  Cartesian_Mixing, GMRedi_configuration
+    &  lswr_jerlov, lsediment_only, &
+    &  Cartesian_Mixing, GMRedi_configuration, OceanReferenceDensity_inv, &
+    &  atm_pressure_included_in_ocedyn, &
+    &  vert_mix_type,vmix_kpp, lcheck_salt_content, &
+    &  use_draftave_for_transport_h
   USE mo_ocean_nml,              ONLY: iforc_oce, Coupled_FluxFromAtmo
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_io_config,              ONLY: n_checkpoints, write_last_restart
@@ -57,10 +61,11 @@ MODULE mo_hydro_ocean_run
   USE mo_ocean_math_operators,   ONLY: update_height_depdendent_variables, check_cfl_horizontal, check_cfl_vertical
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d, map_edges2edges_viacell_3d_const_z
   USE mo_ocean_tracer,           ONLY: advect_ocean_tracers
-  USE mo_ocean_tracer_GMRedi,    ONLY: advect_ocean_tracers_GMRedi
+  USE mo_ocean_tracer_dev,       ONLY: advect_ocean_tracers_dev
   USE mo_ocean_nudging,          ONLY: nudge_ocean_tracers
   USE mo_restart,                ONLY: t_RestartDescriptor, createRestartDescriptor, deleteRestartDescriptor
-  USE mo_restart_attributes,     ONLY: t_RestartAttributeList, getAttributesForRestarting
+  USE mo_restart_nml_and_att,    ONLY: getAttributesForRestarting
+  USE mo_key_value_store,        ONLY: t_key_value_store
   USE mo_ocean_surface_refactor, ONLY: update_ocean_surface_refactor
   USE mo_ocean_surface_types,    ONLY: t_ocean_surface, t_atmos_for_ocean
   USE mo_ice_fem_interface,      ONLY: ice_fem_init_vel_restart, ice_fem_update_vel_restart
@@ -73,25 +78,26 @@ MODULE mo_hydro_ocean_run
   USE mo_name_list_output_init,  ONLY: output_file
   USE mo_name_list_output_types, ONLY: t_output_file
   USE mo_ocean_diagnostics,      ONLY: calc_fast_oce_diagnostics, calc_psi
-  USE mo_ocean_ab_timestepping_mimetic, ONLY: construct_ho_lhs_fields_mimetic, destruct_ho_lhs_fields_mimetic
+  USE mo_ocean_check_salt,       ONLY: check_total_salt_content
   USE mo_master_config,          ONLY: isRestart
+  USE mo_master_control,         ONLY: get_my_process_name
   USE mo_time_config,            ONLY: time_config, t_time_config
   USE mo_util_dbg_prnt,          ONLY: dbg_print, debug_printValue
   USE mo_dbg_nml,                ONLY: idbg_mxmn
   USE mo_statistics
   USE mo_var_list
-  USE mo_ocean_statistics
-  USE mo_hamocc_types,           ONLY: t_hamocc_state
-  USE mo_derived_variable_handling, ONLY: perform_accumulation, reset_accumulation
+  USE mo_swr_absorption,         ONLY: jerlov_swr_absorption
+  USE mo_ocean_hamocc_interface, ONLY: ocean_to_hamocc_interface
+  USE mo_derived_variable_handling, ONLY: update_statistics
   USE mo_ocean_output
   USE mo_ocean_coupling,         ONLY: couple_ocean_toatmo_fluxes  
-  USE mo_bgc_bcond,              ONLY: ext_data_bgc, update_bgc_bcond
-  USE mo_hamocc_diagnostics,     ONLY: get_inventories
-  USE mo_hamocc_nml,             ONLY: io_stdo_bgc
-  USE mo_end_bgc,                ONLY: cleanup_hamocc
-  USE mo_ocean_time_events,   ONLY: ocean_time_nextStep, isCheckpoint, isEndOfThisRun, newNullDatetime
-
-
+  USE mo_hamocc_nml,             ONLY: l_cpl_co2
+  USE mo_ocean_time_events,      ONLY: ocean_time_nextStep, isCheckpoint, isEndOfThisRun, newNullDatetime
+  USE mo_ocean_ab_timestepping_mimetic, ONLY: clear_ocean_ab_timestepping_mimetic
+  USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
+  USE mo_ocean_pressure_bc_conditions,  ONLY: create_pressure_bc_conditions
+  
+  
   IMPLICIT NONE
 
   PRIVATE
@@ -116,26 +122,24 @@ CONTAINS
     TYPE(t_patch_3d ), INTENT(in)     :: patch_3d
     TYPE(t_ocean_surface)             :: p_oce_sfc
     TYPE(t_atmos_for_ocean),  INTENT(in)   :: p_as
-    TYPE(t_operator_coeff)            :: operators_coefficients
+    TYPE(t_operator_coeff), INTENT(INOUT) :: operators_coefficients
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
     TYPE (t_sea_ice),   INTENT(inout) :: sea_ice
-    TYPE(t_external_data), TARGET, INTENT(in) :: ext_data
+    TYPE(t_external_data), TARGET, INTENT(inout) :: ext_data
 ! !   TYPE (t_ho_params)                :: p_phys_param
     LOGICAL, INTENT(in)               :: is_restart
     TYPE(t_solvercoeff_singleprecision), INTENT(inout) :: solvercoeff_sp
-#ifndef __NO_HAMMOC__
-    if(lhamocc)then
-      if(ltimer)call timer_start(timer_bgc_ini)
-      CALL ini_bgc_icon(patch_3d,ocean_state,p_as, is_restart)
-      if(ltimer)call timer_stop(timer_bgc_ini)
-    endif
-#endif
 
     IF (is_restart .AND. is_coupled_run() ) THEN
         ! Initialize 10m Wind Speed from restart file when run in coupled mode
         p_as%fu10 = p_oce_sfc%Wind_Speed_10m
+        p_as%pao = p_oce_sfc%sea_level_pressure
     ENDIF
 
+    IF (is_restart .AND. is_coupled_run() .AND. l_cpl_co2 ) THEN
+        ! Initialize CO" Mixing Ration from restart file when run in coupled mode with HAMOCC
+        p_as%co2 = p_oce_sfc%CO2_Mixing_Ratio
+    ENDIF
     IF (is_restart .AND. (i_ice_dyn == 1)) THEN
         ! Initialize u_ice, v_ice with sea_ice vals read from the restart file
         CALL ice_fem_init_vel_restart(patch_3d%p_patch_2D(1), sea_ice)
@@ -159,14 +163,21 @@ CONTAINS
 !     !      & operators_coefficients%matrix_vert_diff_c)
 ! 
     CALL update_height_depdendent_variables( patch_3d, ocean_state, ext_data, operators_coefficients, solvercoeff_sp)
-    CALL construct_ho_lhs_fields_mimetic   ( patch_3d )
-
+ 
     ! this is needed as initial condition or restart 
 !     CALL calc_scalar_product_veloc_3d( patch_3d,  &
 !       & ocean_state(1)%p_prog(nold(1))%vn,         &
 !       & ocean_state(1)%p_diag,                     &
 !       & operators_coefficients)
 !     CALL update_ho_params(patch_3d, ocean_state(1), p_as%fu10, sea_ice%concsum, p_phys_param, operators_coefficients)
+
+    ! calculate the constant jerlov type subsurface sw absoption factor
+   
+    IF ( lswr_jerlov ) THEN
+
+      CALL jerlov_swr_absorption(patch_3d, ocean_state)
+
+    ENDIF
 
  ! 
   END SUBROUTINE prepare_ho_stepping
@@ -176,8 +187,6 @@ CONTAINS
   !<Optimize:inUse>
   SUBROUTINE end_ho_stepping()
 
-    CALL destruct_ho_lhs_fields_mimetic()
-    if(lhamocc)call cleanup_hamocc
     
   END SUBROUTINE end_ho_stepping
   !-------------------------------------------------------------------------
@@ -194,20 +203,19 @@ CONTAINS
 !<Optimize:inUse>
   SUBROUTINE perform_ho_stepping( patch_3d, ocean_state, p_ext_data,    &
     & p_oce_sfc, p_phys_param,                                          &
-    & p_as, p_atm_f, sea_ice, hamocc_state, operators_coefficients,     &
+    & p_as, p_atm_f, sea_ice, operators_coefficients,     &
     & solvercoeff_sp)
 
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    TYPE(t_patch_3d ), POINTER, INTENT(in)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
     TYPE(t_external_data), TARGET, INTENT(in)        :: p_ext_data(n_dom)
-    TYPE(t_ocean_surface)                            :: p_oce_sfc
-    TYPE(t_ho_params)                                :: p_phys_param
+    TYPE(t_ocean_surface)   ,  INTENT(inout)                         :: p_oce_sfc
+    TYPE(t_ho_params)                       ,  INTENT(inout)         :: p_phys_param
     TYPE(t_atmos_for_ocean),  INTENT(inout)          :: p_as
     TYPE(t_atmos_fluxes ),    INTENT(inout)          :: p_atm_f
     TYPE(t_sea_ice),          INTENT(inout)          :: sea_ice
-    TYPE(t_hamocc_state), INTENT(INOUT)              :: hamocc_state
-    TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
-    TYPE(t_solvercoeff_singleprecision), INTENT(inout) :: solvercoeff_sp
+    TYPE(t_operator_coeff),   INTENT(inout), TARGET :: operators_coefficients
+    TYPE(t_solvercoeff_singleprecision), INTENT(inout), TARGET :: solvercoeff_sp
 
     ! local variables
     INTEGER :: jstep, jg, return_status
@@ -220,7 +228,7 @@ CONTAINS
     INTEGER :: level,ifiles,i,j
     REAL(wp) :: r
     !CHARACTER(LEN=filename_max)  :: outputfile, gridfile
-    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    TYPE(t_key_value_store), POINTER :: restartAttributes
     CLASS(t_RestartDescriptor), POINTER :: restartDescriptor
     CHARACTER(LEN = *), PARAMETER :: routine = 'mo_hydro_ocean_run:perform_ho_stepping'
 
@@ -240,7 +248,7 @@ CONTAINS
     ! no grid refinement allowed here so far
     !------------------------------------------------------------------
     IF (n_dom > 1 ) THEN
-      CALL finish(TRIM(routine), ' N_DOM > 1 is not allowed')
+      CALL finish(routine, ' N_DOM > 1 is not allowed')
     END IF
     jg = n_dom
 
@@ -249,17 +257,15 @@ CONTAINS
     !------------------------------------------------------------------
     jstep0 = 0
 
-    restartAttributes => getAttributesForRestarting()
-    IF (ASSOCIATED(restartAttributes)) THEN
-      ! get start counter for time loop from restart file:
-      jstep0 = restartAttributes%getInteger("jstep")
-    END IF
+    CALL getAttributesForRestarting(restartAttributes)
+    ! get start counter for time loop from restart file:
+    IF (restartAttributes%is_init) CALL restartAttributes%get("jstep", jstep0)
     IF (isRestart() .AND. mod(nold(jg),2) /=1 ) THEN
       ! swap the g_n and g_nm1
       CALL update_time_g_n(ocean_state(jg))
     ENDIF
 
-    restartDescriptor => createRestartDescriptor("oce")
+    restartDescriptor => createRestartDescriptor(TRIM(get_my_process_name()) )
 
     ! local time var to be passed along, so the global is kept safe 
     current_time => newNullDatetime()
@@ -275,7 +281,11 @@ CONTAINS
       jstep = jstep0
       TIME_LOOP: DO
 
-         CALL ocean_time_step()
+         IF(lsediment_only) THEN
+             CALL sed_only_time_step()
+         ELSE
+             CALL ocean_time_step()
+         END IF
 
          IF (isEndOfThisRun()) THEN
             ! leave time loop
@@ -318,6 +328,8 @@ CONTAINS
 
     END SELECT
 
+    CALL clear_ocean_ab_timestepping_mimetic()
+
     CALL restartDescriptor%destruct()
  
     CALL deallocateDatetime(current_time)
@@ -328,6 +340,7 @@ CONTAINS
 
     !-------------------------------------------------------------------------
     SUBROUTINE ocean_time_step()
+        REAL(wp) :: total_salt, total_saltinseaice, total_saltinliquidwater
 
         ! optional memory loggin
         CALL memory_log_add
@@ -338,8 +351,11 @@ CONTAINS
 
         CALL datetimeToString(current_time, datestring)
         WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
-        CALL message (TRIM(routine), message_text)
+        CALL message (routine, message_text)
               
+!        IF (lcheck_salt_content) CALL check_total_salt_content(100,ocean_state(jg)%p_prog(nold(1))%tracer(:,:,:,2), patch_2d, &
+!         ocean_state(jg)%p_prog(nold(1))%h(:,:), patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,:),&
+!         sea_ice, 0)
         start_detail_timer(timer_extra22,6)
         CALL update_height_depdendent_variables( patch_3d, ocean_state(jg), p_ext_data(jg), operators_coefficients, solvercoeff_sp)
         stop_detail_timer(timer_extra22,6)
@@ -354,16 +370,32 @@ CONTAINS
         !In case of a time-varying forcing:
         ! update_surface_flux or update_ocean_surface has changed p_prog(nold(1))%h, SST and SSS
         start_timer(timer_upd_flx,3)
+        IF (lcheck_salt_content) CALL check_total_salt_content(105,ocean_state(jg)%p_prog(nold(1))%tracer(:,:,:,2), patch_2d, &
+         ocean_state(jg)%p_prog(nold(1))%h(:,:), patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,:),&
+         sea_ice, 0)
 
         CALL update_ocean_surface_refactor( patch_3d, ocean_state(jg), p_as, sea_ice, p_atm_f, p_oce_sfc, &
              & current_time, operators_coefficients)
+        IF (lcheck_salt_content) CALL check_total_salt_content(110,ocean_state(jg)%p_prog(nold(1))%tracer(:,:,:,2), patch_2d, &
+         ocean_state(jg)%p_prog(nold(1))%h(:,:), patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,:),&
+         sea_ice, 0)
 
-        IF(lhamocc)CALL update_bgc_bcond( patch_3d, ext_data_bgc,  current_time)
         stop_timer(timer_upd_flx,3)
 
         start_detail_timer(timer_extra22,4)
         CALL update_height_depdendent_variables( patch_3d, ocean_state(jg), p_ext_data(jg), operators_coefficients, solvercoeff_sp)
         stop_detail_timer(timer_extra22,4)
+        
+        !--------------------------------------------------------------------------
+        ! calculate in situ density here, as it may be used fotr the tides load
+        CALL calculate_density( patch_3d,                         &
+          & ocean_state(jg)%p_prog(nold(1))%tracer(:,:,:,:),      &
+          & ocean_state(jg)%p_diag%rho(:,:,:) )
+
+        !--------------------------------------------------------------------------
+        CALL create_pressure_bc_conditions(patch_3d,ocean_state(jg), p_as, current_time)
+        !------------------------------------------------------------------------
+       
 
   !       IF (timers_level > 2) CALL timer_start(timer_scalar_prod_veloc)
   !       CALL calc_scalar_product_veloc_3d( patch_3d,  &
@@ -388,8 +420,9 @@ CONTAINS
           & in_subset=patch_2d%cells%owned)
 
         !---------------------------------------------------------------------
-
-        CALL update_ho_params(patch_3d, ocean_state(jg), p_as%fu10, sea_ice%concsum, p_phys_param, operators_coefficients)
+        !by_ogut: added p_oce_sfc
+        CALL update_ho_params(patch_3d, ocean_state(jg), p_as%fu10, sea_ice%concsum, p_phys_param, operators_coefficients, &
+                              p_atm_f, p_oce_sfc)
 
         !------------------------------------------------------------------------
         IF (debug_check_level > 5) THEN
@@ -397,6 +430,9 @@ CONTAINS
             & in_subset=patch_2d%cells%owned, mean=old_mean_height)
         END IF
         !------------------------------------------------------------------------
+        IF (lcheck_salt_content) CALL check_total_salt_content(125,ocean_state(jg)%p_prog(nold(1))%tracer(:,:,:,2), patch_2d, &
+         ocean_state(jg)%p_prog(nold(1))%h(:,:), patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,:),&
+         sea_ice,0)
         ! solve for new free surface
         start_timer(timer_solve_ab,1)
         CALL solve_free_surface_eq_ab (patch_3d, ocean_state(jg), p_ext_data(jg), &
@@ -410,11 +446,14 @@ CONTAINS
            & sea_ice=sea_ice,            &
            & jstep=jstep, jstep0=jstep0, &
            & force_output=.true.)
-          CALL finish(TRIM(routine), 'solve_free_surface_eq_ab  returned error')
+          CALL finish(routine, 'solve_free_surface_eq_ab  returned error')
         ENDIF
         
         stop_timer(timer_solve_ab,1)
-
+          
+!         IF (lcheck_salt_content) CALL check_total_salt_content(126,ocean_state(jg)%p_prog(nold(1))%tracer(:,:,:,2), patch_2d, &
+!          ocean_state(jg)%p_prog(nnew(1))%h(:,:), patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,:),&
+!          sea_ice,0)
         !------------------------------------------------------------------------
         ! Step 4: calculate final normal velocity from predicted horizontal
         ! velocity vn_pred and updated surface height
@@ -459,18 +498,26 @@ CONTAINS
           ENDDO         
         END IF
 
+!         IF (lcheck_salt_content) CALL check_total_salt_content(130,ocean_state(jg)%p_prog(nold(1))%tracer(:,:,:,2), patch_2d, &
+!          ocean_state(jg)%p_prog(nnew(1))%h(:,:), patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,:),&
+!          sea_ice,0)
         !------------------------------------------------------------------------
-        CALL tracer_biochemistry_transport(patch_3d, ocean_state(jg), p_as, sea_ice, p_oce_sfc, &
-          & p_phys_param, operators_coefficients)
-        !------------------------------------------------------------------------
+        CALL tracer_transport(patch_3d, ocean_state(jg), p_as, sea_ice, p_oce_sfc, &
+          & p_phys_param, operators_coefficients, current_time)
+
+        
+       IF (lcheck_salt_content) CALL check_total_salt_content(140,ocean_state(jg)%p_prog(nnew(1))%tracer(:,:,:,2), patch_2d, &
+         ocean_state(jg)%p_prog(nnew(1))%h(:,:), patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,:),&
+         sea_ice,0)
+        !----------------------------------------------------------------------
 
       !------------------------------------------------------------------------
-      ! Optional : nudge temperature and salinity
-      IF (no_tracer>=1) THEN
-        CALL nudge_ocean_tracers( patch_3d, ocean_state(jg))
-      ENDIF
+        ! Optional : nudge temperature and salinity
+        IF (no_tracer>=1) THEN
+          CALL nudge_ocean_tracers( patch_3d, ocean_state(jg))
+        ENDIF
 
-      !------------------------------------------------------------------------
+        !------------------------------------------------------------------------
         ! perform accumulation for special variables
         start_detail_timer(timer_extra20,5)     
         IF (no_tracer>=1) THEN
@@ -483,43 +530,42 @@ CONTAINS
             & patch_3D%p_patch_1d(1)%prism_thick_c(:,:,:),                  &
             & ocean_state(jg)%p_diag%u_vint, current_time)
           CALL dbg_print('calc_psi: u_vint' ,ocean_state(jg)%p_diag%u_vint, str_module, 3, in_subset=patch_2d%cells%owned)
-            
-          ! calculate diagnostic barotropic stream function with vn
-      !  not yet mature
-      !   CALL calc_psi_vn (patch_3d, ocean_state(jg)%p_prog(nold(1))%vn,   &
-      !     & patch_3D%p_patch_1d(1)%prism_thick_e(:,:,:),                  &
-      !     & operators_coefficients,                                       &
-      !     & ocean_state(jg)%p_diag%u_vint, ocean_state(jg)%p_diag%v_vint, current_time)
-      !   CALL dbg_print('calc_psi_vn: u_vint' ,ocean_state(jg)%p_diag%u_vint, str_module, 5, in_subset=patch_2d%cells%owned)
-      !   CALL dbg_print('calc_psi_vn: v_vint' ,ocean_state(jg)%p_diag%v_vint, str_module, 5, in_subset=patch_2d%cells%owned)
+          
+        ! calculate diagnostic barotropic stream function with vn
+    !  not yet mature
+    !   CALL calc_psi_vn (patch_3d, ocean_state(jg)%p_prog(nold(1))%vn,   &
+    !     & patch_3D%p_patch_1d(1)%prism_thick_e(:,:,:),                  &
+    !     & operators_coefficients,                                       &
+    !     & ocean_state(jg)%p_diag%u_vint, ocean_state(jg)%p_diag%v_vint, current_time)
+    !   CALL dbg_print('calc_psi_vn: u_vint' ,ocean_state(jg)%p_diag%u_vint, str_module, 5, in_subset=patch_2d%cells%owned)
+    !   CALL dbg_print('calc_psi_vn: v_vint' ,ocean_state(jg)%p_diag%v_vint, str_module, 5, in_subset=patch_2d%cells%owned)
         ENDIF
 
-      CALL calc_fast_oce_diagnostics( patch_2d, &
-          & patch_3d, &
-          & patch_3d%p_patch_1d(1)%dolic_c, &
-          & patch_3d%p_patch_1d(1)%prism_thick_c, &
-          & patch_3d%p_patch_1d(1)%zlev_m, &
-          & ocean_state(jg)%p_diag, &
-          & ocean_state(jg)%p_prog(nnew(1))%h, &
-        & ocean_state(jg)%p_prog(nnew(1))%vn, &
-          & ocean_state(jg)%p_prog(nnew(1))%tracer, &
-          & p_atm_f, &
-        & p_oce_sfc, &
-          & hamocc_state, &
-          & sea_ice, &
-          & lhamocc) 
+        CALL fill_auxiliary_diagnostics(patch_3d, ocean_state(1))
+        
+        CALL calc_fast_oce_diagnostics( patch_2d, &
+            & patch_3d, &
+            & ocean_state(1), &
+            & patch_3d%p_patch_1d(1)%dolic_c, &
+            & patch_3d%p_patch_1d(1)%prism_thick_c, &
+            & patch_3d%p_patch_1d(1)%zlev_m, &
+            & ocean_state(jg)%p_diag, &
+            & ocean_state(jg)%p_prog(nnew(1))%h, &
+            & ocean_state(jg)%p_prog(nnew(1))%vn, &
+            & ocean_state(jg)%p_prog(nnew(1))%tracer, &
+            & p_atm_f, &
+            & p_oce_sfc, &
+            & sea_ice) 
 
         stop_detail_timer(timer_extra20,5)
 
-        CALL perform_accumulation(nnew(1),0)
+        CALL update_statistics
 
         CALL output_ocean( patch_3d, ocean_state, &
           &                current_time,              &
           &                p_oce_sfc,             &
           &                sea_ice,                 &
           &                jstep, jstep0)
-        
-        CALL reset_accumulation
         ! send and receive coupling fluxes for ocean at the end of time stepping loop
         IF (iforc_oce == Coupled_FluxFromAtmo) THEN  !  14
 
@@ -535,11 +581,18 @@ CONTAINS
           p_oce_sfc%HeatFlux_Sensible      = p_atm_f%HeatFlux_Sensible
           p_oce_sfc%HeatFlux_Latent        = p_atm_f%HeatFlux_Latent
           p_oce_sfc%FrshFlux_Runoff        = p_atm_f%FrshFlux_Runoff
+          IF ( l_cpl_co2 ) THEN
+            p_oce_sfc%CO2_Mixing_Ratio     = p_as%co2
+          ENDIF
 
         ENDIF
 
         ! copy atmospheric wind speed of coupling from p_as%fu10 into forcing to be written by restart
         p_oce_sfc%Wind_Speed_10m(:,:) = p_as%fu10(:,:)
+        p_oce_sfc%sea_level_pressure(:,:) = p_as%pao(:,:)
+!        IF (lcheck_salt_content) CALL check_total_salt_content(150,ocean_state(jg)%p_prog(nnew(1))%tracer(:,:,:,2), patch_2d, &
+!         ocean_state(jg)%p_prog(nnew(1))%h(:,:), patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,:),&
+!         sea_ice,0)
 
         start_detail_timer(timer_extra21,5)
         
@@ -549,6 +602,9 @@ CONTAINS
 
         ! update intermediate timestepping variables for the tracers
         CALL update_time_g_n(ocean_state(jg))
+!        IF (lcheck_salt_content) CALL check_total_salt_content(160,ocean_state(jg)%p_prog(nold(1))%tracer(:,:,:,2), patch_2d, &
+!         ocean_state(jg)%p_prog(nold(1))%h(:,:), patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,:),&
+!         sea_ice,0)
 
         ! check whether time has come for writing restart file
         IF (isCheckpoint()) THEN
@@ -600,12 +656,68 @@ CONTAINS
 
     END SUBROUTINE ocean_time_step
 
+
+    SUBROUTINE sed_only_time_step()
+        ! fill transport state
+        ocean_state(jg)%transport_state%patch_3d    => patch_3d
+
+        ! optional memory loggin
+        CALL memory_log_add
+        
+        jstep = jstep + 1
+        ! update model date and time mtime based
+        current_time = ocean_time_nextStep()
+
+        CALL datetimeToString(current_time, datestring)
+        WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
+        CALL message (TRIM(routine), message_text)
+
+
+        ! Add here the calls for Hamocc
+        CALL ocean_to_hamocc_interface(ocean_state(jg), ocean_state(jg)%transport_state, &
+          & p_oce_sfc, p_as, sea_ice, p_phys_param, operators_coefficients, current_time)
+
+        CALL update_statistics
+
+        CALL output_ocean( patch_3d, ocean_state, &
+          &                current_time,              &
+          &                p_oce_sfc,             &
+          &                sea_ice,                 &
+          &                jstep, jstep0)
+        
+        ! check whether time has come for writing restart file
+        IF (isCheckpoint()) THEN
+          IF (.NOT. output_mode%l_none ) THEN
+            !
+            ! For multifile restart (restart_write_mode = "joint procs multifile")
+            ! the domain flag must be set to .TRUE. in order to activate the domain,
+            ! even though we have one currently in the ocean. Without this the
+            ! processes won't write out their data into a the patch restart files.
+            !
+            patch_2d%ldom_active = .TRUE.
+            !
+            CALL restartDescriptor%updatePatch(patch_2d, &
+                                              &opt_nice_class=1, &
+                                              &opt_ocean_zlevels=n_zlev, &
+                                              &opt_ocean_zheight_cellmiddle = patch_3d%p_patch_1d(1)%zlev_m(:), &
+                                              &opt_ocean_zheight_cellinterfaces = patch_3d%p_patch_1d(1)%zlev_i(:))
+            CALL restartDescriptor%writeRestart(current_time, jstep)
+          END IF
+        END IF
+        
+        IF (isEndOfThisRun()) THEN
+          ! leave time loop
+          RETURN
+        END IF
+
+    END SUBROUTINE sed_only_time_step
+
   END SUBROUTINE perform_ho_stepping
   !-------------------------------------------------------------------------
 
 
   !-------------------------------------------------------------------------
-  SUBROUTINE tracer_biochemistry_transport(patch_3d, ocean_state, p_as, sea_ice, p_oce_sfc, p_phys_param, operators_coefficients)
+  SUBROUTINE tracer_transport(patch_3d, ocean_state, p_as, sea_ice, p_oce_sfc, p_phys_param, operators_coefficients, current_time)
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state
     TYPE(t_atmos_for_ocean),  INTENT(inout)          :: p_as
@@ -613,14 +725,16 @@ CONTAINS
     TYPE(t_ocean_surface)                            :: p_oce_sfc
     TYPE(t_ho_params)                                :: p_phys_param
     TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
-    
+    TYPE(datetime), POINTER, INTENT(in)              :: current_time
+
     TYPE(t_tracer_collection) , POINTER              :: old_tracer_collection, new_tracer_collection
-    TYPE(t_ocean_transport_state)                    :: transport_state
+    TYPE(t_ocean_transport_state), POINTER           :: transport_state
 
     INTEGER :: i, jg
 
     old_tracer_collection => ocean_state%p_prog(nold(1))%tracer_collection
     new_tracer_collection => ocean_state%p_prog(nnew(1))%tracer_collection
+    transport_state => ocean_state%transport_state
 
 
 !     IF (no_tracer>=1) THEN
@@ -639,80 +753,75 @@ CONTAINS
 
       ! fill transport_state
       transport_state%patch_3d    => patch_3d
-      transport_state%h_old       => ocean_state%p_prog(nold(1))%h
-      transport_state%h_new       => ocean_state%p_prog(nnew(1))%h
       transport_state%w           => ocean_state%p_diag%w  ! w_time_weighted
       transport_state%mass_flux_e => ocean_state%p_diag%mass_flx_e
       transport_state%vn          => ocean_state%p_diag%vn_time_weighted
+
+      IF (use_draftave_for_transport_h) THEN
+        transport_state%h_old     = ocean_state%p_prog(nold(1))%h - sea_ice%draftave 
+        transport_state%h_new     = ocean_state%p_prog(nnew(1))%h - sea_ice%draftave
+      ELSE
+        transport_state%h_old     = ocean_state%p_prog(nold(1))%h
+        transport_state%h_new     = ocean_state%p_prog(nnew(1))%h
+      ENDIF
+      
+      IF (vert_mix_type .EQ. vmix_kpp ) THEN
+        old_tracer_collection%tracer(1)%vertical_trasnport_tendencies => p_phys_param%cvmix_params%nl_trans_tend_heat
+        old_tracer_collection%tracer(2)%vertical_trasnport_tendencies => p_phys_param%cvmix_params%nl_trans_tend_salt
+      ENDIF
+      
       ! fill boundary conditions
       old_tracer_collection%tracer(1)%top_bc => p_oce_sfc%TopBC_Temp_vdiff
       IF (no_tracer > 1) &
         old_tracer_collection%tracer(2)%top_bc => p_oce_sfc%TopBC_Salt_vdiff
 
       ! fill diffusion coefficients
-      old_tracer_collection%tracer(1)%hor_diffusion_coeff => p_phys_param%TracerDiffusion_coeff(:,:,:,1)
-      old_tracer_collection%tracer(1)%ver_diffusion_coeff => p_phys_param%a_tracer_v(:,:,:,1)
-      DO i = 2, old_tracer_collection%no_of_tracers
-        old_tracer_collection%tracer(i)%hor_diffusion_coeff => p_phys_param%TracerDiffusion_coeff(:,:,:,2)
-        old_tracer_collection%tracer(i)%ver_diffusion_coeff => p_phys_param%a_tracer_v(:,:,:,2)
+      DO i = 1, old_tracer_collection%no_of_tracers
+          old_tracer_collection%tracer(i)%hor_diffusion_coeff => p_phys_param%TracerDiffusion_coeff(:,:,:,i)
+          old_tracer_collection%tracer(i)%ver_diffusion_coeff => p_phys_param%a_tracer_v(:,:,:,i)
       ENDDO
+      
     ENDIF
     !------------------------------------------------------------------------
-!     CALL dbg_print('Tr3:before hamocc', ocean_state%p_prog(nold(1))%tracer(:,:,:,3),str_module,1, &
-!       & patch_3d%p_patch_2d(1)%cells%owned )
-!     CALL dbg_print('Tr20:before hamocc', ocean_state%p_prog(nold(1))%tracer(:,:,:,20),str_module,1, &
-!       & patch_3d%p_patch_2d(1)%cells%owned )
-
-    !------------------------------------------------------------------------
-    ! call HAMOCC
-    if(lhamocc)then
-      if(ltimer) call timer_start(timer_bgc_tot)
-      CALL bgc_icon(patch_3d,ocean_state,p_as,sea_ice)
-      if(ltimer) call timer_stop(timer_bgc_tot)
-    endif
-!     CALL dbg_print('Tr3:after hamocc', ocean_state%p_prog(nold(1))%tracer(:,:,:,3),str_module,5, &
-!       & patch_3d%p_patch_2d(1)%cells%owned )
-!     CALL dbg_print('Tr20:after hamocc', ocean_state%p_prog(nold(1))%tracer(:,:,:,20),str_module,5, &
-!     & patch_3d%p_patch_2d(1)%cells%owned )
-    !------------------------------------------------------------------------
-
+    
     !------------------------------------------------------------------------
     ! transport tracers and diffuse them
     IF (no_tracer>=1) THEN
       start_timer(timer_tracer_ab,1)
 
-      IF (GMRedi_configuration==Cartesian_Mixing) THEN
+      IF (GMRedi_configuration == Cartesian_Mixing ) THEN
         CALL advect_ocean_tracers(old_tracer_collection, new_tracer_collection, transport_state, operators_coefficients)
       ELSE
-        CALL  advect_ocean_tracers_GMRedi(old_tracer_collection, new_tracer_collection, &
-          &  ocean_state, transport_state, p_phys_param, operators_coefficients)
+        CALL  advect_ocean_tracers_dev(old_tracer_collection, new_tracer_collection, &
+          &  ocean_state, transport_state, p_phys_param, operators_coefficients)          
       ENDIF
 
       stop_timer(timer_tracer_ab,1)
-
     ENDIF
     !------------------------------------------------------------------------
+     
+      ! Call the biogeochemistry after transporting for GMRedi
+      CALL ocean_to_hamocc_interface(ocean_state, transport_state, &
+        & p_oce_sfc, p_as, sea_ice, p_phys_param, operators_coefficients, current_time)
 
 !     CALL dbg_print('Tr3:new adv', ocean_state%p_prog(nnew(1))%tracer(:,:,:,3),str_module,1, &
 !       & patch_3d%p_patch_2d(1)%cells%owned )
 !     CALL dbg_print('Tr20:new adv', ocean_state%p_prog(nnew(1))%tracer(:,:,:,20),str_module,1, &
 !       & patch_3d%p_patch_2d(1)%cells%owned )
-
-  END SUBROUTINE tracer_biochemistry_transport
+    
+  END SUBROUTINE tracer_transport
   !-------------------------------------------------------------------------
-
 
   !-------------------------------------------------------------------------
 !<Optimize:inUse>
   SUBROUTINE write_initial_ocean_timestep(patch_3d,ocean_state,p_oce_sfc,sea_ice, &
-          & hamocc_state, operators_coefficients, p_phys_param)
+          & operators_coefficients, p_phys_param)
 
     TYPE(t_patch_3D), INTENT(IN) :: patch_3d
     TYPE(t_hydro_ocean_state), INTENT(INOUT)    :: ocean_state
     TYPE(t_ocean_surface) , INTENT(INOUT)       :: p_oce_sfc
     TYPE(t_sea_ice),          INTENT(INOUT)     :: sea_ice
-    TYPE(t_hamocc_state), INTENT(INOUT)         :: hamocc_state
-    TYPE(t_operator_coeff),   INTENT(inout)     :: operators_coefficients    
+    TYPE(t_operator_coeff),   INTENT(in)     :: operators_coefficients    
     TYPE(t_ho_params), INTENT(IN), OPTIONAL     :: p_phys_param
     
     TYPE(t_patch), POINTER :: patch_2d
@@ -730,15 +839,56 @@ CONTAINS
       & ocean_state%p_diag, operators_coefficients)
     ! CALL update_height_depdendent_variables( patch_3d, ocean_state, p_ext_data, operators_coefficients, solvercoeff_sp)
     
-    CALL perform_accumulation(nnew(1),0)
+    CALL update_statistics
 
     CALL write_name_list_output(jstep=0)
 
-    CALL reset_accumulation
- 
   END SUBROUTINE write_initial_ocean_timestep
   !-------------------------------------------------------------------------
 
+  !-------------------------------------------------------------------------
+  SUBROUTINE fill_auxiliary_diagnostics(patch_3d, ocean_state)
+    TYPE(t_patch_3D), INTENT(IN) :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state
+  
+    TYPE(t_patch), POINTER :: patch_2d
+    TYPE(t_subset_range), POINTER :: all_cells, owned_cells
+    INTEGER :: block,j,cell_idx,cells_startidx,cells_endidx, neigbor, vertex_idx, vertex_blk
+  
+    patch_2d => patch_3d%p_patch_2d(1)
+    owned_cells => patch_2D%cells%owned
+
+! !ICON_OMP_PARALLEL_DO PRIVATE(block,j,cell_idx,cells_startidx,cells_endidx, neigbor, vertex_idx, vertex_blk)
+!     DO block = owned_cells%start_block, owned_cells%end_block
+!       CALL get_index_range(owned_cells, block, cells_startidx, cells_endidx)
+!       DO cell_idx = cells_startidx, cells_endidx
+!         ocean_state%p_diag%vort_f_cells_50m(cell_idx,block) = 0.0_wp        
+!         DO neigbor=1,patch_2D%cells%max_connectivity
+!           vertex_blk = patch_2d%cells%vertex_blk(cell_idx,block,neigbor)
+!           vertex_idx = patch_2d%cells%vertex_idx(cell_idx,block,neigbor)
+!           ocean_state%p_diag%vort_f_cells_50m(cell_idx,block) =  ocean_state%p_diag%vort_f_cells_50m(cell_idx,block) + &
+!             & ocean_state%p_diag%vort(vertex_idx,15,vertex_blk)
+!         ENDDO
+!         ocean_state%p_diag%vort_f_cells_50m(cell_idx,block) = ocean_state%p_diag%vort_f_cells_50m(cell_idx,block) / &
+!           & (REAL(patch_2D%cells%max_connectivity, wp) *  patch_2D%cells%f_c(cell_idx,block))
+!       
+! #ifndef NAGFOR
+!         IF (isnan(ocean_state%p_diag%vort_f_cells_50m(cell_idx,block))) &
+!           & ocean_state%p_diag%vort_f_cells_50m(cell_idx,block) = 999.0_wp
+! #endif
+! 
+!       ENDDO
+!     ENDDO
+! !ICON_OMP_END_PARALLEL_DO
+! 
+! !     ocean_state%p_diag%vort_50m(:,:) = ocean_state%p_diag%vort(:,15,:)
+!     ocean_state%p_diag%T_50m(:,:)    = ocean_state%p_prog(nnew(1))%tracer_collection%tracer(1)%concentration(:,15,:)
+!     ocean_state%p_diag%u_50m(:,:)    = ocean_state%p_diag%u(:,15,:)
+!     ocean_state%p_diag%v_50m(:,:)    = ocean_state%p_diag%v(:,15,:)
+ 
+  END SUBROUTINE fill_auxiliary_diagnostics
+  !-------------------------------------------------------------------------
+ 
   !-------------------------------------------------------------------------
 !<Optimize:inUse>
   SUBROUTINE update_time_g_n(ocean_state)
@@ -752,7 +902,7 @@ CONTAINS
     tmp => ocean_state%p_aux%g_n
     ocean_state%p_aux%g_n => ocean_state%p_aux%g_nm1
     ocean_state%p_aux%g_nm1 => tmp
-    
+        
   END SUBROUTINE update_time_g_n
 
 

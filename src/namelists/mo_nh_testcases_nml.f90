@@ -52,6 +52,7 @@ MODULE mo_nh_testcases_nml
                                    &  bruntvais_u_mwbr_const
   USE mo_nh_dcmip_schaer,      ONLY: lshear_dcmip
   USE mo_nh_dcmip_gw,          ONLY: gw_clat, gw_u0, gw_delta_temp
+  USE mo_nh_lahade,            ONLY: lahade, ilahade
 
   IMPLICIT NONE  
 
@@ -60,18 +61,23 @@ MODULE mo_nh_testcases_nml
   PUBLIC :: read_nh_testcase_namelist,layer_thickness,                       &
     &       n_flat_level, nh_test_name,                                      &
     &       ape_sst_case, ape_sst_val, w_perturb, th_perturb,                &
-    &       mount_height, torus_domain_length, nh_brunt_vais, nh_u0, nh_t0,  &
-    &       jw_up, rh_at_1000hpa,  qv_max,                                   &
-    &       tpe_moist, tpe_psfc, tpe_temp,                                   &
-    &       rotate_axis_deg, lhs_nh_vn_ptb, hs_nh_vn_ptb_scale,              & 
+    &       mount_height, mount_width, mount_width_2,                        & 
+    &       torus_domain_length, nh_brunt_vais, nh_u0, nh_t0,                &
+    &       jw_up, jw_u0, jw_temp0, rh_at_1000hpa,  qv_max, lapse_r,         &
+    &       tpe_moist, tpe_psfc, tpe_temp, temp_case, temp_fwhm_frac,        &
+    &       rotate_axis_deg, lhs_nh_vn_ptb, hs_nh_vn_ptb_scale, tpe_mu,      & 
     &       linit_tracer_fv, lhs_fric_heat, lcoupled_rho, u_cbl, v_cbl,      &
     &       th_cbl, psfc_cbl, sol_const, zenithang, bubctr_x, bubctr_y,      &
-    &       tracer_inidist_list
+    &       tracer_inidist_list, zp_ape, ztmc_ape, is_dry_cbl, isrfc_type,   &
+    &       shflx, lhflx, ufric, albedo_set
 
   PUBLIC :: dcmip_bw
   PUBLIC :: is_toy_chem, toy_chem
 
+  PUBLIC :: ltestcase_update
+
   CHARACTER(len=MAX_CHAR_LENGTH) :: nh_test_name
+  CHARACTER(len=MAX_CHAR_LENGTH) :: temp_case
   CHARACTER(len=MAX_CHAR_LENGTH) :: ape_sst_case      !SST for APE experiments
 
   LOGICAL  :: lhs_nh_vn_ptb          ! if true, random noise is added to vn in HS_nh test case
@@ -81,22 +87,39 @@ MODULE mo_nh_testcases_nml
   LOGICAL  :: lcoupled_rho     !< re-integrate mass equation in PA test cases (TRUE/FALSE)
 
   REAL(wp) :: mount_height           ! (m)
+  REAL(wp) :: mount_width            ! (m)
+  REAL(wp) :: mount_width_2          ! (m)
+  REAL(wp) :: lapse_r                ! lapse rate
   REAL(wp) :: nh_brunt_vais          ! (1/s)
   REAL(wp) :: nh_u0                  ! (m/s)
   REAL(wp) :: nh_t0                  ! (K)
-  REAL(wp) :: jw_up                  ! amplitude of the u-perturbation (m/s), jabw  
+  REAL(wp) :: jw_up                  ! amplitude of the u-perturbation (m/s), jabw
+  REAL(wp) :: jw_u0                  ! maximum zonl wind (m/s)
+  REAL(wp) :: jw_temp0               ! horizontal-mean temperature at surface (K)
   REAL(wp) :: rotate_axis_deg        ! (deg) rotation angle
   REAL(wp) :: torus_domain_length    ! (m) length of domain the slice (torus) grid
   REAL(wp) :: hs_nh_vn_ptb_scale     ! amplitude of the random noise
   REAL(wp) :: rh_at_1000hpa          ! relative humidity at 1000 hPa [%]
   REAL(wp) :: qv_max                 ! limit of maximum specific humidity in the tropics [kg/kg]
   REAL(wp) :: tpe_moist              ! initial total moisture content for terra planet [kg/m2]
+  REAL(wp) :: tpe_mu                 ! location of the anomaly maximum in x-direction
   REAL(wp) :: tpe_psfc               ! initial surface pressure for terra planet [Pa]
   REAL(wp) :: tpe_temp               ! iitial atmospheric temperature for terra planet [K]
+  REAL(wp) :: temp_fwhm_frac         ! size fraction of temp. perturbation at FWHM
   REAL(wp) :: ape_sst_val            ! (degC) value to be used for SST computation for aqua planet
+  REAL(wp) :: zp_ape                 ! surface pressure (Pa)
+  REAL(wp) :: ztmc_ape               ! total atmospheric moisture content (g/m3 ?)
   REAL(wp) :: w_perturb, th_perturb !Random perturbation scale for torus based experiments
   REAL(wp) :: sol_const              ! [W/m2] solar constant
   REAL(wp) :: zenithang              ! [degrees] zenith angle 
+  REAL(wp) :: albedo_set             ! [fraction] surface albedo, only considered when
+                                     ! nh_test_name = [RCEMIP_analytical]
+
+  LOGICAL  :: is_dry_cbl             ! switch for dry convective boundary layer simulations
+  INTEGER  :: isrfc_type             ! 0:No effect, 1:fixed surface  heat fluxes
+  REAL(wp) :: shflx                  ! Kinematic sensible heat flux at surface (K m/s) for isrfc_type=1
+  REAL(wp) :: lhflx                  ! Kinematic latent heat flux at surface (m/s) for isrfc_type=1
+  REAL(wp) :: ufric
 
   !Linear profiles of variables for LES testcases
   REAL(wp) :: u_cbl(2)   !u_cbl(1) = constant, u_cbl(2) = gradient
@@ -141,17 +164,19 @@ MODULE mo_nh_testcases_nml
 
   NAMELIST/nh_testcase_nml/ nh_test_name, mount_height, torus_domain_length, &
                             nh_brunt_vais, nh_u0, nh_t0, layer_thickness,    &
-                            n_flat_level, jw_up, u0_mrw, mount_height_mrw,   &
+                            n_flat_level, jw_up, jw_u0, jw_temp0,            &
+                            u0_mrw, mount_height_mrw,                        &
                             mount_half_width, mount_lonctr_mrw_deg,          &
+                            mount_width, mount_width_2,                      &
                             mount_latctr_mrw_deg, p_int_mwbr_const,          &
                             temp_i_mwbr_const,  bruntvais_u_mwbr_const,      &
                             rotate_axis_deg,                                 &
                             lhs_nh_vn_ptb, hs_nh_vn_ptb_scale,               &
-                            rh_at_1000hpa, qv_max,                           &
-                            tpe_moist, tpe_psfc, tpe_temp,                   &
-                            ape_sst_case, ape_sst_val,                       &
-                            linit_tracer_fv, lhs_fric_heat,                  &
-                            qv_max_wk, u_infty_wk,                           &
+                            rh_at_1000hpa, qv_max, temp_fwhm_frac,           &
+                            tpe_moist, tpe_psfc, tpe_temp, temp_case,        &
+                            ape_sst_case, ape_sst_val, zp_ape, ztmc_ape,     &
+                            linit_tracer_fv, lhs_fric_heat, tpe_mu,          &
+                            qv_max_wk, u_infty_wk, lapse_r,                  &
                             bubctr_lat, bubctr_lon, bubctr_z,                &
                             bub_hor_width, bub_ver_width, bub_amp,           &
                             nlayers_nconst,                                  &
@@ -169,7 +194,11 @@ MODULE mo_nh_testcases_nml
                             u_cbl, v_cbl, th_cbl, w_perturb, th_perturb,     &
                             psfc_cbl, sol_const, zenithang, bubctr_x,        &
                             bubctr_y, is_toy_chem, toy_chem, dcmip_bw,       &
-                            tracer_inidist_list
+                            tracer_inidist_list, lahade, is_dry_cbl,         &
+                            isrfc_type, shflx, lhflx, ufric, albedo_set
+
+  ! Non-namelist-variables
+  LOGICAL :: ltestcase_update  ! Is current testcase subject to update during integration?
                       
 
   CONTAINS
@@ -195,6 +224,7 @@ MODULE mo_nh_testcases_nml
 
     ! default values
     nh_test_name           = 'jabw'
+    temp_case              = 'const'
     mount_height           = 100.0_wp
     layer_thickness        = -999.0_wp
     n_flat_level           = 2
@@ -202,9 +232,13 @@ MODULE mo_nh_testcases_nml
     nh_brunt_vais          = 0.01_wp
     nh_t0                  = 300.0_wp
     jw_up                  = 1.0_wp
+    jw_u0                  = 35.0_wp
+    jw_temp0               = 288._wp
     u0_mrw                 = 20.0_wp
     mount_height_mrw       = 2000.0_wp
     mount_half_width       = 1500000._wp
+    mount_width            = 1000.0_wp
+    mount_width_2          = 100.0_wp
     mount_lonctr_mrw_deg   = 90.0_wp
     mount_latctr_mrw_deg   = 30.0_wp
     p_int_mwbr_const       = 70000._wp
@@ -212,18 +246,29 @@ MODULE mo_nh_testcases_nml
     bruntvais_u_mwbr_const = 0.025_wp
     rotate_axis_deg        = 0.0_wp
     torus_domain_length    = 100000.0_wp
+    lapse_r                = 0.006_wp ! atmospheric lapse rate
     lhs_nh_vn_ptb          = .TRUE.
     lhs_fric_heat          = .FALSE.
     hs_nh_vn_ptb_scale     = 1._wp  ! magnitude of the random noise
     rh_at_1000hpa          = 0.7_wp
     tpe_moist              = 25._wp
+    tpe_mu                 = 0._wp
     tpe_psfc               = 1.e5_wp
     tpe_temp               = 290._wp
+    temp_fwhm_frac         = 0.25_wp
     qv_max                 = 20.e-3_wp ! 20 g/kg
     ape_sst_case           = 'sst1'
     ape_sst_val            = 29.0_wp ! 29 degC
+    zp_ape                 = 101325._wp
+    ztmc_ape               = 25.006_wp
     sol_const              = 1361.371_wp ! [W/m2] default value for amip
     zenithang              = 38._wp ! value used for Popke et al. exps with no diurn cycle
+    albedo_set             = 0.07_wp ! value used for RCEMIP
+    is_dry_cbl             = .FALSE.
+    isrfc_type             = 0
+    shflx                  = 0.1_wp
+    lhflx                  = 0.0_wp
+    ufric                  = 0.45_wp
     ! assuming that default is on triangles the next switch is set
     ! crosscheck follows in the respective module
     linit_tracer_fv        = .TRUE. ! finite volume initialization for tracer
@@ -339,6 +384,41 @@ MODULE mo_nh_testcases_nml
     ! initial tracer distributions for test cases
     ! nh_df_test, nh_pa_test, nh_jabw_exp
     tracer_inidist_list(:) = 1
+
+    ! For lahade-type testcases:
+    ! - variables intended for namelist input
+    lahade%icase       = ilahade%case%ssw  ! 1 = spherical sound wave
+    lahade%omega       = 0._wp             ! [m/s] model Earth's angular velocity: 
+                                           ! in units of the velocity with which the center 
+                                           ! of the sound wave is advected according to the rotation
+    lahade%bkg_temp    = 250._wp           ! [K] temperature of background atmosphere/gas
+    lahade%bkg_pres    = 100000._wp        ! [Pa] pressure of background atmosphere/gas
+    lahade%ptb_ctr_lat = 0._wp             ! [deg] center latitude of spherical perturbation
+    lahade%ptb_ctr_lon = 0._wp             ! [deg] center longitude of spherical perturbation
+    lahade%ptb_ctr_hgt = 0.5_wp            ! [top_height] center height of spherical perturbation,  
+                                           ! in units of the model top height (in [0,1]) 
+    lahade%ptb_rad_min = 0.04_wp           ! [min{ptb_ctr_hgt,(1-ptb_ctr_hgt)} * top_height] min. radius 
+                                           ! of spherical shell within which the initial perturbation is non-zero, 
+                                           ! in units of the distance from 'ptb_ctr_hgt * top_height' to the model bottom, 
+                                           ! or the model top, whichever is shorter
+    lahade%ptb_rad_max = 0.6_wp            ! [min{ptb_ctr_hgt,(1-ptb_ctr_hgt)} * top_height] max. radius of spherical shell ...
+    lahade%ptb_amp_temp = 0.05_wp          ! [K] temperature amplitude of initial perturbation
+    lahade%ptb_n_rad   = 1._wp             ! [1] number of radial wave crests 
+                                           ! of initial perturbation = (ptb_rad_max - ptb_rad_min) / radial wave length 
+    lahade%output_ptb_var = ""             ! no output of the numerical and analytical solution of one variable, 
+                                           ! currently available are:
+                                           ! * "temp"  -> numerical and analytical field of the temperature perturbation
+                                           ! * "rho"   -> --,,-- density perturbation
+                                           ! * "pres"  -> --,,-- pressure perturbation
+    ! - non-namelist variables
+    lahade%lactive     = .FALSE.           ! testcase is not active
+    lahade%lzerograv   = .FALSE.           ! gravity is active
+    lahade%ivarout     = ilahade%varout%default  ! index corresponding to the default of 'output_ptb_var'
+    lahade%lupdate     = .FALSE.           ! no kind of update during integration required
+
+    ! Is current testcase subject to update during integration? 
+    ! (Final setting takes place in 'src/testcases/mo_nh_testcases: init_nh_testcase')
+    ltestcase_update = .FALSE.  ! Initialize with 'No'
 
     CALL open_nml(TRIM(filename))
     CALL position_nml ('nh_testcase_nml', status=i_status)

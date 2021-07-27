@@ -5,7 +5,7 @@
 !! Please see the file LICENSE in the root of the source tree for this code.
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
-MODULE rrlw_kg01
+MODULE mo_rrlw_kg01
 
   USE mo_kind ,ONLY : wp
 
@@ -75,9 +75,9 @@ MODULE rrlw_kg01
 
   EQUIVALENCE (ka(1,1,1),absa(1,1)), (kb(1,13,1),absb(1,1))
 
-END MODULE rrlw_kg01
+END MODULE mo_rrlw_kg01
 
-MODULE rrlw_kg02
+MODULE mo_rrlw_kg02
 
   USE mo_kind ,ONLY : wp
 
@@ -145,9 +145,9 @@ MODULE rrlw_kg02
 
   EQUIVALENCE (ka(1,1,1),absa(1,1)),(kb(1,13,1),absb(1,1))
 
-END MODULE rrlw_kg02
+END MODULE mo_rrlw_kg02
 
-MODULE rrlw_kg03
+MODULE mo_rrlw_kg03
 
   USE mo_kind ,ONLY : wp
 
@@ -220,9 +220,9 @@ MODULE rrlw_kg03
 
   EQUIVALENCE (ka(1,1,1,1),absa(1,1)),(kb(1,1,13,1),absb(1,1))
 
-END MODULE rrlw_kg03
+END MODULE mo_rrlw_kg03
 
-MODULE rrlw_kg04
+MODULE mo_rrlw_kg04
 
   USE mo_kind ,ONLY : wp
 
@@ -286,9 +286,9 @@ MODULE rrlw_kg04
 
   EQUIVALENCE (ka(1,1,1,1),absa(1,1)),(kb(1,1,13,1),absb(1,1))
 
-END MODULE rrlw_kg04
+END MODULE mo_rrlw_kg04
 
-MODULE rrlw_kg05
+MODULE mo_rrlw_kg05
 
   USE mo_kind ,ONLY : wp
 
@@ -363,9 +363,9 @@ MODULE rrlw_kg05
 
   EQUIVALENCE (ka(1,1,1,1),absa(1,1)),(kb(1,1,13,1),absb(1,1))
 
-END MODULE rrlw_kg05
+END MODULE mo_rrlw_kg05
 
-MODULE rrlw_kg06
+MODULE mo_rrlw_kg06
 
   USE mo_kind ,ONLY : wp
 
@@ -439,9 +439,9 @@ MODULE rrlw_kg06
 
   EQUIVALENCE (ka(1,1,1),absa(1,1))
 
-END MODULE rrlw_kg06
+END MODULE mo_rrlw_kg06
 
-MODULE rrlw_kg07
+MODULE mo_rrlw_kg07
 
   USE mo_kind ,ONLY : wp
 
@@ -517,9 +517,9 @@ MODULE rrlw_kg07
 
   EQUIVALENCE (ka(1,1,1,1),absa(1,1)),(kb(1,13,1),absb(1,1))
 
-END MODULE rrlw_kg07
+END MODULE mo_rrlw_kg07
 
-MODULE rrlw_kg08
+MODULE mo_rrlw_kg08
 
   USE mo_kind ,ONLY : wp
 
@@ -618,9 +618,9 @@ MODULE rrlw_kg08
 
   EQUIVALENCE (ka(1,1,1),absa(1,1)),(kb(1,13,1),absb(1,1))
 
-END MODULE rrlw_kg08
+END MODULE mo_rrlw_kg08
 
-MODULE rrlw_kg09
+MODULE mo_rrlw_kg09
 
   USE mo_kind ,ONLY : wp
 
@@ -698,9 +698,9 @@ MODULE rrlw_kg09
 
   EQUIVALENCE (ka(1,1,1,1),absa(1,1)),(kb(1,13,1),absb(1,1))
 
-END MODULE rrlw_kg09
+END MODULE mo_rrlw_kg09
 
-MODULE rrlw_kg10
+MODULE mo_rrlw_kg10
 
   USE mo_kind ,ONLY : wp
 
@@ -771,9 +771,9 @@ MODULE rrlw_kg10
 
   EQUIVALENCE (ka(1,1,1),absa(1,1)),(kb(1,13,1),absb(1,1))
 
-END MODULE rrlw_kg10
+END MODULE mo_rrlw_kg10
 
-MODULE rrlw_kg11
+MODULE mo_rrlw_kg11
 
   USE mo_kind ,ONLY : wp
 
@@ -852,9 +852,9 @@ MODULE rrlw_kg11
 
   EQUIVALENCE (ka(1,1,1),absa(1,1)),(kb(1,13,1),absb(1,1))
 
-END MODULE rrlw_kg11
+END MODULE mo_rrlw_kg11
 
-MODULE rrlw_kg12
+MODULE mo_rrlw_kg12
 
   USE mo_kind ,ONLY : wp
 
@@ -914,9 +914,9 @@ MODULE rrlw_kg12
 
   EQUIVALENCE (ka(1,1,1,1),absa(1,1))
 
-END MODULE rrlw_kg12
+END MODULE mo_rrlw_kg12
 
-MODULE rrlw_kg13
+MODULE mo_rrlw_kg13
 
   USE mo_kind ,ONLY : wp
 
@@ -992,9 +992,9 @@ MODULE rrlw_kg13
 
   EQUIVALENCE (ka(1,1,1,1),absa(1,1))
 
-END MODULE rrlw_kg13
+END MODULE mo_rrlw_kg13
 
-MODULE rrlw_kg14
+MODULE mo_rrlw_kg14
 
   USE mo_kind ,ONLY : wp
 
@@ -1065,9 +1065,9 @@ MODULE rrlw_kg14
 
   EQUIVALENCE (ka(1,1,1),absa(1,1)), (kb(1,13,1),absb(1,1))
 
-END MODULE rrlw_kg14
+END MODULE mo_rrlw_kg14
 
-MODULE rrlw_kg15
+MODULE mo_rrlw_kg15
 
   USE mo_kind ,ONLY : wp
 
@@ -1132,8 +1132,8 @@ MODULE rrlw_kg15
 
   EQUIVALENCE (ka(1,1,1,1),absa(1,1))
 
-END MODULE rrlw_kg15
-MODULE rrlw_kg16
+END MODULE mo_rrlw_kg15
+MODULE mo_rrlw_kg16
 
   USE mo_kind ,ONLY : wp
 
@@ -1202,4 +1202,4 @@ MODULE rrlw_kg16
 
   EQUIVALENCE (ka(1,1,1,1),absa(1,1)), (kb(1,13,1),absb(1,1))
 
-END MODULE rrlw_kg16
+END MODULE mo_rrlw_kg16

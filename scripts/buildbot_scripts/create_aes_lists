@@ -24,6 +24,8 @@ $addexp "checksuite.icon-dev/check.atm_amip*" --list $listname
 $addexp "checksuite.icon-dev/check.atm_ape" --list $listname
 # add held-suarez test to all builders
 $addexp "checksuite.icon-dev/check.atm_heldsuarez" --list $listname
+# add 2-moment rce torus test to all builders
+$addexp "checksuite.icon-dev/check.atm_2mom_bubble_rceTorus" --list $listname
 # set all builders to AES, but the amip needs the fast ice, which needs the ocean...We should change this
 ./set_builder_flags AES --builders "*" --list $listname
 # deactivate again special builders

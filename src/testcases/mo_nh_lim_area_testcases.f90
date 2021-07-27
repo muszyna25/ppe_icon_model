@@ -40,7 +40,7 @@
    USE mo_model_domain,        ONLY: t_patch
    USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
    USE mo_run_config,          ONLY: iforcing, iqv,msg_level 
-   USE mo_impl_constants,      ONLY: inwp, MAX_CHAR_LENGTH
+   USE mo_impl_constants,      ONLY: inwp
    USE mo_parallel_config,     ONLY: nproma
    USE mo_satad,               ONLY:  sat_pres_water, &  !! saturation vapor pressure w.r.t. water
             &                         sat_pres_ice,   &  !! saturation vapor pressure w.r.t. ice
@@ -52,7 +52,8 @@
    USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
    USE mo_extpar_config,        ONLY: itopo
    USE mo_sync,                 ONLY: sync_patch_array,  SYNC_C, SYNC_E
-   USE mo_nh_init_utils,        ONLY: init_w, hydro_adjust, convert_thdvars
+   USE mo_nh_init_utils,        ONLY: init_w, convert_thdvars
+   USE mo_hydro_adjust,        ONLY: hydro_adjust, hydro_adjust_iterative
    USE mo_grid_config,         ONLY: grid_sphere_radius
 
    IMPLICIT NONE
@@ -147,7 +148,7 @@
   SUBROUTINE init_nh_atmo_ana_poly( ptr_patch, ptr_nh_prog, ptr_nh_diag, &
     &                                p_metrics, l_hydro_adjust )
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_nh_lim_area_testcases:init_nh_atmo_ana_poly'
 
 
@@ -231,7 +232,7 @@
     IF (h_poly(jl+1) > h_poly(jl)+t_poly(jl)/tgr_poly(jl) ) THEN
       WRITE(message_text,'(a,i3,a)') 'jl:',jl,' combination of h_poly(jl), t_poly(jl) &
                                & tgr_poly(jl) lead to negative pressure'
-      CALL finish('',TRIM(message_text))
+      CALL finish('', message_text)
     END IF
    END IF
   END DO
@@ -239,7 +240,7 @@
    IF ( zz_top > h_poly(nlayers_poly)+t_poly(nlayers_poly)/tgr_poly(nlayers_poly) ) THEN
      WRITE(message_text,'(a)') ' combination of h_poly(nlayers_poly), t_poly(nlayers_poly) &
                              & tgr_poly(nlayers_poly) lead to negative pres'
-     CALL finish('',TRIM(message_text))
+     CALL finish('', message_text)
    END IF
   END IF
 
@@ -299,24 +300,22 @@
    DO  jl = 1, nlayers_poly
      WRITE(message_text,'(10x,i4,4e18.10)') jl, &
                              & pres_poly(jl), t_poly(jl), rh_poly(jl), qv_poly(jl)
-     CALL message('',TRIM(message_text))
+     CALL message('', message_text)
    END DO
 
   ENDIF ! msg_level >= 5
 
 ! set the corresponding layer for all the model points
 
-jglayer(:,:,:)=0  
-!$OMP PARALLEL 
+!$OMP PARALLEL
 !$OMP DO PRIVATE(jk,jc,nlen,z_h,jl)
     DO jb = 1, nblks_c
-      IF (jb /= nblks_c) THEN
-         nlen = nproma
-      ELSE
-         nlen = npromz_c
-      ENDIF
+      nlen = MERGE(nproma, npromz_c, jb /= nblks_c)
 
       DO jk = nlev, 1, -1
+         DO jc = 1,nproma
+           jglayer(jc, jk, jb) = 0
+         END DO
          DO jc = 1, nlen
 
             z_h = p_metrics%z_mc(jc,jk,jb)
@@ -346,11 +345,7 @@ jglayer(:,:,:)=0
 !$OMP PARALLEL 
 !$OMP DO PRIVATE(jk,jc,nlen,z_h,z_h_kp1, jg)
     DO jb = 1, nblks_c
-      IF (jb /= nblks_c) THEN
-         nlen = nproma
-      ELSE
-         nlen = npromz_c
-      ENDIF
+      nlen = MERGE(nproma, npromz_c, jb /= nblks_c)
 
       DO jk = nlev, 1, -1
          DO jc = 1, nlen
@@ -446,11 +441,7 @@ jglayer(:,:,:)=0
 !$OMP PARALLEL 
 !$OMP DO PRIVATE(jb,jk,jc,nlen)
     DO jb = 1, nblks_c
-      IF (jb /= nblks_c) THEN
-         nlen = nproma
-      ELSE
-         nlen = npromz_c
-      ENDIF
+      nlen = MERGE(nproma, npromz_c, jb /= nblks_c)
 
       DO jk = nlev, 1, -1
         DO jc = 1, nlen  
@@ -507,7 +498,7 @@ jglayer(:,:,:)=0
   SUBROUTINE init_nh_atmo_ana_nconstlayers( ptr_patch, ptr_nh_prog, ptr_nh_diag, &
     &                                p_metrics, l_hydro_adjust )
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_nh_lim_area_testcases:init_nh_atmo_ana_nconstlayers'
 
 
@@ -586,7 +577,7 @@ jglayer(:,:,:)=0
    IF (bvref_tconst >= zloghuge) THEN
     WRITE(message_text,'(2a, i4, a)')' INPUT_ARTIFCTL: ERROR * Combination of h_nconst, N_nconst',&
              & ' will lead to floating overflow in layer jl = ',jl,' ! * '
-    CALL finish('',TRIM(message_text))
+    CALL finish('', message_text)
    END IF
   END DO
   bvref_tconst = N_nconst(nlayers_nconst)**2 / &
@@ -594,7 +585,7 @@ jglayer(:,:,:)=0
   IF (bvref_tconst >= zloghuge) THEN
     WRITE(message_text,'(2a, i4, a)')' INPUT_ARTIFCTL: ERROR * Combination of h_nconst, N_nconst',&
              & ' will lead to floating overflow in layer jl = ',nlayers_nconst,' !!! *** '
-    CALL finish('',TRIM(message_text))           
+    CALL finish('', message_text)
   END IF
 
     ! number of vertical levels
@@ -628,7 +619,7 @@ jglayer(:,:,:)=0
          & (1._wp/thetab(jl)-1._wp/thetab(jl-1))*(grav/N_nconst(jl-1))**2/cpd  ) THEN
      WRITE(message_text,'(a,i3,a)')'jl: ',jl-1,  &
                         & 'value of N_nconst(jl) leads to a negative pressure'
-     CALL finish('',TRIM(message_text))
+     CALL finish('', message_text)
     END IF
     !here I use rh of the layer below
     rhb(jl)    = rh_nconst(jl-1)-rhgr_nconst(jl-1)*(h_nconst(jl)-h_nconst(jl-1))
@@ -671,7 +662,7 @@ jglayer(:,:,:)=0
                               &  (grav/N_nconst(nlayers_nconst))**2/cpd  ) THEN
     WRITE(message_text,'(a,i3,a)') 'jl: ',nlayers_nconst,'value of N_nconst(jl) leads &
                                       &   to a negative pressure'
-    CALL finish('',TRIM(message_text))
+    CALL finish('', message_text)
    END IF  
   END IF
 ! ckeck finished
@@ -681,7 +672,7 @@ jglayer(:,:,:)=0
    DO  jl = 1, nlayers_nconst
      WRITE(message_text,'(10x,i3, 4e18.10)') jl,    &
                              &     presb(jl), tempb(jl), rhb(jl), qvb(jl)
-     CALL message('',TRIM(message_text))
+     CALL message('', message_text)
    END DO
 
   ENDIF ! msg_level >= 5
@@ -756,7 +747,7 @@ jnlayer(:,:,:)=0
                relhum(jc,jk,jb)=rh_nconst(jn)
               END IF
               relhum(jc,jk,jb)=MAX(0._wp,MIN(1._wp,relhum(jc,jk,jb)))
-              IF (jk < nlev .AND. jn == jnlayer(jc,jk+1,jb) ) THEN
+              IF (jk < nlev .AND. jn == jnlayer(jc,MIN(jk+1,nlev),jb) ) THEN
                ! in this case we integrate starting in the level bellow, instead of 
                !  starting in the base of the layer
 
@@ -869,16 +860,26 @@ jnlayer(:,:,:)=0
 !$OMP END DO
 !$OMP END PARALLEL
 
-  CALL diagnose_pres_temp (p_metrics, ptr_nh_prog,ptr_nh_prog, ptr_nh_diag,     &
-                             ptr_patch, opt_calc_pres=.TRUE., opt_calc_temp=.TRUE.)
+    CALL diagnose_pres_temp (p_metrics, ptr_nh_prog,ptr_nh_prog, ptr_nh_diag,     &
+                               ptr_patch, opt_calc_pres=.TRUE., opt_calc_temp=.TRUE.)
 
 
-  IF (l_hydro_adjust) THEN
+    IF (l_hydro_adjust) THEN
+      !
+      ! remark: calling hydro_adjust would be equally fine here
+      ! 
+      CALL hydro_adjust_iterative ( p_patch       = ptr_patch,                    & !in
+        &                           p_nh_metrics  = p_metrics,                    & !in
+        &                           temp_ini      = ptr_nh_diag%temp,             & !in
+        &                           rh_ini        = relhum,                       & !in
+        &                           exner         = ptr_nh_prog%exner,            & !inout
+        &                           theta_v       = ptr_nh_prog%theta_v,          & !inout
+        &                           rho           = ptr_nh_prog%rho,              & !inout
+        &                           qv            = ptr_nh_prog%tracer(:,:,:,iqv),& !inout
+        &                           luse_exner_fg = .TRUE.,                       & !in
+        &                           opt_exner_lbc = ptr_nh_prog%exner(:,nlev,:)   ) !in
+    END IF   
 
-   CALL hydro_adjust ( ptr_patch, p_metrics, ptr_nh_prog%rho,  &
-                     & ptr_nh_prog%exner, ptr_nh_prog%theta_v  )
-
-  END IF   
 
     DEALLOCATE(theta, theta_v, relhum)
     DEALLOCATE(exner, z_qv)
@@ -1117,7 +1118,7 @@ jnlayer(:,:,:)=0
   !! Calculate distances from a lon,lat point to the center point 
   !!  lonc,latc in the direction of the main axis of the 
   !!  mountain/buble
-  !! If rotangle is cero, then it calculates distances from a lon lat point 
+  !! If rotangle is zero, then it calculates distances from a lon lat point 
   !!  to the center point lonc, latc in the zonal and meridional directions
   !! This is a translation from SUBROUTINE hill_rot_coords in COSMO
   !! 

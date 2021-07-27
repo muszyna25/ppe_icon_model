@@ -202,7 +202,6 @@ cat > ${atm_namelist} << EOF
  ltestcase        = .FALSE.      ! run testcase
  ldynamics        = .TRUE.       ! dynamics
  ltransport       = .TRUE.       ! transport
- ntracer          = 3           ! number of tracers; 3: hus, clw, cli; 4: hus, clw, cli, o3
  iforcing         = 2            ! 0: none, 1: HS, 2: ECHAM, 3: NWP
  output           = 'nml'
  msg_level        = 15           ! level of details report during integration 
@@ -213,7 +212,7 @@ cat > ${atm_namelist} << EOF
 /
 &extpar_nml
  itopo            = 1           ! 1: read topography from the grid file
- l_emiss          = .FALSE.
+ itype_lwemiss    = 0
 /
 &initicon_nml
  init_mode        = 2           ! 2: initialize from IFS analysis
@@ -243,10 +242,10 @@ cat > ${atm_namelist} << EOF
 &diffusion_nml
 /
 &transport_nml
-!                   hus,clw,cli, o3
- ivadv_tracer     =   3,  3,  3,  3
- itype_hlimit     =   3,  4,  4,  4
- ihadv_tracer     =  52,  2,  2, 52
+ tracer_names     = 'hus','clw','cli'
+ ivadv_tracer     =    3 ,   3 ,   3
+ itype_hlimit     =    3 ,   4 ,   4
+ ihadv_tracer     =   52 ,   2 ,   2
 /
 &mpi_phy_nml
 !
@@ -735,23 +734,24 @@ cat > ${oce_namelist} << EOF
                       186.0,  196.0,  206.0,  216.0,  226.0,  236.0,  246.0,  256.0,  266.0,  276.0,
                       286.0,  296.0,  306.0,  318.0
   l_edge_based                    = .FALSE.   ! edge- or cell-based mimetic discretization
-  select_solver                   =   2       ! 1=gmres_oce_old
-                                              ! 2=ocean_restart_gmres
-                                              ! 3=mixed precisison restart
-  solver_FirstGuess               =   1
+  l_partial_cells                 = .FALSE.   ! partial bottom cells=true: local varying bottom depth
+
+  select_solver                   = 4       ! 1=gmres_oce_old; 2=ocean_restart_gmres, 3=mixed precisison restart 
+                                            ! 4=CG (default) 5=CGJ 6=BiCG 7=GMRES restart (legacy) 8=MINRES
   use_absolute_solver_tolerance   = .true.
-  solver_tolerance                =   7.5E-14
-  solver_max_iter_per_restart     =  17
-  solver_tolerance_sp             =   1.0E-12 !
-  solver_max_iter_per_restart_sp  =  26       !
-  solver_max_restart_iterations   = 100       ! outer (restart solver)
+  solver_tolerance                = 1.0E-13 ! this may further be reduced
+
+  select_lhs                      = 1       ! 1=operator based (default) 2=matrix based
+  l_lhs_direct                    = .false. ! .true.= use lhs implementation directly  .false.= matrix scanner (default) 
+  solver_FirstGuess               = 2       ! 0=start from zeros 1=last timestep smoothed 2=last timestep (default) 
+
   fast_performance_level          = 200       ! performance level 12: for cell-based; 5: default
   use_continuity_correction       = .TRUE.    ! height adjustment according to vertical velocity in dynamics
   cfl_check                       = .FALSE.
   cfl_write                       = .FALSE.
-  i_bc_veloc_top                  =   1       ! coupled was: 4; now 1 as in 17250-RTC
-  i_bc_veloc_bot                  =   1
-  select_lhs                      =   2       ! default=1, now 2 as in 17250-RTC
+
+  i_bc_veloc_top                  =   1
+  i_bc_veloc_bot                  =   1       ! 0: (def) bottom friction off, 1: on
 /
 &ocean_tracer_transport_nml
   FLUX_CALCULATION_HORZ = 5      ! 1=upwind, 2=central, 3=Lax-Friedrichs, 4=Miura, 5=FCT with Zalesak limiter (default)
@@ -797,8 +797,8 @@ cat > ${oce_namelist} << EOF
 
   use_wind_mixing                 = .true.    ! true: use wind mixing scheme in MPIOM-type pp-scheme
   ! lambda_wind                     = 0.03
-  tracer_TopWindMixing            = 4.0E-6 ! 5.0E-4  ! lower values now as in 17250-RTC
-  velocity_TopWindMixing          = 4.0E-6 ! 5.0E-4  ! lower values now as in 17250-RTC
+  !  tracer_TopWindMixing            = 1.0E-3 ! 5.0E-4  ! lower values now as in 17250-RTC
+  !  velocity_TopWindMixing          = 1.0E-3 ! 5.0E-4  ! lower values now as in 17250-RTC
 /
 &ocean_GentMcWilliamsRedi_nml
   GMRedi_configuration                     =   1       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion

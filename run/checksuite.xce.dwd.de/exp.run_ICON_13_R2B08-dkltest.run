@@ -1,9 +1,9 @@
 #! /bin/ksh
 #-----------------------------------------------------------------------------
 #PBS -q xc_norm_b
-#PBS -l select=20:ompthreads=4
+#PBS -l select=6:ompthreads=4
 #PBS -l place=scatter
-#PBS -l walltime=03:00:00
+#PBS -l walltime=01:00:00
 #PBS -j oe
 #PBS -o LOG.exp.run_ICON_13_R2B08-dkltest.run.run.o
 # ----------------------------------------------------------------------
@@ -59,7 +59,7 @@ EDIR="exp13"
 EXPDIR=$TMPDIR/${EDIR}/
 
 # path to model binary, including the executable:
-MODEL=${ICONDIR}/build/x86_64-unknown-linux-gnu/bin/icon
+MODEL=${ICONDIR}/bin/icon
 
 
 # ----------------------------------------------------------------------
@@ -151,7 +151,7 @@ cat > ${atmo_namelist} << EOF
  p_test_run                   = .FALSE.
  l_test_openmp                = .FALSE.
  l_log_checks                 = .FALSE.
- num_io_procs                 = 3
+ num_io_procs                 = 2
  itype_comm                   = 1
  iorder_sendrecv              = 1
  num_prefetch_proc            = 1
@@ -180,7 +180,7 @@ cat > ${atmo_namelist} << EOF
 &run_nml
  num_lev                      = 75,75 ! number of full levels of vertical grid
  lvert_nest                   = .false.
- nsteps                       = 100 ! 5400
+ nsteps                       = 200 ! 5400
  dtime                        = 90    ! timestep in seconds
  ldynamics                    = .TRUE.      ! dynamics
  ltransport                   = .TRUE.
@@ -222,7 +222,7 @@ cat > ${atmo_namelist} << EOF
  output_filename              = 'dei4_NARVALII_2016081700_ll'             ! file name base
  ml_varlist                   = 'pres_msl','clct','tqv_dia','tqc_dia','tqi_dia','tqg','u_10m','v_10m','t_g',
 't_2m','qv_2m','td_2m','rh_2m','accthb_t','accsob_t','accshfl_s','acclhfl_s','accthb_s',
-'accsob_s','accqhfl_s','tot_prec','cape_ml','cin_ml','tqv','tqc','tqi','tqr','tqs'
+'accsob_s','accqhfl_s','tot_prec','cape_ml','cin_ml','tqv','tqc','tqi','tqr','tqs', 'tqg',
  output_grid                  = .FALSE.
  remap                        = 1                         ! 1: latlon,  0: native grid
  reg_lon_def                  = -67.5,0.025,14.5
@@ -239,7 +239,7 @@ cat > ${atmo_namelist} << EOF
  output_filename              = 'dei4_NARVALII_2016081700_ll'             ! file name base
  ml_varlist                   = 'pres_msl','clct','tqv_dia','tqc_dia','tqi_dia','tqg','u_10m','v_10m','t_g',
 't_2m','qv_2m','td_2m','rh_2m','accthb_t','accsob_t','accshfl_s','acclhfl_s','accthb_s',
-'accsob_s','accqhfl_s','tot_prec','cape_ml','cin_ml','tqv','tqc','tqi','tqr','tqs'
+'accsob_s','accqhfl_s','tot_prec','cape_ml','cin_ml','tqv','tqc','tqi','tqr','tqs', 'tqg',
  output_grid                  = .FALSE.
  remap                        = 1                         ! 1: latlon,  0: native grid
  reg_lon_def                  = -63.5,0.0125,-42.5
@@ -284,7 +284,7 @@ cat > ${atmo_namelist} << EOF
  output_filename              = 'dei4_NARVALII_2016081700'          ! file name base
  ml_varlist                   = 'pres_msl','clct','tqv_dia','tqc_dia','tqi_dia','tqg','u_10m','v_10m','t_g',
 't_2m','qv_2m','td_2m','rh_2m','accthb_t','accsob_t','accshfl_s','acclhfl_s','accthb_s',
-'accsob_s','accqhfl_s','tot_prec','cape_ml','cin_ml','tqv','tqc','tqi','tqr','tqs'
+'accsob_s','accqhfl_s','tot_prec','cape_ml','cin_ml','tqv','tqc','tqi','tqr','tqs','tqg',
  output_grid                  = .FALSE.
  remap                        = 0                         ! 1: latlon,  0: native grid
 /
@@ -510,6 +510,6 @@ EOF2
 # run the model!
 # ----------------------------------------------------------------------
  cp -p $MODEL icon.exe
- aprun  -n 360 -N 18 -j 2 -d 4 -m 3g icon.exe
+ aprun  -n 108 -N 18 -j 2 -d 4 -m 3g icon.exe
 
 

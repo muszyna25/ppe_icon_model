@@ -112,7 +112,15 @@ CONTAINS
          nir_dn_dff_sfc(:,:)       , & !< Direct  downward flux surface near-infrared radiation
          vis_up_sfc    (:,:)       , & !< Upward  flux surface visible radiation 
          par_up_sfc    (:,:)       , & !< Upward  flux surface PAR
-         nir_up_sfc    (:,:)           !< Upward  flux surface near-infrared radiation
+         nir_up_sfc    (:,:)       , & !< Upward  flux surface near-infrared radiation
+         aer_aod_533  (:,:,:)     ,&!< out  aerosol optical density at 533 nm
+         aer_ssa_533  (:,:,:)     ,&!< out  single scattering albedo at 533 nm
+         aer_asy_533  (:,:,:)     ,&!< out  asymmetrie factor at 533 nm
+         aer_aod_2325 (:,:,:)     ,&!< out  aerosol optical density at 2325 nm
+         aer_ssa_2325 (:,:,:)     ,&!< out  single scattering albedo at 2325 nm
+         aer_asy_2325 (:,:,:)     ,&!< out  asymmetrie factor at 2325 nm
+         aer_aod_9731 (:,:,:)       !< out  aerosol optical density at 9731 nm
+
     INTEGER :: grid_id
 
     IF (process_exists(ps_radiation_process)) THEN
@@ -142,6 +150,13 @@ CONTAINS
         vis_up_sfc     => field%rvus_rt    (:,:)   !< out  all-sky upward visible radiation at surface
         par_up_sfc     => field%rpus_rt    (:,:)   !< out  all-sky upward PAR     radiation at surfac
         nir_up_sfc     => field%rnus_rt    (:,:)   !< out  all-sky upward near-IR radiation at surface
+        aer_aod_533    => field%aer_aod_533 (:,:,:)!< out  aerosol optical density at 533 nm
+        aer_ssa_533    => field%aer_ssa_533 (:,:,:)!< out  single scattering albedo at 533 nm
+        aer_asy_533    => field%aer_asy_533 (:,:,:)!< out  asymmetry factor at 533 nm
+        aer_aod_2325   => field%aer_aod_2325(:,:,:)!< out  aerosol optical density at 2325 nm
+        aer_ssa_2325   => field%aer_ssa_2325(:,:,:)!< out  single scattering albedo at 2325 nm
+        aer_asy_2325   => field%aer_asy_2325(:,:,:)!< out  asymmetry factor at 2325 nm
+        aer_aod_9731   => field%aer_aod_9731(:,:,:)!< out aerosol optical density at 9731 nm
 
         grid_id = 1
         CALL exchange_data_psrad_2_atmo(grid_id,  &
@@ -161,7 +176,15 @@ CONTAINS
                       c_loc(nir_dn_dff_sfc(1,1)), &
                       c_loc(vis_up_sfc(1,1)),     &
                       c_loc(par_up_sfc(1,1)),     &
-                      c_loc(nir_up_sfc(1,1)))
+                      c_loc(nir_up_sfc(1,1)),     &
+                      c_loc(aer_aod_533(1,1,1)),  &
+                      c_loc(aer_ssa_533(1,1,1)),  &
+                      c_loc(aer_asy_533(1,1,1)),  &
+                      c_loc(aer_aod_2325(1,1,1)), &
+                      c_loc(aer_ssa_2325(1,1,1)), &
+                      c_loc(aer_asy_2325(1,1,1)), &
+                      c_loc(aer_aod_9731(1,1,1))  &
+                      )
         IF (ltimer) CALL timer_stop(timer_extra2)
         CALL message(method_name, "ends communication")
 
@@ -178,12 +201,13 @@ CONTAINS
   !>
   SUBROUTINE atmo_psrad_interface(                                          &
       & patch,                                                              &
-      & irad_aero     ,klev                                                ,& 
+      & irad_aero       ,lrad_aero_diag  ,klev                             ,& 
       & ktype                                                              ,&
       & psctm, ssi_factor,                                                  &
       & loland          ,loglac          ,this_datetime                    ,&
       & pcos_mu0        ,daylght_frc                                       ,&
       & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
+      & emissivity                                                         ,&
       & zf              ,zh              ,dz                               ,&
       & pp_sfc          ,pp_fl                                             ,&
       & tk_sfc          ,tk_fl           ,tk_hl                            ,&
@@ -195,7 +219,10 @@ CONTAINS
       & sw_upw          ,sw_upw_clr      ,sw_dnw          ,sw_dnw_clr      ,&
       & vis_dn_dir_sfc  ,par_dn_dir_sfc  ,nir_dn_dir_sfc                   ,&
       & vis_dn_dff_sfc  ,par_dn_dff_sfc  ,nir_dn_dff_sfc                   ,&
-      & vis_up_sfc      ,par_up_sfc      ,nir_up_sfc                       )     
+      & vis_up_sfc      ,par_up_sfc      ,nir_up_sfc                       ,&
+      & aer_aod_533     ,aer_ssa_533     ,aer_asy_533                      ,&
+      & aer_aod_2325    ,aer_ssa_2325    ,aer_asy_2325                     ,&
+      & aer_aod_9731                                                        )     
      !-------------------------------------------------------------------
 
     TYPE(t_patch)   ,TARGET ,INTENT(in)    :: patch
@@ -209,10 +236,12 @@ CONTAINS
     REAL(wp),INTENT(IN) :: psctm                         !< orbit and time dependent solar constant for radiation time step
     REAL(wp),INTENT(IN) :: ssi_factor(nbndsw)            !< fraction of TSI in the 14 RRTM SW bands
 
-    LOGICAL,INTENT(IN) ::              &
-         loland(:,:),                & !< land sea mask, land=.true.
-         loglac(:,:)                   !< glacier mask, glacier=.true.
-
+    LOGICAL,INTENT(IN) ::        &
+         loland(:,:),            & !< land sea mask, land=.true.
+         loglac(:,:),            & !< glacier mask, glacier=.true.
+         lrad_aero_diag            !< logical for switching on (.true.)
+                                   !< diagnosis of aerosol optical properties
+         
     TYPE(datetime), POINTER ::  this_datetime !< actual time step
 
     REAL(WP),INTENT(IN)  ::          &
@@ -222,6 +251,7 @@ CONTAINS
          alb_nir_dir(:,:),           & !< surface albedo for NIR range and dir light
          alb_vis_dif(:,:),           & !< surface albedo for vis range and dif light
          alb_nir_dif(:,:),           & !< surface albedo for NIR range and dif light
+         emissivity(:,:),            & !< surface longwave emissivity
          zf(:,:,:),               & !< geometric height at full level in m
          zh(:,:,:),             & !< geometric height at half level in m
          dz(:,:,:),               & !< geometric height thickness in m
@@ -264,8 +294,15 @@ CONTAINS
          nir_dn_dff_sfc(:,:)       , & !< Direct  downward flux surface near-infrared radiation
          vis_up_sfc    (:,:)       , & !< Upward  flux surface visible radiation 
          par_up_sfc    (:,:)       , & !< Upward  flux surface PAR
-         nir_up_sfc    (:,:)           !< Upward  flux surface near-infrared radiation
- 
+         nir_up_sfc    (:,:)       , & !< Upward  flux surface near-infrared radiation
+         aer_aod_533   (:,:,:)     , & !< Aerosol optical density at 533 nm
+         aer_ssa_533   (:,:,:)     , & !< Single scattering albedo at 533 nm
+         aer_asy_533   (:,:,:)     , & !< Asymmetry factor at 533 nm
+         aer_aod_2325  (:,:,:)     , & !< Aerosol optical density at 2325 nm
+         aer_ssa_2325  (:,:,:)     , & !< Single scattering albedo at 2325 nm
+         aer_asy_2325  (:,:,:)     , & !< Asymmetry factor at 2325 nm
+         aer_aod_9731  (:,:,:)         !< Aerosol optical density at 9731 nm
+         
 !    CHARACTER(len=*), PARAMETER :: method_name="atmo_psrad_interface"
 
 !     CALL message(method_name, " starts...")
@@ -276,12 +313,13 @@ CONTAINS
       ! the concurrent radiation will be diactivated if is running
       CALL psrad_interface(                                                   &
         & patch,                                                              &
-        & irad_aero     ,klev                                                ,& 
+        & irad_aero       ,lrad_aero_diag  ,klev                             ,& 
         & ktype                                                              ,&
         & psctm, ssi_factor,                                                  &
         & loland          ,loglac          ,this_datetime                    ,&
         & pcos_mu0        ,daylght_frc                                       ,&
         & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
+        & emissivity                                                         ,&
         & zf              ,zh              ,dz                               ,&
         & pp_sfc          ,pp_fl                                             ,&
         & tk_sfc          ,tk_fl           ,tk_hl                            ,&
@@ -293,7 +331,10 @@ CONTAINS
         & sw_upw          ,sw_upw_clr      ,sw_dnw          ,sw_dnw_clr      ,&
         & vis_dn_dir_sfc  ,par_dn_dir_sfc  ,nir_dn_dir_sfc                   ,&
         & vis_dn_dff_sfc  ,par_dn_dff_sfc  ,nir_dn_dff_sfc                   ,&
-        & vis_up_sfc      ,par_up_sfc      ,nir_up_sfc                       )     
+        & vis_up_sfc      ,par_up_sfc      ,nir_up_sfc                       ,&
+        & aer_aod_533     ,aer_ssa_533     ,aer_asy_533                      ,&
+        & aer_aod_2325    ,aer_ssa_2325    ,aer_asy_2325                     ,&
+        & aer_aod_9731                                                        )     
       !-------------------------------------------------------------------
 
     ELSE
@@ -302,12 +343,13 @@ CONTAINS
       ! run psrad concurrently
       CALL atmo_psrad_concurrent_interface(                                   &
         & patch,                                                              &
-        & irad_aero     ,klev                                                ,& 
+        & irad_aero       ,lrad_aero_diag  ,klev                             ,& 
         & ktype                                                              ,&
         & psctm, ssi_factor,                                                  &
         & loland          ,loglac          ,this_datetime                    ,&
         & pcos_mu0        ,daylght_frc                                       ,&
         & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
+        & emissivity                                                         ,&
         & zf              ,zh              ,dz                               ,&
         & pp_sfc          ,pp_fl                                             ,&
         & tk_sfc          ,tk_fl           ,tk_hl                            ,&
@@ -319,7 +361,10 @@ CONTAINS
         & sw_upw          ,sw_upw_clr      ,sw_dnw          ,sw_dnw_clr      ,&
         & vis_dn_dir_sfc  ,par_dn_dir_sfc  ,nir_dn_dir_sfc                   ,&
         & vis_dn_dff_sfc  ,par_dn_dff_sfc  ,nir_dn_dff_sfc                   ,&
-        & vis_up_sfc      ,par_up_sfc      ,nir_up_sfc                       )     
+        & vis_up_sfc      ,par_up_sfc      ,nir_up_sfc                       ,&
+        & aer_aod_533     ,aer_ssa_533     ,aer_asy_533                      ,&
+        & aer_aod_2325    ,aer_ssa_2325    ,aer_asy_2325                     ,&
+        & aer_aod_9731                                                        )     
       !-------------------------------------------------------------------
 
     ENDIF
@@ -335,12 +380,13 @@ CONTAINS
   !>
   SUBROUTINE atmo_psrad_concurrent_interface(                               &
       & patch,                                                              &
-      & irad_aero     ,klev                                                ,& 
+      & irad_aero       ,lrad_aero_diag  ,klev                             ,& 
       & ktype                                                              ,&
       & psctm, ssi_factor,                                                  &
       & loland          ,loglac          ,this_datetime                    ,&
       & pcos_mu0        ,daylght_frc                                       ,&
       & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
+      & emissivity                                                         ,&
       & zf              ,zh              ,dz                               ,&
       & pp_sfc          ,pp_fl                                             ,&
       & tk_sfc          ,tk_fl           ,tk_hl                            ,&
@@ -352,7 +398,10 @@ CONTAINS
       & sw_upw          ,sw_upw_clr      ,sw_dnw          ,sw_dnw_clr      ,&
       & vis_dn_dir_sfc  ,par_dn_dir_sfc  ,nir_dn_dir_sfc                   ,&
       & vis_dn_dff_sfc  ,par_dn_dff_sfc  ,nir_dn_dff_sfc                   ,&
-      & vis_up_sfc      ,par_up_sfc      ,nir_up_sfc                       )     
+      & vis_up_sfc      ,par_up_sfc      ,nir_up_sfc                       ,&
+      & aer_aod_533     ,aer_ssa_533     ,aer_asy_533                      ,&
+      & aer_aod_2325    ,aer_ssa_2325    ,aer_asy_2325                     ,&
+      & aer_aod_9731                                                        )     
      !-------------------------------------------------------------------
 
     TYPE(t_patch)   ,TARGET ,INTENT(in)    :: patch
@@ -368,8 +417,10 @@ CONTAINS
 
     LOGICAL,INTENT(IN), TARGET ::              &
          loland(:,:),                & !< land sea mask, land=.true.
-         loglac(:,:)                   !< glacier mask, glacier=.true.
-
+         loglac(:,:),                & !< glacier mask, glacier=.true.
+         lrad_aero_diag                !< switch on (.true.) aerosol optical
+                                       !< properties diagnosis
+    
     TYPE(datetime), POINTER ::  this_datetime !< actual time step
 
     REAL(WP),INTENT(IN), TARGET  ::  &
@@ -379,6 +430,7 @@ CONTAINS
          alb_nir_dir(:,:),           & !< surface albedo for NIR range and dir light
          alb_vis_dif(:,:),           & !< surface albedo for vis range and dif light
          alb_nir_dif(:,:),           & !< surface albedo for NIR range and dif light
+         emissivity(:,:),            & !< surface longwave emissivity
          zf(:,:,:),               & !< geometric height at full level in m
          zh(:,:,:),             & !< geometric height at half level in m
          dz(:,:,:),               & !< geometric height thickness in m
@@ -422,10 +474,17 @@ CONTAINS
          nir_dn_dff_sfc(:,:)       , & !< Direct  downward flux surface near-infrared radiation
          vis_up_sfc    (:,:)       , & !< Upward  flux surface visible radiation 
          par_up_sfc    (:,:)       , & !< Upward  flux surface PAR
-         nir_up_sfc    (:,:)           !< Upward  flux surface near-infrared radiation
-
+         nir_up_sfc    (:,:)       , & !< Upward  flux surface near-infrared radiation
+         aer_aod_533   (:,:,:)     , & !< Aerosol optical density at 533 nm
+         aer_ssa_533   (:,:,:)     , & !< Single scattering albedo at 533 nm
+         aer_asy_533   (:,:,:)     , & !< Asymmetry factor at 533 nm
+         aer_aod_2325  (:,:,:)     , & !< Aerosol optical density at 2325 nm
+         aer_ssa_2325  (:,:,:)     , & !< Single scattering albedo at 2325 nm
+         aer_asy_2325  (:,:,:)     , & !< Asymmetry factor at 2325 nm
+         aer_aod_9731  (:,:,:)         !< Aerosol optical density at 9731 nm
 
     INTEGER, TARGET ::  irad_aero_target(1), klev_target(1)
+    LOGICAL, TARGET ::  lrad_aero_diag_target(1)
     REAL(wp), TARGET ::  psctm_target(1)
 
 !    CHARACTER(len=*), PARAMETER :: method_name="atmo_psrad_concurrent_interface"
@@ -442,11 +501,13 @@ CONTAINS
 
    ! send to radiation
     irad_aero_target(1) = irad_aero
+    lrad_aero_diag_target(1) = lrad_aero_diag
     klev_target(1)      = klev
     psctm_target(1)     = psctm
 
     CALL exchange_data_atmo_2_psrad(patch%id,  &
                   c_loc(irad_aero_target(1)),  &
+                  c_loc(lrad_aero_diag_target(1)), &
                   c_loc(klev_target(1)),   &
                   c_loc(ktype(1,1)),       &
                   c_loc(psctm_target(1)),  &
@@ -459,6 +520,7 @@ CONTAINS
                   c_loc(alb_nir_dir(1,1)), &
                   c_loc(alb_vis_dif(1,1)), &
                   c_loc(alb_nir_dif(1,1)), &
+                  c_loc(emissivity(1,1)),  &
                   c_loc(zf(1,1,1)),        &
                   c_loc(zh(1,1,1)),        &
                   c_loc(dz(1,1,1)),        &
@@ -503,7 +565,15 @@ CONTAINS
                     c_loc(nir_dn_dff_sfc(1,1)), &
                     c_loc(vis_up_sfc(1,1)),     &
                     c_loc(par_up_sfc(1,1)),     &
-                    c_loc(nir_up_sfc(1,1)))
+                    c_loc(nir_up_sfc(1,1)),     &
+                    c_loc(aer_aod_533(1,1,1)),  &
+                    c_loc(aer_ssa_533(1,1,1)),  &
+                    c_loc(aer_asy_533(1,1,1)),  &
+                    c_loc(aer_aod_2325(1,1,1)), &
+                    c_loc(aer_ssa_2325(1,1,1)), &
+                    c_loc(aer_asy_2325(1,1,1)), &
+                    c_loc(aer_aod_9731(1,1,1))  &
+                    )
       IF (ltimer) CALL timer_stop(timer_extra2)
 
       
@@ -513,12 +583,13 @@ CONTAINS
       IF (ltimer) CALL timer_start(timer_extra21)
       CALL psrad_interface(                                                   &
         & patch,                                                              &
-        & irad_aero     ,klev                                                ,& 
+        & irad_aero       ,lrad_aero_diag  ,klev                             ,& 
         & ktype                                                              ,&
         & psctm, ssi_factor,                                                  &
         & loland          ,loglac          ,this_datetime                    ,&
         & pcos_mu0        ,daylght_frc                                       ,&
         & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
+        & emissivity                                                         ,&
         & zf              ,zh              ,dz                               ,&
         & pp_sfc          ,pp_fl                                             ,&
         & tk_sfc          ,tk_fl           ,tk_hl                            ,&
@@ -530,7 +601,10 @@ CONTAINS
         & sw_upw          ,sw_upw_clr      ,sw_dnw          ,sw_dnw_clr      ,&
         & vis_dn_dir_sfc  ,par_dn_dir_sfc  ,nir_dn_dir_sfc                   ,&
         & vis_dn_dff_sfc  ,par_dn_dff_sfc  ,nir_dn_dff_sfc                   ,&
-        & vis_up_sfc      ,par_up_sfc      ,nir_up_sfc                       )     
+        & vis_up_sfc      ,par_up_sfc      ,nir_up_sfc                       ,&
+        & aer_aod_533     ,aer_ssa_533     ,aer_asy_533                      ,&
+        & aer_aod_2325    ,aer_ssa_2325    ,aer_asy_2325                     ,&
+        & aer_aod_9731                                                        )     
       !-------------------------------------------------------------------
       IF (ltimer) CALL timer_stop(timer_extra21)
 
@@ -549,9 +623,8 @@ CONTAINS
   !-----------------------------------------------------------------------------
   ! this is the concurrent radiation
   !>
-  SUBROUTINE psrad_concurrent_interface(mtime_current, patch)
+  SUBROUTINE psrad_concurrent_interface(mtime_current)
     TYPE(datetime),  POINTER  :: mtime_current     ! current datetime (mtime)
-    TYPE(t_patch),   POINTER  :: patch    ! Patch
 
     TYPE(t_psrad_interface),POINTER :: this_memory
 !    CHARACTER(len=*), PARAMETER :: method_name="psrad_concurrent_interface"
@@ -582,6 +655,7 @@ CONTAINS
     ! recieve from atmo
     CALL exchange_data_atmo_2_psrad(this_memory%const%patch%id,                       &
                                     c_loc(this_memory%const%irad_aero),               &
+                                    c_loc(this_memory%const%lrad_aero_diag),          &
                                     c_loc(this_memory%const%no_of_levels),            &
                                     c_loc(this_memory%in%convection_type(1,1)),       &
                                     c_loc(this_memory%in%psctm),                      &
@@ -594,6 +668,7 @@ CONTAINS
                                     c_loc(this_memory%in%alb_nir_dir(1,1)),           &
                                     c_loc(this_memory%in%alb_vis_dif(1,1)),           &
                                     c_loc(this_memory%in%alb_nir_dif(1,1)),           &
+                                    c_loc(this_memory%in%emissivity(1,1)),            &
                                     c_loc(this_memory%const%zf(1,1,1)),               &
                                     c_loc(this_memory%const%zh(1,1,1)),               &
                                     c_loc(this_memory%const%dz(1,1,1)),               &
@@ -624,7 +699,8 @@ CONTAINS
       ! run the radiation in between receiving the input and sending the output
       CALL psrad_interface(                                                  &
        & this_memory%const%patch,                                            &
-       & this_memory%const%irad_aero     ,this_memory%const%no_of_levels    ,& 
+       & this_memory%const%irad_aero     , this_memory%const%lrad_aero_diag ,&
+       & this_memory%const%no_of_levels                                     ,& 
        & this_memory%in%convection_type                                     ,&
        & this_memory%in%psctm, this_memory%in%ssi_factor,                    &
        & this_memory%in%loland          ,this_memory%in%loglac          ,    &
@@ -632,6 +708,7 @@ CONTAINS
        & this_memory%in%pcos_mu0        ,this_memory%in%daylght_frc         ,&
        & this_memory%in%alb_vis_dir     ,this_memory%in%alb_nir_dir     ,    &
        & this_memory%in%alb_vis_dif     ,this_memory%in%alb_nir_dif     ,    &
+       & this_memory%in%emissivity                                          ,&
        & this_memory%const%zf, this_memory%const%zh, this_memory%const%dz   ,&
        & this_memory%in%pp_sfc          ,this_memory%in%pp_fl               ,&
        & this_memory%in%tk_sfc          ,this_memory%in%tk_fl,               &
@@ -650,7 +727,15 @@ CONTAINS
        & this_memory%out%nir_dn_dir_sfc                   ,                  &
        & this_memory%out%vis_dn_dff_sfc  ,this_memory%out%par_dn_dff_sfc    ,&
        & this_memory%out%nir_dn_dff_sfc,  this_memory%out%vis_up_sfc        ,&
-       & this_memory%out%par_up_sfc      ,this_memory%out%nir_up_sfc         )
+       & this_memory%out%par_up_sfc      ,this_memory%out%nir_up_sfc        ,&
+       & this_memory%diagnostics%aer_aod_533                                ,&
+       & this_memory%diagnostics%aer_ssa_533                                ,&
+       & this_memory%diagnostics%aer_asy_533                                ,&
+       & this_memory%diagnostics%aer_aod_2325                               ,&
+       & this_memory%diagnostics%aer_ssa_2325                               ,&
+       & this_memory%diagnostics%aer_asy_2325                               ,&
+       & this_memory%diagnostics%aer_aod_9731                                &
+       )
        IF (ltimer) CALL timer_stop(timer_extra21)
     ENDIF
     !---------------------------------------------
@@ -676,7 +761,15 @@ CONTAINS
                                     c_loc(this_memory%out%nir_dn_dff_sfc(1,1)), &
                                     c_loc(this_memory%out%vis_up_sfc(1,1)), &
                                     c_loc(this_memory%out%par_up_sfc(1,1)), &
-                                    c_loc(this_memory%out%nir_up_sfc(1,1)))
+                                    c_loc(this_memory%out%nir_up_sfc(1,1)), &
+                                    c_loc(this_memory%diagnostics%aer_aod_533(1,1,1)), &
+                                    c_loc(this_memory%diagnostics%aer_ssa_533(1,1,1)), &
+                                    c_loc(this_memory%diagnostics%aer_asy_533(1,1,1)), &
+                                    c_loc(this_memory%diagnostics%aer_aod_2325(1,1,1)),&
+                                    c_loc(this_memory%diagnostics%aer_ssa_2325(1,1,1)),&
+                                    c_loc(this_memory%diagnostics%aer_asy_2325(1,1,1)),&
+                                    c_loc(this_memory%diagnostics%aer_aod_9731(1,1,1)) &
+                                    )
 
        IF (ltimer) CALL timer_stop(timer_extra2)
    
@@ -687,8 +780,9 @@ CONTAINS
        IF (ltimer) CALL timer_start(timer_extra21)
      ! run the radiation after receiving the input and sending the output
       CALL psrad_interface(                                                   &
-       & this_memory%const%patch,                                           &
-       & this_memory%const%irad_aero     ,this_memory%const%no_of_levels    ,& 
+       & this_memory%const%patch,                                            &
+       & this_memory%const%irad_aero     ,this_memory%const%lrad_aero_diag  ,&
+       & this_memory%const%no_of_levels                                     ,& 
        & this_memory%in%convection_type                                     ,&
        & this_memory%in%psctm, this_memory%in%ssi_factor,                    &
        & this_memory%in%loland          ,this_memory%in%loglac          ,    &
@@ -696,6 +790,7 @@ CONTAINS
        & this_memory%in%pcos_mu0        ,this_memory%in%daylght_frc          ,&
        & this_memory%in%alb_vis_dir     ,this_memory%in%alb_nir_dir     ,    &
        & this_memory%in%alb_vis_dif     ,this_memory%in%alb_nir_dif     ,&
+       & this_memory%in%emissivity                                          ,&
        & this_memory%const%zf, this_memory%const%zh, this_memory%const%dz   ,&
        & this_memory%in%pp_sfc          ,this_memory%in%pp_fl               ,&
        & this_memory%in%tk_sfc          ,this_memory%in%tk_fl,               &
@@ -714,7 +809,15 @@ CONTAINS
        & this_memory%out%nir_dn_dir_sfc                   ,&
        & this_memory%out%vis_dn_dff_sfc  ,this_memory%out%par_dn_dff_sfc  ,&
        & this_memory%out%nir_dn_dff_sfc,  this_memory%out%vis_up_sfc      ,&
-       & this_memory%out%par_up_sfc      ,this_memory%out%nir_up_sfc                       )
+       & this_memory%out%par_up_sfc      ,this_memory%out%nir_up_sfc      ,&
+       & this_memory%diagnostics%aer_aod_533                              ,&
+       & this_memory%diagnostics%aer_ssa_533                              ,&
+       & this_memory%diagnostics%aer_asy_533                              ,&
+       & this_memory%diagnostics%aer_aod_2325                             ,&
+       & this_memory%diagnostics%aer_ssa_2325                             ,&
+       & this_memory%diagnostics%aer_asy_2325                             ,&
+       & this_memory%diagnostics%aer_aod_9731                              &
+       )
 
       IF (ltimer) CALL timer_stop(timer_extra21)
     ENDIF
@@ -732,8 +835,7 @@ CONTAINS
  
   !-----------------------------------------------------------------------------
   !>
-  SUBROUTINE finalize_psrad_concurrent(patch)
-    TYPE(t_patch),   POINTER  :: patch    ! Patch
+  SUBROUTINE finalize_psrad_concurrent
 
     TYPE(t_psrad_interface),POINTER :: this_memory
     CHARACTER(len=*), PARAMETER :: method_name="finalize_psrad_concurrent"
@@ -763,7 +865,15 @@ CONTAINS
                 c_loc(this_memory%out%nir_dn_dff_sfc(1,1)), &
                 c_loc(this_memory%out%vis_up_sfc(1,1)), &
                 c_loc(this_memory%out%par_up_sfc(1,1)), &
-                c_loc(this_memory%out%nir_up_sfc(1,1)))
+                c_loc(this_memory%out%nir_up_sfc(1,1)), &
+                c_loc(this_memory%diagnostics%aer_aod_533(1,1,1)),  &
+                c_loc(this_memory%diagnostics%aer_ssa_533(1,1,1)),  &
+                c_loc(this_memory%diagnostics%aer_asy_533(1,1,1)),  &
+                c_loc(this_memory%diagnostics%aer_aod_2325(1,1,1)), &
+                c_loc(this_memory%diagnostics%aer_ssa_2325(1,1,1)), &
+                c_loc(this_memory%diagnostics%aer_asy_2325(1,1,1)), &
+                c_loc(this_memory%diagnostics%aer_aod_9731(1,1,1))  &
+                )
 
        IF (ltimer) CALL timer_stop(timer_extra2)
    
@@ -782,13 +892,13 @@ CONTAINS
   ! create the psrad model and run through its interface sequentially
   !>
   SUBROUTINE psrad_interface_test(                                          &
-      & patch,                                                              &
-      & irad_aero     ,klev                                                ,& 
+      & irad_aero       ,lrad_aero_diag  ,klev                             ,& 
       & ktype                                                              ,&
       & psctm, ssi_factor,                                                  &
       & loland          ,loglac          ,this_datetime                    ,&
       & pcos_mu0        ,daylght_frc                                       ,&
       & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
+      & emissivity                                                         ,&
       & zf              ,zh              ,dz                               ,&
       & pp_sfc          ,pp_fl                                             ,&
       & tk_sfc          ,tk_fl           ,tk_hl                            ,&
@@ -800,10 +910,11 @@ CONTAINS
       & sw_upw          ,sw_upw_clr      ,sw_dnw          ,sw_dnw_clr      ,&
       & vis_dn_dir_sfc  ,par_dn_dir_sfc  ,nir_dn_dir_sfc                   ,&
       & vis_dn_dff_sfc  ,par_dn_dff_sfc  ,nir_dn_dff_sfc                   ,&
-      & vis_up_sfc      ,par_up_sfc      ,nir_up_sfc                       )     
+      & vis_up_sfc      ,par_up_sfc      ,nir_up_sfc                       ,&
+      & aer_aod_533     ,aer_ssa_533     ,aer_asy_533                      ,&
+      & aer_aod_2325    ,aer_ssa_2325    ,aer_asy_2325                     ,&
+      & aer_aod_9731                                                        )     
      !-------------------------------------------------------------------
-
-    TYPE(t_patch)   ,TARGET ,INTENT(in)    :: patch
 
     INTEGER,INTENT(IN)  ::             &
          irad_aero,                    & !< aerosol control
@@ -816,7 +927,9 @@ CONTAINS
 
     LOGICAL,INTENT(IN) ::              &
          loland(:,:),                & !< land sea mask, land=.true.
-         loglac(:,:)                   !< glacier mask, glacier=.true.
+         loglac(:,:),                & !< glacier mask, glacier=.true.
+         lrad_aero_diag                !< switch on (.true.) aerosol optical
+                                       !< properties diagnosis
 
     TYPE(datetime), POINTER ::  this_datetime !< actual time step
 
@@ -827,6 +940,7 @@ CONTAINS
          alb_nir_dir(:,:),           & !< surface albedo for NIR range and dir light
          alb_vis_dif(:,:),           & !< surface albedo for vis range and dif light
          alb_nir_dif(:,:),           & !< surface albedo for NIR range and dif light
+         emissivity(:,:),            & !< surface longwave emissivity
          zf(:,:,:),               & !< geometric height at full level in m
          zh(:,:,:),             & !< geometric height at half level in m
          dz(:,:,:),               & !< geometric height thickness in m
@@ -868,8 +982,15 @@ CONTAINS
          nir_dn_dff_sfc(:,:)       , & !< Direct  downward flux surface near-infrared radiation
          vis_up_sfc    (:,:)       , & !< Upward  flux surface visible radiation 
          par_up_sfc    (:,:)       , & !< Upward  flux surface PAR
-         nir_up_sfc    (:,:)           !< Upward  flux surface near-infrared radiation
- 
+         nir_up_sfc    (:,:)       , & !< Upward  flux surface near-infrared radiation
+         aer_aod_533   (:,:,:)     , & !< Aerosol optical density at 533 nm
+         aer_ssa_533   (:,:,:)     , & !< Single scattering albedo at 533 nm
+         aer_asy_533   (:,:,:)     , & !< Asymmetry factor at 533 nm
+         aer_aod_2325  (:,:,:)     , & !< Aerosol optical density at 2325 nm
+         aer_ssa_2325  (:,:,:)     , & !< Single scattering albedo at 2325 nm
+         aer_asy_2325  (:,:,:)     , & !< Asymmetry factor at 2325 nm
+         aer_aod_9731  (:,:,:)         !< Aerosol optical density at 9731 nm
+         
     CHARACTER(len=filename_max) :: my_namelist_filename
     CHARACTER(len=filename_max) :: master_namelist_filename="icon_master.namelist"
     TYPE(t_psrad_interface),POINTER :: this_memory  
@@ -919,6 +1040,7 @@ CONTAINS
     this_memory%in%alb_nir_dir = alb_nir_dir
     this_memory%in%alb_vis_dif = alb_vis_dif
     this_memory%in%alb_nir_dif = alb_nir_dif
+    this_memory%in%emissivity = emissivity
     this_memory%in%pp_sfc = pp_sfc
     this_memory%in%pp_fl = pp_fl
     this_memory%in%tk_sfc = tk_sfc
@@ -935,7 +1057,8 @@ CONTAINS
     !------------------------------------------------------------------------
     CALL psrad_interface(                                                   &
       & this_memory%const%patch,                                           &
-      & this_memory%const%irad_aero     ,this_memory%const%no_of_levels    ,& 
+      & this_memory%const%irad_aero    ,this_memory%const%lrad_aero_diag   ,&
+      & this_memory%const%no_of_levels                                     ,& 
       & this_memory%in%convection_type                                     ,&
       & this_memory%in%psctm, this_memory%in%ssi_factor,                    &
       & this_memory%in%loland          ,this_memory%in%loglac          ,    &
@@ -943,6 +1066,7 @@ CONTAINS
       & this_memory%in%pcos_mu0        ,this_memory%in%daylght_frc          ,&
       & this_memory%in%alb_vis_dir     ,this_memory%in%alb_nir_dir     ,    &
       & this_memory%in%alb_vis_dif     ,this_memory%in%alb_nir_dif     ,&
+      & this_memory%in%emissivity                                          ,&
       & this_memory%const%zf, this_memory%const%zh, this_memory%const%dz   ,&
       & this_memory%in%pp_sfc          ,this_memory%in%pp_fl               ,&
       & this_memory%in%tk_sfc          ,this_memory%in%tk_fl,               &
@@ -961,7 +1085,15 @@ CONTAINS
       & this_memory%out%nir_dn_dir_sfc                   ,&
       & this_memory%out%vis_dn_dff_sfc  ,this_memory%out%par_dn_dff_sfc  ,&
       & this_memory%out%nir_dn_dff_sfc,  this_memory%out%vis_up_sfc      ,&
-      & this_memory%out%par_up_sfc      ,this_memory%out%nir_up_sfc                       ) 
+      & this_memory%out%par_up_sfc      ,this_memory%out%nir_up_sfc      ,&
+      & this_memory%diagnostics%aer_aod_533                              ,&
+      & this_memory%diagnostics%aer_ssa_533                              ,&
+      & this_memory%diagnostics%aer_asy_533                              ,&
+      & this_memory%diagnostics%aer_aod_2325                             ,&
+      & this_memory%diagnostics%aer_ssa_2325                             ,&
+      & this_memory%diagnostics%aer_asy_2325                             ,&
+      & this_memory%diagnostics%aer_aod_9731                              &
+      ) 
 
       lw_dnw = this_memory%out%lw_dnw !< All-sky   downward longwave  at all levels
       lw_upw = this_memory%out%lw_upw!< All-sky   upward   longwave  at all levels
@@ -984,7 +1116,14 @@ CONTAINS
       lw_upw_clr = this_memory%diagnostics%lw_upw_clr !< Clear-sky upward   longwave  at all levels
       sw_dnw_clr = this_memory%diagnostics%sw_dnw_clr !< Clear-sky downward shortwave at all levels
       sw_upw_clr = this_memory%diagnostics%sw_upw_clr !< Clear-sky upward   shortwave at all levels
-
+      aer_aod_533  = this_memory%diagnostics%aer_aod_533 !< Aerosol optical density at 533 nm
+      aer_ssa_533  = this_memory%diagnostics%aer_ssa_533 !< Single scattering albedo at 533 nm
+      aer_asy_533  = this_memory%diagnostics%aer_asy_533 !< Asymmetry factor at 533 nm
+      aer_aod_2325 = this_memory%diagnostics%aer_aod_2325!< Aerosol optical density at 2325 nm
+      aer_ssa_2325 = this_memory%diagnostics%aer_ssa_2325!< Single scattering albedo at 2325 nm
+      aer_asy_2325 = this_memory%diagnostics%aer_asy_2325!< Asymmetry factor at 2325 nm
+      aer_aod_9731 = this_memory%diagnostics%aer_aod_9731!< Aerosol optical density at 9731 nm
+      
   END SUBROUTINE psrad_interface_test
  ! -------------------------------------------------------------------------------------
 

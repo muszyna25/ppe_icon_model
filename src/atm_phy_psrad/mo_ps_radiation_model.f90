@@ -16,7 +16,6 @@
 
 MODULE mo_ps_radiation_model
 
-  USE mo_kind                    ,ONLY: i8
   USE mo_exception,               ONLY: message, message_text, finish
   USE mo_psrad_interface_namelist,ONLY: configure_ps_radiation, number_of_levels
   USE mo_time_config,             ONLY: time_config
@@ -34,7 +33,7 @@ MODULE mo_ps_radiation_model
   USE mo_echam_phy_config,        ONLY: echam_phy_tc
   USE mo_echam_rad_config       , ONLY: echam_rad_config
   USE mo_bc_aeropt_kinne         ,ONLY: read_bc_aeropt_kinne
-  USE mo_bc_aeropt_stenchikov    ,ONLY: read_bc_aeropt_stenchikov
+  USE mo_bc_aeropt_cmip6_volc    ,ONLY: read_bc_aeropt_cmip6_volc
   USE mo_bc_aeropt_splumes,       ONLY: setup_bc_aeropt_splumes
 
   USE mtime,                      ONLY: datetime, timedelta, datetimeToString,      &
@@ -79,22 +78,22 @@ MODULE mo_ps_radiation_model
 !     IF (output_mode%l_nml) THEN
 !       CALL parse_variable_groups()
 !       ! compute sim_start, sim_end
-!       CALL datetimeToString(time_config%tc_exp_startdate, sim_step_info%sim_start)
-!       CALL datetimeToString(time_config%tc_stopdate, sim_step_info%sim_end)
-!       CALL datetimeToString(time_config%tc_startdate, sim_step_info%run_start)
-!       CALL datetimeToString(time_config%tc_stopdate, sim_step_info%restart_time)
+!       sim_step_info%sim_start = time_config%tc_exp_startdate
+!       sim_step_info%sim_end = time_config%tc_stopdate
+!       sim_step_info%run_start = time_config%tc_startdate
+!       sim_step_info%restart_time = time_config%tc_stopdate
 ! 
 !       sim_step_info%dtime      = dtime
 !       jstep0 = 0
 ! 
 !       restartAttributes => getAttributesForRestarting()
-!       IF (ASSOCIATED(restartAttributes)) THEN
+!       IF (restartAttributes%is_init) THEN
 ! 
 !         ! get start counter for time loop from restart file:
 !         jstep0 = restartAttributes%getInteger("jstep")
 !       END IF
 !       sim_step_info%jstep0    = jstep0
-!       CALL init_mean_stream(ps_radiation_model_patch_3d%p_patch_2d(1))
+!       CALL init_statistics_stream
 !       CALL init_name_list_output(sim_step_info, opt_lprintlist=.TRUE.,opt_l_is_ps_radiation_model=.TRUE.)
 !       CALL create_mipz_level_selections(output_file)
 !     ENDIF
@@ -148,14 +147,14 @@ MODULE mo_ps_radiation_model
       
       CALL ps_rad_run_bc(mtime_current, patch)
 
-      CALL psrad_concurrent_interface(mtime_current, patch)
+      CALL psrad_concurrent_interface(mtime_current)
  
       mtime_current = mtime_current + radiation_time_step
       timestep = timestep + 1
    
     ENDDO
 
-    CALL finalize_psrad_concurrent(patch)
+    CALL finalize_psrad_concurrent
 
     CALL message (method_name, " ended")
     CALL message ("", "-----------------------------------------------------------")
@@ -189,25 +188,31 @@ MODULE mo_ps_radiation_model
 
       ! tropospheric aerosol optical properties
       IF (echam_rad_config(1)%irad_aero == 13) THEN
-        CALL read_bc_aeropt_kinne(mtime_current%date%year, patch) 
+        CALL read_bc_aeropt_kinne(mtime_current, patch) 
       END IF
       !
       ! stratospheric aerosol optical properties
       IF (echam_rad_config(1)%irad_aero == 14) THEN
-        CALL read_bc_aeropt_stenchikov(mtime_current, patch)
+        CALL read_bc_aeropt_cmip6_volc(mtime_current, patch%id)
       END IF
       !
       ! tropospheric and stratospheric aerosol optical properties
       IF (echam_rad_config(1)%irad_aero == 15) THEN
-        CALL read_bc_aeropt_kinne     (mtime_current%date%year, patch)
-        CALL read_bc_aeropt_stenchikov(mtime_current,patch)
+        CALL read_bc_aeropt_kinne     (mtime_current, patch)
+        CALL read_bc_aeropt_cmip6_volc(mtime_current, patch%id)
       END IF
       ! tropospheric background aerosols (Kinne) and stratospheric
-      ! aerosols (Stenchikov) + simple plumes (analytical, nothing to be read
+      ! aerosols (CMIP6) + simple plumes (analytical, nothing to be read
       ! here, initialization see init_echam_phy (mo_echam_phy_init)) 
       IF (echam_rad_config(1)%irad_aero == 18) THEN
-        CALL read_bc_aeropt_kinne     (1850_i8, patch)
-        CALL read_bc_aeropt_stenchikov(mtime_current, patch)
+        CALL read_bc_aeropt_kinne     (mtime_current, patch)
+        CALL read_bc_aeropt_cmip6_volc(mtime_current, patch%id)
+      END IF
+      ! tropospheric background aerosols (Kinne) and + simple plumes
+      ! (analytical, nothing to be read
+      ! here, initialization see init_echam_phy (mo_echam_phy_init)) 
+      IF (echam_rad_config(1)%irad_aero == 19) THEN
+        CALL read_bc_aeropt_kinne     (mtime_current, patch)
       END IF
 
 !     write(0,*) method_name, " done."
@@ -263,7 +268,7 @@ MODULE mo_ps_radiation_model
     !-------------------------------------------------------------------
     CALL set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs, &
                                     num_restart_procs, &
-                                    opt_comp_id=ps_radiation_process)
+                                    my_comp_id=ps_radiation_process)
 
     !-------------------------------------------------------------------
     ! 3.2 Initialize various timers

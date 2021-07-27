@@ -1,0 +1,100 @@
+#!/bin/bash
+
+set -eu
+
+SCRIPT_DIR=$(cd "$(dirname "$0")"; pwd)
+ICON_DIR=$(cd "${SCRIPT_DIR}/../../.."; pwd)
+
+MODULES='PrgEnv-cray cce/10.0.2 craype-haswell cray-mpich'
+
+SW_ROOT='/project/d56/spack-sw/cce-10.0.2-haswell'
+
+HDF5_ROOT="${SW_ROOT}/hdf5-1.10.6-7zkpogp"
+HDF5_LIBS='-lhdf5'
+
+NETCDF_ROOT="${SW_ROOT}/netcdf-c-4.7.3-nvzxx2p"
+NETCDF_LIBS='-lnetcdf'
+
+NETCDFF_ROOT="${SW_ROOT}/netcdf-fortran-4.5.2-lkowzqy"
+NETCDFF_LIBS='-lnetcdff'
+
+ECCODES_ROOT="${SW_ROOT}/eccodes-2.13.0-bwta2yp"
+ECCODES_LIBS='-leccodes'
+
+SERIALBOX_ROOT="${SW_ROOT}/serialbox-2.6.0-sn3tx5z"
+SERIALBOX_LIBS='-lSerialboxFortran'
+
+XML2_LIBS='-lxml2'
+
+CLAW_ROOT="${SW_ROOT}/claw-master-c3k32rs"
+
+################################################################################
+
+BUILD_ENV=". \"${SCRIPT_DIR}/../module_switcher\"; switch_for_module ${MODULES}; export LD_LIBRARY_PATH=\"${HDF5_ROOT}/lib:${NETCDF_ROOT}/lib:${NETCDFF_ROOT}/lib:${ECCODES_ROOT}/lib:${SERIALBOX_ROOT}/lib:\${LD_LIBRARY_PATH}\";"
+
+CC='cc'
+CFLAGS='-g -O3'
+CPPFLAGS="-I${HDF5_ROOT}/include -I${NETCDF_ROOT}/include -I${ECCODES_ROOT}/include -I/usr/include/libxml2"
+
+FC='ftn'
+FCFLAGS="-I${NETCDFF_ROOT}/include -I${SERIALBOX_ROOT}/include -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc -O cache0 -r am -Ktrap=divz,ovf,inv"
+ICON_FCFLAGS=''
+ICON_BUNDLED_FCFLAGS=''
+
+LDFLAGS="-L${HDF5_ROOT}/lib -L${NETCDF_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${ECCODES_ROOT}/lib -L${SERIALBOX_ROOT}/lib"
+
+LIBS="-Wl,--as-needed ${XML2_LIBS} ${SERIALBOX_LIBS} ${ECCODES_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${HDF5_LIBS}"
+
+# We want to make sure that LD_LIBRARY_PATH will not override RPATHs at
+# runtime. To achive that, we need to set '-Wl,--disable-new-dtags', which, if
+# added to LDFLAGS or LIBS, breaks the configure-time checks of the
+# Libtool-based bundled libraries. Therefore, we add this flag to ICON_LDFLAGS.
+ICON_LDFLAGS='-Wl,--disable-new-dtags'
+
+MPI_LAUNCH='srun -p debug -C gpu'
+SB2PP="${SERIALBOX_ROOT}/python/pp_ser/pp_ser.py"
+CLAW="${CLAW_ROOT}/bin/clawfc"
+
+EXTRA_CONFIG_ARGS='--enable-grib2 --enable-rte-rrtmgp --disable-psrad'
+
+################################################################################
+
+"${ICON_DIR}/configure" \
+BUILD_ENV="$BUILD_ENV" \
+CC="$CC" \
+CFLAGS="$CFLAGS" \
+CLAW="$CLAW" \
+CPPFLAGS="$CPPFLAGS" \
+FC="$FC" \
+FCFLAGS="$FCFLAGS" \
+ICON_BUNDLED_FCFLAGS="$ICON_BUNDLED_FCFLAGS" \
+ICON_FCFLAGS="$ICON_FCFLAGS" \
+ICON_LDFLAGS="$ICON_LDFLAGS" \
+LDFLAGS="$LDFLAGS" \
+LIBS="$LIBS" \
+MPI_LAUNCH="$MPI_LAUNCH" \
+SB2PP="$SB2PP" \
+${EXTRA_CONFIG_ARGS} \
+"$@"
+
+for arg in "$@"; do
+  case $arg in
+    -help | --help | --hel | --he | -h | -help=r* | --help=r* | --hel=r* | --he=r* | -hr* | -help=s* | --help=s* | --hel=s* | --he=s* | -hs*)
+      test -n "${EXTRA_CONFIG_ARGS}" && echo '' && echo "This wrapper script ('$0') calls the configure script with the following extra arguments, which might override the default values listed above: ${EXTRA_CONFIG_ARGS}"
+      exit 0 ;;
+  esac
+done
+
+# Generate input file for runscript generation:
+./config.status --file=run/set-up.info
+
+# Copy runscript-related files when building out-of-source:
+if test $(pwd) != $(cd "${ICON_DIR}"; pwd); then
+  echo "Copying runscript input files from the source directory..."
+  rsync -uavz ${ICON_DIR}/run . --exclude='*in' --exclude='.*'
+  rsync -uavz ${ICON_DIR}/externals . --exclude='.git' --exclude='*.f90' --exclude='*.F90' --exclude='*.c' --exclude='*.h' --exclude='*.Po' --exclude='tests' --exclude='rrtmgp*.nc' --exclude='*.mod' --exclude='*.o'
+  rsync -uavz ${ICON_DIR}/make_runscripts .
+  ln -sf ${ICON_DIR}/data
+  ln -sf ${ICON_DIR}/vertical_coord_tables
+fi
+

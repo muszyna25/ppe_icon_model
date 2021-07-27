@@ -38,7 +38,7 @@ CONTAINS
 
   FUNCTION calculate_time_interpolation_weights(current_date) RESULT(time_interpolation_weight)
     TYPE(t_time_interpolation_weights) :: time_interpolation_weight
-    TYPE(datetime), POINTER, INTENT(in) :: current_date
+    TYPE(datetime), INTENT(in) :: current_date
 
     TYPE(datetime), POINTER :: next_month
     TYPE(datetime), POINTER :: previous_month
@@ -60,8 +60,9 @@ CONTAINS
       ! first half of month 
 
       one_month => newTimedelta('-P1M')
-      previous_month => newDatetime(current_date)
-      previous_month = current_date + one_month
+      previous_month => newDatetime(current_date%date%year, current_date%date%month, 15, 0, 0, 0, 0)
+      ! use patched current_date stored in previous_month to get a proper previous month
+      previous_month = previous_month + one_month
       days_in_previous_month = getNoOfDaysInMonthDateTime(previous_month)
       seconds_in_middle_of_previous_month = 43200 * days_in_previous_month          ! = 86400 * my_month_len / 2
 
@@ -86,8 +87,9 @@ CONTAINS
       ! second half of month
 
       one_month => newTimedelta('P1M')
-      next_month => newDatetime(current_date)
-      next_month = current_date + one_month      
+      next_month => newDatetime(current_date%date%year, current_date%date%month, 15, 0, 0, 0, 0)
+      ! use patched current_date stored in next_month to get a proper next month
+      next_month = next_month + one_month      
       days_in_next_month = getNoOfDaysInMonthDateTime(next_month)
       seconds_in_middle_of_next_month = 43200 * days_in_next_month         ! = 86400 * my_month_len / 2
 

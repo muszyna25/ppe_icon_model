@@ -1,0 +1,117 @@
+#!/bin/bash
+
+set -eu
+
+SCRIPT_DIR=$(cd "$(dirname "$0")"; pwd)
+ICON_DIR=$(cd "${SCRIPT_DIR}/../../.."; pwd)
+
+MODULES='PrgEnv-pgi pgi/20.1.1 craype-haswell cray-mpich cudatoolkit gcc/8.3.0'
+
+SW_ROOT='/project/d56/spack-sw/pgi-20.1.1-haswell'
+
+HDF5_ROOT="${SW_ROOT}/hdf5-1.10.6-mciilo2"
+HDF5_LIBS='-lhdf5'
+
+NETCDF_ROOT="${SW_ROOT}/netcdf-c-4.7.3-ls7chuc"
+NETCDF_LIBS='-lnetcdf'
+
+NETCDFF_ROOT="${SW_ROOT}/netcdf-fortran-4.5.2-fxqf3a5"
+NETCDFF_LIBS='-lnetcdff'
+
+ECCODES_ROOT="${SW_ROOT}/eccodes-2.13.0-wwvgo7q"
+ECCODES_LIBS='-leccodes'
+
+SERIALBOX_ROOT="${SW_ROOT}/serialbox-2.6.0-pcdr2yu"
+SERIALBOX_LIBS='-lSerialboxFortran'
+
+BLAS_LAPACK_LIBS='-llapack -lblas'
+
+XML2_LIBS='-lxml2'
+
+CLAW_ROOT='/project/d56/install/daint/claw/v2.0.1/pgi'
+
+# The rest of libraries required by CUDA will be provided by PGI compiler:
+STDCXX_LIBS='-lstdc++'
+
+################################################################################
+
+BUILD_ENV=". \"${SCRIPT_DIR}/../module_switcher\"; switch_for_module ${MODULES}; export LD_LIBRARY_PATH=\"${HDF5_ROOT}/lib:${NETCDF_ROOT}/lib:${NETCDFF_ROOT}/lib:${ECCODES_ROOT}/lib:${SERIALBOX_ROOT}/lib:\${LD_LIBRARY_PATH}\"; export CUDA_HOME=\${CUDATOOLKIT_HOME};"
+
+# We need the value of GCC_PATH (set by the gcc/8.3.0 module):
+eval "$BUILD_ENV"
+
+CC='cc'
+CFLAGS='-g -O2'
+CPPFLAGS="-I${HDF5_ROOT}/include -I${NETCDF_ROOT}/include -I${ECCODES_ROOT}/include -I/usr/include/libxml2"
+
+FC='ftn'
+FCFLAGS="-I${NETCDFF_ROOT}/include -I${SERIALBOX_ROOT}/include -g -O -Mrecursive -Mallocatable=03 -acc=verystrict -ta=nvidia:cc60 -Minfo=accel,inline -D__SWAPDIM"
+ICON_FCFLAGS=''
+ICON_BUNDLED_FCFLAGS=''
+
+LDFLAGS="-L${GCC_PATH}/snos/lib64 -L${HDF5_ROOT}/lib -L${NETCDF_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${ECCODES_ROOT}/lib -L${SERIALBOX_ROOT}/lib"
+
+LIBS="-Wl,--as-needed ${XML2_LIBS} ${BLAS_LAPACK_LIBS} ${SERIALBOX_LIBS} ${ECCODES_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${HDF5_LIBS} ${STDCXX_LIBS}"
+
+# We want to make sure that LD_LIBRARY_PATH will not override RPATHs at
+# runtime. To achive that, we need to set '-Wl,--disable-new-dtags', which, if
+# added to LDFLAGS or LIBS, breaks the configure-time checks of the
+# Libtool-based bundled libraries. Therefore, we add this flag to ICON_LDFLAGS.
+ICON_LDFLAGS='-Wl,--disable-new-dtags'
+
+MPI_LAUNCH='srun -p debug -C gpu'
+SB2PP="${SERIALBOX_ROOT}/python/pp_ser/pp_ser.py"
+CLAW="${CLAW_ROOT}/bin/clawfc"
+
+NVCC='nvcc'
+NVCFLAGS='--std=c++11 -arch=sm_60 -g -O3'
+
+EXTRA_CONFIG_ARGS='--enable-grib2 --disable-loop-exchange --enable-claw --enable-gpu --enable-rte-rrtmgp --disable-psrad'
+
+# Speed up the configuration by disabling MPI checks:
+EXTRA_CONFIG_ARGS+=' --disable-mpi-checks'
+MPI_LAUNCH=false
+
+################################################################################
+
+"${ICON_DIR}/configure" \
+BUILD_ENV="$BUILD_ENV" \
+CC="$CC" \
+CFLAGS="$CFLAGS" \
+CLAW="$CLAW" \
+CPPFLAGS="$CPPFLAGS" \
+FC="$FC" \
+FCFLAGS="$FCFLAGS" \
+ICON_BUNDLED_FCFLAGS="$ICON_BUNDLED_FCFLAGS" \
+ICON_FCFLAGS="$ICON_FCFLAGS" \
+ICON_LDFLAGS="$ICON_LDFLAGS" \
+LDFLAGS="$LDFLAGS" \
+LIBS="$LIBS" \
+MPI_LAUNCH="$MPI_LAUNCH" \
+NVCC="$NVCC" \
+NVCFLAGS="$NVCFLAGS" \
+SB2PP="$SB2PP" \
+${EXTRA_CONFIG_ARGS} \
+"$@"
+
+for arg in "$@"; do
+  case $arg in
+    -help | --help | --hel | --he | -h | -help=r* | --help=r* | --hel=r* | --he=r* | -hr* | -help=s* | --help=s* | --hel=s* | --he=s* | -hs*)
+      test -n "${EXTRA_CONFIG_ARGS}" && echo '' && echo "This wrapper script ('$0') calls the configure script with the following extra arguments, which might override the default values listed above: ${EXTRA_CONFIG_ARGS}"
+      exit 0 ;;
+  esac
+done
+
+# Generate input file for runscript generation:
+./config.status --file=run/set-up.info
+
+# Copy runscript-related files when building out-of-source:
+if test $(pwd) != $(cd "${ICON_DIR}"; pwd); then
+  echo "Copying runscript input files from the source directory..."
+  rsync -uavz ${ICON_DIR}/run . --exclude='*in' --exclude='.*'
+  rsync -uavz ${ICON_DIR}/externals . --exclude='.git' --exclude='*.f90' --exclude='*.F90' --exclude='*.c' --exclude='*.h' --exclude='*.Po' --exclude='tests' --exclude='rrtmgp*.nc' --exclude='*.mod' --exclude='*.o'
+  rsync -uavz ${ICON_DIR}/make_runscripts .
+  ln -sf ${ICON_DIR}/data
+  ln -sf ${ICON_DIR}/vertical_coord_tables
+fi
+

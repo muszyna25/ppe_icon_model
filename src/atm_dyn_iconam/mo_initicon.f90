@@ -22,9 +22,11 @@
 
 MODULE mo_initicon
 
-  USE mo_kind,                ONLY: dp, wp, vp
+  USE mo_kind,                ONLY: dp, wp, vp, sp
+  USE mo_io_units,            ONLY: filename_max
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, iqm_max, iforcing, check_uuid_gracefully
+  USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, iqg, iqm_max, iforcing, check_uuid_gracefully, &
+                                    iqh, iqnc, iqnr, iqni, iqns, iqng, iqnh
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag
@@ -34,41 +36,42 @@ MODULE mo_initicon
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
   USE mo_initicon_types,      ONLY: t_initicon_state, ana_varnames_dict, t_init_state_const
-  USE mo_initicon_config,     ONLY: init_mode, dt_iau, lvert_remap_fg, &
-    &                               lread_ana, ltile_init, &
+  USE mo_initicon_config,     ONLY: init_mode, dt_iau, lvert_remap_fg, lread_ana, ltile_init, &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart, lconsistency_checks, &
-    &                               niter_divdamp, niter_diffu, lanaread_tseasfc, &
-    &                               fgFilename, anaFilename, ana_varnames_map_file
+    &                               niter_divdamp, niter_diffu, lanaread_tseasfc, qcana_mode, qiana_mode, &
+    &                               qrsgana_mode, fgFilename, anaFilename, ana_varnames_map_file,         &
+    &                               icpl_da_sfcevap, dt_ana
+  USE mo_limarea_config,      ONLY: latbc_config
   USE mo_advection_config,    ONLY: advection_config
   USE mo_nwp_tuning_config,   ONLY: max_freshsnow_inc
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, MODE_DWDANA,   &
+  USE mo_impl_constants,      ONLY: SUCCESS, MODE_DWDANA, max_dom,   &
     &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA,              &
     &                               MODE_ICONVREMAP, MODE_COMBINED, MODE_COSMO,       &
     &                               min_rlcell, INWP, min_rledge_int, grf_bdywidth_c, &
-    &                               min_rlcell_int, dzsoil_icon => dzsoil
+    &                               min_rlcell_int
   USE mo_physical_constants,  ONLY: rd, cpd, cvd, p0ref, vtmpc1, rd_o_cpd, tmelt, tf_salt
   USE mo_exception,           ONLY: message, finish
   USE mo_grid_config,         ONLY: n_dom, l_limited_area
   USE mo_nh_init_utils,       ONLY: convert_thdvars, init_w
   USE mo_nh_init_nest_utils,  ONLY: interpolate_vn_increments
   USE mo_util_phys,           ONLY: virtual_temp
-  USE mo_satad,               ONLY: sat_pres_ice, spec_humi
+  USE mo_util_string,         ONLY: int2string
+  USE mo_satad,               ONLY: sat_pres_ice, spec_humi, sat_pres_water
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, ntiles_lnd, llake, &
     &                               isub_lake, isub_water, lsnowtile, frlnd_thrhld, &
-    &                               frlake_thrhld, lprog_albsi
-  USE mo_extpar_config,       ONLY: itype_vegetation_cycle
-  USE mo_seaice_nwp,          ONLY: frsi_min
-  USE mo_atm_phy_nwp_config,  ONLY: iprog_aero
-  USE mo_phyparam_soil,       ONLY: cporv, cadp, cpwp, cfcap, crhosmaxf, crhosmin_ml, crhosmax_ml
-  USE mo_nwp_soil_init,       ONLY: get_wsnow
+    &                               frlake_thrhld, lprog_albsi, dzsoil_icon => dzsoil
+  USE sfc_seaice,             ONLY: frsi_min
+  USE mo_atm_phy_nwp_config,  ONLY: iprog_aero, atm_phy_nwp_config
+  USE sfc_terra_data,         ONLY: cporv, cadp, cpwp, cfcap, crhosmaxf, crhosmin_ml, crhosmax_ml
+  USE sfc_terra_init,         ONLY: get_wsnow
   USE mo_nh_vert_interp,      ONLY: vert_interp_atm, vert_interp_sfc
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
-  USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
+  USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp, calc_qsum
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
-  USE mo_sync,                ONLY: sync_patch_array, SYNC_E, SYNC_C
+  USE mo_sync,                ONLY: sync_patch_array, SYNC_E, SYNC_C, global_sum_array
   USE mo_math_laplace,        ONLY: nabla2_vec, nabla4_vec
   USE mo_cdi,                 ONLY: cdiDefAdditionalKey, cdiInqMissval
-  USE mo_flake,               ONLY: flake_coldinit
+  USE sfc_flake,              ONLY: flake_coldinit
   USE mo_initicon_utils,      ONLY: fill_tile_points, init_snowtiles, copy_initicon2prog_atm, copy_initicon2prog_sfc, &
                                   & construct_initicon, deallocate_initicon, copy_fg2initicon, &
                                   & initVarnamesDict, printChecksums, init_aerosol
@@ -78,10 +81,11 @@ MODULE mo_initicon
   USE mo_input_request_list,  ONLY: t_InputRequestList, InputRequestList_create
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_input_instructions,  ONLY: t_readInstructionListPtr, readInstructionList_make, kInputSourceAna, &
-                                    kInputSourceBoth, kInputSourceCold
+                                    kInputSourceBoth, kInputSourceCold, kInputSourceAnaI, kInputSourceFgAnaI
   USE mo_util_uuid_types,     ONLY: t_uuid
   USE mo_nwp_sfc_utils,       ONLY: seaice_albedo_coldstart
   USE mo_fortran_tools,       ONLY: init
+  USE mo_upatmo_config,       ONLY: upatmo_config
 
 
   IMPLICIT NONE
@@ -126,7 +130,7 @@ MODULE mo_initicon
     ! Allocate initicon data type
     ALLOCATE (initicon(n_dom), initicon_const(n_dom),  &
       &       stat=ist)
-    IF (ist /= SUCCESS)  CALL finish(TRIM(routine),'allocation for initicon failed')
+    IF (ist /= SUCCESS)  CALL finish(routine,'allocation for initicon failed')
 
     DO jg = 1, n_dom
       initicon(jg)%const => initicon_const(jg)
@@ -168,20 +172,20 @@ MODULE mo_initicon
     ! read and initialize ICON prognostic fields
     !
     CALL process_input_data(p_patch, inputInstructions, p_nh_state, p_int_state, p_grf_state, ext_data, prm_diag, p_lnd_state)
-    CALL printChecksums(initicon, p_nh_state, p_lnd_state)
+    !CALL printChecksums(initicon, p_nh_state, p_lnd_state)
 
     ! Deallocate initicon data type
     !
     CALL deallocate_initicon(initicon)
 
     DEALLOCATE (initicon, stat=ist)
-    IF (ist /= success) CALL finish(TRIM(routine),'deallocation for initicon failed')
+    IF (ist /= success) CALL finish(routine,'deallocation for initicon failed')
     DO jg = 1, n_dom
       IF(p_patch(jg)%ldom_active) THEN
         IF(my_process_is_stdio()) CALL inputInstructions(jg)%ptr%printSummary(jg)
         CALL inputInstructions(jg)%ptr%destruct()
         DEALLOCATE(inputInstructions(jg)%ptr, stat=ist)
-        IF(ist /= success) CALL finish(TRIM(routine),'deallocation of an input instruction list failed')
+        IF(ist /= success) CALL finish(routine,'deallocation of an input instruction list failed')
       END IF
     END DO
 
@@ -209,7 +213,7 @@ MODULE mo_initicon
         CASE(MODE_IFSANA)   
             CALL message(modname,'MODE_IFS: perform initialization with IFS analysis')
         CASE(MODE_COMBINED)
-            CALL message(modname,'MODE_COMBINED: IFS-atm + GME-soil')
+            CALL message(modname,'MODE_COMBINED: IFS-atm + ICON-soil')
         CASE(MODE_COSMO)
             CALL message(modname,'MODE_COSMO: COSMO-atm + COSMO-soil')
         CASE DEFAULT
@@ -233,8 +237,9 @@ MODULE mo_initicon
     TYPE(t_lnd_state), INTENT(INOUT), OPTIONAL :: p_lnd_state(:)
 
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":read_dwdfg"
-    INTEGER :: jg
+    INTEGER :: jg, jg1
     CLASS(t_InputRequestList), POINTER :: requestList
+    CHARACTER(LEN=filename_max) :: fgFilename_str(max_dom)
 
     !The input file paths & types are NOT initialized IN all modes, so we need to avoid creating InputRequestLists IN these cases.
     SELECT CASE(init_mode)
@@ -253,17 +258,37 @@ MODULE mo_initicon
       ENDIF
     END DO
 
+    DO jg = 1, n_dom
+      fgFilename_str(jg) = " "
+      IF(p_patch(jg)%ldom_active) THEN
+        fgFilename_str(jg) = fgFilename(p_patch(jg))
+
+        IF (my_process_is_stdio()) THEN
+          ! consistency check: check for duplicate file names which may
+          ! occur, for example, if the keyword pattern (namelist
+          ! parameter) has been defined ambiguously by the user.
+          DO jg1 = 1,(jg-1)
+            IF (.NOT. p_patch(jg1)%ldom_active) CYCLE
+            IF (fgFilename_str(jg1) == fgFilename_str(jg)) THEN
+              CALL finish(routine, "Error! Namelist parameter fgFilename has been defined ambiguously "//&
+                & "for domains "//TRIM(int2string(jg1, '(i0)'))//" and "//TRIM(int2string(jg, '(i0)'))//"!")
+            END IF
+          END DO
+        END IF
+      END IF
+    END DO
+
     ! Scan the input files AND distribute the relevant variables across the processes.
     DO jg = 1, n_dom
       IF(p_patch(jg)%ldom_active) THEN
         IF(my_process_is_stdio()) THEN
-          CALL message (TRIM(routine), 'read atm_FG fields from '//TRIM(fgFilename(p_patch(jg))))
+          CALL message(routine, 'read atm_FG fields from '//TRIM(fgFilename_str(jg)))
         ENDIF  ! p_io
         IF (ana_varnames_map_file /= ' ') THEN
-          CALL requestList%readFile(p_patch(jg), TRIM(fgFilename(p_patch(jg))), .TRUE., &
+          CALL requestList%readFile(p_patch(jg), TRIM(fgFilename_str(jg)), .TRUE., &
             &                       opt_dict = ana_varnames_dict)
         ELSE
-          CALL requestList%readFile(p_patch(jg), TRIM(fgFilename(p_patch(jg))), .TRUE.)
+          CALL requestList%readFile(p_patch(jg), TRIM(fgFilename_str(jg)), .TRUE.)
         END IF
       END IF
     END DO
@@ -279,12 +304,12 @@ MODULE mo_initicon
     SELECT CASE(init_mode)
         CASE(MODE_DWDANA, MODE_IAU_OLD, MODE_IAU)
             CALL fetch_dwdfg_atm(requestList, p_patch, p_nh_state, initicon, inputInstructions)
-            CALL fetch_dwdfg_sfc(requestList, p_patch, prm_diag, p_lnd_state, inputInstructions)
+            CALL fetch_dwdfg_sfc(requestList, p_patch, prm_diag, p_nh_state, p_lnd_state, inputInstructions)
         CASE(MODE_ICONVREMAP)
             CALL fetch_dwdfg_atm_ii(requestList, p_patch, initicon, inputInstructions)
-            CALL fetch_dwdfg_sfc(requestList, p_patch, prm_diag, p_lnd_state, inputInstructions)
+            CALL fetch_dwdfg_sfc(requestList, p_patch, prm_diag, p_nh_state, p_lnd_state, inputInstructions)
         CASE(MODE_COMBINED, MODE_COSMO)
-            CALL fetch_dwdfg_sfc(requestList, p_patch, prm_diag, p_lnd_state, inputInstructions)
+            CALL fetch_dwdfg_sfc(requestList, p_patch, prm_diag, p_nh_state, p_lnd_state, inputInstructions)
     END SELECT
 
     ! Cleanup.
@@ -330,7 +355,7 @@ MODULE mo_initicon
             END IF
     END SELECT
     ! Init aerosol field from climatology if no first-guess data have been available
-    IF (iprog_aero == 1) CALL init_aerosol(p_patch, ext_data, prm_diag)
+    IF (iprog_aero >= 1) CALL init_aerosol(p_patch, ext_data, prm_diag)
   END SUBROUTINE process_dwdfg
 
   ! Read data from analysis files.
@@ -345,12 +370,13 @@ MODULE mo_initicon
 
     CHARACTER(LEN = :), ALLOCATABLE :: incrementsList(:)
 #else
-    CHARACTER(LEN = 9) :: incrementsList_IAU(8)
+    CHARACTER(LEN = 9) :: incrementsList_IAU(10)
     CHARACTER(LEN = 4) :: incrementsList_IAU_OLD(6)
     CHARACTER(LEN = 1) :: incrementsList_DEFAULT(1)
 #endif
     CLASS(t_InputRequestList), POINTER :: requestList
-    INTEGER :: jg
+    CHARACTER(LEN=filename_max) :: anaFilename_str(max_dom)
+    INTEGER :: jg, jg1
 
     !The input file paths & types are NOT initialized IN all modes, so we need to avoid creating InputRequestLists IN these cases.
     SELECT CASE(init_mode)
@@ -380,16 +406,36 @@ MODULE mo_initicon
 
     ! Scan the input files AND distribute the relevant variables across the processes.
     DO jg = 1, n_dom
+      anaFilename_str(jg) = ""
+      IF(p_patch(jg)%ldom_active) THEN
+        anaFilename_str(jg) = anaFilename(p_patch(jg))
+
+        IF (my_process_is_stdio()) THEN
+          ! consistency check: check for duplicate file names which may
+          ! occur, for example, if the keyword pattern (namelist
+          ! parameter) has been defined ambiguously by the user.
+          DO jg1 = 1,(jg-1)
+            IF (.NOT. p_patch(jg1)%ldom_active) CYCLE
+            IF (anaFilename_str(jg1) == anaFilename_str(jg)) THEN
+              CALL finish(routine, "Error! Namelist parameter anaFilename has been defined ambiguously "//&
+                & "for domains "//TRIM(int2string(jg1, '(i0)'))//" and "//TRIM(int2string(jg, '(i0)'))//"!")
+            END IF
+          END DO
+        END IF
+      END IF
+    END DO
+
+    DO jg = 1, n_dom
         IF(p_patch(jg)%ldom_active .AND. lread_ana) THEN
             IF (lp2cintp_incr(jg) .AND. lp2cintp_sfcana(jg)) CYCLE
             IF(my_process_is_stdio()) THEN
-                CALL message (TRIM(routine), 'read atm_ANA fields from '//TRIM(anaFilename(p_patch(jg))))
+                CALL message(routine, 'read atm_ANA fields from '//TRIM(anaFilename_str(jg)))
             ENDIF  ! p_io
             IF (ana_varnames_map_file /= ' ') THEN
-              CALL requestList%readFile(p_patch(jg), TRIM(anaFilename(p_patch(jg))), .FALSE., &
+              CALL requestList%readFile(p_patch(jg), TRIM(anaFilename_str(jg)), .FALSE., &
                 &                       opt_dict = ana_varnames_dict)
             ELSE
-              CALL requestList%readFile(p_patch(jg), TRIM(anaFilename(p_patch(jg))), .FALSE.)
+              CALL requestList%readFile(p_patch(jg), TRIM(anaFilename_str(jg)), .FALSE.)
             END IF
         END IF
     END DO
@@ -402,7 +448,9 @@ MODULE mo_initicon
 #if !defined __GFORTRAN__ || __GNUC__ >= 6
             SELECT CASE(init_mode)
                 CASE(MODE_IAU)
-                    incrementsList = [CHARACTER(LEN=9) :: 'u', 'v', 'pres', 'temp', 'qv', 'w_so', 'h_snow', 'freshsnow', 't_2m']
+                    incrementsList = [CHARACTER(LEN=9) :: 'u', 'v', 'pres', 'temp', 'qv', 'qc', 'qi', 'qr', 'qs', 'qg', &
+                                                          'qh', 'qnc', 'qni', 'qnr', 'qns', 'qng', 'qnh', &
+                                                        & 'w_so', 'h_snow', 'freshsnow', 't_2m']
                 CASE(MODE_IAU_OLD)
                     incrementsList = [CHARACTER(LEN=4) :: 'u', 'v', 'pres', 'temp', 'qv', 'w_so']
                 CASE DEFAULT
@@ -413,8 +461,11 @@ MODULE mo_initicon
 #else
             SELECT CASE(init_mode)
                 CASE(MODE_IAU)
-                    incrementsList_IAU = (/'u        ', 'v        ', 'pres     ', 'temp     ', &
-                      &                    'qv       ', 'w_so     ', 'h_snow   ', 'freshsnow'/)
+                    incrementsList_IAU = (/'u        ', 'v        ', 'pres     ', 'temp     ', 'qv       ', &
+                      &                    'qc       ', 'qi       ', 'qr       ', 'qs       ', 'qg       ', &
+                                           'qh       ', 'qnc      ', 'qni      ', 'qnr      ', 'qns      ', &
+                                           'qng      ', 'qnh      '                                        /)
+                      &                    'w_so     ', 'h_snow   ', 'freshsnow'/)
                     CALL requestList%checkRuntypeAndUuids(incrementsList_IAU, gridUuids(p_patch), lIsFg = .FALSE., &
                       lHardCheckUuids = .NOT.check_uuid_gracefully)
             write(0,*) "incrementsList_IAU: ", incrementsList_IAU
@@ -495,7 +546,7 @@ MODULE mo_initicon
     SELECT CASE(init_mode)
         CASE(MODE_DWDANA, MODE_ICONVREMAP, MODE_IAU_OLD, MODE_IAU, MODE_COMBINED, MODE_COSMO)
             ! process DWD land/surface analysis data / increments
-            IF(lread_ana) CALL process_input_dwdana_sfc(p_patch, p_lnd_state, initicon)
+            IF(lread_ana) CALL process_input_dwdana_sfc(p_patch, p_lnd_state, initicon, inputInstructions)
             ! Add increments to time-shifted first guess in one go.
             ! The following CALL must not be moved after create_dwdana_sfc()!
             IF(ANY((/MODE_IAU_OLD, MODE_IAU/) == init_mode)) THEN
@@ -539,8 +590,8 @@ MODULE mo_initicon
 !$OMP DO PRIVATE(jb)
                     DO jb = i_startblk, i_endblk
                         CALL flake_coldinit(                                        &
-                            &   nflkgb      = ext_data(jg)%atm%fp_count    (jb),    &
-                            &   idx_lst_fp  = ext_data(jg)%atm%idx_lst_fp(:,jb),    &
+                            &   nflkgb      = ext_data(jg)%atm%list_lake%ncount(jb),&
+                            &   idx_lst_fp  = ext_data(jg)%atm%list_lake%idx(:,jb), &
                             &   depth_lk    = ext_data(jg)%atm%depth_lk  (:,jb),    &
                             &   tskin       = p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(:,1,jb,1),&
                             &   t_snow_lk_p = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_snow_lk(:,jb), &
@@ -647,7 +698,7 @@ MODULE mo_initicon
 
     REAL(wp) :: vn_incr_smt
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+    CHARACTER(len=*), PARAMETER :: &
       routine = modname//':create_dwdana_atm'
 
     ! nondimensional diffusion coefficient for interpolated velocity increment
@@ -681,7 +732,7 @@ MODULE mo_initicon
                z_qsum   (nproma,nlev),          &
                STAT=ist)
       IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine), 'allocation of auxiliary arrays failed')
+        CALL finish(routine, 'allocation of auxiliary arrays failed')
       ENDIF
 
       nabla4_vn_incr(:,:,:) = 0._wp
@@ -770,7 +821,8 @@ MODULE mo_initicon
 
       ! Recompute the hydrostatically integrated pressure from the first guess
       CALL diagnose_pres_temp (p_nh_state(jg)%metrics, p_prog_now, p_prog_now_rcf, p_diag, &
-        &                      p_patch(jg), opt_calc_temp=.FALSE., opt_calc_pres=.TRUE.)
+        &                      p_patch(jg), opt_calc_temp=.FALSE., opt_calc_pres=.TRUE.,   &
+        &                      opt_lconstgrav=upatmo_config(jg)%dyn%l_constgrav            )
 
 
       IF (lread_ana) THEN
@@ -936,7 +988,28 @@ MODULE mo_initicon
         !
 
         ! Compute virtual temperature
-        IF ( iqc /= 0 .AND. iqi /= 0 .AND. iqr /= 0 .AND. iqs /= 0 ) THEN
+        IF ( atm_phy_nwp_config(jg)%l2moment ) THEN
+          CALL virtual_temp(p_patch=p_patch(jg),             &
+            &               temp=initicon(jg)%atm%temp,      & !in
+            &               qv=p_prog_now%tracer(:,:,:,iqv), & !in
+            &               qc=p_prog_now%tracer(:,:,:,iqc), & !in
+            &               qi=p_prog_now%tracer(:,:,:,iqi), & !in
+            &               qr=p_prog_now%tracer(:,:,:,iqr), & !in
+            &               qs=p_prog_now%tracer(:,:,:,iqs), & !in
+            &               qg=p_prog_now%tracer(:,:,:,iqg), & !in
+            &               qh=p_prog_now%tracer(:,:,:,iqh), & !in
+            &               temp_v=p_diag%tempv              ) !out
+        ELSE IF ( atm_phy_nwp_config(jg)%lhave_graupel ) THEN
+          CALL virtual_temp(p_patch=p_patch(jg),             &
+            &               temp=initicon(jg)%atm%temp,      & !in
+            &               qv=p_prog_now%tracer(:,:,:,iqv), & !in
+            &               qc=p_prog_now%tracer(:,:,:,iqc), & !in
+            &               qi=p_prog_now%tracer(:,:,:,iqi), & !in
+            &               qr=p_prog_now%tracer(:,:,:,iqr), & !in
+            &               qs=p_prog_now%tracer(:,:,:,iqs), & !in
+            &               qg=p_prog_now%tracer(:,:,:,iqg), & !in
+            &               temp_v=p_diag%tempv              ) !out
+        ELSE IF ( iqc /= 0 .AND. iqi /= 0 .AND. iqr /= 0 .AND. iqs /= 0 ) THEN
           CALL virtual_temp(p_patch=p_patch(jg),             &
             &               temp=initicon(jg)%atm%temp,      & !in
             &               qv=p_prog_now%tracer(:,:,:,iqv), & !in
@@ -973,7 +1046,7 @@ MODULE mo_initicon
       ! deallocate temporary arrays
       DEALLOCATE( zpres_nh, pres_incr, u_incr, v_incr, vn_incr, nabla4_vn_incr, w_incr, z_qsum, STAT=ist )
       IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine), 'deallocation of auxiliary arrays failed' )
+        CALL finish(routine, 'deallocation of auxiliary arrays failed' )
       ENDIF
 
     ENDDO  ! jg domain loop
@@ -1019,14 +1092,11 @@ MODULE mo_initicon
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: nabla2_vn_incr, w_incr
     REAL(vp), ALLOCATABLE, DIMENSION(:,:,:) :: zvn_incr
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+    CHARACTER(len=*), PARAMETER :: &
       routine = modname//':transform_dwdana_increment_atm'
 
     ! nondimensional diffusion coefficient for interpolated velocity increment
     REAL(wp), PARAMETER :: ddfac=0.1_wp, smtfac=0.075_wp
-
-    ! analysed water vapour partial density
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:) :: z_rhov
 
     ! to sum up the water loading term
     REAL(wp), ALLOCATABLE, DIMENSION(:,:) :: z_qsum
@@ -1038,7 +1108,11 @@ MODULE mo_initicon
     ! Required for computing the water loading term 
     INTEGER, POINTER :: condensate_list(:)
 
-    INTEGER :: iter
+    INTEGER :: iter, npts
+    REAL(wp) :: psinc
+
+    REAL(wp), ALLOCATABLE :: psinc_blk(:)
+    INTEGER, ALLOCATABLE  :: npts_blk(:)
 
     !-------------------------------------------------------------------------
 
@@ -1063,9 +1137,14 @@ MODULE mo_initicon
         &      zvn_incr(nlev,nproma,nblks_e), alpha(nproma,nlev),STAT=ist)
       !
       IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine), 'allocation of auxiliary arrays failed')
+        CALL finish(routine, 'allocation of auxiliary arrays failed')
       ENDIF
 
+      IF (latbc_config%fac_latbc_presbiascor > 0._wp) THEN
+        ALLOCATE(psinc_blk(nblks_c),npts_blk(nblks_c))
+        psinc_blk(:) = 0._wp
+        npts_blk(:)  = 0
+      ENDIF
 
       ! define some pointers
       p_prog_now     => p_nh_state(jg)%prog(nnow(jg))
@@ -1104,14 +1183,8 @@ MODULE mo_initicon
         CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
           & i_startidx, i_endidx, rl_start, rl_end)
 
-
         ! Sum up the hydrometeor species for the water loading term
-        DO jk = 1, nlev
-          DO jc = i_startidx, i_endidx
-            z_qsum(jc,jk) = SUM(p_prog_now_rcf%tracer (jc,jk,jb,condensate_list))
-          ENDDO
-        ENDDO
-
+        CALL calc_qsum (p_prog_now_rcf%tracer, z_qsum, condensate_list, jb, i_startidx, i_endidx, 1, 1, nlev)
 
         DO jk = 1, nlev
           DO jc = i_startidx, i_endidx
@@ -1153,11 +1226,81 @@ MODULE mo_initicon
               &                        * vtmpc1* initicon(jg)%atm_inc%qv(jc,jk,jb)
 
 
-            p_diag%rhov_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qv(jc,jk,jb) &
-              &                        + p_diag%rho_incr(jc,jk,jb) * p_prog_now_rcf%tracer(jc,jk,jb,iqv)
+            ! APPROXIMATION: neglect density increment for the time being, in order to be consistent with 
+            ! the (currently inaccurate) IAU tracer update in iau_update_tracer
+            !   p_diag%rhov_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qv(jc,jk,jb) &
+            !     &                        + p_diag%rho_incr(jc,jk,jb) * p_prog_now_rcf%tracer(jc,jk,jb,iqv)
+            p_diag%rhov_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qv(jc,jk,jb)
 
           ENDDO  ! jc
+
+          IF (qcana_mode > 0) THEN
+            DO jc = i_startidx, i_endidx
+              p_diag%rhoc_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qc(jc,jk,jb)
+            ENDDO
+          ENDIF
+
+          IF (qiana_mode > 0) THEN
+            DO jc = i_startidx, i_endidx
+              p_diag%rhoi_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qi(jc,jk,jb)
+            ENDDO
+          ENDIF
+
+          IF (qrsgana_mode > 0) THEN
+            DO jc = i_startidx, i_endidx
+              p_diag%rhor_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qr(jc,jk,jb)
+              p_diag%rhos_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qs(jc,jk,jb)
+            ENDDO
+            IF (iqg > 0) THEN
+              DO jc = i_startidx, i_endidx
+                p_diag%rhog_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qg(jc,jk,jb)
+              ENDDO
+            ENDIF
+          END IF
+
+          IF (atm_phy_nwp_config(jg)%l2moment) THEN
+            IF (qcana_mode > 0) THEN
+              DO jc = i_startidx, i_endidx
+                p_diag%rhonc_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qnc(jc,jk,jb)
+              ENDDO
+            END IF
+            IF (qiana_mode > 0) THEN
+              DO jc = i_startidx, i_endidx
+                p_diag%rhoni_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qni(jc,jk,jb)
+              ENDDO
+            END IF
+            IF (qrsgana_mode > 0) THEN
+              DO jc = i_startidx, i_endidx
+                p_diag%rhoh_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qh(jc,jk,jb)
+              ENDDO
+              DO jc = i_startidx, i_endidx
+                p_diag%rhonr_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qnr(jc,jk,jb)
+              ENDDO
+              DO jc = i_startidx, i_endidx
+                p_diag%rhons_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qns(jc,jk,jb)
+              ENDDO
+              DO jc = i_startidx, i_endidx
+                p_diag%rhong_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qng(jc,jk,jb)
+              ENDDO
+              DO jc = i_startidx, i_endidx
+                p_diag%rhonh_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qnh(jc,jk,jb)
+              ENDDO
+            END IF
+          END IF
+
         ENDDO  ! jk
+
+        ! Prepare computation of domain-average pressure increment at lowest level
+        ! increments are truncated to single precision in order to (hopefully) achieve insensitivity
+        ! against the domain decomposition
+        IF (latbc_config%fac_latbc_presbiascor > 0._wp) THEN
+          DO jc = i_startidx, i_endidx
+            IF (p_patch(jg)%cells%decomp_info%decomp_domain(jc,jb)==0) THEN
+              psinc_blk(jb) = psinc_blk(jb) + REAL(REAL(initicon(jg)%atm_inc%pres(jc,nlev,jb),sp),wp)
+              npts_blk(jb)  = npts_blk(jb) + 1
+            ENDIF
+          ENDDO
+        ENDIF
 
       ENDDO  ! jb
 !$OMP END DO NOWAIT
@@ -1328,7 +1471,22 @@ MODULE mo_initicon
       ! deallocate temporary arrays
       DEALLOCATE( nabla2_vn_incr, z_qsum, zvn_incr, alpha, STAT=ist )
       IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine), 'deallocation of auxiliary arrays failed' )
+        CALL finish(routine, 'deallocation of auxiliary arrays failed' )
+      ENDIF
+
+      IF (latbc_config%fac_latbc_presbiascor > 0._wp) THEN
+
+        ! calculate domain-averaged pressure increment at lowest model level and its time-filtered
+        ! value, which is used afterwards as pressure offset at the lateral boundaries; the averaging weights
+        ! are deliberately chosen to sum up to more than 1 in order to achieve a bias reduction of more than 50%
+        psinc = SUM(psinc_blk)
+        npts  = SUM(npts_blk)
+        psinc = REAL(REAL(global_sum_array(psinc),sp),wp)
+        npts  = global_sum_array(npts)
+        p_diag%p_avginc(:,:) = 0.8_wp*p_diag%p_avginc(:,:) + 0.4_wp*psinc/(REAL(npts,wp))
+
+        DEALLOCATE(psinc_blk,npts_blk)
+
       ENDIF
 
       !
@@ -1339,10 +1497,9 @@ MODULE mo_initicon
         ! For the special case that increments are added in one go,
         ! compute vertical wind increment consistent with the vn increment
         ! Note that here the filtered velocity increment is used.
-        ALLOCATE(w_incr(nproma,nlevp1,nblks_c), &
-          &      z_rhov(nproma,nlev), STAT=ist)
+        ALLOCATE(w_incr(nproma,nlevp1,nblks_c), STAT=ist)
         IF (ist /= SUCCESS) THEN
-          CALL finish ( TRIM(routine), 'allocation of auxiliary arrays failed')
+          CALL finish(routine, 'allocation of auxiliary arrays failed')
         ENDIF
 
         CALL init_w(p_patch(jg), p_int_state(jg), REAL(p_diag%vn_incr,wp), p_nh_state(jg)%metrics%z_ifc, w_incr)
@@ -1354,7 +1511,7 @@ MODULE mo_initicon
         i_startblk = p_patch(jg)%cells%start_block(rl_start)
         i_endblk   = p_patch(jg)%cells%end_block(rl_end)
 
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_rhov)
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
         DO jb = i_startblk, i_endblk
 
           CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
@@ -1365,22 +1522,86 @@ MODULE mo_initicon
 
               p_prog_now%exner(jc,jk,jb) = p_prog_now%exner(jc,jk,jb) + p_diag%exner_incr(jc,jk,jb)
 
-              ! analysed water vapour partial density
-              z_rhov(jc,jk) = p_prog_now_rcf%tracer(jc,jk,jb,iqv)*p_prog_now%rho(jc,jk,jb) &
-                &           + p_diag%rhov_incr(jc,jk,jb)
 
+              ! use this version and corresponding update equation below, as soon as the approximation 
+              ! to rhov_incr is removed (see above)
+              !
+              ! analysed water vapour partial density
+              !z_rhov(jc,jk) = p_prog_now_rcf%tracer(jc,jk,jb,iqv)*p_prog_now%rho(jc,jk,jb) &
+              !  &           + p_diag%rhov_incr(jc,jk,jb)
               p_prog_now%rho(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) + p_diag%rho_incr(jc,jk,jb)
 
               ! make sure, that due to GRIB2 roundoff errors, qv does not drop
               ! below threshhold (currently 5E-7 kg/kg)
-              p_prog_now_rcf%tracer(jc,jk,jb,iqv) = MAX(5.E-7_wp,z_rhov(jc,jk)/p_prog_now%rho(jc,jk,jb))
-
+              !p_prog_now_rcf%tracer(jc,jk,jb,iqv) = MAX(5.E-7_wp,z_rhov(jc,jk)/p_prog_now%rho(jc,jk,jb))
+              p_prog_now_rcf%tracer(jc,jk,jb,iqv) = MAX(5.E-7_wp,p_prog_now_rcf%tracer(jc,jk,jb,iqv) &
+                &                                   + p_diag%rhov_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
 
               ! Remember to update theta_v
               p_prog_now%theta_v(jc,jk,jb) = (p0ref/rd) * p_prog_now%exner(jc,jk,jb)**(cvd/rd) &
                 &                          / p_prog_now%rho(jc,jk,jb)
 
             ENDDO  ! jc
+
+            IF (qcana_mode > 0) THEN
+              DO jc = i_startidx, i_endidx
+                p_prog_now_rcf%tracer(jc,jk,jb,iqc) = MAX(0._wp,p_prog_now_rcf%tracer(jc,jk,jb,iqc)+&
+                     p_diag%rhoc_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+              ENDDO
+            ENDIF
+
+            IF (qiana_mode > 0) THEN
+              DO jc = i_startidx, i_endidx
+                p_prog_now_rcf%tracer(jc,jk,jb,iqi) = MAX(0._wp,p_prog_now_rcf%tracer(jc,jk,jb,iqi)+&
+                     p_diag%rhoi_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+              ENDDO
+            ENDIF
+
+            IF (qrsgana_mode > 0) THEN
+              DO jc = i_startidx, i_endidx
+                p_prog_now_rcf%tracer(jc,jk,jb,iqr) = MAX(0._wp, p_prog_now_rcf%tracer(jc,jk,jb,iqr)+&
+                                                                 p_diag%rhor_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+                p_prog_now_rcf%tracer(jc,jk,jb,iqs) = MAX(0._wp, p_prog_now_rcf%tracer(jc,jk,jb,iqs)+&
+                                                                 p_diag%rhos_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+              ENDDO
+              IF (iqg > 0) THEN
+                DO jc = i_startidx, i_endidx
+                  p_prog_now_rcf%tracer(jc,jk,jb,iqg) = MAX(0._wp, p_prog_now_rcf%tracer(jc,jk,jb,iqg)+&
+                                                                   p_diag%rhog_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+                ENDDO
+              ENDIF
+              IF (atm_phy_nwp_config(jg)%l2moment) THEN
+                DO jc = i_startidx, i_endidx
+                  p_prog_now_rcf%tracer(jc,jk,jb,iqh) = MAX(0._wp, p_prog_now_rcf%tracer(jc,jk,jb,iqh)+&
+                                                                   p_diag%rhoh_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+                ENDDO
+                DO jc = i_startidx, i_endidx
+                  p_prog_now_rcf%tracer(jc,jk,jb,iqnc) = MAX(0._wp, p_prog_now_rcf%tracer(jc,jk,jb,iqnc)+&
+                                                                    p_diag%rhonc_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+                ENDDO
+                DO jc = i_startidx, i_endidx
+                  p_prog_now_rcf%tracer(jc,jk,jb,iqni) = MAX(0._wp, p_prog_now_rcf%tracer(jc,jk,jb,iqni)+&
+                                                                    p_diag%rhoni_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+                ENDDO
+                DO jc = i_startidx, i_endidx
+                  p_prog_now_rcf%tracer(jc,jk,jb,iqnr) = MAX(0._wp, p_prog_now_rcf%tracer(jc,jk,jb,iqnr)+&
+                                                                    p_diag%rhonr_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+                ENDDO
+                DO jc = i_startidx, i_endidx
+                  p_prog_now_rcf%tracer(jc,jk,jb,iqns) = MAX(0._wp, p_prog_now_rcf%tracer(jc,jk,jb,iqns)+&
+                                                                    p_diag%rhons_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+                ENDDO
+                DO jc = i_startidx, i_endidx
+                  p_prog_now_rcf%tracer(jc,jk,jb,iqng) = MAX(0._wp, p_prog_now_rcf%tracer(jc,jk,jb,iqng)+&
+                                                                    p_diag%rhong_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+                ENDDO
+                DO jc = i_startidx, i_endidx
+                  p_prog_now_rcf%tracer(jc,jk,jb,iqnh) = MAX(0._wp, p_prog_now_rcf%tracer(jc,jk,jb,iqnh)+&
+                                                                    p_diag%rhonh_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+                ENDDO
+              END IF
+            ENDIF
+
           ENDDO  ! jk
 
         ENDDO  ! jb
@@ -1439,16 +1660,17 @@ MODULE mo_initicon
         CALL sync_patch_array(SYNC_E,p_patch(jg),p_prog_now%vn)
 
         ! deallocate temporary arrays
-        DEALLOCATE( w_incr, z_rhov, STAT=ist )
+        DEALLOCATE( w_incr, STAT=ist )
         IF (ist /= SUCCESS) THEN
-          CALL finish ( TRIM(routine), 'deallocation of auxiliary arrays failed' )
+          CALL finish(routine, 'deallocation of auxiliary arrays failed' )
         ENDIF
       ENDIF  ! dt_iau = 0
 
 
       ! Recompute the hydrostatically integrated pressure from the first guess
       CALL diagnose_pres_temp (p_nh_state(jg)%metrics, p_prog_now, p_prog_now_rcf, p_diag, &
-        &                      p_patch(jg), opt_calc_temp=.FALSE., opt_calc_pres=.TRUE.)
+        &                      p_patch(jg), opt_calc_temp=.FALSE., opt_calc_pres=.TRUE.,   &
+        &                      opt_lconstgrav=upatmo_config(jg)%dyn%l_constgrav            )
 
     ENDDO  ! jg domain loop
 
@@ -1482,10 +1704,10 @@ MODULE mo_initicon
     TYPE(t_external_data)         ,INTENT(IN)    :: ext_data(:)
     TYPE(t_readInstructionListPtr),INTENT(INOUT) :: inputInstructions(:)
 
-    INTEGER :: jg, jb, jt, jk, jc, ic    ! loop indices
-    INTEGER :: nblks_c                   ! number of blocks
+    INTEGER :: jg, jb, jt, jk, jc, ic              ! loop indices
+    INTEGER :: nblks_c                             ! number of blocks
     INTEGER :: rl_start, rl_end
-    INTEGER :: i_startidx, i_endidx
+    INTEGER :: i_startidx, i_endidx, nlev
     INTEGER :: ist
 
     LOGICAL :: lerr                      ! error flag
@@ -1496,13 +1718,12 @@ MODULE mo_initicon
 
     REAL(wp) :: h_snow_t_fg(nproma,ntiles_total)   ! intermediate storage of h_snow first guess
     REAL(wp) :: wso_inc(nproma,nlev_soil)          ! local copy of w_so increment
-    REAL(wp) :: snowfrac_lim, wfac
+    REAL(wp) :: snowfrac_lim, wfac, rh_inc, smival
 
     REAL(wp), PARAMETER :: min_hsnow_inc=0.001_wp  ! minimum hsnow increment (1mm absolute value)
                                                    ! in order to avoid grib precision problems
 
-    INTEGER :: source_of_t_2m
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+    CHARACTER(len=*), PARAMETER :: &
       routine = modname//':create_iau_sfc'
   !-------------------------------------------------------------------------
 
@@ -1511,6 +1732,7 @@ MODULE mo_initicon
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
       nblks_c   = p_patch(jg)%nblks_c
+      nlev      = p_patch(jg)%nlev
       rl_start  = 1
       rl_end    = min_rlcell
 
@@ -1519,15 +1741,9 @@ MODULE mo_initicon
       lnd_prog_now =>p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
       lnd_diag     =>p_lnd_state(jg)%diag_lnd
 
-      ! making this query in the parallel region is not allowed since it's not thread-safe
-      IF (itype_vegetation_cycle == 3) THEN
-        source_of_t_2m = inputInstructions(jg)%ptr%sourceOfVar('t_2m')
-      ELSE
-        source_of_t_2m = -1
-      END IF
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jt,jk,ic,jc,i_startidx,i_endidx,lerr,h_snow_t_fg,snowfrac_lim,ist,wso_inc,wfac)
+!$OMP DO PRIVATE(jb,jt,jk,ic,jc,i_startidx,i_endidx,lerr,h_snow_t_fg,snowfrac_lim,ist,wso_inc,wfac,rh_inc,smival)
       DO jb = 1, nblks_c
 
         ! (re)-initialize error flag
@@ -1548,6 +1764,7 @@ MODULE mo_initicon
           ! - no addition of water in soil layers 3-5 if soil moisture is already above field capacity
 
           DO jk = 3, 5
+!NEC$ ivdep
             DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
               jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
               ist = ext_data(jg)%atm%soiltyp(jc,jb)
@@ -1563,20 +1780,20 @@ MODULE mo_initicon
           ENDDO
 
           DO jk = 1, nlev_soil
+!NEC$ ivdep
             DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
-              jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
+              jc  = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
+              ist = ext_data(jg)%atm%soiltyp(jc,jb)
 
-              IF (lnd_prog_now%w_so_t(jc,jk,jb,jt) <= 1.e-10_wp .AND.  &
-                  cporv(ext_data(jg)%atm%soiltyp(jc,jb)) > 1.e-9_wp) THEN
+              IF (lnd_prog_now%w_so_t(jc,jk,jb,jt) <= 1.e-10_wp .AND. cporv(ist) > 1.e-9_wp) THEN
                 ! This should only happen for a tile coldstart; in this case,
-                ! set soil water content to 50% of pore volume on newly appeared (non-dominant) land points
-                lnd_prog_now%w_so_t(jc,jk,jb,jt) = 0.5_wp*cporv(ext_data(jg)%atm%soiltyp(jc,jb))*dzsoil_icon(jk)
+                ! set soil water content to 0.5*(fcap+pwp)
+                lnd_prog_now%w_so_t(jc,jk,jb,jt) = 0.5_wp*(cfcap(ist)+cpwp(ist))*dzsoil_icon(jk)
               ELSE ! add w_so increment from SMA
                 lnd_prog_now%w_so_t(jc,jk,jb,jt) = lnd_prog_now%w_so_t(jc,jk,jb,jt) + wso_inc(jc,jk)
               ENDIF
 
               ! Safety limits:  min=air dryness point, max=pore volume
-              ist = ext_data(jg)%atm%soiltyp(jc,jb)
               SELECT CASE(ist)
 
                 CASE (3,4,5,6,7,8) ! soil types with non-zero water content
@@ -1612,7 +1829,7 @@ MODULE mo_initicon
               lnd_diag%snowfrac_lc_t(:,jb,jt) = 1._wp
               lnd_diag%snowfrac_t(:,jb,jt)    = 1._wp
             ENDIF
-
+!NEC$ ivdep
             DO ic = 1, ext_data(jg)%atm%gp_count_t(jb,jt)
               jc = ext_data(jg)%atm%idx_lst_t(ic,jb,jt)
 
@@ -1682,6 +1899,7 @@ MODULE mo_initicon
 
           ! consistency checks for rho_snow
           DO jt = 1, ntiles_total
+!NEC$ ivdep
             DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
               jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
 
@@ -1726,14 +1944,60 @@ MODULE mo_initicon
 
           ENDDO  ! jt
 
+
           ! Time-filtering of analyzed T2M bias
           ! only if t_2m is read from analysis
-          IF (itype_vegetation_cycle == 3 .AND. source_of_t_2m == kInputSourceAna) THEN
+          IF (icpl_da_sfcevap == 1 .OR. icpl_da_sfcevap == 2) THEN
+            IF (ANY((/kInputSourceAna,kInputSourceAnaI/) == inputInstructions(jg)%ptr%sourceOfVar('t_2m'))) THEN
+              DO jc = i_startidx, i_endidx
+                p_diag%t2m_bias(jc,jb) = p_diag%t2m_bias(jc,jb) + &
+                  0.4_wp*(initicon(jg)%sfc_inc%t_2m(jc,jb)-p_diag%t2m_bias(jc,jb))
+              ENDDO
+            ENDIF
+          ENDIF  ! icpl_da_sfcevap
+
+          IF (icpl_da_sfcevap >= 2) THEN
+            ! Calculate time-filtered RH assimilation increment at lowest model level (time scale 2.5 days);
+            ! this serves as a proxy for the averaged RH2M bias
             DO jc = i_startidx, i_endidx
-              lnd_diag%t2m_bias(jc,jb) = lnd_diag%t2m_bias(jc,jb) + &
-                0.25_wp*(initicon(jg)%sfc_inc%t_2m(jc,jb)-lnd_diag%t2m_bias(jc,jb))
+              rh_inc = initicon(jg)%atm_inc%qv(jc,nlev,jb)/ &
+                spec_humi(sat_pres_water(p_diag%temp(jc,nlev,jb)),p_diag%pres_sfc(jc,jb))
+              p_diag%rh_avginc(jc,jb) = p_diag%rh_avginc(jc,jb) + dt_ana/216000._wp*(rh_inc-p_diag%rh_avginc(jc,jb))
             ENDDO
-          ENDIF
+
+            ! Ensure that some useable soil moisture is available when a dry bias is present
+            ! Specifically, water is added to levels 3-5 when the SMI is below 0.2, and a possible negative w_so increment
+            ! from the SMA is reverted
+            DO jt = 1, ntiles_total
+              DO jk = 3, 5
+!NEC$ ivdep
+                DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
+                  jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
+                  ist = ext_data(jg)%atm%soiltyp(jc,jb)
+                  SELECT CASE(ist)
+                    CASE (3,4,5,6,7,8) ! soil types with non-zero water content
+                    smival = dzsoil_icon(jk)*(0.8_wp*cpwp(ist)+0.2_wp*cfcap(ist)) ! corresponds to SMI = 0.2
+                    ! The relaxation time scale is taken to be 20 days for an averaged 3-hourly RH increment of 1%
+                    ! The scaling factor is constant because it is assumed that the magnitude of rh_avginc is proportional to dt_ana
+                    IF (p_diag%rh_avginc(jc,jb) > 0._wp .AND. lnd_prog_now%w_so_t(jc,jk,jb,jt) <= smival) THEN
+                      lnd_prog_now%w_so_t(jc,jk,jb,jt) = lnd_prog_now%w_so_t(jc,jk,jb,jt) - MIN(0._wp,wso_inc(jc,jk)) + &
+                        0.625_wp*p_diag%rh_avginc(jc,jb)*(smival-lnd_prog_now%w_so_t(jc,jk,jb,jt))
+                    ENDIF
+                  END SELECT
+                ENDDO
+              ENDDO
+            ENDDO
+          ENDIF  ! icpl_da_sfcevap
+
+          IF (icpl_da_sfcevap >= 3) THEN
+            ! Calculate time-filtered T assimilation increment at lowest model level (time scale 2.5 days);
+            ! this serves as a proxy for the averaged T2M bias
+            DO jc = i_startidx, i_endidx
+              p_diag%t_avginc(jc,jb) = p_diag%t_avginc(jc,jb) + &
+                dt_ana/216000._wp*(initicon(jg)%atm_inc%temp(jc,nlev,jb)-p_diag%t_avginc(jc,jb))
+            ENDDO
+          ENDIF  ! icpl_da_sfcevap
+
 
         ENDIF  ! MODE_IAU
 
@@ -1763,12 +2027,12 @@ MODULE mo_initicon
   !-------------------------------------------------------------------------
   SUBROUTINE create_dwdana_sfc (p_patch, p_lnd_state, ext_data, inputInstructions)
 
-    TYPE(t_patch),    TARGET ,INTENT(INOUT) :: p_patch(:)
-    TYPE(t_lnd_state)        ,INTENT(INOUT) :: p_lnd_state(:)
-    TYPE(t_external_data)    ,INTENT(INOUT) :: ext_data(:)
-    TYPE(t_readInstructionListPtr) :: inputInstructions(n_dom)
+    TYPE(t_patch),                  INTENT(INOUT) :: p_patch(:)
+    TYPE(t_lnd_state),              INTENT(INOUT) :: p_lnd_state(:)
+    TYPE(t_external_data),          INTENT(INOUT) :: ext_data(:)
+    TYPE(t_readInstructionListPtr), INTENT(INOUT) :: inputInstructions(:)
 
-    INTEGER :: jg, ic, jc, jk, jb, jt, jgch, ist          ! loop indices
+    INTEGER :: jg, ic, jc, jk, jb, jt, ist     ! loop indices
     INTEGER :: ntlr
     INTEGER :: nblks_c
     REAL(dp):: missval
@@ -1776,8 +2040,16 @@ MODULE mo_initicon
     INTEGER :: i_startidx, i_endidx, i_endblk
     LOGICAL :: lp_mask(nproma)
     REAL(wp):: z_t_seasfc(nproma)              ! temporary field containing both SST 
-                                               ! and lake-surface temperatures 
+                                               ! and lake-surface temperatures
+
+    INTEGER :: source_ana_tseasfc(2)           ! possible input sources for t_seasfc analysis
+    INTEGER :: source_ana_tso(4)               ! possible input sources for t_so analysis
   !-------------------------------------------------------------------------
+
+    ! possible input sources for t_so/t_seasfc analysis
+    source_ana_tseasfc = (/kInputSourceAna,kInputSourceAnaI/)
+    source_ana_tso     = (/kInputSourceAna,kInputSourceAnaI,kInputSourceBoth,kInputSourceFgAnaI/)
+
 
     ! get CDImissval
     missval = cdiInqMissval()
@@ -1793,15 +2065,11 @@ MODULE mo_initicon
       rl_end   = min_rlcell
 
 
-      ! check, whether t_so is read from analysis
-      IF (lp2cintp_sfcana(jg)) THEN
-        jgch = p_patch(jg)%parent_id
-      ELSE
-        jgch = jg
-      ENDIF
+      lanaread_tseasfc(jg) =                                                                  &
+         &     ANY( source_ana_tseasfc == inputInstructions(jg)%ptr%sourceOfVar('t_seasfc'))  &
+         &     .OR.                                                                           &
+         &     ANY( source_ana_tso == inputInstructions(jg)%ptr%sourceOfVar('t_so'))
 
-      lanaread_tseasfc(jg) = ( inputInstructions(jgch)%ptr%sourceOfVar('t_seasfc') == kInputSourceAna .OR. &
-              ANY((/kInputSourceAna,kInputSourceBoth/) == inputInstructions(jgch)%ptr%sourceOfVar('t_so')) )
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jc,ic,jk,jb,jt,i_startidx,i_endidx,lp_mask,ist,z_t_seasfc) ICON_OMP_DEFAULT_SCHEDULE
@@ -1817,9 +2085,9 @@ MODULE mo_initicon
           ! SST analysis (T_SO(0) or T_SEA) was read into initicon(jg)%sfc%sst.
           ! Now copy to diag_lnd%t_seasfc for sea water points (including ice-covered ones)
           !
-!CDIR NODEP,VOVERTAKE,VOB
-          DO ic = 1, ext_data(jg)%atm%sp_count(jb)
-             jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
+!NEC$ ivdep
+          DO ic = 1, ext_data(jg)%atm%list_sea%ncount(jb)
+             jc = ext_data(jg)%atm%list_sea%idx(ic,jb)
              p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MAX(tf_salt,initicon(jg)%sfc%sst(jc,jb))
           END DO
 
@@ -1827,8 +2095,9 @@ MODULE mo_initicon
           !
           ! get SST from first guess T_G
           !
-          DO ic = 1, ext_data(jg)%atm%sp_count(jb)
-            jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
+!NEC$ ivdep
+          DO ic = 1, ext_data(jg)%atm%list_sea%ncount(jb)
+            jc = ext_data(jg)%atm%list_sea%idx(ic,jb)
             p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) =  &
               & MAX(tf_salt, p_lnd_state(jg)%prog_lnd(ntlr)%t_g_t(jc,jb,isub_water))
             ! Ensure that t_seasfc is filled with tf_salt on completely frozen ocean points;
@@ -1842,18 +2111,21 @@ MODULE mo_initicon
         ! construct temporary field containing both SST and lake-surface temperatures
         ! which is needed for initializing T_SO at pure water points
         z_t_seasfc(:) = 0._wp
-        DO ic = 1, ext_data(jg)%atm%sp_count(jb)
-          jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
+!NEC$ ivdep
+        DO ic = 1, ext_data(jg)%atm%list_sea%ncount(jb)
+          jc = ext_data(jg)%atm%list_sea%idx(ic,jb)
           z_t_seasfc(jc) = p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
         END DO
         IF (llake) THEN
-          DO ic = 1, ext_data(jg)%atm%fp_count(jb)
-            jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+!NEC$ ivdep
+          DO ic = 1, ext_data(jg)%atm%list_lake%ncount(jb)
+            jc = ext_data(jg)%atm%list_lake%idx(ic,jb)
             z_t_seasfc(jc) = MAX(tmelt, p_lnd_state(jg)%prog_wtr(ntlr)%t_wml_lk(jc,jb))
           END DO
         ELSE
-          DO ic = 1, ext_data(jg)%atm%fp_count(jb)
-            jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+!NEC$ ivdep
+          DO ic = 1, ext_data(jg)%atm%list_lake%ncount(jb)
+            jc = ext_data(jg)%atm%list_lake%idx(ic,jb)
             z_t_seasfc(jc) = MAX(tmelt, p_lnd_state(jg)%prog_lnd(ntlr)%t_g_t(jc,jb,isub_lake))
           END DO
         ENDIF
@@ -1862,6 +2134,7 @@ MODULE mo_initicon
         !
         ! Compute mask field for land points
         lp_mask(:) = .FALSE.
+!NEC$ ivdep
         DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,1)
           jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,1)
           lp_mask(jc) = .TRUE.
@@ -1887,7 +2160,7 @@ MODULE mo_initicon
 
           ! Check consistency between w_snow and rho_snow
           !
-!CDIR NODEP,VOVERTAKE,VOB
+!NEC$ ivdep
           DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
              jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
 
@@ -1905,6 +2178,7 @@ MODULE mo_initicon
 
             ! Constrain both rho_snow and t_snow because initial fields interpolated from a coarser grid
             ! may suffer from missing values near coasts
+!NEC$ ivdep
             DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
               jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
 
@@ -1921,16 +2195,18 @@ MODULE mo_initicon
           ENDIF
 
 
-          ! Catch problematic coast cases: ICON-land but GME ocean for moisture
+          ! Catch problematic coast cases: ICON-land but interpolated ocean for moisture
           !
           DO jk = 1, nlev_soil
-!CDIR NODEP,VOVERTAKE,VOB
+!NEC$ ivdep
             DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
-               jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
-               IF ((p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(jc,jk,jb,jt) <= 0._wp)) THEN
-                  ! set dummy value (50% of pore volume)
+               jc  = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
+               ist = ext_data(jg)%atm%soiltyp_t(jc,jb,jt)
+               IF ((p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(jc,jk,jb,jt) <= 1.e-10_wp) .AND. &
+                 &  cporv(ist) > 1.e-9_wp ) THEN
+                  ! set dummy value: 0.5*(fcap+pwp)
                   p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(jc,jk,jb,jt) = &
-                    &  0.5_wp * cporv(ext_data(jg)%atm%soiltyp_t(jc,jb,jt)) * dzsoil_icon(jk)
+                    &  0.5_wp * (cfcap(ist)+cpwp(ist)) * dzsoil_icon(jk)
                ENDIF
                ! And temperature for ICON-land but COSMODE ocean
                IF ((p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,jk,jb,jt) <= 0._wp)) THEN
@@ -1978,6 +2254,7 @@ MODULE mo_initicon
         ! Search for CDI missval and replace it by meaningful value
         ! Reason: GRIB2-output fails otherwise (cumbersome values), probably due to
         ! the huge value range.
+!NEC$ ivdep
         DO jc = i_startidx, i_endidx
           IF (p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) == missval) THEN
             p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) = 0._wp
@@ -2006,7 +2283,7 @@ MODULE mo_initicon
         DO jb = 1, i_endblk
 
           CALL get_indices_c(p_patch(jg), jb, 1, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
-
+!NEC$ ivdep
           DO jc = i_startidx, i_endidx
             IF (ext_data(jg)%atm%fr_land(jc,jb) <= 1-frlnd_thrhld) THEN ! grid points with non-zero water fraction
               IF (lanaread_tseasfc(jg)) THEN

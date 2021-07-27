@@ -10,6 +10,8 @@ MODULE mo_ser_common
   USE mo_mpi,     ONLY: get_my_mpi_work_id
   IMPLICIT NONE
 
+  LOGICAL :: linitialize = .TRUE.
+
   PUBLIC :: init
 
   CONTAINS
@@ -17,23 +19,29 @@ MODULE mo_ser_common
   SUBROUTINE init(suffix)
     IMPLICIT NONE
     CHARACTER(LEN=*), INTENT(IN) :: suffix
-    REAL(KIND=8) :: rprecision
+    REAL(KIND=wp) :: rprecision
     rprecision = 10.0**(-PRECISION(1.0))
 
-#if defined SERIALIZE_CREATE_REFERENCE 
+    !$ser verbatim    IF (linitialize) THEN
+
+#if defined( SERIALIZE_CREATE_REFERENCE )
     !$ser init directory='./ser_data' &
     !$ser&     prefix='reference_'//TRIM(suffix) &
     !$ser&     mpi_rank=get_my_mpi_work_id() &
     !$ser&     rprecision=rprecision &
-    !$ser&     rperturb=1.0e-5_8
-#else 
+    !$ser&     rperturb=1.0e-5_wp
+#else
     !$ser init directory='./ser_data' &
     !$ser&     prefix='current_'//TRIM(suffix) &
     !$ser&     prefix_ref='reference_'//TRIM(suffix) &
     !$ser&     mpi_rank=get_my_mpi_work_id() &
     !$ser&     rprecision=rprecision &
-    !$ser&     rperturb=1.0e-5_8
-#endif 
+    !$ser&     rperturb=1.0e-5_wp
+#endif
+
+    !$ser verbatim     linitialize = .FALSE.
+    !$ser verbatim     END IF
+
   END SUBROUTINE init
 
 END MODULE mo_ser_common

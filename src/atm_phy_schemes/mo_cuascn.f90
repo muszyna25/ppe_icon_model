@@ -44,9 +44,9 @@ MODULE mo_cuascn
     &                        rtt   ,rd   , ralfdcp,&
     &                        rtber, rtbercu  ,rticecu   ,&
     &                        lphylin  ,rlptrc,           &
-    &                        entshalp ,rmfcmin,rprcon   ,&
+    &                        entshalp ,rmfcmin,          &
     &                        rmflic   ,rmflia ,rvdifts  ,&
-    &                        rmfcmax, rlmin, detrpen    ,&
+    &                        rmfcmax, rlmin             ,&
     &                        lhook,   dr_hook, lmfglac
 
   USE mo_adjust ,ONLY: cuadjtq
@@ -65,10 +65,8 @@ CONTAINS
   !
   SUBROUTINE cuascn &
     & ( kidia,    kfdia,    klon,    ktdia,  klev, rmfcfl, &
-    & entrorg, lmfmid, ptsphy,&
-    & paer_ss,&
-    & ptenh,    pqenh,   &
-    & ptenq,             &
+    & entrorg, detrpen, rprcon, lmfmid, lgrz_deepconv, ptsphy,&
+    & paer_ss,  ptenh,    pqenh,    ptenq,             &
     & pten,     pqen,     pqsen,    plitot,&
     & pgeo,     pgeoh,    pap,      paph,&
     & zdph,     zdgeoh,                  &
@@ -141,9 +139,9 @@ CONTAINS
 !!    *PAPH*         PROVISIONAL PRESSURE ON HALF LEVELS           PA
 !!    *PTENQ*        MOISTURE TENDENCY                            KG/(KG S)
 !!    *PVERVEL*      VERTICAL VELOCITY                            PA/S
-!!    *zdgeoh*       geopot thickness on half levels               m2/s2
+!!    *zdgeoh*       geopot thickness on full levels              M2/S2
 !!    *zdgeo*        geopot thickness on full levels               m2/s2
-!!    *zdph*         pressure thickness on half levels              Pa
+!!    *zdph*         pressure thickness on full levels             PA
 !!    *pcape*        CAPE                                          J/kg
 !!    *pcapethresh*  CAPE threshold beyond which entrainment parameter is reduced
 
@@ -233,8 +231,8 @@ INTEGER(KIND=jpim),INTENT(in)    :: kidia
 INTEGER(KIND=jpim),INTENT(in)    :: kfdia 
 INTEGER(KIND=jpim),INTENT(in)    :: ktdia
 REAL(KIND=jprb)   ,INTENT(in)    :: rmfcfl 
-REAL(KIND=jprb)   ,INTENT(in)    :: entrorg
-LOGICAL           ,INTENT(in)    :: lmfmid
+REAL(KIND=jprb)   ,INTENT(in)    :: entrorg, rprcon, detrpen
+LOGICAL           ,INTENT(in)    :: lmfmid, lgrz_deepconv
 REAL(KIND=jprb)   ,INTENT(in)    :: ptsphy 
 !KF
 REAL(KIND=jprb)   ,INTENT(in), OPTIONAL:: paer_ss(klon)
@@ -302,7 +300,7 @@ REAL(KIND=jprb) :: z_cldmax, z_cprc2, z_cwdrag, z_cwifrac, zalfaw,&
  & zleen, zlnew, zmfmax, zmftest, zmfulk, zmfun, &
  & zmfuqk, zmfusk, zoealfa, zoealfap, zprcdgw, &
  & zprcon, zqeen, zqude, zrnew, zrold, zscde, &
- & zseen, ztglace, zvi, zvv, zvw, zwu, zzco, zzzmb, zdz, zmf, zglac
+ & zseen, ztglace, zvi, zvv, zvw, zwu, zzco, zzzmb, zdz, zmf, zglac, zentr_prof
 
 REAL(KIND=jprb) ::  zchange,zxs,zxe
 REAL(KIND=jprb) :: zhook_handle
@@ -459,9 +457,9 @@ ENDDO
         zdnoprc(jl) = zdnoprc(jl) + zc*zd*1.25e-4_jprb  ! enhancement by at most 0.25 g/kg
       ENDDO
       DO jl=kidia,kfdia
-        IF(.NOT. ldland(jl) .AND. .NOT. ldlake(jl)) THEN
-          zdrain(jl)  = MIN(0.5E4_JPRB,  zdrain(jl) ) ! ... but over ocean at most 50 hPa
-          zdnoprc(jl) = MIN(2.5e-4_JPRB, zdnoprc(jl)) ! ... but over ocean at most 0.25 g/kg
+        IF(.NOT. ldland(jl) .AND. .NOT. ldlake(jl) .AND. .NOT. lgrz_deepconv) THEN
+          zdrain(jl)  = MIN(0.6E4_JPRB, zdrain(jl) ) ! ... but over ocean at most 60 hPa
+          zdnoprc(jl) = MIN(3.e-4_JPRB, zdnoprc(jl)) ! ... but over ocean at most 0.3 g/kg
         ENDIF
       ENDDO
     ELSE IF (ltuning_kessler) THEN
@@ -642,7 +640,7 @@ DO jk=klev-1,ktdia+2,-1
     DO jl=kidia,kfdia
       zqold(jl)=0.0_JPRB
     ENDDO
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
     DO jll=1,jlm  
         jl=jlx(jll)
         zdmfde(jl)=MIN(zdmfde(jl),0.75_JPRB*pmfu(jl,jk+1))
@@ -663,7 +661,7 @@ DO jk=klev-1,ktdia+2,-1
              zdmfde(jl)=zdmfen(jl)
           ENDIF
           zc = 1.6_JPRB-MIN(1.0_JPRB,PQEN(JL,JK)/PQSEN(JL,JK))
-          ZDMFDE(JL)=ZDMFDE(JL)*MAX(0.9_jprb*zc,zc**2)
+          ZDMFDE(JL)=ZDMFDE(JL)*MAX(0.9_jprb*zc,zc**4)
           zmftest=pmfu(jl,jk+1)+zdmfen(jl)-zdmfde(jl)
           zchange=MAX(zmftest-zmfmax,0.0_JPRB)
           zxe=MAX(zchange-zxs,0.0_JPRB)
@@ -724,8 +722,7 @@ DO jk=klev-1,ktdia+2,-1
     IF (lphylin) THEN
 
 !DIR$ IVDEP
-!OCL NOVREC
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
       DO jll=1,jlm  
         jl=jlx(jll)
         IF(pqu(jl,jk) /= zqold(jl)) THEN
@@ -743,8 +740,7 @@ DO jk=klev-1,ktdia+2,-1
     ELSE
 
 !DIR$ IVDEP
-!OCL NOVREC
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
       DO jll=1,jlm  
         jl=jlx(jll)
         IF(pqu(jl,jk) /= zqold(jl)) THEN
@@ -760,7 +756,8 @@ DO jk=klev-1,ktdia+2,-1
 
     ENDIF
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
+!$NEC sparse
     DO jll=1,jlm  
       jl=jlx(jll)
       IF(pqu(jl,jk) /= zqold(jl)) THEN
@@ -824,8 +821,9 @@ DO jk=klev-1,ktdia+2,-1
 
           IF(zbuo(jl,jk) > -0.2_JPRB) THEN !.AND.klab(jl,jk+1) == 2) THEN
             ikb=kcbot(jl)
-            zoentr(jl)=zentrorg(jl)*(0.3_JPRB-(MIN(1.0_JPRB,pqen(jl,jk-1)/pqsen(jl,jk-1))-1.0_JPRB))*&
-              &(pgeoh(jl,jk-1)-pgeoh(jl,jk))*zrg*MIN(1.0_JPRB,pqsen(jl,jk)/pqsen(jl,ikb))**3
+            zentr_prof = MERGE((pqsen(jl,jk)/pqsen(jl,ikb))**2, (pqsen(jl,jk)/pqsen(jl,ikb))**3, lgrz_deepconv)
+            zoentr(jl)=zentrorg(jl)*(1.3_JPRB-MIN(1.0_JPRB,pqen(jl,jk-1)/pqsen(jl,jk-1)))*&
+              &(pgeoh(jl,jk-1)-pgeoh(jl,jk))*zrg*MIN(1.0_JPRB,zentr_prof)
             zoentr(jl)=MIN(0.4_JPRB,zoentr(jl))*pmfu(jl,jk)
           ELSE
             zoentr(jl)=0.0_JPRB
@@ -836,7 +834,10 @@ DO jk=klev-1,ktdia+2,-1
             pmfu(jl,jk)=pmfu(jl,jk+1)
             pkineu(jl,jk)=0.5_JPRB
           ENDIF
-          IF(pkineu(jl,jk) > 0.0_JPRB.AND.pmfu(jl,jk) > 0.0_JPRB) THEN
+          ! determine convection top level;
+          ! the last set of criteria serves to limit the overshooting of updrafts through the tropopause
+          IF (pkineu(jl,jk) > 0.0_JPRB .AND. pmfu(jl,jk) > 0.0_JPRB .AND. (zbuo(jl,jk) > -2._JPRB .OR. &
+             (pten(jl,jk-1)-pten(jl,jk))/(zrg*(pgeo(jl,jk-1)-pgeo(jl,jk))) < -3.e-3_jprb ) ) THEN
             kctop(jl)=jk
             llo1(jl)=.TRUE.
           ELSE
@@ -858,7 +859,7 @@ DO jk=klev-1,ktdia+2,-1
 
     ENDDO !jll
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
     DO jll=1,jlm
       jl=jlx(jll)
 !     ELSEIF(LLFLAG(JL).AND.KTYPE(JL)==2.AND.PQU(JL,JK) == ZQOLD(JL)) THEN
@@ -950,7 +951,7 @@ DO jk=klev-1,ktdia+2,-1
       ENDDO
 
     ENDIF
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
     DO jll=1,jlm  
       jl=jlx(jll)
       pmful(jl,jk)=plu(jl,jk)*pmfu(jl,jk)
@@ -965,7 +966,7 @@ ENDDO
 
 !     5.           FINAL CALCULATIONS 
 !                  ------------------
-
+!$NEC sparse
 DO jl=kidia,kfdia
   IF(kctop(jl) == -1) ldcum(jl)=.FALSE.
   kcbot(jl)=MAX(kcbot(jl),kctop(jl))
@@ -1151,7 +1152,7 @@ END SUBROUTINE cuascn
   SUBROUTINE cuentr &
     & ( kidia,    kfdia,    klon,     klev,&
     & kk,       kcbot,&
-    & ldcum,    ldwork,&
+    & ldcum,    ldwork, detrpen, &
     & paph,     pgeoh,  zdgeoh,      &
     & pmfu,&
     & pcbase,   pdmfen,   pdmfde )
@@ -1210,7 +1211,7 @@ END SUBROUTINE cuascn
 
     !!    *PAPH*         PROVISIONAL PRESSURE ON HALF LEVELS          PA
     !!    *PGEOH*        PROVISIONAL GEOPOTENTIAL ON HALF LEVELS      m2/s2
-    !!    *zdgeoh*       geopot thickness on half levels               m2/s2
+    !!    *zdgeoh*       geopot thickness on full levels              M2/S2
     !!    *PMFU*         MASSFLUX IN UPDRAFTS                        KG/(M2*S)
 
     !    OUTPUT PARAMETERS (REAL):
@@ -1241,6 +1242,7 @@ END SUBROUTINE cuascn
     INTEGER(KIND=jpim),INTENT(in)    :: kcbot(klon)
     LOGICAL           ,INTENT(in)    :: ldcum(klon)
     LOGICAL           ,INTENT(in)    :: ldwork
+    REAL(KIND=jprb)   ,INTENT(in)    :: detrpen
     REAL(KIND=jprb)   ,INTENT(in)    :: paph(klon,klev+1)
     REAL(KIND=jprb)   ,INTENT(in)    :: pgeoh(klon,klev+1)
     REAL(KIND=jprb)   ,INTENT(in)    :: zdgeoh(klon,klev)

@@ -29,8 +29,10 @@ MODULE mo_radiation_nml
                                  & config_yr_perp    => yr_perp,     &
                                  & config_isolrad    => isolrad,     &
                                  & config_albedo_type=> albedo_type, &
-                                 & config_direct_albedo => direct_albedo, &
-                                 & config_icld_overlap => icld_overlap, &
+                                 & config_direct_albedo       => direct_albedo,       &
+                                 & config_direct_albedo_water => direct_albedo_water, &
+                                 & config_albedo_whitecap     => albedo_whitecap,     &
+                                 & config_icld_overlap        => icld_overlap,        &
                                  & config_islope_rad => islope_rad,  &
                                  & config_irad_h2o   => irad_h2o,    &
                                  & config_irad_co2   => irad_co2,    &
@@ -42,6 +44,7 @@ MODULE mo_radiation_nml
                                  & config_irad_cfc12 => irad_cfc12,  &
                                  & config_irad_aero  => irad_aero,   &
                                  & config_lrad_aero_diag => lrad_aero_diag,  &
+                                 & config_ghg_filename   => ghg_filename,    &
                                  & config_vmr_co2    => vmr_co2,     &
                                  & config_vmr_ch4    => vmr_ch4,     &
                                  & config_vmr_n2o    => vmr_n2o,     &
@@ -54,17 +57,30 @@ MODULE mo_radiation_nml
                                  & config_mmr_n2o    => mmr_n2o,     &
                                  & config_mmr_o2     => mmr_o2,      &
                                  & config_mmr_cfc11  => mmr_cfc11,   &
-                                 & config_mmr_cfc12  => mmr_cfc12
+                                 & config_mmr_cfc12  => mmr_cfc12,   &
+                                 & config_llw_cloud_scat => llw_cloud_scat, &
+                                 & config_iliquid_scat => iliquid_scat, &
+                                 & config_iice_scat => iice_scat,    &
+                                 & config_ecrad_data_path => ecrad_data_path
 
   USE mo_kind,               ONLY: wp
+  USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
   USE mo_mpi,                ONLY: my_process_is_stdio
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_physical_constants, ONLY: amd, amco2, amch4, amn2o, amo2, amc11, amc12
+  USE sfc_terra_data,        ONLY: csalb, csalb1, csalb2
   USE mo_master_control,     ONLY: use_restart_namelists
-  USE mo_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist, &
+  USE mo_restart_nml_and_att,ONLY: open_tmpfile, store_and_close_namelist, &
                                  & open_and_restore_namelist, close_tmpfile
   USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
+  USE mo_io_units,           ONLY: filename_max
+#ifdef _OPENACC
+  USE openacc
+#define __acc_attach(ptr) CALL acc_attach(ptr)  
+#else
+#define __acc_attach(ptr)
+#endif
 
   IMPLICIT NONE
   PRIVATE
@@ -97,15 +113,23 @@ MODULE mo_radiation_nml
                          !    (see )
                          ! 2: Modis albedo
 
-  INTEGER :: direct_albedo  ! 1: SZA dependence according to Ritter-Geleyn implementation
+  INTEGER :: direct_albedo   ! 1: SZA dependence according to Ritter and Geleyn (1992)
                              ! 2: limitation to diffuse albedo according to Zaengl 
                              !    applied to all land points
-                             !    Ritter-Geleyn implementation for remaining points (water,ice) 
-                             ! 3: Parameterization after Yang (2008) for snow-free land points
+                             !    Ritter-Geleyn for ice 
+                             ! 3: Parameterization after Yang et al (2008) for snow-free land points
                              !    limitation after Zaengl for snow-coverer points
-                             !    Ritter-Geleyn implementation for remaining points (water,ice)
-                             ! 4: Parameterization after Briegleb (1992) for snow-free land points
+                             !    Ritter-Geleyn implementation for ice
+                             ! 4: Parameterization after Briegleb and Ramanathan (1992) for snow-free land points
                              !    limitation after Zaengl for snow-coverer points
+
+  INTEGER :: direct_albedo_water ! 1: Ritter and Geleyn (1992)
+                                 ! 2: Yang et al (2008)
+                                 ! 3: Taylor et al (1996) as in IFS
+                                 ! 4: Yang et al (2008) for sea water, Ritter and Geleyn (1992) for lakes
+
+  INTEGER :: albedo_whitecap ! 0: no whitecap albedo
+                             ! 1: Seferian et al (2018) whitecaps albedo from breaking ocean waves
 
   INTEGER :: icld_overlap    ! method for cloud overlap calculation in shortwave part of RRTM
                              ! 1: maximum-random overlap
@@ -136,25 +160,18 @@ MODULE mo_radiation_nml
   INTEGER  :: irad_aero
   LOGICAL  :: lrad_aero_diag
   !
+  ! --- Name of the file that contains  dynamic greenhouse values
+  !
+  CHARACTER(LEN=filename_max)  :: ghg_filename
+  !
   ! --- Default gas volume mixing ratios - 1990 values (CMIP5)
   !
-!DR preliminary restart fix
-#ifdef __SX__
-  INTEGER, PARAMETER :: qp = SELECTED_REAL_KIND(24, 307)
-  REAL(qp) :: vmr_co2
-  REAL(qp) :: vmr_ch4
-  REAL(qp) :: vmr_n2o
-  REAL(qp) :: vmr_o2
-  REAL(qp) :: vmr_cfc11
-  REAL(qp) :: vmr_cfc12
-#else
   REAL(wp) :: vmr_co2
   REAL(wp) :: vmr_ch4
   REAL(wp) :: vmr_n2o
   REAL(wp) :: vmr_o2
   REAL(wp) :: vmr_cfc11
   REAL(wp) :: vmr_cfc12
-#endif
   !
   ! --- Time control
   !
@@ -162,11 +179,19 @@ MODULE mo_radiation_nml
   ! --- Different specifications of the zenith angle
   INTEGER  :: izenith
   !
+  ! ecRad specific configuration
+  LOGICAL  :: llw_cloud_scat
+  INTEGER  :: iliquid_scat
+  INTEGER  :: iice_scat
+  CHARACTER(len=MAX_CHAR_LENGTH) :: ecrad_data_path
+  !
   NAMELIST /radiation_nml/ ldiur, nmonth,         &
     &                      lyr_perp, yr_perp,     &
     &                      isolrad,               &
     &                      albedo_type,           &
     &                      direct_albedo,         &
+    &                      direct_albedo_water,   &
+    &                      albedo_whitecap,       &
     &                      irad_h2o,              &
     &                      irad_co2,   vmr_co2,   &
     &                      irad_ch4,   vmr_ch4,   &
@@ -177,8 +202,13 @@ MODULE mo_radiation_nml
     &                      irad_cfc12, vmr_cfc12, &
     &                      irad_aero,             &
     &                      lrad_aero_diag,        &
+    &                      ghg_filename,          &
     &                      izenith, icld_overlap, &
-    &                      islope_rad
+    &                      islope_rad,            &
+    &                      llw_cloud_scat,        &
+    &                      iliquid_scat,          &
+    &                      iice_scat,             &
+    &                      ecrad_data_path
 
 CONTAINS
 
@@ -216,9 +246,11 @@ CONTAINS
 
     isolrad        = 0
     albedo_type    = 1
-    direct_albedo  = 4   ! Parameterization after Briegleb (1992)
-    icld_overlap   = 2   ! generalized random overlap
-    islope_rad     = 0   ! no slope correction
+    direct_albedo  = 4      ! Parameterization after Briegleb and Ramanathan (1992)
+    direct_albedo_water = 4 ! Parameterization after Yang et al (2008) for sea water, and Ritter and Geleyn (1992) for lakes
+    albedo_whitecap= 0      ! no whitecap albedo from breaking ocean waves
+    icld_overlap   = 2      ! generalized random overlap
+    islope_rad     = 0      ! no slope correction
 
     irad_h2o    = 1
     irad_co2    = 2
@@ -231,6 +263,8 @@ CONTAINS
     irad_aero   = 2
     lrad_aero_diag = .FALSE.
 
+    ghg_filename= 'bc_greenhouse_gases.nc'
+
     vmr_co2     = 348.0e-06_wp
     vmr_ch4     = 1650.0e-09_wp
     vmr_n2o     =  306.0e-09_wp
@@ -239,6 +273,11 @@ CONTAINS
     vmr_cfc12   =  371.1e-12_wp
 
     izenith     = 4  ! Default: seasonal orbit and diurnal cycle
+
+    llw_cloud_scat  = .FALSE.
+    iliquid_scat    = 0
+    iice_scat       = 0
+    ecrad_data_path = '.'
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
@@ -281,8 +320,10 @@ CONTAINS
     config_yr_perp    = yr_perp
     config_isolrad    = isolrad
     config_albedo_type= albedo_type
-    config_direct_albedo = direct_albedo
-    config_icld_overlap = icld_overlap
+    config_direct_albedo       = direct_albedo
+    config_direct_albedo_water = direct_albedo_water
+    config_albedo_whitecap     = albedo_whitecap
+    config_icld_overlap        = icld_overlap
     config_islope_rad = islope_rad
     config_irad_h2o   = irad_h2o
     config_irad_co2   = irad_co2
@@ -294,6 +335,7 @@ CONTAINS
     config_irad_cfc12 = irad_cfc12
     config_irad_aero  = irad_aero
     config_lrad_aero_diag = lrad_aero_diag
+    config_ghg_filename   = ghg_filename
     config_vmr_co2    = vmr_co2
     config_vmr_ch4    = vmr_ch4
     config_vmr_n2o    = vmr_n2o
@@ -308,6 +350,18 @@ CONTAINS
     config_mmr_cfc12  = vmr_cfc12 * amc12/amd
 
     config_izenith    = izenith
+
+    config_llw_cloud_scat  = llw_cloud_scat
+    config_iliquid_scat    = iliquid_scat
+    config_iice_scat       = iice_scat
+    config_ecrad_data_path = TRIM(ecrad_data_path)
+
+    IF ( direct_albedo_water == 3 ) THEN
+      csalb => csalb2
+    ELSE
+      csalb => csalb1
+    ENDIF
+    __acc_attach(csalb)
 
     !-----------------------------------------------------
     ! 5. Store the namelist for restart

@@ -11,24 +11,23 @@
 !! -----------------------------------------------------------------------------------
 MODULE mo_util_mtime
 
-  USE, INTRINSIC :: iso_c_binding, ONLY: c_int64_t
-  USE mo_kind,                     ONLY: wp
+  USE, INTRINSIC :: iso_c_binding, ONLY: c_int64_t, c_char
+  USE mo_kind,                     ONLY: dp, wp, i8
+  USE mo_exception,                ONLY: finish
   USE mo_impl_constants,           ONLY: MAX_CHAR_LENGTH
   USE mtime,                       ONLY: datetime, newDatetime, timedelta, newTimeDelta,   &
-    &                                    OPERATOR(-), OPERATOR(+),                         &
-    &                                    juliandelta, newJulianDelta,                      &
-    &                                    timeDeltaToJulianDelta, deallocateJulianDelta,    &
+    &                                    OPERATOR(-), OPERATOR(+), event,      &
+    &                                    juliandelta,                          &
+    &                                    timeDeltaToJulianDelta,               &
     &                                    deallocateTimeDelta, deallocateDatetime,          &
     &                                    getTimeDeltaFromDateTime,                         &
-    &                                    getTotalMillisecondsTimedelta
+    &                                    getTotalMillisecondsTimedelta,                    &
+    &                                    isCurrentEventActive
   USE mo_time_config,              ONLY: time_config
   USE mo_util_string,              ONLY: t_keyword_list,                   &
                                          associate_keyword, with_keywords, &
                                          int2string
-
-!DR Test
-  USE mo_exception,                ONLY: message, message_text, finish
-!DR End Test
+  USE mo_mpi,                      ONLY: p_pe, p_io, p_comm_work, p_bcast
 
   IMPLICIT NONE
 
@@ -39,6 +38,15 @@ MODULE mo_util_mtime
   PUBLIC :: assumeNextMidnight
   PUBLIC :: getElapsedSimTimeInSeconds
   PUBLIC :: dummyDateTime
+  PUBLIC :: t_datetime_ptr
+  PUBLIC :: is_event_active
+  PUBLIC :: mtime_convert_netcdf_units
+  PUBLIC :: mtime_divide_timedelta
+  PUBLIC :: mtime_timedelta_from_fseconds
+
+  TYPE t_datetime_ptr
+    TYPE(datetime), POINTER :: ptr => NULL()
+  END TYPE t_datetime_ptr
 
   PRIVATE
 
@@ -74,16 +82,14 @@ CONTAINS
     TYPE(datetime),    INTENT(IN)   :: start_date, end_date
     CHARACTER(LEN=*),  INTENT(IN)   :: fmt
     
-    TYPE(timedelta),       POINTER  :: time_delta
-    TYPE(juliandelta),     POINTER  :: julian_delta
-    TYPE (t_keyword_list), POINTER  :: keywords => NULL()
+    TYPE(timedelta) :: time_delta
+    TYPE(juliandelta) :: julian_delta
+    TYPE(t_keyword_list), POINTER  :: keywords => NULL()
 
     ! compute time delta:
-    time_delta => newTimeDelta("P01D")
     time_delta = end_date - start_date
     ! compute the time delta in a Julian calendar, which allows more
     ! than 30 days:
-    julian_delta => newJulianDelta('+', 0_c_int64_t, 0_c_int64_t)
     CALL timeDeltaToJulianDelta(time_delta,start_date,julian_delta)
 
     ! now collect the feasible "building-blocks"
@@ -103,10 +109,8 @@ CONTAINS
       CALL associate_keyword("<ms>",  "", keywords)
     END IF
     ! replace keywords in "ddhhmmss"
-    result_str = TRIM(with_keywords(keywords, fmt))
+    result_str = with_keywords(keywords, fmt)
 
-    CALL deallocateTimeDelta(time_delta)
-    CALL deallocateJulianDelta(julian_delta)
   END FUNCTION t_mtime_utils_ddhhmmss
 
 
@@ -175,9 +179,9 @@ CONTAINS
     TYPE(datetime), OPTIONAL, INTENT(IN) :: anchor_datetime   ! anchor date
     !
     ! local
-    TYPE(timedelta), POINTER :: time_diff => NULL()
-    TYPE(datetime)           :: anchor                        ! anchor date for 
-                                                              ! timeDelta computation
+    TYPE(timedelta) :: time_diff
+    TYPE(datetime)  :: anchor                        ! anchor date for
+                                                     ! timeDelta computation
     !---------------------------------------------------------
 
     If (PRESENT(anchor_datetime)) THEN
@@ -187,11 +191,8 @@ CONTAINS
       anchor = time_config%tc_exp_startdate
     ENDIF
 
-    time_diff  => newTimedelta("PT0S")
     time_diff  =  getTimeDeltaFromDateTime(datetime_current, anchor)
     sim_time   =  getTotalMillisecondsTimedelta(time_diff, datetime_current)*1.e-3_wp
-
-    CALL deallocateTimedelta(time_diff)
 
   END FUNCTION getElapsedSimTimeInSeconds
 
@@ -211,15 +212,180 @@ CONTAINS
   TYPE(datetime) FUNCTION dummyDateTime()
     !
     ! local
-    TYPE(datetime), POINTER :: dummy_date
+    TYPE(datetime), POINTER :: dummy_date_ptr
+    LOGICAL, SAVE :: dummy_date_is_set = .FALSE.
+    TYPE(datetime), SAVE :: dummy_date
     !---------------------------------------------------------
 
-    dummy_date    => newDatetime("0-01-01T00:00:00.000")
-    dummyDateTime =  dummy_date
-
-    CALL deallocateDatetime(dummy_date)
+    IF (.NOT. dummy_date_is_set) THEN
+      dummy_date_ptr => newDatetime("0-01-01T00:00:00.000")
+      dummy_date = dummy_date_ptr
+      CALL deallocateDatetime(dummy_date_ptr)
+      dummy_date_is_set = .TRUE.
+    END IF
+    dummydatetime = dummy_date
 
   END FUNCTION dummyDateTime
 
+
+
+  !>
+  !! Wrapper for mtime function isCurrentEventActive in order to 
+  !! encapsulate the vector-host offloading
+  !! needed on the NEC Aurora
+  !!
+  !! @par Revision History
+  !! Initial revision by Guenther Zaengl, DWD (2020-01)
+  !!
+  LOGICAL FUNCTION is_event_active (in_event, mtime_current, offload_mode, plus_slack, opt_lasync)
+
+    TYPE(event),     POINTER, INTENT(INOUT)           :: in_event       !< mtime event to be checked
+    TYPE(datetime),  POINTER, INTENT(IN   )           :: mtime_current  !< current_datetime
+    LOGICAL,                  INTENT(IN   )           :: offload_mode   !< if TRUE, PE0 is in offloading mode
+    TYPE(timedelta), POINTER, INTENT(IN   ), OPTIONAL :: plus_slack
+    LOGICAL,                  INTENT(IN   ), OPTIONAL :: opt_lasync     !< if TRUE, broadcast is done by caller
+
+    LOGICAL :: lasync
+    LOGICAL :: is_active
+  !-----------------------------------------------------------------
+
+    IF (PRESENT(opt_lasync)) THEN
+     ! If TRUE, broadcast is done by caller
+     lasync = opt_lasync
+    ELSE
+     ! broadcast is done directly
+     lasync = .FALSE.
+    ENDIF
+
+    ! If PE0 is detached, execute isCurrentEventActive only on PE0 and broadcast result afterwards
+    IF (.NOT. offload_mode .OR. p_pe == p_io) THEN
+      IF (PRESENT(plus_slack)) THEN
+        is_active = isCurrentEventActive(in_event, mtime_current, plus_slack=plus_slack)
+      ELSE
+        is_active = isCurrentEventActive(in_event, mtime_current)
+      ENDIF
+    ENDIF
+    IF ( .NOT.lasync .AND. offload_mode ) CALL p_bcast(is_active, p_io, p_comm_work)
+
+    is_event_active = is_active
+
+  END FUNCTION is_event_active
+
+
+
+  ! via seconds... should be solved by mtime, could be done without
+  ! conversion to a prespecified time unit.
+  SUBROUTINE mtime_divide_timedelta (dividend, divisor, quotient)
+    TYPE(timedelta),          INTENT(in   ) :: dividend
+    TYPE(timedelta),          INTENT(in   ) :: divisor
+    REAL(wp),                 INTENT(  out) :: quotient
+    INTEGER(i8)                             :: dd, ds
+
+    CALL mtime_timedelta_to_seconds(dividend, dd)
+    CALL mtime_timedelta_to_seconds(divisor,  ds)
+
+    quotient = REAL(dd,wp) / REAL(ds,wp)
+
+  END SUBROUTINE mtime_divide_timedelta
+
+  SUBROUTINE mtime_timedelta_to_seconds (mtime_dt, seconds_dt)
+    TYPE(timedelta),          INTENT(in   ) :: mtime_dt
+    INTEGER(i8),              INTENT(  out) :: seconds_dt
+    CHARACTER(*),                 PARAMETER :: routine = &
+      & modname//"::mtime_timedelta_to_seconds"
+
+    IF (mtime_dt%year > 0 .OR. mtime_dt%month > 0) THEN
+      CALL finish(routine, "year or month nonzero, result is undefined")
+    ENDIF
+
+    seconds_dt =   86400 * INT(mtime_dt%day)    &
+      &          + 3600  * INT(mtime_dt%hour)   &
+      &          + 60    * INT(mtime_dt%minute) &
+      &          +         INT(mtime_dt%second)
+
+  END SUBROUTINE mtime_timedelta_to_seconds
+
+  ! convert (fractional) seconds into an mtime timedelta object
+  SUBROUTINE mtime_timedelta_from_fseconds(dt, base_dt, td)
+    REAL(dp), INTENT(in) :: dt
+    TYPE(datetime), INTENT(in) :: base_dt
+    TYPE(timedelta), INTENT(out) :: td
+    INTEGER :: change_sign
+    REAL(dp) :: dtl
+    INTERFACE
+      SUBROUTINE julianDeltaToTimeDelta(jd, base_dt, td) BIND(c, name='julianDeltaToTimeDelta')
+        IMPORT :: juliandelta, datetime, timedelta
+        TYPE(juliandelta), INTENT(in) :: jd
+        TYPE(datetime), INTENT(in) :: base_dt
+        TYPE(timedelta), INTENT(out) :: td
+      END SUBROUTINE julianDeltaToTimeDelta
+    END INTERFACE
+    TYPE(juliandelta) :: jdelta
+
+    jdelta%sign = MERGE(c_char_'+', c_char_'-', dt >= 0.0_dp)
+    change_sign = MERGE(1, -1, dt >= 0.0_dp)    
+    dtl = ABS(dt)
+    jdelta%ms = change_sign*INT(ABS(MOD(dtl, 86400.0_dp)) * 1000.0_dp, c_int64_t)
+    jdelta%day = change_sign*INT(dtl/86400.0_dp, c_int64_t)
+    CALL juliandeltatotimedelta(jdelta, base_dt, td)
+  END SUBROUTINE mtime_timedelta_from_fseconds
+
+  ! the expected input looks similar to this "seconds since 2013-04-24T00:00:00"
+
+  SUBROUTINE mtime_convert_netcdf_units (unit_string, starttime, timeincrement)
+    CHARACTER(len=*),         INTENT(in   ) :: unit_string
+    TYPE(datetime),  POINTER, INTENT(  out) :: starttime
+    TYPE(timeDelta), POINTER, INTENT(  out) :: timeincrement
+
+    INTEGER           :: errno
+    INTEGER           :: idx0, idx1, idx2, idx3, idx4, idx5, idx6
+    INTEGER           :: month, day
+    INTEGER(i8)       :: year
+    CHARACTER(len=32) :: iso8601_string
+    CHARACTER(len=32) :: timedelta_string
+
+    idx1 = SCAN(unit_string,          " ")
+    idx2 = SCAN(unit_string(idx1+1:), " ")
+    idx2 = idx1+idx2
+    idx3 = SCAN(unit_string(idx2+1:), " ")
+    idx3 = idx2+idx3
+
+    idx0 = 1
+    idx4 = LEN_TRIM(unit_string)
+    idx5 = SCAN(unit_string(idx2+1:idx3-1), "-")
+    idx6 = SCAN(unit_string(idx2+idx5+1:idx3-1), "-")
+    idx6 = idx5+idx6
+
+    READ(unit_string(idx2+1:idx2+idx5-1),*) year
+    READ(unit_string(idx2+idx5+1:idx2+idx6-1),*) month
+    READ(unit_string(idx2+idx6+1:idx3-1),*) day
+
+    WRITE(iso8601_string,'(i0,a,i2.2,a,i2.2,a,a)') &
+         year, '-', month, '-', day, 'T', unit_string(idx3+1:idx4)
+
+    IF (unit_string(idx1+1:idx2) /= "since") THEN
+      CALL finish(modname, "Unit string is in unknown format"//unit_string(idx1+1:idx2))
+    ENDIF
+
+    SELECT CASE ( unit_string(:idx1-1) )
+    CASE ("seconds")
+      timedelta_string = "PT01S"
+    CASE ("minutes")
+      timedelta_string = "PT01M"
+    CASE ("hours")
+      timedelta_string = "PT01H"
+    CASE ("days")
+      timedelta_string = "PT01D"
+    CASE default
+      CALL finish(modname, "Unknown time increment: "//unit_string(:idx1-1))
+    END SELECT
+
+    starttime     => newdatetime(TRIM(iso8601_string), errno)
+    IF (errno /= 0)  CALL finish(modname, "Error in conversion of date: "//TRIM(iso8601_string))
+
+    timeincrement => newTimeDelta(timedelta_string, errno)
+    IF (errno /= 0)  CALL finish(modname, "Error in conversion of unit: "//timedelta_string)
+
+  END SUBROUTINE mtime_convert_netcdf_units
 
 END MODULE mo_util_mtime

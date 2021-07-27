@@ -23,52 +23,52 @@
 MODULE mo_initicon_utils
 
   USE mo_kind,                ONLY: wp
-  USE mo_parallel_config,     ONLY: nproma, p_test_run
-  USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi, iqr, iqs
+  USE mo_parallel_config,     ONLY: nproma
+  USE mo_run_config,          ONLY: msg_level, ntracer, iqv, iqc, iqi, iqr, iqs, iqg, iforcing, &
+                                    iqh, iqnc, iqni, iqnr, iqns, iqng, iqnh
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf, nnew, nnew_rcf
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_metrics, t_nh_diag, t_nh_prog
-  USE mo_nonhydrostatic_config, ONLY: kstart_moist
+  USE mo_nonhydrostatic_config, ONLY: kstart_moist, kstart_tracer
   USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_initicon_types,      ONLY: t_initicon_state, alb_snow_var, t_pi_atm_in, t_pi_sfc_in, t_pi_atm, &
     &                               t_pi_sfc, t_sfc_inc, ana_varnames_dict, t_init_state_const
-  USE mo_initicon_config,     ONLY: init_mode, l_sst_in,                  &
+  USE mo_initicon_config,     ONLY: init_mode, l_sst_in, qcana_mode, qiana_mode, qrsgana_mode, &
     &                               ana_varnames_map_file, lread_vn,      &
-    &                               lvert_remap_fg, aerosol_fg_present
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, MODE_DWDANA, MODE_IAU,             &
+    &                               lvert_remap_fg, aerosol_fg_present, icpl_da_sfcevap
+  USE mo_impl_constants,      ONLY: MODE_DWDANA, MODE_IAU,                              &
                                     MODE_IAU_OLD, MODE_IFSANA, MODE_COMBINED,           &
     &                               MODE_COSMO, MODE_ICONVREMAP, MODIS,                 &
     &                               min_rlcell_int, grf_bdywidth_c, min_rlcell,         &
-    &                               iss, iorg, ibc, iso4, idu, SUCCESS
+    &                               iss, iorg, ibc, iso4, idu, SUCCESS, iecham
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_radiation_config,    ONLY: albedo_type
   USE mo_physical_constants,  ONLY: tf_salt, tmelt
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom
-  USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast, &
-    p_comm_work_test, p_comm_work, my_process_is_mpi_workroot
+  USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, &
+    &                               p_comm_work, my_process_is_mpi_workroot, &
+    &                               p_min, p_max, p_sum, num_work_procs, my_process_is_work
   USE mo_util_string,         ONLY: tolower
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, lseaice, llake, lmulti_snow,         &
     &                               isub_lake, frlnd_thrhld,             &
     &                               frlake_thrhld, frsea_thrhld, nlev_snow, ntiles_lnd,           &
     &                               l2lay_rho_snow, lprog_albsi
-  USE mo_extpar_config,       ONLY: itype_vegetation_cycle
   USE mo_nwp_sfc_utils,       ONLY: init_snowtile_lists
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
+  USE mo_echam_phy_config,    ONLY: echam_phy_config
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
-  USE mo_phyparam_soil,       ONLY: csalb_snow_min, csalb_snow_max, csalb_snow, crhosmin_ml, crhosmax_ml
+  USE sfc_terra_data,         ONLY: csalb_snow_min, csalb_snow_max, csalb_snow, crhosmin_ml, crhosmax_ml
   USE mo_physical_constants,  ONLY: cpd, rd, cvd_o_rd, p0ref, vtmpc1
-  USE mo_nh_init_utils,       ONLY: hydro_adjust
-  USE mo_seaice_nwp,          ONLY: frsi_min, seaice_coldinit_nwp
-  USE mo_dictionary,          ONLY: dict_init, dict_finalize,                           &
-    &                               dict_loadfile, dict_resize
+  USE mo_hydro_adjust,        ONLY: hydro_adjust
+  USE sfc_seaice,             ONLY: frsi_min, seaice_coldinit_nwp
   USE mo_post_op,             ONLY: perform_post_op
   USE mo_var_metadata_types,  ONLY: t_var_metadata, POST_OP_NONE
-  USE mo_linked_list,         ONLY: t_list_element
-  USE mo_var_list,            ONLY: get_var_name, nvar_lists, var_lists
-  USE mo_var_list_element,    ONLY: level_type_ml
-  USE mo_flake,               ONLY: flake_coldinit
+  USE mo_var_metadata,        ONLY: get_var_name
+  USE mo_var_list_register,   ONLY: t_vl_register_iter
+  USE mo_var,                 ONLY: level_type_ml
+  USE sfc_flake,              ONLY: flake_coldinit
   USE mtime,                  ONLY: datetime, newDatetime, deallocateDatetime, &
     &                               OPERATOR(==), OPERATOR(+) 
   USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state
@@ -80,6 +80,9 @@ MODULE mo_initicon_utils
   USE mo_time_config,         ONLY: time_config
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights,         &
     &                                  calculate_time_interpolation_weights
+  USE mo_upatmo_config,       ONLY: upatmo_config
+  USE mo_2mom_mcrph_driver,   ONLY: set_qnc, set_qnr, set_qni,   &
+    &                               set_qns, set_qng, set_qnh
 
 
   IMPLICIT NONE
@@ -107,6 +110,9 @@ MODULE mo_initicon_utils
   PUBLIC :: init_snowtiles
   PUBLIC :: printChecksums
   PUBLIC :: init_aerosol
+  PUBLIC :: init_qnx_from_qx_twomom
+  PUBLIC :: init_qnxinc_from_qxinc_twomom
+  PUBLIC :: get_diag_stat_comm_work
 
   CONTAINS
 
@@ -123,78 +129,49 @@ MODULE mo_initicon_utils
   !!
   !!
   SUBROUTINE initicon_inverse_post_op(varname, optvar_out2D, optvar_out3D)
-
     CHARACTER(len=*), INTENT(IN)      :: varname             !< var name of field to be read
     REAL(wp), OPTIONAL, INTENT(INOUT) :: optvar_out2D(:,:)   !< 3D output field
     REAL(wp), OPTIONAL, INTENT(INOUT) :: optvar_out3D(:,:,:) !< 2D output field
-
-    ! local variables
     INTEGER                         :: i              ! loop count
     TYPE(t_var_metadata), POINTER   :: info           ! variable metadata
-    TYPE(t_list_element), POINTER   :: element
-    CHARACTER(len=*), PARAMETER     :: routine = 'initicon_inverse_post_op'
+    CHARACTER(*), PARAMETER     :: routine = 'initicon_inverse_post_op'
+    CHARACTER(LEN=LEN_TRIM(varname)) :: lc_varname
+    TYPE(t_vl_register_iter) :: vl_iter
 
     !-------------------------------------------------------------------------
-
-
     ! Check consistency of optional arguments
-    !
     IF (PRESENT( optvar_out2D ) .AND. PRESENT( optvar_out3D )) THEN
       CALL finish(routine, 'Only one optional argument must be present')
     ELSE IF (.NOT.PRESENT( optvar_out2D ) .AND. .NOT.PRESENT( optvar_out3D )) THEN
       CALL finish(routine, 'One of 2 optional arguments must be present')
     ENDIF
-
-
+    lc_varname = tolower(varname)
     ! get metadata information for field to be read
-    info => NULL()
-    DO i = 1,nvar_lists
+    NULLIFY(info)
+    DO WHILE(vl_iter%next() .AND. .NOT.ASSOCIATED(info))
       ! loop only over model level variables
-      IF (var_lists(i)%p%vlevel_type /= level_type_ml) CYCLE 
-
-      element => NULL()
-      DO
-        IF(.NOT.ASSOCIATED(element)) THEN
-          element => var_lists(i)%p%first_list_element
-        ELSE
-          element => element%next_list_element
-        ENDIF
-        IF(.NOT.ASSOCIATED(element)) EXIT
-
-        ! Check for matching name (take care of suffix of
-        ! time-dependent variables):
-        IF (TRIM(tolower(varname)) == TRIM(tolower(get_var_name(element%field)))) THEN
-          info => element%field%info
-          EXIT
-        ENDIF
+      IF (vl_iter%cur%p%vlevel_type /= level_type_ml) CYCLE 
+      DO i = 1, vl_iter%cur%p%nvars
+        info => vl_iter%cur%p%vl(i)%p%info
+        IF (lc_varname == tolower(get_var_name(info))) EXIT
+        NULLIFY(info)
       END DO
-
-      ! If info handle has been found, exit list loop
-      IF (ASSOCIATED(info)) EXIT
     ENDDO
-
     IF (.NOT.ASSOCIATED(info)) THEN
-      WRITE (message_text,'(a,a)') TRIM(varname), ' not found'
-      CALL message('',message_text)
+      CALL message(TRIM(varname)//' not found',message_text)
       CALL finish(routine, 'Varname does not match any of the ICON variable names')
     ENDIF
-
     ! perform post_op
     IF (info%post_op%ipost_op_type /= POST_OP_NONE) THEN
-      IF(my_process_is_stdio() .AND. msg_level>10) THEN
-        WRITE(message_text,'(a)') 'Inverse Post_op for: '//TRIM(varname)
-        CALL message(TRIM(routine), TRIM(message_text))
-      ENDIF
+      IF(my_process_is_stdio() .AND. msg_level>10) &
+        & CALL message(routine, 'Inverse Post_op for: ' // varname)
       IF (PRESENT(optvar_out2D)) THEN
         CALL perform_post_op(info%post_op, optvar_out2D, opt_inverse=.TRUE.)
       ELSE IF (PRESENT(optvar_out3D)) THEN
         CALL perform_post_op(info%post_op, optvar_out3D, opt_inverse=.TRUE.)
       ENDIF
     ENDIF
-
   END SUBROUTINE initicon_inverse_post_op
-
-
 
   !>
   !! SUBROUTINE init_aersosol
@@ -234,8 +211,6 @@ MODULE mo_initicon_utils
 !$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
     DO jg = 1, n_dom
 
-      IF (aerosol_fg_present(jg)) CYCLE
-
       rl_start = 1
       rl_end   = min_rlcell
 
@@ -249,24 +224,27 @@ MODULE mo_initicon_utils
 
         DO jc = i_startidx, i_endidx
 
-          prm_diag(jg)%aerosol(jc,iss,jb) = zw1*ext_data(jg)%atm_td%aer_ss(jc,jb,mo1) &
-            &                              +zw2*ext_data(jg)%atm_td%aer_ss(jc,jb,mo2)
-          prm_diag(jg)%aerosol(jc,iorg,jb) = zw1*ext_data(jg)%atm_td%aer_org(jc,jb,mo1) &
-            &                               +zw2* ext_data(jg)%atm_td%aer_org(jc,jb,mo2)
-          prm_diag(jg)%aerosol(jc,ibc,jb) = zw1*ext_data(jg)%atm_td%aer_bc(jc,jb,mo1) &
-            &                               +zw2*ext_data(jg)%atm_td%aer_bc(jc,jb,mo2)
-          prm_diag(jg)%aerosol(jc,iso4,jb) = zw1*ext_data(jg)%atm_td%aer_so4(jc,jb,mo1) &
-            &                               +zw2*ext_data(jg)%atm_td%aer_so4(jc,jb,mo2)
-          prm_diag(jg)%aerosol(jc,idu,jb) = zw1*ext_data(jg)%atm_td%aer_dust(jc,jb,mo1) &
-            &                              +zw2*ext_data(jg)%atm_td%aer_dust(jc,jb,mo2)
+          IF (.NOT. aerosol_fg_present(jg,iss)) prm_diag(jg)%aerosol(jc,iss,jb) =   &
+            &  zw1*ext_data(jg)%atm_td%aer_ss(jc,jb,mo1)  + zw2*ext_data(jg)%atm_td%aer_ss(jc,jb,mo2)
+          IF (.NOT. aerosol_fg_present(jg,iorg)) prm_diag(jg)%aerosol(jc,iorg,jb) = &
+            &  zw1*ext_data(jg)%atm_td%aer_org(jc,jb,mo1) + zw2*ext_data(jg)%atm_td%aer_org(jc,jb,mo2)
+          IF (.NOT. aerosol_fg_present(jg,ibc)) prm_diag(jg)%aerosol(jc,ibc,jb) =   &
+            &  zw1*ext_data(jg)%atm_td%aer_bc(jc,jb,mo1)  + zw2*ext_data(jg)%atm_td%aer_bc(jc,jb,mo2)
+          IF (.NOT. aerosol_fg_present(jg,iso4)) prm_diag(jg)%aerosol(jc,iso4,jb) = &
+            &  zw1*ext_data(jg)%atm_td%aer_so4(jc,jb,mo1) + zw2*ext_data(jg)%atm_td%aer_so4(jc,jb,mo2)
+          IF (.NOT. aerosol_fg_present(jg,idu)) prm_diag(jg)%aerosol(jc,idu,jb) =   &
+            &  zw1*ext_data(jg)%atm_td%aer_dust(jc,jb,mo1)+ zw2*ext_data(jg)%atm_td%aer_dust(jc,jb,mo2)
 
         ENDDO
 
       ENDDO
 !$OMP END DO
 !$OMP MASTER
-      WRITE(message_text,'(a,i3)') 'Aerosol initialized from climatology, domain ',jg
-      CALL message('init_aerosol', TRIM(message_text))
+      IF ( ANY(.NOT.aerosol_fg_present(jg,1:5))) THEN
+        WRITE(message_text,'(a,i3,a,i3,a)') 'Aerosol initialized from climatology, domain ',jg,', for',&
+          COUNT(.NOT.aerosol_fg_present(jg,1:5)),' of 5 types'
+        CALL message('init_aerosol', TRIM(message_text))
+      ENDIF
 !$OMP END MASTER
     ENDDO
 !$OMP END PARALLEL
@@ -362,22 +340,22 @@ MODULE mo_initicon_utils
         ! call flake_coldinit and store results on a local auxiliary array; they are used as a backup if no
         ! appropriate neighbor points are found
         CALL flake_coldinit(                                     &
-          &     nflkgb      = ext_data(jg)%atm%fp_count    (jb), &  ! in
-          &     idx_lst_fp  = ext_data(jg)%atm%idx_lst_fp(:,jb), &  ! in
-          &     depth_lk    = ext_data(jg)%atm%depth_lk  (:,jb), &  ! in
-          &     tskin       = lnd_prog%t_g_t(:,jb,isub_lake)   , &  ! in
-          &     t_snow_lk_p = aux_lk(:,1),                       &
-          &     h_snow_lk_p = aux_lk(:,2),                       &
-          &     t_ice_p     = aux_lk(:,3),                       &
-          &     h_ice_p     = aux_lk(:,4),                       &
-          &     t_mnw_lk_p  = aux_lk(:,5),                       &
-          &     t_wml_lk_p  = aux_lk(:,6),                       &
-          &     t_bot_lk_p  = aux_lk(:,7),                       &
-          &     c_t_lk_p    = aux_lk(:,8),                       &
-          &     h_ml_lk_p   = aux_lk(:,9),                       &
-          &     t_b1_lk_p   = aux_lk(:,10),                      &
-          &     h_b1_lk_p   = aux_lk(:,11),                      &
-          &     t_g_lk_p    = aux_lk(:,12)                       )
+          &     nflkgb      = ext_data(jg)%atm%list_lake%ncount(jb),&  ! in
+          &     idx_lst_fp  = ext_data(jg)%atm%list_lake%idx(:,jb), &  ! in
+          &     depth_lk    = ext_data(jg)%atm%depth_lk  (:,jb),    &  ! in
+          &     tskin       = lnd_prog%t_g_t(:,jb,isub_lake)   ,    &  ! in
+          &     t_snow_lk_p = aux_lk(:,1),                          &
+          &     h_snow_lk_p = aux_lk(:,2),                          &
+          &     t_ice_p     = aux_lk(:,3),                          &
+          &     h_ice_p     = aux_lk(:,4),                          &
+          &     t_mnw_lk_p  = aux_lk(:,5),                          &
+          &     t_wml_lk_p  = aux_lk(:,6),                          &
+          &     t_bot_lk_p  = aux_lk(:,7),                          &
+          &     c_t_lk_p    = aux_lk(:,8),                          &
+          &     h_ml_lk_p   = aux_lk(:,9),                          &
+          &     t_b1_lk_p   = aux_lk(:,10),                         &
+          &     h_b1_lk_p   = aux_lk(:,11),                         &
+          &     t_g_lk_p    = aux_lk(:,12)                          ) 
 
 
         lpmask(:,:) = 0._wp
@@ -628,7 +606,7 @@ MODULE mo_initicon_utils
 
     TYPE(t_nh_state),      INTENT(INOUT) :: p_nh_state(:)
 
-    INTEGER :: jg, jb, jk, jc, je
+    INTEGER :: jg, jb, jk, jc, je, idx, itracer
     INTEGER :: nblks_c, npromz_c, nblks_e, npromz_e, nlen, nlev, nlevp1, ntl, ntlr
 
 !$OMP PARALLEL PRIVATE(jg,nblks_c,npromz_c,nblks_e,npromz_e,nlev,nlevp1,ntl,ntlr)
@@ -664,7 +642,7 @@ MODULE mo_initicon_utils
       ENDDO
 !$OMP END DO
 
-!$OMP DO PRIVATE(jb,jk,jc,nlen) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jc,nlen,idx,itracer) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_c
 
         IF (jb /= nblks_c) THEN
@@ -677,8 +655,9 @@ MODULE mo_initicon_utils
         DO jk = 1, nlev
           DO jc = 1, nlen
             !
-            ! Diagnostic pressure
+            ! Diagnostic pressure and temperature
             p_nh_state(jg)%diag%pres(jc,jk,jb)         = initicon(jg)%atm%pres(jc,jk,jb)
+            p_nh_state(jg)%diag%temp(jc,jk,jb)         = initicon(jg)%atm%temp(jc,jk,jb)
             !
             ! Dynamic prognostic variables on cell points
             p_nh_state(jg)%prog(ntl)%w(jc,jk,jb)       = initicon(jg)%atm%w(jc,jk,jb)
@@ -699,27 +678,101 @@ MODULE mo_initicon_utils
           DO jc = 1, nlen
             p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqc) = 0.0_wp
             p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqi) = 0.0_wp
-            IF ( iqr /= 0 ) THEN
+            IF ( iqr /= 0 .AND. iqr <= ntracer) THEN
               p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqr) = 0.0_wp
             END IF
-            IF ( iqs /= 0 ) THEN
+            IF ( iqs /= 0 .AND. iqs <= ntracer) THEN
               p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqs) = 0.0_wp
+            END IF
+            IF ( (atm_phy_nwp_config(jg)%lhave_graupel) .OR. ( iqg /= 0 .AND. iqg <= ntracer) ) THEN
+              p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqg) = 0.0_wp
+            END IF
+            IF ( atm_phy_nwp_config(jg)%l2moment .OR. echam_phy_config(jg)%l2moment) THEN
+              p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqh)  = 0.0_wp
+              p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqnc) = 0.0_wp
+              p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqni) = 0.0_wp
+              p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqnr) = 0.0_wp
+              p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqns) = 0.0_wp
+              p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqng) = 0.0_wp
+              p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqnh) = 0.0_wp
             END IF
           ENDDO
         ENDDO
         !
-        ! at and below kstart_moist(jg): copy from initicon%atm
-        DO jk = kstart_moist(jg), nlev
-          DO jc = 1, nlen
-            p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqc) = initicon(jg)%atm%qc(jc,jk,jb)
-            p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqi) = initicon(jg)%atm%qi(jc,jk,jb)
-            IF ( iqr /= 0 ) THEN
-              p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqr) = initicon(jg)%atm%qr(jc,jk,jb)
-            END IF
-            IF ( iqs /= 0 ) THEN
-              p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqs) = initicon(jg)%atm%qs(jc,jk,jb)
-            END IF
+        IF (iforcing == iecham) THEN
+          ! at and below kstart_moist(jg): copy from initicon%atm or set to zero
+          ! HAS TO BE CHECKED for possibility to initialize
+          DO jk = kstart_moist(jg), nlev
+            DO jc = 1, nlen
+              p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqc) = initicon(jg)%atm%qc(jc,jk,jb)
+              p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqi) = initicon(jg)%atm%qi(jc,jk,jb)
+              IF ( iqr /= 0 .AND. iqr <= ntracer) THEN
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqr) = 0.0_wp
+              END IF
+              IF ( iqs /= 0 .AND. iqs <= ntracer) THEN
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqs) = 0.0_wp
+              END IF
+              IF ( iqg /= 0 .AND. iqg <= ntracer) THEN
+                ! as qg is not in atm initialize with zero
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqg) = 0.0_wp
+              END IF
+              IF ( echam_phy_config(jg)%l2moment) THEN
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqh)  = 0.0_wp
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqnc) = 0.0_wp
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqni) = 0.0_wp
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqnr) = 0.0_wp
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqns) = 0.0_wp
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqng) = 0.0_wp
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqnh) = 0.0_wp
+              END IF
+            ENDDO
           ENDDO
+        ELSE
+          ! at and below kstart_moist(jg): copy from initicon%atm
+          DO jk = kstart_moist(jg), nlev
+            DO jc = 1, nlen
+              p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqc) = initicon(jg)%atm%qc(jc,jk,jb)
+              p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqi) = initicon(jg)%atm%qi(jc,jk,jb)
+              IF ( iqr /= 0 .AND. iqr <= ntracer) THEN
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqr) = initicon(jg)%atm%qr(jc,jk,jb)
+              END IF
+              IF ( iqs /= 0 .AND. iqs <= ntracer) THEN
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqs) = initicon(jg)%atm%qs(jc,jk,jb)
+              END IF
+              IF ( atm_phy_nwp_config(jg)%lhave_graupel ) THEN
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqg) = initicon(jg)%atm%qg(jc,jk,jb)
+              END IF
+              IF ( atm_phy_nwp_config(jg)%l2moment ) THEN
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqh)  = initicon(jg)%atm%qh(jc,jk,jb)
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqnc) = initicon(jg)%atm%qnc(jc,jk,jb)
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqni) = initicon(jg)%atm%qni(jc,jk,jb)
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqnr) = initicon(jg)%atm%qnr(jc,jk,jb)
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqns) = initicon(jg)%atm%qns(jc,jk,jb)
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqng) = initicon(jg)%atm%qng(jc,jk,jb)
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqnh) = initicon(jg)%atm%qnh(jc,jk,jb)
+              END IF
+            ENDDO
+          ENDDO
+        END IF
+
+        ! ... additional tracer variables
+        DO idx = 1, ntracer
+          IF ( ASSOCIATED(initicon(jg)%atm%tracer(idx)%field) ) THEN
+            itracer = initicon(jg)%atm%tracer(idx)%var_element%info%ncontained
+            ! above kstart_tracer(jg,itracer): set to zero
+            DO jk = 1, kstart_tracer(jg,itracer)-1
+              DO jc = 1, nlen
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,itracer) = 0.0_wp
+              ENDDO
+            ENDDO
+            ! at and below kstart_tracer(jg,itracer): copy from initicon%atm
+            DO jk = kstart_tracer(jg,itracer), nlev
+              DO jc = 1, nlen
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,itracer) =  &
+                  &  initicon(jg)%atm%tracer(idx)%field(jc,jk,jb)
+              ENDDO
+            ENDDO
+          END IF
         ENDDO
 
         ! w at surface level
@@ -743,14 +796,18 @@ MODULE mo_initicon_utils
 !$OMP END PARALLEL
 
     ! Finally, compute exact hydrostatic adjustment for thermodynamic fields
+    ! (in case of an upper-atmosphere extrapolation, this is already part 
+    ! of the pressure "extrapolation" in 'src/atm_dyn_iconam/mo_nh_vert_interp: vert_interp')
     DO jg = 1, n_dom
 
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
       ntl = nnow(jg)
 
-      CALL hydro_adjust(p_patch(jg), p_nh_state(jg)%metrics,                                  &
-                        p_nh_state(jg)%prog(ntl)%rho,     p_nh_state(jg)%prog(ntl)%exner,     &
-                        p_nh_state(jg)%prog(ntl)%theta_v )
+      IF (.NOT. upatmo_config(jg)%exp%l_expol) THEN
+        CALL hydro_adjust(p_patch(jg), p_nh_state(jg)%metrics,                                  &
+                          p_nh_state(jg)%prog(ntl)%rho,     p_nh_state(jg)%prog(ntl)%exner,     &
+                          p_nh_state(jg)%prog(ntl)%theta_v )
+      ENDIF
 
     ENDDO
 
@@ -775,7 +832,7 @@ MODULE mo_initicon_utils
     TYPE(t_initicon_state), INTENT(INOUT) :: initicon(:)
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::copy_fg2initicon"
-    INTEGER :: jg, jb, jk, jc, je, ierrstat
+    INTEGER :: jg, jb, jk, jc, je, ierrstat, idx, itracer
     INTEGER :: nblks_c, npromz_c, nblks_e, npromz_e, nlen, nlev, nlevp1, ntl, ntlr
     REAL(wp), ALLOCATABLE :: w_ifc(:,:,:), tke_ifc(:,:,:)
 
@@ -803,11 +860,7 @@ MODULE mo_initicon_utils
 !$OMP DO PRIVATE(jb,jk,je,nlen) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_e
 
-        IF (jb /= nblks_e) THEN
-          nlen = nproma
-        ELSE
-          nlen = npromz_e
-        ENDIF
+        nlen = MERGE( nproma, npromz_e, jb /= nblks_e)
 
         ! Wind speed
         DO jk = 1, nlev
@@ -819,14 +872,10 @@ MODULE mo_initicon_utils
       ENDDO
 !$OMP END DO
 
-!$OMP DO PRIVATE(jb,jk,jc,nlen,exner,tempv) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jc,nlen,exner,tempv,idx,itracer) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_c
 
-        IF (jb /= nblks_c) THEN
-          nlen = nproma
-        ELSE
-          nlen = npromz_c
-        ENDIF
+        nlen = MERGE(nproma, npromz_c, jb /= nblks_c)
 
         ! 3D fields
         DO jk = 1, nlev
@@ -847,6 +896,49 @@ MODULE mo_initicon_utils
           ENDDO
         ENDDO
 
+        ! ... additional tracer variables
+        DO idx = 1, ntracer
+          IF ( ASSOCIATED(initicon(jg)%atm_in%tracer(idx)%field) ) THEN
+            itracer = initicon(jg)%atm_in%tracer(idx)%var_element%info%ncontained
+            DO jk = 1, nlev
+              DO jc = 1, nlen
+                initicon(jg)%atm_in%tracer(idx)%field(jc,jk,jb) =  &
+                  &  p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,itracer)
+              ENDDO
+            ENDDO
+          END IF
+        ENDDO
+
+        IF (atm_phy_nwp_config(jg)%lhave_graupel) THEN
+          DO jk = 1, nlev
+            DO jc = 1, nlen
+              initicon(jg)%atm_in%qg(jc,jk,jb) = p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqg)
+            ENDDO
+          ENDDO
+        ELSE
+          ! Probably unnecessary due to previous initialization?
+          DO jk = 1, nlev
+            DO jc = 1, nlen
+              initicon(jg)%atm_in%qg(jc,jk,jb) = 0.0_wp
+            ENDDO
+          ENDDO          
+        END IF
+        
+        ! 2-moment hydrometeors
+        IF (atm_phy_nwp_config(jg)%l2moment) THEN
+          DO jk = 1, nlev
+            DO jc = 1, nlen
+              initicon(jg)%atm_in%qh(jc,jk,jb)  = p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqh)
+              initicon(jg)%atm_in%qnc(jc,jk,jb) = p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqnc)
+              initicon(jg)%atm_in%qni(jc,jk,jb) = p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqni)
+              initicon(jg)%atm_in%qnr(jc,jk,jb) = p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqnr)
+              initicon(jg)%atm_in%qns(jc,jk,jb) = p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqns)
+              initicon(jg)%atm_in%qng(jc,jk,jb) = p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqng)
+              initicon(jg)%atm_in%qnh(jc,jk,jb) = p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqnh)
+            ENDDO
+          ENDDO
+        END IF
+          
         ! w and TKE at surface level
         DO jc = 1, nlen
           w_ifc(jc,nlevp1,jb)   = p_nh_state(jg)%prog(ntl)%w(jc,nlevp1,jb)
@@ -854,23 +946,61 @@ MODULE mo_initicon_utils
         ENDDO
 
         ! diagnose pressure and temperature 
-        DO jk = 1, nlev
-          DO jc = 1, nlen
+        IF (atm_phy_nwp_config(jg)%l2moment) THEN
+          DO jk = 1, nlev
+            DO jc = 1, nlen
 
-            initicon(jg)%atm_in%w(jc,jk,jb) = (w_ifc(jc,jk,jb) + w_ifc(jc,jk+1,jb)) * 0.5_wp
-            initicon(jg)%atm_in%tke(jc,jk,jb) = (tke_ifc(jc,jk,jb) + tke_ifc(jc,jk+1,jb)) * 0.5_wp
+              initicon(jg)%atm_in%w(jc,jk,jb) = (w_ifc(jc,jk,jb) + w_ifc(jc,jk+1,jb)) * 0.5_wp
+              initicon(jg)%atm_in%tke(jc,jk,jb) = (tke_ifc(jc,jk,jb) + tke_ifc(jc,jk+1,jb)) * 0.5_wp
 
-            exner = (initicon(jg)%atm_in%rho(jc,jk,jb)*initicon(jg)%atm_in%theta_v(jc,jk,jb)*rd/p0ref)**(1._wp/cvd_o_rd)
-            tempv = initicon(jg)%atm_in%theta_v(jc,jk,jb)*exner
+              exner = (initicon(jg)%atm_in%rho(jc,jk,jb)*initicon(jg)%atm_in%theta_v(jc,jk,jb)*rd/p0ref)**(1._wp/cvd_o_rd)
+              tempv = initicon(jg)%atm_in%theta_v(jc,jk,jb)*exner
 
-            initicon(jg)%atm_in%pres(jc,jk,jb) = exner**(cpd/rd)*p0ref
-            initicon(jg)%atm_in%temp(jc,jk,jb) = tempv / (1._wp + vtmpc1*initicon(jg)%atm_in%qv(jc,jk,jb) - &
-              (initicon(jg)%atm_in%qc(jc,jk,jb) + initicon(jg)%atm_in%qi(jc,jk,jb) +                        &
-               initicon(jg)%atm_in%qr(jc,jk,jb) + initicon(jg)%atm_in%qs(jc,jk,jb)) )
+              initicon(jg)%atm_in%pres(jc,jk,jb) = exner**(cpd/rd)*p0ref
+              initicon(jg)%atm_in%temp(jc,jk,jb) = tempv / (1._wp + vtmpc1*initicon(jg)%atm_in%qv(jc,jk,jb) - &
+                (initicon(jg)%atm_in%qc(jc,jk,jb) + initicon(jg)%atm_in%qi(jc,jk,jb) +                        &
+                 initicon(jg)%atm_in%qr(jc,jk,jb) + initicon(jg)%atm_in%qs(jc,jk,jb) +                        &
+                 initicon(jg)%atm_in%qg(jc,jk,jb) + initicon(jg)%atm_in%qh(jc,jk,jb)   ))
 
+            ENDDO
           ENDDO
-        ENDDO
+        ELSE IF (atm_phy_nwp_config(jg)%lhave_graupel) THEN
+          DO jk = 1, nlev
+            DO jc = 1, nlen
 
+              initicon(jg)%atm_in%w(jc,jk,jb) = (w_ifc(jc,jk,jb) + w_ifc(jc,jk+1,jb)) * 0.5_wp
+              initicon(jg)%atm_in%tke(jc,jk,jb) = (tke_ifc(jc,jk,jb) + tke_ifc(jc,jk+1,jb)) * 0.5_wp
+
+              exner = (initicon(jg)%atm_in%rho(jc,jk,jb)*initicon(jg)%atm_in%theta_v(jc,jk,jb)*rd/p0ref)**(1._wp/cvd_o_rd)
+              tempv = initicon(jg)%atm_in%theta_v(jc,jk,jb)*exner
+
+              initicon(jg)%atm_in%pres(jc,jk,jb) = exner**(cpd/rd)*p0ref
+              initicon(jg)%atm_in%temp(jc,jk,jb) = tempv / (1._wp + vtmpc1*initicon(jg)%atm_in%qv(jc,jk,jb) - &
+                (initicon(jg)%atm_in%qc(jc,jk,jb) + initicon(jg)%atm_in%qi(jc,jk,jb) +                        &
+                 initicon(jg)%atm_in%qr(jc,jk,jb) + initicon(jg)%atm_in%qs(jc,jk,jb) +                        &
+                 initicon(jg)%atm_in%qg(jc,jk,jb)                                      ))
+
+            ENDDO
+          ENDDO
+        ELSE
+          DO jk = 1, nlev
+            DO jc = 1, nlen
+
+              initicon(jg)%atm_in%w(jc,jk,jb) = (w_ifc(jc,jk,jb) + w_ifc(jc,jk+1,jb)) * 0.5_wp
+              initicon(jg)%atm_in%tke(jc,jk,jb) = (tke_ifc(jc,jk,jb) + tke_ifc(jc,jk+1,jb)) * 0.5_wp
+
+              exner = (initicon(jg)%atm_in%rho(jc,jk,jb)*initicon(jg)%atm_in%theta_v(jc,jk,jb)*rd/p0ref)**(1._wp/cvd_o_rd)
+              tempv = initicon(jg)%atm_in%theta_v(jc,jk,jb)*exner
+
+              initicon(jg)%atm_in%pres(jc,jk,jb) = exner**(cpd/rd)*p0ref
+              initicon(jg)%atm_in%temp(jc,jk,jb) = tempv / (1._wp + vtmpc1*initicon(jg)%atm_in%qv(jc,jk,jb) - &
+                (initicon(jg)%atm_in%qc(jc,jk,jb) + initicon(jg)%atm_in%qi(jc,jk,jb) +                        &
+                 initicon(jg)%atm_in%qr(jc,jk,jb) + initicon(jg)%atm_in%qs(jc,jk,jb)   ))
+
+            ENDDO
+          ENDDO
+
+        END IF
 
       ENDDO  ! jb
 !$OMP END DO NOWAIT
@@ -1127,8 +1257,8 @@ MODULE mo_initicon_utils
         ENDDO
         ! In addition, write skin temperature to lake points, limited to 33 deg C. We stick 
         ! to that until something more reasonable becomes available
-        DO ic = 1, ext_data(jg)%atm%fp_count(jb)
-          jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+        DO ic = 1, ext_data(jg)%atm%list_lake%ncount(jb)
+          jc = ext_data(jg)%atm%list_lake%idx(ic,jb)
           p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g(jc,jb) = MIN(306.15_wp,initicon(jg)%sfc%tskin(jc,jb))
           p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_g(jc,jb) = MIN(306.15_wp,initicon(jg)%sfc%tskin(jc,jb))
         ENDDO
@@ -1137,8 +1267,8 @@ MODULE mo_initicon_utils
         ! Note: missing values of the sea ice fraction, which may occur due to differing land-sea masks, 
         ! are indicated with -999.9; non-ocean points are filled with zero for both fields
 !CDIR NODEP,VOVERTAKE,VOB
-        DO ic = 1, ext_data(jg)%atm%sp_count(jb)
-          jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
+        DO ic = 1, ext_data(jg)%atm%list_sea%ncount(jb)
+          jc = ext_data(jg)%atm%list_sea%idx(ic,jb)
           IF ( l_sst_in .AND. initicon(jg)%sfc%sst(jc,jb) > 270._wp  ) THEN
             p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = initicon(jg)%sfc%sst(jc,jb)
           ELSE
@@ -1250,12 +1380,16 @@ MODULE mo_initicon_utils
               ENDDO
             ENDDO
 
-            ! set t_s for land tiles to t_so_t(1)
+            ! set t_s and t_sk for land tiles to t_so_t(1)
             DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
               jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
               p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_s_t(jc,jb,jt)= &
                 &                                              p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,1,jb,jt)
               p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_s_t(jc,jb,jt)= &
+                &                                              p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_so_t(jc,1,jb,jt)
+              p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_sk_t(jc,jb,jt)= &
+                &                                              p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,1,jb,jt)
+              p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_sk_t(jc,jb,jt)= &
                 &                                              p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_so_t(jc,1,jb,jt)
             ENDDO
           ENDDO
@@ -1275,8 +1409,8 @@ MODULE mo_initicon_utils
 
           IF (lseaice) THEN
 
-            DO ic = 1, ext_data(jg)%atm%sp_count(jb)
-              jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
+            DO ic = 1, ext_data(jg)%atm%list_sea%ncount(jb)
+              jc = ext_data(jg)%atm%list_sea%idx(ic,jb)
               frsi_in(ic)   = p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb)             
               temp_in(ic)   = initicon(jg)%sfc%tskin(jc,jb)                        
               tice_now(ic)  = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice    (jc,jb)
@@ -1291,22 +1425,25 @@ MODULE mo_initicon_utils
               albsi_new(ic) = p_lnd_state(jg)%prog_wtr(nnew_rcf(jg))%alb_si   (jc,jb)
             ENDDO  ! ic
 
-            CALL seaice_coldinit_nwp(ext_data(jg)%atm%sp_count(jb), zfrice_thrhld,  &
-              &         frsi    = frsi_in(:),                                       &
-              &         temp_in = temp_in(:),                                       &
-              &         tice_p  = tice_now(:),                                      &
-              &         hice_p  = hice_now(:),                                      &
-              &         tsnow_p = tsnow_now(:),                                     &
-              &         hsnow_p = hsnow_now(:),                                     &
-              &         albsi_p = albsi_now(:),                                     &
-              &         tice_n  = tice_new(:),                                      &
-              &         hice_n  = hice_new(:),                                      &
-              &         tsnow_n = tsnow_new(:),                                     &
-              &         hsnow_n = hsnow_new(:),                                     &
-              &         albsi_n = albsi_new(:)                                      )
 
-            DO ic = 1, ext_data(jg)%atm%sp_count(jb)
-              jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
+            CALL seaice_coldinit_nwp(                                        &
+              &         nswgb        = ext_data(jg)%atm%list_sea%ncount(jb), &
+              &         frice_thrhld = zfrice_thrhld,                        &
+              &         frsi         = frsi_in(:),                           &
+              &         temp_in      = temp_in(:),                           &
+              &         tice_p       = tice_now(:),                          &
+              &         hice_p       = hice_now(:),                          &
+              &         tsnow_p      = tsnow_now(:),                         &
+              &         hsnow_p      = hsnow_now(:),                         &
+              &         albsi_p      = albsi_now(:),                         &
+              &         tice_n       = tice_new(:),                          &
+              &         hice_n       = hice_new(:),                          &
+              &         tsnow_n      = tsnow_new(:),                         &
+              &         hsnow_n      = hsnow_new(:),                         &
+              &         albsi_n      = albsi_new(:)                          )
+
+            DO ic = 1, ext_data(jg)%atm%list_sea%ncount(jb)
+              jc = ext_data(jg)%atm%list_sea%idx(ic,jb)
               p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice    (jc,jb) = tice_now(ic)
               p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ice    (jc,jb) = hice_now(ic)
               p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_snow_si(jc,jb) = tsnow_now(ic)
@@ -1331,10 +1468,10 @@ MODULE mo_initicon_utils
 
           IF (llake) THEN
             CALL flake_coldinit(                                        &
-              &     nflkgb      = ext_data(jg)%atm%fp_count    (jb), &  ! in
-              &     idx_lst_fp  = ext_data(jg)%atm%idx_lst_fp(:,jb), &  ! in
-              &     depth_lk    = ext_data(jg)%atm%depth_lk  (:,jb), &  ! in
-              &     tskin       = initicon(jg)%sfc%tskin     (:,jb), &  ! in
+              &     nflkgb      = ext_data(jg)%atm%list_lake%ncount(jb),&  ! in
+              &     idx_lst_fp  = ext_data(jg)%atm%list_lake%idx(:,jb), &  ! in
+              &     depth_lk    = ext_data(jg)%atm%depth_lk     (:,jb), &  ! in
+              &     tskin       = initicon(jg)%sfc%tskin        (:,jb), &  ! in
               &     t_snow_lk_p = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_snow_lk(:,jb), &
               &     h_snow_lk_p = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_snow_lk(:,jb), &
               &     t_ice_p     = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice    (:,jb), &
@@ -1349,16 +1486,16 @@ MODULE mo_initicon_utils
               &     t_g_lk_p    = p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g_t    (:,jb,isub_lake) )
 
             ! t_s for lake tile
-            DO ic = 1, ext_data(jg)%atm%fp_count(jb)
-              jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+            DO ic = 1, ext_data(jg)%atm%list_lake%ncount(jb)
+              jc = ext_data(jg)%atm%list_lake%idx(ic,jb)
               p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_s_t(jc,jb,isub_lake) = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_wml_lk(jc,jb)
               p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_s_t(jc,jb,isub_lake) = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_wml_lk(jc,jb)
             ENDDO
 
           ELSE
 
-            DO ic = 1, ext_data(jg)%atm%fp_count(jb)
-              jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+            DO ic = 1, ext_data(jg)%atm%list_lake%ncount(jb)
+              jc = ext_data(jg)%atm%list_lake%idx(ic,jb)
               p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_s_t(jc,jb,isub_lake) = MIN(306.15_wp,initicon(jg)%sfc%tskin(jc,jb))
               p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_s_t(jc,jb,isub_lake) = MIN(306.15_wp,initicon(jg)%sfc%tskin(jc,jb))
             ENDDO
@@ -1382,21 +1519,12 @@ MODULE mo_initicon_utils
   SUBROUTINE initVarnamesDict(dictionary)
     TYPE(t_dictionary), INTENT(INOUT) :: dictionary
 
-    INTEGER :: itemp(3)
-
     ! read the map file into dictionary data structure:
-    CALL dict_init(dictionary, lcase_sensitive=.FALSE.)
+    CALL dictionary%init(.FALSE.)
     IF(ana_varnames_map_file /= ' ') THEN
       IF (my_process_is_mpi_workroot()) &
-        CALL dict_loadfile(dictionary, TRIM(ana_varnames_map_file))
-      itemp(1) = dictionary%nmax_entries; itemp(2) = dictionary%nentries
-      itemp(3) = MERGE(1, 0, dictionary%lcase_sensitive)
-      CALL p_bcast(itemp, p_io, p_comm_work)
-      dictionary%nmax_entries = itemp(1); dictionary%nentries = itemp(2)
-      dictionary%lcase_sensitive = itemp(3) /= 0
-      IF (.NOT. my_process_is_mpi_workroot()) &
-        CALL dict_resize(dictionary, dictionary%nmax_entries)
-      CALL p_bcast(dictionary%array, p_io, p_comm_work)
+        CALL dictionary%loadfile(TRIM(ana_varnames_map_file))
+      CALL dictionary%bcast(p_io, p_comm_work)
     END IF
   END SUBROUTINE initVarnamesDict
 
@@ -1413,7 +1541,7 @@ MODULE mo_initicon_utils
   !!
   !! @par Revision History
   !! Initial version by Guenther Zaengl, DWD(2011-07-14)
-  !! Refactoring to make this work more like a REAL constructor by Nathanael Hübbe, DWD(2015-08-04)
+  !! Refactoring to make this work more like a REAL constructor by Nathanael Huebbe, DWD(2015-08-04)
   !!
   !! This initalizes all ALLOCATED memory to avoid nondeterministic
   !! checksums when ONLY a part of a field IS READ from file due to
@@ -1425,12 +1553,13 @@ MODULE mo_initicon_utils
     TYPE(t_nh_metrics), INTENT(IN) :: metrics
 
     ! Local variables: loop control and dimensions
-    INTEGER :: nlev, nlevp1, nblks_c, nblks_e
+    INTEGER :: nlev, nlevp1, nblks_c, nblks_e, jg
 
     nlev = p_patch%nlev
     nlevp1 = nlev + 1
     nblks_c = p_patch%nblks_c
     nblks_e = p_patch%nblks_e
+    jg      = p_patch%id
 
     ! basic init_icon data
     initicon%const%topography_c => topography_c
@@ -1466,6 +1595,7 @@ MODULE mo_initicon_utils
         &       atm_in%qi, &
         &       atm_in%qr, &
         &       atm_in%qs, &
+        &       atm_in%qg, &
         &       atm_in%rho, &
         &       atm_in%theta_v, &
         &       atm_in%tke, &
@@ -1525,6 +1655,32 @@ MODULE mo_initicon_utils
 !$OMP END PARALLEL
             END IF
 
+            IF (atm_phy_nwp_config(jg)%lhave_graupel) THEN
+                ALLOCATE(atm%qg(nproma,nlev,nblks_c))
+!$OMP PARALLEL 
+                CALL init(atm%qg(:,:,:))
+!$OMP END PARALLEL
+            END IF
+
+            IF (atm_phy_nwp_config(jg)%l2moment) THEN
+                ALLOCATE(atm%qh(nproma,nlev,nblks_c))
+                ALLOCATE(atm%qnc(nproma,nlev,nblks_c))
+                ALLOCATE(atm%qni(nproma,nlev,nblks_c))
+                ALLOCATE(atm%qnr(nproma,nlev,nblks_c))
+                ALLOCATE(atm%qns(nproma,nlev,nblks_c))
+                ALLOCATE(atm%qng(nproma,nlev,nblks_c))
+                ALLOCATE(atm%qnh(nproma,nlev,nblks_c))
+!$OMP PARALLEL 
+                CALL init(atm%qh(:,:,:))
+                CALL init(atm%qnc(:,:,:))
+                CALL init(atm%qni(:,:,:))
+                CALL init(atm%qnr(:,:,:))
+                CALL init(atm%qns(:,:,:))
+                CALL init(atm%qng(:,:,:))
+                CALL init(atm%qnh(:,:,:))
+!$OMP END PARALLEL
+            END IF
+
             atm%nlev         = nlev
             atm%linitialized = .TRUE.
         ELSE
@@ -1553,6 +1709,65 @@ MODULE mo_initicon_utils
             CALL init(atm_inc%qv(:,:,:))
 !$OMP END PARALLEL 
 
+            IF (init_mode == MODE_IAU) THEN
+              IF (qcana_mode > 0) THEN
+                ALLOCATE(atm_inc%qc(nproma,nlev,nblks_c))
+!$OMP PARALLEL 
+                CALL init(atm_inc%qc(:,:,:))
+!$OMP END PARALLEL 
+              ENDIF
+              IF (qiana_mode > 0) THEN
+                ALLOCATE(atm_inc%qi(nproma,nlev,nblks_c))
+!$OMP PARALLEL 
+                CALL init(atm_inc%qi(:,:,:))
+!$OMP END PARALLEL 
+              ENDIF
+              IF (qrsgana_mode > 0) THEN
+                ALLOCATE(atm_inc%qr(nproma,nlev,nblks_c))
+                ALLOCATE(atm_inc%qs(nproma,nlev,nblks_c))
+!$OMP PARALLEL 
+                CALL init(atm_inc%qr(:,:,:))
+                CALL init(atm_inc%qs(:,:,:))
+!$OMP END PARALLEL 
+              ENDIF
+              IF (qrsgana_mode > 0 .AND. atm_phy_nwp_config(jg)%lhave_graupel) THEN
+                ALLOCATE(atm_inc%qg(nproma,nlev,nblks_c))
+!$OMP PARALLEL 
+                CALL init(atm_inc%qg(:,:,:))
+!$OMP END PARALLEL 
+              END IF
+              IF (atm_phy_nwp_config(jg)%l2moment) THEN
+                IF (qcana_mode > 0) THEN
+                  ALLOCATE(atm_inc%qnc(nproma,nlev,nblks_c))
+!$OMP PARALLEL 
+                  CALL init(atm_inc%qnc(:,:,:))
+!$OMP END PARALLEL
+                END IF
+                IF (qiana_mode > 0) THEN
+                  ALLOCATE(atm_inc%qni(nproma,nlev,nblks_c))
+!$OMP PARALLEL 
+                  CALL init(atm_inc%qni(:,:,:))
+!$OMP END PARALLEL
+                END IF
+                IF (qrsgana_mode > 0) THEN
+                  ALLOCATE(atm_inc%qh(nproma,nlev,nblks_c))
+!$OMP PARALLEL 
+                  CALL init(atm_inc%qh(:,:,:))
+!$OMP END PARALLEL 
+                  ALLOCATE(atm_inc%qnr(nproma,nlev,nblks_c))
+                  ALLOCATE(atm_inc%qns(nproma,nlev,nblks_c))
+                  ALLOCATE(atm_inc%qng(nproma,nlev,nblks_c))
+                  ALLOCATE(atm_inc%qnh(nproma,nlev,nblks_c))
+!$OMP PARALLEL 
+                  CALL init(atm_inc%qnr(:,:,:))
+                  CALL init(atm_inc%qns(:,:,:))
+                  CALL init(atm_inc%qng(:,:,:))
+                  CALL init(atm_inc%qnh(:,:,:))
+!$OMP END PARALLEL 
+                END IF
+              END IF
+            ENDIF
+
             atm_inc%nlev         = nlev
             atm_inc%linitialized = .TRUE.
         ELSE
@@ -1580,8 +1795,13 @@ MODULE mo_initicon_utils
             &        sfc%skinres (nproma,nblks_c            ), &
             &        sfc%ls_mask (nproma,nblks_c            ), &
             &        sfc%seaice  (nproma,nblks_c            ), &
-            &        sfc%tsoil   (nproma,0:nlev_soil,nblks_c), &
-            &        sfc%wsoil   (nproma,  nlev_soil,nblks_c)  )
+            &        sfc%tsoil   (nproma,0:nlev_soil,nblks_c)  )
+            IF (  nlev_soil == 0 ) THEN
+               ALLOCATE(sfc%wsoil   (nproma,0:nlev_soil,nblks_c)  )
+            ELSE
+               ALLOCATE(sfc%wsoil   (nproma,1:nlev_soil,nblks_c)  )
+            ENDIF
+            
 !$OMP PARALLEL 
             CALL init(sfc%tskin(:,:))
             CALL init(sfc%tsnow(:,:))
@@ -1618,14 +1838,14 @@ MODULE mo_initicon_utils
             IF (init_mode == MODE_IAU) THEN
                 ALLOCATE(sfc_inc%h_snow   (nproma,nblks_c), &
                 &        sfc_inc%freshsnow(nproma,nblks_c) )
-                IF (itype_vegetation_cycle == 3) ALLOCATE(sfc_inc%t_2m(nproma,nblks_c))
+                IF (icpl_da_sfcevap == 1 .OR. icpl_da_sfcevap == 2) ALLOCATE(sfc_inc%t_2m(nproma,nblks_c))
 
                 ! initialize with 0, since some increments are only read
                 ! for specific times
 !$OMP PARALLEL 
                 CALL init(sfc_inc%h_snow   (:,:))
                 CALL init(sfc_inc%freshsnow(:,:))
-                IF (itype_vegetation_cycle == 3) CALL init(sfc_inc%t_2m(:,:))
+                IF (icpl_da_sfcevap == 1 .OR. icpl_da_sfcevap == 2) CALL init(sfc_inc%t_2m(:,:))
 !$OMP END PARALLEL
             ENDIF  ! MODE_IAU
 
@@ -1655,7 +1875,7 @@ MODULE mo_initicon_utils
     TYPE(t_pi_atm_in),        INTENT(INOUT) :: atm_in
     TYPE(t_init_state_const), INTENT(INOUT) :: const
     ! Local variables: loop control and dimensions
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = modname//':allocate_extana_atm'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':allocate_extana_atm'
 
 
     IF (nlev_in == 0) THEN
@@ -1677,7 +1897,8 @@ MODULE mo_initicon_utils
       atm_in%qi      (nproma,nlev_in,nblks_c),   &
       atm_in%qr      (nproma,nlev_in,nblks_c),   &
       atm_in%qs      (nproma,nlev_in,nblks_c),   &
-      const%z_mc_in         (nproma,nlev_in,nblks_c) )
+      atm_in%qg      (nproma,nlev_in,nblks_c),   &
+      const%z_mc_in  (nproma,nlev_in,nblks_c) )
 !$OMP PARALLEL 
     CALL init(atm_in%pres(:,:,:))
     CALL init(const%z_mc_in(:,:,:))
@@ -1691,6 +1912,7 @@ MODULE mo_initicon_utils
     CALL init(atm_in%qi(:,:,:))
     CALL init(atm_in%qr(:,:,:))
     CALL init(atm_in%qs(:,:,:))
+    CALL init(atm_in%qg(:,:,:))
 !$OMP END PARALLEL
 
     IF (init_mode == MODE_ICONVREMAP .OR. lvert_remap_fg) THEN
@@ -1720,7 +1942,7 @@ MODULE mo_initicon_utils
     INTEGER,                INTENT(IN)    :: nlevsoil_in    ! number of soil levels
                                                             ! of external analysis data
     ! Local variables: loop control and dimensions
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = modname//':allocate_extana_sfc'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':allocate_extana_sfc'
 
     IF (nlevsoil_in == 0) THEN
       CALL finish(routine, "Number of input soil levels <nlevsoil_in> not yet initialized.")
@@ -1793,7 +2015,7 @@ MODULE mo_initicon_utils
     ENDDO ! loop over model domains
 
     ! destroy variable name dictionaries:
-    CALL dict_finalize(ana_varnames_dict)
+    CALL ana_varnames_dict%finalize()
 
   END SUBROUTINE deallocate_initicon
 
@@ -1856,6 +2078,30 @@ MODULE mo_initicon_utils
       IF(ASSOCIATED(initicon(jg)%atm_in%qs)) &
         & CALL printChecksum(prefix(1:pfx_tlen)//"atm_in%qs: ", &
         & initicon(jg)%atm_in%qs)
+      IF(ASSOCIATED(initicon(jg)%atm_in%qg)) &
+        & CALL printChecksum(prefix(1:pfx_tlen)//"atm_in%qg: ", &
+        & initicon(jg)%atm_in%qg)
+      IF(ASSOCIATED(initicon(jg)%atm_in%qh)) &
+        & CALL printChecksum(prefix(1:pfx_tlen)//"atm_in%qh: ", &
+        & initicon(jg)%atm_in%qh)
+      IF(ASSOCIATED(initicon(jg)%atm_in%qnc)) &
+        & CALL printChecksum(prefix(1:pfx_tlen)//"atm_in%qnc: ", &
+        & initicon(jg)%atm_in%qnc)
+      IF(ASSOCIATED(initicon(jg)%atm_in%qni)) &
+        & CALL printChecksum(prefix(1:pfx_tlen)//"atm_in%qni: ", &
+        & initicon(jg)%atm_in%qni)
+      IF(ASSOCIATED(initicon(jg)%atm_in%qnr)) &
+        & CALL printChecksum(prefix(1:pfx_tlen)//"atm_in%qnr: ", &
+        & initicon(jg)%atm_in%qnr)
+      IF(ASSOCIATED(initicon(jg)%atm_in%qns)) &
+        & CALL printChecksum(prefix(1:pfx_tlen)//"atm_in%qns: ", &
+        & initicon(jg)%atm_in%qns)
+      IF(ASSOCIATED(initicon(jg)%atm_in%qng)) &
+        & CALL printChecksum(prefix(1:pfx_tlen)//"atm_in%qng: ", &
+        & initicon(jg)%atm_in%qng)
+      IF(ASSOCIATED(initicon(jg)%atm_in%qnh)) &
+        & CALL printChecksum(prefix(1:pfx_tlen)//"atm_in%qnh: ", &
+        & initicon(jg)%atm_in%qnh)
       IF(ASSOCIATED(initicon(jg)%atm_in%rho)) &
         & CALL printChecksum(prefix(1:pfx_tlen)//"atm_in%rho: ", &
         & initicon(jg)%atm_in%rho)
@@ -1943,6 +2189,30 @@ MODULE mo_initicon_utils
       IF(ALLOCATED(initicon(jg)%atm%qs)) &
         & CALL printChecksum(prefix(1:pfx_tlen)//"atm%qs: ", &
         & initicon(jg)%atm%qs)
+      IF(ALLOCATED(initicon(jg)%atm%qg)) &
+        & CALL printChecksum(prefix(1:pfx_tlen)//"atm%qg: ", &
+        & initicon(jg)%atm%qg)
+      IF(ALLOCATED(initicon(jg)%atm%qh)) &
+        & CALL printChecksum(prefix(1:pfx_tlen)//"atm%qh: ", &
+        & initicon(jg)%atm%qh)
+      IF(ALLOCATED(initicon(jg)%atm%qnc)) &
+        & CALL printChecksum(prefix(1:pfx_tlen)//"atm%qnc: ", &
+        & initicon(jg)%atm%qnc)
+      IF(ALLOCATED(initicon(jg)%atm%qni)) &
+        & CALL printChecksum(prefix(1:pfx_tlen)//"atm%qni: ", &
+        & initicon(jg)%atm%qni)
+      IF(ALLOCATED(initicon(jg)%atm%qnr)) &
+        & CALL printChecksum(prefix(1:pfx_tlen)//"atm%qnr: ", &
+        & initicon(jg)%atm%qnr)
+      IF(ALLOCATED(initicon(jg)%atm%qns)) &
+        & CALL printChecksum(prefix(1:pfx_tlen)//"atm%qns: ", &
+        & initicon(jg)%atm%qns)
+      IF(ALLOCATED(initicon(jg)%atm%qng)) &
+        & CALL printChecksum(prefix(1:pfx_tlen)//"atm%qng: ", &
+        & initicon(jg)%atm%qng)
+      IF(ALLOCATED(initicon(jg)%atm%qnh)) &
+        & CALL printChecksum(prefix(1:pfx_tlen)//"atm%qnh: ", &
+        & initicon(jg)%atm%qnh)
       IF(ALLOCATED(initicon(jg)%atm%tke)) &
         & CALL printChecksum(prefix(1:pfx_tlen)//"atm%tke: ", &
         & initicon(jg)%atm%tke)
@@ -1988,6 +2258,30 @@ MODULE mo_initicon_utils
       IF(ALLOCATED(initicon(jg)%atm_inc%qs)) &
         & CALL printChecksum(prefix(1:pfx_tlen)//"atm_inc%qs: ", &
         & initicon(jg)%atm_inc%qs)
+      IF(ALLOCATED(initicon(jg)%atm_inc%qg)) &
+        & CALL printChecksum(prefix(1:pfx_tlen)//"atm_inc%qg: ", &
+        & initicon(jg)%atm_inc%qg)
+      IF(ALLOCATED(initicon(jg)%atm_inc%qh)) &
+        & CALL printChecksum(prefix(1:pfx_tlen)//"atm_inc%qh: ", &
+        & initicon(jg)%atm_inc%qh)
+      IF(ALLOCATED(initicon(jg)%atm_inc%qnc)) &
+        & CALL printChecksum(prefix(1:pfx_tlen)//"atm_inc%qnc: ", &
+        & initicon(jg)%atm_inc%qnc)
+      IF(ALLOCATED(initicon(jg)%atm_inc%qni)) &
+        & CALL printChecksum(prefix(1:pfx_tlen)//"atm_inc%qni: ", &
+        & initicon(jg)%atm_inc%qni)
+      IF(ALLOCATED(initicon(jg)%atm_inc%qnr)) &
+        & CALL printChecksum(prefix(1:pfx_tlen)//"atm_inc%qnr: ", &
+        & initicon(jg)%atm_inc%qnr)
+      IF(ALLOCATED(initicon(jg)%atm_inc%qns)) &
+        & CALL printChecksum(prefix(1:pfx_tlen)//"atm_inc%qns: ", &
+        & initicon(jg)%atm_inc%qns)
+      IF(ALLOCATED(initicon(jg)%atm_inc%qng)) &
+        & CALL printChecksum(prefix(1:pfx_tlen)//"atm_inc%qng: ", &
+        & initicon(jg)%atm_inc%qng)
+      IF(ALLOCATED(initicon(jg)%atm_inc%qnh)) &
+        & CALL printChecksum(prefix(1:pfx_tlen)//"atm_inc%qnh: ", &
+        & initicon(jg)%atm_inc%qnh)
       IF(ALLOCATED(initicon(jg)%atm_inc%tke)) &
         & CALL printChecksum(prefix(1:pfx_tlen)//"atm_inc%tke: ", &
         & initicon(jg)%atm_inc%tke)
@@ -2218,18 +2512,6 @@ MODULE mo_initicon_utils
       IF(ASSOCIATED(p_nh_state(jg)%diag%mflx_ic_ubc)) &
         & CALL printChecksum(prefix(1:pfx_tlen)//"mflx_ic_ubc: ", &
         & p_nh_state(jg)%diag%mflx_ic_ubc)
-      IF(ASSOCIATED(p_nh_state(jg)%diag%dtheta_v_ic_int)) &
-        & CALL printChecksum(prefix(1:pfx_tlen)//"dtheta_v_ic_int: ", &
-        & p_nh_state(jg)%diag%dtheta_v_ic_int)
-      IF(ASSOCIATED(p_nh_state(jg)%diag%dtheta_v_ic_ubc)) &
-        & CALL printChecksum(prefix(1:pfx_tlen)//"dtheta_v_ic_ubc: ", &
-        & p_nh_state(jg)%diag%dtheta_v_ic_ubc)
-      IF(ASSOCIATED(p_nh_state(jg)%diag%dw_int)) &
-        & CALL printChecksum(prefix(1:pfx_tlen)//"dw_int: ", &
-        & p_nh_state(jg)%diag%dw_int)
-      IF(ASSOCIATED(p_nh_state(jg)%diag%dw_ubc)) &
-        & CALL printChecksum(prefix(1:pfx_tlen)//"dw_ubc: ", &
-        & p_nh_state(jg)%diag%dw_ubc)
       IF(ASSOCIATED(p_nh_state(jg)%diag%q_int)) &
         & CALL printChecksum(prefix(1:pfx_tlen)//"q_int: ", &
         & p_nh_state(jg)%diag%q_int)
@@ -2711,6 +2993,429 @@ MODULE mo_initicon_utils
       END IF
     END DO
   END SUBROUTINE printChecksums
+
+  SUBROUTINE init_qnx_from_qx_twomom (caller, p_patch, p_prog, lqnx_init)
+
+    CHARACTER(len=*), INTENT(in)    :: caller   ! Name of calling routine for messages
+    TYPE(t_patch)   , INTENT(in)    :: p_patch
+    TYPE(t_nh_prog) , INTENT(inout) :: p_prog
+    LOGICAL         , INTENT(in)    :: lqnx_init(:)  ! List of switches for each hydrometeor, if its
+                                                     ! number conc. should be initialized from its mass conc.
+                                                     ! The corresponding indices into this list have to be iqnc, iqni, iqnr, etc.
+
+    INTEGER                             :: jb, jk, jc, nlen
+    REAL(wp), POINTER, DIMENSION(:,:,:) :: my_qc,  my_qi,  my_qr,  my_qs,  my_qg,  my_qh, my_rho, &
+                                           my_qnc, my_qni, my_qnr, my_qns, my_qng, my_qnh
+    CHARACTER(len=110)                  :: ncmaxstr
+    REAL(wp)                            :: rholoc
+
+    my_rho => p_prog%rho(:,:,:)
+    my_qc  => p_prog%tracer(:,:,:,iqc)
+    my_qi  => p_prog%tracer(:,:,:,iqi)
+    my_qr  => p_prog%tracer(:,:,:,iqr)
+    my_qs  => p_prog%tracer(:,:,:,iqs)
+    my_qg  => p_prog%tracer(:,:,:,iqg)
+    my_qh  => p_prog%tracer(:,:,:,iqh)
+
+    my_qnc => p_prog%tracer(:,:,:,iqnc)
+    my_qni => p_prog%tracer(:,:,:,iqni)
+    my_qnr => p_prog%tracer(:,:,:,iqnr)
+    my_qns => p_prog%tracer(:,:,:,iqns)
+    my_qng => p_prog%tracer(:,:,:,iqng)
+    my_qnh => p_prog%tracer(:,:,:,iqnh)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,nlen,rholoc) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = 1, p_patch%nblks_c
+      nlen = MERGE(nproma, p_patch%npromz_c, jb /= p_patch%nblks_c)
+
+      IF (lqnx_init(iqnc)) THEN
+        DO jk = 1, p_patch%nlev
+          DO jc = 1, nlen
+            rholoc = MAX(my_rho(jc,jk,jb), 1e-20_wp)
+            my_qnc(jc,jk,jb) = set_qnc( MAX(my_qc(jc,jk,jb), 0.0_wp)*rholoc ) / rholoc
+          END DO
+        END DO
+      END IF
+      IF (lqnx_init(iqni)) THEN
+        DO jk = 1, p_patch%nlev
+          DO jc = 1, nlen
+            rholoc = MAX(my_rho(jc,jk,jb), 1e-20_wp)
+            my_qni(jc,jk,jb) = set_qni( MAX(my_qi(jc,jk,jb), 0.0_wp)*rholoc ) / rholoc
+          END DO
+        END DO
+      END IF
+      IF (lqnx_init(iqnr)) THEN
+        DO jk = 1, p_patch%nlev
+          DO jc = 1, nlen
+            rholoc = MAX(my_rho(jc,jk,jb), 1e-20_wp)
+            my_qnr(jc,jk,jb) = set_qnr( MAX(my_qr(jc,jk,jb), 0.0_wp)*rholoc ) / rholoc
+          END DO
+        END DO
+      END IF
+      IF (lqnx_init(iqns)) THEN
+        DO jk = 1, p_patch%nlev
+          DO jc = 1, nlen
+            rholoc = MAX(my_rho(jc,jk,jb), 1e-20_wp)
+            my_qns(jc,jk,jb) = set_qns( MAX(my_qs(jc,jk,jb), 0.0_wp)*rholoc ) / rholoc
+          END DO
+        END DO
+      END IF
+      IF (lqnx_init(iqng)) THEN
+        DO jk = 1, p_patch%nlev
+          DO jc = 1, nlen
+            rholoc = MAX(my_rho(jc,jk,jb), 1e-20_wp)
+            my_qng(jc,jk,jb) = set_qng( MAX(my_qg(jc,jk,jb), 0.0_wp)*rholoc ) / rholoc
+          END DO
+        END DO
+      END IF
+      IF (lqnx_init(iqnh)) THEN
+        DO jk = 1, p_patch%nlev
+          DO jc = 1, nlen
+            rholoc = MAX(my_rho(jc,jk,jb), 1e-20_wp)
+            my_qnh(jc,jk,jb) = set_qnh( MAX(my_qh(jc,jk,jb), 0.0_wp)*rholoc ) / rholoc
+          END DO
+        END DO
+      END IF
+    END DO
+!$OMP END DO
+!$OMP END PARALLEL
+
+    IF (lqnx_init(iqnc)) THEN
+      ncmaxstr = get_diag_stat_str_3d ( p_patch, my_qnc )
+      CALL message(caller, 'init_qnx_from_qx_twomom: set_qnc() from qc, '//TRIM(ncmaxstr))
+    END IF
+    IF (lqnx_init(iqni)) THEN
+      ncmaxstr = get_diag_stat_str_3d ( p_patch, my_qni )
+      CALL message(caller, 'init_qnx_from_qx_twomom: set_qni() from qi, '//TRIM(ncmaxstr))
+    END IF
+    IF (lqnx_init(iqnr)) THEN
+      ncmaxstr = get_diag_stat_str_3d ( p_patch, my_qnr )
+      CALL message(caller, 'init_qnx_from_qx_twomom: set_qnr() from qr, '//TRIM(ncmaxstr))
+    END IF
+    IF (lqnx_init(iqns)) THEN
+      ncmaxstr = get_diag_stat_str_3d ( p_patch, my_qns )
+      CALL message(caller, 'init_qnx_from_qx_twomom: set_qns() from qs, '//TRIM(ncmaxstr))
+    END IF
+    IF (lqnx_init(iqng)) THEN
+      ncmaxstr = get_diag_stat_str_3d ( p_patch, my_qng )
+      CALL message(caller, 'init_qnx_from_qx_twomom: set_qng() from qg, '//TRIM(ncmaxstr))
+    END IF
+    IF (lqnx_init(iqnh)) THEN
+      ncmaxstr = get_diag_stat_str_3d ( p_patch, my_qnh )
+      CALL message(caller, 'init_qnx_from_qx_twomom: set_qnh() from qh, '//TRIM(ncmaxstr))
+    END IF
+
+  END SUBROUTINE init_qnx_from_qx_twomom
+
+  SUBROUTINE init_qnxinc_from_qxinc_twomom (caller, p_patch, p_prog, initicon, lqx_avail, lqxinc_avail, lqnxinc_init)
+
+    CHARACTER(len=*), INTENT(in)    :: caller   ! Name of calling routine for messages
+    TYPE(t_patch)   , INTENT(in)    :: p_patch
+    TYPE(t_nh_prog) , INTENT(in)    :: p_prog
+    TYPE(t_initicon_state), INTENT(inout), TARGET    :: initicon
+    LOGICAL         , INTENT(in)    :: lqx_avail(:), lqxinc_avail(:), lqnxinc_init(:)
+
+    INTEGER                             :: jb, jk, jc, nlen
+    REAL(wp), POINTER, DIMENSION(:,:,:) :: my_qc,  my_qi,  my_qr,  my_qs,  my_qg,  my_qh, my_rho, &
+                                           my_qc_inc, my_qi_inc, my_qr_inc, my_qs_inc, my_qg_inc, my_qh_inc, &
+                                           my_qnc_inc, my_qni_inc, my_qnr_inc, my_qns_inc, my_qng_inc, my_qnh_inc, &
+                                           my_qnc,  my_qni,  my_qnr,  my_qns,  my_qng,  my_qnh
+    REAL(wp)                            :: qtmp0, qtmp1, rholoc, meanmass
+    CHARACTER(len=110)                  :: ncmaxstr
+
+    REAL(wp), PARAMETER                     :: qc_xmax = 2.60e-10_wp 
+    REAL(wp), PARAMETER                     :: qc_xmin = 4.20e-15_wp
+    REAL(wp), PARAMETER                     :: qr_xmax = 3.00e-06_wp
+    REAL(wp), PARAMETER                     :: qr_xmin = 2.60e-10_wp
+    REAL(wp), PARAMETER                     :: qi_xmax = 1.00e-05_wp
+    REAL(wp), PARAMETER                     :: qi_xmin = 1.00e-12_wp
+    REAL(wp), PARAMETER                     :: qs_xmax = 2.00e-05_wp
+    REAL(wp), PARAMETER                     :: qs_xmin = 1.00e-10_wp
+    REAL(wp), PARAMETER                     :: qg_xmax = 5.30e-04_wp
+    REAL(wp), PARAMETER                     :: qg_xmin = 4.19e-09_wp
+    REAL(wp), PARAMETER                     :: qh_xmax = 5.00e-03_wp
+    REAL(wp), PARAMETER                     :: qh_xmin = 2.60e-09_wp
+    REAL(wp), PARAMETER                     :: myeps_q = 1.0e-6_wp
+    REAL(wp), PARAMETER                     :: myeps_n = 0.1_wp
+
+    my_rho => p_prog%rho(:,:,:)
+    my_qc  => p_prog%tracer(:,:,:,iqc)
+    my_qi  => p_prog%tracer(:,:,:,iqi)
+    my_qr  => p_prog%tracer(:,:,:,iqr)
+    my_qs  => p_prog%tracer(:,:,:,iqs)
+    my_qg  => p_prog%tracer(:,:,:,iqg)
+    my_qh  => p_prog%tracer(:,:,:,iqh)
+
+    my_qnc  => p_prog%tracer(:,:,:,iqnc)
+    my_qni  => p_prog%tracer(:,:,:,iqni)
+    my_qnr  => p_prog%tracer(:,:,:,iqnr)
+    my_qns  => p_prog%tracer(:,:,:,iqns)
+    my_qng  => p_prog%tracer(:,:,:,iqng)
+    my_qnh  => p_prog%tracer(:,:,:,iqnh)
+
+    my_qc_inc => initicon%atm_inc%qc
+    my_qi_inc => initicon%atm_inc%qi
+    my_qr_inc => initicon%atm_inc%qr
+    my_qs_inc => initicon%atm_inc%qs
+    my_qg_inc => initicon%atm_inc%qg
+    my_qh_inc => initicon%atm_inc%qh
+
+    my_qnc_inc => initicon%atm_inc%qnc
+    my_qni_inc => initicon%atm_inc%qni
+    my_qnr_inc => initicon%atm_inc%qnr
+    my_qns_inc => initicon%atm_inc%qns
+    my_qng_inc => initicon%atm_inc%qng
+    my_qnh_inc => initicon%atm_inc%qnh
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,nlen,qtmp0,qtmp1,rholoc,meanmass) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = 1, p_patch%nblks_c
+
+      nlen = MERGE(nproma, p_patch%npromz_c, jb /= p_patch%nblks_c)
+
+      IF (lqnxinc_init(iqnc) .AND. lqx_avail(iqc) .AND. lqxinc_avail(iqc) .AND. qcana_mode > 0) THEN
+        DO jk = 1, p_patch%nlev
+          DO jc = 1, nlen
+            IF ( my_qc(jc,jk,jb) > myeps_q .AND. my_qnc(jc,jk,jb) > myeps_n) THEN
+              meanmass = MAX(MIN(my_qc(jc,jk,jb)/(my_qnc(jc,jk,jb)+myeps_n),qc_xmax),qc_xmin ) 
+              my_qnc_inc(jc,jk,jb) = my_qc_inc(jc,jk,jb) / meanmass 
+            ELSE
+              qtmp1 = MAX( my_qc(jc,jk,jb) + my_qc_inc(jc,jk,jb) , 0.0_wp)
+              qtmp0 = MAX( my_qc(jc,jk,jb) , 0.0_wp)
+              rholoc = MAX(my_rho(jc,jk,jb), 1e-20_wp)
+              my_qnc_inc(jc,jk,jb) = ( set_qnc( qtmp1*rholoc ) - set_qnc( qtmp0*rholoc ) ) / rholoc 
+            END IF
+          END DO
+        END DO
+      END IF
+
+      IF (lqnxinc_init(iqni) .AND. lqx_avail(iqi) .AND. lqxinc_avail(iqi) .AND. qiana_mode > 0) THEN
+        DO jk = 1, p_patch%nlev
+          DO jc = 1, nlen
+            IF ( my_qi(jc,jk,jb) > myeps_q .AND. my_qni(jc,jk,jb) > myeps_n) THEN
+              meanmass = MAX(MIN(my_qi(jc,jk,jb)/(my_qni(jc,jk,jb)+myeps_n),qi_xmax),qi_xmin ) 
+              my_qni_inc(jc,jk,jb) = my_qi_inc(jc,jk,jb) / meanmass 
+            ELSE
+              qtmp1 = MAX( my_qi(jc,jk,jb) + my_qi_inc(jc,jk,jb) , 0.0_wp)
+              qtmp0 = MAX( my_qi(jc,jk,jb) , 0.0_wp)
+              rholoc = MAX(my_rho(jc,jk,jb), 1e-20_wp)
+              my_qni_inc(jc,jk,jb) = ( set_qni( qtmp1*rholoc ) - set_qni( qtmp0*rholoc ) ) / rholoc 
+            END IF
+          END DO
+        END DO
+      END IF
+
+      IF (lqnxinc_init(iqnr) .AND. lqx_avail(iqr) .AND. lqxinc_avail(iqr) .AND. qrsgana_mode > 0) THEN
+        DO jk = 1, p_patch%nlev
+          DO jc = 1, nlen
+            IF ( my_qr(jc,jk,jb) > myeps_q .AND. my_qnr(jc,jk,jb) > myeps_n) THEN
+              meanmass = MAX(MIN(my_qr(jc,jk,jb)/(my_qnr(jc,jk,jb)+myeps_n),qr_xmax),qr_xmin ) 
+              my_qnr_inc(jc,jk,jb) = my_qr_inc(jc,jk,jb) / meanmass 
+            ELSE
+              qtmp1 = MAX( my_qr(jc,jk,jb) + my_qr_inc(jc,jk,jb) , 0.0_wp)
+              qtmp0 = MAX( my_qr(jc,jk,jb) , 0.0_wp)
+              rholoc = MAX(my_rho(jc,jk,jb), 1e-20_wp)
+              my_qnr_inc(jc,jk,jb) = ( set_qnr( qtmp1*rholoc ) - set_qnr( qtmp0*rholoc ) ) / rholoc 
+            END IF
+          END DO
+        END DO
+      END IF
+
+      IF (lqnxinc_init(iqns) .AND. lqx_avail(iqs) .AND. lqxinc_avail(iqs) .AND. qrsgana_mode > 0) THEN
+        DO jk = 1, p_patch%nlev
+          DO jc = 1, nlen
+            IF ( my_qs(jc,jk,jb) > myeps_q .AND. my_qns(jc,jk,jb) > myeps_n) THEN
+              meanmass = MAX(MIN(my_qs(jc,jk,jb)/(my_qns(jc,jk,jb)+myeps_n),qs_xmax),qs_xmin ) 
+              my_qns_inc(jc,jk,jb) = my_qs_inc(jc,jk,jb) / meanmass 
+            ELSE
+              qtmp1 = MAX( my_qs(jc,jk,jb) + my_qs_inc(jc,jk,jb) , 0.0_wp)
+              qtmp0 = MAX( my_qs(jc,jk,jb) , 0.0_wp)
+              rholoc = MAX(my_rho(jc,jk,jb), 1e-20_wp)
+              my_qns_inc(jc,jk,jb) = ( set_qns( qtmp1*rholoc ) - set_qns( qtmp0*rholoc ) ) / rholoc 
+            END IF
+          END DO
+        END DO
+      END IF
+
+      IF (lqnxinc_init(iqng) .AND. lqx_avail(iqg) .AND. lqxinc_avail(iqg) .AND. qrsgana_mode > 0) THEN
+        DO jk = 1, p_patch%nlev
+          DO jc = 1, nlen
+            IF ( my_qg(jc,jk,jb) > myeps_q .AND. my_qng(jc,jk,jb) > myeps_n) THEN
+              meanmass = MAX(MIN(my_qg(jc,jk,jb)/(my_qng(jc,jk,jb)+myeps_n),qg_xmax),qg_xmin ) 
+              my_qng_inc(jc,jk,jb) = my_qg_inc(jc,jk,jb) / meanmass 
+            ELSE
+              qtmp1 = MAX( my_qg(jc,jk,jb) + my_qg_inc(jc,jk,jb) , 0.0_wp)
+              qtmp0 = MAX( my_qg(jc,jk,jb) , 0.0_wp)
+              rholoc = MAX(my_rho(jc,jk,jb), 1e-20_wp)
+              my_qng_inc(jc,jk,jb) = ( set_qng( qtmp1*rholoc ) - set_qng( qtmp0*rholoc ) ) / rholoc 
+            END IF
+          END DO
+        END DO
+      END IF
+
+      IF (lqnxinc_init(iqnh) .AND. lqx_avail(iqh) .AND. lqxinc_avail(iqh) .AND. qrsgana_mode > 0) THEN
+        DO jk = 1, p_patch%nlev
+          DO jc = 1, nlen
+            IF ( my_qh(jc,jk,jb) > myeps_q .AND. my_qnh(jc,jk,jb) > myeps_n) THEN
+              meanmass = MAX(MIN(my_qh(jc,jk,jb)/(my_qnh(jc,jk,jb)+myeps_n),qh_xmax),qh_xmin ) 
+              my_qnh_inc(jc,jk,jb) = my_qh_inc(jc,jk,jb) / meanmass 
+            ELSE
+              qtmp1 = MAX( my_qh(jc,jk,jb) + my_qh_inc(jc,jk,jb) , 0.0_wp)
+              qtmp0 = MAX( my_qh(jc,jk,jb) , 0.0_wp)
+              rholoc = MAX(my_rho(jc,jk,jb), 1e-20_wp)
+              my_qnh_inc(jc,jk,jb) = ( set_qnh( qtmp1*rholoc ) - set_qnh( qtmp0*rholoc ) ) / rholoc 
+            END IF
+          END DO
+        END DO
+      END IF
+
+    END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+    
+    IF (qcana_mode > 0 .AND. lqnxinc_init(iqnc)) THEN
+      IF (lqx_avail(iqc) .AND. lqxinc_avail(iqc)) THEN
+        ncmaxstr = get_diag_stat_str_3d ( p_patch, my_qnc_inc )
+        CALL message(caller, 'init_qnxinc_from_qxinc_twomom for IAU: set_qnc_inc() from qc and qcinc, '//TRIM(ncmaxstr))
+      ELSE
+        CALL message(caller, 'init_qnxinc_from_qxinc_twomom for IAU: set_qnc_inc() failed '// &
+                                   'due to missing qc (FG) and/or qcinc (ANA)')        
+      END IF
+    END IF
+    IF (qiana_mode > 0 .AND. lqnxinc_init(iqni)) THEN
+      IF (lqx_avail(iqi) .AND. lqxinc_avail(iqi)) THEN
+        ncmaxstr = get_diag_stat_str_3d ( p_patch, my_qni_inc )
+        CALL message(caller, 'init_qnxinc_from_qxinc_twomom for IAU: set_qni_inc() from qi and qiinc, '//TRIM(ncmaxstr))
+      ELSE
+        CALL message(caller, 'init_qnxinc_from_qxinc_twomom for IAU: set_qni_inc() failed '// &
+                                   'due to missing qi (FG) and/or qiinc (ANA)')        
+      END IF
+    END IF
+    IF (qrsgana_mode > 0) THEN
+      IF (lqnxinc_init(iqnr)) THEN
+        IF (lqx_avail(iqr) .AND. lqxinc_avail(iqr)) THEN
+          ncmaxstr = get_diag_stat_str_3d ( p_patch, my_qnr_inc )
+          CALL message(caller, 'init_qnxinc_from_qxinc_twomom for IAU: set_qnr_inc() from qr and qrinc, '//TRIM(ncmaxstr))
+        ELSE
+          CALL message(caller, 'init_qnxinc_from_qxinc_twomom for IAU: set_qnr_inc() failed '// &
+                                     'due to missing qr (FG) and/or qrinc (ANA)')
+        END IF
+      END IF
+      IF (lqnxinc_init(iqns)) THEN
+        IF (lqx_avail(iqs) .AND. lqxinc_avail(iqs)) THEN
+          ncmaxstr = get_diag_stat_str_3d ( p_patch, my_qns_inc )
+          CALL message(caller, 'init_qnxinc_from_qxinc_twomom for IAU: set_qns_inc() from qs and qsinc, '//TRIM(ncmaxstr))
+        ELSE
+          CALL message(caller, 'init_qnxinc_from_qxinc_twomom for IAU: set_qns_inc() failed '// &
+                                     'due to missing qs (FG) and/or qsinc (ANA)')        
+        END IF
+      END IF
+      IF (lqnxinc_init(iqng)) THEN
+        IF (lqx_avail(iqg) .AND. lqxinc_avail(iqg)) THEN
+          ncmaxstr = get_diag_stat_str_3d ( p_patch, my_qng_inc )
+          CALL message(caller, 'init_qnxinc_from_qxinc_twomom for IAU: set_qng_inc() from qg and qginc, '//TRIM(ncmaxstr))
+        ELSE
+          CALL message(caller, 'init_qnxinc_from_qxinc_twomom for IAU: set_qng_inc() failed '// &
+                                     'due to missing qg (FG) and/or qginc (ANA)')        
+        END IF
+      END IF
+      IF (lqnxinc_init(iqnh)) THEN
+        IF (lqx_avail(iqh) .AND. lqxinc_avail(iqh)) THEN
+          ncmaxstr = get_diag_stat_str_3d ( p_patch, my_qnh_inc )
+          CALL message(caller, 'init_qnxinc_from_qxinc_twomom for IAU: set_qnh_inc() from qh and qhinc, '//TRIM(ncmaxstr))
+        ELSE
+          CALL message(caller, 'init_qnxinc_from_qxinc_twomom for IAU: set_qnh_inc() failed '// &
+                                     'due to missing qh (FG) and/or qhinc (ANA)')        
+        END IF
+      END IF
+    END IF
+
+  END SUBROUTINE init_qnxinc_from_qxinc_twomom
+
+  !> Diagnostic min/mean/max in a character representation of a 3D-field in the interior domain (no boundaries and halos)
+  FUNCTION get_diag_stat_str_3d ( p_patch_jg, field3d ) RESULT(statstr)
+
+    REAL(wp), INTENT(in) :: field3d(:,:,:)
+    TYPE(t_patch)        :: p_patch_jg
+
+    REAL(wp)             :: stats(3)
+
+    CHARACTER(len=110)   :: statstr
+
+    stats = get_diag_stat_comm_work ( p_patch_jg, field3d )
+
+    IF (my_process_is_work()) THEN
+
+      WRITE(statstr, '("min/mean/max interior domain: ",2(es12.5," / "),es12.5)') stats
+
+    ELSE
+
+      statstr = modname//': get_diag_stat_str_3d(): not a worker PE, no min/mean/max available!'
+
+    END IF
+
+  END FUNCTION get_diag_stat_str_3d
+
+  !> Diagnostic min/mean/max values of a 3D-field in the interior domain (no boundaries and halos)
+  FUNCTION get_diag_stat_comm_work ( p_patch_jg, field3d ) RESULT(stats)
+
+    REAL(wp), INTENT(in) :: field3d(:,:,:)
+    TYPE(t_patch)        :: p_patch_jg
+
+    REAL(wp)             :: stats(3)
+
+    REAL(wp)             :: mn, mx, mm
+    INTEGER              :: size_field3d
+    INTEGER              :: jb, jc, jk, is, ie, i_startblk, i_endblk
+
+    IF (my_process_is_work()) THEN
+
+      mn = HUGE(1.0_wp)
+      mx = -HUGE(1.0_wp)
+      mm = 0.0_wp
+      size_field3d = 0
+
+      i_startblk = p_patch_jg % cells % start_block(grf_bdywidth_c+1)   ! interior cells
+      i_endblk   = p_patch_jg % cells % end_block(min_rlcell_int)       ! excluding halo cells
+
+!$OMP PARALLEL PRIVATE(jb, jc, jk, is, ie) REDUCTION(+:size_field3d,mm) REDUCTION(min:mn) REDUCTION(max:mx)
+!$OMP DO
+      DO jb = i_startblk, i_endblk
+        CALL get_indices_c(p_patch_jg, jb, i_startblk, i_endblk, is, ie, grf_bdywidth_c+1, min_rlcell_int)
+        DO jk = 1, p_patch_jg%nlev
+          DO jc = is, ie
+            mn           = MIN(field3d(jc,jk,jb), mn)
+            mx           = MAX(field3d(jc,jk,jb), mx)
+            mm           = field3d(jc,jk,jb) + mm
+            size_field3d = size_field3d + 1
+          END DO
+        END DO
+      END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+#ifndef NOMPI
+      IF (num_work_procs > 1) THEN
+        ! Global stats using MPI:
+        mn           = p_min(mn          , comm=p_comm_work)
+        mx           = p_max(mx          , comm=p_comm_work)
+        mm           = p_sum(mm          , comm=p_comm_work)
+        size_field3d = p_sum(size_field3d, comm=p_comm_work)
+      END IF
+#endif
+
+      mm = mm / MAX(size_field3d, 1)
+
+      stats = (/mn, mm, mx/)
+
+    ELSE
+
+      stats(:) = -HUGE(1.0_wp)
+
+    END IF
+
+  END FUNCTION get_diag_stat_comm_work
 
 END MODULE mo_initicon_utils
 !

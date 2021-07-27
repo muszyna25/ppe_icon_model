@@ -40,6 +40,9 @@ cat > ${ocean_namelist} << EOF
  nproma         = $nproma
  p_test_run     = .false.
  l_fast_sum     = .true.
+ num_prefetch_proc = 0 
+ pio_type       = 0
+ num_io_procs   = 0
 /
 &grid_nml
  dynamics_grid_filename = "${ocean_grids}",
@@ -87,6 +90,20 @@ cat > ${ocean_namelist} << EOF
   ml_varlist       = 'group:oce_default','group:oce_essentials', 'group:ice_default'
 /
 &output_nml
+  filetype         =  5 ! output format: 2=GRIB2, 4=NETCDFv2
+  output_filename  = "${EXPNAME}_max"
+  output_start     = "${start_date}"                  ! start in ISO-format
+  output_end       = "${end_date}"                    ! end in ISO-format
+  output_interval  = "${daily}"
+  operation        = "max"
+  file_interval    = "${file_interval}"
+  mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+  include_last     = .false.
+  output_grid      = .TRUE.
+  filename_format  = "<output_filename>_<datetime2>"
+  ml_varlist       = 'mld'
+/
+&output_nml
   output_start     = "${start_date}"
   output_end       = "${end_date}"
   output_interval  = "${daily}"
@@ -123,6 +140,21 @@ cat > ${ocean_namelist} << EOF
   include_last     = .false.
   ml_varlist       =  'wet_c','basin_c','regio_c','lsm_ctr_c'
 /
+!&output_nml
+!  filetype         =  5 ! output format: 2=GRIB2, 4=NETCDFv2
+!  output_filename  = "${EXPNAME}_kpp"
+!  output_start     = "${start_date}"                  ! start in ISO-format
+!  output_end       = "${end_date}"                    ! end in ISO-format
+!  output_interval  = "${daily}"
+!  file_interval    = "${file_interval}"
+!  mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+!  operation        = "mean"
+!  include_last     = .false.
+!  output_grid      = .TRUE.
+!  filename_format  = "<output_filename>_<datetime2>"
+!  ml_varlist       = 'group:oce_cvmix_kpp'
+!/
+
 &dbg_index_nml
   idbg_mxmn=0                     ! initialize MIN/MAX  debug output
   idbg_val =0                     ! initialize one cell debug output
@@ -141,12 +173,15 @@ cat > ${ocean_namelist} << EOF
                        220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
   l_edge_based                    = .FALSE.   ! edge- or cell-based mimetic discretization
   l_partial_cells                 = .FALSE.   ! partial bottom cells=true: local varying bottom depth
-  select_solver                   =   2       ! 1=gmres_oce_old; 2=ocean_restart_gmres, 3=mixed precisison restart
+
+  select_solver                   = 4       ! 1=gmres_oce_old; 2=ocean_restart_gmres, 3=mixed precisison restart 
+                                            ! 4=CG (default) 5=CGJ 6=BiCG 7=GMRES restart (legacy) 8=MINRES
   use_absolute_solver_tolerance   = .true.
-  solver_tolerance                =  7.5E-14
-  solver_max_iter_per_restart     =  19       !
-  solver_max_restart_iterations   = 100       ! outer (restart solver)
-!  select_lhs                      = 2
+  solver_tolerance                = 1.0E-13 ! this may further be reduced
+
+  select_lhs                      = 1       ! 1=operator based (default) 2=matrix based
+  l_lhs_direct                    = .false. ! .true.= use lhs implementation directly  .false.= matrix scanner (default) 
+  solver_FirstGuess               = 2       ! 0=start from zeros 1=last timestep smoothed 2=last timestep (default) 
 
   fast_performance_level          = 200       ! performance level 12: for cell-based; 5: default
   use_continuity_correction       = .TRUE.    ! height adjustment according to vertical velocity in dynamics
@@ -180,6 +215,7 @@ cat > ${ocean_namelist} << EOF
   Salinity_HorizontalDiffusion_Reference     = 0 !  40
 /
 &ocean_vertical_diffusion_nml
+  vert_mix_type                            = 1 ! 1=PP, 2=TKE, 3=KPP
   PPscheme_type                            = 4
   velocity_VerticalDiffusion_background    =   5.0E-5  ! [m2/s]  vertical background viscosity coefficient for velocity
   Temperature_VerticalDiffusion_background =   5.0E-5  ! [m2/s]  vertical background diffusion coefficient for temperature
@@ -192,8 +228,43 @@ cat > ${ocean_namelist} << EOF
   bottom_drag_coeff               =   3.0E-3  ! default=2.5E-3; active for i_bc_veloc_bot=1
   use_wind_mixing                 = .true.    ! true: use wind mixing scheme in MPIOM-type pp-scheme
   lambda_wind                     = 0.03
-  tracer_TopWindMixing            = 1.0E-5
-  velocity_TopWindMixing          = 1.0E-5
+!  ! cvmix/kpp parameters                                                                                                          
+!  Ri_crit                 = 0.3                ! critical bulk-Rickardson number (Rib) used to diagnose OBL depth                 
+!  vonKarman               = 0.40               ! von Karman constant(dimensionless)                                               
+!  surf_layer_ext          = 0.10               ! fraction of OBL depth considered as the surface layer (nondim) (epsilon=0.1)     
+!  NLT_shape               = "CVMIX"            ! Use a different shape function (G) for non-local transport (NLT)                 
+!  SW_METHOD               = "SW_METHOD_ALL_SW" ! Sets method for using shortwave radiation in surface buoyancy flux               
+!  MatchTechnique          = "SimpleShapes"     ! Method used in CVMix for setting diffusivity and NLT profile functions           
+!  internal_mix_scheme     = "PP"               ! Ri-number dependent mixing scheme below the OBL: 'PP' or 'KPP'                   
+!  KPP_nu_zero             = 5e-3               ! leading coefficient of shear mixing formula (m^2/s; default= 5e-3)               
+!  KPP_Ri_zero             = 0.7                ! critical Richardson number value (0.7 in LMD94)                                  
+!  KPP_loc_exp             = 3.0                ! Exponent of unitless factor of diffusities (3.0 in LMD94)                        
+!  PP_nu_zero              = 0.01               ! leading coefficient of shear mixing in PP formula (m^2/s; default= 1e-2)                                                                          
+!  PP_alpha                = 5.0                ! coefficient in PP scheme                                                                         
+!  PP_loc_exp              = 2.0                ! exponent in PP scheme                                                                         
+!  lnl_trans_under_sea_ice = .TRUE.             ! True => non-local transport (NLT) tendencies are calculated below sea ice        
+!  interpType              = "cubic"            ! Type of interpolation in determining OBL depth: linear,quadratic,cubic           
+!  CS_is_one               = .FALSE.            ! True => forces cs2 (cs in NLT computation) to equal 1 for parabolic non-local option.
+!  computeEkman            = .FALSE.            ! True => compute Ekman depth limit for OBLdepth (not tested)                      
+!  computeMoninObukhov     = .FALSE.            ! True => compute Monin-Obukhov limit for OBLdepth (not tested)                    
+!  lenhanced_entr          = .FALSE.            ! True => enhance entrainment by adding Stokes shear to unresolved shear (not tested)
+!  llangmuirEF             = .FALSE.            ! True => apply Langmuir enhancement factor to w_s (not tested)                    
+!  langmuir_Efactor        = 1.0                ! Langmuir enhancement factor for turb. vertical velocity scale (w_s)              
+!  enhance_diffusion       = .FALSE.            ! True => add enhanced diffusivity at base of boundary layer (not recommended)     
+!  cs                      = 98.96              ! parameter for computing velocity scale function (dimensionless)                  
+!  cs2                     = 6.32739901508      ! parameter for multiplying by non-local term                                      
+!  diag_G                  = .TRUE.             ! True => diagnose non-dimensional shape function G(sigma)=sigma(1-sigma)**2       
+!  diag_WS                 = .FALSE.            ! True => diagnose turb. velocity scale (w_s) with correct OBL depth (not required?)
+!  diag_vtsqr              = .TRUE.             ! True => vert. turb. shear acting on OBL depth will be diagnosed (not working yet)
+!  minVtsqr                = 1e-10              ! minimum for the squared unresolved velocity used in Rib CVMix calculation (m2/s2)
+!  minOBLdepth             = 0.0                ! if non-zero, sets the minimum depth for the OBL (m)                              
+!  deepOBLoffset           = 0.0                ! If non-zero, a distance from the bottom that the OBL cannot penetrate through (m)
+!  min_thickness           = 0.0                ! min. thickness (m) to avoid division by small numbers in vicinity of vanished layers
+!  ! only for testing/debugging                                                                                                    
+!  lnonlocal_trans         = .TRUE.             ! True => non-local transport (NLT) terms are applied (disable only for testing)   
+!  lconvection             = .TRUE.             ! True => convection param. 'enhanced diff.' is called below the OBL               
+!  fixedOBLdepth           = .FALSE.            ! True => fixed OBL depth at fixedOBLdepth_value (only for testing)                
+!  fixedOBLdepth_value     = 30.0               ! value for the fixed OBL depth when fixedOBLdepth=.True.                          
 /
 &ocean_GentMcWilliamsRedi_nml
   GMRedi_configuration           =   1       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
@@ -208,7 +279,7 @@ cat > ${ocean_namelist} << EOF
   GMREDI_COMBINED_DIAGNOSTIC             =.FALSE.
   SWITCH_ON_REDI_BALANCE_DIAGONSTIC      =.FALSE.
   REVERT_VERTICAL_RECON_AND_TRANSPOSED   =.TRUE.
-  SLOPE_CALC_VIA_TEMPERTURE_SALINITY = .true.
+  SLOPE_CALC_VIA_TEMPERTURE_SALINITY     =.TRUE.
   INCLUDE_SLOPE_SQUARED_IMPLICIT         =.TRUE. !think of l_with_vert_tracer_diffusion
   SWITCH_ON_TAPERING_HORIZONTAL_DIFFUSION=.TRUE.
 /
@@ -244,6 +315,7 @@ cat > ${ocean_namelist} << EOF
   forcing_windstress_u_type       =   1       ! read from file
   forcing_windstress_v_type       =   1       ! read from file
   forcing_fluxes_type             =   1       ! read from file
+  bulk_wind_stress_type           =   0       ! 0: from file, 1: ocean at rest, 2: with ocean currents
 ! forcing_enable_freshwater       = .TRUE.    ! apply freshwater forcing boundary condition (OMIP only)
 ! forcing_set_runoff_to_zero      = .FALSE.   ! set runoff to zero for comparison to MPIOM; default: false
 ! zero_freshwater_flux            = .FALSE.   ! set external freshwater flux to zero; default: false 
@@ -253,6 +325,11 @@ cat > ${ocean_namelist} << EOF
   limit_elevation                 = .TRUE.
   atm_pressure_included_in_ocedyn = .TRUE.   ! use atm. pressure in the ocean dynamics
   atm_pressure_included_in_icedyn = .TRUE.   ! use atm. pressure in the ice dynamics
+  use_tides                       = .FALSE.
+  tides_mod                       =  1        ! 1 Default 2 MPIOM 
+  lswr_jerlov                     = .TRUE.    ! use jerlov water types for sw absorption
+  jerlov_atten                    = 0.08      ! jerlov water type IB
+  jerlov_bluefrac                 = 0.36      ! jerlov water type IB
 /
 &ocean_initialConditions_nml
   initial_salinity_type           = 1         ! read from file
@@ -293,7 +370,7 @@ EOF
 if [[ x$BB_SYSTEM != x ]]; then
   rm -f ${final_status_file}
 . ${thisdir}/postFunx.sh
-  dataPath="${ICON_BASE_PATH}/experiments/${EXPNAME}/"
+  dataPath="${basedir}/experiments/${EXPNAME}/"
   cd ${dataPath}
   slave=${BB_SYSTEM:-thunder}_${BB_SLAVE:-gcc}
   refDir=${builbot_ocean_reference_path}/${slave}/${EXPNAME}

@@ -19,7 +19,7 @@ MODULE mo_gridref_nml
   USE mo_master_control,      ONLY: use_restart_namelists
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio 
-  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist,  &
+  USE mo_restart_nml_and_att, ONLY: open_tmpfile, store_and_close_namelist,  &
                                   & open_and_restore_namelist, close_tmpfile
 
   USE mo_gridref_config,      ONLY:   &
@@ -142,7 +142,7 @@ CONTAINS
     rbf_vec_kern_grf_e = 1    ! 1: Gaussian, 2: 1/(1+r**2), 3: inverse multiquadric
 
     ! Initialize namelist fields for scaling factors (dimension 1:max_dom)
-    rbf_scale_grf_e(1:max_dom) = 0.5_wp  ! default setting for vector grf interpolation
+    rbf_scale_grf_e(1:max_dom) = -1.0_wp  ! dummy value; resolution-dependent defaults are set in gridref_config
 
     ! Denominator for temperature boundary diffusion
     denom_diffu_t = 135._wp

@@ -52,7 +52,8 @@ MODULE mo_ncar_testcases
   USE mo_math_constants, ONLY: pi, pi_2, deg2rad
   USE mo_model_domain,   ONLY: t_patch
   USE mo_grid_config,    ONLY: grid_sphere_radius, grid_angular_velocity
-
+  USE mo_exception,      ONLY: finish
+  
   IMPLICIT NONE
 
 !=======================================================================
@@ -368,7 +369,7 @@ CONTAINS
          !
       ELSE
          WRITE(6,'(1x,''invalid kcall in regrot'')')
-         STOP
+         CALL finish('','')
       ENDIF
     END SUBROUTINE regrot
 
@@ -481,7 +482,7 @@ CONTAINS
          pvres = pc*puarg + pd*pvarg
       ELSE
          WRITE(6,'(1x,''invalid kcall in turnwi'')')
-         STOP
+         CALL finish('','')
       ENDIF
     END SUBROUTINE turnwi
 
@@ -1005,7 +1006,7 @@ CONTAINS
         u0 = 0._wp                                     ! background wind speed
         phi0 = 0._wp                                   ! center point in latitudes (45 deg)
         gw_omega = 0._wp                               ! Earth's rotation
-        STOP
+        CALL finish('','')
       END SELECT
       S = g*g/(cp*N2)                                  ! parameter
 

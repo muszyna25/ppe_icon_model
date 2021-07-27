@@ -31,10 +31,10 @@ MODULE mo_advection_geometry
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_parallel_config,     ONLY: nproma
   USE mo_loopindices,         ONLY: get_indices_e
-  USE mo_impl_constants,      ONLY: min_rledge_int, max_char_length
+  USE mo_impl_constants,      ONLY: min_rledge_int
   USE mo_math_constants,      ONLY: rad2deg
   USE mo_math_types,          ONLY: t_line, t_geographical_coordinates
-  USE mo_math_utilities,      ONLY: lintersect, line_intersect 
+  USE mo_math_utilities,      ONLY: lintersect, line_intersect
   USE mo_advection_utils,     ONLY: t_list2D
   USE mo_fortran_tools,       ONLY: copy
 
@@ -174,7 +174,7 @@ CONTAINS
       &  levlist_vn0(nproma*p_patch%nlev,p_patch%nblks_e), &
       &  levlist_err(nproma*p_patch%nlev,p_patch%nblks_e)
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_advection_traj: divide_flux_area'
 
   !-------------------------------------------------------------------------
@@ -251,6 +251,7 @@ CONTAINS
       icnt_vn0 = 0
 
       DO jk = slev, elev
+!NEC$ ivdep
          DO je = i_startidx, i_endidx
 
           lvn_pos = p_vn(je,jk,jb) >= 0._wp
@@ -288,12 +289,10 @@ CONTAINS
 
           ! does departure-line segment intersect with A1V3?
           !
-!CDIR NEXPAND(lintersect)
           lintersect_line1 = lintersect(fl_line(je,jk), tri_line1(je,jk))
 
           ! does departure-line segment intersect with A2V3?
           !
-!CDIR NEXPAND(lintersect)
           lintersect_line2 = lintersect(fl_line(je,jk), tri_line2(je,jk))
 
 
@@ -335,7 +334,7 @@ CONTAINS
 
       ! Second step of index list computation
       !
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC IVDEP
       DO jl = 1, icnt_rem
         je = idxlist_rem(jl,jb)
         jk = levlist_rem(jl,jb)
@@ -357,13 +356,11 @@ CONTAINS
 
         ! Check whether flux area edge 2 intersects with triangle edge 1
         !
-!CDIR NEXPAND(lintersect)
         lintersect_e2_line1 = lintersect(fl_e2(je,jk), tri_line1(je,jk))
 
 
         ! Check whether flux area edge 1 intersects with triangle edge 2
         !
-!CDIR NEXPAND(lintersect)
         lintersect_e1_line2 = lintersect(fl_e1(je,jk), tri_line2(je,jk))
 
 
@@ -430,7 +427,7 @@ CONTAINS
       !
       ! CASE 1
       !
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC IVDEP
       DO jl = 1, icnt_c1
         je = idxlist_c1(jl,jb)
         jk = levlist_c1(jl,jb)
@@ -497,7 +494,7 @@ CONTAINS
       !
       ! CASE 2a
       !
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC IVDEP
       DO jl = 1, icnt_c2p
         je = idxlist_c2p(jl,jb)
         jk = levlist_c2p(jl,jb)
@@ -555,7 +552,7 @@ CONTAINS
       !
       ! CASE 2b
       !
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC IVDEP
       DO jl = 1, icnt_c2m
         je = idxlist_c2m(jl,jb)
         jk = levlist_c2m(jl,jb)
@@ -612,7 +609,7 @@ CONTAINS
       !
       ! CASE 3a
       !
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC IVDEP
       DO jl = 1, icnt_c3p
         je = idxlist_c3p(jl,jb)
         jk = levlist_c3p(jl,jb)
@@ -669,7 +666,7 @@ CONTAINS
       !
       ! CASE 3b
       !
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC IVDEP
       DO jl = 1, icnt_c3m
         je = idxlist_c3m(jl,jb)
         jk = levlist_c3m(jl,jb)
@@ -726,7 +723,7 @@ CONTAINS
       !
       ! CASE 4  (very small normal velocity)
       !
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC IVDEP
       DO jl = 1, icnt_vn0
         je = idxlist_vn0(jl,jb)
         jk = levlist_vn0(jl,jb)
@@ -772,7 +769,7 @@ CONTAINS
 
 
       DO jk = slev, elev
-
+!$NEC IVDEP
          DO je = i_startidx, i_endidx
 
            lvn_pos = p_vn(je,jk,jb) >= 0._wp
@@ -967,7 +964,7 @@ CONTAINS
       &  levlist_vn0(falist%npoints), &
       &  levlist_err(falist%npoints)
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_advection_traj: divide_flux_area'
 
   !-------------------------------------------------------------------------
@@ -1022,6 +1019,7 @@ CONTAINS
       ! get arrival and departure points. Note that the indices of the departure
       ! points have to be switched so that departure point 1 belongs to arrival
       ! point one and departure point 2 to arrival point 2.
+!NEC$ ivdep
       DO ie = 1, falist%len(jb)
 
         je = falist%eidx(ie,jb)
@@ -1084,12 +1082,10 @@ CONTAINS
 
         ! does departure-line segment intersect with A1V3?
         !
-!CDIR NEXPAND(lintersect)
         lintersect_line1 = lintersect(fl_line(ie), tri_line1(ie))
 
         ! does departure-line segment intersect with A2V3?
         !
-!CDIR NEXPAND(lintersect)
         lintersect_line2 = lintersect(fl_line(ie), tri_line2(ie))
 
 
@@ -1132,7 +1128,7 @@ CONTAINS
 
       ! Second step of index list computation
       !
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC IVDEP
       DO jl = 1, icnt_rem
         ie = ielist_rem(jl)
         je = idxlist_rem(jl)
@@ -1155,13 +1151,11 @@ CONTAINS
 
         ! Check whether flux area edge 2 intersects with triangle edge 1
         !
-!CDIR NEXPAND(lintersect)
         lintersect_e2_line1 = lintersect(fl_e2(ie), tri_line1(ie))
 
 
         ! Check whether flux area edge 1 intersects with triangle edge 2
         !
-!CDIR NEXPAND(lintersect)
         lintersect_e1_line2 = lintersect(fl_e1(ie), tri_line2(ie))
 
 
@@ -1180,7 +1174,7 @@ CONTAINS
           ielist_c3m(icnt_c3m)  = ie
           idxlist_c3m(icnt_c3m) = je
           levlist_c3m(icnt_c3m) = jk
-
+#ifndef __SX__
         ELSE IF ( ABS(p_vn(je,jk,jb)) < 0.1_wp ) THEN
 
           ! CASE IV
@@ -1189,15 +1183,20 @@ CONTAINS
           ielist_vn0(icnt_vn0)  = ie
           idxlist_vn0(icnt_vn0) = je
           levlist_vn0(icnt_vn0) = jk
-
+#endif
         ELSE     ! error index list
-
+        ! Workaround for compiler optimization bug: vectorization fails with one additional branch
+#ifdef __SX__
+        IF ( .NOT. (ABS(p_vn(je,jk,jb)) < 0.1_wp) ) THEN
+#endif
           ! ERROR
           icnt_err = icnt_err + 1
           ielist_err(icnt_err)  = ie
           idxlist_err(icnt_err) = je
           levlist_err(icnt_err) = jk
-
+#ifdef __SX__
+        ENDIF
+#endif
           ! adding the error points to the weak-vn list is done in order to ensure
           ! reproducible (though bad) results in cases of too high wind speed
           icnt_vn0 = icnt_vn0 + 1
@@ -1234,7 +1233,7 @@ CONTAINS
       !
       ! CASE 1
       !
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC IVDEP
       DO jl = 1, icnt_c1
         ie = ielist_c1(jl)
         je = idxlist_c1(jl)
@@ -1294,7 +1293,7 @@ CONTAINS
       !
       ! CASE 2a
       !
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC IVDEP
       DO jl = 1, icnt_c2p
         ie = ielist_c2p(jl)
         je = idxlist_c2p(jl)
@@ -1349,7 +1348,7 @@ CONTAINS
       !
       ! CASE 2b
       !
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC IVDEP
       DO jl = 1, icnt_c2m
         ie = ielist_c2m(jl)
         je = idxlist_c2m(jl)
@@ -1403,7 +1402,7 @@ CONTAINS
       !
       ! CASE 3a
       !
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC IVDEP
       DO jl = 1, icnt_c3p
         ie = ielist_c3p(jl)
         je = idxlist_c3p(jl)
@@ -1453,7 +1452,7 @@ CONTAINS
       !
       ! CASE 3b
       !
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC IVDEP
       DO jl = 1, icnt_c3m
         ie = ielist_c3m(jl)
         je = idxlist_c3m(jl)
@@ -1503,7 +1502,7 @@ CONTAINS
       !
       ! CASE 4  (very small normal velocity)
       !
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC IVDEP
       DO jl = 1, icnt_vn0
         ie = ielist_vn0(jl)
 
@@ -1526,7 +1525,7 @@ CONTAINS
      ! end of index list stuff
 
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC IVDEP
       DO ie = 1, falist%len(jb)
 
         je = falist%eidx(ie,jb)

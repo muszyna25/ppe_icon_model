@@ -40,12 +40,20 @@ MODULE mo_nwp_parameters
     REAL(wp) :: rcucov, rcucov_trop
     ! tuning coefficient for organized entrainment of deep convection
     REAL(wp) :: entrorg
+    ! detrainment rate for deep convection updrafts and downdrafts
+    REAL(wp) :: detrpen, entrdd
+    ! entrainment constants for test parcel ascent
+    REAL(wp) :: entstpc1, entstpc2
+    ! coefficient for conversion of cloud water into precipitation
+    REAL(wp) :: rprcon
     ! maximum allowed depth of shallow convection (hPa)
     REAL(wp) :: rdepths
     ! switches for activation of shallow, midlevel and deep convection
     LOGICAL :: lmfscv, lmfmid, lmfpen
     ! switch for detrainment of rain and snow to gridscale scheme
     LOGICAL :: lmfdsnow
+    ! switch for grayzone tuning for deep convection
+    LOGICAL :: lgrayzone_deepconv
     !
     ! Parameters which are only computed if Gravity wave drag scheme is switched on
     !

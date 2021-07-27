@@ -165,7 +165,9 @@ USE mo_interpol_config,     ONLY: rbf_vec_dim_c, rbf_vec_dim_e, rbf_vec_dim_v,  
   &                               rbf_vec_scale_v
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_idx
 USE mo_grid_geometry_info,  ONLY: sphere_geometry
-
+USE mo_physical_constants,  ONLY: earth_radius
+USE mo_math_constants,      ONLY: deg2rad  ! = pi/180
+USE mo_mpi,                 ONLY: get_my_mpi_work_id  ! only for debugging
 IMPLICIT NONE
 
 !> level of output verbosity
@@ -175,7 +177,8 @@ PRIVATE
 
 PUBLIC :: rbf_vec_index_cell, rbf_c2grad_index, rbf_vec_compute_coeff_cell,     &
           & rbf_compute_coeff_c2grad, rbf_vec_index_vertex, rbf_vec_index_edge, &
-          & rbf_vec_compute_coeff_vertex, rbf_vec_compute_coeff_edge
+          & rbf_vec_compute_coeff_vertex, rbf_vec_compute_coeff_edge,           &
+          & gen_index_list_radius
 
 !> module name
 CHARACTER(LEN=*), PARAMETER :: modname = 'mo_intp_rbf_coeffs'
@@ -241,7 +244,7 @@ REAL(wp) :: z_stencil(UBOUND(ptr_int%rbf_vec_stencil_c,1),UBOUND(ptr_int%rbf_vec
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, nblks_c, &
                        i_startidx, i_endidx, 2)
-
+!$NEC ivdep
     DO jc = i_startidx, i_endidx
 
       IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
@@ -285,7 +288,7 @@ REAL(wp) :: z_stencil(UBOUND(ptr_int%rbf_vec_stencil_c,1),UBOUND(ptr_int%rbf_vec
 
       ! take care of cells at patch boundaries, then the value of 
       ! ptr_int%rbf_vec_stencil_c might be smaller than rbf_vec_dim_c:
-!CDIR EXPAND=9
+!$NEC unroll(9)
       ptr_int%rbf_vec_stencil_c(jc,jb) = COUNT(ptr_int%rbf_vec_idx_c(1:9,jc,jb) /= 0)
 
     END DO
@@ -333,7 +336,7 @@ INTEGER :: rl_start, rl_end, i_nchdom, i_endblk
 
 !--------------------------------------------------------------------
 
-  inidx => ptr_patch%cells%neighbor_idx
+  inidx => ptr_patch%cells%neighbor_idx 
   inblk => ptr_patch%cells%neighbor_blk
 
   ! values for the blocking
@@ -352,7 +355,7 @@ INTEGER :: rl_start, rl_end, i_nchdom, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, rl_start, rl_end)
-
+!$NEC ivdep
     DO jc = i_startidx, i_endidx
 
       IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
@@ -431,6 +434,301 @@ INTEGER :: rl_start, rl_end, i_nchdom, i_endblk
   ENDDO
 
 END SUBROUTINE rbf_c2grad_index
+
+
+  !>
+  !! Description: 
+  !!   For a given search_radius (in m)
+  !!   find all triangles with indices (jc, jb), whose circumcenter lies
+  !!   in a distance smaller than the search_radius to the circumcenter of
+  !!   the center triangle (ic, ib).
+  !! Output:
+  !!   ptr_int contains the derived type variable 'cell_environ'; here, the following entries are set:
+  !!      cell_environ%max_nmbr_nghbr_cells
+  !!      cell_environ%nmbr_nghbr_cells (ic, ib)
+  !!      cell_environ%idx       (ic, ib, l)
+  !!      cell_environ%blk       (ic, ib, l)
+  !!      cell_environ%area_norm (ic, ib, l)
+  !!      cell_environ%radius          ! only for later control checks
+  !!      cell_environ%max_nmbr_iter   ! only for later control checks
+  !!   The purpose of such a set of indices usually is averaging for postprocessing 
+  !!   (currently for SDI and LPI)
+  !!
+  !! Method:
+  !!   iteratively inspect the neighbors of each cell vortices.
+  !!   The maximum iteration depth is limited by max_nmbr_iter.
+  !!   This subroutine is a generalization of the subroutine rbf_c2grad_index.
+  !!
+  !! @par Revision History
+  !! Developed by M. Baldauf, DWD (2019-05-24)
+  !!
+  SUBROUTINE gen_index_list_radius( ptr_int, ptr_patch, jg, search_radius, max_nmbr_iter )
+
+    IMPLICIT NONE
+
+    TYPE(t_int_state),     INTENT(INOUT) :: ptr_int
+    TYPE(t_patch), TARGET, INTENT(INOUT) :: ptr_patch   ! is modified by sync_idx
+    INTEGER,               INTENT(IN)    :: jg
+    REAL (wp),             INTENT(IN)    :: search_radius
+    INTEGER,               INTENT(IN)    :: max_nmbr_iter  ! max. number of iterations.
+            ! =1: leads to a reproducible setup since two triangle rows are exchanged in any case.
+            ! >1: possible, but does not longer deliver reproducible results.
+
+    INTEGER :: i_rlstart, i_rlend
+    INTEGER :: i_startblk, i_endblk
+    INTEGER :: i_startidx, i_endidx
+    INTEGER :: max_nmbr_nghbr_cells2
+    INTEGER :: il, l, k, i, kv
+    INTEGER :: ic, ib
+    INTEGER :: jc, jb
+    INTEGER :: jc2, jb2
+    INTEGER :: idx_v, blk_v
+    INTEGER :: idx_start_list
+    INTEGER :: iter
+    LOGICAL :: flag_cell_found
+    REAL(wp) :: dist2, radius2
+    REAL(wp) :: dx, dy
+    REAL(wp) :: cos_phi
+    REAL(wp) :: sum
+  
+    INTEGER, ALLOCATABLE :: idx_new(:)
+    INTEGER, ALLOCATABLE :: blk_new(:)
+
+    INTEGER :: ist
+    LOGICAL :: flag_out
+
+    ! without halo or boundary  points:
+    i_rlstart = 2     ! see subr. rbf_c2grad_index
+    !i_rlstart = grf_bdywidth_c + 1
+    i_rlend   = min_rlcell_int
+
+    i_startblk = ptr_patch%cells%start_block( i_rlstart )
+    i_endblk   = ptr_patch%cells%end_block  ( i_rlend   )
+
+    ptr_int%cell_environ%radius        = search_radius ! just for later validation purposes
+    ptr_int%cell_environ%max_nmbr_iter = max_nmbr_iter ! "
+
+    ptr_int%cell_environ%max_nmbr_nghbr_cells = 0
+
+    radius2 = search_radius * search_radius
+
+    ! Allocations
+
+    max_nmbr_nghbr_cells2 = ptr_int%cell_environ%nmbr_nghbr_cells_alloc * 2    ! factor 2 is for 'security reasons'
+
+    ALLOCATE( idx_new( ptr_patch%geometry_info%cell_type * max_nmbr_nghbr_cells2), STAT=ist )
+    IF (ist /= SUCCESS)  CALL finish (modname//':gen_index_list_radius', 'allocation for idx_new failed')
+
+    ALLOCATE( blk_new( ptr_patch%geometry_info%cell_type * max_nmbr_nghbr_cells2), STAT=ist )
+    IF (ist /= SUCCESS)  CALL finish (modname//':gen_index_list_radius', 'allocation for blk_new failed')
+       ! cell_type=3 or 6, i.e. should work for triangle and hexagon grid
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(ib,i_startidx,i_endidx,ic,idx_start_list,cos_phi,iter,il,l,jc,jb,kv,  &
+!$OMP            idx_v,blk_v,k,jc2,jb2,dx,dy,dist2,idx_new,blk_new,i,flag_cell_found,sum) ICON_OMP_DEFAULT_SCHEDULE
+    DO ib = i_startblk, i_endblk
+
+      CALL get_indices_c (ptr_patch, ib, i_startblk, i_endblk,       &
+        &                 i_startidx, i_endidx, i_rlstart, i_rlend)
+
+      DO ic = i_startidx, i_endidx
+
+        ! (ic,ib) is the center cell
+
+        ! this center cell is stored, too:
+        ! (so to speak, it defines the 0-th 'layer')
+        ptr_int%cell_environ%nmbr_nghbr_cells( ic, ib)    = 1
+        ptr_int%cell_environ%idx             ( ic, ib, 1) = ic
+        ptr_int%cell_environ%blk             ( ic, ib, 1) = ib
+
+        idx_start_list = 1
+
+        cos_phi = COS( ptr_patch%cells%center(ic,ib)%lat )
+
+        ITER_LOOP: DO iter=1, max_nmbr_iter
+          ! search iteratively the next 'layer' of cells around the former 'layer'
+
+          ! determine next direct neighbours:
+          il=0
+
+          DO l= idx_start_list, ptr_int%cell_environ%nmbr_nghbr_cells(ic,ib)
+
+            jc = ptr_int%cell_environ%idx( ic, ib, l)
+            jb = ptr_int%cell_environ%blk( ic, ib, l)
+
+            IF ( ptr_patch%cells%decomp_info%owner_mask(jc,jb) ) THEN
+              ! = this is a cell in the interior and therefore possesses neigbouring cells
+
+              DO kv=1,3
+                idx_v = ptr_patch%cells%vertex_idx(jc,jb,kv)
+                blk_v = ptr_patch%cells%vertex_blk(jc,jb,kv)
+
+                DO k=1, ptr_patch%verts%num_edges(idx_v, blk_v)
+                  jc2 = ptr_patch%verts%cell_idx( idx_v, blk_v, k)
+                  jb2 = ptr_patch%verts%cell_blk( idx_v, blk_v, k)
+
+                  ! dist2 = distance (squared!) between the cell centers of (jc2,jb2) and (ic,ib)
+                  !    (the following is only a quasi-cartesian *approximation* and only applicable over 
+                  !     short distances and for not too coarse grids)
+                  dx = ( ptr_patch%cells%center(jc2,jb2)%lon - ptr_patch%cells%center(ic,ib)%lon )   &
+                    &        * deg2rad * earth_radius * cos_phi 
+                  dy = ( ptr_patch%cells%center(jc2,jb2)%lat - ptr_patch%cells%center(ic,ib)%lat )   &
+                    &        * deg2rad * earth_radius
+                  dist2 = dx*dx + dy*dy 
+
+                  IF ( dist2 <= radius2 ) THEN
+                    il=il+1
+                    IF ( il > max_nmbr_nghbr_cells2 ) THEN
+                      CALL finish( modname//':gen_index_list_radius',&
+                        &          "max_nmbr_nghbr_cells2 is chosen too small" )
+                    END IF
+                    idx_new(il) = jc2
+                    blk_new(il) = jb2
+                  END IF
+
+                END DO
+              END DO
+
+            END IF
+
+          END DO
+
+          IF ( il == 0 ) THEN
+            ! I didn't find new cells within the search_radius ==> leave the iteration process
+            EXIT ITER_LOOP
+
+          ELSE
+
+            ! for the next iteration:
+            idx_start_list = ptr_int%cell_environ%nmbr_nghbr_cells( ic, ib) + 1
+
+            ! store only new cells:
+            DO i=1, il
+
+              flag_cell_found = .FALSE.
+
+              ! Is this i-th cell already contained in the list 'cell_environ'?
+              TEST_LOOP: DO l=1, ptr_int%cell_environ%nmbr_nghbr_cells(ic,ib)
+                ! l=1, ...==> this search inspects every cell found so far.
+                ! A more clever search wouldn't inspect cells from the most inner layers...
+
+                IF (      ( idx_new(i) == ptr_int%cell_environ%idx( ic, ib, l) )    &
+                  & .AND. ( blk_new(i) == ptr_int%cell_environ%blk( ic, ib, l) ) ) THEN
+                  ! I know this cell already ==> do not store again
+                  flag_cell_found = .TRUE.
+
+                  EXIT  TEST_LOOP
+                END IF
+              END DO  TEST_LOOP
+
+              IF ( .NOT. flag_cell_found ) THEN
+                ptr_int%cell_environ%nmbr_nghbr_cells(ic,ib) =      &
+                ptr_int%cell_environ%nmbr_nghbr_cells(ic,ib) + 1
+
+                l = ptr_int%cell_environ%nmbr_nghbr_cells(ic,ib)
+
+                IF ( l > ptr_int%cell_environ%nmbr_nghbr_cells_alloc ) THEN
+                   CALL finish( modname//':gen_index_list_radius',&
+                     &          "nmbr_nghbr_cells_alloc is chosen too small" )
+                END IF
+
+                ptr_int%cell_environ%idx( ic, ib, l ) = idx_new(i)
+                ptr_int%cell_environ%blk( ic, ib, l ) = blk_new(i)
+
+              END IF
+
+            END DO
+
+          END IF
+
+        END DO  ITER_LOOP
+
+        ptr_int%cell_environ%max_nmbr_nghbr_cells = MAX( ptr_int%cell_environ%max_nmbr_nghbr_cells,  &
+          &                                              ptr_int%cell_environ%nmbr_nghbr_cells(ic,ib) )
+
+        ! Set area_norm
+        sum = 0.0_wp
+        DO l=1, ptr_int%cell_environ%nmbr_nghbr_cells(ic,ib)
+          jc2 = ptr_int%cell_environ%idx( ic, ib, l )
+          jb2 = ptr_int%cell_environ%blk( ic, ib, l ) 
+          ptr_int%cell_environ%area_norm( ic, ib, l) = ptr_patch%cells%area( jc2, jb2 )
+          sum = sum + ptr_int%cell_environ%area_norm( ic, ib, l)
+        END DO
+
+        DO l=1, ptr_int%cell_environ%nmbr_nghbr_cells(ic,ib)
+          ptr_int%cell_environ%area_norm( ic, ib, l) = ptr_int%cell_environ%area_norm( ic, ib, l) / sum
+        END DO
+
+        ! set unused elements:
+        DO l=ptr_int%cell_environ%nmbr_nghbr_cells(ic,ib)+1, ptr_int%cell_environ%nmbr_nghbr_cells_alloc
+          ptr_int%cell_environ%area_norm( ic, ib, l) = 0.0_wp
+          ! just to have a defined index contained:
+          ptr_int%cell_environ%idx( ic, ib, l ) = ptr_int%cell_environ%idx( ic, ib, 1 )
+          ptr_int%cell_environ%blk( ic, ib, l ) = ptr_int%cell_environ%blk( ic, ib, 1 )
+        END DO
+
+      END DO  ! ic
+    END DO  ! ib
+!$OMP END PARALLEL
+
+
+    ! control output
+    IF ( .FALSE. ) THEN
+      DO ib = i_startblk, i_endblk
+
+        CALL get_indices_c (ptr_patch, ib, i_startblk, i_endblk,       &
+          &                 i_startidx, i_endidx, i_rlstart, i_rlend)
+
+        DO ic = i_startidx, i_endidx
+
+          !IF ( get_my_mpi_work_id() == 0 ) THEN
+          !WRITE(*,'(A,6I6)') "GGG ", get_my_mpi_work_id(), jg, ic, ib, &
+          !  & ptr_int%cell_environ%nmbr_nghbr_cells(ic,ib), ptr_int%cell_environ%max_nmbr_nghbr_cells
+          !END IF
+
+          flag_out = .FALSE.
+
+          IF ( ptr_int%cell_environ%max_nmbr_nghbr_cells /= 13 ) THEN
+            flag_out = .TRUE.
+          END IF
+          DO l=1, ptr_int%cell_environ%max_nmbr_nghbr_cells
+            IF ( ( ptr_int%cell_environ%area_norm( ic, ib, l) < 0.05 ) .OR.   &
+              &  ( ptr_int%cell_environ%area_norm( ic, ib, l) > 0.09 ) ) THEN
+              flag_out = .TRUE.
+            END IF
+          END DO
+
+          IF ( flag_out ) THEN
+            WRITE(*,'(A,4(A,I5),A,I5,I5)') "[gen_index_list_radius]: ", "ID=", get_my_mpi_work_id(),   &
+              &     " jg=" , jg, " ic=", ic, " ib=", ib, &
+              &     " nmbr_nghbr=", ptr_int%cell_environ%nmbr_nghbr_cells(ic,ib), ptr_int%cell_environ%max_nmbr_nghbr_cells
+            DO l=1, ptr_int%cell_environ%max_nmbr_nghbr_cells
+              jc = ptr_int%cell_environ%idx( ic, ib, l)
+              jb = ptr_int%cell_environ%blk( ic, ib, l)
+              WRITE(*,'(A,I4,A,I4,I6,I6,3F13.6)') "  ID=", get_my_mpi_work_id(), "  l=", l, jc, jb,         &
+                ptr_patch%cells%center(jc,jb)%lon, ptr_patch%cells%center(jc,jb)%lat,   &
+                ptr_int%cell_environ%area_norm( ic, ib, l)
+            END DO
+          END IF
+
+        END DO  ! ic
+      END DO  ! ib
+    END IF
+
+
+    DEALLOCATE( idx_new, STAT=ist )
+    IF (ist /= SUCCESS)  CALL finish (modname//':gen_index_list_radius', 'deallocation for idx_new failed')
+    DEALLOCATE( blk_new, STAT=ist )
+    IF (ist /= SUCCESS)  CALL finish (modname//':gen_index_list_radius', 'deallocation for blk_new failed')
+
+    DO l=1, ptr_int%cell_environ%nmbr_nghbr_cells_alloc
+      CALL sync_idx(SYNC_C, SYNC_C, ptr_patch, ptr_int%cell_environ%idx(:,:,l),  &
+        &                                      ptr_int%cell_environ%blk(:,:,l) )
+    END DO
+
+
+  END SUBROUTINE gen_index_list_radius
+
 
 !>
 !! This routine initializes the indexes used to define the stencil.
@@ -640,7 +938,7 @@ REAL(wp) :: z_stencil(UBOUND(ptr_int%rbf_vec_stencil_e,1),UBOUND(ptr_int%rbf_vec
 
     CALL get_indices_e(ptr_patch, jb, i_startblk, nblks_e, &
                        i_startidx, i_endidx, 2)
-
+!$NEC ivdep
     DO je = i_startidx, i_endidx
 
       ! There is not much work to do because the required stencil points
@@ -716,7 +1014,7 @@ TYPE(t_patch), INTENT(inout) :: ptr_patch
 
 TYPE(t_int_state), INTENT(inout) :: ptr_int
 
-REAL(wp) :: cc_e1(3), cc_e2(3), cc_c(nproma,3)  ! coordinates of edge midpoints
+REAL(wp) :: cc_e1(3), cc_e2(3), cc_c(nproma,3), cc_aux(3)  ! coordinates of edge midpoints
 
 REAL(wp) :: z_lon, z_lat          ! longitude and latitude
 
@@ -782,7 +1080,7 @@ REAL(wp) ::  checksum_u,checksum_v ! to check if sum of interpolation coefficien
 
 !$OMP DO PRIVATE (jb,jc,i_startidx,i_endidx,je1,je2,istencil,      &
 !$OMP             ist,ile1,ibe1,cc_e1,z_lon,z_lat,z_norm,      &
-!$OMP             z_nx1,ile2,ibe2,cc_e2,cc_c,z_nx2,z_nxprod,z_dist,      &
+!$OMP             z_nx1,ile2,ibe2,cc_e2,cc_c,cc_aux,z_nx2,z_nxprod,z_dist, &
 !$OMP             z_nx3,checksum_u,checksum_v) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, nblks_c
 
@@ -797,6 +1095,7 @@ REAL(wp) ::  checksum_u,checksum_v ! to check if sum of interpolation coefficien
       DO je2 = 1, je1
 
         IF (ptr_patch%geometry_info%geometry_type == sphere_geometry) THEN ! use vectorizable version
+!$NEC ivdep
           DO jc = i_startidx, i_endidx
 
             IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) THEN
@@ -891,13 +1190,12 @@ REAL(wp) ::  checksum_u,checksum_v ! to check if sum of interpolation coefficien
 
     ! apply Cholesky decomposition to matrix
     !
-!CDIR NOIEXPAND
 #ifdef __SX__
     CALL choldec_v(i_startidx,i_endidx,istencil,rbf_vec_dim_c,z_rbfmat,z_diag)
 #else
     CALL choldec_v(i_startidx,i_endidx,istencil,              z_rbfmat,z_diag)
 #endif
-
+!$NEC ivdep
     DO jc = i_startidx, i_endidx
 
       IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
@@ -929,6 +1227,7 @@ REAL(wp) ::  checksum_u,checksum_v ! to check if sum of interpolation coefficien
     !
     DO je2 = 1, rbf_vec_dim_c
       IF (ptr_patch%geometry_info%geometry_type == sphere_geometry) THEN ! use vectorizable version
+!$NEC ivdep
         DO jc = i_startidx, i_endidx
 
           IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
@@ -942,8 +1241,8 @@ REAL(wp) ::  checksum_u,checksum_v ! to check if sum of interpolation coefficien
           ibe2   = ptr_int%rbf_vec_blk_c(je2,jc,jb)
           !
           cc_e2(:)  = ptr_patch%edges%cartesian_center(ile2,ibe2)%x(:)
-
-          z_dist = arc_length_v(cc_c(jc,:), cc_e2)
+          cc_aux(1:3) = cc_c(jc,1:3)
+          z_dist = arc_length_v(cc_aux, cc_e2)
 
           !
           ! get Cartesian orientation vector
@@ -1134,7 +1433,7 @@ REAL(wp), DIMENSION(nproma,rbf_c2grad_dim,2) :: aux_coeff
 
     DO je = 1, rbf_vec_dim_c
       DO jcc = 1, rbf_c2grad_dim
-!CDIR NODEP
+!$NEC ivdep
         DO jc = i_startidx, i_endidx
 
           IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
@@ -1230,7 +1529,7 @@ TYPE(t_patch), TARGET, INTENT(inout) :: ptr_patch
 
 TYPE(t_int_state), TARGET, INTENT(inout) :: ptr_int
 
-REAL(wp) :: cc_e1(3), cc_e2(3), cc_v(nproma,3) ! coordinates of edge midpoints
+REAL(wp) :: cc_e1(3), cc_e2(3), cc_v(nproma,3), cc_aux(3) ! coordinates of edge midpoints
 
 REAL(wp)           :: z_lon, z_lat          ! longitude and latitude
 
@@ -1310,7 +1609,7 @@ REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff  ! pointer to output coeffici
 
 !$OMP DO PRIVATE (jb,jv,i_startidx,i_endidx,je1,je2,istencil,ist,ile1,ibe1, &
 !$OMP             cc_e1,z_lon,z_lat,z_norm,z_nx1,ile2,ibe2,cc_e2,cc_v,      &
-!$OMP             z_nx2,z_nxprod,z_dist,z_nx3,checksum_u,&
+!$OMP             cc_aux,z_nx2,z_nxprod,z_dist,z_nx3,checksum_u,&
 !$OMP checksum_v) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, nblks_v
 
@@ -1324,6 +1623,7 @@ REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff  ! pointer to output coeffici
 
       DO je2 = 1, je1
         IF (ptr_patch%geometry_info%geometry_type == sphere_geometry) THEN ! use vectorizable version
+!$NEC ivdep
           DO jv = i_startidx, i_endidx
 
             IF(.NOT. ptr_patch%verts%decomp_info%owner_mask(jv,jb)) THEN
@@ -1430,7 +1730,7 @@ REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff  ! pointer to output coeffici
 #else
     CALL choldec_v(i_startidx,i_endidx,istencil,              z_rbfmat,z_diag)
 #endif
-
+!$NEC ivdep
     DO jv = i_startidx, i_endidx
 
       IF(.NOT. ptr_patch%verts%decomp_info%owner_mask(jv,jb)) CYCLE
@@ -1464,6 +1764,7 @@ REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff  ! pointer to output coeffici
     !
     DO je2 = 1, rbf_vec_dim_v
       IF (ptr_patch%geometry_info%geometry_type == sphere_geometry) THEN ! use vectorizable version
+!$NEC ivdep
         DO jv = i_startidx, i_endidx
 
           IF(.NOT. ptr_patch%verts%decomp_info%owner_mask(jv,jb)) CYCLE
@@ -1478,7 +1779,8 @@ REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff  ! pointer to output coeffici
           ibe2   = ptr_int%rbf_vec_blk_v(je2,jv,jb)
           !
           cc_e2(:)  = ptr_patch%edges%cartesian_center(ile2,ibe2)%x(:)
-          z_dist = arc_length_v(cc_v(jv,:), cc_e2)
+          cc_aux(1:3) = cc_v(jv,1:3)
+          z_dist = arc_length_v(cc_aux, cc_e2)
           !
           ! get Cartesian orientation vector
           z_nx3(jv,:) = ptr_orient(ile2,ibe2)%x(:)
@@ -1653,7 +1955,7 @@ TYPE(t_patch), TARGET, INTENT(inout) :: ptr_patch
 
 TYPE(t_int_state), TARGET, INTENT(inout) :: ptr_int
 
-REAL(wp) :: cc_e1(3), cc_e2(3), cc_e(nproma,3) ! coordinates of edge midpoints
+REAL(wp) :: cc_e1(3), cc_e2(3), cc_e(nproma,3), cc_aux(3) ! coordinates of edge midpoints
 
 REAL(wp)           :: z_lon, z_lat          ! longitude and latitude
 REAL(wp)           :: z_nu, z_nv            ! zonal and meridional component
@@ -1738,7 +2040,7 @@ TYPE(t_tangent_vectors), DIMENSION(:,:), POINTER :: ptr_orient_out
 
 !$OMP DO PRIVATE (jb,je,i_startidx,i_endidx,je1,je2,istencil,        &
 !$OMP    ist,ile1,ibe1,cc_e1,z_nu,z_nv,z_lon,z_lat,z_norm,z_nx1,     &
-!$OMP    ile2,ibe2,cc_e2,cc_e,z_nx2,z_nxprod,z_dist,&
+!$OMP    ile2,ibe2,cc_e2,cc_e,cc_aux,z_nx2,z_nxprod,z_dist,&
 !$OMP checksum_vt) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, nblks_e
 
@@ -1752,6 +2054,7 @@ TYPE(t_tangent_vectors), DIMENSION(:,:), POINTER :: ptr_orient_out
 
       DO je2 = 1, je1
         IF (ptr_patch%geometry_info%geometry_type == sphere_geometry) THEN ! use vectorizable version
+!$NEC ivdep
           DO je = i_startidx, i_endidx
 
             IF(.NOT. ptr_patch%edges%decomp_info%owner_mask(je,jb)) THEN
@@ -1857,7 +2160,7 @@ TYPE(t_tangent_vectors), DIMENSION(:,:), POINTER :: ptr_orient_out
 #else
     CALL choldec_v(i_startidx,i_endidx,istencil,              z_rbfmat,z_diag)
 #endif
-
+!$NEC ivdep
     DO je = i_startidx, i_endidx
 
       IF(.NOT. ptr_patch%edges%decomp_info%owner_mask(je,jb)) CYCLE
@@ -1886,6 +2189,7 @@ TYPE(t_tangent_vectors), DIMENSION(:,:), POINTER :: ptr_orient_out
     !
     DO je2 = 1, rbf_vec_dim_e
       IF (ptr_patch%geometry_info%geometry_type == sphere_geometry) THEN ! use vectorizable version
+!$NEC ivdep
         DO je = i_startidx, i_endidx
 
           IF(.NOT. ptr_patch%edges%decomp_info%owner_mask(je,jb)) CYCLE
@@ -1899,7 +2203,8 @@ TYPE(t_tangent_vectors), DIMENSION(:,:), POINTER :: ptr_orient_out
           ibe2   = ptr_int%rbf_vec_blk_e(je2,je,jb)
 
           cc_e2(:)  = ptr_patch%edges%cartesian_center(ile2,ibe2)%x(:)
-          z_dist = arc_length_v(cc_e(je,:), cc_e2)
+          cc_aux(1:3) = cc_e(je,1:3)
+          z_dist = arc_length_v(cc_aux, cc_e2)
           !
           ! get Cartesian orientation vector
           z_nx2(je,:) = ptr_orient(ile2,ibe2)%x(:)

@@ -14,10 +14,11 @@ MODULE mo_interpol_config
   USE mo_kind,                ONLY: wp
   USE mo_math_constants,      ONLY: ln2
   USE mo_impl_constants,      ONLY: max_dom
-  USE mo_exception,           ONLY: message, finish
+  USE mo_exception,           ONLY: message, message_text, finish
   USE mo_grid_geometry_info,  ONLY: t_grid_geometry_info, planar_torus_geometry, &
     & hexagonal_cell, triangular_cell
   USE mo_grid_config,         ONLY: grid_rescale_factor
+  USE mo_run_config,          ONLY: msg_level
 
 
   IMPLICIT NONE
@@ -168,10 +169,11 @@ CONTAINS
 
     INTEGER,INTENT(IN) :: n_dom
     INTEGER,INTENT(IN) :: grid_level(n_dom)
-    TYPE(t_grid_geometry_info), INTENT(in) :: geometry_info
+    TYPE(t_grid_geometry_info), INTENT(in) :: geometry_info(:)
     
     INTEGER :: jg, jlev, jlev_shift, geometry_type
     CHARACTER(len=*),PARAMETER :: routine = 'mo_interpol_config:configure_interpol'
+    REAL(wp) :: resol
 
     !-----------------------------------------------------------------------
     ! Set stencil size for RBF vector reconstruction
@@ -183,52 +185,34 @@ CONTAINS
 
     !-----------------------------------------------------------------------
     ! If RBF scaling factors are not supplied by the namelist, they are now
-    ! initialized with meaningful values depending on the grid level and the
-    ! stencil size, and the grid_rescale_factor.
+    ! initialized with meaningful values depending on the characteristic grid 
+    ! size.
     ! Please note: RBF scaling factors for p_patch(0) (if it exists)
     ! are not set here - they are taken from p_patch(1) in the setup routines
+    ! Please note: The following RBF scaling factors are also valid for 
+    ! simulations in which a scaling is applied to the earth radius 
+    ! (a.k.a. small earth simulations). The characteristic grid size which is 
+    ! used below takes account of the scaling. 
     !-----------------------------------------------------------------------
+
+
+    !-----------------
     ! rbf_vec_scale_c 
     !-----------------
     ! - values are specified for Gaussian kernel
     ! (need to be smaller for inv. multiquadric)
-
-    
-    ! If RBF scaling factors are not supplied by the namelist, then start from the grid level
-    ! grid_level(jg) known from the grid file, and shift the level in integer steps
-    ! according to the scaling applied to the sphere radius:
-    !
-    !   grid_sphere_radius = grid_sphere_radius(from file)*grid_rescale_factor(from grid_nml)
-    !
-    ! Thus scaling the RnBm grid by a grid_rescale_factor=0.125, for instance, for a planet
-    ! 8 times smaller than Earth, we get the same resolution as on an unscaled the RnB(m+3)
-    ! grid and should USE the same RBF scaling factors as for the grid level m+3.
-    !
-    ! Parctically this shift in jlev can be computed as:
-    !   jlev_shift = the nearest INTEGER of -Log_2(grid_rescale_factor)
-    !
-    ! Here how jlev is shifted for some values of grid_rescale_factor:
-    !   grid_rescale_factor : jlev_shift
-    !   1                   :  0
-    !   1/2                 : +1
-    !   1/3, 1/4, 1/5       : +2
-    !   1/6, ..., 1/11      : +3
-
-    jlev_shift = - NINT( LOG(grid_rescale_factor)/ln2 )
-
     DO jg = 1,n_dom
 
       ! Check if scale factor is set in the namelist
       IF (rbf_vec_scale_c(jg) > 0.0_wp) CYCLE
 
-      jlev = grid_level(jg) + jlev_shift
-      IF      (jlev <= 9 ) THEN ; rbf_vec_scale_c(jg) = 0.5_wp 
-      ELSE IF (jlev == 10) THEN ; rbf_vec_scale_c(jg) = 0.45_wp
-      ELSE IF (jlev == 11) THEN ; rbf_vec_scale_c(jg) = 0.3_wp 
-      ELSE IF (jlev == 12) THEN ; rbf_vec_scale_c(jg) = 0.1_wp 
-      ELSE IF (jlev == 13) THEN ; rbf_vec_scale_c(jg) = 0.03_wp
-      ELSE                      ; rbf_vec_scale_c(jg) = 0.01_wp
+      resol = geometry_info(jg)%mean_characteristic_length/1000._wp  ! resolution in km
+      IF (resol >= 2.5_wp) THEN 
+        rbf_vec_scale_c(jg) = 0.5_wp
+      ELSE
+        rbf_vec_scale_c(jg) = 0.5_wp/(1._wp+1.8_wp*LOG(2.5_wp/resol)**3.75)
       ENDIF
+
     ENDDO
 
     !-----------------
@@ -239,13 +223,13 @@ CONTAINS
       ! Check if scale factor is set in the namelist
       IF (rbf_vec_scale_v(jg) > 0.0_wp) CYCLE
 
-      jlev = grid_level(jg) + jlev_shift
-      IF      (jlev <= 10) THEN ; rbf_vec_scale_v(jg) = 0.5_wp 
-      ELSE IF (jlev == 11) THEN ; rbf_vec_scale_v(jg) = 0.4_wp 
-      ELSE IF (jlev == 12) THEN ; rbf_vec_scale_v(jg) = 0.25_wp
-      ELSE IF (jlev == 13) THEN ; rbf_vec_scale_v(jg) = 0.07_wp
-      ELSE                      ; rbf_vec_scale_v(jg) = 0.02_wp
+      resol = geometry_info(jg)%mean_characteristic_length/1000._wp  ! resolution in km
+      IF (resol >= 2._wp) THEN 
+        rbf_vec_scale_v(jg) = 0.5_wp
+      ELSE
+        rbf_vec_scale_v(jg) = 0.5_wp/(1._wp+1.8_wp*LOG(2._wp/resol)**3)
       ENDIF
+
     ENDDO
 
     !-----------------
@@ -258,20 +242,50 @@ CONTAINS
       ! Check if scale factor is set in the namelist
       IF (rbf_vec_scale_e(jg) > 0.0_wp) CYCLE
 
-      jlev = grid_level(jg) + jlev_shift
-      IF      (jlev <= 10) THEN ; rbf_vec_scale_e(jg) = 0.5_wp 
-      ELSE IF (jlev == 11) THEN ; rbf_vec_scale_e(jg) = 0.45_wp
-      ELSE IF (jlev == 12) THEN ; rbf_vec_scale_e(jg) = 0.37_wp
-      ELSE IF (jlev == 13) THEN ; rbf_vec_scale_e(jg) = 0.25_wp
-      ELSE                      ; rbf_vec_scale_e(jg) = 0.1_wp 
+      resol = geometry_info(jg)%mean_characteristic_length/1000._wp  ! resolution in km
+      IF (resol >= 2._wp) THEN 
+        rbf_vec_scale_e(jg) = 0.5_wp
+      ELSE
+        rbf_vec_scale_e(jg) = 0.5_wp/(1._wp+0.4_wp*LOG(2._wp/resol)**2)
       ENDIF
+
     ENDDO
+
+    IF (msg_level >= 7) THEN
+      DO jg = 1, n_dom
+        WRITE(message_text,'(a,i3,a,3f8.5)') 'RBF scale factors for cells/edges/vertices, domain ',jg,': ',&
+         rbf_vec_scale_c(jg),rbf_vec_scale_e(jg),rbf_vec_scale_v(jg)
+        CALL message('', TRIM(message_text))
+      ENDDO
+    ENDIF
 
     !-----------------
     ! rbf_vec_scale_ll 
     !-----------------
     ! - values are specified for Gaussian kernel
     ! (need to be smaller for inv. multiquadric)
+
+    ! Computation of RBF scaling factors for lon-lat interpolation starts from the grid level
+    ! grid_level(jg) known from the grid file, and shifts the level in integer steps
+    ! according to the scaling applied to the sphere radius:
+    !
+    !   grid_sphere_radius = grid_sphere_radius(from file)*grid_rescale_factor(from grid_nml)
+    !
+    ! Thus scaling the RnBm grid by a grid_rescale_factor=0.125, for instance, for a planet
+    ! 8 times smaller than Earth, we get the same resolution as on an unscaled the RnB(m+3)
+    ! grid and should USE the same RBF scaling factors as for the grid level m+3.
+    !
+    ! Practically this shift in jlev can be computed as:
+    !   jlev_shift = the nearest INTEGER of -Log_2(grid_rescale_factor)
+    !
+    ! Here how jlev is shifted for some values of grid_rescale_factor:
+    !   grid_rescale_factor : jlev_shift
+    !   1                   :  0
+    !   1/2                 : +1
+    !   1/3, 1/4, 1/5       : +2
+    !   1/6, ..., 1/11      : +3
+
+    jlev_shift = - NINT( LOG(grid_rescale_factor)/ln2 )
 
     rbf_vec_scale_ll(:) = -1.0_wp
     DO jg = 1,n_dom
@@ -299,18 +313,17 @@ CONTAINS
     !maximal distance. For now, for the default 2nd order cases, using r0=dual_edge_length 
     !for all scales but tesing is required
 
-    geometry_type = geometry_info%geometry_type
+    DO jg = 1, n_dom
+      geometry_type = geometry_info(jg)%geometry_type
 
-    IF( geometry_type==planar_torus_geometry ) THEN
-      DO jg = 1, n_dom
-       rbf_vec_scale_c(jg)  = geometry_info%mean_dual_edge_length
-       rbf_vec_scale_e(jg)  = rbf_vec_scale_c(jg)
-       rbf_vec_scale_v(jg)  = rbf_vec_scale_c(jg)
-       rbf_vec_scale_ll(jg) = rbf_vec_scale_c(jg)
-       CALL message( TRIM(routine),'Modifying rbf_vec_scale for torus grid: ignore warnings!')
-      END DO
-    END IF
-
+      IF( geometry_type==planar_torus_geometry ) THEN
+        rbf_vec_scale_c(jg)  = geometry_info(jg)%mean_dual_edge_length
+        rbf_vec_scale_e(jg)  = rbf_vec_scale_c(jg)
+        rbf_vec_scale_v(jg)  = rbf_vec_scale_c(jg)
+        rbf_vec_scale_ll(jg) = rbf_vec_scale_c(jg)
+        CALL message( TRIM(routine),'Modifying rbf_vec_scale for torus grid: ignore warnings!')
+      END IF
+    ENDDO
 
     !-----------------------------------------------------------------------
     ! Now check the RBF scaling factors
@@ -355,7 +368,7 @@ CONTAINS
     !  lsq_high_ord=30: poor man's cubic polynomial : 7 unknowns with a 9-point stencil
     !  lsq_high_ord=3 : full cubic polynomial       : 9 unknowns with a 9-point stencil
     !-----------------------------------------------------------------------
-    IF (geometry_info%cell_type == triangular_cell) THEN
+    IF (geometry_info(1)%cell_type == triangular_cell) THEN
 
       ! Settings for linear lsq reconstruction
 
@@ -408,7 +421,7 @@ CONTAINS
 
     ! In case of a hexagonal model, we perform a quadratic reconstruction, and check
     ! for i_cori_method
-    IF (geometry_info%cell_type == hexagonal_cell) THEN
+    IF (geometry_info(1)%cell_type == hexagonal_cell) THEN
 
       ! ... quadratic reconstruction
       lsq_high_set%dim_c   = 6
@@ -434,5 +447,6 @@ CONTAINS
     ENDIF
 
   END SUBROUTINE configure_interpolation
+
 
 END MODULE mo_interpol_config

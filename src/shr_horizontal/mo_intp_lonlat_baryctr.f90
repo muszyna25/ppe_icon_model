@@ -115,11 +115,13 @@
 
     !> compute barycentric coordinates u(1...3) for the point pt
     !> inside the triangle pidx(1...3). The vertex positions are
-    !> provided through the array @p vertex.
+    !> provided through the array @v vertex.
     !
-    SUBROUTINE compute_barycentric_coords(pt, p1,p2,p3, u)
+    SUBROUTINE compute_barycentric_coords(pt, v, u)
       TYPE(t_geographical_coordinates), INTENT(IN)  :: pt                  !< query point (longitude/latitude)  
-      REAL(wp),                         INTENT(IN)  :: p1(3), p2(3), p3(3) !< triangle vertices
+      !> triangle vertices, first index is x,y,z,
+      !! second index is 1st,2nd or 3rd vertex
+      REAL(wp),                         INTENT(IN)  :: v(3,3)
       REAL(wp),                         INTENT(OUT) :: u(3)                !< barycentric coordinates (dim: 3)
       ! local variables
       TYPE(t_cartesian_coordinates) :: a,b,c,p
@@ -127,9 +129,9 @@
       INTEGER :: i
 
       ! Cartesian coordinates of triangle vertices
-      a%x(:) = p1
-      b%x(:) = p2
-      c%x(:) = p3
+      a%x(:) = v(:, 1)
+      b%x(:) = v(:, 2)
+      c%x(:) = v(:, 3)
       ! query point and project in onto the plane (p1,p2,p3):
       p = project_point_to_plane (gc2cc(pt), a,b,c)
       ! solve linear system for the barycentric coordinates
@@ -283,8 +285,11 @@
         WRITE (0,*) "# total no. of points to triangulate: ", p_global%nentries
       END IF
 
+#ifdef __SX__
+      CALL p_global%radixsort()
+#else
       CALL p_global%quicksort()
-
+#endif
       ALLOCATE(permutation(0:(p_global%nentries-1)), STAT=errstat)
       IF (errstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed')
 
@@ -462,7 +467,11 @@
       ALLOCATE(permutation(0:(p_global%nentries-1)), STAT=errstat)
       IF (errstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed')
 
+#ifdef __SX__
+      CALL p_global%radixsort()
+#else
       CALL p_global%quicksort()
+#endif
 
       ! slightly disturb symmetric coordinates; this should make the
       ! Delaunay triangulation unique, cf. [Lawson1984]
@@ -495,16 +504,18 @@
 
       ! create a spherical cap around the centroid of local mass
       ! points:
-      centroid = point(0._wp, 0._wp, 0._wp)
-      DO i=0,(p_local%nentries-1)
-        centroid = centroid + p_local%a(i)
-      END DO
-      centroid = centroid/REAL(p_local%nentries,wp)
-      subset = spherical_cap(centroid, MIN(RADIUS_FACTOR*point_cloud_diam(p_local, centroid), pi - 1.e-12_wp))      
-      IF (dbg_level > 1) THEN
-        WRITE (0,*) "spherical cap around ", p_local%a(0)%x, p_local%a(0)%y, p_local%a(0)%z, "; radius ", subset%radius
+      ! NEC_RP: prevent processes without local data from accessing on allocated data
+      IF (p_local%nentries > 0) THEN
+        centroid = point(0._wp, 0._wp, 0._wp)
+        DO i=0,(p_local%nentries-1)
+          centroid = centroid + p_local%a(i)
+        END DO
+        centroid = centroid/REAL(p_local%nentries,wp)
+        subset = spherical_cap(centroid, MIN(RADIUS_FACTOR*point_cloud_diam(p_local, centroid), pi - 1.e-12_wp))      
+        IF (dbg_level > 1) THEN
+          WRITE (0,*) "spherical cap around ", p_local%a(0)%x, p_local%a(0)%y, p_local%a(0)%z, "; radius ", subset%radius
+        END IF
       END IF
-      CALL p_local%destructor()
 
       CALL tri%initialize()
 !$    time_s = omp_get_wtime()
@@ -515,12 +526,19 @@
       ! triangulations, since these domains contain pathological
       ! triangles near the boundary which would lead to a
       ! time-consuming triangulation process.
-      IF (nthreads > 1) THEN
-        CALL triangulate_mthreaded(p_global, tri, subset, &
-          &                        ignore_completeness = (ptr_patch%id > 1))
-      ELSE
-        CALL triangulate(p_global, tri, subset, ignore_completeness = (ptr_patch%id > 1))
+
+      ! NEC_RP: prevent processes without local data from accessing on allocated data
+      IF (p_local%nentries > 0) THEN
+        IF (nthreads > 1) THEN
+          CALL triangulate_mthreaded(p_global, tri, subset, &
+            &                        ignore_completeness = (ptr_patch%id > 1))
+        ELSE
+          CALL triangulate(p_global, tri, subset, ignore_completeness = (ptr_patch%id > 1))
+        END IF
       END IF
+
+      CALL p_local%destructor()
+
 !$    toc = omp_get_wtime() - time_s
       IF (dbg_level > 1) THEN
 !$      WRITE (0,*) get_my_mpi_work_id()," :: elapsed time: ", toc, " (radius was ", subset%radius, ")"
@@ -545,7 +563,7 @@
       END IF
 
       ! --- write a plot of the global triangulation
-      CALL tri%quicksort() 
+      CALL tri%quicksort()
       tri_global=triangulation(tri)
       CALL tri_global%sync()
       IF (my_process_is_stdio() .AND. (dbg_level > 10)) THEN
@@ -683,14 +701,18 @@
       IF (dbg_level > 10)  WRITE (0,*) "# insert local triangles into a tree-like data structure"
       brange(1,:) = (/ -1._wp, -1._wp, -1._wp /)
       brange(2,:) = (/  1._wp,  1._wp,  1._wp /)
-      
-      IF (llocal_partition) THEN
-        CALL octree_init(octree, brange, pmin, pmax, opt_index=glb_index_tri)
-        DEALLOCATE(glb_index_tri, STAT=errstat)
-        IF (errstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed')
-      ELSE
-        CALL octree_init(octree, brange, pmin, pmax)
+
+      !NEC_RP: exclude processes without local data from octree_init
+      IF (nlocal_triangles > 0) THEN
+        IF (llocal_partition) THEN
+          CALL octree_init(octree, brange, pmin, pmax, opt_index=glb_index_tri)
+          DEALLOCATE(glb_index_tri, STAT=errstat)
+          IF (errstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed')
+        ELSE
+          CALL octree_init(octree, brange, pmin, pmax)
+        END IF
       END IF
+
       DEALLOCATE(pmin, pmax, STAT=errstat)
       IF (errstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed')
 
@@ -791,8 +813,7 @@
             ! --- compute the barycentric interpolation weights for
             ! --- this triangle
 
-            CALL compute_barycentric_coords(ptr_int_lonlat%ll_coord(jc,jb),     &
-              &                             v(:,0),v(:,1),v(:,2),               &
+            CALL compute_barycentric_coords(ptr_int_lonlat%ll_coord(jc,jb), v,               &
               &                             ptr_int_lonlat%baryctr%coeff(1:3,jc,jb))
 
             ! test if either the barycentric interpolation weights
@@ -850,8 +871,7 @@
 
           ELSE
 
-            CALL compute_barycentric_coords(ptr_int_lonlat%ll_coord(jc,jb),     &
-              &                             v(:,0),v(:,1),v(:,2),               &
+            CALL compute_barycentric_coords(ptr_int_lonlat%ll_coord(jc,jb), v, &
               &                             ptr_int_lonlat%baryctr%coeff(1:3,jc,jb))
 
             IF (dbg_level > 5) THEN
@@ -923,8 +943,11 @@
         ! --- create an array-like data structure containing the mass points
         CALL create_global_pointlist(ptr_patch, p_global, ldisturb=.FALSE.)
         p_global%a(:)%ps = REAL(p_global%a(:)%gindex, wp)
+#ifdef __SX__
+        CALL p_global%radixsort()  ! order point list by their global indices
+#else
         CALL p_global%quicksort()  ! order point list by their global indices
-
+#endif
         IF (dbg_level > 10) THEN
           WRITE (0,*) "synchronization done, ", tri_global%nentries, " triangles."
         END IF
@@ -1070,7 +1093,11 @@
         &                                  g2l_index, lcheck_locality, ptr_int_lonlat)
 
       ! clean up
-      CALL octree_finalize(octree)
+      !NEC_RP: only call finalization when octree is allocated 
+      IF (ALLOCATED(octree%box)) THEN
+        CALL octree_finalize(octree)
+      END IF
+
       DEALLOCATE(g2l_index, STAT=errstat)
       IF (errstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed')
 
@@ -1099,9 +1126,9 @@
       REAL(wp),     PARAMETER :: INSIDETEST_TOL = 1.e-6
 
       INTEGER                         :: nblks_lonlat, npromz_lonlat, jb, jc,    &
-        &                                i_startidx, i_endidx, i, j,             &
+        &                                i_startidx, i_endidx, i, j, iv,        &
         &                                nobjects, idx0
-      REAL(wp)                        :: v1(3),v2(3),v3(3), baryctr_coeff(3)
+      REAL(wp)                        :: v(3,3), baryctr_coeff(3)
       TYPE (t_range_octree)           :: octree               !< octree data structure
       INTEGER                         :: obj_list(NMAX_HITS)  !< query result (triangle search)
       TYPE(t_cartesian_coordinates)   :: ll_point_c           !< cartes. coordinates of lon-lat points
@@ -1133,7 +1160,7 @@
       npromz_lonlat = ptr_int_lonlat%npromz_lonlat(nproma)
 
 !$OMP PARALLEL DO PRIVATE(jb,jc,i_startidx,i_endidx,ll_point_c,nobjects,obj_list, &
-!$OMP                     idx0, v1,v2,v3,i,j,inside_test1,inside_test2, baryctr_coeff )
+!$OMP                     idx0, v,i,j,inside_test1,inside_test2, baryctr_coeff )
       DO jb=1,nblks_lonlat
         i_startidx = 1
         i_endidx   = nproma
@@ -1160,20 +1187,17 @@
           idx0 = -1
           LOOP: DO i=1,nobjects
             j = obj_list(i) - 1
-            v1(:) = (/ p_global%a(tri%a(j)%p(0))%x, p_global%a(tri%a(j)%p(0))%y, p_global%a(tri%a(j)%p(0))%z /)
-            v2(:) = (/ p_global%a(tri%a(j)%p(1))%x, p_global%a(tri%a(j)%p(1))%y, p_global%a(tri%a(j)%p(1))%z /)
-            v3(:) = (/ p_global%a(tri%a(j)%p(2))%x, p_global%a(tri%a(j)%p(2))%y, p_global%a(tri%a(j)%p(2))%z /)
-
+            DO iv = 1, 3
+              v(1,iv) = p_global%a(tri%a(j)%p(iv-1))%x
+              v(2,iv) = p_global%a(tri%a(j)%p(iv-1))%y
+              v(3,iv) = p_global%a(tri%a(j)%p(iv-1))%z
+            END DO
             ! --- compute the barycentric interpolation weights for
             ! --- this triangle
             baryctr_coeff(:) = 0._wp
-            CALL compute_barycentric_coords(ptr_int_lonlat%ll_coord(jc,jb), v1,v2,v3, baryctr_coeff)
+            CALL compute_barycentric_coords(ptr_int_lonlat%ll_coord(jc,jb), v, baryctr_coeff)
 
-            IF (dbg_level > 5) THEN
-              ptr_int_lonlat%baryctr%v(:,1,jc,jb) = v1(:)
-              ptr_int_lonlat%baryctr%v(:,2,jc,jb) = v2(:)
-              ptr_int_lonlat%baryctr%v(:,3,jc,jb) = v3(:)
-            END IF
+            IF (dbg_level > 5) ptr_int_lonlat%baryctr%v(:,:,jc,jb) = v
 
             ! test if either the barycentric interpolation weights
             ! indicate that "ll_point_c" lies inside the triangle or
@@ -1211,7 +1235,10 @@
 !$OMP END PARALLEL DO
 
       ! clean up
-      CALL octree_finalize(octree)
+      !NEC_RP: only call finalization when octree is allocated 
+      IF (ALLOCATED(octree%box)) THEN
+        CALL octree_finalize(octree)
+      END IF
 
     END SUBROUTINE setup_barycentric_intp_lonlat
 

@@ -32,8 +32,7 @@
 !!
 MODULE mo_gwd_wms
   
-  USE mo_kind,               ONLY: jprb=>wp, vp=>vp2    , &
-    & jpim =>i4
+  USE mo_kind,               ONLY: jprb=>wp, vp, jpim =>i4
   !------------------------------------------------------------------------------
   USE mo_math_constants , ONLY : rpi => pi
   
@@ -499,7 +498,7 @@ CONTAINS
         DO jl=kidia,kfdia
           IF(zdfl(jl,jk,iazi)>0.0_JPRB) THEN
             zatmp=zcrt(jl,jk,iazi)
-!CDIR EXPAND=incdim
+!$NEC unroll(incdim)
             DO inc=1,incdim
               zatmp=zatmp+zci(inc)*&
                 & zacc(jl,inc,iazi)*zflux(jl,inc,iazi)*zdci(inc)

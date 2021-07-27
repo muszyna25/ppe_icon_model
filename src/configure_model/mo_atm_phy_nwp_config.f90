@@ -22,14 +22,14 @@ MODULE mo_atm_phy_nwp_config
   USE mo_kind,                ONLY: wp, i8
   USE mo_grid_config,         ONLY: l_limited_area, start_time, end_time,      &
     &                               DEFAULT_ENDTIME
-  USE mo_run_config,          ONLY: msg_level
+  USE mo_run_config,          ONLY: msg_level, timers_level
   USE mo_parallel_config,     ONLY: nproma
   USE mo_io_units,            ONLY: filename_max
-  USE mo_impl_constants,      ONLY: max_dom, MAX_CHAR_LENGTH, itconv, itccov,  &
+  USE mo_impl_constants,      ONLY: max_dom, itconv, itccov,  &
     &                               itrad, itradheat, itsso, itgscp, itsatad,  &
     &                               itturb, itsfc, itgwd, itfastphy,           &
     &                               iphysproc, iphysproc_short, ismag, iedmf,  &
-    &                               SUCCESS
+    &                               iprog, SUCCESS
   USE mo_math_constants,      ONLY: dbl_eps, pi_2, deg2rad
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_model_domain,        ONLY: t_patch
@@ -39,13 +39,17 @@ MODULE mo_atm_phy_nwp_config
   USE mo_limarea_config,      ONLY: configure_latbc
   USE mo_time_config,         ONLY: time_config
   USE mo_initicon_config,     ONLY: timeshift
-  USE mtime,                  ONLY: datetime, timedelta, newTimedelta, &
-    &                               getPTStringFromMS, MAX_TIMEDELTA_STR_LEN, &
-    &                               deallocateTimedelta, OPERATOR(+), OPERATOR(>)
+  USE mtime,                  ONLY: datetime, timedelta, newTimedelta, event, newEvent, no_Error,     &
+    &                               getPTStringFromMS, MAX_TIMEDELTA_STR_LEN, datetimeToString,       &
+    &                               deallocateTimedelta, OPERATOR(+), OPERATOR(>), timedeltaToString, &
+    &                               MAX_DATETIME_STR_LEN, MAX_MTIME_ERROR_STR_LEN, mtime_strerror
   USE mo_util_table,          ONLY: t_table, initialize_table, add_table_column, &
     &                               set_table_entry, print_table, finalize_table
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_phy_events,          ONLY: t_phyProcFast, t_phyProcSlow, t_phyProcGroup
+  USE mo_nudging_config,      ONLY: configure_nudging, nudging_config
+  USE mo_name_list_output_config, ONLY: is_variable_in_output
+  USE mo_io_config,           ONLY: dt_lpi, dt_celltracks, dt_radar_dbz
 
   IMPLICIT NONE
 
@@ -68,7 +72,7 @@ MODULE mo_atm_phy_nwp_config
   PUBLIC :: icpl_aero_conv
   PUBLIC :: icpl_o3_tp
   PUBLIC :: iprog_aero
-
+  PUBLIC :: setup_nwp_diag_events
 
 
 
@@ -83,6 +87,7 @@ MODULE mo_atm_phy_nwp_config
     INTEGER ::  inwp_satad       !! saturation adjustment
     INTEGER ::  inwp_convection  !! convection
     LOGICAL ::  lshallowconv_only !! use shallow convection only
+    LOGICAL ::  lgrayzone_deepconv !! use grayzone tuning for deep convection
     LOGICAL ::  ldetrain_conv_prec !! detrain convective rain and snow
     INTEGER ::  inwp_radiation   !! radiation
     INTEGER ::  inwp_sso         !! sso
@@ -113,7 +118,12 @@ MODULE mo_atm_phy_nwp_config
                                    !! coefficient
     LOGICAL  :: latm_above_top     !! use extra layer above model top for radiation 
                                    !! (reduced grid only)
+    INTEGER  :: icalc_reff         !! type of effective radius calculation
+    INTEGER  :: icpl_rad_reff      !! couplig of radiation and effective radius
+    INTEGER  :: ithermo_water      !! thermodynamic of water
 
+    ! upper atmosphere
+    LOGICAL ::  lupatmo_phy        !! use upper atmosphere physics
 
     ! Derived variables
 
@@ -133,11 +143,18 @@ MODULE mo_atm_phy_nwp_config
                                    !       lcalc_extra_avg is set to true automatically, if any of the 
                                    !       non-standard fields is specified in the output namelist.
 
+    LOGICAL :: lhave_graupel       ! Flag if microphysics scheme has a prognostic variable for graupel
+    LOGICAL :: l2moment            ! Flag if 2-moment microphysics scheme is used 
+    LOGICAL :: lhydrom_read_from_fg(1:20)  ! Flag for each hydrometeor tracer, if it has been read from fg file
+    LOGICAL :: lhydrom_read_from_ana(1:20) ! Flag for each hydrometeor tracer, if it has been read from ana file
+
     LOGICAL :: is_les_phy          !>TRUE is turbulence is 3D 
                                    !>FALSE otherwise
 
     INTEGER :: nclass_gscp         !> number of hydrometeor classes for 
                                    ! chosen grid scale microphysics
+
+    LOGICAL :: l_3d_rad_fluxes     ! logical to determine if 3d radiative flux variable are allocated
 
     ! NWP events
     TYPE(t_phyProcGroup) :: phyProcs        !> physical processes event group
@@ -226,7 +243,7 @@ CONTAINS
     ! local
     INTEGER :: jg, jk, jk_shift, jb, jc
     INTEGER :: error
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &      routine = modname//":configure_atm_phy_nwp"
     REAL(wp) :: z_mc_ref
     REAL(wp) :: &                             ! time-intervals for calling various 
@@ -301,11 +318,31 @@ CONTAINS
         &  atm_phy_nwp_config(jg)%lenabled(itgwd)     = .TRUE.
 
 
+      ! Set flags for the microphysics schemes:
+      SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
+      CASE (2)
+        atm_phy_nwp_config(jg)%lhave_graupel = .TRUE.
+        atm_phy_nwp_config(jg)%l2moment = .FALSE.
+      CASE (4,5,6,7)
+        atm_phy_nwp_config(jg)%lhave_graupel = .TRUE.
+        atm_phy_nwp_config(jg)%l2moment = .TRUE.
+      CASE DEFAULT
+        atm_phy_nwp_config(jg)%lhave_graupel = .FALSE.
+        atm_phy_nwp_config(jg)%l2moment = .FALSE.
+      END SELECT
+      atm_phy_nwp_config(jg)%lhydrom_read_from_fg(:) = .FALSE.
+      atm_phy_nwp_config(jg)%lhydrom_read_from_ana(:) = .FALSE.
+
+      ! check for contradicting convection settings
+      IF (atm_phy_nwp_config(jg)%lshallowconv_only .AND. atm_phy_nwp_config(jg)%lgrayzone_deepconv) THEN
+        CALL finish('configure_atm_phy_nwp', "lshallowconv_only and lgrayzone_deepconv are mutually exclusive")
+      ENDIF
+
       ! Configure LES physics (if activated)
       !
       atm_phy_nwp_config(jg)%is_les_phy = .FALSE. 
     
-      IF(atm_phy_nwp_config(jg)%inwp_turb==ismag)THEN
+      IF(ANY( (/ismag,iprog/)  == atm_phy_nwp_config(jg)%inwp_turb ) )THEN
         CALL configure_les(jg,dtime)
         atm_phy_nwp_config(jg)%is_les_phy = .TRUE. 
       END IF 
@@ -314,21 +351,21 @@ CONTAINS
 
         ! convection should be turned off for LES
         IF(atm_phy_nwp_config(jg)%inwp_convection>0)THEN
-          CALL message(TRIM(routine),'Turning off convection for LES!')
+          CALL message(routine, 'Turning off convection for LES!')
           atm_phy_nwp_config(jg)%inwp_convection  = 0
           atm_phy_nwp_config(jg)%lenabled(itconv) = .FALSE.
         END IF
 
         ! SSO should be turned off for LES
         IF(atm_phy_nwp_config(jg)%inwp_sso>0)THEN
-          CALL message(TRIM(routine),'Turning off SSO scheme for LES!')
+          CALL message(routine, 'Turning off SSO scheme for LES!')
           atm_phy_nwp_config(jg)%inwp_sso = 0
           atm_phy_nwp_config(jg)%lenabled(itsso)= .FALSE.
         END IF
 
         ! GWD should be turned off for LES
         IF(atm_phy_nwp_config(jg)%inwp_gwd>0)THEN
-          CALL message(TRIM(routine),'Turning off GWD scheme for LES!')
+          CALL message(routine, 'Turning off GWD scheme for LES!')
           atm_phy_nwp_config(jg)%inwp_gwd = 0
           atm_phy_nwp_config(jg)%lenabled(itgwd) =.FALSE.
         END IF
@@ -360,7 +397,7 @@ CONTAINS
       IF (isModulo(atm_phy_nwp_config(jg)%dt_conv,atm_phy_nwp_config(jg)%dt_fastphy)) THEN
         WRITE(message_text,'(a,i2,a)') 'DOM ',jg, &
           &                            ': Convection timestep is not a multiple of advection step => rounded up!'
-        CALL message(TRIM(routine), message_text)
+        CALL message(routine, message_text)
         atm_phy_nwp_config(jg)%dt_conv = roundToNextMultiple(atm_phy_nwp_config(jg)%dt_conv,  &
           &                                                  atm_phy_nwp_config(jg)%dt_fastphy)
       ENDIF
@@ -368,7 +405,7 @@ CONTAINS
       IF (isModulo(atm_phy_nwp_config(jg)%dt_ccov,atm_phy_nwp_config(jg)%dt_fastphy)) THEN
         WRITE(message_text,'(a,i2,a)') 'DOM ',jg, &
           &                            ': Cloud-cover timestep is not a multiple of advection step => rounded up!'
-        CALL message(TRIM(routine), message_text)
+        CALL message(routine, message_text)
         atm_phy_nwp_config(jg)%dt_ccov = roundToNextMultiple(atm_phy_nwp_config(jg)%dt_ccov,  &
           &                                                  atm_phy_nwp_config(jg)%dt_fastphy)
       ENDIF
@@ -376,7 +413,7 @@ CONTAINS
       IF (isModulo(atm_phy_nwp_config(jg)%dt_sso,atm_phy_nwp_config(jg)%dt_fastphy)) THEN
         WRITE(message_text,'(a,i2,a)') 'DOM ',jg, &
           &                            ': SSO timestep is not a multiple of advection step => rounded up!'
-        CALL message(TRIM(routine), message_text)
+        CALL message(routine, message_text)
         atm_phy_nwp_config(jg)%dt_sso = roundToNextMultiple(atm_phy_nwp_config(jg)%dt_sso,    &
           &                                                 atm_phy_nwp_config(jg)%dt_fastphy)
       ENDIF
@@ -384,7 +421,7 @@ CONTAINS
       IF (isModulo(atm_phy_nwp_config(jg)%dt_gwd,atm_phy_nwp_config(jg)%dt_fastphy)) THEN
         WRITE(message_text,'(a,i2,a)') 'DOM ',jg, &
           &                            ': GWD timestep is not a multiple of advection step => rounded up!'
-        CALL message(TRIM(routine), message_text)
+        CALL message(routine, message_text)
         atm_phy_nwp_config(jg)%dt_gwd = roundToNextMultiple(atm_phy_nwp_config(jg)%dt_gwd,    &
                                                             atm_phy_nwp_config(jg)%dt_fastphy)
       ENDIF
@@ -392,7 +429,7 @@ CONTAINS
       IF (isModulo(atm_phy_nwp_config(jg)%dt_rad,atm_phy_nwp_config(jg)%dt_fastphy)) THEN
         WRITE(message_text,'(a,i2,a)') 'DOM ',jg, &
           &                            ': Radiation timestep is not a multiple of advection step => rounded up!'
-        CALL message(TRIM(routine), message_text)
+        CALL message(routine, message_text)
         atm_phy_nwp_config(jg)%dt_rad = roundToNextMultiple(atm_phy_nwp_config(jg)%dt_rad,    &
           &                                                 atm_phy_nwp_config(jg)%dt_fastphy)
       ENDIF
@@ -412,7 +449,7 @@ CONTAINS
         IF (atm_phy_nwp_config(jg)%dt_ccov /= atm_phy_nwp_config(jg)%dt_conv) THEN
           WRITE(message_text,'(a,f7.2,a,f7.2,a)') 'Timesteps for cloud-cover and convection differ. (', &
             &   atm_phy_nwp_config(jg)%dt_ccov,'/', atm_phy_nwp_config(jg)%dt_conv,'). Resetting dt_ccov...'
-          CALL message(TRIM(routine), message_text)
+          CALL message(routine, message_text)
           atm_phy_nwp_config(jg)%dt_ccov = atm_phy_nwp_config(jg)%dt_conv
         ENDIF
       ENDIF
@@ -421,7 +458,7 @@ CONTAINS
       ! cloud cover is called every turbulence time step
       IF ( atm_phy_nwp_config(jg)%inwp_turb == iedmf ) THEN
         WRITE(message_text,'(a)') 'EDMF DUALM selected => Resetting dt_ccov to dt_fastphy.'
-        CALL message(TRIM(routine), message_text)
+        CALL message(routine, message_text)
         atm_phy_nwp_config(jg)% dt_ccov = atm_phy_nwp_config(jg)% dt_fastphy
       ENDIF
 
@@ -430,7 +467,7 @@ CONTAINS
       IF (isModulo(atm_phy_nwp_config(jg)%dt_rad,atm_phy_nwp_config(jg)%dt_ccov)) THEN
         WRITE(message_text,'(a,i2,a)') 'DOM ',jg, &
           &                            ': Radiation timestep is not a multiple of cloud-cover step => rounded up!'
-        CALL message(TRIM(routine), message_text)
+        CALL message(routine, message_text)
         atm_phy_nwp_config(jg)%dt_rad = roundToNextMultiple(atm_phy_nwp_config(jg)%dt_rad,    &
           &                                                 atm_phy_nwp_config(jg)%dt_ccov)
       ENDIF
@@ -471,15 +508,17 @@ CONTAINS
 
 
 
-    ! Configure lateral boundary condition for limited area model
-    IF(l_limited_area) THEN
+    ! Configure lateral boundary condition for limited area model (or global nudging)
+    IF(l_limited_area .OR. nudging_config%lnudging) THEN
       CALL configure_latbc()
     END IF
+    ! Configure nudging (primary domain only)
+    CALL configure_nudging(p_patch(1)%nlev, msg_level, timers_level) 
 
     ! Settings for ozone tuning, depending on option for ozone climatology
     SELECT CASE (irad_o3)
     CASE (7)  ! GEMS climatology
-      CALL message(TRIM(routine), 'Use GEMS ozone climatology with tuning')
+      CALL message(routine, 'Use GEMS ozone climatology with tuning')
       ltuning_ozone     = .TRUE.
       tune_ozone_ztop   = 30000.0_wp
       tune_ozone_zmid2  = 15000.0_wp
@@ -491,12 +530,17 @@ CONTAINS
       tune_ozone_maxinc = 2.e-6_wp ! maximum absolute change of O3 mixing ratio
                                    ! this value is about 12% of the climatological maximum in the tropics
     CASE (79,97) ! Blending between GEMS and MACC climatologies
-      CALL message(TRIM(routine), 'Use blending between GEMS and MACC ozone climatologies with tuning')
+      CALL message(routine, 'Use blending between GEMS and MACC ozone climatologies with tuning')
       ltuning_ozone     = .TRUE.
-      tune_ozone_ztop   = 29000.0_wp
-      tune_ozone_zmid2  = 26000.0_wp
-      tune_ozone_zmid   = 18000.0_wp
-      tune_ozone_zbot   = 15000.0_wp
+      IF (atm_phy_nwp_config(jg)%inwp_radiation == 4) THEN
+        tune_ozone_ztop   = 29000.0_wp
+        tune_ozone_zmid2  = 24000.0_wp
+      ELSE
+        tune_ozone_ztop   = 29000.0_wp
+        tune_ozone_zmid2  = 26000.0_wp
+      ENDIF
+      tune_ozone_zmid   = 19000.0_wp
+      tune_ozone_zbot   = 16000.0_wp
       tune_ozone_fac    = 0.25_wp
       ozone_shapemode   = 2
       tune_ozone_lat    = 30._wp
@@ -550,7 +594,7 @@ CONTAINS
           ELSE IF (ozone_shapemode == 2 .AND. tune_ozone_lat > 0._wp) THEN
             IF (ABS(p_patch(jg)%cells%center(jc,jb)%lat) < tune_ozone_lat * deg2rad) THEN
               atm_phy_nwp_config(jg)%shapefunc_ozone(jc,jb) = &
-                1._wp - 0.8_wp*SQRT(COS(p_patch(jg)%cells%center(jc,jb)%lat * 90._wp/tune_ozone_lat))
+                1._wp - 1.0_wp*(COS(p_patch(jg)%cells%center(jc,jb)%lat * 90._wp/tune_ozone_lat))**0.25_wp
             ELSE
               atm_phy_nwp_config(jg)%shapefunc_ozone(jc,jb) = 1._wp
             END IF
@@ -654,6 +698,18 @@ CONTAINS
       ! initialize lcall_phy (will be updated by mo_phy_events:mtime_ctrl_physics)
       atm_phy_nwp_config(jg)%lcall_phy(:) = .FALSE.
 
+
+      ! 3d radiative flux output: only allocate and write variable if at least one is requested as output
+      atm_phy_nwp_config(jg)%l_3d_rad_fluxes &
+        =    is_variable_in_output(var_name="group:all")    &
+        .OR. is_variable_in_output(var_name="lwflx_dn")     &
+        .OR. is_variable_in_output(var_name="swflx_dn")     &
+        .OR. is_variable_in_output(var_name="lwflx_up")     &
+        .OR. is_variable_in_output(var_name="swflx_up")     &
+        .OR. is_variable_in_output(var_name="lwflx_dn_clr") &
+        .OR. is_variable_in_output(var_name="swflx_dn_clr") &
+        .OR. is_variable_in_output(var_name="lwflx_up_clr") &
+        .OR. is_variable_in_output(var_name="swflx_up_clr")
     ENDDO  ! jg
 
 
@@ -943,6 +999,94 @@ CONTAINS
   END SUBROUTINE setupEventsNwp
 
 
+
+  !>
+  !! Setup mtime events for optional NWP diagnostics
+  !!
+  !! Shifted from nh_stepping in order to improve code structure
+  !!
+  !! @par Revision History
+  !! Initial revision by Guenther Zaengl, DWD (2020-02-14)
+  !!
+  SUBROUTINE setup_nwp_diag_events(lpi_max_Event, celltracks_Event, dbz_Event)
+
+    TYPE(event), POINTER, INTENT(INOUT) :: lpi_max_Event, celltracks_Event, dbz_Event
+
+    ! local
+    TYPE(timedelta), POINTER               :: eventInterval    => NULL()
+    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)   :: td_string
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)    :: dt_string
+    CHARACTER(LEN=MAX_MTIME_ERROR_STR_LEN) :: errstring
+
+    INTEGER   :: ierr
+
+
+  ! --- create Event for LPI_MAX maximization:
+  CALL getPTStringFromMS(INT(dt_lpi*1000._wp,i8), td_string) ! default 3 mins
+  eventInterval => newTimedelta(td_string)
+  lpi_max_Event => newEvent( 'lpi_max', time_config%tc_exp_startdate,  &   ! "anchor date"
+       &                     time_config%tc_exp_startdate,             &   ! start
+       &                     time_config%tc_exp_stopdate,              &
+       &                     eventInterval, errno=ierr )
+  IF (ierr /= no_Error) THEN
+    ! give an elaborate error message:
+    CALL datetimeToString( time_config%tc_exp_startdate, dt_string)
+    WRITE (0,*) "event reference date: ", dt_string
+    CALL datetimeToString( time_config%tc_exp_startdate, dt_string)
+    WRITE (0,*) "event start date    : ", dt_string
+    CALL datetimeToString( time_config%tc_exp_stopdate,  dt_string)
+    WRITE (0,*) "event end date      : ", dt_string
+    CALL timedeltaToString(eventInterval, td_string)
+    WRITE (0,*) "event interval      : ", td_string
+    CALL mtime_strerror(ierr, errstring)
+    CALL finish('setup_nwp_diag_events', "event 'lpi_max': "//errstring)
+  ENDIF
+
+
+  ! --- create Event for celltrack variables (i.e. tcond/tcond10, uh, vorw_ct, w_ct) maximization:
+  CALL getPTStringFromMS(INT(dt_celltracks*1000._wp,i8), td_string) ! default 2 mins
+  eventInterval => newTimedelta(td_string)
+  celltracks_Event => newEvent( 'celltracks', time_config%tc_exp_startdate,  &   ! "anchor date"
+       &                       time_config%tc_exp_startdate,             &   ! start
+       &                       time_config%tc_exp_stopdate,              &
+       &                       eventInterval, errno=ierr )
+  IF (ierr /= no_Error) THEN
+    ! give an elaborate error message:
+    CALL datetimeToString( time_config%tc_exp_startdate, dt_string)
+    WRITE (0,*) "event reference date: ", dt_string
+    CALL datetimeToString( time_config%tc_exp_startdate, dt_string)
+    WRITE (0,*) "event start date    : ", dt_string
+    CALL datetimeToString( time_config%tc_exp_stopdate,  dt_string)
+    WRITE (0,*) "event end date      : ", dt_string
+    CALL timedeltaToString(eventInterval, td_string)
+    WRITE (0,*) "event interval      : ", td_string
+    CALL mtime_strerror(ierr, errstring)
+    CALL finish('setup_nwp_diag_events', "event 'celltracks': "//errstring)
+  ENDIF
+
+  ! --- create Event for DBZ maximisations:
+  CALL getPTStringFromMS(INT(dt_radar_dbz*1000._wp,i8), td_string) ! default 2 mins
+  eventInterval => newTimedelta(td_string)
+  dbz_Event     => newEvent( 'dbz_max', time_config%tc_exp_startdate,  &   ! "anchor date"
+       &                       time_config%tc_exp_startdate,             &   ! start
+       &                       time_config%tc_exp_stopdate,              &
+       &                       eventInterval, errno=ierr )
+  IF (ierr /= no_Error) THEN
+    ! give an elaborate error message:
+    CALL datetimeToString( time_config%tc_exp_startdate, dt_string)
+    WRITE (0,*) "event reference date: ", dt_string
+    CALL datetimeToString( time_config%tc_exp_startdate, dt_string)
+    WRITE (0,*) "event start date    : ", dt_string
+    CALL datetimeToString( time_config%tc_exp_stopdate,  dt_string)
+    WRITE (0,*) "event end date      : ", dt_string
+    CALL timedeltaToString(eventInterval, td_string)
+    WRITE (0,*) "event interval      : ", td_string
+    CALL mtime_strerror(ierr, errstring)
+    CALL finish('setup_nwp_diag_events', "event 'dbz_max': "//errstring)
+  ENDIF
+
+  END SUBROUTINE setup_nwp_diag_events
+
   !>
   !! Checks, whether the modulo operation remainder is above a certain threshold.
   !!
@@ -1017,23 +1161,23 @@ CONTAINS
     TYPE(t_table)   :: table
     INTEGER         :: irow            ! row to fill
     INTEGER         :: i               ! loop index
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: dt_str, dt_str_orig
-    INTEGER                        :: idx_arr(iphysproc_short)
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: proc_names(iphysproc_short)
+    CHARACTER(LEN=64) :: dt_str, dt_str_orig
+    INTEGER, PARAMETER :: idx_arr(iphysproc_short) &
+         = (/itfastphy,itconv,itccov,itrad,itsso,itgwd/)
+    CHARACTER(LEN=7), PARAMETER :: proc_names(iphysproc_short) &
+      &                     = (/ "fastphy", &
+      &                          "conv   ", &
+      &                          "ccov   ", &
+      &                          "rad    ", &
+      &                          "sso    ", &
+      &                          "gwd    " /)
     !--------------------------------------------------------------------------
 
     ! will only be executed by stdio process
     IF(.NOT. my_process_is_stdio()) RETURN
 
     ! Initialize index-arrax and string-array
-    idx_arr = (/itfastphy,itconv,itccov,itrad,itsso,itgwd/)
     !
-    proc_names(itfastphy) = "fastphy"
-    proc_names(itconv)    = "conv"
-    proc_names(itccov)    = "ccov"
-    proc_names(itrad)     = "rad"
-    proc_names(itsso)     = "sso"
-    proc_names(itgwd)     = "gwd"
 
     ! could this be transformed into a table header?
     write(0,*) "Time intervals for calling NWP physics on patch ", pid
@@ -1051,13 +1195,12 @@ CONTAINS
       IF (atm_phy_nwp_config%lenabled(i)) THEN
         irow=irow+1
         CALL set_table_entry(table,irow,"Process", TRIM(proc_names(i)))
-        WRITE(dt_str,'(f7.2)') dt_phy(i)
         IF (dt_phy(i) /= dt_phy_orig(i)) THEN
-          WRITE(dt_str_orig,'(f7.2)') dt_phy_orig(i)
-          CALL set_table_entry(table,irow,"dt user [=> final]", TRIM(dt_str_orig)//' => '//TRIM(dt_str))
+          WRITE(dt_str,'(f7.2,a,f7.2)') dt_phy_orig(i), ' => ', dt_phy(i)
         ELSE
-          CALL set_table_entry(table,irow,"dt user [=> final]", TRIM(dt_str))
+          WRITE(dt_str,'(f7.2)') dt_phy(i)
         ENDIF
+        CALL set_table_entry(table,irow,"dt user [=> final]", TRIM(dt_str))
       ENDIF
 
     ENDDO

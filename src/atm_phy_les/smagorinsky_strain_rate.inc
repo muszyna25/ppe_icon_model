@@ -100,7 +100,7 @@ D_33       =   2._wp * (w_ie(je,jk,jb) - w_ie(je,jk+1,jb)) &
                * p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb)
 
 !Mechanical prod is half of this value divided by km
-mech_prod_e(je,jk,jb) = D_11**2 + D_22**2 + D_33**2 &
+shear(je,jk,jb) = D_11**2 + D_22**2 + D_33**2 &
   &         + 2._wp * ( D_12**2 + D_13**2 + D_23**2 )
 
 !calculate divergence to get the deviatoric part of stress tensor in

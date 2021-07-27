@@ -56,8 +56,8 @@ CONTAINS
 
     ! Pointers
     !
-    LOGICAL                 ,POINTER    :: lparamcpl
-    INTEGER                 ,POINTER    :: fc_cnv
+    LOGICAL                             :: lparamcpl
+    INTEGER                             :: fc_cnv
     TYPE(t_echam_phy_field) ,POINTER    :: field
     TYPE(t_echam_phy_tend)  ,POINTER    :: tend
 
@@ -70,7 +70,9 @@ CONTAINS
     REAL(wp)                            :: tend_ta_cnv  (nproma,nlev)
     REAL(wp)                            :: tend_ua_cnv  (nproma,nlev)
     REAL(wp)                            :: tend_va_cnv  (nproma,nlev)
-    REAL(wp)                            :: tend_qtrc_cnv(nproma,nlev,ntracer)
+    REAL(wp), TARGET                    :: tend_qtrc_cnv(nproma,nlev,ntracer)
+    REAL(wp), POINTER, CONTIGUOUS :: tend_qtrc_cnv_iqt(:,:,:)
+    REAL(wp), TARGET :: tend_qtrc_cnv_dummy(nproma,nlev,0)
     !
     INTEGER  :: nlevm1, nlevp1
     INTEGER  :: ntrac                        !< # of tracers excluding water vapour and hydrometeors
@@ -78,45 +80,83 @@ CONTAINS
 
     LOGICAL  :: ldland(nproma)               !< land sea mask for using dlev_land or dlev_ocean
 
+    INTEGER  :: ictop(nproma)                !< level index of convective cloud top
     REAL(wp) :: ztop(nproma)                 !< convective cloud top pressure   [Pa]
     REAL(wp) :: zta    (nproma,nlev)         !< provisional temperature         [K]
-    REAL(wp) :: zqtrc  (nproma,nlev,ntracer) !< provisional mass mixing ratios  [kg/kg]
+    REAL(wp), TARGET :: zqtrc  (nproma,nlev,ntracer) !< provisional mass mixing ratios  [kg/kg]
     REAL(wp) :: zua    (nproma,nlev)         !< provisional zonal      wind     [m/s]
     REAL(wp) :: zva    (nproma,nlev)         !< provisional meridional wind     [m/s]
     !
     REAL(wp) :: zqtrc_cnd(nproma,nlev)       !< cloud condensate mixing ratio   [kg/kg]
     REAL(wp) :: ztend_qv(nproma,nlev)        !< moisture tendency from dynamics and physics before convection
+    REAL(wp), POINTER, CONTIGUOUS :: zqtrc_iqt(:,:,:)
+    REAL(wp), TARGET :: zqtrc_dummy(nproma,nlev,0)
+    INTEGER  :: jc, jk, jt
 
     IF (ltimer) CALL timer_start(timer_cnv)
 
     ! associate pointers
-    lparamcpl => echam_phy_config(jg)%lparamcpl
-    fc_cnv    => echam_phy_config(jg)%fc_cnv
+    lparamcpl = echam_phy_config(jg)%lparamcpl
+    fc_cnv    = echam_phy_config(jg)%fc_cnv
     field     => prm_field(jg)
     tend      => prm_tend (jg)
 
     nlevm1 = nlev-1
     nlevp1 = nlev+1
+
+    !$ACC DATA CREATE( ictop, itype, q_cnv, tend_ta_cnv, tend_ua_cnv, tend_va_cnv, tend_qtrc_cnv, ldland, &
+    !$ACC              ztop, zta, zqtrc, zua, zva, zqtrc_cnd, ztend_qv )
     
     IF ( is_in_sd_ed_interval ) THEN
        !
        IF ( is_active ) THEN
+          !$ACC DATA PRESENT( field%ta, field%qtrc, field%ua, field%va, tend%qtrc_dyn, tend%qtrc_phy, field%sftlf, field%rtype )
           !
-          zta  (jcs:jce,:)   =     field% ta  (jcs:jce,:,jb)
-          zqtrc(jcs:jce,:,:) = MAX(field% qtrc(jcs:jce,:,jb,:), 0.0_wp)
-          zua  (jcs:jce,:)   =     field% ua  (jcs:jce,:,jb)
-          zva  (jcs:jce,:)   =     field% va  (jcs:jce,:,jb)
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP GANG
+          DO jk = 1, nlev
+            !$ACC LOOP VECTOR
+            DO jc = jcs, jce
+              zta  (jc,jk) = field% ta(jc,jk,jb)
+              !$ACC LOOP SEQ
+              DO jt = 1, ntracer
+                zqtrc(jc,jk,jt) = MAX(field% qtrc(jc,jk,jb,jt), 0.0_wp)
+              END DO
+              zua  (jc,jk) =     field% ua  (jc,jk,jb)
+              zva  (jc,jk) =     field% va  (jc,jk,jb)
+            END DO
+          END DO
+          !$ACC END PARALLEL
           !
           ! Prepare input
-          zqtrc_cnd(jcs:jce,:)   = zqtrc(jcs:jce,:,iqc) + zqtrc(jcs:jce,:,iqi)
-          ztend_qv (jcs:jce,:)   = tend%qtrc_dyn(jcs:jce,:,jb,iqv) + tend%qtrc_phy(jcs:jce,:,jb,iqv)
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP GANG
+          DO jk = 1, nlev
+            DO jc = jcs, jce
+              zqtrc_cnd(jc,jk)   = zqtrc(jc,jk,iqc) + zqtrc(jc,jk,iqi)
+              ztend_qv (jc,jk)   = tend%qtrc_dyn(jc,jk,jb,iqv) + tend%qtrc_phy(jc,jk,jb,iqv)
+            END DO
+          END DO
+          !$ACC END PARALLEL
           !
           ! number of tracers excluding water vapour and hydrometeors
           ntrac = ntracer-iqt+1
           !
           ! land sea mask for using dlev_land or dlev_ocean
-          ldland(jcs:jce)    = field% sftlf(jcs:jce,jb) > 0._wp
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP GANG VECTOR
+          DO jc = jcs, jce
+            ldland(jc)    = field% sftlf(jce,jb) > 0._wp
+          END DO
+          !$ACC END PARALLEL
           !
+          IF(ntrac .GT. 0) THEN
+            zqtrc_iqt => zqtrc(:,:,iqt:)
+            tend_qtrc_cnv_iqt => tend_qtrc_cnv  (:,:,iqt:)
+          ELSE
+            zqtrc_iqt => zqtrc_dummy
+            tend_qtrc_cnv_iqt => tend_qtrc_cnv_dummy
+          END IF
           CALL cumastr(jg, jb,                       &! in
                &       jcs, jce, nproma,             &! in
                &       nlev, nlevp1, nlevm1,         &! in
@@ -131,17 +171,18 @@ CONTAINS
                &             zva       (:,:),        &! in
                &       ntrac,                        &! in
                &             ldland    (:),          &! in
-               &             zqtrc     (:,:,   iqt:),&! in
+!               &             zqtrc     (:,:,   iqt:),&! in
+               &             zqtrc_iqt (:,:,:),&! in
                &       field% omega    (:,:,jb),     &! in
                &       field% evap     (:,  jb),     &! in
-               &       field% presm_new(:,:,jb),     &! in
-               &       field% presi_new(:,:,jb),     &! in
+               &       field% pfull    (:,:,jb),     &! in
+               &       field% phalf    (:,:,jb),     &! in
                &       field% geom     (:,:,jb),     &! in
                &       field% geoi     (:,:,jb),     &! in
                &             ztend_qv  (:,:),        &! in
                &       field% thvsig   (:,  jb),     &! in
                &       itype           (:),          &! out
-               &       field% ictop    (:,  jb),     &! out
+               &       ictop           (:),          &! out
                &       field% rsfc     (:,  jb),     &! out
                &       field% ssfc     (:,  jb),     &! out
                &       field% con_dtrl (:,jb),       &! out
@@ -151,117 +192,400 @@ CONTAINS
                &        tend_ua_cnv    (:,:),        &! out
                &        tend_va_cnv    (:,:),        &! out
                &        tend_qtrc_cnv  (:,:,iqv),    &! out
-               &        tend_qtrc_cnv  (:,:,iqt:),   &! out
+!               &        tend_qtrc_cnv  (:,:,iqt:),   &! out
+               &        tend_qtrc_cnv_iqt(:,:,:),   &! out
                &        tend_qtrc_cnv  (:,:,iqc),    &! out
                &        tend_qtrc_cnv  (:,:,iqi),    &! out
                &             ztop      (:)           )! out
           !
-          ! store convection type as real value
-          field% rtype(jcs:jce,jb) = REAL(itype(jcs:jce),wp)
-          !
           ! keep minimum conv. cloud top pressure (= max. conv. cloud top height) of this output interval
-          IF (ASSOCIATED(field% topmax)) field% topmax(jcs:jce,jb) = MIN(field% topmax(jcs:jce,jb),ztop(jcs:jce))
+          IF (ASSOCIATED(field% topmax)) THEN
+            !$ACC DATA PRESENT( field%topmax )
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP GANG VECTOR
+            DO jc = jcs, jce
+              field% topmax(jc,jb) = MIN(field% topmax(jc,jb),ztop(jc))
+            END DO
+            !$ACC END PARALLEL
+            !$ACC END DATA
+          END IF
           !
           ! store in memory for output or recycling
           !
-          IF (ASSOCIATED(field% q_cnv))    field% q_cnv   (jcs:jce,:,jb) =     q_cnv(jcs:jce,:)
-          IF (ASSOCIATED(field% q_cnv_vi)) field% q_cnv_vi(jcs:jce,  jb) = SUM(q_cnv(jcs:jce,:),DIM=2)
+          IF (ASSOCIATED(field% q_cnv)) THEN
+            !$ACC DATA PRESENT( field% q_cnv )
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP GANG
+            DO jk = 1, nlev
+              !$ACC LOOP VECTOR
+              DO jc = jcs, jce
+                field% q_cnv(jc,jk,jb) = q_cnv(jc,jk)
+              END DO
+            END DO
+            !$ACC END PARALLEL
+            !$ACC END DATA
+          END IF
+          IF (ASSOCIATED(field% q_cnv_vi)) THEN
+            !$ACC DATA PRESENT( field% q_cnv_vi )
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP GANG VECTOR
+            DO jc = jcs, jce
+              field% q_cnv_vi(jc,jb) = SUM(q_cnv(jc,:))
+            END DO
+            !$ACC END PARALLEL
+            !$ACC END DATA
+          END IF
           !
-          IF (ASSOCIATED(tend% ua_cnv)) tend% ua_cnv(jcs:jce,:,jb) = tend_ua_cnv(jcs:jce,:)
-          IF (ASSOCIATED(tend% va_cnv)) tend% va_cnv(jcs:jce,:,jb) = tend_va_cnv(jcs:jce,:)
+          IF (ASSOCIATED(tend% ua_cnv)) THEN
+            !$ACC DATA PRESENT( tend% ua_cnv )
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP GANG
+            DO jk = 1, nlev
+              !$ACC LOOP VECTOR
+              DO jc = jcs, jce
+                tend% ua_cnv(jc,jk,jb) = tend_ua_cnv(jc,jk)
+              END DO
+            END DO
+            !$ACC END PARALLEL
+            !$ACC END DATA
+          END IF
+          IF (ASSOCIATED(tend% va_cnv)) THEN
+            !$ACC DATA PRESENT( tend% va_cnv )
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP GANG
+            DO jk = 1, nlev
+              !$ACC LOOP VECTOR
+              DO jc = jcs, jce
+                tend% va_cnv(jc,jk,jb) = tend_va_cnv(jc,jk)
+              END DO
+            END DO
+            !$ACC END PARALLEL
+            !$ACC END DATA
+          END IF
           !
           IF (ASSOCIATED(tend% qtrc_cnv )) THEN
-             tend% qtrc_cnv(jcs:jce,:,jb,iqv)  = tend_qtrc_cnv(jcs:jce,:,iqv)
-             tend% qtrc_cnv(jcs:jce,:,jb,iqc)  = tend_qtrc_cnv(jcs:jce,:,iqc)
-             tend% qtrc_cnv(jcs:jce,:,jb,iqi)  = tend_qtrc_cnv(jcs:jce,:,iqi)
-             tend% qtrc_cnv(jcs:jce,:,jb,iqt:) = tend_qtrc_cnv(jcs:jce,:,iqt:)
+            !$ACC DATA PRESENT( tend% qtrc_cnv )
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP GANG
+            DO jk = 1, nlev
+              !$ACC LOOP VECTOR
+              DO jc = jcs, jce
+                tend% qtrc_cnv(jc,jk,jb,iqv)  = tend_qtrc_cnv(jc,jk,iqv)
+                tend% qtrc_cnv(jc,jk,jb,iqc)  = tend_qtrc_cnv(jc,jk,iqc)
+                tend% qtrc_cnv(jc,jk,jb,iqi)  = tend_qtrc_cnv(jc,jk,iqi)
+                !$ACC LOOP SEQ
+                DO jt = iqt, ntracer
+                  tend% qtrc_cnv(jc,jk,jb,jt) = tend_qtrc_cnv(jc,jk,jt)
+                END DO
+              END DO
+            END DO
+            !$ACC END PARALLEL
+            !$ACC END DATA
           END IF
+
+          !$ACC END DATA
           !
        ELSE
           !
           ! retrieve from memory for recycling
           !
-          IF (ASSOCIATED(field% q_cnv)) q_cnv(jcs:jce,:) = field% q_cnv(jcs:jce,:,jb)
+          IF (ASSOCIATED(field% q_cnv)) THEN
+            !$ACC DATA PRESENT( field% q_cnv )
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP GANG
+            DO jk = 1, nlev
+              !$ACC LOOP VECTOR
+              DO jc = jcs, jce
+                q_cnv(jc,jk) = field% q_cnv(jc,jk,jb)
+              END DO
+            END DO
+            !$ACC END PARALLEL
+            !$ACC END DATA
+          END IF
           !
-          IF (ASSOCIATED(tend% ua_cnv)) tend_ua_cnv(jcs:jce,:) = tend% ua_cnv(jcs:jce,:,jb)
-          IF (ASSOCIATED(tend% va_cnv)) tend_va_cnv(jcs:jce,:) = tend% va_cnv(jcs:jce,:,jb)
+          IF (ASSOCIATED(tend% ua_cnv)) THEN
+            !$ACC DATA PRESENT( tend% ua_cnv )
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP GANG
+            DO jk = 1, nlev
+              !$ACC LOOP VECTOR
+              DO jc = jcs, jce
+                tend_ua_cnv(jc,jk) = tend% ua_cnv(jc,jk,jb)
+              END DO
+            END DO
+            !$ACC END PARALLEL
+            !$ACC END DATA
+          END IF
+          IF (ASSOCIATED(tend% va_cnv)) THEN
+            !$ACC DATA PRESENT( tend% va_cnv )
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP GANG
+            DO jk = 1, nlev
+              !$ACC LOOP VECTOR
+              DO jc = jcs, jce
+                tend_va_cnv(jc,jk) = tend% va_cnv(jc,jk,jb)
+              END DO
+            END DO
+            !$ACC END PARALLEL
+            !$ACC END DATA
+          END IF
           !
           IF (ASSOCIATED(tend% qtrc_cnv )) THEN
-             tend_qtrc_cnv(jcs:jce,:,iqv)  = tend% qtrc_cnv(jcs:jce,:,jb,iqv)
-             tend_qtrc_cnv(jcs:jce,:,iqc)  = tend% qtrc_cnv(jcs:jce,:,jb,iqc)
-             tend_qtrc_cnv(jcs:jce,:,iqi)  = tend% qtrc_cnv(jcs:jce,:,jb,iqi)
-             tend_qtrc_cnv(jcs:jce,:,iqt:) = tend% qtrc_cnv(jcs:jce,:,jb,iqt:)
+            !$ACC DATA PRESENT( tend% qtrc_cnv )
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP GANG
+            DO jk = 1, nlev
+              !$ACC LOOP VECTOR
+              DO jc = jcs, jce
+                tend_qtrc_cnv(jc,jk,iqv)  = tend% qtrc_cnv(jc,jk,jb,iqv)
+                tend_qtrc_cnv(jc,jk,iqc)  = tend% qtrc_cnv(jc,jk,jb,iqc)
+                tend_qtrc_cnv(jc,jk,iqi)  = tend% qtrc_cnv(jc,jk,jb,iqi)
+                !$ACC LOOP SEQ
+                DO jt = iqt, ntracer
+                  tend_qtrc_cnv(jc,jk,jt) = tend% qtrc_cnv(jc,jk,jb,jt)
+                END DO
+              END DO
+            END DO
+            !$ACC END PARALLEL
+            !$ACC END DATA
           END IF
           !
        END IF
        !
        ! convert    heating
-       tend_ta_cnv(jcs:jce,:) = q_cnv(jcs:jce,:) * field% qconv(jcs:jce,:,jb)
+       !$ACC DATA PRESENT( field%qconv )
+       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC LOOP GANG
+       DO jk = 1, nlev
+          !$ACC LOOP VECTOR
+          DO jc = jcs, jce
+            tend_ta_cnv(jc,jk) = q_cnv(jc,jk) * field% qconv(jc,jk,jb)
+          END DO
+       END DO
+       !$ACC END PARALLEL
+       !$ACC END DATA
        !
-       IF (ASSOCIATED(tend% ta_cnv)) tend% ta_cnv(jcs:jce,:,jb) = tend_ta_cnv(jcs:jce,:)
+       IF (ASSOCIATED(tend% ta_cnv)) THEN
+         !$ACC DATA PRESENT( tend%ta_cnv )
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP GANG
+         DO jk = 1, nlev
+            !$ACC LOOP VECTOR
+            DO jc = jcs, jce
+              tend% ta_cnv(jc,jk,jb) = tend_ta_cnv(jc,jk)
+            END DO
+         END DO
+         !$ACC END PARALLEL
+         !$ACC END DATA
+       END IF
 
        ! for output: accumulate heating
-       IF (ASSOCIATED(field% q_phy   )) field% q_phy   (jcs:jce,:,jb) = field% q_phy   (jcs:jce,:,jb) +     q_cnv(jcs:jce,:)
-       IF (ASSOCIATED(field% q_phy_vi)) field% q_phy_vi(jcs:jce,  jb) = field% q_phy_vi(jcs:jce,  jb) + SUM(q_cnv(jcs:jce,:),DIM=2)
+       IF (ASSOCIATED(field% q_phy)) THEN
+         !$ACC DATA PRESENT( field%q_phy )
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP GANG
+         DO jk = 1, nlev
+           !$ACC LOOP VECTOR
+           DO jc = jcs, jce
+             field% q_phy(jc,jk,jb) = field% q_phy(jc,jk,jb) +     q_cnv(jc,jk)
+           END DO
+         END DO
+         !$ACC END PARALLEL
+         !$ACC END DATA
+       END IF
+       IF (ASSOCIATED(field% q_phy_vi)) THEN
+         !$ACC DATA PRESENT( field%q_phy_vi )
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP GANG VECTOR
+         DO jc = jcs, jce
+           field% q_phy_vi(jc, jb) = field% q_phy_vi(jc, jb) + SUM(q_cnv(jc,:))
+         END DO
+         !$ACC END PARALLEL
+         !$ACC END DATA
+       END IF
        !
        ! accumulate tendencies for later updating the model state
        SELECT CASE(fc_cnv)
        CASE(0)
           ! diagnostic, do not use tendency
        CASE(1)
-          ! use tendency to update the model state
-          tend%   ua_phy(jcs:jce,:,jb)      = tend%   ua_phy(jcs:jce,:,jb)      + tend_ua_cnv  (jcs:jce,:)
-          tend%   va_phy(jcs:jce,:,jb)      = tend%   va_phy(jcs:jce,:,jb)      + tend_va_cnv  (jcs:jce,:)
-          tend%   ta_phy(jcs:jce,:,jb)      = tend%   ta_phy(jcs:jce,:,jb)      + tend_ta_cnv  (jcs:jce,:)
-          tend% qtrc_phy(jcs:jce,:,jb,iqv)  = tend% qtrc_phy(jcs:jce,:,jb,iqv)  + tend_qtrc_cnv(jcs:jce,:,iqv)
-          tend% qtrc_phy(jcs:jce,:,jb,iqc)  = tend% qtrc_phy(jcs:jce,:,jb,iqc)  + tend_qtrc_cnv(jcs:jce,:,iqc)
-          tend% qtrc_phy(jcs:jce,:,jb,iqi)  = tend% qtrc_phy(jcs:jce,:,jb,iqi)  + tend_qtrc_cnv(jcs:jce,:,iqi)
-          tend% qtrc_phy(jcs:jce,:,jb,iqt:) = tend% qtrc_phy(jcs:jce,:,jb,iqt:) + tend_qtrc_cnv(jcs:jce,:,iqt:)
+          !$ACC DATA PRESENT( tend%ua_phy, tend%va_phy, tend%ta_phy, tend%qtrc_phy )
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP GANG
+          DO jk = 1, nlev
+            !$ACC LOOP VECTOR
+            DO jc = jcs, jce
+              ! use tendency to update the model state
+              tend%   ua_phy(jc,jk,jb)      = tend%   ua_phy(jc,jk,jb)      + tend_ua_cnv  (jc,jk)
+              tend%   va_phy(jc,jk,jb)      = tend%   va_phy(jc,jk,jb)      + tend_va_cnv  (jc,jk)
+              tend%   ta_phy(jc,jk,jb)      = tend%   ta_phy(jc,jk,jb)      + tend_ta_cnv  (jc,jk)
+              tend% qtrc_phy(jc,jk,jb,iqv)  = tend% qtrc_phy(jc,jk,jb,iqv)  + tend_qtrc_cnv(jc,jk,iqv)
+              tend% qtrc_phy(jc,jk,jb,iqc)  = tend% qtrc_phy(jc,jk,jb,iqc)  + tend_qtrc_cnv(jc,jk,iqc)
+              tend% qtrc_phy(jc,jk,jb,iqi)  = tend% qtrc_phy(jc,jk,jb,iqi)  + tend_qtrc_cnv(jc,jk,iqi)
+              !$ACC LOOP SEQ
+              DO jt = iqt, ntracer
+                tend% qtrc_phy(jc,jk,jb,jt) = tend% qtrc_phy(jc,jk,jb,jt) + tend_qtrc_cnv(jc,jk,jt)
+              END DO
+            END DO
+          END DO
+          !$ACC END PARALLEL
+          !$ACC END DATA
 !!$       CASE(2)
 !!$          ! use tendency as forcing in the dynamics
 !!$          ...
        END SELECT
        !
        ! update physics state for input to the next physics process
-       IF (lparamcpl) THEN
-          field%   ua(jcs:jce,:,jb)      = field%   ua(jcs:jce,:,jb)      + tend_ua_cnv  (jcs:jce,:)     *pdtime
-          field%   va(jcs:jce,:,jb)      = field%   va(jcs:jce,:,jb)      + tend_va_cnv  (jcs:jce,:)     *pdtime
-          field%   ta(jcs:jce,:,jb)      = field%   ta(jcs:jce,:,jb)      + tend_ta_cnv  (jcs:jce,:)     *pdtime
-          field% qtrc(jcs:jce,:,jb,iqv)  = field% qtrc(jcs:jce,:,jb,iqv)  + tend_qtrc_cnv(jcs:jce,:,iqv) *pdtime
-          field% qtrc(jcs:jce,:,jb,iqc)  = field% qtrc(jcs:jce,:,jb,iqc)  + tend_qtrc_cnv(jcs:jce,:,iqc) *pdtime
-          field% qtrc(jcs:jce,:,jb,iqi)  = field% qtrc(jcs:jce,:,jb,iqi)  + tend_qtrc_cnv(jcs:jce,:,iqi) *pdtime
-          field% qtrc(jcs:jce,:,jb,iqt:) = field% qtrc(jcs:jce,:,jb,iqt:) + tend_qtrc_cnv(jcs:jce,:,iqt:)*pdtime
-       END IF
+       SELECT CASE(fc_cnv)
+       CASE(0)
+          ! diagnostic, do not use tendency
+       CASE(1,2)
+          ! use tendency to update the physics state
+          IF (lparamcpl) THEN
+             ! prognostic
+             !$ACC DATA PRESENT( field%ua, field%va, field%ta, field%qtrc )
+             !$ACC PARALLEL DEFAULT(PRESENT)
+             !$ACC LOOP GANG
+             DO jk = 1, nlev
+               !$ACC LOOP VECTOR
+               DO jc = jcs, jce
+                 field%   ua(jc,jk,jb)      = field%   ua(jc,jk,jb)      + tend_ua_cnv  (jc,jk)     *pdtime
+                 field%   va(jc,jk,jb)      = field%   va(jc,jk,jb)      + tend_va_cnv  (jc,jk)     *pdtime
+                 field%   ta(jc,jk,jb)      = field%   ta(jc,jk,jb)      + tend_ta_cnv  (jc,jk)     *pdtime
+                 field% qtrc(jc,jk,jb,iqv)  = field% qtrc(jc,jk,jb,iqv)  + tend_qtrc_cnv(jc,jk,iqv) *pdtime
+                 field% qtrc(jc,jk,jb,iqc)  = field% qtrc(jc,jk,jb,iqc)  + tend_qtrc_cnv(jc,jk,iqc) *pdtime
+                 field% qtrc(jc,jk,jb,iqi)  = field% qtrc(jc,jk,jb,iqi)  + tend_qtrc_cnv(jc,jk,iqi) *pdtime
+                 !$ACC LOOP SEQ
+                 DO jt = iqt, ntracer
+                   field% qtrc(jc,jk,jb,jt) = field% qtrc(jc,jk,jb,jt) + tend_qtrc_cnv(jc,jk,jt)*pdtime
+                 END DO
+               END DO
+             END DO
+             !$ACC END PARALLEL
+             !$ACC END DATA
+             !
+             ! diagnostic
+             ! store convection type as real value
+             !$ACC DATA PRESENT( field%rtype, field%ictop )
+             !$ACC PARALLEL DEFAULT(PRESENT)
+             !$ACC LOOP GANG VECTOR
+             DO jc = jcs, jce
+               field% rtype(jc,jb) = REAL(itype(jc),wp)
+               field% ictop(jc,jb) = ictop(jc)
+             END DO
+             !
+             !$ACC END PARALLEL
+             !$ACC END DATA
+          END IF
+       END SELECT
        !
     ELSE
+       !$ACC DATA PRESENT( field%rtype, field%ictop, field%rsfc, field%ssfc, field%con_dtrl, field%con_dtri, &
+       !$ACC               field%con_iteqv )
        !
-       field% rtype    (jcs:jce,jb) = 0.0_wp
-       field% ictop    (jcs:jce,jb) = nlevm1
-       field% rsfc     (jcs:jce,jb) = 0.0_wp
-       field% ssfc     (jcs:jce,jb) = 0.0_wp
-       field% con_dtrl (jcs:jce,jb) = 0.0_wp
-       field% con_dtri (jcs:jce,jb) = 0.0_wp
-       field% con_iteqv(jcs:jce,jb) = 0.0_wp
+       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC LOOP GANG VECTOR
+       DO jc = jcs, jce
+         field% rtype    (jc,jb) = 0.0_wp
+         field% ictop    (jc,jb) = nlevm1
+         field% rsfc     (jc,jb) = 0.0_wp
+         field% ssfc     (jc,jb) = 0.0_wp
+         field% con_dtrl (jc,jb) = 0.0_wp
+         field% con_dtri (jc,jb) = 0.0_wp
+         field% con_iteqv(jc,jb) = 0.0_wp
+       END DO
+       !$ACC END PARALLEL
        !
-       IF (ASSOCIATED(field% q_cnv   )) field% q_cnv   (jcs:jce,:,jb) = 0.0_wp
-       IF (ASSOCIATED(field% q_cnv_vi)) field% q_cnv_vi(jcs:jce,  jb) = 0.0_wp
+       IF (ASSOCIATED(field% q_cnv   )) THEN
+         !$ACC DATA PRESENT( field%q_cnv )
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP GANG
+         DO jk = 1,nlev
+           !$ACC LOOP VECTOR
+           DO jc = jcs, jce
+             field% q_cnv(jc,jk,jb) = 0.0_wp
+           END DO
+         END DO
+         !$ACC END PARALLEL
+         !$ACC END DATA
+       END IF
+       IF (ASSOCIATED(field% q_cnv_vi)) THEN
+         !$ACC DATA PRESENT( field%q_cnv_vi )
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP GANG VECTOR
+         DO jc = jcs, jce
+           field% q_cnv_vi(jc,  jb) = 0.0_wp
+         END DO
+         !$ACC END PARALLEL
+         !$ACC END DATA
+       END IF
        !
-       IF (ASSOCIATED(tend% ta_cnv)) tend% ta_cnv(jcs:jce,:,jb) = 0.0_wp
-       IF (ASSOCIATED(tend% ua_cnv)) tend% ua_cnv(jcs:jce,:,jb) = 0.0_wp
-       IF (ASSOCIATED(tend% va_cnv)) tend% va_cnv(jcs:jce,:,jb) = 0.0_wp
+       IF (ASSOCIATED(tend% ta_cnv)) THEN
+         !$ACC DATA PRESENT( tend%ta_cnv )
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP GANG
+         DO jk = 1, nlev
+           !$ACC LOOP VECTOR
+           DO jc = jcs, jce
+             tend% ta_cnv(jc,jk,jb) = 0.0_wp
+           END DO
+         END DO
+         !$ACC END PARALLEL
+         !$ACC END DATA
+       END IF
+       IF (ASSOCIATED(tend% ua_cnv)) THEN
+         !$ACC DATA PRESENT( tend%ua_cnv )
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP GANG
+         DO jk = 1, nlev
+           !$ACC LOOP VECTOR
+           DO jc = jcs, jce
+             tend% ua_cnv(jc,jk,jb) = 0.0_wp
+           END DO
+         END DO
+         !$ACC END PARALLEL
+         !$ACC END DATA
+       END IF
+       IF (ASSOCIATED(tend% va_cnv)) THEN
+         !$ACC DATA PRESENT( tend%va_cnv )
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP GANG
+         DO jk = 1, nlev
+           !$ACC LOOP VECTOR
+           DO jc = jcs, jce
+             tend% va_cnv(jc,jk,jb) = 0.0_wp
+           END DO
+         END DO
+         !$ACC END PARALLEL
+         !$ACC END DATA
+       END IF
        !
        IF (ASSOCIATED(tend% qtrc_cnv)) THEN
-          tend% qtrc_cnv(jcs:jce,:,jb,iqv)  = 0.0_wp
-          tend% qtrc_cnv(jcs:jce,:,jb,iqc)  = 0.0_wp
-          tend% qtrc_cnv(jcs:jce,:,jb,iqi)  = 0.0_wp
-          tend% qtrc_cnv(jcs:jce,:,jb,iqt:) = 0.0_wp
+          !$ACC DATA PRESENT( tend%qtrc_cnv )
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP GANG
+          DO jk = 1, nlev
+            !$ACC LOOP VECTOR
+            DO jc = jcs, jce
+              tend% qtrc_cnv(jc,jk,jb,iqv)  = 0.0_wp
+              tend% qtrc_cnv(jc,jk,jb,iqc)  = 0.0_wp
+              tend% qtrc_cnv(jc,jk,jb,iqi)  = 0.0_wp
+              DO jt = iqt, ntracer
+                tend% qtrc_cnv(jc,jk,jb,jt) = 0.0_wp
+              END DO
+            END DO
+          END DO
+          !$ACC END PARALLEL
+          !$ACC END DATA
        END IF
+       !
+       !$ACC END DATA
        !
     END IF
 
+    !$ACC END DATA
+
     ! disassociate pointers
-    NULLIFY(lparamcpl)
-    NULLIFY(fc_cnv)
     NULLIFY(field)
     NULLIFY(tend)
 

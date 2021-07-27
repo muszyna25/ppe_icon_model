@@ -17,67 +17,76 @@
 !!
 MODULE mo_nml_crosscheck
 
-  USE mo_kind,               ONLY: wp
-  USE mo_exception,          ONLY: message, message_text, finish
-  USE mo_impl_constants,     ONLY: ildf_echam, inwp, iheldsuarez,                    &
-    &                              ildf_dry, inoforcing, ihs_atm_temp,               &
-    &                              ihs_atm_theta, tracer_only, inh_atmosphere,       &
-    &                              ishallow_water, LEAPFROG_EXPL, LEAPFROG_SI,       &
-    &                              NO_HADV, UP, MIURA, MIURA3, FFSL, FFSL_HYB,       &
-    &                              MCYCL, MIURA_MCYCL, MIURA3_MCYCL,                 &
-    &                              FFSL_MCYCL, FFSL_HYB_MCYCL, iecham,               &
-    &                              RAYLEIGH_CLASSIC,                                 &
-    &                              iedmf, icosmo, MODE_IAU, MODE_IAU_OLD
-  USE mo_time_config,        ONLY: time_config, dt_restart
-  USE mo_extpar_config,      ONLY: itopo                                             
-  USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d, inextra_3d,  &
-    &                              lnetcdf_flt64_output
-  USE mo_parallel_config,    ONLY: check_parallel_configuration,                     &
-    &                              num_io_procs, itype_comm,                         &
-    &                              num_prefetch_proc, use_dp_mpi2io
-  USE mo_limarea_config,     ONLY: latbc_config
-  USE mo_master_config,      ONLY: isRestart
-  USE mo_run_config,         ONLY: nsteps, dtime, iforcing,                          &
-    &                              ltransport, ntracer, nlev, ltestcase,             &
-    &                              nqtendphy, iqtke, iqv, iqc, iqi,                  &
-    &                              iqs, iqr, iqt, iqtvar, ltimer,             &
-    &                              ico2, ich4, in2o, io3,                     &
-    &                              iqni, iqni_nuc, iqg, iqm_max,                     &
-    &                              iqh, iqnr, iqns, iqng, iqnh, iqnc,                & 
-    &                              inccn, ininact, ininpot,                          &
-    &                              activate_sync_timers, timers_level, lart
-  USE mo_dynamics_config,    ONLY: iequations, lshallow_water, ltwotime
-  USE mo_advection_config,   ONLY: advection_config
-
-  USE mo_nonhydrostatic_config, ONLY: itime_scheme_nh => itime_scheme,               &
-                                      lhdiff_rcf, rayleigh_type
-  USE mo_ha_dyn_config,      ONLY: ha_dyn_config
-  USE mo_diffusion_config,   ONLY: diffusion_config
-  USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config, icpl_aero_conv, iprog_aero
-  USE mo_lnd_nwp_config,     ONLY: ntiles_lnd, lsnowtile
-  USE mo_echam_phy_config,   ONLY: echam_phy_config
-  USE mo_radiation_config,   ONLY: irad_o3, irad_aero
-  USE mo_turbdiff_config,    ONLY: turbdiff_config
-  USE mo_initicon_config,    ONLY: init_mode, dt_iau, ltile_coldstart, timeshift
-  USE mo_nh_testcases_nml,   ONLY: nh_test_name
-  USE mo_ha_testcases,       ONLY: ctest_name, ape_sst_case
-
-  USE mo_meteogram_config,   ONLY: check_meteogram_configuration
-  USE mo_grid_config,        ONLY: lplane, n_dom, l_limited_area, start_time,        &
-    &                              nroot, is_plane_torus
-
-  USE mo_art_config,         ONLY: art_config
-  USE mo_time_management,    ONLY: compute_timestep_settings,                        &
-    &                              compute_restart_settings,                         &
-    &                              compute_date_settings
-  USE mo_event_manager,      ONLY: initEventManager
-  USE mtime,                 ONLY: getTotalMilliSecondsTimeDelta, datetime,          &
-    &                              newDatetime, deallocateDatetime
-  USE mo_gridref_config,     ONLY: grf_intmethod_e
+  USE, INTRINSIC :: iso_c_binding, ONLY: c_int64_t
+  USE mo_kind,                     ONLY: wp
+  USE mo_exception,                ONLY: message, message_text, finish, em_info
+  USE mo_impl_constants,           ONLY: inwp, tracer_only, inh_atmosphere,                &
+    &                                    NO_HADV, UP, MIURA, MIURA3, FFSL, FFSL_HYB,       &
+    &                                    MCYCL, MIURA_MCYCL, MIURA3_MCYCL,                 &
+    &                                    FFSL_MCYCL, FFSL_HYB_MCYCL, iecham,               &
+    &                                    RAYLEIGH_CLASSIC,                                 &
+    &                                    iedmf, icosmo, iprog, MODE_IAU, MODE_IAU_OLD,     &
+    &                                    max_echotop
+  USE mo_time_config,              ONLY: time_config, dt_restart
+  USE mo_extpar_config,            ONLY: itopo                                             
+  USE mo_io_config,                ONLY: dt_checkpoint, lnetcdf_flt64_output, echotop_meta
+  USE mo_parallel_config,          ONLY: check_parallel_configuration,                     &
+    &                                    num_io_procs, itype_comm,                         &
+    &                                    num_prefetch_proc, use_dp_mpi2io, num_io_procs_radar
+  USE mo_limarea_config,           ONLY: latbc_config, LATBC_TYPE_CONST, LATBC_TYPE_EXT
+  USE mo_master_config,            ONLY: isRestart
+  USE mo_run_config,               ONLY: nsteps, dtime, iforcing, output_mode,             &
+    &                                    ltransport, ntracer, ltestcase,                   &
+    &                                    nqtendphy, iqtke, iqv, iqc, iqi,                  &
+    &                                    iqs, iqr, iqt, iqtvar, ltimer,                    &
+    &                                    iqni, iqni_nuc, iqg, iqm_max,                     &
+    &                                    iqh, iqnr, iqns, iqng, iqnh, iqnc, iqgl, iqhl,    & 
+    &                                    inccn, ininact, ininpot,                          &
+    &                                    activate_sync_timers, timers_level, lart,         &
+    &                                    msg_level, luse_radarfwo
+  USE mo_dynamics_config,          ONLY: iequations, ldeepatmo
+  USE mo_advection_config,         ONLY: advection_config
+  USE mo_nonhydrostatic_config,    ONLY: itime_scheme_nh => itime_scheme,                  &
+    &                                    lhdiff_rcf, rayleigh_type,                        &
+    &                                    ivctype, ndyn_substeps
+  USE mo_diffusion_config,         ONLY: diffusion_config
+  USE mo_atm_phy_nwp_config,       ONLY: atm_phy_nwp_config, icpl_aero_conv, iprog_aero
+  USE mo_lnd_nwp_config,           ONLY: ntiles_lnd, lsnowtile
+  USE mo_echam_phy_config,         ONLY: echam_phy_config
+  USE mo_radiation_config,         ONLY: irad_o3, irad_aero, irad_h2o, irad_co2, irad_ch4, &
+    &                                    irad_n2o, irad_o2, irad_cfc11, irad_cfc12,        &
+    &                                    icld_overlap, llw_cloud_scat, iliquid_scat,       &
+    &                                    iice_scat
+  USE mo_turbdiff_config,          ONLY: turbdiff_config
+  USE mo_initicon_config,          ONLY: init_mode, dt_iau, ltile_coldstart, timeshift,    &
+    &                                    itype_vert_expol
+  USE mo_nh_testcases_nml,         ONLY: nh_test_name, layer_thickness
+  USE mo_meteogram_config,         ONLY: meteogram_output_config, check_meteogram_configuration
+  USE mo_grid_config,              ONLY: lplane, n_dom, l_limited_area, start_time,        &
+    &                                    nroot, is_plane_torus, n_dom_start
+  USE mo_art_config,               ONLY: art_config, ctracer_art
+  USE mo_time_management,          ONLY: compute_timestep_settings,                        &
+    &                                    compute_restart_settings,                         &
+    &                                    compute_date_settings
+  USE mo_event_manager,            ONLY: initEventManager
+  USE mtime,                       ONLY: getTotalMilliSecondsTimeDelta, datetime,          &
+    &                                    newDatetime, deallocateDatetime
+  USE mo_gridref_config,           ONLY: grf_intmethod_e
   USE mo_interpol_config
   USE mo_sleve_config
+  USE mo_nudging_config,           ONLY: nudging_config, indg_type
+  USE mo_nudging_nml,              ONLY: check_nudging
+  USE mo_upatmo_config,            ONLY: check_upatmo
+  USE mo_name_list_output_config,  ONLY: is_variable_in_output_dom
+  USE mo_nh_testcase_check,        ONLY: check_nh_testcase
+  USE mo_art_init_interface,       ONLY: art_calc_ntracer_and_names
+
 #ifdef __ICON_ART
-  USE mo_grid_config,        ONLY: lredgrid_phys
+  USE mo_grid_config,              ONLY: lredgrid_phys
+#endif
+
+#ifdef HAVE_RADARFWO
+  USE radar_data,            ONLY: ndoms_max_radar => ndoms_max
 #endif
 
   IMPLICIT NONE
@@ -93,12 +102,14 @@ CONTAINS
 
   SUBROUTINE atm_crosscheck
 
-    INTEGER  :: jg
+    INTEGER  :: jg, i
     INTEGER  :: jt   ! tracer loop index
     INTEGER  :: z_go_tri(11)  ! for crosscheck
     CHARACTER(len=*), PARAMETER :: routine =  modname//'::atm_crosscheck'
-    REAL(wp) :: restart_time
+    REAL(wp) :: secs_restart, secs_checkpoint, secs_iau_end
     TYPE(datetime), POINTER :: reference_dt
+    LOGICAL  :: l_global_nudging
+    INTEGER(c_int64_t) :: msecs_restart
     
     !--------------------------------------------------------------------
     ! Compute date/time/time step settings
@@ -123,37 +134,35 @@ CONTAINS
 
 
     !--------------------------------------------------------------------
-    ! Grid and dynamics
+    ! Limited Area Mode and LatBC read-in:
     !--------------------------------------------------------------------
 
+
     IF (lplane) CALL finish(routine,&
-      'Currently a plane version is not available')
+     'Currently a plane version is not available')
 
     ! Reset num_prefetch_proc to zero if the model does not run in limited-area mode
-    ! or if there are no lateral boundary data to be read
-    IF (.NOT. l_limited_area .OR. latbc_config%itype_latbc == 0) num_prefetch_proc = 0
+    ! or in global nudging mode or if there are no lateral boundary data to be read
+    l_global_nudging = nudging_config%nudge_type == indg_type%globn
+    IF (.NOT. (l_limited_area .OR. l_global_nudging) .OR. latbc_config%itype_latbc == 0) THEN
+      IF (num_prefetch_proc /=0) CALL message(routine,' WARNING! num_prefetch_proc reset to 0 !')
+      num_prefetch_proc = 0
+    ENDIF
 
-    SELECT CASE (iequations)
-    CASE(IHS_ATM_TEMP,IHS_ATM_THETA)         ! hydrostatic atm model
-
-      SELECT CASE(iforcing)
-      CASE(INOFORCING,IHELDSUAREZ,ILDF_DRY)  ! without moist processes
-        ha_dyn_config%ldry_dycore = .TRUE.
-      CASE(IECHAM,ILDF_ECHAM)                ! with ECHAM physics
-        CALL finish(routine, 'Hydrostatic dynamics cannot be used with ECHAM physics')
-      END SELECT
-
-    END SELECT
-
-    lshallow_water = (iequations==ISHALLOW_WATER)
-
-    SELECT CASE (iequations)
-    CASE (IHS_ATM_TEMP,IHS_ATM_THETA,ISHALLOW_WATER)
-
-      ltwotime = (ha_dyn_config%itime_scheme/=LEAPFROG_EXPL).AND. &
-                 (ha_dyn_config%itime_scheme/=LEAPFROG_SI)
-
-    END SELECT
+    ! If LatBC data is unavailable: Idle-wait-and-retry
+    !
+    IF (latbc_config%nretries > 0) THEN
+      !
+      ! ... only supported for prefetching LatBC mode
+      IF (.NOT. (l_limited_area .OR. l_global_nudging) .OR. (num_prefetch_proc == 0)) THEN
+        CALL finish(routine, "LatBC: Idle-wait-and-retry only supported for prefetching LatBC mode!")
+      END IF
+      !
+      ! ... only supported for MPI parallel configuration
+#ifdef NOMPI
+      CALL finish(routine, "LatBC: Idle-wait-and-retry requires MPI!")
+#endif
+    END IF
 
     ! Limited area mode must not be enabled for torus grid:
     IF (is_plane_torus .AND. l_limited_area) THEN
@@ -166,53 +175,29 @@ CONTAINS
       CALL finish(routine, "Root bisection 0 does not make sense for limited area mode; did you try to use a torus grid?")
     END IF
 
+
+    !--------------------------------------------------------------------
+    ! Grid and dynamics
+    !--------------------------------------------------------------------
+
+    IF (lplane) CALL finish( routine,&
+      'Currently a plane version is not available')
+
     !--------------------------------------------------------------------
     ! If ltestcase is set to .FALSE. in run_nml set testcase name to empty
     ! (in case it is still set in the run script)
     IF (.NOT. ltestcase) THEN
-      ctest_name = ''
       nh_test_name = ''
     END IF
     !--------------------------------------------------------------------
 
-    !--------------------------------------------------------------------
-    ! Testcases (hydrostatic)
-    !--------------------------------------------------------------------
-
-    IF ((ctest_name=='GW') .AND. (nlev /= 20)) THEN
-      CALL finish(routine,'nlev MUST be 20 for the gravity-wave test case')
+    ! Vertical grid
+    IF (ivctype == 12 .AND. (.NOT. ldeepatmo)) THEN
+      CALL finish(routine, "ivctype = 12 requires ldeepatmo = .true.")
+    ELSEIF (ivctype == 12 .AND. .NOT. (layer_thickness < 0.0_wp)) THEN
+      CALL finish(routine, "ivctype = 12 requires layer_thickness < 0.")
     ENDIF
 
-    IF ((ctest_name=='SV') .AND. ntracer /= 2 ) THEN
-      CALL finish(routine, &
-        & 'ntracer MUST be 2 for the stationary vortex test case')
-    ENDIF
-
-    IF ((ctest_name=='DF1') .AND. ntracer == 1 ) THEN
-      CALL finish(routine, &
-        & 'ntracer MUST be >=2 for the deformational flow test case 1')
-    ENDIF
-
-    IF ((ctest_name=='DF2') .AND. ntracer == 1 ) THEN
-      CALL finish(routine, &
-        & 'ntracer MUST be >=2 for the deformational flow test case 2')
-    ENDIF
-
-    IF ((ctest_name=='DF3') .AND. ntracer == 1 ) THEN
-      CALL finish(routine, &
-        & 'ntracer MUST be >=2 for the deformational flow test case 3')
-    ENDIF
-
-    IF ((ctest_name=='DF4') .AND. ntracer == 1 ) THEN
-      CALL finish(routine, &
-        & 'ntracer MUST be >=2 for the deformational flow test case 4')
-    ENDIF
-
-    IF ((ctest_name=='APE') .AND. (ape_sst_case=='sst_ice')  ) THEN
-      IF (.NOT. lflux_avg)&
-      CALL finish(routine, &
-        & 'lflux_avg must be set true to run this setup')
-    ENDIF
 
     !--------------------------------------------------------------------
     ! Testcases (nonhydrostatic)
@@ -229,20 +214,8 @@ CONTAINS
         & 'surface scheme must be switched off, when running the APE test')
     ENDIF
 
-    !--------------------------------------------------------------------
-    ! Shallow water
-    !--------------------------------------------------------------------
-    IF (iequations==ISHALLOW_WATER.AND.ha_dyn_config%lsi_3d) THEN
-      CALL message( routine, 'lsi_3d = .TRUE. not applicable to shallow water model')
-    ENDIF
+    IF (ltestcase) CALL check_nh_testcase()
 
-    IF ((iequations==ISHALLOW_WATER).AND.(nlev/=1)) &
-    CALL finish(routine,'Multiple vertical level specified for shallow water model')
-
-    !--------------------------------------------------------------------
-    ! Hydrostatic atm
-    !--------------------------------------------------------------------
-    IF (iequations==IHS_ATM_THETA) ha_dyn_config%ltheta_dyn = .TRUE.
 
     !--------------------------------------------------------------------
     ! Nonhydrostatic atm
@@ -250,7 +223,7 @@ CONTAINS
     IF (lhdiff_rcf .AND. (itype_comm == 3)) CALL finish(routine, &
       'lhdiff_rcf is available only for idiv_method=1 and itype_comm<=2')
 
-    IF (grf_intmethod_e >= 5 .AND. iequations /= INWP .AND. n_dom > 1) THEN
+    IF (grf_intmethod_e >= 5 .AND. iequations /= INH_ATMOSPHERE .AND. n_dom > 1) THEN
       grf_intmethod_e = 4
       CALL message( routine, 'grf_intmethod_e has been reset to 4')
     ENDIF
@@ -324,6 +297,42 @@ CONTAINS
             &  ( atm_phy_nwp_config(jg)%icpl_aero_gscp > 0 .OR. icpl_aero_conv > 0 ) ) THEN
             CALL finish(routine,'aerosol-precipitation coupling requires irad_aero=6 or =9')
           ENDIF
+
+          ! ecRad specific checks
+          IF ( (atm_phy_nwp_config(jg)%inwp_radiation == 4) )  THEN
+            IF (.NOT. ANY( irad_h2o     == (/0,1/)         ) ) &
+              &  CALL finish(routine,'For inwp_radiation = 4, irad_h2o has to be 0 or 1')
+            IF (.NOT. ANY( irad_co2     == (/0,2,4/)       ) ) &
+              &  CALL finish(routine,'For inwp_radiation = 4, irad_co2 has to be 0, 2 or 4')
+            IF (.NOT. ANY( irad_ch4     == (/0,2,3,4/)     ) ) &
+              &  CALL finish(routine,'For inwp_radiation = 4, irad_ch4 has to be 0, 2, 3 or 4')
+            IF (.NOT. ANY( irad_n2o     == (/0,2,3,4/)     ) ) &
+              &  CALL finish(routine,'For inwp_radiation = 4, irad_n2o has to be 0, 2, 3 or 4')
+            IF (.NOT. ANY( irad_o3      == (/0,7,9,79,97/) ) ) &
+              &  CALL finish(routine,'For inwp_radiation = 4, irad_o3 has to be 0, 7, 9, 79 or 97')
+            IF (.NOT. ANY( irad_o2      == (/0,2/)         ) ) &
+              &  CALL finish(routine,'For inwp_radiation = 4, irad_o2 has to be 0 or 2')
+            IF (.NOT. ANY( irad_cfc11   == (/0,2,4/)       ) ) &
+              &  CALL finish(routine,'For inwp_radiation = 4, irad_cfc11 has to be 0, 2 or 4')
+            IF (.NOT. ANY( irad_cfc12   == (/0,2,4/)       ) ) &
+              &  CALL finish(routine,'For inwp_radiation = 4, irad_cfc12 has to be 0, 2 or 4')
+            IF (.NOT. ANY( irad_aero    == (/0,2,5,6,9/)   ) ) &
+              &  CALL finish(routine,'For inwp_radiation = 4, irad_aero has to be 0, 2, 5, 6 or 9')
+            IF (.NOT. ANY( icld_overlap == (/1,2,5/)       ) ) &
+              &  CALL finish(routine,'For inwp_radiation = 4, icld_overlap has to be 1, 2 or 5')
+            IF (.NOT. ANY( iliquid_scat == (/0,1/)         ) ) &
+              &  CALL finish(routine,'For inwp_radiation = 4, iliquid_scat has to be 0 or 1')
+            IF (.NOT. ANY( iice_scat    == (/0,1/)         ) ) &
+              &  CALL finish(routine,'For inwp_radiation = 4, iice_scat has to be 0 or 1')
+          ELSE
+            IF ( llw_cloud_scat ) &
+              &  CALL message(routine,'Warning: llw_cloud_scat is set to .true., but ecRad is not used')
+            IF ( iliquid_scat /= 0 ) &
+              &  CALL message(routine,'Warning: iliquid_scat is explicitly set, but ecRad is not used')
+            IF ( iice_scat /= 0 ) &
+              &  CALL message(routine,'Warning: iice_scat is explicitly set, but ecRad is not used')
+          ENDIF
+
         ELSE
 
           SELECT CASE (irad_o3)
@@ -336,6 +345,11 @@ CONTAINS
         ENDIF !inwp_radiation
 
         !! check microphysics scheme
+        IF (   ANY(atm_phy_nwp_config(1:n_dom)%inwp_gscp == 2) .AND. &
+             & ANY(atm_phy_nwp_config(1:n_dom)%inwp_gscp == 1) ) THEN
+          CALL finish(routine,'combining inwp_gscp=1 and inwp_gscp=2 in nested runs is not allowed')
+        END IF
+        
         IF (  atm_phy_nwp_config(jg)%mu_rain < 0.0   .OR. &
           &   atm_phy_nwp_config(jg)%mu_rain > 5.0)  THEN
           CALL finish(routine,'mu_rain requires: 0 < mu_rain < 5')
@@ -365,28 +379,11 @@ CONTAINS
     !
     ! Check settings of ntracer
     !
-    ! Set tracer indices
-    !
+    ! provisional number of water species for which convective
+    ! and turbulent tendencies of NWP physics are stored
+    nqtendphy = 0
+
     SELECT CASE(iforcing)
-    CASE (IECHAM,ILDF_ECHAM)  ! iforcing
-
-      IF (ntracer < 3) CALL finish(routine,'ECHAM physics needs at least 3 tracers')
-
-      ! 0 indicates that this tracer is not (yet) used by ECHAM  physics
-      iqv    = 1     !> water vapour
-      iqc    = 2     !! cloud water
-      iqi    = 3     !! ice
-      iqr    = 0     !! rain water
-      iqs    = 0     !! snow
-      iqm_max= 3     !! end index of water species mixing ratios
-      iqt    = 4     !! starting index of non-water species
-      io3    = 4     !! O3
-      ico2   = 5     !! CO2
-      ich4   = 6     !! CH4
-      in2o   = 7     !! N2O
-      nqtendphy = 0  !! number of water species for which convective and turbulent
-                     !! tendencies are stored
-
     CASE (INWP) ! iforcing
 
       ! ** NWP physics section ** 
@@ -404,42 +401,30 @@ CONTAINS
       !            the index range of tracers for which advection is turned off in the stratosphere
       !            (i.e. all cloud and precipitation variables including number concentrations)
       !
+      !            The indices for specific tracers (iqv, iqc, iqi, ...) have initial values 0, as valid
+      !            for unused tracers. Below the indices are properly defined for the tracers to be used
+      !            for the selected physics configuration. Accordingly also the names for theses tracers
+      !            are defined.
+      !
       !            Note also that the namelist parameter "ntracer" is reset automatically to the correct
       !            value when NWP physics is used in order to avoid multiple namelist changes when playing
       !            around with different physics schemes.
       !
-      ico2      = 0     !> co2, 0: not to be used with NWP physics
-      !
       ! Default settings valid for all microphysics options
       !
-      iqv       = 1     !> water vapour
-      iqc       = 2     !! cloud water
-      iqi       = 3     !! ice 
-      iqr       = 4     !! rain water
-      iqs       = 5     !! snow
+      iqv       = 1 ; advection_config(:)%tracer_names(iqv) = 'qv' !> water vapour
+      iqc       = 2 ; advection_config(:)%tracer_names(iqc) = 'qc' !! cloud water
+      iqi       = 3 ; advection_config(:)%tracer_names(iqi) = 'qi' !! ice 
+      iqr       = 4 ; advection_config(:)%tracer_names(iqr) = 'qr' !! rain water
+      iqs       = 5 ; advection_config(:)%tracer_names(iqs) = 'qs' !! snow
       nqtendphy = 3     !! number of water species for which convective and turbulent tendencies are stored
       !
       ! The following parameters may be reset depending on the selected physics scheme
       !
-      iqm_max   = 5     !! end index of water species mixing ratios
+      iqm_max   = 5     !! end index of water species mass mixing ratios
       iqt       = 6     !! start index of other tracers not related at all to moisture
       !
       ntracer   = 5     !! total number of tracers
-      !
-      ! dummy settings
-      iqni     = ntracer+100    !! cloud ice number
-      iqni_nuc = ntracer+100    !! activated ice nuclei  
-      iqg      = ntracer+100    !! graupel
-      iqtvar   = ntracer+100    !! qt variance (for EDMF turbulence)
-      iqh      = ntracer+100
-      iqnr     = ntracer+100  
-      iqns     = ntracer+100
-      iqng     = ntracer+100
-      iqnh     = ntracer+100
-      iqnc     = ntracer+100
-      inccn    = ntracer+100
-      ininpot  = ntracer+100
-      ininact  = ntracer+100
 
       !
       ! Taking the 'highest' microphysics option in some cases allows using more
@@ -452,7 +437,7 @@ CONTAINS
 
        ! CALL finish('mo_atm_nml_crosscheck', 'Graupel scheme not implemented.')
         
-        iqg     = 6       !! graupel
+        iqg     = 6 ; advection_config(:)%tracer_names(iqg) = 'qg' !! graupel
         iqm_max = iqg
         iqt     = iqt + 1
 
@@ -461,65 +446,85 @@ CONTAINS
  
       CASE(3)  ! improved ice nucleation scheme C. Koehler (note: iqm_max does not change!)
 
-        iqni     = 6     !! cloud ice number
-        iqni_nuc = 7     !! activated ice nuclei  
-        iqt     = iqt + 2
+        iqni     = 6 ; advection_config(:)%tracer_names(iqni)     = 'qni'     !! cloud ice number
+        iqni_nuc = 7 ; advection_config(:)%tracer_names(iqni_nuc) = 'qni_nuc' !! activated ice nuclei  
+        iqt      = iqt + 2
 
         ntracer = ntracer + 2  !! increase total number of tracers by 2
 
       CASE(4)  ! two-moment scheme 
       
-        iqg  = 6
-        iqh  = 7
-        iqni = 8        
-        iqnr = 9        
-        iqns = 10        
-        iqng = 11        
-        iqnh = 12
-        iqnc = 13
-        ininact = 14
+        iqg     = 6  ; advection_config(:)%tracer_names(iqg)     = 'qg'
+        iqh     = 7  ; advection_config(:)%tracer_names(iqh)     = 'qh'
+        iqni    = 8  ; advection_config(:)%tracer_names(iqni)    = 'qni'
+        iqnr    = 9  ; advection_config(:)%tracer_names(iqnr)    = 'qnr'
+        iqns    = 10 ; advection_config(:)%tracer_names(iqns)    = 'qns'
+        iqng    = 11 ; advection_config(:)%tracer_names(iqng)    = 'qng'
+        iqnh    = 12 ; advection_config(:)%tracer_names(iqnh)    = 'qnh'
+        iqnc    = 13 ; advection_config(:)%tracer_names(iqnc)    = 'qnc'
+        ininact = 14 ; advection_config(:)%tracer_names(ininact) = 'ninact'
 
         nqtendphy = 3     !! number of water species for which convective and turbulent tendencies are stored
-        iqm_max   = 7     !! end index of water species mixing ratios
+        iqm_max   = 7     !! end index of water species mass mixing ratios
         iqt       = 15    !! start index of other tracers not related at all to moisture
        
         ntracer = 14
 
-      CASE(5)  ! two-moment scheme with CCN and IN budgets
+      CASE(7)  ! two-moment scheme with additional prognostic liquid water (melting) variables for graupel and hail
       
-        iqg  = 6
-        iqh  = 7
-        iqni = 8        
-        iqnr = 9        
-        iqns = 10        
-        iqng = 11        
-        iqnh = 12
-        iqnc = 13
-        ininact = 14
-        inccn   = 15
-        ininpot = 16
+        iqg     = 6  ; advection_config(:)%tracer_names(iqg)     = 'qg'
+        iqh     = 7  ; advection_config(:)%tracer_names(iqh)     = 'qh'
+        iqgl    = 8  ; advection_config(:)%tracer_names(iqgl)    = 'qgl'
+        iqhl    = 9  ; advection_config(:)%tracer_names(iqhl)    = 'qhl'      
+        iqni    = 10 ; advection_config(:)%tracer_names(iqni)    = 'qni'       
+        iqnr    = 11 ; advection_config(:)%tracer_names(iqnr)    = 'qnr'      
+        iqns    = 12 ; advection_config(:)%tracer_names(iqns)    = 'qns'       
+        iqng    = 13 ; advection_config(:)%tracer_names(iqng)    = 'qng'       
+        iqnh    = 14 ; advection_config(:)%tracer_names(iqnh)    = 'qnh'
+        iqnc    = 15 ; advection_config(:)%tracer_names(iqnc)    = 'qnc'
+        ininact = 16 ; advection_config(:)%tracer_names(ininact) = 'ninact'
 
         nqtendphy = 3     !! number of water species for which convective and turbulent tendencies are stored
-        iqm_max   = 7     !! end index of water species mixing ratios
+        iqm_max   = 9     !! end index of water species mass mixing ratios
+        iqt       = 17    !! start index of other tracers not related at all to moisture
+       
+        ntracer = 16
+
+      CASE(5)  ! two-moment scheme with CCN and IN budgets
+      
+        iqg     = 6  ; advection_config(:)%tracer_names(iqg)     = 'qg'
+        iqh     = 7  ; advection_config(:)%tracer_names(iqh)     = 'qh'
+        iqni    = 8  ; advection_config(:)%tracer_names(iqni)    = 'qni'
+        iqnr    = 9  ; advection_config(:)%tracer_names(iqnr)    = 'qnr'
+        iqns    = 10 ; advection_config(:)%tracer_names(iqns)    = 'qns'
+        iqng    = 11 ; advection_config(:)%tracer_names(iqng)    = 'qng'
+        iqnh    = 12 ; advection_config(:)%tracer_names(iqnh)    = 'qnh'
+        iqnc    = 13 ; advection_config(:)%tracer_names(iqnc)    = 'qnc'
+        ininact = 14 ; advection_config(:)%tracer_names(ininact) = 'ninact'
+        inccn   = 15 ; advection_config(:)%tracer_names(inccn)   = 'nccn'
+        ininpot = 16 ; advection_config(:)%tracer_names(ininpot) = 'ninpot'
+
+        nqtendphy = 3     !! number of water species for which convective and turbulent tendencies are stored
+        iqm_max   = 7     !! end index of water species mass mixing ratios
         iqt       = 17    !! start index of other tracers not related at all to moisture
        
         ntracer = 16
         
       CASE(6)
       
-        iqg  = 6
-        iqh  = 7
-        iqni = 8        
-        iqnr = 9        
-        iqns = 10        
-        iqng = 11        
-        iqnh = 12
-        iqnc = 13
-        ininact = 14
+        iqg     = 6  ; advection_config(:)%tracer_names(iqg)     = 'qg'
+        iqh     = 7  ; advection_config(:)%tracer_names(iqh)     = 'qh'
+        iqni    = 8  ; advection_config(:)%tracer_names(iqni)    = 'qni'
+        iqnr    = 9  ; advection_config(:)%tracer_names(iqnr)    = 'qnr'
+        iqns    = 10 ; advection_config(:)%tracer_names(iqns)    = 'qns'
+        iqng    = 11 ; advection_config(:)%tracer_names(iqng)    = 'qng'
+        iqnh    = 12 ; advection_config(:)%tracer_names(iqnh)    = 'qnh'
+        iqnc    = 13 ; advection_config(:)%tracer_names(iqnc)    = 'qnc'
+        ininact = 14 ; advection_config(:)%tracer_names(ininact) = 'ninact'
         
         nqtendphy = 3     !! number of water species for which convective and turbulent tendencies are stored
-        iqm_max   = 7     !! end index of water species mixing ratios
-        iqt       = 14    !! start index of other tracers not related at all to moisture
+        iqm_max   = 7     !! end index of water species mass mixing ratios
+        iqt       = 15    !! start index of other tracers not related at all to moisture
         
         ntracer = 14
         
@@ -528,7 +533,7 @@ CONTAINS
 
       IF (atm_phy_nwp_config(1)%inwp_turb == iedmf) THEN ! EDMF turbulence
 
-        iqtvar = iqt       !! qt variance
+        iqtvar = iqt ; advection_config(:)%tracer_names(iqtvar) = 'qtvar' !! qt variance
         iqt    = iqt + 1   !! start index of other tracers than hydrometeors
 
         ntracer = ntracer + 1  !! increase total number of tracers by 1
@@ -543,8 +548,8 @@ CONTAINS
       ENDIF
 
       IF ( (advection_config(1)%iadv_tke) > 0 ) THEN
-        IF ( atm_phy_nwp_config(1)%inwp_turb == icosmo ) THEN
-          iqtke = iqt        !! TKE
+        IF ( ANY( (/icosmo,iprog/) == atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
+          iqtke = iqt ; advection_config(:)%tracer_names(iqtke) = 'tke_mc' !! TKE
  
           ! Note that iqt is not increased, since TKE does not belong to the hydrometeor group.
 
@@ -556,6 +561,7 @@ CONTAINS
         ELSE
           WRITE(message_text,'(a,i2)') 'TKE advection not supported for inwp_turb= ', &
             &                          atm_phy_nwp_config(1)%inwp_turb
+
           CALL finish(routine, message_text )
         ENDIF
       ENDIF
@@ -568,17 +574,6 @@ CONTAINS
       CALL message(routine,message_text)
 
 
-      IF (lart) THEN
-        
-        ntracer = ntracer + art_config(1)%iart_ntracer
-        
-        WRITE(message_text,'(a,i3,a,i3)') 'Attention: transport of ART tracers is active, '//&
-                                     'ntracer is increased by ',art_config(1)%iart_ntracer, &
-                                     ' to ',ntracer
-        CALL message(routine,message_text)
-
-      ENDIF
-
       ! set the nclass_gscp variable for land-surface scheme to number of hydrometeor mixing ratios
       DO jg = 1, n_dom
         atm_phy_nwp_config(jg)%nclass_gscp = iqm_max
@@ -586,18 +581,36 @@ CONTAINS
 
     CASE default ! iforcing
 
-        iqv    = 1     !> water vapour
-        iqc    = 2     !! cloud water
-        iqi    = 3     !! ice
-        iqr    = 0     !! 0: no rain water
-        iqs    = 0     !! 0: no snow
-        ico2   = 4     !! CO2
-        iqm_max= 3     !! end index of water species mixing ratios
-        iqt    = 4     !! starting index of non-water species
-        nqtendphy = 0  !! number of water species for which convective and turbulent
-                       !! tendencies are stored
+      ! set indices for iqv, iqc and iqi dependent on the number of specified tracers
+      !
+      iqm_max = 0  ! end index of water species mixing ratios
+      !
+      iqv = MERGE(1,0,ntracer>=1) ; IF (iqv/=0) iqm_max=1
+      iqc = MERGE(2,0,ntracer>=2) ; IF (iqc/=0) iqm_max=2
+      iqi = MERGE(3,0,ntracer>=3) ; IF (iqi/=0) iqm_max=3
+      !
+      iqt = iqm_max+1 ! starting index of non-water species
 
     END SELECT ! iforcing
+
+    IF (lart) THEN
+      ! determine number of ART-tracers (by reading given XML-Files)
+      ! * art_config(1)%iart_ntracer
+      CALL art_calc_ntracer_and_names()
+
+      IF(art_config(1)%iart_ntracer > 0) THEN
+        advection_config(1)%tracer_names(ntracer+1:ntracer+art_config(1)%iart_ntracer) =       &
+          &   ctracer_art(ntracer+1:)
+      END IF
+      ntracer = ntracer + art_config(1)%iart_ntracer
+      
+      WRITE(message_text,'(a,i3,a,i3)') 'Attention: transport of ART tracers is active, '//&
+                                   'ntracer is increased by ',art_config(1)%iart_ntracer, &
+                                   ' to ',ntracer
+
+      CALL message(routine,message_text)
+
+    ENDIF
 
     ! take into account additional passive tracers, if present
     ! no need to update iqt, since passive tracers do not belong to the hydrometeor group.
@@ -667,21 +680,14 @@ CONTAINS
         CALL finish( routine,message_text)
       END IF
 
-    CASE (IHS_ATM_TEMP,IHS_ATM_THETA,ISHALLOW_WATER)
+    CASE default
 
-      IF ( (ha_dyn_config%itime_scheme==tracer_only).AND. &
-           (.NOT.ltransport)) THEN
-        WRITE(message_text,'(A,i2,A)') &
-          'ha_dyn_nml:itime_scheme set to ', tracer_only, &
-          '(TRACER_ONLY), but ltransport to .FALSE.'
-        CALL finish( routine,message_text)
-      END IF
-
+      CALL finish(routine, 'iequations /= INH_ATMOSPHERE no longer supported')
     END SELECT
+
 
     IF (ltransport) THEN
     DO jg = 1,n_dom
-
 
       !----------------------------------------------
       ! Flux computation methods - consistency check
@@ -715,21 +721,15 @@ CONTAINS
       CASE(2,3,4,5)
         CONTINUE
 
-      CASE(24,42)
-        IF (.NOT.( iequations==IHS_ATM_TEMP)) CALL finish(routine, &
-        ' hdiff_order = 24 or 42 only implemented for the hydrostatic atm model')
-
       CASE DEFAULT
         CALL finish(routine,                       &
           & 'Error: Invalid choice for  hdiff_order. '// &
-          & 'Choose from -1, 2, 3, 4, 5, 24, and 42.')
+          & 'Choose from -1, 2, 3, 4, and 5.')
       END SELECT
 
       IF ( diffusion_config(jg)%hdiff_efdt_ratio<=0._wp) THEN
         CALL message(routine,'No horizontal background diffusion is used')
       ENDIF
-
-      IF (lshallow_water)  diffusion_config(jg)%lhdiff_temp=.FALSE.
 
       IF (itype_comm == 3 .AND. diffusion_config(jg)%hdiff_order /= 5)  &
         CALL finish(routine, 'itype_comm=3 requires hdiff_order = 5')
@@ -755,31 +755,45 @@ CONTAINS
        CALL message(routine,'NetCDF output of floating point variables will be in 32-bit accuracy')
     END IF
 
-    SELECT CASE(iforcing)
-    CASE ( iecham, ildf_echam )
-      inextra_2d   = 0
-      inextra_3d   = 0
-
-    CASE DEFAULT
-    END SELECT
-
-
     IF (activate_sync_timers .AND. .NOT. ltimer) THEN
       activate_sync_timers = .FALSE.
-      WRITE (message_text,*) &
-        & "warning: namelist parameter 'activate_sync_timers' has been set to .FALSE., ", &
-        & "because global 'ltimer' flag is disabled."
-      CALL message(routine, message_text)
+      CALL message(routine, "namelist parameter 'activate_sync_timers' has &
+        &been set to .FALSE., because global 'ltimer' flag is disabled.", &
+        level=em_info)
     END IF
     IF (timers_level > 9 .AND. .NOT. activate_sync_timers) THEN
       activate_sync_timers = .TRUE.
-      WRITE (message_text,*) &
-        & "warning: namelist parameter 'activate_sync_timers' has been set to .TRUE., ", &
-        & "because global 'timers_level' is > 9."
-      CALL message(routine, message_text)
+      CALL message(routine, "namelist parameter 'activate_sync_timers' has &
+        &been set to .TRUE., because global 'timers_level' is > 9.", &
+        level=em_info)
     END IF
 
-
+    DO jg =1,n_dom
+      echotop_meta(jg)%nechotop = 0
+      DO i=1, max_echotop
+        IF (echotop_meta(jg)%dbzthresh(i) >= -900.0_wp) THEN
+          echotop_meta(jg)%nechotop = echotop_meta(jg)%nechotop + 1
+        END IF
+      END DO
+      IF ( is_variable_in_output_dom(var_name="echotop" , jg=jg) .AND. &
+           echotop_meta(jg)%nechotop == 0 ) THEN
+        WRITE (message_text, '(a,i2,a,i2.2,a)') 'output of "echotop" in ml_varlist on domain ', jg, &
+             ' not possible due to invalid echotop_meta(', jg, ')%dbzthresh specification'
+        CALL finish(routine, message_text)
+      END IF
+      IF ( is_variable_in_output_dom(var_name="echotopinm" , jg=jg) .AND. &
+           echotop_meta(jg)%nechotop == 0 ) THEN
+        WRITE (message_text, '(a,i2,a,i2.2,a)') 'output of "echotopinm" in ml_varlist on domain ', jg, &
+             ' not possible due to invalid echotop_meta(', jg, ')%dbzthresh specification'
+        CALL finish(routine, message_text)
+      END IF
+      IF (echotop_meta(jg)%time_interval < 0.0_wp) THEN
+        WRITE (message_text, '(a,i2.2,a,f0.1,a)') 'invalid echotop_meta(', jg, &
+             ')%time_interval = ', echotop_meta(jg)%time_interval, ' [seconds] given in namelist /io_nml/. Must be >= 0.0!'
+        CALL finish(routine, message_text)
+      END IF
+    END DO
+    
     !--------------------------------------------------------------------
     ! Realcase runs
     !--------------------------------------------------------------------
@@ -796,25 +810,35 @@ CONTAINS
         CALL finish('initicon_nml:', message_text)
       ENDIF 
 
-      reference_dt => newDatetime("1980-06-01T00:00:00.000")
+      IF (.NOT. isRestart()) THEN
+        reference_dt => newDatetime("1980-06-01T00:00:00.000")
 
-      IF (dt_checkpoint > 0._wp) THEN
-        restart_time = MIN(dt_checkpoint, &
-          &                0.001_wp * getTotalMilliSecondsTimeDelta(time_config%tc_dt_restart, reference_dt))
-      ELSE
-        restart_time = 0.001_wp * getTotalMilliSecondsTimeDelta(time_config%tc_dt_restart, reference_dt)
-      ENDIF
+        msecs_restart   = getTotalMilliSecondsTimeDelta(time_config%tc_dt_restart, reference_dt)
+        secs_restart    = 0.001_wp * REAL(msecs_restart,wp)
+        secs_checkpoint = dt_checkpoint
+        secs_iau_end    = dt_iau+timeshift%dt_shift
+        ! ignore restart and/or checkpoint intervals if zero:
+        IF (secs_restart    <= 0._wp)  secs_restart    = secs_iau_end
+        IF (secs_checkpoint <= 0._wp)  secs_checkpoint = secs_restart
+        IF (MIN(secs_checkpoint, secs_restart) < secs_iau_end) THEN
+          CALL finish('atm_crosscheck:', "Restarting is not allowed within the IAU phase")
+        ENDIF
 
-      CALL deallocateDatetime(reference_dt)
-      IF (.NOT. isRestart() .AND. (restart_time <= dt_iau+timeshift%dt_shift)) THEN
-        WRITE (message_text,'(a)') "Restarting is not allowed within the IAU phase"
-        CALL finish('atm_crosscheck:', message_text)
+        CALL deallocateDatetime(reference_dt)
+
+        IF (l_limited_area) THEN
+          ! For a negative IAU shift, no extra boundary file can be read. So it has to be taken
+          ! from the first guess file.
+          IF (timeshift%dt_shift < 0._wp .AND. .NOT. latbc_config%init_latbc_from_fg) THEN
+            CALL finish('atm_crosscheck:', "For dt_shift<0, latbc has &
+              &to be taken from first guess (init_latbc_from_fg)")
+          ENDIF
+        ENDIF
       ENDIF
 
       DO jg = 2, n_dom
         IF (start_time(jg) > timeshift%dt_shift .AND. start_time(jg) < dt_iau+timeshift%dt_shift) THEN
-          WRITE (message_text,'(a)') "Starting a nest is not allowed within the IAU phase"
-          CALL finish('atm_crosscheck:', message_text)
+          CALL finish('atm_crosscheck:', "Starting a nest is not allowed within the IAU phase")
         ENDIF
       ENDDO
 
@@ -829,13 +853,41 @@ CONTAINS
 
     ENDIF
 
-
     ! check meteogram configuration
+    IF (ANY(meteogram_output_config(:)%lenabled) .AND. .NOT. output_mode%l_nml) THEN
+      CALL finish(routine, "Meteograms work only for run_nml::output='nml'!")
+    END IF
     CALL check_meteogram_configuration(num_io_procs)
 
     IF (iforcing==iecham) CALL land_crosscheck()
 
     CALL art_crosscheck()
+
+    CALL check_nudging( n_dom, iequations, iforcing, ivctype, top_height,                &
+      &                 l_limited_area, num_prefetch_proc, latbc_config%lsparse_latbc,   &
+      &                 latbc_config%itype_latbc, latbc_config%nudge_hydro_pres,         &
+      &                 latbc_config%latbc_varnames_map_file, LATBC_TYPE_CONST,          & 
+      &                 LATBC_TYPE_EXT, is_plane_torus, lart, ndyn_substeps, ltransport, &
+      &                 nsteps, msg_level                                                )
+
+    CALL check_upatmo( n_dom_start, n_dom, iequations, iforcing, ldeepatmo,               &
+      &                atm_phy_nwp_config(:)%lupatmo_phy, is_plane_torus, l_limited_area, &
+      &                lart, ivctype, flat_height, itype_vert_expol, ltestcase,           &
+      &                nh_test_name, init_mode, atm_phy_nwp_config(:)%inwp_turb,          &
+      &                atm_phy_nwp_config(:)%inwp_radiation)
+
+
+    ! ********************************************************************************
+    ! [RADAROP]
+    ! ********************************************************************************
+    !
+    ! Enter "cross checks" for namelist parameters here:
+    ! *  RadarOp may be switched on only if nonhydro and inwp enabled.
+    ! *  RadarOp may be switched on only if preprocessor flag enabled (see below).
+    ! 
+    ! ********************************************************************************
+
+    CALL emvorado_crosscheck()
 
   END  SUBROUTINE atm_crosscheck
   !---------------------------------------------------------------------------------------
@@ -867,8 +919,7 @@ CONTAINS
   !---------------------------------------------------------------------------------------
   SUBROUTINE art_crosscheck
   
-    CHARACTER(len=*), PARAMETER :: &
-      &  routine =  modname//'::art_crosscheck'
+    CHARACTER(len=*), PARAMETER :: routine =  modname//'::art_crosscheck'
 #ifdef __ICON_ART
     INTEGER  :: &
       &  jg
@@ -905,21 +956,51 @@ CONTAINS
       ENDIF
     ENDDO
     
-    ! XML specification checks
-    
-    DO jg= 1,n_dom
-      IF(art_config(jg)%lart_aerosol .AND. art_config(jg%cart_aerosol_xml)=='') THEN
-        CALL finish(routine,'lart_aerosol=.TRUE. but no cart_aerosol_xml specified')
-      ENDIF
-      IF(art_config(jg)%lart_chem .AND. art_config(jg%cart_chemistry_xml)=='') THEN
-        CALL finish(routine,'lart_chem=.TRUE. but no cart_chemistry_xml specified')
-      ENDIF
-      IF(art_config(jg)%lart_passive .AND. art_config(jg%cart_passive_xml)=='') THEN
-        CALL finish(routine,'lart_passive=.TRUE. but no cart_passive_xml specified')
-      ENDIF
-    ENDDO
-    
 #endif
   END SUBROUTINE art_crosscheck
   !---------------------------------------------------------------------------------------
+
+  !---------------------------------------------------------------------------------------
+  SUBROUTINE emvorado_crosscheck
+    CHARACTER(len=*), PARAMETER :: routine =  'mo_nml_crosscheck:emvorado_crosscheck'
+
+    INTEGER  :: jg, ndoms_radaractive
+    CHARACTER(len=255) :: errstring
+    
+#ifndef HAVE_RADARFWO
+    IF ( ANY(luse_radarfwo) ) THEN
+        CALL finish( routine,'run_nml: luse_radarfwo is set .TRUE. in some domains but ICON was compiled without -DHAVE_RADARFWO')
+    ENDIF
+#endif
+    
+    ndoms_radaractive = 0
+    DO jg = 1, n_dom
+      IF (luse_radarfwo(jg)) ndoms_radaractive = ndoms_radaractive + 1 
+    END DO
+#ifdef HAVE_RADARFWO
+    IF ( ndoms_radaractive > ndoms_max_radar ) THEN
+      errstring(:) = ' '
+      WRITE (errstring, '(a,i3,a,i2,a)') 'luse_radarfwo is enabled (.true.) for ', ndoms_radaractive, &
+           ' ICON domains, but EMVORADO supports max. ', ndoms_max_radar, &
+           ' domains. You may increase  parameter ''ndoms_max'' in radar_data.f90.'
+      CALL finish(routine, 'run_nml: '//TRIM(errstring))
+    END IF
+#endif
+
+    IF ( num_io_procs_radar > 0 .AND. .NOT.ANY(luse_radarfwo) ) THEN
+      CALL message(routine, 'Setting num_io_procs_radar = 0 because luse_radarfwo(:) = .FALSE.')
+      num_io_procs_radar = 0
+    END IF
+
+    IF ( (iforcing /= INWP .OR. iequations /= INH_ATMOSPHERE) .AND. ANY(luse_radarfwo) ) THEN
+      errstring(:) = ' '
+      WRITE (errstring, '(a,i2,a,i2)') 'luse_radarfwo = .true. is only possible for NWP physics iforcing = ', INWP, &
+           ' and non-hydrostatic equations iequations = ', INH_ATMOSPHERE
+      CALL finish(routine, 'run_nml: '//TRIM(errstring))
+    END IF
+
+  END SUBROUTINE emvorado_crosscheck
+
+
+
 END MODULE mo_nml_crosscheck

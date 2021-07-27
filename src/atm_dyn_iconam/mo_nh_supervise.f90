@@ -32,7 +32,7 @@ MODULE mo_nh_supervise
   USE mo_run_config,          ONLY: dtime, msg_level, output_mode,           &
     &                               ltransport, ntracer, lforcing, iforcing, &
     &                               iqm_max
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, inwp, iecham, &
+  USE mo_impl_constants,      ONLY: SUCCESS, inwp, iecham, &
     &                               min_rlcell_int, min_rledge_int, iheldsuarez
   USE mo_physical_constants,  ONLY: cvd
   USE mo_mpi,                 ONLY: my_process_is_stdio, get_my_mpi_all_id, &
@@ -42,8 +42,10 @@ MODULE mo_nh_supervise
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
 #ifdef _OPENACC
-  USE mo_mpi,                 ONLY: i_am_accel_node
+  USE mo_mpi,                   ONLY: i_am_accel_node
+  USE mo_acc_device_management, ONLY: printGPUMem
 #endif
+  USE mo_upatmo_impl_const,   ONLY: idamtr
 
   IMPLICIT NONE
 
@@ -75,6 +77,7 @@ MODULE mo_nh_supervise
 #else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
 #endif
+  LOGICAL, PARAMETER ::  acc_validate = .FALSE.     !  THIS SHOULD BE .FALSE. AFTER VALIDATION PHASE!
 #endif
 
 CONTAINS
@@ -93,11 +96,11 @@ CONTAINS
     !     This requires namelist setting 'run_nml::output = "maxwinds"'
     IF (output_mode%l_maxwinds .AND. my_process_is_stdio()) THEN
       maxwinds_funit = find_next_free_unit(100,1000)
-      CALL message(routine,"Open log file "//TRIM(maxwinds_filename)//" for writing.")
-      OPEN(UNIT=maxwinds_funit, FILE=TRIM(maxwinds_filename), ACTION="write", &
+      CALL message(routine,"Open log file "//maxwinds_filename//" for writing.")
+      OPEN(UNIT=maxwinds_funit, FILE=maxwinds_filename, ACTION="write", &
         &  FORM='FORMATTED', IOSTAT=istat)
       IF (istat/=SUCCESS) &
-        &  CALL finish(routine,'could not open '//TRIM(maxwinds_filename))
+        &  CALL finish(routine, 'could not open '//maxwinds_filename)
     END IF
   END SUBROUTINE init_supervise_nh
 
@@ -116,7 +119,7 @@ CONTAINS
     IF (output_mode%l_maxwinds .AND. my_process_is_stdio()) THEN
       CLOSE(maxwinds_funit, IOSTAT=istat)
       IF (istat/=SUCCESS) &
-        &  CALL finish(routine,'could not open '//TRIM(maxwinds_filename))
+        &  CALL finish(routine,'could not close '//maxwinds_filename)
     END IF
   END SUBROUTINE finalize_supervise_nh
   
@@ -191,6 +194,9 @@ CONTAINS
 
     REAL(wp) :: max_vn, max_w
     INTEGER  :: max_vn_level, max_vn_process, max_w_level, max_w_process
+
+    ! (upper-atmosphere-/deep-atmosphere-related variables)
+    REAL(wp), DIMENSION(:), POINTER :: deepatmo_vol
     !-----------------------------------------------------------------------------
 
     ! Hack [ha]:
@@ -228,6 +234,9 @@ CONTAINS
 
     nblks_c   = patch(jg)%nblks_c
     npromz_c  = patch(jg)%npromz_c
+
+    ! (deep atmosphere: metrical modification factor for height-dependence of cell volume)
+    deepatmo_vol => nh_state(jg)%metrics%deepatmo_t1mc(:,idamtr%t1mc%vol)    
 
     ! number of vertical levels
     nlev = patch(jg)%nlev
@@ -284,8 +293,9 @@ CONTAINS
       ENDIF
       DO jk = 1, nlev
         DO jc = 1, nlen
+          ! (deep-atmosphere modification applied)
           z_help = patch(jg)%cells%area(jc,jb)*nh_state(jg)%metrics%ddqz_z_full(jc,jk,jb) &
-            &       /patch(jg)%n_patch_cells_g
+            &       /patch(jg)%n_patch_cells_g*deepatmo_vol(jk)
           z_total_mass = z_total_mass + &
             &              prog%rho(jc,jk,jb)*z_help
           z_kin_energy = z_kin_energy + &
@@ -320,9 +330,10 @@ CONTAINS
       z5(1:nlen,jb) = 0.0_wp
       z6(1:nlen,jb) = 0.0_wp
       DO jk = 1,nlev
+        ! (deep-atmosphere modification applied)
         z0(1:nlen) = patch(jg)%cells%area(1:nlen,jb)      &
           & *nh_state(jg)%metrics%ddqz_z_full(1:nlen,jk,jb) &
-          & /REAL(patch(jg)%n_patch_cells_g,wp)
+          & /REAL(patch(jg)%n_patch_cells_g,wp)*deepatmo_vol(jk)
         z1(1:nlen,jb) = z1(1:nlen,jb)&
           & +prog%rho(1:nlen,jk,jb)*z0(1:nlen)
         z2(1:nlen,jb) = z2(1:nlen,jb)&
@@ -397,9 +408,10 @@ CONTAINS
           ! compute tracer mass in each vertical column
           DO jk = 1, nlev
             DO jc = 1, nlen
+              ! (deep-atmosphere modification applied)
               z_help = patch(jg)%cells%area(jc,jb)             &
                 &    * nh_state(jg)%metrics%ddqz_z_full(jc,jk,jb) &
-                &    * prog%rho(jc,jk,jb)
+                &    * prog%rho(jc,jk,jb) * deepatmo_vol(jk)
 
               z_aux_tracer(jc,jb,jt) = z_aux_tracer(jc,jb,jt)    &
                 &    + prog_rcf%tracer(jc,jk,jb,jt) * z_help
@@ -493,19 +505,20 @@ CONTAINS
       ENDIF
     ENDIF
 
+    deepatmo_vol => NULL()
+
   END SUBROUTINE supervise_total_integrals_nh
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   SUBROUTINE open_total_integral_files( )
 
-    CHARACTER (len=MAX_CHAR_LENGTH) :: file_ti    ! file name
     INTEGER :: istat
 
-    file_ti   = 'total_integrals.dat'
     n_file_ti = find_next_free_unit(100,1000)
     ! write(0,*) "n_file_ti", n_file_ti
-    OPEN(UNIT=n_file_ti,FILE=TRIM(file_ti),ACTION="write", FORM='FORMATTED',IOSTAT=istat)
+    OPEN(UNIT=n_file_ti,FILE='total_integrals.dat',ACTION="write", &
+         FORM='FORMATTED',IOSTAT=istat)
     IF (istat/=SUCCESS) THEN
       CALL finish('supervise_total_integrals_nh','could not open total_integrals.dat')
     ENDIF
@@ -533,9 +546,9 @@ CONTAINS
       !!$       ENDIF
 
 
-      file_ti   = 'tracer_total_integrals.dat'
       n_file_tti = find_next_free_unit(100,1000)
-      OPEN(UNIT=n_file_tti,FILE=TRIM(file_ti),ACTION="write",FORM='FORMATTED',IOSTAT=istat)
+      OPEN(UNIT=n_file_tti,FILE='tracer_total_integrals.dat',ACTION="write", &
+           FORM='FORMATTED',IOSTAT=istat)
       IF (istat/=SUCCESS) THEN
         CALL finish('supervise_total_integrals_nh','could not open tracer_total_integrals.dat')
       ENDIF
@@ -548,9 +561,9 @@ CONTAINS
         ' RELATIVE ERROR to step 1 (TRACER)'
     ENDIF
 
-    file_ti   = 'check_global_quantities.dat'
     check_total_quant_fileid = find_next_free_unit(100,1000)
-    OPEN(UNIT=check_total_quant_fileid,FILE=TRIM(file_ti),ACTION="write",FORM='FORMATTED',IOSTAT=istat)
+    OPEN(UNIT=check_total_quant_fileid,FILE='check_global_quantities.dat', &
+      ACTION="write",FORM='FORMATTED',IOSTAT=istat)
     IF (istat/=SUCCESS) THEN
       CALL finish('supervise_total_integrals_nh','could not open check_global_quantities.dat')
     ENDIF
@@ -595,6 +608,9 @@ CONTAINS
         WRITE(message_text,'(a,i3,a,2(e18.10,a,i5,a,i3,a))') 'MAXABS VN, W in domain', patch%id, ':', &
           & max_vn, " (on proc #", max_vn_process, ", level ", max_vn_level, "), ", &
           & max_w,  " (on proc #", max_w_process,  ", level ", max_w_level,  "), "
+#ifdef _OPENACC
+        CALL printGPUMem("GPU mem usage")
+#endif
       ELSE
         WRITE(message_text,'(a,i3,a,2(e18.10,a,i3,a))') 'MAXABS VN, W in domain', patch%id, ':', &
           & max_vn, " at level ",  max_vn_level, ", ", &
@@ -641,11 +657,11 @@ CONTAINS
     ! local variables
     REAL(wp) :: vn_aux(patch%edges%end_blk(min_rledge_int,MAX(1,patch%n_childdom)),patch%nlev)
     REAL(wp) :: w_aux (patch%cells%end_blk(min_rlcell_int,MAX(1,patch%n_childdom)),patch%nlevp1)
-    REAL(wp) :: vn_aux_lev(patch%nlev), w_aux_lev(patch%nlevp1), vmax(2)
+    REAL(wp) :: vn_aux_lev(patch%nlev), w_aux_lev(patch%nlevp1), vmax(2), vn_aux_tmp, w_aux_tmp
 
     INTEGER  :: i_nchdom, istartblk_c, istartblk_e, iendblk_c, iendblk_e, i_startidx, i_endidx
     INTEGER  :: jb, jk, jg
-#ifdef __INTEL_COMPILER
+#if defined( __INTEL_COMPILER ) || defined( _OPENACC ) || defined (__SX__)
     INTEGER  :: jec
 #endif
     INTEGER  :: proc_id(2), keyval(2)
@@ -658,9 +674,10 @@ CONTAINS
     iendblk_e   = patch%edges%end_blk(min_rledge_int,i_nchdom)
     jg          = patch%id
 
-!$ACC DATA CREATE( vn_aux, w_aux ),  &
-!$ACC      COPY( vn_aux_lev, w_aux_lev ),                            &
+!$ACC DATA PRESENT( vn, w ) COPYOUT( vn_aux, w_aux ) &
 !$ACC      IF ( i_am_accel_node .AND. acc_on )
+
+!$ACC UPDATE DEVICE ( vn, w ) IF ( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
     IF (jg > 1 .OR. l_limited_area) THEN
 !$ACC KERNELS PRESENT( vn_aux, w_aux ), IF ( i_am_accel_node .AND. acc_on )
@@ -669,88 +686,102 @@ CONTAINS
 !$ACC END KERNELS
     ENDIF
 
-#ifdef _OPENACC
-!$ACC PARALLEL PRESENT( patch, vn, vn_aux ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP PARALLEL
-#ifdef __INTEL_COMPILER
-!$OMP DO PRIVATE(jk, jec, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+#if defined( __INTEL_COMPILER ) || defined (__SX__)
+!$OMP DO PRIVATE(jb, jk, jec, i_startidx, i_endidx, vn_aux_tmp) ICON_OMP_DEFAULT_SCHEDULE
 #else
 !$OMP DO PRIVATE(jb, jk, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-#endif
 #endif
     DO jb = istartblk_e, iendblk_e
 
       CALL get_indices_e(patch, jb, istartblk_e, iendblk_e, i_startidx, i_endidx, &
                          grf_bdywidth_e+1, min_rledge_int)
 
-!$ACC LOOP VECTOR
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG PRIVATE( vn_aux_tmp )
+!$NEC novector
       DO jk = 1, patch%nlev
-#ifdef __INTEL_COMPILER
-        vn_aux(jb,jk) = 0._wp
+#if defined( __INTEL_COMPILER ) || defined( _OPENACC ) || defined (__SX__)
+        vn_aux_tmp = 0._wp
+        !$ACC LOOP VECTOR REDUCTION(max:vn_aux_tmp)
         DO jec = i_startidx,i_endidx
-          vn_aux(jb,jk) = MAX(vn_aux(jb,jk), -vn(jec,jk,jb), vn(jec,jk,jb))
+          vn_aux_tmp = MAX(vn_aux_tmp, -vn(jec,jk,jb), vn(jec,jk,jb))
         ENDDO
+        vn_aux(jb,jk) = vn_aux_tmp
 #else
         vn_aux(jb,jk) = MAXVAL(ABS(vn(i_startidx:i_endidx,jk,jb)))
 #endif
       ENDDO
-    END DO
-#ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC PARALLEL PRESENT( patch, w, w_aux ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
+    END DO
 !$OMP END DO
-#ifdef __INTEL_COMPILER
-!$OMP DO PRIVATE(jk, jec, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+
+#if defined( __INTEL_COMPILER ) || defined (__SX__)
+!$OMP DO PRIVATE(jb, jk, jec, i_startidx, i_endidx, w_aux_tmp) ICON_OMP_DEFAULT_SCHEDULE
 #else
 !$OMP DO PRIVATE(jb, jk, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-#endif
 #endif
     DO jb = istartblk_c, iendblk_c
 
       CALL get_indices_c(patch, jb, istartblk_c, iendblk_c, i_startidx, i_endidx, &
                          grf_bdywidth_c+1, min_rlcell_int)
 
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG PRIVATE( w_aux_tmp )
+!$NEC novector
       DO jk = 1, patch%nlevp1
-#ifdef __INTEL_COMPILER
-        w_aux(jb,jk) = 0._wp
+#if defined( __INTEL_COMPILER ) || defined( _OPENACC ) || defined (__SX__)
+        w_aux_tmp = 0._wp
+        !$ACC LOOP VECTOR REDUCTION(max:w_aux_tmp)
         DO jec = i_startidx,i_endidx
-          w_aux(jb,jk) = MAX(w_aux(jb,jk), -w(jec,jk,jb), w(jec,jk,jb))
+          w_aux_tmp = MAX(w_aux_tmp, -w(jec,jk,jb), w(jec,jk,jb))
         ENDDO
+        w_aux(jb,jk) = w_aux_tmp
 #else
         w_aux(jb,jk) = MAXVAL(ABS(w(i_startidx:i_endidx,jk,jb)))
 #endif
       ENDDO
-    END DO
-#ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC PARALLEL PRESENT( vn_aux, w_aux, vn_aux_lev, w_aux_lev), IF ( i_am_accel_node .AND. acc_on )
-!$ACC LOOP
-#else
+    END DO
 !$OMP END DO
+
+!$ACC END DATA
+
+! At this point vn_aux and w_aux reside on the host.  
+! Avoid doing MAXVAL with OpenACC -- this is not well supported!
+#ifndef __SX__
 !$OMP DO PRIVATE(jk) ICON_OMP_DEFAULT_SCHEDULE
-#endif
+
     DO jk = 1, patch%nlev
       vn_aux_lev(jk) = MAXVAL(vn_aux(:,jk))
       w_aux_lev (jk) = MAXVAL(w_aux(:,jk))
     END DO
 
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
 !$OMP END DO
-!$OMP END PARALLEL
+#else
+    vn_aux_lev = 0._wp
+    w_aux_lev  = 0._wp
+!$OMP DO PRIVATE(jb,jk) REDUCTION(max:vn_aux_lev) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = istartblk_e, iendblk_e
+      DO jk = 1, patch%nlev
+        vn_aux_lev(jk) = MAX(vn_aux_lev(jk),vn_aux(jb,jk))
+      ENDDO
+    ENDDO
+!$OMP END DO
+!$OMP DO PRIVATE(jb,jk) REDUCTION(max:w_aux_lev) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = istartblk_c, iendblk_c
+      DO jk = 1, patch%nlev
+        w_aux_lev(jk) = MAX(w_aux_lev(jk),w_aux(jb,jk))
+      ENDDO
+    ENDDO
+!$OMP END DO
 #endif
+
+!$OMP END PARALLEL
 
     ! Add surface level for w
     jk = patch%nlevp1
-!$ACC KERNELS PRESENT( w_aux, w_aux_lev ), IF ( i_am_accel_node .AND. acc_on )
     w_aux_lev (jk) = MAXVAL(w_aux(:,jk))
-!$ACC END KERNELS
-!$ACC END DATA
 
     !--- Get max over all PEs
     vmax(1)   = MAXVAL(vn_aux_lev(:))
@@ -759,6 +790,7 @@ CONTAINS
     keyval(2) = MAXLOC(w_aux_lev(:),1)
 
     proc_id(:) = get_my_mpi_all_id()
+
     vmax       = global_max(vmax, proc_id=proc_id, keyval=keyval, iroot=process_mpi_stdio_id)
 
     max_vn         = vmax(1)
@@ -783,11 +815,13 @@ CONTAINS
   !! @par Revision History
   !! Moved here from the physics interfaces by Daniel Reinert, DWD (2017-09-19)
   !!
-  SUBROUTINE compute_dpsdt (pt_patch, dt, pt_diag)
+  SUBROUTINE compute_dpsdt (pt_patch, dt, pt_diag, opt_dpsdt_avg, linit)
 
-    TYPE(t_patch),       INTENT(IN)    :: pt_patch     !< grid/patch info
-    REAL(wp),            INTENT(IN)    :: dt           !< time step [s]
-    TYPE(t_nh_diag),     INTENT(INOUT) :: pt_diag      !< the diagnostic variables
+    TYPE(t_patch),       INTENT(IN)    :: pt_patch      !< grid/patch info
+    REAL(wp),            INTENT(IN)    :: dt            !< time step [s]
+    TYPE(t_nh_diag),     INTENT(INOUT) :: pt_diag       !< the diagnostic variables
+    REAL(wp), OPTIONAL,  INTENT(OUT)   :: opt_dpsdt_avg !< mean |dPS/dt|
+    LOGICAL,  OPTIONAL,  INTENT(IN)    :: linit         !< Initialization flag (no OpenACC for linit==.TRUE.)
 
     ! local
     INTEGER :: jc, jb                         !< loop indices
@@ -799,7 +833,14 @@ CONTAINS
     INTEGER  :: npoints_blk(pt_patch%nblks_c)
     REAL(wp) :: dpsdt_avg                     !< spatial average of ABS(dpsdt)
     INTEGER  :: npoints
+    LOGICAL  :: l_opt_dpsdt_avg, lacc
   !-------------------------------------------------------------------------
+
+    IF (PRESENT(linit)) THEN
+      lacc = .NOT. linit
+   ELSE
+      lacc = .FALSE.
+   END IF
 
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
@@ -809,10 +850,19 @@ CONTAINS
 
     ! Initialize fields for runtime diagnostics
     ! In case that average ABS(dpsdt) is diagnosed
+    !$acc data create (dps_blk, npoints_blk) if(lacc)
+    !$acc kernels if(lacc)
     IF (msg_level >= 11) THEN
       dps_blk(:)     = 0._wp
       npoints_blk(:) = 0
     ENDIF
+    !$acc end kernels
+
+    l_opt_dpsdt_avg = PRESENT(opt_dpsdt_avg)
+    ! Please note: only the stdio-process will return with a reasonable value 
+    ! for opt_dpsdt_avg from this subroutine!
+    ! So, if required, you have to broadcast opt_dpsdt_avg yourself afterwards!
+    IF (l_opt_dpsdt_avg) opt_dpsdt_avg = -999._wp ! (means missing value; reasonable values should be >0)
 
 
 
@@ -823,10 +873,13 @@ CONTAINS
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
 
+      !$acc parallel default (present) if(lacc)
+      !$acc loop private(jc)
       DO jc = i_startidx, i_endidx
         pt_diag%ddt_pres_sfc(jc,jb) = (pt_diag%pres_sfc(jc,jb)-pt_diag%pres_sfc_old(jc,jb))/dt
         pt_diag%pres_sfc_old(jc,jb) = pt_diag%pres_sfc(jc,jb)
       ENDDO
+      !$acc end parallel
     ENDDO
 !$OMP END DO
 
@@ -840,12 +893,18 @@ CONTAINS
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
                            i_startidx, i_endidx, rl_start, rl_end)
 
+        !$acc parallel default (present) if(lacc)
+        !$acc loop seq
         DO jc = i_startidx, i_endidx
           dps_blk(jb) = dps_blk(jb) + ABS(pt_diag%ddt_pres_sfc(jc,jb))
           npoints_blk(jb) = npoints_blk(jb) + 1
         ENDDO
+        !$acc end parallel
       ENDDO
 !$OMP END DO
+
+
+!$ACC UPDATE HOST(dps_blk, npoints_blk) IF(lacc)
 
 !$OMP MASTER
       dpsdt_avg = SUM(dps_blk)
@@ -857,12 +916,14 @@ CONTAINS
         ! Exclude initial time step where pres_sfc_old is zero
         IF (dpsdt_avg < 10000._wp/dt) THEN
           WRITE(message_text,'(a,f12.6,a,i3)') 'average |dPS/dt| =',dpsdt_avg,' Pa/s in domain',pt_patch%id
-          CALL message('nwp_nh_interface: ', TRIM(message_text))
+          CALL message('nwp_nh_interface: ', message_text)
        ENDIF
+        IF(l_opt_dpsdt_avg) opt_dpsdt_avg = dpsdt_avg
       ENDIF
 !$OMP END MASTER
     ENDIF  ! msg_level
 !$OMP END PARALLEL
+!$acc end data
 
   END SUBROUTINE compute_dpsdt
 

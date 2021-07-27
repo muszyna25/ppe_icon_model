@@ -57,7 +57,8 @@ MODULE mo_ice_interface
 
   PRIVATE
 
-  PUBLIC :: ice_slow_interface
+  PUBLIC :: ice_thermodynamics
+  PUBLIC :: ice_dynamics
   PUBLIC :: ice_fast_interface
   PUBLIC :: ice_fast
 
@@ -68,17 +69,17 @@ CONTAINS
   !-------------------------------------------------------------------------
   !
   !>
-  !! ice_slow_interface: calls slow sea ice thermodynamics and dynamics
+  !! ice_dynamics
   !!
   !! This function changes:
-  !! p_ice      slow-thermodynamics and dynamics fields of sea ice
-  !! p_oce_sfc  heat and fresh-water fluxes, passed to the ocean
+  !! p_ice      dynamics fields of sea ice
   !!
   !! @par Revision History
   !! Initial release by Vladimir Lapin, MPI-M (2016-11)
+  !! Modified by Helmuth Haak, MPI-M (2020-03)
   !
 !<Optimize_Used>
-  SUBROUTINE ice_slow_interface(p_patch_3D, p_ice, p_oce_sfc, atmos_fluxes, p_os, p_as, p_op_coeff)
+  SUBROUTINE ice_dynamics(p_patch_3D, p_ice, p_oce_sfc, atmos_fluxes, p_os, p_as, p_op_coeff)
 
     TYPE(t_patch_3D ),TARGET,   INTENT(IN)      :: p_patch_3D
     TYPE(t_sea_ice),            INTENT(INOUT)   :: p_ice
@@ -130,6 +131,44 @@ CONTAINS
       p_ice%v = 0._wp
     ENDIF
     !---------DEBUG DIAGNOSTICS-------------------------------------------
+    CALL dbg_print('aft.icedyn: hi  ',p_ice%hi    ,str_module,2, in_subset=p_patch%cells%owned)
+    CALL dbg_print('aft.icedyn: hs  ',p_ice%hs    ,str_module,2, in_subset=p_patch%cells%owned)
+    CALL dbg_print('aft.icedyn: conc',p_ice%conc  ,str_module,2, in_subset=p_patch%cells%owned)
+
+
+  END SUBROUTINE ice_dynamics
+
+
+  !-------------------------------------------------------------------------
+  !
+  !>
+  !! ice_thermodynamics
+  !!
+  !! This function changes:
+  !! p_ice      slow-thermodynamics fields of sea ice
+  !! p_oce_sfc  heat and fresh-water fluxes, passed to the ocean
+  !!
+  !! @par Revision History
+  !! Initial release by Vladimir Lapin, MPI-M (2016-11)
+  !! Modified by Helmuth Haak, MPI-M (2020-03)
+  !
+!<Optimize_Used>
+  SUBROUTINE ice_thermodynamics(p_patch_3D, p_ice, p_oce_sfc, atmos_fluxes, p_os, p_as, p_op_coeff)
+
+    TYPE(t_patch_3D ),TARGET,   INTENT(IN)      :: p_patch_3D
+    TYPE(t_sea_ice),            INTENT(INOUT)   :: p_ice
+    TYPE(t_ocean_surface),      INTENT(INOUT)   :: p_oce_sfc
+    TYPE(t_atmos_fluxes),       INTENT(IN)      :: atmos_fluxes
+    TYPE(t_atmos_for_ocean),    INTENT(INOUT)   :: p_as
+    TYPE(t_hydro_ocean_state),  INTENT(IN)      :: p_os
+    TYPE(t_operator_coeff),     INTENT(IN)      :: p_op_coeff
+
+    ! Local variables
+    TYPE(t_patch),  POINTER :: p_patch
+
+    !-----------------------------------------------------------------------
+    p_patch         => p_patch_3D%p_patch_2D(1)
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
     CALL dbg_print('bef.icethm: hi  ',p_ice%hi    ,str_module,2, in_subset=p_patch%cells%owned)
     CALL dbg_print('bef.icethm: hs  ',p_ice%hs    ,str_module,2, in_subset=p_patch%cells%owned)
     CALL dbg_print('bef.icethm: conc',p_ice%conc  ,str_module,2, in_subset=p_patch%cells%owned)
@@ -145,7 +184,7 @@ CONTAINS
     CALL dbg_print('aft.icethm: conc',p_ice%conc  ,str_module,2, in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
 
-  END SUBROUTINE ice_slow_interface
+  END SUBROUTINE ice_thermodynamics
 
   !-------------------------------------------------------------------------
   !
@@ -177,6 +216,10 @@ CONTAINS
     !-----------------------------------------------------------------------
     all_cells       => p_patch%cells%all
     !---------------------------------------------------------------------
+
+#ifdef _OPENACC
+    CALL finish(TRIM('mo_ice_interface:ice_fast_interface'),'This part has not been ported to GPU.')
+#endif
 
 !ICON_OMP_PARALLEL_DO PRIVATE(jb, i_startidx_c, i_endidx_c) SCHEDULE(dynamic)
         DO jb = all_cells%start_block, all_cells%end_block
@@ -275,6 +318,8 @@ CONTAINS
 
     INTEGER, OPTIONAL,INTENT(IN)  :: doy
 
+    INTEGER :: jk, ji
+
     !-------------------------------------------------------------------------
 
     IF (ltimer) CALL timer_start(timer_ice_fast)
@@ -297,12 +342,22 @@ CONTAINS
             &   Tsurf, hi, hs, Qtop, Qbot, Tfw, doy)
 
     CASE (4)
-      WHERE ( hi(:,:) > 0._wp )
-      Tsurf=min(0._wp, Tsurf + (SWnet+nonsolar + ki/hi*(Tf-Tsurf)) &
-        &               / (ci*rhoi*hci_layer/pdtime-dnonsolardT+ki/hi))
-      ELSEWHERE
-        Tsurf(:,:) = Tf
-      ENDWHERE
+      !$ACC DATA PRESENT( Tsurf, hi, SWnet, nonsolar, dnonsolardT )
+      !$ACC PARALLEL
+      !$ACC LOOP SEQ
+      DO ji = 1, kice
+        !$ACC LOOP GANG VECTOR
+        DO jk = 1, nbdim
+          IF ( hi(jk,ji) > 0._wp ) THEN
+            Tsurf(jk,ji) = min(0._wp, Tsurf(jk,ji) + (SWnet(jk,ji)+nonsolar(jk,ji) + ki/hi(jk,ji)*(Tf-Tsurf(jk,ji))) &
+        &               / (ci*rhoi*hci_layer/pdtime-dnonsolardT(jk,ji)+ki/hi(jk,ji)))
+          ELSE
+            Tsurf(jk,ji) = Tf
+          END IF
+        END DO
+      END DO
+      !$ACC END PARALLEL
+      !$ACC END DATA
 
     END SELECT
 

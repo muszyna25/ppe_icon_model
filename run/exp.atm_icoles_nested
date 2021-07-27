@@ -51,7 +51,7 @@ iforcing=3             # 3 for inwp forcing which then calls the LES physics
 # the grid and other files
 #
 # the grid parameters
-grids_folder="${icon_data_poolFolder}/buildbot_data/aes/icoles_nested/"
+grids_folder="${icon_data_rootFolder}/buildbot_data/aes/icoles_nested/"
 grid_1=icoles_IconChecksuite_DOM01_R4996m
 grid_2=icoles_IconChecksuite_DOM02_R2498m
 atmo_dyn_grids="${grid_1}.nc  ${grid_2}.nc"
@@ -112,7 +112,7 @@ cat > ${atmo_namelist} << EOF
 / 
 &initicon_nml
  init_mode              =  4 !4=cosmo, 2=ifs, 3=combined
-! ana_varnames_map_file  = '$ICON_BASE_PATH/run/ana_varnames_map_file.txt'
+! ana_varnames_map_file  = '$basedir/run/ana_varnames_map_file.txt'
  nlevsoil_in            =  8
  lread_ana              = .false.
 /
@@ -252,6 +252,7 @@ rbf_vec_scale_e   = -1, -1
                       50.88,  10.41, 'TEST23SN',
                       50.87,  11.41, 'TEST42SN',
                       52.92,   6.41, 'TEST23N'
+                      50.90,   6.41, 'invalid'
  lmeteogram_enabled= .TRUE.
  n0_mtgrm          = 0             ! meteogram initial time step (0 is first step!)
  ninc_mtgrm        = 2            ! meteogram output interval (steps)

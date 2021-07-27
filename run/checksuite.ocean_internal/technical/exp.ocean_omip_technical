@@ -5,10 +5,10 @@
 ocean_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 start_date="2001-01-01T00:00:00Z"
-  end_date="2001-01-03T00:00:00Z"
-checkpoint_interval="P01D"
+  end_date="2001-01-02T00:00:00Z"
+checkpoint_interval="PT12H"
 restart_interval="P25Y"
-output_interval="PT06H"
+output_interval="PT12H"
 file_interval=${output_interval}
 # restart=".true."
 #-----------------------------------------------------------------------------
@@ -32,6 +32,9 @@ cat > ${ocean_namelist} << EOF
  nproma         = $nproma
  p_test_run     = .false.
  l_fast_sum     = .false.
+ num_prefetch_proc = 0
+ pio_type       = 0
+ num_io_procs   = 0
 /
 &grid_nml
  dynamics_grid_filename = "${ocean_grids}",
@@ -42,7 +45,7 @@ cat > ${ocean_namelist} << EOF
  iequations  = -1       ! -1: hydrost. ocean model
 /
 &run_nml
- dtime       = 3600               ! model timestep in seconds
+ dtime       = 300               ! model timestep in seconds
  output      = 'nml'              ! output mechanism via namelist
  activate_sync_timers = .TRUE.
  profiling_output = 3
@@ -97,14 +100,17 @@ cat > ${ocean_namelist} << EOF
                        100.0,  110.0,  120.0,  130.0,  140.0,  150.0,  170.0,  180.0,  190.0,  200.0,
                        220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
   l_edge_based                    = .FALSE.   ! edge- or cell-based mimetic discretization
-! l_partial_cells                 = .FALSE.   ! partial bottom cells=true: local varying bottom depth
-  select_solver                   =   2       ! 1=gmres_oce_old; 2=ocean_restart_gmres, 3=mixed precisison restart
+  l_partial_cells                 = .FALSE.   ! partial bottom cells=true: local varying bottom depth
+
+  select_solver                   = 4       ! 1=gmres_oce_old; 2=ocean_restart_gmres, 3=mixed precisison restart 
+                                            ! 4=CG (default) 5=CGJ 6=BiCG 7=GMRES restart (legacy) 8=MINRES
   use_absolute_solver_tolerance   = .true.
-  solver_tolerance                =   1.0E-13
-  solver_max_iter_per_restart     =  26       !
-  solver_tolerance_sp             =   1.0E-13 !
-  solver_max_iter_per_restart_sp  =  26  !
-  solver_max_restart_iterations   = 100       ! outer (restart solver)
+  solver_tolerance                = 1.0E-13 ! this may further be reduced
+
+  select_lhs                      = 1       ! 1=operator based (default) 2=matrix based
+  l_lhs_direct                    = .false. ! .true.= use lhs implementation directly  .false.= matrix scanner (default) 
+  solver_FirstGuess               = 2       ! 0=start from zeros 1=last timestep smoothed 2=last timestep (default) 
+
   fast_performance_level          = 200       ! performance level 12: for cell-based; 5: default
   use_continuity_correction       = .TRUE.    ! height adjustment according to vertical velocity in dynamics
   cfl_check                       = .FALSE.
@@ -136,6 +142,9 @@ cat > ${ocean_namelist} << EOF
   Salinity_HorizontalDiffusion_Reference     = 600 !  40
 /
 &ocean_vertical_diffusion_nml
+  vert_mix_type                            = 4  ! 1: PP; 2: TKE; 3: KPP; 4 TKE+IDEMIX
+  only_tke                                 = .false. ! .true. for TKE; .false. for TKE+IDEMIX
+  l_use_idemix_forcing                     = .false. ! .false. should only be used for debugging
   PPscheme_type                            = 4
   velocity_VerticalDiffusion_background    =   1.5E-5  ! [m2/s]  vertical background viscosity coefficient for velocity
   Temperature_VerticalDiffusion_background =   1.5E-5  ! [m2/s]  vertical background diffusion coefficient for temperature
@@ -148,8 +157,8 @@ cat > ${ocean_namelist} << EOF
   bottom_drag_coeff               =   3.0E-3  ! default=2.5E-3; active for i_bc_veloc_bot=1
   use_wind_mixing                 = .true.    ! true: use wind mixing scheme in MPIOM-type pp-scheme
   lambda_wind                     = 0.03
-  tracer_TopWindMixing            = 4.0E-6
-  velocity_TopWindMixing          = 4.0E-6
+  !  tracer_TopWindMixing            = 4.0E-6
+  !  velocity_TopWindMixing          = 4.0E-6
 /                                           
 &ocean_GentMcWilliamsRedi_nml
   GMRedi_configuration           =   1       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
@@ -164,6 +173,7 @@ cat > ${ocean_namelist} << EOF
   iforc_oce                       =  $iforc   ! ocean forcing
   forcing_windstress_u_type       =   1
   forcing_windstress_v_type       =   1
+  bulk_wind_stress_type           =   2 ! 0: from file, 1: ocean at rest, 2: with ocean currents
   forcing_fluxes_type             =   1
   forcing_timescale               = $forcing_timescale  ! length of ocean forcing data set, see above
   init_oce_relax                  =   1       ! read ocean surface relaxation file, see above
@@ -177,6 +187,14 @@ cat > ${ocean_namelist} << EOF
   forcing_set_runoff_to_zero      = .FALSE.   ! set runoff to zero for comparison to MPIOM
   seaice_limit                    =   0.8     ! maximum of 8m (0.4*dz) for both, ice and snow
   limit_elevation                 = .TRUE.
+  !atm_pressure_included_in_ocedyn = .TRUE.   ! use atm. pressure in the ocean dynamics
+  !atm_pressure_included_in_icedyn = .TRUE.   ! use atm. pressure in the ice dynamics
+  use_tides                       = .true.
+  use_tides_SAL                   = .true.
+  !lswr_jerlov                     = .TRUE.    ! use jerlov water types for sw absorption
+  !jerlov_atten                    = 0.08      ! jerlov water type IB
+  !jerlov_bluefrac                 = 0.36      ! jerlov water type IB
+/
 /                                    
 &ocean_initialConditions_nml
   initial_salinity_type           = 1
@@ -205,4 +223,5 @@ EOF
 #-----------------------------------------------------------------------------
 # add standard atmo_non-hydrostatic_files
 . ${thisdir}/add_required_ocean_files
+
 #-----------------------------------------------------------------------------

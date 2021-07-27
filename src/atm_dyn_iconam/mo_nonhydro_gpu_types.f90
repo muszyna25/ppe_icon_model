@@ -37,478 +37,386 @@
 !!
 MODULE mo_nonhydro_gpu_types
 
-  USE mo_kind,                 ONLY: wp, vp
-  USE mo_fortran_tools,        ONLY: t_ptr_2d3d
-  USE mo_run_config,           ONLY: iforcing, ntracer, iqm_max,                &
-    &                                iqv, iqc, iqi, iqr, iqs, iqt, iqtvar,      &
-    &                                iqni, iqni_nuc, iqg, iqh, iqnr, iqns,      & 
-    &                                iqng, iqnh, iqnc, inccn, ininpot, ininact, &
-    &                                iqtke, nqtendphy, ltestcase, lart   
-  USE mo_model_domain,         ONLY: t_patch, p_patch
-  USE mo_nonhydro_state,       ONLY: p_nh_state
-  USE mo_nonhydro_types,       ONLY: t_nh_state, t_nh_diag, t_nh_prog
-  USE mo_nh_prepadv_types,     ONLY: t_prepare_adv
-
-  IMPLICIT NONE
-
-  PRIVATE 
-
 #if defined( _OPENACC )
 
-  PUBLIC :: my_patches
-  PUBLIC :: save_patch_pointers, refresh_patch_pointers
-  PUBLIC :: save_convenience_pointers, refresh_convenience_pointers
+  USE mo_kind,                 ONLY: wp, vp
+  USE mo_impl_constants,       ONLY: max_var_list_name_len, inwp, iecham
+  USE mo_mpi,                  ONLY: i_am_accel_node
+  USE mo_fortran_tools,        ONLY: t_ptr_2d3d
+  USE mo_math_types,           ONLY: t_geographical_coordinates
+  USE mo_model_domain,         ONLY: t_patch, t_tangent_vectors
+  USE mo_nonhydro_types,       ONLY: t_nh_state, t_nh_diag, t_nh_prog
+  USE mo_nh_prepadv_types,     ONLY: t_prepare_adv
+  USE mo_advection_config,     ONLY: t_advection_config
+  USE mo_intp_data_strc,       ONLY: t_int_state
+  USE mo_grf_intp_data_strc,   ONLY: t_gridref_single_state, t_gridref_state
+  USE mo_var_list_gpu,         ONLY: gpu_update_var_list
+  USE mo_run_config,           ONLY: ltestcase
 
-! POINTER information which needs to be stored and refreshed on the CPU
+  IMPLICIT NONE
+  PRIVATE 
 
-  TYPE my_patches
-    TYPE ( t_patch ), POINTER :: all_cells_patch, all_edges_patch, all_verts_patch
-    TYPE ( t_patch ), POINTER :: owned_cells_patch, owned_edges_patch, owned_verts_patch
-    TYPE ( t_patch ), POINTER :: in_domain_cells_patch, in_domain_edges_patch, in_domain_verts_patch
-    TYPE ( t_patch ), POINTER :: not_owned_cells_patch, not_owned_edges_patch, not_owned_verts_patch
-    TYPE ( t_patch ), POINTER :: not_in_domain_cells_patch, not_in_domain_edges_patch, not_in_domain_verts_patch
-    TYPE ( t_patch ), POINTER :: gradiscalculable_edges_patch
-    TYPE ( t_patch ), POINTER :: one_edge_in_domain_cells_patch
-  ENDTYPE my_patches
-
-  TYPE my_nh_state
-    TYPE ( t_nh_prog ), ALLOCATABLE  :: prog(:)
-    TYPE ( t_nh_diag )               :: diag
-  ENDTYPE my_nh_state
-
-  TYPE ( my_patches ), ALLOCATABLE :: save_patches(:)
-
-  TYPE ( my_nh_state ), ALLOCATABLE :: save_nh_state(:)
-
-  CHARACTER(len=*), PARAMETER :: version = &
-    & '$Id: mo_nonhydro_gpu_types.f90 16760 2014-04-01 09:04:22Z wsawyer $'
+  PUBLIC :: h2d_icon, d2h_icon, devcpy_grf_state
 
 CONTAINS
 
-     SUBROUTINE save_patch_pointers( p_patch, save_patch )
+  SUBROUTINE h2d_icon( p_int_states, p_patches, p_nh_states, prep_advs, advection_config, iforcing )
 
-       TYPE ( t_patch ),    INTENT(INOUT) :: p_patch
-       TYPE ( my_patches ), INTENT(INOUT) :: save_patch
+    TYPE ( t_int_state ),       INTENT(INOUT) :: p_int_states(:)
+    TYPE ( t_patch ),           INTENT(INOUT) :: p_patches(:)
+    TYPE ( t_nh_state ),        INTENT(INOUT) :: p_nh_states(:)
+    TYPE ( t_prepare_adv),      INTENT(INOUT) :: prep_advs(:)
+    TYPE ( t_advection_config), INTENT(INOUT) :: advection_config(:)
+    INTEGER, INTENT(IN)                       :: iforcing 
+    INTEGER :: jg
+!
+! Copy all data need on GPU from host to device
+!
 
+!$ACC ENTER DATA COPYIN( p_int_states, p_patches, prep_advs, advection_config ), IF ( i_am_accel_node  )
+
+    CALL transfer_int_state( p_int_states, .TRUE. )
+
+    CALL transfer_patch( p_patches, .TRUE. )
+
+    CALL transfer_prep_adv( prep_advs, .TRUE. )
+
+    CALL transfer_nh_state( p_nh_states, .TRUE. )
+
+    CALL transfer_advection_config( advection_config, .TRUE. )
+
+    IF( iforcing == iecham ) THEN
+      CALL transfer_echam( p_patches, .TRUE. )
+    END IF
+
+  END SUBROUTINE h2d_icon
+
+  SUBROUTINE d2h_icon( p_int_states, p_patches, p_nh_states, prep_advs, advection_config, iforcing )
+
+    TYPE ( t_int_state ),  INTENT(INOUT)      :: p_int_states(:)
+    TYPE ( t_patch ),      INTENT(INOUT)      :: p_patches(:)
+    TYPE ( t_nh_state ),   INTENT(INOUT)      :: p_nh_states(:)
+    TYPE ( t_prepare_adv), INTENT(INOUT)      :: prep_advs(:)
+    TYPE ( t_advection_config), INTENT(INOUT) :: advection_config(:)
+    INTEGER, INTENT(IN)                       :: iforcing 
+
+!
+! Delete all data on GPU
+!
+    CALL transfer_nh_state( p_nh_states, .FALSE. )
+    CALL transfer_prep_adv( prep_advs, .FALSE. )
+    CALL transfer_patch( p_patches, .FALSE. )
+    CALL transfer_int_state( p_int_states, .FALSE. )
+    CALL transfer_advection_config( advection_config, .FALSE. )
+
+    IF( iforcing == iecham ) THEN
+      CALL transfer_echam( p_patches, .FALSE. )
+    END IF
+
+!$ACC EXIT DATA DELETE( advection_config, prep_advs, p_patches, p_int_states ), IF ( i_am_accel_node  )
+
+  END SUBROUTINE d2h_icon
+
+  SUBROUTINE transfer_int_state( p_int, host_to_device )
+
+    LOGICAL, INTENT(IN)                        :: host_to_device     !   .TRUE. : h2d   .FALSE. : d2h
+    TYPE ( t_int_state ), TARGET,  INTENT(INOUT) :: p_int(:)
+
+    INTEGER  :: j
+
+    DO j=1, SIZE(p_int)
+
+      IF ( host_to_device ) THEN
+
+!$ACC ENTER DATA &
+!$ACC       COPYIN( p_int(j)%lsq_high, p_int(j)%lsq_lin,                                         &
+!$ACC               p_int(j)%c_bln_avg, p_int(j)%c_lin_e, p_int(j)%cells_aw_verts,               &
+!$ACC               p_int(j)%e_bln_c_s, p_int(j)%e_flx_avg, p_int(j)%geofac_div,                 &
+!$ACC               p_int(j)%geofac_grdiv, p_int(j)%geofac_grg, p_int(j)%geofac_n2s,             &
+!$ACC               p_int(j)%geofac_rot, p_int(j)%lsq_high%lsq_blk_c,                            &
+!$ACC               p_int(j)%lsq_high%lsq_dim_stencil, p_int(j)%lsq_high%lsq_idx_c,              &
+!$ACC               p_int(j)%lsq_high%lsq_moments, p_int(j)%lsq_high%lsq_moments_hat,            &
+!$ACC               p_int(j)%lsq_high%lsq_pseudoinv, p_int(j)%lsq_high%lsq_qtmat_c,              &
+!$ACC               p_int(j)%lsq_high%lsq_rmat_utri_c, p_int(j)%lsq_high%lsq_weights_c,          &
+!$ACC               p_int(j)%lsq_lin%lsq_blk_c,                                                  &
+!$ACC               p_int(j)%lsq_lin%lsq_dim_stencil, p_int(j)%lsq_lin%lsq_idx_c,                &
+!$ACC               p_int(j)%lsq_lin%lsq_moments, p_int(j)%lsq_lin%lsq_moments_hat,              &
+!$ACC               p_int(j)%lsq_lin%lsq_pseudoinv, p_int(j)%lsq_lin%lsq_qtmat_c,                &
+!$ACC               p_int(j)%lsq_lin%lsq_rmat_utri_c, p_int(j)%lsq_lin%lsq_weights_c,            &
+!$ACC               p_int(j)%nudgecoeff_e, p_int(j)%pos_on_tplane_e,                             &
+!$ACC               p_int(j)%rbf_c2grad_blk, p_int(j)%rbf_c2grad_idx, p_int(j)%rbf_c2grad_coeff, &
+!$ACC               p_int(j)%rbf_vec_blk_c, p_int(j)%rbf_vec_idx_c, p_int(j)%rbf_vec_coeff_c,    &
+!$ACC               p_int(j)%rbf_vec_blk_e, p_int(j)%rbf_vec_idx_e, p_int(j)%rbf_vec_coeff_e,    &
+!$ACC               p_int(j)%rbf_vec_blk_v, p_int(j)%rbf_vec_idx_v, p_int(j)%rbf_vec_coeff_v,    &
+!$ACC               p_int(j)%verts_aw_cells ),                                                   &
+!$ACC       IF ( i_am_accel_node )        
+
+      ELSE
+
+!$ACC EXIT DATA &
+!$ACC      DELETE(  p_int(j)%c_bln_avg, p_int(j)%c_lin_e, p_int(j)%cells_aw_verts,               &
+!$ACC               p_int(j)%e_bln_c_s, p_int(j)%e_flx_avg, p_int(j)%geofac_div,                 &
+!$ACC               p_int(j)%geofac_grdiv, p_int(j)%geofac_grg, p_int(j)%geofac_n2s,             &
+!$ACC               p_int(j)%geofac_rot, p_int(j)%lsq_high%lsq_blk_c,                            &
+!$ACC               p_int(j)%lsq_high%lsq_dim_stencil, p_int(j)%lsq_high%lsq_idx_c,              &
+!$ACC               p_int(j)%lsq_high%lsq_moments, p_int(j)%lsq_high%lsq_moments_hat,            &
+!$ACC               p_int(j)%lsq_high%lsq_pseudoinv, p_int(j)%lsq_high%lsq_qtmat_c,              &
+!$ACC               p_int(j)%lsq_high%lsq_rmat_utri_c, p_int(j)%lsq_high%lsq_weights_c,          &
+!$ACC               p_int(j)%lsq_lin%lsq_blk_c,                                                  &
+!$ACC               p_int(j)%lsq_lin%lsq_dim_stencil, p_int(j)%lsq_lin%lsq_idx_c,                &
+!$ACC               p_int(j)%lsq_lin%lsq_moments, p_int(j)%lsq_lin%lsq_moments_hat,              &
+!$ACC               p_int(j)%lsq_lin%lsq_pseudoinv, p_int(j)%lsq_lin%lsq_qtmat_c,                &
+!$ACC               p_int(j)%lsq_lin%lsq_rmat_utri_c, p_int(j)%lsq_lin%lsq_weights_c,            &
+!$ACC               p_int(j)%nudgecoeff_e, p_int(j)%pos_on_tplane_e,                             &
+!$ACC               p_int(j)%rbf_c2grad_blk, p_int(j)%rbf_c2grad_idx, p_int(j)%rbf_c2grad_coeff, &
+!$ACC               p_int(j)%rbf_vec_blk_c, p_int(j)%rbf_vec_idx_c, p_int(j)%rbf_vec_coeff_c,    &
+!$ACC               p_int(j)%rbf_vec_blk_e, p_int(j)%rbf_vec_idx_e, p_int(j)%rbf_vec_coeff_e,    &
+!$ACC               p_int(j)%rbf_vec_blk_v, p_int(j)%rbf_vec_idx_v, p_int(j)%rbf_vec_coeff_v,    &
+!$ACC               p_int(j)%verts_aw_cells, p_int(j)%lsq_high, p_int(j)%lsq_lin )               &
+!$ACC       IF ( i_am_accel_node )        
+
+      ENDIF
+
+    ENDDO
+
+  END SUBROUTINE transfer_int_state
+
+
+  SUBROUTINE transfer_patch( p_patch, host_to_device )
+
+    LOGICAL, INTENT(IN)                        :: host_to_device     !   .TRUE. : h2d   .FALSE. : d2h
+    TYPE ( t_patch ), TARGET, INTENT(INOUT)    :: p_patch(:)
+
+    INTEGER :: j
+
+!
+! Copy the static data structures in p_patch to the device -- this is a small subset of all the components
+! The communication patterns are copied over in mo_communication_orig.
+!
+
+      DO j=1,SIZE(p_patch)
+
+        IF ( host_to_device ) THEN
+
+!$ACC ENTER DATA &
+!$ACC      COPYIN( p_patch(j)%cells, p_patch(j)%cells%decomp_info, p_patch(j)%cells%decomp_info%owner_mask, &
+!$ACC              p_patch(j)%cells%area, p_patch(j)%cells%edge_idx, p_patch(j)%cells%edge_blk,             &
+!$ACC              p_patch(j)%cells%neighbor_idx, p_patch(j)%cells%neighbor_blk,                            &
+!$ACC              p_patch(j)%cells%center, p_patch(j)%cells%refin_ctrl, p_patch(j)%cells%f_c,              &
+!$ACC              p_patch(j)%cells%vertex_blk, p_patch(j)%cells%vertex_idx,                                &
+!$ACC              p_patch(j)%edges, p_patch(j)%edges%area_edge, p_patch(j)%edges%cell_idx,                 &
+!$ACC              p_patch(j)%edges%cell_blk, p_patch(j)%edges%edge_cell_length, p_patch(j)%edges%f_e,      &
+!$ACC              p_patch(j)%edges%quad_idx, p_patch(j)%edges%quad_blk, p_patch(j)%edges%vertex_idx,       &
+!$ACC              p_patch(j)%edges%vertex_blk, p_patch(j)%edges%primal_normal_cell,                        &
+!$ACC              p_patch(j)%edges%dual_normal_cell, p_patch(j)%edges%primal_normal_vert,                  &
+!$ACC              p_patch(j)%edges%dual_normal_vert, p_patch(j)%edges%inv_vert_vert_length,                &
+!$ACC              p_patch(j)%edges%inv_dual_edge_length, p_patch(j)%edges%inv_primal_edge_length,          &
+!$ACC              p_patch(j)%edges%tangent_orientation, p_patch(j)%edges%refin_ctrl,                       &
+!$ACC              p_patch(j)%verts, p_patch(j)%verts%cell_idx, p_patch(j)%verts%cell_blk,                  &
+!$ACC              p_patch(j)%verts%edge_idx, p_patch(j)%verts%edge_blk, p_patch(j)%verts%refin_ctrl ),     &
+!$ACC      IF ( i_am_accel_node  )
      
-!
-! Save the critical aliases in one patch
-!
+        ELSE
 
-       save_patch%all_cells_patch =>  p_patch%cells%all%patch
-       save_patch%all_edges_patch =>  p_patch%edges%all%patch
-       save_patch%all_verts_patch =>  p_patch%verts%all%patch
+!$ACC EXIT DATA &
+!$ACC      DELETE( p_patch(j)%cells%decomp_info, p_patch(j)%cells%decomp_info%owner_mask,                   &
+!$ACC              p_patch(j)%cells%area, p_patch(j)%cells%edge_idx, p_patch(j)%cells%edge_blk,             &
+!$ACC              p_patch(j)%cells%neighbor_idx, p_patch(j)%cells%neighbor_blk,                            &
+!$ACC              p_patch(j)%cells%center, p_patch(j)%cells%refin_ctrl, p_patch(j)%cells%f_c,              &
+!$ACC              p_patch(j)%cells%vertex_blk, p_patch(j)%cells%vertex_idx, p_patch(j)%cells,              &
+!$ACC              p_patch(j)%edges%area_edge, p_patch(j)%edges%cell_idx,                                   &
+!$ACC              p_patch(j)%edges%cell_blk, p_patch(j)%edges%edge_cell_length, p_patch(j)%edges%f_e,      &
+!$ACC              p_patch(j)%edges%quad_idx, p_patch(j)%edges%quad_blk, p_patch(j)%edges%vertex_idx,       &
+!$ACC              p_patch(j)%edges%vertex_blk, p_patch(j)%edges%primal_normal_cell,                        &
+!$ACC              p_patch(j)%edges%dual_normal_cell, p_patch(j)%edges%primal_normal_vert,                  &
+!$ACC              p_patch(j)%edges%dual_normal_vert, p_patch(j)%edges%inv_vert_vert_length,                &
+!$ACC              p_patch(j)%edges%inv_dual_edge_length, p_patch(j)%edges%inv_primal_edge_length,          &
+!$ACC              p_patch(j)%edges%tangent_orientation, p_patch(j)%edges%refin_ctrl, p_patch(j)%edges,     &
+!$ACC              p_patch(j)%verts%edge_idx, p_patch(j)%verts%edge_blk, p_patch(j)%verts%refin_ctrl,       &
+!$ACC              p_patch(j)%verts  ), &
+!$ACC      IF ( i_am_accel_node  )
 
-       NULLIFY( p_patch%cells%decomp_info%halo_level )
-       NULLIFY( p_patch%edges%decomp_info%halo_level )
-       NULLIFY( p_patch%verts%decomp_info%halo_level )
+      ENDIF   
 
-       save_patch%all_cells_patch =>  p_patch%cells%all%patch
-       save_patch%all_edges_patch =>  p_patch%edges%all%patch
-       save_patch%all_verts_patch =>  p_patch%verts%all%patch
+    ENDDO
 
-       NULLIFY( p_patch%cells%all%patch )
-       NULLIFY( p_patch%edges%all%patch )
-       NULLIFY( p_patch%verts%all%patch )
+  END SUBROUTINE transfer_patch
 
-       save_patch%owned_cells_patch =>  p_patch%cells%owned%patch
-       save_patch%owned_edges_patch =>  p_patch%edges%owned%patch
-       save_patch%owned_verts_patch =>  p_patch%verts%owned%patch
 
-       NULLIFY( p_patch%cells%owned%patch )
-       NULLIFY( p_patch%edges%owned%patch )
-       NULLIFY( p_patch%verts%owned%patch )
 
-       save_patch%in_domain_cells_patch =>  p_patch%cells%in_domain%patch
-       save_patch%in_domain_edges_patch =>  p_patch%edges%in_domain%patch
-       save_patch%in_domain_verts_patch =>  p_patch%verts%in_domain%patch
+  SUBROUTINE transfer_prep_adv( prep_adv, host_to_device )
 
-       NULLIFY( p_patch%cells%in_domain%patch )
-       NULLIFY( p_patch%edges%in_domain%patch )
-       NULLIFY( p_patch%verts%in_domain%patch )
+    LOGICAL, INTENT(IN)                        :: host_to_device     !   .TRUE. : h2d   .FALSE. : d2h
+    TYPE ( t_prepare_adv ), TARGET, INTENT(INOUT) :: prep_adv(:)
 
-       save_patch%gradiscalculable_edges_patch =>  p_patch%edges%gradiscalculable%patch
+    INTEGER :: j
 
-       NULLIFY( p_patch%edges%gradiscalculable%patch )
+    DO j=1, SIZE(prep_adv)
 
-       save_patch%not_owned_cells_patch =>  p_patch%cells%not_owned%patch
-       save_patch%not_owned_edges_patch =>  p_patch%edges%not_owned%patch
-       save_patch%not_owned_verts_patch =>  p_patch%verts%not_owned%patch
+      IF ( host_to_device ) THEN
 
-       NULLIFY( p_patch%cells%not_owned%patch )
-       NULLIFY( p_patch%edges%not_owned%patch )
-       NULLIFY( p_patch%verts%not_owned%patch )
+!$ACC ENTER DATA COPYIN(prep_adv(j)%vn_traj,prep_adv(j)%mass_flx_me,prep_adv(j)%mass_flx_ic,prep_adv(j)%topflx_tra ), &
+!$ACC       IF ( i_am_accel_node  )
 
-       save_patch%not_in_domain_cells_patch =>  p_patch%cells%not_in_domain%patch
-       save_patch%not_in_domain_edges_patch =>  p_patch%edges%not_in_domain%patch
-       save_patch%not_in_domain_verts_patch =>  p_patch%verts%not_in_domain%patch
+      ELSE
 
-       NULLIFY( p_patch%cells%not_in_domain%patch )
-       NULLIFY( p_patch%edges%not_in_domain%patch )
-       NULLIFY( p_patch%verts%not_in_domain%patch )
+!$ACC EXIT DATA DELETE(prep_adv(j)%vn_traj,prep_adv(j)%mass_flx_me,prep_adv(j)%mass_flx_ic,prep_adv(j)%topflx_tra ), &
+!$ACC      IF ( i_am_accel_node  )
 
-       save_patch%one_edge_in_domain_cells_patch =>  p_patch%cells%one_edge_in_domain%patch
+      ENDIF
 
-       NULLIFY( p_patch%cells%one_edge_in_domain%patch )
+    ENDDO    
 
-     END SUBROUTINE save_patch_pointers
+  END SUBROUTINE transfer_prep_adv
 
-     SUBROUTINE refresh_patch_pointers( save_patch, p_patch )
+  SUBROUTINE transfer_advection_config( advection_config, host_to_device )
 
-       TYPE ( my_patches ), INTENT(INOUT) :: save_patch
-       TYPE ( t_patch ),    INTENT(INOUT) :: p_patch
+    LOGICAL, INTENT(IN)                        :: host_to_device     !   .TRUE. : h2d   .FALSE. : d2h
+    TYPE ( t_advection_config ), TARGET, INTENT(INOUT) :: advection_config(:)
 
-!
-! Refresh the patch pointers only
-!
-       p_patch%cells%all%patch =>  save_patch%all_cells_patch
-       p_patch%edges%all%patch =>  save_patch%all_edges_patch 
-       p_patch%verts%all%patch =>  save_patch%all_verts_patch
+    INTEGER :: j
 
-       NULLIFY( save_patch%all_cells_patch )
-       NULLIFY( save_patch%all_edges_patch )
-       NULLIFY( save_patch%all_verts_patch )
+    DO j=1, SIZE(advection_config)
 
-       p_patch%cells%all%patch =>  save_patch%all_cells_patch
-       p_patch%edges%all%patch =>  save_patch%all_edges_patch
-       p_patch%verts%all%patch =>  save_patch%all_verts_patch
+      IF ( host_to_device ) THEN
 
-       NULLIFY( save_patch%all_cells_patch )
-       NULLIFY( save_patch%all_edges_patch )
-       NULLIFY( save_patch%all_verts_patch )
-
-       p_patch%cells%owned%patch =>  save_patch%owned_cells_patch
-       p_patch%edges%owned%patch =>  save_patch%owned_edges_patch
-       p_patch%verts%owned%patch =>  save_patch%owned_verts_patch
-
-       NULLIFY( save_patch%owned_cells_patch )
-       NULLIFY( save_patch%owned_edges_patch )
-       NULLIFY( save_patch%owned_verts_patch )
-
-       p_patch%cells%in_domain%patch =>  save_patch%in_domain_cells_patch 
-       p_patch%edges%in_domain%patch =>  save_patch%in_domain_edges_patch 
-       p_patch%verts%in_domain%patch =>  save_patch%in_domain_verts_patch 
-
-       NULLIFY( save_patch%in_domain_cells_patch )
-       NULLIFY( save_patch%in_domain_edges_patch )
-       NULLIFY( save_patch%in_domain_verts_patch )
-
-       p_patch%edges%gradiscalculable%patch =>  save_patch%gradiscalculable_edges_patch
-
-       NULLIFY( save_patch%gradiscalculable_edges_patch )
-
-       p_patch%cells%not_owned%patch =>  save_patch%not_owned_cells_patch
-       p_patch%edges%not_owned%patch =>  save_patch%not_owned_edges_patch
-       p_patch%verts%not_owned%patch =>  save_patch%not_owned_verts_patch
-
-       NULLIFY( save_patch%not_owned_cells_patch )
-       NULLIFY( save_patch%not_owned_edges_patch )
-       NULLIFY( save_patch%not_owned_verts_patch )
-
-       p_patch%cells%not_in_domain%patch =>  save_patch%not_in_domain_cells_patch
-       p_patch%edges%not_in_domain%patch =>  save_patch%not_in_domain_edges_patch
-       p_patch%verts%not_in_domain%patch =>  save_patch%not_in_domain_verts_patch
-
-       NULLIFY( save_patch%not_in_domain_cells_patch )
-       NULLIFY( save_patch%not_in_domain_edges_patch )
-       NULLIFY( save_patch%not_in_domain_verts_patch )
-
-       p_patch%cells%one_edge_in_domain%patch =>  save_patch%one_edge_in_domain_cells_patch
-
-       NULLIFY( save_patch%one_edge_in_domain_cells_patch )
-
-     END SUBROUTINE refresh_patch_pointers
-
-     SUBROUTINE save_convenience_pointers( )
-
-       INTEGER :: jg, jt, jv, num_vars
-
-!
-! Save then nullify convenience pointers on the pHost, in order to perform a deep copy to the device
-!
-
-       ALLOCATE( save_patches( SIZE(p_patch) ) )
-       DO jg = 1, SIZE(p_patch)
-         CALL save_patch_pointers( p_patch(jg), save_patches(jg) )
-       ENDDO
-
-       ALLOCATE( save_nh_state( SIZE(p_nh_state) ) )
-
-       DO jg = 1, SIZE(p_nh_state)
-
-! ddt_grf_trc_ptr
-         num_vars = SIZE(p_nh_state(jg)%diag%ddt_grf_trc_ptr)
-         IF ( num_vars > 0 ) THEN
-           ALLOCATE( save_nh_state(jg)%diag%ddt_grf_trc_ptr( num_vars ) )
-           DO jv = 1, num_vars 
-             save_nh_state(jg)%diag%ddt_grf_trc_ptr(jv)%p_2d => p_nh_state(jg)%diag%ddt_grf_trc_ptr(jv)%p_2d 
-             save_nh_state(jg)%diag%ddt_grf_trc_ptr(jv)%p_3d => p_nh_state(jg)%diag%ddt_grf_trc_ptr(jv)%p_3d 
-           ENDDO
-           DEALLOCATE( p_nh_state(jg)%diag%ddt_grf_trc_ptr )  ! p_3d not used?
-         ENDIF
-
-! hfl_trc_ptr
-         num_vars = SIZE(p_nh_state(jg)%diag%hfl_trc_ptr)
-         IF ( num_vars > 0 ) THEN
-           ALLOCATE( save_nh_state(jg)%diag%hfl_trc_ptr( num_vars ) )
-           DO jv = 1, num_vars 
-             save_nh_state(jg)%diag%hfl_trc_ptr(jv)%p_2d => p_nh_state(jg)%diag%hfl_trc_ptr(jv)%p_2d 
-             save_nh_state(jg)%diag%hfl_trc_ptr(jv)%p_3d => p_nh_state(jg)%diag%hfl_trc_ptr(jv)%p_3d 
-           ENDDO
-           DEALLOCATE( p_nh_state(jg)%diag%hfl_trc_ptr )  ! p_3d not used?
-         ENDIF
-
-! vfl_trc_ptr
-         num_vars = SIZE(p_nh_state(jg)%diag%vfl_trc_ptr)
-         IF ( num_vars > 0 ) THEN
-           ALLOCATE( save_nh_state(jg)%diag%vfl_trc_ptr( num_vars ) )
-           DO jv = 1, num_vars 
-             save_nh_state(jg)%diag%vfl_trc_ptr(jv)%p_2d => p_nh_state(jg)%diag%vfl_trc_ptr(jv)%p_2d 
-             save_nh_state(jg)%diag%vfl_trc_ptr(jv)%p_3d => p_nh_state(jg)%diag%vfl_trc_ptr(jv)%p_3d 
-           ENDDO
-           DEALLOCATE( p_nh_state(jg)%diag%vfl_trc_ptr )  ! p_3d not used?
-         ENDIF
-
-! ddt_trc_adv_ptr
-         num_vars = SIZE(p_nh_state(jg)%diag%ddt_trc_adv_ptr)
-         IF ( num_vars > 0 ) THEN
-           ALLOCATE( save_nh_state(jg)%diag%ddt_trc_adv_ptr( num_vars ) )
-           DO jv = 1, num_vars 
-             save_nh_state(jg)%diag%ddt_trc_adv_ptr( jv )%p_2d => p_nh_state(jg)%diag%ddt_trc_adv_ptr( jv )%p_2d 
-             save_nh_state(jg)%diag%ddt_trc_adv_ptr( jv )%p_3d => p_nh_state(jg)%diag%ddt_trc_adv_ptr( jv )%p_3d 
-           ENDDO
-           DEALLOCATE( p_nh_state(jg)%diag%ddt_trc_adv_ptr )  ! p_2d not used?
-         ENDIF
-
-! ddt_vn_adv_ptr
-         num_vars = SIZE(p_nh_state(jg)%diag%ddt_vn_adv_ptr)
-         IF ( num_vars > 0 ) THEN
-           ALLOCATE( save_nh_state(jg)%diag%ddt_vn_adv_ptr( num_vars ) )
-           DO jv = 1, num_vars 
-             save_nh_state(jg)%diag%ddt_vn_adv_ptr( jv )%p_2d => p_nh_state(jg)%diag%ddt_vn_adv_ptr( jv )%p_2d 
-             save_nh_state(jg)%diag%ddt_vn_adv_ptr( jv )%p_3d => p_nh_state(jg)%diag%ddt_vn_adv_ptr( jv )%p_3d 
-           ENDDO
-           DEALLOCATE( p_nh_state(jg)%diag%ddt_vn_adv_ptr )  ! p_2d not used?
-         ENDIF
-
-! ddt_w_adv_ptr
-         num_vars = SIZE(p_nh_state(jg)%diag%ddt_w_adv_ptr)
-         IF ( num_vars > 0 ) THEN
-           ALLOCATE( save_nh_state(jg)%diag%ddt_w_adv_ptr( num_vars ) )
-           DO jv = 1, num_vars 
-             save_nh_state(jg)%diag%ddt_w_adv_ptr(jv)%p_2d => p_nh_state(jg)%diag%ddt_w_adv_ptr(jv)%p_2d 
-             save_nh_state(jg)%diag%ddt_w_adv_ptr(jv)%p_3d => p_nh_state(jg)%diag%ddt_w_adv_ptr(jv)%p_3d 
-           ENDDO
-           DEALLOCATE( p_nh_state(jg)%diag%ddt_w_adv_ptr )  ! p_2d not used?
-         ENDIF
-
-! q_int_ptr
-         num_vars = SIZE(p_nh_state(jg)%diag%q_int_ptr)
-         IF ( num_vars > 0 ) THEN
-           ALLOCATE( save_nh_state(jg)%diag%q_int_ptr( num_vars ) )
-           DO jv = 1, num_vars 
-             save_nh_state(jg)%diag%q_int_ptr(jv)%p_2d => p_nh_state(jg)%diag%q_int_ptr(jv)%p_2d 
-             save_nh_state(jg)%diag%q_int_ptr(jv)%p_3d => p_nh_state(jg)%diag%q_int_ptr(jv)%p_3d 
-           ENDDO
-           DEALLOCATE( p_nh_state(jg)%diag%q_int_ptr )  ! p_3d not used?
-         ENDIF
-
-! q_ubc_ptr
-         num_vars = SIZE(p_nh_state(jg)%diag%q_ubc_ptr)
-         IF ( num_vars > 0 ) THEN
-           ALLOCATE( save_nh_state(jg)%diag%q_ubc_ptr( num_vars ) )
-           DO jv = 1, num_vars 
-             save_nh_state(jg)%diag%q_ubc_ptr(jv)%p_2d => p_nh_state(jg)%diag%q_ubc_ptr(jv)%p_2d 
-             save_nh_state(jg)%diag%q_ubc_ptr(jv)%p_3d => p_nh_state(jg)%diag%q_ubc_ptr(jv)%p_3d 
-           ENDDO
-           DEALLOCATE( p_nh_state(jg)%diag%q_ubc_ptr )  ! p_3d not used?
-         ENDIF
-
-! tracer_vi_ptr
-         num_vars = SIZE(p_nh_state(jg)%diag%tracer_vi_ptr)
-         IF ( num_vars > 0 ) THEN
-           ALLOCATE( save_nh_state(jg)%diag%tracer_vi_ptr( num_vars ) )
-           DO jv = 1, num_vars 
-             save_nh_state(jg)%diag%tracer_vi_ptr(jv)%p_2d => p_nh_state(jg)%diag%tracer_vi_ptr(jv)%p_2d 
-             save_nh_state(jg)%diag%tracer_vi_ptr(jv)%p_3d => p_nh_state(jg)%diag%tracer_vi_ptr(jv)%p_3d 
-           ENDDO
-           DEALLOCATE( p_nh_state(jg)%diag%tracer_vi_ptr )  ! p_3d not used?
-         ENDIF
-
-! tracer_vi_avg_ptr
-         num_vars = SIZE(p_nh_state(jg)%diag%tracer_vi_avg_ptr)
-         IF ( num_vars > 0 ) THEN
-           ALLOCATE( save_nh_state(jg)%diag%tracer_vi_avg_ptr( num_vars ) )
-           DO jv = 1, num_vars 
-             save_nh_state(jg)%diag%tracer_vi_avg_ptr(jv)%p_2d => p_nh_state(jg)%diag%tracer_vi_avg_ptr(jv)%p_2d 
-             save_nh_state(jg)%diag%tracer_vi_avg_ptr(jv)%p_3d => p_nh_state(jg)%diag%tracer_vi_avg_ptr(jv)%p_3d 
-           ENDDO
-           DEALLOCATE( p_nh_state(jg)%diag%tracer_vi_avg_ptr )  ! p_3d not used?
-         ENDIF
-
-         ALLOCATE( save_nh_state(jg)%prog( SIZE( p_nh_state(jg)%prog ) ) )
-         DO jt=1, SIZE( p_nh_state(jg)%prog )
-           num_vars = SIZE(p_nh_state(jg)%prog(jt)%tracer_ptr)
-           IF ( num_vars > 0 ) THEN
-             ALLOCATE( save_nh_state(jg)%prog(jt)%tracer_ptr( num_vars ) )
-             DO jv = 1, num_vars
-               save_nh_state(jg)%prog(jt)%tracer_ptr(jv)%p_2d => p_nh_state(jg)%prog(jt)%tracer_ptr(jv)%p_2d 
-               save_nh_state(jg)%prog(jt)%tracer_ptr(jv)%p_3d => p_nh_state(jg)%prog(jt)%tracer_ptr(jv)%p_3d 
-             ENDDO
-             DEALLOCATE( p_nh_state(jg)%prog(jt)%tracer_ptr )  ! p_2d not used?
-           ENDIF
-         ENDDO
-       ENDDO
-
-     END SUBROUTINE save_convenience_pointers
-
-     SUBROUTINE refresh_convenience_pointers( )
-
-       INTEGER :: jg, jt, jv, num_vars
-
-!
-! Save then nullify convenience pointers on the Host, in order to perform a deep copy to the device
-!
-
-       DO jg = 1, SIZE(p_patch)
-
-         CALL refresh_patch_pointers( save_patches(jg), p_patch(jg) )
-
-       ENDDO
-
-       DEALLOCATE( save_patches )
-
-       DO jg = 1, SIZE(save_nh_state)
-
-! ddt_grf_trc_ptr
-         num_vars = SIZE( save_nh_state(jg)%diag%ddt_grf_trc_ptr )
-         IF ( num_vars > 0 ) THEN
-           ALLOCATE( p_nh_state(jg)%diag%ddt_grf_trc_ptr( num_vars ) )  ! p_2d not used?
-           DO jv = 1, num_vars
-             p_nh_state(jg)%diag%ddt_grf_trc_ptr(jv)%p_2d  => save_nh_state(jg)%diag%ddt_grf_trc_ptr(jv)%p_2d 
-             p_nh_state(jg)%diag%ddt_grf_trc_ptr(jv)%p_3d  => save_nh_state(jg)%diag%ddt_grf_trc_ptr(jv)%p_3d 
-           ENDDO
-           DEALLOCATE( save_nh_state(jg)%diag%ddt_grf_trc_ptr )
-         ENDIF
-
-! hfl_trc_ptr
-         num_vars = SIZE( save_nh_state(jg)%diag%hfl_trc_ptr )
-         IF ( num_vars > 0 ) THEN
-           ALLOCATE( p_nh_state(jg)%diag%hfl_trc_ptr( num_vars ) )  ! p_2d not used?
-           DO jv = 1, num_vars
-             p_nh_state(jg)%diag%hfl_trc_ptr(jv)%p_2d  => save_nh_state(jg)%diag%hfl_trc_ptr(jv)%p_2d 
-             p_nh_state(jg)%diag%hfl_trc_ptr(jv)%p_3d  => save_nh_state(jg)%diag%hfl_trc_ptr(jv)%p_3d 
-           ENDDO
-           DEALLOCATE( save_nh_state(jg)%diag%hfl_trc_ptr )
-         ENDIF
-
-! vfl_trc_ptr
-         num_vars = SIZE( save_nh_state(jg)%diag%vfl_trc_ptr )
-         IF ( num_vars > 0 ) THEN
-           ALLOCATE( p_nh_state(jg)%diag%vfl_trc_ptr( num_vars ) )  ! p_2d not used?
-           DO jv = 1, num_vars
-             p_nh_state(jg)%diag%vfl_trc_ptr(jv)%p_2d  => save_nh_state(jg)%diag%vfl_trc_ptr(jv)%p_2d 
-             p_nh_state(jg)%diag%vfl_trc_ptr(jv)%p_3d  => save_nh_state(jg)%diag%vfl_trc_ptr(jv)%p_3d 
-           ENDDO
-           DEALLOCATE( save_nh_state(jg)%diag%vfl_trc_ptr )
-         ENDIF
-
-! ddt_trc_adv_ptr
-         num_vars = SIZE( save_nh_state(jg)%diag%ddt_trc_adv_ptr )
-         IF ( num_vars > 0 ) THEN
-           ALLOCATE( p_nh_state(jg)%diag%ddt_trc_adv_ptr( num_vars ) )  ! p_2d not used?
-           DO jv = 1, num_vars
-             p_nh_state(jg)%diag%ddt_trc_adv_ptr(jv)%p_2d  => save_nh_state(jg)%diag%ddt_trc_adv_ptr(jv)%p_2d 
-             p_nh_state(jg)%diag%ddt_trc_adv_ptr(jv)%p_3d  => save_nh_state(jg)%diag%ddt_trc_adv_ptr(jv)%p_3d 
-           ENDDO
-           DEALLOCATE( save_nh_state(jg)%diag%ddt_trc_adv_ptr )
-         ENDIF
-
-! ddt_vn_adv_ptr
-         num_vars = SIZE( save_nh_state(jg)%diag%ddt_vn_adv_ptr )
-         IF ( num_vars > 0 ) THEN
-           ALLOCATE( p_nh_state(jg)%diag%ddt_vn_adv_ptr( num_vars ) )  ! p_2d not used?
-           DO jv = 1, num_vars
-             p_nh_state(jg)%diag%ddt_vn_adv_ptr(jv)%p_2d  => save_nh_state(jg)%diag%ddt_vn_adv_ptr(jv)%p_2d 
-             p_nh_state(jg)%diag%ddt_vn_adv_ptr(jv)%p_3d  => save_nh_state(jg)%diag%ddt_vn_adv_ptr(jv)%p_3d 
-           ENDDO
-           DEALLOCATE( save_nh_state(jg)%diag%ddt_vn_adv_ptr )
-         ENDIF
-
-! ddt_w_adv_ptr
-         num_vars = SIZE( save_nh_state(jg)%diag%ddt_w_adv_ptr )
-         IF ( num_vars > 0 ) THEN
-           ALLOCATE( p_nh_state(jg)%diag%ddt_w_adv_ptr( num_vars ) )  ! p_2d not used?
-           DO jv = 1, num_vars
-             p_nh_state(jg)%diag%ddt_w_adv_ptr(jv)%p_2d  => save_nh_state(jg)%diag%ddt_w_adv_ptr(jv)%p_2d 
-             p_nh_state(jg)%diag%ddt_w_adv_ptr(jv)%p_3d  => save_nh_state(jg)%diag%ddt_w_adv_ptr(jv)%p_3d 
-           ENDDO
-           DEALLOCATE( save_nh_state(jg)%diag%ddt_w_adv_ptr )
-         ENDIF
-
-! q_int_ptr
-         num_vars = SIZE(p_nh_state(jg)%diag%q_int_ptr)
-         IF ( num_vars > 0 ) THEN
-           ALLOCATE( p_nh_state(jg)%diag%q_int_ptr(num_vars) )  ! p_3d not used?
-           DO jv = 1, num_vars 
-             p_nh_state(jg)%diag%q_int_ptr(jv)%p_2d => save_nh_state(jg)%diag%q_int_ptr(jv)%p_2d 
-             p_nh_state(jg)%diag%q_int_ptr(jv)%p_3d => save_nh_state(jg)%diag%q_int_ptr(jv)%p_3d 
-           ENDDO
-           DEALLOCATE( save_nh_state(jg)%diag%q_int_ptr )
-         ENDIF
-
-! q_ubc_ptr
-         num_vars = SIZE(p_nh_state(jg)%diag%q_ubc_ptr)
-         IF ( num_vars > 0 ) THEN
-           ALLOCATE( p_nh_state(jg)%diag%q_ubc_ptr(num_vars) )  ! p_3d not used?
-           DO jv = 1, num_vars 
-             p_nh_state(jg)%diag%q_ubc_ptr(jv)%p_2d => save_nh_state(jg)%diag%q_ubc_ptr(jv)%p_2d 
-             p_nh_state(jg)%diag%q_ubc_ptr(jv)%p_3d => save_nh_state(jg)%diag%q_ubc_ptr(jv)%p_3d 
-           ENDDO
-           DEALLOCATE( save_nh_state(jg)%diag%q_ubc_ptr )
-         ENDIF
-
-! tracer_vi_ptr
-         num_vars = SIZE(p_nh_state(jg)%diag%tracer_vi_ptr)
-         IF ( num_vars > 0 ) THEN
-           ALLOCATE( p_nh_state(jg)%diag%tracer_vi_ptr(num_vars) )  ! p_3d not used?
-           DO jv = 1, num_vars 
-             p_nh_state(jg)%diag%tracer_vi_ptr(jv)%p_2d => save_nh_state(jg)%diag%tracer_vi_ptr(jv)%p_2d 
-             p_nh_state(jg)%diag%tracer_vi_ptr(jv)%p_3d => save_nh_state(jg)%diag%tracer_vi_ptr(jv)%p_3d 
-           ENDDO
-           DEALLOCATE( save_nh_state(jg)%diag%tracer_vi_ptr )
-         ENDIF
-
-! tracer_vi_avg_ptr
-         num_vars = SIZE(p_nh_state(jg)%diag%tracer_vi_avg_ptr)
-         IF ( num_vars > 0 ) THEN
-           ALLOCATE( p_nh_state(jg)%diag%tracer_vi_avg_ptr(num_vars) )  ! p_3d not used?
-           DO jv = 1, num_vars 
-             p_nh_state(jg)%diag%tracer_vi_avg_ptr(jv)%p_2d => save_nh_state(jg)%diag%tracer_vi_avg_ptr(jv)%p_2d 
-             p_nh_state(jg)%diag%tracer_vi_avg_ptr(jv)%p_3d => save_nh_state(jg)%diag%tracer_vi_avg_ptr(jv)%p_3d 
-           ENDDO
-           DEALLOCATE( save_nh_state(jg)%diag%tracer_vi_avg_ptr )
-         ENDIF
-
-         DO jt=1, SIZE( p_nh_state(jg)%prog )
-           num_vars = SIZE(p_nh_state(jg)%prog(jt)%tracer_ptr)
-           IF ( num_vars > 0 ) THEN
-             ALLOCATE( p_nh_state(jg)%prog(jt)%tracer_ptr( num_vars ) )
-             DO jv = 1, num_vars
-               p_nh_state(jg)%prog(jt)%tracer_ptr(jv)%p_2d => save_nh_state(jg)%prog(jt)%tracer_ptr(jv)%p_2d 
-               p_nh_state(jg)%prog(jt)%tracer_ptr(jv)%p_3d => save_nh_state(jg)%prog(jt)%tracer_ptr(jv)%p_3d 
-             ENDDO
-             DEALLOCATE( save_nh_state(jg)%prog(jt)%tracer_ptr )
-           ENDIF
-         ENDDO
-         DEALLOCATE( save_nh_state(jg)%prog )
-       ENDDO
-
-       DEALLOCATE( save_nh_state )
-
-
-     END SUBROUTINE refresh_convenience_pointers
+!$ACC ENTER DATA &
+!$ACC       COPYIN( advection_config(j)%trHydroMass%list, advection_config(j)%iadv_slev, advection_config(j)%trAdvect%list ) &
+!$ACC       IF ( i_am_accel_node  )
+
+      ELSE
+
+!$ACC EXIT DATA &
+!$ACC      DELETE( advection_config(j)%trHydroMass%list, advection_config(j)%iadv_slev, advection_config(j)%trAdvect%list )  &
+!$ACC      IF ( i_am_accel_node  )
+
+      ENDIF
+
+    ENDDO
+
+  END SUBROUTINE transfer_advection_config
+
+  SUBROUTINE transfer_nh_state( p_nh, host_to_device )
+    LOGICAL, INTENT(IN)                        :: host_to_device     !   .TRUE. : h2d   .FALSE. : d2h
+    TYPE ( t_nh_state ), TARGET, INTENT(INOUT) :: p_nh(:)
+    INTEGER :: istep, jg
+    CHARACTER(*), PARAMETER :: &
+      & metrics = 'nh_state_metrics_of_domain_', diag = 'nh_state_diag_of_domain_', &
+      & ref = 'nh_state_ref_of_domain_', prog = 'nh_state_prog_of_domain_'
+
+! At this point, p_nh and all its underlying subtypes have been created on the device
+! HB: merged interfaces of gpu_XXX_var_list... therefore the IF condition
+! WS:  currently it appears to be unnecessary to update any of these values back to the host 
+!      after the end of the time loop.  Dycore variables are updated in ACC_VALIDATE mode individually
+!      BUT: there should be a way to delete all the variables with DEL_VAR
+    IF (.NOT.host_to_device) RETURN
+    DO jg = 1, SIZE(p_nh)
+      CALL gpu_update_var_list(metrics, host_to_device, domain=jg )
+      IF (ltestcase) CALL gpu_update_var_list(ref, host_to_device, domain=jg )
+      CALL gpu_update_var_list(diag, host_to_device, domain=jg )
+      DO istep = 1, SIZE(p_nh(jg)%prog)
+        CALL gpu_update_var_list(prog, host_to_device, domain=jg, substr='_and_timelev_', timelev=istep )
+      ENDDO
+    ENDDO
+  END SUBROUTINE transfer_nh_state
+
+  SUBROUTINE transfer_echam( p_patches, host_to_device )
+    TYPE ( t_patch ),      INTENT(INOUT) :: p_patches(:)
+    LOGICAL, INTENT(IN)                  :: host_to_device     !   .TRUE. : h2d   .FALSE. : d2h
+    INTEGER :: jg
+
+    DO jg = 1, SIZE(p_patches)
+      CALL gpu_update_var_list('prm_field_D', host_to_device, domain=jg)
+      CALL gpu_update_var_list('prm_tend_D', host_to_device, domain=jg)
+    END DO
+  END SUBROUTINE transfer_echam
+
+  SUBROUTINE devcpy_grf_state( p_grf, l_h2d )
+
+      TYPE ( t_gridref_state ), TARGET,  INTENT(INOUT) :: p_grf(:)
+      LOGICAL, INTENT(IN) :: l_h2d    ! true host-to-device, false device-to-host
+
+      INTEGER  :: j,k
+
+!$ACC ENTER DATA COPYIN( p_grf ), IF ( i_am_accel_node  )
+
+      DO j=1, SIZE(p_grf)
+
+        IF (l_h2d) THEN
+
+!$ACC ENTER DATA &
+!$ACC       COPYIN( p_grf(j)%fbk_wgt_aw, p_grf(j)%fbk_wgt_bln, p_grf(j)%fbk_wgt_e, p_grf(j)%fbk_dom_area,  &
+!$ACC               p_grf(j)%mask_ovlp_c, p_grf(j)%mask_ovlp_ch, p_grf(j)%mask_ovlp_e, p_grf(j)%mask_ovlp_v,        &
+!$ACC               p_grf(j)%idxlist_bdyintp_src_c, p_grf(j)%idxlist_bdyintp_src_e, p_grf(j)%blklist_bdyintp_src_c, &
+!$ACC               p_grf(j)%blklist_bdyintp_src_e,p_grf(j)%p_dom ),  &
+!$ACC       IF ( i_am_accel_node )        
+
+        DO k = 1, SIZE(p_grf(j)%p_dom)
+          CALL devcpy_grf_single_state( p_grf(j)%p_dom, l_h2d )
+        ENDDO
+
+        ELSE
+
+        DO k = 1, SIZE(p_grf(j)%p_dom)
+          CALL devcpy_grf_single_state( p_grf(j)%p_dom, l_h2d )
+        ENDDO
+
+!$ACC EXIT DATA &
+!$ACC      DELETE(  p_grf(j)%fbk_wgt_aw, p_grf(j)%fbk_wgt_bln, p_grf(j)%fbk_wgt_e, p_grf(j)%fbk_dom_area,           &
+!$ACC               p_grf(j)%mask_ovlp_c, p_grf(j)%mask_ovlp_ch, p_grf(j)%mask_ovlp_e, p_grf(j)%mask_ovlp_v,        &
+!$ACC               p_grf(j)%idxlist_bdyintp_src_c, p_grf(j)%idxlist_bdyintp_src_e, p_grf(j)%blklist_bdyintp_src_c, &
+!$ACC               p_grf(j)%blklist_bdyintp_src_e,p_grf(j)%p_dom )                                        &
+!$ACC       IF ( i_am_accel_node )        
+
+!$ACC EXIT DATA DELETE( p_grf ), IF ( i_am_accel_node  )
+
+        ENDIF
+
+      ENDDO
+
+    END SUBROUTINE devcpy_grf_state
+
+    SUBROUTINE devcpy_grf_single_state( p_grf, l_h2d )
+
+      TYPE ( t_gridref_single_state ), TARGET,  INTENT(INOUT) :: p_grf(:)
+      LOGICAL, INTENT(IN) :: l_h2d    ! true host-to-device, false device-to-host
+
+      INTEGER  :: j
+
+
+      DO j=1, SIZE(p_grf)
+
+        IF (l_h2d) THEN
+
+!$ACC ENTER DATA &
+!$ACC       COPYIN( p_grf(j)%grf_dist_pc2cc, p_grf(j)%grf_dist_pe2ce, p_grf(j)%idxlist_bdyintp_c,                  &
+!$ACC       p_grf(j)%idxlist_bdyintp_e, p_grf(j)%idxlist_ubcintp_c, p_grf(j)%idxlist_ubcintp_e, p_grf(j)%blklist_bdyintp_c, &
+!$ACC       p_grf(j)%blklist_bdyintp_e, p_grf(j)%blklist_ubcintp_c, p_grf(j)%blklist_ubcintp_e, p_grf(j)%idxlist_rbfintp_v, &
+!$ACC       p_grf(j)%blklist_rbfintp_v, p_grf(j)%edge_vert_idx, p_grf(j)%coeff_bdyintp_c, p_grf(j)%coeff_ubcintp_c,         &
+!$ACC       p_grf(j)%dist_pc2cc_bdy, p_grf(j)%dist_pc2cc_ubc, p_grf(j)%prim_norm, p_grf(j)%coeff_bdyintp_e12,               &
+!$ACC       p_grf(j)%coeff_bdyintp_e34, p_grf(j)%dist_pe2ce, p_grf(j)%coeff_ubcintp_e12, p_grf(j)%coeff_ubcintp_e34,        &
+!$ACC       p_grf(j)%coeff_rbf_v ),    IF ( i_am_accel_node )        
+
+        ELSE
+
+!$ACC EXIT DATA &
+!$ACC      DELETE(  p_grf(j)%grf_dist_pc2cc, p_grf(j)%grf_dist_pe2ce, p_grf(j)%idxlist_bdyintp_c,                           &
+!$ACC       p_grf(j)%idxlist_bdyintp_e, p_grf(j)%idxlist_ubcintp_c, p_grf(j)%idxlist_ubcintp_e, p_grf(j)%blklist_bdyintp_c, &
+!$ACC       p_grf(j)%blklist_bdyintp_e, p_grf(j)%blklist_ubcintp_c, p_grf(j)%blklist_ubcintp_e, p_grf(j)%idxlist_rbfintp_v, &
+!$ACC       p_grf(j)%blklist_rbfintp_v, p_grf(j)%edge_vert_idx, p_grf(j)%coeff_bdyintp_c, p_grf(j)%coeff_ubcintp_c,         &
+!$ACC       p_grf(j)%dist_pc2cc_bdy, p_grf(j)%dist_pc2cc_ubc, p_grf(j)%prim_norm, p_grf(j)%coeff_bdyintp_e12,               &
+!$ACC       p_grf(j)%coeff_bdyintp_e34, p_grf(j)%dist_pe2ce, p_grf(j)%coeff_ubcintp_e12, p_grf(j)%coeff_ubcintp_e34,        &
+!$ACC       p_grf(j)%coeff_rbf_v )                                        &
+!$ACC       IF ( i_am_accel_node )        
+
+        ENDIF
+
+      ENDDO
+
+    END SUBROUTINE devcpy_grf_single_state
 
 #endif
+
+
 
 END MODULE mo_nonhydro_gpu_types

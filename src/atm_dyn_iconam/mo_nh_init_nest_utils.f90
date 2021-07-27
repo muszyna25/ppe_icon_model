@@ -32,10 +32,10 @@ MODULE mo_nh_init_nest_utils
   USE mo_parallel_config,       ONLY: nproma, p_test_run
   USE mo_run_config,            ONLY: ltransport, msg_level, ntracer, iforcing
   USE mo_dynamics_config,       ONLY: nnow, nnow_rcf, nnew_rcf
-  USE mo_physical_constants,    ONLY: rd, cvd_o_rd, p0ref, rhoh2o, tmelt
-  USE mo_phyparam_soil,         ONLY: crhosminf
-  USE mo_impl_constants,        ONLY: min_rlcell, min_rlcell_int,  &
-    &                                 MAX_CHAR_LENGTH, dzsoil, inwp, nclass_aero, ALB_SI_MISSVAL
+  USE mo_physical_constants,    ONLY: rd, cvd_o_rd, p0ref, tmelt
+  USE sfc_terra_data,           ONLY: crhosminf, cporv, cadp, csalb, ist_seawtr
+  USE mo_impl_constants,        ONLY: min_rlcell, min_rlcell_int, &
+    &                                 inwp, nclass_aero, ALB_SI_MISSVAL
   USE mo_grf_nudgintp,          ONLY: interpol_scal_nudging, interpol_vec_nudging
   USE mo_grf_bdyintp,           ONLY: interpol_scal_grf, interpol2_vec_grf
   USE mo_grid_config,           ONLY: lfeedback, ifeedback_type
@@ -51,7 +51,9 @@ MODULE mo_nh_init_nest_utils
   USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c, grf_fbk_start_c
   USE mo_nwp_lnd_types,         ONLY: t_lnd_prog, t_lnd_diag, t_wtr_prog
   USE mo_lnd_nwp_config,        ONLY: ntiles_total, ntiles_water, nlev_soil, lseaice, itype_trvg, &
-    &                                 llake, isub_lake, frlake_thrhld, frsea_thrhld, lprog_albsi, itype_snowevap
+    &                                 llake, isub_lake, frlake_thrhld, frsea_thrhld, lprog_albsi, &
+    &                                 itype_snowevap, dzsoil
+  USE mo_initicon_config,       ONLY: icpl_da_sfcevap
   USE mo_nwp_lnd_state,         ONLY: p_lnd_state
   USE mo_nwp_phy_state,         ONLY: prm_diag
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config, iprog_aero
@@ -59,10 +61,12 @@ MODULE mo_nh_init_nest_utils
   USE mo_ext_data_state,        ONLY: ext_data
   USE mo_nh_diagnose_pres_temp, ONLY: diagnose_pres_temp
   USE mo_intp_rbf,              ONLY: rbf_vec_interpol_cell
-  USE mo_seaice_nwp,            ONLY: frsi_min
+  USE sfc_seaice,               ONLY: frsi_min
   USE mo_nwp_sfc_interp,        ONLY: smi_to_wsoil, wsoil_to_smi
-  USE mo_flake,                 ONLY: flake_coldinit
-  USE mo_phyparam_soil,         ONLY: cporv, cadp, csalb, ist_seawtr
+  USE sfc_flake,                ONLY: flake_coldinit
+  USE mo_upatmo_config,         ONLY: upatmo_config
+  USE mo_input_instructions,    ONLY: t_readInstructionListPtr, kStateFailedFetch, &
+    &                                 kInputSourceAnaI, kInputSourceFgAnaI, kInputSourceAna, kInputSourceBoth
 
   IMPLICIT NONE
 
@@ -92,7 +96,7 @@ MODULE mo_nh_init_nest_utils
   !!
   SUBROUTINE initialize_nest(jg, jgc)
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'initialize_nest'
 
 
@@ -103,6 +107,7 @@ MODULE mo_nh_init_nest_utils
     ! local pointers
     TYPE(t_nh_prog),    POINTER     :: p_parent_prog
     TYPE(t_nh_prog),    POINTER     :: p_child_prog
+    TYPE(t_nh_diag),    POINTER     :: p_parent_diag
     TYPE(t_nh_diag),    POINTER     :: p_child_diag
     TYPE(t_nh_prog),    POINTER     :: p_parent_prog_rcf
     TYPE(t_nh_prog),    POINTER     :: p_child_prog_rcf
@@ -116,7 +121,6 @@ MODULE mo_nh_init_nest_utils
     TYPE(t_lnd_diag),   POINTER     :: p_parent_ldiag
     TYPE(t_lnd_diag),   POINTER     :: p_child_ldiag
     TYPE(t_gridref_state), POINTER  :: p_grf => NULL()
-    TYPE(t_gridref_state), POINTER  :: p_grfc => NULL()
     TYPE(t_int_state), POINTER      :: p_int => NULL()
     TYPE(t_patch),      POINTER     :: p_pp => NULL()
     TYPE(t_patch),      POINTER     :: p_pc => NULL()
@@ -155,13 +159,14 @@ MODULE mo_nh_init_nest_utils
 
     IF (msg_level >= 10) THEN
       WRITE(message_text,'(a,i2,a,i2)') 'Nest initialization, domain ',jg,' =>',jgc
-      CALL message(TRIM(routine),message_text)
+      CALL message(routine,message_text)
     ENDIF
 
     l_parallel = my_process_is_mpi_parallel()
 
     p_parent_prog     => p_nh_state(jg)%prog(nnow(jg))
     p_child_prog      => p_nh_state(jgc)%prog(nnow(jgc))
+    p_parent_diag     => p_nh_state(jg)%diag
     p_child_diag      => p_nh_state(jgc)%diag
     p_parent_prog_rcf => p_nh_state(jg)%prog(nnow_rcf(jg))
     p_child_prog_rcf  => p_nh_state(jgc)%prog(nnow_rcf(jgc))
@@ -174,7 +179,6 @@ MODULE mo_nh_init_nest_utils
     p_child_wprog     => p_lnd_state(jgc)%prog_wtr(nnow_rcf(jgc))
     p_parent_ldiag    => p_lnd_state(jg)%diag_lnd
     p_child_ldiag     => p_lnd_state(jgc)%diag_lnd
-    p_grfc            => p_grf_state(jgc)
     p_pc              => p_patch(jgc)
 
     lnd_prog          => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
@@ -200,9 +204,10 @@ MODULE mo_nh_init_nest_utils
     ! turned out to cause occasional conflicts with directly interpolating those variables here; thus
     ! the interpolation of the multi-layer snow fields has been completely removed from this routine
     num_lndvars = 2*nlev_soil+1+ &     ! multi-layer soil variables t_so and w_so (w_so_ice is initialized in terra_multlay_init)
-                  5+7+1                ! single-layer prognostic variables + t_g, freshsnow, t_seasfc, qv_s, plantevap, hsnow_max, snow_age + aux variable for lake temp
+                  5+10+1               ! single-layer prognostic variables + t_g, t_sk, freshsnow, t_seasfc, qv_s, plantevap, hsnow_max, 
+                                       ! snow_age, t2m_bias, t_sk, rh_avginc + aux variable for lake temp
     num_wtrvars  = 6                   ! water state fields + fr_seaice + alb_si
-    num_phdiagvars = 21                ! number of physics diagnostic variables (copied from interpol_phys_grf)
+    num_phdiagvars = 27                ! number of physics diagnostic variables (copied from interpol_phys_grf)
 
     ALLOCATE(thv_pr_par  (nproma, nlev_p,      p_patch(jg)%nblks_c), &
              rho_pr_par  (nproma, nlev_p,      p_patch(jg)%nblks_c), &
@@ -258,10 +263,10 @@ MODULE mo_nh_init_nest_utils
         ! a) initialize with t_g
         lndvars_par(:,num_lndvars,jb) = lnd_prog%t_g(:,jb)
 
-        i_count = ext_data(jg)%atm%fp_count(jb)
+        i_count = ext_data(jg)%atm%list_lake%ncount(jb)
 !CDIR NODEP,VOVERTAKE,VOB
         DO ic = 1, i_count
-          jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+          jc = ext_data(jg)%atm%list_lake%idx(ic,jb)
 
           ! b) take lake sfc temperature where available
           lndvars_par(jc,num_lndvars,jb) = lnd_prog%t_g_t(jc,jb,isub_lake)
@@ -321,26 +326,37 @@ MODULE mo_nh_init_nest_utils
         ! Collect diagnostic physics fields (the only really important ones are the precip fields)
         DO jc = i_startidx, i_endidx
           phdiag_par(jc,1,jb) = prm_diag(jg)%tot_prec(jc,jb)
-          phdiag_par(jc,2,jb) = prm_diag(jg)%rain_gsp(jc,jb)
-          phdiag_par(jc,3,jb) = prm_diag(jg)%snow_gsp(jc,jb)
-          phdiag_par(jc,4,jb) = prm_diag(jg)%rain_con(jc,jb)
-          phdiag_par(jc,5,jb) = prm_diag(jg)%snow_con(jc,jb)
-          phdiag_par(jc,6,jb) = prm_diag(jg)%rain_gsp_rate(jc,jb)
-          phdiag_par(jc,7,jb) = prm_diag(jg)%snow_gsp_rate(jc,jb)
-          phdiag_par(jc,8,jb) = prm_diag(jg)%rain_con_rate(jc,jb)
-          phdiag_par(jc,9,jb) = prm_diag(jg)%snow_con_rate(jc,jb)
-          phdiag_par(jc,10,jb) = prm_diag(jg)%gz0(jc,jb)
-          phdiag_par(jc,11,jb) = prm_diag(jg)%tcm(jc,jb)
-          phdiag_par(jc,12,jb) = prm_diag(jg)%tch(jc,jb)
-          phdiag_par(jc,13,jb) = prm_diag(jg)%tfm(jc,jb)
-          phdiag_par(jc,14,jb) = prm_diag(jg)%tfh(jc,jb)
-          phdiag_par(jc,15,jb) = prm_diag(jg)%tfv(jc,jb)
-          phdiag_par(jc,16,jb) = prm_diag(jg)%t_2m(jc,jb)
-          phdiag_par(jc,17,jb) = prm_diag(jg)%qv_2m(jc,jb)
-          phdiag_par(jc,18,jb) = prm_diag(jg)%td_2m(jc,jb)
-          phdiag_par(jc,19,jb) = prm_diag(jg)%rh_2m(jc,jb)
-          phdiag_par(jc,20,jb) = prm_diag(jg)%u_10m(jc,jb)
-          phdiag_par(jc,21,jb) = prm_diag(jg)%v_10m(jc,jb)
+          phdiag_par(jc,2,jb) = prm_diag(jg)%prec_gsp(jc,jb)
+          phdiag_par(jc,3,jb) = prm_diag(jg)%prec_con(jc,jb)
+          phdiag_par(jc,4,jb) = prm_diag(jg)%rain_gsp(jc,jb)
+          phdiag_par(jc,5,jb) = prm_diag(jg)%snow_gsp(jc,jb)
+          phdiag_par(jc,6,jb) = prm_diag(jg)%rain_con(jc,jb)
+          phdiag_par(jc,7,jb) = prm_diag(jg)%snow_con(jc,jb)
+          phdiag_par(jc,8,jb) = prm_diag(jg)%rain_gsp_rate(jc,jb)
+          phdiag_par(jc,9,jb) = prm_diag(jg)%snow_gsp_rate(jc,jb)
+          phdiag_par(jc,10,jb) = prm_diag(jg)%rain_con_rate(jc,jb)
+          phdiag_par(jc,11,jb) = prm_diag(jg)%snow_con_rate(jc,jb)
+          phdiag_par(jc,12,jb) = prm_diag(jg)%gz0(jc,jb)
+          phdiag_par(jc,13,jb) = prm_diag(jg)%tcm(jc,jb)
+          phdiag_par(jc,14,jb) = prm_diag(jg)%tch(jc,jb)
+          phdiag_par(jc,15,jb) = prm_diag(jg)%tfm(jc,jb)
+          phdiag_par(jc,16,jb) = prm_diag(jg)%tfh(jc,jb)
+          phdiag_par(jc,17,jb) = prm_diag(jg)%tfv(jc,jb)
+          phdiag_par(jc,18,jb) = prm_diag(jg)%t_2m(jc,jb)
+          phdiag_par(jc,19,jb) = prm_diag(jg)%qv_2m(jc,jb)
+          phdiag_par(jc,20,jb) = prm_diag(jg)%td_2m(jc,jb)
+          phdiag_par(jc,21,jb) = prm_diag(jg)%rh_2m(jc,jb)
+          phdiag_par(jc,22,jb) = prm_diag(jg)%u_10m(jc,jb)
+          phdiag_par(jc,23,jb) = prm_diag(jg)%v_10m(jc,jb)
+          IF (atm_phy_nwp_config(jg)%inwp_gscp == 2) THEN
+            phdiag_par(jc,24,jb) = prm_diag(jg)%graupel_gsp(jc,jb)
+            phdiag_par(jc,25,jb) = prm_diag(jg)%graupel_gsp_rate(jc,jb)
+          ELSE
+            phdiag_par(jc,24,jb) = 0._wp
+            phdiag_par(jc,25,jb) = 0._wp
+          ENDIF
+          phdiag_par(jc,26,jb) = prm_diag(jg)%ice_gsp(jc,jb)
+          phdiag_par(jc,27,jb) = prm_diag(jg)%ice_gsp_rate(jc,jb)
         ENDDO
       ENDIF
 
@@ -382,6 +398,19 @@ MODULE mo_nh_init_nest_utils
           ELSE
             lndvars_par(jc,jk1+11,jb) = 0._wp
             lndvars_par(jc,jk1+12,jb) = 0._wp
+          ENDIF
+          IF (icpl_da_sfcevap == 1 .OR. icpl_da_sfcevap == 2) THEN
+            lndvars_par(jc,jk1+13,jb) = p_parent_diag%t2m_bias(jc,jb)
+          ELSE IF (icpl_da_sfcevap >= 3) THEN
+            lndvars_par(jc,jk1+13,jb) = p_parent_diag%t_avginc(jc,jb)
+          ELSE
+            lndvars_par(jc,jk1+13,jb) = 0._wp
+          ENDIF
+          lndvars_par(jc,jk1+14,jb) = p_parent_ldiag%t_sk(jc,jb)
+          IF (icpl_da_sfcevap >= 2) THEN
+            lndvars_par(jc,jk1+15,jb) = p_parent_diag%rh_avginc(jc,jb)
+          ELSE
+            lndvars_par(jc,jk1+15,jb) = 0._wp
           ENDIF
         ENDDO
       ENDIF
@@ -430,7 +459,7 @@ MODULE mo_nh_init_nest_utils
         f4din1=p_parent_prog_rcf%tracer, f4dout1=p_child_prog_rcf%tracer, llimit_nneg=l_limit)
     ENDIF
 
-    IF (ltransport .AND. iprog_aero == 1) THEN
+    IF (ltransport .AND. iprog_aero >= 1) THEN
       CALL interpol_scal_grf ( p_patch(jg), p_pc, p_grf_state(jg)%p_dom(i_chidx), 1,   &
         prm_diag(jg)%aerosol, prm_diag(jgc)%aerosol, llimit_nneg=(/.TRUE./), lnoshift=.TRUE.)
     ENDIF
@@ -470,7 +499,7 @@ MODULE mo_nh_init_nest_utils
         &                     RECV4D=tracer_lp, SEND4D=p_parent_prog_rcf%tracer    )
     ENDIF
 
-    IF (ltransport .AND. iprog_aero == 1) THEN
+    IF (ltransport .AND. iprog_aero >= 1) THEN
       CALL exchange_data(p_pp%comm_pat_glb_to_loc_c, RECV=aero_lp, SEND=prm_diag(jg)%aerosol)
     ENDIF
 
@@ -489,13 +518,13 @@ MODULE mo_nh_init_nest_utils
     ! parent grid
 
     IF(l_parallel) CALL exchange_data(p_pp%comm_pat_e, vn_lp)
-    CALL interpol_vec_nudging (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), p_grfc, &
-                               i_chidx, nshift, 1, vn_lp, p_child_prog%vn       )
+    CALL interpol_vec_nudging (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), &
+                               nshift, 1, vn_lp, p_child_prog%vn        )
     CALL sync_patch_array(SYNC_E,p_pc,p_child_prog%vn)
 
     IF(l_parallel) CALL exchange_data_mult(p_pp%comm_pat_c, 3, 3*nlev_p+1, &
                                recv1=thv_pr_lp, recv2=rho_pr_lp, recv3=w_lp)
-    CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx, nshift, 3, 1, &
+    CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), nshift, 3, 1,          &
                                 f3din1=thv_pr_lp, f3dout1=p_child_prog%theta_v,           &
                                 f3din2=rho_pr_lp, f3dout2=p_child_prog%rho,               &
                                 f3din3=w_lp,      f3dout3=p_child_prog%w                  )
@@ -506,36 +535,36 @@ MODULE mo_nh_init_nest_utils
       IF(l_parallel) CALL exchange_data_mult(p_pp%comm_pat_c, ntracer, ntracer*nlev_p, &
                                              recv4d=tracer_lp)
       l_limit(:) = .TRUE. ! apply positive definite limiter
-      CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx, &
+      CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx),          &
                                   nshift, ntracer, 1, f4din=tracer_lp,        &
                                   f4dout=p_child_prog_rcf%tracer, llimit_nneg=l_limit)
       CALL sync_patch_array_mult(SYNC_C,p_pc,ntracer,f4din=p_child_prog_rcf%tracer)
     ENDIF
 
-    IF (ltransport .AND. iprog_aero == 1) THEN
+    IF (ltransport .AND. iprog_aero >= 1) THEN
       IF(l_parallel) CALL exchange_data(p_pp%comm_pat_c, aero_lp)
-      CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx, &
+      CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx),          &
          0, 1, 1, f3din1=aero_lp, f3dout1=prm_diag(jgc)%aerosol, llimit_nneg=(/.TRUE./))
       CALL sync_patch_array(SYNC_C,p_pc,prm_diag(jgc)%aerosol)
     ENDIF
 
     IF (iforcing == inwp) THEN
       IF(l_parallel) CALL exchange_data(p_pp%comm_pat_c, phdiag_lp)
-      CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx, 0, &
+      CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), 0,      &
                                   1, 1, f3din1=phdiag_lp, f3dout1=phdiag_chi, overshoot_fac=1.005_wp )
       CALL sync_patch_array(SYNC_C,p_pc,phdiag_chi)
     ENDIF
 
     IF (atm_phy_nwp_config(jg)%inwp_surface == 1) THEN
       IF(l_parallel) CALL exchange_data(p_pp%comm_pat_c, lndvars_lp)
-      CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx, 0, &
+      CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), 0,      &
                                   1, 1, f3din1=lndvars_lp, f3dout1=lndvars_chi, overshoot_fac=1.005_wp )
       CALL sync_patch_array(SYNC_C,p_pc,lndvars_chi)
     ENDIF
 
     IF (atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. lseaice) THEN
       IF(l_parallel) CALL exchange_data(p_pp%comm_pat_c, wtrvars_lp)
-      CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx, 0, &
+      CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), 0,      &
                                   1, 1, f3din1=wtrvars_lp, f3dout1=wtrvars_chi, overshoot_fac=1.005_wp )
       CALL sync_patch_array(SYNC_C,p_pc,wtrvars_chi)
     ENDIF
@@ -591,28 +620,36 @@ MODULE mo_nh_init_nest_utils
       IF (iforcing == inwp) THEN
         DO jc = i_startidx, i_endidx
           prm_diag(jgc)%tot_prec(jc,jb)       = MAX(0._wp,phdiag_chi(jc,1,jb))
-          prm_diag(jgc)%rain_gsp(jc,jb)       = MAX(0._wp,phdiag_chi(jc,2,jb))
-          prm_diag(jgc)%snow_gsp(jc,jb)       = MAX(0._wp,phdiag_chi(jc,3,jb))
-          prm_diag(jgc)%rain_con(jc,jb)       = MAX(0._wp,phdiag_chi(jc,4,jb))
-          prm_diag(jgc)%snow_con(jc,jb)       = MAX(0._wp,phdiag_chi(jc,5,jb))
-          prm_diag(jgc)%rain_gsp_rate(jc,jb)  = phdiag_chi(jc,6,jb)
-          prm_diag(jgc)%snow_gsp_rate(jc,jb)  = phdiag_chi(jc,7,jb)
+          prm_diag(jgc)%prec_gsp(jc,jb)       = MAX(0._wp,phdiag_chi(jc,2,jb))
+          prm_diag(jgc)%prec_con(jc,jb)       = MAX(0._wp,phdiag_chi(jc,3,jb))
+          prm_diag(jgc)%rain_gsp(jc,jb)       = MAX(0._wp,phdiag_chi(jc,4,jb))
+          prm_diag(jgc)%snow_gsp(jc,jb)       = MAX(0._wp,phdiag_chi(jc,5,jb))
+          prm_diag(jgc)%rain_con(jc,jb)       = MAX(0._wp,phdiag_chi(jc,6,jb))
+          prm_diag(jgc)%snow_con(jc,jb)       = MAX(0._wp,phdiag_chi(jc,7,jb))
+          prm_diag(jgc)%rain_gsp_rate(jc,jb)  = phdiag_chi(jc,8,jb)
+          prm_diag(jgc)%snow_gsp_rate(jc,jb)  = phdiag_chi(jc,9,jb)
           IF (atm_phy_nwp_config(jgc)%inwp_convection == 1) THEN
-            prm_diag(jgc)%rain_con_rate(jc,jb)  = phdiag_chi(jc,8,jb)
-            prm_diag(jgc)%snow_con_rate(jc,jb)  = phdiag_chi(jc,9,jb)
+            prm_diag(jgc)%rain_con_rate(jc,jb)  = phdiag_chi(jc,10,jb)
+            prm_diag(jgc)%snow_con_rate(jc,jb)  = phdiag_chi(jc,11,jb)
           ENDIF
-          prm_diag(jgc)%gz0(jc,jb)            = phdiag_chi(jc,10,jb)
-          prm_diag(jgc)%tcm(jc,jb)            = phdiag_chi(jc,11,jb)
-          prm_diag(jgc)%tch(jc,jb)            = phdiag_chi(jc,12,jb)
-          prm_diag(jgc)%tfm(jc,jb)            = phdiag_chi(jc,13,jb)
-          prm_diag(jgc)%tfh(jc,jb)            = phdiag_chi(jc,14,jb)
-          prm_diag(jgc)%tfv(jc,jb)            = phdiag_chi(jc,15,jb)
-          prm_diag(jgc)%t_2m(jc,jb)           = phdiag_chi(jc,16,jb)
-          prm_diag(jgc)%qv_2m(jc,jb)          = phdiag_chi(jc,17,jb)
-          prm_diag(jgc)%td_2m(jc,jb)          = phdiag_chi(jc,18,jb)
-          prm_diag(jgc)%rh_2m(jc,jb)          = phdiag_chi(jc,19,jb)
-          prm_diag(jgc)%u_10m(jc,jb)          = phdiag_chi(jc,20,jb)
-          prm_diag(jgc)%v_10m(jc,jb)          = phdiag_chi(jc,21,jb)
+          prm_diag(jgc)%gz0(jc,jb)            = phdiag_chi(jc,12,jb)
+          prm_diag(jgc)%tcm(jc,jb)            = phdiag_chi(jc,13,jb)
+          prm_diag(jgc)%tch(jc,jb)            = phdiag_chi(jc,14,jb)
+          prm_diag(jgc)%tfm(jc,jb)            = phdiag_chi(jc,15,jb)
+          prm_diag(jgc)%tfh(jc,jb)            = phdiag_chi(jc,16,jb)
+          prm_diag(jgc)%tfv(jc,jb)            = phdiag_chi(jc,17,jb)
+          prm_diag(jgc)%t_2m(jc,jb)           = phdiag_chi(jc,18,jb)
+          prm_diag(jgc)%qv_2m(jc,jb)          = phdiag_chi(jc,19,jb)
+          prm_diag(jgc)%td_2m(jc,jb)          = phdiag_chi(jc,20,jb)
+          prm_diag(jgc)%rh_2m(jc,jb)          = phdiag_chi(jc,21,jb)
+          prm_diag(jgc)%u_10m(jc,jb)          = phdiag_chi(jc,22,jb)
+          prm_diag(jgc)%v_10m(jc,jb)          = phdiag_chi(jc,23,jb)
+          IF (atm_phy_nwp_config(jg)%inwp_gscp == 2) THEN
+            prm_diag(jgc)%graupel_gsp(jc,jb)      = MAX(0._wp,phdiag_chi(jc,24,jb))
+            prm_diag(jgc)%graupel_gsp_rate(jc,jb) = phdiag_chi(jc,25,jb) 
+          ENDIF
+          prm_diag(jgc)%ice_gsp(jc,jb)        = MAX(0._wp,phdiag_chi(jc,26,jb))
+          prm_diag(jgc)%ice_gsp_rate(jc,jb)   = phdiag_chi(jc,27,jb)
         ENDDO
       ENDIF
 
@@ -666,6 +703,17 @@ MODULE mo_nh_init_nest_utils
               p_child_ldiag%hsnow_max(jc,jb) = lndvars_chi(jc,jk1+11,jb)
               p_child_ldiag%snow_age(jc,jb)  = lndvars_chi(jc,jk1+12,jb)
             ENDIF
+            IF (icpl_da_sfcevap == 1 .OR. icpl_da_sfcevap == 2) THEN
+              p_child_diag%t2m_bias(jc,jb) = lndvars_chi(jc,jk1+13,jb)
+            ELSE IF (icpl_da_sfcevap >= 3) THEN
+              p_child_diag%t_avginc(jc,jb) = lndvars_chi(jc,jk1+13,jb)
+            ENDIF
+            p_child_ldiag%t_sk(jc,jb)      = lndvars_chi(jc,jk1+14,jb)
+            p_child_lprog%t_sk_t(jc,jb,jt) = p_child_ldiag%t_sk(jc,jb)
+            p_child_lprog2%t_sk_t(jc,jb,jt) = p_child_ldiag%t_sk(jc,jb)
+            IF (icpl_da_sfcevap >= 2) THEN
+              p_child_diag%rh_avginc(jc,jb) = lndvars_chi(jc,jk1+15,jb)
+            ENDIF
           ENDDO
         ENDDO
         DO jt = ntiles_total+1, ntiles_total+ntiles_water
@@ -709,8 +757,8 @@ MODULE mo_nh_init_nest_utils
       IF (atm_phy_nwp_config(jgc)%inwp_surface == 1 .AND. llake) THEN
 
         CALL flake_coldinit(                                        &
-          &   nflkgb      = ext_data(jgc)%atm%fp_count    (jb),     &  ! in
-          &   idx_lst_fp  = ext_data(jgc)%atm%idx_lst_fp(:,jb),     &  ! in
+          &   nflkgb      = ext_data(jgc)%atm%list_lake%ncount(jb), &  ! in
+          &   idx_lst_fp  = ext_data(jgc)%atm%list_lake%idx (:,jb), &  ! in
           &   depth_lk    = ext_data(jgc)%atm%depth_lk  (:,jb),     &  ! in
           ! here, a proper estimate of the lake surface temperature is required
           &   tskin       = lndvars_chi(:,num_lndvars,jb),          &  ! in
@@ -738,7 +786,7 @@ MODULE mo_nh_init_nest_utils
 
     CALL diagnose_pres_temp(p_child_metrics, p_child_prog, p_child_prog_rcf, p_child_diag, &
                             p_patch(jgc), opt_calc_temp=.TRUE., opt_calc_pres=.TRUE.,      &
-                            lnd_prog=p_child_lprog)
+                            lnd_prog=p_child_lprog, opt_lconstgrav=upatmo_config(jgc)%dyn%l_constgrav)
 
 
     DEALLOCATE(thv_pr_par, rho_pr_par, lndvars_par, wtrvars_par, phdiag_par, lndvars_chi, &
@@ -836,7 +884,7 @@ MODULE mo_nh_init_nest_utils
 
     ! Step 2c: Perform interpolation from local parent to child grid
 
-    CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx, nshift, 3, 1, &
+    CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), nshift, 3, 1,          &
                                 f3din1=temp_lp, f3dout1=initicon(jgc)%atm_inc%temp,       &
                                 f3din2=pres_lp, f3dout2=initicon(jgc)%atm_inc%pres,       &
                                 f3din3=qv_lp,   f3dout3=initicon(jgc)%atm_inc%qv          )
@@ -917,31 +965,38 @@ MODULE mo_nh_init_nest_utils
     ENDIF
 
     ! Step 2c: Perform interpolation from local parent to child grid
-    CALL interpol_vec_nudging (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), p_grf_state(jgc), &
-                               i_chidx, nshift, 1, vn_lp, initicon(jgc)%atm_inc%vn       )
+    CALL interpol_vec_nudging (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx),   &
+                               nshift, 1, vn_lp, initicon(jgc)%atm_inc%vn )
     CALL sync_patch_array(SYNC_E,p_pc,initicon(jgc)%atm_inc%vn)
 
     DEALLOCATE(vn_lp)
 
   END SUBROUTINE interpolate_vn_increments
 
+
   !-------------
   !>
   !! SUBROUTINE interpolate_sfcana
   !!
   !! Driver routine for interpolating surface analysis data from a parent domain to a child domain
-  !! The routine is supposed to work incombination with incremental analysis update only;
-  !! it processes sst (i.e. t_so(0) over sea points only), w_so increments, fr_ice, w_snow, rho_snow,
-  !! h_snow and freshsnow
-  !!
+  !! The routine is supposed to work in combination with incremental analysis update only (MODE_IAU);
+  !! it processes 
+  !! * w_so      (increments) 
+  !! * freshsnow (increments)
+  !! * h_snow    (increments)
+  !! * t_2m      (increments)
+  !! * fr_ice    (full field)
+  !! * sst       (full field)
+  !!   i.e. t_so(0) over sea points only or t_seasfc
   !!
   !! @par Revision History
   !! Initial version by Guenther Zaengl, DWD(2014-12-12)
   !!
   !!
-  SUBROUTINE interpolate_sfcana(initicon, jg, jgc)
+  SUBROUTINE interpolate_sfcana(initicon, inputInstructions, jg, jgc )
 
-    TYPE(t_initicon_state), TARGET, INTENT(INOUT) :: initicon(:)
+    TYPE(t_initicon_state),         INTENT(INOUT) :: initicon(:)
+    TYPE(t_readInstructionListPtr), INTENT(INOUT) :: inputInstructions(:)
 
     INTEGER, INTENT(IN) :: jg   ! parent (source) domain ID
     INTEGER, INTENT(IN) :: jgc  ! child  (target) domain ID
@@ -950,17 +1005,14 @@ MODULE mo_nh_init_nest_utils
     TYPE(t_patch),         POINTER  :: p_pp, p_pc
     TYPE(t_gridref_state), POINTER  :: p_grf
     TYPE(t_int_state),     POINTER  :: p_int
-
-    TYPE(t_lnd_prog),   POINTER     :: p_parent_lprog
-    TYPE(t_lnd_prog),   POINTER     :: p_child_lprog
-    TYPE(t_lnd_diag),   POINTER     :: p_parent_ldiag
-    TYPE(t_lnd_diag),   POINTER     :: p_child_ldiag
+    TYPE(t_lnd_diag),      POINTER  :: p_parent_ldiag
+    TYPE(t_lnd_diag),      POINTER  :: p_child_ldiag
 
     ! local variables
 
     ! Indices
     INTEGER :: jb, jc, jk, jk1, i_chidx, i_startblk, i_endblk, &
-               i_startidx, i_endidx
+               i_startidx, i_endidx, var_src
 
     INTEGER :: num_lndvars
 
@@ -984,8 +1036,6 @@ MODULE mo_nh_init_nest_utils
 
     l_parallel = my_process_is_mpi_parallel()
 
-    p_parent_lprog    => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
-    p_child_lprog     => p_lnd_state(jgc)%prog_lnd(nnow_rcf(jgc))
     p_parent_ldiag    => p_lnd_state(jg)%diag_lnd
     p_child_ldiag     => p_lnd_state(jgc)%diag_lnd
 
@@ -1045,10 +1095,19 @@ MODULE mo_nh_init_nest_utils
       DO jc = i_startidx, i_endidx
         lndvars_par(jc,jk1+1,jb) = initicon(jg)%sfc%sst(jc,jb)
         lndvars_par(jc,jk1+2,jb) = p_parent_ldiag%fr_seaice(jc,jb)
-        lndvars_par(jc,jk1+3,jb) = p_parent_lprog%w_snow_t(jc,jb,1)
-        lndvars_par(jc,jk1+4,jb) = MAX(crhosminf,p_parent_lprog%rho_snow_t(jc,jb,1))
-        lndvars_par(jc,jk1+5,jb) = p_parent_ldiag%freshsnow_t(jc,jb,1)
+        lndvars_par(jc,jk1+3,jb) = initicon(jg)%sfc_inc%h_snow(jc,jb)
+        lndvars_par(jc,jk1+4,jb) = initicon(jg)%sfc_inc%freshsnow(jc,jb)
       ENDDO
+
+      IF (icpl_da_sfcevap == 1 .OR. icpl_da_sfcevap == 2) THEN
+        DO jc = i_startidx, i_endidx
+          lndvars_par(jc,jk1+5,jb) = initicon(jg)%sfc_inc%t_2m(jc,jb)
+        ENDDO
+      ELSE
+        DO jc = i_startidx, i_endidx
+          lndvars_par(jc,jk1+5,jb) = 0._wp
+        ENDDO
+      ENDIF
 
     ENDDO
 !$OMP END DO NOWAIT
@@ -1074,7 +1133,7 @@ MODULE mo_nh_init_nest_utils
     ! parent grid
 
     IF(l_parallel) CALL exchange_data(p_pp%comm_pat_c, lndvars_lp)
-    CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx, 0, &
+    CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), 0, &
                                 1, 1, f3din1=lndvars_lp, f3dout1=lndvars_chi, overshoot_fac=1.005_wp )
     CALL sync_patch_array(SYNC_C,p_pc,lndvars_chi)
 
@@ -1107,27 +1166,77 @@ MODULE mo_nh_init_nest_utils
       jk1 = nlev_soil
 
       DO jc = i_startidx, i_endidx
-        initicon(jgc)%sfc%sst(jc,jb)       = lndvars_chi(jc,jk1+1,jb)
-        p_child_ldiag%fr_seaice(jc,jb)     = lndvars_chi(jc,jk1+2,jb)
-        p_child_lprog%w_snow_t(jc,jb,1)    = lndvars_chi(jc,jk1+3,jb)
-        p_child_lprog%rho_snow_t(jc,jb,1)  = lndvars_chi(jc,jk1+4,jb)
-        p_child_ldiag%freshsnow_t(jc,jb,1) = lndvars_chi(jc,jk1+5,jb)
-
-        ! diagnose h_snow after interpolation
-        p_child_ldiag%h_snow_t(jc,jb,1) = p_child_lprog%w_snow_t(jc,jb,1)/p_child_lprog%rho_snow_t(jc,jb,1)*rhoh2o
+        initicon(jgc)%sfc%sst(jc,jb)           = lndvars_chi(jc,jk1+1,jb)
+        p_child_ldiag%fr_seaice(jc,jb)         = lndvars_chi(jc,jk1+2,jb)
+        initicon(jgc)%sfc_inc%h_snow(jc,jb)    = lndvars_chi(jc,jk1+3,jb)
+        initicon(jgc)%sfc_inc%freshsnow(jc,jb) = lndvars_chi(jc,jk1+4,jb)
 
         ! set limits
         p_child_ldiag%fr_seaice(jc,jb) = MAX(0._wp,MIN(1._wp,p_child_ldiag%fr_seaice(jc,jb)))
-        p_child_ldiag%freshsnow_t(jc,jb,1) = MIN(1._wp,p_child_ldiag%freshsnow_t(jc,jb,1))
       ENDDO
+
+      IF (icpl_da_sfcevap == 1 .OR. icpl_da_sfcevap == 2) THEN
+        DO jc = i_startidx, i_endidx
+          initicon(jgc)%sfc_inc%t_2m(jc,jb) = lndvars_chi(jc,jk1+5,jb)
+        ENDDO
+      ENDIF
 
     ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
+
+    ! set information about input source for interpolated fields
+    !
+    ! w_so (full field: fg, increment: ana(intp))
+    var_src = inputInstructions(jg)%ptr%sourceOfVar('w_so')
+    var_src = MERGE(kInputSourceFgAnaI, var_src, var_src == kInputSourceBoth)
+    CALL inputInstructions(jgc)%ptr%setSource('w_so', var_src)
+    !
+    ! sst
+    ! Branching is necessary here, as sst can either be read via the field t_seasfc of t_so(0)
+    IF (inputInstructions(jg)%ptr%fetchStatus('t_seasfc', lIsFg=.FALSE.) == kStateFailedFetch) THEN
+      ! since we cannot distinguish between t_so which is read from fg and 
+      ! t_so(0)==sst which is read/interpolated from ana, we set
+      ! full field: fg, ana(intp), increment: none
+      var_src = inputInstructions(jg)%ptr%sourceOfVar('t_so')
+      var_src = MERGE(kInputSourceFgAnaI, var_src, var_src == kInputSourceBoth)
+      CALL inputInstructions(jgc)%ptr%setSource('t_so', var_src)
+    ELSE
+      ! full field: ana(intp), increment: none
+      CALL inputInstructions(jgc)%ptr%setSource('t_seasfc', kInputSourceAnaI)
+    ENDIF
+    !
+    ! fr_seaice (full field: ana(intp), increment: none)
+    var_src = inputInstructions(jg)%ptr%sourceOfVar('fr_seaice')
+    var_src = MERGE(kInputSourceAnaI, var_src, var_src == kInputSourceAna)
+    CALL inputInstructions(jgc)%ptr%setSource('fr_seaice', var_src)
+    !
+    ! h_snow (full field: fg, increment: ana(intp))
+    var_src = inputInstructions(jg)%ptr%sourceOfVar('h_snow')
+    var_src = MERGE(kInputSourceFgAnaI, var_src, var_src == kInputSourceBoth)
+    CALL inputInstructions(jgc)%ptr%setSource('h_snow', var_src)
+    !
+    ! freshsnow (full field: fg, increment: ana(intp))
+    var_src = inputInstructions(jg)%ptr%sourceOfVar('freshsnow')
+    var_src = MERGE(kInputSourceFgAnaI, var_src, var_src == kInputSourceBoth)
+    CALL inputInstructions(jgc)%ptr%setSource('freshsnow', var_src)
+    !
+    ! t_2m (full field: none, increment: ana(intp))
+    IF (icpl_da_sfcevap == 1 .OR. icpl_da_sfcevap == 2) THEN
+      var_src = inputInstructions(jg)%ptr%sourceOfVar('t_2m')
+      var_src = MERGE(kInputSourceAnaI, var_src, var_src == kInputSourceAna)
+      CALL inputInstructions(jgc)%ptr%setSource('t_2m', var_src)
+    ENDIF
+
+
+    ! cleanup
     DEALLOCATE(lndvars_par, lndvars_chi, lndvars_lp)
 
   END SUBROUTINE interpolate_sfcana
+
+
+
 
 
   RECURSIVE SUBROUTINE topo_blending_and_fbk(jg)
@@ -1253,8 +1362,8 @@ MODULE mo_nh_init_nest_utils
 
     ! Prognostic part of the model domain
     ! Note: in contrast to boundary interpolation, nudging expects the input on the local parent grid
-    CALL interpol_scal_nudging (ptr_pp, ptr_int, ptr_grf, i_chidx, 0, 1, 1, &
-                                f3din1=ptr_topo_cp, f3dout1=z_topo_cc       )
+    CALL interpol_scal_nudging (ptr_pp, ptr_int, ptr_grf, 0, 1, 1,     &
+                                f3din1=ptr_topo_cp, f3dout1=z_topo_cc  )
 
     ! 2. Apply terrain blending to cell points
     ! In the boundary interpolation zone (cell rows 1-4), the interpolated values

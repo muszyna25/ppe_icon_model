@@ -367,7 +367,9 @@ SUBROUTINE kessler  (             &
     qr_in                !! specific rain content                         (kg/kg)
 
   REAL (KIND=wp)   ::  &
+#ifdef __COSMO__
     fpvsw, fqvs  ,     & !
+#endif
     zpv          ,     & !
     zdtdh, zphi  ,     & !
     zqrk, lnzqrk ,     & !
@@ -405,8 +407,10 @@ SUBROUTINE kessler  (             &
 
 ! saturation vapour pressure over water (fpvsw)
 ! and specific humidity at vapour saturation (fqvs)
+#ifdef __COSMO__
   fpvsw(ztx)     = b1*EXP( b2w*(ztx-b3)/(ztx-b4w) )
   fqvs (zpv,zpx) = rdv*zpv/( zpx - o_m_rdv*zpv )
+#endif
   fsa3(ztx) = 3.86E-3_wp - 9.41E-5_wp*(ztx-t0)
 
   
@@ -606,8 +610,8 @@ loop_over_levels: DO k = 1, ke
         IF (qcg > 1.0E-6_wp) THEN
           ztau  = MIN(1.0_wp-qcg/(qcg+qrg),0.9_wp)
           zphi  = zkphi1 * ztau**zkphi2 * (1.0_wp - ztau**zkphi2)**3
-          zswra = zconst * qcg*qcg*qcg*qcg &                      ! S_au
-                 * (1.0_wp + zphi/(1.0_wp - ztau)**2)
+          zswra = zconst * qcg*qcg*qcg*qcg &                      ! S_au   ! This formula is wrong. Missing cloud_num
+                 * (1.0_wp + zphi/(1.0_wp - ztau)**2)                      ! which was removed from definition of zconst
           zphi  = (ztau/(ztau+zkphi3))**4
           zswrk = zkcac * qcg * qrg * zphi !* zrho1o2(i)          ! S_ac
         ELSE

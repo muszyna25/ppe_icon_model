@@ -13,6 +13,8 @@
 !! headers of the routines.
 !!
 !!
+#include "iconfor_dsl_definitions.inc"
+
 MODULE mo_hamocc_types
 
   USE mo_kind,                ONLY: wp, sp
@@ -22,7 +24,6 @@ MODULE mo_hamocc_types
     & f_plane_coriolis, zero_coriolis, halo_levels_ceiling
   USE mo_math_types,         ONLY: t_cartesian_coordinates,      &
     & t_geographical_coordinates
-  USE mo_linked_list,        ONLY: t_var_list
   USE mo_ocean_tracer_transport_types, ONLY: t_tracer_collection
 
 
@@ -32,10 +33,13 @@ MODULE mo_hamocc_types
   PUBLIC :: t_hamocc_tend
   PUBLIC :: t_hamocc_sed
   PUBLIC :: t_hamocc_bcond
-
+  PUBLIC :: t_hamocc_prog
 
   !
-  
+  TYPE t_onCells_Pointer_3d_wp
+    onCells :: p  ! pointer to 3D array
+  END TYPE t_onCells_Pointer_3d_wp
+
   TYPE t_hamocc_monitor
     REAL(wp), POINTER :: phosy(:)
     REAL(wp), POINTER :: phosy_cya(:)
@@ -70,6 +74,18 @@ MODULE mo_hamocc_types
     REAL(wp), POINTER :: delsil(:)
     REAL(wp), POINTER :: delcar(:)
     REAL(wp), POINTER :: zalkn2(:)
+    ! N-cycle
+    REAL(wp), POINTER :: phosy_nh4(:)
+    REAL(wp), POINTER :: phosy_cya_nh4(:)
+    REAL(wp), POINTER :: sfnh4(:)
+    REAL(wp), POINTER :: net_nh3_flux(:)
+    REAL(wp), POINTER :: wc_nitri_no2(:)
+    REAL(wp), POINTER :: wc_nitri_nh4(:)
+    REAL(wp), POINTER :: wc_dnrn(:)
+    REAL(wp), POINTER :: wc_dnra(:)
+    REAL(wp), POINTER :: wc_anammox(:)
+
+
   END TYPE t_hamocc_monitor
 
   TYPE t_hamocc_diag
@@ -104,6 +120,11 @@ MODULE mo_hamocc_types
     REAL(wp), POINTER ::  bc12(:,:)       
     REAL(wp), POINTER ::  bsil(:,:)       
     REAL(wp), POINTER ::  bter(:,:)       
+
+    ! N-cycle
+    REAL(wp), POINTER ::  pwnh4(:,:,:)
+    REAL(wp), POINTER ::  pwno2(:,:,:)   
+ 
     INTEGER, POINTER ::  kbo(:,:)       
     REAL(wp), POINTER ::  bolay(:,:)       
   END TYPE t_hamocc_sed
@@ -151,6 +172,7 @@ MODULE mo_hamocc_types
     REAL(wp), POINTER ::  orginp(:,:)   ! for now constant value read via nml    
     REAL(wp), POINTER ::  silinp(:,:)   ! later riverine input possible     
     REAL(wp), POINTER ::  calinp(:,:)   ! via mo_bgc_bcond    
+  !  REAL(wp), POINTER ::  nitinp(:,:)     ! nitrogen input 
     REAL(wp), POINTER ::  h2obudget(:,:,:)       
     REAL(wp), POINTER ::  n2budget(:,:,:)       
     REAL(wp), POINTER ::  sedflic(:,:)       
@@ -177,6 +199,12 @@ MODULE mo_hamocc_types
     REAL(wp), POINTER ::  akw(:,:,:)       
     REAL(wp), POINTER ::  ak1(:,:,:)       
     REAL(wp), POINTER ::  ak2(:,:,:)       
+    REAL(wp), POINTER ::  aksi(:,:,:)
+    REAL(wp), POINTER ::  aks(:,:,:)
+    REAL(wp), POINTER ::  akf(:,:,:)
+    REAL(wp), POINTER ::  ak1p(:,:,:)
+    REAL(wp), POINTER ::  ak2p(:,:,:)
+    REAL(wp), POINTER ::  ak3p(:,:,:)
     REAL(wp), POINTER ::  satoxy(:,:,:)       
     REAL(wp), POINTER ::  satn2(:,:)       
     REAL(wp), POINTER ::  satn2o(:,:)       
@@ -190,14 +218,35 @@ MODULE mo_hamocc_types
     REAL(wp), POINTER ::  zo2min(:,:)       
     REAL(wp), POINTER ::  h2sprod(:,:,:)       
     REAL(wp), POINTER ::  h2sloss(:,:,:)       
+    REAL(wp), POINTER ::  lysocline(:,:)
+    REAL(wp), POINTER ::  nitrogeninp(:,:)
+
+    ! N-cycle
+    REAL(wp), POINTER ::  nh3flux(:,:)
+    REAL(wp), POINTER ::  gppnh4(:,:,:)
+    REAL(wp), POINTER ::  cyapro(:,:,:)
+    REAL(wp), POINTER ::  ammox(:,:,:)
+    REAL(wp), POINTER ::  nitox(:,:,:)
+    REAL(wp), POINTER ::  dnrn(:,:,:)
+    REAL(wp), POINTER ::  dnra(:,:,:)
+    REAL(wp), POINTER ::  anam(:,:,:)
+    REAL(wp), POINTER ::  sedflnh4(:,:)       
+    REAL(wp), POINTER ::  sedflno2(:,:)  
+    REAL(wp), POINTER ::  sedammox(:,:,:)       
+    REAL(wp), POINTER ::  sednitox(:,:,:)       
+    REAL(wp), POINTER ::  sedanam(:,:,:)
+    REAL(wp), POINTER ::  seddnrn(:,:,:)       
+    REAL(wp), POINTER ::  seddnra(:,:,:)       
+    REAL(wp), POINTER ::  sednrn2(:,:,:)     
+
     TYPE(t_hamocc_monitor) :: monitor
   END TYPE t_hamocc_tend
 
-  TYPE t_hammoc_tracer
-
+  TYPE t_hamocc_prog
+    REAL(wp), POINTER :: tracer(:,:,:,:)
     TYPE(t_tracer_collection) :: tracer_collection
-
-  END TYPE t_hammoc_tracer
+    TYPE(t_onCells_Pointer_3d_wp), ALLOCATABLE :: tracer_ptr(:) 
+  END TYPE t_hamocc_prog
 
 ! array of states
    TYPE t_hamocc_state
@@ -205,13 +254,17 @@ MODULE mo_hamocc_types
     TYPE(t_hamocc_diag) :: p_diag
     TYPE(t_hamocc_tend) :: p_tend
     TYPE(t_hamocc_sed)  :: p_sed
-   
-
+    TYPE(t_hamocc_prog), ALLOCATABLE :: p_prog(:)
+    
   END TYPE t_hamocc_state
 
   TYPE t_hamocc_bcond
    REAL(wp), POINTER:: dusty(:,:)       !  index1=1,nproma, nblks_e
    REAL(wp), POINTER:: nitro(:,:)       !  index1=1,nproma, nblks_e
+   REAL(wp), POINTER:: prorca(:,:)       !  index1=1,nproma, nblks_e
+   REAL(wp), POINTER:: prcaca(:,:)       !  index1=1,nproma, nblks_e
+   REAL(wp), POINTER:: silpro(:,:)       !  index1=1,nproma, nblks_e
+   REAL(wp), POINTER:: produs(:,:)       !  index1=1,nproma, nblks_e
   END TYPE t_hamocc_bcond
 
 END MODULE 

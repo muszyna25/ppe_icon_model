@@ -12,9 +12,11 @@
 ; varName       : name of the variable to (contour) plot
 ;
 ; Optional Parameter:
-; oFile         : plot file without extension (set by the output type: oType)
-; oType         : output graphics format (ps, eps, png, default: eps)
 ; colormap      : string for predefined colormaps of the plot (e.g. 'colormap="BlAqGrYeOrReVi200"')
+; expnum        : Secondary title above left upper corner of plot
+; oFile         : plot file without extension (set by the output type: oType)
+; oType         : output graphics format (ps, eps, png, default: png)
+; tRange        : range of time axis, date0:date1,  with date in format YYYYmmddHH.
 ;
 ; Info:
 ; * There is a meteogram plot script available publically, which might be used to add features.
@@ -25,6 +27,7 @@
 ;----------------------------------------------------------------------
 ; 12/2011 : F. Prill,   DWD (florian.prill@dwd.de)
 ; 12/2011 : M. Koehler, DWD (martin.koehler@dwd.de)
+; 01/2019 : H. Frank,   DWD (helmut.frank@dwd.de)
 ;----------------------------------------------------------------------
 
 load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/gsn_code.ncl"
@@ -85,21 +88,70 @@ begin
 end
 
 
+;---------------------------------------------------------------------------
+; Function to find the first and last index of the dates in the range tRange
+;    Input:  date0:date1
+;            with the format yyyymmddhh
+;            Missing date0 sets t0 = 0
+;            Missing date1 sets t1 to the last date index 
+;    Output: Indices t0, t1
+;---------------------------------------------------------------------------
+
+function get_date_range (cdf_file, tRange : string)
+local t0, t1, date0, date1, datum, datum, dates, itr
+begin
+  t0 = 0
+  t1 = dimsizes(cdf_file->time_step(:)) - 1
+  if ( tRange .ne. "")
+;   Convert date from string to numbers
+    datum := tostring( cdf_file->date(:,0:16)) 
+    datum = str_sub_str( datum, "T", "")
+    datum = str_sub_str( datum, "Z", "") 
+    dates = stringtodouble( datum)
+
+    itr  = str_match( tRange, ":")
+    if ( ismissing(itr) )
+      date0 = dates(t0)
+      date1 = stringtodouble( tRange) * 1.d4
+    else
+      tt = str_split( tRange, ":")
+      if ( dimsizes(tt) .eq. 1)
+         tR1 = stringtochar( tRange)
+        if ( tR1(0) .eq. ":")
+          date0 = dates(t0)
+          date1 = stringtodouble( tt(0)) * 1.d4
+        else
+          date0 = stringtodouble( tt(0)) * 1.d4
+          date1 = dates(t1)
+        end if
+      else
+        date0 = stringtodouble( tt(0)) * 1.d4
+        date1 = stringtodouble( tt(1)) * 1.d4
+      end if
+    end if
+    t0 = closest_val( date0, dates(:) )
+    t1 = closest_val( date1, dates(:) )
+  end if
+  return( (/ t0, t1 /))
+end
+
+
 begin
 
 ;----------------------------------------------------------------------
 ; argument list
 ;----------------------------------------------------------------------
 
-  if(.not. isvar("oType")) oType = "eps" end if
+  if(.not. isvar("oType")) oType = "png" end if
   if(.not. isvar("oFile")) then
     ext      = get_file_suffix(iFile,0)
     oFile    = ext@fBase
   end if
-  if (.not. isvar("colormap"))    colormap    = "BlueDarkRed18" end if
+  if (.not. isvar("colormap")) colormap = "BlueDarkRed18" end if
+  if (.not. isvar("tRange") )  tRange   = ""              end if
 
   iStation     = iStation - 1
-  itime        = 0
+
   if(.not. isvar("xlabel")) then 
    xlabel = "day"
    mxstride = 1
@@ -118,10 +170,13 @@ begin
 ; open netCDF file
   cdf_file  = addfile(iFile,"r") 
   nstations = dimsizes(cdf_file->station_lon)
-; get index corresponding to variable
+; get index corresponding to variable and time range
+  date_index = get_date_range( cdf_file, tRange)
+  t0 = date_index(0)
+  t1 = date_index(1)
   ivar      = get_var_index(cdf_file, varName)
-  vals      = cdf_file->sfcvalues(0:, ivar, iStation)   ; (time, var, station)
-  time      = cdf_file->time_step(0:)
+  vals      = cdf_file->sfcvalues(t0:t1, ivar, iStation)   ; (time, var, station)
+  time      = cdf_file->time_step(t0:t1)
 
 ;----------------------------------------------------------------------
 ; plot setup
@@ -129,8 +184,7 @@ begin
   
   print("")
   print("Meteogram  '" + charactertostring(cdf_file->station_name(iStation,:))+"'" )
-; print("Outputfile '"+str_concat((/oFile,".000001.",oType/))+"' will be created")   ; in "+systemfunc("dirname "+iFile))
-  print("Outputfile '"+str_concat((/oFile,".",oType/))+"' will be created")   ; in "+systemfunc("dirname "+iFile))
+; print("Outputfile '"+str_concat((/oFile,".",oType/))+"' will be created")   ; in "+systemfunc("dirname "+iFile))
 
   wks  = gsn_open_wks(oType,oFile)                 ; Opens a ps file
   gsn_define_colormap(wks,colormap)  
@@ -141,7 +195,11 @@ begin
   res@gsnCenterString   = charactertostring(cdf_file->sfcvar_long_name(ivar,:))
   res@gsnCenterStringOrthogonalPosF = 0.06
   res@gsnLeftString     = expnum
-  res@gsnRightString    = charactertostring(cdf_file->station_name(iStation,:))
+  nl = "~C~"             ;  carriage return to write lat, lon on second line
+  deg = "~S~o~N~"        ;  degree sign (see https://www.ncl.ucar.edu/Applications/Scripts/text_7.ncl)
+  clat = tostring_with_format( cdf_file->station_lat(iStation), "%.2f")
+  clon = tostring_with_format( cdf_file->station_lon(iStation), "%.2f")
+  res@gsnRightString    = charactertostring(cdf_file->station_name(iStation,:)) + nl + clat + deg + "N, " + clon + deg + "E"
   res@tiXAxisString     = "Time  (from "+yyyymmdd+")"                                  ; x-axis label
   res@tiYAxisString     = "["+ charactertostring(cdf_file->sfcvar_unit(ivar,:)) + "]"  ; y-axis label
   res@gsnCenterStringFontHeightF = 0.02
@@ -212,7 +270,7 @@ begin
 
   res@tmXBMode             = "Explicit"            ; Define own tick mark labels.
   res@tmXBMinorOn          = True
-  res@tmXBMinorValues      = cdf_file->time_step(::mxstride)
+  res@tmXBMinorValues      = cdf_file->time_step(t0:t1:mxstride)
   res@tmXBMinorThicknessF  = 0.1
   res@tmXBValues           = expl_values(0:(count-1))  ; location of explicit labels
   res@tmXBLabels           = expl_labels(0:(count-1))
@@ -236,6 +294,6 @@ begin
 ; line plot
 ;----------------------------------------------------------------------
 
-  plot = gsn_csm_xy(wks,time,vals,res)             ; plot line
+  plot = gsn_csm_xy(wks,time(t0:t1),vals,res)             ; plot line
   
 end

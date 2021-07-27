@@ -28,11 +28,12 @@ MODULE mo_gribout_nml
   USE mo_master_control,      ONLY: use_restart_namelists
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
-  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist,     &
+  USE mo_restart_nml_and_att, ONLY: open_tmpfile, store_and_close_namelist,     &
     &                               open_and_restore_namelist, close_tmpfile
   USE mo_gribout_config,      ONLY: gribout_config
+  USE mo_grib2_tile,          ONLY: grib2_keys_tile
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
-  USE mo_util_string,         ONLY: int2string
+  USE mo_util_string,         ONLY: int2string, tolower, one_of
   USE mo_exception,           ONLY: finish, message
 
 
@@ -64,6 +65,7 @@ MODULE mo_gribout_nml
   CHARACTER(LEN=32) :: preset
 
   INTEGER :: tablesVersion              ! Main switch for table version
+  INTEGER :: localTablesVersion         ! Switch for centre local table version
 
   INTEGER :: &                          ! Table 1.2
     & significanceOfReferenceTime       ! 0: Analysis
@@ -88,7 +90,7 @@ MODULE mo_gribout_nml
                                         ! 1  : Initialization
                                         ! 2  : Forecast
                                         ! 3  : ...
-                                        ! 196: invariant data 
+                                        ! 196: invariant data
 
   INTEGER :: &                          ! Table: backgroundProcess
     & backgroundProcess                 ! 0: main run
@@ -131,15 +133,20 @@ MODULE mo_gribout_nml
   LOGICAL :: lgribout_24bit             ! write thermodynamic fields rho, theta_v, T, p
                                         ! with 24bit precision
 
+  LOGICAL :: lgribout_compress_ccsds    ! enable CCSDS second level compression
 
   INTEGER :: typeOfEnsembleForecast,        &
     &        localTypeOfEnsembleForecast,   &
     &        numberOfForecastsInEnsemble,   &
     &        perturbationNumber
 
+    CHARACTER(len=32) ::  &               !< type of GRIB2 templates used for surface tile fields
+      &  typeOfGrib2TileTemplate          !  'wmo': official WMO templates 55, 59, ...
+                                          !  'dwd': local 'DWD' templates 40455, 40456, ...
 
   NAMELIST/gribout_nml/  &
     &                    preset, tablesVersion,           &
+    &                    localTablesVersion,              &
     &                    significanceOfReferenceTime,     &
     &                    productionStatusOfProcessedData, &
     &                    typeOfProcessedData,             &
@@ -156,7 +163,9 @@ MODULE mo_gribout_nml
     &                    localTypeOfEnsembleForecast,     &
     &                    numberOfForecastsInEnsemble,     &
     &                    perturbationNumber,              &
-    &                    lgribout_24bit
+    &                    lgribout_24bit,                  &
+    &                    lgribout_compress_ccsds,         &
+    &                    typeOfGrib2TileTemplate
 
 
 CONTAINS
@@ -196,6 +205,8 @@ CONTAINS
     preset                               = "deterministic"
 
     tablesVersion                        = 15
+    localTablesVersion                   = 1
+
     significanceOfReferenceTime          = 1   ! 1: Start of forecast
     productionStatusOfProcessedData      = 1   ! 1: Oper. test products
     backgroundProcess                    = 0   ! 0: main run
@@ -204,6 +215,9 @@ CONTAINS
     lspecialdate_invar                   = .FALSE.  ! no special date for invar fields
     ldate_grib_act                       = .TRUE.
     lgribout_24bit                       = .FALSE.  ! use 16bit precision for all fields
+    lgribout_compress_ccsds              = .FALSE.  ! do not use second level compression by default
+
+    typeOfGrib2TileTemplate              = 'dwd'    ! use DWD templates 40455, etc
 
     typeOfProcessedData                  = UNDEFINED
     typeOfGeneratingProcess              = UNDEFINED
@@ -248,6 +262,16 @@ CONTAINS
     END SELECT
     CALL close_nml
 
+
+    !----------------------------------------------------
+    ! 4. Sanity check
+    !----------------------------------------------------
+
+    IF ( one_of(tolower(TRIM(typeOfGrib2TileTemplate)), (/'wmo','dwd'/)) < 0 ) THEN
+      CALL finish(routine, "Illegal Namelist setting for typeOfGrib2TileTemplate: "//TRIM(typeOfGrib2TileTemplate))
+    ENDIF
+
+
     !----------------------------------------------------
     ! 5. Fill the configuration state
     !----------------------------------------------------
@@ -255,6 +279,8 @@ CONTAINS
     DO jg= 1,max_dom
       gribout_config(jg)%tablesVersion                     = &
         &                tablesVersion
+      gribout_config(jg)%localTablesVersion                = &
+        &                localTablesVersion
       gribout_config(jg)%significanceOfReferenceTime       = &
         &                significanceOfReferenceTime
       gribout_config(jg)%productionStatusOfProcessedData   = &
@@ -289,8 +315,60 @@ CONTAINS
         &                perturbationNumber
       gribout_config(jg)%lgribout_24bit                    = &
         &                lgribout_24bit
+      gribout_config(jg)%lgribout_compress_ccsds           = &
+        &                lgribout_compress_ccsds
+      gribout_config(jg)%typeOfGrib2TileTemplate           = &
+        &                tolower(typeOfGrib2TileTemplate)
     ENDDO
 
+
+
+    !----------------------------------------------------------------
+    ! 5b. Define the set of employed GRIB2 tile templates for writing
+    !----------------------------------------------------------------
+    !
+    ! By placing it here we make sure that this information is also
+    ! known to the output PEs, which are detached right after.
+    !
+    DO jg = 1, max_dom
+      IF (TRIM(gribout_config(jg)%typeOfGrib2TileTemplate)=="wmo") THEN
+        !
+        ! allowed set of templates to choose from
+        !
+        gribout_config(jg)%grib2_template_tile%tpl_inst     = 55
+        gribout_config(jg)%grib2_template_tile%tpl_acc      = -999  ! 62 not yet available (validation by WMO pending)
+        gribout_config(jg)%grib2_template_tile%tpl_inst_ens = 59
+        gribout_config(jg)%grib2_template_tile%tpl_acc_ens  = -999  ! 63 not yet available (validation by WMO pending)
+        !
+        ! keynames for official WMO templates 55, 59, ...
+        !
+        gribout_config(jg)%grib2_template_tile%keys = &
+          &                grib2_keys_tile(str_tileClassification              = "tileClassification",              &
+          &                                str_totalNumberOfTileAttributePairs = "totalNumberOfTileAttributePairs", &
+          &                                str_numberOfUsedSpatialTiles        = "numberOfUsedSpatialTiles",        &
+          &                                str_tileIndex                       = "tileIndex",                       &
+          &                                str_numberOfUsedTileAttributes      = "numberOfUsedTileAttributes",      &
+          &                                str_attributeOfTile                 = "attributeOfTile"                  )
+      ELSE
+        !
+        ! allowed set of templates to choose from
+        !
+        gribout_config(jg)%grib2_template_tile%tpl_inst     = 40455
+        gribout_config(jg)%grib2_template_tile%tpl_acc      = -999  ! not available (never)
+        gribout_config(jg)%grib2_template_tile%tpl_inst_ens = 40456
+        gribout_config(jg)%grib2_template_tile%tpl_acc_ens  = -999  ! not available (never)
+        !
+        ! keynames for local 'DWD' templates 40455, 40456, ...
+        !
+        gribout_config(jg)%grib2_template_tile%keys =  &
+          &                grib2_keys_tile(str_tileClassification              = "tileClassification",              &
+          &                                str_totalNumberOfTileAttributePairs = "totalNumberOfTileAttributePairs", &
+          &                                str_numberOfUsedSpatialTiles        = "numberOfTiles",                   &
+          &                                str_tileIndex                       = "tileIndex",                       &
+          &                                str_numberOfUsedTileAttributes      = "numberOfTileAttributes",          &
+          &                                str_attributeOfTile                 = "tileAttribute"                    )
+      ENDIF
+    ENDDO
 
 
     !-----------------------------------------------------

@@ -23,7 +23,8 @@ MODULE mo_ext_data_types
 
   USE mo_kind,               ONLY: wp
   USE mo_fortran_tools,      ONLY: t_ptr_2d3d, t_ptr_i2d3d 
-  USE mo_linked_list,        ONLY: t_var_list
+  USE mo_var_list,           ONLY: t_var_list_ptr
+  USE mo_idx_list,           ONLY: t_idx_list_blocked
 
   IMPLICIT NONE
 
@@ -98,6 +99,9 @@ MODULE mo_ext_data_types
     ! *** roughness length ***
     REAL(wp), POINTER ::   &   !< surface roughness                       [m]
       &  z0(:,:)               ! index1=1,nproma, index2=1,nblks_c
+
+    REAL(wp), POINTER ::   &   !< effective length scale of circulation patterns
+      &  l_pat(:,:)            ! index1=1,nproma, index2=1,nblks_c
 
 
     !
@@ -185,6 +189,11 @@ MODULE mo_ext_data_types
     REAL(wp), POINTER ::   &   !< ground fraction covered by deciduous forest [ ]
       &  for_d(:,:)            ! index1=1,nproma, index2=1,nblks_c
 
+    REAL(wp), POINTER ::   &   !< skin conductivity                   [ W/m^2/K ]
+      &  skinc(:,:)            ! index1=1,nproma, index2=1,nblks_c
+    REAL(wp), POINTER ::   &   !< skin conductivity                   [ W/m^2/K ]
+      &  skinc_t(:,:,:)        ! index1=1,nproma, index2=1,nblks_c, ntiles_total
+
     REAL(wp), POINTER ::   &   !< minimum value of stomata resistance     [ s/m ]
       &  rsmin(:,:)            ! index1=1,nproma, index2=1,nblks_c
     REAL(wp), POINTER ::   &   !< minimum value of stomata resistance     [ s/m ]
@@ -249,19 +258,6 @@ MODULE mo_ext_data_types
     REAL(wp), POINTER ::  &    !< Landuse class fraction                  [ ]
       & lu_class_fraction(:,:,:) ! index1=1,nproma, index2=1,nblks_c, index3=1,nclass_lu
 
-    INTEGER, POINTER ::  &    !< Static land point index list for each block  [ ]
-      & idx_lst_lp(:,:)       ! index1=1,nproma, index2=1,nblks_c
-    INTEGER, POINTER ::  &    !< Land point count per block       [ ]
-      & lp_count(:)           ! index1=1,nblks_c
-    INTEGER, POINTER ::  &    !< Static sea point index list for each block   [ ]
-      & idx_lst_sp(:,:)       ! index1=1,nproma, index2=1,nblks_c
-    INTEGER, POINTER ::  &    !< Sea point count per block        [ ]
-      & sp_count(:)           ! index1=1,nblks_c
-    INTEGER, POINTER ::  &    !< static lake point index list for each block  [ ]
-      & idx_lst_fp(:,:)       ! index1=1,nproma, index2=1,nblks_c
-    INTEGER, POINTER ::  &    !< Lake point count per block        [ ]
-      & fp_count(:)           ! index1=1,nblks_c
-
     INTEGER, POINTER ::  &    !< Static grid point index list for each block and tile [ ]
       & idx_lst_lp_t(:,:,:)   ! index1=1,nproma, index2=1,nblks_c, index3=ntiles_total
     INTEGER, POINTER ::  &    !< Corresponding grid point count per block and tile index      [ ]
@@ -292,19 +288,31 @@ MODULE mo_ext_data_types
                               ! fr_land (extpar) + fr_lake(extpar, where fr_lake<frlake_thrhld)
                               ! index1=1,nproma, index2=1,nblks_c
 
-    ! Sub-lists for sea points (idx_lst_sp), in order to distinguish between ice-covered and open
-    ! sea points.
-    ! 
-    INTEGER, POINTER ::  &    !< Dynamic sea water point index list for each block and tile [ ]
-      & idx_lst_spw(:,:)      ! index1=1,nproma, index2=1,nblks_c
-    INTEGER, POINTER ::  &    !< Corresponding grid point count per block                   [ ]
-      & spw_count(:)          ! index1=1,nblks_c
-    INTEGER, POINTER ::  &    !< Dynamic sea ice point index list for each block and tile   [ ]
-      & idx_lst_spi(:,:)      ! index1=1,nproma, index2=1,nblks_c
-    INTEGER, POINTER ::  &    !< Corresponding grid point count per block                   [ ]
-      & spi_count(:)          ! index1=1,nblks_c
 
- 
+    ! Index lists for land, lake and water points
+    !
+    TYPE(t_idx_list_blocked) :: list_land   !< Static, blocked grid point index list
+                                            !< contains all points for which the land fraction (fr_land) 
+                                            !< exceeds the threshold frlnd_thrhld
+
+    TYPE(t_idx_list_blocked) :: list_sea    !< Static, blocked grid point index list
+                                            !< contains all points for which the sea fraction (1-fr_land-fr_lake) 
+                                            !< exceeds the threshold frsea_thrhld
+
+    TYPE(t_idx_list_blocked) :: list_seawtr !< Dynamic, blocked grid point index list
+                                            !< contains all sea points which are at least partly ice-free. 
+                                            !< I.e. for which the ice-free fraction (1-fr_ice) 
+                                            !< exceeds a certain threshold.
+
+    TYPE(t_idx_list_blocked) :: list_seaice !< Dynamic, blocked grid point index list
+                                            !< contains all sea points which are at least partly ice covered. 
+                                            !< I.e. for which the seaice fraction fr_ice 
+                                            !< exceeds the threshold frice_thrhld
+
+    TYPE(t_idx_list_blocked) :: list_lake   !< Static, blocked grid point index list
+                                            !< contains all points for which the lake fraction fr_lake 
+                                            !< exceeds the threshold frlake_thrhld
+
 
     ! *** storage for lookup table data for each landuse class ***
     ! (needed to simplify switching between GLC2000 and Globcover2009, which
@@ -319,6 +327,8 @@ MODULE mo_ext_data_types
       & laimax_lcc(:)          ! index1=1,23
     REAL(wp), POINTER ::  &    !< Maximum root depth for each land-cover class  [ ]
       & rootdmax_lcc(:)        ! index1=1,23
+    REAL(wp), POINTER ::  &    !< Skin conductivity for each land use class [ ]
+      & skinc_lcc(:)           ! index1=1,23
     REAL(wp), POINTER ::  &    !< Minimum stomata resistance for each land-cover class  [ ]
       & stomresmin_lcc(:)      ! index1=1,23
     REAL(wp), POINTER ::  &    !< Albedo in case of snow cover for each land-cover class  [ ]
@@ -393,6 +403,8 @@ MODULE mo_ext_data_types
       &  albni_dif(:,:,:)      !< (0.7 - 5.0 um)
                                ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
 
+    REAL(wp), POINTER ::   &   !< Broadband longwave (thermal) emissivity of the surface   [1]
+      &  lw_emiss(:,:,:)       !< index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
 
     !
     ! *** vegetation parameters ***
@@ -416,6 +428,15 @@ MODULE mo_ext_data_types
       &  dust(:,:,:)   
    REAL(wp), POINTER ::   &   !< (monthly) nitrogen deposition
       &  nitro(:,:,:)   
+   REAL(wp), POINTER ::   &   !< org. C flux for offline sed.
+      &  prorca(:,:)          !  index1=1,nproma, index2=1,nblks_c
+   REAL(wp), POINTER ::   &   !< inorg. C flux for offline sed.
+      &  prcaca(:,:)          !  index1=1,nproma, index2=1,nblks_c
+   REAL(wp), POINTER ::   &   !< Si flux for offline sed.
+      &  silpro(:,:)          !  index1=1,nproma, index2=1,nblks_c
+   REAL(wp), POINTER ::   &   !< dust flux for offline sed.
+      &  produs(:,:)          !  index1=1,nproma, index2=1,nblks_c
+
   END TYPE t_external_bgc
 
   !>
@@ -474,18 +495,18 @@ MODULE mo_ext_data_types
   TYPE :: t_external_data
 
     TYPE(t_external_atmos)    :: atm
-    TYPE(t_var_list)          :: atm_list
+    TYPE(t_var_list_ptr)          :: atm_list
 
     TYPE(t_external_atmos_td) :: atm_td
-    TYPE(t_var_list)          :: atm_td_list
+    TYPE(t_var_list_ptr)          :: atm_td_list
 
     TYPE(t_external_ocean)    :: oce
-    TYPE(t_var_list)          :: oce_list
+    TYPE(t_var_list_ptr)          :: oce_list
 
     TYPE(t_external_bgc)      :: bgc
-    TYPE(t_var_list)          :: bgc_list
+    TYPE(t_var_list_ptr)          :: bgc_list
 !    TYPE(t_external_ocean_td) :: oce_td
-!    TYPE(t_var_list), POINTER :: oce_td_list
+!    TYPE(t_var_list_ptr), POINTER :: oce_td_list
 
   END TYPE t_external_data
 

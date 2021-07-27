@@ -42,6 +42,7 @@
 !
 MODULE mo_radiation
 
+  USE mo_bc_greenhouse_gases,  ONLY: ghg_co2mmr, ghg_ch4mmr, ghg_n2ommr, ghg_cfcmmr
   USE mo_aerosol_util,         ONLY: zaea_rrtm,zaes_rrtm,zaeg_rrtm
   USE mo_kind,                 ONLY: wp, i8
   USE mo_exception,            ONLY: finish
@@ -61,33 +62,22 @@ MODULE mo_radiation
     &                                irad_o2,    mmr_o2,              &
     &                                irad_cfc11, vmr_cfc11,           &
     &                                irad_cfc12, vmr_cfc12,           &
-    &                                irad_aero,  lrad_aero_diag,      &
+    &                                irad_aero,                       &
     &                                izenith, lradforcing, islope_rad
   USE mo_lnd_nwp_config,       ONLY: isub_seaice, isub_lake
-
+  USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_newcld_optics,        ONLY: newcld_optics
-  USE mo_psrad_cloud_optics,   ONLY: psrad_cloud_optics => cloud_optics
   USE mo_bc_aeropt_kinne,      ONLY: set_bc_aeropt_kinne
-  USE mo_bc_aeropt_stenchikov, ONLY: add_bc_aeropt_stenchikov
-
+  USE mo_bc_aeropt_cmip6_volc, ONLY: add_bc_aeropt_cmip6_volc
   USE mo_lrtm_par,             ONLY: jpband => nbndlw, jpxsec => maxxsec
   USE mo_lrtm,                 ONLY: lrtm
-  USE mo_psrad_gas_optics,     ONLY: psrad_precomputation => precomputation
-  USE mo_psrad_lrtm_driver,    ONLY: psrad_lrtm => lrtm
   USE mo_srtm_config,          ONLY: jpsw, jpinpx
   USE mo_srtm,                 ONLY: srtm_srtm_224gp
-  USE mo_psrad_general,        ONLY: nbndsw, nmixture, ngas
-  USE mo_psrad_srtm_driver,    ONLY: psrad_srtm => srtm, psrad_srtm_diags => srtm_diags
-  USE mo_psrad_solar_parameters, ONLY: psctm
-  USE mo_timer,                ONLY: ltimer, timer_start, timer_stop,  &
-    &                                timer_radiation,                  &
-    &                                timer_rrtm_prep, timer_rrtm_post, &
-    &                                timer_lrtm, timer_srtm
-
+  USE mo_timer,                ONLY: timers_level, timer_start, timer_stop,  &
+    &                                timer_radiation, timer_rrtm_prep,       &
+    &                                timer_lrtm, timer_srtm, timer_rrtm_post
   USE mo_nh_testcases_nml,     ONLY: zenithang
-  USE mo_rad_diag,             ONLY: rad_aero_diag
   USE mo_art_radiation_interface, ONLY: art_rad_aero_interface
-  USE mo_psrad_radiation_forcing, ONLY: calculate_psrad_radiation_forcing
   USE mtime,                   ONLY: datetime, newDatetime, timedelta, newTimedelta, &
        &                             getPTStringFromMS, OPERATOR(+),                 &
        &                             NO_OF_MS_IN_A_MINUTE, NO_OF_MS_IN_A_HOUR,       &
@@ -112,7 +102,7 @@ MODULE mo_radiation
 CONTAINS
 
   SUBROUTINE pre_radiation_nwp_steps( &
-    & kbdim,cosmu0_dark,p_inc_rad,p_inc_radheat,p_sim_time,pt_patch,zsmu0,zsct)
+    & kbdim,cosmu0_dark,p_inc_rad,p_inc_radheat,p_sim_time,pt_patch,zsmu0,zsct, lacc)
 
     INTEGER, INTENT(IN)   :: &
       & kbdim
@@ -127,6 +117,7 @@ CONTAINS
 
     REAL(wp), INTENT(OUT), OPTIONAL   :: zsct                  ! solar constant (at time of year)
     REAL(wp), INTENT(OUT)             :: zsmu0(kbdim,pt_patch%nblks_c)   ! Cosine of zenith angle
+    LOGICAL                           :: lacc ! accelerator flag
 
     REAL(wp) ::                    &
       & p_sim_time_rad,            &
@@ -165,6 +156,9 @@ CONTAINS
     IF (izenith == 0) THEN
     ! local insolation = constant = global mean insolation (ca. 340 W/m2)
     ! zenith angle = 0,
+#ifdef _OPENACC
+      IF (lacc) CALL finish('pre_radiation_nwp','Only ported on gpu for izenith == 4')
+#endif
       DO jb = 1, pt_patch%nblks_c
         ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
         zsmu0(1:ie,jb) = 1._wp ! sun in zenith everywhere
@@ -176,6 +170,9 @@ CONTAINS
     ! no diurnal cycle,
     ! local time always 12:00
     ! --> sin(time of day)=1 ) and zenith angle depends on latitude only
+#ifdef _OPENACC
+      IF (lacc) CALL finish('pre_radiation_nwp','Only ported on gpu for izenith == 4')
+#endif
       DO jb = 1, pt_patch%nblks_c
         ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
         zsmu0(1:ie,jb) = COS( pt_patch%cells%center(1:ie,jb)%lat )
@@ -188,6 +185,9 @@ CONTAINS
     ! no diurnal cycle,
     ! local time always  07:14:15 or 16:45:45
     ! --> sin(time of day)=1/pi and zenith angle depends on latitude only
+#ifdef _OPENACC
+      IF (lacc) CALL finish('pre_radiation_nwp','Only ported on gpu for izenith == 4')
+#endif
       DO jb = 1, pt_patch%nblks_c
         ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
         zsmu0(1:ie,jb) = COS( pt_patch%cells%center(1:ie,jb)%lat ) * rpi
@@ -197,6 +197,9 @@ CONTAINS
     ! circular non-seasonal orbit,
     ! perpetual equinox,
     ! with diurnal cycle,
+#ifdef _OPENACC
+      IF (lacc) CALL finish('pre_radiation_nwp','Only ported on gpu for izenith == 4')
+#endif
 
       zsmu0(:,:)=0.0_wp
       n_cosmu0pos(:,:) = 0
@@ -330,10 +333,13 @@ CONTAINS
 
       ENDDO !jmu0
 
+      !$acc update device (zsmu0) if (lacc)
       DO jb = 1, pt_patch%nblks_c
 
         ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
 
+        !$acc parallel default (none) present (zsmu0) copyin (n_cosmu0pos, cosmu0_dark ) copy (zsct) if (lacc)
+        !$acc loop gang vector
         DO jc = 1,ie
           IF ( n_cosmu0pos(jc,jb) > 0 ) THEN
             ! The averaged cosine of zenith angle is limited to 0.05 in order to avoid
@@ -343,6 +349,7 @@ CONTAINS
             zsmu0(jc,jb) = cosmu0_dark
           ENDIF
         ENDDO
+        !$acc end parallel
 
       ENDDO !jb
 
@@ -353,6 +360,7 @@ CONTAINS
           zsct = zsct_save
         ENDIF
       ENDIF
+      !$acc update host (zsmu0) if (lacc)
 
     ELSEIF (izenith == 5) THEN
      ! Radiative convective equilibrium
@@ -361,6 +369,9 @@ CONTAINS
      ! no diurnal cycle,
      ! the product tsi*cos(zenith angle) should equal 340 W/m2
      ! see Popke et al. 2013 and Cronin 2013
+#ifdef _OPENACC
+      IF (lacc) CALL finish('pre_radiation_nwp','Only ported on gpu for izenith == 4')
+#endif
       DO jb = 1, pt_patch%nblks_c
         ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
         zsmu0(1:ie,jb) = COS(zenithang*pi/180._wp)
@@ -369,11 +380,6 @@ CONTAINS
 
     ENDIF
 
-    IF (PRESENT(zsct)) THEN
-      psctm = zsct
-    ELSE
-      psctm = tsi_radt
-    ENDIF
 
   END SUBROUTINE pre_radiation_nwp_steps
 
@@ -558,7 +564,7 @@ CONTAINS
   SUBROUTINE radiation_nwp(                                                &
     ! input
     &  current_date                                                        &
-    & ,jg, jb, irad                                                        &
+    & ,jg, jb, icpl_reff                                                   &
     & ,jcs               ,jce               ,kbdim                         &
     & ,klev              ,klevp1                                           &
     & ,ktype             ,zland           ,zglac            ,cos_mu0       &
@@ -567,11 +573,15 @@ CONTAINS
     & ,tk_sfc            ,pp_hl            ,pp_fl                          &
     & ,tk_fl             ,qm_vap          ,qm_liq           ,qm_ice        &
     & ,qm_o3                                                               &
-    & ,cdnc              ,cld_frc                                          &
+    & ,cdnc              ,reff_liq        ,reff_frz         ,cld_frc       &
     & ,zaeq1, zaeq2, zaeq3, zaeq4, zaeq5, dust_tunefac                     &
     ! output
-    & ,cld_cvr, flx_lw_net, flx_uplw_sfc, trsol_net, trsol_up_toa,         &
-    &  trsol_up_sfc, trsol_dn_sfc_diffus, trsol_clr_sfc, trsol_par_sfc     )
+    & ,cld_cvr, flx_lw_net, flx_uplw_sfc, trsol_net, trsol_up_toa          &
+    & ,trsol_up_sfc, trsol_dn_sfc_diffus, trsol_clr_sfc, trsol_par_sfc     &
+    & ,lwflx_clr_sfc                                                       &
+    ! optional output: 3D flux output
+    & ,flx_lw_dn      ,flx_sw_dn     ,flx_lw_up     ,flx_sw_up             &
+    & ,flx_lw_dn_clr  ,flx_sw_dn_clr ,flx_lw_up_clr ,flx_sw_up_clr         )
 
     ! input
     ! -----
@@ -580,7 +590,7 @@ CONTAINS
     INTEGER, INTENT(in)   :: &
       &  jg,                 & !< domain index
       &  jb,                 & !< block index
-      &  irad,               & !< option for radiation scheme (RRTM/PSRAD)
+      &  icpl_reff,          & !< option for couplig radiation with reff
       &  jcs,                & !< start index for loop over block
       &  jce,                & !< end   index for loop over block
       &  kbdim,              & !< dimension of block over cells
@@ -614,6 +624,9 @@ CONTAINS
       &  zaeq5(kbdim,klev) , & !< aerosol stratospheric background
       &  dust_tunefac(kbdim,jpband) !< LW tuning factor for dust aerosol
 
+    REAL(wp), INTENT(in), OPTIONAL  :: &
+      &  reff_liq(:,:),      & !< Effective radius liquid phase [m]
+      &  reff_frz(:,:)         !< Effective radius frozen phase [m]
 
 
     ! output
@@ -627,7 +640,8 @@ CONTAINS
       &  trsol_up_toa(kbdim),       & !< TOA upward shortwave transmissivity (normalized upward flux)
       &  trsol_up_sfc(kbdim),       & !< Surface upward shortwave transmissivity (normalized upward flux)
       &  trsol_dn_sfc_diffus(kbdim),& !< Surface downward diffuse shortwave transmissivity (normalized diffuse downward flux)
-      &  trsol_clr_sfc(kbdim),      & !< Surface net clear-sky solar transmissivity
+      &  trsol_clr_sfc(kbdim),      & !< Surface net clear-sky solar transmissivity at surface
+      &  lwflx_clr_sfc(kbdim),      & !< Longwave net clear-sky surface flux
       &  trsol_par_sfc(kbdim)         !< Surface transmissivity for photosynthetically active part of solar radiation
 
     INTEGER  :: jk, jl
@@ -655,7 +669,16 @@ CONTAINS
       &  flx_sw_net(kbdim,klevp1),  & !< Net dwnwrd SW flux [Wm2]
       &  flx_lw_net_clr(kbdim,klevp1),& !< Net dn LW flux (clear sky) [Wm2]
       &  flx_sw_net_clr(kbdim,klevp1)   !< Net dn SW flux (clear sky) [Wm2]
-
+    !optional output: 3D flux output
+    REAL(wp),  INTENT(inout), OPTIONAL :: &    
+      &  flx_lw_dn(:,:),            & !< Downward LW flux (all-sky) [Wm2]
+      &  flx_sw_dn(:,:),            & !< Downward SW flux (all-sky) [Wm2]
+      &  flx_lw_up(:,:),            & !< Upward LW flux   (all-sky) [Wm2]
+      &  flx_sw_up(:,:),            & !< Upward SW flux   (all-sky) [Wm2]
+      &  flx_lw_dn_clr(:,:),        & !< Downward LW flux (clear sky) [Wm2]
+      &  flx_sw_dn_clr(:,:),        & !< Downward SW flux (clear sky) [Wm2]
+      &  flx_lw_up_clr(:,:),        & !< Upward LW flux   (clear sky) [Wm2]
+      &  flx_sw_up_clr(:,:)           !< Upward SW flux   (clear sky) [Wm2]
 #ifdef __INTEL_COMPILER
 !DIR$ ATTRIBUTES ALIGN : 64 :: pp_sfc,tk_hl,xq_vap,xq_liq,xq_ice,cld_frc_sec
 !DIR$ ATTRIBUTES ALIGN : 64 :: xm_co2,xm_o2,xm_ch4,xm_cfc11,xm_cfc12
@@ -665,7 +688,7 @@ CONTAINS
 !DIR$ ATTRIBUTES ALIGN : 64 :: flx_sw_net,flx_lw_net_clr,flx_sw_net_clr
 #endif
 
-    IF (ltimer) CALL timer_start(timer_radiation)
+    IF (timers_level > 5) CALL timer_start(timer_radiation)
 
     !
     ! 1.1 p, T, q(vap,liq,ice) and clouds
@@ -685,8 +708,10 @@ CONTAINS
       END DO
     END DO
     DO jl = 1, jce
-      tk_hl(jl,klevp1) = tk_sfc(jl)
-      tk_hl(jl,1)      = tk_fl(jl,1)-pp_fl(jl,1)*(tk_fl(jl,1) - tk_hl(jl,2))  &
+ !     tk_hl(jl,klevp1) = tk_sfc(jl)
+      tk_hl(jl,klevp1) = tk_fl(jl,klev) + (pp_hl(jl,klevp1) - pp_fl(jl,klev)) * &
+         (tk_fl(jl,klev-1) - tk_fl(jl,klev))/(pp_fl(jl,klev-1) - pp_fl(jl,klev))
+      tk_hl(jl,1)      = tk_fl(jl,1)+(pp_hl(jl,1)-pp_fl(jl,1))*(tk_fl(jl,1) - tk_hl(jl,2))  &
         &                / (pp_fl(jl,1)-pp_hl(jl,2))
     END DO
     !
@@ -727,28 +752,35 @@ CONTAINS
     !
     ! --- gas profiles in [ppm]
     !
-    xm_co2   (1:jce,:) = gas_profile(jce, klev, irad_co2,    &
-      &                              mmr_gas = mmr_co2   )
-    xm_ch4   (1:jce,:) = gas_profile(jce, klev, irad_ch4,    &
-      &                              mmr_gas = mmr_ch4,      &
-      &                              pressure = pp_fl,       &
-      &                              xp = vpp_ch4        )
-    xm_n2o   (1:jce,:) = gas_profile(jce, klev, irad_n2o,    &
-      &                              mmr_gas = mmr_n2o,      &
-      &                              pressure = pp_fl,       &
-      &                              xp = vpp_n2o        )
-    xm_o2    (1:jce,:) = gas_profile(jce, klev, irad_o2,     &
-      &                              mmr_gas = mmr_o2    )
+    xm_co2   (1:jce,:) = gas_profile(jce, klev, irad_co2,        &
+      &                              mmr_gas = mmr_co2,          &
+      &                              gas_scenario = ghg_co2mmr   )
+    xm_ch4   (1:jce,:) = gas_profile(jce, klev, irad_ch4,        &
+      &                              mmr_gas = mmr_ch4,          &
+      &                              gas_scenario = ghg_ch4mmr,  &
+      &                              pressure = pp_fl,           &
+      &                              xp = vpp_ch4                )
+    xm_n2o   (1:jce,:) = gas_profile(jce, klev, irad_n2o,        &
+      &                              mmr_gas = mmr_n2o,          &
+      &                              gas_scenario = ghg_n2ommr,  &
+      &                              pressure = pp_fl,           &
+      &                              xp = vpp_n2o                )
+    xm_o2    (1:jce,:) = gas_profile(jce, klev, irad_o2,         &
+      &                              mmr_gas = mmr_o2            )
 #ifdef __SX__
-    xm_cfc11 (1:jce,:) = gas_profile(jce, klev, irad_cfc11,  &
-      &                              mmr_gas = REAL(vmr_cfc11,wp) )
-    xm_cfc12 (1:jce,:) = gas_profile(jce, klev, irad_cfc12,  &
-      &                              mmr_gas = REAL(vmr_cfc12,wp) )
+    xm_cfc11 (1:jce,:) = gas_profile(jce, klev, irad_cfc11,        &
+      &                              mmr_gas = REAL(vmr_cfc11,wp), &
+      &                              gas_scenario = ghg_cfcmmr(1)  )
+    xm_cfc12 (1:jce,:) = gas_profile(jce, klev, irad_cfc12,        &
+      &                              mmr_gas = REAL(vmr_cfc12,wp), &
+      &                              gas_scenario = ghg_cfcmmr(2)  )
 #else
-    xm_cfc11 (1:jce,:) = gas_profile(jce, klev, irad_cfc11,  &
-      &                              mmr_gas = vmr_cfc11 )
-    xm_cfc12 (1:jce,:) = gas_profile(jce, klev, irad_cfc12,  &
-      &                              mmr_gas = vmr_cfc12 )
+    xm_cfc11 (1:jce,:) = gas_profile(jce, klev, irad_cfc11,        &
+      &                              mmr_gas = vmr_cfc11 ,         &
+      &                              gas_scenario = ghg_cfcmmr(1)  ) 
+    xm_cfc12 (1:jce,:) = gas_profile(jce, klev, irad_cfc12,        &
+      &                              mmr_gas = vmr_cfc12,          &
+      &                              gas_scenario = ghg_cfcmmr(2)  )
 #endif
     !
 
@@ -758,7 +790,7 @@ CONTAINS
     CALL rrtm_interface(                                                    &
       ! input
       & current_date                                                       ,&
-      & jg              ,jb              ,irad                             ,&
+      & jg              ,jb              ,icpl_reff                        ,&
       & jcs             ,jce             ,kbdim           ,klev            ,&
       & ktype           ,zland           ,zglac                            ,&
       & cos_mu0                                                            ,&
@@ -767,7 +799,7 @@ CONTAINS
       & pp_fl           ,pp_hl           ,pp_sfc          ,tk_fl           ,&
       & tk_hl           ,tk_sfc          ,xq_vap                           ,&
       & xq_liq          ,xq_ice                                            ,&
-      & cdnc                                                               ,&
+      & cdnc            ,reff_liq        ,reff_frz                         ,&
       & cld_frc_sec                                                        ,&
       & qm_o3           ,xm_co2          ,xm_ch4                           ,&
       & xm_n2o          ,xm_cfc11        ,xm_cfc12        ,xm_o2           ,&
@@ -775,9 +807,12 @@ CONTAINS
       ! output
       & flx_lw_net      ,flx_sw_net      ,flx_lw_net_clr  ,flx_sw_net_clr  ,&
       & flx_uplw_sfc    ,flx_upsw_sfc    ,flx_uplw_sfc_clr,flx_upsw_sfc_clr,&
+      ! optional output: 3D flux output
+      & flx_lw_dn       ,flx_sw_dn       ,flx_lw_up       ,flx_sw_up       ,&
+      & flx_lw_dn_clr   ,flx_sw_dn_clr   ,flx_lw_up_clr   ,flx_sw_up_clr   ,&
       ! optional arguments
-      & dust_tunefac=dust_tunefac, flx_dnsw_diff_sfc=flx_dnsw_diff_sfc     ,&
-      & flx_upsw_toa=flx_upsw_toa  ,flx_dnpar_sfc=flx_par_sfc               )
+      & dust_tunefac=dust_tunefac ,flx_dnsw_diff_sfc=flx_dnsw_diff_sfc     ,&
+      & flx_upsw_toa=flx_upsw_toa ,flx_dnpar_sfc=flx_par_sfc               )
 
 
     !
@@ -793,7 +828,9 @@ CONTAINS
     trsol_dn_sfc_diffus(1:jce) = flx_dnsw_diff_sfc(1:jce)/(cos_mu0(1:jce)*tsi_radt)
     trsol_par_sfc(1:jce)       = flx_par_sfc(1:jce)/(cos_mu0(1:jce)*tsi_radt)
 
-    IF (ltimer) CALL timer_stop(timer_radiation)
+    lwflx_clr_sfc(1:jce)       = flx_lw_net_clr(1:jce,klevp1)
+
+    IF (timers_level > 5) CALL timer_stop(timer_radiation)
 
   END SUBROUTINE radiation_nwp
 
@@ -858,7 +895,7 @@ CONTAINS
         ! inconsistent with having two different options for the constant
         ! concentration cases (2 without and 3 with profile). However, instead
         ! of adding a fifth option, it seems more advisable to clean up the
-        ! complete handling of radiation switches (including ighg), later.
+        ! complete handling of radiation switches, later.
         IF (PRESENT(xp) .AND. PRESENT(pressure)) THEN
           zx_m = (gas_scenario+xp(1)*gas_scenario)*0.5_wp
           zx_d = (gas_scenario-xp(1)*gas_scenario)*0.5_wp
@@ -907,7 +944,7 @@ CONTAINS
   SUBROUTINE rrtm_interface(                                              &
     ! input
     & current_date                                                       ,&
-    & jg              ,jb              ,irad                             ,&
+    & jg              ,jb              ,icpl_reff                        ,&
     & jcs             ,jce             ,kbdim           ,klev            ,&
     & ktype           ,zland           ,zglac                            ,&
     & pmu0                                                               ,&
@@ -916,7 +953,7 @@ CONTAINS
     & pp_fl           ,pp_hl           ,pp_sfc          ,tk_fl           ,&
     & tk_hl           ,tk_sfc          ,xm_vap                           ,&
     & xm_liq          ,xm_ice                                            ,&
-    & cdnc                                                               ,&
+    & cdnc            ,reff_liq        ,reff_frz                         ,&
     & cld_frc                                                            ,&
     & xm_o3           ,xm_co2          ,xm_ch4                           ,&
     & xm_n2o          ,xm_cfc11        ,xm_cfc12        ,xm_o2           ,&
@@ -924,19 +961,21 @@ CONTAINS
     ! output
     & flx_lw_net      ,flx_sw_net      ,flx_lw_net_clr  ,flx_sw_net_clr  ,&
     & flx_uplw_sfc    ,flx_upsw_sfc    ,flx_uplw_sfc_clr,flx_upsw_sfc_clr,&
+    ! optional output: 3D flux output
+    & flx_lw_dn       ,flx_sw_dn       ,flx_lw_up       ,flx_sw_up       ,&
+    & flx_lw_dn_clr   ,flx_sw_dn_clr   ,flx_lw_up_clr   ,flx_sw_up_clr   ,&
     ! optional input
     & dust_tunefac                                                       ,&
     ! optional output
-    & flx_dnsw_diff_sfc, flx_upsw_toa  ,flx_dnpar_sfc                    ,&
-    & vis_frc_sfc     ,nir_dff_frc_sfc ,vis_dff_frc_sfc ,par_dff_frc_sfc  )
+    & flx_dnsw_diff_sfc,flx_upsw_toa   ,flx_dnpar_sfc                    ,&
+    & vis_frc_sfc      ,nir_dff_frc_sfc,vis_dff_frc_sfc ,par_dff_frc_sfc  )
 
     TYPE(datetime), POINTER, INTENT(in) :: current_date
     
     INTEGER,INTENT(in)  ::                &
       &  jg,                              & !< domain index
       &  jb,                              & !< block index
-      &  irad,                            & !< option for radiation scheme (RRTM/PSRAD); active in NWP mode only, 
-      !                                        ECHAM mode uses a completely different interface
+      &  icpl_reff,                       & !< in option for radiation reff coupling
       &  jcs,                             & !< number of skipped columns
       &  jce,                             & !< number of columns
       &  kbdim,                           & !< first dimension of 2-d arrays
@@ -978,6 +1017,10 @@ CONTAINS
       &  zaeq4(kbdim,klev),               & !< aerosol volcano ashes
       &  zaeq5(kbdim,klev)                  !< aerosol stratospheric background
 
+    REAL(wp),INTENT(in), OPTIONAL :: &
+      &  reff_liq(:,:),              & !< effective radius liquid phase in m
+      &  reff_frz(:,:)                 !< effective radius frozen phase in m
+
 
     REAL(wp), INTENT(out) ::              &
       &  flx_lw_net(kbdim,klev+1),        & !< net downward LW flux profile,
@@ -998,14 +1041,22 @@ CONTAINS
       &  vis_frc_sfc(kbdim),              & !< Visible fraction of net surface SW radiation
       &  nir_dff_frc_sfc(kbdim),          & !< Diffuse fraction of downward surface near-infrared radiation at surface
       &  vis_dff_frc_sfc(kbdim),          & !< Diffuse fraction of downward surface visible radiation at surface
-      &  par_dff_frc_sfc(kbdim)             !< Diffuse fraction of downward surface PAR
+      &  par_dff_frc_sfc(kbdim),          & !< Diffuse fraction of downward surface PAR
+      ! 3D flux output
+      &  flx_lw_dn(:,:),                  & !< Downward LW flux profile, all-sky
+      &  flx_sw_dn(:,:),                  & !< Downward SW flux profile, all-sky
+      &  flx_lw_up(:,:),                  & !< Upward LW flux profile, all-sky
+      &  flx_sw_up(:,:),                  & !< Upward SW flux profile, all-sky
+      &  flx_lw_dn_clr(:,:),              & !< Downward LW flux profile, clear sky
+      &  flx_sw_dn_clr(:,:),              & !< Downward SW flux profile, clear sky
+      &  flx_lw_up_clr(:,:),              & !< Upward LW flux profile, clear sky
+      &  flx_sw_up_clr(:,:)                 !< Upward SW flux profile, clear sky
 
     INTEGER  :: jk, jl, jp, jkb, jspec,   & !< loop indicies
       &  icldlyr(kbdim,klev)                !< index for clear or cloudy
 
     REAL(wp) ::                           &
       &  zsemiss(kbdim,jpband),           & !< LW surface emissivity by band
-      &  ppd_hl(kbdim,klev),              & !< pressure thickness in Pa
       &  pm_sfc(kbdim),                   & !< surface pressure in hPa
       &  amm,                             & !< molecular weight of moist air
       &  delta,                           & !< pressure thickness
@@ -1019,7 +1070,6 @@ CONTAINS
     REAL(wp) ::                           &
       &  col_dry_vr(kbdim,klev),          & !< number of molecules/cm2 of
       &  pm_fl_vr(kbdim,klev),            & !< full level pressure [hPa]
-      &  pm_hl_vr(kbdim,klev+1),          & !< half level pressure [hPa]
       &  tk_fl_vr(kbdim,klev),            & !< full level temperature [K]
       &  tk_hl_vr(kbdim,klev+1),          & !< half level temperature [K]
       &  cdnc_vr(kbdim,klev),             & !< cloud nuclei concentration
@@ -1047,6 +1097,9 @@ CONTAINS
       &  flx_upsw_clr(kbdim,klev+1),      & !< upward flux clear sky
       &  flx_dnsw(kbdim,klev+1),          & !< downward flux total sky
       &  flx_dnsw_clr(kbdim,klev+1)         !< downward flux clear sky
+    REAL(wp), POINTER ::       &
+      &  reff_liq_vr(:,:) => NULL(),         & !< effective radius liquid phase [m]
+      &  reff_frz_vr(:,:) => NULL()            !< effective radius frozen phase [m]
 
     REAL(wp), TARGET ::                   &
       &  wkl_vr(kbdim,jpinpx,klev)        !< number of molecules/cm2 of
@@ -1054,60 +1107,23 @@ CONTAINS
 
     CHARACTER(LEN=3)     :: c_irad_aero
 
-    ! Additional fields needed for PSRAD call
-    LOGICAL ::                         &
-         laland(kbdim),                & !< land sea mask, land=.true.
-         laglac(kbdim)                   !< glacier mask, glacier=.true.
 
-    REAL(wp) ::                        &
-         re_drop   (kbdim,klev),       & !< effective radius of liquid
-         re_cryst  (kbdim,klev),       & !< effective radius of ice
-         aux_out   (kbdim,9),          &
-         zmu0      (kbdim),            &
-         zdayfrc   (kbdim), &
-         fac(kbdim,2,2,klev), &
-         h2o_factor(kbdim,klev,2), &
-         h2o_fraction(kbdim,klev,2), &
-         colbrd(kbdim,klev), &
-         colmol(kbdim,klev), &
-         minorfrac(kbdim,klev), &
-         scaleminor(kbdim,klev)
-
-    REAL(wp), TARGET ::                        &
-         actual_gases(kbdim,klev,ngas), &
-         actual_ratio(kbdim,2,klev,nmixture), &
-         actual_scaleminorn2(kbdim,klev)
-    REAL(wp), POINTER :: &
-         ratio(:,:,:,:), &
-         scaleminorn2(:,:)
-         
-    INTEGER :: &
-         laytrop(kbdim), &
-         iabs(kbdim,2,2,klev), &
-         jp_psrad(kbdim,klev), &
-         indminor(kbdim,klev), &
-         h2o_index(kbdim,klev,2)
-
-    INTEGER, PARAMETER    :: rng_seed_size = 4
-    INTEGER :: rnseeds(kbdim,rng_seed_size)
-    REAL(WP) :: per_band_flux(KBDIM,nbndsw,3), bnd_wght(nbndsw)
+    LOGICAL:: l_coupled_reff          ! Use the effective radius from microphysics
 #ifdef __INTEL_COMPILER
-!DIR$ ATTRIBUTES ALIGN : 64 :: icldlyr,zsemiss,ppd_hl,pm_sfc
-!DIR$ ATTRIBUTES ALIGN : 64 :: col_dry_vr,pm_fl_vr,pm_hl_vr,tk_fl_vr,tk_hl_vr
+!DIR$ ATTRIBUTES ALIGN : 64 :: icldlyr,zsemiss,pm_sfc
+!DIR$ ATTRIBUTES ALIGN : 64 :: col_dry_vr,pm_fl_vr,tk_fl_vr,tk_hl_vr
 !DIR$ ATTRIBUTES ALIGN : 64 :: cdnc_vr,cld_frc_vr,ziwgkg_vr,ziwc_vr,ziwp_vr
+!DIR$ ATTRIBUTES ALIGN : 64 :: reff_liq_vr,reff_frz_vr
 !DIR$ ATTRIBUTES ALIGN : 64 :: zlwgkg_vr,zlwp_vr,zlwc_vr,wkl_vr,wx_vr
 !DIR$ ATTRIBUTES ALIGN : 64 :: cld_tau_lw_vr,cld_tau_sw_vr,cld_cg_sw_vr,cld_piz_sw_vr
 !DIR$ ATTRIBUTES ALIGN : 64 :: aer_tau_lw_vr,aer_tau_sw_vr,aer_cg_sw_vr,aer_piz_sw_vr
 !DIR$ ATTRIBUTES ALIGN : 64 :: flx_uplw_vr,flx_uplw_clr_vr,flx_dnlw_vr
 !DIR$ ATTRIBUTES ALIGN : 64 :: flx_dnlw_clr_vr,flx_upsw,flx_upsw_clr,flx_dnsw
 !DIR$ ATTRIBUTES ALIGN : 64 :: flx_dnsw_clr
-!DIR$ ATTRIBUTES ALIGN : 64 :: tune_dust,laland,laglac,rnseeds
-!DIR$ ATTRIBUTES ALIGN : 64 :: re_drop,re_cryst,aux_out,zmu0,zdayfrc
-!DIR$ ATTRIBUTES ALIGN : 64 :: per_band_flux,bnd_wght
+!DIR$ ATTRIBUTES ALIGN : 64 :: tune_dust
 #endif
 
-    ratio => actual_ratio
-    scaleminorn2 => actual_scaleminorn2
+
     ! Initialize output variables
     flx_lw_net(:,:)     = 0._wp
     flx_lw_net_clr(:,:) = 0._wp
@@ -1117,6 +1133,23 @@ CONTAINS
     flx_uplw_sfc_clr(:) = 0._wp
     flx_upsw_sfc(:)     = 0._wp
     flx_upsw_sfc_clr(:) = 0._wp
+    
+    l_coupled_reff = icpl_reff > 0
+    IF ( l_coupled_reff ) THEN
+      ALLOCATE(reff_liq_vr(kbdim,klev),reff_frz_vr(kbdim,klev) )
+    END IF
+
+    IF (atm_phy_nwp_config(jg)%l_3d_rad_fluxes) THEN
+      IF (PRESENT(flx_lw_dn))     flx_lw_dn(:,:)      = 0._wp
+      IF (PRESENT(flx_sw_dn))     flx_sw_dn(:,:)      = 0._wp
+      IF (PRESENT(flx_lw_up))     flx_lw_up(:,:)      = 0._wp
+      IF (PRESENT(flx_sw_up))     flx_sw_up(:,:)      = 0._wp
+      IF (PRESENT(flx_lw_dn_clr)) flx_lw_dn_clr(:,:)  = 0._wp
+      IF (PRESENT(flx_sw_dn_clr)) flx_sw_dn_clr(:,:)  = 0._wp
+      IF (PRESENT(flx_lw_up_clr)) flx_lw_up_clr(:,:)  = 0._wp
+      IF (PRESENT(flx_sw_up_clr)) flx_sw_up_clr(:,:)  = 0._wp
+    END IF
+
     IF (PRESENT(flx_dnsw_diff_sfc)) flx_dnsw_diff_sfc(:) = 0._wp
     IF (PRESENT(flx_upsw_toa))      flx_upsw_toa(:)      = 0._wp
     IF (PRESENT(flx_dnpar_sfc))     flx_dnpar_sfc(:)     = 0._wp
@@ -1124,12 +1157,12 @@ CONTAINS
     IF (PRESENT(nir_dff_frc_sfc))   nir_dff_frc_sfc(:)   = 0._wp
     IF (PRESENT(vis_dff_frc_sfc))   vis_dff_frc_sfc(:)   = 0._wp
     IF (PRESENT(par_dff_frc_sfc))   par_dff_frc_sfc(:)   = 0._wp
-
+    
     !
     ! 1.0 Constituent properties
     !--------------------------------
 
-    IF (ltimer) CALL timer_start(timer_rrtm_prep)
+    IF (timers_level > 7) CALL timer_start(timer_rrtm_prep)
 
     !
     ! --- control for infintesimal cloud fractions
@@ -1157,7 +1190,6 @@ CONTAINS
     ! --- main constituent reordering
     !
     DO jl = 1, jce
-      pm_hl_vr(jl,klev+1) = 0.01_wp*pp_hl(jl,1)
       tk_hl_vr(jl,klev+1) = tk_hl(jl,1)
       pm_sfc(jl)          = 0.01_wp*pp_sfc(jl)
     END DO
@@ -1172,7 +1204,6 @@ CONTAINS
         !
         ! --- thermodynamic arrays
         !
-        pm_hl_vr(jl,jk) = 0.01_wp*pp_hl(jl,jkb+1)
         pm_fl_vr(jl,jk) = 0.01_wp*pp_fl(jl,jkb)
         tk_hl_vr(jl,jk) = tk_hl(jl,jkb+1)
         tk_fl_vr(jl,jk) = tk_fl(jl,jkb)
@@ -1202,6 +1233,15 @@ CONTAINS
         wx_vr(jl,2,jk) = col_dry_vr(jl,jk)*xm_cfc11(jl,jkb)*1.e-20_wp
         wx_vr(jl,3,jk) = col_dry_vr(jl,jk)*xm_cfc12(jl,jkb)*1.e-20_wp
       END DO
+        !
+        ! --- extra cloud properties for rad coupling
+        ! 
+      IF ( l_coupled_reff ) THEN
+        DO jl = 1, jce
+          reff_liq_vr(jl,jk) = reff_liq(jl,jkb)
+          reff_frz_vr(jl,jk) = reff_frz(jl,jkb)      
+        END DO
+      END IF
     END DO
     DO jp = 1, 7
       wkl_vr(1:jce,jp,:)=col_dry_vr(1:jce,:)*wkl_vr(1:jce,jp,:)
@@ -1213,7 +1253,6 @@ CONTAINS
     !
     ! 3.0 Particulate Optical Properties
     ! --------------------------------
-    ppd_hl(1:jce,:) = pp_hl(1:jce,2:klev+1)-pp_hl(1:jce,1:klev)
 
     SELECT CASE (irad_aero)
     CASE (0,2)
@@ -1282,7 +1321,9 @@ CONTAINS
         &                         aer_piz_sw_vr,                 &
         &                         aer_cg_sw_vr)
     CASE (13)
-      CALL set_bc_aeropt_kinne( current_date                        ,&
+       ! this is for rrtm radiation in the NWP part, we do not introduce
+       ! the simple plumes here
+       CALL set_bc_aeropt_kinne( current_date                        ,&
         & jg                                                        ,&
         & 1, jce           ,kbdim                 ,klev             ,&
         & jb               ,jpsw                  ,jpband           ,&
@@ -1291,19 +1332,22 @@ CONTAINS
         & aer_tau_sw_vr    ,aer_piz_sw_vr         , aer_cg_sw_vr    ,&
         & aer_tau_lw_vr                                              )
     CASE (14)
-      ! set zero aerosol before adding Stenchikov aerosols
+      ! this is for rrtm radiation in the NWP part, we do not introduce
+      ! the simple plumes here
+      ! set zero aerosol before adding CMIP6 volcanic aerosols
       aer_tau_lw_vr(:,:,:) = 0.0_wp
       aer_tau_sw_vr(:,:,:) = 0.0_wp
       aer_piz_sw_vr(:,:,:) = 1.0_wp
       aer_cg_sw_vr(:,:,:)  = 0.0_wp
-      CALL add_bc_aeropt_stenchikov( current_date ,jg,           1  ,&
+      CALL add_bc_aeropt_cmip6_volc( current_date ,jg,            1 ,&
         & jce              ,kbdim                 ,klev             ,&
         & jb               ,jpsw                  ,jpband           ,&
+        & p_nh_state(jg)% metrics% z_mc(:,:,jb)                     ,&
         & p_nh_state(jg)% metrics% ddqz_z_full(:,:,jb)              ,&
-        & pp_fl                                                     ,&
         & aer_tau_sw_vr    ,aer_piz_sw_vr         ,aer_cg_sw_vr     ,&
         & aer_tau_lw_vr                                              )
-    CASE (15)
+      
+   CASE (15)
       CALL set_bc_aeropt_kinne( current_date                        ,&
         & jg                                                        ,&
         & 1,   jce         ,kbdim                 ,klev             ,&
@@ -1312,61 +1356,36 @@ CONTAINS
         & p_nh_state(jg)% metrics% ddqz_z_full(:,:,jb)              ,&
         & aer_tau_sw_vr    ,aer_piz_sw_vr         ,aer_cg_sw_vr     ,&
         & aer_tau_lw_vr                                              )
-      CALL add_bc_aeropt_stenchikov( current_date ,jg,           1  ,&
+      CALL add_bc_aeropt_cmip6_volc( current_date ,jg,            1 ,&      
         & jce              ,kbdim                 ,klev             ,&
         & jb               ,jpsw                  ,jpband           ,&
+        & p_nh_state(jg)% metrics% z_mc(:,:,jb)                     ,&
         & p_nh_state(jg)% metrics% ddqz_z_full(:,:,jb)              ,&
-        & pp_fl                                                     ,&
         & aer_tau_sw_vr    ,aer_piz_sw_vr         ,aer_cg_sw_vr     ,&
         & aer_tau_lw_vr                                              )
-    CASE DEFAULT
+
+   CASE DEFAULT
       WRITE (c_irad_aero,'(i3)') irad_aero
       CALL finish ('rrtm_interface of mo_radition','irad_aero= '// &
                    TRIM(ADJUSTL(c_irad_aero))//' does not exist')
     END SELECT
 
-    IF (lrad_aero_diag) THEN
-      CALL rad_aero_diag (                jg              , &
-      & jb              ,1               ,jce             , &
-      & kbdim           ,klev            ,jpband          , &
-      & jpsw            ,aer_tau_lw_vr   ,aer_tau_sw_vr   , &
-      & aer_piz_sw_vr   ,aer_cg_sw_vr                       )
-    END IF
-
-    IF (irad == 1) THEN
+    IF (jce >= jcs) THEN
       CALL newcld_optics(                                                       &
         & jce          ,kbdim        ,klev         ,jpband       ,jpsw         ,&
         & zglac        ,zland        ,ktype        ,icldlyr      ,tk_fl_vr     ,&
         & zlwp_vr      ,ziwp_vr      ,zlwc_vr      ,ziwc_vr      ,cdnc_vr      ,&
+        & reff_liq_vr  ,reff_frz_vr  ,icpl_reff                                ,& 
         & cld_tau_lw_vr,cld_tau_sw_vr,cld_piz_sw_vr,cld_cg_sw_vr                )
-    ELSE
-      DO jl = 1,jce
-        IF (zland(jl) >= 0.5_wp) THEN
-          laland(jl) = .TRUE.
-        ELSE
-          laland(jl) = .FALSE.
-        ENDIF
-        IF (zglac(jl) >= 0.5_wp) THEN
-          laglac(jl) = .TRUE.
-        ELSE
-          laglac(jl) = .FALSE.
-        ENDIF
-      ENDDO
-      CALL psrad_cloud_optics(                                          &
-         & laglac        ,laland        ,jce           ,kbdim          ,& 
-         & klev          , ktype        ,&
-         & icldlyr       ,zlwp_vr       ,ziwp_vr       ,zlwc_vr        ,&
-         & ziwc_vr       ,cdnc_vr       ,cld_tau_lw_vr ,cld_tau_sw_vr  ,&
-         & cld_piz_sw_vr ,cld_cg_sw_vr  ,re_drop       ,re_cryst    )  
     ENDIF
 
-    IF (ltimer) CALL timer_stop(timer_rrtm_prep)
+    IF (timers_level > 7) CALL timer_stop(timer_rrtm_prep)
 
     !
     ! 4.0 Radiative Transfer Routines
     ! --------------------------------
-    IF (ltimer) CALL timer_start(timer_lrtm)
-    IF (irad == 1) THEN
+    IF (timers_level > 7) CALL timer_start(timer_lrtm)
+    IF (jce >= jcs) THEN
       CALL lrtm(                                                                &
         !    input
         &    jce             ,klev                                             ,&
@@ -1375,34 +1394,12 @@ CONTAINS
         &    zsemiss         ,cld_frc_vr      ,cld_tau_lw_vr   ,aer_tau_lw_vr  ,&
         !    output
         &    flx_uplw_vr     ,flx_dnlw_vr     ,flx_uplw_clr_vr,flx_dnlw_clr_vr )
-    ELSE
-      ! Seeds for random numbers come from least significant digits of pressure field 
-      !
-      CALL psrad_precomputation(jce &
-        & ,kbdim        ,klev         ,.false.     ,pm_fl_vr     ,tk_fl_vr &
-        & ,col_dry_vr   ,wkl_vr       ,laytrop     ,jp_psrad     ,iabs     &
-        & ,colbrd       ,colmol      ,fac          ,ratio    &
-        & ,h2o_factor   ,h2o_fraction ,h2o_index   ,minorfrac    ,scaleminor &
-        & ,scaleminorn2 ,indminor)
-      rnseeds(1:jce,1:rng_seed_size) = int((pm_fl_vr(1:jce,1:rng_seed_size) -  &
-         int(pm_fl_vr(1:jce,1:rng_seed_size)))* 1E9)
-      CALL psrad_lrtm(jce                                                       ,&
-           & kbdim           ,klev            , pm_fl_vr        ,pm_sfc          ,&
-           & tk_fl_vr        ,tk_hl_vr        ,tk_sfc          ,wkl_vr          ,&
-           & wx_vr           ,col_dry_vr      ,zsemiss         ,cld_frc_vr      ,&
-           & cld_tau_lw_vr   ,aer_tau_lw_vr   ,rnseeds         ,&
-           
-      ratio, scaleminorn2, fac, laytrop, iabs, &
-      jp_psrad, indminor, h2o_factor, h2o_fraction, h2o_index, &
-      colbrd, minorfrac, scaleminor, &
-           flx_uplw_vr     ,&     
-           & flx_dnlw_vr     ,flx_uplw_clr_vr ,flx_dnlw_clr_vr )
     ENDIF
-    IF (ltimer) CALL timer_stop(timer_lrtm)
 
+    IF (timers_level > 7) CALL timer_stop(timer_lrtm)
 
-    IF (ltimer) CALL timer_start(timer_srtm)
-    IF (irad == 1) THEN
+    IF (timers_level > 7) CALL timer_start(timer_srtm)
+    IF (jce >= jcs) THEN
       CALL srtm_srtm_224gp(                                                     &
         !    input
         &    jce             ,kbdim           ,klev            ,jpsw           ,&
@@ -1421,98 +1418,61 @@ CONTAINS
         &    nir_dff_frc_sfc = nir_dff_frc_sfc,                                 &
         &    vis_dff_frc_sfc = vis_dff_frc_sfc,                                 &
         &    par_dff_frc_sfc = par_dff_frc_sfc                                  )
-    ELSE
-      ! Reset random seeds so SW doesn't depend on what's happened in LW but is also independent
-      !
-      rnseeds(1:jce,1:rng_seed_size) = int((pm_fl_vr(1:jce,rng_seed_size:1:-1) - &
-         int(pm_fl_vr(1:jce,rng_seed_size:1:-1)))* 1E9)
-      WHERE (pmu0(1:jce) > 0.0_wp)
-         zdayfrc(1:jce) = 1.0_wp
-      ELSEWHERE
-         zdayfrc(1:jce) = 0.0_wp
-      END WHERE
-      zmu0(1:jce) = MAX(pmu0(1:jce),0.05_wp)
-      
-      !
-      CALL psrad_srtm(jce                                                      , & 
-         &  kbdim           ,klev            , &
-         &  alb_vis_dir     ,alb_vis_dif     , &
-         &  alb_nir_dir     ,alb_nir_dif     ,zmu0, zdayfrc   ,ssi_radt/psctm  , &
-         &  psctm           ,cld_frc_vr      ,cld_tau_sw_vr   ,cld_cg_sw_vr    , &
-         &  cld_piz_sw_vr   ,aer_tau_sw_vr   ,aer_cg_sw_vr    ,aer_piz_sw_vr   , & 
-         &  rnseeds         ,&
-      laytrop, jp_psrad, iabs, wkl_vr, colmol, fac, &
-      h2o_factor, h2o_fraction, h2o_index, &
-         &  flx_dnsw        ,flx_upsw        ,flx_dnsw_clr    ,flx_upsw_clr    , &
-         &  bnd_wght        ,per_band_flux)
-
-      CALL psrad_srtm_diags(jce, kbdim, &
-         &  per_band_flux   ,aux_out(:,1)    ,aux_out(:,2)    ,aux_out(:,3)    , &
-         &  aux_out(:,4)    ,aux_out(:,5)    ,aux_out(:,6)    ,aux_out(:,7)    , &
-         aux_out(:,8)    ,aux_out(:,9) )
-
-      !   dnpar_sfc        = dnpar_sfc_dir    + dnpar_sfc_dif                 
-      flx_dnpar_sfc(1:jce) = aux_out(1:jce,2) + aux_out(1:jce,5)
-
-      ! Reset solar fluxes to zero at dark points
-      DO jl = 1, jce
-        IF (pmu0(jl) <= 0._wp) THEN
-          flx_dnsw(jl,:) = 0._wp
-          flx_upsw(jl,:) = 0._wp
-        ENDIF
-      ENDDO
     ENDIF
-    IF (ltimer) CALL timer_stop(timer_srtm)
+    IF (timers_level > 7) CALL timer_stop(timer_srtm)
 
 
     ! 5.0 Post Processing
     ! --------------------------------
-    IF (ltimer) CALL timer_start(timer_rrtm_post)
+    IF (timers_level > 7) CALL timer_start(timer_rrtm_post)
 
     DO jk = 1, klev+1
       jkb = klev+2-jk
-      DO jl = 1, kbdim
-        flx_lw_net(jl,jk)     = MERGE(flx_dnlw_vr(jl,jkb)-flx_uplw_vr(jl,jkb), &
-          &                           0.0_wp, jl <= jce .AND. jl >= jcs)
-        flx_lw_net_clr(jl,jk) = MERGE(  flx_dnlw_clr_vr(jl,jkb)                &
-          &                           - flx_uplw_clr_vr(jl,jkb),               &
-          &                           0.0_wp, jl <= jce .AND. jl >= jcs)
-        flx_sw_net(jl,jk)     = MERGE(flx_dnsw(jl,jk) - flx_upsw(jl,jk),       &
-          &                           0.0_wp, jl <= jce .AND. jl >= jcs)
-        flx_sw_net_clr(jl,jk) = MERGE(  flx_dnsw_clr(jl,jk)                    &
-          &                           - flx_upsw_clr(jl,jk),                   &
-          &                           0.0_wp, jl <= jce .AND. jl >= jcs)
+      DO jl = jcs, jce
+        flx_lw_net(jl,jk)     = flx_dnlw_vr(jl,jkb) - flx_uplw_vr(jl,jkb)
+        flx_lw_net_clr(jl,jk) = flx_dnlw_clr_vr(jl,jkb) - flx_uplw_clr_vr(jl,jkb)
+        flx_sw_net(jl,jk)     = flx_dnsw(jl,jk) - flx_upsw(jl,jk)
+        flx_sw_net_clr(jl,jk) = flx_dnsw_clr(jl,jk) - flx_upsw_clr(jl,jk)
       END DO
     END DO
-    DO jl = 1, kbdim
-      flx_uplw_sfc(jl)     = MERGE(flx_uplw_vr(jl,1), 0.0_wp,             &
-        &                          jl <= jce .AND. jl >= jcs)
-      flx_uplw_sfc_clr(jl) = MERGE(flx_uplw_clr_vr(jl,1), 0.0_wp,         &
-        &                          jl <= jce .AND. jl >= jcs)
-      flx_upsw_sfc(jl)     = MERGE(flx_upsw(jl,klev+1), 0.0_wp,           &
-        &                          jl <= jce .AND. jl >= jcs)
-      flx_upsw_sfc_clr(jl) = MERGE(flx_upsw_clr(jl,klev+1), 0.0_wp,       &
-        &                          jl <= jce .AND. jl >= jcs)
+
+    IF (atm_phy_nwp_config(jg)%l_3d_rad_fluxes) THEN
+      DO jk = 1, klev+1
+        jkb = klev+2-jk
+        DO jl = jcs, jce
+          flx_lw_dn(jl,jk)      = flx_dnlw_vr(jl,jkb) 
+          flx_sw_dn(jl,jk)      = flx_dnsw(jl,jk)
+          flx_lw_up(jl,jk)      = flx_uplw_vr(jl,jkb)    
+          flx_sw_up(jl,jk)      = flx_upsw(jl,jk)        
+          flx_lw_dn_clr(jl,jk)  = flx_dnlw_clr_vr(jl,jkb)
+          flx_sw_dn_clr(jl,jk)  = flx_dnsw_clr(jl,jk)    
+          flx_lw_up_clr(jl,jk)  = flx_uplw_clr_vr(jl,jkb)
+          flx_sw_up_clr(jl,jk)  = flx_upsw_clr(jl,jk)    
+        END DO
+      END DO
+    END IF
+
+    DO jl = jcs, jce
+      flx_uplw_sfc(jl)     = flx_uplw_vr(jl,1)
+      flx_uplw_sfc_clr(jl) = flx_uplw_clr_vr(jl,1)
+      flx_upsw_sfc(jl)     = flx_upsw(jl,klev+1)
+      flx_upsw_sfc_clr(jl) = flx_upsw_clr(jl,klev+1)
     END DO
     IF (PRESENT(flx_upsw_toa)) THEN
-      DO jl = 1, kbdim
-        flx_upsw_toa(jl) = MERGE(flx_upsw(jl,1), 0.0_wp,             &
-          &                      jl <= jce .AND. jl >= jcs)
+      DO jl = jcs, jce
+        flx_upsw_toa(jl) = flx_upsw(jl,1)
       END DO
     END IF
-    IF (irad /= 1 .AND. PRESENT(flx_dnsw_diff_sfc)) THEN
-      ! approximate calculation!!
-      DO jl = 1, kbdim
-        !   dnsw_diff_sfc        = vis_dn_dff_sfc   + nir_dn_dff_sfc
-        flx_dnsw_diff_sfc(jl) = MERGE(aux_out(jl,4) + aux_out(jl,6), 0.0_wp, &
-          &                           jl <= jce .AND. jl >= jcs)
-      END DO
-    END IF
-!!$    sw_irr_toa(1:jce)       = flx_dnsw(1:jce,1)
     !
-    IF (ltimer) CALL timer_stop(timer_rrtm_post)
+
+    IF ( l_coupled_reff ) THEN
+      DEALLOCATE(reff_liq_vr,reff_frz_vr)
+    END IF
+
+    IF (timers_level > 7) CALL timer_stop(timer_rrtm_post)
 
   END SUBROUTINE rrtm_interface
+
 
   !-----------------------------------------------------------------------------
   !>
@@ -1557,24 +1517,21 @@ CONTAINS
     &                 trsol_par_sfc,   & ! optional: normalized photosynthetically active downward flux at the surface
     &                 trsol_dn_sfc_diff,&! optional: normalized shortwave diffuse downward radiative flux at the surface
     &                 trsol_clr_sfc,   & ! optional: normalized shortwave clear-sky net radiative flux at the surface
-    &                 lp_count,        & ! optional: number of land points
-    &                 gp_count_t,      & ! optional: number of land points per tile
-    &                 spi_count,       & ! optional: number of seaice points
-    &                 fp_count,        & ! optional: number of lake points
-    &                 idx_lst_lp,      & ! optional: index list of land points
+    &                 list_land_count, & ! optional: number of land points
+    &                 list_land_idx,   & ! optional: index list of land points
+    &                 list_seaice_count,&! optional: number of seaice points
+    &                 list_seaice_idx, & ! optional: index list of seaice points
+    &                 list_lake_count, & ! optional: number of lake points
+    &                 list_lake_idx,   & ! optional: index list of lake points
+    &                 gp_count_t,      & ! optional: number of land points per tile 
     &                 idx_lst_t,       & ! optional: index list of land points per tile
-    &                 idx_lst_spi,     & ! optional: index list of seaice points
-    &                 idx_lst_fp,      & ! optional: index list of (f)lake points
     &                 cosmu0,          & ! optional: cosine of zenith angle
     &                 cosmu0_slp,      & ! optional: slope-dependent cosine of zenith angle
     &                 opt_nh_corr   ,  & ! optional: switch for applying corrections for NH model
     &                 use_trsolclr_sfc,& ! optional: use clear-sky surface transmissivity passed on input
-    &                 jg            ,  & ! optional: domain index
-    &                 krow          ,  & ! optional: block index
     &                 ptrmsw        ,  &
     &                 pflxlw        ,  &
     &                 ptrmswclr     ,  & ! optional: shortwave net transmissivity at last rad. step clear sky []
-    &                 pflxlwclr     ,  & ! optional: longwave net flux at last rad. step clear sky [W/m2]
     &                 pdtdtradsw    ,  &
     &                 pdtdtradlw    ,  &
     &                 pflxsfcsw     ,  &
@@ -1587,6 +1544,7 @@ CONTAINS
     &                 swflx_up_toa  ,  &
     &                 swflx_up_sfc  ,  &
     &                 swflx_par_sfc ,  &
+    &                 swflx_clr_sfc ,  &
     &                 swflx_dn_sfc_diff)
 
     INTEGER,  INTENT(in)  ::    &
@@ -1621,24 +1579,21 @@ CONTAINS
       &     trsol_clr_sfc(kbdim),  & ! normalized shortwave clear-sky net radiative flux at the surface
       &     trsol_dn_sfc_diff(kbdim) ! normalized shortwave diffuse downward radiative flux at the surface
 
-    INTEGER, INTENT(in), OPTIONAL  ::     &
-      &     lp_count, gp_count_t(ntiles), &  ! number of land points
-      &     spi_count,                    &  ! number of seaice points
-      &     fp_count,                     &  ! number of lake points
-      &     idx_lst_lp(kbdim), idx_lst_t(kbdim,ntiles),& ! corresponding index lists
-      &     idx_lst_spi(kbdim),           &  ! sea-ice point index list
-      &     idx_lst_fp(kbdim)                ! (f)lake point index list
+    INTEGER, INTENT(in), OPTIONAL  ::   &
+      &     list_land_count,            &  ! number of land points
+      &     list_land_idx(kbdim),       &  ! index list of land points
+      &     list_lake_count,            &  ! number of lake points
+      &     list_lake_idx(kbdim),       &  ! index list of lake points
+      &     list_seaice_count,          &  ! number of seaice points
+      &     list_seaice_idx(kbdim),     &  ! index list of seaice points
+      &     gp_count_t(ntiles),         &  ! number of land points per tile
+      &     idx_lst_t(kbdim,ntiles)        ! index list of land points per tile
 
     LOGICAL, INTENT(in), OPTIONAL   ::  &
       &     opt_nh_corr, use_trsolclr_sfc
 
-    INTEGER, INTENT(in), OPTIONAL   ::  &
-      &     jg,                         & ! index of domain
-      &     krow                          ! block index
-
     REAL(wp), INTENT(in), OPTIONAL  ::  &
-      &     ptrmswclr   (kbdim,klevp1), & ! shortwave net transmissivity at last rad. step clear sky []
-      &     pflxlwclr   (kbdim,klevp1)    ! longwave net flux at last rad. step clear sky [W/m2]
+      &     ptrmswclr   (kbdim,klevp1)    ! shortwave net transmissivity at last rad. step clear sky []
    
     REAL(wp), INTENT(inout) ::       &
       &     pdtdtradsw (kbdim,klev), & ! shortwave temperature tendency           [K/s]
@@ -1657,6 +1612,7 @@ CONTAINS
       &     swflx_up_toa(kbdim), &     ! shortwave upward flux at the top of the atmosphere [W/m2]
       &     swflx_up_sfc(kbdim), &     ! shortwave upward flux at the surface [W/m2]
       &     swflx_par_sfc(kbdim), &    ! photosynthetically active downward flux at the surface [W/m2]
+      &     swflx_clr_sfc(kbdim), &    ! clear-sky net shortwave flux at the surface [W/m2]
       &     swflx_dn_sfc_diff(kbdim)   ! shortwave diffuse downward radiative flux at the surface [W/m2]
 
     ! Local arrays
@@ -1664,7 +1620,6 @@ CONTAINS
       &     zflxsw (kbdim,klevp1), &
       &     zflxlw (kbdim,klevp1), &
       &     zflxswclr(kbdim,klevp1),&
-      &     zflxlwclr(kbdim,klevp1),&
       &     zconv  (kbdim,klev)  , &
       &     tqv    (kbdim)       , &
       &     dlwem_o_dtg(kbdim)   , &
@@ -1684,10 +1639,10 @@ CONTAINS
 
     INTEGER :: jc,jk,jt,ic
 
-    LOGICAL  :: l_nh_corr, lcalc_trsolclr
+    LOGICAL  :: l_nh_corr, lcalc_trsolclr, lcalc_clrflx
 
 #ifdef __INTEL_COMPILER
-!DIR$ ATTRIBUTES ALIGN : 64 :: zflxsw,zflxlw,zflxswclr,zflxlwclr,zconv,tqv
+!DIR$ ATTRIBUTES ALIGN : 64 :: zflxsw,zflxlw,zflxswclr,zconv,tqv
 !DIR$ ATTRIBUTES ALIGN : 64 :: dlwem_o_dtg,lwfac1,lwfac2,intclw,intcli
 !DIR$ ATTRIBUTES ALIGN : 64 :: dlwflxall_o_dtg,swfac1,swfac2,dflxsw_o_dalb
 !DIR$ ATTRIBUTES ALIGN : 64 :: trsolclr,logtqv,slope_corr
@@ -1704,6 +1659,11 @@ CONTAINS
     lcalc_trsolclr = .TRUE.
     IF (PRESENT(use_trsolclr_sfc) .AND. PRESENT(trsol_clr_sfc)) THEN
       IF (use_trsolclr_sfc) lcalc_trsolclr = .FALSE.
+    ENDIF
+    IF (PRESENT(swflx_clr_sfc)) THEN
+      lcalc_clrflx = .TRUE.
+    ELSE
+      lcalc_clrflx = .FALSE.
     ENDIF
 
     ! Conversion factor for heating rates
@@ -1747,6 +1707,12 @@ CONTAINS
         swflx_dn_sfc_diff(jc) = pi0(jc)*trsol_dn_sfc_diff(jc) * slope_corr(jc)
         swflx_par_sfc(jc)     = pi0(jc)*trsol_par_sfc(jc) * slope_corr(jc)
       ENDDO
+
+      IF (lcalc_clrflx) THEN
+        DO jc = jcs, jce
+          swflx_clr_sfc(jc) = pi0(jc)*trsol_clr_sfc(jc)
+        ENDDO
+      ENDIF
 
       ! Correction of longwave fluxes for changes in ground temperature
       tqv(:)            = 0._wp
@@ -1810,7 +1776,6 @@ CONTAINS
         ENDDO
 
         DO jt = 1,ntiles
-!CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, gp_count_t(jt)
             jc = idx_lst_t(ic,jt)
             pflxsfcsw_t(jc,jt) = slope_corr(jc) * MAX(0.1_wp*zflxsw(jc,klevp1), zflxsw(jc,klevp1) + &
@@ -1822,9 +1787,8 @@ CONTAINS
 
         ! seaice points
         !
-!CDIR NODEP,VOVERTAKE,VOB
-        DO ic = 1, spi_count
-          jc = idx_lst_spi(ic)
+        DO ic = 1, list_seaice_count
+          jc = list_seaice_idx(ic)
           pflxsfcsw_t(jc,isub_seaice) = MAX(0.1_wp*zflxsw(jc,klevp1), zflxsw(jc,klevp1) &
             &                  + dflxsw_o_dalb(jc)*(albedo_t(jc,isub_seaice)-albedo(jc)))
           pflxsfclw_t(jc,isub_seaice) = zflxlw(jc,klevp1) + dlwflxall_o_dtg(jc,klevp1) &
@@ -1833,9 +1797,8 @@ CONTAINS
 
         ! lake points
         !
-!CDIR NODEP,VOVERTAKE,VOB
-        DO ic = 1, fp_count
-          jc = idx_lst_fp(ic)
+        DO ic = 1, list_lake_count
+          jc = list_lake_idx(ic)
           pflxsfcsw_t(jc,isub_lake) = MAX(0.1_wp*zflxsw(jc,klevp1), zflxsw(jc,klevp1) &
             &                  + dflxsw_o_dalb(jc)*(albedo_t(jc,isub_lake)-albedo(jc)))
           pflxsfclw_t(jc,isub_lake) = zflxlw(jc,klevp1) + dlwflxall_o_dtg(jc,klevp1) &
@@ -1847,76 +1810,26 @@ CONTAINS
 
       ELSE IF (PRESENT(pflxsfcsw_t) .AND. PRESENT(pflxsfclw_t)) THEN
 
-!CDIR NODEP,VOVERTAKE,VOB
-        DO ic = 1, lp_count
-          jc = idx_lst_lp(ic)
+        DO ic = 1, list_land_count
+          jc = list_land_idx(ic)
           pflxsfcsw_t(jc,1) = slope_corr(jc) * zflxsw(jc,klevp1)
           pflxsfclw_t(jc,1) = zflxlw(jc,klevp1)
         ENDDO
 
-!CDIR NODEP,VOVERTAKE,VOB
-        DO ic = 1, spi_count
-          jc = idx_lst_spi(ic)
+        DO ic = 1, list_seaice_count
+          jc = list_seaice_idx(ic)
           pflxsfcsw_t(jc,1) = zflxsw(jc,klevp1)
           pflxsfclw_t(jc,1) = zflxlw(jc,klevp1)
         ENDDO
 
-!CDIR NODEP,VOVERTAKE,VOB
-        DO ic = 1, fp_count
-          jc = idx_lst_fp(ic)
+        DO ic = 1, list_lake_count
+          jc = list_lake_idx(ic)
           pflxsfcsw_t(jc,1) = zflxsw(jc,klevp1)
           pflxsfclw_t(jc,1) = zflxlw(jc,klevp1)
         ENDDO
 
       ENDIF ! ntiles
 
-
-    ELSE ! ECHAM version
-
-      ! For ECHAM physics: Returns flux divergences in [W/m2]
-      ! instead of the heating rates in [K/s].
-      zconv(:,:) = 1._wp
-
-      ! Longwave fluxes: For now keep fluxes fixed at TOA and in atmosphere,
-      ! but adjust flux from surface to the current surface temperature.
-      ! - TOA
-      zflxlw(jcs:jce,1)      = pflxlw(jcs:jce,1)
-      ! - Atmosphere
-      zflxlw(jcs:jce,2:klev) = pflxlw(jcs:jce,2:klev)
-
-      ! - Surface
-      !   Adjust net sfc longwave radiation for changed surface temperature (ptsfc) with respect to the
-      !   surface temperature used for the longwave flux computation (ptsfctrad).
-      !   --> modifies heating in lowermost layer only (is this smart?)
-      !   This assumes that downward sfc longwave radiation is constant between radiation time steps and
-      !   upward and net sfc longwave radiation are updated between radiation time steps
-      dlwem_o_dtg(jcs:jce) = pemiss(jcs:jce)*4._wp*stbo*ptsfc(jcs:jce)**3    ! Derivative of upward sfc rad wrt to sfc temperature
-      IF (PRESENT(lwflx_up_sfc)) &
-        & lwflx_up_sfc(jcs:jce) = lwflx_up_sfc_rs(jcs:jce)                 & ! Upward longwave sfc rad at radiation time step
-        &   + dlwem_o_dtg(jcs:jce) * (ptsfc(jcs:jce) - ptsfctrad(jcs:jce))   ! Correction for new sfc temp between radiation time steps
-      zflxlw(jcs:jce,klevp1) = pflxlw(jcs:jce,klevp1)                      & ! Net longwave sfc rad at radiation time step
-        & - dlwem_o_dtg(jcs:jce) * (ptsfc(jcs:jce) - ptsfctrad(jcs:jce))     ! Correction for new sfc temp between radiation time steps
-!!$      zflxlw(jcs:jce,klevp1) = pflxlw(jcs:jce,klevp1)                      &
-!!$        &                   + pemiss(jcs:jce)*stbo * ptsfctrad(jcs:jce)**4 &
-!!$        &                   - pemiss(jcs:jce)*stbo * ptsfc    (jcs:jce)**4
-      IF (lradforcing(2)) THEN
-        ! Longwave fluxes clear sky: For now keep fluxes fixed at TOA and in atmosphere,
-        ! but adjust flux from surface to the current surface temperature.
-        ! - TOA
-        zflxlwclr(jcs:jce,1)      = pflxlwclr(jcs:jce,1)
-        ! - Atmosphere
-        zflxlwclr(jcs:jce,2:klev) = pflxlwclr(jcs:jce,2:klev)
-
-        ! - Surface
-        !   Adjust net sfc longwave radiation for changed surface temperature (ptsfc) with respect to the
-        !   surface temperature used for the longwave flux computation (ptsfctrad).
-        !   --> modifies heating in lowermost layer only (is this smart?)
-        !   This assumes that downward sfc longwave radiation is constant between radiation time steps and
-        !   upward and net sfc longwave radiation are updated between radiation time steps
-        dlwem_o_dtg(jcs:jce) = pemiss(jcs:jce)*4._wp*stbo*ptsfc(jcs:jce)**3    ! Derivative of upward sfc rad wrt to sfc temperature
-        zflxlwclr(jcs:jce,klevp1) = pflxlwclr(jcs:jce,klevp1)                & ! Net longwave sfc rad at radiation time step
-        & - dlwem_o_dtg(jcs:jce) * (ptsfc(jcs:jce) - ptsfctrad(jcs:jce))       ! Correction for new sfc temp between radiation time steps
-      END IF
 
     ENDIF
 
@@ -1941,26 +1854,6 @@ CONTAINS
     IF ( PRESENT(pflxtoasw) ) pflxtoasw(jcs:jce) = zflxsw(jcs:jce,1)
     IF ( PRESENT(pflxtoalw) ) pflxtoalw(jcs:jce) = zflxlw(jcs:jce,1)
 
-! Calculate radiative forcing
-    IF (lradforcing(1).OR.lradforcing(2)) THEN
-      zconv(jcs:jce,1:klev) = 1._wp/(pmair(jcs:jce,1:klev)*(pcd+(pcv-pcd)*pqv(jcs:jce,1:klev)))
-      CALL calculate_psrad_radiation_forcing( &
-                  & jg=jg,                    &
-                  & jcs=jcs,                  &
-                  & jce=jce,                  &
-                  & kbdim=kbdim,              &
-                  & klevp1=klevp1,            &
-                  & krow=krow,                &       
-                  & pi0=pi0,                  &
-                  & pconvfact=zconv,          &
-                  & pflxs=zflxsw,             &
-                  & pflxs0=zflxswclr,         &
-                  & pflxt=zflxlw,             &
-                  & pflxt0=zflxlwclr,         &   
-                  & pemiss=pemiss,            &
-                  & ptsfctrad=ptsfctrad,      &
-                  & pztsnew=ptsfc             )
-   END IF
 
   END SUBROUTINE radheat
 

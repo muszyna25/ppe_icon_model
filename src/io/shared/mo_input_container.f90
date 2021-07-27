@@ -12,16 +12,18 @@ MODULE mo_input_container
                     & cdiIterator_inqDatatype, CDI_DATATYPE_PACK23, CDI_DATATYPE_PACK32, CDI_DATATYPE_FLT64, CDI_DATATYPE_INT32
     USE mo_communication, ONLY: t_ScatterPattern
     USE mo_exception, ONLY: message, finish, message_text
-    USE mo_fortran_tools, ONLY: assign_if_present, t_Destructible
     USE mo_hash_table, ONLY: t_HashTable, hashTable_make
     USE mo_impl_constants, ONLY: SUCCESS
     USE mo_kind, ONLY: wp, dp
     USE mo_math_types, ONLY: t_Statistics
-    USE mo_mpi, ONLY: p_bcast, p_comm_work, my_process_is_stdio, p_mpi_wtime
+    USE mo_mpi, ONLY: p_bcast, p_comm_work, p_mpi_wtime, process_mpi_root_id
     USE mo_parallel_config, ONLY: blk_no, nproma
     USE mo_scatter_pattern_base, ONLY: lookupScatterPattern
     USE mo_nwp_sfc_tiles, ONLY: trivial_tile_att, t_tileinfo_icon
     USE mo_util_string, ONLY: int2string, real2string
+#ifdef _OPENMP
+    USE omp_lib
+#endif
 
     IMPLICIT NONE
 
@@ -29,14 +31,13 @@ PUBLIC :: t_InputContainer, InputContainer_make
 
     TYPE :: t_ValueList
         PRIVATE
-        REAL(dp), POINTER :: values(:)
+        REAL(dp), ALLOCATABLE :: values(:)
         INTEGER :: valueCount
     CONTAINS
         PROCEDURE :: init => ValueList_init
         PROCEDURE :: addValue => ValueList_addValue
         PROCEDURE :: haveValue => ValueList_haveValue
         PROCEDURE :: ensureSpace => ValueList_ensureSpace
-        PROCEDURE :: destruct => ValueList_destruct
     END TYPE
 
     ! A t_InputContainer is used for file driven I/O to cache input DATA IN a distributed fashion
@@ -66,26 +67,22 @@ PUBLIC :: t_InputContainer, InputContainer_make
         PROCEDURE :: fetchTiled3D => InputContainer_fetchTiled3D  !returns .TRUE. on success
 
         PROCEDURE :: readField => InputContainer_readField
+        !NEC: new routine only for this one communication loop
+        PROCEDURE :: readField_omp => InputContainer_readField_omp
         PROCEDURE, PRIVATE :: dataAvailable => InputContainer_dataAvailable
     END TYPE
 
 PRIVATE
 
-    TYPE, EXTENDS(t_Destructible) :: t_LevelKey
-        PRIVATE
-        REAL(dp) :: levelValue
-        INTEGER :: tileId   !< the ICON-internal tile id
-
-    CONTAINS
-        PROCEDURE :: destruct => LevelKey_destruct  !< override
+    TYPE :: t_LevelKey
+      PRIVATE
+      REAL(dp) :: levelValue
+      INTEGER :: tileId   !< the ICON-internal tile id
     END TYPE
 
-    TYPE, EXTENDS(t_Destructible) :: t_LevelPointer
-        PRIVATE
-        REAL(wp), POINTER :: ptr(:,:)   !dimensions: (nproma, nblks_*)
-
-    CONTAINS
-        PROCEDURE :: destruct => LevelPointer_destruct  !< override
+    TYPE :: t_LevelPointer
+      PRIVATE
+      REAL(wp), ALLOCATABLE :: ptr(:,:)   !dimensions: (nproma, nblks_*)
     END TYPE
 
     CHARACTER(LEN = *), PARAMETER :: modname = "mo_input_container"
@@ -94,7 +91,7 @@ PRIVATE
 CONTAINS
 
     INTEGER(C_INT32_T) FUNCTION InputContainer_hashKey(key) RESULT(resultVar)
-        CLASS(t_Destructible), POINTER, INTENT(IN) :: key
+        CLASS(*), POINTER, INTENT(IN) :: key
 
         ! Just some large primes to produce some good pseudorandom bits in the hashes.
         INTEGER(C_INT64_T), PARAMETER :: prime1 = 729326603, prime2 = 941095657
@@ -104,46 +101,34 @@ CONTAINS
         INTEGER(KIND = C_INT64_T), PARAMETER :: mask = 2_C_INT64_T**31 - 1_C_INT64_T    ! a bitmask for the 31 low order bits
 
         SELECT TYPE(key)
-            TYPE IS(t_LevelKey)
-                temp = prime1*INT(key%levelValue, C_INT64_T)
-                temp = temp + prime2*INT(key%tileId, C_INT64_T)
-                resultVar = INT(IAND(temp, mask), C_INT32_T)
-            CLASS DEFAULT
-                CALL finish(routine, "illegal argument type")
+        TYPE IS(t_LevelKey)
+          temp = prime1*INT(key%levelValue, C_INT64_T)
+          temp = temp + prime2*INT(key%tileId, C_INT64_T)
+          resultVar = INT(IAND(temp, mask), C_INT32_T)
+        CLASS DEFAULT
+          CALL finish(routine, "illegal argument type")
         END SELECT
     END FUNCTION InputContainer_hashKey
 
     LOGICAL FUNCTION InputContainer_equalKeysFunction(keyA, keyB) RESULT(resultVar)
-        CLASS(t_Destructible), POINTER, INTENT(IN) :: keyA, keyB
+        CLASS(*), POINTER, INTENT(IN) :: keyA, keyB
 
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":InputContainer_equalKeysFunction"
 
         SELECT TYPE(keyA)
-            TYPE IS(t_LevelKey)
-                SELECT TYPE(keyB)
-                    TYPE IS(t_LevelKey)
-                        resultVar = keyA%levelValue > keyB%levelValue - k_levelComparisonInterval .and. &
-                               & keyA%levelValue < keyB%levelValue + k_levelComparisonInterval
-                        resultVar = resultVar .and. keyA%tileId == keyB%tileId
-                    CLASS DEFAULT
-                        CALL finish(routine, "illegal argument type")
-                END SELECT
-            CLASS DEFAULT
-                CALL finish(routine, "illegal argument type")
+        TYPE IS(t_LevelKey)
+          SELECT TYPE(keyB)
+          TYPE IS(t_LevelKey)
+            resultVar = keyA%levelValue > keyB%levelValue - k_levelComparisonInterval .AND. &
+                 & keyA%levelValue < keyB%levelValue + k_levelComparisonInterval
+            resultVar = resultVar .AND. keyA%tileId == keyB%tileId
+          CLASS DEFAULT
+            CALL finish(routine, "illegal argument type")
+          END SELECT
+        CLASS DEFAULT
+          CALL finish(routine, "illegal argument type")
         END SELECT
     END FUNCTION InputContainer_equalKeysFunction
-
-    SUBROUTINE LevelKey_destruct(me)
-        CLASS(t_LevelKey), INTENT(INOUT) :: me
-    END SUBROUTINE LevelKey_destruct
-
-    SUBROUTINE LevelPointer_destruct(me)
-        CLASS(t_LevelPointer), INTENT(INOUT) :: me
-
-        CHARACTER(*), PARAMETER :: routine = modname//":LevelPointer_destruct"
-
-        DEALLOCATE(me%ptr)
-    END SUBROUTINE LevelPointer_destruct
 
     FUNCTION InputContainer_make() RESULT(resultVar)
         CLASS(t_InputContainer), POINTER :: resultVar
@@ -194,7 +179,8 @@ CONTAINS
         INTEGER, OPTIONAL, INTENT(IN) :: opt_tile, opt_jg
 
         CHARACTER(*), PARAMETER :: routine = modname//":InputContainer_dataAvailable"
-        CLASS(t_Destructible), POINTER :: key, polymorphicKey, val
+        TYPE(t_levelkey), TARGET :: key
+        CLASS(*), POINTER :: polymorphicKey, val
         INTEGER :: levelCount, tileCount, levelIndex, tileIndex, error
 
         resultVar = .FALSE.
@@ -205,46 +191,33 @@ CONTAINS
         tileCount = me%tiles%valueCount
         IF(PRESENT(opt_tile)) tileCount = 1
 
-        ALLOCATE(t_LevelKey :: key, STAT = error)
-        IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
-        polymorphicKey => key   !Fortran needs this X|
-        SELECT TYPE(key)
-            TYPE IS(t_LevelKey)
-
-                resultVar = .TRUE.
-                outerLoop: DO levelIndex = 1, levelCount
-                    key%levelValue = me%levels%values(levelIndex)
-                    IF(PRESENT(opt_level)) key%levelValue = opt_level
-                    DO tileIndex = 1, tileCount
-                        key%tileId = INT(me%tiles%values(tileIndex))
-                        IF(PRESENT(opt_tile)) key%tileId = opt_tile
-
-                        val => me%fields%getEntry(polymorphicKey)
-                        IF(.NOT.ASSOCIATED(val)) THEN
-                            resultVar = .FALSE.
-                            EXIT outerLoop
-                        END IF
-                    END DO
-                END DO outerLoop
-
-            CLASS DEFAULT
-                CALL finish(routine, "assertion failed")
-        END SELECT
-
-        CALL key%destruct()
-        DEALLOCATE(key)
+        polymorphicKey => key
+        resultVar = .TRUE.
+        outerLoop: DO levelIndex = 1, levelCount
+          key%levelValue = me%levels%values(levelIndex)
+          IF(PRESENT(opt_level)) key%levelValue = opt_level
+          DO tileIndex = 1, tileCount
+            key%tileId = INT(me%tiles%values(tileIndex))
+            IF(PRESENT(opt_tile)) key%tileId = opt_tile
+            val => me%fields%getEntry(polymorphicKey)
+            IF(.NOT.ASSOCIATED(val)) THEN
+              resultVar = .FALSE.
+              EXIT outerLoop
+            END IF
+          END DO
+        END DO outerLoop
     END FUNCTION InputContainer_dataAvailable
 
     LOGICAL FUNCTION InputContainer_fetch2D(me, level, tile, outData, opt_lDebug) RESULT(resultVar)
         CLASS(t_InputContainer), INTENT(IN) :: me
-        REAL(dp), VALUE :: level
-        INTEGER, VALUE :: tile
+        REAL(dp), INTENT(IN) :: level
+        INTEGER, INTENT(IN) :: tile
         REAL(wp), INTENT(INOUT) :: outData(:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDebug
 
         CHARACTER(*), PARAMETER :: routine = modname//":InputContainer_fetch2D"
-        INTEGER :: error
-        CLASS(t_Destructible), POINTER :: key, val
+        TYPE(t_levelkey), TARGET :: key
+        CLASS(*), POINTER :: polymorphicKey, val
         LOGICAL :: debugInfo
 
         debugInfo = .FALSE.
@@ -253,21 +226,15 @@ CONTAINS
         resultVar = me%dataAvailable(opt_level = level, opt_tile = tile)
         IF(.NOT.resultVar) RETURN
 
-        ALLOCATE(t_LevelKey :: key, STAT = error)
-        IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
-        SELECT TYPE(key)
-            TYPE IS(t_LevelKey)
-                key%levelValue = level
-                key%tileId = tile
-            CLASS DEFAULT
-                CALL finish(routine, "assertion failed")
-        END SELECT
-        val => me%fields%getEntry(key)
+        key%levelValue = level
+        key%tileId = tile
+        polymorphicKey => key
+        val => me%fields%getEntry(polymorphicKey)
 
         IF(.NOT.ASSOCIATED(val)) CALL finish(routine, "internal error: dataAvailable() returned TRUE, but getEntry() failed")
         SELECT TYPE(val)
             TYPE IS(t_LevelPointer)
-                IF(SIZE(outData, 1) /= SIZE(val%ptr, 1) .OR.  SIZE(outData, 2) /= SIZE(val%ptr, 2)) THEN
+              IF (ANY(SHAPE(outData) /= SHAPE(val%ptr))) THEN
                    CALL finish(routine, "dimensions of output array do not match the dimensions of the data read from file")
                 END IF
                 outData(:,:) = val%ptr(:,:)
@@ -275,8 +242,6 @@ CONTAINS
                 CALL finish(routine, "assertion failed")
         END SELECT
 
-        CALL key%destruct()
-        DEALLOCATE(key)
     END FUNCTION InputContainer_fetch2D
 
     LOGICAL FUNCTION InputContainer_fetch3D(me, tile, outData, optLevelDimension, opt_lDebug) RESULT(resultVar)
@@ -294,7 +259,7 @@ CONTAINS
         IF(PRESENT(opt_lDebug)) debugInfo = opt_lDebug
 
         levelDimension = 2
-        CALL assign_if_present(levelDimension, optLevelDimension)
+        IF (PRESENT(optLevelDimension)) levelDimension = optLevelDimension
         IF(SIZE(outData, levelDimension) /= me%levels%valueCount) THEN
             resultVar = .FALSE.
             IF(debugInfo) CALL message(routine, "wrong level count")
@@ -319,7 +284,7 @@ CONTAINS
 
     LOGICAL FUNCTION InputContainer_fetchTiled2D(me, level, outData, opt_lDebug) RESULT(resultVar)
         CLASS(t_InputContainer), INTENT(IN) :: me
-        REAL(dp), VALUE :: level
+        REAL(dp), INTENT(IN) :: level
         REAL(wp), INTENT(INOUT) :: outData(:,:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDebug
 
@@ -437,21 +402,322 @@ CONTAINS
 
         CALL me%fields%destruct()
         DEALLOCATE(me%fields)
-        CALL me%tiles%destruct()
-        CALL me%levels%destruct()
     END SUBROUTINE InputContainer_destruct
+
+    !NEC_RP: new routine that OMP parallelizes read, statistics and distribution
+    SUBROUTINE InputContainer_readField_omp(me, variableName, level, tile, timer, jg, iterator, statistics, iread)
+        CLASS(t_InputContainer), INTENT(INOUT) :: me
+        CHARACTER(LEN = *), INTENT(IN) :: variableName
+        REAL(dp), INTENT(IN) :: level
+        INTEGER, INTENT(IN) :: tile, jg
+        REAL(dp), INTENT(INOUT) :: timer(:)
+        TYPE(t_CdiIterator), VALUE :: iterator
+        TYPE(t_Statistics), INTENT(INOUT) :: statistics ! This gets the statistics of the READ field added, but ONLY on the master process.
+        INTEGER, INTENT(IN) :: iread
+
+        CHARACTER(*), PARAMETER :: routine = modname//":InputContainer_readField_omp"
+        CLASS(*), POINTER :: val, key
+        REAL(C_DOUBLE), SAVE, POINTER :: bufferD(:)
+        REAL(C_FLOAT), SAVE, POINTER :: bufferS(:)
+        INTEGER :: gridSize, datatype, packedMessage(2), error    !packedMessage(1) == gridSize, packedMessage(2) == datatype
+        CLASS(t_ScatterPattern), POINTER :: distribution
+        REAL(dp) :: message(3)
+        ! Variables for deferred sending
+        CHARACTER(LEN=:), ALLOCATABLE, SAVE :: variableName_prev
+        CLASS(*), POINTER :: key_prev
+        REAL(C_DOUBLE), SAVE, POINTER :: bufferD_prev(:)
+        REAL(C_FLOAT), SAVE, POINTER :: bufferS_prev(:)
+        REAL(C_DOUBLE), POINTER :: tmpDP(:)
+        REAL(C_FLOAT), POINTER :: tmpSP(:)
+        INTEGER, SAVE :: packedMessage_prev(2)
+        REAL(dp), SAVE :: level_prev
+        INTEGER, SAVE :: jg_prev
+        INTEGER, SAVE :: tile_prev, datatype_prev
+
+        !NEC_RP: use three cases: only read, only distribute, both
+        SELECT CASE(iread)
+        CASE(1)  ! First record: only read
+
+           CALL read_data(firstcall = .TRUE.)
+   
+           ! prepare reading the rest of the data
+           jg_prev = jg
+           level_prev = level
+           tile_prev = tile
+           datatype_prev = datatype
+           packedMessage_prev = packedMessage
+           IF (ALLOCATED(variableName_prev)) DEALLOCATE(variableName_prev)
+           ALLOCATE(CHARACTER(LEN=LEN(variableName)) :: variableName_prev)
+           variableName_prev = variableName
+
+        CASE (-1)
+           !NEC_RP: Last record of previous variable
+
+!$OMP PARALLEL SECTIONS NUM_THREADS(2)
+!$OMP SECTION
+            ! first section for distribution of previous buffer
+            CALL distribute_data()
+!$OMP SECTION
+            ! second section for statistics on previous buffer
+            CALL compute_statistics()
+!$OMP END PARALLEL SECTIONS
+
+        CASE (-2)
+           !NEC_RP: Last record: Only data distribution and statistics; deallocate
+
+!$OMP PARALLEL SECTIONS NUM_THREADS(2)
+!$OMP SECTION
+            ! first section for distribution of previous buffer
+            CALL distribute_data()
+!$OMP SECTION
+            ! second section for statistics on previous buffer
+            CALL compute_statistics()
+!$OMP END PARALLEL SECTIONS
+
+            IF (ASSOCIATED(bufferD_prev)) THEN
+              DEALLOCATE(bufferD_prev)
+              NULLIFY(bufferD_prev)
+            END IF
+            IF (ASSOCIATED(bufferD)) THEN 
+              DEALLOCATE(bufferD)
+              NULLIFY(bufferD)
+            END IF  
+            IF (ASSOCIATED(bufferS_prev)) THEN
+               DEALLOCATE(bufferS_prev)
+               NULLIFY(bufferS_prev)
+            END IF
+            IF (ASSOCIATED(bufferS)) THEN 
+              DEALLOCATE(bufferS)
+              NULLIFY(bufferS)
+            END IF  
+            
+        CASE DEFAULT
+           !NEC_RP: Read data, distribute them, and compute statistics
+!$OMP PARALLEL SECTIONS NUM_THREADS(3)
+!$OMP SECTION
+           ! first section for read of current buffer
+           CALL read_data(firstcall = .FALSE.)
+!$OMP SECTION
+           ! second and third sections for statistics on and distribution of previous buffer
+            CALL compute_statistics()
+!$OMP SECTION
+            CALL distribute_data()
+!$OMP END PARALLEL SECTIONS
+
+            ! Prepare data for next iteration
+            ! first flip pointer assignments (faster than copy)
+            IF (ASSOCIATED(bufferD)) THEN
+               IF (SIZE(bufferD) /= SIZE(bufferD_prev)) THEN
+                  IF (ASSOCIATED(bufferD_prev)) DEALLOCATE(bufferD_prev)
+                  ALLOCATE(bufferD_prev(SIZE(bufferD)))
+               END IF
+               tmpDP => bufferD_prev
+               bufferD_prev => bufferD
+               bufferD => tmpDP
+            END IF
+            IF (ASSOCIATED(bufferS)) THEN
+               IF (SIZE(bufferS) /= SIZE(bufferS_prev)) THEN
+                  IF (ASSOCIATED(bufferS_prev)) DEALLOCATE(bufferS_prev)
+                  ALLOCATE(bufferS_prev(SIZE(bufferS)))
+               END IF
+               tmpSP => bufferS_prev
+               bufferS_prev => bufferS
+               bufferS => tmpSP
+            END IF
+
+            jg_prev = jg
+            level_prev = level
+            tile_prev = tile
+            datatype_prev = datatype
+            packedMessage_prev = packedMessage
+            IF (LEN(variableName_prev) /= LEN(variableName)) THEN
+               DEALLOCATE(variableName_prev)
+               ALLOCATE(CHARACTER(LEN=LEN(variableName)) :: variableName_prev)
+            END IF
+            variableName_prev = variableName
+        END SELECT
+
+        CONTAINS
+
+        SUBROUTINE read_data(firstcall)
+
+           LOGICAL, INTENT(in) :: firstcall
+           REAL(dp) :: savetime
+
+           ALLOCATE(t_LevelKey :: key, STAT = error)
+           IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+           SELECT TYPE(key)
+           TYPE IS(t_LevelKey)
+                key%levelValue = level
+                key%tileId = tile
+             CLASS DEFAULT
+                CALL finish(routine, "assertion failed")
+           END SELECT
+
+           !Inquire buffer SIZE information AND broadcast it.
+           IF(C_ASSOCIATED(iterator%ptr)) THEN
+               gridSize = gridInqSize(cdiIterator_inqGridId(iterator))
+               datatype = cdiIterator_inqDatatype(iterator)
+               packedMessage(1) = gridSize
+               packedMessage(2) = datatype
+           END IF
+   
+           SELECT CASE(datatype)
+           CASE(CDI_DATATYPE_PACK23:CDI_DATATYPE_PACK32, CDI_DATATYPE_FLT64, CDI_DATATYPE_INT32)
+               !ALLOCATE the global buffer
+               IF(C_ASSOCIATED(iterator%ptr)) THEN
+                   IF (firstcall) ALLOCATE(bufferD_prev(gridSize), STAT = error)
+                   ! Note: SIZE(buffer) may deliver the right value even if "buffer" has been deallocated before
+                   IF (.NOT. ASSOCIATED(bufferD)) ALLOCATE(bufferD(gridSize), STAT = error)
+                   IF (SIZE(bufferD) /= gridSize) THEN
+                      DEALLOCATE(bufferD)
+                      ALLOCATE(bufferD(gridSize), STAT = error)
+                   END IF
+               ELSE
+                   IF (firstcall) THEN
+                     ALLOCATE(bufferD_prev(1), STAT = error)
+                     ALLOCATE(bufferD(1), STAT = error)
+                   ENDIF
+                   IF (SIZE(bufferD) /= 1) THEN
+                      DEALLOCATE(bufferD)
+                      ALLOCATE(bufferD(1), STAT = error)
+                   END IF
+               END IF
+               IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+   
+               !READ the DATA
+               IF(C_ASSOCIATED(iterator%ptr)) THEN
+                   savetime = p_mpi_wtime()
+                   IF (firstcall) THEN
+                     CALL cdiIterator_readField(iterator, bufferD_prev)
+                   ELSE
+                     CALL cdiIterator_readField(iterator, bufferD)
+                   ENDIF
+                   timer(3) = timer(3) + p_mpi_wtime() - savetime
+               END IF
+           CASE DEFAULT
+               !ALLOCATE the global buffer
+               IF(C_ASSOCIATED(iterator%ptr)) THEN
+                   IF (firstcall) ALLOCATE(bufferS_prev(gridSize), STAT = error)
+                   ! Note: SIZE(buffer) may deliver the right value even if "buffer" has been deallocated before
+                   IF (.NOT. ASSOCIATED(bufferS)) ALLOCATE(bufferS(gridSize), STAT = error)
+                   IF (SIZE(bufferS) /= gridSize) THEN
+                      DEALLOCATE(bufferS)
+                      ALLOCATE(bufferS(gridSize), STAT = error)
+                   END IF
+               ELSE
+                   IF (firstcall) THEN
+                     ALLOCATE(bufferS_prev(1), STAT = error)
+                     ALLOCATE(bufferS(1), STAT = error)
+                   ENDIF
+                   IF (SIZE(bufferS) /= 1) THEN
+                      DEALLOCATE(bufferS)
+                      ALLOCATE(bufferS(1), STAT = error)
+                   END IF
+               END IF
+               IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+   
+               !READ the DATA
+               IF(C_ASSOCIATED(iterator%ptr)) THEN
+                   savetime = p_mpi_wtime()
+                   IF (firstcall) THEN
+                     CALL cdiIterator_readFieldF(iterator, bufferS_prev)
+                   ELSE
+                     CALL cdiIterator_readFieldF(iterator, bufferS)
+                   ENDIF
+                   timer(3) = timer(3) + p_mpi_wtime() - savetime
+               END IF
+           END SELECT
+
+        END SUBROUTINE read_data
+
+        SUBROUTINE distribute_data
+
+           REAL(dp) :: savetime
+
+           message(1) = REAL(LEN(variableName_prev, 1), dp)
+           message(2) = level_prev
+           message(3) = REAL(tile_prev, dp)
+           CALL p_bcast(message, process_mpi_root_id, p_comm_work)
+           CALL p_bcast(variableName_prev, process_mpi_root_id, p_comm_work)
+
+           CALL p_bcast(packedMessage_prev, 0, p_comm_work)
+
+           !Get the corresponding ScatterPattern AND initialize our hash table entry.
+           distribution => lookupScatterPattern(jg_prev, packedMessage_prev(1))
+           IF(.NOT. ASSOCIATED(distribution)) CALL finish(routine, "could not find scatter pattern to distribute input field")
+           ALLOCATE(t_LevelPointer :: val, STAT = error)
+           IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+           SELECT TYPE(val)
+             TYPE IS(t_LevelPointer)
+
+             !ALLOCATE the local buffer
+             ALLOCATE(val%ptr(nproma, blk_no(distribution%localSize())), STAT = error)
+             IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+             val%ptr = 0.0_wp     !Avoid nondeterministic values IN the unused points for checksumming.
+
+             SELECT CASE(packedMessage_prev(2))
+             CASE(CDI_DATATYPE_PACK23:CDI_DATATYPE_PACK32, CDI_DATATYPE_FLT64, CDI_DATATYPE_INT32)
+               savetime = p_mpi_wtime()
+               CALL distribution%distribute(bufferD_prev, val%ptr, .FALSE.)
+               timer(5) = timer(5) + p_mpi_wtime() - savetime
+             CASE DEFAULT
+               savetime = p_mpi_wtime()
+               CALL distribution%distribute(bufferS_prev, val%ptr, .FALSE.)
+               timer(5) = timer(5) + p_mpi_wtime() - savetime
+             END SELECT
+           END SELECT
+
+           ALLOCATE(t_LevelKey :: key_prev, STAT = error)
+           IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+           SELECT TYPE(key_prev)
+             TYPE IS(t_LevelKey)
+                key_prev%levelValue = level_prev
+                key_prev%tileId = tile_prev
+             CLASS DEFAULT
+                CALL finish(routine, "assertion failed")
+           END SELECT
+           
+           !store the DATA IN our hash table
+           CALL me%fields%setEntry(key_prev, val) !this will DEALLOCATE both the val AND the key eventually
+           me%fieldCount = me%fieldCount + 1
+           CALL me%tiles%addValue(REAL(tile_prev, dp))
+           CALL me%levels%addValue(level_prev)
+
+        END SUBROUTINE distribute_data
+
+
+        SUBROUTINE compute_statistics
+
+           REAL(dp) :: savetime
+
+           SELECT CASE(packedMessage_prev(2))
+           CASE(CDI_DATATYPE_PACK23:CDI_DATATYPE_PACK32, CDI_DATATYPE_FLT64, CDI_DATATYPE_INT32)
+               savetime = p_mpi_wtime()
+               CALL statistics%add(bufferD_prev)
+               timer(4) = timer(4) + p_mpi_wtime() - savetime
+           CASE DEFAULT
+               savetime = p_mpi_wtime()
+               CALL statistics%add(bufferS_prev)
+               timer(4) = timer(4) + p_mpi_wtime() - savetime
+           END SELECT
+
+        END SUBROUTINE compute_statistics
+
+    END SUBROUTINE InputContainer_readField_omp
+
 
     SUBROUTINE InputContainer_readField(me, variableName, level, tile, timer, jg, iterator, statistics)
         CLASS(t_InputContainer), INTENT(INOUT) :: me
         CHARACTER(LEN = *), INTENT(IN) :: variableName
-        REAL(dp), VALUE :: level
-        INTEGER, VALUE :: tile, jg
+        REAL(dp), INTENT(IN) :: level
+        INTEGER, INTENT(IN) :: tile, jg
         REAL(dp), INTENT(INOUT) :: timer(:)
         TYPE(t_CdiIterator), VALUE :: iterator
         TYPE(t_Statistics), INTENT(INOUT) :: statistics ! This gets the statistics of the READ field added, but ONLY on the master process.
 
         CHARACTER(*), PARAMETER :: routine = modname//":InputContainer_readField"
-        CLASS(t_Destructible), POINTER :: key, val
+        CLASS(*), POINTER :: key, val
         REAL(C_DOUBLE), POINTER :: bufferD(:)
         REAL(C_FLOAT), POINTER :: bufferS(:)
         INTEGER :: gridSize, datatype, packedMessage(2), error    !packedMessage(1) == gridSize, packedMessage(2) == datatype
@@ -469,8 +735,8 @@ CONTAINS
                 CALL finish(routine, "assertion failed")
         END SELECT
         IF(ASSOCIATED(me%fields%getEntry(key))) THEN
-            WRITE(message_text, '(a,g24.15e3,a,i2,a)') "double definition of level-tile tuple (", &
-              level,",",tile,") in variable '"//variableName//"' in an input file"
+            WRITE(message_text, '(a,g24.15e3,a,i2,3a)') "double definition of level-tile tuple (", &
+              level,",",tile,") in variable '",variableName,"' in an input file"
             CALL finish(routine, message_text)
         END IF
 
@@ -568,14 +834,12 @@ CONTAINS
         ALLOCATE(me%values(8), STAT = error)
         IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
         me%valueCount = 0
-        DO i = 1, SIZE(me%values, 1)
-            me%values(i) = 0.0
-        END DO
+        me%values(:) = 0.0
     END SUBROUTINE ValueList_init
 
     SUBROUTINE ValueList_addValue(me, val)
         CLASS(t_ValueList), INTENT(INOUT) :: me
-        REAL(dp), VALUE :: val
+        REAL(dp), INTENT(IN) :: val
 
         CHARACTER(*), PARAMETER :: routine = modname//":ValueList_addValue"
         INTEGER :: i, j
@@ -615,28 +879,17 @@ CONTAINS
 
         CHARACTER(*), PARAMETER :: routine = modname//":ValueList_ensureSpace"
         INTEGER :: i, error
-        REAL(dp), POINTER :: temp(:)
+        REAL(dp), ALLOCATABLE :: temp(:)
 
         IF(me%valueCount == SIZE(me%values, 1)) THEN
-            temp => me%values
-            ALLOCATE(me%values(2*SIZE(me%values, 1)), STAT = error)
+            ALLOCATE(temp(2*SIZE(me%values, 1)), STAT = error)
             IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
             DO i = 1, me%valueCount
-                me%values(i) = temp(i)
+                temp(i) = me%values(i)
             END DO
-            DO i = me%valueCount + 1, SIZE(me%values, 1)
-                me%values(i) = 0.0
-            END DO
-            DEALLOCATE(temp)
+            temp(me%valueCount + 1:) = 0.0
+            CALL move_ALLOC(temp, me%values)
         END IF
     END SUBROUTINE ValueList_ensureSpace
-
-    SUBROUTINE ValueList_destruct(me)
-        CLASS(t_ValueList) :: me
-
-        CHARACTER(*), PARAMETER :: routine = modname//":ValueList_destruct"
-
-        DEALLOCATE(me%values)
-    END SUBROUTINE ValueList_destruct
 
 END MODULE mo_input_container

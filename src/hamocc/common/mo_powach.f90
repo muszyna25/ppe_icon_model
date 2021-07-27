@@ -8,6 +8,7 @@ MODULE mo_powach
  USE mo_kind, ONLY        : wp
  USE mo_sedmnt_diffusion, ONLY: powadi, dipowa
  USE mo_hamocc_nml,       ONLY: ks,porwat
+ USE mo_carchm,           ONLY: update_hi
 
  IMPLICIT NONE
 
@@ -28,14 +29,18 @@ CONTAINS
    USE mo_memory_bgc, ONLY  : ak13, ak23, akb3, akw3, aksp,               &
         &                     aks3,akf3,ak1p3,ak2p3,ak3p3,aksi3,          &          
         &                     bolay, kbo, ro2ut, rnit, nitdem, n2prod,    &
-        &                     rrrcl, rcar, ralk, riron
+        &                     rrrcl, rcar, ralk, riron,                   &
+        &                     nitrira, ro2ammo, anamoxra, bkno2, nitriox, &
+        &                     no2denit, rnh4no2, rno2no3, rno3no2,rno3nh4,&
+        &                     rno2n2, ro2nitri, alk_nrn2,                 &
+        &                     o2thresh, o2den_lim
 
    USE mo_sedmnt, ONLY      : sedlay, sedhpl, seddw, silpro,              &
         &                     powtra, prcaca, prorca, produs,             &
         &                     pown2bud, powh2obud, sred_sed,              &
         &                     porsol, pors2w, calcon,                     &
         &                     disso_op, disso_cal,                        &
-        &                     sedtend, isremins, isremino, isreminn,      &
+        &                     sedtend,      &
         &                     silsat
 
  
@@ -44,9 +49,12 @@ CONTAINS
    USE mo_param1_bgc, ONLY  : ipowasi, issssil, ipowaox,ipowh2s,  &
         &                     issso12, ipowaph, ipowno3, ipown2, &
         &                     ipowaal, ipowaic, isssc12, issster, &
-        &                     ipowafe
+        &                     ipowafe, isremins, isremino, isreminn, &
+        &                     ipownh4, ipowno2, ksammox, ksanam, &
+        &                     ksdnra, ksdnrn, ksnrn2, ksnitox
  
-   USE mo_hamocc_nml, ONLY  : disso_po,denit_sed
+   USE mo_hamocc_nml, ONLY  : disso_po,denit_sed, &
+                              l_N_cycle, no3no2red, no3nh4red
  
   IMPLICIT NONE
 
@@ -60,7 +68,7 @@ CONTAINS
   
   !! Local variables
 
-   INTEGER :: j,k, iter
+   INTEGER :: j,k
 
 
    REAL(wp) :: orgsed                        ! sum of C12 and C13 in organic sed.
@@ -69,26 +77,43 @@ CONTAINS
    REAL(wp) :: powcar(ks)
 
    REAL(wp) :: undsa, posol, pomax
-   REAL(wp) :: bt,alk,c
-   REAL(wp) :: ak1,ak2,akb,akw
    REAL(wp) :: satlev
 !   REAL(wp) :: o2lim
-   REAL(wp) :: AKSI,AKF,AKS,AK1P,AK2P,AK3P
-   REAL(wp) :: sti,ft,sit,pt,ah1       ! Chr. Heinze [H+]
-   REAL(wp) :: hso4,hf,hsi,hpo4
-   REAL(wp) :: ab,aw,ac,ah2o,ah2,erel
-   INTEGER  :: jit
 
+   !!!! extended N-cycle variables
+   REAL(wp) :: posol_nit
+   REAL(wp) :: dissot1
+   REAL(wp) :: popot
+   REAL(wp) :: o2lim
+   REAL(wp) :: nitrif          ! local rate of NH4 conversion to NO3 (adapted from EMR)
+   REAL(wp) :: ammox,nitox     ! oxidation of NH4 to NO2 and NO2 to NO3, light dep.
+   REAL(wp) :: fammox,fnitox   ! local rate of ammox,nitox
+   REAL(wp) :: detn,dnrn,dnra,nrn2,anamox ! processes of N-cycle
+   REAL(wp) :: nh4a,no2a,no3a,nh4n       ! old NH4,NO2,NO3 after biological processes
+   REAL(wp) :: no2c_act       ! absolut  change in no2 due to anamox and denitrification
+   REAL(wp) :: no2c_max       ! max  change in no2 due to anamox and denitrification
+   REAL(wp) :: no2rmax        ! max potential rate of change no2 due to anamox and denitrification
+   REAL(wp) :: denpot         ! moa potential change in detn
+   REAL(wp) :: fdnrn,fdnra,fnrn2,fdenit! fraction of total processes of N-cycle
+   REAL(wp) :: annpot,anam     ! potential anamox in anaerobic water
+   REAL(wp) :: oxpot      ! potential oxdiation of NH4 and NO2 in aerobic water
+   REAL(wp) :: no3c_act       ! absolute change in NO3 due to DNRN/A and auto.denitrification  
+   REAL(wp) :: no3c_max       ! max change in NO3 due to DNRN/A and auto.denitrification  
+   REAL(wp) :: no3rmax        ! max potential rate of change in NO3 due to DNRN/A and auto.denitrification  
+   REAL(wp) :: detc_act       ! absolute change in NO3 due to DNRN/A 
+   REAL(wp) :: detc_max       ! max potential change in det due to DNRN/A
+   REAL(wp) :: rdnrn,rdnra    ! local rates of DNRN/A
+   REAL(wp) :: oxmax,oxact,r_nitox,r_ammox ! all for nitrification of NH4 and NO2
 
+   REAL(wp) :: denlim_no3     ! saturation function for denitrification on low NO3
+   REAL(wp) :: quadno3        ! for saturation function quadartic no3
+   REAL(wp) :: newammo,newnitr
 
 !!! WE start with remineralisation of organic to estimate alkalinity changes first
 !          
 !HAMOCC_OMP_PARALLEL
 !HAMOCC_OMP_DO PRIVATE(j,k,pomax,posol,orgsed,sssnew,&
-!HAMOCC_OMP           undsa,iter,bt,alk,c,ak1,ak2,akb,akw,&
-!HAMOCC_OMP           satlev,powcar,sti,ft,sit,&
-!HAMOCC_OMP           pt,ah1,aks,akf,ak1p,ak2p,ak3p,aksi,jit,&
-!HAMOCC_OMP           hso4,hf,hpo4,ab,aw,ac,ah2o,ah2,erel) HAMOCC_OMP_DEFAULT_SCHEDULE
+!HAMOCC_OMP           undsa,satlev,powcar) HAMOCC_OMP_DEFAULT_SCHEDULE
 
 
     Do j = start_idx, end_idx
@@ -110,28 +135,97 @@ CONTAINS
          IF(bolay(j) > 0._wp) THEN
          IF (powtra(j, k, ipowaox) > 2.e-6_wp) THEN
 
-        ! o2lim = powtra(j,k,ipowaox)/(o2thresh+powtra(j,k,ipowaox)) ! o2 limitation in oxic water
+            !!!! N-cycle !!!!!!!!
+            IF (l_N_cycle) THEN
+               o2lim = powtra(j,k,ipowaox)/(o2thresh + powtra(j,k,ipowaox)) ! o2 limitation in oxic water
+               pomax = o2lim*dissot1*powtra(j,k,ipowaox)
+               sssnew = sedlay(j,k,issso12)/(1._wp + pomax)
+               popot = sedlay(j,k,issso12) - sssnew   ! potential change for org sed.
+               posol = min(0.9_wp*powtra(j,k,ipowaox)/(pors2w(k)*ro2ammo),popot)
+            ELSE
+               ! o2lim = powtra(j,k,ipowaox)/(o2thresh+powtra(j,k,ipowaox)) ! o2 limitation in oxic water
 
-        ! maximal possible aerobe dissolution per time step 
-        ! limited by available oxygen concentration, currently max 70 % of O2 
-         pomax = disso_po * max(0._wp,sedlay(j,k,issso12))*powtra(j,k,ipowaox)
-         posol = min(0.7_wp*powtra(j,k,ipowaox)/ro2ut,pomax*pors2w(k))
+               ! maximal possible aerobe dissolution per time step 
+               ! limited by available oxygen concentration, currently max 70 % of O2 
+               pomax = disso_po * max(0._wp,sedlay(j,k,issso12))*powtra(j,k,ipowaox)
+               posol = min(0.7_wp*powtra(j,k,ipowaox)/ro2ut,pomax*pors2w(k))
+            ENDIF
 
          
-         sedlay(j,k,issso12) = sedlay(j,k,issso12) - posol
+            sedlay(j,k,issso12) = sedlay(j,k,issso12) - posol
 
-         powtra(j,k,ipowaic) = powtra(j,k,ipowaic) + posol*rcar*pors2w(k)
-         powtra(j,k,ipowaph)=powtra(j,k,ipowaph)+ posol*pors2w(k)
-         powtra(j,k,ipowno3)=powtra(j,k,ipowno3)+ posol*rnit*pors2w(k)
-         powtra(j,k,ipowafe)=powtra(j,k,ipowafe)+ posol*riron*pors2w(k)
-         powtra(j,k,ipowaal)=powtra(j,k,ipowaal)-posol*rnit*pors2w(k)
-         powtra(j,k,ipowaox)=powtra(j,k,ipowaox)-posol*pors2w(k)*ro2ut
+            powtra(j,k,ipowaic) = powtra(j,k,ipowaic) + posol*rcar*pors2w(k)
+            powtra(j,k,ipowaph)=powtra(j,k,ipowaph)+ posol*pors2w(k)
+            powtra(j,k,ipowafe)=powtra(j,k,ipowafe)+ posol*riron*pors2w(k)
+            !!!! N-cycle !!!!!!!!
+            IF (l_N_cycle) THEN
+               powtra(j,k,ipownh4)=powtra(j,k,ipownh4)+posol*rnit*pors2w(k)
+               powtra(j,k,ipowaal)=powtra(j,k,ipowaal)+posol*(rnit - 1._wp)*pors2w(k)  !LR: watch out!
+               powtra(j,k,ipowaox)=powtra(j,k,ipowaox)-posol*pors2w(k)*ro2ammo
+            ELSE
+               powtra(j,k,ipowno3)=powtra(j,k,ipowno3)+ posol*rnit*pors2w(k)
+               powtra(j,k,ipowaal)=powtra(j,k,ipowaal)-posol*ralk*pors2w(k)
+               powtra(j,k,ipowaox)=powtra(j,k,ipowaox)-posol*pors2w(k)*ro2ut
+            ENDIF
 
-         sedtend(j,k,isremino) = posol*pors2w(k)/dtbgc
+            sedtend(j,k,isremino) = posol*pors2w(k)/dtbgc
 
-         else
-          sedtend(j,k,isremino) = 0._wp
 
+            !!!! N-cycle !!!!!!!!
+            !!!! Oxidation of NH4 and NO2
+            IF (l_N_cycle) THEN
+                fammox = nitrira          ! local rate of ammox per time step, no light dependence
+                fnitox = nitriox          ! local rate of nitrite
+
+                nh4a  =  max(0._wp,powtra(j,k,ipownh4))                         
+
+                newammo = nh4a/(1._wp + fammox)
+                ammox = nh4a - newammo
+                no2a =  max(0._wp,powtra(j,k,ipowno2))  
+                newnitr = no2a/ (1._wp + fnitox)                        ! change of nitrite
+
+                nitox = no2a - newnitr
+
+                !  ratio of change in o2 due to oxidation
+                oxmax =  rno2no3*nitox +  rnh4no2*ammox   ! potential oxidation of NO2
+                if  (oxmax > 0._wp) then
+                   r_nitox =   rno2no3*nitox/ oxmax
+                   r_ammox =   rnh4no2*ammox /oxmax
+                else
+                   r_nitox = 0._wp
+                   r_ammox = 0._wp
+                   oxmax = 0._wp
+                endif
+               !        oxact always > 0 because we are in o2 > 2
+                oxact = min(powtra(j,k,ipowaox) - 0.5E-6_wp, oxmax)
+
+                nitox = r_nitox*oxact/rno2no3
+                ammox = r_ammox*oxact/rnh4no2
+ 
+                powtra(j,k,ipownh4) = nh4a -ammox
+                powtra(j,k,ipowno2) = powtra(j,k,ipowno2) + ammox-nitox ! change of nitrite
+        
+                powtra(j,k,ipowno3) = powtra(j,k,ipowno3) + nitox
+
+                powtra(j,k,ipowaox) = powtra(j,k,ipowaox)- rno2no3*nitox &
+                                       - rnh4no2*ammox ! O2 will be used during nitrification 
+
+                powtra(j,k,ipowaal) = powtra(j,k,ipowaal) - 2._wp*ammox ! ocean with NH4 - alkalinity change
+                                                                            ! according to Wolf-Gladrow etal Mar. Chem. (2007)
+
+                sedtend(j,k,ksammox)=ammox/dtbgc
+                sedtend(j,k,ksnitox)=nitox/dtbgc
+            ENDIF
+
+         ELSE
+
+            sedtend(j,k,isremino) = 0._wp
+
+            !!!! N-cycle !!!!!!!!
+            IF (l_N_cycle) THEN
+               sedtend(j,k,ksammox) = 0._wp
+                sedtend(j,k,ksnitox) = 0._wp
+            ENDIF
 
          ENDIF ! oxygen > 2.
          ENDIF ! bolay > 0
@@ -139,24 +233,29 @@ CONTAINS
       ENDDO
 
 
+
+
+
 ! CALCULATE NITRATE REDUCTION UNDER ANAEROBIC CONDITIONS EXPLICITELY
 !*******************************************************************
 ! Denitrification rate constant of POP (disso) [1/sec]
 ! Store flux in array anaerob, for later computation of DIC and alkalinity.
 
-
       DO  k=1,ks
          IF (bolay( j) .GT. 0._wp) THEN
+
+         !!!! not N-cycle !!!!!!!!
+         IF (.not. l_N_cycle) THEN
          IF (powtra( j, k, ipowaox) < 2.e-6_wp) THEN
 
            orgsed = max(0._wp,sedlay(j,k,issso12)) 
 
-           posol = denit_sed * MIN(0.5_wp * powtra(j, k, ipowno3)/nitdem, orgsed)
+           posol = denit_sed * MIN(0.5_wp * powtra(j, k, ipowno3)/(nitdem-rnit), orgsed)
            sedlay(j,k,issso12)=sedlay(j,k,issso12)-posol
            powtra(j,k,ipowaph)=powtra(j,k,ipowaph)+posol*pors2w(k)
            powtra(j,k,ipowaic)=powtra(j,k,ipowaic)+rcar*posol*pors2w(k)
 
-           powtra(j,k,ipowaal)=powtra(j,k,ipowaal)+posol*nitdem*pors2w(k)
+           powtra(j,k,ipowaal)=powtra(j,k,ipowaal)+posol*(nitdem-ralk)*pors2w(k)
            powtra(j,k,ipowno3)=powtra(j,k,ipowno3)-(2._wp*n2prod - rnit)*posol*pors2w(k)
            powtra(j,k,ipowafe)=powtra(j,k,ipowafe)+ posol*riron*pors2w(k)
            powtra(j,k,ipown2)=powtra(j,k,ipown2)+n2prod*posol*pors2w(k)
@@ -168,31 +267,201 @@ CONTAINS
            sedtend(j,k,isreminn) = 0._wp
 
          ENDIF   ! oxygen <1.e-6
-         endif   ! bolay
+
+         ELSE
+
+         !!!! N-cycle !!!!!!!!
+         IF (powtra( j, k, ipowaox) < o2thresh) THEN
+            orgsed=max(0._wp,sedlay(j,k,issso12))
+
+            ! o2 limitation identical for all suboxic processes 
+            o2lim = 1._wp - max(0._wp,powtra(j,k, ipowaox)/o2thresh)
+
+            ! convert detritus in P-units to N-units for nitrogen cycle changes  
+            ! convert to from solid to water
+            detn = max(0._wp,orgsed*rnit*pors2w(k))
+
+            ! denitrification rate on NO3
+            rdnrn = o2lim*no3no2red *detn/(powtra(j,k,ipowno3)+3.E-5_wp)
+            rdnra = o2lim*no3nh4red *detn/(powtra(j,k,ipowno3)+3.E-5_wp)
+ 
+            no3rmax = rdnrn + rdnra                       ! max pot loss of NO3
+
+            IF(no3rmax > 0._wp) THEN 
+               fdnrn = rdnrn/no3rmax                       ! fraction each process
+               fdnra = rdnra/no3rmax
+
+               !< implicit formulation to avoid neg. nitrate concentration
+               no3a = powtra(j,k,ipowno3)/(1._wp +no3rmax)   ! max change in NO3  
+               no3c_max = powtra(j,k,ipowno3) - no3a         ! corresponding max NO3 loss 
+               detc_max=  no3c_max*(fdnrn/rno3no2+fdnra/rno3nh4)  ! corresponding max change in det in water part  
+               detc_act = min ( detn ,detc_max) ! convert solid to water part
+
+               dnrn = fdnrn*detc_act             ! in P units in water part
+               dnra = fdnra*detc_act             ! in P untis in water part
+
+               posol_nit = dnrn + dnra      ! change for DIC and PO4
+
+               sedlay(j,k,issso12) = sedlay(j,k,issso12) -(dnrn + dnra)/pors2w(k)
+
+               powtra(j,k,ipowno3)= powtra(j,k,ipowno3)    &    ! change in nitrate 
+                            &       -rno3no2*dnrn          &    ! from DNRN
+                            &       -rno3nh4*dnra               ! from DNRA
+
+               powtra(j,k,ipownh4)= powtra(j,k,ipownh4)    &    ! change in ammonium 
+                            &       +rnit*dnrn             &    ! from DNRN
+                            &       +86._wp*dnra                ! from DNRA
+
+               powtra(j,k,ipowno2) = powtra(j,k,ipowno2)   &    ! change in nitrite 
+                             &       + rno3no2*dnrn             ! from DNRN
+
+               powtra(j,k,ipowaal)=powtra(j,k,ipowaal)      &   ! change from DNRN and DNRA
+                           &       + rnit*dnrn              &   ! from DNRN
+                           &       + 86._wp*dnra            &   ! from DNRA
+                           &       - posol_nit
+
+               pown2bud(j, k) = pown2bud(j, k) - 70._wp*dnra
+
+
+               powtra(j,k,ipowaph) = powtra(j,k,ipowaph) + posol_nit
+               powtra(j,k,ipowaic) = powtra(j,k,ipowaic) + rcar*posol_nit
+               powtra(j,k,ipowafe) = powtra(j,k,ipowafe) + riron*posol_nit
+
+               sedtend(j,k,ksdnrn)=dnrn/dtbgc
+               sedtend(j,k,ksdnra)=dnra/dtbgc
+
+            ELSE
+               sedtend(j,k,ksdnrn)=0._wp
+               sedtend(j,k,ksdnra)=0._wp
+               posol_nit = 0._wp
+            ENDIF ! no3rmax > 0
+
+         ENDIF   ! oxygen <1.e-6
+         ENDIF   ! l_N_cycle
+         ENDIF   ! bolay
         ENDDO
 
 
 
-!  sulphate reduction in sediments
+
+
+      !!!! N-cycle !!!!!!!!
+      IF (l_N_cycle) THEN
+      DO  k=1,ks
+         IF (bolay( j) .GT. 0._wp) THEN
+
+! DENITRIFICATION on NO2
+         IF (powtra(j,k,ipowaox) < o2den_lim) THEN
+            o2lim = 1._wp - max(0._wp,powtra(j,k, ipowaox)/o2thresh)
+            orgsed=max(0._wp,sedlay(j,k,issso12))
+            detn = orgsed*rnit*pors2w(k)   ! converted to water equiv. part
+            no2rmax = o2lim*no2denit*detn/(powtra(j,k,ipowno2)+0.1E-6_wp)
+
+            ! implicit formulation to avoid neg. nitrite concentration
+            no2a = powtra(j,k,ipowno2)/(1._wp+no2rmax) 
+
+            no2c_max = powtra(j,k,ipowno2) -no2a          ! maximal NO2 loss
+            detc_max=  no2c_max/rno2n2                    ! corresponding max change in det;
+                                                          ! rno2n2 conversion to P units 
+
+            nrn2 = min (orgsed*pors2w(k),detc_max)        ! in P units
+            ! changes in detritus in P-units 
+            posol = nrn2
+
+            powtra(j,k,ipowno2)= powtra(j,k,ipowno2) - rno2n2*nrn2  ! change in ammonium             
+                                                                    ! from nitrite reduction to N2; NRN2
+
+            powtra(j,k,ipownh4)= powtra(j,k,ipownh4) + rnit*nrn2    ! change in ammonium             
+                                                                    ! from nitrite reduction to N2; NRN2
+
+            powtra(j,k,ipown2)= powtra(j,k,ipown2) + rno2n2*nrn2/2._wp
+
+            powtra(j,k,ipowaal)=powtra(j,k,ipowaal) + alk_nrn2*nrn2 - posol
+            pown2bud(j,k) = pown2bud(j,k)  + (alk_nrn2-rnit)*nrn2
+
+            powh2obud(j,k)= powh2obud(j,k) + rno2n2*nrn2*0.25_wp
+            ! now change in DIC, PO4 and Det in Sediment 
+            sedlay(j,k,issso12)=sedlay(j,k,issso12) -posol/pors2w(k)
+
+            powtra(j,k,ipowaph)=powtra(j,k,ipowaph)+posol
+            powtra(j,k,ipowaic)=powtra(j,k,ipowaic)+rcar*posol
+            powtra(j,k,ipowafe)=powtra(j,k,ipowafe)+riron*posol
+
+            sedtend(j,k,ksnrn2)=nrn2/(dtbgc*pors2w(k)) ! change in ssso12; P units
+         ELSE
+            sedtend(j,k,ksnrn2) = 0._wp
+         ENDIF   ! oxygen <1.e-6
+
+! ANAMMOX on NO2 and NH4
+         IF (powtra(j,k,ipowaox) < o2thresh) THEN
+
+            nh4a = max(0._wp,powtra(j,k,ipownh4))
+            no2a = max(0._wp,powtra(j,k,ipowno2))
+
+            o2lim = 1._wp - max(0._wp,powtra(j,k, ipowaox)/o2thresh)
+            anam = o2lim*anamoxra*no2a/(no2a+bkno2)   
+
+            nh4n= nh4a/(1._wp + anam)
+            anamox = nh4a - nh4n 
+            anamox = min(anamox,no2a/1.3_wp)
+
+            powtra(j,k,ipownh4)= powtra(j,k,ipownh4) -anamox
+         
+            powtra(j,k,ipowno2) =powtra(j,k,ipowno2) - 1.3_wp*anamox     ! from anamox          
+            powtra(j,k,ipown2)= powtra(j,k,ipown2) + anamox              ! from anamox 
+            powtra(j,k,ipowno3)=powtra(j,k,ipowno3) + 0.3_wp*anamox
+            powtra(j,k,ipowaal)=powtra(j,k,ipowaal) - 0.3_wp*anamox
+
+            ! loss of Os from NO2 - gain NO3 - 0.5 from NH4 =1.3 - 0.3*1.5- 0.5 = +0.35   
+            powh2obud(j,k)= powh2obud(j,k) + anamox*0.35_wp                         
+
+            pown2bud(j,k) = pown2bud(j,k) + 1.7_wp*anamox ! alk is unchanged, but for alk mass we need anammox
+
+            sedtend(j,k,ksanam)=2.0_wp*anamox / dtbgc  ! if given in TgN must be doubled 
+         ELSE
+            sedtend(j,k,ksanam)=0._wp
+         ENDIF   ! oxygen <1.e-6
+
+         ENDIF   ! bolay
+        ENDDO
+        ENDIF
+        !!!! N-cycle !!!!!!!!
+
+
+
+! sulphate reduction in sediments
 ! Denitrification rate constant of POP (disso) [1/sec]
 
       DO  k=1,ks
          IF (bolay( j) > 0._wp) THEN
-         IF (powtra( j, k, ipowaox) < 1.e-6_wp) THEN
+         IF (.not. l_N_cycle .and. powtra(j,k,ipowaox)<1.e-6_wp .or. &
+            & l_N_cycle .and. powtra(j,k,ipowaox)<o2den_lim .and. &
+            & powtra(j,k,ipowno3) < 30.e-6_wp) THEN
+         
            orgsed=max(0._wp,sedlay(j,k,issso12))
-         ! reduced by factor 100
+           ! reduced by factor 100
            sssnew = orgsed/(1._wp + sred_sed)
            posol=orgsed - sssnew   ! change for org sed.
 
            sedlay(j,k,issso12)=sedlay(j,k,issso12)-posol
            powtra(j,k,ipowaic)=powtra(j,k,ipowaic)+posol*pors2w(k)*rcar
            powtra(j,k,ipowaph)=powtra(j,k,ipowaph)+posol*pors2w(k)
-           powtra(j,k,ipowno3)=powtra(j,k,ipowno3)+posol*rnit*pors2w(k)
-           powtra(j,k,ipowaal)=powtra(j,k,ipowaal)+posol*ralk*pors2w(k) 
            powtra(j,k,ipowafe)=powtra(j,k,ipowafe)+ posol*riron*pors2w(k)
-           powtra(j,k,ipowh2s) = powtra(j,k,ipowh2s) + posol*pors2w(k)*ralk
-           powh2obud(j,k)=powh2obud(j,k)-posol*ro2ut*pors2w(k)
-           pown2bud(j,k) = pown2bud(j,k) + 2._wp*rnit*posol*pors2w(k) 
+
+           IF (l_N_cycle) THEN
+              ! according to Thamdrup ammonium might be oxidized by sulfur to form n2
+              ! no change in water  and a smaler (32 instead of 48) alk change 
+              powtra(j,k,ipown2) = powtra(j,k,ipown2) + 0.5_wp*rnit*posol*pors2w(k)
+              powtra(j,k,ipowaal) = powtra(j,k,ipowaal) + posol*(2._wp*rnit - 1._wp)*pors2w(k) ! alk change is +32
+              pown2bud(j,k) = pown2bud(j, k) +3._wp*posol*rnit*pors2w(k) 
+              powh2obud(j,k) = powh2obud(j,k)-posol*(ro2ammo+0.5_wp*rnit)*pors2w(k)
+           ELSE
+              powtra(j,k,ipowno3)=powtra(j,k,ipowno3)+posol*rnit*pors2w(k)
+              powtra(j,k,ipowaal)=powtra(j,k,ipowaal)+posol*ralk*pors2w(k) 
+              powtra(j,k,ipowh2s) = powtra(j,k,ipowh2s) + posol*pors2w(k)*ralk
+              powh2obud(j,k)=powh2obud(j,k)-posol*ro2ut*pors2w(k)
+              pown2bud(j,k) = pown2bud(j,k) + 2._wp*ralk*posol*pors2w(k)
+           ENDIF
 
            sedtend(j,k,isremins) = posol*pors2w(k)/dtbgc
          else
@@ -254,62 +523,17 @@ CONTAINS
       DO k = 1, ks
 
          IF((bolay(j).GT.0._wp).and.(pddpo(j,1)>0.5_wp)) THEN
+               sedhpl(j,k)= update_hi(sedhpl(j,k),powtra(j,k,ipowaic),ak13(j,kbo(j)),&
+        &                             ak23(j,kbo(j)),akw3(j,kbo(j)),aks3(j,kbo(j)),&
+        &                             akf3(j,kbo(j)),aksi3(j,kbo(j)),ak1p3(j,kbo(j)),&
+        &                             ak2p3(j,kbo(j)),ak3p3(j,kbo(j)),psao(j,kbo(j)),&
+        &                             akb3(j,kbo(j)),powtra(j,k,ipowasi),powtra(j,k,ipowaph),&
+        &                             powtra(j,k,ipowaal))
 
-               bt = rrrcl*psao(j,kbo(j))
-             ! sulfate Morris & Riley (1966)
-               sti   = 0.14_wp *  psao(j,kbo(j))*1.025_wp/1.80655_wp  / 96.062_wp
-             ! fluoride Riley (1965)
-               ft    = 0.000067_wp * psao(j,kbo(j))*1.025_wp/1.80655_wp / 18.9984_wp
-
-               sit   = powtra(j,k,ipowasi) 
-               pt    = powtra(j,k,ipowaph)
-
-               alk  = powtra(j,k,ipowaal) 
-               c    = powtra(j,k,ipowaic) 
-
-               ak1  = ak13(j,kbo(j))
-               ak2  = ak23(j,kbo(j))
-               akb  = akb3(j,kbo(j))
-               akw  = akw3(j,kbo(j))
-               ah1  = sedhpl(j,k)
-               aks  = aks3(j,kbo(j))
-               akf  = akf3(j,kbo(j))
-               ak1p = ak1p3(j,kbo(j))
-               ak2p = ak2p3(j,kbo(j))
-               ak3p = ak3p3(j,kbo(j))
-               aksi = aksi3(j,kbo(j)) 
-
-               iter  = 0
-               DO jit = 1,20
-
-                    hso4 = sti / ( 1._wp + aks / ( ah1 / ( 1._wp + sti / aks ) ))
-                    hf   = 1._wp / ( 1._wp + akf / ah1 )
-                    hsi  = 1._wp/ ( 1._wp + ah1 / aksi )
-                    hpo4 = ( ak1p * ak2p * ( ah1 + 2._wp * ak3p ) - ah1**3 ) /& 
-               &        ( ah1**3 + ak1p * ah1**2 + ak1p * ak2p * ah1 + ak1p *ak2p *ak3p )
-                    ab   = bt / ( 1._wp + ah1 / akb )
-                    aw   = akw / ah1 - ah1 / ( 1._wp + sti / aks )
-                    ac   = alk + hso4 - sit * hsi - ab - aw + ft * hf - pt *hpo4
-                    ah2o = SQRT( ( c - ac )**2 + 4._wp * ( ac * ak2 / ak1 ) * (2._wp *c - ac ) )
-                    ah2  = 0.5_wp * ak1 / ac *( ( c - ac ) + ah2o )
-                    erel = ( ah2 - ah1 ) / ah2
-
-                    if (abs( erel ).ge.5.e-5_wp) then
-                      ah1 = ah2
-                      iter = iter + 1
-                    else
-                      ah1 = ah2
-                     exit
-                    endif
-               ENDDO
-
-               if(ah1.gt.0._wp) then 
-                 sedhpl(j,k)=max(1.e-20_wp,ah1)
-               endif
-
-                 powcar(k)  = c / (1._wp + sedhpl(j,k)/ak1 * (1._wp + sedhpl(j,k)/ak2))
-              ENDIF
-          END DO
+                powcar(k)  = powtra(j,k,ipowaic) / (1._wp + sedhpl(j,k)/ak13(j,kbo(j)) &
+        &                    * (1._wp + sedhpl(j,k)/ak23(j,kbo(j))))
+         ENDIF
+      END DO
       
 
 
@@ -377,7 +601,7 @@ SUBROUTINE powach_impl( start_idx, end_idx, psao )
        &                     porsol, rno3, calcon,               &
        &                     sred_sed, silsat,     &
        &                     seddenit,disso_op,disso_cal, &
-       &                     sedtend, isremins, isremino, isreminn
+       &                     sedtend
 
 
   USE mo_control_bgc, ONLY : dtbgc, bgc_nproma, bgc_zlevs
@@ -385,7 +609,7 @@ SUBROUTINE powach_impl( start_idx, end_idx, psao )
   USE mo_param1_bgc, ONLY  : ipowasi, isilica, issssil, ipowaox, kaou,   &
        &                     ioxygen, issso12, ipowaph, ipowno3, ipown2, &
        &                     ipowaal, ipowaic, isssc12, ipowafe, issster,&
-       &                     ipowh2s
+       &                     ipowh2s, isremins, isremino, isreminn
 
   USE mo_hamocc_nml, ONLY  : disso_po, denit_sed
 
@@ -400,21 +624,15 @@ SUBROUTINE powach_impl( start_idx, end_idx, psao )
 
   !! Local variables
 
-  INTEGER :: j,k, iter
+  INTEGER :: j,k
 
   REAL(wp) :: sedb1(0:ks), sediso(0:ks)
   REAL(wp) :: solrat(ks), powcar(ks)
   REAL(wp) :: aerob(ks), anaerob(ks), ansulf(ks)
 
   REAL(wp) :: undsa, posol 
-  REAL(wp) :: umfa, bt, alk, c
-  REAL(wp) :: ak1, ak2, akb, akw
+  REAL(wp) :: umfa, alk, c
   REAL(wp) :: satlev
-  REAL(wp) :: AKSI,AKF,AKS,AK1P,AK2P,AK3P
-   REAL(wp) :: sti,ft,sit,pt,ah1       ! Chr. Heinze [H+]
-   REAL(wp) :: hso4,hf,hsi,hpo4
-   REAL(wp) :: ab,aw,ac,ah2o,ah2,erel
-   INTEGER  :: jit
 
   !
   REAL(wp) :: bolven
@@ -434,11 +652,8 @@ SUBROUTINE powach_impl( start_idx, end_idx, psao )
 
 !!HAMOCC_OMP_PARALLEL
 !!HAMOCC_OMP_DO PRIVATE(j,bolven,undsa,sedb1,solrat,posol,umfa,&
-!!HAMOCC_OMP           aerob,anaerob,seddenit,ansulf,k,bt,&
-!!HAMMOC_OMP           alk,c,ak1,ak2,akb,akw,h,t1,t2,a,&
-!!HAMOCC_OMP           satlev,sti,ft,sit,&
-!!HAMOCC_OMP            pt,ah1,aks,akf,ak1p,ak2p,ak3p,aksi,iter, jit,&
-!!HAMOCC_OMP            hso4,hf,hpo4,ab,aw,ac,ah2o,ah2,erel) HAMOCC_OMP_DEFAULT_SCHEDULE
+!!HAMOCC_OMP           aerob,anaerob,seddenit,ansulf,k,&
+!!HAMMOC_OMP           alk,c,t1,t2,a,satlev) HAMOCC_OMP_DEFAULT_SCHEDULE
 
   DO j = start_idx, end_idx
      ! calculate bottom ventilation rate for scaling of sediment-water exchange
@@ -648,61 +863,20 @@ SUBROUTINE powach_impl( start_idx, end_idx, psao )
 
          IF((bolay(j).GT.0._wp)) THEN
 
-               bt = rrrcl*psao(j,kbo(j))
-             ! sulfate Morris & Riley (1966)
-               sti   = 0.14_wp *  psao(j,kbo(j))*1.025_wp/1.80655_wp  / 96.062_wp
-             ! fluoride Riley (1965)
-               ft    = 0.000067_wp * psao(j,kbo(j))*1.025_wp/1.80655_wp / 18.9984_wp
-
-               sit   = powtra(j,k,ipowasi) 
-               pt    = powtra(j,k,ipowaph)
-
                alk  = powtra(j,k,ipowaal) -( -ansulf(k)  +aerob(k)+anaerob(k))*ralk + nitdem*anaerob(k)
                c    = powtra(j,k,ipowaic) +(anaerob(k) +aerob(k) + ansulf(k))*rcar
+                             
+               sedhpl(j,k)= update_hi(sedhpl(j,k),c,ak13(j,kbo(j)),&
+        &                             ak23(j,kbo(j)),akw3(j,kbo(j)),aks3(j,kbo(j)),&
+        &                             akf3(j,kbo(j)),aksi3(j,kbo(j)),ak1p3(j,kbo(j)),&
+        &                             ak2p3(j,kbo(j)),ak3p3(j,kbo(j)),psao(j,kbo(j)),&
+        &                             akb3(j,kbo(j)),powtra(j,k,ipowasi),powtra(j,k,ipowaph),&
+        &                             alk)
 
-               ak1  = ak13(j,kbo(j))
-               ak2  = ak23(j,kbo(j))
-               akb  = akb3(j,kbo(j))
-               akw  = akw3(j,kbo(j))
-               ah1  = sedhpl(j,k)
-               aks  = aks3(j,kbo(j))
-               akf  = akf3(j,kbo(j))
-               ak1p = ak1p3(j,kbo(j))
-               ak2p = ak2p3(j,kbo(j))
-               ak3p = ak3p3(j,kbo(j))
-               aksi = aksi3(j,kbo(j)) 
-
-               iter  = 0
-               DO jit = 1,20
-
-                    hso4 = sti / ( 1._wp + aks / ( ah1 / ( 1._wp + sti / aks ) ))
-                    hf   = 1._wp / ( 1._wp + akf / ah1 )
-                    hsi  = 1._wp/ ( 1._wp + ah1 / aksi )
-                    hpo4 = ( ak1p * ak2p * ( ah1 + 2._wp * ak3p ) - ah1**3 ) /& 
-               &        ( ah1**3 + ak1p * ah1**2 + ak1p * ak2p * ah1 + ak1p *ak2p *ak3p )
-                    ab   = bt / ( 1._wp + ah1 / akb )
-                    aw   = akw / ah1 - ah1 / ( 1._wp + sti / aks )
-                    ac   = alk + hso4 - sit * hsi - ab - aw + ft * hf - pt *hpo4
-                    ah2o = SQRT( ( c - ac )**2 + 4._wp * ( ac * ak2 / ak1 ) * (2._wp *c - ac ) )
-                    ah2  = 0.5_wp * ak1 / ac *( ( c - ac ) + ah2o )
-                    erel = ( ah2 - ah1 ) / ah2
-
-                    if (abs( erel ).ge.5.e-5_wp) then
-                      ah1 = ah2
-                      iter = iter + 1
-                    else
-                      ah1 = ah2
-                     exit
-                    endif
-               ENDDO
-
-               if(ah1.gt.0._wp) then 
-                 sedhpl(j,k)=max(1.e-20_wp,ah1)
-               endif
-
-                 powcar(k)  = c / (1._wp + sedhpl(j,k)/ak1 * (1._wp + sedhpl(j,k)/ak2))
-              ENDIF
-          END DO
+                powcar(k)  = c / (1._wp + sedhpl(j,k)/ak13(j,kbo(j)) &
+        &                    * (1._wp + sedhpl(j,k)/ak23(j,kbo(j))))
+          ENDIF
+      END DO
 
 
      

@@ -28,29 +28,24 @@ MODULE mo_ocean_output
   USE mo_sync,                   ONLY: sync_patch_array, sync_e, sync_c !, sync_v
   USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
     & diagnostics_level, &
-    & eos_type, i_sea_ice, gibraltar, lhamocc
+    & eos_type, i_sea_ice, gibraltar
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_io_config,              ONLY: timeSteps_per_outputStep
   USE mo_run_config,             ONLY: nsteps, dtime, ltimer, output_mode
   USE mo_exception,              ONLY: message, message_text, finish
   USE mo_ext_data_types,         ONLY: t_external_data
-  !USE mo_io_units,               ONLY: filename_max
-  USE mo_ocean_types,              ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, &
-    & t_hydro_ocean_prog
-  USE mo_ocean_state,              ONLY: ocean_restart_list
-  USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
+  USE mo_ocean_types, ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, &
+    & t_hydro_ocean_prog, t_operator_coeff
+  USE mo_ocean_state, ONLY: ocean_restart_list
   USE mo_sea_ice_types,          ONLY: t_atmos_fluxes, t_sea_ice
   USE mo_ocean_surface_types,    ONLY: t_ocean_surface
   !USE mo_ocean_physics,            ONLY: t_ho_params
   USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
-  USE mo_ocean_diagnostics,        ONLY: calc_slow_oce_diagnostics, destruct_oce_diagnostics, calc_moc, calc_psi
-  USE mo_linked_list,            ONLY: t_list_element
-  USE mo_var_list,               ONLY: print_var_list, find_list_element
+  USE mo_ocean_diagnostics, ONLY: destruct_oce_diagnostics, calc_moc, calc_psi
   USE mo_mpi,                    ONLY: my_process_is_stdio
   USE mo_statistics
   USE mo_sea_ice_nml,            ONLY: i_ice_dyn
   USE mo_util_dbg_prnt,          ONLY: dbg_print
-  USE mo_ocean_statistics
   USE mtime,                     ONLY: datetime, MAX_DATETIME_STR_LEN, datetimeToPosixString
   
   IMPLICIT NONE
@@ -120,31 +115,17 @@ CONTAINS
     ENDIF
 
    !write(0,*) "out_step=", jstep, nsteps_since_last_output, timeSteps_per_outputStep, out_step
-   IF (.not. istime4name_list_output(jstep) )  RETURN
+   IF (.not. istime4name_list_output(out_step) )  RETURN
    !write(0,*) "write ....."
 
     !------------------------------------------------------------------
-   !CALL calc_slow_oce_diagnostics( patch_3d       , &
-   !  &                             ocean_state(jg), &
-   !  &                             surface_fluxes      , &
-   !  &                             sea_ice          , &
-   !  &                             jstep-jstep0   , &
-   !  &                             this_datetime) ! , &
-          ! &                             oce_ts)
-  
-!   IF (diagnostics_level > 0 ) THEN
-!     IF (no_tracer>=2) THEN
-!       CALL calc_moc (patch_2d,patch_3d, ocean_state(jg)%p_diag%w(:,:,:), this_datetime)
-!       CALL calc_moc (patch_2d,patch_3d, ocean_state(jg)%p_acc%w(:,:,:), this_datetime)
-!     ENDIF
-!   ENDIF
-
-    IF (output_mode%l_nml) CALL write_name_list_output(out_step)
-
     fmtstr = '%Y-%m-%d %H:%M:%S'
     call datetimeToPosixString(this_datetime, datestring, fmtstr)
     WRITE(message_text,'(a,a)') 'Write output at:', TRIM(datestring)
     CALL message (TRIM(routine),message_text)
+
+    IF (output_mode%l_nml) CALL write_name_list_output(out_step)
+
   END SUBROUTINE output_ocean
   !-------------------------------------------------------------------------
 

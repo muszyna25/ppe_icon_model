@@ -26,7 +26,7 @@ MODULE mo_nwp_tuning_nml
   USE mo_master_control,      ONLY: use_restart_namelists
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
-  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist,     &
+  USE mo_restart_nml_and_att, ONLY: open_tmpfile, store_and_close_namelist,     &
     &                               open_and_restore_namelist, close_tmpfile
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
   USE mo_nwp_tuning_config,   ONLY: config_tune_gkwake    => tune_gkwake,    &
@@ -38,7 +38,9 @@ MODULE mo_nwp_tuning_nml
     &                               config_tune_v0snow    => tune_v0snow,    &
     &                               config_tune_zvz0i     => tune_zvz0i,     &
     &                               config_tune_icesedi_exp => tune_icesedi_exp, &
-    &                               config_tune_entrorg     => tune_entrorg,     &  
+    &                               config_tune_entrorg     => tune_entrorg,     &
+    &                               config_tune_rprcon      => tune_rprcon,      &
+    &                               config_tune_rdepths     => tune_rdepths,     &
     &                               config_tune_capdcfac_et => tune_capdcfac_et, &
     &                               config_tune_capdcfac_tr => tune_capdcfac_tr, &
     &                               config_tune_rhebc_land  => tune_rhebc_land,  &  
@@ -50,11 +52,18 @@ MODULE mo_nwp_tuning_nml
     &                               config_tune_texc        => tune_texc,        &  
     &                               config_tune_qexc        => tune_qexc,        &  
     &                               config_tune_minsnowfrac => tune_minsnowfrac, &  
-    &                               config_tune_box_liq   => tune_box_liq,       &  
+    &                               config_tune_box_liq   => tune_box_liq,       &
     &                               config_tune_box_liq_asy => tune_box_liq_asy, &
+    &                               config_tune_box_liq_sfc_fac => tune_box_liq_sfc_fac, &
+    &                               config_tune_thicklayfac => tune_thicklayfac, &
+    &                               config_tune_sgsclifac => tune_sgsclifac,     &
+    &                               config_icpl_turb_clc  => icpl_turb_clc,      &
     &                               config_tune_dust_abs  => tune_dust_abs,      &  
+    &                               config_tune_difrad_3dcont => tune_difrad_3dcont, &  
+    &                               config_tune_gust_factor => tune_gust_factor, &  
     &                               config_itune_albedo   => itune_albedo,       &
     &                               config_lcalib_clcov   => lcalib_clcov,       &
+    &                               config_max_calibfac_clcl => max_calibfac_clcl, &
     &                               config_max_freshsnow_inc => max_freshsnow_inc 
   
   IMPLICIT NONE
@@ -97,6 +106,12 @@ MODULE mo_nwp_tuning_nml
   REAL(wp) :: &                    !< Entrainment parameter for deep convection valid at dx=20 km 
     &  tune_entrorg
 
+  REAL(wp) :: &                    !< Coefficient for conversion of cloud water into precipitation in convection scheme 
+    &  tune_rprcon
+
+  REAL(wp) :: &                    !< Maximum allowed shallow convection depth (Pa) 
+    &  tune_rdepths
+
   REAL(wp) :: &                    !< Fraction of CAPE diurnal cycle correction applied in the extratropics
     &  tune_capdcfac_et            ! (relevant only if icapdcycl = 3)
 
@@ -128,16 +143,35 @@ MODULE mo_nwp_tuning_nml
     &  tune_qexc
 
   REAL(wp) :: &                    !< Minimum value to which the snow cover fraction is artificially reduced
-    &  tune_minsnowfrac            !  in case of melting show (in case of idiag_snowfrac = 20/30/40)
+    &  tune_minsnowfrac            !  in case of melting show (in case of idiag_snowfrac = 20)
 
   REAL(wp) :: &                    !< Box width for liquid clouds assumed in the cloud cover scheme
     &  tune_box_liq                ! (in case of inwp_cldcover = 1)
 
+  REAL(wp) :: &                    !< Factor for increasing the box width in case of thick model layers
+    &  tune_thicklayfac            ! (in case of inwp_cldcover = 1)
+
   REAL(wp) :: &                    !< Asymmetry factor liquid cloud parameterization
     &  tune_box_liq_asy            ! (in case of inwp_cldcover = 1)
 
+  REAL(wp) :: &                    !< Tuning factor for box_liq reduction near the surface
+    & tune_box_liq_sfc_fac         ! (in case of inwp_cldcover = 1)
+
+  REAL(wp) :: &                    !< Scaling factor for subgrid-scale contribution to diagnosed cloud ice
+    &  tune_sgsclifac              ! (in case of inwp_cldcover = 1)
+
+  INTEGER :: &                     !< Mode of coupling between turbulence and cloud cover
+    &  icpl_turb_clc               ! 1: strong dependency of box width on rcld with upper and lower limit
+                                   ! 2: weak dependency of box width on rcld with additive term and upper limit
+
   REAL(wp) :: &                    !< Tuning factor for enhanced LW absorption of mineral dust in the Saharan region
     &  tune_dust_abs               !
+
+  REAL(wp) :: &                    !< Tuning factor for 3D contribution to diagnosed diffuse radiation
+    &  tune_difrad_3dcont          !
+
+  REAL(wp) :: &                    !< Tuning factor for gust parameterization
+    &  tune_gust_factor            !
 
   INTEGER :: &                     !< (MODIS) albedo tuning
     &  itune_albedo                ! 0: no tuning
@@ -147,19 +181,26 @@ MODULE mo_nwp_tuning_nml
   LOGICAL :: &                     ! cloud cover calibration over land points
     &  lcalib_clcov
 
+  REAL(wp) :: &                    !< maximum calibration factor for low cloud cover (CLCL)
+    &  max_calibfac_clcl
+
   REAL(wp) :: &                    !< maximum allowed positive freshsnow increment
     &  max_freshsnow_inc
 
-  NAMELIST/nwp_tuning_nml/ tune_gkwake, tune_gkdrag, tune_gfluxlaun,        &
-    &                      tune_zceff_min, tune_v0snow, tune_zvz0i,         &
-    &                      tune_entrorg, itune_albedo, max_freshsnow_inc,   &
-    &                      tune_capdcfac_et, tune_box_liq, tune_rhebc_land, &
-    &                      tune_rhebc_ocean, tune_rcucov, tune_texc,        &
-    &                      tune_qexc, tune_minsnowfrac,tune_rhebc_land_trop,&
-    &                      tune_rhebc_ocean_trop, tune_rcucov_trop,         &
-    &                      tune_dust_abs, tune_gfrcrit, tune_grcrit,        &
-    &                      lcalib_clcov, tune_box_liq_asy, tune_capdcfac_tr,&
-    &                      tune_icesedi_exp
+  NAMELIST/nwp_tuning_nml/ tune_gkwake, tune_gkdrag, tune_gfluxlaun,            &
+    &                      tune_zceff_min, tune_v0snow, tune_zvz0i,             &
+    &                      tune_entrorg, itune_albedo, max_freshsnow_inc,       &
+    &                      tune_capdcfac_et, tune_box_liq, tune_rhebc_land,     &
+    &                      tune_rhebc_ocean, tune_rcucov, tune_texc,            &
+    &                      tune_qexc, tune_minsnowfrac,tune_rhebc_land_trop,    &
+    &                      tune_rhebc_ocean_trop, tune_rcucov_trop,             &
+    &                      tune_dust_abs, tune_gfrcrit, tune_grcrit,            &
+    &                      lcalib_clcov, tune_box_liq_asy, tune_capdcfac_tr,    &
+    &                      tune_icesedi_exp, tune_rprcon, tune_gust_factor,     &
+    &                      tune_rdepths, tune_thicklayfac, tune_sgsclifac,      &
+    &                      icpl_turb_clc, tune_difrad_3dcont, max_calibfac_clcl,&
+    &                      tune_box_liq_sfc_fac
+
 
 CONTAINS
 
@@ -217,16 +258,21 @@ CONTAINS
     !
     ! grid scale microphysics
     tune_zceff_min   = 0.01_wp
-    tune_v0snow      = 25.0_wp      ! previous ICON value was 20
+    tune_v0snow      = -1.0_wp      ! defaults are set in data_gscp depending on igscp
     tune_zvz0i       = 1.25_wp      ! original value of Heymsfield+Donner 1990: 3.29
-    tune_icesedi_exp = 0.33_wp      ! exponent for density correction of cloud ice sedimentation
-
+    tune_icesedi_exp = 0.30_wp      ! exponent for density correction of cloud ice sedimentation
     !
     ! convection
     !
 
     !> entrainment parameter for deep convection:
     tune_entrorg     = 1.95e-3_wp   
+
+    !> coefficient for conversion of cloud water into precipitation
+    tune_rprcon      = 1.4e-3_wp
+
+    !> maximum shallow convection depth (Pa)
+    tune_rdepths     = 2.e4_wp
 
     !> fraction of CAPE diurnal cycle correction applied in the extratropics
     tune_capdcfac_et = 0.5_wp
@@ -258,14 +304,22 @@ CONTAINS
     !
     ! snow cover diagnosis
     tune_minsnowfrac = 0.20_wp     ! Minimum value to which the snow cover fraction is artificially reduced
-                                   ! in case of melting show (in case of idiag_snowfrac = 20/30/40)
+                                   ! in case of melting show (in case of idiag_snowfrac = 20)
     !
     ! cloud cover
     tune_box_liq     = 0.05_wp     ! box width scale of liquid clouds
-    tune_box_liq_asy = 2.5_wp      ! asymmetry factor for liquid cloud parameterization
+    tune_thicklayfac = 0.005_wp    ! factor [1/m] for increasing the box with for layer thicknesses exceeding 150 m
+    tune_box_liq_asy = 3._wp       ! asymmetry factor for liquid cloud parameterization
+    tune_box_liq_sfc_fac = 1._wp   ! Tuning factor for box_liq reduction near the surface
+    tune_sgsclifac   = 0._wp       ! Scaling factor for subgrid-scale contribution to diagnosed cloud ice
     lcalib_clcov     = .TRUE.      ! use calibration of layer-wise cloud cover diagnostics over land
+    max_calibfac_clcl = 4._wp      ! maximum calibration factor for low cloud cover (CLCL); affects diagnostics only
+    icpl_turb_clc    = 1           ! use strong dependency of box with on rcld (with factor 4) and upper and lower limit
+
+    tune_gust_factor = 8.0_wp      ! tuning factor for gust parameterization
 
     tune_dust_abs   = 0._wp        ! no tuning of LW absorption of mineral dust
+    tune_difrad_3dcont = 0.5_wp    ! tuning factor for 3D contribution to diagnosed diffuse radiation (no impact on prognostic results!)
     itune_albedo    = 0            ! original (measured) albedo
     !
     ! IAU increment tuning
@@ -346,6 +400,8 @@ CONTAINS
     config_tune_zvz0i            = tune_zvz0i
     config_tune_icesedi_exp      = tune_icesedi_exp
     config_tune_entrorg          = tune_entrorg
+    config_tune_rprcon           = tune_rprcon
+    config_tune_rdepths          = tune_rdepths
     config_tune_capdcfac_et      = tune_capdcfac_et
     config_tune_capdcfac_tr      = tune_capdcfac_tr
     config_tune_rhebc_land       = tune_rhebc_land
@@ -359,11 +415,19 @@ CONTAINS
     config_tune_minsnowfrac      = tune_minsnowfrac
     config_tune_box_liq          = tune_box_liq
     config_tune_box_liq_asy      = tune_box_liq_asy
+    config_tune_box_liq_sfc_fac  = tune_box_liq_sfc_fac
+    config_tune_thicklayfac      = tune_thicklayfac
+    config_tune_sgsclifac        = tune_sgsclifac
+    config_icpl_turb_clc         = icpl_turb_clc
     config_tune_dust_abs         = tune_dust_abs
+    config_tune_difrad_3dcont    = tune_difrad_3dcont
+    config_tune_gust_factor      = tune_gust_factor
     config_itune_albedo          = itune_albedo
     config_lcalib_clcov          = lcalib_clcov
+    config_max_calibfac_clcl     = max_calibfac_clcl
     config_max_freshsnow_inc     = max_freshsnow_inc
 
+    !$acc update device(config_tune_gust_factor)
 
     !-----------------------------------------------------
     ! 6. Store the namelist for restart

@@ -12,28 +12,32 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 
+#include "handle_mpi_error.inc"
+
 MODULE mo_multifile_restart_util
   USE mo_kind,           ONLY: dp, sp
   USE mo_exception,      ONLY: finish
-  USE mo_impl_constants, ONLY: SUCCESS
+  USE mo_impl_constants, ONLY: SUCCESS, REAL_T, SINGLE_T, INT_T
   USE mo_std_c_lib,      ONLY: strerror
   USE mo_util_file,      ONLY: createSymlink
   USE mo_util_string,    ONLY: int2string
-  USE mo_restart_util,   ONLY: alloc_string
   USE mo_io_config,      ONLY: restartWritingParameters, ALL_WORKERS_INVOLVED
-  USE mo_mpi,            ONLY: num_work_procs, p_comm_work_restart, p_comm_rank
-  USE mo_fortran_tools,  ONLY: t_ptr_2d, t_ptr_2d_sp, t_ptr_2d_int
+  USE mo_mpi,            ONLY: num_work_procs, p_comm_work_restart, p_comm_rank, &
+    &                          p_real_dp, p_real_sp, p_int
+#ifndef NOMPI
+  HANDLE_MPI_ERROR_USE
+  USE mpi,               ONLY: addr => MPI_ADDRESS_KIND
+#else
+  USE mo_kind,           ONLY: addr => i8
+#endif
+
 
   IMPLICIT NONE
 
-  PUBLIC :: vNames_glbIdx
-  PUBLIC :: multifileRestartLinkName
-  PUBLIC :: createMultifileRestartLink
-  PUBLIC :: multifileAttributesPath
+  PUBLIC :: multifileRestartLinkName, createMultifileRestartLink
   PUBLIC :: multifilePayloadPath
-  PUBLIC :: isAsync, restartProcCount
-  PUBLIC :: rBuddy, rGroup, commonBuf_t, dataPtrs_t
-  PUBLIC :: iAmRestartMaster, iAmRestartWriter
+  PUBLIC :: isAsync, restartProcCount, rBuddy, rGroup, commonBuf_t
+  PUBLIC :: iAmRestartMaster, iAmRestartWriter, initUtil
 
   PRIVATE
 
@@ -43,36 +47,48 @@ MODULE mo_multifile_restart_util
     INTEGER,  POINTER :: i(:)
   END TYPE commonBuf_t
 
-  TYPE :: dataPtrs_t
-    TYPE(t_ptr_2d),     ALLOCATABLE :: d(:)
-    TYPE(t_ptr_2d_sp),  ALLOCATABLE :: s(:)
-    TYPE(t_ptr_2d_int), ALLOCATABLE :: i(:)
-  CONTAINS
-    PROCEDURE :: free => dataPtrs_t_free
-  END TYPE dataPtrs_t
-
-  CHARACTER(*), PARAMETER :: vNames_glbIdx(3) = (/"global_cell_indices", &
-    &                                             "global_edge_indices", &
-    &                                             "global_vert_indices"/)
+  CHARACTER(*), PARAMETER, PUBLIC :: vNames_glbIdx(3) = (/"global_cell_indices", &
+    &                                             "global_vert_indices", &
+    &                                             "global_edge_indices"/)
   CHARACTER(*), PARAMETER :: modname = "mo_multifile_restart_util"
+
+  INTEGER, PUBLIC, PARAMETER :: typeID(3) = (/ REAL_T, SINGLE_T, INT_T /)
+  INTEGER, PUBLIC, PARAMETER :: typeMax = MAX(REAL_T, SINGLE_T, INT_T)
+  INTEGER, PUBLIC, SAVE :: typeMap(typeMax) = -1, mpiDtype(3) = -1
+  INTEGER(addr), PUBLIC, SAVE :: typeByte(3) = -1, facTtoSp(3) = -1
+  LOGICAL, SAVE :: before_init = .true.
 
 CONTAINS
 
-  SUBROUTINE dataPtrs_t_free(this)
-    CLASS(dataPtrs_t), INTENT(INOUT) :: this
+  SUBROUTINE initUtil()
+    INTEGER :: i, ierr
+    INTEGER(addr) :: tLB
+    CHARACTER(*), PARAMETER :: routine = "multifileRestart_initUtil"
 
-    IF (ALLOCATED(this%d)) DEALLOCATE(this%d)
-    IF (ALLOCATED(this%s)) DEALLOCATE(this%s)
-    IF (ALLOCATED(this%i)) DEALLOCATE(this%i)
-  END SUBROUTINE dataPtrs_t_free
+    IF (before_init) THEN
+      mpiDtype(:) = [p_real_dp, p_real_sp, p_int]
+      DO i = 1, 3
+        typeMap(typeID(i)) = i
+#ifndef NOMPI
+        CALL MPI_Type_get_extent(mpiDtype(i), tLB, typeByte(i), ierr)
+        HANDLE_MPI_ERROR(ierr, 'MPI_Type_get_extent')
+#endif
+      END DO
+#ifdef NOMPI
+      typeByte(:) = (/ 8, 4, 4 /) ! set some defaults (e.g. p_int_byte would be zero, if NOMPI)
+#endif
+      facTtoSp(:) = typeByte(:) / typeByte(2)
+      IF (facTtoSp(1) .NE. (typeByte(1)+typeByte(2)-1_addr) / typeByte(2)) &
+        CALL finish(routine, "sizeof(DP) not an integer multiple of sizeof(SP)!")
+      IF (facTtoSp(3) .NE. (typeByte(2)+typeByte(3)-1_addr) / typeByte(3)) &
+        CALL finish(routine, "sizeof(INT) not an integer multiple of sizeof(SP)!")
+    END IF
+  END SUBROUTINE initUtil
 
   SUBROUTINE multifileRestartLinkName(modelType, resultVar)
     CHARACTER(:), ALLOCATABLE, INTENT(INOUT) :: resultVar
     CHARACTER(*), INTENT(IN) :: modelType
-    INTEGER :: fn_len
 
-    fn_len = LEN_TRIM("multifile_restart_"//modelType//".mfr")
-    CALL alloc_string(fn_len, resultVar)
     resultVar = "multifile_restart_"//modelType//".mfr"
   END SUBROUTINE multifileRestartLinkName
 
@@ -88,27 +104,12 @@ CONTAINS
   END SUBROUTINE createMultifileRestartLink
 
   !XXX: this IS NOT the ONLY place where this path IS defined, it IS also generated/recognized IN c_restart_util.c
-  SUBROUTINE multifileAttributesPath(multifilePath, resultVar)
-    CHARACTER(*), INTENT(IN) :: multifilePath
-    CHARACTER(*), PARAMETER :: suffix = "/attributes.nc"
-    CHARACTER(:), ALLOCATABLE, INTENT(INOUT) :: resultVar
-    INTEGER :: fn_len
-
-    fn_len = LEN(multifilePath) + LEN(suffix)
-    CALL alloc_string(fn_len, resultVar)
-    resultVar = multifilePath//suffix
-  END SUBROUTINE multifileAttributesPath
-
-  !XXX: this IS NOT the ONLY place where this path IS defined, it IS also generated/recognized IN c_restart_util.c
-  SUBROUTINE multifilePayloadPath(multifilePath, domain, procId, resultVar)
+  SUBROUTINE multifilePayloadPath(multifilePath, jg, procId, resultVar)
     CHARACTER(:), ALLOCATABLE, INTENT(INOUT) :: resultVar
     CHARACTER(*), INTENT(IN) :: multifilePath
-    INTEGER, VALUE :: domain, procId
-    INTEGER :: fn_len
+    INTEGER, INTENT(in) :: jg, procId
 
-    fn_len = LEN_TRIM(multifilePath//"/patch"//TRIM(int2string(domain))//"_"//TRIM(int2string(procId))//".nc")
-    CALL alloc_string(fn_len, resultVar)
-    resultVar = multifilePath//"/patch"//TRIM(int2string(domain))//"_"//TRIM(int2string(procId))//".nc"
+    resultVar = multifilePath//"/patch"//TRIM(int2string(jg))//"_"//TRIM(int2string(procId))//".nc"
   END SUBROUTINE multifilePayloadPath
 
   INTEGER FUNCTION restartProcCount() RESULT(resultVar)

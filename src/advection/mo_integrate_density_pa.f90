@@ -24,7 +24,7 @@ MODULE mo_integrate_density_pa
 
   USE mo_kind,                ONLY: wp
   USE mo_impl_constants,      ONLY: min_rlcell, min_rledge_int, min_rlcell_int, &
-    &                               MIURA, MIURA3
+    &                               MIURA, MIURA3, ippm_v
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
@@ -34,17 +34,20 @@ MODULE mo_integrate_density_pa
   USE mo_advection_config,    ONLY: advection_config 
   USE mo_advection_traj,      ONLY: t_back_traj, btraj_compute_o1
   USE mo_advection_hflux,     ONLY: upwind_hflux_miura, upwind_hflux_miura3
-  USE mo_advection_vflux,     ONLY: upwind_vflux_ppm_cfl
+  USE mo_advection_vflux,     ONLY: upwind_vflux_ppm
   USE mo_math_divrot,         ONLY: div
   USE mo_intp,                ONLY: cells2edges_scalar
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_edge
   USE mo_sync,                ONLY: sync_patch_array, SYNC_E, SYNC_C
+  USE mo_exception,           ONLY: finish
 
 
   IMPLICIT NONE
 
   PRIVATE
 
+  !> module name string
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_integrate_density_pa'
 
 
 
@@ -108,8 +111,13 @@ CONTAINS
     REAL(wp), POINTER ::  &
       & ptr_current_rho(:,:,:) => NULL()  !< pointer to density field
 
+    CHARACTER(len=*), PARAMETER :: routine = modname//':integrate_density_pa'
+
     !---------------------------------------------------------------------------
 
+#ifdef _OPENACC
+    CALL finish (routine,': OpenACC version currently not implemented')
+#endif
 
     ! get patch ID
     pid = p_patch%id
@@ -213,13 +221,16 @@ CONTAINS
 !DR \rho^{n} \Delta z by \Delta z
 
         ! CALL third order PPM (unrestricted timestep-version) (i.e. CFL>1)
-        CALL upwind_vflux_ppm_cfl( p_patch, ptr_current_rho,               &! in
+        CALL upwind_vflux_ppm( p_patch, ptr_current_rho,                   &! in
           &                  advection_config(pid)%iubc_adv,               &! in
           &                  z_w_traj, p_dtime,                            &! in
           &                  lcompute, lcleanup,                           &! in
           &                  advection_config(pid)%itype_vlimit(1),        &! in
+          &                  advection_config(pid)%ivlimit_selective(1),   &! in
           &                  p_metrics%ddqz_z_full,                        &! in
-          &                  p_metrics%ddqz_z_full, .TRUE.,                &! in 
+          &                  p_metrics%ddqz_z_full,                        &! in
+          &                  .TRUE.,                                       &! in
+          &                  ippm_v,                                       &! in           
           &                  p_diag%rho_ic,                                &! out
           &                  opt_lout_edge = .TRUE.,                       &! in
           &                  opt_rlstart=i_rlstart,                        &! in
@@ -428,13 +439,16 @@ CONTAINS
 !DR \rho^{n} \Delta z by \Delta z
 
         ! CALL third order PPM (unrestricted timestep-version) (i.e. CFL>1)
-        CALL upwind_vflux_ppm_cfl( p_patch, ptr_current_rho,               &! in
+        CALL upwind_vflux_ppm( p_patch, ptr_current_rho,                   &! in
           &                  advection_config(pid)%iubc_adv,               &! in
           &                  z_w_traj, p_dtime,                            &! in
           &                  lcompute, lcleanup,                           &! in
           &                  advection_config(pid)%itype_vlimit(1),        &! in
+          &                  advection_config(pid)%ivlimit_selective(1),   &! in
           &                  p_metrics%ddqz_z_full,                        &! in
-          &                  p_metrics%ddqz_z_full, .TRUE.,                &! in
+          &                  p_metrics%ddqz_z_full,                        &! in
+          &                  .TRUE.,                                       &! in
+          &                  ippm_v,                                       &! in           
           &                  p_diag%rho_ic,                                &! out
           &                  opt_lout_edge = .TRUE.,                       &! in
           &                  opt_rlstart=i_rlstart,                        &! in

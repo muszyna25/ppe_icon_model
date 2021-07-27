@@ -26,7 +26,9 @@
 MODULE mo_initicon_types
 
   USE mo_kind,                 ONLY: wp
-  USE mo_var_metadata_types,   ONLY: VARNAME_LEN
+  USE mo_impl_constants,       ONLY: max_ntracer, vname_len
+  USE mo_run_config,           ONLY: ntracer
+  USE mo_var,                  ONLY: t_var
   USE mo_dictionary,           ONLY: t_dictionary
   USE mo_ifs_coord,            ONLY: t_vct
   USE mo_fortran_tools,        ONLY: DO_DEALLOCATE, DO_PTR_DEALLOCATE
@@ -44,11 +46,22 @@ MODULE mo_initicon_types
   PUBLIC :: t_pi_atm_in
   PUBLIC :: t_pi_sfc_in
   PUBLIC :: t_pi_atm
+  PUBLIC :: t_pi_tracer
   PUBLIC :: t_pi_sfc
   PUBLIC :: t_sfc_inc
   PUBLIC :: t_saveinit_state ! state for saving initial state for double IAU runs
   PUBLIC :: geop_ml_var, alb_snow_var
   PUBLIC :: ana_varnames_dict
+
+
+ !
+  TYPE :: t_pi_tracer
+
+    REAL(wp), POINTER, DIMENSION(:,:,:) :: field => NULL()
+    TYPE(t_var), POINTER :: var_element => NULL()
+  CONTAINS
+    PROCEDURE :: finalize => t_pi_tracer_finalize   !< destructor
+  END TYPE t_pi_tracer
 
 
   ! atmospheric input variables
@@ -73,9 +86,19 @@ MODULE mo_initicon_types
       &                                    qi      => NULL(), &
       &                                    qr      => NULL(), &
       &                                    qs      => NULL(), &
+      &                                    qg      => NULL(), &
+      &                                    qh      => NULL(), &
+      &                                    qnc     => NULL(), &
+      &                                    qni     => NULL(), &
+      &                                    qnr     => NULL(), &
+      &                                    qns     => NULL(), &
+      &                                    qng     => NULL(), &
+      &                                    qnh     => NULL(), &
       &                                    rho     => NULL(), &
       &                                    theta_v => NULL(), &
       &                                    tke     => NULL()
+
+    TYPE (t_pi_tracer), DIMENSION(max_ntracer) :: tracer
 
   CONTAINS
     PROCEDURE :: finalize => t_pi_atm_in_finalize   !< destructor
@@ -132,7 +155,11 @@ MODULE mo_initicon_types
     INTEGER :: nlev
 
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: vn, u, v, w, temp, theta_v, exner, rho, &
-                                               pres, qv, qc, qi, qr, qs, tke
+                                               pres, qv, qc, qi, qr, qs, qg, tke, &
+                                               qh, qnc, qni, qnr, qns, qng, qnh
+
+    TYPE (t_pi_tracer), DIMENSION(max_ntracer) :: tracer
+
   CONTAINS
     PROCEDURE :: finalize => t_pi_atm_finalize   !< destructor
   END TYPE t_pi_atm
@@ -209,10 +236,10 @@ MODULE mo_initicon_types
   ! state for saving initial state
   TYPE :: t_saveinit_state
 
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:) :: fr_seaice, t_ice, h_ice, alb_si, gz0, hsnow_max, snow_age,    &
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:) :: fr_seaice, t_ice, h_ice, alb_si, gz0, hsnow_max, h_snow, snow_age, &
                                              t_mnw_lk, t_wml_lk, h_ml_lk, t_bot_lk, c_t_lk, t_b1_lk, h_b1_lk
 
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: theta_v, rho, exner, w, tke, vn,                                  &
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: theta_v, rho, exner, w, tke, vn, gz0_t, t_sk_t,                   &
                                                t_g_t, qv_s_t, freshsnow_t, snowfrac_t, snowfrac_lc_t, w_snow_t,  &
                                                w_i_t, h_snow_t, t_snow_t, rho_snow_t, aerosol, frac_t, plantevap_t
 
@@ -228,8 +255,8 @@ MODULE mo_initicon_types
   END TYPE t_saveinit_state
 
 
-  CHARACTER(LEN=VARNAME_LEN) :: geop_ml_var  ! model level surface geopotential
-  CHARACTER(LEN=VARNAME_LEN) :: alb_snow_var ! snow albedo
+  CHARACTER(LEN=vname_len) :: geop_ml_var  ! model level surface geopotential
+  CHARACTER(LEN=vname_len) :: alb_snow_var ! snow albedo
 
 
   ! dictionary which maps internal variable names onto
@@ -241,8 +268,17 @@ CONTAINS
 
   ! FINALIZE ROUTINES
 
+  SUBROUTINE t_pi_tracer_finalize(tracer)
+    CLASS(t_pi_tracer), INTENT(INOUT) :: tracer
+
+    CALL DO_PTR_DEALLOCATE(tracer%field)
+  END SUBROUTINE t_pi_tracer_finalize
+
+
   SUBROUTINE t_pi_atm_in_finalize(atm_in)
     CLASS(t_pi_atm_in), INTENT(INOUT) :: atm_in
+
+    INTEGER :: idx
 
     atm_in%linitialized = .FALSE.
     CALL DO_PTR_DEALLOCATE(atm_in%temp)
@@ -256,9 +292,21 @@ CONTAINS
     CALL DO_PTR_DEALLOCATE(atm_in%qi)
     CALL DO_PTR_DEALLOCATE(atm_in%qr)
     CALL DO_PTR_DEALLOCATE(atm_in%qs)
+    CALL DO_PTR_DEALLOCATE(atm_in%qg)
+    CALL DO_PTR_DEALLOCATE(atm_in%qh)
+    CALL DO_PTR_DEALLOCATE(atm_in%qnc)
+    CALL DO_PTR_DEALLOCATE(atm_in%qni)
+    CALL DO_PTR_DEALLOCATE(atm_in%qnr)
+    CALL DO_PTR_DEALLOCATE(atm_in%qns)
+    CALL DO_PTR_DEALLOCATE(atm_in%qng)
+    CALL DO_PTR_DEALLOCATE(atm_in%qnh)
     CALL DO_PTR_DEALLOCATE(atm_in%rho)
     CALL DO_PTR_DEALLOCATE(atm_in%theta_v)
     CALL DO_PTR_DEALLOCATE(atm_in%tke)
+
+    DO idx=1, ntracer
+      CALL atm_in%tracer(idx)%finalize()
+    END DO
   END SUBROUTINE t_pi_atm_in_finalize
 
 
@@ -301,6 +349,8 @@ CONTAINS
   SUBROUTINE t_pi_atm_finalize(atm)
     CLASS(t_pi_atm), INTENT(INOUT) :: atm
 
+    INTEGER :: idx
+
     atm%linitialized = .FALSE.
     CALL DO_DEALLOCATE(atm%vn)
     CALL DO_DEALLOCATE(atm%u)
@@ -316,7 +366,19 @@ CONTAINS
     CALL DO_DEALLOCATE(atm%qi)
     CALL DO_DEALLOCATE(atm%qr)
     CALL DO_DEALLOCATE(atm%qs)
+    CALL DO_DEALLOCATE(atm%qg)
+    CALL DO_DEALLOCATE(atm%qh)
+    CALL DO_DEALLOCATE(atm%qnc)
+    CALL DO_DEALLOCATE(atm%qni)
+    CALL DO_DEALLOCATE(atm%qnr)
+    CALL DO_DEALLOCATE(atm%qns)
+    CALL DO_DEALLOCATE(atm%qng)
+    CALL DO_DEALLOCATE(atm%qnh)
     CALL DO_DEALLOCATE(atm%tke)
+
+    DO idx=1, ntracer
+      CALL atm%tracer(idx)%finalize()
+    END DO
   END SUBROUTINE t_pi_atm_finalize
 
 
@@ -391,6 +453,7 @@ CONTAINS
     CALL DO_DEALLOCATE(saveinit_data%t_b1_lk)
     CALL DO_DEALLOCATE(saveinit_data%h_b1_lk)
     CALL DO_DEALLOCATE(saveinit_data%hsnow_max)
+    CALL DO_DEALLOCATE(saveinit_data%h_snow)
     CALL DO_DEALLOCATE(saveinit_data%snow_age)
     CALL DO_DEALLOCATE(saveinit_data%theta_v)
     CALL DO_DEALLOCATE(saveinit_data%rho)
@@ -398,6 +461,8 @@ CONTAINS
     CALL DO_DEALLOCATE(saveinit_data%w)
     CALL DO_DEALLOCATE(saveinit_data%tke)
     CALL DO_DEALLOCATE(saveinit_data%vn)
+    CALL DO_DEALLOCATE(saveinit_data%gz0_t)
+    CALL DO_DEALLOCATE(saveinit_data%t_sk_t)
     CALL DO_DEALLOCATE(saveinit_data%t_g_t)
     CALL DO_DEALLOCATE(saveinit_data%qv_s_t)
     CALL DO_DEALLOCATE(saveinit_data%freshsnow_t)

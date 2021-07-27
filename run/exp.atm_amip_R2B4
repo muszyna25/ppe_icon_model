@@ -18,30 +18,23 @@ author_list="Monika Esch, Marco Giorgetta, Rene Redler, MPIM"
 #
 #--------------------------------------------------------------------------------------------------
 
-# (0) Basic model configuration
+# (1) Basic model configuration
 # -----------------------------
-#
+
 atmos_gridID="0013"
 atmos_refinement="R02B04"
-#
+
 nproma_atm=16
-#
+
 #
 #--------------------------------------------------------------------------------------------------
 #
-# (1) Define the model time stepping
+# (2) Define the model time stepping
 # ----------------------------------
 
 radTimeStep="PT90M"              # radiation time step:    16 time steps per day
 atmTimeStep="PT15M"              # atmosphere time step:   96 time steps per day
-                                 #                          3 time steps per radTimeStep
-#--------------------------------------------------------------------------------------------------
-
-# (2) unset some setting of create_target_header for mistral
-
-unset OMPI_MCA_coll_fca_enable
-unset OMPI_MCA_coll_fca_priority
-
+                                 #                          6 time steps per radTimeStep
 #--------------------------------------------------------------------------------------------------
 
 # (3) icon_data_poolFolder
@@ -52,47 +45,44 @@ unset OMPI_MCA_coll_fca_priority
 # basedir                       = base directory, where src/, run/ etc exist
 # icon_data_poolFolder          = base directory, where grids/, input/ and setup/ exist
 # nproma                        = blocking length for array dimensioning and inner loop lengths
+#                                 -> deprecated. nproma_atm is used here.
 
-# overwrite the default setting with the new path and handle daint (CSCS)
-
-if [ -d /users/icontest ]
-then
-    poolFolder_prefix=/users/icontest
-else
-    poolFolder_prefix=
-fi
-
-icon_data_poolFolder="$poolFolder_prefix/work/mh0287/users/rene/public/mpim"
+icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/grids/public/mpim"
 
 #--------------------------------------------------------------------------------------------------
 
 # (4) Set variables needed by the scripting mechanism
+# ---------------------------------------------------
 
 # horizontal grid(s)
+# ------------------
 atm_grid_name=icon_grid_${atmos_gridID}_${atmos_refinement}_G
 
 atmo_grid_folder=/pool/data/ICON/grids/public/mpim/${atmos_gridID}
-grids_folder=${atmo_grid_folder}
 atmo_data_InputFolder=${icon_data_poolFolder}/${atmos_gridID}
-#
-atmo_dyn_grids=${atm_grid_name}.nc
+atmo_dyn_grid=${atm_grid_name}.nc
 
 # start and end date+time
+# -----------------------
 start_date=${start_date:="1979-01-01T00:00:00Z"}
-    end_date=${end_date:="2015-01-01T00:00:00Z"}
+end_date=${end_date:="2015-01-01T00:00:00Z"}
 
 # restart intervals
-checkpoint_interval="P40Y"
+# -----------------
+checkpoint_interval="P10Y"
 restart_interval="P40Y"
 
 # output intervals
-output_interval="P1D"
-file_interval="P1M"
+# ----------------
+atm_output_interval="P1D"
+atm_file_interval="P1Y"
 
 # namelist files
-atmo_namelist=NAMELIST_${EXPNAME}_atm
+# --------------
+atm_namelist=NAMELIST_${EXPNAME}_atm
 lnd_namelist=NAMELIST_${EXPNAME}_lnd
 
+atmo_namelist=${atm_namelist}
 #--------------------------------------------------------------------------------------------------
 
 # (5) Define the model configuration
@@ -102,14 +92,13 @@ lnd_namelist=NAMELIST_${EXPNAME}_lnd
 run_jsbach=yes
 jsbach_usecase=jsbach_pfts    # jsbach_lite or jsbach_pfts
 jsbach_with_lakes=yes
-jsbach_with_hd=no
 jsbach_with_carbon=no         # yes needs jsbach_pfts usecase
-jsbach_check_wbal=no          # check water balance
-#
+
 # Some further processing for land configuration
 # ----------------------------------------------
-ljsbach=$([ "${run_jsbach:=no}" == yes ] && echo .TRUE. || echo .FALSE. )
-llake=$([ "${jsbach_with_lakes:=yes}" == yes ] && echo .TRUE. || echo .FALSE. )
+
+ljsbach=$([ "${run_jsbach:=no}" == yes ]          && echo .TRUE. || echo .FALSE. )
+llake=$([ "${jsbach_with_lakes:=yes}" == yes ]    && echo .TRUE. || echo .FALSE. )
 lcarbon=$([ "${jsbach_with_carbon:=yes}" == yes ] && echo .TRUE. || echo .FALSE. )
 
 if [[ $jsbach_usecase == *pfts* ]]
@@ -136,25 +125,27 @@ mpi_atm_io_procs=3                 # for atmosphere plus land
 #
 # output_<xyz>=yes : yes --> output files for <xyz>, any other value --> no files for <xyz>
 
-output_atm_cgrid=no               # produces 1 atm file 
+output_atm_vgrid=no                # produces 1 atm file 
 output_atm_3d=yes                  # produces 1 atm file 
 output_atm_2d=yes                  # produces 1 atm file 
-output_phy_3d=no                   #  produces 1 atm file
+output_phy_3d=no                   # produces 1 atm file
                                    # Note: "yes" increases the output volume significantly!
 
-output_lnd=no                      # "yes"  produces 1 lnd output file
-                                   #
+output_lnd=no                      # produces 1 lnd file
+
+#-----------------------------------------------------------------------------
 #
-# atmospheric dynamics and physics
-# --------------------------------
-cat > ${atmo_namelist} << EOF
+# atmosphere namelist
+# -------------------
+
+cat > ${atm_namelist} << EOF
 !
 &parallel_nml
  nproma            = ${nproma_atm}
  num_io_procs      = ${mpi_atm_io_procs}
 /
 &grid_nml
- dynamics_grid_filename = "${atmo_dyn_grids}",
+ dynamics_grid_filename = "${atmo_dyn_grid}"
 /
 &run_nml
  num_lev          = 47          ! number of full levels
@@ -162,7 +153,6 @@ cat > ${atmo_namelist} << EOF
  ltestcase        = .FALSE.     ! run testcase
  ldynamics        = .TRUE.      ! dynamics
  ltransport       = .TRUE.      ! transport
- ntracer          = 3           ! number of tracers; 3: hus, clw, cli; 4: hus, clw, cli, o3
  iforcing         = 2           ! 0: none, 1: HS, 2: ECHAM, 3: NWP
  output           = 'nml'
  msg_level        = 12          ! level of details report during integration 
@@ -171,7 +161,7 @@ cat > ${atmo_namelist} << EOF
 /
 &extpar_nml
  itopo            = 1           ! 1: read topography from the grid file
- l_emiss          = .FALSE.
+ itype_lwemiss    = 0
 /
 &initicon_nml
  init_mode        = 2           ! 2: initialize from IFS analysis
@@ -199,10 +189,10 @@ cat > ${atmo_namelist} << EOF
 &diffusion_nml
 /
 &transport_nml
-!                   hus,clw,cli, o3
- ivadv_tracer     =   3,  3,  3,  3
- itype_hlimit     =   3,  4,  4,  3
- ihadv_tracer     =  52,  2,  2, 52
+ tracer_names     = 'hus','clw','cli'
+ ivadv_tracer     =    3 ,   3 ,   3
+ itype_hlimit     =    3 ,   4 ,   4
+ ihadv_tracer     =   52 ,   2 ,   2
 /
 &echam_phy_nml
 !
@@ -248,7 +238,6 @@ cat > ${atmo_namelist} << EOF
  echam_rad_config(1)%irad_cfc11 =  4
  echam_rad_config(1)%irad_cfc12 =  4
  echam_rad_config(1)%irad_aero  = 18
- echam_rad_config(1)%ighg       =  1
 /
 &echam_gwd_nml
 /
@@ -260,74 +249,80 @@ cat > ${atmo_namelist} << EOF
 /
 &echam_cld_nml
 /
+&echam_cop_nml
+/
+&echam_cov_nml
+/
 &sea_ice_nml
 /
 EOF
 
-# land surface and soil
-# ---------------------
+# jsbach namelist
+# ---------------
+
 cat > ${lnd_namelist} << EOF
 &jsb_model_nml
-  usecase         = "${jsbach_usecase}"
-  use_lakes       = ${llake}
-  fract_filename  = "bc_land_frac.nc"
+  usecase              = "${jsbach_usecase}"
+  use_lakes            = ${llake}
+  fract_filename       = "bc_land_frac.nc"
+  output_tiles         = ${output_tiles}     ! List of tiles to output
 /
 &jsb_seb_nml
-  bc_filename     = 'bc_land_phys.nc'
-  ic_filename     = 'ic_land_soil.nc'
+  bc_filename          = 'bc_land_phys.nc'
+  ic_filename          = 'ic_land_soil.nc'
 /
 &jsb_rad_nml
-  use_alb_veg_simple = .FALSE.           ! Use TRUE for jsbach_lite, FALSE for jsbach_pfts
-  bc_filename     = 'bc_land_phys.nc'
-  ic_filename     = 'ic_land_soil.nc'
+  use_alb_veg_simple   = .FALSE.          ! Use TRUE for jsbach_lite, FALSE for jsbach_pfts
+  bc_filename          = 'bc_land_phys.nc'
+  ic_filename          = 'ic_land_soil.nc'
 /
 &jsb_turb_nml
-  bc_filename     = 'bc_land_phys.nc'
-  ic_filename     = 'ic_land_soil.nc'
+  bc_filename          = 'bc_land_phys.nc'
+  ic_filename          = 'ic_land_soil.nc'
 /
 &jsb_sse_nml
-  l_heat_cap_map  = .FALSE.
-  l_heat_cond_map = .FALSE.
-  l_heat_cap_dyn  = .FALSE.
-  l_heat_cond_dyn = .FALSE.
-  l_snow          = .TRUE.
-  l_dynsnow       = .TRUE.
-  l_freeze        = .TRUE.
-  l_supercool     = .TRUE.
-  bc_filename     = 'bc_land_soil.nc'
-  ic_filename     = 'ic_land_soil.nc'
+  l_heat_cap_map       = .FALSE.
+  l_heat_cond_map      = .FALSE.
+  l_heat_cap_dyn       = .FALSE.
+  l_heat_cond_dyn      = .FALSE.
+  l_snow               = .TRUE.
+  l_dynsnow            = .TRUE.
+  l_freeze             = .TRUE.
+  l_supercool          = .TRUE.
+  bc_filename          = 'bc_land_soil.nc'
+  ic_filename          = 'ic_land_soil.nc'
 /
 &jsb_hydro_nml
-  l_organic       = .FALSE.
-  bc_filename     = 'bc_land_soil.nc'
-  ic_filename     = 'ic_land_soil.nc'
-  bc_sso_filename = 'bc_land_sso.nc'
+  l_organic            = .FALSE.
+  bc_filename          = 'bc_land_soil.nc'
+  ic_filename          = 'ic_land_soil.nc'
+  bc_sso_filename      = 'bc_land_sso.nc'
 /
 &jsb_assimi_nml
-  active          = .TRUE.             ! Use FALSE for jsbach_lite, TRUE for jsbach_pfts
+  active               = .TRUE.              ! Use FALSE for jsbach_lite, TRUE for jsbach_pfts
 /
 &jsb_pheno_nml
-  scheme          = 'logrop'           ! scheme = logrop / climatology; use climatology for jsbach_lite
-  bc_filename     = 'bc_land_phys.nc'
-  ic_filename     = 'ic_land_soil.nc'
+  scheme               = 'logrop'            ! scheme = logrop / climatology; use climatology for jsbach_lite
+  bc_filename          = 'bc_land_phys.nc'
+  ic_filename          = 'ic_land_soil.nc'
 /
 &jsb_carbon_nml
-  active                 = ${lcarbon}
-  bc_filename            = 'bc_land_carbon.nc'
-  ic_filename            = 'ic_land_carbon.nc'
-  read_cpools            = .FALSE.
+  active               = ${lcarbon}
+  bc_filename          = 'bc_land_carbon.nc'
+  ic_filename          = 'ic_land_carbon.nc'
+  read_cpools          = .FALSE.
 /
 &jsb_fuel_nml
-  active                 = ${lcarbon}
-  fuel_algorithm         = 1
+  active               = ${lcarbon}
+  fuel_algorithm       = 1
 /
 &jsb_disturb_nml
-  active                  = .FALSE.
-  ic_filename             = 'ic_land_soil.nc'
-  bc_filename             = 'bc_land_phys.nc'
-  fire_algorithm          = 1
-  windbreak_algorithm     = 1
-  lburn_pasture           = .FALSE.
+  active               = .FALSE.
+  ic_filename          = 'ic_land_soil.nc'
+  bc_filename          = 'bc_land_phys.nc'
+  fire_algorithm       = 1
+  windbreak_algorithm  = 1
+  lburn_pasture        = .FALSE.
 /
 EOF
 
@@ -342,8 +337,8 @@ add_link_file ${basedir}/data/lsdata.nc                                 ./
 add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
 
 # namelist files
-#
-add_required_file ${basedir}/run/${atmo_namelist}                       ./
+# --------------
+add_required_file ${basedir}/run/${atm_namelist}                        ./
 add_required_file ${basedir}/run/${lnd_namelist}                        ./
 
 # dictionary file for output variable names
@@ -365,16 +360,19 @@ add_link_file ${datadir}/ic_land_soil_1976.nc                           ./ic_lan
 # boundary conditions
 #
 # - well mixed greenhouse gases
+#
 datadir=${icon_data_poolFolder}/independent/greenhouse_gases
-add_link_file $datadir/greenhouse_historical_plus.nc                    ./bc_greenhouse_gases.nc
+add_link_file $datadir/greenhouse_ssp245.nc                             ./bc_greenhouse_gases.nc
 #
 # range of years for yearly files
 # assume start_date and end_date have the format yyyy-...
+#
 start_year=$(( ${start_date%%-*} - 1 ))
 end_year=$(( ${end_date%%-*} + 1 ))
 #
 # - ozone
 # -- for irad_o3=8
+#
 datadir=${atmo_data_InputFolder}/ozone/r0002
 #
 year=$start_year
@@ -382,67 +380,86 @@ while [[ $year -le $end_year ]]
 do
   if [[ $year -le 2014 ]]
   then
-    add_link_file $datadir/bc_ozone_historical_${year}.nc               ./bc_ozone_${year}.nc
+    add_link_file ${datadir}/bc_ozone_historical_${year}.nc             ./bc_ozone_${year}.nc
   else
-    add_link_file $datadir/bc_ozone_historical_2014.nc                  ./bc_ozone_${year}.nc
+    add_link_file ${datadir}/bc_ozone_historical_2014.nc                ./bc_ozone_${year}.nc
   fi
   (( year = year+1 ))
 done
 #
 # - tropospheric anthropogenic aerosols, simple plumes
-add_link_file ${basedir}/data/MACv2.0-SP_v1.nc                          ./MACv2.0-SP_v1.nc
-
-#   Kinne background aerosols are needed for the years 1849, 1850, 1851 
-#   accessing all the same data of 1850:
-datadir=${atmo_data_InputFolder}/aerosol_kinne/r0002
-year=1849
-while [[ $year -le 1851 ]]
-do
-  add_link_file $datadir/bc_aeropt_kinne_lw_b16_coa.nc                  ./bc_aeropt_kinne_lw_b16_coa_${year}.nc
-  add_link_file $datadir/bc_aeropt_kinne_sw_b14_coa.nc                  ./bc_aeropt_kinne_sw_b14_coa_${year}.nc
-  add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_1850.nc             ./bc_aeropt_kinne_sw_b14_fin_${year}.nc
-  (( year = year+1 ))
-done
 #
-# - stratospheric aerosol
-datadir=${icon_data_poolFolder}/independent/aerosol_stenchikov
+datadir=${icon_data_poolFolder}/independent/MACv2_simple_plumes_merged
+#
+add_link_file ${datadir}/MACv2.0-SP-merged-historical-and-SSP2-45_v1.nc ./MACv2.0-SP_v1.nc
+#
+#   Kinne background aerosols are needed for the year 1850 (irad_aero=18)
+#
+#   Here we use revised data (r0002) based on work by Sebastian Rast
+#
+datadir=${atmo_data_InputFolder}/aerosol_kinne/r0002
+#
+add_link_file ${datadir}/bc_aeropt_kinne_lw_b16_coa.nc                  ./
+add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_coa.nc                  ./
+add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_fin_1850.nc             ./bc_aeropt_kinne_sw_b14_fin.nc
+#
+# - stratospheric aerosol (CMIP6)
+datadir=${icon_data_poolFolder}/independent/CMIP6Forcing
+#
+if [ ! -d $datadir ]; then
+  echo 'directory '$datadir' for stratospheric aerosol data does not exist'
+  exit -1
+fi	
 year=$start_year
 while [[ $year -le $end_year ]]
 do
-  if [[ $year -le 1999 ]]
+  if [[ $year -le 2014 ]]
   then
-    add_link_file $datadir/bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc  ./bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc
+    add_link_file $datadir/bc_aeropt_cmip6_volc_lw_b16_sw_b14_${year}.nc  ./bc_aeropt_cmip6_volc_lw_b16_sw_b14_${year}.nc
   else
-    add_link_file $datadir/bc_aeropt_stenchikov_lw_b16_sw_b14_1999.nc     ./bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc
+    add_link_file $datadir/bc_aeropt_cmip6_volc_lw_b16_sw_b14_2014.nc     ./bc_aeropt_cmip6_volc_lw_b16_sw_b14_${year}.nc
   fi
   (( year = year+1 ))
 done
 #
 # - sst and sic
+#
 datadir=${atmo_data_InputFolder}/sst_and_seaice/r0002
-add_link_file $datadir/bc_sic_1979_2016.nc                              ./bc_sic.nc
-add_link_file $datadir/bc_sst_1979_2016.nc                              ./bc_sst.nc
+#
+add_link_file ${datadir}/bc_sic_1979_2016.nc                               ./bc_sic.nc
+add_link_file ${datadir}/bc_sst_1979_2016.nc                               ./bc_sst.nc
 #
 # - ssi and tsi
+#
 datadir=${icon_data_poolFolder}/independent/solar_radiation/3.2
-add_link_file $datadir/swflux_14band_cmip6_1850-2299-v3.2.nc            ./bc_solar_irradiance_sw_b14.nc
+#
+add_link_file ${datadir}/swflux_14band_cmip6_1850-2299-v3.2.nc             ./bc_solar_irradiance_sw_b14.nc
 #
 # - land parameters
+#
 datadir=${atmo_data_InputFolder}/land/r0002
-add_link_file $datadir/bc_land_frac_${pft_file_tag}1976.nc              ./bc_land_frac.nc
-add_link_file $datadir/bc_land_phys_1976.nc                             ./bc_land_phys.nc
-add_link_file $datadir/bc_land_soil_1976.nc                             ./bc_land_soil.nc
-add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_land_sso.nc
+#
+add_link_file ${datadir}/bc_land_frac_${pft_file_tag}1976.nc               ./bc_land_frac.nc
+add_link_file ${datadir}/bc_land_phys_1976.nc                              ./bc_land_phys.nc
+add_link_file ${datadir}/bc_land_soil_1976.nc                              ./bc_land_soil.nc
+add_link_file ${datadir}/bc_land_sso_1976.nc                               ./bc_land_sso.nc
 #
 # - lctlib file for JSBACH
-add_link_file ${basedir}/externals/jsbach/data/lctlib_nlct21.def        ./lctlib_nlct21.def
+#
+add_link_file ${basedir}/externals/jsbach/data/lctlib_nlct21.def           ./lctlib_nlct21.def
+#
+# - the atmosphere grid itself (the grid copy section below from $HGRIDDIR is ignored)
+#
+add_required_file ${atmo_grid_folder}/${atmo_dyn_grid}                     ./
+#
 #--------------------------------------------------------------------------------------------------
 
 # (5) Define the output
+# ---------------------
 
 # Parameters for all output files
 # -------------------------------
-cat >> ${atmo_namelist} << EOF
+cat >> ${atm_namelist} << EOF
 &io_nml
  output_nml_dict  = "${dict_file}"
  netcdf_dict      = "${dict_file}"
@@ -459,22 +476,21 @@ EOF
 #
 # 3-dimensional files include 'ps' and 'pfull' to allow the vertical
 # interpolation to pressure levels by cdo ap2pl.
-
 #
-if [[ "$output_atm_cgrid" == "yes" ]]; then
+if [[ "$output_atm_vgrid" == "yes" ]]; then
   #
-  cat >> ${atmo_namelist} << EOF
+  cat >> ${atm_namelist} << EOF
 &output_nml
- output_filename  = "${EXPNAME}_atm_cgrid"
+ output_filename  = "${EXPNAME}_atm_vgrid"
  filename_format  = "<output_filename>_<levtype_l>"
  filetype         = 5
  remap            = 0
  output_grid      = .TRUE.
- output_start     = "${start_date}"       ! output_start = output_end
- output_end       = "${start_date}"       ! --> write once only irrespective of
- output_interval  = "${output_interval}"  !     the output interval and
- file_interval    = "${file_interval}"    !     the file interval
- ml_varlist       = 'clon', 'clat', 'areacella', 'zghalf', 'zg'
+ output_start     = "${start_date}"           ! output_start = output_end
+ output_end       = "${start_date}"           ! --> write once only irrespective of
+ output_interval  = "${atm_output_interval}"  !     the output interval and
+ file_interval    = "${atm_file_interval}"    !     the file interval
+ ml_varlist       = 'zghalf'  , 'zg'      , 'dzghalf'
 /
 EOF
 fi
@@ -484,7 +500,7 @@ fi
 #
 if [[ "$output_atm_3d" == "yes" ]]; then
   #
-  cat >> ${atmo_namelist} << EOF
+  cat >> ${atm_namelist} << EOF
 &output_nml
  output_filename  = "${EXPNAME}_atm_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
@@ -494,8 +510,8 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  output_grid      = .FALSE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${output_interval}"
- file_interval    = "${file_interval}"
+ output_interval  = "${atm_output_interval}"
+ file_interval    = "${atm_file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'zg'      ,
                     'ps'      , 'pfull'   ,
@@ -503,15 +519,14 @@ if [[ "$output_atm_3d" == "yes" ]]; then
                     'ua'      , 'va'      , 'wap'     ,
                     'hus'     , 'clw'     , 'cli'     ,
                     'hur'     , 'cl'      ,
-!                    'qo3_phy' ,
 /
 EOF
 fi
 
-#
+
 if [[ "$output_atm_2d" == "yes" ]]; then
   #
-  cat >> ${atmo_namelist} << EOF
+  cat >> ${atm_namelist} << EOF
 &output_nml
  output_filename  = "${EXPNAME}_atm_2d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
@@ -521,8 +536,8 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  output_grid      = .FALSE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${output_interval}"
- file_interval    = "${file_interval}"
+ output_interval  = "${atm_output_interval}"
+ file_interval    = "${atm_file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'orog'    ,
                     'ps'      , 'psl'     ,
@@ -542,15 +557,15 @@ if [[ "$output_atm_2d" == "yes" ]]; then
                     'tauu_sso', 'tauv_sso', 'diss_sso',
                     'sfcwind' , 'uas'     , 'vas'     ,
                     'tas'     , 'dew2'    ,
-                    'ptp'     ,
+                    'ptp'
 /
 EOF
 fi
 
-#
+
 if [[ "$output_phy_3d" == "yes" ]]; then
   #
-  cat >> ${atmo_namelist} << EOF
+  cat >> ${atm_namelist} << EOF
 &output_nml
  output_filename  = "${EXPNAME}_phy_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
@@ -560,8 +575,8 @@ if [[ "$output_phy_3d" == "yes" ]]; then
  output_grid      = .FALSE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${output_interval}"
- file_interval    = "${file_interval}"
+ output_interval  = "${atm_output_interval}"
+ file_interval    = "${atm_file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'ps'           , 'pfull'        ,
                     'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
@@ -579,11 +594,12 @@ if [[ "$output_phy_3d" == "yes" ]]; then
 EOF
 fi
 
+
 # minimal jsbach output for running atm_amip experiment
 # for more jsbach output see exp.atm_amip_les
 #
 if [[ "$output_lnd" == "yes" ]]; then
-  cat >> ${atmo_namelist} << EOF
+  cat >> ${atm_namelist} << EOF
 &output_nml
  output_filename  = "${EXPNAME}_lnd"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
@@ -593,8 +609,8 @@ if [[ "$output_lnd" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${output_interval}"
- file_interval    = "${file_interval}"
+ output_interval  = "${atm_output_interval}"
+ file_interval    = "${atm_file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'pheno_lai_box'         , 'pheno_fract_fpc_veg'         , 'hydro_fract_water_box' ,
                     'hydro_fract_snow_box'  , 'hydro_w_skin_box'            , 'hydro_w_snow_box'      ,
@@ -602,5 +618,3 @@ if [[ "$output_lnd" == "yes" ]]; then
 /
 EOF
 fi
-
-#--------------------------------------------------------------------------------------------------

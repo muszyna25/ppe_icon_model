@@ -23,12 +23,14 @@ typeset intp_method=3   #  Interpolation type
                         #  3 = RBF
                         #  4 = nearest neighbor
                         #  8 = barycentric
-float   rbf_scale_uv2vec=-1.0
+integer vn_intp=1
+#float   rbf_scale_uv2vec=-1.0   # automatic
+float   rbf_scale_uv2vec=-1.0 # 0.01
 set -A icon_fileext XX XX grb XX nc nc
 
 typeset ires=${IRES:-${ires}}
 
-while getopts +Cd:Dg:hi:l:m:o:q:r:R:s:T:u: opt
+while getopts +Cd:Dg:hi:l:m:o:q:r:R:s:T:u:v opt
 do
     case ${opt} in
         d) pdatin=${OPTARG} ;;
@@ -42,7 +44,7 @@ do
 
 	${name} [-d cymdg] [-g grid_file] [-i ifs_file] [-l lev_ifs]
 	         [-m intp_method] [-o icon_file] [-r ires] [-R res_ifs] [-s step]
-		 [-T icon_filetype] [-u rbf_scale_uv2vec]
+		 [-T icon_filetype] [-u rbf_scale_uv2vec] [-v]
 
 	Interpolate an ICON initial file from IFS data.
 
@@ -68,10 +70,14 @@ do
 	                 the IFS data is a forecast started at \$cymdg- \$step h. Default: ${hstep} h
 	   -T icon_filetype  type of ICON initial file: Enter 2 for GRIB, 4 for netCDF, 5 for netCDF-4
 	                     Default: ${icon_filetype}
-	   -u rbf_scale_uv2vec  Override automatic estimate. Default: ${rbf_scale_uv2vec} (= automatic)
-	                        For ERA5 data (T639) rbf_scale_uv2vec=0.1 is used.
+	   -u rbf_scale_uv2vec  Override automatic estimate. Default: ${rbf_scale_uv2vec}
+	   -v            Interpolate U and V likes scalars instead of VN from U and V.
 
 	Helmut Frank, 22.01.2015
+	   16.11.2018  Default for rbf_scale_uv2vec=-1.0 (automatic)
+	   25.09.2018: New option -v.
+	   08.11.2017: Default for rbf_scale_uv2vec=0.01 instead of -1 (=automatic) for iconremap_mpi version 2.0.5
+	   06.11.2017: Default for EC_total_tasks at ECMWF.
 	   11.07.2017: New option -C. ERA5 data contains FSR instead of SR.
 	   11.11.2016: Introduce NCSTORAGE_FILE. It writes and saves interpolation weights if set.
 	   09.05.2016: Check return code of aprun.
@@ -89,6 +95,7 @@ do
         s) hstep=${OPTARG} ;;
         T) icon_filetype=${OPTARG} ;;
         u) rbf_scale_uv2vec=${OPTARG} ;;
+        v) vn_intp=0 ;;
     esac
 done
 
@@ -176,7 +183,9 @@ fi
  typeset marsCl=$(grib_get -w count=1 -p marsClass ${ifs_file})
  if [[ ${marsCl} == 'ea' ]]; then
     sr='FSR'    # forecast surface roughness for ERA5 data
-    if (( rbf_scale_uv2vec == -1.0 )); then rbf_scale_uv2vec=0.1; fi
+#   The following recommendation is no longer used with icontools 2.3.0
+#   For ERA5 data (T639) rbf_scale_uv2vec=0.1 should be used.
+#   if (( rbf_scale_uv2vec == -1.0 )); then rbf_scale_uv2vec=0.1; fi
  fi
 
  if [[ ${icon_file} != /* ]]; then
@@ -200,20 +209,31 @@ fi
     ecmwf='#'   
 
 #   The following value for EC_* are not independent of each other
-    EC_total_tasks=${EC_total_tasks:-24}
+    EC_total_tasks=${EC_total_tasks:-6}
     EC_hyperthreads=${EC_hyperthreads:-2}
-    EC_tasks_per_node=${EC_tasks_per_node:-12}
+    EC_tasks_per_node=${EC_tasks_per_node:-$EC_total_tasks}
     EC_threads_per_task=${EC_threads_per_task:-4}
 
-    aprun_cmd="aprun -n $EC_total_tasks -N $EC_tasks_per_node -d $EC_threads_per_task -j $EC_hyperthreads -m 3g"
+#   aprun_cmd="aprun -n $EC_total_tasks -N $EC_tasks_per_node -d $EC_threads_per_task -j $EC_hyperthreads -m 3g"
+    aprun_cmd="aprun -n $EC_total_tasks -N $EC_tasks_per_node -d $EC_threads_per_task -j $EC_hyperthreads -m 5g"
  else
 #   Assume this is at ECMWF
     dwd='#'   
     ecmwf=''   
+    EC_total_tasks=${EC_total_tasks:-4}
     EC_hyperthreads=${EC_hyperthreads:-2}
     EC_tasks_per_node=${EC_tasks_per_node:-4}
     EC_threads_per_task=${EC_threads_per_task:-9}
     aprun_cmd='aprun -n $EC_total_tasks -N $EC_tasks_per_node -d $EC_threads_per_task -j $EC_hyperthreads'
+ fi
+
+# Comment out interpolation of VN or of U and V
+ if (( vn_intp == 1 )); then
+    cuv='!'
+    cvn=''
+ else
+    cuv=''
+    cvn='!'
  fi
  
  typeset job_file=${SCRATCHDIR}/ifs2icon${cymdg}.job$$
@@ -228,9 +248,9 @@ cat > ${job_file} <<JOB_EOF
 #PBS -m a
 #${dwd}PBS -l select=2
 #${dwd}PBS -l place=scatter
-#${ecmwf}PBS -l EC_total_tasks=${EC_total_tasks:-6}
-#${ecmwf}PBS -l EC_threads_per_task=${EC_threads_per_task:-4}
-#${ecmwf}PBS -l EC_hyperthreads=${EC_hyperthreads:-2}
+#${ecmwf}PBS -l EC_total_tasks=${EC_total_tasks}
+#${ecmwf}PBS -l EC_threads_per_task=${EC_threads_per_task}
+#${ecmwf}PBS -l EC_hyperthreads=${EC_hyperthreads}
 #
  banner   " ${name}"
  print -- "parameters of the current run"
@@ -248,7 +268,7 @@ cat > ${job_file} <<JOB_EOF
  print -- "ICON grid file                  = ${grid_file_icon}"
 
  SCRATCHDIR=\${SCRATCHDIR:-\${TMPDIR}}
- work_dir=${WORK_DIR:-\${SCRATCHDIR}}
+ work_dir=\${WORK_DIR:-\${SCRATCHDIR}}
  cd \${work_dir}
  print -- "Working in \${PWD}"
 
@@ -284,11 +304,21 @@ cat > \${nml_file} << EOF
  code           = 130          
  intp_method    = ${intp_method}
 /
-&input_field_nml  ! horiz. wind comp. u and v
- inputname      = "U", "V"         
- outputname     = "VN"  
- code           = 131,132
-/
+${cvn}&input_field_nml  ! horiz. wind comp. u and v
+${cvn} inputname      = "U", "V"         
+${cvn} outputname     = "VN"  
+${cvn} code           = 131,132
+${cvn}/
+${cuv}&input_field_nml  ! horiz. wind comp. U
+${cuv} inputname      = "U",
+${cuv} outputname     = "U"  
+${cuv} code           = 131
+${cuv}/
+${cuv}&input_field_nml  ! horiz. wind comp. V
+${cuv} inputname      = "V",
+${cuv} outputname     = "V"  
+${cuv} code           = 132
+${cuv}/
 &input_field_nml  ! vertical velocity
  inputname      = "OMEGA" 
  outputname     = "W"
@@ -303,7 +333,7 @@ cat > \${nml_file} << EOF
 /
 &input_field_nml  ! geopotential
  inputname      = "Z"
- outputname     = "GEOP_SFC"
+ outputname     = "GEOP_SFC"    ! "FIS"
  code           = 129
  intp_method    = ${intp_method}
 /
@@ -367,12 +397,12 @@ cat > \${nml_file} << EOF
  code           = 235
  intp_method    = ${intp_method}
 /
-&input_field_nml  ! sea surface temperature
- inputname      = "SST"
- outputname     = "SST" 
- code           = 34
- intp_method    = ${intp_method}
-/
+!&input_field_nml  ! sea surface temperature
+! inputname      = "SST"
+! outputname     = "SST" 
+! code           = 34
+! intp_method    = ${intp_method}
+!/
 &input_field_nml  ! soil temperature level 1
  inputname      = "STL1"
  outputname     = "STL1" 

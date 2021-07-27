@@ -23,8 +23,8 @@ MODULE mo_icon_testbed_config
   
   ! Exported parameters
   PUBLIC :: null_model, test_coupler_model, test_jitter_model, test_halo_communication, &
-    & test_radiation_communication, test_netcdf_read_model, testbed_ocean_model, &
-    & test_gather_communication, test_exchange_communication
+    & test_netcdf_read_model, testbed_ocean_model, test_gather_communication, &
+    & test_exchange_communication, test_bench_exchange_data_mult
     
   ! Exported variables
   PUBLIC :: testbed_model
@@ -39,11 +39,11 @@ MODULE mo_icon_testbed_config
   INTEGER, PARAMETER :: test_coupler_model           = 1  ! test the coupler
   INTEGER, PARAMETER :: test_jitter_model            = 3  ! test the jitter
   INTEGER, PARAMETER :: test_halo_communication      = 4  ! test the mpi communication
-  INTEGER, PARAMETER :: test_radiation_communication = 5  ! test the mpi communication
   INTEGER, PARAMETER :: test_netcdf_read_model       = 6
   INTEGER, PARAMETER :: testbed_ocean_model          = 7
   INTEGER, PARAMETER :: test_gather_communication = 8
   INTEGER, PARAMETER :: test_exchange_communication = 9
+  INTEGER, PARAMETER :: test_bench_exchange_data_mult = 10
   
 
   INTEGER  :: testbed_model

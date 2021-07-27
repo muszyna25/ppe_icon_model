@@ -1,0 +1,918 @@
+#--------------------------------------------------------------------------------------------------
+#
+# DYAMOND+- experiment
+#
+author_list="Monika Esch, MPIM"
+#
+#--------------------------------------------------------------------------------------------------
+#
+# This file describes an uncoupled experiment based on the non-hydrostatic atmosphere and the
+# ECHAM physics. The experiment is intialized from IFS analysis files for August 2016 and uses 
+# transient boundary conditions for:
+# - SST and sea ice
+# - spectral solar irradiation
+# - well mixed greenhouse gases CO2, CH4, N2O, CFCs
+# - O3 concentration
+# - tropospheric aerosol optical properties
+# - stratospheric volcanic aerosol optical properties
+#
+# Output is written according to the DYAMOND protocol
+#
+#--------------------------------------------------------------------------------------------------
+
+# (0) Basic model configuration
+# -----------------------------
+#
+atmos_gridID="0015"
+atmos_refinement="R02B09"
+#
+nproma_atm=96
+#
+#read_restart_namelists=".FALSE."   # used in master_nml to overwrite default
+#
+#--------------------------------------------------------------------------------------------------
+#
+# (1) Define the model time stepping
+# ----------------------------------
+
+radTimeStep="PT15M"              # radiation time step:    96 time steps per day
+atmTimeStep="PT45S"              # atmosphere time step: 2880 time steps per day
+                                 #                         30 time steps per radTimeStep
+#--------------------------------------------------------------------------------------------------
+
+# (3) icon_data_poolFolder
+
+# Variables provided by the scripting mechanism
+
+# EXPNAME                       = name of exp. in 'exp.<name>'
+# basedir                       = base directory, where src/, run/ etc exist
+# icon_data_poolFolder          = base directory, where grids/, input/ and setup/ exist
+# nproma                        = blocking length for array dimensioning and inner loop lengths
+
+icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/grids/public/mpim"
+
+#--------------------------------------------------------------------------------------------------
+
+# (4) Set variables needed by the scripting mechanism
+
+# horizontal grid(s)
+atm_grid_name=icon_grid_${atmos_gridID}_${atmos_refinement}_G
+
+atmo_grid_folder=/pool/data/ICON/grids/public/mpim/${atmos_gridID}
+grids_folder=${atmo_grid_folder}
+atmo_data_InputFolder=${icon_data_poolFolder}/${atmos_gridID}
+#
+atmo_dyn_grids=${atm_grid_name}.nc
+
+# start and end date+time
+start_date=${start_date:="2016-08-01T00:00:00Z"}
+    end_date=${end_date:="2016-09-14T00:00:00Z"}
+
+# restart intervals
+checkpoint_interval="P5D"
+restart_interval="P5D"
+
+# output intervals
+output_interval="PT1H"
+output_interval_2d="PT15M"
+output_interval_3d="PT3H"
+output_interval_pl="PT15M"
+file_interval="P1D"
+
+# namelist files
+atm_namelist=NAMELIST_${EXPNAME}_atm
+lnd_namelist=NAMELIST_${EXPNAME}_lnd
+
+atmo_namelist=${atm_namelist}
+#--------------------------------------------------------------------------------------------------
+
+# (5) Define the model configuration
+#-----------------------------------
+
+# JSBACH settings
+run_jsbach=yes
+jsbach_usecase=jsbach_lite    # jsbach_lite or jsbach_pfts
+jsbach_with_lakes=yes
+jsbach_with_carbon=no         # yes needs jsbach_pfts usecase
+
+# Some further processing for land configuration
+# ----------------------------------------------
+
+ljsbach=$([ "${run_jsbach:=no}" == yes ]          && echo .TRUE. || echo .FALSE. )
+llake=$([ "${jsbach_with_lakes:=yes}" == yes ]    && echo .TRUE. || echo .FALSE. )
+lcarbon=$([ "${jsbach_with_carbon:=yes}" == yes ] && echo .TRUE. || echo .FALSE. )
+
+if [[ $jsbach_usecase == *pfts* ]]
+then
+  pft_file_tag="11pfts_"
+else
+  pft_file_tag=""
+fi
+
+#--------------------------------------------------------------------------------------------------
+
+# (6) Output control
+# ------------------
+
+# output file selection
+# ---------------------
+
+# Note that "mpi_atm_io_procs" must match the number of output files
+#
+# output_<xyz>=yes : yes --> output files for <xyz>, any other value --> no files for <xyz>
+
+output_atm_vgrid=yes               # produces 1 atm file 
+output_atm_3d=yes                  # produces 6 atm files
+output_atm_2d=yes                  # produces 1 atm file 
+output_phy_3d=no                   # produces 1 atm file
+                                   # Note: "yes" increases the output volume significantly!
+
+output_lnd=no                      # produces 1 lnd file
+
+output_dyamond=no                  # produces 15 atm_files
+
+# asynchronous diagnostic output processes
+# ----------------------------------------
+
+mpi_atm_io_procs=7                 # depends on the number of output files produced above
+
+
+#--------------------------------------------------------------------------------------------------
+
+# atmospheric dynamics and physics
+# --------------------------------
+cat > ${atm_namelist} << EOF
+!
+&parallel_nml
+ nproma           = ${nproma_atm}
+ num_io_procs     = ${mpi_atm_io_procs}
+ io_process_stride = 12
+/
+&grid_nml
+ dynamics_grid_filename = "${atmo_dyn_grids}",
+/
+&run_nml
+ num_lev          = 70          ! number of full levels
+ modelTimeStep    = "${atmTimeStep}"
+ ltestcase        = .FALSE.     ! run testcase
+ ldynamics        = .TRUE.      ! dynamics
+ ltransport       = .TRUE.      ! transport
+ iforcing         = 2           ! 0: none, 1: HS, 2: ECHAM, 3: NWP
+ output           = 'nml'
+ msg_level        = 12          ! level of details report during integration 
+ restart_filename = "${EXPNAME}_restart_atm_<rsttime>.mfr"
+ activate_sync_timers = .TRUE.
+/
+&extpar_nml
+ itopo            = 1           ! 1: read topography from the grid file
+ l_emiss          = .FALSE.
+/
+&initicon_nml
+ init_mode        = 2           ! 2: initialize from IFS analysis
+ ifs2icon_filename= "ifs2icon.nc"
+/
+&nonhydrostatic_nml
+ ndyn_substeps    = 5           ! dtime/dt_dyn
+ damp_height      = 22500.      ! [m]
+ rayleigh_coeff   = 0.10
+ vwind_offctr     = 0.2
+ divdamp_fac      = 0.002
+ htop_moist_proc  = 22500.
+/
+&interpol_nml
+ rbf_scale_mode_ll = 1
+ rbf_vec_scale_c   = 0.45
+ rbf_vec_scale_v   = 0.45
+ rbf_vec_scale_e   = 0.45
+/
+&sleve_nml
+ min_lay_thckn    = 40.         ! [m]
+ top_height       = 30000.      ! [m]
+ stretch_fac      = 0.9
+ decay_scale_1    = 4000.       ! [m]
+ decay_scale_2    = 2500.       ! [m]
+ decay_exp        = 1.2
+ flat_height      = 16000.      ! [m]
+/
+&diffusion_nml
+/
+&transport_nml
+ tracer_names     = 'hus','clw','cli', 'qr', 'qs', 'qg'
+ ivadv_tracer     =    3 ,   3 ,   3 ,   3 ,   3 ,   3
+ itype_hlimit     =    3 ,   4 ,   4 ,   4 ,   4 ,   4
+ ihadv_tracer     =   52 ,   2 ,   2 ,   2 ,   2 ,   2
+/
+&echam_phy_nml
+!
+! domain 1
+! --------
+!
+! atmospheric phyiscs (""=never)
+ echam_phy_config(1)%dt_rad = "${radTimeStep}"
+ echam_phy_config(1)%dt_vdf = "${atmTimeStep}"
+ echam_phy_config(1)%dt_cnv = ""
+ echam_phy_config(1)%dt_cld = ""
+ echam_phy_config(1)%dt_mig = "${atmTimeStep}"
+ echam_phy_config(1)%dt_gwd = ""
+ echam_phy_config(1)%dt_sso = ""
+!
+! atmospheric chemistry (""=never)
+ echam_phy_config(1)%dt_mox = ""
+ echam_phy_config(1)%dt_car = ""
+ echam_phy_config(1)%dt_art = ""
+!
+! surface (.TRUE. or .FALSE.)
+ echam_phy_config(1)%ljsb   = ${ljsbach}
+ echam_phy_config(1)%lamip  = .TRUE.
+ echam_phy_config(1)%lice   = .TRUE.
+ echam_phy_config(1)%lsstice= .TRUE.
+ echam_phy_config(1)%lmlo   = .FALSE.
+ echam_phy_config(1)%llake  = ${llake}
+!
+! fix negative humidity
+ echam_phy_config(1)%iqneg_d2p = 2
+ echam_phy_config(1)%iqneg_p2d = 2
+! set htop_moist_proc also as top of graupel calculation
+! echam_phy_config(1)%zmaxcloudy = 22500.
+/
+&echam_rad_nml
+!
+! domain 1
+! --------
+!
+ echam_rad_config(1)%isolrad    =  1
+ echam_rad_config(1)%irad_h2o   =  1
+ echam_rad_config(1)%irad_co2   =  4
+ echam_rad_config(1)%irad_ch4   =  4
+ echam_rad_config(1)%irad_n2o   =  4
+ echam_rad_config(1)%irad_o3    =  8
+ echam_rad_config(1)%irad_o2    =  2
+ echam_rad_config(1)%irad_cfc11 =  4
+ echam_rad_config(1)%irad_cfc12 =  4
+ echam_rad_config(1)%irad_aero  = 18
+/
+&echam_gwd_nml
+/
+&echam_sso_nml
+/
+&echam_vdf_nml
+ echam_vdf_config(1)%pr0        =  0.7
+/
+&echam_cnv_nml
+/
+&echam_cld_nml
+/
+&echam_cop_nml
+ echam_cop_config(1)%cn1lnd     =  50.0
+ echam_cop_config(1)%cn2lnd     = 220.0
+ echam_cop_config(1)%cn1sea     =  50.0
+ echam_cop_config(1)%cn2sea     = 100.0
+ echam_cop_config(1)%cinhomi    =   1.0
+ echam_cop_config(1)%cinhoml1   =   1.0
+ echam_cop_config(1)%cinhoml2   =   1.0
+ echam_cop_config(1)%cinhoml3   =   1.0
+/
+&echam_mig_nml
+ echam_mig_config(1)%mu_rain        = 0.5
+ echam_mig_config(1)%rain_n0_factor = 0.1
+ echam_mig_config(1)%v0snow         = 25.
+! echam_mig_config(1)%zvz0i          = 1.25  ! Terminal fall velocity of ice  (original value of Heymsfield+Donner 1990: 3.29)
+/
+&echam_cov_nml
+ echam_cov_config(1)%icov       = 3     ! 0/1 cloud cover based on cloud water and ice
+ echam_cov_config(1)%cqx        = 1.e-6
+/
+&sea_ice_nml
+/
+EOF
+
+# land surface and soil
+# ---------------------
+cat > ${lnd_namelist} << EOF
+&jsb_model_nml
+  usecase         = "${jsbach_usecase}"
+  use_lakes       = ${llake}
+  fract_filename  = "bc_land_frac.nc"
+  l_compat401     = .TRUE.              ! TRUE: overwrites some of the settings below
+/
+&jsb_seb_nml
+  bc_filename     = 'bc_land_phys.nc'
+  ic_filename     = 'ic_land_soil.nc'
+/
+&jsb_rad_nml
+  use_alb_veg_simple = .TRUE.           ! Use TRUE for jsbach_lite, FALSE for jsbach_pfts
+  bc_filename     = 'bc_land_phys.nc'
+  ic_filename     = 'ic_land_soil.nc'
+/
+&jsb_turb_nml
+  bc_filename     = 'bc_land_phys.nc'
+  ic_filename     = 'ic_land_soil.nc'
+/
+&jsb_sse_nml
+  l_heat_cap_map  = .FALSE.
+  l_heat_cond_map = .FALSE.
+  l_heat_cap_dyn  = .TRUE.
+  l_heat_cond_dyn = .TRUE.
+  l_snow          = .TRUE.
+  l_dynsnow       = .TRUE.
+  l_freeze        = .FALSE.
+  l_supercool     = .FALSE.
+  bc_filename     = 'bc_land_soil.nc'
+  ic_filename     = 'ic_land_soil.nc'
+/
+&jsb_hydro_nml
+  bc_filename     = 'bc_land_soil.nc'
+  ic_filename     = 'ic_land_soil.nc'
+  bc_sso_filename = 'bc_land_sso.nc'
+/
+&jsb_assimi_nml
+  active          = .FALSE.             ! Use FALSE for jsbach_lite, TRUE for jsbach_pfts
+/
+&jsb_pheno_nml
+  scheme          = 'climatology'       ! scheme = logrop / climatology; use climatology for jsbach_lite
+  bc_filename     = 'bc_land_phys.nc'
+  ic_filename     = 'ic_land_soil.nc'
+/
+&jsb_carbon_nml
+  active                 = ${lcarbon}
+  bc_filename            = 'bc_land_carbon.nc'
+  ic_filename            = 'ic_land_carbon.nc'
+  read_cpools            = .FALSE.
+/
+&jsb_fuel_nml
+  active                 = .FALSE.
+  fuel_algorithm         = 1
+/
+&jsb_disturb_nml
+  active                  = .FALSE.
+  ic_filename             = 'ic_land_soil.nc'
+  bc_filename             = 'bc_land_phys.nc'
+  fire_algorithm          = 1
+  windbreak_algorithm     = 1
+  lburn_pasture           = .FALSE.
+/
+EOF
+
+#--------------------------------------------------------------------------------------------------
+
+# Define the atmosphere and land input
+# ------------------------------------
+
+# model files
+#
+add_link_file ${basedir}/data/lsdata.nc                                 ./
+add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
+
+# namelist files
+#
+add_required_file ${basedir}/run/${atm_namelist}                       ./
+add_required_file ${basedir}/run/${lnd_namelist}                        ./
+
+# dictionary file for output variable names
+#
+dict_file="dict.${EXPNAME}"
+cat dict.iconam.mpim  > ${dict_file}
+add_required_file ${basedir}/run/${dict_file}                           ./
+
+# initial conditions
+#
+# - atmosphere: ECMWF analysis, 2016-01-01T00:00:00Z
+datadir=${atmo_data_InputFolder}/initial_condition/r0002_fast
+add_link_file ${datadir}/ifs2icon_2016080100_${atmos_refinement}_G.nc   ./ifs2icon.nc
+#
+# - land: source?, date+time?
+datadir=${atmo_data_InputFolder}/land/r0002_fast
+add_link_file ${datadir}/ic_land_soil_1976.nc                           ./ic_land_soil.nc
+
+# boundary conditions
+#
+# - well mixed greenhouse gases
+datadir=${icon_data_poolFolder}/independent/greenhouse_gases
+add_link_file ${datadir}/greenhouse_historical_plus.nc                  ./bc_greenhouse_gases.nc
+#
+# range of years for yearly files
+# assume start_date and end_date have the format yyyy-...
+start_year=$(( ${start_date%%-*} - 1 ))
+end_year=$(( ${end_date%%-*} + 1 ))
+#
+# - ozone
+# -- for irad_o3=8
+datadir=${atmo_data_InputFolder}/ozone/r0002_fast
+#
+year=$start_year
+while [[ $year -le $end_year ]]
+do
+  add_link_file $datadir/bc_ozone_historical_2014.nc                  ./bc_ozone_${year}.nc
+  (( year = year+1 ))
+done
+#
+# - tropospheric anthropogenic aerosols, simple plumes
+  add_link_file ${basedir}/data/MACv2.0-SP_v1.nc ./MACv2.0-SP_v1.nc
+
+#   Kinne background aerosols are needed for the years 1849, 1850, 1851 
+#   accessing all the same data of 1850:
+datadir=${atmo_data_InputFolder}/aerosol_kinne/r0002_fast
+year=1849
+while [[ $year -le 1851 ]]
+do
+  add_link_file $datadir/bc_aeropt_kinne_lw_b16_coa.nc                  ./
+  add_link_file $datadir/bc_aeropt_kinne_sw_b14_coa.nc                  ./
+  add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_1850.nc             ./bc_aeropt_kinne_sw_b14_fin.nc
+  (( year = year+1 ))
+done
+#
+# - stratospheric aerosol (CMIP6)
+datadir=/pool/data/ICON/grids/public/mpim/independent/CMIP6Forcing
+#
+if [ ! -d $datadir ]; then
+  echo 'directory '$datadir' for stratospheric aerosol data does not exist'
+  exit -1
+fi	
+year=$start_year
+while [[ $year -le $end_year ]]
+do
+  if [[ $year -le 2014 ]]
+  then
+    add_link_file $datadir/bc_aeropt_cmip6_volc_lw_b16_sw_b14_${year}.nc  ./bc_aeropt_cmip6_volc_lw_b16_sw_b14_${year}.nc
+  else
+    add_link_file $datadir/bc_aeropt_cmip6_volc_lw_b16_sw_b14_2014.nc     ./bc_aeropt_cmip6_volc_lw_b16_sw_b14_${year}.nc
+  fi
+  (( year = year+1 ))
+done
+#
+# - sst and sic
+datadir=/work/mh0287/m214002/runmean_sst_r2b9
+add_link_file $datadir/sst-sic-runmean_0015_R02B09_G.nc                 ./sst-sic-runmean_G.nc
+#
+# - ssi and tsi
+datadir=${icon_data_poolFolder}/independent/solar_radiation/3.2
+add_link_file $datadir/swflux_14band_cmip6_1850-2299-v3.2.nc            ./bc_solar_irradiance_sw_b14.nc
+#
+# - land parameters
+datadir=${atmo_data_InputFolder}/land/r0002_fast
+add_link_file $datadir/bc_land_frac_${pft_file_tag}1976.nc              ./bc_land_frac.nc
+add_link_file $datadir/bc_land_phys_1976.nc                             ./bc_land_phys.nc
+add_link_file $datadir/bc_land_soil_1976.nc                             ./bc_land_soil.nc
+add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_land_sso.nc
+#
+# - lctlib file for JSBACH
+add_link_file ${basedir}/externals/jsbach/data/lctlib_nlct21.def        ./lctlib_nlct21.def
+#--------------------------------------------------------------------------------------------------
+
+# (5) Define the output
+
+# Parameters for all output files
+# -------------------------------
+cat >> ${atm_namelist} << EOF
+&io_nml
+ output_nml_dict  = "${dict_file}"
+ netcdf_dict      = "${dict_file}"
+ itype_pres_msl   = 4
+ restart_file_type= 5
+ restart_write_mode = "joint procs multifile"
+/
+EOF
+
+# Define output files
+# -------------------
+#
+# output_<xyz>=yes : yes --> output files for <xyz>, any other value --> no files for <xyz>
+#
+# 3-dimensional files include 'ps' and 'pfull' to allow the vertical
+# interpolation to pressure levels by cdo ap2pl.
+
+output_atm_vgrid=no
+#
+if [[ "$output_atm_vgrid" == "yes" ]]; then
+  #
+  cat >> ${atm_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_atm_vgrid"
+ filename_format  = "<output_filename>_<levtype_l>"
+ filetype         = 5
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"       ! output_start = output_end
+ output_end       = "${start_date}"       ! --> write once only irrespective of
+ output_interval  = "${output_interval}"  !     the output interval and
+ file_interval    = "${file_interval}"    !     the file interval
+ ml_varlist       = 'zghalf'  , 'zg'      , 'dzghalf'
+/
+EOF
+fi
+
+#--------------------------------------------------------------------------------------------------
+# Define output files for DYAMOND comparison
+# ------------------------------------------
+
+
+if [[ "$output_dyamond" == "yes" ]]; then
+  #
+  cat >> ${atm_namelist} << EOF
+&output_nml
+ output_filename              = "${EXPNAME}_atm_3d_u"
+ filename_format              = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype                     =  5                        ! output format: 2=GRIB2, 4=NETCDFv2 PN: 5:NetCDF with hdf5
+ file_interval                = "${file_interval}"
+ output_start                 = "${start_date}"
+ output_interval              = "${output_interval_3d}"
+ output_end                   = "${end_date}"
+ mode                         = 2
+ remap                        = 0                         ! 1: latlon,  0: native grid
+ include_last                 = .TRUE.
+ ml_varlist                   = 'ua'
+ m_levels                     = '14...(nlev+1)'
+ output_grid                  = .FALSE.
+/
+&output_nml
+ output_filename              = "${EXPNAME}_atm_3d_v"
+ filename_format              = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype                     =  5                        ! output format: 2=GRIB2, 4=NETCDFv2 PN: 5:NetCDF with hdf5
+ file_interval                = "${file_interval}"
+ output_start                 = "${start_date}"
+ output_interval              = "${output_interval_3d}"
+ output_end                   = "${end_date}"
+ mode                         = 2
+ remap                        = 0                         ! 1: latlon,  0: native grid
+ include_last                 = .TRUE.
+ ml_varlist                   = 'va'
+ m_levels                     = '14...(nlev+1)'
+ output_grid                  = .FALSE.
+/
+&output_nml
+ output_filename              = "${EXPNAME}_atm_3d_w"
+ filename_format              = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype                     =  5                        ! output format: 2=GRIB2, 4=NETCDFv2 PN: 5:NetCDF with hdf5
+ file_interval                = "${file_interval}"
+ output_start                 = "${start_date}"
+ output_interval              = "${output_interval_3d}"
+ output_end                   = "${end_date}"
+ mode                         = 2
+ remap                        = 0                         ! 1: latlon,  0: native grid
+ include_last                 = .TRUE.
+ ml_varlist                   = 'wap'
+ m_levels                     = '14...(nlev+1)'
+ output_grid                  = .FALSE.
+/
+&output_nml
+ output_filename              = "${EXPNAME}_atm_3d_pres"
+ filename_format              = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype                     =  5                        ! output format: 2=GRIB2, 4=NETCDFv2 PN 5: Netcdf with hdf5
+ file_interval                = "${file_interval}"
+ output_start                 = "${start_date}"
+ output_interval              = "${output_interval_3d}"
+ output_end                   = "${end_date}"
+ mode                         = 2
+ remap                        = 0                         ! 1: latlon,  0: native grid
+ include_last                 = .TRUE.
+ ml_varlist                   = 'pfull'
+ m_levels                     = '14...(nlev)'
+ output_grid                  = .FALSE.
+/
+&output_nml
+ output_filename              = "${EXPNAME}_atm_3d_t"
+ filename_format              = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype                     =  5                        ! output format: 2=GRIB2, 4=NETCDFv2 PN 5: Netcdf with hdf5
+ file_interval                = "${file_interval}"
+ output_start                 = "${start_date}"
+ output_interval              = "${output_interval_3d}"
+ output_end                   = "${end_date}"
+ mode                         = 2
+ remap                        = 0                         ! 1: latlon,  0: native grid
+ include_last                 = .TRUE.
+ ml_varlist                   = 'ta'
+ m_levels                     = '14...(nlev)'
+ output_grid                  = .FALSE.
+/
+&output_nml
+ output_filename              = "${EXPNAME}_atm_3d_qv"
+ filename_format              = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype                     =  5                        ! output format: 2=GRIB2, 4=NETCDFv2 PN 5: NetCDF with hdf5
+ file_interval                = "${file_interval}"
+ output_start                 = "${start_date}"
+ output_interval              = "${output_interval_3d}"
+ output_end                   = "${end_date}"
+ mode                         = 2
+ remap                        = 0                         ! 1: latlon,  0: native grid
+ include_last                 = .TRUE.
+ ml_varlist                   = 'hus'
+ m_levels                     = '14...(nlev)'
+ output_grid                  = .FALSE.
+/
+&output_nml
+ output_filename              = "${EXPNAME}_atm_3d_tot_qc_dia"
+ filename_format              = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype                     =  5                        ! output format: 2=GRIB2, 4=NETCDFv2 PN 5: NetCDF with hdf5
+ file_interval                = "${file_interval}"
+ output_start                 = "${start_date}"
+ output_interval              = "${output_interval_3d}"
+ output_end                   = "${end_date}"
+ mode                         = 2
+ remap                        = 0                         ! 1: latlon,  0: native grid
+ include_last                 = .TRUE.
+ ml_varlist                   = 'clw'
+ m_levels                     = '14...(nlev)'
+ output_grid                  = .FALSE.
+/
+&output_nml
+ output_filename              = "${EXPNAME}_atm_3d_tot_qi_dia"
+ filename_format              = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype                     =  5                        ! output format: 2=GRIB2, 4=NETCDFv2 PN 5: NetCDF with hdf5
+ file_interval                = "${file_interval}"
+ output_start                 = "${start_date}"
+ output_interval              = "${output_interval_3d}"
+ output_end                   = "${end_date}"
+ mode                         = 2
+ remap                        = 0                         ! 1: latlon,  0: native grid
+ include_last                 = .TRUE.
+ ml_varlist                   = 'cli'
+ m_levels                     = '14...(nlev)'
+ output_grid                  = .FALSE.
+/
+&output_nml
+ output_filename              = "${EXPNAME}_atm1_2d"
+ filename_format              = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype                     =  5                        ! output format: 2=GRIB2, 4=NETCDFv2 PN: Netcdf with hdf5
+ file_interval                = "${file_interval}"
+ output_start                 = "${start_date}"
+ output_interval              = "${output_interval_2d}"
+ output_end                   = "${end_date}"
+ remap                        = 0                         ! 1: latlon,  0: native grid
+ include_last                 = .TRUE.
+ ml_varlist                   = 'prw',  'cllvi', 'clivi'
+ output_grid                  = .FALSE.
+/
+&output_nml
+ output_filename              = "${EXPNAME}_atm3_2d"
+ filename_format              = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype                     =  5                        ! output format: 2=GRIB2, 4=NETCDFv2 PN: Netcdf with hdf5
+ file_interval                = "${file_interval}"
+ output_start                 = "${start_date}"
+ output_interval              = "${output_interval_2d}"
+ output_end                   = "${end_date}"
+ remap                        = 0                         ! 1: latlon,  0: native grid
+ include_last                 = .TRUE.
+ ml_varlist                   = 'uas', 'vas',    'tas'
+ output_grid                  = .FALSE.
+/
+&output_nml
+ output_filename              = "${EXPNAME}_atm2_2d"
+ filename_format              = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype                     =  5                        ! output format: 2=GRIB2, 4=NETCDFv2 PN: Netcdf with hdf5
+ file_interval                = "${file_interval}"
+ output_start                 = "${start_date}"
+ output_interval              = "${output_interval_2d}"
+ output_end                   = "${end_date}"
+ remap                        = 0                         ! 1: latlon,  0: native grid
+ include_last                 = .TRUE.
+ ml_varlist                   = 'clt',  'hfls',   'hfss', 'psl', 'ps', 'pr'
+ output_grid                  = .FALSE.
+/
+&output_nml
+ output_filename              = "${EXPNAME}_atm4_2d"
+ filename_format              = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype                     =  5                        ! output format: 2=GRIB2, 4=NETCDFv2 PN: Netcdf with hdf5
+ file_interval                = "${file_interval}"
+ output_start                 = "${start_date}"
+ output_interval              = "${output_interval_2d}"
+ output_end                   = "${end_date}"
+ remap                        = 0                         ! 1: latlon,  0: native grid
+ include_last                 = .TRUE.
+ ml_varlist                   = 'ts'
+ output_grid                  = .FALSE.
+/
+&output_nml
+ output_filename              = "${EXPNAME}_atm_2d_avg"
+ filename_format              = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype                     =  5                        ! output format: 2=GRIB2, 4=NETCDFv2 PN: Netcfd with hdf5
+ file_interval                = "${file_interval}"
+ output_start                 = "${start_date}"
+ output_interval              = "${output_interval_2d}"
+ output_end                   = "${end_date}"
+ remap                        = 0                         ! 1: latlon,  0: native grid
+ include_last                 = .TRUE
+ ml_varlist                   =  'rsut',  'rlut',  'rsds',  'rlds',  'rsus', 'rlus'
+ output_grid                  = .FALSE.
+/
+&output_nml
+ output_filename              = "${EXPNAME}_atm_omega_3d"
+ filename_format              = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype                     = 5                         ! output format: 2=GRIB2, 4=NETCDFv2 PN 5: netcfd with hdf5
+ file_interval                = "${file_interval}"
+ output_start                 = "${start_date}"
+ output_interval              = "${output_interval_pl}"
+ output_end                   = "${end_date}"
+ mode                         = 2
+ remap                        = 0
+ include_last                 = .TRUE.
+ pl_varlist                   = 'omega', 'zg'
+ p_levels                     = 20000,30000,50000,70000,85000
+ output_grid                  = .FALSE.
+/
+&output_nml
+ output_filename              = "${EXPNAME}_atm_rh_3d"
+ filename_format              = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype                     = 5                         ! output format: 2=GRIB2, 4=NETCDFv2 PN 5: netcfd with hdf5
+ file_interval                = "${file_interval}"
+ output_start                 = "${start_date}"
+ output_interval              = "${output_interval_pl}"
+ output_end                   = "${end_date}"
+ mode                         = 2
+ remap                        = 0
+ include_last                 = .TRUE.
+ pl_varlist                   = 'hur'
+ p_levels                     = 20000,30000,50000,70000,85000
+ output_grid                  = .FALSE.
+/
+EOF
+fi
+#
+#  AMIP output...
+#
+#
+if [[ "$output_atm_3d" == "yes" ]]; then
+  #
+  # split file in high number of files for speedup
+  #
+  cat >> ${atm_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_atm_3d_1"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
+ remap            = 0
+ operation        = 'mean'
+ output_grid      = .FALSE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${output_interval}"
+ file_interval    = "${file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'pfull'   , 'ta'      ,
+/
+&output_nml
+ output_filename  = "${EXPNAME}_atm_3d_2"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
+ remap            = 0
+ operation        = 'mean'
+ output_grid      = .FALSE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${output_interval}"
+ file_interval    = "${file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'ua'      , 'va'      ,
+/
+&output_nml
+ output_filename  = "${EXPNAME}_atm_3d_3"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
+ remap            = 0
+ operation        = 'mean'
+ output_grid      = .FALSE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${output_interval}"
+ file_interval    = "${file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'wap'     , 'cl'      ,
+/
+&output_nml
+ output_filename  = "${EXPNAME}_atm_3d_4"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
+ remap            = 0
+ operation        = 'mean'
+ output_grid      = .FALSE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${output_interval}"
+ file_interval    = "${file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'hus'     , 'clw'     ,
+/
+&output_nml
+ output_filename  = "${EXPNAME}_atm_3d_5"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
+ remap            = 0
+ operation        = 'mean'
+ output_grid      = .FALSE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${output_interval}"
+ file_interval    = "${file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'cli'     , 'qr'      ,
+/
+&output_nml
+ output_filename  = "${EXPNAME}_atm_3d_6"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
+ remap            = 0
+ operation        = 'mean'
+ output_grid      = .FALSE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${output_interval}"
+ file_interval    = "${file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'qs'      , 'qg'      ,
+/
+EOF
+fi
+
+#
+if [[ "$output_atm_2d" == "yes" ]]; then
+  #
+  cat >> ${atm_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_atm_2d"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
+ remap            = 0
+ operation        = 'mean'
+ output_grid      = .FALSE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${output_interval}"
+ file_interval    = "${file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'orog'    ,
+                    'ps'      , 'psl'     ,
+                    'cosmu0'  ,
+                    'rsdt'    ,
+                    'rsut'    , 'rsutcs'  , 'rlut'    , 'rlutcs'  ,
+                    'rsds'    , 'rsdscs'  , 'rlds'    , 'rldscs'  ,
+                    'rsus'    , 'rsuscs'  , 'rlus'    ,
+                    'ts'      ,
+                    'sic'     , 'sit'     ,
+                    'albedo'  ,
+                    'clt'     ,
+                    'prlr'    , 'prls'    ,
+                    'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
+                    'qgvi'    , 'qrvi'    , 'qsvi'    ,
+                    'hfls'    , 'hfss'    , 'evspsbl' ,
+                    'tauu'    , 'tauv'    ,
+                    'sfcwind' , 'uas'     , 'vas'     ,
+                    'tas'     , 'dew2'    ,
+/
+EOF
+fi
+
+
+#
+if [[ "$output_phy_3d" == "yes" ]]; then
+  #
+  cat >> ${atm_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_phy_3d"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
+ remap            = 0
+ operation        = 'mean'
+ output_grid      = .FALSE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${output_interval}"
+ file_interval    = "${file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'ps'           , 'pfull'        , 'zg'           ,
+                    'tend_ta'      , 'tend_qhus'    ,
+                    'tend_ta_dyn'  , 'tend_qhus_dyn',
+                    'tend_ta_phy'  , 'tend_qhus_phy',
+                    'tend_ta_rlw'  , 'tend_ta_rsw'  ,
+                    'tend_ta_vdf'  , 'tend_qhus_vdf',
+                    'tend_ta_mig'  , 'tend_qhus_mig',
+                    'tend_qclw_mig', 'tend_qcli_mig',
+                    'tend_qqr_mig' , 'tend_qqs_mig' , 'tend_qqg_mig' ,
+/
+EOF
+fi
+
+
+# minimal jsbach output for running atm_amip experiment
+# for more jsbach output see exp.atm_amip_les
+#
+#
+if [[ "$output_lnd" == "yes" ]]; then
+  cat >> ${atm_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_lnd"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
+ remap            = 0
+ operation        = 'mean'
+ output_grid      = .FALSE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${output_interval}"
+ file_interval    = "${file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'pheno_lai_box'         , 'pheno_fract_fpc_veg'         , 'hydro_fract_water_box' ,
+                    'hydro_fract_snow_box'  , 'hydro_w_skin_box'            , 'hydro_w_snow_box'      ,
+                    'hydro_w_soil_column_box'
+/
+EOF
+fi
+#--------------------------------------------------------------------------------------------------

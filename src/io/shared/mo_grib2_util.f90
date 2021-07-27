@@ -17,7 +17,7 @@
 MODULE mo_grib2_util
 
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
-  USE mo_exception,          ONLY: finish, message, message_text
+  USE mo_exception,          ONLY: finish
   USE mo_cdi,                ONLY: streamInqVlist, vlistInqVarTypeOfGeneratingProcess,  &
                                  & vlistInqVarTsteptype, vlistInqTaxis, taxisInqTunit,  &
                                  & TSTEP_CONSTANT, TSTEP_AVG, TSTEP_ACCUM, TSTEP_MAX,   &
@@ -30,19 +30,16 @@ MODULE mo_grib2_util
     &                              CLASS_CHEM, CLASS_TILE_LAND,              &
     &                              CLASS_CHEM_STAT, CLASS_CHEM_OPTP,         &
     &                              CLASS_DISTR, CLASS_DISTR_STAT
-  USE mo_action,             ONLY: ACTION_RESET, getActiveAction
+  USE mo_action_types,       ONLY: ACTION_RESET, getActiveAction
   USE mo_util_string,        ONLY: one_of
 #ifndef __NO_ICON_ATMO__
   USE mo_lnd_nwp_config,     ONLY: tile_list
   USE mo_nwp_sfc_tiles,      ONLY: t_tileinfo_icon, t_tileinfo_grb2
 #endif
+  USE mo_grib2_tile,         ONLY: t_grib2_template_tile
   ! calendar operations
-  USE mtime,                 ONLY: timedelta, newTimedelta,                 &
-    &                              datetime, newDatetime,                   &
-    &                              deallocateTimedelta, deallocateDatetime, &
-    &                              MAX_DATETIME_STR_LEN,                    &
-    &                              MAX_DATETIME_STR_LEN,                    &
-    &                              OPERATOR(-)
+  USE mtime,                 ONLY: timedelta, datetime,                &
+    &                              OPERATOR(-), getTotalSecondsTimeDelta 
 
   IMPLICIT NONE
 
@@ -84,6 +81,7 @@ CONTAINS
     ! Load correct tables
     !
     CALL vlistDefVarIntKey(vlistID, varID, "tablesVersion", grib_conf%tablesVersion)
+    CALL vlistDefVarIntKey(vlistID, varID, "localTablesVersion", grib_conf%localTablesVersion)    
     !
     CALL vlistDefVarIntKey(vlistID, varID, "significanceOfReferenceTime",     &
       &                    grib_conf%significanceOfReferenceTime)
@@ -308,7 +306,7 @@ CONTAINS
     CASE (CLASS_DISTR)
       productDefinitionTemplate = 57
     CASE (CLASS_DISTR_STAT)
-      productDefinitionTemplate = 40067  ! FIXME (temporary, see also mo_art_diag_state.f90)
+      productDefinitionTemplate = 67
     CASE DEFAULT
       ! skip inapplicable fields
       RETURN
@@ -327,7 +325,6 @@ CONTAINS
   END SUBROUTINE set_GRIB2_chem_keys
 
 
-
   !>
   !! Set tile-specific keys
   !!
@@ -335,12 +332,17 @@ CONTAINS
   !!
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2014-01-20)
+  !! Modification by Daniel Reinert, DWD (2019-05-13)
+  !! * Replace hardcoded GRIB2 tile keys (names) by grib2_template_tile%keys.
+  !!   Due to this generalization, it is possible to use either our local 
+  !!   DWD tile templates or the official WMO ones for writing tiled data sets. 
   !!
-  SUBROUTINE set_GRIB2_tile_keys (vlistID, varID, info, i_lctype)
+  SUBROUTINE set_GRIB2_tile_keys (vlistID, varID, info, i_lctype, grib2_template_tile)
 
-    INTEGER,                INTENT(IN) :: vlistID, varID
-    TYPE (t_var_metadata),  INTENT(IN) :: info
-    INTEGER,                INTENT(IN) :: i_lctype  !< Tile classification
+    INTEGER,                     INTENT(IN) :: vlistID, varID
+    TYPE (t_var_metadata),       INTENT(IN) :: info
+    INTEGER,                     INTENT(IN) :: i_lctype  !< Tile classification
+    TYPE(t_grib2_template_tile), INTENT(IN) :: grib2_template_tile ! set of allowed tile templates
 
 #ifndef __NO_ICON_ATMO__
     ! local
@@ -359,21 +361,42 @@ CONTAINS
     !
     IF (typeOfGeneratingProcess == 4) THEN
       ! ensemble
-      productDefinitionTemplate = 40456     ! FIXME (temporary)
+      productDefinitionTemplate = grib2_template_tile%tpl_inst_ens
     ELSE
       ! deterministic
-      productDefinitionTemplate = 40455     ! FIXME (temporary)
+      productDefinitionTemplate = grib2_template_tile%tpl_inst
     ENDIF
+
+! use the following IF condition, once the WMO tile templates for statistical processing 
+! become available (validation by WMO pending).
+!
+!!$    IF (typeOfGeneratingProcess == 4) THEN
+!!$      ! ensemble
+!!$      IF (ANY((/TSTEP_MAX, TSTEP_MIN, TSTEP_AVG, TSTEP_ACCUM/) == info%isteptype)) THEN
+!!$        productDefinitionTemplate = grib2_template_tile%tpl_acc_ens
+!!$      ELSE
+!!$        productDefinitionTemplate = grib2_template_tile%tpl_inst_ens
+!!$      ENDIF
+!!$    ELSE
+!!$      ! deterministic
+!!$      IF (ANY((/TSTEP_MAX, TSTEP_MIN, TSTEP_AVG, TSTEP_ACCUM/) == info%isteptype)) THEN
+!!$        productDefinitionTemplate = grib2_template_tile%tpl_acc
+!!$      ELSE
+!!$        productDefinitionTemplate = grib2_template_tile%tpl_inst
+!!$      ENDIF
+!!$    ENDIF
+
     CALL vlistDefVarProductDefinitionTemplate(vlistID, varID, productDefinitionTemplate)
 
     ! Set tile classification
-    CALL vlistDefVarIntKey(vlistID, varID, "tileClassification" , i_lctype)
+    CALL vlistDefVarIntKey(vlistID, varID, TRIM(grib2_template_tile%keys%tileClassification), i_lctype)
 
     ! Set total number of tile/attribute pairs
-    CALL vlistDefVarIntKey(vlistID, varID, "totalNumberOfTileAttributePairs" , info%maxcontained)
+    CALL vlistDefVarIntKey(vlistID, varID, TRIM(grib2_template_tile%keys%totalNumberOfTileAttributePairs), &
+      &                    info%maxcontained)
 
     ! Set number of used tiles
-    CALL vlistDefVarIntKey(vlistID, varID, "numberOfTiles" , &
+    CALL vlistDefVarIntKey(vlistID, varID, TRIM(grib2_template_tile%keys%numberOfUsedSpatialTiles), &
       &                    tile_list%getNumberOfTiles(varClass=info%var_class))
 
     ! get the following attributes:
@@ -387,22 +410,25 @@ CONTAINS
     natt          = tile_list%getNumberOfTileAttributes( t_tileinfo_icon(info%ncontained) )
 
     ! Set tile index
-    CALL vlistDefVarIntKey(vlistID, varID, "tileIndex" , tileinfo_grb2%idx)
+    CALL vlistDefVarIntKey(vlistID, varID, TRIM(grib2_template_tile%keys%tileIndex), tileinfo_grb2%idx)
 
     ! Set total number of tile attributes for given tile
-    CALL vlistDefVarIntKey(vlistID, varID, "numberOfTileAttributes" , natt)
+    CALL vlistDefVarIntKey(vlistID, varID, TRIM(grib2_template_tile%keys%numberOfUsedTileAttributes), natt)
 
     ! Set tile attribute
-    CALL vlistDefVarIntKey(vlistID, varID, "tileAttribute" , tileinfo_grb2%att)
+    CALL vlistDefVarIntKey(vlistID, varID, TRIM(grib2_template_tile%keys%attributeOfTile), &
+      &                    tileinfo_grb2%att)
 #endif
 
   END SUBROUTINE set_GRIB2_tile_keys
 
 
+
+
   !------------------------------------------------------------------------------------------------
   !> Set additional, time-dependent GRIB2 keys
   !!  
-  !!  This subroutine sets all GRIB2 keys that may change during the
+  !!  This subroutine sets GRIB2 keys that may change during the
   !!  simulation. Currently this is the case for the start and end time 
   !!  of the statistical process interval.
   !!
@@ -420,25 +446,24 @@ CONTAINS
   !!  @author D. Reinert, F. Prill (DWD)
   !!
   !!  CAVEATs
-  !!
   !!  - we implicitly assume that actions are ordered according to increasing forecast time.
-  !!  - we implicitly assume that the statistical process time range is always smaller than one month
   !!
   SUBROUTINE set_GRIB2_timedep_keys(streamID, varID, info, start_date, cur_date)
     INTEGER                             ,INTENT(IN) :: streamID, varID
     TYPE (t_var_metadata)               ,INTENT(IN) :: info
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) ,INTENT(IN) :: start_date, cur_date
+    !> model start (initialization) time
+    TYPE(datetime), INTENT(IN) :: start_date
+    !> model current time (rounded)
+    TYPE(datetime), INTENT(IN) :: cur_date
     ! local variables
-    TYPE(timedelta), POINTER      :: mtime_lengthOfTimeRange       ! length of time range (mtime format)
+    TYPE(timedelta)               :: mtime_lengthOfTimeRange       ! length of time range (mtime format)
     INTEGER                       :: ilengthOfTimeRange_secs       ! length of time range in seconds
     INTEGER                       :: ilengthOfTimeRange            ! length of time range in appropriate time units
     INTEGER                       :: taxis_tunit                   ! time axis units
     INTEGER                       :: vlistID, taxisID
-    TYPE(timedelta), POINTER      :: forecast_delta                ! forecast time (mtime format)
+    TYPE(timedelta)               :: forecast_delta                ! forecast time (mtime format)
     INTEGER                       :: forecast_secs                 ! forecast time in seconds
     INTEGER                       :: forecast_time                 ! forecast time in appropriate time units
-    TYPE(datetime),  POINTER      :: mtime_start                   ! model start (initialization) time
-    TYPE(datetime),  POINTER      :: mtime_cur                     ! model current time (rounded)
     TYPE(datetime)                :: statProc_startDateTime        ! statistical process starting DateTime
     INTEGER                       :: var_actionId                  ! action from which metainfo is used
     CHARACTER(len=*), PARAMETER   :: routine = 'set_GRIB2_timedep_keys'
@@ -446,7 +471,13 @@ CONTAINS
     ! special fields for which time-dependent metainfos should be set even though they are not of 
     ! steptype TSTEP_MAX or TSTEP_MIN. These fields are special in the sense that averaging is not 
     ! performed over the entire model run but over only some intervals.
-    CHARACTER(LEN=8) :: ana_avg_vars(5) = (/"u_avg   ", "v_avg   ", "pres_avg", "temp_avg", "qv_avg  "/)
+    CHARACTER(LEN=17) :: ana_avg_vars(18) = (/"u_avg            ", "v_avg            ", "pres_avg         ",&
+                                            & "temp_avg         ", "qv_avg           ", "rain_gsp         ",&
+                                            & "snow_gsp         ", "graupel_gsp      ", "ice_gsp          ",&
+                                            & "hail_gsp         ", "prec_gsp         ", "rain_con         ",&
+                                            & "snow_con         ", "prec_con         ", "tot_prec         ",&
+                                            & "prec_con_rate_avg", "prec_gsp_rate_avg", "tot_prec_rate_avg"/)
+
 
     !---------------------------------------------------------
     ! Set time-dependent metainfo
@@ -458,6 +489,19 @@ CONTAINS
     IF ((ALL((/TSTEP_MAX, TSTEP_MIN/) /= info%isteptype)) .AND. &
       & (one_of(TRIM(info%name),ana_avg_vars) == -1) ) RETURN
 
+    ! DR
+    ! less cumbersome solution, which does no longer skip variables of type 
+    ! TSTEP_AVG, TSTEP_ACCUM. By this, the manual list ana_avg_vars becomes superfluous.
+    !
+    ! This version differs from the current version (see above) by the fact that 
+    ! forecastTime and lengthOfTimeRange are set for ALL statistically processed variables 
+    ! and not only for those of type TSTEP_MAX, TSTEP_MIN and members of the list ana_avg_vars.
+    !
+    ! First tests showed that metadata for variables of type TSTEP_AVG, TSTEP_ACCUM are 
+    ! still correct. Putting it the other way around: It is not clear 
+    ! to me why with the currently active version the keys forecastTime and lengthOfTimeRange are 
+    ! set correctly for variables of type TSTEP_AVG, TSTEP_ACCUM.
+    !IF ((ALL((/TSTEP_MAX, TSTEP_MIN, TSTEP_AVG, TSTEP_ACCUM/) /= info%isteptype))) RETURN
 
     ! get vlistID. Note that the stream-internal vlistID must be used. 
     ! It is obtained via streamInqVlist(streamID)
@@ -465,16 +509,11 @@ CONTAINS
     taxisID     = vlistInqTaxis(vlistID)
     taxis_tunit = taxisInqTunit(taxisID)
 
-    ! get current DateTime (rounded)
-    mtime_cur   => newDatetime(TRIM(cur_date))
-    ! get model start date
-    mtime_start => newDatetime(TRIM(start_date))
-
     IF (info%action_list%n_actions > 0) THEN
 
       ! more than one RESET action may be defined for a single variable.
       ! get ID of currently active RESET action
-      var_actionId = getActiveAction(info, ACTION_RESET, mtime_cur)
+      var_actionId = getActiveAction(info%action_list, ACTION_RESET, cur_date)
 
       IF (var_actionId == -1) THEN
         write(0,*) 'set_timedependent_GRIB2_keys: no active action of type ACTION_RESET found. '//&
@@ -486,40 +525,32 @@ CONTAINS
       ! the statistical process starting time
       statProc_startDateTime = info%action_list%action(var_actionId)%EventLastTriggerDate
 
-
-      ! get time interval, over which statistical process has been performed
-      ! It is the time difference between the current time (rounded) mtime_cur and 
-      ! the last time the nullify-action took place (rounded) statProc_startDateTime.
-      mtime_lengthOfTimeRange  => newTimedelta("P01D")  ! init
-      !
-      ! mtime_lengthOfTimeRange = mtime_cur - statProc_startDateTime
-      mtime_lengthOfTimeRange = mtime_cur - statProc_startDateTime
-
-      ! time interval over which statistical process has been performed (in secs)    
-      ilengthOfTimeRange_secs = 86400 *INT(mtime_lengthOfTimeRange%day)    &
-           &                  + 3600  *INT(mtime_lengthOfTimeRange%hour)   &
-           &                  + 60    *INT(mtime_lengthOfTimeRange%minute) &
-           &                  +        INT(mtime_lengthOfTimeRange%second) 
-           
-
-      ! cleanup
-      CALL deallocateTimedelta(mtime_lengthOfTimeRange)
     ELSE
-      ilengthOfTimeRange_secs = 0
-    END IF
+      ! If there is no RESET action available, it is assumed that the 
+      ! statistical process start time is equal to the model start time
+      statProc_startDateTime = start_date
+    ENDIF
+
+
+    ! get time interval, over which statistical process has been performed
+    ! It is the time difference between the current time (rounded) cur_date and 
+    ! the last time the nullify-action took place (rounded) statProc_startDateTime.
+    ! mtime_lengthOfTimeRange = current time - statistical process start time
+    mtime_lengthOfTimeRange = cur_date - statProc_startDateTime
+
+    ! time interval over which statistical process has been performed (in secs)    
+    ilengthOfTimeRange_secs = INT(getTotalSecondsTimeDelta(mtime_lengthOfTimeRange, &
+      &                                                statProc_startDateTime)      &
+      &                           )
 
 
     ! get forecast_time: forecast_time = statProc_startDateTime - model_startDateTime
     ! Note that for statistical quantities, the forecast time is the time elapsed between the 
     ! model start time and the start time of the statistical process
-    forecast_delta => newTimedelta("P01D")
-    forecast_delta = statProc_startDateTime - mtime_start
+    forecast_delta = statProc_startDateTime - start_date
 
     ! forecast time in seconds
-    forecast_secs =    forecast_delta%second    +   &
-      &             60*(forecast_delta%minute   +   & 
-      &                 60*(forecast_delta%hour +   &
-      &                       24*forecast_delta%day))
+    forecast_secs = INT(getTotalSecondsTimeDelta(forecast_delta, start_date))
 
 
     SELECT CASE (taxis_tunit)
@@ -546,10 +577,6 @@ CONTAINS
     ! It is always set identical to "indicatorOfUnitOFTimeRange"
 
 
-    ! cleanup
-    CALL deallocateDatetime(mtime_start)
-    CALL deallocateDatetime(mtime_cur)
-    CALL deallocateTimedelta(forecast_delta)
 
   END SUBROUTINE set_GRIB2_timedep_keys
 

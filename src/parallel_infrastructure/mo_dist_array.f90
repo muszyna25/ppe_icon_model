@@ -46,6 +46,10 @@
 ! NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 ! SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 !
+#if defined (__SX__) || defined (__NEC_VH__)
+#define __SXorVH__
+#endif
+
 MODULE ppm_distributed_array
   USE mo_kind, ONLY: i4, i8, sp, dp
   USE mo_mpi, ONLY: mp_i4_extent => p_int_i4_byte, &
@@ -57,7 +61,10 @@ MODULE ppm_distributed_array
        ppm_real_sp => p_real_sp, &
        ppm_int => p_int, &
        ppm_int_i8 => p_int_i8, &
-       ppm_bool => p_bool
+       ppm_bool => p_bool, p_pe
+#ifdef __BLOCK_GET__
+  USE mo_mpi, ONLY: p_comm_work
+#endif
   USE ppm_extents, ONLY: extent, extent_shape, extent_size, is_contained_in, &
        extent_start
   USE iso_c_binding, ONLY: c_ptr, c_f_pointer
@@ -143,6 +150,39 @@ MODULE ppm_distributed_array
     TYPE(dm_array_cache_entry), ALLOCATABLE :: cache(:)
   END TYPE dist_mult_array
 
+#ifdef __SXorVH__
+  INTEGER :: old_dist = 0
+#endif
+#ifdef __BLOCK_GET__
+  TYPE iptr
+    INTEGER(i4), ALLOCATABLE, DIMENSION(:) :: lst
+    INTEGER :: maxelem
+  END TYPE iptr 
+  TYPE i8ptr
+    INTEGER(i8), ALLOCATABLE, DIMENSION(:) :: lst
+  END TYPE i8ptr 
+  TYPE dpptr
+    REAL(dp), ALLOCATABLE, DIMENSION(:) :: lst
+  END TYPE dpptr 
+  INTEGER :: comm_0_cnt, comm_0_cnt_dp
+  INTEGER,ALLOCATABLE :: comm_cnt(:), comm_cnt_dp(:)
+  TYPE(iptr), ALLOCATABLE :: comm_lst(:)
+  TYPE(iptr), ALLOCATABLE :: comm_lst_dp(:)
+  TYPE(iptr),ALLOCATABLE :: recv_array(:)
+  TYPE(dpptr),ALLOCATABLE :: recv_array_dp(:)
+  INTEGER, ALLOCATABLE :: ones(:)
+  INTEGER, ALLOCATABLE :: proc_lst(:,:,:), proc_lst_dp(:,:,:)
+  INTEGER, ALLOCATABLE :: ind_lst(:,:,:), ind_lst_dp(:,:,:)
+  INTEGER, ALLOCATABLE :: index_int_array(:)
+  INTEGER, ALLOCATABLE :: index_dbl_array(:)
+  ! variables for a more intelligent allocation process
+  INTEGER :: lstblksizei4 = 100
+  INTEGER :: lstblksizedp = 100
+  
+  PUBLIC :: recv_array, proc_lst, ind_lst
+  PUBLIC :: recv_array_dp, proc_lst_dp, ind_lst_dp
+#endif
+
   PUBLIC ppm_real_dp, ppm_real_sp, ppm_int, ppm_int_i8, ppm_bool
 
   PUBLIC :: dist_mult_array, global_array_desc
@@ -150,7 +190,10 @@ MODULE ppm_distributed_array
   PUBLIC :: dist_mult_array_local_ptr, dist_mult_array_get
   PUBLIC :: dist_mult_array_expose, dist_mult_array_unexpose
   PUBLIC :: dist_mult_array_rma_sync
-
+#ifdef __BLOCK_GET__
+  PUBLIC :: dist_mult_array_get_i4_blk, dist_mult_init_blk_comm, dist_mult_do_blk_comm, dist_mult_end_blk_comm
+  PUBLIC :: dist_mult_array_get_dp_blk, dist_mult_init_blk_comm_dp, dist_mult_do_blk_comm_dp, dist_mult_end_blk_comm_dp
+#endif
 
   !> @brief get POINTER to local portion of sub-array
   !!
@@ -768,6 +811,12 @@ CONTAINS
     INTEGER :: rank, ref_rank
 
     INTEGER :: comm_rank, comm_size, max_dist, dist
+#ifdef __SXorVH__
+    INTEGER :: start_dist
+
+    ! load dist that was successful in last last call
+    start_dist = old_dist 
+#endif
 
     comm_rank = dm_array%comm_rank
     comm_size = dm_array%comm_size
@@ -775,16 +824,43 @@ CONTAINS
     ref_rank = dm_array%sub_arrays_global_desc(sub_array)%a_rank
     DO dist = 0, max_dist
       IF (is_contained_in(coord, dm_array%local_chunks(1:ref_rank, sub_array, &
+#ifndef __SXorVH__
+           MOD(comm_rank + dist, comm_size)))) THEN
+        rank = MOD(comm_rank + dist, comm_size)
+#else
+           MODULO(comm_rank + start_dist + dist, comm_size)))) THEN
+        old_dist = start_dist + dist
+        rank = MODULO(comm_rank + old_dist, comm_size)
+#endif
+        RETURN
+      ELSE IF (is_contained_in(coord, dm_array%local_chunks(1:ref_rank, sub_array, &
+#ifndef __SXorVH__
+           MODULO(comm_rank - dist, comm_size)))) THEN
+        rank = MODULO(comm_rank - dist, comm_size)
+#else
+           MODULO(comm_rank + start_dist - dist, comm_size)))) THEN
+        old_dist = start_dist - dist
+        rank = MODULO(comm_rank + old_dist, comm_size)
+#endif
+        RETURN
+      END IF
+    END DO
+#ifdef __SXorVH__
+! For debugging: second try without search optimization if first try was unsuccessful
+    write(0,*) 'PROBLEM: repeated search in SR dist_mult_array_coord2rank because the first one was unsuccessful', &
+     'comm_rank = ',comm_rank, 'comm_size = ', comm_size, 'max_dist = ', max_dist, 'ref_rank = ', ref_rank, 'p_pe =', p_pe
+    DO dist = 0, max_dist
+      IF (is_contained_in(coord, dm_array%local_chunks(1:ref_rank, sub_array, &
            MOD(comm_rank + dist, comm_size)))) THEN
         rank = MOD(comm_rank + dist, comm_size)
         RETURN
-      ELSE IF (is_contained_in(coord, &
-           dm_array%local_chunks(1:ref_rank, sub_array, &
+      ELSE IF (is_contained_in(coord, dm_array%local_chunks(1:ref_rank, sub_array, &
            MODULO(comm_rank - dist, comm_size)))) THEN
         rank = MODULO(comm_rank - dist, comm_size)
         RETURN
       END IF
     END DO
+#endif
     rank = -1
     CALL abort_ppm("invalid coordinate", &
          __FILE__, &
@@ -1224,6 +1300,146 @@ CONTAINS
     END IF
 
   END SUBROUTINE dist_mult_array_get_deferred_i4
+
+#ifdef __BLOCK_GET__
+  !NEC: replacement for dist_mult_array_get_deferred_i4: where all data is
+  !stored instead of get directly
+  SUBROUTINE dist_mult_array_get_i4_blk(dm_array, sub_array, coord, v, proc, ind)
+    TYPE(dist_mult_array), INTENT(inout) :: dm_array
+    INTEGER, INTENT(in) :: sub_array
+    INTEGER, INTENT(in) :: coord(:)
+    INTEGER(i4), INTENT(out) :: v
+    INTEGER, INTENT(inout) :: proc 
+    INTEGER, INTENT(inout) :: ind 
+
+    INTEGER(mpi_address_kind) :: byte_offset, ofs_factor
+    INTEGER :: coord_base(7), a_rank, i
+    TYPE(dm_array_cache_entry) :: cache_entry
+    INTEGER :: src_comm_rank, comm, dt, ierror
+    TYPE(c_ptr) :: baseptr_c
+    INTEGER(i4), POINTER :: baseptr
+    INTEGER :: omaxsize
+    INTEGER, ALLOCATABLE, DIMENSION(:) :: tmparr
+    comm = dm_array%comm
+    src_comm_rank = dist_mult_array_coord2rank(dm_array, sub_array, coord)
+    ALLOCATE(cache_entry%offset(dm_array%num_sub_arrays))
+    CALL compute_cache_addr(cache_entry, dm_array%sub_arrays_global_desc, &
+         dm_array%local_chunks(:, :, src_comm_rank), dm_array%dt_info)
+    a_rank = dm_array%sub_arrays_global_desc(sub_array)%a_rank
+!$NEC novector
+    coord_base(1:a_rank) &
+         = dm_array%local_chunks(1:a_rank, sub_array, src_comm_rank)%first
+    byte_offset = cache_entry%offset(sub_array)
+    ofs_factor = dm_array%dt_info(sub_array)%extent
+!$NEC novector
+    DO i = 1, a_rank
+      byte_offset = byte_offset + (coord(i) - coord_base(i)) * ofs_factor
+      ofs_factor = ofs_factor &
+           * INT(dm_array%local_chunks(i, sub_array, src_comm_rank)%size, &
+           &     mpi_address_kind)
+    END DO
+    dt = dm_array%sub_arrays_global_desc(sub_array)%element_dt
+
+    IF (src_comm_rank == dm_array%comm_rank) THEN
+      comm_0_cnt = comm_0_cnt + 1
+      baseptr_c = TRANSFER(dm_array%cache(0)%base + byte_offset, baseptr_c)
+      CALL C_F_POINTER(baseptr_c, baseptr)
+#ifndef __COMM_OPT__
+      CALL mpi_sendrecv(baseptr, 1, dt, 0, 0, v, 1, dt, 0, 0, &
+           mpi_comm_self, mpi_status_ignore, ierror)
+      CALL handle_mpi_error(ierror, comm, __LINE__)
+#else
+      v = baseptr
+#endif
+    ELSE
+      comm_cnt(src_comm_rank) = comm_cnt(src_comm_rank) + 1
+      IF (comm_cnt(src_comm_rank) > comm_lst(src_comm_rank)%maxelem) THEN 
+        !NEC: reallocation procedure in order to save some memory; tuned, to be efficient
+        IF (ALLOCATED(comm_lst(src_comm_rank)%lst)) THEN
+          omaxsize = comm_lst(src_comm_rank)%maxelem
+          ALLOCATE(tmparr(omaxsize))
+          tmparr = comm_lst(src_comm_rank)%lst
+          DEALLOCATE(comm_lst(src_comm_rank)%lst)
+          comm_lst(src_comm_rank)%maxelem = INT(1.41*omaxsize)
+          ALLOCATE(comm_lst(src_comm_rank)%lst(comm_lst(src_comm_rank)%maxelem))
+          DO i = 1, omaxsize
+            comm_lst(src_comm_rank)%lst(i) = tmparr(i)
+          END DO
+          DEALLOCATE(tmparr)
+        ELSE
+          comm_lst(src_comm_rank)%maxelem = lstblksizei4
+          ALLOCATE(comm_lst(src_comm_rank)%lst(comm_lst(src_comm_rank)%maxelem))
+        END IF
+      END IF
+     !NEC: store offset and return proc and the access number to this proc
+      comm_lst(src_comm_rank)%lst(comm_cnt(src_comm_rank)) = byte_offset
+      proc = src_comm_rank
+      ind = comm_cnt(src_comm_rank)
+    END IF
+
+  END SUBROUTINE dist_mult_array_get_i4_blk
+
+  !NEC: initializes data structure for blocked communication
+  SUBROUTINE dist_mult_init_blk_comm(dim1, dim2, dim3, dm_array)
+    TYPE(dist_mult_array), INTENT(in) :: dm_array
+    INTEGER, INTENT(in) :: dim1, dim2, dim3
+    !comm_max = dim1 * dim2 * dim3 
+    ALLOCATE(comm_cnt(0:dm_array%comm_size-1), comm_lst(0:dm_array%comm_size-1), &
+             recv_array(0:dm_array%comm_size-1), index_int_array(0:dm_array%comm_size-1))
+    comm_lst(:)%maxelem = 0
+    comm_0_cnt = 0
+    comm_cnt = 0
+    ALLOCATE(proc_lst(dim1, dim2, dim3), ind_lst(dim1, dim2,dim3))
+    proc_lst = -1
+  END SUBROUTINE dist_mult_init_blk_comm
+
+  !NEC: executes blocked communcation
+  SUBROUTINE dist_mult_do_blk_comm(dm_array)
+    TYPE(dist_mult_array), INTENT(in) :: dm_array
+    INTEGER :: i, j, ierr
+    INTEGER, SAVE :: tsize = 0
+
+   !NEC: Only allocate "ones" once to save time
+    ALLOCATE(ones(MAXVAL(comm_cnt)))
+    ones = 1
+   !NEC: Store MPI type size assuming it is not changing on a process during a run
+    IF (tsize == 0) CALL MPI_TYPE_SIZE(MPI_INTEGER, tsize, ierr)
+    DO i = 0, dm_array%comm_size-1
+      IF (ALLOCATED(comm_lst(i)%lst)) THEN
+        !NEC: Make byte offset list into type offset list to be portable
+        DO j = 1,comm_cnt(i)
+          comm_lst(i)%lst(j) = comm_lst(i)%lst(j) / tsize
+        END DO
+        call MPI_TYPE_INDEXED(comm_cnt(i), ones, comm_lst(i)%lst, MPI_INTEGER, index_int_array(i), ierr)
+        call MPI_TYPE_COMMIT(index_int_array(i), ierr)
+        ALLOCATE(recv_array(i)%lst(comm_cnt(i)))
+        call MPI_GET(recv_array(i)%lst, comm_cnt(i), MPI_INTEGER, &
+                     i, 0_mpi_address_kind, 1, index_int_array(i), &
+                     dm_array%win, ierr) 
+      END IF
+    END DO
+    DEALLOCATE(ones)
+  END SUBROUTINE dist_mult_do_blk_comm
+
+  !NEC: frees data structure for blocked communication
+  SUBROUTINE dist_mult_end_blk_comm(dm_array)
+    TYPE(dist_mult_array), INTENT(in) :: dm_array
+    INTEGER :: i, ierr
+
+    DO i = 0, dm_array%comm_size-1
+      IF (ALLOCATED(comm_lst(i)%lst)) THEN
+        DEALLOCATE(comm_lst(i)%lst)
+        DEALLOCATE(recv_array(i)%lst)
+        call MPI_TYPE_FREE(index_int_array(i), ierr)
+      END IF
+    END DO
+    !NEC: Make the next selected array size the largest needed, to save reallocations, thus time
+    lstblksizei4 = MAX(MAXVAL(comm_cnt),100)
+    DEALLOCATE(comm_cnt, comm_lst, recv_array, index_int_array)
+    DEALLOCATE(proc_lst, ind_lst)
+  END SUBROUTINE dist_mult_end_blk_comm
+
+#endif
 
   SUBROUTINE dist_mult_array_get_i4(dm_array, sub_array, coord, v)
     TYPE(dist_mult_array), INTENT(inout) :: dm_array
@@ -2876,6 +3092,147 @@ CONTAINS
     END IF
 
   END SUBROUTINE dist_mult_array_get_deferred_dp
+
+#ifdef __BLOCK_GET__
+  !NEC: replacement for dist_mult_array_get_deferred_dp, where all data is stored instead of get directly
+  SUBROUTINE dist_mult_array_get_dp_blk(dm_array, sub_array, coord, v, proc, ind)
+    TYPE(dist_mult_array), INTENT(inout) :: dm_array
+    INTEGER, INTENT(in) :: sub_array
+    INTEGER, INTENT(in) :: coord(:)
+    REAL(dp), INTENT(out) :: v
+    INTEGER, INTENT(inout) :: proc 
+    INTEGER, INTENT(inout) :: ind 
+
+    INTEGER(mpi_address_kind) :: byte_offset, ofs_factor
+    INTEGER :: coord_base(7), a_rank, i
+    TYPE(dm_array_cache_entry) :: cache_entry
+    INTEGER :: src_comm_rank, comm, dt, ierror
+    TYPE(c_ptr) :: baseptr_c
+    REAL(dp), POINTER :: baseptr
+    INTEGER :: omaxsize
+    INTEGER, ALLOCATABLE, DIMENSION(:) :: tmparr
+
+    comm = dm_array%comm
+    src_comm_rank = dist_mult_array_coord2rank(dm_array, sub_array, coord)
+    ALLOCATE(cache_entry%offset(dm_array%num_sub_arrays))
+    CALL compute_cache_addr(cache_entry, dm_array%sub_arrays_global_desc, &
+         dm_array%local_chunks(:, :, src_comm_rank), dm_array%dt_info)
+    a_rank = dm_array%sub_arrays_global_desc(sub_array)%a_rank
+!$NEC novector
+    coord_base(1:a_rank) &
+         = dm_array%local_chunks(1:a_rank, sub_array, src_comm_rank)%first
+    byte_offset = cache_entry%offset(sub_array)
+    ofs_factor = dm_array%dt_info(sub_array)%extent
+!$NEC novector
+    DO i = 1, a_rank
+      byte_offset = byte_offset + (coord(i) - coord_base(i)) * ofs_factor
+      ofs_factor = ofs_factor &
+           * INT(dm_array%local_chunks(i, sub_array, src_comm_rank)%size, &
+           &     mpi_address_kind)
+    END DO
+    dt = dm_array%sub_arrays_global_desc(sub_array)%element_dt
+
+    IF (src_comm_rank == dm_array%comm_rank) THEN
+      comm_0_cnt_dp = comm_0_cnt_dp + 1
+      baseptr_c = TRANSFER(dm_array%cache(0)%base + byte_offset, baseptr_c)
+      CALL C_F_POINTER(baseptr_c, baseptr)
+#ifndef __COMM_OPT__
+      CALL mpi_sendrecv(baseptr, 1, dt, 0, 0, v, 1, dt, 0, 0, &
+           mpi_comm_self, mpi_status_ignore, ierror)
+      CALL handle_mpi_error(ierror, comm, __LINE__)
+#else
+      !NEC: Use assignment instead of MPI-self communication to save overhead
+      v = baseptr
+#endif
+    ELSE
+      !NEC: increase access number to this proc
+      comm_cnt_dp(src_comm_rank) = comm_cnt_dp(src_comm_rank) + 1
+      IF (comm_cnt_dp(src_comm_rank) > comm_lst_dp(src_comm_rank)%maxelem) THEN
+        !NEC: reallocation procedure in order to save some memory; tuned, to be efficient
+        IF (ALLOCATED(comm_lst_dp(src_comm_rank)%lst)) THEN
+          omaxsize = comm_lst_dp(src_comm_rank)%maxelem
+          ALLOCATE(tmparr(omaxsize))
+          tmparr = comm_lst_dp(src_comm_rank)%lst
+          DEALLOCATE(comm_lst_dp(src_comm_rank)%lst)
+          comm_lst_dp(src_comm_rank)%maxelem = INT(1.41*omaxsize)
+          ALLOCATE(comm_lst_dp(src_comm_rank)%lst(comm_lst_dp(src_comm_rank)%maxelem))
+          DO i = 1, omaxsize
+            comm_lst_dp(src_comm_rank)%lst(i) = tmparr(i)
+          END DO
+          DEALLOCATE(tmparr)
+        ELSE
+          comm_lst_dp(src_comm_rank)%maxelem = lstblksizedp
+          ALLOCATE(comm_lst_dp(src_comm_rank)%lst(comm_lst_dp(src_comm_rank)%maxelem))
+        END IF
+      END IF
+     !NEC: store offset and return proc and the access number to this proc
+      comm_lst_dp(src_comm_rank)%lst(comm_cnt_dp(src_comm_rank)) = byte_offset
+      proc = src_comm_rank
+      ind = comm_cnt_dp(src_comm_rank)
+    END IF
+
+  END SUBROUTINE dist_mult_array_get_dp_blk
+
+  !NEC: initializes data structure for blocked communication
+  SUBROUTINE dist_mult_init_blk_comm_dp(dim1, dim2, dim3, dm_array)
+    TYPE(dist_mult_array), INTENT(in) :: dm_array
+    INTEGER, INTENT(in) :: dim1, dim2, dim3
+
+    !comm_max_dp = dim1 * dim2 * dim3 
+    ALLOCATE(comm_cnt_dp(0:dm_array%comm_size-1), comm_lst_dp(0:dm_array%comm_size-1), &
+             recv_array_dp(0:dm_array%comm_size-1), index_dbl_array(0:dm_array%comm_size-1))
+    comm_lst_dp(:)%maxelem=0
+    comm_0_cnt_dp = 0
+    comm_cnt_dp = 0
+    ALLOCATE(proc_lst_dp(dim1, dim2, dim3), ind_lst_dp(dim1, dim2,dim3))
+    proc_lst_dp = -1
+  END SUBROUTINE dist_mult_init_blk_comm_dp
+
+  !NEC: executes blocked communcation
+  SUBROUTINE dist_mult_do_blk_comm_dp(dm_array)
+    TYPE(dist_mult_array), INTENT(in) :: dm_array
+    INTEGER :: i, j, ierr
+    INTEGER, SAVE :: tsize = 0
+   !NEC: Only allocate "ones" once to save time
+    ALLOCATE(ones(MAXVAL(comm_cnt_dp)))
+    ones = 1
+   !NEC: Store MPI type size assuming it is not changing on a process during a run
+    IF (tsize == 0) CALL MPI_TYPE_SIZE(MPI_DOUBLE_PRECISION, tsize, ierr)
+    DO i = 0, dm_array%comm_size-1
+      IF (ALLOCATED(comm_lst_dp(i)%lst)) THEN
+        !NEC_FU: Make byte offset list into type offset list to be portable
+        DO j = 1,comm_cnt_dp(i)
+          comm_lst_dp(i)%lst(j) = comm_lst_dp(i)%lst(j) / tsize
+        END DO
+        call MPI_TYPE_INDEXED(comm_cnt_dp(i), ones, comm_lst_dp(i)%lst, MPI_DOUBLE_PRECISION, index_dbl_array(i), ierr)
+        call MPI_TYPE_COMMIT(index_dbl_array(i), ierr)
+        ALLOCATE(recv_array_dp(i)%lst(comm_cnt_dp(i)))
+        call MPI_GET(recv_array_dp(i)%lst, comm_cnt_dp(i), MPI_DOUBLE_PRECISION, &
+                     i, 0_mpi_address_kind, 1, index_dbl_array(i), &
+                     dm_array%win, ierr) 
+      END IF
+    END DO
+    DEALLOCATE(ones)
+  END SUBROUTINE dist_mult_do_blk_comm_dp
+
+  !NEC: frees data structure for blocked communication
+  SUBROUTINE dist_mult_end_blk_comm_dp(dm_array)
+    TYPE(dist_mult_array), INTENT(in) :: dm_array
+    INTEGER :: i, ierr
+
+    DO i = 0, dm_array%comm_size-1
+      IF (ALLOCATED(comm_lst_dp(i)%lst)) THEN
+        DEALLOCATE(comm_lst_dp(i)%lst)
+        DEALLOCATE(recv_array_dp(i)%lst)
+        call MPI_TYPE_FREE(index_dbl_array(i), ierr)
+      END IF
+    END DO
+    !NEC: Make the next selected array size the largest needed, to save
+    lstblksizedp = MAX(MAXVAL(comm_cnt_dp),100)
+    DEALLOCATE(comm_cnt_dp, comm_lst_dp, recv_array_dp,index_dbl_array)
+    DEALLOCATE(proc_lst_dp, ind_lst_dp)
+  END SUBROUTINE dist_mult_end_blk_comm_dp
+#endif
 
   SUBROUTINE dist_mult_array_get_dp(dm_array, sub_array, coord, v)
     TYPE(dist_mult_array), INTENT(inout) :: dm_array

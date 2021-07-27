@@ -21,10 +21,10 @@
 MODULE mo_nh_prog_util
 
   USE mo_kind,                ONLY: wp
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
+  USE mo_impl_constants,      ONLY: SUCCESS
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag
-  USE mo_exception,           ONLY: message, finish
+  USE mo_exception,           ONLY: message, finish, message_text
   USE mo_parallel_config,     ONLY: nproma
 
   IMPLICIT NONE
@@ -50,7 +50,7 @@ CONTAINS
                                 pvar,    & ! inout
                                 ctype, pscale, jk_start, jk_end) ! input
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_nh_prog_util:nh_prog_add_random'
 
     TYPE(t_patch)   :: p_patch
@@ -73,17 +73,16 @@ CONTAINS
 
     REAL(wp), ALLOCATABLE :: zrand(:,:,:)
 
-    CHARACTER(len=MAX_CHAR_LENGTH) :: string
     !-----
-    CALL message(TRIM(routine),'=========== generating random number =============')
+    CALL message(routine, '=========== generating random number =============')
 
     !-----------------------------------------------------------
     ! 1. prepare memory for the seed
     !-----------------------------------------------------------
 
     CALL RANDOM_SEED(SIZE=seed_size)
-    WRITE(string,*) 'The size of the intrinsic seed is', seed_size
-    CALL message('',TRIM(string))
+    WRITE(message_text, *) 'The size of the intrinsic seed is', seed_size
+    CALL message('', message_text)
 
     ALLOCATE( seed_array(seed_size), STAT=ist)
     IF(ist/=SUCCESS)THEN
@@ -111,8 +110,8 @@ CONTAINS
 !                 & + DateTimeArray(7)
     seed_trigger = 704182209
 
-    WRITE(string,*) 'the seed trigger is', seed_trigger
-    CALL message('',TRIM(string))
+    WRITE(message_text, *) 'the seed trigger is', seed_trigger
+    CALL message('', message_text)
 
     DO js=1,seed_size
        seed_array(js)=ABS(seed_trigger)+(js-1)
@@ -131,12 +130,12 @@ CONTAINS
       nblks  = p_patch%nblks_e
       npromz = p_patch%npromz_e
     ELSE
-      CALL finish(TRIM(routine),'Wrong ctype for the input variable!')
+      CALL finish(routine, 'Wrong ctype for the input variable!')
     END IF
 
     ALLOCATE(zrand(SIZE(pvar,1),SIZE(pvar,2),SIZE(pvar,3)), STAT=ist)
     IF(ist/=SUCCESS)THEN
-      CALL finish(TRIM(routine),'allocation of zrand failed')
+      CALL finish(routine, 'allocation of zrand failed')
     ENDIF
 
     CALL RANDOM_SEED( PUT=seed_array )

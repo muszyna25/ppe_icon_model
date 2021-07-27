@@ -60,7 +60,6 @@ MODULE mo_art_config
     INTEGER :: iart_ntracer              !< number of transported ART tracers
     INTEGER :: iart_init_aero            !< Initialization of aerosol species
     INTEGER :: iart_init_gas             !< Initialization of gaseous species
-    INTEGER :: iart_init_passive         !< Initialization of passive species
     LOGICAL :: lart_diag_out             !< Enable output of diagnostic fields
     LOGICAL :: lart_pntSrc               !< Enables point sources
     LOGICAL :: lart_emiss_turbdiff       !< Switch if emission should be included as surface flux condition
@@ -70,10 +69,10 @@ MODULE mo_art_config
     
     ! Atmospheric Chemistry (Details: cf. Tab. 2.3 ICON-ART User Guide)
     LOGICAL :: lart_chem               !< Main switch to enable chemistry
-    LOGICAL :: lart_passive            !< Main switch to enable chemistry
-    INTEGER :: iart_chem_mechanism     !< Selects the chemical mechanism
-    INTEGER :: iart_psc                !< integer which indicates how to compute PSCs 
-                                       !  (0: no PSCs, >0: compute PSCs (for the moment)
+    LOGICAL :: lart_chemtracer         !< switch for parametrised tracers
+    LOGICAL :: lart_mecca              !< switch for MECCA chemistry
+    LOGICAL :: lart_psc                !< switch for computation of PSCs
+    INTEGER :: O3_feedback             !< O3 radiation feedback from ART? (0 = false, 1 = true)
     CHARACTER(LEN=IART_PATH_LEN) :: &
       &  cart_vortex_init_date        !< Date of vortex initialization
     CHARACTER(LEN=IART_PATH_LEN) :: &
@@ -84,11 +83,11 @@ MODULE mo_art_config
       &  cart_cheminit_type           !< Type of  chemical initialization coordinate file
     ! Paths and filenames of XML configuration
     CHARACTER(LEN=IART_PATH_LEN) :: &
-      &  cart_chemistry_xml           !< Path to XML file for chemical tracers
+      &  cart_chemtracer_xml           !< Path to XML file for parametrised chemtracers
+    CHARACTER(LEN=IART_PATH_LEN) :: &
+      &  cart_mecca_xml               !< Path to XML file for MECCA chemistry tracers
     CHARACTER(LEN=IART_PATH_LEN) :: &
       &  cart_aerosol_xml             !< Path to XML file for aerosol tracers
-    CHARACTER(LEN=IART_PATH_LEN) :: &
-      &  cart_passive_xml             !< Path to XML file for passive tracers
     CHARACTER(LEN=IART_PATH_LEN) :: &
       &  cart_modes_xml               !< Path to XML file for modes
     CHARACTER(LEN=IART_PATH_LEN) :: &
@@ -121,6 +120,14 @@ MODULE mo_art_config
     INTEGER :: iart_aci_cold           !< Nucleation of aerosol to cloud ice
     INTEGER :: iart_ari                !< Direct interaction of aerosol with radiation
     
+    ! Treatment of grid scale and convective precipitation in dust washout
+    INTEGER :: iart_aero_washout       !< 0:gscp+con; 1:gscp,con; 2:gscp,rcucov*con
+
+    ! Number of substeps for sedimentation
+    INTEGER :: nart_substeps_sedi
+
+    CHARACTER(LEN=4) :: cart_type_sedim  !< type of sedimentation scheme: "expl": explicit, "impl": implicit
+
     ! Fast Physics Processes (Details: cf. Tab. 2.6 ICON-ART User Guide)
     LOGICAL :: lart_conv               !< Convection of aerosol (TRUE/FALSE)
     INTEGER :: nconv_tracer            !< number of tracers in convection 

@@ -68,11 +68,7 @@ CONTAINS
         INTEGER, ALLOCATABLE :: myIndices(:)
         LOGICAL :: l_write_debug_info
 
-        IF (debugModule) THEN
-          l_write_debug_info = my_process_is_stdio()
-        ELSE
-          l_write_debug_info = .FALSE.
-        END IF
+        l_write_debug_info = debugmodule .AND. me%rank == me%root_rank
 
         IF (l_write_debug_info) WRITE(0,*) "entering ", routine
         CALL constructScatterPattern(me, jg, loc_arr_len, glb_index, communicator, root_rank)
@@ -106,11 +102,7 @@ CONTAINS
         INTEGER :: i, j, blk, idx, ierr, send_shape(2)
         LOGICAL :: l_write_debug_info
 
-        IF (debugModule) THEN
-          l_write_debug_info = my_process_is_stdio()
-        ELSE
-          l_write_debug_info = .FALSE.
-        END IF
+        l_write_debug_info = debugmodule .AND. me%rank == me%root_rank
 
         IF (l_write_debug_info) WRITE(0,*) "entering ", routine
         CALL me%startDistribution()
@@ -120,14 +112,17 @@ CONTAINS
              recvArray(me%slapSize), stat = ierr)
         IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
         IF (me%rank == me%root_rank) THEN
+!$OMP PARALLEL DO PRIVATE(i,j)
           DO j = 1, me%comm_size
             DO i = 1, me%point_counts(j)
               sendArray(i, j) = globalArray(me%pointIndices(i, j))
             END DO
           END DO
+!$OMP END PARALLEL DO
         END IF
         CALL p_scatter(sendArray, recvArray, me%root_rank, me%communicator)
         IF(ladd_value) THEN
+!$NEC ivdep
             DO i = 1, me%myPointCount
                 blk = blk_no(i)
                 idx = idx_no(i)
@@ -158,11 +153,7 @@ CONTAINS
         INTEGER :: i, j, blk, idx, ierr, send_shape(2)
         LOGICAL :: l_write_debug_info
 
-        IF (debugModule) THEN
-          l_write_debug_info = my_process_is_stdio()
-        ELSE
-          l_write_debug_info = .FALSE.
-        END IF
+        l_write_debug_info = debugmodule .AND. me%rank == me%root_rank
 
         IF (l_write_debug_info) WRITE(0,*) "entering ", routine
 
@@ -173,14 +164,17 @@ CONTAINS
              recvArray(me%slapSize), stat = ierr)
         IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
         IF (me%rank == me%root_rank) THEN
+!$OMP PARALLEL DO PRIVATE(i,j)
           DO j = 1, me%comm_size
             DO i = 1, me%point_counts(j)
               sendArray(i, j) = globalArray(me%pointIndices(i, j))
             END DO
           END DO
+!$OMP END PARALLEL DO
         END IF
         CALL p_scatter(sendArray, recvArray, me%root_rank, me%communicator)
         IF(ladd_value) THEN
+!$NEC ivdep
             DO i = 1, me%myPointCount
                 blk = blk_no(i)
                 idx = idx_no(i)
@@ -212,11 +206,7 @@ CONTAINS
         INTEGER :: i, j, blk, idx, ierr, send_shape(2)
         LOGICAL :: l_write_debug_info
 
-        IF (debugModule) THEN
-          l_write_debug_info = my_process_is_stdio()
-        ELSE
-          l_write_debug_info = .FALSE.
-        END IF
+        l_write_debug_info = debugmodule .AND. me%rank == me%root_rank
 
         IF (l_write_debug_info) WRITE(0,*) "entering ", routine
 
@@ -227,14 +217,17 @@ CONTAINS
              recvArray(me%slapSize), stat = ierr)
         IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
         IF(me%rank == me%root_rank) THEN
+!$OMP PARALLEL DO PRIVATE(i,j)
             DO j = 1, me%comm_size
               DO i = 1, me%point_counts(j)
                 sendArray(i, j) = globalArray(me%pointIndices(i, j))
               END DO
             END DO
+!$OMP END PARALLEL DO
         END IF
         CALL p_scatter(sendArray, recvArray, me%root_rank, me%communicator)
         IF(ladd_value) THEN
+!$NEC ivdep
             DO i = 1, me%myPointCount
                 blk = blk_no(i)
                 idx = idx_no(i)
@@ -266,11 +259,7 @@ CONTAINS
         INTEGER :: i, j, blk, idx, ierr, send_shape(2)
         LOGICAL :: l_write_debug_info
 
-        IF (debugModule) THEN
-          l_write_debug_info = my_process_is_stdio()
-        ELSE
-          l_write_debug_info = .FALSE.
-        END IF
+        l_write_debug_info = debugmodule .AND. me%rank == me%root_rank
 
         IF (l_write_debug_info) WRITE(0,*) "entering ", routine
         CALL me%startDistribution()
@@ -288,6 +277,7 @@ CONTAINS
         END IF
         CALL p_scatter(sendArray, recvArray, me%root_rank, me%communicator)
         IF(ladd_value) THEN
+!$NEC ivdep
             DO i = 1, me%myPointCount
                 blk = blk_no(i)
                 idx = idx_no(i)
@@ -314,11 +304,7 @@ CONTAINS
              = modname//":destructScatterPatternScatter"
         LOGICAL :: l_write_debug_info
 
-        IF (debugModule) THEN
-          l_write_debug_info = my_process_is_stdio()
-        ELSE
-          l_write_debug_info = .FALSE.
-        END IF
+        l_write_debug_info = debugmodule .AND. me%rank == me%root_rank
 
         IF (l_write_debug_info) WRITE(0,*) "entering ", routine
         DEALLOCATE(me%pointIndices)

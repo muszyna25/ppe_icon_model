@@ -33,8 +33,7 @@ MODULE mo_interface_echam_car
   USE mo_physical_constants  ,ONLY: amd, amo3
   USE mo_bcs_time_interpolation ,ONLY: t_time_interpolation_weights, &
        &                               calculate_time_interpolation_weights
-  USE mo_lcariolle_types     ,ONLY: t_avi, t_time_interpolation
-  
+  USE mo_lcariolle     ,ONLY: t_avi, t_time_interpolation, lcariolle_do3dt 
   IMPLICIT NONE
   PRIVATE
   PUBLIC  :: interface_echam_car
@@ -72,8 +71,6 @@ CONTAINS
     TYPE(t_time_interpolation_weights)  :: current_time_interpolation_weights
     TYPE(t_avi)                         :: avi
 
-    EXTERNAL :: lcariolle_do3dt, lcariolle_lat_intp_li, lcariolle_pres_intp_li
-
     IF (ltimer) call timer_start(timer_car)
 
     ! associate pointers
@@ -98,14 +95,13 @@ CONTAINS
           avi%o3_vmr(jcs:jce,:)        =  field% qtrc(jcs:jce,:,jb,io3)*amd/amo3
           avi%tmprt                    => field% ta  (:,:,jb)
           avi%vmr2molm2(jcs:jce,:)     =  field% mdry(jcs:jce,:,jb) / amd * 1.e3_wp
-          avi%pres                     => field% presm_old(:,:,jb)
+          avi%pres                     => field% pfull(:,:,jb)
           avi%cell_center_lat(jcs:jce) =  field% clat(jcs:jce,jb)
           avi%lday(jcs:jce)            =  field% cosmu0(jcs:jce,jb) > 1.e-3_wp
           !
           CALL lcariolle_do3dt(jcs,                   jce,                    &
                &               nproma,                nlev,                   &
                &               time_interpolation,                            &
-               &               lcariolle_lat_intp_li, lcariolle_pres_intp_li, &
                &               avi,                   tend_qtrc_car(:,:,io3)  )
           !
           DEALLOCATE(avi%o3_vmr, avi%vmr2molm2, avi%cell_center_lat, avi%lday)
@@ -139,9 +135,15 @@ CONTAINS
        END SELECT
        !
        ! update physics state for input to the next physics process
-       IF (lparamcpl) THEN
-          field% qtrc(jcs:jce,:,jb,io3)  = field% qtrc(jcs:jce,:,jb,io3)  +  tend_qtrc_car(jcs:jce,:,io3)*amo3/amd*pdtime
-       END IF
+       SELECT CASE(fc_car)
+       CASE(0)
+          ! diagnostic, do not use tendency
+       CASE(1,2)
+          ! use tendency to update the physics state
+          IF (lparamcpl) THEN
+             field% qtrc(jcs:jce,:,jb,io3)  = field% qtrc(jcs:jce,:,jb,io3)  +  tend_qtrc_car(jcs:jce,:,io3)*amo3/amd*pdtime
+          END IF
+       END SELECT
        !
     ELSE
        !

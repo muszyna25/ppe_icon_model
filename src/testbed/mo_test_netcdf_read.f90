@@ -25,7 +25,8 @@ MODULE mo_test_netcdf_read
 
   USE mo_model_domain,        ONLY: t_patch, p_patch
   USE mo_atmo_model,          ONLY: construct_atmo_model, destruct_atmo_model
-  USE mo_atmo_hydrostatic,    ONLY: construct_atmo_hydrostatic, destruct_atmo_hydrostatic
+!!$ hydrostatic model no longer available
+!!$  USE mo_atmo_hydrostatic,    ONLY: construct_atmo_hydrostatic, destruct_atmo_hydrostatic
   USE mo_read_interface,      ONLY: openInputFile, closeFile, on_cells, nf, &
     &                               t_stream_id, read_1D, read_2D_time, &
     &                               read_3D_time, read_netcdf_broadcast_method
@@ -75,7 +76,8 @@ CONTAINS
     timers_level = 0
     activate_sync_timers = .false.
     CALL construct_atmo_model(namelist_filename,shr_namelist_filename)
-    CALL construct_atmo_hydrostatic()
+!!$ hydrostatic model no longer available
+!!$    CALL construct_atmo_hydrostatic()
     patch => p_patch(1)
     levels  = patch%nlev
     !---------------------------------------------------------------------
@@ -83,7 +85,7 @@ CONTAINS
     !---------------------------------------------------------------------
     ! test sst
     CALL message(method_name,   testfile_3D_time(1))
-    file_id = openInputFile(filename = testfile_3D_time(1))
+    CALL openinputfile(file_id, filename = testfile_3D_time(1))
 
     !---------------------------------------------------------------------
     CALL read_1D(file_id=file_id, variable_name = "lnwl", &
@@ -96,8 +98,8 @@ CONTAINS
     CALL closeFile(file_id)
 
     !---------------------------------------------------------------------
-    stream_id = openInputFile(testfile_3D_time(1), patch, &
-      &                       read_netcdf_broadcast_method)
+    CALL openinputfile(stream_id, testfile_3D_time(1), patch, &
+      &                read_netcdf_broadcast_method)
     !-----------------------------------------------------
     ! example with non-allocated arrays
     ! mote that allocation time dim will be 1:12, as in the file
@@ -142,7 +144,8 @@ CONTAINS
 
     !---------------------------------------------------------------------
     ! Carry out the shared clean-up processes
-    CALL destruct_atmo_hydrostatic()
+!!$ hydrostatic model no longer available
+!!$    CALL destruct_atmo_hydrostatic()
     CALL destruct_atmo_model()
 
 
@@ -170,7 +173,8 @@ CONTAINS
     timers_level = 0
     activate_sync_timers = .false.
     CALL construct_atmo_model(namelist_filename,shr_namelist_filename)
-    CALL construct_atmo_hydrostatic()
+!!$ hydrostatic model no longer available
+!!$    CALL construct_atmo_hydrostatic()
     patch => p_patch(1)
     !---------------------------------------------------------------------
 
@@ -178,8 +182,8 @@ CONTAINS
     ! test sst
     CALL message(method_name,   testfile_2D_time(1))
 
-    stream_id = openInputFile(testfile_2D_time(1), patch, &
-      &                       read_netcdf_broadcast_method)
+    CALL openinputfile(stream_id, testfile_2D_time(1), patch, &
+      &                read_netcdf_broadcast_method)
 
     !---------------------------------------------------------------------
     ! will read all timesteps in the file
@@ -221,8 +225,8 @@ CONTAINS
     !---------------------------------------------------------------------
     ! test O3
     CALL message(method_name,   testfile_3D_time(1))
-    stream_id = openInputFile(testfile_3D_time(1), patch, &
-      &                       read_netcdf_broadcast_method)
+    CALL openinputfile(stream_id, testfile_3D_time(1), patch, &
+      &                read_netcdf_broadcast_method)
     CALL read_3D_time(stream_id=stream_id, location=on_cells, &
       &               variable_name=TRIM(testfile_3D_time(2)), &
       &               return_pointer=fill_3D_time_array)
@@ -243,7 +247,8 @@ CONTAINS
 
     !---------------------------------------------------------------------
     ! Carry out the shared clean-up processes
-    CALL destruct_atmo_hydrostatic()
+!!$ hydrostatic model no longer available
+!!$    CALL destruct_atmo_hydrostatic()
     CALL destruct_atmo_model()
      
 

@@ -87,10 +87,10 @@ SUBROUTINE update_weathering ( start_idx,end_idx, pddpo, za)
 
 END SUBROUTINE
 
-SUBROUTINE nitrogen_deposition ( start_idx,end_idx, pddpo,za,nitinp)
+SUBROUTINE nitrogen_deposition ( start_idx,end_idx, pddpo,za,nitinput)
 ! apply nitrogen deposition
-  USE mo_memory_bgc, ONLY     : bgctra, bgctend
-  USE mo_param1_bgc, ONLY     : iano3, ialkali, kn2b
+  USE mo_memory_bgc, ONLY     : bgctra, bgctend,bgcflux
+  USE mo_param1_bgc, ONLY     : iano3, ialkali, kn2b,knitinp
   USE mo_bgc_constants, ONLY  : rmnit
 
 
@@ -99,7 +99,7 @@ SUBROUTINE nitrogen_deposition ( start_idx,end_idx, pddpo,za,nitinp)
   INTEGER, INTENT(in)            :: start_idx              !< start index for j loop (ICON cells, MPIOM lat dir)  
   INTEGER, INTENT(in)            :: end_idx                !< end index  for j loop  (ICON cells, MPIOM lat dir) 
 
-  REAL(wp),INTENT(in) :: nitinp(bgc_nproma )                         !< nitrogen input
+  REAL(wp),INTENT(in) :: nitinput(bgc_nproma )                         !< nitrogen input
   REAL(wp), INTENT(in), TARGET   :: pddpo(bgc_nproma,bgc_zlevs)      !< size of scalar grid cell (3rd dimension) [m]
   REAL(wp), INTENT(in), TARGET   :: za(bgc_nproma)                   !< surface height
   
@@ -113,11 +113,12 @@ SUBROUTINE nitrogen_deposition ( start_idx,end_idx, pddpo,za,nitinp)
   if(pddpo(jc,1) > 0.5_wp) then
 
       ! ndepo : CCMI wet+dry dep of NHx and NOy in kg (N) m-2 s-1
-       ninp = nitinp(jc) / rmnit* dtbgc/(pddpo(jc,1)+za(jc)) ! kmol N m-3 time_step-1
+       ninp = nitinput(jc) / rmnit* dtbgc/(pddpo(jc,1)+za(jc)) ! kmol N m-3 time_step-1
 
        bgctra(jc,1,iano3) = bgctra(jc,1,iano3) + ninp
        bgctra(jc,1,ialkali) = bgctra(jc,1,ialkali) - ninp
        bgctend(jc,1,kn2b)   = bgctend(jc,1,kn2b) - ninp * (pddpo(jc,1) + za(jc)) 
+       bgcflux(jc,knitinp) = ninp
 
   endif
 
@@ -161,7 +162,7 @@ SUBROUTINE dust_deposition ( start_idx,end_idx, pddpo,za,dustinp)
 END SUBROUTINE
 
 
-SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, psao, ptho,  &
+SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, ptho, psao,  &
      &              pfu10, psicomo )
 !! @brief Computes sea-air gass exchange
 !!         for oxygen, O2, N2, N2O, DMS, and CO2.
@@ -171,14 +172,17 @@ SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, psao, ptho,  &
   USE mo_param1_bgc, ONLY     : igasnit, ian2o,  iatmco2, iphosph,         &
        &                        ioxygen, isco212, isilica,       &
        &                        ialkali, kcflux, koflux, knflux,          &
-       &                        kn2oflux, idms, kdmsflux,kpco2
+       &                        kn2oflux, idms, kdmsflux,kpco2, &
+       &                        iammo, knh3flux
 
   USE mo_memory_bgc, ONLY         : hi, &
        &                        solco2,satoxy,satn2,aksurf,    &
        &                        satn2o,            &
-       &                        bgctra, atm, bgcflux
+       &                        bgctra, atm, bgcflux, &
+       &                        kg_denom
 
-  USE mo_hamocc_nml, ONLY     : l_cpl_co2, atm_co2, atm_o2, atm_n2
+  USE mo_hamocc_nml, ONLY     : l_cpl_co2, atm_co2, atm_o2, atm_n2, &
+       &                        l_N_cycle
 
   USE mo_bgc_constants, ONLY : cmh2ms
 
@@ -208,6 +212,10 @@ SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, psao, ptho,  &
   REAL(wp) :: oxflux,niflux,nlaughflux, dmsflux
   REAL(wp) :: ato2, atn2, atco2,pco2
   REAL(wp) :: thickness
+
+  ! for extended N-cycle
+  REAL (wp):: kgammo,kh_nh3i,kh_nh3,pka_nh3,ka_nh3,nh3sw,ammoflux 
+  REAL (wp):: ecoef,tabs
 
   !
   !---------------------------------------------------------------------
@@ -348,6 +356,41 @@ SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, psao, ptho,  &
            bgctra(j,1,isco212) = bgctra(j,1,isco212)+(fluxd-fluxu)/thickness
            bgcflux(j,kcflux) = (fluxu-fluxd)/dtbgc
            bgcflux(j,kpco2) = pco2
+
+
+
+
+           if (l_N_cycle) then
+              ! Surface flux of ammonia  ! taken from Johnson et al, GBC,2008
+              ! with atm. NH3 set to zero F = kgammo*KH_nh3 * NH3_seawater
+              ! with NH3_seatwater = NH4* Ka/(Ka+hi) (Ka dissociation coef.)
+
+              ! gas phase tranfer velocity
+              kgammo = (1._wp - psicomo(j))*pfu10(j)/kg_denom
+  
+              ! Henry's law coefficient
+              tabs = ptho(j,1) + 273.15_wp
+              ecoef = 4092._wp/tabs - 9.70_wp
+              kh_nh3i = 17.93_wp*(tabs/273.15_wp)*exp(ecoef)
+              kh_nh3 = 1./kh_nh3i
+
+              pka_nh3 = -0.467_wp + 0.00113_wp*psao(j,1) + 2887.9_wp/tabs
+              ka_nh3 = 10._wp**(-pka_nh3)
+         
+              ! NH3 in seawater
+              nh3sw = bgctra(j,1,iammo)*ka_nh3/(ka_nh3+hi(j,1))
+ 
+              ammoflux = max(0._wp, dtbgc*kgammo*kh_nh3*nh3sw)
+              bgctra(j,1,iammo) = bgctra(j,1,iammo) - ammoflux/thickness
+       
+              ! LR: from mpiom, do not know what this is for ?!
+              ! atm(i,j,iatmn2) = atm(i,j,iatmn2) + ammoflux*contppm/2._wp   !closing mass balance
+
+              ! LR: from mpiom, don't think this is needed
+              ! nh3flux(j) = nh3flux(i,j) + ammoflux  ! LR: from mpiom
+
+              bgcflux(j,knh3flux) = ammoflux/dtbgc
+           endif
 
 
         ENDIF ! wet cell

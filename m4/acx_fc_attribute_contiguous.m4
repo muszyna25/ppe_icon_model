@@ -40,7 +40,7 @@ dnl
 dnl
 AC_DEFUN([ACX_FC_ATTRIBUTE_CONTIGUOUS],
   [AC_REQUIRE([AC_PROG_FC])dnl
-   AC_CACHE_CHECK([wether $FC supports CONTIGUOUS attribute],
+   AC_CACHE_CHECK([whether $FC supports CONTIGUOUS attribute],
      [acx_cv_fc_attribute_contiguous],
      [AC_LANG_PUSH([Fortran])
       AC_COMPILE_IFELSE([      SUBROUTINE f(x)
@@ -54,6 +54,18 @@ AC_DEFUN([ACX_FC_ATTRIBUTE_CONTIGUOUS],
       END DO
       END DO
       END SUBROUTINE f
+
+dnl some compilers have problems when dereferencing contiguous arguments in a
+dnl old-style call (e.g. MPI functions)
+      SUBROUTINE bar(b)
+      REAL, POINTER, CONTIGUOUS :: b(:)
+      CALL foo(b(1))
+      END SUBROUTINE bar
+
+      SUBROUTINE foo(x)
+      REAL, INTENT(in) :: x
+      WRITE (0, *) x
+      END SUBROUTINE foo
 ],
         [acx_cv_fc_attribute_contiguous=yes],
         [acx_cv_fc_attribute_contiguous=no])

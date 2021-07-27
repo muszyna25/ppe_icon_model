@@ -15,14 +15,13 @@
 MODULE mo_diffusion_nml
 
   USE mo_diffusion_config,    ONLY: diffusion_config
-  USE mo_dynamics_config,     ONLY: iequations
   USE mo_kind,                ONLY: wp
   USE mo_mpi,                 ONLY: my_process_is_stdio 
   USE mo_exception,           ONLY: message, finish
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_master_control,      ONLY: use_restart_namelists
-  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist,  &
+  USE mo_restart_nml_and_att, ONLY: open_tmpfile, store_and_close_namelist,  &
                                   & open_and_restore_namelist, close_tmpfile
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
 
@@ -40,22 +39,6 @@ MODULE mo_diffusion_nml
                           ! 3: Smagorinsky diffusion without background diffusion
                           ! 4: 4th order linear diffusion on all vertical levels 
                           ! 5: Smagorinsky diffusion with fourth-order background diffusion
-                          ! 24 or 42: 2nd order linear diffusion for upper levels,
-                          !           4th order for lower levels
-
-  REAL(wp) :: k2_pres_max ! (relevant only when hdiff_order = 24 or 42)
-                          ! pressure (in Pa) specified by the user
-                          ! to determine the lowest vertical level 
-                          ! to which 2nd order linear diffusion is applied.
-                          ! For the levels with pressure > k2_pres_max, 
-                          ! 4th order linear diffusion is applied. 
-
-  INTEGER  :: k2_klev_max ! (relevant only when hdiff_order = 24 or 42)
-                          ! vertical level index specified by the user
-                          ! to determine the lowest vertical level 
-                          ! to which 2nd order linear diffusion is applied.
-                          ! For the levels with k > k2_klev_max, 
-                          ! 4th order linear diffusion is applied. 
 
   REAL(wp) :: hdiff_efdt_ratio      ! ratio of e-folding time to (2*)time step
   REAL(wp) :: hdiff_w_efdt_ratio    ! ratio of e-folding time to time step for w diffusion (NH only)
@@ -72,7 +55,7 @@ MODULE mo_diffusion_nml
   LOGICAL :: lhdiff_w      ! if .TRUE., apply horizontal diffusion to vertical momentum.
   LOGICAL :: lsmag_3d      ! if .TRUE., compute 3D Smagorinsky diffusion coefficient.
 
-  NAMELIST/diffusion_nml/ hdiff_order, k2_klev_max, k2_pres_max,              &
+  NAMELIST/diffusion_nml/ hdiff_order,           &
                           hdiff_efdt_ratio, hdiff_min_efdt_ratio,             &
                           hdiff_tv_ratio, hdiff_smag_fac, hdiff_multfac,      &
                           lhdiff_temp, lhdiff_vn, itype_vn_diffu,             &
@@ -110,17 +93,9 @@ CONTAINS
     lhdiff_vn            = .TRUE.
     lhdiff_w             = .TRUE.
     lsmag_3d             = .FALSE.
-
-    IF (iequations == 3) THEN
-      hdiff_order          = 5
-      hdiff_efdt_ratio     = 36.0_wp
-      hdiff_smag_fac       = 0.015_wp
-    ELSE
-      hdiff_order          = 4
-      hdiff_efdt_ratio     = 1.0_wp
-      hdiff_smag_fac       = 0.15_wp
-    ENDIF
-
+    hdiff_order          = 5
+    hdiff_efdt_ratio     = 36.0_wp
+    hdiff_smag_fac       = 0.015_wp
     hdiff_min_efdt_ratio = 1.0_wp
     hdiff_w_efdt_ratio   = 15.0_wp
     hdiff_multfac        = 1.0_wp
@@ -128,8 +103,6 @@ CONTAINS
     itype_vn_diffu       = 1
     itype_t_diffu        = 2
 
-    k2_pres_max          = -99.0_wp                                                    
-    k2_klev_max          = 0
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
@@ -170,7 +143,7 @@ CONTAINS
       lhdiff_vn   = .FALSE.
       lhdiff_w    = .FALSE.
 
-    CASE(2,3,4,5,24,42)
+    CASE(2,3,4,5)
 
       IF ((.NOT.lhdiff_temp).AND.(.NOT.lhdiff_vn)) THEN
         CALL message('','')
@@ -184,7 +157,7 @@ CONTAINS
     CASE DEFAULT
       CALL finish(TRIM(routine),                         &
         & 'Error: Invalid choice of  hdiff_order. '// &                
-        & 'Choose from -1, 2, 3, 4, 5, 24, and 42.')
+        & 'Choose from -1, 2, 3, 4, and 5.')
     END SELECT
 
     IF ( hdiff_efdt_ratio<=0._wp) THEN
@@ -199,8 +172,6 @@ CONTAINS
     diffusion_config(:)% lhdiff_w             =  lhdiff_w
     diffusion_config(:)% lsmag_3d             =  lsmag_3d
     diffusion_config(:)% hdiff_order          =  hdiff_order
-    diffusion_config(:)% k2_klev_max          =  k2_klev_max
-    diffusion_config(:)% k2_pres_max          =  k2_pres_max
     diffusion_config(:)% hdiff_efdt_ratio     =  hdiff_efdt_ratio
     diffusion_config(:)% hdiff_w_efdt_ratio   =  hdiff_w_efdt_ratio
     diffusion_config(:)% hdiff_min_efdt_ratio =  hdiff_min_efdt_ratio

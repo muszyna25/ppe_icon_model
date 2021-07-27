@@ -1,4 +1,3 @@
-#ifndef __NO_ICON_OCEAN__
 ! calculates HAMOCC diagnostics:
 ! monitoring variables, global inventories
 !--------------------------------------
@@ -16,7 +15,7 @@ MODULE mo_hamocc_diagnostics
    USE mo_ocean_types, ONLY: t_hydro_ocean_state
    USE mo_model_domain, ONLY: t_patch_3d, t_patch
    USE mo_grid_subset, ONLY: t_subset_range, get_index_range
-   USE mo_hamocc_nml, ONLY: io_stdo_bgc, l_cyadyn
+   USE mo_hamocc_nml, ONLY: io_stdo_bgc, l_cyadyn, l_N_cycle
    USE mo_dynamics_config,     ONLY: nold
    USE mo_ocean_nml,   ONLY: n_zlev,no_tracer
    USE mo_bgc_constants, ONLY:  n2tgn, c2gtc, kilo
@@ -25,7 +24,8 @@ MODULE mo_hamocc_diagnostics
    USE mo_bgc_icon_comm, ONLY: to_bgcout
    USE mo_param1_bgc, ONLY: isco212, ialkali, iphosph,iano3, igasnit, &
 &                           iphy, izoo, icya, ioxygen, isilica, idoc, &
-&                           ian2o, idet, iiron, icalc, iopal
+&                           ian2o, idet, iiron, icalc, iopal,         &
+&                           iammo, iano2
 
    USE mo_name_list_output_init, ONLY: isRegistered
 
@@ -38,10 +38,10 @@ PUBLIC:: get_inventories, get_monitoring,get_omz
 
 CONTAINS
 
-SUBROUTINE get_omz(hamocc_state, ocean_state, p_patch_3d)
+SUBROUTINE get_omz(hamocc_state, h_old, p_patch_3d)
 
 TYPE(t_hamocc_state) :: hamocc_state
-TYPE(t_hydro_ocean_state) :: ocean_state
+REAL(wp) :: h_old(:,:)
 TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
 
 ! Local variables
@@ -66,13 +66,13 @@ DO jb = all_cells%start_block, all_cells%end_block
       if (max_lev > 0)then
 
       !o2min = o2(jc,calc_omz_depth_index(max_levels,o2),jb) in mol m-3
-       hamocc_state%p_tend%o2min(jc,jb)=kilo*ocean_state%p_prog(i_time_stat)%tracer(jc,&
-&calc_omz_depth_index(max_lev,ocean_state%p_prog(i_time_stat)%tracer(jc,:,jb,ioxygen+no_tracer)),jb,ioxygen+no_tracer)
+       hamocc_state%p_tend%o2min(jc,jb)=kilo*hamocc_state%p_prog(i_time_stat)%tracer(jc,&
+&calc_omz_depth_index(max_lev,hamocc_state%p_prog(i_time_stat)%tracer(jc,:,jb,ioxygen)),jb,ioxygen)
     
       !zo2min = sum(thickness(1:calc_omz_depth_index(max_levels,o2))) + zeta
        hamocc_state%p_tend%zo2min(jc,jb)=SUM(p_patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(jc,&
-&1:calc_omz_depth_index(max_lev,ocean_state%p_prog(i_time_stat)%tracer(jc,:,jb,ioxygen+no_tracer)),jb))&
-&+ocean_state%p_prog(i_time_stat)%h(jc,jb)
+&1:calc_omz_depth_index(max_lev,hamocc_state%p_prog(i_time_stat)%tracer(jc,:,jb,ioxygen)),jb))&
+&+ h_old(jc,jb)
 
        endif
 
@@ -104,7 +104,7 @@ END SUBROUTINE get_omz
 
   END FUNCTION calc_omz_depth_index
 
-  SUBROUTINE get_monitoring(hamocc_state, ssh, tracer, p_patch_3d)
+  SUBROUTINE get_monitoring(hamocc_state, tracer, ssh, p_patch_3d)
 
     USE mo_memory_bgc, ONLY: rn2, n2prod, doccya_fac
     TYPE(t_hamocc_state) :: hamocc_state
@@ -285,25 +285,25 @@ END SUBROUTINE get_omz
     ENDIF
     IF (isRegistered('global_surface_alk')) THEN
       CALL calc_inventory2d(p_patch_3d, &
-        &                   tracer(:,1,:,ialkali+no_tracer), &
+        &                   tracer(:,1,:,ialkali), &
         &                   hamocc_state%p_tend%monitor%sfalk(1), &
         &                   -2)
     ENDIF
     IF (isRegistered('global_surface_dic')) THEN
       CALL calc_inventory2d(p_patch_3d, &
-        &                   tracer(:,1,:,isco212+no_tracer), &
+        &                   tracer(:,1,:,isco212), &
         &                   hamocc_state%p_tend%monitor%sfdic(1), &
         &                   -2)
     ENDIF
     IF (isRegistered('global_surface_phosphate')) THEN
       CALL calc_inventory2d(p_patch_3d, &
-        &                   tracer(:,1,:,iphosph+no_tracer), &
+        &                   tracer(:,1,:,iphosph), &
         &                   hamocc_state%p_tend%monitor%sfphos(1), &
         &                   -2)
     ENDIF
     IF (isRegistered('global_surface_silicate')) THEN
       CALL calc_inventory2d(p_patch_3d, &
-        &                   tracer(:,1,:,isilica+no_tracer), &
+        &                   tracer(:,1,:,isilica), &
         &                   hamocc_state%p_tend%monitor%sfsil(1), &
         &                   -2)
     ENDIF
@@ -327,6 +327,72 @@ END SUBROUTINE get_omz
         &                     hamocc_state%p_tend%monitor%seddenit(1))
     ENDIF
 
+
+    IF (l_N_cycle) THEN
+      IF (isRegistered('global_primary_production_nh4')) THEN
+        CALL calc_inventory3d(p_patch_3d, &
+          &                   ssh, &
+          &                   hamocc_state%p_tend%gppnh4(:,:,:), &
+          &                   hamocc_state%p_tend%monitor%phosy_nh4(1))
+      ENDIF
+
+      IF (isRegistered('global_npp_cya_nh4')) THEN
+        CALL calc_inventory3d(p_patch_3d, &
+          &                   ssh, &
+          &                   hamocc_state%p_tend%cyapro(:,:,:), &
+          &                   hamocc_state%p_tend%monitor%phosy_cya_nh4(1))
+      ENDIF
+
+      IF (isRegistered('global_net_nh3_flux')) THEN
+        CALL calc_inventory2d(p_patch_3d, &
+          &                   hamocc_state%p_tend%nh3flux(:,:), &
+          &                   hamocc_state%p_tend%monitor%net_nh3_flux(1), &
+          &                   -2)
+      ENDIF
+
+      IF (isRegistered('global_surface_nh4')) THEN
+        CALL calc_inventory2d(p_patch_3d, &
+          &                   tracer(:,1,:,iammo), &
+          &                    hamocc_state%p_tend%monitor%sfnh4(1), &
+          &                   -2)
+      ENDIF
+
+      IF (isRegistered('WC_nitri_no2')) THEN
+        CALL calc_inventory3d(p_patch_3d, &
+          &                   ssh, &
+          &                   hamocc_state%p_tend%nitox(:,:,:), &
+          &                   hamocc_state%p_tend%monitor%wc_nitri_no2(1))
+      ENDIF
+
+      IF (isRegistered('WC_nitri_nh4')) THEN
+        CALL calc_inventory3d(p_patch_3d, &
+          &                   ssh, &
+          &                   hamocc_state%p_tend%ammox(:,:,:), &
+          &                   hamocc_state%p_tend%monitor%wc_nitri_nh4(1))
+      ENDIF
+
+      IF (isRegistered('WC_dnrn')) THEN
+        CALL calc_inventory3d(p_patch_3d, &
+          &                   ssh, &
+          &                   hamocc_state%p_tend%dnrn(:,:,:), &
+          &                   hamocc_state%p_tend%monitor%wc_dnrn(1))
+      ENDIF
+
+      IF (isRegistered('WC_dnra')) THEN
+        CALL calc_inventory3d(p_patch_3d, &
+          &                   ssh, &
+          &                   hamocc_state%p_tend%dnra(:,:,:), &
+          &                   hamocc_state%p_tend%monitor%wc_dnra(1))
+      ENDIF
+
+      IF (isRegistered('WC_anammox')) THEN
+        CALL calc_inventory3d(p_patch_3d, &
+          &                   ssh, &
+          &                   hamocc_state%p_tend%anam(:,:,:), &
+          &                   hamocc_state%p_tend%monitor%wc_anammox(1))
+      ENDIF
+    ENDIF
+
     ! Unit conversion
     hamocc_state%p_tend%monitor%phosy(1)        = hamocc_state%p_tend%monitor%phosy(1) * p2gtc
     hamocc_state%p_tend%monitor%phosy_cya(1)    = hamocc_state%p_tend%monitor%phosy_cya(1) * p2gtc
@@ -341,7 +407,7 @@ END SUBROUTINE get_omz
     hamocc_state%p_tend%monitor%bacfra(1)       = hamocc_state%p_tend%monitor%bacfra(1) * p2gtc
     hamocc_state%p_tend%monitor%net_co2_flux(1) = hamocc_state%p_tend%monitor%net_co2_flux(1) * c2gtc
     hamocc_state%p_tend%monitor%delcar(1)       = hamocc_state%p_tend%monitor%delcar(1) * c2gtc
-    hamocc_state%p_tend%monitor%wcdenit(1)      = hamocc_state%p_tend%monitor%wcdenit(1) * 2._wp * n2prod* n2tgn
+    
     hamocc_state%p_tend%monitor%n2fix(1)        = hamocc_state%p_tend%monitor%n2fix(1) * n2tgn * rn2
     hamocc_state%p_tend%monitor%omex90(1)       = hamocc_state%p_tend%monitor%omex90(1) * p2gtc
     hamocc_state%p_tend%monitor%calex90(1)      = hamocc_state%p_tend%monitor%calex90(1) * c2gtc
@@ -349,7 +415,7 @@ END SUBROUTINE get_omz
     hamocc_state%p_tend%monitor%calex1000(1)    = hamocc_state%p_tend%monitor%calex1000(1) * c2gtc
     hamocc_state%p_tend%monitor%omex2000(1)     = hamocc_state%p_tend%monitor%omex2000(1) * p2gtc
     hamocc_state%p_tend%monitor%calex2000(1)    = hamocc_state%p_tend%monitor%calex2000(1) * c2gtc
-    hamocc_state%p_tend%monitor%seddenit(1)     = hamocc_state%p_tend%monitor%seddenit(1) * 2._wp*n2prod*n2tgn
+    
     hamocc_state%p_tend%monitor%cyaldoc(1)      = hamocc_state%p_tend%monitor%cyaldet(1) * p2gtc * doccya_fac
     hamocc_state%p_tend%monitor%cyaldet(1)      = hamocc_state%p_tend%monitor%cyaldet(1) * p2gtc *(1._wp - doccya_fac)
 
@@ -360,14 +426,36 @@ END SUBROUTINE get_omz
     hamocc_state%p_tend%monitor%sfphos(1)       = hamocc_state%p_tend%monitor%sfphos(1)/totalarea
     hamocc_state%p_tend%monitor%zalkn2(1)       = glob_n2b + glob_pwn2b
 
+    IF (.not. l_N_cycle) THEN
+      hamocc_state%p_tend%monitor%wcdenit(1)      = hamocc_state%p_tend%monitor%wcdenit(1) * 2._wp * n2prod* n2tgn
+      hamocc_state%p_tend%monitor%seddenit(1)     = hamocc_state%p_tend%monitor%seddenit(1) * 2._wp* n2prod* n2tgn
+    ELSE
+      hamocc_state%p_tend%monitor%wcdenit(1)      = hamocc_state%p_tend%monitor%wcdenit(1) * n2tgn
+      hamocc_state%p_tend%monitor%seddenit(1)     = hamocc_state%p_tend%monitor%seddenit(1) * n2tgn
+
+      hamocc_state%p_tend%monitor%phosy_nh4(1)        = hamocc_state%p_tend%monitor%phosy_nh4(1) * p2gtc
+      hamocc_state%p_tend%monitor%phosy_cya_nh4(1)    = hamocc_state%p_tend%monitor%phosy_cya_nh4(1) * p2gtc
+      hamocc_state%p_tend%monitor%sfnh4(1)            = hamocc_state%p_tend%monitor%sfnh4(1)/totalarea
+      hamocc_state%p_tend%monitor%net_nh3_flux(1)     = hamocc_state%p_tend%monitor%net_nh3_flux(1) * n2tgn
+
+      ! LR: should be in N units, but check
+      hamocc_state%p_tend%monitor%wc_nitri_no2(1)      = hamocc_state%p_tend%monitor%wc_nitri_no2(1) * n2tgn
+      hamocc_state%p_tend%monitor%wc_nitri_nh4(1)      = hamocc_state%p_tend%monitor%wc_nitri_nh4(1) * n2tgn
+      hamocc_state%p_tend%monitor%wc_dnrn(1)           = hamocc_state%p_tend%monitor%wc_dnrn(1) * n2tgn
+      hamocc_state%p_tend%monitor%wc_dnra(1)           = hamocc_state%p_tend%monitor%wc_dnra(1) * n2tgn
+      hamocc_state%p_tend%monitor%wc_anammox(1)        = hamocc_state%p_tend%monitor%wc_anammox(1) * n2tgn
+    ENDIF
+
+
   END SUBROUTINE get_monitoring
 
-SUBROUTINE get_inventories(hamocc_state,ssh, tracer, p_patch_3d)
+SUBROUTINE get_inventories(hamocc_state,ssh, tracer, p_patch_3d, weathering_flag, flux_flag)
 
-USE mo_memory_bgc,      ONLY: rnit,rn2, ro2bal,rcar
+USE mo_memory_bgc,      ONLY: rnit,rn2, ro2bal,rcar,ralk
 
 REAL(wp),INTENT(IN) :: ssh(:,:)
 REAL(wp),INTENT(IN) :: tracer(:,:,:,:)
+REAL(wp),INTENT(IN) :: weathering_flag, flux_flag
 TYPE(t_hamocc_state) :: hamocc_state
 TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
 
@@ -375,7 +463,7 @@ TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
 REAL(wp) :: glob_det, glob_doc, glob_phy, glob_zoo
 REAL(wp) :: glob_phos, glob_sedo12, glob_bo12
 REAL(wp) :: glob_sedc12, glob_nit, glob_gnit, glob_pwn2b, glob_pwh2ob
-REAL(wp) :: glob_n2o,glob_n2fl,glob_n2ofl, glob_orginp
+REAL(wp) :: glob_n2o,glob_n2fl,glob_n2ofl, glob_orginp,glob_nitinp
 REAL(wp) :: glob_calinp, glob_silinp, glob_alk, glob_calc
 REAL(wp) :: glob_sil, glob_opal, glob_sedsi, glob_pwsi
 REAL(wp) :: glob_bsil, glob_silpro, glob_n2b, glob_h2ob
@@ -386,6 +474,10 @@ REAL(wp) :: glob_dic, glob_o2, glob_fe, glob_co3, glob_hi
 REAL(wp) :: glob_pwox, glob_pwfe, glob_bclay, glob_sedclay
 REAL(wp) :: total_ocean, watersum, sedsum
 REAL(wp) :: rcyano, glob_bc12
+! extended N-cycle
+REAL(wp) :: glob_nh4, glob_no2, glob_pwnh4, glob_pwno2
+REAL(wp) :: glob_nh3fl
+
 CHARACTER(LEN=max_char_length) :: cpara_name, cpara_val
 
 cpara_name='======================='
@@ -398,38 +490,38 @@ rcyano = MERGE(1._wp,0._wp, l_cyadyn)
 ! Calculate global inventories of individual tracers
 ! Water column
 
-CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,idoc+no_tracer), &
+CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,idoc), &
 &                      glob_doc)
-CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,idet+no_tracer), &
+CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,idet), &
 &                      glob_det)
-CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,iphy+no_tracer), &
+CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,iphy), &
 &                      glob_phy)
-CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,izoo+no_tracer), &
+CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,izoo), &
 &                      glob_zoo)
-CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,iphosph+no_tracer),&
+CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,iphosph),&
 &                      glob_phos)
-CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,iano3+no_tracer),&
+CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,iano3),&
 &                      glob_nit)
-CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,igasnit+no_tracer),&
+CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,igasnit),&
 &                      glob_gnit)
-CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,ian2o+no_tracer), &
+CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,ian2o), &
 &                      glob_n2o)
-CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,isilica+no_tracer), &
+CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,isilica), &
 &                      glob_sil)
-CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,icalc+no_tracer), &
+CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,icalc), &
 &                      glob_calc)
-CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,iopal+no_tracer), &
+CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,iopal), &
 &                      glob_opal)
-CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,ialkali+no_tracer),&
+CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,ialkali),&
 &                      glob_alk)
-CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,isco212+no_tracer),&
+CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,isco212),&
 &                      glob_dic)
-CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,ioxygen+no_tracer),&
+CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,ioxygen),&
 &                      glob_o2)
-CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,iiron+no_tracer),&
+CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,iiron),&
 &                      glob_fe)
 IF(l_cyadyn)THEN
- CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,icya+no_tracer),&
+ CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,icya),&
 &                       glob_cya)
 else
  glob_cya=0._wp
@@ -467,10 +559,11 @@ CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%produs(:,:), glob_produs,-
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%cflux(:,:), glob_cfl, -2)
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%oflux(:,:), glob_ofl, -2)
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%nflux(:,:), glob_n2fl, -2)
-CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%n2oflux(:,:), glob_n2ofl, 1)
+CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%n2oflux(:,:), glob_n2ofl, -2)
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%orginp(:,:), glob_orginp, 1, ssh)
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%silinp(:,:), glob_silinp, 1, ssh)
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%calinp(:,:), glob_calinp, 1, ssh)
+CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%nitrogeninp(:,:), glob_nitinp, 1, ssh)
 CALL calc_inventory3d(p_patch_3d, ssh, hamocc_state%p_tend%h2obudget(:,:,:), glob_h2ob,.TRUE.)
 CALL calc_inventory3d(p_patch_3d, ssh, hamocc_state%p_tend%n2budget(:,:,:), glob_n2b,.TRUE.)
 
@@ -481,6 +574,16 @@ glob_cfl=glob_cfl*dtbgc
 glob_ofl=glob_ofl*dtbgc
 glob_n2fl=glob_n2fl*dtbgc
 glob_n2ofl=glob_n2ofl*dtbgc
+
+IF (l_N_cycle) THEN
+   CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,iammo),glob_nh4)
+   CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,iano2),glob_no2)
+   CALL calc_inventory_sed(p_patch_3d, hamocc_state%p_sed%pwnh4(:,:,:), porwat,  glob_pwnh4)
+   CALL calc_inventory_sed(p_patch_3d, hamocc_state%p_sed%pwno2(:,:,:), porwat,  glob_pwno2)
+   CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%nh3flux(:,:), glob_nh3fl, -2)
+   glob_nh3fl = glob_nh3fl*dtbgc
+ENDIF
+
 
 
 ! Print tracer output
@@ -508,6 +611,10 @@ IF(l_cyadyn)THEN
 ENDIF
 CALL to_bgcout('Calc',glob_calc)
 CALL to_bgcout('Opal',glob_opal)
+IF (l_N_cycle) THEN
+   CALL to_bgcout('Ammonium',glob_nh4)
+   CALL to_bgcout('Nitrite',glob_no2)
+ENDIF
 
 CALL message('Global inventory of', 'additional tracers', io_stdo_bgc)
 cpara_name='-----------------------'
@@ -529,6 +636,10 @@ CALL to_bgcout('N2',glob_pwn2)
 CALL to_bgcout('Nitrate',glob_pwno3)
 CALL to_bgcout('Silicate',glob_pwsi)
 CALL to_bgcout('Iron',glob_pwfe)
+IF (l_N_cycle) THEN
+   CALL to_bgcout('Ammonium',glob_pwnh4)
+   CALL to_bgcout('Nitrite',glob_pwno2)
+ENDIF
 
 CALL message(' ', ' ', io_stdo_bgc)
 CALL message('Global inventory of', 'solid sediment constituents', io_stdo_bgc)
@@ -542,7 +653,7 @@ CALL to_bgcout('Burial CaCO3',glob_bc12)
 CALL to_bgcout('Solid opal',glob_sedsi)
 CALL to_bgcout('Burial opal',glob_bsil)
 CALL to_bgcout('Solid clay',glob_sedclay)
-CALL to_bgcout('Burial opal',glob_bclay)
+CALL to_bgcout('Burial clay',glob_bclay)
 
 CALL message(' ', ' ', io_stdo_bgc)
 cpara_name='======================='
@@ -560,6 +671,9 @@ CALL to_bgcout('CO2 flux',glob_cfl)
 CALL to_bgcout('O2 flux',glob_ofl)
 CALL to_bgcout('N2 flux',glob_n2fl)
 CALL to_bgcout('N2O flux',glob_n2ofl)
+IF (l_N_cycle) THEN
+   CALL to_bgcout('NH3 flux',glob_nh3fl)
+ENDIF
 
 CALL message(' ', ' ', io_stdo_bgc)
 CALL message('Global fluxes into', 'sediment [kmol]', io_stdo_bgc)
@@ -575,7 +689,7 @@ CALL to_bgcout('produs',glob_produs)
 CALL to_bgcout('zalkn2',glob_n2b+glob_pwn2b)
 
 CALL message(' ', ' ', io_stdo_bgc)
-CALL message('Global waethering fluxes', ' [kmol]', io_stdo_bgc)
+CALL message('Global weathering fluxes', ' [kmol]', io_stdo_bgc)
 cpara_name='-----------------------'
 cpara_val="-----------"
 CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
@@ -597,7 +711,7 @@ CALL message(' ', ' ', io_stdo_bgc)
 watersum = glob_det + glob_doc + glob_phy + glob_zoo + glob_phos  &
      &     + rcyano*glob_cya
 
-sedsum =  glob_sedo12 + glob_bo12 +  glob_orginp + glob_pwph
+sedsum =  glob_sedo12 + glob_bo12 - weathering_flag *  glob_orginp + glob_pwph
 
 total_ocean = watersum + sedsum
 
@@ -611,11 +725,16 @@ CALL message(' ', ' ', io_stdo_bgc)
 !-------- Nitrate
 watersum = rnit * (glob_det + glob_doc + glob_phy + glob_zoo  &
      &     + rcyano*glob_cya ) + glob_nit     &
-     &     + rn2 * (glob_gnit + glob_n2o + glob_n2fl + glob_n2ofl)&
-     &     + glob_pwn2 + glob_pwno3
+     &     + rn2 * (glob_gnit + glob_n2o + flux_flag * (glob_n2fl + glob_n2ofl)) &
+     &     + rn2*glob_pwn2 + glob_pwno3 - weathering_flag * glob_nitinp
 
 sedsum =  rnit* (glob_sedo12 + glob_bo12)   &
-     &     - glob_orginp
+     &     - weathering_flag * rnit * glob_orginp
+
+IF (l_N_cycle) THEN
+   watersum = watersum + glob_nh4 + glob_no2 + flux_flag * glob_nh3fl
+   sedsum = sedsum + glob_pwnh4 + glob_pwno2
+ENDIF
 
 total_ocean = watersum + sedsum
 
@@ -627,7 +746,7 @@ CALL message(' ', ' ', io_stdo_bgc)
 !-------- Silicate
 watersum =  glob_sil + glob_opal + glob_pwsi
     
-sedsum = glob_sedsi + glob_bsil  - glob_silinp
+sedsum = glob_sedsi + glob_bsil  - weathering_flag * glob_silinp
 
 total_ocean = watersum + sedsum
 
@@ -638,11 +757,16 @@ CALL message(' ', ' ', io_stdo_bgc)
 
 ! Alkalinity
 
-watersum = glob_alk - rnit* (glob_det + glob_doc + glob_phy + glob_zoo &
-  &        + rcyano* glob_cya) - glob_n2b          &
-  &        + 2._wp * glob_calc + rnit * glob_orginp - 2._wp * glob_calinp
+watersum = glob_alk - ralk* (glob_det + glob_doc + glob_phy + glob_zoo &
+  &        + rcyano* glob_cya) - (glob_n2b+glob_pwn2b)          &
+  &        + 2._wp * glob_calc + weathering_flag * (ralk * glob_orginp - 2._wp * glob_calinp)
 
-sedsum =  glob_sedc12 + glob_bc12 
+sedsum =  2._wp * (glob_sedc12 + glob_bc12) + glob_pwal - ralk * (glob_sedo12 + glob_bo12)
+
+IF (l_N_cycle) THEN
+   watersum = watersum - 2._wp * (glob_nh4 + flux_flag * glob_nh3fl)
+   sedsum = sedsum - 2._wp * glob_pwnh4
+ENDIF
 
 total_ocean = watersum + sedsum
 
@@ -657,11 +781,17 @@ watersum = (glob_det + glob_doc + glob_phy + glob_zoo +         &
   &         rcyano*glob_cya )*(-ro2bal) + &
   &         glob_o2 + glob_phos*2._wp + glob_dic + glob_calc +  &
   &         glob_nit * 1.5_wp + glob_n2o* 0.5_wp + glob_pwno3* 1.5 + &
-  &         glob_pwic + glob_pwox + glob_pwph*2._wp + glob_ofl + &
-  &         glob_n2ofl * 0.5_wp + glob_cfl + glob_h2ob +         &
-  &         glob_orginp*ro2bal - glob_calinp 
+  &         glob_pwic + glob_pwox + glob_pwph*2._wp + flux_flag * (glob_ofl + &
+  &         glob_n2ofl * 0.5_wp + glob_cfl) + glob_h2ob + glob_pwh2ob +    &
+  &         weathering_flag * (glob_orginp*ro2bal - glob_calinp  &
+  &         - glob_nitinp*1.5_wp)
 
 sedsum =   (glob_sedo12 + glob_bo12)*(-ro2bal) + glob_sedc12 + glob_bc12
+
+IF (l_N_cycle) THEN
+   watersum = watersum - 0.5_wp * (glob_nh4 + flux_flag * glob_nh3fl) + glob_no2
+   sedsum = sedsum - 0.5_wp * glob_pwnh4 + glob_pwno2
+ENDIF
 
 total_ocean = watersum + sedsum
 
@@ -675,8 +805,8 @@ CALL message(' ', ' ', io_stdo_bgc)
 
 watersum = (glob_det + glob_doc + glob_phy + glob_zoo   &
      &     + rcyano*glob_cya ) *rcar + &
-     &     glob_dic + glob_calc - glob_calinp - rcar * glob_orginp + &
-     &     glob_cfl
+     &     glob_dic + glob_calc + flux_flag * glob_cfl - weathering_flag * (glob_calinp + &
+     &     rcar * glob_orginp) + glob_pwic
     
 sedsum =  (glob_sedo12 + glob_bo12 ) * rcar + glob_sedc12 + glob_bc12
 
@@ -690,7 +820,6 @@ CALL to_bgcout('Global total carbon [kmol]',total_ocean)
 CALL message(' ', ' ', io_stdo_bgc)
 
 
-cpara_name='======================='
 cpara_name='======================='
 cpara_val="==========="
 CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
@@ -817,4 +946,3 @@ END SUBROUTINE
 
 END MODULE mo_hamocc_diagnostics
 
-#endif

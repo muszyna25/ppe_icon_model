@@ -69,8 +69,7 @@ MODULE mo_meteogram_config
     ! Specification of meteogram stations.
     ! Note: This info is the same for all patches.
     INTEGER                           :: nstations
-    TYPE(t_station_list), POINTER     :: station_list(:,:) !< (idx, block)
-    INTEGER                           :: nblks, npromz
+    TYPE(t_station_list), ALLOCATABLE :: station_list(:)
 
     ! Positive-list of variables (optional). Only variables contained
     ! in this list are included in this meteogram. If the default list
@@ -95,7 +94,8 @@ CONTAINS
   SUBROUTINE check_meteogram_configuration(num_io_procs)
     INTEGER, INTENT(IN) :: num_io_procs
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_mtgrm_config:check_meteogram_configuration")
+    CHARACTER(*), PARAMETER :: routine &
+         = "mo_mtgrm_config:check_meteogram_configuration"
     INTEGER :: idom
 
     ! Asynchronous output does not work with distributed meteogram

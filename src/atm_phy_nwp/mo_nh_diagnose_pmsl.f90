@@ -21,6 +21,9 @@ MODULE mo_nh_diagnose_pmsl
   USE mo_physical_constants,  ONLY: rd, grav, dtdz_standardatm
   USE mo_parallel_config,     ONLY: nproma
   USE mo_initicon_config,     ONLY: zpbl1, zpbl2
+#ifdef _OPENACC
+  USE mo_mpi,                 ONLY: i_am_accel_node
+#endif
 
   IMPLICIT NONE
 
@@ -33,6 +36,8 @@ MODULE mo_nh_diagnose_pmsl
   REAL(wp), PARAMETER :: t_low  = 255.0_wp
   REAL(wp), PARAMETER :: t_high = 290.5_wp
 
+  ! (note: for the 'diagnose_pmsl...' routines no deep-atmosphere copy exists, 
+  ! because the error from grav=const is assumed to be negligibly small for them)
   PUBLIC :: diagnose_pmsl
   PUBLIC :: diagnose_pmsl_gme
   PUBLIC :: diagnose_pmsl_ifs
@@ -112,8 +117,10 @@ CONTAINS
     ! --------------------------
 
     ! initialize output field
+    !$ACC KERNELS DEFAULT(PRESENT) ASYNC(1) IF (i_am_accel_node)
     pres_out(:,nblks) = 0._wp
-
+    !$ACC END KERNELS
+    
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,nlen,jc,geop_sfc,temp_in,pres_in,pres_sfc,ztstar,ztmsl,zalph,zprt,zprtal) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, nblks
@@ -122,7 +129,8 @@ CONTAINS
       ELSE
         nlen = npromz
       ENDIF
-
+     
+      !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(PRESENT) ASYNC(1) IF (i_am_accel_node)
       DO jc = 1, nlen
 
         geop_sfc = z3d_in(jc,nlevp1,jb)*grav    ! surface geopotential
@@ -231,8 +239,8 @@ CONTAINS
 
     INTEGER             :: nlev, nlevp1, nlen, jb, jc
 
-    REAL(wp)            :: temp_extrap, vtgrad, dtdz_thresh
-    REAL(wp), DIMENSION(nproma) :: tsfc, tmsl, tsfc_mod, tmsl_mod
+    REAL(wp) :: temp_extrap, vtgrad, dtdz_thresh
+    REAL(wp) :: tsfc, tmsl, tsfc_mod, tmsl_mod
 
 !-------------------------------------------------------------------------
 
@@ -259,9 +267,12 @@ CONTAINS
         nlen = nproma
       ELSE
         nlen = npromz
+        !$ACC KERNELS DEFAULT(PRESENT) ASYNC(1) IF (i_am_accel_node)
         pmsl_out(nlen+1:nproma,jb)  = 0.0_wp
+        !$ACC END KERNELS
       ENDIF
 
+      !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(PRESENT) ASYNC(1) IF (i_am_accel_node)
       DO jc = 1, nlen
 
         ! Auxiliary temperature at 150 m AGL from which the sfc temp is extrapolated
@@ -269,41 +280,41 @@ CONTAINS
                (1._wp-wfac_extrap(jc,jb))*temp3d_in(jc,kextrap(jc,jb)+1,jb)
 
         ! extrapolated surface temperature (tstar in IFS nomenclature)
-        tsfc(jc) = temp_extrap - dtdz_standardatm*zextrap(jc,jb)
+        tsfc = temp_extrap - dtdz_standardatm*zextrap(jc,jb)
 
         ! extrapolated sea-level temperature (t0 in IFS nomenclature)
-        tmsl(jc) = tsfc(jc) - dtdz_standardatm*z3d_in(jc,nlevp1,jb)
+        tmsl = tsfc - dtdz_standardatm*z3d_in(jc,nlevp1,jb)
 
         ! artificial modifications in the presence of extreme temperatures
-        IF (tsfc(jc) < t_low) THEN
-          tsfc_mod(jc) = 0.5_wp*(tsfc(jc)+t_low)
-        ELSE IF (tsfc(jc) < t_high) THEN
-          tsfc_mod(jc) = tsfc(jc)
+        IF (tsfc < t_low) THEN
+          tsfc_mod = 0.5_wp*(tsfc+t_low)
+        ELSE IF (tsfc < t_high) THEN
+          tsfc_mod = tsfc
         ELSE
-          tsfc_mod(jc) = 0.5_wp*(tsfc(jc)+t_high)
+          tsfc_mod = 0.5_wp*(tsfc+t_high)
         ENDIF
 
-        tmsl_mod(jc) = tsfc_mod(jc) - dtdz_standardatm*z3d_in(jc,nlevp1,jb)
+        tmsl_mod = tsfc_mod - dtdz_standardatm*z3d_in(jc,nlevp1,jb)
 
-        IF (tsfc_mod(jc) < t_high .AND. tmsl_mod(jc) > t_high) THEN
-          tmsl_mod(jc) = t_high
-        ELSE IF (tsfc_mod(jc) >= t_high .AND. tmsl_mod(jc) > tsfc_mod(jc)) THEN
-          tmsl_mod(jc) = tsfc_mod(jc)
+        IF (tsfc_mod < t_high .AND. tmsl_mod > t_high) THEN
+          tmsl_mod = t_high
+        ELSE IF (tsfc_mod >= t_high .AND. tmsl_mod > tsfc_mod) THEN
+          tmsl_mod = tsfc_mod
         ELSE
           IF (method == PRES_MSL_METHOD_IFS) THEN
-            tmsl_mod(jc) = tmsl(jc) ! this is missing in the geopotential computation!!!
+            tmsl_mod = tmsl ! this is missing in the geopotential computation!!!
           ENDIF
           ! tmsl_mod unmodified for method == PRES_MSL_METHOD_IFS_CORR
         ENDIF
 
-        vtgrad = (tsfc_mod(jc) - tmsl_mod(jc))/SIGN(MAX(1.e-4_wp,ABS(z3d_in(jc,nlevp1,jb))),z3d_in(jc,nlevp1,jb))
+        vtgrad = (tsfc_mod - tmsl_mod)/SIGN(MAX(1.e-4_wp,ABS(z3d_in(jc,nlevp1,jb))),z3d_in(jc,nlevp1,jb))
 
         IF (ABS(vtgrad) > dtdz_thresh) THEN
           pmsl_out(jc,jb) = pres_sfc_in(jc,jb)*EXP(-grav/(rd*vtgrad)* &
-                            LOG(tmsl_mod(jc)/tsfc_mod(jc)) )
+                            LOG(tmsl_mod/tsfc_mod) )
         ELSE
           pmsl_out(jc,jb) = pres_sfc_in(jc,jb)*EXP(grav*z3d_in(jc,nlevp1,jb)/ &
-                           (rd*0.5_wp*(tsfc_mod(jc)+tmsl_mod(jc))) )
+                            (rd*0.5_wp*(tsfc_mod+tmsl_mod)) )
         ENDIF
 
 
@@ -364,9 +375,9 @@ CONTAINS
 
     INTEGER  :: jb, jc
     INTEGER  :: nlen
-    REAL(wp), DIMENSION(nproma) :: tempv1, tempv2, vtgrad_pbl_in, vtgrad_up, zdiff_inout, &
-                                   sfc_inv, tempv_out_pbl1, vtgrad_up_out, tempv_out,     &
-                                   vtgrad_pbl_out, p_pbl1, p_pbl1_out
+    REAL(wp) :: tempv1, tempv2, vtgrad_pbl_in, vtgrad_up, zdiff_inout, &
+                sfc_inv, tempv_out_pbl1, vtgrad_up_out, tempv_out,     &
+                vtgrad_pbl_out, p_pbl1, p_pbl1_out
     REAL(wp) :: dtvdz_thresh
 
 !-------------------------------------------------------------------------
@@ -386,105 +397,108 @@ CONTAINS
         nlen = nproma
       ELSE
         nlen = npromz
+        !$ACC KERNELS DEFAULT(PRESENT) ASYNC(1) IF (i_am_accel_node)
         pmsl_out(nlen+1:nproma,jb)  = 0.0_wp
+        !$ACC END KERNELS
       ENDIF
 
+      !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(PRESENT) ASYNC(1) IF (i_am_accel_node)
       DO jc = 1, nlen
         ! Virtual temperature at height zpbl1
-        tempv1(jc) = wfacpbl1(jc,jb) *tempv_in(jc,kpbl1(jc,jb),jb  ) + &
+        tempv1 = wfacpbl1(jc,jb) *tempv_in(jc,kpbl1(jc,jb),jb  ) + &
               (1._wp-wfacpbl1(jc,jb))*tempv_in(jc,kpbl1(jc,jb)+1,jb)
 
         ! Virtual temperature at height zpbl2
-        tempv2(jc) = wfacpbl2(jc,jb) *tempv_in(jc,kpbl2(jc,jb),jb  ) + &
+        tempv2 = wfacpbl2(jc,jb) *tempv_in(jc,kpbl2(jc,jb),jb  ) + &
               (1._wp-wfacpbl2(jc,jb))*tempv_in(jc,kpbl2(jc,jb)+1,jb)
 
         ! Vertical gradient between surface level zpbl1
-        vtgrad_pbl_in(jc) = (tempv1(jc) - tempv_in(jc,nlevs_in,jb))/zpbl1
+        vtgrad_pbl_in = (tempv1 - tempv_in(jc,nlevs_in,jb))/zpbl1
 
         ! Vertical gradient between zpbl1 and zpbl2
-        vtgrad_up(jc) = (tempv2(jc) - tempv1(jc))/(zpbl2 - zpbl1)
+        vtgrad_up = (tempv2 - tempv1)/(zpbl2 - zpbl1)
 
         ! Set reasonably restrictive limits
-        vtgrad_up(jc) = MAX(vtgrad_up(jc),-8.0e-3_wp)
-        vtgrad_up(jc) = MIN(vtgrad_up(jc),-5.0e-3_wp)
+        vtgrad_up = MAX(vtgrad_up,-8.0e-3_wp)
+        vtgrad_up = MIN(vtgrad_up,-5.0e-3_wp)
 
         ! height distance between lowest input level
         ! (negative if model grid point lies above z_target)
-        zdiff_inout(jc) = z_target - z3d_in(jc,nlevs_in,jb)
+        zdiff_inout = z_target - z3d_in(jc,nlevs_in,jb)
 
         ! "surface inversion", defined by the difference between the extrapolated
         ! extrapolated temperature from above and the original input temperature
-        sfc_inv(jc) = tempv1(jc)-vtgrad_up(jc)*zpbl1 - tempv_in(jc,nlevs_in,jb)
+        sfc_inv = tempv1-vtgrad_up*zpbl1 - tempv_in(jc,nlevs_in,jb)
 
         ! Reduction of the surface inversion depending on the extrapolation
         ! distance. The surface inversion is fully restored for extrapolation distances
         ! up to zpbl1 and disregarded for distances larger than 3*zpbl1
-        IF (ABS(zdiff_inout(jc)) > 3._wp*zpbl1) THEN
-          sfc_inv(jc) = 0._wp
-        ELSE IF (ABS(zdiff_inout(jc)) > zpbl1) THEN
-          sfc_inv(jc) = sfc_inv(jc)*(1._wp - (ABS(zdiff_inout(jc))-zpbl1)/(2._wp*zpbl1))
+        IF (ABS(zdiff_inout) > 3._wp*zpbl1) THEN
+          sfc_inv = 0._wp
+        ELSE IF (ABS(zdiff_inout) > zpbl1) THEN
+          sfc_inv = sfc_inv*(1._wp - (ABS(zdiff_inout)-zpbl1)/(2._wp*zpbl1))
         ENDIF
 
         ! Linear extrapolation to zpbl1 above target height using the upper temperature gradient
         ! extrapol_dist is the maximum extrapolation distance up to which the local
         ! vertical gradient is considered; for larger distance, the standard atmosphere
         ! vertical gradient is taken
-        IF (zdiff_inout(jc) > extrapol_dist) THEN
-          tempv_out_pbl1(jc) = tempv1(jc) + zdiff_inout(jc)*vtgrad_up(jc)
-          vtgrad_up_out(jc)  = vtgrad_up(jc)
+        IF (zdiff_inout > extrapol_dist) THEN
+          tempv_out_pbl1 = tempv1 + zdiff_inout*vtgrad_up
+          vtgrad_up_out  = vtgrad_up
         ELSE
-          tempv_out_pbl1(jc) = tempv1(jc) + extrapol_dist*vtgrad_up(jc) +   &
-                            (zdiff_inout(jc)-extrapol_dist)*dtdz_standardatm
+          tempv_out_pbl1 = tempv1 + extrapol_dist*vtgrad_up +   &
+                            (zdiff_inout-extrapol_dist)*dtdz_standardatm
 
           ! Artificial limitation analogous to GME method
-          IF (tempv_out_pbl1(jc) < 255.65_wp) THEN
-            tempv_out_pbl1(jc) = 0.5_wp*(tempv_out_pbl1(jc)+255.65_wp)
-          ELSE IF (tempv_out_pbl1(jc) > 290.65_wp) THEN
-            tempv_out_pbl1(jc) = 0.5_wp*(tempv_out_pbl1(jc)+290.65_wp)
-            tempv_out_pbl1(jc) = MIN(298.15_wp,tempv_out_pbl1(jc))
-            tempv_out_pbl1(jc) = MAX(248.15_wp,tempv_out_pbl1(jc))
+          IF (tempv_out_pbl1 < 255.65_wp) THEN
+            tempv_out_pbl1 = 0.5_wp*(tempv_out_pbl1+255.65_wp)
+          ELSE IF (tempv_out_pbl1 > 290.65_wp) THEN
+            tempv_out_pbl1 = 0.5_wp*(tempv_out_pbl1+290.65_wp)
+            tempv_out_pbl1 = MIN(298.15_wp,tempv_out_pbl1)
+            tempv_out_pbl1 = MAX(248.15_wp,tempv_out_pbl1)
           ENDIF
 
           ! Averaged vertical temperature gradient
-          vtgrad_up_out(jc) = (tempv_out_pbl1(jc) - tempv1(jc))/zdiff_inout(jc)
+          vtgrad_up_out = (tempv_out_pbl1 - tempv1)/zdiff_inout
         ENDIF
 
         ! Final extrapolation of temperature to target height, including restored surface inversion
-        tempv_out(jc) = tempv_out_pbl1(jc) - vtgrad_up_out(jc)*zpbl1 - sfc_inv(jc)
+        tempv_out = tempv_out_pbl1 - vtgrad_up_out*zpbl1 - sfc_inv
 
         ! Boundary-layer vertical gradient of extrapolation profile
-        vtgrad_pbl_out(jc) = (tempv_out_pbl1(jc)-tempv_out(jc))/zpbl1
+        vtgrad_pbl_out = (tempv_out_pbl1-tempv_out)/zpbl1
 
 
         ! Three-step vertical integration of pressure
         ! step 1: from surface level of input data to zpbl1 (to get rid of surface inversion)
 
-        IF (ABS(vtgrad_pbl_in(jc)) > dtvdz_thresh) THEN
-          p_pbl1(jc) = pres_in(jc,nlevs_in,jb)*EXP(-grav/(rd*vtgrad_pbl_in(jc))* &
-                       LOG(tempv1(jc)/tempv_in(jc,nlevs_in,jb)) )
+        IF (ABS(vtgrad_pbl_in) > dtvdz_thresh) THEN
+          p_pbl1 = pres_in(jc,nlevs_in,jb)*EXP(-grav/(rd*vtgrad_pbl_in)* &
+                       LOG(tempv1/tempv_in(jc,nlevs_in,jb)) )
         ELSE
-          p_pbl1(jc) = pres_in(jc,nlevs_in,jb)*EXP(-grav*zpbl1 / &
-                      (rd*0.5_wp*(tempv1(jc)+tempv_in(jc,nlevs_in,jb))) )
+          p_pbl1 = pres_in(jc,nlevs_in,jb)*EXP(-grav*zpbl1 / &
+                      (rd*0.5_wp*(tempv1+tempv_in(jc,nlevs_in,jb))) )
         ENDIF
 
         ! step 2: from zpbl1 of input data to zpbl1 above target level
-        IF (ABS(vtgrad_up_out(jc)) > dtvdz_thresh) THEN
-          p_pbl1_out(jc) = p_pbl1(jc)*EXP(-grav/(rd*vtgrad_up_out(jc))* &
-                           LOG(tempv_out_pbl1(jc)/tempv1(jc)) )
+        IF (ABS(vtgrad_up_out) > dtvdz_thresh) THEN
+          p_pbl1_out = p_pbl1*EXP(-grav/(rd*vtgrad_up_out)* &
+                           LOG(tempv_out_pbl1/tempv1) )
         ELSE
-          p_pbl1_out(jc) = p_pbl1(jc)*EXP(-grav*zdiff_inout(jc)/ &
-                          (rd*0.5_wp*(tempv1(jc)+tempv_out_pbl1(jc))) )
+          p_pbl1_out = p_pbl1*EXP(-grav*zdiff_inout/ &
+                          (rd*0.5_wp*(tempv1+tempv_out_pbl1)) )
         ENDIF
 
         ! step 3: from zpbl1 above target level to target level
-        IF (ABS(vtgrad_pbl_out(jc)) > dtvdz_thresh) THEN
-          pmsl_out(jc,jb) = p_pbl1_out(jc)*EXP(-grav/(rd*vtgrad_pbl_out(jc))* &
-                            LOG(tempv_out(jc)/tempv_out_pbl1(jc)) )
-        ELSE
-          pmsl_out(jc,jb) = p_pbl1_out(jc)*EXP(grav*zpbl1/ &
-                           (rd*0.5_wp*(tempv_out(jc)+tempv_out_pbl1(jc))) )
-        ENDIF
 
+        IF (ABS(vtgrad_pbl_out) > dtvdz_thresh) THEN
+          pmsl_out(jc,jb) = p_pbl1_out*EXP(-grav/(rd*vtgrad_pbl_out)* &
+                            LOG(tempv_out/tempv_out_pbl1) )
+        ELSE
+          pmsl_out(jc,jb) = p_pbl1_out*EXP(grav*zpbl1/ &
+                           (rd*0.5_wp*(tempv_out+tempv_out_pbl1)) )
+        ENDIF
       ENDDO
 
     ENDDO

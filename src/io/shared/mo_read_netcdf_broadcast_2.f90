@@ -34,16 +34,14 @@
 MODULE mo_read_netcdf_broadcast_2
 
   USE mo_kind,               ONLY: sp, dp, wp
-  USE mo_scatter,            ONLY: broadcast_array
   USE mo_exception,          ONLY: message, warning, finish, em_warn
   USE mo_impl_constants,     ONLY: success
   USE mo_parallel_config,    ONLY: nproma
   USE mo_io_units,           ONLY: filename_max
-
-  USE mo_mpi,                ONLY: my_process_is_mpi_workroot
-  USE mo_read_netcdf_distributed, ONLY: var_data_2d_wp, var_data_2d_int, &
-    &                                   var_data_3d_wp, var_data_3d_int
+  USE mo_mpi,                ONLY: my_process_is_mpi_workroot, p_comm_work, &
+    &                              process_mpi_root_id, p_bcast
   USE mo_communication,      ONLY: t_scatterPattern
+  USE mo_fortran_tools,      ONLY: t_ptr_2d, t_ptr_2d_int, t_ptr_3d, t_ptr_3d_int
   !-------------------------------------------------------------------------
 
   IMPLICIT NONE
@@ -55,11 +53,13 @@ MODULE mo_read_netcdf_broadcast_2
   PUBLIC :: netcdf_open_input, netcdf_close
 
   PUBLIC :: netcdf_read_att_int
+  PUBLIC :: netcdf_read_inq_varexists
   PUBLIC :: netcdf_read_0D_real
   PUBLIC :: netcdf_read_0D_int
   PUBLIC :: netcdf_read_1D
   PUBLIC :: netcdf_read_1D_extdim_time
   PUBLIC :: netcdf_read_1D_extdim_extdim_time
+  PUBLIC :: netcdf_read_extdim_slice_extdim_extdim_extdim
   PUBLIC :: netcdf_read_2D_int
   PUBLIC :: netcdf_read_2D
   PUBLIC :: netcdf_read_REAL_2D_all
@@ -100,6 +100,10 @@ MODULE mo_read_netcdf_broadcast_2
   INTERFACE netcdf_read_1D_extdim_extdim_time
     MODULE PROCEDURE netcdf_read_REAL_1D_extdim_extdim_time
   END INTERFACE netcdf_read_1D_extdim_extdim_time
+
+  INTERFACE netcdf_read_extdim_slice_extdim_extdim_extdim
+    MODULE PROCEDURE netcdf_read_REAL_extdim_slice_extdim_extdim_extdim
+  END INTERFACE netcdf_read_extdim_slice_extdim_extdim_extdim
 
   INTERFACE netcdf_read_2D_int
     MODULE PROCEDURE netcdf_read_INT_2D
@@ -169,11 +173,32 @@ CONTAINS
     ENDIF
 
     ! broadcast...
-    CALL broadcast_array(zlocal)
+    CALL p_bcast(zlocal, process_mpi_root_id, p_comm_work)
 
     res=zlocal(1)
 
   END FUNCTION netcdf_read_ATT_INT
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  FUNCTION netcdf_read_inq_varexists(file_id, variable_name) result(ret)
+    LOGICAL                      :: ret
+    INTEGER, INTENT(IN)          :: file_id
+    CHARACTER(LEN=*), INTENT(IN) :: variable_name
+
+    INTEGER                      :: err, varid
+    CHARACTER(LEN=*), PARAMETER  :: method_name = &
+      'mo_read_netcdf_broadcast_2:netcdf_read_inq_varexists'
+
+    IF( my_process_is_mpi_workroot()  ) THEN
+      err = nf_inq_varid(file_id, variable_name, varid)
+    ENDIF
+
+    CALL p_bcast(err, process_mpi_root_id, p_comm_work)
+
+    ret = (err == nf_noerr)
+  END FUNCTION netcdf_read_inq_varexists
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
@@ -202,7 +227,7 @@ CONTAINS
     ENDIF
 
     ! broadcast...
-    CALL broadcast_array(zlocal)
+    CALL p_bcast(zlocal, process_mpi_root_id, p_comm_work)
 
     res=zlocal(1)
 
@@ -235,7 +260,7 @@ CONTAINS
     ENDIF
 
     ! broadcast...
-    CALL broadcast_array(zlocal)
+    CALL p_bcast(zlocal, process_mpi_root_id, p_comm_work)
 
     res=zlocal(1)
 
@@ -277,7 +302,7 @@ CONTAINS
     ENDIF
 
     ! we need to sync the var_size...
-    CALL broadcast_array(var_size(1:2))
+    CALL p_bcast(var_size(1:2), process_mpi_root_id, p_comm_work)
 
     IF (PRESENT(fill_array)) THEN
       res => fill_array
@@ -299,7 +324,7 @@ CONTAINS
     ENDIF
 
     ! broadcast...
-    CALL broadcast_array(res)
+    CALL p_bcast(res, process_mpi_root_id, p_comm_work)
 
   END FUNCTION netcdf_read_REAL_1D
   !-------------------------------------------------------------------------
@@ -345,7 +370,7 @@ CONTAINS
 
       IF (PRESENT(dim_names)) THEN
         DO idim = 1, 2
-          IF (TRIM(dim_names(idim)) /= TRIM(var_dim_name(idim))) THEN
+          IF (dim_names(idim) /= var_dim_name(idim)) THEN
             WRITE(0,*) 'dim_name(',idim,')=',TRIM(ADJUSTL(var_dim_name(idim))),&
                        ' but dimension name', &
                        TRIM(ADJUSTL(dim_names(idim))),' was expected'
@@ -354,14 +379,14 @@ CONTAINS
         END DO
       END IF
 
-      IF (TRIM(var_dim_name(3)) /= 'time' ) THEN
+      IF (var_dim_name(3) /= 'time' ) THEN
         WRITE(0,*) 'no time dimension found, the last dimension must be time'
         CALL finish(method_name, 'no time dimension found')
       END IF
     ENDIF
 
     ! we need to sync the var_size...
-    CALL broadcast_array(var_size(1:3))
+    CALL p_bcast(var_size(1:3), process_mpi_root_id, p_comm_work)
     file_time_steps=var_size(3)
 
     ! calculate time range
@@ -406,7 +431,7 @@ CONTAINS
     ENDIF
 
     ! broadcast...
-    CALL broadcast_array(res)
+    CALL p_bcast(res, process_mpi_root_id, p_comm_work)
 
   END FUNCTION netcdf_read_REAL_1D_extdim_time
   !-------------------------------------------------------------------------
@@ -450,7 +475,7 @@ CONTAINS
 
       IF (PRESENT(dim_names)) THEN
         DO idim = 1, 3
-          IF (TRIM(dim_names(idim)) /= TRIM(var_dim_name(idim))) THEN
+          IF (dim_names(idim) /= var_dim_name(idim)) THEN
             WRITE(0,*) 'dim_name(',idim,')=',TRIM(ADJUSTL(var_dim_name(idim))),&
                        ' but dimension name ', &
                        TRIM(ADJUSTL(dim_names(idim))),' was expected'
@@ -459,14 +484,14 @@ CONTAINS
         END DO
       END IF
 
-      IF (TRIM(var_dim_name(4)) /= 'time' ) THEN
+      IF (var_dim_name(4) /= 'time' ) THEN
         WRITE(0,*) 'no time dimension found, the last dimension must be time'
         CALL finish(method_name, 'no time dimension found')
       END IF
     ENDIF
 
     ! we need to sync the var_size...
-    CALL broadcast_array(var_size(1:4))
+    CALL p_bcast(var_size(1:4), process_mpi_root_id, p_comm_work)
     file_time_steps=var_size(4)
 
     ! calculate time range
@@ -512,9 +537,110 @@ CONTAINS
     ENDIF
 
     ! broadcast...
-    CALL broadcast_array(res)
+    CALL p_bcast(res, process_mpi_root_id, p_comm_work)
 
   END FUNCTION netcdf_read_REAL_1D_extdim_extdim_time
+  !-------------------------------------------------------------------------
+  !-------------------------------------------------------------------------
+  !>
+  FUNCTION netcdf_read_REAL_extdim_slice_extdim_extdim_extdim( &
+    file_id, variable_name, fill_array, dim_names, start_extdim1, &
+    end_extdim1) result(res)
+
+    REAL(wp), POINTER            :: res(:,:,:,:)
+
+    INTEGER, INTENT(IN)          :: file_id
+    CHARACTER(LEN=*), INTENT(IN) :: variable_name
+    define_fill_target           :: fill_array(:,:,:,:)
+    CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: dim_names(:)
+    INTEGER, INTENT(IN), OPTIONAL:: start_extdim1, end_extdim1
+
+    INTEGER :: varid, var_type, var_dims
+    INTEGER :: var_size(MAX_VAR_DIMS)
+    CHARACTER(LEN=filename_max) :: var_dim_name(MAX_VAR_DIMS)
+    INTEGER :: file_extdim1_steps, dim1_steps, start_dim1, end_dim1
+    INTEGER :: start_read_index(4), count_read_index(4)
+    INTEGER :: idim
+    INTEGER :: return_status
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = &
+      'mo_read_netcdf_broadcast_2:netcdf_read_REAL_extdim_slice_extdim_extdim_extdim'
+
+    ! trivial return value.
+    NULLIFY(res)
+
+    IF( my_process_is_mpi_workroot()  ) THEN
+      CALL netcdf_inq_var(file_id, variable_name, varid, var_type, var_dims, &
+        &                 var_size, var_dim_name)
+
+      ! check if the dims look ok
+      IF (var_dims /= 4 ) THEN
+        WRITE(0,*) "var_dims = ", var_dims
+        CALL finish(method_name, "Dimensions mismatch")
+      ENDIF
+
+      IF (PRESENT(dim_names)) THEN
+        DO idim = 1, 4
+          IF (TRIM(dim_names(idim)) /= TRIM(var_dim_name(idim))) THEN
+            WRITE(0,*) 'dim_name(',idim,')=',TRIM(ADJUSTL(var_dim_name(idim))),&
+                       ' but dimension name ', &
+                       TRIM(ADJUSTL(dim_names(idim))),' was expected'
+            CALL finish(method_name, 'dimension name mismatch')
+          END IF
+        END DO
+      END IF
+    END IF
+
+    ! we need to sync the var_size...
+    CALL p_bcast(var_size(1:4), process_mpi_root_id, p_comm_work)
+    file_extdim1_steps=var_size(1)
+
+    ! calculate slice of 4th dimension
+    IF (PRESENT(start_extdim1)) THEN
+      start_dim1 = start_extdim1
+    ELSE
+      start_dim1 = 1
+    ENDIF
+    IF (PRESENT(end_extdim1)) THEN
+      end_dim1 = end_extdim1
+    ELSE
+      end_dim1 = file_extdim1_steps
+    ENDIF
+!!$    use_time_range = (start_time /= 1) .OR. (end_time /= file_time_steps)
+    dim1_steps = end_dim1 - start_dim1 + 1
+!    write(0,*) "start,end time=", start_time, end_time
+    IF (dim1_steps < 1) &
+      & CALL finish(method_name, "number of slices of dimension 1 < 1")
+
+    IF (PRESENT(fill_array)) THEN
+      res => fill_array
+    ELSE
+      ALLOCATE( res(dim1_steps,var_size(2),var_size(3), &
+                var_size(4)), stat=return_status )
+      IF (return_status /= success) &
+        CALL finish (method_name, &
+          &          'ALLOCATE( netcdf_read_REAL_extdim_slice_extdim_extdim_extdim )')
+      res(:,:,:,:)=0.0_wp
+    ENDIF
+
+!!$    ! check if the size is correct
+!!$    IF (SIZE(netcdf_read_REAL_1D,1) < var_size(1)) &
+!!$      CALL finish(method_name, "allocated size < var_size")
+!!$    IF (SIZE(netcdf_read_REAL_1D,1) > var_size(1)) &
+!!$      CALL warning(method_name, "allocated size > var_size")
+
+    IF( my_process_is_mpi_workroot()) THEN
+      start_read_index = (/start_dim1,1,1,1/)
+      count_read_index = (/dim1_steps,var_size(2),var_size(3),var_size(4)/)
+      CALL nf(nf_get_vara_double(file_id, varid, start_read_index, &
+        &                        count_read_index, res(:,:,:,:)), &
+        &     variable_name)
+    ENDIF
+
+    ! broadcast...
+    CALL p_bcast(res, process_mpi_root_id, p_comm_work)
+
+  END FUNCTION netcdf_read_REAL_extdim_slice_extdim_extdim_extdim
   !-------------------------------------------------------------------------
   !-------------------------------------------------------------------------
   !>
@@ -528,14 +654,14 @@ CONTAINS
     INTEGER, INTENT(IN)              :: n_g
     CLASS(t_scatterPattern), POINTER :: scatter_pattern
 
-    TYPE(var_data_2d_int) :: fill_arrays(1)
+    TYPE(t_ptr_2d_int) :: fill_arrays(1)
     TYPE(t_p_scatterPattern) :: scatter_pattern_(1)
-    TYPE(var_data_2d_int) :: results(1)
+    TYPE(t_ptr_2d_int) :: results(1)
 
     scatter_pattern_(1)%p => scatter_pattern
 
     IF (PRESENT(fill_array)) THEN
-      fill_arrays(1)%data => fill_array
+      fill_arrays(1)%p => fill_array
       results = netcdf_read_INT_2D_multivar(file_id=file_id, &
         &                                   variable_name=variable_name,&
         &                                   n_vars=1, &
@@ -549,7 +675,7 @@ CONTAINS
         &                                   scatter_patterns=scatter_pattern_)
     END IF
 
-    res => results(1)%data
+    res => results(1)%p
 
   END FUNCTION netcdf_read_INT_2D
 
@@ -560,11 +686,11 @@ CONTAINS
     INTEGER, INTENT(IN)                    :: n_vars
     INTEGER, INTENT(IN)                    :: file_id
     CHARACTER(LEN=*), INTENT(IN)           :: variable_name
-    TYPE(var_data_2d_int), OPTIONAL        :: fill_arrays(n_vars)
+    TYPE(t_ptr_2d_int), OPTIONAL        :: fill_arrays(n_vars)
     INTEGER, INTENT(IN)                    :: n_g
     TYPE(t_p_scatterPattern),INTENT(INOUT) :: scatter_patterns(n_vars)
 
-    TYPE(var_data_2d_int)                  :: res(n_vars)
+    TYPE(t_ptr_2d_int)                  :: res(n_vars)
 
     INTEGER :: varid, var_type, var_dims
     INTEGER :: var_size(MAX_VAR_DIMS)
@@ -598,18 +724,18 @@ CONTAINS
 
     DO i = 1, n_vars
       IF (PRESENT(fill_arrays)) THEN
-        res(i)%data => fill_arrays(i)%data
+        res(i)%p => fill_arrays(i)%p
       ELSE
-        ALLOCATE( res(i)%data(nproma, &
+        ALLOCATE( res(i)%p(nproma, &
           &                   (scatter_patterns(i)%p%myPointCount - 1)/nproma + 1), &
           &       stat=return_status )
         IF (return_status /= success) THEN
           CALL finish (method_name, 'ALLOCATE( res )')
         ENDIF
-        res(i)%data(:,:) = 0
+        res(i)%p(:,:) = 0
       ENDIF
 
-      CALL scatter_patterns(i)%p%distribute(tmp_array, res(i)%data, .FALSE.)
+      CALL scatter_patterns(i)%p%distribute(tmp_array, res(i)%p, .FALSE.)
     END DO
 
   END FUNCTION netcdf_read_INT_2D_multivar
@@ -649,7 +775,7 @@ CONTAINS
     ENDIF
 
     ! we need to sync the var_size...
-    CALL broadcast_array(var_size(1:2))
+    CALL p_bcast(var_size(1:2), process_mpi_root_id, p_comm_work)
 
     IF (PRESENT(fill_array)) THEN
       res => fill_array
@@ -675,7 +801,7 @@ CONTAINS
     ENDIF
 
     ! broadcast...
-    CALL broadcast_array(res)
+    CALL p_bcast(res, process_mpi_root_id, p_comm_work)
 
   END FUNCTION netcdf_read_REAL_2D_all
   !-------------------------------------------------------------------------
@@ -692,14 +818,14 @@ CONTAINS
     INTEGER, INTENT(IN)              :: n_g
     CLASS(t_scatterPattern), POINTER :: scatter_pattern
 
-    TYPE(var_data_2d_wp) :: fill_arrays(1)
+    TYPE(t_ptr_2d) :: fill_arrays(1)
     TYPE(t_p_scatterPattern) :: scatter_pattern_(1)
-    TYPE(var_data_2d_wp) :: results(1)
+    TYPE(t_ptr_2d) :: results(1)
 
     scatter_pattern_(1)%p => scatter_pattern
 
     IF (PRESENT(fill_array)) THEN
-      fill_arrays(1)%data => fill_array
+      fill_arrays(1)%p => fill_array
       results = netcdf_read_REAL_2D_multivar(file_id=file_id, &
         &                                    variable_name=variable_name,&
         &                                    n_vars=1, &
@@ -713,7 +839,7 @@ CONTAINS
         &                                    scatter_patterns=scatter_pattern_)
     END IF
 
-    res => results(1)%data
+    res => results(1)%p
 
   END FUNCTION netcdf_read_REAL_2D
 
@@ -724,11 +850,11 @@ CONTAINS
     INTEGER, INTENT(IN)                     :: n_vars
     INTEGER, INTENT(IN)                     :: file_id
     CHARACTER(LEN=*), INTENT(IN)            :: variable_name
-    TYPE(var_data_2d_wp), OPTIONAL          :: fill_arrays(n_vars)
+    TYPE(t_ptr_2d), OPTIONAL          :: fill_arrays(n_vars)
     INTEGER, INTENT(IN)                     :: n_g
     TYPE(t_p_scatterPattern), INTENT(INOUT) :: scatter_patterns(n_vars)
 
-    TYPE(var_data_2d_wp)                    :: res(n_vars)
+    TYPE(t_ptr_2d)                    :: res(n_vars)
 
     INTEGER :: varid, var_type(1), var_dims
     INTEGER :: var_size(MAX_VAR_DIMS)
@@ -751,7 +877,7 @@ CONTAINS
       ENDIF
     ENDIF
 
-    CALL broadcast_array(var_type)
+    CALL p_bcast(var_type, process_mpi_root_id, p_comm_work)
 
     IF( my_process_is_mpi_workroot()) THEN
       SELECT CASE(var_type(1))
@@ -771,21 +897,21 @@ CONTAINS
 
     DO i = 1, n_vars
       IF (PRESENT(fill_arrays)) THEN
-        res(i)%data => fill_arrays(i)%data
+        res(i)%p => fill_arrays(i)%p
       ELSE
-        ALLOCATE( res(i)%data(nproma, &
+        ALLOCATE( res(i)%p(nproma, &
           &                   (scatter_patterns(i)%p%myPointCount - 1)/nproma + 1), &
           &       stat=return_status )
         IF (return_status /= success) THEN
           CALL finish (method_name, 'ALLOCATE( res )')
         ENDIF
-        res(i)%data(:,:) = 0.0_wp
+        res(i)%p(:,:) = 0.0_wp
       ENDIF
 
       IF (var_type(1) == NF_DOUBLE) THEN
-        CALL scatter_patterns(i)%p%distribute(tmp_array_dp, res(i)%data, .FALSE.)
+        CALL scatter_patterns(i)%p%distribute(tmp_array_dp, res(i)%p, .FALSE.)
       ELSE
-        CALL scatter_patterns(i)%p%distribute(tmp_array_sp, res(i)%data, .FALSE.)
+        CALL scatter_patterns(i)%p%distribute(tmp_array_sp, res(i)%p, .FALSE.)
       END IF
     END DO
 
@@ -840,14 +966,14 @@ CONTAINS
     INTEGER, INTENT(in), OPTIONAL          :: start_extdim, end_extdim
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name
 
-    TYPE(var_data_3d_wp) :: fill_arrays(1)
+    TYPE(t_ptr_3d) :: fill_arrays(1)
     TYPE(t_p_scatterPattern) :: scatter_pattern_(1)
-    TYPE(var_data_3d_wp) :: results(1)
+    TYPE(t_ptr_3d) :: results(1)
 
     scatter_pattern_(1)%p => scatter_pattern
 
     IF (PRESENT(fill_array)) THEN
-      fill_arrays(1)%data => fill_array
+      fill_arrays(1)%p => fill_array
       results = netcdf_read_REAL_2D_extdim_multivar( &
         file_id=file_id, variable_name=variable_name, n_vars=1, &
         fill_arrays=fill_arrays,  n_g=n_g, scatter_patterns=scatter_pattern_, &
@@ -860,7 +986,7 @@ CONTAINS
         end_extdim=end_extdim, extdim_name=extdim_name)
     END IF
 
-    res => results(1)%data
+    res => results(1)%p
 
   END FUNCTION netcdf_read_REAL_2D_extdim
 
@@ -873,13 +999,13 @@ CONTAINS
     INTEGER, INTENT(IN)                     :: n_vars
     INTEGER, INTENT(IN)                     :: file_id
     CHARACTER(LEN=*), INTENT(IN)            :: variable_name
-    TYPE(var_data_3d_wp), OPTIONAL          :: fill_arrays(n_vars)
+    TYPE(t_ptr_3d), OPTIONAL          :: fill_arrays(n_vars)
     INTEGER, INTENT(IN)                     :: n_g
     TYPE(t_p_scatterPattern), INTENT(INOUT) :: scatter_patterns(n_vars)
     INTEGER, INTENT(in), OPTIONAL           :: start_extdim, end_extdim
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL  :: extdim_name
 
-    TYPE(var_data_3d_wp)          :: res(n_vars)
+    TYPE(t_ptr_3d)          :: res(n_vars)
 
     INTEGER :: varid, var_type(1), var_dims
     INTEGER, TARGET :: var_size(MAX_VAR_DIMS)
@@ -916,10 +1042,10 @@ CONTAINS
 
     ENDIF
 
-    CALL broadcast_array(var_type)
+    CALL p_bcast(var_type, process_mpi_root_id, p_comm_work)
 
     ! we need to sync the var_size...
-    CALL broadcast_array(var_size(1:2))
+    CALL p_bcast(var_size(1:2), process_mpi_root_id, p_comm_work)
     file_time_steps      = var_size(2)
 
     ! calculate time range
@@ -941,17 +1067,17 @@ CONTAINS
     DO i = 1, n_vars
       !-----------------------
       IF (PRESENT(fill_arrays)) THEN
-        res(i)%data => fill_arrays(i)%data
-        IF (SIZE(res(i)%data,3) < time_steps) &
+        res(i)%p => fill_arrays(i)%p
+        IF (SIZE(res(i)%p,3) < time_steps) &
           CALL finish(method_name, "allocated size < time_steps")
       ELSE
-        ALLOCATE(res(i)%data(nproma, &
+        ALLOCATE(res(i)%p(nproma, &
           &                  (scatter_patterns(i)%p%myPointCount - 1) / nproma + 1, &
           &                  time_steps), stat=return_status)
         IF (return_status /= success) THEN
           CALL finish (method_name, 'ALLOCATE( res )')
         ENDIF
-        res(i)%data(:,:,:) = 0.0_wp
+        res(i)%p(:,:,:) = 0.0_wp
       ENDIF
     END DO
 
@@ -987,7 +1113,7 @@ CONTAINS
 
 
       DO i = 1, n_vars
-        tmp_res => res(i)%data(:,:,LBOUND(res(i)%data, 3)+t-1)
+        tmp_res => res(i)%p(:,:,LBOUND(res(i)%p, 3)+t-1)
         ! this is needed by PGI, it causes an internal compiler error if
         ! scatter_patterns(i)%p is used directly
         scatter_pattern_ => scatter_patterns(i)%p
@@ -1023,14 +1149,14 @@ CONTAINS
     INTEGER, INTENT(in), OPTIONAL          :: start_extdim, end_extdim
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name
 
-    TYPE(var_data_3d_int) :: fill_arrays(1)
+    TYPE(t_ptr_3d_int) :: fill_arrays(1)
     TYPE(t_p_scatterPattern) :: scatter_pattern_(1)
-    TYPE(var_data_3d_int) :: results(1)
+    TYPE(t_ptr_3d_int) :: results(1)
 
     scatter_pattern_(1)%p => scatter_pattern
 
     IF (PRESENT(fill_array)) THEN
-      fill_arrays(1)%data => fill_array
+      fill_arrays(1)%p => fill_array
       results = netcdf_read_INT_2D_extdim_multivar( &
         file_id=file_id, variable_name=variable_name, n_vars=1, &
         fill_arrays=fill_arrays,  n_g=n_g, scatter_patterns=scatter_pattern_, &
@@ -1043,7 +1169,7 @@ CONTAINS
         end_extdim=end_extdim, extdim_name=extdim_name)
     END IF
 
-    res => results(1)%data
+    res => results(1)%p
 
   END FUNCTION netcdf_read_INT_2D_extdim
 
@@ -1056,13 +1182,13 @@ CONTAINS
     INTEGER, INTENT(IN)                     :: n_vars
     INTEGER, INTENT(IN)                     :: file_id
     CHARACTER(LEN=*), INTENT(IN)            :: variable_name
-    TYPE(var_data_3d_int), OPTIONAL         :: fill_arrays(n_vars)
+    TYPE(t_ptr_3d_int), OPTIONAL         :: fill_arrays(n_vars)
     INTEGER, INTENT(IN)                     :: n_g
     TYPE(t_p_scatterPattern), INTENT(INOUT) :: scatter_patterns(n_vars)
     INTEGER, INTENT(in), OPTIONAL           :: start_extdim, end_extdim
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL  :: extdim_name
 
-    TYPE(var_data_3d_int)          :: res(n_vars)
+    TYPE(t_ptr_3d_int)          :: res(n_vars)
 
     INTEGER :: varid, var_type, var_dims
     INTEGER, TARGET :: var_size(MAX_VAR_DIMS)
@@ -1098,7 +1224,7 @@ CONTAINS
     ENDIF
 
     ! we need to sync the var_size...
-    CALL broadcast_array(var_size(1:2))
+    CALL p_bcast(var_size(1:2), process_mpi_root_id, p_comm_work)
     file_time_steps      = var_size(2)
 
     ! calculate time range
@@ -1125,15 +1251,15 @@ CONTAINS
 
     DO i = 1, n_vars
       IF (PRESENT(fill_arrays)) THEN
-        res(i)%data => fill_arrays(i)%data
-        IF (SIZE(res(i)%data,3) < time_steps) &
+        res(i)%p => fill_arrays(i)%p
+        IF (SIZE(res(i)%p,3) < time_steps) &
           CALL finish(method_name, "allocated size < time_steps")
       ELSE
-        ALLOCATE(res(i)%data(nproma, &
+        ALLOCATE(res(i)%p(nproma, &
           &                  (scatter_patterns(i)%p%myPointCount - 1) / nproma + 1, &
           &                  time_steps), stat=return_status)
         IF (return_status /= success) CALL finish (method_name, 'ALLOCATE(res)')
-        res(i)%data(:,:,:) = 0
+        res(i)%p(:,:,:) = 0
       END IF
     END DO
 
@@ -1148,7 +1274,7 @@ CONTAINS
       ENDIF
 
       DO i = 1, n_vars
-        tmp_res => res(i)%data(:,:,LBOUND(res(i)%data, 3)+t-1)
+        tmp_res => res(i)%p(:,:,LBOUND(res(i)%p, 3)+t-1)
         CALL scatter_patterns(i)%p%distribute(tmp_array, tmp_res, .FALSE.)
       END DO
     END DO
@@ -1191,7 +1317,7 @@ CONTAINS
     ENDIF
 
     ! we need to sync the var_size...
-    CALL broadcast_array(var_size(1:3))
+    CALL p_bcast(var_size(1:3), process_mpi_root_id, p_comm_work)
 
     IF (PRESENT(fill_array)) THEN
       res => fill_array
@@ -1221,7 +1347,7 @@ CONTAINS
     ENDIF
 
     ! broadcast...
-    CALL broadcast_array(res)
+    CALL p_bcast(res, process_mpi_root_id, p_comm_work)
 
   END FUNCTION netcdf_read_REAL_3D_all
   !-------------------------------------------------------------------------
@@ -1278,10 +1404,10 @@ CONTAINS
 
     ENDIF
 
-    CALL broadcast_array(var_type)
+    CALL p_bcast(var_type, process_mpi_root_id, p_comm_work)
 
     ! we need to sync the var_size...
-    CALL broadcast_array(var_size(1:2))
+    CALL p_bcast(var_size(1:2), process_mpi_root_id, p_comm_work)
     file_vertical_levels = var_size(2)
 
     !-----------------------
@@ -1428,10 +1554,10 @@ CONTAINS
 
     ENDIF
 
-    CALL broadcast_array(var_type)
+    CALL p_bcast(var_type, process_mpi_root_id, p_comm_work)
 
     ! we need to sync the var_size...
-    CALL broadcast_array(var_size(1:3))
+    CALL p_bcast(var_size(1:3), process_mpi_root_id, p_comm_work)
     file_vertical_levels = var_size(2)
     file_time_steps      = var_size(3)
 
@@ -1609,7 +1735,7 @@ CONTAINS
 
     ENDIF
 
-    CALL broadcast_array(broadcastValue)
+    CALL p_bcast(broadcastValue, process_mpi_root_id, p_comm_work)
     
     IF (broadcastValue(1) == 0.0_wp) THEN
       has_missValue = .false.
@@ -1643,10 +1769,10 @@ CONTAINS
 
     IF (STATUS /= nf_noerr) THEN
       IF (lwarnonly) THEN
-        CALL message( TRIM(routine)//' netCDF error', nf_strerror(STATUS), &
+        CALL message(routine, 'netCDF error: '//nf_strerror(STATUS), &
           & level=em_warn)
       ELSE
-        CALL finish( TRIM(routine)//' netCDF error', nf_strerror(STATUS))
+        CALL finish(routine, 'netCDF error: '//nf_strerror(STATUS))
       ENDIF
     ENDIF
 

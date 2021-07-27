@@ -25,13 +25,14 @@ MODULE mo_dynamics_config
 
   USE mo_kind,                  ONLY: wp
   USE mo_impl_constants,        ONLY: MAX_DOM
-  USE mo_restart_attributes,    ONLY: t_RestartAttributeList, getAttributesForRestarting
-  USE mo_util_string,           ONLY: int2string
+  USE mo_restart_nml_and_att,   ONLY: getAttributesForRestarting
+  USE mo_key_value_store,       ONLY: t_key_value_store
 
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: iequations, idiv_method, divavg_cntrwgt
-  PUBLIC :: sw_ref_height, lcoriolis, lshallow_water, ltwotime
+  PUBLIC :: lcoriolis
+  PUBLIC :: ldeepatmo
   PUBLIC :: nold, nnow, nnew, nsav1, nsav2, nnow_rcf, nnew_rcf
   PUBLIC :: configure_dynamics
 
@@ -45,14 +46,11 @@ MODULE mo_dynamics_config
     INTEGER  :: iequations      !< Choice of governing equation set
     INTEGER  :: idiv_method     !< Divergence operator
     REAL(wp) :: divavg_cntrwgt  !< Weight of central cell for divergence averaging
-    REAL(wp) :: sw_ref_height   !< reference height to linearize around if using
-                                !< lshallow_water and semi-implicit correction
-    LOGICAL  :: lcoriolis       !< if .TRUE., Coriolis force is switched on     
+    LOGICAL  :: lcoriolis       !< if .TRUE., Coriolis force is switched on   
+    LOGICAL  :: ldeepatmo       !< if .TRUE., dynamical core assumes a deep atmosphere
+                                !< instead of a shallow atmosphere
 
     ! derived variables
-
-    LOGICAL :: lshallow_water
-    LOGICAL :: ltwotime
 
     INTEGER :: nold(MAX_DOM)      !< variables denoting time levels
     INTEGER :: nnow(MAX_DOM)      !< variables denoting time levels
@@ -78,24 +76,26 @@ CONTAINS
     INTEGER,INTENT(IN) :: ndom
 
     INTEGER :: jdom
-    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    CHARACTER(2) :: sdom
+    TYPE(t_key_value_store), POINTER :: restartAttributes
     CHARACTER(LEN=*),PARAMETER :: routine='mo_dynamics_config:setup_dynamics_config'
 
     !------------------------
     ! Set time level indices
 
-    restartAttributes => getAttributesForRestarting()
-    IF (ASSOCIATED(restartAttributes)) THEN
+    CALL getAttributesForRestarting(restartAttributes)
+    IF (restartAttributes%is_init) THEN
       ! Read time level indices from restart file.
       ! NOTE: this part will be modified later for a proper handling
       ! of multiple domains!!!
 
       DO jdom = 1,ndom
-        nold(jdom) = restartAttributes%getInteger('nold_DOM'//TRIM(int2string(jdom, "(i2.2)")))
-        nnow(jdom) = restartAttributes%getInteger('nnow_DOM'//TRIM(int2string(jdom, "(i2.2)")))
-        nnew(jdom) = restartAttributes%getInteger('nnew_DOM'//TRIM(int2string(jdom, "(i2.2)")))
-        nnow_rcf(jdom) = restartAttributes%getInteger('nnow_rcf_DOM'//TRIM(int2string(jdom, "(i2.2)")))
-        nnew_rcf(jdom) = restartAttributes%getInteger('nnew_rcf_DOM'//TRIM(int2string(jdom, "(i2.2)")))
+        WRITE (sdom, "(i2.2)") jdom
+        CALL restartAttributes%get('nold_DOM'//sdom, nold(jdom))
+        CALL restartAttributes%get('nnow_DOM'//sdom, nnow(jdom))
+        CALL restartAttributes%get('nnew_DOM'//sdom, nnew(jdom))
+        CALL restartAttributes%get('nnow_rcf_DOM'//sdom, nnow_rcf(jdom))
+        CALL restartAttributes%get('nnew_rcf_DOM'//sdom, nnew_rcf(jdom))
       END DO
 
     ELSE ! not isRestart

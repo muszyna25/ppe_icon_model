@@ -18,13 +18,6 @@ author_list="Marco Giorgetta, MPIM"
 #
 #--------------------------------------------------------------------------------------------------
 
-# (0) unset some setting of create_target_header for mistral
-
-unset OMPI_MCA_coll_fca_enable
-unset OMPI_MCA_coll_fca_priority
-
-#--------------------------------------------------------------------------------------------------
-
 # (1) Variables provided by the scripting mechanism
 
 # EXPNAME                       = name of exp. in 'exp.<name>'
@@ -32,7 +25,7 @@ unset OMPI_MCA_coll_fca_priority
 # icon_data_poolFolder          = base directory, where grids/, input/ and setup/ exist
 # nproma                        = blocking length for array dimensioning and inner loop lengths
 
-icon_data_poolFolder="${icon_data_poolFolder:-/pool/data/ICON}/grids/private/mpim/icon_preprocessing/source"
+icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/grids/private/mpim/icon_preprocessing/source"
 
 #--------------------------------------------------------------------------------------------------
 
@@ -107,7 +100,6 @@ cat > ${atmo_namelist} << EOF
  ltestcase        = .FALSE.     ! run testcase
  ldynamics        = .TRUE.      ! dynamics
  ltransport       = .TRUE.      ! transport
- ntracer          = 3           ! number of tracers; 3: hus, clw, cli; 4: hus, clw, cli, o3
  iforcing         = 2           ! 0: none, 1: HS, 2: ECHAM, 3: NWP
  output           = 'nml'
  msg_level        = 12          ! level of details report during integration 
@@ -116,7 +108,7 @@ cat > ${atmo_namelist} << EOF
 /
 &extpar_nml
  itopo            = 1           ! 1: read topography from the grid file
- l_emiss          = .FALSE.
+ itype_lwemiss    = 0
 /
 &initicon_nml
  init_mode        = 2           ! 2: initialize from IFS analysis
@@ -148,10 +140,10 @@ cat > ${atmo_namelist} << EOF
 &diffusion_nml
 /
 &transport_nml
-!                   hus,clw,cli, o3
- ivadv_tracer     =   3,  3,  3,  3
- itype_hlimit     =   3,  4,  4,  3
- ihadv_tracer     =  52,  2,  2, 52
+ tracer_names     = 'hus','clw','cli'
+ ivadv_tracer     =    3 ,   3 ,   3
+ itype_hlimit     =    3 ,   4 ,   4
+ ihadv_tracer     =   52 ,   2 ,   2
 /
 &echam_phy_nml
 !
@@ -194,7 +186,6 @@ cat > ${atmo_namelist} << EOF
  echam_rad_config(1)%irad_cfc11 =  4
  echam_rad_config(1)%irad_cfc12 =  4
  echam_rad_config(1)%irad_aero  = 18
- echam_rad_config(1)%ighg       =  1
 /
 &echam_gwd_nml
 /
@@ -206,13 +197,10 @@ cat > ${atmo_namelist} << EOF
 &echam_cnv_nml
 /
 &echam_cld_nml
- echam_cld_config(1)%jks        = 1
- echam_cld_config(1)%crs        = 1.0
- echam_cld_config(1)%crt        = 1.0
- echam_cld_config(1)%cinhomi    = 1.0
- echam_cld_config(1)%cinhoml1   = 1.0
- echam_cld_config(1)%cinhoml2   = 1.0
- echam_cld_config(1)%cinhoml3   = 1.0
+/
+&echam_cop_nml
+/
+&echam_cov_nml
 /
 &sea_ice_nml
 /
@@ -338,7 +326,7 @@ end_year=$(( ${end_date%%-*} + 1 ))
 #
 # - well mixed greenhouse gases
 datadir=${icon_data_poolFolder}/greenhouse_gases
-add_link_file $datadir/greenhouse_historical.nc                         ./bc_greenhouse_gases.nc
+add_link_file $datadir/greenhouse_historical_plus.nc                    ./bc_greenhouse_gases.nc
 #
 # - ozone
 # -- for irad_o3=8
@@ -361,28 +349,29 @@ add_link_file $datadir/bc_ozone_cariolle.nc                             ./cariol
 # - tropospheric anthropogenic aerosols, simple plumes
   add_link_file ${basedir}/data/MACv2.0-SP_v1.nc ./MACv2.0-SP_v1.nc
 
-#   Kinne background aerosols are needed for the years 1849, 1850, 1851 
-#   accessing all the same data of 1850:
-datadir=${icon_data_poolFolder}/aerosol/kinne/${resolution_a}
-year=1849
-while [[ $year -le 1851 ]]
-do
-  add_link_file $datadir/bc_aeropt_kinne_lw_b16_coa.nc                  ./bc_aeropt_kinne_lw_b16_coa_${year}.nc
-  add_link_file $datadir/bc_aeropt_kinne_sw_b14_coa.nc                  ./bc_aeropt_kinne_sw_b14_coa_${year}.nc
-  add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_1850.nc             ./bc_aeropt_kinne_sw_b14_fin_${year}.nc
-  (( year = year+1 ))
-done
+#   Kinne background aerosols are needed for the year 1850 (irad_aero=18)
 #
-# - stratospheric aerosol
-datadir=${icon_data_poolFolder}/aerosol/stenchikov
+datadir=${icon_data_poolFolder}/aerosol/kinne/${resolution_a}
+#
+add_link_file $datadir/bc_aeropt_kinne_lw_b16_coa.nc                    ./
+add_link_file $datadir/bc_aeropt_kinne_sw_b14_coa.nc                    ./
+add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_1850.nc               ./bc_aeropt_kinne_sw_b14_fin.nc
+#
+# - stratospheric aerosol (CMIP6)
+datadir=/pool/data/ICON/grids/public/mpim/independent/CMIP6Forcing
+#
+if [ ! -d $datadir ]; then
+  echo 'directory '$datadir' for stratospheric aerosol data does not exist'
+  exit -1
+fi	
 year=$start_year
 while [[ $year -le $end_year ]]
 do
-  if [[ $year -le 1999 ]]
+  if [[ $year -le 2014 ]]
   then
-    add_link_file $datadir/bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc  ./bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc
+    add_link_file $datadir/bc_aeropt_cmip6_volc_lw_b16_sw_b14_${year}.nc  ./bc_aeropt_cmip6_volc_lw_b16_sw_b14_${year}.nc
   else
-    add_link_file $datadir/bc_aeropt_stenchikov_lw_b16_sw_b14_1999.nc     ./bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc
+    add_link_file $datadir/bc_aeropt_cmip6_volc_lw_b16_sw_b14_2014.nc     ./bc_aeropt_cmip6_volc_lw_b16_sw_b14_${year}.nc
   fi
   (( year = year+1 ))
 done
@@ -435,13 +424,13 @@ EOF
 # 3-dimensional files include 'ps' and 'pfull' to allow the vertical
 # interpolation to pressure levels by cdo ap2pl.
 
-output_atm_cgrid=yes
+output_atm_vgrid=yes
 #
-if [[ "$output_atm_cgrid" == "yes" ]]; then
+if [[ "$output_atm_vgrid" == "yes" ]]; then
   #
   cat >> ${atmo_namelist} << EOF
 &output_nml
- output_filename  = "${EXPNAME}_atm_cgrid"
+ output_filename  = "${EXPNAME}_atm_vgrid"
  filename_format  = "<output_filename>_<levtype_l>"
  filetype         = 5
  remap            = 0
@@ -450,7 +439,7 @@ if [[ "$output_atm_cgrid" == "yes" ]]; then
  output_end       = "${start_date}"       ! --> write once only irrespective of
  output_interval  = "${output_interval}"  !     the output interval and
  file_interval    = "${file_interval}"    !     the file interval
- ml_varlist       = 'clon', 'clat', 'areacella', 'zghalf', 'zg'
+ ml_varlist       = 'zghalf'  , 'zg'      , 'dzghalf'
 /
 EOF
 fi
@@ -479,7 +468,6 @@ if [[ "$output_atm_3d" == "yes" ]]; then
                     'ua'      , 'va'      , 'wap'     ,
                     'hus'     , 'clw'     , 'cli'     ,
                     'hur'     , 'cl'      ,
-!                    'qo3_phy' ,
 /
 EOF
 fi
@@ -680,7 +668,8 @@ if [[ "$output_lnd" == "full" ]]; then
                     'hydro_w_snow_veg'             , 'hydro_q_snocpymlt_veg'  ,
                     'hydro_fract_snow_soil_veg'    , 'hydro_w_snow_soil_veg'  , 'hydro_snow_accum_veg'         ,
                     'hydro_fract_snow_can_veg'     , 'hydro_w_snow_can_veg'   ,
-                    'hydro_water_stress_veg'       , 'hydro_canopy_cond_veg'  , 'hydro_canopy_cond_limited_veg'
+                    'hydro_water_stress_veg'       , 
+                    'hydro_canopy_cond_unlimited_veg' , 'hydro_canopy_cond_limited_veg' ,
                     'hydro_evapotranspiration_glac', 'hydro_evapopot_glac'    ,
                     'hydro_snowmelt_glac'          , 'hydro_q_snocpymlt_glac'
 /

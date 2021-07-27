@@ -27,11 +27,10 @@ MODULE mo_nwp_sfc_interp
   USE mo_model_domain,        ONLY: t_patch
   USE mo_parallel_config,     ONLY: nproma 
   USE mo_initicon_types,      ONLY: t_init_state
-  USE mo_lnd_nwp_config,      ONLY: nlev_soil, ibot_w_so
+  USE mo_lnd_nwp_config,      ONLY: nlev_soil, ibot_w_so, zml_soil, dzsoil_icon => dzsoil
   USE mo_run_config,          ONLY: msg_level
-  USE mo_impl_constants,      ONLY: zml_soil, dzsoil_icon => dzsoil
   USE mo_physical_constants,  ONLY: grav, dtdz_standardatm
-  USE mo_phyparam_soil,       ONLY: cporv, cadp, cfcap, cpwp
+  USE sfc_terra_data,         ONLY: cporv, cadp, cfcap, cpwp
   USE mo_ext_data_state,      ONLY: ext_data
   USE mo_exception,           ONLY: finish, message_text, message
 
@@ -278,7 +277,7 @@ CONTAINS
       nlen = MERGE(nproma, p_patch%npromz_c, jb /= p_patch%nblks_c)
 
       ! loop over target (ICON) land points only
-      i_count = ext_data(jg)%atm%lp_count(jb)
+      i_count = ext_data(jg)%atm%list_land%ncount(jb)
 
 
       ! Conversion of soil moisture index SMI into TERRA soil moisture [m]
@@ -293,17 +292,17 @@ CONTAINS
 !CDIR NODEP,VOVERTAKE,VOB
         DO ic = 1, i_count
 
-          jc = ext_data(jg)%atm%idx_lst_lp(ic,jb)
+          jc  = ext_data(jg)%atm%list_land%idx(ic,jb)
+          ist = ext_data(jg)%atm%soiltyp(jc,jb)
 
           ! Catch problematic coast cases: ICON-land but Ocean for source dataset
           ! 
           ! can we do better than this??
           IF ( wsoil(jc,jk,jb) <= -999._wp )  THEN   ! check for missing value
-            ! set dummy value (50% of pore volume)
-            zwsoil(jc) = 0.5_wp * cporv(ext_data(jg)%atm%soiltyp(jc,jb)) * dzsoil_icon(jk)
+            ! set dummy value: 0.5*(fcap+pwp)
+            zwsoil(jc) = 0.5_wp * (cfcap(ist)+cpwp(ist)) * dzsoil_icon(jk)
 
           ELSE
-            ist = ext_data(jg)%atm%soiltyp(jc,jb)
             SELECT CASE(ist)
             CASE (1,2)  ! ice,rock
               ! set wsoil to 0 for ice and rock
@@ -380,7 +379,7 @@ CONTAINS
       nlen = MERGE(nproma, p_patch%npromz_c, jb /= p_patch%nblks_c)
 
       ! loop over target (ICON) land points only
-      i_count = ext_data(jg)%atm%lp_count(jb)
+      i_count = ext_data(jg)%atm%list_land%ncount(jb)
 
       ! Conversion of TERRA soil moisture [m] into soil moisture index SMI
       !   soil moisture index = (soil moisture - wilting point) / (field capacity - wilting point)
@@ -391,7 +390,7 @@ CONTAINS
 
 !CDIR NODEP,VOVERTAKE,VOB
         DO ic = 1, i_count
-          jc = ext_data(jg)%atm%idx_lst_lp(ic,jb)
+          jc = ext_data(jg)%atm%list_land%idx(ic,jb)
           slt = ext_data(jg)%atm%soiltyp(jc,jb)
           SELECT CASE(slt)
           CASE (1,2)  !ice,rock

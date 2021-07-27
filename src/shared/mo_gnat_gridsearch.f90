@@ -76,12 +76,9 @@ MODULE mo_gnat_gridsearch
   USE mo_model_domain,        ONLY: t_grid_cells, t_grid_vertices, t_patch
   USE mo_impl_constants,      ONLY: min_rlcell_int
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
-  USE mo_mpi,                 ONLY: get_my_mpi_work_id, p_io, p_pe_work, &
+  USE mo_mpi,                 ONLY: get_my_mpi_work_id, p_pe_work, &
     &                               p_comm_work, my_process_is_mpi_test, &
-    &                               p_bcast, p_max, p_send, p_recv, &
-    &                               process_mpi_all_test_id, &
-    &                               process_mpi_all_workroot_id, &
-    &                               p_comm_work_2_test
+    &                               p_bcast, p_max, p_comm_work_2_test
   USE mo_communication,       ONLY: idx_1d
   USE mo_icon_comm_lib,       ONLY: t_mpi_mintype, mpi_reduce_mindistance_pts
 #else
@@ -631,7 +628,7 @@ CONTAINS
 
           ! compute a true upper bound for search radius
           ! ("1.05" is just for safety)
-          r = MINVAL((/ rr, 1.05_gk*(r2 + min_dist_old) /))
+          r = MIN(rr, 1.05_gk*(r2 + min_dist_old))
 
         END IF
 
@@ -1389,7 +1386,9 @@ CONTAINS
     tree_depth   =  0  ! maximum tree depth
     free_node(:) = UNASSOCIATED
     icount       =  0
-    new_idx(:)   = cell_indices(:,permutation(1))
+
+    IF (p_patch%n_patch_cells > 0) &   ! needed to skip processes not owning any cells
+      new_idx(:)   = cell_indices(:,permutation(1))
 
     ! Short description of parallel processing:
 
@@ -1503,7 +1502,7 @@ CONTAINS
     &                                        tri_idx, min_dist)
 
     TYPE (t_gnat_tree),    INTENT(IN)    :: gnat
-    TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch
+    TYPE(t_patch), INTENT(IN) :: p_patch
     INTEGER,  INTENT(IN)    :: iv_nproma, iv_nblks, iv_npromz      ! list size
     REAL(wp), INTENT(IN)    :: grid_sphere_radius
     LOGICAL,  INTENT(IN)    :: l_p_test_run
@@ -1511,8 +1510,6 @@ CONTAINS
     INTEGER,  INTENT(INOUT) :: tri_idx(2,iv_nproma, iv_nblks)      ! containing triangle (idx,block)
     REAL(gk), INTENT(OUT)   :: min_dist(iv_nproma, iv_nblks)       ! minimal distance
     ! local parameters
-    TYPE (t_grid_cells)   , POINTER  :: cells
-    TYPE (t_grid_vertices), POINTER  :: verts
     INTEGER                 :: i_nv
     CHARACTER(*), PARAMETER :: routine = modname//"::gnat_query_containing_triangles"
 
@@ -1525,10 +1522,13 @@ CONTAINS
     ! set default value ("failure notice")
     min_dist(:,:)  = MAX_RANGE
 
-    IF (p_patch%n_patch_cells == 0) RETURN;
+    IF (p_patch%n_patch_cells == 0) THEN
+      ! ensure that processes without cells are involved in global communication 
+      radius = 0._gk
+      radius = p_max(radius, comm=p_comm_work)
+      RETURN
+    END IF
 
-    cells => p_patch%cells
-    verts => p_patch%verts
     i_nv  =  p_patch%geometry_info%cell_type
 
     IF (i_nv /= 3)  CALL finish(routine, "Wrong number of cell vertices!")
@@ -1606,16 +1606,19 @@ CONTAINS
     IF (p_patch%n_patch_cells == 0) in(:)%owner = -1;
     in(:)%glb_index = -1
 
-    DO j=1,total_dim
-      ! convert global index into local idx/block pair:
-      jb = (j-1)/iv_nproma + 1
-      jc = j - (jb-1)*iv_nproma
+    !NEC_RP: prevent processes without cells from accessing non initialized arrays
+    IF (p_patch%n_patch_cells > 0) THEN
+      DO j=1,total_dim
+        ! convert global index into local idx/block pair:
+        jb = (j-1)/iv_nproma + 1
+        jc = j - (jb-1)*iv_nproma
 
-      IF (tri_idx(1,jc,jb) /= INVALID_NODE) THEN
-        gidx = idx_1d(tri_idx(1,jc,jb), tri_idx(2,jc,jb))
-        in(j)%glb_index = p_patch%cells%decomp_info%glb_index(gidx)
-      END IF
-    END DO
+        IF (tri_idx(1,jc,jb) /= INVALID_NODE) THEN
+          gidx = idx_1d(tri_idx(1,jc,jb), tri_idx(2,jc,jb))
+          in(j)%glb_index = p_patch%cells%decomp_info%glb_index(gidx)
+        END IF
+      END DO
+    ENDIF
 
     ! call user-defined parallel reduction operation
     CALL mpi_reduce_mindistance_pts(in, total_dim, p_comm_work)

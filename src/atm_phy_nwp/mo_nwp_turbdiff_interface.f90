@@ -30,13 +30,13 @@
 MODULE mo_nwp_turbdiff_interface
 
   USE mo_kind,                   ONLY: wp
-  USE mo_exception,              ONLY: message, message_text, finish
+  USE mo_exception,              ONLY: message, message_text, finish, warning
   USE mo_model_domain,           ONLY: t_patch
   USE mo_impl_constants,         ONLY: min_rlcell_int, igme, icosmo, iedmf, &
     &                                  max_ntracer
   USE mo_impl_constants_grf,     ONLY: grf_bdywidth_c
   USE mo_loopindices,            ONLY: get_indices_c
-  USE mo_physical_constants,     ONLY: alv, grav, vtmpc1, rd
+  USE mo_physical_constants,     ONLY: alv, grav, vtmpc1, rd, cpd, cvd
   USE mo_ext_data_types,         ONLY: t_external_data
   USE mo_nonhydro_types,         ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,          ONLY: t_nwp_phy_diag, t_nwp_phy_tend
@@ -44,11 +44,12 @@ MODULE mo_nwp_turbdiff_interface
   USE mo_nwp_lnd_types,          ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_parallel_config,        ONLY: nproma
   USE mo_run_config,             ONLY: msg_level, iqv, iqc, iqi, iqnc, iqni, iqtke, &
-    &                                  iqs, iqns, iqtvar
+    &                                  iqs, iqns, iqtvar, lart
   USE mo_atm_phy_nwp_config,     ONLY: atm_phy_nwp_config
-  USE mo_nonhydrostatic_config,  ONLY: kstart_moist
-  USE mo_data_turbdiff,          ONLY: get_turbdiff_param, lsflcnd
-  USE src_turbdiff,              ONLY: organize_turbdiff, modvar
+  USE mo_nonhydrostatic_config,  ONLY: kstart_moist, kstart_tracer
+  USE turb_data,                 ONLY: get_turbdiff_param, lsflcnd, modvar, ndim
+  USE turb_diffusion,            ONLY: turbdiff
+  USE turb_vertdiff,             ONLY: vertdiff
   USE mo_gme_turbdiff,           ONLY: partura, progimp_turb
 
   USE mo_art_config,             ONLY: art_config
@@ -58,8 +59,7 @@ MODULE mo_nwp_turbdiff_interface
 
   USE mo_edmf_param,             ONLY: ntiles_edmf
   USE mo_vdfouter,               ONLY: vdfouter
-  USE mo_lnd_nwp_config,         ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
-                                     & isub_water, isub_lake, isub_seaice
+  USE mo_lnd_nwp_config,         ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water
 
   IMPLICIT NONE
 
@@ -114,15 +114,18 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 
   ! local variables for turbdiff
 
-  INTEGER :: ierrstat=0
-  CHARACTER (LEN=25) :: eroutine=''
-  CHARACTER (LEN=80) :: errormsg=''
+  REAL(wp), PARAMETER :: cpd_o_cvd = cpd/cvd
+
+  INTEGER :: nzprv=1
 
   INTEGER  :: nlev, nlevp1, nlevcm                  !< number of full, half and canopy levels
 
   REAL(wp) :: tke_inc_ic(nproma)                    !< TKE increment at half levels
 
   REAL(wp) :: l_hori(nproma)                        !< horizontal length scale
+
+  REAL(wp) :: zvari(nproma,p_patch%nlevp1,ndim), &  !< to pass values from turbdiff to vertdiff
+              zrhon(nproma,p_patch%nlevp1)
 
   REAL(wp) :: z_tvs(nproma,p_patch%nlevp1,1)        !< aux turbulence velocity scale [m/s]
   REAL(wp) :: tempv_sfc(nproma)                     !< surface virtual temperature [K]
@@ -131,15 +134,17 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
   ! type structure to hand over additional tracers to turbdiff
   TYPE(modvar) :: ptr(max_ntracer)
 
-  INTEGER :: ncloud_offset                          !< offset for ptr-indexing in ART 
-                                                    !< interface due to additionally 
-                                                    !< diffused cloud fields
-  LOGICAL  :: ltwomoment                            !< using 2mom microphysics?
+  INTEGER :: ncloud_offset                       !< offset for ptr-indexing in ART
+                                                 !< interface due to additionally
+                                                 !< diffused cloud fields
+  INTEGER, ALLOCATABLE :: idx_nturb_tracer(:)    !< indices of the turbulent tracers in the prognostic list
+
+  LOGICAL  :: ltwomoment                    !< using 2mom microphysics?
   REAL(wp), TARGET      :: & 
-    &  ddt_turb_qnc(nproma,p_patch%nlev,p_patch%nblks_c), & !< tendency field for qnc
-    &  ddt_turb_qni(nproma,p_patch%nlev,p_patch%nblks_c), & !< tendendy field for qni
-    &  ddt_turb_qs (nproma,p_patch%nlev,p_patch%nblks_c), & !< tendency field for qs 
-    &  ddt_turb_qns(nproma,p_patch%nlev,p_patch%nblks_c)    !< tendendy field for qns
+    &  ddt_turb_qnc(nproma,p_patch%nlev), & !< tendency field for qnc
+    &  ddt_turb_qni(nproma,p_patch%nlev), & !< tendendy field for qni
+    &  ddt_turb_qs (nproma,p_patch%nlev), & !< tendency field for qs 
+    &  ddt_turb_qns(nproma,p_patch%nlev)    !< tendendy field for qns
 
   ! EDMF variables:
   ! (attention: if no block index - p_patch%nblks_c - variables need to be declared private)
@@ -162,6 +167,8 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
     &         tskin_t (nproma,ntiles_total+ntiles_water)                      , &
     &         ustr_s_t(nproma,ntiles_total+ntiles_water)                      , &
     &         vstr_s_t(nproma,ntiles_total+ntiles_water)
+
+  REAL(wp) :: ut_sso(nproma, p_patch%nlev), vt_sso(nproma, p_patch%nlev)
  
   INTEGER, SAVE :: nstep_turb = 0
 
@@ -177,7 +184,6 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
   nlevp1 = p_patch%nlevp1
 
   nlevcm = nlevp1
-
    
   ! local variables related to the blocking
   !
@@ -193,29 +199,27 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
      CALL get_turbdiff_param(jg)
   ENDIF
 
-  ! logical for SB two-moment scheme
-  ltwomoment = .FALSE.
-  SELECT CASE(atm_phy_nwp_config(jg)%inwp_gscp)
-    CASE(4,5,6)
-      ltwomoment = .TRUE.
-    CASE DEFAULT
-      ltwomoment = .FALSE.
-  END SELECT
+  IF ( lart .AND. art_config(jg)%nturb_tracer > 0 ) THEN
+     ALLOCATE(idx_nturb_tracer(art_config(jg)%nturb_tracer))
+  END IF
 
-  ddt_turb_qnc(:,:,:) = 0.0_wp
-  ddt_turb_qni(:,:,:) = 0.0_wp
-  ddt_turb_qs (:,:,:) = 0.0_wp
-  ddt_turb_qns(:,:,:) = 0.0_wp
+  ! logical for SB two-moment scheme
+  ltwomoment = atm_phy_nwp_config(jg)%l2moment
+
+!$acc data create(khpbln, kvartop, kpbltype, pdifts, pdiftq, pdiftl, pdifti, pstrtu, pstrtv, pkh, pkm, z_omega_p, &
+!$acc             zchar, zucurr, zvcurr, zsoteu, zsotev, zsobeta, zz0m, zz0h, zae, ztskrad, zsigflt, shfl_s_t, &
+!$acc             evap_s_t, tskin_t, ustr_s_t, vstr_s_t, ddt_turb_qnc, ddt_turb_qni, ddt_turb_qs, ddt_turb_qns, &
+!$acc             tke_inc_ic, l_hori, zvari, zrhon, z_tvs, tempv_sfc, rho_sfc, ut_sso, vt_sso)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,ierrstat,errormsg,eroutine,tke_inc_ic,z_tvs, &
-!$OMP            ncloud_offset,ptr,l_hori,                                                 &
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,tke_inc_ic,z_tvs, &
+!$OMP            ncloud_offset,ptr,nzprv,l_hori,zvari,zrhon,                               &
 !$OMP            jt       , khpbln  , kvartop , kpbltype,                                  &
 !$OMP            pdifts   , pdiftq  , pdiftl  , pdifti  , pstrtu  , pstrtv , pkh , pkm ,   &
 !$OMP            z_omega_p, zchar   , zucurr  , zvcurr  , zsoteu  , zsotev , zsobeta   ,   &
 !$OMP            zz0m     , zz0h    , zae     , ztskrad , zsigflt ,                        &
-!$OMP            shfl_s_t , evap_s_t, tskin_t , ustr_s_t, vstr_s_t, rho_sfc, tempv_sfc)    &
-!$OMP ICON_OMP_GUIDED_SCHEDULE
+!$OMP            shfl_s_t , evap_s_t, tskin_t , ustr_s_t, vstr_s_t, rho_sfc, tempv_sfc,    &
+!$OMP            ddt_turb_qnc, ddt_turb_qni, ddt_turb_qs, ddt_turb_qns, ut_sso, vt_sso)  ICON_OMP_GUIDED_SCHEDULE
 
   DO jb = i_startblk, i_endblk
 
@@ -245,11 +249,15 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
       !
       ! convert TKE to the turbulence velocity scale SQRT(2*TKE) as required by turbdiff
       ! INPUT to turbdiff is timestep now
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG
       DO jk=1, nlevp1
+        !$ACC LOOP VECTOR
         DO jc=i_startidx, i_endidx
           z_tvs(jc,jk,1) = SQRT(2._wp* (p_prog_now_rcf%tke(jc,jk,jb))) 
          ENDDO
       ENDDO
+      !$ACC END PARALLEL
 
 
 
@@ -258,7 +266,10 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         ! Note that both the advective TKE tendency and ddt_tke actually carry time tendencies
         ! of tvs; attempts to horizontally advect TKE failed because of numerical instability
         !
+        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC LOOP GANG
         DO jk=2, nlev
+          !$ACC LOOP VECTOR
           DO jc=i_startidx, i_endidx
 
             tke_inc_ic(jc) = p_metrics%wgtfac_c(jc,jk,jb) * p_diag%ddt_tracer_adv(jc,jk,jb,iqtke) &
@@ -270,26 +281,30 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 
           ENDDO  ! jc
         ENDDO  ! jk
+        !$ACC END PARALLEL
         !
+        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC LOOP GANG VECTOR
         DO jc=i_startidx, i_endidx
 
           ! zero gradient assumption for TKE increment at model bottom (top level not needed)
           prm_nwp_tend%ddt_tke(jc,nlevp1,jb) = prm_nwp_tend%ddt_tke(jc,nlevp1,jb) + p_diag%ddt_tracer_adv(jc,nlev,jb,iqtke)
 
         ENDDO  ! jc
+        !$ACC END PARALLEL
       ENDIF
 
 
 
-      ierrstat = 0
-
       !KF tendencies  have to be set to zero
       !GZ: this should be replaced by an appropriate switch in turbdiff
+      !$ACC KERNELS DEFAULT(PRESENT)
       prm_nwp_tend%ddt_u_turb(:,:,jb) = 0._wp
       prm_nwp_tend%ddt_v_turb(:,:,jb) = 0._wp
       prm_nwp_tend%ddt_temp_turb(:,:,jb) = 0._wp
       prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqv) = 0._wp
       prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqc) = 0._wp
+      !$ACC END KERNELS
 
       ! offset for ptr-indexing in ART-Interface
       ncloud_offset = 0
@@ -297,25 +312,31 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
       IF (ltwomoment) THEN
         ! register cloud droplet number for turbulent diffusion
         ncloud_offset = ncloud_offset+1
-        ddt_turb_qnc(:,:,jb) = 0.0_wp
+        !$ACC KERNELS DEFAULT(PRESENT)
+        ddt_turb_qnc(:,:) = 0.0_wp
+        !$ACC END KERNELS
         ptr(ncloud_offset)%av => p_prog_rcf%tracer(:,:,jb,iqnc)
-        ptr(ncloud_offset)%at => ddt_turb_qnc(:,:,jb)
+        ptr(ncloud_offset)%at => ddt_turb_qnc(:,:)
         ptr(ncloud_offset)%sv => NULL()
       ENDIF ! ltwomoment
 
       IF (turbdiff_config(jg)%ldiff_qi) THEN
         ! register cloud ice for turbulent diffusion
         ncloud_offset = ncloud_offset + 1
+        !$ACC KERNELS DEFAULT(PRESENT)
         prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqi) = 0.0_wp
+        !$ACC END KERNELS
         ptr(ncloud_offset)%av => p_prog_rcf%tracer(:,:,jb,iqi)
         ptr(ncloud_offset)%at => prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqi)
         ptr(ncloud_offset)%sv => NULL()
         IF (ltwomoment) THEN
           ! register cloud ice number for turbulent diffusion
           ncloud_offset = ncloud_offset + 1
-          ddt_turb_qni(:,:,jb) = 0.0_wp
+          !$ACC KERNELS DEFAULT(PRESENT)
+          ddt_turb_qni(:,:) = 0.0_wp
+          !$ACC END KERNELS
           ptr(ncloud_offset)%av => p_prog_rcf%tracer(:,:,jb,iqni)
-          ptr(ncloud_offset)%at => ddt_turb_qni(:,:,jb)
+          ptr(ncloud_offset)%at => ddt_turb_qni(:,:)
           ptr(ncloud_offset)%sv => NULL()
         ENDIF ! ltwomoment
       ENDIF ! turbdiff_config(jg)%ldiff_qi
@@ -323,77 +344,165 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
       IF (turbdiff_config(jg)%ldiff_qs) THEN
         ! register snow mass for turbulent diffusion
         ncloud_offset = ncloud_offset + 1
-        ddt_turb_qs (:,:,jb) = 0.0_wp
+        !$ACC KERNELS DEFAULT(PRESENT)
+        ddt_turb_qs (:,:) = 0.0_wp
+        !$ACC END KERNELS
         ptr(ncloud_offset)%av => p_prog_rcf%tracer(:,:,jb,iqs )
-        ptr(ncloud_offset)%at => ddt_turb_qs (:,:,jb)
+        ptr(ncloud_offset)%at => ddt_turb_qs (:,:)
         ptr(ncloud_offset)%sv => NULL()
         IF (ltwomoment) THEN
           ! register snow number for turbulent diffusion
           ncloud_offset = ncloud_offset + 1
-          ddt_turb_qns(:,:,jb) = 0.0_wp
+          !$ACC KERNELS DEFAULT(PRESENT)
+          ddt_turb_qns(:,:) = 0.0_wp
+          !$ACC END KERNELS
           ptr(ncloud_offset)%av => p_prog_rcf%tracer(:,:,jb,iqns)
-          ptr(ncloud_offset)%at => ddt_turb_qns(:,:,jb)
+          ptr(ncloud_offset)%at => ddt_turb_qns(:,:)
           ptr(ncloud_offset)%sv => NULL()
         ENDIF ! ltwomoment
       ENDIF ! turbdiff_config(jg)%ldiff_qs
 
-      CALL art_turbdiff_interface( 'setup_ptr', p_patch, p_prog_rcf, prm_nwp_tend,  &
-        &                          ncloud_offset=ncloud_offset,                     &
-        &                          ptr=ptr(:), dt=tcall_turb_jg,                    &
-        &                          p_rho=p_prog%rho(:,:,:),                         &
-        &                          p_metrics=p_metrics,                             &
-        &                          p_diag=p_diag, prm_diag=prm_diag,                &
-        &                          jb=jb )
+      IF ( lart .AND. art_config(jg)%nturb_tracer > 0 ) THEN
+         CALL art_turbdiff_interface( 'setup_ptr', p_patch, p_prog_rcf, prm_nwp_tend,  &
+           &                          ncloud_offset=ncloud_offset,                     &
+           &                          ptr=ptr(:), dt=tcall_turb_jg,                    &
+           &                          p_rho=p_prog%rho(:,:,:),                         &
+           &                          p_metrics=p_metrics,                             &
+           &                          p_diag=p_diag, prm_diag=prm_diag,                &
+           &                          jb=jb, idx_nturb_tracer=idx_nturb_tracer )
+      ENDIF
 
-      !should be dependent on location in furture!
+      !should be dependent on location in future!
+      !$ACC KERNELS DEFAULT(PRESENT)
       l_hori(i_startidx:i_endidx)=phy_params(jg)%mean_charlen
+      !$ACC END KERNELS
+
+      nzprv = 1
+
+      !$ACC KERNELS DEFAULT(PRESENT)
+      ut_sso(:,:)=REAL(prm_nwp_tend%ddt_u_sso(:,:,jb), wp)
+      vt_sso(:,:)=REAL(prm_nwp_tend%ddt_v_sso(:,:,jb), wp)
+      !$ACC END KERNELS
 
       ! turbdiff
-      CALL organize_turbdiff( &
-        &  iini=0, lturatm=.TRUE. , ltursrf=.FALSE., lstfnct=.TRUE. , & !atmosph. turbulence and vertical diffusion
-        &          lnsfdia=.FALSE., ltkeinp=.FALSE., lgz0inp=.FALSE., & !but no surface-layer turbulence (turbtran)
-        &  itnd=0, lum_dif=.TRUE. , lvm_dif=.TRUE. , lscadif=.TRUE. , & !and thus (implicitly) neither surface-layer diagn.
-        &          lsrflux=.FALSE., lsfluse=lsflcnd, lqvcrst=.FALSE., & !nor surface-flux calculation (both in turbtran)
+      CALL turbdiff( &
+
+        &  iini=0,                         & !atmosph. turbulence and vertical diffusion
+        &  ltkeinp=.FALSE.,        & !
+        &  lstfnct=.TRUE. ,        & !
+        &  l3dturb=.FALSE.,        & !
+        &  lrunsso=(atm_phy_nwp_config(jg)%inwp_sso > 0),        & ! running COSMO SSO scheme
+        &  lruncnv=(atm_phy_nwp_config(jg)%inwp_convection > 0), & ! running convection
+        &  lrunscm=.FALSE.,                                      & ! no single column model
+        &  lsfluse=lsflcnd,        & !
 !
-        &  dt_var=tcall_turb_jg, dt_tke=tcall_turb_jg,                                & !in
-        &  nprv=1, ntur=1, ntim=1, trop_mask=prm_diag%tropics_mask(:,jb),             & !in
-        &  innertrop_mask=prm_diag%innertropics_mask(:,jb),                           & !in
-        &  ie=nproma, ke=nlev, ke1=nlevp1, kcm=nlevcm,                                & !in
-        &  i_st=i_startidx, i_en=i_endidx, i_stp=i_startidx, i_enp=i_endidx,          &
-        &  l_hori=l_hori, hhl=p_metrics%z_ifc(:,:,jb),                                & !in
+        &  dt_var=tcall_turb_jg,                                                      & !in
+        &  dt_tke=tcall_turb_jg,                                                      & !in
+        &  nprv=nzprv, ntur=1, ntim=1,                                                & !in
+        &  nvec=nproma, ke=nlev, ke1=nlevp1, kcm=nlevcm, iblock=jb,                   & !in
+        &  ivstart=i_startidx, ivend=i_endidx,                                        & !in
+!
+        &  l_hori=l_hori,                                                             & !in
+        &  hhl=p_metrics%z_ifc(:,:,jb),                                               & !in
         &  dp0=p_diag%dpres_mc(:,:,jb),                                               & !in
-        &  fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb),  & !in
-        &  h_ice=wtr_prog_now%h_ice(:,jb),                                            & !in
-        &  sai=ext_data%atm%sai(:,jb), d_pat = prm_diag%pat_len(:,jb),                &
-        &  tkred_sfc=prm_diag%tkred_sfc(:,jb),  gz0=prm_diag%gz0(:,jb),               & !inout 
-        &  t_g=lnd_prog_now%t_g(:,jb), qv_s=lnd_diag%qv_s(:,jb),                      & !in
+        &  trop_mask=prm_diag%tropics_mask(:,jb),                                     & !in
+        &  innertrop_mask=prm_diag%innertropics_mask(:,jb),                           & !in
+        &  gz0=prm_diag%gz0(:,jb),                                                    & !inout
+        &  l_pat = ext_data%atm%l_pat(:,jb),                                          & !in
+        &  t_g=lnd_prog_now%t_g(:,jb),                                                & !in
+        &  qv_s=lnd_diag%qv_s(:,jb),                                                  & !in
         &  ps=p_diag%pres_sfc(:,jb),                                                  & !in
-        &  u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb), w=p_prog%w(:,:,jb),                & !in
-        &  t=p_diag%temp(:,:,jb), prs=p_diag%pres(:,:,jb),                            & !in
-        &  rho=p_prog%rho(:,:,jb), epr=p_prog%exner(:,:,jb),                          & !in
-        &  qv=p_prog_rcf%tracer(:,:,jb,iqv), qc=p_prog_rcf%tracer(:,:,jb,iqc),        & !in
-        &  ptr=ptr(:), ndtr=art_config(jg)%nturb_tracer+ncloud_offset,                & !diffusion of additional tracer variables!
-        &  tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb),                            & !out
-        &  tvm=prm_diag%tvm(:,jb), tvh=prm_diag%tvh(:,jb),                            & !inout
-        &  tfm=prm_diag%tfm(:,jb), tfh=prm_diag%tfh(:,jb), tfv=prm_diag%tfv(:,jb),    & !inout
+        &  u=p_diag%u(:,:,jb),                                                        & !in
+        &  v=p_diag%v(:,:,jb),                                                        & !in
+        &  w=p_prog%w(:,:,jb),                                                        & !in
+        &  t=p_diag%temp(:,:,jb),                                                     & !in
+        &  qv=p_prog_rcf%tracer(:,:,jb,iqv),                                          & !in
+        &  qc=p_prog_rcf%tracer(:,:,jb,iqc),                                          & !in
+        &  prs=p_diag%pres(:,:,jb),                                                   & !in
+        &  rhoh=p_prog%rho(:,:,jb),                                                   & !in
+        &  rhon=zrhon(:,:),                                                           & !out
+        &  epr=p_prog%exner(:,:,jb),                                                  & !in
+        &  impl_weight=turbdiff_config(jg)%impl_weight,                               & !in
+        &  tvm=prm_diag%tvm(:,jb),                                                    & !inout
+        &  tvh=prm_diag%tvh(:,jb),                                                    & !inout
+        &  tfm=prm_diag%tfm(:,jb),                                                    & !inout
+        &  tfh=prm_diag%tfh(:,jb),                                                    & !inout
+        &  tkred_sfc=prm_diag%tkred_sfc(:,jb),                                        & !inout
         &  tke=z_tvs(:,:,:),                                                          & !inout
-        &  tkvm=prm_diag%tkvm(:,:,jb), tkvh=prm_diag%tkvh(:,:,jb),                    & !inout
+        &  tkvm=prm_diag%tkvm(:,:,jb),                                                & !inout
+        &  tkvh=prm_diag%tkvh(:,:,jb),                                                & !inout
         &  rcld=prm_diag%rcld(:,:,jb),                                                & !inout
-        &  hdef2=p_diag%hdef_ic(:,:,jb), hdiv=p_diag%div_ic(:,:,jb),                  & !in
-        &  dwdx=p_diag%dwdx(:,:,jb), dwdy=p_diag%dwdy(:,:,jb),                        & !in
+        &  hdef2=p_diag%hdef_ic(:,:,jb),                                              & !in
+        &  hdiv=p_diag%div_ic(:,:,jb),                                                & !in
+        &  dwdx=p_diag%dwdx(:,:,jb),                                                  & !in
+        &  dwdy=p_diag%dwdy(:,:,jb),                                                  & !in
+        &  tket_conv=prm_nwp_tend%ddt_tke_pconv(:,:,jb),                              & !in
+        &  tket_hshr=prm_nwp_tend%ddt_tke_hsh(:,:,jb),                                & !out
         &  u_tens=prm_nwp_tend%ddt_u_turb(:,:,jb),                                    & !inout
         &  v_tens=prm_nwp_tend%ddt_v_turb(:,:,jb),                                    & !inout
         &  t_tens=prm_nwp_tend%ddt_temp_turb(:,:,jb),                                 & !inout
         &  qv_tens=prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqv),                          & !inout
         &  qc_tens=prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqc),                          & !inout
         &  tketens=prm_nwp_tend%ddt_tke(:,:,jb),                                      & !inout
-        &  ut_sso=REAL(prm_nwp_tend%ddt_u_sso(:,:,jb),wp),                            & !in
-        &  vt_sso=REAL(prm_nwp_tend%ddt_v_sso(:,:,jb),wp),                            & !in
-        &  tket_conv=prm_nwp_tend%ddt_tke_pconv(:,:,jb),                              & !in
-        &  tket_hshr=prm_nwp_tend%ddt_tke_hsh(:,:,jb),                                & !out
-        &  shfl_s=prm_diag%shfl_s(:,jb), qvfl_s=prm_diag%qhfl_s(:,jb),                & !in
-        &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
+        &  ut_sso=ut_sso(:,:),                                                        & !in
+        &  vt_sso=vt_sso(:,:),                                                        & !in
+        &  shfl_s=prm_diag%shfl_s(:,jb),                                              & !in
+        &  qvfl_s=prm_diag%qhfl_s(:,jb),                                              & !out
+        &  zvari=zvari(:,:,:))                                                          !out
 
+      ! vertdiff
+      CALL vertdiff( &
+
+        &  iini=0, lturatm=.TRUE. ,        & !atmosph. turbulence and vertical diffusion
+
+
+        &  itnd=0, lum_dif=.TRUE. ,        & ! with vertical diffusion
+        &          lvm_dif=.TRUE. ,        & !
+        &          lscadif=.TRUE.,         & !
+        &          lsfluse=lsflcnd,        & !and thus (implicitly) neither surface-layer diagnosis
+        &          lqvcrst=.FALSE.,        & !nor surface-flux calculation (both in turbtran)
+        &          lrunscm=.FALSE.,        & !single column model
+!
+        &  dt_var=tcall_turb_jg,                                  & !in
+        &  nvec=nproma,                                           & !in
+        &  ke=nlev, ke1=nlevp1,                                   & !in
+        &  kcm=nlevcm, iblock=jb,                                 & !in
+        &  kstart_tracer=kstart_tracer(jg,:),                     & !in start index for vertical diffusion of art tracers
+        &  ivstart=i_startidx, ivend=i_endidx,                    & !in
+        &  hhl       = p_metrics%z_ifc(:,:,jb),                   & !in
+        &  zvari     = zvari(:,:,:),                              & !out
+        &  t_g       = lnd_prog_now%t_g(:,jb),                    & !in
+        &  qv_s      = lnd_diag%qv_s(:,jb),                       & !in
+        &  ps        = p_diag%pres_sfc(:,jb),                     & !in
+        &  u         = p_diag%u(:,:,jb),                          & !inout
+        &  v         = p_diag%v(:,:,jb),                          & !inout
+        &  t         = p_diag%temp(:,:,jb),                       & !inout
+        &  qv        = p_prog_rcf%tracer(:,:,jb,iqv),             & !inout
+        &  qc        = p_prog_rcf%tracer(:,:,jb,iqc),             & !inout
+        &  prs       = p_diag%pres(:,:,jb),                       & !in
+        &  rhoh      = p_prog%rho(:,:,jb),                        & !in
+        &  rhon      = zrhon(:,:),                                & !in
+        &  epr       = p_prog%exner(:,:,jb),                      & !in
+        &  impl_weight=turbdiff_config(jg)%impl_weight,           & !in
+        &  ptr       = ptr(:),                                    & !inout
+        &  ndtr      = art_config(jg)%nturb_tracer+ncloud_offset, & !in: diffusion of additional tracer variables!
+        &  ncloud_offset =    ncloud_offset,                      & !in
+        &  idx_nturb_tracer = idx_nturb_tracer,                   & !in
+        &  tvm       = prm_diag%tvm(:,jb),                        & !inout
+        &  tvh       = prm_diag%tvh(:,jb),                        & !inout
+        &  tkvm      = prm_diag%tkvm(:,:,jb),                     & !inout
+        &  tkvh      = prm_diag%tkvh(:,:,jb),                     & !inout
+        &  u_tens    = prm_nwp_tend%ddt_u_turb(:,:,jb),           & !inout
+        &  v_tens    = prm_nwp_tend%ddt_v_turb(:,:,jb),           & !inout
+        &  t_tens    = prm_nwp_tend%ddt_temp_turb(:,:,jb),        & !inout
+        &  qv_tens   = prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqv),  & !inout
+        &  qc_tens   = prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqc),  & !inout
+!          qv_conv: missing
+        &  shfl_s    = prm_diag%shfl_s(:,jb),                     & !inout
+        &  qvfl_s    = prm_diag%qhfl_s(:,jb)                      & !inout
+!          umfl_s: missing                                          !inout
+!          vmfl_s: missing                                          !inout
+        )
 
 
        ! re-diagnose turbulent deposition fluxes for qc and qi (positive downward)
@@ -404,15 +513,21 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
        !       being treated analogous to qhfl_s. I.e. they should also be passed to 
        !       the soil/surface scheme TERRA.
        !
+       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC LOOP GANG VECTOR
        DO jc = i_startidx, i_endidx
          tempv_sfc(jc) = lnd_prog_now%t_g(jc,jb) * (1._wp + vtmpc1*lnd_diag%qv_s(jc,jb))
          rho_sfc(jc)   = p_diag%pres_sfc(jc,jb)/(rd*tempv_sfc(jc))
          prm_diag%qcfl_s(jc,jb) = rho_sfc(jc) * prm_diag%tvh(jc,jb) * p_prog_rcf%tracer(jc,nlev,jb,iqc)
       ENDDO
+      !$ACC END PARALLEL
       IF (turbdiff_config(jg)%ldiff_qi) THEN
+        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC LOOP GANG VECTOR
         DO jc = i_startidx, i_endidx
           prm_diag%qifl_s(jc,jb) = rho_sfc(jc) * prm_diag%tvh(jc,jb) * p_prog_rcf%tracer(jc,nlev,jb,iqi)
         ENDDO
+        !$ACC END PARALLEL
       ENDIF
 
 !DR If accumulated deposition fluxes are required ...
@@ -426,48 +541,56 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 
       ! preparation for concentration boundary condition. Usually inactive for standard ICON runs.
       IF ( .NOT. lsflcnd ) THEN
+        !$ACC KERNELS DEFAULT(PRESENT)
         prm_diag%lhfl_s(i_startidx:i_endidx,jb) = &
           &  prm_diag%qhfl_s(i_startidx:i_endidx,jb) * alv
+        !$ACC END KERNELS
       END IF
 
-      CALL art_turbdiff_interface( 'update_ptr', p_patch, p_prog_rcf, prm_nwp_tend,  &
-        &                          ncloud_offset=ncloud_offset,                      &
-        &                          ptr=ptr(:), dt=tcall_turb_jg,                     &
-        &                          i_st=i_startidx, i_en=i_endidx )
-
-
-      IF (ierrstat.NE.0) THEN
-        CALL finish(eroutine, errormsg)
-      END IF
+      IF ( lart .AND. art_config(jg)%nturb_tracer > 0 ) THEN
+         CALL art_turbdiff_interface( 'update_ptr', p_patch, p_prog_rcf, prm_nwp_tend,  &
+           &                          ncloud_offset=ncloud_offset,                      &
+           &                          ptr=ptr(:), dt=tcall_turb_jg,                     &
+           &                          i_st=i_startidx, i_en=i_endidx )
+      ENDIF
 
       ! transform updated turbulent velocity scale back to TKE
       ! Note: ddt_tke is purely diagnostic and has already been added to z_tvs
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG
       DO jk=1, nlevp1
+        !$ACC LOOP VECTOR
         DO jc=i_startidx, i_endidx
           p_prog_rcf%tke(jc,jk,jb) = 0.5_wp*(z_tvs(jc,jk,1))**2
         ENDDO
       ENDDO
+      !$ACC END PARALLEL
 
 
       ! Interpolate updated TKE (actually tvs) back to main levels
       ! Note that TKE at lowest main level is re-computed in nwp_turbtrans, after surface TKE
       ! has been updated.
       IF (advection_config(jg)%iadv_tke > 0) THEN
+        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC LOOP GANG
         DO jk=1, nlev
+          !$ACC LOOP VECTOR
           DO jc=i_startidx, i_endidx
             p_prog_rcf%tracer(jc,jk,jb,iqtke) = 0.5_wp* ( z_tvs(jc,jk,1) + z_tvs(jc,jk+1,1) )
           ENDDO
         ENDDO
+        !$ACC END PARALLEL
       ENDIF
 
-
     CASE(iedmf)
-
-
 
 !-------------------------------------------------------------------------
 !> EDMF DUALM turbulence scheme (eddy-diffusivity/mass-flux dual mass-flux)
 !-------------------------------------------------------------------------
+
+#ifdef _OPENACC
+      CALL warning('GPU:mo_nwp_turbdiff_interface:nwp_turbdiff', 'iedmf unsupported. Only cosmo turbulence is supported on GPU!')
+#endif
 
 !     Calculate vertical velocity in p-system
 
@@ -639,6 +762,10 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 !> GME turbulence scheme 
 !-------------------------------------------------------------------------
 
+#ifdef _OPENACC
+      CALL warning('GPU:mo_nwp_turbdiff_interface:nwp_turbdiff', 'igme unsupported. Only cosmo turbulence is supported on GPU!')
+#endif
+
       ! turbulent diffusion coefficients in atmosphere
       CALL partura( zh=p_metrics%z_ifc(:,:,jb), zf=p_metrics%z_mc(:,:,jb),                 & !in
         &           u=p_diag%u(:,:,jb),         v=p_diag%v(:,:,jb), t=p_diag%temp(:,:,jb), & !in
@@ -692,19 +819,30 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
     ! at the end of the NWP interface by first interpolating the u/v tendencies to the 
     ! velocity points (in order to minimize interpolation errors) and then adding the tendencies
     ! to vn (for efficiency reasons)
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = 1, nlev
 !DIR$ IVDEP
       DO jc = i_startidx, i_endidx
+      
+        prm_nwp_tend%ddt_u_turb(jc,jk,jb) = &
+          SIGN(MIN(0.1_wp,ABS(prm_nwp_tend%ddt_u_turb(jc,jk,jb))),prm_nwp_tend%ddt_u_turb(jc,jk,jb))
+        prm_nwp_tend%ddt_v_turb(jc,jk,jb) = &
+          SIGN(MIN(0.1_wp,ABS(prm_nwp_tend%ddt_v_turb(jc,jk,jb))),prm_nwp_tend%ddt_v_turb(jc,jk,jb))
+
         p_prog_rcf%tracer(jc,jk,jb,iqv) =MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqv) &
              &           + tcall_turb_jg*prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqv))
         p_diag%temp(jc,jk,jb) = p_diag%temp(jc,jk,jb)  &
-         &  + tcall_turb_jg*prm_nwp_tend%ddt_temp_turb(jc,jk,jb)
+         &  + cpd_o_cvd * tcall_turb_jg*prm_nwp_tend%ddt_temp_turb(jc,jk,jb)
         p_diag%u(jc,jk,jb) = p_diag%u(jc,jk,jb) + tcall_turb_jg*prm_nwp_tend%ddt_u_turb(jc,jk,jb)
         p_diag%v(jc,jk,jb) = p_diag%v(jc,jk,jb) + tcall_turb_jg*prm_nwp_tend%ddt_v_turb(jc,jk,jb)
       ENDDO
     ENDDO
+    !$ACC END PARALLEL
 
     ! QC is updated only in that part of the model domain where moisture physics is active
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = kstart_moist(jg), nlev
 !DIR$ IVDEP
       DO jc = i_startidx, i_endidx
@@ -712,20 +850,26 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
              &           + tcall_turb_jg*prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqc))
       ENDDO
     ENDDO
+    !$ACC END PARALLEL
 
     IF (ltwomoment) THEN
       ! QNC update
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = kstart_moist(jg), nlev
 !DIR$ IVDEP
         DO jc = i_startidx, i_endidx
           p_prog_rcf%tracer(jc,jk,jb,iqnc) = MAX(0.0_wp, p_prog_rcf%tracer(jc,jk,jb,iqnc) &
             &                              + tcall_turb_jg                                & 
-            &                              * ddt_turb_qnc(jc,jk,jb))
+            &                              * ddt_turb_qnc(jc,jk))
         ENDDO
       ENDDO
+      !$ACC END PARALLEL
     ENDIF ! ltwomoment
 
     IF (turbdiff_config(jg)%ldiff_qi) THEN
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = kstart_moist(jg), nlev
 !DIR$ IVDEP
         DO jc = i_startidx, i_endidx
@@ -734,44 +878,56 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
             &                             * prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqi))
         ENDDO
       ENDDO
+      !$ACC END PARALLEL
       IF (ltwomoment) THEN
         ! QNI update
+        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = kstart_moist(jg), nlev
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
             p_prog_rcf%tracer(jc,jk,jb,iqni) = MAX(0.0_wp, p_prog_rcf%tracer(jc,jk,jb,iqni) &
               &                              + tcall_turb_jg                                & 
-              &                              * ddt_turb_qni(jc,jk,jb))
+              &                              * ddt_turb_qni(jc,jk))
           ENDDO
         ENDDO
+        !$ACC END PARALLEL
       ENDIF ! ltwomoment
     ENDIF ! ldiff_qi
 
     IF (turbdiff_config(jg)%ldiff_qs) THEN
       ! QS update
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = kstart_moist(jg), nlev
 !DIR$ IVDEP
         DO jc = i_startidx, i_endidx
           p_prog_rcf%tracer(jc,jk,jb,iqs) = MAX(0.0_wp, p_prog_rcf%tracer(jc,jk,jb,iqs) &
             &                             + tcall_turb_jg                               & 
-            &                             * ddt_turb_qs(jc,jk,jb))
+            &                             * ddt_turb_qs(jc,jk))
         ENDDO
       ENDDO
+      !$ACC END PARALLEL
       IF (ltwomoment) THEN
         ! QNS update
+        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = kstart_moist(jg), nlev
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
             p_prog_rcf%tracer(jc,jk,jb,iqns) = MAX(0.0_wp, p_prog_rcf%tracer(jc,jk,jb,iqns) &
               &                              + tcall_turb_jg                                &
-              &                              * ddt_turb_qns(jc,jk,jb))
+              &                              * ddt_turb_qns(jc,jk))
           ENDDO
         ENDDO
+        !$ACC END PARALLEL
       ENDIF ! ltwomoment
     ENDIF ! ldiff_qs
 
     ! EDMF: diagnostic clouds are same as prognostic clouds
     IF ( atm_phy_nwp_config(jg)%inwp_turb == iedmf ) THEN
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = 1, nlev
 !DIR$ IVDEP
         DO jc = i_startidx, i_endidx
@@ -782,6 +938,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
                                           & + tcall_turb_jg * zae(jc,jk), 0._wp), 1._wp)
         ENDDO
       ENDDO
+      !$ACC END PARALLEL
     ENDIF
 
   ENDDO ! jb
@@ -789,6 +946,8 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 !$OMP END PARALLEL
 
   IF ( atm_phy_nwp_config(jg)%inwp_turb == iedmf ) nstep_turb = nstep_turb + 1
+
+  !$acc end data
 
 END SUBROUTINE nwp_turbdiff
 

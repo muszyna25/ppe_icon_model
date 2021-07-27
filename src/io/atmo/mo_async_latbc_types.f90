@@ -20,15 +20,18 @@
 !!
 MODULE mo_async_latbc_types
 
-  USE mo_kind,                  ONLY: sp
-  USE mo_var_metadata_types,    ONLY: t_var_metadata, VARNAME_LEN
-  USE mo_dictionary,            ONLY: DICT_MAX_STRLEN
-  USE mtime,                    ONLY: event, datetime, timedelta, &
-    &                                 deallocateTimedelta, deallocateEvent, deallocateDatetime
-  USE mo_initicon_types,        ONLY: t_init_state, t_init_state_const
-  USE mo_impl_constants,        ONLY: SUCCESS
-  USE mo_exception,             ONLY: finish, message
-  USE mo_reorder_info,          ONLY: t_reorder_info, release_reorder_info
+  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, C_F_POINTER
+  USE mo_kind,                     ONLY: sp
+  USE mo_dictionary,               ONLY: DICT_MAX_STRLEN
+  USE mtime,                       ONLY: event, datetime, timedelta, &
+    &                                    deallocateTimedelta, deallocateEvent, deallocateDatetime
+  USE mo_initicon_types,           ONLY: t_init_state, t_init_state_const
+  USE mo_impl_constants,           ONLY: SUCCESS, max_ntracer, vname_len
+  USE mo_exception,                ONLY: finish, message
+  USE mo_run_config,               ONLY: msg_level
+  USE mo_reorder_info,             ONLY: t_reorder_info, release_reorder_info
+  USE mo_mpi,                      ONLY: p_comm_work_pref, p_barrier
+  USE mo_cdi,                      ONLY: cdi_undefid, streamclose
 #ifndef NOMPI
   USE mpi
 #endif
@@ -63,7 +66,8 @@ MODULE mo_async_latbc_types
      ! Currently, we use only 1 MPI window for all input prefetching
      ! Used for async prefetch only
 #ifndef NOMPI
-     INTEGER            :: mpi_win = mpi_win_null
+     INTEGER                   :: mpi_win = mpi_win_null
+     INTEGER(mpi_address_kind) :: f_mem_ptr
 #endif
      REAL(sp), POINTER  :: mem_ptr_sp(:) => NULL() !< Pointer to memory window (REAL*4)
   END TYPE t_mem_win
@@ -83,6 +87,11 @@ MODULE mo_async_latbc_types
      INTEGER,                        ALLOCATABLE :: varID(:)           ! ID for variable to be read from file
      INTEGER,                        ALLOCATABLE :: hgrid(:)           ! CDI horizontal grid type (cell/edge)
      LOGICAL                                     :: lread_qr, lread_qs ! are qr, qs provided as input?
+
+     ! for additional tracer variables, e.g. ART tracers
+     LOGICAL                                     :: lread_tracer(max_ntracer) ! provided as input?
+     CHARACTER(LEN=vname_len)                  :: name_tracer(max_ntracer)  ! names
+     INTEGER                                     :: idx_tracer(max_ntracer)   ! indices in tracer container
 
      LOGICAL                                     :: lread_vn           ! is vn provided as input?
      LOGICAL                                     :: lread_u_v          ! is u,v provided as input?
@@ -112,7 +121,6 @@ MODULE mo_async_latbc_types
      ! .TRUE., if heights are computed (hydrostatic model input):
      LOGICAL                                     :: lcompute_hhl_pres
 
-     CHARACTER(LEN=10)                           :: psvar
      CHARACTER(LEN=10)                           :: geop_ml_var        ! model level surface geopotential
      CHARACTER(LEN=10)                           :: hhl_var
 
@@ -175,7 +183,11 @@ MODULE mo_async_latbc_types
   !
   TYPE t_latbc_data
 
-    TYPE(datetime),  POINTER :: mtime_last_read => NULL()
+    !> full path of currently open file, unallocated if not open
+    CHARACTER(:), ALLOCATABLE :: open_filepath
+    !> CDI handle of currently open stream, CDI_UNDEFID if not open
+    INTEGER :: open_cdi_stream_handle = cdi_undefid
+    TYPE(datetime) :: mtime_last_read
     TYPE(event),     POINTER :: prefetchEvent   => NULL()
     TYPE(timedelta), POINTER :: delta_dtime     => NULL()
 
@@ -227,11 +239,14 @@ CONTAINS
 
 #ifndef NOMPI
     CHARACTER(len=*), PARAMETER :: routine = modname//'::t_patch_data_finalize'
-    INTEGER :: ierror
+    LOGICAL, PARAMETER :: lprint_dbg = .FALSE.
+    INTEGER            :: ierror
+    TYPE(c_ptr)        :: c_mem_ptr
+    INTEGER, POINTER   :: baseptr
+
+    CALL message(routine, "")
+    IF (lprint_dbg) CALL p_barrier(comm=p_comm_work_pref) ! make sure all are here
 #endif
-
-    !CALL message("", 't_patch_data_finalize')
-
     CALL release_reorder_info(patch_data%cells)
     IF (ALLOCATED(patch_data%cell_mask)) DEALLOCATE(patch_data%cell_mask)
     CALL release_reorder_info(patch_data%edges)
@@ -239,14 +254,22 @@ CONTAINS
 #ifndef NOMPI
     ! note: we do not touch the MPI window pointer here:
     !
+    IF (lprint_dbg) CALL p_barrier(comm=p_comm_work_pref) ! make sure all are here
+    IF  ((msg_level >= 15) .OR. lprint_dbg)  CALL message(routine, "Free MPI window")
     IF (patch_data%mem_win%mpi_win /= mpi_win_null) THEN
       CALL mpi_win_free(patch_data%mem_win%mpi_win, ierror)
       IF (ierror /= 0) CALL finish(routine, "mpi_win_free failed!")
     END IF
+    IF (lprint_dbg) CALL p_barrier(comm=p_comm_work_pref) ! make sure all are here
+    IF  ((msg_level >= 15) .OR. lprint_dbg)  CALL message(routine, "Free MPI window memory")
     IF (ASSOCIATED(patch_data%mem_win%mem_ptr_sp)) THEN
-      CALL mpi_free_mem(patch_data%mem_win%mem_ptr_sp, ierror)
+      c_mem_ptr = TRANSFER(patch_data%mem_win%f_mem_ptr, c_mem_ptr)
+      CALL C_F_POINTER(c_mem_ptr, baseptr)
+      CALL mpi_free_mem(baseptr, ierror)
       IF (ierror /= 0) CALL finish(routine, "mpi_free_mem failed!")
     END IF
+        IF (lprint_dbg) CALL p_barrier(comm=p_comm_work_pref) ! make sure all are here
+    IF  ((msg_level >= 15) .OR. lprint_dbg)  CALL message(routine, "done.")
 #endif
   END SUBROUTINE t_patch_data_finalize
 
@@ -284,7 +307,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::t_latbc_data_finalize"
     INTEGER :: tlev, ierror
 
-    CALL message("", 'deallocating latbc data')
+    CALL message(routine, 'deallocating latbc data')
 
     ! deallocate boundary data memory
     DO tlev = 1, 2
@@ -300,14 +323,18 @@ CONTAINS
     END IF
 
     ! deallocating date and time data structures
-    IF (ASSOCIATED(latbc%mtime_last_read)) &
-      CALL deallocateDatetime(latbc%mtime_last_read)
     IF (ASSOCIATED(latbc%delta_dtime)) &
       CALL deallocateTimedelta(latbc%delta_dtime)
     IF (ASSOCIATED(latbc%latbc_data_const)) THEN
       DEALLOCATE(latbc%latbc_data_const, stat=ierror)
       IF (ierror /= SUCCESS) CALL finish(routine, "deallocate failed!")
     END IF
+    ! close input file if open
+    IF (latbc%open_cdi_stream_handle /= cdi_undefid) THEN
+      CALL streamclose(latbc%open_cdi_stream_handle)
+      latbc%open_cdi_stream_handle = cdi_undefid
+    END IF
+    IF  (msg_level >= 15)  CALL message(routine, 'done.')
   END SUBROUTINE t_latbc_data_finalize
 
 

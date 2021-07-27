@@ -1,11 +1,12 @@
-#ifndef __NO_ICON_OCEAN__
 
       MODULE mo_hamocc_output
 
 ! icon specific routines for output and restart
+      USE mo_master_control,       ONLY: get_my_process_name
 
       USE mo_control_bgc,          ONLY: dtb
-
+     
+      USE mo_dynamics_config,      ONLY: nnow 
 
       USE mo_exception, ONLY      : message, finish
 
@@ -19,23 +20,19 @@
 
       USE mo_kind,     ONLY: wp
 
-      USE mo_impl_constants,      ONLY: max_char_length, TLEV_NNEW
+      USE mo_impl_constants,      ONLY: max_char_length, TLEV_NNEW, success
 
       USE mo_cdi_constants,      ONLY: grid_unstructured_cell, grid_cell
 
-      USE mo_var_list,            ONLY: add_var,                  &
-    &                               new_var_list,             &
-    &                               delete_var_list,          &
-    &                               default_var_list_settings,&
-    &                               get_timelevel_string,     &
-    &                               add_ref
+      USE mo_var_list,            ONLY: add_var, add_ref, t_var_list_ptr
+      USE mo_var_list_register,   ONLY: vlr_add, vlr_del
 
       USE mo_grid_config,         ONLY: n_dom
 
 
       USE mo_hamocc_types,       ONLY: t_hamocc_diag, t_hamocc_state, &
     &                                  t_hamocc_sed, t_hamocc_tend,   &
-    &                                  t_hamocc_monitor                    
+    &                                  t_hamocc_monitor, t_hamocc_prog                    
    
       USE mo_zaxis_type
 
@@ -47,17 +44,15 @@
 
       USE mo_cf_convention
 
-      USE mo_linked_list,            ONLY: t_var_list
-
       USE mo_io_config,           ONLY: lnetcdf_flt64_output
 
       USE mo_grib2,               ONLY:  grib2_var
        
       USE mo_parallel_config,     ONLY: nproma
 
-      USE mo_hamocc_nml,         ONLY: io_stdo_bgc
+      USE mo_hamocc_nml,         ONLY: io_stdo_bgc, l_N_cycle
 
-      USE mo_var_metadata,       ONLY: post_op
+      USE mo_var_metadata,       ONLY: post_op, get_timelevel_string
 
       USE mo_var_groups, ONLY: groups
 
@@ -69,259 +64,361 @@
 
       USE mo_ocean_types,      ONLY: t_hydro_ocean_state,t_hydro_ocean_prog
      
+      USE mo_ocean_tracer_transport_types, ONLY: t_ocean_tracer
 
-      IMPLICIT NONE
+      USE mo_param1_bgc,       ONLY: ntraad, n_bgctra, set_tracer_indices
+  
+     IMPLICIT NONE
 
       PUBLIC
 
-      TYPE(t_var_list)                              :: hamocc_default_list ! for output
-      TYPE(t_var_list)                              :: hamocc_restart_list ! for hi, co3
-      TYPE(t_var_list)                              :: hamocc_tendency_list ! for NPP etc
-      TYPE(t_var_list)                              :: hamocc_sediment_list ! for sediment outout
+      TYPE(t_var_list_ptr)                              :: hamocc_default_list ! for output
+      TYPE(t_var_list_ptr)                              :: hamocc_restart_list ! for hi, co3
+      TYPE(t_var_list_ptr)                              :: hamocc_tendency_list ! for NPP etc
+      TYPE(t_var_list_ptr)                              :: hamocc_sediment_list ! for sediment outout
 
       CONTAINS
-
+      
 !================================================================================== 
-    SUBROUTINE construct_hamocc_state( patch_2d, hamocc_state )
+  SUBROUTINE construct_hamocc_state( patch_3d, hamocc_state )
     
-    TYPE(t_patch), TARGET, INTENT(in) :: patch_2d(n_dom)
     TYPE(t_hamocc_state), TARGET :: hamocc_state
-
+    TYPE(t_patch_3D), TARGET, INTENT(in) :: patch_3d
 
     ! local variables
-    INTEGER :: jg
-    
+    INTEGER :: i_status, timelevel, prlength ! local prognostic array length
+
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = 'mo_bgc_icon_comm:construct_hamocc_state'
     
+    TYPE(t_patch), POINTER :: patch_2d
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    
+    ! Using Adams-Bashforth semi-implicit timestepping with 3 prognostic time levels:
+    prlength = 3
     CALL message(TRIM(routine), 'start to construct hamocc state' )
     
-    !create state array for each domain
-    DO jg = 1, n_dom
-      
-      CALL construct_hamocc_diag(patch_2d(jg), hamocc_state%p_diag)
+    CALL set_tracer_indices()
+
+    CALL construct_hamocc_diag(patch_2d, hamocc_state%p_diag)
      
-      CALL message(TRIM(routine), 'start to construct hamocc state: tend' )
-      CALL construct_hamocc_tend(patch_2d(jg), hamocc_state%p_tend)
-      CALL construct_hamocc_moni(patch_2d(jg), hamocc_state%p_tend%monitor)
+    CALL message(TRIM(routine), 'start to construct hamocc state: tend' )
+    CALL construct_hamocc_tend(patch_2d, hamocc_state%p_tend)
+    CALL construct_hamocc_moni(patch_2d, hamocc_state%p_tend%monitor)
    
-      CALL message(TRIM(routine), 'start to construct hamocc state: sed' )
-      CALL construct_hamocc_sed(patch_2d(jg), hamocc_state%p_sed)
+    CALL message(TRIM(routine), 'start to construct hamocc state: sed' )
+    CALL construct_hamocc_sed(patch_2d, hamocc_state%p_sed)
       
-      CALL message(TRIM(routine),'construction of hamocc state finished')
-      
+    !create state array for each domain
+    ALLOCATE(hamocc_state%p_prog(1:prlength), stat=i_status)
+    IF (i_status/=success) THEN
+      CALL finish(TRIM(routine), 'allocation of progn. state array failed')
+    END IF
+
+    DO timelevel = 1,prlength
+        ! timelevel nnow is not used by the ocean - therefore we dont allocate
+        ! variables for this timelevel
+        IF (timelevel .ne. nnow(1)) THEN
+          CALL construct_hamocc_state_prog(patch_3d, &
+            &                              hamocc_state%p_prog(timelevel), &
+            &                              get_timelevel_string(timelevel) &  
+            )
+          
+        END IF
     END DO
-    
+
+    CALL message(TRIM(routine),'construction of hamocc state finished')
+      
+ 
   END SUBROUTINE 
 
-  SUBROUTINE construct_hamocc_state_prog(ocean_restart_list,patch_2d, ocean_state_prog,&
-          &                      var_suffix,last_ocean_code)
+  SUBROUTINE construct_hamocc_state_prog(patch_3d, hamocc_state_prog,&
+          &                      var_suffix)
 
     USE mo_param1_bgc,  ONLY: isco212, ialkali, iphosph,iano3, igasnit, &
         &                     iphy, izoo, icya, ioxygen, isilica, idoc, &
         &                     ian2o, idet, iiron, icalc, iopal,&
-        &                     idust, idms, ih2s, iagesc
+        &                     idust, idms, ih2s, iagesc, &
+        &                     iammo, iano2
 
-    TYPE(t_var_list), INTENT(inout):: ocean_restart_list
-    TYPE(t_patch), TARGET, INTENT(in)          :: patch_2d
-    TYPE(t_hydro_ocean_prog), INTENT(inout)    :: ocean_state_prog
+    TYPE(t_patch_3d), TARGET, INTENT(in)        :: patch_3d
+    TYPE(t_hamocc_prog), INTENT(inout)         :: hamocc_state_prog
     CHARACTER(LEN=4), intent(in)               :: var_suffix
-    INTEGER, INTENT(in)                        :: last_ocean_code
-    INTEGER :: alloc_cell_blocks,  datatype_flt
-
+    
+    INTEGER :: alloc_cell_blocks,  datatype_flt, jtrc
+    TYPE(t_ocean_tracer), POINTER :: tracer
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = 'mo_hamocc_output:construct_hamocc_state_prog'
 
     datatype_flt = MERGE(DATATYPE_FLT64, DATATYPE_FLT32, lnetcdf_flt64_output)
 
     !-------------------------------------------------------------------------
-    alloc_cell_blocks = patch_2d%alloc_cell_blocks
+    
+    alloc_cell_blocks = patch_3d%p_patch_2d(1)%alloc_cell_blocks
+  
+    CALL add_var(hamocc_restart_list, 'tracers'//TRIM(var_suffix), hamocc_state_prog%tracer , &
+          & grid_unstructured_cell, za_depth_below_sea, &
+          & t_cf_var('tracers'//TRIM(var_suffix), '', ' ', &
+          & DATATYPE_FLT64),&
+          & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & ldims=(/nproma,n_zlev,alloc_cell_blocks,n_bgctra/), &
+          & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
-    CALL add_ref( ocean_restart_list, 'tracers'//TRIM(var_suffix),   &
+    ! Reference to individual tracer, for I/O
+    ALLOCATE(hamocc_state_prog%tracer_ptr(n_bgctra))
+         
+        !---------------------------------------------------------------------------
+
+    CALL add_ref( hamocc_restart_list, 'tracers'//TRIM(var_suffix),   &
           & 'dic'//TRIM(var_suffix),        &
-          & ocean_state_prog%tracer_ptr(no_tracer+isco212)%p,                         &
+          & hamocc_state_prog%tracer_ptr(isco212)%p,                         &
           & grid_unstructured_cell, za_depth_below_sea,                  &
           & t_cf_var('dissic','kmolP m-3','DIC concentration', DATATYPE_FLT64,'dissic'), &
-          & grib2_var(255, 255, last_ocean_code+isco212, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & grib2_var(255, 255, isco212, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & ref_idx=isco212, &
           & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW, &
           & lrestart_cont=.TRUE.,in_group=groups("HAMOCC_BASE"))
 
-    IF (my_process_is_stdio()) CALL message(routine,'alk:'//TRIM(int2string(no_tracer+ialkali)))
 
-    CALL add_ref( ocean_restart_list, 'tracers'//TRIM(var_suffix),   &
+    CALL add_ref( hamocc_restart_list, 'tracers'//TRIM(var_suffix),   &
           & 'alk'//TRIM(var_suffix),        &
-          & ocean_state_prog%tracer_ptr(no_tracer+ialkali)%p,                         &
+          & hamocc_state_prog%tracer_ptr(ialkali)%p,                         &
           & grid_unstructured_cell, za_depth_below_sea,                  &
           & t_cf_var('talk','kmol m-3','alkalinity', DATATYPE_FLT64,'talk'), &
-          & grib2_var(255, 255, last_ocean_code+ialkali, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & grib2_var(255, 255, ialkali, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & ref_idx=ialkali, &
           & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW, &
           & lrestart_cont=.TRUE.,in_group=groups("HAMOCC_BASE"))
  
-    CALL add_ref( ocean_restart_list, 'tracers'//TRIM(var_suffix),   &
+    CALL add_ref( hamocc_restart_list, 'tracers'//TRIM(var_suffix),   &
           & 'phosph'//TRIM(var_suffix),        &
-          & ocean_state_prog%tracer_ptr(no_tracer+iphosph)%p,                         &
+          & hamocc_state_prog%tracer_ptr(iphosph)%p,                         &
           & grid_unstructured_cell, za_depth_below_sea,                  &
           & t_cf_var('po4','kmolP m-3','phosphate concentration', DATATYPE_FLT64,'po4'), &
-          & grib2_var(255, 255, last_ocean_code+iphosph, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & grib2_var(255, 255, iphosph, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & ref_idx=iphosph, &
           & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW, &
           & lrestart_cont=.TRUE.,in_group=groups("HAMOCC_BASE"))
  
-    CALL add_ref( ocean_restart_list, 'tracers'//TRIM(var_suffix),   &
+    CALL add_ref( hamocc_restart_list, 'tracers'//TRIM(var_suffix),   &
           & 'nitrate'//TRIM(var_suffix),        &
-          & ocean_state_prog%tracer_ptr(no_tracer+iano3)%p,                         &
+          & hamocc_state_prog%tracer_ptr(iano3)%p,                         &
           & grid_unstructured_cell, za_depth_below_sea,                  &
           & t_cf_var('no3','kmolP m-3','Nitrate concentration', DATATYPE_FLT64,'no3'), &
-          & grib2_var(255, 255, last_ocean_code+iano3, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & grib2_var(255, 255, iano3, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & ref_idx=iano3, &
           & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW, &
           & lrestart_cont=.TRUE.,in_group=groups("HAMOCC_BASE"))
  
-    CALL add_ref( ocean_restart_list, 'tracers'//TRIM(var_suffix),   &
+    CALL add_ref( hamocc_restart_list, 'tracers'//TRIM(var_suffix),   &
           & 'gasnit'//TRIM(var_suffix),        &
-          & ocean_state_prog%tracer_ptr(no_tracer+igasnit)%p,                         &
+          & hamocc_state_prog%tracer_ptr(igasnit)%p,                         &
           & grid_unstructured_cell, za_depth_below_sea,                  &
           & t_cf_var('n2','kmolN2 m-3','gaseous nitrogen concentration', DATATYPE_FLT64,'n2'), &
-          & grib2_var(255, 255, last_ocean_code+igasnit, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & grib2_var(255, 255, igasnit, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & ref_idx=igasnit, &
           & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW, &
           & lrestart_cont=.TRUE.,in_group=groups("HAMOCC_BASE"))
  
-    IF (my_process_is_stdio()) CALL message(routine,'phy:'//TRIM(int2string(no_tracer+iphy)))
+    IF (my_process_is_stdio()) CALL message(routine,'phy:'//TRIM(int2string(iphy)))
 
-    CALL add_ref( ocean_restart_list, 'tracers'//TRIM(var_suffix),   &
+    CALL add_ref( hamocc_restart_list, 'tracers'//TRIM(var_suffix),   &
           & 'phy'//TRIM(var_suffix),        &
-          & ocean_state_prog%tracer_ptr(no_tracer+iphy)%p,                         &
+          & hamocc_state_prog%tracer_ptr(iphy)%p,                         &
           & grid_unstructured_cell, za_depth_below_sea,                  &
           & t_cf_var('phyp','kmolP m-3','phytoplankton concentration', DATATYPE_FLT64,'phyp'), &
-          & grib2_var(255, 255, last_ocean_code+iphy, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & grib2_var(255, 255, iphy, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & ref_idx=iphy, &
           & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW, &
           & lrestart_cont=.TRUE.,in_group=groups("HAMOCC_BASE"))
 
-    CALL add_ref( ocean_restart_list, 'tracers'//TRIM(var_suffix),   &
+    CALL add_ref( hamocc_restart_list, 'tracers'//TRIM(var_suffix),   &
           & 'zoo'//TRIM(var_suffix),        &
-          & ocean_state_prog%tracer_ptr(no_tracer+izoo)%p,                         &
+          & hamocc_state_prog%tracer_ptr(izoo)%p,                         &
           & grid_unstructured_cell, za_depth_below_sea,                  &
           & t_cf_var('zoop','kmolP m-3','zooplankton concentration', DATATYPE_FLT64,'zoop'), &
-          & grib2_var(255, 255, last_ocean_code+izoo, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & grib2_var(255, 255, izoo, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & ref_idx=izoo, &
           & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW, &
           & lrestart_cont=.TRUE.,in_group=groups("HAMOCC_BASE"))
 
-    CALL add_ref( ocean_restart_list, 'tracers'//TRIM(var_suffix),   &
+    CALL add_ref( hamocc_restart_list, 'tracers'//TRIM(var_suffix),   &
           & 'cyano'//TRIM(var_suffix),        &
-          & ocean_state_prog%tracer_ptr(no_tracer+icya)%p,                         &
+          & hamocc_state_prog%tracer_ptr(icya)%p,                         &
           & grid_unstructured_cell, za_depth_below_sea,                  &
           & t_cf_var('phydiaz','kmolP m-3','cyanobacteria concentration', DATATYPE_FLT64,'phydiaz'), &
-          & grib2_var(255, 255, last_ocean_code+icya, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & grib2_var(255, 255, icya, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & ref_idx=icya, &
           & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW, &
           & lrestart_cont=.TRUE.,in_group=groups("HAMOCC_BASE"))
  
-    CALL add_ref( ocean_restart_list, 'tracers'//TRIM(var_suffix),   &
+    CALL add_ref( hamocc_restart_list, 'tracers'//TRIM(var_suffix),   &
           & 'oxygen'//TRIM(var_suffix),        &
-          & ocean_state_prog%tracer_ptr(no_tracer+ioxygen)%p,                         &
+          & hamocc_state_prog%tracer_ptr(ioxygen)%p,                         &
           & grid_unstructured_cell, za_depth_below_sea,                  &
           & t_cf_var('o2','kmol O2 m-3','oxygen concentration', DATATYPE_FLT64,'o2'), &
-          & grib2_var(255, 255, last_ocean_code+ioxygen, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & grib2_var(255, 255, ioxygen, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & ref_idx=ioxygen, &
           & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW, &
           & lrestart_cont=.TRUE.,in_group=groups("HAMOCC_BASE"))
  
-    CALL add_ref( ocean_restart_list, 'tracers'//TRIM(var_suffix),   &
+    CALL add_ref( hamocc_restart_list, 'tracers'//TRIM(var_suffix),   &
           & 'silica'//TRIM(var_suffix),        &
-          & ocean_state_prog%tracer_ptr(no_tracer+isilica)%p,                         &
+          & hamocc_state_prog%tracer_ptr(isilica)%p,                         &
           & grid_unstructured_cell, za_depth_below_sea,                  &
           & t_cf_var('si','kmolP m-3','silicate concentration', DATATYPE_FLT64,'si'), &
-          & grib2_var(255, 255, last_ocean_code+isilica, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & grib2_var(255, 255, isilica, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & ref_idx=isilica, &
           & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW, &
           & lrestart_cont=.TRUE.,in_group=groups("HAMOCC_BASE"))
  
-    CALL add_ref( ocean_restart_list, 'tracers'//TRIM(var_suffix),   &
+    CALL add_ref( hamocc_restart_list, 'tracers'//TRIM(var_suffix),   &
           & 'doc'//TRIM(var_suffix),        &
-          & ocean_state_prog%tracer_ptr(no_tracer+idoc)%p,                         &
+          & hamocc_state_prog%tracer_ptr(idoc)%p,                         &
           & grid_unstructured_cell, za_depth_below_sea,                  &
           & t_cf_var('dissoc','kmolP m-3','DOC concentration',datatype_flt,'dissoc'), &
-          & grib2_var(255, 255, last_ocean_code+idoc, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & grib2_var(255, 255, idoc, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & ref_idx=idoc, &
           & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW, &
           & lrestart_cont=.TRUE.,in_group=groups("HAMOCC_BASE"))
  
-    CALL add_ref( ocean_restart_list, 'tracers'//TRIM(var_suffix),   &
+    CALL add_ref( hamocc_restart_list, 'tracers'//TRIM(var_suffix),   &
           & 'an2o'//TRIM(var_suffix),        &
-          & ocean_state_prog%tracer_ptr(no_tracer+ian2o)%p,                         &
+          & hamocc_state_prog%tracer_ptr(ian2o)%p,                         &
           & grid_unstructured_cell, za_depth_below_sea,                  &
           & t_cf_var('n2o','kmolP m-3','N2O concentration', DATATYPE_FLT64,'n2o'), &
-          & grib2_var(255, 255, last_ocean_code+ian2o, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & grib2_var(255, 255, ian2o, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & ref_idx=ian2o, &
           & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW, &
           & lrestart_cont=.TRUE.,in_group=groups("HAMOCC_BASE"))
  
-    CALL add_ref( ocean_restart_list, 'tracers'//TRIM(var_suffix),   &
+    CALL add_ref( hamocc_restart_list, 'tracers'//TRIM(var_suffix),   &
           & 'det'//TRIM(var_suffix),        &
-          & ocean_state_prog%tracer_ptr(no_tracer+idet)%p,                         &
+          & hamocc_state_prog%tracer_ptr(idet)%p,                         &
           & grid_unstructured_cell, za_depth_below_sea,                  &
           & t_cf_var('det','kmolP m-3','POC concentration', DATATYPE_FLT64,'det'), &
-          & grib2_var(255, 255, last_ocean_code+idet, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & grib2_var(255, 255, idet, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & ref_idx=idet, &
           & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW, &
           & lrestart_cont=.TRUE.,in_group=groups("HAMOCC_BASE"))
  
-    CALL add_ref( ocean_restart_list, 'tracers'//TRIM(var_suffix),   &
+    CALL add_ref( hamocc_restart_list, 'tracers'//TRIM(var_suffix),   &
           & 'iron'//TRIM(var_suffix),        &
-          & ocean_state_prog%tracer_ptr(no_tracer+iiron)%p,                         &
+          & hamocc_state_prog%tracer_ptr(iiron)%p,                         &
           & grid_unstructured_cell, za_depth_below_sea,                  &
           & t_cf_var('dfe','kmolFe m-3','dissolved iron concentration', DATATYPE_FLT64,'dfe'), &
-          & grib2_var(255, 255, last_ocean_code+iiron, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & grib2_var(255, 255, iiron, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & ref_idx=iiron, &
           & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW, &
           & lrestart_cont=.TRUE.,in_group=groups("HAMOCC_BASE"))
  
-    CALL add_ref( ocean_restart_list, 'tracers'//TRIM(var_suffix),   &
+    CALL add_ref( hamocc_restart_list, 'tracers'//TRIM(var_suffix),   &
           & 'dms'//TRIM(var_suffix),        &
-          & ocean_state_prog%tracer_ptr(no_tracer+idms)%p,                         &
+          & hamocc_state_prog%tracer_ptr(idms)%p,                         &
           & grid_unstructured_cell, za_depth_below_sea,                  &
           & t_cf_var('HAMOCC_dmso','kmol S m-3','dimethylsulfide concentration', DATATYPE_FLT64,'dmso'), &
-          & grib2_var(255, 255, last_ocean_code+idms, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & grib2_var(255, 255, idms, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & ref_idx=idms, &
           & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW, &
           & lrestart_cont=.TRUE.,in_group=groups("HAMOCC_BASE"))
  
-    CALL add_ref( ocean_restart_list, 'tracers'//TRIM(var_suffix),   &
+    CALL add_ref( hamocc_restart_list, 'tracers'//TRIM(var_suffix),   &
           & 'h2s'//TRIM(var_suffix),        &
-          & ocean_state_prog%tracer_ptr(no_tracer+ih2s)%p,                         &
+          & hamocc_state_prog%tracer_ptr(ih2s)%p,                         &
           & grid_unstructured_cell, za_depth_below_sea,                  &
           & t_cf_var('h2s','kmol m-3','H2S alkalinity concentration', DATATYPE_FLT64,'h2s'), &
-          & grib2_var(255, 255, last_ocean_code+ih2s, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & grib2_var(255, 255, ih2s, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & ref_idx=ih2s, &
           & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW, &
           & lrestart_cont=.TRUE.,in_group=groups("HAMOCC_BASE"))
  
-    CALL add_ref( ocean_restart_list, 'tracers'//TRIM(var_suffix),   &
+    CALL add_ref( hamocc_restart_list, 'tracers'//TRIM(var_suffix),   &
           & 'agesc'//TRIM(var_suffix),        &
-          & ocean_state_prog%tracer_ptr(no_tracer+iagesc)%p,                         &
+          & hamocc_state_prog%tracer_ptr(iagesc)%p,                         &
           & grid_unstructured_cell, za_depth_below_sea,                  &
           & t_cf_var('agesc','','linear age', DATATYPE_FLT64,'agesc'), &
-          & grib2_var(255, 255, last_ocean_code+iagesc, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & grib2_var(255, 255, iagesc, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & ref_idx=iagesc, &
           & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW, &
           & lrestart_cont=.TRUE.,in_group=groups("HAMOCC_BASE"))
 
-    CALL add_ref( ocean_restart_list, 'tracers'//TRIM(var_suffix),   &
+    CALL add_ref( hamocc_restart_list, 'tracers'//TRIM(var_suffix),   &
           & 'calc'//TRIM(var_suffix),        &
-          & ocean_state_prog%tracer_ptr(no_tracer+icalc)%p,                         &
+          & hamocc_state_prog%tracer_ptr(icalc)%p,                         &
           & grid_unstructured_cell, za_depth_below_sea,                  &
           & t_cf_var('caco3','kmolP m-3','calcium carbonate shells', DATATYPE_FLT64,'caco3'), &
-          & grib2_var(255, 255, last_ocean_code+icalc, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & grib2_var(255, 255, icalc, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & ref_idx=icalc, &
           & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW, &
           & lrestart_cont=.True.,in_group=groups("HAMOCC_BASE"))
  
-    CALL add_ref( ocean_restart_list, 'tracers'//TRIM(var_suffix),   &
+    CALL add_ref( hamocc_restart_list, 'tracers'//TRIM(var_suffix),   &
           & 'opal'//TRIM(var_suffix),        &
-          & ocean_state_prog%tracer_ptr(no_tracer+iopal)%p,                         &
+          & hamocc_state_prog%tracer_ptr(iopal)%p,                         &
           & grid_unstructured_cell, za_depth_below_sea,                  &
           & t_cf_var('bsi','kmol Si m-3','opal shells', DATATYPE_FLT64,'bsi'), &
-          & grib2_var(255, 255, last_ocean_code+iopal, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & grib2_var(255, 255, iopal, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & ref_idx=iopal, &
           & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW, &
           & lrestart_cont=.True.,in_group=groups("HAMOCC_BASE"))
  
-    CALL add_ref( ocean_restart_list, 'tracers'//TRIM(var_suffix),   &
+    CALL add_ref( hamocc_restart_list, 'tracers'//TRIM(var_suffix),   &
           & 'dust'//TRIM(var_suffix),        &
-          & ocean_state_prog%tracer_ptr(no_tracer+idust)%p,                         &
+          & hamocc_state_prog%tracer_ptr(idust)%p,                         &
           & grid_unstructured_cell, za_depth_below_sea,                  &
           & t_cf_var('fdust','kmol m-3','Dust concentration', datatype_flt,'fdust'), &
-          & grib2_var(255, 255, last_ocean_code+idust, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & grib2_var(255, 255, idust, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & ref_idx=idust, &
           & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW, &
           & lrestart_cont=.True.,in_group=groups("HAMOCC_BASE"))
- 
 
+
+    IF (l_N_cycle) THEN
+      
+    CALL add_ref( hamocc_restart_list, 'tracers'//TRIM(var_suffix),   &
+          & 'ammo'//TRIM(var_suffix),        &
+          & hamocc_state_prog%tracer_ptr(iammo)%p,                         &
+          & grid_unstructured_cell, za_depth_below_sea,                  &
+          & t_cf_var('nh4','kmol N m-3','dissolved nh4', DATATYPE_FLT64,'nh4'), &
+          & grib2_var(255, 255, iammo, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & ref_idx=iammo, &
+          & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW, &
+          & lrestart_cont=.TRUE.,in_group=groups("HAMOCC_BASE"))
+
+    CALL add_ref( hamocc_restart_list, 'tracers'//TRIM(var_suffix),   &
+          & 'nitrite'//TRIM(var_suffix),        &
+          & hamocc_state_prog%tracer_ptr(iano2)%p,                         &
+          & grid_unstructured_cell, za_depth_below_sea,                  &
+          & t_cf_var('no2','kmol N m-3','dissolved no2', DATATYPE_FLT64,'no2'), &
+          & grib2_var(255, 255, iano2, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & ref_idx=iano2, &
+          & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW, &
+          & lrestart_cont=.TRUE.,in_group=groups("HAMOCC_BASE"))
+
+     ENDIF ! l_N_cycle
+ 
+     ALLOCATE(hamocc_state_prog%tracer_collection%tracer(n_bgctra))
+     hamocc_state_prog%tracer_collection%no_of_tracers = n_bgctra
+     hamocc_state_prog%tracer_collection%patch_3d => patch_3d
+     hamocc_state_prog%tracer_collection%typeOfTracers = "hamocc"    
+     hamocc_state_prog%tracer_collection%patch_3d => patch_3d
+ 
+     DO jtrc = 1, n_bgctra
+          tracer => hamocc_state_prog%tracer_collection%tracer(jtrc)
+          ! point the concentration to the 4D tracer
+          ! this is a tmeporary solution until the whole code is cleaned
+          tracer%concentration => hamocc_state_prog%tracer(:,:,:,jtrc) 
+          NULLIFY(tracer%top_bc)
+          NULLIFY(tracer%bottom_bc)
+          IF (jtrc <= ntraad) THEN
+            tracer%is_advected = .true.
+          ELSE
+            tracer%is_advected = .false.
+          ENDIF
+            
+     ENDDO
+     
   END SUBROUTINE construct_hamocc_state_prog
 
 !================================================================================== 
@@ -751,6 +848,102 @@
       & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
       &  arg1=s2year,new_cf=t_cf_var('remin_of_det_by_S','GtC yr-1','remin_of_det_by_S', &
       &  datatype_flt)))
+
+   IF (l_N_cycle) THEN
+
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_NPP_global_nh4', hamocc_state_moni%phosy_nh4 , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('global_primary_production_nh4', &
+      &          'Gt C s-1', &
+      &          'global net primary production on NH4', &
+      &          datatype_flt, &
+      &          'global_primary_production_nh4'),&
+      & grib2_var(255, 255, 500, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('global_primary_production_nh4','GtC yr-1','global net_npp_nh4', &
+      &  datatype_flt)))
+
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_global_npp_cya_nh4', hamocc_state_moni%phosy_cya_nh4 , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('global_npp_cya_nh4', &
+      &          'GtC s-1', &
+      &          'annual net primary production of cyanobacteria on NH4/NO2', &
+      &          datatype_flt, &
+      &          'global_npp_cya_nh4'), &
+      & grib2_var(255, 255, 520, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('global_primary_production_cya_nh4','GtC yr-1',&
+      & 'global annual primary production of cyanobacteria on NH4/NO2', &
+      &  datatype_flt)))
+
+   CALL add_var(hamocc_tendency_list, 'HAMOCC_global_surface_nh4', hamocc_state_moni%sfnh4 , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('global_surface_nh4', &
+      &          'kmol N m-3', &
+      &          'global_surface_dissolved_ammonium', &
+      &          datatype_flt, &
+      &          'global_surface_nh4'), &
+      & grib2_var(255, 255, 550, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_global_net_nh3_flux', hamocc_state_moni%net_nh3_flux , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('global_net_nh3_flux', 'Tg N s-1', 'global net NH3 flux', datatype_flt,'global_net_nh3_flux'),&
+      & grib2_var(255, 255, 551, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('global_net_nh3_flux','Tg N yr-1','global net_nh3_flux', &
+      &  datatype_flt)))
+
+   CALL add_var(hamocc_tendency_list, 'HAMOCC_WC_nitri_no2', hamocc_state_moni%wc_nitri_no2 , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('WC_nitri_no2', 'TgN s-1', 'global water column nitrification of NO2', datatype_flt,'WC_nitri_no2'),&
+      & grib2_var(255, 255, 519, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('WC_nitri_no2','TgN yr-1','global water column nitrification of NO2', &
+      &  datatype_flt)))
+
+   CALL add_var(hamocc_tendency_list, 'HAMOCC_WC_nitri_nh4', hamocc_state_moni%wc_nitri_nh4 , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('WC_nitri_nh4', 'TgN s-1', 'global water column nitrification of NH4', datatype_flt,'WC_nitri_nh4'),&
+      & grib2_var(255, 255, 519, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('WC_nitri_nh4','TgN yr-1','global water column nitrification of NH4', &
+      &  datatype_flt)))
+
+   CALL add_var(hamocc_tendency_list, 'HAMOCC_WC_dnrn', hamocc_state_moni%wc_dnrn , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('WC_dnrn', 'TgN s-1', 'global water column dnrn of NO3 to NO2', datatype_flt,'WC_dnrn'),&
+      & grib2_var(255, 255, 519, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('WC_dnrn','TgN yr-1','global water column DNRN of NO3 to NO2', &
+      &  datatype_flt)))
+
+   CALL add_var(hamocc_tendency_list, 'HAMOCC_WC_dnra', hamocc_state_moni%wc_dnra , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('WC_dnra', 'TgN s-1', 'global water column dnra of NO3 to NH4', datatype_flt,'WC_dnra'),&
+      & grib2_var(255, 255, 519, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('WC_dnra','TgN yr-1','global water column DNRA of NO3 to NH4', &
+      &  datatype_flt)))
+
+   CALL add_var(hamocc_tendency_list, 'HAMOCC_WC_anammox', hamocc_state_moni%wc_anammox , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('WC_anammox', 'TgN s-1', 'global water column anammox of NO2 and NH4', datatype_flt,'WC_anammox'),&
+      & grib2_var(255, 255, 519, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('WC_anammox','TgN yr-1','global water column anammox of NO2 and NH4', &
+      &  datatype_flt)))
+
+  ENDIF
 
   END SUBROUTINE 
 
@@ -1304,6 +1497,48 @@
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
       & loutput=.TRUE., lrestart=.FALSE.)
 
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_aksi',hamocc_state_tend%aksi,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('aksi','','dissociation constant silicic acid', datatype_flt,'aksi'), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_aks',hamocc_state_tend%aks,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('aks','','dissociation constant hydrogen sulfate', datatype_flt,'aks'), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_akf',hamocc_state_tend%akf,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('akf','','dissociation constant hydrogen fluoride', datatype_flt,'akf'), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_ak1p',hamocc_state_tend%ak1p,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('ak1p','','dissociation constant 1 for phosphoric acid', datatype_flt,'ak1p'), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_ak2p',hamocc_state_tend%ak2p,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('ak2p','','dissociation constant 2 for phosphoric acid', datatype_flt,'ak2p'), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_ak3p',hamocc_state_tend%ak3p,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('ak3p','','dissociation constant 3 for phosphoric acid', datatype_flt,'ak3p'), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
     CALL add_var(hamocc_tendency_list, 'HAMOCC_satoxy',hamocc_state_tend%satoxy,    &
       & grid_unstructured_cell, za_depth_below_sea,&
       & t_cf_var('satoxy','','O2 at saturation', datatype_flt,'satoxy'), &
@@ -1338,6 +1573,139 @@
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
       & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_lysocline',hamocc_state_tend%lysocline, &
+      & grid_unstructured_cell, za_surface,&
+      & t_cf_var('lysocl','m','Depth of lysocline',datatype_flt,'lysocl'), &
+      & grib2_var(255, 255, 75, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+    CALL add_var(hamocc_tendency_list,'HAMOCC_nitinp',hamocc_state_tend%nitrogeninp, &
+      & grid_unstructured_cell, za_surface,&
+      & t_cf_var('nitinp','m','Nitrogen inp',datatype_flt,'nitinp'), &
+      & grib2_var(255, 255, 75, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.FALSE., lrestart=.FALSE.)
+
+    IF (l_N_cycle) THEN
+
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_gppnh4',hamocc_state_tend%gppnh4,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('npp nh4','kmolP m-3 s-1','primary production on nh4', datatype_flt,'npp nh4'), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_cyapro',hamocc_state_tend%cyapro,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('npp_cya_nh4no2','kmolP m-3 s-1','primary production of cyano on nh4 and no2', datatype_flt,'npp_cya_nh4no2'), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_nh3flux',hamocc_state_tend%nh3flux,    &
+      & grid_unstructured_cell, za_surface,&
+      & t_cf_var('nh3flux','kmol N m-2 s-1','', datatype_flt,'nh3flux'), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_ammox',hamocc_state_tend%ammox,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('ammox','kmol N m-3 s-1','nitrification of nh4', datatype_flt,'ammox'), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_nitox',hamocc_state_tend%nitox,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('nitox','kmol N m-3 s-1','nitrification of no2', datatype_flt,'nitox'), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_dnrn',hamocc_state_tend%dnrn,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('dnrn','kmol N m-3 s-1','dnrn of no3 to no2', datatype_flt,'dnrn'), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_dnra',hamocc_state_tend%dnra,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('dnra','kmol N m-3 s-1','dnra of no3 to nh4', datatype_flt,'dnra'), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_anam',hamocc_state_tend%anam,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('anammox','kmol N m-3 s-1','annamox of nh4 and no2', datatype_flt,'anammox'), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+
+
+    ! Sediment
+    CALL add_var(hamocc_sediment_list, 'HAMOCC_sedflux_nh4',hamocc_state_tend%sedflnh4,    &
+      & grid_unstructured_cell, za_surface,&
+      & t_cf_var('sedflux_nh4','kmol N m-2 s-1','sediment-ocean flux ammonium', datatype_flt,'sedflux_nh4'), &
+      & grib2_var(255, 255, 285, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_sediment_list, 'HAMOCC_sedflux_no2',hamocc_state_tend%sedflno2,    &
+      & grid_unstructured_cell, za_surface,&
+      & t_cf_var('sedflux_no2','kmol N m-2 s-1','sediment-ocean flux nitrite', datatype_flt,'sedflux_no2'), &
+      & grib2_var(255, 255, 285, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_sediment_list, 'HAMOCC_sed_ammox',hamocc_state_tend%sedammox,    &
+      & grid_unstructured_cell, za_ocean_sediment,&
+      & t_cf_var('sed_ammox','kmol N m-3 s-1','sediment Nitrification of NH4', datatype_flt,'sed_ammox'), &
+      & grib2_var(255, 255, 302, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,ks,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_sediment_list, 'HAMOCC_sed_nitox',hamocc_state_tend%sednitox,    &
+      & grid_unstructured_cell, za_ocean_sediment,&
+      & t_cf_var('sed_nitox','kmol N m-3 s-1','sediment Nitrification of NO2', datatype_flt,'sed_nitox'), &
+      & grib2_var(255, 255, 302, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,ks,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_sediment_list, 'HAMOCC_sed_anam',hamocc_state_tend%sedanam,    &
+      & grid_unstructured_cell, za_ocean_sediment,&
+      & t_cf_var('sed_anam','kmol N m-3 s-1','sediment anammox of NH4 and NO2', datatype_flt,'sed_anam'), &
+      & grib2_var(255, 255, 302, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,ks,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_sediment_list, 'HAMOCC_sed_dnrn',hamocc_state_tend%seddnrn,    &
+      & grid_unstructured_cell, za_ocean_sediment,&
+      & t_cf_var('sed_dnrn','kmol N m-3 s-1','sediment dnrn of no3 to NO2', datatype_flt,'sed_dnrn'), &
+      & grib2_var(255, 255, 302, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,ks,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_sediment_list, 'HAMOCC_sed_dnra',hamocc_state_tend%seddnra,    &
+      & grid_unstructured_cell, za_ocean_sediment,&
+      & t_cf_var('sed_dnra','kmol N m-3 s-1','sediment dnra of no3 to NH4', datatype_flt,'sed_dnra'), &
+      & grib2_var(255, 255, 302, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,ks,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_sediment_list, 'HAMOCC_sed_nrn2',hamocc_state_tend%sednrn2,    &
+      & grid_unstructured_cell, za_ocean_sediment,&
+      & t_cf_var('sed_nrn2','kmol N m-3 s-1','sediment denitrification', datatype_flt,'sed_nrn2'), &
+      & grib2_var(255, 255, 302, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,ks,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    ENDIF ! l_N_cycle
+
 
     CALL message(TRIM(routine), 'construct hamocc tend end')
 
@@ -1516,6 +1884,24 @@
       & ldims=(/nproma,alloc_cell_blocks/),&
       & loutput=.TRUE., lrestart=.FALSE.)
 
+    IF (l_N_cycle) THEN
+
+    CALL add_var(hamocc_sediment_list, 'HAMOCC_POW_nh4',hamocc_state_sed%pwnh4,    &
+      & grid_unstructured_cell, za_ocean_sediment,&
+      & t_cf_var('POW_nh4','kmol N m-3','sediment pore water ammonium', DATATYPE_FLT64,'powanh4'), &
+      & grib2_var(255, 255, 58, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,ks,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
+      & loutput=.TRUE., lrestart=.TRUE.,lrestart_cont=.TRUE.)
+
+    CALL add_var(hamocc_sediment_list, 'HAMOCC_POW_no2',hamocc_state_sed%pwno2,    &
+      & grid_unstructured_cell, za_ocean_sediment,&
+      & t_cf_var('POW_no2','kmol N m-3','sediment pore water nitrite', DATATYPE_FLT64,'powano2'), &
+      & grib2_var(255, 255, 58, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,ks,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
+      & loutput=.TRUE., lrestart=.TRUE.,lrestart_cont=.TRUE.)
+
+    ENDIF ! l_N_cycle
+
     CALL message(TRIM(routine), 'construct hamocc sed end')
 
   END SUBROUTINE 
@@ -1528,20 +1914,19 @@
     
     
     CHARACTER(LEN=max_char_length), PARAMETER :: &
-      & routine = 'mo_bgc_icon_comm:destruct_hydro_ocean_state'
+      & routine = 'mo_bgc_icon_comm:destruct_hamocc_state'
     
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'start to destruct hamocc state ')
     
     
-    CALL delete_var_list(hamocc_restart_list)
-    CALL delete_var_list(hamocc_default_list)
-    CALL delete_var_list(hamocc_tendency_list)
-    CALL delete_var_list(hamocc_sediment_list)
+    CALL vlr_del(hamocc_restart_list)
+    CALL vlr_del(hamocc_default_list)
+    CALL vlr_del(hamocc_tendency_list)
+    CALL vlr_del(hamocc_sediment_list)
     
     CALL message(TRIM(routine),'destruction of hamocc state finished')
     CALL close_bgcout 
-
    
   END SUBROUTINE 
 
@@ -1549,29 +1934,25 @@
     SUBROUTINE construct_hamocc_var_lists(patch_2d)
 
     TYPE(t_patch), TARGET, INTENT(in) :: patch_2d
+    CHARACTER(:), ALLOCATABLE :: model_name
+
+    model_name = TRIM(get_my_process_name())
     
-    CHARACTER(LEN=max_char_length) :: listname
-    
-    WRITE(listname,'(a)')  'hamocc_restart_list'
-    CALL new_var_list(hamocc_restart_list, listname, patch_id=patch_2d%id)
-    CALL default_var_list_settings( hamocc_restart_list,             &
-      & lrestart=.TRUE.,loutput=.TRUE.,&
-      & model_type='oce' )
+    CALL vlr_add(hamocc_restart_list, 'hamocc_restart_list',   &
+      & patch_id=patch_2d%id, lrestart=.TRUE., loutput=.TRUE., &
+      & model_type=model_name)
 
-    WRITE(listname,'(a)')  'hamocc_default_list'
-    CALL new_var_list(hamocc_default_list, listname, patch_id=patch_2d%id)
-    CALL default_var_list_settings( hamocc_default_list,            &
-      & lrestart=.FALSE.,model_type='oce',loutput=.TRUE. )
+    CALL vlr_add(hamocc_default_list, 'hamocc_default_list',    &
+      & patch_id=patch_2d%id, lrestart=.FALSE., loutput=.TRUE., &
+      & model_type=model_name)
 
-    WRITE(listname,'(a)')  'hamocc_tendency_list'
-    CALL new_var_list(hamocc_tendency_list, listname, patch_id=patch_2d%id)
-    CALL default_var_list_settings( hamocc_tendency_list,            &
-      & lrestart=.TRUE.,model_type='oce',loutput=.TRUE. )
+    CALL vlr_add(hamocc_tendency_list, 'hamocc_tendency_list', &
+      & patch_id=patch_2d%id, lrestart=.TRUE., loutput=.TRUE., &
+      & model_type=model_name)
 
-    WRITE(listname,'(a)')  'hamocc_sediment_list'
-    CALL new_var_list(hamocc_sediment_list, listname, patch_id=patch_2d%id)
-    CALL default_var_list_settings( hamocc_sediment_list,            &
-      & lrestart=.TRUE.,model_type='oce',loutput=.TRUE. )
+    CALL vlr_add(hamocc_sediment_list, 'hamocc_sediment_list', &
+      & patch_id=patch_2d%id, lrestart=.TRUE., loutput=.TRUE., &
+      & model_type=model_name)
 
     END SUBROUTINE construct_hamocc_var_lists
 !================================================================================== 
@@ -1592,4 +1973,3 @@
 
  END MODULE
 
-#endif

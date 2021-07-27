@@ -14,7 +14,7 @@ MODULE mo_checksum
     USE ISO_C_BINDING,  ONLY: C_INT32_T, C_DOUBLE, C_FLOAT, c_int, c_ptr, c_loc
     USE mo_mpi,         ONLY: p_comm_size, p_comm_rank, p_comm_work, p_gather
     USE mo_util_string, ONLY: int2string
-    USE mo_cdi,         ONLY: DATATYPE_INT, DATATYPE_FLT32, DATATYPE_FLT64
+    USE mo_cdi,         ONLY: DATATYPE_INT, DATATYPE_FLT64
 #ifndef NOMPI
 #ifndef __SUNPRO_F95
     USE mpi !, ONLY: MPI_INT32_T, MPI_GATHER
@@ -114,24 +114,33 @@ CONTAINS
         CALL p_gather(local_chksum, processChecksums, 0, communicator)
 
         !hash the results of the different processes down to a single VALUE AND print that.
-        IF(p_comm_rank(communicator) == 0) THEN
-        ! HACKHACKHACKHACK:: stupid serializeGetSizeInCore() from cdilib does not know about 
-        ! a DATATYPE_INT32, so use DATATYPE_INT as workaround
-        ! (which SHOULD hopefully have same storage size...)
+        IF (p_comm_rank(communicator) == 0) THEN
+
+          IF (ALL(processChecksums == 0)) THEN
+
+            WRITE(0, *) prefix//' zero size array - no checksum available.'
+
+          ELSE
+
+            ! HACKHACKHACKHACK:: stupid serializeGetSizeInCore() from cdilib does not know about
+            ! a DATATYPE_INT32, so use DATATYPE_INT as workaround
+            ! (which SHOULD hopefully have same storage size...)
             hash = cdi_check_sum(DATATYPE_INT, processCount, c_loc(processChecksums))
 
-            IF(printDetails) THEN
-                WRITE(0, *) prefix//"details:"
-                DO i = 1, processCount
-                    CALL checksum_to_string(processChecksums(i), chksum_string)
-                    WRITE(0, *) "checksum from process "//TRIM(int2string(i - 1))//": "//chksum_string
-                END DO
+            IF (printDetails) THEN
+              WRITE(0, *) prefix//"details:"
+              DO i = 1, processCount
+                CALL checksum_to_string(processChecksums(i), chksum_string)
+                WRITE(0, *) "checksum from process "//TRIM(int2string(i - 1))//": "//chksum_string
+              END DO
             END IF
 
             !print the RESULT
             CALL checksum_to_string(hash, chksum_string)
             WRITE(0, *) prefix//chksum_string
-        END IF
+          END IF
+        ENDIF
+
         DEALLOCATE(processChecksums)
 #else
         CALL checksum_to_string(local_chksum, chksum_string)
@@ -149,9 +158,13 @@ CONTAINS
         INTEGER(KIND = c_int32_t) :: local_chksum
 
         ! HACKHACKHACKHACK:: stupid serializeGetSizeInCore() from cdilib does
-        ! not know about a DATATYPE_INT32, so use DATATYPE_INT as workaround 
+        ! not know about a DATATYPE_INT32, so use DATATYPE_INT as workaround
         ! (which SHOULD hopefully have same storage size...)
-        local_chksum = cdi_check_sum(DATATYPE_INT, arr_size, c_loc(array))
+        IF (arr_size == 0) THEN
+          local_chksum = 0
+        ELSE
+          local_chksum = cdi_check_sum(DATATYPE_INT, arr_size, c_loc(array))
+        ENDIF
         CALL printChecksum_second_step(prefix, local_chksum, opt_lDetails = opt_lDetails)
     END SUBROUTINE printChecksum_int32
 
@@ -163,9 +176,13 @@ CONTAINS
         INTEGER(KIND = c_int32_t) :: local_chksum
 
         ! HACKHACKHACKHACK:: stupid serializeGetSizeInCore() from cdilib does
-        ! not know about a DATATYPE_FLT32, so use DATATYPE_INT as workaround 
+        ! not know about a DATATYPE_FLT32, so use DATATYPE_INT as workaround
         ! (which SHOULD hopefully have same storage size...)
-        local_chksum = cdi_check_sum(DATATYPE_INT, arr_size, c_loc(array))
+        IF (arr_size == 0) THEN
+          local_chksum = 0
+        ELSE
+          local_chksum = cdi_check_sum(DATATYPE_INT, arr_size, c_loc(array))
+        ENDIF
         CALL printChecksum_second_step(prefix, local_chksum, opt_lDetails = opt_lDetails)
     END SUBROUTINE printChecksum_float
 
@@ -176,7 +193,11 @@ CONTAINS
         LOGICAL,     OPTIONAL,         INTENT(in   ) :: opt_lDetails
         INTEGER(KIND = c_int32_t) :: local_chksum
 
-        local_chksum = cdi_check_sum(DATATYPE_FLT64, arr_size, c_loc(array))
+        IF (arr_size == 0) THEN
+          local_chksum = 0
+        ELSE
+          local_chksum = cdi_check_sum(DATATYPE_FLT64, arr_size, c_loc(array))
+        ENDIF
         CALL printChecksum_second_step(prefix, local_chksum, opt_lDetails = opt_lDetails)
     END SUBROUTINE printChecksum_double
 

@@ -96,22 +96,33 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*),PARAMETER :: routine =  modname//'::t_vct_construct_ncfile'
     REAL(wp), ALLOCATABLE :: vct_ab(:,:) ! param. A and B of the vertical coordinte
-    REAL(wp), ALLOCATABLE :: lev_ifs(:)
-    INTEGER,  ALLOCATABLE :: lev_hyi(:)
     REAL(wp), ALLOCATABLE :: hyab(:)
-    INTEGER  :: varid, nlev_in, dimid, nhyi, ierrstat, var_ndims, &
-      &         var_dimids(NF_MAX_VAR_DIMS), i
+    INTEGER  :: varid, nlev_in, dimid, nhyi, ierrstat
     LOGICAL  :: lread_process  !< .TRUE. on the reading PE
 
     lread_process = (p_comm_rank(mpi_comm) == p_io)
 
     IF (lread_process) THEN
-      CALL nf(nf_inq_varid(ncid, 'lev', varid), routine)
-      ! retrieve number of levels
-      CALL nf(nf_inq_varndims(ncid, varid, var_ndims), routine)
-      CALL nf(nf_inq_vardimid(ncid, varid, var_dimids), routine)
-      CALL nf(nf_inq_dimlen (ncid, var_dimids(1), nlev_in), routine)
-    END IF
+      ! Get the number of levels for vertical coordinate table parameters
+      CALL nf(nf_inq_dimid(ncid, 'nhyi', dimid), routine)
+      CALL nf(nf_inq_dimlen(ncid, dimid, nhyi), routine)
+      ! Get the actual number of levels in the file. This number might be
+      ! smaller than nhyi-1 if some levels at the top have been cut
+      CALL nf(nf_inq_dimid(ncid, 'lev', dimid), routine)
+      CALL nf(nf_inq_dimlen(ncid, dimid, nlev_in), routine)
+      IF (nlev_in < nhyi-1) THEN
+        WRITE (message_text,*) "Number of levels in file is ",nlev_in, &
+          &                    " is not equal to vertical coordinate table dimension",nhyi-1
+        CALL message(TRIM(routine),TRIM(message_text))
+        WRITE (message_text,*) "Assuming that the top ",(nhyi-1-nlev_in)," levels were cut off"
+        CALL message(TRIM(routine),TRIM(message_text))
+      ENDIF
+      IF (nlev_in > nhyi-1) THEN
+        WRITE (message_text,*) "Number of levels in file is ",nlev_in, &
+          &                    " may not be larger than vertical coordinate table dimension",nhyi-1
+        CALL finish(TRIM(routine),TRIM(message_text))
+      ENDIF
+    ENDIF
 
     CALL p_bcast(nlev_in, p_io, mpi_comm)
 
@@ -119,27 +130,21 @@ CONTAINS
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
     IF (lread_process) THEN
-      CALL nf(nf_inq_dimid(ncid, 'nhyi', dimid), routine)
-      CALL nf(nf_inq_dimlen(ncid, dimid, nhyi), routine)
 
-      ALLOCATE( lev_ifs(nlev_in), lev_hyi(nlev_in+1), hyab(nhyi), STAT=ierrstat)
+      ALLOCATE( hyab(nhyi), STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-
-      CALL nf(nf_get_var_double(ncid, varid, lev_ifs), routine)
-      lev_hyi(1:nlev_in) = NINT( lev_ifs(:) )
-      lev_hyi(nlev_in+1) = lev_hyi(nlev_in) + 1
-      IF ( nlev_in+1 /= nhyi) THEN
-        WRITE(message_text,*) 'Reading only IFS levels ', lev_hyi(1:nlev_in)
-        CALL message(routine, TRIM(message_text))
-      END IF
 
       CALL nf(nf_inq_varid(ncid, 'hyai', varid), routine)
       CALL nf(nf_get_var_double(ncid, varid, hyab), routine)
-      vct_ab(:,1) = hyab( lev_hyi(:))
-
+      ! If data has been cut at the top, discard the top values of hyab
+      vct_ab(:,1) = hyab((nhyi-nlev_in):nhyi)
       CALL nf(nf_inq_varid(ncid, 'hybi', varid), routine)
       CALL nf(nf_get_var_double(ncid, varid, hyab), routine)
-      vct_ab(:,2) = hyab( lev_hyi(:))
+      ! If data has been cut at the top, discard the top values of hyab
+      vct_ab(:,2) = hyab((nhyi-nlev_in):nhyi)
+
+      DEALLOCATE(hyab, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
     ENDIF
 
     CALL p_bcast(vct_ab, p_io, mpi_comm)

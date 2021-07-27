@@ -4,8 +4,9 @@
 # Retrieve ICON data from the DWD "Sky" database.
 #
 # 01/2017 : D. Reinert/F. Prill, DWD
+# 11/2018 : H. Frank; be less strict on arguments 
 
-import argparse, datetime, os, subprocess, traceback, sys
+import argparse, datetime, os, subprocess, traceback, sys, re
 
 
 # ------------------------------------------------------------
@@ -28,8 +29,8 @@ def main():
     
         # parse command-line options
         parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-        parser.add_argument("startdate",      help="start date [YYYYMMDDhhmmss]")
-        parser.add_argument("enddate",        help="end date [YYYYMMDDhhmmss]")
+        parser.add_argument("startdate",      help="start date [YYYYMMDDhh, YYYYMMDDhhmm, YYYYMMDDhhmmss]")
+        parser.add_argument("enddate",        help="end date [YYYYMMDDhh, YYYYMMDDhhmmss]", nargs='?', default = 'startdate')
         parser.add_argument("--increment",    help="increment time span [h]",                                 default=24)
         parser.add_argument("--mode",         help="mode: "+str(MODE_IAU)+"=IAU, "+str(MODE_NOIAU)+"=No IAU", default=MODE_IAU)
         parser.add_argument("--ensemble",     help="read ensemble data",  dest="ensemble", action='store_true')
@@ -37,10 +38,27 @@ def main():
         parser.set_defaults(ensemble=False)
         args = parser.parse_args()
 
+        if ( len(args.startdate) == 10) :
+	    args.startdate = args.startdate + '0000'
+        elif ( len(args.startdate) == 12) :
+	    args.startdate = args.startdate + '00'
         cur_date  = datetime.datetime.strptime(args.startdate, DATEFMT)
+
+        if ( args.enddate == 'startdate') :
+	    args.enddate = args.startdate
+        elif ( len(args.enddate) == 10) :
+	    args.enddate = args.enddate + '0000'
+        elif ( len(args.enddate) == 12) :
+	    args.enddate = args.enddate + '00'
         enddate   = datetime.datetime.strptime(args.enddate,   DATEFMT)
+
         increment = datetime.timedelta(hours=int(args.increment))
         delta_3h  = datetime.timedelta(hours=3)
+
+        if (args.mode == MODE_IAU or args.mode == "IAU"):
+	    args.mode = MODE_IAU
+        elif ( re.match( '\An.*iau', args.mode, re.IGNORECASE) ):
+	    args.mode = MODE_NOIAU
 
         # ------------------------------------------------------------
         # loop over time samples:
@@ -113,7 +131,7 @@ def main():
                 f.write((prefix + "cat="+cat_eu+"    d={0} gptype=201   f=ieaf{0}R.grb  p=w_so "+lin+"                              \n").format(datestr))
                 f.write((prefix + "cat="+cat_eu+"    d={0} gptype=201   f=ieaf{0}R.grb  p=freshsnw,h_snow                           \n").format(datestr))
                 f.write((prefix + "cat="+cat_fg_eu+" d={0} s[s]=5400    f=iefff{0}-0130R.grb  lvt1=!100                             \n").format(datestr_3))
-            elif (args.mode == MODE_NOIAU):
+            elif (args.mode == MODE_NOIAU) :
                 # Note: In non-IAU mode we also append the "HHL" field
                 #       to each file (which is required when
                 #       pre-processing lateral boundary conditions for

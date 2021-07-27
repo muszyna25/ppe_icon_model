@@ -16,6 +16,7 @@
 #
   zg                 z_mc
   zghalf             z_ifc
+  dzghalf            ddqz_z_full
   gpfull             geopot
 #
 # Available translations for instantaneous output of variable fields
@@ -32,8 +33,5 @@
   ta                 temp
   ps                 pres_sfc
   psl                pres_msl
-  hus                qv
-  clw                qc
-  cli                qi
   pfull              pres
   phalf              pres_ifc

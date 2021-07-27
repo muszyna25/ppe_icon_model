@@ -59,7 +59,7 @@ CONTAINS
        & p_forfrac , k_indfor  , p_sfluxzen, p_taug    , p_taur &
        & )
 
-    USE yoesrta16, ONLY : absa, absb, forrefc, selfrefc &
+    USE mo_yoesrta16, ONLY : absa, absb, forrefc, selfrefc &
          & , sfluxrefc, rayl, layreffr, strrat1
 
     INTEGER(i4),INTENT(in) :: icount
@@ -124,7 +124,7 @@ CONTAINS
          indf = k_indfor(iplon,i_lay)
          z_tauray = p_colmol(iplon,i_lay) * rayl
 
-!CDIR EXPAND=NG16
+!$NEC unroll(NG16)
          DO ig = 1, ng16
            p_taug(iplon,i_lay,ig) = z_speccomb *                            &
                 & (                                                         &
@@ -164,7 +164,7 @@ CONTAINS
             indf = k_indfor(iplon,i_lay)
             z_tauray = p_colmol(iplon,i_lay) * rayl
 
-!CDIR EXPAND=NG16
+!$NEC unroll(NG16)
             DO ig = 1, ng16
               p_taug(iplon,i_lay,ig) = z_speccomb *                            &
                    & (                                                         &
@@ -192,7 +192,7 @@ CONTAINS
             ind0 = ((k_jp(iplon,i_lay)-13)*5+(k_jt(iplon,i_lay)-1))*nspb(16) + 1
             ind1 = ((k_jp(iplon,i_lay)-12)*5+(k_jt1(iplon,i_lay)-1))*nspb(16)+ 1
             z_tauray = p_colmol(iplon,i_lay) * rayl
-!CDIR EXPAND=NG16
+!$NEC unroll(NG16)
             DO ig = 1, ng16
               p_taug(iplon,i_lay,ig) = p_colch4(iplon,i_lay) * &
                    & (p_fac00(iplon,i_lay) * absb(ind0  ,ig) + &
@@ -216,7 +216,7 @@ CONTAINS
          ind1 = ((k_jp(iplon,i_lay)-12)*5+(k_jt1(iplon,i_lay)-1))*nspb(16)+ 1
 !          write(0,*) "ind0,ind1=",ind0,ind1
          z_tauray = p_colmol(iplon,i_lay) * rayl
-!CDIR EXPAND=NG16
+!$NEC unroll(NG16)
          DO ig = 1, ng16
            p_taug(iplon,i_lay,ig) = p_colch4(iplon,i_lay) * &
                 & (p_fac00(iplon,i_lay) * absb(ind0  ,ig) + &
@@ -244,7 +244,7 @@ CONTAINS
        & p_forfrac , k_indfor , p_sfluxzen, p_taug   , p_taur &
        & )
 
-    USE yoesrta17, ONLY : absa, absb, forrefc, selfrefc &
+    USE mo_yoesrta17, ONLY : absa, absb, forrefc, selfrefc &
          & , sfluxrefc, rayl , layreffr, strrat
 
     INTEGER(i4),INTENT(in) :: icount
@@ -305,7 +305,7 @@ CONTAINS
          inds = k_indself(iplon,i_lay)
          indf = k_indfor(iplon,i_lay)
          z_tauray = p_colmol(iplon,i_lay) * rayl
-!CDIR EXPAND=NG17
+!$NEC unroll(NG17)
          DO ig = 1, ng17
            p_taug(iplon,i_lay,ig) = z_speccomb *                            &
                 & (                                                         &
@@ -345,7 +345,7 @@ CONTAINS
             inds = k_indself(iplon,i_lay)
             indf = k_indfor(iplon,i_lay)
             z_tauray = p_colmol(iplon,i_lay) * rayl
-!CDIR EXPAND=NG17
+!$NEC unroll(NG17)
             DO ig = 1, ng17
               p_taug(iplon,i_lay,ig) = z_speccomb *                            &
                    & (                                                         &
@@ -381,7 +381,7 @@ CONTAINS
             ind1 = ((k_jp(iplon,i_lay)-12)*5+(k_jt1(iplon,i_lay)-1))*nspb(17)+js
             indf = k_indfor(iplon,i_lay)
             z_tauray = p_colmol(iplon,i_lay) * rayl
-!CDIR EXPAND=NG17
+!$NEC unroll(NG17)
             DO ig = 1, ng17
               p_taug(iplon,i_lay,ig) = z_speccomb *                            &
                    & (                                                         &
@@ -421,7 +421,7 @@ CONTAINS
          indf = k_indfor(iplon,i_lay)
          z_tauray = p_colmol(iplon,i_lay) * rayl
 
-!CDIR EXPAND=NG17
+!$NEC unroll(NG17)
          DO ig = 1, ng17
            p_taug(iplon,i_lay,ig) = z_speccomb *                            &
                 & (                                                         &
@@ -459,7 +459,7 @@ CONTAINS
        & k_indfor  , p_sfluxzen, p_taug   , p_taur &
        & )
 
-    USE yoesrta18, ONLY : absa, absb, forrefc, selfrefc &
+    USE mo_yoesrta18, ONLY : absa, absb, forrefc, selfrefc &
          & , sfluxrefc, rayl , layreffr, strrat
 
     INTEGER(i4),INTENT(in) :: icount
@@ -524,7 +524,7 @@ CONTAINS
          indf = k_indfor(iplon,i_lay)
          z_tauray = p_colmol(iplon,i_lay) * rayl
 
-!CDIR EXPAND=NG18
+!$NEC unroll(NG18)
          DO ig = 1, ng18
            p_taug(iplon,i_lay,ig) = z_speccomb *                            &
                 & (                                                         &
@@ -570,7 +570,7 @@ CONTAINS
             indf = k_indfor(iplon,i_lay)
             z_tauray = p_colmol(iplon,i_lay) * rayl
 
-!CDIR EXPAND=NG18
+!$NEC unroll(NG18)
             DO ig = 1, ng18
               p_taug(iplon,i_lay,ig) = z_speccomb *                            &
                    & (                                                         &
@@ -600,7 +600,7 @@ CONTAINS
             ind1 = ((k_jp(iplon,i_lay)-12)*5+(k_jt1(iplon,i_lay)-1))*nspb(18)+ 1
             z_tauray = p_colmol(iplon,i_lay) * rayl
 
-!CDIR EXPAND=NG18
+!$NEC unroll(NG18)
             DO ig = 1, ng18
               p_taug(iplon,i_lay,ig) = p_colch4(iplon,i_lay) * &
                    & (p_fac00(iplon,i_lay) * absb(ind0,ig)  +  &
@@ -619,7 +619,7 @@ CONTAINS
          ind1 = ((k_jp(iplon,i_lay)-12)*5+(k_jt1(iplon,i_lay)-1))*nspb(18)+ 1
          z_tauray = p_colmol(iplon,i_lay) * rayl
 
-!CDIR EXPAND=NG18
+!$NEC unroll(NG18)
          DO ig = 1, ng18
            p_taug(iplon,i_lay,ig) = p_colch4(iplon,i_lay) * &
                 & (p_fac00(iplon,i_lay) * absb(ind0,ig)  +  &
@@ -645,7 +645,7 @@ CONTAINS
        & k_indfor  , p_sfluxzen, p_taug   , p_taur &
        & )
 
-    USE yoesrta19, ONLY : absa, absb, forrefc, selfrefc &
+    USE mo_yoesrta19, ONLY : absa, absb, forrefc, selfrefc &
          & , sfluxrefc, rayl, layreffr, strrat
 
     INTEGER(i4),INTENT(in) :: icount
@@ -710,7 +710,7 @@ CONTAINS
          indf = k_indfor(iplon,i_lay)
          z_tauray = p_colmol(iplon,i_lay) * rayl
 
-!CDIR EXPAND=NG19
+!$NEC unroll(NG19)
          DO ig = 1 , ng19
            p_taug(iplon,i_lay,ig) = z_speccomb *                            &
                 & (                                                         &
@@ -756,7 +756,7 @@ CONTAINS
             indf = k_indfor(iplon,i_lay)
             z_tauray = p_colmol(iplon,i_lay) * rayl
 
-!CDIR EXPAND=NG19
+!$NEC unroll(NG19)
             DO ig = 1 , ng19
               p_taug(iplon,i_lay,ig) = z_speccomb *                            &
                    & (                                                         &
@@ -786,7 +786,7 @@ CONTAINS
             ind1 = ((k_jp(iplon,i_lay)-12)*5+(k_jt1(iplon,i_lay)-1))*nspb(19)+ 1
             z_tauray = p_colmol(iplon,i_lay) * rayl
 
-!CDIR EXPAND=NG19
+!$NEC unroll(NG19)
             DO ig = 1 , ng19
               p_taug(iplon,i_lay,ig) = p_colco2(iplon,i_lay) * &
                    & (p_fac00(iplon,i_lay) * absb(ind0,ig) +   &
@@ -805,7 +805,7 @@ CONTAINS
          ind1 = ((k_jp(iplon,i_lay)-12)*5+(k_jt1(iplon,i_lay)-1))*nspb(19)+ 1
          z_tauray = p_colmol(iplon,i_lay) * rayl
 
-!CDIR EXPAND=NG19
+!$NEC unroll(NG19)
          DO ig = 1 , ng19
            p_taug(iplon,i_lay,ig) = p_colco2(iplon,i_lay) * &
                 & (p_fac00(iplon,i_lay) * absb(ind0,ig) +   &
@@ -831,7 +831,7 @@ CONTAINS
        & k_indfor  , p_sfluxzen, p_taug   , p_taur &
        & )
 
-    USE yoesrta20, ONLY : absa, absb, forrefc, selfrefc &
+    USE mo_yoesrta20, ONLY : absa, absb, forrefc, selfrefc &
          & , sfluxrefc, absch4c, rayl, layreffr
 
     INTEGER(i4),INTENT(in) :: icount
@@ -888,7 +888,7 @@ CONTAINS
          inds = k_indself(iplon,i_lay)
          indf = k_indfor(iplon,i_lay)
          z_tauray = p_colmol(iplon,i_lay) * rayl
-!CDIR EXPAND=NG20
+!$NEC unroll(NG20)
          DO ig = 1 , ng20
            p_taug(iplon,i_lay,ig) = p_colh2o(iplon,i_lay) *      &
                 & ((p_fac00(iplon,i_lay) * absa(ind0,ig) +       &
@@ -919,7 +919,7 @@ CONTAINS
             inds = k_indself(iplon,i_lay)
             indf = k_indfor(iplon,i_lay)
             z_tauray = p_colmol(iplon,i_lay) * rayl
-!CDIR EXPAND=NG20
+!$NEC unroll(NG20)
             DO ig = 1 , ng20
               p_taug(iplon,i_lay,ig) = p_colh2o(iplon,i_lay) *      &
                    & ((p_fac00(iplon,i_lay) * absa(ind0,ig) +       &
@@ -941,7 +941,7 @@ CONTAINS
             ind1 = ((k_jp(iplon,i_lay)-12)*5+(k_jt1(iplon,i_lay)-1))*nspb(20) +1
             indf = k_indfor(iplon,i_lay)
             z_tauray = p_colmol(iplon,i_lay) * rayl
-!CDIR EXPAND=NG20
+!$NEC unroll(NG20)
             DO ig = 1 , ng20
               p_taug(iplon,i_lay,ig) = p_colh2o(iplon,i_lay) *   &
                    & (p_fac00(iplon,i_lay) * absb(ind0,ig) +     &
@@ -964,7 +964,7 @@ CONTAINS
          ind1 = ((k_jp(iplon,i_lay)-12)*5+(k_jt1(iplon,i_lay)-1))*nspb(20) +1
          indf = k_indfor(iplon,i_lay)
          z_tauray = p_colmol(iplon,i_lay) * rayl
-!CDIR EXPAND=NG20
+!$NEC unroll(NG20)
          DO ig = 1 , ng20
            p_taug(iplon,i_lay,ig) = p_colh2o(iplon,i_lay) *   &
                 & (p_fac00(iplon,i_lay) * absb(ind0,ig) +     &
@@ -994,7 +994,7 @@ CONTAINS
        & k_indfor  , p_sfluxzen, p_taug   , p_taur &
        & )
 
-    USE yoesrta21, ONLY : absa, absb, forrefc, selfrefc &
+    USE mo_yoesrta21, ONLY : absa, absb, forrefc, selfrefc &
          & , sfluxrefc, rayl, layreffr, strrat
 
     INTEGER(i4),INTENT(in) :: icount
@@ -1059,7 +1059,7 @@ CONTAINS
          indf = k_indfor(iplon,i_lay)
          z_tauray = p_colmol(iplon,i_lay) * rayl
 
-!CDIR EXPAND=NG21
+!$NEC unroll(NG21)
          DO ig = 1 , ng21
            p_taug(iplon,i_lay,ig) = z_speccomb *                            &
                 & (                                                         &
@@ -1105,7 +1105,7 @@ CONTAINS
             indf = k_indfor(iplon,i_lay)
             z_tauray = p_colmol(iplon,i_lay) * rayl
 
-!CDIR EXPAND=NG21
+!$NEC unroll(NG21)
             DO ig = 1 , ng21
               p_taug(iplon,i_lay,ig) = z_speccomb *                            &
                    & (                                                         &
@@ -1141,7 +1141,7 @@ CONTAINS
             ind1 = ((k_jp(iplon,i_lay)-12)*5+(k_jt1(iplon,i_lay)-1))*nspb(21)+js
             indf = k_indfor(iplon,i_lay)
             z_tauray = p_colmol(iplon,i_lay) * rayl
-!CDIR EXPAND=NG21
+!$NEC unroll(NG21)
             DO ig = 1 , ng21
               p_taug(iplon,i_lay,ig) = z_speccomb *                            &
                    & (                                                         &
@@ -1176,7 +1176,7 @@ CONTAINS
          ind1 = ((k_jp(iplon,i_lay)-12)*5+(k_jt1(iplon,i_lay)-1))*nspb(21)+js
          indf = k_indfor(iplon,i_lay)
          z_tauray = p_colmol(iplon,i_lay) * rayl
-!CDIR EXPAND=NG21
+!$NEC unroll(NG21)
          DO ig = 1 , ng21
            p_taug(iplon,i_lay,ig) = z_speccomb *                            &
                 & (                                                         &
@@ -1212,7 +1212,7 @@ CONTAINS
        & k_indfor  , p_sfluxzen, p_taug   , p_taur &
        & )
 
-    USE yoesrta22, ONLY : absa, absb, forrefc, selfrefc &
+    USE mo_yoesrta22, ONLY : absa, absb, forrefc, selfrefc &
          & , sfluxrefc, rayl, layreffr, strrat
 
     INTEGER(i4),INTENT(in) :: icount
@@ -1284,7 +1284,7 @@ CONTAINS
          inds = k_indself(iplon,i_lay)
          indf = k_indfor(iplon,i_lay)
          z_tauray = p_colmol(iplon,i_lay) * rayl
-!CDIR EXPAND=NG22
+!$NEC unroll(NG22)
          DO ig = 1 , ng22
            p_taug(iplon,i_lay,ig) = z_speccomb *                            &
                 & (                                                         &
@@ -1332,7 +1332,7 @@ CONTAINS
             inds = k_indself(iplon,i_lay)
             indf = k_indfor(iplon,i_lay)
             z_tauray = p_colmol(iplon,i_lay) * rayl
-!CDIR EXPAND=NG22
+!$NEC unroll(NG22)
             DO ig = 1 , ng22
               p_taug(iplon,i_lay,ig) = z_speccomb *                            &
                    & (                                                         &
@@ -1364,7 +1364,7 @@ CONTAINS
             ind1 = ((k_jp(iplon,i_lay)-12)*5+(k_jt1(iplon,i_lay)-1))*nspb(22)+ 1
             z_tauray = p_colmol(iplon,i_lay) * rayl
 
-!CDIR EXPAND=NG22
+!$NEC unroll(NG22)
             DO ig = 1 , ng22
               p_taug(iplon,i_lay,ig) = p_colo2(iplon,i_lay) * z_o2adj * &
                    & (p_fac00(iplon,i_lay) * absb(ind0,ig) +            &
@@ -1385,7 +1385,7 @@ CONTAINS
          ind1 = ((k_jp(iplon,i_lay)-12)*5+(k_jt1(iplon,i_lay)-1))*nspb(22)+ 1
          z_tauray = p_colmol(iplon,i_lay) * rayl
 
-!CDIR EXPAND=NG22
+!$NEC unroll(NG22)
          DO ig = 1 , ng22
            p_taug(iplon,i_lay,ig) = p_colo2(iplon,i_lay) * z_o2adj * &
                 & (p_fac00(iplon,i_lay) * absb(ind0,ig) +            &
@@ -1412,7 +1412,7 @@ CONTAINS
        & k_indfor  , p_sfluxzen, p_taug   , p_taur &
        & )
 
-    USE yoesrta23, ONLY : absa, forrefc, selfrefc &
+    USE mo_yoesrta23, ONLY : absa, forrefc, selfrefc &
          & , sfluxrefc, raylc, layreffr, givfac
 
     INTEGER(i4),INTENT(in) :: icount
@@ -1468,7 +1468,7 @@ CONTAINS
          inds = k_indself(iplon,i_lay)
          indf = k_indfor(iplon,i_lay)
 
-!CDIR EXPAND=NG23
+!$NEC unroll(NG23)
          DO ig = 1 , ng23
            z_tauray = p_colmol(iplon,i_lay) * raylc(ig)
            p_taug(iplon,i_lay,ig) = p_colh2o(iplon,i_lay) *         &
@@ -1500,7 +1500,7 @@ CONTAINS
             inds = k_indself(iplon,i_lay)
             indf = k_indfor(iplon,i_lay)
 
-!CDIR EXPAND=NG23
+!$NEC unroll(NG23)
             DO ig = 1 , ng23
               z_tauray = p_colmol(iplon,i_lay) * raylc(ig)
               p_taug(iplon,i_lay,ig) = p_colh2o(iplon,i_lay) *         &
@@ -1519,7 +1519,7 @@ CONTAINS
               p_taur(iplon,i_lay,ig) = z_tauray
             ENDDO
           ELSE
-!CDIR EXPAND=NG23
+!$NEC unroll(NG23)
             DO ig = 1 , ng23
               p_taug(iplon,i_lay,ig) = 0.0_wp
               p_taur(iplon,i_lay,ig) = p_colmol(iplon,i_lay) * raylc(ig)
@@ -1551,7 +1551,7 @@ CONTAINS
        & k_indfor  , p_sfluxzen, p_taug   , p_taur &
        & )
 
-    USE yoesrta24, ONLY : absa, absb, forrefc, selfrefc &
+    USE mo_yoesrta24, ONLY : absa, absb, forrefc, selfrefc &
          & , sfluxrefc, abso3ac, abso3bc, raylac, raylbc, layreffr, strrat
 
     INTEGER(i4),INTENT(in) :: icount
@@ -1616,7 +1616,7 @@ CONTAINS
          inds = k_indself(iplon,i_lay)
          indf = k_indfor(iplon,i_lay)
 
-!CDIR EXPAND=NG24
+!$NEC unroll(NG24)
          DO ig = 1 , ng24
            z_tauray = p_colmol(iplon,i_lay) * (raylac(ig,js) + &
                 & z_fs * (raylac(ig,js+1) - raylac(ig,js)))
@@ -1664,7 +1664,7 @@ CONTAINS
             inds = k_indself(iplon,i_lay)
             indf = k_indfor(iplon,i_lay)
 
-!CDIR EXPAND=NG24
+!$NEC unroll(NG24)
             DO ig = 1 , ng24
               z_tauray = p_colmol(iplon,i_lay) * (raylac(ig,js) + &
                    & z_fs * (raylac(ig,js+1) - raylac(ig,js)))
@@ -1696,7 +1696,7 @@ CONTAINS
             ind0 = ((k_jp(iplon,i_lay)-13)*5+(k_jt(iplon,i_lay)-1))*nspb(24) + 1
             ind1 = ((k_jp(iplon,i_lay)-12)*5+(k_jt1(iplon,i_lay)-1))*nspb(24)+ 1
 
-!CDIR EXPAND=NG24
+!$NEC unroll(NG24)
             DO ig = 1 , ng24
               z_tauray = p_colmol(iplon,i_lay) * raylbc(ig)
               p_taug(iplon,i_lay,ig) = p_colo2(iplon,i_lay) *  &
@@ -1716,7 +1716,7 @@ CONTAINS
          ind0 = ((k_jp(iplon,i_lay)-13)*5+(k_jt(iplon,i_lay)-1))*nspb(24) + 1
          ind1 = ((k_jp(iplon,i_lay)-12)*5+(k_jt1(iplon,i_lay)-1))*nspb(24)+ 1
 
-!CDIR EXPAND=NG24
+!$NEC unroll(NG24)
          DO ig = 1 , ng24
            z_tauray = p_colmol(iplon,i_lay) * raylbc(ig)
            p_taug(iplon,i_lay,ig) = p_colo2(iplon,i_lay) *  &
@@ -1744,7 +1744,7 @@ CONTAINS
        & p_sfluxzen, p_taug   , p_taur &
        & )
 
-    USE yoesrta25, ONLY : absa, sfluxrefc, abso3ac, abso3bc, raylc, layreffr
+    USE mo_yoesrta25, ONLY : absa, sfluxrefc, abso3ac, abso3bc, raylc, layreffr
 
     INTEGER(i4),INTENT(in) :: icount
     INTEGER,INTENT(in)    :: kbdim
@@ -1790,7 +1790,7 @@ CONTAINS
               &    i_laysolfr(iplon) = MIN(i_lay+1,k_laytrop(iplon))
          ind0 = ((k_jp(iplon,i_lay)-1)*5+(k_jt(iplon,i_lay)-1))*nspa(25) + 1
          ind1 = (k_jp(iplon,i_lay)*5+(k_jt1(iplon,i_lay)-1))*nspa(25) + 1
-!CDIR EXPAND=NG25
+!$NEC unroll(NG25)
          DO ig = 1 , ng25
            z_tauray = p_colmol(iplon,i_lay) * raylc(ig)
            p_taug(iplon,i_lay,ig) = p_colh2o(iplon,i_lay) * &
@@ -1813,7 +1813,7 @@ CONTAINS
                  &    i_laysolfr(iplon) = MIN(i_lay+1,k_laytrop(iplon))
             ind0 = ((k_jp(iplon,i_lay)-1)*5+(k_jt(iplon,i_lay)-1))*nspa(25) + 1
             ind1 = (k_jp(iplon,i_lay)*5+(k_jt1(iplon,i_lay)-1))*nspa(25) + 1
-!CDIR EXPAND=NG25
+!$NEC unroll(NG25)
             DO ig = 1 , ng25
               z_tauray = p_colmol(iplon,i_lay) * raylc(ig)
               p_taug(iplon,i_lay,ig) = p_colh2o(iplon,i_lay) * &
@@ -1826,7 +1826,7 @@ CONTAINS
               p_taur(iplon,i_lay,ig) = z_tauray
             ENDDO
           ELSE
-!CDIR EXPAND=NG25
+!$NEC unroll(NG25)
             DO ig = 1 , ng25
               z_tauray = p_colmol(iplon,i_lay) * raylc(ig)
               p_taug(iplon,i_lay,ig) = p_colo3(iplon,i_lay) * abso3bc(ig)
@@ -1858,7 +1858,7 @@ CONTAINS
        & p_sfluxzen, p_taug   , p_taur &
        & )
 
-    USE yoesrta26, ONLY : sfluxrefc, raylc
+    USE mo_yoesrta26, ONLY : sfluxrefc, raylc
 
     INTEGER(i4),INTENT(in) :: icount
     INTEGER,INTENT(in)    :: kbdim
@@ -1888,7 +1888,7 @@ CONTAINS
 
     DO i_lay = 1, laytrop_min
        DO iplon = 1, icount
-!CDIR EXPAND=NG26
+!$NEC unroll(NG26)
          DO ig = 1 , ng26
            IF(i_lay == i_laysolfr(iplon)) p_sfluxzen(iplon,ig)=sfluxrefc(ig)
            p_taug(iplon,i_lay,ig) = 0.0_wp
@@ -1900,14 +1900,14 @@ CONTAINS
     DO i_lay = laytrop_min+1, laytrop_max
        DO iplon = 1, icount
           IF (i_lay <= k_laytrop(iplon)) THEN
-!CDIR EXPAND=NG26
+!$NEC unroll(NG26)
             DO ig = 1 , ng26
               IF(i_lay == i_laysolfr(iplon)) p_sfluxzen(iplon,ig)=sfluxrefc(ig)
               p_taug(iplon,i_lay,ig) = 0.0_wp
               p_taur(iplon,i_lay,ig) = p_colmol(iplon,i_lay) * raylc(ig)
             ENDDO
           ELSE
-!CDIR EXPAND=NG26
+!$NEC unroll(NG26)
             DO ig = 1 , ng26
               p_taug(iplon,i_lay,ig) = 0.0_wp
               p_taur(iplon,i_lay,ig) = p_colmol(iplon,i_lay) * raylc(ig)
@@ -1937,7 +1937,7 @@ CONTAINS
        & k_laytrop, p_sfluxzen, p_taug    , p_taur &
        & )
 
-    USE yoesrta27, ONLY : absa, absb, sfluxrefc, raylc, layreffr, scalekur
+    USE mo_yoesrta27, ONLY : absa, absb, sfluxrefc, raylc, layreffr, scalekur
 
     INTEGER(i4),INTENT(in) :: icount
     INTEGER,INTENT(in)    :: kbdim
@@ -1979,7 +1979,7 @@ CONTAINS
        DO iplon = 1, icount
          ind0 = ((k_jp(iplon,i_lay)-1)*5+(k_jt(iplon,i_lay)-1))*nspa(27) + 1
          ind1 = (k_jp(iplon,i_lay)*5+(k_jt1(iplon,i_lay)-1))*nspa(27) + 1
-!CDIR EXPAND=NG27
+!$NEC unroll(NG27)
          DO ig = 1 , ng27
            z_tauray = p_colmol(iplon,i_lay) * raylc(ig)
            p_taug(iplon,i_lay,ig) = p_colo3(iplon,i_lay) * &
@@ -1997,7 +1997,7 @@ CONTAINS
           IF (i_lay <= k_laytrop(iplon)) THEN
             ind0 = ((k_jp(iplon,i_lay)-1)*5+(k_jt(iplon,i_lay)-1))*nspa(27) + 1
             ind1 = (k_jp(iplon,i_lay)*5+(k_jt1(iplon,i_lay)-1))*nspa(27) + 1
-!CDIR EXPAND=NG27
+!$NEC unroll(NG27)
             DO ig = 1 , ng27
               z_tauray = p_colmol(iplon,i_lay) * raylc(ig)
               p_taug(iplon,i_lay,ig) = p_colo3(iplon,i_lay) * &
@@ -2012,7 +2012,7 @@ CONTAINS
                  &    .AND. k_jp(iplon,i_lay) >= layreffr) i_laysolfr(iplon) = i_lay
             ind0 = ((k_jp(iplon,i_lay)-13)*5+(k_jt(iplon,i_lay)-1))*nspb(27) + 1
             ind1 = ((k_jp(iplon,i_lay)-12)*5+(k_jt1(iplon,i_lay)-1))*nspb(27)+ 1
-!CDIR EXPAND=NG27
+!$NEC unroll(NG27)
             DO ig = 1 , ng27
               z_tauray = p_colmol(iplon,i_lay) * raylc(ig)
               p_taug(iplon,i_lay,ig) = p_colo3(iplon,i_lay) * &
@@ -2034,7 +2034,7 @@ CONTAINS
               &    .AND. k_jp(iplon,i_lay) >= layreffr) i_laysolfr(iplon) = i_lay
          ind0 = ((k_jp(iplon,i_lay)-13)*5+(k_jt(iplon,i_lay)-1))*nspb(27) + 1
          ind1 = ((k_jp(iplon,i_lay)-12)*5+(k_jt1(iplon,i_lay)-1))*nspb(27)+ 1
-!CDIR EXPAND=NG27
+!$NEC unroll(NG27)
          DO ig = 1 , ng27
            z_tauray = p_colmol(iplon,i_lay) * raylc(ig)
            p_taug(iplon,i_lay,ig) = p_colo3(iplon,i_lay) * &
@@ -2063,7 +2063,7 @@ CONTAINS
        & p_sfluxzen, p_taug   , p_taur &
        & )
 
-    USE yoesrta28, ONLY : absa, absb, sfluxrefc, rayl, layreffr, strrat
+    USE mo_yoesrta28, ONLY : absa, absb, sfluxrefc, rayl, layreffr, strrat
 
     INTEGER(i4),INTENT(in) :: icount
     INTEGER,INTENT(in)    :: kbdim
@@ -2115,7 +2115,7 @@ CONTAINS
          ind1 = (k_jp(iplon,i_lay)*5+(k_jt1(iplon,i_lay)-1))*nspa(28) + js
          z_tauray = p_colmol(iplon,i_lay) * rayl
 
-!CDIR EXPAND=NG28
+!$NEC unroll(NG28)
          DO ig = 1 , ng28
            p_taug(iplon,i_lay,ig) = z_speccomb * &
                 & (&
@@ -2146,7 +2146,7 @@ CONTAINS
             ind1 = (k_jp(iplon,i_lay)*5+(k_jt1(iplon,i_lay)-1))*nspa(28) + js
             z_tauray = p_colmol(iplon,i_lay) * rayl
 
-!CDIR EXPAND=NG28
+!$NEC unroll(NG28)
             DO ig = 1 , ng28
               p_taug(iplon,i_lay,ig) = z_speccomb * &
                    & (&
@@ -2174,7 +2174,7 @@ CONTAINS
             ind1 = ((k_jp(iplon,i_lay)-12)*5+(k_jt1(iplon,i_lay)-1))*nspb(28)+js
             z_tauray = p_colmol(iplon,i_lay) * rayl
 
-!CDIR EXPAND=NG28
+!$NEC unroll(NG28)
             DO ig = 1 , ng28
               p_taug(iplon,i_lay,ig) = z_speccomb * &
                    & (&
@@ -2210,7 +2210,7 @@ CONTAINS
          ind1 = ((k_jp(iplon,i_lay)-12)*5+(k_jt1(iplon,i_lay)-1))*nspb(28)+js
          z_tauray = p_colmol(iplon,i_lay) * rayl
 
-!CDIR EXPAND=NG28
+!$NEC unroll(NG28)
          DO ig = 1 , ng28
            p_taug(iplon,i_lay,ig) = z_speccomb * &
                 & (&
@@ -2244,7 +2244,7 @@ CONTAINS
        & k_indfor, p_sfluxzen, p_taug   , p_taur  &
        & )
 
-    USE yoesrta29, ONLY : absa, absb, forrefc, selfrefc &
+    USE mo_yoesrta29, ONLY : absa, absb, forrefc, selfrefc &
          & , sfluxrefc, absh2oc, absco2c, rayl, layreffr
 
     INTEGER(i4),INTENT(in) :: icount
@@ -2299,7 +2299,7 @@ CONTAINS
          inds = k_indself(iplon,i_lay)
          indf = k_indfor(iplon,i_lay)
          z_tauray = p_colmol(iplon,i_lay) * rayl
-!CDIR EXPAND=NG29
+!$NEC unroll(NG29)
          DO ig = 1, ng29
            p_taug(iplon,i_lay,ig) = p_colh2o(iplon,i_lay) *     &
                 & ((p_fac00(iplon,i_lay) * absa(ind0,ig) +      &
@@ -2326,7 +2326,7 @@ CONTAINS
             inds = k_indself(iplon,i_lay)
             indf = k_indfor(iplon,i_lay)
             z_tauray = p_colmol(iplon,i_lay) * rayl
-!CDIR EXPAND=NG29
+!$NEC unroll(NG29)
             DO ig = 1, ng29
               p_taug(iplon,i_lay,ig) = p_colh2o(iplon,i_lay) *     &
                    & ((p_fac00(iplon,i_lay) * absa(ind0,ig) +      &
@@ -2348,7 +2348,7 @@ CONTAINS
             ind0 = ((k_jp(iplon,i_lay)-13)*5+(k_jt(iplon,i_lay)-1))*nspb(29) + 1
             ind1 = ((k_jp(iplon,i_lay)-12)*5+(k_jt1(iplon,i_lay)-1))*nspb(29)+ 1
             z_tauray = p_colmol(iplon,i_lay) * rayl
-!CDIR EXPAND=NG29
+!$NEC unroll(NG29)
             DO ig = 1 , ng29
               p_taug(iplon,i_lay,ig) = p_colco2(iplon,i_lay) * &
                    & (p_fac00(iplon,i_lay) * absb(ind0,ig) +   &
@@ -2372,7 +2372,7 @@ CONTAINS
          ind0 = ((k_jp(iplon,i_lay)-13)*5+(k_jt(iplon,i_lay)-1))*nspb(29) + 1
          ind1 = ((k_jp(iplon,i_lay)-12)*5+(k_jt1(iplon,i_lay)-1))*nspb(29)+ 1
          z_tauray = p_colmol(iplon,i_lay) * rayl
-!CDIR EXPAND=NG29
+!$NEC unroll(NG29)
          DO ig = 1 , ng29
            p_taug(iplon,i_lay,ig) = p_colco2(iplon,i_lay) * &
                 & (p_fac00(iplon,i_lay) * absb(ind0,ig) +   &

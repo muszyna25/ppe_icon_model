@@ -1,7 +1,7 @@
 #! /bin/ksh
 # ----------------------------------------------------------------------------
 #PBS -q xc_norm_h
-#PBS -l select=20:ompthreads=4
+#PBS -l select=12:ompthreads=4
 #PBS -l place=scatter
 #PBS -l walltime=01:00:00
 #PBS -j oe
@@ -64,7 +64,7 @@ EDIR="exp05"
 EXPDIR=$TMPDIR/${EDIR}/
 
 # path to model binary, including the executable:
-MODEL=${ICONDIR}/build/x86_64-unknown-linux-gnu/bin/icon
+MODEL=${ICONDIR}/bin/icon
 
 
 # ----------------------------------------------------------------------------
@@ -130,14 +130,14 @@ for iter in 1 2 ; do
 if [ $iter -eq 1 ] ; then
 
 restart="       .FALSE.  "
-nsteps="           280   "
-checkpoint="     86400.0 "
+nsteps="           140   "
+checkpoint="     43200.0 "
 nrest_procs="        1   "
 
 else
 
 restart="        .TRUE.  "
-nsteps="           180   "
+nsteps="            80   "
 checkpoint="    864000.0 "
 nrest_procs="        0   "
 
@@ -379,7 +379,7 @@ cat > NAMELIST_NWP << EOF
  ntiles                      =                          3         ! number of tiles
  nlev_snow                   =                          2         ! number of snow layers
  lmulti_snow                 =                     .FALSE.        ! .TRUE. for use of multi-layer snow model
- idiag_snowfrac              =                          4         ! type of snow-fraction diagnosis
+ idiag_snowfrac              =                          2         ! type of snow-fraction diagnosis
  lsnowtile                   =                      .TRUE.        ! .TRUE.=consider snow-covered and snow-free separately
  itype_root                  =                          2         ! root density distribution
  itype_heatcond              =                          2         ! type of soil heat conductivity
@@ -402,7 +402,7 @@ EOF
 # -j 2    : Hyperthreading enabled: 20 physical cores -> 40 "virtual" cores
 # -m 6g   : 6G memory/task
 
-aprun  -n 240 -N 12 -j 2 -d 4 -m 3g icon
+aprun  -n 144 -N 12 -j 2 -d 4 -m 3g icon
 
 # ----------------------------------------------------------------------------
 done # iterations for restart testing

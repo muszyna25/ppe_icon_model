@@ -331,8 +331,8 @@ contains
 
       ! ------- Modules -------
 
-      use mo_lrtm_par, only : ng1
-      use rrlw_kg01,   only : fracrefa, fracrefb, absa, absb, &
+      use mo_lrtm_par,    only : ng1
+      use mo_rrlw_kg01,   only : fracrefa, fracrefb, absa, absb, &
            ka_mn2, kb_mn2, selfref, forref
 
       ! ------- Declarations -------
@@ -367,7 +367,7 @@ contains
           endif
 
           scalen2 = colbrd(jl,lay) * scaleminorn2(jl,lay)
-!CDIR EXPAND=NG1
+!$NEC unroll(NG1)
           do ig = 1, ng1
             tauself = selffac(jl,lay) * (selfref(inds,ig) + selffrac(jl,lay) * &
                  (selfref(inds+1,ig) - selfref(inds,ig)))
@@ -398,7 +398,7 @@ contains
           corradj =  1._wp - 0.15_wp * (pp / 95.6_wp)
 
           scalen2 = colbrd(jl,lay) * scaleminorn2(jl,lay)
-!CDIR EXPAND=NG1
+!$NEC unroll(NG1)
           do ig = 1, ng1
             taufor = forfac(jl,lay) * (forref(indf,ig) + &
                  forfrac(jl,lay) * (forref(indf+1,ig) - forref(indf,ig)))
@@ -420,7 +420,7 @@ contains
       ! Lower atmosphere part
       do lay = laytrop_min+1, laytrop_max
         ixc0 = ixc(lay)
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         do ixp = 1, ixc0
           jl = ixlow(ixp,lay)
 
@@ -436,7 +436,7 @@ contains
           endif
 
           scalen2 = colbrd(jl,lay) * scaleminorn2(jl,lay)
-!CDIR EXPAND=NG1
+!$NEC unroll(NG1)
           do ig = 1, ng1
             tauself = selffac(jl,lay) * (selfref(inds,ig) + selffrac(jl,lay) * &
                  (selfref(inds+1,ig) - selfref(inds,ig)))
@@ -456,7 +456,7 @@ contains
 
         ! Upper atmosphere part
         ixc0 = kproma - ixc0
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         do ixp = 1, ixc0
           jl = ixhigh(ixp,lay)
 
@@ -468,7 +468,7 @@ contains
           corradj =  1._wp - 0.15_wp * (pp / 95.6_wp)
 
           scalen2 = colbrd(jl,lay) * scaleminorn2(jl,lay)
-!CDIR EXPAND=NG1
+!$NEC unroll(NG1)
           do ig = 1, ng1
             taufor = forfac(jl,lay) * (forref(indf,ig) + &
                  forfrac(jl,lay) * (forref(indf+1,ig) - forref(indf,ig)))
@@ -500,8 +500,8 @@ contains
 
       ! ------- Modules -------
 
-      use mo_lrtm_par, only : ng2, ngs1
-      use rrlw_kg02,   only : fracrefa, fracrefb, absa, absb, &
+      use mo_lrtm_par,    only : ng2, ngs1
+      use mo_rrlw_kg02,   only : fracrefa, fracrefb, absa, absb, &
            selfref, forref
 
       ! ------- Declarations -------
@@ -526,7 +526,7 @@ contains
           indf = indfor(jl,lay)
           pp = pavel(jl,lay)
           corradj = 1._wp - .05_wp * (pp - 100._wp) / 900._wp
-!CDIR EXPAND=NG2
+!$NEC unroll(NG2)
           do ig = 1, ng2
             tauself = selffac(jl,lay) * (selfref(inds,ig) + selffrac(jl,lay) * &
                  (selfref(inds+1,ig) - selfref(inds,ig)))
@@ -550,7 +550,7 @@ contains
           ind0 = ((jp(jl,lay)-13)*5+(jt(jl,lay)-1))*nspb(2) + 1
           ind1 = ((jp(jl,lay)-12)*5+(jt1(jl,lay)-1))*nspb(2) + 1
           indf = indfor(jl,lay)
-!CDIR EXPAND=NG2
+!$NEC unroll(NG2)
           do ig = 1, ng2
             taufor =  forfac(jl,lay) * (forref(indf,ig) + &
                  forfrac(jl,lay) * (forref(indf+1,ig) - forref(indf,ig)))
@@ -571,7 +571,7 @@ contains
       ! Lower atmosphere part
       do lay = laytrop_min+1, laytrop_max
         ixc0 = ixc(lay)
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         do ixp = 1, ixc0
           jl = ixlow(ixp,lay)
 
@@ -581,7 +581,7 @@ contains
           indf = indfor(jl,lay)
           pp = pavel(jl,lay)
           corradj = 1._wp - .05_wp * (pp - 100._wp) / 900._wp
-!CDIR EXPAND=NG2
+!$NEC unroll(NG2)
           do ig = 1, ng2
             tauself = selffac(jl,lay) * (selfref(inds,ig) + selffrac(jl,lay) * &
                  (selfref(inds+1,ig) - selfref(inds,ig)))
@@ -599,14 +599,14 @@ contains
 
         ! Upper atmosphere part
         ixc0 = kproma - ixc0
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         do ixp = 1, ixc0
           jl = ixhigh(ixp,lay)
 
           ind0 = ((jp(jl,lay)-13)*5+(jt(jl,lay)-1))*nspb(2) + 1
           ind1 = ((jp(jl,lay)-12)*5+(jt1(jl,lay)-1))*nspb(2) + 1
           indf = indfor(jl,lay)
-!CDIR EXPAND=NG2
+!$NEC unroll(NG2)
           do ig = 1, ng2
             taufor =  forfac(jl,lay) * (forref(indf,ig) + &
                  forfrac(jl,lay) * (forref(indf+1,ig) - forref(indf,ig)))
@@ -634,8 +634,8 @@ contains
 
       ! ------- Modules -------
 
-      use mo_lrtm_par, only : ng3, ngs2
-      use rrlw_kg03,   only : fracrefa, fracrefb, absa, absb, &
+      use mo_lrtm_par,    only : ng3, ngs2
+      use mo_rrlw_kg03,   only : fracrefa, fracrefb, absa, absb, &
            ka_mn2o, kb_mn2o, selfref, forref
 
       ! ------- Declarations -------
@@ -792,7 +792,7 @@ contains
           endif
 
           if (specparm .lt. 0.125_wp) then
-!CDIR EXPAND=NG3
+!$NEC unroll(NG3)
             tau_major(1:ng3) = speccomb *    &
              (fac000 * absa(ind0,1:ng3)    + &
               fac100 * absa(ind0+1,1:ng3)  + &
@@ -801,7 +801,7 @@ contains
               fac110 * absa(ind0+10,1:ng3) + &
               fac210 * absa(ind0+11,1:ng3))
           else if (specparm .gt. 0.875_wp) then
-!CDIR EXPAND=NG3
+!$NEC unroll(NG3)
             tau_major(1:ng3) = speccomb *   &
              (fac200 * absa(ind0-1,1:ng3) + &
               fac100 * absa(ind0,1:ng3)   + &
@@ -810,7 +810,7 @@ contains
               fac110 * absa(ind0+9,1:ng3) + &
               fac010 * absa(ind0+10,1:ng3))
           else
-!CDIR EXPAND=NG3
+!$NEC unroll(NG3)
             tau_major(1:ng3) = speccomb *   &
              (fac000 * absa(ind0,1:ng3)   + &
               fac100 * absa(ind0+1,1:ng3) + &
@@ -819,7 +819,7 @@ contains
           endif
 
           if (specparm1 .lt. 0.125_wp) then
-!CDIR EXPAND=NG3
+!$NEC unroll(NG3)
             tau_major1(1:ng3) = speccomb1 *  &
              (fac001 * absa(ind1,1:ng3)    + &
               fac101 * absa(ind1+1,1:ng3)  + &
@@ -828,7 +828,7 @@ contains
               fac111 * absa(ind1+10,1:ng3) + &
               fac211 * absa(ind1+11,1:ng3))
           else if (specparm1 .gt. 0.875_wp) then
-!CDIR EXPAND=NG3
+!$NEC unroll(NG3)
             tau_major1(1:ng3) = speccomb1 * &
              (fac201 * absa(ind1-1,1:ng3) + &
               fac101 * absa(ind1,1:ng3)   + &
@@ -837,7 +837,7 @@ contains
               fac111 * absa(ind1+9,1:ng3) + &
               fac011 * absa(ind1+10,1:ng3))
           else
-!CDIR EXPAND=NG3
+!$NEC unroll(NG3)
             tau_major1(1:ng3) = speccomb1 * &
              (fac001 * absa(ind1,1:ng3)   + &
               fac101 * absa(ind1+1,1:ng3) + &
@@ -845,7 +845,7 @@ contains
               fac111 * absa(ind1+10,1:ng3))
           endif
 
-!CDIR EXPAND=NG3
+!$NEC unroll(NG3)
           do ig = 1, ng3
             tauself = selffac(jl,lay)* (selfref(inds,ig) + selffrac(jl,lay) * &
                  (selfref(inds+1,ig) - selfref(inds,ig)))
@@ -919,7 +919,7 @@ contains
           ind1 = ((jp(jl,lay)-12)*5+(jt1(jl,lay)-1))*nspb(3) + js1
           indf = indfor(jl,lay)
           indm = indminor(jl,lay)
-!CDIR EXPAND=NG3
+!$NEC unroll(NG3)
           do ig = 1, ng3
             taufor = forfac(jl,lay) * (forref(indf,ig) + &
                  forfrac(jl,lay) * (forref(indf+1,ig) - forref(indf,ig)))
@@ -954,7 +954,7 @@ contains
 
         ixc0 = ixc(lay)
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         do ixp = 1, ixc0
           jl = ixlow(ixp,lay)
 
@@ -1066,7 +1066,7 @@ contains
           endif
 
           if (specparm .lt. 0.125_wp) then
-!CDIR EXPAND=NG3
+!$NEC unroll(NG3)
             tau_major(1:ng3) = speccomb *    &
              (fac000 * absa(ind0,1:ng3)    + &
               fac100 * absa(ind0+1,1:ng3)  + &
@@ -1075,7 +1075,7 @@ contains
               fac110 * absa(ind0+10,1:ng3) + &
               fac210 * absa(ind0+11,1:ng3))
           else if (specparm .gt. 0.875_wp) then
-!CDIR EXPAND=NG3
+!$NEC unroll(NG3)
             tau_major(1:ng3) = speccomb *   &
              (fac200 * absa(ind0-1,1:ng3) + &
               fac100 * absa(ind0,1:ng3)   + &
@@ -1084,7 +1084,7 @@ contains
               fac110 * absa(ind0+9,1:ng3) + &
               fac010 * absa(ind0+10,1:ng3))
           else
-!CDIR EXPAND=NG3
+!$NEC unroll(NG3)
             tau_major(1:ng3) = speccomb *   &
              (fac000 * absa(ind0,1:ng3)   + &
               fac100 * absa(ind0+1,1:ng3) + &
@@ -1093,7 +1093,7 @@ contains
           endif
 
           if (specparm1 .lt. 0.125_wp) then
-!CDIR EXPAND=NG3
+!$NEC unroll(NG3)
             tau_major1(1:ng3) = speccomb1 *  &
              (fac001 * absa(ind1,1:ng3)    + &
               fac101 * absa(ind1+1,1:ng3)  + &
@@ -1102,7 +1102,7 @@ contains
               fac111 * absa(ind1+10,1:ng3) + &
               fac211 * absa(ind1+11,1:ng3))
           else if (specparm1 .gt. 0.875_wp) then
-!CDIR EXPAND=NG3
+!$NEC unroll(NG3)
             tau_major1(1:ng3) = speccomb1 * &
              (fac201 * absa(ind1-1,1:ng3) + &
               fac101 * absa(ind1,1:ng3)   + &
@@ -1111,7 +1111,7 @@ contains
               fac111 * absa(ind1+9,1:ng3) + &
               fac011 * absa(ind1+10,1:ng3))
           else
-!CDIR EXPAND=NG3
+!$NEC unroll(NG3)
             tau_major1(1:ng3) = speccomb1 * &
              (fac001 * absa(ind1,1:ng3)   + &
               fac101 * absa(ind1+1,1:ng3) + &
@@ -1119,7 +1119,7 @@ contains
               fac111 * absa(ind1+10,1:ng3))
           endif
 
-!CDIR EXPAND=NG3
+!$NEC unroll(NG3)
           do ig = 1, ng3
             tauself = selffac(jl,lay)* (selfref(inds,ig) + selffrac(jl,lay) * &
                  (selfref(inds+1,ig) - selfref(inds,ig)))
@@ -1141,7 +1141,7 @@ contains
 
         ! Upper atmosphere part
         ixc0 = kproma - ixc0
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         do ixp = 1, ixc0
           jl = ixhigh(ixp,lay)
 
@@ -1193,7 +1193,7 @@ contains
           ind1 = ((jp(jl,lay)-12)*5+(jt1(jl,lay)-1))*nspb(3) + js1
           indf = indfor(jl,lay)
           indm = indminor(jl,lay)
-!CDIR EXPAND=NG3
+!$NEC unroll(NG3)
           do ig = 1, ng3
             taufor = forfac(jl,lay) * (forref(indf,ig) + &
                  forfrac(jl,lay) * (forref(indf+1,ig) - forref(indf,ig)))
@@ -1232,8 +1232,8 @@ contains
 
       ! ------- Modules -------
 
-      use mo_lrtm_par, only : ng4, ngs3
-      use rrlw_kg04,   only : fracrefa, fracrefb, absa, absb, &
+      use mo_lrtm_par,    only : ng4, ngs3
+      use mo_rrlw_kg04,   only : fracrefa, fracrefb, absa, absb, &
            selfref, forref
 
       ! ------- Declarations -------
@@ -1360,7 +1360,7 @@ contains
           endif
 
           if (specparm .lt. 0.125_wp) then
-!CDIR EXPAND=NG4
+!$NEC unroll(NG4)
             tau_major(1:ng4) = speccomb *    &
              (fac000 * absa(ind0,1:ng4)    + &
               fac100 * absa(ind0+1,1:ng4)  + &
@@ -1369,7 +1369,7 @@ contains
               fac110 * absa(ind0+10,1:ng4) + &
               fac210 * absa(ind0+11,1:ng4))
           else if (specparm .gt. 0.875_wp) then
-!CDIR EXPAND=NG4
+!$NEC unroll(NG4)
             tau_major(1:ng4) = speccomb *   &
              (fac200 * absa(ind0-1,1:ng4) + &
               fac100 * absa(ind0,1:ng4)   + &
@@ -1378,7 +1378,7 @@ contains
               fac110 * absa(ind0+9,1:ng4) + &
               fac010 * absa(ind0+10,1:ng4))
           else
-!CDIR EXPAND=NG4
+!$NEC unroll(NG4)
              tau_major(1:ng4) = speccomb *   &
               (fac000 * absa(ind0,1:ng4)   + &
                fac100 * absa(ind0+1,1:ng4) + &
@@ -1387,7 +1387,7 @@ contains
           endif
 
           if (specparm1 .lt. 0.125_wp) then
-!CDIR EXPAND=NG4
+!$NEC unroll(NG4)
             tau_major1(1:ng4) = speccomb1 *  &
              (fac001 * absa(ind1,1:ng4)    + &
               fac101 * absa(ind1+1,1:ng4)  + &
@@ -1396,7 +1396,7 @@ contains
               fac111 * absa(ind1+10,1:ng4) + &
               fac211 * absa(ind1+11,1:ng4))
           else if (specparm1 .gt. 0.875_wp) then
-!CDIR EXPAND=NG4
+!$NEC unroll(NG4)
             tau_major1(1:ng4) = speccomb1 * &
              (fac201 * absa(ind1-1,1:ng4) + &
               fac101 * absa(ind1,1:ng4)   + &
@@ -1405,7 +1405,7 @@ contains
               fac111 * absa(ind1+9,1:ng4) + &
               fac011 * absa(ind1+10,1:ng4))
           else
-!CDIR EXPAND=NG4
+!$NEC unroll(NG4)
             tau_major1(1:ng4) = speccomb1 * &
              (fac001 * absa(ind1,1:ng4)   + &
               fac101 * absa(ind1+1,1:ng4) + &
@@ -1413,7 +1413,7 @@ contains
               fac111 * absa(ind1+10,1:ng4))
           endif
 
-!CDIR EXPAND=NG4
+!$NEC unroll(NG4)
           do ig = 1, ng4
             tauself = selffac(jl,lay)* (selfref(inds,ig) + selffrac(jl,lay) * &
                  (selfref(inds+1,ig) - selfref(inds,ig)))
@@ -1462,7 +1462,7 @@ contains
 
           ind0 = ((jp(jl,lay)-13)*5+(jt(jl,lay)-1))*nspb(4) + js
           ind1 = ((jp(jl,lay)-12)*5+(jt1(jl,lay)-1))*nspb(4) + js1
-!CDIR EXPAND=NG4
+!$NEC unroll(NG4)
           do ig = 1, ng4
             taug(jl,lay,ngs3+ig) =  speccomb * &
                  (fac000 * absb(ind0,ig) + &
@@ -1501,7 +1501,7 @@ contains
 
         ixc0 = ixc(lay)
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         do ixp = 1, ixc0
           jl = ixlow(ixp,lay)
 
@@ -1595,7 +1595,7 @@ contains
           endif
 
           if (specparm .lt. 0.125_wp) then
-!CDIR EXPAND=NG4
+!$NEC unroll(NG4)
             tau_major(1:ng4) = speccomb *    &
              (fac000 * absa(ind0,1:ng4)    + &
               fac100 * absa(ind0+1,1:ng4)  + &
@@ -1604,7 +1604,7 @@ contains
               fac110 * absa(ind0+10,1:ng4) + &
               fac210 * absa(ind0+11,1:ng4))
           else if (specparm .gt. 0.875_wp) then
-!CDIR EXPAND=NG4
+!$NEC unroll(NG4)
             tau_major(1:ng4) = speccomb *   &
              (fac200 * absa(ind0-1,1:ng4) + &
               fac100 * absa(ind0,1:ng4)   + &
@@ -1613,7 +1613,7 @@ contains
               fac110 * absa(ind0+9,1:ng4) + &
               fac010 * absa(ind0+10,1:ng4))
           else
-!CDIR EXPAND=NG4
+!$NEC unroll(NG4)
              tau_major(1:ng4) = speccomb *   &
               (fac000 * absa(ind0,1:ng4)   + &
                fac100 * absa(ind0+1,1:ng4) + &
@@ -1622,7 +1622,7 @@ contains
           endif
 
           if (specparm1 .lt. 0.125_wp) then
-!CDIR EXPAND=NG4
+!$NEC unroll(NG4)
             tau_major1(1:ng4) = speccomb1 *  &
              (fac001 * absa(ind1,1:ng4)    + &
               fac101 * absa(ind1+1,1:ng4)  + &
@@ -1631,7 +1631,7 @@ contains
               fac111 * absa(ind1+10,1:ng4) + &
               fac211 * absa(ind1+11,1:ng4))
           else if (specparm1 .gt. 0.875_wp) then
-!CDIR EXPAND=NG4
+!$NEC unroll(NG4)
             tau_major1(1:ng4) = speccomb1 * &
              (fac201 * absa(ind1-1,1:ng4) + &
               fac101 * absa(ind1,1:ng4)   + &
@@ -1640,7 +1640,7 @@ contains
               fac111 * absa(ind1+9,1:ng4) + &
               fac011 * absa(ind1+10,1:ng4))
           else
-!CDIR EXPAND=NG4
+!$NEC unroll(NG4)
             tau_major1(1:ng4) = speccomb1 * &
              (fac001 * absa(ind1,1:ng4)   + &
               fac101 * absa(ind1+1,1:ng4) + &
@@ -1648,7 +1648,7 @@ contains
               fac111 * absa(ind1+10,1:ng4))
           endif
 
-!CDIR EXPAND=NG4
+!$NEC unroll(NG4)
           do ig = 1, ng4
             tauself = selffac(jl,lay)* (selfref(inds,ig) + selffrac(jl,lay) * &
                  (selfref(inds+1,ig) - selfref(inds,ig)))
@@ -1664,7 +1664,7 @@ contains
 
         ! Upper atmosphere part
         ixc0 = kproma - ixc0
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         do ixp = 1, ixc0
           jl = ixhigh(ixp,lay)
 
@@ -1697,7 +1697,7 @@ contains
 
           ind0 = ((jp(jl,lay)-13)*5+(jt(jl,lay)-1))*nspb(4) + js
           ind1 = ((jp(jl,lay)-12)*5+(jt1(jl,lay)-1))*nspb(4) + js1
-!CDIR EXPAND=NG4
+!$NEC unroll(NG4)
           do ig = 1, ng4
             taug(jl,lay,ngs3+ig) =  speccomb * &
                  (fac000 * absb(ind0,ig) + &
@@ -1716,7 +1716,7 @@ contains
 
         ! Empirical modification to code to improve stratospheric cooling rates
         ! for co2.  Revised to apply weighting for g-point reduction in this band.
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         do ixp = 1, ixc0
           jl = ixhigh(ixp,lay)
           taug(jl,lay,ngs3+8)=taug(jl,lay,ngs3+8)*0.92_wp
@@ -1744,8 +1744,8 @@ contains
 
       ! ------- Modules -------
 
-      use mo_lrtm_par, only : ng5, ngs4
-      use rrlw_kg05,   only : fracrefa, fracrefb, absa, absb, &
+      use mo_lrtm_par,    only : ng5, ngs4
+      use mo_rrlw_kg05,   only : fracrefa, fracrefb, absa, absb, &
            ka_mo3, selfref, forref, ccl4
 
       ! ------- Declarations -------
@@ -1890,7 +1890,7 @@ contains
           endif
 
           if (specparm .lt. 0.125_wp) then
-!CDIR EXPAND=NG5
+!$NEC unroll(NG5)
             tau_major(1:ng5) = speccomb *    &
              (fac000 * absa(ind0,1:ng5)    + &
               fac100 * absa(ind0+1,1:ng5)  + &
@@ -1899,7 +1899,7 @@ contains
               fac110 * absa(ind0+10,1:ng5) + &
               fac210 * absa(ind0+11,1:ng5))
           else if (specparm .gt. 0.875_wp) then
-!CDIR EXPAND=NG5
+!$NEC unroll(NG5)
             tau_major(1:ng5) = speccomb *   &
              (fac200 * absa(ind0-1,1:ng5) + &
               fac100 * absa(ind0,1:ng5)   + &
@@ -1908,7 +1908,7 @@ contains
               fac110 * absa(ind0+9,1:ng5) + &
               fac010 * absa(ind0+10,1:ng5))
           else
-!CDIR EXPAND=NG5
+!$NEC unroll(NG5)
             tau_major(1:ng5) = speccomb *   &
              (fac000 * absa(ind0,1:ng5)   + &
               fac100 * absa(ind0+1,1:ng5) + &
@@ -1917,7 +1917,7 @@ contains
           endif
 
           if (specparm1 .lt. 0.125_wp) then
-!CDIR EXPAND=NG5
+!$NEC unroll(NG5)
             tau_major1(1:ng5) = speccomb1 *  &
              (fac001 * absa(ind1,1:ng5)    + &
               fac101 * absa(ind1+1,1:ng5)  + &
@@ -1926,7 +1926,7 @@ contains
               fac111 * absa(ind1+10,1:ng5) + &
               fac211 * absa(ind1+11,1:ng5))
           else if (specparm1 .gt. 0.875_wp) then
-!CDIR EXPAND=NG5
+!$NEC unroll(NG5)
             tau_major1(1:ng5) = speccomb1 * &
              (fac201 * absa(ind1-1,1:ng5) + &
               fac101 * absa(ind1,1:ng5)   + &
@@ -1935,7 +1935,7 @@ contains
               fac111 * absa(ind1+9,1:ng5) + &
               fac011 * absa(ind1+10,1:ng5))
           else
-!CDIR EXPAND=NG5
+!$NEC unroll(NG5)
             tau_major1(1:ng5) = speccomb1 * &
              (fac001 * absa(ind1,1:ng5)   + &
               fac101 * absa(ind1+1,1:ng5) + &
@@ -1943,7 +1943,7 @@ contains
               fac111 * absa(ind1+10,1:ng5))
           endif
 
-!CDIR EXPAND=NG5
+!$NEC unroll(NG5)
           do ig = 1, ng5
             tauself = selffac(jl,lay) * (selfref(inds,ig) + selffrac(jl,lay) * &
                  (selfref(inds+1,ig) - selfref(inds,ig)))
@@ -1999,7 +1999,7 @@ contains
 
           ind0 = ((jp(jl,lay)-13)*5+(jt(jl,lay)-1))*nspb(5) + js
           ind1 = ((jp(jl,lay)-12)*5+(jt1(jl,lay)-1))*nspb(5) + js1
-!CDIR EXPAND=NG5
+!$NEC unroll(NG5)
           do ig = 1, ng5
             taug(jl,lay,ngs4+ig) = speccomb * &
                  (fac000 * absb(ind0,ig) + &
@@ -2026,7 +2026,7 @@ contains
 
         ixc0 = ixc(lay)
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         do ixp = 1, ixc0
           jl = ixlow(ixp,lay)
 
@@ -2127,7 +2127,7 @@ contains
           endif
 
           if (specparm .lt. 0.125_wp) then
-!CDIR EXPAND=NG5
+!$NEC unroll(NG5)
             tau_major(1:ng5) = speccomb *    &
              (fac000 * absa(ind0,1:ng5)    + &
               fac100 * absa(ind0+1,1:ng5)  + &
@@ -2136,7 +2136,7 @@ contains
               fac110 * absa(ind0+10,1:ng5) + &
               fac210 * absa(ind0+11,1:ng5))
           else if (specparm .gt. 0.875_wp) then
-!CDIR EXPAND=NG5
+!$NEC unroll(NG5)
             tau_major(1:ng5) = speccomb *   &
              (fac200 * absa(ind0-1,1:ng5) + &
               fac100 * absa(ind0,1:ng5)   + &
@@ -2145,7 +2145,7 @@ contains
               fac110 * absa(ind0+9,1:ng5) + &
               fac010 * absa(ind0+10,1:ng5))
           else
-!CDIR EXPAND=NG5
+!$NEC unroll(NG5)
             tau_major(1:ng5) = speccomb *   &
              (fac000 * absa(ind0,1:ng5)   + &
               fac100 * absa(ind0+1,1:ng5) + &
@@ -2154,7 +2154,7 @@ contains
           endif
 
           if (specparm1 .lt. 0.125_wp) then
-!CDIR EXPAND=NG5
+!$NEC unroll(NG5)
             tau_major1(1:ng5) = speccomb1 *  &
              (fac001 * absa(ind1,1:ng5)    + &
               fac101 * absa(ind1+1,1:ng5)  + &
@@ -2163,7 +2163,7 @@ contains
               fac111 * absa(ind1+10,1:ng5) + &
               fac211 * absa(ind1+11,1:ng5))
           else if (specparm1 .gt. 0.875_wp) then
-!CDIR EXPAND=NG5
+!$NEC unroll(NG5)
             tau_major1(1:ng5) = speccomb1 * &
              (fac201 * absa(ind1-1,1:ng5) + &
               fac101 * absa(ind1,1:ng5)   + &
@@ -2172,7 +2172,7 @@ contains
               fac111 * absa(ind1+9,1:ng5) + &
               fac011 * absa(ind1+10,1:ng5))
           else
-!CDIR EXPAND=NG5
+!$NEC unroll(NG5)
             tau_major1(1:ng5) = speccomb1 * &
              (fac001 * absa(ind1,1:ng5)   + &
               fac101 * absa(ind1+1,1:ng5) + &
@@ -2180,7 +2180,7 @@ contains
               fac111 * absa(ind1+10,1:ng5))
           endif
 
-!CDIR EXPAND=NG5
+!$NEC unroll(NG5)
           do ig = 1, ng5
             tauself = selffac(jl,lay) * (selfref(inds,ig) + selffrac(jl,lay) * &
                  (selfref(inds+1,ig) - selfref(inds,ig)))
@@ -2203,7 +2203,7 @@ contains
 
         ! Upper atmosphere part
         ixc0 = kproma - ixc0
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         do ixp = 1, ixc0
           jl = ixhigh(ixp,lay)
 
@@ -2236,7 +2236,7 @@ contains
 
           ind0 = ((jp(jl,lay)-13)*5+(jt(jl,lay)-1))*nspb(5) + js
           ind1 = ((jp(jl,lay)-12)*5+(jt1(jl,lay)-1))*nspb(5) + js1
-!CDIR EXPAND=NG5
+!$NEC unroll(NG5)
           do ig = 1, ng5
             taug(jl,lay,ngs4+ig) = speccomb * &
                  (fac000 * absb(ind0,ig) + &
@@ -2268,8 +2268,8 @@ contains
 
       ! ------- Modules -------
 
-      use mo_lrtm_par, only : ng6, ngs5
-      use rrlw_kg06,   only : fracrefa, absa, ka_mco2, &
+      use mo_lrtm_par,    only : ng6, ngs5
+      use mo_rrlw_kg06,   only : fracrefa, absa, ka_mco2, &
            selfref, forref, cfc11adj, cfc12
 
       ! ------- Declarations -------
@@ -2310,7 +2310,7 @@ contains
           inds = indself(jl,lay)
           indf = indfor(jl,lay)
           indm = indminor(jl,lay)
-!CDIR EXPAND=NG6
+!$NEC unroll(NG6)
           do ig = 1, ng6
             tauself = selffac(jl,lay) * (selfref(inds,ig) + selffrac(jl,lay) * &
                  (selfref(inds+1,ig) - selfref(inds,ig)))
@@ -2350,7 +2350,7 @@ contains
       ! Lower atmosphere part
       do lay = laytrop_min+1, laytrop_max
         ixc0 = ixc(lay)
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         do ixp = 1, ixc0
           jl = ixlow(ixp,lay)
 
@@ -2371,7 +2371,7 @@ contains
           inds = indself(jl,lay)
           indf = indfor(jl,lay)
           indm = indminor(jl,lay)
-!CDIR EXPAND=NG6
+!$NEC unroll(NG6)
           do ig = 1, ng6
             tauself = selffac(jl,lay) * (selfref(inds,ig) + selffrac(jl,lay) * &
                  (selfref(inds+1,ig) - selfref(inds,ig)))
@@ -2397,7 +2397,7 @@ contains
         ixc0 = kproma - ixc0
 
         do ig = 1, ng6
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
           do ixp = 1, ixc0
             jl = ixhigh(ixp,lay)
             taug(jl,lay,ngs5+ig) = 0.0_wp &
@@ -2421,8 +2421,8 @@ contains
 
       ! ------- Modules -------
 
-      use mo_lrtm_par, only : ng7, ngs6
-      use rrlw_kg07,   only : fracrefa, fracrefb, absa, absb, &
+      use mo_lrtm_par,    only : ng7, ngs6
+      use mo_rrlw_kg07,   only : fracrefa, fracrefb, absa, absb, &
            ka_mco2, kb_mco2, selfref, forref
 
       ! ------- Declarations -------
@@ -2578,7 +2578,7 @@ contains
           endif
 
           if (specparm .lt. 0.125_wp) then
-!CDIR EXPAND=NG7
+!$NEC unroll(NG7)
             tau_major(1:ng7) = speccomb *    &
              (fac000 * absa(ind0,1:ng7)    + &
               fac100 * absa(ind0+1,1:ng7)  + &
@@ -2587,7 +2587,7 @@ contains
               fac110 * absa(ind0+10,1:ng7) + &
               fac210 * absa(ind0+11,1:ng7))
           else if (specparm .gt. 0.875_wp) then
-!CDIR EXPAND=NG7
+!$NEC unroll(NG7)
             tau_major(1:ng7) = speccomb *   &
              (fac200 * absa(ind0-1,1:ng7) + &
               fac100 * absa(ind0,1:ng7)   + &
@@ -2596,7 +2596,7 @@ contains
               fac110 * absa(ind0+9,1:ng7) + &
               fac010 * absa(ind0+10,1:ng7))
           else
-!CDIR EXPAND=NG7
+!$NEC unroll(NG7)
             tau_major(1:ng7) = speccomb *   &
              (fac000 * absa(ind0,1:ng7)   + &
               fac100 * absa(ind0+1,1:ng7) + &
@@ -2605,7 +2605,7 @@ contains
           endif
 
           if (specparm1 .lt. 0.125_wp) then
-!CDIR EXPAND=NG7
+!$NEC unroll(NG7)
             tau_major1(1:ng7) = speccomb1 *  &
              (fac001 * absa(ind1,1:ng7)    + &
               fac101 * absa(ind1+1,1:ng7)  + &
@@ -2614,7 +2614,7 @@ contains
               fac111 * absa(ind1+10,1:ng7) + &
               fac211 * absa(ind1+11,1:ng7))
           else if (specparm1 .gt. 0.875_wp) then
-!CDIR EXPAND=NG7
+!$NEC unroll(NG7)
             tau_major1(1:ng7) = speccomb1 * &
              (fac201 * absa(ind1-1,1:ng7) + &
               fac101 * absa(ind1,1:ng7)   + &
@@ -2623,7 +2623,7 @@ contains
               fac111 * absa(ind1+9,1:ng7) + &
               fac011 * absa(ind1+10,1:ng7))
           else
-!CDIR EXPAND=NG7
+!$NEC unroll(NG7)
             tau_major1(1:ng7) = speccomb1 * &
              (fac001 * absa(ind1,1:ng7)   + &
               fac101 * absa(ind1+1,1:ng7) + &
@@ -2631,7 +2631,7 @@ contains
               fac111 * absa(ind1+10,1:ng7))
           endif
 
-!CDIR EXPAND=NG7
+!$NEC unroll(NG7)
           do ig = 1, ng7
             tauself = selffac(jl,lay)* (selfref(inds,ig) + selffrac(jl,lay) * &
                  (selfref(inds+1,ig) - selfref(inds,ig)))
@@ -2672,7 +2672,7 @@ contains
           ind0 = ((jp(jl,lay)-13)*5+(jt(jl,lay)-1))*nspb(7) + 1
           ind1 = ((jp(jl,lay)-12)*5+(jt1(jl,lay)-1))*nspb(7) + 1
           indm = indminor(jl,lay)
-!CDIR EXPAND=NG7
+!$NEC unroll(NG7)
           do ig = 1, ng7
             absco2 = kb_mco2(indm,ig) + minorfrac(jl,lay) * &
                  (kb_mco2(indm+1,ig) - kb_mco2(indm,ig))
@@ -2706,7 +2706,7 @@ contains
       do lay = laytrop_min+1, laytrop_max
         ixc0 = ixc(lay)
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         do ixp = 1, ixc0
           jl = ixlow(ixp,lay)
 
@@ -2820,7 +2820,7 @@ contains
           endif
 
           if (specparm .lt. 0.125_wp) then
-!CDIR EXPAND=NG7
+!$NEC unroll(NG7)
             tau_major(1:ng7) = speccomb *    &
              (fac000 * absa(ind0,1:ng7)    + &
               fac100 * absa(ind0+1,1:ng7)  + &
@@ -2829,7 +2829,7 @@ contains
               fac110 * absa(ind0+10,1:ng7) + &
               fac210 * absa(ind0+11,1:ng7))
           else if (specparm .gt. 0.875_wp) then
-!CDIR EXPAND=NG7
+!$NEC unroll(NG7)
             tau_major(1:ng7) = speccomb *   &
              (fac200 * absa(ind0-1,1:ng7) + &
               fac100 * absa(ind0,1:ng7)   + &
@@ -2838,7 +2838,7 @@ contains
               fac110 * absa(ind0+9,1:ng7) + &
               fac010 * absa(ind0+10,1:ng7))
           else
-!CDIR EXPAND=NG7
+!$NEC unroll(NG7)
             tau_major(1:ng7) = speccomb *   &
              (fac000 * absa(ind0,1:ng7)   + &
               fac100 * absa(ind0+1,1:ng7) + &
@@ -2847,7 +2847,7 @@ contains
           endif
 
           if (specparm1 .lt. 0.125_wp) then
-!CDIR EXPAND=NG7
+!$NEC unroll(NG7)
             tau_major1(1:ng7) = speccomb1 *  &
              (fac001 * absa(ind1,1:ng7)    + &
               fac101 * absa(ind1+1,1:ng7)  + &
@@ -2856,7 +2856,7 @@ contains
               fac111 * absa(ind1+10,1:ng7) + &
               fac211 * absa(ind1+11,1:ng7))
           else if (specparm1 .gt. 0.875_wp) then
-!CDIR EXPAND=NG7
+!$NEC unroll(NG7)
             tau_major1(1:ng7) = speccomb1 * &
              (fac201 * absa(ind1-1,1:ng7) + &
               fac101 * absa(ind1,1:ng7)   + &
@@ -2865,7 +2865,7 @@ contains
               fac111 * absa(ind1+9,1:ng7) + &
               fac011 * absa(ind1+10,1:ng7))
           else
-!CDIR EXPAND=NG7
+!$NEC unroll(NG7)
             tau_major1(1:ng7) = speccomb1 * &
              (fac001 * absa(ind1,1:ng7)   + &
               fac101 * absa(ind1+1,1:ng7) + &
@@ -2873,7 +2873,7 @@ contains
               fac111 * absa(ind1+10,1:ng7))
           endif
 
-!CDIR EXPAND=NG7
+!$NEC unroll(NG7)
           do ig = 1, ng7
             tauself = selffac(jl,lay)* (selfref(inds,ig) + selffrac(jl,lay) * &
                  (selfref(inds+1,ig) - selfref(inds,ig)))
@@ -2895,7 +2895,7 @@ contains
 
         ! Upper atmosphere part
         ixc0 = kproma - ixc0
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         do ixp = 1, ixc0
           jl = ixhigh(ixp,lay)
 
@@ -2914,7 +2914,7 @@ contains
           ind0 = ((jp(jl,lay)-13)*5+(jt(jl,lay)-1))*nspb(7) + 1
           ind1 = ((jp(jl,lay)-12)*5+(jt1(jl,lay)-1))*nspb(7) + 1
           indm = indminor(jl,lay)
-!CDIR EXPAND=NG7
+!$NEC unroll(NG7)
           do ig = 1, ng7
             absco2 = kb_mco2(indm,ig) + minorfrac(jl,lay) * &
                  (kb_mco2(indm+1,ig) - kb_mco2(indm,ig))
@@ -2931,7 +2931,7 @@ contains
         ! Empirical modification to code to improve stratospheric cooling rates
         ! for o3.  Revised to apply weighting for g-point reduction in this band.
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         do ixp = 1, ixc0
           jl = ixhigh(ixp,lay)
           taug(jl,lay,ngs6+6)=taug(jl,lay,ngs6+6)*0.92_wp
@@ -2956,8 +2956,8 @@ contains
 
       ! ------- Modules -------
 
-      use mo_lrtm_par, only : ng8, ngs7
-      use rrlw_kg08,   only : fracrefa, fracrefb, absa, absb, &
+      use mo_lrtm_par,    only : ng8, ngs7
+      use mo_rrlw_kg08,   only : fracrefa, fracrefb, absa, absb, &
            ka_mco2, ka_mn2o, ka_mo3, kb_mco2, kb_mn2o, &
            selfref, forref, cfc12, cfc22adj
 
@@ -3004,7 +3004,7 @@ contains
           inds = indself(jl,lay)
           indf = indfor(jl,lay)
           indm = indminor(jl,lay)
-!CDIR EXPAND=NG8
+!$NEC unroll(NG8)
           do ig = 1, ng8
             tauself = selffac(jl,lay) * (selfref(inds,ig) + selffrac(jl,lay) * &
                  (selfref(inds+1,ig) - selfref(inds,ig)))
@@ -3052,7 +3052,7 @@ contains
           ind0 = ((jp(jl,lay)-13)*5+(jt(jl,lay)-1))*nspb(8) + 1
           ind1 = ((jp(jl,lay)-12)*5+(jt1(jl,lay)-1))*nspb(8) + 1
           indm = indminor(jl,lay)
-!CDIR EXPAND=NG8
+!$NEC unroll(NG8)
           do ig = 1, ng8
             absco2 =  (kb_mco2(indm,ig) + minorfrac(jl,lay) * &
                  (kb_mco2(indm+1,ig) - kb_mco2(indm,ig)))
@@ -3078,7 +3078,7 @@ contains
       ! Lower atmosphere part
       do lay = laytrop_min+1, laytrop_max
         ixc0 = ixc(lay)
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         do ixp = 1, ixc0
           jl = ixlow(ixp,lay)
 
@@ -3099,7 +3099,7 @@ contains
           inds = indself(jl,lay)
           indf = indfor(jl,lay)
           indm = indminor(jl,lay)
-!CDIR EXPAND=NG8
+!$NEC unroll(NG8)
           do ig = 1, ng8
             tauself = selffac(jl,lay) * (selfref(inds,ig) + selffrac(jl,lay) * &
                  (selfref(inds+1,ig) - selfref(inds,ig)))
@@ -3128,7 +3128,7 @@ contains
 
         ! Upper atmosphere loop
         ixc0 = kproma - ixc0
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         do ixp = 1, ixc0
           jl = ixhigh(ixp,lay)
 
@@ -3147,7 +3147,7 @@ contains
           ind0 = ((jp(jl,lay)-13)*5+(jt(jl,lay)-1))*nspb(8) + 1
           ind1 = ((jp(jl,lay)-12)*5+(jt1(jl,lay)-1))*nspb(8) + 1
           indm = indminor(jl,lay)
-!CDIR EXPAND=NG8
+!$NEC unroll(NG8)
           do ig = 1, ng8
             absco2 =  (kb_mco2(indm,ig) + minorfrac(jl,lay) * &
                  (kb_mco2(indm+1,ig) - kb_mco2(indm,ig)))
@@ -3180,8 +3180,8 @@ contains
 
       ! ------- Modules -------
 
-      use mo_lrtm_par, only : ng9, ngs8
-      use rrlw_kg09,   only : fracrefa, fracrefb, absa, absb, &
+      use mo_lrtm_par,    only : ng9, ngs8
+      use mo_rrlw_kg09,   only : fracrefa, fracrefb, absa, absb, &
            ka_mn2o, kb_mn2o, selfref, forref
 
       ! ------- Declarations -------
@@ -3336,7 +3336,7 @@ contains
           endif
 
           if (specparm .lt. 0.125_wp) then
-!CDIR EXPAND=NG9
+!$NEC unroll(NG9)
             tau_major(1:ng9) = speccomb *    &
              (fac000 * absa(ind0,1:ng9)    + &
               fac100 * absa(ind0+1,1:ng9)  + &
@@ -3345,7 +3345,7 @@ contains
               fac110 * absa(ind0+10,1:ng9) + &
               fac210 * absa(ind0+11,1:ng9))
           else if (specparm .gt. 0.875_wp) then
-!CDIR EXPAND=NG9
+!$NEC unroll(NG9)
             tau_major(1:ng9) = speccomb *   &
              (fac200 * absa(ind0-1,1:ng9) + &
               fac100 * absa(ind0,1:ng9)   + &
@@ -3354,7 +3354,7 @@ contains
               fac110 * absa(ind0+9,1:ng9) + &
               fac010 * absa(ind0+10,1:ng9))
           else
-!CDIR EXPAND=NG9
+!$NEC unroll(NG9)
             tau_major(1:ng9) = speccomb *   &
              (fac000 * absa(ind0,1:ng9)   + &
               fac100 * absa(ind0+1,1:ng9) + &
@@ -3363,7 +3363,7 @@ contains
           endif
 
           if (specparm1 .lt. 0.125_wp) then
-!CDIR EXPAND=NG9
+!$NEC unroll(NG9)
             tau_major1(1:ng9) = speccomb1 *  &
              (fac001 * absa(ind1,1:ng9)    + &
               fac101 * absa(ind1+1,1:ng9)  + &
@@ -3372,7 +3372,7 @@ contains
               fac111 * absa(ind1+10,1:ng9) + &
               fac211 * absa(ind1+11,1:ng9))
           else if (specparm1 .gt. 0.875_wp) then
-!CDIR EXPAND=NG9
+!$NEC unroll(NG9)
             tau_major1(1:ng9) = speccomb1 * &
              (fac201 * absa(ind1-1,1:ng9) + &
               fac101 * absa(ind1,1:ng9)   + &
@@ -3381,7 +3381,7 @@ contains
               fac111 * absa(ind1+9,1:ng9) + &
               fac011 * absa(ind1+10,1:ng9))
           else
-!CDIR EXPAND=NG9
+!$NEC unroll(NG9)
             tau_major1(1:ng9) = speccomb1 * &
              (fac001 * absa(ind1,1:ng9)   + &
               fac101 * absa(ind1+1,1:ng9) + &
@@ -3389,7 +3389,7 @@ contains
               fac111 * absa(ind1+10,1:ng9))
           endif
 
-!CDIR EXPAND=NG9
+!$NEC unroll(NG9)
           do ig = 1, ng9
             tauself = selffac(jl,lay)* (selfref(inds,ig) + selffrac(jl,lay) * &
                  (selfref(inds+1,ig) - selfref(inds,ig)))
@@ -3430,7 +3430,7 @@ contains
           ind0 = ((jp(jl,lay)-13)*5+(jt(jl,lay)-1))*nspb(9) + 1
           ind1 = ((jp(jl,lay)-12)*5+(jt1(jl,lay)-1))*nspb(9) + 1
           indm = indminor(jl,lay)
-!CDIR EXPAND=NG9
+!$NEC unroll(NG9)
           do ig = 1, ng9
             absn2o = kb_mn2o(indm,ig) + minorfrac(jl,lay) * &
                  (kb_mn2o(indm+1,ig) - kb_mn2o(indm,ig))
@@ -3452,7 +3452,7 @@ contains
       do lay = laytrop_min+1, laytrop_max
         ixc0 = ixc(lay)
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         do ixp = 1, ixc0
           jl = ixlow(ixp,lay)
 
@@ -3565,7 +3565,7 @@ contains
           endif
 
           if (specparm .lt. 0.125_wp) then
-!CDIR EXPAND=NG9
+!$NEC unroll(NG9)
             tau_major(1:ng9) = speccomb *    &
              (fac000 * absa(ind0,1:ng9)    + &
               fac100 * absa(ind0+1,1:ng9)  + &
@@ -3574,7 +3574,7 @@ contains
               fac110 * absa(ind0+10,1:ng9) + &
               fac210 * absa(ind0+11,1:ng9))
           else if (specparm .gt. 0.875_wp) then
-!CDIR EXPAND=NG9
+!$NEC unroll(NG9)
             tau_major(1:ng9) = speccomb *   &
              (fac200 * absa(ind0-1,1:ng9) + &
               fac100 * absa(ind0,1:ng9)   + &
@@ -3583,7 +3583,7 @@ contains
               fac110 * absa(ind0+9,1:ng9) + &
               fac010 * absa(ind0+10,1:ng9))
           else
-!CDIR EXPAND=NG9
+!$NEC unroll(NG9)
             tau_major(1:ng9) = speccomb *   &
              (fac000 * absa(ind0,1:ng9)   + &
               fac100 * absa(ind0+1,1:ng9) + &
@@ -3592,7 +3592,7 @@ contains
           endif
 
           if (specparm1 .lt. 0.125_wp) then
-!CDIR EXPAND=NG9
+!$NEC unroll(NG9)
             tau_major1(1:ng9) = speccomb1 *  &
              (fac001 * absa(ind1,1:ng9)    + &
               fac101 * absa(ind1+1,1:ng9)  + &
@@ -3601,7 +3601,7 @@ contains
               fac111 * absa(ind1+10,1:ng9) + &
               fac211 * absa(ind1+11,1:ng9))
           else if (specparm1 .gt. 0.875_wp) then
-!CDIR EXPAND=NG9
+!$NEC unroll(NG9)
             tau_major1(1:ng9) = speccomb1 * &
              (fac201 * absa(ind1-1,1:ng9) + &
               fac101 * absa(ind1,1:ng9)   + &
@@ -3610,7 +3610,7 @@ contains
               fac111 * absa(ind1+9,1:ng9) + &
               fac011 * absa(ind1+10,1:ng9))
           else
-!CDIR EXPAND=NG9
+!$NEC unroll(NG9)
             tau_major1(1:ng9) = speccomb1 * &
              (fac001 * absa(ind1,1:ng9)   + &
               fac101 * absa(ind1+1,1:ng9) + &
@@ -3618,7 +3618,7 @@ contains
               fac111 * absa(ind1+10,1:ng9))
           endif
 
-!CDIR EXPAND=NG9
+!$NEC unroll(NG9)
           do ig = 1, ng9
             tauself = selffac(jl,lay)* (selfref(inds,ig) + selffrac(jl,lay) * &
                  (selfref(inds+1,ig) - selfref(inds,ig)))
@@ -3640,7 +3640,7 @@ contains
 
         ! Upper atmosphere part
         ixc0 = kproma - ixc0
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         do ixp = 1, ixc0
           jl = ixhigh(ixp,lay)
 
@@ -3659,7 +3659,7 @@ contains
           ind0 = ((jp(jl,lay)-13)*5+(jt(jl,lay)-1))*nspb(9) + 1
           ind1 = ((jp(jl,lay)-12)*5+(jt1(jl,lay)-1))*nspb(9) + 1
           indm = indminor(jl,lay)
-!CDIR EXPAND=NG9
+!$NEC unroll(NG9)
           do ig = 1, ng9
             absn2o = kb_mn2o(indm,ig) + minorfrac(jl,lay) * &
                  (kb_mn2o(indm+1,ig) - kb_mn2o(indm,ig))
@@ -3686,8 +3686,8 @@ contains
 
       ! ------- Modules -------
 
-      use mo_lrtm_par, only : ng10, ngs9
-      use rrlw_kg10,   only : fracrefa, fracrefb, absa, absb, &
+      use mo_lrtm_par,    only : ng10, ngs9
+      use mo_rrlw_kg10,   only : fracrefa, fracrefb, absa, absb, &
            selfref, forref
 
       ! ------- Declarations -------
@@ -3710,7 +3710,7 @@ contains
           ind1 = (jp(jl,lay)*5+(jt1(jl,lay)-1))*nspa(10) + 1
           inds = indself(jl,lay)
           indf = indfor(jl,lay)
-!CDIR EXPAND=NG10
+!$NEC unroll(NG10)
           do ig = 1, ng10
             tauself = selffac(jl,lay) * (selfref(inds,ig) + selffrac(jl,lay) * &
                  (selfref(inds+1,ig) - selfref(inds,ig)))
@@ -3735,7 +3735,7 @@ contains
           ind0 = ((jp(jl,lay)-13)*5+(jt(jl,lay)-1))*nspb(10) + 1
           ind1 = ((jp(jl,lay)-12)*5+(jt1(jl,lay)-1))*nspb(10) + 1
           indf = indfor(jl,lay)
-!CDIR EXPAND=NG10
+!$NEC unroll(NG10)
           do ig = 1, ng10
             taufor = forfac(jl,lay) * (forref(indf,ig) + forfrac(jl,lay) * &
                  (forref(indf+1,ig) - forref(indf,ig)))
@@ -3756,7 +3756,7 @@ contains
       ! Lower atmosphere part
       do lay = laytrop_min+1, laytrop_max
         ixc0 = ixc(lay)
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         do ixp = 1, ixc0
           jl = ixlow(ixp,lay)
 
@@ -3764,7 +3764,7 @@ contains
           ind1 = (jp(jl,lay)*5+(jt1(jl,lay)-1))*nspa(10) + 1
           inds = indself(jl,lay)
           indf = indfor(jl,lay)
-!CDIR EXPAND=NG10
+!$NEC unroll(NG10)
           do ig = 1, ng10
             tauself = selffac(jl,lay) * (selfref(inds,ig) + selffrac(jl,lay) * &
                  (selfref(inds+1,ig) - selfref(inds,ig)))
@@ -3782,14 +3782,14 @@ contains
 
         ! Upper atmosphere part
         ixc0 = kproma - ixc0
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         do ixp = 1, ixc0
           jl = ixhigh(ixp,lay)
 
           ind0 = ((jp(jl,lay)-13)*5+(jt(jl,lay)-1))*nspb(10) + 1
           ind1 = ((jp(jl,lay)-12)*5+(jt1(jl,lay)-1))*nspb(10) + 1
           indf = indfor(jl,lay)
-!CDIR EXPAND=NG10
+!$NEC unroll(NG10)
           do ig = 1, ng10
             taufor = forfac(jl,lay) * (forref(indf,ig) + forfrac(jl,lay) * &
                  (forref(indf+1,ig) - forref(indf,ig)))
@@ -3817,8 +3817,8 @@ contains
 
       ! ------- Modules -------
 
-      use mo_lrtm_par, only : ng11, ngs10
-      use rrlw_kg11,   only : fracrefa, fracrefb, absa, absb, &
+      use mo_lrtm_par,    only : ng11, ngs10
+      use mo_rrlw_kg11,   only : fracrefa, fracrefb, absa, absb, &
            ka_mo2, kb_mo2, selfref, forref
 
       ! ------- Declarations -------
@@ -3847,7 +3847,7 @@ contains
           indf = indfor(jl,lay)
           indm = indminor(jl,lay)
           scaleo2 = colo2(jl,lay)*scaleminor(jl,lay)
-!CDIR EXPAND=NG11
+!$NEC unroll(NG11)
           do ig = 1, ng11
             tauself = selffac(jl,lay) * (selfref(inds,ig) + selffrac(jl,lay) * &
                  (selfref(inds+1,ig) - selfref(inds,ig)))
@@ -3877,7 +3877,7 @@ contains
           indf = indfor(jl,lay)
           indm = indminor(jl,lay)
           scaleo2 = colo2(jl,lay)*scaleminor(jl,lay)
-!CDIR EXPAND=NG11
+!$NEC unroll(NG11)
           do ig = 1, ng11
             taufor = forfac(jl,lay) * (forref(indf,ig) + forfrac(jl,lay) * &
                  (forref(indf+1,ig) - forref(indf,ig)))
@@ -3901,7 +3901,7 @@ contains
       ! Lower atmosphere part
       do lay = laytrop_min+1, laytrop_max
         ixc0 = ixc(lay)
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         do ixp = 1, ixc0
           jl = ixlow(ixp,lay)
 
@@ -3911,7 +3911,7 @@ contains
           indf = indfor(jl,lay)
           indm = indminor(jl,lay)
           scaleo2 = colo2(jl,lay)*scaleminor(jl,lay)
-!CDIR EXPAND=NG11
+!$NEC unroll(NG11)
           do ig = 1, ng11
             tauself = selffac(jl,lay) * (selfref(inds,ig) + selffrac(jl,lay) * &
                  (selfref(inds+1,ig) - selfref(inds,ig)))
@@ -3932,7 +3932,7 @@ contains
 
         ! Upper atmosphere part
         ixc0 = kproma - ixc0
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         do ixp = 1, ixc0
           jl = ixhigh(ixp,lay)
 
@@ -3941,7 +3941,7 @@ contains
           indf = indfor(jl,lay)
           indm = indminor(jl,lay)
           scaleo2 = colo2(jl,lay)*scaleminor(jl,lay)
-!CDIR EXPAND=NG11
+!$NEC unroll(NG11)
           do ig = 1, ng11
             taufor = forfac(jl,lay) * (forref(indf,ig) + forfrac(jl,lay) * &
                  (forref(indf+1,ig) - forref(indf,ig)))
@@ -3971,8 +3971,8 @@ contains
 
       ! ------- Modules -------
 
-      use mo_lrtm_par, only : ng12, ngs11
-      use rrlw_kg12,   only : fracrefa, absa, &
+      use mo_lrtm_par,    only : ng12, ngs11
+      use mo_rrlw_kg12,   only : fracrefa, absa, &
            selfref, forref
 
       ! ------- Declarations -------
@@ -4099,7 +4099,7 @@ contains
           endif
 
           if (specparm .lt. 0.125_wp) then
-!CDIR EXPAND=NG12
+!$NEC unroll(NG12)
             tau_major(1:ng12) = speccomb *    &
              (fac000 * absa(ind0,1:ng12)    + &
               fac100 * absa(ind0+1,1:ng12)  + &
@@ -4108,7 +4108,7 @@ contains
               fac110 * absa(ind0+10,1:ng12) + &
               fac210 * absa(ind0+11,1:ng12))
           else if (specparm .gt. 0.875_wp) then
-!CDIR EXPAND=NG12
+!$NEC unroll(NG12)
             tau_major(1:ng12) = speccomb *   &
              (fac200 * absa(ind0-1,1:ng12) + &
               fac100 * absa(ind0,1:ng12)   + &
@@ -4117,7 +4117,7 @@ contains
               fac110 * absa(ind0+9,1:ng12) + &
               fac010 * absa(ind0+10,1:ng12))
           else
-!CDIR EXPAND=NG12
+!$NEC unroll(NG12)
             tau_major(1:ng12) = speccomb *   &
              (fac000 * absa(ind0,1:ng12)   + &
               fac100 * absa(ind0+1,1:ng12) + &
@@ -4126,7 +4126,7 @@ contains
           endif
 
           if (specparm1 .lt. 0.125_wp) then
-!CDIR EXPAND=NG12
+!$NEC unroll(NG12)
             tau_major1(1:ng12) = speccomb1 *  &
              (fac001 * absa(ind1,1:ng12)    + &
               fac101 * absa(ind1+1,1:ng12)  + &
@@ -4135,7 +4135,7 @@ contains
               fac111 * absa(ind1+10,1:ng12) + &
               fac211 * absa(ind1+11,1:ng12))
           else if (specparm1 .gt. 0.875_wp) then
-!CDIR EXPAND=NG12
+!$NEC unroll(NG12)
             tau_major1(1:ng12) = speccomb1 * &
              (fac201 * absa(ind1-1,1:ng12) + &
               fac101 * absa(ind1,1:ng12)   + &
@@ -4144,7 +4144,7 @@ contains
               fac111 * absa(ind1+9,1:ng12) + &
               fac011 * absa(ind1+10,1:ng12))
           else
-!CDIR EXPAND=NG12
+!$NEC unroll(NG12)
             tau_major1(1:ng12) = speccomb1 * &
              (fac001 * absa(ind1,1:ng12)   + &
               fac101 * absa(ind1+1,1:ng12) + &
@@ -4152,7 +4152,7 @@ contains
               fac111 * absa(ind1+10,1:ng12))
           endif
 
-!CDIR EXPAND=NG12
+!$NEC unroll(NG12)
           do ig = 1, ng12
             tauself = selffac(jl,lay)* (selfref(inds,ig) + selffrac(jl,lay) * &
                  (selfref(inds+1,ig) - selfref(inds,ig)))
@@ -4185,7 +4185,7 @@ contains
       do lay = laytrop_min+1, laytrop_max
         ixc0 = ixc(lay)
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         do ixp = 1, ixc0
           jl = ixlow(ixp,lay)
 
@@ -4279,7 +4279,7 @@ contains
           endif
 
           if (specparm .lt. 0.125_wp) then
-!CDIR EXPAND=NG12
+!$NEC unroll(NG12)
             tau_major(1:ng12) = speccomb *    &
              (fac000 * absa(ind0,1:ng12)    + &
               fac100 * absa(ind0+1,1:ng12)  + &
@@ -4288,7 +4288,7 @@ contains
               fac110 * absa(ind0+10,1:ng12) + &
               fac210 * absa(ind0+11,1:ng12))
           else if (specparm .gt. 0.875_wp) then
-!CDIR EXPAND=NG12
+!$NEC unroll(NG12)
             tau_major(1:ng12) = speccomb *   &
              (fac200 * absa(ind0-1,1:ng12) + &
               fac100 * absa(ind0,1:ng12)   + &
@@ -4297,7 +4297,7 @@ contains
               fac110 * absa(ind0+9,1:ng12) + &
               fac010 * absa(ind0+10,1:ng12))
           else
-!CDIR EXPAND=NG12
+!$NEC unroll(NG12)
             tau_major(1:ng12) = speccomb *   &
              (fac000 * absa(ind0,1:ng12)   + &
               fac100 * absa(ind0+1,1:ng12) + &
@@ -4306,7 +4306,7 @@ contains
           endif
 
           if (specparm1 .lt. 0.125_wp) then
-!CDIR EXPAND=NG12
+!$NEC unroll(NG12)
             tau_major1(1:ng12) = speccomb1 *  &
              (fac001 * absa(ind1,1:ng12)    + &
               fac101 * absa(ind1+1,1:ng12)  + &
@@ -4315,7 +4315,7 @@ contains
               fac111 * absa(ind1+10,1:ng12) + &
               fac211 * absa(ind1+11,1:ng12))
           else if (specparm1 .gt. 0.875_wp) then
-!CDIR EXPAND=NG12
+!$NEC unroll(NG12)
             tau_major1(1:ng12) = speccomb1 * &
              (fac201 * absa(ind1-1,1:ng12) + &
               fac101 * absa(ind1,1:ng12)   + &
@@ -4324,7 +4324,7 @@ contains
               fac111 * absa(ind1+9,1:ng12) + &
               fac011 * absa(ind1+10,1:ng12))
           else
-!CDIR EXPAND=NG12
+!$NEC unroll(NG12)
             tau_major1(1:ng12) = speccomb1 * &
              (fac001 * absa(ind1,1:ng12)   + &
               fac101 * absa(ind1+1,1:ng12) + &
@@ -4332,7 +4332,7 @@ contains
               fac111 * absa(ind1+10,1:ng12))
           endif
 
-!CDIR EXPAND=NG12
+!$NEC unroll(NG12)
           do ig = 1, ng12
             tauself = selffac(jl,lay)* (selfref(inds,ig) + selffrac(jl,lay) * &
                  (selfref(inds+1,ig) - selfref(inds,ig)))
@@ -4350,7 +4350,7 @@ contains
         ixc0 = kproma - ixc0
 
         do ig = 1, ng12
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
           do ixp = 1, ixc0
             jl = ixhigh(ixp,lay)
 
@@ -4372,8 +4372,8 @@ contains
 
       ! ------- Modules -------
 
-      use mo_lrtm_par, only : ng13, ngs12
-      use rrlw_kg13,   only : fracrefa, fracrefb, absa, &
+      use mo_lrtm_par,    only : ng13, ngs12
+      use mo_rrlw_kg13,   only : fracrefa, fracrefb, absa, &
            ka_mco2, ka_mco, kb_mo3, selfref, forref
 
       ! ------- Declarations -------
@@ -4540,7 +4540,7 @@ contains
           endif
 
           if (specparm .lt. 0.125_wp) then
-!CDIR EXPAND=NG13
+!$NEC unroll(NG13)
             tau_major(1:ng13) = speccomb *    &
              (fac000 * absa(ind0,1:ng13)    + &
               fac100 * absa(ind0+1,1:ng13)  + &
@@ -4549,7 +4549,7 @@ contains
               fac110 * absa(ind0+10,1:ng13) + &
               fac210 * absa(ind0+11,1:ng13))
           else if (specparm .gt. 0.875_wp) then
-!CDIR EXPAND=NG13
+!$NEC unroll(NG13)
             tau_major(1:ng13) = speccomb *   &
              (fac200 * absa(ind0-1,1:ng13) + &
               fac100 * absa(ind0,1:ng13)   + &
@@ -4558,7 +4558,7 @@ contains
               fac110 * absa(ind0+9,1:ng13) + &
               fac010 * absa(ind0+10,1:ng13))
           else
-!CDIR EXPAND=NG13
+!$NEC unroll(NG13)
             tau_major(1:ng13) = speccomb *   &
              (fac000 * absa(ind0,1:ng13)   + &
               fac100 * absa(ind0+1,1:ng13) + &
@@ -4567,7 +4567,7 @@ contains
           endif
 
           if (specparm1 .lt. 0.125_wp) then
-!CDIR EXPAND=NG13
+!$NEC unroll(NG13)
             tau_major1(1:ng13) = speccomb1 *  &
              (fac001 * absa(ind1,1:ng13)    + &
               fac101 * absa(ind1+1,1:ng13)  + &
@@ -4576,7 +4576,7 @@ contains
               fac111 * absa(ind1+10,1:ng13) + &
               fac211 * absa(ind1+11,1:ng13))
           else if (specparm1 .gt. 0.875_wp) then
-!CDIR EXPAND=NG13
+!$NEC unroll(NG13)
             tau_major1(1:ng13) = speccomb1 * &
              (fac201 * absa(ind1-1,1:ng13) + &
               fac101 * absa(ind1,1:ng13)   + &
@@ -4585,7 +4585,7 @@ contains
               fac111 * absa(ind1+9,1:ng13) + &
               fac011 * absa(ind1+10,1:ng13))
           else
-!CDIR EXPAND=NG13
+!$NEC unroll(NG13)
             tau_major1(1:ng13) = speccomb1 * &
              (fac001 * absa(ind1,1:ng13)   + &
               fac101 * absa(ind1+1,1:ng13) + &
@@ -4593,7 +4593,7 @@ contains
               fac111 * absa(ind1+10,1:ng13))
           endif
 
-!CDIR EXPAND=NG13
+!$NEC unroll(NG13)
           do ig = 1, ng13
             tauself = selffac(jl,lay)* (selfref(inds,ig) + selffrac(jl,lay) * &
                  (selfref(inds+1,ig) - selfref(inds,ig)))
@@ -4626,7 +4626,7 @@ contains
         do jl = 1, kproma
 
           indm = indminor(jl,lay)
-!CDIR EXPAND=NG13
+!$NEC unroll(NG13)
           do ig = 1, ng13
             abso3 = kb_mo3(indm,ig) + minorfrac(jl,lay) * &
                  (kb_mo3(indm+1,ig) - kb_mo3(indm,ig))
@@ -4643,7 +4643,7 @@ contains
       do lay = laytrop_min+1, laytrop_max
         ixc0 = ixc(lay)
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         do ixp = 1, ixc0
           jl = ixlow(ixp,lay)
 
@@ -4762,7 +4762,7 @@ contains
           endif
 
           if (specparm .lt. 0.125_wp) then
-!CDIR EXPAND=NG13
+!$NEC unroll(NG13)
             tau_major(1:ng13) = speccomb *    &
              (fac000 * absa(ind0,1:ng13)    + &
               fac100 * absa(ind0+1,1:ng13)  + &
@@ -4771,7 +4771,7 @@ contains
               fac110 * absa(ind0+10,1:ng13) + &
               fac210 * absa(ind0+11,1:ng13))
           else if (specparm .gt. 0.875_wp) then
-!CDIR EXPAND=NG13
+!$NEC unroll(NG13)
             tau_major(1:ng13) = speccomb *   &
              (fac200 * absa(ind0-1,1:ng13) + &
               fac100 * absa(ind0,1:ng13)   + &
@@ -4780,7 +4780,7 @@ contains
               fac110 * absa(ind0+9,1:ng13) + &
               fac010 * absa(ind0+10,1:ng13))
           else
-!CDIR EXPAND=NG13
+!$NEC unroll(NG13)
             tau_major(1:ng13) = speccomb *   &
              (fac000 * absa(ind0,1:ng13)   + &
               fac100 * absa(ind0+1,1:ng13) + &
@@ -4789,7 +4789,7 @@ contains
           endif
 
           if (specparm1 .lt. 0.125_wp) then
-!CDIR EXPAND=NG13
+!$NEC unroll(NG13)
             tau_major1(1:ng13) = speccomb1 *  &
              (fac001 * absa(ind1,1:ng13)    + &
               fac101 * absa(ind1+1,1:ng13)  + &
@@ -4798,7 +4798,7 @@ contains
               fac111 * absa(ind1+10,1:ng13) + &
               fac211 * absa(ind1+11,1:ng13))
           else if (specparm1 .gt. 0.875_wp) then
-!CDIR EXPAND=NG13
+!$NEC unroll(NG13)
             tau_major1(1:ng13) = speccomb1 * &
              (fac201 * absa(ind1-1,1:ng13) + &
               fac101 * absa(ind1,1:ng13)   + &
@@ -4807,7 +4807,7 @@ contains
               fac111 * absa(ind1+9,1:ng13) + &
               fac011 * absa(ind1+10,1:ng13))
           else
-!CDIR EXPAND=NG13
+!$NEC unroll(NG13)
             tau_major1(1:ng13) = speccomb1 * &
              (fac001 * absa(ind1,1:ng13)   + &
               fac101 * absa(ind1+1,1:ng13) + &
@@ -4815,7 +4815,7 @@ contains
               fac111 * absa(ind1+10,1:ng13))
           endif
 
-!CDIR EXPAND=NG13
+!$NEC unroll(NG13)
           do ig = 1, ng13
             tauself = selffac(jl,lay)* (selfref(inds,ig) + selffrac(jl,lay) * &
                  (selfref(inds+1,ig) - selfref(inds,ig)))
@@ -4843,12 +4843,12 @@ contains
 
         ! Upper atmosphere part
         ixc0 = kproma - ixc0
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         do ixp = 1, ixc0
           jl = ixhigh(ixp,lay)
 
           indm = indminor(jl,lay)
-!CDIR EXPAND=NG13
+!$NEC unroll(NG13)
           do ig = 1, ng13
             abso3 = kb_mo3(indm,ig) + minorfrac(jl,lay) * &
                  (kb_mo3(indm+1,ig) - kb_mo3(indm,ig))
@@ -4870,8 +4870,8 @@ contains
 
       ! ------- Modules -------
 
-      use mo_lrtm_par, only : ng14, ngs13
-      use rrlw_kg14,   only : fracrefa, fracrefb, absa, absb, &
+      use mo_lrtm_par,    only : ng14, ngs13
+      use mo_rrlw_kg14,   only : fracrefa, fracrefb, absa, absb, &
            selfref, forref
 
       ! ------- Declarations -------
@@ -4894,7 +4894,7 @@ contains
           ind1 = (jp(jl,lay)*5+(jt1(jl,lay)-1))*nspa(14) + 1
           inds = indself(jl,lay)
           indf = indfor(jl,lay)
-!CDIR EXPAND=NG14
+!$NEC unroll(NG14)
           do ig = 1, ng14
             tauself = selffac(jl,lay) * (selfref(inds,ig) + selffrac(jl,lay) * &
                  (selfref(inds+1,ig) - selfref(inds,ig)))
@@ -4918,7 +4918,7 @@ contains
 
           ind0 = ((jp(jl,lay)-13)*5+(jt(jl,lay)-1))*nspb(14) + 1
           ind1 = ((jp(jl,lay)-12)*5+(jt1(jl,lay)-1))*nspb(14) + 1
-!CDIR EXPAND=NG14
+!$NEC unroll(NG14)
           do ig = 1, ng14
             taug(jl,lay,ngs13+ig) = colco2(jl,lay) * &
                  (fac00(jl,lay) * absb(ind0,ig) + &
@@ -4936,7 +4936,7 @@ contains
       ! Lower atmosphere part
       do lay = laytrop_min+1, laytrop_max
         ixc0 = ixc(lay)
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         do ixp = 1, ixc0
           jl = ixlow(ixp,lay)
 
@@ -4944,7 +4944,7 @@ contains
           ind1 = (jp(jl,lay)*5+(jt1(jl,lay)-1))*nspa(14) + 1
           inds = indself(jl,lay)
           indf = indfor(jl,lay)
-!CDIR EXPAND=NG14
+!$NEC unroll(NG14)
           do ig = 1, ng14
             tauself = selffac(jl,lay) * (selfref(inds,ig) + selffrac(jl,lay) * &
                  (selfref(inds+1,ig) - selfref(inds,ig)))
@@ -4962,13 +4962,13 @@ contains
 
         ! Upper atmosphere part
         ixc0 = kproma - ixc0
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         do ixp = 1, ixc0
           jl = ixhigh(ixp,lay)
 
           ind0 = ((jp(jl,lay)-13)*5+(jt(jl,lay)-1))*nspb(14) + 1
           ind1 = ((jp(jl,lay)-12)*5+(jt1(jl,lay)-1))*nspb(14) + 1
-!CDIR EXPAND=NG14
+!$NEC unroll(NG14)
           do ig = 1, ng14
             taug(jl,lay,ngs13+ig) = colco2(jl,lay) * &
                  (fac00(jl,lay) * absb(ind0,ig) + &
@@ -4993,8 +4993,8 @@ contains
 
       ! ------- Modules -------
 
-      use mo_lrtm_par, only : ng15, ngs14
-      use rrlw_kg15,   only : fracrefa, absa, &
+      use mo_lrtm_par,    only : ng15, ngs14
+      use mo_rrlw_kg15,   only : fracrefa, absa, &
            ka_mn2, selfref, forref
 
       ! ------- Declarations -------
@@ -5136,7 +5136,7 @@ contains
           endif
 
           if (specparm .lt. 0.125_wp) then
-!CDIR EXPAND=NG15
+!$NEC unroll(NG15)
             tau_major(1:ng15) = speccomb *    &
              (fac000 * absa(ind0,1:ng15)    + &
               fac100 * absa(ind0+1,1:ng15)  + &
@@ -5145,7 +5145,7 @@ contains
               fac110 * absa(ind0+10,1:ng15) + &
               fac210 * absa(ind0+11,1:ng15))
           else if (specparm .gt. 0.875_wp) then
-!CDIR EXPAND=NG15
+!$NEC unroll(NG15)
             tau_major(1:ng15) = speccomb *   &
              (fac200 * absa(ind0-1,1:ng15) + &
               fac100 * absa(ind0,1:ng15)   + &
@@ -5154,7 +5154,7 @@ contains
               fac110 * absa(ind0+9,1:ng15) + &
               fac010 * absa(ind0+10,1:ng15))
           else
-!CDIR EXPAND=NG15
+!$NEC unroll(NG15)
             tau_major(1:ng15) = speccomb *   &
              (fac000 * absa(ind0,1:ng15)   + &
               fac100 * absa(ind0+1,1:ng15) + &
@@ -5163,7 +5163,7 @@ contains
           endif
 
           if (specparm1 .lt. 0.125_wp) then
-!CDIR EXPAND=NG15
+!$NEC unroll(NG15)
             tau_major1(1:ng15) = speccomb1 *  &
              (fac001 * absa(ind1,1:ng15)    + &
               fac101 * absa(ind1+1,1:ng15)  + &
@@ -5172,7 +5172,7 @@ contains
               fac111 * absa(ind1+10,1:ng15) + &
               fac211 * absa(ind1+11,1:ng15))
           else if (specparm1 .gt. 0.875_wp) then
-!CDIR EXPAND=NG15
+!$NEC unroll(NG15)
             tau_major1(1:ng15) = speccomb1 * &
              (fac201 * absa(ind1-1,1:ng15) + &
               fac101 * absa(ind1,1:ng15)   + &
@@ -5181,7 +5181,7 @@ contains
               fac111 * absa(ind1+9,1:ng15) + &
               fac011 * absa(ind1+10,1:ng15))
           else
-!CDIR EXPAND=NG15
+!$NEC unroll(NG15)
             tau_major1(1:ng15) = speccomb1 * &
              (fac001 * absa(ind1,1:ng15)   + &
               fac101 * absa(ind1+1,1:ng15) + &
@@ -5189,7 +5189,7 @@ contains
               fac111 * absa(ind1+10,1:ng15))
           endif
 
-!CDIR EXPAND=NG15
+!$NEC unroll(NG15)
           do ig = 1, ng15
             tauself = selffac(jl,lay)* (selfref(inds,ig) + selffrac(jl,lay) * &
                  (selfref(inds+1,ig) - selfref(inds,ig)))
@@ -5226,7 +5226,7 @@ contains
       do lay = laytrop_min+1, laytrop_max
         ixc0 = ixc(lay)
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         do ixp = 1, ixc0
           jl = ixlow(ixp,lay)
 
@@ -5329,7 +5329,7 @@ contains
           endif
 
           if (specparm .lt. 0.125_wp) then
-!CDIR EXPAND=NG15
+!$NEC unroll(NG15)
             tau_major(1:ng15) = speccomb *    &
              (fac000 * absa(ind0,1:ng15)    + &
               fac100 * absa(ind0+1,1:ng15)  + &
@@ -5338,7 +5338,7 @@ contains
               fac110 * absa(ind0+10,1:ng15) + &
               fac210 * absa(ind0+11,1:ng15))
           else if (specparm .gt. 0.875_wp) then
-!CDIR EXPAND=NG15
+!$NEC unroll(NG15)
             tau_major(1:ng15) = speccomb *   &
              (fac200 * absa(ind0-1,1:ng15) + &
               fac100 * absa(ind0,1:ng15)   + &
@@ -5347,7 +5347,7 @@ contains
               fac110 * absa(ind0+9,1:ng15) + &
               fac010 * absa(ind0+10,1:ng15))
           else
-!CDIR EXPAND=NG15
+!$NEC unroll(NG15)
             tau_major(1:ng15) = speccomb *   &
              (fac000 * absa(ind0,1:ng15)   + &
               fac100 * absa(ind0+1,1:ng15) + &
@@ -5356,7 +5356,7 @@ contains
           endif
 
           if (specparm1 .lt. 0.125_wp) then
-!CDIR EXPAND=NG15
+!$NEC unroll(NG15)
             tau_major1(1:ng15) = speccomb1 *  &
              (fac001 * absa(ind1,1:ng15)    + &
               fac101 * absa(ind1+1,1:ng15)  + &
@@ -5365,7 +5365,7 @@ contains
               fac111 * absa(ind1+10,1:ng15) + &
               fac211 * absa(ind1+11,1:ng15))
           else if (specparm1 .gt. 0.875_wp) then
-!CDIR EXPAND=NG15
+!$NEC unroll(NG15)
             tau_major1(1:ng15) = speccomb1 * &
              (fac201 * absa(ind1-1,1:ng15) + &
               fac101 * absa(ind1,1:ng15)   + &
@@ -5374,7 +5374,7 @@ contains
               fac111 * absa(ind1+9,1:ng15) + &
               fac011 * absa(ind1+10,1:ng15))
           else
-!CDIR EXPAND=NG15
+!$NEC unroll(NG15)
             tau_major1(1:ng15) = speccomb1 * &
              (fac001 * absa(ind1,1:ng15)   + &
               fac101 * absa(ind1+1,1:ng15) + &
@@ -5382,7 +5382,7 @@ contains
               fac111 * absa(ind1+10,1:ng15))
           endif
 
-!CDIR EXPAND=NG15
+!$NEC unroll(NG15)
           do ig = 1, ng15
             tauself = selffac(jl,lay)* (selfref(inds,ig) + selffrac(jl,lay) * &
                  (selfref(inds+1,ig) - selfref(inds,ig)))
@@ -5406,7 +5406,7 @@ contains
         ixc0 = kproma - ixc0
 
         do ig = 1, ng15
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
           do ixp = 1, ixc0
             jl = ixhigh(ixp,lay)
 
@@ -5428,8 +5428,8 @@ contains
 
       ! ------- Modules -------
 
-      use mo_lrtm_par, only : ng16, ngs15
-      use rrlw_kg16,   only : fracrefa, fracrefb, absa, absb, &
+      use mo_lrtm_par,    only : ng16, ngs15
+      use mo_rrlw_kg16,   only : fracrefa, fracrefb, absa, absb, &
            selfref, forref
 
       ! ------- Declarations -------
@@ -5556,7 +5556,7 @@ contains
           endif
 
           if (specparm .lt. 0.125_wp) then
-!CDIR EXPAND=NG16
+!$NEC unroll(NG16)
             tau_major(1:ng16) = speccomb *    &
              (fac000 * absa(ind0,1:ng16)    + &
               fac100 * absa(ind0+1,1:ng16)  + &
@@ -5565,7 +5565,7 @@ contains
               fac110 * absa(ind0+10,1:ng16) + &
               fac210 * absa(ind0+11,1:ng16))
           else if (specparm .gt. 0.875_wp) then
-!CDIR EXPAND=NG16
+!$NEC unroll(NG16)
             tau_major(1:ng16) = speccomb *   &
              (fac200 * absa(ind0-1,1:ng16) + &
               fac100 * absa(ind0,1:ng16)   + &
@@ -5574,7 +5574,7 @@ contains
               fac110 * absa(ind0+9,1:ng16) + &
               fac010 * absa(ind0+10,1:ng16))
           else
-!CDIR EXPAND=NG16
+!$NEC unroll(NG16)
              tau_major(1:ng16) = speccomb *   &
               (fac000 * absa(ind0,1:ng16)   + &
                fac100 * absa(ind0+1,1:ng16) + &
@@ -5583,7 +5583,7 @@ contains
           endif
 
           if (specparm1 .lt. 0.125_wp) then
-!CDIR EXPAND=NG16
+!$NEC unroll(NG16)
              tau_major1(1:ng16) = speccomb1 *  &
               (fac001 * absa(ind1,1:ng16)    + &
                fac101 * absa(ind1+1,1:ng16)  + &
@@ -5592,7 +5592,7 @@ contains
                fac111 * absa(ind1+10,1:ng16) + &
                fac211 * absa(ind1+11,1:ng16))
           else if (specparm1 .gt. 0.875_wp) then
-!CDIR EXPAND=NG16
+!$NEC unroll(NG16)
             tau_major1(1:ng16) = speccomb1 * &
              (fac201 * absa(ind1-1,1:ng16) + &
               fac101 * absa(ind1,1:ng16)   + &
@@ -5601,7 +5601,7 @@ contains
               fac111 * absa(ind1+9,1:ng16) + &
               fac011 * absa(ind1+10,1:ng16))
           else
-!CDIR EXPAND=NG16
+!$NEC unroll(NG16)
             tau_major1(1:ng16) = speccomb1 * &
              (fac001 * absa(ind1,1:ng16)   + &
               fac101 * absa(ind1+1,1:ng16) + &
@@ -5609,7 +5609,7 @@ contains
               fac111 * absa(ind1+10,1:ng16))
           endif
 
-!CDIR EXPAND=NG16
+!$NEC unroll(NG16)
           do ig = 1, ng16
             tauself = selffac(jl,lay)* (selfref(inds,ig) + selffrac(jl,lay) * &
                  (selfref(inds+1,ig) - selfref(inds,ig)))
@@ -5631,7 +5631,7 @@ contains
 
           ind0 = ((jp(jl,lay)-13)*5+(jt(jl,lay)-1))*nspb(16) + 1
           ind1 = ((jp(jl,lay)-12)*5+(jt1(jl,lay)-1))*nspb(16) + 1
-!CDIR EXPAND=NG16
+!$NEC unroll(NG16)
           do ig = 1, ng16
             taug(jl,lay,ngs15+ig) = colch4(jl,lay) * &
                  (fac00(jl,lay) * absb(ind0,ig) + &
@@ -5650,7 +5650,7 @@ contains
       do lay = laytrop_min+1, laytrop_max
         ixc0 = ixc(lay)
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         do ixp = 1, ixc0
           jl = ixlow(ixp,lay)
 
@@ -5744,7 +5744,7 @@ contains
           endif
 
           if (specparm .lt. 0.125_wp) then
-!CDIR EXPAND=NG16
+!$NEC unroll(NG16)
             tau_major(1:ng16) = speccomb *    &
              (fac000 * absa(ind0,1:ng16)    + &
               fac100 * absa(ind0+1,1:ng16)  + &
@@ -5753,7 +5753,7 @@ contains
               fac110 * absa(ind0+10,1:ng16) + &
               fac210 * absa(ind0+11,1:ng16))
           else if (specparm .gt. 0.875_wp) then
-!CDIR EXPAND=NG16
+!$NEC unroll(NG16)
             tau_major(1:ng16) = speccomb *   &
              (fac200 * absa(ind0-1,1:ng16) + &
               fac100 * absa(ind0,1:ng16)   + &
@@ -5762,7 +5762,7 @@ contains
               fac110 * absa(ind0+9,1:ng16) + &
               fac010 * absa(ind0+10,1:ng16))
           else
-!CDIR EXPAND=NG16
+!$NEC unroll(NG16)
              tau_major(1:ng16) = speccomb *   &
               (fac000 * absa(ind0,1:ng16)   + &
                fac100 * absa(ind0+1,1:ng16) + &
@@ -5771,7 +5771,7 @@ contains
           endif
 
           if (specparm1 .lt. 0.125_wp) then
-!CDIR EXPAND=NG16
+!$NEC unroll(NG16)
              tau_major1(1:ng16) = speccomb1 *  &
               (fac001 * absa(ind1,1:ng16)    + &
                fac101 * absa(ind1+1,1:ng16)  + &
@@ -5780,7 +5780,7 @@ contains
                fac111 * absa(ind1+10,1:ng16) + &
                fac211 * absa(ind1+11,1:ng16))
           else if (specparm1 .gt. 0.875_wp) then
-!CDIR EXPAND=NG16
+!$NEC unroll(NG16)
             tau_major1(1:ng16) = speccomb1 * &
              (fac201 * absa(ind1-1,1:ng16) + &
               fac101 * absa(ind1,1:ng16)   + &
@@ -5789,7 +5789,7 @@ contains
               fac111 * absa(ind1+9,1:ng16) + &
               fac011 * absa(ind1+10,1:ng16))
           else
-!CDIR EXPAND=NG16
+!$NEC unroll(NG16)
             tau_major1(1:ng16) = speccomb1 * &
              (fac001 * absa(ind1,1:ng16)   + &
               fac101 * absa(ind1+1,1:ng16) + &
@@ -5797,7 +5797,7 @@ contains
               fac111 * absa(ind1+10,1:ng16))
           endif
 
-!CDIR EXPAND=NG16
+!$NEC unroll(NG16)
           do ig = 1, ng16
             tauself = selffac(jl,lay)* (selfref(inds,ig) + selffrac(jl,lay) * &
                  (selfref(inds+1,ig) - selfref(inds,ig)))
@@ -5813,13 +5813,13 @@ contains
 
         ! Upper atmosphere part
         ixc0 = kproma - ixc0
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         do ixp = 1, ixc0
           jl = ixhigh(ixp,lay)
 
           ind0 = ((jp(jl,lay)-13)*5+(jt(jl,lay)-1))*nspb(16) + 1
           ind1 = ((jp(jl,lay)-12)*5+(jt1(jl,lay)-1))*nspb(16) + 1
-!CDIR EXPAND=NG16
+!$NEC unroll(NG16)
           do ig = 1, ng16
             taug(jl,lay,ngs15+ig) = colch4(jl,lay) * &
                  (fac00(jl,lay) * absb(ind0,ig) + &

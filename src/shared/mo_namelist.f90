@@ -46,6 +46,7 @@ MODULE mo_namelist
 
   PUBLIC :: open_nml_output
   PUBLIC :: close_nml_output
+  PUBLIC :: nnml
 
   !  return values of function 'position_nml':
 
@@ -106,8 +107,9 @@ CONTAINS
   !! @par Revision History
   !!  Luis Kornblueh, MPI-M, Hamburg, March 2001
   !!
-  SUBROUTINE position_nml (name, lrewind, status)
+  SUBROUTINE position_nml (name, unit, lrewind, status)
     CHARACTER(len=*), INTENT(in)            :: name    ! namelist group name
+    INTEGER,          INTENT(in)  ,OPTIONAL :: unit    ! file unit number
     LOGICAL,          INTENT(in)  ,OPTIONAL :: lrewind ! default: true
     INTEGER,          INTENT(out) ,OPTIONAL :: status  ! error return value
 
@@ -116,6 +118,7 @@ CONTAINS
     INTEGER            :: stat      ! local copy of status variable
     INTEGER            :: ios       ! status variable from read operation
     LOGICAL            :: l_lrewind ! local copy of rewind flag
+    INTEGER            :: iunit     ! local copy of unit number
     INTEGER            :: len_name  ! length of requested namelist group name
     CHARACTER          :: ytest     ! character to test for delimiter
     CHARACTER(len=12)  :: code      ! error code printed
@@ -125,6 +128,7 @@ CONTAINS
 !-------------------------------------------------------------------------
 
     l_lrewind  = .TRUE.   ; IF (PRESENT(lrewind)) l_lrewind  = lrewind
+    iunit      =  nnml    ; IF (PRESENT(unit  ))  iunit      = unit
     stat  =  MISSING
     code  = 'MISSING'
 
@@ -139,7 +143,7 @@ CONTAINS
 
     ! Reposition file at beginning:
 
-    IF (l_lrewind) REWIND (nnml)
+    IF (l_lrewind) REWIND (iunit)
 
     ! Search start of namelist
 
@@ -148,7 +152,7 @@ CONTAINS
 
       yline = ' '
 
-      READ (nnml,'(a)',IOSTAT=ios) yline
+      READ (iunit,'(a)',IOSTAT=ios) yline
       IF (ios < 0) THEN
         EXIT  ! MISSING
       ELSE IF (ios > 0) THEN
@@ -178,7 +182,7 @@ CONTAINS
         CYCLE
       ELSE
         stat = POSITIONED
-        BACKSPACE (nnml)
+        BACKSPACE (iunit)
         EXIT
       END IF
     ENDDO

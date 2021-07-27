@@ -41,8 +41,9 @@ MODULE mo_vertical_grid
   USE mo_parallel_config,       ONLY: nproma, p_test_run
   USE mo_run_config,            ONLY: msg_level
   USE mo_vertical_coord_table,  ONLY: vct_a
-  USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH, max_dom, RAYLEIGH_CLASSIC, &
-    &                                 RAYLEIGH_KLEMP, min_rlcell_int, min_rlcell, min_rledge_int
+  USE mo_impl_constants,        ONLY: max_dom, RAYLEIGH_CLASSIC, &
+    &                                 RAYLEIGH_KLEMP, min_rlcell_int, min_rlcell, min_rledge_int, &
+    &                                 SUCCESS
   USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c, grf_bdywidth_e, grf_fbk_start_c, &
                                       grf_nudge_start_e, grf_nudgezone_width
   USE mo_physical_constants,    ONLY: grav, p0ref, rd, rd_o_cpd, cpd, p0sl_bg, rgrav
@@ -52,16 +53,26 @@ MODULE mo_vertical_grid
   USE mo_intp_rbf,              ONLY: rbf_vec_interpol_cell
   USE mo_math_constants,        ONLY: pi_2
   USE mo_loopindices,           ONLY: get_indices_e, get_indices_c
-  USE mo_nonhydro_types,        ONLY: t_nh_state
+  USE mo_nonhydro_types,        ONLY: t_nh_state, t_nh_state_lists
   USE mo_init_vgrid,            ONLY: nflatlev
+  USE mo_util_vgrid_types,      ONLY: vgrid_buffer
   USE mo_sync,                  ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, global_sum_array, &
                                       sync_patch_array_mult, global_min, global_max
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_les_config,           ONLY: les_config
   USE mo_impl_constants,       ONLY: min_rlvert_int
-  USE mo_data_turbdiff,        ONLY: akt
+  USE turb_data,               ONLY: akt
   USE mo_fortran_tools,        ONLY: init
-
+  USE mo_util_string,          ONLY: int2string, real2string
+  USE mo_mpi,                  ONLY: my_process_is_stdio
+  USE mo_util_table,           ONLY: t_table, initialize_table, add_table_column, &
+    &                                set_table_entry, print_table, finalize_table
+  USE mo_nudging_config,       ONLY: nudging_config, indg_profile
+  USE mo_dynamics_config,      ONLY: ldeepatmo
+  USE mo_nh_deepatmo_utils,    ONLY: set_deepatmo_metrics
+  USE mo_echam_vdf_config,     ONLY: echam_vdf_config
+  USE mo_var_list,             ONLY: t_var_list_ptr
+  USE mo_nonhydro_state,       ONLY: new_zd_metrics  
   IMPLICIT NONE
 
   PRIVATE
@@ -79,6 +90,7 @@ MODULE mo_vertical_grid
 
   PUBLIC :: set_nh_metrics, nrdmax, nflat_gradp
 
+  CHARACTER(*), PARAMETER :: modname = 'mo_vertical_grid'
   CONTAINS
 
 
@@ -92,14 +104,14 @@ MODULE mo_vertical_grid
   !! Modification by Almut Gassmann (2009-11-17)
   !! - Adding Rayleigh damping coeff. at upper boundary
   !!
-  SUBROUTINE set_nh_metrics(p_patch, p_nh, p_int, ext_data)
+  SUBROUTINE set_nh_metrics(p_patch, p_nh, p_nh_lists, p_int, ext_data)
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_vertical_grid:set_nh_metrics'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':set_nh_metrics'
 
     TYPE(t_patch),     TARGET, INTENT(INOUT) :: p_patch(n_dom)  !< patch
     TYPE(t_nh_state),          INTENT(INOUT) :: p_nh(n_dom)
     TYPE(t_int_state), TARGET, INTENT(   IN) :: p_int(n_dom)
+    TYPE(t_nh_state_lists),    INTENT(INOUT) :: p_nh_lists(n_dom)
     TYPE(t_external_data),     INTENT(INOUT) :: ext_data(n_dom)
 
     INTEGER :: jg, jk, jk1, jk_start, jb, jc, je, jn, jgc, nlen, &
@@ -124,6 +136,7 @@ MODULE mo_vertical_grid
     INTEGER,  ALLOCATABLE :: flat_idx(:,:), imask(:,:,:),icount(:)
     INTEGER,  DIMENSION(:,:,:), POINTER :: iidx, iblk, inidx, inblk
     LOGICAL :: l_found(nproma), lfound_all
+    INTEGER :: error_status
 
 #ifdef INTEL_COMPILER
 !DIR$ ATTRIBUTES ALIGN : 64 :: ica,z_help,z_temp,z_aux1,z_aux2,l_found
@@ -151,9 +164,10 @@ MODULE mo_vertical_grid
       ENDIF
 
       IF (jg > 1 .AND. p_patch(jg)%nshift_total > 0 .AND. nflatlev(jg) <= 1) THEN
-        CALL finish (TRIM(routine), &
+        CALL finish (routine, &
                      'flat_height too close to the top of the innermost nested domain')
       ENDIF
+
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, nlen, jk) ICON_OMP_DEFAULT_SCHEDULE
@@ -163,7 +177,15 @@ MODULE mo_vertical_grid
         ELSE
           nlen = npromz_c
           p_nh(jg)%metrics%z_mc(nlen+1:nproma,:,jb) = 0._wp
+          p_nh(jg)%metrics%z_ifc(nlen+1:nproma,:,jb) = 0._wp
         ENDIF
+        DO jk = 1, nlev+1
+          ! geometric height of half levels
+          !   The 3D coordinate field "z_ifc" exists already in a buffer
+          !   variable of module "mo_util_vgrid_types". We move the data to its
+          !   final place here:
+          p_nh(jg)%metrics%z_ifc(1:nlen,jk,jb) = vgrid_buffer(jg)%z_ifc(1:nlen,jk,jb)
+        ENDDO
         DO jk = 1, nlev
           ! geometric height of full levels
           p_nh(jg)%metrics%z_mc(1:nlen,jk,jb) = 0.5_wp*(p_nh(jg)%metrics%z_ifc(1:nlen,jk,jb) + &
@@ -296,6 +318,11 @@ MODULE mo_vertical_grid
         p_nh(jg)%metrics%ddxt_z_half_e(:,:,:) = z_ddxt_z_half_e(:,:,:)
         p_nh(jg)%metrics%ddxn_z_half_e(:,:,:) = z_ddxn_z_half_e(:,:,:)
       ENDIF
+      IF (echam_vdf_config(jg)%turb == 2) THEN
+        ! remark: ddxt_z_half_e, ddxn_z_half_e in p_nh(jg)%metrics are optionally single precision
+        p_nh(jg)%metrics%ddxt_z_half_e(:,:,:) = z_ddxt_z_half_e(:,:,:)
+        p_nh(jg)%metrics%ddxn_z_half_e(:,:,:) = z_ddxn_z_half_e(:,:,:)
+      ENDIF
 
       ! vertically averaged metrics
 !$OMP PARALLEL
@@ -418,7 +445,6 @@ MODULE mo_vertical_grid
         ENDIF
       ENDDO
 
-
       ! Enhancement coefficient for nabla4 background diffusion near model top
       DO jk = 1, nrdmax(jg)
         jk1 = jk + p_patch(jg)%nshift_total
@@ -436,15 +462,16 @@ MODULE mo_vertical_grid
       IF (msg_level >= 10) THEN
         WRITE(message_text,'(a,i4,a,i4)') 'Domain', jg, &
           '; end index of Rayleigh damping layer for w: ', nrdmax(jg)
-        CALL message(TRIM(routine),message_text)
+        CALL message(routine, message_text)
         WRITE(message_text,'(a)') &
           'Damping coefficient for w; diffusion enhancement coefficient:'
-        CALL message('mo_vertical_grid',message_text)
+        CALL message(modname, message_text)
         DO jk = 1, nrdmax(jg)
           jk1 = jk + p_patch(jg)%nshift_total
-          WRITE(message_text,'(a,i5,a,f8.1,2e13.5)') 'level',jk,', half-level height',vct_a(jk1),&
+          WRITE(message_text,'(a,i5,a,f8.1,2e13.5)') 'level',jk, &
+               ', half-level height',vct_a(jk1), &
             p_nh(jg)%metrics%rayleigh_w(jk),p_nh(jg)%metrics%enhfac_diffu(jk)
-          CALL message('mo_vertical_grid',message_text)
+          CALL message(modname, message_text)
         ENDDO
       ENDIF
 
@@ -609,7 +636,7 @@ MODULE mo_vertical_grid
             ! Second mask field used for gust parameterization
             IF (p_nh(jg)%metrics%z_ifc(jc,nlevp1,jb)-zn_min > 50._wp .AND. p_nh(jg)%metrics%z_ifc(jc,nlevp1,jb) > zn_avg) THEN
               z_aux_c(jc,1,jb) = MIN(1.2_wp,70._wp*MAX(zn_rms,p_nh(jg)%metrics%z_ifc(jc,nlevp1,jb)-zn_avg,  &
-                ext_data(jg)%atm%sso_stdh_raw(jc,jb))/p_patch(jg)%geometry_info%mean_characteristic_length)
+                ext_data(jg)%atm%sso_stdh_raw(jc,jb))/MAX(6750._wp,p_patch(jg)%geometry_info%mean_characteristic_length))
             ELSE
               z_aux_c(jc,1,jb) = 0._wp
             ENDIF
@@ -638,8 +665,7 @@ MODULE mo_vertical_grid
       DEALLOCATE(z_aux_c,z_aux_c2,z_aux_e)
 
       ! Index lists for boundary nudging (including halo cells so that no
-      ! sync is needed afterwards; halo edges are excluded, however, because
-      ! a sync follows afterwards anyway
+      ! sync is needed afterwards)
       ic = 0
       DO jb = 1, nblks_c
         IF (jb /= nblks_c) THEN
@@ -655,7 +681,11 @@ MODULE mo_vertical_grid
       ENDDO
       p_nh(jg)%metrics%nudge_c_dim = ic
 
-      ALLOCATE(p_nh(jg)%metrics%nudge_c_idx(ic),p_nh(jg)%metrics%nudge_c_blk(ic))
+      IF ( ic == 0 ) THEN
+         ALLOCATE(p_nh(jg)%metrics%nudge_c_idx(0:0),p_nh(jg)%metrics%nudge_c_blk(0:0))
+      ELSE
+         ALLOCATE(p_nh(jg)%metrics%nudge_c_idx(ic),p_nh(jg)%metrics%nudge_c_blk(ic))
+      ENDIF
       ic = 0
       DO jb = 1, nblks_c
         IF (jb /= nblks_c) THEN
@@ -672,6 +702,8 @@ MODULE mo_vertical_grid
         ENDDO
       ENDDO
 
+!$ACC ENTER DATA COPYIN( p_nh(jg)%metrics%nudge_c_idx, p_nh(jg)%metrics%nudge_c_blk )
+
       ic = 0
       DO jb = 1, nblks_e
         IF (jb /= nblks_e) THEN
@@ -680,15 +712,18 @@ MODULE mo_vertical_grid
           nlen = npromz_e
         ENDIF
         DO je = 1, nlen
-          IF (p_patch(jg)%edges%decomp_info%owner_mask(je,jb) .AND.     &
-              p_int(jg)%nudgecoeff_e(je,jb) > 1.e-10_wp) THEN
+          IF (p_int(jg)%nudgecoeff_e(je,jb) > 1.e-10_wp) THEN
             ic = ic+1
           ENDIF
         ENDDO
       ENDDO
       p_nh(jg)%metrics%nudge_e_dim = ic
 
-      ALLOCATE(p_nh(jg)%metrics%nudge_e_idx(ic),p_nh(jg)%metrics%nudge_e_blk(ic))
+      IF ( ic == 0 ) THEN
+         ALLOCATE(p_nh(jg)%metrics%nudge_e_idx(0:0),p_nh(jg)%metrics%nudge_e_blk(0:0))
+      ELSE
+         ALLOCATE(p_nh(jg)%metrics%nudge_e_idx(ic),p_nh(jg)%metrics%nudge_e_blk(ic))
+      ENDIF
 
       ic = 0
       DO jb = 1, nblks_e
@@ -698,14 +733,15 @@ MODULE mo_vertical_grid
           nlen = npromz_e
         ENDIF
         DO je = 1, nlen
-          IF (p_patch(jg)%edges%decomp_info%owner_mask(je,jb) .AND.     &
-              p_int(jg)%nudgecoeff_e(je,jb) > 1.e-10_wp) THEN
+          IF (p_int(jg)%nudgecoeff_e(je,jb) > 1.e-10_wp) THEN
             ic = ic+1
             p_nh(jg)%metrics%nudge_e_idx(ic) = je
             p_nh(jg)%metrics%nudge_e_blk(ic) = jb
           ENDIF
         ENDDO
       ENDDO
+
+!$ACC ENTER DATA COPYIN(p_nh(jg)%metrics%nudge_e_idx, p_nh(jg)%metrics%nudge_e_blk)
 
       ! Index lists needed to minimize the number of halo communications in solve_nh and feedback
 
@@ -724,24 +760,6 @@ MODULE mo_vertical_grid
           IF (p_patch(jg)%cells%refin_ctrl(jc,jb)>=1 .AND. &
               p_patch(jg)%cells%refin_ctrl(jc,jb)<=4) THEN
             ic = ic+1
-          ENDIF
-        ENDDO
-      ENDDO
-      p_nh(jg)%metrics%bdy_halo_c_dim = ic
-
-      ! Index list for halo points belonging to the lateral boundary interpolation zone
-      ALLOCATE(p_nh(jg)%metrics%bdy_halo_c_idx(ic),p_nh(jg)%metrics%bdy_halo_c_blk(ic))
-
-      ic = 0
-      DO jb = i_startblk, i_endblk
-
-        CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, min_rlcell_int-1, min_rlcell)
-
-        DO jc = i_startidx, i_endidx
-          IF (p_patch(jg)%cells%refin_ctrl(jc,jb)>=1 .AND. &
-              p_patch(jg)%cells%refin_ctrl(jc,jb)<=4) THEN
-            ic = ic+1
             p_nh(jg)%metrics%bdy_halo_c_idx(ic) = jc
             p_nh(jg)%metrics%bdy_halo_c_blk(ic) = jb
           ELSE
@@ -749,6 +767,8 @@ MODULE mo_vertical_grid
           ENDIF
         ENDDO
       ENDDO
+
+!$ACC ENTER DATA COPYIN(p_nh(jg)%metrics%bdy_halo_c_idx, p_nh(jg)%metrics%bdy_halo_c_blk)
 
       ! Index list for which interpolated mass fluxes along the lateral nest boundary need to be updated
       ! part 1: count nest boundary points of row 9
@@ -784,8 +804,13 @@ MODULE mo_vertical_grid
       p_nh(jg)%metrics%bdy_mflx_e_dim = ic
 
       ! Allocate index lists and storage field for boundary mass flux
-      ALLOCATE(p_nh(jg)%metrics%bdy_mflx_e_idx(ic),p_nh(jg)%metrics%bdy_mflx_e_blk(ic), &
-               p_nh(jg)%diag%grf_bdy_mflx(nlev,ic,2))
+      IF ( ic == 0 ) THEN
+         ALLOCATE(p_nh(jg)%metrics%bdy_mflx_e_idx(0:0),p_nh(jg)%metrics%bdy_mflx_e_blk(0:0), &
+                  p_nh(jg)%diag%grf_bdy_mflx(nlev,0:0,2))
+      ELSE
+         ALLOCATE(p_nh(jg)%metrics%bdy_mflx_e_idx(ic),p_nh(jg)%metrics%bdy_mflx_e_blk(ic), &
+                  p_nh(jg)%diag%grf_bdy_mflx(nlev,ic,2))
+      ENDIF
       p_nh(jg)%diag%grf_bdy_mflx(:,:,:) = 0._wp
 
       ! part 3: fill index list with nest boundary points of row 9
@@ -804,6 +829,9 @@ MODULE mo_vertical_grid
           p_nh(jg)%metrics%bdy_mflx_e_blk(ic) = jb
         ENDDO
       ENDDO
+
+!$ACC ENTER DATA COPYIN( p_nh(jg)%metrics%bdy_mflx_e_idx,p_nh(jg)%metrics%bdy_mflx_e_blk, &
+!$ACC                    p_nh(jg)%diag%grf_bdy_mflx )
 
       ! part 4: fill index list with halo points of levels 1 and 2 belonging to nest boundary points of row 9
       i_startblk = p_patch(jg)%edges%start_block(min_rledge_int-1)
@@ -848,9 +876,15 @@ MODULE mo_vertical_grid
 
       ic = MAXVAL(ica)
       jn = MAX(1,p_patch(jg)%n_childdom)
-      ALLOCATE(p_nh(jg)%metrics%ovlp_halo_c_dim(jn),   &
-               p_nh(jg)%metrics%ovlp_halo_c_idx(ic,jn),&
-               p_nh(jg)%metrics%ovlp_halo_c_blk(ic,jn))
+      IF ( ic == 0 ) THEN
+         ALLOCATE(p_nh(jg)%metrics%ovlp_halo_c_dim(jn),   &
+                  p_nh(jg)%metrics%ovlp_halo_c_idx(0:0,jn),&
+                  p_nh(jg)%metrics%ovlp_halo_c_blk(0:0,jn))
+      ELSE
+         ALLOCATE(p_nh(jg)%metrics%ovlp_halo_c_dim(jn),   &
+                  p_nh(jg)%metrics%ovlp_halo_c_idx(ic,jn),&
+                  p_nh(jg)%metrics%ovlp_halo_c_blk(ic,jn))
+      ENDIF
 
       p_nh(jg)%metrics%ovlp_halo_c_dim(1:jn) = ica(1:jn)
 
@@ -876,8 +910,11 @@ MODULE mo_vertical_grid
         ENDDO
       ENDDO
 
+!$ACC ENTER DATA COPYIN( p_nh(jg)%metrics%ovlp_halo_c_dim, p_nh(jg)%metrics%ovlp_halo_c_idx,   &
+!$ACC                    p_nh(jg)%metrics%ovlp_halo_c_blk )
+
       IF (l_zdiffu_t) THEN
-        CALL prepare_zdiffu(p_patch(jg), p_nh(jg), p_int(jg), z_maxslp, z_maxhgtd)
+        CALL prepare_zdiffu(p_patch(jg), p_nh(jg), p_nh_lists(jg)%metrics_list, p_int(jg), z_maxslp, z_maxhgtd)
       ENDIF
 
 !$OMP PARALLEL
@@ -955,12 +992,12 @@ MODULE mo_vertical_grid
         z_maxhdiff = MAXVAL(z_maxhgtd)
         z_maxhdiff = global_max(z_maxhdiff)
         WRITE(message_text,'(a,f8.4)') 'Maximum vertical wind offcentering: ', z_offctr
-        CALL message(TRIM(routine),message_text)
+        CALL message(routine, message_text)
         WRITE(message_text,'(a,f8.4)') 'Maximum slope: ', z_maxslope
-        CALL message(TRIM(routine),message_text)
+        CALL message(routine, message_text)
         WRITE(message_text,'(a,f8.1)') 'Maximum height difference between adjacent points: ', &
           z_maxhdiff
-        CALL message(TRIM(routine),message_text)
+        CALL message(routine, message_text)
       ENDIF
 
       DEALLOCATE (z_maxslp,z_maxhgtd)
@@ -1126,7 +1163,7 @@ MODULE mo_vertical_grid
       ENDIF
 
       IF (nflatlev(jg) <= 2 .AND. igradp_method >= 4) THEN
-        CALL finish (TRIM(routine),'flat_height must be at least 2 levels below top&
+        CALL finish(routine, 'flat_height must be at least 2 levels below top&
           & for igradp_method>3')
       ENDIF
 
@@ -1240,6 +1277,9 @@ MODULE mo_vertical_grid
         ELSE IF (igradp_method >= 4) THEN ! Coefficients for polynomial interpolation
 
           p_nh(jg)%metrics%coeff_gradp(:,:,:,jb) = 0._vp
+
+          ! Workaround for MPI deadlock with cce 8.7.x
+          IF (msg_level > 300) CALL message(routine, 'igradp_method>=4')
 
           jk_start = nflatlev(jg) - 1
           DO jk = nflatlev(jg),nlev
@@ -1650,6 +1690,9 @@ MODULE mo_vertical_grid
           ENDDO
         ENDDO
 
+!$ACC ENTER DATA COPYIN( p_nh(jg)%metrics%pg_edgeidx, p_nh(jg)%metrics%pg_edgeblk,   &
+!$ACC                    p_nh(jg)%metrics%pg_vertidx, p_nh(jg)%metrics%pg_exdist )
+
         DEALLOCATE(imask,icount,z_shift)
 
       ENDIF
@@ -1664,13 +1707,30 @@ MODULE mo_vertical_grid
       ENDIF
       DEALLOCATE(z_me,flat_idx)
 
-    ENDDO
+      ! deep-atmosphere modifications
+      IF (ldeepatmo) THEN 
+        CALL set_deepatmo_metrics( p_patch(jg), p_nh(jg)%metrics, p_int(jg),         &
+          &                        igradp_method, atm_phy_nwp_config(jg)%is_les_phy, &
+          &                        h_scal_bg, t0sl_bg, del_t_bg                      )
+      ENDIF
+
+    ENDDO  !jg
+
+    ! Now vgrid_buffer(:)%z_ifc can be deallocated
+    DO jg = 1,n_dom
+      DEALLOCATE(vgrid_buffer(jg)%z_ifc, STAT=error_status)
+      IF (error_status /= SUCCESS) CALL finish (routine, 'DEALLOCATE(vgrid_buffer(jg)%z_ifc) failed.')
+    END DO
 
     !PREPARE LES, Anurag Dipankar MPIM (2013-04)
     DO jg = 1 , n_dom
-      IF(atm_phy_nwp_config(jg)%is_les_phy)  &
+      IF(atm_phy_nwp_config(jg)%is_les_phy .OR. echam_vdf_config(1)%turb == 2) THEN
         CALL prepare_les_model(p_patch(jg), p_nh(jg), p_int(jg), jg)
+      END IF
     END DO
+
+    ! Prepare vertically varying nudging (only for primary domain)
+    CALL prepare_nudging(p_patch(1), p_nh(1))
 
   END SUBROUTINE set_nh_metrics
   !----------------------------------------------------------------------------
@@ -1683,13 +1743,13 @@ MODULE mo_vertical_grid
   !! @par Revision History
   !! Developed by Guenther Zaengl, DWD (2010-10-19)
   !!
-  SUBROUTINE prepare_zdiffu(p_patch, p_nh, p_int, maxslp, maxhgtd)
+  SUBROUTINE prepare_zdiffu(p_patch, p_nh, p_nh_metrics_list, p_int, maxslp, maxhgtd)
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_vertical_grid:prepare_zdiffu'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':prepare_zdiffu'
 
     TYPE(t_patch), TARGET, INTENT(INOUT) :: p_patch
     TYPE(t_nh_state), INTENT(INOUT)      :: p_nh
+    TYPE(t_var_list_ptr), INTENT(INOUT)      :: p_nh_metrics_list
     TYPE(t_int_state), TARGET,INTENT(IN) :: p_int
     REAL(wp),        INTENT(IN)        :: maxslp(nproma,p_patch%nlev,p_patch%nblks_c)
     REAL(wp),        INTENT(IN)        :: maxhgtd(nproma,p_patch%nlev,p_patch%nblks_c)
@@ -1922,17 +1982,8 @@ MODULE mo_vertical_grid
       numpoints = numpoints+(k_end(jc,jb)-k_start(jc,jb)+1)
     ENDDO
 
-    ! Now allocate fields
-    ALLOCATE(p_nh%metrics%zd_indlist(4,numpoints), &
-             p_nh%metrics%zd_blklist(4,numpoints), &
-             p_nh%metrics%zd_vertidx(4,numpoints), &
-             p_nh%metrics%zd_edgeidx(3,numpoints), &
-             p_nh%metrics%zd_edgeblk(3,numpoints), &
-             p_nh%metrics%zd_geofac (4,numpoints), &
-             p_nh%metrics%zd_e2cell (3,numpoints), &
-             p_nh%metrics%zd_intcoef(3,numpoints), &
-             p_nh%metrics%zd_diffcoef(numpoints)    )
-
+    CALL new_zd_metrics(p_nh%metrics, p_nh_metrics_list , numpoints)
+    
     p_nh%metrics%zd_listdim = numpoints
 
     ! Fill index lists
@@ -1983,7 +2034,7 @@ MODULE mo_vertical_grid
 
     IF (msg_level >= 10) THEN
       WRITE(message_text,'(a,i10)') 'Number of z-diffusion points: ', numpoints
-      CALL message(TRIM(routine),message_text)
+      CALL message(routine, message_text)
     ENDIF
 
   END SUBROUTINE prepare_zdiffu
@@ -1997,8 +2048,7 @@ MODULE mo_vertical_grid
   !!
   SUBROUTINE prepare_les_model(p_patch, p_nh, p_int, jg)
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_vertical_grid:prepare_les_model'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':prepare_les_model'
 
     TYPE(t_patch), TARGET, INTENT(INOUT) :: p_patch
     TYPE(t_nh_state), INTENT(INOUT)      :: p_nh
@@ -2006,12 +2056,21 @@ MODULE mo_vertical_grid
     INTEGER, INTENT(IN)                  :: jg
 
     REAL(wp)  :: les_filter, z_mc, z_aux(nproma,p_patch%nlevp1,p_patch%nblks_c)
+    REAL(wp)  :: smag_constant, max_turb_scale
 
     INTEGER :: jk, jb, jc, je, nblks_c, nblks_e, nlen, i_startidx, i_endidx, npromz_c
     INTEGER :: nlev, nlevp1, i_startblk
 #ifdef __INTEL_COMPILER
 !DIR$ ATTRIBUTES ALIGN : 64 :: z_aux
 #endif
+
+    IF ( echam_vdf_config(1)%turb == 2 ) THEN
+      smag_constant  = echam_vdf_config(jg)%smag_constant
+      max_turb_scale = echam_vdf_config(jg)%max_turb_scale
+    ELSE
+      smag_constant  = les_config(jg)%smag_constant
+      max_turb_scale = les_config(jg)%max_turb_scale
+    END IF 
 
     nlev = p_patch%nlev
     nlevp1 = nlev + 1
@@ -2040,7 +2099,7 @@ MODULE mo_vertical_grid
         DO jc = 1 , nlen
           z_mc  = p_nh%metrics%geopot_agl_ifc(jc,jk,jb) * rgrav
 
-          les_filter = les_config(jg)%smag_constant * MIN( les_config(jg)%max_turb_scale, &
+          les_filter = smag_constant * MIN( max_turb_scale, &
                       (p_nh%metrics%ddqz_z_half(jc,jk,jb)*p_patch%cells%area(jc,jb))**0.33333_wp )
 
           p_nh%metrics%mixing_length_sq(jc,jk,jb) = (les_filter*z_mc)**2    &
@@ -2076,6 +2135,165 @@ MODULE mo_vertical_grid
 
 
   END SUBROUTINE prepare_les_model
+  !----------------------------------------------------------------------------
+  !----------------------------------------------------------------------------
+  !>
+  !! Computation of nudging coefficient for nudging types:
+  !! - Upper boundary nudging
+  !! - Global nudging
+  !!
+  !! @par Revision History
+  !! Initial revision by Guenther Zaengl and Sebastian Borchert, DWD (2018-09)
+  !!
+  SUBROUTINE prepare_nudging(p_patch, p_nh)
+
+    ! In/out variables
+    TYPE(t_patch),    INTENT(IN)    :: p_patch
+    TYPE(t_nh_state), INTENT(INOUT) :: p_nh
+
+    ! Local variables
+    TYPE(t_table) :: table
+    REAL(wp) :: scale_height, distance, distance_scaled
+    REAL(wp) :: start_height, end_height
+    REAL(wp) :: height, nudge_coeff
+    INTEGER  :: jg, jk, irow
+    INTEGER  :: nlev
+    INTEGER  :: istart, iend
+    INTEGER  :: istat
+    INTEGER  :: nexp
+    CHARACTER(LEN=16), PARAMETER :: column_jk     = "Full level index"
+    CHARACTER(LEN=10), PARAMETER :: column_height = "Height (m)"
+    CHARACTER(LEN=35), PARAMETER :: column_coeff  = "Nudging coefficient/max_nudge_coeff"
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':prepare_nudging'
+
+    !----------------------------------------------------
+
+    ! Note: here, we compute the dimensionless vertical nudging coefficient profile.  
+    ! The actual max. nudging coefficients 'max_nudge_coeff_vn', 'max_nudge_coeff_thermdyn', ...
+    ! from the nudging namelist will be multiplied with the profile during runtime.
+
+    jg = p_patch%id
+
+    IF (.NOT. nudging_config%lconfigured) THEN
+      ! ('lconfigured' should have been set to .true. 
+      ! in 'src/configure_model/mo_nudging_config: configure_nudging'
+      ! or in 'src/namelists/mo_nudging_nml: check_nudging')
+      CALL finish(routine, "Configuration of nudging_config still pending. "// &
+        & "Please, check the program sequence.")
+    ELSEIF ((.NOT. nudging_config%lnudging) .OR. jg /= 1) THEN
+      ! The following computations have to be done only, 
+      ! if (upper boundary) nudging is switched on, 
+      ! and only for the primary domain
+      RETURN
+    ENDIF
+    
+    ! Number of vertical grid levels
+    nlev = p_patch%nlev
+    
+    ! Allocate field for nudging coefficient
+    ! (Note: 
+    !  * no explicit deallocation is implemented for 'nudgecoeff_vert'
+    !  * already nullified in 'src/atm_dyn_iconam/mo_nonhydro_state: new_nh_metrics_list')
+    ALLOCATE(p_nh%metrics%nudgecoeff_vert(nlev), STAT=istat)
+    IF (istat /= SUCCESS)  CALL finish (routine, 'Allocation of nudgecoeff_vert failed!') 
+    
+    ! Initialization
+    p_nh%metrics%nudgecoeff_vert(:) = 0._wp
+    
+    ! Start and end indices for vertical loop
+    istart = nudging_config%ilev_start
+    iend   = nudging_config%ilev_end
+
+    ! Start and end height of vertical nudging region
+    start_height = nudging_config%nudge_start_height
+    end_height   = nudging_config%nudge_end_height
+    
+    ! Scale height to control, how fast the nudging strength decreases 
+    ! with increasing vertical distance from nudging end height
+    scale_height = ABS(nudging_config%nudge_scale_height)
+    
+    ! Discriminate between the different profiles of the nudging strength/nudging coefficient
+    SELECT CASE(nudging_config%nudge_profile)
+    CASE(indg_profile%sqrddist)
+      ! Inverse squared scaled vertical distance from nudging start height
+      DO jk = istart, iend
+        ! Distance from nudging start height
+        distance = 0.5_wp*ABS(vct_a(jk)+vct_a(jk+1)) - start_height
+        ! Scaled distance
+        distance_scaled                  = distance / MAX(1.0e-6_wp, scale_height)
+        p_nh%metrics%nudgecoeff_vert(jk) = distance_scaled**2
+      ENDDO  !jk
+    CASE(indg_profile%const) ! For global nudging
+      ! Constant profile
+      DO jk = istart, iend
+        p_nh%metrics%nudgecoeff_vert(jk) = 1._wp
+      ENDDO  !jk
+    CASE(indg_profile%tanh) ! For global nudging
+      ! Hyperbolic tangent profile, which decreases in magnitude from nudging end height downwards
+      ! (compare the coefficient profile for the Rayleigh damping based on Klemp et al. (2008) above)
+      DO jk = istart, iend
+        ! Distance from nudging end height
+        distance = ABS(end_height - 0.5_wp * (vct_a(jk) + vct_a(jk+1)))
+        ! Scaled distance
+        distance_scaled                  = distance / MAX(1.0e-6_wp, scale_height)
+        p_nh%metrics%nudgecoeff_vert(jk) = 1._wp - TANH(3.8_wp * distance_scaled)
+      ENDDO  !jk
+    CASE(indg_profile%trapid) ! For global nudging
+      ! Trapezoidal profile
+      !
+      !                          1
+      ! ... = ---------------------------------------,         (I)
+      !       [     2 * z - (a + b)      ]2*nexp
+      !       [--------------------------]       + 1
+      !       [ (1 - 2 / nexp) * (b - a) ]
+      ! 
+      ! where z, a and b denote nominal height, start height and end height, respectively, 
+      ! and the larger the parameter nexp, the more the trapezoidal profile compares 
+      ! to a rectangular profile (i.e. it is inversely proportional to the scale height).
+      ! 
+      ! A lower bound of 3 for nexp is given by the factor "1 / (1 - 2 / nexp)" in formular (I). 
+      ! An upper bound of "iend - istart + 1" (if > 3) corresponds to a scale height 
+      ! of the order of the grid layer thickness
+      nexp = MIN( MAX(3, NINT(ABS(end_height - start_height)/scale_height)), MAX(3, iend-istart+1) )
+      DO jk = istart, iend
+        ! "Distance"
+        distance = vct_a(jk) + vct_a(jk+1) - ABS(start_height + end_height)
+        ! Scaled "distance"
+        distance_scaled                  = distance / &
+          & MAX( 1.0e-20_wp, (1._wp - 2._wp / REAL(nexp, wp)) * ABS(end_height - start_height) )
+        p_nh%metrics%nudgecoeff_vert(jk) = 1._wp / ( distance_scaled**(2*nexp) + 1._wp )
+      ENDDO  !jk      
+    END SELECT
+
+!$ACC ENTER DATA COPYIN( p_nh%metrics%nudgecoeff_vert )
+
+    ! Print some info
+    IF (msg_level >= nudging_config%msg_thr%high .AND. my_process_is_stdio()) THEN 
+      ! Print the vertical profile of the nudging coefficient (nudging strength)
+      WRITE(0,*) routine, ': Vertical profile of the nudging coefficient ', &
+        & '(only levels, where it is non-zero):'
+      ! Set up table
+      CALL initialize_table(table)
+      ! Set up table columns
+      CALL add_table_column(table, column_jk)
+      CALL add_table_column(table, column_height)
+      CALL add_table_column(table, column_coeff)
+      ! Fill the table rows
+      DO jk = istart, iend
+        height      = 0.5_wp * (vct_a(jk) + vct_a(jk+1))
+        nudge_coeff = p_nh%metrics%nudgecoeff_vert(jk)
+        irow        = jk-istart+1  ! (row index should start with 1)
+        CALL set_table_entry(table, irow, column_jk, TRIM(int2string(jk)))
+        CALL set_table_entry(table, irow, column_height, TRIM(real2string(height)))
+        CALL set_table_entry(table, irow, column_coeff, TRIM(real2string(nudge_coeff)))
+      ENDDO  !jk
+      ! Print table
+      CALL print_table(table)
+      ! Destruct table
+      CALL finalize_table(table)
+    ENDIF  !IF (msg_level >= nudging_config%msg_thr%high .AND. my_process_is_stdio())
+    
+  END SUBROUTINE prepare_nudging
   !----------------------------------------------------------------------------
 
 

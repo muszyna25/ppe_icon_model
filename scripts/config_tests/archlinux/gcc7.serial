@@ -1,0 +1,69 @@
+#!/bin/bash
+
+# this works with gcc7 package and related build via spack wrt. this compiler
+set -eu
+
+MY_DIR=$(cd "$(dirname "$0")"; pwd)
+ICON_DIR=$(cd "${MY_DIR}/../../.."; pwd)
+PREFIX=$HOME/local/icon-2.6rc
+PERL=perl
+
+# ==============================================================================
+function libOf() {
+  local rootdir=$1
+  local pkgname=$2
+  local libs=`PKG_CONFIG_PATH=${rootdir}/lib/pkgconfig pkg-config ${pkgname} -libs`
+
+  echo "${libs}"
+
+  return 0
+}
+# ==============================================================================
+# OUT-OF-SOURCE WORKFLOW
+#
+# this commands are designed to have a proper out-of-source build includeing a
+# working runscripting environmen inside the build dir
+
+NETCDFF_ROOT="/home/ram/src/tools/spack/opt/spack/linux-antergos-skylake/gcc-7.5.0/netcdf-fortran-4.5.2-s7ffonuwoqvpdnowkfkcbu6w4a5d3nj6"
+NETCDFF_INCLUDE="-I${NETCDFF_ROOT}/include"
+NETCDFF_LDFLAGS="$(libOf $NETCDFF_ROOT netcdf-fortran) -lnetcdf"
+
+NETCDF_ROOT='/home/ram/src/tools/spack/opt/spack/linux-antergos-skylake/gcc-7.5.0/netcdf-c-4.7.2-4kze37y5g3xtjw6d5jngfpe4gun3tlle'
+NETCDF_INCLUDE="-I${NETCDF_ROOT}/include"
+NETCDF_LDFLAGS=`libOf ${NETCDF_ROOT} netcdf`
+
+BLASROOT="/home/ram/src/tools/spack/opt/spack/linux-antergos-skylake/gcc-7.5.0/openblas-0.3.7-7s7j27hwsk4mxz3cyt6am6gicm4eapcn"
+BLAS_INCLUDE="-I${BLASROOT}/include -I${BLASROOT}/lib"
+BLAS_LDFLAGS="$(libOf ${BLASROOT} openblas) -Wl,-rpath ${BLASROOT}/lib"
+
+CC="gcc-7"
+FC="gfortran-7"
+CXX="g++-7"
+EXTRA_LIBS="-L/usr/lib/gcc/x86_64-pc-linux-gnu/7.5.0 -Wl,-rpath /usr/lib/gcc/x86_64-pc-linux-gnu/7.5.0 -lgfortran"
+
+CFLAGS='-g -O2'
+CPPFLAGS="${NETCDF_INCLUDE} -I/usr/include/libxml2"
+FCFLAGS="${NETCDFF_INCLUDE} ${BLAS_INCLUDE} -fsanitize=alignment -fsanitize=bounds -fsanitize=null -fsanitize=address"
+# this is based on the default openmpi installation 
+${ICON_DIR}/configure \
+  CC="${CC}" \
+  FC="${FC}" \
+  CXX="${CXX}" \
+  FCFLAGS="${FCFLAGS} -DHAVE_CDI_ORDERING_DEFECT" \
+  LDFLAGS="${BLAS_LDFLAGS} ${NETCDFF_LDFLAGS} ${EXTRA_LIBS}" \
+  CPPFLAGS="${CPPFLAGS}" \
+  LIBS='-lxml2 -lz -llzma -licui18n -licuuc -licudata -lm -ldl' \
+  CFLAGS="$CFLAGS" --prefix=$PREFIX  --disable-mpi --disable-openmp
+
+
+./config.status --file=run/set-up.info
+
+# Copy runscript-related files when building out-of-source:
+if test $(pwd) != $(cd "${ICON_DIR}"; pwd); then
+  echo "Copying runscript input files from the source directory..."
+  rsync -uavz ${ICON_DIR}/run . --exclude='*in' --exclude='.*'
+  rsync -uavz ${ICON_DIR}/externals . --exclude='.git' --exclude='*.f90' --exclude='*.F90' --exclude='*.c' --exclude='*.h' --exclude='*.Po' --exclude='tests' --exclude='rrtmgp*.nc' --exclude='*.mod' --exclude='*.o'
+  rsync -uavz ${ICON_DIR}/make_runscripts .
+  ln -sf ${ICON_DIR}/data
+fi
+

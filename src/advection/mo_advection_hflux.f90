@@ -66,23 +66,15 @@
 !----------------------------
 #include "omp_definitions.inc"
 !----------------------------
-#define LAXFR_UPFLUX_MACRO(PPp_vn,PPp_psi_a,PPp_psi_b) (0.5_wp*((PPp_vn)*((PPp_psi_a)+(PPp_psi_b))-ABS(PPp_vn)*((PPp_psi_b)-(PPp_psi_a))))
-#define LAXFR_UPFLUX_V_MACRO(PPp_w,PPp_psi_a,PPp_psi_b,PPp_coeff_grid) (0.5_wp*((PPp_w)*((PPp_psi_a)+(PPp_psi_b))-(PPp_coeff_grid)*ABS(PPp_w)*((PPp_psi_b)-(PPp_psi_a))))
-
-#ifdef __INTEL_COMPILER
-#define USE_LAXFR_MACROS
-#define laxfr_upflux LAXFR_UPFLUX_MACRO
-#endif
-
 MODULE mo_advection_hflux
 
   USE mo_kind,                ONLY: wp, vp
-  USE mo_exception,           ONLY: finish
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, SUCCESS,                   &
+  USE mo_exception,           ONLY: finish, message, message_text
+  USE mo_impl_constants,      ONLY: SUCCESS,                   &
     &                               min_rledge_int, min_rlcell_int,             &
     &                               UP, MIURA, MIURA3, FFSL, FFSL_HYB, MCYCL,   &
     &                               MIURA_MCYCL, MIURA3_MCYCL, FFSL_MCYCL,      &
-    &                               FFSL_HYB_MCYCL, UP3, ifluxl_m, ifluxl_sm
+    &                               FFSL_HYB_MCYCL, ifluxl_m, ifluxl_sm
   USE mo_model_domain,        ONLY: t_patch
   USE mo_grid_config,         ONLY: l_limited_area
   USE mo_math_gradients,      ONLY: grad_green_gauss_cell, grad_fe_cell
@@ -101,10 +93,8 @@ MODULE mo_advection_hflux
   USE mo_sync,                ONLY: SYNC_C, SYNC_C1, sync_patch_array,          &
     &                               sync_patch_array_4de1
   USE mo_parallel_config,     ONLY: p_test_run
-  USE mo_advection_config,    ONLY: advection_config, lcompute, lcleanup, t_trList
-#ifndef USE_LAXFR_MACROS
-  USE mo_advection_utils,     ONLY: laxfr_upflux
-#endif
+  USE mo_advection_config,    ONLY: t_advection_config, advection_config,       &
+    &                               lcompute, lcleanup, t_trList
   USE mo_advection_utils,     ONLY: t_list2D
   USE mo_advection_quadrature,ONLY: prep_gauss_quadrature_l,                    &
     &                               prep_gauss_quadrature_l_list,               &
@@ -116,13 +106,12 @@ MODULE mo_advection_hflux
   USE mo_advection_traj,      ONLY: btraj_dreg, t_back_traj,                    &
     &                               btraj_compute_o1, btraj_compute_o2
   USE mo_advection_geometry,  ONLY: divide_flux_area, divide_flux_area_list
-  USE mo_advection_limiter,   ONLY: hflx_limiter_mo, hflx_limiter_sm
-  USE mo_timer,               ONLY: timer_adv_horz, timer_start, timer_stop
+  USE mo_advection_hlimit,    ONLY: hflx_limiter_mo, hflx_limiter_pd
+  USE mo_timer,               ONLY: timer_adv_hflx, timer_start, timer_stop
   USE mo_vertical_coord_table,ONLY: vct_a
   USE mo_fortran_tools,       ONLY: init, copy
 #ifdef _OPENACC
-  USE mo_mpi,                 ONLY: i_am_accel_node
-  USE mo_sync,                ONLY: SYNC_E, SYNC_C, check_patch_array
+  USE mo_mpi,                 ONLY: i_am_accel_node, my_process_is_work
 #endif
 
 
@@ -146,7 +135,7 @@ MODULE mo_advection_hflux
   LOGICAL, PARAMETER ::  acc_validate = .FALSE.   ! ONLY SET TO .TRUE. FOR VALIDATION PHASE
 #endif
 
-
+  CHARACTER(len=*), PARAMETER :: modname = 'mo_advection_hflux'
 
   !-------------------------------------------------------------------------
 
@@ -183,11 +172,11 @@ CONTAINS
   !        Lin et al. (1994), MWR, 122, 1575-1593
   ! MIURA: Miura, H. (2007), Mon. Wea. Rev., 135, 4038-4044
   !
-  SUBROUTINE hor_upwind_flux( p_cc, p_rho, p_mass_flx_e, p_vn, p_dtime,           &
-    &                     p_patch, p_int, p_ihadv_tracer, p_igrad_c_miura,        &
-    &                     p_itype_hlimit, p_iadv_slev, p_iord_backtraj, p_upflux, &
-    &                     opt_rlend )
+  SUBROUTINE hor_upwind_flux( p_cc, p_rhodz_now, p_rhodz_new, p_mass_flx_e, p_vn,   &
+    &                         p_dtime, p_patch, p_int, p_upflux, opt_rlend )
 
+    CHARACTER(len=*), PARAMETER ::  &
+      &  routine = modname//':hor_upwind_flux'
 
     TYPE(t_patch), TARGET, INTENT(INOUT) ::  &     !< patch on which computation is performed
       &  p_patch
@@ -198,8 +187,11 @@ CONTAINS
     REAL(wp),TARGET, INTENT(IN) ::  & !< advected cell centered variable
       &  p_cc(:,:,:,:)              !< dim: (nproma,nlev,nblks_c,ntracer)
 
-    REAL(wp),TARGET, INTENT(IN) ::  & !< density at cell center step (n)
-      &  p_rho(:,:,:)               !< dim: (nproma,nlev,nblks_c)
+    REAL(wp), INTENT(IN) ::     &   !< density times cell thickness at cell center step (n)
+      &  p_rhodz_now(:,:,:)         !< dim: (nproma,nlev,nblks_c)
+
+    REAL(wp), INTENT(IN) ::     &   !< density times cell thickness at cell center step (n+1)
+      &  p_rhodz_new(:,:,:)         !< dim: (nproma,nlev,nblks_c)
 
     REAL(wp), INTENT(IN) ::     &   !< contravariant horizontal mass flux
       &  p_mass_flx_e(:,:,:)        !< dim: (nproma,nlev,nblks_e)
@@ -209,23 +201,6 @@ CONTAINS
 
     REAL(wp), INTENT(IN) :: p_dtime !< time step
 
-    INTEGER, INTENT(IN) ::      &   !< parameter to select numerical
-      &  p_ihadv_tracer(:)          !< scheme for horizontal transport
-                                    !< dim: (ntracer)
-
-    INTEGER, INTENT(IN) ::      &   !< parameter to select the gradient
-      &  p_igrad_c_miura            !< reconstruction method at cell center
-
-    INTEGER, INTENT(IN) ::      &   !< parameter to select the limiter
-      &  p_itype_hlimit(:)          !< for horizontal transport
-                                    !< dim: (ntracer)
-
-    INTEGER, INTENT(IN) ::      &   !< vertical start level for advection
-      &  p_iadv_slev(:)             !< dim: (ntracer)
-
-    INTEGER, INTENT(IN) ::      &   !< parameter to select the spacial order
-      &  p_iord_backtraj            !< of accuracy for the backward trajectory
-
     REAL(wp), INTENT(INOUT) ::  &   !< variable in which the upwind flux is stored
       &  p_upflux(:,:,:,:)          !< dim: (nproma,nlev,nblks_e,ntracer)
 
@@ -233,7 +208,6 @@ CONTAINS
      &  opt_rlend                      !< (to avoid calculation of halo points)
 
     INTEGER :: jt, nt               !< tracer index and loop index
-    INTEGER :: jg                   !< patch ID
     INTEGER :: i_rlend, i_rlend_vt, i_rlend_tr
     INTEGER :: i_rlstart
     INTEGER :: qvsubstep_elev       !< end level for qv-substepping
@@ -249,22 +223,28 @@ CONTAINS
     TYPE(t_back_traj) :: btraj      !< backward trajectories for MIURA, MIURA_MCYCL
     TYPE(t_back_traj) :: btraj_cycl !< backward trajectories for subcycling
 
+    TYPE(t_advection_config), POINTER :: advconf
+
     TYPE(t_trList), POINTER :: &    !< pointer to tracer sublist
       &  trAdvect
 
     REAL(wp) :: z_dthalf            !< 0.5 * pdtime
     REAL(wp) :: z_dthalf_cycl       !< z_dthalf/nsubsteps
 
+#ifdef _OPENACC
+    LOGICAL  :: save_i_am_accel_node
+#endif
     !-----------------------------------------------------------------------
 
 #ifdef __INTEL_COMPILER
 !DIR$ ATTRIBUTES ALIGN : 64 :: z_real_vt
 #endif
-    ! get patch ID
-    jg = p_patch%id
+
+    ! pointer to advection_config(p_patch%id) to save some paperwork
+    advconf => advection_config(p_patch%id)
 
     ! tracer fields which are advected
-    trAdvect => advection_config(jg)%trAdvect
+    trAdvect => advconf%trAdvect
 
     ! 
     IF ( PRESENT(opt_rlend) ) THEN
@@ -273,10 +253,15 @@ CONTAINS
       i_rlend = min_rledge_int - 1
     ENDIF
 
-    IF (timers_level > 2) CALL timer_start(timer_adv_horz)
+    IF (timers_level > 2) CALL timer_start(timer_adv_hflx)
     CALL btraj%construct(nproma,p_patch%nlev,p_patch%nblks_e,2)
     CALL btraj_cycl%construct(nproma,p_patch%nlev,p_patch%nblks_e,2)
 
+
+!$ACC DATA  PCOPYIN( p_cc, p_mass_flx_e, p_rhodz_now, p_rhodz_new, p_vn ), PCOPYOUT( p_upflux ), &
+!$ACC       CREATE( z_real_vt ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_cc, p_mass_flx_e, p_rhodz_now, p_rhodz_new, p_vn ), &
+!$ACC IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     !*******************************************************************
     !
@@ -291,17 +276,18 @@ CONTAINS
     ! routines. The resulting tangential velocity field is then passed to
     ! the flux routines.
 
-    IF (ANY(p_ihadv_tracer(:)/= UP) .AND. ANY(p_ihadv_tracer(:)/= UP3)) THEN
+    IF ( ANY(advconf%ihadv_tracer(:)/= UP) ) THEN
 
       i_rlend_vt = MIN(i_rlend, min_rledge_int - 1)
 
-      IF ( p_iord_backtraj /= 1 ) THEN
+      IF ( advconf%iord_backtraj /= 1 ) THEN
         i_rlend_vt = min_rledge_int - 3
       ENDIF
 
       ! reconstruct tangential velocity component at edge midpoints
       CALL rbf_vec_interpol_edge( p_vn, p_patch, p_int,            &! in
-        &                         z_real_vt, opt_rlend=i_rlend_vt  )! inout
+        &                         z_real_vt, opt_rlend=i_rlend_vt, &! inout
+        &                         opt_acc_async = .TRUE. )          ! in  
     ENDIF
 
 
@@ -311,27 +297,28 @@ CONTAINS
     ! only the barycenter of the departure region (instead of all the vertices).
     i_rlstart  = 5
     i_rlend_tr = MIN(i_rlend, min_rledge_int - 1)
-    qvsubstep_elev = advection_config(jg)%iadv_qvsubstep_elev
+    qvsubstep_elev = advconf%iadv_qvsubstep_elev
 
 
-    IF (advection_config(jg)%isAnyTypeMiura) THEN
+    IF (advconf%isAnyTypeMiura) THEN
 
-      iadv_min_slev = advection_config(jg)%miura_h%iadv_min_slev
+      iadv_min_slev = advconf%miura_h%iadv_min_slev
       z_dthalf = 0.5_wp * p_dtime
 
-      IF (p_iord_backtraj == 1)  THEN
+      IF (advconf%iord_backtraj == 1)  THEN
 
         ! 1st order backward trajectory
-        CALL btraj_compute_o1( btraj     = btraj,            & !inout
-          &                  ptr_p       = p_patch,          & !in
-          &                  ptr_int     = p_int,            & !in
-          &                  p_vn        = p_vn,             & !in
-          &                  p_vt        = z_real_vt,        & !in
-          &                  p_dthalf    = z_dthalf,         & !in
-          &                  opt_rlstart = i_rlstart,        & !in
-          &                  opt_rlend   = i_rlend_tr,       & !in
-          &                  opt_slev    = iadv_min_slev,    & !in
-          &                  opt_elev    = p_patch%nlev      ) !in
+        CALL btraj_compute_o1( btraj       = btraj,            & !inout
+          &                  ptr_p         = p_patch,          & !in
+          &                  ptr_int       = p_int,            & !in
+          &                  p_vn          = p_vn,             & !in
+          &                  p_vt          = z_real_vt,        & !in
+          &                  p_dthalf      = z_dthalf,         & !in
+          &                  opt_rlstart   = i_rlstart,        & !in
+          &                  opt_rlend     = i_rlend_tr,       & !in
+          &                  opt_slev      = iadv_min_slev,    & !in
+          &                  opt_elev      = p_patch%nlev,     & !in
+          &                  opt_acc_async = .TRUE.            ) !in
       ELSE
         ! 2nd order backward trajectory
         CALL btraj_compute_o2 ( btraj       = btraj,            & !inout
@@ -348,11 +335,12 @@ CONTAINS
     ENDIF
 
 
-    IF (advection_config(jg)%isAnyTypeMcycl) THEN
+    IF (advconf%isAnyTypeMcycl) THEN
 
-      iadv_min_slev = advection_config(jg)%mcycl_h%iadv_min_slev
+      iadv_min_slev = advconf%mcycl_h%iadv_min_slev
       ! should be moved to advection_config
-      iadv_max_elev = MERGE(p_patch%nlev,qvsubstep_elev,ANY(p_ihadv_tracer(:)== MCYCL))
+      iadv_max_elev = MERGE( p_patch%nlev,qvsubstep_elev,  &
+        &                    ANY(advconf%ihadv_tracer(:)== MCYCL) )
 
       ! Determine number of substeps in miura_cycl
       ! It is assumed that three substeps are needed if the top of the currently active
@@ -366,7 +354,7 @@ CONTAINS
       z_dthalf_cycl = 0.5_wp * p_dtime/REAL(nsubsteps,wp)
 
       !
-      IF (p_iord_backtraj == 1)  THEN
+      IF (advconf%iord_backtraj == 1)  THEN
         !
         ! 1st order backward trajectory for subcycled version
         ! The only thing that differs is the time step passed in
@@ -409,122 +397,177 @@ CONTAINS
       jt = trAdvect%list(nt)
 
       ! Select desired flux calculation method
-      SELECT CASE( p_ihadv_tracer(jt) )
+      SELECT CASE( advconf%ihadv_tracer(jt) )
 
       CASE( UP )      ! ihadv_tracer = 1
         ! CALL first order upwind
-        CALL upwind_hflux_up( p_patch      = p_patch,            & !in
-          &                   p_cc         = p_cc(:,:,:,jt),     & !in
-          &                   p_mass_flx_e = p_mass_flx_e,       & !in
-          &                   p_upflux     = p_upflux(:,:,:,jt), & !inout
-          &                   opt_slev     = p_iadv_slev(jt),    & !in
-          &                   opt_rlend    = i_rlend             ) !in
+        ! DA: this routine is not (yet) async
+        !$ACC WAIT
+        CALL upwind_hflux_up(                             &
+          &         p_patch      = p_patch,               & !in
+          &         p_cc         = p_cc(:,:,:,jt),        & !in
+          &         p_mass_flx_e = p_mass_flx_e,          & !in
+          &         p_upflux     = p_upflux(:,:,:,jt),    & !inout
+          &         opt_slev     = advconf%iadv_slev(jt), & !in
+          &         opt_rlend    = i_rlend                ) !in
 
 
       CASE( MIURA )   ! ihadv_tracer = 2
 
         ! CALL MIURA with second order accurate reconstruction
-        CALL upwind_hflux_miura( p_patch         = p_patch,            & !in
-          &                      p_cc            = p_cc(:,:,:,jt),     & !in
-          &                      p_mass_flx_e    = p_mass_flx_e,       & !in
-          &                      p_dtime         = p_dtime,            & !in
-          &                      p_int           = p_int,              & !in
-          &                      btraj           = btraj,              & !in
-          &                      p_igrad_c_miura = p_igrad_c_miura,    & !in
-          &                      p_itype_hlimit  = p_itype_hlimit(jt), & !in
-          &                      p_out_e         = p_upflux(:,:,:,jt), & !inout
-          &                      opt_lconsv      = llsq_lin_consv,     & !in
-          &                      opt_rlend       = i_rlend,            & !in
-          &                      opt_slev        = p_iadv_slev(jt)     ) !in
+        ! DA: this routine IS async, no wait.
+        CALL upwind_hflux_miura(                                &
+          &         p_patch         = p_patch,                  & !in
+          &         p_cc            = p_cc(:,:,:,jt),           & !in
+          &         p_mass_flx_e    = p_mass_flx_e,             & !in
+          &         p_dtime         = p_dtime,                  & !in
+          &         p_int           = p_int,                    & !in
+          &         btraj           = btraj,                    & !in
+          &         p_igrad_c_miura = advconf%igrad_c_miura,    & !in
+          &         p_itype_hlimit  = advconf%itype_hlimit(jt), & !in
+          &         p_out_e         = p_upflux(:,:,:,jt),       & !inout
+          &         opt_rhodz_now   = p_rhodz_now,              & !in
+          &         opt_rhodz_new   = p_rhodz_new,              & !in
+          &         opt_lconsv      = llsq_lin_consv,           & !in
+          &         opt_rlend       = i_rlend,                  & !in
+          &         opt_slev        = advconf%iadv_slev(jt) )     !in
 
 
       CASE( MIURA3 )  ! ihadv_tracer = 3
 
-        iadv_min_slev = advection_config(jg)%miura3_h%iadv_min_slev
+        iadv_min_slev = advconf%miura3_h%iadv_min_slev
 
         ! CALL MIURA with third order accurate reconstruction
+        ! DA: this routine is not (yet) async
+        !$ACC WAIT
         CALL upwind_hflux_miura3( p_patch, p_cc(:,:,:,jt), p_mass_flx_e, &! in
           &                p_vn, z_real_vt, p_dtime, p_int,              &! in
           &                lcompute%miura3_h(jt), lcleanup%miura3_h(jt), &! in
-          &                p_itype_hlimit(jt),                           &! in
+          &                advconf%itype_hlimit(jt),                     &! in
           &                p_upflux(:,:,:,jt),                           &! inout
-          &                opt_rlend   = i_rlend,                        &! in
-          &                opt_slev    = p_iadv_slev(jt),                &! in
-          &                opt_ti_slev = iadv_min_slev                   )! in
+          &                opt_rhodz_now  = p_rhodz_now,                 &! in
+          &                opt_rhodz_new  = p_rhodz_new,                 &! in
+          &                opt_rlend      = i_rlend,                     &! in
+          &                opt_slev       = advconf%iadv_slev(jt),       &! in
+          &                opt_ti_slev    = iadv_min_slev                )! in
 
       CASE( FFSL )  ! ihadv_tracer = 4
 
-        iadv_min_slev = advection_config(jg)%ffsl_h%iadv_min_slev
+        iadv_min_slev = advconf%ffsl_h%iadv_min_slev
+
+#ifdef _OPENACC
+! In GPU mode, copy data to HOST and perform upwind_hflux_ffsl there, then update device
+! NOTE: this is only for testing; use upwind_hflux_miura/miura3 for performance
+        WRITE(message_text,'(a)') 'GPU mode: performing upwind_hflux_ffsl on host; for performance use upwind_hflux_miura'
+        CALL message(routine,message_text)
+!$ACC UPDATE HOST( p_cc(:,:,:,jt), p_mass_flx_e, p_vn, p_rhodz_now, p_rhodz_new, z_real_vt ), &
+!$ACC        IF( i_am_accel_node .AND. acc_on )
+        save_i_am_accel_node = i_am_accel_node
+        i_am_accel_node = .FALSE.     ! deactivate GPUs throughout upwind_hflux_ffsl
+#endif
 
         ! CALL Flux form semi Lagrangian scheme (extension of MIURA3-scheme)
         ! with second or third order accurate reconstruction
-        CALL upwind_hflux_ffsl( p_patch, p_cc(:,:,:,jt), p_mass_flx_e,    &! in
-          &                 p_vn, z_real_vt, p_dtime, p_int,              &! in
-          &                 lcompute%ffsl_h(jt), lcleanup%ffsl_h(jt),     &! in
-          &                 p_itype_hlimit(jt),                           &! in
-          &                 p_upflux(:,:,:,jt),                           &! inout
-          &                 opt_lconsv  = llsq_high_consv,                &! in
-          &                 opt_rlend   = i_rlend,                        &! in
-          &                 opt_slev    = p_iadv_slev(jt),                &! in
-          &                 opt_ti_slev = iadv_min_slev                   )! in
+        ! DA: this routine is not (yet) async
+        !$ACC WAIT  
+        CALL upwind_hflux_ffsl( p_patch, p_cc(:,:,:,jt),              &! in
+          &                 p_rhodz_now, p_rhodz_new, p_mass_flx_e,   &! in
+          &                 p_vn, z_real_vt, p_dtime, p_int,          &! in
+          &                 lcompute%ffsl_h(jt), lcleanup%ffsl_h(jt), &! in
+          &                 advconf%itype_hlimit(jt),                 &! in
+          &                 p_upflux(:,:,:,jt),                       &! inout
+          &                 opt_lconsv  = llsq_high_consv,            &! in
+          &                 opt_rlend   = i_rlend,                    &! in
+          &                 opt_slev    = advconf%iadv_slev(jt),      &! in
+          &                 opt_ti_slev = iadv_min_slev               )! in
 
+#ifdef _OPENACC
+        i_am_accel_node =  save_i_am_accel_node    ! reactivate GPUs if appropriate
+!$ACC UPDATE DEVICE( p_upflux(:,:,:,jt) ), IF( i_am_accel_node .AND. acc_on )
+#endif
 
       CASE( FFSL_HYB )  ! ihadv_tracer = 5
 
-        iadv_min_slev = advection_config(jg)%ffsl_hyb_h%iadv_min_slev
+        iadv_min_slev = advconf%ffsl_hyb_h%iadv_min_slev
+
+#ifdef _OPENACC
+! In GPU mode, copy data to HOST and perform hflux_ffsl_hybrid there, then update device
+! NOTE: this is only for testing; use upwind_hflux_miura/miura3 for performance
+        WRITE(message_text,'(a)') 'GPU mode: performing hflux_ffsl_hybrid on host; for performance use upwind_hflux_miura'
+        CALL message(routine,message_text)
+!$ACC UPDATE HOST( p_cc(:,:,:,jt), p_mass_flx_e, p_vn, p_rhodz_now, p_rhodz_new, z_real_vt ), &
+!$ACC        IF( i_am_accel_node .AND. acc_on )
+        save_i_am_accel_node = i_am_accel_node
+        i_am_accel_node = .FALSE.     ! deactivate GPUs throughout hflux_ffsl_hybrid
+#endif
 
         ! CALL hybrid FFSL/miura3 scheme (i.e. if a prescribed CFL threshold
         ! is exceeded, the scheme switches from MIURA3 to FFSL
-        CALL hflux_ffsl_hybrid( p_patch, p_cc(:,:,:,jt), p_mass_flx_e,    &! in
-          &                 p_vn, z_real_vt, p_dtime, p_int,              &! in
-          &                 lcompute%ffsl_hyb_h(jt),                      &! in
-          &                 lcleanup%ffsl_hyb_h(jt),                      &! in
-          &                 p_itype_hlimit(jt),                           &! in
-          &                 p_upflux(:,:,:,jt),                           &! inout
-          &                 opt_lconsv  = llsq_high_consv,                &! in
-          &                 opt_rlend   = i_rlend,                        &! in
-          &                 opt_slev    = p_iadv_slev(jt),                &! in
-          &                 opt_ti_slev = iadv_min_slev                   )! in
+        ! DA: this routine is not (yet) async
+        !$ACC WAIT  
+        CALL hflux_ffsl_hybrid( p_patch, p_cc(:,:,:,jt),            &! in
+          &                 p_rhodz_now, p_rhodz_new, p_mass_flx_e, &! in
+          &                 p_vn, z_real_vt, p_dtime, p_int,        &! in
+          &                 lcompute%ffsl_hyb_h(jt),                &! in
+          &                 lcleanup%ffsl_hyb_h(jt),                &! in
+          &                 advconf%itype_hlimit(jt),               &! in
+          &                 p_upflux(:,:,:,jt),                     &! inout
+          &                 opt_lconsv  = llsq_high_consv,          &! in
+          &                 opt_rlend   = i_rlend,                  &! in
+          &                 opt_slev    = advconf%iadv_slev(jt),    &! in
+          &                 opt_ti_slev = iadv_min_slev             )! in
 
+#ifdef _OPENACC
+        i_am_accel_node =  save_i_am_accel_node    ! reactivate GPUs if appropriate
+!$ACC UPDATE DEVICE( p_upflux(:,:,:,jt) ), IF( i_am_accel_node .AND. acc_on )
+#endif
 
       CASE ( MCYCL )   ! ihadv_tracer = 20
 
         ! CALL MIURA with second order accurate reconstruction and subcycling
-        CALL upwind_hflux_miura_cycl( p_patch         = p_patch,            & !in
-          &                           p_cc            = p_cc(:,:,:,jt),     & !in
-          &                           p_rho           = p_rho,              & !in
-          &                           p_mass_flx_e    = p_mass_flx_e,       & !in
-          &                           p_dtime         = p_dtime,            & !in
-          &                           p_ncycl         = nsubsteps,          & !in
-          &                           p_int           = p_int,              & !in
-          &                           btraj           = btraj_cycl,         & !in
-          &                           p_igrad_c_miura = p_igrad_c_miura,    & !in
-          &                           p_itype_hlimit  = p_itype_hlimit(jt), & !in
-          &                           p_out_e         = p_upflux(:,:,:,jt), & !inout
-          &                           elev            = p_patch%nlev,       & !in
-          &                           opt_lconsv      = llsq_lin_consv,     & !in
-          &                           opt_rlend       = i_rlend             ) !in
+        ! DA: this routine is not (yet) async
+        !$ACC WAIT
+        CALL upwind_hflux_miura_cycl(                           &
+          &         p_patch         = p_patch,                  & !in
+          &         p_cc            = p_cc(:,:,:,jt),           & !in
+          &         p_rhodz_now     = p_rhodz_now,              & !in
+          &         p_mass_flx_e    = p_mass_flx_e,             & !in
+          &         p_dtime         = p_dtime,                  & !in
+          &         p_ncycl         = nsubsteps,                & !in
+          &         p_int           = p_int,                    & !in
+          &         btraj           = btraj_cycl,               & !in
+          &         p_igrad_c_miura = advconf%igrad_c_miura,    & !in
+          &         p_itype_hlimit  = advconf%itype_hlimit(jt), & !in
+          &         p_out_e         = p_upflux(:,:,:,jt),       & !inout
+          &         elev            = p_patch%nlev,             & !in
+          &         opt_lconsv      = llsq_lin_consv,           & !in
+          &         opt_rlend       = i_rlend                   ) !in
 
 
       CASE( MIURA_MCYCL )   ! ihadv_tracer = 22
 
-        qvsubstep_elev = advection_config(jg)%iadv_qvsubstep_elev
+        qvsubstep_elev = advconf%iadv_qvsubstep_elev
 
         ! CALL standard MIURA for lower atmosphere and the subcycling version of
         ! MIURA for upper atmosphere
-        CALL upwind_hflux_miura( p_patch         = p_patch,            & !in
-          &                      p_cc            = p_cc(:,:,:,jt),     & !in
-          &                      p_mass_flx_e    = p_mass_flx_e,       & !in
-          &                      p_dtime         = p_dtime,            & !in
-          &                      p_int           = p_int,              & !in
-          &                      btraj           = btraj,              & !in
-          &                      p_igrad_c_miura = p_igrad_c_miura,    & !in
-          &                      p_itype_hlimit  = p_itype_hlimit(jt), & !in
-          &                      p_out_e         = p_upflux(:,:,:,jt), & !inout
-          &                      opt_lconsv      = llsq_lin_consv,     & !in
-          &                      opt_rlend       = i_rlend,            & !in
-          &                      opt_slev        = qvsubstep_elev+1,   & !in
-          &                      opt_elev        = p_patch%nlev        ) !in
+        ! DA: this routine IS async, no wait needed
+        CALL upwind_hflux_miura(                                &
+          &         p_patch         = p_patch,                  & !in
+          &         p_cc            = p_cc(:,:,:,jt),           & !in
+          &         p_mass_flx_e    = p_mass_flx_e,             & !in
+          &         p_dtime         = p_dtime,                  & !in
+          &         p_int           = p_int,                    & !in
+          &         btraj           = btraj,                    & !in
+          &         p_igrad_c_miura = advconf%igrad_c_miura,    & !in
+          &         p_itype_hlimit  = advconf%itype_hlimit(jt), & !in
+          &         p_out_e         = p_upflux(:,:,:,jt),       & !inout
+          &         opt_rhodz_now   = p_rhodz_now,              & !in
+          &         opt_rhodz_new   = p_rhodz_new,              & !in
+          &         opt_lconsv      = llsq_lin_consv,           & !in
+          &         opt_rlend       = i_rlend,                  & !in
+          &         opt_slev        = qvsubstep_elev+1,         & !in
+          &         opt_elev        = p_patch%nlev )              !in
+
 
 
         IF (qvsubstep_elev > 0) THEN
@@ -533,41 +576,47 @@ CONTAINS
         ! with substepping. This prevents us from computing the backward
         ! trajectories multiple times when combining the substepping scheme with
         ! different other schemes.
-
-        CALL upwind_hflux_miura_cycl( p_patch         = p_patch,            & !in
-          &                           p_cc            = p_cc(:,:,:,jt),     & !in
-          &                           p_rho           = p_rho,              & !in
-          &                           p_mass_flx_e    = p_mass_flx_e,       & !in
-          &                           p_dtime         = p_dtime,            & !in
-          &                           p_ncycl         = nsubsteps,          & !in
-          &                           p_int           = p_int,              & !in
-          &                           btraj           = btraj_cycl,         & !in
-          &                           p_igrad_c_miura = p_igrad_c_miura,    & !in
-          &                           p_itype_hlimit  = p_itype_hlimit(jt), & !in
-          &                           p_out_e         = p_upflux(:,:,:,jt), & !inout
-          &                           elev            = qvsubstep_elev,     & !in
-          &                           opt_lconsv      = llsq_lin_consv,     & !in
-          &                           opt_rlend       = i_rlend,            & !in
-          &                           opt_slev        = p_iadv_slev(jt)     ) !in
+        ! DA: this routine is not (yet) async
+        !$ACC WAIT
+        CALL upwind_hflux_miura_cycl(                           &
+          &         p_patch         = p_patch,                  & !in
+          &         p_cc            = p_cc(:,:,:,jt),           & !in
+          &         p_rhodz_now     = p_rhodz_now,              & !in
+          &         p_mass_flx_e    = p_mass_flx_e,             & !in
+          &         p_dtime         = p_dtime,                  & !in
+          &         p_ncycl         = nsubsteps,                & !in
+          &         p_int           = p_int,                    & !in
+          &         btraj           = btraj_cycl,               & !in
+          &         p_igrad_c_miura = advconf%igrad_c_miura,    & !in
+          &         p_itype_hlimit  = advconf%itype_hlimit(jt), & !in
+          &         p_out_e         = p_upflux(:,:,:,jt),       & !inout
+          &         elev            = qvsubstep_elev,           & !in
+          &         opt_lconsv      = llsq_lin_consv,           & !in
+          &         opt_rlend       = i_rlend,                  & !in
+          &         opt_slev        = advconf%iadv_slev(jt)     ) !in
         ENDIF
 
 
       CASE( MIURA3_MCYCL )   ! ihadv_tracer = 32
 
-        qvsubstep_elev = advection_config(jg)%iadv_qvsubstep_elev
+        qvsubstep_elev = advconf%iadv_qvsubstep_elev
 
         ! CALL standard MIURA3 for lower atmosphere and the subcycling version of
         ! MIURA for upper atmosphere
+        ! DA: this routine is not (yet) async
+        !$ACC WAIT
         CALL upwind_hflux_miura3( p_patch, p_cc(:,:,:,jt), p_mass_flx_e, &! in
           &              p_vn, z_real_vt, p_dtime, p_int,                &! in
           &              lcompute%miura3_h(jt), lcleanup%miura3_h(jt),   &! in
-          &              p_itype_hlimit(jt),                             &! in
+          &              advconf%itype_hlimit(jt),                       &! in
           &              p_upflux(:,:,:,jt),                             &! inout
-          &              opt_rlend   = i_rlend,                          &! in
-          &              opt_slev    = qvsubstep_elev+1,                 &! in
-          &              opt_elev    = p_patch%nlev,                     &! in
-          &              opt_ti_slev = qvsubstep_elev+1,                 &! in
-          &              opt_ti_elev = p_patch%nlev                      )! in
+          &              opt_rhodz_now  = p_rhodz_now,                   &! in
+          &              opt_rhodz_new  = p_rhodz_new,                   &! in
+          &              opt_rlend      = i_rlend,                       &! in
+          &              opt_slev       = qvsubstep_elev+1,              &! in
+          &              opt_elev       = p_patch%nlev,                  &! in
+          &              opt_ti_slev    = qvsubstep_elev+1,              &! in
+          &              opt_ti_elev    = p_patch%nlev                   )! in
 
         IF (qvsubstep_elev > 0) THEN
 
@@ -575,41 +624,63 @@ CONTAINS
         ! with substepping. This prevents us from computing the backward
         ! trajectories multiple times when combining the substepping scheme with
         ! different other schemes.
-        CALL upwind_hflux_miura_cycl( p_patch         = p_patch,            & !in
-          &                           p_cc            = p_cc(:,:,:,jt),     & !in
-          &                           p_rho           = p_rho,              & !in
-          &                           p_mass_flx_e    = p_mass_flx_e,       & !in
-          &                           p_dtime         = p_dtime,            & !in
-          &                           p_ncycl         = nsubsteps,          & !in
-          &                           p_int           = p_int,              & !in
-          &                           btraj           = btraj_cycl,         & !in
-          &                           p_igrad_c_miura = p_igrad_c_miura,    & !in
-          &                           p_itype_hlimit  = p_itype_hlimit(jt), & !in
-          &                           p_out_e         = p_upflux(:,:,:,jt), & !inout
-          &                           elev            = qvsubstep_elev,     & !in
-          &                           opt_lconsv      = llsq_lin_consv,     & !in
-          &                           opt_rlend       = i_rlend,            & !in
-          &                           opt_slev        = p_iadv_slev(jt)     ) !in
+        ! DA: this routine is not (yet) async
+        !$ACC WAIT
+        CALL upwind_hflux_miura_cycl(                           &
+          &         p_patch         = p_patch,                  & !in
+          &         p_cc            = p_cc(:,:,:,jt),           & !in
+          &         p_rhodz_now     = p_rhodz_now,              & !in
+          &         p_mass_flx_e    = p_mass_flx_e,             & !in
+          &         p_dtime         = p_dtime,                  & !in
+          &         p_ncycl         = nsubsteps,                & !in
+          &         p_int           = p_int,                    & !in
+          &         btraj           = btraj_cycl,               & !in
+          &         p_igrad_c_miura = advconf%igrad_c_miura,    & !in
+          &         p_itype_hlimit  = advconf%itype_hlimit(jt), & !in
+          &         p_out_e         = p_upflux(:,:,:,jt),       & !inout
+          &         elev            = qvsubstep_elev,           & !in
+          &         opt_lconsv      = llsq_lin_consv,           & !in
+          &         opt_rlend       = i_rlend,                  & !in
+          &         opt_slev        = advconf%iadv_slev(jt)     ) !in
         ENDIF
 
 
       CASE (FFSL_MCYCL)   ! ihadv_tracer = 42
 
-        qvsubstep_elev = advection_config(jg)%iadv_qvsubstep_elev
+        qvsubstep_elev = advconf%iadv_qvsubstep_elev
+
+#ifdef _OPENACC
+! In GPU mode, copy data to HOST and perform upwind_hflux_ffsl there, then update device
+! NOTE: this is only for testing; use upwind_hflux_miura/miura3 for performance
+        WRITE(message_text,'(a)') 'GPU mode: performing upwind_hflux_ffsl on host; for performance use upwind_hflux_miura'
+        CALL message(routine,message_text)
+!$ACC UPDATE HOST( p_cc(:,:,:,jt), p_mass_flx_e, p_vn, p_rhodz_now, p_rhodz_new, z_real_vt ), &
+!$ACC        IF( i_am_accel_node .AND. acc_on )
+        save_i_am_accel_node = i_am_accel_node
+        i_am_accel_node = .FALSE.     ! deactivate GPUs throughout hflux_ffsl_hybrid
+#endif
 
         ! CALL standard FFSL for lower atmosphere and the subcycling version of
         ! MIURA for upper atmosphere
-        CALL upwind_hflux_ffsl( p_patch, p_cc(:,:,:,jt), p_mass_flx_e,    &! in
-          &                 p_vn, z_real_vt, p_dtime, p_int,              &! in
-          &                 lcompute%ffsl_h(jt), lcleanup%ffsl_h(jt),     &! in
-          &                 p_itype_hlimit(jt),                           &! in
-          &                 p_upflux(:,:,:,jt),                           &! inout
-          &                 opt_lconsv  = llsq_high_consv,                &! in
-          &                 opt_rlend   = i_rlend,                        &! in
-          &                 opt_slev    = qvsubstep_elev+1,               &! in
-          &                 opt_elev    = p_patch%nlev,                   &! in
-          &                 opt_ti_slev = qvsubstep_elev+1,               &! in
-          &                 opt_ti_elev = p_patch%nlev                    )! in
+        ! DA: this routine is not (yet) async
+        !$ACC WAIT
+        CALL upwind_hflux_ffsl( p_patch, p_cc(:,:,:,jt),              &! in
+          &                 p_rhodz_now, p_rhodz_new, p_mass_flx_e,   &! in
+          &                 p_vn, z_real_vt, p_dtime, p_int,          &! in
+          &                 lcompute%ffsl_h(jt), lcleanup%ffsl_h(jt), &! in
+          &                 advconf%itype_hlimit(jt),                 &! in
+          &                 p_upflux(:,:,:,jt),                       &! inout
+          &                 opt_lconsv  = llsq_high_consv,            &! in
+          &                 opt_rlend   = i_rlend,                    &! in
+          &                 opt_slev    = qvsubstep_elev+1,           &! in
+          &                 opt_elev    = p_patch%nlev,               &! in
+          &                 opt_ti_slev = qvsubstep_elev+1,           &! in
+          &                 opt_ti_elev = p_patch%nlev                )! in
+
+#ifdef _OPENACC
+        i_am_accel_node =  save_i_am_accel_node    ! reactivate GPUs if appropriate
+!$ACC UPDATE DEVICE( p_upflux(:,:,:,jt) ), IF( i_am_accel_node .AND. acc_on )
+#endif
 
         IF (qvsubstep_elev > 0) THEN
 
@@ -617,42 +688,64 @@ CONTAINS
         ! with substepping. This prevents us from computing the backward
         ! trajectories multiple times when combining the substepping scheme with
         ! different other schemes.
-        CALL upwind_hflux_miura_cycl( p_patch         = p_patch,            & !in
-          &                           p_cc            = p_cc(:,:,:,jt),     & !in
-          &                           p_rho           = p_rho,              & !in
-          &                           p_mass_flx_e    = p_mass_flx_e,       & !in
-          &                           p_dtime         = p_dtime,            & !in
-          &                           p_ncycl         = nsubsteps,          & !in
-          &                           p_int           = p_int,              & !in
-          &                           btraj           = btraj_cycl,         & !in
-          &                           p_igrad_c_miura = p_igrad_c_miura,    & !in
-          &                           p_itype_hlimit  = p_itype_hlimit(jt), & !in
-          &                           p_out_e         = p_upflux(:,:,:,jt), & !inout
-          &                           elev            = qvsubstep_elev,     & !in
-          &                           opt_lconsv      = llsq_lin_consv,     & !in
-          &                           opt_rlend       = i_rlend,            & !in
-          &                           opt_slev        = p_iadv_slev(jt)     ) !in
+        ! DA: this routine is not (yet) async
+        !$ACC WAIT
+        CALL upwind_hflux_miura_cycl(                           &
+          &         p_patch         = p_patch,                  & !in
+          &         p_cc            = p_cc(:,:,:,jt),           & !in
+          &         p_rhodz_now     = p_rhodz_now,              & !in
+          &         p_mass_flx_e    = p_mass_flx_e,             & !in
+          &         p_dtime         = p_dtime,                  & !in
+          &         p_ncycl         = nsubsteps,                & !in
+          &         p_int           = p_int,                    & !in
+          &         btraj           = btraj_cycl,               & !in
+          &         p_igrad_c_miura = advconf%igrad_c_miura,    & !in
+          &         p_itype_hlimit  = advconf%itype_hlimit(jt), & !in
+          &         p_out_e         = p_upflux(:,:,:,jt),       & !inout
+          &         elev            = qvsubstep_elev,           & !in
+          &         opt_lconsv      = llsq_lin_consv,           & !in
+          &         opt_rlend       = i_rlend,                  & !in
+          &         opt_slev        = advconf%iadv_slev(jt)     ) !in
         ENDIF
 
 
       CASE (FFSL_HYB_MCYCL)   ! ihadv_tracer = 52
 
-        qvsubstep_elev = advection_config(jg)%iadv_qvsubstep_elev
+        qvsubstep_elev = advconf%iadv_qvsubstep_elev
+
+#ifdef _OPENACC
+! In GPU mode, copy data to HOST and perform hflux_ffsl_hybrid there, then update device
+! NOTE: this is only for testing; use upwind_hflux_miura/miura3 for performance
+        WRITE(message_text,'(a)') 'GPU mode: performing hflux_ffsl_hybrid on host; for performance use upwind_hflux_miura'
+        CALL message(routine,message_text)
+!$ACC UPDATE HOST( p_cc(:,:,:,jt), p_mass_flx_e, p_vn, p_rhodz_now, p_rhodz_new, z_real_vt ), &
+!$ACC        IF( i_am_accel_node .AND. acc_on )
+        save_i_am_accel_node = i_am_accel_node
+        i_am_accel_node = .FALSE.     ! deactivate GPUs throughout hflux_ffsl_hybrid
+#endif
 
         ! CALL hybrid FFSL/MIURA3 for lower atmosphere and the subcycling
         ! version of MIURA for upper atmosphere
-        CALL hflux_ffsl_hybrid( p_patch, p_cc(:,:,:,jt), p_mass_flx_e,    &! in
-          &                 p_vn, z_real_vt, p_dtime, p_int,              &! in
-          &                 lcompute%ffsl_hyb_h(jt),                      &! in
-          &                 lcleanup%ffsl_hyb_h(jt),                      &! in
-          &                 p_itype_hlimit(jt),                           &! in
-          &                 p_upflux(:,:,:,jt),                           &! inout
-          &                 opt_lconsv  = llsq_high_consv,                &! in
-          &                 opt_rlend   = i_rlend,                        &! in
-          &                 opt_slev    = qvsubstep_elev+1,               &! in
-          &                 opt_elev    = p_patch%nlev,                   &! in
-          &                 opt_ti_slev = qvsubstep_elev+1,               &! in
-          &                 opt_ti_elev = p_patch%nlev                    )! in
+        ! DA: this routine is not (yet) async
+        !$ACC WAIT
+        CALL hflux_ffsl_hybrid( p_patch, p_cc(:,:,:,jt),            &! in
+          &                 p_rhodz_now, p_rhodz_new, p_mass_flx_e, &! in
+          &                 p_vn, z_real_vt, p_dtime, p_int,        &! in
+          &                 lcompute%ffsl_hyb_h(jt),                &! in
+          &                 lcleanup%ffsl_hyb_h(jt),                &! in
+          &                 advconf%itype_hlimit(jt),               &! in
+          &                 p_upflux(:,:,:,jt),                     &! inout
+          &                 opt_lconsv  = llsq_high_consv,          &! in
+          &                 opt_rlend   = i_rlend,                  &! in
+          &                 opt_slev    = qvsubstep_elev+1,         &! in
+          &                 opt_elev    = p_patch%nlev,             &! in
+          &                 opt_ti_slev = qvsubstep_elev+1,         &! in
+          &                 opt_ti_elev = p_patch%nlev              )! in
+
+#ifdef _OPENACC
+        i_am_accel_node =  save_i_am_accel_node    ! reactivate GPUs if appropriate
+!$ACC UPDATE DEVICE( p_upflux(:,:,:,jt) ), IF( i_am_accel_node .AND. acc_on )
+#endif
 
         IF (qvsubstep_elev > 0) THEN
 
@@ -660,31 +753,37 @@ CONTAINS
         ! with substepping. This prevents us from computing the backward
         ! trajectories multiple times when combining the substepping scheme with
         ! different other schemes.
-        CALL upwind_hflux_miura_cycl( p_patch         = p_patch,            & !in
-          &                           p_cc            = p_cc(:,:,:,jt),     & !in
-          &                           p_rho           = p_rho,              & !in
-          &                           p_mass_flx_e    = p_mass_flx_e,       & !in
-          &                           p_dtime         = p_dtime,            & !in
-          &                           p_ncycl         = nsubsteps,          & !in
-          &                           p_int           = p_int,              & !in
-          &                           btraj           = btraj_cycl,         & !in
-          &                           p_igrad_c_miura = p_igrad_c_miura,    & !in
-          &                           p_itype_hlimit  = p_itype_hlimit(jt), & !in
-          &                           p_out_e         = p_upflux(:,:,:,jt), & !inout
-          &                           elev            = qvsubstep_elev,     & !in
-          &                           opt_lconsv      = llsq_lin_consv,     & !in
-          &                           opt_rlend       = i_rlend,            & !in
-          &                           opt_slev        = p_iadv_slev(jt)     ) !in
+        ! DA: this routine is not (yet) async
+        !$ACC WAIT
+        CALL upwind_hflux_miura_cycl(                           &
+          &         p_patch         = p_patch,                  & !in
+          &         p_cc            = p_cc(:,:,:,jt),           & !in
+          &         p_rhodz_now     = p_rhodz_now,              & !in
+          &         p_mass_flx_e    = p_mass_flx_e,             & !in
+          &         p_dtime         = p_dtime,                  & !in
+          &         p_ncycl         = nsubsteps,                & !in
+          &         p_int           = p_int,                    & !in
+          &         btraj           = btraj_cycl,               & !in
+          &         p_igrad_c_miura = advconf%igrad_c_miura,    & !in
+          &         p_itype_hlimit  = advconf%itype_hlimit(jt), & !in
+          &         p_out_e         = p_upflux(:,:,:,jt),       & !inout
+          &         elev            = qvsubstep_elev,           & !in
+          &         opt_lconsv      = llsq_lin_consv,           & !in
+          &         opt_rlend       = i_rlend,                  & !in
+          &         opt_slev        = advconf%iadv_slev(jt)     ) !in
         ENDIF
 
       END SELECT
 
     END DO  ! Tracer loop
 
+!$ACC UPDATE HOST( p_upflux ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+
     CALL btraj%destruct()
     CALL btraj_cycl%destruct()
 
-    IF (timers_level > 2) CALL timer_stop(timer_adv_horz)
+    IF (timers_level > 2) CALL timer_stop(timer_adv_hflx)
 
   END SUBROUTINE hor_upwind_flux
 
@@ -783,7 +882,7 @@ CONTAINS
     ! loop through all patch edges (and blocks)
 
 !$ACC DATA  PCOPYIN( p_cc, p_mass_flx_e ), PCOPYOUT( p_upflux ), &
-!$ACC       PRESENT( p_patch, iilc, iibc ), IF( i_am_accel_node .AND. acc_on )
+!$ACC       PRESENT( iilc, iibc ), IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( p_cc, p_mass_flx_e ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
 !$OMP PARALLEL
@@ -793,16 +892,13 @@ CONTAINS
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk,   &
         &                i_startidx, i_endidx, i_rlstart, i_rlend)
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-      !$ACC LOOP GANG 
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
       DO je = i_startidx, i_endidx
-        !$ACC LOOP VECTOR
         DO jk = slev, elev
 #else
-!CDIR UNROLL=6
       DO jk = slev, elev
-        !$ACC LOOP VECTOR
         DO je = i_startidx, i_endidx
 #endif
           !
@@ -812,8 +908,11 @@ CONTAINS
           ! compute final conservative update using the discrete
           ! div operator
           !
-          p_upflux(je,jk,jb) =  &
-            &  laxfr_upflux(p_mass_flx_e(je,jk,jb),p_cc(iilc(je,jb,1),jk,iibc(je,jb,1)),p_cc(iilc(je,jb,2),jk,iibc(je,jb,2)))
+          IF ( p_mass_flx_e(je,jk,jb) .GE. 0.0_wp ) THEN
+            p_upflux(je,jk,jb) = p_mass_flx_e(je,jk,jb) * p_cc(iilc(je,jb,2),jk,iibc(je,jb,2))
+          ELSE
+            p_upflux(je,jk,jb) = p_mass_flx_e(je,jk,jb) * p_cc(iilc(je,jb,1),jk,iibc(je,jb,1))
+          ENDIF
 
         END DO  ! end loop over edges
 
@@ -862,14 +961,14 @@ CONTAINS
   !!   Grids: High-order Reconstructions for Forward-in-Time Schemes, Mon. Wea. Rev,
   !!   139, 4497-4508
   !!
-  SUBROUTINE upwind_hflux_miura( p_patch, p_cc, p_mass_flx_e,    &
-    &                      p_dtime, p_int, btraj,                &
-    &                      p_igrad_c_miura, p_itype_hlimit,      &
-    &                      p_out_e, opt_lconsv, opt_rlstart, opt_rlend, &
+  SUBROUTINE upwind_hflux_miura( p_patch, p_cc, p_mass_flx_e, p_dtime,      &
+    &                      p_int, btraj, p_igrad_c_miura, p_itype_hlimit,   &
+    &                      p_out_e, opt_rhodz_now, opt_rhodz_new,           &
+    &                      opt_lconsv, opt_rlstart, opt_rlend,              &
     &                      opt_lout_edge, opt_slev, opt_elev )
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_advection_hflux: upwind_hflux_miura'
+    CHARACTER(len=*), PARAMETER ::  &
+      &  routine = modname//':upwind_hflux_miura'
 
     TYPE(t_patch), TARGET, INTENT(INOUT) ::  &   !< patch on which computation is performed
       &  p_patch
@@ -896,6 +995,14 @@ CONTAINS
 
     REAL(wp), INTENT(INOUT) ::  &   !< output field, containing the upwind flux or the
       &  p_out_e(:,:,:)             !< reconstructed edge value; dim: (nproma,nlev,nblks_e)
+
+    REAL(wp), OPTIONAL, INTENT(IN) ::    &  !< density times cell thickness at cell center step (n)
+      &  opt_rhodz_now(:,:,:)               !< dim: (nproma,nlev,nblks_c)
+                                            !< needed by flux limiter routines, only
+
+    REAL(wp), OPTIONAL, INTENT(IN) ::    &  !< density times cell thickness at cell center step (n+1)
+      &  opt_rhodz_new(:,:,:)               !< dim: (nproma,nlev,nblks_c)
+                                            !< needed by flux limiter routines, only
 
     LOGICAL, INTENT(IN), OPTIONAL :: & !< optional: if true, conservative reconstruction
       &  opt_lconsv                    !< is used
@@ -942,8 +1049,10 @@ CONTAINS
 
    !-------------------------------------------------------------------------
 
-!$ACC DATA  PCOPYIN( p_cc, p_mass_flx_e, btraj ), PCOPY( p_out_e ), CREATE( z_grad, z_lsq_coeff ), &
-!$ACC       PRESENT( p_patch, btraj%cell_idx, btraj%cell_blk), IF( i_am_accel_node .AND. acc_on)
+!$ACC DATA  PCOPYIN( p_cc, p_mass_flx_e, btraj), PCOPY( p_out_e ), CREATE( z_grad, z_lsq_coeff ), &
+!$ACC       PRESENT( btraj ), IF( i_am_accel_node .AND. acc_on)
+!$ACC DATA  PCOPYIN( opt_rhodz_now ), IF( PRESENT(opt_rhodz_now) .AND. i_am_accel_node .AND. acc_on )
+!$ACC DATA  PCOPYIN( opt_rhodz_new ), IF( PRESENT(opt_rhodz_new) .AND. i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( p_cc, p_mass_flx_e, btraj, p_out_e ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 #ifdef __INTEL_COMPILER
 !DIR$ ATTRIBUTES ALIGN : 64 :: z_grad,z_lsq_coeff
@@ -1001,7 +1110,7 @@ CONTAINS
     i_nchdom = MAX(1,p_patch%n_childdom)
 
     IF (p_test_run) THEN
-!$ACC KERNELS IF (i_am_accel_node .AND. acc_on)
+!$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF (i_am_accel_node .AND. acc_on)
 #ifdef __INTEL_COMPILER
 !$OMP PARALLEL DO SCHEDULE(STATIC)
       DO i = 1,SIZE(z_grad,4)
@@ -1034,28 +1143,33 @@ CONTAINS
     IF (p_igrad_c_miura == 1) THEN
       ! least squares method
       IF (advection_config(pid)%llsq_svd .AND. l_consv) THEN
-        CALL recon_lsq_cell_l_consv_svd( p_cc, p_patch, lsq_lin, z_lsq_coeff,         &
+        CALL recon_lsq_cell_l_consv_svd( p_cc, p_patch, lsq_lin, z_lsq_coeff,             &
         &                              opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
-        &                              opt_lconsv=l_consv)
+        &                              opt_lconsv=l_consv )
         use_zlsq = .TRUE.
       ELSE IF (advection_config(pid)%llsq_svd) THEN
-        CALL recon_lsq_cell_l_svd( p_cc, p_patch, lsq_lin, z_grad,           &
-        &                        opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c)
+        CALL recon_lsq_cell_l_svd( p_cc, p_patch, lsq_lin, z_grad,                     &
+             &                     opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c,  &
+             &                     opt_acc_async = .TRUE. )
       ELSE
-        CALL recon_lsq_cell_l( p_cc, p_patch, lsq_lin, z_lsq_coeff,         &
+        CALL recon_lsq_cell_l( p_cc, p_patch, lsq_lin, z_lsq_coeff,             &
         &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
-        &                    opt_lconsv=l_consv)
+        &                    opt_lconsv=l_consv, opt_acc_async = .TRUE. )
         use_zlsq = .TRUE.
       ENDIF
 
     ELSE IF (p_igrad_c_miura == 2) THEN
       ! Green-Gauss method
+      ! DA: this routine is not (yet) async
+      !$ACC WAIT
       CALL grad_green_gauss_cell( p_cc, p_patch, p_int, z_grad, opt_slev=slev, &
         &                         opt_elev=elev, opt_rlend=i_rlend_c )
 
 
     ELSE IF (p_igrad_c_miura == 3) THEN
       ! gradient based on three-node triangular element
+      ! DA: this routine is not (yet) async
+      !$ACC WAIT
       CALL grad_fe_cell( p_cc, p_patch, p_int, z_grad, opt_slev=slev, &
         &                opt_elev=elev, opt_rlend=i_rlend_c )
 
@@ -1104,11 +1218,10 @@ CONTAINS
 
       IF ( l_out_edgeval ) THEN   ! Calculate 'edge value' of advected quantity
 
-!CDIR UNROLL=5
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-        !$ACC LOOP GANG
+!$NEC outerloop_unroll(8)
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP GANG VECTOR PRIVATE(ilc0,ibc0) COLLAPSE(2)
         DO jk = slev, elev
-          !$ACC LOOP VECTOR
           DO je = i_startidx, i_endidx
 
             ! Calculate reconstructed tracer value at barycenter of rhomboidal
@@ -1127,11 +1240,10 @@ CONTAINS
 
       ELSE IF (use_zlsq) THEN
 
-!CDIR UNROLL=5
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-        !$ACC LOOP GANG
+!$NEC outerloop_unroll(8)
+!$ACC PARALLEL DEFAULT(NONE) PRIVATE(ilc0,ibc0) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = slev, elev
-          !$ACC LOOP VECTOR PRIVATE(ilc0,ibc0)
           DO je = i_startidx, i_endidx
 
             ! Calculate reconstructed tracer value at barycenter of rhomboidal
@@ -1151,11 +1263,10 @@ CONTAINS
 
       ELSE
 
-!CDIR UNROLL=5
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-        !$ACC LOOP GANG
+!$NEC outerloop_unroll(8)
+!$ACC PARALLEL DEFAULT(NONE) PRIVATE(ilc0,ibc0) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = slev, elev
-          !$ACC LOOP VECTOR PRIVATE(ilc0,ibc0)
           DO je = i_startidx, i_endidx
 
             ! Calculate reconstructed tracer value at barycenter of rhomboidal
@@ -1181,19 +1292,31 @@ CONTAINS
 !$OMP END PARALLEL
 
     !
-    ! 4. If desired, apply a (semi-)monotone flux limiter to limit computed fluxes.
+    ! 4. If desired, apply a monotonic or positive definite flux limiter 
+    !    to limit computed fluxes.
     !    The flux limiter is based on work by Zalesak (1979)
     IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_m) THEN
-      CALL hflx_limiter_mo( p_patch, p_int, p_dtime, p_cc, p_mass_flx_e, & !in
-        &                p_out_e, slev, elev, opt_rlend=i_rlend          ) !inout,in
+      IF (.NOT. (PRESENT(opt_rhodz_now) .OR. PRESENT(opt_rhodz_now))) THEN
+        CALL finish(routine,'Required fields opt_rhodz_now and opt_rhodz_now are not present')
+      ENDIF
+      CALL hflx_limiter_mo( p_patch, p_int, p_dtime, p_cc,               & !in
+        &                   opt_rhodz_now, opt_rhodz_new, p_mass_flx_e,  & !in
+        &                   p_out_e, slev, elev, opt_rlend=i_rlend )       !inout,in
 
     ELSE IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_sm) THEN
+      IF (.NOT. (PRESENT(opt_rhodz_now))) THEN
+        CALL finish(routine,'Required field opt_rhodz_now not present')
+      ENDIF
       ! MPI-sync necessary
-      CALL hflx_limiter_sm( p_patch, p_int, p_dtime, p_cc, p_out_e, & !in,inout
-        &                   slev, elev, opt_rlend=i_rlend            ) !in
+      CALL hflx_limiter_pd( p_patch, p_int, p_dtime,                 & !in
+        &                   p_cc, opt_rhodz_now, p_out_e,            & !in,inout
+        &                   slev, elev, opt_rlend=i_rlend )            !in
     ENDIF
 
-!$ACC UPDATE HOST( p_out_e ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+!$ACC WAIT
+!$ACC UPDATE HOST( p_out_e ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+!$ACC END DATA
 !$ACC END DATA
 
   END SUBROUTINE upwind_hflux_miura
@@ -1231,14 +1354,14 @@ CONTAINS
   !!   Grids: High-order Reconstructions for Forward-in-Time Schemes, Mon. Wea. Rev,
   !!   139, 4497-4508
   !!
-  SUBROUTINE upwind_hflux_miura_cycl( p_patch, p_cc, p_rho, p_mass_flx_e,  &
-    &                   p_dtime,  p_ncycl, p_int, btraj,                   &
-    &                   p_igrad_c_miura, p_itype_hlimit, p_out_e,          &
+  SUBROUTINE upwind_hflux_miura_cycl( p_patch, p_cc, p_rhodz_now,              &
+    &                   p_mass_flx_e, p_dtime,  p_ncycl, p_int, btraj,         &
+    &                   p_igrad_c_miura, p_itype_hlimit, p_out_e,              &
     &                   elev, opt_lconsv, opt_rlstart, opt_rlend, opt_slev )
 
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_advection_hflux: upwind_hflux_miura_cycl'
+    CHARACTER(len=*), PARAMETER ::  &
+      &  routine = modname//':upwind_hflux_miura_cycl'
 
     TYPE(t_patch), TARGET, INTENT(INOUT) ::  &   !< patch on which computation is performed
       &  p_patch
@@ -1252,8 +1375,8 @@ CONTAINS
     REAL(wp), TARGET, INTENT(IN) ::     &   !< cell centered variable to be advected
       &  p_cc(:,:,:)                        !< dim: (nproma,nlev,nblks_c)
 
-    REAL(wp), INTENT(IN) ::    &    !< density (i.e. \rho\Delta z) at timestep n
-      &  p_rho(:,:,:)               !< dim: (nproma,nlev,nblks_c)
+    REAL(wp), INTENT(IN) ::    &    !< density times cell thickness at timestep n
+      &  p_rhodz_now(:,:,:)         !< dim: (nproma,nlev,nblks_c)
 
     REAL(wp), INTENT(IN) ::    &    !< contravariant horizontal mass flux
       &  p_mass_flx_e(:,:,:)        !< Assumption: constant over p_dtime
@@ -1337,8 +1460,8 @@ CONTAINS
    !-------------------------------------------------------------------------
 
     IF (p_ncycl /= 2 .AND. p_ncycl /= 3) &
-    CALL finish(TRIM(routine),'current implementation of upwind_hflux_miura_cycl '//&
-      &                       'requires 2 or 3 subcycling steps (p_ncycl=2/3)')
+    CALL finish(routine,'current implementation of upwind_hflux_miura_cycl '//&
+      &                 'requires 2 or 3 subcycling steps (p_ncycl=2/3)')
 
     ! get patch ID
     pid = p_patch%id
@@ -1386,6 +1509,11 @@ CONTAINS
     ! number of child domains
     i_nchdom = MAX(1,p_patch%n_childdom)
 
+!$ACC DATA  PCOPYIN( p_cc, p_rhodz_now, p_mass_flx_e ), PCOPYOUT( p_out_e ), &
+!$ACC       CREATE( z_grad, z_lsq_coeff, z_tracer_mflx, z_rhofluxdiv_c, z_fluxdiv_c, z_tracer, z_rho ), &
+!$ACC       PRESENT( iidx, iblk, btraj%cell_idx, btraj%cell_blk, btraj%distv_bary ), &
+!$ACC       IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_cc, p_mass_flx_e ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     IF (p_test_run) THEN
       z_grad(:,:,:,:)   = 0._wp
@@ -1397,7 +1525,7 @@ CONTAINS
     nnew = 2
 !$OMP PARALLEL
     CALL copy(p_cc (:,slev:elev,:), z_tracer(:,slev:elev,:,nnow))
-    CALL copy(p_rho(:,slev:elev,:), z_rho   (:,slev:elev,:,nnow))
+    CALL copy(p_rhodz_now(:,slev:elev,:), z_rho   (:,slev:elev,:,nnow))
 !$OMP END PARALLEL
 
 
@@ -1489,7 +1617,9 @@ CONTAINS
         ! 3.2 Compute intermediate tracer mass flux
         !
         IF (use_zlsq) THEN
-!CDIR UNROLL=5
+!$ACC PARALLEL DEFAULT(PRESENT) IF ( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP GANG VECTOR PRIVATE( ilc0, ibc0 ) COLLAPSE(2)
+!$NEC outerloop_unroll(8)
           DO jk = slev, elev
 
             DO je = i_startidx, i_endidx
@@ -1505,8 +1635,11 @@ CONTAINS
 
             ENDDO ! loop over edges
           ENDDO   ! loop over vertical levels
+!$ACC END PARALLEL
         ELSE
-!CDIR UNROLL=5
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP GANG VECTOR PRIVATE( ilc0, ibc0 ) COLLAPSE(2)
+!$NEC outerloop_unroll(8)
           DO jk = slev, elev
 
             DO je = i_startidx, i_endidx
@@ -1522,6 +1655,7 @@ CONTAINS
 
             ENDDO ! loop over edges
           ENDDO   ! loop over vertical levels
+!$ACC END PARALLEL
         ENDIF
 
       ENDDO    ! loop over blocks
@@ -1534,11 +1668,11 @@ CONTAINS
       !
       IF ( p_itype_hlimit == ifluxl_sm .OR. p_itype_hlimit == ifluxl_m ) THEN
         !
-        CALL hflx_limiter_sm( p_patch, p_int, z_dtsub          , & !in
+        CALL hflx_limiter_pd( p_patch, p_int, z_dtsub          , & !in
           &                   z_tracer(:,:,:,nnow)             , & !in
+          &                   z_rho(:,:,:,nnow)                , & !in
           &                   z_tracer_mflx(:,:,:,nsub)        , & !inout
-          &                   slev, elev, opt_rlend=i_rlend    , & !in
-          &                   opt_rho = z_rho(:,:,:,nnow)        ) !in
+          &                   slev, elev, opt_rlend=i_rlend      ) !in
       ENDIF
 
 
@@ -1574,11 +1708,13 @@ CONTAINS
         ! p_mass_flx_e is assumed to be constant in time.
         !
         IF ( nsub == 1 ) THEN
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
             DO jc = i_startidx, i_endidx
               DO jk = slev, elev
 #else
-!CDIR UNROLL=6
+!$NEC outerloop_unroll(8)
             DO jk = slev, elev
               DO jc = i_startidx, i_endidx
 #endif
@@ -1590,14 +1726,17 @@ CONTAINS
 
             ENDDO
           ENDDO
+!$ACC END PARALLEL
         ENDIF
 
           ! compute tracer mass flux divergence
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
           DO jc = i_startidx, i_endidx
             DO jk = slev, elev
 #else
-!CDIR UNROLL=6
+!$NEC outerloop_unroll(8)
           DO jk = slev, elev
             DO jc = i_startidx, i_endidx
 #endif
@@ -1609,7 +1748,12 @@ CONTAINS
 
           ENDDO
         ENDDO
+!$ACC END PARALLEL
 
+! Because the next loop requires z_fluxdiv_c it is crucial to synchronize with END PARALLEL
+
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = slev, elev
           DO jc = i_startidx, i_endidx
 
@@ -1628,8 +1772,10 @@ CONTAINS
               &                      / z_rho(jc,jk,jb,nnew)
           ENDDO
         ENDDO
+!$ACC END PARALLEL
 
       ENDDO    ! loop over blocks
+
 !$OMP ENDDO
 !$OMP END PARALLEL
 
@@ -1638,7 +1784,7 @@ CONTAINS
       nnew = nsav
 
 
-      CALL sync_patch_array(SYNC_C,p_patch,z_tracer(:,:,:,nnow))
+      CALL sync_patch_array(SYNC_C,p_patch,z_tracer(:,:,:,nnow),opt_varname='z_tracer')
 
 
     ENDDO  ! loop over sub-timesteps
@@ -1667,25 +1813,33 @@ CONTAINS
         ! Calculate flux at cell edge (cc_bary*v_{n}* \Delta p)
         !
         IF (p_ncycl == 2) THEN
-!CDIR UNROLL=5
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = slev, elev
+!NEC$ ivdep
             DO je = i_startidx, i_endidx
               p_out_e(je,jk,jb) = SUM(z_tracer_mflx(je,jk,jb,1:2))/REAL(p_ncycl,wp)
             ENDDO ! loop over edges
           ENDDO   ! loop over vertical levels
+!$ACC END PARALLEL
         ELSE IF (p_ncycl == 3) THEN
-!CDIR UNROLL=5
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = slev, elev
+!NEC$ ivdep
             DO je = i_startidx, i_endidx
               p_out_e(je,jk,jb) = SUM(z_tracer_mflx(je,jk,jb,1:3))/REAL(p_ncycl,wp)
             ENDDO ! loop over edges
           ENDDO   ! loop over vertical levels
+!$ACC END PARALLEL
         ENDIF
 
     ENDDO    ! loop over blocks
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
+!$ACC UPDATE HOST( p_out_e ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+!$ACC END DATA
 
   END SUBROUTINE upwind_hflux_miura_cycl
 
@@ -1712,15 +1866,15 @@ CONTAINS
   !! - Skamarock, W.C. (2010), Conservative Transport schemes for Spherical Geodesic
   !!   Grids: High-order Recosntructions for Forward-in-Time Schemes, Mon. Wea. Rev.
   !!
-  SUBROUTINE upwind_hflux_miura3( p_patch, p_cc, p_mass_flx_e, p_vn, p_vt,      &
-    &                        p_dtime, p_int, ld_compute, ld_cleanup,            &
-    &                        p_itype_hlimit, p_out_e, opt_rlstart, opt_rlend,   &
-    &                        opt_lout_edge, opt_slev, opt_elev, opt_ti_slev,    &
-    &                        opt_ti_elev )
+  SUBROUTINE upwind_hflux_miura3( p_patch, p_cc, p_mass_flx_e, p_vn, p_vt,          &
+    &                        p_dtime, p_int, ld_compute, ld_cleanup,                &
+    &                        p_itype_hlimit, p_out_e, opt_rhodz_now, opt_rhodz_new, &
+    &                        opt_rlstart, opt_rlend, opt_lout_edge, opt_slev,       &
+    &                        opt_elev, opt_ti_slev, opt_ti_elev )
 
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_advection_hflux: upwind_hflux_miura3'
+    CHARACTER(len=*), PARAMETER ::  &
+      &  routine = modname//':upwind_hflux_miura3'
 
     TYPE(t_patch), INTENT(INOUT) ::  &  !< patch on which computation is performed
       &  p_patch
@@ -1755,6 +1909,12 @@ CONTAINS
       &  p_out_e(:,:,:)             !< or the reconstructed edge value depending on
                                     !< opt_lout_edge
                                     !< dim: (nproma,nlev,nblks_e)
+
+    REAL(wp), OPTIONAL, INTENT(IN) :: &!< density times cell thickness at timestep n
+      &  opt_rhodz_now(:,:,:)          !< dim: (nproma,nlev,nblks_c)
+
+    REAL(wp), OPTIONAL, INTENT(IN) :: &!< density times cell thickness at timestep n+1
+      &  opt_rhodz_new(:,:,:)          !< dim: (nproma,nlev,nblks_c)
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
      &  opt_rlstart                    !< only valid for calculation of 'edge value'
@@ -1874,8 +2034,16 @@ CONTAINS
     ! number of child domains
     i_nchdom = MAX(1,p_patch%n_childdom)
 
+!$ACC DATA  PCOPYIN( p_cc, p_mass_flx_e, p_vn, p_vt ), PCOPYOUT( p_out_e ), &
+!$ACC       CREATE( z_lsq_coeff, z_coords_dreg_v ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA  PCOPYIN( opt_rhodz_now ), IF( PRESENT(opt_rhodz_now) .AND. i_am_accel_node .AND. acc_on )
+!$ACC DATA  PCOPYIN( opt_rhodz_new ), IF( PRESENT(opt_rhodz_new) .AND. i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_cc, p_mass_flx_e, p_vn, p_vt ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+
     IF (p_test_run) THEN
+!$ACC KERNELS IF (i_am_accel_node .AND. acc_on)
       z_lsq_coeff(:,:,:,:) = 0._wp
+!$ACC END KERNELS
     ENDIF
 
     dim_unk = lsq_high_set%dim_unk+1
@@ -1909,11 +2077,13 @@ CONTAINS
         &       z_cell_blk(nproma,nlev,p_patch%nblks_e),                &
         &       STAT=ist )
       IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine),                                 &
+        CALL finish(routine,                                 &
           &  'allocation for z_quad_vector_sum, z_dreg_area, ' //    &
           &  'z_cell_idx, z_cell_blk' )
       ENDIF
 
+!$ACC ENTER DATA CREATE( z_quad_vector_sum, z_dreg_area, z_cell_idx, z_cell_blk ), &
+!$ACC       IF( i_am_accel_node .AND. acc_on )
 
       ! compute vertex coordinates for the departure region using a first
       ! order accurate (O(\Delta t)) backward trajectory-method
@@ -1954,8 +2124,6 @@ CONTAINS
       ENDIF
 
     END IF ! ld_compute
-
-
 
     !
     ! 2. reconstruction of the tracer subgrid distribution
@@ -2004,7 +2172,7 @@ CONTAINS
     ! Synchronize polynomial coefficients
     ! Note: a special sync routine is needed here because the fourth dimension
     ! of z_lsq_coeff is (for efficiency reasons) on the third index
-    CALL sync_patch_array_4de1(SYNC_C1,p_patch,lsq_high_set%dim_unk+1,z_lsq_coeff)
+    CALL sync_patch_array_4de1(SYNC_C1,p_patch,lsq_high_set%dim_unk+1,z_lsq_coeff,opt_varname='z_lsq_coeff 1')
 
 
 
@@ -2062,45 +2230,51 @@ CONTAINS
         SELECT  CASE( lsq_high_ord )
         CASE( 2 )  ! quadratic reconstruction
 
-!CDIR UNROLL=4
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = slev, elev
           DO je = i_startidx, i_endidx
 
-!CDIR EXPAND=6
+!$NEC unroll(6)
             p_out_e(je,jk,jb) =                                                       &
               &  DOT_PRODUCT(z_lsq_coeff(1:6,ptr_ilc(je,jk,jb),jk,ptr_ibc(je,jk,jb)), &
               &  z_quad_vector_sum(je,1:6,jk,jb) ) / z_dreg_area(je,jk,jb)
 
           ENDDO
         ENDDO
+!$ACC END PARALLEL
 
         CASE( 30 )  ! cubic reconstruction without third order cross derivatives
 
-!CDIR UNROLL=5
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = slev, elev
           DO je = i_startidx, i_endidx
 
-!CDIR EXPAND=8
+!$NEC unroll(8)
             p_out_e(je,jk,jb) =                                                       &
               &  DOT_PRODUCT(z_lsq_coeff(1:8,ptr_ilc(je,jk,jb),jk,ptr_ibc(je,jk,jb)), &
               &  z_quad_vector_sum(je,1:8,jk,jb) ) / z_dreg_area(je,jk,jb)
 
           ENDDO
         ENDDO
+!$ACC END PARALLEL
 
         CASE( 3 )  ! cubic reconstruction with third order cross derivatives
 
-!CDIR UNROLL=4
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = slev, elev
           DO je = i_startidx, i_endidx
 
-!CDIR EXPAND=10
+!$NEC unroll(10)
             p_out_e(je,jk,jb) =                                                        &
               &  DOT_PRODUCT(z_lsq_coeff(1:10,ptr_ilc(je,jk,jb),jk,ptr_ibc(je,jk,jb)), &
               &  z_quad_vector_sum(je,1:10,jk,jb) ) / z_dreg_area(je,jk,jb)
 
           ENDDO
         ENDDO
+!$ACC END PARALLEL
 
         END SELECT
 
@@ -2116,11 +2290,12 @@ CONTAINS
         SELECT  CASE( lsq_high_ord )
         CASE( 2 )  ! quadratic reconstruction
 
-!CDIR UNROLL=4
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = slev, elev
           DO je = i_startidx, i_endidx
 
-!CDIR EXPAND=6
+!$NEC unroll(6)
             p_out_e(je,jk,jb) =                                                       &
               &  DOT_PRODUCT(z_lsq_coeff(1:6,ptr_ilc(je,jk,jb),jk,ptr_ibc(je,jk,jb)), &
               &  z_quad_vector_sum(je,1:6,jk,jb) ) / z_dreg_area(je,jk,jb)            &
@@ -2128,14 +2303,16 @@ CONTAINS
 
           ENDDO
         ENDDO
+!$ACC END PARALLEL
 
         CASE( 30 )  ! cubic reconstruction without third order cross derivatives
 
-!CDIR UNROLL=5
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = slev, elev
           DO je = i_startidx, i_endidx
 
-!CDIR EXPAND=8
+!$NEC unroll(8)
             p_out_e(je,jk,jb) =                                                       &
               &  DOT_PRODUCT(z_lsq_coeff(1:8,ptr_ilc(je,jk,jb),jk,ptr_ibc(je,jk,jb)), &
               &  z_quad_vector_sum(je,1:8,jk,jb) ) / z_dreg_area(je,jk,jb)            &
@@ -2143,14 +2320,16 @@ CONTAINS
 
           ENDDO
         ENDDO
+!$ACC END PARALLEL
 
         CASE( 3 )  ! cubic reconstruction with third order cross derivatives
 
-!CDIR UNROLL=4
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = slev, elev
           DO je = i_startidx, i_endidx
 
-!CDIR EXPAND=10
+!$NEC unroll(10)
             p_out_e(je,jk,jb) =                                                        &
               &  DOT_PRODUCT(z_lsq_coeff(1:10,ptr_ilc(je,jk,jb),jk,ptr_ibc(je,jk,jb)), &
               &  z_quad_vector_sum(je,1:10,jk,jb) ) / z_dreg_area(je,jk,jb)            &
@@ -2158,6 +2337,7 @@ CONTAINS
 
           ENDDO
         ENDDO
+!$ACC END PARALLEL
 
         END SELECT
 
@@ -2166,34 +2346,51 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-
     !
-    ! 4. If desired, apply a (semi-)monotone flux limiter to limit computed fluxes.
+    ! 4. If desired, apply a monotonic or positive definite flux limiter 
+    !    to limit computed fluxes.
     !    The flux limiter is based on work by Zalesak (1979)
     !
     IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_m) THEN
-      CALL hflx_limiter_mo( p_patch, p_int, p_dtime, p_cc, p_mass_flx_e, & !in
-        &           p_out_e, slev, elev, opt_rlend=i_rlend,              & !inout,in
-        &           opt_beta_fct=advection_config(pid)%beta_fct          ) !in
-    ELSE IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_sm) THEN
+      IF (.NOT. (PRESENT(opt_rhodz_now) .OR. PRESENT(opt_rhodz_now))) THEN
+        CALL finish(routine,'Required fields opt_rhodz_now and opt_rhodz_now are not present')
+      ENDIF
       !
-      CALL hflx_limiter_sm( p_patch, p_int, p_dtime, p_cc, p_out_e,      & !in,inout
-        &                   slev, elev, opt_rlend=i_rlend                ) !in
+      CALL hflx_limiter_mo( p_patch, p_int, p_dtime, p_cc,              & !in
+        &                   opt_rhodz_now, opt_rhodz_new, p_mass_flx_e, & !in
+        &                   p_out_e, slev, elev, opt_rlend=i_rlend,     & !inout,in
+        &                   opt_beta_fct=advection_config(pid)%beta_fct ) !in
+    ELSE IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_sm) THEN
+      IF (.NOT. (PRESENT(opt_rhodz_now))) THEN
+        CALL finish(routine,'Required field opt_rhodz_now not present')
+      ENDIF
+      !
+      CALL hflx_limiter_pd( p_patch, p_int, p_dtime,                 & !in
+        &                   p_cc, opt_rhodz_now, p_out_e,            & !in,inout
+        &                   slev, elev, opt_rlend=i_rlend            ) !in
     ENDIF
 
 
     IF ( ld_cleanup ) THEN
       ! deallocate temporary arrays for quadrature, departure region and
       ! upwind cell indices
+
+!$ACC EXIT DATA DELETE( z_quad_vector_sum, z_dreg_area, z_cell_idx, z_cell_blk ), &
+!$ACC           IF( i_am_accel_node .AND. acc_on )
+
       DEALLOCATE( z_quad_vector_sum, z_dreg_area, z_cell_idx, z_cell_blk, &
         &         STAT=ist )
       IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine),                                 &
+        CALL finish(routine,                                 &
           &  'deallocation for z_quad_vector_sum, z_dreg_area, ' //  &
           &  ' z_cell_idx, z_cell_blk failed' )
       ENDIF
     END IF
 
+!$ACC UPDATE HOST( p_out_e ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+!$ACC END DATA
+!$ACC END DATA
 
   END SUBROUTINE upwind_hflux_miura3
 
@@ -2215,17 +2412,18 @@ CONTAINS
   !! - Miura, H. (2007), Mon. Weather Rev., 135, 4038-4044
   !! - Ollivier-Gooch, C. (2002), JCP, 181, 729-752 (for lsq reconstruction)
   !! - Skamarock, W.C. (2010), Conservative Transport schemes for Spherical Geodesic
-  !!   Grids: High-order Recosntructions for Forward-in-Time Schemes, Mon. Wea. Rev.
+  !!   Grids: High-order Reconstructions for Forward-in-Time Schemes, Mon. Wea. Rev.
   !!
-  SUBROUTINE upwind_hflux_ffsl( p_patch, p_cc, p_mass_flx_e, p_vn, p_vt,     &
+  SUBROUTINE upwind_hflux_ffsl( p_patch, p_cc, p_rhodz_now, p_rhodz_new,     &
+    &                      p_mass_flx_e, p_vn, p_vt,                         &
     &                      p_dtime, p_int, ld_compute, ld_cleanup,           &
     &                      p_itype_hlimit, p_out_e, opt_lconsv, opt_rlstart, &
     &                      opt_rlend, opt_lout_edge, opt_slev, opt_elev,     &
     &                      opt_ti_slev, opt_ti_elev  )
 
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_advection_hflux: upwind_hflux_ffsl'
+    CHARACTER(len=*), PARAMETER ::  &
+      &  routine = modname//':upwind_hflux_ffsl'
 
     TYPE(t_patch), INTENT(INOUT) ::  &  !< patch on which computation is performed
       &  p_patch
@@ -2235,6 +2433,12 @@ CONTAINS
 
     REAL(wp), INTENT(IN) ::    &    !< cell centered variable to be advected
       &  p_cc(:,:,:)                !< dim: (nproma,nlev,nblks_c)
+
+    REAL(wp), INTENT(IN) ::    &    !< density times cell thickness at timestep n
+      &  p_rhodz_now(:,:,:)         !< dim: (nproma,nlev,nblks_c)
+
+    REAL(wp), INTENT(IN) ::    &    !< density times cell thickness at timestep n+1
+      &  p_rhodz_new(:,:,:)         !< dim: (nproma,nlev,nblks_c)
 
     REAL(wp), INTENT(IN) ::    &    !< contravariant horizontal mass flux at cell edge
       &  p_mass_flx_e(:,:,:)        !< dim: (nproma,nlev,nblks_e)
@@ -2434,7 +2638,7 @@ CONTAINS
         &       patch2_cell_blk(nproma,nlev,p_patch%nblks_e),            &
         &       STAT=ist )
       IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine),                                        &
+        CALL finish(routine,                                        &
           &  'allocation for z_quad_vector_sum0/1/2, z_dreg_area0/1/2, ' // &
           &  'patch0/1/2_cell_idx,  patch0/1/2_cell_blk failed' )
       ENDIF
@@ -2600,7 +2804,7 @@ CONTAINS
     ! Synchronize polynomial coefficients
     ! Note: a special sync routine is needed here because the fourth dimension
     ! of z_lsq_coeff is (for efficiency reasons) on the third index
-    CALL sync_patch_array_4de1(SYNC_C,p_patch,lsq_high_set%dim_unk+1,z_lsq_coeff)
+    CALL sync_patch_array_4de1(SYNC_C,p_patch,lsq_high_set%dim_unk+1,z_lsq_coeff,opt_varname='z_lsq_coeff 2')
 
 
 
@@ -2642,11 +2846,10 @@ CONTAINS
       SELECT  CASE( lsq_high_ord )
       CASE( 1 )  ! linear reconstruction
 
-!CDIR UNROLL=5
       DO jk = slev, elev
         DO je = i_startidx, i_endidx
 
-!CDIR EXPAND=3
+!$NEC unroll(3)
           p_out_e(je,jk,jb) =                                                            &
             &   ( DOT_PRODUCT(z_lsq_coeff(1:3,ptr_ilc0(je,jk,jb),jk,ptr_ibc0(je,jk,jb)), &
             &     z_quad_vector_sum0(je,1:3,jk,jb) )                                     &
@@ -2662,11 +2865,10 @@ CONTAINS
 
       CASE( 2 )  ! quadratic reconstruction
 
-!CDIR UNROLL=5
       DO jk = slev, elev
         DO je = i_startidx, i_endidx
 
-!CDIR EXPAND=6
+!$NEC unroll(6)
           p_out_e(je,jk,jb) =                                                            &
             &   ( DOT_PRODUCT(z_lsq_coeff(1:6,ptr_ilc0(je,jk,jb),jk,ptr_ibc0(je,jk,jb)), &
             &     z_quad_vector_sum0(je,1:6,jk,jb) )                                     &
@@ -2685,7 +2887,7 @@ CONTAINS
       DO jk = slev, elev
         DO je = i_startidx, i_endidx
 
-!CDIR EXPAND=8
+!$NEC unroll(8)
           p_out_e(je,jk,jb) =                                                            &
             &   ( DOT_PRODUCT(z_lsq_coeff(1:8,ptr_ilc0(je,jk,jb),jk,ptr_ibc0(je,jk,jb)), &
             &     z_quad_vector_sum0(je,1:8,jk,jb) )                                     &
@@ -2704,7 +2906,7 @@ CONTAINS
       DO jk = slev, elev
         DO je = i_startidx, i_endidx
 
-!CDIR EXPAND=10
+!$NEC unroll(10)
           p_out_e(je,jk,jb) =                                                            &
             &   ( DOT_PRODUCT(z_lsq_coeff(1:10,ptr_ilc0(je,jk,jb),jk,ptr_ibc0(je,jk,jb)),&
             &     z_quad_vector_sum0(je,1:10,jk,jb) )                                    &
@@ -2727,17 +2929,20 @@ CONTAINS
 
 
     !
-    ! 4. If desired, apply a (semi-)monotone flux limiter to limit computed fluxes.
+    ! 4. If desired, apply a monotonic or positive definite flux limiter 
+    !    to limit computed fluxes.
     !    The flux limiter is based on work by Zalesak (1979)
     !
     IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_m) THEN
-      CALL hflx_limiter_mo( p_patch, p_int, p_dtime, p_cc, p_mass_flx_e, & !in
-        &           p_out_e, slev, elev, opt_rlend=i_rlend,              & !inout,in
-        &           opt_beta_fct=advection_config(pid)%beta_fct          ) !in
+      CALL hflx_limiter_mo( p_patch, p_int, p_dtime, p_cc,              & !in
+        &                   p_rhodz_now, p_rhodz_new, p_mass_flx_e,     & !in
+        &                   p_out_e, slev, elev, opt_rlend=i_rlend,     & !inout,in
+        &                   opt_beta_fct=advection_config(pid)%beta_fct ) !in
     ELSE IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_sm) THEN
       !
-      CALL hflx_limiter_sm( p_patch, p_int, p_dtime, p_cc, p_out_e,      & !in,inout
-        &                   slev, elev, opt_rlend=i_rlend                ) !in
+      CALL hflx_limiter_pd( p_patch, p_int, p_dtime,                 & !in
+        &                   p_cc, p_rhodz_now, p_out_e,              & !in,inout
+        &                   slev, elev, opt_rlend=i_rlend            ) !in
     ENDIF
 
 
@@ -2749,7 +2954,7 @@ CONTAINS
         &         patch1_cell_idx, patch2_cell_idx, patch0_cell_blk,          &
         &         patch1_cell_blk, patch2_cell_blk, STAT=ist )
       IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine),                                           &
+        CALL finish(routine,                                           &
           &  'deallocation for z_quad_vector_sum0/1/2, z_dreg_area0/1/2, '  // &
           &  'patch0/1/2_cell_idx, patch0/1/2_cell_blk failed' )
       ENDIF
@@ -2780,15 +2985,16 @@ CONTAINS
   !! - Skamarock, W.C. (2010), Conservative Transport schemes for Spherical Geodesic
   !!   Grids: High-order Recosntructions for Forward-in-Time Schemes, Mon. Wea. Rev.
   !!
-  SUBROUTINE hflux_ffsl_hybrid( p_patch, p_cc, p_mass_flx_e, p_vn, p_vt,     &
+  SUBROUTINE hflux_ffsl_hybrid( p_patch, p_cc, p_rhodz_now, p_rhodz_new,     &
+    &                      p_mass_flx_e, p_vn, p_vt,                         &
     &                      p_dtime, p_int, ld_compute, ld_cleanup,           &
     &                      p_itype_hlimit, p_out_e, opt_lconsv, opt_rlstart, &
     &                      opt_rlend, opt_lout_edge, opt_slev, opt_elev,     &
     &                      opt_ti_slev, opt_ti_elev  )
 
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_advection_hflux: upwind_hflux_hybrid'
+    CHARACTER(len=*), PARAMETER ::  &
+      &  routine = modname//':upwind_hflux_hybrid'
 
     TYPE(t_patch), INTENT(INOUT) ::  &  !< patch on which computation is performed
       &  p_patch
@@ -2798,6 +3004,12 @@ CONTAINS
 
     REAL(wp), INTENT(IN) ::    &    !< cell centered variable to be advected
       &  p_cc(:,:,:)                !< dim: (nproma,nlev,nblks_c)
+
+    REAL(wp), INTENT(IN) ::    &    !< density times cell thickness at timestep n
+      &  p_rhodz_now(:,:,:)         !< dim: (nproma,nlev,nblks_c)
+
+    REAL(wp), INTENT(IN) ::    &    !< density times cell thickness at timestep n+1
+      &  p_rhodz_new(:,:,:)         !< dim: (nproma,nlev,nblks_c)
 
     REAL(wp), INTENT(IN) ::    &    !< contravariant horizontal mass flux at cell edge
       &  p_mass_flx_e(:,:,:)        !< dim: (nproma,nlev,nblks_e)
@@ -2995,7 +3207,7 @@ CONTAINS
         &       falist%len(p_patch%nblks_e),                             &
         &       STAT=ist )
       IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine),                                        &
+        CALL finish(routine,                                        &
           &  'allocation for patch0_cell_idx,  patch0_cell_blk, falist failed' )
       ENDIF
 
@@ -3026,7 +3238,7 @@ CONTAINS
         &       dreg_patch2(npoints,4,2,p_patch%nblks_e),                &
         &       STAT=ist )
       IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine),                                      &
+        CALL finish(routine,                                      &
           &  'allocation for z_quad_vector_sum0/1/2, z_dreg_area, ' //    &
           &  'patch1/2_cell_idx,  patch1/2_cell_blk, dreg_patch1/2 failed' )
       ENDIF
@@ -3145,7 +3357,7 @@ CONTAINS
     ! Synchronize polynomial coefficients
     ! Note: a special sync routine is needed here because the fourth dimension
     ! of z_lsq_coeff is (for efficiency reasons) on the third index
-    CALL sync_patch_array_4de1(SYNC_C,p_patch,lsq_high_set%dim_unk+1,z_lsq_coeff)
+    CALL sync_patch_array_4de1(SYNC_C,p_patch,lsq_high_set%dim_unk+1,z_lsq_coeff,opt_varname='z_lsq_coeff 3')
 
     !
     ! 3. Calculate approximation to the area average \Phi_{avg} of the tracer
@@ -3175,11 +3387,10 @@ CONTAINS
       SELECT  CASE( lsq_high_ord )
       CASE( 1 )  ! linear reconstruction
 
-!CDIR UNROLL=5
       DO jk = slev, elev
         DO je = i_startidx, i_endidx
 
-!CDIR EXPAND=3
+!$NEC unroll(3)
           p_out_e(je,jk,jb) =                                                            &
             &     DOT_PRODUCT(z_lsq_coeff(1:3,patch0_cell_idx(je,jk,jb),jk,patch0_cell_blk(je,jk,jb)), &
             &     z_quad_vector_sum0(je,1:3,jk,jb))
@@ -3187,13 +3398,13 @@ CONTAINS
       ENDDO
 
       ! Correction for points in index list
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
       DO ie = 1, falist%len(jb)
 
         je = falist%eidx(ie,jb)
         jk = falist%elev(ie,jb)
 
-!CDIR EXPAND=3
+!$NEC unroll(3)
         p_out_e(je,jk,jb) = p_out_e(je,jk,jb)                                            &
           &    + DOT_PRODUCT(z_lsq_coeff(1:3,patch1_cell_idx(ie,jb),jk,patch1_cell_blk(ie,jb)),  &
           &      z_quad_vector_sum1(ie,1:3,jb) )                                      &
@@ -3204,11 +3415,10 @@ CONTAINS
 
       CASE( 2 )  ! quadratic reconstruction
 
-!CDIR UNROLL=5
       DO jk = slev, elev
         DO je = i_startidx, i_endidx
 
-!CDIR EXPAND=6
+!$NEC unroll(6)
           p_out_e(je,jk,jb) =                                                            &
             &     DOT_PRODUCT(z_lsq_coeff(1:6,patch0_cell_idx(je,jk,jb),jk,patch0_cell_blk(je,jk,jb)), &
             &     z_quad_vector_sum0(je,1:6,jk,jb))
@@ -3216,13 +3426,13 @@ CONTAINS
       ENDDO
 
       ! Correction for points in index list
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
       DO ie = 1, falist%len(jb)
 
         je = falist%eidx(ie,jb)
         jk = falist%elev(ie,jb)
 
-!CDIR EXPAND=6
+!$NEC unroll(6)
         p_out_e(je,jk,jb) = p_out_e(je,jk,jb)                                            &
           &    + DOT_PRODUCT(z_lsq_coeff(1:6,patch1_cell_idx(ie,jb),jk,patch1_cell_blk(ie,jb)),  &
           &      z_quad_vector_sum1(ie,1:6,jb) )                                      &
@@ -3234,9 +3444,10 @@ CONTAINS
       CASE( 3 )  ! cubic reconstruction with third order cross derivatives
 
       DO jk = slev, elev
+!NEC$ ivdep
         DO je = i_startidx, i_endidx
 
-!CDIR EXPAND=10
+!$NEC unroll(10)
           p_out_e(je,jk,jb) =                                                            &
             &     DOT_PRODUCT(z_lsq_coeff(1:10,patch0_cell_idx(je,jk,jb),jk,patch0_cell_blk(je,jk,jb)),&
             &     z_quad_vector_sum0(je,1:10,jk,jb))
@@ -3244,13 +3455,13 @@ CONTAINS
       ENDDO
 
       ! Correction for points in index list
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
       DO ie = 1, falist%len(jb)
 
         je = falist%eidx(ie,jb)
         jk = falist%elev(ie,jb)
 
-!CDIR EXPAND=10
+!$NEC unroll(10)
         p_out_e(je,jk,jb) = p_out_e(je,jk,jb)  &
           &    + DOT_PRODUCT(z_lsq_coeff(1:10,patch1_cell_idx(ie,jb),jk,patch1_cell_blk(ie,jb)),&
           &      z_quad_vector_sum1(ie,1:10,jb) )                                    &
@@ -3261,7 +3472,6 @@ CONTAINS
       END SELECT
 
       ! Finally compute total flux
-!CDIR UNROLL=5
       DO jk = slev, elev
         DO je = i_startidx, i_endidx
           p_out_e(je,jk,jb) = p_mass_flx_e(je,jk,jb) * p_out_e(je,jk,jb) / z_dreg_area(je,jk,jb)
@@ -3274,17 +3484,20 @@ CONTAINS
 
 
     !
-    ! 4. If desired, apply a (semi-)monotone flux limiter to limit computed fluxes.
+    ! 4. If desired, apply a monotonic or positive definite flux limiter 
+    !    to limit computed fluxes.
     !    The flux limiter is based on work by Zalesak (1979)
     !
     IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_m) THEN
-      CALL hflx_limiter_mo( p_patch, p_int, p_dtime, p_cc, p_mass_flx_e, & !in
-        &           p_out_e, slev, elev, opt_rlend=i_rlend,              & !inout,in
-        &           opt_beta_fct=advection_config(pid)%beta_fct          ) !in
+      CALL hflx_limiter_mo( p_patch, p_int, p_dtime, p_cc,              & !in
+        &                   p_rhodz_now, p_rhodz_new, p_mass_flx_e,     & !in
+        &                   p_out_e, slev, elev, opt_rlend=i_rlend,     & !inout,in
+        &                   opt_beta_fct=advection_config(pid)%beta_fct ) !in
     ELSE IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_sm) THEN
       !
-      CALL hflx_limiter_sm( p_patch, p_int, p_dtime, p_cc, p_out_e,      & !in,inout
-        &                   slev, elev, opt_rlend=i_rlend                ) !in
+      CALL hflx_limiter_pd( p_patch, p_int, p_dtime,                 & !in
+        &                   p_cc, p_rhodz_now, p_out_e,              & !in,inout
+        &                   slev, elev, opt_rlend=i_rlend            ) !in
     ENDIF
 
 
@@ -3297,7 +3510,7 @@ CONTAINS
         &         patch1_cell_blk, patch2_cell_blk, falist%eidx, falist%elev, &
         &         falist%len, STAT=ist )
       IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine),                                           &
+        CALL finish(routine,                                           &
           &  'deallocation for z_quad_vector_sum0/1/2, z_dreg_area0/1/2, '  // &
           &  'patch0/1/2_cell_idx, patch0/1/2_cell_blk, falist failed' )
       ENDIF

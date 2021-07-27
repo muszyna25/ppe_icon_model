@@ -29,24 +29,43 @@ MODULE mo_nh_hs_test
 !
 !
 
-USE mo_kind,                ONLY: wp
-USE mo_physical_constants,  ONLY: rd, rd_o_cpd, p0ref, grav
-USE mo_model_domain,        ONLY: t_patch
-USE mo_ext_data_types,      ONLY: t_external_data
-USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
-USE mo_parallel_config,     ONLY: nproma
+  USE mo_kind,                ONLY: wp
+  USE mo_physical_constants,  ONLY: rd, rd_o_cpd, p0ref, grav, cpd, cvd, rdaylen
+  USE mo_model_domain,        ONLY: t_patch
+  USE mo_ext_data_types,      ONLY: t_external_data
+  USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
+  USE mo_parallel_config,     ONLY: nproma
 
 
-IMPLICIT NONE
+  IMPLICIT NONE
 
-PRIVATE
+  PRIVATE
 
-REAL(wp), PARAMETER :: zp_hs      = 100000._wp            !< surface pressure
-REAL(wp), PARAMETER :: zt_hs      = 300._wp               !< atmospheric temperature
+  REAL(wp), PARAMETER :: zp_hs      = 100000._wp            !< surface pressure
+  REAL(wp), PARAMETER :: zt_hs      = 300._wp               !< atmospheric temperature
 !REAL(wp), PARAMETER :: zt_hs      = 250._wp               !< atmospheric temperature
 
+  ! Module parameters
 
-PUBLIC :: init_nh_state_prog_held_suarez
+  REAL(wp), PARAMETER :: HSsigb    = 0.7_wp
+  REAL(wp), PARAMETER :: HSvcoeff1 = 1._wp/(1._wp-HSsigb)
+  REAL(wp), PARAMETER :: HSvcoeff2 = -HSsigb/(1._wp-HSsigb)
+
+  REAL(wp), PARAMETER :: HSkf    = 1._wp/ rdaylen
+  REAL(wp), PARAMETER :: HSka    = 1._wp/(rdaylen*40._wp)
+  REAL(wp), PARAMETER :: HSks    = 1._wp/(rdaylen* 4._wp )
+
+  REAL(wp), PARAMETER :: HSdty   = 60._wp
+  REAL(wp), PARAMETER :: HSdthz  = 10._wp
+
+  REAL(wp), PARAMETER :: HScappa = rd/cpd
+  REAL(wp), PARAMETER :: HSp0    = 1.E5_wp
+  REAL(wp), PARAMETER :: HSt0    = 200._wp
+  REAL(wp), PARAMETER :: HSt1    = 315._wp
+
+  PUBLIC :: init_nh_state_prog_held_suarez
+  PUBLIC :: held_suarez_forcing_vn
+  PUBLIC :: held_suarez_forcing_temp
 
 !--------------------------------------------------------------------
 
@@ -81,7 +100,7 @@ CONTAINS
 
     INTEGER               :: nblks_c, npromz_c, nlen
     INTEGER               :: nlev                 !< number of full levels
-    INTEGER               :: jk, jb  ! loop variables
+    INTEGER               :: jk, jb, jc  ! loop variables
 
     REAL(wp)              :: zscale_h             !< initialized variables
     REAL(wp), ALLOCATABLE :: z_sfc(:,:,:)
@@ -119,23 +138,25 @@ CONTAINS
       ENDIF
 
       DO jk = 1, nlev
+        DO jc = 1, nlen
 
-        ! compute full level pressure
-        z_sfc(1:nlen,1,jb) = ptr_ext_data%atm%topography_c(1:nlen,jb)
-        ptr_nh_diag%pres(1:nlen,jk,jb) = zp_hs                                      &
-          &                  * exp(-(p_metrics%z_mc(1:nlen,jk,jb)-z_sfc(1:nlen,1,jb))/zscale_h)
+          ! compute full level pressure
+          z_sfc(jc,1,jb) = ptr_ext_data%atm%topography_c(jc,jb)
+          ptr_nh_diag%pres(jc,jk,jb) = zp_hs                                      &
+            &                  * exp(-(p_metrics%z_mc(jc,jk,jb)-z_sfc(jc,1,jb))/zscale_h)
 
-        ! init virtual potential temperature
-        ptr_nh_prog%theta_v(1:nlen,jk,jb) = zt_hs                                   &
-          & * (p0ref/ptr_nh_diag%pres(1:nlen,jk,jb))**rd_o_cpd
+          ! init virtual potential temperature
+          ptr_nh_prog%theta_v(jc,jk,jb) = zt_hs                                   &
+            & * (p0ref/ptr_nh_diag%pres(jc,jk,jb))**rd_o_cpd
 
-        ! init density field rho
-        ptr_nh_prog%rho(1:nlen,jk,jb) = ptr_nh_diag%pres(1:nlen,jk,jb)            &
-          &                           / (rd * zt_hs)
+          ! init density field rho
+          ptr_nh_prog%rho(jc,jk,jb) = ptr_nh_diag%pres(jc,jk,jb)            &
+            &                           / (rd * zt_hs)
 
-        ! init exner pressure
-        ptr_nh_prog%exner(1:nlen,jk,jb) = (ptr_nh_diag%pres(1:nlen,jk,jb)/p0ref)**rd_o_cpd
+          ! init exner pressure
+          ptr_nh_prog%exner(jc,jk,jb) = (ptr_nh_diag%pres(jc,jk,jb)/p0ref)**rd_o_cpd
 
+        ENDDO !jc
       ENDDO !jk
     ENDDO !jb
 !$OMP END DO NOWAIT
@@ -157,6 +178,142 @@ CONTAINS
 
   END SUBROUTINE init_nh_state_prog_held_suarez
 
+
+  !>
+  !! Linear damping of velocity in the 'boundary layer'.
+  !!
+  !! @par Revision History
+  !! Original version for ECHAM5 by Hui Wan, MPI-M (2005-07)
+  !! Adaptation for the ICOHDC by Hui Wan, MPI-M (2008-05-30):
+  !! Further adaptation for the restructured code by Hui Wan, MPI-M (2009-02-03)
+  !!
+  SUBROUTINE held_suarez_forcing_vn( pvn, psigma,           & !in
+                                   & nlev, nproma, is, ie,  & !in
+                                   & fvn_hs )                 !out
+
+    INTEGER, INTENT(IN) :: nlev            !< number of vertical layers
+    INTEGER, INTENT(IN) :: nproma, is, ie  !<
+
+    REAL(wp),INTENT(IN) :: pvn      ( nproma, nlev ) !< normal velocity
+    REAL(wp),INTENT(IN) :: psigma   ( nproma, nlev ) !< sigma = pres/pres_sfc
+
+    REAL(wp),INTENT(INOUT) :: fvn_hs( nproma, nlev ) !< forcing on velocity
+
+    REAL(wp) :: ztmp
+    INTEGER  :: i, jk
+    !---
+
+    !$ACC DATA PRESENT( pvn, psigma, fvn_hs )
+    !$ACC PARALLEL
+    !$ACC LOOP GANG VECTOR COLLAPSE(2)
+    DO jk=1,nlev
+      DO i = is, ie
+        ztmp = psigma(i,jk)*HSvcoeff1 + HSvcoeff2
+        fvn_hs(i,jk) = -HSkf*MAX( 0._wp,ztmp )*pvn(i,jk)
+      ENDDO
+    ENDDO
+    !$ACC END PARALLEL
+    !$ACC END DATA
+   
+
+  END SUBROUTINE held_suarez_forcing_vn
+  !-------------
+  !>
+  !! Newtonian cooling.
+  !!
+  !! @par Revision History
+  !! Original version for ECHAM5 by Hui Wan, MPI-M (2005-07)
+  !! Adaptation for the ICOHDC by Hui Wan, MPI-M (2008-05-30):
+  !! Further adaptation for the restructured code by Hui Wan (2009-02-03)
+  !!
+  SUBROUTINE held_suarez_forcing_temp( ptemp_mc, ppres_mc,   &! in
+                                     & psigma, plat,         &! in
+                                     & nlev, nproma, is, ie, &! in
+                                     & fT_hs,                &! out
+                                     & opt_ekinh, opt_ldissip_heat)
+
+    INTEGER, INTENT(IN) :: nlev                   !< number of vertical layers
+    INTEGER, INTENT(IN) :: nproma, is, ie
+    REAL(wp),INTENT(IN) :: ptemp_mc (nproma,nlev) !< temperature in Kelvin
+    REAL(wp),INTENT(IN) :: ppres_mc (nproma,nlev) !< pressure in Pa
+    REAL(wp),INTENT(IN) :: psigma   (nproma,nlev) !< sigma = pres/pres_sfc
+    REAL(wp),INTENT(IN) :: plat     (nproma)      !< latitide in radians
+
+    REAL(wp),INTENT(IN), OPTIONAL :: opt_ekinh(nproma,nlev) !< kinetic energy
+    LOGICAL, OPTIONAL  :: opt_ldissip_heat        !< dissipative heating or not
+
+    REAL(wp),INTENT(OUT):: fT_hs (nproma,nlev) !< forcing on temperature
+
+    INTEGER :: jk  !vertical layer index
+    INTEGER :: i   ! nproma index
+    REAL(wp) :: zsinlat2(nproma), zcoslat2(nproma), zcoslat4(nproma)
+    REAL(wp) :: zsigma0, zTempEq, ztmp, kT_hs
+    LOGICAL  :: l_friheat
+
+    !------------------------------
+
+    ! check, whether dissipative heating should be performed
+    IF ( PRESENT(opt_ldissip_heat) ) THEN
+      l_friheat=opt_ldissip_heat
+    ELSE
+      l_friheat=.FALSE.
+    ENDIF
+
+    ! latitude related parameters
+
+    !$ACC DATA CREATE( zsinlat2, zcoslat2, zcoslat4 ) PRESENT( ptemp_mc, ppres_mc, psigma, plat, fT_hs )
+    !$ACC DATA PRESENT( opt_ekinh ) IF( PRESENT( opt_ekinh ) )
+    !$ACC PARALLEL
+    !$ACC LOOP GANG VECTOR
+    DO i=is, ie
+      zsinlat2(i) = SIN(plat(i))**2
+      zcoslat2(i) = 1._wp - zsinlat2(i)
+      zcoslat4(i) = zcoslat2(i)**2
+    ENDDO
+    !$ACC END PARALLEL
+   
+    !$ACC PARALLEL
+    !$ACC LOOP GANG VECTOR COLLAPSE(2)
+    DO jk = 1,nlev
+
+      DO i=is,ie
+        ! equilibrium temperature
+
+        zsigma0 = ppres_mc(i,jk)/HSp0
+        zTempEq = HSt1 - HSdty*zsinlat2(i)               &
+                       & - HSdthz*LOG(zsigma0)*zcoslat2(i)
+        zTempEq = zTempEq * zsigma0**HScappa
+        zTempEq = MAX( 200._wp, zTempEq )
+
+        ! pressure-dependent coefficient
+
+        ztmp   = psigma(i,jk)*HSvcoeff1 + HSvcoeff2
+        kT_hs  = HSka + (HSks-HSka)*zcoslat4(i)*MAX(0._wp,ztmp)
+
+        ! Newtonian cooling
+
+        fT_hs(i,jk) = -kT_hs *( ptemp_mc(i,jk)-zTempEq )
+      ENDDO
+
+    ENDDO !vertical layer loop
+    !$ACC END PARALLEL
+
+    IF (l_friheat) THEN
+      !$ACC PARALLEL
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
+      DO jk = 1,nlev
+        DO i = is,ie
+          ztmp = psigma(i,jk)*HSvcoeff1 + HSvcoeff2
+          fT_hs(i,jk) = fT_hs(i,jk) + HSkf*MAX( 0._wp,ztmp)*2.0_wp*opt_ekinh(i,jk)/cvd
+        ENDDO
+     ENDDO
+     !$ACC END PARALLEL
+  ENDIF
+
+  !$ACC END DATA
+  !$ACC END DATA
+
+  END SUBROUTINE held_suarez_forcing_temp
 
 !--------------------------------------------------------------------
   END MODULE mo_nh_hs_test

@@ -80,6 +80,9 @@ MODULE mo_physical_constants
   REAL(wp), PARAMETER :: amc11 =137.3686_wp       !! [g/mol] CFC11
   REAL(wp), PARAMETER :: amc12 =120.9140_wp       !! [g/mol] CFC12
   REAL(wp), PARAMETER :: amw   = 18.0154_wp       !! [g/mol] H2O
+  REAL(wp), PARAMETER :: amo   = 15.9994_wp       !! [g/mol] O
+  REAL(wp), PARAMETER :: amno  = 30.0061398_wp    !! [g/mol] NO
+  REAL(wp), PARAMETER :: amn2  = 28.0134_wp       !! [g/mol] N2
   !
   !> Mixed species
   REAL(wp), PARAMETER :: amd   = 28.970_wp        !> [g/mol] dry air
@@ -114,6 +117,7 @@ MODULE mo_physical_constants
   !
   !> Dry air
   REAL(wp), PARAMETER :: rd    = 287.04_wp        !> [J/K/kg] gas constant
+  !$acc declare copyin(rd)
   REAL(wp), PARAMETER :: cpd   = 1004.64_wp       !! [J/K/kg] specific heat at constant pressure
   REAL(wp), PARAMETER :: cvd   = cpd-rd           !! [J/K/kg] specific heat at constant volume
   REAL(wp), PARAMETER :: con_m = 1.50E-5_wp       !! [m^2/s]  kinematic viscosity of dry air
@@ -124,11 +128,14 @@ MODULE mo_physical_constants
   !> H2O
   !! - gas
   REAL(wp), PARAMETER :: rv    = 461.51_wp        !> [J/K/kg] gas constant for water vapor
+  !$acc declare copyin(rv)
   REAL(wp), PARAMETER :: cpv   = 1869.46_wp       !! [J/K/kg] specific heat at constant pressure
   REAL(wp), PARAMETER :: cvv   = cpv-rv           !! [J/K/kg] specific heat at constant volume
   REAL(wp), PARAMETER :: dv0   = 2.22e-5_wp       !! [m^2/s]  diff coeff of H2O vapor in dry air at tmelt
   !> - liquid / water
   REAL(wp), PARAMETER :: rhoh2o= 1000._wp         !> [kg/m3]  density of liquid water
+  !> - solid / ice
+  REAL(wp), PARAMETER :: rhoice=  916.7_wp        !> [kg/m3]  density of pure ice
 
  !REAL(wp), PARAMETER :: clw   = 4186.84_wp       !! [J/K/kg] specific heat of water
                                                   !!  see below 
@@ -142,7 +149,9 @@ MODULE mo_physical_constants
   !
   !> Auxiliary constants
   REAL(wp), PARAMETER :: rdv   = rd/rv            !> [ ]
+  !$acc declare copyin(rdv)
   REAL(wp), PARAMETER :: vtmpc1= rv/rd-1._wp      !! [ ]
+  !$acc declare copyin(vtmpc1)
   REAL(wp), PARAMETER :: vtmpc2= cpv/cpd-1._wp    !! [ ]
   REAL(wp), PARAMETER :: rcpv  = cpd/cpv-1._wp    !! [ ]
   REAL(wp), PARAMETER :: alvdcp= alv/cpd          !! [K]
@@ -155,7 +164,9 @@ MODULE mo_physical_constants
   REAL(wp), PARAMETER :: cv_v  = (rcpv + 1.0_wp) * cpd - rv
   !
   REAL(wp), PARAMETER :: o_m_rdv  = 1._wp-rd/rv   !> [ ]
+  !$acc declare copyin(o_m_rdv)
   REAL(wp), PARAMETER :: rd_o_cpd = rd/cpd        !! [ ]
+  !$acc declare copyin(rd_o_cpd)
   REAL(wp), PARAMETER :: cvd_o_rd = cvd/rd        !! [ ]
   !
   REAL(wp), PARAMETER :: p0ref     = 100000.0_wp   !> [Pa]  reference pressure for Exner function
@@ -170,6 +181,12 @@ MODULE mo_physical_constants
   !> constants for radiation module
   REAL(wp), PARAMETER :: zemiss_def = 0.996_wp  !> lw sfc default emissivity factor
 
+  !> salinity factor for reduced saturation vapor pressure over oceans
+  REAL(wp), PARAMETER :: salinity_fac = 0.981_wp
+
+  !> dielectric constants at reference temperature 0°C for radar reflectivity calculation:
+  REAL(wp), PARAMETER :: K_w_0 = 0.93_wp
+  REAL(wp), PARAMETER :: K_i_0 = 0.176_wp
 
 !------------below are parameters for ocean model---------------
   ! coefficients in linear EOS
@@ -198,10 +215,8 @@ MODULE mo_physical_constants
     cs           = 2090._wp,        &!  Heat capacity of snow      [J / (kg K)]
 
     Tf           = -1.80_wp,        & ! Temperature ice bottom     [C]
-    Sice         = 5.0_wp,          & ! Sea-ice bulk salinity      [ppt]
     mu           = 0.054_wp,        & ! Constant in linear freezing-
                                       ! point relationship         [C/ppt]
-    muS          = mu*Sice,         & ! = - (sea-ice liquidus 
                                       ! (aka melting) temperature) [C]
 !   muS          = -(-0.0575 + 1.710523E-3*Sqrt(Sice) - 2.154996E-4*Sice) * Sice
     albedoW      = 0.07_wp,         & ! albedo of the ocean used in atmosphere

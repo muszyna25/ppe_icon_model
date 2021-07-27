@@ -74,7 +74,7 @@ MODULE mo_psrad_radiation
   USE mo_psrad_solar_data,    ONLY : ssi_default, ssi_amip,                    &
                                      ssi_cmip5_picontrol, ssi_cmip6_picontrol, &
                                      ssi_RCEdiurnOn, ssi_RCEdiurnOff,          &
-                                     ssi_radt, tsi_radt
+                                     ssi_radt, tsi_radt, ssi_RCEmip_analytical
   USE mo_psrad_solar_parameters, ONLY:                         &
                                      psctm,                    &
                                      ssi_factor,               &
@@ -105,8 +105,8 @@ MODULE mo_psrad_radiation
 
     TYPE(t_patch),           INTENT(in) :: p_patch
     TYPE(datetime), POINTER, INTENT(in) :: datetime_radiation, & !< date and time of radiative transfer calculation
-         &                                 current_datetime       !< current time step
-    LOGICAL,                 INTENT(in) :: ltrig_rad !< .true. if SW radiative transfer calculation has to be done at current time step
+         &                                 current_datetime      !< current date and time
+    LOGICAL,                 INTENT(in) :: ltrig_rad !< .true. if SW rad. transfer calculation has to be done at current time step
     REAL(wp),                INTENT(out) :: amu0_x(:,:), rdayl_x(:,:), &
          &                                  amu0m_x(:,:), rdaylm_x(:,:)
 
@@ -149,13 +149,13 @@ MODULE mo_psrad_radiation
     !
     ! "time_of_day"  defines the local noon longitude for the time of this time step.
     ! "orbit_date" is not used. Instead always "orbit_date_rt" is used.
-    CALL get_orbit_times(current_datetime, lyr_perp, yr_perp, time_of_day, orbit_date)
+    CALL get_orbit_times(l_orbvsop87, current_datetime, lyr_perp, yr_perp, time_of_day, orbit_date)
     !
     ! "time_of_day_rt" defines the local noon longitude for the time of the
     ! radiative transfer calculation.
     ! "orbit_date_rt" defines the orbit position at the radiation time.
     ! This orbit position is kept constant through the radiation interval.
-    CALL get_orbit_times(datetime_radiation, lyr_perp, yr_perp, time_of_day_rt, orbit_date_rt)
+    CALL get_orbit_times(l_orbvsop87, datetime_radiation, lyr_perp, yr_perp, time_of_day_rt, orbit_date_rt)
 
 
     ! Compute the orbital parameters of Earth for "orbit_date_rt".
@@ -267,12 +267,15 @@ MODULE mo_psrad_radiation
       CASE (6)
         tsi = SUM(ssi_cmip6_picontrol)
         ssi_factor = ssi_cmip6_picontrol
+      CASE (7)
+        tsi = SUM(ssi_RCEmip_analytical)
+        ssi_factor = ssi_RCEmip_analytical
       CASE default
         WRITE (message_text, '(a,i2,a)') &
              'isolrad = ', isolrad, ' in radctl namelist is not supported'
         CALL message('pre_radiation', message_text)
       END SELECT
-      psctm = tsi/dist_sun**2 * fsolrad
+      psctm(jg) = tsi/dist_sun**2 * fsolrad
       ssi_factor(:) = ssi_factor(:)/tsi
 
       ! output of solar constant every month
@@ -316,6 +319,7 @@ MODULE mo_psrad_radiation
     & alb_nir_dir    ,&!< in  surface albedo for near IR range, direct
     & alb_vis_dif    ,&!< in  surface albedo for visible range, diffuse
     & alb_nir_dif    ,&!< in  surface albedo for near IR range, diffuse
+    & emissivity     ,&!< in surface longwave emissivity
     & tk_sfc         ,&!< in  grid box mean surface temperature
     & zf             ,&!< in  geometric height at full level      [m]
     & zh             ,&!< in  geometric height at half level      [m]
@@ -348,7 +352,15 @@ MODULE mo_psrad_radiation
     & nir_dn_dff_sfc ,&!< out all-sky downward diffuse near-IR radiation at surface
     & vis_up_sfc     ,&!< out all-sky upward visible radiation at surface
     & par_up_sfc     ,&!< out all-sky upward PAR     radiation at surfac
-    & nir_up_sfc     ) !< out all-sky upward near-IR radiation at surface
+    & nir_up_sfc     ,&!< out all-sky upward near-IR radiation at surface
+    & aer_aod_533    ,&!< out  aerosol optical density at 533 nm
+    & aer_ssa_533    ,&!< out  single scattering albedo at 533 nm
+    & aer_asy_533    ,&!< out  asymmetrie factor at 533 nm
+    & aer_aod_2325   ,&!< out  aerosol optical density at 2325 nm
+    & aer_ssa_2325   ,&!< out  single scattering albedo at 2325 nm
+    & aer_asy_2325   ,&!< out  asymmetrie factor at 2325 nm
+    & aer_aod_9731    &!< out  aerosol optical density at 9731 nm
+                      )
 
     TYPE(t_patch)   ,TARGET ,INTENT(in)    :: patch
 
@@ -370,6 +382,7 @@ MODULE mo_psrad_radiation
     & alb_nir_dir(:,:),      & !< surface albedo for NIR range and direct light
     & alb_vis_dif(:,:),      & !< surface albedo for visible range and diffuse light
     & alb_nir_dif(:,:),      & !< surface albedo for NIR range and diffuse light
+    & emissivity(:,:),       & !< surface longwave emissivity
     & tk_sfc(:,:),           & !< Surface temperature
     & zf(:,:,:),          & !< geometric height at full level      [m]
     & zh(:,:,:),          & !< geometric height at half level      [m]
@@ -405,8 +418,15 @@ MODULE mo_psrad_radiation
     & nir_dn_dff_sfc(:,:)  , & !< Direct  downward flux surface near-infrared radiation
     & vis_up_sfc    (:,:)  , & !< Upward  flux surface visible radiation 
     & par_up_sfc    (:,:)  , & !< Upward  flux surface PAR
-    & nir_up_sfc    (:,:)      !< Upward  flux surface near-infrared radiation
-
+    & nir_up_sfc    (:,:)  , & !< Upward  flux surface near-infrared radiation
+    & aer_aod_533   (:,:,:), & !< aerosol optical density at 533 nm
+    & aer_ssa_533   (:,:,:), & !< single scattering albedo at 533 nm
+    & aer_asy_533   (:,:,:), & !< asymmetrie factor at 533 nm
+    & aer_aod_2325  (:,:,:), & !< aerosol optical density at 2325 nm
+    & aer_ssa_2325  (:,:,:), & !< single scattering albedo at 2325 nm
+    & aer_asy_2325  (:,:,:), & !< asymmetrie factor at 2325 nm
+    & aer_aod_9731  (:,:,:)    !< aerosol optical density at 9731 nm
+    
 
     REAL (wp) ::      &
     & xm_vap(nproma,klev, patch%nblks_c),           & !< water vapor mass in layer [kg/m2]
@@ -435,9 +455,11 @@ MODULE mo_psrad_radiation
     ! Shortcuts to components of echam_rad_config
     !
     INTEGER , POINTER :: irad_aero
+    LOGICAL , POINTER :: lrad_aero_diag
     !
     jg         =  patch%id
     irad_aero  => echam_rad_config(jg)% irad_aero
+    lrad_aero_diag => echam_rad_config(jg)% lrad_aero_diag
     
     rl_start   = grf_bdywidth_c+1
     rl_end     = min_rlcell_int
@@ -511,12 +533,13 @@ MODULE mo_psrad_radiation
 !     CALL psrad_interface(                                                   &
     CALL atmo_psrad_interface(                                                   &
       & patch,                                                              &
-      & irad_aero     ,klev                                                ,& 
+      & irad_aero       ,lrad_aero_diag  ,klev                             ,& 
       & ktype                                                              ,&
-      & psctm, ssi_factor,                                                  &
+      & psctm(jg)       ,ssi_factor                                        ,&
       & loland          ,loglac          ,this_datetime                    ,&
       & pcos_mu0        ,daylght_frc                                       ,&
       & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
+      & emissivity                                                         ,&
       & zf              ,zh              ,dz                               ,&
       & pp_sfc          ,pp_fl                                             ,&
       & tk_sfc          ,tk_fl           ,tk_hl                            ,&
@@ -528,7 +551,10 @@ MODULE mo_psrad_radiation
       & sw_upw          ,sw_upw_clr      ,sw_dnw          ,sw_dnw_clr      ,&
       & vis_dn_dir_sfc  ,par_dn_dir_sfc  ,nir_dn_dir_sfc                   ,&
       & vis_dn_dff_sfc  ,par_dn_dff_sfc  ,nir_dn_dff_sfc                   ,&
-      & vis_up_sfc      ,par_up_sfc      ,nir_up_sfc                       )     
+      & vis_up_sfc      ,par_up_sfc      ,nir_up_sfc                       ,&
+      & aer_aod_533     ,aer_ssa_533     ,aer_asy_533                      ,&
+      & aer_aod_2325    ,aer_ssa_2325    ,aer_asy_2325                     ,&
+      & aer_aod_9731                                                        )
      !-------------------------------------------------------------------
 
   END SUBROUTINE psrad_radiation
@@ -732,13 +758,27 @@ MODULE mo_psrad_radiation
     ! --- gases
     !
     ! CO2: use CO2 tracer only if the CO2 index is in the correct range
-    jtrc=MIN(ico2,ntracer)
+    IF (ico2>0) THEN 
+        jtrc=MIN(ico2,ntracer)
     mmr = vmr_co2 * amco2/amd
     xm_co2(jcs:jce,:)   = gas_profile(jcs, jce, klev, irad_co2, xm_dry,   &
          &                            gas_mmr      = mmr,                 &
          &                            gas_scenario = ghg_co2mmr,          &
          &                            gas_val      = xm_trc(:,:,jtrc),    &
          &                            gas_factor   = frad_co2)
+
+
+    ELSE
+
+    mmr = vmr_co2 * amco2/amd
+    xm_co2(jcs:jce,:)   = gas_profile(jcs, jce, klev, irad_co2, xm_dry,   &
+         &                            gas_mmr      = mmr,                 &
+         &                            gas_scenario = ghg_co2mmr,          &
+         &                            gas_factor   = frad_co2)
+
+
+
+    ENDIF
 
     mmr = vmr_ch4 * amch4/amd
     xm_ch4(jcs:jce,:)   = gas_profile(jcs, jce, klev, irad_ch4, xm_dry,   &
@@ -935,7 +975,7 @@ MODULE mo_psrad_radiation
           ! inconsistent with having two different options for the constant
           ! concentration cases (2 without and 3 with profile). However, instead
           ! of adding a fifth option, it seems more advisable to clean up the 
-          ! complete handling of radiation switches (including ighg), later.
+          ! complete handling of radiation switches later.
           zx_m = (gas_scenario+xp(1)*gas_scenario)*0.5_wp
           zx_d = (gas_scenario-xp(1)*gas_scenario)*0.5_wp
           gas_profile(jcs:jce,:)=(1-(zx_d/zx_m)*TANH(LOG(pressure(jcs:jce,:)   &

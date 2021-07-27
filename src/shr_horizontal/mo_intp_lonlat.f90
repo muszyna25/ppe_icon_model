@@ -41,8 +41,8 @@
     USE mo_cdi_constants,       ONLY: GRID_REGULAR_LONLAT, GRID_CELL
     USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
     USE mo_model_domain,        ONLY: t_patch
-    USE mo_run_config,          ONLY: ltimer
-    USE mo_grid_config,         ONLY: n_dom, grid_sphere_radius, is_plane_torus
+    USE mo_run_config,          ONLY: timers_level
+    USE mo_grid_config,         ONLY: n_dom, grid_sphere_radius, is_plane_torus, l_limited_area
     USE mo_timer,               ONLY: timer_start, timer_stop, timer_lonlat_setup
     USE mo_math_types,          ONLY: t_cartesian_coordinates, t_geographical_coordinates
     USE mo_math_utilities,      ONLY: gc2cc, gvec2cvec, arc_length_v
@@ -123,7 +123,7 @@
 
         DO i=1, lonlat_grids%ngrids
           IF (lonlat_grids%list(i)%l_dom(jg)) THEN
-            IF (ltimer) CALL timer_start(timer_lonlat_setup)
+            IF (timers_level > 3) CALL timer_start(timer_lonlat_setup)
 
             ! allocate global arrays for distributed computation:
             ALLOCATE(tri_idx(2, nproma, lonlat_grids%list(i)%grid%nblks),                           &
@@ -176,6 +176,13 @@
 
               CALL p_global%destructor()
               CALL tri_global%destructor()
+
+              ! The inexact "point-inside-triangle" test which is used
+              ! by the barycentric interpolation algorithm may cause
+              ! (very small) weights outside [0,1]. We therefore apply
+              ! a cut-off and renormalization.
+              CALL normalize_weights(lonlat_grids%list(i)%intp(jg), &
+                &                    lonlat_grids%list(i)%intp(jg)%baryctr)
             END IF
 
             ! --- for debugging purposes: visualize stencil for a
@@ -188,11 +195,11 @@
             ! only barycentric interpolation.
             !
             !            IF ((jg > 1) .AND. lreduced_nestbdry_stencil) THEN 
-            IF (jg > 1) THEN 
+            IF ((jg > 1) .OR. l_limited_area) THEN 
               CALL mask_out_boundary( p_patch(jg), lonlat_grids%list(i)%intp(jg) )
             END IF
 
-            IF (ltimer) CALL timer_stop(timer_lonlat_setup)
+            IF (timers_level > 3) CALL timer_stop(timer_lonlat_setup)
             lonlat_grids%list(i)%intp(jg)%l_initialized = .TRUE.
 
             ! clean-ip:
@@ -419,7 +426,12 @@
 
         CALL finish(routine, "Unknown stencil!")
 
-      END IF
+     END IF
+
+! Note: IF (i_am_accel_node) is not used because it is .FALSE. when this is called
+!$ACC UPDATE DEVICE( ptr_int_lonlat%rbf_c2l%idx ) IF_PRESENT
+!$ACC UPDATE DEVICE( ptr_int_lonlat%rbf_c2l%blk ) IF_PRESENT
+!$ACC UPDATE DEVICE( ptr_int_lonlat%rbf_c2l%stencil ) IF_PRESENT
 
     END SUBROUTINE rbf_c2l_index
 
@@ -467,7 +479,7 @@
       !--------------------------------------------------------------------
 
       CALL message(routine, '')
-      IF (ptr_patch%n_patch_cells == 0) RETURN;
+      IF (.NOT. ptr_patch%domain_is_owned) RETURN;
 
       nblks_lonlat  = ptr_int_lonlat%nblks_lonlat(nproma)
       npromz_lonlat = ptr_int_lonlat%npromz_lonlat(nproma)
@@ -500,6 +512,7 @@
         ! for each cell, build the vector RBF interpolation matrix
         DO je1 = 1, rbf_vec_dim_c
           DO je2 = 1, je1
+!$NEC ivdep
             DO jc = i_startidx, i_endidx
 
               ! Get actual number of stencil points
@@ -540,13 +553,12 @@
 
         ! apply Cholesky decomposition to matrix
         !
-!CDIR NOIEXPAND
 #ifdef __SX__
         CALL choldec_v(i_startidx,i_endidx,istencil,rbf_vec_dim_c,z_rbfmat,z_diag)
 #else
         CALL choldec_v(i_startidx,i_endidx,istencil,              z_rbfmat,z_diag)
 #endif
-
+!$NEC ivdep
         DO jc = i_startidx, i_endidx
 
           !
@@ -581,6 +593,7 @@
         ! set up right hand side for interpolation system
         !
         DO je2 = 1, rbf_vec_dim_c
+!$NEC ivdep
           DO jc = i_startidx, i_endidx
 
             IF (je2 > istencil(jc)) CYCLE
@@ -613,7 +626,6 @@
         END DO
 
         ! compute vector coefficients
-!CDIR NOIEXPAND
 #ifdef __SX__
         CALL solve_chol_v(i_startidx, i_endidx, istencil, rbf_vec_dim_c, z_rbfmat,  &
           &               z_diag, z_rhs1, ptr_int_lonlat%rbf_vec%coeff(:,1,:,jb))
@@ -621,7 +633,6 @@
         CALL solve_chol_v(i_startidx, i_endidx, istencil,                z_rbfmat,  &
           &               z_diag, z_rhs1, ptr_int_lonlat%rbf_vec%coeff(:,1,:,jb))
 #endif
-!CDIR NOIEXPAND
 #ifdef __SX__
         CALL solve_chol_v(i_startidx, i_endidx, istencil, rbf_vec_dim_c, z_rbfmat,  &
           &               z_diag, z_rhs2, ptr_int_lonlat%rbf_vec%coeff(:,2,:,jb))
@@ -667,6 +678,9 @@
       IF (ist /= SUCCESS)  CALL finish (routine, 'deallocation for working arrays failed')
 !$OMP END PARALLEL
 
+! Note: IF (i_am_accel_node) is not used because it is .FALSE. when this is called
+!$ACC UPDATE DEVICE( ptr_int_lonlat%rbf_vec%coeff ) IF_PRESENT
+
     END SUBROUTINE rbf_compute_coeff_vec
 
 
@@ -707,7 +721,7 @@
       !--------------------------------------------------------------------
 
       CALL message(routine, '')
-      IF (ptr_patch%n_patch_cells == 0) RETURN;
+      IF (.NOT. ptr_patch%domain_is_owned) RETURN;
 
       nblks_lonlat  = ptr_int_lonlat%nblks_lonlat(nproma)
       npromz_lonlat = ptr_int_lonlat%npromz_lonlat(nproma)
@@ -734,6 +748,7 @@
         z_rbfmat(:,:,:) = 0._wp
         DO je1 = 1, rbf_dim_c2l
           DO je2 = 1, je1
+!$NEC ivdep
             DO jc = i_startidx, i_endidx
 
               ! Get actual number of stencil points
@@ -768,7 +783,6 @@
 
         ! apply Cholesky decomposition to matrix
         !
-!CDIR NOIEXPAND
 #ifdef __SX__
         CALL choldec_v(i_startidx,i_endidx,istencil,rbf_dim_c2l,z_rbfmat,z_diag)
 #else
@@ -776,6 +790,7 @@
 #endif
 
         ! compute RHS for coefficient computation
+!$NEC ivdep
         DO jc = i_startidx, i_endidx
 
           grid_point = ptr_int_lonlat%ll_coord(jc,jb)
@@ -789,6 +804,7 @@
         ! set up right hand side for interpolation system
         !
         DO je2 = 1, rbf_dim_c2l
+!$NEC ivdep
           DO jc = i_startidx, i_endidx
 
             IF (je2 > istencil(jc)) CYCLE
@@ -811,7 +827,6 @@
         END DO
 
         ! compute vector coefficients
-!CDIR NOIEXPAND
 #ifdef __SX__
         CALL solve_chol_v(i_startidx, i_endidx, istencil, rbf_dim_c2l, z_rbfmat,  &
           &               z_diag, z_rbfval, ptr_int_lonlat%rbf_c2l%coeff(:,:,jb))
@@ -840,6 +855,9 @@
       IF (ist /= SUCCESS)  CALL finish (routine, 'deallocation for working arrays failed')
 !$OMP END PARALLEL
 
+! Note: IF (i_am_accel_node) is not used because it is .FALSE. when this is called
+!$ACC UPDATE DEVICE( ptr_int_lonlat%rbf_c2l%coeff ) IF_PRESENT
+
     END SUBROUTINE rbf_compute_coeff_c2l
 
 
@@ -861,14 +879,15 @@
       INTEGER  :: last_bdry_index, rl_start, rl_end, i_nchdom, i_startblk, i_endblk, &
         &         i_startidx, i_endidx, local_idx, glb_idx, jc, jb, je1,             &
         &         istencil, istencil2, itype, hintp_type, nblks_lonlat,  &
-        &         npromz_lonlat
+        &         npromz_lonlat, jc_src, jb_src, jc_nb, jb_nb
       REAL(wp) :: area
       TYPE(t_intp_scalar_coeff), POINTER :: ptr_intp
 
       !--------------------------------------------------------------------
 
       IF (dbg_level > 1)  CALL message(routine,'')
-      IF (ptr_patch%n_patch_cells == 0) RETURN;
+
+      IF (.NOT. ptr_patch%domain_is_owned) RETURN
 
       ! set local values for "nblks" and "npromz"
       nblks_lonlat  = ptr_int_lonlat%nblks_lonlat(nproma)
@@ -921,59 +940,111 @@
           CALL finish(routine, "Internal error!")
         END SELECT
 
+        ! Treat the masking differently for nearest-neighbor
+        ! interpolation (where masking would result in a missing
+        ! value). The general case is handled below.
+        !
+        IF (hintp_type == HINTP_TYPE_LONLAT_NNB) THEN
+
+!$OMP PARALLEL DO PRIVATE(jb, i_startidx, i_endidx, jc, je1, local_idx, glb_idx, &
+!$OMP                     jc_src, jb_src, jc_nb, jb_nb)
+          DO jb = 1, nblks_lonlat
+
+            i_startidx = 1
+            i_endidx   = nproma
+            IF (jb == nblks_lonlat) i_endidx = npromz_lonlat
+
+            ! loop over all lonlat points and their input stencils
+            CELL_LOOP : DO jc = i_startidx, i_endidx
+
+              ! if stencil point is from the nest boundary region,
+              ! then replace it by one of its neighbors.
+              jc_src = ptr_intp%idx(1,jc,jb)
+              jb_src = ptr_intp%blk(1,jc,jb)
+              local_idx = idx_1d(jc_src, jb_src)
+              glb_idx   = ptr_patch%cells%decomp_info%glb_index(local_idx)
+              IF (glb_idx <= last_bdry_index) THEN
+                DO je1 = 1,3
+                  ! get line and block indices of direct neighbors
+                  jc_nb   = ptr_patch%cells%neighbor_idx(jc_src,jb_src,je1)
+                  jb_nb   = ptr_patch%cells%neighbor_blk(jc_src,jb_src,je1)
+                  local_idx = idx_1d(jc_nb, jb_nb)
+                  glb_idx   = ptr_patch%cells%decomp_info%glb_index(local_idx)
+                  IF (glb_idx > last_bdry_index) THEN
+                    ptr_intp%idx(1,jc,jb) = jc_nb
+                    ptr_intp%blk(1,jc,jb) = jb_nb
+                    CYCLE CELL_LOOP
+                  END IF
+                END DO
+              END IF
+            END DO CELL_LOOP ! jc
+
+          END DO
+!$OMP END PARALLEL DO
+
+        ELSE
+
 !$OMP PARALLEL DO PRIVATE(jb, i_startidx, i_endidx, jc, istencil, &
 !$OMP                     istencil2, area, je1, local_idx, glb_idx)
-        BLOCKS: DO jb = 1, nblks_lonlat
+          BLOCKS: DO jb = 1, nblks_lonlat
 
-          i_startidx = 1
-          i_endidx   = nproma
-          IF (jb == nblks_lonlat) i_endidx = npromz_lonlat
+            i_startidx = 1
+            i_endidx   = nproma
+            IF (jb == nblks_lonlat) i_endidx = npromz_lonlat
 
-          ! loop over all lonlat points and their input stencils
-          DO jc = i_startidx, i_endidx
+            ! loop over all lonlat points and their input stencils
+            DO jc = i_startidx, i_endidx
 
-            ! Get actual number of stencil points
-            istencil  = ptr_intp%stencil(jc,jb)
-            istencil2 = istencil
-            ! first, multiply interpolation weights by total "area" (the
-            ! sum of weights in the stencil). we perform this step
-            ! though we may assume normalized coefficients (area=1).
-            area = 0._wp
-            DO je1 = 1, istencil
-              area = area + ptr_intp%coeff(je1,jc,jb)
-            ENDDO
-            DO je1 = 1, istencil
-              ptr_intp%coeff(je1,jc,jb) = ptr_intp%coeff(je1,jc,jb) * area
-            END DO
-            ! remove stencil points from the nest boundary region
-            ! together with their coefficients
-            DO je1 = 1, istencil
-              local_idx = idx_1d(ptr_intp%idx(je1,jc,jb), ptr_intp%blk(je1,jc,jb))
-              IF (local_idx < 1) THEN
-                WRITE (0,*) "interpolation type: hintp_type=", hintp_type
-                WRITE (0,*) "PE ", get_my_mpi_work_id(), ": je1, jc,jb = ", je1, jc,jb, &
-                  & ", indices: ", ptr_intp%idx(je1,jc,jb), ptr_intp%blk(je1,jc,jb)
-                CALL finish(routine, "Internal error!")
-              END IF
-              glb_idx = ptr_patch%cells%decomp_info%glb_index(local_idx)
-              IF (glb_idx <= last_bdry_index) THEN
-                area = area - ptr_intp%coeff(je1,jc,jb)
-                ptr_intp%coeff(je1,jc,jb) = 0._wp
-                istencil2 = istencil2 - 1
-                IF (istencil2 == 0)  area = 1._wp ! avoid zero divide
-              END IF
-            END DO
-            ! re-normalize weights
-            DO je1 = 1, istencil
-              ptr_intp%coeff(je1,jc,jb) = ptr_intp%coeff(je1,jc,jb) / area
-            END DO
-          END DO ! jc
+              ! Get actual number of stencil points
+              istencil  = ptr_intp%stencil(jc,jb)
+              istencil2 = istencil
+              ! first, multiply interpolation weights by total "area" (the
+              ! sum of weights in the stencil). we perform this step
+              ! though we may assume normalized coefficients (area=1).
+              area = 0._wp
+              DO je1 = 1, istencil
+                area = area + ptr_intp%coeff(je1,jc,jb)
+              ENDDO
+              DO je1 = 1, istencil
+                ptr_intp%coeff(je1,jc,jb) = ptr_intp%coeff(je1,jc,jb) * area
+              END DO
+              ! remove stencil points from the nest boundary region
+              ! together with their coefficients
+              DO je1 = 1, istencil
+                local_idx = idx_1d(ptr_intp%idx(je1,jc,jb), ptr_intp%blk(je1,jc,jb))
+                IF (local_idx < 1) THEN
+                  WRITE (0,*) "interpolation type: hintp_type=", hintp_type
+                  WRITE (0,*) "PE ", get_my_mpi_work_id(), ": je1, jc,jb = ", je1, jc,jb, &
+                    & ", indices: ", ptr_intp%idx(je1,jc,jb), ptr_intp%blk(je1,jc,jb)
+                  CALL finish(routine, "Internal error!")
+                END IF
+                glb_idx = ptr_patch%cells%decomp_info%glb_index(local_idx)
+                IF (glb_idx <= last_bdry_index) THEN
+                  area = area - ptr_intp%coeff(je1,jc,jb)
+                  ptr_intp%coeff(je1,jc,jb) = 0._wp
+                  istencil2 = istencil2 - 1
+                  IF (istencil2 == 0)  area = 1._wp ! avoid zero divide
+                END IF
+              END DO
+              ! re-normalize weights
+              DO je1 = 1, istencil
+                ptr_intp%coeff(je1,jc,jb) = ptr_intp%coeff(je1,jc,jb) / area
+              END DO
+            END DO ! jc
 
-        END DO BLOCKS
+          END DO BLOCKS
 !$OMP END PARALLEL DO
-      END DO
-      IF (dbg_level > 1)  CALL message(routine, "done.")
 
+        END IF
+
+        ! Note: IF (i_am_accel_node) is not used because it is .FALSE. when this is called
+        !$ACC UPDATE DEVICE( ptr_intp%blk ) IF_PRESENT
+        !$ACC UPDATE DEVICE( ptr_intp%idx ) IF_PRESENT
+        !$ACC UPDATE DEVICE( ptr_intp%coeff ) IF_PRESENT
+
+      END DO  
+      IF (dbg_level > 1)  CALL message(routine, "done.")
+      
     END SUBROUTINE mask_out_boundary
 
 
@@ -1343,6 +1414,13 @@
         END DO
       END DO
 !$OMP END PARALLEL DO
+
+! Note: IF (i_am_accel_node) is not used because it is .FALSE. when this is called
+!$ACC UPDATE DEVICE( ptr_int_lonlat%nnb%stencil ) IF_PRESENT
+!$ACC UPDATE DEVICE( ptr_int_lonlat%nnb%coeff ) IF_PRESENT      
+!$ACC UPDATE DEVICE( ptr_int_lonlat%nnb%idx ) IF_PRESENT      
+!$ACC UPDATE DEVICE( ptr_int_lonlat%nnb%idx ) IF_PRESENT      
+
     END SUBROUTINE nnb_setup_interpol_lonlat_grid
 
 
@@ -1399,6 +1477,11 @@
       ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
+      
+! Note: IF (i_am_accel_node) is not used because it is .FALSE. when this is called
+!$ACC UPDATE DEVICE( ptr_int_lonlat%rbf_vec%stencil ) IF_PRESENT
+!$ACC UPDATE DEVICE( ptr_int_lonlat%rbf_vec%idx ) IF_PRESENT
+!$ACC UPDATE DEVICE( ptr_int_lonlat%rbf_vec%blk ) IF_PRESENT
 
       IF (dbg_level > 1) CALL message(routine, "compute lon-lat interpolation coefficients")
 
@@ -1470,5 +1553,70 @@
       CALL rbf_compute_coeff_c2l( ptr_patch, ptr_int_lonlat, rbf_shape_param )
 
     END SUBROUTINE rbf_setup_interpol_lonlat_grid
+
+
+    ! Interpolation weight algorithms may cause small weights outside
+    ! [0,1]. This subroutine applies a cut-off and renormalization of
+    ! cell-based interpolation coefficients.
+    !
+    SUBROUTINE normalize_weights(ptr_int_lonlat, intp_coeff)
+      TYPE (t_lon_lat_intp),     INTENT(INOUT) :: ptr_int_lonlat
+      TYPE(t_intp_scalar_coeff), INTENT(INOUT) :: intp_coeff
+      ! local variables
+      CHARACTER(*), PARAMETER :: routine = modname//"::normalize_weights"
+      LOGICAL,      PARAMETER :: ldebug  = .FALSE.
+
+      INTEGER  :: jc, jb, nblks_lonlat, npromz_lonlat, i_startidx, i_endidx, &
+        &         je1, istencil, icount = 0
+      REAL(wp) :: checksum, mmin, mmax, &
+        &         rmin = 1.0_wp, rmax = 0.0_wp
+
+      nblks_lonlat  = ptr_int_lonlat%nblks_lonlat(nproma)
+      npromz_lonlat = ptr_int_lonlat%npromz_lonlat(nproma)
+
+      icount = 0
+      rmin   = 1.0_wp
+      rmax   = 0.0_wp
+
+!$OMP DO PRIVATE (jb,jc,i_startidx,i_endidx, je1, checksum, istencil, mmin, mmax)  &
+!$OMP    REDUCTION(+:icount), REDUCTION(min:rmin), REDUCTION(max:rmax)
+      BLOCKS: DO jb = 1, nblks_lonlat
+        i_startidx = 1
+        i_endidx   = nproma
+        if (jb == nblks_lonlat) i_endidx = npromz_lonlat
+
+        DO jc = i_startidx, i_endidx
+          istencil = intp_coeff%stencil(jc,jb) ! actual number of stencil points
+
+          ! statistics
+          mmin   = MINVAL(intp_coeff%coeff(1:istencil,jc,jb))
+          rmin   = MIN(rmin, mmin)
+          mmax   = MAXVAL(intp_coeff%coeff(1:istencil,jc,jb))
+          rmax   = MAX(rmax, mmax)
+          icount = icount + COUNT(intp_coeff%coeff(1:istencil,jc,jb) < 0._wp)
+          icount = icount + COUNT(intp_coeff%coeff(1:istencil,jc,jb) > 1._wp)
+
+          ! Apply cut-off, st. weights in [0,1]
+          DO je1 = 1, istencil
+            intp_coeff%coeff(je1,jc,jb) = MAX(MIN(1.0_wp, intp_coeff%coeff(je1,jc,jb)), 0.0_wp)
+          END DO
+
+          ! Ensure that sum of interpolation coefficients = 1.0
+          checksum = 0._wp
+          DO je1 = 1, istencil
+            checksum = checksum + intp_coeff%coeff(je1,jc,jb)
+          ENDDO
+          DO je1 = 1, istencil
+            intp_coeff%coeff(je1,jc,jb) = intp_coeff%coeff(je1,jc,jb) / checksum
+          END DO
+        END DO ! jc
+      END DO BLOCKS
+!$OMP END DO
+
+      IF (ldebug .AND. (icount > 0)) THEN
+        WRITE (0,*) routine, ": PE ", get_my_mpi_work_id(), &
+          &         " handled ", icount, " cases; min/max = ", rmin, ", ", rmax
+      END IF
+    END SUBROUTINE normalize_weights
 
   END MODULE mo_intp_lonlat

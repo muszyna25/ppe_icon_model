@@ -8,8 +8,7 @@
 MODULE mo_psrad_interface
   USE mo_kind,                       ONLY: wp
   USE mo_physical_constants,         ONLY: avo, amd, amw, amco2, amch4, &
-                                           amn2o, amo3, amo2, amc11, amc12, &
-                                           zemiss_def
+                                           amn2o, amo3, amo2, amc11, amc12
   USE mo_exception,                  ONLY: finish, warning
   USE mo_model_domain,               ONLY: t_patch
   USE mo_parallel_config,            ONLY: nproma
@@ -19,7 +18,7 @@ MODULE mo_psrad_interface
   USE mo_psrad_general,              ONLY: ncfc, ngas, nbndsw, nbndlw, nmixture, finish_cb, message_cb, warning_cb
   USE mo_psrad_cloud_optics,         ONLY: cloud_optics
   USE mo_bc_aeropt_kinne,            ONLY: set_bc_aeropt_kinne  
-  USE mo_bc_aeropt_stenchikov,       ONLY: add_bc_aeropt_stenchikov 
+  USE mo_bc_aeropt_cmip6_volc,       ONLY: add_bc_aeropt_cmip6_volc
   USE mo_bc_aeropt_splumes,          ONLY: add_bc_aeropt_splumes
   USE mo_psrad_gas_optics,           ONLY: precomputation
   USE mo_psrad_lrtm_driver,          ONLY: lrtm
@@ -30,12 +29,10 @@ MODULE mo_psrad_interface
   USE mo_timer,                      ONLY: ltimer, timer_start, timer_stop, &
    &                                       timer_lrtm, timer_srtm
 
-  USE mo_radiation_config,           ONLY: lrad_aero_diag
-
   USE mo_namelist,                   ONLY: open_nml, position_nml, close_nml, POSITIONED
   USE mo_io_units,                   ONLY: nnml, nnml_output
   USE mo_mpi,                        ONLY: my_process_is_stdio
-  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist
+  USE mo_restart_nml_and_att,        ONLY: open_tmpfile, store_and_close_namelist
 
 #ifdef PSRAD_TIMING
   USE mo_timer,                      ONLY: timer_rrtm_coeffs,   &
@@ -126,12 +123,13 @@ CONTAINS
   !-------------------------------------------------------------------
   SUBROUTINE psrad_interface(                                               &
       & patch,                                                              &
-      & irad_aero     ,klev                                                ,& 
+      & irad_aero       ,lrad_aero_diag  ,klev                             ,& 
       & ktype                                                              ,&
       & psctm, ssi_factor,                                                  &
       & loland          ,loglac          ,this_datetime                    ,&
       & pcos_mu0        ,daylght_frc                                       ,&
       & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
+      & emissivity                                                         ,&
       & zf              ,zh              ,dz                               ,&
       & pp_sfc          ,pp_fl                                             ,&
       & tk_sfc          ,tk_fl           ,tk_hl                            ,&
@@ -143,7 +141,10 @@ CONTAINS
       & sw_upw          ,sw_upw_clr      ,sw_dnw          ,sw_dnw_clr      ,&
       & vis_dn_dir_sfc  ,par_dn_dir_sfc  ,nir_dn_dir_sfc                   ,&
       & vis_dn_dff_sfc  ,par_dn_dff_sfc  ,nir_dn_dff_sfc                   ,&
-      & vis_up_sfc      ,par_up_sfc      ,nir_up_sfc                       )     
+      & vis_up_sfc      ,par_up_sfc      ,nir_up_sfc                       ,&
+      & aer_aod_533     ,aer_ssa_533     ,aer_asy_533                      ,&
+      & aer_aod_2325    ,aer_ssa_2325    ,aer_asy_2325                     ,&
+      & aer_aod_9731                                                        )   
 #ifdef __INTEL_COMPILER
 !DIR$ OPTIMIZE:1
 #endif
@@ -161,8 +162,10 @@ CONTAINS
 
     LOGICAL,INTENT(IN) ::              &
          loland(:,:),                & !< land sea mask, land=.true.
-         loglac(:,:)                   !< glacier mask, glacier=.true.
-
+         loglac(:,:),                & !< glacier mask, glacier=.true.
+         lrad_aero_diag                !< switch on (.true.) aerosol optical
+                                       !< properties
+    
     TYPE(datetime), POINTER ::  this_datetime !< actual time step
 
     REAL(WP),INTENT(IN)  :: &
@@ -172,6 +175,7 @@ CONTAINS
          alb_nir_dir(:,:),  & !< surface albedo for NIR range and dir light
          alb_vis_dif(:,:),  & !< surface albedo for vis range and dif light
          alb_nir_dif(:,:),  & !< surface albedo for NIR range and dif light
+         emissivity(:,:),   & !< surface longwave emissivity
          zf(:,:,:),         & !< geometric height at full level in m
          zh(:,:,:),         & !< geometric height at half level in m
          dz(:,:,:),         & !< geometric height thickness in m
@@ -212,8 +216,15 @@ CONTAINS
          nir_dn_dff_sfc(:,:), & !< Direct  downward flux surface near-infrared radiation
          vis_up_sfc    (:,:), & !< Upward  flux surface visible radiation 
          par_up_sfc    (:,:), & !< Upward  flux surface PAR
-         nir_up_sfc    (:,:)    !< Upward  flux surface near-infrared radiation
- 
+         nir_up_sfc    (:,:), & !< Upward  flux surface near-infrared radiation
+         aer_aod_533   (:,:,:),&!< Aerosol optical density at 533 nm
+         aer_ssa_533   (:,:,:),&!< Single scattering albedo at 533 nm
+         aer_asy_533   (:,:,:),&!< Asymmetry factor at 533 nm
+         aer_aod_2325  (:,:,:),&!< Aerosol optical density at 2325 nm
+         aer_ssa_2325  (:,:,:),&!< Single scattering albedo at 2325 nm
+         aer_asy_2325  (:,:,:),&!< Asymmetry factor at 2325 nm
+         aer_aod_9731  (:,:,:)  !< Aerosol optical density at 9731 nm
+         
     INTEGER  :: jg             
     INTEGER  :: i_nchdom, rl_start, rl_end
     INTEGER  :: i_startblk,i_endblk
@@ -245,12 +256,14 @@ CONTAINS
             &                       jce,                                        &
             & nproma,               klev,                                       &
             !
-            & irad_aero,            ktype(:,jb),                                &
+            & irad_aero,            lrad_aero_diag,                             &
+            & ktype(:,jb),                                                      &
             & psctm,                ssi_factor,                                 &
             & loland(:,jb),         loglac(:,jb),         this_datetime,        &
             & pcos_mu0(:,jb),       daylght_frc(:,jb),                          &
             & alb_vis_dir(:,jb),    alb_nir_dir(:,jb),                          &
             & alb_vis_dif(:,jb),    alb_nir_dif(:,jb),                          &
+            & emissivity(:,jb),                                                 &
             & zf(:,:,jb),           zh(:,:,jb),           dz(:,:,jb),           &
             & pp_sfc(:,jb),         pp_fl(:,:,jb),                              &
             & tk_sfc(:,jb),         tk_fl(:,:,jb),        tk_hl(:,:,jb),        &
@@ -265,7 +278,10 @@ CONTAINS
             & sw_dnw(:,:,jb),       sw_dnw_clr(:,:,jb),                         &
             & vis_dn_dir_sfc(:,jb), par_dn_dir_sfc(:,jb), nir_dn_dir_sfc(:,jb), &
             & vis_dn_dff_sfc(:,jb), par_dn_dff_sfc(:,jb), nir_dn_dff_sfc(:,jb), &
-            & vis_up_sfc(:,jb),     par_up_sfc(:,jb),     nir_up_sfc(:,jb)      )
+            & vis_up_sfc(:,jb),     par_up_sfc(:,jb),     nir_up_sfc(:,jb)    , &
+            & aer_aod_533(:,:,jb),  aer_ssa_533(:,:,jb),  aer_asy_533(:,:,jb) , &
+            & aer_aod_2325(:,:,jb), aer_ssa_2325(:,:,jb), aer_asy_2325(:,:,jb), &
+            & aer_aod_9731(:,:,jb)                                              )
          !
       ELSE
          !
@@ -274,12 +290,14 @@ CONTAINS
             & jcs,                  jce,                                        &
             & nproma,               klev,                 klevp1,               &
             !
-            & irad_aero,            ktype(:,jb),                                &
+            & irad_aero,            lrad_aero_diag,                             &
+            & ktype(:,jb),                                                      &
             & psctm,                ssi_factor,                                 &
             & loland(:,jb),         loglac(:,jb),         this_datetime,        &
             & pcos_mu0(:,jb),       daylght_frc(:,jb),                          &
             & alb_vis_dir(:,jb),    alb_nir_dir(:,jb),                          &
             & alb_vis_dif(:,jb),    alb_nir_dif(:,jb),                          &
+            & emissivity(:,jb),                                                 &
             & zf(:,:,jb),           zh(:,:,jb),           dz(:,:,jb),           &
             & pp_sfc(:,jb),         pp_fl(:,:,jb),                              &
             & tk_sfc(:,jb),         tk_fl(:,:,jb),        tk_hl(:,:,jb),        &
@@ -294,7 +312,10 @@ CONTAINS
             & sw_dnw(:,:,jb),       sw_dnw_clr(:,:,jb),                         &
             & vis_dn_dir_sfc(:,jb), par_dn_dir_sfc(:,jb), nir_dn_dir_sfc(:,jb), &
             & vis_dn_dff_sfc(:,jb), par_dn_dff_sfc(:,jb), nir_dn_dff_sfc(:,jb), &
-            & vis_up_sfc(:,jb),     par_up_sfc(:,jb),     nir_up_sfc(:,jb)      )
+            & vis_up_sfc(:,jb),     par_up_sfc(:,jb),     nir_up_sfc(:,jb)    , &
+            & aer_aod_533(:,:,jb),  aer_ssa_533(:,:,jb),  aer_asy_533(:,:,jb) , &
+            & aer_aod_2325(:,:,jb), aer_ssa_2325(:,:,jb), aer_asy_2325(:,:,jb), &
+            & aer_aod_9731(:,:,jb)                                              )
          !
       END IF
 
@@ -336,12 +357,14 @@ CONTAINS
        & jg,             jb,                                 &
        &                 kproma,                             &
        & kbdim,          klev,                               &
-       & iaero,          ktype,                              &
+       & iaero,          lrad_aero_diag,                     &
+       & ktype,                                              &
        & psctm,          ssi_factor,                         &
        & laland,         laglac,         this_datetime,      &
        & pcos_mu0,       daylght_frc,                        &
        & alb_vis_dir,    alb_nir_dir,                        &
        & alb_vis_dif,    alb_nir_dif,                        &
+       & emissivity,                                         &
        & zf,             zh,             dz,                 &
        & pp_sfc,         pp_fl,                              &
        & tk_sfc,         tk_fl,          tk_hl,              &
@@ -355,7 +378,10 @@ CONTAINS
        & flx_dnsw,       flx_dnsw_clr,                       &
        & vis_dn_dir_sfc, par_dn_dir_sfc, nir_dn_dir_sfc,     &
        & vis_dn_dff_sfc, par_dn_dff_sfc, nir_dn_dff_sfc,     &
-       & vis_up_sfc,     par_up_sfc,     nir_up_sfc          )
+       & vis_up_sfc,     par_up_sfc,     nir_up_sfc    ,     &
+       & aer_aod_533,    aer_ssa_533,    aer_asy_533   ,     &
+       & aer_aod_2325,   aer_ssa_2325,   aer_asy_2325  ,     &
+       & aer_aod_9731                                        )
 
 #ifdef __INTEL_COMPILER
 !DIR$ OPTIMIZE:1
@@ -369,13 +395,14 @@ CONTAINS
          klev,             & !< number of levels
          iaero,            & !< aerosol control
          ktype(:)            !< type of convection
-
+    
     REAL(wp),INTENT(IN) :: psctm                         !< orbit and time dependent solar constant for radiation time step
     REAL(wp),INTENT(IN) :: ssi_factor(nbndsw)            !< fraction of TSI in the 14 RRTM SW bands
 
     LOGICAL,INTENT(IN) :: &
          laland(:),   & !< land sea mask, land=.true.
-         laglac(:)      !< glacier mask, glacier=.true.
+         laglac(:),   & !< glacier mask, glacier=.true.
+         lrad_aero_diag !< switch on (.true.) aerosol optical properties diagnostics
 
     TYPE(datetime), POINTER ::  this_datetime !< actual time step
 
@@ -386,6 +413,7 @@ CONTAINS
          alb_nir_dir(:),   & !< surface albedo for NIR range and dir light
          alb_vis_dif(:),   & !< surface albedo for vis range and dif light
          alb_nir_dif(:),   & !< surface albedo for NIR range and dif light
+         emissivity(:),    & !< surface longwave emissivity
          zf(:,:),       & !< geometric height at full level in m
          zh(:,:),     & !< geometric height at half level in m
          dz(:,:),       & !< geometric height thickness in m
@@ -426,7 +454,15 @@ CONTAINS
          nir_dn_dff_sfc(:) , & !< Direct  downward flux surface near-infrared radiation
          vis_up_sfc    (:) , & !< Upward  flux surface visible radiation 
          par_up_sfc    (:) , & !< Upward  flux surface PAR
-         nir_up_sfc    (:)     !< Upward  flux surface near-infrared radiation
+         nir_up_sfc    (:) , & !< Upward  flux surface near-infrared radiation
+         aer_aod_533   (:,:) , & !< Aerosol optical density at 533 nm
+         aer_ssa_533   (:,:) , & !< Single scattering albedo at 533 nm
+         aer_asy_533   (:,:) , & !< Asymmetry factor at 533 nm
+         aer_aod_2325  (:,:) , & !< Aerosol optical density at 2325 nm
+         aer_ssa_2325  (:,:) , & !< Single scattering albedo at 2325 nm
+         aer_asy_2325  (:,:) , & !< Asymmetry factor at 2325 nm
+         aer_aod_9731  (:,:)     !< Aerosol optical density at 9731 nm
+         
 
     ! -----------------------------------------------------------------------
 
@@ -559,7 +595,7 @@ CONTAINS
 
     ! 2.0 Surface Properties
     ! --------------------------------
-    zsemiss(1:kproma,:) = zemiss_def 
+    zsemiss(1:kproma,1:nbndlw) = SPREAD(emissivity(1:kproma),2,nbndlw)
     !
     ! 3.0 Particulate Optical Properties
     ! --------------------------------
@@ -573,17 +609,22 @@ CONTAINS
 ! IF (aero == ...) THEN
 ! iaero=0: No aerosol
 ! iaero=13: only tropospheric Kinne aerosols
-! iaero=14: only Stenchikov's volcanic aerosols
-! iaero=15: tropospheric Kinne aerosols + volcanic Stenchikov's aerosols
+! iaero=14: only CMIP6 volcanic aerosols
+! iaero=15: tropospheric Kinne aerosols + volcanic CMIP6 aerosols
+! iaero=18: tropospheric Kinne background aerosols + volcanic CMIP6 aerosols + simple plumes
+! iaero=19: tropospheric Kinne background aerosols + simple plumes but NO volcanic aerosols
 ! set all aerosols to zero first
     aer_tau_lw_vr(:,:,:) = 0.0_wp
     aer_tau_sw_vr(:,:,:) = 0.0_wp
     aer_piz_sw_vr(:,:,:) = 1.0_wp
     aer_cg_sw_vr(:,:,:)  = 0.0_wp
-    IF (iaero==13 .OR. iaero==15 .OR. iaero==18) THEN
+    IF (iaero==13 .OR. iaero==15 .OR. iaero==18 .OR. iaero==19) THEN
 ! iaero=13: only Kinne aerosols are used
-! iaero=15: Kinne aerosols plus Stenchikov's volcanic aerosols are used
+! iaero=15: Kinne aerosols plus CMIP6 volcanic aerosols are used
 ! iaero=18: Kinne background aerosols (of natural origin, 1850) are set
+!           and later simple plumes added and CMIP6 volcanic aerosols are added
+! iaero=19: Kinne background aerosols (of natural origin, 1850) are set
+!           and later simple plumes added, but no volcanic aerosol 
       CALL set_bc_aeropt_kinne(this_datetime,                           &
            & jg,                                                        &
            & 1, kproma,      kbdim,                 klev,                  &
@@ -593,14 +634,14 @@ CONTAINS
            & aer_tau_lw_vr                                              )
     END IF
     IF (iaero==14 .OR. iaero==15 .OR. iaero==18) THEN
-! iaero=14: only Stechnikov's volcanic aerosols are used (added to zero)
-! iaero=15: Stenchikov's volcanic aerosols are added to Kinne aerosols
-! iaero=18: Stenchikov's volcanic aerosols are added to Kinne background
-!           aerosols (of natural origin, 1850) 
-      CALL add_bc_aeropt_stenchikov(this_datetime,    jg,               &
-           & 1, kproma,           kbdim,                 klev,             &
-           & jb,             nbndsw,                nbndlw,           &
-           & dz,               pp_fl,                                   &
+! iaero=14: only CMIP6 volcanic aerosols are used
+! iaero=15: CMIP6 volcanic aerosols are added to Kinne aerosols
+! iaero=18: CMIP6 volcanic aerosols are added to Kinne background
+!           aerosols (of natural origin, 1850) and simple plumes are added 
+      CALL add_bc_aeropt_cmip6_volc(this_datetime,    jg,               &
+           & 1,kproma,           kbdim,                 klev,           &
+           & jb,               nbndsw,                nbndlw,           &
+           & zf,               dz,                                      &
            & aer_tau_sw_vr,    aer_piz_sw_vr,         aer_cg_sw_vr,     &
            & aer_tau_lw_vr                                              )
     END IF
@@ -618,9 +659,10 @@ CONTAINS
 !!$           & aer_tau_lw_vr,    aer_tau_sw_vr,         aer_piz_sw_vr,    &
 !!$           & aer_cg_sw_vr                                               )
 !!$    END IF
-    IF (iaero==18) THEN
-! iaero=18: Simple plumes are added to Stenchikov's volcanic aerosols 
-!           and Kinne background aerosols (of natural origin, 1850) 
+    IF (iaero==18 .OR. iaero==19) THEN
+! iaero=18: Simple plumes are added to CMIP6 volcanic aerosols 
+!           and Kinne background aerosols (of natural origin, 1850)
+! iaero=19: simple plumes are added to natural background, but no volcanic aerosols
       CALL add_bc_aeropt_splumes(jg,                                     &
            & 1, kproma,           kbdim,                 klev,             &
            & jb,             nbndsw,                this_datetime,    &
@@ -629,13 +671,16 @@ CONTAINS
            & x_cdnc                                                     )
     END IF
 
-    ! this should be decativated in the concurrent version and make the aer_* global variables for output
+    ! this should be deactivated in the concurrent version and make the aer_* global variables for output
     IF (lrad_aero_diag) THEN
-      CALL rad_aero_diag (                                  &
-        & jg,              jb,         1, kproma,           &
-        & kbdim,           klev,            nbndlw,           &
-        & nbndsw,          aer_tau_lw_vr,   aer_tau_sw_vr,    &
-        & aer_piz_sw_vr,   aer_cg_sw_vr                       )
+      CALL rad_aero_diag (                                     &
+           & 1,               kproma,          kbdim,          &
+           & klev,            nbndlw,          nbndsw,         &
+           & aer_tau_lw_vr,   aer_tau_sw_vr,   aer_piz_sw_vr,  &
+           & aer_cg_sw_vr,                                     &
+           & aer_aod_533,     aer_ssa_533,     aer_asy_533,    &
+           & aer_aod_2325,    aer_ssa_2325,    aer_asy_2325,   &
+           & aer_aod_9731                                      )
     ENDIF
 
     DO jl = 1,nbndlw
@@ -755,12 +800,13 @@ CONTAINS
        & jcs,            jce,                            &
        & kbdim,          klev,           klevp1,         &
        !
-       & iaero,          ktype,                          &
+       & iaero,          lrad_aero_diag, ktype,          &
        & psctm,          ssi_factor,                     &
        & laland,         laglac,         this_datetime,  &
        & pcos_mu0,       daylght_frc,                    &
        & alb_vis_dir,    alb_nir_dir,                    &
        & alb_vis_dif,    alb_nir_dif,                    &
+       & emissivity,                                     &
        & zf,             zh,             dz,             &
        & pp_sfc,         pp_fl,                          &
        & tk_sfc,         tk_fl,          tk_hl,          &
@@ -775,7 +821,10 @@ CONTAINS
        & sw_dnw,         sw_dnw_clr,                     &
        & vis_dn_dir_sfc, par_dn_dir_sfc, nir_dn_dir_sfc, &
        & vis_dn_dff_sfc, par_dn_dff_sfc, nir_dn_dff_sfc, &
-       & vis_up_sfc,     par_up_sfc,     nir_up_sfc      )
+       & vis_up_sfc,     par_up_sfc,     nir_up_sfc,     &
+       & aer_aod_533,    aer_ssa_533,    aer_asy_533,    &
+       & aer_aod_2325,   aer_ssa_2325,   aer_asy_2325,   &
+       & aer_aod_9731                                    )
 
     INTEGER,INTENT(IN)  :: &
          & jg,             & !< domain index
@@ -793,8 +842,9 @@ CONTAINS
 
     LOGICAL,INTENT(IN) :: &
          & laland(:),   & !< land sea mask, land=.true.
-         & laglac(:)      !< glacier mask, glacier=.true.
-
+         & laglac(:),   & !< glacier mask, glacier=.true.
+         & lrad_aero_diag !< switch on (.true.) aerosol optical properties diagnostic
+         
     TYPE(datetime), POINTER ::  this_datetime !< actual time step
 
     REAL(WP),INTENT(IN)  ::    &
@@ -804,6 +854,7 @@ CONTAINS
          & alb_nir_dir(:),   & !< surface albedo for NIR range and dir light
          & alb_vis_dif(:),   & !< surface albedo for vis range and dif light
          & alb_nir_dif(:),   & !< surface albedo for NIR range and dif light
+         emissivity(:),      & !< surface longwave emissivity
          & zf(:,:),       & !< geometric height at full level in m
          & zh(:,:),     & !< geometric height at half level in m
          & dz(:,:),       & !< geometric height thickness in m
@@ -844,7 +895,14 @@ CONTAINS
          & nir_dn_dff_sfc(:) , & !< Direct  downward flux surface near-infrared radiation
          & vis_up_sfc    (:) , & !< Upward  flux surface visible radiation 
          & par_up_sfc    (:) , & !< Upward  flux surface PAR
-         & nir_up_sfc    (:)     !< Upward  flux surface near-infrared radiation
+         & nir_up_sfc    (:) , & !< Upward  flux surface near-infrared radiation
+         & aer_aod_533   (:,:) , & !< Aerosol optical density at 533 nm
+         & aer_ssa_533   (:,:) , & !< Single scattering albedo at 533 nm
+         & aer_asy_533   (:,:) , & !< Asymmetry factor at 533 nm
+         & aer_aod_2325  (:,:) , & !< Aerosol optical density at 2325 nm
+         & aer_ssa_2325  (:,:) , & !< Single scattering albedo at 2325 nm
+         & aer_asy_2325  (:,:) , & !< Asymmetry factor at 2325 nm
+         & aer_aod_9731  (:,:)     !< Aerosol optical density at 9731 nm
 
 
 
@@ -867,6 +925,7 @@ CONTAINS
          & s_alb_nir_dir    (kbdim),   & !< surface albedo for NIR range and dir light
          & s_alb_vis_dif    (kbdim),   & !< surface albedo for vis range and dif light
          & s_alb_nir_dif    (kbdim),   & !< surface albedo for NIR range and dif light
+         & s_emissivity     (kbdim),   & !< surface longwave emissivity
          & s_zf             (kbdim,klev),       & !< geometric height at full level in m
          & s_zh             (kbdim,klevp1),     & !< geometric height at half level in m
          & s_dz             (kbdim,klev),       & !< geometric height thickness in m
@@ -909,8 +968,15 @@ CONTAINS
          & s_nir_dn_dff_sfc (kbdim), & !< Direct  downward flux surface near-infrared radiation
          & s_vis_up_sfc     (kbdim), & !< Upward  flux surface visible radiation 
          & s_par_up_sfc     (kbdim), & !< Upward  flux surface PAR
-         & s_nir_up_sfc     (kbdim)    !< Upward  flux surface near-infrared radiation
-
+         & s_nir_up_sfc     (kbdim), & !< Upward  flux surface near-infrared radiation
+         & s_aer_aod_533    (kbdim, klev), & !< Aerosol optical density at 533 nm
+         & s_aer_ssa_533    (kbdim, klev), & !< Single scattering albedo at 533 nm
+         & s_aer_asy_533    (kbdim, klev), & !< Asymmetry factor at 533 nm
+         & s_aer_aod_2325   (kbdim, klev), & !< Aerosol optical density at 2325 nm
+         & s_aer_ssa_2325   (kbdim, klev), & !< Single scattering albedo at 2325 nm
+         & s_aer_asy_2325   (kbdim, klev), & !< Asymmetry factor at 2325 nm
+         & s_aer_aod_9731   (kbdim, klev)    !< Aerosol optical density at 9731 nm
+         
     ! Shift input arguments
     !
     s_jce = jce-jcs+1
@@ -924,6 +990,7 @@ CONTAINS
     s_alb_nir_dir (1:s_jce)     = alb_nir_dir (jcs:jce)
     s_alb_vis_dif (1:s_jce)     = alb_vis_dif (jcs:jce)
     s_alb_nir_dif (1:s_jce)     = alb_nir_dif (jcs:jce)
+    s_emissivity  (1:s_jce)     = emissivity  (jcs:jce)
     s_zf          (1:s_jce,:)   = zf          (jcs:jce,:)
     s_zh          (1:s_jce,:)   = zh          (jcs:jce,:)
     s_dz          (1:s_jce,:)   = dz          (jcs:jce,:)
@@ -952,12 +1019,13 @@ CONTAINS
          &                      s_jce,                                    &
          &   kbdim,               klev,                                   &
          !
-         &   iaero,             s_ktype(:),                               &
+         &   iaero,             lrad_aero_diag,      s_ktype(:),          &
          &   psctm,               ssi_factor,                             &
          & s_laland(:),         s_laglac(:),         this_datetime,       &
          & s_pcos_mu0(:),       s_daylght_frc(:),                         &
          & s_alb_vis_dir(:),    s_alb_nir_dir(:),                         &
          & s_alb_vis_dif(:),    s_alb_nir_dif(:),                         &
+         & s_emissivity(:),                                               &
          & s_zf(:,:),           s_zh(:,:),           s_dz(:,:),           &
          & s_pp_sfc(:),         s_pp_fl(:,:),                             &
          & s_tk_sfc(:),         s_tk_fl(:,:),        s_tk_hl(:,:),        &
@@ -972,7 +1040,10 @@ CONTAINS
          & s_sw_dnw(:,:),       s_sw_dnw_clr(:,:),                        &
          & s_vis_dn_dir_sfc(:), s_par_dn_dir_sfc(:), s_nir_dn_dir_sfc(:), &
          & s_vis_dn_dff_sfc(:), s_par_dn_dff_sfc(:), s_nir_dn_dff_sfc(:), &
-         & s_vis_up_sfc(:),     s_par_up_sfc(:),     s_nir_up_sfc(:)      )
+         & s_vis_up_sfc(:),     s_par_up_sfc(:),     s_nir_up_sfc(:),     &
+         & s_aer_aod_533(:,:),  s_aer_ssa_533(:,:),  s_aer_asy_533(:,:),  &
+         & s_aer_aod_2325(:,:), s_aer_ssa_2325(:,:), s_aer_asy_2325(:,:), &
+         & s_aer_aod_9731(:,:)                                            )
 
     ! Shift output arguments
     !
@@ -993,7 +1064,13 @@ CONTAINS
     vis_up_sfc     (jcs:jce)   = s_vis_up_sfc     (1:s_jce)
     par_up_sfc     (jcs:jce)   = s_par_up_sfc     (1:s_jce)
     nir_up_sfc     (jcs:jce)   = s_nir_up_sfc     (1:s_jce)
-
+    aer_aod_533    (jcs:jce,:) = s_aer_aod_533    (1:s_jce,:)
+    aer_ssa_533    (jcs:jce,:) = s_aer_ssa_533    (1:s_jce,:)
+    aer_asy_533    (jcs:jce,:) = s_aer_asy_533    (1:s_jce,:)
+    aer_aod_2325   (jcs:jce,:) = s_aer_aod_2325   (1:s_jce,:)
+    aer_ssa_2325   (jcs:jce,:) = s_aer_ssa_2325   (1:s_jce,:)
+    aer_asy_2325   (jcs:jce,:) = s_aer_asy_2325   (1:s_jce,:)
+    aer_aod_9731   (jcs:jce,:) = s_aer_aod_9731   (1:s_jce,:)
 
   END SUBROUTINE shift_and_call_psrad_interface_onBlock
       

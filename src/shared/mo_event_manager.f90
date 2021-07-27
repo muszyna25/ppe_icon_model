@@ -70,7 +70,8 @@ CONTAINS
     INTEGER :: handle
     CHARACTER(len=*), INTENT(in) :: group
     TYPE(event_group_list), ALLOCATABLE :: tmp(:)
-    CHARACTER(len=max_groupname_str_len) :: gstring    
+    CHARACTER(len=max_groupname_str_len) :: gstring
+    INTEGER :: new_size
 
     IF (.NOT. linitialized) THEN
       CALL finish('', 'event manager not initialized.') 
@@ -78,14 +79,13 @@ CONTAINS
 
     IF (model_event_groups_list_member == model_event_groups_list_size) THEN
       CALL message('', 'reallocating event group list.', level=em_info) 
-      ALLOCATE(tmp(model_event_groups_list_size)) 
-      tmp(:) = model_event_groups(:)
-      DEALLOCATE(model_event_groups)
-      ALLOCATE(model_event_groups(2*model_event_groups_list_size))
-      model_event_groups(:model_event_groups_list_size) = tmp(:)
-      DEALLOCATE(tmp)
-      model_event_groups_list_size = 2*model_event_groups_list_size
-      WRITE(message_text,'(a,i0)') 'new event group list size: ', model_event_groups_list_size 
+      new_size = 2*model_event_groups_list_size
+      ALLOCATE(tmp(new_size))
+      tmp(1:model_event_groups_list_size) = model_event_groups(:)
+      CALL MOVE_ALLOC(tmp, model_event_groups)
+      model_event_groups_list_size = new_size
+      WRITE(message_text,'(a,i0)') 'new event group list size: ', &
+           model_event_groups_list_size
       CALL message('', message_text, level=em_info)
     ENDIF
 
@@ -93,7 +93,7 @@ CONTAINS
 
     model_event_groups(model_event_groups_list_member)%group => newEventGroup(TRIM(group))
     CALL getEventGroupName(model_event_groups(model_event_groups_list_member)%group, gstring)
-    WRITE(message_text,'(a,a)') 'added event group: ', TRIM(gstring)
+    message_text = 'added event group: '//gstring
     CALL message('', message_text, level=em_info)
 
     handle = model_event_groups_list_member

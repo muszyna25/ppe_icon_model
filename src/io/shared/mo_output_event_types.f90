@@ -18,7 +18,7 @@
 !!
 !! -----------------------------------------------------------------------------------
 MODULE mo_output_event_types
-  USE mtime,                 ONLY: MAX_DATETIME_STR_LEN
+  USE mtime,                 ONLY: datetime
   USE mo_kind,               ONLY: wp
   IMPLICIT NONE
 
@@ -69,12 +69,18 @@ MODULE mo_output_event_types
   !!
   !!
   TYPE t_sim_step_info
-    CHARACTER(len=MAX_DATETIME_STR_LEN)   :: sim_start, sim_end               !< simulation start/end time stamp
-    CHARACTER(len=MAX_DATETIME_STR_LEN)   :: run_start                        !< start of this run (-> restart)
-    CHARACTER(len=MAX_DATETIME_STR_LEN)   :: restart_time                     !< end of this run (-> restart)
-    REAL(wp)                              :: dtime                            !< [s] length of a time step
-    CHARACTER(len=MAX_DATETIME_STR_LEN)   :: dom_start_time, dom_end_time     !< model domain start/end time
-    INTEGER                               :: jstep0                           !< initial time loop counter (important for restart)
+    !> simulation start/end time stamp
+    TYPE(datetime) :: sim_start, sim_end
+    !> start of this run (-> restart)
+    TYPE(datetime) :: run_start
+    !> end of this run (-> restart)
+    TYPE(datetime) :: restart_time
+    !> model domain start/end time
+    TYPE(datetime) :: dom_start_time, dom_end_time
+    !> [s] length of a time step
+    REAL(wp)       :: dtime
+    !> initial time loop counter (important for restart)
+    INTEGER        :: jstep0
   END TYPE t_sim_step_info
 
 
@@ -89,7 +95,8 @@ MODULE mo_output_event_types
   !
   TYPE t_event_data
     CHARACTER(LEN=MAX_EVENT_NAME_STR_LEN) :: name                             !< output event name
-    CHARACTER(len=MAX_DATETIME_STR_LEN)   :: sim_start                        !< simulation start
+    !> simulation start
+    TYPE(datetime)                        :: sim_start
   END TYPE t_event_data
 
 
@@ -111,8 +118,8 @@ MODULE mo_output_event_types
 
     !> tag, e.g. for MPI isend/irecv messages, unique at least on sender side
     INTEGER                               :: i_tag
-    !> ISO 8601 conforming time stamp
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: datetime_string
+    !> mtime time stamp
+    TYPE(datetime) :: datetime
     !> output file name
     CHARACTER(LEN=MAX_FILENAME_STR_LEN)   :: filename_string
   END TYPE t_event_step_data
@@ -130,7 +137,8 @@ MODULE mo_output_event_types
   TYPE t_event_step
     INTEGER                               :: i_sim_step                       !< simulation step that triggers event
     INTEGER                               :: n_pes                            !< no. PEs participating in this step
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: exact_date_string                !< exact (model step) time stamp 
+    !> exact (model step) time stamp
+    TYPE(datetime) :: exact_date
     !
     TYPE(t_event_step_data), ALLOCATABLE  :: event_step_data(:)               !< event data for each PE
   END TYPE t_event_step

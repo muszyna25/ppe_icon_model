@@ -31,12 +31,10 @@ MODULE mo_nwp_lnd_types
 
   USE mo_kind,                 ONLY: wp
   USE mo_fortran_tools,        ONLY: t_ptr_2d3d
-  USE mo_linked_list,          ONLY: t_var_list
-
+  USE mo_var_list,             ONLY: t_var_list_ptr
 
   IMPLICIT NONE
   PRIVATE
-
 
   !
   !variables
@@ -44,7 +42,6 @@ MODULE mo_nwp_lnd_types
   PUBLIC :: t_lnd_prog   !!  for prognostic variables
   PUBLIC :: t_wtr_prog   !!  for prognostic variables related to lake and sea ice models
   PUBLIC :: t_lnd_diag   !!  for diagnostic variables
-
 
   !
   ! prognostic variables state vector (land)
@@ -57,6 +54,7 @@ MODULE mo_nwp_lnd_types
 #endif
     &  ::                         &
     &  t_s_t          (:,:,:)   , & ! temperature of the ground surface             (  K  )
+    &  t_sk_t         (:,:,:)   , & ! skin temperature                              (  K  )
     &  t_g            (:,:)     , & ! weighted surface temperature                  (  K  )
     &  t_g_t          (:,:,:)   , & ! weighted surface temperature on tiles         (  K  )
     &  w_i_t          (:,:,:)   , & ! water content of interception water           (m H2O)
@@ -77,6 +75,7 @@ MODULE mo_nwp_lnd_types
     TYPE(t_ptr_2d3d), ALLOCATABLE :: t_snow_ptr(:)
     TYPE(t_ptr_2d3d), ALLOCATABLE :: t_snow_mult_ptr(:)
     TYPE(t_ptr_2d3d), ALLOCATABLE :: t_s_ptr(:)
+    TYPE(t_ptr_2d3d), ALLOCATABLE :: t_sk_ptr(:)
     TYPE(t_ptr_2d3d), ALLOCATABLE :: t_gt_ptr(:) 
     TYPE(t_ptr_2d3d), ALLOCATABLE :: w_snow_ptr(:) 
     TYPE(t_ptr_2d3d), ALLOCATABLE :: rho_snow_ptr(:)
@@ -135,8 +134,8 @@ MODULE mo_nwp_lnd_types
     &  ::                     &
     &  qv_s         (:,:)   , & ! specific humidity at the surface              (kg/kg)
     &  t_s          (:,:)   , & ! temperature of the ground surface             (  K  )
+    &  t_sk         (:,:)   , & ! skin temperature                              (  K  )
     &  t_seasfc     (:,:)   , & ! temperature of the sea surface                (  K  )
-    &  t2m_bias     (:,:)   , & ! filtered T2M bias from surface analysis         [K]
     &  w_i          (:,:)   , & ! water content of interception water           (m H2O)
     &  w_p          (:,:)   , & ! water content of pond interception water      (m H2O)
     &  w_s          (:,:)   , & ! water content of interception snow            (m H2O)
@@ -152,6 +151,8 @@ MODULE mo_nwp_lnd_types
     &  qv_s_t       (:,:,:) , & ! specific humidity at the surface              (kg/kg)
     &  runoff_s_t   (:,:,:) , & ! surface water runoff; sum over forecast       (kg/m2)
     &  runoff_g_t   (:,:,:) , & ! soil water runoff; sum over forecast          (kg/m2)
+    &  runoff_s_inst_t(:,:,:) , & ! surface water runoff; instantaneous value   (kg/m2)
+    &  runoff_g_inst_t(:,:,:) , & ! soil water runoff; instantaneous value      (kg/m2)
     &  rstom        (:,:)   , & ! stomatal resistance                           ( s/m )
     &  rstom_t      (:,:,:) , & ! tile based stomatal resistance                ( s/m )
     &  plantevap    (:,:)   , & ! integral function of plant evaporation        (kg/m2)
@@ -199,10 +200,10 @@ MODULE mo_nwp_lnd_types
   TYPE t_lnd_state
     TYPE(t_lnd_prog), ALLOCATABLE  :: prog_lnd(:)          ! number of time levels
     TYPE(t_wtr_prog), ALLOCATABLE  :: prog_wtr(:)          ! number of time levels
-    TYPE(t_var_list), ALLOCATABLE  :: lnd_prog_nwp_list(:) ! number of time levels
-    TYPE(t_var_list), ALLOCATABLE  :: wtr_prog_nwp_list(:) ! number of time levels
+    TYPE(t_var_list_ptr), ALLOCATABLE  :: lnd_prog_nwp_list(:) ! number of time levels
+    TYPE(t_var_list_ptr), ALLOCATABLE  :: wtr_prog_nwp_list(:) ! number of time levels
     TYPE(t_lnd_diag)               :: diag_lnd
-    TYPE(t_var_list)               :: lnd_diag_nwp_list
+    TYPE(t_var_list_ptr)               :: lnd_diag_nwp_list
   END TYPE t_lnd_state
  
 

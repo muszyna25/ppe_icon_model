@@ -27,6 +27,7 @@ MODULE mo_rttov_interface
   USE mo_grf_nudgintp,        ONLY: interpol_scal_nudging
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi, iqs, ltimer
+  USE mo_grid_config,         ONLY: l_limited_area
   USE mo_nwp_phy_state,       ONLY: prm_diag
   USE mo_nonhydro_state,      ONLY: p_nh_state
   USE mo_ext_data_state,      ONLY: ext_data
@@ -35,9 +36,9 @@ MODULE mo_rttov_interface
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_lnd_diag
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_impl_constants,      ONLY: min_rlcell_int, RTTOV_BT_CL, RTTOV_BT_CS, &
-    &                               RTTOV_RAD_CL, RTTOV_RAD_CS
+    &                               RTTOV_RAD_CL, RTTOV_RAD_CS, vname_len
   USE mo_loopindices,         ONLY: get_indices_c
-  USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c
+  USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c, grf_fbk_start_c
   USE mo_communication,       ONLY: exchange_data, exchange_data_mult
   USE mo_nh_vert_interp,      ONLY: prepare_lin_intp, prepare_extrap, lin_intp
   USE mo_nh_vert_interp_ipz,  ONLY: z_at_plevels
@@ -50,17 +51,13 @@ MODULE mo_rttov_interface
     &                               total_numchans, total_channels, instruments,     &
     &                               addclouds, nlev_rttov, num_images, iwc2effdiam,  &
     &                               iceshape, zenmax10, get_synsat_name
-  USE mo_name_list_output_config, ONLY: first_output_name_list, &
-    &                               is_variable_in_output
-  USE mo_var_metadata_types,  ONLY: VARNAME_LEN
+  USE mo_name_list_output_config, ONLY: is_variable_in_output
   USE mo_mpi,                 ONLY: p_pe, p_comm_work, p_io, num_work_procs, p_barrier, &
     &                               get_my_mpi_all_id
 #ifdef __USE_RTTOV
-  USE mo_rttov_ifc,           ONLY: rttov_init, rttov_fill_input, rttov_direct_ifc, &
-    &                               NO_ERROR, rttov_ifc_errMsg
-#ifdef __RTTOV12
-  USE mo_rttov_ifc,           ONLY: default_gas_units, gas_unit_specconc, gas_unit_ppmvdry, default_use_q2m
-#endif
+  USE mo_rtifc,               ONLY: rtifc_set_opts, rtifc_init, rtifc_fill_input, &
+                                    rtifc_direct, rtifc_errmsg, rttov_opts_def,   &
+                                    NO_ERROR, default_gas_units, gas_unit_ppmvdry
 #endif
 
   IMPLICIT NONE
@@ -86,6 +83,9 @@ MODULE mo_rttov_interface
   !> Number of channels that are actually computed
   INTEGER  :: numchans(jpnsat)
 
+  !> RTTOV-indices of sensors
+  INTEGER  :: rttov_indx(jpnsat)
+
   !> computed channel index (necessary if only a small number of channels is selected)
   INTEGER, ALLOCATABLE :: chan_idx(:,:) ! (1:numchans, isens)
 
@@ -97,7 +97,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER    :: routine = modname//"::rttov_initialize"
     INTEGER                    :: n_chans(num_sensors)
     INTEGER                    :: channels(mchans, num_sensors)
-    CHARACTER(LEN=VARNAME_LEN) :: shortname
+    CHARACTER(LEN=vname_len) :: shortname
     CHARACTER(LEN=128)         :: longname
     INTEGER                    :: isens, ierrstat, k, isynsat, j
 #ifdef __USE_RTTOV
@@ -121,7 +121,7 @@ CONTAINS
           isynsat = (k-1)*4+RTTOV_BT_CL
           ! check if image is in any of our output namelists
           lsynsat_product(isynsat) =  &
-            &    is_variable_in_output(first_output_name_list, var_name=TRIM(shortname))
+            &    is_variable_in_output(var_name=TRIM(shortname))
           IF (lsynsat_product(isynsat))  lsynsat_chan(isens, k) = .TRUE.
         ENDDO
       ENDIF
@@ -131,7 +131,7 @@ CONTAINS
           IF (dbg_level > 1)  WRITE (0,*) TRIM(shortname), " (k=", k, ")"
           isynsat = (k-1)*4+RTTOV_BT_CS
           lsynsat_product(isynsat) =  &
-            &    is_variable_in_output(first_output_name_list, var_name=TRIM(shortname))
+            &    is_variable_in_output(var_name=TRIM(shortname))
           IF (lsynsat_product(isynsat))  lsynsat_chan(isens, k) = .TRUE.
         ENDDO
       ENDIF
@@ -141,7 +141,7 @@ CONTAINS
           IF (dbg_level > 1)  WRITE (0,*) TRIM(shortname), " (k=", k, ")"
           isynsat = (k-1)*4+RTTOV_RAD_CL
           lsynsat_product(isynsat) =  &
-            &    is_variable_in_output(first_output_name_list, var_name=TRIM(shortname))
+            &    is_variable_in_output(var_name=TRIM(shortname))
           IF (lsynsat_product(isynsat))  lsynsat_chan(isens, k) = .TRUE.
         ENDDO
       ENDIF
@@ -151,7 +151,7 @@ CONTAINS
           IF (dbg_level > 1)  WRITE (0,*) TRIM(shortname), " (k=", k, ")"
           isynsat = (k-1)*4+RTTOV_RAD_CS
           lsynsat_product(isynsat) =  &
-            &    is_variable_in_output(first_output_name_list, var_name=TRIM(shortname))
+            &    is_variable_in_output(var_name=TRIM(shortname))
           IF (lsynsat_product(isynsat))  lsynsat_chan(isens, k) = .TRUE.
         ENDDO
       ENDIF
@@ -196,24 +196,31 @@ CONTAINS
         WRITE (0,*) routine, ": CALL to rttov_init"
       END IF
 
-      ! use 2m humidity in case of RTTOV12
-#ifdef __RTTOV12
-      default_use_q2m = .TRUE.
-#endif
+      CALL rtifc_set_opts(        &
+        addclouds      = .true.,  &
+        apply_reg_lims = .true.,  &
+        addsolar       = .false., &
+        addrefrac      = .true.,  &
+        addinterp      = .false., &
+        use_q2m        = .true.,  &
+        cloud_overlap  = 2,       & !Simplified, much faster scheme
+        do_checkinput  = .false., & !do_checkinput is expensive on vector machine
+        init           = .true.)
 
-      istatus = rttov_init(  &
-        instruments     , &
-        channels        , &
-        n_chans         , &
-        p_pe            , &
-        num_work_procs  , &
-        p_io            , &
-        p_comm_work     , &
-        appRegLim=.TRUE., &
-        readCloud=addclouds)
+      CALL rtifc_init(                            &
+        instruments                             , &
+        channels                                , &
+        n_chans                                 , &
+        (/(rttov_opts_def,isens=1,num_sensors)/), &
+        p_pe                                    , &
+        num_work_procs                          , &
+        p_io                                    , &
+        p_comm_work                             , &
+        istatus                                 , &
+        idx = rttov_indx                        )
 
       IF (istatus /= NO_ERROR) THEN
-        WRITE(message_text,'(a)') TRIM(rttov_ifc_errMsg(istatus))
+        WRITE(message_text,'(a)') TRIM(rtifc_errmsg(istatus))
         CALL finish(routine ,message_text)
       ENDIF
       IF (dbg_level > 2) THEN
@@ -271,11 +278,7 @@ SUBROUTINE rttov_driver (jg, jgp, nnow)
   ! Local variables for RTTOV calls (with RTTOV-specific memory layout)
   REAL(wp), DIMENSION(nlev_rttov,nproma) :: temp, pres, qv
 
-#ifdef __RTTOV12
   REAL(wp) ::  cld(6,nlev_rttov-1,nproma), clc(nlev_rttov-1,nproma)
-#else
-  REAL(wp), DIMENSION(6,nlev_rttov-1,nproma) :: clc, cld
-#endif
 
   INTEGER,  DIMENSION(1:nproma*MAXVAL(numchans(:))) :: iprof, ichan
   REAL(wp), DIMENSION(MAXVAL(numchans(:)),nproma) :: emiss, T_b, T_b_clear, rad, rad_clear
@@ -284,14 +287,22 @@ SUBROUTINE rttov_driver (jg, jgp, nnow)
 
   INTEGER :: idg(nproma), ish(nproma)
 
-  INTEGER :: jb, jc, jk, i_startblk, i_endblk, is, ie, j, k
+  INTEGER :: jb, jc, jk, i_startblk, i_endblk, is, ie, j, k, rlstart
   INTEGER :: nlev_rg, isens, n_profs, ncalc, iprint, &
     &        istatus, synsat_idx, isynsat
+
 
   ! first, check if nothing to do:
   IF (MAXVAL(numchans(:)) == 0)  RETURN
 
   IF (ltimer) CALL timer_start(timer_synsat)
+
+  ! Skip empty patches which may occur with processor splitting or vector-host offloading
+  ! This needs to be done after the timer call in order to avoid timer inconsistencies
+  IF (p_patch(jg)%n_patch_cells == 0) THEN
+    IF (ltimer) CALL timer_stop(timer_synsat)
+    RETURN
+  ENDIF
 
   nlev_rg = p_patch(jgp)%nlev
 
@@ -308,8 +319,8 @@ SUBROUTINE rttov_driver (jg, jgp, nnow)
   ! distance of satellite from middle of the earth
   r_sat       = 35880.e3_wp + earth_radius
 
-  ! set backward compatibility mode for input unit of QV when using RTTOV12
-#ifdef __RTTOV12
+#ifdef __USE_RTTOV
+  ! set backward compatibility mode for input unit of QV
   default_gas_units = gas_unit_ppmvdry
 #endif
 
@@ -327,13 +338,15 @@ SUBROUTINE rttov_driver (jg, jgp, nnow)
 
   ! Call RTTOV library
   !
-  i_startblk = p_gcp%start_block(grf_bdyintp_start_c)
+  rlstart    = grf_bdyintp_start_c
+
+  i_startblk = p_gcp%start_block(rlstart)
   i_endblk   = p_gcp%end_block(min_rlcell_int)
 
 #ifdef __USE_RTTOV
   DO jb = i_startblk, i_endblk
 
-    CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, is, ie, grf_bdyintp_start_c, min_rlcell_int)
+    CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, is, ie, rlstart, min_rlcell_int)
 
 
     ! Choices for RTTOV ice cloud scheme and ice crystal shape
@@ -362,53 +375,45 @@ SUBROUTINE rttov_driver (jg, jgp, nnow)
         ! cld(6) = cloud ice
         cld(6,jk,jc) = qi_rttov(jc,jk,jb)
         ! clc = cloud fraction
-#ifdef __RTTOV12
+
         clc(jk,jc) = MIN(1._wp-1.e-8_wp,clc_rttov(jc,jk,jb))
         IF (ANY(cld(:,jk,jc) > 0._wp)) THEN
           clc(jk,jc) = MAX(1.e-8_wp,clc(jk,jc))
         ENDIF
-#else
-        clc(1,jk,jc) = MIN(1._wp-1.e-8_wp,clc_rttov(jc,jk,jb))
-        IF (ANY(cld(:,jk,jc) > 0._wp)) THEN
-          clc(1,jk,jc) = MAX(1.e-8_wp,clc(1,jk,jc))
-        ENDIF
-#endif
+
       ENDDO
     ENDDO
 
-    istatus = rttov_fill_input(                            &
-          press      = pres(:,is:ie) ,                     &
-          temp       = temp(:,is:ie),                      &
-          humi       = qv(:,is:ie),                        &
-          t2m        = rg_t2m(is:ie,jb),                   &
-          q2m        = rg_qv2m(is:ie,jb),                  &
-          psurf      = rg_psfc(is:ie,jb),                  &
-          hsurf      = rg_hsfc(is:ie,jb),                  &
-          u10m       = rg_u10m(is:ie,jb),                  &
-          v10m       = rg_v10m(is:ie,jb),                  &
-          stemp      = rg_tsfc(is:ie,jb),                  &
-          stype      = rg_stype(is:ie,jb),                 &
-          watertype  = rg_wtype(is:ie,jb),                 &
-          latgroundp = p_gcp%center(is:ie,jb)%lat*rad2deg, &
-          satzenith  = (/(0.0_wp, jc=is,ie)/),             &
-          sunZenith  = rg_cosmu0(is:ie,jb),                & ! actually unused for addsolar=.false.
-          cloud      = cld(:,:,is:ie),                     &
-#ifdef __RTTOV12
-          cfrac      = clc(:,is:ie),                       &
-          ice_scheme = ish(is:ie),                         &
-#else
-          cfrac      = clc(:,:,is:ie),                     &
-          ish        = ish(is:ie),                         &
-#endif
-          idg        = idg(is:ie),                         &
-          addsolar   = .false.,                            &
-          addrefrac  = .true.,                             &
-          rttov9_compat = .false.,                         &
-          addinterp  = .false.,                            &
-          ivect      = 1)
+    CALL rtifc_fill_input(                            &
+         istatus, &
+         rttov_opts_def, &
+         press      = pres(:,is:ie) ,                     &
+         temp       = temp(:,is:ie),                      &
+         humi       = qv(:,is:ie),                        &
+         t2m        = rg_t2m(is:ie,jb),                   &
+         q2m        = rg_qv2m(is:ie,jb),                  &
+         psurf      = rg_psfc(is:ie,jb),                  &
+         hsurf      = rg_hsfc(is:ie,jb),                  &
+         u10m       = rg_u10m(is:ie,jb),                  &
+         v10m       = rg_v10m(is:ie,jb),                  &
+         stemp      = rg_tsfc(is:ie,jb),                  &
+         stype      = rg_stype(is:ie,jb),                 &
+         watertype  = rg_wtype(is:ie,jb),                 &
+         lat        = p_gcp%center(is:ie,jb)%lat*rad2deg, &
+         lon        = p_gcp%center(is:ie,jb)%lon*rad2deg, &
+         sat_zen    = (/(0.0_wp, jc=is,ie)/),             &
+         sun_zen    = rg_cosmu0(is:ie,jb),                & ! actually unused for addsolar=.false.
+         cloud      = cld(:,:,is:ie),                     &
+         cfrac      = clc(:,is:ie),                       &
+         ice_scheme = ish(is:ie),                         &
+         idg        = idg(is:ie),                         &
+         ivect      = 1,                                  &
+         pe         = p_pe)
+
 
     IF (istatus /= NO_ERROR) THEN
-      WRITE(0,*) 'RTTOV fill_input ERROR ', TRIM(rttov_ifc_errMsg(istatus))
+      WRITE(message_text,'(a)') TRIM(rtifc_errmsg(istatus))
+      CALL finish('RTTOV fill_input ERROR' ,message_text)
     ENDIF
 
     sensor_loop: DO isens = 1, num_sensors
@@ -452,20 +457,24 @@ SUBROUTINE rttov_driver (jg, jgp, nnow)
           &         ", ichan=", ichan(1:ncalc), ", emiss=", emiss(1:numchans(isens), 1:n_profs), &
           &         ", numchans=", numchans(isens)
       END IF
-      istatus = rttov_direct_ifc(                                 &
-             isens,                                               &
+      CALL rtifc_direct(                                          &
+             rttov_indx(isens),                                   &
              iprof(1:ncalc),                                      &
              ichan(1:ncalc),                                      &
+             rttov_opts_def,                                      &
              emiss(1:numchans(isens), 1:n_profs),                 &
-             satAzim   = sat_a(is:ie),                            &
-             satZenith = sat_z(is:ie),                            &
-             T_b       = T_b(1:numchans(isens), 1:n_profs),       &
+             T_b(1:numchans(isens), 1:n_profs),                   &
+             istatus,                                             &
+             sat_azi   = sat_a(is:ie),                            &
+             sat_zen   = sat_z(is:ie),                            &
              T_b_clear = T_b_clear(1:numchans(isens), 1:n_profs), &
              rad       = rad      (1:numchans(isens), 1:n_profs), &
-             radClear  = rad_clear(1:numchans(isens), 1:n_profs), &
-             iprint    = iprint)
+             radclear  = rad_clear(1:numchans(isens), 1:n_profs), &
+             iprint    = iprint,                                  &
+             pe        = p_pe)
       IF (istatus /= NO_ERROR) THEN
-        WRITE(0,*) 'RTTOV synsat calc ERROR ', TRIM(rttov_ifc_errMsg(istatus))
+        WRITE(message_text,'(a)') TRIM(rtifc_errmsg(istatus))
+        CALL finish('RTTOV synsat calc ERROR' ,message_text)
       ENDIF
 
       IF (dbg_level > 2)  WRITE (0,*) "PE ", get_my_mpi_all_id(), " :: copy result into rg_synsat array"
@@ -531,7 +540,6 @@ SUBROUTINE rttov_driver (jg, jgp, nnow)
     CALL p_barrier(p_comm_work)
     WRITE (0,*) "Leave downscale_rttov_output"
   END IF
-
 
   IF (ltimer) CALL timer_stop(timer_synsat)
 END SUBROUTINE rttov_driver
@@ -642,12 +650,12 @@ SUBROUTINE prepare_rttov_input(jg, jgp, nlev_rg, z_ifc, pres, dpres, temp, tot_c
   ! Define RTTOV levels
   CALL define_rttov_levels (nlev_rttov, pres_rttov)
 
+!$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
 
   ! Upscaling of RTTOV input variables from compute grid to reduced grid
   i_startblk = p_gcp%start_block(grf_bdyintp_start_c)
   i_endblk   = p_gcp%end_block(min_rlcell_int)
 
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jk1,zdpres,zrho,qv_aux,zclc,zqc,zqcc,zqi,zqs, &
 !$OMP            zfr_land,zfr_lake,zfr_si,zdet_rate,zcon_upd)
   DO jb = i_startblk, i_endblk
@@ -892,9 +900,31 @@ SUBROUTINE prepare_rttov_input(jg, jgp, nlev_rg, z_ifc, pres, dpres, temp, tot_c
     ENDDO
 
   ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
+!$OMP END DO
 
+  ! Fill surface values in the boundary interpolation zone
+  IF (l_limited_area .AND. jg == 1) THEN
+
+    i_startblk = p_gcp%start_block(grf_bdyintp_start_c)
+    i_endblk   = p_gcp%end_block(grf_fbk_start_c+1)
+
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_pp, jb, i_startblk, i_endblk,          &
+        i_startidx, i_endidx, grf_bdyintp_start_c, grf_fbk_start_c+1)
+
+      DO jc = i_startidx, i_endidx
+        rg_tsfc(jc,jb) = rg_temp(jc,nlev_rg,jb)
+        rg_t2m(jc,jb)  = rg_temp(jc,nlev_rg,jb)
+        rg_qv2m(jc,jb) = rg_qv  (jc,nlev_rg,jb)
+        rg_u10m(jc,jb) = 0._wp
+        rg_v10m(jc,jb) = 0._wp
+      ENDDO
+    ENDDO
+!$OMP END DO
+  ENDIF
+!$OMP END PARALLEL
 
 
   ! Compute interpolation coefficients
@@ -955,6 +985,9 @@ SUBROUTINE prepare_rttov_input(jg, jgp, nlev_rg, z_ifc, pres, dpres, temp, tot_c
 
   ! Calculate layer averages of cloud variables from vertically integrated fields
   ! The unit required by RTTOV is g/m**3 (!!)
+
+  i_startblk = p_gcp%start_block(grf_bdyintp_start_c)
+  i_endblk   = p_gcp%end_block(min_rlcell_int)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
@@ -1058,7 +1091,7 @@ SUBROUTINE downscale_rttov_output(jg, jgp, nimg, rg_satimg, satimg, l_enabled)
     CALL p_barrier(p_comm_work)
     WRITE (0,*) "Execute interpolation from reduced grid to full grid"
   END IF
-  CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx, 0, 1, 1, &
+  CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), 0, 1, 1, &
     &                         rg_satimg, satimg, overshoot_fac=1.0_wp,opt_l_enabled=l_enabled)
   IF (dbg_level > 2) THEN
     CALL p_barrier(p_comm_work)

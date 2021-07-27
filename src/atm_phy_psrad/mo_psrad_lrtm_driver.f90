@@ -85,7 +85,7 @@ CONTAINS
     colbrd, minorfrac, scaleminor, &
     flux_up, flux_dn, flux_up_clr, flux_dn_clr)
 
-    USE mo_psrad_general, ONLY: ngptlw, ngas, ih2o, jTOA, jSFC, jINC 
+    USE mo_psrad_general, ONLY: ngptlw, ih2o, jTOA, jSFC, jINC 
 
     IMPLICIT NONE
 

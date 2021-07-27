@@ -43,8 +43,7 @@ MODULE mo_cudescn
   USE mo_adjust      , ONLY: cuadjtq
   USE mo_cufunctions , ONLY: foelhmcu
   USE mo_cuparameters, ONLY: lphylin  ,rlptrc, rg ,rcpd     ,retv,&
-    &                        rlvtt    ,rlstt    , &
-    &                        entrdd   ,rmfcmin,       &
+    &                        rlvtt    ,rlstt, rmfcmin,       &
     &                        rmfdeps  ,rmfdeps_ocean, lmfdd,   &
     &                        lhook,   dr_hook
   
@@ -356,7 +355,7 @@ CONTAINS
 
   SUBROUTINE cuddrafn &
     & ( kidia,    kfdia,    klon,     ktdia,  klev, k950, &
-    & lddraf,&
+    & lddraf,   entrdd,                  &
     & ptenh,    pqenh,                   &
     & pgeo,     pgeoh,    paph,     prfl,&
     & zdph,     zdgeoh,         &
@@ -410,8 +409,8 @@ CONTAINS
     !!    *PGEO*         GEOPOTENTIAL                                  M2/S2
     !!    *PGEOH*        GEOPOTENTIAL ON HALF LEVELS                  M2/S2
     !!    *PAPH*         PROVISIONAL PRESSURE ON HALF LEVELS           PA
-    !!    *zdgeoh*       geopot thickness on half levels               m2/s2
-    !!    *zdph*         pressure thickness on half levels              Pa
+    !!    *zdgeoh*       geopot thickness on full levels               m2/s2
+    !!    *zdph*         pressure thickness on full levels              PA
     !!    *PMFU*         MASSFLUX UPDRAFTS                           KG/(M2*S)
 
     !!    UPDATED PARAMETERS (REAL):
@@ -461,6 +460,7 @@ CONTAINS
     INTEGER(KIND=jpim),INTENT(in)    :: ktdia
     INTEGER(KIND=jpim),INTENT(in)    :: k950(klon)
     LOGICAL           ,INTENT(in)    :: lddraf(klon)
+    REAL(KIND=jprb)   ,INTENT(in)    :: entrdd
     REAL(KIND=jprb)   ,INTENT(in)    :: ptenh(klon,klev)
     REAL(KIND=jprb)   ,INTENT(in)    :: pqenh(klon,klev)
     REAL(KIND=jprb)   ,INTENT(in)    :: pgeo(klon,klev)
@@ -521,10 +521,14 @@ CONTAINS
       zdmfen     (jl)  =0.0_JPRB
       zdmfde     (jl)  =0.0_JPRB
       zcond      (jl)  =0.0_JPRB
-      pmfdde_rate(jl,:)=0.0_JPRB
-      pkined     (jl,:)=0.0_JPRB
+      pvbuo      (jl)  =0.0_JPRB
     ENDDO
-    pvbuo        (:)=0.0_JPRB
+    DO jk=1,klev
+      DO jl=kidia,kfdia
+        pmfdde_rate(jl,jk)=0.0_JPRB
+        pkined     (jl,jk)=0.0_JPRB
+      ENDDO
+    ENDDO
 
     DO jk=ktdia+2,klev
       is=0

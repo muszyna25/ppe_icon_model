@@ -46,12 +46,10 @@ MODULE mo_ocean_testbed_vertical_diffusion
   USE mo_ocean_forcing,          ONLY: destruct_ocean_forcing
   USE mo_ocean_physics_types,    ONLY: t_ho_params
   USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
-  USE mo_var_list,               ONLY: print_var_list
   USE mo_mpi,                    ONLY: my_process_is_stdio
   USE mo_statistics
   USE mo_sea_ice_nml,            ONLY: i_ice_dyn
   USE mo_util_dbg_prnt,          ONLY: dbg_print
-  USE mo_ocean_statistics
   USE mo_ocean_output
   USE mo_ocean_tracer_diffusion, ONLY: tracer_diffusion_vertical_implicit
   USE mo_ocean_velocity_diffusion,ONLY: velocity_diffusion_vertical_implicit
@@ -79,44 +77,56 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
     TYPE (t_ho_params)                               :: physics_parameters
-    TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
+    TYPE(t_operator_coeff),   INTENT(in)          :: operators_coefficients
 
     INTEGER :: inner_iter, outer_iter
     TYPE(t_subset_range), POINTER :: cells_in_domain
     TYPE(t_ocean_tracer), POINTER :: ocean_tracer
-    REAL(wp) :: residual(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-    REAL(wp) :: mean_trace
-
+!     REAL(wp) :: residual(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp) :: start_mean_tracer, mean_tracer, mean_diff
+    REAL(wp) :: random_diff(1:nproma,1:n_zlev+1,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    
     ocean_tracer => ocean_state(1)%p_prog(nold(1))%tracer_collection%tracer(1)
     cells_in_domain => patch_3d%p_patch_2D(1)%cells%in_domain
 
     !---------------------------------------------------------------------
     ! ocean_tracer%concentration(:,:,:) = 0.0_wp
     ! ocean_tracer%concentration(:,17,:) = 1.0_wp
-    CALL dbg_print('tracer diffu', physics_parameters%A_tracer_v(:,:,:, 1),  debug_string, 1, in_subset=cells_in_domain)
-
+ 
     CALL dbg_print('tracer', ocean_tracer%concentration,  debug_string, 1, in_subset=cells_in_domain)
 
 !    CALL fill_tracer_x_height(patch_3d, ocean_state(1))
 !    write(0,*) ocean_tracer%concentration_x_height(:, :, 1)
 !    sum_trace = SUM(ocean_tracer%concentration_x_height(1, :, 1))
-    mean_trace = total_mean(values=ocean_tracer%concentration, weights=patch_3d%p_patch_1d(1)%prism_volume, &
+    CALL RANDOM_NUMBER(random_diff)
+    random_diff = physics_parameters%A_tracer_v(:,:,:, 1) + 0.0001 * (random_diff - 0.5_wp)
+    CALL dbg_print('tracer diffu', random_diff,  debug_string, 1, in_subset=cells_in_domain)
+    mean_diff = total_mean(values=random_diff, weights=patch_3d%p_patch_1d(1)%prism_volume, &
       & in_subset=cells_in_domain)
-    WRITE(message_text,'(f18.10)') mean_trace
-    CALL message("mean_trace=", message_text)
+    WRITE(message_text,'(f18.10)') mean_diff
+    CALL message("mean_diff=", message_text)
+
+    start_mean_tracer = total_mean(values=ocean_tracer%concentration, weights=patch_3d%p_patch_1d(1)%prism_volume, &
+      & in_subset=cells_in_domain)
+    WRITE(message_text,'(f18.10)') start_mean_tracer
+    CALL message("start_mean_tracer=", message_text)
 
     DO outer_iter=1,1000
       DO inner_iter=1,1000
+        CALL RANDOM_NUMBER(random_diff)
+        random_diff = physics_parameters%A_tracer_v(:,:,:, 1) + 0.0001 * (random_diff - 0.5_wp)
         CALL tracer_diffusion_vertical_implicit( patch_3D, ocean_tracer, &
-          & physics_parameters%A_tracer_v(:,:,:, 1)) !, residual)
+          & random_diff,  ocean_state(1)%p_prog(nnew(1))%h)  
       ENDDO
 
       WRITE(message_text,'(i6,a)') outer_iter, 'x1000 iter, tracer'
       CALL dbg_print(message_text, ocean_tracer%concentration,  debug_string, 1, in_subset=cells_in_domain)
-
-      mean_trace = total_mean(values=ocean_tracer%concentration, weights=patch_3d%p_patch_1d(1)%prism_volume, &
+      CALL dbg_print("tracer diffu", random_diff,  debug_string, 1, in_subset=cells_in_domain)
+      
+      mean_tracer = total_mean(values=ocean_tracer%concentration, weights=patch_3d%p_patch_1d(1)%prism_volume, &
         & in_subset=cells_in_domain)
-      WRITE(message_text,'(f18.10)') mean_trace
+      WRITE(message_text,'(f18.10,", ", 2(E22.16,", "))') mean_tracer, mean_tracer-start_mean_tracer, &
+        & (mean_tracer-start_mean_tracer)/start_mean_tracer
       CALL message("mean_trace=", message_text)
 
     ENDDO
@@ -131,7 +141,7 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
     TYPE (t_ho_params)                               :: physics_parameters
-    TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
+    TYPE(t_operator_coeff),   INTENT(in)          :: operators_coefficients
 
     INTEGER :: inner_iter, outer_iter
     TYPE(t_subset_range), POINTER :: edges_owned, cells_owned
@@ -169,41 +179,12 @@ CONTAINS
     timer_vdiff         = new_timer("vdiff")
 
     vn_inout(:,:,:) = 0.0
-    vn_inout(:,1,:) = 1.0
+    vn_inout(:,1,:) = 5.0
     CALL dbg_print('vn', vn_inout,  debug_string, 1, in_subset=edges_owned)
     sum_vn = SUM(vn_inout(1, :, 1) * patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_e(1, :, 1))
     WRITE(message_text,'(f18.10)') sum_vn
     CALL message("sum=", message_text)
 
-    ! test old diffusion
-!    CALL timer_start(timer_vdiff_old)
-!    DO outer_iter=1,1000
-!      DO inner_iter=1,1000
-!
-!        CALL update_diffusion_matrices( patch_3d,     &
-!          & physics_parameters,                       &
-!          & operators_coefficients%matrix_vert_diff_e,&
-!          & operators_coefficients%matrix_vert_diff_c)
-!
-!        CALL velocity_diffusion_vertical_implicit_old( patch_3d,  &
-!          & vn_inout,                                  &
-!          & physics_parameters%a_veloc_v,              &
-!          & operators_coefficients)
-!
-!      ENDDO
-!
-!      WRITE(message_text,'(a, i6,a)') 'old ', outer_iter, 'x1000 iter, vn'
-!      CALL dbg_print(message_text, vn_inout,  debug_string, 1, in_subset=edges_owned)
-!      sum_vn = SUM(vn_inout(1, :, 1) * patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_e(1, :, 1))
-!      WRITE(message_text,'(f18.10)') sum_vn
-!      CALL message("sum=", message_text)
-!
-!    ENDDO
-!    CALL timer_stop(timer_vdiff_old)
-
-    ! test current diffusion
-    vn_inout(:,:,:) = 0.0
-    vn_inout(:,1,:) = 1.0
     ! physics_parameters%a_veloc_v(:,:,:) = physics_parameters%a_veloc_v(:,:,:) * 1.01_wp
     CALL timer_start(timer_vdiff)
     DO outer_iter=1,1000
@@ -244,7 +225,7 @@ CONTAINS
     TYPE(t_ocean_tracer), TARGET         :: ocean_tracer
     REAL(wp), INTENT(inout)              :: h_c(:,:)  !surface height, relevant for thickness of first cell, in
     REAL(wp), INTENT(inout)              :: A_v(:,:,:)
-    TYPE(t_operator_coeff),TARGET     :: operators_coefficients
+    TYPE(t_operator_coeff), INTENT(in),TARGET     :: operators_coefficients
     REAL(wp), INTENT(inout) :: residual_3D(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     ! REAL(wp), INTENT(inout)           :: diff_column(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     !
@@ -431,7 +412,7 @@ CONTAINS
     TYPE(t_patch_3D ),TARGET, INTENT(IN) :: patch_3D
     TYPE(t_ocean_tracer), TARGET         :: ocean_tracer
     REAL(wp), INTENT(inout)              :: A_v(:,:,:)
-    TYPE(t_operator_coeff),TARGET        :: operators_coefficients
+    TYPE(t_operator_coeff), INTENT(in),TARGET        :: operators_coefficients
     !
     !
     REAL(wp) :: inv_prism_thickness(1:n_zlev), inv_prisms_center_distance(1:n_zlev)
@@ -536,7 +517,7 @@ CONTAINS
     TYPE(t_ocean_tracer), TARGET         :: ocean_tracer
     REAL(wp), INTENT(inout)              :: h_c(:,:)  !surface height, relevant for thickness of first cell, in
     REAL(wp), INTENT(inout)              :: A_v(:,:,:)
-    TYPE(t_operator_coeff),TARGET     :: operators_coefficients
+    TYPE(t_operator_coeff), INTENT(in),TARGET     :: operators_coefficients
     !
     !
     REAL(wp) :: inv_prism_thickness(1:n_zlev), inv_prisms_center_distance(1:n_zlev)
@@ -634,7 +615,7 @@ CONTAINS
     TYPE(t_patch_3D ),TARGET, INTENT(IN) :: patch_3D
     REAL(wp), INTENT(inout)              :: velocity(:,:,:)   ! on edges
     REAL(wp), INTENT(inout)              :: A_v(:,:,:)
-    TYPE(t_operator_coeff),TARGET        :: operators_coefficients
+    TYPE(t_operator_coeff), INTENT(in),TARGET        :: operators_coefficients
     !
     REAL(wp) :: dt_inv
     REAL(wp) :: inv_prism_thickness(1:n_zlev), inv_prisms_center_distance(1:n_zlev)
@@ -731,7 +712,7 @@ CONTAINS
     TYPE(t_patch_3D ),TARGET, INTENT(IN) :: patch_3D
     REAL(wp), INTENT(inout)              :: velocity(:,:,:)   ! on edges
     REAL(wp), INTENT(inout)              :: A_v(:,:,:)
-    TYPE(t_operator_coeff),TARGET        :: operators_coefficients
+    TYPE(t_operator_coeff), INTENT(in),TARGET        :: operators_coefficients
     !
     REAL(wp) :: dt_inv
     REAL(wp) :: inv_prism_thickness(1:n_zlev), inv_prisms_center_distance(1:n_zlev)
@@ -835,7 +816,7 @@ CONTAINS
 !    REAL(wp), INTENT(inout)           :: field_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e)
 !    !surface height at edges, relevant for thickness of first cell
 !    REAL(wp), INTENT(inout)           :: A_v(:,:,:)
-!    TYPE(t_operator_coeff), TARGET    :: p_op_coeff
+!    TYPE(t_operator_coeff), INTENT(inout), TARGET    :: p_op_coeff
 !    ! REAL(wp), INTENT(inout)             :: diff_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e)
 !    !
 !    !Local variables

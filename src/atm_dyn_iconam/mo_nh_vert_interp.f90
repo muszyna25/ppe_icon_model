@@ -32,13 +32,14 @@ MODULE mo_nh_vert_interp
   USE mo_parallel_config,     ONLY: nproma
   USE mo_physical_constants,  ONLY: grav, rd, rdv, o_m_rdv, dtdz_standardatm, p0sl_bg
   USE mo_grid_config,         ONLY: n_dom
-  USE mo_run_config,          ONLY: num_lev
+  USE mo_run_config,          ONLY: num_lev, ntracer
   USE mo_io_config,           ONLY: itype_pres_msl
   USE mo_impl_constants,      ONLY: PRES_MSL_METHOD_GME, PRES_MSL_METHOD_IFS, PRES_MSL_METHOD_DWD, &
-    &                               PRES_MSL_METHOD_IFS_CORR, MODE_ICONVREMAP
+    &                               PRES_MSL_METHOD_IFS_CORR, MODE_ICONVREMAP, SUCCESS
   USE mo_exception,           ONLY: finish, message, message_text
   USE mo_initicon_config,     ONLY: zpbl1, zpbl2, l_coarse2fine_mode, init_mode, lread_vn, lvert_remap_fg
   USE mo_initicon_types,      ONLY: t_init_state, t_initicon_state
+  USE mo_fortran_tools,       ONLY: init
   USE mo_vertical_coord_table,ONLY: vct_a
   USE mo_nh_init_utils,       ONLY: interp_uv_2_vn, adjust_w, convert_thdvars
   USE mo_util_phys,           ONLY: virtual_temp, vap_pres
@@ -49,6 +50,12 @@ MODULE mo_nh_vert_interp
   USE mo_sync,                ONLY: sync_patch_array, SYNC_C, SYNC_E
   USE mo_satad,               ONLY: sat_pres_water
   USE mo_nwp_sfc_interp,      ONLY: process_sfcfields
+  USE mo_upatmo_config,       ONLY: upatmo_config
+  USE mo_nh_deepatmo_utils,   ONLY: height_transform
+  USE mo_nh_vert_extrap_utils,ONLY: t_expol_state
+#ifdef _OPENACC
+  USE mo_mpi,                 ONLY: i_am_accel_node
+#endif
 
   IMPLICIT NONE
   PRIVATE
@@ -223,7 +230,8 @@ CONTAINS
     ! LOCAL VARIABLES
     CHARACTER(LEN=*), PARAMETER :: routine = 'vert_interp'
 
-    INTEGER :: nlev, nlevp1
+    INTEGER :: jg
+    INTEGER :: nlev, nlevp1, idx
     INTEGER :: nlev_in         ! number of vertical levels in source vgrid 
     LOGICAL :: lc2f, l_use_vn, latbcmode, lfill
 
@@ -284,7 +292,13 @@ CONTAINS
 
     REAL(wp), DIMENSION(:,:,:), POINTER :: z_mc_in
 
+    ! upper-atmospher extrapolation type
+    TYPE(t_expol_state) :: expol
+    LOGICAL :: lexpol, lconstgrav
+
 !-------------------------------------------------------------------------
+
+    jg = p_patch%id
 
     nlev_in = initicon%atm_in%nlev
 
@@ -302,6 +316,16 @@ CONTAINS
       latbcmode = opt_latbcmode  ! true: mode for interpolating lateral boundary conditions
     ELSE
       latbcmode = .FALSE.
+    ENDIF
+
+    ! (Upper atmosphere/deep atmosphere: 
+    ! The 'z_mc_in'-field is the geopotential height in case of IFS-date. For the shallow atmosphere geopotential 
+    ! and geometric height coincide. Unfortunately this does no longer hold for the deep atmosphere. 
+    ! So a further step is required in which geopotential height is transformed into geometric height 
+    ! (see 'src/atm_dyn_iconam/mo_nh_deepatmo_utils' for input/output of 'height_transform').)
+    lconstgrav = upatmo_config(jg)%dyn%l_constgrav
+    IF (upatmo_config(jg)%dyn%l_initonzgpot) THEN
+      CALL height_transform(initicon%const%z_mc_in, p_patch%nblks_c, p_patch%npromz_c, nlev_in, lconstgrav, 'zgpot2z')  
     ENDIF
 
     IF (PRESENT(opt_lmask_c)) THEN
@@ -330,6 +354,11 @@ CONTAINS
     IF (.NOT. ASSOCIATED(initicon%const%z_mc_in)) THEN
        CALL finish(routine, "Internal error: z_mc_in not associated!")
     END IF
+    ! (Upper atmosphere/deep atmosphere: it is assumed here and in the following 
+    ! that the weighting factors computed in 'prepare_...(_intp)' result from 
+    ! a pure distance weighting (along coordinate lines etc.), 
+    ! so no deep-atmosphere modification is applied, this would have to be reconsidered, 
+    ! if the weighting would be regarded as a volume weighting)
     CALL prepare_lin_intp(z_mc_in, initicon%const%z_mc,                     &
                           p_patch%nblks_c, p_patch%npromz_c, nlev_in, nlev, &
                           wfac_lin, idx0_lin, bot_idx_lin)
@@ -343,6 +372,10 @@ CONTAINS
     CALL prepare_cubic_intp(z_mc_in, initicon%const%z_mc,                     &
                             p_patch%nblks_c, p_patch%npromz_c, nlev_in, nlev, &
                             coef1, coef2, coef3, idx0_cub, bot_idx_cub)
+
+    ! (Initialize upper-atmosphere extrapolation type.)
+    lexpol = upatmo_config(jg)%exp%l_expol
+    IF (lexpol) CALL expol%initialize(p_patch, latbcmode)
 
 
     ! Perform vertical interpolation
@@ -359,6 +392,12 @@ CONTAINS
                           l_restore_sfcinv=.TRUE., l_hires_corr=lc2f,             &
                           extrapol_dist=-1500._wp, l_pz_mode=.FALSE., slope=slope,&
                           opt_lmask=opt_lmask_c )
+
+    ! (Extrapolate temperature to upper atmosphere
+    ! Note: the following subroutine is a post-processing routine, 
+    ! it has to be positioned after 'temperature_intp'!
+    ! This applies to the remaining extrapolations as well.)                     
+    IF (lexpol) CALL expol%temp(p_patch, initicon%atm%temp)
 
 
     ! horizontal wind components
@@ -421,7 +460,9 @@ CONTAINS
     ENDIF
 
     ! This synchronization is executed in the calling routine in latbc mode
-    IF (.NOT. latbcmode) CALL sync_patch_array(SYNC_E,p_patch,initicon%atm%vn)
+    ! (Postpone 'sync' to after extrapolation below in case 
+    ! upper-atmosphere extrapolation has been switched on)
+    IF (.NOT. latbcmode .AND. (.NOT. lexpol)) CALL sync_patch_array(SYNC_E,p_patch,initicon%atm%vn)
 
 
     ! Preliminary interpolation of QV: this is needed to compute virtual temperature
@@ -460,42 +501,90 @@ CONTAINS
                   wfacpbl2, kpbl2, l_loglin=.FALSE., l_extrapol=.FALSE., &
                   l_pd_limit=.TRUE.)
 
+    ! ... additional tracer variables
+    DO idx=1, ntracer
+      IF ( ASSOCIATED(initicon%atm_in%tracer(idx)%field) ) THEN
+        IF ( .NOT. latbcmode ) THEN
+          ! allocate target array for vertical interpolation
+          ALLOCATE(initicon%atm%tracer(idx)%field(nproma,nlev,p_patch%nblks_c))
+!$OMP PARALLEL
+          CALL init(initicon%atm%tracer(idx)%field(:,:,:))   !_jf: necessary?
+!$OMP END PARALLEL
+          ! set pointer to var_element of atm_in
+          initicon%atm%tracer(idx)%var_element => initicon%atm_in%tracer(idx)%var_element
+        ENDIF
+        ! do vertical interpolation
+        CALL lin_intp(initicon%atm_in%tracer(idx)%field, initicon%atm%tracer(idx)%field, &
+                      p_patch%nblks_c, p_patch%npromz_c, nlev_in, nlev,                  &
+                      wfac_lin, idx0_lin, bot_idx_lin, wfacpbl1, kpbl1,                  &
+                      wfacpbl2, kpbl2, l_loglin=.FALSE., l_extrapol=.FALSE.,             &
+                      l_pd_limit=.TRUE.)
+      ENDIF
+    ENDDO
+
+    ! (Extrapolate water phases, except for water vapour 'qv', to upper atmosphere.
+    ! Note: this is only done for subroutine-internal use, 
+    ! see the final treatment of the 'qx' in 'mo_initicon_utils: copy_initicon2prog_atm')
+    IF (lexpol) CALL expol%qx(p_patch, initicon%atm%qc, initicon%atm%qi, initicon%atm%qr, initicon%atm%qs)
+
     ! Compute virtual temperature with preliminary QV
     CALL virtual_temp(p_patch, initicon%atm%temp, initicon%atm%qv, initicon%atm%qc,    &
                       initicon%atm%qi, initicon%atm%qr, initicon%atm%qs, temp_v=z_tempv)
 
     ! Interpolate pressure on ICON grid
-    CALL pressure_intp_initmode(initicon%atm_in%pres, temp_v_in, z_mc_in,      &
-      &                        initicon%atm%pres, z_tempv, initicon%const%z_mc,&
-      &                        p_patch%nblks_c, p_patch%npromz_c, nlev,        &
-      &                        wfac_lin, idx0_lin, bot_idx_lin, opt_lmask=opt_lmask_c)
+    CALL pressure_intp_initmode(initicon%atm_in%pres, temp_v_in, z_mc_in,              &
+      &                        initicon%atm%pres, z_tempv, initicon%const%z_mc,        &
+      &                        p_patch%nblks_c, p_patch%npromz_c, nlev, nlev_in,       &
+      &                        wfac_lin, idx0_lin, bot_idx_lin, opt_lmask=opt_lmask_c, &
+      &                        opt_lconstgrav=lconstgrav                               )
+
+    ! (Extrapolate pressure to upper atmosphere) 
+    IF (lexpol) CALL expol%pres(p_patch, initicon%atm%pres, z_tempv, p_metrics)
 
 
-    CALL qv_intp(initicon%atm_in%qv, initicon%atm%qv, z_mc_in,              &
-                 initicon%const%z_mc, initicon%atm_in%temp, initicon%atm_in%pres, &
-                 initicon%atm%temp, initicon%atm%pres,                      &
-                 p_patch%nblks_c, p_patch%npromz_c, nlev_in, nlev,          &
-                 coef1, coef2, coef3, wfac_lin,                             &
-                 idx0_cub, idx0_lin, bot_idx_cub, bot_idx_lin,              &
-                 wfacpbl1, kpbl1, wfacpbl2, kpbl2, l_satlimit=.TRUE.,       &
-                 lower_limit=2.5e-7_wp, l_restore_pbldev=.TRUE.,            &
-                 opt_qc=initicon%atm%qc, opt_lmask=opt_lmask_c )
+    CALL qv_intp(initicon%atm_in%qv, initicon%atm%qv, z_mc_in,                      &
+                 initicon%const%z_mc, initicon%atm_in%temp, initicon%atm_in%pres,   &
+                 initicon%atm%temp, initicon%atm%pres,                              &
+                 p_patch%nblks_c, p_patch%npromz_c, nlev_in, nlev,                  &
+                 coef1, coef2, coef3, wfac_lin,                                     &
+                 idx0_cub, idx0_lin, bot_idx_cub, bot_idx_lin,                      &
+                 wfacpbl1, kpbl1, wfacpbl2, kpbl2, l_satlimit=.TRUE.,               &
+                 lower_limit=2.5e-7_wp, l_restore_pbldev=.TRUE.,                    &
+                 opt_hires_corr=lc2f, opt_qc=initicon%atm%qc, opt_lmask=opt_lmask_c )
 
     ! Compute virtual temperature with final QV
     CALL virtual_temp(p_patch, initicon%atm%temp, initicon%atm%qv, initicon%atm%qc,    &
                       initicon%atm%qi, initicon%atm%qr, initicon%atm%qs, temp_v=z_tempv)
 
     ! Final interpolation of pressure on ICON grid
-    CALL pressure_intp_initmode(initicon%atm_in%pres, temp_v_in, z_mc_in, &
-      &                        initicon%atm%pres, z_tempv, initicon%const%z_mc,          &
-      &                        p_patch%nblks_c, p_patch%npromz_c, nlev,                  &
-      &                        wfac_lin, idx0_lin, bot_idx_lin, opt_lmask=opt_lmask_c)
+    CALL pressure_intp_initmode(initicon%atm_in%pres, temp_v_in, z_mc_in,              &
+      &                        initicon%atm%pres, z_tempv, initicon%const%z_mc,        &
+      &                        p_patch%nblks_c, p_patch%npromz_c, nlev, nlev_in,       &
+      &                        wfac_lin, idx0_lin, bot_idx_lin, opt_lmask=opt_lmask_c, &
+      &                        opt_lconstgrav=lconstgrav                               ) 
+
+    ! (In case of an upper-atmosphere extrapolation, 'hydro_adjust' should not be called 
+    ! in 'src/atm_dyn_iconam/mo_initicon_utils: copy_initicon2prog_atm', so it has to be done here. 
+    ! In its current form, this can be covered by 'expol%pres', 
+    ! but be careful, if you change something here or there.) 
+    IF (lexpol) THEN
+      CALL expol%pres(p_patch, initicon%atm%pres, z_tempv, p_metrics, opt_slev=1, opt_elev=nlev)
+      ! (Below, the extrapolation of vn requires the horizontal pressure gradient, 
+      ! but 'initicon%atm%pres' should have been processed on the entire grid, so no sync should be necessary) 
+    ENDIF
 
 
     ! Convert thermodynamic variables into set of NH prognostic variables
     CALL convert_thdvars(p_patch, initicon%atm%pres, z_tempv,    &
                          initicon%atm%rho, initicon%atm%exner,   &
                          initicon%atm%theta_v)
+
+    ! (The extrapolation of 'vn' makes use of the geostrophic balance, 
+    ! so it should be computed after the thermodynamic state has been settled.)
+    IF (lexpol) THEN
+      CALL expol%vn(p_patch, initicon%atm%vn, initicon%atm%theta_v, initicon%atm%exner, p_metrics, p_int)
+      IF (.NOT. latbcmode) CALL sync_patch_array(SYNC_E,p_patch,initicon%atm%vn)
+    ENDIF    
 
 
     ! Compute coefficients for w interpolation
@@ -513,6 +602,9 @@ CONTAINS
                   wfacpbl2, kpbl2, l_loglin=.FALSE., l_extrapol=.FALSE., &
                   l_pd_limit=.FALSE.)
 
+    ! (Extrapolation of the vertical wind to the upper atmosphere.)
+    IF (lexpol) CALL expol%w(p_patch, initicon%atm%w)
+
     IF (.NOT. latbcmode) THEN
 
       ! Impose appropriate lower boundary condition on vertical wind field
@@ -528,6 +620,9 @@ CONTAINS
                     wfacpbl2, kpbl2, l_loglin=.FALSE., l_extrapol=.FALSE., &
                     l_pd_limit=.TRUE., lower_limit=1.e-5_wp)
     ENDIF
+
+    ! (Finalize upper-atmosphere extrapolation)
+    IF (lexpol) CALL expol%finalize(p_patch)
 
   END SUBROUTINE vert_interp
 
@@ -783,32 +878,63 @@ CONTAINS
 
     INTEGER :: jb, jk, jc, jk_start
     INTEGER :: nlen
-
+    REAL(wp):: kpbl1_min, kpbl2_min
 
 !-------------------------------------------------------------------------
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,nlen,jk,jc,jk_start) ICON_OMP_DEFAULT_SCHEDULE
 
+!$ACC DATA PRESENT( z3d_in, kpbl1, kpbl2, wfacpbl1, wfacpbl2 ) IF (i_am_accel_node)
+
     DO jb = 1, nblks
+
+      !$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF (i_am_accel_node)
+      kpbl1(1:nproma,jb) = -1
+      kpbl2(1:nproma,jb) = -1
+      !$ACC END KERNELS
+
       IF (jb /= nblks) THEN
         nlen = nproma
       ELSE
         nlen = npromz
+        !$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF (i_am_accel_node)
         kpbl1(nlen+1:nproma,jb) = nlevs_in
         kpbl2(nlen+1:nproma,jb) = nlevs_in
 
         wfacpbl1(nlen+1:nproma,jb) = 0.5_wp
         wfacpbl2(nlen+1:nproma,jb) = 0.5_wp
+        !$ACC END KERNELS
       ENDIF
 
+      jk_start = nlevs_in-1
+      ! OpenACC requires a different approach, as MINVAL within device code
+      !  would be very inefficient
+#ifndef _OPENACC
       DO jk = 1, nlevs_in
         IF (MINVAL(z3d_in(1:nlen,jk,jb)-z3d_in(1:nlen,nlevs_in,jb)) <= zpbl2) THEN
           jk_start = jk - 1
           EXIT
         ENDIF
       ENDDO
+#else
+      !$ACC WAIT
+      !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) REDUCTION( min:jk_start ) COLLAPSE(2) &
+      !$ACC               IF (i_am_accel_node)
+      DO jk = 1, nlevs_in
+        DO jc = 1, nlen
+          IF ( z3d_in(jc,jk,jb)-z3d_in(jc,nlevs_in,jb) <= zpbl2 ) THEN
+            jk_start = min(jk_start, jk-1)
+          END IF
+        END DO
+      END DO
 
+      ! OpenACC does its own initialization of reductions variables, make sure
+      !  that the value is correct
+      IF ( jk_start > nlevs_in-1 ) jk_start = nlevs_in-1
+#endif
+
+      !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) COLLAPSE(2) ASYNC(1) IF (i_am_accel_node)
       DO jk = jk_start, nlevs_in-1
         DO jc = 1, nlen
 
@@ -833,6 +959,21 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
+    ! If the input data is corrupted, no kpbl1 or kpbl2 is found, i.e. still equal -1
+    !$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF (i_am_accel_node)
+    kpbl1_min = MINVAL(kpbl1(:,1:nblks))
+    !$ACC END KERNELS
+    !$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF (i_am_accel_node)
+    kpbl2_min = MINVAL(kpbl2(:,1:nblks))
+    !$ACC END KERNELS
+
+!$ACC END DATA
+!$ACC WAIT
+
+    IF ( kpbl1_min < 0 .OR. kpbl2_min < 0 ) THEN
+      CALL finish("prepare_extrap:", &
+        &         "No kpbl found, check vertical coordinate input data.")
+    ENDIF
 
   END SUBROUTINE prepare_extrap
 
@@ -890,17 +1031,24 @@ CONTAINS
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,nlen,jk,jc,jk_start) ICON_OMP_DEFAULT_SCHEDULE
 
+!$ACC DATA PRESENT( z3d_h_in, z3d_in, kextrap, zextrap, wfac_extrap ) IF (i_am_accel_node)
+
     DO jb = 1, nblks
+      !$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF (i_am_accel_node)
       kextrap(:,jb) = -1
+      !$ACC END KERNELS
       IF (jb /= nblks) THEN
         nlen = nproma
       ELSE
         nlen = npromz
+        !$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF (i_am_accel_node)
         kextrap(nlen+1:nproma,jb) = nlevs_in
         wfac_extrap(nlen+1:nproma,jb) = 0.5_wp
+        !$ACC END KERNELS
       ENDIF
 
       ! Compute start height above ground for downward extrapolation, depending on topography height
+      !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) ASYNC(1) IF (i_am_accel_node)
       DO jc = 1, nlen
         IF (z3d_h_in(jc,nlevs_in+1,jb) <= topo_extrap_1) THEN
           zextrap(jc,jb) = zagl_extrap
@@ -913,19 +1061,40 @@ CONTAINS
       ENDDO
 
       jk_start = nlevs_in-1
+      ! OpenACC requires a different approach, as MINVAL within device code
+      !  would be very inefficient
+#ifndef _OPENACC
       DO jk = 1, nlevs_in
         IF (MINVAL(z3d_in(1:nlen,jk,jb)-z3d_h_in(1:nlen,nlevs_in+1,jb)) <= zagl_extrap_2) THEN
           jk_start = jk - 1
           EXIT
         ENDIF
       ENDDO
+#else
+      !$ACC WAIT
+      !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) REDUCTION( min:jk_start ) COLLAPSE(2) &
+      !$ACC               IF (i_am_accel_node)
+      DO jk = 1, nlevs_in
+        DO jc = 1, nlen
+          IF ( z3d_in(jc,jk,jb)-z3d_h_in(jc,nlevs_in+1,jb) <= zagl_extrap_2 ) THEN
+            jk_start = min(jk_start, jk-1)
+          END IF
+        END DO
+      END DO
 
+      ! OpenACC does its own initialization of reductions variables, make sure
+      !  that the value is correct
+      IF ( jk_start > nlevs_in-1 ) jk_start = nlevs_in-1
+#endif
+
+! These two loops cannot be collapsed because it would not be thread safe
       DO jk = jk_start, nlevs_in-1
+        !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) ASYNC(1) IF (i_am_accel_node)
         DO jc = 1, nlen
 
           IF (z3d_in(jc,jk,jb)  >= z3d_h_in(jc,nlevs_in+1,jb)+zextrap(jc,jb) .AND. &
-              z3d_in(jc,jk+1,jb) < z3d_h_in(jc,nlevs_in+1,jb)+zextrap(jc,jb) .OR.  & 
-              kextrap(jc,jb) == -1 .AND. jk == nlevs_in-1) THEN
+              z3d_in(jc,jk+1,jb) < z3d_h_in(jc,nlevs_in+1,jb)+zextrap(jc,jb) .OR.  &
+              kextrap(jc,jb) == -1 .AND. jk == nlevs_in-1) THEN 
             kextrap(jc,jb) = jk
             wfac_extrap(jc,jb) = (z3d_h_in(jc,nlevs_in+1,jb)+zextrap(jc,jb) - z3d_in(jc,jk+1,jb)) / &
                                  (z3d_in(jc,jk,jb)                          - z3d_in(jc,jk+1,jb))
@@ -935,6 +1104,10 @@ CONTAINS
       ENDDO
 
     ENDDO
+
+!$ACC END DATA
+!$ACC WAIT
+
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
@@ -1227,16 +1400,17 @@ CONTAINS
   !!
   !!
   !!
-  SUBROUTINE pressure_intp(pres_in, tempv_in, z3d_in, pres_out, z3d_out,                 &
-                           nblks, npromz, nlevs_in, nlevs_out,                           &
-                           wfac, idx0, bot_idx, wfacpbl1, kpbl1, wfacpbl2, kpbl2, zextrap)
+  SUBROUTINE pressure_intp(pres_in, tempv_in, z3d_in, pres_out, z3d_out,                   &
+                           nblks, npromz, nlevs_in, nlevs_out,                             &
+                           wfac, idx0, bot_idx, wfacpbl1, kpbl1, wfacpbl2, kpbl2, zextrap, &
+                           opt_lconstgrav                                                  )
 
 
     ! Input fields
-    REAL(wp), INTENT(IN)  :: pres_in  (:,:,:) ! pressure field of input data
-    REAL(wp), INTENT(IN)  :: tempv_in (:,:,:) ! virtual temperature of input data
-    REAL(wp), INTENT(IN)  :: z3d_in   (:,:,:) ! 3D height coordinate field of input data
-    REAL(wp), INTENT(IN)  :: z3d_out  (:,:,:) ! 3D height coordinate field of output data
+    REAL(wp),         INTENT(IN)  :: pres_in  (:,:,:) ! pressure field of input data
+    REAL(wp),         INTENT(IN)  :: tempv_in (:,:,:) ! virtual temperature of input data
+    REAL(wp), TARGET, INTENT(IN)  :: z3d_in   (:,:,:) ! 3D height coordinate field of input data
+    REAL(wp), TARGET, INTENT(IN)  :: z3d_out  (:,:,:) ! 3D height coordinate field of output data
 
     ! Output
     REAL(wp), INTENT(OUT) :: pres_out (:,:,:) ! pressure field of output data
@@ -1257,13 +1431,18 @@ CONTAINS
     REAL(wp), INTENT(IN) :: wfacpbl2(:,:)  ! corresponding interpolation coefficient
 
     REAL(wp), OPTIONAL, INTENT(IN) :: zextrap(:,:)   ! AGL height from which downward extrapolation starts (in postprocesing mode)
+    LOGICAL,  OPTIONAL, INTENT(IN) :: opt_lconstgrav 
 
     ! LOCAL VARIABLES
 
     INTEGER  :: jb, jk, jc, jk1, nlen
     REAL(wp), DIMENSION(nproma,nlevs_out) :: dtvdz_down
     REAL(wp), DIMENSION(nproma)           :: tmsl, tsfc_mod, tempv1, tempv2, vtgrad_up, sfc_inv
+    REAL(wp), ALLOCATABLE, TARGET         :: zgpot_out(:,:,:), zgpot_in(:,:,:)
+    REAL(wp),              POINTER        :: z_in(:,:,:), z_out(:,:,:)
     REAL(wp) :: p_up, p_down, t_extr
+    LOGICAL  :: lconstgrav
+    INTEGER  :: istat
 
 !-------------------------------------------------------------------------
 
@@ -1272,6 +1451,34 @@ CONTAINS
 
     IF (.NOT. PRESENT(zextrap) .AND. itype_pres_msl >= 3 ) THEN
       CALL finish("pressure_intp:", "zextrap missing in argument list")
+    ENDIF
+
+    IF (PRESENT(opt_lconstgrav)) THEN
+      lconstgrav = opt_lconstgrav
+    ELSE
+      lconstgrav = .TRUE.
+    ENDIF
+
+    IF (lconstgrav) THEN
+      z_in  => z3d_in
+      z_out => z3d_out
+    ELSE
+      ALLOCATE(zgpot_in(nproma, nlevs_in,  nblks), zgpot_out(nproma, nlevs_out, nblks), STAT=istat)
+      IF (istat /= SUCCESS) CALL finish('mo_nh_vert_interp: pressure_intp', 'Allocation of zgpot failed!') 
+      ! Compute geopotential heights in case of the deep atmosphere
+      CALL height_transform( z_in       = z3d_out,    &  !in 
+        &                    z_out      = zgpot_out,  &  !out       
+        &                    nblks      = nblks,      &  !in
+        &                    npromz     = npromz,     &  !in
+        &                    nlevs      = nlevs_out,  &  !in
+        &                    lconstgrav = lconstgrav, &  !in
+        &                    trafo_type = 'z2zgpot'   )  !in   
+      CALL height_transform(z3d_in, zgpot_in, nblks, npromz, nlevs_in, lconstgrav, 'z2zgpot')
+      z_in  => zgpot_in
+      z_out => zgpot_out
+      ! Note: the heights above ground level, 'zpbl1', 'zpbl2', 'zextrap' and heights derived from them 
+      ! have relatively low values (~ 1 km), so no deep-atmosphere modification is applied to them. 
+      ! (Put another way: we regard 'zpbl1', 'zpbl2', and 'zextrap' to represent geopotential heights.)
     ENDIF
 
 !$OMP PARALLEL
@@ -1299,7 +1506,7 @@ CONTAINS
         DO jc = 1, nlen
           tsfc_mod(jc) = tempv_in(jc,nlevs_in,jb)
           IF (tsfc_mod(jc) < t_low) tsfc_mod(jc) = 0.5_wp*(t_low+tsfc_mod(jc))
-          tmsl(jc) = tsfc_mod(jc) - dtdz_standardatm*z3d_in(jc,nlevs_in,jb)
+          tmsl(jc) = tsfc_mod(jc) - dtdz_standardatm*z_in(jc,nlevs_in,jb)
           IF (tmsl(jc) > t_high) THEN
             IF (tsfc_mod(jc) > t_high) THEN
               tsfc_mod(jc) = 0.5_wp*(t_high+tsfc_mod(jc))
@@ -1322,7 +1529,7 @@ CONTAINS
                   dtdz_standardatm*(zextrap(jc,jb)-0.5_wp*vct_a(num_lev(1)))
 
           IF (tsfc_mod(jc) < t_low) tsfc_mod(jc) = 0.5_wp*(t_low+tsfc_mod(jc))
-          tmsl(jc) = tsfc_mod(jc) - dtdz_standardatm*z3d_in(jc,nlevs_in,jb)
+          tmsl(jc) = tsfc_mod(jc) - dtdz_standardatm*z_in(jc,nlevs_in,jb)
           IF (tmsl(jc) > t_high) THEN
             IF (tsfc_mod(jc) > t_high) THEN
               tsfc_mod(jc) = 0.5_wp*(t_high+tsfc_mod(jc))
@@ -1360,10 +1567,10 @@ CONTAINS
           ! Reduction of the surface inversion depending on the extrapolation
           ! distance. The surface inversion is fully restored for extrapolation distances
           ! up to zpbl1 and disregarded for distances larger than 3*zpbl1
-          IF (z3d_in(jc,nlevs_in,jb) > 3._wp*zpbl1) THEN
+          IF (z_in(jc,nlevs_in,jb) > 3._wp*zpbl1) THEN
             sfc_inv(jc) = 0._wp
-          ELSE IF (z3d_in(jc,nlevs_in,jb) > zpbl1) THEN
-            sfc_inv(jc) = sfc_inv(jc)*(1._wp - (z3d_in(jc,nlevs_in,jb)-zpbl1)/(2._wp*zpbl1))
+          ELSE IF (z_in(jc,nlevs_in,jb) > zpbl1) THEN
+            sfc_inv(jc) = sfc_inv(jc)*(1._wp - (z_in(jc,nlevs_in,jb)-zpbl1)/(2._wp*zpbl1))
           ENDIF
 
           tsfc_mod(jc) = tsfc_mod(jc) - sfc_inv(jc)
@@ -1372,7 +1579,7 @@ CONTAINS
           IF (tsfc_mod(jc) < t_low) tsfc_mod(jc) = 0.5_wp*(t_low+tsfc_mod(jc))
 
           ! Estimated temperature at mean sea level
-          tmsl(jc) = tsfc_mod(jc) - dtdz_standardatm*z3d_in(jc,nlevs_in,jb)
+          tmsl(jc) = tsfc_mod(jc) - dtdz_standardatm*z_in(jc,nlevs_in,jb)
 
           IF (tmsl(jc) > t_high) THEN
             IF (tsfc_mod(jc) > t_high) THEN
@@ -1392,8 +1599,8 @@ CONTAINS
 
         DO jc = 1, nlen           ! The vertical gradient is needed for downward extrapolation only
 
-          IF (z3d_in(jc,nlevs_in,jb) > 1._wp) THEN
-            dtvdz_down(jc,jk) = (tsfc_mod(jc)-tmsl(jc))/z3d_in(jc,nlevs_in,jb)
+          IF (z_in(jc,nlevs_in,jb) > 1._wp) THEN
+            dtvdz_down(jc,jk) = (tsfc_mod(jc)-tmsl(jc))/z_in(jc,nlevs_in,jb)
 
           ELSE ! avoid pathological results at grid points below sea level
             dtvdz_down(jc,jk) = dtdz_standardatm
@@ -1417,10 +1624,10 @@ CONTAINS
             ! ensures negligibly small errors
             jk1 = idx0(jc,jk,jb)
 
-            p_up = pres_in(jc,jk1,jb)*EXP(-grav*(z3d_out(jc,jk,jb)-z3d_in(jc,jk1,jb)) / &
+            p_up = pres_in(jc,jk1,jb)*EXP(-grav*(z_out(jc,jk,jb)-z_in(jc,jk1,jb)) / &
               (rd*0.5_wp*(tempv_in(jc,jk1,jb)+tempv_in(jc,jk1+1,jb))) )
 
-            p_down = pres_in(jc,jk1+1,jb)*EXP(-grav*(z3d_out(jc,jk,jb)-z3d_in(jc,jk1+1,jb)) / &
+            p_down = pres_in(jc,jk1+1,jb)*EXP(-grav*(z_out(jc,jk,jb)-z_in(jc,jk1+1,jb)) / &
               (rd*0.5_wp*(tempv_in(jc,jk1,jb)+tempv_in(jc,jk1+1,jb))) )
 
             ! apply inverse-distance weighting between top-down and bottom-up integrated value
@@ -1432,12 +1639,12 @@ CONTAINS
             ENDIF
 
           ELSE ! downward extrapolation based on the vertical gradient computed above
-            t_extr = tsfc_mod(jc) + (z3d_out(jc,jk,jb)-z3d_in(jc,nlevs_in,jb))*dtvdz_down(jc,jk)
+            t_extr = tsfc_mod(jc) + (z_out(jc,jk,jb)-z_in(jc,nlevs_in,jb))*dtvdz_down(jc,jk)
             IF (ABS(dtvdz_down(jc,jk)) > dtvdz_thresh) THEN
               p_down = pres_in(jc,nlevs_in,jb)*EXP(-grav/(rd*dtvdz_down(jc,jk))* &
                 LOG(t_extr/tsfc_mod(jc)) )
             ELSE
-              p_down = pres_in(jc,nlevs_in,jb)*EXP(-grav*(z3d_out(jc,jk,jb)-z3d_in(jc,nlevs_in,jb)) / &
+              p_down = pres_in(jc,nlevs_in,jb)*EXP(-grav*(z_out(jc,jk,jb)-z_in(jc,nlevs_in,jb)) / &
                 (rd*0.5_wp*(t_extr+tsfc_mod(jc))) )
             ENDIF
             pres_out(jc,jk,jb) = p_down
@@ -1449,6 +1656,12 @@ CONTAINS
     ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+
+    NULLIFY(z_in, z_out)
+    IF (.NOT. lconstgrav) THEN
+      DEALLOCATE(zgpot_in, zgpot_out, STAT=istat)
+      IF (istat /= SUCCESS) CALL finish('mo_nh_vert_interp: pressure_intp', 'Deallocation of zgpot failed!') 
+    ENDIF
 
   END SUBROUTINE pressure_intp
 
@@ -1470,15 +1683,16 @@ CONTAINS
   !!
   !!
   SUBROUTINE pressure_intp_initmode(pres_in, tempv_in, z3d_in, pres_out, tempv_out, z3d_out, &
-    &                               nblks, npromz, nlevs_out, wfac, idx0, bot_idx, opt_lmask)
+    &                               nblks, npromz, nlevs_out, nlevs_in, wfac, idx0, bot_idx, &
+    &                               opt_lmask, opt_lconstgrav                                )
 
 
     ! Input fields
-    REAL(wp), INTENT(IN)  :: pres_in  (:,:,:) ! pressure field of input data
-    REAL(wp), INTENT(IN)  :: tempv_in (:,:,:) ! virtual temperature of input data
-    REAL(wp), INTENT(IN)  :: z3d_in   (:,:,:) ! 3D height coordinate field of input data
-    REAL(wp), INTENT(IN)  :: tempv_out(:,:,:) ! virtual temperature of output data
-    REAL(wp), INTENT(IN)  :: z3d_out  (:,:,:) ! 3D height coordinate field of output data
+    REAL(wp),         INTENT(IN)  :: pres_in  (:,:,:) ! pressure field of input data
+    REAL(wp),         INTENT(IN)  :: tempv_in (:,:,:) ! virtual temperature of input data
+    REAL(wp), TARGET, INTENT(IN)  :: z3d_in   (:,:,:) ! 3D height coordinate field of input data
+    REAL(wp),         INTENT(IN)  :: tempv_out(:,:,:) ! virtual temperature of output data
+    REAL(wp), TARGET, INTENT(IN)  :: z3d_out  (:,:,:) ! 3D height coordinate field of output data
 
     ! Output
     REAL(wp), INTENT(OUT) :: pres_out (:,:,:) ! pressure field of output data
@@ -1487,12 +1701,14 @@ CONTAINS
     INTEGER , INTENT(IN) :: nblks      ! Number of blocks
     INTEGER , INTENT(IN) :: npromz     ! Length of last block
     INTEGER , INTENT(IN) :: nlevs_out  ! Number of output levels
+    INTEGER , INTENT(IN) :: nlevs_in   ! Number of input levels
 
     ! Coefficients
     REAL(wp), INTENT(IN) :: wfac(:,:,:)    ! weighting factor of upper level
     INTEGER , INTENT(IN) :: idx0(:,:,:)    ! index of upper level
     INTEGER , INTENT(IN) :: bot_idx(:,:)   ! index of lowest level for which interpolation is possible
     LOGICAL, OPTIONAL,  INTENT(IN) :: opt_lmask(:,:)
+    LOGICAL, OPTIONAL,  INTENT(IN) :: opt_lconstgrav 
 
     ! LOCAL CONSTANTS
 
@@ -1500,10 +1716,15 @@ CONTAINS
 
     ! LOCAL VARIABLES
 
+    REAL(wp), ALLOCATABLE, TARGET  :: zgpot_out(:,:,:), zgpot_in(:,:,:)
+    REAL(wp),              POINTER :: z_in(:,:,:), z_out(:,:,:)
+
     INTEGER  :: jb, jk, jc, jk1, nlen
     REAL(wp), DIMENSION(nproma,nlevs_out) :: dtvdz_up, dtvdz_down
     REAL(wp) :: p_up, p_down, inv_scal_hgt
     LOGICAL  :: lmask(nproma)
+    LOGICAL  :: lconstgrav
+    INTEGER  :: istat
 
 !-------------------------------------------------------------------------
 
@@ -1512,6 +1733,31 @@ CONTAINS
 
     ! inverse scale height for filling pressure on data-void grid points with artificial values
     inv_scal_hgt = grav/(rd*fill_temp)
+
+    IF (PRESENT(opt_lconstgrav)) THEN
+      lconstgrav = opt_lconstgrav
+    ELSE
+      lconstgrav = .TRUE.
+    ENDIF
+
+    IF (lconstgrav) THEN
+      z_in  => z3d_in
+      z_out => z3d_out
+    ELSE
+      ALLOCATE(zgpot_in(nproma, nlevs_in,  nblks), zgpot_out(nproma, nlevs_out, nblks), STAT=istat)
+      IF (istat /= SUCCESS) CALL finish('mo_nh_vert_interp: pressure_intp_initmode', 'Allocation of zgpot failed!') 
+      ! Compute geopotential heights in case of the deep atmosphere
+      CALL height_transform( z_in       = z3d_out,    &  !in 
+        &                    z_out      = zgpot_out,  &  !out       
+        &                    nblks      = nblks,      &  !in
+        &                    npromz     = npromz,     &  !in
+        &                    nlevs      = nlevs_out,  &  !in
+        &                    lconstgrav = lconstgrav, &  !in
+        &                    trafo_type = 'z2zgpot'   )  !in   
+      CALL height_transform(z3d_in, zgpot_in, nblks, npromz, nlevs_in, lconstgrav, 'z2zgpot')
+      z_in  => zgpot_in
+      z_out => zgpot_out
+    ENDIF
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,nlen,jk,jk1,jc,dtvdz_up,dtvdz_down,p_up,p_down,lmask) ICON_OMP_DEFAULT_SCHEDULE
@@ -1527,7 +1773,7 @@ CONTAINS
       IF (PRESENT(opt_lmask)) THEN
         lmask(:) = opt_lmask(:,jb)
         IF (.NOT. ANY(lmask(:)) ) THEN
-          pres_out(:,:,jb) = p0sl_bg*EXP(-z3d_out(:,:,jb)*inv_scal_hgt)
+          pres_out(:,:,jb) = p0sl_bg*EXP(-z_out(:,:,jb)*inv_scal_hgt)
           CYCLE
         ENDIF
       ELSE
@@ -1542,17 +1788,17 @@ CONTAINS
           IF (jk <= bot_idx(jc,jb)) THEN
             jk1 = idx0(jc,jk,jb)
 
-            IF (ABS(z3d_in  (jc,jk1,jb)-z3d_out  (jc,jk,jb)) > TOL) THEN
+            IF (ABS(z_in  (jc,jk1,jb)-z_out  (jc,jk,jb)) > TOL) THEN
               dtvdz_up(jc,jk) = (tempv_in(jc,jk1,jb)-tempv_out(jc,jk,jb)) / &
-                &               (z3d_in  (jc,jk1,jb)-z3d_out  (jc,jk,jb))
+                &               (z_in    (jc,jk1,jb)-z_out    (jc,jk,jb))
             ELSE
               dtvdz_up(jc,jk) = 0._wp
             ENDIF
 
             ! Paranoia
-            IF (ABS(z3d_in  (jc,jk1+1,jb)-z3d_out  (jc,jk,jb)) > TOL) THEN
+            IF (ABS(z_in  (jc,jk1+1,jb)-z_out  (jc,jk,jb)) > TOL) THEN
               dtvdz_down(jc,jk) = (tempv_in(jc,jk1+1,jb)-tempv_out(jc,jk,jb)) / &
-                &                 (z3d_in  (jc,jk1+1,jb)-z3d_out  (jc,jk,jb))
+                &                 (z_in    (jc,jk1+1,jb)-z_out    (jc,jk,jb))
             ELSE
               dtvdz_down(jc,jk) = 0._wp
             END IF
@@ -1560,7 +1806,7 @@ CONTAINS
           ELSE ! downward extrapolation; only dtvdz_down is needed
 
             dtvdz_down(jc,jk) = (tempv_out(jc,jk-1,jb)-tempv_out(jc,jk,jb)) / &
-              (z3d_out(jc,jk-1,jb)-z3d_out(jc,jk,jb))
+              (z_out(jc,jk-1,jb)-z_out(jc,jk,jb))
 
           ENDIF
         ENDDO
@@ -1582,7 +1828,7 @@ CONTAINS
               p_up = pres_in(jc,jk1,jb)*EXP(-grav/(rd*dtvdz_up(jc,jk)) * &
                 LOG(tempv_out(jc,jk,jb)/tempv_in(jc,jk1,jb)) )
             ELSE
-              p_up = pres_in(jc,jk1,jb)*EXP(-grav*(z3d_out(jc,jk,jb)-z3d_in(jc,jk1,jb)) / &
+              p_up = pres_in(jc,jk1,jb)*EXP(-grav*(z_out(jc,jk,jb)-z_in(jc,jk1,jb)) / &
                 (rd*0.5_wp*(tempv_out(jc,jk,jb)+tempv_in(jc,jk1,jb))) )
             ENDIF
 
@@ -1590,7 +1836,7 @@ CONTAINS
               p_down = pres_in(jc,jk1+1,jb)*EXP(-grav/(rd*dtvdz_down(jc,jk))* &
                 LOG(tempv_out(jc,jk,jb)/tempv_in(jc,jk1+1,jb)) )
             ELSE
-              p_down = pres_in(jc,jk1+1,jb)*EXP(-grav*(z3d_out(jc,jk,jb)-z3d_in(jc,jk1+1,jb)) / &
+              p_down = pres_in(jc,jk1+1,jb)*EXP(-grav*(z_out(jc,jk,jb)-z_in(jc,jk1+1,jb)) / &
                 (rd*0.5_wp*(tempv_out(jc,jk,jb)+tempv_in(jc,jk1+1,jb))) )
             ENDIF
 
@@ -1608,7 +1854,7 @@ CONTAINS
               p_down = pres_out(jc,jk-1,jb)*EXP(-grav/(rd*dtvdz_down(jc,jk))* &
                 LOG(tempv_out(jc,jk,jb)/tempv_out(jc,jk-1,jb)) )
             ELSE
-              p_down = pres_out(jc,jk-1,jb)*EXP(-grav*(z3d_out(jc,jk,jb)-z3d_out(jc,jk-1,jb)) / &
+              p_down = pres_out(jc,jk-1,jb)*EXP(-grav*(z_out(jc,jk,jb)-z_out(jc,jk-1,jb)) / &
                 (rd*0.5_wp*(tempv_out(jc,jk,jb)+tempv_out(jc,jk-1,jb))) )
             ENDIF
 
@@ -1623,7 +1869,7 @@ CONTAINS
       IF (PRESENT(opt_lmask)) THEN
         DO jc = 1, nlen
           IF (.NOT. lmask(jc)) THEN
-            pres_out(jc,:,jb) = p0sl_bg*EXP(-z3d_out(jc,:,jb)*inv_scal_hgt)
+            pres_out(jc,:,jb) = p0sl_bg*EXP(-z_out(jc,:,jb)*inv_scal_hgt)
           ENDIF
         ENDDO
       ENDIF
@@ -1631,6 +1877,12 @@ CONTAINS
     ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+
+    NULLIFY(z_in, z_out)
+    IF (.NOT. lconstgrav) THEN
+      DEALLOCATE(zgpot_in, zgpot_out, STAT=istat)
+      IF (istat /= SUCCESS) CALL finish('mo_nh_vert_interp: pressure_intp_initmode', 'Deallocation of zgpot failed!') 
+    ENDIF
 
   END SUBROUTINE pressure_intp_initmode
 
@@ -2413,7 +2665,7 @@ CONTAINS
 
             ! ensure that the extrapolated wind does not change sign and
             ! stays within the specified limit of speed reduction
-            IF (uv_out(jc,jk,jb)*uv_in(jc,nlevs_in,jb) >= 0._wp) THEN ! still correct sign
+            IF (uv_out(jc,jk,jb)*uv_mod(jc,nlevs_in) >= 0._wp) THEN ! still correct sign
 
               uv_out(jc,jk,jb) = SIGN(MAX(ABS(uv_out(jc,jk,jb)),  &
                 ABS(mult_limit*uv_mod(jc,nlevs_in))), uv_mod(jc,nlevs_in))
@@ -2519,7 +2771,8 @@ CONTAINS
                      coef1, coef2, coef3, wfac_lin,                   &
                      idx0_cub, idx0_lin, bot_idx_cub, bot_idx_lin,    &
                      wfacpbl1, kpbl1, wfacpbl2, kpbl2,                &
-                     lower_limit, l_satlimit, l_restore_pbldev, opt_qc, opt_lmask)
+                     lower_limit, l_satlimit, l_restore_pbldev,       &
+                     opt_hires_corr, opt_qc, opt_lmask)
 
 
     ! Specific humidity fields
@@ -2566,7 +2819,9 @@ CONTAINS
     REAL(wp), INTENT(IN) :: lower_limit     ! lower limit of QV
     LOGICAL , INTENT(IN) :: l_satlimit       ! limit input field to water saturation
     LOGICAL , INTENT(IN) :: l_restore_pbldev ! restore PBL deviation of QV from extrapolated profile
-    LOGICAL, OPTIONAL,  INTENT(IN) :: opt_lmask(:,:)
+
+    LOGICAL, OPTIONAL, INTENT(IN) :: opt_hires_corr   ! apply corrections / limits for coarse-to-fine grid interpolation
+    LOGICAL, OPTIONAL, INTENT(IN) :: opt_lmask(:,:)
 
     ! LOCAL VARIABLES
 
@@ -2577,7 +2832,7 @@ CONTAINS
 
     REAL(wp), DIMENSION(nproma) :: qv1, qv2, dqvdz_up
     LOGICAL , DIMENSION(nproma) :: l_found
-    LOGICAL                     :: l_check_qv_qc
+    LOGICAL                     :: l_check_qv_qc, lhr_corr
 
     REAL(wp), DIMENSION(nproma,nlevs_in)  :: zalml_in, pbl_dev, qv_mod, g1, g2, g3, qsat_in, qv_in_lim
     REAL(wp), DIMENSION(nproma,nlevs_in-1) :: zalml_in_d
@@ -2593,6 +2848,12 @@ CONTAINS
       l_check_qv_qc = .TRUE.
     ELSE
       l_check_qv_qc = .FALSE.
+    ENDIF
+
+    IF (PRESENT(opt_hires_corr)) THEN
+      lhr_corr = opt_hires_corr
+    ELSE
+      lhr_corr = .FALSE.
     ENDIF
 
 !$OMP PARALLEL private(jc, jk, zalml_in, zalml_out)
@@ -2752,6 +3013,12 @@ CONTAINS
             ! approximation of the qsat expression to avoid iterations)
             qv_out(jc,jk,jb) = qv_mod(jc,nlevs_in)/qsat_in(jc,nlevs_in)* &
               rdv*sat_pres_water(temp_out(jc,jk,jb))/pres_out(jc,jk,jb)
+
+            IF (lhr_corr) THEN ! prevent excessively high humidities in valleys not resolved in the source model
+              qv_out(jc,jk,jb) = MIN(qv_out(jc,jk,jb),                                             &
+                qv_mod(jc,nlevs_in) * (1._wp+4.e-4_wp*(z3d_in(jc,nlevs_in,jb)-z3d_out(jc,jk,jb))), &
+                qv_mod(jc,nlevs_in) + 2.5e-6_wp*(z3d_in(jc,nlevs_in,jb)-z3d_out(jc,jk,jb))          )
+            ENDIF
 
           ENDIF
 

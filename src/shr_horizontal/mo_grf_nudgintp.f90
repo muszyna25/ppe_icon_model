@@ -42,7 +42,7 @@ USE mo_impl_constants_grf,  ONLY: grf_nudgintp_start_c, grf_nudgintp_start_e, &
 USE mo_parallel_config,     ONLY: nproma
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
 
-USE mo_grf_intp_data_strc
+USE mo_grf_intp_data_strc,  ONLY: t_gridref_single_state
 
 
 IMPLICIT NONE
@@ -62,8 +62,8 @@ CONTAINS
 !! @par Revision History
 !! Developed  by Guenther Zaengl, DWD (2010-06-17)
 !!
-SUBROUTINE interpol_vec_nudging (ptr_pp, ptr_pc, ptr_int, ptr_grf, ptr_grfc,   &
-  &                              i_chidx, nshift, istart_blk, p_vn_in, p_vn_out)
+SUBROUTINE interpol_vec_nudging (ptr_pp, ptr_pc, ptr_int, ptr_grf,    &
+  &                              nshift, istart_blk, p_vn_in, p_vn_out)
 
 TYPE(t_patch), TARGET, INTENT(in) :: ptr_pp
 TYPE(t_patch), TARGET, INTENT(in) :: ptr_pc
@@ -76,11 +76,7 @@ REAL(wp), INTENT(IN) :: p_vn_in(:,:,istart_blk:) ! dim: (nproma,nlev,nblks_e)
 
 ! Indices of source points and interpolation coefficients
 TYPE(t_gridref_single_state),   TARGET, INTENT(IN)    :: ptr_grf
-TYPE(t_gridref_state),          TARGET, INTENT(IN)    :: ptr_grfc
 TYPE(t_int_state),              TARGET, INTENT(IN)    :: ptr_int
-
-! child domain index as seen from parent domain
-INTEGER, INTENT(IN) :: i_chidx
 
 ! number of levels by which vertical shifting between input and output fields is needed
 INTEGER, INTENT(IN) :: nshift
@@ -95,7 +91,6 @@ INTEGER :: i_startblk                ! start block
 INTEGER :: i_endblk                  ! end index
 INTEGER :: i_startidx                ! start index
 INTEGER :: i_endidx                  ! end index
-INTEGER :: i_nchdom                  ! number of child domains
 
 INTEGER :: nlev_c       !< number of vertical full levels (child domain)
 
@@ -149,8 +144,6 @@ nlev_c = ptr_pc%nlev
 ! Shift parameter
 js = nshift
 
-! Number of child domains of nested domain
-i_nchdom = MAX(1,ptr_pc%n_childdom)
 
 !$OMP PARALLEL PRIVATE (i_startblk,i_endblk)
 
@@ -169,7 +162,6 @@ DO jb = i_startblk, i_endblk
   DO jv = i_startidx, i_endidx
     DO jk = 1, nlev_c
 #else
-!CDIR UNROLL=6
   DO jk = 1, nlev_c
     DO jv = i_startidx, i_endidx
 #endif
@@ -209,7 +201,6 @@ DO jb =  i_startblk, i_endblk
   DO je = i_startidx, i_endidx
     DO jk = 1, nlev_c
 #else
-!CDIR UNROLL=6
   DO jk = 1, nlev_c
     DO je = i_startidx, i_endidx
 #endif
@@ -233,7 +224,6 @@ DO jb =  i_startblk, i_endblk
   DO je = i_startidx, i_endidx
     DO jk = 1, nlev_c
 #else
-!CDIR UNROLL=6
   DO jk = 1, nlev_c
     DO je = i_startidx, i_endidx
 #endif
@@ -255,7 +245,6 @@ DO jb =  i_startblk, i_endblk
   DO je = i_startidx, i_endidx
     DO jk = 1, nlev_c
 #else
-!CDIR UNROLL=6
   DO jk = 1, nlev_c
     DO je = i_startidx, i_endidx
 #endif
@@ -528,7 +517,7 @@ END SUBROUTINE interpol_scal_nudging_core
 !! @par Revision History
 !! Developed  by Guenther Zaengl, DWD (2010-06-16)
 !!
-SUBROUTINE interpol_scal_nudging (ptr_pp, ptr_int, ptr_grf, i_chidx, nshift,     &
+SUBROUTINE interpol_scal_nudging (ptr_pp, ptr_int, ptr_grf, nshift,              &
                                   nfields, istart_blk, f3din1, f3dout1, f3din2,  &
                                   f3dout2, f3din3, f3dout3, f3din4, f3dout4,     &
                                   f3din5, f3dout5, f4din, f4dout,                &
@@ -543,9 +532,6 @@ INTEGER, INTENT(IN) :: istart_blk
 ! Indices of source points and interpolation coefficients
 TYPE(t_gridref_single_state),   TARGET, INTENT(IN)    ::  ptr_grf
 TYPE(t_int_state),              TARGET, INTENT(IN)    ::  ptr_int
-
-! child domain index as seen from parent domain
-INTEGER, INTENT(IN) :: i_chidx
 
 ! number of levels by which vertical shifting between input and output fields is needed
 INTEGER, INTENT(IN) :: nshift
@@ -742,7 +728,7 @@ DO jn = 1, nfields
 #else
       DO jk = 1, elev
         IF (.NOT. l_enabled(jk)) CYCLE
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         DO jc = i_startidx, i_endidx
 #endif
           p_out(jn)%fld(ichcidx(jc,jb,1),jk,ichcblk(jc,jb,1)) = &
@@ -766,7 +752,7 @@ DO jn = 1, nfields
 #else
       DO jk = 1, elev
         IF (.NOT. l_enabled(jk)) CYCLE
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         DO jc = i_startidx, i_endidx
 #endif
 

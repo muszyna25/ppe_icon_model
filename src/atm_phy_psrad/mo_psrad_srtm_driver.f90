@@ -170,11 +170,9 @@ CONTAINS
     LOGICAL :: true_mask(KBDIM,klev)
     REAL(wp) :: tmp
 
-    INTEGER :: thread_id
 #ifdef _OPENMP
+    INTEGER :: thread_id
     thread_id = omp_get_thread_num() + 1
-#else
-    thread_id = 1
 #endif
     true_mask = .true.
 

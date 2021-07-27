@@ -25,7 +25,7 @@ MODULE mo_nh_init_utils
 
   USE mo_kind,                  ONLY: wp
   USE mo_model_domain,          ONLY: t_patch
-  USE mo_nonhydro_types,        ONLY: t_nh_metrics, t_nh_state
+  USE mo_nonhydro_types,        ONLY: t_nh_state
   USE mo_nwp_phy_types,         ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_nwp_lnd_types,         ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
   USE mo_ext_data_types,        ONLY: t_external_data
@@ -35,7 +35,7 @@ MODULE mo_nh_init_utils
   USE mo_dynamics_config,       ONLY: nnow, nnow_rcf
   USE mo_physical_constants,    ONLY: grav, cpd, rd, cvd_o_rd, p0ref
   USE mo_vertical_coord_table,  ONLY: vct_b
-  USE mo_impl_constants,        ONLY: nclass_aero
+  USE mo_impl_constants,        ONLY: nclass_aero, min_rlcell
   USE mo_math_constants,        ONLY: pi
   USE mo_exception,             ONLY: finish
   USE mo_sync,                  ONLY: sync_patch_array, SYNC_C
@@ -54,6 +54,7 @@ MODULE mo_nh_init_utils
   USE mo_fortran_tools,         ONLY: init, copy
   USE mo_ifs_coord,             ONLY: geopot
 
+
   IMPLICIT NONE
 
   PRIVATE
@@ -61,9 +62,13 @@ MODULE mo_nh_init_utils
 
   TYPE(t_saveinit_state), ALLOCATABLE  :: saveinit(:)
 
-  PUBLIC :: hydro_adjust, compute_smooth_topo, interp_uv_2_vn,  &
-    &       init_w, adjust_w, convert_thdvars, convert_omega2w, &
-    &       hydro_adjust_downward
+  ! subroutines
+  !
+  PUBLIC :: compute_smooth_topo 
+  PUBLIC :: interp_uv_2_vn
+  PUBLIC :: init_w, adjust_w
+  PUBLIC :: convert_thdvars
+  PUBLIC :: convert_omega2w
   PUBLIC :: save_initial_state, restore_initial_state
   PUBLIC :: compute_iau_wgt
   PUBLIC :: compute_input_pressure_and_height
@@ -98,6 +103,8 @@ CONTAINS
 
 
     ! 1. Compute pressure and height of input data, using the IFS routines
+    ! (note: no deep-atmosphere modifications are applied to these subroutines, 
+    ! because they are assumed to be still on an "IFS-model-internal" level)
 
     ! If mask field is provided, fill data-void points (mask=.FALSE.) 
     ! with dummy value.
@@ -179,177 +186,7 @@ CONTAINS
   END SUBROUTINE compute_input_pressure_and_height
 
 
-  !-------------
-  !>
-  !! SUBROUTINE hydro_adjust
-  !! Computes hydrostatically balanced initial condition by bottom-up integration
-  !! Virtual temperature is kept constant during the adjustment process
-  !!
-  !! Input/Output: density, Exner pressure, virtual potential temperature
-  !!
-  !! @par Revision History
-  !! Initial version by Guenther Zaengl, DWD(2011-06-29)
-  !!
-  !!
-  !!
-  SUBROUTINE hydro_adjust(p_patch, p_nh_metrics, rho, exner, theta_v )
 
-
-    TYPE(t_patch),      INTENT(IN)       :: p_patch
-    TYPE(t_nh_metrics), INTENT(IN)       :: p_nh_metrics
-
-    ! Thermodynamic fields - all defined at full model levels
-    REAL(wp), INTENT(INOUT) :: rho(:,:,:)        ! density (kg/m**3)
-    REAL(wp), INTENT(INOUT) :: exner(:,:,:)      ! Exner pressure
-    REAL(wp), INTENT(INOUT) :: theta_v(:,:,:)    ! virtual potential temperature (K)
-
-
-    ! LOCAL VARIABLES
-    REAL(wp) :: temp_v(nproma,p_patch%nlev) ! virtual temperature
-    REAL(wp), DIMENSION(nproma) :: z_fac1, z_fac2, z_fac3, za, zb, zc
-
-    INTEGER :: jb, jk, jc
-    INTEGER :: nlen, nlev
-
-    nlev = p_patch%nlev
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk,jc,temp_v,z_fac1,z_fac2,z_fac3,za,zb,zc) ICON_OMP_DEFAULT_SCHEDULE
-
-    ! The full model grid including the lateral boundary interpolation zone of
-    ! nested domains and MPI-halo points is processed; depending on the setup
-    ! of the parallel-read routine, the input fields may need to be synchronized
-    ! before entering this routine.
-
-    DO jb = 1, p_patch%nblks_c
-      IF (jb /= p_patch%nblks_c) THEN
-        nlen = nproma
-      ELSE
-        nlen = p_patch%npromz_c
-      ENDIF
-
-      ! Compute virtual temperature
-      DO jk = 1, nlev
-        DO jc = 1, nlen
-          temp_v(jc,jk) = theta_v(jc,jk,jb)*exner(jc,jk,jb)
-        ENDDO
-      ENDDO
-
-      ! Now compute hydrostatically balanced prognostic fields:
-      ! The following expressions are derived from the discretized (!) third
-      ! equation of motion, assuming dw/dt = 0, and solved for the exner pressure.
-      ! Because the vertical discretization differs between the triangular and
-      ! hexagonal NH cores, a case discrimination is needed here
-      DO jk = nlev-1, 1, -1
-        DO jc = 1, nlen
-          z_fac1(jc) = p_nh_metrics%wgtfac_c(jc,jk+1,jb)*(temp_v(jc,jk+1) &
-            - p_nh_metrics%theta_ref_mc(jc,jk+1,jb)*exner(jc,jk+1,jb))    &
-            - (1._wp-p_nh_metrics%wgtfac_c(jc,jk+1,jb))                   &
-            * p_nh_metrics%theta_ref_mc(jc,jk,jb)*exner(jc,jk+1,jb)
-
-          z_fac2(jc) = (1._wp-p_nh_metrics%wgtfac_c(jc,jk+1,jb))*temp_v(jc,jk) &
-            *exner(jc,jk+1,jb)
-
-          z_fac3(jc) = p_nh_metrics%exner_ref_mc(jc,jk+1,jb)     &
-            -p_nh_metrics%exner_ref_mc(jc,jk,jb)-exner(jc,jk+1,jb)
-
-          za(jc) = (p_nh_metrics%theta_ref_ic(jc,jk+1,jb)                     &
-            *exner(jc,jk+1,jb)+z_fac1(jc))/p_nh_metrics%ddqz_z_half(jc,jk+1,jb)
-
-          zb(jc) = -(za(jc)*z_fac3(jc)+z_fac2(jc)/p_nh_metrics%ddqz_z_half(jc,jk+1,jb) &
-            + z_fac1(jc)*p_nh_metrics%d_exner_dz_ref_ic(jc,jk+1,jb))
-
-          zc(jc) = -(z_fac2(jc)*z_fac3(jc)/p_nh_metrics%ddqz_z_half(jc,jk+1,jb) &
-            + z_fac2(jc)*p_nh_metrics%d_exner_dz_ref_ic(jc,jk+1,jb))
-        ENDDO !jc
-
-        DO jc = 1, nlen
-          exner(jc,jk,jb)      = (zb(jc)+SQRT(zb(jc)**2+4._wp*za(jc)*zc(jc)))/(2._wp*za(jc))
-          theta_v(jc,jk,jb)    = temp_v(jc,jk)/exner(jc,jk,jb)
-          rho(jc,jk,jb)        = exner(jc,jk,jb)**cvd_o_rd*p0ref/(rd*theta_v(jc,jk,jb))
-        ENDDO
-
-      ENDDO
-
-    ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-  END SUBROUTINE hydro_adjust
-
-  !-------------
-  !>
-  !! SUBROUTINE hydro_adjust_downward
-  !! Computes hydrostatically balanced initial condition by top-down integration
-  !! In contrast to the above routine, virtual potential temperature is kept constant
-  !! during the adjustment, leading to a simpler formula
-  !!
-  !! Input/Output: density, Exner pressure, virtual potential temperature
-  !!
-  !! @par Revision History
-  !! Initial version by Guenther Zaengl, DWD(2012-12-28)
-  !!
-  !!
-  !!
-  SUBROUTINE hydro_adjust_downward(p_patch, p_nh_metrics, rho, exner, theta_v)
-
-
-    TYPE(t_patch),      INTENT(IN)       :: p_patch
-    TYPE(t_nh_metrics), INTENT(IN)       :: p_nh_metrics
-
-    ! Thermodynamic fields - all defined at full model levels
-    REAL(wp), INTENT(INOUT) :: rho(:,:,:)        ! density (kg/m**3)
-    REAL(wp), INTENT(INOUT) :: exner(:,:,:)      ! Exner pressure
-    REAL(wp), INTENT(INOUT) :: theta_v(:,:,:)    ! virtual potential temperature (K)
-
-
-    ! LOCAL VARIABLES
-    REAL(wp), DIMENSION(nproma) :: theta_v_pr_ic
-
-    INTEGER :: jb, jk, jc
-    INTEGER :: nlen, nlev
-
-    nlev = p_patch%nlev
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk,jc,theta_v_pr_ic) ICON_OMP_DEFAULT_SCHEDULE
-
-    ! The full model grid including the lateral boundary interpolation zone of
-    ! nested domains and MPI-halo points is processed; depending on the setup
-    ! of the parallel-read routine, the input fields may need to be synchronized
-    ! before entering this routine.
-
-    DO jb = 1, p_patch%nblks_c
-      IF (jb /= p_patch%nblks_c) THEN
-        nlen = nproma
-      ELSE
-        nlen = p_patch%npromz_c
-      ENDIF
-
-      ! Now compute hydrostatically balanced prognostic fields:
-      ! The following expressions are derived from the discretized (!) third
-      ! equation of motion, assuming dw/dt = 0, and solved for the exner pressure.
-      DO jk = 2, nlev
-        DO jc = 1, nlen
-          theta_v_pr_ic(jc) = p_nh_metrics%wgtfac_c(jc,jk,jb) *        &
-           (theta_v(jc,jk,jb) - p_nh_metrics%theta_ref_mc(jc,jk,jb)) + &
-           (1._wp-p_nh_metrics%wgtfac_c(jc,jk,jb)) *                   &
-           (theta_v(jc,jk-1,jb)-p_nh_metrics%theta_ref_mc(jc,jk-1,jb)  )
-
-          exner(jc,jk,jb) = exner(jc,jk-1,jb) + p_nh_metrics%exner_ref_mc(jc,jk,jb) -      &
-            p_nh_metrics%exner_ref_mc(jc,jk-1,jb) + p_nh_metrics%ddqz_z_half(jc,jk,jb)*    &
-            theta_v_pr_ic(jc)*p_nh_metrics%d_exner_dz_ref_ic(jc,jk,jb)/(theta_v_pr_ic(jc)+ &
-            p_nh_metrics%theta_ref_ic(jc,jk,jb))
-
-          rho(jc,jk,jb) = exner(jc,jk,jb)**cvd_o_rd*p0ref/(rd*theta_v(jc,jk,jb))
-        ENDDO
-      ENDDO
-
-    ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-  END SUBROUTINE hydro_adjust_downward
 
   !-------------
   !>
@@ -425,7 +262,7 @@ CONTAINS
   !!
   !!
   !!
-  SUBROUTINE convert_omega2w(omega, w, pres, temp, nblks, npromz, nlev)
+  SUBROUTINE convert_omega2w(omega, w, pres, temp, nblks, npromz, nlev, opt_lmask)
 
 
     ! Input fields
@@ -440,31 +277,60 @@ CONTAINS
     INTEGER , INTENT(IN) :: nblks      ! Number of blocks
     INTEGER , INTENT(IN) :: npromz     ! Length of last block
     INTEGER , INTENT(IN) :: nlev       ! Number of model levels
-
+    
+    LOGICAL , INTENT(IN), OPTIONAL :: opt_lmask(:,:) ! logical mask of points to process
 
     ! LOCAL VARIABLES
     INTEGER :: jb, jk, jc
     INTEGER :: nlen
 
+    IF(PRESENT(opt_lmask)) THEN
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,nlen,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = 1, nblks
+        IF (jb /= nblks) THEN
+          nlen = nproma
+        ELSE
+          nlen = npromz
+        ENDIF
 
-    DO jb = 1, nblks
-      IF (jb /= nblks) THEN
-        nlen = nproma
-      ELSE
-        nlen = npromz
-      ENDIF
-
-      DO jk = 1, nlev
-        DO jc = 1, nlen
-          w(jc,jk,jb) = -rd*omega(jc,jk,jb)*temp(jc,jk,jb)/(grav*pres(jc,jk,jb))
+        DO jk = 1, nlev
+          DO jc = 1, nlen
+            IF (opt_lmask(jc,jb)) THEN
+              w(jc,jk,jb) = -rd*omega(jc,jk,jb)*temp(jc,jk,jb)/(grav*pres(jc,jk,jb))
+            ELSE ! fill with dummy value
+              w(jc,jk,jb) = 0._wp
+            ENDIF
+          ENDDO
         ENDDO
-      ENDDO
 
-    ENDDO
+      ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+
+    ELSE ! not present opt_lmask
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,nlen,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = 1, nblks
+        IF (jb /= nblks) THEN
+          nlen = nproma
+        ELSE
+          nlen = npromz
+        ENDIF
+
+        DO jk = 1, nlev
+          DO jc = 1, nlen
+            w(jc,jk,jb) = -rd*omega(jc,jk,jb)*temp(jc,jk,jb)/(grav*pres(jc,jk,jb))
+          ENDDO
+        ENDDO
+
+      ENDDO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+    ENDIF ! PRESENT(opt_lmask)
 
   END SUBROUTINE convert_omega2w
 
@@ -825,7 +691,8 @@ CONTAINS
     ! Apply nabla2-diffusion niter times to create smooth topography
     DO iter = 1, niter
 
-      CALL nabla2_scalar(z_topo, p_patch, p_int, nabla2_topo, 1, 1)
+      CALL nabla2_scalar(z_topo, p_patch, p_int, nabla2_topo, &
+        &                 slev=1, elev=1, rl_start=2, rl_end=min_rlcell )
 
       DO jb = i_startblk,nblks_c
 
@@ -901,7 +768,9 @@ CONTAINS
                 saveinit(jg)%w(nproma,nlevp1,nblks_c),     &
                 saveinit(jg)%tke(nproma,nlevp1,nblks_c),   &
                 saveinit(jg)%vn(nproma,nlev,nblks_e),      &
+                saveinit(jg)%gz0_t(nproma,nblks_c,ntw),    &
                 saveinit(jg)%t_g_t(nproma,nblks_c,ntw),    &
+                saveinit(jg)%t_sk_t(nproma,nblks_c,ntw),   &
                 saveinit(jg)%qv_s_t(nproma,nblks_c,ntw),   &
                 saveinit(jg)%freshsnow_t(nproma,nblks_c,ntl), &
                 saveinit(jg)%snowfrac_t(nproma,nblks_c,ntl), &
@@ -931,10 +800,11 @@ CONTAINS
         ALLOCATE (saveinit(jg)%rho_snow_mult_t(nproma,nlev_snow,nblks_c,ntl))
       ENDIF
 
-      IF (iprog_aero == 1)     ALLOCATE (saveinit(jg)%aerosol(nproma,nclass_aero,nblks_c))
+      IF (iprog_aero >= 1)     ALLOCATE (saveinit(jg)%aerosol(nproma,nclass_aero,nblks_c))
       IF (lprog_albsi)         ALLOCATE (saveinit(jg)%alb_si(nproma,nblks_c))
       IF (itype_trvg == 3)     ALLOCATE (saveinit(jg)%plantevap_t(nproma,nblks_c,ntl))
-      IF (itype_snowevap == 3) ALLOCATE (saveinit(jg)%hsnow_max(nproma,nblks_c),saveinit(jg)%snow_age(nproma,nblks_c))
+      IF (itype_snowevap == 3) ALLOCATE (saveinit(jg)%hsnow_max(nproma,nblks_c),saveinit(jg)%h_snow(nproma,nblks_c),&
+                                         saveinit(jg)%snow_age(nproma,nblks_c))
 
 !$OMP PARALLEL
       CALL copy(lnd_diag%fr_seaice, saveinit(jg)%fr_seaice)
@@ -957,7 +827,9 @@ CONTAINS
       CALL copy(p_nh(jg)%prog(nnow(jg))%vn, saveinit(jg)%vn)
       CALL copy(p_nh(jg)%prog(nnow_rcf(jg))%tracer, saveinit(jg)%tracer)
 
+      CALL copy(prm_diag(jg)%gz0_t, saveinit(jg)%gz0_t)
       CALL copy(lnd_prog%t_g_t, saveinit(jg)%t_g_t)
+      CALL copy(lnd_prog%t_sk_t, saveinit(jg)%t_sk_t)
       CALL copy(lnd_diag%qv_s_t, saveinit(jg)%qv_s_t)
       CALL copy(lnd_diag%freshsnow_t, saveinit(jg)%freshsnow_t)
       CALL copy(lnd_diag%snowfrac_t, saveinit(jg)%snowfrac_t)
@@ -988,11 +860,12 @@ CONTAINS
         CALL copy(lnd_prog%rho_snow_mult_t, saveinit(jg)%rho_snow_mult_t)
       ENDIF
 
-      IF (iprog_aero == 1)  CALL copy(prm_diag(jg)%aerosol, saveinit(jg)%aerosol)
+      IF (iprog_aero >= 1)  CALL copy(prm_diag(jg)%aerosol, saveinit(jg)%aerosol)
       IF (lprog_albsi)      CALL copy(wtr_prog%alb_si, saveinit(jg)%alb_si)
       IF (itype_trvg == 3)  CALL copy(lnd_diag%plantevap_t, saveinit(jg)%plantevap_t)
       IF (itype_snowevap == 3) THEN
         CALL copy(lnd_diag%hsnow_max, saveinit(jg)%hsnow_max)
+        CALL copy(lnd_diag%h_snow, saveinit(jg)%h_snow)
         CALL copy(lnd_diag%snow_age, saveinit(jg)%snow_age)
       ENDIF
 
@@ -1018,7 +891,7 @@ CONTAINS
     TYPE(t_lnd_state), TARGET, INTENT(INOUT) :: p_lnd(:)
     TYPE(t_external_data),     INTENT(INOUT) :: ext_data(:)
 
-    INTEGER :: jg
+    INTEGER :: jg, ic, je, jb
 
     TYPE(t_lnd_prog), POINTER :: lnd_prog
     TYPE(t_lnd_diag), POINTER :: lnd_diag
@@ -1055,7 +928,9 @@ CONTAINS
       CALL copy(saveinit(jg)%vn, p_nh(jg)%prog(nnow(jg))%vn)
       CALL copy(saveinit(jg)%tracer, p_nh(jg)%prog(nnow_rcf(jg))%tracer)
 
+      CALL copy(saveinit(jg)%gz0_t, prm_diag(jg)%gz0_t)
       CALL copy(saveinit(jg)%t_g_t, lnd_prog%t_g_t)
+      CALL copy(saveinit(jg)%t_sk_t, lnd_prog%t_sk_t)
       CALL copy(saveinit(jg)%qv_s_t, lnd_diag%qv_s_t)
       CALL copy(saveinit(jg)%freshsnow_t, lnd_diag%freshsnow_t)
       CALL copy(saveinit(jg)%snowfrac_t, lnd_diag%snowfrac_t)
@@ -1086,11 +961,12 @@ CONTAINS
         CALL copy(saveinit(jg)%rho_snow_mult_t, lnd_prog%rho_snow_mult_t)
       ENDIF
 
-      IF (iprog_aero == 1)  CALL copy(saveinit(jg)%aerosol, prm_diag(jg)%aerosol)
+      IF (iprog_aero >= 1)  CALL copy(saveinit(jg)%aerosol, prm_diag(jg)%aerosol)
       IF (lprog_albsi)      CALL copy(saveinit(jg)%alb_si, wtr_prog%alb_si)
       IF (itype_trvg == 3)  CALL copy(saveinit(jg)%plantevap_t, lnd_diag%plantevap_t)
       IF (itype_snowevap == 3) THEN
         CALL copy(saveinit(jg)%hsnow_max, lnd_diag%hsnow_max)
+        CALL copy(saveinit(jg)%h_snow, lnd_diag%h_snow)
         CALL copy(saveinit(jg)%snow_age, lnd_diag%snow_age)
       ENDIF
 
@@ -1105,10 +981,13 @@ CONTAINS
       CALL init (p_nh(jg)%diag%exner_dyn_incr)
       CALL init (prm_diag(jg)%rain_gsp_rate)
       CALL init (prm_diag(jg)%snow_gsp_rate)
+      CALL init (prm_diag(jg)%ice_gsp_rate)
       CALL init (prm_diag(jg)%shfl_s_t)
       CALL init (prm_diag(jg)%qhfl_s_t)
       CALL init (lnd_diag%runoff_s_t)
       CALL init (lnd_diag%runoff_g_t)
+      CALL init (lnd_diag%runoff_s_inst_t)
+      CALL init (lnd_diag%runoff_g_inst_t)
 
 !$OMP END PARALLEL
 
@@ -1119,10 +998,11 @@ CONTAINS
                   saveinit(jg)%c_t_lk, saveinit(jg)%t_b1_lk, saveinit(jg)%h_b1_lk )
 
       DEALLOCATE (saveinit(jg)%theta_v, saveinit(jg)%rho,saveinit(jg)%exner, saveinit(jg)%w, saveinit(jg)%tke,      &
-                  saveinit(jg)%vn, saveinit(jg)%t_g_t, saveinit(jg)%qv_s_t, saveinit(jg)%freshsnow_t,               &
-                  saveinit(jg)%snowfrac_t, saveinit(jg)%snowfrac_lc_t, saveinit(jg)%w_snow_t,                       &
-                  saveinit(jg)%w_i_t, saveinit(jg)%h_snow_t, saveinit(jg)%t_snow_t, saveinit(jg)%rho_snow_t,        &
-                  saveinit(jg)%snowtile_flag_t, saveinit(jg)%idx_lst_t, saveinit(jg)%frac_t, saveinit(jg)%gp_count_t)
+                  saveinit(jg)%vn, saveinit(jg)%t_g_t, saveinit(jg)%t_sk_t, saveinit(jg)%qv_s_t, saveinit(jg)%freshsnow_t, &
+                  saveinit(jg)%snowfrac_t, saveinit(jg)%snowfrac_lc_t, saveinit(jg)%w_snow_t,                         &
+                  saveinit(jg)%w_i_t, saveinit(jg)%h_snow_t, saveinit(jg)%t_snow_t, saveinit(jg)%rho_snow_t,          &
+                  saveinit(jg)%snowtile_flag_t, saveinit(jg)%idx_lst_t, saveinit(jg)%frac_t, saveinit(jg)%gp_count_t, &
+                  saveinit(jg)%gz0_t)
 
       DEALLOCATE (saveinit(jg)%tracer, saveinit(jg)%w_so_t, saveinit(jg)%w_so_ice_t, saveinit(jg)%t_so_t)
 
@@ -1133,10 +1013,19 @@ CONTAINS
         DEALLOCATE (saveinit(jg)%rho_snow_mult_t)
       ENDIF
 
-      IF (iprog_aero == 1) DEALLOCATE (saveinit(jg)%aerosol)
+      IF (iprog_aero >= 1) DEALLOCATE (saveinit(jg)%aerosol)
       IF (lprog_albsi)     DEALLOCATE (saveinit(jg)%alb_si)
       IF (itype_trvg == 3) DEALLOCATE (saveinit(jg)%plantevap_t)
-      IF (itype_snowevap == 3) DEALLOCATE (saveinit(jg)%hsnow_max, saveinit(jg)%snow_age)
+      IF (itype_snowevap == 3) DEALLOCATE (saveinit(jg)%hsnow_max, saveinit(jg)%h_snow, saveinit(jg)%snow_age)
+
+      ! For the limited-area mode and one-way nesting, we also need to reset grf_tend_vn on the nudging points
+
+      DO ic = 1, p_nh(jg)%metrics%nudge_e_dim
+        je = p_nh(jg)%metrics%nudge_e_idx(ic)
+        jb = p_nh(jg)%metrics%nudge_e_blk(ic)
+        p_nh(jg)%diag%grf_tend_vn(je,:,jb) = 0._wp
+      ENDDO
+
     ENDDO
 
     DEALLOCATE(saveinit)

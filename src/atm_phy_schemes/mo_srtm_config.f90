@@ -10,7 +10,21 @@
 #endif
   MODULE mo_srtm_config
 
-    USE mo_kind,             ONLY: wp
+    USE mo_kind,         ONLY: wp
+    USE mo_srtm_kgb16,   ONLY: srtm_kgb16
+    USE mo_srtm_kgb17,   ONLY: srtm_kgb17
+    USE mo_srtm_kgb18,   ONLY: srtm_kgb18
+    USE mo_srtm_kgb19,   ONLY: srtm_kgb19
+    USE mo_srtm_kgb20,   ONLY: srtm_kgb20
+    USE mo_srtm_kgb21,   ONLY: srtm_kgb21
+    USE mo_srtm_kgb22,   ONLY: srtm_kgb22
+    USE mo_srtm_kgb23,   ONLY: srtm_kgb23
+    USE mo_srtm_kgb24,   ONLY: srtm_kgb24
+    USE mo_srtm_kgb25,   ONLY: srtm_kgb25
+    USE mo_srtm_kgb26,   ONLY: srtm_kgb26
+    USE mo_srtm_kgb27,   ONLY: srtm_kgb27
+    USE mo_srtm_kgb28,   ONLY: srtm_kgb28
+    USE mo_srtm_kgb29,   ONLY: srtm_kgb29
 
     IMPLICIT NONE
 
@@ -368,8 +382,8 @@
     !
     SUBROUTINE srtm_cmbgb16
 
-      USE yoesrta16, ONLY : ka , kb , selfref , forref , sfluxref , &
-        &                   kac, kbc, selfrefc, forrefc, sfluxrefc
+      USE mo_yoesrta16, ONLY : ka , kb , selfref , forref , sfluxref , &
+        &                      kac, kbc, selfrefc, forrefc, sfluxrefc
 
       DO jn = 1,9
         DO jt = 1,5
@@ -442,8 +456,8 @@
     !
     SUBROUTINE srtm_cmbgb17
 
-      USE yoesrta17, ONLY : ka , kb , selfref , forref , sfluxref , &
-        &                   kac, kbc, selfrefc, forrefc, sfluxrefc
+      USE mo_yoesrta17, ONLY : ka , kb , selfref , forref , sfluxref , &
+        &                      kac, kbc, selfrefc, forrefc, sfluxrefc
 
       DO jn = 1,9
         DO jt = 1,5
@@ -519,8 +533,8 @@
     !
     SUBROUTINE srtm_cmbgb18
 
-      USE yoesrta18, ONLY : ka , kb , selfref , forref , sfluxref , &
-        &                   kac, kbc, selfrefc, forrefc, sfluxrefc
+      USE mo_yoesrta18, ONLY : ka , kb , selfref , forref , sfluxref , &
+        &                      kac, kbc, selfrefc, forrefc, sfluxrefc
 
       DO jn = 1,9
         DO jt = 1,5
@@ -595,8 +609,8 @@
     !
     SUBROUTINE srtm_cmbgb19
 
-      USE yoesrta19, ONLY : ka , kb , selfref , forref , sfluxref , &
-        &                   kac, kbc, selfrefc, forrefc, sfluxrefc
+      USE mo_yoesrta19, ONLY : ka , kb , selfref , forref , sfluxref , &
+        &                      kac, kbc, selfrefc, forrefc, sfluxrefc
 
       DO jn = 1,9
         DO jt = 1,5
@@ -671,8 +685,8 @@
     !
     SUBROUTINE srtm_cmbgb20
 
-      USE yoesrta20, ONLY : ka , kb , selfref , forref , absch4 , sfluxref , &
-        &                   kac, kbc, selfrefc, forrefc, absch4c, sfluxrefc
+      USE mo_yoesrta20, ONLY : ka , kb , selfref , forref , absch4 , sfluxref , &
+        &                      kac, kbc, selfrefc, forrefc, absch4c, sfluxrefc
 
       DO jt = 1,5
         DO jp = 1,13
@@ -744,8 +758,8 @@
     !
     SUBROUTINE srtm_cmbgb21
 
-      USE yoesrta21, ONLY : ka , kb , selfref , forref , sfluxref , &
-        &                   kac, kbc, selfrefc, forrefc, sfluxrefc
+      USE mo_yoesrta21, ONLY : ka , kb , selfref , forref , sfluxref , &
+        &                      kac, kbc, selfrefc, forrefc, sfluxrefc
 
       DO jn = 1,9
         DO jt = 1,5
@@ -822,8 +836,8 @@
     !
     SUBROUTINE srtm_cmbgb22
 
-      USE yoesrta22, ONLY : ka , kb , selfref , forref , sfluxref , &
-        &                   kac, kbc, selfrefc, forrefc, sfluxrefc
+      USE mo_yoesrta22, ONLY : ka , kb , selfref , forref , sfluxref , &
+        &                      kac, kbc, selfrefc, forrefc, sfluxrefc
 
       DO jn = 1,9
         DO jt = 1,5
@@ -898,8 +912,8 @@
     !
     SUBROUTINE srtm_cmbgb23
 
-      USE yoesrta23, ONLY : ka , selfref , forref , sfluxref , rayl , &
-        &                   kac, selfrefc, forrefc, sfluxrefc, raylc
+      USE mo_yoesrta23, ONLY : ka , selfref , forref , sfluxref , rayl , &
+        &                      kac, selfrefc, forrefc, sfluxrefc, raylc
 
       DO jt = 1,5
         DO jp = 1,13
@@ -959,10 +973,10 @@
     !
     SUBROUTINE srtm_cmbgb24
 
-      USE yoesrta24, ONLY : ka     , kb     , selfref , forref , sfluxref , &
-        &                   abso3a , abso3b , rayla   , raylb  ,            &
-        &                   kac    , kbc    , selfrefc, forrefc, sfluxrefc, &
-        &                   abso3ac, abso3bc, raylac  , raylbc
+      USE mo_yoesrta24, ONLY : ka     , kb     , selfref , forref , sfluxref , &
+        &                      abso3a , abso3b , rayla   , raylb  ,            &
+        &                      kac    , kbc    , selfrefc, forrefc, sfluxrefc, &
+        &                      abso3ac, abso3bc, raylac  , raylbc
 
       DO jn = 1,9
         DO jt = 1,5
@@ -1056,8 +1070,8 @@
     !
     SUBROUTINE srtm_cmbgb25
 
-      USE yoesrta25, ONLY : ka , sfluxref , abso3a , abso3b , rayl , &
-        &                   kac, sfluxrefc, abso3ac, abso3bc, raylc
+      USE mo_yoesrta25, ONLY : ka , sfluxref , abso3a , abso3b , rayl , &
+        &                      kac, sfluxrefc, abso3ac, abso3bc, raylc
 
       DO jt = 1,5
         DO jp = 1,13
@@ -1099,8 +1113,8 @@
     !
     SUBROUTINE srtm_cmbgb26
 
-      USE yoesrta26, ONLY : sfluxref , rayl , &
-        &                   sfluxrefc, raylc
+      USE mo_yoesrta26, ONLY : sfluxref , rayl , &
+        &                      sfluxrefc, raylc
 
       iprsm = 0
       DO igc = 1,ngc(11)
@@ -1122,8 +1136,8 @@
     !
     SUBROUTINE srtm_cmbgb27
 
-      USE yoesrta27, ONLY : ka , kb , sfluxref , rayl , &
-        &                   kac, kbc, sfluxrefc, raylc
+      USE mo_yoesrta27, ONLY : ka , kb , sfluxref , rayl , &
+        &                      kac, kbc, sfluxrefc, raylc
 
       DO jt = 1,5
         DO jp = 1,13
@@ -1171,8 +1185,8 @@
     !
     SUBROUTINE srtm_cmbgb28
 
-      USE yoesrta28, ONLY : ka , kb , sfluxref , &
-        &                   kac, kbc, sfluxrefc
+      USE mo_yoesrta28, ONLY : ka , kb , sfluxref , &
+        &                      kac, kbc, sfluxrefc
 
       DO jn = 1,9
         DO jt = 1,5
@@ -1225,8 +1239,8 @@
     !
     SUBROUTINE srtm_cmbgb29
 
-      USE yoesrta29, ONLY : ka , kb , selfref , forref , sfluxref , absh2o , absco2 , &
-        &                   kac, kbc, selfrefc, forrefc, sfluxrefc, absh2oc, absco2c
+      USE mo_yoesrta29, ONLY : ka , kb , selfref , forref , sfluxref , absh2o , absco2 , &
+        &                      kac, kbc, selfrefc, forrefc, sfluxrefc, absh2oc, absco2c
 
       DO jt = 1,5
         DO jp = 1,13

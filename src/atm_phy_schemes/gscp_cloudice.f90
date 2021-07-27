@@ -89,81 +89,16 @@ MODULE gscp_cloudice
 ! Microphysical constants and variables
 !------------------------------------------------------------------------------
 
-#ifdef __COSMO__
-USE kind_parameters, ONLY :   &
-  wp ,       &    !! KIND-type parameter for real variables
-  i4              !! KIND-type parameter for standard integer vaiables
-
-USE data_constants  , ONLY :   &
-!   pi,           & !!
-!! 2. physical constants and related variables
-!! -------------------------------------------
-    t0=>t0_melt,  & !! melting temperature of ice
-!   r_d,          & !! gas constant for dry air
-    r_v,          & !! gas constant for water vapour
-    rdv,          & !! r_d / r_v
-    o_m_rdv,      & !! 1 - r_d/r_v
-    rvd_m_o,      & !! r_v/r_d - 1
-    cp_d,         & !! specific heat of dry air
-    cpdr,         & !! 1 / cp_d
-    lh_v,         & !! latent heat of vapourization
-!   lh_f,         & !! latent heat of fusion
-    lh_s,         & !! latent heat of sublimation
-!   g,            & !! acceleration due to gravity
-!   rho_w,        & !! density of liquid water (kg/m^3)
-! 3. constants for parametrizations
-!! ---------------------------------
-    b1,           & !! variables for computing the saturation vapour pressure
-    b2w,          & !! over water (w) and ice (i)
-    b2i,          & !!               -- " --
-    b3,           & !!               -- " --
-    b4w,          & !!               -- " --
-    b234w,        & !!               -- " --
-    b4i,          & !!               -- " --
-!> 4. tuning constants for radiation, cloud physics, turbulence
-!! ------------------------------------------------------------
-    qi0,          & !! cloud ice threshold for autoconversion
-    qc0,          & !! cloud water threshold for autoconversion
-!> 5. Precision-dependent security parameters (epsilons)
-!! ------------------------------------------------------
-    repsilon        !! precision of 1.0 in current floating point format
-
-!! end of data_constants
-
-USE data_runcontrol , ONLY :   &
-    ldiabf_lh,      & ! include diabatic forcing due to latent heat in RK-scheme
-    lsuper_coolw,   & ! switch for supercooled liquid water
-    lsppt,          & ! switch, if .true., perturb the physical tendencies
-    itype_qxpert_rn,& ! define which hum variables tend. are perturbed
-    itype_qxlim_rn    ! type of reduction/removal of the perturbation 
-                      ! in case of negative (qv, qc, qi) or 
-                      ! supersaturated (qv) values
-
-!------------------------------------------------------------------------------
-!! COSMO environment modules
-!------------------------------------------------------------------------------
-
-USE utilities,                ONLY : message
-USE meteo_utilities,          ONLY : satad       !! saturation adjustment
-USE src_stoch_physics,        ONLY : apply_tqx_tend_adj
-#endif
-! of ifdef __COSMO__
 
 !------------------------------------------------------------------------------
 
-#ifdef __ICON__
 USE mo_kind,               ONLY: wp         , &
                                  i4
 !USE mo_math_constants    , ONLY: pi
 USE mo_physical_constants, ONLY: r_v   => rv    , & !> gas constant for water vapour
-                                 r_d   => rd    , & !! gas constant for dry air
-                                 rvd_m_o=>vtmpc1, & !! r_v/r_d - 1
-                                 o_m_rdv        , & !! 1 - r_d/r_v
-                                 rdv            , & !! r_d / r_v
                                  lh_v  => alv   , & !! latent heat of vapourization
                                  lh_s  => als   , & !! latent heat of sublimation
 !                                lh_f  => alf   , & !! latent heat of fusion
-                                 cp_d  => cpd   , & !! specific heat of dry air at constant press
                                  cpdr  => rcpd  , & !! (spec. heat of dry air at constant press)^-1
                                  cvdr  => rcvd  , & !! (spec. heat of dry air at const vol)^-1
                                  b3    => tmelt , & !! melting temperature of ice/snow
@@ -173,19 +108,16 @@ USE mo_physical_constants, ONLY: r_v   => rv    , & !> gas constant for water va
 
 USE mo_convect_tables,     ONLY: b1    => c1es  , & !! constants for computing the sat. vapour
                                  b2w   => c3les , & !! pressure over water (l) and ice (i)
-                                 b2i   => c3ies , & !!               -- " --
-                                 b4w   => c4les , & !!               -- " --
-                                 b4i   => c4ies , & !!               -- " --
-                                 b234w => c5les     !!               -- " --
+                                 b4w   => c4les     !!               -- " --
 USE mo_satad,              ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
-                                 sat_pres_ice!,   &  !! saturation vapor pressure w.r.t. ice
+                                 sat_pres_ice,   &  !! saturation vapor pressure w.r.t. ice
+                                 latent_heat_vaporization, &
+                                 latent_heat_sublimation
 USE mo_exception,          ONLY: message, message_text
 USE mo_run_config,         ONLY: ldass_lhn
-#endif
 
 !------------------------------------------------------------------------------
 
-! this can be used by ICON and COSMO
 USE gscp_data, ONLY: &          ! all variables are used here
 
     ccsrim,    ccsagg,    ccsdep,    ccsvel,    ccsvxp,    ccslam,       &
@@ -193,32 +125,19 @@ USE gscp_data, ONLY: &          ! all variables are used here
     ccswxp,    zconst,    zcev,      zbev,      zcevxp,    zbevxp,       &
     zvzxp,     zvz0r,                                                    &
 
-    v0snow,    mu_rain,   rain_n0_factor,       cloud_num,               &
+    v0snow,                                                              &
 
-    x13o8,     x1o2,      x27o16,    x3o4,      x7o4,      x7o8,         &
-    zbms,      zbvi,      zcac,      zccau,     zciau,     zcicri,       &
+    x13o8,     x1o2,      x27o16,    x7o4,      x7o8,                    &
+    zbvi,      zcac,      zccau,     zciau,     zcicri,                  &
     zcrcri,    zcrfrz,    zcrfrz1,   zcrfrz2,   zeps,      zkcac,        &
     zkphi1,    zkphi2,    zkphi3,    zmi0,      zmimax,    zmsmin,       &
     zn0s0,     zn0s1,     zn0s2,     znimax_thom,          zqmin,        &
-    zrho0,     zthet,     zthn,      ztmix,     ztrfrz,    zv1s,         &
-    zvz0i,     x13o12,    x2o3,      x5o24,     zams,      zasmel,       &
+    zrho0,     zthet,     zthn,      ztmix,     ztrfrz,                  &
+    zvz0i,     x2o3,      x5o24,     zams=>zams_ci, zasmel,              &
     zbsmel,    zcsmel,    icesedi_exp,                                   &
     iautocon,  isnow_n0temp, dist_cldtop_ref,   reduce_dep_ref,          &
     tmin_iceautoconv,     zceff_fac, zceff_min,                          &
-    mma, mmb
-
-#ifdef __ICON__
-! this is (at the moment) an ICON part
-USE gscp_data, ONLY: &          ! all variables are used here
-    vtxexp,    & !  kc_c1,     & !
-    kc_c2,     & !
-    kc_alpha,  & !
-    kc_beta,   & !
-    kc_gamma,  & !
-    kc_sigma,  & !
-    do_i,      & !
-    co_i
-#endif
+    mma, mmb, v_sedi_rain_min, v_sedi_snow_min
 
 !==============================================================================
 
@@ -232,15 +151,9 @@ PRIVATE
 PUBLIC :: cloudice
 
 LOGICAL, PARAMETER :: &
-#ifdef __COSMO__
-  lorig_icon   = .FALSE. , &  ! switch for original ICON setup (only for cloudice)
-                              ! XL : should be false for COSMO ?
-  lred_depgrowth = .TRUE. , & ! switch for reduced depositional growth near tops of stratus clouds
-#else
   lorig_icon   = .TRUE.  , &  ! switch for original ICON setup (only for cloudice)
-  lred_depgrowth = .FALSE., & ! switch for reduced depositional growth near tops of stratus clouds
-                              ! (not used in ICON because it degrades scores at high latitudes)
-#endif
+  lred_depgrowth = .TRUE., &  ! switch for reduced depositional growth near tops of stratus clouds
+                              ! (combined with increased 'ztmix' parameter in order not to degrade T2M in Siberian winter)
 
   lsedi_ice    = .FALSE. , &  ! switch for sedimentation of cloud ice (Heymsfield & Donner 1990 *1/3)
   lstickeff    = .FALSE. , &  ! switch for sticking coeff. (work from Guenther Zaengl)
@@ -250,9 +163,6 @@ LOGICAL, PARAMETER :: &
 !> Parameters and variables which are global in this module
 !------------------------------------------------------------------------------
 
-#ifdef __COSMO__
-CHARACTER(132) :: message_text = ''
-#endif
 
 !==============================================================================
 
@@ -269,17 +179,12 @@ SUBROUTINE cloudice (             &
   idbg,                              & !! optional debug level
   zdt, dz,                           & !! numerics parameters
   t,p,rho,qv,qc,qi,qr,qs,qnc,        & !! prognostic variables
-#ifdef __ICON__
   !xxx: this should become a module variable, e.g. in a new module mo_gscp_data.f90
   qi0,qc0,                           & !! cloud ice/water threshold for autoconversion
-#endif
-  prr_gsp,prs_gsp,                   & !! surface precipitation rates
-#ifdef __COSMO__
-  tinc_lh,                           & !  t-increment due to latent heat 
-  pstoph,                            & !  stochastic multiplier of physics tendencies
-#endif
+  prr_gsp,prs_gsp,pri_gsp,           & !! surface precipitation rates
   qrsflux,                           & !  total precipitation flux
   l_cv,                              &
+  ithermo_water,                     & !  water thermodynamics
   ldiag_ttend,     ldiag_qtend     , &
   ddt_tend_t     , ddt_tend_qv     , &
   ddt_tend_qc    , ddt_tend_qi     , & !> ddt_tend_xx are tendencies
@@ -342,6 +247,9 @@ SUBROUTINE cloudice (             &
   LOGICAL, INTENT(IN), OPTIONAL :: &
     l_cv                   !! if true, cv is used instead of cp
 
+  INTEGER, INTENT(IN), OPTIONAL :: &
+    ithermo_water          !! water thermodynamics
+
   LOGICAL, INTENT(IN), OPTIONAL :: &
     ldiag_ttend,         & ! if true, temperature tendency shall be diagnosed
     ldiag_qtend            ! if true, moisture tendencies shall be diagnosed
@@ -354,20 +262,13 @@ SUBROUTINE cloudice (             &
     qr              ,    & !! specific rain content                         (kg/kg)
     qs                     !! specific snow content                         (kg/kg)
 
-#ifdef __COSMO__
-  REAL(KIND=wp), INTENT(INOUT) :: &
-       tinc_lh(:,:)    ! temperature increments due to heating             ( K/s ) 
-
-  REAL(KIND=wp), INTENT(IN)    :: &
-       pstoph(:,:)     ! stochastic multiplier of physics tendencies
-#endif  
-
   REAL(KIND=wp), DIMENSION(:,:), INTENT(INOUT) ::   &   ! dim (ie,ke)
        qrsflux        ! total precipitation flux (nudg)
 
   REAL(KIND=wp), DIMENSION(:), INTENT(INOUT) ::   &   ! dim (ie)
     prr_gsp,             & !> precipitation rate of rain, grid-scale        (kg/(m2*s))
     prs_gsp,             & !! precipitation rate of snow, grid-scale        (kg/(m2*s))
+    pri_gsp,             & !! precipitation rate of cloud ice, grid-scale   (kg/(m2*s))
     qnc                    !! cloud number concentration
 
   REAL(KIND=wp), DIMENSION(:,:), INTENT(INOUT), OPTIONAL ::   &     ! dim (ie,ke)
@@ -418,10 +319,10 @@ SUBROUTINE cloudice (             &
     izdebug             !! debug level
 
   REAL    (KIND=wp   ) ::  &
-    fpvsw, fpvsi, fqvs,& ! name of statement functions
+    fpvsw,             & ! name of statement function
     fxna ,             & ! statement function for ice crystal number
     fxna_cooper ,      & ! statement function for ice crystal number, Cooper(1986) 
-    ztx  , zpv  , zpx ,& ! dummy arguments for statement functions
+    ztx  ,             & ! dummy argument for statement functions
     znimax,            & ! maximum number of cloud ice crystals
     znimix,            & ! number of ice crystals at ztmix -> threshold temp for mixed-phase clouds
     zpvsw0,            & ! sat.vap. pressure at melting temperature
@@ -484,9 +385,6 @@ SUBROUTINE cloudice (             &
     zprvr       (nvec),     & !
     zprvs       (nvec),     & !
     zprvi       (nvec),     & !
-#ifdef __COSMO__
-    zdummy      (nvec,8),   & !
-#endif
     zcsdep      (nvec),     & !
     zcidep      (nvec),     & !
     zvz0s       (nvec),     & !
@@ -535,8 +433,8 @@ SUBROUTINE cloudice (             &
     sev    (nvec), & ! transfer rate due evaporation of rain
     srfrz  (nvec), & ! transfer rate due to rainwater freezing
     reduce_dep(nvec),&!FR: coefficient: reduce deposition at cloud top (Forbes 2012)
-    dist_cldtop(nvec) !FR: distance from cloud top layer
-
+    dist_cldtop(nvec),& !FR: distance from cloud top layer
+    zlhv(nvec), zlhs(nvec) ! Latent heat if vaporization and sublimation
  
   ! Dimensions and loop counter for storing the indices
   INTEGER (KIND=i4)        ::  &
@@ -551,7 +449,8 @@ SUBROUTINE cloudice (             &
     ivdx5(nvec), & !!
     ivdx6(nvec)    !!
 
-  LOGICAL :: ldum
+
+  LOGICAL :: lvariable_lh   ! Use constant latent heat (default .true.)
 
 !------------ End of header ---------------------------------------------------
 
@@ -565,20 +464,13 @@ SUBROUTINE cloudice (             &
 ! saturation vapour pressure over water (fpvsw), over ice (fpvsi)
 ! and specific humidity at vapour saturation (fqvs)
   fpvsw(ztx)     = b1*EXP( b2w*(ztx-b3)/(ztx-b4w) )
-  fpvsi(ztx)     = b1*EXP( b2i*(ztx-b3)/(ztx-b4i) )
-  fqvs (zpv,zpx) = rdv*zpv/( zpx - o_m_rdv*zpv )
-  
+
 ! Number of activate ice crystals;  ztx is temperature
   fxna(ztx)   = 1.0E2_wp * EXP(0.2_wp * (t0 - ztx))
   fxna_cooper(ztx) = 5.0E+0_wp * EXP(0.304_wp * (t0 - ztx))   ! FR: Cooper (1986) used by Greg Thompson(2008)
 
 ! Define reciprocal of heat capacity of dry air (at constant pressure vs at constant volume)
 
-#ifdef __COSMO__
-  z_heat_cap_r = cpdr
-#endif
-
-#ifdef __ICON__
   IF (PRESENT(l_cv)) THEN
     IF (l_cv) THEN
       z_heat_cap_r = cvdr
@@ -588,7 +480,12 @@ SUBROUTINE cloudice (             &
   ELSE
     z_heat_cap_r = cpdr
   ENDIF
-#endif
+
+  IF (PRESENT(ithermo_water)) THEN
+     lvariable_lh = (ithermo_water .NE. 0)
+  ELSE  ! Default themodynamic is constant latent heat
+     lvariable_lh = .false.
+  END IF
 
 !------------------------------------------------------------------------------
 !  Section 1: Initial setting of local and global variables
@@ -615,9 +512,9 @@ SUBROUTINE cloudice (             &
   zbvi_ln1o2   = EXP (zbvi * LOG (0.5_wp))
 
 ! Delete precipitation fluxes from previous timestep
-!CDIR BEGIN COLLAPSE
     prr_gsp (:) = 0.0_wp
     prs_gsp (:) = 0.0_wp
+    pri_gsp (:) = 0.0_wp
     zpkr    (:) = 0.0_wp
     zpks    (:) = 0.0_wp
     zpki    (:) = 0.0_wp
@@ -629,7 +526,6 @@ SUBROUTINE cloudice (             &
     zvzi    (:) = 0.0_wp
     zqvsw   (:) = 0.0_wp
     dist_cldtop(:) = 0.0_wp    
-!CDIR END
 
 
 ! Optional arguments
@@ -683,13 +579,15 @@ SUBROUTINE cloudice (             &
   ! add part of latent heating calculated in subroutine cloudice to model latent
   ! heating field: subtract temperature from model latent heating field
   IF (ldass_lhn) THEN
-!CDIR COLLAPSE
       qrsflux(:,:) = 0.0_wp
   ENDIF
 
-
 ! output for various debug levels
-  IF (izdebug > 15) CALL message('gscp_cloudice: ','Start of cloudice')
+  IF (izdebug > 15) THEN
+    CALL message('gscp_cloudice: ','Start of cloudice')
+    WRITE (message_text,'(A,E10.3)') '      zams   = ',zams   ; CALL message('',message_text)
+    WRITE (message_text,'(A,E10.3)') '      ccslam = ',ccslam ; CALL message('',message_text)
+  END IF
   IF (izdebug > 20) THEN
     WRITE (message_text,*) '   nvec = ',nvec       ; CALL message('',message_text)
     WRITE (message_text,*) '   ke = ',ke           ; CALL message('',message_text)
@@ -717,8 +615,8 @@ SUBROUTINE cloudice (             &
     CALL message('',message_text)
   ENDIF
 
-!CDIR COLLAPSE
-
+  zlhv(:) = lh_v
+  zlhs(:) = lh_s
 
 ! *********************************************************************
 ! Loop from the top of the model domain to the surface to calculate the
@@ -726,28 +624,19 @@ SUBROUTINE cloudice (             &
 ! *********************************************************************
 
   loop_over_levels: DO  k = k_start, ke
-
-
-#ifdef __COSMO__
-    IF ( ldiabf_lh ) THEN
-      ! initialize temperature increment due to latent heat
-      tinc_lh(:,k) = tinc_lh(:,k) - t(:,k)
-    ENDIF
-#endif
+  
 
   !----------------------------------------------------------------------------
   ! Section 2: Check for existence of rain and snow
   !            Initialize microphysics and sedimentation scheme
   !----------------------------------------------------------------------------
 
-!CDIR BEGIN COLLAPSE
     zcrim (:) = 0.0_wp
     zcagg (:) = 0.0_wp
     zbsdep(:) = 0.0_wp
     zvz0s (:) = 0.0_wp
     zn0s  (:) = zn0s0
     reduce_dep(:) = 1.0_wp  !FR: Reduction coeff. for dep. growth of rain and ice  
-!CDIR END
 
     ic1 = 0
     ic2 = 0
@@ -806,7 +695,7 @@ SUBROUTINE cloudice (             &
      ENDDO
 
 !DIR$ IVDEP
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
     loop_over_qs_prepare: DO i1d = 1, ic1
       iv = ivdx1(i1d)
 
@@ -823,7 +712,7 @@ SUBROUTINE cloudice (             &
         zn0s(iv) = MAX(zn0s(iv),1e6_wp)
       ELSEIF (isnow_n0temp == 2) THEN
         ! Calculate n0s using the temperature-dependent moment
-        ! relations of Field et al. (2005)
+        ! relations of Field et al. (2005) which assume bms=2.0
         ztc = tg - t0
         ztc = MAX(MIN(ztc,0.0_wp),-40.0_wp)
 
@@ -835,9 +724,8 @@ SUBROUTINE cloudice (             &
         bet = mmb(1) + mmb(2)*ztc + mmb(3)*nnr + mmb(4)*ztc*nnr &
           & + mmb(5)*ztc**2 + mmb(6)*nnr**2 + mmb(7)*ztc**2*nnr &
           & + mmb(8)*ztc*nnr**2 + mmb(9)*ztc**3 + mmb(10)*nnr**3
-
-        ! Here is the exponent bms=2.0 hardwired! not ideal! (Uli Blahak)
-        m2s = qsg * rho(iv,k) / zams   ! UB rho added as bugfix
+        
+        m2s = qsg * rho(iv,k) / zams  ! assumes bms=2.0 
         m3s = alf*EXP(bet*LOG(m2s))
 
         hlp  = zn0s1*EXP(zn0s2*ztc)
@@ -856,6 +744,8 @@ SUBROUTINE cloudice (             &
       zvz0s (iv) = ccsvel*EXP(ccsvxp * LOG(zn0s(iv)))
 
       zlnqsk = zvz0s(iv) * EXP (ccswxp * LOG (zqsk(iv))) * zrho1o2(iv)
+      ! Prevent terminal fall speed of snow from being zero at the surface level
+      IF ( k == ke ) zlnqsk = MAX( zlnqsk, v_sedi_snow_min )
       zpks(iv) = zqsk (iv) * zlnqsk
 
       IF (zvzs(iv) == 0.0_wp) THEN
@@ -863,12 +753,14 @@ SUBROUTINE cloudice (             &
       ENDIF
     ENDDO loop_over_qs_prepare
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
 !DIR$ IVDEP
     loop_over_qr_sedi: DO i1d = 1, ic2
       iv = ivdx2(i1d)
 
       zlnqrk = zvz0r * EXP (zvzxp * LOG (zqrk(iv))) * zrho1o2(iv)
+      ! Prevent terminal fall speed of rain from being zero at the surface level
+      IF ( k == ke ) zlnqrk = MAX( zlnqrk, v_sedi_rain_min )
       zpkr(iv) = zqrk(iv) * zlnqrk
 
       IF (zvzr(iv) == 0.0_wp) THEN
@@ -876,7 +768,7 @@ SUBROUTINE cloudice (             &
       ENDIF
     ENDDO loop_over_qr_sedi
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
 !DIR$ IVDEP
     loop_over_qi_sedi: DO i1d = 1, ic3
       iv = ivdx3(i1d)
@@ -889,12 +781,18 @@ SUBROUTINE cloudice (             &
       ENDIF
     ENDDO loop_over_qi_sedi
 
+    ! Prevent terminal fall speeds of precip hydrometeors from being zero at the surface level
+    IF ( k == ke ) THEN
+      DO iv = iv_start, iv_end
+        zvzr(iv) = MAX( zvzr(iv), v_sedi_rain_min )
+        zvzs(iv) = MAX( zvzs(iv), v_sedi_snow_min )
+      ENDDO
+    ENDIF
 
   !----------------------------------------------------------------------------
   ! Section 3:
   !----------------------------------------------------------------------------
 
-!CDIR BEGIN COLLAPSE
     zeln7o8qrk   (:) = 0.0_wp
     zeln7o4qrk   (:) = 0.0_wp !FR
     zeln27o16qrk (:) = 0.0_wp
@@ -925,7 +823,6 @@ SUBROUTINE cloudice (             &
     ssmelt       (:) = 0.0_wp
     sev          (:) = 0.0_wp
     srfrz        (:) = 0.0_wp
-!CDIR END
 
     ic1 = 0
     ic2 = 0
@@ -941,17 +838,9 @@ SUBROUTINE cloudice (             &
 
         zqvsw_up(iv) = zqvsw(iv)
 
-#ifdef __COSMO__
-        ppg  =  p(iv,k)
-        zqvsi(iv) = fqvs( fpvsi(tg), ppg )
-        zqvsw(iv) = fqvs( fpvsw(tg), ppg )
-#endif
-
-#ifdef __ICON__
         hlp = 1._wp/(rhog * r_v * tg)
         zqvsi(iv) = sat_pres_ice(tg) * hlp
         zqvsw(iv) = sat_pres_water(tg) * hlp
-#endif
 
 
         zpkr(iv)   = MIN( zpkr(iv) , zzar(iv) )
@@ -1016,7 +905,7 @@ SUBROUTINE cloudice (             &
 
 
 ! ic1
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
     loop_over_qr: DO i1d =1, ic1
       iv = ivdx1(i1d)
 
@@ -1043,7 +932,7 @@ SUBROUTINE cloudice (             &
 
 
 ! ic2
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
 !DIR$ IVDEP
     loop_over_qs_coeffs: DO i1d =1, ic2
       iv = ivdx2(i1d)
@@ -1057,7 +946,7 @@ SUBROUTINE cloudice (             &
     ENDDO loop_over_qs_coeffs
 
 ! ic3
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
     loop_over_qi_qs: DO i1d =1, ic3
       iv = ivdx3(i1d)
 
@@ -1086,7 +975,7 @@ SUBROUTINE cloudice (             &
     ! Deposition nucleation for low temperatures below a threshold
 
 ! ic4
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
     loop_over_icenucleation: DO i1d = 1, ic4
       iv = ivdx4(i1d)
 
@@ -1111,7 +1000,7 @@ SUBROUTINE cloudice (             &
     !--------------------------------------------------------------------------
 
 ! ic5
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
     loop_over_qc: DO i1d =1, ic5
       iv = ivdx5(i1d)
 
@@ -1225,7 +1114,7 @@ SUBROUTINE cloudice (             &
       !------------------------------------------------------------------------
 
 ! also ic3
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
     loop_over_qs: DO i1d =1, ic3
       iv = ivdx3(i1d)
 
@@ -1277,8 +1166,16 @@ SUBROUTINE cloudice (             &
             zsidep = zsidep * reduce_dep(iv)  !FR new: SLW reduction
           END IF
           zsvidep = MIN( zsidep, zsvmax )
-        ELSEIF (zsidep < 0.0_wp ) THEN
-          zsvisub = - MAX(-zsimax, zsvmax )
+        ELSEIF (zsidep < 0.0_wp .AND. k < ke) THEN
+          zsvisub = - MAX(zsidep, -zsimax, zsvmax )
+        ELSE IF (zsidep < 0.0_wp) THEN ! limit precip rate rather than sublimation in order to reduce time-step dependence
+          zsvisub = - MAX(zsidep, zsvmax )
+          IF (zsvisub > zsimax) THEN
+            zzai(iv) = zsvisub/(z1orhog(iv)*zdtr)
+            zpki(iv) = MIN( zpki(iv) , zzai(iv) )
+            zqik(iv) = zzai(iv)*zimi(iv)
+            zsimax   = zsvisub
+          ENDIF
         ENDIF
         zsiau = zciau * MAX( qig - qi0, 0.0_wp ) * stickeff
         IF (llqi) THEN
@@ -1341,7 +1238,7 @@ SUBROUTINE cloudice (             &
     !--------------------------------------------------------------------------
 
 ! ic6
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
     loop_over_qr_nocloud: DO i1d =1, ic6
       iv = ivdx6(i1d)
 
@@ -1374,6 +1271,15 @@ SUBROUTINE cloudice (             &
     !            Update the prognostic variables in the interior domain.
     !--------------------------------------------------------------------------
 
+    IF (lvariable_lh) THEN
+      loop_lh : DO iv = iv_start, iv_end
+        tg  = t (iv,k)
+        zlhv(iv) = latent_heat_vaporization(tg)
+        zlhs(iv) = latent_heat_sublimation(tg) 
+      END DO loop_lh
+    END IF 
+
+
     loop_over_all_iv: DO iv = iv_start, iv_end
 
         qrg  = qr(iv,k)
@@ -1381,12 +1287,6 @@ SUBROUTINE cloudice (             &
         qig  = qi(iv,k)
         rhog = rho(iv,k)
 
-#ifdef __COSMO__
-        qvg  = qv(iv,k)
-        qcg  = qc(iv,k)
-         tg  = t (iv,k)
-        ppg  = p (iv,k)
-#endif
 
         zsrmax = zzar(iv)*z1orhog(iv)*zdtr
         zssmax = zzas(iv)*z1orhog(iv)*zdtr
@@ -1402,6 +1302,7 @@ SUBROUTINE cloudice (             &
         IF (ssdep(iv) < 0.0_wp ) THEN
           ssdep(iv) = MAX(ssdep(iv), - zssmax)
         ENDIF
+
         zqvt = sev(iv)   - sidep(iv) - ssdep(iv)  - snuc(iv)
         zqct = simelt(iv)- scau(iv)  - scfrz(iv)  - scac(iv)   - sshed(iv) - srim(iv) 
         zqit = snuc(iv)  + scfrz(iv) - simelt(iv) - sicri(iv)  + sidep(iv) - sdau(iv)            &
@@ -1409,17 +1310,7 @@ SUBROUTINE cloudice (             &
         zqrt = scau(iv)  + sshed(iv) + scac(iv)   + ssmelt(iv) - sev(iv) - srcri(iv) - srfrz(iv) 
         zqst = siau(iv)  + sdau(iv)  + sagg(iv)   - ssmelt(iv) + sicri(iv) + srcri(iv)           &
                                                                + srim(iv) + ssdep(iv) + srfrz(iv)
-        ztt = z_heat_cap_r*( lh_v*(zqct+zqrt) + lh_s*(zqit+zqst) )
-
-#ifdef __COSMO__
-        IF (lsppt) THEN
-!US how to check?          IF(ntstep>0.AND.i>=istart.and.i<=iend.and.j>=jstart.and.j<=jend) THEN
-            CALL apply_tqx_tend_adj(itype_qxpert_rn, itype_qxlim_rn, ppg,    &
-                                    tg,  qvg,  qcg,  qig,  qrg,  qsg,        &
-                    pstoph(iv,k),  ztt, zqvt, zqct, zqit, zqrt, zqst, ldum)
-!US          ENDIF
-        ENDIF
-#endif
+        ztt = z_heat_cap_r*( zlhv(iv)*(zqct+zqrt) + zlhs(iv)*(zqit+zqst) )
 
         ! Update variables and add qi to qrs for water loading 
         IF (lsedi_ice .OR. lorig_icon) THEN
@@ -1476,7 +1367,8 @@ SUBROUTINE cloudice (             &
           ! Precipitation fluxes at the ground
           prr_gsp(iv) = 0.5_wp * (qrg*rhog*zvzr(iv) + zpkr(iv))
           IF (lsedi_ice .OR. lorig_icon) THEN
-            prs_gsp(iv) = 0.5_wp * (rhog*(qsg*zvzs(iv)+qig*zvzi(iv)) + zpks(iv)+zpki(iv))
+            prs_gsp(iv) = 0.5_wp * (rhog*qsg*zvzs(iv) + zpks(iv))
+            pri_gsp(iv) = 0.5_wp * (rhog*qig*zvzi(iv) + zpki(iv))
           ELSE
             prs_gsp(iv) = 0.5_wp * (qsg*rhog*zvzs(iv) + zpks(iv))
           END IF
@@ -1525,23 +1417,6 @@ SUBROUTINE cloudice (             &
     ENDDO
   ENDIF
 
-#if defined (__COSMO__)
-  ! Do a final saturation adjustment for new values of t, qv and qc
-    CALL satad ( 1, t(:,k), qv(:,k),                  &
-               qc(:,k), t(:,k), p(:,k),               &
-               zdummy(:,1),zdummy(:,2),zdummy(:,3),   &
-               zdummy(:,4),zdummy(:,5),zdummy(:,6),   &
-               zdummy(:,7),zdummy(:,8),               &
-               b1, b2w, b3, b4w, b234w, rdv, o_m_rdv, &
-               rvd_m_o, lh_v, z_heat_cap_r, cp_d,     &
-               nvec, 1, iv_start, iv_end, 1 , 1 )
-
-  IF ( ldiabf_lh ) THEN
-    ! compute temperature increment due to latent heat
-!CDIR COLLAPSE
-    tinc_lh(:,k) = tinc_lh(:,k) + t(:,k)
-  ENDIF
-#endif
 
 ENDDO loop_over_levels
 

@@ -30,6 +30,7 @@
 !! infrastructure by Kristina Froehlich (MPI-M, 2011-04-27)
 !! Added clch, clcm, clcl, hbas_con, htop_con by Helmut Frank (DWD, 2013-01-17)
 !! Added hzerocl and gusts                    by Helmut Frank (DWD, 2013-03-13)
+!! Added LPI, MLPI and koi to t_nwp_phy_diag by Guido Schroeder (DWD, 2021-01-29)
 !!
 !! @par Copyright and License
 !!
@@ -41,7 +42,7 @@
 !!
 MODULE mo_nwp_phy_types
 
-  USE mo_kind,                ONLY: wp, vp2
+  USE mo_kind,                ONLY: wp, vp
   USE mo_fortran_tools,       ONLY: t_ptr_2d3d,t_ptr_tracer
 
   IMPLICIT NONE
@@ -90,6 +91,7 @@ MODULE mo_nwp_phy_types
     TYPE(t_ptr_2d3d),ALLOCATABLE :: tvh_t_ptr(:) !< pointer array: turbulent transfer velocity for heat
     TYPE(t_ptr_2d3d),ALLOCATABLE :: tkr_t_ptr(:) !< pointer array: turbulent reference surface diffusion coefficient
     TYPE(t_ptr_2d3d),ALLOCATABLE :: gz0_t_ptr(:) !< pointer array: roughness length * gravity
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: rlamh_fac_ptr(:) !< pointer array: scaling factor for rlam_heat
 
     TYPE(t_ptr_2d3d),ALLOCATABLE :: tvs_s_t_ptr(:)  !< pointer array: turbulent velocity scale at surface
     TYPE(t_ptr_2d3d),ALLOCATABLE :: tkvm_s_t_ptr(:) !< pointer array: exchange coefficient for momentum at surface
@@ -104,44 +106,13 @@ MODULE mo_nwp_phy_types
     TYPE(t_ptr_2d3d),ALLOCATABLE :: lhfl_bs_t_ptr(:)!< pointer array: lhf from bare soil
     TYPE(t_ptr_2d3d),ALLOCATABLE :: lhfl_pl_t_ptr(:)!< pointer array: lhf from plants
     TYPE(t_ptr_2d3d),ALLOCATABLE :: aerosol_ptr(:)  !< pointer array: prognostic vertically integrated aerosol optical depth
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: uh_max_ptr(:)   !< pointer array: max. updraft helicity in time interval
 
     REAL(wp), POINTER          &
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
       , CONTIGUOUS             &
 #endif
       &  ::                    &
-      &   rain_gsp_rate(:,:),  & !! grid-scale surface rain rate                         [kg/m2/s]
-      &   snow_gsp_rate(:,:),  & !! grid_scale surface snow rate                         [kg/m2/s]
-      &   ice_gsp_rate(:,:),   & !! grid_scale surface ice rate                          [kg/m2/s]
-      &   graupel_gsp_rate(:,:),&!! grid_scale surface graupel rate                      [kg/m2/s]
-      &   hail_gsp_rate(:,:),  & !! grid_scale surface hail rate                         [kg/m2/s]
-      &   rain_con_rate(:,:),  & !! convective surface rain rate                         [kg/m2/s]
-      &   snow_con_rate(:,:),  & !! convective surface snow_rate                         [kg/m2/s]
-      &   rain_con_rate_3d(:,:,:),  & !! 3d convective rain rate (convection scheme)     [kg/m2/s]
-      &   snow_con_rate_3d(:,:,:),  & !! 3d convective snow_rate (convection scheme)     [kg/m2/s]
-      &   rain_edmf_rate_3d(:,:,:), & !! 3d convective rain rate (EDMF scheme)           [kg/m2/s]
-      &   snow_edmf_rate_3d(:,:,:), & !! 3d convective snow_rate (EDMF scheme)           [kg/m2/s]
-      &   rain_gsp(:,:),       & !! accumulated grid-scale surface rain                  [kg/m2]
-      &   snow_gsp(:,:),       & !! accumulated grid_scale surface snow                  [kg/m2]
-      &   ice_gsp(:,:),        & !! accumulated grid_scale surface ice                   [kg/m2]
-      &   hail_gsp(:,:),       & !! accumulated grid_scale surface hail                  [kg/m2]
-      &   graupel_gsp(:,:),    & !! accumulated grid_scale surface graupel               [kg/m2]
-      &   rain_con(:,:),       & !! accumulated convective surface rain                  [kg/m2]
-      &   snow_con(:,:),       & !! accumulated convective surface snow                  [kg/m2]
-      &   tot_prec(:,:),       & !! accumulated grid-scale plus convective surface       [kg/m2]
-                                 !! total precipitation
-      &   tot_prec_rate_avg(:,:),   & !! average since model start of                    [kg/m2/s]
-                                 !! grid-scale plus convective surface 
-                                 !! total precipitation rate
-      &   con_prec_rate_avg(:,:),   & !! average since model start of                    [kg/m2/s]
-                                 !! convective surface precipitation rate
-      &   gsp_prec_rate_avg(:,:),   & !! average since model start of                    [kg/m2/s]
-                                 !! grid-scale surface precipitation rate
-!     the following precipitation variables *0 are accumulated only to the previous call of ww_diagnostics
-      &   rain_gsp0(:,:),      & !! accumulated grid-scale surface rain                  [kg/m2]
-      &   snow_gsp0(:,:),      & !! accumulated grid_scale surface snow                  [kg/m2]
-      &   rain_con0(:,:),      & !! accumulated convective surface rain                  [kg/m2]
-      &   snow_con0(:,:),      & !! accumulated convective surface snow                  [kg/m2]
       &   acdnc(:,:,:),        & !! cloud droplet number concentration                   [1/m**3]
       &   cloud_num(:,:),      & !! 2D cloud droplet number concentration for simple aerosol-cloud coupling [1/m**3]
       &   cape    (:,:),       & !! convective available energy
@@ -201,10 +172,21 @@ MODULE mo_nwp_phy_types
       &  albdif_t(:,:,:),      & !! tile-based shortwave albedo for diffuse radiation  (0.3-5.0um)
       &  albvisdif_t(:,:,:),   & !! tile-based UV visible albedo for diffuse radiation (0.3-0.7um)
       &  albnirdif_t(:,:,:),   & !! tile-based near IR albedo for diffuse radiation (0.3-0.7um)
+      &  lw_emiss(:,:),        & !! Longwave emissivity with corrections for deserts and snow cover
       &  vio3(:,:),            & !! vertically integrated ozone amount (Pa O3)
       &  hmo3(:,:),            & !! height of O3 maximum (Pa)
       &  flxdwswtoa(:,:),      & !! downward shortwave flux at TOA [W/m2]
       &  tsfctrad(:,:),        & !! surface temperature at trad [K]
+
+      &  lwflx_up(:,:,:),      & !! longwave  3D upward   flux            [W/m2]
+      &  lwflx_dn(:,:,:),      & !! longwave  3D downward flux            [W/m2]
+      &  swflx_up(:,:,:),      & !! shortwave 3D upward   flux            [W/m2]
+      &  swflx_dn(:,:,:),      & !! shortwave 3D downward flux            [W/m2]
+      &  lwflx_up_clr(:,:,:),  & !! longwave  3D upward   flux clear-sky  [W/m2]
+      &  lwflx_dn_clr(:,:,:),  & !! longwave  3D downward flux clear-sky  [W/m2]
+      &  swflx_up_clr(:,:,:),  & !! shortwave 3D upward   flux clear-sky  [W/m2]
+      &  swflx_dn_clr(:,:,:),  & !! shortwave 3D downward flux clear-sky  [W/m2]
+
       &  lwflxall(:,:,:),      & !! longwave net flux           [W/m2]
       &  lwflxsfc(:,:),        & !! longwave net flux at surface [W/m2]
       &  lwflx_up_sfc(:,:),    & !! longwave upward flux at surface [W/m2]
@@ -212,6 +194,8 @@ MODULE mo_nwp_phy_types
       &  lwflxsfc_t(:,:,:),    & !! tile-based longwave net flux at surface [W/m2]
       &  trsolall(:,:,:),      & !! shortwave net tranmissivity (i.e. net flux normalized by irradiance) []
       &  trsolclr_sfc(:,:),    & !! clear-sky shortwave net tranmissivity at the surface
+      &  swflxclr_sfc(:,:),    & !! clear-sky shortwave net flux at the surface
+      &  lwflxclr_sfc(:,:),    & !! clear-sky longwave net flux at the surface
       &  trsol_up_toa(:,:),    & !! normalized shortwave upward flux at the top of the atmosphere
       &  trsol_up_sfc(:,:),    & !! normalized shortwave upward flux at the surface
       &  trsol_par_sfc(:,:),   & !! normalized downward photosynthetically active flux at the surface
@@ -225,14 +209,18 @@ MODULE mo_nwp_phy_types
       &  swflxsfc(:,:),        & !! shortwave net flux at surface [W/m2]
       &  swflxsfc_t(:,:,:),    & !! tile-based shortwave net flux at surface [W/m2]
       &  swflxtoa(:,:),        & !! shortwave net flux at toa [W/m2]
+      &  lwflxtoa(:,:),        & !! thermal net flux at toa [W/m2]
       &  lwflxsfc_a(:,:),      & !! Surface net thermal radiation [W/m2], accumulated or mean since model start
       &  swflxsfc_a(:,:),      & !! Surface net solar radiation [W/m2], accumulated or mean since model start
+      &  lwflxclrsfc_a(:,:),   & !! Clear-sky surface net thermal radiation [W/m2], accumulated or mean since model start
+      &  swflxclrsfc_a(:,:),   & !! Clear-sky surface net solar radiation [W/m2], accumulated or mean since model start
       &  lwflxtoa_a(:,:),      & !! TOA net thermal radiation [W/m2], accumulated or mean since model start
       &  swflxtoa_a(:,:),      & !! shortwave net flux at toa [W/m2], accumulated or mean since model start
       &  asod_t    (:,:),      & !! Top down solar radiation  [W/m2], accumulated or mean since model start
       &  asou_t    (:,:),      & !! Top up solar radiation  [W/m2], accumulated or mean since model start
       &  athd_s    (:,:),      & !! Surface down thermal radiation [W/m2], accumulated or mean since model start
       &  athu_s    (:,:),      & !! Surface up thermal radiation [W/m2], accumulated or mean since model start
+      &  asod_s    (:,:),      & !! Surface down solar rad. [W/m2], accumulated or mean since model start 
       &  asodird_s (:,:),      & !! Surface down solar direct rad. [W/m2], accumulated or mean since model start 
       &  asodifd_s (:,:),      & !! Surface down solar diff. rad. [W/m2], accumulated or mean since model start 
       &  asodifu_s (:,:),      & !! Surface up solar diff. rad. [W/m2], accumulated or mean since model start 
@@ -249,9 +237,64 @@ MODULE mo_nwp_phy_types
       &  astr_v_sso  (:,:),    & !! meridional sso surface stress, accumulated or mean since model start
       &  lhn_diag (:,:,:),     & !! diagnostic output fields of LHN
       &  tt_lheat (:,:,:),     & !! latent heat release
-      &  ttend_lhn (:,:,:),     & !! temperature increment of LHN
+      &  ttend_lhn (:,:,:),    & !! temperature increment of LHN
+      &  qvtend_lhn (:,:,:),   & !! moisture increment of LHN
       &  qrs_flux (:,:,:)        !! precipitation flux
 
+    !> Precipitation fields
+    REAL(wp), POINTER          &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      , CONTIGUOUS             &
+#endif
+      &  ::                    &
+      !  Instantaneuous precipitation rates [kg/m2/s]
+      !  grid scale
+      &  rain_gsp_rate    (:,:),  & !! grid-scale surface rain rate                    [kg/m2/s]
+      &  snow_gsp_rate    (:,:),  & !! grid_scale surface snow rate                    [kg/m2/s]
+      &  ice_gsp_rate     (:,:),  & !! grid_scale surface ice rate                     [kg/m2/s]
+      &  graupel_gsp_rate (:,:),  & !! grid_scale surface graupel rate                 [kg/m2/s]
+      &  hail_gsp_rate    (:,:),  & !! grid_scale surface hail rate                    [kg/m2/s]
+      !  convective
+      &  rain_con_rate    (:,:),  & !! convective surface rain rate                    [kg/m2/s]
+      &  snow_con_rate    (:,:),  & !! convective surface snow_rate                    [kg/m2/s]
+      &  rain_con_rate_3d (:,:,:),& !! 3d convective rain rate (convection scheme)     [kg/m2/s]
+      &  snow_con_rate_3d (:,:,:),& !! 3d convective snow_rate (convection scheme)     [kg/m2/s]
+      &  rain_edmf_rate_3d(:,:,:),& !! 3d convective rain rate (EDMF scheme)           [kg/m2/s]
+      &  snow_edmf_rate_3d(:,:,:),& !! 3d convective snow_rate (EDMF scheme)           [kg/m2/s]
+      !
+      ! Instantaneous grid scale precipitation rate [kg/m2/s] (sum over gsp hydromets):
+      &  prec_gsp_rate    (:,:),  & !! total surface precipitation rate                [kg/m2/s]
+      !
+      ! Instantaneous total precipitation rate [kg/m2/s] (sum of gsp + con hydromets):
+      &  tot_prec_rate    (:,:),  & !! total surface precipitation rate                [kg/m2/s]
+      !
+      !  Integrated instantaneous rates since model start (precipitation amount) [kg/m2]
+      !  grid scale
+      &  rain_gsp         (:,:),  & !! accumulated grid-scale surface rain             [kg/m2]
+      &  snow_gsp         (:,:),  & !! accumulated grid_scale surface snow             [kg/m2]
+      &  ice_gsp          (:,:),  & !! accumulated grid_scale surface ice              [kg/m2]
+      &  hail_gsp         (:,:),  & !! accumulated grid_scale surface hail             [kg/m2]
+      &  graupel_gsp      (:,:),  & !! accumulated grid_scale surface graupel          [kg/m2]
+      &  prec_gsp         (:,:),  & !! accumulated grid scale precipitation            [kg/m2]
+      !  convective
+      &  rain_con         (:,:),  & !! accumulated convective surface rain             [kg/m2]
+      &  snow_con         (:,:),  & !! accumulated convective surface snow             [kg/m2]
+      &  prec_con         (:,:),  & !! accumulated convective precipitation            [kg/m2]
+      !  total
+      &  tot_prec         (:,:),  & !! accumulated total precipitation                 [kg/m2]
+                                     !! (grid-scale plus convective)
+      !
+      !  Time averaged precipitation rates since model start [kg/m2/s]
+      &  prec_con_rate_avg(:,:),  & !! time averaged convective precipitation rate    [kg/m2/s]
+      &  prec_gsp_rate_avg(:,:),  & !! time averaged grid-scale precipitation rate    [kg/m2/s]
+      &  tot_prec_rate_avg(:,:),  & !! time averaged total precipitation rate         [kg/m2/s]
+
+      !  Auxiliary variables for ww_diagnostics
+      !  Precipitation variables *0 are accumulated only to the previous call of ww_diagnostics
+      &  rain_gsp0        (:,:),  & !! accumulated grid-scale surface rain            [kg/m2]
+      &  snow_gsp0        (:,:),  & !! accumulated grid_scale surface snow            [kg/m2]
+      &  rain_con0        (:,:),  & !! accumulated convective surface rain            [kg/m2]
+      &  snow_con0        (:,:)     !! accumulated convective surface snow            [kg/m2]
 
 
     !> Parameter fields for turbulence
@@ -271,6 +314,7 @@ MODULE mo_nwp_phy_types
       tkr(:,:)        ,    & !! turbulent reference surface diffusion coeff.  (m2/s) (Ustar*kap*z0)
       tkred_sfc(:,:)  ,    & !! reduction factor for minimum diffusion coefficients near the surface
       pat_len(:,:)    ,    & !! length scale of sub-grid scale roughness elements (m)
+      rlamh_fac_t(:,:,:),  & !! tuning factor for laminar transfer resistance (rlam_heat)
       gz0(:,:),            & !! roughness length * g of the vertically not
                              !! resolved canopy                               (m2/s2)
       tkvm(:,:,:),         & !! turbulent diffusion coefficients for momentum (m/s2 )
@@ -279,6 +323,8 @@ MODULE mo_nwp_phy_types
       t_2m_land(:,:)  ,    & !! temperature in 2m (land tiles only)           (  K  )
       tmax_2m(:,:)    ,    & !! maximum temperature in 2m (for specified timerange) ( K )
       tmin_2m(:,:)    ,    & !! minimum temperature in 2m (for specified timerange) ( K )
+      t_tilemax_inst_2m(:,:), & !! instantaneous 2m temperature; maximum over tiles (  K  )
+      t_tilemin_inst_2m(:,:), & !! instantaneous 2m temperature; minimum over tiles (  K  )
       qv_2m (:,:)     ,    & !! specific water vapor content in 2m            (kg/kg)
       td_2m (:,:)     ,    & !! dew-point in 2m                               (  K  )
       rh_2m (:,:)     ,    & !! relative humidity in 2m                       (  %  )
@@ -314,7 +360,13 @@ MODULE mo_nwp_phy_types
                              !! a means average values if lflux_avg=.TRUE.
                              !! and accumulated values if lflux_avg=.FALSE., default is .FALSE.
       qcfl_s(:,:)      ,   & !! cloud water turbulent deposition flux         (kg/m2/s)
-      qifl_s(:,:)            !! cloud ice turbulent deposition flux           (kg/m2/s)
+      qifl_s(:,:)      ,   & !! cloud ice turbulent deposition flux           (kg/m2/s)
+      reff_qc(:,:,:)   ,   & !! effective radius of cloud water               (m)
+      reff_qi(:,:,:)   ,   & !! effective radius of cloud ice                 (m)
+      reff_qr(:,:,:)   ,   & !! effective radius of cloud rain                (m)
+      reff_qs(:,:,:)   ,   & !! effective radius of cloud snow                (m)
+      reff_qg(:,:,:)   ,   & !! effective radius of cloud graupel             (m)
+      reff_qh(:,:,:)         !! effective radius of cloud hail                (m)
 
     ! need only for EDMF
     REAL(wp), POINTER       &
@@ -356,6 +408,7 @@ MODULE mo_nwp_phy_types
       , CONTIGUOUS          &
 #endif
       & ::                  &
+      & pref_aerdis(:,:),   &
       & aercl_ss  (:,:),    &
       & aercl_or  (:,:),    &
       & aercl_bc  (:,:),    &
@@ -379,6 +432,8 @@ MODULE mo_nwp_phy_types
                               !< of the standard atmosphere 800hPa level above ground
       &  k400    (:,:),     & !< level index that corresponds to the height 
                               !< of the standard atmosphere 400hPa level above ground
+      &  k700    (:,:),     & !< level index that corresponds to the height 
+                              !< of the standard atmosphere 700hPa level above ground
       &  ktop_envel(:,:),   & !< level index of upper boundary of SSO envelope layer
       &  iww     (:,:)        !< significant weather
 
@@ -394,10 +449,35 @@ MODULE mo_nwp_phy_types
       & ldshcv    (:,:)       !< shallow convection indicator
 
     !> (Optional:) Additional diagnostic fields:
-    REAL(wp), POINTER ::  &
-      rh(:,:,:),          &   !> relative humidity
-      pv(:,:,:)               !> potential vorticity
-
+    REAL(wp), POINTER ::   &
+      rh(:,:,:),           & !> relative humidity
+      pv(:,:,:),           & !> potential vorticity
+      sdi2(:,:),           & !> supercell detection index (SDI2)
+      lpi(:,:),            & !> lightning potential index (LPI)
+      lpi_max(:,:),        & !> lightning potential index, maximum (LPI_MAX)
+      koi(:,:),            & !> KOI (stability measure - equivalent potential temperature difference
+      lpi_con(:,:),        & !> LPI computed with convection scheme variables
+      lpi_con_max(:,:),    & !> Maximum of LPI
+      mlpi_con(:,:),       & !> modified LPI (making use of KOI)
+      mlpi_con_max(:,:),   & !> maximum of modified LPI (making use of KOI)
+      lfd_con(:,:),        & !> lightening flash density computed with convection scheme variables
+      lfd_con_max(:,:),    & !> maximum of LFD
+      ceiling_height(:,:), & !> ceiling height
+      hbas_sc(:,:),        & !> height of base above MSL from shallow convection parameterization
+      htop_sc(:,:),        & !> height of top  above MSL from shallow convection parameterization
+      twater(:,:),         & !> Total column integrated water
+      q_sedim(:,:,:),      & !> Specific content of precipitation particles
+      tcond_max(:,:),      & !< Total column-integrated condensate
+      tcond10_max(:,:),    & !< Total column-integrated condensate above z(T=-10 degC) 
+      uh_max_3d(:,:,:),    & !< Updraft helicity (integrated over different vertical layers)
+      vorw_ctmax(:,:),     & !< Maximum rotation amplitude
+      w_ctmax(:,:),        & !< Maximum updraft track
+      dbz3d_lin(:,:,:),    & !< Radar reflectivity 3D in linear units mm^6/m^3
+      dbz_850(:,:),        & !< Radar reflectivity in approx. 850 hPa
+      dbz_cmax(:,:),       & !< Column maximum radar reflectivity
+      dbz_ctmax(:,:),      & !< Column and time maximum radar reflectivity
+      echotop(:,:,:),      & !< Echotop pressure in p
+      echotopinm(:,:,:)      !< Echotop altitude in m MSL
 
     ! Buffer field needed when vertical nesting is combined with a reduced radiation
     ! grid and latm_above_top = .TRUE.
@@ -440,16 +520,16 @@ MODULE mo_nwp_phy_types
       ddt_tracer_pconv(:,:,:,:),& !! Hydromet-tendency from convective prec
       ddt_tke_pconv   (:,:,:)  ,& !! TKE tendency from convective prec
       ddt_tke_hsh     (:,:,:)  ,& !! TKE tendency from horizontal shear
+      ddt_tracer_gscp (:,:,:,:),& !! Hydromet-tendency from microphysics
       ddt_tke         (:,:,:)     !! tendency for turbulent velocity scale [m/s^2]
 
-    REAL(vp2), POINTER           &
+    REAL(vp), POINTER           &
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
       , CONTIGUOUS              &
 #endif
       ::                        &
       ddt_temp_drag   (:,:,:)  ,& !! Temp-tendency from sso + gravity-wave drag + Rayleigh friction
       ddt_temp_pconv  (:,:,:)  ,& !! Temp-tendency from convective prec
-      ddt_tracer_gscp (:,:,:,:),& !! Hydromet-tendency from microphysics
       ddt_u_gwd       (:,:,:)  ,& !! ZonalW-tendency from gravity wave drag
       ddt_u_sso       (:,:,:)  ,& !! ZonalW-tendency from sso drag
       ddt_v_gwd       (:,:,:)  ,& !! MeridW-tendency from gravity wave drag

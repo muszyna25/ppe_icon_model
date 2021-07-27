@@ -32,6 +32,9 @@ MODULE mo_delaunay_types
   USE mo_impl_constants,    ONLY: SUCCESS
   USE mo_kind,              ONLY: wp
   USE mo_mpi,               ONLY: p_comm_work, p_real_dp
+#ifdef __SX__
+  USE mo_util_sort,         ONLY: radixsort
+#endif
   IMPLICIT NONE
   INCLUDE 'netcdf.inc'
   
@@ -55,7 +58,7 @@ MODULE mo_delaunay_types
   ! quadruple precision, needed for some determinant computations
 #if ( defined __PGI )
   INTEGER, PARAMETER :: QR_K = SELECTED_REAL_KIND (precision(1.0_wp))
-#elif ( ! defined NAGFOR && ! defined __SX__ )
+#elif ( ! defined NAGFOR && ! defined _SX )
   INTEGER, PARAMETER :: QR_K = SELECTED_REAL_KIND (32)
 #else
   INTEGER, PARAMETER :: QR_K = SELECTED_REAL_KIND (2*precision(1.0_wp))
@@ -143,6 +146,9 @@ MODULE mo_delaunay_types
     PROCEDURE :: push_back  => push_back_point_list
     PROCEDURE :: sync       => sync_point_list
     PROCEDURE, PUBLIC :: quicksort  => quicksort_point_list
+#ifdef __SX__
+    PROCEDURE, PUBLIC :: radixsort => radixsort_point_list
+#endif
   END TYPE t_point_list
 
   !> type declaration: list of triangles
@@ -968,6 +974,30 @@ CONTAINS
     END IF
   END SUBROUTINE quicksort_sortable_list
 
+#ifdef __SX__
+  ! Wrapper for NEC's vecorized radix sort algorithm
+  SUBROUTINE radixsort_point_list(this)
+    CLASS(t_point_list), INTENT(INOUT) :: this
+    TYPE(t_point) :: tmp(size(this%a))
+    REAL(wp) :: ps_arr(size(this%a))
+    INTEGER :: co_arr(size(this%a))
+    INTEGER :: n, i
+
+    n = size(this%a)
+
+    DO i=1,n
+      ps_arr(i) = this%a(i-1)%ps
+      tmp(i) = this%a(i-1)
+    END DO
+
+    CALL radixsort(ps_arr,co_arr)
+
+    DO i=1,n
+      this%a(i-1) = tmp(co_arr(i))
+    END DO
+
+  END SUBROUTINE radixsort_point_list
+#endif
 
   ! --------------------------------------------------------------------
   !> Simple recursive implementation of Hoare's QuickSort algorithm
@@ -1032,9 +1062,9 @@ CONTAINS
 #if (!defined(NOMPI))
     CHARACTER(*), PARAMETER :: routine = modname//":sync_point_list"
     INTEGER                        :: ierr, mpi_t_point, local_nentries, global_nentries, mpi_comm,    &
-      &                               oldtypes(2), blockcounts(2), ierrstat, extent, nranks, i, irank, &
+      &                               oldtypes(2), blockcounts(2), ierrstat, nranks, i, irank, &
       &                               this_start, this_end
-    INTEGER(MPI_ADDRESS_KIND)      :: offsets(2)
+    INTEGER(MPI_ADDRESS_KIND)      :: offsets(2), typeLB, extent
     INTEGER, ALLOCATABLE           :: recv_count(:), recv_displs(:)
     TYPE(t_mpi_point), ALLOCATABLE :: tmp(:), recv_tmp(:)
     LOGICAL                        :: lsync_gindex
@@ -1070,7 +1100,7 @@ CONTAINS
     offsets(1)     = 0_MPI_ADDRESS_KIND
     oldtypes(1)    = p_real_dp
     blockcounts(1) = 4 
-    CALL MPI_TYPE_EXTENT(p_real_dp, extent, ierr) 
+    CALL MPI_TYPE_GET_EXTENT(p_real_dp, typeLB, extent, ierr) 
     offsets(2)     = 4*extent
     oldtypes(2)    = MPI_INTEGER
     blockcounts(2) = 2
@@ -1402,28 +1432,31 @@ CONTAINS
       IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
                
       IF (irank == root_pe) THEN
-        IF (global_nentries > 0) THEN
-          ALLOCATE(kway_merge_array_out(0:global_nentries-1), STAT=ierrstat)
-        ELSE
-          ALLOCATE(kway_merge_array_out(0:0), STAT=ierrstat)
-        END IF
-        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+        ! NEC_RP exclude processes without local data from kway_merge
+        IF (local_nentries > 0) THEN
+          IF (global_nentries > 0) THEN
+            ALLOCATE(kway_merge_array_out(0:global_nentries-1), STAT=ierrstat)
+          ELSE
+            ALLOCATE(kway_merge_array_out(0:0), STAT=ierrstat)
+          END IF
+          IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
       
-        ! perform a k-way merging of the sorted arrays from the k MPI
-        ! processes, merge this to "count" entries.
-        CALL kway_merge(recv_tmp, recv_count, kway_merge_array_out, count)
+          ! perform a k-way merging of the sorted arrays from the k MPI
+          ! processes, merge this to "count" entries.
+          CALL kway_merge(recv_tmp, recv_count, kway_merge_array_out, count)
 
-        DEALLOCATE(recv_tmp, recv_count, recv_displs, STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+          DEALLOCATE(recv_tmp, recv_count, recv_displs, STAT=ierrstat)
+          IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
 
-        CALL this%resize(count)
-        IF (this%nentries > 0) THEN
-          this%a(0:(this%nentries-1))%p(0) = kway_merge_array_out(0:(this%nentries-1))%p%p(0)
-          this%a(0:(this%nentries-1))%p(1) = kway_merge_array_out(0:(this%nentries-1))%p%p(1)
-          this%a(0:(this%nentries-1))%p(2) = kway_merge_array_out(0:(this%nentries-1))%p%p(2)
+          CALL this%resize(count)
+          IF (this%nentries > 0) THEN
+            this%a(0:(this%nentries-1))%p(0) = kway_merge_array_out(0:(this%nentries-1))%p%p(0)
+            this%a(0:(this%nentries-1))%p(1) = kway_merge_array_out(0:(this%nentries-1))%p%p(1)
+            this%a(0:(this%nentries-1))%p(2) = kway_merge_array_out(0:(this%nentries-1))%p%p(2)
+          END IF
+          DEALLOCATE(kway_merge_array_out, STAT=ierrstat)
+          IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
         END IF
-        DEALLOCATE(kway_merge_array_out, STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
       ELSE
         DEALLOCATE(recv_tmp, STAT=ierrstat)
         IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")

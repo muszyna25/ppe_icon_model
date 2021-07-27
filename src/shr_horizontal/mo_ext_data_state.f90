@@ -37,22 +37,21 @@
 MODULE mo_ext_data_state
 
   USE mo_kind,               ONLY: wp
-  USE mo_impl_constants,     ONLY: inwp, iecham, MODIS, ildf_echam,                &
-    &                              ihs_atm_temp, ihs_atm_theta, io3_clim, io3_ape, &
+  USE mo_impl_constants,     ONLY: inwp, MODIS, io3_clim, io3_ape,                 &
     &                              HINTP_TYPE_LONLAT_NNB, MAX_CHAR_LENGTH,         &
     &                              SSTICE_ANA, SSTICE_ANA_CLINC, SSTICE_CLIM,      &
-    &                              SSTICE_AVG_MONTHLY, SSTICE_AVG_DAILY
+    &                              SSTICE_AVG_MONTHLY, SSTICE_AVG_DAILY,           & 
+    &                              SSTICE_INST
   USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL
   USE mo_exception,          ONLY: message, finish
   USE mo_model_domain,       ONLY: t_patch
   USE mo_ext_data_types,     ONLY: t_external_data, t_external_atmos_td, &
     &                              t_external_atmos
-  USE mo_linked_list,        ONLY: t_var_list
   USE mo_var_groups,         ONLY: groups
   USE mo_var_metadata_types, ONLY: POST_OP_SCALE, POST_OP_LUC, CLASS_TILE
   USE mo_var_metadata,       ONLY: post_op, create_hor_interp_metadata
-  USE mo_var_list,           ONLY: new_var_list, delete_var_list, add_var, add_ref, &
-    &                              default_var_list_settings
+  USE mo_var_list_register,  ONLY: vlr_add, vlr_del
+  USE mo_var_list,           ONLY: add_var, add_ref, t_var_list_ptr
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var, grib2_var, t_grib2_int_key, &
     &                              OPERATOR(+)
@@ -60,16 +59,18 @@ MODULE mo_ext_data_state
   USE mo_io_config,          ONLY: lnetcdf_flt64_output
   USE mo_grid_config,        ONLY: n_dom
   USE mo_run_config,         ONLY: iforcing
-  USE mo_dynamics_config,    ONLY: iequations
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_water, llake, &
     &                              sstice_mode
   USE mo_radiation_config,   ONLY: irad_o3, albedo_type
-  USE mo_extpar_config,      ONLY: i_lctype, nclass_lu, nmonths_ext, itype_vegetation_cycle
+  USE mo_extpar_config,      ONLY: i_lctype, nclass_lu, nmonths_ext, itype_vegetation_cycle, itype_lwemiss
   USE mo_cdi,                ONLY: DATATYPE_PACK16, DATATYPE_FLT32, DATATYPE_FLT64, &
     &                              TSTEP_CONSTANT, TSTEP_MAX, TSTEP_AVG,            &
     &                              GRID_UNSTRUCTURED
   USE mo_zaxis_type,         ONLY: ZA_REFERENCE, ZA_LAKE_BOTTOM, ZA_SURFACE, &
     &                              ZA_HEIGHT_2M, ZA_PRESSURE
+
+#include "add_var_acc_macro.inc"
+
 
   IMPLICIT NONE
 
@@ -137,8 +138,11 @@ CONTAINS
     CALL message (TRIM(routine), 'Construction of data structure for ' // &
       &                          'external data started')
 
+    !$ACC ENTER DATA COPYIN(ext_data)
+
     ! Build external data list for constant-in-time fields for the atm model
     DO jg = 1, n_dom
+      !$ACC ENTER DATA COPYIN(ext_data(jg)%atm)
       WRITE(listname,'(a,i2.2)') 'ext_data_atm_D',jg
       CALL new_ext_data_atm_list(p_patch(jg), ext_data(jg)%atm,       &
         &                        ext_data(jg)%atm_list, TRIM(listname))
@@ -182,7 +186,7 @@ CONTAINS
     TYPE(t_external_atmos), INTENT(INOUT):: & !< current external data structure
       &  p_ext_atm
 
-    TYPE(t_var_list)      , INTENT(INOUT):: p_ext_atm_list !< current external data list
+    TYPE(t_var_list_ptr)      , INTENT(INOUT):: p_ext_atm_list !< current external data list
 
     CHARACTER(len=*)      , INTENT(IN)   :: & !< list name
       &  listname
@@ -255,6 +259,7 @@ CONTAINS
       &     p_ext_atm%gamso_lk,        &
       &     p_ext_atm%sso_stdh,        &
       &     p_ext_atm%sso_stdh_raw,    &
+      &     p_ext_atm%l_pat,           &
       &     p_ext_atm%sso_gamma,       &
       &     p_ext_atm%sso_theta,       &
       &     p_ext_atm%sso_sigma,       &
@@ -274,17 +279,14 @@ CONTAINS
       &     p_ext_atm%rootdp_t,        &
       &     p_ext_atm%for_e,           &
       &     p_ext_atm%for_d,           &
+      &     p_ext_atm%skinc,           &
+      &     p_ext_atm%skinc_t,         &
       &     p_ext_atm%rsmin,           &
       &     p_ext_atm%rsmin2d_t,       &
       &     p_ext_atm%ndvi_max,        &
       &     p_ext_atm%ndviratio,       &
-      &     p_ext_atm%idx_lst_lp,      &
-      &     p_ext_atm%idx_lst_sp,      &
-      &     p_ext_atm%idx_lst_fp,      &
       &     p_ext_atm%idx_lst_lp_t,    &
       &     p_ext_atm%idx_lst_t,       &
-      &     p_ext_atm%idx_lst_spw,     &
-      &     p_ext_atm%idx_lst_spi,     &
       &     p_ext_atm%snowtile_flag_t, &
       &     p_ext_atm%lc_class_t,      &
       &     p_ext_atm%lc_frac_t,       &
@@ -299,17 +301,13 @@ CONTAINS
       &     p_ext_atm%albuv_dif,       &
       &     p_ext_atm%albni_dif,       &
       &     p_ext_atm%lsm_ctr_c,       &
-      &     p_ext_atm%elevation_c,     &
-      &     p_ext_atm%emis_rad         )
+      &     p_ext_atm%elevation_c      )
 
 
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( p_ext_atm_list, TRIM(listname), patch_id=p_patch%id )
-    CALL default_var_list_settings( p_ext_atm_list,            &
-                                  & lrestart=.FALSE.  )
-
+    CALL vlr_add(p_ext_atm_list, TRIM(listname), patch_id=p_patch%id, lrestart=.FALSE.)
 
     ! topography height at cell center
     !
@@ -387,7 +385,8 @@ CONTAINS
       CALL add_var( p_ext_atm_list, 'llsm_atm_c', p_ext_atm%llsm_atm_c, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,        &
         &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,       &
-        &           isteptype=TSTEP_CONSTANT )
+        &           isteptype=TSTEP_CONSTANT, lopenacc=.TRUE.           )
+        __acc_attach(p_ext_atm%llsm_atm_c)
 
       ! llake_c    p_ext_atm%llake_c(nproma,nblks_c)
       cf_desc    = t_cf_var('lake_mask_(cell)', '-', &
@@ -408,14 +407,16 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
         &           isteptype=TSTEP_CONSTANT,                       &
-        &           in_group=groups("dwd_fg_sfc_vars") )
+        &           in_group=groups("dwd_fg_sfc_vars","mode_iniana"),&
+        &           lopenacc=.TRUE. )
+      __acc_attach(p_ext_atm%fr_land)
 
 
       ! glacier fraction
       !
       ! fr_glac      p_ext_atm%fr_glac(nproma,nblks_c)
       cf_desc    = t_cf_var('glacier_area_fraction', '-', 'Fraction glacier', datatype_flt)
-      grib2_desc = grib2_var( 2, 0, 192, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'fr_glac', p_ext_atm%fr_glac,   &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE. )
@@ -467,7 +468,8 @@ CONTAINS
       CALL add_var( p_ext_atm_list, 'fr_lake', p_ext_atm%fr_lake,   &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,   &
-        &           isteptype=TSTEP_CONSTANT )
+        &           isteptype=TSTEP_CONSTANT, lopenacc=.TRUE. )
+        __acc_attach(p_ext_atm%fr_lake)
 
 
       ! lake depth
@@ -479,7 +481,8 @@ CONTAINS
       CALL add_var( p_ext_atm_list, 'depth_lk', p_ext_atm%depth_lk, &
         &           GRID_UNSTRUCTURED_CELL, ZA_LAKE_BOTTOM, cf_desc,&
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
-        &           isteptype=TSTEP_CONSTANT )
+        &           isteptype=TSTEP_CONSTANT, lopenacc=.TRUE. )
+      __acc_attach(p_ext_atm%depth_lk)
 
       IF (llake) THEN
 
@@ -489,7 +492,8 @@ CONTAINS
         CALL add_var( p_ext_atm_list, 'fetch_lk', p_ext_atm%fetch_lk, &
           &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
           &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
-          &           isteptype=TSTEP_CONSTANT )
+          &           isteptype=TSTEP_CONSTANT, lopenacc=.TRUE. )
+          __acc_attach(p_ext_atm%fetch_lk)
 
 
         ! dp_bs_lk     p_ext_atm%dp_bs_lk(nproma,nblks_c)
@@ -499,7 +503,8 @@ CONTAINS
         CALL add_var( p_ext_atm_list, 'dp_bs_lk', p_ext_atm%dp_bs_lk, &
           &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
           &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
-          &           isteptype=TSTEP_CONSTANT )
+          &           isteptype=TSTEP_CONSTANT, lopenacc=.TRUE. )
+          __acc_attach(p_ext_atm%dp_bs_lk)
 
 
         ! t_bs_lk     p_ext_atm%t_bs_lk(nproma,nblks_c)
@@ -510,7 +515,8 @@ CONTAINS
         CALL add_var( p_ext_atm_list, 't_bs_lk', p_ext_atm%t_bs_lk,   &
           &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
           &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
-          &           isteptype=TSTEP_CONSTANT )
+          &           isteptype=TSTEP_CONSTANT, lopenacc=.TRUE. )
+          __acc_attach(p_ext_atm%t_bs_lk)
 
 
         ! gamso_lk     p_ext_atm%gamso_lk(nproma,nblks_c)
@@ -521,7 +527,8 @@ CONTAINS
         CALL add_var( p_ext_atm_list, 'gamso_lk', p_ext_atm%gamso_lk, &
           &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
           &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
-          &           isteptype=TSTEP_CONSTANT )
+          &           isteptype=TSTEP_CONSTANT, lopenacc=.TRUE. )
+          __acc_attach(p_ext_atm%gamso_lk)
 
       ENDIF
 
@@ -540,8 +547,8 @@ CONTAINS
       CALL add_var( p_ext_atm_list, 'sso_stdh', p_ext_atm%sso_stdh, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
-        &           isteptype=TSTEP_CONSTANT )
-
+        &           isteptype=TSTEP_CONSTANT , lopenacc=.TRUE.)
+      __acc_attach(p_ext_atm%sso_stdh)
 
       ! field derived from sso_stdh used for pat_len in turbulence scheme
       ! for the time being, it is the same as sso_stdh except for not being adjusted to orography smoothing
@@ -553,8 +560,19 @@ CONTAINS
       CALL add_var( p_ext_atm_list, 'sso_stdh_raw', p_ext_atm%sso_stdh_raw, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
-        &           isteptype=TSTEP_CONSTANT )
+        &           isteptype=TSTEP_CONSTANT, lopenacc=.TRUE. )
+      __acc_attach(p_ext_atm%sso_stdh_raw)
 
+      ! effective length scale of circulation patterns
+      ! l_pat            p_ext_atm%l_pat(nproma,nblks_c)
+      cf_desc    = t_cf_var('effective_length_scale', 'm',    &
+        &                   'effective length scale of circulation patterns', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'l_pat', p_ext_atm%l_pat,       &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
+        &           isteptype=TSTEP_CONSTANT, lopenacc=.TRUE. )
+      __acc_attach(p_ext_atm%l_pat)
 
       ! Anisotropy of sub-gridscale orography
       !
@@ -633,7 +651,8 @@ CONTAINS
       CALL add_var( p_ext_atm_list, 'plcov_t', p_ext_atm%plcov_t,    &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,     &
         &           grib2_desc, ldims=shape3d_nt, lcontainer=.TRUE., &
-        &           loutput=.FALSE. )
+        &           loutput=.FALSE., lopenacc=.TRUE. )
+      __acc_attach(p_ext_atm%plcov_t)
 
       ALLOCATE(p_ext_atm%plcov_t_ptr(ntiles_total))
       DO jsfc = 1,ntiles_total
@@ -644,6 +663,7 @@ CONTAINS
                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                     &
                & t_cf_var('plcov_t_'//csfc, '', '', datatype_flt),     &
                & grib2_desc,                                             &
+               & ref_idx=jsfc,                                           &
                & ldims=shape2d_c, loutput=.TRUE.)
       ENDDO
 
@@ -678,7 +698,9 @@ CONTAINS
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'sai', p_ext_atm%sai,            &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,     &
-        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.)
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,     &
+        &           lopenacc=.TRUE.)
+      __acc_attach(p_ext_atm%sai)
 
       ! Surface area index
       !
@@ -688,7 +710,9 @@ CONTAINS
       grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'sai_t', p_ext_atm%sai_t,     &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,  &
-        &           grib2_desc, ldims=shape3d_ntw, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape3d_ntw, loutput=.FALSE., &
+        &           lopenacc=.TRUE. )
+      __acc_attach(p_ext_atm%sai_t)
 
       ! Transpiration area index (aggregated)
       !
@@ -707,7 +731,9 @@ CONTAINS
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'tai_t', p_ext_atm%tai_t,     &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,  &
-        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE.,&
+        &           lopenacc=.TRUE.)
+      __acc_attach(p_ext_atm%tai_t)
 
       ! ratio between current LAI and laimax
       !
@@ -717,8 +743,9 @@ CONTAINS
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'laifac_t', p_ext_atm%laifac_t,&
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,  &
-        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
-
+        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE.,&
+        &           lopenacc=.TRUE.)
+      __acc_attach(p_ext_atm%laifac_t)
 
       ! Evaporative area index (aggregated)
       !
@@ -737,7 +764,9 @@ CONTAINS
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'eai_t', p_ext_atm%eai_t,     &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,  &
-        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE.,&
+        &           lopenacc=.TRUE.)
+      __acc_attach(p_ext_atm%eai_t)
 
 
       ! root depth of vegetation
@@ -757,7 +786,10 @@ CONTAINS
       grib2_desc = grib2_var( 2, 0, 32, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'rootdp_t', p_ext_atm%rootdp_t, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE.,  &
+        &           lopenacc=.TRUE.)
+      __acc_attach(p_ext_atm%rootdp_t)
+
 
       ! evergreen forest
       !
@@ -767,9 +799,9 @@ CONTAINS
       grib2_desc = grib2_var( 2, 0, 29, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'for_e', p_ext_atm%for_e,       &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
-
-
+        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,  &
+        &           lopenacc=.TRUE.)
+      __acc_attach(p_ext_atm%for_e)
 
       ! deciduous forest
       !
@@ -779,7 +811,28 @@ CONTAINS
       grib2_desc = grib2_var( 2, 0, 30, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'for_d', p_ext_atm%for_d,       &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-        &           grib2_desc, ldims=shape2d_c )
+        &           grib2_desc, ldims=shape2d_c, lopenacc=.TRUE.    )
+      __acc_attach(p_ext_atm%for_d)
+
+
+      ! Skin conductivity
+      !
+      ! skinc        p_ext_atm%skinc(nproma,nblks_c)
+      cf_desc    = t_cf_var('skinc', 'W m-2 K-1', 'Skin conductivity', datatype_flt)
+      grib2_desc = grib2_var( 2, 0, 199, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'skinc', p_ext_atm%skinc,               &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,            &
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,            &
+        &           isteptype=TSTEP_CONSTANT )
+
+      ! skinc_t        p_ext_atm%skinc_t(nproma,nblks_c,ntiles_total)
+      cf_desc    = t_cf_var('skinc', 'W m-2 K-1', 'Skin conductivity', datatype_flt)
+      grib2_desc = grib2_var( 2, 0, 199, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'skinc_t', p_ext_atm%skinc_t,           &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,            &
+        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE.,          &
+        &           lopenacc=.TRUE.)
+      __acc_attach(p_ext_atm%skinc_t)
 
 
       ! Minimal stomata resistence
@@ -797,7 +850,10 @@ CONTAINS
       grib2_desc = grib2_var( 2, 0, 16, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'rsmin2d_t', p_ext_atm%rsmin2d_t,       &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,            &
-        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE.,          &
+        &           lopenacc=.TRUE.)
+      __acc_attach(p_ext_atm%rsmin2d_t)
+
 
       ! NDVI yearly maximum
       !
@@ -821,37 +877,16 @@ CONTAINS
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.  )
 
       ! Control fields for tile approach
-      ! idx_lst_lp          p_ext_atm%idx_lst_lp(nproma,nblks_c)
-      cf_desc    = t_cf_var('land point index list', '-', &
-        &                   'land point index list', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_ext_atm_list, 'idx_lst_lp', p_ext_atm%idx_lst_lp, &
-        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,        &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
-
-      ! idx_lst_sp          p_ext_atm%idx_lst_sp(nproma,nblks_c)
-      cf_desc    = t_cf_var('sea point index list', '-', &
-        &                   'sea point index list', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_ext_atm_list, 'idx_lst_sp', p_ext_atm%idx_lst_sp, &
-        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,        &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
-
-      ! idx_lst_fp          p_ext_atm%idx_lst_sp(nproma,nblks_c)
-      cf_desc    = t_cf_var('lake point index list', '-', &
-        &                   'lake point index list', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_ext_atm_list, 'idx_lst_fp', p_ext_atm%idx_lst_fp, &
-        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,        &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
-
+      !
       ! idx_lst_lp_t        p_ext_atm%idx_lst_lp_t(nproma,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('static land tile point index list', '-', &
         &                   'static land tile point index list', datatype_flt)
       grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'idx_lst_lp_t', p_ext_atm%idx_lst_lp_t, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,            &
-        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE.,          &
+        &           lopenacc=.TRUE.)
+      __acc_attach(p_ext_atm%idx_lst_lp_t)
 
       ! idx_lst_t        p_ext_atm%idx_lst_t(nproma,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('dynamic land tile point index list', '-', &
@@ -859,24 +894,9 @@ CONTAINS
       grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'idx_lst_t', p_ext_atm%idx_lst_t, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,      &
-        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
-
-
-      ! idx_lst_spw      p_ext_atm%idx_lst_spw(nproma,nblks_c)
-      cf_desc    = t_cf_var('sea water point index list', '-', &
-        &                   'sea water point index list', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_ext_atm_list, 'idx_lst_spw', p_ext_atm%idx_lst_spw, &
-        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,          &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
-
-      ! idx_lst_spi      p_ext_atm%idx_lst_spi(nproma,nblks_c)
-      cf_desc    = t_cf_var('sea ice point index list', '-', &
-        &                   'sea ice point index list', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_ext_atm_list, 'idx_lst_spi', p_ext_atm%idx_lst_spi, &
-        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,          &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE.,    &
+        &           lopenacc=.TRUE. )
+      __acc_attach(p_ext_atm%idx_lst_t)
 
 
       ! snowtile_flag_t   p_ext_atm%snowtile_flag_t(nproma,nblks_c,ntiles_total)
@@ -889,18 +909,14 @@ CONTAINS
       grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'snowtile_flag_t', p_ext_atm%snowtile_flag_t, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,                  &
-        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE.,                &
+        &           lopenacc=.TRUE.)
+      __acc_attach(p_ext_atm%snowtile_flag_t)
 
       ! not sure if these dimensions are supported by add_var...
-      ALLOCATE(p_ext_atm%lp_count(nblks_c), p_ext_atm%gp_count_t(nblks_c,ntiles_total), &
-               p_ext_atm%lp_count_t(nblks_c,ntiles_total) )
-      ALLOCATE(p_ext_atm%sp_count (nblks_c),p_ext_atm%fp_count (nblks_c))
-
-      ! allocate grid point counts per block for dynamic ocean ice/water point
-      ! index lists
-      ALLOCATE(p_ext_atm%spw_count(nblks_c),p_ext_atm%spi_count(nblks_c))
-
-
+      ALLOCATE(p_ext_atm%gp_count_t(nblks_c,ntiles_total), &
+               p_ext_atm%lp_count_t(nblks_c,ntiles_total)  )
+      !$ACC ENTER DATA CREATE( p_ext_atm%gp_count_t, p_ext_atm%lp_count_t )
 
       ! lc_class_t        p_ext_atm%lc_class_t(nproma,nblks_c,ntiles_total+ntiles_water)
       cf_desc    = t_cf_var('tile point land cover class', '-', &
@@ -909,7 +925,8 @@ CONTAINS
       CALL add_var( p_ext_atm_list, 'lc_class_t', p_ext_atm%lc_class_t, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,        &
         &           grib2_desc, ldims=shape3d_ntw,                      &
-        &           loutput=.FALSE., lcontainer=.TRUE. )
+        &           loutput=.FALSE., lcontainer=.TRUE., lopenacc=.TRUE. )
+      __acc_attach(p_ext_atm%lc_class_t)
 
       ! fill the separate variables belonging to the container lc_class_t
       ALLOCATE(p_ext_atm%lc_class_t_ptr(ntiles_total+ntiles_water))
@@ -920,9 +937,10 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                &
         &           t_cf_var('lc_class_t_'//csfc, '-', '', datatype_flt),            &
         &           grib2_desc,                                                        &
+        &           ref_idx=jsfc,                                                      &
+        &           ldims=shape2d_c, loutput=.TRUE.,                                   &
         &           hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB),&
         &           var_class=CLASS_TILE,                                              &
-        &           ldims=shape2d_c, loutput=.TRUE.,                                   &
         &           post_op=post_op(POST_OP_LUC, new_cf=cf_desc, arg1=i_lctype(jg)) )
       ENDDO
 
@@ -934,8 +952,9 @@ CONTAINS
       grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'lc_frac_t', p_ext_atm%lc_frac_t, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,      &
-        &           grib2_desc, ldims=shape3d_ntw, loutput=.FALSE. )
-
+        &           grib2_desc, ldims=shape3d_ntw, loutput=.FALSE.,   &
+        &           lopenacc=.TRUE.)
+      __acc_attach(p_ext_atm%lc_frac_t)
 
       ! frac_t        p_ext_atm%frac_t(nproma,nblks_c,ntiles_total+ntiles_water)
       cf_desc    = t_cf_var('frac_t', '-', &
@@ -943,7 +962,9 @@ CONTAINS
       grib2_desc = grib2_var( 2, 0, 36, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'frac_t', p_ext_atm%frac_t,   &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,  &
-        &           grib2_desc, ldims=shape3d_ntw, loutput=.FALSE., lcontainer=.TRUE.)
+        &           grib2_desc, ldims=shape3d_ntw, loutput=.FALSE., lcontainer=.TRUE., &
+        &          lopenacc=.TRUE.)
+      __acc_attach(p_ext_atm%frac_t)
 
       ! fill the separate variables belonging to the container frac_t
       ALLOCATE(p_ext_atm%frac_t_ptr(ntiles_total+ntiles_water))
@@ -954,8 +975,9 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
         &           t_cf_var('frac_t_'//csfc, '-', '', datatype_flt),        &
         &           grib2_desc,                                                &
-        &           var_class=CLASS_TILE,                                      &
-        &           ldims=shape2d_c, loutput=.TRUE. )
+        &           ref_idx=jsfc,                                              &
+        &           ldims=shape2d_c, loutput=.TRUE.,                           &
+        &           var_class=CLASS_TILE )
       ENDDO
 
 
@@ -965,7 +987,8 @@ CONTAINS
       grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'inv_frland_from_tiles', p_ext_atm%inv_frland_from_tiles,&
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,                          &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.)
+        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE., lopenacc=.TRUE.)
+      __acc_attach(p_ext_atm%inv_frland_from_tiles)
 
 
       ! Storage for table values - not sure if these dimensions are supported by add_var
@@ -974,9 +997,27 @@ CONTAINS
                 p_ext_atm%plcovmax_lcc(nclass_lu(jg)),  & ! Maximum plant cover fraction for each land-cover class
                 p_ext_atm%laimax_lcc(nclass_lu(jg)),    & ! Maximum leaf area index for each land-cover class
                 p_ext_atm%rootdmax_lcc(nclass_lu(jg)),  & ! Maximum root depth each land-cover class
+                p_ext_atm%skinc_lcc(nclass_lu(jg)),     & ! Skin conductivity for each land use class
                 p_ext_atm%stomresmin_lcc(nclass_lu(jg)),& ! Minimum stomata resistance for each land-cover class
                 p_ext_atm%snowalb_lcc(nclass_lu(jg)),   & ! Albedo in case of snow cover for each land-cover class
                 p_ext_atm%snowtile_lcc(nclass_lu(jg))   ) ! Specification of snow tiles for land-cover class
+      !$ACC ENTER DATA CREATE( p_ext_atm%z0_lcc, p_ext_atm%z0_lcc_min, p_ext_atm%plcovmax_lcc, &
+      !$ACC                    p_ext_atm%laimax_lcc, p_ext_atm%rootdmax_lcc, p_ext_atm%stomresmin_lcc, &
+      !$ACC                    p_ext_atm%snowalb_lcc, p_ext_atm%snowtile_lcc )
+
+
+      ! Index lists for land, lake and water points
+      !
+      ! allocate land index list (static)
+      CALL p_ext_atm%list_land%construct(nproma,nblks_c,lopenacc=.TRUE.)
+      ! allocate sea water index list (static)
+      CALL p_ext_atm%list_sea%construct(nproma,nblks_c,lopenacc=.TRUE.)
+      ! allocate ice-free water index list (dynamic)
+      CALL p_ext_atm%list_seawtr%construct(nproma,nblks_c,lopenacc=.TRUE.)
+      ! allocate seaice index list (dynamic)
+      CALL p_ext_atm%list_seaice%construct(nproma,nblks_c,lopenacc=.TRUE.)
+      ! allocate Lake index list (static)
+      CALL p_ext_atm%list_lake%construct(nproma,nblks_c,lopenacc=.TRUE.)
 
 
       !--------------------------------
@@ -993,14 +1034,17 @@ CONTAINS
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
         &           hor_interp=create_hor_interp_metadata(          &
         &               hor_intp_type=HINTP_TYPE_LONLAT_NNB ),      &
-        &           isteptype=TSTEP_CONSTANT )
+        &           isteptype=TSTEP_CONSTANT, lopenacc=.TRUE.       )
+        __acc_attach(p_ext_atm%soiltyp)
 
       ! soiltyp_t      p_ext_atm%soiltyp_t(nproma,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('soil_type', '-','soil type', datatype_flt)
       grib2_desc = grib2_var( 2, 3, 196, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'soiltyp_t', p_ext_atm%soiltyp_t,   &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,        &
-        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE.,      &
+        &           lopenacc=.TRUE. )
+      __acc_attach(p_ext_atm%soiltyp_t)
 
 
       ! Climat. temperature
@@ -1010,11 +1054,12 @@ CONTAINS
       ! t_cl         p_ext_atm%t_cl(nproma,nblks_c)
       cf_desc    = t_cf_var('soil_temperature', 'K',                  &
         &                   'CRU near surface temperature climatology', datatype_flt)
-      grib2_desc = grib2_var( 0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      grib2_desc = grib2_var( 0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)   &
+        &            + t_grib2_int_key("typeOfGeneratingProcess", 9)
       CALL add_var( p_ext_atm_list, 't_cl', p_ext_atm%t_cl,           &
         &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,      &
-        &           isteptype=TSTEP_CONSTANT )
+        &           isteptype=TSTEP_AVG )
 
       IF (itype_vegetation_cycle > 1) THEN
         ! t2m_clim         p_ext_atm%t2m_clim(nproma,nblks_c)
@@ -1024,7 +1069,8 @@ CONTAINS
         CALL add_var( p_ext_atm_list, 't2m_clim', p_ext_atm%t2m_clim,   &
           &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc,    &
           &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,      &
-          &           isteptype=TSTEP_CONSTANT )
+          &           isteptype=TSTEP_CONSTANT, lopenacc=.TRUE. )
+        __acc_attach(p_ext_atm%t2m_clim)
 
         ! t2m_clim_hc         p_ext_atm%t2m_clim_hc(nproma,nblks_c)
         cf_desc    = t_cf_var('Height-corrected 2m_temperature', 'K',                  &
@@ -1033,7 +1079,8 @@ CONTAINS
         CALL add_var( p_ext_atm_list, 't2m_clim_hc', p_ext_atm%t2m_clim_hc,   &
           &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc,    &
           &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,      &
-          &           isteptype=TSTEP_CONSTANT )
+          &           isteptype=TSTEP_CONSTANT, lopenacc=.TRUE. )
+        __acc_attach(p_ext_atm%t2m_clim_hc)
 
         ! t2m_climgrad         p_ext_atm%t2m_climgrad(nproma,nblks_c)
         cf_desc    = t_cf_var('2m_temperature_gradient', 'K/month',      &
@@ -1042,7 +1089,8 @@ CONTAINS
         CALL add_var( p_ext_atm_list, 't2m_climgrad', p_ext_atm%t2m_climgrad, &
           &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc,    &
           &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,      &
-          &           isteptype=TSTEP_CONSTANT )
+          &           isteptype=TSTEP_CONSTANT, lopenacc=.TRUE. )
+        __acc_attach(p_ext_atm%t2m_climgrad)
 
       ENDIF
 
@@ -1054,7 +1102,8 @@ CONTAINS
       CALL add_var( p_ext_atm_list, 'emis_rad', p_ext_atm%emis_rad, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
-        &           isteptype=TSTEP_CONSTANT )
+        &           isteptype=TSTEP_CONSTANT, lopenacc=.TRUE. )
+      __acc_attach(p_ext_atm%emis_rad)
 
 
       ! landuse class fraction
@@ -1080,7 +1129,8 @@ CONTAINS
         grib2_desc = grib2_var(0, 19, 18, ibits, GRID_UNSTRUCTURED, GRID_CELL)
         CALL add_var( p_ext_atm_list, 'alb_dif', p_ext_atm%alb_dif,               &
           &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-          &           ldims=shape2d_c, loutput=.TRUE.                            )
+          &           ldims=shape2d_c, loutput=.TRUE., lopenacc=.TRUE. )
+          __acc_attach(p_ext_atm%alb_dif)
 
         ! UV visible broadband albedo for diffuse radiation (0.3 - 0.7 micron)
         !
@@ -1090,7 +1140,8 @@ CONTAINS
         grib2_desc = grib2_var(0, 19, 222, ibits, GRID_UNSTRUCTURED, GRID_CELL)
         CALL add_var( p_ext_atm_list, 'albuv_dif', p_ext_atm%albuv_dif,           &
           &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-          &           ldims=shape2d_c, loutput=.TRUE.                             )
+          &           ldims=shape2d_c, loutput=.TRUE., lopenacc=.TRUE.            )
+          __acc_attach(p_ext_atm%albuv_dif)
 
         ! Near IR broadband albedo for diffuse radiation (0.7 - 5.0 micron)
         !
@@ -1100,14 +1151,12 @@ CONTAINS
         grib2_desc = grib2_var(0, 19, 223, ibits, GRID_UNSTRUCTURED, GRID_CELL)
         CALL add_var( p_ext_atm_list, 'albni_dif', p_ext_atm%albni_dif,           &
           &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-          &           ldims=shape2d_c, loutput=.TRUE.                             )
+          &           ldims=shape2d_c, loutput=.TRUE., lopenacc=.TRUE.            )
+          __acc_attach(p_ext_atm%albni_dif)
 
       END IF  ! albedo_type
 
-    END IF ! iforcing
-
-
-    IF ( iforcing == iecham .OR. iforcing == ildf_echam ) THEN
+    ELSE ! iforcing
 
       ! atmosphere land-sea-mask at surface on cell centers
       ! lsm_ctr_c  p_ext_atm%lsm_ctr_c(nproma,nblks_c)
@@ -1118,24 +1167,6 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,             &
         grib2_desc, ldims=shape2d_c )
 
-      IF (iequations == ihs_atm_temp .OR. iequations == ihs_atm_theta ) THEN
-        ! elevation p_ext_atm%elevation_c(nproma,nblks_c)
-        cf_desc    = t_cf_var('elevation at cell center', 'm', &
-          &                     'elevation', datatype_flt)
-        grib2_desc = grib2_var( 192, 140, 219, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-        CALL add_var( p_ext_atm_list, 'elevation_c', p_ext_atm%elevation_c,        &
-          &             GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,          &
-          grib2_desc, ldims=shape2d_c )
-      END IF
-
-      ! longwave surface emissivity
-      !
-      ! emis_rad     p_ext_atm%emis_rad(nproma,nblks_c)
-      cf_desc    = t_cf_var('emis_rad', '-', 'longwave surface emissivity', datatype_flt)
-      grib2_desc = grib2_var( 2, 3, 199, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_ext_atm_list, 'emis_rad', p_ext_atm%emis_rad, &
-        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
 
       ! HDmodel land-sea-mask at surface on cell centers
       ! lsm_hd_c   p_ext_atm%lsm_hd_c(nproma,nblks_c)
@@ -1173,7 +1204,7 @@ CONTAINS
     TYPE(t_external_atmos_td), INTENT(INOUT):: & !< current external data structure
       &  p_ext_atm_td
 
-    TYPE(t_var_list)         , INTENT(INOUT):: & !< current external data list
+    TYPE(t_var_list_ptr)         , INTENT(INOUT):: & !< current external data list
       &  p_ext_atm_td_list
 
     CHARACTER(len=*)         , INTENT(IN)   :: & !< list name
@@ -1223,7 +1254,9 @@ CONTAINS
         CASE(SSTICE_AVG_MONTHLY)
           shape3d_sstice = (/ nproma, nblks_c,  2 /)
         CASE(SSTICE_AVG_DAILY)
-          CALL finish (TRIM(routine), 'sstice_mode=4  not implemented!')
+          CALL finish (TRIM(routine), 'sstice_mode=5  not implemented!')
+        CASE(SSTICE_INST)
+          shape3d_sstice = (/ nproma, nblks_c,  2 /)
         CASE DEFAULT
           CALL finish (TRIM(routine), 'sstice_mode not valid!')
       END SELECT
@@ -1232,11 +1265,8 @@ CONTAINS
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( p_ext_atm_td_list, TRIM(listname), patch_id=jg )
-    CALL default_var_list_settings( p_ext_atm_td_list,         &
-                                  & lrestart=.FALSE.,          &
-                                  & loutput=.TRUE.  )
-
+    CALL vlr_add(p_ext_atm_td_list, TRIM(listname), patch_id=jg, &
+      &               lrestart=.FALSE., loutput=.TRUE.)
 
     !--------------------------------
     ! radiation parameters
@@ -1384,7 +1414,8 @@ CONTAINS
       CALL add_var( p_ext_atm_td_list, 'alb_dif', p_ext_atm_td%alb_dif,         &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
         &           ldims=shape3d_c, loutput=.FALSE.,                           &
-        &           isteptype=TSTEP_AVG )
+        &           isteptype=TSTEP_AVG, lopenacc=.TRUE.                        )
+        __acc_attach(p_ext_atm_td%alb_dif)
 
       ! (monthly)  UV visible broadband albedo for diffuse radiation (0.3 - 0.7 micron)
       !
@@ -1395,7 +1426,8 @@ CONTAINS
       CALL add_var( p_ext_atm_td_list, 'albuv_dif', p_ext_atm_td%albuv_dif,     &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
         &           ldims=shape3d_c, loutput=.FALSE.,                           &
-        &           isteptype=TSTEP_AVG )
+        &           isteptype=TSTEP_AVG, lopenacc=.TRUE.                        )
+        __acc_attach(p_ext_atm_td%albuv_dif)
 
       ! (monthly)  Near IR broadband albedo for diffuse radiation (0.7 - 5.0 micron)
       !
@@ -1410,6 +1442,20 @@ CONTAINS
 
     ENDIF  ! albedo_type
 
+
+    IF (itype_lwemiss == 2) THEN
+
+      ! Broadband longwave surface emissiivty, monthly data
+      !
+      ! lw_emiss   p_ext_atm_td%lw_emiss(nproma,nblks_c,ntimes)
+      cf_desc    = t_cf_var('longwave emissivity', '-', &
+        &                   'broadband longwave surface emissivity', datatype_flt)
+      grib2_desc = grib2_var(2, 3, 199, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_ext_atm_td_list, 'lw_emiss', p_ext_atm_td%lw_emiss,       &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+        &           ldims=shape3d_c, loutput=.FALSE., isteptype=TSTEP_AVG       )
+
+    ENDIF
 
     IF (itype_vegetation_cycle > 1) THEN
       ! t2m_m     p_ext_atm_td%t2m_m(nproma,nblks_c,ntimes)
@@ -1489,15 +1535,34 @@ CONTAINS
 
     DO jg = 1,n_dom
       ! Delete list of constant in time atmospheric elements
-      CALL delete_var_list( ext_data(jg)%atm_list )
+      CALL vlr_del(ext_data(jg)%atm_list)
+      !
+      ! destruct index lists
+      CALL ext_data(jg)%atm%list_land  %finalize()
+      CALL ext_data(jg)%atm%list_sea   %finalize()
+      CALL ext_data(jg)%atm%list_seaice%finalize()
+      CALL ext_data(jg)%atm%list_seawtr%finalize()
+      CALL ext_data(jg)%atm%list_lake  %finalize()
     ENDDO
 
     IF (iforcing > 1 ) THEN
-    DO jg = 1,n_dom
-      ! Delete list of time-dependent atmospheric elements
-      CALL delete_var_list( ext_data(jg)%atm_td_list )
-    ENDDO
+      DO jg = 1,n_dom
+        ! Delete list of time-dependent atmospheric elements
+        CALL vlr_del(ext_data(jg)%atm_td_list)
+      ENDDO
     END IF
+
+    DO jg = 1,n_dom
+      !$ACC EXIT DATA DELETE( ext_data(jg)%atm%gp_count_t, ext_data(jg)%atm%lp_count_t )
+      !$ACC EXIT DATA DELETE( ext_data(jg)%atm%z0_lcc, ext_data(jg)%atm%z0_lcc_min, ext_data(jg)%atm%plcovmax_lcc, &
+      !$ACC                   ext_data(jg)%atm%laimax_lcc, ext_data(jg)%atm%rootdmax_lcc, ext_data(jg)%atm%stomresmin_lcc, &
+      !$ACC                   ext_data(jg)%atm%snowalb_lcc, ext_data(jg)%atm%snowtile_lcc )
+    ENDDO
+
+    DO jg = 1, n_dom
+      !$ACC EXIT DATA DELETE(ext_data(jg)%atm)
+    ENDDO
+    !$ACC EXIT DATA DELETE(ext_data)
 
     CALL message (TRIM(routine), 'Destruction of data structure for ' // &
       &                          'external data finished')

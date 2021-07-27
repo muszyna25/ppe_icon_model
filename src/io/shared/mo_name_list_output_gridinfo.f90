@@ -21,7 +21,7 @@ MODULE mo_name_list_output_gridinfo
   USE mo_kind,                              ONLY: wp
   USE mo_parallel_config,                   ONLY: nproma
   USE mo_exception,                         ONLY: finish
-  USE mo_model_domain,                      ONLY: t_patch, p_patch
+  USE mo_model_domain,                      ONLY: t_patch
   USE mo_math_types,                        ONLY: t_geographical_coordinates
   USE mo_math_utilities,                    ONLY: check_orientation
   USE mo_communication,                     ONLY: t_comm_gather_pattern, exchange_data,     &
@@ -44,7 +44,7 @@ MODULE mo_name_list_output_gridinfo
   USE mo_mpi,                               ONLY: p_comm_work_2_io,                         &
     &                                             my_process_is_io, &
     &                                             my_process_is_mpi_workroot
-  USE mo_master_control,                    ONLY: my_process_is_ocean
+  USE mo_master_control,                    ONLY: my_process_is_oceanic
   USE mo_gribout_config,                    ONLY: gribout_config
   USE mo_loopindices,                       ONLY: get_indices_c, get_indices_e, get_indices_v
   USE mo_util_string,                       ONLY: one_of
@@ -53,8 +53,7 @@ MODULE mo_name_list_output_gridinfo
     &                                             ILATLON, ICELL, IEDGE, IVERT, IRLAT,      &
     &                                             IRLON, GRB2_GRID_INFO_NAME
   USE mo_name_list_output_zaxes_types,      ONLY: t_verticalAxis
-  USE mo_var_list_element,                  ONLY: level_type_ml, level_type_pl, level_type_hl, &
-    &                                             level_type_il
+  USE mo_var, ONLY: level_type_ml, level_type_pl, level_type_hl, level_type_il
   USE mo_reorder_info,                      ONLY: t_reorder_info
 #ifdef HAVE_CDI_PIO
   USE mo_reorder_info,                      ONLY: ri_cpy_blk2part
@@ -188,7 +187,7 @@ CONTAINS
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
 !$omp parallel
-    IF (my_process_is_ocean()) THEN
+    IF (my_process_is_oceanic()) THEN
       CALL cf_1_1_grid_verts_ocean(p_patch, lonv, latv)
     ELSE
       CALL cf_1_1_grid_verts(p_patch, lonv, latv)
@@ -227,7 +226,7 @@ CONTAINS
 
     cf_1_1(icell)%p => cf_1_1_grid_cells
     cf_1_1(iedge)%p => cf_1_1_grid_edges
-    IF (my_process_is_ocean()) THEN
+    IF (my_process_is_oceanic()) THEN
       cf_1_1(ivert)%p => cf_1_1_grid_verts_ocean
     ELSE
       cf_1_1(ivert)%p => cf_1_1_grid_verts
@@ -1145,7 +1144,7 @@ CONTAINS
       nblks = p_patch%nblks_v
     END IF
 
-    IF (my_process_is_ocean()) THEN
+    IF (my_process_is_oceanic()) THEN
       CALL allgather_grid_info_cve(patch_info%max_vertex_connectivity, &
         &                          nblks, patch_info%nblks_glb_v, &
         &                          coordinates, patch_info%grid_info(ivert), &

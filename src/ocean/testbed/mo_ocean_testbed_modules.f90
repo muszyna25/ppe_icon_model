@@ -21,6 +21,7 @@
 !!
 MODULE mo_ocean_testbed_modules
   !-------------------------------------------------------------------------
+  USE mo_master_control,         ONLY: get_my_process_name
   USE mo_kind,                   ONLY: wp
   USE mo_impl_constants,         ONLY: max_char_length
   USE mo_model_domain,           ONLY: t_patch, t_patch_3d,t_subset_range
@@ -40,7 +41,8 @@ MODULE mo_ocean_testbed_modules
   USE mo_ocean_types,            ONLY: t_hydro_ocean_state, t_operator_coeff, t_solvercoeff_singleprecision
   USE mo_hamocc_types,           ONLY: t_hamocc_state
   USE mo_restart,                ONLY: t_RestartDescriptor, createRestartDescriptor, deleteRestartDescriptor
-  USE mo_restart_attributes,     ONLY: t_RestartAttributeList, getAttributesForRestarting
+  USE mo_restart_nml_and_att,    ONLY: getAttributesForRestarting
+  USE mo_key_value_store,        ONLY: t_key_value_store
   USE mo_io_config,              ONLY: n_checkpoints, write_last_restart
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff! , update_diffusion_matrices
   USE mo_ocean_tracer,           ONLY: advect_ocean_tracers
@@ -52,14 +54,13 @@ MODULE mo_ocean_testbed_modules
   USE mo_physical_constants,     ONLY: rhoi, rhos, clw, alf, Tf
   USE mo_ocean_physics_types,    ONLY: t_ho_params
   USE mo_master_config,          ONLY: isRestart
-  USE mo_ocean_GM_Redi,          ONLY: prepare_ocean_physics,calc_ocean_physics
+  USE mo_ocean_GM_Redi,          ONLY: calc_ocean_physics
   USE mo_ocean_diagnostics,      ONLY: calc_fast_oce_diagnostics, calc_psi
   USE mo_ocean_thermodyn,        ONLY: calc_potential_density, calculate_density,&
   &                                    calc_neutralslope_coeff_func_onColumn,calc_neutralslope_coeff_func_onColumn_UNESCO
   USE mo_time_config,            ONLY: time_config
   USE mo_statistics
   USE mo_util_dbg_prnt,          ONLY: dbg_print
-  USE mo_ocean_statistics
   USE mo_ocean_output
   USE mo_parallel_config,        ONLY: nproma
   USE mo_statistics
@@ -69,8 +70,8 @@ MODULE mo_ocean_testbed_modules
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
   USE mo_ocean_tracer_transport_horz, ONLY: diffuse_horz
   USE mo_hydro_ocean_run
-  USE mo_var_list
-  USE mo_linked_list
+  USE mo_var_list_register,      ONLY: vlr_add, vlr_del
+  USE mo_var_list,               ONLY: add_var, t_var_list_ptr
   USE mo_cdi
   use mo_cdi_constants
   use mo_zaxis_type
@@ -109,7 +110,7 @@ CONTAINS
     & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice, operators_coefficients, &
     & solvercoeff_sp)
 
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    TYPE(t_patch_3d ), POINTER, INTENT(in)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
     TYPE(t_external_data), TARGET, INTENT(in)        :: external_data(n_dom)
     TYPE(datetime), POINTER                          :: this_datetime
@@ -150,7 +151,6 @@ CONTAINS
         CALL test_sea_ice( patch_3d, ocean_state,  &
           & this_datetime, ocean_surface,        &
           & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice, operators_coefficients)
-
       CASE (5)
         CALL test_neutralcoeff( patch_3d, ocean_state)
 
@@ -195,7 +195,6 @@ CONTAINS
 
   END SUBROUTINE ocean_test_modules
   !-------------------------------------------------------------------------
-
 
 !   !-------------------------------------------------------------------------
 !   !>
@@ -483,13 +482,13 @@ CONTAINS
     & this_datetime, ocean_surface, physics_parameters,             &
     & ocean_ice,operators_coefficients)
     
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    TYPE(t_patch_3d), POINTER, INTENT(in)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
     TYPE(datetime), POINTER                          :: this_datetime
     TYPE(t_ocean_surface)                            :: ocean_surface
     TYPE (t_ho_params)                               :: physics_parameters
     TYPE (t_sea_ice),         INTENT(inout)          :: ocean_ice
-    TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
+    TYPE(t_operator_coeff),   INTENT(in)          :: operators_coefficients
     
     ! local variables
     TYPE (t_hamocc_state)        :: hamocc_State
@@ -516,6 +515,7 @@ CONTAINS
     CALL timer_start(timer_total)
 
     jstep0 = 0
+    jg = 1
     !------------------------------------------------------------------
     ! IF(.NOT.l_time_marching)THEN
 
@@ -601,11 +601,11 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !> surface only call, regular output, restart, checkpoints
-  SUBROUTINE test_output( patch_3d, p_os,           &
+  SUBROUTINE test_output(patch_3d, p_os,           &
     & this_datetime, physics_parameters, &
     & p_as, atmos_fluxes, p_oce_sfc, p_ice, hamocc_state,operators_coefficients)
     
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    TYPE(t_patch_3d), POINTER, INTENT(in) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: p_os(n_dom)
     TYPE(datetime), POINTER                          :: this_datetime
     TYPE (t_ho_params)                               :: physics_parameters
@@ -614,7 +614,7 @@ CONTAINS
     TYPE(t_ocean_surface),    INTENT(inout)          :: p_oce_sfc
     TYPE(t_sea_ice),          INTENT(inout)          :: p_ice
     TYPE(t_hamocc_state),          INTENT(inout)      ::hamocc_state
-    TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
+    TYPE(t_operator_coeff), INTENT(in) :: operators_coefficients
     
     ! local variables
     INTEGER                       :: jstep
@@ -648,10 +648,10 @@ CONTAINS
     ! write initial
     ! this is done 
       IF (output_mode%l_nml) THEN
-        CALL write_initial_ocean_timestep(patch_3D,p_os(n_dom),p_oce_sfc,p_ice,hamocc_state, operators_coefficients)
+        CALL write_initial_ocean_timestep(patch_3D,p_os(n_dom),p_oce_sfc,p_ice, operators_coefficients)
       ENDIF
 
-    restartDescriptor => createRestartDescriptor("oce")
+    restartDescriptor => createRestartDescriptor(TRIM(get_my_process_name()) )
 
     ! timeloop
     DO jstep = (jstep0+1), (jstep0+nsteps)
@@ -726,7 +726,7 @@ CONTAINS
     & p_as, p_atm_f, sea_ice, &
     & hamocc_state,operators_coefficients,solvercoeff_sp)
     
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    TYPE(t_patch_3d ), POINTER, INTENT(in)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
     TYPE(t_external_data), TARGET, INTENT(in)        :: p_ext_data(n_dom)
     TYPE(datetime), POINTER                          :: this_datetime
@@ -767,7 +767,7 @@ CONTAINS
     CHARACTER(len=MAX_MTIME_ERROR_STR_LEN):: errstring
 
     CLASS(t_RestartDescriptor), POINTER :: restartDescriptor
-    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    TYPE(t_key_value_store), POINTER :: restartAttributes
     TYPE(datetime), POINTER               :: current_date
     !------------------------------------------------------------------
     patch_2D      => patch_3d%p_patch_2d(1)
@@ -778,11 +778,9 @@ CONTAINS
     jg = n_dom
 
     jstep0 = 0
-    restartAttributes => getAttributesForRestarting()
-    IF (ASSOCIATED(restartAttributes)) THEN
-      ! get start counter for time loop from restart file:
-      jstep0 = restartAttributes%getInteger("jstep")
-    END IF
+    CALL getAttributesForRestarting(restartAttributes)
+    ! get start counter for time loop from restart file:
+    IF (restartAttributes%is_init) CALL restartAttributes%get("jstep", jstep0)
     IF (isRestart() .AND. mod(nold(jg),2) /=1 ) THEN
       ! swap the g_n and g_nm1
       CALL update_time_g_n(ocean_state(jg))
@@ -851,7 +849,7 @@ CONTAINS
     !------------------------------------------------------------------
     CALL timer_start(timer_total)
 
-    restartDescriptor => createRestartDescriptor("oce")
+    restartDescriptor => createRestartDescriptor(TRIM(get_my_process_name()) )
     
     jstep = jstep0
     TIME_LOOP: DO 
@@ -900,7 +898,8 @@ CONTAINS
       !---------------------------------------------------------------------
 
       if (jstep == jstep0 ) &
-        & CALL update_ho_params(patch_3d, ocean_state(jg), p_as%fu10, sea_ice%concsum, physics_parameters, operators_coefficients)
+        & CALL update_ho_params(patch_3d, ocean_state(jg), p_as%fu10, sea_ice%concsum, &
+        & physics_parameters, operators_coefficients, p_atm_f, p_oce_sfc) !by_ogut> added p_oce_sfc
 
       !------------------------------------------------------------------------
       ! solve for new free surface
@@ -1009,14 +1008,14 @@ CONTAINS
     & this_datetime, p_oce_sfc,        &
     & p_as, atmos_fluxes, p_ice, operators_coefficients)
     
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    TYPE(t_patch_3d ), POINTER, INTENT(in)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: p_os(n_dom)
     TYPE(datetime),           POINTER                :: this_datetime
     TYPE(t_ocean_surface),    INTENT(inout)          :: p_oce_sfc
     TYPE(t_atmos_for_ocean),  INTENT(inout)          :: p_as
     TYPE(t_atmos_fluxes ),    INTENT(inout)          :: atmos_fluxes
     TYPE(t_sea_ice),          INTENT(inout)          :: p_ice
-    TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
+    TYPE(t_operator_coeff),   INTENT(in)          :: operators_coefficients
     
     ! local variables
     TYPE (t_hamocc_state)        :: hamocc_State
@@ -1306,13 +1305,13 @@ CONTAINS
     & this_datetime, p_oce_sfc,        &
     & p_as, atmos_fluxes, p_ice, operators_coefficients)
 
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    TYPE(t_patch_3d ), POINTER, INTENT(IN) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: p_os(n_dom)
     TYPE(t_ocean_surface),    INTENT(inout)          :: p_oce_sfc
     TYPE(t_atmos_for_ocean),  INTENT(inout)          :: p_as
     TYPE(t_atmos_fluxes ),    INTENT(inout)          :: atmos_fluxes
     TYPE(t_sea_ice),          INTENT(inout)          :: p_ice
-    TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
+    TYPE(t_operator_coeff),   INTENT(IN) :: operators_coefficients
     TYPE(datetime), POINTER                          :: this_datetime
 
     TYPE (t_hamocc_state)        :: hamocc_State
@@ -1327,7 +1326,7 @@ CONTAINS
 
     TYPE(t_patch), POINTER          :: p_patch
     TYPE(t_subset_range), POINTER   :: owned_cells
-    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    TYPE(t_key_value_store), POINTER :: restartAttributes
     CLASS(t_RestartDescriptor), POINTER :: restartDescriptor
     CHARACTER(LEN = *), PARAMETER   :: routine = 'mo_ocean_testbed_modules:test_sea_ice'
 
@@ -1383,17 +1382,15 @@ CONTAINS
     !------------------------------------------------------------------
     jstep0 = 0
 
-    restartAttributes => getAttributesForRestarting()
-    IF (ASSOCIATED(restartAttributes)) THEN
-      ! get start counter for time loop from restart file:
-      jstep0 = restartAttributes%getInteger("jstep")
-    END IF
+    CALL getAttributesForRestarting(restartAttributes)
+    ! get start counter for time loop from restart file:
+    IF (restartAttributes%is_init) CALL restartAttributes%get("jstep", jstep0)
     IF (isRestart() .AND. mod(nold(jg),2) /=1 ) THEN
       ! swap the g_n and g_nm1
       CALL update_time_g_n(p_os(jg))
     ENDIF
 
-    restartDescriptor => createRestartDescriptor("oce")
+    restartDescriptor => createRestartDescriptor(TRIM(get_my_process_name()) )
 
     !-------------------------- MTIME setup ---------------------------
 
@@ -1615,7 +1612,7 @@ CONTAINS
     & this_datetime, physics_parameters, &
     & p_as, atmos_fluxes, p_oce_sfc, p_ice, hamocc_state,operators_coefficients)
 
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    TYPE(t_patch_3d), POINTER, INTENT(in) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state
     TYPE(datetime), POINTER                          :: this_datetime
     TYPE (t_ho_params)                               :: physics_parameters
@@ -1624,19 +1621,18 @@ CONTAINS
     TYPE(t_ocean_surface),    INTENT(inout)          :: p_oce_sfc
     TYPE(t_sea_ice),          INTENT(inout)          :: p_ice
     TYPE(t_hamocc_state),          INTENT(inout)      ::hamocc_state
-    TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
+    TYPE(t_operator_coeff), INTENT(in) :: operators_coefficients
 
     IF (output_mode%l_nml) THEN
       CALL write_initial_ocean_timestep(patch_3d,ocean_state, &
-          &  p_oce_sfc,p_ice,hamocc_state, operators_coefficients)
+          &  p_oce_sfc,p_ice, operators_coefficients)
     ENDIF
   END SUBROUTINE checkVarlistsForOutput
   
   SUBROUTINE checkVarlistKeys(patch_2d)
     TYPE(t_patch), TARGET, INTENT(in) :: patch_2d
     
-    CHARACTER(LEN=max_char_length) :: listname
-    TYPE(t_var_list)     :: varnameCheckList
+    TYPE(t_var_list_ptr)     :: varnameCheckList
     integer :: alloc_cell_blocks
 
     REAL(wp), POINTER :: var0(:,:,:)
@@ -1644,11 +1640,8 @@ CONTAINS
     REAL(wp), POINTER :: var2(:,:,:)
     REAL(wp), POINTER :: var3(:,:,:)
     
-    WRITE(listname,'(a)')  'varnameCheck_list'
-    CALL new_var_list(varnameCheckList, listname, patch_id=patch_2d%id)
-    CALL default_var_list_settings( varnameCheckList,  &
-      & lrestart=.TRUE.,loutput=.TRUE.,&
-      & model_type='oce' )
+    CALL vlr_add(varnameCheckList, 'varnameCheck_list', patch_id=patch_2d%id, &
+      & lrestart=.TRUE., loutput=.TRUE., model_type=TRIM(get_my_process_name()))
 
     alloc_cell_blocks = patch_2d%alloc_cell_blocks
     call add_var(varnamechecklist,'h',var0,grid_unstructured_cell, za_depth_below_sea_half, &
@@ -1677,7 +1670,7 @@ CONTAINS
         & ldims=(/nproma, n_zlev, alloc_cell_blocks/))
 
 
-    call print_var_list(varnameCheckList)
-    call delete_var_list(varnameCheckList)
+    call varnameCheckList%print()
+    call vlr_del(varnameCheckList)
   END SUBROUTINE checkVarlistKeys
 END MODULE mo_ocean_testbed_modules

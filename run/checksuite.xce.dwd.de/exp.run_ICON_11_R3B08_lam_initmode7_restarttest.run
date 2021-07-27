@@ -1,7 +1,7 @@
 #! /bin/ksh
 #-----------------------------------------------------------------------------
 #PBS -q xc_norm_h
-#PBS -l select=15:ompthreads=4
+#PBS -l select=5:ompthreads=4
 #PBS -l place=scatter
 #PBS -l walltime=00:15:00
 #PBS -j oe
@@ -70,7 +70,7 @@ EDIR="exp11"
 EXPDIR=$TMPDIR/${EDIR}/
 
 # path to model binary, including the executable:
-MODEL=${ICONDIR}/build/x86_64-unknown-linux-gnu/bin/icon
+MODEL=${ICONDIR}/bin/icon
 
 
 
@@ -121,8 +121,8 @@ ln -s ${GRIDDIR}/map_file.latbc .
 # ----------------------------------------------------------------------------
 
 # the grid parameters
-dynamics_grid_filename="'lam_test_DOM01.nc'"
-radiation_grid_filename="'lam_test_DOM01.parent.nc'"
+dynamics_grid_filename="lam_test_DOM01.nc"
+radiation_grid_filename="lam_test_DOM01.parent.nc"
 
 
 
@@ -130,15 +130,26 @@ radiation_grid_filename="'lam_test_DOM01.parent.nc'"
 # ============================================================================
 #                        LOOP: MODEL IS EXECUTED TWO TIMES
 # ============================================================================
-for iter in 1 2 ; do
+for iter in 1 2 3 ; do
 
 
 if [ $iter -eq 1 ] ; then
 
 restart="       .FALSE.  "
+end_datetime="2017-01-13T00:00:00Z"
+checkpoint="    864000.0 "
+nrest_procs="        0   "
+restart_write_mode=""
+nproma=8
+
+elif [ $iter -eq 2 ] ; then
+
+restart="       .FALSE.  "
 end_datetime="2017-01-12T12:00:00Z"
-checkpoint="     25200.0 "
+checkpoint="     32400.0 "
 nrest_procs="        1   "
+restart_write_mode="dedicated procs multifile"
+nproma=12
 
 else
 
@@ -146,6 +157,8 @@ restart="        .TRUE.  "
 end_datetime="2017-01-13T00:00:00Z"
 checkpoint="    864000.0 "
 nrest_procs="        0   "
+restart_write_mode=""
+nproma=16
 
 fi
 
@@ -188,9 +201,9 @@ EOF
 cat > NAMELIST_NWP << EOF
 ! parallel_nml: MPI parallelization -------------------------------------------
 &parallel_nml
- nproma                      =                         16         ! loop chunk length
+ nproma                      =                  ${nproma}         ! loop chunk length
  p_test_run                  =                     .FALSE.        ! .TRUE. means verification run for MPI parallelization
- num_io_procs                =                          2         ! number of I/O processors
+ num_io_procs                =                          1         ! number of I/O processors
  num_restart_procs           =              ${nrest_procs}        ! number of restart processors
  num_prefetch_proc           =                          1         ! number of processors for LBC prefetching
  iorder_sendrecv             =                          3         ! sequence of MPI send/receive calls
@@ -254,8 +267,8 @@ cat > NAMELIST_NWP << EOF
 
 ! grid_nml: horizontal grid --------------------------------------------------
 &grid_nml
- dynamics_grid_filename      =  ${dynamics_grid_filename}         ! array of the grid filenames for the dycore
- radiation_grid_filename     = ${radiation_grid_filename}         ! array of the grid filenames for the radiation model
+ dynamics_grid_filename      =  "${dynamics_grid_filename}"         ! array of the grid filenames for the dycore
+ radiation_grid_filename     = "${radiation_grid_filename}"         ! array of the grid filenames for the radiation model
  dynamics_parent_grid_id     =                          0         ! array of the indexes of the parent grid filenames
  lredgrid_phys               =                      .TRUE.        ! .true.=radiation is calculated on a reduced grid
  lfeedback                   =                      .TRUE.        ! specifies if feedback to parent grid is performed
@@ -281,6 +294,7 @@ cat > NAMELIST_NWP << EOF
  itype_rh                    =                          1         ! method for computation of relative humidity
  lmask_boundary              =                      .TRUE.        ! mask out interpolation zone in output
  dt_checkpoint               =               ${checkpoint}        ! time interval for writing restart files.
+ restart_write_mode          =     "${restart_write_mode}"
 /
 
 ! limarea_nml: settings for limited area mode ---------------------------------
@@ -376,20 +390,37 @@ cat > NAMELIST_NWP << EOF
  filetype                    =                          4         ! output format: 2=GRIB2, 4=NETCDFv2
  dom                         =                          1         ! write domain 1 only
  output_bounds               =        0., 10000000., 3600.        ! start, end, increment
- steps_per_file              =                          10         ! number of steps per file
+ steps_per_file              =                          2         ! number of steps per file
  mode                        =                          1         ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
  include_last                =                     .FALSE.
- output_filename             =                    'NWP_LAM'
+ output_filename             =                    "NWP_LAM_ll_${iter}"
  filename_format             = '<output_filename>_DOM<physdom>_<datetime2>_<jfile>' ! file name base
  output_grid                =                      .TRUE.
  remap                       =                          1         ! 1: remap to lat-lon grid
  north_pole                  =                   -170.,40.        ! definition of north_pole for rotated lat-lon grid
- reg_lon_def                 =              -7.0,0.1,7.0
- reg_lat_def                 =              -6.5,0.1,6.5
+ reg_lon_def                 =              -6.0,0.1,6.0
+ reg_lat_def                 =              -5.5,0.1,5.5
  ml_varlist='u', 'v', 'w', 'temp', 'qv', 'qc','qi','qr','qs','clcl','clcm','clch', 
 'group:precip_vars', 'group:additional_precip_vars','tqv','tqc','tqi','group:land_vars','freshsnow','albdif',
 'rh_2m','u_10m','v_10m','sp_10m','ASODIFD_S','ASODIFU_S','ASODIRD_S','ALHFL_S','ASHFL_S','ASOB_S','ASOB_T',
- 'ATHB_S','ATHB_T','tmax_2m','tmin_2m','t_2m','pres_sfc','pres_msl','gust10','z_mc'
+ 'ATHB_S','ATHB_T','tmax_2m','tmin_2m','t_2m','pres_sfc','pres_msl','gust10','z_mc', 'SDI2', 'LPI', 'dbz_ctmax'
+/
+! output_nml: specifies an output stream --------------------------------------
+&output_nml
+ filetype                    =                          4         ! output format: 2=GRIB2, 4=NETCDFv2
+ dom                         =                          1         ! write domain 1 only
+ output_bounds               =        0., 10000000., 3600.        ! start, end, increment
+ steps_per_file              =                          2         ! number of steps per file
+ mode                        =                          1         ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+ include_last                =                     .FALSE.
+ output_filename             =                    "NWP_LAM_${iter}"
+ filename_format             = '<output_filename>_DOM<physdom>_<datetime2>_<jfile>' ! file name base
+ output_grid                =                      .TRUE.
+ remap                       =                          0         ! 1: remap to lat-lon grid
+ ml_varlist='u', 'v', 'w', 'temp', 'qv', 'qc','qi','qr','qs','clcl','clcm','clch', 
+'group:precip_vars', 'group:additional_precip_vars','tqv','tqc','tqi','group:land_vars','freshsnow','albdif',
+'rh_2m','u_10m','v_10m','sp_10m','ASODIFD_S','ASODIFU_S','ASODIRD_S','ALHFL_S','ASHFL_S','ASOB_S','ASOB_T',
+ 'ATHB_S','ATHB_T','tmax_2m','tmin_2m','t_2m','pres_sfc','pres_msl','gust10','z_mc', 'SDI2', 'LPI', 'dbz_ctmax'
 /
 
 ! radiation_nml: radiation scheme ---------------------------------------------
@@ -448,8 +479,65 @@ EOF
 # run the model!
 # ----------------------------------------------------------------------
  cp -p $MODEL icon.exe
- aprun  -n 120 -N 8 -j 2 -d 6 -m 3g icon.exe
+ aprun  -n 60 -N 12 -j 2 -d 4 -m 3g icon.exe
 
 # ----------------------------------------------------------------------------
 done # iterations for restart testing
 # ----------------------------------------------------------------------------
+
+
+
+# now start with the tests
+
+# absolute path to cdo
+CDODIR="/e/uhome/dreinert/bin"
+
+# EXP names
+EXP1="reference"
+EXP2="restart"
+
+
+EXIT_STATUS=0
+DIFF_STATUS_RESTART=0
+
+# EXP1 output filenames
+FILE1_DOM01="NWP_LAM_1_DOM01_20170112T230000Z_0012.nc"
+# EXP2 output filenames
+FILE2_DOM01="NWP_LAM_3_DOM01_20170112T230000Z_0012.nc"
+
+DIFF_FILE_DOM01="NWP_diff_DOM01.out"
+
+
+ echo "=================================================================="
+ echo "Check restart and different patch weights"
+ echo "=> Compare experiments: $EXP1 $EXP2"
+
+ ${CDODIR}/cdo diffn ${FILE1_DOM01} ${FILE2_DOM01} > ${DIFF_FILE_DOM01}
+
+ if [ -s ${DIFF_FILE_DOM01} ]; then
+   echo " DOM01: file 1 and file 2 differ"
+   echo " - file 1: ${FILE1_DOM01}"
+   echo " - file 2: ${FILE2_DOM01}"
+   cat ${DIFF_FILE_DOM01}
+   rm  ${DIFF_FILE_DOM01}
+   #
+   EXIT_STATUS=$(($EXIT_STATUS + 1))
+   DIFF_STATUS_RESTART=1
+ else
+   echo "DOM01: EXP $EXP1 and EXP $EXP2 are identical"
+ fi
+
+ if [ $DIFF_STATUS_RESTART == 0 ]; then
+   echo " "
+   echo "Restart test SUCESSFUL"
+   echo " "
+ else
+   echo " "
+   echo "Restart test FAILED:"
+   echo " "
+ fi
+
+echo 'EXIT_STATUS: '$EXIT_STATUS
+exit $EXIT_STATUS
+#
+#-----------------------------------------------------------------------------

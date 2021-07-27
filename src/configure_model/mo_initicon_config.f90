@@ -16,11 +16,13 @@
 MODULE mo_initicon_config
 
   USE mo_kind,               ONLY: wp
+  USE mo_exception,          ONLY: finish
   USE mo_util_string,        ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                              int2string
   USE mo_impl_constants,     ONLY: max_dom, vname_len, max_var_ml, MAX_CHAR_LENGTH,  &
     &                              MODE_IFSANA, MODE_COMBINED, MODE_COSMO,           &
-    &                              MODE_IAU, MODE_IAU_OLD, MODE_ICONVREMAP
+    &                              MODE_IAU, MODE_IAU_OLD, MODE_ICONVREMAP, nclass_aero, &
+    &                              ivexpol
   USE mo_io_units,           ONLY: filename_max
   USE mo_io_util,            ONLY: get_filetype
   USE mo_model_domain,       ONLY: t_patch
@@ -31,6 +33,7 @@ MODULE mo_initicon_config
     &                              max_timedelta_str_len, datetime, OPERATOR(+),     &
     &                              OPERATOR(<=), OPERATOR(>=), &
     &                              getPTStringFromSeconds
+  USE mo_upatmo_config,      ONLY: upatmo_config
 
   IMPLICIT NONE
 
@@ -53,8 +56,10 @@ MODULE mo_initicon_config
   PUBLIC :: lconsistency_checks
   PUBLIC :: l_coarse2fine_mode
   PUBLIC :: lp2cintp_incr, lp2cintp_sfcana
+  PUBLIC :: qcana_mode, qiana_mode, qrsgana_mode, qnxana_2mom_mode
   PUBLIC :: ltile_coldstart
   PUBLIC :: ltile_init
+  PUBLIC :: icpl_da_sfcevap, dt_ana
   PUBLIC :: lvert_remap_fg
   PUBLIC :: lcalc_avg_fg
   PUBLIC :: start_time_avg_fg
@@ -77,6 +82,9 @@ MODULE mo_initicon_config
   PUBLIC :: initicon_config
   PUBLIC :: aerosol_fg_present
   PUBLIC :: lanaread_tseasfc
+  PUBLIC :: itype_vert_expol
+  PUBLIC :: pinit_seed
+  PUBLIC :: pinit_amplitude
 
   ! Subroutines
   PUBLIC :: configure_initicon
@@ -130,10 +138,15 @@ MODULE mo_initicon_config
 
   LOGICAL  :: ltile_init       ! If true, initialize tile-based surface fields from first guess without tiles
 
+  INTEGER  :: icpl_da_sfcevap  ! Type of coupling between data assimilation and medel parameters affecting surface evaporation (plants + bare soil)
+
+  REAL(wp) :: dt_ana           ! Time interval of assimilation cycle [s] (relevant for icpl_da_sfcevap >= 2)
+
   LOGICAL  :: use_lakeiceana   ! If true, use ice fraction analysis data also over lakes (otherwise sea points only)
 
   LOGICAL  :: lvert_remap_fg   ! If true, vertical remappting of first guess input is performed
 
+  INTEGER  :: qcana_mode, qiana_mode, qrsgana_mode, qnxana_2mom_mode  ! mode of processing QC/QI/QR/QS/QG/QH/QNX increments
 
   ! Variables controlling computation of temporally averaged first guess fields for DA
   ! The calculation is switched on by setting end_time > start_time
@@ -162,6 +175,11 @@ MODULE mo_initicon_config
 
   INTEGER  :: niter_divdamp ! number of divergence damping iterations on wind increment from DA
   INTEGER  :: niter_diffu   ! number of diffusion iterations on wind increment from DA
+
+  INTEGER :: itype_vert_expol ! Type of vertical extrapolation of initial data. 
+                              ! 1: Linear extrapolation (standard setting) 
+                              ! 2: Blending with climatology 
+                              ! (intended for simulations with the upper-atmosphere configuration)
 
   ! IFS2ICON input filename, may contain keywords, by default
   ! ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
@@ -211,13 +229,17 @@ MODULE mo_initicon_config
 
   !> registers if aerosol fields have been read from the first-guess
   !  data
-  LOGICAL :: aerosol_fg_present(max_dom) = .FALSE.
+  LOGICAL :: aerosol_fg_present(max_dom,nclass_aero) = .FALSE.
 
   !> registers if SST and sea ice fraction data have been read from
   !  analysis
   LOGICAL :: lanaread_tseasfc(max_dom) = .FALSE.
 
   TYPE(t_initicon_config), TARGET :: initicon_config(0:max_dom)
+
+  ! perturb initial conditions. perturbation is only applied for pinit_seed > 0
+  INTEGER :: pinit_seed = 0
+  REAL(wp) :: pinit_amplitude = 0._wp
 
 CONTAINS
 
@@ -300,6 +322,26 @@ CONTAINS
     ! transform averaging interval to ISO_8601 format
     !
     CALL getPTStringFromSeconds(interval_avg_fg, iso8601_interval_avg_fg)
+
+    !
+    ! set switch(es) for vertical extrapolation of initial data
+    !
+    ! just to make sure
+    IF (.NOT. ALLOCATED(upatmo_config)) THEN 
+      CALL finish('mo_initicon_config:configure_initicon', &
+        &         'upatmo_config is not allocated')
+    ENDIF
+    SELECT CASE(itype_vert_expol)
+    CASE(ivexpol%lin)
+      ! linear extrapolation is the standard case 
+      upatmo_config(:)%exp%l_expol = .FALSE.
+    CASE(ivexpol%upatmo) 
+      ! this case is intended for (but not necessarily limited to) 
+      ! upper-atmosphere simulations, further specifiers for 
+      ! this extrapolation can be set in 'upatmo_nml'
+      upatmo_config(:)%exp%l_expol = .TRUE.
+    END SELECT
+    upatmo_config(:)%exp%l_initicon_config  = .TRUE.
 
   END SUBROUTINE configure_initicon
 

@@ -29,6 +29,7 @@ MODULE mo_ice_fem_advection
 
   USE mo_ice_fem_mesh
   USE mo_ice_fem_types
+  USE mo_ice_fem_icon_init,         ONLY: exchange_nod2D
 
   IMPLICIT NONE
 
@@ -152,9 +153,6 @@ CONTAINS
   !! Imported from FESIM by Vladimir Lapin, MPI-M (2017-04)
   !
   subroutine ice_solve_high_order
-    
-      USE mo_ice_fem_icon_init,          ONLY: exchange_nod2D
-      
       implicit none
       !
       integer                           :: n,clo,clo2,cn,location(100),row,m
@@ -166,9 +164,7 @@ CONTAINS
          da_ice(row)=rhs_a(row)/lmass_matrix(row)
          dm_snow(row)=rhs_mis(row)/lmass_matrix(row)
       end do
-         call exchange_nod2D(dm_ice)
-         call exchange_nod2D(da_ice)
-         call exchange_nod2D(dm_snow)
+      CALL exchange_nod2D(dm_ice, da_ice, dm_snow)
       !iterate
       do n=1,num_iter_solve-1
          do m=1,myDim_nod2D
@@ -190,9 +186,7 @@ CONTAINS
             da_ice(row)=a_icel(row)
         dm_snow(row)=m_snowl(row)
          end do
-         call exchange_nod2D(dm_ice)
-         call exchange_nod2D(da_ice)
-         call exchange_nod2D(dm_snow)
+         CALL exchange_nod2D(dm_ice, da_ice, dm_snow)
       end do
 
   end subroutine ice_solve_high_order
@@ -213,8 +207,6 @@ CONTAINS
   !
   subroutine ice_solve_low_order
 
-      USE mo_ice_fem_icon_init,         ONLY: exchange_nod2D
-      
       implicit none
       integer       :: m, row, clo, clo2, cn, location(100)
       real(wp)      :: gamma
@@ -238,9 +230,7 @@ CONTAINS
                   m_snow(location(1:cn))))/lmass_matrix(row) + &
               (1.-gamma)*m_snow(row)
      end do
-         call exchange_nod2D(m_icel)
-         call exchange_nod2D(a_icel)
-         call exchange_nod2D(m_snowl)
+     CALL exchange_nod2D(m_icel, a_icel, m_snowl)
             ! Low-order solution must be known to neighbours
 
   end subroutine ice_solve_low_order
@@ -258,14 +248,11 @@ CONTAINS
   !! Imported from FESIM by Vladimir Lapin, MPI-M (2017-04)
   !
   subroutine ice_fem_fct(tr_array_id)
-
-      USE mo_ice_fem_icon_init,         ONLY: exchange_nod2D
-      
       implicit none
 
       integer   :: tr_array_id
       integer   :: icoef(3,3),m,n,q, elem,elnodes(3),row
-      real(wp), allocatable, dimension(:) :: tmax, tmin
+      real(wp), dimension(myDim_nod2D) :: tmax, tmin
       real(wp)  :: vol, flux, ae, gamma
 
 
@@ -279,8 +266,6 @@ CONTAINS
      ! it takes memory and time. For every element
      ! we need its antidiffusive contribution to
      ! each of its 3 nodes
-
-     allocate(tmax(myDim_nod2D), tmin(myDim_nod2D))
 
      ! Auxiliary elemental operator (mass matrix- lumped mass matrix)
        icoef=1
@@ -402,8 +387,7 @@ CONTAINS
          end if
          end do
       ! pminus and pplus are to be known to neighbouting PE
-            call exchange_nod2D(icepminus)
-        call exchange_nod2D(icepplus)
+         CALL exchange_nod2D(icepminus, icepplus)
       !========================
       ! Limiting
       !========================
@@ -466,12 +450,9 @@ CONTAINS
             m_snow(n)=m_snow(n)+icefluxes(m,q)
             end do
          end do
-             end if
+       END IF
 
-            call exchange_nod2D(m_ice)
-        call exchange_nod2D(a_ice)
-        call exchange_nod2D(m_snow)
-         deallocate(tmin, tmax)
+       CALL exchange_nod2D(m_ice, a_ice, m_snow)
   end subroutine ice_fem_fct
   !-------------------------------------------------------------------------
 

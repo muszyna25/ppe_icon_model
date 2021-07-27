@@ -4,6 +4,7 @@
 !!
 !! @par Revision History
 !! - first version by Anurag Dipankar , MPIM, (2012-12-12)
+!! - RCEMIP routines added by James Ruppert, MPIM, 2018-07-08
 !! @par Literature
 !! -
 !!
@@ -29,12 +30,17 @@ MODULE mo_nh_torus_exp
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message, finish
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, SUCCESS
+  USE mo_impl_constants,      ONLY: SUCCESS
   USE mo_io_units,            ONLY: find_next_free_unit
+  USE mo_io_config,           ONLY: default_read_method
+  USE mo_read_interface,      ONLY: openInputFile, closeFile, on_cells, &
+     &                              t_stream_id, read_2D_extdim, read_3D_extdim
+  USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_physical_constants,  ONLY: rd, cpd, p0ref, cvd_o_rd, rd_o_cpd, &
      &                              grav, alv, vtmpc1
-  USE mo_nh_testcases_nml,    ONLY: u_cbl, v_cbl, th_cbl, psfc_cbl, &
-                                    bubctr_x, bubctr_y, nh_test_name
+  USE mo_nh_testcases_nml,    ONLY: u_cbl, v_cbl, th_cbl, psfc_cbl,   &
+     &                              bubctr_x, bubctr_y, nh_test_name, &
+     &                              is_dry_cbl
   USE mo_nh_wk_exp,           ONLY: bub_amp, bub_ver_width, bub_hor_width, bubctr_z
   USE mo_model_domain,        ONLY: t_patch
   USE mo_math_constants,      ONLY: rad2deg, pi_2
@@ -58,6 +64,7 @@ MODULE mo_nh_torus_exp
 
   PUBLIC :: init_nh_state_cbl, cbl_stevens_fluxes, init_nh_state_rico, &
             sfcflx_uniform, init_torus_with_sounding, init_warm_bubble
+  PUBLIC :: init_torus_rcemip_analytical_sounding
 
 !--------------------------------------------------------------------
 
@@ -116,6 +123,7 @@ MODULE mo_nh_torus_exp
 
     ! Tracers: all zero by default
     ptr_nh_prog%tracer(:,:,:,:) = 0._wp
+    ptr_nh_prog%tke(:,:,:)      = 0._wp
 
     DO jb = 1, nblks_c
 
@@ -126,7 +134,7 @@ MODULE mo_nh_torus_exp
       ENDIF
 
       !Tracers
-      IF(.NOT.les_config(jg)%is_dry_cbl)THEN
+      IF(.NOT.les_config(jg)%is_dry_cbl .AND. .NOT.is_dry_cbl)THEN
         DO jk = 1, nlev
           ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) = rh_sfc * spec_humi(sat_pres_water(th_cbl(1)),psfc_cbl) * &
                     EXP(-ptr_metrics%z_mc(1:nlen,jk,jb)/lambda)
@@ -172,6 +180,7 @@ MODULE mo_nh_torus_exp
       DO jk = 1 , nlev
          ptr_nh_prog%rho(1:nlen,jk,jb) = (ptr_nh_prog%exner(1:nlen,jk,jb)**cvd_o_rd)*p0ref/rd / &
                                          ptr_nh_prog%theta_v(1:nlen,jk,jb)     
+         ptr_nh_diag%pres(1:nlen,jk,jb) = ptr_nh_prog%rho(1:nlen,jk,jb)*rd*th_cbl(1)
       END DO !jk
 
     ENDDO !jb
@@ -245,7 +254,7 @@ MODULE mo_nh_torus_exp
     REAL(wp) :: zvn1, zvn2, zu, zv, psfc_in, ex_sfc
     REAL(wp) :: z_exner_h(1:nproma,ptr_patch%nlev+1), z_help(1:nproma) 
 
-    CHARACTER(len=max_char_length), PARAMETER :: &
+    CHARACTER(len=*), PARAMETER :: &
        &  routine = 'mo_nh_torus_exp:init_torus_with_sounding'
   !-------------------------------------------------------------------------
     
@@ -269,7 +278,7 @@ MODULE mo_nh_torus_exp
     ptr_nh_diag%pres_sfc(:,:) = psfc_in
     ex_sfc   = (psfc_in/p0ref)**rd_o_cpd
     IF ( les_config(jg)%psfc /= psfc_in ) THEN
-      CALL finish(TRIM(routine),'Value of psfc in les_nml is inconsistent with data in sounding file!')
+      CALL finish(routine,'Value of psfc in les_nml is inconsistent with data in sounding file!')
     END IF
 
 
@@ -643,7 +652,7 @@ MODULE mo_nh_torus_exp
     REAL(wp),  INTENT(OUT) :: psfc_in
   
     REAL(wp), ALLOCATABLE, DIMENSION(:):: zs, ths, qvs, us, vs
-    CHARACTER(len=max_char_length),PARAMETER :: routine  = &
+    CHARACTER(len=*),PARAMETER :: routine  = &
          &   'mo_nh_torus_exp:read_ext_profile'
   
     INTEGER :: ist, iunit
@@ -651,14 +660,14 @@ MODULE mo_nh_torus_exp
     
     !-------------------------------------------------------------------------
   
-    CALL message(TRIM(routine), 'READING FROM SOUNDING!')
+    CALL message(routine, 'READING FROM SOUNDING!')
     
     !open file again to read data this time
     iunit = find_next_free_unit(10,100)
     OPEN (unit=iunit,file='sound_in', access='SEQUENTIAL', &
             form='FORMATTED',action='READ', status='OLD', IOSTAT=ist) 
     IF(ist/=success)THEN
-      CALL finish (TRIM(routine), 'open verticaling sound file failed')
+      CALL finish (routine, 'open verticaling sound file failed')
     ENDIF
   
     !Read the header : ps,klev
@@ -671,7 +680,7 @@ MODULE mo_nh_torus_exp
     DO jk = klev,1,-1 
       READ (iunit,*,IOSTAT=ist) zs(jk),ths(jk),qvs(jk),us(jk),vs(jk)
       IF(ist/=success)THEN
-        CALL finish (TRIM(routine), 'reading sounding file failed')
+        CALL finish (routine, 'reading sounding file failed')
       ENDIF
     END DO
 
@@ -679,7 +688,7 @@ MODULE mo_nh_torus_exp
 
     !Check if the file is written in descending order
     IF(zs(1) < zs(klev)) &
-         CALL finish (TRIM(routine), 'Writing souding data in descending order!')
+         CALL finish (routine, 'Writing souding data in descending order!')
 
     !Now perform interpolation to grid levels assuming:
     !a) linear interpolation
@@ -695,6 +704,169 @@ MODULE mo_nh_torus_exp
   
   
   END SUBROUTINE  read_ext_profile
+
+  !>
+  !! Initialization of prognostic state vector for the analytical RCEMIP test case. 
+  !! 
+  !! James Ruppert
+  !! james.ruppert@mpimet.mpg.de
+  !! 8 July 2018
+  !!
+  !! @par Revision History
+  !!
+  !!
+  SUBROUTINE init_torus_rcemip_analytical_sounding ( ptr_patch, ptr_nh_prog,  ptr_nh_ref, ptr_nh_diag,  &
+                                        ptr_int, ptr_metrics)
+
+    TYPE(t_patch),TARGET,  INTENT(INOUT)::  ptr_patch
+    TYPE(t_int_state),     INTENT(IN)   ::  ptr_int
+    TYPE(t_nh_prog),       INTENT(INOUT)::  ptr_nh_prog
+    TYPE(t_nh_diag),       INTENT(INOUT)::  ptr_nh_diag
+    TYPE(t_nh_metrics),    INTENT(IN)   ::  ptr_metrics
+    TYPE(t_nh_ref),        INTENT(INOUT)::  ptr_nh_ref
+
+    INTEGER  :: je,jk,jb,i_startidx,i_endidx   !< loop indices
+   ! INTEGER  :: nblks_c,npromz_c,nblks_e,npromz_e, jg
+    INTEGER  :: nblks_c,npromz_c,nblks_e, jg
+    INTEGER  :: nlev, nlevp1                        !< number of full and half levels
+    INTEGER  :: nlen !, i_rcstartlev, jcn, jbn, ist
+
+    REAL(wp), DIMENSION(ptr_patch%nlev) :: hght
+    REAL(wp) :: zvn1, zvn2, zu, zv
+    REAL(wp) :: tv0, tvi, tvt, pr, prt, ex_sfc, ex, qv0, thv, qv, o3, irho
+    REAL(wp) :: z_exner_h(1:nproma,ptr_patch%nlev+1), z_help(1:nproma)
+
+    REAL(wp), PARAMETER :: laps  = 0.0067_wp  ! Lapse rate [K/m]
+    REAL(wp), PARAMETER :: ztop  = 15000._wp  ! z_trop [m]
+    REAL(wp), PARAMETER :: qvtop = 1.e-14_wp  ! q-top [kg/kg]
+    REAL(wp), PARAMETER :: zqv1  = 4000._wp   ! z_q1 setting [m]
+    REAL(wp), PARAMETER :: zqv2  = 7500._wp   ! z_q1 setting [m]
+    REAL(wp), PARAMETER :: pr0   = 101480._wp ! sfc pressure [Pa]
+
+    CHARACTER(len=*), PARAMETER :: &
+       &  routine = 'mo_nh_torus_exp:init_torus_rcemip_analytical_sounding'
+  !-------------------------------------------------------------------------
+
+    ! values for the blocking
+    nblks_c  = ptr_patch%nblks_c
+    npromz_c = ptr_patch%npromz_c
+    nblks_e  = ptr_patch%nblks_e
+    ! npromz_e = ptr_patch%npromz_e
+
+    ! number of vertical levels
+    nlev   = ptr_patch%nlev
+    nlevp1 = ptr_patch%nlevp1
+
+    !patch id
+    jg = ptr_patch%id
+
+    ! init surface pressure
+    ptr_nh_diag%pres_sfc(:,:) = pr0
+    ex_sfc   = (pr0/p0ref)**rd_o_cpd
+    les_config(jg)%psfc = pr0
+
+    ! height on mass levels
+    hght = ptr_metrics%z_mc(2,:,2)
+
+    ! Tracers: all zero by default
+    ptr_nh_prog%tracer(:,:,:,:) = 0._wp
+
+  ! sst equal 300
+  !   IF (les_config(jg)%sst .eq. 295) THEN
+  !     qv0 = 12.0e-3_wp ! kg/kg
+  !   ELSE IF (les_config(jg)%sst .eq. 300) THEN
+      qv0 = 18.65e-3_wp ! kg/kg
+  !   ELSE IF (les_config(jg)%sst .eq. 305) THEN
+  !     qv0 = 24.0e-3_wp ! kg/kg
+  !   ELSE
+  !     CALL finish(TRIM(routine),'No preset qv0 scernario for this SST!')
+  !   ENDIF
+
+  !   tv0 = les_config(jg)%sst * (1._wp + qv0*0.608_wp)
+  ! sst equal 300
+    tv0 = 300._wp * (1._wp + qv0*0.608_wp)
+    tvt = tv0 - laps*ztop
+    prt = pr0 * (tvt/tv0)**(grav/(rd*laps))
+
+    DO jb = 1, nblks_c
+
+      IF (jb /= nblks_c) THEN
+         nlen = nproma
+      ELSE
+         nlen = npromz_c
+      ENDIF
+
+      DO jk = 1, nlev
+
+        IF (hght(jk) .le. ztop) THEN
+          qv  = qv0 * exp(-hght(jk)/zqv1) * &
+                      exp(-((hght(jk)/zqv2)**2))
+          tvi = tv0 - laps*hght(jk)
+          pr  = pr0 * (tvi/tv0)**(grav/(rd*laps))
+        ELSE
+          qv  = qvtop
+          tvi = tvt
+          pr  = prt * exp(-(grav*(hght(jk)-ztop)/(rd*tvt)))
+        ENDIF
+
+        thv = tvi * (p0ref/pr)**(rd/cpd)
+        ptr_nh_prog%theta_v(1:nlen,jk,jb) = thv
+        ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) = qv
+        ex = (pr/p0ref)**(rd/cpd)
+        ptr_nh_prog%exner(1:nlen,jk,jb) = ex
+
+        irho = (ex**cvd_o_rd)*p0ref/rd / thv
+        ptr_nh_prog%rho(1:nlen,jk,jb) = irho
+
+      END DO !jk
+
+    ENDDO !jb
+
+    ! Write out profile
+    IF(my_process_is_stdio()) THEN
+      WRITE(0,*) 'sfc pres (hPa)',ptr_nh_diag%pres_sfc(1,1)*1.e-2
+      WRITE(0,*) 'hght (m), theta_v (K), qv (g/kg)'
+      DO jk = 1, nlev
+        WRITE(0,*) ptr_metrics%z_mc(2,jk,2), ptr_nh_prog%theta_v(1,jk,1), ptr_nh_prog%tracer(1,jk,1,iqv)*1.e3
+      ENDDO
+    ENDIF
+
+    !Mean wind 
+    DO jb = 1 , nblks_e
+     CALL get_indices_e( ptr_patch, jb, 1, nblks_e, i_startidx, i_endidx, grf_bdywidth_e+1)
+     DO jk = 1 , nlev
+      DO je = i_startidx, i_endidx
+
+     !   jcn  =   ptr_patch%edges%cell_idx(je,jb,1)
+     !   jbn  =   ptr_patch%edges%cell_blk(je,jb,1)
+        zu   =   0._wp!u_in(jk)
+        zv   =   0._wp!v_in(jk)
+
+        zvn1 =  zu * ptr_patch%edges%primal_normal_cell(je,jb,1)%v1 + &
+                zv * ptr_patch%edges%primal_normal_cell(je,jb,1)%v2
+
+     !   jcn  =   ptr_patch%edges%cell_idx(je,jb,2)
+     !   jbn  =   ptr_patch%edges%cell_blk(je,jb,2)
+        zu   =   0._wp!u_in(jk)
+        zv   =   0._wp!v_in(jk)
+
+        zvn2 =  zu * ptr_patch%edges%primal_normal_cell(je,jb,2)%v1 + &
+                zv * ptr_patch%edges%primal_normal_cell(je,jb,2)%v2
+
+        ptr_nh_prog%vn(je,jk,jb) = ptr_int%c_lin_e(je,1,jb)*zvn1 + &
+                                   ptr_int%c_lin_e(je,2,jb)*zvn2
+
+        ptr_nh_ref%vn_ref(je,jk,jb) = ptr_nh_prog%vn(je,jk,jb)
+      END DO
+     END DO
+    END DO
+
+    !W wind and reference
+    CALL init_w(ptr_patch, ptr_int, ptr_nh_prog%vn, ptr_metrics%z_ifc, ptr_nh_prog%w)
+    CALL sync_patch_array(SYNC_C, ptr_patch, ptr_nh_prog%w)
+    ptr_nh_ref%w_ref  = ptr_nh_prog%w
+
+  END SUBROUTINE init_torus_rcemip_analytical_sounding
 
   !>
   !! Initialization of prognostic state vector for the warm bubble experiment
@@ -718,11 +890,12 @@ MODULE mo_nh_torus_exp
     REAL(wp), DIMENSION(ptr_patch%nlev) :: theta_in, qv_in, qc_in, tmp
     INTEGER  :: jc,jk,jb   !< loop indices
     INTEGER  :: nblks_c,npromz_c
-    INTEGER  :: nlev, nlevp1                  
+    INTEGER  :: nlev, nlevp1
+    LOGICAL  :: qc_fail, is_2d_bubble
     INTEGER  :: nlen, jg, itr
 
     REAL(wp), DIMENSION(3) :: x_bubble 
-    CHARACTER(len=max_char_length),PARAMETER :: routine  = &
+    CHARACTER(len=*),PARAMETER :: routine  = &
          &   'mo_nh_torus_exp:init_warm_bubble'
   !-------------------------------------------------------------------------
 
@@ -816,6 +989,10 @@ MODULE mo_nh_torus_exp
     !the th0 ratio
     inv_th0 = 1._wp / 300._wp
 
+    qc_fail = .FALSE.
+    is_2d_bubble = nh_test_name == '2D_BUBBLE'
+
+
     DO jb = 1, nblks_c
       IF (jb /= nblks_c) THEN
          nlen = nproma
@@ -828,7 +1005,7 @@ MODULE mo_nh_torus_exp
           x_loc(2) = ptr_patch%cells%cartesian_center(jc,jb)%x(2)/bub_hor_width
           x_loc(3) = ptr_metrics%z_mc(jc,jk,jb)/bub_ver_width
             
-          IF(nh_test_name.eq.'2D_BUBBLE')THEN
+          IF (is_2d_bubble) THEN
            x_c(2)   = x_loc(2)
           END IF
 
@@ -846,8 +1023,8 @@ MODULE mo_nh_torus_exp
              temp_new = th_new * ptr_nh_prog%exner(jc,jk,jb)
              qv_new   = spec_humi(sat_pres_water(temp_new),pres_new)
              qc_new   = qv_in(jk) + qc_in(jk) - qv_new
+             qc_fail = qc_fail .OR. qc_new < 0._wp
 
-             IF(qc_new<0._wp)CALL finish(TRIM(routine), 'qc < 0')
             END DO
 
             !assign values to proper prog vars
@@ -861,6 +1038,7 @@ MODULE mo_nh_torus_exp
       END DO
     END DO 
 
+    if (qc_fail) CALL finish(routine, 'qc < 0')
 
     !calculate some of the variables
     DO jb = 1, nblks_c

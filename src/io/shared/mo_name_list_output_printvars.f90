@@ -17,28 +17,27 @@ MODULE mo_name_list_output_printvars
 
   USE mo_cdi,                               ONLY: streamOpenWrite, FILETYPE_GRB2, gridCreate,                &
     &                                             GRID_UNSTRUCTURED, TAXIS_ABSOLUTE,                         &
-    &                                             vlistDestroy, zaxisDestroy, streamClose, streamDefVlist,   &
+    &                                             vlistDestroy, streamClose, streamDefVlist,                 &
     &                                             streamWriteVarSlice, gridDestroy, cdi_max_name,            &
     &                                             streamOpenRead, streamInqVlist, vlistinqvarname,           &
     &                                             taxisDestroy, vlistCreate, taxisCreate, institutInq,       &
     &                                             vlistDefTaxis, vlistDefInstitut
+  USE mo_mpi,                               ONLY: get_my_global_mpi_id
   USE mo_kind,                              ONLY: wp, dp
-  USE mo_impl_constants,                    ONLY: ihs_ocean, SUCCESS
+  USE mo_impl_constants,                    ONLY: ihs_ocean, SUCCESS, vname_len
   USE mo_cf_convention,                     ONLY: t_cf_var
   USE mo_exception,                         ONLY: finish, message_text
-  USE mo_linked_list,                       ONLY: t_var_list, t_list_element
-  USE mo_var_metadata_types,                ONLY: t_var_metadata, VARNAME_LEN
+  USE mo_var_metadata_types,                ONLY: t_var_metadata
   USE mo_gribout_config,                    ONLY: t_gribout_config
   USE mo_name_list_output_zaxes_types,      ONLY: t_verticalAxisList, t_verticalAxis
   USE mo_level_selection_types,             ONLY: t_level_selection
-  USE mo_var_list_element,                  ONLY: t_var_list_element
+  USE mo_var_list_register,                 ONLY: t_vl_register_iter
+  USE mo_var,                               ONLY: t_var, level_type_ml
   USE mo_dictionary,                        ONLY: t_dictionary
   USE mo_util_sort,                         ONLY: quicksort
-  USE mo_util_string,                       ONLY: remove_duplicates, toupper, tolower
+  USE mo_util_string,                       ONLY: remove_duplicates, toupper, tolower, int2string
   USE mo_util_file,                         ONLY: util_unlink
-  USE mo_name_list_output_zaxes,            ONLY: setup_ml_axes_atmo, setup_pl_axis_atmo,         &
-    &                                             setup_hl_axis_atmo, setup_il_axis_atmo,         &
-    &                                             setup_zaxes_oce
+  USE mo_name_list_output_zaxes,            ONLY: setup_ml_axes_atmo, setup_zaxes_oce
   USE mo_util_cdi,                          ONLY: create_cdi_variable
 #ifndef __NO_JSBACH__
   USE mo_echam_phy_config,                  ONLY: echam_phy_config
@@ -47,7 +46,6 @@ MODULE mo_name_list_output_printvars
 
 
   IMPLICIT NONE
-
   PRIVATE
 
   ! subroutines
@@ -63,24 +61,56 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   !> @return variable name without time level or tile suffix
   !
-  FUNCTION get_var_basename(var)
-    CHARACTER(LEN=VARNAME_LEN) :: get_var_basename
-    TYPE(t_var_list_element)   :: var
-    ! local variable
-    INTEGER :: idx,idx1, idx2
+  CHARACTER(LEN=vname_len) FUNCTION get_var_basename(var)
+    TYPE(t_var) :: var
+    INTEGER :: endidx
+    CHARACTER(LEN=1) :: suffix_str
 
-    idx1 = INDEX(var%info%name,'.TL')
-    idx2 = INDEX(var%info%name,'_t_')
-    IF (idx1 == 0) idx1=idx2
-    IF (idx2 == 0) idx2=idx1
-    idx = MIN(idx1,idx2)
-    IF (idx==0) THEN
-      get_var_basename = TRIM(var%info%name)
+    ! first cut off the time level suffix:
+    endidx = INDEX(var%info%name,'.TL')
+    IF (endidx==0) THEN
+      endidx = LEN_TRIM(var%info%name)
     ELSE
-      get_var_basename = TRIM(var%info%name(1:idx-1))
+      endidx = endidx - 1
     END IF
-  END FUNCTION get_var_basename
+    suffix_str = " "
+    ! condense three-digit suffices "001, 002, 003, ..." into "*"
+    ! for container variables
+    IF (endidx > 3) THEN
+      IF (var%info%lcontained .AND. &
+          .NOT. is_number(var%info%name(endidx-3:endidx-3)) .AND. &
+        &       is_number(var%info%name(endidx-2:endidx-2)) .AND. &
+        &       is_number(var%info%name(endidx-1:endidx-1)) .AND. &
+        &       is_number(var%info%name(endidx  :endidx  ))) THEN
+        endidx = endidx - 3
+        suffix_str = "*"
+      END IF
+    END IF
+    ! condense two-digit suffices "_01, _02, _03, ..." into "*"
+    IF (endidx > 2) THEN
+      IF ((var%info%name(endidx-2:endidx-2) == "_")    .AND. &
+        &  is_number(var%info%name(endidx-1:endidx-1)) .AND. &
+        &  is_number(var%info%name(endidx  :endidx  ))) THEN
+        endidx = endidx - 2
+        suffix_str = "*"
+      END IF
+    END IF
+    ! condense one-digit suffices "_1, _2, _3, ..." into "_*"
+    IF ((endidx > 1) .AND. (suffix_str == " ")) THEN
+      IF ((var%info%name(endidx-1:endidx-1) == "_") .AND. &
+        &  is_number(var%info%name(endidx  :endidx  ))) THEN
+        endidx = endidx - 1
+        suffix_str = "*"
+      END IF
+    END IF
+    get_var_basename = var%info%name(1:endidx)//suffix_str
 
+  CONTAINS
+    LOGICAL FUNCTION is_number(char)
+      CHARACTER, INTENT(IN) :: char
+      is_number = (IACHAR(char) - IACHAR('0')) <= 9
+    END FUNCTION is_number
+  END FUNCTION get_var_basename
 
   !------------------------------------------------------------------------------------------------
   !> @return GRIB2 short name of a given variable.
@@ -101,22 +131,23 @@ CONTAINS
     CHARACTER(kind=c_char, LEN=cdi_max_name+1), INTENT(OUT)   :: name
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::identify_grb2_shortname"
-    CHARACTER(LEN=*), PARAMETER :: tmp_filename = "tmpfile.grb"
-    TYPE(t_verticalAxis),     POINTER :: zaxis
-    INTEGER                           :: tmp_vlistID, tmp_gridID, tmp_zaxisID, tmp_varID,    &
-      &                                  tmp_streamID, nmiss, i, tmp_taxisID, tmp_cdiInstID, &
-      &                                  ierrstat
-    REAL(wp)                          :: tmp_var1(1)
+    CHARACTER(LEN=*), PARAMETER :: tmp_filename_base = "tmpfile.grb"
+    TYPE(t_verticalAxis),     POINTER        :: zaxis
+    INTEGER                                  :: tmp_vlistID, tmp_gridID, tmp_zaxisID, tmp_varID,    &
+      &                                         tmp_streamID, nmiss, tmp_taxisID, tmp_cdiInstID, &
+      &                                         ierrstat
+    REAL(wp)                                 :: tmp_var1(1)
+    CHARACTER(LEN=LEN(tmp_filename_base)+32) :: tmp_filename
 
 #ifndef HAVE_LIBGRIB_API
-    name = ""
+    name = tolower(info%name)
     RETURN
 #endif
 
     ! retrieve vertical axis object
     zaxis => verticalAxisList%getEntry(icon_zaxis_type=info%vgrid)
     IF (.NOT. ASSOCIATED(zaxis)) THEN
-      WRITE (message_text,'(a,i0,a)') 'Zaxis no. ', info%vgrid,' undefined.'
+      WRITE (message_text,*) "variable '", TRIM(info%name), "' :Zaxis no. ", info%vgrid, " undefined."
       CALL finish(routine, message_text)
     END IF
     tmp_zaxisID = zaxis%cdi_id
@@ -137,7 +168,8 @@ CONTAINS
       &                             info, 0._dp, FILETYPE_GRB2,                  &
       &                             gribout_config, i_lctype, out_varnames_dict)
     ! open temporary GRIB2 file, write variable:
-    tmp_streamID = streamOpenWrite(tmp_filename, FILETYPE_GRB2) 
+    tmp_filename = tmp_filename_base//"."//int2string(get_my_global_mpi_id(),'(i0)')
+    tmp_streamID = streamOpenWrite(TRIM(tmp_filename), FILETYPE_GRB2) 
     CALL streamDefVlist(tmp_streamID, tmp_vlistID) 
     tmp_var1(:) = 0._wp
     nmiss       = 0
@@ -147,25 +179,22 @@ CONTAINS
     CALL taxisDestroy(tmp_taxisID)
     CALL gridDestroy(tmp_gridID) 
     ! Re-open file:
-    tmp_streamID = streamOpenRead(tmp_filename) 
+    tmp_streamID = streamOpenRead(TRIM(tmp_filename)) 
     ! Get the variable list of the dataset 
     tmp_vlistID = streamInqVlist(tmp_streamID) 
     CALL vlistInqVarName(tmp_vlistID, tmp_varID, name)   
     ! Close the input stream 
     CALL streamClose(tmp_streamID) 
-    ierrstat = util_unlink(tmp_filename)
+    ierrstat = util_unlink(TRIM(tmp_filename))
   END SUBROUTINE identify_grb2_shortname
 
 
   !------------------------------------------------------------------------------------------------
   !> Print list of all output variables (LaTeX table formatting).
   !
-  SUBROUTINE print_var_list(var_lists, nvar_lists, out_varnames_dict,   &
+  SUBROUTINE print_var_list(out_varnames_dict,   &
     &                       print_patch_id, iequations, gribout_config, &
     &                       i_lctype)
-
-    TYPE(t_var_list),       INTENT(IN) :: var_lists(:)
-    INTEGER,                INTENT(IN) :: nvar_lists
     TYPE(t_dictionary),     INTENT(IN) :: out_varnames_dict
     INTEGER,                INTENT(IN) :: iequations
     TYPE(t_gribout_config), INTENT(IN) :: gribout_config
@@ -173,17 +202,22 @@ CONTAINS
     INTEGER,                INTENT(IN) :: print_patch_id
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::print_var_list"
-    INTEGER,          PARAMETER :: max_str_len = cdi_max_name + 1 + 128 + VARNAME_LEN + 99
+    INTEGER,          PARAMETER :: max_str_len = cdi_max_name + 1 + 128 + vname_len + 99
+
+    CHARACTER(LEN=*), PARAMETER :: varprefix = "\varname{"
+    INTEGER,          PARAMETER :: PREF = LEN_TRIM(varprefix)
 
     TYPE(t_level_selection),  POINTER              :: tmp_level_selection => NULL()
     TYPE(t_verticalAxisList), TARGET               :: tmp_verticalAxisList
     TYPE(t_verticalAxisList), POINTER              :: it
     TYPE (t_var_metadata),    POINTER              :: info
-    TYPE(t_list_element),     POINTER              :: element
+    TYPE(t_var),     POINTER              :: elem
     TYPE(t_cf_var),           POINTER              :: this_cf
-    INTEGER                                        :: i, nout_vars, iout_var, ierrstat
+    INTEGER                                        :: i, iv, nout_vars, iout_var, ierrstat
     CHARACTER(kind=c_char, LEN = cdi_max_name + 1) :: name
     CHARACTER(LEN=max_str_len), ALLOCATABLE        :: out_vars(:)
+    CHARACTER(len=128)                             :: descr_string
+    TYPE(t_vl_register_iter) :: vl_iter
     ! ---------------------------------------------------------------------------
 
     ! generate the CDI IDs for vertical axes:
@@ -205,75 +239,72 @@ CONTAINS
 
     ! count the no. of output variables:
     nout_vars = 0
-    DO i = 1, nvar_lists
-      IF (var_lists(i)%p%patch_id /= print_patch_id) CYCLE
-      IF(.NOT. var_lists(i)%p%loutput) CYCLE
-      element => var_lists(i)%p%first_list_element
-      DO
-        IF (.NOT. ASSOCIATED(element)) EXIT
-        info => element%field%info
-        IF(.NOT. info%loutput) THEN
-          element => element%next_list_element
-          CYCLE
-        END IF
-        nout_vars = nout_vars + 1
-        element => element%next_list_element
+    DO WHILE(vl_iter%next())
+      IF (vl_iter%cur%p%patch_id /= print_patch_id) CYCLE
+      IF(.NOT.vl_iter%cur%p%loutput) CYCLE
+      IF (vl_iter%cur%p%vlevel_type /= level_type_ml) CYCLE
+      DO iv = 1, vl_iter%cur%p%nvars
+        IF (vl_iter%cur%p%vl(iv)%P%info%loutput) nout_vars = nout_vars + 1
       END DO
     END DO
-
     ! allocate sufficient space
     ALLOCATE(out_vars(nout_vars), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-
     iout_var = 0
-    DO i = 1, nvar_lists
-
-      IF (var_lists(i)%p%patch_id /= print_patch_id) CYCLE
+    DO WHILE(vl_iter%next())
+      IF (vl_iter%cur%p%patch_id /= print_patch_id) CYCLE
+      ! Inspect only model level variables
+      IF (vl_iter%cur%p%vlevel_type /= level_type_ml) CYCLE
       ! Do not inspect element if output is disabled
-      IF(.NOT. var_lists(i)%p%loutput) CYCLE
-
-      element => var_lists(i)%p%first_list_element
-      DO
-        IF (.NOT. ASSOCIATED(element)) EXIT
-
-        info => element%field%info
-
+      IF(.NOT.vl_iter%cur%p%loutput) CYCLE
+      DO iv = 1, vl_iter%cur%p%nvars
+        elem => vl_iter%cur%p%vl(iv)%p
+        info => elem%info
         ! Do not inspect element if output is disabled
-        IF(.NOT. info%loutput) THEN
-          element => element%next_list_element
-          CYCLE
-        END IF
-        
+        IF (.NOT.info%loutput) CYCLE
         IF (info%post_op%lnew_cf) THEN
           this_cf => info%post_op%new_cf
         ELSE
           this_cf => info%cf
         END IF
-              
+        ! if no short is available and if the variable is a
+        ! "reference" into another variable, then search for this
+        ! source variable:
+        IF ((LEN_TRIM(this_cf%long_name) == 0) .AND. info%lcontained) THEN
+          this_cf => info%cf
+          IF (ASSOCIATED(elem%ref_to)) THEN
+            IF (elem%ref_to%info%ncontained > 0) this_cf => elem%ref_to%info%cf
+          END IF
+        END IF
+
         CALL identify_grb2_shortname(info, tmp_verticalAxisList,     &
           &                          gribout_config, i_lctype,       &
           &                          out_varnames_dict, name)
-        name = TRIM(tolower(name))
-        IF (name(1:3) == "var") THEN
+        name = tolower(name)
+        IF ((name(1:3) == "var") .OR. (name(1:5) == "param")) THEN
           name = ""
+        ELSE
+          name = "\varname{"//TRIM(name)//"}"
         END IF
 
+        descr_string = this_cf%long_name
+        ! upcase first letter of description string:
+        descr_string(1:1) = toupper(descr_string(1:1))
+
         iout_var = iout_var + 1
-        WRITE (out_vars(iout_var),'(5a)')                           &
-          &         TRIM(tolower(get_var_basename(element%field))), &
-          &         ' & ',                                          &
-          &         TRIM(name),                                     &
-          &         ' & ',                                          &
-          &         TRIM(this_cf%long_name)
-        
-        element => element%next_list_element
+        WRITE (out_vars(iout_var),'(5a)')                                             &
+          &         "\varname{"//tolower(get_var_basename(elem))//"}", &
+          &         ' & ',                                                            &
+          &         TRIM(name),                                                       &
+          &         ' & ',                                                            &
+          &         TRIM(descr_string)
       ENDDO
     ENDDO
     CALL tmp_verticalAxisList%finalize()
 
     ! sort and remove duplicates
-    CALL remove_duplicates(out_vars(1:nout_vars), nout_vars)
     CALL quicksort(out_vars(1:nout_vars))
+    CALL remove_duplicates(out_vars(1:nout_vars), nout_vars)
 
     ! print table, but add a gap when new alphabetical letter starts:
     WRITE (0,*) "----------------------------------------------------------------------"
@@ -282,7 +313,8 @@ CONTAINS
     WRITE (0,*) " "
     DO i=1,nout_vars
       IF (i < nout_vars) THEN
-        IF (out_vars(i)(1:1) /= out_vars(i+1)(1:1)) THEN
+        ! check for the initial character of the variable name:
+        IF (out_vars(i)(PREF+1:PREF+1) /= out_vars(i+1)(PREF+1:PREF+1)) THEN
           WRITE (0,*) TRIM(out_vars(i)), " \\[0.5em]"
         ELSE
           WRITE (0,*) TRIM(out_vars(i)), " \\"

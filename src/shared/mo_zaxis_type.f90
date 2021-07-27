@@ -1,5 +1,18 @@
 !! Global registry for vertical axis types.
 !!
+!! Please note: The purpose of this module is to register vertical axis types
+!! (ie. categories), which can be used by the "add_var" mechanism in ICON.
+!!
+!! The meta-data for these axis types is *not* defined in this place, but in
+!! the module "src/io/shared/mo_name_list_output_zaxes.f90" . 
+!! The reason for this separation is that the meta-data 
+!! is only required for writing variables to disk.
+!!
+!! To make a long story short: After adding a new vertical axis type here, 
+!! you probably need to add the meta-data definition for this type in
+!! "mo_name_list_output_zaxes.f90", otherwise you won't be able 
+!! to read/write the variable.
+!!
 !! @par Copyright and License
 !!
 !! This code is subject to the DWD and MPI-M-Software-License-Agreement in
@@ -11,14 +24,14 @@ MODULE mo_zaxis_type
 
   USE ISO_C_BINDING,    ONLY: C_INT32_T
   USE mo_exception,     ONLY: finish
-  USE mo_fortran_tools, ONLY: t_Destructible
   USE mo_hash_table,    ONLY: t_HashTable, hashTable_make
   USE mo_cdi, ONLY: ZAXIS_ALTITUDE, ZAXIS_ATMOSPHERE, ZAXIS_CLOUD_BASE, ZAXIS_CLOUD_TOP,        &
     &               ZAXIS_DEPTH_BELOW_LAND, ZAXIS_DEPTH_BELOW_SEA, ZAXIS_GENERIC, ZAXIS_HEIGHT, &
     &               ZAXIS_HYBRID, ZAXIS_HYBRID_HALF, ZAXIS_ISENTROPIC, ZAXIS_ISOTHERM_ZERO,     &
     &               ZAXIS_LAKE_BOTTOM, ZAXIS_MEANSEA, ZAXIS_MIX_LAYER, ZAXIS_PRESSURE,          &
     &               ZAXIS_REFERENCE, ZAXIS_SEDIMENT_BOTTOM_TW, ZAXIS_SURFACE, ZAXIS_TOA,        &
-    &               CDI_UNDEFID
+    &               CDI_UNDEFID, zaxisCreate, zaxisDefLtype
+
 
 
   IMPLICIT NONE
@@ -50,28 +63,24 @@ MODULE mo_zaxis_type
     &   ZA_SEDIMENT_BOTTOM_TW_HALF, ZA_DEPTH_BELOW_SEA, ZA_DEPTH_BELOW_SEA_HALF,        &
     &   ZA_GENERIC_ICE, ZA_OCEAN_SEDIMENT, ZA_PRES_FL_SFC_200, ZA_PRES_FL_200_350,      &
     &   ZA_PRES_FL_350_550, ZA_PRES_FL_SFC_100, ZA_PRES_FL_100_245, ZA_PRES_FL_245_390, &
-    &   ZA_PRES_FL_390_530, ZA_ATMOSPHERE, ZA_HEIGHT_2M_LAYER
+    &   ZA_PRES_FL_390_530, ZA_ATMOSPHERE, ZA_HEIGHT_2M_LAYER, ZA_ECHOTOP, ZA_TROPOPAUSE
 
   !> Derived type holding a the ICON-internal key for a single
   !  vertical axis type. See "t_zaxisTypeList" for details.
   !
-  TYPE, EXTENDS(t_Destructible) :: t_zaxisKey
+  TYPE :: t_zaxisKey
     INTEGER :: icon_zaxis_type
-  CONTAINS
-    PROCEDURE :: destruct => t_zaxisKey_destruct
   END TYPE t_zaxisKey
 
 
   !> Derived type holding a single vertical axis type. See
   !  "t_zaxisTypeList" for details.
   !
-  TYPE, EXTENDS(t_Destructible) :: t_zaxisType
+  TYPE :: t_zaxisType
     INTEGER :: icon_zaxis_type
     INTEGER :: cdi_zaxis_type
     LOGICAL :: is_2d
   CONTAINS
-    PROCEDURE :: destruct => t_zaxisType_destruct
-
     GENERIC, PUBLIC :: OPERATOR(==) => eqv
     PROCEDURE :: eqv => t_zaxisType_eqv
   END TYPE t_zaxisType
@@ -121,6 +130,9 @@ MODULE mo_zaxis_type
 
   TYPE(t_zaxisTypeList) :: zaxisTypeList
 
+  LOGICAL :: l_add_addition_zaxis_types = .FALSE.
+  INTEGER, PUBLIC :: ZAXIS_TROPOPAUSE = CDI_UNDEFID
+
 CONTAINS
 
   !> Comparison operator for two zaxis types.
@@ -141,6 +153,13 @@ CONTAINS
   FUNCTION new_zaxisTypeList()  RESULT(za_list)
     TYPE(t_zaxisTypeList) :: za_list
 
+    IF (l_add_addition_zaxis_types) THEN
+      ZAXIS_TROPOPAUSE = zaxisCreate(ZAXIS_GENERIC, 1)
+      ! WMO GRIB2 code table 4.5: level type TOPOPAUSE = 7
+      CALL zaxisDefLtype(ZAXIS_TROPOPAUSE, 7) 
+      l_add_addition_zaxis_types = .FALSE.
+    ENDIF
+
     za_list%max_icon_zaxis_type = 0
     za_list%list = hashTable_make(list_hashKey, list_equalKeys)
 
@@ -152,6 +171,7 @@ CONTAINS
     ZA_REFERENCE               = za_list%register(cdi_zaxis_type=ZAXIS_REFERENCE          , is_2D=.FALSE.)
     ZA_REFERENCE_HALF          = za_list%register(cdi_zaxis_type=ZAXIS_REFERENCE          , is_2D=.FALSE.)
     ZA_REFERENCE_HALF_HHL      = za_list%register(cdi_zaxis_type=ZAXIS_REFERENCE          , is_2D=.FALSE.)
+    ZA_ECHOTOP                 = za_list%register(cdi_zaxis_type=ZAXIS_GENERIC            , is_2D=.FALSE.)
 
     !DR *********** FIXME *************
     ! Re-set
@@ -207,6 +227,7 @@ CONTAINS
     ZA_PRES_FL_390_530         = za_list%register(cdi_zaxis_type=ZAXIS_PRESSURE           , is_2D=.TRUE.)
     ZA_ATMOSPHERE              = za_list%register(cdi_zaxis_type=ZAXIS_ATMOSPHERE         , is_2D=.TRUE.)
     ZA_HEIGHT_2M_LAYER         = za_list%register(cdi_zaxis_type=ZAXIS_HEIGHT             , is_2D=.TRUE.)
+    ZA_TROPOPAUSE              = za_list%register(cdi_zaxis_type=ZAXIS_GENERIC            , is_2D=.TRUE.)    
   END FUNCTION new_zaxisTypeList
 
 
@@ -219,13 +240,13 @@ CONTAINS
   !> Auxiliary function for the internal hash table: compute hash key.
   !
   INTEGER(C_INT32_T) FUNCTION list_hashKey(key) RESULT(RESULT)
-    CLASS(t_Destructible), POINTER, INTENT(in) :: key
+    CLASS(*), POINTER, INTENT(in) :: key
     CHARACTER(LEN=*), PARAMETER :: routine = modname//":list_hashKey"
 
     SELECT TYPE(key)
     TYPE IS(t_zaxisKey)
       RESULT = key%icon_zaxis_type
-      CLASS DEFAULT
+    CLASS DEFAULT
       CALL finish(routine, "Unknown type for key.")
     END SELECT
   END FUNCTION list_hashKey
@@ -234,7 +255,7 @@ CONTAINS
   !> Auxiliary function for the internal hash table: compare keys.
   !
   LOGICAL FUNCTION list_equalKeys(keyA, keyB) RESULT(RESULT)
-    CLASS(t_Destructible), POINTER, INTENT(in) :: keyA, keyB
+    CLASS(*), POINTER, INTENT(in) :: keyA, keyB
     CHARACTER(LEN=*), PARAMETER :: routine = modname//":list_equalKeys"
 
     SELECT TYPE(keyA)
@@ -263,8 +284,8 @@ CONTAINS
 
     CHARACTER(LEN=*), PARAMETER     :: routine = modname//'::t_zaxisTypeList_register'
 
-    CLASS(t_Destructible),POINTER :: p_key
-    CLASS(t_Destructible),POINTER :: p_value
+    CLASS(*),POINTER :: p_key
+    CLASS(*),POINTER :: p_value
 
     IF (PRESENT(icon_zaxis_type)) THEN
       ! check if icon_zaxis_type already set
@@ -310,8 +331,7 @@ CONTAINS
     INTEGER, OPTIONAL,      INTENT(OUT) :: ierror
 
     CHARACTER(LEN=*), PARAMETER        :: routine = modname//'::t_zaxisTypeList_getEntry'
-    CLASS(t_Destructible), POINTER     :: p_key
-    CLASS(t_Destructible), POINTER     :: p_value
+    CLASS(*), POINTER     :: p_key, p_value
 
     ! retrieve entry from hash table:
     IF (PRESENT(ierror))  ierror = 0
@@ -379,19 +399,5 @@ CONTAINS
     CLASS(t_zaxisTypeList), INTENT(IN) :: zaxisTypeList
     za_count = zaxisTypeList%max_icon_zaxis_type
   END FUNCTION t_zaxisTypeList_za_count
-
-
-  !> Dummy destructor for t_zaxisKey.
-  SUBROUTINE t_zaxisKey_destruct(me)
-    CLASS(t_zaxisKey), INTENT(INOUT) :: me
-    ! do nothing
-  END SUBROUTINE t_zaxisKey_destruct
-
-
-  !> Dummy destructor for t_zaxisType.
-  SUBROUTINE t_zaxisType_destruct(me)
-    CLASS(t_zaxisType), INTENT(INOUT) :: me
-    ! do nothing
-  END SUBROUTINE t_zaxisType_destruct
 
 END MODULE mo_zaxis_type

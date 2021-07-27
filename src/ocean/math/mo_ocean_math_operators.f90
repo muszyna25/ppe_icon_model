@@ -40,7 +40,7 @@ MODULE mo_ocean_math_operators
   USE mo_model_domain,       ONLY: t_patch, t_patch_3D
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_ocean_nml,          ONLY: n_zlev, iswm_oce, &
-    & select_solver, select_restart_mixedprecision_gmres, i_bc_veloc_lateral,i_bc_veloc_lateral_noslip, &
+    & select_solver, select_gmres_mp_r, i_bc_veloc_lateral,i_bc_veloc_lateral_noslip, &
     & select_lhs, select_lhs_matrix, ab_beta, ab_gam
   
   USE mo_dynamics_config,    ONLY: nold
@@ -81,7 +81,7 @@ MODULE mo_ocean_math_operators
   PUBLIC :: update_height_depdendent_variables, calculate_thickness
   PUBLIC :: grad_vector, div_vector_onTriangle
   PUBLIC :: verticalDiv_vector_onFullLevels_on_block
-  
+  PUBLIC :: update_height_hamocc 
   
   INTERFACE div_oce_3D
     MODULE PROCEDURE div_oce_3D_mlevels
@@ -1209,7 +1209,7 @@ CONTAINS
     ELSE
       cells_in_domain => patch_3D%p_patch_2D(1)%cells%in_domain
     ENDIF    
-    start_level=2
+    start_level=1
     !-----------------------------------------------------------------------
     
 !ICON_OMP_PARALLEL_DO PRIVATE(blockNo,start_cell_index,end_cell_index) ICON_OMP_DEFAULT_SCHEDULE
@@ -1258,8 +1258,7 @@ CONTAINS
 !      IF ( end_level >=min_dolic ) THEN
         DO jk = start_level,patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo)
           vertDiv_scalar(jc,jk) &
-            & = (scalar_in(jc,jk) - scalar_in(jc,jk+1))  & !/ prism_center_distance(jc,jk)
-              & * inv_prism_thickness(jc,jk)
+            & = (scalar_in(jc,jk) - scalar_in(jc,jk+1))
 
         END DO
         ! vertDeriv_vec(jc,end_level)%x = 0.0_wp ! this is not needed
@@ -1541,10 +1540,10 @@ CONTAINS
   !>
 !<Optimize:inUse>
   SUBROUTINE update_height_depdendent_variables( patch_3D, ocean_state, p_ext_data, operators_coefficients, solvercoeff_sp)
-    TYPE(t_patch_3D ),TARGET, INTENT(in)   :: patch_3D
+    TYPE(t_patch_3D ),TARGET   :: patch_3D
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
     TYPE(t_external_data), TARGET, INTENT(in) :: p_ext_data
-    TYPE(t_operator_coeff), INTENT(in)      :: operators_coefficients
+    TYPE(t_operator_coeff), INTENT(inout)      :: operators_coefficients
     TYPE(t_solvercoeff_singleprecision), INTENT(inout) :: solvercoeff_sp
     
     CALL calculate_thickness( patch_3D, ocean_state, p_ext_data, operators_coefficients, solvercoeff_sp)
@@ -1552,6 +1551,222 @@ CONTAINS
       & operators_coefficients, solvercoeff_sp )
     
   END SUBROUTINE update_height_depdendent_variables
+  !---------------------------------------------------------------------------------
+    
+  !---------------------------------------------------------------------------------
+  !>
+!<Optimize:inUse>
+  SUBROUTINE update_height_hamocc( patch_3D, operators_coefficients, h_old)
+    TYPE(t_patch_3D ),TARGET   :: patch_3D
+    TYPE(t_operator_coeff), INTENT(inout)      :: operators_coefficients
+    onCells_2D, INTENT(in)                     :: h_old
+    
+    !  local variables
+    INTEGER :: cell_StartIndex, cell_EndIndex
+    INTEGER :: edge_StartIndex, edge_EndIndex
+    INTEGER :: jc, blockNo, je, level
+    INTEGER :: thislevel, levelabove, levelbelow, level2below, cell_levels
+    
+    INTEGER :: il_c1, ib_c1, il_c2, ib_c2
+    TYPE(t_subset_range), POINTER :: all_cells, all_edges, edges_in_domain
+    TYPE(t_patch), POINTER :: patch_2D
+    
+!     INTEGER :: cell_1_index, cell_2_index, cell_1_block, cell_2_block
+!     INTEGER :: edge_1_1_index, edge_1_2_index, edge_1_3_index
+!     INTEGER :: edge_2_1_index, edge_2_2_index, edge_2_3_index
+!     INTEGER :: edge_1_1_block, edge_1_2_block, edge_1_3_block
+!     INTEGER :: edge_2_1_block, edge_2_2_block, edge_2_3_block
+    
+    REAL(wp), POINTER :: cell_thickness(:,:,:), edge_thickness(:,:,:)
+    REAL(wp), POINTER :: inv_cell_thickness(:,:,:), inv_edge_thickness(:,:,:)
+    REAL(wp), POINTER :: inv_prisms_center_distance(:,:,:), inv_edgefaces_middle_distance(:,:,:)
+    !-------------------------------------------------------------------------------
+    ! pointers for the ppm vertical transport
+    TYPE(t_verticaladvection_ppm_coefficients), POINTER :: vertadvppm
+    !-------------------------------------------------------------------------------
+
+    patch_2D           => patch_3D%p_patch_2D(1)
+    all_cells          => patch_2D%cells%ALL
+    all_edges          => patch_2D%edges%ALL
+    edges_in_domain    => patch_2D%edges%in_domain
+    cell_thickness     => patch_3D%p_patch_1d(1)%prism_thick_c
+    inv_cell_thickness => patch_3D%p_patch_1d(1)%inv_prism_thick_c
+    inv_prisms_center_distance => patch_3D%p_patch_1d(1)%inv_prism_center_dist_c
+    edge_thickness     => patch_3D%p_patch_1d(1)%prism_thick_e
+    inv_edge_thickness => patch_3D%p_patch_1d(1)%inv_prism_thick_e
+    inv_edgefaces_middle_distance => patch_3D%p_patch_1d(1)%inv_prism_center_dist_e
+        
+    !Step 1: calculate cell-located variables for 2D and 3D case
+    !For 3D and for SWE thick_c contains thickness of fluid column
+
+
+    !Update prism thickness. The prism-thickness below the surface is
+    !not updated it is initialized in construct_hydro_ocean_diag
+    !with z-coordinate-thickness.
+    !1) Thickness at cells
+
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(cell_StartIndex, cell_EndIndex, jc) ICON_OMP_DEFAULT_SCHEDULE
+      DO blockNo = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, blockNo, cell_StartIndex, cell_EndIndex)
+        DO jc = cell_StartIndex, cell_EndIndex
+          IF ( patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo) > 0 ) THEN
+            cell_thickness(jc,1,blockNo) = &
+              & patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(jc,1,blockNo) + &
+              & h_old(jc,blockNo)
+          ENDIF
+        END DO
+      END DO
+!ICON_OMP_END_DO
+    
+!ICON_OMP_DO PRIVATE(cell_StartIndex, cell_EndIndex, jc, level) ICON_OMP_DEFAULT_SCHEDULE
+      DO blockNo = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, blockNo, cell_StartIndex, cell_EndIndex)
+        DO jc = cell_StartIndex, cell_EndIndex
+          IF ( patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo) > 0 ) THEN
+
+            ! this is located at half levels, the distance between 1,2 cells is assigned to the 2 level
+            patch_3D%p_patch_1d(1)%prism_center_dist_c(jc,2,blockNo) = 0.5_wp * &
+              & (cell_thickness(jc,1,blockNo) + cell_thickness(jc,2,blockNo))
+            
+            patch_3D%p_patch_1d(1)%prism_volume(jc,1,blockNo) = cell_thickness(jc,1,blockNo) * &
+              & patch_2D%cells%area(jc,blockNo)
+            
+            inv_cell_thickness(jc,1,blockNo) = 1.0_wp / cell_thickness(jc,1,blockNo)
+            
+            ! this is located at half levels, the distance between 1,2 cells is assigned to the 2 level
+            inv_prisms_center_distance(jc,2,blockNo) = &
+              & 1.0_wp / patch_3D%p_patch_1d(1)%prism_center_dist_c(jc,2,blockNo)
+            
+            patch_3D%p_patch_1d(1)%depth_cellmiddle(jc,1,blockNo) = cell_thickness(jc,1,blockNo) * 0.5_wp
+            patch_3D%p_patch_1d(1)%depth_cellinterface(jc,2,blockNo) = cell_thickness(jc,1,blockNo)
+          
+            DO level=2, patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo)
+              patch_3D%p_patch_1d(1)%depth_cellmiddle(jc,level,blockNo) = &
+                & patch_3D%p_patch_1d(1)%depth_cellinterface(jc,level,blockNo) + cell_thickness(jc,level,blockNo) * 0.5_wp
+              patch_3D%p_patch_1d(1)%depth_cellinterface(jc,level+1,blockNo) = &
+                & patch_3D%p_patch_1d(1)%depth_cellinterface(jc,level,blockNo) + cell_thickness(jc,level,blockNo)
+            ENDDO
+            
+          ENDIF
+        
+        END DO
+      END DO
+!ICON_OMP_END_DO
+
+      !2) Thickness at edges
+!ICON_OMP_DO PRIVATE(edge_StartIndex, edge_EndIndex, je, il_c1, ib_c1, il_c2, ib_c2) ICON_OMP_DEFAULT_SCHEDULE
+      DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
+        CALL get_index_range(edges_in_domain, blockNo, edge_StartIndex, edge_EndIndex)
+        DO je = edge_StartIndex, edge_EndIndex
+          IF ( patch_3D%p_patch_1d(1)%dolic_e(je,blockNo) > 0 ) THEN
+
+            il_c1 = patch_2D%edges%cell_idx(je,blockNo,1)
+            ib_c1 = patch_2D%edges%cell_blk(je,blockNo,1)
+            il_c2 = patch_2D%edges%cell_idx(je,blockNo,2)
+            ib_c2 = patch_2D%edges%cell_blk(je,blockNo,2)
+            
+            edge_thickness(je,1,blockNo)&
+              & = patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_e(je,1,blockNo) + &
+              & 0.5_wp * ( h_old(il_c1,ib_c1) + h_old(il_c2,ib_c2) )
+                        
+          ENDIF
+        END DO
+      END DO
+!ICON_OMP_END_DO
+!ICON_OMP_MASTER      
+      CALL sync_patch_array(sync_e, patch_2D, edge_thickness)
+!ICON_OMP_END_MASTER
+!ICON_OMP_BARRIER
+    
+!ICON_OMP_DO PRIVATE(edge_StartIndex, edge_EndIndex, je) ICON_OMP_DEFAULT_SCHEDULE
+      DO blockNo = all_edges%start_block, all_edges%end_block
+        CALL get_index_range(all_edges, blockNo, edge_StartIndex, edge_EndIndex)
+        DO je = edge_StartIndex, edge_EndIndex
+          IF ( patch_3D%p_patch_1d(1)%dolic_e(je,blockNo) > 0 ) THEN
+           
+            inv_edge_thickness(je,1,blockNo)= 1.0_wp / edge_thickness(je,1,blockNo)
+            
+            inv_edgefaces_middle_distance(je,2,blockNo) = 2.0_wp / &
+              & (edge_thickness(je,1,blockNo) + edge_thickness(je,2,blockNo))
+            
+          ENDIF
+        END DO
+      END DO
+!ICON_OMP_END_DO
+
+   !-------------------------------------------------------------------------
+    ! update the coefficients for the upwind_vflux_ppm_fast vertical advection
+!ICON_OMP_DO PRIVATE(cell_StartIndex, cell_EndIndex, vertAdvPPM, jc, cell_levels, thisLevel, levelAbove, &
+!ICON_OMP  levelBelow, level2Below   ) ICON_OMP_DEFAULT_SCHEDULE
+    DO blockNo = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, blockNo, cell_StartIndex, cell_EndIndex)
+      vertadvppm => operators_coefficients%verticaladvectionppmcoeffs(blockNo)
+      DO jc = cell_StartIndex, cell_EndIndex
+        
+        cell_levels = patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo)
+        
+        thislevel  = 1
+        levelbelow = 2
+        IF ( cell_levels >= levelbelow ) THEN
+          
+          vertadvppm%cellheightratio_this_tobelow(jc, thislevel) = &
+            & cell_thickness(jc, thislevel, blockNo) / cell_thickness(jc, levelbelow, blockNo)
+          
+          vertadvppm%cellheightratio_this_tothisbelow(jc, thislevel) = &
+            & cell_thickness(jc, thislevel, blockNo) / &
+            & (cell_thickness(jc, thislevel, blockNo) + cell_thickness(jc, levelbelow, blockNo))
+          
+          vertadvppm%cellheight_2xbelow_x_ratiothis_tothisbelow(jc,thislevel) = &
+            & 2._wp * cell_thickness(jc,levelbelow, blockNo) * &
+            & vertadvppm%cellheightratio_this_tothisbelow(jc, thislevel)
+          
+        ENDIF
+        
+        thislevel  = 2
+        levelabove = 1
+        levelbelow = 3
+        level2below = 4
+        IF ( cell_levels >= levelbelow ) THEN
+                    
+          vertadvppm%cellheightratio_this_tothisabovebelow(jc,thislevel) = &
+            & cell_thickness(jc, thislevel ,blockNo) / &
+            & (cell_thickness(jc,levelabove,blockNo) + cell_thickness(jc,thislevel,blockNo)    &
+            & + cell_thickness(jc,levelbelow,blockNo))
+          
+          vertadvppm%cellheightratio_2xaboveplusthis_tothisbelow(jc,thislevel) = &
+            & (2._wp * cell_thickness(jc,levelabove,blockNo) + cell_thickness(jc,thislevel,blockNo))     &
+            & / (cell_thickness(jc,levelbelow,blockNo) + cell_thickness(jc,thislevel,blockNo))
+          
+          vertadvppm%cellheightratio_2xbelowplusthis_tothisabove(jc,thislevel) = &
+            & + (cell_thickness(jc,thislevel,blockNo) + 2._wp * cell_thickness(jc,levelbelow,blockNo))   &
+            & / (cell_thickness(jc,levelabove,blockNo) + cell_thickness(jc,thislevel,blockNo))
+          
+          vertadvppm%cellheightratio_thisabove_to2xthisplusbelow(jc,thislevel) =                         &
+            & (cell_thickness(jc,levelabove,blockNo) + cell_thickness(jc,thislevel,blockNo))            &
+            & / (2._wp*cell_thickness(jc,thislevel,blockNo) + cell_thickness(jc,levelbelow,blockNo))
+          
+          vertadvppm%cellheightratio_thisbelow_to2xthisplusabove(jc,thislevel) =                 &
+            & (cell_thickness(jc,levelbelow,blockNo) + cell_thickness(jc,thislevel,blockNo))                  &
+            & / (2._wp*cell_thickness(jc,thislevel,blockNo) + cell_thickness(jc,levelabove,blockNo))
+          ! = 1 / cellHeightRatio_2xBelowplusThis_toThisAbove(levelBelow)
+          
+        ENDIF
+        
+        IF ( cell_levels >= level2below ) THEN
+          vertadvppm%cellheight_inv_thisabovebelow2below(jc,thislevel) =                                  &
+            & 1._wp / (cell_thickness(jc,levelabove,blockNo) + cell_thickness(jc,thislevel,blockNo)       &
+            & + cell_thickness(jc,levelbelow,blockNo) + cell_thickness(jc,level2below,blockNo))
+        ENDIF
+        
+      END DO
+    END DO
+!ICON_OMP_END_DO
+    !-------------------------------------------------------------------------
+
+!ICON_OMP_END_PARALLEL
+    
+  END SUBROUTINE update_height_hamocc
   !---------------------------------------------------------------------------------
     
  
@@ -1567,11 +1782,11 @@ CONTAINS
   !!
 !<Optimize:inUse>
   SUBROUTINE calculate_thickness( patch_3D, ocean_state, p_ext_data, operators_coefficients, solvercoeff_sp, inTopCellThickness)
-    TYPE(t_patch_3D ),TARGET, INTENT(in)   :: patch_3D
+    TYPE(t_patch_3D ),TARGET   :: patch_3D
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
     TYPE(t_external_data), TARGET, INTENT(in) :: p_ext_data
-    TYPE(t_operator_coeff), INTENT(in)      :: operators_coefficients
-    TYPE(t_solvercoeff_singleprecision), INTENT(inout) :: solvercoeff_sp
+    TYPE(t_operator_coeff), INTENT(in) :: operators_coefficients
+    TYPE(t_solvercoeff_singleprecision), INTENT(in) :: solvercoeff_sp
     REAL(wp), OPTIONAL :: inTopCellThickness(:,:)
     
     !  local variables
@@ -1917,7 +2132,7 @@ CONTAINS
 ! !ICON_OMP_END_DO
 !
 !
-!     IF (select_solver == select_restart_mixedprecision_gmres) THEN
+!     IF (select_solver == select_gmres_mp_r) THEN
 ! !ICON_OMP WORKSHARE
 !       solvercoeff_sp%edge_thickness(:,:)  = REAL(ocean_state%p_diag%thick_e(:,:), sp)
 !       solvercoeff_sp%cell_thickness(:,:)  = REAL(ocean_state%p_diag%thick_c(:,:), sp)
@@ -1998,16 +2213,16 @@ CONTAINS
         
     !---------Debug Diagnostics-------------------------------------------
     idt_src=4  ! output print level (1-5, fix)
-    CALL dbg_print('heightRelQuant: h_c'    ,ocean_state%p_prog(nold(1))%h ,str_module,idt_src, &
+    CALL dbg_print('calculate_thickness:h_c'    ,ocean_state%p_prog(nold(1))%h ,str_module,idt_src, &
       & in_subset=patch_2D%cells%owned)
-    CALL dbg_print('heightRelQuant: thick_c',ocean_state%p_diag%thick_c    ,str_module,idt_src, &
+    CALL dbg_print('calculate_thickness:thick_c',ocean_state%p_diag%thick_c    ,str_module,idt_src, &
       & in_subset=patch_2D%cells%owned)
-    CALL dbg_print('heightRelQuant: thick_e',ocean_state%p_diag%thick_e    ,str_module,idt_src, &
+    CALL dbg_print('calculate_thickness:thick_e',ocean_state%p_diag%thick_e    ,str_module,idt_src, &
       & in_subset=patch_2D%edges%owned)
-    CALL dbg_print('depth_CellMiddle', &
+    CALL dbg_print('calculate_thickness:depth_CellMiddle', &
       & patch_3D%p_patch_1d(1)%depth_cellmiddle   ,str_module,idt_src, &
       & in_subset=patch_2D%cells%owned)
-    CALL dbg_print('depth_CellInterface', &
+    CALL dbg_print('calculate_thickness:depth_CellInterface', &
       & patch_3D%p_patch_1d(1)%depth_cellinterface   ,str_module,idt_src, &
       & in_subset=patch_2D%cells%owned)
     CALL dbg_print('calculate_thickness: edge_thickness',edge_thickness    ,str_module,idt_src, &
@@ -2032,7 +2247,7 @@ CONTAINS
 
     TYPE(t_patch_3D ),TARGET, INTENT(in)   :: patch_3D
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
-    TYPE(t_operator_coeff), INTENT(in)      :: operators_coefficients
+    TYPE(t_operator_coeff), INTENT(inout) :: operators_coefficients
     TYPE(t_solvercoeff_singleprecision), INTENT(inout) :: solvercoeff_sp
     REAL(wp), OPTIONAL :: inTopCellThickness(:,:)
     
@@ -2153,7 +2368,7 @@ CONTAINS
 !ICON_OMP_END_DO
     ENDIF 
     
-    IF (select_solver == select_restart_mixedprecision_gmres) THEN
+    IF (select_solver == select_gmres_mp_r) THEN
 !ICON_OMP WORKSHARE
       solvercoeff_sp%edge_thickness(:,:)  = REAL(ocean_state%p_diag%thick_e(:,:), sp)
       solvercoeff_sp%cell_thickness(:,:)  = REAL(ocean_state%p_diag%thick_c(:,:), sp)
@@ -2232,24 +2447,24 @@ CONTAINS
 !ICON_OMP_END_PARALLEL    
     !-------------------------------------------------------------------------
     
-    IF (select_lhs == select_lhs_matrix) &
+    IF (select_lhs .GE. select_lhs_matrix .AND. select_lhs .LE. select_lhs_matrix + 1) &
       CALL update_lhs_matrix_coeff( patch_3D, operators_coefficients)
 
     !---------Debug Diagnostics-------------------------------------------
     idt_src=4  ! output print level (1-5, fix)
-    CALL dbg_print('heightRelQuant: h_e'    ,ocean_state%p_diag%h_e        ,str_module,idt_src, &
+    CALL dbg_print('thickness_dep:h_e'    ,ocean_state%p_diag%h_e        ,str_module,idt_src, &
       & in_subset=patch_2D%edges%owned)
     idt_src=3
-    CALL dbg_print('heightRelQuant: h_c'    ,ocean_state%p_prog(nold(1))%h ,str_module,idt_src, &
+    CALL dbg_print('thickness_dep:h_c'    ,ocean_state%p_prog(nold(1))%h ,str_module,idt_src, &
       & in_subset=patch_2D%cells%owned)
-    CALL dbg_print('heightRelQuant: thick_c',ocean_state%p_diag%thick_c    ,str_module,idt_src, &
+    CALL dbg_print('thickness_dep:thick_c',ocean_state%p_diag%thick_c    ,str_module,idt_src, &
       & in_subset=patch_2D%cells%owned)
-    CALL dbg_print('heightRelQuant: thick_e',ocean_state%p_diag%thick_e    ,str_module,idt_src, &
+    CALL dbg_print('thickness_dep:thick_e',ocean_state%p_diag%thick_e    ,str_module,idt_src, &
       & in_subset=patch_2D%edges%owned)
-    CALL dbg_print('depth_CellMiddle', &
+    CALL dbg_print('thickness_dep:depth_CellMiddle', &
       & patch_3D%p_patch_1d(1)%depth_cellmiddle   ,str_module,idt_src, &
       & in_subset=patch_2D%cells%owned)
-    CALL dbg_print('depth_CellInterface', &
+    CALL dbg_print('thickness_dep:depth_CellInterface', &
       & patch_3D%p_patch_1d(1)%depth_cellinterface   ,str_module,idt_src, &
       & in_subset=patch_2D%cells%owned)
     !---------------------------------------------------------------------
@@ -2259,8 +2474,8 @@ CONTAINS
   !-------------------------------------------------------------------------
   SUBROUTINE update_lhs_matrix_coeff( patch_3D, operators_coefficients)
 
-    TYPE(t_patch_3D ),TARGET                :: patch_3D
-    TYPE(t_operator_coeff), INTENT(in)      :: operators_coefficients
+    TYPE(t_patch_3D ), TARGET :: patch_3D
+    TYPE(t_operator_coeff), INTENT(inout) :: operators_coefficients
 
     TYPE(t_patch), POINTER                  :: patch_2D
     TYPE(t_subset_range), POINTER :: cells_in_domain
@@ -2301,6 +2516,7 @@ CONTAINS
 
     DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, blockNo, cell_StartIndex, cell_EndIndex)
+      lhs_coeffs(:, :, blockNo) = 0._wp
       DO jc = cell_StartIndex, cell_EndIndex
 
         IF (patch_3D%surface_cell_sea_land_mask(jc,blockNo) >= 0) CYCLE
@@ -2417,60 +2633,36 @@ CONTAINS
 
         ENDDO ! end of PtP coefficients for the three edges of this cell
 
-        ! fill the stencil connectivity
-        DO cell_connect = 1, 9
-          operators_coefficients%lhs_CellToCell_index(cell_connect,jc,blockNo) = cell_idx(cell_connect)
-          operators_coefficients%lhs_CellToCell_block(cell_connect,jc,blockNo) = cell_blk(cell_connect)
-        ENDDO
-
         ! for convenience get the dic coefficients localy
         dc(1) = operators_coefficients%div_coeff(jc, 1, blockNo, 1)
         dc(2) = operators_coefficients%div_coeff(jc, 1, blockNo, 2)
         dc(3) = operators_coefficients%div_coeff(jc, 1, blockNo, 3)
 
+        ! fill the stencil connectivity
+        DO cell_connect = 1, 9
+          operators_coefficients%lhs_CellToCell_index(cell_connect,jc,blockNo) = cell_idx(cell_connect)
+          operators_coefficients%lhs_CellToCell_block(cell_connect,jc,blockNo) = cell_blk(cell_connect)
+        ENDDO
         ! finaly the coefficients
-        lhs_coeffs(0, jc, blockNo) = &
-          gdt2_inv - gam_times_beta * &
+        lhs_coeffs(0, jc, blockNo) = gdt2_inv - gam_times_beta * &
            (dc(1) * (gs(1,0) * ap(1,1) + gs(2,0) * ap(1,2) + gs(3,0) * ap(1,3)) + &
             dc(2) * (gs(1,0) * ap(2,1) + gs(2,0) * ap(2,2) + gs(3,0) * ap(2,3)) + &
             dc(3) * (gs(1,0) * ap(3,1) + gs(2,0) * ap(3,2) + gs(3,0) * ap(3,3)))
-
-        lhs_coeffs(1, jc, blockNo) = &
-          -gam_times_beta * &
+        lhs_coeffs(1, jc, blockNo) = -gam_times_beta * &
            (dc(1) * (gs(1,1) * ap(1,1) + gs(5,1) * ap(1,5) + gs(4,1) * ap(1,4)) + &
-            dc(2) *  gs(1,1) * ap(2,1) + &
-            dc(3) *  gs(1,1) * ap(3,1))
-
-        lhs_coeffs(2, jc, blockNo) = &
-          -gam_times_beta * &
-           (dc(1) * gs(2,2) * ap(1,2) + &
-            dc(2) * (gs(2,2) * ap(2,2) + gs(6,2) * ap(2,6) + gs(7,2) * ap(2,7)) + &
-            dc(3) * gs(2,2) * ap(3,2))
-
-        lhs_coeffs(3, jc, blockNo) = &
-          -gam_times_beta * &
-           (dc(1) * gs(3,3) * ap(1,3) + &
-            dc(2) * gs(3,3) * ap(2,3) + &
+            dc(2) *  gs(1,1) * ap(2,1) + dc(3) *  gs(1,1) * ap(3,1))
+        lhs_coeffs(2, jc, blockNo) = -gam_times_beta * &
+           (dc(1) * gs(2,2) * ap(1,2) + dc(2) * (gs(2,2) * ap(2,2) + &
+            gs(6,2) * ap(2,6) + gs(7,2) * ap(2,7)) + dc(3) * gs(2,2) * ap(3,2))
+        lhs_coeffs(3, jc, blockNo) = -gam_times_beta * &
+           (dc(1) * gs(3,3) * ap(1,3) + dc(2) * gs(3,3) * ap(2,3) + &
             dc(3) * (gs(3,3) * ap(3,3) + gs(8,3) * ap(3,8) + gs(9,3) * ap(3,9)))
-
-        lhs_coeffs(4, jc, blockNo) = &
-          -gam_times_beta * dc(1) * gs(4,4) * ap(1,4) 
-
-        lhs_coeffs(5, jc, blockNo) = &
-          -gam_times_beta * dc(1) * gs(5,5) * ap(1,5) 
-
-        lhs_coeffs(6, jc, blockNo) = &
-          -gam_times_beta * dc(2) * gs(6,6) * ap(2,6) 
-
-        lhs_coeffs(7, jc, blockNo) = &
-          -gam_times_beta * dc(2) * gs(7,7) * ap(2,7) 
-
-        lhs_coeffs(8, jc, blockNo) = &
-          -gam_times_beta * dc(3) * gs(8,8) * ap(3,8) 
- 
-        lhs_coeffs(9, jc, blockNo) = &
-          -gam_times_beta * dc(3) * gs(9,9) * ap(3,9) 
-
+        lhs_coeffs(4, jc, blockNo) = -gam_times_beta * dc(1) * gs(4,4) * ap(1,4)
+        lhs_coeffs(5, jc, blockNo) = -gam_times_beta * dc(1) * gs(5,5) * ap(1,5)
+        lhs_coeffs(6, jc, blockNo) = -gam_times_beta * dc(2) * gs(6,6) * ap(2,6)
+        lhs_coeffs(7, jc, blockNo) = -gam_times_beta * dc(2) * gs(7,7) * ap(2,7)
+        lhs_coeffs(8, jc, blockNo) = -gam_times_beta * dc(3) * gs(8,8) * ap(3,8) 
+        lhs_coeffs(9, jc, blockNo) = -gam_times_beta * dc(3) * gs(9,9) * ap(3,9)
       ENDDO
     ENDDO
 

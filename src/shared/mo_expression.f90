@@ -36,6 +36,7 @@ MODULE mo_expression
   INTEGER, PARAMETER :: MAX_NAME_LEN     =   32 ! max length of variable name
 
   PUBLIC :: expression
+  PUBLIC :: parse_expression_string
 
   ! ----------------------------------------------------------------------
   ! ISO-C bindings
@@ -47,7 +48,8 @@ MODULE mo_expression
 
   ENUM, BIND(c)
     ENUMERATOR :: fEXP = 0, fLOG = 1, fSIN = 2, fCOS  = 3, &
-      &           fMIN = 4, fMAX = 5, fIF  = 6, fSQRT = 7
+      &           fMIN = 4, fMAX = 5, fIF  = 6, fSQRT = 7, &
+      &           fERF = 8
   END ENUM
   
   TYPE, BIND(c) :: t_item
@@ -331,6 +333,13 @@ MODULE mo_expression
     PROCEDURE, PUBLIC :: eval_3D => stack_op_sqrt_eval_3D
   END TYPE t_op_sqrt
 
+  TYPE, PUBLIC, EXTENDS(t_stack_op) :: t_op_erf      ! ERF()
+  CONTAINS
+    PROCEDURE, PUBLIC :: eval_0D => stack_op_erf_eval_0D
+    PROCEDURE, PUBLIC :: eval_2D => stack_op_erf_eval_2D
+    PROCEDURE, PUBLIC :: eval_3D => stack_op_erf_eval_3D
+  END TYPE t_op_erf
+
 CONTAINS
 
   FUNCTION t_result_stack_2D_init(dim1,dim2) RESULT(rstack)
@@ -397,6 +406,13 @@ CONTAINS
   FUNCTION expression_init(string) RESULT(expr_list)
     CHARACTER(LEN=*),   INTENT(IN)    :: string
     TYPE(expression) :: expr_list
+    CALL parse_expression_string(expr_list, string)
+  END FUNCTION expression_init
+
+  SUBROUTINE parse_expression_string(expr_list, string)
+    CHARACTER(LEN=*),   INTENT(IN)    :: string
+    TYPE(expression), INTENT(out) :: expr_list
+
     ! local variables
     TYPE(t_list)                      :: cqueue
     INTEGER                           :: i,j, ierr, nvars_used
@@ -469,12 +485,14 @@ CONTAINS
           ALLOCATE(t_op_if::expr_list%list(i)%p)
         CASE(fSQRT)
           ALLOCATE(t_op_sqrt::expr_list%list(i)%p)
+        CASE(fERF)
+          ALLOCATE(t_op_erf::expr_list%list(i)%p)
         END SELECT
       END SELECT
     END DO
     ALLOCATE(expr_list%used_vars(nvars_used))
     expr_list%used_vars(:) = used_vars(1:nvars_used)
-  END FUNCTION expression_init
+  END SUBROUTINE parse_expression_string
 
   ! deallocate list of expression operators
   SUBROUTINE expr_list_finalize(this)
@@ -1388,6 +1406,33 @@ CONTAINS
     p = SQRT(p)
     CALL result_stack%push(p)
   END SUBROUTINE stack_op_sqrt_eval_3D
+
+  SUBROUTINE stack_op_erf_eval_0D(this, result_stack)
+    CLASS(t_op_erf),          INTENT(INOUT) :: this
+    CLASS(t_result_stack_0D), INTENT(INOUT) :: result_stack
+    REAL(real_kind), POINTER :: arg1
+    CALL result_stack%pop(arg1)
+    arg1 = ERF(arg1)
+    CALL result_stack%push(arg1)
+  END SUBROUTINE stack_op_erf_eval_0D
+
+  SUBROUTINE stack_op_erf_eval_2D(this, result_stack)
+    CLASS(t_op_erf),          INTENT(INOUT) :: this
+    CLASS(t_result_stack_2D), INTENT(INOUT) :: result_stack
+    REAL(real_kind), DIMENSION(:,:), POINTER :: arg1
+    CALL result_stack%pop(arg1)
+    arg1 = ERF(arg1)
+    CALL result_stack%push(arg1)
+  END SUBROUTINE stack_op_erf_eval_2D
+
+  SUBROUTINE stack_op_erf_eval_3D(this, result_stack)
+    CLASS(t_op_erf),          INTENT(INOUT) :: this
+    CLASS(t_result_stack_3D), INTENT(INOUT) :: result_stack
+    REAL(real_kind), DIMENSION(:,:,:), POINTER :: arg1
+    CALL result_stack%pop(arg1)
+    arg1 = ERF(arg1)
+    CALL result_stack%push(arg1)
+  END SUBROUTINE stack_op_erf_eval_3D
 
   !> Convert c-style character array into Fortran string.
   !

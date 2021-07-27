@@ -47,14 +47,16 @@ MODULE mo_read_interface
     &                                   netcdf_read_1D, netcdf_read_3D, &
     &                                   netcdf_read_1D_extdim_time, &
     &                                   netcdf_read_1D_extdim_extdim_time, &
+    &                                   netcdf_read_extdim_slice_extdim_extdim_extdim, &
     &                                   t_p_scatterPattern, &
-    &                                   netcdf_get_missValue
+    &                                   netcdf_get_missValue, &
+    &                                   netcdf_read_inq_varexists
   USE mo_read_netcdf_distributed, ONLY: t_distrib_read_data, distrib_nf_open, &
     &                                   distrib_read, distrib_nf_close, &
-    &                                   var_data_2d_wp, var_data_2d_int, &
-    &                                   var_data_3d_wp, var_data_3d_int, &
     &                                   distrib_inq_var_dims, idx_lvl_blk, &
-    &                                   idx_blk_time
+    &                                   idx_blk_time, distrib_nf_inq_varexists
+  USE mo_fortran_tools, ONLY: t_ptr_2d, t_ptr_2d_int, t_ptr_3d, t_ptr_3d_int, &
+    & t_ptr_4d
   USE mo_model_domain, ONLY: t_patch
   USE mo_parallel_config, ONLY: nproma, p_test_run
   USE mo_model_domain, ONLY: t_patch
@@ -62,7 +64,6 @@ MODULE mo_read_interface
   USE mo_mpi, ONLY: p_comm_work_test, p_comm_work, p_io, &
        &            my_process_is_mpi_workroot, p_bcast
   USE mo_impl_constants, ONLY: on_cells, on_vertices, on_edges
-
   !-------------------------------------------------------------------------
   IMPLICIT NONE
   PRIVATE
@@ -78,6 +79,7 @@ MODULE mo_read_interface
   PUBLIC :: read_1D
   PUBLIC :: read_1D_extdim_time
   PUBLIC :: read_1D_extdim_extdim_time
+  PUBLIC :: read_extdim_slice_extdim_extdim_extdim
   PUBLIC :: read_2D
   PUBLIC :: read_bcast_REAL_2D
   PUBLIC :: read_2D_int
@@ -92,8 +94,6 @@ MODULE mo_read_interface
   PUBLIC :: read_2D_extdim_int
   PUBLIC :: read_3D_extdim
   PUBLIC :: nf
-
-  PUBLIC :: var_data_2d_int, var_data_2d_wp, var_data_3d_int, var_data_3d_wp
 
   PUBLIC :: on_cells, on_vertices, on_edges
 
@@ -187,6 +187,10 @@ MODULE mo_read_interface
     MODULE PROCEDURE read_bcast_REAL_1D_extdim_extdim_time
   END INTERFACE read_1D_extdim_extdim_time
 
+  INTERFACE read_extdim_slice_extdim_extdim_extdim
+    MODULE PROCEDURE read_bcast_REAL_extdim_slice_extdim_extdim_extdim
+  END INTERFACE read_extdim_slice_extdim_extdim_extdim
+  
   INTERFACE read_2D_int
     MODULE PROCEDURE read_dist_INT_2D
     MODULE PROCEDURE read_dist_INT_2D_multivar
@@ -235,7 +239,37 @@ MODULE mo_read_interface
     MODULE PROCEDURE read_dist_REAL_3D_extdim
   END INTERFACE read_3D_extdim
 
+  INTERFACE read_inq_varexists
+    MODULE PROCEDURE inq_varexists_bcast
+    MODULE PROCEDURE inq_varexists_dist
+  END INTERFACE read_inq_varexists
+
 CONTAINS
+
+  FUNCTION inq_varexists_bcast(file_id, variable_name) result(ret)
+    INTEGER,           INTENT(INOUT) :: file_id
+    CHARACTER(LEN=*),  INTENT(IN   ) :: variable_name
+    LOGICAL                          :: ret
+    ret = netcdf_read_inq_varexists(file_id, variable_name)
+  END FUNCTION inq_varexists_bcast
+
+  FUNCTION inq_varexists_dist(stream_id, variable_name) result(ret)
+    TYPE(t_stream_id), INTENT(INOUT) :: stream_id
+    CHARACTER(LEN=*),  INTENT(IN   ) :: variable_name
+    LOGICAL                          :: ret
+    CHARACTER(LEN=*), PARAMETER  :: method_name = &
+      'mo_read_interface:inq_varexists'
+
+    SELECT CASE(stream_id%input_method)
+    CASE (read_netcdf_broadcast_method)
+      ret = netcdf_read_inq_varexists(stream_id%file_id, variable_name)
+    CASE (read_netcdf_distribute_method)
+      ret = distrib_nf_inq_varexists(stream_id%file_id, variable_name)
+    CASE default
+      CALL finish(method_name, "unknown input_method")
+    END SELECT
+  END FUNCTION inq_varexists_dist
+
   !-------------------------------------------------------------------------
   !>
   SUBROUTINE read_bcast_REAL_1D(file_id, variable_name, fill_array, &
@@ -364,6 +398,41 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
+  SUBROUTINE read_bcast_REAL_extdim_slice_extdim_extdim_extdim ( &
+    file_id, variable_name, fill_array, return_pointer, dim_names, &
+    start_extdim1, end_extdim1)
+
+    INTEGER, INTENT(IN)          :: file_id
+    CHARACTER(LEN=*), INTENT(IN) :: variable_name
+    define_fill_target           :: fill_array(:,:,:,:)
+    define_return_pointer        :: return_pointer(:,:,:,:)
+    CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: dim_names(:)
+    INTEGER, INTENT(IN), OPTIONAL:: start_extdim1, end_extdim1
+
+    REAL(wp), POINTER            :: tmp_pointer(:,:,:,:)
+    CHARACTER(LEN=NF_MAX_NAME)   :: variable_name_
+    CHARACTER(LEN=*), PARAMETER  :: method_name = &
+      'mo_read_interface:read_bcast_REAL_extdim_extdim_extdim_extdim_slice'
+
+    ! make variable name available on all processes
+    CALL bcast_varname(variable_name, variable_name_)
+
+    ! check whether fill_array and/or return_pointer was provided
+    IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
+      CALL finish(method_name, "invalid arguments")
+
+    ! there is only one implementation for this read routine type
+    tmp_pointer => netcdf_read_extdim_slice_extdim_extdim_extdim( &
+                          file_id, variable_name_,                &
+      &                   fill_array, dim_names,                  &
+      &                   start_extdim1, end_extdim1              )
+    IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
+
+  END SUBROUTINE read_bcast_REAL_extdim_slice_extdim_extdim_extdim
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
   SUBROUTINE read_dist_INT_2D_multivar(stream_id, location, variable_name, &
     &                                  n_var, fill_array, return_pointer)
 
@@ -371,13 +440,13 @@ CONTAINS
     INTEGER, INTENT(IN)                    :: location
     CHARACTER(LEN=*), INTENT(IN)           :: variable_name
     INTEGER, INTENT(IN)                    :: n_var
-    TYPE(var_data_2d_int), OPTIONAL        :: fill_array(:)
-    TYPE(var_data_2d_int), OPTIONAL        :: return_pointer(:)
+    TYPE(t_ptr_2d_int), OPTIONAL        :: fill_array(:)
+    TYPE(t_ptr_2d_int), OPTIONAL        :: return_pointer(:)
 
-    TYPE(var_data_2d_int)                  :: tmp_return(n_var)
+    TYPE(t_ptr_2d_int)                  :: tmp_return(n_var)
     TYPE(t_p_scatterPattern)               :: scatter_patterns(n_var)
     INTEGER                                :: n_g, i
-    TYPE(var_data_2d_int), ALLOCATABLE     :: var_data_2d(:)
+    TYPE(t_ptr_2d_int), ALLOCATABLE     :: var_data_2d(:)
     CHARACTER(LEN=NF_MAX_NAME)             :: variable_name_
     CHARACTER(LEN=*), PARAMETER            :: method_name = &
       'mo_read_interface:read_dist_INT_2D_multivar'
@@ -413,25 +482,24 @@ CONTAINS
       ! gather pointers of all output fields
       IF (PRESENT(fill_array)) THEN
         DO i = 1, n_var
-          var_data_2d(i)%data => fill_array(i)%data
+          var_data_2d(i)%p => fill_array(i)%p
         END DO
       ELSE
         DO i = 1, n_var
-          ALLOCATE(var_data_2d(i)%data(nproma, &
+          ALLOCATE(var_data_2d(i)%p(nproma, &
             (stream_id%read_info(location, i)%n_l - 1)/nproma + 1))
-          var_data_2d(i)%data(:,:) = 0
+          var_data_2d(i)%p(:,:) = 0
         END DO
       ENDIF
       IF (PRESENT(return_pointer)) THEN
         DO i = 1, n_var
-          return_pointer(i)%data => var_data_2d(i)%data
+          return_pointer(i)%p => var_data_2d(i)%p
         END DO
       END IF
       DO i = 1, n_var
         io_data(i)%basic_data_index &
              = stream_id%read_info(location, i)%dist_read_info%basic_data_index
-        io_data(i)%redistrib_pattern &
-             => stream_id%read_info(location, i)%dist_read_info%redistrib_pattern
+        io_data(i)%pat => stream_id%read_info(location, i)%dist_read_info%pat
       END DO
       CALL distrib_read(stream_id%file_id, variable_name_, var_data_2d, io_data)
       DEALLOCATE(var_data_2d)
@@ -451,7 +519,7 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN)     :: variable_name
     define_fill_target_int           :: fill_array(:,:)
     define_return_pointer_int        :: return_pointer(:,:)
-
+    TYPE(t_ptr_2d_int) :: tmp_ptr(1)
     INTEGER, POINTER                 :: tmp_pointer(:,:)
     CHARACTER(LEN=NF_MAX_NAME)       :: variable_name_
     CHARACTER(LEN=*), PARAMETER      :: method_name = &
@@ -483,8 +551,9 @@ CONTAINS
         tmp_pointer(:,:) = 0
       ENDIF
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
-      CALL distrib_read(stream_id%file_id, variable_name_, tmp_pointer, &
-        &               stream_id%read_info(location, 1)%dist_read_info)
+      tmp_ptr(1)%p => tmp_pointer
+      CALL distrib_read(stream_id%file_id, variable_name_, tmp_ptr, &
+        &               (/stream_id%read_info(location, 1)%dist_read_info/))
     CASE default
       CALL finish(method_name, "unknown input_method")
     END SELECT
@@ -501,13 +570,13 @@ CONTAINS
     INTEGER, INTENT(IN)               :: location
     CHARACTER(LEN=*), INTENT(IN)      :: variable_name
     INTEGER, INTENT(IN)               :: n_var
-    TYPE(var_data_2d_wp), OPTIONAL    :: fill_array(:)
-    TYPE(var_data_2d_wp), OPTIONAL    :: return_pointer(:)
+    TYPE(t_ptr_2d), OPTIONAL    :: fill_array(:)
+    TYPE(t_ptr_2d), OPTIONAL    :: return_pointer(:)
 
-    TYPE(var_data_2d_wp)              :: tmp_return(n_var)
+    TYPE(t_ptr_2d)              :: tmp_return(n_var)
     TYPE(t_p_scatterPattern)          :: scatter_patterns(n_var)
     INTEGER                           :: n_g, i
-    TYPE(var_data_2d_wp), ALLOCATABLE :: var_data_2d(:)
+    TYPE(t_ptr_2d), ALLOCATABLE :: var_data_2d(:)
     CHARACTER(LEN=NF_MAX_NAME)        :: variable_name_
     CHARACTER(LEN=*), PARAMETER       :: method_name = &
       'mo_read_interface:read_dist_REAL_2D_multivar'
@@ -544,25 +613,24 @@ CONTAINS
       ! gather pointers of all output fields
       IF (PRESENT(fill_array)) THEN
         DO i = 1, n_var
-          var_data_2d(i)%data => fill_array(i)%data
+          var_data_2d(i)%p => fill_array(i)%p
         END DO
       ELSE
         DO i = 1, n_var
-          ALLOCATE(var_data_2d(i)%data(nproma, &
+          ALLOCATE(var_data_2d(i)%p(nproma, &
             (stream_id%read_info(location, i)%n_l - 1)/nproma + 1))
-          var_data_2d(i)%data(:,:) = 0.0_wp
+          var_data_2d(i)%p(:,:) = 0.0_wp
         END DO
       ENDIF
       IF (PRESENT(return_pointer)) THEN
         DO i = 1, n_var
-          return_pointer(i)%data => var_data_2d(i)%data
+          return_pointer(i)%p => var_data_2d(i)%p
         END DO
       END IF
       DO i = 1, n_var
         io_data(i)%basic_data_index &
              = stream_id%read_info(location, i)%dist_read_info%basic_data_index
-        io_data(i)%redistrib_pattern &
-             => stream_id%read_info(location, i)%dist_read_info%redistrib_pattern
+        io_data(i)%pat => stream_id%read_info(location, i)%dist_read_info%pat
       END DO
       CALL distrib_read(stream_id%file_id, variable_name_, var_data_2d, io_data)
       DEALLOCATE(var_data_2d)
@@ -582,7 +650,7 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
     define_fill_target           :: fill_array(:,:)
     define_return_pointer        :: return_pointer(:,:)
-
+    TYPE(t_ptr_2d)               :: tmp_ptr(1)
     REAL(wp), POINTER            :: tmp_pointer(:,:)
     CHARACTER(LEN=NF_MAX_NAME)   :: variable_name_
     CHARACTER(LEN=*), PARAMETER  :: method_name = &
@@ -614,8 +682,9 @@ CONTAINS
         tmp_pointer(:,:) = 0.0_wp
       ENDIF
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
-      CALL distrib_read(stream_id%file_id, variable_name_, tmp_pointer, &
-        &               stream_id%read_info(location, 1)%dist_read_info)
+      tmp_ptr(1)%p => tmp_pointer
+      CALL distrib_read(stream_id%file_id, variable_name_, tmp_ptr, &
+        &               (/stream_id%read_info(location, 1)%dist_read_info/))
     CASE default
       CALL finish(method_name, "unknown input_method")
     END SELECT
@@ -834,8 +903,8 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name
     LOGICAL, OPTIONAL                      :: has_missValue
     REAL(wp), OPTIONAL                     :: missValue
-
     REAL(wp), POINTER                      :: tmp_pointer(:,:,:)
+    TYPE(t_ptr_3d)                         :: tmp_ptr(1)
     INTEGER                                :: var_dimlen(2), var_start(2), &
       &                                       var_end(2), var_ndims
     CHARACTER(LEN=NF_MAX_NAME)             :: variable_name_
@@ -898,17 +967,18 @@ CONTAINS
         ELSE
           CALL distrib_inq_var_dims(stream_id%file_id, variable_name_, &
             &                       var_ndims, var_dimlen)
+          var_end(2) = var_dimlen(2)
         END IF
         ALLOCATE(tmp_pointer(nproma, &
           (stream_id%read_info(location, 1)%n_l - 1)/nproma + 1, var_dimlen(2)))
         tmp_pointer(:,:,:) = 0.0_wp
       ENDIF
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
-
-      CALL distrib_read(stream_id%file_id, variable_name_, tmp_pointer, &
-        &               var_dimlen(2), idx_blk_time, &
-        &               stream_id%read_info(location, 1)%dist_read_info, &
-        &               start_extdim, end_extdim)
+      tmp_ptr(1)%p => tmp_pointer
+      CALL distrib_read(stream_id%file_id, variable_name_, tmp_ptr, &
+        &               (/stream_id%read_info(location, 1)%dist_read_info/), &
+        &               edim=var_dimlen(2:2), dimo=idx_blk_time, &
+        &               start_ext_dim=var_start(2:2), end_ext_dim=var_end(2:2))
     CASE default
       CALL finish(method_name, "unknown input_method")
     END SELECT
@@ -930,15 +1000,15 @@ CONTAINS
     INTEGER, INTENT(IN)                    :: location
     CHARACTER(LEN=*), INTENT(IN)           :: variable_name
     INTEGER, INTENT(IN)                    :: n_var
-    TYPE(var_data_3d_wp), OPTIONAL         :: fill_array(:)
-    TYPE(var_data_3d_wp), OPTIONAL         :: return_pointer(:)
+    TYPE(t_ptr_3d), OPTIONAL         :: fill_array(:)
+    TYPE(t_ptr_3d), OPTIONAL         :: return_pointer(:)
     INTEGER, INTENT(in), OPTIONAL          :: start_extdim, end_extdim
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name
 
-    TYPE(var_data_3d_wp)                   :: tmp_return(n_var)
+    TYPE(t_ptr_3d)                   :: tmp_return(n_var)
     TYPE(t_p_scatterPattern)               :: scatter_patterns(n_var)
     INTEGER                                :: n_g, i
-    TYPE(var_data_3d_wp), ALLOCATABLE      :: var_data_3d(:)
+    TYPE(t_ptr_3d), ALLOCATABLE      :: var_data_3d(:)
     INTEGER                                :: var_dimlen(2), var_ndims, &
       &                                       var_start(2), var_end(2)
     CHARACTER(LEN=NF_MAX_NAME)             :: variable_name_
@@ -962,7 +1032,7 @@ CONTAINS
 
     var_dimlen(:) = (/stream_id%read_info(location, 1)%n_g, -1/)
     IF (PRESENT(fill_array)) THEN
-      var_dimlen(2) = SIZE(fill_array(1)%data, 3)
+      var_dimlen(2) = SIZE(fill_array(1)%p, 3)
     END IF
 
     var_start(:) = (/1, 1/)
@@ -1005,37 +1075,37 @@ CONTAINS
         IF (.NOT. PRESENT(fill_array)) &
           CALL distrib_inq_var_dims(stream_id%file_id, variable_name_, &
             &                       var_ndims, var_dimlen)
+         var_end(2) = var_dimlen(2)
       END IF
 
       ! gather pointers of all output fields
       IF (PRESENT(fill_array)) THEN
         DO i = 1, n_var
-          var_data_3d(i)%data => fill_array(i)%data
+          var_data_3d(i)%p => fill_array(i)%p
         END DO
       ELSE
         DO i = 1, n_var
-          ALLOCATE(var_data_3d(i)%data(nproma, &
+          ALLOCATE(var_data_3d(i)%p(nproma, &
             (stream_id%read_info(location, 1)%n_l - 1)/nproma + 1, var_dimlen(2)))
-          var_data_3d(i)%data(:,:,:) = 0.0_wp
+          var_data_3d(i)%p(:,:,:) = 0.0_wp
         END DO
       ENDIF
       IF (PRESENT(return_pointer)) THEN
         DO i = 1, n_var
-          return_pointer(i)%data => var_data_3d(i)%data
+          return_pointer(i)%p => var_data_3d(i)%p
         END DO
       END IF
       DO i = 1, n_var
         io_data(i)%basic_data_index &
              = stream_id%read_info(location, i)%dist_read_info%basic_data_index
-        io_data(i)%redistrib_pattern &
-             => stream_id%read_info(location, i)%dist_read_info%redistrib_pattern
+        io_data(i)%pat => stream_id%read_info(location, i)%dist_read_info%pat
       END DO
 
       CALL distrib_read(stream_id%file_id, variable_name_, var_data_3d, &
-        &               var_dimlen(2), idx_blk_time, io_data, &
-        &               start_extdim, end_extdim)
+        &               io_data, edim=var_dimlen(2:2), dimo=idx_blk_time, &
+        &               start_ext_dim=var_start(2:2), end_ext_dim=var_end(2:2))
       DEALLOCATE(var_data_3d)
-    CASE default
+    CASE DEFAULT
       CALL finish(method_name, "unknown input_method")
     END SELECT
 
@@ -1059,7 +1129,7 @@ CONTAINS
     define_return_pointer_int              :: return_pointer(:,:,:)
     INTEGER, INTENT(in), OPTIONAL          :: start_extdim, end_extdim
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name
-
+    TYPE(t_ptr_3d_int)                     :: tmp_ptr(1)  
     INTEGER, POINTER                       :: tmp_pointer(:,:,:)
     INTEGER                                :: var_dimlen(2), var_start(2), &
       &                                       var_end(2), var_ndims
@@ -1118,17 +1188,18 @@ CONTAINS
         ELSE
           CALL distrib_inq_var_dims(stream_id%file_id, variable_name_, &
             &                       var_ndims, var_dimlen)
+          var_end(2) = var_dimlen(2)
         END IF
         ALLOCATE(tmp_pointer(nproma, &
           (stream_id%read_info(location, 1)%n_l - 1)/nproma + 1, var_dimlen(2)))
         tmp_pointer(:,:,:) = 0
       ENDIF
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
-
-      CALL distrib_read(stream_id%file_id, variable_name_, tmp_pointer, &
-        &               var_dimlen(2), idx_blk_time, &
-        &               stream_id%read_info(location, 1)%dist_read_info, &
-        &               start_extdim, end_extdim)
+      tmp_ptr(1)%p => tmp_pointer
+      CALL distrib_read(stream_id%file_id, variable_name_, tmp_ptr, &
+        &               (/stream_id%read_info(location, 1)%dist_read_info/), &
+        &               edim=var_dimlen(2:2), dimo=idx_blk_time, &
+        &               start_ext_dim=var_start(2:2), end_ext_dim=var_end(2:2))
     CASE default
       CALL finish(method_name, "unknown input_method")
     END SELECT
@@ -1150,15 +1221,15 @@ CONTAINS
     INTEGER, INTENT(IN)                    :: location
     CHARACTER(LEN=*), INTENT(IN)           :: variable_name
     INTEGER, INTENT(IN)                    :: n_var
-    TYPE(var_data_3d_int), OPTIONAL        :: fill_array(:)
-    TYPE(var_data_3d_int), OPTIONAL        :: return_pointer(:)
+    TYPE(t_ptr_3d_int), OPTIONAL        :: fill_array(:)
+    TYPE(t_ptr_3d_int), OPTIONAL        :: return_pointer(:)
     INTEGER, INTENT(in), OPTIONAL          :: start_extdim, end_extdim
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name
 
-    TYPE(var_data_3d_int)                  :: tmp_return(n_var)
+    TYPE(t_ptr_3d_int)                  :: tmp_return(n_var)
     TYPE(t_p_scatterPattern)               :: scatter_patterns(n_var)
     INTEGER                                :: n_g, i
-    TYPE(var_data_3d_int), ALLOCATABLE     :: var_data_3d(:)
+    TYPE(t_ptr_3d_int), ALLOCATABLE     :: var_data_3d(:)
     INTEGER                                :: var_dimlen(2), var_ndims, &
       &                                       var_start(2), var_end(2)
     CHARACTER(LEN=NF_MAX_NAME)             :: variable_name_
@@ -1182,7 +1253,7 @@ CONTAINS
 
     var_dimlen(:) = (/stream_id%read_info(location, 1)%n_g, -1/)
     IF (PRESENT(fill_array)) THEN
-      var_dimlen(2) = SIZE(fill_array(1)%data, 3)
+      var_dimlen(2) = SIZE(fill_array(1)%p, 3)
     END IF
 
     var_start(:) = (/1, 1/)
@@ -1225,34 +1296,34 @@ CONTAINS
         IF (.NOT. PRESENT(fill_array)) &
           CALL distrib_inq_var_dims(stream_id%file_id, variable_name_, &
             &                       var_ndims, var_dimlen)
+        var_end(2) = var_dimlen(2)
       END IF
 
       ! gather pointers of all output fields
       IF (PRESENT(fill_array)) THEN
         DO i = 1, n_var
-          var_data_3d(i)%data => fill_array(i)%data
+          var_data_3d(i)%p => fill_array(i)%p
         END DO
       ELSE
         DO i = 1, n_var
-          ALLOCATE(var_data_3d(i)%data(nproma, &
+          ALLOCATE(var_data_3d(i)%p(nproma, &
             (stream_id%read_info(location, 1)%n_l - 1)/nproma + 1, var_dimlen(2)))
-          var_data_3d(i)%data(:,:,:) = 0
+          var_data_3d(i)%p(:,:,:) = 0
         END DO
       ENDIF
       IF (PRESENT(return_pointer)) THEN
         DO i = 1, n_var
-          return_pointer(i)%data => var_data_3d(i)%data
+          return_pointer(i)%p => var_data_3d(i)%p
         END DO
       END IF
       DO i = 1, n_var
         io_data(i)%basic_data_index &
              = stream_id%read_info(location, i)%dist_read_info%basic_data_index
-        io_data(i)%redistrib_pattern &
-             => stream_id%read_info(location, i)%dist_read_info%redistrib_pattern
+        io_data(i)%pat => stream_id%read_info(location, i)%dist_read_info%pat
       END DO
       CALL distrib_read(stream_id%file_id, variable_name_, var_data_3d, &
-        &               var_dimlen(2), idx_blk_time, io_data, &
-        &               start_extdim, end_extdim)
+        &               io_data, edim=var_dimlen(2:2), dimo=idx_blk_time, &
+        &               start_ext_dim=var_start(2:2), end_ext_dim=var_end(2:2))
       DEALLOCATE(var_data_3d)
     CASE default
       CALL finish(method_name, "unknown input_method")
@@ -1305,7 +1376,7 @@ CONTAINS
     define_fill_target                     :: fill_array(:,:,:)
     define_return_pointer                  :: return_pointer(:,:,:)
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: levelsDimName
-
+    TYPE(t_ptr_3d)                         :: tmp_ptr(1)
     INTEGER                                :: var_ndims, var_dimlen(2)
     REAL(wp), POINTER                      :: tmp_pointer(:,:,:)
     CHARACTER(LEN=NF_MAX_NAME)             :: variable_name_
@@ -1349,12 +1420,11 @@ CONTAINS
           (stream_id%read_info(location, 1)%n_l - 1)/nproma + 1))
         tmp_pointer(:,:,:) = 0.0_wp
       ENDIF
-
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
-
-      CALL distrib_read(stream_id%file_id, variable_name_, tmp_pointer, &
-        &               var_dimlen(2), idx_lvl_blk, &
-        &               stream_id%read_info(location, 1)%dist_read_info)
+      tmp_ptr(1)%p => tmp_pointer
+      CALL distrib_read(stream_id%file_id, variable_name_, tmp_ptr, &
+        &               (/stream_id%read_info(location, 1)%dist_read_info/), &
+        &               edim=var_dimlen(2:2), dimo=idx_lvl_blk)
     CASE default
       CALL finish(method_name, "unknown input_method")
     END SELECT
@@ -1528,7 +1598,7 @@ CONTAINS
 
     INTEGER                                :: var_ndims, var_dimlen(3), &
       &                                       var_start(3), var_end(3)
-    REAL(wp), POINTER                      :: tmp_pointer(:,:,:,:)
+    TYPE(t_ptr_4d)                         :: tmp_pointer(1)
     CHARACTER(LEN=128)                     :: temp_string_array(2)
     CHARACTER(LEN=NF_MAX_NAME)             :: variable_name_
     CHARACTER(LEN=*), PARAMETER            :: method_name = &
@@ -1577,36 +1647,30 @@ CONTAINS
 
     SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
-      tmp_pointer => &
+      tmp_pointer(1)%p => &
          & netcdf_read_3D_extdim(stream_id%file_id, variable_name_, &
          & fill_array, stream_id%read_info(location, 1)%n_g, &
          & stream_id%read_info(location, 1)%scatter_pattern, &
          & start_extdim, end_extdim, levelsDimName, extdim_name )
-      IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
+      IF (PRESENT(return_pointer)) return_pointer => tmp_pointer(1)%p
     CASE (read_netcdf_distribute_method)
       IF (PRESENT(fill_array)) THEN
-        tmp_pointer => fill_array
+        tmp_pointer(1)%p => fill_array
       ELSE
         CALL distrib_inq_var_dims(stream_id%file_id, variable_name_, &
           &                       var_ndims, var_dimlen)
         IF (PRESENT(start_extdim)) var_dimlen(3) = end_extdim - start_extdim + 1
-        ALLOCATE(tmp_pointer(nproma, var_dimlen(2), &
+        ALLOCATE(tmp_pointer(1)%p(nproma, var_dimlen(2), &
           (stream_id%read_info(location, 1)%n_l - 1)/nproma + 1, var_dimlen(3)))
-        tmp_pointer(:,:,:,:) = 0.0_wp
+        tmp_pointer(1)%p(:,:,:,:) = 0.0_wp
       ENDIF
+      var_end(:) = var_start(:) + var_dimlen(:) - 1
+      IF (PRESENT(return_pointer)) return_pointer => tmp_pointer(1)%p
 
-      IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
-
-      IF (PRESENT(start_extdim)) THEN
-        CALL distrib_read(stream_id%file_id, variable_name_, tmp_pointer, &
-          &               var_dimlen(2:3), &
-          &               stream_id%read_info(location, 1)%dist_read_info, &
-          &               (/1,start_extdim/), (/var_dimlen(2), end_extdim/))
-      ELSE
-        CALL distrib_read(stream_id%file_id, variable_name_, tmp_pointer, &
-          &               var_dimlen(2:3), &
-          &               stream_id%read_info(location, 1)%dist_read_info)
-      END IF
+      CALL distrib_read(stream_id%file_id, variable_name_, tmp_pointer, &
+        &               [stream_id%read_info(location, 1)%dist_read_info], &
+        &               edim=var_dimlen(2:3), start_ext_dim=var_start(2:3), &
+        &               end_ext_dim=var_end(2:3))
     CASE default
       CALL finish(method_name, "unknown input_method")
     END SELECT
@@ -1617,8 +1681,9 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  TYPE(t_stream_id) FUNCTION openInputFile_dist_multivar(filename, patches, &
-    &                                                    input_method)
+  SUBROUTINE openInputFile_dist_multivar(stream_id, filename, &
+       patches, input_method)
+    TYPE(t_stream_id), INTENT(out) :: stream_id
     CHARACTER(LEN=*), INTENT(IN) :: filename
     TYPE(p_t_patch), TARGET, INTENT(IN) :: patches(:)
     INTEGER, OPTIONAL, INTENT(IN) :: input_method
@@ -1633,77 +1698,78 @@ CONTAINS
     IF (n_var < 1) CALL finish(method_name, "invalid number of patches")
 
     IF (PRESENT(input_method)) THEN
-      openInputFile_dist_multivar%input_method = input_method
+      stream_id%input_method = input_method
     ELSE
-      openInputFile_dist_multivar%input_method = default_read_method
+      stream_id%input_method = default_read_method
     END IF
 
-    ALLOCATE(openInputFile_dist_multivar%read_info(3, n_var))
+    ALLOCATE(stream_id%read_info(3, n_var))
 
     DO i = 1, n_var
 
       IF ((patches(1)%p%n_patch_cells_g /= patches(i)%p%n_patch_cells_g) .OR. &
-          (patches(1)%p%n_patch_cells_g /= patches(i)%p%n_patch_cells_g) .OR. &
-          (patches(1)%p%n_patch_cells_g /= patches(i)%p%n_patch_cells_g)) &
+          (patches(1)%p%n_patch_edges_g /= patches(i)%p%n_patch_edges_g) .OR. &
+          (patches(1)%p%n_patch_verts_g /= patches(i)%p%n_patch_verts_g))     &
         CALL finish(method_name, "patches do not match")
 
-      openInputFile_dist_multivar%read_info(on_cells, i)%n_g = &
+      stream_id%read_info(on_cells, i)%n_g = &
         patches(i)%p%n_patch_cells_g
-      openInputFile_dist_multivar%read_info(on_edges, i)%n_g = &
+      stream_id%read_info(on_edges, i)%n_g = &
         patches(i)%p%n_patch_edges_g
-      openInputFile_dist_multivar%read_info(on_vertices, i)%n_g = &
+      stream_id%read_info(on_vertices, i)%n_g = &
         patches(i)%p%n_patch_verts_g
 
-      openInputFile_dist_multivar%read_info(on_cells, i)%n_l = &
+      stream_id%read_info(on_cells, i)%n_l = &
         patches(i)%p%n_patch_cells
-      openInputFile_dist_multivar%read_info(on_edges, i)%n_l = &
+      stream_id%read_info(on_edges, i)%n_l = &
         patches(i)%p%n_patch_edges
-      openInputFile_dist_multivar%read_info(on_vertices, i)%n_l = &
+      stream_id%read_info(on_vertices, i)%n_l = &
         patches(i)%p%n_patch_verts
     END DO
 
-    SELECT CASE(openInputFile_dist_multivar%input_method)
+    SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
 
-      openInputFile_dist_multivar%file_id = netcdf_open_input(filename)
+      stream_id%file_id = netcdf_open_input(filename)
 
       DO i = 1, n_var
-        openInputFile_dist_multivar%read_info(on_cells, i)%scatter_pattern => &
+        stream_id%read_info(on_cells, i)%scatter_pattern => &
           patches(i)%p%comm_pat_scatter_c
-        NULLIFY(openInputFile_dist_multivar%read_info(on_cells, i)%dist_read_info)
-        openInputFile_dist_multivar%read_info(on_edges, i)%scatter_pattern => &
+        NULLIFY(stream_id%read_info(on_cells, i)%dist_read_info)
+        stream_id%read_info(on_edges, i)%scatter_pattern => &
           patches(i)%p%comm_pat_scatter_e
-        NULLIFY(openInputFile_dist_multivar%read_info(on_edges, i)%dist_read_info)
-        openInputFile_dist_multivar%read_info(on_vertices, i)%scatter_pattern => &
+        NULLIFY(stream_id%read_info(on_edges, i)%dist_read_info)
+        stream_id%read_info(on_vertices, i)%scatter_pattern => &
           patches(i)%p%comm_pat_scatter_v
-        NULLIFY(openInputFile_dist_multivar%read_info(on_vertices, i)%dist_read_info)
+        NULLIFY(stream_id%read_info(on_vertices, i)%dist_read_info)
       END DO
 
     CASE (read_netcdf_distribute_method)
 
-      openInputFile_dist_multivar%file_id = distrib_nf_open(TRIM(filename))
+      stream_id%file_id = distrib_nf_open(TRIM(filename))
 
       DO i = 1, n_var
-        openInputFile_dist_multivar%read_info(on_cells, i)%dist_read_info => &
+        stream_id%read_info(on_cells, i)%dist_read_info => &
           patches(i)%p%cells%dist_io_data
-        NULLIFY(openInputFile_dist_multivar%read_info(on_cells, i)%scatter_pattern)
-        openInputFile_dist_multivar%read_info(on_vertices, i)%dist_read_info => &
+        NULLIFY(stream_id%read_info(on_cells, i)%scatter_pattern)
+        stream_id%read_info(on_vertices, i)%dist_read_info => &
           patches(i)%p%verts%dist_io_data
-        NULLIFY(openInputFile_dist_multivar%read_info(on_vertices, i)%scatter_pattern)
-        openInputFile_dist_multivar%read_info(on_edges, i)%dist_read_info => &
+        NULLIFY(stream_id%read_info(on_vertices, i)%scatter_pattern)
+        stream_id%read_info(on_edges, i)%dist_read_info => &
           patches(i)%p%edges%dist_io_data
-        NULLIFY(openInputFile_dist_multivar%read_info(on_edges, i)%scatter_pattern)
+        NULLIFY(stream_id%read_info(on_edges, i)%scatter_pattern)
       END DO
 
     CASE default
       CALL finish(method_name, "unknown input_method")
     END SELECT
 
-  END FUNCTION openInputFile_dist_multivar
+  END SUBROUTINE openInputFile_dist_multivar
 
   !-------------------------------------------------------------------------
   !>
-  TYPE(t_stream_id) FUNCTION openInputFile_dist(filename, patch, input_method)
+  SUBROUTINE openInputFile_dist(stream_id, filename, patch, input_method)
+    TYPE(t_stream_id), INTENT(out) :: stream_id
     CHARACTER(LEN=*), INTENT(IN) :: filename
     TYPE(t_patch), TARGET, INTENT(IN) :: patch
     INTEGER, OPTIONAL, INTENT(IN) :: input_method
@@ -1715,23 +1781,23 @@ CONTAINS
 
     patch_(1)%p => patch
 
-    openInputFile_dist = &
-      openInputFile_dist_multivar(filename, patch_, input_method)
+    CALL openInputFile_dist_multivar(stream_id, filename, patch_, input_method)
 
-  END FUNCTION openInputFile_dist
+  END SUBROUTINE openInputFile_dist
   !-------------------------------------------------------------------------
   !-------------------------------------------------------------------------
   !>
-  INTEGER FUNCTION openInputFile_bcast(filename)
+  SUBROUTINE openInputFile_bcast(stream_id, filename)
 
+    INTEGER, INTENT(out) :: stream_id
     CHARACTER(LEN=*), INTENT(IN) :: filename
 
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_interface:openInputFile_bcast'
 
-    openInputFile_bcast = netcdf_open_input(filename)
+    stream_id = netcdf_open_input(filename)
 
-  END FUNCTION openInputFile_bcast
+  END SUBROUTINE openInputFile_bcast
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
@@ -1787,7 +1853,7 @@ CONTAINS
     INTEGER :: varid, var_ndims, var_dimlen(NF_MAX_VAR_DIMS), &
       &        var_dimids(NF_MAX_VAR_DIMS)
     CHARACTER(LEN=NF_MAX_NAME) :: var_dim_name(NF_MAX_VAR_DIMS)
-    INTEGER :: i
+    INTEGER :: i, tlen
 
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_interface:check_dimensions'
@@ -1797,10 +1863,11 @@ CONTAINS
     IF (PRESENT(ref_var_dim_start) .NEQV. PRESENT(ref_var_dim_end)) &
       CALL finish(method_name, "invalid arguments")
 
-    CALL nf(nf_inq_varid(file_id, TRIM(variable_name), varid), &
-      &     method_name // "("//trim(variable_name)//")")
+    tlen = LEN_TRIM(variable_name)
+    CALL nf(nf_inq_varid(file_id, variable_name(1:tlen), varid), &
+      &     method_name // "("//variable_name(1:tlen)//")")
     CALL nf(nf_inq_varndims(file_id, varid, var_ndims), &
-      &     method_name // "("//trim(variable_name)//")")
+      &     method_name // "("//variable_name(1:tlen)//")")
     CALL nf(nf_inq_vardimid(file_id, varid, var_dimids), method_name)
     DO i = 1, var_ndims
       CALL nf(nf_inq_dimlen (file_id, var_dimids(i), var_dimlen(i)), method_name)
@@ -1808,7 +1875,7 @@ CONTAINS
     END DO
 
     IF (var_ndims /= ref_var_ndims ) THEN
-      WRITE(0,*) TRIM(variable_name), ": var_ndims = ", var_ndims
+      WRITE(0,*) variable_name(1:tlen), ": var_ndims = ", var_ndims
       CALL finish(method_name, "Dimensions mismatch")
     ENDIF
 
@@ -1817,20 +1884,20 @@ CONTAINS
         IF ((ref_var_dim_start(i) /= -1) .AND. &
           & (ref_var_dim_end(i) /= -1)) THEN
           IF (ref_var_dim_end(i) < ref_var_dim_start(i)) THEN
-            WRITE(0,*) TRIM(variable_name), ": ref_var_dim_start(:) = ", &
+            WRITE(0,*) variable_name(1:tlen), ": ref_var_dim_start(:) = ", &
               &        ref_var_dim_start(:), "; ref_var_dim_end(:) = ", &
               &        ref_var_dim_end(:)
             CALL finish(method_name, "invalid start end")
           END IF
           IF ((ref_var_dim_start(i) == 0) .OR. &
             & (ref_var_dim_start(i) > var_dimlen(i))) THEN
-            WRITE(0,*) TRIM(variable_name), ": ref_var_dim_start(:) = ", &
+            WRITE(0,*) variable_name(1:tlen), ": ref_var_dim_start(:) = ", &
               &        ref_var_dim_start(:), "; var_dimlen(:) = ", &
               &        var_dimlen(1:ref_var_ndims)
             CALL finish(method_name, "invalid start")
           END IF
           IF ((ref_var_dim_end(i) > var_dimlen(i))) THEN
-            WRITE(0,*) TRIM(variable_name), ": ref_var_dim_end(:) = ", &
+            WRITE(0,*) variable_name(1:tlen), ": ref_var_dim_end(:) = ", &
               &        ref_var_dim_end(:), "; var_dimlen(:) = ", &
               &        var_dimlen(1:ref_var_ndims)
             CALL finish(method_name, "invalid end")
@@ -1841,7 +1908,7 @@ CONTAINS
       DO i = 1, var_ndims
         IF ((ref_var_dimlen(i) /= -1) .AND. &
           & (ref_var_dimlen(i) /= var_dimlen(i))) THEN
-          WRITE(0,*) TRIM(variable_name), ": ref_var_dimlen(:) = ", &
+          WRITE(0,*) variable_name(1:tlen), ": ref_var_dimlen(:) = ", &
             &        ref_var_dimlen(:), "; var_dimlen(:) = ", &
             &        var_dimlen(1:ref_var_ndims)
           CALL finish(method_name, "Dimensions mismatch")
@@ -1856,7 +1923,7 @@ CONTAINS
         IF (.NOT. ((TRIM(var_dim_name(1)) == 'cell') .OR. &
           &        (TRIM(var_dim_name(1)) == 'ncells'))) THEN
           write(0,*) TRIM(var_dim_name(1))
-          WRITE(message_text,*) TRIM(variable_name), " ", &
+          WRITE(message_text,*) variable_name(1:tlen), " ", &
             &                   TRIM(var_dim_name(1)), " /= std_cells_dim_name"
           CALL finish(method_name, message_text)
         ENDIF
@@ -1865,7 +1932,7 @@ CONTAINS
           &        (TRIM(var_dim_name(1)) == 'nverts') .OR. &
           &        (TRIM(var_dim_name(1)) == 'ncells_3'))) THEN
           write(0,*) TRIM(var_dim_name(1))
-          WRITE(message_text,*) TRIM(variable_name), " ", TRIM(var_dim_name(1)), &
+          WRITE(message_text,*) variable_name(1:tlen), " ", TRIM(var_dim_name(1)), &
             &                   " /= std_verts_dim_name"
           CALL finish(method_name, message_text)
         ENDIF
@@ -1874,7 +1941,7 @@ CONTAINS
           &        (TRIM(var_dim_name(1)) == 'nedges') .OR. &
           &        (TRIM(var_dim_name(1)) == 'ncells_2'))) THEN
           write(0,*) TRIM(var_dim_name(1))
-          WRITE(message_text,*) TRIM(variable_name), " ", TRIM(var_dim_name(1)), &
+          WRITE(message_text,*) variable_name(1:tlen), " ", TRIM(var_dim_name(1)), &
             &                   " /= std_edge_dim_name"
           CALL finish(method_name, message_text)
         ENDIF
@@ -1883,7 +1950,7 @@ CONTAINS
     IF (PRESENT(extdim_name)) THEN
       DO i = 2, ref_var_ndims
         IF (TRIM(extdim_name(i)) /= TRIM(var_dim_name(i))) THEN
-          WRITE(message_text,*) TRIM(variable_name), ":", &
+          WRITE(message_text,*) variable_name(1:tlen), ":", &
             &                   TRIM(extdim_name(i)), "/=",  &
             &                   TRIM(var_dim_name(i))
           CALL finish(method_name, TRIM(message_text))

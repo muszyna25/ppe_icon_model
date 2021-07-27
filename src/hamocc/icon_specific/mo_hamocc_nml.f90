@@ -15,7 +15,7 @@ MODULE mo_hamocc_nml
   USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_io_units,            ONLY: nnml, nnml_output, find_next_free_unit
   USE mo_master_control,      ONLY: use_restart_namelists
-  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist, &
+  USE mo_restart_nml_and_att, ONLY: open_tmpfile, store_and_close_namelist, &
                                   & open_and_restore_namelist, close_tmpfile
   USE mo_exception,           ONLY: finish
   USE mo_mpi,                 ONLY: my_process_is_stdio
@@ -31,6 +31,10 @@ MODULE mo_hamocc_nml
                                                 !< 0 constant sinking speed
                                                 !< 1 variable sinking speed following the 'Martin curve'
                                                 !< 2 sinking via aggregation
+
+  INTEGER, PUBLIC :: hion_solver                !< switch for selecting the solver to update h+ ion concentration
+                                                !< 0 standard solver
+                                                !< 1 solver from mocsy package
   INTEGER, PUBLIC :: isac 
   REAL(wp), PUBLIC :: sinkspeed_opal 
   REAL(wp), PUBLIC :: sinkspeed_calc
@@ -50,18 +54,25 @@ MODULE mo_hamocc_nml
 
   LOGICAL, PUBLIC :: l_cyadyn         = .TRUE.   !  prognostic cyanobacteria
   LOGICAL, PUBLIC :: l_cpl_co2        = .FALSE.   !  co2 coupling to atm
-  LOGICAL, PUBLIC :: l_diffat         = .FALSE.   !  diffusive atm
   LOGICAL, PUBLIC :: l_bgc_check      = .FALSE.   ! MASS check at every time step?
   LOGICAL, PUBLIC :: l_up_sedshi      = .FALSE.   ! Upward sediment shifting
   LOGICAL, PUBLIC :: l_implsed        = .FALSE.   ! Implicit sediment formulation
-  LOGICAL, PUBLIC :: l_dynamic_pi     = .FALSE.    ! Depth dependent pi_alpha 
+  LOGICAL, PUBLIC :: l_dynamic_pi     = .TRUE.    ! Depth dependent pi_alpha 
   LOGICAL, PUBLIC :: l_PDM_settling   = .FALSE.   ! PDM scheme for particle settling
   LOGICAL, PUBLIC :: l_init_bgc       = .FALSE.   ! initialise state variables with cold start values
+  LOGICAL, PUBLIC :: l_limit_sal      = .TRUE.    ! limit salinity to min. 25 psu?
 
   REAL(wp), PUBLIC :: denit_sed, disso_po
   REAL(wp), PUBLIC :: cycdec, cya_growth_max
   REAL(wp), PUBLIC :: grazra
+  REAL(wp), PUBLIC :: drempoc, dremopal, dremcalc
+  REAL(wp), PUBLIC :: calmax
+  REAL(wp), PUBLIC :: bkcya_P, bkcya_Fe
   !LOGICAL, PUBLIC :: l_avflux         = .TRUE.   ! flux redistribution
+
+  ! extended N-cycle
+  LOGICAL, PUBLIC :: l_N_cycle = .FALSE.
+  REAL(wp), PUBLIC :: no3nh4red, no3no2red
   
   REAL(wp), PUBLIC :: atm_co2, atm_o2, atm_n2
   INTEGER         :: iunit
@@ -69,6 +80,7 @@ MODULE mo_hamocc_nml
 
   NAMELIST /hamocc_nml/ &
     &  i_settling, &
+    &  hion_solver, &
     &  ks, dzsed,inpw,&
     &  l_cyadyn, &
     &  sinkspeed_opal, &
@@ -92,7 +104,17 @@ MODULE mo_hamocc_nml
     &  cycdec, &
     &  cya_growth_max,&
     &  l_init_bgc, &
-    &  grazra
+    &  l_limit_sal, &
+    &  grazra, &
+    &  drempoc, &
+    &  dremopal, &
+    &  dremcalc, &
+    &  calmax, &
+    &  bkcya_P, &
+    &  bkcya_Fe, &
+    &  l_N_cycle, &
+    &  no3nh4red, &
+    &  no3no2red
 
 CONTAINS
   !>
@@ -109,6 +131,8 @@ CONTAINS
     ! Set default values
     !------------------------------------------------------------------
     i_settling        = 0             ! constant sinking
+
+    hion_solver       = 0             ! standard solver
    
     isac = 1       ! no sediment acceleration
     l_cyadyn = .TRUE.
@@ -132,14 +156,9 @@ CONTAINS
     deltaorg = 0._wp
     deltasil = 0._wp
 
-  ! Atmospheri concencentrations
-   IF (l_diffat) THEN
-       ! all concentrations will be calculated in carchm
-    ELSE
-       atm_co2 = 278._wp
-       atm_o2  = 196800._wp
-       atm_n2  = 802000._wp
-    ENDIF
+    atm_co2 = 278._wp
+    atm_o2  = 196800._wp
+    atm_n2  = 802000._wp
 
    ks=12
    dzsed(:) =-1._wp
@@ -174,6 +193,18 @@ CONTAINS
    cycdec = 0.1_wp 
    cya_growth_max= 0.2_wp      ! d-1
    grazra=1.0_wp
+
+   drempoc = 0.026_wp
+   dremopal = 0.01_wp
+   dremcalc = 0.075_wp
+ 
+   calmax = 0.15_wp            ! maximum fraction (of "export") for calc production
+
+   bkcya_P = 5.e-8_wp
+   bkcya_Fe = 30.e-8_wp
+
+   no3nh4red = 0.002_wp  ! 1/day
+   no3no2red = 0.002_wp  ! 1/day
 
 
 
@@ -212,6 +243,11 @@ CONTAINS
     IF (i_settling > 1 ) THEN
       CALL finish(TRIM(routine), 'Aggregation not yet implemented, i_settling must be 0 or 1')
     END IF
+
+    if (l_N_cycle .and. l_implsed) THEN
+      CALL finish(TRIM(routine), 'Extended N-cycle only works with explicit sediment!')
+    END IF
+
 
     ksp=ks+1
     ALLOCATE(porwat(ks))
