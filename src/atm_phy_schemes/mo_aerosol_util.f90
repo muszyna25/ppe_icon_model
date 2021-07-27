@@ -21,18 +21,27 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_aerosol_util
 
-  USE mo_impl_constants,       ONLY: min_rlcell, iss, iorg, ibc, iso4, idu, nclass_aero
-  USE mo_math_constants,       ONLY: rad2deg
-  USE mo_kind,                 ONLY: wp
-  USE mo_loopindices,          ONLY: get_indices_c
-  USE mo_lrtm_par,             ONLY: jpband => nbndlw
-  USE mo_model_domain,         ONLY: t_patch
-  USE mo_srtm_config,          ONLY: jpsw
-  USE mo_lnd_nwp_config,       ONLY: ntiles_lnd, dzsoil
-  USE sfc_terra_data,          ONLY: cadp, cfcap
-  USE mo_nwp_tuning_config,    ONLY: tune_dust_abs
+  USE mo_impl_constants,         ONLY: min_rlcell, min_rlcell_int, &
+                                   &   iss, iorg, ibc, iso4, idu, nclass_aero
+  USE mo_impl_constants_grf,     ONLY: grf_bdywidth_c
+  USE mo_math_constants,         ONLY: rad2deg
+  USE mo_kind,                   ONLY: wp
+  USE mo_loopindices,            ONLY: get_indices_c
+  USE mo_lrtm_par,               ONLY: jpband => nbndlw
+  USE mo_model_domain,           ONLY: t_patch
+  USE mo_intp_data_strc,         ONLY: t_int_state
+  USE mo_srtm_config,            ONLY: jpsw
+  USE mo_lnd_nwp_config,         ONLY: ntiles_lnd, dzsoil
+  USE mo_nwp_tuning_config,      ONLY: tune_dust_abs
+  USE mo_aerosol_sources_types,  ONLY: p_dust_source_const
+  USE mo_aerosol_sources,        ONLY: aerosol_dust_aod_source
+  USE mo_math_laplace,           ONLY: nabla2_scalar
 
   IMPLICIT NONE
 
@@ -50,7 +59,8 @@ MODULE mo_aerosol_util
 
   PUBLIC :: zaea_rrtm, zaes_rrtm, zaeg_rrtm, &
     &       aerdis, init_aerosol_dstrb_tanre, init_aerosol_props_tanre_rrtm, &
-    &       init_aerosol_props_tegen_rrtm,  prog_aerosol_2D, tune_dust
+    &       init_aerosol_props_tegen_rrtm, tune_dust
+  PUBLIC :: prog_aerosol_2D, aerosol_2D_diffusion
 
 CONTAINS
 
@@ -697,53 +707,64 @@ CONTAINS
 
   ! Very simple parameterization of source and sink terms for prognostic 2D aerosol fields
   !
-  SUBROUTINE prog_aerosol_2D (nproma,jcs,jce,dtime,iprog_aero,aerosol,aercl_ss,aercl_or,aercl_bc,aercl_su,aercl_du,       &
-                              rr_gsp,sr_gsp,rr_con,sr_con,gust_dyn,gust_con,soiltype,plcov_t,frac_t,w_so_t,t_so_t,h_snow_t)
-                              
-    
-    INTEGER,  INTENT(in)    :: nproma, jcs, jce, iprog_aero
-    REAL(wp), INTENT(in)    :: dtime
+  SUBROUTINE prog_aerosol_2D (jcs, jce, jg, dtime, iprog_aero, aerosol,               &
+    &                         aercl_ss,aercl_or,aercl_bc,aercl_su,aercl_du,           &
+    &                         rr_gsp,sr_gsp,rr_con,sr_con,                            &
+    &                         soiltype,plcov_t,frac_t,w_so_t, w_so_ice_t, h_snow_t,   &
+    &                         lc_class_t, rho, tcm_t, u, v, idx_lst_t, gp_count_t )
+    REAL(wp), INTENT(in)            :: &
+      &  dtime,                        & !< Time step (s)
+      &  aercl_ss(:), aercl_or(:),     & !< AOD climatology (sea salt, organic)
+      &  aercl_bc(:), aercl_su(:),     & !< AOD climatology (black carbon, sulfate)
+      &  aercl_du(:),                  & !< AOD climatology (dust)
+      &  rr_gsp(:),sr_gsp(:),          & !< Grid-scale rain & snow rate
+      &  rr_con(:),sr_con(:),          & !< Convective rain & snow rate
+      &  plcov_t(:,:),                 & !< Plant cover (tiled)
+      &  frac_t(:,:),                  & !< Tile fraction
+      &  w_so_t(:,:), w_so_ice_t(:,:), & !< Soil water & ice (tiled)
+      &  h_snow_t(:,:),                & !< Snow height (tiled)
+      &  rho(:),                       & !< Air density
+      &  tcm_t(:,:),                   & !< Transfer coefficient for momentum
+      &  u(:), v(:)                      !< Wind vector components
+    INTEGER,  INTENT(in) :: &
+      &  jcs, jce,          & !< Start and end index of nproma loop
+      &  jg,                & !< Domain index
+      &  iprog_aero,        & !< Prognostic aerosol mode: 1 only dust, 2 all
+      &  soiltype(:),       & !< Soil type index (dim: nproma)
+      &  lc_class_t(:,:),   & !< Land use class index (dim: nproma, ntiles)
+      &  idx_lst_t(:,:),    & !< Tiled index list to loop over land points (dim: nproma,ntiles)
+      &  gp_count_t(:)        !< Returns number of local grid points per tile (dim: ntiles)
+    REAL(wp), INTENT(inout) :: &
+      &  aerosol(:,:)         !< Aerosol Optical Depth (AOD)
+    ! Local variables
+    REAL(wp) ::                 &
+      &  relax_scale(2),        & !< Target values for relaxation
+      &  relax_fac(2),          & !< Relaxation time scales
+      &  od_clim(nclass_aero),  & !< AOD offsets for climatology-based source terms
+      &  minfrac,               & !< minimum allowed fraction of climatological AOD
+      &  ts_saltsrc, ts_orgsrc, & !< Time scales for sources
+      &  ts_bcsrc, ts_susrc,    & !< Time scales for sources
+      &  washout, washout_scale,& !< Washout and washout scale for dust
+      &  dust_flux, aod_flux      !< 
+    INTEGER ::              &
+      &  jc, jt, jcl,       & !< Loop indices
+      &  i_count_lnd          !< Number of land grid points in current block
 
-    REAL(wp), INTENT(inout) :: aerosol(:,:)
-    REAL(wp), INTENT(in)    :: aercl_ss(:),aercl_or(:),aercl_bc(:),aercl_su(:),aercl_du(:),  &
-                               rr_gsp(:),sr_gsp(:),rr_con(:),sr_con(:),                      &
-                               gust_dyn(:),gust_con(:),plcov_t(:,:),frac_t(:,:),w_so_t(:,:), &
-                               t_so_t(:,:),h_snow_t(:,:)
-    INTEGER,  INTENT(in)    :: soiltype(:)
-
-    INTEGER :: jc, js, jt
-
-    REAL(wp) :: relax_scale(2), relax_fac(2), od_clim(nclass_aero), vfac, wsofac, tsofac, minfrac, &
-                plcfac, snwfac, dustsrc(ntiles_lnd), ts_dustsrc, ts_saltsrc, ts_orgsrc, ts_bcsrc, ts_susrc, &
-                washout, washout_scale
-
-    ! Fractions of climatology used as target values for relaxation 
-    ! (tuned to approximately balance the source terms for non-dust aerosol classes)
-    relax_scale(1)  = 0.7_wp
-    relax_scale(2)  = 0.4_wp
-
-    ! Relaxation time scales
-    relax_fac(1) = 1._wp/(3._wp*86400._wp)  ! 3 days for aerosols with shallow vertical extent
-    relax_fac(2) = 1._wp/(10._wp*86400._wp) ! 10 days for aerosols with deep vertical extent (dust)
-
-    ! Time scales for sources
-    ts_dustsrc = 1._wp/(12.5_wp*86400._wp) ! 12.5 days for dust source terms
-    ts_saltsrc = 1._wp/(2.5_wp*86400._wp)  ! 2.5  days for sea salt
-    ts_orgsrc  = 1._wp/(2.5_wp*86400._wp)  ! 2.5  days for organic aerosol
-    ts_bcsrc   = 1._wp/(2.5_wp*86400._wp)  ! 2.5  days for black carbon
-    ts_susrc   = 1._wp/(2.5_wp*86400._wp)  ! 2.5  days for sulfate aerosol
-
-    ! Washout scale for dust
-    washout_scale = 1._wp/7.5_wp  ! e-folding scale 7.5 mm WE precipitation
-
-    minfrac = 0.025_wp ! minimum allowed fraction of climatological aerosol optical depth
-
-    ! optical depth offsets for climatology-based source terms
-    od_clim(iss)  = 0.005_wp
-    od_clim(iorg) = 0.015_wp
-    od_clim(ibc)  = 0.002_wp
-    od_clim(iso4) = 0.015_wp
-    od_clim(idu)  = 0.075_wp
+    relax_scale(1) = 0.7_wp ! tuned to approximately balance 
+                            ! the source terms for non-dust aerosol classes
+    relax_scale(2) = 1._wp
+    relax_fac(1)   = 1._wp/(3._wp*86400._wp)  ! 3 days for aerosols with shallow vertical extent
+    relax_fac(2)   = 1._wp/(8._wp*86400._wp)  ! 8 days for aerosols with deep vertical extent (dust)
+    ts_saltsrc     = 1._wp/(2.5_wp*86400._wp) ! 2.5  days for sea salt
+    ts_orgsrc      = 1._wp/(2.5_wp*86400._wp) ! 2.5  days for organic aerosol
+    ts_bcsrc       = 1._wp/(2.5_wp*86400._wp) ! 2.5  days for black carbon
+    ts_susrc       = 1._wp/(2.5_wp*86400._wp) ! 2.5  days for sulfate aerosol
+    washout_scale  = 1._wp/7.5_wp             ! e-folding scale 7.5 mm WE precipitation
+    minfrac        = 0.025_wp
+    od_clim(iss)   = 0.005_wp
+    od_clim(iorg)  = 0.015_wp
+    od_clim(ibc)   = 0.002_wp
+    od_clim(iso4)  = 0.015_wp
 
     ! Prediction of mineral dust; other aerosol classes are treated prognostically only if iprog_aero=2
 
@@ -752,28 +773,26 @@ CONTAINS
       aerosol(jc,idu)  = aerosol(jc,idu)  + dtime*relax_fac(2)*(relax_scale(2)*aercl_du(jc)-aerosol(jc,idu))
     ENDDO
 
-    ! Sources and sinks for mineral dust, including weak climatology-based source term
-    DO jc = jcs, jce
-      IF (soiltype(jc) >= 3 .AND. soiltype(jc) <= 8) THEN ! land excluding glaciers and rock
-        js = soiltype(jc)
-        DO jt = 1, ntiles_lnd ! snow tiles are excluded a priori; the snow depth criterion is relevant without snow tiles only
-          wsofac = MAX(0._wp,w_so_t(jc,jt)/dzsoil(1)-1.5_wp*cadp(js)) / (cfcap(js)-1.5_wp*cadp(js)) ! soil moisture < field cap.
-          plcfac = MAX(0._wp, (0.75_wp-plcov_t(jc,jt))/0.75_wp)             ! plant cover < 75%
-          snwfac = MAX(0._wp, (0.05_wp-h_snow_t(jc,jt))*20._wp)             ! snow depth < 5 cm
-          tsofac = MAX(0._wp, MIN(1._wp,0.4_wp*(t_so_t(jc,jt)-270.65_wp)))  ! top soil layer warmer than -2.5 deg C
-          vfac   = MAX(0._wp, gust_dyn(jc)+gust_con(jc) - (7.5_wp+17.5_wp*wsofac)) ! gusts > soil-moisture dependent threshold
-          dustsrc(jt) = dtime*ts_dustsrc*( vfac*plcfac*snwfac*tsofac +        &
-                   MAX(0._wp,aercl_du(jc)-MAX(od_clim(idu),aerosol(jc,idu)) ) )
-        ENDDO
-        ! washout of mineral dust by precipitation: convective precip is counted only by 50% because it
-        ! is assumed not to cover the whole grid box
-        washout = dtime*washout_scale*(rr_gsp(jc)+sr_gsp(jc)+0.5_wp*(rr_con(jc)+sr_con(jc)))*aerosol(jc,idu)
-        aerosol(jc,idu)  = aerosol(jc,idu) - washout + SUM(dustsrc(1:ntiles_lnd)*frac_t(jc,1:ntiles_lnd))
-      ENDIF
-    ENDDO
+    DO jt = 1, ntiles_lnd
+      i_count_lnd = gp_count_t(jt)
+      IF (i_count_lnd == 0) CYCLE ! skip loop if the index list for the given tile is empty
+!$NEC ivdep
+      DO jcl = 1, i_count_lnd
+        jc = idx_lst_t(jcl,jt)
+        ! dust_flux is not used here, but could be used for more sophisticated aerosol modules
+        CALL aerosol_dust_aod_source (p_dust_source_const(jg), dzsoil(1), w_so_t(jc,jt), h_snow_t(jc,jt), &
+          &                           w_so_ice_t(jc,jt), soiltype(jc), plcov_t(jc,jt), lc_class_t(jc,jt), &
+          &                           rho(jc), tcm_t(jc,jt), u(jc), v(jc), aod_flux, dust_flux)
+        ! Update AOD field with tendency from aod_flux
+        aerosol(jc,idu) = aerosol(jc,idu) + aod_flux * frac_t(jc,jt) * dtime
+      ENDDO ! jcl
+    ENDDO !jt
 
-    ! Ensure that the aerosol optical depth does not fall below 2.5% of the climatological value
     DO jc = jcs, jce
+      ! Calculate washout everywhere (not only above land)
+      washout = dtime*washout_scale*(rr_gsp(jc)+sr_gsp(jc)+0.5_wp*(rr_con(jc)+sr_con(jc)))*aerosol(jc,idu)
+      aerosol(jc,idu)  = aerosol(jc,idu) - washout
+      ! Ensure that the aerosol optical depth does not fall below 2.5% of the climatological value
       aerosol(jc,idu)  = MAX(aerosol(jc,idu),  minfrac*aercl_du(jc))
     ENDDO
 
@@ -834,6 +853,58 @@ CONTAINS
 
 
   END SUBROUTINE tune_dust
+
+
+  SUBROUTINE aerosol_2D_diffusion( p_patch, p_int_state, nproma, aerosol )
+    TYPE(t_patch), INTENT(in)     :: &
+      &  p_patch                       !< Current patch
+    TYPE(t_int_state), INTENT(in) :: &
+      &  p_int_state                   !< interpolation state
+    INTEGER,  INTENT(in)          :: &
+      &  nproma
+    REAL(wp), INTENT(inout)       :: &
+      &  aerosol(:,:,:)                !< Aerosol container
+    ! Local variables
+    REAL(wp), ALLOCATABLE         :: &
+      &  nabla2_aero(:,:,:)            !< Laplacian of aerosol(:,:,:)
+    REAL(wp)                      :: &
+      &  diff_coeff                    !< Diffusion coefficient
+    INTEGER                       :: &
+      &  jb, jc,                     &
+      &  i_rlstart, i_rlend,         &
+      &  i_startblk, i_endblk,       & 
+      &  i_startidx, i_endidx
+
+    diff_coeff = 0.125_wp
+
+    ALLOCATE(nabla2_aero(nproma,nclass_aero,p_patch%nblks_c))
+
+    CALL nabla2_scalar(aerosol(:,:,:),          &
+      &                p_patch, p_int_state,    &
+      &                nabla2_aero(:,:,:),      &
+      &                idu, idu, grf_bdywidth_c+1, min_rlcell_int)
+
+    i_rlstart  = grf_bdywidth_c+1
+    i_rlend    = min_rlcell_int
+    i_startblk = p_patch%cells%start_block(i_rlstart)
+    i_endblk   = p_patch%cells%end_block(i_rlend)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = i_startblk,i_endblk
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, i_rlstart, i_rlend)
+      DO jc = i_startidx, i_endidx
+        aerosol(jc,idu,jb) = MAX(0.0_wp, aerosol(jc,idu,jb) + diff_coeff *           &
+                                 p_patch%cells%area(jc,jb) * nabla2_aero(jc,idu,jb))
+      ENDDO !jc
+    ENDDO !jb
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+    DEALLOCATE(nabla2_aero)
+
+  END SUBROUTINE aerosol_2D_diffusion
 
 END MODULE mo_aerosol_util
 

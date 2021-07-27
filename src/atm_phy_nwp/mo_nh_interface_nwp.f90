@@ -719,6 +719,7 @@ CONTAINS
                             & pt_prog_rcf%tke,                  & !>in
                             & pt_diag ,                         & !>inout
                             & prm_diag, prm_nwp_tend,           & !>inout
+                            & ext_data,                         & !>in
                             & lcompute_tt_lheat                 ) !>in
 
       !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "microphysics", .FALSE., opt_lupdate_cpu=.TRUE.)
@@ -976,15 +977,18 @@ CONTAINS
 #ifdef _OPENACC
         CALL finish('mo_nh_interface_nwp:','prog_aerosol_2D not available on GPU')
 #endif
-        CALL prog_aerosol_2D (nproma,i_startidx,i_endidx,dt_loc,iprog_aero,                              &
+        CALL prog_aerosol_2D (i_startidx,i_endidx,jg,dt_loc,iprog_aero,                                  &
                               prm_diag%aerosol(:,:,jb),prm_diag%aercl_ss(:,jb),prm_diag%aercl_or(:,jb),  &
                               prm_diag%aercl_bc(:,jb),prm_diag%aercl_su(:,jb),prm_diag%aercl_du(:,jb),   &
                               prm_diag%rain_gsp_rate(:,jb),prm_diag%snow_gsp_rate(:,jb),                 &
                               prm_diag%rain_con_rate(:,jb),prm_diag%snow_con_rate(:,jb),                 &
-                              prm_diag%dyn_gust(:,jb),prm_diag%con_gust(:,jb),ext_data%atm%soiltyp(:,jb),&
-                              ext_data%atm%plcov_t(:,jb,:),ext_data%atm%frac_t(:,jb,:),                  &
-                              lnd_prog_now%w_so_t(:,1,jb,:),lnd_prog_now%t_so_t(:,1,jb,:),               &
-                              lnd_diag%h_snow_t(:,jb,:)                                                  )
+                              ext_data%atm%soiltyp(:,jb), ext_data%atm%plcov_t(:,jb,:),                  &
+                              ext_data%atm%frac_t(:,jb,:),                                               &
+                              lnd_prog_now%w_so_t(:,1,jb,:), lnd_prog_now%w_so_ice_t(:,1,jb,:),          &
+                              lnd_diag%h_snow_t(:,jb,:), ext_data%atm%lc_class_t(:,jb,:),                &
+                              pt_prog%rho(:,nlev,jb), prm_diag%tcm_t(:,jb,:),                            &
+                              pt_diag%u(:,nlev,jb), pt_diag%v(:,nlev,jb), ext_data%atm%idx_lst_t(:,jb,:),&
+                              ext_data%atm%gp_count_t(jb,:) )
       ENDIF
 
     ENDDO

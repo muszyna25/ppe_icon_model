@@ -122,6 +122,7 @@ MODULE mo_nh_stepping
   USE mo_update_dyn,               ONLY: add_slowphys
   USE mo_advection_stepping,       ONLY: step_advection
   USE mo_advection_aerosols,       ONLY: aerosol_2D_advection, setup_aerosol_advection
+  USE mo_aerosol_util,             ONLY: aerosol_2D_diffusion
   USE mo_nh_dtp_interface,         ONLY: prepare_tracer, compute_airmass
   USE mo_nh_diffusion,             ONLY: diffusion
   USE mo_memory_log,               ONLY: memory_log_add
@@ -1950,13 +1951,15 @@ MODULE mo_nh_stepping
 #ifdef _OPENACC
             CALL finish (routine, 'aerosol_2D_advection: OpenACC version currently not implemented')
 #endif
-            CALL aerosol_2D_advection( p_patch(jg), p_int_state(jg), iprog_aero, & !in
+            CALL sync_patch_array(SYNC_C, p_patch(jg), prm_diag(jg)%aerosol)
+            CALL aerosol_2D_advection( p_patch(jg), p_int_state(jg), iprog_aero,   & !in
               &          dt_loc, prm_diag(jg)%aerosol, prep_adv(jg)%vn_traj,       & !in, inout, in
               &          prep_adv(jg)%mass_flx_me, prep_adv(jg)%mass_flx_ic,       & !in
               &          p_nh_state(jg)%metrics%ddqz_z_full_e,                     & !in
               &          p_nh_state(jg)%diag%airmass_now,                          & !in
               &          p_nh_state(jg)%diag%airmass_new                           ) !in
-            
+            CALL sync_patch_array(SYNC_C, p_patch(jg), prm_diag(jg)%aerosol)
+            CALL aerosol_2D_diffusion( p_patch(jg), p_int_state(jg), nproma, prm_diag(jg)%aerosol)
           ENDIF
 
         ! ART tracer sedimentation:

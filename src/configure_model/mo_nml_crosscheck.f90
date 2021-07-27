@@ -344,6 +344,14 @@ CONTAINS
 
         ENDIF !inwp_radiation
 
+        !! Checks for simple prognostic aerosol scheme
+        IF (iprog_aero > 0) THEN
+          IF (atm_phy_nwp_config(jg)%is_les_phy) &
+            & CALL finish(routine,'iprog_aero > 0 can not be combined with LES physics')
+          IF (irad_aero /= 6) &
+            & CALL finish(routine,'iprog_aero > 0 currently only available for irad_aero=6')
+        ENDIF
+
         !! check microphysics scheme
         IF (   ANY(atm_phy_nwp_config(1:n_dom)%inwp_gscp == 2) .AND. &
              & ANY(atm_phy_nwp_config(1:n_dom)%inwp_gscp == 1) ) THEN
