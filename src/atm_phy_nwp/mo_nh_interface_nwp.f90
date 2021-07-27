@@ -39,6 +39,9 @@
 #if _CRAYFTN == 1 && ( _RELEASE == 8 && _RELEASE_MINOR == 5)
 #define __CRAY8_5_5_WORKAROUND
 #endif
+#ifdef _OPENACC
+#define __PGI_WORKAROUND
+#endif
 
 MODULE mo_nh_interface_nwp
 
@@ -207,7 +210,7 @@ CONTAINS
 
     ! Local scalars:
 
-    INTEGER :: jc,jk,jb,jce      !loop indices
+    INTEGER :: jc,jk,jb,jce,isubs!loop indices
     INTEGER :: jg,jgc            !domain id
     INTEGER :: convind           !help variable to circument compiler issue
 
@@ -252,6 +255,10 @@ CONTAINS
       & tracers_comm, tempv_comm, exner_pr_comm, w_comm
 
     INTEGER :: ntracer_sync
+
+#ifdef __PGI_WORKAROUND
+    INTEGER :: gp_count_t(ntiles_total)
+#endif
 
     ! Pointer to IDs of tracers which contain prognostic condensate.
     ! Required for computing the water loading term 
@@ -1256,12 +1263,9 @@ CONTAINS
 
 
     IF ( lcall_phy_jg(itradheat) ) THEN
-#ifdef _OPENACC
-      IF (.NOT. linit) THEN
-        CALL message('mo_nh_interface_nwp', 'Device to host copy before radiative heating. This needs to be removed once port is finished!')
-        CALL gpu_d2h_nh_nwp(pt_patch, prm_diag)
-        i_am_accel_node = .FALSE.
-      ENDIF
+      !$ACC DATA CREATE(zcosmu0, cosmu0_slope) IF(.NOT. linit)
+#ifdef __CRAY8_5_5_WORKAROUND
+      !$ACC DATA CREATE(pqv) IF(.NOT. linit)
 #endif
       !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "radheat", .TRUE., opt_lupdate_cpu=.FALSE.)
 
@@ -1280,7 +1284,8 @@ CONTAINS
         & zsct       = zsct,                        &
         & slope_ang  = p_metrics%slope_angle,       &
         & slope_azi  = p_metrics%slope_azimuth,     &
-        & cosmu0_slp = cosmu0_slope                 )
+        & cosmu0_slp = cosmu0_slope,                &
+        & lacc=(.not. linit)                        )
 
       IF (timers_level > 10) CALL timer_stop(timer_pre_radiation_nwp)
 
@@ -1305,28 +1310,61 @@ CONTAINS
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
 &                       i_startidx, i_endidx, rl_start, rl_end)
 
-        zcosmu0 (i_startidx:i_endidx,jb) &
-          = 0.5_wp * (ABS(zcosmu0(i_startidx:i_endidx,jb)) &
-          &           + zcosmu0(i_startidx:i_endidx,jb))
+        !$ACC PARALLEL DEFAULT(PRESENT) IF(.NOT. linit)
+        !$ACC LOOP GANG VECTOR
+        DO jc = i_startidx, i_endidx
+          zcosmu0 (jc,jb) &
+            = 0.5_wp * (ABS(zcosmu0(jc,jb)) &
+            &           + zcosmu0(jc,jb))
 
-        !calculate solar incoming flux at TOA
-        prm_diag%flxdwswtoa(i_startidx:i_endidx,jb) = zcosmu0(i_startidx:i_endidx,jb) &
-          &                                         * zsct                 !zsct by pre_radiation
+          !calculate solar incoming flux at TOA
+          prm_diag%flxdwswtoa(jc,jb) = zcosmu0(jc,jb) &
+            &                                         * zsct                 !zsct by pre_radiation
+        ENDDO
+        !$ACC END PARALLEL
 
-        prm_diag%swflxsfc (:,jb)=0._wp
-        prm_diag%lwflxsfc (:,jb)=0._wp
-        prm_diag%swflxtoa (:,jb)=0._wp
-        prm_diag%lwflxtoa (:,jb)=0._wp
+        !$ACC PARALLEL DEFAULT(PRESENT) IF(.NOT. linit)
+        !$ACC LOOP GANG VECTOR
+        DO jc = 1, nproma
+          prm_diag%swflxsfc (jc,jb)=0._wp
+          prm_diag%lwflxsfc (jc,jb)=0._wp
+          prm_diag%swflxtoa (jc,jb)=0._wp
+          prm_diag%lwflxtoa (jc,jb)=0._wp
+        ENDDO
+        !$ACC END PARALLEL
 
 #ifdef __CRAY8_5_5_WORKAROUND
         ! workaround for Cray Fortran 8.5.5
-        pqv=prm_diag%tot_cld(:,:,jb,iqv)
+        !$ACC PARALLEL DEFAULT(PRESENT) IF(.NOT. linit)
+        !$ACC LOOP GANG VECTOR COLLAPSE(2)
+        DO jk = 1, nlev
+          DO jc = 1, nproma
+            pqv(jc,jk) = prm_diag%tot_cld(jc,jk,jb,iqv)
+          ENDDO
+        ENDDO
+        !$ACC END PARALLEL
 #endif
 
         IF (atm_phy_nwp_config(jg)%inwp_surface >= 1) THEN
 
-          prm_diag%swflxsfc_t (:,jb,:)=0._wp
-          prm_diag%lwflxsfc_t (:,jb,:)=0._wp
+#ifdef __PGI_WORKAROUND
+          !$ACC DATA CREATE(gp_count_t) IF(.NOT. linit)
+          !$ACC PARALLEL DEFAULT(PRESENT) IF(.NOT. linit)
+          !$ACC LOOP VECTOR
+          DO isubs = 1, ntiles_total
+            gp_count_t(isubs) = ext_data%atm%gp_count_t(jb,isubs)
+          ENDDO
+          !$ACC END PARALLEL
+#endif
+          !$ACC PARALLEL DEFAULT(PRESENT) IF(.NOT. linit)
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
+          DO isubs = 1, ntiles_total+ntiles_water
+            DO jc = 1, nproma
+              prm_diag%swflxsfc_t (jc,jb,isubs)=0._wp
+              prm_diag%lwflxsfc_t (jc,jb,isubs)=0._wp
+            ENDDO
+          ENDDO
+          !$ACC END PARALLEL 
 
           CALL radheat (                   &
           !
@@ -1362,7 +1400,11 @@ CONTAINS
           & list_seaice_idx  = ext_data%atm%list_seaice%idx(:,jb), &! in index list of seaice points
           & list_lake_count  = ext_data%atm%list_lake%ncount(jb),  &! in number of (f)lake points
           & list_lake_idx    = ext_data%atm%list_lake%idx(:,jb),   &! in index list of (f)lake points
+#ifdef __PGI_WORKAROUND
+          & gp_count_t       = gp_count_t,                         &! in number of land points per tile
+#else
           & gp_count_t       = ext_data%atm%gp_count_t(jb,:),      &! in number of land points per tile
+#endif
           & idx_lst_t        = ext_data%atm%idx_lst_t(:,jb,:),     &! in index list of land points per tile
           & cosmu0=zcosmu0(:,jb)                   ,&! in     cosine of solar zenith angle (w.r.t. plain surface)
           & cosmu0_slp=cosmu0_slope(:,jb)          ,&! in     slope-dependent cosine of solar zenith angle
@@ -1396,7 +1438,11 @@ CONTAINS
           & swflx_up_sfc=prm_diag%swflx_up_sfc(:,jb)   ,&   ! out shortwave upward flux at the surface [W/m2]
           & swflx_par_sfc=prm_diag%swflx_par_sfc(:,jb) ,&   ! out shortwave upward flux at the surface [W/m2]
           & swflx_clr_sfc=prm_diag%swflxclr_sfc(:,jb)  ,&   ! out clear-sky shortwave flux at the surface [W/m2]
-          & swflx_dn_sfc_diff=prm_diag%swflx_dn_sfc_diff(:,jb) ) ! out shortwave diffuse downward flux at the surface [W/m2]
+          & swflx_dn_sfc_diff=prm_diag%swflx_dn_sfc_diff(:,jb), & ! out shortwave diffuse downward flux at the surface [W/m2]
+          & lacc=(.not. linit)                                  )
+#ifdef __PGI_WORKAROUND
+    !$ACC END DATA ! CREATE(gp_count_t)
+#endif
 
         ELSE
           CALL radheat (                   &
@@ -1450,23 +1496,22 @@ CONTAINS
           & swflx_up_toa=prm_diag%swflx_up_toa(:,jb)   ,&   ! out shortwave upward flux at the TOA [W/m2]
           & swflx_up_sfc=prm_diag%swflx_up_sfc(:,jb)   ,&   ! out shortwave upward flux at the surface [W/m2]
           & swflx_par_sfc=prm_diag%swflx_par_sfc(:,jb) ,&   ! out shortwave upward flux at the surface [W/m2]
-          & swflx_dn_sfc_diff=prm_diag%swflx_dn_sfc_diff(:,jb) ) ! out shortwave diffuse downward flux at the surface [W/m2]
+          & swflx_dn_sfc_diff=prm_diag%swflx_dn_sfc_diff(:,jb), & ! out shortwave diffuse downward flux at the surface [W/m2]
+          & lacc=(.not. linit)                                  )
         ENDIF
 
       ENDDO ! blocks
-      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "radheat", .FALSE., opt_lupdate_cpu=.FALSE.)
+      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "radheat", .FALSE., opt_lupdate_cpu=.TRUE.)
 
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-      IF (timers_level > 2) CALL timer_stop(timer_radheat)
-#ifdef _OPENACC
-      IF (.NOT. linit) THEN
-        CALL message('mo_nh_interface_nwp', 'Host to device copy after radiative heating. This needs to be removed once port is finished!')
-        CALL gpu_h2d_nh_nwp(pt_patch, prm_diag)
-        i_am_accel_node = my_process_is_work()
-      ENDIF
+#ifdef __CRAY8_5_5_WORKAROUND
+    !$ACC END DATA ! CREATE(pqv)
 #endif
+    !$ACC END DATA ! CREATE(zcosmu0, cosmu0_slope)
+
+      IF (timers_level > 2) CALL timer_stop(timer_radheat)
 
     ENDIF
 

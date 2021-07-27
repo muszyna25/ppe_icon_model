@@ -154,6 +154,8 @@ MODULE mo_ser_all
         write(ser_name, '(a,i5.5)') TRIM(info%name)//'_', listhash
         dims = info%used_dimensions
 
+        IF ( info%lcontained ) CYCLE for_all_list_elements
+
         SELECT CASE(info%data_type)
         CASE (REAL_T)
           SELECT CASE ( ser_mode )
@@ -322,7 +324,6 @@ MODULE mo_ser_all
           END SELECT
         CASE (BOOL_T)
         END SELECT
-        ! END IF
 
       ENDDO for_all_list_elements
     END IF

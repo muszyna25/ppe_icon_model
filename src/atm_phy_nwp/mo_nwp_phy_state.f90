@@ -1611,7 +1611,9 @@ __acc_attach(diag%clct_avg)
     cf_desc    = t_cf_var('tsfctrad', 'K', 'surface temperature at trad', datatype_flt)
     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'tsfctrad', diag%tsfctrad,                     &
-            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
+            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,      &
+            & ldims=shape2d, lopenacc=.TRUE.                                )
+    __acc_attach(diag%tsfctrad)
 
     ! &       diag% flxdwswtoa(nproma,       nblks),          &
     cf_desc    = t_cf_var('sod_t', 'W m-2', 'downward shortwave flux at TOA', &
@@ -1664,49 +1666,57 @@ __acc_attach(diag%clct_avg)
     CALL add_var( diag_list, 'thb_t', diag%lwflxtoa,                        &
       & GRID_UNSTRUCTURED_CELL, ZA_TOA, cf_desc, grib2_desc,                &
       & ldims=shape2d, lrestart=.FALSE.,                                    &
-      & in_group=groups("rad_vars"))
+      & in_group=groups("rad_vars"), lopenacc=.TRUE.                        )
+    __acc_attach(diag%lwflxtoa)
 
     ! &      diag%trsolclr_sfc(nproma,nblks_c)
     cf_desc    = t_cf_var('trsolclr_sfc', '', 'shortwave clear-sky transmisivity at suface', datatype_flt)
     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'trsolclr_sfc', diag%trsolclr_sfc,             &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
-      & ldims=shape2d, loutput=.FALSE.                                      )
+      & ldims=shape2d, loutput=.FALSE., lopenacc=.TRUE.                     )
+    __acc_attach(diag%trsolclr_sfc)
 
     ! &      diag%trsol_up_toa(nproma,nblks_c)
     cf_desc    = t_cf_var('trsol_up_toa', '', 'shortwave upward transmisivity at TOA', datatype_flt)
     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'trsol_up_toa', diag%trsol_up_toa,             &
       & GRID_UNSTRUCTURED_CELL, ZA_TOA, cf_desc, grib2_desc,                &
-      & ldims=shape2d, lrestart=.FALSE., loutput=.FALSE.                    )
+      & ldims=shape2d, lrestart=.FALSE., loutput=.FALSE., lopenacc=.TRUE.   )
+    __acc_attach(diag%trsol_up_toa)
 
     ! &      diag%trsol_up_sfc(nproma,nblks_c)
     cf_desc    = t_cf_var('trsol_up_sfc', '', 'shortwave upward transmisivity at surface', datatype_flt)
     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'trsol_up_sfc', diag%trsol_up_sfc,             &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
-      & ldims=shape2d, lrestart=.TRUE., loutput=.FALSE.                     )
+      & ldims=shape2d, lrestart=.TRUE., loutput=.FALSE., lopenacc=.TRUE.   )
+    __acc_attach(diag%trsol_up_sfc)
 
     ! &      diag%trsol_par_sfc(nproma,nblks_c)
     cf_desc    = t_cf_var('trsol_par_sfc', '', 'photosynthetically active downward transmisivity at surface', datatype_flt)
     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'trsol_par_sfc', diag%trsol_par_sfc,           &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
-      & ldims=shape2d, lrestart=.TRUE., loutput=.FALSE.                     )
+      & ldims=shape2d, lrestart=.TRUE., loutput=.FALSE., lopenacc=.TRUE.    )
+    __acc_attach(diag%trsol_par_sfc)
 
     ! &      diag%trsol_dn_sfc_diff(nproma,nblks_c)
     cf_desc    = t_cf_var('trsol_dn_sfc_diff', '', 'shortwave diffuse downward transmisivity at surface', datatype_flt)
     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'trsol_dn_sfc_diff', diag%trsol_dn_sfc_diff,   &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
-      & ldims=shape2d, lrestart=.TRUE., loutput=.FALSE.                    )
+      & ldims=shape2d, lrestart=.TRUE., loutput=.FALSE., lopenacc=.TRUE.    )
+    __acc_attach(diag%trsol_dn_sfc_diff)
 
     ! &      diag%swflx_up_toa(nproma,nblks_c)
     cf_desc    = t_cf_var('sou_t', 'W m-2', 'shortwave upward flux at TOA', datatype_flt)
     grib2_desc = grib2_var(0, 4, 8, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'sou_t', diag%swflx_up_toa,                    &
       & GRID_UNSTRUCTURED_CELL, ZA_TOA, cf_desc, grib2_desc,                &
-      & ldims=shape2d, lrestart=.FALSE., in_group=groups("rad_vars")        )
+      & ldims=shape2d, lrestart=.FALSE., in_group=groups("rad_vars"),       &
+      & lopenacc=.TRUE.                                                     )
+    __acc_attach(diag%swflx_up_toa)
 
     ! &      diag%swflx_up_sfc(nproma,nblks_c)
     cf_desc    = t_cf_var('sou_s', 'W m-2', 'shortwave upward flux at surface', datatype_flt)
@@ -1751,7 +1761,8 @@ __acc_attach(diag%clct_avg)
     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'lwflx_up_sfc_rs', diag%lwflx_up_sfc_rs,       &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
-      & ldims=shape2d,  lrestart=.TRUE., loutput=.FALSE.                   )
+      & ldims=shape2d,  lrestart=.TRUE., loutput=.FALSE., lopenacc=.TRUE.   )
+    __acc_attach(diag%lwflx_up_sfc_rs)
 
     ! &      diag%lwflx_up_sfc(nproma,nblks_c)
     cf_desc    = t_cf_var('thu_s', 'W m-2', 'longwave upward flux at surface', datatype_flt)
@@ -2199,7 +2210,9 @@ __acc_attach(diag%clct_avg)
     cf_desc    = t_cf_var('trsolall', '', 'shortwave net tranmissivity', datatype_flt)
     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'trsolall', diag%trsolall,                   &
-      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dkp1)
+      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,   &
+      & ldims=shape3dkp1, lopenacc=.TRUE.                                 )
+    __acc_attach(diag%trsolall)
       
     ! Set dimensions for 3D radiative flux variables
     IF (atm_phy_nwp_config(k_jg)%l_3d_rad_fluxes) THEN
