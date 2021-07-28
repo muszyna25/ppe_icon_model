@@ -767,6 +767,7 @@ CONTAINS
           CALL update_surface(jg, jcs, jce, nproma, field%kice,               &! in
                &              nlev, nsfc_type,                                &! in
                &              iwtr, iice, ilnd,                               &! in, indices of surface types
+               &              datetime_old,                                   &! in, date and time at beginning of this time step
                &              pdtime,                                         &! in, time step
                &              field%frac_tile(:,jb,:),                        &! in, area fraction
                &                     cfh_tile(:,jb,:),                        &! in, from "vdiff_down"

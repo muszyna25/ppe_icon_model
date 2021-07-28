@@ -338,13 +338,15 @@ MODULE mo_jsb_time_iface
   USE mo_exception,          ONLY: finish, message, message_text
 
   USE mtime,                     ONLY: t_datetime => datetime, newDatetime, deallocateDatetime,      &
+    &                                  timedelta, getPTStringFromSeconds, max_timedelta_str_len,     &
+    &                                  newTimedelta, deallocateTimedelta,                            &
     &                                  OPERATOR(+), OPERATOR(*), OPERATOR(==),                       &
     &                                  OPERATOR(<=), OPERATOR(>), OPERATOR(-),                       &
     &                                  divisionquotienttimespan, getDayOfYearFromDateTime,           &
     &                                  getNoOfDaysInMonthDateTime, getNoOfDaysInYearDateTime,        &
     &                                  getTotalMilliSecondsTimeDelta, no_of_sec_in_a_day,            &
     &                                  getNoOfSecondsElapsedInDayDateTime, getTotalSecondsTimeDelta, &
-    &                                  divideDatetimeDifferenceInSeconds !, isCurrentEventActive
+    &                                  divideDatetimeDifferenceInSeconds !, isCurrentEventActive,      &
   USE mo_time_config,            ONLY: time_config !configure_time
   USE mo_time_nml,               ONLY: read_time_namelist
   USE mo_dynamics_config,        ONLY: iequations
@@ -356,11 +358,11 @@ MODULE mo_jsb_time_iface
   IMPLICIT NONE
   PRIVATE
 
-  PUBLIC :: t_datetime
+  PUBLIC :: t_datetime, deallocateDatetime
   PUBLIC :: get_year_length, get_month_length, get_day_length, get_year_day
   PUBLIC :: get_time_dt, get_time_nsteps, &
             get_time_start, get_time_stop, &
-            get_time_current, get_time_previous, is_time_experiment_start, is_time_restart, &
+            get_time_previous, is_time_experiment_start, is_time_restart, &
             is_time_ltrig_rad_m1
   PUBLIC :: read_time_namelist !, configure_time
   PUBLIC :: start_timestep, finish_timestep
@@ -391,15 +393,19 @@ CONTAINS
   !!
   !! Function returns the length of the integration time step
   !!
-  REAL(wp) FUNCTION get_time_dt()
+  REAL(wp) FUNCTION get_time_dt(model_id)
 
-    CHARACTER(len=*), PARAMETER :: routine = modname//':get_time_dt'
+    INTEGER, INTENT(in) :: model_id
+
+    TYPE(t_datetime), POINTER :: reference_datetime
     REAL(wp) :: ztime
 
-    TYPE(t_datetime), POINTER :: reference_dt
-    reference_dt => newDatetime("1980-06-01T00:00:00.000")
-    ztime = 0.001_wp*getTotalMilliSecondsTimeDelta(time_config%tc_dt_model, reference_dt)
-    CALL deallocateDatetime(reference_dt)
+    CHARACTER(len=*), PARAMETER :: routine = modname//':get_time_dt'
+
+    reference_datetime => newDatetime("1980-06-01T00:00:00.000")
+    ztime = REAL(getTotalSecondsTimeDelta(echam_phy_tc(model_id)%dt_vdf, reference_datetime), wp)
+
+    CALL deallocateDatetime(reference_datetime)
 
     IF (ztime <= 0.0_wp) &
       CALL finish(routine, 'time step not configured yet.')
@@ -434,84 +440,116 @@ CONTAINS
 
   END FUNCTION get_time_nsteps
 
-  TYPE(t_datetime) FUNCTION get_time_start()
+  FUNCTION get_time_start()
 
-    get_time_start = time_config%tc_startdate
+    TYPE(t_datetime), POINTER :: get_time_start
+
+    get_time_start => time_config%tc_startdate
 
   END FUNCTION get_time_start
 
-  TYPE(t_datetime) FUNCTION get_time_stop()
+  FUNCTION get_time_stop()
 
-    get_time_stop = time_config%tc_stopdate
+    TYPE(t_datetime), POINTER :: get_time_stop
+
+    get_time_stop => time_config%tc_stopdate
 
   END FUNCTION get_time_stop
 
   !>
-  !! @brief Get current time
-  !!
-  TYPE(t_datetime) FUNCTION get_time_current()
-
-    get_time_current = time_config%tc_current_date
-
-  END FUNCTION get_time_current
-
-  !>
   !! @brief Get time at previous time step
   !!
-  FUNCTION get_time_previous() RESULT(previous)
+  FUNCTION get_time_previous(current, dt) RESULT(previous)
 
-    TYPE(t_datetime) :: previous
+    TYPE(t_datetime), POINTER, INTENT(in) :: current
+    REAL(wp),                  INTENT(in) :: dt
+    TYPE(t_datetime), POINTER             :: previous
 
-    previous = time_config%tc_current_date + (-1) * time_config%tc_dt_model
+    TYPE(timedelta),  POINTER :: dt_mtime
+
+    CHARACTER(len=max_timedelta_str_len) :: dstring
+
+    CALL getPTStringFromSeconds(dt, dstring)
+    dt_mtime => newTimedelta(dstring)
+
+    previous => newDatetime(current)
+    previous = previous + (-1) * dt_mtime
+
+    CALL deallocateTimedelta(dt_mtime)
 
   END FUNCTION get_time_previous
 
   !>
   !! @brief Get time at next time step
   !!
-  FUNCTION get_time_next() RESULT(next)
+  FUNCTION get_time_next(current, dt) RESULT(next)
 
-    TYPE(t_datetime) :: next
+    TYPE(t_datetime), POINTER, INTENT(in) :: current
+    REAL(wp),                  INTENT(in) :: dt
+    TYPE(t_datetime), POINTER             :: next
 
-    next = time_config%tc_current_date + (1) * time_config%tc_dt_model
+    TYPE(timedelta),  POINTER :: dt_mtime
+
+    CHARACTER(len=max_timedelta_str_len) :: dstring
+
+    CALL getPTStringFromSeconds(dt, dstring)
+    dt_mtime => newTimedelta(dstring)
+
+    next => newDatetime(current)
+    next = next + (1) * dt_mtime
+
+    CALL deallocateTimedelta(dt_mtime)
 
   END FUNCTION get_time_next
 
   !
   ! Check whether we are one time step before radiation is calculated in atmosphere
+  ! This is used in JSBACH to decide whether to update surface albedo at the end of
+  ! a time step (so that radiation can use it one step later; note that radiation is
+  ! called before vdf/jsbach).
+  ! If radiation is not used at all in the current time window set result to true so
+  ! that JSBACH calculates albedo every time step.
   !
-  FUNCTION is_time_ltrig_rad_m1(model_id) RESULT(ltrig_rad_m1)
+  FUNCTION is_time_ltrig_rad_m1(current, dt, model_id) RESULT(ltrig_rad_m1)
 
-    INTEGER, INTENT(in) :: model_id
-    LOGICAL :: ltrig_rad_m1
-    !
-    ! In the ICON MPI atmosphere, radiation is triggered based on the radiation time delta and the old  time step.
-    ! We therefore use the current time step to check whether we're one time step before the radiation is triggered
-    ! in the atmosphere
-    TYPE(t_datetime) :: current
-    INTEGER          :: dt_rad
+    TYPE(t_datetime), POINTER, INTENT(in) :: current
+    REAL(wp),                  INTENT(in) :: dt
+    INTEGER,                   INTENT(in) :: model_id
+    LOGICAL                               :: ltrig_rad_m1
 
-    current = get_time_current()
+    TYPE(t_datetime), POINTER :: datetime_next
+    INTEGER                   :: dt_rad
+    LOGICAL                   :: luse_rad
+
+    datetime_next => get_time_next(current, dt)
+
     IF (echam_phy_tc(model_id)%dt_rad > dt_zero) THEN
-      dt_rad = getTotalSecondsTimeDelta(echam_phy_tc(model_id)%dt_rad, current)
-      ltrig_rad_m1 = MOD(getNoOfSecondsElapsedInDayDateTime(current), dt_rad) == 0
+      dt_rad = getTotalSecondsTimeDelta(echam_phy_tc(model_id)%dt_rad, datetime_next)
+      ltrig_rad_m1 = MOD(getNoOfSecondsElapsedInDayDateTime(datetime_next), dt_rad) == 0
+      ! Why doesn't this work? It somehow messes up the radiation calculation time step.
+      ! ltrig_rad_m1 = isCurrentEventActive(echam_phy_tc(model_id)%ev_rad, datetime_next)
+      luse_rad  = (echam_phy_tc(model_id)%sd_rad <= datetime_next) .AND. &
+        &         (echam_phy_tc(model_id)%ed_rad >  datetime_next)
+      ltrig_rad_m1 = ltrig_rad_m1 .AND. luse_rad
     ELSE
-      ltrig_rad_m1 = .FALSE.
+      ltrig_rad_m1 = .TRUE.
     END IF
 
   END FUNCTION is_time_ltrig_rad_m1
 
-  LOGICAL FUNCTION is_time_experiment_start()
+  LOGICAL FUNCTION is_time_experiment_start(current)
 
-    ! In ICON, the first computed time step is one time step after the start date
-    is_time_experiment_start = get_time_previous() == time_config%tc_exp_startdate
+    TYPE(t_datetime), POINTER, INTENT(in) :: current
+
+    is_time_experiment_start = current == time_config%tc_exp_startdate
 
   END FUNCTION is_time_experiment_start
 
-  LOGICAL FUNCTION is_time_restart()
+  LOGICAL FUNCTION is_time_restart(current)
 
-    ! In ICON, the first computed time step is one time step after the restart date
-    is_time_restart = .NOT. is_time_experiment_start() .AND. (get_time_previous() == time_config%tc_startdate)
+    TYPE(t_datetime), POINTER, INTENT(in) :: current
+
+    is_time_restart = .NOT. is_time_experiment_start(current) .AND. (current == time_config%tc_startdate)
 
   END FUNCTION is_time_restart
 
@@ -548,8 +586,8 @@ CONTAINS
 
   SUBROUTINE get_date_components(this_datetime, year, month, day, hour, minute, second)
 
-    TYPE(t_datetime),  INTENT(in)  :: this_datetime
-    INTEGER, OPTIONAL, INTENT(out) :: year, month, day, hour, minute, second
+    TYPE(t_datetime),  POINTER, INTENT(in)  :: this_datetime
+    INTEGER, OPTIONAL,          INTENT(out) :: year, month, day, hour, minute, second
 
     IF (PRESENT(year))   year   = this_datetime%date%year
     IF (PRESENT(month))  month  = this_datetime%date%month
@@ -616,7 +654,7 @@ CONTAINS
   REAL(wp) FUNCTION get_year_day(date)
 
     ! t_datetime points to mtimes datetime
-    TYPE(t_datetime),  INTENT(in)  :: date
+    TYPE(t_datetime), POINTER, INTENT(in)  :: date
 
     get_year_day = REAL(getDayOfYearFromDateTime(date), wp) &
          &        +REAL(getNoOfSecondsElapsedInDayDateTime(date),wp) &
