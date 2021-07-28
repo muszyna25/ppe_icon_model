@@ -734,6 +734,9 @@ MODULE mo_jsb_io_iface
             Create_zaxis, cdiDefMissval, read_io_namelist
             ! Create_zaxis, Destroy_zaxis, cdiDefMissval
 
+  ! The following needs to be defined but is only used with jsbach/echam
+  PUBLIC :: ldebugio
+  LOGICAL :: ldebugio = .FALSE.
 
   CHARACTER(len=*), PARAMETER :: modname = 'mo_jsb_io_iface'
 
