@@ -1111,6 +1111,7 @@ MODULE mo_jsb_grid_iface
 
   USE mo_kind,               ONLY: wp
   USE mo_jsb_domain_iface,   ONLY: t_patch, get_nproma, get_nblks
+  USE mo_math_constants,     ONLY: rad2deg
 
   IMPLICIT NONE
   PRIVATE
@@ -1124,7 +1125,7 @@ CONTAINS
   FUNCTION get_lon(patch) RESULT(lon)
 
     TYPE(t_patch), INTENT(in)  :: patch
-    REAL(wp), POINTER          :: lon(:,:)
+    REAL(wp), POINTER          :: lon(:,:) !< Longitudes of grid cell centers[deg]
 
     INTEGER :: nproma, nblks
 
@@ -1134,14 +1135,14 @@ CONTAINS
     nblks  = get_nblks (patch)
     ALLOCATE(lon(nproma,nblks))
 
-    lon(:,:) = patch%cells%center(:,:)%lon
+    lon(:,:) = rad2deg * patch%cells%center(:,:)%lon
 
   END FUNCTION get_lon
 
   FUNCTION get_lat(patch) RESULT(lat)
 
     TYPE(t_patch), INTENT(in)  :: patch
-    REAL(wp),      POINTER     :: lat(:,:)
+    REAL(wp),      POINTER     :: lat(:,:) !< Latitudes of grid cell centers [deg]
 
     INTEGER :: nproma, nblks
 
@@ -1151,14 +1152,14 @@ CONTAINS
     nblks  = get_nblks (patch)
     ALLOCATE(lat(nproma,nblks))
 
-    lat(:,:) = patch%cells%center(:,:)%lat
+    lat(:,:) = rad2deg * patch%cells%center(:,:)%lat
 
   END FUNCTION get_lat
 
   FUNCTION get_area(patch) RESULT(area)
 
     TYPE(t_patch), INTENT(in)  :: patch
-    REAL(wp),      POINTER     :: area(:,:)
+    REAL(wp),      POINTER     :: area(:,:)   !< Grid cell area [m^2]
 
     INTEGER :: nproma, nblks
 
