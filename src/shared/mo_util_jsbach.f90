@@ -362,7 +362,7 @@ MODULE mo_jsb_time_iface
   PUBLIC :: get_year_length, get_month_length, get_day_length, get_year_day
   PUBLIC :: get_time_dt, get_time_nsteps, &
             get_time_start, get_time_stop, &
-            get_time_previous, is_time_experiment_start, is_time_restart, &
+            get_time_previous, get_time_next, is_time_experiment_start, is_time_restart, &
             is_time_ltrig_rad_m1
   PUBLIC :: read_time_namelist !, configure_time
   PUBLIC :: start_timestep, finish_timestep
@@ -444,7 +444,7 @@ CONTAINS
 
     TYPE(t_datetime), POINTER :: get_time_start
 
-    get_time_start => time_config%tc_startdate
+    get_time_start => newDatetime(time_config%tc_startdate)
 
   END FUNCTION get_time_start
 
@@ -452,7 +452,7 @@ CONTAINS
 
     TYPE(t_datetime), POINTER :: get_time_stop
 
-    get_time_stop => time_config%tc_stopdate
+    get_time_stop => newDatetime(time_config%tc_stopdate)
 
   END FUNCTION get_time_stop
 
