@@ -1602,7 +1602,7 @@ CONTAINS
 
     INTEGER,  INTENT(in)  ::    &
       &     jcs, jce, kbdim,    &
-      &     klev,   klevp1, ntiles, ntiles_wtr
+      &     klev, klevp1, ntiles, ntiles_wtr
 
     REAL(wp), INTENT(in)  ::           &
       &     pmair      (kbdim,klev),   & ! mass of air in layer                     [kg/m2]
@@ -1620,19 +1620,13 @@ CONTAINS
       &     pqc       (kbdim,klev),  & ! specific cloud water               [kg/kg]
       &     pqi       (kbdim,klev),  & ! specific cloud ice                 [kg/kg]
       &     ppres_ifc (kbdim,klevp1),& ! pressure at interfaces             [Pa]
-#ifdef _OPENACC
-      &     ptsfc_t   (:,:),& ! tile-specific surface temperature at t  [K]
-#else
-      &     ptsfc_t   (kbdim,ntiles+ntiles_wtr),& ! tile-specific surface temperature at t  [K]
-#endif
+      &     ptsfc_t   (:,:),         & ! tile-specific surface temperature at t  [K]
+                                       ! dim: (kbdim,,ntiles+ntiles_wtr)
       &     cosmu0    (kbdim),       & ! cosine of solar zenith angle (w.r.t. plain surface)
       &     cosmu0_slp(kbdim),       & ! slope-dependent cosine of solar zenith angle
       &     albedo    (kbdim),       & ! grid-box average albedo
-#ifdef _OPENACC
-      &     albedo_t  (:,:), &   ! tile-specific albedo
-#else
-      &     albedo_t  (kbdim,ntiles+ntiles_wtr), &   ! tile-specific albedo
-#endif
+      &     albedo_t  (:,:),         & ! tile-specific albedo
+                                       ! dim: (kbdim,ntiles+ntiles_wtr)
       &     lwflx_up_sfc_rs(kbdim),& ! longwave upward flux at surface calculated at radiation time steps
       &     trsol_up_toa(kbdim),   & ! normalized shortwave upward flux at the top of the atmosphere
       &     trsol_up_sfc(kbdim),   & ! normalized shortwave upward flux at the surface
@@ -1647,13 +1641,10 @@ CONTAINS
       &     list_lake_idx(kbdim),       &  ! index list of lake points
       &     list_seaice_count,          &  ! number of seaice points
       &     list_seaice_idx(kbdim),     &  ! index list of seaice points
-#ifdef _OPENACC
-      &     gp_count_t(:),         &  ! number of land points per tile
-      &     idx_lst_t(:,:)        ! index list of land points per tile
-#else
-      &     gp_count_t(ntiles),         &  ! number of land points per tile
-      &     idx_lst_t(kbdim,ntiles)        ! index list of land points per tile
-#endif
+      &     gp_count_t(:),              &  ! number of land points per tile
+                                           ! dim: (ntiles)
+      &     idx_lst_t(:,:)                 ! index list of land points per tile
+                                           ! dim: (kbdim,ntiles)
 
     LOGICAL, INTENT(in), OPTIONAL   ::  &
       &     opt_nh_corr, use_trsolclr_sfc
@@ -1666,19 +1657,12 @@ CONTAINS
       &     pdtdtradlw (kbdim,klev)    ! longwave temperature tendency            [K/s]
 
     REAL(wp), INTENT(inout), OPTIONAL :: &
-      &     pflxsfcsw (kbdim), &       ! shortwave surface net flux [W/m2]
-      &     pflxsfclw (kbdim), &       ! longwave  surface net flux [W/m2]
-#ifdef _OPENACC
-      &     pflxsfcsw_t(:,:), & ! tile-specific shortwave
-                                                    ! surface net flux [W/m2]
-      &     pflxsfclw_t(:,:), & ! tile-specific longwave
-                                                    ! surface net flux [W/m2]
-#else
-      &     pflxsfcsw_t(kbdim,ntiles+ntiles_wtr), & ! tile-specific shortwave
-                                                    ! surface net flux [W/m2]
-      &     pflxsfclw_t(kbdim,ntiles+ntiles_wtr), & ! tile-specific longwave
-                                                    ! surface net flux [W/m2]
-#endif
+      &     pflxsfcsw (kbdim),       & ! shortwave surface net flux [W/m2]
+      &     pflxsfclw (kbdim),       & ! longwave  surface net flux [W/m2]
+      &     pflxsfcsw_t(:,:),        & ! tile-specific shortwave surface net flux [W/m2]
+                                       ! dim: (kbdim,ntiles+ntiles_wtr)
+      &     pflxsfclw_t(:,:),        & ! tile-specific longwave surface net flux [W/m2]
+                                       ! dim: (kbdim,ntiles+ntiles_wtr)
       &     pflxtoasw (kbdim), &       ! shortwave toa net flux [W/m2]
       &     pflxtoalw (kbdim), &       ! longwave  toa net flux [W/m2]
       &     lwflx_up_sfc(kbdim), &     ! longwave upward flux at surface [W/m2]

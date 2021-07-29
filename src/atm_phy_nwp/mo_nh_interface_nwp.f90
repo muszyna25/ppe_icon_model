@@ -1318,12 +1318,10 @@ CONTAINS
         !$ACC LOOP GANG VECTOR
         DO jc = i_startidx, i_endidx
           zcosmu0 (jc,jb) &
-            = 0.5_wp * (ABS(zcosmu0(jc,jb)) &
-            &           + zcosmu0(jc,jb))
+            = 0.5_wp * (ABS(zcosmu0(jc,jb)) + zcosmu0(jc,jb))
 
           !calculate solar incoming flux at TOA
-          prm_diag%flxdwswtoa(jc,jb) = zcosmu0(jc,jb) &
-            &                                         * zsct                 !zsct by pre_radiation
+          prm_diag%flxdwswtoa(jc,jb) = zcosmu0(jc,jb) * zsct   ! zsct by pre_radiation
         ENDDO
         !$ACC END PARALLEL
 
