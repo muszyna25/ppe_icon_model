@@ -322,6 +322,79 @@ END MODULE mo_jsb_namelist_iface
 
 !! ==============================================================================================================================
 !>
+!! @brief Contains interface to reading of generic ICON infrastructure namelists (for standalone JSBACH)
+!!
+!! @author
+!!  Reiner Schnur, MPI-M Hamburg
+!!
+!! @par Revision History
+!! First version                                              by Reiner Schnur (2020-07-14)
+!!
+MODULE mo_read_namelists_iface
+
+  PUBLIC :: read_infrastructure_namelists_for_jsbach
+
+CONTAINS
+
+  SUBROUTINE read_infrastructure_namelists_for_jsbach(jsb_namelist_filename, shr_namelist_filename)
+
+    USE mo_time_nml,              ONLY: read_time_namelist
+
+    USE mo_parallel_nml,          ONLY: read_parallel_namelist
+    USE mo_run_nml,               ONLY: read_run_namelist
+    USE mo_io_nml,                ONLY: read_io_namelist
+    USE mo_dbg_nml,               ONLY: read_dbg_namelist
+  
+    USE mo_grid_nml,              ONLY: read_grid_namelist
+    USE mo_grid_config,           ONLY: init_grid_configuration
+    USE mo_interpol_nml,          ONLY: read_interpol_namelist
+    USE mo_gridref_nml,           ONLY: read_gridref_namelist
+
+    USE mo_gribout_nml,           ONLY: read_gribout_namelist
+
+    USE mo_echam_phy_nml,         ONLY: process_echam_phy_nml
+    USE mo_echam_rad_nml,         ONLY: process_echam_rad_nml
+
+    CHARACTER(LEN=*), INTENT(in) :: jsb_namelist_filename
+    CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
+
+    !-----------------------------------------------------------------
+    ! Read namelists that are shared by all components of the model.
+    ! This means that the same namelists with the same values are
+    ! read by all components of a coupled system.
+    !-----------------------------------------------------------------
+    CALL read_time_namelist(TRIM(shr_namelist_filename))
+
+    !-----------------------------------------------------------------
+    ! Read namelists that are specific to the jsbach model.
+    !-----------------------------------------------------------------
+
+    ! General
+    !
+    CALL read_parallel_namelist          (jsb_namelist_filename)
+    CALL read_run_namelist               (jsb_namelist_filename)
+    CALL read_io_namelist                (jsb_namelist_filename)
+    CALL read_dbg_namelist               (jsb_namelist_filename)
+
+    ! Grid
+    !
+    CALL read_grid_namelist              (jsb_namelist_filename)
+    CALL read_gridref_namelist           (jsb_namelist_filename)
+    CALL read_interpol_namelist          (jsb_namelist_filename)
+    CALL init_grid_configuration()
+
+    ! GRIB output
+    CALL read_gribout_namelist           (jsb_namelist_filename)
+
+    CALL process_echam_phy_nml           (jsb_namelist_filename)
+    CALL process_echam_rad_nml           (jsb_namelist_filename)
+
+  END SUBROUTINE read_infrastructure_namelists_for_jsbach
+
+END MODULE mo_read_namelists_iface
+
+!! ==============================================================================================================================
+!>
 !! @brief Contains interfaces to ICON time control for JSBACH
 !!
 !! @author
@@ -344,7 +417,7 @@ MODULE mo_jsb_time_iface
     &                                  OPERATOR(<=), OPERATOR(>), OPERATOR(-),                       &
     &                                  divisionquotienttimespan, getDayOfYearFromDateTime,           &
     &                                  getNoOfDaysInMonthDateTime, getNoOfDaysInYearDateTime,        &
-    &                                  getTotalMilliSecondsTimeDelta, no_of_sec_in_a_day,            &
+    &                                  no_of_sec_in_a_day,                                           &
     &                                  getNoOfSecondsElapsedInDayDateTime, getTotalSecondsTimeDelta, &
     &                                  divideDatetimeDifferenceInSeconds !, isCurrentEventActive,      &
   USE mo_time_config,            ONLY: time_config !configure_time
@@ -361,7 +434,7 @@ MODULE mo_jsb_time_iface
   PUBLIC :: t_datetime, deallocateDatetime
   PUBLIC :: get_year_length, get_month_length, get_day_length, get_year_day
   PUBLIC :: get_time_dt, get_time_nsteps, &
-            get_time_start, get_time_stop, &
+            get_time_start, get_time_stop, get_time_experiment_start, &
             get_time_previous, get_time_next, is_time_experiment_start, is_time_restart, &
             is_time_ltrig_rad_m1
   PUBLIC :: read_time_namelist !, configure_time
@@ -402,7 +475,7 @@ CONTAINS
 
     CHARACTER(len=*), PARAMETER :: routine = modname//':get_time_dt'
 
-    reference_datetime => newDatetime("1980-06-01T00:00:00.000")
+    reference_datetime => newDatetime("1979-01-01T00:00:00.000") ! 1980-06-01T00:00:00.000
     ztime = REAL(getTotalSecondsTimeDelta(echam_phy_tc(model_id)%dt_vdf, reference_datetime), wp)
 
     CALL deallocateDatetime(reference_datetime)
@@ -439,6 +512,14 @@ CONTAINS
     get_time_nsteps = isteps
 
   END FUNCTION get_time_nsteps
+
+  FUNCTION get_time_experiment_start()
+
+    TYPE(t_datetime), POINTER :: get_time_experiment_start
+
+    get_time_experiment_start => newDatetime(time_config%tc_exp_startdate)
+
+  END FUNCTION get_time_experiment_start
 
   FUNCTION get_time_start()
 
@@ -731,7 +812,7 @@ MODULE mo_jsb_io_iface
             FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB, FILETYPE_GRB2, &
             GRID_CELL, GRID_UNSTRUCTURED, GRID_UNSTRUCTURED_CELL, &
             TSTEP_CONSTANT, TSTEP_INSTANT, &
-            Create_zaxis, cdiDefMissval, read_io_namelist
+            Create_zaxis, cdiDefMissval, read_jsb_io_namelist
             ! Create_zaxis, Destroy_zaxis, cdiDefMissval
 
   ! The following needs to be defined but is only used with jsbach/echam
@@ -791,7 +872,7 @@ CONTAINS
   END SUBROUTINE Create_zaxis
 
   ! Dummy subroutine, currently not needed for ICON
-  SUBROUTINE read_io_namelist(filename)
+  SUBROUTINE read_jsb_io_namelist(filename)
 
     CHARACTER(LEN=*), INTENT(in) :: filename
     CHARACTER(len=:), ALLOCATABLE :: filename_loc
@@ -800,7 +881,7 @@ CONTAINS
     !       This function is not implemented for ICON, yet.
     IF (.FALSE.) filename_loc = filename
 
-  END SUBROUTINE read_io_namelist
+  END SUBROUTINE read_jsb_io_namelist
 
 END MODULE mo_jsb_io_iface
 
@@ -1213,7 +1294,7 @@ MODULE mo_jsb_varlist_iface
 
   USE mo_kind,               ONLY: wp, dp
   USE mo_exception,          ONLY: finish
-  USE mo_var_list_register,  ONLY: vlr_get, vlr_add
+  USE mo_var_list_register,  ONLY: vlr_get, vlr_add, get_nvl
   USE mo_var_list, ONLY: add_var_icon => add_var, t_var_list => t_var_list_ptr
   USE mo_var, ONLY: t_var
   USE mo_name_list_output_config, ONLY: var_in_out => is_variable_in_output
@@ -1244,6 +1325,9 @@ CONTAINS
     TYPE(t_var_list) :: tmp
 
     NULLIFY(this_list)
+    ! If no varlist has been registered, yet, vlr_get would throw a finish with the new
+    ! hash table implementation of var lists. We therefore just return with nullified this_list.
+    IF (get_nvl() < 1) RETURN
     CALL vlr_get(tmp, vlname)
     IF (ASSOCIATED(tmp%p)) THEN
       ALLOCATE(this_list)

@@ -80,7 +80,7 @@ atm_file_interval="P1Y"
 # namelist files
 # --------------
 atmo_namelist=NAMELIST_${EXPNAME}_atm
-lnd_namelist=NAMELIST_${EXPNAME}_lnd
+jsbach_namelist=NAMELIST_${EXPNAME}_lnd
 
 #--------------------------------------------------------------------------------------------------
 
@@ -88,7 +88,6 @@ lnd_namelist=NAMELIST_${EXPNAME}_lnd
 #-----------------------------------
 
 # JSBACH settings
-run_jsbach=yes
 jsbach_usecase=jsbach_pfts    # jsbach_lite or jsbach_pfts
 jsbach_with_lakes=yes
 jsbach_with_hd=no
@@ -115,7 +114,6 @@ output_procs="${output_procs} assimi"
 # Some further processing for land configuration
 # ----------------------------------------------
 #
-ljsbach=$([ "${run_jsbach:=no}" == yes ] && echo .TRUE. || echo .FALSE. )
 llake=$([ "${jsbach_with_lakes:=yes}" == yes ] && echo .TRUE. || echo .FALSE. )
 lcarbon=$([ "${jsbach_with_carbon:=yes}" == yes ] && echo .TRUE. || echo .FALSE. )
 lalcc=$([ "${jsbach_with_alcc:=yes}" == yes ] && echo .TRUE. || echo .FALSE. )
@@ -226,7 +224,7 @@ cat > ${atmo_namelist} << EOF
  echam_phy_config(1)%dt_art = ""
 !
 ! surface (.TRUE. or .FALSE.)
- echam_phy_config(1)%ljsb   = ${ljsbach}
+ echam_phy_config(1)%ljsb   = .TRUE.
  echam_phy_config(1)%lamip  = .TRUE.
  echam_phy_config(1)%lice   = .TRUE.
  echam_phy_config(1)%lmlo   = .FALSE.
@@ -273,7 +271,7 @@ EOF
 # jsbach namelist
 # ---------------
 
-cat > ${lnd_namelist} << EOF
+cat > ${jsbach_namelist} << EOF
 &jsb_model_nml
   usecase         = "${jsbach_usecase}"
   use_lakes       = ${llake}
@@ -354,7 +352,7 @@ cat > ${lnd_namelist} << EOF
 /
 EOF
 if [[ ${jsbach_with_hd} = yes ]]; then
-  cat >> ${lnd_namelist} << EOF
+  cat >> ${jsbach_namelist} << EOF
 &jsb_hd_nml
   active               = .TRUE.
   routing_scheme       = 'full'
@@ -379,7 +377,7 @@ add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
 # namelist files
 # --------------
 add_required_file ${basedir}/run/${atmo_namelist}                       ./
-add_required_file ${basedir}/run/${lnd_namelist}                        ./
+add_required_file ${basedir}/run/${jsbach_namelist}                        ./
 
 # dictionary file for output variable names
 #
@@ -723,7 +721,7 @@ fi
 
 
 # Currently, the JSBACH output_nml's need to be added to atmo_namelist, but this should 
-# eventually be handled by the lnd_namelist file. 
+# eventually be handled by the jsbach_namelist file. 
 # Available variable groups:
 #   jsb_all, jsb_<process>_all, jsb_all_<level>, jsb_<process>_<level>
 # where <process> is the process name and <level> is the output level (basic/medium/full)
