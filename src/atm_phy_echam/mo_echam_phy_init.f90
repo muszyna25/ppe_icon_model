@@ -696,9 +696,6 @@ CONTAINS
         END IF
         CALL closeFile(stream_id)
 
-        ! For security
-        prm_field(jg)%lsmask(:,:) = MERGE(1._wp, prm_field(jg)%lsmask(:,:), &
-                                          prm_field(jg)%lsmask(:,:) > 1._wp - 10._wp*EPSILON(1._wp))
         !
         ! At this point, %lsmask is the fraction of land (incl. glacier and
         ! lakes) in the grid box.
