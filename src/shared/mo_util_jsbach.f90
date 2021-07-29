@@ -796,7 +796,7 @@ MODULE mo_jsb_io_iface
   USE mo_cdi,           ONLY: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_PACK16, DATATYPE_PACK24, &
                             & ZAXIS_SURFACE, ZAXIS_GENERIC, ZAXIS_DEPTH_BELOW_LAND, &
                             & FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB, FILETYPE_GRB2, &
-                            & GRID_UNSTRUCTURED, &
+                            & GRID_UNSTRUCTURED, GRID_LONLAT, &
                             & TSTEP_CONSTANT, TSTEP_INSTANT, &
                             & cdiDefMissval
   USE mo_cdi_constants, ONLY: GRID_CELL, GRID_UNSTRUCTURED_CELL
@@ -810,7 +810,7 @@ MODULE mo_jsb_io_iface
   PUBLIC :: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_PACK16, DATATYPE_PACK24,  &
             ZAXIS_SURFACE, ZAXIS_GENERIC, ZAXIS_DEPTH_BELOW_LAND,               &
             FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB, FILETYPE_GRB2, &
-            GRID_CELL, GRID_UNSTRUCTURED, GRID_UNSTRUCTURED_CELL, &
+            GRID_CELL, GRID_UNSTRUCTURED, GRID_UNSTRUCTURED_CELL, GRID_LONLAT, &
             TSTEP_CONSTANT, TSTEP_INSTANT, &
             Create_zaxis, cdiDefMissval, read_jsb_io_namelist
             ! Create_zaxis, Destroy_zaxis, cdiDefMissval
@@ -1309,7 +1309,7 @@ MODULE mo_jsb_varlist_iface
   PUBLIC :: VARNAME_LEN
   PUBLIC :: t_var_list, t_var_metadata, t_list_element, get_var_list
   PUBLIC :: new_var_list, is_variable_in_output
-  PUBLIC :: add_var_list_element_r2d, add_var_list_element_r3d
+  PUBLIC :: add_var_list_element_r1d, add_var_list_element_r2d, add_var_list_element_r3d
 
   CHARACTER(len=*), PARAMETER :: modname = 'mo_jsb_varlist_iface'
 
@@ -1370,6 +1370,82 @@ CONTAINS
       END DO
     END IF
   END FUNCTION is_variable_in_output
+
+  SUBROUTINE add_var_list_element_r1d(this_list, name, ptr,                             &
+    hgrid, vgrid, cf, grib2, code, table, ldims, gdims, levelindx, loutput, lcontainer, &
+    lrestart, lrestart_cont, initval_r, isteptype,                                      &
+    resetval_r, lmiss, missval_r, tlev_source, info, p5,                                &
+    in_groups, verbose, new_element                                                     &
+    )
+
+    TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
+    CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
+    REAL(wp),             POINTER              :: ptr(:)              ! reference to field
+    INTEGER,              INTENT(in)           :: hgrid               ! horizontal grid type
+    INTEGER,              INTENT(in)           :: vgrid               ! vertical grid type
+                                                                      ! ICON: zaxis type (ZA_*)
+                                                                      ! ECHAM: cdi zaxis ID
+    TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
+    TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
+    INTEGER,              INTENT(in)           :: code                ! GRIB1 code number
+    INTEGER,              INTENT(in)           :: table               ! GRIB1 table number
+    INTEGER,              INTENT(in), OPTIONAL :: ldims(1)            ! local dimensions
+    INTEGER,              INTENT(in), OPTIONAL :: gdims(1)            ! global dimensions
+    INTEGER,              INTENT(in), OPTIONAL :: levelindx           ! info%levelindx for ECHAM
+    LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
+    LOGICAL,              INTENT(in), OPTIONAL :: lcontainer          ! container flag
+    LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
+    LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
+    REAL(wp),             INTENT(in), OPTIONAL :: initval_r           ! value if var not available
+    INTEGER,              INTENT(in), OPTIONAL :: isteptype           ! type of statistical processing
+    REAL(wp),             INTENT(in), OPTIONAL :: resetval_r          ! reset value (after accumulation)
+    LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
+    REAL(dp),             INTENT(in), OPTIONAL :: missval_r           ! missing value
+    INTEGER,              INTENT(in), OPTIONAL :: tlev_source         ! actual TL for TL dependent vars
+    TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
+    REAL(wp),             TARGET &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      , CONTIGUOUS &
+#endif
+      ,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
+    CHARACTER(len=VARNAME_LEN), INTENT(in), OPTIONAL :: in_groups(:)  ! groups to which a variable belongs
+    LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
+    TYPE(t_list_element), POINTER, OPTIONAL    :: new_element         ! pointer to new var list element
+    TYPE (t_var),         POINTER              :: nelem
+
+    CHARACTER(len=*), PARAMETER :: routine = modname//':add_var_list_element_r1d'
+
+    ! These variables are not used for ICON, but avoid compiler warnings about dummy arguments not being used
+    IF (code > 0) CONTINUE
+    IF (table > 0) CONTINUE
+    IF (PRESENT(gdims)) CONTINUE
+    IF (PRESENT(levelindx)) CONTINUE
+    IF (PRESENT(verbose)) CONTINUE
+
+    IF (PRESENT(p5)) THEN
+      IF (SIZE(p5, DIM=5) > 1) &
+        CALL finish(TRIM(routine), 'p5: only four dimensions allowed currently because of ECHAM compatibility')
+    END IF
+
+    IF (PRESENT(in_groups)) THEN
+      CALL add_var_icon(this_list, TRIM(name), ptr, hgrid, vgrid, cf, grib2, ldims, loutput=loutput, &
+        lcontainer=lcontainer, lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval_r,    &
+        isteptype=isteptype, resetval=resetval_r, lmiss=lmiss, missval=missval_r, info=info, p5=p5,  &
+        tlev_source=tlev_source, in_group=groups(in_groups), lopenacc=.TRUE., new_element=nelem)
+    ELSE
+      CALL add_var_icon(this_list, TRIM(name), ptr, hgrid, vgrid, cf, grib2, ldims, loutput=loutput, &
+        lcontainer=lcontainer, lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval_r,    &
+        isteptype=isteptype, resetval=resetval_r, lmiss=lmiss, missval=missval_r, info=info, p5=p5,  &
+        tlev_source=tlev_source, lopenacc=.TRUE., new_element=nelem)
+    END IF
+    IF (PRESENT(new_element)) THEN
+      ALLOCATE(new_element)
+      new_element%field => nelem
+    END IF
+    nelem%info%ndims = 1
+    nelem%info%used_dimensions(1:1) = ldims(1:1)
+
+  END SUBROUTINE add_var_list_element_r1d
 
   SUBROUTINE add_var_list_element_r2d(this_list, name, ptr,                             &
     hgrid, vgrid, cf, grib2, code, table, ldims, gdims, levelindx, loutput, lcontainer, &
