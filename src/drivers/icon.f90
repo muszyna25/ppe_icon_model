@@ -33,7 +33,7 @@ PROGRAM icon
   USE mo_master_init,         ONLY: init_master_control
   USE mo_master_control,      ONLY: get_my_namelist_filename, get_my_process_type,      &
     &                               atmo_process, ocean_process, ps_radiation_process,  &
-    &                               hamocc_process, icon_output_process
+    &                               hamocc_process, jsbach_process, icon_output_process
 #ifndef __NO_ICON_TESTBED__
   USE mo_master_control,      ONLY: testbed_process
 #endif
@@ -57,6 +57,10 @@ PROGRAM icon
 
 #ifndef __NO_ICON_PS_RAD__
   USE mo_ps_radiation_model, ONLY: ps_radiation_model
+#endif
+
+#ifndef __NO_JSBACH__
+  USE mo_jsbach_model,        ONLY: jsbach_model
 #endif
 
 #ifndef __NO_ICON_OUTPUT_MODEL__
@@ -235,6 +239,11 @@ PROGRAM icon
 #ifndef __NO_ICON_OCEAN__
   CASE (hamocc_process)
     CALL hamocc_model (my_namelist_filename, TRIM(master_namelist_filename))
+#endif
+
+#ifndef __NO_JSBACH__
+  CASE (jsbach_process)
+    CALL jsbach_model (my_namelist_filename, TRIM(master_namelist_filename))
 #endif
 
 #ifndef __NO_ICON_TESTBED__

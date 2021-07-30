@@ -721,8 +721,6 @@ CONTAINS
     IF (ltimer) CALL timer_stop(timer_echam_bcs)
     !
     !=====================================================================================
-
-    !=====================================================================================
     !
     ! (4) Call echam physics and compute the total physics tendencies.
     !     This includes the atmospheric processes (proper ECHAM) and
@@ -731,7 +729,7 @@ CONTAINS
     !
 #ifndef __NO_JSBACH__
     IF (echam_phy_config(jg)%ljsb) THEN
-      CALL jsbach_start_timestep(jg)
+      CALL jsbach_start_timestep(jg, datetime_old, dt_loc)
     END IF
 #endif
 
@@ -746,15 +744,14 @@ CONTAINS
 
     IF (ltimer) CALL timer_stop(timer_echam_phy)
 
-    CALL deallocateDatetime(datetime_old)
-    !
-    !=====================================================================================
-
 #ifndef __NO_JSBACH__
     IF (echam_phy_config(jg)%ljsb) THEN
-      CALL jsbach_finish_timestep(jg, dt_loc)
+      CALL jsbach_finish_timestep(jg, datetime_old, dt_loc)
     END IF
 #endif
+
+    CALL deallocateDatetime(datetime_old)
+    !
     !=====================================================================================
     !
     ! (5) Couple to ocean surface if an ocean is present and this is a coupling time step.

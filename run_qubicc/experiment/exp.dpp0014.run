@@ -229,7 +229,7 @@ atm_output_interval_pl="PT15M"
 # namelist files
 # --------------
 atm_namelist=NAMELIST_${EXPNAME}_atm
-lnd_namelist=NAMELIST_${EXPNAME}_lnd
+jsbach_namelist=NAMELIST_${EXPNAME}_lnd
 
 atmo_namelist=${atm_namelist}
 #--------------------------------------------------------------------------------------------------
@@ -451,7 +451,7 @@ EOF
 # jsbach namelist
 # ---------------
 
-cat > ${lnd_namelist} << EOF
+cat > ${jsbach_namelist} << EOF
 &jsb_model_nml
   usecase              = "${jsbach_usecase}"
   use_lakes            = ${llake}            ! TRUE if jsbach_with_lakes=yes
@@ -537,7 +537,7 @@ add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                        ./
 # namelist files
 # --------------
 add_required_file ${basedir}/run/${atm_namelist}                           ./
-add_required_file ${basedir}/run/${lnd_namelist}                           ./
+add_required_file ${basedir}/run/${jsbach_namelist}                           ./
 
 # dictionary file for output variable names
 #
@@ -1388,7 +1388,7 @@ do
  model_name = "JSBACH${domain}"
  model_shortname = "jsb${domain_suffix}"
  model_description = 'JSBACH land surface model'
- model_namelist_filename = "${lnd_namelist}${domain_suffix}"
+ model_namelist_filename = "${jsbach_namelist}${domain_suffix}"
 /
 EOF
   if [[ -f ${RUNSCRIPTDIR}/NAMELIST_${EXPNAME}_lnd${domain_suffix} && -f ${EXPDIR}/NAMELIST_${EXPNAME}_lnd${domain_suffix} ]] ; then
