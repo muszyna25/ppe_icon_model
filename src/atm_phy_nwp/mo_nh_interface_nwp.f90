@@ -1503,10 +1503,10 @@ CONTAINS
         ENDIF
 
       ENDDO ! blocks
-      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "radheat", .FALSE., opt_lupdate_cpu=.TRUE.)
-
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+
+      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "radheat", .FALSE., opt_lupdate_cpu=.TRUE.)
 
 #ifdef __CRAY8_5_5_WORKAROUND
     !$ACC END DATA ! CREATE(pqv)

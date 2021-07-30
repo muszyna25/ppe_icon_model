@@ -11,25 +11,25 @@ MODULE mo_ser_nml
   IMPLICIT NONE
   PUBLIC
 
-  INTEGER ::  ser_initialization(3)
-  INTEGER ::  ser_output_diag(3)
-  INTEGER ::  ser_latbc_data(3)
-  INTEGER ::  ser_dynamics(3)
-  INTEGER ::  ser_diffusion(3)
-  INTEGER ::  ser_step_advection(3)
-  INTEGER ::  ser_physics(3)
-  INTEGER ::  ser_lhn(3)
-  INTEGER ::  ser_nudging(3)
-  INTEGER ::  ser_surface(3)
-  INTEGER ::  ser_microphysics(3)
-  INTEGER ::  ser_turbdiff(3)
-  INTEGER ::  ser_turbtrans(3)
-  INTEGER ::  ser_convection(3)
-  INTEGER ::  ser_cover(3)
-  INTEGER ::  ser_radiation(3)
-  INTEGER ::  ser_radheat(3)
-  INTEGER ::  ser_gwdrag(3)
-  INTEGER ::  ser_all_debug(3)                   !! serialize statements using ser_all anywhere for debug purposes
+  INTEGER, TARGET ::  ser_initialization(3)
+  INTEGER, TARGET ::  ser_output_diag(3)
+  INTEGER, TARGET ::  ser_latbc_data(3)
+  INTEGER, TARGET ::  ser_dynamics(3)
+  INTEGER, TARGET ::  ser_diffusion(3)
+  INTEGER, TARGET ::  ser_step_advection(3)
+  INTEGER, TARGET ::  ser_physics(3)
+  INTEGER, TARGET ::  ser_lhn(3)
+  INTEGER, TARGET ::  ser_nudging(3)
+  INTEGER, TARGET ::  ser_surface(3)
+  INTEGER, TARGET ::  ser_microphysics(3)
+  INTEGER, TARGET ::  ser_turbdiff(3)
+  INTEGER, TARGET ::  ser_turbtrans(3)
+  INTEGER, TARGET ::  ser_convection(3)
+  INTEGER, TARGET ::  ser_cover(3)
+  INTEGER, TARGET ::  ser_radiation(3)
+  INTEGER, TARGET ::  ser_radheat(3)
+  INTEGER, TARGET ::  ser_gwdrag(3)
+  INTEGER, TARGET ::  ser_all_debug(3)                   !! serialize statements using ser_all anywhere for debug purposes
   REAL(wp) ::  ser_nfail
   INTEGER ::  ser_nreport
   LOGICAL ::  ser_debug                          !! serialize the debug calls from mo_ser_debug
