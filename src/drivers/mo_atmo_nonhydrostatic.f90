@@ -98,6 +98,7 @@ USE mo_pp_scheduler,        ONLY: pp_scheduler_init, pp_scheduler_finalize
 
 ! ECHAM physics
 USE mo_echam_phy_memory,    ONLY: construct_echam_phy_state
+USE mo_cloud_two_memory,    ONLY: construct_cloud_two_memory
 #ifdef __NO_RTE_RRTMGP__
 USE mo_psrad_forcing_memory, ONLY: construct_rad_forcing_list => construct_psrad_forcing_list
 #else
@@ -263,8 +264,9 @@ CONTAINS
     END IF
 
     IF (iforcing == iecham) THEN
-      CALL construct_echam_phy_state ( p_patch(1:), ntracer )
-      CALL construct_rad_forcing_list( p_patch(1:) )
+      CALL construct_echam_phy_state   ( p_patch(1:), ntracer )
+      CALL construct_cloud_two_memory  ( p_patch(1:) )
+      CALL construct_rad_forcing_list  ( p_patch(1:) )
     END IF
 
     CALL upatmo_initialize(p_patch)

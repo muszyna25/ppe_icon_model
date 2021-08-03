@@ -174,7 +174,8 @@ MODULE mo_name_list_output
   USE mo_parallel_config,           ONLY: pio_type
   USE mo_impl_constants,            ONLY: pio_type_cdipio
   USE yaxt,                         ONLY: xt_idxlist, xt_stripe, xt_is_null, &
-    xt_idxlist_get_index_stripes, xt_idxstripes_new, xt_idxempty_new
+    xt_idxlist_get_index_stripes, xt_idxstripes_new, xt_idxempty_new, &
+    xt_int_kind
 #endif
   ! post-ops
 
@@ -2464,6 +2465,7 @@ CONTAINS
     INTEGER :: nlevs_max, nstripes, j, k
     TYPE(xt_idxlist), ALLOCATABLE :: lists_realloc(:)
     TYPE(xt_stripe), ALLOCATABLE :: stripes(:), stripes_project(:,:)
+    CHARACTER(len=*), PARAMETER :: routine = modname//":get_partdesc"
     nlevs_max = SIZE(reorder_idxlst_xt)
     IF (nlevs > nlevs_max) THEN
       ALLOCATE(lists_realloc(nlevs))
@@ -2475,13 +2477,16 @@ CONTAINS
       IF (ALLOCATED(stripes)) THEN
         nstripes = SIZE(stripes)
         ALLOCATE(stripes_project(nstripes, nlevs))
+        IF ((HUGE(1_xt_int_kind) - (n_glb - 1)) / (n_glb - 1) < nlevs) &
+          CALL finish(routine, "YAXT index type too small for array!")
         DO j = 1, nstripes
           stripes_project(j, 1) = stripes(j)
         END DO
         DO k = 2, nlevs
           DO j = 1, nstripes
             stripes_project(j, k) &
-              &     = xt_stripe(stripes(j)%start + (k-1) * n_glb, &
+              &     = xt_stripe(stripes(j)%start &
+              &                 + INT(k-1, xt_int_kind) * n_glb, &
               &                 stripes(j)%stride, stripes(j)%nstrides)
           END DO
         END DO

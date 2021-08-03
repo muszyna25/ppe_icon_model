@@ -157,6 +157,7 @@ CONTAINS
       CASE (ocean_process)
       CASE (ps_radiation_process)
       CASE (hamocc_process)
+      CASE (jsbach_process)
       CASE (testbed_process)
       CASE (icon_output_process)
       CASE default

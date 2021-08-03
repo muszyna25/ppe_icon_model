@@ -76,7 +76,8 @@ MODULE mo_nh_testcases
   USE mo_grid_geometry_info,   ONLY: planar_torus_geometry
   USE mo_nh_rce_exp,           ONLY: init_nh_state_rce_glb
   USE mo_nh_torus_exp,         ONLY: init_nh_state_cbl, init_nh_state_rico, &
-                                     init_torus_with_sounding, init_warm_bubble
+                                   & init_torus_with_sounding, init_warm_bubble, &
+                                   & init_torus_rcemip_analytical_sounding
   USE mo_nh_tpe_exp,           ONLY: init_nh_state_prog_TPE
 
   USE mo_nonhydrostatic_config, ONLY: ndyn_substeps, vwind_offctr
@@ -490,7 +491,7 @@ MODULE mo_nh_testcases
    ! The topography has been initialized to 0 at the begining of this SUB
     CALL message(TRIM(routine),'running Rain in the Culumus Over the Ocean LES Experiment')
 
-  CASE ('RCE','GATE')
+  CASE ('RCE','GATE','RCEMIP_analytical')
 
     IF(p_patch(1)%geometry_info%geometry_type/=planar_torus_geometry)&
         CALL finish(TRIM(routine),'To initialize with sounding is only for torus!')
@@ -1327,6 +1328,32 @@ MODULE mo_nh_testcases
     END DO !jg
 
     CALL message(TRIM(routine),'End init with sounding')
+
+  CASE ('RCEMIP_analytical') !to initialize with analytical sounding
+
+    IF(p_patch(1)%geometry_info%geometry_type/=planar_torus_geometry)&
+        CALL finish(TRIM(routine),'To initizialize with sounding is only for torus!')
+
+    DO jg = 1, n_dom
+      nlev   = p_patch(jg)%nlev
+
+      CALL init_torus_rcemip_analytical_sounding ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
+                 p_nh_state(jg)%ref, p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics )
+
+!      CALL add_random_noise_global(in_subset=p_patch(jg)%cells%all,            &
+!                      & in_var=p_nh_state(jg)%prog(nnow(jg))%w(:,:,:),         &
+!                      & start_level=nlev-5,                                    &
+!                      & end_level=nlev,                                        &
+!                      & noise_scale=w_perturb )
+
+      CALL add_random_noise_global(in_subset=p_patch(jg)%cells%all,            &
+                      & in_var=p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:),   &
+                      & start_level=nlev-5,                                    &
+                      & end_level=nlev,                                        &
+                      & noise_scale=th_perturb )
+
+      CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
+    END DO !jg
 
   CASE ('2D_BUBBLE', '3D_BUBBLE') !to initialize with sounding
 

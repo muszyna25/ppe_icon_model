@@ -39,6 +39,7 @@ MODULE mo_name_list_output_printvars
   USE mo_util_file,                         ONLY: util_unlink
   USE mo_name_list_output_zaxes,            ONLY: setup_ml_axes_atmo, setup_zaxes_oce
   USE mo_util_cdi,                          ONLY: create_cdi_variable
+  USE mo_master_control,                    ONLY: my_process_is_jsbach
 #ifndef __NO_JSBACH__
   USE mo_echam_phy_config,                  ONLY: echam_phy_config
   USE mo_jsb_vertical_axes,                 ONLY: setup_zaxes_jsbach
@@ -222,7 +223,9 @@ CONTAINS
 
     ! generate the CDI IDs for vertical axes:
     IF (iequations/=ihs_ocean) THEN ! atm
-      CALL setup_ml_axes_atmo(tmp_verticalAxisList, tmp_level_selection, print_patch_id)
+      IF (.NOT. my_process_is_jsbach()) THEN
+        CALL setup_ml_axes_atmo(tmp_verticalAxisList, tmp_level_selection, print_patch_id)
+      END IF
 #ifndef __NO_JSBACH__
       IF (ANY(echam_phy_config(:)%ljsb)) CALL setup_zaxes_jsbach(tmp_verticalAxisList)
 #endif

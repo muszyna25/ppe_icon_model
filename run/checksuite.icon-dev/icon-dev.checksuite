@@ -548,6 +548,11 @@ if [ "${EXPERIMENT}" == 'atm_sma_test' ]; then
     DATES=${DATES='20080101T000000Z 20080101T000002Z 20080101T000004Z 20080101T000006Z 20080101T000008Z'}
     RESTART_DATE=${RESTART_DATE='20080101T000004Z'}
 fi
+if [ "${EXPERIMENT}" == 'atm_2mom_bubble_rceTorus_test' ]; then
+    TYPES=${TYPES='atm_2d_ml atm_3d_ml'}
+    DATES=${DATES='20080801T000000Z 20080801T000200Z 20080801T000400Z'}
+    RESTART_DATE=${RESTART_DATE='20080801T000200Z'}
+fi
 
 echo " "
 echo "=============================================================="
