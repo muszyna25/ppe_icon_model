@@ -67,7 +67,7 @@ MODULE mo_vertical_grid
   USE mo_mpi,                  ONLY: my_process_is_stdio
   USE mo_util_table,           ONLY: t_table, initialize_table, add_table_column, &
     &                                set_table_entry, print_table, finalize_table
-  USE mo_nudging_config,       ONLY: nudging_config, indg_profile
+  USE mo_nudging_config,       ONLY: nudging_config, indg_type, indg_profile
   USE mo_dynamics_config,      ONLY: ldeepatmo
   USE mo_nh_deepatmo_utils,    ONLY: set_deepatmo_metrics
   USE mo_echam_vdf_config,     ONLY: echam_vdf_config
@@ -1736,6 +1736,28 @@ MODULE mo_vertical_grid
 
     ! Prepare vertically varying nudging (only for primary domain)
     CALL prepare_nudging(p_patch(1), p_nh(1))
+    !
+    DO jg = 2, n_dom
+      IF (nudging_config(jg)%nudge_type==indg_type%ubn) THEN
+        ! if upper boundary nudging is activated for domain jg, 
+        ! copy nudging coefficients from DOM 1 to child domain.
+        !
+        ! Note: no explicit deallocation is implemented for 'nudgecoeff_vert'
+        ALLOCATE(p_nh(jg)%metrics%nudgecoeff_vert(p_patch(jg)%nlev), STAT=error_status)
+        IF (error_status /= SUCCESS)  CALL finish (routine, 'Allocation of nudgecoeff_vert failed!') 
+        !
+        DO jk = 1, p_patch(jg)%nlev
+          jk1 = jk + p_patch(jg)%nshift_total
+          p_nh(jg)%metrics%nudgecoeff_vert(jk) = p_nh(1)%metrics%nudgecoeff_vert(jk1)
+        ENDDO
+        !
+        IF (msg_level >= nudging_config(jg)%msg_thr%high) THEN
+          WRITE(message_text,'(a,i2)') 'Nudging coefficients copied to DOM: ', jg
+          CALL message(routine, message_text)
+        ENDIF
+!$ACC ENTER DATA COPYIN( p_nh(jg)%metrics%nudgecoeff_vert )
+      ENDIF 
+    ENDDO  ! jg
 
   END SUBROUTINE set_nh_metrics
   !----------------------------------------------------------------------------
@@ -2180,13 +2202,13 @@ MODULE mo_vertical_grid
 
     jg = p_patch%id
 
-    IF (.NOT. nudging_config%lconfigured) THEN
+    IF (.NOT. nudging_config(jg)%lconfigured) THEN
       ! ('lconfigured' should have been set to .true. 
       ! in 'src/configure_model/mo_nudging_config: configure_nudging'
       ! or in 'src/namelists/mo_nudging_nml: check_nudging')
       CALL finish(routine, "Configuration of nudging_config still pending. "// &
         & "Please, check the program sequence.")
-    ELSEIF ((.NOT. nudging_config%lnudging) .OR. jg /= 1) THEN
+    ELSEIF ((.NOT. nudging_config(jg)%lnudging) .OR. jg /= 1) THEN
       ! The following computations have to be done only, 
       ! if (upper boundary) nudging is switched on, 
       ! and only for the primary domain
@@ -2207,19 +2229,19 @@ MODULE mo_vertical_grid
     p_nh%metrics%nudgecoeff_vert(:) = 0._wp
     
     ! Start and end indices for vertical loop
-    istart = nudging_config%ilev_start
-    iend   = nudging_config%ilev_end
+    istart = nudging_config(jg)%ilev_start
+    iend   = nudging_config(jg)%ilev_end
 
     ! Start and end height of vertical nudging region
-    start_height = nudging_config%nudge_start_height
-    end_height   = nudging_config%nudge_end_height
+    start_height = nudging_config(jg)%nudge_start_height
+    end_height   = nudging_config(jg)%nudge_end_height
     
     ! Scale height to control, how fast the nudging strength decreases 
     ! with increasing vertical distance from nudging end height
-    scale_height = ABS(nudging_config%nudge_scale_height)
+    scale_height = ABS(nudging_config(jg)%nudge_scale_height)
     
     ! Discriminate between the different profiles of the nudging strength/nudging coefficient
-    SELECT CASE(nudging_config%nudge_profile)
+    SELECT CASE(nudging_config(jg)%nudge_profile)
     CASE(indg_profile%sqrddist)
       ! Inverse squared scaled vertical distance from nudging start height
       DO jk = istart, iend
@@ -2274,7 +2296,7 @@ MODULE mo_vertical_grid
 !$ACC ENTER DATA COPYIN( p_nh%metrics%nudgecoeff_vert )
 
     ! Print some info
-    IF (msg_level >= nudging_config%msg_thr%high .AND. my_process_is_stdio()) THEN 
+    IF (msg_level >= nudging_config(jg)%msg_thr%high .AND. my_process_is_stdio()) THEN 
       ! Print the vertical profile of the nudging coefficient (nudging strength)
       WRITE(0,*) routine, ': Vertical profile of the nudging coefficient ', &
         & '(only levels, where it is non-zero):'
@@ -2297,7 +2319,7 @@ MODULE mo_vertical_grid
       CALL print_table(table)
       ! Destruct table
       CALL finalize_table(table)
-    ENDIF  !IF (msg_level >= nudging_config%msg_thr%high .AND. my_process_is_stdio())
+    ENDIF  !IF (msg_level >= nudging_config(jg)%msg_thr%high .AND. my_process_is_stdio())
     
   END SUBROUTINE prepare_nudging
   !----------------------------------------------------------------------------

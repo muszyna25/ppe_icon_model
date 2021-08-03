@@ -143,7 +143,7 @@ CONTAINS
 
     ! Reset num_prefetch_proc to zero if the model does not run in limited-area mode
     ! or in global nudging mode or if there are no lateral boundary data to be read
-    l_global_nudging = nudging_config%nudge_type == indg_type%globn
+    l_global_nudging = ANY(nudging_config(1:n_dom)%nudge_type == indg_type%globn)
     IF (.NOT. (l_limited_area .OR. l_global_nudging) .OR. latbc_config%itype_latbc == 0) THEN
       IF (num_prefetch_proc /=0) CALL message(routine,' WARNING! num_prefetch_proc reset to 0 !')
       num_prefetch_proc = 0
@@ -871,7 +871,7 @@ CONTAINS
 
     CALL art_crosscheck()
 
-    CALL check_nudging( n_dom, iequations, iforcing, ivctype, top_height,                &
+    CALL check_nudging( n_dom, iforcing, ivctype, top_height,                            &
       &                 l_limited_area, num_prefetch_proc, latbc_config%lsparse_latbc,   &
       &                 latbc_config%itype_latbc, latbc_config%nudge_hydro_pres,         &
       &                 latbc_config%latbc_varnames_map_file, LATBC_TYPE_CONST,          & 

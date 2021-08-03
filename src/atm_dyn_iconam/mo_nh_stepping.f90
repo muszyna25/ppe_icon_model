@@ -109,7 +109,8 @@ MODULE mo_nh_stepping
   USE mo_nh_nest_utilities,        ONLY: compute_tendencies, boundary_interpolation,    &
                                          prep_bdy_nudging, nest_boundary_nudging,       &
                                          prep_rho_bdy_nudging, density_boundary_nudging,&
-                                         limarea_bdy_nudging, save_progvars
+                                         limarea_nudging_bdy, limarea_nudging_latbdy,   &
+                                         limarea_nudging_upbdy, save_progvars
   USE mo_nh_feedback,              ONLY: feedback, relax_feedback, lhn_feedback
   USE mo_exception,                ONLY: message, message_text, finish
   USE mo_impl_constants,           ONLY: SUCCESS, inoforcing, iheldsuarez, inwp, iecham,       &
@@ -169,6 +170,7 @@ MODULE mo_nh_stepping
   USE mo_nh_init_utils,            ONLY: compute_iau_wgt, save_initial_state, restore_initial_state
   USE mo_hydro_adjust,             ONLY: hydro_adjust_const_thetav
   USE mo_td_ext_data,              ONLY: update_nwp_phy_bcs, set_sst_and_seaice
+  USE mo_initicon_types,           ONLY: t_pi_atm
   USE mo_initicon_config,          ONLY: init_mode, timeshift, init_mode_soil, is_avgFG_time, &
                                          iterate_iau, dt_iau
   USE mo_initicon_utils,           ONLY: average_first_guess, reinit_average_first_guess
@@ -241,7 +243,7 @@ MODULE mo_nh_stepping
 #endif
   use mo_icon2dace,                ONLY: mec_Event, init_dace_op, run_dace_op, dace_op_init
   USE mo_extpar_config,            ONLY: generate_td_filename
-  USE mo_nudging_config,           ONLY: nudging_config, l_global_nudging
+  USE mo_nudging_config,           ONLY: nudging_config, l_global_nudging, indg_type
   USE mo_nudging,                  ONLY: nudging_interface  
   USE mo_opt_nwp_diagnostics,      ONLY: compute_field_dbz3d_lin
   USE mo_nwp_gpu_util,             ONLY: gpu_d2h_nh_nwp, gpu_h2d_nh_nwp, devcpy_nwp, hostcpy_nwp
@@ -1478,7 +1480,7 @@ MODULE mo_nh_stepping
       !$ser verbatim CALL serialize_all(nproma, 1, "latbc_data", .TRUE., opt_lupdate_cpu=.TRUE.)
       latbc_read_datetime = latbc%mtime_last_read + latbc%delta_dtime
       CALL recv_latbc_data(latbc               = latbc,              &
-         &                  p_patch             = p_patch(1),         &
+         &                  p_patch             = p_patch(1:),        &
          &                  p_nh_state          = p_nh_state(1),      &
          &                  p_int               = p_int_state(1),     &
          &                  cur_datetime        = mtime_current,      &
@@ -1583,7 +1585,7 @@ MODULE mo_nh_stepping
     INTEGER , INTENT(IN)    :: iau_iter     !< counter for IAU iteration
     REAL(wp), INTENT(IN)    :: dt_loc       !< time step applicable to local grid level
     TYPE(timedelta), POINTER :: mtime_dt_loc !< time step applicable to local grid level (mtime format)
-    TYPE(t_latbc_data), INTENT(INOUT) :: latbc
+    TYPE(t_latbc_data), TARGET, INTENT(INOUT) :: latbc
 
     ! Local variables
 
@@ -1603,6 +1605,8 @@ MODULE mo_nh_stepping
     INTEGER, PARAMETER :: nsteps_nest=2 ! number of time steps executed in nested domain
 
     REAL(wp)                             :: sim_time !< elapsed simulation time on this grid level
+
+    TYPE(t_pi_atm), POINTER :: ptr_latbc_data_atm_old, ptr_latbc_data_atm_new
 
     ! calculate elapsed simulation time in seconds (local time for
     ! this domain!)
@@ -2192,8 +2196,11 @@ MODULE mo_nh_stepping
 
       ENDIF  ! itime_scheme
 
-      ! Update nudging tendency fields for limited-area mode
-      IF ((jg == 1 .AND. l_limited_area .AND. (.NOT. l_global_nudging))  .AND. (.NOT. bench_config%d_n) ) THEN
+
+      !
+      ! lateral nudging and optional upper boundary nudging in limited area mode
+      !
+      IF ( (l_limited_area .AND. (.NOT. l_global_nudging)) .AND. (.NOT. bench_config%d_n) ) THEN
 #ifdef _OPENACC
         CALL message('mo_nh_stepping', 'Device to host copy before nudging. This needs to be removed once port is finished!')
         CALL gpu_d2h_nh_nwp(p_patch(jg), prm_diag(jg))
@@ -2203,40 +2210,73 @@ MODULE mo_nh_stepping
         
         tsrat = REAL(ndyn_substeps,wp) ! dynamics-physics time step ratio
 
-        IF (latbc_config%itype_latbc > 0) THEN ! use time-dependent boundary data
-          
+        IF (latbc_config%itype_latbc > 0) THEN  ! use time-dependent boundary data
+
           IF (latbc_config%nudge_hydro_pres) CALL sync_patch_array_mult(SYNC_C, p_patch(jg), 2, &
             p_nh_state(jg)%diag%pres, p_nh_state(jg)%diag%temp, opt_varname="diag%pres and diag%temp")
-          
-          IF (num_prefetch_proc >= 1) THEN
-            
-            ! Asynchronous LatBC read-in:
+
+          IF (num_prefetch_proc >= 1) THEN  ! Asynchronous LatBC read-in
+
             ! update the coefficients for the linear interpolation
             CALL update_lin_interpolation(latbc, datetime_local(jg)%ptr)
-            CALL limarea_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),     &
-              &  p_nh_state(jg)%prog(n_new_rcf)%tracer,                             &
-              &  p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),tsrat,  &
-              &  p_latbc_old=latbc%latbc_data(latbc%prev_latbc_tlev())%atm,         &
-              &  p_latbc_new=latbc%latbc_data(latbc%new_latbc_tlev)%atm)
-          ELSE
-            
-            ! update the coefficients for the linear interpolation
-            CALL update_lin_interc(datetime_local(jg)%ptr)
-            CALL limarea_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),     &
-              &  p_nh_state(jg)%prog(n_new_rcf)%tracer,                             &
-              &  p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),tsrat,  &
-              &  p_latbc_old=p_latbc_data(last_latbc_tlev)%atm,                     &
-              &  p_latbc_new=p_latbc_data(read_latbc_tlev)%atm)
-            
+
+            IF (jg==1) THEN
+              ! lateral boundary nudging (for DOM01 only)
+              CALL limarea_nudging_latbdy(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),  &
+                &  p_nh_state(jg)%prog(n_new_rcf)%tracer,                             &
+                &  p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),tsrat,  &
+                &  p_latbc_old=latbc%latbc_data(latbc%prev_latbc_tlev())%atm,         &
+                &  p_latbc_new=latbc%latbc_data(latbc%new_latbc_tlev)%atm)
+            ENDIF
+
+            IF (nudging_config(jg)%ltype(indg_type%ubn)) THEN
+              ! set pointer to upper boundary nudging data
+              IF (jg==1) THEN
+                ptr_latbc_data_atm_old =>latbc%latbc_data(latbc%prev_latbc_tlev())%atm
+                ptr_latbc_data_atm_new =>latbc%latbc_data(latbc%new_latbc_tlev   )%atm
+              ELSE
+                ptr_latbc_data_atm_old =>latbc%latbc_data(latbc%prev_latbc_tlev())%atm_child(jg)
+                ptr_latbc_data_atm_new =>latbc%latbc_data(latbc%new_latbc_tlev   )%atm_child(jg)
+              ENDIF
+              !
+              ! upper boundary nudging
+              CALL limarea_nudging_upbdy(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),   &
+                &  p_nh_state(jg)%prog(n_new_rcf)%tracer,                             &
+                &  p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),tsrat,  &
+                &  p_latbc_old=ptr_latbc_data_atm_old,                                &
+                &  p_latbc_new=ptr_latbc_data_atm_new )
+            ENDIF
+
+          ELSE  ! Synchronous LatBC read-in:
+
+            ! Please note that upper boundary nudging for child domains is not implemented 
+            ! for the synchronous latbc read-in mode.
+            IF (jg==1) THEN
+              ! update the coefficients for the linear interpolation
+              CALL update_lin_interc(datetime_local(jg)%ptr)
+
+              ! this is a wrapper for limarea_nudging_latbdy + limarea_nudging_upbdy
+              CALL limarea_nudging_bdy(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),     &
+                &  p_nh_state(jg)%prog(n_new_rcf)%tracer,                             &
+                &  p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),tsrat,  &
+                &  p_latbc_old=p_latbc_data(last_latbc_tlev)%atm,                     &
+                &  p_latbc_new=p_latbc_data(read_latbc_tlev)%atm)
+            ENDIF
+
           ENDIF
-          
-        ELSE ! constant lateral boundary data
-          
-          CALL limarea_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)), &
-            &                      p_nh_state(jg)%prog(n_new_rcf)%tracer,     &
-            & p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),     &
-            & tsrat,p_latbc_const=p_nh_state(jg)%prog(nsav2(jg)))
-          
+
+        ELSE  ! constant lateral boundary data
+
+          IF (jg==1) THEN
+            ! Model state is nudged towards constant state along the lateral boundaries
+            ! Currently only implemented for the base domain
+            !
+            CALL limarea_nudging_latbdy(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),  &
+              &                         p_nh_state(jg)%prog(n_new_rcf)%tracer,      &
+              &                         p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg), &
+              &                         tsrat,p_latbc_const=p_nh_state(jg)%prog(nsav2(jg)))
+          ENDIF
+
         ENDIF
 #ifdef _OPENACC
         CALL message('mo_nh_stepping', 'Host to device copy after nudging. This needs to be removed once port is finished!')
@@ -2244,8 +2284,9 @@ MODULE mo_nh_stepping
         i_am_accel_node = my_process_is_work()
 #endif
         !$ser verbatim CALL serialize_all(nproma, jg, "nudging", .FALSE., opt_lupdate_cpu=.TRUE.)
-        
-      ELSEIF (jg == 1 .AND. l_global_nudging) THEN
+
+
+      ELSE IF (l_global_nudging .AND. jg==1) THEN
         
 #ifdef _OPENACC
         CALL finish (routine, 'nudging_interface: OpenACC version currently not implemented')
@@ -2265,7 +2306,7 @@ MODULE mo_nh_stepping
           &                     last_latbc_tlev  = last_latbc_tlev,        & !in
           &                     read_latbc_tlev  = read_latbc_tlev,        & !in
           &                     upatmo_config    = upatmo_config(jg),      & !in
-          &                     nudging_config   = nudging_config          ) !inout
+          &                     nudging_config   = nudging_config(jg)      ) !inout
 
       ENDIF
 

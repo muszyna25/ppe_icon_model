@@ -270,7 +270,6 @@ CONTAINS
     ! 1.2 Cross-check namelist setups
     !---------------------------------------------------------------------
 
-    !! DR end temporary hack !!
     CALL atm_crosscheck
 
 #ifdef MESSY

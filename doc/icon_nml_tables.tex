@@ -4579,16 +4579,21 @@ in limarea\_nml.
 
 %\hline
 nudge\_type&
-I &
-0 &
-  &
+I(n\_dom) &
+0        &
+         &
 Nudging type: \\
 {\textasteriskcentered} 0: none \\
 {\textasteriskcentered} 1: upper boundary nudging \\
 {\textasteriskcentered} 2: global nudging \\
 Please note: \\
 {\textbullet} nudge\_type = 1 requires l\_limited\_area = .TRUE. \\
-{\textbullet} nudging is applied in primary domain only \\
+%
+{\textbullet} nudge\_type = 1 is also applicable to nested domains. Nudging is performed against the same forcing data set for all domains. 
+If nudging is enabled for one or more nested domains, it needs to be enabled for the base domain, as well.\\
+%
+{\textbullet} nudge\_type = 2 (global nudging) is applied in primary domain only \\
+%
 {\textbullet} for global nudging the following settings in limarea\_nml 
 are mandatory: \\
 - itype\_latbc = 1 (time-dependent driving data)\\
@@ -4764,7 +4769,6 @@ I &
 Set of variables used to compute the thermodynamic nudging increments: \\
 {\textasteriskcentered} 1: hydrostatic set (pressure and temperature)\\
 {\textasteriskcentered} 2: non-hydrostatic set (density and virtual potential temperature)\\
-(For global nudging only.) \\
 &
 nudge\_type = 2 \\
 nudge\_var = "{all}" { or} "...,thermdyn,..."

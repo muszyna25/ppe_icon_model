@@ -2157,7 +2157,7 @@ CONTAINS
         &                 pt_diag       = pt_diag,   &
         &                 opt_dpsdt_avg = dpsdt_avg, &
         &                 linit         = linit      )  ! (only stdio-process has reasonable return value!)
-      nudging_config%dpsdt = dpsdt_avg
+      nudging_config(jg)%dpsdt = dpsdt_avg
     ENDIF
     IF (timers_level > 10) CALL timer_stop(timer_phys_dpsdt)
 
