@@ -397,6 +397,10 @@ CONTAINS
       IF (inwp_turb(jg) == iedmf) THEN
         CALL finish(routine,'GPU version not available for edmf turbulence.')
       ENDIF
+      
+      IF (inwp_cldcover(jg) /= 1) THEN
+        CALL finish(routine,'GPU version only available for cloud cover 1.')
+      ENDIF
 #endif
 
 
