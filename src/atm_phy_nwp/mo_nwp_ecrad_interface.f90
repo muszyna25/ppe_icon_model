@@ -458,14 +458,12 @@ CONTAINS
       &  zrg_lwflx_up_clr(:,:,:),    & !< longwave  3D upward   flux clear-sky
       &  zrg_lwflx_dn_clr(:,:,:),    & !< longwave  3D downward flux clear-sky
       &  zrg_swflx_up_clr(:,:,:),    & !< shortwave 3D upward   flux clear-sky
-      &  zrg_swflx_dn_clr(:,:,:)       !< shortwave 3D downward flux clear-sky
-
-    REAL(wp), POINTER :: &
-      &  zrg_reff_liq(:,:,:)     => NULL(),  & !< Effective radius (m) of liquid phase on reduced grid
-      &  zrg_reff_frz(:,:,:)     => NULL(),  & !< Effective radius (m) of frozen phase on reduced grid
-      &  zrg_extra_flds(:,:,:,:) => NULL(),  & !< Extra fields for the upscaling routine (indices by irg_)
-      &  zrg_extra_2D(:,:,:)     => NULL(),  & !< Extra 2D fields for the upscaling routine (indices by irg_)
-      &  zrg_extra_reff(:,:,:,:) => NULL()     !< Extra effective radius (indices by irg_)
+      &  zrg_swflx_dn_clr(:,:,:),    & !< shortwave 3D downward flux clear-sky
+      &  zrg_reff_liq(:,:,:),        & !< Effective radius (m) of liquid phase on reduced grid
+      &  zrg_reff_frz(:,:,:),        & !< Effective radius (m) of frozen phase on reduced grid
+      &  zrg_extra_flds(:,:,:,:),    & !< Extra fields for the upscaling routine (indices by irg_)
+      &  zrg_extra_2D(:,:,:),        & !< Extra 2D fields for the upscaling routine (indices by irg_)
+      &  zrg_extra_reff(:,:,:,:)       !< Extra effective radius (indices by irg_)
   
     ! Indices and pointers of extra (optional) fields that are needed by radiation
     ! and therefore have be aggregated to the radiation grid 
@@ -728,12 +726,11 @@ CONTAINS
     i_startblk = ptr_pp%cells%start_block(rl_start)
     i_endblk   = ptr_pp%cells%end_block(rl_end)
 
-!$OMP PARALLEL PRIVATE(jb,jc,jf,i_startidx,i_endidx,cosmu0mask)                           &
-!$OMP          FIRSTPRIVATE(ecrad_aerosol,ecrad_single_level, ecrad_thermodynamics,       &
-!$OMP                       ecrad_gas, ecrad_cloud, ecrad_flux,                           &
-!$OMP                       ptr_acdnc,ptr_fr_land,ptr_fr_glac, ptr_reff_qc, ptr_reff_qi,  &
-!$OMP                       ptr_qr, ptr_reff_qr, ptr_qs, ptr_reff_qs,                     &
-!$OMP                       ptr_qg, ptr_reff_qg)                                          
+!$OMP PARALLEL PRIVATE(jb, jc, jf, i_startidx, i_endidx, cosmu0mask,                      &
+!$OMP                  ptr_acdnc, ptr_fr_land, ptr_fr_glac, ptr_reff_qc, ptr_reff_qi,     &
+!$OMP                  ptr_qr, ptr_reff_qr, ptr_qs, ptr_reff_qs, ptr_qg, ptr_reff_qg)     &
+!$OMP          FIRSTPRIVATE(ecrad_aerosol, ecrad_single_level, ecrad_thermodynamics,      &
+!$OMP                       ecrad_gas, ecrad_cloud, ecrad_flux)
 !$OMP DO ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk, i_endblk
       CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, &
