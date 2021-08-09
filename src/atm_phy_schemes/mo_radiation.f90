@@ -63,7 +63,7 @@ MODULE mo_radiation
     &                                irad_cfc11, vmr_cfc11,           &
     &                                irad_cfc12, vmr_cfc12,           &
     &                                irad_aero,                       &
-    &                                izenith, lradforcing, islope_rad
+    &                                izenith, islope_rad
   USE mo_lnd_nwp_config,       ONLY: isub_seaice, isub_lake
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_newcld_optics,        ONLY: newcld_optics
@@ -1583,7 +1583,6 @@ CONTAINS
     &                 use_trsolclr_sfc,& ! optional: use clear-sky surface transmissivity passed on input
     &                 ptrmsw        ,  &
     &                 pflxlw        ,  &
-    &                 ptrmswclr     ,  & ! optional: shortwave net transmissivity at last rad. step clear sky []
     &                 pdtdtradsw    ,  &
     &                 pdtdtradlw    ,  &
     &                 pflxsfcsw     ,  &
@@ -1649,9 +1648,6 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL   ::  &
       &     opt_nh_corr, use_trsolclr_sfc
 
-    REAL(wp), INTENT(in), OPTIONAL  ::  &
-      &     ptrmswclr   (kbdim,klevp1)    ! shortwave net transmissivity at last rad. step clear sky []
-   
     REAL(wp), INTENT(inout) ::       &
       &     pdtdtradsw (kbdim,klev), & ! shortwave temperature tendency           [K/s]
       &     pdtdtradlw (kbdim,klev)    ! longwave temperature tendency            [K/s]
@@ -1680,7 +1676,6 @@ CONTAINS
     REAL(wp) ::                    &
       &     zflxsw (kbdim,klevp1), &
       &     zflxlw (kbdim,klevp1), &
-      &     zflxswclr(kbdim,klevp1),&
       &     zconv  (kbdim,klev)  , &
       &     tqv    (kbdim)       , &
       &     dlwem_o_dtg(kbdim)   , &
@@ -1690,11 +1685,11 @@ CONTAINS
       &     intcli (kbdim,klevp1), &
       &     dlwflxall_o_dtg(kbdim,klevp1)
 
-    REAL(wp) :: swfac1(kbdim), swfac2(kbdim), dflxsw_o_dalb(kbdim), trsolclr(kbdim), logtqv(kbdim), &
-                slope_corr(kbdim)
+    REAL(wp) :: dflxsw_o_dalb(kbdim), trsolclr(kbdim), logtqv(kbdim), slope_corr(kbdim)
 
     ! local scalars
-    REAL(wp) :: dpresg, pfaclw, intqctot, dlwflxclr_o_dtg, solrad, angle_ratio
+    REAL(wp) :: dpresg, pfaclw, intqctot, dlwflxclr_o_dtg, solrad, angle_ratio, &
+      &         swfac1, swfac2
 
     REAL(wp), PARAMETER  :: pscal = 1._wp/4000._wp ! pressure scale for longwave correction
 
@@ -1703,9 +1698,9 @@ CONTAINS
     LOGICAL  :: l_nh_corr, lcalc_trsolclr, lcalc_clrflx
 
 #ifdef __INTEL_COMPILER
-!DIR$ ATTRIBUTES ALIGN : 64 :: zflxsw,zflxlw,zflxswclr,zconv,tqv
+!DIR$ ATTRIBUTES ALIGN : 64 :: zflxsw,zflxlw,zconv,tqv
 !DIR$ ATTRIBUTES ALIGN : 64 :: dlwem_o_dtg,lwfac1,lwfac2,intclw,intcli
-!DIR$ ATTRIBUTES ALIGN : 64 :: dlwflxall_o_dtg,swfac1,swfac2,dflxsw_o_dalb
+!DIR$ ATTRIBUTES ALIGN : 64 :: dlwflxall_o_dtg,dflxsw_o_dalb
 !DIR$ ATTRIBUTES ALIGN : 64 :: trsolclr,logtqv,slope_corr
 #endif
     IF ( PRESENT(opt_nh_corr) ) THEN
@@ -1723,9 +1718,9 @@ CONTAINS
       lzacc = .FALSE.
     ENDIF
 
-    !$ACC DATA CREATE( zflxsw, zflxlw, zflxswclr, zconv, tqv, dlwem_o_dtg, &
+    !$ACC DATA CREATE( zflxsw, zflxlw, zconv, tqv, dlwem_o_dtg,            &
     !$ACC              lwfac1, lwfac2, intclw, intcli, dlwflxall_o_dtg,    &
-    !$ACC              swfac1, swfac2, dflxsw_o_dalb, trsolclr, logtqv,    &
+    !$ACC              dflxsw_o_dalb, trsolclr, logtqv,                    &
     !$ACC              slope_corr ) IF(lzacc)
 
     lcalc_trsolclr = .TRUE.
@@ -1768,17 +1763,7 @@ CONTAINS
       END DO
     END DO
     !$ACC END PARALLEL
-    IF (lradforcing(1)) THEN
-      ! Shortwave fluxes clear sky = transmissivity clear sky * local solar incoming flux at TOA
-      !$ACC PARALLEL DEFAULT(PRESENT) IF(lzacc)
-      !$ACC LOOP GANG VECTOR COLLAPSE(2)
-      DO jk = 1, klevp1
-        DO jc = jcs, jce 
-          zflxswclr(jc,jk)  = ptrmswclr(jc,jk)*pi0(jc)
-        END DO
-      END DO
-      !$ACC END PARALLEL
-    END IF
+
     ! Longwave fluxes
     ! - TOA
 !    zflxlw(jcs:jce,1)      = pflxlw(jcs:jce,1)
@@ -1894,13 +1879,13 @@ CONTAINS
         ENDIF
 
         !$ACC PARALLEL DEFAULT(PRESENT) IF(lzacc)
-        !$ACC LOOP GANG VECTOR
+        !$ACC LOOP GANG VECTOR PRIVATE(swfac1, swfac2)
         DO jc = jcs, jce
-          swfac1(jc) = EXP(0.36_wp*LOG( MAX(1.e-3_wp,ptrmsw(jc,klevp1))/MAX(1.e-3_wp,trsolclr(jc)) ))
-          swfac2(jc) = EXP(0.1_wp*LOG( MAX(0.25_wp,3._wp*cosmu0(jc)) ))
+          swfac1 = EXP(0.36_wp*LOG( MAX(1.e-3_wp,ptrmsw(jc,klevp1))/MAX(1.e-3_wp,trsolclr(jc)) ))
+          swfac2 = EXP(0.1_wp*LOG( MAX(0.25_wp,3._wp*cosmu0(jc)) ))
 
           ! derivative of SW surface flux w.r.t. albedo
-          dflxsw_o_dalb(jc) = - zflxsw(jc,klevp1)*swfac1(jc)/((1._wp-albedo(jc))*swfac2(jc))
+          dflxsw_o_dalb(jc) = - zflxsw(jc,klevp1)*swfac1/((1._wp-albedo(jc))*swfac2)
         ENDDO
         !$ACC END PARALLEL
  
