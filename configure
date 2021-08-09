@@ -1496,16 +1496,12 @@ Optional Packages:
   --with-external-ecrad   use external ECRAD library [default=no]
   --with-external-rte-rrtmgp
                           use external RTE+RRTMGP library [default=no]
-  --with-external-sct     use external SCT library (when the SCT timer is
-                          enabled) [default=no]
-  --with-external-yaxt    use external YAXT library (when the YAXT data
-                          exchange is enabled) [default=no]
+  --with-external-sct     use external SCT library [default=no]
+  --with-external-yaxt    use external YAXT library [default=no]
   --with-external-cdi     use external CDI library [default=no]
   --with-external-mtime   use external MTIME library [default=no]
-  --with-external-yac     use external YAC library (when the coupling is
-                          enabled) [default=no]
-  --with-external-tixi    use external TIXI library (when ART is enabled)
-                          [default=no]
+  --with-external-yac     use external YAC library [default=no]
+  --with-external-tixi    use external TIXI library [default=no]
   --with-external-cub     use external CUB library [default=no]
 
 Some influential environment variables:
@@ -5784,10 +5780,51 @@ BUNDLED_LIBFILES=''
 
 bundled_includes=
 
+ac_builddir=.
+
+case . in
+.) ac_dir_suffix= ac_top_builddir_sub=. ac_top_build_prefix= ;;
+*)
+  ac_dir_suffix=/`$as_echo . | sed 's|^\.[\\/]||'`
+  # A ".." for each directory in $ac_dir_suffix.
+  ac_top_builddir_sub=`$as_echo "$ac_dir_suffix" | sed 's|/[^\\/]*|/..|g;s|/||'`
+  case $ac_top_builddir_sub in
+  "") ac_top_builddir_sub=. ac_top_build_prefix= ;;
+  *)  ac_top_build_prefix=$ac_top_builddir_sub/ ;;
+  esac ;;
+esac
+ac_abs_top_builddir=$ac_pwd
+ac_abs_builddir=$ac_pwd$ac_dir_suffix
+# for backward compatibility:
+ac_top_builddir=$ac_top_build_prefix
+
+case $srcdir in
+  .)  # We are building in place.
+    ac_srcdir=.
+    ac_top_srcdir=$ac_top_builddir_sub
+    ac_abs_top_srcdir=$ac_pwd ;;
+  [\\/]* | ?:[\\/]* )  # Absolute name.
+    ac_srcdir=$srcdir$ac_dir_suffix;
+    ac_top_srcdir=$srcdir
+    ac_abs_top_srcdir=$srcdir ;;
+  *) # Relative name.
+    ac_srcdir=$ac_top_build_prefix$srcdir$ac_dir_suffix
+    ac_top_srcdir=$ac_top_build_prefix$srcdir
+    ac_abs_top_srcdir=$ac_pwd/$srcdir ;;
+esac
+ac_abs_srcdir=$ac_abs_top_srcdir$ac_dir_suffix
+
+icon_abs_top_srcdir=$ac_abs_top_srcdir
+icon_abs_top_builddir=$ac_abs_top_builddir
+
 if test "x$enable_memory_tracing" = xmtrace; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether C mtrace function is available via the Fortran ISO_C_BINDING interface" >&5
 $as_echo_n "checking whether C mtrace function is available via the Fortran ISO_C_BINDING interface... " >&6; }
-   cat > conftest.$ac_ext <<_ACEOF
+if ${icon_cv_have_mtrace+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  icon_cv_have_mtrace=no
+      cat > conftest.$ac_ext <<_ACEOF
       program main
 
       implicit none
@@ -5799,26 +5836,32 @@ $as_echo_n "checking whether C mtrace function is available via the Fortran ISO_
       end
 _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-      as_fn_append FCFLAGS " ${FC_PP_DEF}ICON_MEMORY_TRACING=1"
+  icon_cv_have_mtrace=yes
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_cv_have_mtrace" >&5
+$as_echo "$icon_cv_have_mtrace" >&6; }
+   if test "x$icon_cv_have_mtrace" = xyes; then :
+  as_fn_append FCFLAGS " ${FC_PP_DEF}ICON_MEMORY_TRACING=1"
 else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-      { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to link a test program using mtrace function via the Fortran ISO_C_BINDING interface: either disable the native dynamic memory tracing facility (--disable-memory-tracing) or set LDFLAGS and LIBS accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
 fi
 
-if test "x$enable_mpi" = xyes; then :
+if test "x$enable_mpi" = xyes || test "x$enable_yaxt" = xyes; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran 90 interface of MPI library is available" >&5
 $as_echo_n "checking whether the Fortran 90 interface of MPI library is available... " >&6; }
-   cat > conftest.$ac_ext <<_ACEOF
+if ${icon_cv_have_mpi+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  icon_cv_have_mpi=no
+      cat > conftest.$ac_ext <<_ACEOF
       program main
 
        use mpi, only: mpi_init
@@ -5828,26 +5871,35 @@ $as_echo_n "checking whether the Fortran 90 interface of MPI library is availabl
       end
 _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-      if test x"$icon_dace_enabled_or_needed" = xyes || test x"$enable_rttov" = xyes; then :
-  as_fn_append FCFLAGS " ${FC_PP_DEF}HAVE_MPI_MOD"
-fi
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-      { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using the Fortran 90 interface of MPI library: either disable MPI support (--disable-mpi) or set FC to the MPI Fortran compiler wrapper, or set FCFLAGS, LDFLAGS and LIBS accordingly
-See \`config.log' for more details
-${icon_usr_note}" "$LINENO" 5; }
+  icon_cv_have_mpi=yes
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_cv_have_mpi" >&5
+$as_echo "$icon_cv_have_mpi" >&6; }
+   if test "x$icon_cv_have_mpi" = xyes; then :
+  if test x"$icon_dace_enabled_or_needed" = xyes || test x"$enable_rttov" = xyes; then :
+  as_fn_append FCFLAGS " ${FC_PP_DEF}HAVE_MPI_MOD"
+fi
+else
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to link a test program using the Fortran 90 interface of MPI library: either disable MPI support (--disable-mpi) and the YAXT data exchange (--disable-yaxt) or set FC to the MPI Fortran compiler wrapper, or set FCFLAGS, LDFLAGS and LIBS accordingly
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
+fi
    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for the version of the supported MPI standard" >&5
 $as_echo_n "checking for the version of the supported MPI standard... " >&6; }
-   icon_mpi_version=unknown; icon_mpi_subversion=unknown
-   if test x"$cross_compiling" = xyes; then :
+   if ${icon_cv_mpi_version+:} false &&
+${icon_cv_mpi_subversion+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  if ${icon_cv_mpi_version+:} false; then :
+
+else
+  icon_cv_mpi_version=unknown
+         if test x"$cross_compiling" = xyes; then :
     ac_lo=0 ac_hi=100
    while :; do
    cat > conftest.$ac_ext <<_ACEOF
@@ -5886,7 +5938,7 @@ rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
    if test -z "$ac_lo"; then :
   :
 else
-  icon_mpi_version=$ac_lo
+  icon_cv_mpi_version=$ac_lo
 fi
 else
     if test "$cross_compiling" = yes; then :
@@ -5907,7 +5959,7 @@ else
 _ACEOF
 if ac_fn_fc_try_run "$LINENO"; then :
   ac_lo=`sed -e 's/^ *//' conftestval`
-      icon_mpi_version=$ac_lo
+      icon_cv_mpi_version=$ac_lo
 else
   :
 fi
@@ -5917,7 +5969,12 @@ fi
 
    /bin/rm -f conftestval
 fi
-   if test x"$icon_mpi_version" != xunknown; then :
+fi
+      if ${icon_cv_mpi_subversion+:} false; then :
+
+else
+  icon_cv_mpi_subversion=unknown
+         if test x"$icon_cv_mpi_version" != xunknown; then :
   if test x"$cross_compiling" = xyes; then :
     ac_lo=0 ac_hi=100
    while :; do
@@ -5957,7 +6014,7 @@ rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
    if test -z "$ac_lo"; then :
   :
 else
-  icon_mpi_subversion=$ac_lo
+  icon_cv_mpi_subversion=$ac_lo
 fi
 else
     if test "$cross_compiling" = yes; then :
@@ -5978,7 +6035,7 @@ else
 _ACEOF
 if ac_fn_fc_try_run "$LINENO"; then :
   ac_lo=`sed -e 's/^ *//' conftestval`
-      icon_mpi_subversion=$ac_lo
+      icon_cv_mpi_subversion=$ac_lo
 else
   :
 fi
@@ -5989,10 +6046,14 @@ fi
    /bin/rm -f conftestval
 fi
 fi
-   if test x"$icon_mpi_version" != xunknown && test x"$icon_mpi_subversion" != xunknown; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_mpi_version.$icon_mpi_subversion" >&5
-$as_echo "$icon_mpi_version.$icon_mpi_subversion" >&6; }
-      as_fn_append FCFLAGS " ${FC_PP_DEF}ICON_MPI_VERSION=$icon_mpi_version ${FC_PP_DEF}ICON_MPI_SUBVERSION=$icon_mpi_subversion"
+fi
+fi
+   if test x"$icon_cv_mpi_version" != xunknown && test x"$icon_cv_mpi_subversion" != xunknown; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_cv_mpi_version.$icon_cv_mpi_subversion" >&5
+$as_echo "$icon_cv_mpi_version.$icon_cv_mpi_subversion" >&6; }
+      as_fn_append FCFLAGS " ${FC_PP_DEF}ICON_MPI_VERSION=$icon_cv_mpi_version ${FC_PP_DEF}ICON_MPI_SUBVERSION=$icon_cv_mpi_subversion"
+      icon_mpi_version=$icon_cv_mpi_version
+      icon_mpi_subversion=$icon_cv_mpi_subversion
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: unknown" >&5
 $as_echo "unknown" >&6; }
@@ -6439,7 +6500,11 @@ fi
 if test "x$enable_emvorado" = xyes; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether C ZLIB library is available via the Fortran ISO_C_BINDING interface" >&5
 $as_echo_n "checking whether C ZLIB library is available via the Fortran ISO_C_BINDING interface... " >&6; }
-   cat > conftest.$ac_ext <<_ACEOF
+if ${icon_cv_have_zlib+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  icon_cv_have_zlib=no
+      cat > conftest.$ac_ext <<_ACEOF
       program main
 
       implicit none
@@ -6451,26 +6516,32 @@ $as_echo_n "checking whether C ZLIB library is available via the Fortran ISO_C_B
       end
 _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-      as_fn_append FCFLAGS " ${FC_PP_DEF}WITH_ZLIB"
+  icon_cv_have_zlib=yes
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_cv_have_zlib" >&5
+$as_echo "$icon_cv_have_zlib" >&6; }
+   if test "x$icon_cv_have_zlib" = xyes; then :
+  as_fn_append FCFLAGS " ${FC_PP_DEF}WITH_ZLIB"
 else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-      { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to link a test program using ZLIB library via the Fortran ISO_C_BINDING interface: either disable the radar forward operator EMVORADO (--disable-emvorado) or set LDFLAGS and LIBS accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
 fi
 
 if test "x$enable_emvorado" = xyes; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran 90 low- and high-level interfaces of HDF5 library are available" >&5
 $as_echo_n "checking whether the Fortran 90 low- and high-level interfaces of HDF5 library are available... " >&6; }
-   cat > conftest.$ac_ext <<_ACEOF
+if ${icon_cv_have_hdf5+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  icon_cv_have_hdf5=no
+      cat > conftest.$ac_ext <<_ACEOF
       program main
 
       use hdf5, only: h5open_f, &
@@ -6491,25 +6562,31 @@ $as_echo_n "checking whether the Fortran 90 low- and high-level interfaces of HD
       end
 _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-      as_fn_append FCFLAGS " ${FC_PP_DEF}HDF5_RADAR_INPUT"
+  icon_cv_have_hdf5=yes
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_cv_have_hdf5" >&5
+$as_echo "$icon_cv_have_hdf5" >&6; }
+   if test "x$icon_cv_have_hdf5" = xyes; then :
+  as_fn_append FCFLAGS " ${FC_PP_DEF}HDF5_RADAR_INPUT"
 else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-      { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to link a test program using the Fortran 90 low- and high-level interfaces of HDF5 library: set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
 fi
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran 77 interface of NetCDF library is available" >&5
 $as_echo_n "checking whether the Fortran 77 interface of NetCDF library is available... " >&6; }
-cat > conftest.$ac_ext <<_ACEOF
+if ${icon_cv_have_netcdf77+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  icon_cv_have_netcdf77=no
+   cat > conftest.$ac_ext <<_ACEOF
       program main
 
       implicit none
@@ -6519,29 +6596,32 @@ cat > conftest.$ac_ext <<_ACEOF
       end
 _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+  icon_cv_have_netcdf77=yes
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_cv_have_netcdf77" >&5
+$as_echo "$icon_cv_have_netcdf77" >&6; }
+if test "x$icon_cv_have_netcdf77" = xno; then :
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to link a test program using the Fortran 77 interface of NetCDF library: set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
 if test "x$enable_parallel_netcdf" = xyes; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the provided version of NetCDF is built with parallel support" >&5
 $as_echo_n "checking whether the provided version of NetCDF is built with parallel support... " >&6; }
-   icon_netcdf_supports_parallel=unknown
-   if test "x$cross_compiling" = xno; then :
-  cat > conftest.$ac_ext <<_ACEOF
+if ${icon_cv_have_netcdf_parallel+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  icon_cv_have_netcdf_parallel=unknown
+      cat > conftest.$ac_ext <<_ACEOF
       program main
 
-      use mpi, only: mpi_init, MPI_COMM_WORLD, &
-                   & MPI_INFO_NULL
+      use mpi, only: mpi_init, mpi_finalize, &
+                   & MPI_COMM_WORLD, MPI_INFO_NULL
       implicit none
       include 'netcdf.inc'
       integer :: result, tmp
@@ -6556,38 +6636,41 @@ $as_echo_n "checking whether the provided version of NetCDF is built with parall
       else
         write(*,"(a)") "conftest_parallel_yes"
       endif
+      call mpi_finalize(tmp)
       end
 _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :
-  icon_exec_result=`./conftest$ac_exeext 2>/dev/null`
+  icon_exec_result=`${MPI_LAUNCH:-false} -n 1 ./conftest$ac_exeext 2>/dev/null`
          rm -f conftest.nc
-         if test $? -eq 0; then :
-  if echo "$icon_exec_result" | grep 'conftest_parallel_no' >/dev/null 2>&1; then :
-  icon_netcdf_supports_parallel=no
+         if echo "$icon_exec_result" | grep 'conftest_parallel_no' >/dev/null 2>&1; then :
+  icon_cv_have_netcdf_parallel=no
 elif echo "$icon_exec_result" | grep 'conftest_parallel_yes' >/dev/null 2>&1; then :
-  icon_netcdf_supports_parallel=yes
-fi
+  icon_cv_have_netcdf_parallel=yes
 fi
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 fi
-   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_netcdf_supports_parallel" >&5
-$as_echo "$icon_netcdf_supports_parallel" >&6; }
-   if test x"$icon_netcdf_supports_parallel" = xno; then :
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_cv_have_netcdf_parallel" >&5
+$as_echo "$icon_cv_have_netcdf_parallel" >&6; }
+   if test x"$icon_cv_have_netcdf_parallel" = xno; then :
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "the provided version of NetCDF does not support the parallel features: either disable usage of the parallel features of NetCDF (--disable-parallel-netcdf) or set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
-elif test x"$icon_netcdf_supports_parallel" = xunknown; then :
+elif test x"$icon_cv_have_netcdf_parallel" = xunknown; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: unable to check whether the provided version of NetCDF supports the parallel features" >&5
 $as_echo "$as_me: WARNING: unable to check whether the provided version of NetCDF supports the parallel features" >&2;}
 fi
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran 90 interface of NetCDF library is available" >&5
 $as_echo_n "checking whether the Fortran 90 interface of NetCDF library is available... " >&6; }
-cat > conftest.$ac_ext <<_ACEOF
+if ${icon_cv_have_netcdf90+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  icon_cv_have_netcdf90=no
+   cat > conftest.$ac_ext <<_ACEOF
       program main
 
       use netcdf, only: nf90_open, nf90_nowrite
@@ -6597,28 +6680,34 @@ cat > conftest.$ac_ext <<_ACEOF
       end
 _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-   if test "x$enable_emvorado" = xyes; then :
+  icon_cv_have_netcdf90=yes
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_cv_have_netcdf90" >&5
+$as_echo "$icon_cv_have_netcdf90" >&6; }
+if test "x$icon_cv_have_netcdf90" = xyes; then :
+  if test "x$enable_emvorado" = xyes; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}NETCDF"
 fi
 else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to link a test program using the Fortran 90 interface of NetCDF library: set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
 
 if test "x$enable_rte_rrtmgp" = xyes; then :
   if test "x$with_external_rte_rrtmgp" = xyes; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran RTE+RRTMGP library is available" >&5
 $as_echo_n "checking whether Fortran RTE+RRTMGP library is available... " >&6; }
-      cat > conftest.$ac_ext <<_ACEOF
+if ${icon_cv_have_rte_rrtmgp+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  icon_cv_have_rte_rrtmgp=no
+         cat > conftest.$ac_ext <<_ACEOF
       program main
 
       use mo_optical_props, only: ty_optical_props_1scl, &
@@ -6652,21 +6741,22 @@ $as_echo_n "checking whether Fortran RTE+RRTMGP library is available... " >&6; }
       end
 _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-         { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+  icon_cv_have_rte_rrtmgp=yes
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_cv_have_rte_rrtmgp" >&5
+$as_echo "$icon_cv_have_rte_rrtmgp" >&6; }
+      if test "x$icon_cv_have_rte_rrtmgp" = xno; then :
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to link a test program using RTE+RRTMGP library: either disable usage of the RTE+RRTMGP toolbox for radiation calculations (--disable-rte-rrtmgp) or use the bundled version of RTE+RRTMGP library (--without-external-rte-rrtmgp), or set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
 else
-  icon_subdir_srcdir="$srcdir/externals/rte-rrtmgp"
+       icon_subdir_srcdir="$srcdir/externals/rte-rrtmgp"
       icon_subdir_unique_file="rte/mo_rte_sw.F90"
       if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
   as_fn_error $? "unable to find sources of the RTE+RRTMGP library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable usage of the RTE+RRTMGP toolbox for radiation calculations (--disable-rte-rrtmgp) or provide an external version of RTE+RRTMGP library (--with-external-rte-rrtmgp) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
@@ -6736,7 +6826,11 @@ if test "x$enable_ecrad" = xyes; then :
   if test "x$with_external_ecrad" = xyes; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran ECRAD library is available" >&5
 $as_echo_n "checking whether Fortran ECRAD library is available... " >&6; }
-      cat > conftest.$ac_ext <<_ACEOF
+if ${icon_cv_have_ecrad+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  icon_cv_have_ecrad=no
+         cat > conftest.$ac_ext <<_ACEOF
       program main
 
       use radiation_config, only: config_type
@@ -6747,19 +6841,20 @@ $as_echo_n "checking whether Fortran ECRAD library is available... " >&6; }
       end
 _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-         { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+  icon_cv_have_ecrad=yes
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_cv_have_ecrad" >&5
+$as_echo "$icon_cv_have_ecrad" >&6; }
+      if test "x$icon_cv_have_ecrad" = xno; then :
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to link a test program using ECRAD library: either disable usage of the ECMWF radiation scheme (--disable-ecrad) or use the bundled version of ECRAD library (--without-external-ecrad), or set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
 else
        icon_subdir_srcdir="$srcdir/externals/ecrad"
       icon_subdir_unique_file="radiation/radiation_flux.F90"
@@ -6829,52 +6924,66 @@ fi
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran BLAS library is available" >&5
 $as_echo_n "checking whether Fortran BLAS library is available... " >&6; }
-cat > conftest.$ac_ext <<_ACEOF
+if ${icon_cv_have_blas+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  icon_cv_have_blas=no
+   cat > conftest.$ac_ext <<_ACEOF
       program main
       call dgemm
       end
 _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+  icon_cv_have_blas=yes
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_cv_have_blas" >&5
+$as_echo "$icon_cv_have_blas" >&6; }
+if test "x$icon_cv_have_blas" = xno; then :
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to link a test program using BLAS library: set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran LAPACK library is available" >&5
 $as_echo_n "checking whether Fortran LAPACK library is available... " >&6; }
-cat > conftest.$ac_ext <<_ACEOF
+if ${icon_cv_have_lapack+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  icon_cv_have_lapack=no
+   cat > conftest.$ac_ext <<_ACEOF
       program main
       call dgeev
       end
 _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+  icon_cv_have_lapack=yes
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_cv_have_lapack" >&5
+$as_echo "$icon_cv_have_lapack" >&6; }
+if test "x$icon_cv_have_lapack" = xno; then :
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to link a test program using LAPACK library: set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
 
 if test "x$enable_rttov" = xyes; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran RTTOV library is available" >&5
 $as_echo_n "checking whether Fortran RTTOV library is available... " >&6; }
-   cat > conftest.$ac_ext <<_ACEOF
+if ${icon_cv_have_rttov+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  icon_cv_have_rttov=no
+      cat > conftest.$ac_ext <<_ACEOF
       program main
 
       use rttov_types, only: rttov_coefs
@@ -6885,20 +6994,22 @@ $as_echo_n "checking whether Fortran RTTOV library is available... " >&6; }
       end
 _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-      as_fn_append FCFLAGS " ${FC_PP_DEF}_RTTOV_VERSION=13"
+  icon_cv_have_rttov=yes
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_cv_have_rttov" >&5
+$as_echo "$icon_cv_have_rttov" >&6; }
+   if test "x$icon_cv_have_rttov" = xyes; then :
+  as_fn_append FCFLAGS " ${FC_PP_DEF}_RTTOV_VERSION=13"
 else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-      { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to link a test program using RTTOV library: either disable usage of the radiative transfer model for TOVS (--disable-rttov) or set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
 else
   if test "x$enable_dace" = xyes; then :
         as_fn_error $? "unsupported combination of the configure options: you are trying to configure with the DACE modules for data assimilation but usage of the radiative transfer model for TOVS is disabled: either disable the DACE modules for data assimilation (--disable-dace) or enable usage of the radiative transfer model for TOVS (--enable-rttov)" "$LINENO" 5
@@ -6909,7 +7020,11 @@ if test "x$enable_sct" = xyes; then :
   if test "x$with_external_sct" = xyes; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran interface of SCT library is available" >&5
 $as_echo_n "checking whether the Fortran interface of SCT library is available... " >&6; }
-      cat > conftest.$ac_ext <<_ACEOF
+if ${icon_cv_have_sct+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  icon_cv_have_sct=no
+         cat > conftest.$ac_ext <<_ACEOF
       program main
 
       use sct, only: sct_init
@@ -6918,19 +7033,20 @@ $as_echo_n "checking whether the Fortran interface of SCT library is available..
       end
 _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-         { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+  icon_cv_have_sct=yes
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_cv_have_sct" >&5
+$as_echo "$icon_cv_have_sct" >&6; }
+      if test "x$icon_cv_have_sct" = xno; then :
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to link a test program using the Fortran interface of SCT library: either disable the SCT timer (--disable-sct) or use the bundled version of SCT library (--without-external-sct), or set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
 else
        icon_subdir_srcdir="$srcdir/externals/sct"
       icon_subdir_unique_file="src/sct_reporter.c"
@@ -7015,12 +7131,15 @@ esac
 fi
 fi
 
-
-if test x"$enable_yaxt" = xyes || test x"$enable_cdi_pio" = xyes; then :
-  if test "x$with_external_yaxt" = xyes; then :
+if test "x$with_external_yaxt" = xyes; then :
+  if test x"$enable_yaxt" = xyes || test x"$enable_cdi_pio" = xyes; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran interface of YAXT library is available" >&5
 $as_echo_n "checking whether the Fortran interface of YAXT library is available... " >&6; }
-      cat > conftest.$ac_ext <<_ACEOF
+if ${icon_cv_have_yaxt+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  icon_cv_have_yaxt=no
+         cat > conftest.$ac_ext <<_ACEOF
       program main
 
       use yaxt, only: xt_initialized, xt_initialize
@@ -7030,24 +7149,31 @@ $as_echo_n "checking whether the Fortran interface of YAXT library is available.
       end
 _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-         { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using the Fortran interface of YAXT library: either disable the YAXT data exchange (--disable-yaxt) or use the bundled version of YAXT library (--without-external-yaxt), or set FCFLAGS, LDFLAGS and LIBS accordingly
-See \`config.log' for more details
-${icon_usr_note}" "$LINENO" 5; }
+  icon_cv_have_yaxt=yes
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_cv_have_yaxt" >&5
+$as_echo "$icon_cv_have_yaxt" >&6; }
+      if test "x$icon_cv_have_yaxt" = xno; then :
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to link a test program using the Fortran interface of YAXT library: either disable the YAXT data exchange (--disable-yaxt) and usage of the parallel features of CDI (--disable-cdi-pio) or use the bundled version of YAXT library (--without-external-yaxt), or set FCFLAGS, LDFLAGS and LIBS accordingly
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
+fi
+fi
 else
-       icon_subdir_srcdir="$srcdir/externals/yaxt"
+    icon_bundled_yaxt_needed=no
+   if test x"$enable_yaxt" = xyes || test x"$enable_cdi_pio" = xyes; then :
+  icon_bundled_yaxt_needed=direct_fortran
+fi
+   if test x"$icon_bundled_yaxt_needed" != xno; then :
+  icon_subdir_srcdir="$srcdir/externals/yaxt"
       icon_subdir_unique_file="src/xt_idxlist.c"
       if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
-  as_fn_error $? "unable to find sources of the bundled version of YAXT library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable the YAXT data exchange (--disable-yaxt) or provide an external version of YAXT library (--with-external-yaxt) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
+  as_fn_error $? "unable to find sources of the bundled version of YAXT library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable the YAXT data exchange (--disable-yaxt) and usage of the parallel features of CDI (--disable-cdi-pio) or provide an external version of YAXT library (--with-external-yaxt) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
 fi
             ICON_YAXT_FCFLAGS=${ICON_YAXT_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
             ICON_YAXT_CFLAGS=${ICON_YAXT_CFLAGS-$ICON_BUNDLED_CFLAGS}
@@ -7069,17 +7195,29 @@ fi
            -prefix=*|--prefix=*|--prefi=*|--pref=*|--pre=*|--pr=*|--p=*| \
            --disable-option-checking) :
      ;; #(
-  BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*|MPI_LAUNCH=*) :
+  BUILD_*=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*|MPI_LAUNCH=*) :
      ;; #(
-  -enable-static|-enable-static=*|--enable-static|--enable-static=*|-disable-static|--disable-static) :
-     ;; #(
-  -enable-shared|-enable-shared=*|--enable-shared|--enable-shared=*|-disable-shared|--disable-shared) :
-     ;; #(
-  -enable-maintainer-mode|-enable-maintainer-mode=*|--enable-maintainer-mode|--enable-maintainer-mode=*|-disable-maintainer-mode|--disable-maintainer-mode) :
+  MPIROOT=*|MPI_C_INCLUDE=*|MPI_C_LIB=*|MPI_FC_MOD=*|MPI_FC_LIB=*) :
      ;; #(
   -enable-silent-rules|-enable-silent-rules=*|--enable-silent-rules|--enable-silent-rules=*|-disable-silent-rules|--disable-silent-rules) :
      ;; #(
+  -enable-maintainer-mode|-enable-maintainer-mode=*|--enable-maintainer-mode|--enable-maintainer-mode=*|-disable-maintainer-mode|--disable-maintainer-mode) :
+     ;; #(
   -enable-dependency-tracking|-enable-dependency-tracking=*|--enable-dependency-tracking|--enable-dependency-tracking=*|-disable-dependency-tracking|--disable-dependency-tracking) :
+     ;; #(
+  -enable-shared|-enable-shared=*|--enable-shared|--enable-shared=*|-disable-shared|--disable-shared) :
+     ;; #(
+  -enable-static|-enable-static=*|--enable-static|--enable-static=*|-disable-static|--disable-static) :
+     ;; #(
+  -with-mpi-root|-with-mpi-root=*|--with-mpi-root|--with-mpi-root=*|-without-mpi-root|--without-mpi-root) :
+     ;; #(
+  -with-mpi-include|-with-mpi-include=*|--with-mpi-include|--with-mpi-include=*|-without-mpi-include|--without-mpi-include) :
+     ;; #(
+  -with-mpi-lib|-with-mpi-lib=*|--with-mpi-lib|--with-mpi-lib=*|-without-mpi-lib|--without-mpi-lib) :
+     ;; #(
+  -with-mpi-fc-mod|-with-mpi-fc-mod=*|--with-mpi-fc-mod|--with-mpi-fc-mod=*|-without-mpi-fc-mod|--without-mpi-fc-mod) :
+     ;; #(
+  -with-mpi-fc-lib|-with-mpi-fc-lib=*|--with-mpi-fc-lib|--with-mpi-fc-lib=*|-without-mpi-fc-lib|--without-mpi-fc-lib) :
      ;; #(
   -with-regard-for-quality|-with-regard-for-quality=*|--with-regard-for-quality|--with-regard-for-quality=*|-without-regard-for-quality|--without-regard-for-quality) :
      ;; #(
@@ -7097,7 +7235,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-         set dummy CFLAGS="$subdir_CFLAGS $ICON_YAXT_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_YAXT_FCFLAGS" --enable-static --disable-shared --disable-maintainer-mode --enable-dependency-tracking --enable-silent-rules="$enable_silent_rules" --with-regard-for-quality="$enable_mpi_checks" MPI_LAUNCH="$MPI_LAUNCH" ; shift
+         set dummy CFLAGS="$subdir_CFLAGS $ICON_YAXT_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_YAXT_FCFLAGS" MPI_LAUNCH="$MPI_LAUNCH" MPIROOT= MPI_C_INCLUDE= MPI_C_LIB= MPI_FC_MOD= MPI_FC_LIB= BUILD_CFLAGS= BUILD_FCFLAGS= BUILD_LDFLAGS= BUILD_LIBS= --enable-silent-rules="$enable_silent_rules" --disable-maintainer-mode --enable-dependency-tracking --disable-shared --enable-static --with-regard-for-quality="$enable_mpi_checks" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -7108,15 +7246,27 @@ esac
         as_fn_append acx_config_subdir_args_externals_yaxt " '$acx_config_subdir_arg'"
       done
       as_fn_append subdirs_extra " externals/yaxt"
-      as_fn_append bundled_includes "${FC_MOD_IN}externals/yaxt/src "
-      BUNDLED_LIBFILES="externals/yaxt/src/.libs/libyaxt.a externals/yaxt/src/.libs/libyaxt_c.a $BUNDLED_LIBFILES"
+      { BUILD_CC=; unset BUILD_CC;}; { BUILD_FC=; unset BUILD_FC;}
+      case "$icon_bundled_yaxt_needed" in #(
+  direct_fortran) :
+    as_fn_append bundled_includes "${FC_MOD_IN}externals/yaxt/inst_headers/f90 "
+         BUNDLED_LIBFILES="externals/yaxt/src/.libs/libyaxt.a externals/yaxt/src/.libs/libyaxt_c.a $BUNDLED_LIBFILES" ;; #(
+  transitive_c) :
+    BUNDLED_LIBFILES="externals/yaxt/src/.libs/libyaxt_c.a $BUNDLED_LIBFILES" ;; #(
+  *) :
+     ;;
+esac
 fi
 fi
 
 if test "x$enable_emvorado" = xyes; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran 90 interfaces of GRIB-API library is available" >&5
 $as_echo_n "checking whether the Fortran 90 interfaces of GRIB-API library is available... " >&6; }
-   cat > conftest.$ac_ext <<_ACEOF
+if ${icon_cv_have_grib_api+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  icon_cv_have_grib_api=no
+      cat > conftest.$ac_ext <<_ACEOF
       program main
 
       use grib_api, only: grib_open_file, GRIB_SUCCESS
@@ -7127,26 +7277,36 @@ $as_echo_n "checking whether the Fortran 90 interfaces of GRIB-API library is av
       end
 _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-      as_fn_append FCFLAGS " ${FC_PP_DEF}GRIBAPI"
+  icon_cv_have_grib_api=yes
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_cv_have_grib_api" >&5
+$as_echo "$icon_cv_have_grib_api" >&6; }
+   if test "x$icon_cv_have_grib_api" = xyes; then :
+  as_fn_append FCFLAGS " ${FC_PP_DEF}GRIBAPI"
 else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-      { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to link a test program using the Fortran 90 interfaces of GRIB-API library: set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
+fi
+
+if test "x$enable_mpi" = xno && test "x$enable_cdi_pio" = xyes; then :
+    as_fn_error $? "unsupported combination of the configure options: you are trying to configure with the parallel features of CDI but MPI (parallelization) support is disabled: either disable usage of the parallel features of CDI (--disable-cdi-pio) or enable MPI (parallelization) support (--enable-mpi)" "$LINENO" 5
 fi
 
 if test "x$with_external_cdi" = xyes; then :
-    { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran 2003 interface of CDI 1.8.x library is available" >&5
-$as_echo_n "checking whether the Fortran 2003 interface of CDI 1.8.x library is available... " >&6; }
-   cat > conftest.$ac_ext <<_ACEOF
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran 90 interface of CDI 1.8.x library is available" >&5
+$as_echo_n "checking whether the Fortran 90 interface of CDI 1.8.x library is available... " >&6; }
+if ${icon_cv_have_cdi+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  icon_cv_have_cdi=no
+      cat > conftest.$ac_ext <<_ACEOF
       program main
 
       use mo_cdi, only: TSTEP_CONSTANT, cdiInqNatts, &
@@ -7160,22 +7320,27 @@ $as_echo_n "checking whether the Fortran 2003 interface of CDI 1.8.x library is 
       end
 _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-      { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using the Fortran 2003 interface of CDI 1.8.x library: either use the bundled version of CDI library (--without-external-cdi) or set FCFLAGS, LDFLAGS and LIBS accordingly
-See \`config.log' for more details
-${icon_usr_note}" "$LINENO" 5; }
+  icon_cv_have_cdi=yes
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_cv_have_cdi" >&5
+$as_echo "$icon_cv_have_cdi" >&6; }
+   if test "x$icon_cv_have_cdi" = xno; then :
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to link a test program using the Fortran 90 interface of CDI 1.8.x library: either use the bundled version of CDI library (--without-external-cdi) or set FCFLAGS, LDFLAGS and LIBS accordingly
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
+fi
    { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the provided version of CDI 1.8.x is patched" >&5
 $as_echo_n "checking whether the provided version of CDI 1.8.x is patched... " >&6; }
-   cat > conftest.$ac_ext <<_ACEOF
+if ${icon_cv_have_cdi_patched+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  icon_cv_have_cdi_patched=no
+      cat > conftest.$ac_ext <<_ACEOF
       program main
 
       use mo_cdi, only: t_CdiIterator, cdiIterator_inqFiletype
@@ -7186,30 +7351,34 @@ $as_echo_n "checking whether the provided version of CDI 1.8.x is patched... " >
       end
 _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-      { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+  icon_cv_have_cdi_patched=yes
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_cv_have_cdi_patched" >&5
+$as_echo "$icon_cv_have_cdi_patched" >&6; }
+   if test "x$icon_cv_have_cdi_patched" = xno; then :
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "the provided version of CDI 1.8.x does not have the required patches: use the bundled version of CDI library (--without-external-cdi)
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
    icon_cdi_formats="NetCDF-2:CDI_FILETYPE_NC2 NetCDF-4:CDI_FILETYPE_NC4 GRIB1:CDI_FILETYPE_GRB"
    if test "x$enable_grib2" = xyes; then :
   as_fn_append icon_cdi_formats " GRIB2:CDI_FILETYPE_GRB2"
 fi
    for icon_cdi_format in $icon_cdi_formats; do
      icon_cdi_format_name=`echo "$icon_cdi_format" | cut -d: -f1`
-     icon_cdi_format_ID=`echo "$icon_cdi_format" | cut -d: -f2`
-     icon_cdi_format_result=unknown
-     { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the provided version of CDI is built with $icon_cdi_format_name support" >&5
+          { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the provided version of CDI is built with $icon_cdi_format_name support" >&5
 $as_echo_n "checking whether the provided version of CDI is built with $icon_cdi_format_name support... " >&6; }
-     if test "x$cross_compiling" = xno; then :
+if { as_var=icon_cv_have_cdi_`$as_echo "$icon_cdi_format_name" | $as_tr_sh`; eval \${$as_var+:} false; }; then :
+  $as_echo_n "(cached) " >&6
+else
+  eval "icon_cv_have_cdi_`$as_echo "$icon_cdi_format_name" | $as_tr_sh`=unknown"
+        icon_cdi_format_ID=`echo "$icon_cdi_format" | cut -d: -f2`
+        if test "x$cross_compiling" = xno; then :
   cat > conftest.$ac_ext <<_ACEOF
       program main
 
@@ -7221,35 +7390,41 @@ if ac_fn_fc_try_link "$LINENO"; then :
   icon_exec_result=`./conftest$ac_exeext 2>/dev/null`
             if test $? -eq 0; then :
   if test $icon_exec_result -eq 1; then :
-  icon_cdi_format_result=yes
+  eval "icon_cv_have_cdi_`$as_echo "$icon_cdi_format_name" | $as_tr_sh`=yes"
 else
-  icon_cdi_format_result=no
+  eval "icon_cv_have_cdi_`$as_echo "$icon_cdi_format_name" | $as_tr_sh`=no"
 fi
 fi
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 fi
-     { $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_cdi_format_result" >&5
-$as_echo "$icon_cdi_format_result" >&6; }
-     if test x"$icon_cdi_format_result" = xno; then :
+fi
+eval ac_res=\$icon_cv_have_cdi_`$as_echo "$icon_cdi_format_name" | $as_tr_sh`
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+     if test x"`eval 'as_val=${'icon_cv_have_cdi_\`$as_echo "$icon_cdi_format_name" | $as_tr_sh\`'};$as_echo "$as_val"'`" = xno; then :
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "the provided version of CDI does not support $icon_cdi_format_name: use the bundled version of CDI library (--without-external-cdi)
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
-elif test x"$icon_cdi_format_result" = xunknown; then :
+elif test x"`eval 'as_val=${'icon_cv_have_cdi_\`$as_echo "$icon_cdi_format_name" | $as_tr_sh\`'};$as_echo "$as_val"'`" = xunknown; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: unable to check whether the provided version of CDI supports $icon_cdi_format_name" >&5
 $as_echo "$as_me: WARNING: unable to check whether the provided version of CDI supports $icon_cdi_format_name" >&2;}
 fi
-   done
+        done
    if test "x$enable_cdi_pio" = xyes; then :
   if test "x$with_external_yaxt" = xno; then :
-  as_fn_error $? "unsupported combination of the configure options: you are trying to configure with the parallel features of an external CDI library and the bundled YAXT library: either disable the parallel features of CDI (--disable-cdi-pio) or use the bundled version of CDI library (--without-external-cdi), or provide the version of YAXT library (--with-external-yaxt) that the provided CDI library has been built with by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
+  as_fn_error $? "unsupported combination of the configure options: you are trying to configure with the parallel features of an external CDI library and the bundled YAXT library: either disable usage of the parallel features of CDI (--disable-cdi-pio) or use the bundled version of CDI library (--without-external-cdi), or provide the version of YAXT library (--with-external-yaxt) that the provided CDI library has been built with by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
 fi
-      { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran interface of CDI-PIO library is available" >&5
-$as_echo_n "checking whether the Fortran interface of CDI-PIO library is available... " >&6; }
-      cat > conftest.$ac_ext <<_ACEOF
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran 77 parallel I/O interface of CDI library is available" >&5
+$as_echo_n "checking whether the Fortran 77 parallel I/O interface of CDI library is available... " >&6; }
+if ${icon_cv_have_cdi_parallel+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  icon_cv_have_cdi_parallel=no
+         cat > conftest.$ac_ext <<_ACEOF
       program main
 
       use yaxt, only: xt_idxlist
@@ -7268,19 +7443,20 @@ $as_echo_n "checking whether the Fortran interface of CDI-PIO library is availab
       end
 _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-         { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using the Fortran interface of CDI-PIO library: either disable usage of the parallel features of CDI (--disable-cdi-pio) or set FCFLAGS, LDFLAGS and LIBS accordingly
-See \`config.log' for more details
-${icon_usr_note}" "$LINENO" 5; }
+  icon_cv_have_cdi_parallel=yes
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_cv_have_cdi_parallel" >&5
+$as_echo "$icon_cv_have_cdi_parallel" >&6; }
+      if test "x$icon_cv_have_cdi_parallel" = xno; then :
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to link a test program using the Fortran 77 parallel I/O interface of CDI library: either disable usage of the parallel features of CDI (--disable-cdi-pio) or set FCFLAGS, LDFLAGS and LIBS accordingly
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
+fi
 fi
 else
     if test "x$enable_cdi_pio" = xyes; then :
@@ -7311,35 +7487,37 @@ fi
            -prefix=*|--prefix=*|--prefi=*|--pref=*|--pre=*|--pr=*|--p=*| \
            --disable-option-checking) :
      ;; #(
-  BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*|MPI_LAUNCH=*|F77=*|CXX=*) :
-     ;; #(
-  -enable-static|-enable-static=*|--enable-static|--enable-static=*|-disable-static|--disable-static) :
-     ;; #(
-  -enable-shared|-enable-shared=*|--enable-shared|--enable-shared=*|-disable-shared|--disable-shared) :
-     ;; #(
-  -enable-maintainer-mode|-enable-maintainer-mode=*|--enable-maintainer-mode|--enable-maintainer-mode=*|-disable-maintainer-mode|--disable-maintainer-mode) :
+  BUILD_*=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*|F77=*|CXX=*|MPI_LAUNCH=*) :
      ;; #(
   -enable-silent-rules|-enable-silent-rules=*|--enable-silent-rules|--enable-silent-rules=*|-disable-silent-rules|--disable-silent-rules) :
+     ;; #(
+  -enable-maintainer-mode|-enable-maintainer-mode=*|--enable-maintainer-mode|--enable-maintainer-mode=*|-disable-maintainer-mode|--disable-maintainer-mode) :
      ;; #(
   -enable-iso-c-interface|-enable-iso-c-interface=*|--enable-iso-c-interface|--enable-iso-c-interface=*|-disable-iso-c-interface|--disable-iso-c-interface) :
      ;; #(
   -enable-cf-interface|-enable-cf-interface=*|--enable-cf-interface|--enable-cf-interface=*|-disable-cf-interface|--disable-cf-interface) :
      ;; #(
-  -enable-cdi-app|-enable-cdi-app=*|--enable-cdi-app|--enable-cdi-app=*|-disable-cdi-app|--disable-cdi-app) :
+  -enable-shared|-enable-shared=*|--enable-shared|--enable-shared=*|-disable-shared|--disable-shared) :
+     ;; #(
+  -enable-static|-enable-static=*|--enable-static|--enable-static=*|-disable-static|--disable-static) :
      ;; #(
   -enable-grib|-enable-grib=*|--enable-grib|--enable-grib=*|-disable-grib|--disable-grib) :
      ;; #(
   -enable-cgribex|-enable-cgribex=*|--enable-cgribex|--enable-cgribex=*|-disable-cgribex|--disable-cgribex) :
      ;; #(
+  -enable-cdi-app|-enable-cdi-app=*|--enable-cdi-app|--enable-cdi-app=*|-disable-cdi-app|--disable-cdi-app) :
+     ;; #(
   -enable-mpi|-enable-mpi=*|--enable-mpi|--enable-mpi=*|-disable-mpi|--disable-mpi) :
-     ;; #(
-  -with-grib_api|-with-grib_api=*|--with-grib_api|--with-grib_api=*|-without-grib_api|--without-grib_api) :
-     ;; #(
-  -with-eccodes|-with-eccodes=*|--with-eccodes|--with-eccodes=*|-without-eccodes|--without-eccodes) :
      ;; #(
   -with-threads|-with-threads=*|--with-threads|--with-threads=*|-without-threads|--without-threads) :
      ;; #(
+  -with-szlib|-with-szlib=*|--with-szlib|--with-szlib=*|-without-szlib|--without-szlib) :
+     ;; #(
   -with-netcdf|-with-netcdf=*|--with-netcdf|--with-netcdf=*|-without-netcdf|--without-netcdf) :
+     ;; #(
+  -with-eccodes|-with-eccodes=*|--with-eccodes|--with-eccodes=*|-without-eccodes|--without-eccodes) :
+     ;; #(
+  -with-grib_api|-with-grib_api=*|--with-grib_api|--with-grib_api=*|-without-grib_api|--without-grib_api) :
      ;; #(
   *) :
 
@@ -7355,7 +7533,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-         set dummy CFLAGS="$subdir_CFLAGS $ICON_CDI_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_CDI_FCFLAGS" --enable-static --disable-shared --disable-maintainer-mode --enable-silent-rules="$enable_silent_rules" --enable-iso-c-interface --disable-cf-interface --disable-cdi-app --enable-grib --enable-cgribex --disable-mpi --with-grib_api="$enable_grib2" --without-eccodes --without-threads --with-netcdf acx_cv_have_netcdf2=yes acx_cv_have_netcdf4=yes acx_cv_have_libnc_dap=no acx_cv_have_nc4hdf5=no ac_cv_lib_uuid_uuid_generate=no ac_cv_func_uuid_create=no F77=no CXX=no MPI_LAUNCH="$MPI_LAUNCH" ; shift
+         set dummy CFLAGS="$subdir_CFLAGS $ICON_CDI_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_CDI_FCFLAGS" F77=no CXX=no MPI_LAUNCH="$MPI_LAUNCH" BUILD_CFLAGS= BUILD_FCFLAGS= BUILD_LDFLAGS= BUILD_LIBS= BUILD_CXX=no BUILD_F77=no --enable-silent-rules="$enable_silent_rules" --disable-maintainer-mode --enable-iso-c-interface --disable-cf-interface --disable-shared --enable-static --enable-grib --enable-cgribex --disable-cdi-app --disable-mpi --without-threads --without-szlib --with-netcdf --without-eccodes --with-grib_api="$enable_grib2" acx_cv_have_netcdf2=yes acx_cv_have_netcdf4=yes acx_cv_have_libnc_dap=no acx_cv_have_nc4hdf5=no ac_cv_lib_uuid_uuid_generate=no ac_cv_func_uuid_create=no ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -7366,6 +7544,7 @@ esac
         as_fn_append acx_config_subdir_args_externals_cdi " '$acx_config_subdir_arg'"
       done
       as_fn_append subdirs_extra " externals/cdi"
+   { BUILD_CC=; unset BUILD_CC;}; { BUILD_FC=; unset BUILD_FC;}
    as_fn_append bundled_includes "${FC_MOD_IN}externals/cdi/src "
    BUNDLED_LIBFILES="externals/cdi/src/.libs/libcdi_f2003.a externals/cdi/src/.libs/libcdi.a $BUNDLED_LIBFILES"
 fi
@@ -7373,7 +7552,11 @@ fi
 if test x"$enable_serialization" != xno; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran interface of SERIALBOX2 library is available" >&5
 $as_echo_n "checking whether the Fortran interface of SERIALBOX2 library is available... " >&6; }
-   cat > conftest.$ac_ext <<_ACEOF
+if ${icon_cv_have_serialbox2+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  icon_cv_have_serialbox2=no
+      cat > conftest.$ac_ext <<_ACEOF
       program main
 
       use utils_ppser, only: ppser_set_mode
@@ -7382,25 +7565,30 @@ $as_echo_n "checking whether the Fortran interface of SERIALBOX2 library is avai
       end
 _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-      { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+  icon_cv_have_serialbox2=yes
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_cv_have_serialbox2" >&5
+$as_echo "$icon_cv_have_serialbox2" >&6; }
+   if test "x$icon_cv_have_serialbox2" = xno; then :
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to link a test program using the Fortrain interface of SERIALBOX2 library: either disable the serialization (--disable-serialization) or set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
 fi
 
 if test "x$with_external_mtime" = xyes; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran interface of MTIME library is available" >&5
 $as_echo_n "checking whether the Fortran interface of MTIME library is available... " >&6; }
-   cat > conftest.$ac_ext <<_ACEOF
+if ${icon_cv_have_mtime+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  icon_cv_have_mtime=no
+      cat > conftest.$ac_ext <<_ACEOF
       program main
 
       use mtime, only: max_date_str_len, date, &
@@ -7413,19 +7601,20 @@ $as_echo_n "checking whether the Fortran interface of MTIME library is available
       end
 _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-      { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+  icon_cv_have_mtime=yes
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_cv_have_mtime" >&5
+$as_echo "$icon_cv_have_mtime" >&6; }
+   if test "x$icon_cv_have_mtime" = xno; then :
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to link a test program using the Fortran interface of MTIME library: either use the bundled version of MTIME (--without-external-mtime) or set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
 else
     icon_subdir_srcdir="$srcdir/externals/mtime"
    icon_subdir_unique_file="include/mtime_calendar.h"
@@ -7502,7 +7691,11 @@ if test "x$enable_coupling" = xyes; then :
 fi
       { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran interface of YAC library is available" >&5
 $as_echo_n "checking whether the Fortran interface of YAC library is available... " >&6; }
-      cat > conftest.$ac_ext <<_ACEOF
+if ${icon_cv_have_yac+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  icon_cv_have_yac=no
+         cat > conftest.$ac_ext <<_ACEOF
       program main
 
       use mo_yac_finterface, only: yac_finit
@@ -7512,66 +7705,32 @@ $as_echo_n "checking whether the Fortran interface of YAC library is available..
       end
 _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-         { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+  icon_cv_have_yac=yes
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_cv_have_yac" >&5
+$as_echo "$icon_cv_have_yac" >&6; }
+      if test "x$icon_cv_have_yac" = xno; then :
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to link a test program using the Fortran interface of YAC library: either disable the coupling (--disable-coupling) or use the bundled version of YAC library (--without-external-yac), or set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
 else
-  icon_subdir_srcdir="$srcdir/externals/yac"
+       icon_subdir_srcdir="$srcdir/externals/yac"
       icon_subdir_unique_file="src/grid.c"
       if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
   as_fn_error $? "unable to find sources of the bundled version of YAC library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable the coupling (--disable-coupling) or provide an external version of YAC library (--with-external-yac) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
 fi
-      yac_MTIME_CFLAGS= ; yac_MTIME_CLIBS=
-      if test "x$with_external_mtime" = xno; then :
-           ac_builddir=.
-
-case . in
-.) ac_dir_suffix= ac_top_builddir_sub=. ac_top_build_prefix= ;;
-*)
-  ac_dir_suffix=/`$as_echo . | sed 's|^\.[\\/]||'`
-  # A ".." for each directory in $ac_dir_suffix.
-  ac_top_builddir_sub=`$as_echo "$ac_dir_suffix" | sed 's|/[^\\/]*|/..|g;s|/||'`
-  case $ac_top_builddir_sub in
-  "") ac_top_builddir_sub=. ac_top_build_prefix= ;;
-  *)  ac_top_build_prefix=$ac_top_builddir_sub/ ;;
-  esac ;;
-esac
-ac_abs_top_builddir=$ac_pwd
-ac_abs_builddir=$ac_pwd$ac_dir_suffix
-# for backward compatibility:
-ac_top_builddir=$ac_top_build_prefix
-
-case $srcdir in
-  .)  # We are building in place.
-    ac_srcdir=.
-    ac_top_srcdir=$ac_top_builddir_sub
-    ac_abs_top_srcdir=$ac_pwd ;;
-  [\\/]* | ?:[\\/]* )  # Absolute name.
-    ac_srcdir=$srcdir$ac_dir_suffix;
-    ac_top_srcdir=$srcdir
-    ac_abs_top_srcdir=$srcdir ;;
-  *) # Relative name.
-    ac_srcdir=$ac_top_build_prefix$srcdir$ac_dir_suffix
-    ac_top_srcdir=$ac_top_build_prefix$srcdir
-    ac_abs_top_srcdir=$ac_pwd/$srcdir ;;
-esac
-ac_abs_srcdir=$ac_abs_top_srcdir$ac_dir_suffix
-
-         yac_MTIME_CFLAGS="-I${ac_abs_top_srcdir}/externals/mtime/include"
-         yac_MTIME_CLIBS="${ac_abs_top_builddir}/externals/mtime/src/.libs/libmtime.a"
-fi
             ICON_YAC_FCFLAGS=${ICON_YAC_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
             ICON_YAC_CFLAGS=${ICON_YAC_CFLAGS-$ICON_BUNDLED_CFLAGS}
+      yac_MTIME_CFLAGS=
+      if test "x$with_external_mtime" = xno; then :
+  yac_MTIME_CFLAGS="-I${icon_abs_top_srcdir}/externals/mtime/include"
+fi
             acx_config_subdir_args_externals_yac=
    acx_config_subdir_ignore_arg=no
    eval "set dummy $ac_configure_args"; shift
@@ -7598,9 +7757,9 @@ fi
      ;; #(
   MPI_FCFLAGS=*|MPI_FCLIBS=*|FORTRAN_LAPACK_CLIBS=*) :
      ;; #(
-  -enable-maintainer-mode|-enable-maintainer-mode=*|--enable-maintainer-mode|--enable-maintainer-mode=*|-disable-maintainer-mode|--disable-maintainer-mode) :
-     ;; #(
   -enable-silent-rules|-enable-silent-rules=*|--enable-silent-rules|--enable-silent-rules=*|-disable-silent-rules|--disable-silent-rules) :
+     ;; #(
+  -enable-maintainer-mode|-enable-maintainer-mode=*|--enable-maintainer-mode|--enable-maintainer-mode=*|-disable-maintainer-mode|--disable-maintainer-mode) :
      ;; #(
   -enable-lib-only|-enable-lib-only=*|--enable-lib-only|--enable-lib-only=*|-disable-lib-only|--disable-lib-only) :
      ;; #(
@@ -7630,7 +7789,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-         set dummy CFLAGS="$subdir_CFLAGS $ICON_YAC_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_YAC_FCFLAGS" MTIME_CFLAGS="$yac_MTIME_CFLAGS" MTIME_CLIBS= NETCDF_CFLAGS= NETCDF_CLIBS= XML2_CFLAGS= XML2_CLIBS= MPI_CFLAGS= MPI_CLIBS= MPI_FCFLAGS= MPI_FCLIBS= FORTRAN_LAPACK_CLIBS= --disable-maintainer-mode --enable-silent-rules="$enable_silent_rules" --enable-lib-only --enable-xml --enable-netcdf --enable-mpi="$enable_mpi" --with-external-lapack=fortran --with-external-mtime --enable-mpi-checks="$enable_mpi_checks" acx_cv_c_lib_func_datetimeToString="$yac_MTIME_CLIBS" ; shift
+         set dummy CFLAGS="$subdir_CFLAGS $ICON_YAC_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_YAC_FCFLAGS" MTIME_CFLAGS="$yac_MTIME_CFLAGS" MTIME_CLIBS= NETCDF_CFLAGS= NETCDF_CLIBS= XML2_CFLAGS= XML2_CLIBS= MPI_CFLAGS= MPI_CLIBS= MPI_FCFLAGS= MPI_FCLIBS= FORTRAN_LAPACK_CLIBS= --enable-silent-rules="$enable_silent_rules" --disable-maintainer-mode --enable-lib-only --enable-xml --enable-netcdf --enable-mpi="$enable_mpi" --enable-mpi-checks="$enable_mpi_checks" --with-external-lapack=fortran --with-external-mtime ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -7654,6 +7813,19 @@ esac
       done
 
 fi
+      if test "x$with_external_mtime" = xno; then :
+        set dummy acx_cv_c_lib_func_datetimeToString="${icon_abs_top_builddir}/externals/mtime/src/.libs/libmtime.a" ; shift
+      for acx_config_subdir_arg; do
+        case $acx_config_subdir_arg in #(
+  *\'*) :
+    acx_config_subdir_arg=`$as_echo "$acx_config_subdir_arg" | sed "s/'/'\\\\\\\\''/g"` ;; #(
+  *) :
+     ;;
+esac
+        as_fn_append acx_config_subdir_args_externals_yac " '$acx_config_subdir_arg'"
+      done
+
+fi
       as_fn_append bundled_includes "${FC_MOD_IN}externals/yac/src "
       BUNDLED_LIBFILES="externals/yac/src/libyac.a $BUNDLED_LIBFILES"
 fi
@@ -7663,7 +7835,11 @@ if test "x$enable_art" = xyes; then :
   if test "x$with_external_tixi" = xyes; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran interface of TIXI library is available" >&5
 $as_echo_n "checking whether the Fortran interface of TIXI library is available... " >&6; }
-      cat > conftest.$ac_ext <<_ACEOF
+if ${icon_cv_have_tixi+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  icon_cv_have_tixi=no
+         cat > conftest.$ac_ext <<_ACEOF
       program main
 
       use tixi, only: tixiOpenDocument
@@ -7674,21 +7850,22 @@ $as_echo_n "checking whether the Fortran interface of TIXI library is available.
       end
 _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-         { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+  icon_cv_have_tixi=yes
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_cv_have_tixi" >&5
+$as_echo "$icon_cv_have_tixi" >&6; }
+      if test "x$icon_cv_have_tixi" = xno; then :
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to link a test program using the Fortran interface of TIXI library: either disable the aerosols and reactive trace component (--disable-art) or use the bundled version of TIXI library (--without-external-tixi), or set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
 else
-  icon_subdir_srcdir="$srcdir/externals/tixi"
+       icon_subdir_srcdir="$srcdir/externals/tixi"
       icon_subdir_unique_file="src/tixi.f90"
       if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
   as_fn_error $? "unable to find sources of the bundled version of TIXI library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable the aerosols and reactive trace component (--disable-art) or provide an external version of TIXI library (--with-external-tixi) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
@@ -7751,10 +7928,6 @@ esac
 fi
 fi
 
-if test -n "$bundled_includes"; then :
-  FCFLAGS="${bundled_includes}${FCFLAGS}"
-fi
-
 if test "x$enable_gpu" = xyes; then :
   if test "x$with_external_cub" = xyes; then :
   ac_ext=cu
@@ -7789,6 +7962,12 @@ fi
       as_fn_append NVCFLAGS " -I${srcdir}/externals/cub"
 fi
 fi
+
+if test -n "$bundled_includes"; then :
+  FCFLAGS="${bundled_includes}${FCFLAGS}"
+fi
+
+
 
 ##################### PREPROCESSORS AND AUXILIARY COMMANDS #####################
 
@@ -7969,7 +8148,7 @@ fi
    if ${acx_cv_prog_AR+:} false; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_prog_AR" >&5
 $as_echo "$acx_cv_prog_AR" >&6; }
-      AR=$acx_candidate
+      AR=$acx_cv_prog_AR
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: unknown" >&5
 $as_echo "unknown" >&6; }
@@ -8101,7 +8280,7 @@ fi
    if ${acx_cv_prog_PYTHON+:} false; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_prog_PYTHON" >&5
 $as_echo "$acx_cv_prog_PYTHON" >&6; }
-      PYTHON=$acx_candidate
+      PYTHON=$acx_cv_prog_PYTHON
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: unknown" >&5
 $as_echo "unknown" >&6; }
@@ -8142,7 +8321,7 @@ fi
    if ${acx_cv_prog_PERL+:} false; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_prog_PERL" >&5
 $as_echo "$acx_cv_prog_PERL" >&6; }
-      PERL=$acx_candidate
+      PERL=$acx_cv_prog_PERL
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: unknown" >&5
 $as_echo "unknown" >&6; }
@@ -8626,40 +8805,56 @@ fi
                $as_echo "$as_me:${as_lineno-$LINENO}: ===" >&5
 fi
 fi
-case " $subdirs_extra " in #(
+   case " $subdirs_extra " in #(
   *' externals/sct '*) :
+         { $as_echo "$as_me:${as_lineno-$LINENO}: checking for extra linker flags needed to link the bundled SCT library" >&5
+$as_echo_n "checking for extra linker flags needed to link the bundled SCT library... " >&6; }
+      if ${icon_cv_SCT_extra_libs+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  icon_cv_SCT_extra_libs=
          case " $LIBS " in #(
   *' -lrt '*) :
      ;; #(
   *) :
-            acx_exec_result=`$as_echo @LIBS@ | "externals/sct/config.status" -q --file=- 2>/dev/null`
+               acx_exec_result=`$as_echo @LIBS@ | "externals/sct/config.status" -q --file=- 2>/dev/null`
    if test $? -eq 0; then :
-  sct_LIBS=$acx_exec_result
+  icon_sct_LIBS=$acx_exec_result
 else
   as_fn_error $? "unable to run 'externals/sct/config.status'" "$LINENO" 5
 fi
-         case " $sct_LIBS " in #(
-  *' -lrt '*) :
-               LIBS="-lrt $LIBS" ;; #(
+            case " $icon_sct_LIBS " in #(
+                *' -lrt '*) :
+    icon_cv_SCT_extra_libs='-lrt' ;; #(
   *) :
      ;;
 esac ;;
 esac
-      if test "x$enable_openmp" = xyes; then :
+         if test "x$enable_openmp" = xyes; then :
   acx_exec_result=`$as_echo @OPENMP_FC_C_FLAGS@ | "externals/sct/config.status" -q --file=- 2>/dev/null`
    if test $? -eq 0; then :
   sct_OPENMP_FC_C_FLAGS=$acx_exec_result
 else
   as_fn_error $? "unable to run 'externals/sct/config.status'" "$LINENO" 5
 fi
-         if test -n "$sct_OPENMP_FC_C_FLAGS"; then :
+            if test -n "$sct_OPENMP_FC_C_FLAGS"; then :
   case " $FC $FCFLAGS $ICON_FCFLAGS $LDFLAGS $LIBS " in #(
-                *" $sct_OPENMP_FC_C_FLAGS "*) :
+                   *" $sct_OPENMP_FC_C_FLAGS "*) :
      ;; #(
   *) :
-                  LIBS="$sct_OPENMP_FC_C_FLAGS $LIBS" ;;
+                     icon_cv_SCT_extra_libs="$sct_OPENMP_FC_C_FLAGS${icon_cv_SCT_extra_libs:+ $icon_cv_SCT_extra_libs}" ;;
 esac
 fi
+fi
+fi
+
+      if ${icon_cv_SCT_extra_libs:+false} :; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: none needed" >&5
+$as_echo "none needed" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_cv_SCT_extra_libs" >&5
+$as_echo "$icon_cv_SCT_extra_libs" >&6; }
+         LIBS="$icon_cv_SCT_extra_libs $LIBS"
 fi ;; #(
   *) :
      ;;
