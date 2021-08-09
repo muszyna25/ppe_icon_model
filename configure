@@ -587,7 +587,11 @@ LIBOBJS
 MPI_LAUNCH
 SB2PP
 FPP
+CLAW_MOD_IN
+CLAW_MOD_OUT
 DEPGEN_CLAWFLAGS
+CLAW_OLD_DRIVER_ENABLED
+CLAW_NEW_DRIVER_ENABLED
 CLAWFLAGS
 CLAW
 PERL
@@ -8154,6 +8158,10 @@ ${icon_usr_note}" "$LINENO" 5; }
 fi
 
 
+CLAW_NEW_DRIVER_ENABLED='#'
+
+CLAW_OLD_DRIVER_ENABLED='#'
+
 DEPGEN_CLAWFLAGS='-D_CLAW'
 
 if test x"$enable_claw" != xno; then :
@@ -8172,9 +8180,6 @@ fi
 else
   as_fn_append CLAWFLAGS ' --target=cpu --directive=none'
 fi
-   if test "x$enable_jsbach" = xyes; then :
-  as_fn_append CLAWFLAGS " --model-config=$srcdir/externals/jsbach/config/icon_jsbach.toml"
-fi
    if test "x$enable_claw" = xvalidate; then :
   if test "x$enable_serialization" = xno; then :
   as_fn_error $? "unsupported combination of the configure options: you are trying to configure with CLAW preprocessing in VALIDATE mode but the Serialbox2 serialization is disabled: either enable CLAW preprocessing in a different mode (--enable-claw=std) or enable the Serialbox2 serialization (--enable-serialization)" "$LINENO" 5
@@ -8186,40 +8191,325 @@ else
         as_fn_append CLAWFLAGS ' -x=sca_serialization_enabled:false'
       as_fn_append CLAWFLAGS ' -x=sca_forward_update_enabled:false'
 fi
+            if test -z "$CLAW"; then :
+  for ac_prog in clawfc
+do
+  # Extract the first word of "$ac_prog", so it can be a program name with args.
+set dummy $ac_prog; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_prog_CLAW+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test -n "$CLAW"; then
+  ac_cv_prog_CLAW="$CLAW" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_prog_CLAW="$ac_prog"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
 
-   { $as_echo "$as_me:${as_lineno-$LINENO}: checking for CLAW preprocessor command" >&5
-$as_echo_n "checking for CLAW preprocessor command... " >&6; }
-   icon_claw_result=unknown
-   CLAW=${CLAW-'clawfc'}
-   as_dir=conftest.dir; as_fn_mkdir_p
-   cd conftest.dir
-   cat > conftest.$ac_ext <<_ACEOF
+fi
+fi
+CLAW=$ac_cv_prog_CLAW
+if test -n "$CLAW"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $CLAW" >&5
+$as_echo "$CLAW" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+  test -n "$CLAW" && break
+done
+
+fi
+   $as_echo "$as_me:${as_lineno-$LINENO}: checking for CLAW preprocessor version" >&5
+   set dummy $CLAW
+   acx_tmp=$2
+   { { ac_try="$acx_tmp --version >&5"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:${as_lineno-$LINENO}: $ac_try_echo\""
+$as_echo "$ac_try_echo"; } >&5
+  (eval "$acx_tmp --version >&5") 2>conftest.err
+  ac_status=$?
+  if test -s conftest.err; then
+    sed '10a\
+... rest of stderr output deleted ...
+         10q' conftest.err >conftest.er1
+    cat conftest.er1 >&5
+  fi
+  rm -f conftest.er1 conftest.err
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }
+   if ${acx_cv_prog_clawfc_works+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  acx_cv_prog_clawfc_works=no
+      as_dir=conftest.dir; as_fn_mkdir_p
+      cd conftest.dir
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the CLAW preprocessor works" >&5
+$as_echo_n "checking whether the CLAW preprocessor works... " >&6; }
+      ac_ext=${ac_fc_srcext-f}
+ac_compile='$FC -c $FCFLAGS $ICON_FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
+ac_link='$FC -o conftest$ac_exeext $FCFLAGS $ICON_FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_fc_compiler_gnu
+
+      cat > conftest.$ac_ext <<_ACEOF
       module conftest_module
       end module
 _ACEOF
-   icon_prog_try='$CLAW -f -o conftest.claw.$ac_ext conftest.$ac_ext'
-   { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$icon_prog_try\""; } >&5
-  (eval $icon_prog_try) 2>&5
+      { ac_try='$CLAW -f -o conftest.claw.$ac_ext $CLAWFLAGS conftest.$ac_ext >&5'
+  { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$ac_try\""; } >&5
+  (eval $ac_try) 2>&5
   ac_status=$?
   $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
-  test $ac_status = 0; }
-   if test $ac_status -eq 0 && test -f conftest.claw.$ac_ext && test -f conftest_module.xmod; then :
-  mv conftest.claw.$ac_ext conftest.$ac_ext
-      if ac_fn_fc_try_compile "$LINENO"; then :
-  icon_claw_result=$CLAW
+  test $ac_status = 0; }; }
+      if test $ac_status -eq 0 && test -f conftest.claw.$ac_ext; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+         { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether $FC can compile code produced by $CLAW" >&5
+$as_echo_n "checking whether $FC can compile code produced by $CLAW... " >&6; }
+         mv conftest.claw.$ac_ext conftest.$ac_ext
+         if ac_fn_fc_try_compile "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+            acx_cv_prog_clawfc_works=yes
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
 fi
 rm -f core conftest.err conftest.$ac_objext
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
 fi
-   cd ..
-   rm -rf conftest.dir
-   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_claw_result" >&5
-$as_echo "$icon_claw_result" >&6; }
-   if test "x$icon_claw_result" = xunknown; then :
+      ac_ext=${ac_fc_srcext-f}
+ac_compile='$FC -c $FCFLAGS $ICON_FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
+ac_link='$FC -o conftest$ac_exeext $FCFLAGS $ICON_FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_fc_compiler_gnu
+
+      cd ..
+      rm -rf conftest.dir
+fi
+
+   if test "x$acx_cv_prog_clawfc_works" = xno; then :
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to find a valid CLAW preprocessor command: either disable CLAW preprocessing (--disable-claw) or set CLAW accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
+fi
+         { $as_echo "$as_me:${as_lineno-$LINENO}: checking for CLAW preprocessor flag needed to specify output path for module files" >&5
+$as_echo_n "checking for CLAW preprocessor flag needed to specify output path for module files... " >&6; }
+if ${acx_cv_claw_module_out_flag+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  acx_cv_claw_module_out_flag=unknown
+      as_dir=conftest.dir/sub; as_fn_mkdir_p
+      cd conftest.dir
+      cat > conftest.$ac_ext <<_ACEOF
+      module conftest_module
+      implicit none
+      public
+      contains
+      subroutine conftest_routine
+      end subroutine
+      end module
+_ACEOF
+      for acx_flag in '-MO ' -J; do
+        { ac_try='$CLAW -f -o conftest.claw.$ac_ext ${acx_flag}sub $CLAWFLAGS conftest.$ac_ext >&5'
+  { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$ac_try\""; } >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; }
+        { ac_try='test -f sub/conftest_module.xmod'
+  { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$ac_try\""; } >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; }
+        if test $ac_status -eq 0; then :
+  acx_cv_claw_module_out_flag=$acx_flag
+           break
+fi
+      done
+      cd ..
+      rm -rf conftest.dir
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_claw_module_out_flag" >&5
+$as_echo "$acx_cv_claw_module_out_flag" >&6; }
+   if test "x$acx_cv_claw_module_out_flag" = xunknown; then :
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to detect CLAW preprocessor flag needed to specify output path for module files
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
+else
+  CLAW_MOD_OUT=$acx_cv_claw_module_out_flag
+
+fi
+            { $as_echo "$as_me:${as_lineno-$LINENO}: checking for CLAW preprocessor flag needed to specify search paths for module files" >&5
+$as_echo_n "checking for CLAW preprocessor flag needed to specify search paths for module files... " >&6; }
+if ${acx_cv_claw_module_in_flag+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  acx_cv_claw_module_in_flag=unknown
+      as_dir=conftest.dir/sub; as_fn_mkdir_p
+      cd conftest.dir
+      cat > conftest.$ac_ext <<_ACEOF
+      module conftest_module
+      implicit none
+      public
+      contains
+      subroutine conftest_routine
+      end subroutine
+      end module
+_ACEOF
+      { ac_try='$CLAW -f -o conftest.claw.$ac_ext ${acx_cv_claw_module_out_flag}sub $CLAWFLAGS conftest.$ac_ext >&5'
+  { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$ac_try\""; } >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; }
+      if test $ac_status -eq 0; then :
+  rm -f conftest.claw.$ac_ext
+         cat > conftest.$ac_ext <<_ACEOF
+      program main
+      use conftest_module, only : conftest_routine
+      implicit none
+      call conftest_routine()
+      end
+_ACEOF
+         for acx_flag in -M -I; do
+           { ac_try='$CLAW -f --no-dep -o conftest.claw.$ac_ext ${acx_flag}sub ${acx_flag}sub $CLAWFLAGS conftest.$ac_ext >&5'
+  { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$ac_try\""; } >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; }
+           if test $ac_status -eq 0 && test -n "`cat conftest.claw.$ac_ext`"; then :
+  acx_cv_claw_module_in_flag=$acx_flag
+              break
+fi
+         done
+fi
+      cd ..
+      rm -rf conftest.dir
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_claw_module_in_flag" >&5
+$as_echo "$acx_cv_claw_module_in_flag" >&6; }
+   if test "x$acx_cv_claw_module_in_flag" = xunknown; then :
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to detect CLAW preprocessor flag needed to specify search paths for module files
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
+else
+  CLAW_MOD_IN=$acx_cv_claw_module_in_flag
+
+fi
+            { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the CLAW preprocessor supports the explicit module file extraction" >&5
+$as_echo_n "checking whether the CLAW preprocessor supports the explicit module file extraction... " >&6; }
+if ${acx_cv_claw_supports_module_gen+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  acx_cv_claw_supports_module_gen=no
+      as_dir=conftest.dir/sub; as_fn_mkdir_p
+      cd conftest.dir
+      cat > conftest.$ac_ext <<_ACEOF
+      module conftest_module
+      implicit none
+      public
+      contains
+      subroutine conftest_routine
+      character(len=:), pointer :: ptr
+      character(len=1), target :: dummy
+      dummy = ' '
+      ptr => dummy(1:0)
+      end subroutine
+      end module
+_ACEOF
+      { ac_try='$CLAW -f -o conftest.claw.$ac_ext --gen-mod-files ${acx_cv_claw_module_out_flag}sub $CLAWFLAGS conftest.$ac_ext >&5'
+  { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$ac_try\""; } >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; }
+      { ac_try='test -f sub/conftest_module.xmod'
+  { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$ac_try\""; } >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; }
+      if test $ac_status -eq 0; then :
+  acx_cv_claw_supports_module_gen=yes
+fi
+      cd ..
+      rm -rf conftest.dir
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_claw_supports_module_gen" >&5
+$as_echo "$acx_cv_claw_supports_module_gen" >&6; }
+   if test "x$acx_cv_claw_supports_module_gen" = xyes; then :
+       CLAW_NEW_DRIVER_ENABLED=
+      if test x"$FC_VENDOR" != xunknown; then :
+  icon_vendor_CLAWFLAGS="--fc-vendor=$FC_VENDOR --fc-cmd=$FC"
+               { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether $CLAW accepts $icon_vendor_CLAWFLAGS" >&5
+$as_echo_n "checking whether $CLAW accepts $icon_vendor_CLAWFLAGS... " >&6; }
+   if ${icon_cv_claw_accepts_vendor+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  acx_claw_accepts=no
+   as_dir=conftest.dir; as_fn_mkdir_p
+   cd conftest.dir
+   cat > conftest.$ac_ext <<_ACEOF
+      program main
+
+      end
+_ACEOF
+   { ac_try='$CLAW -f -o conftest.claw.$ac_ext $CLAWFLAGS $icon_vendor_CLAWFLAGS conftest.$ac_ext >&5'
+  { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$ac_try\""; } >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; }
+   if test $ac_status -eq 0; then :
+  acx_claw_accepts=yes
+fi
+   cd ..
+   rm -rf conftest.dir
+         icon_cv_claw_accepts_vendor=$acx_claw_accepts
+fi
+
+      acx_claw_accepts=$icon_cv_claw_accepts_vendor
+   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_claw_accepts" >&5
+$as_echo "$acx_claw_accepts" >&6; }
+   if test "x$acx_claw_accepts" = xyes; then :
+  as_fn_append CLAWFLAGS " $icon_vendor_CLAWFLAGS"
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: unable to set the Fortran preprocessor command for the CLAW preprocessor: make sure $CLAW is built with $FC (vendor: $FC_VENDOR, version: $FC_VERSION)" >&5
+$as_echo "$as_me: WARNING: unable to set the Fortran preprocessor command for the CLAW preprocessor: make sure $CLAW is built with $FC (vendor: $FC_VENDOR, version: $FC_VERSION)" >&2;}
+fi
+fi
+else
+       CLAW_OLD_DRIVER_ENABLED=
+      { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: the provided CLAW preprocessor is of an old version, which might not be supported in the future versions of ICON: consider switching to version 2.1 or newer" >&5
+$as_echo "$as_me: WARNING: the provided CLAW preprocessor is of an old version, which might not be supported in the future versions of ICON: consider switching to version 2.1 or newer" >&2;}
 fi
    ac_config_files="$ac_config_files claw.mk"
 

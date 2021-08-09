@@ -1706,8 +1706,12 @@ ACX_PROG_SEARCH([PERL], [perl],
    test $ac_status -eq 0 || test $ac_status -eq 1],
   [PERL=$acx_candidate])
 
+dnl Override the descriptions of the variables set by ACX_PROG_CLAW:
 AC_ARG_VAR([CLAW], [CLAW preprocessor command (optional)])dnl
 AC_ARG_VAR([CLAWFLAGS], [CLAW preprocessor flags (optional)])dnl
+dnl We currently support the old CLAW driver:
+AC_SUBST([CLAW_NEW_DRIVER_ENABLED], ['#'])
+AC_SUBST([CLAW_OLD_DRIVER_ENABLED], ['#'])
 dnl Additional macro definitions to aid the dependency generator,
 dnl e.g. CLAW intrinsic macros:
 AC_SUBST([DEPGEN_CLAWFLAGS], ['-D_CLAW'])
@@ -1726,9 +1730,6 @@ dnl
      [AS_VAR_APPEND([CLAWFLAGS], [' --target=gpu --directive=acc'])
       AS_VAR_APPEND([DEPGEN_CLAWFLAGS], [' -D_OPENACC'])],
      [AS_VAR_APPEND([CLAWFLAGS], [' --target=cpu --directive=none'])])
-   AS_VAR_IF([enable_jsbach], [yes],
-     [AS_VAR_APPEND([CLAWFLAGS],
-        [" --model-config=$srcdir/externals/jsbach/config/icon_jsbach.toml"])])
    AS_VAR_IF([enable_claw], [validate],
      [AS_VAR_IF([enable_serialization], [no],
         [AC_MSG_ERROR([unsupported combination of the configure options: you dnl
@@ -1747,28 +1748,30 @@ dnl Disable serialization support and updates by kernel:
       AS_VAR_APPEND([CLAWFLAGS], [' -x=sca_serialization_enabled:false'])
       AS_VAR_APPEND([CLAWFLAGS], [' -x=sca_forward_update_enabled:false'])])
 dnl Check for CLAW:
-   AC_LANG_ASSERT([Fortran])
-   AC_MSG_CHECKING([for CLAW preprocessor command])
-   icon_claw_result=unknown
-   CLAW=${CLAW-'clawfc'}
-   AS_MKDIR_P([conftest.dir])
-   cd conftest.dir
-   AC_LANG_CONFTEST([AC_LANG_SOURCE(
-[[      module conftest_module
-      end module]])])
-   icon_prog_try='$CLAW -f -o conftest.claw.$ac_ext conftest.$ac_ext'
-   AC_TRY_EVAL([icon_prog_try])
-   AS_IF([test $ac_status -eq 0 && test -f conftest.claw.$ac_ext && dnl
-test -f conftest_module.xmod],
-     [mv conftest.claw.$ac_ext conftest.$ac_ext
-      AC_COMPILE_IFELSE([], [icon_claw_result=$CLAW])])
-   cd ..
-   rm -rf conftest.dir
-   AC_MSG_RESULT([$icon_claw_result])
-   AS_VAR_IF([icon_claw_result], [unknown],
+   ACX_PROG_CLAW
+   AS_VAR_IF([acx_cv_prog_clawfc_works], [no],
      [AC_MSG_FAILURE([unable to find a valid CLAW preprocessor command: dnl
 either disable CLAW preprocessing (--disable-claw) or set CLAW accordingly])])
-dnl
+   ACX_CLAW_MODULE_OUT_FLAG(
+     [AC_SUBST([CLAW_MOD_OUT], [$acx_cv_claw_module_out_flag])])
+   ACX_CLAW_MODULE_IN_FLAG(
+     [AC_SUBST([CLAW_MOD_IN], [$acx_cv_claw_module_in_flag])])
+   ACX_CLAW_MODULE_GEN(
+dnl The new CLAW driver is used:
+     [CLAW_NEW_DRIVER_ENABLED=
+      AS_IF([test x"$FC_VENDOR" != xunknown],
+        [icon_vendor_CLAWFLAGS="--fc-vendor=$FC_VENDOR --fc-cmd=$FC"
+         ACX_CLAW_ACCEPTS([$icon_vendor_CLAWFLAGS],
+           [AS_VAR_APPEND([CLAWFLAGS], [" $icon_vendor_CLAWFLAGS"])],
+           [AC_MSG_WARN([unable to set the Fortran preprocessor command for dnl
+the CLAW preprocessor: make sure $CLAW is built with $FC (vendor: dnl
+$FC_VENDOR, version: $FC_VERSION)])],
+           [icon_cv_claw_accepts_vendor])])],
+dnl The old CLAW driver is used:
+     [CLAW_OLD_DRIVER_ENABLED=
+      AC_MSG_WARN([the provided CLAW preprocessor is of an old version, dnl
+which might not be supported in the future versions of ICON: consider dnl
+switching to version 2.1 or newer])])
    AC_CONFIG_FILES([claw.mk])],
   [CLAW=])
 
