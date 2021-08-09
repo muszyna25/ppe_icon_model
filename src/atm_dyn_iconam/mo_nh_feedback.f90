@@ -1053,6 +1053,7 @@ CONTAINS
     ! require synchronization
     TYPE(t_ptr_3d) :: tracer_ptr(advection_config(jg)%trFeedback%len + MIN(1,iprog_aero))
 
+    LOGICAL :: lprog_aero        !< prognostic aerosol scheme 
     LOGICAL :: use_acc
     !-----------------------------------------------------------------------
 
@@ -1076,11 +1077,14 @@ CONTAINS
     p_pc             => p_patch(jg)
     p_int            => p_int_state(jgp)
 
-    IF (PRESENT(prm_diag)) THEN
-      prm_diagp        => prm_diag(jgp)
-      prm_diagc        => prm_diag(jg)
-    END IF
-
+    IF (iprog_aero >= 1 .AND. PRESENT(prm_diag)) THEN
+      lprog_aero = .TRUE.
+      prm_diagp  => prm_diag(jgp)
+      prm_diagc  => prm_diag(jg)
+    ELSE
+      lprog_aero = .FALSE.
+    ENDIF
+    
     p_grf  => p_grf_state_local_parent(jg)
     p_grfp => p_grf_state(jgp)
     p_gcp  => p_patch_local_parent(jg)%cells
@@ -1134,7 +1138,7 @@ CONTAINS
     IF(ltransport) &
       ALLOCATE(feedback_rhoqx(nproma, nlev_c, i_startblk:i_endblk, trFeedback%len))
 
-    IF(ltransport .AND. iprog_aero >= 1 .AND. PRESENT(prm_diag)) &
+    IF(ltransport .AND. lprog_aero) &
       ALLOCATE(feedback_aero(nproma, nclass_aero, i_startblk:i_endblk))
 
     i_startblk = 1
@@ -1170,7 +1174,7 @@ CONTAINS
 !$ACC      IF ( use_acc )
 
 !$ACC DATA CREATE(feedback_aero, parent_aero) PRESENT(prm_diagc%aerosol, prm_diagp%aerosol) , &
-!$ACC         IF ( use_acc .AND. iprog_aero >= 1 )
+!$ACC         IF ( use_acc .AND. lprog_aero )
 
     ! 1. Feedback of child-domain variables to the parent grid
 #ifndef __PGI
@@ -1299,7 +1303,7 @@ CONTAINS
         ENDDO
       ENDIF
 
-      IF (PRESENT(prm_diag) .AND. ltransport .AND. iprog_aero >= 1) THEN
+      IF ( ltransport .AND. lprog_aero ) THEN
 
 !$ACC PARALLEL IF( use_acc )
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
@@ -1371,7 +1375,7 @@ CONTAINS
     CALL exchange_data_mult_mixprec(p_pp%comm_pat_loc_to_glb_e_fbk, 0, 0, 1, nlev_c, &
       RECV1_SP=parent_vn, SEND1_SP=feedback_vn )
 
-    IF (ltransport .AND. iprog_aero >= 1 .AND. PRESENT(prm_diag)) THEN
+    IF (ltransport .AND. lprog_aero) THEN
 
       CALL exchange_data_mult_mixprec(p_pp%comm_pat_loc_to_glb_c_fbk, 0, 0, trFeedback%len+1, trFeedback%len*nlev_c+nclass_aero, &
         RECV1_SP=parent_aero,     SEND1_SP=feedback_aero,                    &
@@ -1390,7 +1394,7 @@ CONTAINS
     CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_e_fbk, 1, nlev_c, &
       RECV1=parent_vn, SEND1=feedback_vn )
 
-    IF (ltransport .AND. iprog_aero >= 1 .AND. PRESENT(prm_diag)) THEN
+    IF (ltransport .AND. lprog_aero) THEN
 
       CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, trFeedback%len+1, trFeedback%len*nlev_c+nclass_aero, &
         RECV1=parent_aero,     SEND1=feedback_aero,                    &
@@ -1778,7 +1782,7 @@ CONTAINS
 #endif
         ENDDO
 
-        IF (PRESENT(prm_diag) .AND. iprog_aero >= 1) THEN
+        IF ( lprog_aero ) THEN
 
 !$ACC PARALLEL IF( use_acc )
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
@@ -1792,7 +1796,7 @@ CONTAINS
           ENDDO
 !$ACC END PARALLEL
 
-        ENDIF  ! iprog_aero
+        ENDIF  ! lprog_aero
       ENDIF  ! ltransport
 
     ENDDO
@@ -1810,7 +1814,7 @@ CONTAINS
         tracer_ptr(nt)%p => p_parent_prog_rcf%tracer(:,:,:,jt)
       ENDDO
       !
-      IF (iprog_aero >= 1 .AND. PRESENT(prm_diag)) THEN
+      IF (lprog_aero) THEN
         nt = trFeedback%len + 1
         tracer_ptr(nt)%p => prm_diagp%aerosol(:,:,:)
       ENDIF
@@ -1835,7 +1839,7 @@ CONTAINS
 
     DEALLOCATE(feedback_thv,feedback_rho,feedback_w,feedback_vn)
     IF (ltransport) DEALLOCATE(feedback_rhoqx)
-    IF (ltransport .AND. iprog_aero >= 1 .AND. PRESENT(prm_diag)) DEALLOCATE(feedback_aero)
+    IF (ltransport .AND. lprog_aero) DEALLOCATE(feedback_aero)
 
   END SUBROUTINE relax_feedback
 
