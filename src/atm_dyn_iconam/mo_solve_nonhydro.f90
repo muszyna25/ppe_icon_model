@@ -138,7 +138,7 @@ MODULE mo_solve_nonhydro
     INTEGER,                   INTENT(IN)    :: jstep
     ! Time levels
     INTEGER,                   INTENT(IN)    :: nnow, nnew
-    ! Time step
+    ! Dynamics time step
     REAL(wp),                  INTENT(IN)    :: dtime
 
     ! Local variables
@@ -228,6 +228,7 @@ MODULE mo_solve_nonhydro
     REAL(wp) :: z_theta1, z_theta2, wgt_nnow_vel, wgt_nnew_vel,     &
                dt_shift, wgt_nnow_rth, wgt_nnew_rth, dthalf, zf,              &
                z_ntdistv_bary(2), r_nsubsteps, scal_divdamp_o2
+    REAL(wp) :: dt_linintp_ubc               ! time increment for linear interpolation of nest UBC
     REAL(wp) :: z_raylfac(nrdmax(p_patch%id))
     REAL(wp) :: z_ntdistv_bary_1, distv_bary_1, z_ntdistv_bary_2, distv_bary_2
 
@@ -379,7 +380,14 @@ MODULE mo_solve_nonhydro
     scal_divdamp(:) = - enh_divdamp_fac(:) * p_patch%geometry_info%mean_cell_area**2
 
     ! Time increment for backward-shifting of lateral boundary mass flux
-    dt_shift = dtime*REAL(2*ndyn_substeps_var(jg)-1,wp)/2._wp
+    dt_shift = dtime*REAL(2*ndyn_substeps_var(jg)-1,wp)/2._wp    ! == dt_phy - 0.5*dtime
+
+    ! Time increment for linear interpolation of nest UBC.
+    ! The linear interpolation is of the form
+    ! \phi(t) = \phi0 + (t-t0)*dphi/dt, with t=(jstep+0.5)*dtime, and t0=dt_phy
+    !
+    ! dt_linintp_ubc == (t-t0)
+    dt_linintp_ubc = jstep*dtime - dt_shift
 
     ! Coefficient for reduced fourth-order divergence damping along nest boundaries
     bdy_divdamp(:) = 0.75_wp/(nudge_max_coeff + dbl_eps)*ABS(scal_divdamp(:))
@@ -2273,19 +2281,23 @@ MODULE mo_solve_nonhydro
 
         ! upper boundary conditions for rho_ic and theta_v_ic in the case of vertical nesting
         !
-        ! kept constant during predictor/corrector step (and during the dynamics substeps as well). 
-        ! Hence, copying them during the predictor step (istep=1) is more than sufficient. 
+        ! kept constant during predictor/corrector step, and linearly interpolated for 
+        ! each dynamics substep. 
+        ! Hence, copying them every dynamics substep during the predictor step (istep=1) is sufficient. 
         IF (l_vert_nested .AND. istep == 1) THEN
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )  DEFAULT(NONE) ASYNC(1)
           !$ACC LOOP GANG VECTOR
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
 
-            p_nh%diag%theta_v_ic(jc,1,jb) = p_nh%diag%theta_v_ic_ubc(jc,jb) 
+            p_nh%diag%theta_v_ic(jc,1,jb) = p_nh%diag%theta_v_ic_ubc(jc,jb,1)  &
+              &                           + dt_linintp_ubc * p_nh%diag%theta_v_ic_ubc(jc,jb,2)
 
-            p_nh%diag%rho_ic(jc,1,jb) = p_nh%diag%rho_ic_ubc(jc,jb)
-
-            z_mflx_top(jc,jb) = p_nh%diag%mflx_ic_ubc(jc,jb)
+            p_nh%diag%rho_ic(jc,1,jb) = p_nh%diag%rho_ic_ubc(jc,jb,1)  &
+              &                       + dt_linintp_ubc * p_nh%diag%rho_ic_ubc(jc,jb,2)
+ 
+            z_mflx_top(jc,jb) = p_nh%diag%mflx_ic_ubc(jc,jb,1)  &
+              &               + dt_linintp_ubc * p_nh%diag%mflx_ic_ubc(jc,jb,2)
 
           ENDDO
 !$ACC END PARALLEL
@@ -2391,8 +2403,10 @@ MODULE mo_solve_nonhydro
           !$ACC LOOP GANG VECTOR
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
-            ! UBC for w: horizontally interpolated from the parent interface level
-            p_nh%prog(nnew)%w(jc,1,jb) = p_nh%diag%w_ubc(jc,jb)
+            ! UBC for w: horizontally interpolated from the parent interface level, 
+            !            and linearly interpolated in time.
+            p_nh%prog(nnew)%w(jc,1,jb) = p_nh%diag%w_ubc(jc,jb,1)  &
+              &                        + dt_linintp_ubc * p_nh%diag%w_ubc(jc,jb,2)
             !
             z_contr_w_fl_l(jc,1) = z_mflx_top(jc,jb) * p_nh%metrics%vwind_expl_wgt(jc,jb)
           ENDDO
@@ -2830,7 +2844,8 @@ MODULE mo_solve_nonhydro
               !$ACC LOOP GANG VECTOR
               DO jc = i_startidx, i_endidx
                 prep_adv%mass_flx_ic(jc,1,jb) = prep_adv%mass_flx_ic(jc,1,jb) + &
-                  r_nsubsteps * p_nh%diag%mflx_ic_ubc(jc,jb)
+                  r_nsubsteps * (p_nh%diag%mflx_ic_ubc(jc,jb,1)                 &
+                  + dt_linintp_ubc * p_nh%diag%mflx_ic_ubc(jc,jb,2))
               ENDDO
 !$ACC END PARALLEL
             ENDIF
@@ -3039,8 +3054,8 @@ MODULE mo_solve_nonhydro
        TYPE(t_prepare_adv), TARGET, INTENT(INOUT) :: prep_adv
 
        REAL(wp), DIMENSION(:,:,:),   POINTER  :: exner_tmp, rho_tmp, theta_v_tmp, vn_tmp, w_tmp                 ! p_prog  WP
-       REAL(wp), DIMENSION(:,:),     POINTER  :: dvn_ie_ubc_tmp, theta_v_ic_ubc_tmp, rho_ic_ubc_tmp             ! p_diag  WP 2D
-       REAL(wp), DIMENSION(:,:),     POINTER  :: w_ubc_tmp, mflx_ic_ubc_tmp                                     ! p_diag  WP 2D
+       REAL(wp), DIMENSION(:,:),     POINTER  :: dvn_ie_ubc_tmp                                                 ! p_diag  WP 2D
+       REAL(wp), DIMENSION(:,:,:),   POINTER  :: w_ubc_tmp, mflx_ic_ubc_tmp, theta_v_ic_ubc_tmp, rho_ic_ubc_tmp ! p_diag  WP
 
        REAL(wp), DIMENSION(:,:,:),   POINTER  :: theta_v_ic_tmp, rho_ic_tmp                                     ! p_diag  WP
        REAL(wp), DIMENSION(:,:,:),   POINTER  :: mass_fl_e_tmp, exner_pr_tmp                                    ! p_diag  WP
