@@ -7264,36 +7264,36 @@ fi
 fi
 
 if test "x$enable_emvorado" = xyes; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran 90 interfaces of GRIB-API library is available" >&5
-$as_echo_n "checking whether the Fortran 90 interfaces of GRIB-API library is available... " >&6; }
-if ${icon_cv_have_grib_api+:} false; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran 90 interfaces of ECCODES library is available" >&5
+$as_echo_n "checking whether the Fortran 90 interfaces of ECCODES library is available... " >&6; }
+if ${icon_cv_have_eccodes+:} false; then :
   $as_echo_n "(cached) " >&6
 else
-  icon_cv_have_grib_api=no
+  icon_cv_have_eccodes=no
       cat > conftest.$ac_ext <<_ACEOF
       program main
 
-      use grib_api, only: grib_open_file, GRIB_SUCCESS
+      use eccodes, only: codes_open_file, GRIB_SUCCESS
       implicit none
       integer :: igrib, ierr
-      call grib_open_file(igrib, 'conftest.grb', 'w', ierr)
+      call codes_open_file(igrib, 'conftest.grb', 'w', ierr)
       if (ierr  /= GRIB_SUCCESS) igrib = 0
       end
 _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :
-  icon_cv_have_grib_api=yes
+  icon_cv_have_eccodes=yes
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_cv_have_grib_api" >&5
-$as_echo "$icon_cv_have_grib_api" >&6; }
-   if test "x$icon_cv_have_grib_api" = xyes; then :
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_cv_have_eccodes" >&5
+$as_echo "$icon_cv_have_eccodes" >&6; }
+   if test "x$icon_cv_have_eccodes" = xyes; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}GRIBAPI"
 else
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using the Fortran 90 interfaces of GRIB-API library: set FCFLAGS, LDFLAGS and LIBS accordingly
+as_fn_error $? "unable to link a test program using the Fortran 90 interfaces of ECCODES library: set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi

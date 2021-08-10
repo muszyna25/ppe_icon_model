@@ -1327,20 +1327,20 @@ externals/yaxt/src/.libs/libyaxt_c.a $BUNDLED_LIBFILES"],
 $BUNDLED_LIBFILES"])])])
 
 AS_VAR_IF([enable_emvorado], [yes],
-  [AC_CACHE_CHECK([whether the Fortran 90 interfaces of GRIB-API library is dnl
-available], [icon_cv_have_grib_api],
-     [icon_cv_have_grib_api=no
+  [AC_CACHE_CHECK([whether the Fortran 90 interfaces of ECCODES library is dnl
+available], [icon_cv_have_eccodes],
+     [icon_cv_have_eccodes=no
       AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
-      use grib_api, only: grib_open_file, GRIB_SUCCESS
+      use eccodes, only: codes_open_file, GRIB_SUCCESS
       implicit none
       integer :: igrib, ierr
-      call grib_open_file(igrib, 'conftest.grb', 'w', ierr)
+      call codes_open_file(igrib, 'conftest.grb', 'w', ierr)
       if (ierr  /= GRIB_SUCCESS) igrib = 0]])],
-        [icon_cv_have_grib_api=yes])])
-   AS_VAR_IF([icon_cv_have_grib_api], [yes],
+        [icon_cv_have_eccodes=yes])])
+   AS_VAR_IF([icon_cv_have_eccodes], [yes],
      [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}GRIBAPI"])],
      [AC_MSG_FAILURE([unable to link a test program using the Fortran 90 dnl
-interfaces of GRIB-API library: set FCFLAGS, LDFLAGS and LIBS accordingly])])])
+interfaces of ECCODES library: set FCFLAGS, LDFLAGS and LIBS accordingly])])])
 
 AS_IF([test "x$enable_mpi" = xno && test "x$enable_cdi_pio" = xyes],
   [dnl
