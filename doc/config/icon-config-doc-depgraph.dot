@@ -10,7 +10,7 @@ digraph ICON {
 		"ICON" -> {"STDC++"; "CUDA"; "CUB"; "MPI"; "NetCDF-Fortran"; "RTE+RRTMGP";
 			       "ECRAD"; "RTTOV"; "SCT"; "YAXT"; "CDI*"; "CDI-PIO*"; "SERIALBOX";
 			       "MTIME"; "BLAS"; "LAPACK"; "YAC"; "ICON-TIXI";
-			       "ECCODES\n/\nGRIB-API"; "HDF5"; "ZLIB"};
+			       "ECCODES"; "HDF5"; "ZLIB"};
 
 		"STDC++";
 
@@ -18,7 +18,6 @@ digraph ICON {
 
 		"CUB" [shape=box];
 		"CUB" -> {"CUDA"; "STDC++"};
-
 
 		"MPI";
 
@@ -40,7 +39,7 @@ digraph ICON {
 		"YAXT" -> {"MPI"};
 
 		"CDI*" [shape=box; fillcolor="#47A1F1"];
-		"CDI*" -> {"ECCODES\n/\nGRIB-API"; "NetCDF-C"; "AEC / SZIP"};
+		"CDI*" -> {"ECCODES"; "NetCDF-C"; "AEC / SZIP"};
 
 		"CDI-PIO*";
 		"CDI-PIO*" -> {"MPI"; "YAXT"; "CDI*"};
@@ -61,8 +60,8 @@ digraph ICON {
 		"ICON-TIXI" [shape=box];
 		"ICON-TIXI" -> {"XML2"};
 
-		"ECCODES\n/\nGRIB-API";
-		"ECCODES\n/\nGRIB-API" -> {"AEC / SZIP"};
+		"ECCODES";
+		"ECCODES" -> {"AEC / SZIP"};
 
 		"HDF5";
 		"HDF5" -> {"MPI"; "ZLIB"; "AEC / SZIP"};
