@@ -22,7 +22,7 @@
 #   ECRAD:
 --fc-external-mods=radiation_cloud,radiation_interface,radiation_flux,radiation_aerosol,radiation_gas,radiation_thermodynamics,radiation_config,radiation_single_level
 #   RTTOV:
---fc-external-mods=rttov_types,parkind1,rttov_const,rttov_hdf_mod,rttov_god,mod_cnrm_mw_atlas,mod_mwatlas_m2,mod_rttov_emis_atlas,rttov_math_mod,mod_uwiremis_atlas
+--fc-external-mods=rttov_types,parkind1,rttov_const,rttov_hdf_mod,rttov_god,mod_cnrm_mw_atlas,mod_mwatlas_m2,mod_rttov_emis_atlas,rttov_math_mod,mod_uwiremis_atlas,mod_rttov_brdf_atlas,mod_brdf_atlas
 #   SCT:
 --fc-external-mods=sct
 #   YAXT:
