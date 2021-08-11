@@ -992,14 +992,14 @@ CONTAINS
       & 283320._wp, 327960._wp, 371880._wp, 415800._wp, 459720._wp, 503640._wp /)    
 
     ! local fields
-    INTEGER  :: idx0(nproma,0:pt_patch%nlev,pt_patch%nblks_c)
+    INTEGER  :: idx0(nproma,0:pt_patch%nlev)
     REAL(wp) :: zlat(0:ilat+1)
     REAL(wp) :: zozn(0:ilat+1,1:nlev_gems)
     REAL(wp) :: zpresh(0:nlev_gems)
     REAL(wp) :: rclpr(0:nlev_gems)
-    REAL(wp) :: zo3(nproma,1:nlev_gems,pt_patch%nblks_c)
+    REAL(wp) :: zo3(nproma,1:nlev_gems)
     REAL(wp) :: zviozo(nproma,0:pt_patch%nlev)
-    REAL(wp) :: zozovi(nproma,0:nlev_gems,pt_patch%nblks_c)
+    REAL(wp) :: zozovi(nproma,0:nlev_gems)
     REAL(wp) :: deltaz(nproma,pt_patch%nlev),dtdz(nproma,pt_patch%nlev),o3_clim(pt_patch%nlev)
     LOGICAL  :: l_found(nproma)
 
@@ -1008,7 +1008,7 @@ CONTAINS
     INTEGER  :: idy,im,imn,im1,im2,jk_start,i_startidx,i_endidx,i_nchdom,i_startblk,i_endblk
     INTEGER  :: rl_start,rl_end,k375,k100,ktp
     REAL(wp) :: ztimi,zxtime,zjl,zlatint,zint,zadd_o3,tuneo3_1(nlev_gems),tuneo3_2(nlev_gems),&
-                o3_macc1,o3_macc2,o3_gems1,o3_gems2
+                o3_macc1,o3_macc2,o3_gems1,o3_gems2,z1,z2,zgrad
     REAL(wp) :: dzsum,dtdzavg,tpshp,wfac,wfac_lat(ilat),wfac_p(nlev_gems),wfac_tr(ilat),&
                 wfac_p_tr(nlev_gems),wfac_p_tr2(nlev_gems),wfac_p_mst(nlev_gems),trfac,wfac2
     LOGICAL  :: lfound_all
@@ -1239,7 +1239,7 @@ CONTAINS
     i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jk,jkk,jk1,i_startidx,i_endidx,zjl,jk_start,l_found,lfound_all,&
+!$OMP DO PRIVATE(jb,jc,jk,jkk,jk1,i_startidx,i_endidx,zjl,jk_start,l_found,lfound_all,idx0,zo3,zozovi,z1,z2,zgrad,&
 !$OMP zint,zviozo,zadd_o3,deltaz,dtdz,dzsum,dtdzavg,ktp,tpshp,wfac,wfac2,k375,k100,o3_clim) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
@@ -1258,7 +1258,7 @@ CONTAINS
           !zo3(jc,jkk,jb) = zozn(NINT(zjl),jkk)
 
           !linear interpolation
-          zo3(jc,jkk,jb) = zozn(INT(zjl),jkk) &
+          zo3(jc,jkk) = zozn(INT(zjl),jkk) &
             & + (zozn(INT(zjl)+1,jkk)-zozn(INT(zjl),jkk)) &
             &  /  (zlat(INT(zjl)) - zlat(INT(zjl)+1)) &
             &  * (zlat(INT(zjl)) - pt_patch%cells%center(jc,jb)%lat)
@@ -1270,10 +1270,10 @@ CONTAINS
       ! ACCUMULATE FROM TOP TO BOTTOM THE LATITUDE INTERPOLATED FIELDS
       ! From radghg.F90 of ECMWF's IFS.
 
-      zozovi(i_startidx:i_endidx,0,jb) = 0._wp
+      zozovi(i_startidx:i_endidx,0) = 0._wp
       DO jkk=1,nlev_gems
-        zozovi(i_startidx:i_endidx,jkk,jb) = zozovi(i_startidx:i_endidx,jkk-1,jb) &
-          &                                 + zo3(i_startidx:i_endidx,jkk,jb)
+        zozovi(i_startidx:i_endidx,jkk) = zozovi(i_startidx:i_endidx,jkk-1) &
+          &                                 + zo3(i_startidx:i_endidx,jkk)
       ENDDO
 
       ! REDISTRIBUTE THE VERTIC. INTEGR. CLIM. O3 ON THE MODEL GRID
@@ -1291,13 +1291,23 @@ CONTAINS
           DO jc = i_startidx,i_endidx
             IF( p_diag%pres_ifc(jc,jk+1,jb) >= RCLPR(jkk)  &
               & .AND. p_diag%pres_ifc(jc,jk+1,jb) < RCLPR(jkk+1)) THEN
-              ZINT=(p_diag%pres_ifc(jc,jk+1,jb)-RCLPR(jkk))/(RCLPR(jkk+1)-RCLPR(jkk)) 
-              ZVIOZO(jc,JK) = ZOZOVI(jc,jkk,jb) + ZINT * (ZOZOVI(jc,jkk+1,jb)-ZOZOVI(jc,jkk,jb))
+              zint=(p_diag%pres_ifc(jc,jk+1,jb)-RCLPR(jkk))/(RCLPR(jkk+1)-RCLPR(jkk)) 
+              IF (jkk >= 3 .AND. jkk <= nlev_gems-3) THEN
+	        ! use spline-like interpolation in the interior part in order to avoid steps in the
+		! interpolated ozone profile if the vertical model resolution is significantly higher than 
+		! the resolution of the ozone climatology
+                z1 = 0.25_wp*zo3(jc,jkk)   + 0.75_wp*zo3(jc,jkk+1)
+                z2 = 0.25_wp*zo3(jc,jkk+2) + 0.75_wp*zo3(jc,jkk+1)
+                zgrad = z1 + zint*(3._wp*zo3(jc,jkk+1)-2._wp*z1-z2) + zint**2*(-2._wp*zo3(jc,jkk+1)+z1+z2)
+                ZVIOZO(jc,JK) = ZOZOVI(jc,jkk) + ZINT*zgrad
+              ELSE
+                ZVIOZO(jc,JK) = ZOZOVI(jc,jkk) + ZINT * zo3(jc,jkk+1)
+              ENDIF
               l_found(jc) = .TRUE.
-              idx0(jc,jk,jb) = jkk
+              idx0(jc,jk) = jkk
             ELSEIF ( p_diag%pres_ifc(jc,jk+1,jb) > RCLPR(nlev_gems) ) THEN
               l_found(jc) = .TRUE.
-              idx0(jc,jk,jb) = nlev_gems
+              idx0(jc,jk) = nlev_gems
             ENDIF
           ENDDO !jc
           IF (ALL(l_found(i_startidx:i_endidx))) THEN
@@ -1306,7 +1316,7 @@ CONTAINS
           ENDIF
         ENDDO !jkk
         IF (lfound_all) THEN
-          jk_start = MIN(MINVAL(idx0(i_startidx:i_endidx,jk,jb)),nlev_gems-1)
+          jk_start = MIN(MINVAL(idx0(i_startidx:i_endidx,jk)),nlev_gems-1)
         ENDIF
       ENDDO !jk
 
