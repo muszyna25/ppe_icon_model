@@ -181,9 +181,9 @@ recommended (topologically sorted) order for the `LIBS` argument is presented in
 |  5 | [MTIME](https://gitlab.dkrz.de/icon-libraries/libmtime) (C interface) | `--enable-coupling --without-external-yac --with-external-mtime` | `CPPFLAGS='-I/path/to/mtime/include' LDFLAGS='-L/path/to/mtime/lib' LIBS='-lmtime'` |
 |  6 | [SERIALBOX](https://github.com/GridTools/serialbox) | `--enable-serialization` | `FCFLAGS='-I/path/to/serialbox2/include' LDFLAGS='-L/path/to/serialbox2/lib' LIBS='-lSerialboxFortran'` |
 |  7 | [CDI](https://code.mpimet.mpg.de/projects/cdi/) or CDI-PIO | `--with-external-cdi`<sup><a name="f4-back" href="#f4">4</a></sup> | `FCFLAGS='-I/path/to/libcdi/include' LDFLAGS='-L/path/to/libcdi/lib' LIBS='-lcdi_f2003 -lcdi'` (or `LIBS='-lcdi_f2003 -lcdipio -lcdi'`) |
-|  8 | [ECCODES](https://confluence.ecmwf.int/display/ECC) or [GRIB-API](https://confluence.ecmwf.int/display/GRIB/Home) (Fortran interface) | `--enable-emvorado` | `FCFLAGS='-I/path/to/eccodes/include' LDFLAGS='-L/path/to/eccodes/lib' LIBS='-leccodes_f90'` (or `LIBS='-lgrib_api_f90'`) |
-|  9 | [ECCODES](https://confluence.ecmwf.int/display/ECC) or [GRIB-API](https://confluence.ecmwf.int/display/GRIB/Home) (C interface) | `--enable-grib2 --without-external-cdi` | `CPPFLAGS='-I/path/to/eccodes/include' LDFLAGS='-L/path/to/eccodes/lib' LIBS='-leccodes'` (or `LIBS='-lgrib_api'`) |
-| 10 | [YAXT](https://gitlab.dkrz.de/dkrz-sw/yaxt) (Fortran interface) | `--enable-yaxt --with-external-yaxt` or `--enable-cdi-pio --with-external-cdi --with-external-yaxt`<sup><a name="f5-back" href="#f5">5</a></sup> | `FCFLAGS='-I/path/to/yaxt/include' LDFLAGS='-L/path/to/yaxt/lib' LIBS='-lyaxt'` |
+|  8 | [ECCODES](https://confluence.ecmwf.int/display/ECC) (Fortran interface) | `--enable-emvorado` | `FCFLAGS='-I/path/to/eccodes/include' LDFLAGS='-L/path/to/eccodes/lib' LIBS='-leccodes_f90'` |
+|  9 | [ECCODES](https://confluence.ecmwf.int/display/ECC) or [GRIB-API](https://www.ecmwf.int/en/newsletter/152/news/end-road-grib-api)<sup><a name="f5-back" href="#f5">5</a></sup> (C interface) | `--enable-grib2 --without-external-cdi` | `CPPFLAGS='-I/path/to/eccodes/include' LDFLAGS='-L/path/to/eccodes/lib' LIBS='-leccodes'` (or `LIBS='-lgrib_api'`) |
+| 10 | [YAXT](https://gitlab.dkrz.de/dkrz-sw/yaxt) (Fortran interface) | `--enable-yaxt --with-external-yaxt` or `--enable-cdi-pio --with-external-yaxt`<sup><a name="f6-back" href="#f6">6</a></sup> | `FCFLAGS='-I/path/to/yaxt/include' LDFLAGS='-L/path/to/yaxt/lib' LIBS='-lyaxt'` |
 | 11 | [SCT](https://gitlab.dkrz.de/dkrz-sw/sct) (Fortran interface) | `--enable-sct --with-external-sct` | `FCFLAGS='-I/path/to/sct/include' LDFLAGS='-L/path/to/sct/lib' LIBS='-lsct'` |
 | 12 | RTTOV (a modified version of [RTTOV](https://www.nwpsaf.eu/site/software/rttov/)) | `--enable-rttov` | `FCFLAGS='-I/path/to/rttov/include' LDFLAGS='-L/path/to/rttov/lib' LIBS='-lradiance -lrttov10.2'` |
 | 13 | [LAPACK](http://www.netlib.org/lapack/) (or analogue) | mandatory | `LDFLAGS='-L/path/to/lapack/lib' LIBS='-llapack'` (depends on the implementation) |
@@ -191,15 +191,15 @@ recommended (topologically sorted) order for the `LIBS` argument is presented in
 | 15 | [ECRAD](https://confluence.ecmwf.int/display/ECRAD/ECMWF+Radiation+Scheme+Home) | `--enable-ecrad --with-external-ecrad` | `FCFLAGS='-I/path/to/ecrad/include' LDFLAGS='-L/path/to/ecrad/lib' LIBS='-lradiation -lifsrrtm -lutilities -lifsaux'` |
 | 16 | [RTE+RRTMGP](https://github.com/earth-system-radiation/rte-rrtmgp) | `--enable-rte-rrtmgp --with-external-rte-rrtmgp` | `FCFLAGS='-I/path/to/rte-rrtmgp/include' LDFLAGS='-L/path/to/rte-rrtmgp/lib' LIBS='-lrrtmgp -lrte'` |
 | 17 | [NetCDF-Fortran](https://www.unidata.ucar.edu/software/netcdf/docs-fortran/) | mandatory | `FCFLAGS='-I/path/to/netcdf-fortran/include' LDFLAGS='-L/path/to/netcdf-fortran/lib' LIBS='-lnetcdff'` |
-| 18 | [NetCDF-C](https://www.unidata.ucar.edu/software/netcdf/docs/) | `--without-external-cdi` or `--enable-coupling`<sup><a name="f6-back" href="#f6">6</a></sup> | `CPPFLAGS='-I/path/to/netcdf/include' LDFLAGS='-L/path/to/netcdf/lib' LIBS='-lnetcdf'` |
-| 19 | [HDF5](https://support.hdfgroup.org/HDF5/) (low- and high-level Fortran interfaces) | `--enable-emvorado` or `--enable-rttov`<sup><a name="f7-back" href="#f7">7</a></sup> | `FCFLAGS='-I/path/to/hdf5/include' LDFLAGS='-L/path/to/hdf5/lib' LIBS='-lhdf5_hl_fortran -lhdf5_fortran'` |
+| 18 | [NetCDF-C](https://www.unidata.ucar.edu/software/netcdf/docs/) | `--without-external-cdi` or `--enable-coupling`<sup><a name="f7-back" href="#f7">7</a></sup> | `CPPFLAGS='-I/path/to/netcdf/include' LDFLAGS='-L/path/to/netcdf/lib' LIBS='-lnetcdf'` |
+| 19 | [HDF5](https://support.hdfgroup.org/HDF5/) (low- and high-level Fortran interfaces) | `--enable-emvorado` or `--enable-rttov`<sup><a name="f8-back" href="#f8">8</a></sup> | `FCFLAGS='-I/path/to/hdf5/include' LDFLAGS='-L/path/to/hdf5/lib' LIBS='-lhdf5_hl_fortran -lhdf5_fortran'` |
 | 20 | [HDF5](https://support.hdfgroup.org/HDF5/) (low-level C interface) | `--enable-sct --without-external-sct` | `CPPFLAGS='-I/path/to/hdf5/include' LDFLAGS='-L/path/to/hdf5/lib' LIBS='-lhdf5'` |
-| 21 | [ZLIB](https://zlib.net/) | `--enable-emvorado` | `LDFLAGS='-L/path/to/zlib/lib' LIBS='-lz'` |
+| 21 | [ZLIB](https://zlib.net/) | `--enable-emvorado` | `LDFLAGS='-L/path/to/zlib/lib' LIBS='-lz'`<sup><a name="f9-back" href="#f9">9</a></sup> |
 | 22 | [AEC](https://gitlab.dkrz.de/k202009/libaec) or [SZIP](https://support.hdfgroup.org/doc_resource/SZIP/) | static linking | `LDFLAGS='-L/path/to/aec/lib' LIBS='-laec'` (or `LIBS='-lsz'`) |
-| 23 | [MPI](https://www.mpi-forum.org/) (Fortran interface) | `--enable-mpi`<sup><a name="f8-back" href="#f8">8</a></sup> or `--enable-yaxt` | `FC='/path/to/mpi/bin/mpif90'` or `FCFLAGS='-I/path/to/mpi/include' LDFLAGS='-L/path/to/mpi/lib' LIBS='-lmpifort -lmpi'` (depends on the implementation) |
-| 24 | [MPI](https://www.mpi-forum.org/) (C interface) | `--enable-mpi --enable-coupling`<sup><a name="f9-back" href="#f9">9</a></sup> or `--enable-yaxt --without-external-yaxt` or `--enable-mpi --enable-sct --without-external-sct` | `CC=/path/to/mpi/bin/mpicc` or `CPPFLAGS=-I/path/to/mpi/include LDFLAGS='-L/path/to/mpi/lib' LIBS='-lmpi'` (depends on the implementation) |
-| 25 | [CUB](https://nvlabs.github.io/cub/) | `--enable-gpu --with-external-cub` | `NVCFLAGS=-I/path/to/cub`<sup><a name="f10-back" href="#f10">10</a></sup> |
-| 26 | [CUDA](https://developer.nvidia.com/cuda-zone) | `--enable-gpu` | `LDFLAGS=-L/path/to/cuda/lib LIBS=-lcudart`<sup><a name="f11-back" href="#f11">11</a></sup> |
+| 23 | [MPI](https://www.mpi-forum.org/) (Fortran interface) | `--enable-mpi`<sup><a name="f10-back" href="#f10">10</a></sup> or `--enable-yaxt` | `FC='/path/to/mpi/bin/mpif90'` or `FCFLAGS='-I/path/to/mpi/include' LDFLAGS='-L/path/to/mpi/lib' LIBS='-lmpifort -lmpi'` (depends on the implementation) |
+| 24 | [MPI](https://www.mpi-forum.org/) (C interface) | `--enable-mpi --enable-coupling`<sup><a name="f11-back" href="#f11">11</a></sup> or `--enable-yaxt --without-external-yaxt` or `--enable-mpi --enable-sct --without-external-sct` | `CC=/path/to/mpi/bin/mpicc` or `CPPFLAGS=-I/path/to/mpi/include LDFLAGS='-L/path/to/mpi/lib' LIBS='-lmpi'` (depends on the implementation) |
+| 25 | [CUB](https://nvlabs.github.io/cub/) | `--enable-gpu --with-external-cub` | `NVCFLAGS=-I/path/to/cub`<sup><a name="f12-back" href="#f12">12</a></sup> |
+| 26 | [CUDA](https://developer.nvidia.com/cuda-zone) | `--enable-gpu` | `LDFLAGS=-L/path/to/cuda/lib LIBS=-lcudart`<sup><a name="f13-back" href="#f13">13</a></sup> |
 | 27 | [STDC++](https://gcc.gnu.org/onlinedocs/libstdc++/) | `--enable-gpu` | `LDFLAGS=-L/path/to/gcc/used/by/nvcc/lib LIBS=-lstdc++` |
 
 1. <a name="f1"/> The dependency conditions and required flags are specified
@@ -225,31 +225,36 @@ YAC has been built with). [↩](#f3-back)
 features, therefore the usage of an external version of CDI
 (`--with-external-cdi`) is the only option when the parallel I/O features
 (`--enable-cdi-pio`) are required. [↩](#f4-back)
-5. <a name="f5"/> When usage of the parallel features of CDI is enabled
+5. <a name="f5"/> GRIB-API is supported only in cases when ECCODES is not
+required, e.g. when the radar forward operator EMVORADO, which requires the
+Fortran interface of ECCODES, is disabled (`--disable-emvorado`). [↩](#f5-back)
+6. <a name="f6"/> When usage of the parallel features of CDI is enabled
 (`--enable-cdi-pio`) and an external version of CDI (`--with-external-cdi`) is
 used, usage of an external YAXT library (`--with-external-yaxt`) is mandatory
-(must be the library that CDI has been built with). [↩](#f5-back)
-6. <a name="f6"/> There is no shared version of YAC library, which could link
+(must be the library that CDI has been built with). [↩](#f6-back)
+7. <a name="f7"/> There is no shared version of YAC library, which could link
 NetCDF-C library implicitly, therefore, the latter needs to be linked
 explicitly, regardless of whether an external or the bundled version of YAC is
-used. [↩](#f6-back)
-7. <a name="f7"/> There is no shared version of RTTOV library, which could link
+used. [↩](#f7-back)
+8. <a name="f8"/> There is no shared version of RTTOV library, which could link
 Fortran HDF5 libraries implicitly, therefore, the latter need to be linked
 explicitly when usage of the radiative transfer model for TOVS is enabled
-(`--enable-rttov`). [↩](#f7-back)
-8. <a name="f8"/> When usage of the parallel features of CDI is enabled
+(`--enable-rttov`). [↩](#f8-back)
+9. <a name="f9"/> ZLIB is used via the `ISO_C_BINDING` interface and does not
+require additional preprocessor flags. [↩](#f9-back)
+10. <a name="f10"/> When usage of the parallel features of CDI is enabled
 (`--enable-cdi-pio`), MPI (parallelization) support (`--enable-mpi`) is
-mandatory. [↩](#f8-back)
-9. <a name="f9"/> There is no shared version of YAC library, which could link
+mandatory. [↩](#f10-back)
+11. <a name="f11"/> There is no shared version of YAC library, which could link
 MPI (C interface) library implicitly, therefore, the latter needs to be linked
 explicitly when MPI (parallelization) support is enabled (`--enable-mpi`),
 regardless of whether an external or the bundled version of YAC is used.
-[↩](#f9-back)
-10. <a name="f10"/> CUB is a header-only library and does not need additional
-linker flags. [↩](#f10-back)
-11. <a name="f11"/> Currently, the only Fortran compiler that supports all
+[↩](#f11-back)
+12. <a name="f12"/> CUB is a header-only library and does not require additional
+linker flags. [↩](#f12-back)
+13. <a name="f13"/> Currently, the only Fortran compiler that supports all
 features required to build the GPU version of ICON is PGI, which specifies
-linker flags enabling CUDA automatically. [↩](#f11-back)
+linker flags enabling CUDA automatically. [↩](#f13-back)
 
 ## Bundled libraries
 
