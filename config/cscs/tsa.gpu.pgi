@@ -45,6 +45,7 @@ CPPFLAGS="-I${XML2_ROOT}/include/libxml2 -I${EBROOTNETCDF}/include"
 
 FC='mpif90'
 FCFLAGS="-g -traceback -O -Mrecursive -Mallocatable=03 -acc=verystrict -ta=nvidia:cc70 -ta=tesla:lineinfo -Minfo=accel,inline -I${SERIALBOX2_ROOT}/include -I${ECCODES_ROOT}/include -I${EBROOTNETCDFMINFORTRAN}/include -D__SWAPDIM -D__USE_G2G"
+ICON_ECRAD_FCFLAGS="-D__ECRAD_LITTLE_ENDIAN"
 
 LDFLAGS="-L${SERIALBOX2_ROOT}/lib -L${ECCODES_ROOT}/lib64 -L${XML2_ROOT}/lib -L${EBROOTNETCDF}/lib64 -L${EBROOTNETCDFMINFORTRAN}/lib"
 
@@ -67,7 +68,7 @@ SB2PP="python2 ${SERIALBOX2_ROOT}/python/pp_ser/pp_ser.py" \
 #MPI_LAUNCH='/apps/daint/UES/xalt/production/bin/srun -p debug -C gpu'
 MPI_LAUNCH=false
 
-EXTRA_CONFIG_ARGS='--disable-loop-exchange --enable-gpu --enable-claw --enable-rte-rrtmgp'
+EXTRA_CONFIG_ARGS='--disable-loop-exchange --enable-gpu --enable-claw --enable-rte-rrtmgp --enable-ecrad'
 
 # Speed up the configuration by disabling MPI checks:
 EXTRA_CONFIG_ARGS+=' --disable-mpi-checks --disable-coupling'
@@ -82,6 +83,7 @@ CLAWFLAGS="$CLAWFLAGS" \
 CPPFLAGS="$CPPFLAGS" \
 FC="$FC" \
 FCFLAGS="$FCFLAGS" \
+ICON_ECRAD_FCFLAGS="$ICON_ECRAD_FCFLAGS" \
 LDFLAGS="$LDFLAGS" \
 LIBS="$LIBS" \
 MPI_LAUNCH="$MPI_LAUNCH" \
