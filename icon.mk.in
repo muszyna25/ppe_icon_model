@@ -225,12 +225,12 @@ endif
 .DELETE_ON_ERROR:
 # Targets not associated with files:
 .PHONY: all depend dummy-depend preprocess mostlyclean clean \
-        distclean install check force-create-version \
+        distclean install check check-bundled force-create-version \
         sanitize-mod-proxies claw
 
 # Targets that do not need the dependency files:
 nodep_targets:= depend dummy-depend preprocess mostlyclean clean \
-                distclean $(pp_files)
+                distclean check-bundled $(pp_files)
 
 # Selective search paths:
 vpath %.f90 $(srcdir)
@@ -299,9 +299,13 @@ install: all
 srclist: $(dep_files)
 	$(silent_GEN)$(DEPLIST) @deplist.config -t $(ICON_prog_obj_file) -f $^ 2>/dev/null | sed '/\(\.@OBJEXT@\|\.@FC_MOD_FILE_EXT@\.proxy\)$$/d' | sort > $@
 
-# Check rule (run the tests serially to make the output readable and prevent
-# from possible overloading due to multiple simultaneous MPI runs):
-check: all
+# Check rule:
+check: all check-bundled
+
+# Check rule for the bundled libraries (run the tests serially to make the
+# output readable and prevent from possible overloading due to multiple
+# simultaneous MPI runs):
+check-bundled:| $(if $(filter check,$(MAKECMDGOALS)),all) # run the tests after 'all' when 'make check'
 	@test -z '$(bundled_subdirs)' && echo "The list of bundled libraries is empty: nothing to check." && exit 0; \
 	fail=; pass=; \
 	for d in $(bundled_subdirs); do \
