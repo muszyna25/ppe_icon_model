@@ -205,6 +205,7 @@ end subroutine init_evp_solver_coeffs
 !===================================================================
 
 subroutine stress_tensor(elem)
+!NEC$ always_inline
 ! EVP rheology implementation. Computes stress tensor components based on ice 
 ! velocity field. They are stored as elemental arrays (sigma11, sigma22 and
 ! sigma12). 
@@ -359,18 +360,21 @@ integer     ::  i,j
 
 !ICON_OMP_PARALLEL
 !ICON_OMP_DO        PRIVATE(i)  SCHEDULE(static,4)
+!NEC$ ivdep
      DO i=1,si_elem2D
         call stress_tensor(si_idx_elem(i))
      ENDDO
 !ICON_OMP_END_DO
 
 !ICON_OMP_DO        PRIVATE(i) ICON_OMP_DEFAULT_SCHEDULE
+!NEC$ ivdep
      DO i=1,si_nod2D
          call stress2rhs(si_idx_nodes(i))
      END DO
 !ICON_OMP_END_DO
 
 !ICON_OMP_DO        PRIVATE(j,i,inv_mass,umod,drag,rhsu,rhsv,det) ICON_OMP_DEFAULT_SCHEDULE
+!NEC$ ivdep
      DO j=1,si_nod2D
         i=si_idx_nodes(j)
       if (index_nod2D(i)>0) CYCLE          ! Skip boundary nodes

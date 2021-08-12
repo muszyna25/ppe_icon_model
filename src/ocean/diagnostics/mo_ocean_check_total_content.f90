@@ -2,10 +2,6 @@
 !! Contains basic diagnostics for ICON ocean model.
 !!
 !!
-!! @par Revision History
-!!  Developed  by Peter Korn,       MPI-M (2011/02)
-!!  Extended   by Stephan Lorenz,   MPI-M (2012)
-!!
 !! @par Copyright and License
 !!
 !! This code is subject to the DWD and MPI-M-Software-License-Agreement in
@@ -17,7 +13,7 @@
 !----------------------------
 #include "omp_definitions.inc"
 !----------------------------
-MODULE mo_ocean_check_salt
+MODULE mo_ocean_check_total_content
   USE mo_master_control,     ONLY: get_my_process_name
   USE mo_kind,               ONLY: wp, dp, i8
 #ifdef _OPENMP
@@ -73,8 +69,10 @@ MODULE mo_ocean_check_salt
   USE mo_ocean_nml,          ONLY: n_zlev, no_tracer
 
   IMPLICIT NONE
+  PRIVATE
 
   PUBLIC :: calc_total_salt_content, check_total_salt_content, check_total_si_volume
+  PUBLIC :: check_accumulated_volume_difference
 
 
   REAL(wp) :: total_salt_old=1.0_wp
@@ -88,10 +86,44 @@ MODULE mo_ocean_check_salt
   REAL(wp) :: total_snowvolume_old = 1.0_wp
   REAL(wp) :: total_icearea_old = 1.0_wp
 
+  REAL(wp) :: accumulated_volume_difference(256)  = 0.0_wp
+  REAL(wp) :: accumulated_h_difference(256)       = 0.0_wp
 
 
 CONTAINS
 
+  !-------------------------------------------------------------------------
+  SUBROUTINE check_accumulated_volume_difference(id, patch_2d, h_new, h_old)
+
+    INTEGER, INTENT(IN)                                              :: id
+    TYPE(t_patch), TARGET, INTENT(IN)                                :: patch_2d
+    REAL(wp),DIMENSION(nproma,patch_2d%alloc_cell_blocks),INTENT(IN) :: h_new, h_old
+
+    REAL(wp)                                               :: volume_diff, h_mean_diff
+    REAL(wp), DIMENSION(nproma,patch_2d%alloc_cell_blocks) :: h_diff
+    TYPE(t_subset_range), POINTER :: owned_cells
+    INTEGER :: blockNo
+ 
+    owned_cells => patch_2D%cells%owned
+
+!ICON_OMP_PARALLEL_DO ICON_OMP_DEFAULT_SCHEDULE
+    DO blockNo = owned_cells%start_block, owned_cells%end_block
+      h_diff(:,blockNo) = h_new(:,blockNo) - h_old(:,blockNo)
+    ENDDO
+    
+    volume_diff = subset_sum(h_diff, patch_2d%cells%area, owned_cells, h_mean_diff)
+    
+    accumulated_volume_difference(id) = accumulated_volume_difference(id) + volume_diff
+    accumulated_h_difference(id)      = accumulated_h_difference(id)      + h_mean_diff
+    
+    IF (my_process_is_stdio()) THEN
+      WRITE(0,*) '(',id,')', ' -- mean h error, accumulated:', h_mean_diff, accumulated_h_difference(id)
+      WRITE(0,*) '(',id,')', ' -- volume error, accumulated:', volume_diff, accumulated_volume_difference(id)
+    ENDIF
+  END SUBROUTINE check_accumulated_volume_difference
+  !-------------------------------------------------------------------------
+   
+  !-------------------------------------------------------------------------
   SUBROUTINE check_total_salt_content(id, so, patch_2d, h, thickness, ice, im)
 
     TYPE(t_patch), TARGET, INTENT(IN)                                 :: patch_2d
@@ -146,11 +178,11 @@ CONTAINS
     total_saltinseaice_old = total_saltinseaice
     total_saltinliquidwater_old = total_saltinliquidwater
 
-
-
   END SUBROUTINE check_total_salt_content
+  !-------------------------------------------------------------------------
 
-  SUBROUTINE calc_total_salt_content(so, patch_2d, h, thickness, ice, im, &
+  !-------------------------------------------------------------------------
+ SUBROUTINE calc_total_salt_content(so, patch_2d, h, thickness, ice, im, &
                   total_salt, total_saltinseaice, total_saltinliquidwater)
 
     TYPE(t_patch), TARGET, INTENT(IN)                                 :: patch_2d
@@ -177,8 +209,9 @@ CONTAINS
     total_saltinliquidwater = global_sum_array(saltinliquidwater)
 
   END SUBROUTINE calc_total_salt_content
+  !-------------------------------------------------------------------------
   
-
+  !-------------------------------------------------------------------------
   SUBROUTINE calc_salt_content(so, patch_2d, h, thickness, ice, im, &
             salt, saltinseaice, saltinliquidwater)
     TYPE(t_patch), TARGET, INTENT(IN)                                 :: patch_2d
@@ -246,8 +279,9 @@ CONTAINS
       END DO ! cell
     END DO !block
   END SUBROUTINE calc_salt_content
+  !-------------------------------------------------------------------------
 
-
+  !-------------------------------------------------------------------------
   SUBROUTINE calc_si_volume(patch_2d, ice, icevolume, snowvolume, icearea)
 
     TYPE(t_patch), TARGET, INTENT(IN)                      :: patch_2d
@@ -290,8 +324,9 @@ CONTAINS
       END DO ! cell
     END DO !block
   END SUBROUTINE calc_si_volume
+  !-------------------------------------------------------------------------
 
-
+  !-------------------------------------------------------------------------
   SUBROUTINE check_total_si_volume(id,  patch_2d, ice, h)
 
     TYPE(t_patch), TARGET, INTENT(IN)                                 :: patch_2d
@@ -330,8 +365,8 @@ CONTAINS
     total_snowvolume_old = total_snowvolume
     total_icearea_old = total_icearea
 
+  END SUBROUTINE check_total_si_volume
+  !-------------------------------------------------------------------------
 
-   END SUBROUTINE check_total_si_volume
 
-
-END MODULE mo_ocean_check_salt
+END MODULE mo_ocean_check_total_content

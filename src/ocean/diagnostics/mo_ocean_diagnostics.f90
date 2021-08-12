@@ -59,7 +59,7 @@ MODULE mo_ocean_diagnostics
     & ab_const, ab_beta, ab_gam, iswm_oce, discretization_scheme, &
     & iforc_oce, No_Forcing, i_sea_ice, diagnostics_level, &
     & diagnose_for_horizontalVelocity, OceanReferenceDensity, &
-    & eddydiag
+    & eddydiag, check_total_volume
   USE mo_sea_ice_nml,        ONLY: kice, sice
   USE mo_dynamics_config,    ONLY: nold,nnew
   USE mo_parallel_config,    ONLY: nproma, p_test_run
@@ -92,7 +92,7 @@ MODULE mo_ocean_diagnostics
   USE mo_name_list_output_init, ONLY: isRegistered
 
   USE mtime,                 ONLY: datetime, MAX_DATETIME_STR_LEN, datetimeToPosixString
-  USE mo_ocean_check_salt, ONLY : calc_total_salt_content
+  USE mo_ocean_check_total_content , ONLY : calc_total_salt_content
 
   IMPLICIT NONE
   PRIVATE
@@ -556,7 +556,11 @@ CONTAINS
             & ssh_global_mean)
       END IF
       monitor%ssh_global = ssh_global_mean
+      IF (my_process_is_stdio() .and. check_total_volume) THEN
+        WRITE(0,*) ' -- monitor%ssh_global:', monitor%ssh_global
+      ENDIF
 
+      
       ! sea surface temperature
       sst_global = 0.0_wp
       IF (isRegistered('sst_global')) THEN
