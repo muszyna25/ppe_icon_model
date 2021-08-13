@@ -1595,19 +1595,20 @@ CONTAINS
                  0.0_wp, patch_3D%basin_c(idx,BLOCK) == 1)
             pacind_moc(level,ilat) = MERGE(pacind_moc(level,ilat) - deltaMoc*smoothWeight, &
                  0.0_wp, patch_3D%basin_c(idx,BLOCK) >= 2)
+
+            global_hfbasin(1,ilat) =       global_hfbasin(1,ilat) - deltahfbasin*smoothWeight
+            atlant_hfbasin(1,ilat) = MERGE(atlant_hfbasin(1,ilat) - deltahfbasin*smoothWeight, &
+               0.0_wp, patch_3D%basin_c(idx,BLOCK) == 1)
+            pacind_hfbasin(1,ilat) = MERGE(pacind_hfbasin(1,ilat) - deltahfbasin*smoothWeight, &
+               0.0_wp, patch_3D%basin_c(idx,BLOCK) >= 2)
+
+            global_sltbasin(1,ilat) =       global_sltbasin(1,ilat) - deltasltbasin*smoothWeight
+            atlant_sltbasin(1,ilat) = MERGE(atlant_sltbasin(1,ilat) - deltasltbasin*smoothWeight, &
+               0.0_wp, patch_3D%basin_c(idx,BLOCK) == 1)
+            pacind_sltbasin(1,ilat) = MERGE(pacind_sltbasin(1,ilat) - deltasltbasin*smoothWeight, &
+               0.0_wp, patch_3D%basin_c(idx,BLOCK) >= 2)
+
             IF (level .EQ. 1) THEN
-              global_hfbasin(level,ilat) =       global_hfbasin(level,ilat) - deltahfbasin*smoothWeight
-              atlant_hfbasin(level,ilat) = MERGE(atlant_hfbasin(level,ilat) - deltahfbasin*smoothWeight, &
-                 0.0_wp, patch_3D%basin_c(idx,BLOCK) == 1)
-              pacind_hfbasin(level,ilat) = MERGE(pacind_hfbasin(level,ilat) - deltahfbasin*smoothWeight, &
-                 0.0_wp, patch_3D%basin_c(idx,BLOCK) >= 2)
-
-              global_sltbasin(level,ilat) =       global_sltbasin(level,ilat) - deltasltbasin*smoothWeight
-              atlant_sltbasin(level,ilat) = MERGE(atlant_sltbasin(level,ilat) - deltasltbasin*smoothWeight, &
-                 0.0_wp, patch_3D%basin_c(idx,BLOCK) == 1)
-              pacind_sltbasin(level,ilat) = MERGE(pacind_sltbasin(level,ilat) - deltasltbasin*smoothWeight, &
-                 0.0_wp, patch_3D%basin_c(idx,BLOCK) >= 2)
-
               global_hfl(level,ilat) =       global_hfl(level,ilat) - deltahfl*smoothWeight
               atlant_hfl(level,ilat) = MERGE(atlant_hfl(level,ilat) - deltahfl*smoothWeight, &
                    0.0_wp, patch_3D%basin_c(idx,BLOCK) == 1)
@@ -1694,9 +1695,9 @@ CONTAINS
     ! calculate ocean heat transport as residual from the tendency in heat content (dH/dt)
     ! minus the integral of surface heat flux
 
-    global_hfbasin(:,:)=global_hfbasin(:,:)+global_hfl(:,:)
-    atlant_hfbasin(:,:)=atlant_hfbasin(:,:)+atlant_hfl(:,:)
-    pacind_hfbasin(:,:)=pacind_hfbasin(:,:)+pacind_hfl(:,:)
+    global_hfbasin(:,:)=global_hfl(:,:)-global_hfbasin(:,:)
+    atlant_hfbasin(:,:)=atlant_hfl(:,:)-atlant_hfbasin(:,:)
+    pacind_hfbasin(:,:)=pacind_hfl(:,:)-pacind_hfbasin(:,:)
 
     DEALLOCATE (allmocs)
 
