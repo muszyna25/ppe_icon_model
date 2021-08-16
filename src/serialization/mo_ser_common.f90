@@ -113,14 +113,14 @@ MODULE mo_ser_common
     !$ser&     prefix='reference_'//TRIM(suffix) &
     !$ser&     mpi_rank=get_my_mpi_work_id() &
     !$ser&     rprecision=rprecision &
-    !$ser&     rperturb=1.0e-5_wp
+    !$ser&     rperturb=1.0e-14_wp
 #else
     !$ser init directory='./ser_data' &
     !$ser&     prefix='current_'//TRIM(suffix) &
     !$ser&     prefix_ref='reference_'//TRIM(suffix) &
     !$ser&     mpi_rank=get_my_mpi_work_id() &
     !$ser&     rprecision=rprecision &
-    !$ser&     rperturb=1.0e-5_wp
+    !$ser&     rperturb=1.0e-14_wp
 #endif
 
     !$ser verbatim     linitialize = .FALSE.

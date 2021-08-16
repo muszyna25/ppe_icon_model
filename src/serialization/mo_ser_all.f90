@@ -259,7 +259,7 @@ MODULE mo_ser_all
 #elif SERIALIZE_READ_REFERENCE
           ser_mode = 3 ! compare
 #elif SERIALIZE_PERTURB_REFERENCE
-          ser_mode = 0 ! write
+          ser_mode = 3 ! compare
 #endif
        ENDIF
 
