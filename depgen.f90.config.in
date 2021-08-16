@@ -18,7 +18,7 @@
 #   MPI:
 --fc-external-mods=mpi
 #   RTE-RRTMGP:
---fc-external-mods=mo_gas_optics_rrtmgp,mo_gas_concentrations,mo_optical_props,mo_source_functions,mo_rte_kind,mo_fluxes,mo_rte_lw,mo_rte_sw
+--fc-external-mods=mo_gas_optics_rrtmgp,mo_gas_concentrations,mo_optical_props,mo_source_functions,mo_rte_kind,mo_fluxes,mo_rte_lw,mo_rte_sw,mo_rte_config,mo_rte_util_array
 #   ECRAD:
 --fc-external-mods=radiation_cloud,radiation_interface,radiation_flux,radiation_aerosol,radiation_gas,radiation_thermodynamics,radiation_config,radiation_single_level
 #   RTTOV:
