@@ -6,7 +6,6 @@ MODULE mo_nwp_gpu_util
   USE mo_dynamics_config,         ONLY: nnow, nnew, nnow_rcf, nnew_rcf
   USE mo_turbdiff_config,         ONLY: turbdiff_config
   USE mo_intp_data_strc,          ONLY: t_int_state
-  USE mo_nh_prepadv_types,        ONLY: t_prepare_adv
   USE mo_grf_intp_data_strc,      ONLY: t_gridref_state, t_gridref_single_state
   USE mo_nwp_parameters,          ONLY: t_phy_params
   USE mo_nonhydrostatic_config,   ONLY: kstart_moist, kstart_tracer
@@ -25,13 +24,12 @@ MODULE mo_nwp_gpu_util
 
   CONTAINS
 
-  SUBROUTINE gpu_d2h_nh_nwp(pt_patch, prm_diag, ext_data, p_int, prep_adv, p_grf, p_grf_single)
+  SUBROUTINE gpu_d2h_nh_nwp(pt_patch, prm_diag, ext_data, p_int, p_grf, p_grf_single)
 
     TYPE(t_patch), TARGET, INTENT(in) :: pt_patch
     TYPE(t_nwp_phy_diag), INTENT(inout) :: prm_diag
     TYPE(t_external_data), OPTIONAL, INTENT(inout):: ext_data
     TYPE(t_int_state), OPTIONAL, INTENT(inout) :: p_int
-    TYPE(t_prepare_adv), OPTIONAL, INTENT(inout) :: prep_adv
     TYPE(t_gridref_state), OPTIONAL, INTENT(inout) :: p_grf
     TYPE(t_gridref_single_state), OPTIONAL, INTENT(inout) :: p_grf_single
 
@@ -69,9 +67,6 @@ MODULE mo_nwp_gpu_util
     !$ACC             p_int%verts_aw_cells) &
     !$ACC        IF(PRESENT(p_int))        
 
-    !$ACC UPDATE HOST(prep_adv%vn_traj,prep_adv%mass_flx_me,prep_adv%mass_flx_ic,prep_adv%topflx_tra) &
-    !$ACC        IF(PRESENT(prep_adv))
-
     !$ACC UPDATE HOST(p_grf%fbk_wgt_aw, p_grf%fbk_wgt_bln, p_grf%fbk_wgt_e, p_grf%fbk_dom_area, &
     !$ACC             p_grf%mask_ovlp_c, p_grf%mask_ovlp_ch, p_grf%mask_ovlp_e, p_grf%mask_ovlp_v, &
     !$ACC             p_grf%idxlist_bdyintp_src_c, p_grf%idxlist_bdyintp_src_e, p_grf%blklist_bdyintp_src_c, &
@@ -106,6 +101,7 @@ MODULE mo_nwp_gpu_util
     CALL gpu_update_var_list('nh_state_prog_of_domain_', .false., domain=jg, substr='_and_timelev_', timelev=nnew(jg)) !p_prog
     CALL gpu_update_var_list('nh_state_prog_of_domain_', .false., domain=jg, substr='_and_timelev_', timelev=nnow_rcf(jg)) !p_prog_now_rcf
     CALL gpu_update_var_list('nh_state_prog_of_domain_', .false., domain=jg, substr='_and_timelev_', timelev=nnew_rcf(jg)) !p_prog_rcf
+    CALL gpu_update_var_list('prepadv_of_domain_', .false., domain=jg)
 #endif
 
   END SUBROUTINE gpu_d2h_nh_nwp
@@ -113,13 +109,12 @@ MODULE mo_nwp_gpu_util
   !-------------------------------------------------------------------------
   !-------------------------------------------------------------------------
 
-  SUBROUTINE gpu_h2d_nh_nwp(pt_patch, prm_diag, ext_data, p_int, prep_adv, p_grf, p_grf_single)
+  SUBROUTINE gpu_h2d_nh_nwp(pt_patch, prm_diag, ext_data, p_int, p_grf, p_grf_single)
 
     TYPE(t_patch), TARGET, INTENT(in) :: pt_patch
     TYPE(t_nwp_phy_diag), INTENT(inout) :: prm_diag
     TYPE(t_external_data), OPTIONAL, INTENT(inout):: ext_data
     TYPE(t_int_state), OPTIONAL, INTENT(inout) :: p_int
-    TYPE(t_prepare_adv), OPTIONAL, INTENT(inout) :: prep_adv
     TYPE(t_gridref_state), OPTIONAL, INTENT(inout) :: p_grf
     TYPE(t_gridref_single_state), OPTIONAL, INTENT(inout) :: p_grf_single
 
@@ -158,9 +153,6 @@ MODULE mo_nwp_gpu_util
     !$ACC               p_int%verts_aw_cells) &
     !$ACC        IF(PRESENT(p_int))        
 
-    !$ACC UPDATE DEVICE(prep_adv%vn_traj,prep_adv%mass_flx_me,prep_adv%mass_flx_ic,prep_adv%topflx_tra) &
-    !$ACC        IF(PRESENT(prep_adv))
-
     !$ACC UPDATE DEVICE(p_grf%fbk_wgt_aw, p_grf%fbk_wgt_bln, p_grf%fbk_wgt_e, p_grf%fbk_dom_area, &
     !$ACC               p_grf%mask_ovlp_c, p_grf%mask_ovlp_ch, p_grf%mask_ovlp_e, p_grf%mask_ovlp_v, &
     !$ACC               p_grf%idxlist_bdyintp_src_c, p_grf%idxlist_bdyintp_src_e, p_grf%blklist_bdyintp_src_c, &
@@ -196,6 +188,7 @@ MODULE mo_nwp_gpu_util
     CALL gpu_update_var_list('nh_state_prog_of_domain_', .true., domain=jg, substr='_and_timelev_', timelev=nnew(jg)) !p_prog
     CALL gpu_update_var_list('nh_state_prog_of_domain_', .true., domain=jg, substr='_and_timelev_', timelev=nnow_rcf(jg)) !p_prog_now_rcf
     CALL gpu_update_var_list('nh_state_prog_of_domain_', .true., domain=jg, substr='_and_timelev_', timelev=nnew_rcf(jg)) !p_prog_new_rcf
+    CALL gpu_update_var_list('prepadv_of_domain_', .true., domain=jg)
 #endif
 
   END SUBROUTINE gpu_h2d_nh_nwp

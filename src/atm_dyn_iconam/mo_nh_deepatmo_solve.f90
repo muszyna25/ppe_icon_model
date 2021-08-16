@@ -57,7 +57,7 @@ MODULE mo_nh_deepatmo_solve
     &                                  timer_solve_nh_vnupd, timer_solve_nh_vimpl, timer_solve_nh_exch
   USE mo_icon_comm_lib,          ONLY: icon_comm_sync
   USE mo_vertical_coord_table,   ONLY: vct_a
-  USE mo_nh_prepadv_types,       ONLY: t_prepare_adv
+  USE mo_prepadv_types,          ONLY: t_prepare_adv
   USE mo_initicon_config,        ONLY: is_iau_active, iau_wgt_dyn
   USE mo_fortran_tools,          ONLY: init_zero_contiguous_dp, init_zero_contiguous_sp ! Import both for mixed prec.
   USE mo_nh_deepatmo_utils,      only: velocity_tendencies_deepatmo

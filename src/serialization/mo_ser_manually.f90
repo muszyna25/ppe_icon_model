@@ -16,7 +16,7 @@ MODULE mo_ser_manually
 
   ! Global variables with scalars that are going to be serialized
   USE mo_nonhydro_state,     ONLY: p_nh_state
-  USE mo_nh_prepadv_types,   ONLY: prep_adv
+  USE mo_prepadv_state,      ONLY: prep_adv
 
     IMPLICIT NONE
 

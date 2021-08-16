@@ -183,7 +183,8 @@ MODULE mo_nh_stepping
     &                                    update_lin_interc
   USE mo_interface_les,            ONLY: les_phy_interface
   USE mo_restart,                  ONLY: t_RestartDescriptor, createRestartDescriptor, deleteRestartDescriptor
-  USE mo_nh_prepadv_types,         ONLY: prep_adv, t_prepare_adv, jstep_adv
+  USE mo_prepadv_types,            ONLY: t_prepare_adv
+  USE mo_prepadv_state,            ONLY: prep_adv, jstep_adv
   USE mo_action,                   ONLY: reset_act
   USE mo_output_event_handler,     ONLY: get_current_jfile
   USE mo_nwp_diagnosis,            ONLY: nwp_diag_for_output, nwp_opt_diagnostics
@@ -196,7 +197,7 @@ MODULE mo_nh_stepping
   USE mo_async_latbc_utils,        ONLY: recv_latbc_data, update_lin_interpolation
   USE mo_async_latbc_types,        ONLY: t_latbc_data
   USE mo_nonhydro_types,           ONLY: t_nh_state
-  USE mo_fortran_tools,            ONLY: swap, copy, init
+  USE mo_fortran_tools,            ONLY: swap, copy
   USE mtime,                       ONLY: datetime, newDatetime, deallocateDatetime, datetimeToString,     &
        &                                 timedelta, newTimedelta, deallocateTimedelta, timedeltaToString, &
        &                                 MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN, newDatetime,        &
@@ -693,7 +694,7 @@ MODULE mo_nh_stepping
   INTEGER                              :: ierr
   LOGICAL                              :: l_compute_diagnostic_quants,  &
     &                                     l_nml_output, l_nml_output_dom(max_dom), lprint_timestep, &
-    &                                     lwrite_checkpoint, lcfl_watch_mode, l_need_dbz3d
+    &                                     lwrite_checkpoint, lcfl_watch_mode
   TYPE(t_simulation_status)            :: simulation_status
   TYPE(datetime),   POINTER            :: mtime_old         ! copy of current datetime (mtime)
 
@@ -3382,27 +3383,12 @@ MODULE mo_nh_stepping
   !!
   SUBROUTINE deallocate_nh_stepping
 
-  INTEGER                              ::  jg, ist
+  INTEGER :: ist
 
   !-----------------------------------------------------------------------
   !
   ! deallocate auxiliary fields for tracer transport and rcf
   !
-  DO jg = 1, n_dom
-    DEALLOCATE( prep_adv(jg)%mass_flx_me, prep_adv(jg)%mass_flx_ic,     &
-      &         prep_adv(jg)%vn_traj, prep_adv(jg)%topflx_tra, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ( modname//': perform_nh_stepping',            &
-        &    'deallocation for mass_flx_me, mass_flx_ic, vn_traj,' // &
-        &    'topflx_tra failed' )
-    ENDIF
-  ENDDO
-
-  DEALLOCATE( prep_adv, STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ( modname//': perform_nh_stepping',              &
-      &    'deallocation for prep_adv failed' )
-  ENDIF
 
   DEALLOCATE( jstep_adv, STAT=ist )
   IF (ist /= SUCCESS) THEN
@@ -3444,11 +3430,6 @@ MODULE mo_nh_stepping
     !
     ! allocate axiliary fields for transport
     !
-    ALLOCATE(prep_adv(n_dom), STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish(routine, 'allocation for prep_adv failed')
-    ENDIF
-
     ALLOCATE(jstep_adv(n_dom), STAT=ist )
     IF (ist /= SUCCESS) THEN
       CALL finish(routine, 'allocation for jstep_adv failed' )
@@ -3479,28 +3460,6 @@ MODULE mo_nh_stepping
     ENDIF
 
     DO jg=1, n_dom
-      ALLOCATE(                                                                      &
-        &  prep_adv(jg)%mass_flx_me (nproma,p_patch(jg)%nlev  ,p_patch(jg)%nblks_e), &
-        &  prep_adv(jg)%mass_flx_ic (nproma,p_patch(jg)%nlevp1,p_patch(jg)%nblks_c), &
-        &  prep_adv(jg)%vn_traj     (nproma,p_patch(jg)%nlev,  p_patch(jg)%nblks_e), &
-        &  prep_adv(jg)%topflx_tra  (nproma,p_patch(jg)%nblks_c,MAX(1,ntracer)),     &
-        &       STAT=ist )
-      IF (ist /= SUCCESS) THEN
-        CALL finish(routine,                                             &
-          &      'allocation for mass_flx_me, mass_flx_ic, vn_traj, ' // &
-          &      'topflx_tra failed' )
-      ENDIF
-      !
-      ! initialize (as long as restart output is synchroinzed with advection,
-      ! these variables do not need to go into the restart file)
-!$OMP PARALLEL
-      CALL init(prep_adv(jg)%mass_flx_me)
-      CALL init(prep_adv(jg)%mass_flx_ic)
-      CALL init(prep_adv(jg)%vn_traj)
-      CALL init(prep_adv(jg)%topflx_tra)
-!$OMP END PARALLEL
-
-
       IF (iforcing == inwp) THEN
         ! reads elapsed_time from the restart file, to re-initialize 
         ! NWP physics events.
