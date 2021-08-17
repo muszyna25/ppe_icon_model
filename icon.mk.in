@@ -171,11 +171,6 @@ ICON_exec_file:= $(bindir)/icon@EXEEXT@
 ICON_prog_obj_file:= $(call get_obj_names,src/drivers/icon.f90)
 exec_files+= $(ICON_exec_file)
 
-# JSBACH executable:
-@JSBACH_ENABLED@JSBACH_exec_file:= $(bindir)/jsb4_driver@EXEEXT@
-@JSBACH_ENABLED@JSBACH_prog_obj_file:= $(call get_obj_names,$(JSBACH_subdir)/drivers/jsb4_driver.f90)
-@JSBACH_ENABLED@exec_files+= $(JSBACH_exec_file)
-
 ############################## GENERATED ARCHIVES ##############################
 
 # Generated archive (library) files:
@@ -192,7 +187,6 @@ get_prereq_objs= $(filter-out $(1),$(filter %.@OBJEXT@, \
 # executables):
 common_lib_file:= $(libdir)/libicon.a
 common_lib_prog_obj_files:= $(ICON_prog_obj_file)
-@JSBACH_ENABLED@common_lib_prog_obj_files+= $(JSBACH_prog_obj_file)
 common_lib_member_files:= $(call get_prereq_objs,$(common_lib_prog_obj_files))
 lib_files+= $(common_lib_file)
 
@@ -319,9 +313,6 @@ check-bundled:| $(if $(filter check,$(MAKECMDGOALS)),all) # run the tests after 
 
 # Dependencies of the ICON executable:
 $(ICON_exec_file): $(ICON_prog_obj_file) $(common_lib_file) $(BUNDLED_LIBFILES)
-
-# Dependencies of the JSBACH executable:
-@JSBACH_ENABLED@$(JSBACH_exec_file): $(JSBACH_prog_obj_file) $(common_lib_file) $(BUNDLED_LIBFILES)
 
 # Common linking rule for the executables:
 $(exec_files): | $(dir_files)

@@ -13,15 +13,15 @@
 !!
 !! The coupling mechanism is controlled by echam_phy_config%ldcphycpl:
 !!
-!! ldcphycpl = .FALSE.: The whole physics is treated as "fast" phyiscs.
+!! ldcphycpl = .FALSE.: The whole physics is treated as "fast" physics.
 !!                      The physics tendencies are computed from the
 !!                      provisional state reached after dynamics&transport
 !!                      and the full physics tendencies are then used to
 !!                      update and reach the final new state
 !!
-!! ldcphycpl = .TRUE. : The whole physics is treated as "slow" phyiscs.
+!! ldcphycpl = .TRUE. : The whole physics is treated as "slow" physics.
 !!                      The state after dynamics+transport is the final
-!!                      state for which the full phyiscs tandencies are
+!!                      state for which the full physics tandencies are
 !!                      computed. These will be used in the following
 !!                      timestep as forcing for the dynamics and for
 !!                      updating tracers after the transport.
@@ -70,7 +70,7 @@ MODULE mo_interface_iconam_echam
   USE mo_coupling_config       ,ONLY: is_coupled_run
   USE mo_parallel_config       ,ONLY: nproma
   USE mo_advection_config      ,ONLY: advection_config
-  USE mo_run_config            ,ONLY: nlev, ntracer, iqv, iqc, iqi, iqm_max
+  USE mo_run_config            ,ONLY: nlev, ntracer, iqv, iqc, iqi
   USE mo_nonhydrostatic_config ,ONLY: lhdiff_rcf
   USE mo_diffusion_config      ,ONLY: diffusion_config
   USE mo_echam_phy_config      ,ONLY: echam_phy_config
@@ -187,7 +187,7 @@ CONTAINS
 
     TYPE(t_echam_phy_field) , POINTER    :: field
     TYPE(t_echam_phy_tend)  , POINTER    :: tend
-
+ 
     REAL(wp) :: z_exner              !< to save provisional new exner
     REAL(wp) :: z_qsum               !< summand of virtual increment
 !!$    REAL(wp) :: z_ddt_qsum           !< summand of virtual increment
@@ -233,7 +233,7 @@ CONTAINS
     field => prm_field(jg)
     tend  => prm_tend (jg)
 
-    ! The date and time needed for the radiation computation in the phyiscs is
+    ! The date and time needed for the radiation computation in the physics is
     ! the date and time of the initial data for this step.
     ! As 'datetime_new' contains already the date and time of the end of this
     ! time step, we compute here the old datetime 'datetime_old':
@@ -298,7 +298,7 @@ CONTAINS
     !=====================================================================================
     !
     ! (1) Complete prognostic and diagnostic state as needed for the computation
-    !     of the phyiscs tendendies.
+    !     of the physics tendendies.
     !
     !     ldcphycpl = .FALSE. : fast physics coupling, dynamics and physics update sequentially
     !     ldcphycpl = .TRUE.  : slow physics coupling, dynamics uses physics forcing for updating
@@ -355,12 +355,12 @@ CONTAINS
     !
     ! ldcphycpl = .FALSE.: The "new" state is provisional, updated only by dynamics,
     !                      diffusion and tracer transport.
-    !                      In the following the phyiscs forcing is computed for this new
+    !                      In the following the physics forcing is computed for this new
     !                      provisional state and the provisional new state is updated
     !                      to obtain the final "new" state X(t+dt).
     !
     ! ldcphycpl = .TRUE. : The "new" state is the final state X(t+dt).
-    !                      In the following the phyiscs forcing is computed for this new
+    !                      In the following the physics forcing is computed for this new
     !                      final state so that it is available in the next time step.
     !
     !=====================================================================================
@@ -386,13 +386,13 @@ CONTAINS
                 IF (pt_prog_new_rcf% tracer(jc,jk,jb,jt) < 0.0_wp) THEN
 #ifndef _OPENACC
                   IF (echam_phy_config(jg)%iqneg_d2p == 1 .OR. echam_phy_config(jg)%iqneg_d2p == 3) THEN
-                     CALL print_value('grid   index jg',jg)
-                     CALL print_value('tracer index jt',jt)
-                     CALL print_value('level  index jk',jk)
-                     CALL print_value('pressure   [Pa]',field% pfull(jc,jk,jb))
-                     CALL print_value('longitude [deg]',field% clon(jc,jb)*rad2deg)
-                     CALL print_value('latitude  [deg]',field% clat(jc,jb)*rad2deg)
-                     CALL print_value('pt_prog_new_rcf%tracer',pt_prog_new_rcf% tracer(jc,jk,jb,jt))
+                     CALL print_value('d2p:grid   index jg',jg)
+                     CALL print_value('d2p:tracer index jt',jt)
+                     CALL print_value('d2p:level  index jk',jk)
+                     CALL print_value('d2p:pressure   [Pa]',field% pfull(jc,jk,jb))
+                     CALL print_value('d2p:longitude [deg]',field% clon(jc,jb)*rad2deg)
+                     CALL print_value('d2p:latitude  [deg]',field% clat(jc,jb)*rad2deg)
+                     CALL print_value('d2p:pt_prog_new_rcf%tracer',pt_prog_new_rcf% tracer(jc,jk,jb,jt))
                   END IF
 #endif
                   IF (echam_phy_config(jg)%iqneg_d2p == 2 .OR. echam_phy_config(jg)%iqneg_d2p == 3) THEN
@@ -513,7 +513,7 @@ CONTAINS
     
     !
     ! Now the old and new prognostic and diagnostic state variables of the dynamical core
-    ! are ready to be used in the phyiscs.
+    ! are ready to be used in the physics.
     !
     !=====================================================================================
 
@@ -521,7 +521,7 @@ CONTAINS
     !=====================================================================================
     !
     ! (3) Copy the new prognostic state and the related diagnostics from the
-    !     dynamics state variables to the phyiscs state variables
+    !     dynamics state variables to the physics state variables
     !
 
     ! Loop over cells
@@ -721,8 +721,6 @@ CONTAINS
     IF (ltimer) CALL timer_stop(timer_echam_bcs)
     !
     !=====================================================================================
-
-    !=====================================================================================
     !
     ! (4) Call echam physics and compute the total physics tendencies.
     !     This includes the atmospheric processes (proper ECHAM) and
@@ -731,7 +729,7 @@ CONTAINS
     !
 #ifndef __NO_JSBACH__
     IF (echam_phy_config(jg)%ljsb) THEN
-      CALL jsbach_start_timestep(jg)
+      CALL jsbach_start_timestep(jg, datetime_old, dt_loc)
     END IF
 #endif
 
@@ -746,15 +744,14 @@ CONTAINS
 
     IF (ltimer) CALL timer_stop(timer_echam_phy)
 
-    CALL deallocateDatetime(datetime_old)
-    !
-    !=====================================================================================
-
 #ifndef __NO_JSBACH__
     IF (echam_phy_config(jg)%ljsb) THEN
-      CALL jsbach_finish_timestep(jg, dt_loc)
+      CALL jsbach_finish_timestep(jg, datetime_old, dt_loc)
     END IF
 #endif
+
+    CALL deallocateDatetime(datetime_old)
+    !
     !=====================================================================================
     !
     ! (5) Couple to ocean surface if an ocean is present and this is a coupling time step.
@@ -920,13 +917,13 @@ CONTAINS
       ! - The full physics forcing has been computed for the final "new" state,
       !   which is the "now" state of the next time step, on which the forcing
       !   shall be applied.
-      ! - Hence the full phyiscs forcing is passed on and nothing needs to be
+      ! - Hence the full physics forcing is passed on and nothing needs to be
       !   done here.
       !
     ELSE
       !
       ! In this case all ECHAM physics is treated as "fast" physics:
-      ! - The provisional "new" state is updated with the total phyiscs
+      ! - The provisional "new" state is updated with the total physics
       !   tendencies, providing the final "new" state
       ! - The physics forcing that is passed to the dynamical
       !   core must be set to zero
@@ -945,7 +942,7 @@ CONTAINS
             !
             ! (1) Velocity
             !
-            ! Update with the total phyiscs tendencies
+            ! Update with the total physics tendencies
             pt_prog_new%vn    (je,jk,jb) =   pt_prog_new%vn    (je,jk,jb)             &
               &                            + pt_diag%ddt_vn_phy(je,jk,jb) * dt_loc
             !
@@ -991,7 +988,7 @@ IF (lart) jt_end = advection_config(jg)%nname
               tend% qtrc      (jc,jk,jb,jt) = tend% qtrc_dyn(jc,jk,jb,jt)  &
                 &                            +tend% qtrc_phy(jc,jk,jb,jt)
               !
-              ! (2.1) Tracer mixing ratio with respect to dry air
+              ! (2.1) Tracer mixing ratio with respect to reference air mass
               !
               ! tracer mass tendency
               tend% mtrc_phy  (jc,jk,jb,jt) = tend% qtrc_phy(jc,jk,jb,jt) &
@@ -1020,13 +1017,13 @@ IF (lart) jt_end = advection_config(jg)%nname
                     IF (field% mtrc(jc,jk,jb,jt) < 0.0_wp) THEN
 #ifndef _OPENACC
                         IF (echam_phy_config(jg)%iqneg_p2d == 1 .OR. echam_phy_config(jg)%iqneg_p2d == 3) THEN
-                          CALL print_value('grid   index jg',jg)
-                          CALL print_value('tracer index jt',jt)
-                          CALL print_value('level  index jk',jk)
-                          CALL print_value('pressure   [Pa]',field% pfull(jc,jk,jb))
-                          CALL print_value('longitude [deg]',field% clon(jc,jb)*rad2deg)
-                          CALL print_value('latitude  [deg]',field% clat(jc,jb)*rad2deg)
-                          CALL print_value('field%mtrc     ',field% mtrc(jc,jk,jb,jt))
+                          CALL print_value('p2d:grid   index jg',jg)
+                          CALL print_value('p2d:tracer index jt',jt)
+                          CALL print_value('p2d:level  index jk',jk)
+                          CALL print_value('p2d:pressure   [Pa]',field% pfull(jc,jk,jb))
+                          CALL print_value('p2d:longitude [deg]',field% clon(jc,jb)*rad2deg)
+                          CALL print_value('p2d:latitude  [deg]',field% clat(jc,jb)*rad2deg)
+                          CALL print_value('p2d:field%mtrc     ',field% mtrc(jc,jk,jb,jt))
                         END IF
 #endif
                         IF (echam_phy_config(jg)%iqneg_p2d == 2 .OR. echam_phy_config(jg)%iqneg_p2d == 3) THEN
@@ -1043,12 +1040,12 @@ IF (lart) jt_end = advection_config(jg)%nname
               field% mtrcvi   (jc,   jb,jt) = field% mtrcvi  (jc,   jb,jt) &
                 &                            +field% mtrc    (jc,jk,jb,jt)
               !
-            END DO
-          END DO
-        END DO
+            END DO  ! jc
+          END DO    ! jt
+        END DO      ! jk
         !$ACC END PARALLEL
         !
-      END DO
+      END DO  ! jb
 !$OMP END DO
 !$OMP END PARALLEL
 
@@ -1148,16 +1145,22 @@ IF (lart) jt_end = advection_config(jg)%nname
           DO jk = 1,nlev
             DO jc = jcs, jce
               !
-              ! new tracer mass fraction with respect to dry air
+              ! new tracer mass fraction with respect to reference air mass
               field%           qtrc   (jc,jk,jb,jt)  = field%  mtrc(jc,jk,jb,jt) &
                 &                                     /field%  mref(jc,jk,jb)
               !
               IF (echam_phy_config(jg)%ldrymoist) THEN
                  ! in this case mtrc or mair or both may have changed, and
-                 ! terefore always re-compute the tracer variable
+                 ! therefore always re-compute the tracer variable
                  pt_prog_new_rcf% tracer (jc,jk,jb,jt)  = field%  mtrc(jc,jk,jb,jt) &
                    &                                     /field%  mair(jc,jk,jb)
                  !
+              ELSE IF (echam_phy_config(jg)%l2moment) Then
+                 ! this is a special case for the 2 moment scheme as field%mtrc
+                 ! is changed by clipping after calculating changes due to physical
+                 ! tendencies, so we have to re-compute all tracer variables.
+                 pt_prog_new_rcf% tracer (jc,jk,jb,jt)  = field% mtrc(jc,jk,jb,jt) &
+                   &                                     /field%  mair(jc,jk,jb)
               ELSE
                  ! in this case mair is unchanged, and the tracer variable
                  ! is re-computed only if the mtrc is changed due to a physical
@@ -1243,7 +1246,7 @@ ENDIF
                ! Compute final new exner
                pt_prog_new% exner(jc,jk,jb) = EXP(rd_o_cpd*LOG(rd/p0ref * pt_prog_new% rho(jc,jk,jb) * pt_diag% tempv(jc,jk,jb)))
                !
-               ! Add exner change from fast phyiscs to exner_pr in order to avoid unphysical sound wave generation
+               ! Add exner change from fast physics to exner_pr in order to avoid unphysical sound wave generation
                pt_diag% exner_pr(jc,jk,jb)  = pt_diag% exner_pr(jc,jk,jb) + pt_prog_new% exner(jc,jk,jb) - z_exner
                !
 !!$               ! (b) Update Exner, then compute Temp_v

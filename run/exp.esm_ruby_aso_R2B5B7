@@ -18,10 +18,6 @@ author_list="Monika Esch, Rene Redler, Stephan Lorenz"
 # - SST and sea ice are transferred via YAC from the ocean.
 # - and no (!) aerosols
 #
-# Here, the ocean is already spun up from PHC3.0 (Levitus) climatology for several centuries
-# initialiseOcean="fromRestart"
-# initialiseOcean="fromClimatology" is possible, see below.
-#
 # The coupling:
 #
 # atmosphere -> ocean:
@@ -54,12 +50,21 @@ atmos_refinement="R02B05"
 ocean_gridID="0032"
 ocean_refinement="R02B07"
 
-# use alternatively: full restart, init from (ocean) restart, init from climatology or false
-#  - set to false if ocean was already initialised
-initialiseOcean="fromRestart"
-# initialiseOcean="fromClimatology"
-# initialiseOcean="FALSE"
-# restart=.true.
+#
+# Here, the ocean is already spun up from PHC3.0 (Levitus) climatology for several centuries
+#
+# Use alternatively:
+  initialiseOcean="fromRestart"        # ocean is setup from restart-file, atmosphere initialised from scratch
+# initialiseOcean="fromClimatology"    # ocean is setup from climatology, atmosphere initialised from scratch
+# initialiseOcean="FALSE"              # atmosphere and ocean are setup from restart-files
+
+#
+# set initialiseOcean automatically to false for second job via isRestart.sem
+if [ -d "$basedir/experiments/$EXPNAME" ] ; then
+  if [ -f "$basedir/experiments/$EXPNAME/isRestartRun.sem" ]; then
+    initialiseOcean="FALSE"
+  fi
+fi
 
 #mpi_oce_nodes=56   #  this is a suitable value for 100 nodes = 44 atm + 56 oce nodes
 mpi_oce_nodes=${mpi_oce_nodes:=((no_of_nodes/2))}   # default: half of requested nodes
@@ -126,9 +131,9 @@ atmo_dyn_grid=${atm_grid_name}.nc
 
 # start and end date+time of experiment
 # -------------------------------------
-start_date=${start_date:="1000-01-01T00:00:00Z"}
-    end_date=${end_date:="1000-01-03T00:00:00Z"}   #  test run 30 min, 2x 1day, no production
-#   end_date=${end_date:="1200-01-01T00:00:00Z"}   #  production run, annual
+start_date=${start_date:="2000-01-01T00:00:00Z"}
+    end_date=${end_date:="2000-01-03T00:00:00Z"}   #  test run 30 min, 2x 1day, no production
+#   end_date=${end_date:="2200-01-01T00:00:00Z"}   #  production run, annual
 
 fx_date="1000-01-02T00:00:00Z"                     #  output of fixed geometry
 
@@ -202,7 +207,6 @@ output_phy_3d=no        #  atmosphere physics, note: "yes" increases the output 
 #-----------------------------------
 
 # JSBACH settings
-run_jsbach=yes
 jsbach_usecase=jsbach_pfts    # jsbach_lite or jsbach_pfts
 jsbach_with_lakes=yes 
 jsbach_check_wbal=yes         # check water balance
@@ -211,7 +215,6 @@ jsbach_with_carbon=no         # yes needs jsbach_pfts usecase
 # Some further processing for land configuration
 # ----------------------------------------------
 
-ljsbach=$([ "${run_jsbach:=no}" == yes ]          && echo .TRUE. || echo .FALSE. )
 llake=$([ "${jsbach_with_lakes:=yes}" == yes ]    && echo .TRUE. || echo .FALSE. )
 lcarbon=$([ "${jsbach_with_carbon:=yes}" == yes ] && echo .TRUE. || echo .FALSE. )
 
@@ -225,7 +228,7 @@ fi
 # namelist files
 # --------------
 atm_namelist=NAMELIST_${EXPNAME}_atm
-lnd_namelist=NAMELIST_${EXPNAME}_lnd
+jsbach_namelist=NAMELIST_${EXPNAME}_lnd
 oce_namelist=NAMELIST_${EXPNAME}_oce
 
 
@@ -681,7 +684,7 @@ cat > ${atm_namelist} << EOF
  echam_phy_config(1)%dt_art = ""
 !
 ! surface (.TRUE. or .FALSE.)
- echam_phy_config(1)%ljsb   = ${ljsbach}
+ echam_phy_config(1)%ljsb   = .TRUE.
  echam_phy_config(1)%lamip  = .FALSE.
  echam_phy_config(1)%lice   = .TRUE.
  echam_phy_config(1)%lmlo   = .FALSE.
@@ -747,12 +750,11 @@ EOF
 # jsbach namelist
 # ---------------
 
-cat > ${lnd_namelist} << EOF
+cat > ${jsbach_namelist} << EOF
 &jsb_model_nml
   usecase              = "${jsbach_usecase}"
   use_lakes            = ${llake}
   fract_filename       = "bc_land_frac.nc"
-  output_tiles         = ${output_tiles}     ! List of tiles to output
 /
 &jsb_seb_nml
   bc_filename          = 'bc_land_phys.nc'
@@ -834,7 +836,7 @@ add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
 # namelist files
 # --------------
 add_required_file ${basedir}/run/${atm_namelist}                        ./
-add_required_file ${basedir}/run/${lnd_namelist}                        ./
+add_required_file ${basedir}/run/${jsbach_namelist}                        ./
 
 # dictionary file for output variable names
 #

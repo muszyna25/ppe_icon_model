@@ -408,7 +408,9 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
              &  i_startidx, i_endidx, rl_start, rl_end)
 
-        IF ( (nh_test_name == 'APE_nwp' .OR. nh_test_name == 'dcmip_tc_52' .OR. nh_test_name == 'CBL_flxconst') ) THEN
+        IF ( (nh_test_name == 'APE_nwp' .OR. nh_test_name == 'dcmip_tc_52' .OR.        &
+            & nh_test_name == 'RCEMIP_analytical'  .OR.                                &
+            & nh_test_name == 'RCE_Tconst' .OR. nh_test_name == 'CBL_flxconst') ) THEN
 
           ! t_g = ape_sst1
 
@@ -815,7 +817,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
       tsi_radt = 1365._wp
     ENDIF  ! APE
 
-    IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' ) THEN
+    IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' .OR. &
+       & nh_test_name == 'RCEMIP_analytical') THEN
       ! solar flux (W/m2) in 14 SW bands
       scale_fac = sol_const/1361.371_wp ! computed relative to amip (1361)
       ssi_radt(:) = scale_fac*ssi_amip(:)
@@ -1015,7 +1018,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
     ! solar constant (W/m2)
     tsi_radt    = SUM(ssi_radt(:))
 
-    IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' ) THEN
+    IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' .OR. &
+      &  nh_test_name == 'RCEMIP_analytical') THEN
       tsi_radt = 0._wp
       ! solar flux (W/m2) in 14 SW bands
       scale_fac = sol_const/1361.371_wp ! computed relative to amip (1361)

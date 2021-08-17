@@ -57,6 +57,7 @@ MODULE mo_initicon_utils
     &                               l2lay_rho_snow, lprog_albsi
   USE mo_nwp_sfc_utils,       ONLY: init_snowtile_lists
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
+  USE mo_echam_phy_config,    ONLY: echam_phy_config
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE sfc_terra_data,         ONLY: csalb_snow_min, csalb_snow_max, csalb_snow, crhosmin_ml, crhosmax_ml
   USE mo_physical_constants,  ONLY: cpd, rd, cvd_o_rd, p0ref, vtmpc1
@@ -686,7 +687,7 @@ MODULE mo_initicon_utils
             IF ( (atm_phy_nwp_config(jg)%lhave_graupel) .OR. ( iqg /= 0 .AND. iqg <= ntracer) ) THEN
               p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqg) = 0.0_wp
             END IF
-            IF ( atm_phy_nwp_config(jg)%l2moment ) THEN
+            IF ( atm_phy_nwp_config(jg)%l2moment .OR. echam_phy_config(jg)%l2moment) THEN
               p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqh)  = 0.0_wp
               p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqnc) = 0.0_wp
               p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqni) = 0.0_wp
@@ -714,6 +715,15 @@ MODULE mo_initicon_utils
               IF ( iqg /= 0 .AND. iqg <= ntracer) THEN
                 ! as qg is not in atm initialize with zero
                 p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqg) = 0.0_wp
+              END IF
+              IF ( echam_phy_config(jg)%l2moment) THEN
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqh)  = 0.0_wp
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqnc) = 0.0_wp
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqni) = 0.0_wp
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqnr) = 0.0_wp
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqns) = 0.0_wp
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqng) = 0.0_wp
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqnh) = 0.0_wp
               END IF
             ENDDO
           ENDDO

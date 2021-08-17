@@ -74,7 +74,7 @@ file_interval="PT24H"
 
 # namelist files
 atmo_namelist=NAMELIST_${EXPNAME}_atm
-lnd_namelist=NAMELIST_${EXPNAME}_lnd
+jsbach_namelist=NAMELIST_${EXPNAME}_lnd
 
 master_namelist=icon_master.namelist
 no_of_models=1
@@ -154,7 +154,7 @@ then
  model_name = 'JSBACH'
  model_shortname = 'jsb'
  model_description = 'JSBACH land surface model'
- model_namelist_filename = "${lnd_namelist}"
+ model_namelist_filename = "${jsbach_namelist}"
 /
 EOF
 fi
@@ -317,7 +317,7 @@ EOF
 
 # land surface and soil
 # ---------------------
-cat > ${lnd_namelist} << EOF
+cat > ${jsbach_namelist} << EOF
 &jsb_model_nml
   usecase         = "${jsbach_usecase}"
   use_lakes       = ${llake}
@@ -393,7 +393,7 @@ cat > ${lnd_namelist} << EOF
 EOF
 if [[ ${jsbach_with_hd} = yes ]]
 then
-  cat >> ${lnd_namelist} << EOF
+  cat >> ${jsbach_namelist} << EOF
 &jsb_hd_nml
   active               = .TRUE.
   routing_scheme       = 'full'
@@ -417,7 +417,7 @@ ln -sf ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
 # namelist files
 #
 #cp ${basedir}/run/${atmo_namelist}                       ./
-#cp ${basedir}/run/${lnd_namelist}                        ./
+#cp ${basedir}/run/${jsbach_namelist}                        ./
 
 # dictionary file for output variable names
 #

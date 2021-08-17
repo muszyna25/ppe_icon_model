@@ -29,7 +29,6 @@ MODULE mo_bc_aeropt_cmip6_volc
   USE mo_latitude_interpolation, ONLY: latitude_weights_li
   USE mo_physical_constants,     ONLY: rgrav, rd
   USE mo_math_constants,         ONLY: deg2rad, pi_2
-  USE mo_echam_phy_config,       ONLY: echam_phy_config
   USE mtime,                     ONLY: datetime 
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, &
        &                               calculate_time_interpolation_weights
@@ -75,13 +74,7 @@ SUBROUTINE su_bc_aeropt_cmip6_volc( p_patch_id,                          &
   csubprog_name='su_bc_aeropt_cmip6_volc---of---mo_bc_aeropt_cmip6_volc.f90'
   IF (my_process_is_stdio()) THEN
     WRITE(ckyear,*) kyear
-    ! for non-amip simulations, an arbitrary year may be stored in a file without
-    ! the year in the filename.
-    IF ( echam_phy_config(p_patch_id)%lamip ) THEN
-      cfname='bc_aeropt_cmip6_volc_lw_b16_sw_b14_'//TRIM(ADJUSTL(ckyear))//'.nc'
-    ELSE
-      cfname='bc_aeropt_cmip6_volc_lw_b16_sw_b14.nc'
-    ENDIF
+    cfname='bc_aeropt_cmip6_volc_lw_b16_sw_b14_'//TRIM(ADJUSTL(ckyear))//'.nc'
     CALL openInputFile(ifile_id, cfname)
 !!$write(0,*) 'cfname=',TRIM(ADJUSTL(cfname)),'ifile_id=',ifile_id
     CALL nf(nf_inq_dimid(ifile_id,TRIM(ADJUSTL(clat_dim)),idim_id), &
@@ -530,13 +523,7 @@ END SUBROUTINE altitude_index
                  'kmonth='//TRIM(ADJUSTL(ckmonth))) 
   END IF
   WRITE(ckyear,*) kyear
-
-  IF ( echam_phy_config(p_patch_id)%lamip ) THEN
-    cfname='bc_aeropt_cmip6_volc_lw_b16_sw_b14_'//TRIM(ADJUSTL(ckyear))//'.nc'
-  ELSE
-    cfname='bc_aeropt_cmip6_volc_lw_b16_sw_b14.nc'
-  ENDIF
-
+  cfname='bc_aeropt_cmip6_volc_lw_b16_sw_b14_'//TRIM(ADJUSTL(ckyear))//'.nc'
   CALL openInputFile(ifile_id, cfname)
   CALL read_1D(file_id=ifile_id, variable_name='altitude', return_pointer=zalt)
   ! order altitudes from top to bottom of atmosphere (should be outside reading routine)

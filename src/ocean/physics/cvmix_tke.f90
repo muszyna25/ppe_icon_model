@@ -455,6 +455,7 @@ subroutine integrate_tke( &
                          alpha_c,              & ! FIXME: today: put to initialize
                          tke_userdef_constants)
 !subroutine integrate_tke(jc, blockNo, tstep_count)
+!NEC$ always_inline
   
   type(tke_type), intent(in), optional, target                 :: &
     tke_userdef_constants

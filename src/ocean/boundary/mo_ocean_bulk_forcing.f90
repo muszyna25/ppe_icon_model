@@ -49,7 +49,7 @@ MODULE mo_ocean_bulk_forcing
     &  i_sea_ice, l_relaxsal_ice, forcing_enable_freshwater,                    &
     &  forcing_set_runoff_to_zero, OMIP_FluxFromFile, OceanReferenceDensity,    &
     &  bulk_wind_stress_type, wind_stress_from_file, wind_stress_type_noocean,  &
-    &  wind_stress_type_ocean
+    &  wind_stress_type_ocean, check_total_volume
   USE mo_sea_ice_nml,         ONLY: stress_ice_zero
 
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state
@@ -65,6 +65,7 @@ MODULE mo_ocean_bulk_forcing
   USE mo_math_utilities,      ONLY: gvec2cvec
   USE mtime,                  ONLY: datetime, getDayOfYearFromDateTime, getNoOfDaysInYearDateTime
   USE mo_ocean_time_events,   ONLY: isEndOfThisRun 
+  USE mo_statistics,         ONLY: subset_sum
   
   IMPLICIT NONE
   
@@ -1213,23 +1214,24 @@ CONTAINS
     TYPE(t_ocean_surface) , INTENT(INOUT)   :: p_oce_sfc
     TYPE(t_sea_ice),INTENT(IN)              :: p_ice
 
-
-    TYPE(t_patch), POINTER                  :: p_patch
-    TYPE(t_subset_range), POINTER           :: all_cells
+    TYPE(t_patch), POINTER                  :: patch_2D
+    TYPE(t_subset_range), POINTER           :: all_cells, owned_cells
 
     INTEGER  :: i_startidx_c, i_endidx_c
     INTEGER  :: jc, jb 
     REAL(wp) :: ocean_are, glob_slev, corr_slev , hold_b,hnew_a
+    REAL(wp) :: h_mean, h_total
 
-    p_patch         => p_patch_3D%p_patch_2D(1)
-    all_cells       => p_patch%cells%all
+    patch_2D         => p_patch_3D%p_patch_2D(1)
+    all_cells       => patch_2D%cells%all
+    owned_cells     => patch_2D%cells%owned
  
     ! parallelize correctly
     ocean_are = p_patch_3D%p_patch_1D(1)%ocean_area(1)
-    glob_slev = global_sum_array(p_patch%cells%area(:,:)*h_old(:,:)*p_patch_3D%wet_halo_zero_c(:,1,:))
+    glob_slev = global_sum_array(patch_2D%cells%area(:,:)*h_old(:,:)*p_patch_3D%wet_halo_zero_c(:,1,:))
     corr_slev = glob_slev/ocean_are
 
-    idt_src=2
+    idt_src=4
     IF ((my_process_is_stdio()) .AND. (idbg_mxmn >= idt_src)) &
       & write(0,*)' BALANCE_ELEVATION(Dom): ocean_are, glob_slev, corr_slev =',ocean_are, glob_slev, glob_slev/ocean_are
 
@@ -1251,6 +1253,14 @@ CONTAINS
       END DO
     END DO
 
+    IF (check_total_volume) THEN
+      h_total = subset_sum(h_old, patch_2d%cells%area, owned_cells, h_mean)
+      IF (my_process_is_stdio()) THEN
+        WRITE(0,*) ' -- balance_elevation, h_total, h_mean:',  h_total, h_mean
+      ENDIF
+    ENDIF
+    
+    
   END SUBROUTINE balance_elevation
 
 
