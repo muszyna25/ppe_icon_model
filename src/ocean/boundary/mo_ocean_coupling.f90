@@ -9,6 +9,7 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
+!
 
 #ifdef YAC_coupling
 
@@ -24,7 +25,7 @@ MODULE mo_ocean_coupling
   USE mo_exception,           ONLY: warning, message
   USE mo_impl_constants,      ONLY: max_char_length
   USE mo_physical_constants,  ONLY: tmelt, rhoh2o
-  USE mo_mpi,                 ONLY: p_pe_work
+  USE mo_mpi,                 ONLY: p_pe_work, p_comm_work, p_sum
   USE mo_run_config,          ONLY: ltimer
   USE mo_dynamics_config,     ONLY: nold, nnew
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_coupling, &
@@ -301,6 +302,7 @@ CONTAINS
       ENDDO
     ENDDO
 !ICON_OMP_END_PARALLEL_DO
+    mask_checksum = p_sum(mask_checksum, comm=p_comm_work)
 
     IF ( mask_checksum > 0 ) THEN
 
@@ -373,10 +375,11 @@ CONTAINS
 !ICON_OMP_PARALLEL_DO PRIVATE(BLOCK, idx, INDEX) ICON_OMP_DEFAULT_SCHEDULE
       DO BLOCK = 1, patch_horz%nblks_c
         DO idx = 1, nproma
-            ! ocean coast (-1) is valid
-!         IF ( patch_3d%surface_cell_sea_land_mask(idx, BLOCK) == -1 ) THEN
+          ! again: ocean coast (-1) only is valid
+          IF ( patch_3d%surface_cell_sea_land_mask(idx, BLOCK) == -1 ) THEN
           ! all ocean points (-1, -2) are valid
-          IF ( patch_3d%surface_cell_sea_land_mask(idx, BLOCK) <= -1 ) THEN
+          !  this is the same as for cell_mask_ids(1) above
+!         IF ( patch_3d%surface_cell_sea_land_mask(idx, BLOCK) <= -1 ) THEN
             ibuffer((BLOCK-1)*nproma+idx) = 0
           ELSE
             ! elsewhere (land or open ocean 1, 2, -2) is undef
@@ -404,11 +407,7 @@ CONTAINS
 
     DEALLOCATE(ibuffer)
 
-    ! Define the mask for runoff
-
-    ! Utilize mask field for runoff
-    !  - cell_mask_ids(1) is whole ocean for nearest neighbor interpolation (pre03)
-    !  - cell_mask_ids(2) is ocean coast points only for source point mapping (pre04, source_to_target_map)
+    ! Utilize mask field for runoff (see above for definition)
 
     CALL yac_fdef_field (               &
       & TRIM("river_runoff"), &
@@ -527,7 +526,6 @@ CONTAINS
     !  Send SST
     !   field_id(6) represents "sea_surface_temperature" - SST
     !
-    buffer(:,:) = 0.0_wp  ! temporarily
 !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_DEFAULT_SCHEDULE
     DO i_blk = 1, patch_horz%nblks_c
       nn = (i_blk-1)*nproma
@@ -587,7 +585,6 @@ CONTAINS
     !  Send meridional velocity
     !   field_id(8) represents "northward_sea_water_velocity" - meridional velocity, v component of ocean surface current
     !
-    buffer(:,:) = 0.0_wp  ! temporarily
 !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_DEFAULT_SCHEDULE
     DO i_blk = 1, patch_horz%nblks_c
       nn = (i_blk-1)*nproma
@@ -617,7 +614,6 @@ CONTAINS
     !  Send sea ice bundle
     !   field_id(9) represents "ocean_sea_ice_bundle" - ice thickness, snow thickness, ice concentration
     !
-    buffer(:,:) = 0.0_wp  ! temporarily
 !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_DEFAULT_SCHEDULE
     DO i_blk = 1, patch_horz%nblks_c
       nn = (i_blk-1)*nproma
@@ -655,7 +651,6 @@ CONTAINS
       !  Send CO2 flux
       !   field_id(13) represents "co2_flux" - co2flux
       !
-      buffer(:,:) = 0.0_wp  ! temporarily
       !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_DEFAULT_SCHEDULE
       DO i_blk = 1, patch_horz%nblks_c
         nn = (i_blk-1)*nproma
@@ -698,7 +693,6 @@ CONTAINS
       IF (ltimer) CALL timer_start(timer_coupling_1stget)
     ENDIF
 
-    buffer(:,:) = 0.0_wp  ! temporarily
     no_arr = 2
     CALL yac_fget ( field_id(1), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     IF ( info > COUPLING .AND. info < OUT_OF_BOUND )                       &
@@ -747,7 +741,6 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 
-    buffer(:,:) = 0.0_wp  ! temporarily
     no_arr = 2
     CALL yac_fget ( field_id(2), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     IF ( info > COUPLING .AND. info < OUT_OF_BOUND )                       &
@@ -794,7 +787,6 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 
-    buffer(:,:) = 0.0_wp  ! temporarily
     no_arr = 3
     CALL yac_fget ( field_id(3), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     IF ( info > COUPLING .AND. info < OUT_OF_BOUND )                       &
@@ -849,7 +841,6 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 
-    buffer(:,:) = 0.0_wp  ! temporarily
     no_arr = 4
     CALL yac_fget ( field_id(4), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     IF ( info > COUPLING .AND. info < OUT_OF_BOUND )                       &
@@ -919,7 +910,6 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 
-    buffer(:,:) = 0.0_wp  ! temporarily
     no_arr = 2
     CALL yac_fget ( field_id(5), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     IF ( info > COUPLING .AND. info < OUT_OF_BOUND )                       &
@@ -963,7 +953,6 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 
-    buffer(:,:) = 0.0_wp  ! temporarily
     no_arr = 1
     CALL yac_fget ( field_id(10), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     IF ( info > COUPLING .AND. info < OUT_OF_BOUND )                       &
@@ -1003,7 +992,6 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 
-    buffer(:,:) = 0.0_wp  ! temporarily
     no_arr = 1
     CALL yac_fget ( field_id(14), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     IF ( info > COUPLING .AND. info < OUT_OF_BOUND )                       &
@@ -1045,7 +1033,6 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 
-    buffer(:,:) = 0.0_wp  ! temporarily
     no_arr = 1
     CALL yac_fget ( field_id(12), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     IF ( info > COUPLING .AND. info < OUT_OF_BOUND )                       &
@@ -1090,7 +1077,7 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 
-    buffer(:,:) = 0.0_wp  ! temporarily
+    buffer(:,:) = 0.0_wp  ! mandatory as river ruoff comes with a different mask!
     CALL yac_fget ( field_id(11), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
     IF ( info > COUPLING .AND. info < OUT_OF_BOUND )                       &
          &                      CALL message('couple_ocean_toatmo_fluxes', &

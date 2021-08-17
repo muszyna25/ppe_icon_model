@@ -381,7 +381,8 @@ MODULE mo_ocean_nml
     &                 createSolverMatrix           , &
     &                 minVerticalLevels
 
-  LOGICAL :: use_draftave_for_transport_h = .true.   ! 
+  LOGICAL :: use_draftave_for_transport_h = .true.   !  
+  
   NAMELIST/ocean_tracer_transport_nml/&
     &                 no_tracer                    , &  
     &                 flux_calculation_horz        , &
@@ -803,6 +804,7 @@ MODULE mo_ocean_nml
   LOGICAL  :: use_new_forcing                      = .FALSE.
   INTEGER  :: surface_flux_type                    = 1
   LOGICAL  :: lcheck_salt_content                  = .FALSE.
+  LOGICAL  :: check_total_volume                   = .FALSE.
   LOGICAL  :: lfix_salt_content                    = .FALSE.
   ! _type variables range
   !    0    : not used
@@ -1069,7 +1071,8 @@ MODULE mo_ocean_nml
     & diagnose_for_horizontalVelocity, &
     & eddydiag, &
     & diagnose_for_tendencies, &
-    & diagnose_for_heat_content
+    & diagnose_for_heat_content, &
+    & check_total_volume
   ! ------------------------------------------------------------------------
   ! 3.0 Namelist variables and auxiliary parameters for octst_nml
   !     This namelists mainly exists during the development of the ocean model

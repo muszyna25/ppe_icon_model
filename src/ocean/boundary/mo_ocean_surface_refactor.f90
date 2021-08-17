@@ -72,7 +72,7 @@ MODULE mo_ocean_surface_refactor
   USE mo_name_list_output_init, ONLY: isRegistered
 
   USE mo_swr_absorption
-  USE mo_ocean_check_salt,       ONLY: check_total_salt_content, check_total_si_volume
+  USE mo_ocean_check_total_content,       ONLY: check_total_salt_content, check_total_si_volume
 
   USE mo_mpi, only: get_my_mpi_work_id 
 
@@ -296,10 +296,13 @@ CONTAINS
     !  calculate time
     dsec  = REAL(getNoOfSecondsElapsedInDayDateTime(this_datetime), wp)
     ! event at end of first timestep of day - tbd: use mtime
-    IF (limit_elevation .AND. (dsec-dtime)<0.1 ) THEN
+!     IF (limit_elevation .AND. (dsec-dtime)<0.1 ) THEN
+!     IF (limit_elevation .AND. dsec < dtime ) THEN
+    IF (limit_elevation) THEN
+
       CALL balance_elevation(p_patch_3D, p_os%p_prog(nold(1))%h,p_oce_sfc,p_ice)
       !---------DEBUG DIAGNOSTICS-------------------------------------------
-      CALL dbg_print('UpdSfc: h-old+BalElev',p_os%p_prog(nold(1))%h  ,str_module, 2, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfc: h-old+BalElev',p_os%p_prog(nold(1))%h  ,str_module, 3, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
     END IF
 

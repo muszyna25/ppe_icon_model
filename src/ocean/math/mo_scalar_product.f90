@@ -1539,9 +1539,16 @@ CONTAINS
 !ICON_OMP edge_21_block, edge_22_block, edge_23_block) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
-      
+
+! Note that this loop structure is currenlty suboptimal on Aurora
+
+#ifdef __LVECTOR__
+      DO level = startLevel, MAXVAL(patch_3d%p_patch_1d(1)%dolic_e(start_edge_index:end_edge_index,blockNo))
+        DO je = start_edge_index, end_edge_index
+          IF (patch_3d%p_patch_1d(1)%dolic_e(je,blockNo) < level) CYCLE
+#else           
       DO je =  start_edge_index, end_edge_index
-        
+#endif
         cell_1_index = patch_2d%edges%cell_idx(je,blockNo,1)
         cell_1_block = patch_2d%edges%cell_blk(je,blockNo,1)
         cell_2_index = patch_2d%edges%cell_idx(je,blockNo,2)
@@ -1560,10 +1567,11 @@ CONTAINS
         edge_21_block = patch_2d%cells%edge_blk(cell_2_index, cell_2_block, 1)
         edge_22_block = patch_2d%cells%edge_blk(cell_2_index, cell_2_block, 2)
         edge_23_block = patch_2d%cells%edge_blk(cell_2_index, cell_2_block, 3)
-                
+
+#ifndef __LVECTOR__
         ! levels
         DO level = startLevel, patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)
-          
+#endif          
           out_vn_e(je, level, blockNo) =  &
             & (  vn_e(edge_11_index, level, edge_11_block) * coeffs(je, level, blockNo, 1)      &
             &    * patch_3d%p_patch_1d(1)%prism_thick_e(edge_11_index, level, edge_11_block)    &

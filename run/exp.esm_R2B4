@@ -111,7 +111,7 @@ atmo_dyn_grid=${atm_grid_name}.nc
 # start and end date+time
 # -----------------------
 start_date=${start_date:="1979-01-01T00:00:00Z"}
-    end_date=${end_date:="2015-01-01T00:00:00Z"}
+    end_date=${end_date:="1979-01-03T00:00:00Z"}  # short test
 
 # restart intervals
 # -----------------
@@ -651,7 +651,7 @@ cat > ${atm_namelist} << EOF
  echam_rad_config(1)%irad_o2    =  2
  echam_rad_config(1)%irad_cfc11 =  4
  echam_rad_config(1)%irad_cfc12 =  4
- echam_rad_config(1)%irad_aero  = 18
+ echam_rad_config(1)%irad_aero  = 12
 /
 &echam_gwd_nml
 /
@@ -803,11 +803,11 @@ add_link_file ${datadir}/bc_ozone_picontrol.nc                          ./bc_ozo
 #
 # - tropospheric anthropogenic aerosols, simple plumes (irad_aero=18)
 #
-datadir=${icon_data_poolFolder}/independent/MACv2_simple_plumes_merged
+#datadir=${icon_data_poolFolder}/independent/MACv2_simple_plumes_merged
 #
-add_link_file ${datadir}/MACv2.0-SP-merged-historical-and-SSP2-45_v1.nc ./MACv2.0-SP_v1.nc
+#add_link_file ${datadir}/MACv2.0-SP-merged-historical-and-SSP2-45_v1.nc ./MACv2.0-SP_v1.nc
 #
-#   Kinne background aerosols are needed for the year 1850 (irad_aero=18)
+#   Kinne background aerosols are needed for the year 1850 (irad_aero = 12 | 18)
 #
 #   Here we use revised data (r0002) based on work by Sebastian Rast
 #
@@ -817,15 +817,16 @@ add_link_file ${datadir}/bc_aeropt_kinne_lw_b16_coa.nc                  ./
 add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_coa.nc                  ./
 add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_fin_1850.nc             ./bc_aeropt_kinne_sw_b14_fin.nc
 #
-# - stratospheric aerosol (CMIP6) (irad_aero=18)
+# - stratospheric aerosol (CMIP6) (irad_aero=18, needs links for every simulation year)
 #
-datadir=${icon_data_poolFolder}/independent/CMIP6Forcing
+#datadir=${icon_data_poolFolder}/independent/CMIP6Forcing
 #
-if [ ! -d $datadir ]; then
-  echo 'directory '$datadir' for stratospheric aerosol data does not exist'
-  exit -1
-fi	
-add_link_file $datadir/bc_aeropt_cmip6_volc_lw_b16_sw_b14_1850.nc       ./bc_aeropt_cmip6_volc_lw_b16_sw_b14.nc
+#if [ ! -d $datadir ]; then
+#  echo 'directory '$datadir' for stratospheric aerosol data does not exist'
+#  exit -1
+#fi	
+#add_link_file $datadir/bc_aeropt_cmip6_volc_lw_b16_sw_b14_1850.nc      ./bc_aeropt_cmip6_volc_lw_b16_sw_b14.nc
+#add_link_file $datadir/bc_aeropt_cmip6_volc_lw_b16_sw_b14_${year}.nc   ./bc_aeropt_cmip6_volc_lw_b16_sw_b14_${year}.nc
 #
 # - sst and sic
 #

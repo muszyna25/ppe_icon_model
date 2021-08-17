@@ -55,7 +55,6 @@ MODULE mo_ext_data_init
     &                              itype_vegetation_cycle, read_nc_via_cdi, pp_glacier_sso
   USE mo_initicon_config,    ONLY: icpl_da_sfcevap, dt_ana
   USE mo_radiation_config,   ONLY: irad_o3, irad_aero, albedo_type
-  USE mo_echam_phy_config,   ONLY: echam_phy_config
   USE mo_process_topo,       ONLY: smooth_topo_real_data, postproc_glacier_sso
   USE mo_model_domain,       ONLY: t_patch
   USE mo_exception,          ONLY: message, message_text, finish
@@ -934,20 +933,6 @@ CONTAINS
 
         CALL closeFile(stream_id)
 
-        ! If JSBACH is used open/read the mask for the hydrological discharge model
-        IF ( echam_phy_config(jg)%ljsb ) THEN
-
-          CALL openInputFile(stream_id, 'hd_mask.nc', p_patch(jg), default_read_method)
-     
-          ! get land-sea-mask on cells, integer marks are:
-          ! inner sea (-2), boundary sea (-1, cells and vertices), boundary (0, edges),
-          ! boundary land (1, cells and vertices), inner land (2)
-          CALL read_2D_int(stream_id, on_cells, 'cell_sea_land_mask', &
-            &              ext_data(jg)%atm%lsm_hd_c)
-
-          CALL closeFile(stream_id)
-
-        END IF
 
       END DO
 

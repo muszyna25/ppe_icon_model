@@ -296,8 +296,8 @@ CONTAINS
         CALL tracer_diffusion_horz( patch_3d,     &
         & trac_old,     &
         & z_diff_flux_h,&
-        & k_h,          &        
-        & subset_range = edges_in_domain)
+        & k_h)                  
+!         & subset_range = edges_in_domain)
               
       ENDIF
       
@@ -371,6 +371,7 @@ CONTAINS
 
     CASE(upwind)
 
+      ! vectorized for NEC
       !upwind serves as low order flux
       start_detail_timer(timer_extra11,5)
       CALL upwind_hflux_oce( patch_3d,  &
@@ -388,6 +389,7 @@ CONTAINS
     CASE(horz_flux_twisted_vec_recon)
       !mimetic fluc calculation high order flux
       ! in_use
+      ! vectorized for NEC
       CALL map_edges2edges_viacell_3d_const_z( patch_3d, &
         & transport_state%vn,          &
         & operators_coefficients,                &
@@ -403,7 +405,8 @@ CONTAINS
     CASE(fct_limiter_horz_zalesak)
 
       ! inUse
-     ! adv_flux_h=z_adv_flux_high
+      ! vectorized for NEC
+      ! adv_flux_h=z_adv_flux_high
       start_detail_timer(timer_extra13,4)
       CALL limiter_ocean_zalesak_horizontal( patch_3d,   &
         & transport_state%w,           &
@@ -490,8 +493,14 @@ CONTAINS
     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, blockNo, start_index, end_index)
       edge_upwind_flux(:,:,blockNo) = 0.0_wp
+#ifdef __LVECTOR__
+      DO level = start_level, MAXVAL(patch_3d%p_patch_1d(1)%dolic_e(start_index:end_index,blockNo))
+        DO edge_index = start_index, end_index
+          IF (patch_3d%p_patch_1d(1)%dolic_e(edge_index,blockNo) < level) CYCLE
+#else     
       DO edge_index = start_index, end_index
         DO level = start_level, MIN(patch_3d%p_patch_1d(1)%dolic_e(edge_index,blockNo), end_level)
+#endif
           !
           ! compute the first order upwind flux; notice
           ! that multiplication by edge length is avoided to
