@@ -33,8 +33,10 @@ MODULE mo_bc_sst_sic
   USE mo_cdi,                ONLY: streamOpenRead, streamInqVlist, streamClose, &
     & vlistInqTaxis, streamInqTimestep, taxisInqVdate, streamReadVarSlice
   USE mo_util_cdi,           ONLY: cdiGetStringError
-  USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights
-
+  USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, &
+       &                               calculate_time_interpolation_weights
+  USE mo_time_config,        ONLY: time_config
+ 
   IMPLICIT NONE
 
   PRIVATE
@@ -52,6 +54,14 @@ MODULE mo_bc_sst_sic
 
   INTEGER(i8), SAVE :: current_year = -1
 
+  INTEGER                            :: nyears
+  INTEGER                            :: imonth_beg, imonth_end
+
+  LOGICAL                            :: lend_of_year
+
+  TYPE(t_time_interpolation_weights) :: tiw_beg
+  TYPE(t_time_interpolation_weights) :: tiw_end
+
 CONTAINS
   
   SUBROUTINE read_bc_sst_sic(year, p_patch)
@@ -61,6 +71,38 @@ CONTAINS
     CHARACTER(len=16) :: fn
 
     jg = p_patch%id
+    lend_of_year = ( time_config%tc_stopdate%date%month  == 1  .AND. &
+      &              time_config%tc_stopdate%date%day    == 1  .AND. &
+      &              time_config%tc_stopdate%time%hour   == 0  .AND. &
+      &              time_config%tc_stopdate%time%minute == 0  .AND. &
+      &              time_config%tc_stopdate%time%second == 0 ) 
+
+    nyears = time_config%tc_stopdate%date%year - time_config%tc_startdate%date%year + 1
+    IF ( lend_of_year ) nyears = nyears - 1
+
+    ! ----------------------------------------------------------------------
+
+    tiw_beg = calculate_time_interpolation_weights(time_config%tc_startdate)
+    tiw_end = calculate_time_interpolation_weights(time_config%tc_stopdate)
+
+    IF ( nyears > 1 ) THEN
+      imonth_beg = 0
+      imonth_end = 13  
+      IF ( tiw_beg%month1_index == 0 ) imonth_end = tiw_end%month2_index
+    ELSE
+      imonth_beg = tiw_beg%month1_index 
+      imonth_end = tiw_end%month2_index
+      IF ( lend_of_year ) imonth_end = 13
+    ENDIF
+
+    WRITE(message_text,'(a,i2,a,i2)') &
+       & ' Allocating SST and SIC for months ', imonth_beg, ' to ', imonth_end
+    CALL message('mo_bc_sst_sic:read_bc_sst_sic', message_text)
+
+    IF ( imonth_beg > imonth_end ) THEN
+      WRITE (message_text, '(a)') 'imonth_beg < imonth_end' 
+      CALL finish('mo_bc_sst_sic:read_bc_sst_sic', message_text)
+    ENDIF
 
     IF (n_dom > 1) THEN
       WRITE(fn, '(a,i2.2)') 'bc_sst_DOM', jg, '.nc'
@@ -72,7 +114,7 @@ CONTAINS
       CALL message('',message_text)
     ENDIF
     IF (.NOT.ASSOCIATED(ext_sea(jg)%sst)) THEN
-      ALLOCATE (ext_sea(jg)%sst(nproma, p_patch%nblks_c, 0:13))
+      ALLOCATE (ext_sea(jg)%sst(nproma, p_patch%nblks_c, imonth_beg:imonth_end))
       !$ACC ENTER DATA PCREATE( ext_sea(jg)%sst)
     ENDIF
     CALL read_sst_sic_data(p_patch, ext_sea(jg)%sst, TRIM(fn), year)
@@ -87,7 +129,7 @@ CONTAINS
       CALL message('',message_text)
     ENDIF
     IF (.NOT.ASSOCIATED(ext_sea(jg)%sic)) THEN
-      ALLOCATE (ext_sea(jg)%sic(nproma, p_patch%nblks_c, 0:13))
+      ALLOCATE (ext_sea(jg)%sic(nproma, p_patch%nblks_c, imonth_beg:imonth_end))
       !$ACC ENTER DATA PCREATE( ext_sea(jg)%sic)
     ENDIF
     CALL read_sst_sic_data(p_patch, ext_sea(jg)%sic, TRIM(fn), year)
@@ -101,7 +143,7 @@ CONTAINS
   SUBROUTINE read_sst_sic_data(p_patch, dst, fn, y)
 !TODO: switch to reading via mo_read_netcdf_distributed?
     TYPE(t_patch), INTENT(in) :: p_patch
-    REAL(dp), CONTIGUOUS_ARGUMENT(INOUT) :: dst(:,:,0:)
+    REAL(dp), CONTIGUOUS_ARGUMENT(INOUT) :: dst(:,:,imonth_beg:)
     CHARACTER(len=*), INTENT(IN) :: fn
     INTEGER(i8), INTENT(in) :: y
     REAL(dp), ALLOCATABLE :: zin(:)
@@ -128,6 +170,7 @@ CONTAINS
       tsID = 0
       found_last_ts = .FALSE.
       ts_found = 0
+
       ALLOCATE(zin(p_patch%n_patch_cells_g))
       DO WHILE (.NOT. found_last_ts)
         IF (streamInqTimestep(strID, tsID) == 0) EXIT
@@ -135,16 +178,24 @@ CONTAINS
         vy = vd/10000
         vm = (vd/100)-vy*100
         ts_idx = -1
+
         IF (INT(vy,i8) == y-1_i8 .AND. vm == 12) THEN
-          ts_idx = 0
-          ts_found = ts_found + 1
+          IF ( imonth_beg == 0 ) THEN
+              ts_idx = 0
+              ts_found = ts_found + 1
+          END IF
         ELSE IF (INT(vy,i8) == y) THEN
-          ts_idx = vm
-          ts_found = ts_found + 1
+          IF ( vm >= imonth_beg .AND. vm <= imonth_end ) THEN 
+            ts_idx = vm
+            ts_found = ts_found + 1
+            IF ( vm == imonth_end ) found_last_ts = .TRUE.
+          END IF
         ELSE IF (INT(vy,i8) == y+1_i8 .AND. vm == 1) THEN
-          ts_idx = 13
-          ts_found = ts_found + 1
-          found_last_ts = .TRUE.
+          IF ( imonth_end == 13 ) THEN
+            ts_idx = 13
+            ts_found = ts_found + 1
+            found_last_ts = .TRUE.
+          END IF
         END IF
         IF (ts_idx /= -1) THEN
           CALL streamReadVarSlice(strID, 0, 0, zin, nmiss)
@@ -154,10 +205,9 @@ CONTAINS
         ENDIF
         tsID = tsID+1
       END DO
-      IF (ts_found < 14) THEN
-          CALL finish ('mo_bc_sst_sic:read_sst_sic_data', &
-            & 'could not read required data from input file')
-      END IF
+      IF (ts_found < imonth_end - imonth_beg + 1) &
+          & CALL finish ('mo_bc_sst_sic:read_sst_sic_data', &
+          &   'could not read required data from input file')
       ts_idx = -1
       CALL p_bcast(ts_idx, process_mpi_root_id, p_comm_work)
       DEALLOCATE(zin)
@@ -211,7 +261,7 @@ CONTAINS
     sst => ext_sea(jg)%sst
     sic => ext_sea(jg)%sic
     !$ACC DATA PRESENT( tsw, seaice, siced, mask, sst, sic, p_patch%cells%center ) &
-    !$ACC       CREATE( zts, zic, ztsw )                                                            &
+    !$ACC       CREATE( zts, zic, ztsw )                                           &
     !$ACC           IF( lzopenacc )
 
     !$ACC PARALLEL DEFAULT(PRESENT) IF( lzopenacc )
