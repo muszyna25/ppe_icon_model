@@ -1022,7 +1022,7 @@ set_run_target_daint_gpu()
     rootFolder_prefix=/users/icontest
     icon_data_rootFolder=${icon_data_rootFolder:=${rootFolder_prefix}/pool/data/ICON}
 
-    set_default use_nproma 8000
+    set_default use_nproma -1
     set_default use_prefetch_procs 0
     set_default use_account_no "$(id -gn)"
     if [[ "x$BB_SYSTEM" != "x" ]]
