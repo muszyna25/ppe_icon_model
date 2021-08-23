@@ -19,10 +19,10 @@ output_interval="P1M"                  # ocean model output interval in days
 daily="P1D"
 monthly="P1M"
 file_interval="P1Y"
-modelTimeStep="PT900S"
+modelTimeStep="PT20M"
 restartSemaphoreFilename='isRestartRun.sem'
 if [ -f ../experiments/${EXPNAME}/${restartSemaphoreFilename} ]; then
-  modelTimeStep="PT1800S"
+  modelTimeStep="PT45M"
 fi
 
 autoPostProcessing="false"                         # submit postprocessing job
@@ -163,7 +163,7 @@ cat > ${ocean_namelist} << EOF
   select_solver                   = 4       ! 1=gmres_oce_old; 2=ocean_restart_gmres, 3=mixed precisison restart 
                                             ! 4=CG (default) 5=CGJ 6=BiCG 7=GMRES restart (legacy) 8=MINRES
   use_absolute_solver_tolerance   = .true.
-  solver_tolerance                = 1.0E-10 ! this may further be reduced
+  solver_tolerance                = 1.0E-9  ! this may further be reduced
   select_lhs                      = 2       ! 1=operator based (default) 2=matrix based
   l_lhs_direct                    = .true. ! .true.= use lhs implementation directly  .false.= matrix scanner (default) 
   solver_FirstGuess               = 2       ! 0=start from zeros 1=last timestep smoothed 2=last timestep (default) 

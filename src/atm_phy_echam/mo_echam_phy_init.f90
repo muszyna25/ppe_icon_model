@@ -696,12 +696,13 @@ CONTAINS
         END IF
         CALL closeFile(stream_id)
 
-        ! For security
-        prm_field(jg)%lsmask(:,:) = MERGE(1._wp, prm_field(jg)%lsmask(:,:), &
-                                          prm_field(jg)%lsmask(:,:) > 1._wp - 10._wp*EPSILON(1._wp))
+        ! For security:
+        !  - this statement was necessary for coupled ruby-0 model using land-data created 2020-06
+        !  - with land-date created 2021-07 it is not used anymore:
+        !prm_field(jg)%lsmask(:,:) = MERGE(1._wp, prm_field(jg)%lsmask(:,:), &
+        !                                 prm_field(jg)%lsmask(:,:) > 1._wp - 10._wp*EPSILON(1._wp))
         !
-        ! At this point, %lsmask is the fraction of land (incl. glacier and
-        ! lakes) in the grid box.
+        ! At this point, %lsmask is the fraction of land (incl. glacier and lakes) in the grid box.
         !
         IF (echam_phy_config(jg)%llake) THEN
           !

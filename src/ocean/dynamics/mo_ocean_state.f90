@@ -1489,7 +1489,7 @@ CONTAINS
       & t_cf_var('v_vint','m*m/s','barotropic meridional velocity', datatype_flt),&
       & dflt_g2_decl_cell,&
       & ldims=(/nproma,alloc_cell_blocks/),&
-      & in_group=groups("oce_default", "oce_essentials"))
+      & in_group=groups_oce_dde)
 
     CALL add_var(ocean_restart_list, 'ptp_vn', ocean_state_diag%ptp_vn, &
       & grid_unstructured_edge, za_depth_below_sea, &

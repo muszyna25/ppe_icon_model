@@ -3,6 +3,8 @@
 # Check whether the dependency graph is acyclic:
 --check-cycles
 # Check that each Fortran module is defined:
---check-exists *.@FC_MOD_FILE_EXT@.proxy *.@OBJEXT@
+--check-exists-prereq *.@FC_MOD_FILE_EXT@.proxy *.@OBJEXT@
 # Check that each Fortran module is defined only once:
---check-unique *.@FC_MOD_FILE_EXT@.proxy *.@OBJEXT@
+--check-unique-prereq *.@FC_MOD_FILE_EXT@.proxy *.@OBJEXT@
+# Check that all object files have unique basenames:
+--check-unique-basename *.@OBJEXT@
