@@ -6832,6 +6832,17 @@ Optical properties for ice cloud scattering. \\
 \tabularnewline
 
 %\hline
+nproma\_rad &
+I&
+-1&
+&
+Chunk size of subblocks used for the ecRad calls, which is needed by the GPU
+port to reduce the memory footprint of ecrad. \\
+If nproma\_rad $\le0$ the number of subblocks is set to -nproma\_rad instead. 
+& inwp\_radiation=4 (ecRad)
+\tabularnewline
+
+%\hline
 \end{longtab}
 
 Defined and used in: \verb+src/namelists/mo_radiation_nml.f90+
