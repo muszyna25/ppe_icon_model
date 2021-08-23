@@ -25,14 +25,13 @@ MODULE mo_vdiff_downward_sweep
   USE mo_turbulence_diag,    ONLY: atm_exchange_coeff, sfc_exchange_coeff
   USE mo_vdiff_solver,       ONLY: nvar_vdiff, nmatrix, ih, imh, imqv, &
                                  & matrix_setup_elim, rhs_setup, rhs_elim
-  USE mo_exception,          ONLY: message
   USE mo_sma_turbulence_diag,ONLY: atm_exchange_coeff3d, diffuse_hori_velocity, &
                                  & diffuse_vert_velocity,diffuse_scalar
   USE mo_model_domain,       ONLY: t_patch
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
-  USE mo_impl_constants,     ONLY: min_rlcell_int, min_rlcell
+  USE mo_impl_constants,     ONLY: min_rlcell_int
   USE mo_loopindices,        ONLY: get_indices_c
-  USE mo_run_config,         ONLY: iqv, iqc, iqi
+  USE mo_run_config,         ONLY: iqv
   USE mo_nh_testcases_nml,   ONLY: isrfc_type
 
   IMPLICIT NONE
@@ -49,6 +48,7 @@ CONTAINS
                        & pdtime,  pcoriol,                              &! in
                        & turb,                                          &! in
                        & patch,                                         &! in
+                       & l2moment,                                      &! in
                        & pzf, pzh,                                      &! in
                        & pfrc,                                          &! in
                        & ptsfc_tile, pocu,      pocv,       ppsfc,      &! in
@@ -71,6 +71,8 @@ CONTAINS
                        & qv_hori_tend,                                  &! out
                        & ql_hori_tend,                                  &! out
                        & qi_hori_tend,                                  &! out
+                       & qnc_hori_tend,                                 &! out
+                       & qni_hori_tend,                                 &! out
                        & pfactor_sfc, pcpt_tile,                        &! out
                        & pcptgz,                                        &! out
                        & pzthvvar,   pthvsig,   pztottevn,              &! out
@@ -86,6 +88,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: kbdim, klev, klevm1, klevp1, ktrac, nblks_c, nblks_v, nblks_e
     INTEGER, INTENT(IN) :: turb      !< 1: TTE scheme, 2: 3D Smagorisnky
     INTEGER, INTENT(IN) :: ksfc_type, idx_wtr, idx_ice, idx_lnd
+    LOGICAL, INTENT(in) :: l2moment
     REAL(wp),INTENT(IN) :: pdtime
 
     TYPE(t_patch)   ,TARGET ,INTENT(inout) :: patch
@@ -145,6 +148,9 @@ CONTAINS
     REAL(wp),INTENT(OUT)   :: qv_hori_tend (:,:,:)
     REAL(wp),INTENT(OUT)   :: ql_hori_tend (:,:,:)
     REAL(wp),INTENT(OUT)   :: qi_hori_tend (:,:,:)
+    ! Only needed for 2 moment scheme (l2moment=.TRUE.)
+    REAL(wp),INTENT(OUT)   :: qnc_hori_tend (:,:,:)
+    REAL(wp),INTENT(OUT)   :: qni_hori_tend (:,:,:)
 
     ! Variables with intent(out)
 
@@ -210,7 +216,7 @@ CONTAINS
 
     REAL(wp), DIMENSION(kbdim,klev,nblks_c)   :: km_c
     REAL(wp), DIMENSION(kbdim,klevp1,nblks_v) :: km_iv
-    REAL(wp), DIMENSION(kbdim,klevp1,nblks_e) :: km_ie, kh_ie
+    REAL(wp), DIMENSION(kbdim,klevp1,nblks_e) :: km_ie
     REAL(wp), DIMENSION(kbdim,klevp1,nblks_c) :: kh_ic, km_ic
     REAL(wp), DIMENSION(kbdim,klev,nblks_e)   :: vn
 
@@ -514,6 +520,22 @@ CASE ( isma ) ! 3D Smagorinksy scheme
                        & qi_hori_tend(:,:,:),              &
                        & rho,                              &
                        & tracer_water)
+
+    IF(l2moment) THEN
+      CALL diffuse_scalar( kbdim, pxtm1(:,:,:,1),          & !pxtm1(:,:,:,1) = qtrc (:,:,:,iqnc)
+                         & patch,                          &
+                         & kh_ic(:,:,:), km_ie(:,:,:),     &
+                         & qnc_hori_tend(:,:,:),           &
+                         & rho,                            &
+                         & tracer_water)
+
+      CALL diffuse_scalar( kbdim, pxtm1(:,:,:,2),          & !pxtm1(:,:,:,2) = qtrc (:,:,:,iqni)
+                         & patch,                          &
+                         & kh_ic(:,:,:), km_ie(:,:,:),     &
+                         & qni_hori_tend(:,:,:),           &
+                         & rho,                            &
+                         & tracer_water)
+    END IF
 
 END SELECT    !select turbulent scheme
 

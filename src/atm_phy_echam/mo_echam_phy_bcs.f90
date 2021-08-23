@@ -333,6 +333,11 @@ CONTAINS
         END IF
         !
         ! tropospheric aerosol optical properties after S. Kinne
+        IF (echam_rad_config(jg)% irad_aero == 12) THEN
+          CALL read_bc_aeropt_kinne(mtime_old, patch)
+        END IF
+        !
+        ! tropospheric aerosol optical properties after S. Kinne
         IF (echam_rad_config(jg)% irad_aero == 13) THEN
           CALL read_bc_aeropt_kinne(mtime_old, patch)
         END IF

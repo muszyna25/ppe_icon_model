@@ -37,7 +37,7 @@ MODULE mo_hydro_ocean_run
     &  Cartesian_Mixing, GMRedi_configuration, OceanReferenceDensity_inv, &
     &  atm_pressure_included_in_ocedyn, &
     &  vert_mix_type,vmix_kpp, lcheck_salt_content, &
-    &  use_draftave_for_transport_h
+    &  use_draftave_for_transport_h, check_total_volume
   USE mo_ocean_nml,              ONLY: iforc_oce, Coupled_FluxFromAtmo
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_io_config,              ONLY: n_checkpoints, write_last_restart
@@ -78,7 +78,7 @@ MODULE mo_hydro_ocean_run
   USE mo_name_list_output_init,  ONLY: output_file
   USE mo_name_list_output_types, ONLY: t_output_file
   USE mo_ocean_diagnostics,      ONLY: calc_fast_oce_diagnostics, calc_psi
-  USE mo_ocean_check_salt,       ONLY: check_total_salt_content
+  USE mo_ocean_check_total_content, ONLY: check_total_salt_content, check_accumulated_volume_difference
   USE mo_master_config,          ONLY: isRestart
   USE mo_master_control,         ONLY: get_my_process_name
   USE mo_time_config,            ONLY: time_config, t_time_config
@@ -474,7 +474,12 @@ CONTAINS
               & ocean_state(jg)%p_diag%mass_flx_e)
         ENDIF
         !------------------------------------------------------------------------
-
+        IF (check_total_volume) THEN
+          CALL check_accumulated_volume_difference(1, patch_2d, &
+            & ocean_state(jg)%p_prog(nnew(1))%h(:,:), ocean_state(jg)%p_prog(nold(1))%h(:,:))
+        ENDIF
+        
+        !------------------------------------------------------------------------
         IF (idbg_mxmn >= 2 .OR. debug_check_level > 5) THEN
           CALL horizontal_mean(values=ocean_state(jg)%p_prog(nnew(1))%h(:,:), weights=patch_2d%cells%area(:,:), &
             & in_subset=patch_2d%cells%owned, mean=mean_height)

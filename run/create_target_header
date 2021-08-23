@@ -22,7 +22,7 @@ case "$use_host" in
   unknown) ;;
   wizard*|mlogin*|btlogin*|btc*) use_site=dkrz.de ;;
   daint*|tave*|santis*|kesch*|tsa*|arolla*) use_site=cscs.ch ;;
-  ic2*|uc1*|fh2*) use_site=kit.edu ;;
+  uc2*|fh2*|hk*) use_site=kit.edu ;;
   melian*) use_site=local.net ;;
   *mpimet.mpg.de) use_site=mpg.de ;;
 esac
@@ -135,7 +135,7 @@ EOF
 
 if [[ "x$use_load_profile" != "x" && "x$use_load_modules" != "x" ]]; then
     profile_filename=`echo $use_load_profile | cut -d ' ' -f2`
-cat >> $output_script << EOF
+    cat >> $output_script << EOF
 #=============================================================================
 # load modules
 loadmodule="$use_load_modules"
@@ -214,6 +214,7 @@ set_run_target_default()
     fi
 
     start_header
+
 }
 
 #=============================================================================
@@ -1345,7 +1346,7 @@ EOF
 #=============================================================================
 set_run_target_fh2()
 {
-    icon_data_rootFolder=${icon_data_rootFolder:=/pfs/work6/workspace/scratch/ln1297-boundary_mistral-0/pool/data/ICON}
+    icon_data_rootFolder=${icon_data_rootFolder:=/pfs/work6/workspace/scratch/ln1297-boundary_mistral2-0/pool/data/ICON}
 
     set_default use_nproma 8
     use_nodes=1
@@ -1368,6 +1369,39 @@ set_run_target_fh2()
 #SBATCH --nodes=4
 #SBATCH --time=1:00:00
 #SBATCH --ntasks-per-node=20
+#SBATCH --partition=develop
+
+EOF
+
+    start_header
+}
+
+#=============================================================================
+set_run_target_hk()
+{
+    icon_data_rootFolder=${icon_data_rootFolder:=/pfs/work6/workspace/scratch/ln1297-boundary_mistral2-0/pool/data/ICON}
+
+    set_default use_nproma 8
+    use_nodes=1
+  
+    if [[ $use_mpi == "yes" ]]
+    then
+	set_default use_mpi_procs_pernode 2
+    fi
+    if [[ $use_openmp == "yes" ]]
+    then
+	set_default use_openmp_threads 2
+    else
+	set_default use_openmp_threads 1
+    fi
+    output_script_name=$(basename "$output_script")
+    #| sed -r "s/(.+)\/.+/\1/"
+    stripped_output="LOG.$output_script_name.err"
+    cat >> $output_script << EOF
+
+#SBATCH --nodes=4
+#SBATCH --time=1:00:00
+#SBATCH --ntasks-per-node=76
 #SBATCH --partition=develop
 
 EOF

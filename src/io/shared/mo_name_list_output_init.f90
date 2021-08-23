@@ -47,7 +47,7 @@ MODULE mo_name_list_output_init
     &                                             GRID_EDGE, GRID_CELL, LONLAT_PREFIX
   USE mo_io_units,                          ONLY: filename_max, nnml, nnml_output
   USE mo_master_config,                     ONLY: getModelBaseDir, isRestart
-  USE mo_master_control,                    ONLY: my_process_is_oceanic
+  USE mo_master_control,                    ONLY: my_process_is_oceanic, my_process_is_jsbach
   ! basic utility modules
   USE mo_exception,                         ONLY: finish, message, message_text
   USE mo_dictionary,                        ONLY: t_dictionary
@@ -1677,13 +1677,13 @@ CONTAINS
     dom_sim_step_info = sim_step_info
     CALL getPTStringFromSeconds(NINT(start_time(of%log_patch_id),i8), time_offset_str)
     mtime_td   => newTimedelta(time_offset_str)
-    dom_sim_step_info%dom_start_time = time_config%tc_startdate + mtime_td
+    dom_sim_step_info%dom_start_time = time_config%tc_exp_startdate + mtime_td
     CALL deallocateTimedelta(mtime_td)
 
     IF (end_time(of%log_patch_id) < DEFAULT_ENDTIME) THEN
       CALL getPTStringFromSeconds(NINT(end_time(of%log_patch_id),i8), time_offset_str)
       mtime_td   => newTimedelta(time_offset_str)
-      dom_sim_step_info%dom_end_time = time_config%tc_startdate + mtime_td
+      dom_sim_step_info%dom_end_time = time_config%tc_exp_startdate + mtime_td
       CALL deallocateTimedelta(mtime_td)
     ELSE
       dom_sim_step_info%dom_end_time = dom_sim_step_info%sim_end
@@ -1778,7 +1778,7 @@ CONTAINS
       IF (.not. my_process_is_oceanic()) THEN ! atm
         SELECT CASE(p_of%ilev_type)
         CASE (level_type_ml)
-          CALL setup_ml_axes_atmo(p_of%verticalAxisList, p_of%level_selection, p_of%log_patch_id)
+          IF (.NOT. my_process_is_jsbach()) CALL setup_ml_axes_atmo(p_of%verticalAxisList, p_of%level_selection, p_of%log_patch_id)
 #ifndef __NO_JSBACH__
           IF (ANY(echam_phy_config(:)%ljsb)) CALL setup_zaxes_jsbach(p_of%verticalAxisList)
 #endif

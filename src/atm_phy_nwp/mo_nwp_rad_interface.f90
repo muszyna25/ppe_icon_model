@@ -20,9 +20,10 @@ MODULE mo_nwp_rad_interface
 
   USE mo_exception,            ONLY: finish, message
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
+  USE mo_nh_testcases_nml,     ONLY: nh_test_name, albedo_set
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_parallel_config,      ONLY: nproma
-  USE mo_impl_constants,       ONLY: MODIS
+  USE mo_impl_constants,       ONLY: MODIS, min_rlcell_int
   USE mo_kind,                 ONLY: wp
   USE mo_nwp_lnd_types,        ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_model_domain,         ONLY: t_patch
@@ -42,6 +43,8 @@ MODULE mo_nwp_rad_interface
 #endif
   USE mo_albedo,               ONLY: sfc_albedo, sfc_albedo_modis
   USE mtime,                   ONLY: datetime
+  USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
+  USE mo_loopindices,          ONLY: get_indices_c
   USE mo_nwp_gpu_util,         ONLY: gpu_d2h_nh_nwp, gpu_h2d_nh_nwp
   USE mo_bc_greenhouse_gases,  ONLY: bc_greenhouse_gases_time_interpolation
 #if defined( _OPENACC )
@@ -97,7 +100,12 @@ MODULE mo_nwp_rad_interface
       & zaeq4(nproma,pt_patch%nlev,pt_patch%nblks_c), &
       & zaeq5(nproma,pt_patch%nlev,pt_patch%nblks_c)
 
-    INTEGER :: jg
+    INTEGER :: jg, irad
+    INTEGER :: jb, jc          !< loop indices
+    INTEGER :: rl_start, rl_end
+    INTEGER :: i_startblk, i_endblk    !> blocks
+    INTEGER :: i_startidx, i_endidx    !< slices
+    INTEGER :: i_nchdom                !< domain index
     LOGICAL :: lacc
 
     REAL(wp):: zsct        ! solar constant (at time of year)
@@ -107,6 +115,13 @@ MODULE mo_nwp_rad_interface
 
     ! patch ID
     jg = pt_patch%id
+    i_nchdom  = MAX(1,pt_patch%n_childdom)
+
+    rl_start = grf_bdywidth_c+1
+    rl_end   = min_rlcell_int
+
+    i_startblk = pt_patch%cells%start_blk(rl_start,1)
+    i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
     ! openACC flag (initialization run is left on)
     IF(PRESENT(linit)) THEN
@@ -170,6 +185,13 @@ MODULE mo_nwp_rad_interface
     IF ( albedo_type == MODIS ) THEN
       ! MODIS albedo
       CALL sfc_albedo_modis(pt_patch, ext_data, lnd_prog, wtr_prog, lnd_diag, prm_diag, lacc)
+!!
+!! in case sfc_albedo_scm has been implemented the following lines should be
+!! active instead of the RCEMIP_analytical IF-BLOCK, see below.
+!!    ELSE IF ( albedo_type == 3 ) THEN
+!!       albedo_value = 0.07_wp                  !should equal albedo_set for RCEMIP_analytical
+!!       CALL sfc_albedo_scm(pt_patch, ext_data, albedo_value, prm_diag)
+!!
     ELSE
 #ifdef _OPENACC
       IF (lacc) CALL finish('nwp_radiation','sfc_albedo not ported to gpu')
@@ -178,6 +200,22 @@ MODULE mo_nwp_rad_interface
       CALL sfc_albedo(pt_patch, ext_data, lnd_prog, wtr_prog, lnd_diag, prm_diag)
     ENDIF
 
+    !FOR RCEMIP, SET ALBEDO TO FIXED VALUE
+!! 
+!! Use the upper 'IF ( albedo_type == 3 )' as soon as sfc_albedo_scm has been introduced !!!!
+!!
+    IF( nh_test_name=='RCEMIP_analytical' ) THEN
+      DO jb = i_startblk, i_endblk
+        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
+        DO jc = i_startidx, i_endidx
+          prm_diag%albdif(jc,jb)    = albedo_set
+          prm_diag%albvisdif(jc,jb) = albedo_set
+          prm_diag%albnirdif(jc,jb) = albedo_set
+          prm_diag%albvisdir(jc,jb) = albedo_set
+          prm_diag%albnirdir(jc,jb) = albedo_set
+        ENDDO
+      ENDDO  ! jb
+    ENDIF
 
     
     !-------------------------------------------------------------------------

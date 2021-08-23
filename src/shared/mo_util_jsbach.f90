@@ -322,6 +322,79 @@ END MODULE mo_jsb_namelist_iface
 
 !! ==============================================================================================================================
 !>
+!! @brief Contains interface to reading of generic ICON infrastructure namelists (for standalone JSBACH)
+!!
+!! @author
+!!  Reiner Schnur, MPI-M Hamburg
+!!
+!! @par Revision History
+!! First version                                              by Reiner Schnur (2020-07-14)
+!!
+MODULE mo_read_namelists_iface
+
+  PUBLIC :: read_infrastructure_namelists_for_jsbach
+
+CONTAINS
+
+  SUBROUTINE read_infrastructure_namelists_for_jsbach(jsb_namelist_filename, shr_namelist_filename)
+
+    USE mo_time_nml,              ONLY: read_time_namelist
+
+    USE mo_parallel_nml,          ONLY: read_parallel_namelist
+    USE mo_run_nml,               ONLY: read_run_namelist
+    USE mo_io_nml,                ONLY: read_io_namelist
+    USE mo_dbg_nml,               ONLY: read_dbg_namelist
+  
+    USE mo_grid_nml,              ONLY: read_grid_namelist
+    USE mo_grid_config,           ONLY: init_grid_configuration
+    USE mo_interpol_nml,          ONLY: read_interpol_namelist
+    USE mo_gridref_nml,           ONLY: read_gridref_namelist
+
+    USE mo_gribout_nml,           ONLY: read_gribout_namelist
+
+    USE mo_echam_phy_nml,         ONLY: process_echam_phy_nml
+    USE mo_echam_rad_nml,         ONLY: process_echam_rad_nml
+
+    CHARACTER(LEN=*), INTENT(in) :: jsb_namelist_filename
+    CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
+
+    !-----------------------------------------------------------------
+    ! Read namelists that are shared by all components of the model.
+    ! This means that the same namelists with the same values are
+    ! read by all components of a coupled system.
+    !-----------------------------------------------------------------
+    CALL read_time_namelist(TRIM(shr_namelist_filename))
+
+    !-----------------------------------------------------------------
+    ! Read namelists that are specific to the jsbach model.
+    !-----------------------------------------------------------------
+
+    ! General
+    !
+    CALL read_parallel_namelist          (jsb_namelist_filename)
+    CALL read_run_namelist               (jsb_namelist_filename)
+    CALL read_io_namelist                (jsb_namelist_filename)
+    CALL read_dbg_namelist               (jsb_namelist_filename)
+
+    ! Grid
+    !
+    CALL read_grid_namelist              (jsb_namelist_filename)
+    CALL read_gridref_namelist           (jsb_namelist_filename)
+    CALL read_interpol_namelist          (jsb_namelist_filename)
+    CALL init_grid_configuration()
+
+    ! GRIB output
+    CALL read_gribout_namelist           (jsb_namelist_filename)
+
+    CALL process_echam_phy_nml           (jsb_namelist_filename)
+    CALL process_echam_rad_nml           (jsb_namelist_filename)
+
+  END SUBROUTINE read_infrastructure_namelists_for_jsbach
+
+END MODULE mo_read_namelists_iface
+
+!! ==============================================================================================================================
+!>
 !! @brief Contains interfaces to ICON time control for JSBACH
 !!
 !! @author
@@ -338,13 +411,15 @@ MODULE mo_jsb_time_iface
   USE mo_exception,          ONLY: finish, message, message_text
 
   USE mtime,                     ONLY: t_datetime => datetime, newDatetime, deallocateDatetime,      &
+    &                                  timedelta, getPTStringFromSeconds, max_timedelta_str_len,     &
+    &                                  newTimedelta, deallocateTimedelta,                            &
     &                                  OPERATOR(+), OPERATOR(*), OPERATOR(==),                       &
     &                                  OPERATOR(<=), OPERATOR(>), OPERATOR(-),                       &
     &                                  divisionquotienttimespan, getDayOfYearFromDateTime,           &
     &                                  getNoOfDaysInMonthDateTime, getNoOfDaysInYearDateTime,        &
-    &                                  getTotalMilliSecondsTimeDelta, no_of_sec_in_a_day,            &
+    &                                  no_of_sec_in_a_day,                                           &
     &                                  getNoOfSecondsElapsedInDayDateTime, getTotalSecondsTimeDelta, &
-    &                                  divideDatetimeDifferenceInSeconds !, isCurrentEventActive
+    &                                  divideDatetimeDifferenceInSeconds !, isCurrentEventActive,      &
   USE mo_time_config,            ONLY: time_config !configure_time
   USE mo_time_nml,               ONLY: read_time_namelist
   USE mo_dynamics_config,        ONLY: iequations
@@ -356,11 +431,11 @@ MODULE mo_jsb_time_iface
   IMPLICIT NONE
   PRIVATE
 
-  PUBLIC :: t_datetime
+  PUBLIC :: t_datetime, deallocateDatetime
   PUBLIC :: get_year_length, get_month_length, get_day_length, get_year_day
   PUBLIC :: get_time_dt, get_time_nsteps, &
-            get_time_start, get_time_stop, &
-            get_time_current, get_time_previous, is_time_experiment_start, is_time_restart, &
+            get_time_start, get_time_stop, get_time_experiment_start, &
+            get_time_previous, get_time_next, is_time_experiment_start, is_time_restart, &
             is_time_ltrig_rad_m1
   PUBLIC :: read_time_namelist !, configure_time
   PUBLIC :: start_timestep, finish_timestep
@@ -391,15 +466,19 @@ CONTAINS
   !!
   !! Function returns the length of the integration time step
   !!
-  REAL(wp) FUNCTION get_time_dt()
+  REAL(wp) FUNCTION get_time_dt(model_id)
 
-    CHARACTER(len=*), PARAMETER :: routine = modname//':get_time_dt'
+    INTEGER, INTENT(in) :: model_id
+
+    TYPE(t_datetime), POINTER :: reference_datetime
     REAL(wp) :: ztime
 
-    TYPE(t_datetime), POINTER :: reference_dt
-    reference_dt => newDatetime("1980-06-01T00:00:00.000")
-    ztime = 0.001_wp*getTotalMilliSecondsTimeDelta(time_config%tc_dt_model, reference_dt)
-    CALL deallocateDatetime(reference_dt)
+    CHARACTER(len=*), PARAMETER :: routine = modname//':get_time_dt'
+
+    reference_datetime => newDatetime("1979-01-01T00:00:00.000") ! 1980-06-01T00:00:00.000
+    ztime = REAL(getTotalSecondsTimeDelta(echam_phy_tc(model_id)%dt_vdf, reference_datetime), wp)
+
+    CALL deallocateDatetime(reference_datetime)
 
     IF (ztime <= 0.0_wp) &
       CALL finish(routine, 'time step not configured yet.')
@@ -434,84 +513,124 @@ CONTAINS
 
   END FUNCTION get_time_nsteps
 
-  TYPE(t_datetime) FUNCTION get_time_start()
+  FUNCTION get_time_experiment_start()
 
-    get_time_start = time_config%tc_startdate
+    TYPE(t_datetime), POINTER :: get_time_experiment_start
+
+    get_time_experiment_start => newDatetime(time_config%tc_exp_startdate)
+
+  END FUNCTION get_time_experiment_start
+
+  FUNCTION get_time_start()
+
+    TYPE(t_datetime), POINTER :: get_time_start
+
+    get_time_start => newDatetime(time_config%tc_startdate)
 
   END FUNCTION get_time_start
 
-  TYPE(t_datetime) FUNCTION get_time_stop()
+  FUNCTION get_time_stop()
 
-    get_time_stop = time_config%tc_stopdate
+    TYPE(t_datetime), POINTER :: get_time_stop
+
+    get_time_stop => newDatetime(time_config%tc_stopdate)
 
   END FUNCTION get_time_stop
 
   !>
-  !! @brief Get current time
-  !!
-  TYPE(t_datetime) FUNCTION get_time_current()
-
-    get_time_current = time_config%tc_current_date
-
-  END FUNCTION get_time_current
-
-  !>
   !! @brief Get time at previous time step
   !!
-  FUNCTION get_time_previous() RESULT(previous)
+  FUNCTION get_time_previous(current, dt) RESULT(previous)
 
-    TYPE(t_datetime) :: previous
+    TYPE(t_datetime), POINTER, INTENT(in) :: current
+    REAL(wp),                  INTENT(in) :: dt
+    TYPE(t_datetime), POINTER             :: previous
 
-    previous = time_config%tc_current_date + (-1) * time_config%tc_dt_model
+    TYPE(timedelta),  POINTER :: dt_mtime
+
+    CHARACTER(len=max_timedelta_str_len) :: dstring
+
+    CALL getPTStringFromSeconds(dt, dstring)
+    dt_mtime => newTimedelta(dstring)
+
+    previous => newDatetime(current)
+    previous = previous + (-1) * dt_mtime
+
+    CALL deallocateTimedelta(dt_mtime)
 
   END FUNCTION get_time_previous
 
   !>
   !! @brief Get time at next time step
   !!
-  FUNCTION get_time_next() RESULT(next)
+  FUNCTION get_time_next(current, dt) RESULT(next)
 
-    TYPE(t_datetime) :: next
+    TYPE(t_datetime), POINTER, INTENT(in) :: current
+    REAL(wp),                  INTENT(in) :: dt
+    TYPE(t_datetime), POINTER             :: next
 
-    next = time_config%tc_current_date + (1) * time_config%tc_dt_model
+    TYPE(timedelta),  POINTER :: dt_mtime
+
+    CHARACTER(len=max_timedelta_str_len) :: dstring
+
+    CALL getPTStringFromSeconds(dt, dstring)
+    dt_mtime => newTimedelta(dstring)
+
+    next => newDatetime(current)
+    next = next + (1) * dt_mtime
+
+    CALL deallocateTimedelta(dt_mtime)
 
   END FUNCTION get_time_next
 
   !
   ! Check whether we are one time step before radiation is calculated in atmosphere
+  ! This is used in JSBACH to decide whether to update surface albedo at the end of
+  ! a time step (so that radiation can use it one step later; note that radiation is
+  ! called before vdf/jsbach).
+  ! If radiation is not used at all in the current time window set result to true so
+  ! that JSBACH calculates albedo every time step.
   !
-  FUNCTION is_time_ltrig_rad_m1(model_id) RESULT(ltrig_rad_m1)
+  FUNCTION is_time_ltrig_rad_m1(current, dt, model_id) RESULT(ltrig_rad_m1)
 
-    INTEGER, INTENT(in) :: model_id
-    LOGICAL :: ltrig_rad_m1
-    !
-    ! In the ICON MPI atmosphere, radiation is triggered based on the radiation time delta and the old  time step.
-    ! We therefore use the current time step to check whether we're one time step before the radiation is triggered
-    ! in the atmosphere
-    TYPE(t_datetime) :: current
-    INTEGER          :: dt_rad
+    TYPE(t_datetime), POINTER, INTENT(in) :: current
+    REAL(wp),                  INTENT(in) :: dt
+    INTEGER,                   INTENT(in) :: model_id
+    LOGICAL                               :: ltrig_rad_m1
 
-    current = get_time_current()
+    TYPE(t_datetime), POINTER :: datetime_next
+    INTEGER                   :: dt_rad
+    LOGICAL                   :: luse_rad
+
+    datetime_next => get_time_next(current, dt)
+
     IF (echam_phy_tc(model_id)%dt_rad > dt_zero) THEN
-      dt_rad = getTotalSecondsTimeDelta(echam_phy_tc(model_id)%dt_rad, current)
-      ltrig_rad_m1 = MOD(getNoOfSecondsElapsedInDayDateTime(current), dt_rad) == 0
+      dt_rad = getTotalSecondsTimeDelta(echam_phy_tc(model_id)%dt_rad, datetime_next)
+      ltrig_rad_m1 = MOD(getNoOfSecondsElapsedInDayDateTime(datetime_next), dt_rad) == 0
+      ! Why doesn't this work? It somehow messes up the radiation calculation time step.
+      ! ltrig_rad_m1 = isCurrentEventActive(echam_phy_tc(model_id)%ev_rad, datetime_next)
+      luse_rad  = (echam_phy_tc(model_id)%sd_rad <= datetime_next) .AND. &
+        &         (echam_phy_tc(model_id)%ed_rad >  datetime_next)
+      ltrig_rad_m1 = ltrig_rad_m1 .AND. luse_rad
     ELSE
-      ltrig_rad_m1 = .FALSE.
+      ltrig_rad_m1 = .TRUE.
     END IF
 
   END FUNCTION is_time_ltrig_rad_m1
 
-  LOGICAL FUNCTION is_time_experiment_start()
+  LOGICAL FUNCTION is_time_experiment_start(current)
 
-    ! In ICON, the first computed time step is one time step after the start date
-    is_time_experiment_start = get_time_previous() == time_config%tc_exp_startdate
+    TYPE(t_datetime), POINTER, INTENT(in) :: current
+
+    is_time_experiment_start = current == time_config%tc_exp_startdate
 
   END FUNCTION is_time_experiment_start
 
-  LOGICAL FUNCTION is_time_restart()
+  LOGICAL FUNCTION is_time_restart(current)
 
-    ! In ICON, the first computed time step is one time step after the restart date
-    is_time_restart = .NOT. is_time_experiment_start() .AND. (get_time_previous() == time_config%tc_startdate)
+    TYPE(t_datetime), POINTER, INTENT(in) :: current
+
+    is_time_restart = .NOT. is_time_experiment_start(current) .AND. (current == time_config%tc_startdate)
 
   END FUNCTION is_time_restart
 
@@ -548,8 +667,8 @@ CONTAINS
 
   SUBROUTINE get_date_components(this_datetime, year, month, day, hour, minute, second)
 
-    TYPE(t_datetime),  INTENT(in)  :: this_datetime
-    INTEGER, OPTIONAL, INTENT(out) :: year, month, day, hour, minute, second
+    TYPE(t_datetime),  POINTER, INTENT(in)  :: this_datetime
+    INTEGER, OPTIONAL,          INTENT(out) :: year, month, day, hour, minute, second
 
     IF (PRESENT(year))   year   = this_datetime%date%year
     IF (PRESENT(month))  month  = this_datetime%date%month
@@ -616,7 +735,7 @@ CONTAINS
   REAL(wp) FUNCTION get_year_day(date)
 
     ! t_datetime points to mtimes datetime
-    TYPE(t_datetime),  INTENT(in)  :: date
+    TYPE(t_datetime), POINTER, INTENT(in)  :: date
 
     get_year_day = REAL(getDayOfYearFromDateTime(date), wp) &
          &        +REAL(getNoOfSecondsElapsedInDayDateTime(date),wp) &
@@ -677,7 +796,7 @@ MODULE mo_jsb_io_iface
   USE mo_cdi,           ONLY: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_PACK16, DATATYPE_PACK24, &
                             & ZAXIS_SURFACE, ZAXIS_GENERIC, ZAXIS_DEPTH_BELOW_LAND, &
                             & FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB, FILETYPE_GRB2, &
-                            & GRID_UNSTRUCTURED, &
+                            & GRID_UNSTRUCTURED, GRID_LONLAT, &
                             & TSTEP_CONSTANT, TSTEP_INSTANT, &
                             & cdiDefMissval
   USE mo_cdi_constants, ONLY: GRID_CELL, GRID_UNSTRUCTURED_CELL
@@ -691,11 +810,14 @@ MODULE mo_jsb_io_iface
   PUBLIC :: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_PACK16, DATATYPE_PACK24,  &
             ZAXIS_SURFACE, ZAXIS_GENERIC, ZAXIS_DEPTH_BELOW_LAND,               &
             FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB, FILETYPE_GRB2, &
-            GRID_CELL, GRID_UNSTRUCTURED, GRID_UNSTRUCTURED_CELL, &
+            GRID_CELL, GRID_UNSTRUCTURED, GRID_UNSTRUCTURED_CELL, GRID_LONLAT, &
             TSTEP_CONSTANT, TSTEP_INSTANT, &
-            Create_zaxis, cdiDefMissval, read_io_namelist
+            Create_zaxis, cdiDefMissval, read_jsb_io_namelist
             ! Create_zaxis, Destroy_zaxis, cdiDefMissval
 
+  ! The following needs to be defined but is only used with jsbach/echam
+  PUBLIC :: ldebugio
+  LOGICAL :: ldebugio = .FALSE.
 
   CHARACTER(len=*), PARAMETER :: modname = 'mo_jsb_io_iface'
 
@@ -750,7 +872,7 @@ CONTAINS
   END SUBROUTINE Create_zaxis
 
   ! Dummy subroutine, currently not needed for ICON
-  SUBROUTINE read_io_namelist(filename)
+  SUBROUTINE read_jsb_io_namelist(filename)
 
     CHARACTER(LEN=*), INTENT(in) :: filename
     CHARACTER(len=:), ALLOCATABLE :: filename_loc
@@ -759,7 +881,7 @@ CONTAINS
     !       This function is not implemented for ICON, yet.
     IF (.FALSE.) filename_loc = filename
 
-  END SUBROUTINE read_io_namelist
+  END SUBROUTINE read_jsb_io_namelist
 
 END MODULE mo_jsb_io_iface
 
@@ -1073,6 +1195,7 @@ MODULE mo_jsb_grid_iface
 
   USE mo_kind,               ONLY: wp
   USE mo_jsb_domain_iface,   ONLY: t_patch, get_nproma, get_nblks
+  USE mo_math_constants,     ONLY: rad2deg
 
   IMPLICIT NONE
   PRIVATE
@@ -1086,7 +1209,7 @@ CONTAINS
   FUNCTION get_lon(patch) RESULT(lon)
 
     TYPE(t_patch), INTENT(in)  :: patch
-    REAL(wp), POINTER          :: lon(:,:)
+    REAL(wp), POINTER          :: lon(:,:) !< Longitudes of grid cell centers[deg]
 
     INTEGER :: nproma, nblks
 
@@ -1096,14 +1219,14 @@ CONTAINS
     nblks  = get_nblks (patch)
     ALLOCATE(lon(nproma,nblks))
 
-    lon(:,:) = patch%cells%center(:,:)%lon
+    lon(:,:) = rad2deg * patch%cells%center(:,:)%lon
 
   END FUNCTION get_lon
 
   FUNCTION get_lat(patch) RESULT(lat)
 
     TYPE(t_patch), INTENT(in)  :: patch
-    REAL(wp),      POINTER     :: lat(:,:)
+    REAL(wp),      POINTER     :: lat(:,:) !< Latitudes of grid cell centers [deg]
 
     INTEGER :: nproma, nblks
 
@@ -1113,14 +1236,14 @@ CONTAINS
     nblks  = get_nblks (patch)
     ALLOCATE(lat(nproma,nblks))
 
-    lat(:,:) = patch%cells%center(:,:)%lat
+    lat(:,:) = rad2deg * patch%cells%center(:,:)%lat
 
   END FUNCTION get_lat
 
   FUNCTION get_area(patch) RESULT(area)
 
     TYPE(t_patch), INTENT(in)  :: patch
-    REAL(wp),      POINTER     :: area(:,:)
+    REAL(wp),      POINTER     :: area(:,:)   !< Grid cell area [m^2]
 
     INTEGER :: nproma, nblks
 
@@ -1171,7 +1294,7 @@ MODULE mo_jsb_varlist_iface
 
   USE mo_kind,               ONLY: wp, dp
   USE mo_exception,          ONLY: finish
-  USE mo_var_list_register,  ONLY: vlr_get, vlr_add
+  USE mo_var_list_register,  ONLY: vlr_get, vlr_add, get_nvl
   USE mo_var_list, ONLY: add_var_icon => add_var, t_var_list => t_var_list_ptr
   USE mo_var, ONLY: t_var
   USE mo_name_list_output_config, ONLY: var_in_out => is_variable_in_output
@@ -1186,7 +1309,7 @@ MODULE mo_jsb_varlist_iface
   PUBLIC :: VARNAME_LEN
   PUBLIC :: t_var_list, t_var_metadata, t_list_element, get_var_list
   PUBLIC :: new_var_list, is_variable_in_output
-  PUBLIC :: add_var_list_element_r2d, add_var_list_element_r3d
+  PUBLIC :: add_var_list_element_r1d, add_var_list_element_r2d, add_var_list_element_r3d
 
   CHARACTER(len=*), PARAMETER :: modname = 'mo_jsb_varlist_iface'
 
@@ -1202,6 +1325,9 @@ CONTAINS
     TYPE(t_var_list) :: tmp
 
     NULLIFY(this_list)
+    ! If no varlist has been registered, yet, vlr_get would throw a finish with the new
+    ! hash table implementation of var lists. We therefore just return with nullified this_list.
+    IF (get_nvl() < 1) RETURN
     CALL vlr_get(tmp, vlname)
     IF (ASSOCIATED(tmp%p)) THEN
       ALLOCATE(this_list)
@@ -1244,6 +1370,82 @@ CONTAINS
       END DO
     END IF
   END FUNCTION is_variable_in_output
+
+  SUBROUTINE add_var_list_element_r1d(this_list, name, ptr,                             &
+    hgrid, vgrid, cf, grib2, code, table, ldims, gdims, levelindx, loutput, lcontainer, &
+    lrestart, lrestart_cont, initval_r, isteptype,                                      &
+    resetval_r, lmiss, missval_r, tlev_source, info, p5,                                &
+    in_groups, verbose, new_element                                                     &
+    )
+
+    TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
+    CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
+    REAL(wp),             POINTER              :: ptr(:)              ! reference to field
+    INTEGER,              INTENT(in)           :: hgrid               ! horizontal grid type
+    INTEGER,              INTENT(in)           :: vgrid               ! vertical grid type
+                                                                      ! ICON: zaxis type (ZA_*)
+                                                                      ! ECHAM: cdi zaxis ID
+    TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
+    TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
+    INTEGER,              INTENT(in)           :: code                ! GRIB1 code number
+    INTEGER,              INTENT(in)           :: table               ! GRIB1 table number
+    INTEGER,              INTENT(in), OPTIONAL :: ldims(1)            ! local dimensions
+    INTEGER,              INTENT(in), OPTIONAL :: gdims(1)            ! global dimensions
+    INTEGER,              INTENT(in), OPTIONAL :: levelindx           ! info%levelindx for ECHAM
+    LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
+    LOGICAL,              INTENT(in), OPTIONAL :: lcontainer          ! container flag
+    LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
+    LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
+    REAL(wp),             INTENT(in), OPTIONAL :: initval_r           ! value if var not available
+    INTEGER,              INTENT(in), OPTIONAL :: isteptype           ! type of statistical processing
+    REAL(wp),             INTENT(in), OPTIONAL :: resetval_r          ! reset value (after accumulation)
+    LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
+    REAL(dp),             INTENT(in), OPTIONAL :: missval_r           ! missing value
+    INTEGER,              INTENT(in), OPTIONAL :: tlev_source         ! actual TL for TL dependent vars
+    TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
+    REAL(wp),             TARGET &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      , CONTIGUOUS &
+#endif
+      ,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
+    CHARACTER(len=VARNAME_LEN), INTENT(in), OPTIONAL :: in_groups(:)  ! groups to which a variable belongs
+    LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
+    TYPE(t_list_element), POINTER, OPTIONAL    :: new_element         ! pointer to new var list element
+    TYPE (t_var),         POINTER              :: nelem
+
+    CHARACTER(len=*), PARAMETER :: routine = modname//':add_var_list_element_r1d'
+
+    ! These variables are not used for ICON, but avoid compiler warnings about dummy arguments not being used
+    IF (code > 0) CONTINUE
+    IF (table > 0) CONTINUE
+    IF (PRESENT(gdims)) CONTINUE
+    IF (PRESENT(levelindx)) CONTINUE
+    IF (PRESENT(verbose)) CONTINUE
+
+    IF (PRESENT(p5)) THEN
+      IF (SIZE(p5, DIM=5) > 1) &
+        CALL finish(TRIM(routine), 'p5: only four dimensions allowed currently because of ECHAM compatibility')
+    END IF
+
+    IF (PRESENT(in_groups)) THEN
+      CALL add_var_icon(this_list, TRIM(name), ptr, hgrid, vgrid, cf, grib2, ldims, loutput=loutput, &
+        lcontainer=lcontainer, lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval_r,    &
+        isteptype=isteptype, resetval=resetval_r, lmiss=lmiss, missval=missval_r, info=info, p5=p5,  &
+        tlev_source=tlev_source, in_group=groups(in_groups), lopenacc=.TRUE., new_element=nelem)
+    ELSE
+      CALL add_var_icon(this_list, TRIM(name), ptr, hgrid, vgrid, cf, grib2, ldims, loutput=loutput, &
+        lcontainer=lcontainer, lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval_r,    &
+        isteptype=isteptype, resetval=resetval_r, lmiss=lmiss, missval=missval_r, info=info, p5=p5,  &
+        tlev_source=tlev_source, lopenacc=.TRUE., new_element=nelem)
+    END IF
+    IF (PRESENT(new_element)) THEN
+      ALLOCATE(new_element)
+      new_element%field => nelem
+    END IF
+    nelem%info%ndims = 1
+    nelem%info%used_dimensions(1:1) = ldims(1:1)
+
+  END SUBROUTINE add_var_list_element_r1d
 
   SUBROUTINE add_var_list_element_r2d(this_list, name, ptr,                             &
     hgrid, vgrid, cf, grib2, code, table, ldims, gdims, levelindx, loutput, lcontainer, &
