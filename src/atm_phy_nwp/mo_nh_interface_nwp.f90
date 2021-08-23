@@ -1139,6 +1139,7 @@ CONTAINS
       !  (5) grid-scale cloud cover [1 or 0]
       !-------------------------------------------------------------------------
 
+      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "cover", .TRUE., opt_lupdate_cpu=.TRUE.)
 #ifndef __GFORTRAN__
 ! FIXME: libgomp seems to run in deadlock here
 !$OMP PARALLEL DO PRIVATE(i_startidx,i_endidx,qtvar) ICON_OMP_GUIDED_SCHEDULE
@@ -1152,7 +1153,6 @@ CONTAINS
           qtvar(:,:) = pt_prog_rcf%tracer(:,:,jb,iqtvar)        ! EDMF DUALM
         ENDIF ! since qtvar is never used in other turb schemes, we can leave it uninitialized
 
-      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "cover", .TRUE., opt_lupdate_cpu=.TRUE.)
         CALL cover_koe &
 &             (kidia  = i_startidx ,   kfdia  = i_endidx  ,       & !! in:  horizonal begin, end indices
 &              klon = nproma,  kstart = kstart_moist(jg)  ,       & !! in:  horiz. and vert. vector length
@@ -1184,12 +1184,12 @@ CONTAINS
 &              qv_tot = prm_diag%tot_cld     (:,:,jb,iqv) ,       & !! out: qv       -"-
 &              qc_tot = prm_diag%tot_cld     (:,:,jb,iqc) ,       & !! out: clw      -"-
 &              qi_tot = prm_diag%tot_cld     (:,:,jb,iqi) )         !! out: ci       -"-
-      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "cover", .FALSE., opt_lupdate_cpu=.TRUE.)
-
       ENDDO
 #ifndef __GFORTRAN__
 !$OMP END PARALLEL DO
 #endif
+      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "cover", .FALSE., opt_lupdate_cpu=.TRUE.)
+
       IF (timers_level > 2) CALL timer_stop(timer_cover_koe)
 
     ENDIF! cloud cover
