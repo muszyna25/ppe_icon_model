@@ -92,8 +92,9 @@ CONTAINS
     ELSE
       imonth_beg = tiw_beg%month1_index 
       imonth_end = tiw_end%month2_index
-      IF ( lend_of_year ) imonth_end = 13
     ENDIF
+ 
+    IF ( lend_of_year ) imonth_end = 13
 
     WRITE(message_text,'(a,i2,a,i2)') &
        & ' Allocating SST and SIC for months ', imonth_beg, ' to ', imonth_end
