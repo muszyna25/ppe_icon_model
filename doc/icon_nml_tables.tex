@@ -4175,12 +4175,11 @@ Stride of MPI ranks.&
 \begin{longtab}
 
 %\hline
-\textbf{calendar} & I & 1 & &
+\textbf{calendar} & C & ``proleptic gregorian'' & &
 Selects the calendar type to use:   \\
-0 = calendar is not defined yet     \\
-1 = proleptic Gregorian calendar    \\
-2 = 365 day year without leap years \\
-3 = 360 day year with 30 day months &
+``proleptic gregorian'' = proleptic Gregorian calendar    \\
+``365 day year'' = 365 day year without leap years \\
+``360 day year'' = 360 day year with 30 day months &
 \tabularnewline
 %\hline
 
@@ -4372,7 +4371,7 @@ Height above which moist physics and advection of cloud and precipitation variab
 %\hline
 hbot\_qvsubstep&
 R& 22500.0& m&
-Height above which QV is advected with substepping scheme (must be at least as large as htop\_moist\_proc)&
+Height above which QV is advected with substepping scheme&
 ihadv\_tracer=22, 32, 42 or 52
 \tabularnewline
 
