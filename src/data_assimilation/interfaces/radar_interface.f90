@@ -159,6 +159,7 @@ MODULE radar_interface
        ilow_modelgrid, iup_modelgrid, jlow_modelgrid, jup_modelgrid, klow_modelgrid, kup_modelgrid, &
        rain, cloud, snow, ice, graupel, hail, rain_coeffs, &
        Tmax_i_modelgrid, Tmax_s_modelgrid, Tmax_g_modelgrid, Tmax_h_modelgrid, &
+       q_crit_radar, n_crit_radar, &
        lgsp_fwo, itype_gscp_fwo, T0C_fwo, pi6 => pi6_dp
 
   USE radar_parallel_utilities, ONLY :  &
@@ -3422,27 +3423,27 @@ CONTAINS
     !  with minor modifications
     !  (values derived by JM from IDEAL-WK82 51x51 test case and slightly modified by UB, &
     !   h-values adapted to actually calculated ranges)
-    qc_min = 4.0e-6_wp
+    qc_min = MAX(4.0e-6_wp,q_crit_radar%liquid)
     qc_max = 2.5e-3_wp
     xc_min = 4.2e-15_wp   ! cloudstandard
     xc_max = 2.6e-10_wp
-    qi_min = 1.0e-10_wp
+    qi_min = max(1.0e-10_wp,q_crit_radar%frozen)
     qi_max = 2.0e-3_wp
     xi_min = 1.0e-12_wp   ! iceCRY2test
     xi_max = 1.0e-6_wp
-    qr_min = 1.0e-7_wp
+    qr_min = max(1.0e-7_wp,q_crit_radar%liquid)
     qr_max = 1.0e-2_wp
     xr_min = 2.6e-10_wp   ! rainULI
     xr_max = 3.0e-6_wp
-    qs_min = 1.0e-9_wp
+    qs_min = max(1.0e-9_wp,q_crit_radar%frozen)
     qs_max = 2.0e-3_wp
     xs_min = 1.0e-10_wp   ! snowCRYSTALuli2
     xs_max = 2.0e-6_wp
-    qg_min = 1.0e-8_wp
+    qg_min = max(1.0e-8_wp,q_crit_radar%frozen)
     qg_max = 1.0e-2_wp
     xg_min = 1.0e-9_wp    ! graupelhail2test4
     xg_max = 5.0e-4_wp
-    qh_min = 1.0e-6_wp
+    qh_min = max(1.0e-6_wp,q_crit_radar%frozen)
     qh_max = 1.0e-2_wp
     xh_min = 2.6e-9_wp    ! hailULItest
     xh_max = 5.0e-3_wp    !  (should not be larger hail%xmax=5e-3)
