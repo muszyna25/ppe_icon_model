@@ -994,14 +994,29 @@ CONTAINS
             lu_gcv => lu_gcv2009_v4
           END SELECT
 
-          ext_data(jg)%atm%i_lc_snow_ice = 22
-          ext_data(jg)%atm%i_lc_water    = 21
-          ext_data(jg)%atm%i_lc_urban    = 19
-          ext_data(jg)%atm%i_lc_shrub_eg = 12
-          ext_data(jg)%atm%i_lc_shrub    = 13
-          ext_data(jg)%atm%i_lc_grass    = 14
-          ext_data(jg)%atm%i_lc_bare_soil= 20
-          ext_data(jg)%atm%i_lc_sparse   = 15
+          ext_data(jg)%atm%i_lc_snow_ice    = 22
+          ext_data(jg)%atm%i_lc_water       = 21
+          ext_data(jg)%atm%i_lc_urban       = 19
+          ext_data(jg)%atm%i_lc_shrub_eg    = 12
+          ext_data(jg)%atm%i_lc_shrub       = 13
+          ext_data(jg)%atm%i_lc_grass       = 14
+          ext_data(jg)%atm%i_lc_bare_soil   = 20
+          ext_data(jg)%atm%i_lc_sparse      = 15
+          ext_data(jg)%atm%i_lc_crop_irrig  = 1
+          ext_data(jg)%atm%i_lc_crop_rain   = 2
+          ext_data(jg)%atm%i_lc_crop_mos    = 3
+          ext_data(jg)%atm%i_lc_veg_mos     = 4 
+          ext_data(jg)%atm%i_lc_forest_b_eg = 5
+          ext_data(jg)%atm%i_lc_forest_b_d  = 6
+          ext_data(jg)%atm%i_lc_woodland    = 7
+          ext_data(jg)%atm%i_lc_forest_n_eg = 8
+          ext_data(jg)%atm%i_lc_forest_n_d  = 9
+          ext_data(jg)%atm%i_lc_forest_bn   = 10
+          ext_data(jg)%atm%i_lc_shrub_mos   = 11
+          ext_data(jg)%atm%i_lc_forest_rf   = 16
+          ext_data(jg)%atm%i_lc_forest_pf   = 17
+          ext_data(jg)%atm%i_lc_grass_rf    = 18
+          
           DO i = 1, num_lcc*n_param_lcc, n_param_lcc
             ilu=ilu+1
             ext_data(jg)%atm%z0_lcc(ilu)          = lu_gcv(i  )  ! Land-cover related roughness length

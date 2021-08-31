@@ -48,7 +48,7 @@ MODULE mo_art_emission_interface
   USE mo_nonhydro_state,                ONLY: p_nh_state_lists
   USE mo_ext_data_types,                ONLY: t_external_data
   USE mo_nwp_lnd_types,                 ONLY: t_lnd_diag
-  USE mo_run_config,                    ONLY: lart,ntracer
+  USE mo_run_config,                    ONLY: lart,ntracer,iqv
   USE mo_time_config,                   ONLY: time_config
   USE mtime,                            ONLY: datetime, getDayOfYearFromDateTime
   USE mo_util_mtime,                    ONLY: mtime_utils, FMT_HHH
@@ -85,6 +85,7 @@ MODULE mo_art_emission_interface
                                           &   art_prepare_tsum, art_prepare_sdes,     &
                                           &   art_prepare_saisl
   USE mo_art_emission_pntSrc,           ONLY: art_emission_pntSrc
+  USE mo_art_emission_biomBurn,         ONLY: art_emission_biomBurn_prepare,art_emission_biomBurn
   USE mo_art_read_emissions,            ONLY: art_add_emission_to_tracers
   USE mo_art_prescribed_state,          ONLY: art_prescribe_tracers
 #ifdef _OPENMP
@@ -231,7 +232,39 @@ CONTAINS
             CALL finish('mo_art_emission_interface:art_emission_interface', &
                  &      'ART: Unknown volc emissions configuration')
         END SELECT
-      ENDDO !jb
+        SELECT CASE(art_config(jg)%iart_fire)
+          CASE(0)
+            ! Nothing to do, no biomass burning emissions
+          CASE(1)
+            CALL art_emission_biomBurn_prepare(                                               &
+              &          ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_crop_irrig),   &
+              &          ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_crop_rain),    &
+              &          ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_crop_mos),     &
+              &          ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_veg_mos),      &
+              &          ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_forest_b_eg),  &
+              &          ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_forest_b_d),   &
+              &          ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_woodland),     &
+              &          ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_forest_n_eg),  &
+              &          ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_forest_n_d),   &
+              &          ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_forest_bn),    &
+              &          ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_shrub_mos),    &
+              &          ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_shrub_eg),     &
+              &          ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_shrub),        &
+              &          ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_grass),        &
+              &          ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_sparse),       &
+              &          ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_forest_rf),    &
+              &          ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_forest_pf),    &
+              &          ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_grass_rf),     &
+              &          p_art_data(jg)%ext%biomBurn_prop%dc_hflux_min_res(:,:,:),           &
+              &          p_art_data(jg)%ext%biomBurn_prop%dc_hflux_max_res(:,:,:),           &
+              &          p_art_data(jg)%ext%biomBurn_prop%dc_burnt_area_res(:,:,:),          &            
+              &          p_art_data(jg)%ext%biomBurn_prop%dc_emis_res(:,:,:),                &    
+              &          jb, istart, iend )
+          CASE default
+            CALL finish('mo_art_emission_interface:art_emission_interface', &
+                 &      'ART: Unknown biomass burning emissions configuration')
+        END SELECT 
+      ENDDO !jb   
 !$omp end parallel do
 
 
@@ -354,10 +387,31 @@ CONTAINS
                       &             p_art_data(jg)%ext%volc_data,                   &
                       &             fields%itr3(1), emiss_rate(:,:) ) !< itr3(1) assumes only 1 mass component of mode
                     kstart_emiss = 1
+                  CASE ('soot')                           
+                    CALL art_emission_biomBurn(                                               &    
+                                 !dimensions:(nproma,nlev,nblks)
+                      &          art_atmo%temp(:,:,jb),                                       &
+                      &          art_atmo%pres(:,:,jb),                                       &   
+                      &          art_atmo%u(:,:,jb),                                          &
+                      &          art_atmo%v(:,:,jb),                                          &            
+                      &          tracer(:,:,jb,iqv),                                          &
+                      &          art_atmo%z_mc(:,:,jb),                                       &
+                      &          art_atmo%z_ifc(:,:,jb),                                      &
+                      &          art_atmo%lon(:,jb),                                          &
+                      &          art_atmo%cell_area(:,jb),                                    &
+                      &          art_atmo%dz(:,:,jb),                                         &
+                      &          current_date,                                                &
+                      &          p_art_data(jg)%ext%biomBurn_prop%dc_hflux_min_res(:,:,:),   &
+                      &          p_art_data(jg)%ext%biomBurn_prop%dc_hflux_max_res(:,:,:),   &
+                      &          p_art_data(jg)%ext%biomBurn_prop%dc_burnt_area_res(:,:,:),  &
+                      &          p_art_data(jg)%ext%biomBurn_prop%dc_emis_res(:,:,:),        &
+                      &          p_art_data(jg)%ext%biomBurn_prop%flux_bc(:,jb),              &
+                      &          emiss_rate(:,:),                                             &
+                      &          art_atmo%nlev, art_atmo%nlevp1, jb, istart, iend )    
                   CASE DEFAULT
                     kstart_emiss = art_atmo%nlev
                 END SELECT
-
+                
                 ! Update mass mixing ratios
                 DO ijsp = 1, fields%ntr-1
                   CALL art_integrate_explicit(tracer(:,:,jb,fields%itr3(ijsp)),  emiss_rate(:,:), &
@@ -537,7 +591,6 @@ CONTAINS
 
             CLASS is (t_fields_volc)
               ! handled below
-
             CLASS default
               CALL finish('mo_art_emission_interface:art_emission_interface', &
                 &         'ART: Unknown mode field type')
