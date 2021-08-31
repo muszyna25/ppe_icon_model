@@ -151,6 +151,7 @@ SUBROUTINE art_diagnostics_interface(rho, pres, p_trac, dz, hml, jg, &
           ! --------------------------------------
           IF (art_config(jg)%iart_dust > 0    .OR. &
             & art_config(jg)%iart_seasalt > 0 .OR. &
+			& art_config(jg)%iart_fire > 0 .OR. &
             & art_config(jg)%iart_volcano > 0) THEN
             IF (var_med_dia == 1) THEN
               l_init_aod = .TRUE.
