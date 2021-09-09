@@ -290,11 +290,11 @@ CONTAINS
             IF (thick1 > thick2) THEN
 
               press_R = pressure_hyd(ic1, jk-1, ib1) + &
-                & 0.5_wp*( rho(ic1, jk - 1, ib1) + rho(ic2, jk, ib2) )    &
+                & 0.5_wp*( rho(ic1, jk - 1, ib1) + rho(ic1, jk, ib1) )    &
                 & *z_grav_rho_inv * thick2
             ELSE
               press_L = pressure_hyd(ic2, jk-1, ib2) + &
-                & 0.5_wp*( rho(ic2, jk - 1, ib2) + rho(ic1, jk, ib1) )    &
+                & 0.5_wp*( rho(ic2, jk - 1, ib2) + rho(ic2, jk, ib2) )    &
                 & *z_grav_rho_inv * thick1
             END IF
          
@@ -1011,7 +1011,10 @@ CONTAINS
         CALL get_index_range(all_cells, jb, start_index, end_index) 
         DO jc = start_index, end_index
           levels = patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-          z_p(1:levels) = patch_3d%p_patch_1d(1)%depth_CellMiddle(jc,1:levels,jb) * OceanReferenceDensity * sitodbar
+          z_p(1:levels - 1) = patch_3d%p_patch_1d(1)%depth_CellMiddle(jc,1:levels - 1,jb) * OceanReferenceDensity * sitodbar
+          !! For bottom, use the uniform depth without partial cells
+          !! This allows well-balancedness for pressure gradients
+          z_p(levels) = patch_3d%p_patch_1d(1)%zlev_m(levels) * OceanReferenceDensity * sitodbar
           rho(jc,1:levels,jb) = calculate_density_mpiom_onColumn( &
             & tracer(jc,1:levels,jb,1),  tracer(jc,1:levels,jb,2), z_p(1:levels), levels)
         END DO
@@ -1025,7 +1028,9 @@ CONTAINS
         CALL get_index_range(all_cells, jb, start_index, end_index)
         DO jc = start_index, end_index
           levels = patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-          z_p(1:levels) = patch_3d%p_patch_1d(1)%depth_CellMiddle(jc,1:levels,jb) * OceanReferenceDensity * sitodbar
+          z_p(1:levels - 1) = patch_3d%p_patch_1d(1)%depth_CellMiddle(jc,1:levels - 1,jb) * OceanReferenceDensity * sitodbar
+          !! For bottom, use the uniform depth without partial cells
+          z_p(levels) = patch_3d%p_patch_1d(1)%zlev_m(levels) * OceanReferenceDensity * sitodbar
           rho(jc,1:levels,jb) = calculate_density_mpiom_onColumn( &
              & tracer(jc,1:levels,jb,1),  salinityReference_column(1:levels), z_p(1:levels), levels)
         END DO
