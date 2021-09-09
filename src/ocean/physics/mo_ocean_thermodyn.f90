@@ -282,7 +282,7 @@ CONTAINS
           thick2 = patch_3D%p_patch_1d(1)%constantPrismCenters_Zdistance(ic2, jk, ib2)
 
           IF ( (jk .EQ. patch_3d%p_patch_1d(1)%dolic_e(je,jb)) .AND. &
-            & ( abs(thick1 - thick2) > 1E-2) ) THEN
+            & ( abs(thick1 - thick2) > 1E-10) ) THEN
             
             press_L = pressure_hyd(ic2, jk, ib2)
             press_R = pressure_hyd(ic1, jk, ib1)
@@ -290,15 +290,15 @@ CONTAINS
             IF (thick1 > thick2) THEN
 
               press_R = pressure_hyd(ic1, jk-1, ib1) + &
-                & 0.5_wp*( rho(ic1, jk, ib1) + rho(ic1, jk-1, ib1) )    &
+                & 0.5_wp*( rho(ic1, jk - 1, ib1) + rho(ic2, jk, ib2) )    &
                 & *z_grav_rho_inv * thick2
             ELSE
               press_L = pressure_hyd(ic2, jk-1, ib2) + &
-                & 0.5_wp*( rho(ic2, jk, ib2) + rho(ic2, jk-1, ib2) )    &
+                & 0.5_wp*( rho(ic2, jk - 1, ib2) + rho(ic1, jk, ib1) )    &
                 & *z_grav_rho_inv * thick1
             END IF
          
-            press_grad(je,jk,jb)=(press_R - press_L)*grad_coeff(je,jk,jb)
+            press_grad(je,jk,jb)=(press_L - press_R)*grad_coeff(je,jk,jb)
 
           ELSE  
           
