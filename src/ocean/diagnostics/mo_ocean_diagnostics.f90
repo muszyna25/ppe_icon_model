@@ -729,7 +729,7 @@ CONTAINS
       IF ( ( vert_cor_type == 1 ) ) THEN
         w = p_diag%w_deriv
       ENDIF
- 
+
       ! energy/enstrophy
       global_mean_potEnergy = 0.0_wp
       IF (isRegistered('pot_energy_global')) THEN
@@ -787,11 +787,24 @@ CONTAINS
            isRegistered('global_hfbasin') .OR. isRegistered('atlant_hfbasin') .OR. &
            isRegistered('pacind_hfbasin') ) THEN
 
-        CALL diag_heat_salt_tendency(patch_3d, 2, ice, tracers(:,:,:,1), tracers(:,:,:,2), &
+      	IF (vert_cor_type .EQ. 0) THEN
+
+          CALL diag_heat_salt_tendency(patch_3d, 2, ice, tracers(:,:,:,1), tracers(:,:,:,2), &
              p_diag%delta_ice,                                      &
              p_diag%delta_snow,                                     &
              p_diag%delta_thetao,                                   &
              p_diag%delta_so)
+
+        ELSEIF (vert_cor_type .EQ. 1) THEN
+
+          CALL diag_heat_salt_tendency(patch_3d, 2, ice, tracers(:,:,:,1), tracers(:,:,:,2), &
+             p_diag%delta_ice,                                      &
+             p_diag%delta_snow,                                     &
+             p_diag%delta_thetao,                                   &
+             p_diag%delta_so, ocean_state%p_prog(nnew(1))%stretch_c(:, :))
+
+        ENDIF
+
       ENDIF
 
       ! calc moc each timestep from non-accumulated vertical veloc
@@ -836,11 +849,24 @@ CONTAINS
            .OR. isRegistered('heat_content_snow')   .OR. isRegistered('heat_content_total') &
            .OR. isRegistered('global_heat_content') .OR. isRegistered('global_heat_content_solid') ) THEN
 
-        CALL calc_heat_content(patch_3d, prism_thickness, ice, tracers, &
+      	IF (vert_cor_type .EQ. 0) THEN
+
+          CALL calc_heat_content(patch_3d, prism_thickness, ice, tracers, &
              p_diag%heat_content_liquid_water, &
              p_diag%heat_content_seaice, &
              p_diag%heat_content_snow,&
-             p_diag%heat_content_total )
+             p_diag%heat_content_total)
+
+        ELSEIF (vert_cor_type .EQ. 1) THEN
+ 
+          CALL calc_heat_content(patch_3d, prism_thickness, ice, tracers, &
+             p_diag%heat_content_liquid_water, &
+             p_diag%heat_content_seaice, &
+             p_diag%heat_content_snow,&
+             p_diag%heat_content_total, &
+             ocean_state%p_prog(nnew(1))%stretch_c(:, :) )
+
+        ENDIF
 
         ! global_heat_content for monitoring
         IF (isRegistered('global_heat_content')) THEN
@@ -2215,12 +2241,13 @@ CONTAINS
 
 
   SUBROUTINE diag_heat_salt_tendency(patch_3d, n, ice, thetao, so, delta_ice, delta_snow, &
-       delta_thetao, delta_so)
+       delta_thetao, delta_so, stretch_c)
 
     TYPE(t_patch_3d ),TARGET, INTENT(in)     :: patch_3D
 
     REAL(wp), INTENT(in)                     :: thetao(:,:,:)   ! temperature
     REAL(wp), INTENT(in)                     :: so(:,:,:)   ! salinity
+    REAL(wp), INTENT(in),OPTIONAL            :: stretch_c(:, :)
     TYPE(t_sea_ice), INTENT(IN)              :: ice
     TYPE(t_subset_range), POINTER            :: subset
 
@@ -2291,7 +2318,14 @@ CONTAINS
 
           DO level = 1,subset%vertical_levels(cell,blk)
 
-            dz = MERGE(ice%zunderice(cell,blk),patch_3D%p_patch_1d(1)%prism_thick_c(cell,level,blk),level.EQ.1)
+            IF (vert_cor_type .EQ. 1) THEN
+              dz=MERGE(ice%zunderice(cell,blk)                     &
+                   ,patch_3D%p_patch_1d(1)%prism_thick_c(cell,level,blk)*stretch_c(cell,blk),level.EQ.1)
+            ELSE
+              dz=MERGE(ice%zunderice(cell,blk), &
+                   patch_3D%p_patch_1d(1)%prism_thick_c(cell,level,blk),level.EQ.1)
+            ENDIF
+
             delta_thetao(cell,level,blk) = ( thetao(cell,level,blk) - delta_thetao(cell,level,blk) ) &
                  * clw * OceanReferenceDensity * dz * dti
             delta_so(cell,level,blk) = ( so(cell,level,blk) - delta_so(cell,level,blk) ) &
@@ -2308,7 +2342,7 @@ END SUBROUTINE diag_heat_salt_tendency
 
   SUBROUTINE calc_heat_content(patch_3d, thickness, ice, tracers, &
        heat_content_liquid_water, heat_content_seaice,            &
-       heat_content_snow, heat_content_total)
+       heat_content_snow, heat_content_total, stretch_c)
 
     TYPE(t_patch_3d), TARGET, INTENT(in)  :: patch_3d
 
@@ -2318,13 +2352,14 @@ END SUBROUTINE diag_heat_salt_tendency
     REAL(wp), INTENT(INOUT)  :: heat_content_seaice(:,:)
     REAL(wp), INTENT(INOUT)  :: heat_content_snow(:,:)
     REAL(wp), INTENT(INOUT)  :: heat_content_total(:,:)
+    REAL(wp), INTENT(IN), OPTIONAL  :: stretch_c(:,:)
 
     TYPE(t_sea_ice), INTENT(IN)              :: ice
     TYPE(t_subset_range), POINTER            :: subset
 
     INTEGER  :: blk, cell, cellStart,cellEnd, level
     REAL(wp) :: rhoicwa, rhosnic, rhosnwa, tfreeze, tmelt, &
-                  tref, entmel, rocp, sithk, snthk
+         tref, entmel, rocp, sithk, snthk, dz
 
 
     rhoicwa = rhoi / rho_ref
@@ -2364,10 +2399,15 @@ END SUBROUTINE diag_heat_salt_tendency
              + tracers(cell,1,blk,1) ) * rocp                 &
              * ice%zUnderIce(cell,blk)
 
+
         DO level=2,subset%vertical_levels(cell,blk)
+
+          dz=MERGE(thickness(cell,level,blk)*stretch_c(cell,blk) &
+            ,thickness(cell,level,blk),vert_cor_type .EQ. 1)  !check for vert_cor_type
+
           heat_content_liquid_water(cell,level,blk) = (tmelt - tref &
                + tracers(cell,level,blk,1) ) * rocp                 &
-               * thickness(cell,level,blk)
+               * dz
         END DO
 
         ! total heat per column
