@@ -116,6 +116,7 @@ $addexp checksuite.xce.dwd.de/exp.run_ICON_14_R2B6N7_oper_IAU_and_restarttest.ru
 $addexp checksuite.rcnl.dwd.de/exp.run_ICON_02_R2B13_lam.run                       --builders DWD_nec --list $listname
 $addexp checksuite.rcnl.dwd.de/exp.run_ICON_07_R02B04N06M_restarttest.run          --builders DWD_nec --list $listname
 $addexp checksuite.rcnl.dwd.de/exp.run_ICON_08_R19B7-ID2_oper.run                  --builders DWD_nec --list $listname
+$addexp checksuite.rcnl.dwd.de/exp.run_ICON_09_R2B6N7_oper_EPS.run                 --builders DWD_nec --list $listname
 $addexp checksuite.rcnl.dwd.de/exp.run_ICON_11_R3B08_lam_initmode7_restarttest.run --builders DWD_nec --list $listname
 $addexp checksuite.rcnl.dwd.de/exp.run_ICON_14_R2B6N7_oper_IAU_and_restarttest.run --builders DWD_nec --list $listname
 # remove non-dwd tests
