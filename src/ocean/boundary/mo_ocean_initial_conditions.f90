@@ -1054,6 +1054,9 @@ CONTAINS
     CASE (221)
       CALL height_quads_checkerboard(patch_3d=patch_3d, ocean_height=ocean_height, base_value=1.0_wp, variation=1.0_wp)
 
+    CASE (235)
+      ocean_height(:,:) = 10.0_wp
+
     CASE default
       CALL finish(method_name, "unknown sea_surface_height_type")
 
