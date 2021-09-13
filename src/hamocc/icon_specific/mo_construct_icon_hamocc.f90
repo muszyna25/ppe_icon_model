@@ -12,7 +12,8 @@ MODULE mo_construct_icon_hamocc
 !  USE mo_avflux, ONLY         : avflux_ini
 !#endif
 
-
+  USE mo_aggregates, ONLY     : init_aggregate_params
+  USE mo_memory_agg, ONLY     : alloc_mem_aggregates
   USE mo_memory_bgc, ONLY      : alloc_mem_biomod, n90depth,n1000depth,n2000depth,&
   &                              alloc_mem_carbch,totalarea
   USE mo_bgc_icon_comm, ONLY  : ini_bgc_regions, initial_update_icon, hamocc_state, &
@@ -24,7 +25,8 @@ MODULE mo_construct_icon_hamocc
        &                        ini_atmospheric_concentrations, &
        &                        set_parameters_bgc, &
        &                        ini_continental_carbon_input, &
-       &                        ini_wpoc, bgc_param_conv_unit
+       &                        ini_wpoc, bgc_param_conv_unit, & 
+       &                        ini_aggregate_parameters
 
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
@@ -32,6 +34,7 @@ MODULE mo_construct_icon_hamocc
   USE mo_impl_constants,      ONLY: max_char_length
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state
   USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m
+  USE mo_hamocc_nml,          ONLY: i_settling
   USE mo_dynamics_config,     ONLY: nold,nnew
   USE mo_parallel_config,     ONLY: nproma
   USE mo_sync,                ONLY: global_sum_array
@@ -147,7 +150,7 @@ SUBROUTINE INI_BGC_ICON(hamocc_ocean_state,l_is_restart)
 
   CALL set_parameters_bgc
 
-
+  IF (i_settling == 2) CALL ini_aggregate_parameters
 
 
   ! region indices
@@ -175,6 +178,8 @@ SUBROUTINE INI_BGC_ICON(hamocc_ocean_state,l_is_restart)
   CALL ALLOC_MEM_CARBCH
 
   !
+  CALL message(TRIM(routine), 'alloc_mem_aggregates')
+  CALL ALLOC_MEM_AGGREGATES
 
   !
   ! Initialize sediment layering
@@ -215,11 +220,13 @@ SUBROUTINE INI_BGC_ICON(hamocc_ocean_state,l_is_restart)
 
 ! Initialize POC sinking speed
   CALL ini_wpoc(dlevels_i)
-  CALL print_wpoc
+  IF (i_settling /= 2) CALL print_wpoc
 
   DEALLOCATE(dlevels_m)
   DEALLOCATE(dlevels_i)
-   
+
+  IF (i_settling == 2) CALL init_aggregate_params  
+
 !DIR$ INLINE
  DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, start_index, end_index)

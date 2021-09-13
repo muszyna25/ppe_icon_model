@@ -26,15 +26,16 @@ CONTAINS
        &                            kprodus, kopex1000, &
        &                            kopex2000,kcoex1000,&
        &                            kcoex2000, kcalex1000, &
-       &                            kcalex2000
+       &                            kcalex2000,kwdust,kwpoc,&
+       &                            kwopal,kwcal
 
-      USE mo_memory_bgc,  ONLY    : bgctra, wpoc, bgcflux, &
+      USE mo_memory_bgc,  ONLY    : bgctra, wpoc, bgcflux, bgctend, &
       &                             wopal, wcal, wdust, n90depth,&
       &                             n1000depth,n2000depth
 
       USE mo_sedmnt,  ONLY        : prorca, prcaca, silpro, produs, kbo
 
-      USE mo_control_bgc, ONLY    : bgc_nproma, bgc_zlevs, dtbgc
+      USE mo_control_bgc, ONLY    : bgc_nproma, bgc_zlevs, dtbgc, inv_dtbgc
 
       IMPLICIT NONE
 
@@ -69,71 +70,79 @@ CONTAINS
         IF(pddpo(j,1) > 0.5_wp)THEN
 
          if(kpke>=n90depth)then
-           bgcflux(j,kcoex90) = bgctra(j,n90depth,idet)*wpoc(n90depth)/dtbgc  
-           bgcflux(j,kcalex90) = bgctra(j,n90depth,icalc)*wcal/dtbgc  
-           bgcflux(j,kopex90) = bgctra(j,n90depth,iopal)*wopal/dtbgc  
+           bgcflux(j,kcoex90) = bgctra(j,n90depth,idet)*wpoc(j,n90depth)*inv_dtbgc
+           bgcflux(j,kcalex90) = bgctra(j,n90depth,icalc)*wcal(j,n90depth)*inv_dtbgc
+           bgcflux(j,kopex90) = bgctra(j,n90depth,iopal)*wopal(j,n90depth)*inv_dtbgc
          endif
 
          if(kpke>=n1000depth)then
-           bgcflux(j,kcoex1000) = bgctra(j,n1000depth,idet)*wpoc(n1000depth)/dtbgc  
-           bgcflux(j,kcalex1000) = bgctra(j,n1000depth,icalc)*wcal/dtbgc  
-           bgcflux(j,kopex1000) = bgctra(j,n1000depth,iopal)*wopal/dtbgc  
+           bgcflux(j,kcoex1000) = bgctra(j,n1000depth,idet)*wpoc(j,n1000depth)*inv_dtbgc
+           bgcflux(j,kcalex1000) = bgctra(j,n1000depth,icalc)*wcal(j,n1000depth)*inv_dtbgc
+           bgcflux(j,kopex1000) = bgctra(j,n1000depth,iopal)*wopal(j,n1000depth)*inv_dtbgc
          endif
 
          if(kpke>=n2000depth)then
-           bgcflux(j,kcoex2000) = bgctra(j,n2000depth,idet)*wpoc(n2000depth)/dtbgc  
-           bgcflux(j,kcalex2000) = bgctra(j,n2000depth,icalc)*wcal/dtbgc  
-           bgcflux(j,kopex2000) = bgctra(j,n2000depth,iopal)*wopal/dtbgc  
+           bgcflux(j,kcoex2000) = bgctra(j,n2000depth,idet)*wpoc(j,n2000depth)*inv_dtbgc
+           bgcflux(j,kcalex2000) = bgctra(j,n2000depth,icalc)*wcal(j,n2000depth)*inv_dtbgc
+           bgcflux(j,kopex2000) = bgctra(j,n2000depth,iopal)*wopal(j,n2000depth)*inv_dtbgc
          endif
 
                   ! -----------surface layer
          k=1 
            bgctra(j,k,idet)  = (bgctra(j,k,idet)*(pddpo(j,k)+za(j)))      &
-                &              / (pddpo(j,k)+ za(j) +wpoc(k))
+                &              / (pddpo(j,k)+ za(j) +wpoc(j,k))
 
            bgctra(j,k,icalc)   = (bgctra(j,k,icalc)*(pddpo(j,k)+za(j)))   &
-                &                / (pddpo(j,k)+za(j)+wcal)
-
+                &                / (pddpo(j,k)+za(j)+wcal(j,k))
 
            bgctra(j,k,iopal)   = (bgctra(j,k,iopal)*(pddpo(j,k)+za(j)))    &
-                &                / (pddpo(j,k)+za(j)+wopal)
+                &                / (pddpo(j,k)+za(j)+wopal(j,k))
 
            bgctra(j,k,idust)   = (bgctra(j,k,idust)*(pddpo(j,k)+za(j)))    &
-                &                / (pddpo(j,k)+za(j)+wdust)
+                &                / (pddpo(j,k)+za(j)+wdust(j,k))
+
+           bgctend(j,k,kwdust) = wdust(j,k)*inv_dtbgc
+           bgctend(j,k,kwpoc)  = wpoc(j,k)*inv_dtbgc
+           bgctend(j,k,kwopal) = wopal(j,k)*inv_dtbgc
+           bgctend(j,k,kwcal) = wcal(j,k)*inv_dtbgc
           ENDIF
 
          DO k=2,kpke
           IF(pddpo(j,k) > 0.5_wp)THEN
           ! water column
               bgctra(j,k,idet)  = (bgctra(j,k  ,idet)*pddpo(j,k)    &
-                   &        +  bgctra(j,k-1,idet)*wpoc(k-1))/  &
-                   &                     (pddpo(j,k)+wpoc(k))
+                   &        +  bgctra(j,k-1,idet)*wpoc(j,k-1))/  &
+                   &                     (pddpo(j,k)+wpoc(j,k))
               bgctra(j,k,icalc)   = (bgctra(j,k  ,icalc)*pddpo(j,k)   &
-                   &                +  bgctra(j,k-1,icalc)*wcal)/         &
-                   &                           (pddpo(j,k)+wcal)
+                   &                +  bgctra(j,k-1,icalc)*wcal(j,k-1))/         &
+                   &                           (pddpo(j,k)+wcal(j,k))
 
               bgctra(j,k,iopal)   = (bgctra(j,k  ,iopal)*pddpo(j,k)   &
-                   &                +  bgctra(j,k-1,iopal)*wopal)/        &
-                   &                           (pddpo(j,k)+wopal)
+                   &                +  bgctra(j,k-1,iopal)*wopal(j,k-1))/        &
+                   &                           (pddpo(j,k)+wopal(j,k))
 
               bgctra(j,k,idust)   = (bgctra(j,k  ,idust)*pddpo(j,k)   &
-                   &                +  bgctra(j,k-1,idust)*wdust)/        &
-                   &                           (pddpo(j,k)+wdust)
+                   &                +  bgctra(j,k-1,idust)*wdust(j,k-1))/        &
+                   &                           (pddpo(j,k)+wdust(j,k))
 
+           bgctend(j,k,kwdust) = wdust(j,k)*inv_dtbgc
+           bgctend(j,k,kwpoc)  = wpoc(j,k)*inv_dtbgc
+           bgctend(j,k,kwopal) = wopal(j,k)*inv_dtbgc
+           bgctend(j,k,kwcal) = wcal(j,k)*inv_dtbgc
           ENDIF
          ENDDO
 
         IF(pddpo(j,kbo(j)) > 0.5_wp)THEN
  
            ! sediment fluxes at the bottom
-            prorca(j) = bgctra(j,kbo(j),idet )*wpoc(kbo(j))
-            prcaca(j) = bgctra(j,kbo(j),icalc)*wcal
-            silpro(j) = bgctra(j,kbo(j),iopal)*wopal
-            produs(j) = bgctra(j,kbo(j),idust)*wdust
-            bgcflux(j,kprorca) = prorca(j)/dtbgc
-            bgcflux(j,kprcaca) = prcaca(j)/dtbgc
-            bgcflux(j,ksilpro) = silpro(j)/dtbgc
-            bgcflux(j,kprodus) = produs(j)/dtbgc
+            prorca(j) = bgctra(j,kbo(j),idet )*wpoc(j,kbo(j))
+            prcaca(j) = bgctra(j,kbo(j),icalc)*wcal(j,kbo(j))
+            silpro(j) = bgctra(j,kbo(j),iopal)*wopal(j,kbo(j))
+            produs(j) = bgctra(j,kbo(j),idust)*wdust(j,kbo(j))
+            bgcflux(j,kprorca) = prorca(j)*inv_dtbgc
+            bgcflux(j,kprcaca) = prcaca(j)*inv_dtbgc
+            bgcflux(j,ksilpro) = silpro(j)*inv_dtbgc
+            bgcflux(j,kprodus) = produs(j)*inv_dtbgc
             !
         ENDIF
          ENDIF
@@ -161,11 +170,13 @@ CONTAINS
        &                            kprodus, kopex1000, &
        &                            kopex2000,kcoex1000,&
        &                            kcoex2000, kcalex1000, &
-       &                            kcalex2000
+       &                            kcalex2000,kwdust,kwpoc,kwopal,&
+       &                            kwcal
+
 
       USE mo_memory_bgc,  ONLY    : bgctra, wpoc, bgcflux,&
       &                             wopal, wcal, wdust, n90depth,&
-      &                             n1000depth,n2000depth
+      &                             n1000depth,n2000depth,bgctend
 
 
       USE mo_sedmnt,  ONLY        : prorca, prcaca, silpro, produs, kbo
@@ -211,6 +222,12 @@ CONTAINS
            opal_flux(k) = 0._wp
            dust_flux(k) = 0._wp
 
+           if (k < kpke+1)then
+            bgctend(j,k,kwdust) = wdust(j,k)*inv_dtbgc
+            bgctend(j,k,kwpoc)  = wpoc(j,k)*inv_dtbgc
+            bgctend(j,k,kwopal) = wopal(j,k)*inv_dtbgc
+            bgctend(j,k,kwcal) = wcal(j,k)*inv_dtbgc
+           endif
          ENDDO
 
         ! flux from atmosphere to surface layer euqals zero (here)
@@ -221,11 +238,11 @@ CONTAINS
                              ! for flux to sediment
 
             k = 2 ! flux at the bottom of first level
-            cn_det  = wpoc(k-1)/pddpo(j,k-1) ! assuming both positive      
-            cn_calc = wcal/pddpo(j,k-1)      ! assuming both positive
-            cn_opal = wopal/pddpo(j,k-1)     ! assuming both positive
-            cn_dust = wdust/pddpo(j,k-1)     ! assuming both positive
-         
+            cn_det  = wpoc(j,k-1)/pddpo(j,k-1)    ! assuming both positive
+            cn_calc = wcal(j,k-1)/pddpo(j,k-1)   ! assuming both positive
+            cn_opal = wopal(j,k-1)/pddpo(j,k-1)   ! assuming both positive
+            cn_dust = wdust(j,k-1)/pddpo(j,k-1)   ! assuming both positive
+
             det_plim    = 0._wp
             calc_plim   = 0._wp
             opal_plim   = 0._wp
@@ -236,26 +253,26 @@ CONTAINS
             CALL plimiter(opal_plim, cn_opal, bgctra(j,k,iopal), bgctra(j,k-1,iopal), bgctra(j,k-1,iopal))
             CALL plimiter(dust_plim, cn_dust, bgctra(j,k,idust), bgctra(j,k-1,idust), bgctra(j,k-1,idust))
 
-            det_flux(k)  = wpoc(k-1) * (bgctra(j,k-1,idet)                    &
+            det_flux(k)  = wpoc(j,k-1) * (bgctra(j,k-1,idet)                    &
                               & + 0.5_wp * det_plim * (1._wp-cn_det)            &
                               & * (bgctra(j,k,idet) - bgctra(j,k-1,idet))) 
             maxflux      = max(bgctra(j,k-1,idet) - EPSILON(1._wp),0._wp) * pddpo(j,k-1)  
             det_flux(k)  = min(det_flux(k), maxflux)
 
-            calc_flux(k) = wcal      * (bgctra(j,k-1,icalc)                   &
+            calc_flux(k) = wcal(j,k-1) * (bgctra(j,k-1,icalc)                   &
                               & + 0.5_wp * calc_plim * (1._wp-cn_calc)          &
                               & * (bgctra(j,k,icalc) - bgctra(j,k-1,icalc)))
             maxflux      = max(bgctra(j,k-1,icalc) - EPSILON(1._wp),0._wp) * pddpo(j,k-1)  
             calc_flux(k) = min(calc_flux(k), maxflux)
 
-            opal_flux(k) = wopal     * (bgctra(j,k-1,iopal)                   &
+            opal_flux(k) = wopal(j,k-1) * (bgctra(j,k-1,iopal)                   &
                               & + 0.5_wp * opal_plim * (1._wp-cn_opal)          &
                               & * (bgctra(j,k,iopal) - bgctra(j,k-1,iopal)))
             maxflux      = max(bgctra(j,k-1,iopal) - EPSILON(1._wp),0._wp) * pddpo(j,k-1)
             opal_flux(k) = min(opal_flux(k), maxflux)
             
 
-            dust_flux(k) = wdust * (bgctra(j,k-1,idust)                      &
+            dust_flux(k) = wdust(j,k-1) * (bgctra(j,k-1,idust)                      &
                               & + 0.5_wp * dust_plim * (1._wp-cn_dust)          &
                             & * (bgctra(j,k,idust) - bgctra(j,k-1,idust)))
             maxflux      = max(bgctra(j,k-1,idust) - EPSILON(1._wp),0._wp) * pddpo(j,k-1) 
@@ -264,11 +281,11 @@ CONTAINS
         
             DO k = 3, kbo(j) ! water column
 
-              cn_det  = wpoc(k-1)/pddpo(j,k-1) ! assuming both positive      
-              cn_calc = wcal/pddpo(j,k-1)      ! assuming both positive
-              cn_opal = wopal/pddpo(j,k-1)     ! assuming both positive
-              cn_dust = wdust/pddpo(j,k-1)     ! assuming both positive
-         
+              cn_det  = wpoc(j,k-1)/pddpo(j,k-1)    ! assuming both positive
+              cn_calc = wcal(j,k-1)/pddpo(j,k-1)   ! assuming both positive
+              cn_opal = wopal(j,k-1)/pddpo(j,k-1)   ! assuming both positive
+              cn_dust = wdust(j,k-1)/pddpo(j,k-1)   ! assuming both positive
+
               det_plim    = 0._wp
               calc_plim   = 0._wp
               opal_plim   = 0._wp
@@ -279,25 +296,25 @@ CONTAINS
               CALL plimiter(opal_plim, cn_opal, bgctra(j,k,iopal), bgctra(j,k-1,iopal), bgctra(j,k-2,iopal))
               CALL plimiter(dust_plim, cn_dust, bgctra(j,k,idust), bgctra(j,k-1,idust), bgctra(j,k-2,idust))
 
-              det_flux(k)  = wpoc(k-1) * (bgctra(j,k-1,idet)                  &
+              det_flux(k)  = wpoc(j,k-1) * (bgctra(j,k-1,idet)                  &
                                & + 0.5_wp * det_plim  * (1._wp-cn_det)          &
                                & * (bgctra(j,k,idet) - bgctra(j,k-1,idet))) 
               maxflux      = max(bgctra(j,k-1,idet) - EPSILON(1._wp),0._wp) * pddpo(j,k-1) ! 
               det_flux(k)  = min(det_flux(k), maxflux)
 
-              calc_flux(k) = wcal      * (bgctra(j,k-1,icalc)                 &
+              calc_flux(k) = wcal(j,k-1) * (bgctra(j,k-1,icalc)                 &
                                & + 0.5_wp * calc_plim * (1._wp-cn_calc)         &
                               & * (bgctra(j,k,icalc) - bgctra(j,k-1,icalc)))
-              maxflux      = max(bgctra(j,k-1,icalc) - EPSILON(1._wp),0._wp) * pddpo(j,k-1) 
+              maxflux      = max(bgctra(j,k-1,icalc) - EPSILON(1._wp),0._wp) * pddpo(j,k-1)
               calc_flux(k) = min(calc_flux(k), maxflux)
 
-              opal_flux(k) = wopal     * (bgctra(j,k-1,iopal)                 &
+              opal_flux(k) = wopal(j,k-1) * (bgctra(j,k-1,iopal)                 &
                                & + 0.5_wp * opal_plim * (1._wp-cn_opal)         &
                               & * (bgctra(j,k,iopal) - bgctra(j,k-1,iopal)))
               maxflux      = max(bgctra(j,k-1,iopal) - EPSILON(1._wp),0._wp) * pddpo(j,k-1) 
               opal_flux(k) = min(opal_flux(k), maxflux)
 
-              dust_flux(k) = wdust * (bgctra(j,k-1,idust)                    &
+              dust_flux(k) = wdust(j,k-1) * (bgctra(j,k-1,idust)                    &
                               & + 0.5_wp * dust_plim * (1._wp-cn_dust)          &
                              & * (bgctra(j,k,idust) - bgctra(j,k-1,idust)))
               maxflux      = max(bgctra(j,k-1,idust) - EPSILON(1._wp),0._wp) * pddpo(j,k-1) 
@@ -307,12 +324,12 @@ CONTAINS
          ENDIF !kbo > 1?
 
          k = kbo(j) + 1 ! flux to sediment
-         det_flux(k)  = wpoc(k-1) * bgctra(j,k-1,idet) 
-         calc_flux(k) = wcal      * bgctra(j,k-1,icalc)
-         opal_flux(k) = wopal     * bgctra(j,k-1,iopal)
-         dust_flux(k) = wdust     * bgctra(j,k-1,idust)
-            
-        
+         det_flux(k)  = wpoc(j,k-1)  * bgctra(j,k-1,idet)
+         calc_flux(k) = wcal(j,k-1) * bgctra(j,k-1,icalc)
+         opal_flux(k) = wopal(j,k-1) * bgctra(j,k-1,iopal)
+         dust_flux(k) = wdust(j,k-1) * bgctra(j,k-1,idust)
+
+
          ! calculating change of concentrations water column:
          DO k = 1,kbo(j)
              bgctra(j,k,idet)  = bgctra(j,k,idet)  + (det_flux(k)  - det_flux(k+1))/pddpo(j,k)

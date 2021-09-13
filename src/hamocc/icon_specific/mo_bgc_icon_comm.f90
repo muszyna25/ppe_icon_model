@@ -31,15 +31,15 @@
 
       USE mo_hamocc_types,       ONLY: t_hamocc_diag, t_hamocc_state, &
     &                                  t_hamocc_sed, t_hamocc_tend,   &
-    &                                  t_hamocc_monitor, t_hamocc_prog                    
-   
+    &                                  t_hamocc_monitor, t_hamocc_prog, t_hamocc_agg
+
 
       USE mo_bgc_constants,      ONLY: molw_co2
 
        
       USE mo_parallel_config,     ONLY: nproma
 
-      USE mo_hamocc_nml,         ONLY: io_stdo_bgc, l_cpl_co2, ks, l_N_cycle
+      USE mo_hamocc_nml,         ONLY: io_stdo_bgc, l_cpl_co2, ks, l_N_cycle,i_settling
 
 
       IMPLICIT NONE
@@ -235,7 +235,7 @@
 
 !================================================================================== 
   SUBROUTINE set_bgc_tendencies_output(start_idx, end_idx, &
-&             klevs,pddpo,jb,p_tend, p_diag, p_sed)
+&             klevs,pddpo,jb,p_tend, p_diag, p_sed, p_agg)
 
       
       USE mo_memory_bgc, ONLY: bgctend, bgcflux, hi, co3, sedfluxo, &
@@ -263,16 +263,19 @@
 &                              kcalex2000, kaou, kcTlim, kcLlim, &
 &                              kcPlim, kcFlim, ipowh2s,kh2sprod, &   
 &                              kh2sloss,iatmco2,kpco2,klysocl,knitinp, &
+&                              kwdust, kwpoc, kwopal, kwcal, &
 &                              isremino, isreminn, isremins, &
 &                              knh3flux, kgppnh, kcyapro, kammox, knitox, &
 &                              kdnrn, kdnra, kanam, ksammox, ksnitox, &
 &                              ksdnrn, ksdnra, ksanam, ksnrn2
   
       USE mo_sedmnt, ONLY : pown2bud, powh2obud, sedtend
+      USE mo_memory_agg, ONLY : aggdiag, kavdp, kavrhop, ksticka, klmaxagg, kdfagg, kavrhof
 
       TYPE(t_hamocc_tend) :: p_tend
       TYPE(t_hamocc_diag) :: p_diag
       TYPE(t_hamocc_sed) :: p_sed
+      TYPE(t_hamocc_agg) :: p_agg
 
 
       INTEGER, INTENT(in) :: klevs(nproma)
@@ -295,7 +298,6 @@
         p_tend%orginp(jc,jb) = bgcflux(jc,korginp)
         p_tend%silinp(jc,jb) = bgcflux(jc,ksilinp)
         p_tend%calinp(jc,jb) = bgcflux(jc,kcalinp)
-     !   p_tend%nitinp(jc,jb) = bgcflux(jc,knitinp)
         p_tend%n2oflux(jc,jb) = bgcflux(jc,kn2oflux)
         p_tend%nfixd(jc,jb) = bgcflux(jc,knfixd)
         p_tend%prcaca(jc,jb) = bgcflux(jc,kprcaca)
@@ -361,7 +363,24 @@
              p_tend%cFlim(jc,jk,jb) = bgctend(jc,jk,kcFlim)
              p_tend%satoxy(jc,jk,jb)    = satoxy(jc,jk) 
              p_tend%aou(jc,jk,jb) = bgctend(jc,jk,kaou)
+            
         ENDDO
+        
+        IF(i_settling==2)then
+             DO jk = 1,kpke
+                 p_tend%wdust(jc,jk,jb) = bgctend(jc,jk,kwdust)
+                 p_tend%wpoc(jc,jk,jb) = bgctend(jc,jk,kwpoc)
+                 p_tend%wopal(jc,jk,jb) = bgctend(jc,jk,kwopal)
+                 p_tend%wcal(jc,jk,jb) = bgctend(jc,jk,kwcal)
+                 p_agg%avdp(jc,jk,jb) = aggdiag(jc,jk,kavdp)
+                 p_agg%avrhop(jc,jk,jb) = aggdiag(jc,jk,kavrhop)
+                 p_agg%sticka(jc,jk,jb) = aggdiag(jc,jk,ksticka)
+                 p_agg%lmaxagg(jc,jk,jb) = aggdiag(jc,jk,klmaxagg)
+                 p_agg%dfagg(jc,jk,jb) = aggdiag(jc,jk,kdfagg)
+             END DO
+        END IF
+                 
+
         IF (l_N_cycle) THEN
              p_tend%nh3flux(jc,jb) = bgcflux(jc,knh3flux)
              DO jk = 1,kpke
@@ -628,7 +647,7 @@
        &                     sulfate_reduction,                &
        &                     n2_fixation,                             &
        &                     ropal, perc_diron, riron, fesoly, relaxfe,         &
-       &                     denitrification, pi_alpha_cya,                     &
+       &                     pi_alpha_cya,                     &
        &                     Topt_cya,T1_cya,T2_cya,bkcya_N, &
        &                     buoyancyspeed_cya,                                 &
        &                     doccya_fac, thresh_aerob, thresh_sred, &
@@ -636,10 +655,13 @@
        &                     ro2ammo, rmm, kg_denom, no2denit, anamoxra, &
        &                     nitriox, nitrira, bkno2, rno3nh4, rno3no2
 
-   USE mo_hamocc_nml, ONLY: i_settling, l_cyadyn, denit_sed, disso_po, &
+   USE mo_hamocc_nml, ONLY: l_cyadyn, denit_sed, disso_po, &
       &                 sinkspeed_opal, sinkspeed_calc,grazra,cycdec,l_dynamic_pi, &
-      &                 drempoc,dremopal,dremcalc,bkcya_P,bkcya_fe, &
-      &                 no3nh4red, no3no2red
+      &                 drempoc,dremopal,dremcalc,denitrification, bkcya_P,bkcya_fe, &
+      &                 no3nh4red, no3no2red, calmax, &
+      &                    l_opal_q10, opal_remin_q10, opal_remin_tref,&
+      &                    l_doc_q10, doc_remin_q10, doc_remin_tref,&
+      &                    l_poc_q10, poc_remin_q10, poc_remin_tref
 
 
    USE mo_sedmnt, ONLY: disso_op, disso_cal,sred_sed
@@ -698,6 +720,12 @@
    CALL to_bgcout("sulfate_reduction 1/d",sulfate_reduction)
    CALL to_bgcout("thresh_aerob",thresh_aerob)
    CALL to_bgcout("thresh_sred",thresh_sred)
+   
+   IF (i_settling==2) THEN
+       CALL to_bgcout("l_poc_q10",l_poc_q10)     
+       CALL to_bgcout("poc_remin_tref",poc_remin_tref)
+       CALL to_bgcout("poc_remin_q10",poc_remin_q10)
+   END IF
 
    ! extended N-cycle
    if (l_N_cycle) then
@@ -732,6 +760,11 @@
    cpara_val="========"
    CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
    CALL to_bgcout("remido",remido*inv_dtb)
+   IF (i_settling==2) THEN
+       CALL to_bgcout("l_doc_q10",l_doc_q10)     
+       CALL to_bgcout("doc_remin_tref",doc_remin_tref)
+       CALL to_bgcout("doc_remin_q10",doc_remin_q10)
+   END IF
   
 
    ! Opal
@@ -741,8 +774,13 @@
    CALL to_bgcout("bkopal",bkopal)
    CALL to_bgcout("dremopal 1/d",dremopal*inv_dtb)
    CALL to_bgcout("ropal",ropal)
-   CALL to_bgcout("sinkspeed_opal",sinkspeed_opal)
-
+   CALL to_bgcout("sinkspeed_opal",sinkspeed_opal*inv_dtb)
+   IF (i_settling==2) THEN
+       CALL to_bgcout("l_opal_q10",l_opal_q10)     
+       CALL to_bgcout("opal_remin_tref",opal_remin_tref)
+       CALL to_bgcout("opal_remin_q10",opal_remin_q10)
+   END IF
+   CALL  to_bgcout("calmax",calmax)
    ! Iron
    cpara_name='Iron'
    cpara_val="========"
@@ -766,7 +804,7 @@
    cpara_val="========"
    CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
    CALL to_bgcout("dremcalc 1/d",dremcalc*inv_dtb)
-   CALL to_bgcout("sinkspeed_calc",sinkspeed_calc)
+   CALL to_bgcout("sinkspeed_calc",sinkspeed_calc*inv_dtb)
 
    cpara_name='======================='
    cpara_val="==========="
@@ -781,7 +819,7 @@
 
     INTEGER:: k
 
-   CALL to_bgcout("wdust",wdust)
+ ! CALL to_bgcout("wdust",wdust)
    
    cpara_name='========WPOC [m/d]'
    cpara_val="============="
@@ -789,7 +827,7 @@
    
    DO k=1,n_zlev  
     write(cpara_name,'(i2)')k
-    write(cpara_val,'(f6.2)')wpoc(k)/dtb
+    write(cpara_val,'(f6.2)')wpoc(1,k)/dtb
     CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
    enddo
 

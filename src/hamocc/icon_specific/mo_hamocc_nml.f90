@@ -51,6 +51,30 @@ MODULE mo_hamocc_nml
  
   INTEGER, PUBLIC  :: io_stdo_bgc        !<  io unit for HAMOCC LOG file
   INTEGER, PUBLIC  :: ks,ksp
+  
+  ! M4AGO
+  LOGICAL,  PUBLIC :: l_virtual_tep
+  LOGICAL,  PUBLIC :: l_re
+  ! Temperature dependence of opal dissolution
+  LOGICAL,  PUBLIC :: l_opal_q10 = .FALSE.
+  REAL(wp), PUBLIC :: opal_remin_q10
+  REAL(wp), PUBLIC :: opal_remin_tref
+  ! Temperature dependence of opal dissolution in sediment (mm)
+  LOGICAL,  PUBLIC :: l_opalsed_q10 = .FALSE.
+  REAL(wp), PUBLIC :: disso_op_q10
+  REAL(wp), PUBLIC :: disso_op_tref
+  ! Temperature dependence of DOC remin
+  LOGICAL,  PUBLIC :: l_doc_q10 = .FALSE.
+  REAL(wp), PUBLIC :: doc_remin_q10
+  REAL(wp), PUBLIC :: doc_remin_tref
+  ! Temperature dependence of POC aerob. remin
+  LOGICAL,  PUBLIC :: l_poc_q10 = .FALSE.
+  REAL(wp), PUBLIC :: poc_remin_q10
+  REAL(wp), PUBLIC :: poc_remin_tref
+  ! Temperature dependence of POC aerob. remin in sediment (mm)
+  LOGICAL,  PUBLIC :: l_pocsed_q10 = .FALSE.
+  REAL(wp), PUBLIC :: disso_po_q10
+  REAL(wp), PUBLIC :: disso_po_tref
 
   LOGICAL, PUBLIC :: l_cyadyn         = .TRUE.   !  prognostic cyanobacteria
   LOGICAL, PUBLIC :: l_cpl_co2        = .FALSE.   !  co2 coupling to atm
@@ -65,7 +89,7 @@ MODULE mo_hamocc_nml
   REAL(wp), PUBLIC :: denit_sed, disso_po
   REAL(wp), PUBLIC :: cycdec, cya_growth_max
   REAL(wp), PUBLIC :: grazra
-  REAL(wp), PUBLIC :: drempoc, dremopal, dremcalc
+  REAL(wp), PUBLIC :: drempoc, dremopal, dremcalc, denitrification
   REAL(wp), PUBLIC :: calmax
   REAL(wp), PUBLIC :: bkcya_P, bkcya_Fe
   !LOGICAL, PUBLIC :: l_avflux         = .TRUE.   ! flux redistribution
@@ -109,12 +133,27 @@ MODULE mo_hamocc_nml
     &  drempoc, &
     &  dremopal, &
     &  dremcalc, &
+    &  denitrification, &
     &  calmax, &
     &  bkcya_P, &
     &  bkcya_Fe, &
     &  l_N_cycle, &
     &  no3nh4red, &
-    &  no3no2red
+    &  no3no2red, &
+    &  l_virtual_tep, &  
+    &  l_re,&
+    &  l_opal_q10,&
+    &  opal_remin_tref,&
+    &  opal_remin_q10,&
+    &  l_opalsed_q10,&
+    &  disso_op_tref,&
+    &  disso_op_q10,&
+    &  l_doc_q10,&
+    &  doc_remin_tref,&
+    &  doc_remin_q10,&
+    &  l_poc_q10,&
+    &  poc_remin_tref,&
+    &  poc_remin_q10
 
 CONTAINS
   !>
@@ -197,6 +236,9 @@ CONTAINS
    drempoc = 0.026_wp
    dremopal = 0.01_wp
    dremcalc = 0.075_wp
+
+   ! total denitrification rate is a fraction of aerob remineralisation rate drempoc
+   denitrification =  1.82e-3_wp   ! 1/d
  
    calmax = 0.15_wp            ! maximum fraction (of "export") for calc production
 
@@ -206,7 +248,17 @@ CONTAINS
    no3nh4red = 0.002_wp  ! 1/day
    no3no2red = 0.002_wp  ! 1/day
 
-
+   l_virtual_tep =.true.
+   l_re          =.true.
+   opal_remin_q10 = 2.6_wp
+   opal_remin_tref= 10._wp
+   disso_op_q10 = 2.3_wp
+   disso_op_tref= 20._wp
+   doc_remin_q10 = 2._wp
+   doc_remin_tref= 10._wp
+   poc_remin_q10 = 2.1_wp
+   poc_remin_tref= 10._wp
+   
 
     !------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above
@@ -237,16 +289,34 @@ CONTAINS
     END SELECT
     CALL close_nml
 
+    
+
     !------------------------------------------------------------------
     ! Sanity Check
     !------------------------------------------------------------------
-    IF (i_settling > 1 ) THEN
-      CALL finish(TRIM(routine), 'Aggregation not yet implemented, i_settling must be 0 or 1')
-    END IF
+   
 
     if (l_N_cycle .and. l_implsed) THEN
       CALL finish(TRIM(routine), 'Extended N-cycle only works with explicit sediment!')
     END IF
+
+     IF (i_settling==2) THEN
+      l_opal_q10 = .TRUE.
+      l_poc_q10 = .TRUE.
+     END IF
+
+
+    !------------------------------------------------------------------
+    ! If this is a resumed integration, overwrite the defaults above
+    ! by values used in the previous integration.
+    !------------------------------------------------------------------
+    IF (use_restart_namelists()) THEN
+      funit = open_and_restore_namelist('hamocc_nml')
+      READ(funit,NML=hamocc_nml)
+      CALL close_tmpfile(funit)
+    END IF
+
+
 
 
     ksp=ks+1
