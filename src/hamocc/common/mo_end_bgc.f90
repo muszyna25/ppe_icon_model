@@ -3,6 +3,8 @@ MODULE mo_end_bgc
   USE mo_memory_bgc
   USE mo_sedmnt
   USE mo_hamocc_nml, ONLY: l_cpl_co2 
+  USE mo_memory_agg, ONLY: cleanup_mem_aggregates
+
 
   IMPLICIT NONE
 
@@ -82,7 +84,9 @@ CONTAINS
     DEALLOCATE (powh2obud)
     DEALLOCATE (sedtend)
     DEALLOCATE (seddenit)
-    DEALLOCATE(sedlay)   
+    DEALLOCATE(sedlay) 
+    CALL cleanup_mem_aggregates
+  
     
   END SUBROUTINE CLEANUP_HAMOCC
 

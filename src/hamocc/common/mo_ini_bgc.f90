@@ -17,7 +17,7 @@ MODULE mo_ini_bgc
        &                     n2_fixation, ro2ut, rcar, rnit,     &
        &                     rnoi, nitdem, n2prod, ropal,   &
        &                     perc_diron, riron, fesoly, relaxfe,     &
-       &                     denitrification, kbo, bolay, rn2,             &
+       &                     kbo, bolay, rn2,             &
        &                     wdust, thresh_o2,   &
        &                     pi_alpha_cya,          &
        &                     Topt_cya,T1_cya,T2_cya,bkcya_N, &
@@ -27,7 +27,16 @@ MODULE mo_ini_bgc
        &                     no2denit, anamoxra, nitriox, nitrira, ro2ammo, &
        &                     bknh4_cya, bkno3_cya, bkno3, bknh4, rmm, kg_denom, bkpo4, &
        &                     bkno2, bkrad, bkfe, rno3nh4, rno3no2, rno2no3, rnh4no2, &
-       &                     alk_nrn2, rno2n2, o2thresh, o2den_lim
+       &                     alk_nrn2, rno2n2, o2thresh, o2den_lim, &
+       &                     sinkspeed_dust
+
+  USE mo_memory_agg, ONLY  : agg_org_dens, det_mol2mass, rho_tep, &
+       &                     AJ1, AJ2, AJ3, BJ1, BJ2, BJ3, &
+       &                     dp_dust, dp_det, dp_calc, dp_opal, &
+       &                     stickiness_tep, stickiness_det, stickiness_opal, &
+       &                     stickiness_calc, stickiness_dust, &
+       &                     agg_df_min, agg_df_max, agg_re_crit
+
 
   USE mo_sedmnt, ONLY      : powtra, sedlay, sedhpl,disso_op,disso_cal,&
        &                     o2ut, rno3, sred_sed, silsat
@@ -37,7 +46,7 @@ MODULE mo_ini_bgc
        &                     ks,cycdec,cya_growth_max,grazra,&
        &                     mc_fac, sinkspeed_martin_ez, mc_depth, denit_sed, disso_po, &
        &                     atm_co2, atm_o2, atm_n2, deltacalc, deltaorg, deltasil, &
-       &                     drempoc, dremopal, dremcalc, &
+       &                     drempoc, dremopal, dremcalc,  denitrification, &
        &                     l_N_cycle, no3nh4red, no3no2red
 
 
@@ -67,7 +76,8 @@ MODULE mo_ini_bgc
        &    ini_atmospheric_concentrations, &
        &    ini_wpoc, bgc_param_conv_unit,  &
        &    ini_continental_carbon_input,   &
-       &    set_parameters_bgc!,             &
+       &    set_parameters_bgc,             & 
+       &    ini_aggregate_parameters !,             &
 !       &    level_ini
 
 
@@ -139,10 +149,6 @@ CONTAINS
 
     ! nitrogen fixation 
     n2_fixation = 0.005_wp
-
-    ! total denitrification rate is a fraction of aerob remineralisation rate drempoc
-    denitrification = 0.07_wp   ! 1/d
-
 
     ! extended redfield ratio declaration
     ! Note: stoichiometric ratios are based on Takahashi etal. (1985)
@@ -256,6 +262,39 @@ CONTAINS
 
   END SUBROUTINE SET_PARAMETERS_BGC
 
+  SUBROUTINE ini_aggregate_parameters
+
+  ! CD parameters (formula 16)
+   AJ1 = 24.00_wp
+   AJ2 = 29.03_wp
+   AJ3 = 14.15_wp
+   BJ1 = 1.0_wp
+   BJ2 = 0.871_wp
+   BJ3 = 0.547_wp
+
+   ! aggregate number distribution slope b and fractal dimension df !!!!
+   ! requires: b>df+2
+   agg_re_crit    = 20._wp  ! critical particle Reynolds number for limiting nr-distribution
+   agg_org_dens   = 1100._wp ! detritus density - don't use orgdens to avoidnegative ws
+
+   ! POM in HAMOCC: 122 C + 263 H + 74 O + 16 N + 1 P
+   ! 122*12 + 263*1 + 74 * 16 + 16*14 + 1*31 = 3166g POM / mol organic P
+   det_mol2mass   = 3166._wp ! unit: kg POM / (kmol organic P)
+   dp_dust = 2.e-6   ! following the classical HAMOCC parametrization
+   dp_det  = 4.e-6_wp   ! not well defined
+   dp_calc = 3.e-6_wp   ! following Henderiks 2008, Henderiks & Pagani 2008
+   dp_opal = 20.e-6_wp  ! rough guestimate - literature search required
+   stickiness_tep    = 0.19_wp
+   stickiness_det    = 0.1_wp
+   stickiness_opal   = 0.08_wp
+   stickiness_calc   = 0.09_wp
+   stickiness_dust   = 0.07_wp
+   agg_df_max        = 2.4_wp
+   agg_df_min        = 1.6_wp
+   rho_tep           = 800._wp ! 700.-840. kg/m^3 Azetsu-Scott & Passow 2004
+
+  END SUBROUTINE ini_aggregate_parameters
+
   SUBROUTINE BGC_PARAM_CONV_UNIT
 
    
@@ -265,9 +304,9 @@ CONTAINS
     spemor   = spemor * dtb     ! 1/d -mortality rate of zooplankton
     gammap   = gammap * dtb     ! 1/d -exudation rate
     gammaz   = gammaz * dtb     ! 1/d -excretion rate
-    wopal = sinkspeed_opal *dtb
-    wcal = sinkspeed_calc * dtb
-    wdust = wdust * dtb
+    sinkspeed_opal = sinkspeed_opal * dtb 
+    sinkspeed_calc = sinkspeed_calc * dtb  
+    sinkspeed_dust = sinkspeed_dust * dtb
     wcya = buoyancyspeed_cya *dtb  !  buoyancy speed of cya  
     sinkspeed_martin_ez = sinkspeed_martin_ez * dtb
     sinkspeed_poc = sinkspeed_poc * dtb
@@ -276,6 +315,7 @@ CONTAINS
     dremopal = dremopal * dtb  ! 1/d      
     dremn2o  = dremn2o * dtb      ! 1/d
     dremcalc = dremcalc *dtb    ! 
+    denitrification = denitrification *dtb 
     denit_sed = denit_sed *dtb    ! sediment denitrification rate
     sred_sed = sred_sed *dtb    ! sediment sulfate reduction rate
     relaxfe = relaxfe *dtb       ! relaxation time for iron to fesoly 
@@ -296,7 +336,7 @@ CONTAINS
 
   ! ---------------------------------------------------------------------
   SUBROUTINE ini_wpoc(ptiestw)
-  ! initialize wpoc
+  ! initialize wpoc,wopal,wcal
   ! if lmartin==TRUE (mo_control_bgc, nml)
   ! wpoc increases linearly with depth below mc_depth (beleg, nml)
   ! otherwise the constant sinkspeed_poc (beleg, nml) is used
@@ -306,7 +346,10 @@ CONTAINS
    REAL(wp) :: at_mc_depth
    
    ! default case: constant sinking speed
-   wpoc = sinkspeed_poc 
+   wpoc(:,:)  = sinkspeed_poc
+   wopal(:,:) = sinkspeed_opal
+   wcal(:,:) = sinkspeed_calc
+   wdust(:,:) = sinkspeed_dust
 
    IF(i_settling==1)then
    DO k = 1,bgc_zlevs
@@ -315,7 +358,7 @@ CONTAINS
       ! w=w0 + a*(z-z0)
       ! z0= mc_depth
       ! a=remin_rate/b  with F(z)=F(z0)(z/zo)**(-b) 
-      wpoc(k) = sinkspeed_martin_ez + at_mc_depth * drempoc/mc_fac * (ptiestw(k+1) - mc_depth) 
+      wpoc(:,k) = sinkspeed_martin_ez + at_mc_depth * drempoc/mc_fac * (ptiestw(k+1) - mc_depth) 
    ENDDO
    ENDIF
   END SUBROUTINE ini_wpoc

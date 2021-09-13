@@ -190,7 +190,7 @@ MODULE mo_timer
        &    timer_bgc_chemcon, timer_bgc_ocprod, timer_bgc_sett, timer_bgc_cya,&
        &    timer_bgc_gx, timer_bgc_calc, timer_bgc_powach, timer_bgc_up_ic, &
        &    timer_bgc_tend,timer_bgc_ini, timer_bgc_inv, timer_bgc_tot, &
-       &    timer_exchange_ocean_hamocc
+       &    timer_exchange_ocean_hamocc,timer_bgc_agg
 
   ! restart timers
   PUBLIC :: timer_load_restart
@@ -404,7 +404,7 @@ MODULE mo_timer
        &     timer_bgc_chemcon, timer_bgc_ocprod, timer_bgc_sett, timer_bgc_cya,&
        &     timer_bgc_gx, timer_bgc_calc, timer_bgc_powach, timer_bgc_up_ic, &
        &     timer_bgc_tend, timer_bgc_ini, timer_bgc_inv, timer_bgc_tot, &
-       &     timer_exchange_ocean_hamocc
+       &     timer_exchange_ocean_hamocc,timer_bgc_agg
 
   ! restart timers
   INTEGER :: timer_load_restart
@@ -808,6 +808,7 @@ CONTAINS
     timer_bgc_chemcon = new_timer("hamocc_chemcon")
     timer_bgc_ocprod  = new_timer("hamocc_ocprod")
     timer_bgc_sett    = new_timer("hamocc_settling") 
+    timer_bgc_agg     = new_timer("hamocc_aggregates")    
     timer_bgc_cya     = new_timer("hamocc_cyanos")
     timer_bgc_gx      = new_timer("hamocc_gas_ex") 
     timer_bgc_calc    = new_timer("hamocc_calc_dissol")
