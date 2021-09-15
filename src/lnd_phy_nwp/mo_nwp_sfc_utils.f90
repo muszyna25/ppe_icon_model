@@ -55,6 +55,7 @@ MODULE mo_nwp_sfc_utils
                                     itype_snowevap, zml_soil, dzsoil
   USE mo_nwp_tuning_config,   ONLY: tune_minsnowfrac
   USE mo_initicon_config,     ONLY: init_mode_soil, ltile_coldstart, init_mode, lanaread_tseasfc, use_lakeiceana
+  USE mo_io_config,           ONLY: var_in_output
   USE mo_run_config,          ONLY: msg_level
   USE sfc_terra_init,         ONLY: terra_init
   USE sfc_flake,              ONLY: flake_init
@@ -1239,6 +1240,7 @@ CONTAINS
     INTEGER :: i_startidx, i_endidx    !< slices
     INTEGER :: i_nchdom                !< number of child domains
     INTEGER :: jc, jb, jk, isubs
+    INTEGER :: jg
 
     REAL(wp) :: tilefrac ! fractional area covered by tile
     REAL(wp) :: rho_snow_lim !< Snow density limited to [crhosmin_ml, crhosmax_ml]
@@ -1247,6 +1249,9 @@ CONTAINS
     INTEGER :: icount         ! index list length per block
     INTEGER :: ic
     INTEGER :: styp           ! soil type index
+
+    ! patch ID
+    jg = p_patch%id
 
     i_nchdom  = MAX(1,p_patch%n_childdom)
 
@@ -1281,6 +1286,10 @@ CONTAINS
           lnd_diag%runoff_s (jc,jb) = lnd_diag%runoff_s_t (jc,jb,1)
           lnd_diag%runoff_g (jc,jb) = lnd_diag%runoff_g_t (jc,jb,1)
           lnd_diag%rstom    (jc,jb) = lnd_diag%rstom_t    (jc,jb,1)
+          IF (var_in_output(jg)%res_soilwatb) THEN
+            lnd_diag%resid_wso(jc,jb) = lnd_diag%resid_wso_t(jc,jb,1)
+          ENDIF
+
 
           IF(lmulti_snow) THEN
             lnd_diag%t_snow_mult(jc,nlev_snow+1,jb) = lnd_prog%t_snow_mult_t(jc,nlev_snow+1,jb,1)
@@ -1332,7 +1341,11 @@ CONTAINS
 
         ! First initialize fields to zero in order to prepare
         ! subsequent summation over the tiles
-        !
+        ! Ronny Petrik, Hereon: the quantities which are summed up in time (runoff, resid_wso)
+        ! are not initialized here because their fraction-weighted aggregation
+        !   over the tiles needs to be treated like this: starting from the value
+        !   of the former timestep they are updated using the area-weighted mean 
+        !   of instanteneous values
         lnd_diag%t_snow   (i_startidx:i_endidx,jb)  = 0._wp
         lnd_diag%t_s      (i_startidx:i_endidx,jb)  = 0._wp
         lnd_diag%t_sk     (i_startidx:i_endidx,jb)  = 0._wp
@@ -1341,9 +1354,8 @@ CONTAINS
         lnd_diag%h_snow   (i_startidx:i_endidx,jb)  = 0._wp
         lnd_diag%freshsnow(i_startidx:i_endidx,jb)  = 0._wp
         lnd_diag%snowfrac (i_startidx:i_endidx,jb)  = 0._wp
-        lnd_diag%runoff_s (i_startidx:i_endidx,jb)  = 0._wp
-        lnd_diag%runoff_g (i_startidx:i_endidx,jb)  = 0._wp
         lnd_diag%rstom    (i_startidx:i_endidx,jb)  = 0._wp
+        
 
         lnd_diag%t_so    (i_startidx:i_endidx,:,jb) = 0._wp
         lnd_diag%w_so    (i_startidx:i_endidx,:,jb) = 0._wp
@@ -1392,12 +1404,18 @@ CONTAINS
               &                         * lnd_diag%freshsnow_t(jc,jb,isubs)
             lnd_diag%snowfrac(jc,jb)  = lnd_diag%snowfrac(jc,jb) + tilefrac  &
               &                         * lnd_diag%snowfrac_t(jc,jb,isubs)
-            lnd_diag%runoff_s(jc,jb)  = lnd_diag%runoff_s(jc,jb) + tilefrac  &
-              &                         * lnd_diag%runoff_s_t(jc,jb,isubs)
-            lnd_diag%runoff_g(jc,jb)  = lnd_diag%runoff_g(jc,jb) + tilefrac  &
-              &                         * lnd_diag%runoff_g_t(jc,jb,isubs)
             lnd_diag%rstom(jc,jb)     = lnd_diag%rstom(jc,jb) + tilefrac     &
               &                         * lnd_diag%rstom_t(jc,jb,isubs)
+
+            ! aggregation of variables summed up over the forecast (different procedure)
+            lnd_diag%runoff_s(jc,jb)  = lnd_diag%runoff_s(jc,jb) + tilefrac  &
+              &                         * lnd_diag%runoff_s_inst_t(jc,jb,isubs)
+            lnd_diag%runoff_g(jc,jb)  = lnd_diag%runoff_g(jc,jb) + tilefrac  &
+              &                         * lnd_diag%runoff_g_inst_t(jc,jb,isubs)
+            IF (var_in_output(jg)%res_soilwatb) THEN
+              lnd_diag%resid_wso(jc,jb) = lnd_diag%resid_wso(jc,jb) + tilefrac &
+              &                         * lnd_diag%resid_wso_inst_t(jc,jb,isubs) 
+            ENDIF
 
             IF(lmulti_snow) THEN
               lnd_diag%t_snow_mult(jc,nlev_snow+1,jb) = lnd_diag%t_snow_mult(jc,nlev_snow+1,jb)+ &

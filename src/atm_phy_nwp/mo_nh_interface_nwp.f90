@@ -69,7 +69,6 @@ MODULE mo_nh_interface_nwp
   USE mo_parallel_config,         ONLY: nproma, p_test_run, use_physics_barrier
   USE mo_diffusion_config,        ONLY: diffusion_config
   USE mo_initicon_config,         ONLY: is_iau_active
-  USE mo_io_config,               ONLY: var_in_output
   USE mo_run_config,              ONLY: ntracer, iqv, iqc, iqi, iqs, iqtvar, iqtke,  &
     &                                   msg_level, ltimer, timers_level, lart, ldass_lhn
   USE mo_grid_config,             ONLY: l_limited_area
@@ -2166,7 +2165,6 @@ CONTAINS
     CALL nwp_opt_diagnostics_2(pt_patch,             & !in
       &                        prm_diag,             & !inout
       &                        zcosmu0,              & !in
-      &                        var_in_output(jg),    & !in
       &                        dt_phy_jg(itfastphy))   !in
 
     ! time averages, accumulations and vertical integrals
