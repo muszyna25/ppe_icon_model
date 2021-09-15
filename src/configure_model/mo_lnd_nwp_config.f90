@@ -52,7 +52,7 @@ MODULE mo_lnd_nwp_config
   PUBLIC :: itype_root, itype_heatcond, itype_interception, &
             itype_hydbound, idiag_snowfrac, itype_snowevap, cwimax_ml, c_soil, c_soil_urb
   PUBLIC :: itype_canopy, cskinc, tau_skin
-  PUBLIC :: lstomata, l2tls, lana_rho_snow 
+  PUBLIC :: lstomata, l2tls, lana_rho_snow
   PUBLIC :: isub_water, isub_lake, isub_seaice
   PUBLIC :: sstice_mode, sst_td_filename, ci_td_filename
   PUBLIC :: tile_list

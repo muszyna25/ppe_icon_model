@@ -2920,6 +2920,9 @@ MODULE mo_initicon_utils
         IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%runoff_g)) &
           & CALL printChecksum(prefix(1:pfx_tlen)//"runoff_g: ", &
           & p_lnd_state(jg)%diag_lnd%runoff_g)
+        IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%resid_wso)) &
+          & CALL printChecksum(prefix(1:pfx_tlen)//"resid_wso: ", &
+          & p_lnd_state(jg)%diag_lnd%resid_wso)
         IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%fr_seaice)) &
           & CALL printChecksum(prefix(1:pfx_tlen)//"fr_seaice: ", &
           & p_lnd_state(jg)%diag_lnd%fr_seaice)
@@ -2932,6 +2935,9 @@ MODULE mo_initicon_utils
         IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%runoff_g_t)) &
           & CALL printChecksum(prefix(1:pfx_tlen)//"runoff_g_t: ", &
           & p_lnd_state(jg)%diag_lnd%runoff_g_t)
+        IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%resid_wso_t)) &
+          & CALL printChecksum(prefix(1:pfx_tlen)//"resid_wso_t: ", &
+          & p_lnd_state(jg)%diag_lnd%resid_wso_t)
         IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%rstom)) &
           & CALL printChecksum(prefix(1:pfx_tlen)//"rstom: ", &
           & p_lnd_state(jg)%diag_lnd%rstom)
