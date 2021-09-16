@@ -2110,10 +2110,13 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
                                   !< constant coefficient for zonal and meridional
                                   !< direction
 
-
+#ifdef __LOOP_EXCHANGE
   REAL(wp)  ::           &        !< difference of scalars i j
     &  z_b(lsq_high_set%dim_c,nproma,ptr_patch%nlev)
-
+#else
+  REAL(wp)  ::           &        !< difference of scalars i j
+    &  z_b(lsq_high_set%dim_c)
+#endif
 
   INTEGER, POINTER  ::   &        !< Pointer to line and block indices of
     &  iidx(:,:,:), iblk(:,:,:)   !< required stencil
@@ -2158,8 +2161,8 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
 !$ACC DATA PCOPYIN( p_cc ), PCOPY( p_coeff ),                                          &
 !$ACC      PRESENT( ptr_int_lsq%lsq_moments, ptr_int_lsq%lsq_pseudoinv, iidx, iblk ),  &
-!$ACC      CREATE( z_b), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE ( p_cc, p_coeff  ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC      IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE ( p_cc, p_coeff ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$OMP PARALLEL
 
   IF (ptr_patch%id > 1 .OR. l_limited_area) THEN
@@ -2177,19 +2180,12 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     ! 1. compute right hand side of linear system
     !
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
 #ifdef __LOOP_EXCHANGE
-    !$ACC LOOP GANG
+!$ACC DATA CREATE( z_b )
+!$ACC PARALLEL DEFAULT (PRESENT) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jc = i_startidx, i_endidx
-      !$ACC LOOP VECTOR
       DO jk = slev, elev
-#else
-    !$ACC LOOP GANG
-!$NEC outerloop_unroll(4)
-    DO jk = slev, elev
-      !$ACC LOOP VECTOR
-      DO jc = i_startidx, i_endidx
-#endif
 
         z_b(1,jc,jk) = p_cc(iidx(jc,jb,1),jk,iblk(jc,jb,1)) - p_cc(jc,jk,jb)
         z_b(2,jc,jk) = p_cc(iidx(jc,jb,2),jk,iblk(jc,jb,2)) - p_cc(jc,jk,jb)
@@ -2205,17 +2201,13 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     ENDDO
 !$ACC END PARALLEL
 
-
     !
     ! 2. compute cell based coefficients for cubic reconstruction
     !    calculate matrix vector product PINV(A) * b
     !
-
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-    !$ACC LOOP GANG
+!$ACC PARALLEL DEFAULT (PRESENT) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = slev, elev
-      !$ACC LOOP VECTOR
-!$NEC ivdep
       DO jc = i_startidx, i_endidx
 
         ! (intrinsic function matmul not applied, due to massive
@@ -2247,19 +2239,79 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
 
       END DO ! end loop over cells
+    END DO ! end loop over vertical levels
+!$ACC END PARALLEL
+!$ACC WAIT
+!$ACC END DATA
 
+#else
+!$ACC PARALLEL DEFAULT (PRESENT) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR COLLAPSE(2) PRIVATE(z_b)
+    DO jk = slev, elev
+!$NEC ivdep
+      DO jc = i_startidx, i_endidx
+
+        !
+        ! 1. compute right hand side of linear system
+        !
+        z_b(1) = p_cc(iidx(jc,jb,1),jk,iblk(jc,jb,1)) - p_cc(jc,jk,jb)
+        z_b(2) = p_cc(iidx(jc,jb,2),jk,iblk(jc,jb,2)) - p_cc(jc,jk,jb)
+        z_b(3) = p_cc(iidx(jc,jb,3),jk,iblk(jc,jb,3)) - p_cc(jc,jk,jb)
+        z_b(4) = p_cc(iidx(jc,jb,4),jk,iblk(jc,jb,4)) - p_cc(jc,jk,jb)
+        z_b(5) = p_cc(iidx(jc,jb,5),jk,iblk(jc,jb,5)) - p_cc(jc,jk,jb)
+        z_b(6) = p_cc(iidx(jc,jb,6),jk,iblk(jc,jb,6)) - p_cc(jc,jk,jb)
+        z_b(7) = p_cc(iidx(jc,jb,7),jk,iblk(jc,jb,7)) - p_cc(jc,jk,jb)
+        z_b(8) = p_cc(iidx(jc,jb,8),jk,iblk(jc,jb,8)) - p_cc(jc,jk,jb)
+        z_b(9) = p_cc(iidx(jc,jb,9),jk,iblk(jc,jb,9)) - p_cc(jc,jk,jb)
+
+        !
+        ! 2. compute cell based coefficients for cubic reconstruction
+        !    calculate matrix vector product PINV(A) * b
+        !
+
+        ! (intrinsic function matmul not applied, due to massive
+        ! performance penalty on the NEC. Instead the intrinsic dot product
+        ! function is applied
+
+        p_coeff(10,jc,jk,jb) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,9,1:9,jb), &
+          &                               z_b(1:9))
+        p_coeff(9, jc,jk,jb) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,8,1:9,jb), &
+          &                               z_b(1:9))
+        p_coeff(8, jc,jk,jb) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,7,1:9,jb), &
+          &                               z_b(1:9))
+        p_coeff(7, jc,jk,jb) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,6,1:9,jb), &
+          &                               z_b(1:9))
+        p_coeff(6, jc,jk,jb) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,5,1:9,jb), &
+          &                               z_b(1:9))
+        p_coeff(5, jc,jk,jb) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,4,1:9,jb), &
+          &                               z_b(1:9))
+        p_coeff(4, jc,jk,jb) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,3,1:9,jb), &
+          &                               z_b(1:9))
+        p_coeff(3, jc,jk,jb) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,2,1:9,jb), &
+          &                               z_b(1:9))
+        p_coeff(2, jc,jk,jb) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,1,1:9,jb), &
+          &                               z_b(1:9))
+
+
+        p_coeff(1,jc,jk,jb)  = p_cc(jc,jk,jb) - DOT_PRODUCT(p_coeff(2:10,jc,jk,jb), &
+          &                    ptr_int_lsq%lsq_moments(jc,jb,1:9))
+
+
+      END DO ! end loop over cells
     END DO ! end loop over vertical levels
 !$ACC END PARALLEL
 
+#endif
 
   END DO ! end loop over blocks
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-!$ACC UPDATE HOST(p_coeff) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC WAIT
+!$ACC UPDATE HOST(p_coeff) WAIT IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
-
 END SUBROUTINE recon_lsq_cell_c_svd
+
 
 !-------------------------------------------------------------------------
 !
