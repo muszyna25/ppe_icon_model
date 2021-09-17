@@ -66,10 +66,9 @@ atm_output_interval="PT6H"
 
 # namelist files
 atmo_namelist=NAMELIST_${EXPNAME}_atm
- lnd_namelist=NAMELIST_${EXPNAME}_lnd
+ jsbach_namelist=NAMELIST_${EXPNAME}_lnd
 
 # JSBACH variables
-run_jsbach=yes
 jsbach_usecase=jsbach_lite    # jsbach_lite or jsbach_pfts
 jsbach_with_lakes=yes
 jsbach_with_hd=no
@@ -77,7 +76,6 @@ jsbach_with_carbon=no         # yes needs jsbach_pfts usecase
 jsbach_check_wbal=no          # check water balance
 
 # surface variables
-ljsbach=$([ "${run_jsbach:=no}" == yes ] && echo .TRUE. || echo .FALSE. )
 llake=$([ "${jsbach_with_lakes:=yes}" == yes ] && echo .TRUE. || echo .FALSE. )
 lcarbon=$([ "${jsbach_with_carbon:=yes}" == yes ] && echo .TRUE. || echo .FALSE. )
 #
@@ -170,7 +168,7 @@ cat > ${atmo_namelist} << EOF
  echam_phy_config(1)%dt_mig = "PT40S"
 !
 ! surface (.TRUE. or .FALSE.)
- echam_phy_config(1)%ljsb   = ${ljsbach}
+ echam_phy_config(1)%ljsb   = .TRUE.
  echam_phy_config(1)%lamip  = .TRUE.
  echam_phy_config(1)%lice   = .TRUE.
  echam_phy_config(1)%lmlo   = .FALSE.
@@ -228,7 +226,7 @@ EOF
 
 # land surface and soil
 # ---------------------
-cat > ${lnd_namelist} << EOF
+cat > ${jsbach_namelist} << EOF
 &jsb_model_nml
   usecase         = "${jsbach_usecase}"
   use_lakes       = ${llake}
@@ -316,7 +314,7 @@ add_link_file ${basedir}/data/ECHAM6_CldOptProps_rrtmgp_sw.nc           ./rrtmgp
 # namelist files
 #
 add_required_file ${basedir}/run/${atmo_namelist}                       ./
-add_required_file ${basedir}/run/${lnd_namelist}                        ./
+add_required_file ${basedir}/run/${jsbach_namelist}                        ./
 
 # dictionary file for output variable names
 #

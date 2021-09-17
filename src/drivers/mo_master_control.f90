@@ -28,7 +28,8 @@ MODULE mo_master_control
     & my_process_is_ocean, get_my_model_no,                               &
     & are_multiple_models, use_restart_namelists, isRestart,              &
     & process_exists, hamocc_process, my_process_is_hamocc,               &
-    & my_process_is_oceanic, icon_output_process, my_process_is_icon_output
+    & my_process_is_oceanic, jsbach_process, my_process_is_jsbach,        &
+    & icon_output_process, my_process_is_icon_output
 
 CONTAINS
 
@@ -120,6 +121,13 @@ CONTAINS
   !------------------------------------------------------------------------
 
   !------------------------------------------------------------------------
+  LOGICAL FUNCTION my_process_is_jsbach()
+
+    my_process_is_jsbach = (my_process_model == jsbach_process)
+
+  END FUNCTION my_process_is_jsbach
+  !------------------------------------------------------------------------
+ 
   LOGICAL FUNCTION my_process_is_icon_output()
 
     my_process_is_icon_output = (my_process_model == icon_output_process)

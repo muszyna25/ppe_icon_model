@@ -37,7 +37,7 @@ MODULE mo_interface_echam_vdf
   USE mo_physical_constants  ,ONLY: amco2, amd
   USE mo_bc_greenhouse_gases ,ONLY: ghg_co2mmr
 
-  USE mo_run_config          ,ONLY: iqv, iqc, iqi, iqt, ico2
+  USE mo_run_config          ,ONLY: iqv, iqc, iqi, iqnc, iqni, iqt, ico2
   USE mo_vdiff_downward_sweep,ONLY: vdiff_down
   USE mo_vdiff_upward_sweep  ,ONLY: vdiff_up
   USE mo_vdiff_solver        ,ONLY: nvar_vdiff, nmatrix, imh, imqv, ih_vdiff=>ih, iqv_vdiff=>iqv
@@ -76,7 +76,7 @@ CONTAINS
 
     ! Pointers
     !
-    LOGICAL                 ,POINTER    :: lparamcpl
+    LOGICAL                 ,POINTER    :: lparamcpl, l2moment
     INTEGER                 ,POINTER    :: fc_vdf
     TYPE(t_echam_phy_field) ,POINTER    :: field
     TYPE(t_echam_phy_tend)  ,POINTER    :: tend
@@ -195,6 +195,8 @@ CONTAINS
     REAL(wp) :: qv_hori_tend(nproma,patch%nlev,patch%nblks_c)
     REAL(wp) :: ql_hori_tend(nproma,patch%nlev,patch%nblks_c)
     REAL(wp) :: qi_hori_tend(nproma,patch%nlev,patch%nblks_c)
+    REAL(wp) :: qnc_hori_tend(nproma,patch%nlev,patch%nblks_c)
+    REAL(wp) :: qni_hori_tend(nproma,patch%nlev,patch%nblks_c)
 
     REAL(wp) :: ufric
     INTEGER,POINTER :: turb
@@ -206,6 +208,7 @@ CONTAINS
 
     ! associate pointers
     lparamcpl => echam_phy_config(jg)%lparamcpl
+    l2moment  => echam_phy_config(jg)%l2moment
     fc_vdf    => echam_phy_config(jg)%fc_vdf
     field     => prm_field(jg)
     tend      => prm_tend (jg)
@@ -464,6 +467,7 @@ CONTAINS
                ! Smagorinsky 
                &          turb,                              &! in, 1: TTE, 2: 3D Smagorinsky
                &          patch,                             &! in
+               &          l2moment,                          &! in, l2moment switch for horizontal tendencies
                !
                &          field%   zf(:,:,:),                &! in, geopot. height above sea level, full level
                &          field%   zh(:,:,:),                &! in, geopot. height above sea level, half level
@@ -516,6 +520,9 @@ CONTAINS
                &          qv_hori_tend(:,:,:),               &! out
                &          ql_hori_tend(:,:,:),               &! out
                &          qi_hori_tend(:,:,:),               &! out
+               ! for 2 moment scheme and Smagorinsky
+               &          qnc_hori_tend(:,:,:),              &! out
+               &          qni_hori_tend(:,:,:),              &! out
                !
                &          zfactor_sfc(:,:),                  &! out, for "vdiff_up"
                &          zcpt_sfc_tile(:,:,:),              &! out, for "vdiff_up"
@@ -760,6 +767,7 @@ CONTAINS
           CALL update_surface(jg, jcs, jce, nproma, field%kice,               &! in
                &              nlev, nsfc_type,                                &! in
                &              iwtr, iice, ilnd,                               &! in, indices of surface types
+               &              datetime_old,                                   &! in, date and time at beginning of this time step
                &              pdtime,                                         &! in, time step
                &              field%frac_tile(:,jb,:),                        &! in, area fraction
                &                     cfh_tile(:,jb,:),                        &! in, from "vdiff_down"
@@ -1023,6 +1031,23 @@ CONTAINS
           END IF
           !
           IF (ASSOCIATED(tend% qtrc_vdf )) THEN
+            IF (l2moment) THEN
+            !$ACC DATA PRESENT( tend%qtrc_vdf, tend_qtrc_vdf, tend_qtrc_vdf_iqt )
+            !$ACC PARALLEL DEFAULT(NONE)
+            !$ACC LOOP GANG
+            DO jk = 1,nlev
+              !$ACC LOOP VECTOR
+              DO jl = jcs,jce
+                tend% qtrc_vdf(jl,jk,jb,iqv) = tend_qtrc_vdf(jl,jk,jb,iqv)
+                tend% qtrc_vdf(jl,jk,jb,iqc) = tend_qtrc_vdf(jl,jk,jb,iqc)
+                tend% qtrc_vdf(jl,jk,jb,iqi) = tend_qtrc_vdf(jl,jk,jb,iqi)
+                tend% qtrc_vdf(jl,jk,jb,iqnc) = tend_qtrc_vdf(jl,jk,jb,iqnc)
+                tend% qtrc_vdf(jl,jk,jb,iqni) = tend_qtrc_vdf(jl,jk,jb,iqni)
+              END DO
+            END DO
+            !$ACC END PARALLEL
+            !$ACC END DATA
+            ELSE
             !$ACC DATA PRESENT( tend%qtrc_vdf, tend_qtrc_vdf, tend_qtrc_vdf_iqt )
             !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP GANG
@@ -1034,12 +1059,14 @@ CONTAINS
                 tend% qtrc_vdf(jl,jk,jb,iqi) = tend_qtrc_vdf(jl,jk,jb,iqi)
                 !$ACC LOOP SEQ
                 DO jt = iqt,ntracer
-                  tend% qtrc_vdf(jl,jk,jb,jt) = tend_qtrc_vdf_iqt(jl,jk,jb,jt-iqt)
+                   !iqt is the index of the first non-water tracer
+                  tend% qtrc_vdf(jl,jk,jb,jt) = tend_qtrc_vdf(jl,jk,jb,jt) 
                 END DO
               END DO
             END DO
             !$ACC END PARALLEL
             !$ACC END DATA
+            END IF
           END IF
 
     !$ACC WAIT
@@ -1125,6 +1152,23 @@ CONTAINS
           END IF
           !
           IF (ASSOCIATED(tend% qtrc_vdf )) THEN
+            IF (l2moment) THEN
+            !$ACC DATA PRESENT( tend_qtrc_vdf, tend%qtrc_vdf )
+            !$ACC PARALLEL DEFAULT(NONE)
+            !$ACC LOOP GANG
+            DO jk = 1,nlev
+              !$ACC LOOP VECTOR
+              DO jl = jcs,jce
+                tend_qtrc_vdf(jl,jk,jb,iqv) = tend% qtrc_vdf(jl,jk,jb,iqv)
+                tend_qtrc_vdf(jl,jk,jb,iqc) = tend% qtrc_vdf(jl,jk,jb,iqc)
+                tend_qtrc_vdf(jl,jk,jb,iqi) = tend% qtrc_vdf(jl,jk,jb,iqi)
+                tend_qtrc_vdf(jl,jk,jb,iqnc) = tend% qtrc_vdf(jl,jk,jb,iqnc)
+                tend_qtrc_vdf(jl,jk,jb,iqni) = tend% qtrc_vdf(jl,jk,jb,iqni)
+              END DO
+            END DO
+            !$ACC END PARALLEL
+            !$ACC END DATA
+            ELSE
             !$ACC DATA PRESENT( tend_qtrc_vdf, tend%qtrc_vdf )
             !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP GANG
@@ -1142,6 +1186,7 @@ CONTAINS
             END DO
             !$ACC END PARALLEL
             !$ACC END DATA
+            END IF
           END IF
 
     !$ACC WAIT
@@ -1291,6 +1336,19 @@ CONTAINS
          END DO
          !$ACC END PARALLEL 
          !$ACC END DATA
+         IF (l2moment) THEN
+           !$ACC DATA PRESENT( tend_qtrc_vdf, qnc_hori_tend, qni_hori_tend )
+           !$ACC PARALLEL DEFAULT(NONE)
+           !$ACC LOOP GANG VECTOR COLLAPSE(2)
+           DO jk = 1,nlev
+             DO jl = jcs, jce
+               tend_qtrc_vdf(jl,jk,jb,iqnc) = tend_qtrc_vdf(jl,jk,jb,iqnc) + qnc_hori_tend(jl,jk,jb)
+               tend_qtrc_vdf(jl,jk,jb,iqni) = tend_qtrc_vdf(jl,jk,jb,iqni) + qni_hori_tend(jl,jk,jb)
+             END DO
+           END DO
+           !$ACC END PARALLEL
+           !$ACC END DATA
+         END IF ! l2moment
        END IF
 
        !
@@ -1339,6 +1397,26 @@ CONTAINS
           ! diagnostic, do not use tendency
        CASE(1)
           ! use tendency to update the model state
+          IF (l2moment) THEN
+          !$ACC DATA PRESENT( tend%ua_phy, tend_ua_vdf, tend%va_phy, tend_va_vdf, tend%ta_phy, &
+          !$ACC               tend%qtrc_phy, tend_qtrc_vdf )
+          !$ACC PARALLEL DEFAULT(NONE)
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
+          DO jk = 1,nlev
+            DO jl = jcs, jce
+              tend%   ua_phy(jl,jk,jb)      = tend%   ua_phy(jl,jk,jb)      + tend_ua_vdf  (jl,jk,jb)
+              tend%   va_phy(jl,jk,jb)      = tend%   va_phy(jl,jk,jb)      + tend_va_vdf  (jl,jk,jb)
+              tend%   ta_phy(jl,jk,jb)      = tend%   ta_phy(jl,jk,jb)      + tend_ta_vdf  (jl,jk,jb)
+              tend% qtrc_phy(jl,jk,jb,iqv)  = tend% qtrc_phy(jl,jk,jb,iqv)  + tend_qtrc_vdf(jl,jk,jb,iqv)
+              tend% qtrc_phy(jl,jk,jb,iqc)  = tend% qtrc_phy(jl,jk,jb,iqc)  + tend_qtrc_vdf(jl,jk,jb,iqc)
+              tend% qtrc_phy(jl,jk,jb,iqi)  = tend% qtrc_phy(jl,jk,jb,iqi)  + tend_qtrc_vdf(jl,jk,jb,iqi)
+              tend% qtrc_phy(jl,jk,jb,iqnc)  = tend% qtrc_phy(jl,jk,jb,iqnc)  + tend_qtrc_vdf(jl,jk,jb,iqnc)
+              tend% qtrc_phy(jl,jk,jb,iqni)  = tend% qtrc_phy(jl,jk,jb,iqni)  + tend_qtrc_vdf(jl,jk,jb,iqni)
+            END DO
+          END DO
+          !$ACC END PARALLEL
+          !$ACC END DATA
+          ELSE
           !$ACC DATA PRESENT( tend%ua_phy, tend_ua_vdf, tend%va_phy, tend_va_vdf, tend%ta_phy, &
           !$ACC               tend%qtrc_phy, tend_qtrc_vdf )
           !$ACC PARALLEL DEFAULT(NONE)
@@ -1359,6 +1437,7 @@ CONTAINS
           END DO
           !$ACC END PARALLEL
           !$ACC END DATA
+          END IF
           IF ( is_dry_cbl ) THEN
             !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP GANG VECTOR COLLAPSE(2)
@@ -1384,6 +1463,26 @@ CONTAINS
           ! use tendency to update the physics state
           IF (lparamcpl) THEN
              ! prognostic
+             IF (l2moment) THEN
+             !$ACC DATA PRESENT( field%ua, tend_ua_vdf, field%va, tend_va_vdf, field%ta,  &
+             !$ACC               field%qtrc, tend_qtrc_vdf )
+             !$ACC PARALLEL DEFAULT(NONE)
+             !$ACC LOOP GANG VECTOR COLLAPSE(2)
+             DO jk = 1,nlev
+               DO jl = jcs, jce
+                 field%   ua(jl,jk,jb)      = field%   ua(jl,jk,jb)      + tend_ua_vdf  (jl,jk,jb)     *pdtime
+                 field%   va(jl,jk,jb)      = field%   va(jl,jk,jb)      + tend_va_vdf  (jl,jk,jb)     *pdtime
+                 field%   ta(jl,jk,jb)      = field%   ta(jl,jk,jb)      + tend_ta_vdf  (jl,jk,jb)     *pdtime
+                 field% qtrc(jl,jk,jb,iqv)  = field% qtrc(jl,jk,jb,iqv)  + tend_qtrc_vdf(jl,jk,jb,iqv) *pdtime
+                 field% qtrc(jl,jk,jb,iqc)  = field% qtrc(jl,jk,jb,iqc)  + tend_qtrc_vdf(jl,jk,jb,iqc) *pdtime
+                 field% qtrc(jl,jk,jb,iqi)  = field% qtrc(jl,jk,jb,iqi)  + tend_qtrc_vdf(jl,jk,jb,iqi) *pdtime
+                 field% qtrc(jl,jk,jb,iqnc)  = field% qtrc(jl,jk,jb,iqnc)  + tend_qtrc_vdf(jl,jk,jb,iqnc) *pdtime
+                 field% qtrc(jl,jk,jb,iqni)  = field% qtrc(jl,jk,jb,iqni)  + tend_qtrc_vdf(jl,jk,jb,iqni) *pdtime
+               END DO
+             END DO
+             !$ACC END PARALLEL
+             !$ACC END DATA
+             ELSE
              !$ACC DATA PRESENT( field%ua, tend_ua_vdf, field%va, tend_va_vdf, field%ta,  &
              !$ACC               field%qtrc, tend_qtrc_vdf )
              !$ACC PARALLEL DEFAULT(NONE)
@@ -1404,6 +1503,7 @@ CONTAINS
              END DO
              !$ACC END PARALLEL
              !$ACC END DATA
+             END IF
              IF ( is_dry_cbl ) THEN
                !$ACC DATA PRESENT( tend%qtrc_phy )
                !$ACC PARALLEL DEFAULT(NONE)
@@ -2125,6 +2225,7 @@ CONTAINS
 
     ! disassociate pointers
     NULLIFY(lparamcpl)
+    NULLIFY(l2moment)
     NULLIFY(fc_vdf)
     NULLIFY(field)
     NULLIFY(tend)

@@ -13,10 +13,18 @@ function set_cluster {
      icon_data_poolFolder=/lsdf/kit/imk/projects/icon/INPUT/AMIP/amip_input
      aer_opt="${icon_data_poolFolder}"
      ;;
-   xfh2*) :
-     echo "...FH2  at KIT"; CENTER="IMK"
+   xhk*) :
+     echo "...HoreKa at KIT"; CENTER="IMK"
      input_folder="/lsdf/kit/imk/projects/icon/TESTSUITE"
      FILETYPE="4" 
+     ws=$(ws_list -s)
+     if [[ "${ws}" == "" ]]; then
+         echo "No workspaces found!"
+         exit
+     else
+         ws_id=$(echo $ws | awk '{print $1}')
+     fi
+     WORK=/hkfs/work/workspace/scratch/$(whoami)-$ws_id
      output_folder="${WORK}/TESTSUITE_OUTPUT"
      icon_data_poolFolder=/lsdf/kit/imk/projects/icon/INPUT/AMIP/amip_input
      aer_opt="${icon_data_poolFolder}"
@@ -57,7 +65,7 @@ function set_cluster {
      input_folder="~/TESTSUITE/"
 	 FILETYPE="4" 
      output_folder="/scratch/b/${USER}/TESTSUITE_OUTPUT/"
-     aer_opt="/pool/data/ICON/grids/private/rene/mpim/independent"
+     aer_opt="/pool/data/ICON/grids/public/mpim/independent"
 	 ;;
 
    mlogin*)
@@ -66,7 +74,7 @@ function set_cluster {
 	 FILETYPE="4" 
      output_folder="${SCRATCH}/TESTSUITE_OUTPUT"
 	 icon_data_poolFolder=/pool/data/ICON/grids/private/mpim/icon_preprocessing/source/
-     aer_opt="/pool/data/ICON/grids/private/rene/mpim/independent"
+     aer_opt="/pool/data/ICON/grids/public/mpim/independent"
 	 ;;
    *) :
      echo "...unknown HPC" ; exit 202 ;; #(
@@ -225,19 +233,17 @@ sbatch job_ICON
 EOF
 ;;
 
-   xfh2*)
+   xhk*)
 cat >> $output_script << EOF
 	   
 cat > job_ICON << ENDFILE
 #!/bin/bash -x
 #SBATCH --$3
 #SBATCH --time=$2
-#SBATCH --ntasks-per-node=20
+#SBATCH --ntasks-per-node=76
 #SBATCH --partition=$4
 #SBATCH --constraint=LSDF
 
-export LD_LIBRARY_PATH=\${LD_LIBRARY_PATH}:/software/community/ICON/lib/szip/szip/lib:/software/community/ICON/lib/eccodes/2.12.0_ifort19/lib
-export ECCODES_DEFINITION_PATH=/software/community/ICON/lib/eccodes/2.12.0_ifort19/share/eccodes/dwd_definitions/:/software/community/ICON/lib/eccodes/2.12.0_ifort19/share/eccodes/definitions
 
 $5 
 

@@ -338,6 +338,8 @@ CONTAINS
           CALL message('','Solar flux for RCE simulations without diurnal cycle')
        CASE (6)
           CALL message('','Average 1850-1873 of transient CMIP6 solar')
+       CASE (7)
+          CALL message('','Solar flux for RCEmip analyticalsimulations without diurnal cycle')
        CASE default 
           WRITE (message_text, '(a,i0,a)') &
                'ERROR: isolrad = ', isolrad, ' is not supported'

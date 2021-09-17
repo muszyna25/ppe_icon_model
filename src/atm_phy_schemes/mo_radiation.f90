@@ -1375,7 +1375,7 @@ CONTAINS
         &                         aer_tau_sw_vr,                 &
         &                         aer_piz_sw_vr,                 &
         &                         aer_cg_sw_vr)
-    CASE (13)
+    CASE (12,13)
        ! this is for rrtm radiation in the NWP part, we do not introduce
        ! the simple plumes here
        CALL set_bc_aeropt_kinne( current_date                        ,&

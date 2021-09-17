@@ -96,7 +96,7 @@ MODULE mo_timer
   PUBLIC :: timer_gwd !!$, timer_sso
   PUBLIC :: timer_cnv , timer_cld
   PUBLIC :: timer_car , timer_mox
-  PUBLIC :: timer_wmo , timer_mig
+  PUBLIC :: timer_wmo , timer_mig, timer_two
   !
   ! echam radiation
   PUBLIC :: timer_rrtm_prep, timer_rrtm_post
@@ -345,7 +345,7 @@ MODULE mo_timer
   INTEGER :: timer_gwd !!$, timer_sso
   INTEGER :: timer_cnv , timer_cld
   INTEGER :: timer_car , timer_mox
-  INTEGER :: timer_wmo , timer_mig
+  INTEGER :: timer_wmo , timer_mig, timer_two
   !
   ! echam radiation
   INTEGER :: timer_rrtm_prep, timer_rrtm_post
@@ -669,6 +669,7 @@ CONTAINS
        timer_cnv    = new_timer("interface_echam_cnv")
        timer_cld    = new_timer("interface_echam_cld")
        timer_mig    = new_timer("interface_echam_mig")
+       timer_two    = new_timer("interface_cloud_two")
        timer_car    = new_timer("interface_echam_car")
        timer_mox    = new_timer("interface_echam_mox")
        timer_wmo    = new_timer("interface_echam_wmo")

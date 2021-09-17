@@ -37,6 +37,7 @@ MODULE mo_surface
                                 & matrix_to_richtmyer_coeff
   USE mo_surface_diag,      ONLY: wind_stress, surface_fluxes
   USE mo_index_list,        ONLY: generate_index_list_batched
+  USE mtime,                ONLY: datetime
 #ifndef __NO_JSBACH__
   USE mo_jsb_interface,     ONLY: jsbach_interface
 #endif
@@ -71,6 +72,7 @@ CONTAINS
                            & kice,                              &! in
                            & klev, ksfc_type,                   &! in
                            & idx_wtr, idx_ice, idx_lnd,         &! in
+                           & datetime_old,                      &! in
                            & pdtime,                            &! in
                            & pfrc,                              &! in
                            & pcfh_tile, pcfm_tile,              &! in
@@ -145,6 +147,7 @@ CONTAINS
                            & albvisdir_ice, albvisdif_ice,      &! inout
                            & albnirdir_ice, albnirdif_ice)       ! inout
 
+    TYPE(datetime), INTENT(IN), POINTER :: datetime_old ! date and time at beginning of this time step
     REAL(wp),INTENT(IN) :: pdtime
     INTEGER, INTENT(IN) :: jg
     INTEGER, INTENT(IN) :: jcs, kproma, kbdim
@@ -355,43 +358,6 @@ CONTAINS
     !  zt2s_conv(jcs:kproma,jsfc) = pcpt_tile(jcs:kproma,jsfc) / ptsfc_tile(jcs:kproma,jsfc)
     !END DO
 
-    !===================================================================
-    ! BEFORE CALLING land/ocean/ice model
-    !===================================================================
-    ! Compute wind stress at the old time step.
-    ! At this point bb(:,klev,iu) = u_klev(t)/tpfac1 (= udif in echam)
-    !               bb(:,klev,iv) = v_klev(t)/tpfac1 (= vdif in echam)
-
-    IF (lsfc_mom_flux) THEN
-       CALL wind_stress( jcs, kproma, kbdim, ksfc_type,       &! in
-            &            pdtime,                              &! in
-            &            loidx, is,                           &! in
-            &            pfrc, pcfm_tile, pfac_sfc,           &! in
-            &            bb(:,klev,iu), bb(:,klev,iv),        &! in
-            &            pu_stress_gbm,  pv_stress_gbm,       &! out
-            &            pu_stress_tile, pv_stress_tile       )! out
-    ELSE
-       !$ACC PARALLEL DEFAULT(NONE)
-       !$ACC LOOP SEQ
-       DO jsfc = 1,ksfc_type
-         !$ACC LOOP GANG VECTOR
-         DO jk = 1, kbdim
-           pu_stress_tile(jk, jsfc) = 0._wp
-           pv_stress_tile(jk, jsfc) = 0._wp
-         END DO
-       END DO
-       !$ACC END PARALLEL
-
-       !$ACC PARALLEL DEFAULT(NONE)
-       !$ACC LOOP GANG VECTOR
-       DO jk = 1, kbdim
-         pu_stress_gbm (jk)   = 0._wp
-         pv_stress_gbm (jk)   = 0._wp
-       END DO
-       !$ACC END PARALLEL
-
-    END IF
-
     !$ACC WAIT
 
     ! Compute downward shortwave surface fluxes
@@ -599,7 +565,8 @@ CONTAINS
 
       IF (echam_phy_config(jg)%ljsb ) THEN
       IF (echam_phy_config(jg)%llake) THEN
-        CALL jsbach_interface ( jg, nblock, jcs, kproma, pdtime, pdtime,                     & ! in
+        CALL jsbach_interface ( jg, nblock, jcs, kproma,                                     & ! in
+          & datetime_old, pdtime, pdtime,                                                    & ! in
           & t_air             = ptemp(jcs:kproma),                                           & ! in
           & q_air             = pq(jcs:kproma),                                              & ! in
           & rain              = rain_tmp(jcs:kproma),                                        & ! in
@@ -732,7 +699,8 @@ CONTAINS
 #endif
 #endif
       ELSE
-        CALL jsbach_interface ( jg, nblock, jcs, kproma, pdtime, pdtime,                     & ! in
+        CALL jsbach_interface ( jg, nblock, jcs, kproma,                                     & ! in
+          & datetime_old, pdtime, pdtime,                                                    & ! in
           & t_air             = ptemp(jcs:kproma),                                           & ! in
           & q_air             = pq(jcs:kproma),                                              & ! in
           & rain              = rain_tmp(jcs:kproma),                                        & ! in
@@ -933,6 +901,7 @@ CONTAINS
       !$ACC END PARALLEL
 
       IF (echam_phy_config(jg)%lmlo) THEN
+        ztsfc_wtr(jcs:kproma)=ptsfc_tile(jcs:kproma, idx_wtr) 
         CALL ml_ocean ( kbdim, jcs, kproma, pdtime, &
           & pahflw=plhflx_tile(:,idx_wtr),        & ! dependency on kproma has to be checked
           & pahfsw=pshflx_tile(:,idx_wtr),        & ! dependency on kproma has to be checked
@@ -1226,6 +1195,12 @@ CONTAINS
     ! multiplied to the r.h.s. array bb. Thus the additional terms here
     ! need to be scaled by the same factor.
 
+    !$ACC PARALLEL DEFAULT(NONE)
+    !$ACC LOOP GANG VECTOR
+    DO jl = jcs,kproma
+      zfrc_oce(jl) = 0._wp 
+    END DO
+    !$ACC END PARALLEL
     IF (idx_wtr.LE.ksfc_type) THEN   ! Open water is considered
       !$ACC PARALLEL DEFAULT(NONE)
       !$ACC LOOP GANG VECTOR
@@ -1240,8 +1215,6 @@ CONTAINS
             zfrc_oce(jl) = 0._wp
           END IF
         END IF
-        bb(jl,klev,iu) =   bb(jl,klev,iu) - pocu(jl)*zfrc_oce(jl)*tpfac2
-        bb(jl,klev,iv) =   bb(jl,klev,iv) - pocv(jl)*zfrc_oce(jl)*tpfac2
       END DO
       !$ACC END PARALLEL
     ENDIF
@@ -1258,11 +1231,42 @@ CONTAINS
       aa(jl,jk,2,im) =  aa(jl,jk,2,im) - aa(jl,jk,1,im)*aa(jl,jkm1,3,im)
       aa(jl,jk,3,im) =  aa(jl,jk,3,im)/aa(jl,jk,2,im)
 
-      bb(jl,jk,iu) = (bb(jl,jk,iu) - aa(jl,jk,1,im)*bb(jl,jkm1,iu))/aa(jl,jk,2,im)
-
-      bb(jl,jk,iv) = (bb(jl,jk,iv) - aa(jl,jk,1,im)*bb(jl,jkm1,iv))/aa(jl,jk,2,im)
+      bb(jl,jk,iu) = - aa(jl,jk,3,im) * pocu(jl)*zfrc_oce(jl)*tpfac2 + (bb(jl,jk,iu) - aa(jl,jk,1,im)*bb(jl,jkm1,iu))/aa(jl,jk,2,im)
+      bb(jl,jk,iv) = - aa(jl,jk,3,im) * pocv(jl)*zfrc_oce(jl)*tpfac2 + (bb(jl,jk,iv) - aa(jl,jk,1,im)*bb(jl,jkm1,iv))/aa(jl,jk,2,im)
     END DO
     !$ACC END PARALLEL
+
+    ! Compute wind stress
+    IF (lsfc_mom_flux) THEN
+       CALL wind_stress( jcs, kproma, kbdim, ksfc_type,       &! in
+            &            pdtime,                              &! in
+            &            loidx, is,                           &! in
+            &            pfrc, pcfm_tile, pfac_sfc,           &! in
+            &            bb(:,klev,iu), bb(:,klev,iv),        &! in
+            &            pocu(:), pocv(:),                    &! in
+            &            pu_stress_gbm,  pv_stress_gbm,       &! out
+            &            pu_stress_tile, pv_stress_tile       )! out
+    ELSE
+       !$ACC PARALLEL DEFAULT(NONE)
+       !$ACC LOOP SEQ
+       DO jsfc = 1,ksfc_type
+         !$ACC LOOP GANG VECTOR
+         DO jk = 1, kbdim
+           pu_stress_tile(jk, jsfc) = 0._wp
+           pv_stress_tile(jk, jsfc) = 0._wp
+         END DO
+       END DO
+       !$ACC END PARALLEL
+
+       !$ACC PARALLEL DEFAULT(NONE)
+       !$ACC LOOP GANG VECTOR
+       DO jk = 1, kbdim
+         pu_stress_gbm (jk)   = 0._wp
+         pv_stress_gbm (jk)   = 0._wp
+       END DO
+       !$ACC END PARALLEL
+
+    END IF
 
    !-------------------------------------------------------------------
    ! Various diagnostics

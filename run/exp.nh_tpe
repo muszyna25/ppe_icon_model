@@ -49,7 +49,7 @@ file_interval="P300D"
 
 # namelist files
 atmo_namelist=NAMELIST_${EXPNAME}_atm
-lnd_namelist=NAMELIST_${EXPNAME}_lnd
+jsbach_namelist=NAMELIST_${EXPNAME}_lnd
 
 #--------------------------------------------------------------------------------------------------
 
@@ -175,7 +175,7 @@ EOF
 
 # land surface and soil
 # ---------------------
-cat > ${lnd_namelist} <<EOF
+cat > ${jsbach_namelist} <<EOF
 &jsb_model_nml
   usecase         = 'jsbach_lite_tpe_closed'
 /
@@ -210,7 +210,7 @@ add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
 # namelist files
 #
 add_required_file ${basedir}/run/${atmo_namelist}                       ./
-add_required_file ${basedir}/run/${lnd_namelist}                        ./
+add_required_file ${basedir}/run/${jsbach_namelist}                        ./
 
 # dictionary file for output variable names
 #
@@ -270,7 +270,7 @@ do
 done
 #
 # - stratospheric aerosol (CMIP6)
-datadir=/pool/data/ICON/grids/private/rene/mpim/independent/CMIP6Forcing
+datadir=/pool/data/ICON/grids/public/mpim/independent/CMIP6Forcing
 #
 if [ ! -d $datadir ]; then
   echo 'directory '$datadir' for stratospheric aerosol data does not exist'

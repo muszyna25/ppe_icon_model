@@ -59,7 +59,7 @@ MODULE mo_ocean_diagnostics
     & ab_const, ab_beta, ab_gam, iswm_oce, discretization_scheme, &
     & iforc_oce, No_Forcing, i_sea_ice, diagnostics_level, &
     & diagnose_for_horizontalVelocity, OceanReferenceDensity, &
-    & eddydiag
+    & eddydiag, check_total_volume
   USE mo_sea_ice_nml,        ONLY: kice, sice
   USE mo_dynamics_config,    ONLY: nold,nnew
   USE mo_parallel_config,    ONLY: nproma, p_test_run
@@ -92,7 +92,7 @@ MODULE mo_ocean_diagnostics
   USE mo_name_list_output_init, ONLY: isRegistered
 
   USE mtime,                 ONLY: datetime, MAX_DATETIME_STR_LEN, datetimeToPosixString
-  USE mo_ocean_check_salt, ONLY : calc_total_salt_content
+  USE mo_ocean_check_total_content , ONLY : calc_total_salt_content
 
   IMPLICIT NONE
   PRIVATE
@@ -556,7 +556,11 @@ CONTAINS
             & ssh_global_mean)
       END IF
       monitor%ssh_global = ssh_global_mean
+      IF (my_process_is_stdio() .and. check_total_volume) THEN
+        WRITE(0,*) ' -- monitor%ssh_global:', monitor%ssh_global
+      ENDIF
 
+      
       ! sea surface temperature
       sst_global = 0.0_wp
       IF (isRegistered('sst_global')) THEN
@@ -1591,19 +1595,20 @@ CONTAINS
                  0.0_wp, patch_3D%basin_c(idx,BLOCK) == 1)
             pacind_moc(level,ilat) = MERGE(pacind_moc(level,ilat) - deltaMoc*smoothWeight, &
                  0.0_wp, patch_3D%basin_c(idx,BLOCK) >= 2)
+
+            global_hfbasin(1,ilat) =       global_hfbasin(1,ilat) - deltahfbasin*smoothWeight
+            atlant_hfbasin(1,ilat) = MERGE(atlant_hfbasin(1,ilat) - deltahfbasin*smoothWeight, &
+               0.0_wp, patch_3D%basin_c(idx,BLOCK) == 1)
+            pacind_hfbasin(1,ilat) = MERGE(pacind_hfbasin(1,ilat) - deltahfbasin*smoothWeight, &
+               0.0_wp, patch_3D%basin_c(idx,BLOCK) >= 2)
+
+            global_sltbasin(1,ilat) =       global_sltbasin(1,ilat) - deltasltbasin*smoothWeight
+            atlant_sltbasin(1,ilat) = MERGE(atlant_sltbasin(1,ilat) - deltasltbasin*smoothWeight, &
+               0.0_wp, patch_3D%basin_c(idx,BLOCK) == 1)
+            pacind_sltbasin(1,ilat) = MERGE(pacind_sltbasin(1,ilat) - deltasltbasin*smoothWeight, &
+               0.0_wp, patch_3D%basin_c(idx,BLOCK) >= 2)
+
             IF (level .EQ. 1) THEN
-              global_hfbasin(level,ilat) =       global_hfbasin(level,ilat) - deltahfbasin*smoothWeight
-              atlant_hfbasin(level,ilat) = MERGE(atlant_hfbasin(level,ilat) - deltahfbasin*smoothWeight, &
-                 0.0_wp, patch_3D%basin_c(idx,BLOCK) == 1)
-              pacind_hfbasin(level,ilat) = MERGE(pacind_hfbasin(level,ilat) - deltahfbasin*smoothWeight, &
-                 0.0_wp, patch_3D%basin_c(idx,BLOCK) >= 2)
-
-              global_sltbasin(level,ilat) =       global_sltbasin(level,ilat) - deltasltbasin*smoothWeight
-              atlant_sltbasin(level,ilat) = MERGE(atlant_sltbasin(level,ilat) - deltasltbasin*smoothWeight, &
-                 0.0_wp, patch_3D%basin_c(idx,BLOCK) == 1)
-              pacind_sltbasin(level,ilat) = MERGE(pacind_sltbasin(level,ilat) - deltasltbasin*smoothWeight, &
-                 0.0_wp, patch_3D%basin_c(idx,BLOCK) >= 2)
-
               global_hfl(level,ilat) =       global_hfl(level,ilat) - deltahfl*smoothWeight
               atlant_hfl(level,ilat) = MERGE(atlant_hfl(level,ilat) - deltahfl*smoothWeight, &
                    0.0_wp, patch_3D%basin_c(idx,BLOCK) == 1)
@@ -1690,9 +1695,9 @@ CONTAINS
     ! calculate ocean heat transport as residual from the tendency in heat content (dH/dt)
     ! minus the integral of surface heat flux
 
-    global_hfbasin(:,:)=global_hfbasin(:,:)+global_hfl(:,:)
-    atlant_hfbasin(:,:)=atlant_hfbasin(:,:)+atlant_hfl(:,:)
-    pacind_hfbasin(:,:)=pacind_hfbasin(:,:)+pacind_hfl(:,:)
+    global_hfbasin(:,:)=global_hfl(:,:)-global_hfbasin(:,:)
+    atlant_hfbasin(:,:)=atlant_hfl(:,:)-atlant_hfbasin(:,:)
+    pacind_hfbasin(:,:)=pacind_hfl(:,:)-pacind_hfbasin(:,:)
 
     DEALLOCATE (allmocs)
 

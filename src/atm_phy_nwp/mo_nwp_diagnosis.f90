@@ -2100,8 +2100,8 @@ CONTAINS
     ! Find local min/max
     wmax  = 0.0_wp
     wmin  = 0.0_wp
-    tmax  = 0.0_wp
-    tmin  = 0.0_wp
+    tmax  = -9999.0_wp
+    tmin  =  9999.0_wp
     qvmax = 0.0_wp
     qvmin = 0.0_wp
     qcmax = 0.0_wp

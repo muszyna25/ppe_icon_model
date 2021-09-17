@@ -35,8 +35,9 @@ MODULE mo_echam_phy_init
   USE mo_impl_constants,       ONLY: min_rlcell_int, grf_bdywidth_c
   USE mo_parallel_config,      ONLY: nproma
   USE mo_master_config,        ONLY: isrestart
-  USE mo_run_config,           ONLY: ltestcase, lart,                       &
-    &                                iqv, iqc, iqi, iqs, iqr, iqg, iqm_max, &
+  USE mo_run_config,           ONLY: ltestcase, lart, msg_level,                  &
+    &                                iqv, iqc, iqi, iqs, iqr, iqg, iqm_max,       &
+    &                                iqh, iqni,iqnr,iqns,iqng,iqnh, iqnc,ininact, &
     &                                iqt, io3, ico2, ich4, in2o, ntracer
   USE mo_advection_config,     ONLY: advection_config
 
@@ -97,6 +98,9 @@ MODULE mo_echam_phy_init
   ! "graupel" cloud microphysics
   USE gscp_data,              ONLY: gscp_set_coefficients
   USE mo_echam_mig_config,    ONLY: echam_mig_config, print_echam_mig_config
+
+  ! two-moment bulk microphysics
+  USE mo_2mom_mcrph_driver,    ONLY: two_moment_mcrph_init
 
   ! cloud cover
   USE mo_echam_cov_config,     ONLY: eval_echam_cov_config, print_echam_cov_config
@@ -342,13 +346,26 @@ CONTAINS
       END IF
       !
       jg=1
-      CALL gscp_set_coefficients(              igscp = 2                                    ,& 
+      CALL gscp_set_coefficients(idbg                = msg_level                            ,&
          &                       tune_zceff_min      = echam_mig_config(jg)% zceff_min      ,&
          &                       tune_v0snow         = echam_mig_config(jg)% v0snow         ,&
          &                       tune_zvz0i          = echam_mig_config(jg)% zvz0i          ,&
          &                       tune_icesedi_exp    = echam_mig_config(jg)% icesedi_exp    ,&
          &                       tune_mu_rain        = echam_mig_config(jg)% mu_rain        ,&
-         &                       tune_rain_n0_factor = echam_mig_config(jg)% rain_n0_factor )
+         &                       tune_rain_n0_factor = echam_mig_config(jg)% rain_n0_factor ,&
+         &                       igscp               = 2 )
+    END IF
+
+    ! cloud microphysics (two moment bulk microphysics)
+    !
+    lany=.FALSE.
+    DO jg = 1,n_dom
+       lany = lany .OR. (echam_phy_tc(jg)%dt_two > dt_zero)
+    END DO
+    IF (lany) THEN
+      jg=1
+      ! original atm_phy_nwp_config(jg)%inwp_gscp equals 4
+      CALL two_moment_mcrph_init(igscp=4, msg_level=msg_level )
     END IF
 
     ! cloud cover diagnostics
@@ -454,6 +471,23 @@ CONTAINS
        CASE('qg')
           iqg=jt
           iqm_max=iqm_max+1
+       CASE('qh')
+          iqh=jt
+          iqm_max=iqm_max+1
+       CASE('qnc')
+          iqnc=jt
+       CASE('qni')
+          iqni=jt
+       CASE('qnr')
+          iqnr=jt
+       CASE('qns')
+          iqns=jt
+       CASE('qng')
+          iqng=jt
+       CASE('qnh')
+          iqnh=jt
+       CASE('ninact')
+          ininact=jt
        CASE('o3')
           io3=jt
        CASE('co2')
@@ -519,6 +553,34 @@ CONTAINS
        END IF
     END IF
 
+    ! Is Two moment bulk cloud microphysics active?
+    ! Then iqv, iqc, iqi, iqr, iqs, iqg, iqh, iqni, iqnr, iqns, iqng, iqnc and ininact must be non-zero and in {1,...,14}
+    lany=.FALSE.
+    DO jg = 1,n_dom
+       lany = lany .OR. (echam_phy_tc(jg)%dt_two > dt_zero)
+    END DO
+    IF (lany) THEN
+       !IF (iqv*iqc*iqi*iqr*iqs*iqg*iqh*iqni*iqnr*iqns*iqng*iqnc*ininact == 0) THEN
+       ! removed the first 3 tracer to avoid integer overflow. They should
+       ! always be defined...
+       IF (iqr*iqs*iqg*iqh*iqni*iqnr*iqns*iqng*iqnc*ininact == 0) THEN
+          CALL finish('mo_echam_phy_init:init_echam_phy_tracer',           &
+               &      'For two moment bulk microphysics, 14 tracers must be '// &
+               &      'included in transport_nml/tracer_names')
+       END IF
+       IF (MAX(iqv,iqc,iqi,iqr,iqs,iqg,iqh,iqni,iqnr,iqns,iqng,iqnc,ininact) > 14) THEN 
+                                             ! <-- is this needed? depends on usage of iqm_max and iqt
+          CALL finish('mo_echam_phy_init:init_echam_phy_tracer',            &
+               &      'For two moment bulk microphysics, 14 tracers must be '// &
+               &      'among the first 14 included in transport_nml/tracer_names')
+       END IF
+       IF (iqm_max > 7) THEN
+          CALL print_value('mo_echam_phy_init:init_echam_phy_tracer: ATTENTION! '   // &
+               &           'two moment bulk microphyiscs is used with more than 7 ' // &
+               &           'water tracers: iqm_max',iqm_max)
+       END IF
+    END IF
+
     ! Is Cariolle's linearized ozone chemistry active?
     ! Then io3 must be non-zero.
     lany=.FALSE.
@@ -529,7 +591,7 @@ CONTAINS
        IF (io3 == 0) THEN
           CALL finish(routine,           &
                &      'For the linearized ozone chemistry of Cariolle, '// &
-               &      'the tracer qo3 must be included in transport_nml'// &
+               &      'the tracer o3 must be included in transport_nml'// &
                &      '/tracer_names')
        END IF
     END IF
@@ -563,6 +625,7 @@ CONTAINS
     IF (iqr  > 0) CALL print_value('tracer "'//TRIM(advection_config(1)%tracer_names(iqr))//'"  : iqr    ',iqr )
     IF (iqs  > 0) CALL print_value('tracer "'//TRIM(advection_config(1)%tracer_names(iqs))//'"  : iqs    ',iqs )
     IF (iqg  > 0) CALL print_value('tracer "'//TRIM(advection_config(1)%tracer_names(iqg))//'"  : iqg    ',iqg )
+    IF (iqh  > 0) CALL print_value('tracer "'//TRIM(advection_config(1)%tracer_names(iqh))//'"  : iqh    ',iqh )
     IF (io3  > 0) CALL print_value('tracer "'//TRIM(advection_config(1)%tracer_names(io3))//'"  : io3    ',io3 )
     IF (ico2 > 0) CALL print_value('tracer "'//TRIM(advection_config(1)%tracer_names(ico2))//'" : ico2   ',ico2)
     IF (ich4 > 0) CALL print_value('tracer "'//TRIM(advection_config(1)%tracer_names(ich4))//'" : ich4   ',ich4)
@@ -633,12 +696,13 @@ CONTAINS
         END IF
         CALL closeFile(stream_id)
 
-        ! For security
-        prm_field(jg)%lsmask(:,:) = MERGE(1._wp, prm_field(jg)%lsmask(:,:), &
-                                          prm_field(jg)%lsmask(:,:) > 1._wp - 10._wp*EPSILON(1._wp))
+        ! For security:
+        !  - this statement was necessary for coupled ruby-0 model using land-data created 2020-06
+        !  - with land-date created 2021-07 it is not used anymore:
+        !prm_field(jg)%lsmask(:,:) = MERGE(1._wp, prm_field(jg)%lsmask(:,:), &
+        !                                 prm_field(jg)%lsmask(:,:) > 1._wp - 10._wp*EPSILON(1._wp))
         !
-        ! At this point, %lsmask is the fraction of land (incl. glacier and
-        ! lakes) in the grid box.
+        ! At this point, %lsmask is the fraction of land (incl. glacier and lakes) in the grid box.
         !
         IF (echam_phy_config(jg)%llake) THEN
           !
@@ -1027,7 +1091,8 @@ CONTAINS
       ! For idealized test cases
 
       SELECT CASE (nh_test_name)
-      CASE('APE','APE_echam','RCEhydro','RCE_glb','RCE_Tconst','CBL_flxconst') !Note that there is only one surface type in this case
+      CASE('APE','APE_echam','RCEhydro','RCE_glb','RCE_Tconst','CBL_flxconst','RCEMIP_analytical') 
+        ! Note that there is only one surface type in this case !!!
         !
 !$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = jbs,jbe
@@ -1047,6 +1112,7 @@ CONTAINS
           field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
           field% seaice(jcs:jce,jb) = 0._wp   ! zero sea ice fraction
+          field% emissivity(jcs:jce,jb) = zemiss_def ! use default emissivity
           !
         END DO
 !$OMP END PARALLEL DO
@@ -1071,6 +1137,7 @@ CONTAINS
           field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
           field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
+          field% emissivity(jcs:jce,jb) = zemiss_def ! use default emissivity
           !
         END DO
 !$OMP END PARALLEL DO
@@ -1112,6 +1179,7 @@ CONTAINS
           field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
           field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
+          field% emissivity(jcs:jce,jb) = zemiss_def ! use default emissivity
           !
         END DO
 !$OMP END PARALLEL DO
@@ -1151,6 +1219,7 @@ CONTAINS
           field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
           field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
+          field% emissivity(jcs:jce,jb) = zemiss_def ! use default emissivity
           !
         END DO
 !$OMP END PARALLEL DO
@@ -1173,6 +1242,7 @@ CONTAINS
           field% lsmask(jcs:jce,jb) = 1._wp   ! land fraction = 1
           field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
+          field% emissivity(jcs:jce,jb) = zemiss_def ! use default emissivity
           !
           IF (.NOT. isrestart()) THEN
             field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
@@ -1204,6 +1274,7 @@ CONTAINS
           field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
           field% seaice(jcs:jce,jb) = 0._wp   ! zero sea ice fraction
+          field% emissivity(jcs:jce,jb) = zemiss_def ! use default emissivity
         END DO
 !$OMP END DO  NOWAIT
 !$OMP END PARALLEL

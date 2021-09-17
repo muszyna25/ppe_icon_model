@@ -99,7 +99,7 @@ couplingTimeStep="PT15M"         # coupling time step:      1 time step  per rad
 # nproma                        = blocking length for array dimensioning and inner loop lengths
 #                                 -> deprecated. nproma_atm and nproma_ocn are used here.
 
-icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/grids/private/rene/mpim"
+icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/grids/public/mpim"
 
 #--------------------------------------------------------------------------------------------------
 
@@ -140,7 +140,7 @@ oce_3d_top_level_output_interval="PT1H"
 # namelist files
 # --------------
 atm_namelist=NAMELIST_${EXPNAME}_atm
-lnd_namelist=NAMELIST_${EXPNAME}_lnd
+jsbach_namelist=NAMELIST_${EXPNAME}_lnd
 oce_namelist=NAMELIST_${EXPNAME}_oce
 
 #--------------------------------------------------------------------------------------------------
@@ -149,7 +149,6 @@ oce_namelist=NAMELIST_${EXPNAME}_oce
 #-----------------------------------
 
 # JSBACH settings
-run_jsbach=yes
 jsbach_usecase=jsbach_lite       # jsbach_lite or jsbach_pfts
 jsbach_with_lakes=yes
 jsbach_with_carbon=no            # yes needs jsbach_pfts usecase
@@ -157,7 +156,6 @@ jsbach_with_carbon=no            # yes needs jsbach_pfts usecase
 # Some further processing for land configuration
 # ----------------------------------------------
 
-ljsbach=$([ "${run_jsbach:=no}" == yes ]          && echo .TRUE. || echo .FALSE. )
 llake=$([ "${jsbach_with_lakes:=yes}" == yes ]    && echo .TRUE. || echo .FALSE. )
 lcarbon=$([ "${jsbach_with_carbon:=yes}" == yes ] && echo .TRUE. || echo .FALSE. )
 
@@ -667,7 +665,7 @@ cat > ${atm_namelist} << EOF
  echam_phy_config(1)%dt_art = ""
 !
 ! surface (.TRUE. or .FALSE.)
- echam_phy_config(1)%ljsb   = ${ljsbach} ! .TRUE. if run_jsbach=yes
+ echam_phy_config(1)%ljsb   = .TRUE.
  echam_phy_config(1)%lamip  = .FALSE.
  echam_phy_config(1)%lice   = .TRUE.
  echam_phy_config(1)%lmlo   = .FALSE.
@@ -733,7 +731,7 @@ EOF
 # jsbach namelist
 # ---------------
 
-cat > ${lnd_namelist} << EOF
+cat > ${jsbach_namelist} << EOF
 &jsb_model_nml
   usecase              = "${jsbach_usecase}"
   use_lakes            = ${llake}            ! TRUE if jsbach_with_lakes=yes
@@ -820,7 +818,7 @@ add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                        ./
 # namelist files
 # --------------
 add_required_file ${basedir}/run/${atm_namelist}                           ./
-add_required_file ${basedir}/run/${lnd_namelist}                           ./
+add_required_file ${basedir}/run/${jsbach_namelist}                           ./
 
 # dictionary file for output variable names
 #
@@ -907,7 +905,7 @@ add_link_file ${datadir}/swflux_14band_cmip6_1850-2299-v3.2.nc             ./bc_
 #
 # - land parameters
 #
-datadir=${atmo_data_InputFolder}/land/r0009
+datadir=${icon_data_poolFolder}/${atmos_gridID}-${ocean_gridID}/land
 #
 add_link_file ${datadir}/ic_land_soil_1992.nc                              ./ic_land_soil.nc
 add_link_file ${datadir}/bc_land_soil_1992.nc                              ./bc_land_soil.nc
@@ -921,7 +919,7 @@ add_link_file ${basedir}/externals/jsbach/data/lctlib_nlct21.def           ./lct
 #
 # - HD files
 #
-datadir=${atmo_data_InputFolder}/land/r0003
+datadir=${icon_data_poolFolder}/${atmos_gridID}-${ocean_gridID}/land
 #
 add_link_file ${datadir}/hdrestart_R02B04_013_G_210120_1334_with_grid_file_mask.nc ./ic_land_hd.nc
 add_link_file ${datadir}/hdpara_icon_r2b4_013_using_grid_lsmask.nc        ./bc_land_hd.nc

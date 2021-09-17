@@ -306,7 +306,7 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'ps'      , 'psl'     ,
-                    'cosmu0'  ,
+                    'cosmu0'  , 'emissivity',
                     'rsdt'    ,
                     'rsut'    , 'rsutcs'  , 'rlut'    , 'rlutcs'  ,
                     'rsds'    , 'rsdscs'  , 'rlds'    , 'rldscs'  ,

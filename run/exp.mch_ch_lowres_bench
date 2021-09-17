@@ -85,7 +85,6 @@ steps_per_file=15
 
 # namelist files
 atmo_namelist=NAMELIST_${EXPNAME}_atm
-lnd_namelist=NAMELIST_${EXPNAME}_lnd
 
 #--------------------------------------------------------------------------------------------------
 

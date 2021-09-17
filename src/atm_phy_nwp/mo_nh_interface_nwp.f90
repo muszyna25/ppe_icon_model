@@ -2162,10 +2162,12 @@ CONTAINS
       CALL nwp_diag_output_2(pt_patch, pt_prog_rcf, prm_nwp_tend)
     ENDIF
 
+
     CALL nwp_opt_diagnostics_2(pt_patch,             & !in
       &                        prm_diag,             & !inout
       &                        zcosmu0,              & !in
       &                        dt_phy_jg(itfastphy))   !in
+
 
     ! time averages, accumulations and vertical integrals
     CALL nwp_statistics(lcall_phy_jg,                    & !in

@@ -74,10 +74,8 @@ MODULE mo_echam_phy_memory
     &                               ZA_ATMOSPHERE
   USE mo_sea_ice_nml,         ONLY: kice
   USE mo_run_config,          ONLY: iqv ,iqc ,iqi ,     &
-    &                               iqr ,iqs ,iqg
+    &                               iqr ,iqs ,iqg, iqh
   USE mo_advection_config,    ONLY: advection_config
-    !
-  USE mo_echam_phy_config,    ONLY: echam_phy_config
 
 #include "add_var_acc_macro.inc"
 
@@ -158,6 +156,7 @@ MODULE mo_echam_phy_memory
       & qrvi      (:,:)=>NULL(),    &!< [kg/m2] rain        content, vertically integrated through the atmospheric column
       & qsvi      (:,:)=>NULL(),    &!< [kg/m2] snow        content, vertically integrated through the atmospheric column
       & qgvi      (:,:)=>NULL(),    &!< [kg/m2] graupel     content, vertically integrated through the atmospheric column
+      & qhvi      (:,:)=>NULL(),    &!< [kg/m2] hail        content, vertically integrated through the atmospheric column
       & rho       (:,:,:)=>NULL(),  &!< [kg/m3] air density
       & mh2o      (:,:,:)=>NULL(),  &!< [kg/m2] h2o content (vap+liq+ice)
       & mair      (:,:,:)=>NULL(),  &!< [kg/m2] air content
@@ -267,8 +266,10 @@ MODULE mo_echam_phy_memory
       & ssfl      (:,  :)=>NULL(),  &!< sfc snow flux, large scale [kg m-2 s-1]
       & ssfc      (:,  :)=>NULL(),  &!< sfc snow flux, convective  [kg m-2 s-1]
       & rain_gsp_rate(:,  :)=>NULL(),  &!< gridscale rain rate     [kg m-2 s-1]
+      & ice_gsp_rate (:,  :)=>NULL(),  &!< gridscale ice rate      [kg m-2 s-1]
       & snow_gsp_rate(:,  :)=>NULL(),  &!< gridscale snow rate     [kg m-2 s-1]
       & graupel_gsp_rate(:,  :)=>NULL(),  &!< gridscale graupel rate     [kg m-2 s-1]
+      & hail_gsp_rate(:,  :)=>NULL(),  &!< gridscale hail rate     [kg m-2 s-1]
       & pr        (:,  :)=>NULL()    !< precipitation flux         [kg m-2 s-1]
 
     ! Tropopause
@@ -575,6 +576,8 @@ MODULE mo_echam_phy_memory
       &   ta_mig (:,:,:)=>NULL()  , & !< temperature tendency due to graupel microphysics proc. (for const. pressure)
       & qtrc_mig (:,:,:,:)=>NULL(), & !< tracer tendency  due to graupel microphysics proc.
       !
+      ! two-moment microphysics -> See mo_cloud_two/mo_cloud_two_memory
+      !
       ! cumulus convection
       !
       &   ta_cnv (:,:,:)=>NULL(),   & !< temperature tendency due to convective cloud processes (for const. pressure)
@@ -628,6 +631,7 @@ MODULE mo_echam_phy_memory
     TYPE(t_ptr_3d),ALLOCATABLE :: qtrc_phy_ptr(:)
     TYPE(t_ptr_3d),ALLOCATABLE :: qtrc_cld_ptr(:)
     TYPE(t_ptr_3d),ALLOCATABLE :: qtrc_mig_ptr(:)
+    TYPE(t_ptr_3d),ALLOCATABLE :: qtrc_two_ptr(:)
     TYPE(t_ptr_3d),ALLOCATABLE :: qtrc_cnv_ptr(:)
     TYPE(t_ptr_3d),ALLOCATABLE :: qtrc_vdf_ptr(:)
     TYPE(t_ptr_3d),ALLOCATABLE :: qtrc_mox_ptr(:)
@@ -763,13 +767,23 @@ CONTAINS
                                      & field_list, field                            )
     INTEGER,INTENT(IN) :: jg !> patch ID
     INTEGER,INTENT(IN) :: kproma, klev, kblks, ktracer, ksfc_type  !< dimension sizes
-    CHARACTER(*), INTENT(IN) :: listname, prefix
-    TYPE(t_var_list_ptr), INTENT(INOUT) :: field_list, diag_list, metrics_list, ext_atm_list
+
+    CHARACTER(*),            INTENT(IN)    :: listname, prefix
+
+    TYPE(t_var_list_ptr),    INTENT(INOUT) :: diag_list
+    TYPE(t_var_list_ptr),    INTENT(INOUT) :: metrics_list
+    TYPE(t_var_list_ptr),    INTENT(INOUT) :: ext_atm_list
+    TYPE(t_var_list_ptr),    INTENT(INOUT) :: field_list
     TYPE(t_echam_phy_field), INTENT(INOUT) :: field
+
+    ! Local variables
+
     CHARACTER(LEN=vname_len) :: trcname, varname
     LOGICAL :: contvar_is_in_output
+
     TYPE(t_cf_var)    ::    cf_desc
     TYPE(t_grib2_var) :: grib2_desc, grib2_tmp
+
     INTEGER :: shape2d(2), shape3d(3), shapesfc(3), shapeice(3), shape3d_layer_interfaces(3)
     INTEGER :: ibits, iextbits, ivarbits
     INTEGER :: datatype_flt
@@ -777,8 +791,10 @@ CONTAINS
 
     ibits = DATATYPE_PACK16
     iextbits = DATATYPE_PACK24
-    ivarbits = MERGE(DATATYPE_PACK24, DATATYPE_PACK16, gribout_config(jg)%lgribout_24bit)
+
+    ivarbits     = MERGE(DATATYPE_PACK24, DATATYPE_PACK16, gribout_config(jg)%lgribout_24bit)
     datatype_flt = MERGE(DATATYPE_FLT64, DATATYPE_FLT32, lnetcdf_flt64_output)
+
     shape2d  = (/kproma,       kblks/)
     shape3d  = (/kproma, klev, kblks/)
     shapesfc = (/kproma, kblks, ksfc_type/)
@@ -1049,7 +1065,7 @@ CONTAINS
 
     ! &       field% qtrc      (nproma,nlev  ,nblks,ntracer),  &
     CALL add_var( field_list, prefix//'qtrc_phy', field%qtrc,                  &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                           &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                        &
                 & t_cf_var('mass_fraction_of_tracer_in_air', 'kg kg-1',        &
                 &          'mass fraction of tracer in air (physics)',         &
                 &          datatype_flt),                                      &
@@ -1061,7 +1077,7 @@ CONTAINS
 
     ! &       field% mtrc      (nproma,nlev  ,nblks,ntracer),  &
     CALL add_var( field_list, prefix//'mtrc_phy', field%mtrc,                  &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                           &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                        &
                 & t_cf_var('mass_of_tracer_in_air', 'kg m-2',                  &
                 &          'mass of tracer in air (physics)',                  &
                 &          datatype_flt),                                      &
@@ -1222,6 +1238,16 @@ CONTAINS
                   & t_cf_var('total_graupel', 'kg m-2', 'vertically integrated graupel', &
                   &          datatype_flt),                                    &
                   & grib2_var(0,1,223, ibits, GRID_UNSTRUCTURED, GRID_CELL),    &
+                  & ref_idx=jtrc, ldims=(/kproma,kblks/),                      &
+                  & lrestart = .FALSE.                                         )
+       END IF
+       IF ( jtrc == iqh ) THEN
+          CALL add_ref( field_list, prefix//'mtrcvi_phy',                      &
+                  & prefix//'qhvi', field%qhvi,                                &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
+                  & t_cf_var('total_hail', 'kg m-2', 'vertically integrated hail', &
+                  &          datatype_flt),                                    &
+                  & grib2_var(0,1,70, ibits, GRID_UNSTRUCTURED, GRID_CELL),    &
                   & ref_idx=jtrc, ldims=(/kproma,kblks/),                      &
                   & lrestart = .FALSE.                                         )
        END IF
@@ -1430,6 +1456,7 @@ CONTAINS
     __acc_attach(field%pfull)
 
     !-- Variables defined at layer interfaces --
+
     ! &       field% geoi      (nproma,nlevp1,nblks),          &
     cf_desc    = t_cf_var('geopotential above surface', 'm2 s-2', 'geopotential above surface', datatype_flt)
     grib2_desc = grib2_var(0, 3, 4, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -2541,6 +2568,17 @@ CONTAINS
          &        isteptype=TSTEP_INSTANT,                       &
          &        lopenacc=.TRUE.)
 
+    cf_desc    = t_cf_var('ice_gsp_rate', 'kg m-2 s-1',    &
+               & 'gridscale ice rate ', datatype_flt)
+    grib2_desc = grib2_var(0,1,77, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'ice_gsp_rate', field%ice_gsp_rate,        &
+         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
+         &        cf_desc, grib2_desc,                           &
+         &        ldims=shape2d,                                 &
+         &        lrestart = .TRUE.,                             &
+         &        isteptype=TSTEP_INSTANT,                       &
+         &        lopenacc=.TRUE.)
+
     cf_desc    = t_cf_var('snow_gsp_rate', 'kg m-2 s-1',    &
                & 'gridscale snow rate ', datatype_flt)
     grib2_desc = grib2_var(0,1,56, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -2555,7 +2593,18 @@ CONTAINS
     cf_desc    = t_cf_var('graupel_gsp_rate', 'kg m-2 s-1',    &
                & 'gridscale graupel rate ', datatype_flt)
     grib2_desc = grib2_var(0,1,75, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'graupel_gsp_rate', field%graupel_gsp_rate,        &
+    CALL add_var( field_list, prefix//'graupel_gsp_rate', field%graupel_gsp_rate,  &
+         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
+         &        cf_desc, grib2_desc,                           &
+         &        ldims=shape2d,                                 &
+         &        lrestart = .TRUE.,                             &
+         &        isteptype=TSTEP_INSTANT,                       &
+         &        lopenacc=.TRUE.)
+
+    cf_desc    = t_cf_var('hail_gsp_rate', 'kg m-2 s-1',    &
+               & 'gridscale hail rate ', datatype_flt)
+    grib2_desc = grib2_var(0,1,75, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'hail_gsp_rate', field%hail_gsp_rate,        &
          &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
          &        cf_desc, grib2_desc,                           &
          &        ldims=shape2d,                                 &
@@ -4430,6 +4479,8 @@ CONTAINS
        !
     END IF
 
+  !  IF ( echam_phy_tc(jg)%dt_two > dt_zero ) THEN -> See:  mo_cloud_two/mo_cloud_two_memory
+
     IF ( echam_phy_tc(jg)%dt_cnv > dt_zero ) THEN
        !
        IF (is_variable_in_output(var_name=prefix//'ta_cnv')) THEN
@@ -4935,6 +4986,8 @@ CONTAINS
        END DO
        !
     END IF
+
+  !  IF ( echam_phy_tc(jg)%dt_two > dt_zero ) THEN -> See:  mo_cloud_two/mo_cloud_two_memory
 
     IF ( echam_phy_tc(jg)%dt_cnv > dt_zero ) THEN
        !

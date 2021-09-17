@@ -54,7 +54,6 @@ MODULE mo_hamocc_nml
 
   LOGICAL, PUBLIC :: l_cyadyn         = .TRUE.   !  prognostic cyanobacteria
   LOGICAL, PUBLIC :: l_cpl_co2        = .FALSE.   !  co2 coupling to atm
-  LOGICAL, PUBLIC :: l_diffat         = .FALSE.   !  diffusive atm
   LOGICAL, PUBLIC :: l_bgc_check      = .FALSE.   ! MASS check at every time step?
   LOGICAL, PUBLIC :: l_up_sedshi      = .FALSE.   ! Upward sediment shifting
   LOGICAL, PUBLIC :: l_implsed        = .FALSE.   ! Implicit sediment formulation
@@ -70,6 +69,10 @@ MODULE mo_hamocc_nml
   REAL(wp), PUBLIC :: calmax
   REAL(wp), PUBLIC :: bkcya_P, bkcya_Fe
   !LOGICAL, PUBLIC :: l_avflux         = .TRUE.   ! flux redistribution
+
+  ! extended N-cycle
+  LOGICAL, PUBLIC :: l_N_cycle = .FALSE.
+  REAL(wp), PUBLIC :: no3nh4red, no3no2red
   
   REAL(wp), PUBLIC :: atm_co2, atm_o2, atm_n2
   INTEGER         :: iunit
@@ -108,7 +111,10 @@ MODULE mo_hamocc_nml
     &  dremcalc, &
     &  calmax, &
     &  bkcya_P, &
-    &  bkcya_Fe
+    &  bkcya_Fe, &
+    &  l_N_cycle, &
+    &  no3nh4red, &
+    &  no3no2red
 
 CONTAINS
   !>
@@ -150,14 +156,9 @@ CONTAINS
     deltaorg = 0._wp
     deltasil = 0._wp
 
-  ! Atmospheri concencentrations
-   IF (l_diffat) THEN
-       ! all concentrations will be calculated in carchm
-    ELSE
-       atm_co2 = 278._wp
-       atm_o2  = 196800._wp
-       atm_n2  = 802000._wp
-    ENDIF
+    atm_co2 = 278._wp
+    atm_o2  = 196800._wp
+    atm_n2  = 802000._wp
 
    ks=12
    dzsed(:) =-1._wp
@@ -202,6 +203,9 @@ CONTAINS
    bkcya_P = 5.e-8_wp
    bkcya_Fe = 30.e-8_wp
 
+   no3nh4red = 0.002_wp  ! 1/day
+   no3no2red = 0.002_wp  ! 1/day
+
 
 
     !------------------------------------------------------------------
@@ -239,6 +243,11 @@ CONTAINS
     IF (i_settling > 1 ) THEN
       CALL finish(TRIM(routine), 'Aggregation not yet implemented, i_settling must be 0 or 1')
     END IF
+
+    if (l_N_cycle .and. l_implsed) THEN
+      CALL finish(TRIM(routine), 'Extended N-cycle only works with explicit sediment!')
+    END IF
+
 
     ksp=ks+1
     ALLOCATE(porwat(ks))

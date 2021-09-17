@@ -13,6 +13,7 @@ experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.icon-dev/check.atm_amip|
 experiment|checksuite.icon-dev/check.atm_amip_update|
 experiment|checksuite.icon-dev/check.atm_ape|
+experiment|checksuite.icon-dev/check.atm_2mom_bubble_rceTorus|
 builder|MISTRAL_intel_hybrid|--with-fortran=intel --with-openmp|AES
 experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport_nodynamics|
 experiment|checksuite.icon-dev/check.atm_amip_noparams|
@@ -21,6 +22,7 @@ experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.icon-dev/check.atm_amip|
 experiment|checksuite.icon-dev/check.atm_amip_update|
 experiment|checksuite.icon-dev/check.atm_ape|
+experiment|checksuite.icon-dev/check.atm_2mom_bubble_rceTorus|
 builder|MISTRAL_intel_openmp|--with-fortran=intel --without-mpi --with-openmp --without-yac|AES
 experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport_nodynamics|
 experiment|checksuite.icon-dev/check.atm_amip_noparams|
@@ -29,6 +31,7 @@ experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.icon-dev/check.atm_amip|
 experiment|checksuite.icon-dev/check.atm_amip_update|
 experiment|checksuite.icon-dev/check.atm_ape|
+experiment|checksuite.icon-dev/check.atm_2mom_bubble_rceTorus|
 builder|MISTRAL_nag_serial|--with-fortran=nag --without-mpi --without-yac|AES
 builder|MISTRAL_ocean|--with-fortran=intel --with-openmp --with-flags=ocean|AES
 builder|MISTRAL_gcc|--with-fortran=gcc|AES
@@ -39,6 +42,7 @@ experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.icon-dev/check.atm_amip|
 experiment|checksuite.icon-dev/check.atm_amip_update|
 experiment|checksuite.icon-dev/check.atm_ape|
+experiment|checksuite.icon-dev/check.atm_2mom_bubble_rceTorus|
 builder|MISTRAL_nag|--with-fortran=nag|AES
 experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport_nodynamics|
 experiment|checksuite.icon-dev/check.atm_amip_noparams|
@@ -47,3 +51,4 @@ experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.icon-dev/check.atm_amip|
 experiment|checksuite.icon-dev/check.atm_amip_update|
 experiment|checksuite.icon-dev/check.atm_ape|
+experiment|checksuite.icon-dev/check.atm_2mom_bubble_rceTorus|

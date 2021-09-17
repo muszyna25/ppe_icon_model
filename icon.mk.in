@@ -171,11 +171,6 @@ ICON_exec_file:= $(bindir)/icon@EXEEXT@
 ICON_prog_obj_file:= $(call get_obj_names,src/drivers/icon.f90)
 exec_files+= $(ICON_exec_file)
 
-# JSBACH executable:
-@JSBACH_ENABLED@JSBACH_exec_file:= $(bindir)/jsb4_driver@EXEEXT@
-@JSBACH_ENABLED@JSBACH_prog_obj_file:= $(call get_obj_names,$(JSBACH_subdir)/drivers/jsb4_driver.f90)
-@JSBACH_ENABLED@exec_files+= $(JSBACH_exec_file)
-
 ############################## GENERATED ARCHIVES ##############################
 
 # Generated archive (library) files:
@@ -192,7 +187,6 @@ get_prereq_objs= $(filter-out $(1),$(filter %.@OBJEXT@, \
 # executables):
 common_lib_file:= $(libdir)/libicon.a
 common_lib_prog_obj_files:= $(ICON_prog_obj_file)
-@JSBACH_ENABLED@common_lib_prog_obj_files+= $(JSBACH_prog_obj_file)
 common_lib_member_files:= $(call get_prereq_objs,$(common_lib_prog_obj_files))
 lib_files+= $(common_lib_file)
 
@@ -225,12 +219,12 @@ endif
 .DELETE_ON_ERROR:
 # Targets not associated with files:
 .PHONY: all depend dummy-depend preprocess mostlyclean clean \
-        distclean install check force-create-version \
+        distclean install check check-bundled force-create-version \
         sanitize-mod-proxies claw
 
 # Targets that do not need the dependency files:
 nodep_targets:= depend dummy-depend preprocess mostlyclean clean \
-                distclean $(pp_files)
+                distclean check-bundled $(pp_files)
 
 # Selective search paths:
 vpath %.f90 $(srcdir)
@@ -299,9 +293,13 @@ install: all
 srclist: $(dep_files)
 	$(silent_GEN)$(DEPLIST) @deplist.config -t $(ICON_prog_obj_file) -f $^ 2>/dev/null | sed '/\(\.@OBJEXT@\|\.@FC_MOD_FILE_EXT@\.proxy\)$$/d' | sort > $@
 
-# Check rule (run the tests serially to make the output readable and prevent
-# from possible overloading due to multiple simultaneous MPI runs):
-check: all
+# Check rule:
+check: all check-bundled
+
+# Check rule for the bundled libraries (run the tests serially to make the
+# output readable and prevent from possible overloading due to multiple
+# simultaneous MPI runs):
+check-bundled:| $(if $(filter check,$(MAKECMDGOALS)),all) # run the tests after 'all' when 'make check'
 	@test -z '$(bundled_subdirs)' && echo "The list of bundled libraries is empty: nothing to check." && exit 0; \
 	fail=; pass=; \
 	for d in $(bundled_subdirs); do \
@@ -315,9 +313,6 @@ check: all
 
 # Dependencies of the ICON executable:
 $(ICON_exec_file): $(ICON_prog_obj_file) $(common_lib_file) $(BUNDLED_LIBFILES)
-
-# Dependencies of the JSBACH executable:
-@JSBACH_ENABLED@$(JSBACH_exec_file): $(JSBACH_prog_obj_file) $(common_lib_file) $(BUNDLED_LIBFILES)
 
 # Common linking rule for the executables:
 $(exec_files): | $(dir_files)
@@ -351,9 +346,7 @@ is_ocean_src= $(strip $(foreach d,src/hamocc/ src/ocean/ src/sea_ice/,$(findstri
 
 # Fortran module file rule:
 $(moddir)/%.@FC_MOD_FILE_EXT@.proxy:| sanitize-mod-proxies
-	@if test -z '$<'; then \
-	  echo "Cannot find Fortran source file providing module '$(basename $(@F:.proxy=))'." >&2; \
-	else \
+	@if test -n '$<'; then \
 	  if test ! -f '$(@:.proxy=)'; then rm -f '$<'; $(MAKE) -f icon.mk '$<'; fi; \
 	  if cmp '$@' '$(@:.proxy=)' >/dev/null 2>&1 || $(MODCMP) '$@' '$(@:.proxy=)' @FC_VENDOR@ 2>/dev/null; then :; \
 	  else cp '$(@:.proxy=)' '$@' 2>/dev/null; fi; \

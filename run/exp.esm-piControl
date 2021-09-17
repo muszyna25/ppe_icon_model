@@ -132,12 +132,11 @@ output_lnd_full=no
 # --------------
 
 atm_namelist=NAMELIST_${EXPNAME}_atm
-lnd_namelist=NAMELIST_${EXPNAME}_lnd
+jsbach_namelist=NAMELIST_${EXPNAME}_lnd
 oce_namelist=NAMELIST_${EXPNAME}_oce
 cpl_xmlctrfn=XMLCTRFN_${EXPNAME}_cpl
 
 # JSBACH settings
-run_jsbach=yes
 jsbach_usecase=jsbach_pfts                # jsbach_lite/jsbach_pfts
 jsbach_with_hd=yes
 jsbach_with_lakes=yes
@@ -166,7 +165,6 @@ if [[ $jsbach_with_lakes == yes ]]
 then
   [[ ${output_lnd} != "basic" ]] && output_tiles="${output_tiles}, 'lake', 'land'"
 fi
-ljsbach=$([ "${run_jsbach:=no}" == yes ] && echo .TRUE. || echo .FALSE. )
 llake=$([ "${jsbach_with_lakes:=yes}" == yes ] && echo .TRUE. || echo .FALSE. )
 lcarbon=$([ "${jsbach_with_carbon:=yes}" == yes ] && echo .TRUE. || echo .FALSE. )
 if [[ $jsbach_usecase == *pfts* ]]
@@ -262,7 +260,7 @@ cat > ${atm_namelist} << EOF
  echam_phy_config(1)%dt_art = ""
 !
 ! surface (.TRUE. or .FALSE.)
- echam_phy_config(1)%ljsb  = ${ljsbach}
+ echam_phy_config(1)%ljsb  = .TRUE.
  echam_phy_config(1)%lamip = .FALSE.
  echam_phy_config(1)%lice  = .TRUE.
  echam_phy_config(1)%lmlo  = .FALSE.
@@ -318,7 +316,7 @@ EOF
 # II.1.3 Land surface and soil
 # ----------------------------
 
-cat > ${lnd_namelist} << EOF
+cat > ${jsbach_namelist} << EOF
 &jsb_model_nml
   usecase         = "${jsbach_usecase}"
   use_lakes       = ${llake}
@@ -384,7 +382,7 @@ cat > ${lnd_namelist} << EOF
 /
 EOF
 if [[ ${jsbach_with_hd} = yes ]]; then
-cat >> ${lnd_namelist} << EOF
+cat >> ${jsbach_namelist} << EOF
 &jsb_hd_nml
   active               = .TRUE.
   routing_scheme       = 'full'
@@ -417,7 +415,7 @@ add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
 # ---------------------
 
 add_required_file ${basedir}/run/${atm_namelist}                        ./
-add_required_file ${basedir}/run/${lnd_namelist}                        ./
+add_required_file ${basedir}/run/${jsbach_namelist}                        ./
 
 # II.2.3 Dictionary file for output variable names
 # ------------------------------------------------
