@@ -63,8 +63,8 @@ MODULE mo_ext_data_state
     &                              sstice_mode
   USE mo_radiation_config,   ONLY: irad_o3, albedo_type
   USE mo_extpar_config,      ONLY: i_lctype, nclass_lu, nmonths_ext, itype_vegetation_cycle, itype_lwemiss
-  USE mo_cdi,                ONLY: DATATYPE_PACK16, DATATYPE_FLT32, DATATYPE_FLT64, &
-    &                              TSTEP_CONSTANT, TSTEP_MAX, TSTEP_AVG,            &
+  USE mo_cdi,                ONLY: DATATYPE_PACK16, DATATYPE_FLT32, DATATYPE_FLT64,     &
+    &                              TSTEP_CONSTANT, TSTEP_MAX, TSTEP_AVG, TSTEP_INSTANT, &
     &                              GRID_UNSTRUCTURED
   USE mo_zaxis_type,         ONLY: ZA_REFERENCE, ZA_LAKE_BOTTOM, ZA_SURFACE, &
     &                              ZA_HEIGHT_2M, ZA_PRESSURE
@@ -639,7 +639,7 @@ CONTAINS
       CALL add_var( p_ext_atm_list, 'plcov', p_ext_atm%plcov,       &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
-        &           isteptype=TSTEP_CONSTANT,                       &
+        &           isteptype=TSTEP_INSTANT,                        &
         &           post_op=post_op(POST_OP_SCALE, arg1=100._wp,    &
         &                 new_cf=new_cf_desc) )
 
@@ -688,8 +688,8 @@ CONTAINS
       grib2_desc = grib2_var( 2, 0, 28, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'lai', p_ext_atm%lai,           &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,   &
-        &           isteptype=TSTEP_CONSTANT )
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
+        &           isteptype=TSTEP_INSTANT )
 
       ! Surface area index (aggregated)
       !
@@ -778,7 +778,7 @@ CONTAINS
       CALL add_var( p_ext_atm_list, 'rootdp', p_ext_atm%rootdp,     &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
-        &           isteptype=TSTEP_CONSTANT )
+        &           isteptype=TSTEP_INSTANT )
 
       ! rootdp_t      p_ext_atm%rootdp_t(nproma,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('root_depth_of_vegetation', 'm',&
