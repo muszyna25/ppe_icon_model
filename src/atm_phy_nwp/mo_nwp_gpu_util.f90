@@ -11,6 +11,7 @@ MODULE mo_nwp_gpu_util
   USE mo_nonhydrostatic_config,   ONLY: kstart_moist, kstart_tracer
   USE mo_grid_config,             ONLY: n_dom
   USE mo_nwp_phy_state,           ONLY: phy_params
+  USE mo_run_config,              ONLY: ldass_lhn
 
 #ifdef _OPENACC
   USE mo_var_list_gpu,            ONLY: gpu_update_var_list
@@ -94,6 +95,12 @@ MODULE mo_nwp_gpu_util
     CALL gpu_update_var_list('wtr_prog_of_domain_', .false., domain=jg, substr='_and_timelev_', timelev=nnow(jg))
     CALL gpu_update_var_list('wtr_prog_of_domain_', .false., domain=jg, substr='_and_timelev_', timelev=nnew(jg))
     CALL gpu_update_var_list('ext_data_atm_D', .false., domain=jg)
+
+    IF(ldass_lhn) THEN
+        ! Update radar data fields
+        CALL gpu_update_var_list('radar_data_ct_dom_', .false., domain=jg)
+        CALL gpu_update_var_list('radar_data_td_dom_', .false., domain=jg)
+    ENDIF
 
     ! Update dynamics fields
     CALL gpu_update_var_list('nh_state_metrics_of_domain_', .false., domain=jg)
@@ -181,6 +188,12 @@ MODULE mo_nwp_gpu_util
     CALL gpu_update_var_list('wtr_prog_of_domain_', .true., domain=jg, substr='_and_timelev_', timelev=nnew(jg))
     CALL gpu_update_var_list('lnd_diag_of_domain_', .true., domain=jg)
     CALL gpu_update_var_list('ext_data_atm_D', .true., domain=jg)
+
+    IF(ldass_lhn) THEN
+        ! Update radar data fields
+        CALL gpu_update_var_list('radar_data_ct_dom_', .true., domain=jg)
+        CALL gpu_update_var_list('radar_data_td_dom_', .true., domain=jg)
+    ENDIF
 
     ! Update dynamics fields
     CALL gpu_update_var_list('nh_state_metrics_of_domain_', .true., domain=jg)

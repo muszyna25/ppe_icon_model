@@ -1069,6 +1069,7 @@ CONTAINS
     !-------------------------------------------------------------------------
 
     IF ( lcall_phy_jg(itconv)  ) THEN
+      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "convection", .TRUE., opt_lupdate_cpu=.FALSE.)
 #ifdef _OPENACC
       IF (.NOT. linit) THEN
         CALL message('mo_nh_interface_nwp', 'Device to host copy before nwp_convection. This needs to be removed once port is finished!')
@@ -1082,7 +1083,6 @@ CONTAINS
 &           CALL message('mo_nh_interface', 'convection')
 
       IF (timers_level > 2) CALL timer_start(timer_nwp_convection)
-      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "convection", .TRUE., opt_lupdate_cpu=.FALSE.)
       CALL nwp_convection (  dt_phy_jg(itconv),                 & !>input
                             & pt_patch, p_metrics,              & !>input
                             & ext_data,                         & !>input
@@ -1090,7 +1090,6 @@ CONTAINS
                             & pt_prog_rcf,                      & !>input
                             & pt_diag,                          & !>inout
                             & prm_diag, prm_nwp_tend            ) !>inout
-      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "convection", .FALSE., opt_lupdate_cpu=.FALSE.)
       IF (timers_level > 2) CALL timer_stop(timer_nwp_convection)
 #ifdef _OPENACC
       IF (.NOT. linit) THEN
@@ -1099,6 +1098,7 @@ CONTAINS
         i_am_accel_node = my_process_is_work()
       ENDIF
 #endif
+      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "convection", .FALSE., opt_lupdate_cpu=.FALSE.)
 
     ENDIF! convection
 
@@ -1508,6 +1508,7 @@ CONTAINS
     !-------------------------------------------------------------------------
 
     IF (lcall_phy_jg(itsso) .OR. lcall_phy_jg(itgwd)) THEN
+      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "gwdrag", .TRUE., opt_lupdate_cpu=.FALSE.)
 #ifdef _OPENACC
       IF (.NOT. linit) THEN
         CALL message('mo_nh_interface_nwp', 'Device to host copy before nwp_gwdrag. This needs to be removed once port is finished!')
@@ -1522,7 +1523,6 @@ CONTAINS
       IF (timers_level > 3) CALL timer_start(timer_sso)
 
       ! GZ: use fast-physics time step instead of dt_phy_jg(itsso) in order to avoid calling-frequency dependence of low-level blocking
-      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "gwdrag", .TRUE., opt_lupdate_cpu=.FALSE.)
       CALL nwp_gwdrag ( dt_loc,                    & !>input
         &               lcall_phy_jg(itsso),       & !>input
         &               dt_phy_jg(itgwd),          & !>input
@@ -1531,7 +1531,6 @@ CONTAINS
         &               ext_data,                  & !>input
         &               pt_diag,                   & !>inout
         &               prm_diag, prm_nwp_tend     ) !>inout
-      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "gwdrag", .FALSE., opt_lupdate_cpu=.FALSE.)
 
       IF (timers_level > 3) CALL timer_stop(timer_sso)
 #ifdef _OPENACC
@@ -1541,6 +1540,7 @@ CONTAINS
         i_am_accel_node = my_process_is_work()
       ENDIF
 #endif
+      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "gwdrag", .FALSE., opt_lupdate_cpu=.FALSE.)
     ENDIF ! inwp_sso
     !-------------------------------------------------------------------------
     
