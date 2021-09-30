@@ -55,7 +55,7 @@ digraph ICON {
 		"LAPACK" -> {"BLAS"};
 
 		"YAC" [shape=box];
-		"YAC" -> {"MPI"; "MTIME"; "LAPACK"; "NetCDF-C"; "XML2"};
+		"YAC" -> {"MPI"; "YAXT"; "MTIME"; "LAPACK"; "NetCDF-C"; "XML2"};
 
 		"ICON-TIXI" [shape=box];
 		"ICON-TIXI" -> {"XML2"};
