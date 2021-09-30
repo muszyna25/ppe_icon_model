@@ -281,20 +281,20 @@ cat > coupling_${EXPNAME}.xml << EOF
          <model>ICON</model>
          <simulated>ocean</simulated>
          <transient_grid_refs>
-            <transient_grid_ref collection_size="2" grid_ref="1" id="1" transient_ref="1"/>
-            <transient_grid_ref collection_size="2" grid_ref="1" id="2" transient_ref="2"/>
-            <transient_grid_ref collection_size="3" grid_ref="1" id="3" transient_ref="3"/>
-            <transient_grid_ref collection_size="4" grid_ref="1" id="4" transient_ref="4"/>
-            <transient_grid_ref collection_size="2" grid_ref="1" id="5" transient_ref="5"/>
-            <transient_grid_ref collection_size="1" grid_ref="1" id="6" transient_ref="6"/>
-            <transient_grid_ref collection_size="1" grid_ref="1" id="7" transient_ref="7"/>
-            <transient_grid_ref collection_size="1" grid_ref="1" id="8" transient_ref="8"/>
-            <transient_grid_ref collection_size="3" grid_ref="1" id="9" transient_ref="9"/>
-            <transient_grid_ref collection_size="1" grid_ref="1" id="10" transient_ref="10"/>
-            <transient_grid_ref collection_size="1" grid_ref="1" id="11" transient_ref="11"/>
-            <transient_grid_ref collection_size="1" grid_ref="1" id="12" transient_ref="12"/>
-            <transient_grid_ref collection_size="1" grid_ref="1" id="13" transient_ref="13"/>
-            <transient_grid_ref collection_size="1" grid_ref="1" id="14" transient_ref="14"/>
+            <transient_grid_ref collection_size="2" grid_ref="2" id="1" transient_ref="1"/>
+            <transient_grid_ref collection_size="2" grid_ref="2" id="2" transient_ref="2"/>
+            <transient_grid_ref collection_size="3" grid_ref="2" id="3" transient_ref="3"/>
+            <transient_grid_ref collection_size="4" grid_ref="2" id="4" transient_ref="4"/>
+            <transient_grid_ref collection_size="2" grid_ref="2" id="5" transient_ref="5"/>
+            <transient_grid_ref collection_size="1" grid_ref="2" id="6" transient_ref="6"/>
+            <transient_grid_ref collection_size="1" grid_ref="2" id="7" transient_ref="7"/>
+            <transient_grid_ref collection_size="1" grid_ref="2" id="8" transient_ref="8"/>
+            <transient_grid_ref collection_size="3" grid_ref="2" id="9" transient_ref="9"/>
+            <transient_grid_ref collection_size="1" grid_ref="2" id="10" transient_ref="10"/>
+            <transient_grid_ref collection_size="1" grid_ref="2" id="11" transient_ref="11"/>
+            <transient_grid_ref collection_size="1" grid_ref="2" id="12" transient_ref="12"/>
+            <transient_grid_ref collection_size="1" grid_ref="2" id="13" transient_ref="13"/>
+            <transient_grid_ref collection_size="1" grid_ref="2" id="14" transient_ref="14"/>
          </transient_grid_refs>
       </component>
       <component id="3">
@@ -320,7 +320,8 @@ cat > coupling_${EXPNAME}.xml << EOF
       <transient id="14" transient_standard_name="sea_level_pressure"/>
    </transients>
    <grids>
-      <grid alias_name="grid1" id="1"/>
+      <grid alias_name="icon_atmos_grid" id="1"/>
+      <grid alias_name="icon_ocean_grid" id="2"/>
    </grids>
    <dates>
       <start_date>+1800-01-01T00:00:00.000</start_date>
@@ -343,12 +344,10 @@ cat > coupling_${EXPNAME}.xml << EOF
                <target_timelag>${oce_lag}</target_timelag>
             </timestep>
             <mapping_on_source>true</mapping_on_source>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+            <interpolation_requirements>
                <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="-999.9"/>
             </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
          <transient_couple transient_id="2">
@@ -362,12 +361,10 @@ cat > coupling_${EXPNAME}.xml << EOF
                <target_timelag>${oce_lag}</target_timelag>
             </timestep>
             <mapping_on_source>true</mapping_on_source>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+            <interpolation_requirements>
                <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="-999.9"/>
             </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
          <transient_couple transient_id="3">
@@ -381,12 +378,10 @@ cat > coupling_${EXPNAME}.xml << EOF
                <target_timelag>${oce_lag}</target_timelag>
             </timestep>
             <mapping_on_source>true</mapping_on_source>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+            <interpolation_requirements>
                <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="-999.9"/>
             </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
          <transient_couple transient_id="4">
@@ -400,12 +395,10 @@ cat > coupling_${EXPNAME}.xml << EOF
                <target_timelag>${oce_lag}</target_timelag>
             </timestep>
             <mapping_on_source>true</mapping_on_source>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+            <interpolation_requirements>
                <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="-999.9"/>
             </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
          <transient_couple transient_id="5">
@@ -419,12 +412,10 @@ cat > coupling_${EXPNAME}.xml << EOF
                <target_timelag>${oce_lag}</target_timelag>
             </timestep>
             <mapping_on_source>true</mapping_on_source>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+            <interpolation_requirements>
                <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="-999.9"/>
             </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
          <transient_couple transient_id="6">
@@ -438,12 +429,10 @@ cat > coupling_${EXPNAME}.xml << EOF
                <target_timelag>${atm_lag}</target_timelag>
             </timestep>
             <mapping_on_source>true</mapping_on_source>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+            <interpolation_requirements>
                <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="-999.9"/>
             </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
          <transient_couple transient_id="7">
@@ -457,12 +446,10 @@ cat > coupling_${EXPNAME}.xml << EOF
                <target_timelag>${atm_lag}</target_timelag>
             </timestep>
             <mapping_on_source>true</mapping_on_source>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+            <interpolation_requirements>
                <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="-999.9"/>
             </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
          <transient_couple transient_id="8">
@@ -476,12 +463,10 @@ cat > coupling_${EXPNAME}.xml << EOF
                <target_timelag>${atm_lag}</target_timelag>
             </timestep>
             <mapping_on_source>true</mapping_on_source>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+            <interpolation_requirements>
                <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="-999.9"/>
             </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
          <transient_couple transient_id="9">
@@ -495,12 +480,10 @@ cat > coupling_${EXPNAME}.xml << EOF
                <target_timelag>${atm_lag}</target_timelag>
             </timestep>
             <mapping_on_source>true</mapping_on_source>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+            <interpolation_requirements>
                <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="-999.9"/>
             </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
          <transient_couple transient_id="10">
@@ -514,12 +497,10 @@ cat > coupling_${EXPNAME}.xml << EOF
                <target_timelag>${oce_lag}</target_timelag>
             </timestep>
             <mapping_on_source>true</mapping_on_source>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+            <interpolation_requirements>
                <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="-999.9"/>
             </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
          <transient_couple transient_id="11">
@@ -533,12 +514,10 @@ cat > coupling_${EXPNAME}.xml << EOF
                <target_timelag>${oce_lag}</target_timelag>
             </timestep>
             <mapping_on_source>true</mapping_on_source>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+            <interpolation_requirements>
                <interpolation method="source_to_target_map"/>
                <interpolation method="fixed_value" user_value="0.0"/>
             </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
          <transient_couple transient_id="14">
@@ -552,17 +531,15 @@ cat > coupling_${EXPNAME}.xml << EOF
                <target_timelag>${oce_lag}</target_timelag>
             </timestep>
             <mapping_on_source>true</mapping_on_source>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+            <interpolation_requirements>
                <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="-999.9"/>
             </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
       </couple>
    </couples>
-   <created date="20-03-2018 11:54" tool="YAC-CouplingGUI v.1.3.0"/>
+   <created date="26-02-2021 16:00" tool="YAC-CouplingGUI v.2.0.0"/>
 </coupling>
 EOF
 

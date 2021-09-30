@@ -171,6 +171,10 @@ for builder in MISTRAL_intel18_pio; do
   $addexp checksuite.infrastructure/output/exp.atm_amip_R2B4_1day     --builders ${builder} --list $listname
 done
 
+# add tests for checking yaxt and yac stand-alone; this needs yaxt/yac to be enabled
+$addexp  checksuite.infrastructure/checkExternals/exp.check_externals_MISTRAL.run --builders MISTRAL_gcc --list ${listname}
+$addexp  checksuite.infrastructure/checkExternals/exp.check_externals_DWD.run --builders DWD_nec --list ${listname}
+
 # PGI setups
 ./set_builder_flags Active --builders MISTRAL_pgi_gpu --list $listname
 $addexp exp.atm_amip_noforcing_gpu_test    --builders MISTRAL_pgi_gpu --list $listname

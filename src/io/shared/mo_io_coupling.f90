@@ -45,8 +45,6 @@ CONTAINS
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: xsd_filename
 
     INTEGER :: comp_ids(1)
-    INTEGER :: no_of_fields = 0
-    INTEGER :: field_ids(1)
     INTEGER :: error_status
 
     IF ( is_coupled_run() ) THEN
@@ -64,8 +62,7 @@ CONTAINS
       CALL yac_fdef_comp ( TRIM(comp_name), comp_ids(1) )
 
       ! IO processes need to participate in the YAC search
-      field_ids(1)=99
-      CALL yac_fsearch ( 1, comp_ids, no_of_fields, field_ids, error_status )
+      CALL yac_fsearch ( error_status )
     ENDIF
 
   END SUBROUTINE construct_io_coupler

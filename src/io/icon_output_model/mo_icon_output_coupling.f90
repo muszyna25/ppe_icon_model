@@ -43,13 +43,6 @@ MODULE mo_icon_output_coupling
   !
   USE mo_math_constants,      ONLY: pi
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_yac_finterface,      ONLY: yac_finit, yac_fdef_comp, yac_fget_version,  &
-    &                               yac_fdef_datetime,                           &
-    &                               yac_fdef_subdomain, yac_fconnect_subdomains, &
-    &                               yac_fdef_elements, yac_fdef_points,          &
-    &                               yac_fdef_mask, yac_fdef_field, yac_fsearch,  &
-    &                               yac_ffinalize, yac_fput, yac_fget,           &
-    &                               YAC_LOCATION_CELL, COUPLING, OUT_OF_BOUND
   USE mo_coupling_config,     ONLY: is_coupled_run
   USE mo_time_config,         ONLY: time_config 
   USE mo_hamocc_nml,          ONLY: l_cpl_co2

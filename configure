@@ -7172,12 +7172,14 @@ else
     icon_bundled_yaxt_needed=no
    if test x"$enable_yaxt" = xyes || test x"$enable_cdi_pio" = xyes; then :
   icon_bundled_yaxt_needed=direct_fortran
+elif test x"$enable_coupling" = xyes && test x"$with_external_yac" = xno; then :
+  icon_bundled_yaxt_needed=transitive_c
 fi
    if test x"$icon_bundled_yaxt_needed" != xno; then :
   icon_subdir_srcdir="$srcdir/externals/yaxt"
       icon_subdir_unique_file="src/xt_idxlist.c"
       if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
-  as_fn_error $? "unable to find sources of the bundled version of YAXT library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable the YAXT data exchange (--disable-yaxt) and usage of the parallel features of CDI (--disable-cdi-pio) or provide an external version of YAXT library (--with-external-yaxt) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
+  as_fn_error $? "unable to find sources of the bundled version of YAXT library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable the YAXT data exchange (--disable-yaxt), usage of the parallel features of CDI (--disable-cdi-pio) and usage of the bundled YAC library (--with-external-yac or --disable-coupling) or provide an external version of YAXT library (--with-external-yaxt) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
 fi
             ICON_YAXT_FCFLAGS=${ICON_YAXT_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
             ICON_YAXT_CFLAGS=${ICON_YAXT_CFLAGS-$ICON_BUNDLED_CFLAGS}
@@ -7225,6 +7227,12 @@ fi
      ;; #(
   -with-regard-for-quality|-with-regard-for-quality=*|--with-regard-for-quality|--with-regard-for-quality=*|-without-regard-for-quality|--without-regard-for-quality) :
      ;; #(
+  -with-on-demand-check-programs|-with-on-demand-check-programs=*|--with-on-demand-check-programs|--with-on-demand-check-programs=*|-without-on-demand-check-programs|--without-on-demand-check-programs) :
+     ;; #(
+  -with-example-programs|-with-example-programs=*|--with-example-programs|--with-example-programs=*|-without-example-programs|--without-example-programs) :
+     ;; #(
+  -with-perf-programs|-with-perf-programs=*|--with-perf-programs|--with-perf-programs=*|-without-perf-programs|--without-perf-programs) :
+     ;; #(
   *) :
 
            case $acx_config_subdir_arg in #(
@@ -7239,7 +7247,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-         set dummy CFLAGS="$subdir_CFLAGS $ICON_YAXT_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_YAXT_FCFLAGS" MPI_LAUNCH="$MPI_LAUNCH" MPIROOT= MPI_C_INCLUDE= MPI_C_LIB= MPI_FC_MOD= MPI_FC_LIB= BUILD_CFLAGS= BUILD_FCFLAGS= BUILD_LDFLAGS= BUILD_LIBS= --enable-silent-rules="$enable_silent_rules" --disable-maintainer-mode --enable-dependency-tracking --disable-shared --enable-static --with-regard-for-quality="$enable_mpi_checks" ; shift
+         set dummy CFLAGS="$subdir_CFLAGS $ICON_YAXT_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_YAXT_FCFLAGS" MPI_LAUNCH="$MPI_LAUNCH" MPIROOT= MPI_C_INCLUDE= MPI_C_LIB= MPI_FC_MOD= MPI_FC_LIB= BUILD_CFLAGS= BUILD_FCFLAGS= BUILD_LDFLAGS= BUILD_LIBS= --enable-silent-rules="$enable_silent_rules" --disable-maintainer-mode --enable-dependency-tracking --disable-shared --enable-static --with-regard-for-quality="$enable_mpi_checks" --with-on-demand-check-programs --without-example-programs --without-perf-programs ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -7256,7 +7264,18 @@ esac
     as_fn_append bundled_includes "${FC_MOD_IN}externals/yaxt/inst_headers/f90 "
          BUNDLED_LIBFILES="externals/yaxt/src/.libs/libyaxt.a externals/yaxt/src/.libs/libyaxt_c.a $BUNDLED_LIBFILES" ;; #(
   transitive_c) :
-    BUNDLED_LIBFILES="externals/yaxt/src/.libs/libyaxt_c.a $BUNDLED_LIBFILES" ;; #(
+          set dummy FC=no ; shift
+      for acx_config_subdir_arg; do
+        case $acx_config_subdir_arg in #(
+  *\'*) :
+    acx_config_subdir_arg=`$as_echo "$acx_config_subdir_arg" | sed "s/'/'\\\\\\\\''/g"` ;; #(
+  *) :
+     ;;
+esac
+        as_fn_append acx_config_subdir_args_externals_yaxt " '$acx_config_subdir_arg'"
+      done
+
+         BUNDLED_LIBFILES="externals/yaxt/src/.libs/libyaxt_c.a $BUNDLED_LIBFILES" ;; #(
   *) :
      ;;
 esac
@@ -7693,8 +7712,11 @@ if test "x$enable_coupling" = xyes; then :
   if test "x$with_external_mtime" = xno; then :
   as_fn_error $? "unsupported combination of the configure options: you are trying to configure with an external YAC library and the bundled MTIME library: either disable the coupling (--disable-coupling) or use the bundled version of YAC library (--without-external-yac), or provide the version of MTIME library (--with-external-mtime) that the provided YAC library has been built with by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
 fi
-      { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran interface of YAC library is available" >&5
-$as_echo_n "checking whether the Fortran interface of YAC library is available... " >&6; }
+      if test "x$with_external_yaxt" = xno; then :
+  as_fn_error $? "unsupported combination of the configure options: you are trying to configure with an external YAC library and the bundled YAXT library: either disable the coupling (--disable-coupling) or use the bundled version of YAC library (--without-external-yac), or provide the version of YAXT library (--with-external-yaxt) that the provided YAC library has been built with by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
+fi
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran interface of YAC 2.x library is available" >&5
+$as_echo_n "checking whether the Fortran interface of YAC 2.x library is available... " >&6; }
 if ${icon_cv_have_yac+:} false; then :
   $as_echo_n "(cached) " >&6
 else
@@ -7702,10 +7724,12 @@ else
          cat > conftest.$ac_ext <<_ACEOF
       program main
 
-      use mo_yac_finterface, only: yac_finit
+      use mo_yac_finterface, only: yac_fdef_grid
       implicit none
-      character(len=1024) :: a, b
-      call yac_finit(a, b)
+      integer, parameter :: v = 3, c = 1, vpc = 3
+      integer :: c2v(vpc, c), id
+      real :: x(v), y(v)
+      call yac_fdef_grid('', v, c, vpc, x, y, c2v, id)
       end
 _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :
@@ -7719,7 +7743,7 @@ $as_echo "$icon_cv_have_yac" >&6; }
       if test "x$icon_cv_have_yac" = xno; then :
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using the Fortran interface of YAC library: either disable the coupling (--disable-coupling) or use the bundled version of YAC library (--without-external-yac), or set FCFLAGS, LDFLAGS and LIBS accordingly
+as_fn_error $? "unable to link a test program using the Fortran interface of YAC 2.x library: either disable the coupling (--disable-coupling) or use the bundled version of YAC library (--without-external-yac), or set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi
@@ -7731,10 +7755,6 @@ else
 fi
             ICON_YAC_FCFLAGS=${ICON_YAC_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
             ICON_YAC_CFLAGS=${ICON_YAC_CFLAGS-$ICON_BUNDLED_CFLAGS}
-      yac_MTIME_CFLAGS=
-      if test "x$with_external_mtime" = xno; then :
-  yac_MTIME_CFLAGS="-I${icon_abs_top_srcdir}/externals/mtime/include"
-fi
             acx_config_subdir_args_externals_yac=
    acx_config_subdir_ignore_arg=no
    eval "set dummy $ac_configure_args"; shift
@@ -7755,11 +7775,11 @@ fi
      ;; #(
   BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*|MPI_LAUNCH=*) :
      ;; #(
-  MTIME_CFLAGS=*|MTIME_CLIBS=*|NETCDF_CFLAGS=*|NETCDF_CLIBS=*) :
+  MPI_CFLAGS=*|MPI_CLIBS=*|MPI_FCFLAGS=*|MPI_FCLIBS=*|YAXT_CFLAGS=*) :
      ;; #(
-  XML2_CFLAGS=*|XML2_CLIBS=*|MPI_CFLAGS=*|MPI_CLIBS=*) :
+  YAXT_CLIBS=*|NETCDF_CFLAGS=*|NETCDF_CLIBS=*|XML2_CFLAGS=*) :
      ;; #(
-  MPI_FCFLAGS=*|MPI_FCLIBS=*|FORTRAN_LAPACK_CLIBS=*) :
+  XML2_CLIBS=*|MTIME_CFLAGS=*|MTIME_CLIBS=*|FORTRAN_LAPACK_CLIBS=*) :
      ;; #(
   -enable-silent-rules|-enable-silent-rules=*|--enable-silent-rules|--enable-silent-rules=*|-disable-silent-rules|--disable-silent-rules) :
      ;; #(
@@ -7767,13 +7787,7 @@ fi
      ;; #(
   -enable-lib-only|-enable-lib-only=*|--enable-lib-only|--enable-lib-only=*|-disable-lib-only|--disable-lib-only) :
      ;; #(
-  -enable-xml|-enable-xml=*|--enable-xml|--enable-xml=*|-disable-xml|--disable-xml) :
-     ;; #(
   -enable-netcdf|-enable-netcdf=*|--enable-netcdf|--enable-netcdf=*|-disable-netcdf|--disable-netcdf) :
-     ;; #(
-  -enable-mpi|-enable-mpi=*|--enable-mpi|--enable-mpi=*|-disable-mpi|--disable-mpi) :
-     ;; #(
-  -enable-mpi-checks|-enable-mpi-checks=*|--enable-mpi-checks|--enable-mpi-checks=*|-disable-mpi-checks|--disable-mpi-checks) :
      ;; #(
   -with-external-lapack|-with-external-lapack=*|--with-external-lapack|--with-external-lapack=*|-without-external-lapack|--without-external-lapack) :
      ;; #(
@@ -7793,7 +7807,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-         set dummy CFLAGS="$subdir_CFLAGS $ICON_YAC_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_YAC_FCFLAGS" MTIME_CFLAGS="$yac_MTIME_CFLAGS" MTIME_CLIBS= NETCDF_CFLAGS= NETCDF_CLIBS= XML2_CFLAGS= XML2_CLIBS= MPI_CFLAGS= MPI_CLIBS= MPI_FCFLAGS= MPI_FCLIBS= FORTRAN_LAPACK_CLIBS= --enable-silent-rules="$enable_silent_rules" --disable-maintainer-mode --enable-lib-only --enable-xml --enable-netcdf --enable-mpi="$enable_mpi" --enable-mpi-checks="$enable_mpi_checks" --with-external-lapack=fortran --with-external-mtime ; shift
+         set dummy CFLAGS="$subdir_CFLAGS $ICON_YAC_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_YAC_FCFLAGS" MPI_CFLAGS= MPI_CLIBS= MPI_FCFLAGS= MPI_FCLIBS= YAXT_CLIBS= NETCDF_CFLAGS= NETCDF_CLIBS= XML2_CFLAGS= XML2_CLIBS= MTIME_CLIBS= FORTRAN_LAPACK_CLIBS= --enable-silent-rules="$enable_silent_rules" --disable-maintainer-mode --enable-lib-only --enable-netcdf --with-external-lapack=fortran --with-external-mtime ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -7817,8 +7831,45 @@ esac
       done
 
 fi
-      if test "x$with_external_mtime" = xno; then :
-        set dummy acx_cv_c_lib_func_datetimeToString="${icon_abs_top_builddir}/externals/mtime/src/.libs/libmtime.a" ; shift
+      if test "x$with_external_yaxt" = xyes; then :
+        set dummy YAXT_CFLAGS= ; shift
+      for acx_config_subdir_arg; do
+        case $acx_config_subdir_arg in #(
+  *\'*) :
+    acx_config_subdir_arg=`$as_echo "$acx_config_subdir_arg" | sed "s/'/'\\\\\\\\''/g"` ;; #(
+  *) :
+     ;;
+esac
+        as_fn_append acx_config_subdir_args_externals_yac " '$acx_config_subdir_arg'"
+      done
+
+else
+        set dummy YAXT_CFLAGS="-I${icon_abs_top_builddir}/externals/yaxt/inst_headers" ac_cv_header_yaxt_h=yes acx_cv_c_lib_func_xt_initialized="${icon_abs_top_builddir}/externals/yaxt/src/.libs/libyaxt_c.a" ; shift
+      for acx_config_subdir_arg; do
+        case $acx_config_subdir_arg in #(
+  *\'*) :
+    acx_config_subdir_arg=`$as_echo "$acx_config_subdir_arg" | sed "s/'/'\\\\\\\\''/g"` ;; #(
+  *) :
+     ;;
+esac
+        as_fn_append acx_config_subdir_args_externals_yac " '$acx_config_subdir_arg'"
+      done
+
+fi
+      if test "x$with_external_mtime" = xyes; then :
+        set dummy MTIME_CFLAGS= ; shift
+      for acx_config_subdir_arg; do
+        case $acx_config_subdir_arg in #(
+  *\'*) :
+    acx_config_subdir_arg=`$as_echo "$acx_config_subdir_arg" | sed "s/'/'\\\\\\\\''/g"` ;; #(
+  *) :
+     ;;
+esac
+        as_fn_append acx_config_subdir_args_externals_yac " '$acx_config_subdir_arg'"
+      done
+
+else
+        set dummy MTIME_CFLAGS="-I${icon_abs_top_srcdir}/externals/mtime/include" acx_cv_c_lib_func_datetimeToString="${icon_abs_top_builddir}/externals/mtime/src/.libs/libmtime.a" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
