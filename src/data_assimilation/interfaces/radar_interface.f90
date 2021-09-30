@@ -3137,6 +3137,11 @@ CONTAINS
     INTEGER :: iu, ju, i, j, k, im, jm, ierr
     LOGICAL :: do_all
 
+    do_all = .false.
+    IF(PRESENT(do_always)) do_all=do_always
+
+    !!!!******** neigh is ignored here ********!!!
+    
     ALLOCATE(Tmax_i_modelgrid(ie_fwo,ke_fwo),Tmax_s_modelgrid(ie_fwo,ke_fwo),Tmax_g_modelgrid(ie_fwo,ke_fwo))
 
     ! Initial (minimal) values of Tmax_x: 
