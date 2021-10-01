@@ -1779,6 +1779,13 @@ CONTAINS
            IF (1._wp-ext_data(jg)%atm%fr_land(jc,jb)-ext_data(jg)%atm%fr_lake(jc,jb) &
              &   >= frsea_thrhld) THEN
              i_count_sea=i_count_sea + 1
+
+             ! Ensure that sea and lake tiles do not coexist on any grid point (this is already done
+             ! in extpar but might not be fulfilled in data sets generated with other software)
+             IF (ext_data(jg)%atm%fr_lake(jc,jb) >= frlake_thrhld) THEN
+               CALL finish('', "Lake and sea tiles must not coexist on any grid point")
+             ENDIF
+
              ext_data(jg)%atm%list_sea%idx(i_count_sea,jb) = jc  ! write index of sea-points
              ext_data(jg)%atm%list_sea%ncount(jb) = i_count_sea
              ! set land-cover class
