@@ -168,7 +168,7 @@ MODULE mo_meteogram_output
     &                                 gnat_query_containing_triangles,           &
     &                                 gnat_merge_distributed_queries, gk
   USE mo_dynamics_config,       ONLY: nnow
-  USE mo_io_config,             ONLY: inextra_2d, inextra_3d
+  USE mo_io_config,             ONLY: inextra_2d, inextra_3d, var_in_output
   USE mo_lnd_nwp_config,        ONLY: tile_list, ntiles_total, ntiles_water, zml_soil
   USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs,               &
     &                                 iqm_max, iqni,                         &
@@ -198,8 +198,8 @@ MODULE mo_meteogram_output
   PUBLIC ::  meteogram_finalize
   PUBLIC ::  meteogram_flush_file
 
-  INTEGER, PARAMETER :: MAX_NVARS            =  150  !< max. number of sampled 3d vars
-  INTEGER, PARAMETER :: MAX_NSFCVARS         =  150  !< max. number of sampled surface vars
+  INTEGER, PARAMETER :: MAX_NVARS            =  300  !< max. number of sampled 3d vars
+  INTEGER, PARAMETER :: MAX_NSFCVARS         =  300  !< max. number of sampled surface vars
   INTEGER, PARAMETER :: MAX_DESCR_LENGTH     =  128  !< length of info strings (see cf_convention)
   INTEGER, PARAMETER :: MAX_DATE_LEN         =   16  !< length of iso8601 date strings
   ! arbitrarily chosen value for buffer size (somewhat large for safety reasons)
@@ -428,7 +428,7 @@ CONTAINS
   !! @par Revision History
   !! Initial implementation  by  F. Prill, DWD (2011-11-09)
   !!
-  SUBROUTINE meteogram_setup_variables(meteogram_config, ext_data, prog, diag, &
+  SUBROUTINE meteogram_setup_variables(meteogram_config, jg, ext_data, prog, diag, &
     &                                  prm_diag, lnd_prog, lnd_diag, prog_wtr, &
     &                                  prm_nwp_tend, &
     &                                  atm_phy_nwp_config, var_info, &
@@ -436,6 +436,8 @@ CONTAINS
     &                                  var_list, pack_buf)
     ! station data from namelist
     TYPE(t_meteogram_output_config),     INTENT(IN) :: meteogram_config
+    !> patch index
+    INTEGER,                             INTENT(IN) :: jg
     ! atmosphere external data
     TYPE(t_external_data),               INTENT(IN) :: ext_data
     ! physical model state and other auxiliary variables
@@ -635,6 +637,12 @@ CONTAINS
         &              "RUNOFF_G", "kg/m2", &
         &              "soil water runoff; sum over forecast", &
         &              sfc_var_info, lnd_diag%runoff_g(:,:))
+      IF (var_in_output(jg)%res_soilwatb) THEN
+        CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+          &              "RESID_WSO", "kg/m2", &
+          &              "residuum of the soil water budget", &
+          &              sfc_var_info, lnd_diag%resid_wso(:,:))
+      ENDIF
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "T_SNOW", "K", "temperature of the snow-surface", &
         &              sfc_var_info, lnd_diag%t_snow(:,:))
@@ -677,6 +685,9 @@ CONTAINS
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "LHFL", "W/m2", "latent heat flux (surface)", &
       &              sfc_var_info, prm_diag%lhfl_s(:,:))
+    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+      &              "QHFL_S", "kg/m2", "evapotranspiration flux (surface)", &
+      &              sfc_var_info, prm_diag%qhfl_s(:,:))
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "VIO3", "Pa O3", "vertically integrated ozone amount", &
       &              sfc_var_info, prm_diag%vio3(:,:))
@@ -738,6 +749,20 @@ CONTAINS
       &              "SNOW_CON", "kg/m2", &
       &              "accumulated convective surface snow", &
       &              sfc_var_info, prm_diag%snow_con(:,:))
+    IF(atm_phy_nwp_config%lhave_graupel) THEN
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+      &              "GRAUPEL_GSP", "kg/m2", &
+      &              "accumulated grid-scale surface graupel", &
+      &              sfc_var_info, prm_diag%graupel_gsp(:,:))
+    ENDIF
+    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+      &              "PREC_CON", "kg/m2", &
+      &              "accumulated convective surface precipitation", &
+      &              sfc_var_info, prm_diag%prec_con(:,:))
+    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+      &              "PREC_GSP", "kg/m2", &
+      &              "accumulated grid-scale surface precipitation", &
+      &              sfc_var_info, prm_diag%prec_gsp(:,:))
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "H_ICE", "m", "sea ice depth", &
       &              sfc_var_info, prog_wtr%h_ice(:,:))
@@ -779,7 +804,14 @@ CONTAINS
       &              "PAB_S", "W m-2", &
       &       "photosynthetically active shortwave downward flux at surface", &
       &              sfc_var_info, prm_diag%swflx_par_sfc(:,:))
-
+    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+      &              "SNOWFRAC", "%", &
+      &              "snow-cover fraction", &
+      &              sfc_var_info, lnd_diag%snowfrac(:,:))
+    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+      &              "SNOWFRAC_LC", "%", &
+      &              "snow-cover fraction (related to landuse class", &
+      &              sfc_var_info, lnd_diag%snowfrac_lc(:,:))
     ! There is no 2D-field for SWDIR_S available, so we provide swflx_dn_sfc_diff instead
     ! The actual values will be diagnosed at a later point
     CALL add_sfc_var(meteogram_config, var_list, &
@@ -791,8 +823,11 @@ CONTAINS
     ! -- tiled surface fields
     IF (meteogram_config%loutput_tiles) THEN     ! write some selected tile specific fields
       CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_SOIL_ML, &
-        &               "W_SO_T", "m H2O", "soil water content", &
+        &               "W_SO_T", "m H2O", "soil water content (water + ice)", &
         &               var_info, lnd_prog%w_so_t(:,:,:,:))
+      CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_SOIL_ML, &
+        &               "W_SO_ICE_T", "m H2O", "ice content", &
+        &               var_info, lnd_prog%w_so_ice_t(:,:,:,:))
       CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_SOIL_MLp2, &
         &               "T_SO_T", "K", "soil temperature", &
         &               var_info, lnd_prog%t_so_t(:,:,:,:))
@@ -806,6 +841,15 @@ CONTAINS
         &              "LHFL_T", "W/m2", "latent heat flux (surface)", &
         &              sfc_var_info, prm_diag%lhfl_s_t(:,:,:))
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "QHFL_S_T", "kg/m2", "evapotranspiration flux (surface)", &
+        &              sfc_var_info, prm_diag%qhfl_s_t(:,:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "H_SNOW_T", "m", "snow height", &
+        &              sfc_var_info, lnd_diag%h_snow_t(:,:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "W_SNOW_T", "m H2O", "water content of snow", &
+        &              sfc_var_info, lnd_prog%w_snow_t(:,:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "SOBS_T", "W m-2", "shortwave net flux (surface)", &
         &              sfc_var_info, prm_diag%swflxsfc_t(:,:,:))
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
@@ -818,6 +862,32 @@ CONTAINS
         &              "snowfrac_t", "%", &
         &              "local tile-based snow-cover fraction", &
         &              sfc_var_info, lnd_diag%snowfrac_t(:,:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "snowfrac_lc_t", "%", &
+        &              "snow-cover fraction per land-cover class (reduced by melting)", &
+        &              sfc_var_info, lnd_diag%snowfrac_lc_t(:,:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "snowfrac_lcu_t", "%", &
+        &              "snow-cover fraction per land-cover class (melting unmodified)", &
+        &              sfc_var_info, lnd_diag%snowfrac_lcu_t(:,:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+       &              "W_I_T", "m H2O", & 
+       &              "water content of interception water", &
+       &              sfc_var_info, lnd_prog%w_i_t(:,:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "RUNOFF_S_T", "kg/m2", &
+        &              "surface water runoff; sum over forecast", &
+        &              sfc_var_info, lnd_diag%runoff_s_t(:,:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "RUNOFF_G_T", "kg/m2", &
+        &              "soil water runoff; sum over forecast", &
+        &              sfc_var_info, lnd_diag%runoff_g_t(:,:,:))
+      IF (var_in_output(jg)%res_soilwatb) THEN
+        CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+          &            "RESID_WSO_T", "kg/m2", &
+          &            "residuum of the soil water budget", &
+          &            sfc_var_info, lnd_diag%resid_wso_t(:,:,:))
+      ENDIF
     ENDIF
 
     ! -- vertical integrals
@@ -1244,7 +1314,7 @@ CONTAINS
         &      stat=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish(routine, &
         'ALLOCATE of meteogram data structures failed (part 1)')
-      CALL meteogram_setup_variables(meteogram_output_config, ext_data, &
+      CALL meteogram_setup_variables(meteogram_output_config, jg, ext_data, &
         &                            p_nh_state%prog(nnow(jg)), &
         &                            p_nh_state%diag, prm_diag, &
         &                            p_lnd_state%prog_lnd(nnow(jg)), &
@@ -2865,32 +2935,31 @@ CONTAINS
   !!  Adds the 3d var as separate 2d var slices.
   !!
   !!  Registers a new surface variable.
-  SUBROUTINE add_sfc_var_3d(meteogram_config, var_list, igroup_id, &
-    &                       zname, zunit, zlong_name, &
-    &                       sfc_var_info, source)
+  SUBROUTINE add_sfc_var_3d(meteogram_config, var_list, igroup_id,  &
+      &                     zname, zunit, zlong_name, sfc_var_info, &
+      &                     source, iidx)
     TYPE(t_meteogram_output_config), INTENT(IN) :: meteogram_config
     TYPE(t_var), INTENT(inout) :: var_list
     CHARACTER(LEN=*),  INTENT(IN)    :: zname, zunit, zlong_name
     INTEGER,           INTENT(IN)    :: igroup_id
     TYPE(t_sfc_var_info), INTENT(inout) :: sfc_var_info(:)
     REAL(wp), TARGET,  INTENT(IN)    :: source(:,:,:)   !< source array
+    INTEGER,           INTENT(IN), OPTIONAL :: iidx     !< third dim of variable (e.g. tile-nr)
     ! Local variables
     INTEGER                 :: isource_idx, nidx
 
-    IF (LEN_TRIM(meteogram_config%var_list(1)) /= 0) THEN
-      ! If the user has specified a list of variable names to be
-      ! included in the meteogram, check if this variable is contained
-      ! in the list:
-      IF (one_of(TRIM(zname), meteogram_config%var_list) == -1) RETURN
-    END IF
-
-    nidx = SIZE(source, 3) ! get number of 2d var indices (e.g. tile number)
-    DO isource_idx=1,nidx
-      CALL add_sfc_var_2d(meteogram_config, var_list, igroup_id, &
-        &                 zname//"_"//int2string(isource_idx), &
-        &                 zunit, zlong_name, sfc_var_info, &
-        &                 source(:,:,isource_idx))
-    END DO
+    IF (PRESENT(iidx)) THEN
+      CALL add_sfc_var_2d(meteogram_config, var_list, igroup_id, zname, &
+      &                  zunit, zlong_name, sfc_var_info, source(:,:,iidx))
+    ELSE 
+      nidx = SIZE(source, 3) ! get number of 2d var indices (e.g. tile number)
+      DO isource_idx=1,nidx
+        CALL add_sfc_var_2d(meteogram_config, var_list, igroup_id, &
+          &                 zname//"_"//int2string(isource_idx), &
+          &                 zunit, zlong_name, sfc_var_info, &
+          &                 source(:,:,isource_idx))
+      END DO
+    ENDIF
   END SUBROUTINE add_sfc_var_3d
 
   !> after adding the variables to maximally sized buffers, shrink
