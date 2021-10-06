@@ -5730,6 +5730,8 @@ ENDDO
     !$acc end parallel
   ENDIF
 
+!$acc wait
+
 ! for optional fields related to soil water budget
 !$acc end data
 
