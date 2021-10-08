@@ -73,6 +73,7 @@ MODULE mo_nwp_sfc_utils
     &                                set_table_entry, print_table, finalize_table
   USE mo_util_string,         ONLY: int2string
   USE mo_mpi,                 ONLY: my_process_is_stdio
+  USE mo_index_list,          ONLY: generate_index_list
 
   IMPLICIT NONE
 
@@ -2065,6 +2066,8 @@ CONTAINS
     LOGICAL, OPTIONAL,           INTENT(in)   :: lacc          !< GPU flag
     LOGICAL :: lzacc
 
+    INTEGER :: cond1(lp_count), cond2(lp_count), icount_tmp, ic_tot, idx_lst_tmp(nproma)
+
     !-------------------------------------------------------------------------
 
     IF(PRESENT(lacc)) THEN
@@ -2073,43 +2076,55 @@ CONTAINS
         lzacc = .FALSE.
     ENDIF
 
+   !$acc enter data create(cond1, cond2, idx_lst_tmp)
+
    !$acc data                                                              &
    !$acc present(idx_lst_lp, idx_lst, idx_lst_snow, snowtile_flag)         &
    !$acc present(snowtile_flag_snow, lc_frac, snowfrac, partial_frac)      &
    !$acc present(partial_frac_snow) if(lzacc)
 
+
     icount = 0
+    icount_tmp = 0
     icount_snow = 0
 
 !$NEC ivdep
     !$acc parallel if(lzacc)
-    !$acc loop seq
+    !$acc loop gang vector private(jc)
     DO ic = 1, lp_count
       jc = idx_lst_lp(ic)
-
       IF (snowtile_flag(jc) == -1) THEN
-        icount = icount + 1
-        idx_lst(icount) = jc
+        cond1(ic) = 1
         partial_frac(jc) = lc_frac(jc)
       ELSE
-        ! Reset snowfrac to 0/1 in case of very small deviations (just to be safe)
+        cond1(ic) = 0
         IF (snowfrac(jc) < eps) snowfrac(jc) = 0._wp
         IF (1._wp - snowfrac(jc) < eps) snowfrac(jc) = 1._wp
       ENDIF
     ENDDO
     !$acc end parallel
 
+    CALL generate_index_list(cond1, idx_lst, 1, lp_count, icount, 1,lacc=lzacc)
+
+    !$acc parallel if(lzacc)
+    !$acc loop gang vector
+    DO ic = 1,icount
+      idx_lst(ic) = idx_lst_lp(idx_lst(ic))
+    ENDDO
+    !$acc end parallel
 
 !$NEC ivdep
     !$acc parallel if(lzacc)
-    !$acc loop seq
+    !$acc loop gang vector private(jc)
     DO ic = 1, lp_count
       jc = idx_lst_lp(ic)
+      cond1(ic) = 0
+      cond2(ic) = 0
 
       IF (snowtile_flag(jc) /= -1) THEN
+
         IF (snowfrac(jc) > 0._wp) THEN ! snow tile is active
-          icount_snow = icount_snow + 1
-          idx_lst_snow(icount_snow) = jc
+          cond1(ic) = 1
           partial_frac_snow(jc) = lc_frac(jc)*snowfrac(jc)
           IF (snowtile_flag_snow(jc) == 0) THEN
             snowtile_flag_snow(jc) = 2 ! newly activated, initialization needed
@@ -2117,12 +2132,13 @@ CONTAINS
             snowtile_flag_snow(jc) = 1
           ENDIF
         ELSE
+          cond1(ic) = 0
           snowtile_flag_snow(jc) = 0
           partial_frac_snow(jc) = 0._wp
         ENDIF
+
         IF (snowfrac(jc) < 1._wp) THEN ! snow-free tile is active
-          icount = icount + 1
-          idx_lst(icount) = jc
+          cond2(ic) = 1
           partial_frac(jc) = lc_frac(jc)*(1._wp-snowfrac(jc))
           IF (snowtile_flag(jc) == 0) THEN
             snowtile_flag(jc) = 2 ! newly activated, initialization needed
@@ -2130,18 +2146,39 @@ CONTAINS
             snowtile_flag(jc) = 1
           ENDIF
         ELSE
+          cond2(ic) = 0
           snowtile_flag(jc) = 0
           partial_frac(jc) = 0._wp
         ENDIF
       ENDIF
     ENDDO
-    !$acc end parallel 
+    !$acc end parallel
 
-    gp_count = icount
+    CALL generate_index_list(cond1, idx_lst_snow, 1, lp_count, icount_snow, 1,lacc=lzacc)
+
+    CALL generate_index_list(cond2, idx_lst_tmp, 1, lp_count, icount_tmp, 1,lacc=lzacc)
+
+    !$acc parallel if(lzacc)
+    !$acc loop gang vector
+    DO ic = 1,icount_snow
+      idx_lst_snow(ic) = idx_lst_lp(idx_lst_snow(ic))
+    ENDDO
+    !$acc end parallel
+
+    !$acc parallel if(lzacc)
+    !$acc loop gang vector private(ic_tot)
+    DO ic = 1,icount_tmp
+      ic_tot = ic + icount
+      idx_lst(ic_tot) = idx_lst_lp(idx_lst_tmp(ic))
+    ENDDO
+    !$acc end parallel
+
+    gp_count = icount + icount_tmp
     gp_count_snow = icount_snow
     !$acc update device(gp_count,gp_count_snow)
 
     !$acc end data
+    !$acc exit data delete(cond1,cond2,idx_lst_tmp)
 
   END SUBROUTINE update_idx_lists_lnd
 
