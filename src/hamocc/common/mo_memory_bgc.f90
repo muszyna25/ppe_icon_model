@@ -55,7 +55,12 @@ MODULE mo_memory_bgc
   REAL(wp), ALLOCATABLE :: n2flux(:)      !> sea-air N2-flux, ingetrated over whole simulation period
   REAL(wp), ALLOCATABLE :: n2oflux(:)     !> sea-air N2-flux, ingetrated over whole simulation period
   REAL(wp), ALLOCATABLE :: co2trans(:)    !> transfer coefficient for CO2 atmosph/ocean
-  REAL(wp), ALLOCATABLE :: wpoc(:)        ! depth-dependent detritus settling speed
+  REAL(wp), ALLOCATABLE :: wpoc(:,:)      ! depth-dependent detritus settling speed
+  REAL(wp), ALLOCATABLE :: wdust(:,:)     ! depth-dependent dust settling speed
+  REAL(wp), ALLOCATABLE :: wopal(:,:)     ! daily sinking speed of opal (namelist parameter)
+  REAL(wp), ALLOCATABLE :: wcal(:,:)     ! daily sinking speed of cal (namelist parameter)
+  REAL(wp), ALLOCATABLE :: ws_agg(:,:)    ! daily sinking speed of aggregates (namelist parameter)
+
   REAL(wp), ALLOCATABLE :: co2conc(:)
   REAL(wp), ALLOCATABLE :: co2flux_cpl(:)
 
@@ -88,13 +93,10 @@ MODULE mo_memory_bgc
   REAL(wp) :: mc_fac, mc_eu_speed, mc_depth
   REAL(wp) :: n2_fixation
   REAL(wp) :: sulfate_reduction
-  REAL(wp) :: denitrification
-  REAL(wp) :: wopal ! daily sinking speed of opal (namelist parameter)
-  REAL(wp) :: wcal  ! daily sinking speed of cal (namelist parameter)
   REAL(wp) :: wcya  ! daily boyancy speed of cyanos
   REAL(wp) :: gutc
   REAL(wp) :: psedi, csedi, ssedi
-  REAL(wp) :: perc_diron, riron, fesoly, relaxfe, wdust,bolaymin
+  REAL(wp) :: perc_diron, riron, fesoly, relaxfe, sinkspeed_dust,bolaymin
   REAL(wp) :: pi_alpha, fPAR, bkh2sox, rh2sox
   REAL(wp) :: nitdem, n2prod, ro2nitri
   REAL(wp) :: dremn3o, ro2bal
@@ -127,7 +129,11 @@ CONTAINS
 
   SUBROUTINE ALLOC_MEM_CARBCH
 
-    ALLOCATE (wpoc(bgc_zlevs))
+    ALLOCATE (wpoc(bgc_nproma,bgc_zlevs))
+    ALLOCATE (wdust(bgc_nproma,bgc_zlevs))
+    ALLOCATE (wopal(bgc_nproma,bgc_zlevs))
+    ALLOCATE (wcal(bgc_nproma,bgc_zlevs))
+    ALLOCATE (ws_agg(bgc_nproma,bgc_zlevs))
 
     ALLOCATE (bgctra(bgc_nproma,bgc_zlevs,n_bgctra))
     

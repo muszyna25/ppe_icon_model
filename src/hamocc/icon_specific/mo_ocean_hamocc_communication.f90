@@ -251,7 +251,8 @@ CONTAINS
                                  ocean_2_hamocc_redist_cells_2d, & ! co2 mixing ratio
                                  ocean_2_hamocc_redist_edges_3d, & ! transport: mass_flux_e
                                  ocean_2_hamocc_redist_edges_3d, & ! transport: vn
-                                 ocean_2_hamocc_redist_cells_3d_halfLevels & ! transport:w
+                                 ocean_2_hamocc_redist_cells_3d_halfLevels, & ! transport:w
+                                 ocean_2_hamocc_redist_cells_3d & ! press_hyd
                                  /), & !
                                ocean_hamocc_intercomm)
                               ! ocean_2_hamocc_redist_edges_3d, & ! hor_diffusion_coeff
@@ -371,7 +372,8 @@ CONTAINS
     &  co2_mixing_ratio, &
     &  mass_flux_e, &
     &  vn, &
-    &  w)
+    &  w, &
+    &  press_hyd )
 
 
     !INTEGER,INTENT(INOUT)  :: &
@@ -389,10 +391,11 @@ CONTAINS
       &  co2_mixing_ratio, &
       &  mass_flux_e, &
       &  vn, &
-      &  w
+      &  w , & 
+      &  press_hyd
 
 
-    TYPE(c_ptr) :: src_data_cptr(14), dst_data_cptr(14)
+    TYPE(c_ptr) :: src_data_cptr(15), dst_data_cptr(15)
 
     src_data_cptr( 1) =  top_dilution_coeff
     src_data_cptr( 2) =  h_old
@@ -408,6 +411,7 @@ CONTAINS
     src_data_cptr(12) =  mass_flux_e
     src_data_cptr(13) =  vn
     src_data_cptr(14) =  w
+    src_data_cptr(15) =  press_hyd
 
     dst_data_cptr = src_data_cptr
 

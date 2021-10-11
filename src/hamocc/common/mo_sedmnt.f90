@@ -9,7 +9,7 @@ MODULE mo_sedmnt
   USE mo_param1_bgc, ONLY  : nsedtra, npowtra, n_bgctra, nsed_diag
   USE mo_control_bgc, ONLY: dtbgc, bgc_nproma, bgc_zlevs 
   USE mo_hamocc_nml, ONLY : isac,ks,ksp,dzs,porwat
-  USE mo_memory_bgc, ONLY : kbo, bolay, bolaymin, wdust
+  USE mo_memory_bgc, ONLY : kbo, bolay, bolaymin,sinkspeed_dust
   USE mo_bgc_constants, ONLY: g,rhoref_water
 
   IMPLICIT NONE
@@ -137,7 +137,7 @@ SUBROUTINE sediment_bottom
 
   dustd1 = 0.0001_wp !cm = 1 um, boundary between clay and silt
   dustd2 = dustd1*dustd1
-  wdust = (g * 86400._wp / 18._wp                          &  ! g * sec per day / 18. | js: Stoke's law for small particles
+  sinkspeed_dust = (g * 86400._wp / 18._wp                      &  ! g * sec per day / 18. | js: Stoke's law for small particles
          &   * (claydens - rhoref_water) / 1.567_wp * 1000._wp  &  ! excess density / dyn. visc. | -> cm/s to m/day
          &   * dustd2 * 1.e-4_wp)                              ! *diameter**2 |*1000 *1.e-4?
 

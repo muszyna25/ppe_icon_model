@@ -12,7 +12,7 @@ MODULE mo_ocprod
        &                        zinges, ro2ut, remido, dyphy, spemor,     &
        &                        gammaz, gammap, ecan, rnit, ropal, bkopal,         &
        &                        rcar, relaxfe, fesoly,            &
-       &                        denitrification, nitdem, dremn2o,         &
+       &                        nitdem, dremn2o,         &
        &                        n2prod, sulfate_reduction, strahl,                 &
        &                        thresh_aerob, thresh_o2, prodn2o, & 
        &                        thresh_sred, dmsp, &
@@ -23,7 +23,7 @@ MODULE mo_ocprod
        &                        rno3nh4, rnh4no2, rno2no3, alk_nrn2, rno2n2, o2den_lim, swr_frac
 
 
-  USE mo_control_bgc, ONLY    : dtb, bgc_nproma, bgc_zlevs, dtbgc 
+  USE mo_control_bgc, ONLY    : dtb, bgc_nproma, bgc_zlevs, dtbgc , inv_dtbgc
   USE mo_param1_bgc, ONLY     : icalc, iopal, ian2o, igasnit, idms, &
        &                        iphy, izoo, isilica, iphosph, &
        &                        iano3, ioxygen, idet, idoc, isco212, &
@@ -36,8 +36,11 @@ MODULE mo_ocprod
        &                        iammo, iano2, &
        &                        kgppnh, kdnrn, kdnra, kanam, kammox, knitox
 
-    USE mo_hamocc_nml, ONLY    : grazra, calmax, dremopal, drempoc, &
-       &                         l_N_cycle, no3nh4red, no3no2red 
+    USE mo_hamocc_nml, ONLY    : grazra, calmax, dremopal, drempoc, denitrification, &
+       &                         l_N_cycle, no3nh4red, no3no2red , &
+       &                          l_opal_q10, opal_remin_q10, opal_remin_tref, &
+       &                          l_doc_q10, doc_remin_q10, doc_remin_tref, &
+       &                          l_poc_q10, poc_remin_q10, poc_remin_tref
   PUBLIC :: ocprod
            
 
@@ -233,7 +236,7 @@ SUBROUTINE ocprod (klev,start_idx,end_idx, ptho,pddpo, za,ptiestu, l_dynamic_pi)
 
        export = zoomor * (1._wp - ecan) + phymor + gratpoc               ! ecan=.95, gratpoc= .2*grazing [P-units]
 
-       bgctra(j,k,idet) = bgctra(j,k,idet) + export                   ! 
+       bgctra(j,k,idet) = bgctra(j,k,idet) + export                   
 
        !=====SHELL PRODUCTIOIN ========================
 
@@ -280,7 +283,12 @@ SUBROUTINE ocprod (klev,start_idx,end_idx, ptho,pddpo, za,ptiestu, l_dynamic_pi)
        bgctra(j,k,icalc) = bgctra(j,k,icalc) + delcar
 
 
-       opalrem = dremopal * 0.1_wp * (ptho(j,k) + 3.0_wp) * bgctra(j,k,iopal)
+       IF(l_opal_q10)then  ! T-dependency (Maerz et al., 2020)
+         opalrem =  MAX(dremopal * opal_remin_q10**((ptho(j,k)-opal_remin_Tref)/10._wp),0.001_wp*dtb)&
+                  & * bgctra(j, k, iopal)
+       ELSE
+         opalrem = dremopal * 0.1_wp * (ptho(j,k) + 3.0_wp) * bgctra(j,k,iopal)
+       ENDIF
 
        bgctra(j,k,isilica) = bgctra(j,k,isilica) - delsil + opalrem
 
@@ -290,17 +298,17 @@ SUBROUTINE ocprod (klev,start_idx,end_idx, ptho,pddpo, za,ptiestu, l_dynamic_pi)
                     &   - relaxfe * MAX(bgctra(j,k,iiron) - fesoly, 0._wp)
 
 
-       bgctend(j,k,kphosy) = phosy / dtbgc 
-       bgctend(j,k,kgraz) = grazing / dtbgc 
-       bgctend(j,k,kgraton) = graton / dtbgc 
-       bgctend(j,k,kexudp) = exud / dtbgc 
-       bgctend(j,k,kexudz) = excdoc / dtbgc 
-       bgctend(j,k,kzdy) = zoomor / dtbgc 
-       bgctend(j,k,kpdy) =  phymor / dtbgc 
-       bgctend(j,k,kdelsil) = delsil / dtbgc 
-       bgctend(j,k,kdelcar) = delcar / dtbgc 
-       bgctend(j,k,keuexp) = export / dtbgc 
-       if (l_N_cycle) bgctend(j,k,kgppnh) = nfrac*phosy / dtbgc
+       bgctend(j,k,kphosy) = phosy * inv_dtbgc 
+       bgctend(j,k,kgraz) = grazing * inv_dtbgc 
+       bgctend(j,k,kgraton) = graton * inv_dtbgc 
+       bgctend(j,k,kexudp) = exud * inv_dtbgc
+       bgctend(j,k,kexudz) = excdoc * inv_dtbgc
+       bgctend(j,k,kzdy) = zoomor * inv_dtbgc
+       bgctend(j,k,kpdy) =  phymor * inv_dtbgc
+       bgctend(j,k,kdelsil) = delsil * inv_dtbgc
+       bgctend(j,k,kdelcar) = delcar * inv_dtbgc
+       bgctend(j,k,keuexp) = export * inv_dtbgc
+       if (l_N_cycle) bgctend(j,k,kgppnh) = nfrac*phosy * inv_dtbgc 
 
 
       !===== DMS ===
@@ -318,9 +326,9 @@ SUBROUTINE ocprod (klev,start_idx,end_idx, ptho,pddpo, za,ptiestu, l_dynamic_pi)
                    &             + dms_prod - dms_bac - dms_uv
 
   
-       bgctend(j,k,kdmsprod) = dms_prod / dtbgc 
-       bgctend(j,k,kdmsbac)  = dms_bac / dtbgc 
-       bgctend(j,k,kdmsuv)   = dms_uv / dtbgc 
+       bgctend(j,k,kdmsprod) = dms_prod * inv_dtbgc
+       bgctend(j,k,kdmsbac)  = dms_bac * inv_dtbgc
+       bgctend(j,k,kdmsuv)   = dms_uv * inv_dtbgc
       
 
 
@@ -332,7 +340,12 @@ SUBROUTINE ocprod (klev,start_idx,end_idx, ptho,pddpo, za,ptiestu, l_dynamic_pi)
            o2lim = bgctra(j,k,ioxygen)/(thresh_o2 + bgctra(j,k,ioxygen))
 
            ! POC decomposition
-           xn=bgctra(j,k,idet)/(1._wp+o2lim*drempoc)
+            IF(l_poc_q10)then  ! T-dependency (Maerz et al., 2020)
+            xn=bgctra(j,k,idet)/(1._wp+o2lim*drempoc*poc_remin_q10**((ptho(j,k)-poc_remin_tref)/10._wp))
+           ELSE
+            xn=bgctra(j,k,idet)/(1._wp+o2lim*drempoc)
+           ENDIF
+           
            remin=MAX(0._wp,bgctra(j,k,idet)-xn)
 
            !!!! N cycle !!!!!!!!
@@ -344,8 +357,12 @@ SUBROUTINE ocprod (klev,start_idx,end_idx, ptho,pddpo, za,ptiestu, l_dynamic_pi)
            !!!! N cycle !!!!!!!!
 
            ! DOC decomposition
-           avoxy = bgctra(j,k,ioxygen) -remin*ro2ut - thresh_aerob      ! available O2                       
-           xn=(bgctra(j,k,idoc)+remido*docmin)/(1._wp+remido)
+           avoxy = bgctra(j,k,ioxygen) -remin*ro2ut - thresh_aerob      ! available O2
+           IF(l_doc_q10)then  ! T-dependency (Maerz et al., 2020)
+            xn=bgctra(j,k,idoc)/(1._wp+remido*doc_remin_q10**((ptho(j,k)-doc_remin_tref)/10._wp))
+           ELSE
+            xn=bgctra(j,k,idoc)/(1._wp+remido)
+           ENDIF
            bacfra=MAX(0._wp,bgctra(j,k,idoc) - xn)
 
            !!!! N cycle !!!!!!!!
@@ -424,8 +441,8 @@ SUBROUTINE ocprod (klev,start_idx,end_idx, ptho,pddpo, za,ptiestu, l_dynamic_pi)
            bgctra(j,k,ioxygen) = bgctra(j,k,ioxygen)               &
                    &     - actn2o
          
-           bgctend(j,k,kremin) = remin / dtbgc 
-           bgctend(j,k,kbacfra) = bacfra / dtbgc 
+           bgctend(j,k,kremin) = remin * inv_dtbgc
+           bgctend(j,k,kbacfra) = bacfra * inv_dtbgc
            bgctend(j,k,kdenit) = 0._wp 
        ENDIF   ! O2 >= thresh_aerob
 
@@ -594,7 +611,7 @@ SUBROUTINE ocprod (klev,start_idx,end_idx, ptho,pddpo, za,ptiestu, l_dynamic_pi)
            ! NO3 reduction
            o2lim = 1._wp - bgctra(j,k,ioxygen)/thresh_o2
 
-           remin  = denitrification*drempoc*o2lim  &
+           remin  = denitrification*o2lim  &
                    & * MIN(avdet,0.5_wp*bgctra(j,k,iano3)/nitdem)
 
            bgctra(j,k,idet)      = bgctra(j,k,idet)      &
@@ -637,7 +654,7 @@ SUBROUTINE ocprod (klev,start_idx,end_idx, ptho,pddpo, za,ptiestu, l_dynamic_pi)
           bgctend(j,k,kh2ob) = bgctend(j,k,kh2ob) + 0.5_wp * n2prod * remin * (pddpo(j,k) + surface_height) 
 
 
-           bgctend(j,k,kdenit) = remin / dtbgc 
+           bgctend(j,k,kdenit) = remin * inv_dtbgc
            bgctend(j,k,kremin) = 0._wp 
            bgctend(j,k,kbacfra) = 0._wp 
            bgctend(j,k,kbacfrac) = 0._wp 
@@ -786,8 +803,8 @@ SUBROUTINE ocprod (klev,start_idx,end_idx, ptho,pddpo, za,ptiestu, l_dynamic_pi)
              ENDIF
              !!!! N-cycle !!!!!!!!
 
-             bgctend(j,k,ksred) = remin / dtbgc 
-             bgctend(j,k,kh2sprod) =  ralk * remin /dtbgc
+             bgctend(j,k,ksred) = remin* inv_dtbgc
+             bgctend(j,k,kh2sprod) =  ralk * remin * inv_dtbgc
              bgctend(j,k,kh2sloss) =  0._wp
 
        else
@@ -803,7 +820,7 @@ SUBROUTINE ocprod (klev,start_idx,end_idx, ptho,pddpo, za,ptiestu, l_dynamic_pi)
                bgctend(j,k,kn2b) = bgctend(j,k,kn2b) - 2._wp * oxid * (pddpo(j,k) + surface_height) 
    
                bgctend(j,k,kh2sprod) =  0._wp
-               bgctend(j,k,kh2sloss) =  oxid /dtbgc
+               bgctend(j,k,kh2sloss) =  oxid * inv_dtbgc
 
 
        ENDIF ! O2 < thresh_sred

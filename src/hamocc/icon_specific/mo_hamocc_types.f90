@@ -34,6 +34,7 @@ MODULE mo_hamocc_types
   PUBLIC :: t_hamocc_sed
   PUBLIC :: t_hamocc_bcond
   PUBLIC :: t_hamocc_prog
+  PUBLIC :: t_hamocc_agg
 
   !
   TYPE t_onCells_Pointer_3d_wp
@@ -238,9 +239,30 @@ MODULE mo_hamocc_types
     REAL(wp), POINTER ::  seddnrn(:,:,:)       
     REAL(wp), POINTER ::  seddnra(:,:,:)       
     REAL(wp), POINTER ::  sednrn2(:,:,:)     
+    REAL(wp), POINTER ::  wdust(:,:,:)
+    REAL(wp), POINTER ::  wpoc(:,:,:)
+    REAL(wp), POINTER ::  wopal(:,:,:)
+    REAL(wp), POINTER ::  wcal(:,:,:)
 
     TYPE(t_hamocc_monitor) :: monitor
   END TYPE t_hamocc_tend
+
+ TYPE t_hamocc_agg  ! mm: agg
+    !--------------------------------------------
+    ! dimension: (nproma,n_zlev, nblks_e)
+    REAL(wp), POINTER ::  wsagg(:,:,:)
+    REAL(wp), POINTER ::  avdp(:,:,:)
+    REAL(wp), POINTER ::  avrhop(:,:,:)
+    REAL(wp), POINTER ::  sticka(:,:,:)
+    REAL(wp), POINTER ::  stickf(:,:,:)
+    REAL(wp), POINTER ::  lmaxagg(:,:,:)
+    REAL(wp), POINTER ::  dfagg(:,:,:)
+    REAL(wp), POINTER ::  avdc(:,:,:)
+    REAL(wp), POINTER ::  bagg(:,:,:)
+    REAL(wp), POINTER ::  dynvis(:,:,:)
+    REAL(wp), POINTER ::  avrhof(:,:,:)
+    REAL(wp), POINTER ::  avpor(:,:,:)
+  END TYPE t_hamocc_agg
 
   TYPE t_hamocc_prog
     REAL(wp), POINTER :: tracer(:,:,:,:)
@@ -254,6 +276,7 @@ MODULE mo_hamocc_types
     TYPE(t_hamocc_diag) :: p_diag
     TYPE(t_hamocc_tend) :: p_tend
     TYPE(t_hamocc_sed)  :: p_sed
+    TYPE(t_hamocc_agg)  :: p_agg
     TYPE(t_hamocc_prog), ALLOCATABLE :: p_prog(:)
     
   END TYPE t_hamocc_state

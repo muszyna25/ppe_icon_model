@@ -43,8 +43,9 @@ MODULE mo_bgc_icon
   USE mo_timer, ONLY          : timer_bgc_up_bgc, timer_bgc_swr, timer_bgc_wea,timer_bgc_depo, &
     &                           timer_bgc_chemcon, timer_bgc_ocprod, timer_bgc_sett,timer_bgc_cya,&
     &                           timer_bgc_gx, timer_bgc_calc, timer_bgc_powach, timer_bgc_up_ic, &
-    &                           timer_bgc_tend, timer_start, timer_stop, timers_level
+    &                           timer_bgc_tend, timer_start, timer_stop, timers_level,timer_bgc_agg
   USE mo_settling,   ONLY    : settling, settling_pdm
+  USE mo_aggregates, ONLY     : mean_aggregate_sinking_speed
   USE mo_ocean_hamocc_couple_state, ONLY: t_ocean_to_hamocc_state, t_hamocc_to_ocean_state, &
     & t_hamocc_ocean_state
 !   USE mo_util_dbg_prnt,          ONLY: dbg_print
@@ -198,7 +199,18 @@ IF (.not. lsediment_only) THEN
        !----------------------------------------------------------------------
        ! Calculate plankton dynamics and particle settling 
 
-       IF(i_settling.ne.2)then !2==agg
+       IF(i_settling==2)then
+         ! sinking speeds from MAGO aggregation scheme (MARMA)
+
+         start_detail_timer(timer_bgc_agg,5)
+         CALL mean_aggregate_sinking_speed (levels, start_index, end_index, &
+   &                 p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb), & ! cell thickness
+   &                 ocean_to_hamocc_state%press_hyd(:,:,jb),                 & ! hydrostatic pressure
+   &                 ocean_to_hamocc_state%temperature(:,:,jb),               & ! pot. temperature
+   &                 ocean_to_hamocc_state%salinity(:,:,jb))                    ! salinity
+
+        stop_detail_timer(timer_bgc_agg,5)
+       ENDIF
 
         start_detail_timer(timer_bgc_ocprod,5)
          ! plankton dynamics and remineralization  
@@ -220,10 +232,11 @@ IF (.not. lsediment_only) THEN
    &                   p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),& ! cell thickness
    &                   ocean_to_hamocc_state%h_old(:,jb))                   ! surface height
        
-        ENDIF 
-       endif
+        ENDIF
+        stop_detail_timer(timer_bgc_sett,5) 
+       
 
-       stop_detail_timer(timer_bgc_sett,5)
+      
 
 
        !----------------------------------------------------------------------
@@ -298,7 +311,8 @@ IF (.not. lsediment_only) THEN
   &                                   jb, &
   &                                   hamocc_state%p_tend,            &
   &                                   hamocc_state%p_diag,            &
-  &                                   hamocc_state%p_sed)
+  &                                   hamocc_state%p_sed,             &
+  &                                   hamocc_state%p_agg)
 
         stop_detail_timer(timer_bgc_tend,5)
  ENDDO
