@@ -7,7 +7,7 @@ MODULE mo_ser_all
   USE mo_exception,          ONLY: warning, message
   USE mo_ser_common,         ONLY: init, t_ser_options, ser_component, open_compare_file, close_compare_file
 
-  USE mtime,                 ONLY: datetimeToString, MAX_DATETIME_STR_LEN
+  USE mtime,                 ONLY: datetime, datetimeToString, MAX_DATETIME_STR_LEN
   USE mo_time_config,        ONLY: time_config
   USE mo_dynamics_config,    ONLY: nnow, nnew, nnow_rcf, nnew_rcf
   USE mo_var_metadata_types, ONLY: t_var_metadata
@@ -70,7 +70,7 @@ MODULE mo_ser_all
     TYPE(t_ser_options)           :: o
     CHARACTER(len=VNAME_LEN)      :: listname
 
-    INTEGER :: dims(5), ii
+    INTEGER :: ii
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: ser_name
     INTEGER :: listhash
@@ -108,12 +108,24 @@ MODULE mo_ser_all
         info    => element%info
         call char_to_hash(listname, listhash)
         write(ser_name, '(a,i5.5)') TRIM(info%name)//'_', listhash
-        dims = info%used_dimensions
+        o%lopenacc  = info%lopenacc
 
         ! Contained variables are (/should be) already serialized through their container.
-        IF ( info%lcontained ) CYCLE for_all_list_elements
+        IF ( info%lcontained ) THEN 
+          ! just check meta data
+          o%lopenacc = .FALSE.
+          o%lupdate_cpu = .FALSE.
+          call ser_component(o, TRIM(ser_name)//"_contained", info%used_dimensions)
+          CYCLE for_all_list_elements
+        END IF
 
-        o%lopenacc  = info%lopenacc
+        ! only compare shape of empty variables
+        IF ( ANY(info%used_dimensions==0) ) THEN
+          o%lopenacc = .FALSE.
+          o%lupdate_cpu = .FALSE.
+          call ser_component(o, TRIM(ser_name)//"_shape", info%used_dimensions)
+          CYCLE for_all_list_elements
+        END IF
 
         SELECT CASE(info%data_type)
           CASE (REAL_T)
@@ -168,7 +180,7 @@ MODULE mo_ser_all
   END SUBROUTINE ser_var_list
 #endif
 
-  SUBROUTINE serialize_all(nproma, jg, savepoint_base, is_input, opt_lupdate_cpu, opt_id)
+  SUBROUTINE serialize_all(nproma, jg, savepoint_base, is_input, opt_lupdate_cpu, opt_id, opt_dt)
 
     INTEGER, INTENT(IN) :: nproma, jg
     CHARACTER(LEN=*), INTENT(IN) :: savepoint_base
@@ -176,6 +188,8 @@ MODULE mo_ser_all
 
     LOGICAL, INTENT(IN), OPTIONAL :: opt_lupdate_cpu
     INTEGER, INTENT(IN), OPTIONAL :: opt_id
+    ! use this to pass a datetime that describes the exact current sub-timestep of a nested domain.
+    TYPE(datetime), INTENT(IN), OPTIONAL, POINTER :: opt_dt 
 
 #ifdef SERIALIZE
     LOGICAL :: lupdate_cpu
@@ -278,7 +292,13 @@ MODULE mo_ser_all
 
        CALL warning('SER:'//TRIM(savepoint_name),'Serialization is active!')
 
-       CALL datetimeToString(time_config%tc_current_date, date)
+       IF(PRESENT(opt_dt)) THEN
+         CALL datetimeToString(opt_dt, date)
+       ELSE
+         ! time_config%tc_current_date stores the current time of DOM01 only
+         CALL datetimeToString(time_config%tc_current_date, date)
+       END IF
+
        WRITE(compare_file_name, "(A,A1,A,A1,I2.2,A4,I2.2,A5,I2.2)") savepoint_name, "_", TRIM(date), &
          "_", id, "_dom", jg, "_rank", get_my_mpi_work_id()
        CALL message('SER working on',compare_file_name)

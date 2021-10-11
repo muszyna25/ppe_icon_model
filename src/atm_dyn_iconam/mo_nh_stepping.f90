@@ -1858,21 +1858,21 @@ MODULE mo_nh_stepping
 
           IF (ldynamics) THEN
 
-            !$ser verbatim CALL serialize_all(nproma, jg, "dynamics", .TRUE., opt_lupdate_cpu=.TRUE.)
+            !$ser verbatim CALL serialize_all(nproma, jg, "dynamics", .TRUE., opt_lupdate_cpu=.TRUE., opt_dt=datetime_local(jg)%ptr)
             ! dynamics integration with substepping
             !
             CALL perform_dyn_substepping (p_patch(jg), p_nh_state(jg), p_int_state(jg), &
               &                           prep_adv(jg), jstep, iau_iter, dt_loc, datetime_local(jg)%ptr)
-            !$ser verbatim CALL serialize_all(nproma, jg, "dynamics", .FALSE., opt_lupdate_cpu=.TRUE.)
+            !$ser verbatim CALL serialize_all(nproma, jg, "dynamics", .FALSE., opt_lupdate_cpu=.TRUE., opt_dt=datetime_local(jg)%ptr)
 
             ! diffusion at physics time steps
             !
             IF (diffusion_config(jg)%lhdiff_vn .AND. lhdiff_rcf) THEN
-              !$ser verbatim CALL serialize_all(nproma, jg, "diffusion", .TRUE., opt_lupdate_cpu=.TRUE.)
+              !$ser verbatim CALL serialize_all(nproma, jg, "diffusion", .TRUE., opt_lupdate_cpu=.TRUE., opt_dt=datetime_local(jg)%ptr)
               CALL diffusion(p_nh_state(jg)%prog(nnew(jg)), p_nh_state(jg)%diag,     &
                 &            p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg),   &
                 &            dt_loc/ndyn_substeps, .FALSE.)
-              !$ser verbatim CALL serialize_all(nproma, jg, "diffusion", .FALSE., opt_lupdate_cpu=.TRUE.)
+              !$ser verbatim CALL serialize_all(nproma, jg, "diffusion", .FALSE., opt_lupdate_cpu=.TRUE., opt_dt=datetime_local(jg)%ptr)
             ENDIF
 
           ELSE IF (iforcing == inwp .OR. (iforcing == iecham .AND. echam_phy_config(jg)%ldcphycpl)) THEN
@@ -1926,7 +1926,7 @@ MODULE mo_nh_stepping
             CALL message('integrate_nh', message_text)
           ENDIF
 
-          !$ser verbatim CALL serialize_all(nproma, jg, "step_advection", .TRUE., opt_lupdate_cpu=.TRUE.)
+          !$ser verbatim CALL serialize_all(nproma, jg, "step_advection", .TRUE., opt_lupdate_cpu=.TRUE., opt_dt=datetime_local(jg)%ptr)
           CALL step_advection(                                                &
             &       p_patch           = p_patch(jg),                          & !in
             &       p_int_state       = p_int_state(jg),                      & !in
@@ -1949,7 +1949,7 @@ MODULE mo_nh_stepping
             &       opt_ddt_tracer_adv= p_nh_state(jg)%diag%ddt_tracer_adv,   & !out
             &       opt_deepatmo_t1mc = p_nh_state(jg)%metrics%deepatmo_t1mc, & !optin
             &       opt_deepatmo_t2mc = p_nh_state(jg)%metrics%deepatmo_t2mc  ) !optin
-          !$ser verbatim CALL serialize_all(nproma, jg, "step_advection", .FALSE., opt_lupdate_cpu=.TRUE.)
+          !$ser verbatim CALL serialize_all(nproma, jg, "step_advection", .FALSE., opt_lupdate_cpu=.TRUE., opt_dt=datetime_local(jg)%ptr)
 
           IF (iprog_aero >= 1) THEN
             
@@ -2061,7 +2061,7 @@ MODULE mo_nh_stepping
 
 
               ! nwp physics
-              !$ser verbatim CALL serialize_all(nproma, jg, "physics", .TRUE., opt_lupdate_cpu=.TRUE.)
+              !$ser verbatim CALL serialize_all(nproma, jg, "physics", .TRUE., opt_lupdate_cpu=.TRUE., opt_dt=datetime_local(jg)%ptr)
               CALL nwp_nh_interface(atm_phy_nwp_config(jg)%lcall_phy(:), & !in
                 &                  .FALSE.,                            & !in
                 &                  lredgrid_phys(jg),                  & !in
@@ -2087,7 +2087,7 @@ MODULE mo_nh_stepping
                 &                  p_nh_state_lists(jg)%prog_list(n_new_rcf),& !in
                 &                  prm_upatmo(jg)                      ) !inout
   
-              !$ser verbatim CALL serialize_all(nproma, jg, "physics", .FALSE., opt_lupdate_cpu=.TRUE.)
+              !$ser verbatim CALL serialize_all(nproma, jg, "physics", .FALSE., opt_lupdate_cpu=.TRUE., opt_dt=datetime_local(jg)%ptr)
 
             CASE (iecham) ! iforcing
 
@@ -2207,7 +2207,7 @@ MODULE mo_nh_stepping
         CALL gpu_d2h_nh_nwp(p_patch(jg), prm_diag(jg))
         i_am_accel_node = .FALSE.
 #endif
-        !$ser verbatim CALL serialize_all(nproma, jg, "nudging", .TRUE., opt_lupdate_cpu=.TRUE.)
+        !$ser verbatim CALL serialize_all(nproma, jg, "nudging", .TRUE., opt_lupdate_cpu=.TRUE., opt_dt=datetime_local(jg)%ptr)
         
         tsrat = REAL(ndyn_substeps,wp) ! dynamics-physics time step ratio
 
@@ -2284,7 +2284,7 @@ MODULE mo_nh_stepping
         CALL gpu_h2d_nh_nwp(p_patch(jg), prm_diag(jg))
         i_am_accel_node = my_process_is_work()
 #endif
-        !$ser verbatim CALL serialize_all(nproma, jg, "nudging", .FALSE., opt_lupdate_cpu=.TRUE.)
+        !$ser verbatim CALL serialize_all(nproma, jg, "nudging", .FALSE., opt_lupdate_cpu=.TRUE., opt_dt=datetime_local(jg)%ptr)
 
 
       ELSE IF (l_global_nudging .AND. jg==1) THEN

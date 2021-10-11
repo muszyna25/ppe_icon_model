@@ -636,7 +636,7 @@ CONTAINS
     IF ( l_any_fastphys .AND. ( ANY( (/icosmo,igme/)==atm_phy_nwp_config(jg)%inwp_turb ) &
                   & .OR. ( edmf_conf==2  .AND. iedmf==atm_phy_nwp_config(jg)%inwp_turb ) ) ) THEN
       IF (timers_level > 2) CALL timer_start(timer_nwp_surface)
-      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "surface", .TRUE., opt_lupdate_cpu=.FALSE.)
+      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "surface", .TRUE., opt_lupdate_cpu=.FALSE., opt_dt=mtime_datetime)
 
        !> as pressure is needed only for an approximate adiabatic extrapolation
        !! of the temperature at the lowest model level towards ground level,
@@ -653,7 +653,7 @@ CONTAINS
                              & lnd_diag,                         & !>input
                              & lacc=(.not. linit)                ) !>in
 
-       !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "surface", .FALSE., opt_lupdate_cpu=.TRUE.)
+       !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "surface", .FALSE., opt_lupdate_cpu=.TRUE., opt_dt=mtime_datetime)
       IF (timers_level > 2) CALL timer_stop(timer_nwp_surface)
     END IF
 
@@ -668,7 +668,7 @@ CONTAINS
       !Turbulence schemes NOT including the call to the surface scheme
       CASE(icosmo,igme,iedmf)
 
-      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "turbdiff", .TRUE., opt_lupdate_cpu=.FALSE.)
+      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "turbdiff", .TRUE., opt_lupdate_cpu=.FALSE., opt_dt=mtime_datetime)
       ! compute turbulent diffusion (atmospheric column)
       CALL nwp_turbdiff   (  dt_phy_jg(itfastphy),              & !>in
                             & pt_patch, p_metrics,              & !>in
@@ -681,7 +681,7 @@ CONTAINS
                             & lnd_prog_now,                     & !>in
                             & lnd_diag                          ) !>in
 
-      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "turbdiff", .FALSE., opt_lupdate_cpu=.TRUE.)
+      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "turbdiff", .FALSE., opt_lupdate_cpu=.TRUE., opt_dt=mtime_datetime)
       CASE DEFAULT
 
         CALL finish('mo_nh_interface_nwp:','unknown choice of turbulence scheme')
@@ -709,7 +709,7 @@ CONTAINS
 
       IF (timers_level > 1) CALL timer_start(timer_nwp_microphysics)
 
-      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "microphysics", .TRUE., opt_lupdate_cpu=.FALSE.)
+      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "microphysics", .TRUE., opt_lupdate_cpu=.FALSE., opt_dt=mtime_datetime)
       CALL nwp_microphysics ( dt_phy_jg(itfastphy),             & !>input
                             & lcall_phy_jg(itsatad),            & !>input
                             & pt_patch, p_metrics,              & !>input
@@ -721,7 +721,7 @@ CONTAINS
                             & ext_data,                         & !>in
                             & lcompute_tt_lheat                 ) !>in
 
-      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "microphysics", .FALSE., opt_lupdate_cpu=.TRUE.)
+      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "microphysics", .FALSE., opt_lupdate_cpu=.TRUE., opt_dt=mtime_datetime)
 
       IF (timers_level > 1) CALL timer_stop(timer_nwp_microphysics)
 
@@ -760,7 +760,7 @@ CONTAINS
       IF (timers_level > 1) CALL timer_start(timer_datass)
 
       IF (lcall_lhn .OR. lcall_lhn_v) THEN
-        !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "lhn", .TRUE., opt_lupdate_cpu=.FALSE.)
+        !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "lhn", .TRUE., opt_lupdate_cpu=.FALSE., opt_dt=mtime_datetime)
          CALL organize_lhn (   &
                                & dt_loc,                           & !>input
                                & p_sim_time,                       & ! in
@@ -775,7 +775,7 @@ CONTAINS
                                & mtime_datetime,                   &
                                & lcall_lhn, lcall_lhn_v,           &
                                & assimilation_config(jg)%lvalid_data)
-        !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "lhn", .FALSE., opt_lupdate_cpu=.FALSE.)
+        !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "lhn", .FALSE., opt_lupdate_cpu=.FALSE., opt_dt=mtime_datetime)
 
         IF (msg_level >= 7 .AND. .NOT. assimilation_config(jg)%lvalid_data) THEN
           CALL message('mo_nh_interface_nwp:','LHN turned off due to lack of valid data')
@@ -1002,7 +1002,7 @@ CONTAINS
 
       ! compute turbulent transfer coefficients (atmosphere-surface interface)
 
-      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "turbtrans", .TRUE., opt_lupdate_cpu=.FALSE.)
+      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "turbtrans", .TRUE., opt_lupdate_cpu=.FALSE., opt_dt=mtime_datetime)
       CALL nwp_turbtrans  ( dt_phy_jg(itfastphy),             & !>in
                           & pt_patch, p_metrics,              & !>in
                           & ext_data,                         & !>in
@@ -1014,7 +1014,7 @@ CONTAINS
                           & lnd_prog_new,                     & !>inout
                           & lnd_diag,                         & !>inout
                           & lacc=(.not. linit)                ) !>in
-      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "turbtrans", .FALSE., opt_lupdate_cpu=.TRUE.)
+      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "turbtrans", .FALSE., opt_lupdate_cpu=.TRUE., opt_dt=mtime_datetime)
 
 
       IF (timers_level > 1) CALL timer_stop(timer_nwp_turbulence)
@@ -1069,7 +1069,7 @@ CONTAINS
     !-------------------------------------------------------------------------
 
     IF ( lcall_phy_jg(itconv)  ) THEN
-      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "convection", .TRUE., opt_lupdate_cpu=.FALSE.)
+      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "convection", .TRUE., opt_lupdate_cpu=.FALSE., opt_dt=mtime_datetime)
 #ifdef _OPENACC
       IF (.NOT. linit) THEN
         CALL message('mo_nh_interface_nwp', 'Device to host copy before nwp_convection. This needs to be removed once port is finished!')
@@ -1098,7 +1098,7 @@ CONTAINS
         i_am_accel_node = my_process_is_work()
       ENDIF
 #endif
-      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "convection", .FALSE., opt_lupdate_cpu=.FALSE.)
+      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "convection", .FALSE., opt_lupdate_cpu=.FALSE., opt_dt=mtime_datetime)
 
     ENDIF! convection
 
@@ -1138,7 +1138,7 @@ CONTAINS
       !  (5) grid-scale cloud cover [1 or 0]
       !-------------------------------------------------------------------------
 
-      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "cover", .TRUE., opt_lupdate_cpu=.TRUE.)
+      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "cover", .TRUE., opt_lupdate_cpu=.TRUE., opt_dt=mtime_datetime)
 #ifndef __GFORTRAN__
 ! FIXME: libgomp seems to run in deadlock here
 !$OMP PARALLEL DO PRIVATE(i_startidx,i_endidx,qtvar) ICON_OMP_GUIDED_SCHEDULE
@@ -1187,7 +1187,7 @@ CONTAINS
 #ifndef __GFORTRAN__
 !$OMP END PARALLEL DO
 #endif
-      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "cover", .FALSE., opt_lupdate_cpu=.TRUE.)
+      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "cover", .FALSE., opt_lupdate_cpu=.TRUE., opt_dt=mtime_datetime)
 
       IF (timers_level > 2) CALL timer_stop(timer_cover_koe)
 
@@ -1230,7 +1230,7 @@ CONTAINS
     IF ( lcall_phy_jg(itrad) ) THEN
       
       IF (ltimer) CALL timer_start(timer_nwp_radiation)
-      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "radiation", .TRUE., opt_lupdate_cpu=.FALSE.)
+      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "radiation", .TRUE., opt_lupdate_cpu=.FALSE., opt_dt=mtime_datetime)
       CALL nwp_radiation (lredgrid,              & ! in
            &              p_sim_time,            & ! in
            &              mtime_datetime,        & ! in
@@ -1244,7 +1244,7 @@ CONTAINS
            &              lnd_prog_new,          & ! in
            &              wtr_prog_new,          & ! in
            &              linit                  ) ! in, optional
-      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "radiation", .FALSE., opt_lupdate_cpu=.FALSE.)
+      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "radiation", .FALSE., opt_lupdate_cpu=.FALSE., opt_dt=mtime_datetime)
       IF (ltimer) CALL timer_stop(timer_nwp_radiation)
 
     ENDIF
@@ -1255,7 +1255,7 @@ CONTAINS
 #ifdef __CRAY8_5_5_WORKAROUND
       !$ACC DATA CREATE(pqv) IF(.NOT. linit)
 #endif
-      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "radheat", .TRUE., opt_lupdate_cpu=.FALSE.)
+      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "radheat", .TRUE., opt_lupdate_cpu=.FALSE., opt_dt=mtime_datetime)
 
       IF (msg_level >= 15) &
 &           CALL message('mo_nh_interface', 'radiative heating')
@@ -1490,7 +1490,7 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "radheat", .FALSE., opt_lupdate_cpu=.TRUE.)
+      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "radheat", .FALSE., opt_lupdate_cpu=.TRUE., opt_dt=mtime_datetime)
 
 #ifdef __CRAY8_5_5_WORKAROUND
     !$ACC END DATA ! CREATE(pqv)
@@ -1508,7 +1508,7 @@ CONTAINS
     !-------------------------------------------------------------------------
 
     IF (lcall_phy_jg(itsso) .OR. lcall_phy_jg(itgwd)) THEN
-      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "gwdrag", .TRUE., opt_lupdate_cpu=.FALSE.)
+      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "gwdrag", .TRUE., opt_lupdate_cpu=.FALSE., opt_dt=mtime_datetime)
 #ifdef _OPENACC
       IF (.NOT. linit) THEN
         CALL message('mo_nh_interface_nwp', 'Device to host copy before nwp_gwdrag. This needs to be removed once port is finished!')
@@ -1540,7 +1540,7 @@ CONTAINS
         i_am_accel_node = my_process_is_work()
       ENDIF
 #endif
-      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "gwdrag", .FALSE., opt_lupdate_cpu=.FALSE.)
+      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "gwdrag", .FALSE., opt_lupdate_cpu=.FALSE., opt_dt=mtime_datetime)
     ENDIF ! inwp_sso
     !-------------------------------------------------------------------------
     
