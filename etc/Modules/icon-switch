@@ -2,15 +2,23 @@
 
 source [file join [file dirname $ModulesCurrentModulefile] .pkg]
 
-set ADD_BASE /home/mpim/m221078
-prepend-path-if-exists PATH $ADD_BASE/bin
-prepend-path-if-exists MANPATH $ADD_BASE/man
-prepend-path-if-exists INFOPATH $ADD_BASE/share/info
-prepend-path-if-exists PERLLIB $ADD_BASE/lib/perl5
-prepend-path-if-exists PERLLIB $ADD_BASE/lib/perl5/x86_64-linux-thread-multi
-prepend-path-if-exists PYTHONPATH $ADD_BASE/lib/python2.7/site-packages
+set ICON_DIR [file dirname [file dirname [file dirname $ModulesCurrentModulefile]]]
+prepend-path-if-exists PATH $ICON_DIR/utils/mkexp
+prepend-path-if-exists PYTHONPATH $ICON_DIR/utils/mkexp
+prepend-path-if-exists PATH $ICON_DIR/utils/plotems
+
+set build_dir build
+if [info exists env(ICON_BUILD_DIR)] {
+    set build_dir $env(ICON_BUILD_DIR)
+}
+
+prepend-path-if-exists MKEXP_PATH $ICON_DIR/run
+prepend-path-if-exists MKEXP_PATH $ICON_DIR/$build_dir/run
+prepend-path MKEXP_PATH .
 
 set_dependencies {
     python/2.7.12
+    cdo/1.9.10-magicsxx-gcc64
+    ncl/6.5.0-gccsys
     imagemagick/6.9.1-7-gcc48
 }

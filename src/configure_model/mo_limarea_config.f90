@@ -80,6 +80,7 @@ MODULE mo_limarea_config
     
     LOGICAL                         :: init_latbc_from_fg  ! take initial lateral boundary conditions from first guess
     LOGICAL                         :: nudge_hydro_pres    ! use hydrostatic pressure for lateral boundary nudging
+    REAL(wp)                        :: fac_latbc_presbiascor ! factor for pressure bias correction of latbc data
 
     ! settings derived from the namelist parameters above:
     LOGICAL                         :: lsparse_latbc       ! Flag: TRUE if only boundary rows are read.

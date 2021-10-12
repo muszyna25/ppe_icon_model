@@ -191,7 +191,7 @@ CONTAINS
               & qc0    =echam_mig_config(jg)%qc0    , & !< in: cloud water threshold for autoconversion
               & dz     =field% dz       (:,:,jb)    , & !< in: vertical layer thickness
               & t      =xlta            (:,:)       , & !< inout: temp
-              & p      =field% presm_old(:,:,jb)    , & !< in:  pressure
+              & p      =field% pfull    (:,:,jb)    , & !< in:  pressure
               & rho    =field% rho      (:,:,jb)    , & !< in:  density
               & qv     =xlqv            (:,:)       , & !< inout:sp humidity
               & qc     =xlqc            (:,:)       , & !< inout:cloud water
@@ -200,9 +200,9 @@ CONTAINS
               & qs     =xlqs            (:,:)       , & !< inout: snow
               & qg     =xlqg            (:,:)       , & !< inout: graupel
               & qnc    =zqnc                        , & !< inout: cloud droplet number
-              & prr_gsp=field%rain_gsp_rate (:, jb)   , & !< inout precp rate rain
-              & prs_gsp=field%snow_gsp_rate (:, jb)   , & !< inout precp rate snow
-              & prg_gsp=field%graupel_gsp_rate (:, jb), & !< inout precp rate graupel
+              & prr_gsp=field%rain_gsp_rate (:, jb) , & !< inout precp rate rain
+              & prs_gsp=field%snow_gsp_rate (:, jb) , & !< inout precp rate snow
+              & prg_gsp=field%graupel_gsp_rate (:, jb) , & !< inout precp rate graupel
               & qrsflux=zqrsflux                    , & !< out  precipitation flux
               & l_cv=.TRUE.                         , &
               & ldiag_ttend = echam_mig_config(jg)%ldiag_ttend , & !< in:  if temp.  tendency shall be diagnosed

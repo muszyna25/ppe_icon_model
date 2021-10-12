@@ -34,13 +34,9 @@ MODULE mo_radar_data_state
   USE mo_grid_config,        ONLY: n_dom
   USE mo_mpi,                ONLY: my_process_is_mpi_workroot, p_io, p_bcast, &
     &                              p_comm_work
-  USE mo_linked_list,        ONLY: t_var_list
-
   USE mo_radar_data_types,   ONLY: t_radar_fields,t_radar_td_fields, t_radar_ct_fields, t_lhn_diag
-
-  USE mo_var_list,           ONLY: default_var_list_settings,   &
-    &                              add_var, new_var_list,                &
-    &                              delete_var_list
+  USE mo_var_list,           ONLY: add_var, t_var_list_ptr
+  USE mo_var_list_register,  ONLY: vlr_add, vlr_del
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var, grib2_var
   USE mo_cdi,                ONLY: DATATYPE_PACK16, DATATYPE_FLT32,                 &
@@ -58,6 +54,8 @@ MODULE mo_radar_data_state
   USE mo_util_uuid,          ONLY: OPERATOR(==), uuid_unparse
   USE mo_dictionary,         ONLY: t_dictionary
   USE mo_fortran_tools,       ONLY: init
+
+#include "add_var_acc_macro.inc"
 
   IMPLICIT NONE
 
@@ -260,7 +258,7 @@ CONTAINS
     TYPE(t_radar_ct_fields), INTENT(INOUT) :: & !< current radar data structure
       &  p_radar_ct 
 
-    TYPE(t_var_list) :: p_radar_ct_list !< current radar data list
+    TYPE(t_var_list_ptr) :: p_radar_ct_list !< current radar data list
 
     CHARACTER(len=*), INTENT(IN)      :: & !< list name
       &  listname
@@ -295,10 +293,7 @@ CONTAINS
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( p_radar_ct_list, TRIM(listname), patch_id=p_patch%id )
-    CALL default_var_list_settings( p_radar_ct_list,            &
-                                  & lrestart=.FALSE.  )
-
+    CALL vlr_add(p_radar_ct_list, TRIM(listname), patch_id=p_patch%id, lrestart=.FALSE.)
 
     ! radar blacklist at cell center
     !
@@ -309,7 +304,8 @@ CONTAINS
     CALL add_var( p_radar_ct_list, 'rad_bl', p_radar_ct%blacklist,  &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,             &
       &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,            &
-      &           isteptype=TSTEP_CONSTANT )
+      &           isteptype=TSTEP_CONSTANT, lopenacc=.TRUE. )
+    __acc_attach(p_radar_ct%blacklist)
 
 
   END SUBROUTINE new_radar_data_ct_list
@@ -337,7 +333,7 @@ CONTAINS
     TYPE(t_radar_td_fields), INTENT(INOUT) :: & !< current radar data structure
       &  p_radar_td 
 
-    TYPE(t_var_list) :: p_radar_td_list  !< current radar data list
+    TYPE(t_var_list_ptr) :: p_radar_td_list  !< current radar data list
 
     CHARACTER(len=*), INTENT(IN)      :: & !< list name
       &  listname
@@ -367,11 +363,8 @@ CONTAINS
 
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( p_radar_td_list, TRIM(listname), patch_id=p_patch%id )
-    CALL default_var_list_settings( p_radar_td_list,         &
-                                  & lrestart=.FALSE.,          &
-                                  & loutput=.FALSE.  )
-
+    CALL vlr_add(p_radar_td_list, TRIM(listname), patch_id=p_patch%id, &
+      &               lrestart=.FALSE., loutput=.FALSE.)
 
     ! radobs       p_radar_td%obs(nproma,nblks_c,nobs_times)
     cf_desc    = t_cf_var('rad_precip', 'mm/h',   &
@@ -380,7 +373,8 @@ CONTAINS
     CALL add_var( p_radar_td_list, 'rad_precip', p_radar_td%obs, &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,      &
       &           grib2_desc, ldims=shape3d_c, loutput=.TRUE.,     &
-      &           isteptype=TSTEP_INSTANT )  ! Meta info constituentType missing
+      &           isteptype=TSTEP_INSTANT, lopenacc=.TRUE. )  ! Meta info constituentType missing
+    __acc_attach(p_radar_td%obs)
 
     ! radqual       p_radar_td%spqual(nproma,nblks_c,nobs_times)
     cf_desc    = t_cf_var('rad_qual', '-',   &
@@ -389,7 +383,8 @@ CONTAINS
     CALL add_var( p_radar_td_list, 'rad_qual', p_radar_td%spqual, &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,      &
       &           grib2_desc, ldims=shape3d_c, loutput=.FALSE.,     &
-      &           isteptype=TSTEP_CONSTANT )  ! Meta info constituentType missing
+      &           isteptype=TSTEP_CONSTANT, lopenacc=.TRUE. )  ! Meta info constituentType missing
+    __acc_attach(p_radar_td%spqual)
 
 !    ! radar beam height
     !
@@ -400,7 +395,8 @@ CONTAINS
     CALL add_var( p_radar_td_list, 'rad_height', p_radar_td%radheight,                      &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,              &
       &           grib2_desc, ldims=shape3d_h, loutput=.FALSE.,            &
-      &           isteptype=TSTEP_CONSTANT )
+      &           isteptype=TSTEP_CONSTANT, lopenacc=.TRUE. )
+    __acc_attach(p_radar_td%radheight)
 
   END SUBROUTINE new_radar_data_td_list
   !-------------------------------------------------------------------------
@@ -428,13 +424,13 @@ CONTAINS
 
     DO jg = 1,n_dom
       ! Delete list of constant in time atmospheric elements
-      CALL delete_var_list( radar_data(jg)%radar_ct_list)
+      CALL vlr_del(radar_data(jg)%radar_ct_list)
     ENDDO
 
     IF (iforcing > 1 ) THEN
     DO jg = 1,n_dom
       ! Delete list of time-dependent atmospheric elements
-      CALL delete_var_list( radar_data(jg)%radar_td_list)
+      CALL vlr_del(radar_data(jg)%radar_td_list)
     ENDDO
     END IF
 
@@ -1008,11 +1004,17 @@ CONTAINS
 
   DO jg = 1, n_dom
     ALLOCATE (lhn_fields(jg)%ttend_lhn(nproma,p_patch(jg)%nlev,p_patch(jg)%nblks_c))
+    !$ACC ENTER DATA CREATE( lhn_fields(jg)%ttend_lhn )
     ALLOCATE (lhn_fields(jg)%qvtend_lhn(nproma,p_patch(jg)%nlev,p_patch(jg)%nblks_c))
+    !$ACC ENTER DATA CREATE( lhn_fields(jg)%qvtend_lhn )
     ALLOCATE (lhn_fields(jg)%brightband(nproma,p_patch(jg)%nblks_c))
+    !$ACC ENTER DATA CREATE( lhn_fields(jg)%brightband )
     ALLOCATE (lhn_fields(jg)%pr_obs_sum(nproma,p_patch(jg)%nblks_c))
+    !$ACC ENTER DATA CREATE( lhn_fields(jg)%pr_obs_sum )
     ALLOCATE (lhn_fields(jg)%pr_mod_sum(nproma,p_patch(jg)%nblks_c))
+    !$ACC ENTER DATA CREATE( lhn_fields(jg)%pr_mod_sum )
     ALLOCATE (lhn_fields(jg)%pr_ref_sum(nproma,p_patch(jg)%nblks_c))
+    !$ACC ENTER DATA CREATE( lhn_fields(jg)%pr_ref_sum )
   
 !$OMP PARALLEL 
     CALL init(lhn_fields(jg)%ttend_lhn(:,:,:))
@@ -1037,11 +1039,17 @@ CONTAINS
   INTEGER :: jg
 
   DO jg = 1, n_dom
+    !$ACC EXIT DATA DELETE( lhn_fields(jg)%ttend_lhn )
     DEALLOCATE (lhn_fields(jg)%ttend_lhn)
+    !$ACC EXIT DATA DELETE( lhn_fields(jg)%qvtend_lhn )
     DEALLOCATE (lhn_fields(jg)%qvtend_lhn)
+    !$ACC EXIT DATA DELETE( lhn_fields(jg)%brightband )
     DEALLOCATE (lhn_fields(jg)%brightband)
+    !$ACC EXIT DATA DELETE( lhn_fields(jg)%pr_obs_sum )
     DEALLOCATE (lhn_fields(jg)%pr_obs_sum)
+    !$ACC EXIT DATA DELETE( lhn_fields(jg)%pr_mod_sum )
     DEALLOCATE (lhn_fields(jg)%pr_mod_sum)
+    !$ACC EXIT DATA DELETE( lhn_fields(jg)%pr_ref_sum )
     DEALLOCATE (lhn_fields(jg)%pr_ref_sum)
   
   ENDDO

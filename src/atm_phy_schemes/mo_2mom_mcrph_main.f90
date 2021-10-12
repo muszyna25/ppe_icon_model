@@ -242,7 +242,7 @@ MODULE mo_2mom_mcrph_main
        &        'hail_cosmo5' ,& !.name...Bezeichnung
        &        1.000000, & !..nu.....Breiteparameter der Verteil.
        &        0.333333, & !..mu.....Exp.-parameter der Verteil.
-       &        5.40d-04, & !..x_max..maximale Teilchenmasse
+       &        5.00d-03, & !..x_max..maximale Teilchenmasse
        &        2.60d-9,  & !..x_min..minimale Teilchenmasse
        &        0.1366 ,  & !..a_geo..Koeff. Geometrie
        &        0.333333, & !..b_geo..Koeff. Geometrie = 1/3
@@ -351,7 +351,7 @@ MODULE mo_2mom_mcrph_main
        &        0.80,     & !..ecoll_c
        &        150.0d-6, & !..D_crit_c
        &        1.000d-5, & !..q_crit_c
-       &        0.05      & !..sigma_vel
+       &        0.25      & !..sigma_vel 
        &        )
 
   TYPE(particle_frozen), PARAMETER :: &
@@ -1278,11 +1278,12 @@ CONTAINS
     CHARACTER(len=*), INTENT(in) :: mtxt
     CLASS(particle), INTENT(in) :: cloud, rain, ice, snow, graupel, hail
 
-    INTEGER :: k, kstart, kend, k_neg(6)
+    INTEGER :: k, kstart, kend, k_neg(6), jcs, jce
     REAL(wp), PARAMETER  :: meps = -1e-12_wp
     CHARACTER(len=2), PARAMETER  :: qname(6) = (/ 'qc', 'qr', 'qi', 'qs', 'qg', 'qh' /)
 
-
+    jcs    = ik_slice(1)
+    jce    = ik_slice(2)
     kstart = ik_slice(3)
     kend   = ik_slice(4)
 
@@ -1290,22 +1291,22 @@ CONTAINS
 
     k_neg = -1
     DO k = kstart,kend
-      IF (MINVAL(cloud%q(:,k)) < meps) THEN
+      IF (MINVAL(cloud%q(jcs:jce,k)) < meps) THEN
         k_neg(1) = k
       ENDIF
-      IF (MINVAL(rain%q(:,k)) < meps) THEN
+      IF (MINVAL(rain%q(jcs:jce,k)) < meps) THEN
         k_neg(2) = k
       ENDIF
-      IF (MINVAL(ice%q(:,k)) < meps) THEN
+      IF (MINVAL(ice%q(jcs:jce,k)) < meps) THEN
         k_neg(3) = k
       ENDIF
-      IF (MINVAL(snow%q(:,k)) < meps) THEN
+      IF (MINVAL(snow%q(jcs:jce,k)) < meps) THEN
         k_neg(4) = k
       ENDIF
-      IF (MINVAL(graupel%q(:,k)) < meps) THEN
+      IF (MINVAL(graupel%q(jcs:jce,k)) < meps) THEN
         k_neg(5) = k
       ENDIF
-      IF (MINVAL(hail%q(:,k)) < meps) THEN
+      IF (MINVAL(hail%q(jcs:jce,k)) < meps) THEN
         k_neg(6) = k
       ENDIF
     END DO

@@ -42,8 +42,7 @@ USE mo_grid_config,         ONLY: l_limited_area
 USE mo_nwp_phy_state,       ONLY: prm_diag
 USE mo_nonhydro_state,      ONLY: p_nh_state
 USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int, nexlevs_rrg_vnest
-USE mo_physical_constants,  ONLY: rd, grav, stbo, vtmpc1, tmelt
-USE mo_satad,               ONLY: qsat_rho
+USE mo_physical_constants,  ONLY: rd, grav, stbo, tmelt
 USE mo_loopindices,         ONLY: get_indices_c
 USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_ovlparea_start_c, grf_fbk_start_c
 USE mo_vertical_coord_table,ONLY: vct_a
@@ -59,22 +58,117 @@ USE sfc_seaice,             ONLY: frsi_min
 USE sfc_flake,              ONLY: flake_coldinit
 USE sfc_flake_data,         ONLY: tpl_T_r, C_T_min, rflk_depth_bs_ref
 USE mo_fortran_tools,       ONLY: init, copy
+USE mo_io_config,           ONLY: var_in_output
 
 IMPLICIT NONE
 
 PRIVATE
 
+INTEGER,PARAMETER :: nfieldp_max = 50
+
+! Structure for using pointers to extra fields in the upscaling routine
+! It can be used for 3D or 2D pointers
+TYPE   t_field_p
+  REAL(wp), POINTER, DIMENSION(:,:,:)  :: p          ! Pointer to 3D field
+  REAL(wp), POINTER, DIMENSION(:,:)    :: p2         ! Pointer to 2D field
+  INTEGER                              :: assoc_hyd  ! Only for reff. Associated hydrometeor to the reff
+CONTAINS
+  PROCEDURE :: construct => t_field_p_construct
+  PROCEDURE :: destruct  => t_field_p_destruct
+END TYPE
+
+! Structure for input extra fields (array)
+TYPE t_upscale_fields
+  TYPE(t_field_p), DIMENSION (nfieldp_max) ::  field        ! Field to be upscaled
+  INTEGER                                  ::  ntot         ! Total number of fields assigned
+  INTEGER                                  ::  nlev_rg      ! Number of levels in fields (the same for all)
+CONTAINS
+  PROCEDURE :: construct => t_upscale_fields_construct
+  PROCEDURE :: destruct  => t_upscale_fields_destruct
+  PROCEDURE :: t_upscale_fields_assign3D
+  PROCEDURE :: t_upscale_fields_assign2D
+  GENERIC   :: assign =>   t_upscale_fields_assign3D, t_upscale_fields_assign2D
+END TYPE
 
 PUBLIC :: upscale_rad_input        ! for RRTM
-PUBLIC :: upscale_rad_input_rg     ! for Ritter-Geleyn
 PUBLIC :: downscale_rad_output     ! for RRTM
-PUBLIC :: downscale_rad_output_rg  ! for Ritter-Geleyn
 PUBLIC :: interpol_phys_grf
 PUBLIC :: feedback_phys_diag
 PUBLIC :: interpol_rrg_grf
 PUBLIC :: copy_rrg_ubc
+PUBLIC :: t_upscale_fields
 
 CONTAINS
+
+SUBROUTINE t_field_p_construct(me)
+  CLASS(t_field_p), INTENT(INOUT)  :: me
+  nullify(me%p)
+  nullify(me%p2)
+  me%assoc_hyd = 0
+END SUBROUTINE t_field_p_construct
+
+SUBROUTINE t_field_p_destruct(me)
+  CLASS(t_field_p), INTENT(INOUT)  :: me
+  nullify(me%p)
+  nullify(me%p2)
+  me%assoc_hyd = 0
+END SUBROUTINE t_field_p_destruct
+
+SUBROUTINE t_upscale_fields_construct(me, nlevfields)
+  CLASS(t_upscale_fields), INTENT(INOUT) :: me
+  INTEGER, INTENT(IN)                 :: nlevfields
+  INTEGER      :: i
+  me%nlev_rg    = nlevfields
+  me%ntot       = 0
+  do i=1,nfieldp_max
+    CALL me%field(i)%construct()
+  end do
+END SUBROUTINE t_upscale_fields_construct
+
+SUBROUTINE t_upscale_fields_destruct(me)
+  CLASS(t_upscale_fields), INTENT(INOUT) :: me
+  INTEGER      :: i
+  me%nlev_rg = 0
+  me%ntot    = 0
+  do i=1,nfieldp_max
+    CALL me%field(i)%destruct()
+  end do
+END SUBROUTINE t_upscale_fields_destruct
+
+SUBROUTINE t_upscale_fields_assign3D(me, field, index_field, assoc_hyd)
+  CLASS(t_upscale_fields), INTENT(INOUT)         :: me
+  REAL(wp), DIMENSION(:,:,:), TARGET, INTENT(IN) :: field
+  INTEGER, INTENT(OUT)                           :: index_field
+  INTEGER, INTENT(IN), OPTIONAL                  :: assoc_hyd
+  
+  
+  index_field = me%ntot + 1
+  ! A couple of controls could be added ii > nfieldp_max or control height levels
+  me%ntot = index_field
+
+  me%field(index_field)%p  => field  ! 3D Pointer
+
+  IF (PRESENT(assoc_hyd) )  me%field(index_field)%assoc_hyd = assoc_hyd
+  
+END SUBROUTINE t_upscale_fields_assign3D
+
+SUBROUTINE t_upscale_fields_assign2D(me, field, index_field, assoc_hyd)
+  CLASS(t_upscale_fields), INTENT(INOUT)         :: me
+  REAL(wp), DIMENSION(:,:), TARGET, INTENT(IN)   :: field
+  INTEGER, INTENT(OUT)                           :: index_field
+  INTEGER, INTENT(IN), OPTIONAL                  :: assoc_hyd
+  
+  
+  index_field = me%ntot + 1
+  ! A couple of controls could be added ii > nfieldp_max or control height levels
+  me%ntot = index_field
+
+  me%field(index_field)%p2  => field  ! 2D Pointer
+
+  IF (PRESENT(assoc_hyd) )  me%field(index_field)%assoc_hyd = assoc_hyd
+  
+END SUBROUTINE t_upscale_fields_assign2D
+
 
 !>
 !! This routine averages the input fields for RRTM radiation to the next coarser grid level.
@@ -83,17 +177,19 @@ CONTAINS
 !! @par Revision History
 !! Developed  by Guenther Zaengl, DWD, 2010-12-01
 !!
-SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
+SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, emis_rad,                   &
   cosmu0, albvisdir, albnirdir, albvisdif, albnirdif, albdif,              &
-  tsfc, ktype, pres_ifc, pres, temp, acdnc,                                &
+  tsfc, ktype, pres_ifc, pres, temp,                                       &
   tot_cld, clc, q_o3,                                                      &
   aeq1, aeq2, aeq3, aeq4, aeq5,                                            &
-  rg_fr_land, rg_fr_glac, rg_emis_rad,                                     &
+  rg_emis_rad,                                                             &
   rg_cosmu0, rg_albvisdir, rg_albnirdir, rg_albvisdif, rg_albnirdif,       &
-  rg_albdif, rg_tsfc, rg_rtype, rg_pres_ifc, rg_pres, rg_temp, rg_acdnc,   &
+  rg_albdif, rg_tsfc, rg_rtype, rg_pres_ifc, rg_pres, rg_temp,             &
   rg_tot_cld, rg_clc, rg_q_o3, rg_aeq1, rg_aeq2, rg_aeq3, rg_aeq4, rg_aeq5,&
   z_pres_ifc, z_tot_cld, buffer_rrg,                                       &
-  icpl_rad_reff, reff_liq, reff_frz, rg_reff_liq, rg_reff_frz )
+  icpl_rad_reff, reff_liq, reff_frz, rg_reff_liq, rg_reff_frz,             &
+  input_extra_flds, rg_extra_flds, input_extra_2D, rg_extra_2D,            &     
+  input_extra_reff, rg_extra_reff)
 
   ! Input grid parameters
   INTEGER, INTENT(IN)  :: jg, jgp  ! domain IDs of main and reduced grids
@@ -104,48 +200,54 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
 
   ! Input fields (on full grid)
   REAL(wp), INTENT(IN) ::                                                                 &
-    fr_land(:,:), fr_glac(:,:), emis_rad(:,:),                                            &
+    emis_rad(:,:),                                                                        &
     cosmu0(:,:), albvisdir(:,:), albnirdir(:,:), albvisdif(:,:), albnirdif(:,:),          &
-    albdif(:,:), tsfc(:,:), pres_ifc(:,:,:), pres(:,:,:), temp(:,:,:), acdnc(:,:,:),      &
+    albdif(:,:), tsfc(:,:), pres_ifc(:,:,:), pres(:,:,:), temp(:,:,:),                    &
     tot_cld(:,:,:,:), clc(:,:,:), q_o3(:,:,:), aeq1(:,:,:), aeq2(:,:,:), aeq3(:,:,:),     &
     aeq4(:,:,:), aeq5(:,:,:)
 
   REAL(wp), INTENT(IN), OPTIONAL ::  reff_liq(:,:,:), reff_frz(:,:,:)
+  
+  TYPE(t_upscale_fields), INTENT(IN), OPTIONAL :: input_extra_flds,input_extra_2D, input_extra_reff
 
 
   INTEGER, INTENT(IN) :: ktype(:,:)
 
   ! Corresponding output fields (on reduced grid)
   REAL(wp), TARGET, INTENT(OUT) ::                                           &
-    rg_fr_land(:,:),rg_fr_glac(:,:), rg_emis_rad(:,:),                       &
+    rg_emis_rad(:,:),                                                        &
     rg_cosmu0(:,:), rg_albvisdir(:,:), rg_albnirdir(:,:), rg_albvisdif(:,:), &
     rg_albnirdif(:,:), rg_albdif(:,:), rg_tsfc(:,:), rg_rtype(:,:),          &
-    rg_pres_ifc(:,:,:), rg_pres(:,:,:), rg_temp(:,:,:), rg_acdnc(:,:,:),     &
+    rg_pres_ifc(:,:,:), rg_pres(:,:,:), rg_temp(:,:,:),                      &
     rg_tot_cld(:,:,:,:), rg_clc(:,:,:), rg_q_o3(:,:,:), rg_aeq1(:,:,:),      &
     rg_aeq2(:,:,:), rg_aeq3(:,:,:), rg_aeq4(:,:,:),rg_aeq5(:,:,:),           &
     ! these have the same function as the intermediate storage fields below but are passed to the calling routine
     z_pres_ifc(:,:,:), z_tot_cld(:,:,:,:)
 
-  REAL(wp), TARGET, OPTIONAL, INTENT(OUT) :: rg_reff_liq(:,:,:), rg_reff_frz(:,:,:)
+  REAL(wp), TARGET, OPTIONAL, INTENT(OUT) ::                                 &
+    rg_reff_liq(:,:,:), rg_reff_frz(:,:,:),  rg_extra_flds(:,:,:,:),         &
+    rg_extra_2D(:,:,:), rg_extra_reff(:,:,:,:)
 
 
   ! Intermediate storage fields needed in the case of MPI parallelization
   REAL(wp), ALLOCATABLE, TARGET ::                                             &
-    z_fr_land(:,:),z_fr_glac(:,:), z_emis_rad(:,:),                            &
+    z_emis_rad(:,:),                                                           &
     z_cosmu0(:,:), z_albvisdir(:,:), z_albnirdir(:,:), z_albvisdif(:,:),       &
     z_albnirdif(:,:), z_albdif(:,:), z_tsfc(:,:), z_rtype(:,:),                &
-    z_pres(:,:,:), z_temp(:,:,:), z_acdnc(:,:,:), z_clc(:,:,:), z_q_o3(:,:,:), &
+    z_pres(:,:,:), z_temp(:,:,:), z_clc(:,:,:), z_q_o3(:,:,:),                 & 
     z_aeq1(:,:,:), z_aeq2(:,:,:), z_aeq3(:,:,:), z_aeq4(:,:,:), z_aeq5(:,:,:), &
-    z_aux3d(:,:,:), zrg_aux3d(:,:,:), z_reff_liq(:,:,:), z_reff_frz(:,:,:)
+    z_aux3d(:,:,:), zrg_aux3d(:,:,:), z_reff_liq(:,:,:), z_reff_frz(:,:,:),    &
+    z_extra_flds(:,:,:,:), z_extra_2D(:,:,:), z_extra_reff(:,:,:,:)
 
 
   ! Pointers to output fields (no MPI) or intermediate fields (MPI)
   REAL(wp), POINTER ::                                                   &
-    p_fr_land(:,:),p_fr_glac(:,:), p_emis_rad(:,:),                      &
+    p_emis_rad(:,:),                                                     &
     p_cosmu0(:,:), p_albvisdir(:,:), p_albnirdir(:,:), p_albvisdif(:,:), &
     p_albnirdif(:,:), p_albdif(:,:), p_tsfc(:,:), p_rtype(:,:),          &
-    p_pres_ifc(:,:,:), p_pres(:,:,:), p_temp(:,:,:), p_acdnc(:,:,:),     &
+    p_pres_ifc(:,:,:), p_pres(:,:,:), p_temp(:,:,:),                     &
     p_reff_liq(:,:,:), p_reff_frz(:,:,:),                                &
+    p_extra_flds(:,:,:,:), p_extra_2D(:,:,:), p_extra_reff(:,:,:,:),     &
     p_tot_cld(:,:,:,:), p_clc(:,:,:), p_q_o3(:,:,:), p_aeq1(:,:,:),      &
     p_aeq2(:,:,:), p_aeq3(:,:,:), p_aeq4(:,:,:),p_aeq5(:,:,:)
 
@@ -159,7 +261,8 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
 
   ! Indices
   INTEGER :: jb, jc, jk, jk1, i_chidx, i_nchdom, i_startrow, &
-             i_startblk, i_endblk, i_startidx, i_endidx, nblks_c_lp
+             i_startblk, i_endblk, i_startidx, i_endidx, nblks_c_lp, &
+             jf, assoc_hyd, nlevsend, ntotsend, n2d_upsc
 
   INTEGER :: nlev, nlevp1      !< number of full and half levels
   INTEGER :: nshift, nlevp1_rg, nst
@@ -168,12 +271,35 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
   INTEGER, DIMENSION(:,:,:), POINTER :: iidx, iblk
   REAL(wp), POINTER :: p_fbkwgt(:,:,:)
 
-  LOGICAL l_upsc_reff   ! Check if effective radius need to be calculated
+  LOGICAL l_upsc_reff        ! Check if effective radius need to be calculated
+  LOGICAL l_upsc_extra_flds  ! Check if extra fields in input_extra_flds need to be upscaled
+  LOGICAL l_upsc_extra_2D    ! Check if extra2D  fields in input_extra_2D need to be upscaled
+  LOGICAL l_upsc_extra_reff  ! Check if extra reff in input_extra_reff need to be upscaled
+  
+  REAL(wp), DIMENSION(:,:,:), POINTER :: p_q, p_reff ! For improving code readability in reff calculation
 
   !-----------------------------------------------------------------------
 
+  n2d_upsc = 9 ! Number of 2D fields to upscale (9 + extra_2D fields)
+
   l_upsc_reff  = icpl_rad_reff > 0
-                 
+  IF (PRESENT(input_extra_flds) .AND. PRESENT(rg_extra_flds) )  THEN
+    l_upsc_extra_flds = input_extra_flds%ntot > 0
+  ELSE
+    l_upsc_extra_flds = .false.
+  END IF
+  IF (PRESENT(input_extra_2D) .AND. PRESENT(rg_extra_2D) )  THEN
+    l_upsc_extra_2D = input_extra_2D%ntot > 0
+    n2d_upsc = n2d_upsc + input_extra_2D%ntot
+  ELSE
+    l_upsc_extra_2D = .false.
+  END IF
+  IF (PRESENT(input_extra_reff) .AND. PRESENT(rg_extra_reff) )  THEN
+    l_upsc_extra_reff = input_extra_reff%ntot > 0
+  ELSE
+    l_upsc_extra_reff = .false.
+  END IF
+  
 
   IF (msg_level >= 10) THEN
     WRITE(message_text,'(a,i2,a,i2)') 'Upscaling of radiation input fields',&
@@ -192,7 +318,7 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
   ! which may be larger than nlev
   nlevp1_rg = nlev_rg + 1
   nshift = nlev_rg - nlev ! resulting shift parameter
-
+ 
   ! Parameters used in case of latm_above_top = .TRUE.:
   !
   ! extrapolation distances for passive layer above model top (m) if there is no vertical nesting
@@ -216,28 +342,36 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
   IF (jgp == 0 .AND. .NOT. l_limited_area) THEN
     nblks_c_lp = p_gcp%end_blk(min_rlcell,i_chidx)
 
-    ALLOCATE(z_fr_land(nproma,nblks_c_lp), z_fr_glac(nproma,nblks_c_lp),                &
-             z_emis_rad(nproma,nblks_c_lp),                                             &
+    ALLOCATE(z_emis_rad(nproma,nblks_c_lp),                                             &
              z_cosmu0(nproma,nblks_c_lp), z_albvisdir(nproma,nblks_c_lp),               &
              z_albnirdir(nproma,nblks_c_lp), z_albvisdif(nproma,nblks_c_lp),            &
              z_albnirdif(nproma,nblks_c_lp), z_albdif(nproma,nblks_c_lp),               &
              z_tsfc(nproma,nblks_c_lp), z_rtype(nproma,nblks_c_lp),                     &
              z_pres(nproma,nlev_rg,nblks_c_lp), z_temp(nproma,nlev_rg,nblks_c_lp),      &
-             z_acdnc(nproma,nlev_rg,nblks_c_lp), z_clc(nproma,nlev_rg,nblks_c_lp),      &
+             z_clc(nproma,nlev_rg,nblks_c_lp),                                          &
              z_q_o3(nproma,nlev_rg,nblks_c_lp), z_aeq1(nproma,nlev_rg,nblks_c_lp),      &
              z_aeq2(nproma,nlev_rg,nblks_c_lp), z_aeq3(nproma,nlev_rg,nblks_c_lp),      &
              z_aeq4(nproma,nlev_rg,nblks_c_lp), z_aeq5(nproma,nlev_rg,nblks_c_lp),      &
-             z_aux3d(nproma,11,nblks_c_lp), zrg_aux3d(nproma,11,p_patch(jgp)%nblks_c) )
+             z_aux3d(nproma,n2d_upsc,nblks_c_lp), zrg_aux3d(nproma,n2d_upsc,p_patch(jgp)%nblks_c) )
 
     IF ( l_upsc_reff ) THEN
       ALLOCATE ( z_reff_liq(nproma,nlev_rg,nblks_c_lp), z_reff_frz(nproma,nlev_rg,nblks_c_lp) )
     END IF
+    
+    IF ( l_upsc_extra_flds ) THEN
+      ALLOCATE ( z_extra_flds( nproma, input_extra_flds%nlev_rg, nblks_c_lp, input_extra_flds%ntot) )
+    END IF
 
+    IF ( l_upsc_extra_2D ) THEN
+      ALLOCATE ( z_extra_2D( nproma, nblks_c_lp, input_extra_2D%ntot) )
+    END IF
+
+    IF ( l_upsc_extra_reff ) THEN
+      ALLOCATE ( z_extra_reff( nproma, input_extra_reff%nlev_rg, nblks_c_lp, input_extra_reff%ntot) )
+    END IF
 
     ! Set pointers to either the parent-level variables (non-MPI case) or to the
     ! intermediate storage fields (MPI case)
-    p_fr_land    => z_fr_land
-    p_fr_glac    => z_fr_glac
     p_emis_rad   => z_emis_rad
     p_cosmu0     => z_cosmu0
     p_albvisdir  => z_albvisdir
@@ -250,11 +384,13 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
     p_pres_ifc   => z_pres_ifc
     p_pres       => z_pres
     p_temp       => z_temp
-    p_acdnc      => z_acdnc
     IF ( l_upsc_reff ) THEN
       p_reff_liq   => z_reff_liq
       p_reff_frz   => z_reff_frz
     END IF
+    IF ( l_upsc_extra_flds ) p_extra_flds => z_extra_flds
+    IF ( l_upsc_extra_2D   ) p_extra_2D   => z_extra_2D
+    IF ( l_upsc_extra_reff ) p_extra_reff => z_extra_reff
     p_tot_cld    => z_tot_cld
     p_clc        => z_clc
     p_q_o3       => z_q_o3
@@ -264,8 +400,6 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
     p_aeq4       => z_aeq4
     p_aeq5       => z_aeq5
   ELSE
-    p_fr_land    => rg_fr_land
-    p_fr_glac    => rg_fr_glac
     p_emis_rad   => rg_emis_rad
     p_cosmu0     => rg_cosmu0
     p_albvisdir  => rg_albvisdir
@@ -278,11 +412,13 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
     p_pres_ifc   => rg_pres_ifc
     p_pres       => rg_pres
     p_temp       => rg_temp
-    p_acdnc      => rg_acdnc
     IF ( l_upsc_reff ) THEN
       p_reff_liq   => rg_reff_liq
       p_reff_frz   => rg_reff_frz
     END IF
+    IF ( l_upsc_extra_flds ) p_extra_flds => rg_extra_flds
+    IF ( l_upsc_extra_2D   ) p_extra_2D   => rg_extra_2D
+    IF ( l_upsc_extra_reff ) p_extra_reff => rg_extra_reff
     p_tot_cld    => rg_tot_cld
     p_clc        => rg_clc
     p_q_o3       => rg_q_o3
@@ -294,8 +430,6 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
   ENDIF
 
   IF (p_test_run) THEN
-    p_fr_land    = 0._wp
-    p_fr_glac    = 0._wp
     p_emis_rad   = 0._wp
     p_cosmu0     = 0._wp
     p_albvisdir  = 0._wp
@@ -308,11 +442,13 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
     p_pres_ifc   = 0._wp
     p_pres       = 0._wp
     p_temp       = 0._wp
-    p_acdnc      = 0._wp
     IF ( l_upsc_reff ) THEN
       p_reff_liq   = 0._wp
       p_reff_frz   = 0._wp
     END IF
+    IF ( l_upsc_extra_flds ) p_extra_flds = 0._wp
+    IF ( l_upsc_extra_2D   ) p_extra_2D   = 0._wp
+    IF ( l_upsc_extra_reff ) p_extra_reff = 0._wp
     p_tot_cld    = 0._wp
     p_clc        = 0._wp
     p_q_o3       = 0._wp
@@ -336,25 +472,13 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
   i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jk1) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jk1,jf,assoc_hyd,p_q,p_reff) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(p_pp, jb, i_startblk, i_endblk,                           &
                        i_startidx, i_endidx, i_startrow, min_rlcell_int)
-!DIR$ IVDEP
+!NEC$ IVDEP
     DO jc = i_startidx, i_endidx
-
-      p_fr_land(jc,jb) =                                         &
-        fr_land(iidx(jc,jb,1),iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
-        fr_land(iidx(jc,jb,2),iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
-        fr_land(iidx(jc,jb,3),iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
-        fr_land(iidx(jc,jb,4),iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
-
-      p_fr_glac(jc,jb) =                                         &
-        fr_glac(iidx(jc,jb,1),iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
-        fr_glac(iidx(jc,jb,2),iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
-        fr_glac(iidx(jc,jb,3),iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
-        fr_glac(iidx(jc,jb,4),iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
 
       p_emis_rad(jc,jb) =                                         &
         emis_rad(iidx(jc,jb,1),iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
@@ -423,6 +547,20 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
 
     ENDDO
 
+
+    IF ( l_upsc_extra_2D ) THEN
+      DO jf = 1, input_extra_2D%ntot
+!NEC$ IVDEP
+        DO jc = i_startidx, i_endidx
+          p_extra_2D(jc,jb,jf) =                                    &
+            input_extra_2D%field(jf)%p2(iidx(jc,jb,1),iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
+            input_extra_2D%field(jf)%p2(iidx(jc,jb,2),iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
+            input_extra_2D%field(jf)%p2(iidx(jc,jb,3),iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
+            input_extra_2D%field(jf)%p2(iidx(jc,jb,4),iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
+        END DO
+      END DO
+    END IF
+
     IF (jgp == 0 .AND. .NOT. l_limited_area) THEN ! combine 2D fields in a 3D field to speed up MPI communication
       DO jc = i_startidx, i_endidx
         z_aux3d(jc, 1,jb) = p_cosmu0(jc,jb)
@@ -432,11 +570,17 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
         z_aux3d(jc, 5,jb) = p_albnirdif(jc,jb)
         z_aux3d(jc, 6,jb) = p_albdif(jc,jb)
         z_aux3d(jc, 7,jb) = p_tsfc(jc,jb)
-        z_aux3d(jc, 8,jb) = p_fr_land(jc,jb)
-        z_aux3d(jc, 9,jb) = p_fr_glac(jc,jb)
-        z_aux3d(jc,10,jb) = p_emis_rad(jc,jb)
-        z_aux3d(jc,11,jb) = p_rtype(jc,jb)
+        z_aux3d(jc, 8,jb) = p_emis_rad(jc,jb)
+        z_aux3d(jc, 9,jb) = p_rtype(jc,jb)
       ENDDO
+      IF ( l_upsc_extra_2D ) THEN
+        DO jf = 1,input_extra_2D%ntot
+!DIR$ IVDEP
+          DO jc = i_startidx, i_endidx
+            z_aux3d(jc, jf+9,jb) = p_extra_2D(jc,jb,jf)
+          END DO
+        END DO
+      END IF
     ENDIF
 
 #ifdef __LOOP_EXCHANGE
@@ -518,12 +662,6 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
       DO jc = i_startidx, i_endidx
 #endif
 
-        p_acdnc(jc,jk1,jb) =                                        &
-          acdnc(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
-          acdnc(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
-          acdnc(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
-          acdnc(iidx(jc,jb,4),jk,iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
-
         p_clc(jc,jk1,jb) =                                        &
           clc(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
           clc(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
@@ -542,7 +680,7 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
 
 ! Effective Radius upscaling
     IF ( l_upsc_reff ) THEN
-
+      
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx, i_endidx
 !DIR$ IVDEP
@@ -598,6 +736,72 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
 
     END IF
 
+! Extra Fields upscaling 
+    IF ( l_upsc_extra_flds ) THEN
+      DO jf = 1, input_extra_flds%ntot
+#ifdef __LOOP_EXCHANGE
+        DO jc = i_startidx, i_endidx
+!DIR$ IVDEP
+          DO jk = 1, nlev
+            jk1 = jk + nshift
+#else
+        DO jk = 1, nlev
+          jk1 = jk + nshift
+!NEC$ ivdep
+          DO jc = i_startidx, i_endidx
+#endif    
+            p_extra_flds(jc,jk1,jb,jf) =                                       &
+             input_extra_flds%field(jf)%p(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
+             input_extra_flds%field(jf)%p(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
+             input_extra_flds%field(jf)%p(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
+             input_extra_flds%field(jf)%p(iidx(jc,jb,4),jk,iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
+          END DO
+        END DO
+      END DO
+    END IF
+ 
+ ! Extra Reff upscaling. It needs to be calculated after p_extra_flds
+    IF ( l_upsc_extra_reff ) THEN
+      DO jf = 1, input_extra_reff%ntot
+         assoc_hyd = input_extra_reff%field(jf)%assoc_hyd
+         nullify(p_q) 
+         nullify(p_reff)
+         p_q    => input_extra_flds%field(assoc_hyd)%p  ! Extra Hydrometeor (qr,qg,qs)
+         p_reff => input_extra_reff%field(jf)%p         ! Reff to be calculated
+#ifdef __LOOP_EXCHANGE
+        DO jc = i_startidx, i_endidx
+!DIR$ IVDEP
+          DO jk = 1, nlev
+            jk1 = jk + nshift
+#else
+        DO jk = 1, nlev
+          jk1 = jk + nshift
+!NEC$ ivdep
+          DO jc = i_startidx, i_endidx
+#endif    
+! Store the sum of extinctions SUM (q/r) in p_extra_reff. 
+            p_extra_reff(jc,jk1,jb,jf) =                                                     &
+              p_q(iidx(jc,jb,1),jk,iblk(jc,jb,1)) /                                          &
+              MAX(p_reff(iidx(jc,jb,1),jk,iblk(jc,jb,1)),1.0e-6_wp) * p_fbkwgt(jc,jb,1) +    &         
+              p_q(iidx(jc,jb,2),jk,iblk(jc,jb,2)) /                                          &
+              MAX(p_reff(iidx(jc,jb,2),jk,iblk(jc,jb,2)),1.0e-6_wp) * p_fbkwgt(jc,jb,2) +    &
+              p_q(iidx(jc,jb,3),jk,iblk(jc,jb,3)) /                                          &
+              MAX(p_reff(iidx(jc,jb,3),jk,iblk(jc,jb,3)),1.0e-6_wp) * p_fbkwgt(jc,jb,3) +    &
+              p_q(iidx(jc,jb,4),jk,iblk(jc,jb,4)) /                                          &
+              MAX(p_reff(iidx(jc,jb,4),jk,iblk(jc,jb,4)),1.0e-6_wp) * p_fbkwgt(jc,jb,4)
+              
+              ! Recover reff. The hydrometeor is on p_extra_flds(:,:,:,assoc_hyd)
+            IF ( p_extra_reff(jc,jk1,jb,jf) > 1e-6_wp ) THEN
+              p_extra_reff(jc,jk1,jb,jf) = p_extra_flds(jc,jk1,jb,assoc_hyd)/p_extra_reff(jc,jk1,jb,jf) 
+            ELSE
+              p_extra_reff(jc,jk1,jb,jf) = 0.0_wp      ! Set to 0 micro, nominally for negligible extinction
+            END IF
+          
+          END DO
+        END DO
+      END DO
+    END IF
+    
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
       DO jk = 1, nlev
@@ -633,7 +837,6 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
           p_aeq3(jc,jk,jb) = p_aeq3(jc,jk1,jb)
           p_aeq4(jc,jk,jb) = p_aeq4(jc,jk1,jb)
           p_aeq5(jc,jk,jb) = p_aeq5(jc,jk1,jb)
-          p_acdnc(jc,jk,jb) = p_acdnc(jc,jk1,jb)
           p_tot_cld(jc,jk,jb,1:3) = p_tot_cld(jc,jk1,jb,1:3)
           p_clc (jc,jk,jb) = p_clc(jc,jk1,jb)
           p_q_o3(jc,jk,jb) = p_q_o3(jc,jk1,jb)
@@ -649,7 +852,29 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
           END DO
         END DO
       END IF
+      
+      IF ( l_upsc_extra_flds ) THEN
+        DO jf = 1,input_extra_flds%ntot
+          DO jk = 1, nshift
+!$NEC ivdep
+            DO jc = i_startidx, i_endidx
+              p_extra_flds(jc,jk,jb,jf) = p_extra_flds(jc,jk1,jb,jf)
+            END DO
+          END DO
+        END DO
+      END IF 
 
+     IF ( l_upsc_extra_reff ) THEN
+        DO jf = 1,input_extra_reff%ntot
+          DO jk = 1, nshift
+!$NEC ivdep
+            DO jc = i_startidx, i_endidx
+              p_extra_reff(jc,jk,jb,jf) = p_extra_reff(jc,jk1,jb,jf)
+            END DO
+          END DO
+        END DO
+      END IF 
+ 
       IF (jgp == 0 .OR. p_patch(jg)%nshift == 0) THEN ! settings for passive extra layer above 
                                                       ! model top for global grid (nshift=1 in this case)
         DO jc = i_startidx, i_endidx
@@ -675,13 +900,12 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
 !$OMP END PARALLEL
 
   IF (jgp == 0 .AND. .NOT. l_limited_area) THEN
-    CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, 6, 5*nlev_rg+12, &
-                            RECV1=rg_pres_ifc, SEND1=z_pres_ifc,             &
-                            RECV2=rg_pres,     SEND2=z_pres,                 &
-                            RECV3=rg_temp,     SEND3=z_temp,                 &
-                            RECV4=rg_acdnc,    SEND4=z_acdnc,                &
-                            RECV5=zrg_aux3d,   SEND5=z_aux3d,                &
-                            RECV6=rg_q_o3,     SEND6=z_q_o3                  )
+    CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, 5, 4*nlev_rg+n2d_upsc+1, &
+                            RECV1=rg_pres_ifc, SEND1=z_pres_ifc,                     &
+                            RECV2=rg_pres,     SEND2=z_pres,                         &
+                            RECV3=rg_temp,     SEND3=z_temp,                         &
+                            RECV4=zrg_aux3d,   SEND4=z_aux3d,                        &
+                            RECV5=rg_q_o3,     SEND5=z_q_o3                  )
 
     CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, 9, 9*nlev_rg, &
                             RECV1=rg_aeq1,     SEND1=z_aeq1,              &
@@ -699,11 +923,25 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
                               RECV2=rg_reff_frz, SEND2=z_reff_frz             )
     END IF
 
+    IF ( l_upsc_extra_flds ) THEN
+      ntotsend = input_extra_flds%ntot
+      nlevsend = input_extra_flds%nlev_rg*ntotsend      
+      CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, ntotsend, nlevsend,  &
+                              RECV4D=rg_extra_flds, SEND4D=z_extra_flds            )
+    END IF
+    
+    IF ( l_upsc_extra_reff ) THEN
+      ntotsend = input_extra_reff%ntot
+      nlevsend = input_extra_reff%nlev_rg*ntotsend      
+      CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, ntotsend, nlevsend,  &
+                              RECV4D=rg_extra_reff, SEND4D=z_extra_reff            )
+    END IF
+    
     i_startblk = p_patch(jgp)%cells%start_blk(1,1)
     i_endblk   = p_patch(jgp)%cells%end_blk(min_rlcell,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jf) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch(jgp), jb, i_startblk, i_endblk, &
@@ -717,23 +955,32 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
         rg_albnirdif(jc,jb) = zrg_aux3d(jc,5,jb)
         rg_albdif(jc,jb)    = zrg_aux3d(jc,6,jb)
         rg_tsfc(jc,jb)      = zrg_aux3d(jc,7,jb)
-        rg_fr_land(jc,jb)   = zrg_aux3d(jc,8,jb)
-        rg_fr_glac(jc,jb)   = zrg_aux3d(jc,9,jb)
-        rg_emis_rad(jc,jb)  = zrg_aux3d(jc,10,jb)
-        rg_rtype(jc,jb)     = zrg_aux3d(jc,11,jb)
+        rg_emis_rad(jc,jb)  = zrg_aux3d(jc,8,jb)
+        rg_rtype(jc,jb)     = zrg_aux3d(jc,9,jb)
       ENDDO
+      IF ( l_upsc_extra_2D) THEN
+        DO jf = 1,input_extra_2D%ntot
+          DO jc = i_startidx, i_endidx
+            rg_extra_2D(jc,jb,jf) = zrg_aux3d(jc,jf+9,jb)
+          END DO
+        END DO
+      END IF
 
     ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-    DEALLOCATE(z_fr_land, z_fr_glac, z_emis_rad, z_cosmu0, z_albvisdir, z_albnirdir, &
-      & z_albvisdif, z_albnirdif, z_albdif, z_tsfc, z_rtype, z_pres, z_temp, z_acdnc,&
+    DEALLOCATE(z_emis_rad, z_cosmu0, z_albvisdir, z_albnirdir,                       &
+      & z_albvisdif, z_albnirdif, z_albdif, z_tsfc, z_rtype, z_pres, z_temp,         &
       & z_clc, z_q_o3, z_aeq1, z_aeq2, z_aeq3, z_aeq4, z_aeq5, z_aux3d, zrg_aux3d )
 
     IF ( l_upsc_reff ) THEN
       DEALLOCATE(z_reff_liq, z_reff_frz )
     END IF
+    
+    IF ( l_upsc_extra_flds ) DEALLOCATE (z_extra_flds)
+    IF ( l_upsc_extra_2D   ) DEALLOCATE (z_extra_2D)
+    IF ( l_upsc_extra_reff ) DEALLOCATE (z_extra_reff)
 
   ENDIF
 
@@ -1481,766 +1728,6 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg, rg_aclcov, rg_lwflxall,   &
 END SUBROUTINE downscale_rad_output
 
 !>
-!! This routine averages the input fields for Ritter-Geleyn radiation to the next coarser grid
-!! level. It is an adaptation of upscale_rad_input to the Ritter-Geleyn radiation.
-!!
-!! @par Revision History
-!! Thorsten Reinhardt, AGeoBw, 2010-12-06
-!!
-SUBROUTINE upscale_rad_input_rg(jg, jgp, nlev_rg, nlevp1_rg,         &
-  &  cosmu0, albdif, alb_ther, temp_ifc, dpres_mc,                   &
-  &  tot_cld, clc, sqv, duco2, duo3,                                 &
-  &  aeq1, aeq2, aeq3, aeq4, aeq5, pres_sfc,pres_ifc,                &
-  &  rg_cosmu0, rg_albdif, rg_alb_ther, rg_temp_ifc, rg_dpres_mc,    &
-  &  rg_tot_cld, rg_clc, rg_sqv, rg_duco2, rg_duo3,                  &
-  &  rg_aeq1, rg_aeq2, rg_aeq3, rg_aeq4, rg_aeq5, rg_pres_sfc )
-
-
-  ! Input grid parameters
-  INTEGER, INTENT(IN)  :: jg, jgp  ! domain IDs of main and reduced grids
-  INTEGER, INTENT(IN)  :: nlev_rg, nlevp1_rg  ! number of model levels on reduced grid
-
-  ! Input fields (on full grid)
-  REAL(wp), INTENT(IN) ::                                                             &
-    & cosmu0(:,:), albdif(:,:), alb_ther(:,:), temp_ifc(:,:,:),                       &
-    & dpres_mc(:,:,:), tot_cld(:,:,:,:), clc(:,:,:), sqv(:,:,:), duco2(:,:,:),        &
-    & duo3(:,:,:), aeq1(:,:,:),aeq2(:,:,:),aeq3(:,:,:),aeq4(:,:,:),aeq5(:,:,:),       &
-    & pres_sfc(:,:)
-
-  ! Input field (on full grid) without corresponding output fields on reduced grid
-  REAL(wp), INTENT(IN) ::  &
-    & pres_ifc(:,:,:)
-
-  ! Corresponding output fields (on reduced grid)
-  REAL(wp), TARGET, INTENT(OUT) ::                                                            &
-    & rg_cosmu0(:,:), rg_albdif(:,:), rg_alb_ther(:,:), rg_temp_ifc(:,:,:),                   &
-    & rg_dpres_mc(:,:,:), rg_tot_cld(:,:,:,:), rg_clc(:,:,:), rg_sqv(:,:,:), rg_duco2(:,:,:), &
-    & rg_duo3(:,:,:), rg_aeq1(:,:,:), rg_aeq2(:,:,:), rg_aeq3(:,:,:), rg_aeq4(:,:,:),         &
-    & rg_aeq5(:,:,:), rg_pres_sfc(:,:)
-
-  ! Intermediate storage fields needed in the case of MPI parallelization
-  REAL(wp), ALLOCATABLE, TARGET ::                                                        &
-    & z_cosmu0(:,:), z_albdif(:,:), z_alb_ther(:,:), z_temp_ifc(:,:,:),                   &
-    & z_dpres_mc(:,:,:), z_tot_cld(:,:,:,:), z_clc(:,:,:), z_sqv(:,:,:), z_duco2(:,:,:),  &
-    & z_duo3(:,:,:), z_aeq1(:,:,:), z_aeq2(:,:,:), z_aeq3(:,:,:), z_aeq4(:,:,:),          &
-    & z_aeq5(:,:,:), z_pres_sfc(:,:), z_aux3d(:,:,:),  zrg_aux3d(:,:,:)
-
-
-  ! Pointers to output fields (no MPI) or intermediate fields (MPI)
-  REAL(wp), POINTER ::                                                                    &
-    & p_cosmu0(:,:), p_albdif(:,:), p_alb_ther(:,:), p_temp_ifc(:,:,:),                   &
-    & p_dpres_mc(:,:,:), p_tot_cld(:,:,:,:), p_clc(:,:,:), p_sqv(:,:,:), p_duco2(:,:,:),  &
-    & p_duo3(:,:,:), p_aeq1(:,:,:), p_aeq2(:,:,:), p_aeq3(:,:,:), p_aeq4(:,:,:),          &
-    & p_aeq5(:,:,:), p_pres_sfc(:,:)
-
-
-  ! Pointers to types needed to minimize code duplication for MPI/no-MPI cases
-  TYPE(t_grid_cells), POINTER     :: p_gcp
-  TYPE(t_gridref_state), POINTER  :: p_grf
-  TYPE(t_patch),      POINTER     :: p_pp
-
-  ! Indices
-  INTEGER :: jb, jc, jk, jk1, i_chidx, i_nchdom, &
-             i_startblk, i_endblk, i_startidx, i_endidx, nblks_c_lp
-
-  INTEGER :: nlev, nlevp1      !< number of full and half levels
-  INTEGER :: nshift
-  REAL(wp) :: z_help_pres_ratio, z_rho_1
-
-  INTEGER, DIMENSION(:,:,:), POINTER :: iidx, iblk
-  REAL(wp), POINTER :: p_fbkwgt(:,:,:)
-
-
-  !-----------------------------------------------------------------------
-
-  IF (msg_level >= 10) THEN
-    WRITE(message_text,'(a,i2,a,i2)') 'Upscaling of radiation input fields',&
-      jg,' =>',jgp
-    CALL message('upscale_rad_input',message_text)
-  ENDIF
-
-  ! For the time being, the radiation grid is assumed to have the same levels
-  ! as the full grid
-  ! Number of levels of the full grid
-  nlev   = p_patch(jg)%nlev
-  nlevp1 = p_patch(jg)%nlevp1
-
-  ! nlev_rg carries the number of model levels of the reduced grid,
-  ! which may be larger than nlev
-  nshift = nlev_rg - nlev ! resulting shift parameter
-
-  p_grf => p_grf_state_local_parent(jg)
-  p_gcp => p_patch_local_parent(jg)%cells
-  p_pp  => p_patch_local_parent(jg)
-
-  i_chidx  = p_patch(jg)%parent_child_index
-  i_nchdom = MAX(1,p_patch(jgp)%n_childdom)
-
-  ! Set pointers to index and coefficient fields for cell-based variables
-  iidx => p_gcp%child_idx
-  iblk => p_gcp%child_blk
-
-  p_fbkwgt => p_grf%fbk_wgt_bln
-
-  ! Allocation of local storage fields at local parent level in MPI-case
-  IF (jgp == 0) THEN
-    nblks_c_lp = p_gcp%end_blk(min_rlcell,i_chidx)
-
-    ALLOCATE(z_cosmu0(nproma,nblks_c_lp), z_albdif(nproma,nblks_c_lp),                     &
-             z_alb_ther(nproma,nblks_c_lp), z_temp_ifc(nproma,nlevp1_rg,nblks_c_lp),       &
-             z_dpres_mc(nproma,nlev_rg,nblks_c_lp),z_tot_cld(nproma,nlev_rg,nblks_c_lp,3), &
-             z_clc(nproma,nlev_rg,nblks_c_lp),                                             &
-             z_sqv(nproma,nlev_rg,nblks_c_lp),z_duco2(nproma,nlev_rg,nblks_c_lp),          &
-             z_duo3(nproma,nlev_rg,nblks_c_lp), z_aeq1(nproma,nlev_rg,nblks_c_lp),         &
-             z_aeq2(nproma,nlev_rg,nblks_c_lp), z_aeq3(nproma,nlev_rg,nblks_c_lp),         &
-             z_aeq4(nproma,nlev_rg,nblks_c_lp), z_aeq5(nproma,nlev_rg,nblks_c_lp),         &
-             z_pres_sfc(nproma,nblks_c_lp), z_aux3d(nproma,6,nblks_c_lp),                  &
-             zrg_aux3d(nproma,4,p_patch(jgp)%nblks_c)                                      )
-
-    ! Set pointers to either the parent-level variables (non-MPI case) or to the
-    ! intermediate storage fields (MPI case)
-    p_cosmu0     => z_cosmu0
-    p_albdif     => z_albdif
-    p_alb_ther   => z_alb_ther
-    p_temp_ifc   => z_temp_ifc
-    p_dpres_mc   => z_dpres_mc
-    p_tot_cld    => z_tot_cld
-    p_clc        => z_clc
-    p_sqv        => z_sqv
-    p_duco2      => z_duco2
-    p_duo3       => z_duo3
-    p_aeq1       => z_aeq1
-    p_aeq2       => z_aeq2
-    p_aeq3       => z_aeq3
-    p_aeq4       => z_aeq4
-    p_aeq5       => z_aeq5
-    p_pres_sfc   => z_pres_sfc
-  ELSE
-    p_cosmu0     => rg_cosmu0
-    p_albdif     => rg_albdif
-    p_alb_ther   => rg_alb_ther
-    p_temp_ifc   => rg_temp_ifc
-    p_dpres_mc   => rg_dpres_mc
-    p_tot_cld    => rg_tot_cld
-    p_clc        => rg_clc
-    p_sqv        => rg_sqv
-    p_duco2      => rg_duco2
-    p_duo3       => rg_duo3
-    p_aeq1       => rg_aeq1
-    p_aeq2       => rg_aeq2
-    p_aeq3       => rg_aeq3
-    p_aeq4       => rg_aeq4
-    p_aeq5       => rg_aeq5
-    p_pres_sfc   => rg_pres_sfc
-  ENDIF
-
-  IF (p_test_run) THEN
-    p_cosmu0     = 0._wp
-    p_albdif     = 0._wp
-    p_alb_ther   = 0._wp
-    p_temp_ifc   = 0._wp
-    p_dpres_mc   = 0._wp
-    p_tot_cld    = 0._wp
-    p_clc        = 0._wp
-    p_sqv        = 0._wp
-    p_duco2      = 0._wp
-    p_duo3       = 0._wp
-    p_aeq1       = 0._wp
-    p_aeq2       = 0._wp
-    p_aeq3       = 0._wp
-    p_aeq4       = 0._wp
-    p_aeq5       = 0._wp
-    p_pres_sfc   = 0._wp
-  ENDIF
-
-  ! Now average input fields to parent grid cells
-
-  ! Start/End block in the parent domain
-  i_startblk = p_gcp%start_blk(grf_ovlparea_start_c,i_chidx)
-  i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jk1,z_help_pres_ratio,&
-!$OMP z_rho_1) ICON_OMP_DEFAULT_SCHEDULE
-  DO jb = i_startblk, i_endblk
-
-    CALL get_indices_c(p_pp, jb, i_startblk, i_endblk,                           &
-                       i_startidx, i_endidx, grf_ovlparea_start_c, min_rlcell_int)
-
-    DO jc = i_startidx, i_endidx
-
-      p_cosmu0(jc,jb) =                                         &
-        cosmu0(iidx(jc,jb,1),iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
-        cosmu0(iidx(jc,jb,2),iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
-        cosmu0(iidx(jc,jb,3),iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
-        cosmu0(iidx(jc,jb,4),iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
-
-      p_albdif(jc,jb) =                                            &
-        albdif(iidx(jc,jb,1),iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
-        albdif(iidx(jc,jb,2),iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
-        albdif(iidx(jc,jb,3),iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
-        albdif(iidx(jc,jb,4),iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
-
-      p_alb_ther(jc,jb) =                                         &
-        alb_ther(iidx(jc,jb,1),iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
-        alb_ther(iidx(jc,jb,2),iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
-        alb_ther(iidx(jc,jb,3),iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
-        alb_ther(iidx(jc,jb,4),iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
-
-      p_pres_sfc(jc,jb) =                                         &
-        pres_sfc(iidx(jc,jb,1),iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
-        pres_sfc(iidx(jc,jb,2),iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
-        pres_sfc(iidx(jc,jb,3),iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
-        pres_sfc(iidx(jc,jb,4),iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
-
-      p_temp_ifc(jc,nlevp1_rg,jb) = SQRT(SQRT(                              &
-        temp_ifc(iidx(jc,jb,1),nlevp1,iblk(jc,jb,1))**4*p_fbkwgt(jc,jb,1) + &
-        temp_ifc(iidx(jc,jb,2),nlevp1,iblk(jc,jb,2))**4*p_fbkwgt(jc,jb,2) + &
-        temp_ifc(iidx(jc,jb,3),nlevp1,iblk(jc,jb,3))**4*p_fbkwgt(jc,jb,3) + &
-        temp_ifc(iidx(jc,jb,4),nlevp1,iblk(jc,jb,4))**4*p_fbkwgt(jc,jb,4) ) )
-
-    ENDDO
-
-    ! combine 2D fields in a 3D field to speed up MPI communication
-    IF (jgp == 0) THEN
-      DO jc = i_startidx, i_endidx
-        z_aux3d(jc,1,jb) = p_cosmu0(jc,jb)
-        z_aux3d(jc,2,jb) = p_albdif(jc,jb)
-        z_aux3d(jc,3,jb) = p_alb_ther(jc,jb)
-        z_aux3d(jc,4,jb) = p_pres_sfc(jc,jb)
-      ENDDO
-    ENDIF
-
-#ifdef __LOOP_EXCHANGE
-    DO jc = i_startidx, i_endidx
-      DO jk = 1, nlev
-        jk1 = jk + nshift
-#else
-    DO jk = 1, nlev
-      jk1 = jk + nshift
-      DO jc = i_startidx, i_endidx
-#endif
-        p_temp_ifc(jc,jk1,jb) =                                        &
-          temp_ifc(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
-          temp_ifc(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
-          temp_ifc(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
-          temp_ifc(iidx(jc,jb,4),jk,iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
-
-        p_dpres_mc(jc,jk1,jb) =                                        &
-          dpres_mc(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
-          dpres_mc(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
-          dpres_mc(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
-          dpres_mc(iidx(jc,jb,4),jk,iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
-
-        p_sqv(jc,jk1,jb) =                                        &
-          sqv(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
-          sqv(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
-          sqv(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
-          sqv(iidx(jc,jb,4),jk,iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
-
-        p_duco2(jc,jk1,jb) =                                        &
-          duco2(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
-          duco2(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
-          duco2(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
-          duco2(iidx(jc,jb,4),jk,iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
-
-        p_duo3(jc,jk1,jb) =                                        &
-          duo3(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
-          duo3(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
-          duo3(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
-          duo3(iidx(jc,jb,4),jk,iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
-
-        p_aeq1(jc,jk1,jb) =                                        &
-          aeq1(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
-          aeq1(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
-          aeq1(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
-          aeq1(iidx(jc,jb,4),jk,iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
-
-        p_aeq2(jc,jk1,jb) =                                        &
-          aeq2(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
-          aeq2(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
-          aeq2(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
-          aeq2(iidx(jc,jb,4),jk,iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
-
-        p_aeq3(jc,jk1,jb) =                                        &
-          aeq3(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
-          aeq3(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
-          aeq3(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
-          aeq3(iidx(jc,jb,4),jk,iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
-
-        p_aeq4(jc,jk1,jb) =                                        &
-          aeq4(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
-          aeq4(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
-          aeq4(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
-          aeq4(iidx(jc,jb,4),jk,iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
-
-        p_aeq5(jc,jk1,jb) =                                        &
-          aeq5(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
-          aeq5(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
-          aeq5(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
-          aeq5(iidx(jc,jb,4),jk,iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
-
-!$NEC unroll(3)
-        p_tot_cld(jc,jk1,jb,1:3) =                                        &
-          tot_cld(iidx(jc,jb,1),jk,iblk(jc,jb,1),1:3)*p_fbkwgt(jc,jb,1) + &
-          tot_cld(iidx(jc,jb,2),jk,iblk(jc,jb,2),1:3)*p_fbkwgt(jc,jb,2) + &
-          tot_cld(iidx(jc,jb,3),jk,iblk(jc,jb,3),1:3)*p_fbkwgt(jc,jb,3) + &
-          tot_cld(iidx(jc,jb,4),jk,iblk(jc,jb,4),1:3)*p_fbkwgt(jc,jb,4)
-
-        p_clc(jc,jk1,jb) =                                        &
-          clc(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
-          clc(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
-          clc(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
-          clc(iidx(jc,jb,4),jk,iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
-
-      ENDDO
-    ENDDO
-
-    IF (nshift == 1) THEN ! set values for passive top layer if present
-
-      DO jc = i_startidx, i_endidx
-
-        p_dpres_mc(jc,1,jb) =                                            &
-          &  pres_ifc(iidx(jc,jb,1),1,iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
-          &  pres_ifc(iidx(jc,jb,2),1,iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
-          &  pres_ifc(iidx(jc,jb,3),1,iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
-          &  pres_ifc(iidx(jc,jb,4),1,iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
-
-        z_help_pres_ratio = p_dpres_mc(jc,1,jb) / p_dpres_mc(jc,2,jb)
-
-        p_temp_ifc(jc,1,jb) = p_temp_ifc(jc,2,jb)  &
-          & + ( p_temp_ifc(jc,2,jb)-p_temp_ifc(jc,3,jb) ) * z_help_pres_ratio
-
-        ! For o3, co2, aerosols and cloud fields, a no-gradient condition is assumed
-
-        p_duo3(jc,1,jb)  =  p_duo3(jc,2,jb)  * z_help_pres_ratio
-        p_duco2(jc,1,jb) =  p_duco2(jc,2,jb) * z_help_pres_ratio
-
-        z_rho_1          = ( 0.5_wp*p_dpres_mc(jc,1,jb) ) / ( rd*p_temp_ifc(jc,1,jb) &
-          &                *(1.0_wp + vtmpc1*p_tot_cld(jc,2,jb,1) - p_tot_cld(jc,2,jb,2)) )
-
-        p_sqv(jc,1,jb)   =  qsat_rho(p_temp_ifc(jc,1,jb),z_rho_1)
-        p_aeq1(jc,1,jb)  =  p_aeq1(jc,2,jb)
-        p_aeq2(jc,1,jb)  =  p_aeq2(jc,2,jb)
-        p_aeq3(jc,1,jb)  =  p_aeq3(jc,2,jb)
-        p_aeq4(jc,1,jb)  =  p_aeq4(jc,2,jb)
-        p_aeq5(jc,1,jb)  =  p_aeq5(jc,2,jb)
-
-!$NEC unroll(3)
-        p_tot_cld(jc,1,jb,1:3) = p_tot_cld(jc,2,jb,1:3)
-
-        p_clc(jc,1,jb)   = p_clc(jc,2,jb)
-      ENDDO
-    ENDIF
-
-  ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-
-  IF (jgp == 0) THEN
-
-    CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, 6, 5*nlev_rg+5, &
-                            RECV1=rg_temp_ifc, SEND1=z_temp_ifc,            &
-                            RECV2=rg_dpres_mc, SEND2=z_dpres_mc,            &
-                            RECV3=rg_sqv,      SEND3=z_sqv,                 &
-                            RECV4=rg_duco2,    SEND4=z_duco2,               &
-                            RECV5=rg_duo3,     SEND5=z_duo3,                &
-                            RECV6=zrg_aux3d,   SEND6=z_aux3d              )
-
-    CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, 6, 6*nlev_rg, &
-                            RECV1=rg_aeq1,     SEND1=z_aeq1,              &
-                            RECV2=rg_aeq2,     SEND2=z_aeq2,              &
-                            RECV3=rg_aeq3,     SEND3=z_aeq3,              &
-                            RECV4=rg_aeq4,     SEND4=z_aeq4,              &
-                            RECV5=rg_aeq5,     SEND5=z_aeq5,              &
-                            RECV6=rg_clc,      SEND6=z_clc                )
-
-
-    CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, 3, 3*nlev_rg, &
-                            RECV4D=rg_tot_cld, SEND4D=z_tot_cld           )
-
-
-    i_startblk = p_patch(jgp)%cells%start_blk(1,1)
-    i_endblk   = p_patch(jgp)%cells%end_blk(min_rlcell,i_nchdom)
-
-    ! OpenMP section commented because the DO loop does almost no work (overhead larger than benefit)
-!!$OMP PARALLEL
-!!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
-
-      CALL get_indices_c(p_patch(jgp), jb, i_startblk, i_endblk, &
-                         i_startidx, i_endidx, 1, min_rlcell)
-
-      DO jc = i_startidx, i_endidx
-        rg_cosmu0(jc,jb)    = zrg_aux3d(jc,1,jb)
-        rg_albdif(jc,jb)    = zrg_aux3d(jc,2,jb)
-        rg_alb_ther(jc,jb)  = zrg_aux3d(jc,3,jb)
-        rg_pres_sfc(jc,jb)  = zrg_aux3d(jc,4,jb)
-      ENDDO
-
-    ENDDO
-!!$OMP END DO NOWAIT
-!!$OMP END PARALLEL
-
-    DEALLOCATE(z_cosmu0, z_albdif, z_alb_ther, z_temp_ifc, z_dpres_mc,z_tot_cld, &
-      &  z_clc, z_sqv, z_duco2, z_duo3, z_aeq1, z_aeq2, z_aeq3, z_aeq4, z_aeq5,  &
-      &  z_pres_sfc, z_aux3d,zrg_aux3d )
-
-  ENDIF
-
-END SUBROUTINE upscale_rad_input_rg
-
-SUBROUTINE downscale_rad_output_rg( jg, jgp, nlev_rg,                &
-  &  rg_lwflxall, rg_trsolall, tsfc_rg,                              &
-  &  albeff_rg, albefffac_rg,flsp_rg, flsd_rg,                       &
-  &  alb_ther_rg, cosmu0_rg, tot_cld_rg,                             &
-  &  dpres_mc_rg, pres_sfc_rg,tsfc, albdif, zsct, lwflxall, trsolall )
-
-
-  ! Input grid parameters
-  INTEGER, INTENT(IN)  :: jg, jgp  ! domain IDs of main and reduced grids
-  INTEGER, INTENT(IN)  :: nlev_rg  ! number of model levels on reduced grid
-
-  ! Other input fields (on reduced grid)
-  REAL(wp), TARGET, INTENT(IN) ::                                               &
-    rg_lwflxall(:,:,:), rg_trsolall(:,:,:)
-
-  ! Auxiliary input fields on reduced grid needed for downscaling corrections
-  REAL(wp), INTENT(IN), TARGET ::                                      &
-    & tsfc_rg(:,:), albeff_rg(:,:), albefffac_rg(:,:),                 &
-    & flsp_rg(:,:),flsd_rg(:,:),                                       &
-    & alb_ther_rg(:,:), cosmu0_rg(:,:),                                &
-    & tot_cld_rg(:,:,:,:), dpres_mc_rg(:,:,:), pres_sfc_rg(:,:)
-
-  ! Auxiliary input fields on full grid needed for downscaling corrections
-  REAL(wp), INTENT(IN) :: tsfc(:,:), albdif(:,:)
-
-  REAL(wp), INTENT(IN) :: zsct
-
-  ! Downscaled output fields (on full grid)
-  REAL(wp), INTENT(OUT) ::                                                &
-    lwflxall(:,:,:), trsolall(:,:,:)
-
-  ! Intermediate storage fields needed in the case of MPI parallelization
-  REAL(wp), ALLOCATABLE, TARGET ::                                          &
-    z_lwflxall(:,:,:), z_trsolall(:,:,:), z_dpres_mc(:,:,:), z_tot_cld(:,:,:,:)
-
-
-  ! Pointers to output fields (no MPI) or intermediate fields (MPI)
-  REAL(wp), POINTER ::                                                             &
-    & p_lwflxall(:,:,:), p_trsolall(:,:,:), p_dpres_mc(:,:,:), p_tot_cld(:,:,:,:)
-
-  ! Additional storage fields to map 2D array(s) to 3D array
-  REAL(wp), ALLOCATABLE :: zpg_aux3d(:,:,:), z_aux3d(:,:,:)
-
-  REAL(wp), ALLOCATABLE :: pres_ifc(:,:,:)
-
-  ! Additional storage fields to map 2D array(s) to 3D array
-  REAL(wp), ALLOCATABLE, TARGET :: zrg_aux3d(:,:,:)
-
-  ! Auxiliary fields on full grid for back-interpolated values
-  REAL(wp), DIMENSION(nproma,p_patch(jg)%nblks_c) :: tsfc_backintp, alb_backintp, albfac_backintp
-
-  !> pressure scale for longwave downscaling correction
-  REAL(wp), PARAMETER :: pscal = 1._wp/4000._wp
-
-  ! More local variables
-  REAL(wp) :: dpresg, pfaclw, intqctot, dlwflxclr_o_dtg
-
-  REAL(wp), DIMENSION(nproma) :: tqv, dlwem_o_dtg, swfac2, lwfac1, lwfac2
-
-  REAL(wp), DIMENSION(nproma,p_patch(jg)%nlevp1) :: intclw, intcli,     &
-    dtrans_o_dalb_all, dlwflxall_o_dtg
-
-
-  ! Pointers to types needed to minimize code duplication for MPI/no-MPI cases
-  TYPE(t_grid_cells), POINTER     :: p_gcp
-  TYPE(t_int_state),  POINTER     :: p_int
-  TYPE(t_gridref_state), POINTER  :: p_grf
-  TYPE(t_patch),      POINTER     :: p_pp
-
-  ! Indices
-  INTEGER :: i_chidx, nblks_c_lp
-  INTEGER :: jb, jk, jk1, jc, i_startblk, i_endblk, i_startidx, i_endidx
-  INTEGER :: jc1, jc2, jc3, jc4, jb1, jb2, jb3, jb4
-
-
-  INTEGER :: nlev, nlevp1      !< number of full and half levels
-  INTEGER :: nshift, nlevp1_rg, nlev_tot
-  INTEGER, DIMENSION(:,:,:), POINTER :: iidx, iblk
-
-  INTEGER :: n2dvars, ipsfc, itsfc, ialb, ialbfac, ialbther, icosmu0, iflsp, iflsd
-
-  LOGICAL :: l_limit(3)
-  REAL(wp) :: rlimval(3)
-!-----------------------------------------------------------------------
-
-  IF (msg_level >= 10) THEN
-    WRITE(message_text,'(a,i2,a,i2)') 'Downscaling of radiation output fields',&
-      jgp,' =>',jg
-    CALL message('downscale_rad_output',message_text)
-  ENDIF
-
-  ! For the time being, the radiation grid is assumed to have the same levels
-  ! as the full grid
-  nlev   = p_patch(jg)%nlev
-  nlevp1 = p_patch(jg)%nlevp1
-
-  ! nlev_rg carries the number of model levels of the reduced grid,
-  ! which may be larger than nlev
-  nlevp1_rg = nlev_rg + 1
-  nshift = nlev_rg - nlev ! resulting shift parameter
-
-  p_grf => p_grf_state_local_parent(jg)
-  p_int => p_int_state_local_parent(jg)
-  p_gcp => p_patch_local_parent(jg)%cells
-  p_pp  => p_patch_local_parent(jg)
-
-  i_chidx  = p_patch(jg)%parent_child_index
-
-  nblks_c_lp = p_pp%nblks_c
-
-  ! pointers to child index/block
-  iidx => p_gcp%child_idx
-  iblk => p_gcp%child_blk
-
-  ! named constants for accessing 2D variables contained in zrg_aux3d
-  n2dvars  = nshift+8
-  ipsfc    = nshift+1
-  itsfc    = nshift+2
-  ialb     = nshift+3
-  ialbfac  = nshift+4
-  iflsp    = nshift+5
-  iflsd    = nshift+6
-  ialbther = nshift+7
-  icosmu0  = nshift+8
-
-  ! Allocation of local storage fields at local parent level in MPI-case
-  IF (jgp == 0) THEN
-
-    ALLOCATE(z_lwflxall(nproma,nlevp1_rg,nblks_c_lp), z_trsolall(nproma,nlevp1_rg,nblks_c_lp) , &
-      &      z_dpres_mc(nproma,nlev_rg,nblks_c_lp), z_tot_cld(nproma,nlev_rg,nblks_c_lp,3),     &
-      &      zpg_aux3d(nproma,n2dvars,p_patch(jgp)%nblks_c),                                    &
-      &      zrg_aux3d(nproma,n2dvars,nblks_c_lp),   z_aux3d(nproma,8,p_patch(jg)%nblks_c),     &
-      &      pres_ifc(nproma,nlevp1_rg,nblks_c_lp) )
-
-    ! Perform communication from parent to local parent grid in the MPI case,
-    ! and set pointers such that further processing is the same for MPI / non-MPI cases
-
-    IF (nshift > 0) zpg_aux3d(:,1:nshift,:) = 0._wp
-    zpg_aux3d(:,ipsfc,:)  = pres_sfc_rg(:,:)
-    zpg_aux3d(:,itsfc,:)  = tsfc_rg(:,:)
-    zpg_aux3d(:,ialb,:)   = albeff_rg(:,:)
-    zpg_aux3d(:,ialbfac,:)= albefffac_rg(:,:)
-    zpg_aux3d(:,iflsp,:)  = flsp_rg(:,:)
-    zpg_aux3d(:,iflsd,:)  = flsd_rg(:,:)
-    zpg_aux3d(:,ialbther,:)  = alb_ther_rg(:,:)
-    zpg_aux3d(:,icosmu0,:)= cosmu0_rg(:,:)
-
-    nlev_tot = 2*nlevp1_rg + nlev_rg + n2dvars
-
-
-    CALL exchange_data_mult(p_pp%comm_pat_glb_to_loc_c, 4, nlev_tot, &
-                            RECV1=z_lwflxall, SEND1=rg_lwflxall,     &
-                            RECV2=z_trsolall, SEND2=rg_trsolall,     &
-                            RECV3=z_dpres_mc, SEND3=dpres_mc_rg,     &
-                            RECV4=zrg_aux3d , SEND4=zpg_aux3d        )
-
-    CALL exchange_data_mult(p_pp%comm_pat_glb_to_loc_c, 3, 3*nlev_rg, &
-                            RECV4D=z_tot_cld, SEND4D=tot_cld_rg       )
-
-
-
-    p_lwflxall   => z_lwflxall
-    p_trsolall   => z_trsolall
-    p_dpres_mc   => z_dpres_mc
-    p_tot_cld    => z_tot_cld
-
-  ELSE
-
-    ALLOCATE(zrg_aux3d(nproma,n2dvars,nblks_c_lp),z_aux3d(nproma,8,p_patch(jg)%nblks_c), &
-      &      pres_ifc(nproma,nlevp1_rg,nblks_c_lp) )
-
-    p_lwflxall   => rg_lwflxall
-    p_trsolall   => rg_trsolall
-    p_dpres_mc   => dpres_mc_rg
-    p_tot_cld    => tot_cld_rg
-
-    IF (nshift > 0) zrg_aux3d(:,1:nshift,:) = 0._wp
-    zrg_aux3d(:,ipsfc,:)  = pres_sfc_rg(:,:)
-    zrg_aux3d(:,itsfc,:)  = tsfc_rg(:,:)
-    zrg_aux3d(:,ialb,:)   = albeff_rg(:,:)
-    zrg_aux3d(:,ialbfac,:)= albefffac_rg(:,:)
-    zrg_aux3d(:,iflsp,:)   = flsp_rg(:,:)
-    zrg_aux3d(:,iflsd,:)   = flsd_rg(:,:)
-    zrg_aux3d(:,ialbther,:)  = alb_ther_rg(:,:)
-    zrg_aux3d(:,icosmu0,:)= cosmu0_rg(:,:)
-
-  ENDIF
-
-  ! Interpolate reduced-grid fields to full grid
-
-  ! interpol_vec/scal_nudging needs all fields with full boundaries, so the arrays
-  ! have to be sync'd before calling these routines.
-  ! Please note that we cannot use sync_patch_array here (comparing parallel/non parallel results)
-  ! since the arrays don't start with lower bound 1 in the non paralellel case!
-
-  nlev_tot = 2*nlevp1_rg + n2dvars
-
-  IF (.NOT. my_process_is_mpi_seq()) THEN
-    CALL exchange_data_mult(p_pp%comm_pat_c, 3 ,nlev_tot, recv1=p_lwflxall, recv2=p_trsolall, &
-      &                     recv3=zrg_aux3d )
-  END IF
-
-  IF (p_test_run) THEN
-    trsolall = 0._wp
-    lwflxall = 0._wp
-    z_aux3d  = 0._wp
-  ENDIF
-
-  l_limit(1)   = .TRUE.      ! limit transmissivity to positive values
-  l_limit(2:3) = .FALSE.
-  rlimval(:)   = 2.94e-37_wp ! seems to be the lower threshold for SW transmissivity
-
-  CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), nshift, 3, 1,          &
-    &                         f3din1=p_trsolall, f3dout1=trsolall,                      &
-    &                         f3din2=p_lwflxall, f3dout2=lwflxall,                      &
-    &                         f3din3=zrg_aux3d,  f3dout3=z_aux3d,                       &
-                              llimit_nneg=l_limit, rlimval=rlimval, overshoot_fac=1.1_wp)
-
-  tsfc_backintp(:,:)   = z_aux3d(:,itsfc-nshift,:)
-  alb_backintp(:,:)    = z_aux3d(:,ialb-nshift,:)
-  albfac_backintp(:,:) = z_aux3d(:,ialbfac-nshift,:)
-
-  ! Finally apply empirical downscaling corrections depending on variations
-  ! in ground temperature and albedo
-
-  ! Start/End block in the parent domain
-  i_startblk = p_gcp%start_blk(grf_fbk_start_c,i_chidx)
-  i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
-
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jk1,tqv,intclw,intcli,dpresg,                   &
-!$OMP            dlwem_o_dtg,swfac2,lwfac1,lwfac2,dtrans_o_dalb_all,                          &
-!$OMP            pfaclw,intqctot,dlwflxclr_o_dtg,dlwflxall_o_dtg,jc1,jc2,jc3,jc4,jb1,jb2,jb3, &
-!$OMP jb4) ICON_OMP_DEFAULT_SCHEDULE
-  DO jb = i_startblk, i_endblk
-
-    CALL get_indices_c(p_pp, jb, i_startblk, i_endblk,                      &
-                       i_startidx, i_endidx, grf_fbk_start_c, min_rlcell_int)
-
-    tqv(:)            = 0._wp
-    intclw(:,nlevp1)  = 0._wp
-    intcli(:,nlevp1)  = 0._wp
-    pres_ifc(:,1,jb)     = 0._wp
-    pres_ifc(:,nlevp1_rg,jb) = zrg_aux3d(:,ipsfc,jb)
-
-    DO jk = nlev,1,-1
-      jk1 = jk + nshift
-      DO jc = i_startidx, i_endidx
-        pres_ifc(jc,jk1,jb) = pres_ifc(jc,jk1+1,jb) - p_dpres_mc(jc,jk1,jb)
-
-        dpresg        = (pres_ifc(jc,jk1+1,jb) - pres_ifc(jc,jk1,jb))/grav
-        tqv(jc)       = tqv(jc)+p_tot_cld(jc,jk1,jb,iqv)*dpresg
-        intclw(jc,jk) = intclw(jc,jk+1)+p_tot_cld(jc,jk1,jb,iqc)*dpresg
-        intcli(jc,jk) = intcli(jc,jk+1)+p_tot_cld(jc,jk1,jb,iqi)*dpresg
-      ENDDO
-    ENDDO
-
-    DO jc = i_startidx, i_endidx
-      dlwem_o_dtg(jc) = ( 1._wp-zrg_aux3d(jc,ialbther,jb) )*4._wp*stbo*zrg_aux3d(jc,itsfc,jb)**3
-      swfac2(jc) =  MAX(0.25_wp,3._wp*zrg_aux3d(jc,icosmu0,jb))**0.0677988_wp
-      IF (tqv(jc) > 15._wp) THEN
-        lwfac1(jc) = 1.677_wp*MAX(1._wp,tqv(jc))**(-0.72_wp)
-      ELSE
-        lwfac1(jc) = 0.4388_wp*MAX(1._wp,tqv(jc))**(-0.225_wp)
-      ENDIF
-      lwfac2(jc) = 0.92_wp*MAX(1._wp,tqv(jc))**(-0.07_wp)
-    ENDDO
-
-    DO jk = 1,nlevp1
-      jk1 = jk + nshift
-      DO jc = i_startidx, i_endidx
-
-        dtrans_o_dalb_all(jc,jk) = (-zrg_aux3d(jc,iflsp,jb)-zrg_aux3d(jc,iflsd,jb)) &
-          &                      / ( zsct * zrg_aux3d(jc,icosmu0,jb) * swfac2(jc) ) &
-          &                      * ( 0.482994_wp + 0.436556_wp                      &
-          &                      * (zrg_aux3d(jc,iflsp,jb)/zrg_aux3d(jc,iflsd,jb))**0.0953119_wp )
-
-        pfaclw = lwfac1(jc)+(lwfac2(jc)-lwfac1(jc))*EXP(-SQRT((pres_ifc(jc,nlevp1_rg,jb)- &
-                 pres_ifc(jc,jk1,jb))*pscal ))
-        intqctot = MIN(0.30119_wp,MAX(1.008e-3_wp,intclw(jc,jk)+0.2_wp*intcli(jc,jk)))
-
-        dlwflxclr_o_dtg        = -dlwem_o_dtg(jc)*pfaclw
-        dlwflxall_o_dtg(jc,jk) = dlwflxclr_o_dtg*(1._wp-(6.9_wp+LOG(intqctot))/5.7_wp)
-      ENDDO
-    ENDDO
-
-    ! Now apply the corrections
-#ifdef __LOOP_EXCHANGE
-    DO jc = i_startidx, i_endidx
-      jc1 = iidx(jc,jb,1)
-      jc2 = iidx(jc,jb,2)
-      jc3 = iidx(jc,jb,3)
-      jc4 = iidx(jc,jb,4)
-      jb1 = iblk(jc,jb,1)
-      jb2 = iblk(jc,jb,2)
-      jb3 = iblk(jc,jb,3)
-      jb4 = iblk(jc,jb,4)
-      DO jk = 1,nlevp1
-#else
-!$NEC novector
-    DO jk = 1,nlevp1
-!$NEC ivdep
-      DO jc = i_startidx, i_endidx
-        jc1 = iidx(jc,jb,1)
-        jc2 = iidx(jc,jb,2)
-        jc3 = iidx(jc,jb,3)
-        jc4 = iidx(jc,jb,4)
-        jb1 = iblk(jc,jb,1)
-        jb2 = iblk(jc,jb,2)
-        jb3 = iblk(jc,jb,3)
-        jb4 = iblk(jc,jb,4)
-#endif
-
-        trsolall(jc1,jk,jb1) = MAX(trsolall(jc1,jk,jb1) + dtrans_o_dalb_all(jc,jk)* &
-          ( albfac_backintp(jc1,jb1)*albdif(jc1,jb1) - alb_backintp(jc1,jb1) ), rlimval(1))
-        trsolall(jc2,jk,jb2) = MAX(trsolall(jc2,jk,jb2) + dtrans_o_dalb_all(jc,jk)* &
-          ( albfac_backintp(jc2,jb2)*albdif(jc2,jb2) - alb_backintp(jc2,jb2) ), rlimval(1))
-        trsolall(jc3,jk,jb3) = MAX(trsolall(jc3,jk,jb3) + dtrans_o_dalb_all(jc,jk)* &
-          ( albfac_backintp(jc3,jb3)*albdif(jc3,jb3) - alb_backintp(jc3,jb3) ), rlimval(1))
-        trsolall(jc4,jk,jb4) = MAX(trsolall(jc4,jk,jb4) + dtrans_o_dalb_all(jc,jk)* &
-          ( albfac_backintp(jc4,jb4)*albdif(jc4,jb4) - alb_backintp(jc4,jb4) ), rlimval(1))
-
-        lwflxall(jc1,jk,jb1) = lwflxall(jc1,jk,jb1) + dlwflxall_o_dtg(jc,jk)* &
-          ( tsfc(jc1,jb1) - tsfc_backintp(jc1,jb1) )
-        lwflxall(jc2,jk,jb2) = lwflxall(jc2,jk,jb2) + dlwflxall_o_dtg(jc,jk)* &
-          ( tsfc(jc2,jb2) - tsfc_backintp(jc2,jb2) )
-        lwflxall(jc3,jk,jb3) = lwflxall(jc3,jk,jb3) + dlwflxall_o_dtg(jc,jk)* &
-          ( tsfc(jc3,jb3) - tsfc_backintp(jc3,jb3) )
-        lwflxall(jc4,jk,jb4) = lwflxall(jc4,jk,jb4) + dlwflxall_o_dtg(jc,jk)* &
-          ( tsfc(jc4,jb4) - tsfc_backintp(jc4,jb4) )
-
-      ENDDO
-    ENDDO
-
-  ENDDO !jb
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-  IF (jgp == 0) THEN
-    DEALLOCATE( z_lwflxall, z_trsolall, z_dpres_mc, z_tot_cld, zpg_aux3d )
-  ENDIF
-
-  DEALLOCATE( zrg_aux3d,z_aux3d, pres_ifc )
-
-END SUBROUTINE downscale_rad_output_rg
-
-
-
-!>
 !! This routine optimizes the boundary interpolation of diagnostic physics fields for output
 !!
 !! @par Revision History
@@ -2269,7 +1756,7 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
   ! Local fields
   INTEGER, PARAMETER  :: nfields_p1=70   ! Number of positive-definite 2D physics fields for which boundary interpolation is needed
   INTEGER, PARAMETER  :: nfields_p2=19   ! Number of remaining 2D physics fields for which boundary interpolation is needed
-  INTEGER, PARAMETER  :: nfields_l2=18   ! Number of 2D land state fields
+  INTEGER, PARAMETER  :: nfields_l2=19   ! Number of 2D land state fields
 
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, jb, jc, jk, jt, nlev_c, ic, i_count, indlist(nproma)
   INTEGER :: styp                        ! soiltype at child level
@@ -2383,7 +1870,7 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
       z_aux3dp1_p(jc,54:58,jb) = p_nh_state(jg)%diag%tracer_vi(jc,jb,1:5)
       z_aux3dp1_p(jc,59,jb) = prm_diag(jg)%clct_mod(jc,jb)
 
-      IF (atm_phy_nwp_config(jg)%inwp_gscp == 2) THEN
+      IF (atm_phy_nwp_config(jg)%lhave_graupel) THEN
         z_aux3dp1_p(jc,60,jb) = prm_diag(jg)%graupel_gsp(jc,jb)
         z_aux3dp1_p(jc,61,jb) = prm_diag(jg)%graupel_gsp_rate(jc,jb)
       ELSE
@@ -2397,9 +1884,14 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
       z_aux3dp1_p(jc,66,jb) = prm_diag(jg)%t_2m_land(jc,jb)
       z_aux3dp1_p(jc,67,jb) = prm_diag(jg)%td_2m_land(jc,jb)
       z_aux3dp1_p(jc,68,jb) = prm_diag(jg)%rh_2m_land(jc,jb)
-      z_aux3dp1_p(jc,69,jb) = prm_diag(jg)%ice_gsp(jc,jb)
-      z_aux3dp1_p(jc,70,jb) = prm_diag(jg)%ice_gsp_rate(jc,jb)
 
+      IF (ANY((/1,2,4,5,6,7/) == atm_phy_nwp_config(jg)%inwp_gscp)) THEN
+        z_aux3dp1_p(jc,69,jb) = prm_diag(jg)%ice_gsp(jc,jb)
+        z_aux3dp1_p(jc,70,jb) = prm_diag(jg)%ice_gsp_rate(jc,jb)
+      ELSE
+        z_aux3dp1_p(jc,69,jb) = 0._wp
+        z_aux3dp1_p(jc,70,jb) = 0._wp
+      ENDIF
 
       z_aux3dp2_p(jc,1,jb) = prm_diag(jg)%u_10m(jc,jb)
       z_aux3dp2_p(jc,2,jb) = prm_diag(jg)%v_10m(jc,jb)
@@ -2440,35 +1932,41 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
         ELSE
           z_aux3dl2_p(jc,12,jb) = 0._wp
         ENDIF
+        IF (var_in_output(jg)%res_soilwatb) THEN
+          z_aux3dl2_p(jc,13,jb) = ptr_ldiagp%resid_wso(jc,jb)
+        ELSE
+          z_aux3dl2_p(jc,13,jb) = 0._wp
+        ENDIF
+
       ENDDO
 
       IF (lseaice) THEN
         DO jc = i_startidx, i_endidx
           IF (ptr_wprogp%t_ice(jc,jb) > 10._wp) THEN
-            z_aux3dl2_p(jc,13,jb) = ptr_wprogp%t_ice(jc,jb)
+            z_aux3dl2_p(jc,14,jb) = ptr_wprogp%t_ice(jc,jb)
           ELSE
-            z_aux3dl2_p(jc,13,jb) = ptr_lprogp%t_g(jc,jb)
+            z_aux3dl2_p(jc,14,jb) = ptr_lprogp%t_g(jc,jb)
           ENDIF
-          z_aux3dl2_p(jc,14,jb) = ptr_wprogp%h_ice(jc,jb)
-          z_aux3dl2_p(jc,15,jb) = ptr_wprogp%t_snow_si(jc,jb)
-          z_aux3dl2_p(jc,16,jb) = ptr_wprogp%h_snow_si(jc,jb)
-          z_aux3dl2_p(jc,17,jb) = ptr_ldiagp%fr_seaice(jc,jb)
+          z_aux3dl2_p(jc,15,jb) = ptr_wprogp%h_ice(jc,jb)
+          z_aux3dl2_p(jc,16,jb) = ptr_wprogp%t_snow_si(jc,jb)
+          z_aux3dl2_p(jc,17,jb) = ptr_wprogp%h_snow_si(jc,jb)
+          z_aux3dl2_p(jc,18,jb) = ptr_ldiagp%fr_seaice(jc,jb)
         ENDDO
       ELSE
-        z_aux3dl2_p(:,13:17,jb) = 0._wp
+        z_aux3dl2_p(:,14:18,jb) = 0._wp
       ENDIF
 
       IF (llake) THEN
         DO jc = i_startidx, i_endidx
-          z_aux3dl2_p(jc,18,jb) = ptr_lprogp%t_g(jc,jb)
+          z_aux3dl2_p(jc,19,jb) = ptr_lprogp%t_g(jc,jb)
         ENDDO
         i_count = ext_data(jg)%atm%list_lake%ncount(jb)
         DO ic = 1, i_count
           jc = ext_data(jg)%atm%list_lake%idx(ic,jb)
-          z_aux3dl2_p(jc,18,jb) = ptr_lprogp%t_g_t(jc,jb,isub_lake)
+          z_aux3dl2_p(jc,19,jb) = ptr_lprogp%t_g_t(jc,jb,isub_lake)
         ENDDO
       ELSE
-        z_aux3dl2_p(:,18,jb) = 0._wp
+        z_aux3dl2_p(:,19,jb) = 0._wp
       ENDIF
 
       DO jk = 1, nlev_soil
@@ -2593,10 +2091,11 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
       p_nh_state(jgc)%diag%tracer_vi(jc,jb,1:5) = z_aux3dp1_c(jc,54:58,jb)
       prm_diag(jgc)%clct_mod(jc,jb)       = MIN(1._wp,z_aux3dp1_c(jc,59,jb))
 
-      IF (atm_phy_nwp_config(jgc)%inwp_gscp == 2) THEN
+      IF (atm_phy_nwp_config(jgc)%lhave_graupel) THEN
         prm_diag(jgc)%graupel_gsp(jc,jb)      = MAX(z_aux3dp1_c(jc,60,jb),prm_diag(jgc)%graupel_gsp(jc,jb))
         prm_diag(jgc)%graupel_gsp_rate(jc,jb) = z_aux3dp1_c(jc,61,jb)
       ENDIF
+
       prm_diag(jgc)%tvm(jc,jb)            = z_aux3dp1_c(jc,62,jb)
       prm_diag(jgc)%tvh(jc,jb)            = z_aux3dp1_c(jc,63,jb)
       prm_diag(jgc)%tkr(jc,jb)            = z_aux3dp1_c(jc,64,jb)
@@ -2604,9 +2103,11 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
       prm_diag(jgc)%t_2m_land(jc,jb)      = z_aux3dp1_c(jc,66,jb)
       prm_diag(jgc)%td_2m_land(jc,jb)     = z_aux3dp1_c(jc,67,jb)
       prm_diag(jgc)%rh_2m_land(jc,jb)     = z_aux3dp1_c(jc,68,jb)
-      prm_diag(jgc)%ice_gsp(jc,jb)        = MAX(z_aux3dp1_c(jc,69,jb),prm_diag(jgc)%ice_gsp(jc,jb))
-      prm_diag(jgc)%ice_gsp_rate(jc,jb)   = z_aux3dp1_c(jc,70,jb)
 
+      IF (ANY((/1,2,4,5,6,7/) == atm_phy_nwp_config(jgc)%inwp_gscp)) THEN
+        prm_diag(jgc)%ice_gsp(jc,jb)        = MAX(z_aux3dp1_c(jc,69,jb),prm_diag(jgc)%ice_gsp(jc,jb))
+        prm_diag(jgc)%ice_gsp_rate(jc,jb)   = z_aux3dp1_c(jc,70,jb)
+      ENDIF
 
       prm_diag(jgc)%u_10m(jc,jb)          = z_aux3dp2_c(jc,1,jb)
       prm_diag(jgc)%v_10m(jc,jb)          = z_aux3dp2_c(jc,2,jb)
@@ -2653,15 +2154,18 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
         ptr_ldiagc%t_so(jc,nlev_soil+1,jb) = z_aux3dl2_c(jc,11,jb)
         IF (lmulti_snow) &
           ptr_ldiagc%t_snow_mult(jc,nlev_snow+1,jb) = z_aux3dl2_c(jc,12,jb)
+        IF (var_in_output(jg)%res_soilwatb) THEN
+          ptr_ldiagc%resid_wso(jc,jb)     = z_aux3dl2_c(jc,13,jb)
+        ENDIF
       ENDDO
 
       IF (lseaice) THEN
         DO jc = i_startidx, i_endidx
-          ptr_wprogc%t_ice(jc,jb)     = MIN(tmelt,z_aux3dl2_c(jc,13,jb))
-          ptr_wprogc%h_ice(jc,jb)     = MAX(0._wp,z_aux3dl2_c(jc,14,jb))
-          ptr_wprogc%t_snow_si(jc,jb) = MIN(tmelt,z_aux3dl2_c(jc,15,jb))
-          ptr_wprogc%h_snow_si(jc,jb) = MAX(0._wp,z_aux3dl2_c(jc,16,jb))
-          ptr_ldiagc%fr_seaice(jc,jb) = MAX(0._wp,MIN(1._wp,z_aux3dl2_c(jc,17,jb)))
+          ptr_wprogc%t_ice(jc,jb)     = MIN(tmelt,z_aux3dl2_c(jc,14,jb))
+          ptr_wprogc%h_ice(jc,jb)     = MAX(0._wp,z_aux3dl2_c(jc,15,jb))
+          ptr_wprogc%t_snow_si(jc,jb) = MIN(tmelt,z_aux3dl2_c(jc,16,jb))
+          ptr_wprogc%h_snow_si(jc,jb) = MAX(0._wp,z_aux3dl2_c(jc,17,jb))
+          ptr_ldiagc%fr_seaice(jc,jb) = MAX(0._wp,MIN(1._wp,z_aux3dl2_c(jc,18,jb)))
           IF (ptr_ldiagc%fr_seaice(jc,jb) < frsi_min )         ptr_ldiagc%fr_seaice(jc,jb) = 0._wp
           IF (ptr_ldiagc%fr_seaice(jc,jb) > (1._wp-frsi_min) ) ptr_ldiagc%fr_seaice(jc,jb) = 1._wp
           IF (ext_data(jgc)%atm%fr_land(jc,jb) >= 1._wp-MAX(frlake_thrhld,frsea_thrhld)) THEN ! pure land point
@@ -2701,7 +2205,7 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
              nflkgb      = i_count,                             &
              idx_lst_fp  = indlist,                             &
              depth_lk    = ext_data(jgc)%atm%depth_lk  (:,jb),  &
-             tskin       = z_aux3dl2_c(:,18,jb),                &  ! estimate for lake sfc temp
+             tskin       = z_aux3dl2_c(:,19,jb),                &  ! estimate for lake sfc temp
              t_snow_lk_p = ptr_wprogc%t_snow_lk(:,jb),          &
              h_snow_lk_p = ptr_wprogc%h_snow_lk(:,jb),          &
              t_ice_p     = ptr_wprogc%t_ice    (:,jb),          &

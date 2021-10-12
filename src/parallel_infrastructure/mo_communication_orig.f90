@@ -2163,6 +2163,7 @@ CONTAINS
           ndim2_n   = ndim2(n)
           noffset_n = noffset(n)
           kshift_n  = kshift(n)
+!$ACC DATA PRESENT(send_ptr) IF (use_gpu)
 !$ACC PARALLEL DEFAULT(NONE) PRESENT(send_ptr) IF (use_gpu) ASYNC(1)
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
 !$NEC outerloop_unroll(4)
@@ -2173,6 +2174,7 @@ CONTAINS
             ENDDO
           ENDDO
 !$ACC END PARALLEL
+!$ACC END DATA
         ENDDO
 !$ACC WAIT
       ELSE
@@ -2182,6 +2184,7 @@ CONTAINS
           ndim2_n   = ndim2(n)
           noffset_n = noffset(n)
           kshift_n  = kshift(n)
+!$ACC DATA PRESENT(recv_ptr) IF (use_gpu)
 !$ACC PARALLEL DEFAULT(NONE) PRESENT(recv_ptr)  IF (use_gpu) ASYNC(1)
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
 !$NEC outerloop_unroll(4)
@@ -2192,6 +2195,7 @@ CONTAINS
             ENDDO
           ENDDO
 !$ACC END PARALLEL
+!$ACC END DATA
         ENDDO
 !$ACC WAIT
       ENDIF
@@ -2282,6 +2286,7 @@ CONTAINS
         ndim2_n   = ndim2(n)
         noffset_n = noffset(n)
         kshift_n  = kshift(n)
+!$ACC DATA PRESENT(recv_ptr) IF (use_gpu)
 !$ACC PARALLEL DEFAULT(NONE) PRESENT(recv_ptr) IF (use_gpu) ASYNC(1)
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
 !$NEC outerloop_unroll(4)
@@ -2292,6 +2297,7 @@ CONTAINS
           ENDDO
         ENDDO
 !$ACC END PARALLEL
+!$ACC END DATA
       ENDDO
 !$ACC WAIT
 #else

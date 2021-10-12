@@ -201,7 +201,8 @@ MODULE mo_velocity_advection
 !$ACC DATA COPYIN( z_w_concorr_me, z_kin_hor_e, z_vt_ie ), &
 !$ACC CREATE( z_w_concorr_mc, z_w_con_c, cfl_clipping, z_w_con_c_full, z_v_grad_w, z_w_v, zeta, z_ekinh, levmask, levelmask ), &
 !$ACC PRESENT( p_diag, p_prog, p_int, p_metrics, p_patch ), &
-!$ACC PRESENT( iqidx, iqblk, ividx, icblk, icidx, ieidx, ieblk, incblk, ivblk, incidx )
+!$ACC PRESENT( iqidx, iqblk, ividx, icblk, icidx, ieidx, ieblk, incblk, ivblk, incidx ) &
+!$ACC IF ( i_am_accel_node .AND. acc_on )
 
 #ifdef _OPENACC
 ! In validation mode, update all the needed fields on the device
@@ -634,7 +635,7 @@ MODULE mo_velocity_advection
 !$ACC LOOP GANG
         DO jk = MAX(3,nrdmax_jg-2), nlev-3
           IF (levmask(jb,jk)) THEN
-            !$ACC LOOP VECTOR
+            !$ACC LOOP VECTOR PRIVATE(difcoef)
             DO jc = i_startidx_2, i_endidx_2
               IF (cfl_clipping(jc,jk) .AND. p_patch%cells%decomp_info%owner_mask(jc,jb)) THEN
                 difcoef = scalfac_exdiff * MIN(0.85_wp - cfl_w_limit*dtime,                       &
@@ -729,7 +730,7 @@ MODULE mo_velocity_advection
         !$ACC LOOP GANG
         DO jk = MAX(3,nrdmax_jg-2), nlev-4
           IF (levelmask(jk) .OR. levelmask(jk+1)) THEN
-            !$ACC LOOP VECTOR
+            !$ACC LOOP VECTOR PRIVATE(difcoef, w_con_e)
             DO je = i_startidx, i_endidx
               w_con_e = p_int%c_lin_e(je,1,jb)*z_w_con_c_full(icidx(je,jb,1),jk,icblk(je,jb,1)) + &
                         p_int%c_lin_e(je,2,jb)*z_w_con_c_full(icidx(je,jb,2),jk,icblk(je,jb,2))

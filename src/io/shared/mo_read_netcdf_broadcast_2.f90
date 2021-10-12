@@ -40,9 +40,8 @@ MODULE mo_read_netcdf_broadcast_2
   USE mo_io_units,           ONLY: filename_max
   USE mo_mpi,                ONLY: my_process_is_mpi_workroot, p_comm_work, &
     &                              process_mpi_root_id, p_bcast
-  USE mo_read_netcdf_distributed, ONLY: var_data_2d_wp, var_data_2d_int, &
-    &                                   var_data_3d_wp, var_data_3d_int
   USE mo_communication,      ONLY: t_scatterPattern
+  USE mo_fortran_tools,      ONLY: t_ptr_2d, t_ptr_2d_int, t_ptr_3d, t_ptr_3d_int
   !-------------------------------------------------------------------------
 
   IMPLICIT NONE
@@ -655,14 +654,14 @@ CONTAINS
     INTEGER, INTENT(IN)              :: n_g
     CLASS(t_scatterPattern), POINTER :: scatter_pattern
 
-    TYPE(var_data_2d_int) :: fill_arrays(1)
+    TYPE(t_ptr_2d_int) :: fill_arrays(1)
     TYPE(t_p_scatterPattern) :: scatter_pattern_(1)
-    TYPE(var_data_2d_int) :: results(1)
+    TYPE(t_ptr_2d_int) :: results(1)
 
     scatter_pattern_(1)%p => scatter_pattern
 
     IF (PRESENT(fill_array)) THEN
-      fill_arrays(1)%data => fill_array
+      fill_arrays(1)%p => fill_array
       results = netcdf_read_INT_2D_multivar(file_id=file_id, &
         &                                   variable_name=variable_name,&
         &                                   n_vars=1, &
@@ -676,7 +675,7 @@ CONTAINS
         &                                   scatter_patterns=scatter_pattern_)
     END IF
 
-    res => results(1)%data
+    res => results(1)%p
 
   END FUNCTION netcdf_read_INT_2D
 
@@ -687,11 +686,11 @@ CONTAINS
     INTEGER, INTENT(IN)                    :: n_vars
     INTEGER, INTENT(IN)                    :: file_id
     CHARACTER(LEN=*), INTENT(IN)           :: variable_name
-    TYPE(var_data_2d_int), OPTIONAL        :: fill_arrays(n_vars)
+    TYPE(t_ptr_2d_int), OPTIONAL        :: fill_arrays(n_vars)
     INTEGER, INTENT(IN)                    :: n_g
     TYPE(t_p_scatterPattern),INTENT(INOUT) :: scatter_patterns(n_vars)
 
-    TYPE(var_data_2d_int)                  :: res(n_vars)
+    TYPE(t_ptr_2d_int)                  :: res(n_vars)
 
     INTEGER :: varid, var_type, var_dims
     INTEGER :: var_size(MAX_VAR_DIMS)
@@ -725,18 +724,18 @@ CONTAINS
 
     DO i = 1, n_vars
       IF (PRESENT(fill_arrays)) THEN
-        res(i)%data => fill_arrays(i)%data
+        res(i)%p => fill_arrays(i)%p
       ELSE
-        ALLOCATE( res(i)%data(nproma, &
+        ALLOCATE( res(i)%p(nproma, &
           &                   (scatter_patterns(i)%p%myPointCount - 1)/nproma + 1), &
           &       stat=return_status )
         IF (return_status /= success) THEN
           CALL finish (method_name, 'ALLOCATE( res )')
         ENDIF
-        res(i)%data(:,:) = 0
+        res(i)%p(:,:) = 0
       ENDIF
 
-      CALL scatter_patterns(i)%p%distribute(tmp_array, res(i)%data, .FALSE.)
+      CALL scatter_patterns(i)%p%distribute(tmp_array, res(i)%p, .FALSE.)
     END DO
 
   END FUNCTION netcdf_read_INT_2D_multivar
@@ -819,14 +818,14 @@ CONTAINS
     INTEGER, INTENT(IN)              :: n_g
     CLASS(t_scatterPattern), POINTER :: scatter_pattern
 
-    TYPE(var_data_2d_wp) :: fill_arrays(1)
+    TYPE(t_ptr_2d) :: fill_arrays(1)
     TYPE(t_p_scatterPattern) :: scatter_pattern_(1)
-    TYPE(var_data_2d_wp) :: results(1)
+    TYPE(t_ptr_2d) :: results(1)
 
     scatter_pattern_(1)%p => scatter_pattern
 
     IF (PRESENT(fill_array)) THEN
-      fill_arrays(1)%data => fill_array
+      fill_arrays(1)%p => fill_array
       results = netcdf_read_REAL_2D_multivar(file_id=file_id, &
         &                                    variable_name=variable_name,&
         &                                    n_vars=1, &
@@ -840,7 +839,7 @@ CONTAINS
         &                                    scatter_patterns=scatter_pattern_)
     END IF
 
-    res => results(1)%data
+    res => results(1)%p
 
   END FUNCTION netcdf_read_REAL_2D
 
@@ -851,11 +850,11 @@ CONTAINS
     INTEGER, INTENT(IN)                     :: n_vars
     INTEGER, INTENT(IN)                     :: file_id
     CHARACTER(LEN=*), INTENT(IN)            :: variable_name
-    TYPE(var_data_2d_wp), OPTIONAL          :: fill_arrays(n_vars)
+    TYPE(t_ptr_2d), OPTIONAL          :: fill_arrays(n_vars)
     INTEGER, INTENT(IN)                     :: n_g
     TYPE(t_p_scatterPattern), INTENT(INOUT) :: scatter_patterns(n_vars)
 
-    TYPE(var_data_2d_wp)                    :: res(n_vars)
+    TYPE(t_ptr_2d)                    :: res(n_vars)
 
     INTEGER :: varid, var_type(1), var_dims
     INTEGER :: var_size(MAX_VAR_DIMS)
@@ -898,21 +897,21 @@ CONTAINS
 
     DO i = 1, n_vars
       IF (PRESENT(fill_arrays)) THEN
-        res(i)%data => fill_arrays(i)%data
+        res(i)%p => fill_arrays(i)%p
       ELSE
-        ALLOCATE( res(i)%data(nproma, &
+        ALLOCATE( res(i)%p(nproma, &
           &                   (scatter_patterns(i)%p%myPointCount - 1)/nproma + 1), &
           &       stat=return_status )
         IF (return_status /= success) THEN
           CALL finish (method_name, 'ALLOCATE( res )')
         ENDIF
-        res(i)%data(:,:) = 0.0_wp
+        res(i)%p(:,:) = 0.0_wp
       ENDIF
 
       IF (var_type(1) == NF_DOUBLE) THEN
-        CALL scatter_patterns(i)%p%distribute(tmp_array_dp, res(i)%data, .FALSE.)
+        CALL scatter_patterns(i)%p%distribute(tmp_array_dp, res(i)%p, .FALSE.)
       ELSE
-        CALL scatter_patterns(i)%p%distribute(tmp_array_sp, res(i)%data, .FALSE.)
+        CALL scatter_patterns(i)%p%distribute(tmp_array_sp, res(i)%p, .FALSE.)
       END IF
     END DO
 
@@ -967,14 +966,14 @@ CONTAINS
     INTEGER, INTENT(in), OPTIONAL          :: start_extdim, end_extdim
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name
 
-    TYPE(var_data_3d_wp) :: fill_arrays(1)
+    TYPE(t_ptr_3d) :: fill_arrays(1)
     TYPE(t_p_scatterPattern) :: scatter_pattern_(1)
-    TYPE(var_data_3d_wp) :: results(1)
+    TYPE(t_ptr_3d) :: results(1)
 
     scatter_pattern_(1)%p => scatter_pattern
 
     IF (PRESENT(fill_array)) THEN
-      fill_arrays(1)%data => fill_array
+      fill_arrays(1)%p => fill_array
       results = netcdf_read_REAL_2D_extdim_multivar( &
         file_id=file_id, variable_name=variable_name, n_vars=1, &
         fill_arrays=fill_arrays,  n_g=n_g, scatter_patterns=scatter_pattern_, &
@@ -987,7 +986,7 @@ CONTAINS
         end_extdim=end_extdim, extdim_name=extdim_name)
     END IF
 
-    res => results(1)%data
+    res => results(1)%p
 
   END FUNCTION netcdf_read_REAL_2D_extdim
 
@@ -1000,13 +999,13 @@ CONTAINS
     INTEGER, INTENT(IN)                     :: n_vars
     INTEGER, INTENT(IN)                     :: file_id
     CHARACTER(LEN=*), INTENT(IN)            :: variable_name
-    TYPE(var_data_3d_wp), OPTIONAL          :: fill_arrays(n_vars)
+    TYPE(t_ptr_3d), OPTIONAL          :: fill_arrays(n_vars)
     INTEGER, INTENT(IN)                     :: n_g
     TYPE(t_p_scatterPattern), INTENT(INOUT) :: scatter_patterns(n_vars)
     INTEGER, INTENT(in), OPTIONAL           :: start_extdim, end_extdim
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL  :: extdim_name
 
-    TYPE(var_data_3d_wp)          :: res(n_vars)
+    TYPE(t_ptr_3d)          :: res(n_vars)
 
     INTEGER :: varid, var_type(1), var_dims
     INTEGER, TARGET :: var_size(MAX_VAR_DIMS)
@@ -1068,17 +1067,17 @@ CONTAINS
     DO i = 1, n_vars
       !-----------------------
       IF (PRESENT(fill_arrays)) THEN
-        res(i)%data => fill_arrays(i)%data
-        IF (SIZE(res(i)%data,3) < time_steps) &
+        res(i)%p => fill_arrays(i)%p
+        IF (SIZE(res(i)%p,3) < time_steps) &
           CALL finish(method_name, "allocated size < time_steps")
       ELSE
-        ALLOCATE(res(i)%data(nproma, &
+        ALLOCATE(res(i)%p(nproma, &
           &                  (scatter_patterns(i)%p%myPointCount - 1) / nproma + 1, &
           &                  time_steps), stat=return_status)
         IF (return_status /= success) THEN
           CALL finish (method_name, 'ALLOCATE( res )')
         ENDIF
-        res(i)%data(:,:,:) = 0.0_wp
+        res(i)%p(:,:,:) = 0.0_wp
       ENDIF
     END DO
 
@@ -1114,7 +1113,7 @@ CONTAINS
 
 
       DO i = 1, n_vars
-        tmp_res => res(i)%data(:,:,LBOUND(res(i)%data, 3)+t-1)
+        tmp_res => res(i)%p(:,:,LBOUND(res(i)%p, 3)+t-1)
         ! this is needed by PGI, it causes an internal compiler error if
         ! scatter_patterns(i)%p is used directly
         scatter_pattern_ => scatter_patterns(i)%p
@@ -1150,14 +1149,14 @@ CONTAINS
     INTEGER, INTENT(in), OPTIONAL          :: start_extdim, end_extdim
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name
 
-    TYPE(var_data_3d_int) :: fill_arrays(1)
+    TYPE(t_ptr_3d_int) :: fill_arrays(1)
     TYPE(t_p_scatterPattern) :: scatter_pattern_(1)
-    TYPE(var_data_3d_int) :: results(1)
+    TYPE(t_ptr_3d_int) :: results(1)
 
     scatter_pattern_(1)%p => scatter_pattern
 
     IF (PRESENT(fill_array)) THEN
-      fill_arrays(1)%data => fill_array
+      fill_arrays(1)%p => fill_array
       results = netcdf_read_INT_2D_extdim_multivar( &
         file_id=file_id, variable_name=variable_name, n_vars=1, &
         fill_arrays=fill_arrays,  n_g=n_g, scatter_patterns=scatter_pattern_, &
@@ -1170,7 +1169,7 @@ CONTAINS
         end_extdim=end_extdim, extdim_name=extdim_name)
     END IF
 
-    res => results(1)%data
+    res => results(1)%p
 
   END FUNCTION netcdf_read_INT_2D_extdim
 
@@ -1183,13 +1182,13 @@ CONTAINS
     INTEGER, INTENT(IN)                     :: n_vars
     INTEGER, INTENT(IN)                     :: file_id
     CHARACTER(LEN=*), INTENT(IN)            :: variable_name
-    TYPE(var_data_3d_int), OPTIONAL         :: fill_arrays(n_vars)
+    TYPE(t_ptr_3d_int), OPTIONAL         :: fill_arrays(n_vars)
     INTEGER, INTENT(IN)                     :: n_g
     TYPE(t_p_scatterPattern), INTENT(INOUT) :: scatter_patterns(n_vars)
     INTEGER, INTENT(in), OPTIONAL           :: start_extdim, end_extdim
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL  :: extdim_name
 
-    TYPE(var_data_3d_int)          :: res(n_vars)
+    TYPE(t_ptr_3d_int)          :: res(n_vars)
 
     INTEGER :: varid, var_type, var_dims
     INTEGER, TARGET :: var_size(MAX_VAR_DIMS)
@@ -1252,15 +1251,15 @@ CONTAINS
 
     DO i = 1, n_vars
       IF (PRESENT(fill_arrays)) THEN
-        res(i)%data => fill_arrays(i)%data
-        IF (SIZE(res(i)%data,3) < time_steps) &
+        res(i)%p => fill_arrays(i)%p
+        IF (SIZE(res(i)%p,3) < time_steps) &
           CALL finish(method_name, "allocated size < time_steps")
       ELSE
-        ALLOCATE(res(i)%data(nproma, &
+        ALLOCATE(res(i)%p(nproma, &
           &                  (scatter_patterns(i)%p%myPointCount - 1) / nproma + 1, &
           &                  time_steps), stat=return_status)
         IF (return_status /= success) CALL finish (method_name, 'ALLOCATE(res)')
-        res(i)%data(:,:,:) = 0
+        res(i)%p(:,:,:) = 0
       END IF
     END DO
 
@@ -1275,7 +1274,7 @@ CONTAINS
       ENDIF
 
       DO i = 1, n_vars
-        tmp_res => res(i)%data(:,:,LBOUND(res(i)%data, 3)+t-1)
+        tmp_res => res(i)%p(:,:,LBOUND(res(i)%p, 3)+t-1)
         CALL scatter_patterns(i)%p%distribute(tmp_array, tmp_res, .FALSE.)
       END DO
     END DO

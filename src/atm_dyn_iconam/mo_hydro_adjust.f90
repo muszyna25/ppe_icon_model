@@ -44,7 +44,7 @@ MODULE mo_hydro_adjust
   USE mo_util_table,            ONLY: t_table, initialize_table, add_table_column, &
     &                                 set_table_entry, print_table, finalize_table
   USE mo_sync,                  ONLY: global_max
-  USE mo_mpi,                   ONLY: my_process_is_stdio
+  USE mo_mpi,                   ONLY: my_process_is_stdio, p_pe_work_only
 
   IMPLICIT NONE
 
@@ -614,7 +614,7 @@ CONTAINS
 
     ! convergence control output 
     !
-    IF (my_process_is_stdio() .AND. msg_level >= 10) THEN
+    IF ((p_pe_work_only == 0) .AND. .NOT. my_process_is_stdio() .AND. msg_level >= 10) THEN
 
       ! print table for monitoring convergence behaviour
       !
@@ -663,7 +663,7 @@ CONTAINS
       CALL print_table(table_profiles, opt_delimiter=' | ')
       CALL finalize_table(table_profiles)
 
-    ENDIF  ! my_process_is_stdio
+    ENDIF  ! (p_pe_work_only == 0) .AND. NOT. my_process_is_stdio()
 
     ! cleanup
     DEALLOCATE(diff_max_theta_v, diff_max_exner, diff_max_theta_v_tot, diff_max_exner_tot)

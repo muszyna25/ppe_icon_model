@@ -47,7 +47,7 @@ atmTimeStep="PT15M"              # atmosphere time step:   96 time steps per day
 # nproma                        = blocking length for array dimensioning and inner loop lengths
 #                                 -> deprecated. nproma_atm is used here.
 
-icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/grids/private/rene/mpim"
+icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/grids/public/mpim"
 
 #--------------------------------------------------------------------------------------------------
 
@@ -80,7 +80,7 @@ atm_file_interval="P1Y"
 # namelist files
 # --------------
 atm_namelist=NAMELIST_${EXPNAME}_atm
-lnd_namelist=NAMELIST_${EXPNAME}_lnd
+jsbach_namelist=NAMELIST_${EXPNAME}_lnd
 
 atmo_namelist=${atm_namelist}
 #--------------------------------------------------------------------------------------------------
@@ -89,7 +89,6 @@ atmo_namelist=${atm_namelist}
 #-----------------------------------
 
 # JSBACH settings
-run_jsbach=yes
 jsbach_usecase=jsbach_pfts    # jsbach_lite or jsbach_pfts
 jsbach_with_lakes=yes
 jsbach_with_carbon=no         # yes needs jsbach_pfts usecase
@@ -97,7 +96,6 @@ jsbach_with_carbon=no         # yes needs jsbach_pfts usecase
 # Some further processing for land configuration
 # ----------------------------------------------
 
-ljsbach=$([ "${run_jsbach:=no}" == yes ]          && echo .TRUE. || echo .FALSE. )
 llake=$([ "${jsbach_with_lakes:=yes}" == yes ]    && echo .TRUE. || echo .FALSE. )
 lcarbon=$([ "${jsbach_with_carbon:=yes}" == yes ] && echo .TRUE. || echo .FALSE. )
 
@@ -213,7 +211,7 @@ cat > ${atm_namelist} << EOF
  echam_phy_config(1)%dt_art = ""
 !
 ! surface (.TRUE. or .FALSE.)
- echam_phy_config(1)%ljsb   = ${ljsbach}
+ echam_phy_config(1)%ljsb   = .TRUE.
  echam_phy_config(1)%lamip  = .TRUE.
  echam_phy_config(1)%lice   = .TRUE.
  echam_phy_config(1)%lmlo   = .FALSE.
@@ -260,7 +258,7 @@ EOF
 # jsbach namelist
 # ---------------
 
-cat > ${lnd_namelist} << EOF
+cat > ${jsbach_namelist} << EOF
 &jsb_model_nml
   usecase              = "${jsbach_usecase}"
   use_lakes            = ${llake}
@@ -339,7 +337,7 @@ add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
 # namelist files
 # --------------
 add_required_file ${basedir}/run/${atm_namelist}                        ./
-add_required_file ${basedir}/run/${lnd_namelist}                        ./
+add_required_file ${basedir}/run/${jsbach_namelist}                        ./
 
 # dictionary file for output variable names
 #
@@ -389,7 +387,9 @@ done
 #
 # - tropospheric anthropogenic aerosols, simple plumes
 #
-add_link_file ${basedir}/data/MACv2.0-SP_v1.nc                          ./MACv2.0-SP_v1.nc
+datadir=${icon_data_poolFolder}/independent/MACv2_simple_plumes_merged
+#
+add_link_file ${datadir}/MACv2.0-SP-merged-historical-and-SSP2-45_v1.nc ./MACv2.0-SP_v1.nc
 #
 #   Kinne background aerosols are needed for the year 1850 (irad_aero=18)
 #
@@ -616,5 +616,3 @@ if [[ "$output_lnd" == "yes" ]]; then
 /
 EOF
 fi
-
-#--------------------------------------------------------------------------------------------------

@@ -28,6 +28,9 @@ MODULE mo_ocean_physics
   !-------------------------------------------------------------------------
   USE mo_kind,                ONLY: wp
   USE mo_ocean_nml,           ONLY: &
+#ifdef __LVECTOR__
+    & eos_type,                                               &
+#endif
     & n_zlev, bottom_drag_coeff,                              &
     & HarmonicViscosity_reference, velocity_VerticalDiffusion_background,                 &
     & Temperature_VerticalDiffusion_background, Salinity_VerticalDiffusion_background, no_tracer,                       &
@@ -84,13 +87,8 @@ MODULE mo_ocean_physics
   USE mo_math_constants,      ONLY: dbl_eps, pi, rad2deg
   USE mo_dynamics_config,     ONLY: nold!, nnew
   USE mo_run_config,          ONLY: dtime
-  USE mo_linked_list,         ONLY: t_var_list
-  USE mo_var_list,            ONLY: add_var,                  &
-    & new_var_list,             &
-    & delete_var_list,          &
-    & default_var_list_settings,&
-    & add_ref
-  USE mo_cf_convention
+  USE mo_var_list,            ONLY: t_var_list_ptr
+!  USE mo_cf_convention
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
   USE mo_cdi,                 ONLY: datatype_pack16, DATATYPE_FLT32, DATATYPE_FLT64, filetype_nc2, &
     &                               GRID_UNSTRUCTURED
@@ -98,7 +96,7 @@ MODULE mo_ocean_physics
     & za_depth_below_sea, za_depth_below_sea_half, za_surface
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_sync,                ONLY: sync_c, sync_e, sync_v, sync_patch_array, global_max, sync_patch_array_mult
-  USE  mo_ocean_thermodyn,    ONLY: calculate_density_onColumn
+  USE  mo_ocean_thermodyn,    ONLY: calculate_density_onColumn, calculate_density_mpiom_v
   USE mo_ocean_math_operators,ONLY: div_oce_3d
   USE mo_timer,               ONLY: timers_level, timer_start, timer_stop, timer_upd_phys
   USE mo_statistics,          ONLY: global_minmaxmean
@@ -130,7 +128,9 @@ MODULE mo_ocean_physics
   PUBLIC :: scale_horizontal_diffusion, copy2Dto3D
   
   ! variables
-  TYPE (t_var_list), PUBLIC :: ocean_params_list
+  TYPE (t_var_list_ptr), PUBLIC :: ocean_params_list
+
+  CHARACTER(LEN=*), PARAMETER :: module_name = 'mo_ocean_physics'
 
 CONTAINS
 
@@ -153,6 +153,8 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: all_edges, owned_edges
     TYPE(t_patch), POINTER :: patch_2D
     REAL(wp) :: tracer_basisCoeff(nproma, patch_3D%p_patch_2d(1)%nblks_e)
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ho_params'
 
     !-----------------------------------------------------------------------
     patch_2D   => patch_3d%p_patch_2d(1)
@@ -241,8 +243,7 @@ CONTAINS
         physics_param%a_tracer_v_back(i) = Salinity_VerticalDiffusion_background
       ELSE
 
-        CALL finish ('mo_ocean_physics:init_ho_params',  &
-          & 'number of tracers exceeds number of background values')
+        CALL finish (method_name,'number of tracers exceeds number of background values')
       ENDIF
 
       CALL scale_horizontal_diffusion(patch_3D=patch_3D, &
@@ -273,21 +274,27 @@ CONTAINS
     ! setup tke scheme
     SELECT CASE(vert_mix_type)
     CASE(vmix_pp)
-      write(*,*) ''
+!      write(*,*) ''
+      CALL message(method_name,'Setup vmix_pp scheme.')
 
     CASE(vmix_tke) ! by_nils
-      write(*,*) 'Setup cvmix/tke scheme.'
+!      write(*,*) 'Setup cvmix/tke scheme.'
+      CALL message(method_name,'Setup cvmix/tke scheme.')
       CALL setup_tke()
     CASE(vmix_idemix_tke) ! by_nils
-      write(*,*) 'Setup cvmix/idemix_tke scheme.'
+!      write(*,*) 'Setup cvmix/idemix_tke scheme.'
+      CALL message(method_name,'Setup cvmix/idemix_tke scheme.')
       CALL setup_idemix(patch_3d)
       CALL setup_tke()
     CASE(vmix_kpp) ! by_ogut
-      write(*,*) 'Setup cvmix/kpp scheme.'
+!      write(*,*) 'Setup cvmix/kpp scheme.'
+      CALL message(method_name,'Setup cvmix/kpp scheme.')
       CALL setup_kpp()
     CASE default
-      write(*,*) "Unknown vert_mix_type!"
-      stop
+!      write(*,*) "Unknown vert_mix_type!"
+!      stop
+      CALL finish(method_name, 'Unknown vert_mix_type!')
+
     END SELECT
 
   END SUBROUTINE init_ho_params
@@ -332,6 +339,9 @@ CONTAINS
     REAL(wp) :: minCellArea, meanCellArea, maxCellArea
     TYPE(t_subset_range), POINTER :: all_edges, owned_edges
     REAL(wp):: length_scale, dual_length_scale, prime_length_scale
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':scale_horizontal_diffusion'
+
     !-----------------------------------------------------------------------
     patch_2D   => patch_3d%p_patch_2d(1)
     !-------------------------------------------------------------------------
@@ -571,7 +581,7 @@ CONTAINS
       END DO
 
     CASE DEFAULT
-        CALL finish ('mo_ocean_physics:scale_horizontal_diffusion', 'uknown DiffusionScaling')
+        CALL finish (method_name, 'uknown DiffusionScaling')
 
     END SELECT
 
@@ -2035,6 +2045,107 @@ CONTAINS
 
     REAL(wp) :: z_grav_rho
     REAL(wp) :: z_shear_cell
+#ifdef __LVECTOR__
+    REAL(wp) :: z_rho_up(nproma,n_zlev), z_rho_down(nproma,n_zlev) !, density(n_zlev)
+    REAL(wp) :: pressure(nproma,n_zlev), salinity(nproma,n_zlev)
+
+    IF (eos_type /= 2) THEN
+     write(0,*) "Vector version for eos_type =",eos_type," not yet implemented."
+     stop
+    ENDIF
+    !-------------------------------------------------------------------------------
+    patch_2D        => patch_3d%p_patch_2d(1)
+    cells_in_domain => patch_2D%cells%in_domain
+    all_cells       => patch_2D%cells%ALL
+    !-------------------------------------------------------------------------------
+
+    z_grav_rho = grav/OceanReferenceDensity
+
+    !ICON_OMP_PARALLEL PRIVATE(salinity, z_rho_up, z_rho_down, pressure)
+    salinity = sal_ref
+    z_rho_up=0.0_wp
+    z_rho_down=0.0_wp
+    pressure = 0._wp
+
+    !ICON_OMP_DO PRIVATE(start_index, end_index, cell_index, end_level, level, &
+    !ICON_OMP z_shear_cell) ICON_OMP_DEFAULT_SCHEDULE
+    DO blockNo = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, blockNo, start_index, end_index)
+
+      ocean_state%p_diag%Richardson_Number(:, :, blockNo) = 0.0_wp
+      ocean_state%p_diag%zgrad_rho(:,:, blockNo) = 0.0_wp
+
+      DO level = 2, MAXVAL(patch_3d%p_patch_1d(1)%dolic_c(start_index:end_index,blockNo))
+        DO cell_index = start_index, end_index
+
+          end_level = patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)
+          IF (end_level < 2 .OR. level > end_level) CYCLE
+
+          pressure(cell_index,level) = patch_3d%p_patch_1d(1)%depth_CellInterface(cell_index, level, blockNo) &
+             * OceanReferenceDensity * sitodbar
+        ENDDO
+      ENDDO
+
+      IF(no_tracer >= 2) THEN
+        DO level = 1, MAXVAL(patch_3d%p_patch_1d(1)%dolic_c(start_index:end_index,blockNo))
+          DO cell_index = start_index, end_index
+
+            end_level = patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)
+            IF (end_level < 2 .OR. level > end_level) CYCLE
+
+            salinity(cell_index,level) = ocean_state%p_prog(nold(1))%tracer(cell_index,level,blockNo,2)
+          ENDDO
+        ENDDO
+      ENDIF
+      DO level = 2, MAXVAL(patch_3d%p_patch_1d(1)%dolic_c(start_index:end_index,blockNo))
+        DO cell_index = start_index, end_index
+
+          end_level = patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)
+          IF (end_level < 2 .OR. level > end_level-1) CYCLE
+          z_rho_up(cell_index,level) = &
+             calculate_density_mpiom_v(ocean_state%p_prog(nold(1))%tracer(cell_index,level,blockNo,1), &
+             salinity(cell_index,level), pressure(cell_index,level+1) )
+
+          z_rho_down(cell_index,level) = &
+             calculate_density_mpiom_v(ocean_state%p_prog(nold(1))%tracer(cell_index,level,blockNo,1), &
+             salinity(cell_index,level), pressure(cell_index,level) )
+        ENDDO
+      ENDDO
+      DO cell_index = start_index, end_index
+        end_level = patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)
+        IF (end_level < 2 ) CYCLE
+        z_rho_up(cell_index,1) = &
+             calculate_density_mpiom_v(ocean_state%p_prog(nold(1))%tracer(cell_index,1,blockNo,1), &
+             salinity(cell_index,1), pressure(cell_index,2) )
+
+        z_rho_down(cell_index,end_level) = &
+             calculate_density_mpiom_v(ocean_state%p_prog(nold(1))%tracer(cell_index,end_level,blockNo,1), &
+             salinity(cell_index,end_level), pressure(cell_index,end_level) )
+      ENDDO
+
+      DO level = 2, MAXVAL(patch_3d%p_patch_1d(1)%dolic_c(start_index:end_index,blockNo))
+        DO cell_index = start_index, end_index
+          end_level = patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)
+          IF (end_level < 2 .OR. level > end_level) CYCLE
+
+          z_shear_cell = dbl_eps + &
+               SUM((ocean_state%p_diag%p_vn(cell_index,level-1,blockNo)%x &
+               - ocean_state%p_diag%p_vn(cell_index,level,blockNo)%x)**2)
+
+          ocean_state%p_diag%zgrad_rho(cell_index,level,blockNo) = (z_rho_down(cell_index,level) - z_rho_up(cell_index,level-1)) *  &
+               patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(cell_index,level,blockNo)
+
+          !adjusted vertical derivative (follows MOM, see Griffies-book,
+          ! (p. 332, eq. (15.15)) or MOM-5 manual (sect. 23.7.1.1)
+          !ocean_state%p_diag%zgrad_rho(cell_index,level,blockNo)= &
+          !     MIN(ocean_state%p_diag%zgrad_rho(cell_index,level,blockNo),-dbl_eps)
+
+          ocean_state%p_diag%Richardson_Number(cell_index, level, blockNo) &
+               = MAX(patch_3d%p_patch_1d(1)%prism_center_dist_c(cell_index,level,blockNo) * z_grav_rho * &
+               (z_rho_down(cell_index,level) - z_rho_up(cell_index,level-1)) / z_shear_cell, 0.0_wp)
+        END DO ! index
+      END DO ! levels
+#else
     REAL(wp) :: z_rho_up(n_zlev), z_rho_down(n_zlev) !, density(n_zlev)
     REAL(wp) :: pressure(n_zlev), salinity(n_zlev)
 
@@ -2100,6 +2211,7 @@ CONTAINS
                (z_rho_down(level) - z_rho_up(level-1)) / z_shear_cell, 0.0_wp)
         END DO ! levels
       END DO ! index
+#endif
     END DO
 !ICON_OMP_END_DO
 !ICON_OMP_END_PARALLEL

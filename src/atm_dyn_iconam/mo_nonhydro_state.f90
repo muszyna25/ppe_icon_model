@@ -33,7 +33,7 @@
 MODULE mo_nonhydro_state
 
   USE mo_kind,                 ONLY: wp
-  USE mo_impl_constants,       ONLY: SUCCESS, varname_len, max_var_list_name_len,    &
+  USE mo_impl_constants,       ONLY: SUCCESS, vname_len, vlname_len,                 &
     &                                INWP, IECHAM,                                   &
     &                                VINTP_METHOD_VN,                                &
     &                                VINTP_METHOD_QV, VINTP_METHOD_PRES,             &
@@ -75,17 +75,15 @@ MODULE mo_nonhydro_state
   USE mo_initicon_config,      ONLY: init_mode, lcalc_avg_fg, iso8601_start_timedelta_avg_fg, &
     &                                iso8601_end_timedelta_avg_fg, iso8601_interval_avg_fg, &
     &                                qcana_mode, qiana_mode, qrsgana_mode, icpl_da_sfcevap
-  USE mo_linked_list,          ONLY: t_var_list
-  USE mo_var_list,             ONLY: default_var_list_settings, add_var,           &
-    &                                add_ref, new_var_list, delete_var_list,       &
-    &                                add_var_list_reference, get_timelevel_string, &
-    &                                find_list_element
-  USE mo_linked_list,          ONLY: t_list_element
+  USE mo_var_list, ONLY: add_var, find_list_element, add_ref, t_var_list_ptr
+  USE mo_var_list_register, ONLY: vlr_add, vlr_del
+  USE mo_var_list_register_utils, ONLY: vlr_add_vref
+  USE mo_var,                  ONLY: t_var
   USE mo_var_groups,           ONLY: MAX_GROUPS, groups
-  USE mo_var_metadata_types,   ONLY: t_var_metadata, t_var_metadata_dynamic, MAX_GROUPS
+  USE mo_var_metadata_types,   ONLY: t_var_metadata, t_var_metadata_dynamic
   USE mo_var_metadata,         ONLY: create_vert_interp_metadata,            &
     &                                create_hor_interp_metadata,             &
-    &                                vintp_types, new_action, actions
+    &                                vintp_types, get_timelevel_string
   USE mo_tracer_metadata,      ONLY: create_tracer_metadata,                 &
     &                                create_tracer_metadata_hydro
   USE mo_advection_utils,      ONLY: add_tracer_ref
@@ -101,8 +99,7 @@ MODULE mo_nonhydro_state
     &                                DATATYPE_PACK16, DATATYPE_PACK24,               &
     &                                DATATYPE_INT, TSTEP_CONSTANT, TSTEP_AVG,        &
     &                                GRID_UNSTRUCTURED
-  USE mo_action,               ONLY: ACTION_RESET
-  USE mo_util_vgrid_types,     ONLY: vgrid_buffer
+  USE mo_action,               ONLY: ACTION_RESET, new_action, actions
   USE mo_upatmo_config,        ONLY: upatmo_dyn_config
   USE mo_upatmo_impl_const,    ONLY: idamtr
   USE mo_echam_vdf_config,     ONLY: echam_vdf_config
@@ -111,9 +108,7 @@ MODULE mo_nonhydro_state
 #include "add_var_acc_macro.inc"
 
   IMPLICIT NONE
-
   PRIVATE
-
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_nonhydro_state'
 
@@ -148,7 +143,6 @@ MODULE mo_nonhydro_state
   !! Initial release by Almut Gassmann (2009-03-06)
   !!
   SUBROUTINE construct_nh_state(p_patch, p_nh_state, p_nh_state_lists, n_timelevels, var_in_output)
-!
     TYPE(t_patch),     INTENT(IN)   ::        & ! patch
       &  p_patch(n_dom)
     TYPE(t_nh_state),  INTENT(INOUT)::        & ! nh state at different grid levels
@@ -159,22 +153,18 @@ MODULE mo_nonhydro_state
       &  n_timelevels    
     TYPE(t_var_in_output), INTENT(IN) ::      & !< switches for optional diagnostics
       &  var_in_output(:)
-
     INTEGER  :: ntl,      &! local number of timelevels
                 ntl_pure, &! local number of timelevels (without any extra timelevs)
                 ist,      &! status
                 jg,       &! grid level counter
                 jt         ! time level counter
-
     LOGICAL  :: l_extra_timelev
-    
     INTEGER :: ic, jb, jc, i_startblk, i_endblk, i_startidx, i_endidx
 
-    CHARACTER(len=max_var_list_name_len) :: listname
-    CHARACTER(len=varname_len) :: varname_prefix
+    CHARACTER(len=vlname_len) :: listname
+    CHARACTER(LEN=vname_len) :: varname_prefix
 
-    CHARACTER(len=*), PARAMETER ::  &
-      &  routine = modname//'::construct_nh_state'
+    CHARACTER(*), PARAMETER :: routine = modname//'::construct_nh_state'
 !-----------------------------------------------------------------------
 
     CALL message (routine, 'Construction of NH state started')
@@ -371,24 +361,24 @@ MODULE mo_nonhydro_state
 
       ! delete reference state list elements
       IF ( ltestcase ) THEN
-        CALL delete_var_list( p_nh_state_lists(jg)%ref_list )
+        CALL vlr_del(p_nh_state_lists(jg)%ref_list)
       ENDIF
 
       ! delete diagnostic state list elements
-      CALL delete_var_list( p_nh_state_lists(jg)%diag_list )
+      CALL vlr_del(p_nh_state_lists(jg)%diag_list)
 
       ! delete metrics state list elements
-      CALL delete_var_list( p_nh_state_lists(jg)%metrics_list )
+      CALL vlr_del(p_nh_state_lists(jg)%metrics_list)
 
 
       ! delete prognostic state list elements
       DO jt = 1, ntl_prog
-        CALL delete_var_list( p_nh_state_lists(jg)%prog_list(jt) )
+        CALL vlr_del(p_nh_state_lists(jg)%prog_list(jt))
       ENDDO
 
       ! delete tracer list list elements
       DO jt = 1, ntl_tra
-        CALL delete_var_list( p_nh_state_lists(jg)%tracer_list(jt) )
+        CALL vlr_del(p_nh_state_lists(jg)%tracer_list(jt))
       ENDDO
 
 !$ACC EXIT DATA DELETE(p_nh_state(jg)%prog, p_nh_state(jg)%metrics, p_nh_state(jg)%ref, p_nh_state(jg)%diag )
@@ -466,7 +456,7 @@ MODULE mo_nonhydro_state
     TYPE(t_nh_prog),  INTENT(INOUT)   :: & !< current prognostic state
       &  p_prog 
 
-    TYPE(t_var_list), INTENT(INOUT)   :: p_prog_list !< current prognostic state list
+    TYPE(t_var_list_ptr), INTENT(INOUT)   :: p_prog_list !< current prognostic state list
 
     CHARACTER(len=*), INTENT(IN)      :: & !< list name
       &  listname, vname_prefix
@@ -502,8 +492,8 @@ MODULE mo_nonhydro_state
     INTEGER           :: ipassive        ! loop counter
     INTEGER           :: dummy_idx, vntl, tlen
 
-    CHARACTER(len=varname_len+LEN(suffix))      :: tracer_name
-    TYPE(t_list_element), POINTER :: target_element
+    CHARACTER(LEN=vname_len+LEN(suffix)) :: tracer_name
+    TYPE(t_var), POINTER :: target_element
     INTEGER                       :: tracer_idx
 
     LOGICAL :: ingroup(MAX_GROUPS)
@@ -551,10 +541,7 @@ MODULE mo_nonhydro_state
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( p_prog_list, TRIM(listname), patch_id=p_patch%id )
-    CALL default_var_list_settings( p_prog_list,               &
-                                  & lrestart=.TRUE.  )
-
+    CALL vlr_add(p_prog_list, TRIM(listname), patch_id=p_patch%id, lrestart=.TRUE.)
 
     !------------------------------
     ! Ensure that all pointers have a defined association status
@@ -789,7 +776,7 @@ MODULE mo_nonhydro_state
             &           tracer_name, p_prog%tracer_ptr(iqr)%p_3d,                      &
             &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
             &           t_cf_var(tracer_name(1:vntl+tlen),                             &
-            &            'kg kg-1','rain mixing ratio', datatype_flt),                 &
+            &            'kg kg-1','specific rain content', datatype_flt),             &
             &           grib2_var(0, 1, 24, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
             &           ref_idx=iqr,                                                   &
             &           ldims=shape3d_c,                                               &
@@ -820,7 +807,7 @@ MODULE mo_nonhydro_state
             &           tracer_name, p_prog%tracer_ptr(iqs)%p_3d,                      &
             &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
             &           t_cf_var(tracer_name(1:tlen+vntl),                             &
-            &            'kg kg-1','snow mixing ratio', datatype_flt),                 &
+            &            'kg kg-1','specific snow content', datatype_flt),             &
             &           grib2_var(0, 1, 25, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
             &           ref_idx=iqs,                                                   &
             &           ldims=shape3d_c,                                               &
@@ -883,7 +870,7 @@ MODULE mo_nonhydro_state
             &           tracer_name, p_prog%tracer_ptr(iqh)%p_3d,                    &
             &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                        &
             &           t_cf_var(tracer_name(1:vntl+tlen),                           &
-            &            'kgkg-1 ','specific_hail_content', datatype_flt),           &
+            &            'kg kg-1 ','specific hail content', datatype_flt),          &
             &           grib2_var(0, 1, 71, ibits, GRID_UNSTRUCTURED, GRID_CELL),    &
             &           ref_idx=iqh,                                                 &
             &           ldims=shape3d_c,                                             &
@@ -1471,7 +1458,7 @@ MODULE mo_nonhydro_state
         !
         ! get pointer to target element (in this case 4D tracer container)
         target_element => find_list_element (p_prog_list, 'tracer')
-        tracer_idx = target_element%field%info%ncontained+1
+        tracer_idx = target_element%info%ncontained+1
 
         WRITE(passive_tracer_suffix,'(I2)') ipassive
         tracer_name = 'Qpassive_'//passive_tracer_suffix(1+MERGE(1,0,ipassive<=9):)
@@ -1516,58 +1503,27 @@ MODULE mo_nonhydro_state
   !! @par Revision History
   !! Initial release by Daniel Reinert, DWD (2012-02-02)
   !!
-  SUBROUTINE new_nh_state_tracer_list ( p_patch, from_var_list, p_tracer_list,  &
-    &                                 listname )
-    !
-    !> current patch
-    TYPE(t_patch), INTENT(IN)         :: p_patch
-
-    !> source list to be referenced
-    TYPE(t_var_list), INTENT(IN)      :: from_var_list
-
-    !> new tracer list (containing all tracers)
-    TYPE(t_var_list), INTENT(INOUT)   :: p_tracer_list
-
-    !> list name
-    CHARACTER(len=*), INTENT(IN)      :: listname
-
-    ! local variables
-    TYPE (t_var_metadata), POINTER         :: from_info
+  SUBROUTINE new_nh_state_tracer_list (p_patch, from_var_list, p_tracer_list, listname)
+    TYPE(t_patch), INTENT(IN) :: p_patch ! current patch
+    TYPE(t_var_list_ptr), INTENT(IN) :: from_var_list ! source list to be referenced
+    TYPE(t_var_list_ptr), INTENT(INOUT) :: p_tracer_list ! new tracer list (containing all tracers)
+    CHARACTER(*), INTENT(IN) :: listname
+    TYPE (t_var_metadata), POINTER :: from_info
     TYPE (t_var_metadata_dynamic), POINTER :: from_info_dyn
-    TYPE (t_list_element), POINTER         :: element
+    INTEGER :: iv
 
-    !--------------------------------------------------------------
-
-    !
     ! Register a field list and apply default settings
-    !
-    CALL new_var_list( p_tracer_list, TRIM(listname), patch_id=p_patch%id )
-    CALL default_var_list_settings( p_tracer_list,             &
-                                  & lrestart=.FALSE.,          &
-                                  & loutput =.FALSE.           )
-
-
-    !
+    CALL vlr_add(p_tracer_list, TRIM(listname), patch_id=p_patch%id, &
+      &          lrestart=.FALSE., loutput =.FALSE.)
     ! add references to all tracer fields of the source list (prognostic state)
-    !
-    element => from_var_list%p%first_list_element
-    !
-    for_all_list_elements: DO WHILE (ASSOCIATED(element))
-      !
+    DO iv = 1, from_var_list%p%nvars
       ! retrieve information from actual linked list element
-      !
-      from_info     => element%field%info
-      from_info_dyn => element%field%info_dyn
-
+      from_info => from_var_list%p%vl(iv)%p%info
+      from_info_dyn => from_var_list%p%vl(iv)%p%info_dyn
       ! Only add tracer fields to the tracer list
-      IF (from_info_dyn%tracer%lis_tracer .AND. .NOT. from_info%lcontainer ) &
-        CALL add_var_list_reference(p_tracer_list, from_info%name, &
-          &                         from_var_list, in_group=groups() )
-
-      element => element%next_list_element
-    ENDDO for_all_list_elements
-
-
+      IF (from_info_dyn%tracer%lis_tracer .AND. .NOT.from_info%lcontainer) &
+        & CALL vlr_add_vref(p_tracer_list, from_info%name, from_var_list, in_group=groups())
+    END DO
   END SUBROUTINE new_nh_state_tracer_list
 
 
@@ -1592,7 +1548,7 @@ MODULE mo_nonhydro_state
     TYPE(t_nh_diag),  INTENT(INOUT)   :: &  !< diagnostic state
       &  p_diag 
 
-    TYPE(t_var_list), INTENT(INOUT)   :: &  !< diagnostic state list
+    TYPE(t_var_list_ptr), INTENT(INOUT)   :: &  !< diagnostic state list
       &  p_diag_list
     CHARACTER(len=*), INTENT(IN)      :: &  !< list name
       &  listname
@@ -1616,7 +1572,7 @@ MODULE mo_nonhydro_state
       &        shape3d_ehalf(3), shape4d_chalf(4), shape4d_e(4),   &
       &        shape4d_entl(4), shape4d_chalfntl(4), shape4d_c(4), &
       &        shape3d_ctra(3), shape2d_extra(3), shape3d_extra(4),&
-      &        shape3d_ubcp(3), shape3d_ubcc(3), shape3d_ubcp1(3)
+      &        shape3d_ubcc(3), shape3d_ubcp2(3)
  
     INTEGER :: ibits         !< "entropy" of horizontal slice
     INTEGER :: DATATYPE_PACK_VAR  !< variable "entropy" for some thermodynamic fields
@@ -1672,8 +1628,7 @@ MODULE mo_nonhydro_state
     shape3d_chalf = (/nproma, nlevp1 , nblks_c    /)
     shape3d_ehalf = (/nproma, nlevp1 , nblks_e    /)
     shape3d_ctra  = (/nproma, nblks_c, ntracer    /)
-    shape3d_ubcp  = (/nproma, nblks_c, ndyn_substeps_max+2 /)
-    shape3d_ubcp1 = (/nproma, nblks_c, ndyn_substeps_max+1 /)
+    shape3d_ubcp2 = (/nproma, nblks_c, ndyn_substeps_max+2 /)
     shape3d_ubcc  = (/nproma, nblks_c, 2  /)
     shape3d_extra = (/nproma, nlev   , nblks_c, inextra_3d  /)
     shape4d_c     = (/nproma, nlev   , nblks_c, ntracer     /)
@@ -1735,12 +1690,14 @@ MODULE mo_nonhydro_state
     &       p_diag%grf_tend_tracer, &
     &       p_diag%dvn_ie_int, &
     &       p_diag%dvn_ie_ubc, &
+    &       p_diag%w_int, &
+    &       p_diag%w_ubc, &
+    &       p_diag%theta_v_ic_int, &
+    &       p_diag%theta_v_ic_ubc, &
+    &       p_diag%rho_ic_int, &
+    &       p_diag%rho_ic_ubc, &
     &       p_diag%mflx_ic_int, &
     &       p_diag%mflx_ic_ubc, &
-    &       p_diag%dtheta_v_ic_int, &
-    &       p_diag%dtheta_v_ic_ubc, &
-    &       p_diag%dw_int, &
-    &       p_diag%dw_ubc, &
     &       p_diag%q_int, &
     &       p_diag%q_ubc, &
     &       p_diag%vn_incr, &
@@ -1777,9 +1734,7 @@ MODULE mo_nonhydro_state
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( p_diag_list, TRIM(listname), patch_id=p_patch%id )
-    CALL default_var_list_settings( p_diag_list,               &
-                                  & lrestart=.TRUE.  )
+    CALL vlr_add(p_diag_list, TRIM(listname), patch_id=p_patch%id, lrestart=.TRUE.)
 
     ! u           p_diag%u(nproma,nlev,nblks_c)
     !
@@ -2349,76 +2304,100 @@ MODULE mo_nonhydro_state
       __acc_attach(p_diag%dvn_ie_ubc)
 
 
+      ! w_int       p_diag%w_int(nproma,nblks_c,ndyn_substeps_max+2)
+      !
+      cf_desc    = t_cf_var('w_int', 'm s-1',                                   &
+        &                   'vertical velocity at parent interface level', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'w_int', p_diag%w_int,                         &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                  & ldims=shape3d_ubcp2, lrestart=.FALSE., loutput=.FALSE.,     &
+                  & lopenacc = .TRUE. )
+      __acc_attach(p_diag%w_int)
+
+
+      ! w_ubc       p_diag%w_ubc(nproma,nblks_c,2)
+      !
+      cf_desc    = t_cf_var('w_ubc', 'm s-1',                                   &
+        &                   'vertical velocity and tendency at child upper boundary', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'w_ubc', p_diag%w_ubc,                         &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                  & ldims=shape3d_ubcc, lrestart=.FALSE.,                       &
+                  & lopenacc = .TRUE. )
+      __acc_attach(p_diag%w_ubc)
+
+
+      ! theta_v_ic_int    p_diag%theta_v_ic_int(nproma,nblks_c,ndyn_substeps_max+2)
+      !
+      cf_desc    = t_cf_var('theta_v_ic_int', 'K',                              &
+        &                   'potential temperature at parent interface level', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'theta_v_ic_int', p_diag%theta_v_ic_int,       &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                  & ldims=shape3d_ubcp2, lrestart=.FALSE., loutput=.FALSE.,     &
+                  & lopenacc = .TRUE. )
+      __acc_attach(p_diag%theta_v_ic_int)
+
+
+      ! theta_v_ic_ubc    p_diag%theta_v_ic_ubc(nproma,nblks_c,2)
+      !
+      cf_desc    = t_cf_var('theta_v_ic_ubc', 'K',                              &
+        &                   'potential temperature and tendency at child upper boundary', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'theta_v_ic_ubc', p_diag%theta_v_ic_ubc,       &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                  & ldims=shape3d_ubcc, lrestart=.FALSE., loutput=.TRUE.,       &
+                  & lopenacc = .TRUE. )
+      __acc_attach(p_diag%theta_v_ic_ubc)
+
+
+      ! rho_ic_int    p_diag%rho_ic_int(nproma,nblks_c,ndyn_substeps_max+2)
+      !
+      cf_desc    = t_cf_var('rho_ic_int', 'K',                                  &
+        &                   'density at parent interface level', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'rho_ic_int', p_diag%rho_ic_int,               &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                  & ldims=shape3d_ubcp2, lrestart=.FALSE., loutput=.FALSE.,     &
+                  & lopenacc = .TRUE. )
+      __acc_attach(p_diag%rho_ic_int)
+
+
+      ! rho_ic_ubc    p_diag%rho_ic_ubc(nproma,nblks_c,2)
+      !
+      cf_desc    = t_cf_var('rho_ic_ubc', 'K',                                  &
+        &                   'density and tendency at child upper boundary', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'rho_ic_ubc', p_diag%rho_ic_ubc,               &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                  & ldims=shape3d_ubcc, lrestart=.FALSE., loutput=.TRUE.,       &
+                  & lopenacc = .TRUE. )
+      __acc_attach(p_diag%rho_ic_ubc)
+
+
       ! mflx_ic_int  p_diag%mflx_ic_int(nproma,nblks_c,ndyn_substeps_max+2)
       !
-      cf_desc    = t_cf_var('mass_flux_at_parent_interface_level', 'kg m-3',    &
+      cf_desc    = t_cf_var('mflx_ic_int', 'kg m-3',                            &
         &                   'mass flux at parent interface level', datatype_flt)
       grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_diag_list, 'mflx_ic_int', p_diag%mflx_ic_int,             &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                  & ldims=shape3d_ubcp, lrestart=.FALSE., loutput=.FALSE.,      &
+                  & ldims=shape3d_ubcp2, lrestart=.FALSE., loutput=.FALSE.,     &
                   & lopenacc = .TRUE. )
       __acc_attach(p_diag%mflx_ic_int)
 
 
       ! mflx_ic_ubc  p_diag%mflx_ic_ubc(nproma,nblks_c,2)
       !
-      cf_desc    = t_cf_var('mass_flux_at_child_upper_boundary', 'kg m-3',      &
-        &                   'mass flux at child upper boundary', datatype_flt)
+      cf_desc    = t_cf_var('mflx_ic_ubc', 'kg m-3',                            &
+        &                   'mass flux and tendency at child upper boundary', datatype_flt)
       grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_diag_list, 'mflx_ic_ubc', p_diag%mflx_ic_ubc,             &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                  & ldims=shape3d_ubcc, lrestart=.FALSE., loutput=.FALSE.,      &
+                  & ldims=shape3d_ubcc, lrestart=.FALSE., loutput=.TRUE.,       &
                   & lopenacc = .TRUE. )
       __acc_attach(p_diag%mflx_ic_ubc)
-
-
-      ! dtheta_v_ic_int    p_diag%dtheta_v_ic_int(nproma,nblks_c,ndyn_substeps_max+1)
-      !
-      cf_desc    = t_cf_var('theta_at_parent_interface_level', 'K',             &
-        &                   'potential temperature at parent interface level', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_diag_list, 'dtheta_v_ic_int', p_diag%dtheta_v_ic_int,     &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                  & ldims=shape3d_ubcp1, lrestart=.FALSE., loutput=.FALSE.,     &
-                  & lopenacc = .TRUE. )
-      __acc_attach(p_diag%dtheta_v_ic_int)
-
-
-      ! dtheta_v_ic_ubc    p_diag%dtheta_v_ic_ubc(nproma,nblks_c)
-      !
-      cf_desc    = t_cf_var('theta_at_child_upper_boundary', 'K',               &
-        &                   'potential temperature at child upper boundary', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_diag_list, 'dtheta_v_ic_ubc', p_diag%dtheta_v_ic_ubc,     &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                  & ldims=shape2d_c, lrestart=.FALSE.,                          &
-                  & lopenacc = .TRUE. )
-      __acc_attach(p_diag%dtheta_v_ic_ubc)
-
-
-      ! dw_int       p_diag%dw_int(nproma,nblks_c,ndyn_substeps_max+1)
-      !
-      cf_desc    = t_cf_var('w_at_parent_interface_level', 'm s-1',             &
-        &                   'vertical velocity at parent interface level', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_diag_list, 'dw_int', p_diag%dw_int,                       &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                  & ldims=shape3d_ubcp1, lrestart=.FALSE., loutput=.FALSE.,     &
-                  & lopenacc = .TRUE. )
-      __acc_attach(p_diag%dw_int)
-
-
-      ! dw_ubc       p_diag%dw_ubc(nproma,nblks_c)
-      !
-      cf_desc    = t_cf_var('w at child upper boundary', 'm s-1',               &
-        &                   'vertical velocity at child upper boundary', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_diag_list, 'dw_ubc', p_diag%dw_ubc,                       &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                  & ldims=shape2d_c, lrestart=.FALSE.,                          &
-                  & lopenacc = .TRUE. )
-      __acc_attach(p_diag%dw_ubc)
 
 
       ! q_int        p_diag%q_int(nproma,nblks_c,ntracer)
@@ -2948,7 +2927,7 @@ MODULE mo_nonhydro_state
       CALL add_var( p_diag_list, 't2m_bias', p_diag%t2m_bias,                         &
         &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
         &           ldims=shape2d_c, lrestart=.true.,                                 &
-        &           in_group=groups("mode_iau_fg_in") )
+        &           in_group=groups("mode_iau_fg_in","mode_dwd_fg_in","mode_combined_in") )
     ENDIF
 
     IF (icpl_da_sfcevap >= 2) THEN
@@ -2961,17 +2940,30 @@ MODULE mo_nonhydro_state
       CALL add_var( p_diag_list, 'rh_avginc', p_diag%rh_avginc,                       &
         &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,       &
         &           ldims=shape2d_c, lrestart=.true.,                                 &
-        &           in_group=groups("mode_iau_fg_in") )
+        &           in_group=groups("mode_iau_fg_in","mode_dwd_fg_in","mode_combined_in") )
     ENDIF
 
     IF (icpl_da_sfcevap >= 3) THEN
       !  Time-filtered near-surface level T increment from data assimilation
-      cf_desc    = t_cf_var('t_avginc', '1', 'Filtered T increment', datatype_flt)
+      cf_desc    = t_cf_var('t_avginc', 'K', 'Filtered T increment', datatype_flt)
       grib2_desc = grib2_var(0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL) &
                  + t_grib2_int_key("typeOfGeneratingProcess", 207)     &
                  + t_grib2_int_key("typeOfSecondFixedSurface", 1)      &
                  + t_grib2_int_key("scaledValueOfFirstFixedSurface", 20)
       CALL add_var( p_diag_list, 't_avginc', p_diag%t_avginc,                       &
+        &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,     &
+        &           ldims=shape2d_c, lrestart=.true.,                               &
+        &           in_group=groups("mode_iau_fg_in","mode_dwd_fg_in","mode_combined_in") )
+    ENDIF
+
+    IF (latbc_config%fac_latbc_presbiascor > 0._wp) THEN
+      !  Time-filtered near-surface level pressure increment from data assimilation
+      cf_desc    = t_cf_var('p_avginc', 'Pa', 'Filtered P increment', datatype_flt)
+      grib2_desc = grib2_var(0, 3, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL) &
+                 + t_grib2_int_key("typeOfGeneratingProcess", 207)         &
+                 + t_grib2_int_key("typeOfSecondFixedSurface", 1)          &
+                 + t_grib2_int_key("scaledValueOfFirstFixedSurface", 20)
+      CALL add_var( p_diag_list, 'p_avginc', p_diag%p_avginc,                       &
         &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,     &
         &           ldims=shape2d_c, lrestart=.true.,                               &
         &           in_group=groups("mode_iau_fg_in") )
@@ -3322,7 +3314,7 @@ MODULE mo_nonhydro_state
     TYPE(t_nh_ref),  INTENT(INOUT)   :: &  !< reference state
       &  p_ref 
 
-    TYPE(t_var_list), INTENT(INOUT)   :: &  !< reference state list
+    TYPE(t_var_list_ptr), INTENT(INOUT)   :: &  !< reference state list
       &  p_ref_list
     CHARACTER(len=*), INTENT(IN)      :: &  !< list name
       &  listname
@@ -3375,9 +3367,7 @@ MODULE mo_nonhydro_state
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( p_ref_list, TRIM(listname), patch_id=p_patch%id )
-    CALL default_var_list_settings( p_ref_list,                &
-                                  & lrestart=.FALSE. )
+    CALL vlr_add(p_ref_list, TRIM(listname), patch_id=p_patch%id, lrestart=.FALSE.)
 
     ! vn_ref     p_ref%vn_ref(nproma,nlev,nblks_c)
     !
@@ -3422,7 +3412,7 @@ MODULE mo_nonhydro_state
     TYPE(t_nh_metrics),  INTENT(INOUT):: &  !< diagnostic state
       &  p_metrics 
 
-    TYPE(t_var_list), INTENT(INOUT) :: p_metrics_list   !< diagnostic state list
+    TYPE(t_var_list_ptr), INTENT(INOUT) :: p_metrics_list   !< diagnostic state list
 
     CHARACTER(len=*), INTENT(IN)      :: &  !< list name
       &  listname
@@ -3446,7 +3436,6 @@ MODULE mo_nonhydro_state
     INTEGER :: ibits         !< "entropy" of horizontal slice
     INTEGER :: DATATYPE_PACK_VAR  !< variable "entropy" for selected fields
     INTEGER :: datatype_flt       !< floating point accuracy in NetCDF output
-    INTEGER :: ist, error_status
     LOGICAL :: group(MAX_GROUPS)
 
     !--------------------------------------------------------------
@@ -3594,9 +3583,7 @@ MODULE mo_nonhydro_state
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( p_metrics_list, TRIM(listname), patch_id=p_patch%id )
-    CALL default_var_list_settings( p_metrics_list,            &
-                                  & lrestart=.FALSE. )
+    CALL vlr_add(p_metrics_list, TRIM(listname), patch_id=p_patch%id, lrestart=.FALSE.)
 
     ! geometric height at the vertical interface of cells
     ! z_ifc        p_metrics%z_ifc(nproma,nlevp1,nblks_c)
@@ -3621,13 +3608,6 @@ MODULE mo_nonhydro_state
                 & in_group=group, isteptype=TSTEP_CONSTANT,                     &
                 & lopenacc = .TRUE. )
     __acc_attach(p_metrics%z_ifc)
-
-    ! The 3D coordinate field "z_ifc" exists already in a buffer
-    ! variable of module "mo_util_vgrid". We move the data to its
-    ! final place here:
-    p_metrics%z_ifc(:,:,:) = vgrid_buffer(p_patch%id)%z_ifc(:,:,:)
-    DEALLOCATE(vgrid_buffer(p_patch%id)%z_ifc, STAT=error_status)
-    IF (error_status /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 
     ! geometric height at full levels
     ! z_mc         p_metrics%z_mc(nproma,nlev,nblks_c)
@@ -4321,6 +4301,8 @@ MODULE mo_nonhydro_state
 
       ! index lists for halo points belonging to the nest boundary region
       ! p_metrics%bdy_halo_c_idx
+      ! Note: if bdy_halo_c_dim == 0, the array is still allocated with size 1.
+      !       ldims has to reflect that, because otherwise it causes serialbox to crash
       !
       cf_desc    = t_cf_var('bdy_halo_c_idx', '-',                                      &
       &                     'index lists for halo points belonging to the nest boundary region', &
@@ -4328,11 +4310,13 @@ MODULE mo_nonhydro_state
       grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_metrics_list, 'bdy_halo_c_idx', p_metrics%bdy_halo_c_idx, &
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,        &
-                  & ldims=(/p_metrics%bdy_halo_c_dim/), lopenacc = .TRUE. )
+                  & ldims=(/MAX(p_metrics%bdy_halo_c_dim,1)/), lopenacc = .TRUE. )
       __acc_attach(p_metrics%bdy_halo_c_idx)
 
       ! block lists for halo points belonging to the nest boundary region
       ! bdy_halo_c_blk
+      ! Note: if bdy_halo_c_dim == 0, the array is still allocated with size 1.
+      !       ldims has to reflect that, because otherwise it causes serialbox to crash
       !
       cf_desc    = t_cf_var('bdy_halo_c_blk', '-',                                      &
       &                     'block lists for halo points belonging to the nest boundary region', &
@@ -4340,7 +4324,7 @@ MODULE mo_nonhydro_state
       grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_metrics_list, 'bdy_halo_c_blk', p_metrics%bdy_halo_c_blk, &
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,        &
-                  & ldims=(/p_metrics%bdy_halo_c_dim/), lopenacc = .TRUE. )
+                  & ldims=(/MAX(p_metrics%bdy_halo_c_dim,1)/), lopenacc = .TRUE. )
       __acc_attach(p_metrics%bdy_halo_c_blk)
       
       ! mask field that excludes boundary halo points
@@ -4616,7 +4600,7 @@ MODULE mo_nonhydro_state
     TYPE(t_nh_metrics),  INTENT(INOUT):: &  !< diagnostic state
          &  p_metrics
 
-    TYPE(t_var_list), INTENT(INOUT) :: p_metrics_list   !< diagnostic state list
+    TYPE(t_var_list_ptr), INTENT(INOUT) :: p_metrics_list   !< diagnostic state list
     
     INTEGER, INTENT(INOUT) :: numpoints
 

@@ -15,22 +15,31 @@
 #
 # ICON external modules (i.e. Fortran modules that are used in ICON but are not
 # declared in its source code):
-#   MPI: mpi
-#   RTE-RRTMGP: mo_gas_optics_rrtmgp, mo_gas_concentrations, mo_optical_props,
-#               mo_source_functions, mo_rte_kind, mo_fluxes, mo_rte_lw,mo_rte_sw
-#   ECRAD: radiation_cloud, radiation_interface, radiation_flux,
-#          radiation_aerosol, radiation_gas, radiation_thermodynamics,
-#          radiation_config, radiation_single_level
-#   RTTOV: rttov_types,parkind1,rttov_const,rttov_hdf_mod,rttov_god,mod_cnrm_mw_atlas,mod_mwatlas_m2,mod_rttov_emis_atlas,rttov_math_mod,mod_uwiremis_atlas
-#   SCT: sct
-#   YAXT: yaxt
-#   CDI: mo_cdi
-#   SERIALBOX2: m_serialize, utils_ppser
-#   MTIME: mtime, mtime_datetime
-#   YAC: mo_yac_finterface
-#   TIXI: tixi
-#   SELF: self_assert, self_map, self_object, self_vector, self_vector_ref
-#   NETCDF: netcdf
-#   HDF5: hdf5, h5lt
-#   ECCODES: grib_api
---fc-external-mods=mpi,mo_gas_optics_rrtmgp,mo_gas_concentrations,mo_optical_props,mo_source_functions,mo_rte_kind,mo_fluxes,mo_rte_lw,mo_rte_sw,radiation_cloud,radiation_interface,radiation_flux,radiation_aerosol,radiation_gas,radiation_thermodynamics,radiation_config,radiation_single_level,sct,yaxt,mo_cdi,m_serialize,utils_ppser,mtime,mtime_datetime,mo_yac_finterface,tixi,self_assert,self_map,self_object,self_vector,self_vector_ref,rttov_types,parkind1,rttov_const,rttov_hdf_mod,rttov_god,mod_cnrm_mw_atlas,mod_mwatlas_m2,mod_rttov_emis_atlas,rttov_math_mod,mod_uwiremis_atlas,hdf5,h5lt,netcdf,grib_api
+#   MPI:
+--fc-external-mods=mpi
+#   RTE-RRTMGP:
+--fc-external-mods=mo_gas_optics_rrtmgp,mo_gas_concentrations,mo_optical_props,mo_source_functions,mo_rte_kind,mo_fluxes,mo_rte_lw,mo_rte_sw,mo_rte_config,mo_rte_util_array
+#   ECRAD:
+--fc-external-mods=radiation_cloud,radiation_interface,radiation_flux,radiation_aerosol,radiation_gas,radiation_thermodynamics,radiation_config,radiation_single_level
+#   RTTOV:
+--fc-external-mods=rttov_types,parkind1,rttov_const,rttov_hdf_mod,rttov_god,mod_cnrm_mw_atlas,mod_mwatlas_m2,mod_rttov_emis_atlas,rttov_math_mod,mod_uwiremis_atlas,mod_rttov_brdf_atlas,mod_brdf_atlas
+#   SCT:
+--fc-external-mods=sct
+#   YAXT:
+--fc-external-mods=yaxt
+#   CDI:
+--fc-external-mods=mo_cdi
+#   SERIALBOX2:
+--fc-external-mods=m_serialize,utils_ppser
+#   MTIME:
+--fc-external-mods=mtime,mtime_datetime
+#   YAC:
+--fc-external-mods=mo_yac_finterface
+#   TIXI:
+--fc-external-mods=tixi
+#   NETCDF:
+--fc-external-mods=netcdf
+#   HDF5:
+--fc-external-mods=hdf5,h5lt
+#   ECCODES:
+--fc-external-mods=grib_api,eccodes

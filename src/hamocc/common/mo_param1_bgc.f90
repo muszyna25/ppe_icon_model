@@ -29,20 +29,22 @@ MODULE mo_param1_bgc
        &                iiron      = 14,              &               
        &                idms       = 15,              &
        &                ih2s       = 16,              &
-       &                iagesc     = 17               
+       &                iagesc     = 17
 
+  ! extended N-cycle parameters
+  INTEGER :: iammo, iano2, i_amm_adv
 
   ! total number of advected tracers
-  INTEGER, PARAMETER :: ntraad=i_base_adv
+  INTEGER :: ntraad
 
   ! non-advected (fast sinking) tracers
-  INTEGER, PARAMETER ::  icalc    = ntraad+1,         &
-       &                 iopal    = ntraad+2,         &
-       &                 idust    = ntraad+3,         &
-       &                 i_base   = 3  
+  INTEGER ::             icalc,         &
+       &                 iopal,         &
+       &                 idust,         &
+       &                 i_base  
 
 
-  INTEGER, PARAMETER :: n_bgctra = ntraad + i_base 
+  INTEGER :: n_bgctra
 
 
 
@@ -73,8 +75,11 @@ MODULE mo_param1_bgc
        &                ipowafe    = 8,               &
        &                ipowh2s    = 9,               &
        &                npowa_base = 9
+
+  ! Extended N-cycle parameters
+  INTEGER :: ipownh4, ipowno2, npowa_ammo
   
-  INTEGER, PARAMETER :: npowtra=npowa_base
+  INTEGER :: npowtra
 
  ! Diagnostics
 
@@ -111,7 +116,7 @@ MODULE mo_param1_bgc
       &                 kcFlim    = 31,               &
       &                 kh2sprod  = 32,               &
       &                 kh2sloss  = 33,               &
-                        nbgctend  = 33 
+      &                 nbgctend_base  = 33 
  
   INTEGER, PARAMETER :: kcflux     = 1,               &
       &                 koflux     = 2,               &
@@ -136,5 +141,90 @@ MODULE mo_param1_bgc
       &                 kcalex2000 = 21,               &
       &                 kopex2000  = 22,               &
       &                 kpco2      = 23,               &
-                        nbgcflux   = 23  
+      &                 klysocl    = 24,               &
+      &                 knitinp    = 25,               &
+      &                 nbgcflux_base   = 25  
+
+  INTEGER :: nbgcflux, nbgctend
+
+  ! for extended N-cycle
+  INTEGER :: nbgcflux_ammo, nbgctend_ammo
+  INTEGER :: knh3flux
+  INTEGER :: kgppnh, kcyapro, kdnrn, kdnra, kradnrn, kradnra
+  INTEGER :: kanam, kraanam, kraanamox, kranitox, kammox, kraammox
+  INTEGER :: knitox, kradeni
+
+  ! Sediment
+  INTEGER, PARAMETER::  &
+      &                 nsed_diag_base =3,&
+      &                 isremino =1,&
+      &                 isreminn =2,&
+      &                 isremins =3   
+
+  INTEGER :: nsed_diag, nsed_diag_ammo
+  INTEGER :: ksammox, ksnitox, ksanam, ksdnrn, ksdnra, ksnrn2
+
+CONTAINS
+
+  SUBROUTINE set_tracer_indices
+    USE mo_hamocc_nml, ONLY : l_N_cycle
+
+      ! water column tracers (advected)
+      iammo      = MERGE(i_base_adv+1,0,l_N_cycle)
+      iano2      = MERGE(i_base_adv+2,0,l_N_cycle)
+      i_amm_adv  = MERGE(2,0,l_N_cycle)
+      ntraad = i_base_adv + i_amm_adv
+
+      ! water column tracers (non-advected) -> need to be the last tracers
+      ! within the 4D tracer array
+      icalc    = ntraad+1
+      iopal    = ntraad+2
+      idust    = ntraad+3
+      i_base   = 3
+      n_bgctra = ntraad + i_base
+
+      ! porewater tracers
+      ipownh4  = MERGE(npowa_base+1,0,l_N_cycle)
+      ipowno2  = MERGE(npowa_base+2,0,l_N_cycle)
+      npowa_ammo = MERGE(2,0,l_N_cycle)
+      npowtra = npowa_base + npowa_ammo
+
+      ! 3D diagnostic indices
+      kgppnh = MERGE(nbgctend_base+1,0,l_N_cycle)      ! pp on nh4
+      kcyapro = MERGE(nbgctend_base+2,0,l_N_cycle)     ! cyano pp on nh4 and no2
+      kdnrn = MERGE(nbgctend_base+3,0,l_N_cycle)       ! dnrn of no3 to no2
+      kdnra = MERGE(nbgctend_base+4,0,l_N_cycle)       ! dnrn of no3 to nh4
+      kanam = MERGE(nbgctend_base+5,0,l_N_cycle)       ! anammox of nh4 and no2
+      kammox = MERGE(nbgctend_base+6,0,l_N_cycle)     ! nitrification of nh4
+      knitox = MERGE(nbgctend_base+7,0,l_N_cycle)     ! nitrification of no2
+      ! kradnrn = MERGE(nbgctend_base+8,0,l_N_cycle)     ! LR: not include day-1 variables for now
+      ! kradnra = MERGE(nbgctend_base+9,0,l_N_cycle)     ! LR: not include day-1 variables for now
+      ! kraanam = MERGE(nbgctend_base+10,0,l_N_cycle)     ! LR: not include day-1 variables for now
+      ! kranitox = MERGE(nbgctend_base+11,0,l_N_cycle)   ! LR: not include day-1 variables for now
+      ! kraammox = MERGE(nbgctend_base+12,0,l_N_cycle)   ! LR: not include day-1 variables for now
+      ! kradeni = MERGE(nbgctend_base+13,0,l_N_cycle)    ! LR: not include day-1 variables for now
+
+      nbgctend_ammo = MERGE(7,0,l_N_cycle)
+!      nbgctend_ammo = MERGE(13,0,l_N_cycle)
+
+      nbgctend = nbgctend_base + nbgctend_ammo
+
+      ! 2D diagnostoc indices
+      knh3flux = MERGE(nbgcflux_base+1,0,l_N_cycle)
+      nbgcflux_ammo = MERGE(1,0,l_N_cycle)
+      nbgcflux = nbgcflux_base + nbgcflux_ammo
+
+      ! Sediment diagnostic indices
+      ksammox = MERGE(nsed_diag_base+1,0,l_N_cycle) ! sed nitrification of nh4
+      ksnitox = MERGE(nsed_diag_base+2,0,l_N_cycle) ! sed nitrification of no2
+      ksanam = MERGE(nsed_diag_base+3,0,l_N_cycle)  ! sed anammox of nh4 and no2
+      ksdnrn = MERGE(nsed_diag_base+4,0,l_N_cycle)  ! sed dnrn of no3 to nh4
+      ksdnra = MERGE(nsed_diag_base+5,0,l_N_cycle)  ! sed dnrn of no3 to no2
+      ksnrn2 = MERGE(nsed_diag_base+6,0,l_N_cycle)  ! sed denitrification of no2 (in wc this uses the normal denitr. tend)
+      nsed_diag_ammo = MERGE(6,0,l_N_cycle)
+      nsed_diag = nsed_diag_base + nsed_diag_ammo
+
+  END SUBROUTINE set_tracer_indices
 END MODULE mo_param1_bgc
+
+

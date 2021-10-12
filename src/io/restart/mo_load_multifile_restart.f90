@@ -20,7 +20,7 @@
 !! "chunk", since the domain loop is located outside of this routine,
 !! in the calling "src/drivers" routine.
 !!
-#include <omp_definitions.inc>
+#include "omp_definitions.inc"
 
 MODULE mo_load_multifile_restart
 
@@ -42,22 +42,17 @@ MODULE mo_load_multifile_restart
   USE mo_model_domain,           ONLY: t_patch
   USE mo_mpi,                    ONLY: p_comm_work, p_comm_size, p_comm_rank, my_process_is_work, &
     &                                  p_allreduce, mpi_sum, my_process_is_mpi_workroot, p_alltoall, p_alltoallv
-#ifdef DEBUG
-  USE mo_mpi,                    ONLY: p_bcast
-  USE mo_impl_constants,         ONLY: VARNAME_LEN
-#endif
   USE mo_multifile_restart_util, ONLY: multifilePayloadPath, rBuddy, rGroup, vNames_glbIdx
   USE mo_parallel_config,        ONLY: nproma, idx_no, blk_no, restart_load_scale_max
   USE mo_restart_nml_and_att,    ONLY: getAttributesForRestarting, ocean_initFromRestart_OVERRIDE
   USE mo_key_value_store,        ONLY: t_key_value_store
   USE mo_restart_var_data,       ONLY: get_var_3d_ptr, has_valid_time_level
-  USE mo_var_list_element,       ONLY: t_p_var_list_element
+  USE mo_var,                    ONLY: t_var_ptr
   USE mo_timer,                  ONLY: timer_start, timer_stop, timer_load_restart_io, timers_level, &
     &                                  timer_load_restart_comm_setup, timer_load_restart_communication, &
     &                                  timer_load_restart_get_var_id
 
   IMPLICIT NONE
-
   PRIVATE
 
   PUBLIC :: multifileCheckRestartFiles, multifileReadPatch
@@ -66,10 +61,6 @@ MODULE mo_load_multifile_restart
     INTEGER :: streamId, vlistId, varCount
     INTEGER :: iCnts(3), iVarIds(3)
   END TYPE t_PayloadFile
-
-  TYPE(t_p_comm_pattern) :: cpat(3)
-  TYPE(t_PayloadFile), ALLOCATABLE :: files(:)
-  LOGICAL :: load_var_at_once
 
   CHARACTER(*), PARAMETER :: modname = "mo_load_multifile_restart"
 
@@ -96,10 +87,12 @@ CONTAINS
   ! This FUNCTION performs the distribution of the payload files
   ! among the restart processes, subsequent code just has to iterate
   ! over the array returned by this FUNCTION.
-  SUBROUTINE openPayloadFiles(mfPath, mfCnt, dom, tCnt)
+  SUBROUTINE openPayloadFiles(mfPath, mfCnt, dom, tCnt, files, at_once)
     CHARACTER(*), INTENT(IN) :: mfPath
     INTEGER, INTENT(IN) :: mfCnt, dom
     INTEGER, INTENT(OUT) :: tCnt(3)
+    TYPE(t_PayloadFile), INTENT(INOUT), ALLOCATABLE :: files(:)
+    LOGICAL, INTENT(OUT) :: at_once
     INTEGER :: ierr, pCnt, myR, myFCnt, myFF, i
     CHARACTER(*), PARAMETER :: routine = modname//":openPayloadFiles"
 
@@ -112,7 +105,7 @@ CONTAINS
 ! if restart_load_scale_max <  #ranks / #files -> read data in a LEVEL-based loop
 ! if restart_load_scale_max >= #ranks / #files -> read data in a VARIABLE-based loop
 ! if restart_load_scale_max < 0  - - - - - - - -> read data in a VARIABLE-based loop
-    load_var_at_once = pCnt .LE. mfCnt * &
+    at_once = pCnt .LE. mfCnt * &
       & MERGE(restart_load_scale_max, pCnt, restart_load_scale_max .GE. 0)
     myFF = -1
     IF (pCnt .GE. mfCnt) THEN
@@ -340,9 +333,30 @@ CONTAINS
     END SUBROUTINE get_disps
   END FUNCTION makeRedistributionPattern
 
-  SUBROUTINE multifilePatchReader_construct(p_patch, multifilePath)
-    TYPE(t_patch), TARGET, INTENT(in) :: p_patch
+  SUBROUTINE multifileReadPatch(vDat, p_patch, multifilePath)
+    TYPE(t_var_ptr), INTENT(IN) :: vDat(:)
+    TYPE(t_patch), TARGET, INTENT(IN) :: p_patch
     CHARACTER(*), INTENT(IN) :: multifilePath
+    TYPE(t_p_comm_pattern) :: cpat(3)
+    LOGICAL :: load_var_at_once
+    INTEGER :: hi
+    TYPE(t_PayloadFile), ALLOCATABLE :: files(:)
+
+    CALL construct()
+    CALL readData()
+    DO hi = 1, 3
+      CALL cpat(hi)%p%delete()
+    END DO
+    IF(timers_level >= 7) CALL timer_start(timer_load_restart_io)
+    IF(ALLOCATED(files)) THEN
+      DO hi = 1, SIZE(files)
+        CALL streamClose(files(hi)%streamId)
+      END DO
+    END IF
+    IF(timers_level >= 7) CALL timer_stop(timer_load_restart_io)
+  CONTAINS
+
+  SUBROUTINE construct()
     INTEGER :: mfileCnt, ierr, cFId, tCnt(3), cOff(3), iG, i, n
     INTEGER(C_INT) :: trash
     INTEGER, ALLOCATABLE :: glbidx_read(:)
@@ -355,11 +369,11 @@ CONTAINS
     CALL restartAttributes%get('multifile_file_count', mfileCnt)
     IF (my_process_is_mpi_workroot()) &
       & WRITE(0, *) "reading from ", mfileCnt, " files/patch."
-    CALL openPayloadFiles(multifilePath, mfileCnt, p_patch%id, tCnt)
+    CALL openPayloadFiles(multifilePath, mfileCnt, p_patch%id, tCnt, files, load_var_at_once)
     cOff(:) = 0
+    ALLOCATE(glbidx_read(MAXVAL(tCnt(:),1)), STAT = ierr)
+    IF (ierr /= SUCCESS) CALL finish(routine, "memory allocation failure")
     DO iG = 1, 3
-      ALLOCATE(glbidx_read(tCnt(ig)), STAT = ierr)
-      IF(ierr /= SUCCESS) CALL finish(routine, "memory allocation failure")
       DO cFId = 1, SIZE(files)
         n = files(cFId)%iCnts(iG)
         IF (n .LE. 0) CYCLE
@@ -384,16 +398,13 @@ CONTAINS
       CASE (GRID_UNSTRUCTURED_EDGE)
         glb_index => p_patch%edges%decomp_info%glb_index
       END SELECT
-      cpat(ig)%p => makeRedistributionPattern(glbidx_read, glb_index)
-      DEALLOCATE(glbidx_read)
+      cpat(ig)%p => makeRedistributionPattern(glbidx_read(:cOff(iG)), glb_index)
     END DO
-  END SUBROUTINE multifilePatchReader_construct
+  END SUBROUTINE construct
 
-  SUBROUTINE multifilePatchReader_readData(vDat, dom)
-    TYPE(t_p_var_list_element), INTENT(in) :: vDat(:)
-    INTEGER, INTENT(IN) :: dom
+  SUBROUTINE readData()
     INTEGER :: vId, lId, lcnt, fId, varID, pCt(SIZE(files)), vlID
-    INTEGER :: rbuf_size, ofs, nxt, dummy, i, hgrid, mock_nblk
+    INTEGER :: rbuf_size, ofs, nxt, dummy, i, hgrid, mock_nblk, dom
     REAL(KIND=dp), POINTER :: ptr_3d_d(:,:,:), buf_3d_d(:,:,:), buf_d(:)
     REAL(KIND=sp), POINTER :: ptr_3d_s(:,:,:), buf_3d_s(:,:,:), buf_s(:)
     INTEGER,       POINTER :: ptr_3d_i(:,:,:), buf_3d_i(:,:,:), buf_i(:)
@@ -409,27 +420,24 @@ CONTAINS
         CALL vname_map%put(cVname, vId)
       END DO
     END IF
+    dom = p_patch%id
+    IF (ocean_initFromRestart_OVERRIDE) CALL vname_map%bcast(0, p_comm_work)
     DO vId = 1, SIZE(vDat)
-      IF(.NOT.has_valid_time_level(vDat(vId)%p%info, dom, nnew(dom), nnew_rcf(dom))) CYCLE
-      ! Check that all processes have a consistent order of variables IN varData(:).
-      IF(timers_level >= 7) CALL timer_start(timer_load_restart_get_var_id)
-      IF(SIZE(files) .GT. 0) THEN
-        CALL vname_map%get(vDat(vId)%p%info%NAME, varId, opt_err=dummy)
+      IF (.NOT.has_valid_time_level(vDat(vId)%p%info, dom, nnew(dom), nnew_rcf(dom))) CYCLE
+      IF (timers_level >= 7) CALL timer_start(timer_load_restart_get_var_id)
+      CALL vname_map%get(vDat(vId)%p%info%NAME, varId, opt_err=dummy)
+      IF (timers_level >= 7) CALL timer_stop(timer_load_restart_get_var_id)
+      IF (dummy .NE. 0) THEN
+        IF (ocean_initFromRestart_OVERRIDE) THEN
 ! fatal hack from coding hell to make init_fromRestart=.true. (ocean) work
-        IF (dummy .NE. 0) THEN
-          IF(ocean_initFromRestart_OVERRIDE) THEN
-            IF(timers_level >= 7) CALL timer_stop(timer_load_restart_get_var_id)
-            CALL warning(routine, "variable '" // TRIM(vDat(vId)%p%info%NAME) // &
-              & "' from restart file not found in the list of restart variables")
-            CALL warning(routine, &
-              & "that MAY be intended if initialize_fromRestart=.true.")
-            CYCLE
-          ELSE
-            CALL finish(routine, "variable not found: "//TRIM(vDat(vId)%p%info%NAME))
-          END IF
+          CALL warning(routine, "variable not found: '" // TRIM(vDat(vId)%p%info%NAME))
+          CALL warning(routine, &
+            & "that MAY be intended if initialize_fromRestart=.true.")
+          CYCLE
+        ELSE IF (SIZE(files) .GT. 0) THEN
+          CALL finish(routine, "variable not found: "//TRIM(vDat(vId)%p%info%NAME))
         END IF
       END IF
-      IF(timers_level >= 7) CALL timer_stop(timer_load_restart_get_var_id)
       hgrid = vDat(vId)%p%info%hgrid
       IF (hgrid < 1 .OR. hgrid > 3) &
         CALL finish(routine, "unexpected varData(varIndex)%info%hgrid")
@@ -580,32 +588,8 @@ CONTAINS
         END SELECT
       END IF
     END DO
-  END SUBROUTINE multifilePatchReader_readData
+  END SUBROUTINE readData
 
-  SUBROUTINE multifilePatchReader_destruct()
-    INTEGER :: i
-
-    DO i = 1, 3
-      CALL cpat(i)%p%delete()
-    END DO
-    IF(timers_level >= 7) CALL timer_start(timer_load_restart_io)
-    IF(ALLOCATED(files)) THEN
-      DO i = 1, SIZE(files)
-        CALL streamClose(files(i)%streamId)
-      END DO
-      DEALLOCATE(files)
-    END IF
-    IF(timers_level >= 7) CALL timer_stop(timer_load_restart_io)
-  END SUBROUTINE multifilePatchReader_destruct
-
-  SUBROUTINE multifileReadPatch(varData, p_patch, multifilePath)
-    TYPE(t_p_var_list_element), INTENT(in) :: varData(:)
-    TYPE(t_patch), INTENT(in) :: p_patch
-    CHARACTER(*), INTENT(IN) :: multifilePath
-
-    CALL multifilePatchReader_construct(p_patch, multifilePath)
-    CALL multifilePatchReader_readData(varData, p_patch%id)
-    CALL multifilePatchReader_destruct()
   END SUBROUTINE multifileReadPatch
 
 END MODULE mo_load_multifile_restart

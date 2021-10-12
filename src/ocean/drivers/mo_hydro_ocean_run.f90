@@ -37,7 +37,7 @@ MODULE mo_hydro_ocean_run
     &  Cartesian_Mixing, GMRedi_configuration, OceanReferenceDensity_inv, &
     &  atm_pressure_included_in_ocedyn, &
     &  vert_mix_type,vmix_kpp, lcheck_salt_content, &
-    &  use_draftave_for_transport_h
+    &  use_draftave_for_transport_h, check_total_volume
   USE mo_ocean_nml,              ONLY: iforc_oce, Coupled_FluxFromAtmo
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_io_config,              ONLY: n_checkpoints, write_last_restart
@@ -78,7 +78,7 @@ MODULE mo_hydro_ocean_run
   USE mo_name_list_output_init,  ONLY: output_file
   USE mo_name_list_output_types, ONLY: t_output_file
   USE mo_ocean_diagnostics,      ONLY: calc_fast_oce_diagnostics, calc_psi
-  USE mo_ocean_check_salt,       ONLY: check_total_salt_content
+  USE mo_ocean_check_total_content, ONLY: check_total_salt_content, check_accumulated_volume_difference
   USE mo_master_config,          ONLY: isRestart
   USE mo_master_control,         ONLY: get_my_process_name
   USE mo_time_config,            ONLY: time_config, t_time_config
@@ -87,9 +87,8 @@ MODULE mo_hydro_ocean_run
   USE mo_statistics
   USE mo_var_list
   USE mo_swr_absorption,         ONLY: jerlov_swr_absorption
-  USE mo_ocean_statistics
   USE mo_ocean_hamocc_interface, ONLY: ocean_to_hamocc_interface
-  USE mo_derived_variable_handling, ONLY: update_statistics, reset_statistics
+  USE mo_derived_variable_handling, ONLY: update_statistics
   USE mo_ocean_output
   USE mo_ocean_coupling,         ONLY: couple_ocean_toatmo_fluxes  
   USE mo_hamocc_nml,             ONLY: l_cpl_co2
@@ -475,7 +474,12 @@ CONTAINS
               & ocean_state(jg)%p_diag%mass_flx_e)
         ENDIF
         !------------------------------------------------------------------------
-
+        IF (check_total_volume) THEN
+          CALL check_accumulated_volume_difference(1, patch_2d, &
+            & ocean_state(jg)%p_prog(nnew(1))%h(:,:), ocean_state(jg)%p_prog(nold(1))%h(:,:))
+        ENDIF
+        
+        !------------------------------------------------------------------------
         IF (idbg_mxmn >= 2 .OR. debug_check_level > 5) THEN
           CALL horizontal_mean(values=ocean_state(jg)%p_prog(nnew(1))%h(:,:), weights=patch_2d%cells%area(:,:), &
             & in_subset=patch_2d%cells%owned, mean=mean_height)
@@ -567,8 +571,6 @@ CONTAINS
           &                p_oce_sfc,             &
           &                sea_ice,                 &
           &                jstep, jstep0)
-        
-        CALL reset_statistics
         ! send and receive coupling fluxes for ocean at the end of time stepping loop
         IF (iforc_oce == Coupled_FluxFromAtmo) THEN  !  14
 
@@ -688,8 +690,6 @@ CONTAINS
           &                sea_ice,                 &
           &                jstep, jstep0)
         
-        CALL reset_statistics
-
         ! check whether time has come for writing restart file
         IF (isCheckpoint()) THEN
           IF (.NOT. output_mode%l_none ) THEN
@@ -789,10 +789,6 @@ CONTAINS
     ENDIF
     !------------------------------------------------------------------------
     
-    ! Call the biogeochemistry before transporting for performance reasons
-    CALL ocean_to_hamocc_interface(ocean_state, transport_state, &
-      & p_oce_sfc, p_as, sea_ice, p_phys_param, operators_coefficients, current_time)
-
     !------------------------------------------------------------------------
     ! transport tracers and diffuse them
     IF (no_tracer>=1) THEN
@@ -802,19 +798,22 @@ CONTAINS
         CALL advect_ocean_tracers(old_tracer_collection, new_tracer_collection, transport_state, operators_coefficients)
       ELSE
         CALL  advect_ocean_tracers_dev(old_tracer_collection, new_tracer_collection, &
-          &  ocean_state, transport_state, p_phys_param, operators_coefficients)
+          &  ocean_state, transport_state, p_phys_param, operators_coefficients)          
       ENDIF
 
       stop_timer(timer_tracer_ab,1)
-
     ENDIF
     !------------------------------------------------------------------------
+     
+      ! Call the biogeochemistry after transporting for GMRedi
+      CALL ocean_to_hamocc_interface(ocean_state, transport_state, &
+        & p_oce_sfc, p_as, sea_ice, p_phys_param, operators_coefficients, current_time)
 
 !     CALL dbg_print('Tr3:new adv', ocean_state%p_prog(nnew(1))%tracer(:,:,:,3),str_module,1, &
 !       & patch_3d%p_patch_2d(1)%cells%owned )
 !     CALL dbg_print('Tr20:new adv', ocean_state%p_prog(nnew(1))%tracer(:,:,:,20),str_module,1, &
 !       & patch_3d%p_patch_2d(1)%cells%owned )
-
+    
   END SUBROUTINE tracer_transport
   !-------------------------------------------------------------------------
 
@@ -849,8 +848,6 @@ CONTAINS
 
     CALL write_name_list_output(jstep=0)
 
-    CALL reset_statistics
- 
   END SUBROUTINE write_initial_ocean_timestep
   !-------------------------------------------------------------------------
 

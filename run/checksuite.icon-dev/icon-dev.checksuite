@@ -243,7 +243,7 @@ function diff_results
     
                 FILE1="${MODEL_DIR1}/experiments/${DEXP1}/${DEXP1}_${TYPE}_${DATE}.nc"
                 FILE2="${MODEL_DIR2}/experiments/${DEXP2}/${DEXP2}_${TYPE}_${DATE}.nc"
-                TEMP_SUFFIX=$(cat /dev/urandom | env LC_CTYPE=C tr -cd 'a-f0-9' | head -c 16)
+                TEMP_SUFFIX=$(cat /dev/urandom | env LC_ALL=C tr -cd 'a-f0-9' | head -c 16)
                 DIFF_FILE="cdo_diffn_${DEXP1}_${DEXP2}_${TYPE}_${DATE}_${TEMP_SUFFIX}.out"
 
                 echo "Compare for TYPE=$TYPE"
@@ -351,7 +351,7 @@ function tolerance_check
         *atm*ape*)
             FILE_IDS="atm_3d"
             ;;
-        *mch_ch*)
+        *mch_*)
             FILE_IDS="atm_3d"
             ;;
         *)
@@ -533,8 +533,13 @@ if [ "${EXPERIMENT}" == 'atm_ape_test' ]; then
     DATES=${DATES='19790101T000000Z 19790101T000400Z 19790101T000800Z 19790101T001200Z 19790101T001600Z'}
     RESTART_DATE=${RESTART_DATE='19790101T000800Z'}
 fi
+if [ "${EXPERIMENT}" == 'atm_ape_mlo_test' ]; then
+    TYPES=${TYPES='atm_2d_ml atm_3d_ml phy_3d_ml trc_3d_ml'}
+    DATES=${DATES='19790101T000000Z 19790101T000400Z 19790101T000800Z 19790101T001200Z 19790101T001600Z'}
+    RESTART_DATE=${RESTART_DATE='19790101T000800Z'}
+fi
 if [ "${EXPERIMENT}" == 'atm_rce_test' ]; then
-    TYPES=${TYPES='atm_2d_ml atm_2d_rmb_ml phy_3d_ml phy_3d_rmb_ml'}
+    TYPES=${TYPES='atm_2d_ml phy_3d_ml'}
     DATES=${DATES='19790101T000000Z 19790101T000400Z 19790101T000800Z 19790101T001200Z 19790101T001600Z'}
     RESTART_DATE=${RESTART_DATE='19790101T000800Z'}
 fi
@@ -542,6 +547,11 @@ if [ "${EXPERIMENT}" == 'atm_sma_test' ]; then
     TYPES=${TYPES='atm_2d_ml atm_3d_ml'}
     DATES=${DATES='20080101T000000Z 20080101T000002Z 20080101T000004Z 20080101T000006Z 20080101T000008Z'}
     RESTART_DATE=${RESTART_DATE='20080101T000004Z'}
+fi
+if [ "${EXPERIMENT}" == 'atm_2mom_bubble_rceTorus_test' ]; then
+    TYPES=${TYPES='atm_2d_ml atm_3d_ml'}
+    DATES=${DATES='20080801T000000Z 20080801T000200Z 20080801T000400Z'}
+    RESTART_DATE=${RESTART_DATE='20080801T000200Z'}
 fi
 
 echo " "
@@ -782,7 +792,13 @@ if string_in_list $MD $CMODES; then
 
         N_NPROMA=`grep "nproma=" ${RUN_SCRIPT}`
         N_NPROMA=${N_NPROMA#nproma=}
-        ((N_NPROMA_NEW=N_NPROMA + 1))
+        # When using a negative nproma as no. blocks, decrease this value by one instead of increasing it
+        # This is mainly so nproma=-1 doesn't get changed to nproma=0
+        if [ ${N_NPROMA} -lt 0 ]; then
+            ((N_NPROMA_NEW=N_NPROMA - 1))
+        else
+            ((N_NPROMA_NEW=N_NPROMA + 1))
+        fi
         sed s/nproma=$N_NPROMA/nproma=$N_NPROMA_NEW/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
         mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
 
@@ -818,7 +834,7 @@ if string_in_list $MD $CMODES; then
 fi # MODE
 
 
-CMODES="m um rm nm mo urm unm umo rnm rmo nmo urnm urmo unmo rnmo urnmo rnmot"
+CMODES="m um rm nm mo tm urm unm umo rnm rmo nmo urnm urmo unmo rnmo urnmo rnmot"
 if string_in_list $MD $CMODES; then
     TEST='mpi'
     echo ' '
@@ -837,6 +853,8 @@ if string_in_list $MD $CMODES; then
 
             N_NODES=`grep "no_of_nodes=" exp.${SCRIPT}.run`
             eval N_NODES=\""${N_NODES#'no_of_nodes='}"\"
+            OMP_NUM_THREADS=`grep "export OMP_NUM_THREADS=" exp.${SCRIPT}.run`
+            eval OMP_NUM_THREADS=\""${OMP_NUM_THREADS#'export OMP_NUM_THREADS='}"\"
             N_PPNODE=`grep "mpi_procs_pernode=" exp.${SCRIPT}.run`
             eval N_PPNODE=\""${N_PPNODE#'mpi_procs_pernode='}"\"
             N_PROCS=$(( N_NODES * N_PPNODE ))
@@ -969,6 +987,7 @@ if string_in_list $MD $CMODES; then
                 # since the mistral script dynamically adapts the
                 # number of tasks to the number of threads, these need
                 # to be fixed too
+                OMP_NUM_THREADS=$N_OMP_NUM_THREADS
                 N_PPNODE=`grep "mpi_procs_pernode=" exp.${SCRIPT}.run`
                 eval N_PPNODE=\""${N_PPNODE#'mpi_procs_pernode='}"\"
 
@@ -1029,7 +1048,7 @@ if string_in_list $MD $CMODES; then
     fi # TEST_POSSIBLE
 fi # MODE
 
-CMODES="t rnmot"
+CMODES="t tm rnmot"
 if string_in_list $MD $CMODES; then
     TEST='tolerance'
     echo ' '

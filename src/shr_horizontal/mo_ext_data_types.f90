@@ -23,7 +23,7 @@ MODULE mo_ext_data_types
 
   USE mo_kind,               ONLY: wp
   USE mo_fortran_tools,      ONLY: t_ptr_2d3d, t_ptr_i2d3d 
-  USE mo_linked_list,        ONLY: t_var_list
+  USE mo_var_list,           ONLY: t_var_list_ptr
   USE mo_idx_list,           ONLY: t_idx_list_blocked
 
   IMPLICIT NONE
@@ -74,8 +74,6 @@ MODULE mo_ext_data_types
     INTEGER, POINTER  ::   &   !< atmosphere land-sea-mask on cell centers [ ]
       &  lsm_ctr_c(:,:)        !  index1=1,nproma, index2=1,nblks_c
 
-    INTEGER, POINTER  ::   &   !< land-sea-mask for HDmodel on cell centers [ ]
-      &  lsm_hd_c(:,:)         !  index1=1,nproma, index2=1,nblks_c
 
     REAL(wp), POINTER  ::   &  !< elevation at cell centers               [m]
       &  elevation_c(:,:)
@@ -338,11 +336,11 @@ MODULE mo_ext_data_types
     INTEGER :: i_lc_snow_ice   !< Land-cover classification index for snow and ice
     INTEGER :: i_lc_water      !< Land-cover classification index for water
     INTEGER :: i_lc_urban      !< Land-cover classification index for urban / artificial surface
-    INTEGER :: i_lc_shrub_eg   !< Shrub cover Grassland/Forest // Evergreen. Currently used by ART only
-    INTEGER :: i_lc_shrub      !< Closed to open Shrubland (deciduous). Currently used by ART only
-    INTEGER :: i_lc_grass      !< Grassland//herbaceous. Currently used by ART only
-    INTEGER :: i_lc_bare_soil  !< Land-cover classification index for bare soil. Currently used by ART only
-    INTEGER :: i_lc_sparse     !< Land-cover classification index for sparse vergetation. Currently used by ART only
+    INTEGER :: i_lc_shrub_eg   !< Shrub cover Grassland/Forest // Evergreen.
+    INTEGER :: i_lc_shrub      !< Closed to open Shrubland (deciduous).
+    INTEGER :: i_lc_grass      !< Grassland//herbaceous.
+    INTEGER :: i_lc_bare_soil  !< Land-cover classification index for bare soil.
+    INTEGER :: i_lc_sparse     !< Land-cover classification index for sparse vergetation.
 
     ! for output purposes.
     TYPE(t_ptr_i2d3d), ALLOCATABLE :: lc_class_t_ptr(:)
@@ -495,18 +493,18 @@ MODULE mo_ext_data_types
   TYPE :: t_external_data
 
     TYPE(t_external_atmos)    :: atm
-    TYPE(t_var_list)          :: atm_list
+    TYPE(t_var_list_ptr)          :: atm_list
 
     TYPE(t_external_atmos_td) :: atm_td
-    TYPE(t_var_list)          :: atm_td_list
+    TYPE(t_var_list_ptr)          :: atm_td_list
 
     TYPE(t_external_ocean)    :: oce
-    TYPE(t_var_list)          :: oce_list
+    TYPE(t_var_list_ptr)          :: oce_list
 
     TYPE(t_external_bgc)      :: bgc
-    TYPE(t_var_list)          :: bgc_list
+    TYPE(t_var_list_ptr)          :: bgc_list
 !    TYPE(t_external_ocean_td) :: oce_td
-!    TYPE(t_var_list), POINTER :: oce_td_list
+!    TYPE(t_var_list_ptr), POINTER :: oce_td_list
 
   END TYPE t_external_data
 

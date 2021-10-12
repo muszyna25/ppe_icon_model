@@ -30,8 +30,6 @@ MODULE mo_name_list_output_types
     &                                 MAX_NZLEVS, MAX_NILEVS
   USE mo_io_units,              ONLY: filename_max
   USE mo_var_metadata_types,    ONLY: t_var_metadata
-  USE mo_linked_list,           ONLY: t_var_list_intrinsic
-  USE mo_var_list_element,      ONLY: t_var_list_element
   USE mo_util_uuid_types,       ONLY: t_uuid
   USE mo_communication,         ONLY: t_comm_gather_pattern
   USE mtime,                    ONLY: MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN
@@ -75,9 +73,6 @@ MODULE mo_name_list_output_types
   PUBLIC :: all_events
   ! utility subroutines
   PUBLIC :: is_grid_info_var
-  PUBLIC :: var_list_filter_output_patch_levtype
-  PUBLIC :: var_list_search_out_patch_lev
-  PUBLIC :: var_filter_output
 
 
   !------------------------------------------------------------------------------------------------
@@ -282,25 +277,25 @@ MODULE mo_name_list_output_types
   ! Unfortunately, Fortran does not allow arrays of pointers, so we
   ! have to define extra types
   TYPE t_rptr_5d
-    REAL(wp), POINTER :: p(:,:,:,:,:)
+    REAL(wp), POINTER :: p(:,:,:,:,:) => NULL()
   END TYPE t_rptr_5d
 
   TYPE t_sptr_5d
-    REAL(sp), POINTER :: p(:,:,:,:,:)
+    REAL(sp), POINTER :: p(:,:,:,:,:) => NULL()
   END TYPE t_sptr_5d
 
   TYPE t_iptr_5d
-    INTEGER,  POINTER :: p(:,:,:,:,:)
+    INTEGER,  POINTER :: p(:,:,:,:,:) => NULL()
   END TYPE t_iptr_5d
 
 
   TYPE t_var_desc
     !> Pointer to time level independent REAL data (or NULL)
-    REAL(wp), POINTER                     :: r_ptr(:,:,:,:,:)
+    REAL(wp), POINTER                     :: r_ptr(:,:,:,:,:) => NULL()
     !> Pointer to time level independent REAL(sp) data (or NULL)
-    REAL(sp), POINTER                     :: s_ptr(:,:,:,:,:)
+    REAL(sp), POINTER                     :: s_ptr(:,:,:,:,:) => NULL()
     !> Pointer to time level independent INTEGER data (or NULL)
-    INTEGER,  POINTER                     :: i_ptr(:,:,:,:,:)
+    INTEGER,  POINTER                     :: i_ptr(:,:,:,:,:) => NULL()
     !> Pointers to time level dependent REAL data
     TYPE(t_rptr_5d)                       :: tlev_rptr(MAX_TIME_LEVELS)
     !> Pointers to time level dependent REAL(sp) data
@@ -308,7 +303,7 @@ MODULE mo_name_list_output_types
     !> Pointers to time level dependent INTEGER data
     TYPE(t_iptr_5d)                       :: tlev_iptr(MAX_TIME_LEVELS)
     !> Pointer to the info structure of the variable
-    TYPE(t_var_metadata), POINTER         :: info_ptr
+    TYPE(t_var_metadata), POINTER         :: info_ptr => NULL()
 
     !> Info structure for variable: this is a modified copy of the
     !! variable's "info" data object!
@@ -409,8 +404,8 @@ MODULE mo_name_list_output_types
 
     ! The following members are set during open
     INTEGER                               :: cdiFileId
-    INTEGER                               :: cdiVlistId                       !< cdi vlist handler
-    INTEGER                               :: cdiVlistId_orig                  !< cdi vlist handler, storing the model internal vlist id during append
+    INTEGER                               :: cdiVlistId           !< cdi vlist handler
+    INTEGER                               :: cdiVlistId_orig      !< cdi vlist handler, model internal vlist id during append
     INTEGER                               :: cdiCellGridID
     INTEGER                               :: cdiSingleGridID
     INTEGER                               :: cdiZonal1DegID
@@ -420,8 +415,8 @@ MODULE mo_name_list_output_types
     INTEGER                               :: cdiTaxisID
     INTEGER                               :: cdiTaxisID_orig
     INTEGER                               :: cdiTimeIndex
-    INTEGER                               :: cdi_grb2(3,2)                    !< geographical position: (GRID, latitude/longitude)
-    LOGICAL                               :: appending = .FALSE.              !< the current file is appended (.true.), otherwise .false.
+    INTEGER                               :: cdi_grb2(3,2)        !< geographical position: (GRID, latitude/longitude)
+    LOGICAL                               :: appending = .FALSE.  !< the current file is appended (.true.), otherwise .false.
 
   END TYPE t_output_file
 
@@ -452,16 +447,6 @@ MODULE mo_name_list_output_types
   ! at which step:
   TYPE(t_par_output_event), POINTER       :: all_events
 
-  !> this information is typically required to decide if a variable list
-  !! should be inspected for variables, i.e. only variables from
-  !! variable lists that match the requested patch id and level type
-  !! fields and have their loutput member set to .true. are
-  !! candidates for output
-  TYPE var_list_search_out_patch_lev
-    INTEGER :: patch_id  !< patch id to limit search to
-    INTEGER :: ilev_type !< level type to expect
-  END TYPE var_list_search_out_patch_lev
-
 CONTAINS
 
   !------------------------------------------------------------------------------------------------
@@ -478,31 +463,5 @@ CONTAINS
     idx = INDEX(varname, grb2_grid_info_lc)
     is_grid_info_var = (idx > 0)
   END FUNCTION is_grid_info_var
-
-  !> commonly used selection of variable lists by patch id and level
-  !! type and loutput predicate
-  FUNCTION var_list_filter_output_patch_levtype(var_list, state) &
-       RESULT(is_selected)
-    LOGICAL :: is_selected
-    TYPE(t_var_list_intrinsic), INTENT(in) :: var_list
-    CLASS(*), TARGET :: state
-    SELECT TYPE (state)
-    CLASS IS (var_list_search_out_patch_lev)
-      is_selected = var_list%loutput &
-        ! patch_id in var_lists always corresponds to the LOGICAL domain
-        .AND. var_list%patch_id == state%patch_id &
-        .AND. state%ilev_type == var_list%vlevel_type
-    END SELECT
-  END FUNCTION var_list_filter_output_patch_levtype
-
-  !> select all variable lists where loutput is .true.
-  FUNCTION var_filter_output(field, state, var_list) RESULT(is_selected)
-    LOGICAL :: is_selected
-    TYPE(t_var_list_element), INTENT(in) :: field
-    TYPE(t_var_list_intrinsic), INTENT(in) :: var_list
-    CLASS(*), TARGET :: state
-    is_selected = field%info%loutput
-  END FUNCTION var_filter_output
-
 
 END MODULE mo_name_list_output_types

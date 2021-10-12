@@ -1002,6 +1002,143 @@ CONTAINS
   !! Optimized ofr round-off erros, Leonidas Linardakis, MPI-M (2014)
   !------------------------------------------------------------------------
 !<Optimize:inUse>
+#ifdef __LVECTOR__
+  SUBROUTINE velocity_diffusion_vertical_implicit_onBlock( &
+    & patch_3d,                            &
+    & velocity,                            &
+    & a_v,                                 &
+    & operators_coefficients,              &
+    & start_index, end_index, edge_block)
+
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    REAL(wp), INTENT(inout)              :: velocity(:,:)   ! on edges, (nproma, levels)
+    REAL(wp), INTENT(inout)              :: a_v(:,:)      ! on edges, (nproma, levels)
+    TYPE(t_operator_coeff),INTENT(IN) ,TARGET :: operators_coefficients
+    INTEGER , INTENT(in):: start_index, end_index, edge_block
+    !
+!     REAL(wp) :: dt_inv
+    REAL(wp) :: inv_prism_thickness(nproma,1:n_zlev), inv_prisms_center_distance(nproma,1:n_zlev)
+    REAL(wp) :: a(nproma,1:n_zlev), b(nproma,1:n_zlev), c(nproma,1:n_zlev)
+    REAL(wp) :: column_velocity(nproma,1:n_zlev)
+    REAL(wp) :: fact(1:n_zlev)
+
+    INTEGER :: bottom_level(nproma)
+    INTEGER :: edge_index, level
+    TYPE(t_patch), POINTER :: patch_2d
+
+    !-----------------------------------------------------------------------
+!     dt_inv = 1.0_wp/dtime
+    DO edge_index = start_index, end_index
+      bottom_level(edge_index) = patch_3d%p_patch_1d(1)%dolic_e(edge_index,edge_block)
+    ENDDO
+    ! Note : the inv_prism_thick_e, inv_prism_center_dist_e should be updated in calculate_thickness
+    DO level=1, MAXVAL(patch_3d%p_patch_1d(1)%dolic_e(start_index:end_index,edge_block))
+      DO edge_index = start_index, end_index
+        IF (bottom_level(edge_index) < 2 .OR. level > bottom_level(edge_index)) CYCLE ! nothing to diffuse
+       
+        inv_prism_thickness(edge_index,level)        = patch_3d%p_patch_1d(1)%inv_prism_thick_e(edge_index,level,edge_block)
+        inv_prisms_center_distance(edge_index,level) = patch_3d%p_patch_1d(1)%inv_prism_center_dist_e(edge_index,level,edge_block)
+        
+        column_velocity(edge_index,level) = velocity(edge_index,level)
+               
+      END DO ! edge_index = start_index, end_index
+    ENDDO
+
+    !------------------------------------
+    ! Fill triangular matrix
+    ! b is diagonal, a is the upper diagonal, c is the lower
+    !   top level
+    a(start_index:end_index,1) = 0.0_wp
+    
+    DO edge_index = start_index, end_index
+      IF (bottom_level(edge_index) < 2) CYCLE ! nothing to diffuse
+            
+      c(edge_index,1) = -a_v(edge_index,2) * & 
+          & inv_prism_thickness(edge_index,1) * inv_prisms_center_distance(edge_index,2)*dtime
+      b(edge_index,1) = 1.0_wp - c(edge_index,1)
+    ENDDO
+    
+!     c(start_index:end_index,1) = -a_v(start_index:end_index,2) * & 
+!       & inv_prism_thickness(start_index:end_index,1) * inv_prisms_center_distance(start_index:end_index,2)*dtime
+!     b(start_index:end_index,1) = 1.0_wp - c(start_index:end_index,1)
+    DO level = 2, MAXVAL(patch_3d%p_patch_1d(1)%dolic_e(start_index:end_index,edge_block))-1
+      DO edge_index = start_index, end_index
+!         bottom_level = patch_3d%p_patch_1d(1)%dolic_e(edge_index,edge_block)
+        IF (bottom_level(edge_index) < 2 .OR. level > bottom_level(edge_index)-1) CYCLE ! nothing to diffuse
+        a(edge_index,level) = - a_v(edge_index,level)   * inv_prism_thickness(edge_index,level) * inv_prisms_center_distance(edge_index,level)*dtime
+        c(edge_index,level) = - a_v(edge_index,level+1) * inv_prism_thickness(edge_index,level) * inv_prisms_center_distance(edge_index,level+1)*dtime
+        b(edge_index,level) = 1.0_wp - a(edge_index,level) - c(edge_index,level)
+      END DO ! edge_index = start_index, end_index
+    END DO
+      ! bottom
+    DO edge_index = start_index, end_index
+!       bottom_level = patch_3d%p_patch_1d(1)%dolic_e(edge_index,edge_block)
+      IF (bottom_level(edge_index) < 2) CYCLE
+      a(edge_index,bottom_level(edge_index)) = -a_v(edge_index,bottom_level(edge_index)) *  &
+        & inv_prism_thickness(edge_index,bottom_level(edge_index)) * &
+        & inv_prisms_center_distance(edge_index,bottom_level(edge_index)) * dtime
+      b(edge_index,bottom_level(edge_index)) = 1.0_wp - a(edge_index,bottom_level(edge_index))
+      c(edge_index,bottom_level(edge_index)) = 0.0_wp
+    END DO
+
+    IF (eliminate_upper_diag) THEN
+        ! solve the tridiagonal matrix by eliminating c (the upper diagonal) 
+      DO level = MAXVAL(patch_3d%p_patch_1d(1)%dolic_e(start_index:end_index,edge_block))-1, 1, -1
+        DO edge_index = start_index, end_index
+!           bottom_level = patch_3d%p_patch_1d(1)%dolic_e(edge_index,edge_block)
+          IF (bottom_level(edge_index) < 2 .OR. level > bottom_level(edge_index)-1) CYCLE ! nothing to diffuse
+          fact(level)=c(edge_index,level)/b(edge_index,level+1)
+          b(edge_index,level)=b(edge_index,level)-a(edge_index,level+1)*fact(level)
+          c(edge_index,level) = 0.0_wp
+          column_velocity(edge_index,level) = column_velocity(edge_index,level) - fact(level)*column_velocity(edge_index,level+1)
+        END DO ! edge_index = start_index, end_index
+      ENDDO
+
+      DO edge_index = start_index, end_index
+        IF (bottom_level(edge_index) < 2) CYCLE ! nothing to diffuse
+        velocity(edge_index,1) = column_velocity(edge_index,1)/b(edge_index,1)
+      ENDDO
+      DO level = 2, MAXVAL(patch_3d%p_patch_1d(1)%dolic_e(start_index:end_index,edge_block))
+        DO edge_index = start_index, end_index
+!           bottom_level = patch_3d%p_patch_1d(1)%dolic_e(edge_index,edge_block)
+          IF (bottom_level(edge_index) < 2 .OR. level > bottom_level(edge_index)) CYCLE ! nothing to diffuse
+          velocity(edge_index,level) = (column_velocity(edge_index,level) - &
+            a(edge_index,level)*  velocity(edge_index,level-1)) / b(edge_index,level)    
+        END DO ! edge_index = start_index, end_index
+      ENDDO
+
+    ELSE
+        ! solve the tridiagonal matrix by eliminating a (the lower diagonal) 
+      DO level=2, MAXVAL(patch_3d%p_patch_1d(1)%dolic_e(start_index:end_index,edge_block))
+        DO edge_index = start_index, end_index
+!           bottom_level = patch_3d%p_patch_1d(1)%dolic_e(edge_index,edge_block)
+          IF (bottom_level(edge_index) < 2 .OR. level > bottom_level(edge_index)) CYCLE ! nothing to diffuse
+          fact(level)=a(edge_index,level)/b(edge_index,level-1)
+          b(edge_index,level)=b(edge_index,level)-c(edge_index,level-1)*fact(level)
+          a(edge_index,level) = 0.0_wp
+          column_velocity(edge_index,level) = column_velocity(edge_index,level) - fact(level)*column_velocity(edge_index,level-1)
+        END DO ! edge_index = start_index, end_index
+      ENDDO
+      
+      DO edge_index = start_index, end_index
+        IF (bottom_level(edge_index) < 2) CYCLE ! nothing to diffuse
+        velocity(edge_index,bottom_level(edge_index)) = column_velocity(edge_index,bottom_level(edge_index))/ &
+          & b(edge_index,bottom_level(edge_index))
+      ENDDO
+      DO level=MAXVAL(patch_3d%p_patch_1d(1)%dolic_e(start_index:end_index,edge_block))-1,1,-1
+        DO edge_index = start_index, end_index
+!           bottom_level = patch_3d%p_patch_1d(1)%dolic_e(edge_index,edge_block)
+          IF (bottom_level(edge_index) < 2 .OR. level > bottom_level(edge_index)-1) CYCLE ! nothing to diffuse
+          velocity(edge_index,level) = (column_velocity(edge_index,level) - &
+            c(edge_index,level) * velocity(edge_index,level+1)) / b(edge_index,level)
+            
+        END DO ! edge_index = start_index, end_index
+      ENDDO                 
+      
+    ENDIF
+
+  END SUBROUTINE velocity_diffusion_vertical_implicit_onBlock
+#else
   SUBROUTINE velocity_diffusion_vertical_implicit_onBlock( &
     & patch_3d,                            &
     & velocity,                            &
@@ -1017,7 +1154,7 @@ CONTAINS
     !
 !     REAL(wp) :: dt_inv
     REAL(wp) :: inv_prism_thickness(1:n_zlev), inv_prisms_center_distance(1:n_zlev)
-    REAL(wp) :: a(1:n_zlev), b(1:n_zlev), c(1:n_zlev), diagonal_product
+    REAL(wp) :: a(1:n_zlev), b(1:n_zlev), c(1:n_zlev)
     REAL(wp) :: column_velocity(1:n_zlev)
     REAL(wp) :: fact(1:n_zlev)
 
@@ -1093,5 +1230,6 @@ CONTAINS
     END DO ! edge_index = start_index, end_index
 
   END SUBROUTINE velocity_diffusion_vertical_implicit_onBlock
+#endif
   
 END MODULE mo_ocean_velocity_diffusion

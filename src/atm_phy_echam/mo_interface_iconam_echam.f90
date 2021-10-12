@@ -13,15 +13,15 @@
 !!
 !! The coupling mechanism is controlled by echam_phy_config%ldcphycpl:
 !!
-!! ldcphycpl = .FALSE.: The whole physics is treated as "fast" phyiscs.
+!! ldcphycpl = .FALSE.: The whole physics is treated as "fast" physics.
 !!                      The physics tendencies are computed from the
 !!                      provisional state reached after dynamics&transport
 !!                      and the full physics tendencies are then used to
 !!                      update and reach the final new state
 !!
-!! ldcphycpl = .TRUE. : The whole physics is treated as "slow" phyiscs.
+!! ldcphycpl = .TRUE. : The whole physics is treated as "slow" physics.
 !!                      The state after dynamics+transport is the final
-!!                      state for which the full phyiscs tandencies are
+!!                      state for which the full physics tandencies are
 !!                      computed. These will be used in the following
 !!                      timestep as forcing for the dynamics and for
 !!                      updating tracers after the transport.
@@ -64,13 +64,13 @@
 
 MODULE mo_interface_iconam_echam
 
-  USE mo_kind                  ,ONLY: wp
+  USE mo_kind                  ,ONLY: wp, vp
   USE mo_exception             ,ONLY: warning, finish, print_value
 
   USE mo_coupling_config       ,ONLY: is_coupled_run
   USE mo_parallel_config       ,ONLY: nproma
   USE mo_advection_config      ,ONLY: advection_config
-  USE mo_run_config            ,ONLY: nlev, ntracer, iqv, iqc, iqi, iqm_max
+  USE mo_run_config            ,ONLY: nlev, ntracer, iqv, iqc, iqi
   USE mo_nonhydrostatic_config ,ONLY: lhdiff_rcf
   USE mo_diffusion_config      ,ONLY: diffusion_config
   USE mo_echam_phy_config      ,ONLY: echam_phy_config
@@ -108,7 +108,7 @@ MODULE mo_interface_iconam_echam
     &                                 timer_phy2dyn, timer_p2d_prep, timer_p2d_sync, timer_p2d_couple
   USE mo_run_config,            ONLY: lart
 #if defined( _OPENACC )
-  USE mo_var_list_gpu          ,ONLY: gpu_h2d_var_list, gpu_d2h_var_list
+  USE mo_var_list_gpu          ,ONLY: gpu_update_var_list
 #endif
 
   USE mo_upatmo_config         ,ONLY: upatmo_config
@@ -187,7 +187,7 @@ CONTAINS
 
     TYPE(t_echam_phy_field) , POINTER    :: field
     TYPE(t_echam_phy_tend)  , POINTER    :: tend
-
+ 
     REAL(wp) :: z_exner              !< to save provisional new exner
     REAL(wp) :: z_qsum               !< summand of virtual increment
 !!$    REAL(wp) :: z_ddt_qsum           !< summand of virtual increment
@@ -233,7 +233,7 @@ CONTAINS
     field => prm_field(jg)
     tend  => prm_tend (jg)
 
-    ! The date and time needed for the radiation computation in the phyiscs is
+    ! The date and time needed for the radiation computation in the physics is
     ! the date and time of the initial data for this step.
     ! As 'datetime_new' contains already the date and time of the end of this
     ! time step, we compute here the old datetime 'datetime_old':
@@ -248,16 +248,16 @@ CONTAINS
     !$ACC               pt_prog_old_rcf%tracer, pt_prog_new%vn, pt_prog_new%w, pt_prog_new%rho, &
     !$ACC               pt_prog_new%exner, pt_prog_new%theta_v,                                 &
     !$ACC               pt_prog_new_rcf%tracer,                                                 &
-    !$ACC               pt_diag%u, pt_diag%v, pt_diag%vor, pt_diag%temp, pt_diag%tempv,         &
-    !$ACC               pt_diag%pres, pt_diag%pres_ifc, pt_diag%ddt_tracer_adv,                 &
+    !$ACC               pt_diag%u, pt_diag%v, pt_diag%temp, pt_diag%tempv,                      &
+    !$ACC               pt_diag%ddt_tracer_adv,                                                 &
     !$ACC               pt_diag%ddt_vn_phy, pt_diag%exner_pr, pt_diag%ddt_exner_phy,            &
     !$ACC               pt_diag%exner_dyn_incr,                                                 &
     !$ACC               pt_int_state%c_lin_e,  advection_config(jg)%trHydroMass%list,           &
     !$ACC               patch%edges%cell_idx, patch%edges%primal_normal_cell,                   &
-    !$ACC               field%ua, field%va, field%vor, field%ta, field%tv, field%presm_old,     &
-    !$ACC               field%presm_new, field%rho, field%mair, field%dz, field%mh2o,           &
-    !$ACC               field%mdry, field%mref, field%xref, field%wa, field%omega, field%presi_old,       &
-    !$ACC               field%presi_new, field%clon, field%clat, field%mtrc, field%qtrc,        &
+    !$ACC               field%pfull,                                                            &
+    !$ACC               field%rho, field%mair, field%dz, field%mh2o,                            &
+    !$ACC               field%mdry, field%mref, field%xref, field%wa, field%omega,              &
+    !$ACC               field%clon, field%clat, field%mtrc, field%qtrc,                         &
     !$ACC               field%mtrcvi, field%mh2ovi, field%mairvi, field%mdryvi, field%mrefvi,   &
     !$ACC               tend%ua, tend%va, tend%ta, tend%ua_dyn, tend%va_dyn, tend%ta_dyn,       &
     !$ACC               tend%ua_phy, tend%va_phy, tend%ta_phy, tend%qtrc, tend%qtrc_dyn,        &
@@ -298,7 +298,7 @@ CONTAINS
     !=====================================================================================
     !
     ! (1) Complete prognostic and diagnostic state as needed for the computation
-    !     of the phyiscs tendendies.
+    !     of the physics tendendies.
     !
     !     ldcphycpl = .FALSE. : fast physics coupling, dynamics and physics update sequentially
     !     ldcphycpl = .TRUE.  : slow physics coupling, dynamics uses physics forcing for updating
@@ -355,13 +355,60 @@ CONTAINS
     !
     ! ldcphycpl = .FALSE.: The "new" state is provisional, updated only by dynamics,
     !                      diffusion and tracer transport.
-    !                      In the following the phyiscs forcing is computed for this new
+    !                      In the following the physics forcing is computed for this new
     !                      provisional state and the provisional new state is updated
     !                      to obtain the final "new" state X(t+dt).
     !
     ! ldcphycpl = .TRUE. : The "new" state is the final state X(t+dt).
-    !                      In the following the phyiscs forcing is computed for this new
+    !                      In the following the physics forcing is computed for this new
     !                      final state so that it is available in the next time step.
+    !
+    !=====================================================================================
+
+    !=====================================================================================
+    !
+    ! Handling of negative tracer mass fractions resulting from dynamics
+    !
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = jbs_c,jbe_c
+      !
+      CALL get_indices_c(patch, jb,jbs_c,jbe_c, jcs,jce, rls_c,rle_c)
+      IF (jcs>jce) CYCLE
+      !
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR COLLAPSE(3)
+      DO jt = 1,ntracer
+        DO jk = 1,nlev
+          DO jc = jcs, jce
+            !
+            IF (echam_phy_config(jg)%iqneg_d2p /= 0) THEN
+                IF (pt_prog_new_rcf% tracer(jc,jk,jb,jt) < 0.0_wp) THEN
+#ifndef _OPENACC
+                  IF (echam_phy_config(jg)%iqneg_d2p == 1 .OR. echam_phy_config(jg)%iqneg_d2p == 3) THEN
+                     CALL print_value('d2p:grid   index jg',jg)
+                     CALL print_value('d2p:tracer index jt',jt)
+                     CALL print_value('d2p:level  index jk',jk)
+                     CALL print_value('d2p:pressure   [Pa]',field% pfull(jc,jk,jb))
+                     CALL print_value('d2p:longitude [deg]',field% clon(jc,jb)*rad2deg)
+                     CALL print_value('d2p:latitude  [deg]',field% clat(jc,jb)*rad2deg)
+                     CALL print_value('d2p:pt_prog_new_rcf%tracer',pt_prog_new_rcf% tracer(jc,jk,jb,jt))
+                  END IF
+#endif
+                  IF (echam_phy_config(jg)%iqneg_d2p == 2 .OR. echam_phy_config(jg)%iqneg_d2p == 3) THEN
+                     pt_prog_new_rcf% tracer(jc,jk,jb,jt) = 0.0_wp
+                  END IF
+               END IF
+            END IF
+            !
+          END DO
+        END DO
+      END DO
+      !$ACC END PARALLEL
+      !
+    END DO
+!$OMP END DO
+!$OMP END PARALLEL
     !
     !=====================================================================================
 
@@ -369,12 +416,12 @@ CONTAINS
     !
     ! (2) Diagnostics
     !
-    ! - pt_diag%tempv
-    ! - pt_diag%temp
-    ! - pt_diag%pres_sfc   surface pressure filtered to remove sound waves, see diagnose_pres_temp
-    ! - pt_diag%pres_ifc   hydrostatic pressure at layer interface
-    ! - pt_diag%pres       hydrostatic pressure at layer midpoint = SQRT(upper pres_ifc * lower pres_ifc)
-    ! - pt_diag%dpres_mc   pressure thickness of layer
+    ! - pt_diag%tempv    = field%tv
+    ! - pt_diag%temp     = field%ta
+    ! - pt_diag%pres_sfc                surface pressure filtered to remove sound waves, see diagnose_pres_temp
+    ! - pt_diag%pres_ifc = field%phalf  hydrostatic pressure at layer interface
+    ! - pt_diag%pres     = field%pfull  hydrostatic pressure at layer midpoint = SQRT(upper pres_ifc * lower pres_ifc)
+    ! - pt_diag%dpres_mc                pressure thickness of layer
     !
     ! For the old state:
     !
@@ -466,7 +513,7 @@ CONTAINS
     
     !
     ! Now the old and new prognostic and diagnostic state variables of the dynamical core
-    ! are ready to be used in the phyiscs.
+    ! are ready to be used in the physics.
     !
     !=====================================================================================
 
@@ -474,7 +521,7 @@ CONTAINS
     !=====================================================================================
     !
     ! (3) Copy the new prognostic state and the related diagnostics from the
-    !     dynamics state variables to the phyiscs state variables
+    !     dynamics state variables to the physics state variables
     !
 
     ! Loop over cells
@@ -493,16 +540,6 @@ CONTAINS
         DO jc = jcs, jce
           !
           ! Fill the time dependent physics state variables, which are used by echam:
-          !
-          field%        ua(jc,jk,jb) = pt_diag%     u(jc,jk,jb)
-          field%        va(jc,jk,jb) = pt_diag%     v(jc,jk,jb)
-          field%       vor(jc,jk,jb) = pt_diag%   vor(jc,jk,jb)
-          !
-          field%        ta(jc,jk,jb) = pt_diag% temp (jc,jk,jb)
-          field%        tv(jc,jk,jb) = pt_diag% tempv(jc,jk,jb)
-          !
-          field% presm_old(jc,jk,jb) = pt_diag% pres(jc,jk,jb)
-          field% presm_new(jc,jk,jb) = pt_diag% pres(jc,jk,jb)
           !
           ! density
           field%       rho(jc,jk,jb) = pt_prog_new% rho(jc,jk,jb)
@@ -590,18 +627,6 @@ CONTAINS
       DO jk = 1,nlev+1
         DO jc = jcs, jce
           !
-          field% presi_old(jc,jk,jb) = pt_diag% pres_ifc(jc,jk,jb)
-          field% presi_new(jc,jk,jb) = pt_diag% pres_ifc(jc,jk,jb)
-          !
-        END DO
-      END DO
-      !$ACC END PARALLEL
-      !
-      !$ACC PARALLEL DEFAULT(PRESENT)
-      !$ACC LOOP GANG VECTOR COLLAPSE(2)
-      DO jk = 1,nlev+1
-        DO jc = jcs, jce
-          !
           field%     wa(jc,jk,jb) = pt_prog_new% w(jc,jk,jb)          !
         END DO
       END DO
@@ -625,27 +650,6 @@ CONTAINS
       DO jt = 1,ntracer
         DO jk = 1,nlev
           DO jc = jcs, jce
-            !
-            ! Handling of negative tracer mass fractions resulting from dynamics
-            !
-            IF (echam_phy_config(jg)%iqneg_d2p /= 0) THEN
-                IF (pt_prog_new_rcf% tracer(jc,jk,jb,jt) < 0.0_wp) THEN
-#ifndef _OPENACC
-                  IF (echam_phy_config(jg)%iqneg_d2p == 1 .OR. echam_phy_config(jg)%iqneg_d2p == 3) THEN
-                     CALL print_value('grid   index jg',jg)
-                     CALL print_value('tracer index jt',jt)
-                     CALL print_value('level  index jk',jk)
-                     CALL print_value('pressure   [Pa]',field% presm_new(jc,jk,jb))
-                     CALL print_value('longitude [deg]',field% clon(jc,jb)*rad2deg)
-                     CALL print_value('latitude  [deg]',field% clat(jc,jb)*rad2deg)
-                     CALL print_value('pt_prog_new_rcf%tracer',pt_prog_new_rcf% tracer(jc,jk,jb,jt))
-                  END IF
-#endif
-                  IF (echam_phy_config(jg)%iqneg_d2p == 2 .OR. echam_phy_config(jg)%iqneg_d2p == 3) THEN
-                     pt_prog_new_rcf% tracer(jc,jk,jb,jt) = 0.0_wp
-                  END IF
-               END IF
-            END IF
             !
             ! Tracer mass
             !
@@ -717,8 +721,6 @@ CONTAINS
     IF (ltimer) CALL timer_stop(timer_echam_bcs)
     !
     !=====================================================================================
-
-    !=====================================================================================
     !
     ! (4) Call echam physics and compute the total physics tendencies.
     !     This includes the atmospheric processes (proper ECHAM) and
@@ -727,7 +729,7 @@ CONTAINS
     !
 #ifndef __NO_JSBACH__
     IF (echam_phy_config(jg)%ljsb) THEN
-      CALL jsbach_start_timestep(jg)
+      CALL jsbach_start_timestep(jg, datetime_old, dt_loc)
     END IF
 #endif
 
@@ -742,15 +744,14 @@ CONTAINS
 
     IF (ltimer) CALL timer_stop(timer_echam_phy)
 
-    CALL deallocateDatetime(datetime_old)
-    !
-    !=====================================================================================
-
 #ifndef __NO_JSBACH__
     IF (echam_phy_config(jg)%ljsb) THEN
-      CALL jsbach_finish_timestep(jg, dt_loc)
+      CALL jsbach_finish_timestep(jg, datetime_old, dt_loc)
     END IF
 #endif
+
+    CALL deallocateDatetime(datetime_old)
+    !
     !=====================================================================================
     !
     ! (5) Couple to ocean surface if an ocean is present and this is a coupling time step.
@@ -759,8 +760,8 @@ CONTAINS
     IF ( is_coupled_run() ) THEN
 #if defined( _OPENACC )
       CALL warning('GPU:interface_echam_ocean','GPU host synchronization should be removed when port is done!')
-      CALL gpu_d2h_var_list('prm_field_D', jg)
-      CALL gpu_d2h_var_list('prm_tend_D', jg)
+      CALL gpu_update_var_list('prm_field_D', .false., jg)
+      CALL gpu_update_var_list('prm_tend_D', .false., jg)
 #endif
 
       IF (ltimer) CALL timer_start(timer_coupling)
@@ -771,8 +772,8 @@ CONTAINS
 
 #if defined( _OPENACC )
       CALL warning('GPU:interface_echam_ocean','GPU device synchronization should be removed when port is done!')
-      CALL gpu_h2d_var_list('prm_field_D', jg)
-      CALL gpu_h2d_var_list('prm_tend_D', jg)
+      CALL gpu_update_var_list('prm_field_D', .true., jg)
+      CALL gpu_update_var_list('prm_tend_D', .true., jg)
 #endif
     END IF
     !
@@ -785,6 +786,20 @@ CONTAINS
     ! (6) Convert physics tendencies to dynamics tendencies
     !
     IF (ltimer) CALL timer_start(timer_p2d_prep)
+
+    !     (a) diagnose again temperature, which is provisionally updated in phyiscs,
+    !         from the "new" state after dynamics, so that the temperature field
+    !         can be used for updating the model state
+    !
+    CALL diagnose_pres_temp( p_metrics                ,&
+      &                      pt_prog_new              ,&
+      &                      pt_prog_new_rcf          ,&
+      &                      pt_diag                  ,&
+      &                      patch                    ,&
+      &                      opt_calc_temp=.TRUE.     ,&
+      &                      opt_calc_pres=.FALSE.    ,&
+      &                      opt_rlend=min_rlcell_int ,& 
+      &                      opt_lconstgrav=upatmo_config(jg)%echam_phy%l_constgrav )
 
     !     (b) (du/dt|phy, dv/dt|phy) --> dvn/dt|phy
     !
@@ -871,8 +886,8 @@ CONTAINS
           zvn2 =   zdudt(jcn,jk,jbn)*patch%edges%primal_normal_cell(je,jb,2)%v1 &
             &    + zdvdt(jcn,jk,jbn)*patch%edges%primal_normal_cell(je,jb,2)%v2
           !
-          pt_diag%ddt_vn_phy(je,jk,jb) =   pt_int_state%c_lin_e(je,1,jb)*zvn1 &
-            &                            + pt_int_state%c_lin_e(je,2,jb)*zvn2
+          pt_diag%ddt_vn_phy(je,jk,jb) =   REAL(  pt_int_state%c_lin_e(je,1,jb)*zvn1      &
+            &                                   + pt_int_state%c_lin_e(je,2,jb)*zvn2, vp)
           !
         END DO ! je
       END DO ! jk
@@ -902,13 +917,13 @@ CONTAINS
       ! - The full physics forcing has been computed for the final "new" state,
       !   which is the "now" state of the next time step, on which the forcing
       !   shall be applied.
-      ! - Hence the full phyiscs forcing is passed on and nothing needs to be
+      ! - Hence the full physics forcing is passed on and nothing needs to be
       !   done here.
       !
     ELSE
       !
       ! In this case all ECHAM physics is treated as "fast" physics:
-      ! - The provisional "new" state is updated with the total phyiscs
+      ! - The provisional "new" state is updated with the total physics
       !   tendencies, providing the final "new" state
       ! - The physics forcing that is passed to the dynamical
       !   core must be set to zero
@@ -927,7 +942,7 @@ CONTAINS
             !
             ! (1) Velocity
             !
-            ! Update with the total phyiscs tendencies
+            ! Update with the total physics tendencies
             pt_prog_new%vn    (je,jk,jb) =   pt_prog_new%vn    (je,jk,jb)             &
               &                            + pt_diag%ddt_vn_phy(je,jk,jb) * dt_loc
             !
@@ -973,7 +988,7 @@ IF (lart) jt_end = advection_config(jg)%nname
               tend% qtrc      (jc,jk,jb,jt) = tend% qtrc_dyn(jc,jk,jb,jt)  &
                 &                            +tend% qtrc_phy(jc,jk,jb,jt)
               !
-              ! (2.1) Tracer mixing ratio with respect to dry air
+              ! (2.1) Tracer mixing ratio with respect to reference air mass
               !
               ! tracer mass tendency
               tend% mtrc_phy  (jc,jk,jb,jt) = tend% qtrc_phy(jc,jk,jb,jt) &
@@ -1002,13 +1017,13 @@ IF (lart) jt_end = advection_config(jg)%nname
                     IF (field% mtrc(jc,jk,jb,jt) < 0.0_wp) THEN
 #ifndef _OPENACC
                         IF (echam_phy_config(jg)%iqneg_p2d == 1 .OR. echam_phy_config(jg)%iqneg_p2d == 3) THEN
-                          CALL print_value('grid   index jg',jg)
-                          CALL print_value('tracer index jt',jt)
-                          CALL print_value('level  index jk',jk)
-                          CALL print_value('pressure   [Pa]',field% presm_new(jc,jk,jb))
-                          CALL print_value('longitude [deg]',field% clon(jc,jb)*rad2deg)
-                          CALL print_value('latitude  [deg]',field% clat(jc,jb)*rad2deg)
-                          CALL print_value('field%mtrc     ',field% mtrc(jc,jk,jb,jt))
+                          CALL print_value('p2d:grid   index jg',jg)
+                          CALL print_value('p2d:tracer index jt',jt)
+                          CALL print_value('p2d:level  index jk',jk)
+                          CALL print_value('p2d:pressure   [Pa]',field% pfull(jc,jk,jb))
+                          CALL print_value('p2d:longitude [deg]',field% clon(jc,jb)*rad2deg)
+                          CALL print_value('p2d:latitude  [deg]',field% clat(jc,jb)*rad2deg)
+                          CALL print_value('p2d:field%mtrc     ',field% mtrc(jc,jk,jb,jt))
                         END IF
 #endif
                         IF (echam_phy_config(jg)%iqneg_p2d == 2 .OR. echam_phy_config(jg)%iqneg_p2d == 3) THEN
@@ -1025,12 +1040,12 @@ IF (lart) jt_end = advection_config(jg)%nname
               field% mtrcvi   (jc,   jb,jt) = field% mtrcvi  (jc,   jb,jt) &
                 &                            +field% mtrc    (jc,jk,jb,jt)
               !
-            END DO
-          END DO
-        END DO
+            END DO  ! jc
+          END DO    ! jt
+        END DO      ! jk
         !$ACC END PARALLEL
         !
-      END DO
+      END DO  ! jb
 !$OMP END DO
 !$OMP END PARALLEL
 
@@ -1130,16 +1145,22 @@ IF (lart) jt_end = advection_config(jg)%nname
           DO jk = 1,nlev
             DO jc = jcs, jce
               !
-              ! new tracer mass fraction with respect to dry air
+              ! new tracer mass fraction with respect to reference air mass
               field%           qtrc   (jc,jk,jb,jt)  = field%  mtrc(jc,jk,jb,jt) &
                 &                                     /field%  mref(jc,jk,jb)
               !
               IF (echam_phy_config(jg)%ldrymoist) THEN
                  ! in this case mtrc or mair or both may have changed, and
-                 ! terefore always re-compute the tracer variable
+                 ! therefore always re-compute the tracer variable
                  pt_prog_new_rcf% tracer (jc,jk,jb,jt)  = field%  mtrc(jc,jk,jb,jt) &
                    &                                     /field%  mair(jc,jk,jb)
                  !
+              ELSE IF (echam_phy_config(jg)%l2moment) Then
+                 ! this is a special case for the 2 moment scheme as field%mtrc
+                 ! is changed by clipping after calculating changes due to physical
+                 ! tendencies, so we have to re-compute all tracer variables.
+                 pt_prog_new_rcf% tracer (jc,jk,jb,jt)  = field% mtrc(jc,jk,jb,jt) &
+                   &                                     /field%  mair(jc,jk,jb)
               ELSE
                  ! in this case mair is unchanged, and the tracer variable
                  ! is re-computed only if the mtrc is changed due to a physical
@@ -1225,7 +1246,7 @@ ENDIF
                ! Compute final new exner
                pt_prog_new% exner(jc,jk,jb) = EXP(rd_o_cpd*LOG(rd/p0ref * pt_prog_new% rho(jc,jk,jb) * pt_diag% tempv(jc,jk,jb)))
                !
-               ! Add exner change from fast phyiscs to exner_pr in order to avoid unphysical sound wave generation
+               ! Add exner change from fast physics to exner_pr in order to avoid unphysical sound wave generation
                pt_diag% exner_pr(jc,jk,jb)  = pt_diag% exner_pr(jc,jk,jb) + pt_prog_new% exner(jc,jk,jb) - z_exner
                !
 !!$               ! (b) Update Exner, then compute Temp_v
@@ -1313,10 +1334,6 @@ ENDIF
 
     IF (ltimer) CALL timer_stop(timer_phy2dyn)
 
-#if defined( _OPENACC )
-!!!  This has been deactivated in merge_candidate_8_no_updates; it is only a debugging placeholder
-!!!    CALL gpu_d2h_iconam_echam(patch)
-#endif
     !=====================================================================================
     !
     ! Now the final new state (pt_prog_new/pt_prog_new_rcf) and
@@ -1327,27 +1344,5 @@ ENDIF
 
   END SUBROUTINE interface_iconam_echam
   !----------------------------------------------------------------------------
-
-  SUBROUTINE gpu_d2h_iconam_echam(patch)
-    USE mo_dynamics_config,          ONLY: nnow,nnew, nnow_rcf, nnew_rcf
-    TYPE(t_patch)         , INTENT(inout), TARGET :: patch           !< grid/patch info
-    INTEGER :: jg
-
-    jg = patch%id
-
-    !$ACC UPDATE HOST( patch%edges%cell_idx, patch%edges%primal_normal_cell )
-
-#if defined( _OPENACC )
-      CALL warning('GPU:interface_iconam_echam','GPU host synchronization should be removed when port is done!')
-      CALL gpu_d2h_var_list('nh_state_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnow(jg))
-      CALL gpu_d2h_var_list('nh_state_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnow_rcf(jg))
-      CALL gpu_d2h_var_list('nh_state_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnew(jg))
-      CALL gpu_d2h_var_list('nh_state_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnew_rcf(jg))
-      CALL gpu_d2h_var_list('nh_state_diag_of_domain_', domain=jg )
-      CALL gpu_d2h_var_list('prm_field_D', domain=jg)
-      CALL gpu_d2h_var_list('prm_tend_D', domain=jg)
-#endif
-
-  END SUBROUTINE gpu_d2h_iconam_echam
 
 END MODULE mo_interface_iconam_echam

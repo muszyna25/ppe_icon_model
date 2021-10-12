@@ -30,6 +30,7 @@
 !! infrastructure by Kristina Froehlich (MPI-M, 2011-04-27)
 !! Added clch, clcm, clcl, hbas_con, htop_con by Helmut Frank (DWD, 2013-01-17)
 !! Added hzerocl and gusts                    by Helmut Frank (DWD, 2013-03-13)
+!! Added LPI, MLPI and koi to t_nwp_phy_diag by Guido Schroeder (DWD, 2021-01-29)
 !!
 !! @par Copyright and License
 !!
@@ -215,6 +216,7 @@ MODULE mo_nwp_phy_types
       &  swflxclrsfc_a(:,:),   & !! Clear-sky surface net solar radiation [W/m2], accumulated or mean since model start
       &  lwflxtoa_a(:,:),      & !! TOA net thermal radiation [W/m2], accumulated or mean since model start
       &  swflxtoa_a(:,:),      & !! shortwave net flux at toa [W/m2], accumulated or mean since model start
+      &  dursun(:,:),          & !! duration of sunshine [s]
       &  asod_t    (:,:),      & !! Top down solar radiation  [W/m2], accumulated or mean since model start
       &  asou_t    (:,:),      & !! Top up solar radiation  [W/m2], accumulated or mean since model start
       &  athd_s    (:,:),      & !! Surface down thermal radiation [W/m2], accumulated or mean since model start
@@ -390,7 +392,7 @@ MODULE mo_nwp_phy_types
       p_ctop(:,:) !         & !>cloud top pressure
       !cld_opt_thck(
 
-    ! for old aerosol climatology from COSMO (to be used with inwp_radiation==2)
+    ! for old aerosol climatology from COSMO (to be used with now removed Ritter-Geleyn radiation)
     REAL(wp), POINTER       &
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
       , CONTIGUOUS          &
@@ -454,6 +456,13 @@ MODULE mo_nwp_phy_types
       sdi2(:,:),           & !> supercell detection index (SDI2)
       lpi(:,:),            & !> lightning potential index (LPI)
       lpi_max(:,:),        & !> lightning potential index, maximum (LPI_MAX)
+      koi(:,:),            & !> KOI (stability measure - equivalent potential temperature difference
+      lpi_con(:,:),        & !> LPI computed with convection scheme variables
+      lpi_con_max(:,:),    & !> Maximum of LPI
+      mlpi_con(:,:),       & !> modified LPI (making use of KOI)
+      mlpi_con_max(:,:),   & !> maximum of modified LPI (making use of KOI)
+      lfd_con(:,:),        & !> lightening flash density computed with convection scheme variables
+      lfd_con_max(:,:),    & !> maximum of LFD
       ceiling_height(:,:), & !> ceiling height
       hbas_sc(:,:),        & !> height of base above MSL from shallow convection parameterization
       htop_sc(:,:),        & !> height of top  above MSL from shallow convection parameterization

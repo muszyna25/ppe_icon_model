@@ -122,6 +122,11 @@ MODULE mo_echam_phy_config
      CHARACTER(len=max_datetime_str_len ) :: ed_mig  !< end   time of cloud microphysics (graupel)
      INTEGER                              :: fc_mig
      !
+     CHARACTER(len=max_timedelta_str_len) :: dt_two  !< time  step of cloud microphysics (twomom)
+     CHARACTER(len=max_datetime_str_len ) :: sd_two  !< start time of cloud microphysics (twomom)
+     CHARACTER(len=max_datetime_str_len ) :: ed_two  !< end   time of cloud microphysics (twomom)
+     INTEGER                              :: fc_two
+     !
      CHARACTER(len=max_timedelta_str_len) :: dt_gwd  !< time  step of atmospheric gravity wave drag
      CHARACTER(len=max_datetime_str_len ) :: sd_gwd  !< start time of atmospheric gravity wave drag
      CHARACTER(len=max_datetime_str_len ) :: ed_gwd  !< end   time of atmospheric gravity wave drag
@@ -150,7 +155,7 @@ MODULE mo_echam_phy_config
      !
      ! surface
      LOGICAL                              :: lsstice !< .true. for inst. 6hourly sst and ice (prelim)
-     LOGICAL                              :: lmig    !< .true. for graupel microphysics
+     LOGICAL                              :: l2moment !< .true. for 2-moment microphysics scheme
      LOGICAL                              :: lmlo    !< .true. for mixed layer ocean
      LOGICAL                              :: lice    !< .true. for sea-ice temperature calculation
      LOGICAL                              :: ljsb    !< .true. for calculating the JSBACH land surface
@@ -205,6 +210,12 @@ MODULE mo_echam_phy_config
      TYPE(datetime ), POINTER :: ed_mig
      TYPE(event    ), POINTER :: ev_mig
      REAL(wp)                 :: dt_mig_sec
+     !
+     TYPE(timedelta), POINTER :: dt_two
+     TYPE(datetime ), POINTER :: sd_two
+     TYPE(datetime ), POINTER :: ed_two
+     TYPE(event    ), POINTER :: ev_two
+     REAL(wp)                 :: dt_two_sec
      !
      TYPE(timedelta), POINTER :: dt_gwd
      TYPE(datetime ), POINTER :: sd_gwd
@@ -304,6 +315,11 @@ CONTAINS
     echam_phy_config(:)% ed_mig = ''
     echam_phy_config(:)% fc_mig = 1
     !
+    echam_phy_config(:)% dt_two = ''
+    echam_phy_config(:)% sd_two = ''
+    echam_phy_config(:)% ed_two = ''
+    echam_phy_config(:)% fc_two = 1
+    !
     echam_phy_config(:)% dt_gwd = ''
     echam_phy_config(:)% sd_gwd = ''
     echam_phy_config(:)% ed_gwd = ''
@@ -330,10 +346,10 @@ CONTAINS
     echam_phy_config(:)% fc_art = 1
     !
     ! logical switches
-    echam_phy_config(:)% lmig  = .FALSE.
     echam_phy_config(:)% ljsb  = .FALSE.
     echam_phy_config(:)% llake = .FALSE.
     echam_phy_config(:)% lamip = .FALSE.
+    echam_phy_config(:)% l2moment  = .FALSE.
     echam_phy_config(:)% lmlo  = .FALSE.
     echam_phy_config(:)% lice  = .FALSE.
     !
@@ -387,6 +403,12 @@ CONTAINS
             &                             echam_phy_config (jg)% sd_mig  ,&
             &                             echam_phy_config (jg)% ed_mig  ,&
             &                             echam_phy_config (jg)% fc_mig  )
+       !
+       CALL eval_echam_phy_config_details(TRIM(cg),                'two' ,&
+            &                             echam_phy_config (jg)% dt_two  ,&
+            &                             echam_phy_config (jg)% sd_two  ,&
+            &                             echam_phy_config (jg)% ed_two  ,&
+            &                             echam_phy_config (jg)% fc_two  )
        !
        CALL eval_echam_phy_config_details(TRIM(cg),                'gwd' ,&
             &                             echam_phy_config (jg)% dt_gwd  ,&
@@ -569,6 +591,16 @@ CONTAINS
             &                         echam_phy_tc    (jg)% ev_mig     ,&
             &                         echam_phy_tc    (jg)% dt_mig_sec )
        !
+       CALL eval_echam_phy_tc_details(cg,                     'two'    ,&
+            &                         echam_phy_config(jg)% dt_two     ,&
+            &                         echam_phy_config(jg)% sd_two     ,&
+            &                         echam_phy_config(jg)% ed_two     ,&
+            &                         echam_phy_tc    (jg)% dt_two     ,&
+            &                         echam_phy_tc    (jg)% sd_two     ,&
+            &                         echam_phy_tc    (jg)% ed_two     ,&
+            &                         echam_phy_tc    (jg)% ev_two     ,&
+            &                         echam_phy_tc    (jg)% dt_two_sec )
+       !
        CALL eval_echam_phy_tc_details(cg,                     'gwd'    ,&
             &                         echam_phy_config(jg)% dt_gwd     ,&
             &                         echam_phy_config(jg)% sd_gwd     ,&
@@ -746,6 +778,12 @@ CONTAINS
             &                              echam_phy_config(jg)% ed_mig  ,&
             &                              echam_phy_config(jg)% fc_mig  )
        !
+       CALL print_echam_phy_config_details(cg,                     'two' ,&
+            &                              echam_phy_config(jg)% dt_two  ,&
+            &                              echam_phy_config(jg)% sd_two  ,&
+            &                              echam_phy_config(jg)% ed_two  ,&
+            &                              echam_phy_config(jg)% fc_two  )
+       !
        CALL print_echam_phy_config_details(cg,                     'gwd' ,&
             &                              echam_phy_config(jg)% dt_gwd  ,&
             &                              echam_phy_config(jg)% sd_gwd  ,&
@@ -778,7 +816,7 @@ CONTAINS
        !
        CALL message    ('','logical switches')
        CALL print_value('    echam_phy_config('//TRIM(cg)//')% lmlo ',echam_phy_config(jg)% lmlo  )
-       CALL print_value('    echam_phy_config('//TRIM(cg)//')% lmig ',echam_phy_config(jg)% lmig  )
+       CALL print_value('    echam_phy_config('//TRIM(cg)//')% l2moment ',echam_phy_config(jg)% l2moment  )
        CALL print_value('    echam_phy_config('//TRIM(cg)//')% lice ',echam_phy_config(jg)% lice  )
        CALL print_value('    echam_phy_config('//TRIM(cg)//')% ljsb ',echam_phy_config(jg)% ljsb  )
        CALL print_value('    echam_phy_config('//TRIM(cg)//')% llake',echam_phy_config(jg)% llake )
@@ -823,6 +861,12 @@ CONTAINS
             &                          echam_phy_tc(jg)% sd_mig     ,&
             &                          echam_phy_tc(jg)% ed_mig     ,&
             &                          echam_phy_tc(jg)% dt_mig_sec )
+       !
+       CALL print_echam_phy_tc_details(cg,                 'two'    ,&
+            &                          echam_phy_tc(jg)% dt_two     ,&
+            &                          echam_phy_tc(jg)% sd_two     ,&
+            &                          echam_phy_tc(jg)% ed_two     ,&
+            &                          echam_phy_tc(jg)% dt_two_sec )
        !
        CALL print_echam_phy_tc_details(cg,                 'gwd'    ,&
             &                          echam_phy_tc(jg)% dt_gwd     ,&

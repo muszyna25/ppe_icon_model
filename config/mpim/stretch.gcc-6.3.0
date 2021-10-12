@@ -10,7 +10,7 @@ MODULES='openmpi/2.1.5-gcc63'
 
 SW_ROOT='/sw/stretch-x64'
 
-HDF5_ROOT="${SW_ROOT}/hdf5/hdf5-1.8.18"
+HDF5_ROOT="${SW_ROOT}/hdf5/hdf5-1.8.21"
 HDF5_LIBS='-lhdf5'
 
 NETCDF_ROOT="${SW_ROOT}/netcdf/netcdf_c-4.6.1"

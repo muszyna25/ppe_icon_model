@@ -1437,6 +1437,8 @@ CONTAINS
 !$ACC UPDATE DEVICE( p_cc, p_cellhgt_mc_now, p_cellmass_now, p_mflx_contra_v, p_upflux ), &
 !$ACC        IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
+!$ACC DATA CREATE( zparent_topflx ), IF( i_am_accel_node .AND. acc_on )
+
     ! check optional arguments
     IF ( PRESENT(opt_slev) ) THEN
       slev  = opt_slev
@@ -1462,9 +1464,13 @@ CONTAINS
     ENDIF
 
     IF ( PRESENT(opt_topflx_tra) ) THEN
+!$ACC KERNELS PRESENT( opt_topflx_tra, zparent_topflx ), IF ( i_am_accel_node .AND. acc_on )
       zparent_topflx(:,:) = opt_topflx_tra(:,:)
+!$ACC END KERNELS
     ELSE
+!$ACC KERNELS PRESENT( zparent_topflx ), IF ( i_am_accel_node .AND. acc_on )
       zparent_topflx(:,:) = 0._wp
+!$ACC END KERNELS
     ENDIF
 
     IF ( PRESENT(opt_rlstart) ) THEN
@@ -1932,6 +1938,8 @@ CONTAINS
         CALL finish(routine, 'deallocation for z_cfl failed' )
       ENDIF
     END IF
+
+!$ACC END DATA ! zparent_topflx
 
 !$ACC UPDATE HOST( p_mflx_contra_v, p_upflux ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 

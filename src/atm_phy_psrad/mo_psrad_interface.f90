@@ -608,8 +608,9 @@ CONTAINS
 
 ! IF (aero == ...) THEN
 ! iaero=0: No aerosol
-! iaero=13: only tropospheric Kinne aerosols
-! iaero=14: only CMIP6 volcanic aerosols
+! iaero=12: only tropospheric Kinne background aerosols (no year in generic filename)
+! iaero=13: only tropospheric Kinne aerosols (filenames with year)
+! iaero=14: only CMIP6 volcanic aerosols (filenames with year)
 ! iaero=15: tropospheric Kinne aerosols + volcanic CMIP6 aerosols
 ! iaero=18: tropospheric Kinne background aerosols + volcanic CMIP6 aerosols + simple plumes
 ! iaero=19: tropospheric Kinne background aerosols + simple plumes but NO volcanic aerosols
@@ -618,8 +619,8 @@ CONTAINS
     aer_tau_sw_vr(:,:,:) = 0.0_wp
     aer_piz_sw_vr(:,:,:) = 1.0_wp
     aer_cg_sw_vr(:,:,:)  = 0.0_wp
-    IF (iaero==13 .OR. iaero==15 .OR. iaero==18 .OR. iaero==19) THEN
-! iaero=13: only Kinne aerosols are used
+    IF (iaero==12 .OR. iaero==13 .OR. iaero==15 .OR. iaero==18 .OR. iaero==19) THEN
+! iaero=12 or 13: only Kinne aerosols are used
 ! iaero=15: Kinne aerosols plus CMIP6 volcanic aerosols are used
 ! iaero=18: Kinne background aerosols (of natural origin, 1850) are set
 !           and later simple plumes added and CMIP6 volcanic aerosols are added

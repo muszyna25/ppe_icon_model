@@ -50,7 +50,17 @@ MODULE mo_psrad_solar_data
        ssi_RCEdiurnOFF(nbndsw) = (/ & 
        & 3.803964_wp, 6.413186_wp, 7.44969_wp,  7.032908_wp, 17.63879_wp, &
        & 32.63096_wp, 7.861645_wp, 110.624_wp,  69.16621_wp, 109.3144_wp, &
-       & 41.19017_wp, 15.00594_wp,1.009717_wp,  4.195554_wp  /)
+       & 41.19017_wp, 15.00594_wp,1.009717_wp,  4.195554_wp  /),          &
+       !
+       ! Solar flux for RCEmip_analytical simulations without diurnal cycle
+       ! global mean insolation = 409.6 W/m2 rescaled from ssi_default above
+       ! with constant factor of app. 0.4031362
+       ! sum of 14 bands is: 551.58
+       ssi_RCEmip_analytical(nbndsw) = (/ & 
+       & 4.8818059_wp, 8.2099018_wp, 9.5663147_wp, 9.0414162_wp, 22.4251022_wp, &
+       & 41.4954300_wp, 9.7936354_wp, 139.38133_wp, 87.9591370_wp, 139.96581_wp, &
+       & 52.2041359_wp, 20.2181892_wp, 1.2416348_wp, 5.1961751_wp /)
+
 
   ! Spectral and total solar irradiance for use in integration
   REAL(wp) :: ssi_radt(nbndsw), tsi_radt, tsi

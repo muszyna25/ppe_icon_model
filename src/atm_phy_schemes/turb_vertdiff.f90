@@ -70,33 +70,13 @@ MODULE turb_vertdiff
 ! Parameter for precision
 !-------------------------------------------------------------------------------
 
-#ifdef __COSMO__
-USE kind_parameters, ONLY :   &
-#elif defined(__ICON__)
 USE mo_kind,         ONLY :   &
-#endif
     wp              ! KIND-type parameter for real variables
 
 !-------------------------------------------------------------------------------
 ! Mathematical and physical constants
 !-------------------------------------------------------------------------------
 
-#ifdef __COSMO__
-USE data_constants, ONLY : &
-
-! Physical constants and related variables:
-! -------------------------------------------
-
-    r_d,          & ! gas constant for dry air
-    rvd_m_o,      & ! r_v/r_d - 1
-    cp_d,         & ! specific heat for dry air
-    lh_v            ! evaporation heat
-
-USE data_parallel,  ONLY : &
-    my_cart_id
-#endif
-
-#ifdef __ICON__
 USE mo_mpi,                ONLY : get_my_global_mpi_id
 USE mo_exception,          ONLY : finish
 USE mo_physical_constants, ONLY : &
@@ -108,7 +88,6 @@ USE mo_physical_constants, ONLY : &
     rvd_m_o  => vtmpc1,   & ! r_v/r_d - 1
     cp_d     => cpd,      & ! specific heat for dry air
     lh_v     => alv         ! evaporation heat
-#endif
 
 !-------------------------------------------------------------------------------
 ! Turbulence data (should be the same in ICON and COSMO)
@@ -221,13 +200,6 @@ REAL (KIND=wp), PARAMETER :: &
 !   z2d3=z2/z3     ,&
 !   z3d2=z3/z2
 
-#ifndef __ICON__
-INTEGER :: &
-    istat=0
-
-LOGICAL :: &
-    lerror=.FALSE.
-#endif
 
 !===============================================================================
 
@@ -235,11 +207,7 @@ CONTAINS
 
 !===============================================================================
 
-#ifndef __ICON__
-#  define err_args , ierrstat, yerrormsg, yroutine
-#else
 #  define err_args
-#endif
 
 SUBROUTINE vertdiff ( &
 !
@@ -434,12 +402,6 @@ REAL (KIND=wp), DIMENSION(:), OPTIONAL, TARGET, INTENT(INOUT) :: &
   umfl_s,       & ! u-momentum flux at the surface                (N/m2)    (positive downward)
   vmfl_s          ! v-momentum flux at the surface                (N/m2)    (positive downward)
 
-#ifndef __ICON__
-INTEGER, INTENT(OUT)           :: ierrstat
-
-CHARACTER (LEN=*), INTENT(OUT) :: yroutine
-CHARACTER (LEN=*), INTENT(OUT) :: yerrormsg
-#endif
 
 !
 ! Indices concerning ART-tracer:
@@ -574,9 +536,7 @@ REAL (KIND=wp), TARGET ::   &
 
 LOGICAL :: ldebug=.FALSE.
 
-#ifdef __ICON__
 INTEGER :: my_cart_id, my_thrd_id
-#endif
 
 !---- End of header ------------------------------------------------------------
 
@@ -584,10 +544,6 @@ INTEGER :: my_cart_id, my_thrd_id
 
 !All variables and their tendencies are defined at horizontal mass positions.
 
-#ifndef __ICON__
-  istat=0; ierrstat=0
-  yerrormsg = ''; yroutine='vertdiff'; lerror=.FALSE.
-#endif
 
   ldogrdcor=(lexpcor .AND. lturatm)             !gradient correction has to be done
   ldovardif=(lum_dif .OR. lvm_dif .OR. lscadif) !some variable has to be diffused
@@ -598,14 +554,7 @@ INTEGER :: my_cart_id, my_thrd_id
     ntrac=0
   END IF
   IF (ndtr.GT.ntrac) THEN
-#ifdef __ICON__
     CALL finish('', 'ERROR *** Number of tracers larger than dimension of tracer vector ''prt'' ***')
-#else
-    ierrstat = 1004
-    yerrormsg= &
-    'ERROR *** Number of tracers larger than dimension of tracer vector ''prt'' ***'
-    lerror=.TRUE.; RETURN
-#endif
   END IF
 
   ndiff=nmvar+ndtr !number of 1-st order variables used in the turbulence model
@@ -705,15 +654,7 @@ INTEGER :: my_cart_id, my_thrd_id
 
   IF ((lsfli(tem) .AND. .NOT.PRESENT(shfl_s)) .OR. &
       (lsfli(vap) .AND. .NOT.PRESENT(qvfl_s))) THEN
-#ifdef __ICON__
     CALL finish('', 'ERROR *** forcing with not present surface heat flux densities  ***')
-#else
-    ierrstat = 1004; lerror=.TRUE.
-    yerrormsg='ERROR *** forcing with not present surface heat flux densities  ***'
-#ifndef _OPENACC
-    RETURN
-#endif
-#endif
   ENDIF
 
   IF (lsfli(tem)) dvar(tem)%sv => shfl_s
@@ -760,11 +701,9 @@ INTEGER :: my_cart_id, my_thrd_id
   IF ((ldovardif .OR. ldogrdcor) .AND. iini.NE.1) THEN !Vertikaldiffusion wird hier berechnet
 !--------------------------------------------------
 
-#ifdef __ICON__
 my_cart_id = get_my_global_mpi_id()
 #ifdef _OPENMP
 my_thrd_id = omp_get_thread_num()
-#endif
 #endif
 
 ! Just do some check printouts:
@@ -947,13 +886,15 @@ enddo
                vtyp_tkv => vtyp(ivtype)%tkv
                dvar_sv  => dvar(n)%sv
 !DIR$ IVDEP
-               !$acc parallel loop gang vector
+               !$acc parallel async 
+               !$acc loop gang vector
                DO i=ivstart, ivend
                   zvari(i,ke1,m)=dvar_sv(i)/(rhon(i,ke1)*vtyp_tkv(i,ke1))
                END DO
+               !$acc end parallel
                IF (n.EQ.tem) THEN !flux density is that of sensible heat
 !DIR$ IVDEP
-                  !$acc parallel 
+                  !$acc parallel async 
                   DO i=ivstart, ivend
                      zvari(i,ke1,m)=zvari(i,ke1,m)/(cp_d*eprs(i,ke1))
                   END DO
@@ -975,7 +916,7 @@ enddo
             cur_prof => hlp
             dvar_av => dvar(n)%av    ! OpenACC issue with derived type
 
-            !$acc parallel present(cur_prof,dvar_av)
+            !$acc parallel async present(cur_prof,dvar_av)
             DO k=kstart_vdiff,ke
 !DIR$ IVDEP
               !$acc loop gang vector
@@ -988,28 +929,34 @@ enddo
             IF (ASSOCIATED(dvar(n)%sv)) THEN !surface variable is present
               dvar_sv=>dvar(n)%sv !XL_CHANGE: OpenACC issue with derived type
 !DIR$ IVDEP
-              !$acc parallel loop gang vector present(cur_prof,dvar_sv)
+              !$acc parallel async present(cur_prof,dvar_sv)
+              !$acc loop gang vector 
                DO i=ivstart, ivend
                   cur_prof(i,ke1)=dvar_sv(i)
                END DO
+               !$acc end parallel
             ELSEIF (n.LE.nvel .OR. ilow_def_cond.EQ.2) THEN
                !No-slip-condition for momentum or zero-concentr.-condition as a default:
 !DIR$ IVDEP
-              !$acc parallel loop gang vector present(cur_prof)
+              !$acc parallel async present(cur_prof)
+              !$acc loop gang vector 
                DO i=ivstart, ivend
                   cur_prof(i,ke1)=z0
                END DO
+               !$acc end parallel
             ELSE !enforce a zero flux condition as a default
 !DIR$ IVDEP
-              !$acc parallel loop gang vector present(cur_prof)
+              !$acc parallel async present(cur_prof)
+              !$acc loop gang vector 
                DO i=ivstart, ivend
                   cur_prof(i,ke1)=cur_prof(i,ke)
                END DO
+               !$acc end parallel
             END IF
 
             IF (itndcon.GT.0) THEN !explicit tendencies have to be considered
               dvar_at => dvar(n)%at
-              !$acc parallel present(dvar_at)
+              !$acc parallel async present(dvar_at)
                DO k=kstart_vdiff,ke
 !DIR$ IVDEP
                  !$acc loop gang vector
@@ -1021,7 +968,7 @@ enddo
             END IF
 
             IF (n.EQ.tem) THEN !temperature needs to be transformed
-              !$acc parallel present(cur_prof)
+              !$acc parallel async present(cur_prof)
                DO k=kstart_vdiff,ke
 !DIR$ IVDEP
 !$NEC ivdep
@@ -1033,12 +980,14 @@ enddo
                !$acc end parallel
 !DIR$ IVDEP
 !$NEC ivdep
-               !$acc parallel loop gang vector present(cur_prof)
+               !$acc parallel async present(cur_prof)
+               !$acc loop gang vector 
                DO i=ivstart, ivend
                   cur_prof(i,ke1)=cur_prof(i,ke1)/eprs(i,ke1)
                END DO
+               !$acc end parallel
                IF (itndcon.GT.0) THEN !explicit tendencies to be considered
-                 !$acc parallel
+                 !$acc parallel async
                   DO k=kstart_vdiff,ke
 !DIR$ IVDEP
                     !$acc loop gang vector
@@ -1067,6 +1016,8 @@ enddo
 !           Berechnung der vertikalen Diffusionstendenzen:
 !XL_COMMENTS : this print seems to occurs for any debug level, on purpose ?
 !            print*, ivtype, associated(vtyp(ivtype)%tkv)
+
+            !$acc wait
 
             CALL vert_grad_diff( kcm, kgc=kstart_vdiff-1+kgc,         &
 !
@@ -1104,7 +1055,7 @@ enddo
 
             IF (n.EQ.tem) THEN
               dvar_at => dvar(n)%at
-              !$acc parallel present(dvar_at)
+              !$acc parallel async present(dvar_at)
                DO k=kstart_vdiff,ke
 !DIR$ IVDEP
 !$NEC ivdep
@@ -1116,7 +1067,7 @@ enddo
                !$acc end parallel
             ELSE
               dvar_at => dvar(n)%at
-              !$acc parallel present(dvar_at)
+              !$acc parallel async present(dvar_at)
                DO k=kstart_vdiff,ke
 !DIR$ IVDEP
 !$NEC ivdep
@@ -1130,7 +1081,7 @@ enddo
 
             IF (n.EQ.vap .AND. PRESENT(qv_conv)) THEN
                !qv-flux-convergence (always a tendency) needs to be adapted:
-              !$acc parallel
+              !$acc parallel async
                DO k=kstart_vdiff,ke
                   IF (lqvcrst) THEN 
                      !by initializing 'qv_conv' with vertical qv-diffusion:
@@ -1167,17 +1118,21 @@ enddo
 
             IF (PRESENT(shfl_s) .OR. lrunscm) THEN
 !DIR$ IVDEP
-              !$acc parallel loop gang vector
+              !$acc parallel async 
+              !$acc loop gang vector
                DO i=ivstart, ivend
                   shfl_s(i)=eprs(i,ke1)*cp_d*zvari(i,ke1,tet)
                END DO
+               !$acc end parallel
             END IF
             IF (PRESENT(qvfl_s) .OR. lrunscm) THEN
 !DIR$ IVDEP
-              !$acc parallel loop gang vector
+              !$acc parallel async 
+              !$acc loop gang vector
                DO i=ivstart, ivend
                   qvfl_s(i)=zvari(i,ke1,vap)
                END DO
+               !$acc end parallel
             END IF
 
 !---------------------------------------------------------------------------------------
@@ -1206,17 +1161,21 @@ enddo
 
          IF (lum_dif .AND. PRESENT(umfl_s)) THEN
 !DIR$ IVDEP
-           !$acc parallel loop gang vector
+           !$acc parallel async 
+           !$acc loop gang vector
             DO i=ivstart, ivend
                umfl_s(i)=zvari(i,ke1,u_m)
             END DO
+            !$acc end parallel
          END IF
          IF (lvm_dif .AND. PRESENT(vmfl_s)) THEN
 !DIR$ IVDEP
-           !$acc parallel loop gang vector
+           !$acc parallel async 
+           !$acc loop gang vector
             DO i=ivstart, ivend
                vmfl_s(i)=zvari(i,ke1,v_m)
             END DO
+            !$acc end parallel
          END IF
 
          !Note:
@@ -1260,6 +1219,7 @@ enddo
   END IF !Vertikaldiffusion wird hier berechnet
 !--------------------------------------------------
 
+  !$acc wait
   !$acc exit data delete(tinc)
   !$acc end data
 

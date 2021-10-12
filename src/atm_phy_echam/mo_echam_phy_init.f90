@@ -35,8 +35,9 @@ MODULE mo_echam_phy_init
   USE mo_impl_constants,       ONLY: min_rlcell_int, grf_bdywidth_c
   USE mo_parallel_config,      ONLY: nproma
   USE mo_master_config,        ONLY: isrestart
-  USE mo_run_config,           ONLY: ltestcase, lart,                       &
-    &                                iqv, iqc, iqi, iqs, iqr, iqg, iqm_max, &
+  USE mo_run_config,           ONLY: ltestcase, lart, msg_level,                  &
+    &                                iqv, iqc, iqi, iqs, iqr, iqg, iqm_max,       &
+    &                                iqh, iqni,iqnr,iqns,iqng,iqnh, iqnc,ininact, &
     &                                iqt, io3, ico2, ich4, in2o, ntracer
   USE mo_advection_config,     ONLY: advection_config
 
@@ -98,18 +99,14 @@ MODULE mo_echam_phy_init
   USE gscp_data,              ONLY: gscp_set_coefficients
   USE mo_echam_mig_config,    ONLY: echam_mig_config, print_echam_mig_config
 
+  ! two-moment bulk microphysics
+  USE mo_2mom_mcrph_driver,    ONLY: two_moment_mcrph_init
+
   ! cloud cover
   USE mo_echam_cov_config,     ONLY: eval_echam_cov_config, print_echam_cov_config
 
   ! WMO tropopause
   USE mo_echam_wmo_config,     ONLY: eval_echam_wmo_config, print_echam_wmo_config, echam_wmo_config
-
-  ! Cariolle interactive ozone scheme
-  USE mo_lcariolle_externals,  ONLY: read_bcast_real_3d_wrap, &
-    &                                read_bcast_real_1d_wrap, &
-    &                                closeFile_wrap, openInputFile_wrap, &
-    &                                get_constants
-  USE mo_lcariolle_types,      ONLY: l_cariolle_initialized_o3, t_avi, t_time_interpolation
 
   ! water vapour production by methane oxidation
   ! and destruction by photolysis
@@ -140,7 +137,8 @@ MODULE mo_echam_phy_init
   USE gscp_data,               ONLY: gscp_set_coefficients
   USE mo_echam_mig_config,     ONLY: echam_mig_config, print_echam_mig_config
 #endif
-
+  USE mo_lcariolle,            ONLY: lcariolle_init_o3, lcariolle_init, &
+    &l_cariolle_initialized_o3, t_avi, t_time_interpolation
   ! ART
   USE mo_art_config,         ONLY: art_config
 
@@ -348,13 +346,26 @@ CONTAINS
       END IF
       !
       jg=1
-      CALL gscp_set_coefficients(              igscp = 2                                    ,& 
+      CALL gscp_set_coefficients(idbg                = msg_level                            ,&
          &                       tune_zceff_min      = echam_mig_config(jg)% zceff_min      ,&
          &                       tune_v0snow         = echam_mig_config(jg)% v0snow         ,&
          &                       tune_zvz0i          = echam_mig_config(jg)% zvz0i          ,&
          &                       tune_icesedi_exp    = echam_mig_config(jg)% icesedi_exp    ,&
          &                       tune_mu_rain        = echam_mig_config(jg)% mu_rain        ,&
-         &                       tune_rain_n0_factor = echam_mig_config(jg)% rain_n0_factor )
+         &                       tune_rain_n0_factor = echam_mig_config(jg)% rain_n0_factor ,&
+         &                       igscp               = 2 )
+    END IF
+
+    ! cloud microphysics (two moment bulk microphysics)
+    !
+    lany=.FALSE.
+    DO jg = 1,n_dom
+       lany = lany .OR. (echam_phy_tc(jg)%dt_two > dt_zero)
+    END DO
+    IF (lany) THEN
+      jg=1
+      ! original atm_phy_nwp_config(jg)%inwp_gscp equals 4
+      CALL two_moment_mcrph_init(igscp=4, msg_level=msg_level )
     END IF
 
     ! cloud cover diagnostics
@@ -412,10 +423,7 @@ CONTAINS
         CALL finish('init_echam_phy: mo_echam_phy_init.f90', &
                    &'Cariolle initialization not ready for n_dom>1')
       END IF
-      CALL lcariolle_init(                                     &
-         & openInputFile_wrap,       closeFile_wrap,           &
-         & read_bcast_real_3d_wrap,  read_bcast_real_1d_wrap,  &
-         & get_constants                                       )
+      CALL lcariolle_init()
     END IF
 
     ! ch4 oxidation and h2o photolysis
@@ -463,6 +471,23 @@ CONTAINS
        CASE('qg')
           iqg=jt
           iqm_max=iqm_max+1
+       CASE('qh')
+          iqh=jt
+          iqm_max=iqm_max+1
+       CASE('qnc')
+          iqnc=jt
+       CASE('qni')
+          iqni=jt
+       CASE('qnr')
+          iqnr=jt
+       CASE('qns')
+          iqns=jt
+       CASE('qng')
+          iqng=jt
+       CASE('qnh')
+          iqnh=jt
+       CASE('ninact')
+          ininact=jt
        CASE('o3')
           io3=jt
        CASE('co2')
@@ -528,6 +553,34 @@ CONTAINS
        END IF
     END IF
 
+    ! Is Two moment bulk cloud microphysics active?
+    ! Then iqv, iqc, iqi, iqr, iqs, iqg, iqh, iqni, iqnr, iqns, iqng, iqnc and ininact must be non-zero and in {1,...,14}
+    lany=.FALSE.
+    DO jg = 1,n_dom
+       lany = lany .OR. (echam_phy_tc(jg)%dt_two > dt_zero)
+    END DO
+    IF (lany) THEN
+       !IF (iqv*iqc*iqi*iqr*iqs*iqg*iqh*iqni*iqnr*iqns*iqng*iqnc*ininact == 0) THEN
+       ! removed the first 3 tracer to avoid integer overflow. They should
+       ! always be defined...
+       IF (iqr*iqs*iqg*iqh*iqni*iqnr*iqns*iqng*iqnc*ininact == 0) THEN
+          CALL finish('mo_echam_phy_init:init_echam_phy_tracer',           &
+               &      'For two moment bulk microphysics, 14 tracers must be '// &
+               &      'included in transport_nml/tracer_names')
+       END IF
+       IF (MAX(iqv,iqc,iqi,iqr,iqs,iqg,iqh,iqni,iqnr,iqns,iqng,iqnc,ininact) > 14) THEN 
+                                             ! <-- is this needed? depends on usage of iqm_max and iqt
+          CALL finish('mo_echam_phy_init:init_echam_phy_tracer',            &
+               &      'For two moment bulk microphysics, 14 tracers must be '// &
+               &      'among the first 14 included in transport_nml/tracer_names')
+       END IF
+       IF (iqm_max > 7) THEN
+          CALL print_value('mo_echam_phy_init:init_echam_phy_tracer: ATTENTION! '   // &
+               &           'two moment bulk microphyiscs is used with more than 7 ' // &
+               &           'water tracers: iqm_max',iqm_max)
+       END IF
+    END IF
+
     ! Is Cariolle's linearized ozone chemistry active?
     ! Then io3 must be non-zero.
     lany=.FALSE.
@@ -538,7 +591,7 @@ CONTAINS
        IF (io3 == 0) THEN
           CALL finish(routine,           &
                &      'For the linearized ozone chemistry of Cariolle, '// &
-               &      'the tracer qo3 must be included in transport_nml'// &
+               &      'the tracer o3 must be included in transport_nml'// &
                &      '/tracer_names')
        END IF
     END IF
@@ -572,6 +625,7 @@ CONTAINS
     IF (iqr  > 0) CALL print_value('tracer "'//TRIM(advection_config(1)%tracer_names(iqr))//'"  : iqr    ',iqr )
     IF (iqs  > 0) CALL print_value('tracer "'//TRIM(advection_config(1)%tracer_names(iqs))//'"  : iqs    ',iqs )
     IF (iqg  > 0) CALL print_value('tracer "'//TRIM(advection_config(1)%tracer_names(iqg))//'"  : iqg    ',iqg )
+    IF (iqh  > 0) CALL print_value('tracer "'//TRIM(advection_config(1)%tracer_names(iqh))//'"  : iqh    ',iqh )
     IF (io3  > 0) CALL print_value('tracer "'//TRIM(advection_config(1)%tracer_names(io3))//'"  : io3    ',io3 )
     IF (ico2 > 0) CALL print_value('tracer "'//TRIM(advection_config(1)%tracer_names(ico2))//'" : ico2   ',ico2)
     IF (ich4 > 0) CALL print_value('tracer "'//TRIM(advection_config(1)%tracer_names(ich4))//'" : ich4   ',ich4)
@@ -642,12 +696,13 @@ CONTAINS
         END IF
         CALL closeFile(stream_id)
 
-        ! For security
-        prm_field(jg)%lsmask(:,:) = MERGE(1._wp, prm_field(jg)%lsmask(:,:), &
-                                          prm_field(jg)%lsmask(:,:) > 1._wp - 10._wp*EPSILON(1._wp))
+        ! For security:
+        !  - this statement was necessary for coupled ruby-0 model using land-data created 2020-06
+        !  - with land-date created 2021-07 it is not used anymore:
+        !prm_field(jg)%lsmask(:,:) = MERGE(1._wp, prm_field(jg)%lsmask(:,:), &
+        !                                 prm_field(jg)%lsmask(:,:) > 1._wp - 10._wp*EPSILON(1._wp))
         !
-        ! At this point, %lsmask is the fraction of land (incl. glacier and
-        ! lakes) in the grid box.
+        ! At this point, %lsmask is the fraction of land (incl. glacier and lakes) in the grid box.
         !
         IF (echam_phy_config(jg)%llake) THEN
           !
@@ -881,23 +936,11 @@ CONTAINS
   !! Initial version by Hui Wan, MPI-M (2010-07)
   !!
   SUBROUTINE init_echam_phy_field( p_patch        ,&
-    &                              topography_c   ,&
-    &                              z_ifc          ,&
-    &                              z_mc           ,&
-    &                              ddqz_z_full    ,&
-    &                              geopot_agl_ifc ,&
-    &                              geopot_agl     ,&
     &                              temp           )
 
 !FIXME: PGI + OpenMP produce error in this routine... check correctness of parallel code
 
     TYPE(t_patch)    ,INTENT(in) :: p_patch
-    REAL(wp)         ,INTENT(in) :: topography_c  (:,  :)
-    REAL(wp)         ,INTENT(in) :: z_ifc         (:,:,:)
-    REAL(wp)         ,INTENT(in) :: z_mc          (:,:,:)
-    REAL(wp)         ,INTENT(in) :: ddqz_z_full   (:,:,:)
-    REAL(wp)         ,INTENT(in) :: geopot_agl_ifc(:,:,:)
-    REAL(wp)         ,INTENT(in) :: geopot_agl    (:,:,:)
     REAL(wp)         ,INTENT(in) :: temp          (:,:,:)
 
     ! local variables and pointers
@@ -936,13 +979,6 @@ CONTAINS
       field% areacella(:,  :) = p_patch% cells%   area(:,:)
       field%    coriol(:,  :) = p_patch% cells%    f_c(:,:)
       !
-      field%      orog(:,  :) =   topography_c(:,  :)
-      field%        zh(:,:,:) =          z_ifc(:,:,:)
-      field%        zf(:,:,:) =           z_mc(:,:,:)
-      field%        dz(:,:,:) =    ddqz_z_full(:,:,:)
-      !
-      field%      geoi(:,:,:) = geopot_agl_ifc(:,:,:)
-      field%      geom(:,:,:) =     geopot_agl(:,:,:)
 #ifndef __PGI
 !$OMP END PARALLEL WORKSHARE
 #endif
@@ -1055,7 +1091,8 @@ CONTAINS
       ! For idealized test cases
 
       SELECT CASE (nh_test_name)
-      CASE('APE','APE_echam','RCEhydro','RCE_glb','RCE_Tconst','CBL_flxconst') !Note that there is only one surface type in this case
+      CASE('APE','APE_echam','RCEhydro','RCE_glb','RCE_Tconst','CBL_flxconst','RCEMIP_analytical') 
+        ! Note that there is only one surface type in this case !!!
         !
 !$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = jbs,jbe
@@ -1075,6 +1112,7 @@ CONTAINS
           field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
           field% seaice(jcs:jce,jb) = 0._wp   ! zero sea ice fraction
+          field% emissivity(jcs:jce,jb) = zemiss_def ! use default emissivity
           !
         END DO
 !$OMP END PARALLEL DO
@@ -1099,6 +1137,7 @@ CONTAINS
           field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
           field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
+          field% emissivity(jcs:jce,jb) = zemiss_def ! use default emissivity
           !
         END DO
 !$OMP END PARALLEL DO
@@ -1140,6 +1179,7 @@ CONTAINS
           field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
           field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
+          field% emissivity(jcs:jce,jb) = zemiss_def ! use default emissivity
           !
         END DO
 !$OMP END PARALLEL DO
@@ -1179,6 +1219,7 @@ CONTAINS
           field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
           field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
+          field% emissivity(jcs:jce,jb) = zemiss_def ! use default emissivity
           !
         END DO
 !$OMP END PARALLEL DO
@@ -1201,6 +1242,7 @@ CONTAINS
           field% lsmask(jcs:jce,jb) = 1._wp   ! land fraction = 1
           field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
+          field% emissivity(jcs:jce,jb) = zemiss_def ! use default emissivity
           !
           IF (.NOT. isrestart()) THEN
             field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
@@ -1232,6 +1274,7 @@ CONTAINS
           field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
           field% seaice(jcs:jce,jb) = 0._wp   ! zero sea ice fraction
+          field% emissivity(jcs:jce,jb) = zemiss_def ! use default emissivity
         END DO
 !$OMP END DO  NOWAIT
 !$OMP END PARALLEL
@@ -1324,9 +1367,6 @@ CONTAINS
     REAL(wp)                           :: vmr_o3(nproma, p_patch%nlev)
     TYPE(t_time_interpolation)         :: time_interpolation
     TYPE(t_time_interpolation_weights) :: current_time_interpolation_weights
-    !
-    ! External routines of the Cariolle library
-    EXTERNAL :: lcariolle_init_o3, lcariolle_lat_intp_li, lcariolle_pres_intp_li
 
     avi%ldown=.TRUE.
     current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_current)
@@ -1353,10 +1393,7 @@ CONTAINS
       latc(:)             =  p_patch% cells% center(:,jb)% lat
       avi%cell_center_lat => latc
       !
-      CALL lcariolle_init_o3(                                               &
-        & jcs,                   jce,                nproma,                &
-        & p_patch%nlev,          time_interpolation, lcariolle_lat_intp_li, &
-        & lcariolle_pres_intp_li,avi,                vmr_o3                 )
+      CALL lcariolle_init_o3(jcs, jce, nproma, p_patch%nlev, time_interpolation, avi, vmr_o3)
       !
       o3(jcs:jce,:,jb) = vmr_o3(jcs:jce,:)*amo3/amd
       !

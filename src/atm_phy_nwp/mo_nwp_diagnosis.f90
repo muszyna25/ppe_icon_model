@@ -27,7 +27,7 @@
 !----------------------------
 #include "omp_definitions.inc"
 #include "consistent_fma.inc"
-#include "icon_contiguous_defines.h"
+#include "icon_contiguous_defines.inc"
 !----------------------------
 
 MODULE mo_nwp_diagnosis
@@ -48,14 +48,16 @@ MODULE mo_nwp_diagnosis
   USE mo_nonhydro_types,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics, t_nh_state
   USE mo_nwp_phy_types,      ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_intp_data_strc,     ONLY: t_int_state
+  USE mo_math_divrot,        ONLY: rot_vertex
+  USE mo_intp,               ONLY: verts2cells_scalar
   USE mo_parallel_config,    ONLY: nproma, proc0_offloading
   USE mo_lnd_nwp_config,     ONLY: nlev_soil, ntiles_total
   USE mo_nwp_lnd_types,      ONLY: t_lnd_diag, t_wtr_prog, t_lnd_prog
   USE mo_physical_constants, ONLY: tmelt, grav, cpd, vtmpc1
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
   USE mo_advection_config,   ONLY: advection_config
-  USE mo_io_config,          ONLY: lflux_avg, t_var_in_output, uh_max_zmin, uh_max_zmax, &
-    &                              luh_max_out, uh_max_nlayer
+  USE mo_io_config,          ONLY: lflux_avg, uh_max_zmin, uh_max_zmax, &
+    &                              luh_max_out, uh_max_nlayer, var_in_output
   USE mo_sync,               ONLY: global_max, global_min
   USE mo_vertical_coord_table,  ONLY: vct_a
   USE mo_satad,              ONLY: sat_pres_water, spec_humi
@@ -63,7 +65,7 @@ MODULE mo_nwp_diagnosis
   USE mo_opt_nwp_diagnostics,ONLY: calsnowlmt, cal_cape_cin, maximize_field_lpi, compute_field_tcond_max, &
                                    compute_field_uh_max, compute_field_vorw_ctmax, compute_field_w_ctmax, &
                                    compute_field_dbz3d_lin, maximize_field_dbzctmax, &
-                                   compute_field_echotop, compute_field_echotopinm
+                                   compute_field_echotop, compute_field_echotopinm, compute_field_dursun
   USE mo_nwp_ww,             ONLY: ww_diagnostics, ww_datetime
   USE mtime,                 ONLY: datetime, timeDelta, getTimeDeltaFromDateTime,  &
     &                              deallocateTimedelta, newTimeDelta, newDatetime, &
@@ -86,6 +88,7 @@ MODULE mo_nwp_diagnosis
   PUBLIC  :: nwp_statistics
   PUBLIC  :: nwp_diag_for_output
   PUBLIC  :: nwp_opt_diagnostics
+  PUBLIC  :: nwp_opt_diagnostics_2
   PUBLIC  :: nwp_diag_output_1
   PUBLIC  :: nwp_diag_output_2
   PUBLIC  :: nwp_diag_output_minmax_micro
@@ -349,6 +352,18 @@ CONTAINS
             END DO
           END DO
           !$acc end parallel
+          ! special treatment for variable resid_wso
+          IF (var_in_output(jg)%res_soilwatb) THEN
+            !$acc parallel default(present) if(lacc)
+            !$acc loop gang vector collapse(2)
+            DO jt=1,ntiles_total
+!DIR$ IVDEP
+              DO jc = i_startidx, i_endidx
+                lnd_diag%resid_wso_t(jc,jb,jt) = lnd_diag%resid_wso_t(jc,jb,jt) + lnd_diag%resid_wso_inst_t(jc,jb,jt)  
+              ENDDO
+            ENDDO
+            !$acc end parallel
+          ENDIF
         END IF
 
 
@@ -1637,19 +1652,19 @@ CONTAINS
   !! Developed by Guenther Zaengl, DWD (2020-02-14)
   !!
   !!
-  SUBROUTINE nwp_opt_diagnostics(p_patch, p_patch_lp, p_int_lp, p_nh, prm_diag, l_output, nnow, nnow_rcf, var_in_output, &
+  SUBROUTINE nwp_opt_diagnostics(p_patch, p_patch_lp, p_int_lp, p_nh, p_int, prm_diag, &
+     l_output, nnow, nnow_rcf, &
      lpi_max_Event, celltracks_Event, dbz_Event, mtime_current,  plus_slack)
 
     TYPE(t_patch)       ,INTENT(IN)   :: p_patch(:), p_patch_lp(:)  ! patches and their local parents
     TYPE(t_int_state)   ,INTENT(IN)   :: p_int_lp(:)                ! interpolation state for local parents
     TYPE(t_nh_state)    ,INTENT(INOUT):: p_nh(:)                    ! nonhydro state
+    TYPE(t_int_state)   ,INTENT(IN)   :: p_int(:)                   ! interpolation state
     TYPE(t_nwp_phy_diag),INTENT(INOUT):: prm_diag(:)                ! physics diagnostics
 
     TYPE(event),     POINTER, INTENT(INOUT) :: lpi_max_Event, celltracks_Event, dbz_Event
     TYPE(datetime),  POINTER, INTENT(IN   ) :: mtime_current  !< current_datetime
     TYPE(timedelta), POINTER, INTENT(IN   ) :: plus_slack
-
-    TYPE(t_var_in_output),    INTENT(IN   ) :: var_in_output(:)
 
     LOGICAL, INTENT(IN) :: l_output(:)
     INTEGER, INTENT(IN) :: nnow(:), nnow_rcf(:)
@@ -1723,10 +1738,20 @@ CONTAINS
              &                        prm_diag(jg)%tcond_max, prm_diag(jg)%tcond10_max  )
       END IF
 
+      ! update vorticity for the calculation of uh_max / vorw_ctmax;
+      ! otherwise, diag%vor is only diagnosed every output time step
+      IF ( (ANY(luh_max_out(jg,:)) .OR. var_in_output(jg)%vorw_ctmax) .AND. &
+            l_celltracks_event_active .AND. .NOT. l_output(jg) ) THEN
+        CALL rot_vertex (p_nh(jg)%prog(nnow(jg))%vn, p_patch(jg), p_int(jg), p_nh(jg)%diag%omega_z)
+        ! Diagnose relative vorticity on cells
+        CALL verts2cells_scalar(p_nh(jg)%diag%omega_z, p_patch(jg), &
+           p_int(jg)%verts_aw_cells, p_nh(jg)%diag%vor)
+      END IF
+
       DO k = 1,uh_max_nlayer
 
         ! update of UH_MAX (updraft helicity, max.  during the time interval "celltracks_interval") if required
-        IF ( luh_max_out(k) .AND. (l_output(jg) .OR. l_celltracks_event_active ) ) THEN
+        IF ( luh_max_out(jg,k) .AND. (l_output(jg) .OR. l_celltracks_event_active ) ) THEN
           CALL compute_field_uh_max( p_patch(jg), p_nh(jg)%metrics, p_nh(jg)%prog(nnow(jg)), p_nh(jg)%diag,  &
                &                     uh_max_zmin(k), uh_max_zmax(k), prm_diag(jg)%uh_max_3d(:,:,k) )
         END IF
@@ -1779,6 +1804,38 @@ CONTAINS
 
   END SUBROUTINE nwp_opt_diagnostics
 
+  !>
+  !! Subroutine collecting the calls for computing optional diagnostic output variables
+  !! that should be called directly from the physics interface in order to consider
+  !! the intermediate values of nesting time steps
+  !!
+  !! @par Revision History
+  !! Developed by Daniel Rieger, DWD (2021-07-06)
+  !!
+  !!
+  SUBROUTINE nwp_opt_diagnostics_2(p_patch, prm_diag, cosmu0, dt_phy)
+
+    TYPE(t_patch),         INTENT(IN)    :: p_patch         !< current patch
+    TYPE(t_nwp_phy_diag),  INTENT(INOUT) :: prm_diag        !< physics diagnostics
+    REAL(wp),              INTENT(IN)    :: cosmu0(:,:)     !< Cosine of solar zenith angle
+    REAL(wp),              INTENT(IN)    :: dt_phy          !< time interval for fast physics
+
+    INTEGER :: jg
+
+    IF (ltimer) CALL timer_start(timer_nh_diagnostics)
+    
+    jg = p_patch%id
+
+    IF (var_in_output(jg)%dursun) THEN
+      ! sunshine duration is an accumulative value like precipitation or runoff
+      CALL compute_field_dursun( p_patch, dt_phy,                                           &
+           &                     prm_diag%dursun, prm_diag%swflxsfc, prm_diag%swflx_up_sfc, &
+           &                     prm_diag%swflx_dn_sfc_diff, cosmu0 )
+    ENDIF
+
+    IF (ltimer) CALL timer_stop(timer_nh_diagnostics)
+
+  END SUBROUTINE nwp_opt_diagnostics_2
 
   !-------------------------------------------------------------------------
   !>
@@ -2043,8 +2100,8 @@ CONTAINS
     ! Find local min/max
     wmax  = 0.0_wp
     wmin  = 0.0_wp
-    tmax  = 0.0_wp
-    tmin  = 0.0_wp
+    tmax  = -9999.0_wp
+    tmin  =  9999.0_wp
     qvmax = 0.0_wp
     qvmin = 0.0_wp
     qcmax = 0.0_wp

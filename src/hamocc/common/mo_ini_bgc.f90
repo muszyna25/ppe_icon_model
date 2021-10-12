@@ -8,33 +8,37 @@ MODULE mo_ini_bgc
   USE mo_kind, ONLY        : wp
   USE mo_memory_bgc, ONLY   : hi, co3, bgctra,  atm, &
        &                     atmacon, atmacmol,    &
-       &                     atcoa, ozkoa,ralk, ro2ut_cya, cyamin,    &
+       &                     ozkoa,ralk, ro2ut_cya, cyamin,    &
        &                     wpoc, calcinp,orginp,silinp, &
        &                     phytomi, grami, remido, dyphy, zinges,        &
        &                     epsher,  spemor, gammap, gammaz, ecan, &
        &                     pi_alpha, fpar, bkphy, bkzoo, bkopal,         &
-       &                     drempoc,             &
-       &                     dremopal, dremn2o, sulfate_reduction,         &
-       &                     dremcalc, n2_fixation, ro2ut, rcar, rnit,     &
-       &                     rnoi, nitdem, n2prod, rcalc, ropal, calmax,   &
+       &                     dremn2o, sulfate_reduction,         &
+       &                     n2_fixation, ro2ut, rcar, rnit,     &
+       &                     rnoi, nitdem, n2prod, ropal,   &
        &                     perc_diron, riron, fesoly, relaxfe,     &
        &                     denitrification, kbo, bolay, rn2,             &
        &                     wdust, thresh_o2,   &
        &                     pi_alpha_cya,          &
-       &                     Topt_cya,T1_cya,T2_cya,bkcya_N, bkcya_P, bkcya_fe, &
+       &                     Topt_cya,T1_cya,T2_cya,bkcya_N, &
        &                     buoyancyspeed_cya, bkh2sox, rh2sox, &
        &                     doccya_fac, thresh_aerob, thresh_sred, &
-       &                     wopal, wcal, wcya, p2gtc, ro2bal, dmsp, prodn2o
+       &                     wopal, wcal, wcya, p2gtc, ro2bal, dmsp,prodn2o,docmin, &
+       &                     no2denit, anamoxra, nitriox, nitrira, ro2ammo, &
+       &                     bknh4_cya, bkno3_cya, bkno3, bknh4, rmm, kg_denom, bkpo4, &
+       &                     bkno2, bkrad, bkfe, rno3nh4, rno3no2, rno2no3, rnh4no2, &
+       &                     alk_nrn2, rno2n2, o2thresh, o2den_lim
 
   USE mo_sedmnt, ONLY      : powtra, sedlay, sedhpl,disso_op,disso_cal,&
-       &                     o2ut, rno3, sred_sed, silsat, &
-                             o2thresh 
+       &                     o2ut, rno3, sred_sed, silsat
 
-  USE mo_hamocc_nml, ONLY  : l_diffat, l_cpl_co2, l_diffat, i_settling, &
+  USE mo_hamocc_nml, ONLY  : l_cpl_co2, i_settling, &
        &                     sinkspeed_poc, sinkspeed_opal, sinkspeed_calc,&
        &                     ks,cycdec,cya_growth_max,grazra,&
        &                     mc_fac, sinkspeed_martin_ez, mc_depth, denit_sed, disso_po, &
-       &                     atm_co2, atm_o2, atm_n2, deltacalc, deltaorg, deltasil     
+       &                     atm_co2, atm_o2, atm_n2, deltacalc, deltaorg, deltasil, &
+       &                     drempoc, dremopal, dremcalc, &
+       &                     l_N_cycle, no3nh4red, no3no2red
 
 
   USE mo_control_bgc, ONLY : ldtbgc, dtb, dtbgc, rmasko, rmasks, &
@@ -51,7 +55,8 @@ MODULE mo_ini_bgc
        &                     ipowaph, ipowasi, ipown2, ipowno3,           &
        &                     isco212, isilica, isssc12, issso12, issssil, &
        &                     izoo, ipowafe, issster, &
-       &                     icya, iiron, idms, ih2s, ipowh2s
+       &                     icya, iiron, idms, ih2s, ipowh2s, &
+       &                     iammo, iano2, ipownh4, ipowno2
 !  USE mo_planetary_constants, ONLY: g, rhoref_water
   IMPLICIT NONE
 
@@ -78,16 +83,6 @@ CONTAINS
     !
     ldtbgc = 0
 
-    IF (l_diffat) THEN
-       ! all concentrations will be calculated in carchm
-    ELSE
-       atm_co2 = 278._wp
-       atcoa   = atm_co2  ! emr for use in maschk
-
-       atm_o2  = 196800._wp
-       atm_n2  = 802000._wp
-    ENDIF
-
     ozkoa    = 3.e15_wp                      ! ozean kohlenstoff alt, start with dummy value in maschk
     atmacon  = 0.35e-3_wp * 5.1e14_wp*12._wp ! factor for atmospheric concentration of CO2 in g C -> ppm
     atmacmol = 0.35e-3_wp * 5.1e14_wp        ! factor for atmospheric concentration of CO2 in mol C -> ppm
@@ -99,7 +94,7 @@ CONTAINS
     phytomi  = 1.e-11_wp   ! i.e. 1e-5 mmol P/m3 minimum concentration of phytoplankton
     grami    = 1.e-11_wp   ! i.e. 1e-5 mmol P/m3 minimum concentration of zooplankton | test e-11 ->e-8 very slow decay
     cyamin   = 1.e-11_wp   ! minimum cyanobacteria conc. (< initial value)
-
+    docmin   = 1.e-10_wp
 
     remido   = 0.008_wp     ! KS, JS, EMR 12/07/2007
     dyphy    = 0.008_wp     ! 1/d -mortality rate of phytoplankton
@@ -116,7 +111,6 @@ CONTAINS
     thresh_sred = 3.e-6_wp      ! kmol m-3,  O2 threshold for sulfate reduction
     prodn2o = 1.e-4_wp
 
-    calmax = 0.15_wp ! maximum fraction (of "export") for calc production
 
 
     bkphy  = 1.e-8_wp 
@@ -128,8 +122,6 @@ CONTAINS
 
     ! water column remineralisation constants
 
-    drempoc  = 0.026_wp     ! 1/d      ! 0.75/month. H3.1: 0.2/month k=1, 0.1/month k>1
-    dremopal = 0.01_wp 
     rh2sox  = 0.93_wp ! 1/d  H2S oxidation rate
 
 ! ------ cyanobacteria
@@ -138,15 +130,12 @@ CONTAINS
     Topt_cya          = 28._wp       ! deg C
     T1_cya            = 5.5_wp       ! deg C
     T2_cya            = 1._wp        ! deg C
-    bkcya_P           = 5.e-8_wp     ! kmol/m3  
-    bkcya_fe          = 30.e-8_wp     ! kmol/m3  
     bkcya_N           = 1.e-9_wp     ! kmol/m3  
     doccya_fac        = 0.1_wp
 ! ------
 
     dremn2o  = 0.01_wp      ! 1/d
     sulfate_reduction = 0.005_wp
-    dremcalc = 0.075_wp     ! 
 
     ! nitrogen fixation 
     n2_fixation = 0.005_wp
@@ -178,12 +167,6 @@ CONTAINS
     ! N consumption of denitrification corrected after Paulmier etal, 2009)
     nitdem = 137.6_wp          ! NO3 demand of denitrification
     n2prod = nitdem * 0.5_wp   ! N2 production during denitrification
- 
- 
-    rcalc = 35._wp ! iris 40 !calcium carbonate to organic phosphorous production ratio
-    IF (l_cpl_co2) THEN
-       rcalc = 20._wp ! emr !calcium carbonate to organic phosphorous production ratio
-    END IF
 
     ropal  = 25._wp ! opal to organic phosphorous production ratio
 
@@ -199,6 +182,7 @@ CONTAINS
     disso_po  = 0.01_wp      ! [m3/(kmol O2) 1/d] degradation rate organic C in sediment
     silsat    = 0.001_wp     ! [mol/m3] Silicate saturation constant  
     o2thresh  = 10.E-6_wp    ! set to 10 umol/l O2 threshold in sediment
+    o2den_lim = 0.5E-6_wp
 
 
     ! weight percent iron in dust deposition (0.035) times Fe solubility (0.01) /55.85 g--> mol
@@ -224,6 +208,51 @@ CONTAINS
      dmsp(4) = 1.25_wp * 0.107638502e0_wp  ! production with delcar(coccolithoporides) 
      dmsp(5) = 1.25_wp * 0.109784522e-1_wp  ! production with delsil(diatoms)
      dmsp(6) = 0.1e-07_wp            ! half saturation rate const. bacterial decomp
+
+    !
+    ! extended N-cycle
+    !
+    bkno3 = 0.16_wp*1.e-6_wp
+    bknh4 = 0.1_wp *1.e-6_wp
+    ro2ammo = ro2ut - 2._wp*rnit
+   !       oxygen demand to nitrify nh4 to no2
+    rnh4no2 =  24._wp /rnit 
+    alk_nrn2 = (560._wp + 48._wp)/3._wp ! alkalinity is increased acc
+!      oxygen  demand to nitrify no2 to no3
+    rno2no3 = 8._wp /rnit ! oxygen demand during nitrification in P-units 2*rnit, 
+    bkno3_cya = bkno3*1.e-1_wp
+    bknh4_cya = bknh4*1e-1_wp
+    bkpo4 = 0.01_wp*1.E-6_wp   ! in kmolP/m3 half satur. const. for PO4 
+    bkfe = bkpo4*riron
+    rno2n2 = 560._wp/3._wp 
+    rmm = 17.03_wp
+    kg_denom = 770._wp + 45._wp*rmm**(1._wp/3._wp)  ! denominator of gas-phase tranfser velocity
+!                                               for ammonia with 17.03 relative mol. mass of NH3
+!   Chemical ratios for constituents  during remineralization,
+!   denitrification and so on (after beckmann&hense ,2012, adapted 
+! to our Redfield ratios
+
+    ! DNRN : NO3 reduction to NO2
+      rno3no2  = 280._wp  ! nitrate used and  nitrite produced per P-unit org
+
+    ! DNRA : NO3 reduction to NH4
+      rno3nh4  = 70._wp   ! nitrate used per P-unit org
+
+    ! NRN2   :  NO2 to N2
+      no2denit = 0.008_wp ! 1/day 
+   
+    !ANAMMOX
+      anamoxra = 0.05_wp         ! anammox rate  1/day 
+      bkno2 = 0.5_wp*1.E-6_wp    ! Half saturation constant for Nitrite in kmolN/m3
+    !NITOX : oxidation of NO2 to NO3 ; light dependent	   
+      nitriox = 0.25_wp          !   nitrite oxidation rate 1/day 
+      bkrad = 10._wp               ! light constant  
+
+! AMMOX : oxidation of NH4 to NO2 ; light dependend
+      nitrira= 0.1_wp    ! nitrification rate per day, after Yool about 0.162 per day
+!             light dependency (coupled to abs_bgc, max at no light, in surface layer 0.
+
+
 
   END SUBROUTINE SET_PARAMETERS_BGC
 
@@ -255,6 +284,14 @@ CONTAINS
     disso_cal = disso_cal * dtb
     rh2sox  = rh2sox * dtb
     cycdec  = cycdec * dtb
+
+    no3nh4red = no3nh4red * dtb
+    no3no2red = no3no2red * dtb
+    no2denit = no2denit * dtb
+    anamoxra = anamoxra * dtb
+    nitriox = nitriox * dtb
+    nitrira = nitrira * dtb
+
   END SUBROUTINE
 
   ! ---------------------------------------------------------------------
@@ -350,6 +387,12 @@ CONTAINS
                    bgctra(j,k,isilica) = silat
                    bgctra(j,k,iano3)  = rnit*bgctra(j,k,iphosph)
                 endif
+
+                if (l_N_cycle) then
+                   bgctra(j,k,iammo) = 1.e-2_wp*bgctra(j,k,iano3)
+                   bgctra(j,k,iano2) = 1.e-2_wp*bgctra(j,k,iano3)
+                endif
+
                 if(m.eq.bgc_land)then
                    bgctra(j,k,iagesc)  = rmasko
                    bgctra(j,k,iphosph) = rmasko
@@ -373,6 +416,10 @@ CONTAINS
                    bgctra(j,k,idms)    = rmasko
                    hi(j,k)             = rmasko
                    co3(j,k)            = rmasko
+                   if (l_N_cycle) then
+                      bgctra(j,k,iammo) = rmasko
+                      bgctra(j,k,iano2) = rmasko
+                   endif
                 ENDIF
 
        ENDDO
@@ -407,6 +454,10 @@ CONTAINS
                 powtra(j,k,ipowno3) = bgctra(j,kbo(j),iano3)
                 powtra(j,k,ipowasi) = bgctra(j,kbo(j),isilica)
                 powtra(j,k,ipowafe) = bgctra(j,kbo(j),iiron)
+                IF (l_N_cycle) THEN
+                   powtra(j,k,ipownh4) = bgctra(j,kbo(j),iammo)
+                   powtra(j,k,ipowno2) = bgctra(j,kbo(j),iano2)
+                ENDIF
                 sedlay(j,k,issso12) = 1.e-8_wp
                 sedlay(j,k,isssc12) = 1.e-8_wp
                 sedlay(j,k,issster) = 30._wp
@@ -422,6 +473,10 @@ CONTAINS
                 powtra(j,k,ipowaox) = rmasks
                 powtra(j,k,ipowasi) = rmasks
                 powtra(j,k,ipowafe) = rmasks
+                IF (l_N_cycle) THEN
+                   powtra(j,k,ipownh4) = rmasks
+                   powtra(j,k,ipowno2) = rmasks
+                ENDIF
                 sedlay(j,k,issso12) = rmasks   ! solid sediment
                 sedlay(j,k,isssc12) = rmasks
                 sedlay(j,k,issssil) = rmasks

@@ -25,8 +25,9 @@
 
 #ifndef NOMPI
     USE mpi
-    USE mo_mpi,                 ONLY: my_process_is_pref, my_process_is_work, &
-         &                            my_process_is_stdio, p_comm_work
+    USE mo_mpi,                 ONLY: my_process_is_pref, my_process_is_work,   &
+         &                            p_comm_work, my_process_is_stdio,         &
+         &                            my_process_is_mpi_test
     ! Processor numbers
     USE mo_mpi,                 ONLY: p_pref_pe0, p_pe_work, p_work_pe0, num_work_procs
     ! MPI Communication routines
@@ -35,13 +36,13 @@
     USE mo_latbc_read_recv,     ONLY: prefetch_cdi_2d, prefetch_cdi_3d, compute_data_receive
 #endif
 
-    USE mo_async_latbc_types,   ONLY: t_latbc_data, t_buffer
+    USE mo_async_latbc_types,   ONLY: t_latbc_state, t_latbc_data, t_buffer
     USE mo_reorder_info,        ONLY: t_reorder_info
     USE mo_kind,                ONLY: wp, i8
     USE mo_util_string,         ONLY: int2string
     USE mo_parallel_config,     ONLY: nproma, proc0_offloading
     USE mo_model_domain,        ONLY: t_patch
-    USE mo_grid_config,         ONLY: nroot
+    USE mo_grid_config,         ONLY: nroot, n_dom
     USE mo_exception,           ONLY: message, finish, message_text
     USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, SUCCESS, min_rlcell
     USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
@@ -50,9 +51,9 @@
     USE mo_nonhydro_types,      ONLY: t_nh_state
     USE mo_intp_data_strc,      ONLY: t_int_state
     USE mo_nh_vert_interp,      ONLY: vert_interp
+    USE mo_nh_nest_utilities,   ONLY: intp_nestubc_nudging
     USE mo_physical_constants,  ONLY: cpd, rd, cvd_o_rd, p0ref, vtmpc1
-    USE mo_nh_init_utils,       ONLY: convert_omega2w, &
-      &                               compute_input_pressure_and_height
+    USE mo_nh_init_utils,       ONLY: convert_omega2w, compute_input_pressure_and_height
     USE mo_sync,                ONLY: sync_patch_array, SYNC_E
     USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
     USE mtime,                  ONLY: timedelta, newTimedelta, deallocateTimedelta, &
@@ -69,11 +70,11 @@
     USE mo_util_mtime,          ONLY: dummyDateTime
     USE mo_time_config,         ONLY: time_config
     USE mo_limarea_config,      ONLY: latbc_config, generate_filename
+    USE mo_nudging_config,      ONLY: nudging_config, indg_type, ithermdyn_type
     USE mo_initicon_config,     ONLY: timeshift
     USE mo_ext_data_types,      ONLY: t_external_data
     USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, ltransport, msg_level, ntracer
     USE mo_dynamics_config,     ONLY: nnow, nnow_rcf
-    USE mo_initicon_types,      ONLY: t_init_state
     USE mo_cdi,                 ONLY: streamOpenRead, streamClose, streamInqVlist, vlistInqTaxis, &
       &                               taxisInqVDate, taxisInqVTime, &
       &                               cdiDecodeTime, cdiDecodeDate, &
@@ -119,12 +120,11 @@
       MODULE PROCEDURE get_data_3D 
     END INTERFACE
 
-
     TYPE t_read_params
       TYPE(t_inputParameters) :: cdi_params
-      INTEGER                 :: npoints
+      INTEGER                 :: npoints = 0
       INTEGER                 :: imode_asy
-      INTEGER, POINTER        :: idx_ptr(:)
+      INTEGER, POINTER        :: idx_ptr(:) => NULL()
     END TYPE t_read_params
 
 
@@ -162,18 +162,19 @@
       INTEGER,                    INTENT(IN)    :: nlev_in     !< no. of vertical input levels
       TYPE(t_nh_state),           INTENT(INOUT) :: p_nh_state  !< nonhydrostatic state on the global domain
       TYPE(t_external_data),      INTENT(IN)    :: ext_data    !< external data on the global domain
-      TYPE(t_patch),              INTENT(IN)    :: p_patch
+      TYPE(t_patch),              INTENT(IN)    :: p_patch(:)
 
 #ifndef NOMPI
       ! local variables
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::allocate_pref_latbc_data"
-      INTEGER               :: tlev, nlev, nlevp1, nblks_c, nblks_e, ierrstat, idx
+      INTEGER :: tlev, nlev, nlevp1, nblks_c, nblks_e, ierrstat, idx
+      INTEGER :: jg
 
       ! Allocate memory for variables (3D and 2D) on work processors
-      nlev    = p_patch%nlev
-      nlevp1  = p_patch%nlevp1
-      nblks_c = p_patch%nblks_c
-      nblks_e = p_patch%nblks_e
+      nlev    = p_patch(1)%nlev
+      nlevp1  = p_patch(1)%nlevp1
+      nblks_c = p_patch(1)%nblks_c
+      nblks_e = p_patch(1)%nblks_e
 
       ALLOCATE(latbc%latbc_data_const)
       ALLOCATE(latbc%latbc_data_const%z_mc_in(nproma,nlev_in,nblks_c), STAT=ierrstat)
@@ -295,7 +296,62 @@
 
          latbc%latbc_data(tlev)%const => latbc%latbc_data_const
 
-      END DO
+
+        ! In case of upper boundary nudging for child domains, 
+        ! allocate additional fields 
+        IF ( ANY(nudging_config(2:n_dom)%nudge_type==indg_type%ubn) ) THEN
+
+          ALLOCATE(latbc%latbc_data(tlev)%atm_child(n_dom), STAT=ierrstat)
+          IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+
+          DO jg = 2, n_dom   ! data for jg=1 stored in latbc%latbc_data(:)%atm
+
+            IF (nudging_config(jg)%nudge_type==indg_type%ubn) THEN
+
+              nlev    = p_patch(jg)%nlev
+              nblks_c = p_patch(jg)%nblks_c
+              nblks_e = p_patch(jg)%nblks_e
+
+              IF ( nudging_config(jg)%thermdyn_type == ithermdyn_type%hydrostatic ) THEN
+                ! Allocate atmospheric output data for child domains
+                ALLOCATE(latbc%latbc_data(tlev)%atm_child(jg)%vn   (nproma,nlev,nblks_e), &
+                         latbc%latbc_data(tlev)%atm_child(jg)%temp (nproma,nlev,nblks_c), &
+                         latbc%latbc_data(tlev)%atm_child(jg)%pres (nproma,nlev,nblks_c), &
+                         latbc%latbc_data(tlev)%atm_child(jg)%qv   (nproma,nlev,nblks_c), &
+                         STAT=ierrstat)
+                IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+!$OMP PARALLEL 
+                CALL init(latbc%latbc_data(tlev)%atm_child(jg)%vn  (:,:,:))
+                ! Initialization with non-zero values is necessary in order to 
+                ! avoid a division by zero in limarea_nudging_upbdy. 
+                ! This is becase some of the accessed halo cells that at the same time 
+                ! belong to the lateral boundary are undefined otherwise.
+                CALL init(latbc%latbc_data(tlev)%atm_child(jg)%temp(:,:,:), 250._wp)
+                CALL init(latbc%latbc_data(tlev)%atm_child(jg)%pres(:,:,:), 1.e4_wp)
+                CALL init(latbc%latbc_data(tlev)%atm_child(jg)%qv  (:,:,:))
+!$OMP END PARALLEL
+              ELSE  ! nudging_config(jg)%thermdyn_type == ithermdyn_type%nonhydrostatic
+                !
+                ! Allocate atmospheric output data for child domains
+                ALLOCATE(latbc%latbc_data(tlev)%atm_child(jg)%vn     (nproma,nlev,nblks_e), &
+                         latbc%latbc_data(tlev)%atm_child(jg)%theta_v(nproma,nlev,nblks_c), &
+                         latbc%latbc_data(tlev)%atm_child(jg)%rho    (nproma,nlev,nblks_c), &
+                         STAT=ierrstat)
+                IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+
+!$OMP PARALLEL 
+                CALL init(latbc%latbc_data(tlev)%atm_child(jg)%vn     (:,:,:))
+                CALL init(latbc%latbc_data(tlev)%atm_child(jg)%theta_v(:,:,:))
+                CALL init(latbc%latbc_data(tlev)%atm_child(jg)%rho    (:,:,:))
+!$OMP END PARALLEL
+              ENDIF  ! IF (nudging_config(jg)%thermdyn_type == hydrostatic)
+
+            ENDIF  ! IF (nudging_config(jg)%nudge_type == ubn)
+          ENDDO  ! jg
+
+        ENDIF  ! !F (ANY(nudging_config(2:n_dom)%nudge_type == ubn)
+
+      ENDDO  ! tlev
 
 #endif
     END SUBROUTINE allocate_pref_latbc_data
@@ -314,27 +370,24 @@
     !!
     SUBROUTINE read_init_latbc_data(latbc, p_patch, p_int_state, p_nh_state, timelev, latbc_dict)
       TYPE(t_latbc_data), TARGET, INTENT(INOUT) :: latbc
-      TYPE(t_patch),          INTENT(INOUT) :: p_patch
+      TYPE(t_patch),          INTENT(INOUT) :: p_patch(:)
       TYPE(t_int_state),      INTENT(IN)    :: p_int_state
       TYPE(t_nh_state),       INTENT(INOUT) :: p_nh_state  !< nonhydrostatic state on the global domain
       INTEGER,                INTENT(OUT)   :: timelev
       TYPE(t_dictionary), INTENT(IN) :: latbc_dict
-
-      ! local variables
       TYPE(datetime) :: nextActive          ! next trigger date for prefetch event
       TYPE(datetime) :: latbc_read_datetime ! next input date to be read
-      INTEGER        :: ierr, nblks_c, nlev_in, jk,jb,jc
+      INTEGER :: ierr, nblks_c, nlev_in, jk, jb, jc
       REAL(wp)       :: seconds
       INTEGER        :: prev_latbc_tlev
       CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: td_string
       CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: latbc_read_datetime_str
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::read_init_latbc_data"
       REAL(wp), ALLOCATABLE                 :: z_ifc_in(:,:,:)
-
       INTEGER, TARGET                       :: idummy(1)
       LOGICAL                               :: is_restart
-
       TYPE(t_read_params) :: read_params(2) ! parameters for cdi read routine, 1 = for cells, 2 = for edges
+      INTEGER :: jn
 
       is_restart = isrestart()
       ! Fill data type with parameters for cdi read routine
@@ -350,20 +403,20 @@
           read_params(iedge)%idx_ptr => idummy
         END IF
       ELSE
-        read_params(icell)%npoints = p_patch%n_patch_cells_g
-        read_params(iedge)%npoints = p_patch%n_patch_edges_g
+        read_params(icell)%npoints = p_patch(1)%n_patch_cells_g
+        read_params(iedge)%npoints = p_patch(1)%n_patch_edges_g
         read_params(icell)%idx_ptr => idummy
         read_params(iedge)%idx_ptr => idummy
       ENDIF
 
       read_params(icell)%cdi_params &
         = makeInputParameters(latbc%open_cdi_stream_handle, &
-        &                     p_patch%n_patch_cells_g,      &
-        &                     p_patch%comm_pat_scatter_c)
+        &                     p_patch(1)%n_patch_cells_g,   &
+        &                     p_patch(1)%comm_pat_scatter_c)
       read_params(iedge)%cdi_params &
         = makeInputParameters(latbc%open_cdi_stream_handle, &
-        &                     p_patch%n_patch_edges_g,      &
-        &                     p_patch%comm_pat_scatter_e)
+        &                     p_patch(1)%n_patch_edges_g,   &
+        &                     p_patch(1)%comm_pat_scatter_e)
 
       ! indicators for synchronous read mode
       read_params(icell)%imode_asy = 0
@@ -389,7 +442,7 @@
       timelev  = 1   ! read in the first time-level slot
       latbc%latbc_data(timelev)%vDateTime = time_config%tc_exp_startdate
 
-      nblks_c = p_patch%nblks_c
+      nblks_c = p_patch(1)%nblks_c
       nlev_in = latbc%latbc_data(timelev)%atm_in%nlev
 
       ! First read hhl, which is assumed to be in the initial latbc file, which is already opened
@@ -405,7 +458,7 @@
 !$OMP PARALLEL DO PRIVATE (jk,jb,jc) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = 1, nblks_c
           DO jk = 1, nlev_in
-            DO jc = 1, MERGE(nproma,p_patch%npromz_c,jb/=nblks_c)
+            DO jc = 1, MERGE(nproma,p_patch(1)%npromz_c,jb/=nblks_c)
 
               IF (.NOT. latbc%patch_data%cell_mask(jc,jb)) CYCLE
             
@@ -453,7 +506,7 @@
           CALL check_validity_date_and_print_filename(latbc, latbc_read_datetime)
         ENDIF
 
-        CALL read_latbc_data(latbc, p_patch, p_nh_state, p_int_state, timelev, read_params, latbc_dict)
+        CALL read_latbc_data(latbc, p_patch(1), p_nh_state, p_int_state, timelev, read_params, latbc_dict)
       ENDIF
 
       CALL deleteInputParameters(read_params(icell)%cdi_params)
@@ -461,7 +514,7 @@
 
       ! Compute tendencies for nest boundary update
       IF (.NOT. is_restart .AND. timeshift%dt_shift < 0) THEN
-        CALL compute_boundary_tendencies(latbc%latbc_data, p_patch, p_nh_state,&
+        CALL compute_boundary_tendencies(latbc%latbc_data, p_patch(1), p_nh_state,&
           &                              timelev, latbc%buffer%idx_tracer)
       ENDIF
 
@@ -487,6 +540,26 @@
 
       latbc%mtime_last_read = latbc_read_datetime
 
+
+      ! If upper boundary nudging is activated for the base domain, scan through all 
+      ! child domains recursively. If boundary nudging is activated, interpolate recently 
+      ! read boundary data (timelev and prev_latbc_tlev) from the base domain to the 
+      ! current child domain. Do nothing, if upper boundary nudging is deactivated.
+      IF (nudging_config(1)%nudge_type==indg_type%ubn .AND. p_patch(1)%n_childdom > 0) THEN
+        !
+        prev_latbc_tlev = 3 - timelev
+        ! 
+        DO jn = 1, p_patch(1)%n_childdom
+          CALL intp_nestubc_nudging (p_patch     = p_patch(1:),               &
+            &                        latbc_data  = latbc%latbc_data(timelev), &
+            &                        jg          = p_patch(1)%child_id(jn) )
+          CALL intp_nestubc_nudging (p_patch     = p_patch(1:),                       &
+            &                        latbc_data  = latbc%latbc_data(prev_latbc_tlev), &
+            &                        jg          = p_patch(1)%child_id(jn) )
+        ENDDO
+      ENDIF
+
+
       ! Inform prefetch PE that the synchronous read of the initial LBCs is completed
       CALL compute_wait_for_async_pref()
       CALL compute_start_async_pref()
@@ -507,21 +580,22 @@
 
       read_params(icell)%cdi_params &
         = makeInputParameters(latbc%open_cdi_stream_handle, &
-        &                     p_patch%n_patch_cells_g, p_patch%comm_pat_scatter_c)
+        &                     p_patch(1)%n_patch_cells_g, p_patch(1)%comm_pat_scatter_c)
       read_params(iedge)%cdi_params &
         = makeInputParameters(latbc%open_cdi_stream_handle, &
-        &                      p_patch%n_patch_edges_g, p_patch%comm_pat_scatter_e)
+        &                      p_patch(1)%n_patch_edges_g, p_patch(1)%comm_pat_scatter_e)
 
-      CALL read_latbc_data(latbc, p_patch, p_nh_state, p_int_state, timelev, read_params, latbc_dict)
+      CALL read_latbc_data(latbc, p_patch(1), p_nh_state, p_int_state, timelev, read_params, latbc_dict)
 
       CALL deleteInputParameters(read_params(icell)%cdi_params)
       CALL deleteInputParameters(read_params(iedge)%cdi_params)
 
+
       ! Compute tendencies for nest boundary update
       IF (comp_tendencies) CALL compute_boundary_tendencies(latbc%latbc_data, &
-           p_patch, p_nh_state, timelev, latbc%buffer%idx_tracer)
+           p_patch(1), p_nh_state, timelev, latbc%buffer%idx_tracer)
 
-    END SUBROUTINE read_next_timelevel
+      END SUBROUTINE read_next_timelevel
     END SUBROUTINE read_init_latbc_data
 
 
@@ -755,7 +829,29 @@
         CALL get_data(latbc, 'v', latbc%latbc_data(tlev)%atm_in%v, read_params(icell))
       ENDIF
 
+      IF (latbc_config%fac_latbc_presbiascor > 0._wp) THEN
 
+!$OMP PARALLEL DO PRIVATE (jk,jb,jc,i_startidx,i_endidx)
+        DO jb = 1, i_endblk
+
+          CALL get_indices_c(p_patch, jb, 1, i_endblk, i_startidx, i_endidx, 1, rl_end)
+
+          DO jk = 1, nlev_in
+            DO jc = i_startidx, i_endidx
+
+              IF (.NOT. latbc%patch_data%cell_mask(jc,jb)) CYCLE
+
+              latbc%latbc_data(tlev)%atm_in%pres(jc,jk,jb) =                                                  &
+                latbc%latbc_data(tlev)%atm_in%pres(jc,jk,jb) + latbc_config%fac_latbc_presbiascor*            &
+                p_nh_state%diag%p_avginc(jc,jb)*EXP(-latbc%latbc_data_const%z_mc_in(jc,nlev_in,jb)/8000._wp)* &
+                latbc%latbc_data(tlev)%atm_in%pres(jc,jk,jb)/latbc%latbc_data(tlev)%atm_in%pres(jc,nlev_in,jb)
+
+              ENDDO
+            ENDDO
+        ENDDO
+!$OMP END PARALLEL DO
+
+      ENDIF
 
       ! Read vertical component of velocity (W) or OMEGA
 
@@ -1141,7 +1237,7 @@
       &                        latbc_read_datetime, lcheck_read, tlev)
 
       TYPE(t_latbc_data),     INTENT(INOUT) :: latbc
-      TYPE(t_patch),          INTENT(INOUT) :: p_patch
+      TYPE(t_patch),          INTENT(INOUT) :: p_patch(:)
       TYPE(t_nh_state),       INTENT(INOUT) :: p_nh_state   !< nonhydrostatic state on the global domain
       TYPE(t_int_state),      INTENT(IN)    :: p_int
       TYPE(datetime), POINTER, INTENT(IN)   :: cur_datetime !< current time
@@ -1164,7 +1260,7 @@
       character(len=max_datetime_str_len)   :: vDateTime_str
       TYPE(datetime), POINTER               :: vDateTime_ptr
       TYPE(t_read_params)                   :: read_params(2)
-
+      INTEGER                               :: jn
 
       ! check for event been active
       my_duration_slack => newTimedelta("PT0S")
@@ -1220,15 +1316,29 @@
       ! indicators for asynchronous read mode; receives data from prefetch PE
       read_params(icell)%imode_asy = icell
       read_params(iedge)%imode_asy = iedge
-      CALL read_latbc_data(latbc, p_patch, p_nh_state, p_int, tlev, read_params)
+      CALL read_latbc_data(latbc, p_patch(1), p_nh_state, p_int, tlev, read_params)
 
       ! Compute tendencies for nest boundary update
-      CALL compute_boundary_tendencies(latbc%latbc_data(:), p_patch, p_nh_state, tlev,  &
+      CALL compute_boundary_tendencies(latbc%latbc_data(:), p_patch(1), p_nh_state, tlev,  &
         &                              latbc%buffer%idx_tracer)
 
 
       ! Store mtime_last_read
       latbc%mtime_last_read = latbc_read_datetime
+
+
+      ! If upper boundary nudging is activated for the base domain, scan through all 
+      ! child domains recursively. If boundary nudging is activated, interpolate latest 
+      ! boundary data from the base domain to the current child domain. Do nothing, if upper 
+      ! boundary nudging is deactivated.
+      IF (nudging_config(1)%nudge_type==indg_type%ubn .AND. p_patch(1)%n_childdom > 0) THEN
+        DO jn = 1, p_patch(1)%n_childdom
+          CALL intp_nestubc_nudging (p_patch     = p_patch(1:),            &
+            &                        latbc_data  = latbc%latbc_data(tlev), &
+            &                        jg          = p_patch(1)%child_id(jn) )
+        ENDDO
+      ENDIF
+
 
       ! copy changed values form CPU to GPU
 #ifdef _OPENACC
@@ -1248,7 +1358,7 @@
     ! first time level of the lateral boundary data
     !
     SUBROUTINE copy_fg_to_latbc(latbc_data, p_nh, tlev, idx_tracer)
-      TYPE(t_init_state),     INTENT(INOUT) :: latbc_data(:)
+      TYPE(t_latbc_state),    INTENT(INOUT) :: latbc_data(:)
       TYPE(t_nh_state),       INTENT(IN)    :: p_nh
       INTEGER,                INTENT(IN)    :: tlev
       INTEGER,                INTENT(IN)    :: idx_tracer(:)
@@ -1287,7 +1397,7 @@
     !! Initial version by G. Zaengl, DWD (2013-10-22)
     !!
     SUBROUTINE compute_boundary_tendencies ( latbc_data, p_patch, p_nh, tlev, idx_tracer )
-      TYPE(t_init_state),     INTENT(IN)    :: latbc_data(:)
+      TYPE(t_latbc_state),     INTENT(IN)   :: latbc_data(:)
       TYPE(t_patch),          INTENT(IN)    :: p_patch
       TYPE(t_nh_state),       INTENT(INOUT) :: p_nh
       INTEGER,                INTENT(IN)    :: tlev

@@ -85,11 +85,8 @@ MODULE sfc_terra_data
 ! Declarations:
 !
 ! Modules used:
-#ifdef __COSMO__
-USE kind_parameters, ONLY :   &
-#elif __ICON__
+
 USE mo_kind, ONLY:     &
-#endif
     wp           ! KIND-type parameter for real variables
 
 !==============================================================================
@@ -152,12 +149,7 @@ PUBLIC           ! All constants and variables in this module are public
   DATA  cadp  / 0.0_wp   , 0.0_wp   , 0.012_wp  , 0.030_wp  , 0.035_wp  , 0.060_wp  , 0.065_wp  , 0.098_wp  , 0.0_wp   ,  0.0_wp   /
   DATA  crhoc / 1.92E6_wp, 2.10E6_wp, 1.28E6_wp , 1.35E6_wp , 1.42E6_wp , 1.50E6_wp , 1.63E6_wp , 0.58E6_wp , 4.18E6_wp, 1.92E6_wp /
   DATA  cik2  / 0.0_wp   , 0.0_wp   , 0.0035_wp , 0.0023_wp , 0.0010_wp , 0.0006_wp , 0.0001_wp , 0.0002_wp , 0.0_wp   ,  0.0_wp   /
-#ifdef __COSMO__
-  DATA  ckw0  / 0.0_wp   , 0.0_wp   , 479.E-7_wp, 943.E-8_wp, 531.E-8_wp, 764.E-9_wp, 17.E-9_wp , 58.E-9_wp , 0.0_wp   ,  0.0_wp   /
-#endif
-#ifdef __ICON__
   DATA  ckw0  / 0.0_wp   , 0.0_wp   , 479.E-7_wp, 943.E-8_wp, 531.E-8_wp, 764.E-9_wp, 85.E-9_wp , 58.E-9_wp , 0.0_wp   ,  0.0_wp   /
-#endif
   DATA  ckw1  / 0.0_wp   , 0.0_wp   , -19.27_wp , -20.86_wp , -19.66_wp , -18.52_wp , -16.32_wp , -16.48_wp , 0.0_wp   ,  0.0_wp   /
   DATA  cdw0  / 0.0_wp   , 0.0_wp   , 184.E-7_wp, 346.E-8_wp, 357.E-8_wp, 118.E-8_wp, 442.E-9_wp, 106.E-9_wp, 0.0_wp   ,  0.0_wp   /
   DATA  cdw1  / 0.0_wp   , 0.0_wp   , -8.45_wp  , -9.47_wp  , -7.44_wp  , -7.76_wp  , -6.74_wp  , -5.97_wp  , 0.0_wp   ,  0.0_wp   /
@@ -190,13 +182,6 @@ PUBLIC           ! All constants and variables in this module are public
     csalb_p        = 0.15_wp  , & !  solar albedo of ground covered by plants
     csalb_snow     = 0.70_wp  , & !  solar albedo of ground covered by snow
 
-#ifdef __COSMO__
-    csalb_snow_min = 0.400_wp , & ! min. solar albedo of snow for forest free surfaces
-    csalb_snow_max = 0.700_wp , & ! max. solar albedo of snow for forest free surfaces
-  ! for possible later use:
-    csalb_snow_fe  = 0.200_wp , &  ! solar albedo of snow for surfaces with evergreen forest
-    csalb_snow_fd  = 0.200_wp , &  ! solar albedo of snow for surfaces with deciduous forest
-#elif __ICON__
     ! T.R. 2011-09-21 csalb_snow_min/max set to values used in GME
     csalb_snow_min = 0.500_wp , &
                            ! min. solar albedo of snow for forest free surfaces
@@ -205,7 +190,6 @@ PUBLIC           ! All constants and variables in this module are public
     ! T.R. 2011-09-21 snow albedos for forests set to values used in GME
     csalb_snow_fe  = 0.270_wp , &  ! solar albedo of snow for surfaces with evergreen forest
     csalb_snow_fd  = 0.320_wp , &  ! solar albedo of snow for surfaces with deciduous forest
-#endif
 
     ctalb          = 0.004_wp , & !  thermal albedo ( of all soil types )   
     cf_snow        = 0.0150_wp, & !  parameter for the calculation of the 
@@ -224,13 +208,7 @@ PUBLIC           ! All constants and variables in this module are public
                                   !  variation of orography
     cik1       = 0.0020_wp    , & !  parameter for the determination of the 
                                   !  maximum infiltaration
-#ifdef __COSMO__
-    cwimax_ml                 , & !  maximum interception water content
-              ! this is now a namelist variable in PHYCTL
-    ctau_i     = 1000.0_wp    , & !  time constant for the drainage from the interception storage
-#elif __ICON__
     ctau_i     = 7200.0_wp    , & !  time constant for the drainage from the interception storage
-#endif
     cakw       = 0.8000_wp    , & !  parameter for averaging the water contents
                                   !  of the top and middle soil water layers to 
                                   !  calculate the hydraulic diffusivity and 
@@ -262,12 +240,8 @@ PUBLIC           ! All constants and variables in this module are public
     crhosmaxf  = 150.00_wp    , & !  maximum density of fresh snow
     crhogminf  = 100.00_wp    , & !  minimum density of fresh graupel / convective snow
     crhogmaxf  = 200.00_wp    , & !  maximum density of fresh graupel / convective snow
-#ifdef __COSMO__
-    crhosmint  =   0.20_wp    , & !  minimum value of time constant for ageing of snow
-#elif __ICON__
-    crhosmint  =   0.125_wp    ,& !  value of time constant for ageing 
+    crhosmint  =  0.125_wp    , & !  value of time constant for ageing 
                                   !  of snow at csnow_tmin (8 days)
-#endif
     crhosmaxt  =   0.40_wp    , & !  maximum value of time constant for ageing 
                                   !  of snow
     crhosmax_tmin = 200.00_wp , & ! maximum density of snow at csnow_tmin
@@ -297,13 +271,6 @@ PUBLIC           ! All constants and variables in this module are public
     crsmax     = 4000.0_wp        !  BATS (s/m)
     ! crsmax increased from 1000 to 4000 s/m (to reduce latent heat flux).
 
-#ifdef __COSMO__
-  ! Parameters for the skin temperature formulation
-
-  REAL  (KIND=wp)           ::  &
-    cskinc                    , & ! skin conductivity (W/m**2/K)
-    cimpl                         ! stability parameter for the computation of the skin temperature
-#endif
 
 ! 3. Additional variables for the soil geometry
 ! ---------------------------------------------
@@ -413,22 +380,6 @@ PUBLIC           ! All constants and variables in this module are public
     ! in double precision.  
     eps_nounderflow = 1.0E-5_wp * EPSILON(1.0_wp)
 
-#ifdef __COSMO__
-! 7. Taken from ICON (at least for the moment being: ICON declares these variables somewhere different)
-! --------------------------------
-
-  REAL  (KIND=wp)            ::  &
-    max_toplaydepth  =  0.25_wp, & ! maximum depth of uppermost snow layer for multi-layer snow scheme (25 cm)
-    tune_minsnowfrac = 0.125_wp    ! Minimum value to which the snow cover fraction is artificially reduced
-                                   ! in case of melting show (in case of idiag_snowfrac = 20/30/40)
-
-  INTEGER                    ::  &
-    itype_interception = 1,      & ! type of plant interception
-    idiag_snowfrac                 ! method for diagnosis of snow-cover fraction
-
-  LOGICAL                    ::  &
-    l2lay_rho_snow = .FALSE.       ! use two-layer snow density for single-layer snow model
-#endif
 
 ! 8. Soil ice parameterization
 ! ----------------------------
@@ -682,7 +633,8 @@ PUBLIC           ! All constants and variables in this module are public
     zagb        (:,:)              , &
     zagc        (:,:)              , &
     zagd        (:,:)              , &
-    zage        (:,:)
+    zage        (:,:)              , &
+    zhwso_budget(:)                    ! all sources and sinks of soil water budget              
 
 
   LOGICAL,           ALLOCATABLE  :: &
@@ -696,9 +648,10 @@ CONTAINS
 
 !==============================================================================
 
-SUBROUTINE terra_wkarr_alloc (ke_soil, ke_snow, nproma, istat)
+SUBROUTINE terra_wkarr_alloc (ke_soil, ke_snow, lressoibud, nproma, istat)
 
   INTEGER, INTENT(IN)  :: ke_soil, ke_snow, nproma
+  LOGICAL, INTENT(IN)  :: lressoibud
   INTEGER, INTENT(OUT) :: istat
 
   istat = 0
@@ -937,6 +890,13 @@ SUBROUTINE terra_wkarr_alloc (ke_soil, ke_snow, nproma, istat)
             zage        (nproma,0:ke_soil+ke_snow+1), &
        STAT=istat)
 
+  IF (lressoibud) THEN
+    ALLOCATE (                               &  ! for soil water budget
+            zhwso_budget(nproma)           , &  ! all sources and sinks of soil moisture budget
+       STAT=istat)
+
+  ENDIF	   
+	   
   ALLOCATE (                                 &  ! logical
             limit_tch (nproma)             , &  ! indicator for flux limitation problem
             lzurban   (nproma)             , &  ! indicator for flux limitation problem
@@ -979,6 +939,7 @@ SUBROUTINE terra_wkarr_alloc (ke_soil, ke_snow, nproma, istat)
   !$noacc create(zw_snow_old, zrho_snow_old, h_snow_fg, h_snow_incr)  &
   !$noacc create(zaga, zagb, zagc, zagd, zage)                        &
   !$noacc create(limit_tch, lzurban, l_redist)
+  !$noacc enter data async create(zhwso_budget) if (lressoibud)
 
 END SUBROUTINE terra_wkarr_alloc
 

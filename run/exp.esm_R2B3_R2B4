@@ -57,8 +57,8 @@ atmos_refinement="R02B03"
 ocean_gridID="0036"
 ocean_refinement="R02B04"
 
-nproma_atm=24
-nproma_oce=48
+nproma_atm=16
+nproma_oce=16
 
 # use alternatively: full restart, init from (ocean) restart, init from climatology or false
 #  - set to false if ocean was already initialised
@@ -89,7 +89,7 @@ mpi_oce_nodes=2
 
 radTimeStep="PT2H"               # radiation time step:    12 time steps per day
 atmTimeStep="PT15M"              # atmosphere time step:   72 time steps per day
-atm_substeps=8                   # atmosphere dynamics substeps, ca. 2 min for atm-dyn-stepping
+atm_substeps=10                  # atmosphere dynamics substeps, ca. 2 min for atm-dyn-stepping
 oceTimeStep="PT60M"              # ocean time step:        24 time steps per day
 couplingTimeStep="PT60M"         # coupling time step:      2 time steps per radTimeStep 
 
@@ -121,14 +121,13 @@ else
     poolFolder_prefix=
 fi
 
-#icon_data_poolFolder="$poolFolder_prefix/work/mh0287/users/rene/public/mpim"
-icon_data_poolFolder="$poolFolder_prefix/pool/data/ICON/grids/private/rene/mpim"
+icon_data_poolFolder="$poolFolder_prefix/pool/data/ICON/grids/public/mpim"
 
 # horizontal grid(s)
 # ------------------
 atm_grid_name=icon_grid_${atmos_gridID}_${atmos_refinement}_G
 
-atmo_grid_folder=/pool/data/ICON/grids/private/rene/mpim/${atmos_gridID}  # still some private path!
+atmo_grid_folder=/pool/data/ICON/grids/public/mpim/${atmos_gridID}  # still some private path!
 atmo_data_InputFolder=${icon_data_poolFolder}/${atmos_gridID}
 atmo_land_data_InputFolder=${icon_data_poolFolder}/${atmos_gridID}-${ocean_gridID}
 atmo_dyn_grid=${atm_grid_name}.nc
@@ -140,8 +139,8 @@ atmo_dyn_grid=${atm_grid_name}.nc
 
 # start and end date+time of experiment
 # -------------------------------------
-start_date=${start_date:="1000-01-01T00:00:00Z"}
-    end_date=${end_date:="1010-01-01T00:00:00Z"}
+start_date=${start_date:="2000-01-01T00:00:00Z"}
+    end_date=${end_date:="2010-01-01T00:00:00Z"}
 
 # restart/checkpoint/output intervals
 # -----------------
@@ -214,7 +213,6 @@ output_hamocc_3d=yes
 #-----------------------------------
 
 # JSBACH settings
-run_jsbach=yes
 jsbach_usecase=jsbach_pfts    # jsbach_lite or jsbach_pfts
 jsbach_with_lakes=yes
 jsbach_with_carbon=no         # yes needs jsbach_pfts usecase
@@ -222,7 +220,6 @@ jsbach_with_carbon=no         # yes needs jsbach_pfts usecase
 # Some further processing for land configuration
 # ----------------------------------------------
 
-ljsbach=$([ "${run_jsbach:=no}" == yes ]          && echo .TRUE. || echo .FALSE. )
 llake=$([ "${jsbach_with_lakes:=yes}" == yes ]    && echo .TRUE. || echo .FALSE. )
 lcarbon=$([ "${jsbach_with_carbon:=yes}" == yes ] && echo .TRUE. || echo .FALSE. )
 
@@ -236,7 +233,7 @@ fi
 # namelist files
 # --------------
 atm_namelist=NAMELIST_${EXPNAME}_atm
-lnd_namelist=NAMELIST_${EXPNAME}_lnd
+jsbach_namelist=NAMELIST_${EXPNAME}_lnd
 oce_namelist=NAMELIST_${EXPNAME}_oce
 
 
@@ -639,7 +636,7 @@ cat > ${atm_namelist} << EOF
 &nonhydrostatic_nml
  ndyn_substeps    = $atm_substeps ! dtime/dt_dyn
  damp_height      = 50000.      ! [m]
- rayleigh_coeff   = 0.1000      ! set to 0.1001 for rerun with little change
+ rayleigh_coeff   = 1.5000      ! set to 0.1001 for rerun with little change
  vwind_offctr     = 0.2
  divdamp_fac      = 0.004
  exner_expol      = 0.6
@@ -657,7 +654,7 @@ cat > ${atm_namelist} << EOF
  flat_height      = 16000.      ! [m]
 /
 &diffusion_nml
- hdiff_smag_fac   = 0.015       ! default: 0.015  higher values will increase diffusion
+ hdiff_smag_fac   = 0.15       ! default: 0.015  too high values are very diffusive! Upper limit should be 0.15
 /
 &transport_nml
  tracer_names     = 'hus','clw','cli'
@@ -685,7 +682,7 @@ cat > ${atm_namelist} << EOF
  echam_phy_config(1)%dt_art = ""
 !
 ! surface (.TRUE. or .FALSE.)
- echam_phy_config(1)%ljsb   = ${ljsbach}
+ echam_phy_config(1)%ljsb   = .TRUE.
  echam_phy_config(1)%lamip  = .FALSE.
  echam_phy_config(1)%lice   = .TRUE.
  echam_phy_config(1)%lmlo   = .FALSE.
@@ -717,34 +714,36 @@ cat > ${atm_namelist} << EOF
  echam_rad_config(1)%yr_perp    =  1850
 /
 &echam_gwd_nml
+ echam_gwd_config(1)%emiss_lev	=  20       ! default: 10
 /
 &echam_sso_nml
- echam_sso_config(1)%gkdrag     = 0.005      ! default: 0.05
- echam_sso_config(1)%gkwake     = 0.005      ! default: 0.05
- echam_sso_config(1)%gklift     = 0.7
+ echam_sso_config(1)%gkdrag     = 0.02      ! default: 0.05
+ echam_sso_config(1)%gkwake     = 0.02      ! default: 0.05
+ echam_sso_config(1)%gklift     = 0.5
 /
 &echam_vdf_nml
- echam_vdf_config(1)%c_n        = 1.0
+ echam_vdf_config(1)%c_n        = 1.5
  echam_vdf_config(1)%fsl        = 0.5
- echam_vdf_config(1)%pr0	= 0.7	    ! default: 1.0   ! lower values help to avoid negative humidities
+ echam_vdf_config(1)%pr0	= 1.0	    ! default: 1.0   ! lower values help to avoid negative humidities
 /
 &echam_cnv_nml
- echam_cnv_config(1)%entrpen    = 0.0003    ! default: 0.0003    (old default:  0.0002)
+ echam_cnv_config(1)%entrpen    = 0.0002    ! default: 0.0003    (old default:  0.0002)
  echam_cnv_config(1)%cmfctop    = 0.1       ! default: 0.1       (old default:  0.2)
  echam_cnv_config(1)%entrscv    = 0.0003    ! default: 0.0003    (old default:  0.003)
 /
 &echam_cld_nml
- echam_cld_config(1)%csecfrl    = 0.7e-5     ! threshold for ice and water in clouds, default 5.e-6
+ echam_cld_config(1)%csecfrl    = 0.4e-5     ! threshold for ice and water in clouds, default 5.e-6
  echam_cld_config(1)%ccraut     = 2.0       ! default: 2.0      (old default: 15.0)
  echam_cld_config(1)%ccsaut     = 2.0       ! default: 2.0      (old default: 95.0)
  echam_cld_config(1)%cauloc     = 1.0       ! default: 1.0      (old default: 10.0)
 /
 &echam_cov_nml
  echam_cov_config(1)%crs        = 0.968     ! Critical relative humidity at surface, default 0.968
- echam_cov_config(1)%crt        = 0.9      ! Critical relative humidity at toa, default 0.8
+ echam_cov_config(1)%crt        = 0.94      ! Critical relative humidity at toa, default 0.8
 /
 &sea_ice_nml
- albs         = 0.865         ! Albedo of snow (not melting)
+ hci_layer    = 0.1
+ albs         = 0.85         ! Albedo of snow (not melting)
  albsm        = 0.7         ! Albedo of snow (melting)
  albi         = 0.75         ! Albedo of ice (not melting)
  albim        = 0.7         ! Albedo of ice (melting)
@@ -754,7 +753,7 @@ EOF
 # jsbach namelist
 # ---------------
 
-cat > ${lnd_namelist} << EOF
+cat > ${jsbach_namelist} << EOF
 &jsb_model_nml
   usecase              = "${jsbach_usecase}"
   use_lakes            = ${llake}
@@ -791,6 +790,7 @@ cat > ${lnd_namelist} << EOF
   bc_filename          = 'bc_land_soil.nc'
   ic_filename          = 'ic_land_soil.nc'
   bc_sso_filename      = 'bc_land_sso.nc'
+  snow_depth_max       = 10.0
 /
 &jsb_assimi_nml
   active               = .TRUE.              ! Use FALSE for jsbach_lite, TRUE for jsbach_pfts
@@ -841,7 +841,7 @@ add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
 # namelist files
 # --------------
 add_required_file ${basedir}/run/${atm_namelist}                        ./
-add_required_file ${basedir}/run/${lnd_namelist}                        ./
+add_required_file ${basedir}/run/${jsbach_namelist}                        ./
 
 # dictionary file for output variable names
 #
@@ -892,7 +892,8 @@ add_link_file ${datadir}/bc_land_sso_1992.nc                            ./bc_lan
 #
 # - HD model input by Tom Riddick
 #
-datadir=/work/mh0727/m300732/input/hd       # FIXME move hdpara file to pool directory and adapt path
+# FIXME: still a private path
+datadir=/work/mh0727/m300732/input/hd
 add_link_file $datadir/hdpara_r2b3_0030_0036_no_sinks_half_frac_lnd_adjusted.nc     ./bc_land_hd.nc
 #
 # - lctlib file for JSBACH
@@ -1407,6 +1408,7 @@ cat >> ${oce_namelist} << EOF
   output_end       = "${end_date}"
   output_interval  = "${hamocc_output_interval}"
   file_interval    = "${hamocc_file_interval}"
+  mode             = 1
   output_grid      = .false.
   operation       = 'mean'
   ml_varlist       =  'group:HAMOCC_MONI'
@@ -1424,6 +1426,7 @@ cat >> ${oce_namelist} << EOF
   output_end       = "${end_date}"                    ! end in ISO-format
   output_interval  = "${hamocc_output_interval}"
   file_interval    = "${hamocc_file_interval}"
+  mode             = 1
   output_grid      = .TRUE.
   operation       = 'mean'
   ml_varlist       =  'group:HAMOCC_BASE'
@@ -1442,7 +1445,8 @@ cat >> ${oce_namelist} << EOF
   output_interval  = "${hamocc_output_interval}"
   file_interval    = "${hamocc_file_interval}"
   output_grid      = .TRUE.
-  operation       = 'mean'
+  mode             = 1
+  operation        = 'mean'
   ml_varlist       =  'group:HAMOCC_SED'
 /
 EOF
@@ -1459,7 +1463,8 @@ cat >> ${oce_namelist} << EOF
   output_interval  = "${hamocc_output_interval}"
   file_interval    = "${hamocc_file_interval}"
   output_grid      = .TRUE.
-  operation       = 'mean'
+  operation        = 'mean'
+  mode             = 1
   ml_varlist       =  'HAMOCC_BACFRA','HAMOCC_SRED','HAMOCC_REMIN','HAMOCC_DENIT','HAMOCC_delsil','HAMOCC_delcar','HAMOCC_aou'
 /
 EOF
@@ -1475,11 +1480,11 @@ cat >> ${oce_namelist} << EOF
   output_end       = "${end_date}"                    ! end in ISO-format
   output_interval  = "${hamocc_output_interval}"
   file_interval    = "${hamocc_file_interval}"
-  !mode             =  2                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+  mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   output_grid      = .TRUE.
-  operation       = 'mean'
+  operation        = 'mean'
   ml_varlist       =  'HAMOCC_NPP','HAMOCC_nfix','HAMOCC_dms_prod','HAMOCC_dms_bac','HAMOCC_dms_uv','HAMOCC_eu_export','HAMOCC_pho_cya','HAMOCC_cya_loss','HAMOCC_grazing','HAMOCC_remin_via_grazer','HAMOCC_exudation_phy','HAMOCC_exudation_zoo','HAMOCC_zoomor','HAMOCC_phymor','HAMOCC_plim','HAMOCC_flim','HAMOCC_nlim','HAMOCC_cTlim','HAMOCC_cLlim','HAMOCC_cPlim','HAMOCC_cFlim'
-  m_levels          ='1...${nlev_eu}'  ! ~500m: 19 for L40, 16 for L20, 26 for L64
+  m_levels         ='1...${nlev_eu}'  ! ~500m: 19 for L40, 16 for L20, 26 for L64
 /
 EOF
 fi
@@ -1493,10 +1498,10 @@ cat >> ${oce_namelist} << EOF
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
   output_interval  = "${hamocc_output_interval}"
- !mode             =  2                             ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+  mode             =  1                             ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   file_interval    = "${hamocc_file_interval}"
   output_grid      = .TRUE.
-  operation       = 'mean'
+  operation        = 'mean'
   ml_varlist       =  'HAMOCC_co2flux','HAMOCC_orginp','HAMOCC_dmsflux','HAMOCC_silinp','HAMOCC_calinp','HAMOCC_o2flux','HAMOCC_n2flux','HAMOCC_n2oflux','HAMOCC_nfix_diag','HAMOCC_coex90','HAMOCC_calex90','HAMOCC_opex90','HAMOCC_coex1000','HAMOCC_opex1000','HAMOCC_calex1000','HAMOCC_coex2000','HAMOCC_opex2000','HAMOCC_calex2000','HAMOCC_o2min','HAMOCC_zo2min'
 /
 EOF
@@ -1516,6 +1521,7 @@ cat >> ${oce_namelist} << EOF
   !str_mod_tst                = 'all'                            ! define modules to print out in debug mode
 /
 &ocean_dynamics_nml
+ vert_cor_type = 1
 ! 40 unevenly spaced levels used by MPIOM/GR30
  n_zlev         =   ${ocean_vertical_levels}
  dzlev_m(1:40)  =   12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   13.0,   15.0,   20.0,   25.0,
@@ -1524,15 +1530,12 @@ cat >> ${oce_namelist} << EOF
                    220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
   l_edge_based                               = .FALSE.          ! edge- or cell-based mimetic discretization
 ! l_partial_cells                            = .FALSE.          ! partial bottom cells=TRUE: local varying bottom depth
-  select_solver                              = 4       ! 1=gmres_oce_old; 2=ocean_restart_gmres, 3=mixed precisison restart 
-                                                       ! 4=CG (default) 5=CGJ 6=BiCG 7=GMRES restart (legacy) 8=MINRES
+  select_solver                              = 4       ! 1=gmres_oce_old; 2=ocean_restart_gmres, 
+                                                       ! 3=mixed precisison restart 4=CG (default),
+                                                       ! 5=CGJ 6=BiCG 7=GMRES restart (legacy) 8=MINRES
   use_absolute_solver_tolerance              = .TRUE.
-  solver_tolerance                           = 1.0E-13 ! this may further be reduced
+  solver_tolerance                           = 1.0E-10 ! this may further be reduced
   solver_FirstGuess                          = 2       ! 0=start from zeros 1=last timestep smoothed 2=last timestep (default) 
-
-! solver_tolerance                           = 7.5E-14     ! old value
-! solver_max_iter_per_restart                = 19          ! old value
-! solver_max_restart_iterations              = 100         ! outer (restart solver)
 
   fast_performance_level                     = 200         ! performance level 12: for cell-based; 5: default
   use_continuity_correction                  = .TRUE.      ! height adjustment according to vertical velocity in dynamics
@@ -1572,7 +1575,8 @@ cat >> ${oce_namelist} << EOF
   Salinity_HorizontalDiffusion_Reference     = 0
 /
 &ocean_vertical_diffusion_nml
-  PPscheme_type                              = 4
+  vert_mix_type                              = 2
+  PPscheme_type                              = 0
   velocity_VerticalDiffusion_background      = 5.0E-5      ! [m2/s]  vertical background viscosity coefficient for velocity
   temperature_VerticalDiffusion_background   = 5.0E-5      ! [m2/s]  vertical background diffusion coefficient for temperature
   salinity_VerticalDiffusion_background      = 5.0E-5      ! [m2/s]  vertical background diffusion coefficient for salinity
@@ -1584,18 +1588,20 @@ cat >> ${oce_namelist} << EOF
   bottom_drag_coeff                          = 3.0E-3      ! default=2.5E-3; active for i_bc_veloc_bot=1
   use_wind_mixing                            = .TRUE.      ! TRUE: use wind mixing scheme in MPIOM-type pp-scheme
   lambda_wind                                = 0.03
-  tracer_TopWindMixing                       = 1.0E-5
-  velocity_TopWindMixing                     = 1.0E-5
+  tracer_TopWindMixing                       = 0.5E-3
+  velocity_TopWindMixing                     = 0.5E-3
+  TKE_min                                    = 0.4E-5
+  c_k                                        = 0.5
 /
 &ocean_GentMcWilliamsRedi_nml
   GMRedi_configuration                       = 1           ! 0=cartesian diffusion; 1=GM-Redi: bolus advection + isopycnal diffusion
   tapering_scheme                            = 1
   GMRedi_usesRelativeMaxSlopes               = .FALSE.
-  S_max                                      = 1.0e-5      ! 1.0
+  S_max                                      = 3.0e-4      ! 1.0
   S_d                                        = 1.0e-4      ! 5e-3 to 5e-4
                                                            !
-  k_tracer_GM_kappa_parameter                = 800.0      !
-  k_tracer_isoneutral_parameter              = 800.0      ! value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
+  k_tracer_GM_kappa_parameter                = 1000.0      !
+  k_tracer_isoneutral_parameter              = 1000.0      ! value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
   k_tracer_dianeutral_parameter              = 0.0         ! 1.0E-5  !
                                                            !
   switch_off_diagonal_vert_expl              = .TRUE.
@@ -1618,7 +1624,7 @@ cat >> ${oce_namelist} << EOF
 ! use_constant_tfreez                        = .TRUE.      ! default: TRUE
 ! use_no_flux_gradients                      = .FALSE.     ! default: TRUE
  leadclose_1                                = 0.25        ! default: 0.5 - value of MPIOM: 0.25
- leadclose_2n                               = 0.666       ! default: 0.0 - value of MPIOM: 2/3
+ leadclose_2n                               = 0.66       ! default: 0.0 - value of MPIOM: 2/3
 /
 EOF
 
@@ -1629,9 +1635,9 @@ cat >> ${oce_namelist} << EOF
 l_cyadyn                          = .TRUE.    ! dynamic cyanobacteria
 l_cpl_co2                         = .FALSE.   ! CO2 coupled to land carbon cycle
 l_bgc_check                       = .FALSE.   ! mass check at every time step
-deltacalc                         = 0.0        ! CaCO3 weathering rate [kmol/s] 
-deltaorg                          = 0.0        ! OC weathering rate [kmol/s]
-deltasil                          = 0.0        ! Si(OH)4 weathering rate [kmol/s]
+deltacalc                         = 825.0        ! CaCO3 weathering rate [kmol/s] 
+deltaorg                          = 14.0        ! OC weathering rate [kmol/s]
+deltasil                          = 382.0        ! Si(OH)4 weathering rate [kmol/s]
 atm_co2                           = 284.3      ! atmospheric CO2 (default 278)
 atm_n2                            = 802000.   ! atmospheric N2  (default 802000)
 atm_o2                            = 196800.   ! atmospheric O2  (default 196800)
@@ -1643,10 +1649,14 @@ sinkspeed_martin_ez               = 3.5       ! detritue sinking speed within (0
 mc_depth                          = 100.      ! depth where linear increase of sinking speed starts for i_settling=1 (default 100.)
 mc_fac                            = 2.0       ! slope of sinking speed increase relative to remin rate (default 2.0)
 l_implsed                         =.FALSE.    ! implicit sediment formulation
-cycdec                            = 0.07
-cya_growth_max                    = 0.3
+cycdec                            = 0.06
+cya_growth_max                    = 0.32
 grazra                            = 0.7
+drempoc                           = 0.015
+calmax                            = 0.24
+bkcya_p                           = 5.0e-8
 l_init_bgc                        = ${l_init_bgc}
+hion_solver                       = 1
 /
 EOF
 fi
@@ -1665,7 +1675,7 @@ cat >> ${oce_namelist} << EOF
                                                            ! salt-change due to internal fluxes only
   limit_seaice                               = .TRUE.      ! default: TRUE
   seaice_limit                               = 0.8         ! hard limit set to 80% of upper layer for sea ice
-  lfix_salt_content                          = .TRUE.
+  surface_flux_type                          = 11
   limit_elevation                            = .FALSE.     ! true: adjust daily to zero, default=false: free surface
 ! lswr_jerlov                                = .FALSE.     ! SW-penetration (Jerlov-radiation, default=T)
 /
@@ -1724,14 +1734,15 @@ add_required_file ${basedir}/run/${oce_namelist} ./
 # Ocean initialisation input
 #
 if [[ "$initialiseOcean" == "fromRestart" ]]; then
- # spun-up for 500 (200+300) years
- add_link_file /work/mh0727/m300732/input/0036/ocean/restart/ler0613_restart_oce_13000101T000000Z.nc    restart_ocean_DOM01.nc
+ # FIXME: still a private path
+ # long spinup
+ add_link_file /work/mh0727/m300732/input/0036/ocean/restart/ler1007_restart_oce_38000101T000000Z.nc    restart_ocean_DOM01.nc
 fi
 
 if [[ "$initialiseOcean" == "fromRestartwithHamocc" ]]; then
- #FIXME: add restart file with spun-up Hamocc
- # Restart file like above + 1 year with Hamocc (initialized from basin averages)
- add_link_file /work/mh0727/m300732/input/0036/ocean/restart/ler0614_restart_oce_10010101T000000Z.nc    restart_ocean_DOM01.nc
+ # FIXME: still a private path
+ # long spinup
+ add_link_file /work/mh0727/m300732/input/0036/ocean/restart/ler1007_restart_oce_38000101T000000Z.nc    restart_ocean_DOM01.nc
  fi
 
 if [[ "$initialiseOcean" == "fromClimatology" ]]; then
@@ -1747,7 +1758,7 @@ add_required_file ${ocean_grid_folder}/${ocean_grid} ./
 ## HAMOCC forcing files
 #
 if [  "x${use_hamocc}"  = "xyes" ]; then
-  # FIXME: this is still a private path
+  # FIXME: still a private path
   datadir=/work/mh0727/m300732/input/0036/ocean/hamocc/
   add_link_file $datadir/MAHOWALDDUST_icon_grid_0036_R02B04_O_remapbil1.nc           dust.nc  # iron deposition
   add_link_file $datadir/ndepo_1-0_gr_185001-185012-clim_icon_grid_0036_R02B04_O.nc  nitrogen.nc  # nitrate deposition

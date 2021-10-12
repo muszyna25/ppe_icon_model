@@ -1,0 +1,26 @@
+#! /usr/bin/perl -i
+#
+# Update $Id... strings
+#
+# Increments the revision number - starting from 1,
+# and updates file name, time stamp, and user name
+#
+# Usage: $ICON_DIR/utils/id++ FILE [...]
+#
+
+use warnings;
+use strict;
+use POSIX;
+use File::Basename;
+
+my $stamp = POSIX::strftime("%Y-%m-%d %H:%M:%SZ", gmtime());
+my $user = getpwuid($<);
+
+while(<>) {
+    my $file = basename($ARGV);
+    s{\$Id: \S+ (\S+) \S+ \S+ \S+ \$}
+     {join(' ', '$Id:', $file, $1+1, $stamp, $user, '$')}ge;
+    s{\$Id[: ]*\$}
+     {\$Id: $file 1 $stamp $user \$}g;
+    print;
+}

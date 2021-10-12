@@ -137,6 +137,10 @@ MODULE mo_echam_rad_config
      REAL(wp) :: frad_cfc11
      REAL(wp) :: frad_cfc12
      !
+     ! --- Flag for clear-sky computations
+     !
+     LOGICAL  :: lclearsky
+     !
      ! --- Number of columns that RRTMGP would process at a time,
      !     default is just nproma
      !
@@ -214,6 +218,9 @@ CONTAINS
 #else
     echam_rad_config(:)% frad_cfc11     = 1.0_wp
     echam_rad_config(:)% frad_cfc12     = 1.0_wp
+    !
+    echam_rad_config(:)% lclearsky      = .TRUE.
+    !
     echam_rad_config(:)% rrtmgp_columns_chunk = nproma
 #endif
     !
@@ -243,6 +250,7 @@ CONTAINS
     LOGICAL , POINTER :: lrad_aero_diag
     REAL(wp), POINTER :: frad_cfc
 #else
+    LOGICAL , POINTER :: lclearsky
     INTEGER , POINTER :: rrtmgp_columns_chunk
     REAL(wp), POINTER :: frad_cfc11, frad_cfc12
 #endif
@@ -301,6 +309,8 @@ CONTAINS
        frad_cfc11 => echam_rad_config(jg)% frad_cfc11
        frad_cfc12 => echam_rad_config(jg)% frad_cfc12
        !
+       lclearsky  => echam_rad_config(jg)% lclearsky
+       !
        rrtmgp_columns_chunk => echam_rad_config(jg)% rrtmgp_columns_chunk
 #endif
        !
@@ -328,6 +338,8 @@ CONTAINS
           CALL message('','Solar flux for RCE simulations without diurnal cycle')
        CASE (6)
           CALL message('','Average 1850-1873 of transient CMIP6 solar')
+       CASE (7)
+          CALL message('','Solar flux for RCEmip analyticalsimulations without diurnal cycle')
        CASE default 
           WRITE (message_text, '(a,i0,a)') &
                'ERROR: isolrad = ', isolrad, ' is not supported'
@@ -635,6 +647,25 @@ CONTAINS
           CALL finish(routine,'ERROR: Negative frad_cfc12 is not allowed')
        END IF
        !
+       CALL message('','')
+       CALL message('','Computing efficiency')
+       CALL message('','--------------------')
+       !
+       IF (lclearsky) THEN
+          CALL message('','Clear sky fluxes are computed')
+       ELSE
+          CALL message('','Clear sky fluxes are not computed')
+       END IF
+       !
+       CALL message   ('','')
+       !
+
+       ! nproma might be negative in the namelist
+       ! The default value of (rrtmgp_columns_chunk = nproma) might not be initialized correctly in that case
+       IF (rrtmgp_columns_chunk < 0 ) THEN
+         rrtmgp_columns_chunk = nproma
+       ENDIF
+       
        IF (rrtmgp_columns_chunk > 0 ) THEN
          IF (rrtmgp_columns_chunk > nproma) THEN
             CALL warning(routine, 'Column chunk size: rrtmgp_columns_chunk cannot be bigger than nproma, adjusted')
@@ -727,7 +758,10 @@ CONTAINS
        CALL print_value('aerosol optical properties will be diagnosed:',echam_rad_config(jg)% lrad_aero_diag       ) 
 #else
        CALL print_value('    echam_rad_config('//TRIM(cg)//')% frad_cfc11    ',echam_rad_config(jg)% frad_cfc11    )
-       CALL print_value('    echam_rad_config('//TRIM(cg)//')% frad_cfc12    ',echam_rad_config(jg)% frad_cfc12      )
+       CALL print_value('    echam_rad_config('//TRIM(cg)//')% frad_cfc12    ',echam_rad_config(jg)% frad_cfc12    )
+       CALL message    ('','')
+       CALL print_value('    echam_rad_config('//TRIM(cg)//')% lclearsky     ',echam_rad_config(jg)% lclearsky     )
+       CALL print_value('    echam_rad_config('//TRIM(cg)//')% rrtmgp_columns_chunk ',echam_rad_config(jg)% rrtmgp_columns_chunk)
 #endif
        CALL message    ('','')
        !

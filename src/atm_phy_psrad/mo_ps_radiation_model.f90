@@ -186,6 +186,10 @@ MODULE mo_ps_radiation_model
 !       & pp_sfc        ,& ! out
 !       & tk_hl   )
 
+      ! tropospheric background aerosol optical properties
+      IF (echam_rad_config(1)%irad_aero == 12) THEN
+        CALL read_bc_aeropt_kinne(mtime_current, patch) 
+      END IF
       ! tropospheric aerosol optical properties
       IF (echam_rad_config(1)%irad_aero == 13) THEN
         CALL read_bc_aeropt_kinne(mtime_current, patch) 

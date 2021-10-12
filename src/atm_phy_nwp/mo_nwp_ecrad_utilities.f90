@@ -194,8 +194,8 @@ CONTAINS
   !! Initial release by Daniel Rieger, Deutscher Wetterdienst, Offenbach (2019-05-10)
   !!
   SUBROUTINE ecrad_set_clouds(ecrad_cloud, ecrad_thermodynamics, qc, qi, clc, temp, pres, acdnc, fr_glac, fr_land, &
-    &                         reff_liq, reff_frz, icpl_reff, fact_reffc,                                           &
-    &                         clc_min, nlev, i_startidx, i_endidx)
+    &                         qr,qs,qg,reff_liq, reff_frz, reff_rain, reff_snow, reff_graupel,                     & 
+    &                         icpl_reff, fact_reffc, clc_min, nlev, i_startidx, i_endidx)
 
     TYPE(t_ecrad_cloud_type), INTENT(inout) :: &
       &  ecrad_cloud              !< ecRad cloud information
@@ -207,14 +207,20 @@ CONTAINS
       &  clc(:,:),              & !< Cloud cover
       &  temp(:,:),             & !< Full level temperature field
       &  pres(:,:),             & !< Full level pressure field
-      &  acdnc(:,:),            & !< Cloud droplet numb. conc. (m-3)
-      &  fr_glac(:),            & !< fraction of land covered by glaciers
-      &  fr_land(:),            & !< land-sea mask. (1. = land, 0. = sea/lakes)
       &  fact_reffc,            & !< Factor in the calculation of cloud droplet effective radius
       &  clc_min                  !< Minimum cloud cover value to be considered as partly cloudy
     REAL(wp), POINTER, INTENT(in)     :: &
+      &  acdnc(:,:),            & !< Cloud droplet numb. conc. (m-3)
+      &  fr_glac(:),            & !< fraction of land covered by glaciers
+      &  fr_land(:),            & !< land-sea mask. (1. = land, 0. = sea/lakes)
+      &  qr(:,:),               & !< rain
+      &  qs(:,:),               & !< snow
+      &  qg(:,:),               & !< graupel
       &  reff_liq(:,:),         & !< effective radius of the liquid phase (external)
-      &  reff_frz(:,:)            !< effective radius of the frozen phase (external)
+      &  reff_frz(:,:),         & !< effective radius of the frozen phase (external)
+      &  reff_rain(:,:),        & !< effective radius of the rain phase (external)
+      &  reff_snow(:,:),        & !< effective radius of the snow phase (external)
+      &  reff_graupel(:,:)        !< effective radius of the graupel phase (external)
 
     INTEGER, INTENT(in)      :: &
       &  icpl_reff,             & !< Option for effective radius
@@ -259,7 +265,7 @@ CONTAINS
       DO jk = 1, nlev
         DO jc = i_startidx, i_endidx
           ecrad_cloud%re_liq(jc,jk) = MAX(MIN(reff_liq(jc,jk),32.0e-6_wp),2.0e-6_wp)  
-          ecrad_cloud%re_ice(jc,jk) = MAX(MIN(reff_frz(jc,jk),99.0e-6_wp),4.0e-6_wp) 
+          ecrad_cloud%re_ice(jc,jk) = MAX(MIN(reff_frz(jc,jk),99.0e-6_wp),5.0e-6_wp) 
         ENDDO
       ENDDO
     ENDIF

@@ -115,6 +115,7 @@ SUBROUTINE cover_koe( &
   & plu                             , & ! in:    convection: updraft condensate
   & rhoc_tend                       , & ! in:    convective rhoc tendency
   & qv, qc, qi, qs, qtvar           , & ! inout: prognostic cloud variables
+  & lacc                            , & ! in:    parameter to prevent openacc during init
   & cc_tot, qv_tot, qc_tot, qi_tot )    ! out:   cloud output diagnostic
 
 
@@ -165,6 +166,8 @@ REAL(KIND=wp), DIMENSION(klon,klev), INTENT(IN) ::  &
   & plu              , & ! updraft condensate                            (kg/kg)
   & rhoc_tend            ! convective rho_c tendency                     (kg/(m3*s))
 
+LOGICAL, OPTIONAL, INTENT(IN) :: lacc ! parameter to prevent openacc during init
+
 REAL(KIND=wp), DIMENSION(klon,klev), INTENT(INOUT) ::   &
   & cc_tot           , & ! cloud cover diagnostic
   & qv_tot           , & ! specific water vapor content diagnostic       (kg/kg)
@@ -176,7 +179,7 @@ REAL(KIND=wp), DIMENSION(klon,klev), INTENT(INOUT) ::   &
 !! ----------------
 
 LOGICAL ::  &
-  & lprog_qi, l_addsnow
+  & lprog_qi, l_addsnow, lzacc
 
 INTEGER (KIND=i4) :: &
   & jl, jk, jkp1,         &
@@ -229,6 +232,16 @@ REAL(KIND=wp), PARAMETER  :: &
   dqsdt(ztt,zqs) = c5les * (1._wp-zqs) * zqs / (ztt-c4les)**2
 !-----------------------------------------------------------------------
 
+  IF(PRESENT(lacc)) THEN
+      lzacc = lacc
+  ELSE
+      lzacc = .FALSE.
+  ENDIF
+
+!$ACC DATA CREATE( cc_turb, qc_turb, qi_turb, cc_conv, qc_conv, qi_conv, cc_turb_liq, cc_turb_ice) &
+!$ACC CREATE(p0, zqlsat , zqisat, zagl_lim, zdqlsat_dT) &
+!$ACC IF(lzacc)
+
 ! saturation mixing ratio at -50 C and 200 hPa
 zqisat_m50 = fgqs ( fgee(223.15_wp), 0._wp, 20000._wp )
 
@@ -254,6 +267,8 @@ l_addsnow = (cover_koe_config%inwp_cpl_re == 0) .OR. (cover_koe_config%inwp_reff
             (cover_koe_config%inwp_reff == 101)
 
 ! Set cloud fields for stratospheric levels to zero
+!$ACC PARALLEL IF( lzacc )  DEFAULT(PRESENT) ASYNC(1)
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
 DO jk = 1,kstart-1
   DO jl = kidia,kfdia
     qv_tot(jl,jk) = qv(jl,jk)
@@ -262,12 +277,15 @@ DO jk = 1,kstart-1
     cc_tot(jl,jk) = 0.0_wp
   ENDDO
 ENDDO
+!$ACC END PARALLEL
 
 !-----------------------------------------------------------------------
 ! Calculate water vapour saturation mixing ratios of over water
 ! and over ice (from mo_cover_cosmo.f90)
 !-----------------------------------------------------------------------
 
+!$ACC PARALLEL IF( lzacc )  DEFAULT(PRESENT) ASYNC(1)
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
 DO jk = kstart,klev
   DO jl = kidia,kfdia
     vap_pres = qv(jl,jk) * rho(jl,jk) * rv * tt(jl,jk)
@@ -280,6 +298,7 @@ DO jk = kstart,klev
     zagl_lim(jl,jk) = tune_box_liq_sfc_fac * box_liq_sv * (0.5_wp + 1.e-3_wp*pgeo(jl,jk)*grav_i)
   ENDDO
 ENDDO
+!$ACC END PARALLEL
 
 !-----------------------------------------------------------------------
 ! Select desired cloud cover framework
@@ -305,8 +324,11 @@ CASE( 0 )
 ! diagnostic cloud cover
 CASE( 1 )
 
+!$ACC PARALLEL IF( lzacc )  DEFAULT(PRESENT) ASYNC(1)
+!$ACC LOOP GANG
   DO jk = kstart,klev
     jkp1 = MIN(jk+1,klev)
+    !$ACC LOOP VECTOR
     DO jl = kidia,kfdia
 
 ! stratiform cloud
@@ -411,6 +433,7 @@ CASE( 1 )
 
     ENDDO
   ENDDO
+!$ACC END PARALLEL
 
 
   IF (cover_koe_config%inwp_turb == iedmf) THEN
@@ -431,6 +454,8 @@ CASE( 1 )
       ENDDO
     ENDDO
   ELSE ! use always combination of strat/conv cloud
+!$ACC PARALLEL IF( lzacc )  DEFAULT(PRESENT) ASYNC(1)
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = kstart,klev
       DO jl = kidia,kfdia
         cc_tot(jl,jk)  = max( cc_turb(jl,jk), cc_conv(jl,jk) )
@@ -438,6 +463,7 @@ CASE( 1 )
         qi_tot(jl,jk)  = max( qi_turb(jl,jk), qi_conv(jl,jk) )
       ENDDO
     ENDDO
+!$ACC END PARALLEL
   ENDIF
 
 
@@ -538,6 +564,8 @@ END SELECT
 ! total water vapor by conservation of grid-scale total water
 
 !PREVENT_INCONSISTENT_IFORT_FMA
+!$ACC PARALLEL IF( lzacc )  DEFAULT(PRESENT) ASYNC(1)
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
 DO jk = kstart,klev
   DO jl = kidia,kfdia
     qv_tot(jl,jk) = qv(jl,jk) + qc(jl,jk) + qi(jl,jk) - qc_tot(jl,jk) - qi_tot(jl,jk)
@@ -575,6 +603,9 @@ DO jk = kstart,klev
 
   ENDDO
 ENDDO
+!$ACC END PARALLEL
+
+!$ACC END DATA
 
 END SUBROUTINE cover_koe
 

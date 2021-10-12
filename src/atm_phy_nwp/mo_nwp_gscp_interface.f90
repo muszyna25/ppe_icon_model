@@ -39,7 +39,7 @@
 
 !----------------------------
 #include "omp_definitions.inc"
-#include "icon_contiguous_defines.h"
+#include "icon_contiguous_defines.inc"
 !----------------------------
 
 MODULE mo_nwp_gscp_interface
@@ -56,6 +56,7 @@ MODULE mo_nwp_gscp_interface
   USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nonhydrostatic_config,ONLY: kstart_moist
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag, t_nwp_phy_tend
+  USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi, iqr, iqs,       &
                                      iqni, iqni_nuc, iqg, iqh, iqnr, iqns,     &
                                      iqng, iqnh, iqnc, inccn, ininpot, ininact,&
@@ -100,6 +101,7 @@ CONTAINS
                             &   ptr_tke,                      & !>in
                             &   p_diag ,                      & !>inout
                             &   prm_diag,prm_nwp_tend,        & !>inout
+                            &   ext_data,                     & !>in
                             &   lcompute_tt_lheat             ) !>in 
 
 
@@ -112,6 +114,7 @@ CONTAINS
     TYPE(t_nh_diag)        , INTENT(inout):: p_diag          !<the dyn diag vars
     TYPE(t_nwp_phy_diag)   , INTENT(inout):: prm_diag        !<the atm phys vars
     TYPE(t_nwp_phy_tend)   , TARGET, INTENT(inout):: prm_nwp_tend    !< atm tend vars
+    TYPE(t_external_data)  , INTENT(in)   :: ext_data
 
     REAL(wp)               , INTENT(in)   :: tcall_gscp_jg   !< time interval for 
                                                              !< microphysics
@@ -270,6 +273,12 @@ CONTAINS
               prm_diag%aerosol(:,iorg,jb), prm_diag%aerosol(:,idu,jb), zncn)
 
             CALL specccn_segalkhain_simple (nproma, i_startidx, i_endidx, zncn(:,nlev), prm_diag%cloud_num(:,jb))
+
+            ! Impose lower limit on cloud_num over land
+            DO jc = i_startidx, i_endidx
+              IF (ext_data%atm%llsm_atm_c(jc,jb) .OR. ext_data%atm%llake_c(jc,jb)) &
+                prm_diag%cloud_num(jc,jb) = MAX(175.e6_wp,prm_diag%cloud_num(jc,jb))
+            ENDDO
 !!$ UB: formally qnc_s is in the wrong unit (1/m^3) for the 1-moment schemes. Should be 1/kg.
 !!$   However: since only the near-surface value of level nlev is used and the vertical profile is disregarded
 !!$            anyways, we neglect this small near-surface difference and assume rho approx. 1.0. 
@@ -345,9 +354,9 @@ CONTAINS
             & ddt_tend_qr = ddt_tend_qr                ,    & !< out: tendency QR
             & ddt_tend_qs = ddt_tend_qs                ,    & !< out: tendency QS
             & idbg=msg_level/2                         ,    &
-            & l_cv=.TRUE. )
+            & l_cv=.TRUE.                              ,    &
+            & ithermo_water=atm_phy_nwp_config(jg)%ithermo_water) !< in: latent heat choice
           
-
         CASE(2)  ! COSMO-DE (3-cat ice: snow, cloud ice, graupel)
 
           CALL graupel (                                     &
@@ -384,7 +393,8 @@ CONTAINS
             & ddt_tend_qr = ddt_tend_qr                 ,    & !< out: tendency QR
             & ddt_tend_qs = ddt_tend_qs                 ,    & !< out: tendency QS
             & idbg=msg_level/2                          ,    &
-            & l_cv=.TRUE. )
+            & l_cv=.TRUE.                               ,    &
+            & ithermo_water=atm_phy_nwp_config(jg)%ithermo_water) !< in: latent heat choice
 
         CASE(3)  ! improved ice nucleation scheme by C. Koehler based on hydci_pp
 
@@ -461,7 +471,8 @@ CONTAINS
                        prec_h = prm_diag%hail_gsp_rate (:,jb),  &!inout precp rate hail
                        qrsflux= prm_diag%qrs_flux(:,:,jb),      & !inout: 3D precipitation flux for LHN
                        msg_level = msg_level,                   &
-                       l_cv=.TRUE.          )    
+                       & l_cv=.TRUE.,                           &
+                       & ithermo_water=atm_phy_nwp_config(jg)%ithermo_water) !< in: latent heat choice
 
         CASE(5)  ! two-moment scheme with prognostic cloud droplet number
                  ! and budget equations for CCN and IN
@@ -502,8 +513,9 @@ CONTAINS
                        prec_h = prm_diag%hail_gsp_rate (:,jb),   &!inout precp rate hail
                        qrsflux= prm_diag%qrs_flux(:,:,jb),      & !inout: 3D precipitation flux for LHN
                        msg_level = msg_level                ,    &
-                       l_cv=.TRUE.     )
-    
+                       & l_cv=.TRUE.                        ,    &
+                       & ithermo_water=atm_phy_nwp_config(jg)%ithermo_water) !< in: latent heat choice
+
         CASE(6)  ! two-moment scheme with prognostic cloud droplet number
                  ! and chemical composition taken from the ART extension
 
@@ -570,7 +582,8 @@ CONTAINS
                        prec_h = prm_diag%hail_gsp_rate (:,jb),   &!inout precp rate hail
                        qrsflux= prm_diag%qrs_flux  (:,:,jb)     ,    & !inout: 3D precipitation flux for LHN
                        msg_level = msg_level                ,    &
-                       l_cv=.TRUE.          )    
+                       & l_cv=.TRUE.                        ,    &
+                       & ithermo_water=atm_phy_nwp_config(jg)%ithermo_water) !< in: latent heat choice
 
         CASE(9)  ! Kessler scheme (warm rain scheme)
 

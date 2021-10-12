@@ -32,9 +32,10 @@ autoPostProcessing="false"                         # submit postprocessing job
 iforc=12
 init_relax=1
 ocean_vertical_levels=128
-ocean_grids="OceanOnly_Global_IcosSymmetric_0010km_rotatedZ37d_modified_srtm30_1min.nc"
-grids_folder=/pool/data/ICON/oes/input/r0003/OceanOnly_Global_IcosSymmetric_0010km_rotatedZ37d_modified_srtm30_1min
-ocean_data_InputFolder=/pool/data/ICON/oes/input/r0002/OceanOnly_Global_IcosSymmetric_0010km_rotatedZ37d_modified_srtm30_1min
+grid_name="OceanOnly_Global_IcosSymmetric_0010km_rotatedZ37d_modified_srtm30_1min"
+ocean_grids="R2B8_ocean-grid.nc"
+ocean_data_InputFolder="/pool/data/ICON/oes/input/r0004/${grid_name}"
+grids_folder=${ocean_data_InputFolder}
 
 YEAR="1948"
 if [ -f ../experiments/${EXPNAME}/${restartSemaphoreFilename} ]; then
@@ -131,6 +132,21 @@ cat > ${ocean_namelist} << EOF
   include_last     = .false.
   ml_varlist       =  'group:oce_geometry'
 /
+&output_nml
+  filetype         =  5 ! output format: 2=GRIB2, 4=NETCDFv2
+  output_filename  = "${EXPNAME}_tke"
+  output_start     = "${start_date}"                  ! start in ISO-format
+  output_end       = "${end_date}"                    ! end in ISO-format
+  output_interval  = "${monthly}"
+  filename_format  = "<output_filename>_<datetime2>"
+  operation        = 'mean'
+  file_interval    = "${file_interval}"
+  mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+  include_last     = .false.
+  output_grid      = .TRUE.
+  filename_format  = "<output_filename>_<datetime2>"
+  ml_varlist       = 'group:oce_cvmix_tke'
+/
 &dbg_index_nml
   idbg_mxmn=0                     ! initialize MIN/MAX  debug output
   idbg_val =0                     ! initialize one cell debug output
@@ -206,21 +222,36 @@ dzlev_m(1:128) = 11.0,   9.0,     8.0,   8.0,     8.0,    8.0,    8.0,    8.0,  
   Salinity_HorizontalDiffusion_Reference     = 0 !  40
 /
 &ocean_vertical_diffusion_nml
-  vert_mix_type                            = 1 ! 1=PP, 2=TKE, 3=KPP
-  PPscheme_type                            = 4
-  velocity_VerticalDiffusion_background    =   5.0E-5  ! [m2/s]  vertical background viscosity coefficient for velocity
-  Temperature_VerticalDiffusion_background =   1.0E-5  ! [m2/s]  vertical background diffusion coefficient for temperature
-  Salinity_VerticalDiffusion_background    =   1.0E-5  ! [m2/s]  vertical background diffusion coefficient for salinity
-  tracer_convection_MixingCoefficient =   0.1 ! max vertical tracer diffusion for convection used in case of instability
-  convection_InstabilityThreshold =  -1.0E-6  ! used in update_ho_params - default=-5e-8
-  RichardsonDiffusion_threshold   =   0.0     ! used in update_ho_params - default=+5e-8
-  tracer_RichardsonCoeff          =   2.0E-3  ! factor for vertical diffusion coefficient in PP scheme
-  velocity_RichardsonCoeff        =   2.0E-3  ! factor for vertical viscosity coefficient in PP scheme
-  bottom_drag_coeff               =   3.0E-3  ! default=2.5E-3; active for i_bc_veloc_bot=1
-  use_wind_mixing                 = .true.    ! true: use wind mixing scheme in MPIOM-type pp-scheme
-  lambda_wind                     = 0.03
-  tracer_TopWindMixing            = 0.5E-3 ! [m2/s] windmixing diffusivity in MPIOM-type pp-scheme
-  velocity_TopWindMixing          = 0.5E-3 ! [m2/s] windmixing viscosity in MPIOM-type pp-scheme
+  vert_mix_type                            = 2  ! 1: PP; 2: TKE; 3: KPP; 4 TKE+IDEMIX
+  only_tke                                 = .true. ! .true. for TKE; .false. for TKE+IDEMIX
+  PPscheme_type                            = 0
+  !velocity_VerticalDiffusion_background    =   5.0E-5  ! [m2/s]  vertical background viscosity coefficient for velocity
+  !Temperature_VerticalDiffusion_background =   1.0E-5  ! [m2/s]  vertical background diffusion coefficient for temperature
+  !Salinity_VerticalDiffusion_background    =   1.0E-5  ! [m2/s]  vertical background diffusion coefficient for salinity
+  !tracer_convection_MixingCoefficient =   0.1 ! max vertical tracer diffusion for convection used in case of instability
+  !convection_InstabilityThreshold =  -1.0E-6  ! used in update_ho_params - default=-5e-8
+  !RichardsonDiffusion_threshold   =   0.0     ! used in update_ho_params - default=+5e-8
+  !tracer_RichardsonCoeff          =   2.0E-3  ! factor for vertical diffusion coefficient in PP scheme
+  !velocity_RichardsonCoeff        =   2.0E-3  ! factor for vertical viscosity coefficient in PP scheme
+  !bottom_drag_coeff               =   3.0E-3  ! default=2.5E-3; active for i_bc_veloc_bot=1
+  !use_wind_mixing                 = .true.    ! true: use wind mixing scheme in MPIOM-type pp-scheme
+  !lambda_wind                     = 0.03
+  !tracer_TopWindMixing            = 0.5E-3 ! [m2/s] windmixing diffusivity in MPIOM-type pp-scheme
+  !velocity_TopWindMixing          = 0.5E-3 ! [m2/s] windmixing viscosity in MPIOM-type pp-scheme
+  ! cvmix/tke parameters
+  c_k        = 0.1
+  c_eps      = 0.7
+  alpha_tke  = 30.0
+  mxl_min    = 1.d-8
+  kappaM_min = 0.0
+  kappaM_max = 100.0
+  cd         = 3.75
+  tke_min    = 1.d-6
+  tke_mxl_choice = 2                                                              
+  tke_surf_min = 1.d-4
+  only_tke = .true.                                                               
+  use_ubound_dirichlet = .false.                                                  
+  use_lbound_dirichlet = .false. 
 /
 &ocean_GentMcWilliamsRedi_nml
   GMRedi_configuration           =   0       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
@@ -255,7 +286,7 @@ dzlev_m(1:128) = 11.0,   9.0,     8.0,   8.0,     8.0,    8.0,    8.0,    8.0,  
  albsm        = 0.70         ! Albedo of snow (melting)
  albi         = 0.75         ! Albedo of ice (not melting)
  albim        = 0.70         ! Albedo of ice (melting)
- Pstar        = 40000
+!Pstar        = 40000
 /
 &ocean_forcing_nml
   iforc_oce                       = ${iforc}            ! ocean forcing
@@ -272,6 +303,7 @@ dzlev_m(1:128) = 11.0,   9.0,     8.0,   8.0,     8.0,    8.0,    8.0,    8.0,  
   forcing_windstress_u_type       =   1       ! read from file
   forcing_windstress_v_type       =   1       ! read from file
   forcing_fluxes_type             =   1       ! read from file
+  bulk_wind_stress_type           =   0       ! 0: from file, 1: ocean at rest, 2: with ocean currents
 ! forcing_enable_freshwater       = .TRUE.    ! apply freshwater forcing boundary condition (OMIP only)
 ! forcing_set_runoff_to_zero      = .FALSE.   ! set runoff to zero for comparison to MPIOM; default: false
 ! zero_freshwater_flux            = .FALSE.   ! set external freshwater flux to zero; default: false 
@@ -284,7 +316,6 @@ dzlev_m(1:128) = 11.0,   9.0,     8.0,   8.0,     8.0,    8.0,    8.0,    8.0,  
 
   use_tides                       = .FALSE.
   tides_mod                       =  1        ! 1 Default 2 MPIOM 
-  tide_startdate                  = '2001-01-01 00:00'
   lswr_jerlov                     = .TRUE.    ! use jerlov water types for sw absorption
   jerlov_atten                    = 0.08      ! jerlov water type IB
   jerlov_bluefrac                 = 0.36      ! jerlov water type IB
@@ -297,6 +328,8 @@ dzlev_m(1:128) = 11.0,   9.0,     8.0,   8.0,     8.0,    8.0,    8.0,    8.0,  
   diagnostics_level            = 1
   diagnose_for_horizontalVelocity = .false.
   eddydiag = .true.
+  diagnose_for_heat_content = .true.
+  diagnose_for_tendencies = .true.
 /
 &io_nml
   restart_file_type = 5
@@ -313,8 +346,12 @@ EOF
 # add standard atmo_non-hydrostatic_files
 #. ${thisdir}/add_required_ocean_files
 
-add_link_file $ocean_data_InputFolder/ts_phc3.0_annual_icon_OceanOnly_Global_IcosSymmetric_0010km_rotatedZ37d_modified_srtm30_1min_L128.nc initial_state.nc
+add_link_file $ocean_data_InputFolder/R2B8L128_initial_state.nc initial_state.nc
 add_link_file $NCEP_FORCING ocean-flux.nc
-add_link_file $ocean_data_InputFolder/ts_phc3.0_annual_icon_OceanOnly_Global_IcosSymmetric_0010km_rotatedZ37d_modified_srtm30_1min_surf.nc ocean-relax.nc
+add_link_file $ocean_data_InputFolder/R2B8_ocean-relax.nc ocean-relax.nc
+# IDEMIX forcing fields
+# (WARNING: file names need to be set to R2B8)
+add_link_file /home/mpim/m300602/work/proj_vmix/icon/idemix_forcing/fourier_smooth_2005_cfsr_inert_OceanOnly_Global_IcosSymmetric_0039km_rotatedZ37d_BlackSea_Greenland_modified_srtm30_1min.nc idemix_surface_forcing.nc
+add_link_file /home/mpim/m300602/work/proj_vmix/icon/idemix_forcing/tidal_energy_gx1v6_20090205_OceanOnly_Global_IcosSymmetric_0039km_rotatedZ37d_BlackSea_Greenland_modified_srtm30_1min.nc idemix_bottom_forcing.nc
 
 #-----------------------------------------------------------------------------

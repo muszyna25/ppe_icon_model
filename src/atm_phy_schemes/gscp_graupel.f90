@@ -90,82 +90,16 @@ MODULE gscp_graupel
 ! Microphysical constants and variables
 !------------------------------------------------------------------------------
 
-#ifdef __COSMO__
-USE kind_parameters, ONLY :   &
-  wp ,       &    !! KIND-type parameter for real variables
-  i4              !! KIND-type parameter for standard integer vaiables
-
-USE data_constants  , ONLY :   &
-!   pi,           & !!
-!! 2. physical constants and related variables
-!! -------------------------------------------
-    t0=>t0_melt,  & !! melting temperature of ice
-!   r_d,          & !! gas constant for dry air
-    r_v,          & !! gas constant for water vapour
-    rdv,          & !! r_d / r_v
-    o_m_rdv,      & !! 1 - r_d/r_v
-    rvd_m_o,      & !! r_v/r_d - 1
-    cp_d,         & !! specific heat of dry air
-    cpdr,         & !! 1 / cp_d
-    lh_v,         & !! latent heat of vapourization
-!   lh_f,         & !! latent heat of fusion
-    lh_s,         & !! latent heat of sublimation
-!   g,            & !! acceleration due to gravity
-!   rho_w,        & !! density of liquid water (kg/m^3)
-! 3. constants for parametrizations
-!! ---------------------------------
-    b1,           & !! variables for computing the saturation vapour pressure
-    b2w,          & !! over water (w) and ice (i)
-    b2i,          & !!               -- " --
-    b3,           & !!               -- " --
-    b4w,          & !!               -- " --
-    b234w,        & !!               -- " --
-    b4i,          & !!               -- " --
-!> 4. tuning constants for radiation, cloud physics, turbulence
-!! ------------------------------------------------------------
-    qi0,          & !! cloud ice threshold for autoconversion
-    qc0,          & !! cloud water threshold for autoconversion
-!> 5. Precision-dependent security parameters (epsilons)
-!! ------------------------------------------------------
-    repsilon        !! precision of 1.0 in current floating point format
-
-!! end of data_constants
-
-USE data_runcontrol , ONLY :   &
-    ldiabf_lh,      & ! include diabatic forcing due to latent heat in RK-scheme
-    lsuper_coolw,   & ! switch for supercooled liquid water
-    lsppt,          & ! switch, if .true., perturb the physical tendencies
-    itype_qxpert_rn,& ! define which hum variables tend. are perturbed
-    itype_qxlim_rn    ! type of reduction/removal of the perturbation 
-                      ! in case of negative (qv, qc, qi) or 
-                      ! supersaturated (qv) values
-
-!------------------------------------------------------------------------------
-!! COSMO environment modules
-!------------------------------------------------------------------------------
-
-USE utilities,                ONLY : message
-USE meteo_utilities,          ONLY : satad       !! saturation adjustment
-USE src_stoch_physics,        ONLY : apply_tqx_tend_adj
-#endif
-! of ifdef __COSMO__
-
 !------------------------------------------------------------------------------
 
 
-#ifdef __ICON__
 USE mo_kind,               ONLY: wp         , &
                                  i4
 !USE mo_math_constants    , ONLY: pi
 USE mo_physical_constants, ONLY: r_v   => rv    , & !> gas constant for water vapour
-                                 r_d   => rd    , & !! gas constant for dry air
-                                 rvd_m_o=>vtmpc1, & !! r_v/r_d - 1
-                                 o_m_rdv        , & !! 1 - r_d/r_v
-                                 rdv            , & !! r_d / r_v
                                  lh_v  => alv   , & !! latent heat of vapourization
                                  lh_s  => als   , & !! latent heat of sublimation
 !                                lh_f  => alf   , & !! latent heat of fusion
-                                 cp_d  => cpd   , & !! specific heat of dry air at constant press
                                  cpdr  => rcpd  , & !! (spec. heat of dry air at constant press)^-1
                                  cvdr  => rcvd  , & !! (spec. heat of dry air at const vol)^-1
                                  b3    => tmelt , & !! melting temperature of ice/snow
@@ -175,16 +109,14 @@ USE mo_physical_constants, ONLY: r_v   => rv    , & !> gas constant for water va
 
 USE mo_convect_tables,     ONLY: b1    => c1es  , & !! constants for computing the sat. vapour
                                  b2w   => c3les , & !! pressure over water (l) and ice (i)
-                                 b2i   => c3ies , & !!               -- " --
-                                 b4w   => c4les , & !!               -- " --
-                                 b4i   => c4ies , & !!               -- " --
-                                 b234w => c5les     !!               -- " --
+                                 b4w   => c4les     !!               -- " --
 USE mo_satad,              ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
-                                 sat_pres_ice!,   &  !! saturation vapor pressure w.r.t. ice
+                                 sat_pres_ice,   &  !! saturation vapor pressure w.r.t. ice
+                                 latent_heat_vaporization, &
+                                 latent_heat_sublimation
 !                                 spec_humi          !! Specific humidity 
 USE mo_exception,          ONLY: message, message_text
 USE mo_run_config,         ONLY: ldass_lhn
-#endif
 
 !------------------------------------------------------------------------------
 
@@ -195,15 +127,14 @@ USE gscp_data, ONLY: &          ! all variables are used here
     ccslxp,    ccsaxp,    ccsdxp,    ccshi1,    ccdvtp,    ccidep,       &
     ccswxp,    zconst,    zcev,      zbev,      zcevxp,    zbevxp,       &
     zvzxp,     zvz0r,                                                    &
-    v0snow,    mu_rain,   rain_n0_factor,       cloud_num,               &
+    v0snow,                                                              &
     x13o8,     x1o2,      x27o16,    x3o4,      x7o4,      x7o8,         &
-    zbms,      zbvi,      zcac,      zccau,     zciau,     zcicri,       &
+    zbvi,      zcac,      zccau,     zciau,     zcicri,                  &
     zcrcri,    zcrfrz,    zcrfrz1,   zcrfrz2,   zeps,      zkcac,        &
     zkphi1,    zkphi2,    zkphi3,    zmi0,      zmimax,    zmsmin,       &
     zn0s0,     zn0s1,     zn0s2,     znimax_thom,          zqmin,        &
-    zrho0,     zthet,     zthn,      ztmix,     ztrfrz,    zv1s,         &
-    zvz0i,     x13o12,    x2o3,      x5o24,     zasmel,                  &
-    zbsmel,    zcsmel,    icesedi_exp, zams => zams_gr,                  &
+    zrho0,     zthet,     zthn,      ztmix,     ztrfrz,                  &
+    zvz0i,     icesedi_exp,          zams => zams_gr,                    &
     iautocon,  isnow_n0temp, dist_cldtop_ref,   reduce_dep_ref,          &
     tmin_iceautoconv,     zceff_fac, zceff_min,                          &
     mma, mmb, v_sedi_rain_min, v_sedi_snow_min, v_sedi_graupel_min
@@ -228,10 +159,6 @@ LOGICAL, PARAMETER :: &
 !------------------------------------------------------------------------------
 !> Parameters and variables which are global in this module
 !------------------------------------------------------------------------------
-
-#ifdef __COSMO__
-CHARACTER(132) :: message_text = ''
-#endif
 
 !==============================================================================
 
@@ -268,17 +195,12 @@ SUBROUTINE graupel     (             &
   idbg,                              & !! optional debug level
   zdt, dz,                           & !! numerics parameters
   t,p,rho,qv,qc,qi,qr,qs,qg,qnc,     & !! prognostic variables
-#ifdef __ICON__
   !xxx: this should become a module variable, e.g. in a new module mo_gscp_data.f90
   qi0,qc0,                           & !! cloud ice/water threshold for autoconversion
-#endif
   prr_gsp,prs_gsp,pri_gsp,prg_gsp,   & !! surface precipitation rates
-#ifdef __COSMO__
-  tinc_lh,                           & !  t-increment due to latent heat 
-  pstoph,                            & !  stochastic multiplier of physics tendencies
-#endif
   qrsflux,                           & !  total precipitation flux
   l_cv,                              &
+  ithermo_water,                     & !  water thermodynamics
   ldiag_ttend,     ldiag_qtend     , &
   ddt_tend_t     , ddt_tend_qv     , &
   ddt_tend_qc    , ddt_tend_qi     , & !> ddt_tend_xx are tendencies
@@ -353,6 +275,9 @@ SUBROUTINE graupel     (             &
   LOGICAL, INTENT(IN), OPTIONAL :: &
     l_cv                   !! if true, cv is used instead of cp
 
+  INTEGER, INTENT(IN), OPTIONAL :: &
+    ithermo_water          !! water thermodynamics
+
   LOGICAL, INTENT(IN), OPTIONAL :: &
     ldiag_ttend,         & ! if true, temperature tendency shall be diagnosed
     ldiag_qtend            ! if true, moisture tendencies shall be diagnosed
@@ -365,14 +290,6 @@ SUBROUTINE graupel     (             &
     qr              ,    & !! specific rain content                         (kg/kg)
     qs              ,    & !! specific snow content                         (kg/kg)
     qg                     !! specific graupel content                      (kg/kg)
-
-#ifdef __COSMO__    
-  REAL(KIND=wp), INTENT(INOUT) :: &
-       tinc_lh(:,:)    ! temperature increments due to heating             ( K/s )   
-
-  REAL(KIND=wp), INTENT(IN)    :: &
-       pstoph(:,:)     ! stochastic multiplier of physics tendencies
-#endif
 
   REAL(KIND=wp), INTENT(INOUT) :: &
        qrsflux(:,:)       ! total precipitation flux (nudg)
@@ -434,7 +351,6 @@ SUBROUTINE graupel     (             &
     izdebug             !! debug level
 
   REAL    (KIND=wp   ), PARAMETER ::  &
-    zams  = 0.038_wp,     & ! Formfactor in the mass-size relation of snow particles
     zcsg=0.5_wp,          & !coefficient for snow-graupel conversion by riming
     zcrim_g=4.43_wp,      & !
     zrimexp_g=0.94878_wp, &
@@ -447,12 +363,9 @@ SUBROUTINE graupel     (             &
  
   REAL    (KIND=wp   ) ::  &
     fpvsw,             & ! name of statement function
-#ifdef __COSMO__
-    fpvsi, fqvs,       & ! name of statement functions
-#endif
     fxna ,             & ! statement function for ice crystal number
     fxna_cooper ,      & ! statement function for ice crystal number, Cooper(1986) 
-    ztx  , zpv  , zpx ,& ! dummy arguments for statement functions
+    ztx  ,             & ! dummy argument for statement functions
     znimax,            & ! maximum number of cloud ice crystals
     znimix,            & ! number of ice crystals at ztmix -> threshold temp for mixed-phase clouds 
     zpvsw0,            & ! sat.vap. pressure at melting temperature
@@ -525,11 +438,14 @@ SUBROUTINE graupel     (             &
     zprvg       (nvec),     & !
     zprvi       (nvec),     & !
     zqvsw_up    (nvec),     & ! sat. specitic humidity at ice and water saturation
-#ifdef __COSMO__
-    zdummy      (nvec,8),   & !
-#endif
     zcsdep            ,     & !
     zcidep            
+
+#ifdef __LOOP_EXCHANGE
+   REAL (KIND = wp )  ::  zlhv(ke), zlhs(ke)
+#else
+   REAL (KIND = wp )  ::  zlhv(nvec), zlhs(nvec)
+#endif
     
  REAL    (KIND=wp   ) ::  &    
     zsrmax            ,     & !
@@ -594,7 +510,8 @@ SUBROUTINE graupel     (             &
     reduce_dep,&!FR: coefficient: reduce deposition at cloud top (Forbes 2012)
     dist_cldtop(nvec) !FR: distance from cloud top layer 
 
-  LOGICAL :: ldum
+
+  LOGICAL :: lvariable_lh   ! Use constant latent heat (default .true.)
 
 !------------ End of header ---------------------------------------------------
 
@@ -608,10 +525,6 @@ SUBROUTINE graupel     (             &
 ! saturation vapour pressure over water (fpvsw), over ice (fpvsi)
 ! and specific humidity at vapour saturation (fqvs)
   fpvsw(ztx)     = b1*EXP( b2w*(ztx-b3)/(ztx-b4w) )
-#ifdef __COSMO__
-  fpvsi(ztx)     = b1*EXP( b2i*(ztx-b3)/(ztx-b4i) )
-  fqvs (zpv,zpx) = rdv*zpv/( zpx - o_m_rdv*zpv )
-#endif
 ! Number of activate ice crystals;  ztx is temperature
   fxna(ztx)   = 1.0E2_wp * EXP(0.2_wp * (t0 - ztx))
   fxna_cooper(ztx) = 5.0E+0_wp * EXP(0.304_wp * (t0 - ztx))   ! FR: Cooper (1986) used by Greg Thompson(2008)
@@ -619,11 +532,6 @@ SUBROUTINE graupel     (             &
 
 ! Define reciprocal of heat capacity of dry air (at constant pressure vs at constant volume)
 
-#ifdef __COSMO__
-  z_heat_cap_r = cpdr
-#endif
-
-#ifdef __ICON__
   IF (PRESENT(l_cv)) THEN
     IF (l_cv) THEN
       z_heat_cap_r = cvdr
@@ -633,13 +541,18 @@ SUBROUTINE graupel     (             &
   ELSE
     z_heat_cap_r = cpdr
   ENDIF
-#endif
 
   IF (PRESENT(pri_gsp)) THEN
     lpres_pri = .TRUE.
   ELSE
     lpres_pri = .FALSE.
   ENDIF
+
+  IF (PRESENT(ithermo_water)) THEN
+     lvariable_lh = (ithermo_water .NE. 0)
+  ELSE  ! Default themodynamic is constant latent heat
+     lvariable_lh = .false.
+  END IF
 
 !------------------------------------------------------------------------------
 !  Section 1: Initial setting of local and global variables
@@ -652,7 +565,7 @@ SUBROUTINE graupel     (             &
   !$ACC CREATE( zvzr, zvzs, zvzg, zvzi )                         &
   !$ACC CREATE( zpkr, zpks, zpkg, zpki )                         &
   !$ACC CREATE( zprvr, zprvs, zprvi, zqvsw_up, zprvg )           &
-  !$ACC CREATE( dist_cldtop )
+  !$ACC CREATE( dist_cldtop, zlhv, zlhs )
 
   !$ACC DATA PRESENT( pri_gsp ) IF (lpres_pri)
 
@@ -795,8 +708,18 @@ SUBROUTINE graupel     (             &
     dist_cldtop(iv) = 0.0_wp
     zqvsw_up(iv) = 0.0_wp
     IF (lpres_pri) pri_gsp (iv) = 0.0_wp
+#ifndef __LOOP_EXCHANGE
+    zlhv(iv)     = lh_v
+    zlhs(iv)     = lh_s    
+#endif
   END DO
   !$ACC END PARALLEL
+
+  ! Initialize latent heats to constant values
+#ifdef __LOOP_EXCHANGE
+  zlhv(:) = lh_v
+  zlhs(:) = lh_s
+#endif
 
 ! *********************************************************************
 ! Loop from the top of the model domain to the surface to calculate the
@@ -807,9 +730,29 @@ SUBROUTINE graupel     (             &
   !$ACC LOOP SEQ
 #ifdef __LOOP_EXCHANGE
   DO iv = iv_start, iv_end  !loop over horizontal domain
+
+! Calculate Latent heats if necessary
+    IF ( lvariable_lh ) THEN
+      DO  k = k_start, ke  ! loop over levels
+        tg      = make_normalized(t(iv,k))
+        zlhv(k) = latent_heat_vaporization(tg)
+        zlhs(k) = latent_heat_sublimation(tg)
+      END DO
+    END IF
+
     DO  k = k_start, ke  ! loop over levels
 #else
   DO  k = k_start, ke  ! loop over levels
+
+! Calculate Latent heats if necessary
+     IF ( lvariable_lh ) THEN
+      !$ACC LOOP GANG VECTOR PRIVATE (tg)
+      DO  iv = iv_start, iv_end  !loop over horizontal domain
+        tg      = make_normalized(t(iv,k))
+        zlhv(iv) = latent_heat_vaporization(tg)
+        zlhs(iv) = latent_heat_sublimation(tg)
+      END DO
+    END IF
 
     !$ACC LOOP GANG VECTOR PRIVATE( alf, bet, fnuc, hlp, llqc, llqg, llqi, llqr, &
     !$ACC                           llqs, m2s, m3s, maxevap, nnr, ppg, qcg,      &
@@ -840,13 +783,6 @@ SUBROUTINE graupel     (             &
       IF (ldass_lhn) THEN
         qrsflux(iv,k) = 0.0_wp
       ENDIF
-
-#ifdef __COSMO__
-      IF ( ldiabf_lh ) THEN
-        ! initialize temperature increment due to latent heat
-        tinc_lh(iv,k) = tinc_lh(iv,k) - t(iv,k)
-      ENDIF
-#endif
 
       !----------------------------------------------------------------------------
       ! Section 2: Check for existence of rain and snow
@@ -1071,13 +1007,7 @@ SUBROUTINE graupel     (             &
       zqgk   = zzag*zimg
       zqik   = zzai*zimi
 
-#ifdef __COSMO__
-      zqvsi = fqvs( fpvsi(tg), ppg )
-#endif
-
-#ifdef __ICON__
       zqvsi = sat_pres_ice(tg)/(rhog * r_v * tg)
-#endif
 
       llqr = zqrk > zqmin
       llqs = zqsk > zqmin
@@ -1389,13 +1319,7 @@ SUBROUTINE graupel     (             &
             simelt = qig*zdtr
           ENDIF
 
-#ifdef __COSMO__
-          zqvsw0     = fqvs( zpvsw0, ppg)
-#endif
-
-#ifdef __ICON__
           zqvsw0     = zpvsw0/(rhog * r_v *t0)
-#endif
           zqvsw0diff = qvg-zqvsw0
 ! ** GZ: several numerical fits in this section should be replaced with physically more meaningful formulations **
           IF ( tg > (t0-ztcrit*zqvsw0diff) ) THEN
@@ -1431,13 +1355,7 @@ SUBROUTINE graupel     (             &
           ELSE
             !if t<t_crit
             !no melting, only evaporation of snow/graupel
-#ifdef __COSMO__
-            zqvsw      = fqvs( fpvsw(tg), ppg )
-#endif
-
-#ifdef __ICON__
             zqvsw      = sat_pres_water(tg)/(rhog * r_v *tg)
-#endif
             zqvsw_up(iv) = zqvsw
             zqvsidiff  = qvg-zqvsw
             ssdep = (0.28003_wp-ppg*0.146293E-6_wp) &
@@ -1455,14 +1373,7 @@ SUBROUTINE graupel     (             &
       !            and calculation of the evaporation rate of rain
       !--------------------------------------------------------------------------
 
-
-#ifdef __COSMO__
-        zqvsw    = fqvs( fpvsw(tg), ppg )
-#endif
-
-#ifdef __ICON__
         zqvsw    = sat_pres_water(tg)/(rhog * r_v *tg)
-#endif
         zqvsw_up(iv) = zqvsw
 
       IF( (llqr) .AND. (qvg+qcg <= zqvsw)) THEN
@@ -1524,7 +1435,6 @@ SUBROUTINE graupel     (             &
         sconsg = zcorr * sconsg
       ENDIF
 
-
       zqvt =   sev    - sidep  - ssdep  - sgdep  - snuc   - sconr 
       zqct =   simelt - scau   - scfrz  - scac   - sshed  - srim   - srim2 
       zqit =   snuc   + scfrz  - simelt - sicri  + sidep  - sdau   - sagg   - sagg2  - siau
@@ -1532,16 +1442,10 @@ SUBROUTINE graupel     (             &
       zqst =   siau   + sdau   - ssmelt + srim   + ssdep  + sagg   - sconsg
       zqgt =   sagg2  - sgmelt + sicri  + srcri  + sgdep  + srfrz  + srim2  + sconsg
 
-      ztt = z_heat_cap_r*( lh_v*(zqct+zqrt) + lh_s*(zqit+zqst+zqgt) )
-
-#ifdef __COSMO__
-      IF (lsppt) THEN
-!US how to check?        IF(ntstep>0.AND.i>=istart.and.i<=iend.and.j>=jstart.and.j<=jend) THEN
-          CALL apply_tqx_tend_adj(itype_qxpert_rn, itype_qxlim_rn, ppg,     &
-                                 tg,  qvg,  qcg,  qig,  qrg,  qsg,          &
-                  pstoph(iv,k), ztt, zqvt, zqct, zqit, zqrt, zqst, ldum, qgg, zqgt)
-!US        ENDIF
-      ENDIF
+#ifdef __LOOP_EXCHANGE      
+      ztt = z_heat_cap_r*( zlhv(k)*(zqct+zqrt) + zlhs(k)*(zqit+zqst+zqgt) )
+#else
+      ztt = z_heat_cap_r*( zlhv(iv)*(zqct+zqrt) + zlhs(iv)*(zqit+zqst+zqgt) )
 #endif
 
       ! Update variables and add qi to qrs for water loading
@@ -1667,33 +1571,6 @@ SUBROUTINE graupel     (             &
 
   END DO ! loop over levels
   !$ACC END PARALLEL
-
-#if defined (__COSMO__)
-  !XL : currently satad is outside of the k loop as function call
-  !     is not yet supported (without inlinining) on GPU
-  !     Once it is supported satad will go back in the k,i loop
-  ! Do a final saturation adjustment for new values of t, qv and qc
-  DO  k = k_start, ke
-    CALL satad ( 1, t(:,k), qv(:,k),                  &
-               qc(:,k), t(:,k), p(:,k),               &
-               zdummy(:,1),zdummy(:,2),zdummy(:,3),   &
-               zdummy(:,4),zdummy(:,5),zdummy(:,6),   &
-               zdummy(:,7),zdummy(:,8),               &
-               b1, b2w, b3, b4w, b234w, rdv, o_m_rdv, &
-               rvd_m_o, lh_v, z_heat_cap_r, cp_d,     &
-               nvec, 1, iv_start, iv_end, 1 , 1 )
-  ENDDO
-
-  DO  k = k_start, ke
-    DO iv=iv_start,iv_end
-      IF ( ldiabf_lh ) THEN
-        ! compute temperature increment due to latent heat
-        tinc_lh(iv,k) = tinc_lh(iv,k) + t(iv,k)
-      ENDIF
-
-    ENDDO
-  ENDDO
-#endif
 
 !------------------------------------------------------------------------------
 ! final tendency calculation for ICON

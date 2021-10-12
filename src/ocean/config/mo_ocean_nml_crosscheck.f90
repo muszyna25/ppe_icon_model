@@ -135,6 +135,9 @@ CONTAINS
     IF ((VelocityDiffusion_order == 21 .or. VelocityDiffusion_order == 213) .and. .not. laplacian_form == 1) &
       CALL finish(method_name,"harmonic+biharmonic velocity diffusion requires curl-curl form")
 
+    IF (vert_mix_type /=1) &
+       PPscheme_type = -1
+
   END SUBROUTINE ocean_crosscheck
 
 

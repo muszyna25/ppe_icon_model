@@ -46,15 +46,14 @@ MODULE mo_nonhydro_gpu_types
   USE mo_math_types,           ONLY: t_geographical_coordinates
   USE mo_model_domain,         ONLY: t_patch, t_tangent_vectors
   USE mo_nonhydro_types,       ONLY: t_nh_state, t_nh_diag, t_nh_prog
-  USE mo_nh_prepadv_types,     ONLY: t_prepare_adv
+  USE mo_prepadv_types,        ONLY: t_prepare_adv
   USE mo_advection_config,     ONLY: t_advection_config
   USE mo_intp_data_strc,       ONLY: t_int_state
   USE mo_grf_intp_data_strc,   ONLY: t_gridref_single_state, t_gridref_state
-  USE mo_var_list_gpu,         ONLY: gpu_h2d_var_list, gpu_d2h_var_list
+  USE mo_var_list_gpu,         ONLY: gpu_update_var_list
   USE mo_run_config,           ONLY: ltestcase
 
   IMPLICIT NONE
-
   PRIVATE 
 
   PUBLIC :: h2d_icon, d2h_icon, devcpy_grf_state
@@ -74,7 +73,7 @@ CONTAINS
 ! Copy all data need on GPU from host to device
 !
 
-!$ACC ENTER DATA COPYIN( p_int_states, p_patches, prep_advs, advection_config ), IF ( i_am_accel_node  )
+!$ACC ENTER DATA COPYIN( p_int_states, p_patches, advection_config ), IF ( i_am_accel_node  )
 
     CALL transfer_int_state( p_int_states, .TRUE. )
 
@@ -114,7 +113,7 @@ CONTAINS
       CALL transfer_echam( p_patches, .FALSE. )
     END IF
 
-!$ACC EXIT DATA DELETE( advection_config, prep_advs, p_patches, p_int_states ), IF ( i_am_accel_node  )
+!$ACC EXIT DATA DELETE( advection_config, p_patches, p_int_states ), IF ( i_am_accel_node  )
 
   END SUBROUTINE d2h_icon
 
@@ -247,28 +246,17 @@ CONTAINS
 
   SUBROUTINE transfer_prep_adv( prep_adv, host_to_device )
 
-    LOGICAL, INTENT(IN)                        :: host_to_device     !   .TRUE. : h2d   .FALSE. : d2h
+    LOGICAL, INTENT(IN)                           :: host_to_device     !   .TRUE. : h2d   .FALSE. : d2h
     TYPE ( t_prepare_adv ), TARGET, INTENT(INOUT) :: prep_adv(:)
 
-    INTEGER :: j
+    INTEGER :: jg
 
-    DO j=1, SIZE(prep_adv)
-
-      IF ( host_to_device ) THEN
-
-!$ACC ENTER DATA COPYIN(prep_adv(j)%vn_traj,prep_adv(j)%mass_flx_me,prep_adv(j)%mass_flx_ic,prep_adv(j)%topflx_tra ), &
-!$ACC       IF ( i_am_accel_node  )
-
-      ELSE
-
-!$ACC EXIT DATA DELETE(prep_adv(j)%vn_traj,prep_adv(j)%mass_flx_me,prep_adv(j)%mass_flx_ic,prep_adv(j)%topflx_tra ), &
-!$ACC      IF ( i_am_accel_node  )
-
-      ENDIF
-
+    DO jg=1, SIZE(prep_adv)
+      CALL gpu_update_var_list('prepadv_of_domain_', host_to_device, domain=jg )
     ENDDO    
 
   END SUBROUTINE transfer_prep_adv
+
 
   SUBROUTINE transfer_advection_config( advection_config, host_to_device )
 
@@ -298,52 +286,27 @@ CONTAINS
   END SUBROUTINE transfer_advection_config
 
   SUBROUTINE transfer_nh_state( p_nh, host_to_device )
-
     LOGICAL, INTENT(IN)                        :: host_to_device     !   .TRUE. : h2d   .FALSE. : d2h
     TYPE ( t_nh_state ), TARGET, INTENT(INOUT) :: p_nh(:)
     INTEGER :: istep, jg
-    CHARACTER(len=*), PARAMETER :: metrics = 'nh_state_metrics_of_domain_', &
-         ref = 'nh_state_ref_of_domain_', &
-         diag = 'nh_state_diag_of_domain_'
-    CHARACTER(len=max_var_list_name_len) :: prog
+    CHARACTER(*), PARAMETER :: &
+      & metrics = 'nh_state_metrics_of_domain_', diag = 'nh_state_diag_of_domain_', &
+      & ref = 'nh_state_ref_of_domain_', prog = 'nh_state_prog_of_domain_'
 
-!
 ! At this point, p_nh and all its underlying subtypes have been created on the device
-!
-    DO jg = 1, SIZE(p_nh)
-
-      IF ( host_to_device ) THEN
-
-        CALL gpu_h2d_var_list(metrics, domain=jg )
-        IF (ltestcase) CALL gpu_h2d_var_list(ref, domain=jg )
-        CALL gpu_h2d_var_list(diag, domain=jg )
-        DO istep = 1, SIZE(p_nh(jg)%prog)
-          CALL gpu_h2d_var_list('nh_state_prog_of_domain_', domain=jg, &
-               substr='_and_timelev_', timelev=istep)
-        ENDDO
-
-#if 0
-      ELSE
-
-! 
+! HB: merged interfaces of gpu_XXX_var_list... therefore the IF condition
 ! WS:  currently it appears to be unnecessary to update any of these values back to the host 
 !      after the end of the time loop.  Dycore variables are updated in ACC_VALIDATE mode individually
 !      BUT: there should be a way to delete all the variables with DEL_VAR
-!
-        CALL gpu_d2h_var_list(metrics, domain=jg )
-        CALL gpu_d2h_var_list(diag, domain=jg )
-        IF (ltestcase) CALL gpu_d2h_var_list(ref, domain=jg )
-
-        DO istep = 1, SIZE(p_nh(jg)%prog)
-          CALL gpu_d2h_var_list('nh_state_prog_of_domain_', domain=jg, &
-               substr='_and_timelev_', timelev=istep)
-        ENDDO
-#endif
-
-      ENDIF
-
+    IF (.NOT.host_to_device) RETURN
+    DO jg = 1, SIZE(p_nh)
+      CALL gpu_update_var_list(metrics, host_to_device, domain=jg )
+      IF (ltestcase) CALL gpu_update_var_list(ref, host_to_device, domain=jg )
+      CALL gpu_update_var_list(diag, host_to_device, domain=jg )
+      DO istep = 1, SIZE(p_nh(jg)%prog)
+        CALL gpu_update_var_list(prog, host_to_device, domain=jg, substr='_and_timelev_', timelev=istep )
+      ENDDO
     ENDDO
-
   END SUBROUTINE transfer_nh_state
 
   SUBROUTINE transfer_echam( p_patches, host_to_device )
@@ -352,15 +315,9 @@ CONTAINS
     INTEGER :: jg
 
     DO jg = 1, SIZE(p_patches)
-      IF( host_to_device ) THEN
-        CALL gpu_h2d_var_list('prm_field_D', domain=jg)
-        CALL gpu_h2d_var_list('prm_tend_D', domain=jg)
-      ELSE
-        CALL gpu_d2h_var_list('prm_field_D', domain=jg)
-        CALL gpu_d2h_var_list('prm_tend_D', domain=jg)
-      END IF
+      CALL gpu_update_var_list('prm_field_D', host_to_device, domain=jg)
+      CALL gpu_update_var_list('prm_tend_D', host_to_device, domain=jg)
     END DO
-
   END SUBROUTINE transfer_echam
 
   SUBROUTINE devcpy_grf_state( p_grf, l_h2d )

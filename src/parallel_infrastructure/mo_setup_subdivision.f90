@@ -39,6 +39,7 @@ MODULE mo_setup_subdivision
   !    modified for ICON project, DWD/MPI-M 2006
   !-------------------------------------------------------------------------
   !
+  USE mo_sync,               ONLY: global_max, global_min, global_sum
   USE mo_kind,               ONLY: wp
   USE mo_util_string,        ONLY: int2string
   USE mo_impl_constants,     ONLY: min_rlcell, max_rlcell,  &
@@ -57,7 +58,7 @@ MODULE mo_setup_subdivision
     &                              get_local_index, get_valid_local_index, &
     &                              set_inner_glb_index, set_outer_glb_index, &
     &                              uniform_partition
-  USE mo_mpi,                ONLY: proc_split, p_max
+  USE mo_mpi,                ONLY: proc_split, p_max, num_work_procs
 #ifndef NOMPI
   USE mo_mpi,                ONLY: MPI_COMM_NULL, p_int, &
        mpi_in_place, mpi_success, mpi_sum, mpi_lor, p_bool
@@ -65,7 +66,7 @@ MODULE mo_setup_subdivision
   USE mo_mpi,                ONLY: p_comm_work, p_int, &
     & p_pe_work, p_n_work, my_process_is_mpi_parallel, p_alltoall, p_alltoallv
 
-  USE mo_parallel_config,       ONLY:  nproma, ldiv_phys_dom, &
+  USE mo_parallel_config,       ONLY:  nproma, ldiv_phys_dom, set_nproma, &
     & division_method, division_file_name, n_ghost_rows, &
     & div_geometric, ext_div_from_file, write_div_to_file, use_div_from_file, proc0_shift
 
@@ -115,7 +116,7 @@ MODULE mo_setup_subdivision
   USE mo_util_uuid,           ONLY: uuid_unparse
   USE mo_read_netcdf_broadcast_2, ONLY: netcdf_open_input, netcdf_close, &
     &                                   netcdf_read_att_int
-
+  USE mo_fortran_tools,       ONLY: t_ptr_2d_int
   IMPLICIT NONE
 
   PRIVATE
@@ -163,6 +164,7 @@ CONTAINS
     INTEGER :: my_process_type, order_type_of_halos
     INTEGER, POINTER :: local_ptr(:)
     TYPE(dist_mult_array) :: dist_cell_owner, dist_cell_owner_p
+    INTEGER :: jg_normal
 
     CALL message(routine, 'start of domain decomposition')
 #ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
@@ -318,7 +320,19 @@ CONTAINS
     ! Divide patches
     ! -----------------------------------------------------------------------------
 
-    DO jg = n_dom_start, n_dom
+    DO jg_normal = n_dom_start, n_dom
+      ! Reorder index to start with a "normal" patch in case there is a reduced radiation grid
+      IF (n_dom_start == 0) THEN
+        IF (jg_normal == 0) THEN
+          jg = 1
+        ELSE IF(jg_normal == 1) THEN
+          jg = 0
+        ELSE
+          jg = jg_normal
+        ENDIF
+      ELSE
+        jg=jg_normal
+      ENDIF
 
       jgp = p_patch_pre(jg)%parent_id
 
@@ -361,7 +375,7 @@ CONTAINS
       ! order_type_of_halos = 0 order for parent (l_compute_grid = false)
       !                       1 order root grid  (l_compute_grid = true)
       !                       2 all halos go to the end, for ocean
-      
+
       IF (my_process_is_oceanic()) THEN
         order_type_of_halos = 2
       ELSE
@@ -1005,6 +1019,7 @@ CONTAINS
 
     CALL prepare_patch(wrk_p_patch_pre, wrk_p_patch, &
          SUM(n2_ilev_c(:)), SUM(n2_ilev_e(:)), SUM(n2_ilev_v(:)))
+    
 
     !-----------------------------------------------------------------------------------------------
     ! Set the global ownership for cells, edges and verts (needed for boundary exchange).
@@ -1702,8 +1717,34 @@ CONTAINS
       TYPE(t_patch), INTENT(inout) :: wrk_p_patch
       TYPE(t_pre_patch), INTENT(in) :: wrk_p_patch_pre
       INTEGER, INTENT(in) :: n_patch_cells, n_patch_edges, n_patch_verts
+      INTEGER :: nblocks, new_nproma
+      CHARACTER(LEN=64) :: message_text
+      CHARACTER(LEN=64) :: routine = modname//'::prepare_patch'
+      real(wp) :: nproma_avg
+      INTEGER :: nproma_max, nproma_min
 
       wrk_p_patch%n_patch_cells = n_patch_cells
+      IF (nproma < 0) THEN
+        IF (wrk_p_patch_pre%id == 1) THEN
+          nblocks = -nproma
+          new_nproma = (n_patch_cells-1) / nblocks + 1
+          CALL set_nproma(new_nproma)
+
+          IF(num_work_procs > 1) THEN
+            nproma_max = global_max(new_nproma)
+            nproma_min = global_min(new_nproma)
+            nproma_avg = REAL(global_sum(new_nproma))/num_work_procs
+            CALL message(routine, 'Set new nproma for each MPI work process.')
+            write(message_text,'(a,2i7,f10.2)') 'max/min/avg: ', nproma_max, nproma_min, nproma_avg
+            CALL message('# New nproma values: ', message_text)
+          ELSE
+            write(message_text,'(i7)') nproma
+            CALL message('New nproma: ', message_text)
+          ENDIF
+
+        ENDIF
+      ENDIF
+
       wrk_p_patch%n_patch_edges = n_patch_edges
       wrk_p_patch%n_patch_verts = n_patch_verts
 
@@ -4961,12 +5002,13 @@ CONTAINS
     TYPE(global_array_desc) :: dist_cell_owner_desc(1)
     TYPE(extent) :: local_chunk(1,1)
     INTEGER, POINTER :: local_ptr(:)
-    INTEGER, ALLOCATABLE :: buffer(:,:)
+    INTEGER, ALLOCATABLE, TARGET :: buffer(:,:)
     INTEGER :: i, ncid
     TYPE(t_grid_domain_decomp_info) :: decomp_info
     TYPE(t_distrib_read_data) :: io_data
     INTEGER :: dist_array_pes_start, dist_array_pes_size
     CHARACTER(*), PARAMETER :: method_name = "read_netcdf_decomposition"
+    TYPE(t_ptr_2d_int) :: tmp_ptr(1)
 
     dist_cell_owner_desc(1)%a_rank = 1
     dist_cell_owner_desc(1)%rect(1)%first = 1
@@ -5006,7 +5048,8 @@ CONTAINS
     IF (p_pe_work == 0) &
       WRITE(0,*) "Read decomposition from file: ", TRIM(netcdf_file_name)
     ncid = distrib_nf_open(netcdf_file_name)
-    CALL distrib_read(ncid, "cell_owner", buffer, io_data)
+    tmp_ptr(1)%p => buffer
+    CALL distrib_read(ncid, "cell_owner", tmp_ptr, (/io_data/))
     CALL distrib_nf_close(ncid)
 
     DO i = 0, SIZE(local_ptr) - 1

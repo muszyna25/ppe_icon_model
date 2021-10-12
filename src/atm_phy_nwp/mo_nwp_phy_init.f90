@@ -33,7 +33,7 @@ MODULE mo_nwp_phy_init
   USE mo_ext_data_state,      ONLY: nlev_o3, nmonths
   USE mo_ext_data_init,       ONLY: diagnose_ext_aggr, vege_clim
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
-  USE mo_exception,           ONLY: message, finish !, message_text
+  USE mo_exception,           ONLY: message, finish, message_text
   USE mo_vertical_coord_table,ONLY: vct_a
   USE mo_model_domain,        ONLY: t_patch
   USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int, io3_ape,            &
@@ -55,17 +55,11 @@ MODULE mo_nwp_phy_init
     &                               ghg_filename, irad_co2, irad_cfc11, irad_cfc12,   &
     &                               irad_n2o,irad_ch4
   USE mo_srtm_config,         ONLY: setup_srtm, ssi_amip
-  USE mo_radiation_rg_par,    ONLY: rad_aibi
   USE mo_aerosol_util,        ONLY: init_aerosol_dstrb_tanre,                       &
-    &                               init_aerosol_props_tanre_rg,                    &
     &                               init_aerosol_props_tanre_rrtm,                  &
-    &                               init_aerosol_props_tegen_rg,                    &
     &                               init_aerosol_props_tegen_rrtm,                  &
-    &                               zaef_rg, zaea_rg, zaes_rg, zaeg_rg,             &
     &                               zaea_rrtm, zaes_rrtm, zaeg_rrtm
   USE mo_o3_util,             ONLY: o3_pl2ml!, o3_zl2ml
-  USE mo_psrad_setup    ,     ONLY: psrad_basic_setup
-  USE mo_echam_cop_config,    ONLY: echam_cop_config
 #ifdef __ECRAD
   USE mo_nwp_ecrad_init,      ONLY: setup_ecrad
   USE mo_ecrad,               ONLY: ecrad_conf
@@ -408,7 +402,9 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
              &  i_startidx, i_endidx, rl_start, rl_end)
 
-        IF ( (nh_test_name == 'APE_nwp' .OR. nh_test_name == 'dcmip_tc_52' .OR. nh_test_name == 'CBL_flxconst') ) THEN
+        IF ( (nh_test_name == 'APE_nwp' .OR. nh_test_name == 'dcmip_tc_52' .OR.        &
+            & nh_test_name == 'RCEMIP_analytical'  .OR.                                &
+            & nh_test_name == 'RCE_Tconst' .OR. nh_test_name == 'CBL_flxconst') ) THEN
 
           ! t_g = ape_sst1
 
@@ -787,9 +783,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
   !< radiation
   !------------------------------------------
   SELECT CASE ( atm_phy_nwp_config(jg)%inwp_radiation )
-  CASE (1, 3, 4)
-
-    IF (msg_level >= 12)  CALL message(modname, 'init RRTM')
+  CASE (1, 4)
 
     SELECT CASE ( irad_aero )
     ! Note (GZ): irad_aero=2 does no action but is the default in radiation_nml
@@ -797,8 +791,9 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
     CASE (0,2,5,6,9)
       !ok
     CASE DEFAULT
-      CALL finish(routine,  &
-        &      'Wrong irad_aero. For RRTM radiation, this irad_aero is not implemented.')
+      WRITE (message_text, '(a,i2,a)') 'irad_aero = ',irad_aero, &
+        &                  ' not implemented for RRTM/ecRad'
+      CALL finish(routine,message_text)
     END SELECT
 
 !    prm_diag%lfglac (:,:) = ext_data%atm%soiltyp(:,:) == 1  !soiltyp=ice
@@ -817,7 +812,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
       tsi_radt = 1365._wp
     ENDIF  ! APE
 
-    IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' ) THEN
+    IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' .OR. &
+       & nh_test_name == 'RCEMIP_analytical') THEN
       ! solar flux (W/m2) in 14 SW bands
       scale_fac = sol_const/1361.371_wp ! computed relative to amip (1361)
       ssi_radt(:) = scale_fac*ssi_amip(:)
@@ -827,15 +823,17 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
 
     SELECT CASE(atm_phy_nwp_config(jg)%inwp_radiation)
       CASE(1) ! RRTM init
+        !
+        IF (msg_level >= 12)  CALL message(modname, 'init RRTM')
+        !
         CALL setup_srtm
         CALL lrtm_setup(lrtm_filename)
         CALL setup_newcld_optics(cldopt_filename)
-      CASE(3) ! PSRAD init
-        CALL psrad_basic_setup(.false., nlev, 1.0_wp, 1.0_wp, &
-          & echam_cop_config(1)%cinhoml1 ,echam_cop_config(1)%cinhoml2, &
-          & echam_cop_config(1)%cinhoml3 ,echam_cop_config(1)%cinhomi)
       CASE(4)
 #ifdef __ECRAD
+        !
+        IF (msg_level >= 12)  CALL message(modname, 'init ECRAD')
+        !
         ! Do ecrad initialization only once
         IF (.NOT.lreset_mode .AND. jg==1) CALL setup_ecrad(ecrad_conf)
 #else
@@ -989,108 +987,6 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
       rad_csalbw(ist) = csalbw(ist) / (2.0_wp * zml_soil(1))
     ENDDO
 
-  CASE (2)
-
-    IF (msg_level >= 12)  CALL message(modname, 'init Ritter Geleyn')
-
-    ! Note (GZ): irad_aero=2 does no action but is the default in radiation_nml
-    ! and therefore should not cause the model to stop
-    SELECT CASE ( irad_aero )
-    CASE (0,2,5,6,9)
-      !ok
-    CASE DEFAULT
-      CALL finish(routine,  &
-        &      'Wrong irad_aero. For Ritter-Geleyn radiation, this irad_aero is not implemented.')
-    END SELECT
-
-    ! solar flux (W/m2) in 14 SW bands
-    ssi_radt(:) = ssi_amip(:)
-    ! solar constant (W/m2)
-    tsi_radt    = SUM(ssi_radt(:))
-
-    IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' ) THEN
-      tsi_radt = 0._wp
-      ! solar flux (W/m2) in 14 SW bands
-      scale_fac = sol_const/1361.371_wp ! computed relative to amip (1361)
-      ssi_radt(:) = scale_fac*ssi_amip(:)
-      ! solar constant (W/m2)
-      tsi_radt    = SUM(ssi_radt(:))
-    ENDIF
-
-    !------------------------------------------
-    !< set conditions for Aqua planet experiment
-    !------------------------------------------
-    IF ( nh_test_name == 'APE_nwp' .OR. nh_test_name == 'dcmip_tc_52' ) THEN
-      ssi_radt(:) = ssi_radt(:)*1365._wp/tsi_radt
-      tsi_radt = 1365._wp
-    ENDIF
-
-    CALL rad_aibi
-
-    zaef_rg(:,:)= 0.0_wp
-
-    IF ( irad_aero == 5 ) THEN
-
-      CALL init_aerosol_props_tanre_rg
-
-      CALL init_aerosol_dstrb_tanre (        &
-        & kbdim    = nproma,                 & !in
-        & pt_patch = p_patch,                & !in
-        & aersea   = prm_diag%aersea,        & !out
-        & aerlan   = prm_diag%aerlan,        & !out
-        & aerurb   = prm_diag%aerurb,        & !out
-        & aerdes   = prm_diag%aerdes )         !out
-
-    ELSEIF ( irad_aero == 6 .OR. irad_aero == 9) THEN
-
-      CALL init_aerosol_props_tegen_rg
-
-    ELSE
-
-      zaea_rg(:,:) = 0.0_wp
-      zaes_rg(:,:) = 0.0_wp
-      zaeg_rg(:,:) = 0.0_wp
-
-    ENDIF
-
-
-    !------------------------------------------
-    ! APE ozone profile, vertical setting needed only once for NH
-    !------------------------------------------
-    IF (irad_o3 == io3_ape .AND. linit_mode ) THEN
-
-      rl_start = 1  ! Initialization should be done for all points
-      rl_end   = min_rlcell
-
-      i_startblk = p_patch%cells%start_blk(rl_start,1)
-      i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk, i_endblk
-
-        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-          &  i_startidx, i_endidx, rl_start, rl_end)
-
-        CALL o3_pl2ml (jcs=i_startidx, jce=i_endidx,     &
-          & kbdim=nproma,                                &
-          & nlev_pres = nlev_o3,klev= nlev ,             &
-          & pfoz = ext_data%atm_td%pfoz(:),              &
-          & phoz = ext_data%atm_td%phoz(:),              &! in o3-levs
-          & ppf = p_diag%pres (:,:,jb),                  &! in  pres
-          & pph = p_diag%pres_ifc(:,:,jb),               &! in  pres_halfl
-          & o3_time_int = ext_data%atm_td%o3(:,:,jb,nmonths),     &! in
-          & o3_clim     = ext_data%atm%o3(:,:,jb) )         ! OUT
-
-      ENDDO !jb
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-    ENDIF ! (irad_o3 == io3_ape)
-
-    DO ist = 1, UBOUND(csalbw,1)
-      rad_csalbw(ist) = csalbw(ist) / (2.0_wp * zml_soil(1))
-    ENDDO
   END SELECT !inwp_radiation
 
   IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' ) THEN

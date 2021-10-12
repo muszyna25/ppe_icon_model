@@ -808,7 +808,7 @@ CONTAINS
     IF (smooth_initial_velocity_iterations > 0) THEN
       ALLOCATE(suv(nproma,n_zlev, patch_2d%alloc_cell_blocks))
       DO i=1,smooth_initial_velocity_iterations
-        WRITE(message_text,*) "Smoothing velicities..., miss value=", missValue
+        WRITE(message_text,*) "Smoothing velocities..., miss value=", missValue
         CALL message(method_name, message_text)
 
         suv = u
@@ -2237,6 +2237,11 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
     basin_southBoundary    = (basin_center_lat - 0.5_wp*basin_height_deg) * deg2rad
     lat_diff               = basin_northBoundary - basin_southBoundary  !  basin_height_deg*deg2rad
     
+!     write(0,*) "*****************************"
+!     write(0,*) "init SST_LinearMeridional"
+!     write(0,*) "T:", initial_temperature_north, initial_temperature_south, temperature_difference
+    
+    
     level=1
     DO block = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, block, start_cell_index, end_cell_index)
@@ -2247,6 +2252,8 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
           & MERGE(ocean_temperature(idx,level,block), initial_temperature_north, lat(idx,block)<basin_northBoundary)
         ocean_temperature(idx,level,block) = &
           & MERGE(ocean_temperature(idx,level,block), initial_temperature_south, lat(idx,block)>basin_southBoundary)
+          
+!         write(0,*) "T=", ocean_temperature(idx,level,block), " at:", lat(idx,block)*rad2deg
       END DO
     END DO
 
@@ -3320,7 +3327,7 @@ END DO
 !write(*,*)'leave init'
 !    CALL dbg_print('aft. AdvIndivTrac: trac_old', ocean_tracer(:,2,:), method_name, 3, in_subset=all_cells)
 
-stop
+!stop
   END SUBROUTINE tracer_Redi_test_withdensity0
   !-------------------------------------------------------------------------------
 
@@ -3619,7 +3626,7 @@ stop
      write(0,*)'in',level,maxval( ocean_tracer(:,level,:)),minval( ocean_tracer(:,level,:))
       END DO
 
-stop
+!stop
 
   END SUBROUTINE de_increaseTracerVertically
   !-------------------------------------------------------------------------------
@@ -5616,6 +5623,8 @@ stop
     REAL(wp), INTENT(IN) :: p_lat
     INTEGER, INTENT(in) :: direction
 
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':sphere_wind'
+
 ! !RETURN VALUE:  
     REAL(wp)             :: wd        ! wind
 
@@ -5628,11 +5637,10 @@ stop
     ELSE IF(direction==2)THEN
        wd = 0.0_wp
     ELSE
-       write(*,*) 'Wrong wind direction in mo_sw_testcases, stommel_wind'
-       STOP
+      CALL finish(method_name, "Wrong wind direction")
     END IF
 
-  END FUNCTION sphere_wind
+  END FUNCTION  sphere_wind
 
 
 
@@ -5732,6 +5740,9 @@ stop
 ! !INPUT PARAMETERS:  
     INTEGER, INTENT(in) :: direction
 
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':vortex_wind'
+
+
 ! !RETURN VALUE:  
     REAL(wp)             :: wd        ! wind
 
@@ -5744,8 +5755,7 @@ stop
     ELSE IF(direction==2)THEN
        wd = 0.0_wp
     ELSE
-       write(*,*) 'Wrong wind direction in mo_sw_testcases, stommel_wind'
-       STOP
+       CALL finish(method_name, 'Wrong wind direction')
     END IF
 
   END FUNCTION vortex_wind

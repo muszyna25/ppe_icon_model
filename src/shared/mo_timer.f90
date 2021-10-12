@@ -96,7 +96,7 @@ MODULE mo_timer
   PUBLIC :: timer_gwd !!$, timer_sso
   PUBLIC :: timer_cnv , timer_cld
   PUBLIC :: timer_car , timer_mox
-  PUBLIC :: timer_wmo , timer_mig
+  PUBLIC :: timer_wmo , timer_mig, timer_two
   !
   ! echam radiation
   PUBLIC :: timer_rrtm_prep, timer_rrtm_post
@@ -155,21 +155,14 @@ MODULE mo_timer
   PUBLIC :: timer_dif_horz, timer_hflx_lim
   PUBLIC :: timer_dif_vert, timer_ppm_slim, timer_adpo_vert
   PUBLIC :: timer_dbg_prnt
-  PUBLIC :: timer_si_correction
   PUBLIC :: timer_cube_root
-  PUBLIC :: timer_RK_tend, timer_RK_update, timer_step_RK
 
   PUBLIC :: timer_intrp_diagn
-  PUBLIC :: timer_step_2tl_si
   PUBLIC :: timer_prep_echam_phy
   PUBLIC :: timer_prep_phy
-  PUBLIC :: timer_prep_tracer_leapfrog
   PUBLIC :: timer_prep_tracer
-  PUBLIC :: timer_prep_tracer_RK
   PUBLIC :: timer_hdiff_expl
   PUBLIC :: timer_dyn_theta, timer_dyn_temp
-
-  PUBLIC :: timer_con_l_theta2t, timer_con_l_t2theta, timer_con_theta2t, timer_con_t2theta
 
   PUBLIC :: timer_nesting
   PUBLIC :: timer_nudging
@@ -352,7 +345,7 @@ MODULE mo_timer
   INTEGER :: timer_gwd !!$, timer_sso
   INTEGER :: timer_cnv , timer_cld
   INTEGER :: timer_car , timer_mox
-  INTEGER :: timer_wmo , timer_mig
+  INTEGER :: timer_wmo , timer_mig, timer_two
   !
   ! echam radiation
   INTEGER :: timer_rrtm_prep, timer_rrtm_post
@@ -375,17 +368,12 @@ MODULE mo_timer
   INTEGER :: timer_dif_horz, timer_hflx_lim
   INTEGER :: timer_dif_vert, timer_ppm_slim, timer_adpo_vert
   INTEGER :: timer_dbg_prnt
-  INTEGER :: timer_si_correction
   INTEGER :: timer_cube_root
-  INTEGER :: timer_RK_tend, timer_RK_update, timer_step_RK
 
   INTEGER :: timer_intrp_diagn
-  INTEGER :: timer_step_2tl_si
   INTEGER :: timer_prep_echam_phy
   INTEGER :: timer_prep_phy
-  INTEGER :: timer_prep_tracer_leapfrog
   INTEGER :: timer_prep_tracer
-  INTEGER :: timer_prep_tracer_RK
   INTEGER :: timer_hdiff_expl
 
   ! Timer ID for optional lon-lat interpolation
@@ -398,8 +386,6 @@ MODULE mo_timer
   INTEGER :: timer_feedback
 
   INTEGER :: timer_global_nudging
-
-  INTEGER :: timer_con_l_theta2t, timer_con_l_t2theta, timer_con_theta2t, timer_con_t2theta
 
   ! upper atmosphere / deep atmosphere
   INTEGER :: timer_deepatmo_ztrafo, timer_expol
@@ -622,8 +608,6 @@ CONTAINS
     timer_solve_nh_vimpl    = new_timer  ("nh_solve.vimpl")
     timer_solve_nh_exch     = new_timer  ("nh_solve.exch")
 
-    timer_step_2tl_si = new_timer("2tl_si_solve")
-    timer_step_RK     = new_timer("RK_solve")
     timer_nh_hdiffusion= new_timer("nh_hdiff")
 
     timer_physics   = new_timer("physics")
@@ -641,15 +625,10 @@ CONTAINS
     timer_adv_vflx  = new_timer("adv_vflx")
  
     ! dynamics timers
-    timer_RK_tend = new_timer("RK_tend")
-    timer_RK_update = new_timer("RK_update")
-    timer_si_correction = new_timer("si_correction")
 
     timer_intrp_diagn = new_timer   ("intrp_diagn")
     timer_prep_tracer = new_timer   ("prep_tracer")
-    timer_prep_tracer_RK = new_timer("prep_tracer_RK")
     timer_hdiff_expl = new_timer    ("hdiff_expl")
-    timer_prep_tracer_leapfrog = new_timer("prep_trc_leapfrog")
     timer_div       = new_timer("div")
     timer_grad      = new_timer("grad")
     timer_corio     = new_timer("corio")
@@ -690,6 +669,7 @@ CONTAINS
        timer_cnv    = new_timer("interface_echam_cnv")
        timer_cld    = new_timer("interface_echam_cld")
        timer_mig    = new_timer("interface_echam_mig")
+       timer_two    = new_timer("interface_cloud_two")
        timer_car    = new_timer("interface_echam_car")
        timer_mox    = new_timer("interface_echam_mox")
        timer_wmo    = new_timer("interface_echam_wmo")
@@ -784,11 +764,6 @@ CONTAINS
 
     timer_cube_root = new_timer("cube_root")
     timer_lonlat_setup = new_timer("lonlat_setup")
-
-    timer_con_l_theta2t = new_timer("con_l_theta2t")
-    timer_con_l_t2theta = new_timer("con_l_t2theta")
-    timer_con_theta2t = new_timer("con_theta2t")
-    timer_con_t2theta = new_timer("con_t2theta")
 
     ! timers for boundary interpolation, feedback & nudging
     timer_nesting    = new_timer("nesting")

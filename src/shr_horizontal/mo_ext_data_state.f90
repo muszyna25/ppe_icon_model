@@ -37,8 +37,7 @@
 MODULE mo_ext_data_state
 
   USE mo_kind,               ONLY: wp
-  USE mo_impl_constants,     ONLY: inwp, MODIS,                                    &
-    &                              ihs_atm_temp, ihs_atm_theta, io3_clim, io3_ape, &
+  USE mo_impl_constants,     ONLY: inwp, MODIS, io3_clim, io3_ape,                 &
     &                              HINTP_TYPE_LONLAT_NNB, MAX_CHAR_LENGTH,         &
     &                              SSTICE_ANA, SSTICE_ANA_CLINC, SSTICE_CLIM,      &
     &                              SSTICE_AVG_MONTHLY, SSTICE_AVG_DAILY,           & 
@@ -48,12 +47,11 @@ MODULE mo_ext_data_state
   USE mo_model_domain,       ONLY: t_patch
   USE mo_ext_data_types,     ONLY: t_external_data, t_external_atmos_td, &
     &                              t_external_atmos
-  USE mo_linked_list,        ONLY: t_var_list
   USE mo_var_groups,         ONLY: groups
   USE mo_var_metadata_types, ONLY: POST_OP_SCALE, POST_OP_LUC, CLASS_TILE
   USE mo_var_metadata,       ONLY: post_op, create_hor_interp_metadata
-  USE mo_var_list,           ONLY: new_var_list, delete_var_list, add_var, add_ref, &
-    &                              default_var_list_settings
+  USE mo_var_list_register,  ONLY: vlr_add, vlr_del
+  USE mo_var_list,           ONLY: add_var, add_ref, t_var_list_ptr
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var, grib2_var, t_grib2_int_key, &
     &                              OPERATOR(+)
@@ -61,13 +59,12 @@ MODULE mo_ext_data_state
   USE mo_io_config,          ONLY: lnetcdf_flt64_output
   USE mo_grid_config,        ONLY: n_dom
   USE mo_run_config,         ONLY: iforcing
-  USE mo_dynamics_config,    ONLY: iequations
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_water, llake, &
     &                              sstice_mode
   USE mo_radiation_config,   ONLY: irad_o3, albedo_type
   USE mo_extpar_config,      ONLY: i_lctype, nclass_lu, nmonths_ext, itype_vegetation_cycle, itype_lwemiss
-  USE mo_cdi,                ONLY: DATATYPE_PACK16, DATATYPE_FLT32, DATATYPE_FLT64, &
-    &                              TSTEP_CONSTANT, TSTEP_MAX, TSTEP_AVG,            &
+  USE mo_cdi,                ONLY: DATATYPE_PACK16, DATATYPE_FLT32, DATATYPE_FLT64,     &
+    &                              TSTEP_CONSTANT, TSTEP_MAX, TSTEP_AVG, TSTEP_INSTANT, &
     &                              GRID_UNSTRUCTURED
   USE mo_zaxis_type,         ONLY: ZA_REFERENCE, ZA_LAKE_BOTTOM, ZA_SURFACE, &
     &                              ZA_HEIGHT_2M, ZA_PRESSURE
@@ -189,7 +186,7 @@ CONTAINS
     TYPE(t_external_atmos), INTENT(INOUT):: & !< current external data structure
       &  p_ext_atm
 
-    TYPE(t_var_list)      , INTENT(INOUT):: p_ext_atm_list !< current external data list
+    TYPE(t_var_list_ptr)      , INTENT(INOUT):: p_ext_atm_list !< current external data list
 
     CHARACTER(len=*)      , INTENT(IN)   :: & !< list name
       &  listname
@@ -310,10 +307,7 @@ CONTAINS
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( p_ext_atm_list, TRIM(listname), patch_id=p_patch%id )
-    CALL default_var_list_settings( p_ext_atm_list,            &
-                                  & lrestart=.FALSE.  )
-
+    CALL vlr_add(p_ext_atm_list, TRIM(listname), patch_id=p_patch%id, lrestart=.FALSE.)
 
     ! topography height at cell center
     !
@@ -645,7 +639,7 @@ CONTAINS
       CALL add_var( p_ext_atm_list, 'plcov', p_ext_atm%plcov,       &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
-        &           isteptype=TSTEP_CONSTANT,                       &
+        &           isteptype=TSTEP_INSTANT,                        &
         &           post_op=post_op(POST_OP_SCALE, arg1=100._wp,    &
         &                 new_cf=new_cf_desc) )
 
@@ -694,8 +688,8 @@ CONTAINS
       grib2_desc = grib2_var( 2, 0, 28, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'lai', p_ext_atm%lai,           &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,   &
-        &           isteptype=TSTEP_CONSTANT )
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
+        &           isteptype=TSTEP_INSTANT )
 
       ! Surface area index (aggregated)
       !
@@ -784,7 +778,7 @@ CONTAINS
       CALL add_var( p_ext_atm_list, 'rootdp', p_ext_atm%rootdp,     &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
-        &           isteptype=TSTEP_CONSTANT )
+        &           isteptype=TSTEP_INSTANT )
 
       ! rootdp_t      p_ext_atm%rootdp_t(nproma,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('root_depth_of_vegetation', 'm',&
@@ -1173,24 +1167,7 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,             &
         grib2_desc, ldims=shape2d_c )
 
-      IF (iequations == ihs_atm_temp .OR. iequations == ihs_atm_theta ) THEN
-        ! elevation p_ext_atm%elevation_c(nproma,nblks_c)
-        cf_desc    = t_cf_var('elevation at cell center', 'm', &
-          &                     'elevation', datatype_flt)
-        grib2_desc = grib2_var( 192, 140, 219, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-        CALL add_var( p_ext_atm_list, 'elevation_c', p_ext_atm%elevation_c,        &
-          &             GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,          &
-          grib2_desc, ldims=shape2d_c )
-      END IF
 
-      ! HDmodel land-sea-mask at surface on cell centers
-      ! lsm_hd_c   p_ext_atm%lsm_hd_c(nproma,nblks_c)
-      cf_desc    = t_cf_var('HD model land-sea-mask at cell center', '-2/-1/1/2', &
-        &                   'HD model land-sea-mask', datatype_flt)
-      grib2_desc = grib2_var( 192, 140, 219, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_ext_atm_list, 'lsm_hd_c', p_ext_atm%lsm_hd_c,          &
-        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,             &
-        grib2_desc, ldims=shape2d_c )
 
     END IF
 
@@ -1219,7 +1196,7 @@ CONTAINS
     TYPE(t_external_atmos_td), INTENT(INOUT):: & !< current external data structure
       &  p_ext_atm_td
 
-    TYPE(t_var_list)         , INTENT(INOUT):: & !< current external data list
+    TYPE(t_var_list_ptr)         , INTENT(INOUT):: & !< current external data list
       &  p_ext_atm_td_list
 
     CHARACTER(len=*)         , INTENT(IN)   :: & !< list name
@@ -1280,11 +1257,8 @@ CONTAINS
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( p_ext_atm_td_list, TRIM(listname), patch_id=jg )
-    CALL default_var_list_settings( p_ext_atm_td_list,         &
-                                  & lrestart=.FALSE.,          &
-                                  & loutput=.TRUE.  )
-
+    CALL vlr_add(p_ext_atm_td_list, TRIM(listname), patch_id=jg, &
+      &               lrestart=.FALSE., loutput=.TRUE.)
 
     !--------------------------------
     ! radiation parameters
@@ -1553,7 +1527,7 @@ CONTAINS
 
     DO jg = 1,n_dom
       ! Delete list of constant in time atmospheric elements
-      CALL delete_var_list( ext_data(jg)%atm_list )
+      CALL vlr_del(ext_data(jg)%atm_list)
       !
       ! destruct index lists
       CALL ext_data(jg)%atm%list_land  %finalize()
@@ -1566,7 +1540,7 @@ CONTAINS
     IF (iforcing > 1 ) THEN
       DO jg = 1,n_dom
         ! Delete list of time-dependent atmospheric elements
-        CALL delete_var_list( ext_data(jg)%atm_td_list )
+        CALL vlr_del(ext_data(jg)%atm_td_list)
       ENDDO
     END IF
 

@@ -4,10 +4,11 @@
 #SBATCH --qos=%{JOB.qos}
 #%  endif
 #SBATCH --job-name=%{EXP_ID}.%{JOB.id}
-#SBATCH --partition=prepost,shared
-#SBATCH --ntasks=%{JOB.tasks}
+#SBATCH --partition=prepost,compute,compute2
+# #SBATCH --ntasks=%{JOB.tasks}
 #%  if JOB.hardware_threads|default('') is not set:
-#SBATCH --ntasks-per-core=1
+# #SBATCH --ntasks-per-core=1
+#SBATCH --exclusive
 #%  endif
 #SBATCH --output=%{SCRIPT_DIR}/%x.%j.log
 #SBATCH --time=%{JOB.time_limit}
@@ -17,13 +18,22 @@ Post-process ICON experiment data for a given period
 '''
 
 import argparse
+import errno
 import logging
 import os
 import re
+import shutil
 import subprocess
 import sys
 
-sys.path.append(os.path.join('%{MODEL_DIR}', 'lib', 'python'))
+#%  if PREFIX:
+from distutils.sysconfig import get_python_lib
+lib_dir = sysconfig.get_python_lib(prefix='%{PREFIX}')
+#%  else:
+os.chdir('%{BUILD_DIR}/externals/mtime/src')
+lib_dir = ''
+#%  endif
+sys.path.insert(1, lib_dir)
 import mtime
 
 # Process command line options
@@ -33,31 +43,53 @@ def check_date(arg):
         value = mtime.DateTime(arg)
     except ValueError as ve:
         raise argparse.ArgumentTypeError(ve.message)
-    return str(value.date)
+    return value
 
 command_line = argparse.ArgumentParser(description=__doc__.split('\n', 1)[0])
 command_line.add_argument('start_date', type=check_date, help=
     'first date of period (YYYY-MM-DD... or YYYYMMDD...)')
-command_line.add_argument('-V', '--version', action='version', version='%{VERSIONS_|join(" ")|trim()}')
+command_line.add_argument('-V', '--version', action='version', version="""
+$Id: DEFAULT.post.tmpl 4 2021-06-28 17:19:38Z m221078 $
+%{VERSIONS_|join('\n')}
+""")
 command_line.add_argument('-c', '--clean', action='store_true', help=
     'remove output files. '
     'Use ONLY after you made absolutely sure that the raw data still exists!')
+command_line.add_argument('-f', '--force', action='store_true', help=
+    'continue to run even if working directory exists. '
+    'Use ONLY after you made absolutely sure that no other job is running!')
+command_line.add_argument('-n', '--dry-run', action='store_true', help=
+    'use dry run more for make')
 args = command_line.parse_args()
+
+# Set up diagnostic output
+
+logging.basicConfig(format='%(asctime)s: %(levelname)s%(message)s',
+                    level=logging.INFO)
+logging.addLevelName(logging.DEBUG, 'Debug: ')
+logging.addLevelName(logging.INFO, '')
+logging.addLevelName(logging.WARNING, 'Hey: ')
+logging.addLevelName(logging.ERROR, 'Oops: ')
+logging.addLevelName(logging.CRITICAL, 'Sorry: ')
+#%  if JOB.debug_level|d(0)|int > 0:
+logging.getLogger().setLevel(logging.DEBUG)
+#%  endif
+#%#
 
 # Do time computations using mtime
 
 mtime.setCalendar(mtime.CALENDAR_TYPE.%{calendar_mtime})
 
 initial_date = mtime.DateTime('%{INITIAL_DATE}')
-start_date = mtime.DateTime(args.start_date)
+start_date = args.start_date
 
 if start_date < initial_date:
-    sys.stderr.write("Oops: start_date is before initial_date\n")
+    logging.error("start_date is before initial_date")
     sys.exit(1)
     
 interval = mtime.TimeDelta('%{INTERVAL}')
 next_date = start_date + interval
-end_date = next_date + mtime.TimeDelta('-P1D')
+end_date = next_date + mtime.TimeDelta('-%{ATMO_TIME_STEP}')
 
 atmo_time_step = mtime.TimeDelta('%{ATMO_TIME_STEP}')
 ocean_time_step = mtime.TimeDelta('%{OCEAN_TIME_STEP}')
@@ -71,71 +103,172 @@ ocean_shift_list = ['-shifttime,-{0}{1}'.format(value, name)
 
 # Define required output
 
-tags = ['atm_2d_ml', 'atm_3d_ml', 'atm_dbg_ml', 'atm_mon', 'hamocc', 'hamocc_2d_tendencies', 'hamocc_3d_tendencies', 'hamocc_EU_tendencies', 'hamocc_monitor', 'hamocc_sediment', 'lnd_basic_ml', 'oce_dbg oce_def', 'oce_ice', 'oce_moc', 'oce_mon']
+tags = []
+#%  if output is defined:
+#%      for tag in output.scalars|sort if output[tag] and output[tag]|lower != 'false':
+tags.append('%{tag}')
+#%      endfor
+#%      if output.fixed is defined and output.fixed.scalars:
+#%          set fixed = output.fixed
+#%          for tag in fixed.scalars|sort if fixed[tag] and fixed[tag]|lower != 'false':
+#%              if loop.first:
+if start_date == initial_date:
+#%              endif
+    tags.append('%{tag}')
+#%          endfor
+#%      endif
+#%  endif
+#%  if output is defined and output.pressure_level is defined:
+tags.extend(%{output.pressure_level.sections|d([])})
+#%  endif
 
+#%#
 # Set-up template variables
 
+weed = re.compile(r'[-:]|\.\d+$')
+
 template_dict = {}
-template_dict['start_date'] = args.start_date.translate(None, '-')
-template_dict['start_step'] = 2 if start_date == initial_date else 1
-template_dict['next_date'] = str(next_date.date).translate(None, '-')
-template_dict['end_date'] = str(end_date.date).translate(None, '-')
+#%  for variable in VARIABLES_|sort if context(variable) is defined:
+template_dict['%{variable}'] = '%{context(variable)}'
+#%  endfor
+template_dict['start_date'] = re.sub(weed, '', str(start_date.date))
+template_dict['start_stamp'] = re.sub(weed, '', str(start_date))
+template_dict['next_date'] = re.sub(weed, '', str(next_date.date))
+template_dict['next_stamp'] = re.sub(weed, '', str(next_date))
+template_dict['end_date'] = re.sub(weed, '', str(end_date.date))
+template_dict['end_stamp'] = re.sub(weed, '', str(end_date))
 template_dict['atmo_shift_spec'] = ' '.join(reversed(atmo_shift_list))
 template_dict['ocean_shift_spec'] = ' '.join(reversed(ocean_shift_list))
 template_dict['tags'] = ' '.join(tags)
 
 # Prolog
 
-logging.basicConfig(format='%(asctime)s: %(levelname)s%(message)s',
-                    level=logging.INFO)
-logging.addLevelName(logging.DEBUG, 'Debug: ')
-logging.addLevelName(logging.INFO, '')
-logging.addLevelName(logging.WARNING, 'Hey: ')
-logging.addLevelName(logging.ERROR, 'Oops: ')
-logging.addLevelName(logging.CRITICAL, 'Sorry: ')
-
 logging.info('post processing started '
-             'for {start_date}-{end_date}'.format(**template_dict))
+             'for {start_stamp}-{end_stamp}'.format(**template_dict))
 
 # Set-up directory structure
 
+run_dir = os.path.join('%{WORK_DIR}',
+                       '%{jobs.run.subdir}'.format(**template_dict))
+restart_dir = '%{RESTART_DIR}'
+data_dir = '%{DATA_DIR}'
+
+if not os.path.isdir(restart_dir): os.makedirs(restart_dir)
+if not os.path.isdir(data_dir): os.makedirs(data_dir)
+
+# Add dirs as template variables
+template_dict['run_dir'] = run_dir
+template_dict['restart_dir'] = restart_dir
+template_dict['data_dir'] = data_dir
+
+# Set-up working directory
 post_dir = os.path.join('%{WORK_DIR}',
-                        'post_{start_date}-{end_date}'.format(**template_dict))
-if not os.path.isdir(post_dir): os.makedirs(post_dir)
+                        'post_{start_stamp}-{end_stamp}'.
+                        format(**template_dict))
+logging.info('working directory is {0}'.format(post_dir))
+try:
+    os.makedirs(post_dir)
+except OSError as xcptn:
+    if xcptn.errno != errno.EEXIST:
+        raise
+    if args.force:
+        logging.info('forcing clean-up of existing working directory')
+        for entry in os.listdir(post_dir):
+            os.remove(os.path.join(post_dir, entry))
+    else:
+        logging.error('working directory exists. '
+                      'Check for running jobs, then consider using --force')
+        sys.exit(1)
+
 os.chdir(post_dir)
 
-logging.info('working directory is {0}'.format(post_dir))
+# Restart file handling
+
+#%  set atmo_restart = namelists.NAMELIST_atm.run_nml.restart_filename
+#%  set ocean_restart = namelists.NAMELIST_oce.run_nml.restart_filename
+#%  set restart_filenames = []
+#%  if WITH_ATMO is set:
+#%      do restart_filenames.append(atmo_restart)
+#%  endif
+#%  if WITH_OCEAN is set:
+#%      do restart_filenames.append(ocean_restart)
+#%  endif
+
+restart_filenames = %{restart_filenames}
+restart_targets = []
+for restart_filename in restart_filenames:
+    restart_expanded = restart_filename.format(**template_dict)
+    restart_file = restart_expanded.replace('<rsttime>', template_dict['next_date'])
+    logging.debug("restart_file = {0}".format(restart_file))
+    restart_path = os.path.join(run_dir, restart_expanded.replace('<rsttime>', template_dict['next_stamp']+'Z'))
+    logging.debug("restart_path = {0}".format(restart_path))
+    if os.path.isdir(restart_path):
+        logging.debug("{0} is directory".format(restart_path))
+        # Multi file restart directory - explode to all files
+        restart_targets.extend([os.path.join(restart_file, f)
+                                for f in os.listdir(restart_path)])
+    else:
+        # Single file restart
+        restart_targets.append(restart_file)
+logging.debug("restart_targets = {0}".format(str(restart_targets)))
+
+template_dict['restart_targets'] = ' '.join(restart_targets)
 
 # Generate Makefile
 
 makefile_template = '''\
 CDO = cdo
-CDOFLAGS = -r -O
+CDOFLAGS = -r -O -z zip
+
+NC_COMPRESS = nccopy -d 1 -s
 
 EXP_ID = %{EXP_ID}
-DATA_DIR = %{DATA_DIR}
-WORK_DIR = %{WORK_DIR}
+RESTART_DIR = {restart_dir}
+DATA_DIR = {data_dir}
+RUN_DIR = {run_dir}
 
 TAGS = {tags}
+RESTART_TARGETS = {restart_targets}
 
-TARGETS = $(TAGS:%=$(DATA_DIR)/$(EXP_ID)_%_{start_date}.nc)
+TARGETS = $(TAGS:%=$(DATA_DIR)/$(EXP_ID)_%_{start_date}.nc) $(RESTART_TARGETS:%=$(RESTART_DIR)/%)
 
 all: $(TARGETS)
 
 clean:
 	$(RM) $(TARGETS)
 
-$(DATA_DIR)/$(EXP_ID)_atm_%_{start_date}.nc: $(WORK_DIR)/$(EXP_ID)_atm_%_{start_date}T000000Z.nc
-	$(CDO) $(CDOFLAGS) {atmo_shift_spec} -seltimestep,{start_step}/`cdo -s ntime $<` $< $@
+#%  for restart_filename in restart_filenames:
+$(RESTART_DIR)/%{restart_filename|replace('<rsttime>','{next_date}')}%: $(RUN_DIR)/%{restart_filename|replace('<rsttime>','{next_stamp}Z')}%
+	mkdir -p $(@D)
+	$(NC_COMPRESS) $< $@~
+	@if [ $$(stat -c %s $@~) -gt $$(stat -c %s $<) ]; then COMMAND="cp -p $< $@~"; echo $$COMMAND; $$COMMAND; fi
+	mv $@~ $@
 
-$(DATA_DIR)/$(EXP_ID)_lnd_%_{start_date}.nc: $(WORK_DIR)/$(EXP_ID)_lnd_%_{start_date}T000000Z.nc
-	$(CDO) $(CDOFLAGS) {atmo_shift_spec} -seltimestep,{start_step}/`cdo -s ntime $<` $< $@
+#%  endfor
+$(DATA_DIR)/$(EXP_ID)_atm_%_{start_date}.nc: $(RUN_DIR)/$(EXP_ID)_atm_%_{start_stamp}Z.nc
+	$(CDO) $(CDOFLAGS) {atmo_shift_spec} $< $@~
+	mv $@~ $@
 
-$(DATA_DIR)/$(EXP_ID)_oce_%_{start_date}.nc: $(WORK_DIR)/$(EXP_ID)_oce_%_{start_date}T000000Z.nc
-	$(CDO) $(CDOFLAGS) {ocean_shift_spec} $< $@
+$(DATA_DIR)/$(EXP_ID)_lnd_%_{start_date}.nc: $(RUN_DIR)/$(EXP_ID)_lnd_%_{start_stamp}Z.nc
+	$(CDO) $(CDOFLAGS) {atmo_shift_spec} $< $@~
+	mv $@~ $@
 
-$(DATA_DIR)/$(EXP_ID)_hamoc%_{start_date}.nc: $(WORK_DIR)/$(EXP_ID)_hamoc%_{start_date}T000000Z.nc
-	$(CDO) $(CDOFLAGS) {ocean_shift_spec} $< $@
+$(DATA_DIR)/$(EXP_ID)_oce_%_{start_date}.nc: $(RUN_DIR)/$(EXP_ID)_oce_%_{start_stamp}Z.nc
+	$(CDO) $(CDOFLAGS) {ocean_shift_spec} $< $@~
+	mv $@~ $@
+
+$(DATA_DIR)/$(EXP_ID)_hamoc%_{start_date}.nc: $(RUN_DIR)/$(EXP_ID)_hamoc%_{start_stamp}Z.nc
+	$(CDO) $(CDOFLAGS) {ocean_shift_spec} $< $@~
+	mv $@~ $@
+
+#%  if output is defined and output.pressure_level is defined:
+#%    for target in output.pressure_level.sections|d([]):
+#%        set info = output.pressure_level[target]
+$(DATA_DIR)/$(EXP_ID)_%{target}_{start_date}.nc: $(DATA_DIR)/$(EXP_ID)_%{info.input_tag}_{start_date}.nc
+	$(CDO) $(CDOFLAGS) selvar,%{info.variable_names|join(',')} -ap2pl,%{info.pressure_levels|join(',')} $< $@~
+	mv $@~ $@
+#%    endfor
+#%  endif
 '''
 
 makefile_name = 'Makefile'
@@ -146,26 +279,40 @@ makefile.close()
 # Run the actual make process
 
 make_args = ['make', '-k', '-j', '%{JOB.tasks|d(1)}']
+if args.dry_run: make_args.append('-n')
 if args.clean: make_args.append('clean')
-make = subprocess.Popen(make_args,
+make = subprocess.Popen(make_args, universal_newlines=True,
                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-for line in make.stdout:
-    logging.info(line.rstrip('\n\r'))
+
+while True:
+    line = make.stdout.readline()
+    if not line: break
+    logging.info(line.rstrip('\n'))
 
 make_result = make.wait()
 if make_result:
     logging.error("'{0}' returned {1}".format(' '.join(make_args), make_result))
     sys.exit(1)
 
-os.remove(makefile_name)
 os.chdir('%{SCRIPT_DIR}')
+
+#%  if JOB.debug_level|d(0)|int < 1:
+for entry in os.listdir(post_dir):
+    os.remove(os.path.join(post_dir, entry))
 os.removedirs(post_dir)
+#%    if jobs.run.subdir|d(''):
+if os.path.isdir(run_dir):
+    logging.info("removing run dir '{run_dir}'".format(**template_dict))
+    shutil.rmtree(run_dir)
+#%    endif
+
+#%  endif
 
 # Epilog
 
 logging.info('post processing finished '
-             'for {start_date}-{end_date}'.format(**template_dict))
+             'for {start_stamp}-{end_stamp}'.format(**template_dict))
 
 #% for job in JOB['.trigger']|list:
-subprocess.check_call(['%{JOB.batch_command}', '%{EXP_ID}.%{job}', args.start_date])
+subprocess.check_call(['%{JOB.batch_command}', '%{EXP_ID}.%{job}', str(start_date)])
 #% endfor

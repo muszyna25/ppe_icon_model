@@ -5,7 +5,7 @@
 MODULE mo_sedmnt_diffusion
 
  USE mo_kind, ONLY           : wp
- USE mo_hamocc_nml, ONLY     : ks,porwat
+ USE mo_hamocc_nml, ONLY     : ks,porwat, l_N_cycle
  
  IMPLICIT NONE
 
@@ -43,7 +43,8 @@ SUBROUTINE DIPOWA (start_idx,end_idx)
   &                             ipowno3, ipowasi, iphosph, iano3, &
   &                             isilica, ipowafe, iiron, ialkali, &  
   &                             isco212, igasnit, ipowaph, ipowaal, &
-  &                             ipown2, ipowaic 
+  &                             ipown2, ipowaic, ipowh2s, ih2s, &
+  &                             iammo, iano2, ipownh4, ipowno2 
   USE mo_ocean_nml, ONLY      : lsediment_only
 
   IMPLICIT NONE
@@ -105,6 +106,12 @@ SUBROUTINE DIPOWA (start_idx,end_idx)
           if(iv == ipowaph) iv_oc = iphosph
           if(iv == ipown2) iv_oc = igasnit
           if(iv == ipowaic) iv_oc = isco212
+          if(iv == ipowh2s) iv_oc = ih2s
+
+          if (l_N_cycle) then
+            if(iv == ipownh4) iv_oc = iammo
+            if(iv == ipowno2) iv_oc = iano2
+          endif
 
           sedb1( k, iv) = 0._wp
            ! tracer_concentration(kbo) * dz(kbo)
@@ -173,6 +180,12 @@ SUBROUTINE DIPOWA (start_idx,end_idx)
         if(iv == ipowaph) iv_oc = iphosph
         if(iv == ipown2) iv_oc = igasnit
         if(iv == ipowaic) iv_oc = isco212
+        if(iv == ipowh2s) iv_oc = ih2s
+
+        if (l_N_cycle) then
+          if(iv == ipownh4) iv_oc = iammo
+          if(iv == ipowno2) iv_oc = iano2
+        endif
 
            l = 0
 

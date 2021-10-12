@@ -43,10 +43,12 @@ MODULE mo_echam_phy_main
     &                               initialize,        &
     &                               finalize
 
-  USE mo_echam_diagnostics   ,ONLY: echam_global_diagnostics
+  USE mo_echam_diagnostics   ,ONLY: echam_global_diagnostics, echam_diag_output_minmax_micro
 #if defined( _OPENACC )
-  USE mo_var_list_gpu        ,ONLY: gpu_h2d_var_list, gpu_d2h_var_list
+  USE mo_var_list_gpu        ,ONLY: gpu_update_var_list
 #endif
+  USE mo_run_config          ,ONLY: msg_level
+
 
   USE mo_interface_echam_cov ,ONLY: interface_echam_cov
   USE mo_interface_echam_wmo ,ONLY: interface_echam_wmo
@@ -61,6 +63,7 @@ MODULE mo_echam_phy_main
   USE mo_interface_echam_cld ,ONLY: interface_echam_cld
   USE mo_interface_echam_mig ,ONLY: interface_echam_mig
   USE mo_interface_echam_mox ,ONLY: interface_echam_mox
+  USE mo_interface_cloud_two ,ONLY: interface_cloud_two
 
   IMPLICIT NONE
   PRIVATE
@@ -141,8 +144,8 @@ CONTAINS
 #if defined( _OPENACC )
        IF ( is_active ) THEN
           CALL warning('GPU:echam_rad_main','GPU host synchronization should be removed when port is done!')
-          CALL gpu_d2h_var_list('prm_field_D', jg)
-          CALL gpu_d2h_var_list('prm_tend_D', jg)
+          CALL gpu_update_var_list('prm_field_D', .false., jg)
+          CALL gpu_update_var_list('prm_tend_D', .false., jg)
        END IF
 #endif
        !
@@ -156,8 +159,8 @@ CONTAINS
 #if defined( _OPENACC )
        IF ( is_active ) THEN
           CALL warning('GPU:echam_rad_main','GPU device synchronization should be removed when port is done!')
-          CALL gpu_h2d_var_list('prm_field_D', jg)
-          CALL gpu_h2d_var_list('prm_tend_D', jg)
+          CALL gpu_update_var_list('prm_field_D', .true., jg)
+          CALL gpu_update_var_list('prm_tend_D', .true., jg)
        END IF
 #endif
 #else
@@ -207,8 +210,8 @@ CONTAINS
     IF ( echam_phy_tc(jg)%dt_car > dt_zero ) THEN
 #if defined( _OPENACC )
        CALL warning('GPU:echam_car_main','GPU host synchronization should be removed when port is done!')
-       CALL gpu_d2h_var_list('prm_field_D', jg)
-       CALL gpu_d2h_var_list('prm_tend_D', jg)
+       CALL gpu_update_var_list('prm_field_D', .false., jg)
+       CALL gpu_update_var_list('prm_tend_D', .false., jg)
 #endif
        !
        is_in_sd_ed_interval =          (echam_phy_tc(jg)%sd_car <= datetime_old) .AND. &
@@ -224,8 +227,8 @@ CONTAINS
        !
 #if defined( _OPENACC )
        CALL warning('GPU:echam_car_main','GPU device synchronization should be removed when port is done!')
-       CALL gpu_h2d_var_list('prm_field_D', jg)
-       CALL gpu_h2d_var_list('prm_tend_D', jg)
+       CALL gpu_update_var_list('prm_field_D', .true., jg)
+       CALL gpu_update_var_list('prm_tend_D', .true., jg)
 #endif
     END IF
 
@@ -237,8 +240,8 @@ CONTAINS
     IF (echam_phy_tc(jg)%dt_art > dt_zero) THEN
 #if defined( _OPENACC )
        CALL warning('GPU:echam_art_main','GPU host synchronization should be removed when port is done!')
-       CALL gpu_d2h_var_list('prm_field_D', jg)
-       CALL gpu_d2h_var_list('prm_tend_D', jg)
+       CALL gpu_update_var_list('prm_field_D', .false., jg)
+       CALL gpu_update_var_list('prm_tend_D', .false., jg)
 #endif
       !
       is_in_sd_ed_interval =          (echam_phy_tc(jg)%sd_art <= datetime_old) .AND. &
@@ -259,8 +262,8 @@ CONTAINS
       !
 #if defined( _OPENACC )
        CALL warning('GPU:echam_art_main','GPU device synchronization should be removed when port is done!')
-       CALL gpu_h2d_var_list('prm_field_D', jg)
-       CALL gpu_h2d_var_list('prm_tend_D', jg)
+       CALL gpu_update_var_list('prm_field_D', .true., jg)
+       CALL gpu_update_var_list('prm_tend_D', .true., jg)
 #endif
     END IF
     !
@@ -361,6 +364,35 @@ CONTAINS
             &                  is_in_sd_ed_interval, is_active ,&
             &                  datetime_old, pdtime            )
        !
+    END IF
+
+    !--------------------------------------------------------------------
+    ! two-moment bulk microphysics by Seifert and Beheng (2006) processes
+    !--------------------------------------------------------------------
+    !
+    IF ( echam_phy_tc(jg)%dt_two > dt_zero ) THEN
+       !
+       is_in_sd_ed_interval =          (echam_phy_tc(jg)%sd_two <= datetime_old) .AND. &
+            &                          (echam_phy_tc(jg)%ed_two >  datetime_old)
+       is_active = isCurrentEventActive(echam_phy_tc(jg)%ev_two,   datetime_old)
+       !
+       CALL message_forcing_action('two-moment bulk microphysics (two)',    &
+            &                      is_in_sd_ed_interval, is_active)
+       !
+       ! Preliminary: Some run time diagnostics (can also be used for other schemes)
+       IF (msg_level>14) THEN
+          CALL echam_diag_output_minmax_micro(patch,.TRUE.)
+       END IF
+
+       CALL omp_loop_cell_prog(patch, interface_cloud_two      ,&
+            &                  is_in_sd_ed_interval, is_active ,&
+            &                  datetime_old, pdtime            )
+       !
+       ! Preliminary: Some run time diagnostics (can also be used for other schemes)
+       IF (msg_level>14) THEN
+          CALL echam_diag_output_minmax_micro(patch,.FALSE.)
+       END IF
+
     END IF
 
     !-------------------------------------------------------------------

@@ -16,7 +16,7 @@
 MODULE mo_grid_config
 !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: wp
-  USE mo_exception,          ONLY: message_text, finish
+  USE mo_exception,          ONLY: message_text, finish, message
   USE mo_impl_constants,     ONLY: max_dom
   USE mo_io_units,           ONLY: filename_max 
   USE mo_physical_constants, ONLY: earth_radius, earth_angular_velocity
@@ -184,6 +184,8 @@ CONTAINS
 
     IF (no_of_dynamics_grids < 1) &
       CALL finish( routine, 'no dynamics grid is defined')
+    
+    IF (no_of_dynamics_grids > 1) CALL message(routine,'Warning: You are using one nproma for multiple grids!')
 
     ! get here the nroot, eventually it should be moved into the patch info
     CALL nf(nf_open(dynamics_grid_filename(1), nf_nowrite, ncid))

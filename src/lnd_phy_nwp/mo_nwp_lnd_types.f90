@@ -31,12 +31,10 @@ MODULE mo_nwp_lnd_types
 
   USE mo_kind,                 ONLY: wp
   USE mo_fortran_tools,        ONLY: t_ptr_2d3d
-  USE mo_linked_list,          ONLY: t_var_list
-
+  USE mo_var_list,             ONLY: t_var_list_ptr
 
   IMPLICIT NONE
   PRIVATE
-
 
   !
   !variables
@@ -44,7 +42,6 @@ MODULE mo_nwp_lnd_types
   PUBLIC :: t_lnd_prog   !!  for prognostic variables
   PUBLIC :: t_wtr_prog   !!  for prognostic variables related to lake and sea ice models
   PUBLIC :: t_lnd_diag   !!  for diagnostic variables
-
 
   !
   ! prognostic variables state vector (land)
@@ -147,6 +144,7 @@ MODULE mo_nwp_lnd_types
     &  w_so_ice     (:,:,:) , & ! ice content                                   (m H20)
     &  runoff_s     (:,:)   , & ! surface water runoff; sum over forecast       (kg/m2)
     &  runoff_g     (:,:)   , & ! soil water runoff; sum over forecast          (kg/m2)
+    &  resid_wso    (:,:)   , & ! residuum of soil water budget; sum over fcst  (kg/m2)
     &  fr_seaice    (:,:)   , & !< fraction of sea ice                          ( )   
                                 !< as partition of total area of the
                                 !< grid element, but set to 0 or 1
@@ -154,8 +152,10 @@ MODULE mo_nwp_lnd_types
     &  qv_s_t       (:,:,:) , & ! specific humidity at the surface              (kg/kg)
     &  runoff_s_t   (:,:,:) , & ! surface water runoff; sum over forecast       (kg/m2)
     &  runoff_g_t   (:,:,:) , & ! soil water runoff; sum over forecast          (kg/m2)
-    &  runoff_s_inst_t(:,:,:) , & ! surface water runoff; instantaneous value   (kg/m2)
-    &  runoff_g_inst_t(:,:,:) , & ! soil water runoff; instantaneous value      (kg/m2)
+    &  resid_wso_t  (:,:,:) , & ! residuum of soil water budget; sum over fcst  (kg/m2)
+    &  runoff_s_inst_t(:,:,:), & ! surface water runoff; instantaneous value   (kg/m2)
+    &  runoff_g_inst_t(:,:,:), & ! soil water runoff; instantaneous value      (kg/m2)
+    &  resid_wso_inst_t(:,:,:), & ! residuum of soil water; instantaneous value (kg/m2)
     &  rstom        (:,:)   , & ! stomatal resistance                           ( s/m )
     &  rstom_t      (:,:,:) , & ! tile based stomatal resistance                ( s/m )
     &  plantevap    (:,:)   , & ! integral function of plant evaporation        (kg/m2)
@@ -194,6 +194,7 @@ MODULE mo_nwp_lnd_types
     TYPE(t_ptr_2d3d), ALLOCATABLE :: snowfrac_lcu_ptr(:)
     TYPE(t_ptr_2d3d), ALLOCATABLE :: runoff_s_ptr(:)
     TYPE(t_ptr_2d3d), ALLOCATABLE :: runoff_g_ptr(:)
+    TYPE(t_ptr_2d3d), ALLOCATABLE :: resid_wso_ptr(:)
 
   END TYPE t_lnd_diag
 
@@ -203,10 +204,10 @@ MODULE mo_nwp_lnd_types
   TYPE t_lnd_state
     TYPE(t_lnd_prog), ALLOCATABLE  :: prog_lnd(:)          ! number of time levels
     TYPE(t_wtr_prog), ALLOCATABLE  :: prog_wtr(:)          ! number of time levels
-    TYPE(t_var_list), ALLOCATABLE  :: lnd_prog_nwp_list(:) ! number of time levels
-    TYPE(t_var_list), ALLOCATABLE  :: wtr_prog_nwp_list(:) ! number of time levels
+    TYPE(t_var_list_ptr), ALLOCATABLE  :: lnd_prog_nwp_list(:) ! number of time levels
+    TYPE(t_var_list_ptr), ALLOCATABLE  :: wtr_prog_nwp_list(:) ! number of time levels
     TYPE(t_lnd_diag)               :: diag_lnd
-    TYPE(t_var_list)               :: lnd_diag_nwp_list
+    TYPE(t_var_list_ptr)               :: lnd_diag_nwp_list
   END TYPE t_lnd_state
  
 

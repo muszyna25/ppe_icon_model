@@ -73,7 +73,7 @@ CONTAINS
     REAL(wp),INTENT(OUT)   :: pevap_tile(:,:)  ! (kbdim,ksfc_type)
 
     ! Input for JSBACH land and lakes
-    REAL(wp),INTENT(IN), DIMENSION(:) :: & ! DIMENSION(kbdim) 
+    REAL(wp),INTENT(IN), DIMENSION(:) :: & ! DIMENSION(kbdim)
       &                         plhflx_lnd, plhflx_lwtr, plhflx_lice, &
       &                         pshflx_lnd, pshflx_lwtr, pshflx_lice, &
       &                         pevap_lnd, pevap_lwtr, pevap_lice
@@ -322,6 +322,7 @@ CONTAINS
                         & loidx, is,                            &! in
                         & pfrc, pcfm_tile, pfac_sfc,            &! in
                         & pu_rtpfac1, pv_rtpfac1,               &! in
+                        & pocu, pocv,                           &! in
                         & pu_stress_gbm,  pv_stress_gbm,        &! out
                         & pu_stress_tile, pv_stress_tile        )! out
 
@@ -336,6 +337,8 @@ CONTAINS
     REAL(wp),INTENT(IN)    :: pfac_sfc        (:)   ! (kbdim)
     REAL(wp),INTENT(IN)    :: pu_rtpfac1      (:)   ! (kbdim)
     REAL(wp),INTENT(IN)    :: pv_rtpfac1      (:)   ! (kbdim)
+    REAL(wp),INTENT(IN)    :: pocu            (:)   ! (kbdim)
+    REAL(wp),INTENT(IN)    :: pocv            (:)   ! (kbdim)
     REAL(wp),INTENT(OUT)   :: pu_stress_gbm   (:)   ! (kbdim)
     REAL(wp),INTENT(OUT)   :: pv_stress_gbm   (:)   ! (kbdim)
     REAL(wp),INTENT(OUT)   :: pu_stress_tile  (:,:) ! (kbdim,ksfc_type)
@@ -348,7 +351,7 @@ CONTAINS
 
     INTEGER  :: jls, jl, js
 
-    zconst = 1._wp/psteplen
+     zconst = 1._wp/psteplen
 
     ! Compute wind stress over each surface type, then accumulate
     ! grid box mean. Formula for wind stress:
@@ -358,6 +361,7 @@ CONTAINS
     !  *[(u-/v-wind at lowest model level)/tpfac1]
 
     !$ACC DATA PRESENT( pu_stress_tile, pv_stress_tile, pfac_sfc, pfrc,        &
+    !$ACC               pocu, pocv,                                            &
     !$ACC               pu_stress_gbm, pv_stress_gbm, pcfm_tile, pu_rtpfac1,   &
     !$ACC               pv_rtpfac1 )  &
     !$ACC      PRESENT( is, loidx )
@@ -389,8 +393,8 @@ CONTAINS
           ! set index
           js=loidx(jls,jsfc)
 
-          pu_stress_tile(js,jsfc) = zconst*pfac_sfc(js) *pcfm_tile(js,jsfc)*pu_rtpfac1(js)
-          pv_stress_tile(js,jsfc) = zconst*pfac_sfc(js) *pcfm_tile(js,jsfc)*pv_rtpfac1(js)
+          pu_stress_tile(js,jsfc) = zconst*pfac_sfc(js) *pcfm_tile(js,jsfc)*(pu_rtpfac1(js) - pocu(js)*tpfac2)
+          pv_stress_tile(js,jsfc) = zconst*pfac_sfc(js) *pcfm_tile(js,jsfc)*(pv_rtpfac1(js) - pocv(js)*tpfac2)
        END DO
     END DO
     !$ACC END PARALLEL
@@ -580,7 +584,7 @@ CONTAINS
         zqs1(jl)      = ua(jls) / papm1(jl)
         zqs1(jl)      = zqs1(jl) / (1._wp- vtmpc1 * zqs1(jl))
         zrh2m(jl)     = MAX(zephum, pqm1(jl) / zqs1(jl))
- 
+
         zaph2m(jl)     = paphm1(jl) * &  ! = paphm1(jcs:kproma, klevp1)
             (1._wp - zhtq*grav / ( rd * ptas_tile(jl,jsfc) * (1._wp + vtmpc1 * pqm1(jl) - pxm1(jl))))
       ENDDO
@@ -620,22 +624,27 @@ CONTAINS
     !$ACC PARALLEL DEFAULT(PRESENT)
     !$ACC LOOP SEQ
     DO jsfc = 1,ksfc_type
-       !$ACC LOOP GANG VECTOR PRIVATE( jl, zrat, zcbn, zcbs, zcbu, zmerge, zred )
-       DO jls=jcs,is(jsfc)
+      !$ACC LOOP GANG VECTOR PRIVATE( jl, zrat, zcbn, zcbs, zcbu, zmerge, zred )
+      DO jls=jcs,is(jsfc)
          jl = loidx(jls,jsfc)
-           zrat   = zhuv / (pzf(jl)-pzs(jl))
-           zcbn   = LOG(1._wp + (EXP (pbn_tile(jl,jsfc)) - 1._wp) * zrat )
+         zrat = zhuv / (pzf(jl)-pzs(jl))
+         IF (zrat >= ABS(1.0_wp-EPSILON(1.0_wp))) THEN
+           puas_tile(jl,jsfc) = pum1(jl)
+           pvas_tile(jl,jsfc) = pvm1(jl)
+         ELSE
+           zcbn   = LOG(1._wp + (EXP(pbn_tile(jl,jsfc)) - 1._wp) * zrat)
+           !alternative: zcbn   = LOG((1._wp - zrat) + EXP(pbn_tile(jl,jsfc)) * zrat)
            zcbs   = -(pbn_tile(jl,jsfc) - pbm_tile(jl,jsfc)) * zrat
-           zcbu   = -LOG(1._wp + (EXP (pbn_tile(jl,jsfc) - pbm_tile(jl,jsfc)) - 1._wp) * zrat)
+           zcbu   = -LOG(1._wp + (EXP(pbn_tile(jl,jsfc) - pbm_tile(jl,jsfc)) - 1._wp) * zrat)
+           !alternative: zcbu   = -LOG((1._wp - zrat) + EXP(pbn_tile(jl,jsfc) - pbm_tile(jl,jsfc)) * zrat)
            zmerge = MERGE(zcbs,zcbu,pri_tile(jl,jsfc) .GT. 0._wp)
            zred   = (zcbn + zmerge) / pbm_tile(jl,jsfc)
-           puas_tile(jl,jsfc)    = zred * pum1(jl)
-           pvas_tile(jl,jsfc)    = zred * pvm1(jl)
-           psfcWind_tile(jl,jsfc)   = zred*SQRT((pum1(jl)-pocu(jl))**2+(pvm1(jl)-pocv(jl))**2)
-    ! for ice and land this is identical to
-    !      psfcWind_tile(jl,jsfc)   = SQRT(puas_tile(jl,jsfc)**2+pvas_tile(jl,jsfc)**2)
-        ENDDO
-    ENDDO
+           puas_tile(jl,jsfc) = zred * ( pum1(jl) - pocu(jl) ) + pocu(jl)
+           pvas_tile(jl,jsfc) = zred * ( pvm1(jl) - pocv(jl) ) + pocv(jl)
+         ENDIF
+         psfcWind_tile(jl,jsfc) = SQRT(puas_tile(jl,jsfc)**2 + pvas_tile(jl,jsfc)**2)
+       ENDDO
+     ENDDO
     !$ACC END PARALLEL
 
     ! Aggregate all diagnostics

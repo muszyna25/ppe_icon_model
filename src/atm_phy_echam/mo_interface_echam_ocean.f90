@@ -35,6 +35,7 @@ MODULE mo_interface_echam_ocean
        &                            timer_coupling_put, timer_coupling_get, &
        &                            timer_coupling_1stget, timer_coupling_init
   USE mo_echam_sfc_indices   ,ONLY: iwtr, iice, ilnd, nsfc_type
+  USE mo_echam_phy_config    ,ONLY: echam_phy_config
 
   USE mo_sync                ,ONLY: SYNC_C, sync_patch_array
   USE mo_impl_constants      ,ONLY: MAX_CHAR_LENGTH
@@ -48,7 +49,7 @@ MODULE mo_interface_echam_ocean
 
   USE mo_master_control      ,ONLY: get_my_process_name
 
-  USE mo_mpi                 ,ONLY: p_pe_work
+  USE mo_mpi                 ,ONLY: p_pe_work, p_comm_work, p_sum
   USE mo_math_constants      ,ONLY: pi
   USE mo_parallel_config     ,ONLY: nproma
 
@@ -86,6 +87,7 @@ MODULE mo_interface_echam_ocean
 
   REAL(wp), ALLOCATABLE :: buffer(:,:)
   INTEGER, SAVE         :: nbr_inner_cells
+  INTEGER, SAVE         :: mask_checksum
   LOGICAL, SAVE         :: lyac_very_1st_get
 
   CHARACTER(len=12)     :: str_module    = 'InterFaceOce'  ! Output of module for 1 line debug
@@ -149,9 +151,8 @@ CONTAINS
     INTEGER :: subdomain_ids(nbr_subdomain_ids)
     INTEGER :: no_of_fields_total
 
-    INTEGER :: mask_checksum
-    INTEGER :: nblks
-    INTEGER :: BLOCK, idx, INDEX
+    INTEGER :: jg
+    INTEGER :: nblks, BLOCK, idx, INDEX
     INTEGER :: nbr_vertices_per_cell
 
     REAL(wp), ALLOCATABLE :: buffer_lon(:)
@@ -181,6 +182,7 @@ CONTAINS
 
     patch_no = 1
     patch_horz => p_patch(patch_no)
+    jg = patch_horz%id
 
     ! Initialise the coupler
     CALL yac_finit ( "coupling.xml", "coupling.xsd" )
@@ -331,8 +333,10 @@ CONTAINS
     ! These points are not touched by yac.
     !
 
-    !  slo: caution - lsmask includes alake, must be added to refetch pure lsm:
+    !  In variable lsmask the land part is reduced by the part of lakes (alake) 
+    !  Variable lsmnolake contains the pure lsm:
 
+    IF ( echam_phy_config(jg)%llake ) THEN
 !ICON_OMP_PARALLEL_DO PRIVATE(BLOCK,idx) ICON_OMP_RUNTIME_SCHEDULE
     DO BLOCK = 1, patch_horz%nblks_c
       DO idx = 1, nproma
@@ -340,6 +344,15 @@ CONTAINS
       ENDDO
     ENDDO
 !ICON_OMP_END_PARALLEL_DO
+    ELSE
+!ICON_OMP_PARALLEL_DO PRIVATE(BLOCK,idx) ICON_OMP_RUNTIME_SCHEDULE
+      DO BLOCK = 1, patch_horz%nblks_c
+        DO idx = 1, nproma
+          lsmnolake(idx, BLOCK) = prm_field(1)%lsmask(idx,BLOCK)
+        ENDDO
+      ENDDO
+!ICON_OMP_END_PARALLEL_DO
+    ENDIF
 
     mask_checksum = 0
 !ICON_OMP_PARALLEL_DO PRIVATE(BLOCK,idx) REDUCTION(+:mask_checksum) ICON_OMP_RUNTIME_SCHEDULE
@@ -351,6 +364,7 @@ CONTAINS
     ENDDO
 !ICON_OMP_END_PARALLEL_DO
 
+    mask_checksum = p_sum(mask_checksum, comm=p_comm_work)
     !
     ! Define cell_mask_ids(1): all ocean and coastal points are valid
     !   This is the standard for the coupling of atmospheric fields listed below
@@ -474,7 +488,7 @@ CONTAINS
   END SUBROUTINE construct_atmo_coupler
 
   !>
-  !! SUBROUTINE interface_icoham_echam -- the interface between
+  !! SUBROUTINE interface_echam_ocean -- the interface between
   !! ECHAM physics and the ocean, through a coupler
   !!
   !! This subroutine is called in the time loop of the ICONAM model.
@@ -493,7 +507,7 @@ CONTAINS
   !! Note that each call of this subroutine deals with a single grid level
   !! rather than the entire grid tree.
 
-  SUBROUTINE interface_echam_ocean( p_patch , pt_diag) ! in
+  SUBROUTINE interface_echam_ocean( p_patch , pt_diag)
 
     ! Arguments
 
@@ -526,29 +540,6 @@ CONTAINS
     ! If running in atm-oce coupled mode, exchange information 
     !-------------------------------------------------------------------------
 
-    ! Possible fields that contain information to be sent to the ocean include
-    !
-    ! 1. prm_field(jg)% u_stress_tile(:,:,iwtr/iice)  and 
-    !    prm_field(jg)% v_stress_tile(:,:,iwtr/iice)  which are the wind stress components over water and ice respectively
-    !
-    ! 2. prm_field(jg)% evap_tile(:,:,iwtr/iice)  evaporation rate over ice-covered and open ocean/lakes, no land;
-    !
-    ! 3. prm_field(jg)%rsfl + prm_field(jg)%rsfc + prm_field(jg)%ssfl + prm_field(jg)%ssfc
-    !    which gives the precipitation rate;
-    !
-    ! 4. prm_field(jg)% ta(:,nlev,:)  temperature at the lowest model level, or
-    !    prm_field(jg)% tas(:,:)      2-m temperature, not available yet, or
-    !    prm_field(jg)% shflx_tile(:,:,iwtr) sensible heat flux
-    !    ... tbc
-    !
-    ! 5  prm_field(jg)% lhflx_tile(:,:,iwtr) latent heat flux
-    ! 6. shortwave radiation flux at the surface
-    !
-    ! Possible fields to receive from the ocean include
-    !
-    ! 1. prm_field(jg)% ts_tile(:,:,iwtr)   SST
-    ! 2. prm_field(jg)% ocu(:,:) and ocv(:,:) ocean surface current
-    ! 3. ... tbc
     ! 
 
     nbr_hor_cells = p_patch%n_patch_cells
@@ -578,9 +569,13 @@ CONTAINS
     !
     write_coupler_restart = .FALSE.
 
-    ! Calculate fractionla ocean mask 
+    ! Calculate fractional ocean mask 
     ! evaporation over ice-free and ice-covered water fraction, of whole ocean part, without land part
     !  - lake part is included in land part, must be subtracted as well
+    !  - if no lake part is present, subtract land part only
+    !  - if no jsbach is present (aquaplanet), frac_oce is 1.
+    IF ( mask_checksum > 0 .AND. echam_phy_config(jg)%ljsb ) THEN
+      IF ( echam_phy_config(jg)%llake ) THEN
 !ICON_OMP_PARALLEL
 !ICON_OMP_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
     DO i_blk = 1, p_patch%nblks_c
@@ -597,12 +592,45 @@ CONTAINS
 !ICON_OMP_END_DO
 !ICON_OMP_END_PARALLEL
 
+      ELSE
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
+        DO i_blk = 1, p_patch%nblks_c
+          nn = (i_blk-1)*nproma
+          IF (i_blk /= p_patch%nblks_c) THEN
+            nlen = nproma
+          ELSE
+            nlen = p_patch%npromz_c
+          END IF
+          DO n = 1, nlen
+            frac_oce(n,i_blk) = 1.0_wp-prm_field(jg)%frac_tile(n,i_blk,ilnd)
+          ENDDO
+        ENDDO
+!ICON_OMP_END_DO
+!ICON_OMP_END_PARALLEL
+      ENDIF
+    ELSE
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
+      DO i_blk = 1, p_patch%nblks_c
+        nn = (i_blk-1)*nproma
+        IF (i_blk /= p_patch%nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = p_patch%npromz_c
+        END IF
+        DO n = 1, nlen
+          frac_oce(:,:) = 1.0
+        ENDDO
+      ENDDO
+!ICON_OMP_END_DO
+!ICON_OMP_END_PARALLEL
+    ENDIF
     !
     ! ------------------------------
     !  Send zonal wind stress bundle
     !   field_id(1) represents "surface_downward_eastward_stress" bundle - zonal wind stress component over ice and water
     !
-    buffer(:,:) = 0.0_wp  ! temporarily
 !ICON_OMP_PARALLEL
 !ICON_OMP_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
     DO i_blk = 1, p_patch%nblks_c
@@ -635,7 +663,6 @@ CONTAINS
     !  Send meridional wind stress bundle
     !   field_id(2) represents "surface_downward_northward_stress" bundle - meridional wind stress component over ice and water
     !
-    buffer(:,:) = 0.0_wp  ! temporarily
 !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
     DO i_blk = 1, p_patch%nblks_c
       nn = (i_blk-1)*nproma
@@ -673,14 +700,10 @@ CONTAINS
     !         for pre04 a preliminary solution for evaporation in ocean model is to exclude the land fraction
     !         evap.oce = (evap.wtr*frac.wtr + evap.ice*frac.ice)/(1-frac.lnd)
     !
-    buffer(:,:)   = 0.0_wp  ! temporarily
+    IF ( idbg_mxmn >= 1 .OR. idbg_val >=1 )  &
     scr(:,:)      = 0.0_wp
     !
-    ! Preliminary: hard-coded correction factor for freshwater imbalance stemming from the atmosphere
-    ! Precipitation is reduced by Factor fwf_fac
-    ! factor calculated from run slo1014, used in run slo1016:
-    ! Global imbalance D=1.7 mm/y; Precip P=1070 mm/y; D/P~0.0016; 1-D/P= 0.9984
-    ! fwf_fac = 0.9984_wp   
+    ! Preliminary: hard-coded correction factor for freshwater imbalance
     fwf_fac = 1.0_wp      ! neutral factor
 
     ! Aquaplanet coupling: surface types ocean and ice only
@@ -697,8 +720,6 @@ CONTAINS
         DO n = 1, nlen
      
           ! total rates of rain and snow over whole cell
-          !buffer(nn+n,1) = prm_field(jg)%rsfl(n,i_blk) + prm_field(jg)%rsfc(n,i_blk)
-          !buffer(nn+n,2) = prm_field(jg)%ssfl(n,i_blk) + prm_field(jg)%ssfc(n,i_blk)
           buffer(nn+n,1) = (prm_field(jg)%rsfl(n,i_blk) + prm_field(jg)%rsfc(n,i_blk))*fwf_fac
           buffer(nn+n,2) = (prm_field(jg)%ssfl(n,i_blk) + prm_field(jg)%ssfc(n,i_blk))*fwf_fac
      
@@ -723,8 +744,6 @@ CONTAINS
         DO n = 1, nlen
     
           ! total rates of rain and snow over whole cell
-          !buffer(nn+n,1) = prm_field(jg)%rsfl(n,i_blk) + prm_field(jg)%rsfc(n,i_blk)
-          !buffer(nn+n,2) = prm_field(jg)%ssfl(n,i_blk) + prm_field(jg)%ssfc(n,i_blk)
           buffer(nn+n,1) = (prm_field(jg)%rsfl(n,i_blk) + prm_field(jg)%rsfc(n,i_blk))*fwf_fac
           buffer(nn+n,2) = (prm_field(jg)%ssfl(n,i_blk) + prm_field(jg)%ssfc(n,i_blk))*fwf_fac
     
@@ -732,7 +751,7 @@ CONTAINS
           !  - lake part is included in land part, must be subtracted as well
           !    frac_oce(n,i_blk)= 1.0_wp-prm_field(jg)%frac_tile(n,i_blk,ilnd)-prm_field(jg)%alake(n,i_blk)
           !  - sftof = 1-(land+lake) is already available in prm_field
-          !frac_oce(n,i_blk)= prm_field(jg)%sftof(n,i_blk) - commented before tested in coupled model
+          !frac_oce(n,i_blk)= prm_field(jg)%sftof(n,i_blk) - not yet tested in coupled model
 
           IF (frac_oce(n,i_blk) <= 0.0_wp) THEN
             ! land part is zero
@@ -767,7 +786,6 @@ CONTAINS
     !  Send total heat flux bundle
     !   field_id(4) represents "total heat flux" bundle - short wave, long wave, sensible, latent heat flux
     !
-    buffer(:,:) = 0.0_wp  ! temporarily
 !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
     DO i_blk = 1, p_patch%nblks_c
       nn = (i_blk-1)*nproma
@@ -800,7 +818,6 @@ CONTAINS
     !  Send sea ice flux bundle
     !   field_id(5) represents "atmosphere_sea_ice_bundle" - sea ice surface and bottom melt potentials Qtop, Qbot
     !
-    buffer(:,:) = 0.0_wp  ! temporarily
 !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
     DO i_blk = 1, p_patch%nblks_c
       nn = (i_blk-1)*nproma
@@ -836,7 +853,6 @@ CONTAINS
     !  Send 10m wind speed
     !   field_id(10) represents "10m_wind_speed" - atmospheric wind speed
     !
-    buffer(:,:) = 0.0_wp
 !!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
     DO i_blk = 1, p_patch%nblks_c
       nn = (i_blk-1)*nproma
@@ -877,7 +893,6 @@ CONTAINS
     !  Send sea level pressure
     !   field_id(13) represents "pres_msl" - atmospheric sea level pressure
     !
-    buffer(:,:) = 0.0_wp
 !!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
     DO i_blk = 1, p_patch%nblks_c
       nn = (i_blk-1)*nproma
@@ -919,7 +934,6 @@ CONTAINS
        !  Send co2 mixing ratio
        !   field_id(11) represents "co2_mixing_ratio" - CO2 mixing ratio in ppmv
        !
-       buffer(:,:) = 0.0_wp
 !!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
        DO i_blk = 1, p_patch%nblks_c
           nn = (i_blk-1)*nproma
@@ -985,6 +999,7 @@ CONTAINS
     !     therefore buffer is set to zero to avoid unintended usage of ocean values over land
     !
 
+    buffer(:,:) = 0.0_wp
     !
     ! ------------------------------
     !  Receive SST
@@ -1075,7 +1090,6 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 
-    buffer(:,:) = 0.0_wp
     CALL yac_fget ( field_id(7), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
     IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) &
          & CALL message('interface_echam_ocean', 'YAC says it is get for restart - id=7, u velocity')
@@ -1114,7 +1128,6 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 
-    buffer(:,:) = 0.0_wp
     CALL yac_fget ( field_id(8), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
     IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) &
          & CALL message('interface_echam_ocean', 'YAC says it is get for restart - id=8, v velocity')
@@ -1152,7 +1165,6 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 
-    buffer(:,:) = 0.0_wp
     no_arr = 3
     CALL yac_fget ( field_id(9), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) &
@@ -1217,7 +1229,7 @@ CONTAINS
        !
        IF (ltimer) CALL timer_start(timer_coupling_get)
 
-       buffer(:,:) = 0.0_wp
+       buffer(:,:) = 0.0_wp ! needs to be checked if this is necessary
        CALL yac_fget ( field_id(12), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
        IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) &
             & CALL message('interface_echam_ocean', 'YAC says it is get for restart - id=12, CO2 flux')
@@ -1308,14 +1320,17 @@ CONTAINS
       !CALL dbg_print('EchOce: ts_tile.iwtr:iwtr',prm_field(jg)%ts_tile(:,:,iwtr:iwtr),str_module,2,in_subset=p_patch%cells%owned)
 
       ! Fraction of tiles:
+      CALL dbg_print('EchOce: frac_oce     ',frac_oce                 ,str_module,3,in_subset=p_patch%cells%owned)
       scr(:,:) = prm_field(jg)%frac_tile(:,:,iwtr)
       CALL dbg_print('EchOce: frac_tile.wtr',scr                      ,str_module,3,in_subset=p_patch%cells%owned)
       scr(:,:) = prm_field(jg)%frac_tile(:,:,iice)
       CALL dbg_print('EchOce: frac_tile.ice',scr                      ,str_module,3,in_subset=p_patch%cells%owned)
+      IF ( echam_phy_config(jg)%ljsb ) THEN
       scr(:,:) = prm_field(jg)%frac_tile(:,:,ilnd)
       CALL dbg_print('EchOce: frac_tile.lnd',scr                      ,str_module,4,in_subset=p_patch%cells%owned)
-      CALL dbg_print('EchOce: frac_oce     ',frac_oce                 ,str_module,3,in_subset=p_patch%cells%owned)
-      CALL dbg_print('EchOce: frac_alake   ',prm_field(jg)%alake      ,str_module,4,in_subset=p_patch%cells%owned)
+        IF ( echam_phy_config(jg)%llake ) &
+          & CALL dbg_print('EchOce: frac_alake   ',prm_field(jg)%alake,str_module,4,in_subset=p_patch%cells%owned)
+      ENDIF
     ENDIF
 
     !---------------------------------------------------------------------

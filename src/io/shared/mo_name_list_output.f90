@@ -115,7 +115,8 @@ MODULE mo_name_list_output
        num_io_procs, io_proc_chunk_size, nproma, pio_type
   USE mo_name_list_output_config,   ONLY: use_async_name_list_io
   ! data types
-  USE mo_var_metadata_types,        ONLY: t_var_metadata, POST_OP_SCALE, POST_OP_LUC, POST_OP_LIN2DBZ
+  USE mo_var_metadata_types,        ONLY: t_var_metadata, POST_OP_SCALE, POST_OP_LUC, &
+    &                                     POST_OP_LIN2DBZ, var_metadata_get_size
   USE mo_reorder_info,              ONLY: t_reorder_info, ri_cpy_part2whole
   USE mo_name_list_output_types,    ONLY: t_output_file, icell, iedge, ivert, &
     &                                     msg_io_start, msg_io_done, &
@@ -161,7 +162,7 @@ MODULE mo_name_list_output
     &                                     collect_requested_ipz_levels, &
     &                                     create_vertical_axes, nlevs_of_var, zonal_ri, profile_ri
   USE mo_name_list_output_metadata, ONLY: metainfo_write_to_memwin, metainfo_get_from_buffer,       &
-    &                                     metainfo_get_size, metainfo_get_timelevel
+    &                                     metainfo_get_timelevel
   USE mo_level_selection,           ONLY: create_mipz_level_selections
   USE mo_grib2_util,                ONLY: set_GRIB2_timedep_keys, set_GRIB2_timedep_local_keys
   ! model domain
@@ -173,7 +174,8 @@ MODULE mo_name_list_output
   USE mo_parallel_config,           ONLY: pio_type
   USE mo_impl_constants,            ONLY: pio_type_cdipio
   USE yaxt,                         ONLY: xt_idxlist, xt_stripe, xt_is_null, &
-    xt_idxlist_get_index_stripes, xt_idxstripes_new, xt_idxempty_new
+    xt_idxlist_get_index_stripes, xt_idxstripes_new, xt_idxempty_new, &
+    xt_int_kind
 #endif
   ! post-ops
 
@@ -2463,6 +2465,7 @@ CONTAINS
     INTEGER :: nlevs_max, nstripes, j, k
     TYPE(xt_idxlist), ALLOCATABLE :: lists_realloc(:)
     TYPE(xt_stripe), ALLOCATABLE :: stripes(:), stripes_project(:,:)
+    CHARACTER(len=*), PARAMETER :: routine = modname//":get_partdesc"
     nlevs_max = SIZE(reorder_idxlst_xt)
     IF (nlevs > nlevs_max) THEN
       ALLOCATE(lists_realloc(nlevs))
@@ -2474,13 +2477,16 @@ CONTAINS
       IF (ALLOCATED(stripes)) THEN
         nstripes = SIZE(stripes)
         ALLOCATE(stripes_project(nstripes, nlevs))
+        IF ((HUGE(1_xt_int_kind) - (n_glb - 1)) / (n_glb - 1) < nlevs) &
+          CALL finish(routine, "YAXT index type too small for array!")
         DO j = 1, nstripes
           stripes_project(j, 1) = stripes(j)
         END DO
         DO k = 2, nlevs
           DO j = 1, nstripes
             stripes_project(j, k) &
-              &     = xt_stripe(stripes(j)%start + (k-1) * n_glb, &
+              &     = xt_stripe(stripes(j)%start &
+              &                 + INT(k-1, xt_int_kind) * n_glb, &
               &                 stripes(j)%stride, stripes(j)%nstrides)
           END DO
         END DO
@@ -2727,7 +2733,6 @@ CONTAINS
 
     ! Shut down MPI
     CALL stop_mpi
-    STOP
 #endif
   END SUBROUTINE name_list_io_main_proc
 
@@ -2873,7 +2878,7 @@ CONTAINS
 
     ! retrieve info object from PE#0 (via a separate MPI memory
     ! window)
-    ALLOCATE(bufr_metainfo(metainfo_get_size(), of%num_vars), STAT=ierrstat)
+    ALLOCATE(bufr_metainfo(var_metadata_get_size(), of%num_vars), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
     CALL MPI_Win_lock(MPI_LOCK_SHARED, 0, MPI_MODE_NOCHECK, of%mem_win%mpi_win_metainfo, mpierr)

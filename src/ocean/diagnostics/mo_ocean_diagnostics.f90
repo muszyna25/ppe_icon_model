@@ -59,7 +59,7 @@ MODULE mo_ocean_diagnostics
     & ab_const, ab_beta, ab_gam, iswm_oce, discretization_scheme, &
     & iforc_oce, No_Forcing, i_sea_ice, diagnostics_level, &
     & diagnose_for_horizontalVelocity, OceanReferenceDensity, &
-    & eddydiag
+    & eddydiag, check_total_volume
   USE mo_sea_ice_nml,        ONLY: kice, sice
   USE mo_dynamics_config,    ONLY: nold,nnew
   USE mo_parallel_config,    ONLY: nproma, p_test_run
@@ -73,22 +73,16 @@ MODULE mo_ocean_diagnostics
   USE mo_exception,          ONLY: message, finish, message_text, warning
   USE mo_sea_ice_types,      ONLY: t_atmos_fluxes, t_sea_ice
   USE mo_ocean_surface_types,ONLY: t_ocean_surface
-  USE mo_linked_list,        ONLY: t_var_list
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
   USE mo_scalar_product,     ONLY: map_edges2cell_3d
   USE mo_io_units,           ONLY: find_next_free_unit
   USE mo_util_file,          ONLY: util_symlink, util_rename, util_islink, util_unlink
   USE mo_statistics,         ONLY: subset_sum, levels_horizontal_mean, total_mean, gather_sums, &
     & verticallyIntegrated_field
-  USE mo_fortran_tools,      ONLY: assign_if_present
-  USE mo_linked_list,        ONLY: t_var_list
-  USE mo_var_list,           ONLY: add_var,                  &
-    &                              new_var_list,             &
-    &                              delete_var_list,          &
-    &                              default_var_list_settings,&
-    &                              add_ref
+  USE mo_var_list,           ONLY: add_var, add_ref, t_var_list_ptr
+  USE mo_var_list_register,  ONLY: vlr_add, vlr_del
   USE mo_var_groups,         ONLY: groups
-  USE mo_cf_convention
+  USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var, grib2_var
   USE mo_cdi,                ONLY: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_PACK16, GRID_UNSTRUCTURED
   USE mo_cdi_constants,      ONLY: GRID_EDGE, GRID_CELL, GRID_UNSTRUCTURED_EDGE, &
@@ -98,11 +92,10 @@ MODULE mo_ocean_diagnostics
   USE mo_name_list_output_init, ONLY: isRegistered
 
   USE mtime,                 ONLY: datetime, MAX_DATETIME_STR_LEN, datetimeToPosixString
-  USE mo_ocean_check_salt , ONLY : calc_total_salt_content
+  USE mo_ocean_check_total_content , ONLY : calc_total_salt_content
 
   IMPLICIT NONE
-
-  !PRIVATE
+  PRIVATE
 
   CHARACTER(LEN=12)           :: str_module    = 'oceDiag     '  ! Output of module for 1 line debug
   INTEGER                     :: idt_src       = 1               ! Level of detail for 1 line debug
@@ -141,14 +134,14 @@ MODULE mo_ocean_diagnostics
   PRIVATE                           :: ocean_region_areas
 
 
-  TYPE(t_var_list) :: horizontal_velocity_diagnostics
+  TYPE(t_var_list_ptr) :: horizontal_velocity_diagnostics
   ! addtional diagnostics
   REAL(wp), POINTER :: veloc_adv_horz_u(:,:,:),  veloc_adv_horz_v(:,:,:), &
     & laplacian_horz_u(:,:,:), laplacian_horz_v(:,:,:), vn_u(:,:,:), vn_v(:,:,:), &
     & mass_flx_e_u(:,:,:), mass_flx_e_v(:,:,:), pressure_grad_u(:,:,:), pressure_grad_v(:,:,:), &
     & potential_vort_e(:,:,:), potential_vort_c(:,:,:)
 
- CHARACTER(LEN=*), PARAMETER :: module_name="mo_ocean_statistics"
+  CHARACTER(*), PARAMETER :: module_name="mo_ocean_statistics"
 
 CONTAINS
 
@@ -191,10 +184,9 @@ CONTAINS
     owned_cells => patch_2d%cells%owned
     nblks_e = patch_2d%nblks_e
     !-----------------------------------------------------------------------
-    CALL new_var_list(horizontal_velocity_diagnostics, &
-      &               'horizontal_velocity_diagnostics', patch_id=patch_2d%id)
-    CALL default_var_list_settings( horizontal_velocity_diagnostics,            &
-      & lrestart=.FALSE.,model_type=TRIM(get_my_process_name()),loutput=.TRUE. )
+    CALL vlr_add(horizontal_velocity_diagnostics, 'horizontal_velocity_diagnostics', &
+      & patch_id=patch_2d%id, lrestart=.FALSE., loutput=.TRUE.,                           &
+      & model_type=TRIM(get_my_process_name()))
     !-----------------------------------------------------------------------
     IF (diagnose_for_horizontalVelocity) THEN
       CALL add_var(horizontal_velocity_diagnostics, 'veloc_adv_horz_u', veloc_adv_horz_u, &
@@ -462,7 +454,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: &
       & routine = 'mo_ocean_diagnostics:destruct_oce_diagnostics'
     !-----------------------------------------------------------------------
-    CALL delete_var_list(horizontal_velocity_diagnostics)
+    CALL vlr_del(horizontal_velocity_diagnostics)
 
     IF (diagnostics_level <= 0) RETURN
 
@@ -564,7 +556,11 @@ CONTAINS
             & ssh_global_mean)
       END IF
       monitor%ssh_global = ssh_global_mean
+      IF (my_process_is_stdio() .and. check_total_volume) THEN
+        WRITE(0,*) ' -- monitor%ssh_global:', monitor%ssh_global
+      ENDIF
 
+      
       ! sea surface temperature
       sst_global = 0.0_wp
       IF (isRegistered('sst_global')) THEN
@@ -1599,19 +1595,20 @@ CONTAINS
                  0.0_wp, patch_3D%basin_c(idx,BLOCK) == 1)
             pacind_moc(level,ilat) = MERGE(pacind_moc(level,ilat) - deltaMoc*smoothWeight, &
                  0.0_wp, patch_3D%basin_c(idx,BLOCK) >= 2)
+
+            global_hfbasin(1,ilat) =       global_hfbasin(1,ilat) - deltahfbasin*smoothWeight
+            atlant_hfbasin(1,ilat) = MERGE(atlant_hfbasin(1,ilat) - deltahfbasin*smoothWeight, &
+               0.0_wp, patch_3D%basin_c(idx,BLOCK) == 1)
+            pacind_hfbasin(1,ilat) = MERGE(pacind_hfbasin(1,ilat) - deltahfbasin*smoothWeight, &
+               0.0_wp, patch_3D%basin_c(idx,BLOCK) >= 2)
+
+            global_sltbasin(1,ilat) =       global_sltbasin(1,ilat) - deltasltbasin*smoothWeight
+            atlant_sltbasin(1,ilat) = MERGE(atlant_sltbasin(1,ilat) - deltasltbasin*smoothWeight, &
+               0.0_wp, patch_3D%basin_c(idx,BLOCK) == 1)
+            pacind_sltbasin(1,ilat) = MERGE(pacind_sltbasin(1,ilat) - deltasltbasin*smoothWeight, &
+               0.0_wp, patch_3D%basin_c(idx,BLOCK) >= 2)
+
             IF (level .EQ. 1) THEN
-              global_hfbasin(level,ilat) =       global_hfbasin(level,ilat) - deltahfbasin*smoothWeight
-              atlant_hfbasin(level,ilat) = MERGE(atlant_hfbasin(level,ilat) - deltahfbasin*smoothWeight, &
-                 0.0_wp, patch_3D%basin_c(idx,BLOCK) == 1)
-              pacind_hfbasin(level,ilat) = MERGE(pacind_hfbasin(level,ilat) - deltahfbasin*smoothWeight, &
-                 0.0_wp, patch_3D%basin_c(idx,BLOCK) >= 2)
-
-              global_sltbasin(level,ilat) =       global_sltbasin(level,ilat) - deltasltbasin*smoothWeight
-              atlant_sltbasin(level,ilat) = MERGE(atlant_sltbasin(level,ilat) - deltasltbasin*smoothWeight, &
-                 0.0_wp, patch_3D%basin_c(idx,BLOCK) == 1)
-              pacind_sltbasin(level,ilat) = MERGE(pacind_sltbasin(level,ilat) - deltasltbasin*smoothWeight, &
-                 0.0_wp, patch_3D%basin_c(idx,BLOCK) >= 2)
-
               global_hfl(level,ilat) =       global_hfl(level,ilat) - deltahfl*smoothWeight
               atlant_hfl(level,ilat) = MERGE(atlant_hfl(level,ilat) - deltahfl*smoothWeight, &
                    0.0_wp, patch_3D%basin_c(idx,BLOCK) == 1)
@@ -1698,9 +1695,9 @@ CONTAINS
     ! calculate ocean heat transport as residual from the tendency in heat content (dH/dt)
     ! minus the integral of surface heat flux
 
-    global_hfbasin(:,:)=global_hfbasin(:,:)+global_hfl(:,:)
-    atlant_hfbasin(:,:)=atlant_hfbasin(:,:)+atlant_hfl(:,:)
-    pacind_hfbasin(:,:)=pacind_hfbasin(:,:)+pacind_hfl(:,:)
+    global_hfbasin(:,:)=global_hfl(:,:)-global_hfbasin(:,:)
+    atlant_hfbasin(:,:)=atlant_hfl(:,:)-atlant_hfbasin(:,:)
+    pacind_hfbasin(:,:)=pacind_hfl(:,:)-pacind_hfbasin(:,:)
 
     DEALLOCATE (allmocs)
 

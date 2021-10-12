@@ -84,8 +84,8 @@ INTEGER, PARAMETER, PUBLIC :: SYNC_V = 3
 INTEGER, PARAMETER, PUBLIC :: SYNC_C1 = 4
 
 #if defined( __ROUNDOFF_CHECK )
-REAL(wp), PARAMETER :: ABS_TOL  = 1.0D-09
-REAL(wp), PARAMETER :: REL_TOL  = 1.0D-09
+REAL(wp), PARAMETER :: ABS_TOL  = 1.0D-06
+REAL(wp), PARAMETER :: REL_TOL  = 1.0D-06
 REAL(wp), PARAMETER :: MACH_TOL = 3.0D-14
 #endif
 
@@ -108,11 +108,13 @@ END INTERFACE
 INTERFACE global_min
   MODULE PROCEDURE global_min_0d
   MODULE PROCEDURE global_min_1d
+  MODULE PROCEDURE global_min_0di
 END INTERFACE
 
 INTERFACE global_max
   MODULE PROCEDURE global_max_0d
   MODULE PROCEDURE global_max_1d
+  MODULE PROCEDURE global_max_0di
 END INTERFACE
 
 INTERFACE global_sum
@@ -1972,6 +1974,28 @@ END FUNCTION global_min_0d
 !-------------------------------------------------------------------------------
 
 !-------------------------------------------------------------------------------
+!> global_min_0d for INTEGER
+FUNCTION global_min_0di(zfield) RESULT(global_min)
+
+  INTEGER, INTENT(IN) :: zfield
+  INTEGER  :: global_min
+  REAL(wp) :: global_min_check
+
+  IF(comm_lev==0) THEN
+    global_min = p_min(zfield, comm=p_comm_work)
+  ELSE
+    global_min = p_min(zfield, comm=glob_comm(comm_lev))
+  ENDIF
+
+  IF(p_test_run .AND. do_sync_checks) THEN
+    global_min_check = REAL(global_min)
+    CALL check_result( (/ global_min_check /), 'global_min' )
+  ENDIF
+
+END FUNCTION global_min_0di
+!-------------------------------------------------------------------------------
+
+!-------------------------------------------------------------------------------
 FUNCTION global_min_1d(zfield) RESULT(global_min)
 
   REAL(wp), INTENT(IN) :: zfield(:)
@@ -2025,6 +2049,35 @@ FUNCTION global_max_0d(zfield, proc_id, keyval, iroot, icomm) RESULT(global_max)
   IF(p_test_run .AND. do_sync_checks) CALL check_result( (/ global_max /), 'global_max' )
 
 END FUNCTION global_max_0d
+!-------------------------------------------------------------------------------
+
+!-------------------------------------------------------------------------------
+!> global_max_0d for INTEGER
+FUNCTION global_max_0di(zfield) RESULT(global_max)
+
+  INTEGER, INTENT(IN) :: zfield
+  INTEGER  :: global_max
+  REAL(wp) :: global_max_check
+  INTEGER  :: pcomm
+
+  IF(comm_lev==0) THEN
+    pcomm=p_comm_work
+  ELSE
+    pcomm=glob_comm(comm_lev)
+  END IF
+
+  IF (p_test_run) THEN ! all-to-all communication required
+    global_max = p_max(zfield, pcomm)
+  ELSE
+    global_max = p_max(zfield, pcomm)
+  ENDIF
+
+  IF(p_test_run .AND. do_sync_checks) THEN
+    global_max_check = REAL(global_max)
+    CALL check_result( (/ global_max_check /), 'global_max' )
+  ENDIF
+
+END FUNCTION global_max_0di
 !-------------------------------------------------------------------------------
 
 !-------------------------------------------------------------------------------
@@ -2518,7 +2571,7 @@ SUBROUTINE decomposition_statistics(p_patch)
 
    TYPE(t_patch), INTENT(INOUT) :: p_patch
 
-   REAL(wp) :: cellstat(0:6),edgestat(0:6),vertstat(0:5), csmax(0:5),csmin(0:5),csavg(0:6), &
+   REAL(wp) :: cellstat(0:7),edgestat(0:6),vertstat(0:5), csmax(0:6),csmin(0:6),csavg(0:7), &
                esmax(0:6),esmin(0:6),esavg(0:6),vsmax(0:5),vsmin(0:5),vsavg(0:5),avglat,avglon
    INTEGER  :: i_nchdom, i, i_pe, max_nprecv, i1, i2, i1m, i2m
    INTEGER,  ALLOCATABLE :: nprecv_buf(:),displs(:),recvlist_buf(:)
@@ -2538,16 +2591,18 @@ SUBROUTINE decomposition_statistics(p_patch)
                       p_patch%cells%end_idx(min_rlcell_int-1,i_nchdom),wp) - cellstat(0)
    cellstat(3) = REAL(nproma*(p_patch%cells%end_blk(min_rlcell_int-2,i_nchdom)-1) + &
                       p_patch%cells%end_idx(min_rlcell_int-2,i_nchdom),wp) - cellstat(0)
-   cellstat(4) = REAL(get_np_send(p_patch%comm_pat_c),wp)
-   cellstat(5) = REAL(get_np_recv(p_patch%comm_pat_c),wp)
+   cellstat(4) = REAL(nproma*(p_patch%cells%end_blk(min_rlcell_int-2,i_nchdom)-1) + &
+                      p_patch%cells%end_idx(min_rlcell_int-2,i_nchdom),wp)
+   cellstat(5) = REAL(get_np_send(p_patch%comm_pat_c),wp)
+   cellstat(6) = REAL(get_np_recv(p_patch%comm_pat_c),wp)
 
    ! The purpose of this is to compute average quantities only over those PEs
    ! that actually contain grid points of a given model domain (relevant in the case
    ! of processor splitting)
    IF (cellstat(1) > 0._wp) THEN
-     cellstat(6) = 1._wp
+     cellstat(7) = 1._wp
    ELSE
-     cellstat(6) = 0._wp
+     cellstat(7) = 0._wp
    ENDIF
 
    edgestat(0) = REAL(nproma*(p_patch%edges%end_blk(grf_bdywidth_e,1)-1) + &
@@ -2576,42 +2631,40 @@ SUBROUTINE decomposition_statistics(p_patch)
 
    ! Question: how can I exclude PEs containing zero grid points of a model domain
    ! from global minimum computation?
-   csmax = global_max(cellstat(0:5))
-   csmin = global_min(cellstat(0:5))
-   DO i = 0, 6
+   csmax = global_max(cellstat(0:6))
+   csmin = global_min(cellstat(0:6))
+   DO i = 0, 7
      csavg(i) = global_sum_array(cellstat(i))
    ENDDO
-   csavg(0:5) = csavg(0:5)/MAX(1._wp,csavg(6))
+   csavg(0:6) = csavg(0:6)/MAX(1._wp,csavg(7))
    esmax = global_max(edgestat)
    esmin = global_min(edgestat)
    DO i = 0, 6
-     esavg(i) = global_sum_array(edgestat(i))/MAX(1._wp,csavg(6))
+     esavg(i) = global_sum_array(edgestat(i))/MAX(1._wp,csavg(7))
    ENDDO
    vsmax = global_max(vertstat)
    vsmin = global_min(vertstat)
    DO i = 0, 5
-     vsavg(i) = global_sum_array(vertstat(i))/MAX(1._wp,csavg(6))
+     vsavg(i) = global_sum_array(vertstat(i))/MAX(1._wp,csavg(7))
    ENDDO
 
    WRITE(message_text,'(a,i4)') 'grid ',p_patch%id
      CALL message('Information on domain decomposition',TRIM(message_text))
-   WRITE(message_text,'(i6)') NINT(csavg(6))
+   WRITE(message_text,'(i6)') NINT(csavg(7))
      CALL message('Number of compute PEs used for this grid',TRIM(message_text))
-   IF (p_patch%id > 1) THEN
-     WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(csmax(0)),NINT(csmin(0)),csavg(0)
-      CALL message('#   lateral boundary cells', TRIM(message_text))
-   ENDIF
+   WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(csmax(0)),NINT(csmin(0)),csavg(0)
+     CALL message('#   lateral boundary cells', TRIM(message_text))
    WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(csmax(1)),NINT(csmin(1)),csavg(1)
      CALL message('#         prognostic cells', TRIM(message_text))
    WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(csmax(2)),NINT(csmin(2)),csavg(2)
      CALL message('# cells up to halo level 1', TRIM(message_text))
    WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(csmax(3)),NINT(csmin(3)),csavg(3)
      CALL message('# cells up to halo level 2', TRIM(message_text))
+   WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(csmax(4)),NINT(csmin(4)),csavg(4)
+     CALL message('#              cells total', TRIM(message_text))
 
-   IF (p_patch%id > 1) THEN
-     WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(esmax(0)),NINT(esmin(0)),esavg(0)
-       CALL message('#   lateral boundary edges', TRIM(message_text))
-   ENDIF
+   WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(esmax(0)),NINT(esmin(0)),esavg(0)
+     CALL message('#   lateral boundary edges', TRIM(message_text))
    WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(esmax(1)),NINT(esmin(1)),esavg(1)
      CALL message('#         prognostic edges', TRIM(message_text))
    WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(esmax(2)),NINT(esmin(2)),esavg(2)
@@ -2621,10 +2674,8 @@ SUBROUTINE decomposition_statistics(p_patch)
    WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(esmax(4)),NINT(esmin(4)),esavg(4)
      CALL message('# edges up to halo level 3', TRIM(message_text))
 
-   IF (p_patch%id > 1) THEN
-     WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(vsmax(0)),NINT(vsmin(0)),vsavg(0)
-       CALL message('#   lateral boundary verts', TRIM(message_text))
-   ENDIF
+   WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(vsmax(0)),NINT(vsmin(0)),vsavg(0)
+     CALL message('#   lateral boundary verts', TRIM(message_text))
    WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(vsmax(1)),NINT(vsmin(1)),vsavg(1)
      CALL message('#         prognostic verts', TRIM(message_text))
    WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(vsmax(2)),NINT(vsmin(2)),vsavg(2)
@@ -2632,9 +2683,9 @@ SUBROUTINE decomposition_statistics(p_patch)
    WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(vsmax(3)),NINT(vsmin(3)),vsavg(3)
      CALL message('# verts up to halo level 2', TRIM(message_text))
      CALL message('','')
-   WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(csmax(4)),NINT(csmin(4)),csavg(4)
-     CALL message('# send PEs (cells)', TRIM(message_text))
    WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(csmax(5)),NINT(csmin(5)),csavg(5)
+     CALL message('# send PEs (cells)', TRIM(message_text))
+   WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(csmax(6)),NINT(csmin(6)),csavg(6)
      CALL message('# recv PEs (cells)', TRIM(message_text))
    WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(esmax(5)),NINT(esmin(5)),esavg(5)
      CALL message('# send PEs (edges)', TRIM(message_text))
@@ -2648,7 +2699,7 @@ SUBROUTINE decomposition_statistics(p_patch)
 
    ! Stop if the current model domain lives on only one processor. MPI communication
    ! will not work in this case
-   IF (.NOT. p_test_run .AND. NINT(csavg(6)) <= 1) &
+   IF (.NOT. p_test_run .AND. NINT(csavg(7)) <= 1) &
      CALL finish('Bad use of processor splitting','This grid is processed by only one PE')
 
 
@@ -2656,7 +2707,7 @@ SUBROUTINE decomposition_statistics(p_patch)
 
      WRITE(message_text,'(a,i4)') 'grid ',p_patch%id
      CALL message('List of receive PEs (cells)', TRIM(message_text))
-     max_nprecv = NINT(csmax(5))
+     max_nprecv = NINT(csmax(6))
 
      ! Compute average latitude and longitude over prognostic grid points (including nest boundary)
      avglat = 0._wp

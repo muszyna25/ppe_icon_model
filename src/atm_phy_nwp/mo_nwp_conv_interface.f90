@@ -67,7 +67,6 @@ CONTAINS
     &                         prm_diag,prm_nwp_tend      ) !>inout
 
 
-
     TYPE(t_patch)               ,INTENT(in)   :: p_patch        !!<grid/patch info.
     TYPE(t_external_data)       ,INTENT(in)   :: ext_data        !< external data
     TYPE(t_nh_metrics)          ,INTENT(in)   :: p_metrics
@@ -79,6 +78,7 @@ CONTAINS
 
     REAL(wp)                    ,INTENT(in)   :: tcall_conv_jg   !< time interval for 
                                                                  !< convection
+
     ! Local array bounds:
 
     INTEGER :: nlev, nlevp1            !< number of full and half levels
@@ -106,6 +106,8 @@ CONTAINS
     REAL(wp) :: u850, u950, v850, v950     !< zonal and meridional velocity at specific heights
     REAL(wp) :: ticeini, lfocvd, wfac, cpdocvd
     INTEGER  :: iqrd, iqsd
+    LOGICAL  :: lcompute_lpi               !< compute lpi_con, mlpi_con, koi, lpi_con_max and mlpi_con_max
+    LOGICAL  :: lcompute_lfd               !< compute lfd_con, lfd_con_max
 
     ! local variables related to the blocking
     jg        = p_patch%id
@@ -133,6 +135,15 @@ CONTAINS
       iqrd = nqtendphy
       iqsd = nqtendphy
     ENDIF
+
+    ! compute lpi_con(_max) only if all relevant fields are allocated (non-dummy).
+    ! This is only the case, if any of the lpi-fields is requested in the output_nml.
+    ! GZ: taking the size product of all 4 fields causes an integer overflow for nproma > 215 (2**7.75)
+    lcompute_lpi = SIZE(prm_diag%lpi_con_max,1) * SIZE(prm_diag%lpi_con,1) > 0 .AND.  &
+      &            SIZE(prm_diag%mlpi_con_max,1)* SIZE(prm_diag%mlpi_con,1) > 0
+    !
+    ! compute lfd_con(_max) only if all relevant fields are allocated (non-dummy).
+    lcompute_lfd = SIZE(prm_diag%lfd_con_max,1) * SIZE(prm_diag%lfd_con,1) > 0
 
 #ifndef __PGI
 !FIXME: PGI + OpenMP produce deadlock in this loop. Compiler bug suspected
@@ -270,7 +281,13 @@ CONTAINS
 &            pvddraf =     z_ddspeed(:)                                       ,& !! OUT
 &            ktrac  = art_config(jg)%nconv_tracer                             ,& !! IN 
 &            pcen   = p_prog_rcf%conv_tracer(jb,:)                            ,& !! IN 
-&            ptenrhoc = prm_nwp_tend%conv_tracer_tend(jb,:) )                    !! OUT
+&            ptenrhoc = prm_nwp_tend%conv_tracer_tend(jb,:)                   ,& !! OUT
+&            l_lpi  =      lcompute_lpi                                       ,& !! IN
+&            l_lfd  =      lcompute_lfd                                       ,& !! IN
+&            lpi    =      prm_diag%lpi_con(:,jb)                             ,& !! OUT
+&            mlpi   =      prm_diag%mlpi_con(:,jb)                            ,& !! OUT
+&            koi    =      prm_diag%koi(:,jb)                                 ,& !! OUT
+&            lfd    =      prm_diag%lfd_con(:,jb)                             )  !! OUT
 
         ELSE
 
@@ -318,7 +335,14 @@ CONTAINS
 &            pdtke_con =   prm_nwp_tend%ddt_tke_pconv(:,:,jb)                 ,& !! OUT
 &            pcape  =      prm_diag%cape     (:,jb)                           ,& !! OUT
 &            pvddraf =     z_ddspeed(:)                                       ,& !! OUT
-&            ktrac  = 0                                                        ) !! IN 
+&            ktrac  = 0                                                       ,& !! IN 
+&            l_lpi  =      lcompute_lpi                                       ,& !! IN
+&            l_lfd  =      lcompute_lfd                                       ,& !! IN
+&            lpi    =      prm_diag%lpi_con(:,jb)                             ,& !! OUT
+&            mlpi   =      prm_diag%mlpi_con(:,jb)                            ,& !! OUT
+&            koi    =      prm_diag%koi(:,jb)                                 ,& !! OUT
+&            lfd    =      prm_diag%lfd_con(:,jb)                             )  !! OUT
+
         ENDIF
 
 
@@ -370,6 +394,24 @@ CONTAINS
           ENDIF
         ENDDO  ! jc
 
+
+        IF (lcompute_lpi) THEN
+          ! Store the maximum of lpi_con and mlpi_con
+          DO jc = i_startidx,i_endidx
+            prm_diag%lpi_con_max(jc,jb)=MAX(prm_diag%lpi_con_max(jc,jb),      &
+              &                             prm_diag%lpi_con    (jc,jb))
+            prm_diag%mlpi_con_max(jc,jb)=MAX(prm_diag%mlpi_con_max(jc,jb),    &
+              &                              prm_diag%mlpi_con    (jc,jb))
+          ENDDO
+        ENDIF
+
+        IF (lcompute_lfd) THEN
+          ! Store the maximum of lfd_con
+          DO jc = i_startidx,i_endidx
+            prm_diag%lfd_con_max(jc,jb)=MAX(prm_diag%lfd_con_max(jc,jb),      &
+              &                             prm_diag%lfd_con    (jc,jb))
+            ENDDO
+        ENDIF
 
       ENDIF !inwp_conv
 

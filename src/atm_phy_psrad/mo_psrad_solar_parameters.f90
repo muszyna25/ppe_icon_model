@@ -312,7 +312,9 @@ CONTAINS
        ELSE                             ! - without diurnal cycle
           !                                 all grid points have the same constant cos_mu0
           !
-          cos_mu0(:,:) = pi_4           !  = pi/4 (why this choice?)
+          ! cos_mu0(:,:) = pi_4           !  = pi/4 (why this choice?)
+          ! quickhack for RCEMIP_analytical
+          cos_mu0(:,:) = COS(42.05_wp*pi/180._wp)           !  = pi/4 (why this choice?)
           daylight_frc(:,:) = 1.0_wp
           !
        END IF

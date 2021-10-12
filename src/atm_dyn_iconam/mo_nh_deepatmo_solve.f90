@@ -57,7 +57,7 @@ MODULE mo_nh_deepatmo_solve
     &                                  timer_solve_nh_vnupd, timer_solve_nh_vimpl, timer_solve_nh_exch
   USE mo_icon_comm_lib,          ONLY: icon_comm_sync
   USE mo_vertical_coord_table,   ONLY: vct_a
-  USE mo_nh_prepadv_types,       ONLY: t_prepare_adv
+  USE mo_prepadv_types,          ONLY: t_prepare_adv
   USE mo_initicon_config,        ONLY: is_iau_active, iau_wgt_dyn
   USE mo_fortran_tools,          ONLY: init_zero_contiguous_dp, init_zero_contiguous_sp ! Import both for mixed prec.
   USE mo_nh_deepatmo_utils,      only: velocity_tendencies_deepatmo
@@ -117,7 +117,7 @@ MODULE mo_nh_deepatmo_solve
     INTEGER,                   INTENT(IN)    :: jstep
     ! Time levels
     INTEGER,                   INTENT(IN)    :: nnow, nnew
-    ! Time step
+    ! Dynamics time step
     REAL(wp),                  INTENT(IN)    :: dtime
 
     ! Local variables
@@ -191,6 +191,7 @@ MODULE mo_nh_deepatmo_solve
     REAL(wp) :: z_theta1, z_theta2, wgt_nnow_vel, wgt_nnew_vel,     &
                dt_shift, wgt_nnow_rth, wgt_nnew_rth, dthalf, zf, &
                r_nsubsteps, scal_divdamp_o2
+    REAL(wp) :: dt_linintp_ubc               ! time increment for linear interpolation of nest UBC
     REAL(wp) :: z_raylfac(nrdmax(p_patch%id))
     REAL(wp) :: z_ntdistv_bary_1, distv_bary_1, z_ntdistv_bary_2, distv_bary_2
 
@@ -318,7 +319,14 @@ MODULE mo_nh_deepatmo_solve
     scal_divdamp(:) = - enh_divdamp_fac(:) * p_patch%geometry_info%mean_cell_area**2
 
     ! Time increment for backward-shifting of lateral boundary mass flux
-    dt_shift = dtime*REAL(2*ndyn_substeps_var(jg)-1,wp)/2._wp
+    dt_shift = dtime*REAL(2*ndyn_substeps_var(jg)-1,wp)/2._wp    ! == dt_phy - 0.5*dtime
+
+    ! Time increment for linear interpolation of nest UBC.
+    ! The linear interpolation is of the form
+    ! \phi(t) = \phi0 + (t-t0)*dphi/dt, with t=(jstep+0.5)*dtime, and t0=dt_phy
+    !
+    ! dt_linintp_ubc == (t-t0)
+    dt_linintp_ubc = jstep*dtime - dt_shift
 
     ! Coefficient for reduced fourth-order divergence damping along nest boundaries
     bdy_divdamp(:) = 0.75_wp/(nudge_max_coeff + dbl_eps)*ABS(scal_divdamp(:))
@@ -1783,22 +1791,23 @@ MODULE mo_nh_deepatmo_solve
         ENDIF
 
         ! upper boundary conditions for rho_ic and theta_v_ic in the case of vertical nesting
+        !
+        ! kept constant during predictor/corrector step, and linearly interpolated for 
+        ! each dynamics substep. 
+        ! Hence, copying them every dynamics substep during the predictor step (istep=1) is sufficient.  
         IF (l_vert_nested .AND. istep == 1) THEN
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
-            p_nh%diag%theta_v_ic(jc,1,jb) = p_nh%diag%theta_v_ic(jc,2,jb) + &
-              p_nh%diag%dtheta_v_ic_ubc(jc,jb)
-            z_mflx_top(jc,jb)             = p_nh%diag%mflx_ic_ubc(jc,jb,1) + &
-              REAL(jstep,wp)*dtime*p_nh%diag%mflx_ic_ubc(jc,jb,2)
-            p_nh%diag%rho_ic(jc,1,jb) =  0._wp ! not used in dynamical core in this case, will be set for tracer interface later
-          ENDDO
-        ELSE IF (l_vert_nested .AND. istep == 2) THEN
-!DIR$ IVDEP
-          DO jc = i_startidx, i_endidx
-            p_nh%diag%theta_v_ic(jc,1,jb) = p_nh%diag%theta_v_ic(jc,2,jb) + &
-              p_nh%diag%dtheta_v_ic_ubc(jc,jb)
-            z_mflx_top(jc,jb)             = p_nh%diag%mflx_ic_ubc(jc,jb,1) + &
-              (REAL(jstep,wp)+0.5_wp)*dtime*p_nh%diag%mflx_ic_ubc(jc,jb,2)
+
+            p_nh%diag%theta_v_ic(jc,1,jb) = p_nh%diag%theta_v_ic_ubc(jc,jb,1)  &
+              &                           + dt_linintp_ubc * p_nh%diag%theta_v_ic_ubc(jc,jb,2) 
+
+            p_nh%diag%rho_ic(jc,1,jb) = p_nh%diag%rho_ic_ubc(jc,jb,1)  &
+              &                       + dt_linintp_ubc * p_nh%diag%rho_ic_ubc(jc,jb,2)
+
+            z_mflx_top(jc,jb) = p_nh%diag%mflx_ic_ubc(jc,jb,1)  &
+              &               + dt_linintp_ubc * p_nh%diag%mflx_ic_ubc(jc,jb,2)
+
           ENDDO
         ENDIF
 
@@ -1869,7 +1878,14 @@ MODULE mo_nh_deepatmo_solve
           ENDDO
         ENDDO
 
-        z_alpha(:,nlevp1) = 0.0_wp
+        DO jc = i_startidx, i_endidx
+          z_alpha(jc,nlevp1) = 0.0_wp
+          !
+          ! Note: z_q is used in the tridiagonal matrix solver for w below.
+          !       z_q(1) is always zero, irrespective of w(1)=0 or w(1)/=0
+          !       z_q(1)=0 is equivalent to cp(slev)=c(slev)/b(slev) in mo_math_utilities:tdma_solver_vec 
+          z_q(jc,1) = 0._vp
+        ENDDO
 
         ! upper boundary condition for w (interpolated from parent domain in case of vertical nesting)
         ! Note: the upper b.c. reduces to w(1) = 0 in the absence of diabatic heating
@@ -1886,6 +1902,11 @@ MODULE mo_nh_deepatmo_solve
         ELSE  ! l_vert_nested
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
+            ! UBC for w: horizontally interpolated from the parent interface level, 
+            !            and linearly interpolated in time.
+            p_nh%prog(nnew)%w(jc,1,jb) = p_nh%diag%w_ubc(jc,jb,1)  &
+              &                        + dt_linintp_ubc * p_nh%diag%w_ubc(jc,jb,2)
+            !
             z_contr_w_fl_l(jc,1) = z_mflx_top(jc,jb) * p_nh%metrics%vwind_expl_wgt(jc,jb)
           ENDDO
         ENDIF
@@ -1957,22 +1978,8 @@ MODULE mo_nh_deepatmo_solve
 
         ! Solve tridiagonal matrix for w
         ! (deep-atmosphere modification applied)
-!DIR$ IVDEP
-        DO jc = i_startidx, i_endidx
-          z_gamma = dtime*cpd*p_nh%metrics%vwind_impl_wgt(jc,jb)*    &
-            p_nh%diag%theta_v_ic(jc,2,jb)/p_nh%metrics%ddqz_z_half(jc,2,jb)
-          z_c = -z_gamma*z_beta(jc,2)*z_alpha(jc,3) & 
-            &   * deepatmo_divzL(2)       
-          z_b = 1.0_vp+z_gamma*z_alpha(jc,2) &
-            & *(z_beta(jc,1) * deepatmo_divzL(1) & 
-            & + z_beta(jc,2) * deepatmo_divzU(2))
-          z_q(jc,2) = -z_c/z_b
-          p_nh%prog(nnew)%w(jc,2,jb) = z_w_expl(jc,2) - z_gamma  &
-            &      *(z_exner_expl(jc,1)-z_exner_expl(jc,2))
-          p_nh%prog(nnew)%w(jc,2,jb)= p_nh%prog(nnew)%w(jc,2,jb)/z_b
-        ENDDO
-
-        DO jk = 3, nlev
+        !
+        DO jk = 2, nlev
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
             z_gamma = dtime*cpd*p_nh%metrics%vwind_impl_wgt(jc,jb)*    &
@@ -2001,12 +2008,6 @@ MODULE mo_nh_deepatmo_solve
           ENDDO
         ENDDO
 
-        IF (l_vert_nested) THEN
-!DIR$ IVDEP
-          DO jc = i_startidx, i_endidx
-            p_nh%prog(nnew)%w(jc,1,jb) = p_nh%prog(nnew)%w(jc,2,jb) + p_nh%diag%dw_ubc(jc,jb)
-          ENDDO
-        ENDIF
 
         ! Rayleigh damping mechanism (Klemp,Dudhia,Hassiotis: MWR136,pp.3987-4004)
         !
@@ -2095,22 +2096,6 @@ MODULE mo_nh_deepatmo_solve
           ENDDO
         ENDIF
 
-        IF (istep == 2 .AND. l_vert_nested) THEN
-          ! Diagnose rho_ic(jk=1) for tracer transport, and rediagnose appropriate w(jk=1)
-!DIR$ IVDEP
-          DO jc = i_startidx, i_endidx
-            p_nh%diag%rho_ic(jc,1,jb) =  wgt_nnow_rth*(                        &
-              p_nh%metrics%wgtfacq1_c(jc,1,jb)*p_nh%prog(nnow)%rho(jc,1,jb) +  &
-              p_nh%metrics%wgtfacq1_c(jc,2,jb)*p_nh%prog(nnow)%rho(jc,2,jb) +  &
-              p_nh%metrics%wgtfacq1_c(jc,3,jb)*p_nh%prog(nnow)%rho(jc,3,jb))+  &
-              wgt_nnew_rth * (                                                 &
-              p_nh%metrics%wgtfacq1_c(jc,1,jb)*p_nh%prog(nvar)%rho(jc,1,jb) +  &
-              p_nh%metrics%wgtfacq1_c(jc,2,jb)*p_nh%prog(nvar)%rho(jc,2,jb) +  &
-              p_nh%metrics%wgtfacq1_c(jc,3,jb)*p_nh%prog(nvar)%rho(jc,3,jb) )
-            p_nh%prog(nnew)%w(jc,1,jb) = z_mflx_top(jc,jb)/p_nh%diag%rho_ic(jc,1,jb)
-          ENDDO
-        ENDIF
-
         ! compute dw/dz for divergence damping term
         IF (lhdiff_rcf .AND. istep == 1 .AND. divdamp_type >= 3) THEN
 
@@ -2127,12 +2112,22 @@ MODULE mo_nh_deepatmo_solve
         ! Preparations for tracer advection
         IF (lprep_adv .AND. istep == 2) THEN
           IF (lclean_mflx) prep_adv%mass_flx_ic(:,:,jb) = 0._wp
-          DO jk = 1, nlev
+          DO jk = jk_start, nlev
             DO jc = i_startidx, i_endidx
               prep_adv%mass_flx_ic(jc,jk,jb) = prep_adv%mass_flx_ic(jc,jk,jb) + r_nsubsteps * ( z_contr_w_fl_l(jc,jk) + &
                 p_nh%diag%rho_ic(jc,jk,jb) * p_nh%metrics%vwind_impl_wgt(jc,jb) * p_nh%prog(nnew)%w(jc,jk,jb) )
             ENDDO
           ENDDO
+          IF (l_vert_nested) THEN
+            ! Use mass flux which has been interpolated to the upper nest boundary.
+            ! This mass flux is also seen by the mass continuity equation (rho).
+            ! Hence, by using the same mass flux for the tracer mass continuity equations,
+            ! consistency with continuity (CWC) is ensured.
+            DO jc = i_startidx, i_endidx
+              prep_adv%mass_flx_ic(jc,1,jb) = prep_adv%mass_flx_ic(jc,1,jb) + &
+                r_nsubsteps * z_mflx_top(jc,jb)
+            ENDDO
+          ENDIF
         ENDIF
 
         ! store dynamical part of exner time increment in exner_dyn_incr
@@ -2160,16 +2155,16 @@ MODULE mo_nh_deepatmo_solve
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
 
-            p_nh%diag%dw_int(jc,jb,idyn_timestep) =                                         &
-              0.5_wp*(p_nh%prog(nnow)%w(jc,nshift,jb)   + p_nh%prog(nnew)%w(jc,nshift,jb) - &
-              (p_nh%prog(nnow)%w(jc,nshift+1,jb) + p_nh%prog(nnew)%w(jc,nshift+1,jb)))
+            p_nh%diag%w_int(jc,jb,idyn_timestep) =  &
+              0.5_wp*(p_nh%prog(nnow)%w(jc,nshift,jb) + p_nh%prog(nnew)%w(jc,nshift,jb))
+
+            p_nh%diag%theta_v_ic_int(jc,jb,idyn_timestep) = p_nh%diag%theta_v_ic(jc,nshift,jb)
+
+            p_nh%diag%rho_ic_int(jc,jb,idyn_timestep) =  p_nh%diag%rho_ic(jc,nshift,jb)
 
             p_nh%diag%mflx_ic_int(jc,jb,idyn_timestep) = p_nh%diag%rho_ic(jc,nshift,jb) * &
               (p_nh%metrics%vwind_expl_wgt(jc,jb)*p_nh%prog(nnow)%w(jc,nshift,jb) + &
               p_nh%metrics%vwind_impl_wgt(jc,jb)*p_nh%prog(nnew)%w(jc,nshift,jb))
-
-            p_nh%diag%dtheta_v_ic_int(jc,jb,idyn_timestep) = p_nh%diag%theta_v_ic(jc,nshift,jb) - &
-              p_nh%diag%theta_v_ic(jc,nshift+1,jb)
           ENDDO
         ENDIF
 
@@ -2268,9 +2263,12 @@ MODULE mo_nh_deepatmo_solve
           ENDIF
 
           ! Preparations for tracer advection
+          !
+          ! Note that the vertical mass flux at nest boundary points is required in case that 
+          ! vertical tracer transport precedes horizontal tracer transport.
           IF (lprep_adv .AND. istep == 2) THEN
             IF (lclean_mflx) prep_adv%mass_flx_ic(i_startidx:i_endidx,:,jb) = 0._wp
-            DO jk = 1, nlev
+            DO jk = jk_start, nlev
 !DIR$ IVDEP
               DO jc = i_startidx, i_endidx
                 prep_adv%mass_flx_ic(jc,jk,jb) = prep_adv%mass_flx_ic(jc,jk,jb) + r_nsubsteps*p_nh%diag%rho_ic(jc,jk,jb)* &
@@ -2278,6 +2276,13 @@ MODULE mo_nh_deepatmo_solve
                    p_nh%metrics%vwind_impl_wgt(jc,jb)*p_nh%prog(nnew)%w(jc,jk,jb) - p_nh%diag%w_concorr_c(jc,jk,jb) )
               ENDDO
             ENDDO
+            IF (l_vert_nested) THEN
+              DO jc = i_startidx, i_endidx
+                prep_adv%mass_flx_ic(jc,1,jb) = prep_adv%mass_flx_ic(jc,1,jb) + &
+                  r_nsubsteps * (p_nh%diag%mflx_ic_ubc(jc,jb,1)                 &
+                  + dt_linintp_ubc * p_nh%diag%mflx_ic_ubc(jc,jb,2))
+              ENDDO
+            ENDIF
           ENDIF
 
         ENDDO
