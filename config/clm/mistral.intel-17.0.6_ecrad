@@ -27,6 +27,7 @@ MKL_LDFLAGS='-mkl=sequential'
 XML2_ROOT='/usr'
 XML2_LIBS='-lxml2'
 
+PYTHON='/sw/spack-rhel6/miniforge3-4.9.2-3-Linux-x86_64-pwdbqi/bin/python'																		  
 ################################################################################
 
 AR='xiar'
@@ -39,7 +40,7 @@ CPPFLAGS="-I${HDF5_ROOT}/include -I${NETCDF_ROOT}/include -I${GRIBAPI_ROOT}/incl
 
 FC='mpif90'
 FCFLAGS="-I${NETCDFF_ROOT}/include -gdwarf-4 -g -march=native -pc64 -fp-model source -qno-opt-dynamic-align -no-fma"
-ICON_FCFLAGS='-O2 -assume realloc_lhs -ftz'
+ICON_FCFLAGS='-O2 -assume realloc_lhs -ftz -DDO_NOT_COMBINE_PUT_AND_NOCHECK'
 ICON_OCEAN_FCFLAGS='-O3 -assume norealloc_lhs -reentrancy threaded -qopt-report-file=stdout -qopt-report=0 -qopt-report-phase=vec'
 ICON_ECRAD_FCFLAGS="-D__ECRAD_LITTLE_ENDIAN"
 
@@ -66,6 +67,7 @@ ICON_ECRAD_FCFLAGS="${ICON_ECRAD_FCFLAGS}" \
 LDFLAGS="${LDFLAGS}" \
 LIBS="${LIBS}" \
 MPI_LAUNCH="${MPI_LAUNCH}" \
+PYTHON="${PYTHON}" \					
 ${EXTRA_CONFIG_ARGS} \
 "$@"
 

@@ -28,6 +28,7 @@ MKL_LIBS='-lmkl_gf_lp64 -lmkl_sequential -lmkl_core'
 XML2_ROOT='/usr'
 XML2_LIBS='-lxml2'
 
+PYTHON='/sw/spack-rhel6/miniforge3-4.9.2-3-Linux-x86_64-pwdbqi/bin/python'																		  
 ################################################################################
 
 BUILD_ENV=". /sw/rhel6-x64/etc/profile.mistral; . \"${SCRIPT_DIR}/module_switcher\"; switch_for_module ${MODULES}; export LD_LIBRARY_PATH=\"${HDF5_ROOT}/lib:${NETCDF_ROOT}/lib:${NETCDFF_ROOT}/lib:${GRIBAPI_ROOT}/lib:${MKL_ROOT}/lib/intel64:\${LD_LIBRARY_PATH}\";"
@@ -39,8 +40,8 @@ ICON_BUNDLED_CFLAGS='-O2'
 CPPFLAGS="-I${HDF5_ROOT}/include -I${NETCDF_ROOT}/include -I${GRIBAPI_ROOT}/include -I${XML2_ROOT}/include/libxml2"
 
 FC='mpif90'
-FCFLAGS="-I${NETCDFF_ROOT}/include -fmodule-private -fimplicit-none -fmax-identifier-length=63 -Wall -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter -Wno-surprising -fall-intrinsics -g -march=native -mpc64"
-ICON_FCFLAGS='-std=f2008 -fbacktrace -fbounds-check -fstack-protector-all -finit-real=nan -finit-integer=-2147483648 -finit-character=127 -O2 -DDO_NOT_COMBINE_PUT_AND_NOCHECK'
+FCFLAGS="-I${NETCDFF_ROOT}/include -std=f2008 -fmodule-private -fimplicit-none -fmax-identifier-length=63 -Wall -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter -Wno-surprising -fall-intrinsics -g -march=native -mpc64"
+ICON_FCFLAGS='-fbacktrace -fbounds-check -fstack-protector-all -finit-real=nan -finit-integer=-2147483648 -finit-character=127 -O2 -DDO_NOT_COMBINE_PUT_AND_NOCHECK'
 ICON_OCEAN_FCFLAGS='-O3'
 ICON_ECRAD_FCFLAGS="-std=gnu -D__ECRAD_LITTLE_ENDIAN -fbacktrace -fbounds-check -fstack-protector-all -finit-real=nan -finit-integer=-2147483648 -finit-character=127"
 
@@ -55,6 +56,7 @@ EXTRA_CONFIG_ARGS='--enable-parallel-netcdf --enable-mixed-precision --enable-ec
 
 "${ICON_DIR}/configure" \
 BUILD_ENV="${BUILD_ENV}" \
+PYTHON="${PYTHON}" \					
 CC="${CC}" \
 CFLAGS="${CFLAGS}" \
 CPPFLAGS="${CPPFLAGS}" \
