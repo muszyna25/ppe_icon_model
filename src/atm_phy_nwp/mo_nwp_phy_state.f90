@@ -3346,12 +3346,16 @@ __acc_attach(diag%clct_avg)
     cf_desc    = t_cf_var('str_u_sso', 'N m-2', 'zonal sso surface stress', datatype_flt)
     grib2_desc = grib2_var(192, 128, 195, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'str_u_sso', diag%str_u_sso,                     &
-      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d,  &
+      & lopenacc=.TRUE.)
+    __acc_attach(diag%str_u_sso)
 
     cf_desc    = t_cf_var('str_v_sso', 'N m-2', 'meridional sso surface stress', datatype_flt)
     grib2_desc = grib2_var(192, 128, 196, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( diag_list, 'str_v_sso', diag%str_v_sso,                     &
-      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+    CALL add_var( diag_list, 'str_v_sso', diag%str_v_sso,                        &
+      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d , &
+      & lopenacc=.TRUE.)
+    __acc_attach(diag%str_v_sso)
 
     WRITE(name,'(A,A9)') TRIM(prefix),"str_u_sso"
     WRITE(long_name,'(A25,A4,A18)') "zonal sso surface stress ", meaning, " since model start"

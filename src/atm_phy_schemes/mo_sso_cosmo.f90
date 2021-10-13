@@ -70,7 +70,7 @@ USE mo_physical_constants , ONLY :   &
     g     => grav     ! acceleration due to gravity
 
 USE mo_nwp_parameters,  ONLY: t_phy_params
-
+USE mo_exception,       ONLY: message
 ! end of mo_physical_constants
 
 
@@ -126,7 +126,7 @@ SUBROUTINE sso (                                                       &
            psso_stdh, psso_gamma, psso_theta, psso_sigma,              &
            pdt    , mkenvh, params,                                    &
            ldebug ,                                                    &
-           pdu_sso, pdv_sso, pustr_sso, pvstr_sso, pvdis_sso           )
+           pdu_sso, pdv_sso, pustr_sso, pvstr_sso, pvdis_sso, use_acc  )
 
 !------------------------------------------------------------------------------
 !
@@ -172,6 +172,9 @@ SUBROUTINE sso (                                                       &
       INTEGER, INTENT(IN) ::  &
       istart    ,    & ! start index for first (zonal) direction
       iend             ! end index for first (zonal) direction
+
+
+      LOGICAL, OPTIONAL, INTENT(in)    :: use_acc !< initialization flag
 
       ! Tuning parameters
       TYPE(t_phy_params),INTENT(in)    :: params
@@ -232,6 +235,8 @@ SUBROUTINE sso (                                                       &
 
       LOGICAL  lo_sso (ie)
 
+      LOGICAL :: lzacc             ! OpenACC flag
+
       REAL(KIND=wp) :: zfi    (ie,ke)
       ! geopotential minus surface geopotential (m**2/s**2)
       REAL(KIND=wp) :: ztau   (ie,ke1)
@@ -284,6 +289,19 @@ SUBROUTINE sso (                                                       &
       Grcrit  = params%Grcrit
       Gfrcrit = params%Gfrcrit
 
+      ! openACC flag (initialization run is left on)
+      IF(PRESENT(use_acc)) THEN
+        lzacc = use_acc
+      ELSE
+        lzacc = .FALSE.
+      ENDIF
+
+      !Declaration of GPU arrays  
+      !$ACC DATA PRESENT(pt, pu, pv, pfif, pfis, pph, ppf, psso_stdh, psso_gamma,                 &
+      !$ACC             psso_theta, psso_sigma, pdv_sso, pdu_sso, pustr_sso, pvstr_sso, pvdis_sso) &
+      !$ACC CREATE(mcrit, mkcrith, mknu, mknu2, lo_sso,                                       &
+      !$ACC       zfi, ztau, zstrdu, zstrdv, zstab, zvph, zrho, zri, zpsi, zzdep,                    &
+      !$ACC       zdudt, zdvdt, zdtdt, zulow, zvlow, zvidis, zd1, zd2, zdmod, mkenvh) IF(lzacc)        
 
 !     Timestep is already set for 2TL or 3TL scheme, respectively,
 !     in calling routine organize_sso.
@@ -295,6 +313,7 @@ SUBROUTINE sso (                                                       &
 
 !     Initialize tendencies and compute geopotential above ground
 !     ===========================================================
+      !$ACC PARALLEL LOOP GANG VECTOR COLLAPSE(2) DEFAULT(NONE) ASYNC(1) IF(lzacc)
       DO j3=1,ke
         DO j1=istart,iend
           pdu_sso(j1,j3) = 0.0_vp
@@ -302,10 +321,13 @@ SUBROUTINE sso (                                                       &
           zfi    (j1,j3) = pfif(j1,j3)-pfis(j1)
         END DO
       END DO
+      !$ACC END PARALLEL
 
 !     Control operation of scheme by selection of points with standard
 !     deviation of sub-grid scale orography > 10 m only
 !     =================================================
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lzacc)
+      !$ACC LOOP GANG VECTOR
       DO j1=istart,iend
         IF (psso_stdh(j1).GT.10._wp) THEN
           lo_sso(j1)=.TRUE.
@@ -313,6 +335,8 @@ SUBROUTINE sso (                                                       &
           lo_sso(j1)=.FALSE.
         ENDIF
       END DO
+      !$ACC END PARALLEL
+      !$ACC WAIT IF(lzacc)
 
 ! ========================================================
 !     Computation of basic state variables in *sso_setup*
@@ -320,12 +344,11 @@ SUBROUTINE sso (                                                       &
 
       CALL sso_setup (                                   &
          ie     , ke   , ke1 ,   istart , iend   ,       &
-         pph   , ppf   , pu    , pv      , pt  , zfi  ,  &
-         psso_stdh, psso_theta, psso_gamma,              &
-         lo_sso,                                         &
+         pph   , ppf   , pu    , pv  , pt  ,zfi  ,       &
+         psso_stdh, psso_theta, psso_gamma, lo_sso,       &
          zrho  , zri   , zstab, ztau, zvph, zpsi, zzdep, &
-         zulow , zvlow , zd1  , zd2 ,zdmod,              &
-         mkcrith, mcrit, mkenvh,mknu,mknu2 )
+         zulow , zvlow , zd1  , zd2 ,zdmod, mkcrith ,    &
+         mcrit, mkenvh,mknu,mknu2, use_acc=lzacc )
 
 ! ========================================================
 !     Surface gravity wave stress amplitude
@@ -334,7 +357,7 @@ SUBROUTINE sso (                                                       &
       CALL gw_stress (                                   &
          ie     , ke1 , istart , iend   ,                &
          zrho,zstab,zvph,psso_stdh,psso_sigma,zdmod,     &
-         lo_sso, zfi, mkenvh, ztau )
+         lo_sso, zfi, mkenvh, ztau, use_acc=lzacc )
 
 ! ========================================================
 !     Gravity wave stress profile
@@ -345,7 +368,7 @@ SUBROUTINE sso (                                                       &
          pph   , zrho  , zstab , zvph    , zri  ,        &
          ztau  , zdmod , psso_sigma, psso_stdh  ,        &
          mkcrith, mcrit, mkenvh, mknu    , mknu2,        &
-         lo_sso )
+         lo_sso , use_acc=lzacc )
 
 ! ========================================================
 !     Computation of SSO effects' tendencies
@@ -353,16 +376,22 @@ SUBROUTINE sso (                                                       &
 
 !     Initialisation of tendencies for ALL grid points
 !     ------------------------------------------------
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lzacc)
+      !$ACC LOOP GANG VECTOR
       DO j1=istart,iend
         zvidis (j1)=0.0_wp
         zdudt  (j1)=0.0_wp
         zdvdt  (j1)=0.0_wp
         zdtdt  (j1)=0.0_wp
       END DO
+      !$ACC END PARALLEL
 
 !     Compute and add low level drag tendencies to the GWD ones
 !     ---------------------------------------------------------
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lzacc)
+      !$ACC LOOP SEQ
       DO j3=1,ke
+        !$ACC LOOP GANG VECTOR
         DO j1=istart,iend
 
         IF (lo_sso(j1)) THEN
@@ -405,6 +434,7 @@ SUBROUTINE sso (                                                       &
 
         END DO
       END DO     ! loop over vertical layers
+      !$ACC END PARALLEL
 
 ! ======================================================================
 !     Flux computations of original code of *GWDRAG* are not required in
@@ -416,6 +446,8 @@ SUBROUTINE sso (                                                       &
 !     ---------------------------------
 
       IF(PRESENT(pvdis_sso))THEN
+        !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lzacc)
+        !$ACC LOOP GANG VECTOR
         DO j1=istart,iend
           IF(lo_sso(j1)) THEN
 !           pvdis_sso(j1)=zcons1*zvidis(j1)
@@ -424,37 +456,52 @@ SUBROUTINE sso (                                                       &
             pvdis_sso(j1)=0._wp
           ENDIF
         END DO
+        !$ACC END PARALLEL
       ENDIF
 
 !     Initialize flux at top
 !     ----------------------
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lzacc)
+      !$ACC LOOP GANG VECTOR
       DO j1=istart,iend
         zstrdu(j1,1)=0._wp
         zstrdv(j1,1)=0._wp
       END DO
+      !$ACC END PARALLEL
 
 !     Increment flux based on tendency in each layer
 !     ----------------------------------------------
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lzacc)
+      !$ACC LOOP SEQ
       DO j3=1,ke
+        !$ACC LOOP GANG VECTOR
         DO j1=istart,iend
           zgdph=-G  /(pph(j1,j3+1)-pph(j1,j3))
           zstrdu(j1,j3+1)=pdu_sso(j1,j3)/zgdph + zstrdu(j1,j3)
           zstrdv(j1,j3+1)=pdv_sso(j1,j3)/zgdph + zstrdv(j1,j3)
         END DO
       END DO
+      !$ACC END PARALLEL
 
       IF(PRESENT(pustr_sso))THEN
 !     Store flux at surface
 !     ---------------------
+        !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lzacc)
+        !$ACC LOOP GANG VECTOR
         DO j1=istart,iend
           pustr_sso(j1)=zstrdu(j1,ke1)
           pvstr_sso(j1)=zstrdv(j1,ke1)
         END DO
+        !$ACC END PARALLEL
       ENDIF
 !
 !     Control printout
 !     ----------------
+
       IF (ldebug) THEN
+      !$ACC UPDATE HOST (pfis, psso_stdh, psso_gamma, psso_theta, psso_sigma) ASYNC(1) IF(lzacc)
+      !$ACC UPDATE HOST (pph, ppf, pu, pv, pt, pfif, pdu_sso, pdv_sso) ASYNC(1) IF(lzacc)
+      !$ACC WAIT IF(lzacc)
         DO j1=istart,iend
           IF (j1.EQ.55) THEN
             PRINT *, ' '
@@ -483,7 +530,8 @@ SUBROUTINE sso (                                                       &
           ENDIF
         ENDDO
       ENDIF
-
+      !$ACC WAIT IF(lzacc)
+      !$ACC END DATA
 !------------------------------------------------------------------------------
 ! End of the subroutine
 !------------------------------------------------------------------------------
@@ -497,11 +545,11 @@ END SUBROUTINE sso
 SUBROUTINE sso_setup (                                      &
            ie     , ke   , ke1 ,   istart , iend   ,        &
            pph ,ppf ,pu ,pv ,pt ,pfi,                       &
-           psso_stdh, psso_theta, psso_gamma   ,            &
-           lo_sso,                                          &
+           psso_stdh, psso_theta, psso_gamma , lo_sso,      &
            prho  , pri   , pstab, ptau, pvph , ppsi, pzdep, &
            pulow , pvlow , pd1  , pd2 , pdmod,              &
-           kkcrith, kcrit, kkenvh,kknu,kknu2)
+           kkcrith, kcrit, kkenvh,kknu,kknu2, use_acc)
+
 
 !------------------------------------------------------------------------------
 !
@@ -537,6 +585,8 @@ SUBROUTINE sso_setup (                                      &
       INTEGER, INTENT(IN) ::  &
       istart    ,    & ! start index for first (zonal) direction
       iend             ! end index for first (zonal) direction
+
+      LOGICAL, OPTIONAL, INTENT(IN)  :: use_acc
 
       REAL(KIND=wp) :: pph (:,:) ! (ie,ke1)
       REAL(KIND=wp) :: ppf (:,:) ! (ie,ke)
@@ -629,6 +679,7 @@ SUBROUTINE sso_setup (                                      &
 
       LOGICAL lo1  (ie,ke1)
       LOGICAL llo               ! utility switch
+      LOGICAL :: lzacc
 
 !     The following parameter is a tunable constant for the sub-grid scale
 !     orography scheme
@@ -642,6 +693,20 @@ SUBROUTINE sso_setup (                                      &
 
 ! Begin subroutine
 
+
+      IF(PRESENT(use_acc)) THEN
+        lzacc = use_acc
+      ELSE
+        lzacc = .FALSE.
+      ENDIF
+
+      !Declaration of GPU arrays
+      !$ACC DATA PRESENT(pph, ppf, pu, pv, pt, pfi, psso_stdh, psso_theta, psso_gamma, lo_sso,   &
+      !$ACC              prho, pri, pstab, ptau, pvph, ppsi, pzdep, pulow, pvlow, pd1,           &
+      !$ACC              pd2, pdmod, kkcrith, kcrit, kkenvh, kknu, kknu2)                        & 
+      !$ACC CREATE(lo1, mknul, mknub, znu, znum, znup, znorm, zsqst, zdp, zvpf) IF(lzacc)          
+
+  
       Nktopg = ke               ! number of topmost layer used to defined low level
 
 !     computational constants
@@ -659,6 +724,9 @@ SUBROUTINE sso_setup (                                      &
 !C
 !     security on anisotropy factor and presetting of critical levels
 
+
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lzacc)
+      !$ACC LOOP GANG VECTOR
       DO j1=istart,iend
         psso_gamma(j1) = MAX(psso_gamma(j1),Gtsec)
         kknu      (j1) = ke
@@ -667,13 +735,16 @@ SUBROUTINE sso_setup (                                      &
         mknul     (j1) = ke
         lo1(j1,ke1)    =.FALSE.    ! Initialize control variable
       END DO
-
+      !$ACC END PARALLEL
 !
 !!!!  define top of low level drag calculation layer (*kkcrit*)
 !     and other critical levels
 !     ============================================================
-!
+
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lzacc)
+      !$ACC LOOP SEQ
       DO j3=ke,mi3h,-1     ! vertical loop
+        !$ACC LOOP GANG VECTOR
         DO j1=istart,iend
           zhcrit = 4._wp*psso_stdh(j1)
           lo1(j1,j3)=((pfi(j1,j3)/G).GT.zhcrit)
@@ -682,8 +753,12 @@ SUBROUTINE sso_setup (                                      &
           ENDIF
         END DO
       END DO                ! end of vertical loop
+      !$ACC END PARALLEL
 
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lzacc)
+      !$ACC LOOP SEQ
       DO j3=ke,mi3h,-1    ! vertical loop
+        !$ACC LOOP GANG VECTOR
         DO j1=istart,iend
           zhcrit          =3._wp*psso_stdh(j1)
           lo1(j1,j3)=((pfi(j1,j3)/G).GT.zhcrit          )
@@ -692,8 +767,12 @@ SUBROUTINE sso_setup (                                      &
           ENDIF
         END DO
       END DO                ! end of vertical loop
+      !$ACC END PARALLEL
 
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lzacc)
+      !$ACC LOOP SEQ
       DO j3=ke,mi3h,-1    ! vertical loop
+        !$ACC LOOP GANG VECTOR
         DO j1=istart,iend
           zhcrit          =2._wp*psso_stdh(j1)
           lo1(j1,j3)=((pfi(j1,j3)/G).GT.zhcrit          )
@@ -702,8 +781,12 @@ SUBROUTINE sso_setup (                                      &
           ENDIF
         END DO
       END DO                ! end of vertical loop
+      !$ACC END PARALLEL
 
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lzacc)
+      !$ACC LOOP SEQ
       DO j3=ke,mi3h,-1    ! vertical loop
+        !$ACC LOOP GANG VECTOR
         DO j1=istart,iend
           zhcrit          =psso_stdh(j1)
           lo1(j1,j3)=((pfi(j1,j3)/G).GT.zhcrit          )
@@ -712,20 +795,28 @@ SUBROUTINE sso_setup (                                      &
           ENDIF
         END DO
       END DO                ! end of vertical loop
+      !$ACC END PARALLEL
 
 !     Confine critical level indices to be less or equal to Nktopg
 !     ============================================================
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lzacc)
+      !$ACC LOOP GANG VECTOR
       DO j1=istart,iend
         kknu(j1) =MIN(kknu(j1),Nktopg)
         mknub(j1)=MIN(mknub(j1),Nktopg)
         IF(mknub(j1).EQ.Nktopg) mknul(j1)=ke
         IF(mknub(j1).EQ.mknul(j1)) mknub(j1) = mknub(j1) - 1
       END DO
+      !$ACC END PARALLEL
 
-      mi3h = MIN(ke-2,MINVAL(kknu(istart:iend)))
+#ifndef _OPENACC
+        mi3h = MIN(ke-2,MINVAL(kknu(istart:iend)))
+#endif
 
 !     Initialize various arrays
 !     =========================
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lzacc)
+      !$ACC LOOP GANG VECTOR
       DO j1=istart,iend
         prho (j1,ke1) = 0.0_wp
         pstab(j1,1  ) = 0.0_wp
@@ -743,10 +834,15 @@ SUBROUTINE sso_setup (                                      &
         znum (j1)     = 0.0_wp
         lo1  (j1,ke1) = .FALSE.
       END DO
+      !$ACC END PARALLEL
 
 !     pressure thickness, density and Brunt-Vaisala frequency (squared)
 !     =================================================================
+
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lzacc)
+      !$ACC LOOP SEQ
       DO j3=ke,2,-1        ! vertical loop
+        !$ACC LOOP GANG VECTOR
         DO j1=istart,iend
           IF(lo_sso(j1)) THEN
           zdp (j1,j3) = ppf(j1,j3)-ppf(j1,j3-1)
@@ -764,10 +860,14 @@ SUBROUTINE sso_setup (                                      &
           ENDIF
         END DO
       END DO                ! end of vertical loop
+      !$ACC END PARALLEL
 
 !     Definition of blocked flow
 !     ==========================
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lzacc)
+      !$ACC LOOP SEQ
       DO j3=ke,mi3h,-1          ! vertical loop
+        !$ACC LOOP GANG VECTOR
         DO j1=istart,iend
           IF(lo_sso(j1)) THEN
           IF(j3.GE.mknub(j1).AND.j3.LE.mknul(j1)) THEN
@@ -780,9 +880,13 @@ SUBROUTINE sso_setup (                                      &
           END IF
         END DO
       END DO                ! end of vertical loop
+      !$ACC END PARALLEL
 
 !     Division by pressure thickness of contributing layers and
 !     determination of wind speed of blocked flow
+
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lzacc)
+      !$ACC LOOP GANG VECTOR
       DO j1=istart,iend
         IF(lo_sso(j1)) THEN
         pulow(j1) = pulow(j1) /                                    &
@@ -793,9 +897,13 @@ SUBROUTINE sso_setup (                                      &
         pvph(j1,ke1)=znorm(j1)  ! projected flow at lower boundary
         END IF
       END DO
+      !$ACC END PARALLEL
 
 !     Axes of subgrid scale orography and plane of profiles
 !     =====================================================
+
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lzacc)
+      !$ACC LOOP GANG VECTOR
       DO j1=istart,iend
         IF (lo_sso(j1)) THEN
         llo=(pulow(j1).LT.Gvsec).AND.(pulow(j1).GE.-Gvsec)
@@ -819,9 +927,11 @@ SUBROUTINE sso_setup (                                      &
         pdmod(j1) = SQRT(pd1(j1)**2+pd2(j1)**2)
         END IF
       END DO
+      !$ACC END PARALLEL
 
 !     projection of flow into plane of low level stress  (eq.4.7)
 !     ===========================================================
+      !$ACC PARALLEL LOOP GANG VECTOR COLLAPSE(2) DEFAULT(NONE) ASYNC(1) IF(lzacc)
       DO j3=1,ke                  ! vertical loop
         DO j1=istart,iend
           IF(lo_sso(j1)) THEN
@@ -841,10 +951,14 @@ SUBROUTINE sso_setup (                                      &
           lo1(j1,j3)   =.FALSE.
         END DO
       END DO                ! end of vertical loop
+      !$ACC END PARALLEL
 !C
 !     linear interpolation of projected flow to half levels
 !     ========================================================
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lzacc)
+      !$ACC LOOP SEQ
       DO j3=2,ke     ! vertical loop
+        !$ACC LOOP GANG VECTOR
         DO j1=istart,iend
           IF(lo_sso(j1)) THEN
           pvph(j1,j3)=                                  &
@@ -858,10 +972,15 @@ SUBROUTINE sso_setup (                                      &
           ENDIF
         END DO
       END DO                ! end of vertical loop
+      !$ACC END PARALLEL
 
 !     Brunt-Vaisala frequency and density for lowest level
 !     ====================================================
+
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lzacc)
+      !$ACC LOOP SEQ
       DO j3=mi3h,ke   ! vertical loop
+        !$ACC LOOP GANG VECTOR private(zst)
         DO j1=istart,iend
           IF(lo_sso(j1)) THEN
             IF(j3.GE.(mknub(j1)+1).AND.j3.LE.mknul(j1)) THEN
@@ -876,9 +995,13 @@ SUBROUTINE sso_setup (                                      &
           ENDIF
         END DO
       END DO                ! end of vertical loop
+      !$ACC END PARALLEL
 
 !     normalization
 !     -------------
+
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lzacc)
+      !$ACC LOOP GANG VECTOR
       DO j1=istart,iend
         IF(lo_sso(j1)) THEN
         pstab(j1,ke1)=pstab(j1,ke1)                    &
@@ -888,10 +1011,14 @@ SUBROUTINE sso_setup (                                      &
      &      /(ppf(j1,mknul(j1))-ppf(j1,mknub(j1)))
         END IF
       END DO
+      !$ACC END PARALLEL
 
 !     mean flow Richardson number on half levels
 !     ==========================================
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lzacc)
+      !$ACC LOOP SEQ
       DO j3=2,ke     ! vertical loop
+        !$ACC LOOP GANG VECTOR
         DO j1=istart,iend
           IF(lo_sso(j1)) THEN
           zdwind=MAX(ABS(zvpf(j1,j3)-zvpf(j1,j3-1)),Gvsec)
@@ -901,10 +1028,14 @@ SUBROUTINE sso_setup (                                      &
           ENDIF
         END DO
       END DO                ! end of vertical loop
+      !$ACC END PARALLEL
 
 !     define top of 'envelope' layer (cf. eq.4.8)
 !     ===========================================
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lzacc)
+      !$ACC LOOP SEQ
       DO j3=mi3h,ke-1     ! vertical loop
+        !$ACC LOOP GANG VECTOR
         DO j1=istart,iend
           IF(lo_sso(j1) .AND. j3.GE.kknu2(j1)) THEN
             znum (j1)=znu(j1)
@@ -923,15 +1054,22 @@ SUBROUTINE sso_setup (                                      &
           ENDIF
         END DO
       END DO                ! end of vertical loop
+      !$ACC END PARALLEL
 
 !     dynamical mixing height for the breaking of gravity waves
 !     =========================================================
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lzacc)
+      !$ACC LOOP GANG VECTOR
       DO j1=istart,iend
         znup(j1)=0.0_wp
         znum(j1)=0.0_wp
       END DO
+      !$ACC END PARALLEL
 
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lzacc)
+      !$ACC LOOP SEQ
       DO j3=ke-1,2,-1  ! vertical loop
+        !$ACC LOOP GANG VECTOR
         DO j1=istart,iend
           IF(lo_sso(j1)) THEN
             IF (j3.LT.kkenvh(j1)) THEN    ! only above envelope height
@@ -950,14 +1088,19 @@ SUBROUTINE sso_setup (                                      &
           ENDIF
         END DO
       END DO                ! end of vertical loop
+      !$ACC END PARALLEL
 
 !     allow low level wave breaking only above height of 4*stdh
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lzacc)
+      !$ACC LOOP GANG VECTOR
       DO j1=istart,iend
         kkcrith(j1)=MIN(kkcrith(j1),kknu(j1))
       END DO
+      !$ACC END PARALLEL
 
 !     directional information for flow blocking
 !     =========================================
+      !$ACC PARALLEL LOOP GANG VECTOR COLLAPSE(2) DEFAULT(NONE) ASYNC(1) IF(lzacc)
       DO j3=mi3h,ke     ! vertical loop
         DO j1=istart,iend
           IF(lo_sso(j1)) THEN
@@ -973,9 +1116,11 @@ SUBROUTINE sso_setup (                                      &
           ENDIF
         END DO
       END DO                ! end of vertical loop
+      !$ACC END PARALLEL
 
 !     assumed vertical profile of sso for blocking calculations
 !     =========================================================
+      !$ACC PARALLEL LOOP GANG VECTOR COLLAPSE(2) DEFAULT(NONE) ASYNC(1) IF(lzacc)
       DO j3=mi3h,ke     ! vertical loop
         DO j1=istart,iend
           IF(lo_sso(j1)) THEN
@@ -989,7 +1134,10 @@ SUBROUTINE sso_setup (                                      &
           END IF
         END DO
       END DO                ! end of vertical loop
+      !$ACC END PARALLEL
 
+      !$ACC WAIT IF(lzacc)
+      !$ACC END DATA
 !------------------------------------------------------------------------------
 ! End of the subroutine
 !------------------------------------------------------------------------------
@@ -1003,7 +1151,7 @@ END SUBROUTINE sso_setup
 SUBROUTINE gw_stress (                                  &
            ie     , ke1 , istart , iend   ,             &
            prho,pstab,pvph,psso_stdh,psso_sigma,pdmod,  &
-           lo_sso,pfi,mkenvh,ptau )
+           lo_sso, pfi,mkenvh,ptau ,use_acc )
 
 !------------------------------------------------------------------------------
 !
@@ -1022,6 +1170,8 @@ SUBROUTINE gw_stress (                                  &
       INTEGER, INTENT(IN) ::  &
       ie        ,    & ! number of grid points in first (zonal) direction
       ke1              ! ke + 1
+
+      LOGICAL, OPTIONAL, INTENT(IN)  :: use_acc
 
       INTEGER, INTENT(IN) ::  &
       istart    ,    & ! start index for first (zonal) direction
@@ -1043,6 +1193,7 @@ SUBROUTINE gw_stress (                                  &
       INTEGER mkenvh (:) ! (ie) index of top of envelope layer
 
       LOGICAL lo_sso(:) ! (ie)
+      LOGICAL :: lzacc
       !
 
 !     Output
@@ -1059,9 +1210,19 @@ SUBROUTINE gw_stress (                                  &
                               ! calculation
       INTEGER j1  ! loop variable
 
+      IF(PRESENT(use_acc)) THEN
+        lzacc = use_acc
+      ELSE
+        lzacc = .FALSE.
+      ENDIF
+
+      !Declaration of GPU arrays
+      !$ACC DATA PRESENT(ptau, lo_sso, prho, pstab, pvph, psso_stdh, psso_sigma, pdmod, pfi, mkenvh) IF(lzacc)
+
 !     gravity wave stress amplitude (eq.4.11)
 !     =======================================
-
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lzacc)
+      !$ACC LOOP GANG VECTOR
       DO j1=istart,iend
         IF(lo_sso(j1)) THEN
           zblock=pfi(j1,mkenvh(j1))/g
@@ -1073,6 +1234,10 @@ SUBROUTINE gw_stress (                                  &
           ptau(j1,ke1)=0.0_wp
         ENDIF
       END DO
+      !$ACC END PARALLEL
+
+      !$ACC WAIT IF(lzacc)
+      !$ACC END DATA
 
 !------------------------------------------------------------------------------
 ! End of the subroutine
@@ -1089,7 +1254,7 @@ SUBROUTINE gw_profil(                                    &
            pph    , prho   , pstab  , pvph     , pri ,   &
            ptau   , pdmod  , psso_sigma, psso_stdh   ,   &
            kkcrith, kcrit, kkenvh, kknu, kknu2 ,         &
-           lo_sso )
+           lo_sso , use_acc)
 
 !------------------------------------------------------------------------------
 !
@@ -1119,6 +1284,8 @@ SUBROUTINE gw_profil(                                    &
       ie        ,    & ! number of grid points in first (zonal) direction
       ke        ,    & ! number of grid points in vertical direction
       ke1              ! ke + 1
+
+      LOGICAL, OPTIONAL, INTENT(IN)  :: use_acc
 
       INTEGER, INTENT(IN) ::  &
       istart    ,    & ! start index for first (zonal) direction
@@ -1164,7 +1331,21 @@ SUBROUTINE gw_profil(                                    &
       REAL(KIND=wp) :: zsqri,zdz2n                               ! utitility variables
 
       INTEGER j1,j3                 ! loop indices
+      LOGICAL :: lzacc
 
+      IF(PRESENT(use_acc)) THEN
+        lzacc = use_acc
+      ELSE
+        lzacc = .FALSE.
+      ENDIF
+
+      !Declaration of GPU arrays
+      !$ACC DATA PRESENT(pph, prho, pstab, pri, pvph, ptau, pdmod, psso_stdh, psso_sigma,       &
+      !$ACC             kkcrith,  kcrit, kkenvh, kknu, kknu2, lo_sso)                           &
+      !$ACC CREATE(zdz2, ztau, znorm, zoro) IF(lzacc)
+
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lzacc)     
+      !$ACC LOOP GANG VECTOR
       DO j1=istart,iend
         IF(lo_sso(j1)) THEN
         zoro(j1) = psso_sigma(j1)*pdmod(j1)           &
@@ -1173,22 +1354,23 @@ SUBROUTINE gw_profil(                                    &
         ztau(j1,ke1          ) = ptau(j1,ke1          )
         ENDIF
       END DO
+      !$ACC END PARALLEL
 
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lzacc)
+      !$ACC LOOP SEQ     
       DO j3=ke,2,-1     ! vertical loop
-
-!     constant stress up to top of blocking layer
-!     ===========================================
+        !$ACC LOOP GANG VECTOR  
         DO j1=istart,iend
+!     constant stress up to top of blocking layer
+!     ===========================================  
           IF(lo_sso(j1)) THEN
             IF(j3.GE.kknu2(j1)) THEN
             ptau(j1,j3)=ztau(j1,ke1)
             ENDIF
           ENDIF
-        END DO
 
 !     wave displacement at next level
 !     ===============================
-        DO j1=istart,iend
           IF(lo_sso(j1)) THEN
             IF(j3.LT.kknu2(j1)) THEN
             znorm(j1)=Gkdrag*prho(j1,j3)*SQRT(pstab(j1,j3))  &
@@ -1196,12 +1378,11 @@ SUBROUTINE gw_profil(                                    &
             zdz2(j1,j3)=ptau(j1,j3+1)/MAX(znorm(j1),Gssec)
             ENDIF
           ENDIF
-        END DO
 
 !     wave Richardson number, new wave displacement and stress
 !     breaking evaluation and critical level
 !     ========================================================
-        DO j1=istart,iend
+
           IF(lo_sso(j1)) THEN
           IF(j3.LT.kknu2(j1)) THEN    ! only above blocking layer
             IF((ptau(j1,j3+1).LT.Gtsec).OR.(j3.LE.kcrit(j1))) THEN
@@ -1226,17 +1407,22 @@ SUBROUTINE gw_profil(                                    &
         END DO
 
       END DO       ! end of vertical loop
+      !$ACC END PARALLEL  
 
 !     reorganisation of stress profile, if breaking occurs at low levels
 !     ==================================================================
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lzacc)     
+      !$ACC LOOP GANG VECTOR
       DO j1=istart,iend
         IF(lo_sso(j1)) THEN
         ztau(j1,kkenvh(j1)) =ptau(j1,kkenvh(j1))
         ztau(j1,kkcrith(j1))=ptau(j1,kkcrith(j1))
         ENDIF
       END DO
+      !$ACC END PARALLEL
 
 !     linear decrease between kkenvh and kkcrith
+      !$ACC PARALLEL LOOP GANG VECTOR COLLAPSE(2) DEFAULT(NONE) ASYNC(1) IF(lzacc)     
       DO j3=1,ke      ! vertical loop
         DO j1=istart,iend
           IF(lo_sso(j1)) THEN
@@ -1250,7 +1436,10 @@ SUBROUTINE gw_profil(                                    &
           ENDIF
         END DO
       END DO       ! end of vertical loop
+      !$ACC END PARALLEL
 
+      !$ACC WAIT IF(lzacc)
+      !$ACC END DATA
 !------------------------------------------------------------------------------
 ! End of the subroutine
 !------------------------------------------------------------------------------

@@ -401,6 +401,10 @@ CONTAINS
       IF (inwp_cldcover(jg) /= 1) THEN
         CALL finish(routine,'GPU version only available for cloud cover 1.')
       ENDIF
+
+      IF (inwp_sso(jg) /= 1) THEN
+        CALL finish(routine,'GPU version only available for inwp_sso == 1.')
+      ENDIF
 #endif
 
 

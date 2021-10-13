@@ -583,8 +583,8 @@ CONTAINS
       CALL add_var( p_ext_atm_list, 'sso_gamma', p_ext_atm%sso_gamma, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,      &
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,      &
-        &           isteptype=TSTEP_CONSTANT )
-
+        &           isteptype=TSTEP_CONSTANT, lopenacc=.TRUE.)
+        __acc_attach(p_ext_atm%sso_gamma)
 
 
       ! Angle of sub-gridscale orography
@@ -596,8 +596,8 @@ CONTAINS
       CALL add_var( p_ext_atm_list, 'sso_theta', p_ext_atm%sso_theta, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,      &
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,      &
-        &           isteptype=TSTEP_CONSTANT )
-
+        &           isteptype=TSTEP_CONSTANT, lopenacc=.TRUE. )
+        __acc_attach(p_ext_atm%sso_theta)
 
 
       ! Slope of sub-gridscale orography
@@ -609,8 +609,8 @@ CONTAINS
       CALL add_var( p_ext_atm_list, 'sso_sigma', p_ext_atm%sso_sigma, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,      &
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,      &
-        &           isteptype=TSTEP_CONSTANT )
-
+        &           isteptype=TSTEP_CONSTANT, lopenacc=.TRUE. )
+        __acc_attach(p_ext_atm%sso_sigma)
 
 
 
