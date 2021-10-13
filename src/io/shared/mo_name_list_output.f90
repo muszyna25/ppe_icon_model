@@ -457,6 +457,10 @@ CONTAINS
 #ifdef HAVE_CDI_PIO
       IF (pio_type == pio_type_cdipio) &
         CALL namespaceSetActive(prev_cdi_namespace)
+
+      IF ( is_coupled_run() ) THEN
+        IF (my_process_is_io() ) CALL destruct_io_coupler ( "dummy" )
+      ENDIF
 #endif
 #ifndef NOMPI
 #ifndef __NO_ICON_ATMO__
@@ -2606,7 +2610,7 @@ CONTAINS
     ! construct_io_coupler needs to be called after init_name_list_output
     ! due to calling sequence in subroutine atmo_model for other atmosphere
     ! processes
-    IF ( is_coupled_run() ) CALL construct_io_coupler ( "name_list_io" )
+    IF ( is_coupled_run() ) CALL construct_io_coupler ( "dummy" )
 #endif
     ! setup of meteogram output
     DO jg =1,n_dom
@@ -2728,7 +2732,7 @@ CONTAINS
       &                        int2string(p_pe,'(i0)'), p_comm_work)
 
 #ifdef YAC_coupling
-    IF ( is_coupled_run() ) CALL destruct_io_coupler ( "name_list_io" )
+    IF ( is_coupled_run() ) CALL destruct_io_coupler ( "dummy" )
 #endif
 
     ! Shut down MPI
