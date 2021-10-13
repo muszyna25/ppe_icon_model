@@ -189,7 +189,7 @@ CONTAINS
     IF (rfids%isinit) DEALLOCATE(rfids%layids, rfids%nlays)
     rfids%nlayids = 0
     ALLOCATE(rfids%layids(32), rfids%nlays(32))
-    CALL nf(nf_def_dim(rfids%ncid, "fake_time", NF_UNLIMITED, rfids%ftid))
+    CALL nf(nf_def_dim(rfids%ncid, "time", NF_UNLIMITED, rfids%ftid))
     CALL nf(nf_def_dim(rfids%ncid, "cells", nelem(1), rfids%gids(1)))
     CALL nf(nf_def_dim(rfids%ncid, "verts", nelem(2), rfids%gids(2)))
     CALL nf(nf_def_dim(rfids%ncid, "edges", nelem(3), rfids%gids(3)))
