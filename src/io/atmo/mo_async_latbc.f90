@@ -306,7 +306,7 @@ CONTAINS
     ! construct_io_coupler needs to be called before init_name_list_output
     ! due to calling sequence in subroutine atmo_model for other atmosphere
     ! processes
-    IF ( is_coupled_run() ) CALL construct_io_coupler ( "prefetch_input_io" )
+    IF ( is_coupled_run() ) CALL construct_io_coupler ( "dummy" )
 #endif
     ! call to initalize the prefetch processor with grid data
     CALL init_prefetch(latbc)
@@ -327,7 +327,7 @@ CONTAINS
     ! clean up
     CALL latbc%finalize()
 #ifdef YAC_coupling
-      IF ( is_coupled_run() ) CALL destruct_io_coupler ( "prefetch_input_io" )
+      IF ( is_coupled_run() ) CALL destruct_io_coupler ( "dummy" )
 #endif
     CALL stop_mpi
   END SUBROUTINE prefetch_main_proc
