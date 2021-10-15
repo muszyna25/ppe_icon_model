@@ -109,7 +109,8 @@ MODULE mo_ocean_model
   USE mo_icon_output_tools,    ONLY: init_io_processes, prepare_output
   !-------------------------------------------------------------
   ! For the coupling
-  USE mo_ocean_coupling,      ONLY: construct_ocean_coupling, destruct_ocean_coupling
+  USE mo_ocean_coupling_frame, ONLY: construct_ocean_coupling, destruct_ocean_coupling
+  USE mo_coupling_config,      ONLY: is_coupled_run
   !-------------------------------------------------------------
  
   USE mo_ocean_hamocc_interface, ONLY: ocean_to_hamocc_construct, ocean_to_hamocc_init, ocean_to_hamocc_end

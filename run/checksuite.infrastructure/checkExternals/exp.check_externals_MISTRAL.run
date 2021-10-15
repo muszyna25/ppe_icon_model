@@ -1,0 +1,54 @@
+#! /bin/ksh
+#=============================================================================
+
+# mistral cpu batch job parameters
+# --------------------------------
+#SBATCH --account=mh0156
+#SBATCH --qos=buildbot
+#SBATCH --job-name=exp.check_externals_MISTRAL.run
+#SBATCH --partition=compute2,compute
+#SBATCH --nodes=1
+# the following is needed to work around a bug that otherwise leads to
+# a too low number of ranks when using compute,compute2 as queue
+#SBATCH --mem=0
+#SBATCH --output=LOG.exp.check_externals_MISTRAL.run.run.o
+#SBATCH  --error=LOG.exp.check_externals_MISTRAL.run.run.o
+#SBATCH --exclusive
+#SBATCH --time=00:20:00
+
+#=============================================================================
+set -x
+ulimit -s unlimited
+#=============================================================================
+thisdir=$(pwd)
+basedir=${thisdir%/*}
+
+# Run 'make check' and save its exit code:
+exitcode=0
+make -C "${basedir}" check || exitcode=$?
+
+# Generate the status file for the buildbot
+echo "${exitcode}" > exp.check_externals_MISTRAL.run.final_status
+
+# Print the log files for debugging:
+if false; then  # change false to true if the logs are needed
+  set +x
+  echo " ***** Test logs from '$(pwd)' ***** "
+  for d in $(find . -name 'tests'); do
+    echo " ||||| '$d' ||||| "
+    for f in $(find $d -name '*.log'); do
+      echo " ///// '$f' ///// "
+      cat $f
+      execf=${f%.log}
+      if test -f $execf; then
+        echo " +++++ '$execf' +++++ "
+        cat $execf
+      fi
+    done
+  done
+  echo " ***** End of test logs from '$(pwd)' ***** "
+  set -x
+fi
+
+# Exit with the exit code of the 'make check' command:
+exit ${exitcode}

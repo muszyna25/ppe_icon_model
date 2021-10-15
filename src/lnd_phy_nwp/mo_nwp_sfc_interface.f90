@@ -36,6 +36,7 @@ MODULE mo_nwp_sfc_interface
   USE mo_nwp_phy_state,       ONLY: phy_params
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: iqv, iqi, msg_level
+  USE mo_io_config,           ONLY: var_in_output
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, ibot_w_so, ntiles_total,    &
     &                               ntiles_water, lseaice, llake, lmulti_snow,        &
@@ -178,6 +179,7 @@ CONTAINS
 
     REAL(wp) :: runoff_s_inst_t (nproma)
     REAL(wp) :: runoff_g_inst_t (nproma)
+    REAL(wp) :: resid_wso_inst_t (nproma)
 
     INTEGER  :: soiltyp_t (nproma)
     REAL(wp) :: plcov_t   (nproma)
@@ -299,7 +301,8 @@ CONTAINS
 !$OMP   rain_gsp_rate,snow_gsp_rate,ice_gsp_rate,rain_con_rate,snow_con_rate,ps_t,prr_con_t,prs_con_t,      &
 !$OMP   prr_gsp_t,prs_gsp_t,pri_gsp_t,u_t,v_t,t_t,qv_t,p0_t,sso_sigma_t,lc_class_t,t_snow_now_t,t_s_now_t,  &
 !$OMP   t_g_t,qv_s_t,w_snow_now_t,rho_snow_now_t,w_i_now_t,w_p_now_t,w_s_now_t,freshsnow_t,                 &
-!$OMP   snowfrac_t,runoff_s_inst_t,runoff_g_inst_t,u_10m_t,v_10m_t,tch_t,tcm_t,tfv_t,sobs_t,thbs_t,pabs_t,  &
+!$OMP   snowfrac_t,runoff_s_inst_t,runoff_g_inst_t,resid_wso_inst_t,u_10m_t,v_10m_t,tch_t,tcm_t,tfv_t,      &
+!$OMP   sobs_t,thbs_t,pabs_t,                                                                               &
 !$OMP   soiltyp_t,plcov_t,rootdp_t,sai_t,tai_t,eai_t,rsmin2d_t,t_snow_mult_now_t,wliq_snow_now_t,           &
 !$OMP   rho_snow_mult_now_t,wtot_snow_now_t,dzh_snow_now_t,t_so_now_t,w_so_now_t,w_so_ice_now_t,            &
 !$OMP   t_s_new_t,w_snow_new_t,rho_snow_new_t,h_snow_t,w_i_new_t,w_p_new_t,w_s_new_t,t_so_new_t,            &
@@ -527,7 +530,8 @@ CONTAINS
        !$acc                    t_snow_now_t, t_s_now_t, t_sk_now_t, t_g_t, qv_s_t, w_snow_now_t, &
        !$acc                    rho_snow_now_t, h_snow_t, w_i_now_t, w_p_now_t, w_s_now_t,        &
        !$acc                    freshsnow_t, snowfrac_t, tch_t, tcm_t, tfv_t, runoff_s_inst_t,    &
-       !$acc                    runoff_g_inst_t, t_snow_mult_now_t, rho_snow_mult_now_t,          &
+       !$acc                    runoff_g_inst_t, resid_wso_inst_t, t_snow_mult_now_t,             &
+       !$acc                    rho_snow_mult_now_t,                                              &
        !$acc                    wliq_snow_now_t, wtot_snow_now_t, dzh_snow_now_t, t_so_now_t,     &
        !$acc                    w_so_now_t, w_so_ice_now_t, t_snow_new_t, t_s_new_t, t_sk_new_t,  &
        !$acc                    w_snow_new_t, rho_snow_new_t, meltrate, w_i_new_t, w_p_new_t,     &
@@ -624,6 +628,9 @@ CONTAINS
           ! over forecast) from terra:
           runoff_s_inst_t(ic)       =  0._wp 
           runoff_g_inst_t(ic)       =  0._wp
+          IF (var_in_output(jg)%res_soilwatb) THEN
+            resid_wso_inst_t(ic)   =  0._wp
+          ENDIF
 
           u_10m_t(ic)               =  prm_diag%u_10m_t(jc,jb,isubs)
           v_10m_t(ic)               =  prm_diag%v_10m_t(jc,jb,isubs)  
@@ -856,6 +863,7 @@ CONTAINS
 !
         &  runoff_s      = runoff_s_inst_t                   , & !INOUT surface water runoff   (kg/m2)
         &  runoff_g      = runoff_g_inst_t                   , & !INOUT soil water runoff      (kg/m2)
+        &  resid_wso     = resid_wso_inst_t                  , & !INOUT residuum of soil water budget (kg/m2)
 !
         &  zshfl_s       = shfl_soil_t                       , & !OUT sensible heat flux soil/air interface    (W/m2) 
         &  zlhfl_s       = lhfl_soil_t                       , & !OUT latent   heat flux soil/air interface    (W/m2) 
@@ -868,6 +876,7 @@ CONTAINS
         &  zshfl_sfc     = shfl_s_t                          , & !OUT sensible heat flux surface interface     (W/m2) 
         &  zlhfl_sfc     = lhfl_s_t                          , & !OUT latent   heat flux surface interface     (W/m2) 
         &  zqhfl_sfc     = qhfl_s_t                          , & !OUT moisture flux surface interface          (kg/m2/s)
+        &  lres_soilwatb = var_in_output(jg)%res_soilwatb    , & !IN flag to compute residuum of soil water
         &  lacc          = lzacc                             )   !IN flag to run OpenACC code
 
         ! Multiply w_snow with old snow fraction in order to obtain the area-average SWE needed for
@@ -954,8 +963,10 @@ CONTAINS
           END IF
           lnd_diag%freshsnow_t   (jc,jb,isubs) = freshsnow_t   (ic) 
           lnd_diag%runoff_s_inst_t    (jc,jb,isubs) = runoff_s_inst_t    (ic)  
-          lnd_diag%runoff_g_inst_t    (jc,jb,isubs) = runoff_g_inst_t    (ic)  
-
+          lnd_diag%runoff_g_inst_t    (jc,jb,isubs) = runoff_g_inst_t    (ic)
+          IF (var_in_output(jg)%res_soilwatb) THEN
+            lnd_diag%resid_wso_inst_t(jc,jb,isubs) = resid_wso_inst_t(ic)
+          ENDIF
           lnd_prog_new%t_so_t(jc,nlev_soil+1,jb,isubs) = t_so_new_t(ic,nlev_soil+1)
 
           prm_diag%lhfl_bs_t     (jc,jb,isubs) = lhfl_bs_t     (ic)
@@ -1052,7 +1063,8 @@ CONTAINS
        !$acc                   t_snow_now_t, t_s_now_t, t_sk_now_t, t_g_t, qv_s_t, w_snow_now_t, &
        !$acc                   rho_snow_now_t, h_snow_t, w_i_now_t, w_p_now_t, w_s_now_t,        &
        !$acc                   freshsnow_t, snowfrac_t, tch_t, tcm_t, tfv_t, runoff_s_inst_t,    &
-       !$acc                   runoff_g_inst_t, t_snow_mult_now_t, rho_snow_mult_now_t,          &
+       !$acc                   runoff_g_inst_t, resid_wso_inst_t, t_snow_mult_now_t,             &
+       !$acc                   rho_snow_mult_now_t,                                              &
        !$acc                   wliq_snow_now_t, wtot_snow_now_t, dzh_snow_now_t, t_so_now_t,     &
        !$acc                   w_so_now_t, w_so_ice_now_t, t_snow_new_t, t_s_new_t, t_sk_new_t,  &
        !$acc                   w_snow_new_t, rho_snow_new_t, meltrate, w_i_new_t, w_p_new_t,     &
@@ -1143,8 +1155,11 @@ CONTAINS
              lnd_diag%snowfrac_lc_t (jc,jb,is1) = lnd_diag%snowfrac_lc_t (jc,jb,is2) 
              lnd_diag%snowfrac_lcu_t(jc,jb,is1) = lnd_diag%snowfrac_lcu_t(jc,jb,is2) 
              lnd_diag%snowfrac_t    (jc,jb,is1) = lnd_diag%snowfrac_t    (jc,jb,is2) 
-             lnd_diag%runoff_s_inst_t (jc,jb,is1) = lnd_diag%runoff_s_inst_t    (jc,jb,is2)
-             lnd_diag%runoff_g_inst_t (jc,jb,is1) = lnd_diag%runoff_g_inst_t    (jc,jb,is2)
+             lnd_diag%runoff_s_inst_t    (jc,jb,is1) = lnd_diag%runoff_s_inst_t    (jc,jb,is2)
+             lnd_diag%runoff_g_inst_t    (jc,jb,is1) = lnd_diag%runoff_g_inst_t    (jc,jb,is2)
+             IF (var_in_output(jg)%res_soilwatb) THEN
+               lnd_diag%resid_wso_inst_t(jc,jb,is1) = lnd_diag%resid_wso_inst_t(jc,jb,is2)
+             ENDIF
 
              prm_diag%lhfl_bs_t     (jc,jb,is1) = prm_diag%lhfl_bs_t     (jc,jb,is2)
              lnd_diag%rstom_t       (jc,jb,is1) = lnd_diag%rstom_t       (jc,jb,is2)

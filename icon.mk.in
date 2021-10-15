@@ -411,8 +411,8 @@ $(bundled_subdirs):
 	  test xdistclean = x$(filter distclean,$(MAKECMDGOALS)); \
 	fi
 
-# Build the bundled mtime before the bundled yac:
-externals/yac: $(filter externals/mtime,$(bundled_subdirs))
+# Build the bundled mtime and yaxt before the bundled yac:
+externals/yac: $(filter externals/mtime externals/yaxt,$(bundled_subdirs))
 
 # Relink executables if any of the source files of the bundled libraries
 # is updated (the semicolon is required to support parallel rebuild):

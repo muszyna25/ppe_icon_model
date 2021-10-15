@@ -3,7 +3,7 @@
 MY_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR=$(cd "${MY_DIR}/../.."; pwd)
 
-${ICON_DIR}/config/dkrz/mistral.cdi-pio.intel-18.0.5 --disable-openmp
+${ICON_DIR}/config/dkrz/mistral.cdi-pio.yac2.yaxt-0.9.0.intel-18.0.5 --disable-openmp
 
 MAKE_PROCS=8
 make -j ${MAKE_PROCS}
