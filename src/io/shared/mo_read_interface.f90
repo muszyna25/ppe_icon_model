@@ -64,6 +64,7 @@ MODULE mo_read_interface
   USE mo_mpi, ONLY: p_comm_work_test, p_comm_work, p_io, &
        &            my_process_is_mpi_workroot, p_bcast
   USE mo_impl_constants, ONLY: on_cells, on_vertices, on_edges
+  USE mo_netcdf_errhandler, ONLY: nf
   !-------------------------------------------------------------------------
   IMPLICIT NONE
   PRIVATE
@@ -93,7 +94,6 @@ MODULE mo_read_interface
   PUBLIC :: read_2D_extdim
   PUBLIC :: read_2D_extdim_int
   PUBLIC :: read_3D_extdim
-  PUBLIC :: nf
 
   PUBLIC :: on_cells, on_vertices, on_edges
 
@@ -1977,35 +1977,5 @@ CONTAINS
     CALL p_bcast(string_out, p_io, &
       &          MERGE(p_comm_work_test, p_comm_work, p_test_run))
   END SUBROUTINE bcast_varname
-
-  !-------------------------------------------------------------------------
-
-  SUBROUTINE nf(STATUS, routine, warnonly, silent)
-
-    INTEGER, INTENT(in)           :: STATUS
-    CHARACTER(len=*), INTENT(in) :: routine
-    LOGICAL, INTENT(in), OPTIONAL :: warnonly
-    LOGICAL, INTENT(in), OPTIONAL :: silent
-
-    LOGICAL :: lwarnonly, lsilent
-
-    lwarnonly = .FALSE.
-    lsilent   = .FALSE.
-    IF(PRESENT(warnonly)) lwarnonly = .TRUE.
-    IF(PRESENT(silent))   lsilent   = silent
-
-    IF (lsilent) RETURN
-
-
-    IF (STATUS /= nf_noerr) THEN
-      IF (lwarnonly) THEN
-        CALL message( TRIM(routine)//' netCDF error', nf_strerror(STATUS), &
-          & level=em_warn)
-      ELSE
-        CALL finish( TRIM(routine)//' netCDF error', nf_strerror(STATUS))
-      ENDIF
-    ENDIF
-
-  END SUBROUTINE nf
 
 END MODULE mo_read_interface

@@ -17,7 +17,7 @@ MODULE mo_restart_nml_and_att
   USE mo_key_value_store, ONLY: t_key_value_store
   USE mo_kind, ONLY: wp
   USE mo_hash_table, ONLY: t_HashIterator
-  USE mo_read_netcdf_distributed, ONLY: nf
+  USE mo_netcdf_errhandler, ONLY: nf
 
   IMPLICIT NONE
   PRIVATE
@@ -127,17 +127,17 @@ CONTAINS
     IF (p_comm_rank(comm) == root_pe) THEN
       CALL gAttributeStore%init(.true.)
       ALLOCATE(CHARACTER(LEN=4096) :: aTxt)
-      CALL nf(nf_inq_natts(ncid, natt))
+      CALL nf(nf_inq_natts(ncid, natt), routine)
       DO i = 1, natt
-        CALL nf(nf_inq_attname(ncid, NF_GLOBAL, i, aName))
+        CALL nf(nf_inq_attname(ncid, NF_GLOBAL, i, aName), routine)
         namLen = LEN_TRIM(aName)
-        CALL nf(nf_inq_att(ncid, NF_GLOBAL, aName(1:namLen), aType, aLen))
+        CALL nf(nf_inq_att(ncid, NF_GLOBAL, aName(1:namLen), aType, aLen), routine)
         SELECT CASE(aType)
         CASE(NF_DOUBLE)
-          CALL nf(nf_get_att_double(ncid, NF_GLOBAL, aName(1:namLen), dTmp))
+          CALL nf(nf_get_att_double(ncid, NF_GLOBAL, aName(1:namLen), dTmp), routine)
           CALL gAttributeStore%put(aName(1:namLen), dTmp(1))
         CASE(NF_INT)
-          CALL nf(nf_get_att_int(ncid, NF_GLOBAL, aName(1:namLen), iTmp))
+          CALL nf(nf_get_att_int(ncid, NF_GLOBAL, aName(1:namLen), iTmp), routine)
           IF ('bool_' == aName(1:MIN(5,namLen))) THEN
             CALL gAttributeStore%put(aName(6:namLen), iTmp(1) .NE. 0)
           ELSE
@@ -146,7 +146,7 @@ CONTAINS
         CASE(NF_CHAR)
           IF (aLen .GT. LEN(aTxt)) DEALLOCATE(aTxt)
           IF (.NOT.ALLOCATED(aTxt)) ALLOCATE(CHARACTER(LEN=aLen) :: aTxt)
-          CALL nf(nf_get_att_text(ncid, NF_GLOBAL, aName(1:namLen), aTxt(1:aLen)))
+          CALL nf(nf_get_att_text(ncid, NF_GLOBAL, aName(1:namLen), aTxt(1:aLen)), routine)
           CALL gAttributeStore%put(aName(1:namLen), aTxt(1:aLen))
         END SELECT
       ENDDO
@@ -183,18 +183,18 @@ CONTAINS
       SELECT TYPE(curVal)
 #ifdef __PGI
       TYPE IS(t_char_workaround)
-        CALL nf(nf_put_att_text(ncid, NF_GLOBAL, ccKey, LEN(curVal%c), curVal%c))
+        CALL nf(nf_put_att_text(ncid, NF_GLOBAL, ccKey, LEN(curVal%c), curVal%c), routine)
 #else
       TYPE IS(CHARACTER(*))
-        CALL nf(nf_put_att_text(ncid, NF_GLOBAL, ccKey, LEN(curVal), curVal))
+        CALL nf(nf_put_att_text(ncid, NF_GLOBAL, ccKey, LEN(curVal), curVal), routine)
 #endif
       TYPE IS(REAL(wp))
-        CALL nf(nf_put_att_double(ncid, NF_GLOBAL, ccKey, NF_DOUBLE, 1, curVal))
+        CALL nf(nf_put_att_double(ncid, NF_GLOBAL, ccKey, NF_DOUBLE, 1, curVal), routine)
       TYPE IS(INTEGER)
-        CALL nf(nf_put_att_int(ncid, NF_GLOBAL, ccKey, NF_INT, 1, curVal))
+        CALL nf(nf_put_att_int(ncid, NF_GLOBAL, ccKey, NF_INT, 1, curVal), routine)
       TYPE IS(LOGICAL)
         ccTmp = 'bool_'//ccKey
-        CALL nf(nf_put_att_int(ncid, NF_GLOBAL, ccTmp, NF_INT, 1, MERGE(1,0,curVal)))
+        CALL nf(nf_put_att_int(ncid, NF_GLOBAL, ccTmp, NF_INT, 1, MERGE(1,0,curVal)), routine)
       CLASS DEFAULT
         CALL finish(routine, "val: invalid type")
       END SELECT

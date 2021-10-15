@@ -39,7 +39,7 @@ MODULE mo_async_restart_patch_data
 #endif
   USE mo_restart_patch_data,        ONLY: t_RestartPatchData
   USE mo_var_list_register_utils,   ONLY: vlr_select_restart_vars
-  USE mo_read_netcdf_distributed,   ONLY: nf
+  USE mo_netcdf_errhandler,         ONLY: nf
   USE mo_restart_patch_description, ONLY: t_restart_patch_description
   USE mo_var_metadata_types,        ONLY: t_var_metadata
 
@@ -132,21 +132,21 @@ CONTAINS
           CALL me%commData%collectData(desc%hmap(ci%hgrid), ct(2), p_dp, ioff, t_get, bGet)
           t_write = t_write - p_mpi_wtime()
           IF (timers_level >= 7) CALL timer_start(timer_write_restart_io)
-          CALL nf(nf_put_vara_double(ncid, ci%cdiVarID, st(:nd), ct(:nd), p_dp))
+          CALL nf(nf_put_vara_double(ncid, ci%cdiVarID, st(:nd), ct(:nd), p_dp), routine)
           bWrite = bWrite + ct(1)*ct(2)*p_real_dp_byte
         CASE(SINGLE_T)
           CALL C_F_POINTER(cptr, p_sp, ct(1:2))
           CALL me%commData%collectData(desc%hmap(ci%hgrid), ct(2), p_sp, ioff, t_get, bGet)
           t_write = t_write - p_mpi_wtime()
           IF (timers_level >= 7) CALL timer_start(timer_write_restart_io)
-          CALL nf(nf_put_vara_real(ncid, ci%cdiVarID, st(:nd), ct(:nd), p_sp))
+          CALL nf(nf_put_vara_real(ncid, ci%cdiVarID, st(:nd), ct(:nd), p_sp), routine)
           bWrite = bWrite + ct(1)*ct(2)*p_real_sp_byte
         CASE(INT_T)
           CALL C_F_POINTER(cptr, p_i, ct(1:2))
           CALL me%commData%collectData(desc%hmap(ci%hgrid), ct(2), p_i, ioff, t_get, bGet)
           t_write = t_write - p_mpi_wtime()
           IF (timers_level >= 7) CALL timer_start(timer_write_restart_io)
-          CALL nf(nf_put_vara_int(ncid, ci%cdiVarID, st(:nd), ct(:nd), p_i))
+          CALL nf(nf_put_vara_int(ncid, ci%cdiVarID, st(:nd), ct(:nd), p_i), routine)
           bWrite = bWrite + ct(1)*ct(2)*p_int_byte
         CASE DEFAULT
           CALL finish(routine, "Internal error! Variable "//TRIM(ci%name))

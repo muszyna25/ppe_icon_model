@@ -26,7 +26,8 @@ MODULE mo_load_singlefile_restart
   USE mo_timer, ONLY: timer_start, timer_stop, timer_load_restart_io, timers_level
   USE mo_util_string,        ONLY: int2string
   USE mo_read_netcdf_distributed, ONLY: t_distrib_read_data, distrib_nf_open, &
-    & distrib_read, distrib_nf_close, idx_lvl_blk, nf
+    & distrib_read, distrib_nf_close, idx_lvl_blk
+  USE mo_netcdf_errhandler,  ONLY: nf
   USE mo_dynamics_config,    ONLY: nnew, nnew_rcf
   USE mo_fortran_tools,      ONLY: t_ptr_3d, t_ptr_3d_int, t_ptr_3d_sp
 
@@ -97,7 +98,7 @@ CONTAINS
     IF (dummy .NE. 0) int_is_int = .FALSE.
     IF(my_process_is_mpi_workroot()) THEN
       WRITE(0, "(a)") "opening " // restart_filename
-      CALL nf(nf_open(restart_filename, NF_NOWRITE, fID))
+      CALL nf(nf_open(restart_filename, NF_NOWRITE, fID), routine)
       DO iV = 1, SIZE(vDat)
         skip(iV) = .NOT.has_valid_time_level(vDat(iV)%p%info, ptc%id, nnew(ptc%id), nnew_rcf(ptc%id))
         IF (.NOT.skip(iV)) THEN
@@ -109,7 +110,7 @@ CONTAINS
           END IF
         END IF
       END DO
-      CALL nf(nf_close(fID))
+      CALL nf(nf_close(fID), routine)
     END IF
     CALL p_bcast(skip, 0, comm=p_comm_work)
     fID = distrib_nf_open(restart_filename) 

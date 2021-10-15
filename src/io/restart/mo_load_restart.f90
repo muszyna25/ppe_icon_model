@@ -26,7 +26,7 @@ MODULE mo_load_restart
     & timer_load_restart_get_var_id, timers_level
   USE mo_var_list_register_utils, ONLY: vlr_select_restart_vars, vlr_collect_modelTypes
   USE mo_master_control,     ONLY: get_my_process_name
-  USE mo_read_netcdf_distributed, ONLY: nf
+  USE mo_netcdf_errhandler,  ONLY: nf
 
   IMPLICIT NONE
   PRIVATE
@@ -106,9 +106,9 @@ CONTAINS
     INTEGER :: ncid
     CHARACTER(*), PARAMETER :: routine = modname//":readRestartAttributeFile"
 
-    IF(my_process_is_mpi_workroot()) CALL nf(nf_open(attributeFile, NF_NOWRITE, ncid))
+    IF(my_process_is_mpi_workroot()) CALL nf(nf_open(attributeFile, NF_NOWRITE, ncid), routine)
     CALL restartAttributeList_read(0, p_comm_work, ncid=ncid)
-    IF(my_process_is_mpi_workroot()) CALL nf(nf_close(ncid))
+    IF(my_process_is_mpi_workroot()) CALL nf(nf_close(ncid), routine)
     CALL message(routine, "read namelists and attributes from restart file")
   END SUBROUTINE readRestartAttributeFile
 

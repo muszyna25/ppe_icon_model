@@ -191,7 +191,7 @@ MODULE mo_multifile_restart
     &                                        timer_write_restart_wait
   USE mo_util_string,                  ONLY: int2string, real2string
   USE mo_restart_nml_and_att,          ONLY: restartAttributeList_write_to_ncdf
-  USE mo_read_netcdf_distributed, ONLY: nf
+  USE mo_netcdf_errhandler,            ONLY: nf
 
   IMPLICIT NONE
   PRIVATE
@@ -316,7 +316,7 @@ CONTAINS
     CLASS(t_MultifileRestartDescriptor), INTENT(INOUT), TARGET :: me
     TYPE(t_restart_args), INTENT(IN) :: restartArgs
     CHARACTER(*), PARAMETER               :: routine = ":writeRestartInternal"
-    INTEGER                               :: jg, n_rstreams, findex
+    INTEGER                               :: jg, n_rstreams, findex, date_int
     INTEGER(i8)                           :: totBWritten, bWritten
     REAL(dp)                              :: gbWritten, dpTime
     CHARACTER(:), ALLOCATABLE             :: filename
@@ -342,7 +342,7 @@ CONTAINS
       END IF
     END DO
     IF(iAmRestartMaster()) THEN
-      CALL getRestartFilename('multifile', 0, restartArgs, filename)
+      CALL getRestartFilename('multifile', 0, restartArgs, filename, date_int)
       IF (createEmptyMultifileDir(filename) /= SUCCESS) &
         & CALL finish(routine, "error creating multifile-dir")
       CALL p_barrier(p_comm_work)
@@ -356,11 +356,11 @@ CONTAINS
           & //TRIM(real2string(dpTime))//"s")
     END IF
     IF (iAmRestartWriter()) THEN
-      CALL getRestartFilename('multifile', 0, restartArgs, filename)
+      CALL getRestartFilename('multifile', 0, restartArgs, filename, date_int)
       DO jg = 1, SIZE(me%mPatchData)
         IF (me%mPatchData(jg)%description%l_dom_active .AND. SIZE(me%mPatchData(jg)%varData) > 0) THEN
           findex = n_rstreams*rGroup() + (jg-1)/n_dom
-          CALL me%mPatchData(jg)%fileStuff(filename, findex, bWritten)
+          CALL me%mPatchData(jg)%fileStuff(filename, findex, bWritten, date_int)
         END IF
       END DO
     END IF
@@ -397,10 +397,10 @@ CONTAINS
       n_dom_active = COUNT(me%mPatchData(:)%description%l_dom_active)
       CALL rAttribs%put('multifile_n_dom_active', n_dom_active)
       IF(timers_level >= 7) CALL timer_start(timer_write_restart_io)
-      CALL nf(nf_create(filename//"/attributes.nc", NF_NETCDF4, ncid))
+      CALL nf(nf_create(filename//"/attributes.nc", NF_NETCDF4, ncid), routine)
       CALL restartAttributeList_write_to_ncdf(rAttribs, ncid)
-      CALL nf(nf_enddef(ncid))
-      CALL nf(nf_close(ncid))
+      CALL nf(nf_enddef(ncid), routine)
+      CALL nf(nf_close(ncid), routine)
       IF(timers_level >= 7) CALL timer_stop(timer_write_restart_io)
       CALL rAttribs%destruct()
     END SUBROUTINE writeAttributeFile

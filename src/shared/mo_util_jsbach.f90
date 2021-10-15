@@ -904,9 +904,9 @@ MODULE mo_jsb_io_netcdf_iface
   USE mo_jsb_parallel_iface, ONLY: my_process_is_mpi_parallel, my_process_is_stdio, p_bcast, p_io, mpi_comm
   USE mo_read_interface, ONLY: read_1D, read_2D, read_2D_time, read_2D_extdim, read_2D_int, openInputFile, closeFile, on_cells, &
                                t_stream_id, read_netcdf_broadcast_method
+  USE mo_netcdf_errhandler,  ONLY: nf
 
   IMPLICIT NONE
-
   PUBLIC
 
   TYPE t_input_file
@@ -1147,35 +1147,6 @@ CONTAINS
     CALL p_bcast(netcdf_file_has_var, p_io, mpi_comm)
 
   END FUNCTION netcdf_file_has_var
-
-  SUBROUTINE nf(status, routine, warnonly, silent)
-
-    USE mo_exception, ONLY: em_warn
-
-    INTEGER, INTENT(in)           :: status
-    CHARACTER(len=*), INTENT(in)  :: routine
-    LOGICAL, INTENT(in), OPTIONAL :: warnonly
-    LOGICAL, INTENT(in), OPTIONAL :: silent
-
-    LOGICAL :: lwarnonly, lsilent
-
-    lwarnonly = .FALSE.
-    lsilent   = .FALSE.
-    IF(PRESENT(warnonly)) lwarnonly = .TRUE.
-    IF(PRESENT(silent))   lsilent   = silent
-
-    IF (lsilent) RETURN
-
-    IF (status /= nf_noerr) THEN
-      IF (lwarnonly) THEN
-        CALL message( TRIM(routine)//' netCDF error', NF_STRERROR(status), &
-          & level=em_warn)
-      ELSE
-        CALL finish( TRIM(routine)//' netCDF error', NF_STRERROR(status))
-      ENDIF
-    ENDIF
-
-  END SUBROUTINE nf
 
 END MODULE mo_jsb_io_netcdf_iface
 

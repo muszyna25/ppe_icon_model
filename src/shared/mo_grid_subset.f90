@@ -22,6 +22,7 @@ MODULE mo_grid_subset
   USE mo_mpi,            ONLY: get_my_mpi_work_id
   USE mo_impl_constants, ONLY: on_cells, on_edges, on_vertices
   USE mo_parallel_config, ONLY: nproma
+  USE mo_netcdf_errhandler, ONLY: nf
 
   IMPLICIT NONE
   INCLUDE 'netcdf.inc'
@@ -273,41 +274,28 @@ CONTAINS
     CHARACTER(*), PARAMETER :: method_name = "write_subset_range"
 
     CALL nf(nf_put_att_int(ncid, nf_global,TRIM(subset_range%name)//'.start_block', nf_int, 1,     &
-      &  subset_range%start_block))
+      &  subset_range%start_block), method_name)
     CALL nf(nf_put_att_int(ncid, nf_global,TRIM(subset_range%name)//'.start_index', nf_int, 1,     &
-      &  subset_range%start_index))
+      &  subset_range%start_index), method_name)
 
     CALL nf(nf_put_att_int(ncid, nf_global,TRIM(subset_range%name)//'.end_block',   nf_int, 1,     &
-      & subset_range%end_block))
+      & subset_range%end_block), method_name)
     CALL nf(nf_put_att_int(ncid, nf_global,TRIM(subset_range%name)//'.end_index',   nf_int, 1,     &
-      & subset_range%end_index))
+      & subset_range%end_index), method_name)
 
     CALL nf(nf_put_att_int(ncid, nf_global,TRIM(subset_range%name)//'.block_size',  nf_int, 1,     &
-      & subset_range%block_size))
+      & subset_range%block_size), method_name)
 
     CALL nf(nf_put_att_int(ncid, nf_global,TRIM(subset_range%name)//'.entity_location', nf_int, 1,     &
-      & subset_range%entity_location))
+      & subset_range%entity_location), method_name)
 
     CALL nf(nf_put_att_int(ncid, nf_global,TRIM(subset_range%name)//'.no_of_holes', nf_int, 1,     &
-      & subset_range%no_of_holes))
+      & subset_range%no_of_holes), method_name)
 
     CALL nf(nf_put_att_int(ncid, nf_global,TRIM(subset_range%name)//'.is_in_domain',nf_int, 1,     &
-      & subset_range%is_in_domain))
+      & subset_range%is_in_domain), method_name)
 
   END SUBROUTINE write_subset
-  !-------------------------------------------------------------------------
-
-
-  !--------------------------------------------------------------------
-  SUBROUTINE nf(return_status)
-    INTEGER, INTENT(in) :: return_status
-
-    IF (return_status /= nf_noerr) THEN
-      CALL finish('mo_io_grid netCDF error', nf_strerror(return_status))
-    ENDIF
-
-  END SUBROUTINE nf
-  !-------------------------------------------------------------------------
 
 END MODULE mo_grid_subset
 

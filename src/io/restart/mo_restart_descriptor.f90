@@ -36,7 +36,7 @@ MODULE mo_restart_descriptor
   USE mo_sync_restart_patch_data, ONLY: t_syncPatchData
   USE mo_multifile_restart_patch_data, ONLY: t_multifilePatchData
   USE mo_var_metadata_types, ONLY: t_var_metadata
-  USE mo_read_netcdf_distributed, ONLY: nf
+  USE mo_netcdf_errhandler, ONLY: nf
 
   IMPLICIT NONE
   PRIVATE
@@ -257,7 +257,7 @@ CONTAINS
       IF(lIsWriteProcess) THEN
         CALL create_restart_file_link(fname, TRIM(rArgs%modelType), &
           & desc%id, opt_ndom=desc%opt_ndom)
-        CALL nf(nf_close(rfids%ncid))
+        CALL nf(nf_close(rfids%ncid), routine)
       END IF
     END DO
     IF (ALLOCATED(rAttribs)) CALL rAttribs%destruct()
@@ -265,24 +265,25 @@ CONTAINS
 
     SUBROUTINE restartfile_open()
       CHARACTER(len=MAX_DATETIME_STR_LEN) :: datetimeString
-      INTEGER :: i, ncid
+      INTEGER :: i, ncid, tvid, date_int
       TYPE(t_var_metadata), POINTER :: ci
 #ifdef DEBUG
       WRITE (nerr,'(a,i6)') routine//' p_pe=',p_pe
 #endif
       ! assume all restart variables uses the same file format
       CALL datetimeToString(rArgs%restart_datetime, datetimeString)
+      CALL getRestartFilename(desc%base_filename, desc%id, rArgs, fname, date_int)
       SELECT CASE(pData%restartType)
       CASE(FILETYPE_NC2)
         WRITE(0,*) "Write netCDF2 restart for: "//TRIM(datetimeString)
+        CALL nf(nf_create(fname, NF_64BIT_OFFSET, ncid), routine)
       CASE(FILETYPE_NC4)
         WRITE(0,*) "Write netCDF4 restart for: "//TRIM(datetimeString)
+        CALL nf(nf_create(fname, NF_NETCDF4, ncid), routine)
       CASE default
         CALL finish(routine, "file format for restart variables must be NetCDF")
       END SELECT
-      CALL getRestartFilename(desc%base_filename, desc%id, rArgs, fname)
-      CALL nf(nf_create(fname, MERGE(NF_NETCDF4, NF_64BIT_OFFSET, pData%restartType .NE. FILETYPE_NC2), ncid))
-      CALL rfids%init(ncid, desc%n_patch_elem_g(1:3))
+      CALL rfids%init(ncid, desc%n_patch_elem_g(1:3), tvid)
       ! set global attributes
       CALL restartAttributeList_write_to_ncdf(rAttribs, ncid)
 #ifdef DEBUG
@@ -295,7 +296,9 @@ CONTAINS
         IF(has_valid_time_level(ci, desc%id, desc%nnew, desc%nnew_rcf)) &
           & CALL rfids%def_ncdfvar(ci, desc%hmap(ci%hgrid))
       ENDDO
-      CALL nf(nf_enddef(ncid))
+      CALL nf(nf_set_fill(ncid, NF_NOFILL, i), routine)
+      CALL nf(nf_enddef(ncid), routine)
+      CALL nf(nf_put_var1_real(ncid, tvid, [1], REAL(date_int)), routine)
     END SUBROUTINE restartfile_open
   END SUBROUTINE restartDescriptor_writeFiles
 

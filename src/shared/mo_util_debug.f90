@@ -27,11 +27,10 @@ MODULE mo_util_debug
   !
   USE mo_kind,           ONLY: wp
   USE mo_util_string,    ONLY: int2string
-  USE mo_read_interface, ONLY: nf
+  USE mo_netcdf_errhandler, ONLY: nf
   USE mo_impl_constants, ONLY: MAX_CHAR_LENGTH
 
   IMPLICIT NONE
-  !
   PRIVATE
   !
   PUBLIC :: dump_array_to_netcdf

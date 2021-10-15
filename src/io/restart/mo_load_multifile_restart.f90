@@ -47,7 +47,7 @@ MODULE mo_load_multifile_restart
   USE mo_timer,                  ONLY: timer_start, timer_stop, timer_load_restart_io, timers_level, &
     &                                  timer_load_restart_comm_setup, timer_load_restart_communication, &
     &                                  timer_load_restart_get_var_id
-  USE mo_read_netcdf_distributed, ONLY: nf
+  USE mo_netcdf_errhandler,      ONLY: nf
   USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE
 
   IMPLICIT NONE
@@ -138,12 +138,12 @@ CONTAINS
   
       IF(timers_level >= 7) CALL timer_start(timer_load_restart_io)
       CALL multifilePayloadPath(mfPath, dom, partId, pathname)
-      CALL nf(nf_open(pathname, NF_NOWRITE, me%ncid))
+      CALL nf(nf_open(pathname, NF_NOWRITE, me%ncid), routine)
       DO iG = 1, 3
-        CALL nf(nf_inq_varid(me%ncid, vNames_glbIdx(iG), me%iVarIds(iG)))
-        CALL nf(nf_inq_varndims(me%ncid, me%iVarIds(iG), ndim))
-        CALL nf(nf_inq_vardimid(me%ncid, me%iVarIds(iG), dimid(1:ndim)))
-        CALL nf(nf_inq_dimlen(me%ncid, dimid(1), me%iCnts(iG)))
+        CALL nf(nf_inq_varid(me%ncid, vNames_glbIdx(iG), me%iVarIds(iG)), routine)
+        CALL nf(nf_inq_varndims(me%ncid, me%iVarIds(iG), ndim), routine)
+        CALL nf(nf_inq_vardimid(me%ncid, me%iVarIds(iG), dimid(1:ndim)), routine)
+        CALL nf(nf_inq_dimlen(me%ncid, dimid(1), me%iCnts(iG)), routine)
       END DO
       IF (timers_level >= 7) CALL timer_stop(timer_load_restart_io)
     END SUBROUTINE payloadFile_open
@@ -326,7 +326,7 @@ CONTAINS
     IF(timers_level >= 7) CALL timer_start(timer_load_restart_io)
     IF(ALLOCATED(files)) THEN
       DO hi = 1, SIZE(files)
-        CALL nf(nf_close(files(hi)%ncid))
+        CALL nf(nf_close(files(hi)%ncid), modname//":multifileReadPatch")
       END DO
     END IF
     IF(timers_level >= 7) CALL timer_stop(timer_load_restart_io)
@@ -338,7 +338,7 @@ CONTAINS
     INTEGER, POINTER :: glb_index(:)
     REAL(dp), ALLOCATABLE :: buffer(:)
     TYPE(t_key_value_store), POINTER :: restartAttributes
-    CHARACTER(*), PARAMETER :: routine = modname//":multifilePatchReader_construct"
+    CHARACTER(*), PARAMETER :: routine = modname//":multifileReadPatch:construct"
 
     CALL getAttributesForRestarting(restartAttributes)
     CALL restartAttributes%get('multifile_file_count', mfileCnt)
@@ -354,10 +354,12 @@ CONTAINS
         IF (n .LE. 0) CYCLE
         IF (timers_level >= 7) CALL timer_start(timer_load_restart_io)
         IF (int_is_int) THEN
-          CALL nf(nf_get_vara_int(files(cFId)%ncid, files(cFId)%iVarIds(iG), [1,1], [n,1], glbidx_read(cOff(iG)+1:cOff(iG)+n)))
+          CALL nf(nf_get_vara_int(files(cFId)%ncid, files(cFId)%iVarIds(iG), [1,1], [n,1], &
+            &                     glbidx_read(cOff(iG)+1:cOff(iG)+n)), routine)
         ELSE
           ALLOCATE(buffer(n))
-          CALL nf(nf_get_vara_double(files(cFId)%ncid, files(cFId)%iVarIds(iG), [1,1], [n,1], buffer))
+          CALL nf(nf_get_vara_double(files(cFId)%ncid, files(cFId)%iVarIds(iG), [1,1], [n,1], &
+            &                        buffer), routine)
           !ICON_OMP PARALLEL DO SCHEDULE(STATIC)
           DO i = 1, n
             glbidx_read(cOff(iG) + i) = INT(buffer(i))
@@ -389,7 +391,7 @@ CONTAINS
     REAL(sp), CONTIGUOUS_POINTER :: buf_3d_s(:,:,:), buf_s(:)
     INTEGER, POINTER :: ptr_3d_i(:,:,:)
     INTEGER, CONTIGUOUS_POINTER :: buf_3d_i(:,:,:), buf_i(:)
-    CHARACTER(*), PARAMETER :: routine = modname//":multifilePatchReader_readData"
+    CHARACTER(*), PARAMETER :: routine = modname//":multifileReadPatch:readData"
     LOGICAL :: en_bloc
     TYPE(C_PTR) :: cptr_r, cptr_e
 
@@ -401,9 +403,9 @@ CONTAINS
           IF (.NOT.has_valid_time_level(vDat(iV)%p%info, ptc%id, nnew(ptc%id), nnew_rcf(ptc%id))) CYCLE
           i = nf_inq_varid(files(1)%ncid, vDat(iV)%p%info%name, vIDs(1,iV))
           IF (i .EQ. NF_NOERR) THEN
-            CALL nf(nf_inq_varndims(files(1)%ncid, vIDs(1, iV), nds(iV)))
+            CALL nf(nf_inq_varndims(files(1)%ncid, vIDs(1, iV), nds(iV)), routine)
             DO fId = 2, SIZE(files)
-              CALL nf(nf_inq_varid(files(fId)%ncid, vDat(iV)%p%info%name, vIDs(fId,iV)))
+              CALL nf(nf_inq_varid(files(fId)%ncid, vDat(iV)%p%info%name, vIDs(fId,iV)), routine)
             END DO
             lCnt = MERGE(vDat(iV)%p%info%used_dimensions(2), 1, vDat(iV)%p%info%ndims .GT. 2)
             en_bloc = load_var_at_once .AND. lCnt .GT. 1
@@ -449,7 +451,7 @@ CONTAINS
             IF (pCt(fId) .LT. 1) CYCLE
             ct(:) = [pCt(fId), MERGE(lCnt, 1, en_bloc), 1]
             CALL nf(nf_get_vara_double(files(fId)%ncid, vIDs(fId, iV), st(:nds(iV)), ct(:nds(iV)), &
-              & buf_d(MERGE(1, ofs+1, en_bloc):MERGE(ct(1)*lcnt, ofs+ct(1), en_bloc))))
+              & buf_d(MERGE(1, ofs+1, en_bloc):MERGE(ct(1)*lcnt, ofs+ct(1), en_bloc))), routine)
             IF (en_bloc) THEN
               !ICON_OMP PARALLEL DO SCHEDULE(STATIC) COLLAPSE(2)
               DO lId = 1, lCnt
@@ -478,7 +480,7 @@ CONTAINS
             IF (pCt(fId) .LT. 1) CYCLE
             ct(:) = [pCt(fId), MERGE(lCnt, 1, en_bloc), 1]
             CALL nf(nf_get_vara_real(files(fId)%ncid, vIDs(fId, iV), st(:nds(iV)), ct(:nds(iV)), &
-              & buf_s(MERGE(1, ofs+1, en_bloc):MERGE(ct(1)*lcnt, ofs+ct(1), en_bloc))))
+              & buf_s(MERGE(1, ofs+1, en_bloc):MERGE(ct(1)*lcnt, ofs+ct(1), en_bloc))), routine)
             IF (en_bloc) THEN
               !ICON_OMP PARALLEL DO SCHEDULE(STATIC) COLLAPSE(2)
               DO lId = 1, lCnt
@@ -513,7 +515,7 @@ CONTAINS
             ct(:) = [pCt(fId), MERGE(lCnt, 1, en_bloc), 1]
             IF (int_is_int) THEN
               CALL nf(nf_get_vara_int(files(fId)%ncid, vIDs(fId, iV), st(:nds(iV)), ct(:nds(iV)), &
-                & buf_i(MERGE(1, ofs+1, en_bloc):MERGE(ct(1)*lcnt, ofs+ct(1), en_bloc))))
+                & buf_i(MERGE(1, ofs+1, en_bloc):MERGE(ct(1)*lcnt, ofs+ct(1), en_bloc))), routine)
               IF (en_bloc) THEN
                 !ICON_OMP PARALLEL DO SCHEDULE(STATIC) COLLAPSE(2)
                 DO lId = 1, lCnt
@@ -524,7 +526,7 @@ CONTAINS
               END IF
             ELSE
               CALL nf(nf_get_vara_double(files(fId)%ncid, vIDs(fId, iV), st(:nds(iV)), ct(:nds(iV)), &
-                & buf_d(1:ct(1)*MERGE(lcnt, 1, en_bloc))))
+                & buf_d(1:ct(1)*MERGE(lcnt, 1, en_bloc))), routine)
               !ICON_OMP PARALLEL DO SCHEDULE(STATIC) COLLAPSE(2)
               DO lId = 1, MERGE(lCnt, 1, en_bloc)
                 DO i = 1, pCt(fId)

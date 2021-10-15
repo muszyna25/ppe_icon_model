@@ -29,7 +29,7 @@ MODULE mo_multifile_restart_patch_data
   USE mo_var,                         ONLY: t_var_ptr
   USE mo_parallel_config,             ONLY: restart_chunk_size
   USE mo_var_list_register_utils,     ONLY: vlr_select_restart_vars
-  USE mo_read_netcdf_distributed,     ONLY: nf
+  USE mo_netcdf_errhandler,           ONLY: nf
   USE mo_restart_util,                ONLY: t_rfids
   USE mo_util_sort,                   ONLY: quicksort
 
@@ -45,8 +45,8 @@ MODULE mo_multifile_restart_patch_data
   CONTAINS
     PROCEDURE :: construct => multifilePatchData_construct
     PROCEDURE :: createCollectors => multifilePatchData_createCollectors
-    PROCEDURE :: start_local_access  => multifilePatchData_start_local_access
-    PROCEDURE :: start_remote_access => multifilePatchData_start_remote_access
+    PROCEDURE :: start_local_access  => multifilePatchData_local_access
+    PROCEDURE :: start_remote_access => multifilePatchData_remote_access
     PROCEDURE :: exposeData  => multifilePatchData_exposeData    
     PROCEDURE :: destruct => multifilePatchData_destruct    ! override
     PROCEDURE :: writeData => multifilePatchData_writeData
@@ -129,37 +129,40 @@ CONTAINS
     IF (timers_level >= 7) CALL timer_stop(timer_write_restart_setup)
   END SUBROUTINE multifilePatchData_createCollectors
 
-  SUBROUTINE multifilePatchData_fileStuff(me, fname, ifile, bWritten)
+  SUBROUTINE multifilePatchData_fileStuff(me, fname, ifile, bWritten, date_int)
     CLASS(t_MultifilePatchData), TARGET, INTENT(INOUT) :: me
     CHARACTER(*),                        INTENT(IN)    :: fname
-    INTEGER,                             INTENT(IN)    :: ifile
+    INTEGER,                             INTENT(IN)    :: ifile, date_int
     INTEGER(i8),                         INTENT(INOUT) :: bWritten
     CHARACTER(:), ALLOCATABLE                          :: effectiveFilename
     CLASS(t_restart_patch_description), POINTER        :: desc
-    INTEGER :: ncid, iVarId(3), dum
+    INTEGER :: ncid, iVarId(3), dum, tvid
+    CHARACTER(*), PARAMETER :: routine = modname//":fileStuff"
 
     IF (timers_level >= 7) CALL timer_start(timer_write_restart_io)
     desc => me%description
     CALL multifilePayloadPath(fname, desc%id, ifile, effectiveFilename)
-    CALL nf(nf_create(effectiveFilename, NF_NETCDF4, ncid))
+    CALL nf(nf_create(effectiveFilename, NF_NETCDF4, ncid), routine)
     CALL setup_meta()
-    CALL nf(nf_set_fill(ncid, NF_NOFILL, dum))
-    CALL nf(nf_enddef(ncid))
+    CALL nf(nf_set_fill(ncid, NF_NOFILL, dum), routine)
+    CALL nf(nf_enddef(ncid), routine)
     CALL write_glbids(iVarId)
+    CALL nf(nf_put_var1_real(ncid, tvid, [1], REAL(date_int)), routine)
     IF (timers_level >= 7) CALL timer_stop(timer_write_restart_io)
     CALL collect_write()
-    CALL nf(nf_close(ncid))
+    CALL nf(nf_close(ncid), routine)
   CONTAINS
 
     SUBROUTINE setup_meta()
       INTEGER :: iV
       TYPE(t_rfids) :: rfids
       TYPE(t_var_metadata), POINTER :: ci
+      CHARACTER(*), PARAMETER :: routine = modname//":fileStuff:setup_meta"
 
-      CALL rfids%init(ncid, [me%coll%idx(1)%nRecv, me%coll%idx(2)%nRecv, me%coll%idx(3)%nRecv])
-      CALL nf(nf_def_var(ncid, vNames_glbIdx(1), NF_INT, 2, [rfids%gids(1), rfids%ftid], iVarId(1)))
-      CALL nf(nf_def_var(ncid, vNames_glbIdx(2), NF_INT, 2, [rfids%gids(2), rfids%ftid], iVarId(2)))
-      CALL nf(nf_def_var(ncid, vNames_glbIdx(3), NF_INT, 2, [rfids%gids(3), rfids%ftid], iVarId(3)))
+      CALL rfids%init(ncid, [me%coll%idx(1)%nRecv, me%coll%idx(2)%nRecv, me%coll%idx(3)%nRecv], tvid)
+      DO iV = 1, 3
+        CALL nf(nf_def_var(ncid, vNames_glbIdx(iV), NF_INT, 2, [rfids%gids(iV), rfids%ftid], iVarId(iV)), routine)
+      END DO
       DO iV = 1, SIZE(me%varData) !SIZE(vWrNow)
         ci => me%varData(iV)%p%info
         IF (.NOT.has_valid_time_level(ci, me%description%id, &
@@ -177,7 +180,8 @@ CONTAINS
       DO i = 1, 3
         buf_i => dummy_i
         IF (me%coll%idx(i)%nRecv .GT. 0) buf_i => me%coll%glb_idx(i)%p
-        CALL nf(nf_put_vara_int(ncid, vids(i), [1,1], [me%coll%idx(i)%nRecv,1], buf_i))
+        CALL nf(nf_put_vara_int(ncid, vids(i), [1,1], [me%coll%idx(i)%nRecv,1], buf_i), &
+          &     modname//":fileStuff:write_glbids")
         bWritten = bWritten + INT(SIZE(buf_i), i8) * 4_i8
       END DO
     END SUBROUTINE write_glbids
@@ -188,8 +192,9 @@ CONTAINS
       TYPE(commonBuf_t) :: rBuf
       INTEGER, ALLOCATABLE :: vS(:), vWrNow(:)
       LOGICAL, DIMENSION(SIZE(me%varData)) :: vWrDone
-      INTEGER(KIND=i8), ALLOCATABLE :: srcOff(:,:)
-  
+      INTEGER(i8), ALLOCATABLE :: srcOff(:,:)
+      CHARACTER(*), PARAMETER :: routine = modname//":fileStuff:collect_write"
+
       DO i = 1, 3
         IF (.NOT.ASSOCIATED(me%coll%glb_idx(i)%p)) RETURN
         IF (SIZE(me%coll%glb_idx(i)%p) .LE. 0) RETURN
@@ -219,11 +224,11 @@ CONTAINS
           END IF
           SELECT CASE(ci%data_type)
           CASE(REAL_T)
-            CALL nf(nf_put_vara_double(ncid, ci%cdiVarId, st(:nd), ct(:nd), rBuf%d(1+vO:vO+vS(iV))))
+            CALL nf(nf_put_vara_double(ncid, ci%cdiVarId, st(:nd), ct(:nd), rBuf%d(1+vO:vO+vS(iV))), routine)
           CASE(SINGLE_T)
-            CALL nf(nf_put_vara_real(ncid, ci%cdiVarId, st(:nd), ct(:nd), rBuf%s(1+vO:vO+vS(iV))))
+            CALL nf(nf_put_vara_real(ncid, ci%cdiVarId, st(:nd), ct(:nd), rBuf%s(1+vO:vO+vS(iV))), routine)
           CASE(INT_T)
-            CALL nf(nf_put_vara_int(ncid, ci%cdiVarId, st(:nd), ct(:nd), rBuf%i(1+vO:vO+vS(iV))))
+            CALL nf(nf_put_vara_int(ncid, ci%cdiVarId, st(:nd), ct(:nd), rBuf%i(1+vO:vO+vS(iV))), routine)
           END SELECT
           vO = vO + vS(iV)
           bWritten = bWritten + INT(vS(iV), i8) * typeByte(typeMap(ci%data_type))
@@ -234,25 +239,25 @@ CONTAINS
 
   END SUBROUTINE multifilePatchData_fileStuff
 
-  SUBROUTINE multifilePatchData_start_local_access(me)
+  SUBROUTINE multifilePatchData_local_access(me)
     CLASS(t_MultifilePatchData), INTENT(INOUT) :: me
 
     IF (timers_level >= 7) CALL timer_start(timer_write_restart_wait)
     CALL me%coll%local_access()
     IF (timers_level >= 7) CALL timer_stop(timer_write_restart_wait)
-  END SUBROUTINE multifilePatchData_start_local_access
+  END SUBROUTINE multifilePatchData_local_access
 
-  SUBROUTINE multifilePatchData_start_remote_access(me)
+  SUBROUTINE multifilePatchData_remote_access(me)
     CLASS(t_MultifilePatchData), INTENT(INOUT) :: me
 
     IF (timers_level >= 7) CALL timer_start(timer_write_restart_wait)
     CALL me%coll%remote_access()
     IF (timers_level >= 7) CALL timer_stop(timer_write_restart_wait)
-  END SUBROUTINE multifilePatchData_start_remote_access
+  END SUBROUTINE multifilePatchData_remote_access
 
   SUBROUTINE select_vars(me, vWrDone, vWrNow, sub)
     TYPE(t_MultifilePatchData), INTENT(IN) :: me
-    CHARACTER(*), PARAMETER :: routine = modname//":multifilePatchData_select_vars"
+    CHARACTER(*), PARAMETER :: routine = modname//":select_vars"
     LOGICAL, INTENT(INOUT) :: vWrDone(SIZE(me%varData))
     INTEGER, ALLOCATABLE, INTENT(OUT) :: vWrNow(:)
     INTEGER, INTENT(INOUT) :: sub(3)

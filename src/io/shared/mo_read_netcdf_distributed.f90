@@ -35,6 +35,7 @@ MODULE mo_read_netcdf_distributed
   USE mo_fortran_tools, ONLY: t_ptr_2d, t_ptr_2d_int, t_ptr_2d_sp, &
     & t_ptr_3d, t_ptr_3d_int, t_ptr_3d_sp, t_ptr_4d, t_ptr_4d_int, &
     & t_ptr_4d_sp
+  USE mo_netcdf_errhandler, ONLY: nf
 #if defined (HAVE_PARALLEL_NETCDF) && !defined (NOMPI)
   USE mpi, ONLY: MPI_INFO_NULL, MPI_UNDEFINED, MPI_Comm_split, MPI_COMM_NULL
 #endif
@@ -53,7 +54,6 @@ MODULE mo_read_netcdf_distributed
   PUBLIC :: t_distrib_read_data
   PUBLIC :: distrib_inq_var_dims
   PUBLIC :: idx_lvl_blk, idx_blk_time
-  PUBLIC :: nf
 
   INCLUDE 'netcdf.inc'
 
@@ -107,11 +107,11 @@ CONTAINS
       ! a file does not exist.
       IF (ierr == nf_noerr) THEN
         ! Switch all vars to collective. Hopefully this is sufficient.
-        CALL nf(nf_inq_nvars(nfid, nvars))
+        CALL nf(nf_inq_nvars(nfid, nvars), routine)
         ALLOCATE(varids(nvars))
-        CALL nf(nf_inq_varids(nfid, nvars, varids))
+        CALL nf(nf_inq_varids(nfid, nvars, varids), routine)
         DO i = 1,nvars
-          CALL nf(nf_var_par_access(nfid, varids(i), NF_COLLECTIVE))
+          CALL nf(nf_var_par_access(nfid, varids(i), NF_COLLECTIVE), routine)
         ENDDO
       ELSE
         INQUIRE(file=path, exist=exists)
@@ -119,13 +119,13 @@ CONTAINS
           CALL finish("mo_read_netcdf_distributed", "File "//TRIM(path)//" does not exist.")
         ELSE
           ! If file exists just do the usual thing.
-          CALL nf(nf_open(path, nf_nowrite, nfid))
+          CALL nf(nf_open(path, nf_nowrite, nfid), routine)
           CALL message(routine, 'warning: falling back to serial semantics for&
                & opening netcdf file '//path)
         ENDIF
       ENDIF
 #else
-      CALL nf(nf_open(path, nf_nowrite, nfid))
+      CALL nf(nf_open(path, nf_nowrite, nfid), routine)
 #endif
     END IF
   END FUNCTION distrib_nf_open
@@ -148,13 +148,14 @@ CONTAINS
     INTEGER, INTENT(OUT) :: var_ndims, var_dimlen(:)
     INTEGER :: varid, i
     INTEGER :: temp_var_dimlen(NF_MAX_VAR_DIMS), var_dimids(NF_MAX_VAR_DIMS)
+    CHARACTER(*), PARAMETER :: routine = modname//'::distrib_nf_inq_var_dims'
 
     IF ( p_pe_work .EQ. parRootRank ) THEN
-      CALL nf(nf_inq_varid(file_id, var_name, varid))
-      CALL nf(nf_inq_varndims(file_id, varid, var_ndims))
-      CALL nf(nf_inq_vardimid(file_id, varid, var_dimids))
+      CALL nf(nf_inq_varid(file_id, var_name, varid), routine)
+      CALL nf(nf_inq_varndims(file_id, varid, var_ndims), routine)
+      CALL nf(nf_inq_vardimid(file_id, varid, var_dimids), routine)
       DO i=1, var_ndims
-        CALL nf(nf_inq_dimlen(file_id, var_dimids(i), temp_var_dimlen(i)))
+        CALL nf(nf_inq_dimlen(file_id, var_dimids(i), temp_var_dimlen(i)), routine)
       ENDDO
     END IF
 #ifndef NOMPI
@@ -172,7 +173,7 @@ CONTAINS
   SUBROUTINE distrib_nf_close(ncid)
     INTEGER, INTENT(in) :: ncid
 
-    IF (this_PE_does_IO) CALL nf(nf_close(ncid))
+    IF (this_PE_does_IO) CALL nf(nf_close(ncid), modname//'::distrib_nf_close')
   END SUBROUTINE distrib_nf_close
 
   !-------------------------------------------------------------------------
@@ -356,7 +357,7 @@ CONTAINS
         strt(2:SIZE(edim)+1) = start_ext_dim(1:SIZE(edim))
       END IF
     END IF
-    IF (ish(1) .GT. 0) CALL nf(nf_inq_varid(ncid, vname, vid))
+    IF (ish(1) .GT. 0) CALL nf(nf_inq_varid(ncid, vname, vid), routine)
     SELECT TYPE(vdata)
     TYPE IS(t_ptr_2d)
       CALL read_multi_var_2dwp(vdata)
@@ -387,9 +388,9 @@ CONTAINS
 
       ALLOCATE(bufi_i(ish(1),ish(2),ish(3)), bufo_i(osh(1),osh(2),osh(3),osh(4)))
       IF (ish(1) > 0) THEN
-        CALL nf(nf_inq_vartype(ncid, vid, vtype))
+        CALL nf(nf_inq_vartype(ncid, vid, vtype), routine)
         IF (vtype .NE. NF_INT) CALL finish(routine, "not an NF_INT")
-        CALL nf(nf_get_vara_int(ncid, vid, strt(1:1), ish(1:1), bufi_i(:,1,1)))
+        CALL nf(nf_get_vara_int(ncid, vid, strt(1:1), ish(1:1), bufi_i(:,1,1)), routine)
 !ICON_OMP PARALLEL DO COLLAPSE(2) PRIVATE(idx)
         DO i = 1, osh(2)
           DO j = 1, osh(1)
@@ -409,7 +410,7 @@ CONTAINS
 
       ALLOCATE(bufi_d(ish(1),ish(2),ish(3)), bufo_d(osh(1),osh(2),osh(3),osh(4)))
       IF (ish(1) > 0) THEN
-        CALL nf(nf_get_vara_double(ncid, vid, strt(1:1), ish(1:1), bufi_d(:,1,1)))
+        CALL nf(nf_get_vara_double(ncid, vid, strt(1:1), ish(1:1), bufi_d(:,1,1)), routine)
 !ICON_OMP PARALLEL DO COLLAPSE(2) PRIVATE(idx)
         DO i = 1, osh(2)
           DO j = 1, osh(1)
@@ -429,7 +430,7 @@ CONTAINS
 
       ALLOCATE(bufi_s(ish(1),ish(2),ish(3)), bufo_s(osh(1),osh(2),osh(3),osh(4)))
       IF (ish(1) > 0) THEN
-        CALL nf(nf_get_vara_real(ncid, vid, strt(1:1), ish(1:1), bufi_s(:,1,1)))
+        CALL nf(nf_get_vara_real(ncid, vid, strt(1:1), ish(1:1), bufi_s(:,1,1)), routine)
 !ICON_OMP PARALLEL DO COLLAPSE(2) PRIVATE(idx)
         DO i = 1, osh(2)
           DO j = 1, osh(1)
@@ -450,9 +451,9 @@ CONTAINS
 
       ALLOCATE(bufi_i(ish(1),ish(2),ish(3)), bufo_i(osh(1),osh(2),osh(3),osh(4)))
       IF (ish(1) > 0) THEN
-        CALL nf(nf_inq_vartype(ncid, vid, vtype))
+        CALL nf(nf_inq_vartype(ncid, vid, vtype), routine)
         IF (vtype .NE. NF_INT) CALL finish(routine, "not an NF_INT")
-        CALL nf(nf_get_vara_int(ncid, vid, strt(1:2), ish(1:2), bufi_i(:,:,1)))
+        CALL nf(nf_get_vara_int(ncid, vid, strt(1:2), ish(1:2), bufi_i(:,:,1)), routine)
         IF (o .EQ. idx_blk_time) THEN
 !ICON_OMP PARALLEL DO COLLAPSE(3) PRIVATE(idx)
           DO i = 1, osh(3)
@@ -493,7 +494,7 @@ CONTAINS
 
       ALLOCATE(bufi_d(ish(1),ish(2),ish(3)), bufo_d(osh(1),osh(2),osh(3),osh(4)))
       IF (ish(1) > 0) THEN
-        CALL nf(nf_get_vara_double(ncid, vid, strt(1:2), ish(1:2), bufi_d(:,:,1)))
+        CALL nf(nf_get_vara_double(ncid, vid, strt(1:2), ish(1:2), bufi_d(:,:,1)), routine)
         IF (o .EQ. idx_blk_time) THEN
 !ICON_OMP PARALLEL DO COLLAPSE(3) PRIVATE(idx)
           DO i = 1, osh(3)
@@ -534,7 +535,7 @@ CONTAINS
 
       ALLOCATE(bufi_s(ish(1),ish(2),ish(3)), bufo_s(osh(1),osh(2),osh(3),osh(4)))
       IF (ish(1) > 0) THEN
-        CALL nf(nf_get_vara_real(ncid, vid, strt(1:2), ish(1:2), bufi_s(:,:,1)))
+        CALL nf(nf_get_vara_real(ncid, vid, strt(1:2), ish(1:2), bufi_s(:,:,1)), routine)
         IF (o .EQ. idx_blk_time) THEN
 !ICON_OMP PARALLEL DO COLLAPSE(3) PRIVATE(idx)
           DO i = 1, osh(3)
@@ -574,9 +575,9 @@ CONTAINS
 
       ALLOCATE(bufi_i(ish(1),ish(2),ish(3)), bufo_i(osh(1),osh(2),osh(3),osh(4)))
       IF (ish(1) > 0) THEN
-        CALL nf(nf_inq_vartype(ncid, vid, vtype))
+        CALL nf(nf_inq_vartype(ncid, vid, vtype), routine)
         IF (vtype .NE. NF_INT) CALL finish(routine, "not an NF_INT")
-        CALL nf(nf_get_vara_int(ncid, vid, strt, ish, bufi_i(:,:,:)))
+        CALL nf(nf_get_vara_int(ncid, vid, strt, ish, bufi_i(:,:,:)), routine)
 !ICON_OMP PARALLEL DO COLLAPSE(4) PRIVATE(idx)
         DO i = 1, osh(4)
           DO j = 1, osh(3)
@@ -602,7 +603,7 @@ CONTAINS
 
       ALLOCATE(bufi_d(ish(1),ish(2),ish(3)), bufo_d(osh(1),osh(2),osh(3),osh(4)))
       IF (ish(1) > 0) THEN
-        CALL nf(nf_get_vara_double(ncid, vid, strt, ish, bufi_d(:,:,:)))
+        CALL nf(nf_get_vara_double(ncid, vid, strt, ish, bufi_d(:,:,:)), routine)
 !ICON_OMP PARALLEL DO COLLAPSE(4) PRIVATE(idx)
         DO i = 1, osh(4)
           DO j = 1, osh(3)
@@ -628,7 +629,7 @@ CONTAINS
 
       ALLOCATE(bufi_s(ish(1),ish(2),ish(3)), bufo_s(osh(1),osh(2),osh(3),osh(4)))
       IF (ish(1) > 0) THEN
-        CALL nf(nf_get_vara_real(ncid, vid, strt, ish, bufi_s(:,:,:)))
+        CALL nf(nf_get_vara_real(ncid, vid, strt, ish, bufi_s(:,:,:)), routine)
 !ICON_OMP PARALLEL DO COLLAPSE(4) PRIVATE(idx)
         DO i = 1, osh(4)
           DO j = 1, osh(3)
@@ -648,25 +649,5 @@ CONTAINS
       END DO
     END SUBROUTINE read_multi_var_4dsp
   END SUBROUTINE distrib_read
-
-  !-------------------------------------------------------------------------
-
-  SUBROUTINE nf(ierrstat, warnonly, silent)
-    INTEGER, INTENT(in)           :: ierrstat
-    LOGICAL, INTENT(in), OPTIONAL :: warnonly, silent
-
-    IF(PRESENT(silent)) THEN
-      IF (silent) RETURN
-    END IF
-    IF (ierrstat .NE. nf_noerr) THEN
-      IF (PRESENT(warnonly)) THEN
-        CALL message(modname//' netCDF error', &
-          &          nf_strerror(ierrstat), level=em_warn)
-      ELSE
-        CALL finish(modname//' netCDF error', &
-          &         nf_strerror(ierrstat))
-      ENDIF
-    ENDIF
-  END SUBROUTINE nf
 
 END MODULE mo_read_netcdf_distributed

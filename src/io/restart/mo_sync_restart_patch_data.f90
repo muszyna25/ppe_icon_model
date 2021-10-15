@@ -65,7 +65,7 @@ MODULE mo_sync_restart_patch_data
                                         & timer_write_restart_communication, timers_level
   USE mo_var_metadata_types,        ONLY: t_var_metadata
   USE mo_var_list_register_utils,   ONLY: vlr_select_restart_vars
-  USE mo_read_netcdf_distributed,   ONLY: nf
+  USE mo_netcdf_errhandler,         ONLY: nf
 
   IMPLICIT NONE
   PRIVATE
@@ -145,7 +145,7 @@ CONTAINS
           IF(is_mpi_workroot) THEN
             st(:) = [1,level,1]
             IF(timers_level >= 7) CALL timer_start(timer_write_restart_io)
-            CALL nf(nf_put_vara_double(ncid, info%cdiVarID, st(:nd), ct(:nd), gatherBuffer_dp))
+            CALL nf(nf_put_vara_double(ncid, info%cdiVarID, st(:nd), ct(:nd), gatherBuffer_dp), routine)
             IF(timers_level >= 7) CALL timer_stop(timer_write_restart_io)
           END IF
         END DO
@@ -164,7 +164,7 @@ CONTAINS
           IF(is_mpi_workroot) THEN
             st(:) = [1,level,1]
             IF(timers_level >= 7) CALL timer_start(timer_write_restart_io)
-            CALL nf(nf_put_vara_real(ncid, info%cdiVarID, st(:nd), ct(:nd), gatherBuffer_sp))
+            CALL nf(nf_put_vara_real(ncid, info%cdiVarID, st(:nd), ct(:nd), gatherBuffer_sp), routine)
             IF(timers_level >= 7) CALL timer_stop(timer_write_restart_io)
           END IF
         END DO
@@ -183,7 +183,7 @@ CONTAINS
           IF(is_mpi_workroot) THEN
             st(:) = [1,level,1]
             IF(timers_level >= 7) CALL timer_start(timer_write_restart_io)
-            CALL nf(nf_put_vara_int(ncid, info%cdiVarID, st(:nd), ct(:nd), gatherBuffer_int))
+            CALL nf(nf_put_vara_int(ncid, info%cdiVarID, st(:nd), ct(:nd), gatherBuffer_int), routine)
             IF(timers_level >= 7) CALL timer_stop(timer_write_restart_io)
           END IF
         END DO

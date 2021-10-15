@@ -74,6 +74,7 @@ MODULE mo_ocean_forcing
   USE mo_ocean_initial_conditions,     ONLY: tracer_ConstantSurface, &
     & varyTracerVerticallyExponentially
   USE mo_io_config,          ONLY: lnetcdf_flt64_output
+  USE mo_netcdf_errhandler,  ONLY: nf
 
   IMPLICIT NONE
   PRIVATE
@@ -671,13 +672,13 @@ CONTAINS
         !
         ! open file
         !
-        CALL nf(nf_open(TRIM(relax_init_file), nf_nowrite, ncid))
+        CALL nf(nf_open(TRIM(relax_init_file), nf_nowrite, ncid), routine)
 
         !
         ! get number of cells
         !
-        CALL nf(nf_inq_dimid(ncid, 'ncells', dimid))
-        CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
+        CALL nf(nf_inq_dimid(ncid, 'ncells', dimid), routine)
+        CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
 
         !
         ! check the number of cells
@@ -691,8 +692,8 @@ CONTAINS
         !
         ! get number of levels
         !
-        CALL nf(nf_inq_dimid(ncid, 'level', dimid))
-        CALL nf(nf_inq_dimlen(ncid, dimid, no_levels))
+        CALL nf(nf_inq_dimid(ncid, 'level', dimid), routine)
+        CALL nf(nf_inq_dimlen(ncid, dimid, no_levels), routine)
 
         !
         ! check the number of cells
@@ -703,7 +704,7 @@ CONTAINS
           CALL finish(TRIM(routine),'Number of vertical levels is not equal 1 - ABORT')
         ENDIF
 
-        CALL nf(nf_close(ncid))
+        CALL nf(nf_close(ncid), routine)
 
       ENDIF  !  stdio
 
@@ -1387,14 +1388,4 @@ CONTAINS
 
   END SUBROUTINE calc_windspeed_fromwindstress
 
-  SUBROUTINE nf(STATUS)
-
-    INTEGER, INTENT(in) :: STATUS
-
-    IF (STATUS /= nf_noerr) THEN
-      CALL finish('mo_ext_data netCDF error', nf_strerror(STATUS))
-    ENDIF
-
-  END SUBROUTINE nf
-  !-------------------------------------------------------------------------
 END MODULE mo_ocean_forcing
