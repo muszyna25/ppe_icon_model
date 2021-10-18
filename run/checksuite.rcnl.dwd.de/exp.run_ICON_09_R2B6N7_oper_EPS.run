@@ -448,8 +448,7 @@ lsynsat=.false. ! .false.,.true., ! requires RTTOV library - left out for this t
  filename_format      = '<output_filename><ddhhmmss><levtype>v01'
  stream_partitions_ml = 1
  pe_placement_ml      = 1
- ml_varlist           = 'U',         'V',         'T',         'W',         'TKE',
-                        'QV',        'QC',        'QI',        'QR',        'QS',
+ ml_varlist           = 'U',         'V',         'T',         'W',
                         'T_G',       'H_ICE',     'FR_ICE',    'RELHUM_2M',
                         'T_SNOW',    'H_SNOW',    'FRESHSNW',  'PS',
                         'T_SO',      'W_SO'

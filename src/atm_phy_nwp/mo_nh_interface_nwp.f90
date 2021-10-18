@@ -1508,14 +1508,6 @@ CONTAINS
     !-------------------------------------------------------------------------
 
     IF (lcall_phy_jg(itsso) .OR. lcall_phy_jg(itgwd)) THEN
-      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "gwdrag", .TRUE., opt_lupdate_cpu=.FALSE., opt_dt=mtime_datetime)
-#ifdef _OPENACC
-      IF (.NOT. linit) THEN
-        CALL message('mo_nh_interface_nwp', 'Device to host copy before nwp_gwdrag. This needs to be removed once port is finished!')
-        CALL gpu_d2h_nh_nwp(pt_patch, prm_diag)
-        i_am_accel_node = .FALSE.
-      ENDIF
-#endif
 
       IF (msg_level >= 15) &
         &  CALL message('mo_nh_interface', 'gravity waves')
@@ -1523,6 +1515,7 @@ CONTAINS
       IF (timers_level > 3) CALL timer_start(timer_sso)
 
       ! GZ: use fast-physics time step instead of dt_phy_jg(itsso) in order to avoid calling-frequency dependence of low-level blocking
+      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "gwdrag", .TRUE., opt_lupdate_cpu=.FALSE.)
       CALL nwp_gwdrag ( dt_loc,                    & !>input
         &               lcall_phy_jg(itsso),       & !>input
         &               dt_phy_jg(itgwd),          & !>input
@@ -1530,17 +1523,11 @@ CONTAINS
         &               pt_patch, p_metrics,       & !>input
         &               ext_data,                  & !>input
         &               pt_diag,                   & !>inout
-        &               prm_diag, prm_nwp_tend     ) !>inout
+        &               prm_diag, prm_nwp_tend,    & !>inout
+        &               lacc=(.not. linit)         ) !>in
+      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "gwdrag", .FALSE., opt_lupdate_cpu=.FALSE.)
 
       IF (timers_level > 3) CALL timer_stop(timer_sso)
-#ifdef _OPENACC
-      IF (.NOT. linit) THEN
-        CALL message('mo_nh_interface_nwp', 'Host to device copy after nwp_gwdrag. This needs to be removed once port is finished!')
-        CALL gpu_h2d_nh_nwp(pt_patch, prm_diag)
-        i_am_accel_node = my_process_is_work()
-      ENDIF
-#endif
-      !$ser verbatim IF (.not. linit) CALL serialize_all(nproma, jg, "gwdrag", .FALSE., opt_lupdate_cpu=.FALSE., opt_dt=mtime_datetime)
     ENDIF ! inwp_sso
     !-------------------------------------------------------------------------
     
