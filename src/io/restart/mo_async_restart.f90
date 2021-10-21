@@ -153,31 +153,31 @@ CONTAINS
     IF(timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
   END SUBROUTINE compute_prepare_restart
 
-  SUBROUTINE compute_write_var_list(commData, description, vars)
+  SUBROUTINE compute_write_var_list(commData, desc, vars)
     TYPE(t_AsyncRestartCommData), INTENT(inout) :: commData
-    TYPE(t_restart_patch_description), INTENT(in) :: description
+    TYPE(t_restart_patch_description), INTENT(in) :: desc
     TYPE(t_var_ptr), INTENT(in) :: vars(:)
     REAL(dp), POINTER               :: r_ptr_3d(:,:,:)
     REAL(sp), POINTER               :: s_ptr_3d(:,:,:)
     INTEGER, POINTER                :: i_ptr_3d(:,:,:)
-    INTEGER                         :: iv, offset
+    INTEGER                         :: iv, offset, hgi
     CHARACTER(LEN=*), PARAMETER     :: routine = modname//':compute_write_var_list'
 
     offset = 0
     CALL commData%sync(.FALSE.)
     DO iv = 1, SIZE(vars)
-      IF (has_valid_time_level(vars(iv)%p%info, description%id, &
-        &                      description%nnew, description%nnew_rcf)) THEN
+      IF (has_valid_time_level(vars(iv)%p%info, desc%id, desc%nnew, desc%nnew_rcf)) THEN
+        hgi = desc%hmap(vars(iv)%p%info%hgrid)
         SELECT CASE(vars(iv)%p%info%data_type)
         CASE(REAL_T)
           CALL get_var_3d_ptr(vars(iv)%p, r_ptr_3d)
-          CALL commData%postData(vars(iv)%p%info%hgrid, r_ptr_3d, offset)
+          CALL commData%postData(hgi, r_ptr_3d, offset)
         CASE(SINGLE_T)
           CALL get_var_3d_ptr(vars(iv)%p, s_ptr_3d)
-          CALL commData%postData(vars(iv)%p%info%hgrid, s_ptr_3d, offset)
+          CALL commData%postData(hgi, s_ptr_3d, offset)
         CASE(INT_T)
           CALL get_var_3d_ptr(vars(iv)%p, i_ptr_3d)
-          CALL commData%postData(vars(iv)%p%info%hgrid, i_ptr_3d, offset)
+          CALL commData%postData(hgi, i_ptr_3d, offset)
         CASE DEFAULT
           CALL finish(routine, "Internal error! Variable "//TRIM(vars(iv)%p%info%name))
         END SELECT

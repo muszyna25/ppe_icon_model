@@ -20,7 +20,7 @@ NETCDFF_ROOT="${SW_ROOT}/netcdf/netcdf_fortran-4.4.3-parallel-openmpi2-intel14"
 NETCDFF_LIBS='-lnetcdff'
 
 YAXT_ROOT='/work/k20200/k202061/icon-cdi-pio/long_yaxt-openmpi'
-YAXT_LIBS='-lyaxt'
+YAXT_LIBS='-lyaxt -lyaxt_c'
 
 CDI_ROOT='/work/k20200/k202061/cdi-pio-stack/opt/intel-openmpi'
 CDI_LIBS='-lcdi_f2003 -lcdipio -lcdi'
@@ -39,7 +39,7 @@ BUILD_ENV=". /sw/rhel6-x64/etc/profile.mistral; . \"${SCRIPT_DIR}/module_switche
 
 CC='mpicc'
 CFLAGS='-gdwarf-4 -O3 -qno-opt-dynamic-align -ftz -march=native -g'
-CPPFLAGS="-I${HDF5_ROOT}/include -I${NETCDF_ROOT}/include -I${XML2_ROOT}/include/libxml2"
+CPPFLAGS="-I${HDF5_ROOT}/include -I${NETCDF_ROOT}/include -I${YAXT_ROOT}/include -I${XML2_ROOT}/include/libxml2"
 
 FC='mpif90'
 FCFLAGS="-I${NETCDFF_ROOT}/include -I${YAXT_ROOT}/include -I${CDI_ROOT}/include -gdwarf-4 -g -march=native -pc64 -fp-model source"

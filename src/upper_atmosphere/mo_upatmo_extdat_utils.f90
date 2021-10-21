@@ -39,7 +39,7 @@ MODULE mo_upatmo_extdat_utils
   USE mo_loopindices,            ONLY: get_indices_c
   USE mo_mpi,                    ONLY: my_process_is_stdio, p_io, p_bcast, &
     &                                  p_comm_work
-  USE mo_read_interface,         ONLY: nf
+  USE mo_netcdf_errhandler,      ONLY: nf
   USE mo_upatmo_phy_chemheat,    ONLY: chem_heat_check, chem_heat_init
   USE mo_util_string,            ONLY: int2string, real2string
 

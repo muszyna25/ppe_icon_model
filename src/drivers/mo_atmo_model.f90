@@ -116,7 +116,7 @@ MODULE mo_atmo_model
 
   ! coupling
   USE mo_coupling_config,         ONLY: is_coupled_run
-  USE mo_interface_echam_ocean,   ONLY: construct_atmo_coupler, destruct_atmo_coupler
+  USE mo_atmo_coupling_frame,     ONLY: construct_atmo_coupling, destruct_atmo_coupling
 
   ! I/O
   USE mo_restart,                 ONLY: detachRestartProcs
@@ -177,7 +177,7 @@ CONTAINS
     ! construct the coupler
     !
     IF ( is_coupled_run() ) THEN
-      CALL construct_atmo_coupler(p_patch)
+      CALL construct_atmo_coupling(p_patch)
     ENDIF
 
 
@@ -219,7 +219,7 @@ CONTAINS
     ! destruct the coupler
     !
     IF ( is_coupled_run() ) THEN
-      CALL destruct_atmo_coupler ()
+      CALL destruct_atmo_coupling ()
     ENDIF
 
     !---------------------------------------------------------------------

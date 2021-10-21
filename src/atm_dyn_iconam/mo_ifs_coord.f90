@@ -30,13 +30,12 @@ MODULE mo_ifs_coord
   USE mo_physical_constants, ONLY: rd
   USE mo_fortran_tools,      ONLY: DO_DEALLOCATE
   USE mo_mpi,                ONLY: p_bcast, p_comm_rank
-  USE mo_read_interface,     ONLY: nf
+  USE mo_netcdf_errhandler,  ONLY: nf
 
   IMPLICIT NONE
+  PRIVATE
 
   INCLUDE 'netcdf.inc'
-
-  PRIVATE
 
   ! Data type containing all data specifying a pressure-sigma hybrid
   ! vertical coordinate (the eta coordinate).

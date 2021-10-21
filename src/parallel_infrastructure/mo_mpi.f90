@@ -895,9 +895,9 @@ MODULE mo_mpi
     MODULE PROCEDURE p_minmax_common_sp
   END INTERFACE p_minmax_common
 
-  CHARACTER(*), PARAMETER :: modname = "mo_mpi"
+  CHARACTER(*), PARAMETER :: modname = 'mo_mpi'
 
-  CHARACTER(len=256) :: message_text = ""
+  CHARACTER(len=256) :: message_text = ''
   
 #if defined( _OPENACC )
 #define ACC_DEBUG NOACC

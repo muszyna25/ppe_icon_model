@@ -20,13 +20,13 @@ MODULE mo_grid_geometry_info
   USE mo_physical_constants, ONLY: earth_radius
   USE mo_math_constants,     ONLY: pi
   USE mo_exception,          ONLY: finish
-
+  USE mo_netcdf_errhandler,  ONLY: nf
 #if !( defined (NOMPI) || defined (__ICON_GRID_GENERATOR__))
   ! The USE statement below lets this module use the routines from
   ! mo_netcdf_parallel where only 1 processor is reading and
   ! broadcasting the results  
   USE mo_netcdf_parallel, ONLY:                        &
-!     & nf_nowrite, nf_global, nf_noerr, nf_strerror,  &
+!     & nf_nowrite, nf_global, nf_noerr,               &
 !     & nf_open            => p_nf_open,               &
 !     & nf_close           => p_nf_close,              &
 !     & nf_inq_dimid       => p_nf_inq_dimid,          &
@@ -106,7 +106,8 @@ MODULE mo_grid_geometry_info
     REAL(wp) :: mean_characteristic_length ! the sqrt(mean_cell_area)
     
   END TYPE t_grid_geometry_info
-  
+
+  CHARACTER(*), PARAMETER :: modname = "mo_grid_geometry_info"
 CONTAINS
 
   !------------------------------------------------------------------------
@@ -369,54 +370,43 @@ CONTAINS
   INTEGER FUNCTION write_geometry_info(ncid, geometry_info)
     INTEGER, INTENT(in) :: ncid
     TYPE(t_grid_geometry_info) :: geometry_info
+    CHARACTER(*), PARAMETER :: routine = modname//":write_geometry_info"
 
     write_geometry_info = -1
 
     CALL nf(nf_put_att_int      (ncid, nf_global, 'grid_geometry', nf_int, 1,     &
-      & geometry_info%geometry_type))
+      & geometry_info%geometry_type), routine)
     
     CALL nf(nf_put_att_int      (ncid, nf_global, 'grid_cell_type', nf_int, 1,     &
-      & geometry_info%cell_type))
+      & geometry_info%cell_type), routine)
     
     CALL nf(nf_put_att_double(ncid, nf_global, 'mean_edge_length' , nf_double, 1, &
-      & geometry_info%mean_edge_length))
+      & geometry_info%mean_edge_length), routine)
       
     CALL nf(nf_put_att_double(ncid, nf_global, 'mean_dual_edge_length' , nf_double, 1, &
-      & geometry_info%mean_dual_edge_length))
+      & geometry_info%mean_dual_edge_length), routine)
       
     CALL nf(nf_put_att_double  (ncid, nf_global, 'mean_cell_area' , nf_double, 1, &
-      & geometry_info%mean_cell_area))
+      & geometry_info%mean_cell_area), routine)
       
     CALL nf(nf_put_att_double  (ncid, nf_global, 'mean_dual_cell_area' , nf_double, 1, &
-      & geometry_info%mean_dual_cell_area))
+      & geometry_info%mean_dual_cell_area), routine)
       
     CALL nf(nf_put_att_double   (ncid, nf_global, 'domain_length' , nf_double, 1, &
-      & geometry_info%domain_length))
+      & geometry_info%domain_length), routine)
     
     CALL nf(nf_put_att_double   (ncid, nf_global, 'domain_height' , nf_double, 1, &
-      & geometry_info%domain_height))
+      & geometry_info%domain_height), routine)
     
     CALL nf(nf_put_att_double   (ncid, nf_global, 'sphere_radius' , nf_double, 1, &
-      & geometry_info%sphere_radius))
+      & geometry_info%sphere_radius), routine)
     
     CALL nf(nf_put_att_double  (ncid, nf_global, 'domain_cartesian_center', nf_double, 3, &
-      & geometry_info%center%x))
+      & geometry_info%center%x), routine)
       
     write_geometry_info = 0
 
   END FUNCTION write_geometry_info
-  !-------------------------------------------------------------------------
-
-  !--------------------------------------------------------------------
-  SUBROUTINE nf(return_status)
-    INTEGER, INTENT(in) :: return_status
-
-    IF (return_status /= nf_noerr) THEN
-      CALL finish('mo_io_grid netCDF error', nf_strerror(return_status))
-    ENDIF
-
-  END SUBROUTINE nf
-  !-------------------------------------------------------------------------
 
 END MODULE mo_grid_geometry_info
 !----------------------------------------------------------------------------

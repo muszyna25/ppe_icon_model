@@ -44,13 +44,15 @@ MODULE mo_nh_init_utils
   USE mo_math_laplace,          ONLY: nabla2_scalar
   USE mo_math_gradients,        ONLY: grad_fd_norm
   USE mo_loopindices,           ONLY: get_indices_c, get_indices_e
+  USE mo_io_config,             ONLY: var_in_output
   USE mo_initicon_types,        ONLY: t_saveinit_state, t_init_state
   USE mo_initicon_config,       ONLY: type_iau_wgt, is_iau_active, &
     &                                 iau_wgt_dyn, iau_wgt_adv, ltile_coldstart
   USE mo_util_phys,             ONLY: virtual_temp
   USE mo_atm_phy_nwp_config,    ONLY: iprog_aero
   USE mo_lnd_nwp_config,        ONLY: ntiles_total, l2lay_rho_snow, ntiles_water, lmulti_snow, &
-                                      nlev_soil, nlev_snow, lsnowtile, lprog_albsi, itype_trvg, itype_snowevap
+                                      nlev_soil, nlev_snow, lsnowtile, lprog_albsi, itype_trvg,&
+                                      itype_snowevap
   USE mo_fortran_tools,         ONLY: init, copy
   USE mo_ifs_coord,             ONLY: geopot
 
@@ -988,6 +990,10 @@ CONTAINS
       CALL init (lnd_diag%runoff_g_t)
       CALL init (lnd_diag%runoff_s_inst_t)
       CALL init (lnd_diag%runoff_g_inst_t)
+      IF (var_in_output(jg)%res_soilwatb) THEN
+        CALL init (lnd_diag%resid_wso_t)
+        CALL init (lnd_diag%resid_wso_inst_t)
+      ENDIF
 
 !$OMP END PARALLEL
 

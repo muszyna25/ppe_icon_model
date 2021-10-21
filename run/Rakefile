@@ -1,3 +1,4 @@
+# @author: ralf mueller, ralf.mueller@dkrz.de
 require 'rake/clean'
 require 'logger'
 require 'pp'

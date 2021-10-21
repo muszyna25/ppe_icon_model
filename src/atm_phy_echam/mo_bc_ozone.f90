@@ -24,7 +24,7 @@ MODULE mo_bc_ozone
   USE mo_model_domain,             ONLY: t_patch
   USE mo_parallel_config,          ONLY: p_test_run
   USE mo_io_config,                ONLY: default_read_method
-  USE mo_read_interface,           ONLY: nf, openInputFile, closeFile,        &
+  USE mo_read_interface,           ONLY: openInputFile, closeFile,        &
   &                                      read_3D_time, t_stream_id, on_cells
   USE mo_mpi,                      ONLY: my_process_is_stdio, p_bcast,        &
   &                                      p_comm_work_test, p_comm_work, p_io
@@ -32,7 +32,7 @@ MODULE mo_bc_ozone
   USE mo_impl_constants,           ONLY: max_dom
   USE mo_grid_config,              ONLY: n_dom
   USE mo_echam_rad_config,         ONLY: echam_rad_config
-
+  USE mo_netcdf_errhandler,        ONLY: nf
   USE mo_time_config,              ONLY: time_config
   USE mo_bcs_time_interpolation,   ONLY: t_time_interpolation_weights, &
   &                                      calculate_time_interpolation_weights

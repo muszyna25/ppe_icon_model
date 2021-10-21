@@ -967,12 +967,11 @@ CONTAINS
 
   CONTAINS
 
-    SUBROUTINE nf(status)
-      INTEGER, INTENT(in) :: status
+    SUBROUTINE nf(errstat)
+      USE mo_netcdf_errhandler, ONLY: nf_ext => nf
+      INTEGER, INTENT(IN) :: errstat
 
-      IF (status /= nf_noerr) THEN
-        CALL finish(routine, 'NetCDF Error: '//nf_strerror(status))
-      ENDIF
+      CALL nf_ext(errstat, routine)
     END SUBROUTINE nf
 
     ! reorder1: get the physical patch points from the logical patch
