@@ -245,7 +245,8 @@ CONTAINS
         st2 = SQRT(st2)
 
         IF(patch_3D%lsm_e(je, 1, jb) <= sea_boundary)THEN
-          stretch_e(je, jb) = st1*stretch_c(id1, bl1) + st2*stretch_c(id2, bl2)
+          !! Bringing in averaging inline with how dz_e is calculated
+          stretch_e(je, jb) = 0.5*stretch_c(id1, bl1) + 0.5*stretch_c(id2, bl2)
         ELSE
           stretch_e(je, jb) = 1.0_wp
         ENDIF
@@ -1030,6 +1031,8 @@ CONTAINS
       CHARACTER(LEN=12)  :: str_module = 'zstar_surf'  ! Output of module for 1 line debug)
     
       REAL(wp) :: rn, minmaxmean(3)
+      
+      REAL(wp) :: temp_e(nproma, patch_3d%p_patch_2d(1)%nblks_e) 
 
       !------------------------------------------------------------------------
       patch_2d        => patch_3d%p_patch_2d(1)
@@ -1112,8 +1115,10 @@ CONTAINS
       !-------- end of solver ---------------
       !---------------------------------------------------------------------
  
+      !! stretch_e should not be updated so we are replacing with dummy variable
+      !! If updated it will calculate the wrong vn_time_weighted
       CALL update_zstar_variables( patch_3d, ocean_state(1), operators_coefficients, &
-        & eta_c_new, stretch_c_new, stretch_e)
+        & eta_c_new, stretch_c_new, temp_e)
 
       !------------------------------------------------------------------------
       ! end solve for free surface and update stretching

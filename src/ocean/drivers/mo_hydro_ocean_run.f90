@@ -815,7 +815,7 @@ CONTAINS
         ! incompressiblity condition in the non-shallow-water case
         start_timer(timer_vert_veloc,4)
         CALL calc_vert_velocity_bottomup_zstar( patch_3d, ocean_state(jg),operators_coefficients, & 
-          & ocean_state(jg)%p_prog(nnew(1))%stretch_c, stretch_e)
+          & ocean_state(jg)%p_prog(nold(1))%stretch_c, stretch_e)
         stop_timer(timer_vert_veloc,4)
         
         IF (idbg_mxmn >= 2 .OR. debug_check_level > 5) THEN
