@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# @author ralf mueller , ralf.mueller@dkrz.de
 import pylab as pyl
 from cdo import *
 from string import rjust

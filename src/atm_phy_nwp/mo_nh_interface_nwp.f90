@@ -2130,6 +2130,7 @@ CONTAINS
       CALL nwp_diag_output_2(pt_patch, pt_prog_rcf, prm_nwp_tend)
     ENDIF
 
+
     ! time averages, accumulations and vertical integrals
     CALL nwp_statistics(lcall_phy_jg,                    & !in
                         & dt_phy_jg,p_sim_time,          & !in

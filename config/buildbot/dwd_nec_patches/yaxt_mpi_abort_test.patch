@@ -1,0 +1,19 @@
+See config/buildbot/dwd_nec_patches/README.md
+
+--- a/tests/test_xmap_all2all_fail_run.in
++++ b/tests/test_xmap_all2all_fail_run.in
+@@ -13,14 +13,7 @@ for setup_size  in small big; do
+         2>&1`; then
+       exit 1
+     else
+-      rc=$?
+-      if [ $rc -ne 3 ]; then
+-        if echo x"$diags" | grep -i 'mpi_abort([^,()]*, 3)' >/dev/null ; then
+           continue
+-        else
+-          exit 1
+-        fi
+-      fi
+     fi
+   done
+ done

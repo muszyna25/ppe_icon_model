@@ -20,7 +20,7 @@
 #include "omp_definitions.inc"
 !----------------------------
 
-MODULE mo_interface_echam_ocean
+MODULE mo_echam_coupling
 
   USE mo_kind                ,ONLY: wp
   USE mo_model_domain        ,ONLY: t_patch
@@ -33,42 +33,28 @@ MODULE mo_interface_echam_ocean
   USE mo_run_config          ,ONLY: ltimer, ico2, nlev
   USE mo_timer,               ONLY: timer_start, timer_stop,                &
        &                            timer_coupling_put, timer_coupling_get, &
-       &                            timer_coupling_1stget, timer_coupling_init
+       &                            timer_coupling_1stget
   USE mo_echam_sfc_indices   ,ONLY: iwtr, iice, ilnd, nsfc_type
   USE mo_echam_phy_config    ,ONLY: echam_phy_config
 
-  USE mo_sync                ,ONLY: SYNC_C, sync_patch_array
-  USE mo_impl_constants      ,ONLY: MAX_CHAR_LENGTH
+  USE mo_sync                ,ONLY: sync_c, sync_patch_array
 
-  USE mo_ext_data_state      ,ONLY: ext_data
   USE mo_bc_greenhouse_gases ,ONLY: ghg_co2mmr
 
 #if !defined(__NO_JSBACH__) && !defined(__NO_JSBACH_HD__)
   USE mo_interface_hd_ocean  ,ONLY: jsb_fdef_hd_fields
 #endif
 
-  USE mo_master_control      ,ONLY: get_my_process_name
-
-  USE mo_mpi                 ,ONLY: p_pe_work, p_comm_work, p_sum
-  USE mo_math_constants      ,ONLY: pi
   USE mo_parallel_config     ,ONLY: nproma
 
   USE mo_coupling_config     ,ONLY: is_coupled_run
-  USE mo_time_config         ,ONLY: time_config
-
+  USE mo_atmo_coupling_frame ,ONLY: lyac_very_1st_get, nbr_inner_cells,     &
+    &                               mask_checksum, field_id
   USE mo_exception           ,ONLY: warning, finish, message
 
-  USE mo_yac_finterface      ,ONLY: yac_fput, yac_fget, yac_fget_version,        &
-    &                               yac_fget_nbr_fields, yac_fget_field_ids,     &
-    &                               yac_finit, yac_fdef_comp,                    &
-    &                               yac_fdef_datetime,                           &
-    &                               yac_fdef_subdomain, yac_fconnect_subdomains, &
-    &                               yac_fdef_elements, yac_fdef_points,          &
-    &                               yac_fdef_mask, yac_fdef_field, yac_fsearch,  &
-    &                               yac_ffinalize, YAC_LOCATION_CELL,            &
+  USE mo_yac_finterface      ,ONLY: yac_fput, yac_fget,                     &
     &                               COUPLING, OUT_OF_BOUND
 
-  USE mtime                  ,ONLY: datetimeToString, MAX_DATETIME_STR_LEN
   USE mo_util_dbg_prnt       ,ONLY: dbg_print
   USE mo_dbg_nml             ,ONLY: idbg_mxmn, idbg_val
   USE mo_physical_constants  ,ONLY: amd, amco2
@@ -78,414 +64,10 @@ MODULE mo_interface_echam_ocean
   PRIVATE
 
   PUBLIC :: interface_echam_ocean
-  PUBLIC :: construct_atmo_coupler, destruct_atmo_coupler
 
-  CHARACTER(len=*), PARAMETER :: thismodule = 'mo_interface_echam_ocean'
-
-  INTEGER, PARAMETER    :: no_of_fields = 13
-  INTEGER               :: field_id(no_of_fields)
-
-  REAL(wp), ALLOCATABLE :: buffer(:,:)
-  INTEGER, SAVE         :: nbr_inner_cells
-  INTEGER, SAVE         :: mask_checksum
-  LOGICAL, SAVE         :: lyac_very_1st_get
-
-  CHARACTER(len=12)     :: str_module    = 'InterFaceOce'  ! Output of module for 1 line debug
+  CHARACTER(len=12)           :: str_module = 'InterFaceOce'  ! Output of module for 1 line debug
 
 CONTAINS
-
-  !>
-  !! SUBROUTINE construct_atmo_coupler -- the initialisation for the coupling
-  !! of ECHAM physics and the ocean, through a coupler
-
-  SUBROUTINE construct_atmo_coupler (p_patch)
-
-    TYPE(t_patch), TARGET, INTENT(IN) :: p_patch(:)
-
-    CHARACTER(LEN=40), PARAMETER ::  field_name(no_of_fields) &
-      = (/ & ! bundled field containing two components
-           "surface_downward_eastward_stress        ", &
-           ! bundled field containing two components
-           "surface_downward_northward_stress       ", &
-           ! bundled field containing three components
-           "surface_fresh_water_flux                ", &
-           ! bundled field containing four components
-           "total_heat_flux                         ", &
-           ! bundled field containing two components
-           "atmosphere_sea_ice_bundle               ", &
-           "sea_surface_temperature                 ", &
-           "eastward_sea_water_velocity             ", &
-           "northward_sea_water_velocity            ", &
-           ! bundled field containing three components
-           "ocean_sea_ice_bundle                    ", &
-           "10m_wind_speed                          ", &
-           "co2_mixing_ratio                        ", &
-           "co2_flux                                ", &
-           "sea_level_pressure                      " /)
-
-
-    INTEGER :: error_status
-    INTEGER                :: patch_no
-    TYPE(t_patch), POINTER :: patch_horz
-
-    !---------------------------------------------------------------------
-    ! 11. Do the setup for the coupled run
-    !
-    ! For the time being this could all go into a subroutine which is
-    ! common to atmo and ocean. Does this make sense if the setup deviates
-    ! too much in future.
-    !---------------------------------------------------------------------
-
-    INTEGER, PARAMETER :: nbr_subdomain_ids = 1
-
-    REAL(wp), PARAMETER :: deg = 180.0_wp / pi
-
-    CHARACTER(LEN=max_char_length) :: comp_name
-
-    INTEGER :: comp_id
-    INTEGER :: comp_ids(1)
-    INTEGER :: cell_point_ids(1)
-    INTEGER :: cell_mask_ids(2)
-    INTEGER :: domain_id
-    INTEGER :: subdomain_id
-    INTEGER :: subdomain_ids(nbr_subdomain_ids)
-    INTEGER :: no_of_fields_total
-
-    INTEGER :: jg
-    INTEGER :: nblks, BLOCK, idx, INDEX
-    INTEGER :: nbr_vertices_per_cell
-
-    REAL(wp), ALLOCATABLE :: buffer_lon(:)
-    REAL(wp), ALLOCATABLE :: buffer_lat(:)
-    INTEGER,  ALLOCATABLE :: buffer_c(:,:)
-    INTEGER,  ALLOCATABLE :: ibuffer(:)
-    INTEGER,  ALLOCATABLE :: field_ids_total(:)
-
-    REAL(wp), ALLOCATABLE :: lsmnolake(:,:)
-
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: startdatestring
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: stopdatestring
-
-    ! Skip time measurement of the very first yac_fget
-    ! as this will measure mainly the wait time caused
-    ! by the initialisation of the model components
-    ! and does not tell us much about the load balancing
-    ! in subsequent calls.
-
-    lyac_very_1st_get = .TRUE.
-
-    IF ( .NOT. is_coupled_run() ) RETURN
-
-    IF (ltimer) CALL timer_start (timer_coupling_init)
-
-    comp_name = get_my_process_name()
-
-    patch_no = 1
-    patch_horz => p_patch(patch_no)
-    jg = patch_horz%id
-
-    ! Initialise the coupler
-    CALL yac_finit ( "coupling.xml", "coupling.xsd" )
-
-    ! Inform the coupler about what we are
-    CALL yac_fdef_comp ( TRIM(comp_name), comp_id )
-    comp_ids(1) = comp_id
-
-    ! Print the YAC version
-    CALL message('Running ICON atmosphere in coupled mode with YAC version ', TRIM(yac_fget_version()) )
-
-    ! Overwrite job start and end date with component data
-    CALL datetimeToString(time_config%tc_startdate, startdatestring)
-    CALL datetimeToString(time_config%tc_stopdate, stopdatestring)
-
-    CALL yac_fdef_datetime ( start_datetime = TRIM(startdatestring), &
-         &                   end_datetime   = TRIM(stopdatestring)   )
- 
-    ! Announce one subdomain (patch) to the coupler
-    CALL yac_fdef_subdomain ( comp_id, "grid1", subdomain_id )
-
-    subdomain_ids(1) = subdomain_id
-
-    ! Extract cell information
-    !
-    ! cartesian coordinates of cell vertices are stored in
-    ! patch_horz%verts%cartesian(:,:)%x(1:3)
-    ! Here we use the longitudes and latitudes.
-
-    nblks = max(patch_horz%nblks_c,patch_horz%nblks_v)
-
-    ALLOCATE(buffer_lon(nproma*nblks))
-    ALLOCATE(buffer_lat(nproma*nblks))
-    ALLOCATE(buffer_c(3,nproma*nblks))
-
-    ALLOCATE(lsmnolake(nproma,nblks))
-
-    nbr_vertices_per_cell = 3
-
-!ICON_OMP_PARALLEL
-!ICON_OMP_DO PRIVATE(BLOCK, idx, INDEX) ICON_OMP_RUNTIME_SCHEDULE
-    DO BLOCK = 1, patch_horz%nblks_v
-      DO idx = 1, nproma
-        INDEX = (BLOCK-1)*nproma+idx
-        buffer_lon(INDEX) = patch_horz%verts%vertex(idx,BLOCK)%lon * deg
-        buffer_lat(INDEX) = patch_horz%verts%vertex(idx,BLOCK)%lat * deg
-      ENDDO
-    ENDDO
-!ICON_OMP_END_DO NOWAIT
-
-!ICON_OMP_DO PRIVATE(BLOCK, idx, INDEX) ICON_OMP_RUNTIME_SCHEDULE
-    DO BLOCK = 1, patch_horz%nblks_c
-      DO idx = 1, nproma
-        INDEX = (BLOCK-1)*nproma+idx
-        buffer_c(1,INDEX) = (patch_horz%cells%vertex_blk(idx,BLOCK,1)-1)*nproma + &
-          &                  patch_horz%cells%vertex_idx(idx,BLOCK,1)
-        buffer_c(2,INDEX) = (patch_horz%cells%vertex_blk(idx,BLOCK,2)-1)*nproma + &
-          &                  patch_horz%cells%vertex_idx(idx,BLOCK,2)
-        buffer_c(3,INDEX) = (patch_horz%cells%vertex_blk(idx,BLOCK,3)-1)*nproma + &
-                             patch_horz%cells%vertex_idx(idx,BLOCK,3)
-      ENDDO
-    ENDDO
-!ICON_OMP_END_DO
-!ICON_OMP_END_PARALLEL
-
-    ! Description of elements, here as unstructured grid
-    CALL yac_fdef_elements (      &
-      & subdomain_id,             &
-      & patch_horz%n_patch_verts, &
-      & patch_horz%n_patch_cells, &
-      & nbr_vertices_per_cell,    &
-      & buffer_lon,               &
-      & buffer_lat,               &
-      & buffer_c )
-
-    ! Can we have two fdef_point calls for the same subdomain, i.e.
-    ! one single set of cells?
-    !
-    ! Define cell center points (location = 0)
-    !
-    ! cartesian coordinates of cell centers are stored in
-    ! patch_horz%cells%cartesian_center(:,:)%x(1:3)
-    ! Here we use the longitudes and latitudes.
-
-!ICON_OMP_PARALLEL_DO PRIVATE(BLOCK, idx, INDEX) ICON_OMP_RUNTIME_SCHEDULE
-    DO BLOCK = 1, patch_horz%nblks_c
-      DO idx = 1, nproma
-        INDEX = (BLOCK-1)*nproma+idx
-        buffer_lon(INDEX) = patch_horz%cells%center(idx,BLOCK)%lon * deg
-        buffer_lat(INDEX) = patch_horz%cells%center(idx,BLOCK)%lat * deg
-      ENDDO
-    ENDDO
-!ICON_OMP_END_PARALLEL_DO
-
-    ! center points in cells (needed e.g. for patch recovery and nearest neighbour interpolation)
-    CALL yac_fdef_points (        &
-      & subdomain_id,             &
-      & patch_horz%n_patch_cells, &
-      & YAC_LOCATION_CELL,        &
-      & buffer_lon,               &
-      & buffer_lat,               &
-      & cell_point_ids(1) )
-
-    DEALLOCATE (buffer_lon, buffer_lat, buffer_c)
-
-    ALLOCATE(ibuffer(nproma*patch_horz%nblks_c))
-
-    nbr_inner_cells = 0
-!ICON_OMP_PARALLEL_DO PRIVATE(idx) REDUCTION(+:nbr_inner_cells) ICON_OMP_RUNTIME_SCHEDULE
-    DO idx = 1, patch_horz%n_patch_cells
-       IF ( p_pe_work == patch_horz%cells%decomp_info%owner_local(idx) ) THEN
-         ibuffer(idx) = -1
-         nbr_inner_cells = nbr_inner_cells + 1
-       ELSE
-         ibuffer(idx) = patch_horz%cells%decomp_info%owner_local(idx)
-       ENDIF
-    ENDDO
-!ICON_OMP_END_PARALLEL_DO
-
-    ! decomposition information
-    CALL yac_fdef_index_location (              &
-      & subdomain_id,                           &
-      & patch_horz%n_patch_cells,               &
-      & YAC_LOCATION_CELL,                      &
-      & patch_horz%cells%decomp_info%glb_index, &
-      & ibuffer )
-
-    ! Connect subdomains
-    CALL yac_fconnect_subdomains ( &
-      & comp_id,                   &
-      & nbr_subdomain_ids,         &
-      & subdomain_ids,             &
-      & domain_id )
-
-    !
-    ! The integer land-sea mask:
-    !          -2: inner ocean
-    !          -1: boundary ocean
-    !           1: boundary land
-    !           2: inner land
-    !
-    ! This integer mask for the atmosphere is available in ext_data(1)%atm%lsm_ctr_c(:,:).
-    ! The (fractional) mask which is used in the ECHAM physics is prm_field(1)%lsmask(:,:).
-    !
-    ! The logical mask for the coupler must be generated from the fractional mask by setting
-    !   only those gridpoints to land that have no ocean part at all (lsf<1 is ocean).
-    ! The logical mask is then set to .FALSE. for land points to exclude them from mapping by yac.
-    ! These points are not touched by yac.
-    !
-
-    !  In variable lsmask the land part is reduced by the part of lakes (alake) 
-    !  Variable lsmnolake contains the pure lsm:
-
-    IF ( echam_phy_config(jg)%llake ) THEN
-!ICON_OMP_PARALLEL_DO PRIVATE(BLOCK,idx) ICON_OMP_RUNTIME_SCHEDULE
-    DO BLOCK = 1, patch_horz%nblks_c
-      DO idx = 1, nproma
-        lsmnolake(idx, BLOCK) = prm_field(1)%lsmask(idx,BLOCK) + prm_field(1)%alake(idx,BLOCK)
-      ENDDO
-    ENDDO
-!ICON_OMP_END_PARALLEL_DO
-    ELSE
-!ICON_OMP_PARALLEL_DO PRIVATE(BLOCK,idx) ICON_OMP_RUNTIME_SCHEDULE
-      DO BLOCK = 1, patch_horz%nblks_c
-        DO idx = 1, nproma
-          lsmnolake(idx, BLOCK) = prm_field(1)%lsmask(idx,BLOCK)
-        ENDDO
-      ENDDO
-!ICON_OMP_END_PARALLEL_DO
-    ENDIF
-
-    mask_checksum = 0
-!ICON_OMP_PARALLEL_DO PRIVATE(BLOCK,idx) REDUCTION(+:mask_checksum) ICON_OMP_RUNTIME_SCHEDULE
-    DO BLOCK = 1, patch_horz%nblks_c
-      DO idx = 1, nproma
-!       mask_checksum = mask_checksum + ABS(ext_data(1)%atm%lsm_ctr_c(idx, BLOCK))
-        mask_checksum = mask_checksum + ABS( lsmnolake(idx,BLOCK))
-      ENDDO
-    ENDDO
-!ICON_OMP_END_PARALLEL_DO
-
-    mask_checksum = p_sum(mask_checksum, comm=p_comm_work)
-    !
-    ! Define cell_mask_ids(1): all ocean and coastal points are valid
-    !   This is the standard for the coupling of atmospheric fields listed below
-    !
-    IF ( mask_checksum > 0 ) THEN
-!ICON_OMP_PARALLEL_DO PRIVATE(BLOCK, idx, INDEX) ICON_OMP_RUNTIME_SCHEDULE
-       DO BLOCK = 1, patch_horz%nblks_c
-          DO idx = 1, nproma
-
-             IF ( lsmnolake(idx, BLOCK) .LT. 1.0_wp ) THEN
-               ! ocean point (fraction of ocean is >0., lsmnolake .lt. 1.) is valid
-               ibuffer((BLOCK-1)*nproma+idx) = 0
-             ELSE
-               ! land point (fraction of land is one, no sea water, lsmnolake=1.) is undef
-               ibuffer((BLOCK-1)*nproma+idx) = 1
-             ENDIF
-
-          ENDDO
-       ENDDO
-!ICON_OMP_END_PARALLEL_DO
-    ELSE
-!ICON_OMP_PARALLEL_DO PRIVATE(BLOCK, idx, INDEX) ICON_OMP_RUNTIME_SCHEDULE
-       DO idx = 1,patch_horz%nblks_c * nproma
-          ibuffer(idx) = 0
-       ENDDO
-!ICON_OMP_END_PARALLEL_DO
-    ENDIF
-
-    CALL yac_fdef_mask (           &
-      & patch_horz%n_patch_cells,  &
-      & ibuffer,                   &
-      & cell_point_ids(1),         &
-      & cell_mask_ids(1) )
-
-    DO idx = 1, no_of_fields
-      CALL yac_fdef_field (      &
-        & TRIM(field_name(idx)), &
-        & comp_id,               &
-        & domain_id,             &
-        & cell_point_ids,        &
-        & cell_mask_ids(1),      &
-        & 1,                     &
-        & field_id(idx) )
-    ENDDO
-
-#if !defined(__NO_JSBACH__) && !defined(__NO_JSBACH_HD__)
-    !
-    ! ! Define cell_mask_ids(2) for runoff:
-    ! !slo old!   Ocean coastal points with respect to HDmodel mask only are valid.
-    ! !slo old!   The integer mask for the HDmodel is ext_data(1)%atm%lsm_hd_c(:,:).
-    ! !slo old!   Caution: jg=1 is only valid for coupling to ocean
-    ! !
-    ! Define cell_mask_ids(1) for runoff - same as above, ocean wet points are valid
-    IF ( mask_checksum > 0 ) THEN
-
-!ICON_OMP_PARALLEL_DO PRIVATE(BLOCK, idx, INDEX) ICON_OMP_RUNTIME_SCHEDULE
-        DO BLOCK = 1, patch_horz%nblks_c
-          DO idx = 1, nproma
-
-             IF ( lsmnolake(idx, BLOCK) .LT. 1.0_wp ) THEN
-               ! ocean point (fraction of ocean is >0., lsmnolake .lt. 1.) is valid
-               ibuffer((BLOCK-1)*nproma+idx) = 0
-             ELSE
-               ! land point (fraction of land is one, lsmnolake=1.) is undef
-               ibuffer((BLOCK-1)*nproma+idx) = 1
-             ENDIF
-
-          ENDDO
-        ENDDO
-!ICON_OMP_END_PARALLEL_DO
-    ELSE
-!ICON_OMP_PARALLEL_DO PRIVATE(BLOCK, idx, INDEX) ICON_OMP_RUNTIME_SCHEDULE
-       DO idx = 1,patch_horz%nblks_c * nproma
-          ibuffer(idx) = 0
-       ENDDO
-!ICON_OMP_END_PARALLEL_DO
-
-    ENDIF
-
-    CALL yac_fdef_mask (           &
-      & patch_horz%n_patch_cells,  &
-      & ibuffer,                   &
-      & cell_point_ids(1),         &
-      & cell_mask_ids(2) )
-
-    ! Define additional coupling field(s) for JSBACH/HD
-    ! Utilize mask field for runoff
-    ! !slo old!  - cell_mask_ids(2:2) is ocean coast points only for source point mapping (source_to_target_map)
-    !  - cell_mask_ids(2:2) is ocean wet points as above - todo: use cell_mask_ids(1:1)
-    CALL jsb_fdef_hd_fields(comp_id, domain_id, cell_point_ids, cell_mask_ids(2:2))
-
-#endif
-
-    DEALLOCATE (ibuffer)
-
-    DEALLOCATE (lsmnolake)
-
-    ! End definition of coupling fields and search
-    CALL yac_fget_nbr_fields(no_of_fields_total)
-    ALLOCATE(field_ids_total(no_of_fields_total))
-    CALL yac_fget_field_ids(no_of_fields_total, field_ids_total)
-    CALL yac_fsearch ( 1, comp_ids, no_of_fields_total, field_ids_total, error_status )
-
-    ALLOCATE(buffer(nproma*patch_horz%nblks_c,5))
-
-!ICON_OMP_PARALLEL_DO PRIVATE(BLOCK, INDEX, idx) ICON_OMP_DEFAULT_SCHEDULE
-    DO BLOCK = 1, patch_horz%nblks_c
-      DO idx = 1, nproma
-        INDEX = (BLOCK-1)*nproma+idx
-        buffer(INDEX,1) = 0.0_wp
-        buffer(INDEX,2) = 0.0_wp
-        buffer(INDEX,3) = 0.0_wp
-        buffer(INDEX,4) = 0.0_wp
-        buffer(INDEX,5) = 0.0_wp
-      ENDDO
-    ENDDO
-!ICON_OMP_END_PARALLEL_DO
-
-    IF (ltimer) CALL timer_stop(timer_coupling_init)
-
-  END SUBROUTINE construct_atmo_coupler
 
   !>
   !! SUBROUTINE interface_echam_ocean -- the interface between
@@ -532,7 +114,19 @@ CONTAINS
     REAL(wp)              :: frac_oce(nproma,p_patch%alloc_cell_blocks)
     REAL(wp)              :: fwf_fac
 
+    REAL(wp), ALLOCATABLE :: buffer(:,:)
+
     IF ( .NOT. is_coupled_run() ) RETURN
+
+    ! adjust size if larger bundles are used (no_arr > 4 below)
+
+    ALLOCATE(buffer(nproma*p_patch%nblks_c,4))
+
+    ! As YAC does not touch masked data an explicit initialisation
+    ! is required as some compilers are asked to initialise with NaN
+    ! and as we loop over the full array.
+
+    buffer(:,:) = 0.0_wp
 
     jg = p_patch%id
 
@@ -540,10 +134,32 @@ CONTAINS
     ! If running in atm-oce coupled mode, exchange information 
     !-------------------------------------------------------------------------
 
+    ! Possible fields that contain information to be sent to the ocean include
+    !
+    ! 1. prm_field(jg)% u_stress_tile(:,:,iwtr/iice)  and 
+    !    prm_field(jg)% v_stress_tile(:,:,iwtr/iice)  which are the wind stress components over water and ice respectively
+    !
+    ! 2. prm_field(jg)% evap_tile(:,:,iwtr/iice)  evaporation rate over ice-covered and open ocean/lakes, no land;
+    !
+    ! 3. prm_field(jg)%rsfl + prm_field(jg)%rsfc + prm_field(jg)%ssfl + prm_field(jg)%ssfc
+    !    which gives the precipitation rate;
+    !
+    ! 4. prm_field(jg)% ta(:,nlev,:)  temperature at the lowest model level, or
+    !    prm_field(jg)% tas(:,:)      2-m temperature, not available yet, or
+    !    prm_field(jg)% shflx_tile(:,:,iwtr) sensible heat flux
+    !    ... tbc
+    !
+    ! 5  prm_field(jg)% lhflx_tile(:,:,iwtr) latent heat flux
+    ! 6. shortwave radiation flux at the surface
+    !
+    ! Possible fields to receive from the ocean include
+    !
+    ! 1. prm_field(jg)% ts_tile(:,:,iwtr)   SST
+    ! 2. prm_field(jg)% ocu(:,:) and ocv(:,:) ocean surface current
+    ! 3. ... tbc
+    !
     ! 
-
     nbr_hor_cells = p_patch%n_patch_cells
-
     !
     !  Send fields to ocean:
     !   field_id(1) represents "surface_downward_eastward_stress" bundle  - zonal wind stress component over ice and water
@@ -562,7 +178,6 @@ CONTAINS
     !   field_id(9) represents "ocean_sea_ice_bundle"                     - ice thickness, snow thickness, ice concentration
     !   field_id(12) represents "co2_flux"                                - ocean co2 flux
     !
-
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
     !  Send fields from atmosphere to ocean
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
@@ -578,17 +193,17 @@ CONTAINS
       IF ( echam_phy_config(jg)%llake ) THEN
 !ICON_OMP_PARALLEL
 !ICON_OMP_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
-    DO i_blk = 1, p_patch%nblks_c
-      nn = (i_blk-1)*nproma
-      IF (i_blk /= p_patch%nblks_c) THEN
-        nlen = nproma
-      ELSE
-        nlen = p_patch%npromz_c
-      END IF
-      DO n = 1, nlen
-           frac_oce(n,i_blk) = 1.0_wp-prm_field(jg)%frac_tile(n,i_blk,ilnd) - prm_field(jg)%alake(n,i_blk)
+      DO i_blk = 1, p_patch%nblks_c
+        nn = (i_blk-1)*nproma
+        IF (i_blk /= p_patch%nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = p_patch%npromz_c
+        END IF
+        DO n = 1, nlen
+          frac_oce(n,i_blk) = 1.0_wp-prm_field(jg)%frac_tile(n,i_blk,ilnd) - prm_field(jg)%alake(n,i_blk)
+        ENDDO
       ENDDO
-    ENDDO
 !ICON_OMP_END_DO
 !ICON_OMP_END_PARALLEL
 
@@ -651,7 +266,7 @@ CONTAINS
     IF (ltimer) CALL timer_start(timer_coupling_put)
 
     no_arr = 2
-    CALL yac_fput ( field_id(1), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
+    CALL yac_fput ( field_id(1), nbr_hor_cells, no_arr, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) write_coupler_restart = .TRUE.
     IF ( info == OUT_OF_BOUND ) &
          & CALL warning('interface_echam_ocean', 'YAC says fput called after end of run - id=1, u-stress')
@@ -682,7 +297,7 @@ CONTAINS
     IF (ltimer) CALL timer_start(timer_coupling_put)
 
     no_arr = 2
-    CALL yac_fput ( field_id(2), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
+    CALL yac_fput ( field_id(2), nbr_hor_cells, no_arr, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) write_coupler_restart = .TRUE.
     IF ( info == OUT_OF_BOUND ) &
          & CALL warning('interface_echam_ocean', 'YAC says fput called after end of run - id=2, v-stress')
@@ -701,7 +316,7 @@ CONTAINS
     !         evap.oce = (evap.wtr*frac.wtr + evap.ice*frac.ice)/(1-frac.lnd)
     !
     IF ( idbg_mxmn >= 1 .OR. idbg_val >=1 )  &
-    scr(:,:)      = 0.0_wp
+      scr(:,:)      = 0.0_wp
     !
     ! Preliminary: hard-coded correction factor for freshwater imbalance
     fwf_fac = 1.0_wp      ! neutral factor
@@ -773,7 +388,7 @@ CONTAINS
     IF (ltimer) CALL timer_start(timer_coupling_put)
 
     no_arr = 3
-    CALL yac_fput ( field_id(3), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
+    CALL yac_fput ( field_id(3), nbr_hor_cells, no_arr, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) write_coupler_restart = .TRUE.
     IF ( info == OUT_OF_BOUND )                  &
          & CALL warning('interface_echam_ocean', &
@@ -806,7 +421,7 @@ CONTAINS
     IF (ltimer) CALL timer_start(timer_coupling_put)
 
     no_arr = 4
-    CALL yac_fput ( field_id(4), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
+    CALL yac_fput ( field_id(4), nbr_hor_cells, no_arr, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) write_coupler_restart = .TRUE.
     IF ( info == OUT_OF_BOUND ) &
          & CALL warning('interface_echam_ocean', 'YAC says fput called after end of run - id=4, heat flux')
@@ -836,7 +451,7 @@ CONTAINS
     IF (ltimer) CALL timer_start(timer_coupling_put)
 
     no_arr = 2
-    CALL yac_fput ( field_id(5), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
+    CALL yac_fput ( field_id(5), nbr_hor_cells, no_arr, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) write_coupler_restart = .TRUE.
     IF ( info == OUT_OF_BOUND )                  &
          & CALL warning('interface_echam_ocean', &
@@ -871,7 +486,7 @@ CONTAINS
     IF (ltimer) CALL timer_start(timer_coupling_put)
 
     no_arr = 1
-    CALL yac_fput ( field_id(10), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
+    CALL yac_fput ( field_id(10), nbr_hor_cells, no_arr, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) THEN
       write_coupler_restart = .TRUE.
     ELSE
@@ -910,7 +525,7 @@ CONTAINS
     IF (ltimer) CALL timer_start(timer_coupling_put)
 
     no_arr = 1
-    CALL yac_fput ( field_id(13), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
+    CALL yac_fput ( field_id(13), nbr_hor_cells, no_arr, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) THEN
       write_coupler_restart = .TRUE.
     ELSE
@@ -965,8 +580,7 @@ CONTAINS
        IF (ltimer) CALL timer_start(timer_coupling_put)
 
        no_arr = 1
-       CALL yac_fput ( field_id(11), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
-
+       CALL yac_fput ( field_id(11), nbr_hor_cells, no_arr, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
        IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) THEN
           write_coupler_restart = .TRUE.
        ELSE
@@ -989,7 +603,6 @@ CONTAINS
 
 
     !
-
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
     !  Receive fields from ocean to atmosphere
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
@@ -998,7 +611,6 @@ CONTAINS
     !   - ocean fields have undefined values on land, which are not sent to the atmosphere,
     !     therefore buffer is set to zero to avoid unintended usage of ocean values over land
     !
-
     buffer(:,:) = 0.0_wp
     !
     ! ------------------------------
@@ -1020,7 +632,7 @@ CONTAINS
     ! buffer set to undefined to enforce error on unintended lake grid-points
     !!! buffer(:,:) = -99.999_wp  ! this aborts with lookup table overflow, since lake-points are affected
 
-    CALL yac_fget ( field_id(6), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
+    CALL yac_fget ( field_id(6), nbr_hor_cells, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
     IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) &
          & CALL message('interface_echam_ocean', 'YAC says it is get for restart - id=6, SST')
     IF ( info == OUT_OF_BOUND ) &
@@ -1090,7 +702,7 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 
-    CALL yac_fget ( field_id(7), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
+    CALL yac_fget ( field_id(7), nbr_hor_cells, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
     IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) &
          & CALL message('interface_echam_ocean', 'YAC says it is get for restart - id=7, u velocity')
     IF ( info == OUT_OF_BOUND ) &
@@ -1128,7 +740,7 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 
-    CALL yac_fget ( field_id(8), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
+    CALL yac_fget ( field_id(8), nbr_hor_cells, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
     IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) &
          & CALL message('interface_echam_ocean', 'YAC says it is get for restart - id=8, v velocity')
     IF ( info == OUT_OF_BOUND ) &
@@ -1166,7 +778,7 @@ CONTAINS
     IF (ltimer) CALL timer_start(timer_coupling_get)
 
     no_arr = 3
-    CALL yac_fget ( field_id(9), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
+    CALL yac_fget ( field_id(9), nbr_hor_cells, no_arr, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) &
          & CALL message('interface_echam_ocean', 'YAC says it is get for restart - id=9, sea ice')
     IF ( info == OUT_OF_BOUND ) &
@@ -1230,7 +842,7 @@ CONTAINS
        IF (ltimer) CALL timer_start(timer_coupling_get)
 
        buffer(:,:) = 0.0_wp ! needs to be checked if this is necessary
-       CALL yac_fget ( field_id(12), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
+       CALL yac_fget ( field_id(12), nbr_hor_cells, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
        IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) &
             & CALL message('interface_echam_ocean', 'YAC says it is get for restart - id=12, CO2 flux')
        IF ( info == OUT_OF_BOUND )                      &
@@ -1335,6 +947,8 @@ CONTAINS
 
     !---------------------------------------------------------------------
 
+    DEALLOCATE(buffer)
+
   END SUBROUTINE interface_echam_ocean
 
   !>
@@ -1342,22 +956,12 @@ CONTAINS
   !! between ECHAM physics and the ocean.
   !!
   !! This subroutine is called at the end of the time loop of the ICONAM model.
-
-  SUBROUTINE destruct_atmo_coupler
-
-    IF ( .NOT. is_coupled_run() ) RETURN
-
-    DEALLOCATE(buffer)
-
-    CALL yac_ffinalize
-
-  END SUBROUTINE destruct_atmo_coupler
   
-END MODULE mo_interface_echam_ocean
+END MODULE mo_echam_coupling
 
 #else
 
-MODULE mo_interface_echam_ocean
+MODULE mo_echam_coupling
 
   USE mo_model_domain,    ONLY: t_patch
   USE mo_nonhydro_types,  ONLY: t_nh_diag
@@ -1365,21 +969,8 @@ MODULE mo_interface_echam_ocean
   USE mo_coupling_config, ONLY: is_coupled_run
 
   PUBLIC :: interface_echam_ocean
-  PUBLIC :: construct_atmo_coupler, destruct_atmo_coupler
 
 CONTAINS
-
-  SUBROUTINE construct_atmo_coupler (p_patch)
-
-    TYPE(t_patch), TARGET, INTENT(IN) :: p_patch(:)
-
-    IF ( is_coupled_run() ) THEN
-       CALL finish('construct_atmo_coupler: unintentionally called. Check your source code and configure.')
-    ELSE
-       RETURN
-    ENDIF
-
-  END SUBROUTINE construct_atmo_coupler
 
   SUBROUTINE interface_echam_ocean ( p_patch , pt_diag )
 
@@ -1396,16 +987,6 @@ CONTAINS
 
   END SUBROUTINE interface_echam_ocean
 
-  SUBROUTINE destruct_atmo_coupler
-
-    IF ( is_coupled_run() ) THEN
-       CALL finish('destruct_atmo_coupler: unintentionally called. Check your source code and configure.')
-    ELSE
-       RETURN
-    ENDIF
-
-  END SUBROUTINE destruct_atmo_coupler
-
-END MODULE mo_interface_echam_ocean
+END MODULE mo_echam_coupling
 
 #endif

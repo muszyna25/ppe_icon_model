@@ -24,8 +24,8 @@ MODULE mo_bc_aeropt_cmip6_volc
   USE mo_exception,              ONLY: finish
   USE mo_read_interface,         ONLY: openInputFile, closeFile, read_1D, &
     &                                  read_1D_extdim_time, &
-    &                                  read_extdim_slice_extdim_extdim_extdim, &
-    &                                  nf
+    &                                  read_extdim_slice_extdim_extdim_extdim
+  USE mo_netcdf_errhandler,      ONLY: nf
   USE mo_latitude_interpolation, ONLY: latitude_weights_li
   USE mo_physical_constants,     ONLY: rgrav, rd
   USE mo_math_constants,         ONLY: deg2rad, pi_2

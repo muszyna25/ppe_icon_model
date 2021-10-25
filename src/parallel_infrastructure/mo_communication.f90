@@ -94,7 +94,8 @@ PUBLIC :: xfer_list
 !
 !------------------------------------------------------------------------------------------------
 !
-
+! MoHa: When changing t_comm_gather_pattern remember to adjust
+!       copy_t_comm_gather_pattern accordingly!
 TYPE t_comm_gather_pattern
 
   PRIVATE
@@ -449,7 +450,6 @@ CONTAINS
 
   !-------------------------------------------------------------------------
 
-
   ELEMENTAL SUBROUTINE copy_t_comm_gather_pattern(out_arg, in_arg)
 
     TYPE(t_comm_gather_pattern), INTENT(OUT) :: out_arg
@@ -475,6 +475,11 @@ CONTAINS
       ALLOCATE(out_arg%recv_buffer_reorder(SIZE(in_arg%recv_buffer_reorder)))
       out_arg%recv_buffer_reorder(:) = in_arg%recv_buffer_reorder(:)
     END IF
+    IF (ALLOCATED(in_arg%recv_buffer_reorder_fill)) THEN
+      ALLOCATE( &
+           out_arg%recv_buffer_reorder_fill(SIZE(in_arg%recv_buffer_reorder_fill)))
+      out_arg%recv_buffer_reorder_fill(:) = in_arg%recv_buffer_reorder_fill(:)
+    END IF
     IF (ALLOCATED(in_arg%recv_pes)) THEN
       ALLOCATE(out_arg%recv_pes(SIZE(in_arg%recv_pes)))
       out_arg%recv_pes(:) = in_arg%recv_pes(:)
@@ -483,6 +488,7 @@ CONTAINS
       ALLOCATE(out_arg%recv_size(SIZE(in_arg%recv_size)))
       out_arg%recv_size(:) = in_arg%recv_size(:)
     END IF
+    out_arg%global_size = in_arg%global_size
 
   END SUBROUTINE copy_t_comm_gather_pattern
 

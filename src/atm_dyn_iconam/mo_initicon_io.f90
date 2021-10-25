@@ -56,9 +56,9 @@ MODULE mo_initicon_io
     &                               my_process_is_stdio
   USE mo_io_config,           ONLY: default_read_method
   USE mo_limarea_config,      ONLY: latbc_config
-  USE mo_read_interface,      ONLY: t_stream_id, nf, openInputFile, closeFile, &
-    &                               read_2d_1time, read_2d_1lev_1time, &
-    &                               read_3d_1time, on_cells, on_edges
+  USE mo_read_interface,      ONLY: t_stream_id, openInputFile, closeFile, on_cells, on_edges, &
+    &                               read_2d_1time, read_2d_1lev_1time, read_3d_1time
+  USE mo_netcdf_errhandler,   ONLY: nf
   USE mo_nwp_sfc_tiles,       ONLY: t_tileinfo_icon, trivial_tile_att
   USE mo_lnd_nwp_config,      ONLY: ntiles_total,  l2lay_rho_snow, &
     &                               ntiles_water, lmulti_snow, lsnowtile, &

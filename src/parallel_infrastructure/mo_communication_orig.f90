@@ -1654,7 +1654,9 @@ CONTAINS
 
     !-----------------------------------------------------------------------
     IF(my_process_is_mpi_seq()) THEN
-      CALL finish(routine, 'must not be called on single PE/test PE')
+      CALL exchange_data_i3d_seq(p_pat, recv, send, add)
+      RETURN
+!      CALL finish(routine, 'must not be called on single PE/test PE')
     END IF
 
     IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
@@ -1853,6 +1855,105 @@ CONTAINS
     stop_sync_timer(timer_exch_data)
 
   END SUBROUTINE exchange_data_i3d
+
+  ! SEQUENTIAL version of subroutine "exchange_data_s3d"
+  !
+  SUBROUTINE exchange_data_i3d_seq(p_pat, recv, send, add)
+
+    CLASS(t_comm_pattern_orig), INTENT(IN), TARGET :: p_pat
+    INTEGER, INTENT(INOUT), TARGET        :: recv(:,:,:)
+    INTEGER, INTENT(IN), OPTIONAL, TARGET :: send(:,:,:)
+    INTEGER, INTENT(IN), OPTIONAL, TARGET :: add (:,:,:)
+    ! local variables
+    CHARACTER(*), PARAMETER :: routine = modname//":exchange_data_s3d_seq"
+    INTEGER :: i, k, ndim2
+    INTEGER, POINTER :: recv_src(:)
+    INTEGER, POINTER :: recv_dst_blk(:)
+    INTEGER, POINTER :: recv_dst_idx(:)
+    INTEGER, POINTER :: send_src_blk(:)
+    INTEGER, POINTER :: send_src_idx(:)
+#ifdef _OPENACC
+    LOGICAL :: use_gpu
+
+    use_gpu = i_am_accel_node .AND. acc_on
+#endif
+
+    recv_src => p_pat%recv_src(:)
+    recv_dst_blk => p_pat%recv_dst_blk(:)
+    recv_dst_idx => p_pat%recv_dst_idx(:)
+    send_src_blk => p_pat%send_src_blk(:)
+    send_src_idx => p_pat%send_src_idx(:)
+
+    ! consistency checks
+    ! ------------------
+
+    ! make sure that we are in sequential mode
+    IF (.NOT. my_process_is_mpi_seq()) THEN
+      CALL finish(routine, "Internal error: sequential routine called in parallel run!")
+    END IF
+    ! further tests
+    IF ( (p_pat%np_recv /= 1) .OR. (p_pat%np_send /= 1) ) THEN
+      CALL finish(routine, "Internal error: inconsistent no. send/receive peers!")
+    END IF
+    IF ( (p_pat%recv_limits(1) - p_pat%recv_limits(0)) /= (p_pat%send_limits(1) - p_pat%send_limits(0)) ) THEN
+      CALL finish(routine, "Internal error: inconsistent sender/receiver size!")
+    END IF
+    IF ( (p_pat%recv_limits(0) /= 0) .OR. (p_pat%send_limits(0) /= 0) ) THEN
+      CALL finish(routine, "Internal error: inconsistent sender/receiver start position!")
+    END IF
+    IF ( (p_pat%recv_limits(1) /= p_pat%n_recv) .OR. (p_pat%n_recv /= p_pat%n_send) ) THEN
+      CALL finish(routine, "Internal error: inconsistent counts for sender/receiver!")
+    END IF
+
+    ! "communication" (direct copy)
+    ! -----------------------------
+
+    ndim2 = SIZE(recv,2)
+
+    ! The next piece of code is a condensed version of the following
+    ! (under the assumptions asserted above):
+    !
+    !     ! fill sender buffer
+    !     DO i=1,n_send
+    !       send_buf(i) = array_in(send_src_idx(i), send_src_blk(i))
+    !     END DO
+    !     ! copy sender to receiver buffer
+    !     recv_buf(p_pat%recv_limits(0)+1:p_pat%recv_limits(1)) = &
+    !       &  send_buf(p_pat%send_limits(0)+1:p_pat%send_limits(1))
+    !     ! copy from receiver buffer
+    !     DO i=1,n_pnts
+    !       array_out( recv_dst_idx(i), recv_dst_blk(i) ) =
+    !       recv_buf(recv_src(i))
+    !     END DO
+
+    IF(PRESENT(add)) THEN
+!$ACC PARALLEL DEFAULT(PRESENT) IF (use_gpu)
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
+      DO k=1,ndim2
+        DO i=1,p_pat%n_pnts
+          recv( recv_dst_idx(i), k, recv_dst_blk(i) )  =                    &
+          &  add( recv_dst_idx(i), k, recv_dst_blk(i) )                +  &
+          &  send(send_src_idx(recv_src(i)), &
+          &       k, &
+          &       send_src_blk(recv_src(i)))
+        ENDDO
+      ENDDO
+!$ACC END PARALLEL
+    ELSE
+!$ACC PARALLEL DEFAULT(PRESENT) IF (use_gpu)
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
+      DO k=1,ndim2
+        DO i=1,p_pat%n_pnts
+          recv( recv_dst_idx(i), k, recv_dst_blk(i) )  =                    &
+          &  send(send_src_idx(recv_src(i)), &
+          &       k, &
+          &       send_src_blk(recv_src(i)))
+        ENDDO
+      ENDDO
+!$ACC END PARALLEL
+    END IF
+
+  END SUBROUTINE exchange_data_i3d_seq
 
 
   !================================================================================================

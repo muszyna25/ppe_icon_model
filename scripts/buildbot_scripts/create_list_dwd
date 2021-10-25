@@ -76,8 +76,6 @@ $addexp checksuite.rcnl.dwd.de/exp.run_ICON_13_R2B08-dkltest.run                
 $addexp checksuite.rcnl.dwd.de/exp.run_ICON_14_R2B6N7_oper_IAU_and_restarttest.run      --builders DWD_nec --list $listname
 $addexp checksuite.rcnl.dwd.de/exp.run_ICON_15_R19B7-ID2_ass.run                        --builders DWD_nec --list $listname
 
-
-
 #lets see the list
 ./lslist $listname
 #-----------------------------------------------------------

@@ -57,6 +57,7 @@ MODULE mo_nwp_lnd_state
   USE mo_exception,            ONLY: message, finish
   USE mo_model_domain,         ONLY: t_patch
   USE mo_grid_config,          ONLY: n_dom
+  USE mo_io_config,            ONLY: var_in_output
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_lnd_nwp_config,       ONLY: nlev_soil, nlev_snow, ntiles_total, &
     &                                lmulti_snow, ntiles_water, lseaice, llake, &
@@ -1310,7 +1311,10 @@ MODULE mo_nwp_lnd_state
     &       p_diag_lnd%rho_snow_mult, &
     &       p_diag_lnd%wliq_snow, &
     &       p_diag_lnd%wtot_snow, &
-    &       p_diag_lnd%dzh_snow)
+    &       p_diag_lnd%dzh_snow,  &
+    &       p_diag_lnd%resid_wso, &
+    &       p_diag_lnd%resid_wso_t, &
+    &       p_diag_lnd%resid_wso_inst_t)
 
 
     !
@@ -1562,6 +1566,25 @@ MODULE mo_nwp_lnd_state
            & initval=0._wp, resetval=0._wp,                              &
            & action_list=actions(new_action(ACTION_RESET,runoff_interval(p_jg))) )
 
+    IF (var_in_output(p_jg)%res_soilwatb) THEN
+      ! & p_diag_lnd%resid_wso(nproma,nblks_c)
+      ! resid_wso is a budget considering lateral fluxes and sources / sinks located between
+      ! Earth surface and last hydrological soil layer -> best suited: vertical axis of w_so
+      cf_desc    = t_cf_var('resid_wso', 'kg m-2', &
+          &                'residuum of the mass content of water in soil', datatype_flt)
+      grib2_desc = grib2_var(2, 3, 195, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( diag_list, vname_prefix//'resid_wso', p_diag_lnd%resid_wso,     &
+            & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND, cf_desc, grib2_desc,     &
+            & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                      &
+            & isteptype=TSTEP_ACCUM,                                                &
+            & hor_interp=create_hor_interp_metadata(                                &
+            &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                              &
+            &    fallback_type=HINTP_TYPE_LONLAT_NNB),                              &
+            & initval=0._wp, resetval=0._wp,                                        &
+            & action_list=actions(new_action(ACTION_RESET,runoff_interval(p_jg))),  &
+            & lopenacc=.TRUE.)
+      __acc_attach(p_diag_lnd%resid_wso)
+    ENDIF
 
     ! & p_diag_lnd%runoff_s_inst_t(nproma,nblks_c,ntiles_total)
     cf_desc    = t_cf_var('runoff_s_inst_t', 'kg m-2', &
@@ -1572,6 +1595,28 @@ MODULE mo_nwp_lnd_state
            & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,     &
            & lopenacc=.TRUE.)
     __acc_attach(p_diag_lnd%runoff_s_inst_t)
+
+    ! & p_diag_lnd%runoff_g_inst_t(nproma,nblks_c,ntiles_total)
+    cf_desc    = t_cf_var('runoff_g_inst_t', 'kg m-2', &
+         &                'soil water runoff; instantaneous value', datatype_flt)
+    grib2_desc = grib2_var(2, 0, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, vname_prefix//'runoff_g_inst_t', p_diag_lnd%runoff_g_inst_t,    &
+           & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_RUNOFF_G, cf_desc, grib2_desc,       &
+           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,       &
+           & lopenacc=.TRUE.)
+    __acc_attach(p_diag_lnd%runoff_g_inst_t) 
+
+    IF (var_in_output(p_jg)%res_soilwatb) THEN    
+      ! & p_diag_lnd%resid_wso_inst_t(nproma,nblks_c,ntiles_total)
+      cf_desc    = t_cf_var('resid_wso_inst_t', 'kg m-2', &
+          &                'residuum of the mass content of water in soil; instanteaneous value', datatype_flt)
+      grib2_desc = grib2_var(2, 3, 195, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( diag_list, vname_prefix//'resid_wso_inst_t', p_diag_lnd%resid_wso_inst_t, &
+            & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND, cf_desc, grib2_desc,               &
+            & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,       &
+            & lopenacc=.TRUE.)
+      __acc_attach(p_diag_lnd%resid_wso_inst_t) 
+    ENDIF
 
     ! & p_diag_lnd%runoff_s_t(nproma,nblks_c,ntiles_total)
     cf_desc    = t_cf_var('runoff_s_t', 'kg m-2', &
@@ -1584,6 +1629,32 @@ MODULE mo_nwp_lnd_state
            & action_list=actions(new_action(ACTION_RESET,runoff_interval(p_jg))), &
            & lopenacc=.TRUE.)
     __acc_attach(p_diag_lnd%runoff_s_t)
+
+    ! & p_diag_lnd%runoff_g_t(nproma,nblks_c,ntiles_total)
+    cf_desc    = t_cf_var('runoff_g_t', 'kg m-2', &
+         &                'soil water runoff', datatype_flt)
+    grib2_desc = grib2_var(2, 0, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, vname_prefix//'runoff_g_t', p_diag_lnd%runoff_g_t,    &
+           & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_RUNOFF_G, cf_desc, grib2_desc,       &
+           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE., &
+           & initval=0._wp, resetval=0._wp,                              &
+           & action_list=actions(new_action(ACTION_RESET,runoff_interval(p_jg))), &
+           & lopenacc=.TRUE.)
+    __acc_attach(p_diag_lnd%runoff_g_t)
+
+    IF (var_in_output(p_jg)%res_soilwatb) THEN
+      ! & p_diag_lnd%resid_wso_t(nproma,nblks_c,ntiles_total)
+      cf_desc    = t_cf_var('resid_wso_t', 'kg m-2', &
+      &                'residuum of the mass content of water in soil', datatype_flt)
+      grib2_desc = grib2_var(2, 3, 195, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( diag_list, vname_prefix//'resid_wso_t', p_diag_lnd%resid_wso_t, &
+            & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND, cf_desc, grib2_desc,        &
+            & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,&
+            & initval=0._wp, resetval=0._wp,                              &
+            & action_list=actions(new_action(ACTION_RESET,runoff_interval(p_jg))), &
+            & lopenacc=.TRUE.)
+      __acc_attach(p_diag_lnd%resid_wso_t)
+    ENDIF
 
     ! fill the separate variables belonging to the container runoff_s
     ALLOCATE(p_diag_lnd%runoff_s_ptr(ntiles_total))
@@ -1601,29 +1672,6 @@ MODULE mo_nwp_lnd_state
 !               & isteptype=TSTEP_ACCUM,                                          &
                & var_class=CLASS_TILE_LAND )
     END DO
-
-
-    ! & p_diag_lnd%runoff_g_inst_t(nproma,nblks_c,ntiles_total)
-    cf_desc    = t_cf_var('runoff_g_inst_t', 'kg m-2', &
-         &                'soil water runoff; instantaneous value', datatype_flt)
-    grib2_desc = grib2_var(2, 0, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( diag_list, vname_prefix//'runoff_g_inst_t', p_diag_lnd%runoff_g_inst_t,    &
-           & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_RUNOFF_G, cf_desc, grib2_desc,       &
-           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,       &
-           & lopenacc=.TRUE.)
-    __acc_attach(p_diag_lnd%runoff_g_inst_t) 
-
-    ! & p_diag_lnd%runoff_g_t(nproma,nblks_c,ntiles_total)
-    cf_desc    = t_cf_var('runoff_g_t', 'kg m-2', &
-         &                'soil water runoff', datatype_flt)
-    grib2_desc = grib2_var(2, 0, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( diag_list, vname_prefix//'runoff_g_t', p_diag_lnd%runoff_g_t,    &
-           & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_RUNOFF_G, cf_desc, grib2_desc,       &
-           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE., &
-           & initval=0._wp, resetval=0._wp,                              &
-           & action_list=actions(new_action(ACTION_RESET,runoff_interval(p_jg))), &
-           & lopenacc=.TRUE.)
-    __acc_attach(p_diag_lnd%runoff_g_t)
 
     ! fill the separate variables belonging to the container runoff_g
     ALLOCATE(p_diag_lnd%runoff_g_ptr(ntiles_total))
@@ -1643,6 +1691,24 @@ MODULE mo_nwp_lnd_state
     END DO
 
 
+    IF (var_in_output(p_jg)%res_soilwatb) THEN
+      ! fill the separate variables belonging to the container resid_wso
+      ALLOCATE(p_diag_lnd%resid_wso_ptr(ntiles_total))
+      DO jsfc = 1,ntiles_total
+        NULLIFY(p_diag_lnd%resid_wso_ptr(jsfc)%p_2d, p_diag_lnd%resid_wso_ptr(jsfc)%p_3d)
+        WRITE(csfc,'(i2)') jsfc 
+        CALL add_ref( diag_list, vname_prefix//'resid_wso_t',                     &
+                & vname_prefix//'resid_wso_t_'//ADJUSTL(TRIM(csfc)),              &
+                & p_diag_lnd%resid_wso_ptr(jsfc)%p_2d,                            &
+                & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND,                    &
+                & t_cf_var('resid_wso_t_'//csfc, '', '', datatype_flt),           &
+                & grib2_var(2, 3, 195, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
+                & ref_idx=jsfc,                                                   &
+                & ldims=shape2d,                                                  &
+  !               & isteptype=TSTEP_ACCUM,                                          &
+                & var_class=CLASS_TILE_LAND )
+       END DO
+    ENDIF
 
     ! & p_diag_lnd%rstom(nproma,nblks_c)
     cf_desc    = t_cf_var('rstom', 's m-1','stomatal resistance', datatype_flt)
