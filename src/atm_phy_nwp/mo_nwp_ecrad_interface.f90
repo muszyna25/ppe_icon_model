@@ -155,6 +155,15 @@ CONTAINS
       &  jcs, jce                 !< raw start and end index of subblock in nproma with boundaries
     LOGICAL, ALLOCATABLE     :: &
       &  cosmu0mask(:)            !< Mask if cosmu0 > 0
+    REAL(wp), ALLOCATABLE    :: &
+      &  zlwflx_up(:,:),        & !< longwave upward flux
+      &  zlwflx_dn(:,:),        & !< longwave downward flux
+      &  zswflx_up(:,:),        & !< shortwave upward flux
+      &  zswflx_dn(:,:),        & !< shortwave downward flux
+      &  zlwflx_up_clr(:,:),    & !< longwave upward clear-sky flux
+      &  zlwflx_dn_clr(:,:),    & !< longwave downward clear-sky flux
+      &  zswflx_up_clr(:,:),    & !< shortave upward clear-sky flux
+      &  zswflx_dn_clr(:,:)       !< shortave downward clear-sky flux
     REAL(wp), DIMENSION(:,:),  POINTER :: &
       &  ptr_acdnc => NULL(),                                                 &
       &  ptr_qr => NULL(),      ptr_qs => NULL(),      ptr_qg => NULL(),      &
@@ -180,7 +189,11 @@ CONTAINS
     fact_reffc = (3.0e-9_wp/(4.0_wp*pi*rhoh2o))**(1.0_wp/3.0_wp)
 
     
-    ALLOCATE(cosmu0mask(nproma_rad))
+    ALLOCATE( cosmu0mask   (nproma_rad)     )
+    ALLOCATE( zlwflx_up    (nproma_rad,nlevp1), zlwflx_dn    (nproma_rad,nlevp1) )
+    ALLOCATE( zswflx_up    (nproma_rad,nlevp1), zswflx_dn    (nproma_rad,nlevp1) )
+    ALLOCATE( zlwflx_up_clr(nproma_rad,nlevp1), zlwflx_dn_clr(nproma_rad,nlevp1) )
+    ALLOCATE( zswflx_up_clr(nproma_rad,nlevp1), zswflx_dn_clr(nproma_rad,nlevp1) )
 
     IF (msg_level >= 7) &
       &       CALL message(routine, 'ecrad radiation on full grid')
@@ -220,6 +233,8 @@ CONTAINS
 !$OMP                       ptr_acdnc,ptr_fr_land,ptr_fr_glac, ptr_reff_qc, ptr_reff_qi,  &
 !$OMP                       ptr_qr, ptr_reff_qr, ptr_qs, ptr_reff_qs,                     &
 !$OMP                       ptr_qg, ptr_reff_qg,                                          &
+!$OMP                       zlwflx_up,     zlwflx_dn,     zswflx_up,     zswflx_dn,       &
+!$OMP                       zlwflx_up_clr, zlwflx_dn_clr, zswflx_up_clr, zswflx_dn_clr,   &
 !$OMP                       jb_rad, jcs, jce, i_startidx_sub, i_endidx_sub,               &
 !$OMP                       i_startidx_rad, i_endidx_rad)                                 &
 !$OMP          FIRSTPRIVATE(ecrad_aerosol,ecrad_single_level, ecrad_thermodynamics,       &
@@ -355,11 +370,20 @@ CONTAINS
           &                     prm_diag%trsol_par_sfc         (jcs:jce,jb), prm_diag%trsol_dn_sfc_diff(jcs:jce,jb),  &
           &                     prm_diag%trsolclr_sfc          (jcs:jce,jb), prm_diag%lwflxall       (jcs:jce,:,jb),  &
           &                     prm_diag%lwflx_up_sfc_rs       (jcs:jce,jb), prm_diag%lwflxclr_sfc     (jcs:jce,jb),  &
-          &                     prm_diag%lwflx_up            (jcs:jce,:,jb), prm_diag%lwflx_dn       (jcs:jce,:,jb),  &
-          &                     prm_diag%swflx_up            (jcs:jce,:,jb), prm_diag%swflx_dn       (jcs:jce,:,jb),  &
-          &                     prm_diag%lwflx_up_clr        (jcs:jce,:,jb), prm_diag%lwflx_dn_clr   (jcs:jce,:,jb),  &
-          &                     prm_diag%swflx_up_clr        (jcs:jce,:,jb), prm_diag%swflx_dn_clr   (jcs:jce,:,jb),  &  
+          &                     zlwflx_up    (:,:), zlwflx_dn       (:,:), zswflx_up    (:,:), zswflx_dn    (:,:),    &
+          &                     zlwflx_up_clr(:,:), zlwflx_dn_clr   (:,:), zswflx_up_clr(:,:), zswflx_dn_clr(:,:),    &  
           &                     cosmu0mask, i_startidx_rad, i_endidx_rad, nlevp1)
+
+        IF (atm_phy_nwp_config(jg)%l_3d_rad_fluxes) THEN
+          prm_diag%lwflx_up    (i_startidx_sub:i_endidx_sub,:,jb) = zlwflx_up    (i_startidx_rad:i_endidx_rad,:)
+          prm_diag%lwflx_dn    (i_startidx_sub:i_endidx_sub,:,jb) = zlwflx_dn    (i_startidx_rad:i_endidx_rad,:)
+          prm_diag%swflx_up    (i_startidx_sub:i_endidx_sub,:,jb) = zswflx_up    (i_startidx_rad:i_endidx_rad,:)
+          prm_diag%swflx_dn    (i_startidx_sub:i_endidx_sub,:,jb) = zswflx_dn    (i_startidx_rad:i_endidx_rad,:)
+          prm_diag%lwflx_up_clr(i_startidx_sub:i_endidx_sub,:,jb) = zlwflx_up_clr(i_startidx_rad:i_endidx_rad,:)
+          prm_diag%lwflx_dn_clr(i_startidx_sub:i_endidx_sub,:,jb) = zlwflx_dn_clr(i_startidx_rad:i_endidx_rad,:)
+          prm_diag%swflx_up_clr(i_startidx_sub:i_endidx_sub,:,jb) = zswflx_up_clr(i_startidx_rad:i_endidx_rad,:)
+          prm_diag%swflx_dn_clr(i_startidx_sub:i_endidx_sub,:,jb) = zswflx_dn_clr(i_startidx_rad:i_endidx_rad,:)
+        ENDIF
 
         ! Add 3D contribution to diffuse radiation
         CALL add_3D_diffuse_rad(ecrad_flux, prm_diag%clc(jcs:jce,:,jb), pt_diag%pres(jcs:jce,:,jb), pt_diag%temp(jcs:jce,:,jb),      &
@@ -378,7 +402,8 @@ CONTAINS
     IF ( ecrad_conf%use_aerosols ) CALL ecrad_aerosol%deallocate
     CALL ecrad_flux%deallocate
     DEALLOCATE(cosmu0mask)
-  
+    DEALLOCATE( zlwflx_up,     zlwflx_dn,     zswflx_up,    zswflx_dn     )
+    DEALLOCATE( zlwflx_up_clr, zlwflx_dn_clr, zswflx_up_clr,zswflx_dn_clr )
 
   END SUBROUTINE nwp_ecrad_radiation
   !---------------------------------------------------------------------------------------
