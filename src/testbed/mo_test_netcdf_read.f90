@@ -27,10 +27,10 @@ MODULE mo_test_netcdf_read
   USE mo_atmo_model,          ONLY: construct_atmo_model, destruct_atmo_model
 !!$ hydrostatic model no longer available
 !!$  USE mo_atmo_hydrostatic,    ONLY: construct_atmo_hydrostatic, destruct_atmo_hydrostatic
-  USE mo_read_interface,      ONLY: openInputFile, closeFile, on_cells, nf, &
+  USE mo_read_interface,      ONLY: openInputFile, closeFile, on_cells, &
     &                               t_stream_id, read_1D, read_2D_time, &
     &                               read_3D_time, read_netcdf_broadcast_method
-
+  USE mo_netcdf_errhandler,   ONLY: nf
 !-------------------------------------------------------------------------
 IMPLICIT NONE
 PRIVATE

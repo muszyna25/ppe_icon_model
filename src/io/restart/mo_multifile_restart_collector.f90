@@ -38,19 +38,15 @@ MODULE mo_multifile_restart_collector
     & typeMax, typeID, facTtoSP
   USE mo_timer, ONLY: timer_start, timer_stop, timer_restart_collector_setup, &
     & timer_restart_indices_setup, timers_level
-  USE mo_fortran_tools, ONLY: t_ptr_1d
+  USE mo_fortran_tools, ONLY: t_ptr_1d_int, t_ptr_1d_sp
 
   IMPLICIT NONE
   PRIVATE
 
   PUBLIC :: t_MultifileRestartCollector
 
-  TYPE :: t_ptr_1d_sp
-    REAL(sp), POINTER :: p(:)
-  END TYPE t_ptr_1d_sp
-
   TYPE :: t_CollectorIndices
-    INTEGER :: nRecv, nSend
+    INTEGER :: nRecv, nSend = 0
     INTEGER, ALLOCATABLE :: nSrcRecv(:), sIdx(:), sBlk(:)
   END TYPE t_CollectorIndices
 
@@ -59,15 +55,19 @@ MODULE mo_multifile_restart_collector
   REAL(sp), TARGET :: dummy_s(0)
   INTEGER,  TARGET :: dummy_i(0)
 
+#ifdef NOMPI
+  INTEGER, PARAMETER :: MPI_COMM_NULL = 0, MPI_WIN_NULL = 0
+#endif
+
   TYPE :: t_MultifileRestartCollector
     PRIVATE
     TYPE(commonBuf_t) :: sBuf, rBuf
     INTEGER(addr), ALLOCATABLE :: tOffSv(:)
-    INTEGER(addr) :: rBuf_size
-    INTEGER :: wComm, win, nVar, destPE, nSrcPE
-    LOGICAL :: allocd, wPosted, wStarted, shortcut
+    INTEGER(addr) :: rBuf_size = 0_addr
+    INTEGER :: wComm = MPI_COMM_NULL, win = MPI_WIN_NULL, nVar, destPE, nSrcPE
+    LOGICAL :: allocd = .false., wPosted = .false., wStarted = .false., shortcut
     TYPE(t_CollectorIndices), PUBLIC :: idx(3)
-    TYPE(t_ptr_1d), PUBLIC :: glb_idx(3)
+    TYPE(t_ptr_1d_int), PUBLIC :: glb_idx(3)
     TYPE(t_ptr_1d_sp) :: wptr
     INTEGER, ALLOCATABLE :: vGrid(:), vType(:), vLevs(:), srcPE(:)
   CONTAINS
@@ -90,25 +90,23 @@ CONTAINS
   ! not allocated on pure worker procs.
   FUNCTION collectorIndices_init(me, nLoc, decompInfo, destPE, srcPE, lactive) &
     & RESULT(globalIndices)
-    REAL(dp), POINTER :: globalIndices(:)
+    INTEGER, POINTER :: globalIndices(:)
     CLASS(t_CollectorIndices),       INTENT(INOUT) :: me
     INTEGER,                         INTENT(IN) :: nLoc, destPE, srcPE(:)
     TYPE(t_grid_domain_decomp_info), INTENT(IN), POINTER :: decompInfo
     LOGICAL,                         INTENT(IN) :: lactive
-    CHARACTER(*), PARAMETER :: routine = modname//":CollectorIndices_init"    
     INTEGER :: myRank, i, j, nSrcPE
-    REAL(dp), ALLOCATABLE :: sBuf_d(:)
+    INTEGER, ALLOCATABLE :: sBuf_i(:)
     IF (timers_level >= 10)  CALL timer_start(timer_restart_indices_setup)
     myRank = p_comm_rank(p_comm_work_restart)
     nSrcPE = SIZE(srcPE)
-    me%nSend = 0
     IF (my_process_is_work() .AND. lactive) THEN
       DO i = 1, nLoc
         IF(decompInfo%owner_mask(idx_no(i), blk_no(i))) &
           & me%nSend = me%nSend + 1
       END DO
     END IF
-    ALLOCATE(me%sIdx(me%nSend), me%sBlk(me%nSend), sBuf_d(me%nSend), &
+    ALLOCATE(me%sIdx(me%nSend), me%sBlk(me%nSend), sBuf_i(me%nSend), &
       & me%nSrcRecv(nSrcPE))
     IF (my_process_is_work() .AND. lactive) THEN
       j = 1
@@ -116,7 +114,7 @@ CONTAINS
         IF (decompInfo%owner_mask(idx_no(i), blk_no(i))) THEN
           me%sIdx(j) = idx_no(i)
           me%sBlk(j) = blk_no(i)
-          sBuf_d(j) = decompInfo%glb_index(i)
+          sBuf_i(j) = decompInfo%glb_index(i)
           j = j + 1
         END IF
       END DO
@@ -136,12 +134,12 @@ CONTAINS
     ALLOCATE(globalIndices(me%nRecv))
     IF (lactive) THEN
       IF(destPE .NE. myRank .AND. me%nSend .GT. 0) &
-          CALL p_send(sBuf_d, destPE, 0, comm=p_comm_work_restart)
+          CALL p_send(sBuf_i, destPE, 0, comm=p_comm_work_restart)
       j = 1
       globalIndices(:) = 0._dp
       DO i = 1, nSrcPE
         IF(srcPE(i) .EQ. myRank) THEN
-          globalIndices(j:j-1+me%nSrcRecv(i)) = sBuf_d(1:me%nSend)
+          globalIndices(j:j-1+me%nSrcRecv(i)) = sBuf_i(1:me%nSend)
         ELSE
           IF (me%nSrcRecv(i) > 0) &
             & CALL p_recv(globalIndices(j:j-1+me%nSrcRecv(i)), srcPE(i), 0, &
@@ -157,7 +155,6 @@ CONTAINS
     CLASS(t_MultifileRestartCollector),  INTENT(INOUT) :: this
     INTEGER, INTENT(IN) :: jg, nVar, destPE, srcPE(:)
     LOGICAL, INTENT(IN) :: lactive
-    CHARACTER(*), PARAMETER :: routine = modname//":multifileRestartCollector_construct"
     TYPE(t_grid_domain_decomp_info), POINTER :: deco
     INTEGER :: i, nElem
 
@@ -190,12 +187,7 @@ CONTAINS
     this%rBuf%d => dummy_d
     this%rBuf%s => dummy_s
     this%rBuf%i => dummy_i
-    this%rBuf_size = 0_addr
     this%nVar = nVar
-#ifndef NOMPI
-    this%win = MPI_WIN_NULL
-    this%wComm = MPI_COMM_NULL
-#endif
     ALLOCATE(this%vGrid(nVar), this%vType(nVar), this%vLevs(nVar))
     IF (timers_level >= 10)  CALL timer_stop(timer_restart_collector_setup)
   END SUBROUTINE multifileRestartCollector_construct
@@ -204,7 +196,6 @@ CONTAINS
     CLASS(t_MultifileRestartCollector), INTENT(INOUT) :: this
     INTEGER,                            INTENT(IN   ) :: iVar, nLevs, iType, iGrid
     INTEGER(KIND=i8),                   INTENT(INOUT) :: iOffset(:)
-    CHARACTER(*), PARAMETER :: routine = modname//":multifileRestartCollector_defVar"
 
     IF (timers_level >= 10)  CALL timer_start(timer_restart_collector_setup)
     this%vGrid(iVar) = igrid
@@ -291,11 +282,7 @@ CONTAINS
     INTEGER :: pct(me%nSrcPE,SIZE(vWrNow)), t_cnt(me%nSrcPE)
     TYPE(c_ptr) :: cptr
 
-    bSize = 0
-    ones(:) = 1
-    stride(:) = 0
-    t_cnt(:) = 0
-    rDsp(:) = 0_addr
+    bSize = 0; ones(:) = 1; stride(:) = 0; t_cnt(:) = 0; rDsp(:) = 0_addr
     iTy = me%vType(vWrNow(1))
 #endif
     nV = SIZE(vWrNow)
@@ -433,53 +420,44 @@ CONTAINS
     CLASS(*),    INTENT(IN)    :: input(:,:,:)
     INTEGER(i8), INTENT(INOUT) :: ioffset
     CHARACTER(*), PARAMETER :: routine = modname//":multifileRestartCollector_sendField"
-    INTEGER(i8) :: offset, i, iLev, nPnt, iG
-    LOGICAL :: fail
+    INTEGER(i8) :: offset
+    INTEGER :: iG, iLev, i, nPnt
 
     iG = me%vGrid(iV)
-    nPnt = INT(me%idx(iG)%nSend, i8)
-    fail = .FALSE.
-    SELECT TYPE(input)
-    TYPE IS (REAL(dp))
-      IF (.NOT. ASSOCIATED(me%sBuf%d)) fail = .TRUE.
-    TYPE IS (REAL(sp))
-      IF (.NOT. ASSOCIATED(me%sBuf%s)) fail = .TRUE.
-    TYPE IS (INTEGER)
-      IF (.NOT. ASSOCIATED(me%sBuf%i)) fail = .TRUE.
-    CLASS DEFAULT
-      CALL finish(routine, "unrecognized datatype!")
-    END SELECT
-    IF (fail) CALL finish(routine, "Unassociated send buffer!")
+    nPnt = me%idx(iG)%nSend
     IF (me%idx(ig)%nSend > 0) THEN
-!ICON_OMP PARALLEL PRIVATE(offset, iLev, i)
       SELECT TYPE(input)
       TYPE IS (REAL(dp))
-!ICON_OMP DO COLLAPSE(2)
-        DO iLev = 1_i8, INT(me%vLevs(iV), i8)
-          DO i = 1_i8, nPnt
-            offset = i + (iLev - 1_i8) * nPnt + ioffset
+        IF (.NOT. ASSOCIATED(me%sBuf%d)) CALL finish(routine, "no send buffer (dp)!")
+!ICON_OMP PARALLEL DO COLLAPSE(2) PRIVATE(offset)
+        DO iLev = 1, me%vLevs(iV)
+          DO i = 1, nPnt
+            offset = INT(i, i8) + (INT(iLev, i8) - 1_i8) * INT(nPnt, i8) + ioffset
             me%sBuf%d(offset) = input(me%idx(iG)%sIdx(i), iLev, me%idx(iG)%sBlk(i))
           END DO
         END DO
       TYPE IS (REAL(sp))
-!ICON_OMP DO COLLAPSE(2)
-        DO iLev = 1_i8, INT(me%vLevs(iV), i8)
-          DO i = 1_i8, nPnt
-            offset = i + (iLev - 1_i8) * nPnt + ioffset
+        IF (.NOT. ASSOCIATED(me%sBuf%s)) CALL finish(routine, "no send buffer (sp)!")
+!ICON_OMP PARALLEL DO COLLAPSE(2) PRIVATE(offset)
+        DO iLev = 1, me%vLevs(iV)
+          DO i = 1, nPnt
+            offset = INT(i, i8) + (INT(iLev, i8) - 1_i8) * INT(nPnt, i8) + ioffset
             me%sBuf%s(offset) = input(me%idx(iG)%sIdx(i), iLev, me%idx(iG)%sBlk(i))
           END DO
         END DO
       TYPE IS (INTEGER)
-!ICON_OMP DO COLLAPSE(2)
-        DO iLev = 1_i8, INT(me%vLevs(iV), i8)
-          DO i = 1_i8, nPnt
-            offset = i + (iLev - 1_i8) * nPnt + ioffset
+        IF (.NOT. ASSOCIATED(me%sBuf%i)) CALL finish(routine, "no send buffer (int)!")
+!ICON_OMP PARALLEL DO COLLAPSE(2) PRIVATE(offset)
+        DO iLev = 1, me%vLevs(iV)
+          DO i = 1, nPnt
+            offset = INT(i, i8) + (INT(iLev, i8) - 1_i8) * INT(nPnt, i8) + ioffset
             me%sBuf%i(offset) = input(me%idx(iG)%sIdx(i), iLev, me%idx(iG)%sBlk(i))
           END DO
         END DO
+      CLASS DEFAULT
+        CALL finish(routine, "unrecognized datatype!")
       END SELECT
-!ICON_OMP END PARALLEL
-      ioffset = ioffset + nPnt * INT(me%vLevs(iV), i8)
+      ioffset = ioffset + INT(nPnt, i8) * INT(me%vLevs(iV), i8)
     END IF
   END SUBROUTINE multifileRestartCollector_sendField
 
@@ -500,9 +478,6 @@ CONTAINS
 #endif
 
     this%shortcut = shortcut
-    this%allocd   = .false.
-    this%wPosted  = .false.
-    this%wStarted = .false.
     NULLIFY(this%wptr%p)
     FORALL(i = 1:3) wSizes(i) = isize(typeID(i))
     tOffCl(:) = 0_addr

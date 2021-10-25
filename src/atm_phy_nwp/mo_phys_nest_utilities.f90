@@ -59,6 +59,7 @@ USE sfc_seaice,             ONLY: frsi_min
 USE sfc_flake,              ONLY: flake_coldinit
 USE sfc_flake_data,         ONLY: tpl_T_r, C_T_min, rflk_depth_bs_ref
 USE mo_fortran_tools,       ONLY: init, copy
+USE mo_io_config,           ONLY: var_in_output
 
 IMPLICIT NONE
 
@@ -2269,7 +2270,7 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
   ! Local fields
   INTEGER, PARAMETER  :: nfields_p1=70   ! Number of positive-definite 2D physics fields for which boundary interpolation is needed
   INTEGER, PARAMETER  :: nfields_p2=19   ! Number of remaining 2D physics fields for which boundary interpolation is needed
-  INTEGER, PARAMETER  :: nfields_l2=18   ! Number of 2D land state fields
+  INTEGER, PARAMETER  :: nfields_l2=19   ! Number of 2D land state fields
 
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, jb, jc, jk, jt, nlev_c, ic, i_count, indlist(nproma)
   INTEGER :: styp                        ! soiltype at child level
@@ -2445,35 +2446,41 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
         ELSE
           z_aux3dl2_p(jc,12,jb) = 0._wp
         ENDIF
+        IF (var_in_output(jg)%res_soilwatb) THEN
+          z_aux3dl2_p(jc,13,jb) = ptr_ldiagp%resid_wso(jc,jb)
+        ELSE
+          z_aux3dl2_p(jc,13,jb) = 0._wp
+        ENDIF
+
       ENDDO
 
       IF (lseaice) THEN
         DO jc = i_startidx, i_endidx
           IF (ptr_wprogp%t_ice(jc,jb) > 10._wp) THEN
-            z_aux3dl2_p(jc,13,jb) = ptr_wprogp%t_ice(jc,jb)
+            z_aux3dl2_p(jc,14,jb) = ptr_wprogp%t_ice(jc,jb)
           ELSE
-            z_aux3dl2_p(jc,13,jb) = ptr_lprogp%t_g(jc,jb)
+            z_aux3dl2_p(jc,14,jb) = ptr_lprogp%t_g(jc,jb)
           ENDIF
-          z_aux3dl2_p(jc,14,jb) = ptr_wprogp%h_ice(jc,jb)
-          z_aux3dl2_p(jc,15,jb) = ptr_wprogp%t_snow_si(jc,jb)
-          z_aux3dl2_p(jc,16,jb) = ptr_wprogp%h_snow_si(jc,jb)
-          z_aux3dl2_p(jc,17,jb) = ptr_ldiagp%fr_seaice(jc,jb)
+          z_aux3dl2_p(jc,15,jb) = ptr_wprogp%h_ice(jc,jb)
+          z_aux3dl2_p(jc,16,jb) = ptr_wprogp%t_snow_si(jc,jb)
+          z_aux3dl2_p(jc,17,jb) = ptr_wprogp%h_snow_si(jc,jb)
+          z_aux3dl2_p(jc,18,jb) = ptr_ldiagp%fr_seaice(jc,jb)
         ENDDO
       ELSE
-        z_aux3dl2_p(:,13:17,jb) = 0._wp
+        z_aux3dl2_p(:,14:18,jb) = 0._wp
       ENDIF
 
       IF (llake) THEN
         DO jc = i_startidx, i_endidx
-          z_aux3dl2_p(jc,18,jb) = ptr_lprogp%t_g(jc,jb)
+          z_aux3dl2_p(jc,19,jb) = ptr_lprogp%t_g(jc,jb)
         ENDDO
         i_count = ext_data(jg)%atm%list_lake%ncount(jb)
         DO ic = 1, i_count
           jc = ext_data(jg)%atm%list_lake%idx(ic,jb)
-          z_aux3dl2_p(jc,18,jb) = ptr_lprogp%t_g_t(jc,jb,isub_lake)
+          z_aux3dl2_p(jc,19,jb) = ptr_lprogp%t_g_t(jc,jb,isub_lake)
         ENDDO
       ELSE
-        z_aux3dl2_p(:,18,jb) = 0._wp
+        z_aux3dl2_p(:,19,jb) = 0._wp
       ENDIF
 
       DO jk = 1, nlev_soil
@@ -2661,15 +2668,18 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
         ptr_ldiagc%t_so(jc,nlev_soil+1,jb) = z_aux3dl2_c(jc,11,jb)
         IF (lmulti_snow) &
           ptr_ldiagc%t_snow_mult(jc,nlev_snow+1,jb) = z_aux3dl2_c(jc,12,jb)
+        IF (var_in_output(jg)%res_soilwatb) THEN
+          ptr_ldiagc%resid_wso(jc,jb)     = z_aux3dl2_c(jc,13,jb)
+        ENDIF
       ENDDO
 
       IF (lseaice) THEN
         DO jc = i_startidx, i_endidx
-          ptr_wprogc%t_ice(jc,jb)     = MIN(tmelt,z_aux3dl2_c(jc,13,jb))
-          ptr_wprogc%h_ice(jc,jb)     = MAX(0._wp,z_aux3dl2_c(jc,14,jb))
-          ptr_wprogc%t_snow_si(jc,jb) = MIN(tmelt,z_aux3dl2_c(jc,15,jb))
-          ptr_wprogc%h_snow_si(jc,jb) = MAX(0._wp,z_aux3dl2_c(jc,16,jb))
-          ptr_ldiagc%fr_seaice(jc,jb) = MAX(0._wp,MIN(1._wp,z_aux3dl2_c(jc,17,jb)))
+          ptr_wprogc%t_ice(jc,jb)     = MIN(tmelt,z_aux3dl2_c(jc,14,jb))
+          ptr_wprogc%h_ice(jc,jb)     = MAX(0._wp,z_aux3dl2_c(jc,15,jb))
+          ptr_wprogc%t_snow_si(jc,jb) = MIN(tmelt,z_aux3dl2_c(jc,16,jb))
+          ptr_wprogc%h_snow_si(jc,jb) = MAX(0._wp,z_aux3dl2_c(jc,17,jb))
+          ptr_ldiagc%fr_seaice(jc,jb) = MAX(0._wp,MIN(1._wp,z_aux3dl2_c(jc,18,jb)))
           IF (ptr_ldiagc%fr_seaice(jc,jb) < frsi_min )         ptr_ldiagc%fr_seaice(jc,jb) = 0._wp
           IF (ptr_ldiagc%fr_seaice(jc,jb) > (1._wp-frsi_min) ) ptr_ldiagc%fr_seaice(jc,jb) = 1._wp
           IF (ext_data(jgc)%atm%fr_land(jc,jb) >= 1._wp-MAX(frlake_thrhld,frsea_thrhld)) THEN ! pure land point
@@ -2709,7 +2719,7 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
              nflkgb      = i_count,                             &
              idx_lst_fp  = indlist,                             &
              depth_lk    = ext_data(jgc)%atm%depth_lk  (:,jb),  &
-             tskin       = z_aux3dl2_c(:,18,jb),                &  ! estimate for lake sfc temp
+             tskin       = z_aux3dl2_c(:,19,jb),                &  ! estimate for lake sfc temp
              t_snow_lk_p = ptr_wprogc%t_snow_lk(:,jb),          &
              h_snow_lk_p = ptr_wprogc%h_snow_lk(:,jb),          &
              t_ice_p     = ptr_wprogc%t_ice    (:,jb),          &

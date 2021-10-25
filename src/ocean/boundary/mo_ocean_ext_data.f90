@@ -67,14 +67,14 @@ MODULE mo_ocean_ext_data
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var, grib2_var
   USE mo_read_interface,     ONLY: openInputFile, closeFile, on_cells, &
-    &                              t_stream_id, nf, read_2D, read_2D_int, &
+    &                              t_stream_id, read_2D, read_2D_int, &
     &                              read_3D, on_edges
   USE mo_util_string,        ONLY: t_keyword_list,  &
     &                              associate_keyword, with_keywords
   USE mo_cdi,                ONLY: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_PACK16, TSTEP_CONSTANT, &
     &                              TSTEP_MAX, TSTEP_AVG, GRID_UNSTRUCTURED
   USE mo_zaxis_type,         ONLY: ZA_SURFACE, ZA_REFERENCE, ZA_PRESSURE, ZA_HEIGHT_2M
-
+  USE mo_netcdf_errhandler,  ONLY: nf
   USE mo_io_config,          ONLY: lnetcdf_flt64_output
 
 

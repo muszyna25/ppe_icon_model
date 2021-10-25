@@ -633,7 +633,8 @@ PUBLIC           ! All constants and variables in this module are public
     zagb        (:,:)              , &
     zagc        (:,:)              , &
     zagd        (:,:)              , &
-    zage        (:,:)
+    zage        (:,:)              , &
+    zhwso_budget(:)                    ! all sources and sinks of soil water budget              
 
 
   LOGICAL,           ALLOCATABLE  :: &
@@ -647,9 +648,10 @@ CONTAINS
 
 !==============================================================================
 
-SUBROUTINE terra_wkarr_alloc (ke_soil, ke_snow, nproma, istat)
+SUBROUTINE terra_wkarr_alloc (ke_soil, ke_snow, lressoibud, nproma, istat)
 
   INTEGER, INTENT(IN)  :: ke_soil, ke_snow, nproma
+  LOGICAL, INTENT(IN)  :: lressoibud
   INTEGER, INTENT(OUT) :: istat
 
   istat = 0
@@ -888,6 +890,13 @@ SUBROUTINE terra_wkarr_alloc (ke_soil, ke_snow, nproma, istat)
             zage        (nproma,0:ke_soil+ke_snow+1), &
        STAT=istat)
 
+  IF (lressoibud) THEN
+    ALLOCATE (                               &  ! for soil water budget
+            zhwso_budget(nproma)           , &  ! all sources and sinks of soil moisture budget
+       STAT=istat)
+
+  ENDIF	   
+	   
   ALLOCATE (                                 &  ! logical
             limit_tch (nproma)             , &  ! indicator for flux limitation problem
             lzurban   (nproma)             , &  ! indicator for flux limitation problem
@@ -930,6 +939,7 @@ SUBROUTINE terra_wkarr_alloc (ke_soil, ke_snow, nproma, istat)
   !$noacc create(zw_snow_old, zrho_snow_old, h_snow_fg, h_snow_incr)  &
   !$noacc create(zaga, zagb, zagc, zagd, zage)                        &
   !$noacc create(limit_tch, lzurban, l_redist)
+  !$noacc enter data async create(zhwso_budget) if (lressoibud)
 
 END SUBROUTINE terra_wkarr_alloc
 

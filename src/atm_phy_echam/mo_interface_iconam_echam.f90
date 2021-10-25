@@ -96,7 +96,7 @@ MODULE mo_interface_iconam_echam
     &                                 t_echam_phy_tend , prm_tend
   USE mo_echam_phy_bcs         ,ONLY: echam_phy_bcs
   USE mo_echam_phy_main        ,ONLY: echam_phy_main
-  USE mo_interface_echam_ocean ,ONLY: interface_echam_ocean
+  USE mo_echam_coupling        ,ONLY: interface_echam_ocean
   
 #ifndef __NO_JSBACH__
   USE mo_jsb_interface         ,ONLY: jsbach_start_timestep, jsbach_finish_timestep

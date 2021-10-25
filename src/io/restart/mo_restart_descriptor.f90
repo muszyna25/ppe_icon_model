@@ -20,28 +20,28 @@ MODULE mo_restart_descriptor
   USE mo_mpi, ONLY: my_process_is_work, p_bcast, p_comm_work_2_restart, &
     & p_pe_work, my_process_is_mpi_test, process_mpi_restart_size
   USE mo_restart_nml_and_att,       ONLY: restartAttributeList_make, bcastNamelistStore, &
-    & restartAttributeList_write_to_cdi
+    & restartAttributeList_write_to_ncdf
   USE mo_key_value_store,           ONLY: t_key_value_store
   USE mo_restart_patch_description, ONLY: t_restart_patch_description
   USE mo_restart_util, ONLY: t_restart_args, create_restart_file_link, &
-    & getRestartFilename, restartBcastRoot
+    & getRestartFilename, restartBcastRoot, t_rfids
   USE mo_restart_var_data,          ONLY: has_valid_time_level
   USE mo_var_list_register_utils,   ONLY: vlr_replicate
   USE mo_upatmo_flowevent_utils,    ONLY: t_upatmoRestartAttributes, upatmoRestartAttributesSet
-  USE mo_cdi_ids,                   ONLY: t_CdiIds
   USE mo_cdi,                       ONLY: FILETYPE_NC2, FILETYPE_NC4
-#ifdef DEBUG
-  USE mo_cdi,                       ONLY: CDI_UNDEFID
-#endif
   USE mo_restart_patch_data, ONLY: t_restartPatchData
 #ifndef NOMPI
   USE mo_async_restart_patch_data, ONLY: t_asyncPatchData
 #endif
   USE mo_sync_restart_patch_data, ONLY: t_syncPatchData
   USE mo_multifile_restart_patch_data, ONLY: t_multifilePatchData
+  USE mo_var_metadata_types, ONLY: t_var_metadata
+  USE mo_netcdf_errhandler, ONLY: nf
 
   IMPLICIT NONE
   PRIVATE
+
+  INCLUDE 'netcdf.inc'
 
   PUBLIC :: t_RestartDescriptor
 
@@ -165,6 +165,7 @@ CONTAINS
     ! first the attributes that are independent of the domain
     CALL restartAttributelist_make(rAttribs)
     ! put CF-Convention required restart attributes
+    CALL rAttribs%put('bool_int_is_int', 1)
     CALL rAttribs%put('title',       cf_global_info%title)
     CALL rAttribs%put('institution', cf_global_info%institution)
     CALL rAttribs%put('source',      cf_global_info%source)
@@ -221,14 +222,13 @@ CONTAINS
     LOGICAL, INTENT(in) :: isSync
     CHARACTER(*), PARAMETER :: routine = modname//":restartDescriptor_writeFiles"
     CHARACTER(:), ALLOCATABLE :: fname
-    TYPE(t_CdiIds) :: cdiIds
+    TYPE(t_rfids) :: rfids
     CLASS(t_RestartPatchData), POINTER :: pData
     TYPE(t_restart_patch_description), POINTER :: desc
     LOGICAL :: lIsWriteProcess
     INTEGER :: jg
     TYPE(t_key_value_store), ALLOCATABLE :: rAttribs
 
-    CALL cdiIds%init()
     DO jg = 1, SIZE(me%patchData, 1)
       pData => me%patchData(jg)
       desc => pData%description
@@ -243,14 +243,13 @@ CONTAINS
       IF (lIsWriteProcess) THEN
         IF (.NOT.ALLOCATED(rAttribs)) &
           & CALL me%defineRestartAttributes(rAttribs, rArgs)
-        CALL desc%updateVGrids()
         CALL restartfile_open()
       END IF
       IF (ALLOCATED(me%sPatchData)) THEN
-        CALL me%sPatchData(jg)%writeData(cdiIds%fHndl)
+        CALL me%sPatchData(jg)%writeData(rfids%ncid)
 #ifndef NOMPI
       ELSE IF (ALLOCATED(me%aPatchData)) THEN
-        CALL me%aPatchData(jg)%writeData(cdiIds%fHndl)
+        CALL me%aPatchData(jg)%writeData(rfids%ncid)
 #endif
       ELSE
         CALL finish(routine, "multifile does not use this routine!")
@@ -258,55 +257,48 @@ CONTAINS
       IF(lIsWriteProcess) THEN
         CALL create_restart_file_link(fname, TRIM(rArgs%modelType), &
           & desc%id, opt_ndom=desc%opt_ndom)
-#ifdef DEBUG
-        WRITE(nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
-        IF (cdiIds%fHndl /= CDI_UNDEFID) THEN
-          WRITE(nerr,'(a)') routine // ' try to close restart file=' // fname
-          WRITE(nerr,'(2(a,i6))') routine //' p_pe=', p_pe, &
-            & ' close netCDF file with ID=', cdiIds%fHndl
-        ENDIF
-#endif
-        CALL cdiIds%closeAndDestroyIds()
+        CALL nf(nf_close(rfids%ncid), routine)
       END IF
     END DO
-    IF (ALLOCATED(rAttribs)) THEN
-      CALL rAttribs%destruct()
-      DEALLOCATE(rAttribs)
-    END IF
+    IF (ALLOCATED(rAttribs)) CALL rAttribs%destruct()
   CONTAINS
 
     SUBROUTINE restartfile_open()
       CHARACTER(len=MAX_DATETIME_STR_LEN) :: datetimeString
-      INTEGER :: i
+      INTEGER :: i, ncid, tvid, date_int
+      TYPE(t_var_metadata), POINTER :: ci
 #ifdef DEBUG
       WRITE (nerr,'(a,i6)') routine//' p_pe=',p_pe
 #endif
       ! assume all restart variables uses the same file format
       CALL datetimeToString(rArgs%restart_datetime, datetimeString)
+      CALL getRestartFilename(desc%base_filename, desc%id, rArgs, fname, date_int)
       SELECT CASE(pData%restartType)
       CASE(FILETYPE_NC2)
         WRITE(0,*) "Write netCDF2 restart for: "//TRIM(datetimeString)
+        CALL nf(nf_create(fname, NF_64BIT_OFFSET, ncid), routine)
       CASE(FILETYPE_NC4)
         WRITE(0,*) "Write netCDF4 restart for: "//TRIM(datetimeString)
+        CALL nf(nf_create(fname, NF_NETCDF4, ncid), routine)
       CASE default
         CALL finish(routine, "file format for restart variables must be NetCDF")
       END SELECT
-      CALL getRestartFilename(desc%base_filename, desc%id, rArgs, fname)
-      CALL cdiIds%openRestartAndCreateIds(fname, pData%restartType, desc%n_patch_cells_g, &
-        & desc%n_patch_verts_g, desc%n_patch_edges_g, desc%cell_type, &
-        & desc%v_grid_defs(1:desc%v_grid_count), desc%opt_pvct)
+      CALL rfids%init(ncid, desc%n_patch_elem_g(1:3), tvid)
       ! set global attributes
-      CALL restartAttributeList_write_to_cdi(rAttribs, cdiIds%vlist)
+      CALL restartAttributeList_write_to_ncdf(rAttribs, ncid)
 #ifdef DEBUG
-      WRITE (nerr, '(2(a,i6))' )routine//' p_pe=',p_pe,' open netCDF file with ID=',cdiIds%fHndl
+      WRITE (nerr, '(2(a,i6))' )routine//' p_pe=',p_pe,' open netCDF file with ID=',ncid
 #endif
       ! go over the all restart variables in the associated array AND define those
       ! that have a valid time level
       DO i = 1, SIZE(pData%varData)
-        IF(has_valid_time_level(pData%varData(i)%p%info, desc%id, desc%nnew, desc%nnew_rcf)) &
-          & CALL cdiIds%defineVariable(pData%varData(i)%p%info)
+        ci => pData%varData(i)%p%info
+        IF(has_valid_time_level(ci, desc%id, desc%nnew, desc%nnew_rcf)) &
+          & CALL rfids%def_ncdfvar(ci, desc%hmap(ci%hgrid))
       ENDDO
-      CALL cdiIds%finalizeVlist(rArgs%restart_datetime)
+      CALL nf(nf_set_fill(ncid, NF_NOFILL, i), routine)
+      CALL nf(nf_enddef(ncid), routine)
+      CALL nf(nf_put_var1_real(ncid, tvid, [1], REAL(date_int)), routine)
     END SUBROUTINE restartfile_open
   END SUBROUTINE restartDescriptor_writeFiles
 

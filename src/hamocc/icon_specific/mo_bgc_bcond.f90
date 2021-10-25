@@ -35,8 +35,7 @@ USE mo_master_control,       ONLY: get_my_process_name
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var, grib2_var
   USE mo_read_interface,     ONLY: openInputFile, closeFile, on_cells, &
-    &                              t_stream_id, nf,  &
-    &                              read_3D
+    &                              t_stream_id, read_3D
   USE mo_util_string,        ONLY: t_keyword_list,  &
     &                              associate_keyword
   USE mo_cdi,                ONLY: DATATYPE_FLT32, GRID_UNSTRUCTURED
@@ -48,7 +47,7 @@ USE mo_master_control,       ONLY: get_my_process_name
   USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL
   USE mo_ocean_nml,          ONLY: lsediment_only
   USE mo_run_config,         ONLY: dtime
-
+  USE mo_netcdf_errhandler,  ONLY: nf
   
   IMPLICIT NONE
 

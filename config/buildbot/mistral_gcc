@@ -1,9 +1,19 @@
 #!/bin/bash
 
+set +x
+
 MY_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR=$(cd "${MY_DIR}/../.."; pwd)
 
-${ICON_DIR}/config/dkrz/mistral.gcc --enable-yaxt --disable-openmp
+
+MPI_LAUNCH='srun -A mh0156 -p compute,compute2 --qos=buildbot -N 1'
+
+
+${ICON_DIR}/config/dkrz/mistral.gcc --enable-yaxt --disable-openmp MPI_LAUNCH="${MPI_LAUNCH}"
+
+if test 0 -ne "$?" ; then
+  find . -name 'config.log' -print | xargs -I {} sh -c "echo '#====== FILE:{} =======================================' && cat {}"
+fi
 
 MAKE_PROCS=8
 make -j ${MAKE_PROCS}

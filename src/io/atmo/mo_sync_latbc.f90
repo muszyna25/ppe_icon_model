@@ -52,9 +52,9 @@ MODULE mo_sync_latbc
   USE mo_nh_init_utils,       ONLY: interp_uv_2_vn, convert_thdvars, convert_omega2w, &
     &                               compute_input_pressure_and_height
   USE mo_io_config,           ONLY: default_read_method
-  USE mo_read_interface,      ONLY: nf, openInputFile, closeFile, read_3D, read_3D_1time,&
-                                    read_2D_1lev_1time, read_2D_1time, t_stream_id, on_cells, &
-                                    on_edges
+  USE mo_read_interface,      ONLY: openInputFile, closeFile, read_3D, read_3D_1time, on_edges, &
+                                    read_2D_1lev_1time, read_2D_1time, t_stream_id, on_cells
+  USE mo_netcdf_errhandler,   ONLY: nf
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, sync_patch_array
   USE mo_initicon_types,      ONLY: t_init_state, t_init_state_const
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e

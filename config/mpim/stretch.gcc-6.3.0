@@ -6,7 +6,7 @@ unset CDPATH
 SCRIPT_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR=$(cd "${SCRIPT_DIR}/../.."; pwd)
 
-MODULES='openmpi/2.1.5-gcc63'
+MODULES='mpich3/3.2.1-gcc63'
 
 SW_ROOT='/sw/stretch-x64'
 

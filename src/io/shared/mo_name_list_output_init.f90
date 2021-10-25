@@ -185,6 +185,7 @@ MODULE mo_name_list_output_init
   USE yaxt,                                 ONLY: xt_idxlist, &
        xt_idxvec_new, xt_idxlist_delete, xt_idxstripes_from_idxlist_new, &
        xt_int_kind, xt_idxstripes_new, xt_idxempty_new, xt_stripe
+  USE mo_io_coupling,     ONLY: construct_io_coupler
 #endif
   IMPLICIT NONE
 
@@ -210,7 +211,9 @@ MODULE mo_name_list_output_init
   PUBLIC :: isRegistered
   PUBLIC :: nlevs_of_var
 
+#ifdef HAVE_CDI_PIO
   PUBLIC :: init_cdipio_cb
+#endif
 
   !------------------------------------------------------------------------------------------------
 
@@ -1587,12 +1590,20 @@ CONTAINS
     END IF
   END SUBROUTINE print_output_event_table
 
+#ifdef HAVE_CDI_PIO
   ! called by all CDI-PIO async ranks after the initialization of
   ! communication replicates the output events on CDI PIO rank 0, so
   ! that output rank 0 can write the ready files later
   SUBROUTINE init_cdipio_cb
     INTEGER :: dom_sim_step_info_jstep0
     TYPE(t_event_data_local) :: event_list_dummy(1)
+    
+    IF ( is_coupled_run() ) THEN
+
+       CALL construct_io_coupler ( "dummy" )
+
+    ENDIF
+
     IF (p_pe_work == 0) THEN
       CALL p_recv(dom_sim_step_info_jstep0, p_source=0, p_tag=156, &
         &         comm=p_comm_work_io)
@@ -1606,6 +1617,7 @@ CONTAINS
       CALL print_output_event_table(dom_sim_step_info_jstep0)
     END IF
   END SUBROUTINE init_cdipio_cb
+#endif
 
   FUNCTION add_out_event(of, i, local_i, sim_step_info, &
     &                    dom_sim_step_info_jstep0, &

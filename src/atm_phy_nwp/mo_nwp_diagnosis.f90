@@ -56,8 +56,8 @@ MODULE mo_nwp_diagnosis
   USE mo_physical_constants, ONLY: tmelt, grav, cpd, vtmpc1
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
   USE mo_advection_config,   ONLY: advection_config
-  USE mo_io_config,          ONLY: lflux_avg, t_var_in_output, uh_max_zmin, uh_max_zmax, &
-    &                              luh_max_out, uh_max_nlayer
+  USE mo_io_config,          ONLY: lflux_avg, uh_max_zmin, uh_max_zmax, &
+    &                              luh_max_out, uh_max_nlayer, var_in_output
   USE mo_sync,               ONLY: global_max, global_min
   USE mo_vertical_coord_table,  ONLY: vct_a
   USE mo_satad,              ONLY: sat_pres_water, spec_humi
@@ -351,6 +351,18 @@ CONTAINS
             END DO
           END DO
           !$acc end parallel
+          ! special treatment for variable resid_wso
+          IF (var_in_output(jg)%res_soilwatb) THEN
+            !$acc parallel default(present) if(lacc)
+            !$acc loop gang vector collapse(2)
+            DO jt=1,ntiles_total
+!DIR$ IVDEP
+              DO jc = i_startidx, i_endidx
+                lnd_diag%resid_wso_t(jc,jb,jt) = lnd_diag%resid_wso_t(jc,jb,jt) + lnd_diag%resid_wso_inst_t(jc,jb,jt)  
+              ENDDO
+            ENDDO
+            !$acc end parallel
+          ENDIF
         END IF
 
 
@@ -1640,7 +1652,7 @@ CONTAINS
   !!
   !!
   SUBROUTINE nwp_opt_diagnostics(p_patch, p_patch_lp, p_int_lp, p_nh, p_int, prm_diag, &
-     l_output, nnow, nnow_rcf, var_in_output, &
+     l_output, nnow, nnow_rcf, &
      lpi_max_Event, celltracks_Event, dbz_Event, mtime_current,  plus_slack)
 
     TYPE(t_patch)       ,INTENT(IN)   :: p_patch(:), p_patch_lp(:)  ! patches and their local parents
@@ -1652,8 +1664,6 @@ CONTAINS
     TYPE(event),     POINTER, INTENT(INOUT) :: lpi_max_Event, celltracks_Event, dbz_Event
     TYPE(datetime),  POINTER, INTENT(IN   ) :: mtime_current  !< current_datetime
     TYPE(timedelta), POINTER, INTENT(IN   ) :: plus_slack
-
-    TYPE(t_var_in_output),    INTENT(IN   ) :: var_in_output(:)
 
     LOGICAL, INTENT(IN) :: l_output(:)
     INTEGER, INTENT(IN) :: nnow(:), nnow_rcf(:)

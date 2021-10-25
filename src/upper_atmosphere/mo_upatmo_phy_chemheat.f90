@@ -27,7 +27,7 @@ MODULE mo_upatmo_phy_chemheat
   USE mo_mpi,                    ONLY: my_process_is_stdio, p_io, p_bcast, &
     &                                  p_comm_work_test, p_comm_work
   USE mo_util_string,            ONLY: tolower, t_keyword_list, associate_keyword, with_keywords
-  USE mo_read_interface,         ONLY: nf
+  USE mo_netcdf_errhandler,      ONLY: nf
   USE mo_master_config,          ONLY: getModelBaseDir
   USE mo_impl_constants,         ONLY: max_char_length, SUCCESS
   USE mo_math_constants,         ONLY: deg2rad

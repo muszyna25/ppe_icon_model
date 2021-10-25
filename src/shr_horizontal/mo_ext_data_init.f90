@@ -73,9 +73,9 @@ MODULE mo_ext_data_init
   USE mo_master_config,      ONLY: getModelBaseDir
   USE mo_time_config,        ONLY: time_config
   USE mo_io_config,          ONLY: default_read_method
-  USE mo_read_interface,     ONLY: nf, openInputFile, closeFile, on_cells, &
-    &                              t_stream_id, read_2D, read_2D_int, &
-    &                              read_3D_extdim, read_2D_extdim
+  USE mo_read_interface,     ONLY: openInputFile, closeFile, on_cells, t_stream_id, &
+    &                              read_2D, read_2D_int, read_3D_extdim, read_2D_extdim
+  USE mo_netcdf_errhandler,  ONLY: nf
   USE turb_data,             ONLY: c_lnd, c_sea
   USE mo_util_cdi,           ONLY: get_cdi_varID, test_cdi_varID, read_cdi_2d,     &
     &                              read_cdi_3d, t_inputParameters,                 &

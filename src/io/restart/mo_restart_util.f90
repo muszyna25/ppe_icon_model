@@ -13,7 +13,7 @@
 MODULE mo_restart_util
   USE mo_exception,          ONLY: get_filename_noext, finish
   USE mo_fortran_tools,      ONLY: assign_if_present_allocatable
-  USE mo_impl_constants,     ONLY: SUCCESS
+  USE mo_impl_constants,     ONLY: SUCCESS, SINGLE_T, REAL_T, INT_T
   USE mo_io_config,          ONLY: restartWritingParameters, kMultifileRestartModule
   USE mo_kind,               ONLY: i8
   USE mo_packed_message,     ONLY: t_PackedMessage, kPackOp
@@ -22,25 +22,26 @@ MODULE mo_restart_util
   USE mo_util_file,          ONLY: createSymlink
   USE mo_util_string,        ONLY: int2string, associate_keyword, with_keywords, t_keyword_list
   USE mtime,                 ONLY: datetime, newDatetime, deallocateDatetime
+  USE mo_var_metadata_types, ONLY: t_var_metadata
+  USE mo_netcdf_errhandler,  ONLY: nf
 #ifndef NOMPI
   USE mo_mpi, ONLY: p_pe_work, my_process_is_restart
   USE mpi, ONLY: MPI_PROC_NULL, MPI_ROOT
 #endif
 
   IMPLICIT NONE
-
   PRIVATE
 
-  PUBLIC :: t_restart_args
+  INCLUDE 'netcdf.inc'
 
-  PUBLIC :: getRestartFilename
-  PUBLIC :: restartSymlinkName, create_restart_file_link
+  PUBLIC :: t_restart_args, t_rfids
+  PUBLIC :: getRestartFilename, restartSymlinkName, create_restart_file_link
   PUBLIC :: restartBcastRoot
   ! patch independent restart arguments
   TYPE t_restart_args
     TYPE(datetime), POINTER :: restart_datetime => NULL()
     INTEGER :: jstep
-    CHARACTER(LEN = 32) :: modelType
+    CHARACTER(LEN=32) :: modelType
     INTEGER, ALLOCATABLE :: output_jfile(:)
   CONTAINS
     PROCEDURE :: construct => restartArgs_construct
@@ -48,7 +49,16 @@ MODULE mo_restart_util
     PROCEDURE :: destruct => restartArgs_destruct
   END TYPE t_restart_args
 
-  CHARACTER(LEN = *), PARAMETER :: modname = "mo_restart_util"
+  TYPE t_rfids
+    LOGICAL :: isinit = .FALSE.
+    INTEGER :: ncid, nlayids, ftid, gids(3)
+    INTEGER, ALLOCATABLE :: layids(:), nlays(:)
+  CONTAINS
+    PROCEDURE :: init => rfids_init
+    PROCEDURE :: def_ncdfvar => rfids_def_ncdfvar
+  END TYPE t_rfids
+
+  CHARACTER(*), PARAMETER :: modname = "mo_restart_util"
 
 CONTAINS
 
@@ -57,23 +67,19 @@ CONTAINS
   INTEGER FUNCTION restartBcastRoot() RESULT(resultVar)
     resultVar = 0
 #ifndef NOMPI
-    IF(.NOT.my_process_is_restart()) THEN
-      ! Special root setting for intercommunicators:
-      ! The PE really sending must use MPI_ROOT, the others MPI_PROC_NULL.
-      IF(p_pe_work == 0) THEN
-        resultVar = MPI_ROOT
-      ELSE
-        resultVar = MPI_PROC_NULL
-      END IF
-    END IF
+    ! Special root setting for intercommunicators:
+    ! The PE really sending must use MPI_ROOT, the others MPI_PROC_NULL.
+    IF (.NOT.my_process_is_restart()) &
+      & resultVar = MERGE(MPI_ROOT, MPI_PROC_NULL, p_pe_work == 0)
 #endif
   END FUNCTION restartBcastRoot
 
-  SUBROUTINE getRestartFilename(baseName, jg, restartArgs, resultVar)
-    CHARACTER(LEN = *), INTENT(IN) :: baseName
-    INTEGER, INTENT(in) :: jg
+  SUBROUTINE getRestartFilename(baseName, jg, restartArgs, resultVar, date_int)
+    CHARACTER(*), INTENT(IN) :: baseName
+    INTEGER, INTENT(IN) :: jg
     TYPE(t_restart_args), INTENT(IN) :: restartArgs
-    CHARACTER(LEN = :), ALLOCATABLE, INTENT(INOUT) :: resultVar
+    CHARACTER(:), ALLOCATABLE, INTENT(INOUT) :: resultVar
+    INTEGER, INTENT(OUT) :: date_int
     CHARACTER(LEN=32) :: datetimeString
     INTEGER :: restartModule
     TYPE(t_keyword_list), POINTER :: keywords
@@ -83,6 +89,7 @@ CONTAINS
     WRITE (datetimeString,'(i4.4,2(i2.2),a,3(i2.2),a)')    &
        & dt%date%year, dt%date%month, dt%date%day , 'T', &
        & dt%time%hour, dt%time%minute, dt%time%second, 'Z'
+    date_int = INT(dt%date%year)*10000 + INT(dt%date%month)*100 + INT(dt%date%day)
     NULLIFY(keywords)
     ! build the keyword list
     CALL associate_keyword("<gridfile>", TRIM(get_filename_noext(baseName)), keywords)
@@ -112,7 +119,7 @@ CONTAINS
   END SUBROUTINE restartSymlinkName
 
   SUBROUTINE create_restart_file_link(filename, modelType, jg, opt_ndom)
-    CHARACTER(LEN = *), INTENT(IN) :: filename, modelType
+    CHARACTER(*), INTENT(IN) :: filename, modelType
     INTEGER, INTENT(in) :: jg
     INTEGER, INTENT(IN) :: opt_ndom
     INTEGER :: ierr
@@ -128,7 +135,7 @@ CONTAINS
     CLASS(t_restart_args), INTENT(INOUT) :: me
     TYPE(datetime), INTENT(IN) :: this_datetime
     INTEGER, INTENT(in) :: jstep
-    CHARACTER(LEN = *), INTENT(IN) :: modelType
+    CHARACTER(*), INTENT(IN) :: modelType
     INTEGER, INTENT(IN), OPTIONAL :: opt_output_jfile(:)
     integer :: ierr
 
@@ -170,5 +177,88 @@ CONTAINS
     IF(ASSOCIATED(me%restart_datetime)) CALL deallocateDatetime(me%restart_datetime)
     IF(ALLOCATED(me%output_jfile)) DEALLOCATE(me%output_jfile)
   END SUBROUTINE restartArgs_destruct
+
+  SUBROUTINE rfids_init(rfids, ncid_in, nelem, tvid)
+    CLASS(t_rfids), INTENT(OUT) :: rfids
+    INTEGER, INTENT(IN) :: ncid_in, nelem(3)
+    INTEGER, INTENT(OUT) :: tvid
+    INTEGER :: dummy
+    CHARACTER(*), PARAMETER :: routine = modname//":rfids_init"
+
+    rfids%ncid = ncid_in
+    IF (rfids%isinit) DEALLOCATE(rfids%layids, rfids%nlays)
+    rfids%nlayids = 0
+    ALLOCATE(rfids%layids(32), rfids%nlays(32))
+    CALL nf(nf_def_dim(rfids%ncid, "time", 1, rfids%ftid), routine)
+    CALL nf(nf_def_var(rfids%ncid, "time", NF_REAL, 1, [rfids%ftid], tvid), routine)
+    CALL nf(nf_put_att_text(rfids%ncid, tvid, "axis", 1, "T"), routine)
+    CALL nf(nf_put_att_text(rfids%ncid, tvid, "units", 16, "day as %Y%m%d.%f"), routine)
+    CALL nf(nf_def_dim(rfids%ncid, "cells", nelem(1), rfids%gids(1)), routine)
+    CALL nf(nf_def_var(rfids%ncid, "cells", NF_INT, 1, [rfids%gids(1)], dummy), routine)
+    CALL nf(nf_def_dim(rfids%ncid, "verts", nelem(2), rfids%gids(2)), routine)
+    CALL nf(nf_def_var(rfids%ncid, "verts", NF_INT, 1, [rfids%gids(2)], dummy), routine)
+    CALL nf(nf_def_dim(rfids%ncid, "edges", nelem(3), rfids%gids(3)), routine)
+    CALL nf(nf_def_var(rfids%ncid, "edges", NF_INT, 1, [rfids%gids(3)], dummy), routine)
+    rfids%isinit = .TRUE.
+  END SUBROUTINE rfids_init
+
+  SUBROUTINE rfids_def_ncdfvar(rfids, ci, gid)
+    CLASS(t_rfids), INTENT(INOUT) :: rfids
+    INTEGER, INTENT(IN) :: gid
+    TYPE(t_var_metadata), POINTER, INTENT(INOUT) :: ci
+    INTEGER :: dtid, ivid, iivid, dids(3), nd, la, dummy
+    INTEGER, ALLOCATABLE :: tmpa(:), tmpb(:)
+    CHARACTER(LEN=10) :: layname
+    CHARACTER(*), PARAMETER :: routine = modname//":rfids_def_ncdfvar"
+
+    IF (.NOT.rfids%isinit) CALL finish(routine, "not initialized")
+    nd = ci%ndims
+    dids(1) = rfids%gids(gid)
+    SELECT CASE(ci%data_type)
+    CASE(REAL_T)
+      dtid = NF_DOUBLE
+    CASE(SINGLE_T)
+      dtid = NF_REAL
+    CASE(INT_T)
+      dtid = NF_INT
+    END SELECT
+    SELECT CASE(nd)
+    CASE(2)
+      dids(2) = rfids%ftid
+    CASE(3)
+      ivid = 0
+      DO iivid = 1, rfids%nlayids
+        IF (rfids%nlays(iivid) .EQ. ci%used_dimensions(2)) THEN
+          ivid = iivid
+          EXIT
+        END IF
+      END DO
+      IF (ivid .EQ. 0) THEN
+        IF (rfids%nlayids .EQ. SIZE(rfids%nlays)) THEN
+          CALL MOVE_ALLOC(rfids%nlays, tmpa)
+          CALL MOVE_ALLOC(rfids%layids, tmpb)
+          ALLOCATE(rfids%nlays(rfids%nlayids+32), rfids%layids(rfids%nlayids+32))
+          rfids%nlays(:rfids%nlayids) = tmpa
+          rfids%layids(:rfids%nlayids) = tmpb
+        END IF
+        rfids%nlayids = rfids%nlayids + 1
+        rfids%nlays(rfids%nlayids) = ci%used_dimensions(2)
+        WRITE(layname, "(a,i0)") "layers_", rfids%nlays(rfids%nlayids)
+        CALL nf(nf_def_dim(rfids%ncid, TRIM(layname), rfids%nlays(rfids%nlayids), &
+          & rfids%layids(rfids%nlayids)), routine)
+        CALL nf(nf_def_var(rfids%ncid, TRIM(layname), NF_INT, 1, &
+          &                rfids%layids(rfids%nlayids:rfids%nlayids), dummy), routine)
+        CALL nf(nf_put_att_text(rfids%ncid, dummy, "axis", 1, "z"), routine)
+        ivid = rfids%nlayids
+      END IF
+      dids(2) = rfids%layids(ivid)
+      dids(3) = rfids%ftid
+    END SELECT
+    CALL nf(nf_def_var(rfids%ncid, TRIM(ci%name), dtid, nd, dids(:nd), ci%cdiVarId), routine)
+    la = LEN_TRIM(ci%cf%units)
+    CALL nf(nf_put_att_text(rfids%ncid, ci%cdiVarId, "units", la, ci%cf%units(1:la)), routine)
+    la = LEN_TRIM(ci%cf%long_name)
+    CALL nf(nf_put_att_text(rfids%ncid, ci%cdiVarId, "long_name", la, ci%cf%long_name(1:la)), routine)
+  END SUBROUTINE rfids_def_ncdfvar
 
 END MODULE mo_restart_util
