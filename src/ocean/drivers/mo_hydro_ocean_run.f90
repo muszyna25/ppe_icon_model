@@ -910,7 +910,7 @@ CONTAINS
         ! FIXME zstar: Does this make sense for zstar 
         IF (iforc_oce == Coupled_FluxFromAtmo) THEN  !  14
 
-          CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), sea_ice, p_atm_f, p_as, current_time)
+          CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), sea_ice, p_atm_f, p_as)
 
           ! copy fluxes updated in coupling from p_atm_f into p_oce_sfc
           p_oce_sfc%FrshFlux_Precipitation = p_atm_f%FrshFlux_Precipitation
