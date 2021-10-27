@@ -271,12 +271,12 @@ MODULE mo_nh_stepping
 
   PUBLIC :: perform_nh_stepping
 
-  TYPE(t_sst_sic_reader), TARGET :: sst_reader
-  TYPE(t_sst_sic_reader), TARGET :: sic_reader
-  TYPE(t_time_intp)      :: sst_intp
-  TYPE(t_time_intp)      :: sic_intp
-  REAL(wp), ALLOCATABLE  :: sst_dat(:,:,:,:)
-  REAL(wp), ALLOCATABLE  :: sic_dat(:,:,:,:)
+  TYPE(t_sst_sic_reader), ALLOCATABLE, TARGET :: sst_reader(:) 
+  TYPE(t_sst_sic_reader), ALLOCATABLE, TARGET :: sic_reader(:)
+  TYPE(t_time_intp),      ALLOCATABLE         :: sst_intp(:)
+  TYPE(t_time_intp),      ALLOCATABLE         :: sic_intp(:)
+  REAL(wp),               ALLOCATABLE         :: sst_dat(:,:,:,:)
+  REAL(wp),               ALLOCATABLE         :: sic_dat(:,:,:,:)
 
   TYPE t_datetime_ptr
     TYPE(datetime), POINTER :: ptr => NULL()
@@ -359,6 +359,10 @@ MODULE mo_nh_stepping
     ! Does this really work for nested setups, or does it rather require domain specific 
     ! objects like sst/sic_reader(jg), sst/sic_intp(jg)?
     IF (sstice_mode == SSTICE_INST) THEN
+      ALLOCATE(sst_reader(n_dom))
+      ALLOCATE(sic_reader(n_dom))
+      ALLOCATE(sst_intp(n_dom))
+      ALLOCATE(sic_intp(n_dom))
       DO jg = 1, n_dom
         month = mtime_current%date%month
         year = mtime_current%date%year
@@ -385,17 +389,17 @@ MODULE mo_nh_stepping
 
         ENDIF
 
-        CALL sst_reader%init(p_patch(jg), sst_td_filename)
-        CALL sst_intp%init(sst_reader, mtime_current, "SST")
-        CALL sst_intp%intp(mtime_current, sst_dat)
+        CALL sst_reader(jg)%init(p_patch(jg), sst_td_file)
+        CALL sst_intp(jg)%init(sst_reader(jg), mtime_current, "SST")
+        CALL sst_intp(jg)%intp(mtime_current, sst_dat)
 
         WHERE (sst_dat(:,1,:,1) > 0.0_wp)
           p_lnd_state(jg)%diag_lnd%t_seasfc(:,:) = sst_dat(:,1,:,1)
         END WHERE
 
-        CALL sic_reader%init(p_patch(jg), ci_td_filename)
-        CALL sic_intp%init(sic_reader, mtime_current, "SIC")
-        CALL sic_intp%intp(mtime_current, sic_dat)
+        CALL sic_reader(jg)%init(p_patch(jg), ci_td_file)
+        CALL sic_intp(jg)%init(sic_reader(jg), mtime_current, "SIC")
+        CALL sic_intp(jg)%intp(mtime_current, sic_dat)
 
         WHERE (sic_dat(:,1,:,1) < frsi_min)
           p_lnd_state(jg)%diag_lnd%fr_seaice(:,:) = 0.0_wp
@@ -672,6 +676,10 @@ MODULE mo_nh_stepping
 
   CALL deallocate_nh_stepping
 
+  IF (ALLOCATED(sst_reader)) DEALLOCATE(sst_reader)
+  IF (ALLOCATED(sic_reader)) DEALLOCATE(sic_reader)
+  IF (ALLOCATED(sst_intp)) DEALLOCATE(sst_intp)
+  IF (ALLOCATED(sic_intp)) DEALLOCATE(sic_intp)
 
   END SUBROUTINE perform_nh_stepping
   !-------------------------------------------------------------------------
@@ -1036,12 +1044,12 @@ MODULE mo_nh_stepping
         i_am_accel_node = .FALSE.
 #endif
         DO jg=1, n_dom
-          CALL sst_intp%intp(mtime_current, sst_dat)
+          CALL sst_intp(jg)%intp(mtime_current, sst_dat)
           WHERE (sst_dat(:,1,:,1) > 0.0_wp)
             p_lnd_state(jg)%diag_lnd%t_seasfc(:,:) = sst_dat(:,1,:,1)
           END WHERE
 
-          CALL sic_intp%intp(mtime_current, sic_dat)
+          CALL sic_intp(jg)%intp(mtime_current, sic_dat)
           WHERE (sic_dat(:,1,:,1) < frsi_min)
             p_lnd_state(jg)%diag_lnd%fr_seaice(:,:) = 0.0_wp
           ELSEWHERE  (sic_dat(:,1,:,1) > 1.0_wp-frsi_min)
@@ -3383,7 +3391,7 @@ MODULE mo_nh_stepping
   !!
   SUBROUTINE deallocate_nh_stepping
 
-  INTEGER :: ist
+  INTEGER :: ist,jg
 
   !-----------------------------------------------------------------------
   !
@@ -3405,8 +3413,16 @@ MODULE mo_nh_stepping
       &    'deallocation for linit_dyn failed' )
   ENDIF
 
-  CALL sst_reader%deinit 
-  CALL sic_reader%deinit 
+  IF (ALLOCATED(sst_reader)) THEN
+    DO jg = 1, n_dom
+      CALL sst_reader(jg)%deinit
+    ENDDO
+  ENDIF
+  IF (ALLOCATED(sic_reader)) THEN
+    DO jg = 1, n_dom
+      CALL sic_reader(jg)%deinit
+    ENDDO
+  ENDIF
 
   END SUBROUTINE deallocate_nh_stepping
   !-------------------------------------------------------------------------
