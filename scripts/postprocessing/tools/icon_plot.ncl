@@ -1,4 +1,6 @@
 ;---------------------------------------------------------------
+; @author: Ralf Mueller (ralf.mueller@dkrz.de)
+;---------------------------------------------------------------
 ; This script makes contour/vector plots of general ICON data files
 ; For scalar variables the underlying grid can be used instead of automatic
 ; contour lines. Both modes are capable of masking the input files before

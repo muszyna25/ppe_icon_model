@@ -335,6 +335,8 @@ MODULE mo_ocean_model
     CHARACTER(*), PARAMETER :: method_name = "mo_ocean_model:construct_ocean_model"
     INTEGER :: ist, error_status, dedicatedRestartProcs
     INTEGER :: comp_id
+    INTEGER :: num_io_procs_radar, num_dio_procs
+    LOGICAL :: radar_flag_doms_model(1)
     !-------------------------------------------------------------------
 
     !---------------------------------------------------------------------
@@ -369,15 +371,15 @@ MODULE mo_ocean_model
 !    CALL set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs, &
 !      &                             dedicatedRestartProcs, num_test_pe, pio_type)
 !orig
-!pa
 !pa    
-!pa    write(0,*)'construct_ocean_model:pio_type=',pio_type
-!pa    write(0,*)'construct_ocean_model:restartProcs=',dedicatedRestartProcs
-    comp_id = get_my_process_type()  ! ocean_process
+    num_io_procs_radar = 0
+    num_dio_procs      = 0
+    radar_flag_doms_model(1) = .FALSE.
+
     CALL set_mpi_work_communicators(p_test_run, l_test_openmp, &
          &                          num_io_procs, dedicatedRestartProcs, &
-         &                          comp_id,num_prefetch_proc, num_test_pe,      &
-         &                          pio_type)
+         &                          get_my_process_type(),num_prefetch_proc, num_test_pe,      &
+         &                pio_type, num_io_procs_radar,radar_flag_doms_model, num_dio_procs)
 !pa
     !-------------------------------------------------------------------
     ! 3.2 Initialize various timers

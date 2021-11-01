@@ -17,6 +17,7 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
+#include "icon_contiguous_defines.inc"
 
 MODULE mo_async_restart_patch_data
 #ifndef NOMPI
@@ -24,25 +25,28 @@ MODULE mo_async_restart_patch_data
   USE mo_async_restart_comm_data,   ONLY: t_AsyncRestartCommData
   USE mo_exception,                 ONLY: finish
   USE mo_kind,                      ONLY: wp, dp, sp
-  USE mo_impl_constants,            ONLY: SUCCESS, SINGLE_T, REAL_T, INT_T
-  USE mo_cdi_constants,             ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE
-  USE mo_parallel_config,           ONLY: config_restart_chunk_size => restart_chunk_size
+  USE mo_impl_constants,            ONLY: SINGLE_T, REAL_T, INT_T
+  USE mo_parallel_config,           ONLY: crcs => restart_chunk_size
   USE mo_run_config,                ONLY: msg_level
   USE mo_restart_var_data,          ONLY: has_valid_time_level
   USE mo_timer,                     ONLY: timer_start, timer_stop, timer_write_restart_io, timers_level
   USE mo_mpi,                       ONLY: num_work_procs, my_process_is_restart, p_mpi_wtime,  &
-    &                                     p_real_sp_byte, p_real_dp_byte
+    &                                     p_real_sp_byte, p_real_dp_byte, p_int_byte
 #ifdef __SUNPRO_F95
   INCLUDE "mpif.h"
 #else
   USE mpi,                          ONLY: MPI_ADDRESS_KIND
 #endif
-  USE mo_cdi,                       ONLY: streamWriteVarSlice, streamWriteVarSliceF
   USE mo_restart_patch_data,        ONLY: t_RestartPatchData
   USE mo_var_list_register_utils,   ONLY: vlr_select_restart_vars
+  USE mo_netcdf_errhandler,         ONLY: nf
+  USE mo_restart_patch_description, ONLY: t_restart_patch_description
+  USE mo_var_metadata_types,        ONLY: t_var_metadata
 
   IMPLICIT NONE
   PRIVATE
+
+  INCLUDE 'netcdf.inc'
 
   PUBLIC :: t_AsyncPatchData
 
@@ -81,112 +85,80 @@ CONTAINS
   !
   ! Write restart variable list for a restart PE.
   !
-  SUBROUTINE asyncPatchData_writeData(me, file_handle)
-    CLASS(t_AsyncPatchData), INTENT(INOUT) :: me
-    INTEGER, INTENT(IN) :: file_handle
-    INTEGER(MPI_ADDRESS_KIND) :: ioff(0:num_work_procs-1), bytesGet, bytesWrite
-    REAL(dp), ALLOCATABLE, TARGET :: buffer_dp(:,:)
-    REAL(sp), POINTER :: buffer_sp(:,:)
-    INTEGER :: ichunk, nchunks, chunk_start, chunk_end, restart_chunk_size, &
-      & max_nlevs, iv, nval, ierrstat, nlevs, ilev, pointCount
+  SUBROUTINE asyncPatchData_writeData(me, ncid)
+    CLASS(t_AsyncPatchData), INTENT(INOUT), TARGET :: me
+    INTEGER, INTENT(IN) :: ncid
+    INTEGER(MPI_ADDRESS_KIND) :: ioff(0:num_work_procs-1), bGet, bWrite
+    REAL(dp), ALLOCATABLE, TARGET :: buf(:)
+    REAL(dp), CONTIGUOUS_POINTER :: p_dp(:,:)
+    REAL(sp), CONTIGUOUS_POINTER :: p_sp(:,:)
+    INTEGER, CONTIGUOUS_POINTER :: p_i(:,:)
+    INTEGER :: ichunk, rcs, maxl, iv, nlevs, nd, st(3), ct(3)
     REAL(dp) :: t_get, t_write
-    LOGICAL :: flag_dp
     CHARACTER(*), PARAMETER :: routine = modname//':asyncPatchData_writeData'
     TYPE(c_ptr) :: cptr
+    TYPE(t_restart_patch_description), POINTER :: desc
+    TYPE(t_var_metadata), POINTER :: ci
 
     IF (.NOT. my_process_is_restart()) CALL finish(routine, 'Must be called on a restart PE!')
-    t_get   = 0.d0
-    t_write = 0.d0
-    bytesGet = 0_mpi_address_kind
-    bytesWrite = 0_mpi_address_kind
-    nval = me%commData%maxLevelSize
-    max_nlevs = 0
-    VAR_NLEV_LOOP : DO iv = 1, SIZE(me%varData)
-      IF(me%varData(iv)%p%info%ndims == 2) THEN
-        nlevs = 1
-      ELSE
-        nlevs = me%varData(iv)%p%info%used_dimensions(2)
-      ENDIF
-      max_nlevs = MAX(max_nlevs, nlevs)
-    END DO VAR_NLEV_LOOP
-    restart_chunk_size = MERGE(MIN(config_restart_chunk_size, max_nlevs), max_nlevs, &
-      &                        config_restart_chunk_size > 0)
-    ALLOCATE(buffer_dp(nval,restart_chunk_size), STAT=ierrstat)
-! HB: use C magic to reuse dp-buffer for sp stuff, and thus save some memory
-    cptr = C_LOC(buffer_dp(1,1))
-    CALL C_F_POINTER(cptr, buffer_sp, [nval,restart_chunk_size])
-    IF (ierrstat /= SUCCESS) CALL finish (routine, "memory allocation failure")
+    t_get = 0.d0; t_write = 0.d0
+    bGet = 0_mpi_address_kind; bWrite = 0_mpi_address_kind
+    maxl = 0
+    desc => me%description
+    DO iv = 1, SIZE(me%varData)
+      ci => me%varData(iv)%p%info
+      maxl = MAX(maxl, MERGE(1, ci%used_dimensions(2), ci%ndims .EQ. 2))
+    END DO
+    rcs = MERGE(MIN(crcs, maxl), maxl, crcs > 0)
+    ALLOCATE(buf(me%commData%maxLevelSize*rcs))
+    cptr = C_LOC(buf(1))
     ioff(:) = 0
+    st(:) = 1
+    ct(:) = 1
     ! go over the all restart variables in the associated array
-    VAR_LOOP : DO iv = 1, SIZE(me%varData)
-      IF (.NOT. has_valid_time_level(me%varData(iv)%p%info, me%description%id, &
-        &                            me%description%nnew, me%description%nnew_rcf)) CYCLE
-      IF(me%varData(iv)%p%info%ndims == 2) THEN
-        nlevs = 1
-      ELSE
-        nlevs = me%varData(iv)%p%info%used_dimensions(2)
-      ENDIF
-
-      SELECT CASE (me%varData(iv)%p%info%hgrid)
-      CASE (GRID_UNSTRUCTURED_CELL)
-        pointCount = me%description%n_patch_cells_g
-      CASE (GRID_UNSTRUCTURED_VERT)
-        pointCount = me%description%n_patch_verts_g
-      CASE (GRID_UNSTRUCTURED_EDGE)
-        pointCount = me%description%n_patch_edges_g
-      CASE DEFAULT
-        CALL finish(routine, "Internal error: unexpected hgrid for variable "//TRIM(me%varData(iv)%p%info%name))
-      END SELECT
-      ! check if this is single or double precision:
-      SELECT CASE(me%varData(iv)%p%info%data_type)
-      CASE(REAL_T, INT_T)
-        ! INTEGER fields: we write them as REAL-valued arrays
-        flag_dp = .TRUE.
-      CASE(SINGLE_T)
-        flag_dp = .FALSE.
-      CASE DEFAULT
-        CALL finish(routine, "Internal error! Variable "//TRIM(me%varData(iv)%p%info%name))
-      END SELECT
-      ! no. of chunks of levels (each of size "restart_chunk_size"):
-      nchunks = (nlevs-1)/restart_chunk_size + 1
+    DO iv = 1, SIZE(me%varData)
+      ci => me%varData(iv)%p%info
+      IF (.NOT.has_valid_time_level(ci, desc%id, desc%nnew, desc%nnew_rcf)) CYCLE
+      nd = ci%ndims
+      nlevs = MERGE(1, ci%used_dimensions(2), nd .EQ.2)
+      ct(1) = desc%n_patch_elem_g(desc%hmap(ci%hgrid))
       ! loop over all chunks (of levels)
-      LEVELS : DO ichunk=1,nchunks
-        chunk_start = (ichunk-1)*restart_chunk_size + 1
-        chunk_end = MIN(chunk_start+restart_chunk_size-1, nlevs)
-        IF (flag_dp) THEN
-          CALL me%commData%collectData(me%varData(iv)%p%info%hgrid, chunk_end - chunk_start + 1, &
-            &                          buffer_dp, ioff, t_get, bytesGet)
-        ELSE
-          CALL me%commData%collectData(me%varData(iv)%p%info%hgrid, chunk_end - chunk_start + 1, &
-            &                          buffer_sp, ioff, t_get, bytesGet)
-        END IF
-        ! write field content into a file
-        t_write = t_write - p_mpi_wtime()
-        IF(timers_level >= 7) CALL timer_start(timer_write_restart_io)
-        IF (flag_dp) THEN
-          DO ilev=chunk_start, chunk_end
-            CALL streamWriteVarSlice(file_handle, me%varData(iv)%p%info%cdiVarID, ilev - 1, buffer_dp(:, ilev - chunk_start + 1), 0)
-            bytesWrite = bytesWrite + pointCount*p_real_dp_byte
-          END DO
-        ELSE
-          DO ilev=chunk_start, chunk_end
-            CALL streamWriteVarSliceF(file_handle, me%varData(iv)%p%info%cdiVarID, ilev - 1, &
-                 buffer_sp(:, ilev - chunk_start + 1), 0)
-            bytesWrite = bytesWrite + pointCount*p_real_sp_byte
-          END DO
-        END IF
+      DO ichunk = 1, (nlevs-1)/rcs + 1
+        st(2) = (ichunk-1)*rcs + 1
+        ct(2) = MIN(st(2)+rcs-1, nlevs) - st(2) + 1
+        SELECT CASE(ci%data_type)
+        CASE(REAL_T)
+          CALL C_F_POINTER(cptr, p_dp, ct(1:2))
+          CALL me%commData%collectData(desc%hmap(ci%hgrid), ct(2), p_dp, ioff, t_get, bGet)
+          t_write = t_write - p_mpi_wtime()
+          IF (timers_level >= 7) CALL timer_start(timer_write_restart_io)
+          CALL nf(nf_put_vara_double(ncid, ci%cdiVarID, st(:nd), ct(:nd), p_dp), routine)
+          bWrite = bWrite + ct(1)*ct(2)*p_real_dp_byte
+        CASE(SINGLE_T)
+          CALL C_F_POINTER(cptr, p_sp, ct(1:2))
+          CALL me%commData%collectData(desc%hmap(ci%hgrid), ct(2), p_sp, ioff, t_get, bGet)
+          t_write = t_write - p_mpi_wtime()
+          IF (timers_level >= 7) CALL timer_start(timer_write_restart_io)
+          CALL nf(nf_put_vara_real(ncid, ci%cdiVarID, st(:nd), ct(:nd), p_sp), routine)
+          bWrite = bWrite + ct(1)*ct(2)*p_real_sp_byte
+        CASE(INT_T)
+          CALL C_F_POINTER(cptr, p_i, ct(1:2))
+          CALL me%commData%collectData(desc%hmap(ci%hgrid), ct(2), p_i, ioff, t_get, bGet)
+          t_write = t_write - p_mpi_wtime()
+          IF (timers_level >= 7) CALL timer_start(timer_write_restart_io)
+          CALL nf(nf_put_vara_int(ncid, ci%cdiVarID, st(:nd), ct(:nd), p_i), routine)
+          bWrite = bWrite + ct(1)*ct(2)*p_int_byte
+        CASE DEFAULT
+          CALL finish(routine, "Internal error! Variable "//TRIM(ci%name))
+        END SELECT
         IF(timers_level >= 7) CALL timer_stop(timer_write_restart_io)
         t_write = t_write + p_mpi_wtime()
-      ENDDO LEVELS
-
-    ENDDO VAR_LOOP
-    NULLIFY(buffer_sp)
-    DEALLOCATE(buffer_dp, STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed!')
+      END DO
+    END DO
     IF (msg_level >= 7) &
-      & WRITE (0,'(10(a,f10.3))') ' Restart: Got ', REAL(bytesGet, dp)*1.d-6, ' MB, time get: ', t_get, ' s [', &
-           & REAL(bytesGet, dp)*1.d-6/MAX(1.e-6_wp, t_get), ' MB/s], time write: ', t_write, ' s [', &
-           & REAL(bytesWrite, dp)*1.d-6/MAX(1.e-6_wp,t_write), ' MB/s]'
+      & WRITE (0,'(10(a,f10.3))') ' Checkpointing: Got ', REAL(bGet, dp)*1.d-6, ' MB, time get: ', t_get, ' s [', &
+           & REAL(bGet, dp)*1.d-6/MAX(1.e-6_wp, t_get), ' MB/s], time write: ', t_write, ' s [', &
+           & REAL(bWrite, dp)*1.d-6/MAX(1.e-6_wp,t_write), ' MB/s]'
   END SUBROUTINE asyncPatchData_writeData
 #endif
 END MODULE mo_async_restart_patch_data

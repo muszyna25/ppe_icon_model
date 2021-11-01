@@ -22,11 +22,10 @@ MODULE mo_bc_solar_irradiance
   USE mo_exception,       ONLY: finish, message, warning
   USE mo_netcdf_parallel, ONLY: p_nf_open, p_nf_inq_dimid, p_nf_inq_dimlen, &
        &                        p_nf_inq_varid, p_nf_get_vara_double, p_nf_close, &
-       &                        nf_read, nf_noerr, nf_strerror, p_nf_get_var_int
+       &                        nf_read, nf_noerr, p_nf_get_var_int
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights
 
   IMPLICIT NONE
-
   PRIVATE
 
   REAL(dp), POINTER :: tsi_radt_m(:) => NULL(), tsi_m(:) => NULL()
@@ -157,10 +156,10 @@ CONTAINS
 
 
   SUBROUTINE nf_check(iret)
+    USE mo_netcdf_errhandler, ONLY: nf
     INTEGER, INTENT(in) :: iret
-    IF (iret /= nf_noerr) THEN
-      CALL finish('mo_bc_solar_irradiance', nf_strerror(iret))
-    ENDIF
+
+    CALL nf(iret, 'mo_bc_solar_irradiance')
   END SUBROUTINE nf_check
 
 END MODULE mo_bc_solar_irradiance

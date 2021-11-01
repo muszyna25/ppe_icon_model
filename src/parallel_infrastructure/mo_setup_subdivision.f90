@@ -109,7 +109,7 @@ MODULE mo_setup_subdivision
 #endif
   USE ppm_extents,            ONLY: extent, extent_start, extent_end, extent_size
   USE mo_read_netcdf_distributed, ONLY: t_distrib_read_data, distrib_nf_open, &
-    &                                   distrib_nf_close, distrib_read, nf, &
+    &                                   distrib_nf_close, distrib_read, &
     &                                   delete_distrib_read, setup_distrib_read
   USE ppm_distributed_array,  ONLY: dist_mult_array, global_array_desc
   USE mo_util_uuid_types,     ONLY: uuid_string_length
@@ -117,8 +117,9 @@ MODULE mo_setup_subdivision
   USE mo_read_netcdf_broadcast_2, ONLY: netcdf_open_input, netcdf_close, &
     &                                   netcdf_read_att_int
   USE mo_fortran_tools,       ONLY: t_ptr_2d_int
-  IMPLICIT NONE
+  USE mo_netcdf_errhandler, ONLY: nf
 
+  IMPLICIT NONE
   PRIVATE
 
   INCLUDE 'netcdf.inc'
@@ -127,14 +128,13 @@ MODULE mo_setup_subdivision
   !subroutines
   PUBLIC :: decompose_domain
 
-
   TYPE nb_flag_list_elem
     INTEGER, ALLOCATABLE :: idx(:)
     INTEGER, ALLOCATABLE :: owner(:)
   END TYPE nb_flag_list_elem
 
   !> module name string
-  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_setup_subdivision'
+  CHARACTER(*), PARAMETER :: modname = 'mo_setup_subdivision'
 
 CONTAINS
 
@@ -5069,32 +5069,25 @@ CONTAINS
   !-------------------------------------------------------------------------
   SUBROUTINE write_netcdf_decomposition(netcdf_file_name, dist_cell_owner, &
     &                                   no_of_cells)
-    CHARACTER(LEN=*) :: netcdf_file_name
+    CHARACTER(*) :: netcdf_file_name
     TYPE(dist_mult_array), INTENT(INOUT) :: dist_cell_owner
     INTEGER, INTENT(IN) :: no_of_cells
-
-    INTEGER :: i, j, ncid, dimid, varid
+    INTEGER :: i, j, ncid, dimid, varid, part_size, num_parts
+    INTEGER :: curr_part_size, start_value(1), value_count(1)
     INTEGER, ALLOCATABLE :: cell_owner_buffer(:)
-    INTEGER :: part_size, num_parts, curr_part_size
-    INTEGER :: start_value(1), value_count(1)
+    CHARACTER(*), PARAMETER :: routine = "write_netcdf_decomposition"
 
     IF (p_pe_work == 0) THEN
-
       WRITE(0,*) "Write decomposition to file: ", TRIM(netcdf_file_name)
-
       ! generate decomposition file
-      CALL nf(nf_create(TRIM(netcdf_file_name), NF_CLOBBER, ncid))
-
+      CALL nf(nf_create(TRIM(netcdf_file_name), NF_CLOBBER, ncid), routine)
       ! define dimension
-      CALL nf(nf_def_dim(ncid, "ncells", no_of_cells, dimid))
-
+      CALL nf(nf_def_dim(ncid, "ncells", no_of_cells, dimid), routine)
       ! define variable
-      CALL nf(nf_def_var(ncid, "cell_owner", NF_INT, 1, (/dimid/), varid))
-
+      CALL nf(nf_def_var(ncid, "cell_owner", NF_INT, 1, (/dimid/), varid), routine)
       ! put the number of processes
-      CALL nf(nf_put_att_int(ncid, varid, "nprocs", NF_INT, 1, (/p_n_work/)))
-
-      CALL nf(nf_enddef(ncid))
+      CALL nf(nf_put_att_int(ncid, varid, "nprocs", NF_INT, 1, (/p_n_work/)), routine)
+      CALL nf(nf_enddef(ncid), routine)
 
       ! write cell owner to file
       part_size = MIN(1024 * 1024 / 8, no_of_cells);
@@ -5110,29 +5103,21 @@ CONTAINS
 #ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
         CALL dist_mult_array_rma_sync(dist_cell_owner)
 #endif
-
         start_value(1) = part_size * (i - 1) + 1
         value_count(1) = curr_part_size
-
         CALL nf(nf_put_vara_int(ncid, varid, start_value, value_count, &
-          &     cell_owner_buffer))
-
+          &     cell_owner_buffer), routine)
       END DO
-
       DEALLOCATE(cell_owner_buffer)
-
-      CALL nf(nf_close(ncid))
-
+      CALL nf(nf_close(ncid), routine)
 #ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
     ELSE
       part_size = MIN(1024 * 1024 / 8, no_of_cells);
       num_parts = (no_of_cells + part_size - 1) / part_size
-
       DO i = 1, num_parts
         CALL dist_mult_array_rma_sync(dist_cell_owner)
       END DO
 #endif
-
     END IF
 
   END SUBROUTINE write_netcdf_decomposition

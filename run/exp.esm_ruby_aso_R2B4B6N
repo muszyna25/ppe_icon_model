@@ -343,7 +343,7 @@ cat > coupling_${EXPNAME}.xml << EOF
          </transient_grid_refs>
       </component>
       <component id="3">
-         <name>name_list_io</name>
+         <name>dummy</name>
          <model>ICON</model>
          <simulated>IO</simulated>
       </component>

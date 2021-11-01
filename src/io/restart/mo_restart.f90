@@ -98,7 +98,7 @@ CONTAINS
 #ifdef YAC_coupling
     ! The initialisation of YAC needs to be called by all (!) MPI processes
     ! in MPI_COMM_WORLD. Thus we do it here for the restart processes.
-    IF ( is_coupled_run() ) CALL construct_io_coupler ( "restart_io" )
+    IF ( is_coupled_run() ) CALL construct_io_coupler ( "dummy" )
 #endif
     IF (timer_started) CALL timer_stop(timer_model_init)
     CALL restartWritingParameters(opt_restartModule = restartModule)
@@ -111,7 +111,7 @@ CONTAINS
       CALL multifileRestart_mainLoop()
     END SELECT
 #ifdef YAC_coupling
-    IF ( is_coupled_run() ) CALL destruct_io_coupler ( "restart_io" )
+    IF ( is_coupled_run() ) CALL destruct_io_coupler ( "dummy" )
 #endif
     ! This is the end of all things!
     IF(ltimer) CALL print_timer

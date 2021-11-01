@@ -47,7 +47,7 @@ CFLAGS='-g -O2 -DNO_RTTOV'
 CPPFLAGS="-I${XML2_ROOT}/include/libxml2 -I${EBROOTNETCDF}/include"
 
 FC='mpif90'
-FCFLAGS="-g -O -Mrecursive -Mallocatable=03 -tp=haswell -I${SERIALBOX2_ROOT}/include -I${ECCODES_ROOT}/include -I${EBROOTNETCDFMINFORTRAN}/include -D__SWAPDIM -DNO_RTTOV"
+FCFLAGS="-g -O -Mrecursive -Mallocatable=03 -Mbackslash -tp=haswell -I${SERIALBOX2_ROOT}/include -I${ECCODES_ROOT}/include -I${EBROOTNETCDFMINFORTRAN}/include -D__SWAPDIM -DNO_RTTOV"
 ICON_ECRAD_FCFLAGS="-D__ECRAD_LITTLE_ENDIAN"
 
 LDFLAGS="-L${SERIALBOX2_ROOT}/lib -L${ECCODES_ROOT}/lib64 -L${XML2_ROOT}/lib -L${EBROOTNETCDF}/lib64 -L${EBROOTNETCDFMINFORTRAN}/lib"

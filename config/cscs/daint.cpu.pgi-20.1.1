@@ -30,7 +30,7 @@ CFLAGS='-g -O2'
 CPPFLAGS="-I${XML2_ROOT}/include/libxml2"
 
 FC='ftn'
-FCFLAGS="-g -O -Mrecursive -Mallocatable=03 -tp=haswell -I${SERIALBOX2_ROOT}/include -D__SWAPDIM"
+FCFLAGS="-g -O -Mrecursive -Mallocatable=03 -Mbackslash -tp=haswell -I${SERIALBOX2_ROOT}/include -D__SWAPDIM"
 ICON_ECRAD_FCFLAGS="-D__ECRAD_LITTLE_ENDIAN"
 
 LDFLAGS="-L${GCC_PATH}/snos/lib64 -L${SERIALBOX2_ROOT}/lib -L${XML2_ROOT}/lib"

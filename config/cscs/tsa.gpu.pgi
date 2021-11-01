@@ -44,7 +44,7 @@ CFLAGS='-g -O2'
 CPPFLAGS="-I${XML2_ROOT}/include/libxml2 -I${EBROOTNETCDF}/include"
 
 FC='mpif90'
-FCFLAGS="-g -traceback -O -Mrecursive -Mallocatable=03 -acc=verystrict -ta=nvidia:cc70 -ta=tesla:lineinfo -Minfo=accel,inline -I${SERIALBOX2_ROOT}/include -I${ECCODES_ROOT}/include -I${EBROOTNETCDFMINFORTRAN}/include -D__SWAPDIM -D__USE_G2G"
+FCFLAGS="-g -traceback -O -Mrecursive -Mallocatable=03 -Mbackslash -acc=verystrict -ta=nvidia:cc70 -ta=tesla:lineinfo -Minfo=accel,inline -I${SERIALBOX2_ROOT}/include -I${ECCODES_ROOT}/include -I${EBROOTNETCDFMINFORTRAN}/include -D__SWAPDIM -D__USE_G2G"
 ICON_ECRAD_FCFLAGS="-D__ECRAD_LITTLE_ENDIAN"
 
 LDFLAGS="-L${SERIALBOX2_ROOT}/lib -L${ECCODES_ROOT}/lib64 -L${XML2_ROOT}/lib -L${EBROOTNETCDF}/lib64 -L${EBROOTNETCDFMINFORTRAN}/lib"

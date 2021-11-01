@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+#
+# @author: ralf mueller, ralf.mueller@dkrz.de
+#
 import os,sys,glob,shutil,json,subprocess,multiprocessing
 from cdo import *
 from itertools import chain
