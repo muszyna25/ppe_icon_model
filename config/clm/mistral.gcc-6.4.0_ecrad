@@ -6,23 +6,24 @@ unset CDPATH
 SCRIPT_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR=$(cd "${SCRIPT_DIR}/../.."; pwd)
 
-MODULES='gcc/6.4.0 intel/17.0.6 openmpi/2.0.2p1_hpcx-intel14'
+MODULES='git/2.28.0-gcc-9.1.0 gcc/6.4.0 openmpi/2.0.2p1_hpcx-gcc64'
 
 SW_ROOT='/sw/rhel6-x64'
 
-HDF5_ROOT="${SW_ROOT}/hdf5/hdf5-1.8.18-parallel-openmpi2-intel14"
+HDF5_ROOT="${SW_ROOT}/hdf5/hdf5-1.8.18-parallel-openmpi2-gcc64"
 HDF5_LIBS='-lhdf5'
 
-NETCDF_ROOT="${SW_ROOT}/netcdf/netcdf_c-4.4.0-parallel-openmpi2-intel14"
+NETCDF_ROOT="${SW_ROOT}/netcdf/netcdf_c-4.4.0-parallel-openmpi2-gcc64"
 NETCDF_LIBS='-lnetcdf'
 
-NETCDFF_ROOT="${SW_ROOT}/netcdf/netcdf_fortran-4.4.3-parallel-openmpi2-intel14"
+NETCDFF_ROOT="${SW_ROOT}/netcdf/netcdf_fortran-4.4.3-parallel-openmpi2-gcc64"
 NETCDFF_LIBS='-lnetcdff'
 
 GRIBAPI_ROOT="${SW_ROOT}/grib_api/grib_api-1.15.0-gcc48"
 GRIBAPI_LIBS='-lgrib_api'
 
-MKL_LDFLAGS='-mkl=sequential'
+MKL_ROOT="${SW_ROOT}/intel/intel-18.0.4/mkl"
+MKL_LIBS='-lmkl_gf_lp64 -lmkl_sequential -lmkl_core'
 
 XML2_ROOT='/usr'
 XML2_LIBS='-lxml2'
@@ -30,44 +31,45 @@ XML2_LIBS='-lxml2'
 PYTHON='/sw/spack-rhel6/miniforge3-4.9.2-3-Linux-x86_64-pwdbqi/bin/python'
 ################################################################################
 
-AR='xiar'
-
-BUILD_ENV=". /sw/rhel6-x64/etc/profile.mistral; . \"${SCRIPT_DIR}/module_switcher\"; switch_for_module ${MODULES}; export LD_LIBRARY_PATH=\"${HDF5_ROOT}/lib:${NETCDF_ROOT}/lib:${NETCDFF_ROOT}/lib:${GRIBAPI_ROOT}/lib:\${LD_LIBRARY_PATH}\";"
+BUILD_ENV=". /sw/rhel6-x64/etc/profile.mistral; module use /sw/spack-rhel6/spack/modules/linux-rhel6-haswell; . \"${SCRIPT_DIR}/module_switcher\"; switch_for_module ${MODULES}; export LD_LIBRARY_PATH=\"${HDF5_ROOT}/lib:${NETCDF_ROOT}/lib:${NETCDFF_ROOT}/lib:${GRIBAPI_ROOT}/lib:${MKL_ROOT}/lib/intel64:\${LD_LIBRARY_PATH}\";"
 
 CC='mpicc'
-CFLAGS='-gdwarf-4 -O3 -qno-opt-dynamic-align -ftz -march=native -g'
+CFLAGS='-g -march=native -mpc64'
+ICON_CFLAGS='-O3'
+ICON_BUNDLED_CFLAGS='-O2'
 CPPFLAGS="-I${HDF5_ROOT}/include -I${NETCDF_ROOT}/include -I${GRIBAPI_ROOT}/include -I${XML2_ROOT}/include/libxml2"
 
 FC='mpif90'
-FCFLAGS="-I${NETCDFF_ROOT}/include -gdwarf-4 -g -march=native -pc64 -fp-model source -qno-opt-dynamic-align -no-fma"
-ICON_FCFLAGS='-O2 -assume realloc_lhs -ftz -DDO_NOT_COMBINE_PUT_AND_NOCHECK'
-ICON_OCEAN_FCFLAGS='-O3 -assume norealloc_lhs -reentrancy threaded -qopt-report-file=stdout -qopt-report=0 -qopt-report-phase=vec'
-ICON_ECRAD_FCFLAGS="-D__ECRAD_LITTLE_ENDIAN"
+FCFLAGS="-I${NETCDFF_ROOT}/include -std=f2008 -fmodule-private -fimplicit-none -fmax-identifier-length=63 -Wall -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter -Wno-surprising -fall-intrinsics -g -march=native -mpc64"
+ICON_FCFLAGS='-fbacktrace -fbounds-check -fstack-protector-all -finit-real=nan -finit-integer=-2147483648 -finit-character=127 -O2 -DDO_NOT_COMBINE_PUT_AND_NOCHECK'
+ICON_OCEAN_FCFLAGS='-O3'
+ICON_ECRAD_FCFLAGS="-std=gnu -D__ECRAD_LITTLE_ENDIAN -fbacktrace -fbounds-check -fstack-protector-all -finit-real=nan -finit-integer=-2147483648 -finit-character=127"
 
-LDFLAGS="-L${HDF5_ROOT}/lib -L${NETCDF_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${GRIBAPI_ROOT}/lib ${MKL_LDFLAGS}"
-LIBS="-Wl,--as-needed ${XML2_LIBS} ${GRIBAPI_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${HDF5_LIBS}"
+LDFLAGS="-L${HDF5_ROOT}/lib -L${NETCDF_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${GRIBAPI_ROOT}/lib -L${MKL_ROOT}/lib/intel64"
+LIBS="-Wl,--as-needed ${XML2_LIBS} ${MKL_LIBS} ${GRIBAPI_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${HDF5_LIBS}"
 
 MPI_LAUNCH='mpiexec'
 
-EXTRA_CONFIG_ARGS='--enable-intel-consistency --enable-vectorized-lrtm --enable-parallel-netcdf --enable-mixed-precision --enable-openmp --enable-ecrad'
+EXTRA_CONFIG_ARGS='--enable-parallel-netcdf --enable-mixed-precision --enable-ecrad --enable-openmp'
 
 ################################################################################
 
 "${ICON_DIR}/configure" \
-AR="${AR}" \
 BUILD_ENV="${BUILD_ENV}" \
+PYTHON="${PYTHON}" \
 CC="${CC}" \
 CFLAGS="${CFLAGS}" \
 CPPFLAGS="${CPPFLAGS}" \
 FC="${FC}" \
 FCFLAGS="${FCFLAGS}" \
+ICON_BUNDLED_CFLAGS="${ICON_BUNDLED_CFLAGS}" \
+ICON_CFLAGS="${ICON_CFLAGS}" \
 ICON_FCFLAGS="${ICON_FCFLAGS}" \
 ICON_OCEAN_FCFLAGS="${ICON_OCEAN_FCFLAGS}" \
 ICON_ECRAD_FCFLAGS="${ICON_ECRAD_FCFLAGS}" \
 LDFLAGS="${LDFLAGS}" \
 LIBS="${LIBS}" \
 MPI_LAUNCH="${MPI_LAUNCH}" \
-PYTHON="${PYTHON}" \
 ${EXTRA_CONFIG_ARGS} \
 "$@"
 
