@@ -2038,14 +2038,12 @@ CONTAINS
                                        !< and corresponding grid point counts
 
     INTEGER ,    INTENT(INOUT) ::  &   !< snowtile flag field for snow-free or mixed points
-      &  snowtile_flag(:)              !< -1: no separation between snow tile and snow-free tile
-                                       !< 0: inactive
+      &  snowtile_flag(:)              !< 0: inactive
                                        !< 1: active
                                        !< 2: newly activated; initialization from corresponding tile required
 
     INTEGER ,    INTENT(INOUT) ::  &   !< snowtile flag field for snow-covered points
-      &  snowtile_flag_snow(:)         !< -1: no separation between snow tile and snow-free tile
-                                       !< 0: inactive
+      &  snowtile_flag_snow(:)         !< 0: inactive
                                        !< 1: active
                                        !< 2: newly activated; initialization from corresponding tile required
 
@@ -2066,7 +2064,7 @@ CONTAINS
     LOGICAL, OPTIONAL,           INTENT(in)   :: lacc          !< GPU flag
     LOGICAL :: lzacc
 
-    INTEGER :: cond1(lp_count), cond2(lp_count), icount_tmp, ic_tot, idx_lst_tmp(nproma)
+    INTEGER :: cond1(lp_count), cond2(lp_count)
 
     !-------------------------------------------------------------------------
 
@@ -2076,7 +2074,7 @@ CONTAINS
         lzacc = .FALSE.
     ENDIF
 
-   !$acc enter data create(cond1, cond2, idx_lst_tmp)
+   !$acc enter data create(cond1, cond2)
 
    !$acc data                                                              &
    !$acc present(idx_lst_lp, idx_lst, idx_lst_snow, snowtile_flag)         &
@@ -2085,7 +2083,6 @@ CONTAINS
 
 
     icount = 0
-    icount_tmp = 0
     icount_snow = 0
 
 !$NEC ivdep
@@ -2093,70 +2090,44 @@ CONTAINS
     !$acc loop gang vector private(jc)
     DO ic = 1, lp_count
       jc = idx_lst_lp(ic)
-      IF (snowtile_flag(jc) == -1) THEN
+
+      ! Reset snowfrac to 0/1 in case of very small deviations (just to be safe)
+      IF (snowfrac(jc) < eps) snowfrac(jc) = 0._wp
+      IF (1._wp - snowfrac(jc) < eps) snowfrac(jc) = 1._wp
+
+      IF (snowfrac(jc) > 0._wp) THEN ! snow tile is active
         cond1(ic) = 1
-        partial_frac(jc) = lc_frac(jc)
+        partial_frac_snow(jc) = lc_frac(jc)*snowfrac(jc)
+        IF (snowtile_flag_snow(jc) == 0) THEN
+          snowtile_flag_snow(jc) = 2 ! newly activated, initialization needed
+        ELSE
+          snowtile_flag_snow(jc) = 1
+        ENDIF
       ELSE
         cond1(ic) = 0
-        IF (snowfrac(jc) < eps) snowfrac(jc) = 0._wp
-        IF (1._wp - snowfrac(jc) < eps) snowfrac(jc) = 1._wp
+        snowtile_flag_snow(jc) = 0
+        partial_frac_snow(jc)  = 0._wp
       ENDIF
-    ENDDO
-    !$acc end parallel
 
-    CALL generate_index_list(cond1, idx_lst, 1, lp_count, icount, 1,lacc=lzacc)
-
-    !$acc parallel if(lzacc)
-    !$acc loop gang vector
-    DO ic = 1,icount
-      idx_lst(ic) = idx_lst_lp(idx_lst(ic))
-    ENDDO
-    !$acc end parallel
-
-!$NEC ivdep
-    !$acc parallel if(lzacc)
-    !$acc loop gang vector private(jc)
-    DO ic = 1, lp_count
-      jc = idx_lst_lp(ic)
-      cond1(ic) = 0
-      cond2(ic) = 0
-
-      IF (snowtile_flag(jc) /= -1) THEN
-
-        IF (snowfrac(jc) > 0._wp) THEN ! snow tile is active
-          cond1(ic) = 1
-          partial_frac_snow(jc) = lc_frac(jc)*snowfrac(jc)
-          IF (snowtile_flag_snow(jc) == 0) THEN
-            snowtile_flag_snow(jc) = 2 ! newly activated, initialization needed
-          ELSE
-            snowtile_flag_snow(jc) = 1
-          ENDIF
+      IF (snowfrac(jc) < 1._wp) THEN ! snow-free tile is active
+        cond2(ic) = 1
+        partial_frac(jc) = lc_frac(jc)*(1._wp-snowfrac(jc))
+        IF (snowtile_flag(jc) == 0) THEN
+          snowtile_flag(jc) = 2 ! newly activated, initialization needed
         ELSE
-          cond1(ic) = 0
-          snowtile_flag_snow(jc) = 0
-          partial_frac_snow(jc) = 0._wp
+          snowtile_flag(jc) = 1
         ENDIF
-
-        IF (snowfrac(jc) < 1._wp) THEN ! snow-free tile is active
-          cond2(ic) = 1
-          partial_frac(jc) = lc_frac(jc)*(1._wp-snowfrac(jc))
-          IF (snowtile_flag(jc) == 0) THEN
-            snowtile_flag(jc) = 2 ! newly activated, initialization needed
-          ELSE
-            snowtile_flag(jc) = 1
-          ENDIF
-        ELSE
-          cond2(ic) = 0
-          snowtile_flag(jc) = 0
-          partial_frac(jc) = 0._wp
-        ENDIF
+      ELSE
+        cond2(ic) = 0
+        snowtile_flag(jc) = 0
+        partial_frac(jc)  = 0._wp
       ENDIF
     ENDDO
     !$acc end parallel
 
     CALL generate_index_list(cond1, idx_lst_snow, 1, lp_count, icount_snow, 1,lacc=lzacc)
 
-    CALL generate_index_list(cond2, idx_lst_tmp, 1, lp_count, icount_tmp, 1,lacc=lzacc)
+    CALL generate_index_list(cond2, idx_lst, 1, lp_count, icount, 1,lacc=lzacc)
 
     !$acc parallel if(lzacc)
     !$acc loop gang vector
@@ -2166,22 +2137,20 @@ CONTAINS
     !$acc end parallel
 
     !$acc parallel if(lzacc)
-    !$acc loop gang vector private(ic_tot)
-    DO ic = 1,icount_tmp
-      ic_tot = ic + icount
-      idx_lst(ic_tot) = idx_lst_lp(idx_lst_tmp(ic))
+    !$acc loop gang vector
+    DO ic = 1,icount
+      idx_lst(ic) = idx_lst_lp(idx_lst(ic))
     ENDDO
     !$acc end parallel
 
-    gp_count = icount + icount_tmp
+    gp_count = icount
     gp_count_snow = icount_snow
     !$acc update device(gp_count,gp_count_snow)
 
     !$acc end data
-    !$acc exit data delete(cond1,cond2,idx_lst_tmp)
+    !$acc exit data delete(cond1,cond2)
 
   END SUBROUTINE update_idx_lists_lnd
-
 
 
 
