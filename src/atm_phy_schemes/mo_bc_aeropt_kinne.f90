@@ -32,7 +32,6 @@ MODULE mo_bc_aeropt_kinne
   USE mo_time_config,          ONLY: time_config
   USE mo_read_interface,       ONLY: openInputFile, closeFile, on_cells, &
     &                                t_stream_id, read_0D_real, read_3D_time
-  USE mo_echam_rad_config,     ONLY: echam_rad_config
   USE mtime,                   ONLY: datetime
 
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, &
@@ -215,7 +214,7 @@ END SUBROUTINE shift_months_bc_aeropt_kinne
   !! of the Kinne aerosols for the whole run at the beginning of the run
   !! before entering the time loop
 
-SUBROUTINE read_bc_aeropt_kinne(mtime_current, p_patch)
+SUBROUTINE read_bc_aeropt_kinne(mtime_current, p_patch, l_filename_year)
   
   TYPE(datetime), POINTER, INTENT(in) :: mtime_current
   TYPE(t_patch), INTENT(in)           :: p_patch
@@ -224,6 +223,7 @@ SUBROUTINE read_bc_aeropt_kinne(mtime_current, p_patch)
   INTEGER(I8)                   :: iyear
   INTEGER                       :: imonthb, imonthe
   INTEGER                       :: jg
+  LOGICAL                       :: l_filename_year
 
   jg = p_patch%id
 
@@ -285,7 +285,8 @@ SUBROUTINE read_bc_aeropt_kinne(mtime_current, p_patch)
                      ext_aeropt_kinne(jg)%aod_c_s, ext_aeropt_kinne(jg)%ssa_c_s,                   &
                      ext_aeropt_kinne(jg)%asy_c_s, ext_aeropt_kinne(jg)%z_km_aer_c_mo,             &
                      'delta_z',        'lnwl',   'lev',                        imonthb,            &
-                     imonthe,          iyear,     'bc_aeropt_kinne_sw_b14_coa', p_patch             )
+                     imonthe,          iyear,     'bc_aeropt_kinne_sw_b14_coa', p_patch,           &
+                     l_filename_year                                                               )
     ! for the coarse mode, the altitude distribution is wavelength independent and
     ! therefore for solar and long wave spectrum the same
     CALL read_months_bc_aeropt_kinne ( &
@@ -293,13 +294,15 @@ SUBROUTINE read_bc_aeropt_kinne(mtime_current, p_patch)
                      ext_aeropt_kinne(jg)%aod_c_f, ext_aeropt_kinne(jg)% ssa_c_f,                  &
                      ext_aeropt_kinne(jg)%asy_c_f, ext_aeropt_kinne(jg)% z_km_aer_c_mo,            &
                      'delta_z',        'lnwl',   'lev',                        imonthb,            &
-                     imonthe,          iyear,    'bc_aeropt_kinne_lw_b16_coa', p_patch             )
+                     imonthe,          iyear,    'bc_aeropt_kinne_lw_b16_coa', p_patch,            &
+                     l_filename_year                                                               )
     CALL read_months_bc_aeropt_kinne ( &
                      'aod',            'ssa',    'asy',                        'z_aer_fine_mo',    &
                      ext_aeropt_kinne(jg)%aod_f_s, ext_aeropt_kinne(jg)%ssa_f_s,                   &
                      ext_aeropt_kinne(jg)%asy_f_s, ext_aeropt_kinne(jg)%z_km_aer_f_mo,             &
                      'delta_z',        'lnwl',   'lev',                        imonthb,            &
-                     imonthe,          iyear,    'bc_aeropt_kinne_sw_b14_fin', p_patch             )
+                     imonthe,          iyear,    'bc_aeropt_kinne_sw_b14_fin', p_patch,            &
+                     l_filename_year                                                               )
 
     rdz_clim = 1._wp/dz_clim
     pre_year(jg) = mtime_current%date%year
@@ -565,7 +568,8 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
   caod,             cssa,             casy,               caer_ex,         &
   zaod,             zssa,             zasy,               zaer_ex,         &
   cdz_clim,         cwldim,           clevdim,            imnthb,          &
-  imnthe,           iyear,            cfname,             p_patch          )
+  imnthe,           iyear,            cfname,             p_patch,         &
+  l_filename_year                                                          )
 !
   CHARACTER(len=*), INTENT(in)   :: caod,    & ! name of variable containing optical depth of column
                                     cssa,    & ! name of variable containing single scattering albedo 
@@ -599,6 +603,8 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
 
   INTEGER                        :: jg
 
+  LOGICAL                        :: l_filename_year
+
   jg = p_patch%id
 
   IF (imnthb < 0 .OR. imnthe < imnthb .OR. imnthe > 13 ) THEN
@@ -627,8 +633,7 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
   IF (imnthb == 0) THEN
 
     IF (cfname(1:ilen_cfname) == 'bc_aeropt_kinne_sw_b14_fin' .AND. &
-       ( echam_rad_config(p_patch%id)%irad_aero == 13 .OR.          &
-      &  echam_rad_config(p_patch%id)%irad_aero == 15 ) ) THEN
+        l_filename_year ) THEN
       WRITE(cfnameyear,'(2a,i0,a)') cfname2(1:cfname2_tlen), '_', iyear-1, '.nc'
     ELSE
       cfnameyear=cfname2(1:cfname2_tlen)//'.nc'
@@ -644,8 +649,7 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
 
   ! Read data for current year
   IF (cfname(1:ilen_cfname) == 'bc_aeropt_kinne_sw_b14_fin' .AND. &
-     ( echam_rad_config(p_patch%id)%irad_aero == 13 .OR.          &
-    &  echam_rad_config(p_patch%id)%irad_aero == 15 ) ) THEN
+      l_filename_year ) THEN
     WRITE(cfnameyear,'(2a,i0,a)') cfname2(1:cfname2_tlen), '_', iyear, '.nc'
   ELSE
     cfnameyear=TRIM(cfname2)//'.nc'
@@ -665,8 +669,7 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
   IF (imnthe == 13) THEN
 
     IF (cfname(1:ilen_cfname) == 'bc_aeropt_kinne_sw_b14_fin' .AND. &
-       ( echam_rad_config(p_patch%id)%irad_aero == 13 .OR.          &
-      &  echam_rad_config(p_patch%id)%irad_aero == 15 ) ) THEN
+        l_filename_year ) THEN
       WRITE(cfnameyear,'(2a,i0,a)') cfname2(1:cfname2_tlen), '_', iyear+1, '.nc'
     ELSE
       cfnameyear=cfname2(1:cfname2_tlen)//'.nc'

@@ -64,7 +64,7 @@ IMPLICIT NONE
 
 PRIVATE
 
-INTEGER,PARAMETER :: nfieldp_max = 50
+INTEGER,PARAMETER :: nfieldp_max = 65
 
 ! Structure for using pointers to extra fields in the upscaling routine
 ! It can be used for 3D or 2D pointers

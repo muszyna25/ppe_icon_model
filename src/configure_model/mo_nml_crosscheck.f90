@@ -297,6 +297,11 @@ CONTAINS
             &  ( atm_phy_nwp_config(jg)%icpl_aero_gscp > 0 .OR. icpl_aero_conv > 0 ) ) THEN
             CALL finish(routine,'aerosol-precipitation coupling requires irad_aero=6 or =9')
           ENDIF
+         
+          ! Kinne aerosol only works with ecRad
+          IF ( irad_aero == 13 .AND. atm_phy_nwp_config(jg)%inwp_radiation /= 4 ) THEN
+            CALL finish(routine,'irad_aero=13 requires inwp_radiation=4')
+          ENDIF
 
           ! ecRad specific checks
           IF ( (atm_phy_nwp_config(jg)%inwp_radiation == 4) )  THEN
@@ -316,8 +321,8 @@ CONTAINS
               &  CALL finish(routine,'For inwp_radiation = 4, irad_cfc11 has to be 0, 2 or 4')
             IF (.NOT. ANY( irad_cfc12   == (/0,2,4/)       ) ) &
               &  CALL finish(routine,'For inwp_radiation = 4, irad_cfc12 has to be 0, 2 or 4')
-            IF (.NOT. ANY( irad_aero    == (/0,2,5,6,9/)   ) ) &
-              &  CALL finish(routine,'For inwp_radiation = 4, irad_aero has to be 0, 2, 5, 6 or 9')
+            IF (.NOT. ANY( irad_aero    == (/0,2,5,6,9,13/)   ) ) &
+              &  CALL finish(routine,'For inwp_radiation = 4, irad_aero has to be 0, 2, 5, 6, 9 or 13')
             IF (.NOT. ANY( icld_overlap == (/1,2,5/)       ) ) &
               &  CALL finish(routine,'For inwp_radiation = 4, icld_overlap has to be 1, 2 or 5')
             IF (.NOT. ANY( iliquid_scat == (/0,1/)         ) ) &

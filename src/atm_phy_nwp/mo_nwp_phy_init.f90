@@ -123,6 +123,7 @@ MODULE mo_nwp_phy_init
   USE mo_upatmo_phy_setup,    ONLY: init_upatmo_phy_nwp
 
   USE mo_cover_koe,           ONLY: cover_koe_config
+  USE mo_bc_aeropt_kinne,     ONLY: read_bc_aeropt_kinne
 
   IMPLICIT NONE
 
@@ -195,7 +196,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
   LOGICAL :: lland, lglac, lshallow, lgrayzone_dc, ldetrain_prec
   LOGICAL :: ltkeinp_loc, lgz0inp_loc  !< turbtran switches
   LOGICAL :: linit_mode, lturb_init, lreset_mode
-  LOGICAL :: lupatmo_phy
+  LOGICAL :: lupatmo_phy, l_filename_year
 
   INTEGER :: jb,ic,jc,jt,jg,ist,nzprv
   INTEGER :: nlev, nlevp1, nlevcm    !< number of full, half and canopy levels
@@ -788,7 +789,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
     SELECT CASE ( irad_aero )
     ! Note (GZ): irad_aero=2 does no action but is the default in radiation_nml
     ! and therefore should not cause the model to stop
-    CASE (0,2,5,6,9)
+    CASE (0,2,5,6,9,13)
       !ok
     CASE DEFAULT
       WRITE (message_text, '(a,i2,a)') 'irad_aero = ',irad_aero, &
@@ -974,6 +975,11 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
     ELSEIF ( irad_aero == 6 .OR. irad_aero == 9) THEN
 
       CALL init_aerosol_props_tegen_rrtm
+
+    ELSEIF ( irad_aero == 13 ) THEN
+      
+      l_filename_year = .TRUE.
+      CALL read_bc_aeropt_kinne(ini_date, p_patch, l_filename_year)
 
     ELSE
 

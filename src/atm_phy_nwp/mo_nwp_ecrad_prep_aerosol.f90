@@ -25,7 +25,7 @@ MODULE mo_nwp_ecrad_prep_aerosol
 
   USE mo_kind,                   ONLY: wp
 #ifdef __ECRAD
-  USE mo_ecrad,                  ONLY: t_ecrad_aerosol_type, t_ecrad_conf
+  USE mo_ecrad,                  ONLY: t_ecrad_aerosol_type, t_ecrad_conf, t_opt_ptrs
 #endif
 
   USE mo_aerosol_util,           ONLY: zaea_rrtm,zaes_rrtm,zaeg_rrtm
@@ -43,6 +43,7 @@ MODULE mo_nwp_ecrad_prep_aerosol
 INTERFACE nwp_ecrad_prep_aerosol
   MODULE PROCEDURE nwp_ecrad_prep_aerosol_constant
   MODULE PROCEDURE nwp_ecrad_prep_aerosol_tegen_tanre
+  MODULE PROCEDURE nwp_ecrad_prep_aerosol_td
   MODULE PROCEDURE nwp_ecrad_prep_aerosol_art
 END INTERFACE nwp_ecrad_prep_aerosol
   
@@ -183,6 +184,62 @@ CONTAINS
     ENDIF
 
   END SUBROUTINE nwp_ecrad_prep_aerosol_tegen_tanre
+  !---------------------------------------------------------------------------------------
+
+  !---------------------------------------------------------------------------------------
+  !>
+  !! SUBROUTINE nwp_ecrad_prep_aerosol_td
+  !! Time-dependent aerosol
+  !! @par Revision History
+  !!
+  !---------------------------------------------------------------------------------------
+  SUBROUTINE nwp_ecrad_prep_aerosol_td (slev, nlev, i_startidx, i_endidx, &
+    &                                   opt_ptrs_lw, opt_ptrs_sw,         &
+    &                                   ecrad_conf, ecrad_aerosol)
+
+    INTEGER, INTENT(in)      :: &
+      &  slev, nlev,            & !< Start and end index of vertical loop
+      &  i_startidx, i_endidx     !< Start and end index of horizontal loop
+
+    TYPE(t_ecrad_conf),        INTENT(in)    :: &
+      &  ecrad_conf               !< ecRad configuration object
+    TYPE(t_ecrad_aerosol_type),INTENT(inout) :: &
+      &  ecrad_aerosol            !< ecRad aerosol information (input)
+
+    INTEGER                  :: &
+      &  jc, jk, jband            !< Loop indices
+
+    TYPE(t_opt_ptrs), DIMENSION(ecrad_conf%n_bands_lw), INTENT(in):: opt_ptrs_lw
+    TYPE(t_opt_ptrs), DIMENSION(ecrad_conf%n_bands_sw), INTENT(in):: opt_ptrs_sw
+
+   ! LONGWAVE
+    IF (ecrad_conf%do_lw) THEN
+      DO jband = 1, ecrad_conf%n_bands_lw
+        DO jk = slev, nlev
+          DO jc = i_startidx, i_endidx
+            ! LW optical thickness
+            ecrad_aerosol%od_lw  (jband,jk,jc) = opt_ptrs_lw(jband)%ptr_od(jc,jk)
+            ! No scattering at aerosol in longwave
+            ecrad_aerosol%ssa_lw (jband,jk,jc) = 0._wp
+            ecrad_aerosol%g_lw   (jband,jk,jc) = 0._wp
+          ENDDO ! jc
+        ENDDO   ! jk
+      ENDDO     ! jband
+    ENDIF
+
+   !SHORTWAVE
+    IF (ecrad_conf%do_sw) THEN
+      DO jband = 1, ecrad_conf%n_bands_sw
+        DO jk = slev, nlev
+          DO jc = i_startidx, i_endidx
+            ecrad_aerosol%od_sw  (jband,jk,jc) = opt_ptrs_sw(jband)%ptr_od  (jc,jk)
+            ecrad_aerosol%ssa_sw (jband,jk,jc) = opt_ptrs_sw(jband)%ptr_ssa (jc,jk)
+            ecrad_aerosol%g_sw   (jband,jk,jc) = opt_ptrs_sw(jband)%ptr_g   (jc,jk)
+          ENDDO ! jc
+        ENDDO   ! jk
+      ENDDO     ! jband
+    ENDIF
+  END SUBROUTINE nwp_ecrad_prep_aerosol_td
   !---------------------------------------------------------------------------------------
 
   !---------------------------------------------------------------------------------------

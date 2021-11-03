@@ -64,7 +64,7 @@ MODULE mo_nwp_ecrad_interface
                                    &   t_ecrad_single_level_type,                &
                                    &   t_ecrad_thermodynamics_type,              &
                                    &   t_ecrad_gas_type, t_ecrad_flux_type,      &
-                                   &   t_ecrad_cloud_type
+                                   &   t_ecrad_cloud_type, t_opt_ptrs
   USE mo_nwp_ecrad_prep_aerosol, ONLY: nwp_ecrad_prep_aerosol
   USE mo_nwp_ecrad_utilities,    ONLY: ecrad_set_single_level,                   &
                                    &   ecrad_set_thermodynamics,                 &
@@ -100,8 +100,9 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Daniel Rieger, Deutscher Wetterdienst, Offenbach (2019-01-31)
   !!
-  SUBROUTINE nwp_ecrad_radiation ( current_datetime, pt_patch, ext_data,                    &
-    &  zaeq1, zaeq2, zaeq3, zaeq4, zaeq5, pt_diag, prm_diag, pt_prog, lnd_prog, ecrad_conf )
+  SUBROUTINE nwp_ecrad_radiation ( current_datetime, pt_patch, ext_data,      &
+    &  zaeq1, zaeq2, zaeq3, zaeq4, zaeq5, od_lw, od_sw, ssa_sw,               &
+    &  g_sw, pt_diag, prm_diag, pt_prog, lnd_prog, ecrad_conf )
 
     CHARACTER(len=*), PARAMETER:: routine = modname//'::nwp_ecrad_radiation'
 
@@ -116,6 +117,11 @@ CONTAINS
       & zaeq3(nproma,pt_patch%nlev,pt_patch%nblks_c),     & !< Climatological aerosol (Tegen)
       & zaeq4(nproma,pt_patch%nlev,pt_patch%nblks_c),     & !< Climatological aerosol (Tegen)
       & zaeq5(nproma,pt_patch%nlev,pt_patch%nblks_c)        !< Climatological aerosol (Tegen)
+    REAL(wp), TARGET,        INTENT(in)    ::             &
+      & od_lw (:,:,:,:)                             ,     & !< LW aerosol optical thickness
+      & od_sw (:,:,:,:)                             ,     & !< SW aerosol optical thickness
+      & g_sw  (:,:,:,:)                             ,     & !< SW aerosol asymmetry factor
+      & ssa_sw(:,:,:,:)                                     !< SW aerosol single scattering albedo
 
     TYPE(t_nh_diag), TARGET, INTENT(in)         :: pt_diag       !< ICON diagnostic variables
     TYPE(t_nwp_phy_diag), TARGET, INTENT(inout) :: prm_diag      !< ICON physics diagnostics
@@ -136,10 +142,12 @@ CONTAINS
       &  ecrad_cloud                       !< ecRad cloud information (input)
     TYPE(t_ecrad_flux_type)           :: &
       &  ecrad_flux                        !< ecRad flux information (output)
+    TYPE(t_opt_ptrs),ALLOCATABLE :: opt_ptrs_lw(:)
+    TYPE(t_opt_ptrs),ALLOCATABLE :: opt_ptrs_sw(:)
     REAL(wp)                 :: &
       &  fact_reffc               !< Factor in the calculation of cloud droplet effective radius
     INTEGER                  :: &
-      &  jc, jb,                & !< Loop indices
+      &  jc, jb, jw,            & !< Loop indices
       &  jg,                    & !< Domain index
       &  nlev, nlevp1,          & !< Number of vertical levels (full, half)
       &  rl_start, rl_end,      & !< 
@@ -342,6 +350,20 @@ CONTAINS
               &                         zaeq5(jcs:jce,:,jb),                                    &
               &                         ecrad_conf, ecrad_aerosol)
             CALL finish(routine, 'irad_aero = 9 not yet fully implemented for ecRad')
+          CASE(13)
+            ALLOCATE(opt_ptrs_lw(ecrad_conf%n_bands_lw))
+            ALLOCATE(opt_ptrs_sw(ecrad_conf%n_bands_sw))
+            DO jw = 1, ecrad_conf%n_bands_lw
+              opt_ptrs_lw(jw)%ptr_od  => od_lw(jcs:jce,:,jb,jw)
+            ENDDO
+            DO jw = 1, ecrad_conf%n_bands_sw
+              opt_ptrs_sw(jw)%ptr_od  => od_sw(jcs:jce,:,jb,jw)
+              opt_ptrs_sw(jw)%ptr_ssa => ssa_sw(jcs:jce,:,jb,jw)
+              opt_ptrs_sw(jw)%ptr_g   => g_sw(jcs:jce,:,jb,jw)
+            ENDDO
+            CALL nwp_ecrad_prep_aerosol(1, nlev, i_startidx_rad, i_endidx_rad,   &
+              &                         opt_ptrs_lw, opt_ptrs_sw,                &
+              &                         ecrad_conf, ecrad_aerosol)
           CASE DEFAULT
             CALL finish(routine, 'irad_aero not valid for ecRad')
         END SELECT
@@ -421,8 +443,9 @@ CONTAINS
   !! Initial release by Daniel Rieger, Deutscher Wetterdienst, Offenbach (2019-01-31)
   !! Open TODOs: dust_tunefac not considered so far
   !!
-  SUBROUTINE nwp_ecrad_radiation_reduced (current_datetime, pt_patch, pt_par_patch, ext_data, &
-    &                                     zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,                      &
+  SUBROUTINE nwp_ecrad_radiation_reduced (current_datetime, pt_patch, pt_par_patch, ext_data,  &
+    &                                     zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,                       &
+    &                                     od_lw, od_sw, ssa_sw, g_sw,                          &
     &                                     pt_diag,prm_diag,pt_prog, lnd_prog, ecrad_conf )
 
     CHARACTER(len=*), PARAMETER :: &
@@ -439,8 +462,12 @@ CONTAINS
       & zaeq2(nproma,pt_patch%nlev,pt_patch%nblks_c),     & !< Climatological aerosol (Tegen)
       & zaeq3(nproma,pt_patch%nlev,pt_patch%nblks_c),     & !< Climatological aerosol (Tegen)
       & zaeq4(nproma,pt_patch%nlev,pt_patch%nblks_c),     & !< Climatological aerosol (Tegen)
-      & zaeq5(nproma,pt_patch%nlev,pt_patch%nblks_c)        !< Climatological aerosol (Tegen)
-
+      & zaeq5(nproma,pt_patch%nlev,pt_patch%nblks_c),     & !< Climatological aerosol (Tegen)
+      & od_lw (:,:,:,:)                             ,     & !< LW aerosol optical thickness
+      & od_sw (:,:,:,:)                             ,     & !< SW aerosol optical thickness
+      & g_sw  (:,:,:,:)                             ,     & !< SW aerosol asymmetry factor
+      & ssa_sw(:,:,:,:)                                     !< SW aerosol single scattering albedo
+ 
     TYPE(t_nh_diag), TARGET, INTENT(in)    :: pt_diag       !< ICON diagnostic variables
     TYPE(t_nwp_phy_diag),    INTENT(inout) :: prm_diag      !< ICON physics diagnostics
     TYPE(t_nh_prog), TARGET, INTENT(in)    :: pt_prog        !< ICON dyn prog vars 
@@ -469,7 +496,7 @@ CONTAINS
     INTEGER                  :: &
       &  nblks_par_c,           & !< nblks for reduced grid (parent domain)
       &  nblks_lp_c,            & !< nblks for reduced grid (local parent)
-      &  jb, jc, jk, jf,        & !< loop indices
+      &  jb, jc, jk, jf, jw,    & !< loop indices
       &  jg,                    & !< domain id
       &  nlev,                  & !< number of full levels
       &  nlev_rg, nlev_rgp1,    & !< number of full and half levels at reduced grid
@@ -536,11 +563,17 @@ CONTAINS
     ! and therefore have be aggregated to the radiation grid 
     INTEGER :: irg_acdnc, irg_fr_glac, irg_fr_land,  irg_qr, irg_qs, irg_qg,  & 
       &        irg_reff_qr, irg_reff_qs, irg_reff_qg
+    INTEGER, DIMENSION (ecrad_conf%n_bands_lw) :: irg_od_lw
+    INTEGER, DIMENSION (ecrad_conf%n_bands_sw) :: irg_od_sw, irg_ssa_sw, irg_g_sw
     REAL(wp), DIMENSION(:,:),  POINTER :: &
       &  ptr_acdnc => NULL(),                                                 &
       &  ptr_qr => NULL(),      ptr_qs => NULL(),      ptr_qg => NULL(),      &
       &  ptr_reff_qc => NULL(), ptr_reff_qi => NULL(), ptr_reff_qr => NULL(), &
       &  ptr_reff_qs => NULL(), ptr_reff_qg => NULL()
+
+    TYPE(t_opt_ptrs),ALLOCATABLE :: opt_ptrs_lw(:)
+    TYPE(t_opt_ptrs),ALLOCATABLE :: opt_ptrs_sw(:)
+
     REAL(wp), DIMENSION(:),    POINTER :: &
       &  ptr_fr_glac => NULL(), ptr_fr_land => NULL()
 
@@ -641,6 +674,10 @@ CONTAINS
       &      zrg_trsol_clr_sfc    (nproma,nblks_par_c),     &
       &      zrg_lwflx_clr_sfc    (nproma,nblks_par_c),     &
       &      aclcov               (nproma,pt_patch%nblks_c))
+    IF (ANY( irad_aero == (/13/) )) THEN
+      ALLOCATE(opt_ptrs_lw(ecrad_conf%n_bands_lw))
+      ALLOCATE(opt_ptrs_sw(ecrad_conf%n_bands_sw))
+    END IF
       
     ! Set dimensions for 3D radiative flux variables
     IF (atm_phy_nwp_config(jg)%l_3d_rad_fluxes) THEN
@@ -688,15 +725,19 @@ CONTAINS
 
     
     ! Set indices for extra fields in the upscaling routine
-    irg_acdnc   = 0
-    irg_fr_land = 0
-    irg_fr_glac = 0 
-    irg_qr      = 0  
-    irg_qs      = 0 
-    irg_qg      = 0 
-    irg_reff_qr = 0 
-    irg_reff_qs = 0 
-    irg_reff_qg = 0
+    irg_acdnc     = 0
+    irg_fr_land   = 0
+    irg_fr_glac   = 0 
+    irg_qr        = 0  
+    irg_qs        = 0 
+    irg_qg        = 0 
+    irg_reff_qr   = 0 
+    irg_reff_qs   = 0 
+    irg_reff_qg   = 0
+    irg_od_lw     = 0
+    irg_od_sw     = 0
+    irg_ssa_sw    = 0
+    irg_g_sw      = 0
     
     CALL input_extra_flds%construct(nlev_rg)  ! Extra fields in upscaling routine: 3D fields with nlev_rg
     CALL input_extra_2D%construct(1)          ! Extra fields in upscaling routine: 2D fields
@@ -719,6 +760,18 @@ CONTAINS
       IF (iqg >0) CALL input_extra_reff%assign(prm_diag%reff_qg(:,:,:), irg_reff_qg, assoc_hyd = irg_qg )      
     END SELECT
     
+    IF (ANY( irad_aero == (/13/) )) THEN
+      ! Aerosol extra fields
+      DO jw = 1, ecrad_conf%n_bands_lw
+        CALL input_extra_flds%assign(od_lw(:,:,:,jw), irg_od_lw(jw))
+      ENDDO
+      DO jw = 1, ecrad_conf%n_bands_sw
+        CALL input_extra_flds%assign(od_sw(:,:,:,jw), irg_od_sw(jw))
+        CALL input_extra_flds%assign(ssa_sw(:,:,:,jw), irg_ssa_sw(jw))
+        CALL input_extra_flds%assign(g_sw(:,:,:,jw), irg_g_sw(jw))
+      ENDDO
+    END IF
+
     ! Allocate output arrays
     IF ( input_extra_flds%ntot > 0 )  THEN
       ALLOCATE( zrg_extra_flds(nproma,input_extra_flds%nlev_rg,nblks_par_c,input_extra_flds%ntot) )
@@ -922,6 +975,26 @@ CONTAINS
         IF ( irg_reff_qr > 0 ) ptr_reff_qr => zrg_extra_reff(jcs:jce,:,jb,irg_reff_qr)
         IF ( irg_reff_qs > 0 ) ptr_reff_qs => zrg_extra_reff(jcs:jce,:,jb,irg_reff_qs) 
         IF ( irg_reff_qg > 0 ) ptr_reff_qg => zrg_extra_reff(jcs:jce,:,jb,irg_reff_qg) 
+        IF ( ALL(irg_od_lw(:)  > 0) ) THEN
+          DO jw = 1, ecrad_conf%n_bands_lw
+            opt_ptrs_lw(jw)%ptr_od  => zrg_extra_flds(jcs:jce,:,jb,irg_od_lw(jw))
+          ENDDO
+        ENDIF
+        IF ( ALL(irg_od_sw(:)  > 0) ) THEN
+          DO jw = 1, ecrad_conf%n_bands_sw
+            opt_ptrs_sw(jw)%ptr_od  => zrg_extra_flds(jcs:jce,:,jb,irg_od_sw(jw))
+          ENDDO
+        ENDIF
+        IF ( ALL(irg_ssa_sw(:) > 0) ) THEN
+          DO jw = 1, ecrad_conf%n_bands_sw
+            opt_ptrs_sw(jw)%ptr_ssa => zrg_extra_flds(jcs:jce,:,jb,irg_ssa_sw(jw))
+          ENDDO
+        ENDIF
+        IF ( ALL(irg_g_sw(:)   > 0) ) THEN
+          DO jw = 1, ecrad_conf%n_bands_sw
+            opt_ptrs_sw(jw)%ptr_g   => zrg_extra_flds(jcs:jce,:,jb,irg_g_sw(jw))
+          ENDDO
+        ENDIF
 
 ! Fill single level configuration type
         CALL ecrad_set_single_level(ecrad_single_level, current_datetime, ptr_pp%cells%center(jcs:jce,jb),            &
@@ -964,6 +1037,10 @@ CONTAINS
               &                         zrg_aeq1(jcs:jce,:,jb), zrg_aeq2(jcs:jce,:,jb),   &
               &                         zrg_aeq3(jcs:jce,:,jb), zrg_aeq4(jcs:jce,:,jb),   &
               &                         zrg_aeq5(jcs:jce,:,jb),                           &
+              &                         ecrad_conf, ecrad_aerosol)
+          CASE(13)
+            CALL nwp_ecrad_prep_aerosol(1, nlev_rg, i_startidx_rad, i_endidx_rad,         &
+              &                         opt_ptrs_lw, opt_ptrs_sw,                         &
               &                         ecrad_conf, ecrad_aerosol)
           CASE DEFAULT
             CALL finish(routine, 'irad_aero not valid for ecRad')

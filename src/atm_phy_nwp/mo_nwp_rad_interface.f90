@@ -16,6 +16,10 @@
 !! headers of the routines.
 !!
 
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_nwp_rad_interface
 
   USE mo_exception,            ONLY: finish, message, message_text
@@ -23,7 +27,7 @@ MODULE mo_nwp_rad_interface
   USE mo_nh_testcases_nml,     ONLY: nh_test_name, albedo_set
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_parallel_config,      ONLY: nproma
-  USE mo_impl_constants,       ONLY: MODIS, min_rlcell_int
+  USE mo_impl_constants,       ONLY: MODIS, min_rlcell_int, SUCCESS
   USE mo_kind,                 ONLY: wp
   USE mo_nwp_lnd_types,        ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_model_domain,         ONLY: t_patch
@@ -48,6 +52,9 @@ MODULE mo_nwp_rad_interface
 #if defined( _OPENACC )
   USE mo_mpi,                  ONLY: i_am_accel_node, my_process_is_work
 #endif
+  USE mo_bc_aeropt_kinne,      ONLY: set_bc_aeropt_kinne
+  USE mo_radiation_config,     ONLY: irad_aero
+  USE mo_loopindices,          ONLY: get_indices_c
 
   IMPLICIT NONE
 
@@ -69,7 +76,7 @@ MODULE mo_nwp_rad_interface
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
   SUBROUTINE nwp_radiation ( lredgrid, p_sim_time, mtime_datetime, pt_patch,pt_par_patch, &
-    & ext_data, lnd_diag, pt_prog, pt_diag, prm_diag, lnd_prog, wtr_prog, linit)
+    & ext_data, lnd_diag, pt_prog, pt_diag, prm_diag, lnd_prog, wtr_prog, zf, dz, linit)
 
     CHARACTER(len=*), PARAMETER :: &
       &  routine = 'mo_nwp_rad_interface:nwp_radiation'
@@ -77,7 +84,9 @@ MODULE mo_nwp_rad_interface
     LOGICAL,                 INTENT(in)    :: lredgrid        !< use reduced grid for radiation
     LOGICAL, OPTIONAL,       INTENT(in)    :: linit
 
-    REAL(wp),                INTENT(in)    :: p_sim_time
+    REAL(wp),                INTENT(in)    :: p_sim_time   !< simulation time
+    REAL(wp),                INTENT(in)    :: zf(:,:,:)    !< model full layer height
+    REAL(wp),                INTENT(in)    :: dz(:,:,:)    !< Layer thickness
 
     TYPE(datetime), POINTER, INTENT(in)    :: mtime_datetime
     TYPE(t_patch), TARGET,   INTENT(in)    :: pt_patch     !<grid/patch info.
@@ -97,12 +106,23 @@ MODULE mo_nwp_rad_interface
       & zaeq4(nproma,pt_patch%nlev,pt_patch%nblks_c), &
       & zaeq5(nproma,pt_patch%nlev,pt_patch%nblks_c)
 
+    REAL(wp), ALLOCATABLE :: &
+      & od_lw_vr(:,:,:) , & !< LW optical thickness of aerosols    (vertically reversed)
+      & od_sw_vr(:,:,:) , & !< SW aerosol optical thickness        (vertically reversed)
+      & g_sw_vr (:,:,:) , & !< SW aerosol asymmetry factor         (vertically reversed)
+      & ssa_sw_vr(:,:,:), & !< SW aerosol single scattering albedo (vertically reversed)
+      & od_lw(:,:,:,:)  , & !< LW optical thickness of aerosols
+      & od_sw(:,:,:,:)  , & !< SW aerosol optical thickness
+      & g_sw (:,:,:,:)  , & !< SW aerosol asymmetry factor
+      & ssa_sw(:,:,:,:)     !< SW aerosol single scattering albedo
+
     INTEGER :: jg, irad
-    INTEGER :: jb, jc          !< loop indices
+    INTEGER :: jb, jc, jk              !< loop indices
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk    !> blocks
     INTEGER :: i_startidx, i_endidx    !< slices
     INTEGER :: i_nchdom                !< domain index
+    INTEGER :: istat
     LOGICAL :: lacc
 
     REAL(wp):: zsct        ! solar constant (at time of year)
@@ -131,6 +151,62 @@ MODULE mo_nwp_rad_interface
     !-------------------------------------------------------------------------
     !> Radiation setup
     !-------------------------------------------------------------------------
+
+#ifdef __ECRAD
+    IF (ANY( irad_aero == (/13/) )) THEN
+
+      ALLOCATE(od_lw_vr (nproma,pt_patch%nlev,ecrad_conf%n_bands_lw)                   , &
+      &        od_sw_vr (nproma,pt_patch%nlev,ecrad_conf%n_bands_sw)                   , &
+      &        g_sw_vr  (nproma,pt_patch%nlev,ecrad_conf%n_bands_sw)                   , &
+      &        ssa_sw_vr(nproma,pt_patch%nlev,ecrad_conf%n_bands_sw)                   , &
+      &        od_lw    (nproma,pt_patch%nlev,pt_patch%nblks_c,ecrad_conf%n_bands_lw)  , &
+      &        od_sw    (nproma,pt_patch%nlev,pt_patch%nblks_c,ecrad_conf%n_bands_sw)  , &
+      &        ssa_sw   (nproma,pt_patch%nlev,pt_patch%nblks_c,ecrad_conf%n_bands_sw)  , &
+      &        g_sw     (nproma,pt_patch%nlev,pt_patch%nblks_c,ecrad_conf%n_bands_sw)  , &
+      &        STAT=istat                                                                )
+
+      IF(istat /= SUCCESS) CALL finish(routine, 'Allocation of od_lw_vr,od_sw_vr, g_sw_vr, &
+                                       ssa_sw_vr, od_lw, od_sw, ssa_sw, g_sw failed'       )
+
+!$OMP PARALLEL 
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx, od_lw_vr, od_sw_vr, ssa_sw_vr, g_sw_vr) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = i_startblk,i_endblk
+        CALL get_indices_c(pt_patch,jb,i_startblk,i_endblk,i_startidx,i_endidx,rl_start,rl_end)
+
+        IF (i_startidx>i_endidx) CYCLE
+
+        od_lw_vr(:,:,:)  = 0.0_wp
+        od_sw_vr(:,:,:)  = 0.0_wp
+        ssa_sw_vr(:,:,:) = 1.0_wp
+        g_sw_vr (:,:,:)  = 0.0_wp
+
+        SELECT CASE (irad_aero)
+        CASE (13)
+          CALL set_bc_aeropt_kinne(mtime_datetime, jg, 1, i_endidx, &
+            & nproma, pt_patch%nlev, jb, ecrad_conf%n_bands_sw,     &
+            & ecrad_conf%n_bands_lw, zf(:,:,jb), dz(:,:,jb),        &
+            & od_sw_vr(:,:,:), ssa_sw_vr(:,:,:),                    &
+            & g_sw_vr (:,:,:), od_lw_vr(:,:,:)                      )
+        END SELECT
+        !
+        ! Vertically reverse the fields:
+        DO jk = 1, pt_patch%nlev
+          od_lw (:,jk,jb,:) = od_lw_vr (:,pt_patch%nlev-jk+1,:)
+          od_sw (:,jk,jb,:) = od_sw_vr (:,pt_patch%nlev-jk+1,:)
+          ssa_sw(:,jk,jb,:) = ssa_sw_vr(:,pt_patch%nlev-jk+1,:)
+          g_sw  (:,jk,jb,:) = g_sw_vr  (:,pt_patch%nlev-jk+1,:)
+        ENDDO
+
+      END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+      DEALLOCATE(od_lw_vr, od_sw_vr, ssa_sw_vr, g_sw_vr, STAT=istat)
+      IF(istat /= SUCCESS) CALL finish(routine, 'Deallocation of od_lw_vr, &
+                                       od_sw_vr, ssa_sw_vr, g_sw_vr failed')
+
+    END IF
+#endif
 
     IF(ANY((/irad_co2,irad_cfc11,irad_cfc12,irad_n2o,irad_ch4/) == 4)) THEN 
       ! Interpolate greenhouse gas concentrations to the current date and time, 
@@ -248,10 +324,12 @@ MODULE mo_nwp_rad_interface
       IF (.NOT. lredgrid) THEN
         CALL nwp_ecRad_radiation ( mtime_datetime, pt_patch, ext_data,      &
           & zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,                              &
+          & od_lw, od_sw, ssa_sw, g_sw,                                     &
           & pt_diag, prm_diag, pt_prog, lnd_prog, ecrad_conf )
       ELSE
         CALL nwp_ecRad_radiation_reduced ( mtime_datetime, pt_patch,pt_par_patch, &
           & ext_data, zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,                          &
+          & od_lw, od_sw, ssa_sw, g_sw,                                           &
           & pt_diag, prm_diag, pt_prog, lnd_prog, ecrad_conf )
       ENDIF
 #else
@@ -272,6 +350,23 @@ MODULE mo_nwp_rad_interface
       i_am_accel_node = my_process_is_work()
     ENDIF
 #endif
+
+    IF( ALLOCATED(od_lw) ) THEN
+      DEALLOCATE(od_lw, STAT=istat)
+      IF(istat /= SUCCESS) CALL finish(routine, 'Deallocation of od_lw failed.')
+    ENDIF
+    IF( ALLOCATED(od_sw) ) THEN
+      DEALLOCATE(od_sw, STAT=istat)
+      IF(istat /= SUCCESS) CALL finish(routine, 'Deallocation of od_sw failed.')
+    ENDIF
+    IF( ALLOCATED(ssa_sw) ) THEN
+      DEALLOCATE(ssa_sw, STAT=istat)
+      IF(istat /= SUCCESS) CALL finish(routine, 'Deallocation of ssa_sw failed.')
+    ENDIF    
+    IF( ALLOCATED(g_sw) ) THEN
+      DEALLOCATE(g_sw, STAT=istat)
+      IF(istat /= SUCCESS) CALL finish(routine, 'Deallocation of g_sw failed.')
+    ENDIF
 
   END SUBROUTINE nwp_radiation
 
