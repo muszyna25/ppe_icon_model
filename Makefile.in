@@ -61,7 +61,7 @@ BZIP2= bzip2
 dist:
 	@if test ! -d @top_srcdir@/.git; then echo "'@top_srcdir@' is not a git repository" >&2; exit 1; fi
 	$(GIT) -C @top_srcdir@ archive --prefix=@PACKAGE_TARNAME@/ --format tar -o @abs_top_builddir@/@PACKAGE_TARNAME@.tar HEAD
-	$(GIT) -C @top_srcdir@ submodule foreach '$(GIT) archive --prefix=@PACKAGE_TARNAME@/$$path/ --format tar -o @abs_top_builddir@/$$name.tar HEAD && $(TAR) -Af @abs_top_builddir@/@PACKAGE_TARNAME@.tar @abs_top_builddir@/$$name.tar && rm @abs_top_builddir@/$$name.tar'
+	$(GIT) -C @top_srcdir@ submodule foreach '$(GIT) archive --prefix=@PACKAGE_TARNAME@/$$path/ --format tar -o @abs_top_builddir@/$$sha1.tar HEAD && $(TAR) -Af @abs_top_builddir@/@PACKAGE_TARNAME@.tar @abs_top_builddir@/$$sha1.tar && rm @abs_top_builddir@/$$sha1.tar'
 	rm -f @PACKAGE_TARNAME@.tar.bz2 && BZIP2=$${BZIP2--9} $(BZIP2) @PACKAGE_TARNAME@.tar
 
 # Includes all non-ignored files with uncommitted changes:
