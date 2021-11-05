@@ -57,7 +57,7 @@ STATICLINK_FLAGS='-static -add-gcc-rpath'
 ################################################################################
 
 
-BUILD_ENV="${MODULE_SETTINGS} && . \"${SCRIPT_DIR}/module_switcher\"; switch_for_module ${MODULES};"
+BUILD_ENV="${MODULE_SETTINGS} && . \"${SCRIPT_DIR}/module_switcher\"; switch_for_module ${MODULES}; export NMPI_FC_H=gfortran;"
 echo ${BUILD_ENV}
 
 # We need some of the environment variables set by the modules now:
