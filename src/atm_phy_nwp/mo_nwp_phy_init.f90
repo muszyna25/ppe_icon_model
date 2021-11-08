@@ -123,7 +123,6 @@ MODULE mo_nwp_phy_init
   USE mo_upatmo_phy_setup,    ONLY: init_upatmo_phy_nwp
 
   USE mo_cover_koe,           ONLY: cover_koe_config
-  USE mo_bc_aeropt_kinne,     ONLY: read_bc_aeropt_kinne
 
   IMPLICIT NONE
 
@@ -789,8 +788,10 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
     SELECT CASE ( irad_aero )
     ! Note (GZ): irad_aero=2 does no action but is the default in radiation_nml
     ! and therefore should not cause the model to stop
-    CASE (0,2,5,6,9,13)
+    CASE (0,2,6,9,13)
       !ok
+    CASE (5)
+      !ok for RRTM and captured in mo_nml_crosscheck for ecRad
     CASE DEFAULT
       WRITE (message_text, '(a,i2,a)') 'irad_aero = ',irad_aero, &
         &                  ' not implemented for RRTM/ecRad'
@@ -830,13 +831,33 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
         CALL setup_srtm
         CALL lrtm_setup(lrtm_filename)
         CALL setup_newcld_optics(cldopt_filename)
-      CASE(4)
+
+        IF ( irad_aero == 5 ) THEN
+          CALL init_aerosol_props_tanre_rrtm
+          CALL init_aerosol_dstrb_tanre (        &
+            & kbdim    = nproma,                 & !in
+            & pt_patch = p_patch,                & !in
+            & aersea   = prm_diag%aersea,        & !out
+            & aerlan   = prm_diag%aerlan,        & !out
+            & aerurb   = prm_diag%aerurb,        & !out
+            & aerdes   = prm_diag%aerdes )         !out
+
+        ELSEIF ( irad_aero == 6 .OR. irad_aero == 9) THEN
+          CALL init_aerosol_props_tegen_rrtm
+        ELSE
+          zaea_rrtm(:,:) = 0.0_wp
+          zaes_rrtm(:,:) = 0.0_wp
+          zaeg_rrtm(:,:) = 0.0_wp
+        ENDIF
+
+      CASE(4) ! ecRad init
 #ifdef __ECRAD
         !
         IF (msg_level >= 12)  CALL message(modname, 'init ECRAD')
         !
         ! Do ecrad initialization only once
-        IF (.NOT.lreset_mode .AND. jg==1) CALL setup_ecrad(ecrad_conf)
+        IF (.NOT.lreset_mode .AND. jg==1) &
+          &  CALL setup_ecrad(p_patch,ecrad_conf,ini_date)
 #else
         CALL finish(routine,  &
           &      'atm_phy_nwp_config(jg)%inwp_radiation = 4 needs -D__ECRAD.')
@@ -959,35 +980,6 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
     ENDDO      !jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-
-    IF ( irad_aero == 5 ) THEN
-
-      CALL init_aerosol_props_tanre_rrtm
-
-      CALL init_aerosol_dstrb_tanre (        &
-        & kbdim    = nproma,                 & !in
-        & pt_patch = p_patch,                & !in
-        & aersea   = prm_diag%aersea,        & !out
-        & aerlan   = prm_diag%aerlan,        & !out
-        & aerurb   = prm_diag%aerurb,        & !out
-        & aerdes   = prm_diag%aerdes )         !out
-
-    ELSEIF ( irad_aero == 6 .OR. irad_aero == 9) THEN
-
-      CALL init_aerosol_props_tegen_rrtm
-
-    ELSEIF ( irad_aero == 13 ) THEN
-      
-      l_filename_year = .TRUE.
-      CALL read_bc_aeropt_kinne(ini_date, p_patch, l_filename_year)
-
-    ELSE
-
-      zaea_rrtm(:,:) = 0.0_wp
-      zaes_rrtm(:,:) = 0.0_wp
-      zaeg_rrtm(:,:) = 0.0_wp
-
-    ENDIF
 
     DO ist = 1, UBOUND(csalbw,1)
       rad_csalbw(ist) = csalbw(ist) / (2.0_wp * zml_soil(1))

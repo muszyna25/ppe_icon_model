@@ -28,7 +28,7 @@ MODULE mo_nwp_ecrad_prep_aerosol
   USE mo_ecrad,                  ONLY: t_ecrad_aerosol_type, t_ecrad_conf, t_opt_ptrs
 #endif
 
-  USE mo_aerosol_util,           ONLY: zaea_rrtm,zaes_rrtm,zaeg_rrtm
+  USE mo_aerosol_util,           ONLY: tegen_scal_factors
 
   IMPLICIT NONE
 
@@ -42,7 +42,7 @@ MODULE mo_nwp_ecrad_prep_aerosol
 
 INTERFACE nwp_ecrad_prep_aerosol
   MODULE PROCEDURE nwp_ecrad_prep_aerosol_constant
-  MODULE PROCEDURE nwp_ecrad_prep_aerosol_tegen_tanre
+  MODULE PROCEDURE nwp_ecrad_prep_aerosol_tegen
   MODULE PROCEDURE nwp_ecrad_prep_aerosol_td
   MODULE PROCEDURE nwp_ecrad_prep_aerosol_art
 END INTERFACE nwp_ecrad_prep_aerosol
@@ -93,18 +93,18 @@ CONTAINS
 
   !---------------------------------------------------------------------------------------
   !>
-  !! SUBROUTINE nwp_ecrad_prep_aerosol_tegen_tanre
-  !! Prepare aerosol from Tanre and Tegen climatology for ecRad. All the necessary 
+  !! SUBROUTINE nwp_ecrad_prep_aerosol_tegen
+  !! Prepare aerosol from Tegen climatology for ecRad. All the necessary
   !! information on the vertical and spatial distribution of the aerosol is given by the
   !! preprocessed fields zaeq1 - zaeq5. Code taken and adapted from rrtm, module mo_radiation
   !!
   !! @par Revision History
-  !! Initial release by Daniel Rieger, Deutscher Wetterdienst, Offenbach (2018-12-07)
+  !! Initial release by Daniel Rieger, Deutscher Wetterdienst, Offenbach (2021-10-20)
   !!
   !---------------------------------------------------------------------------------------
-  SUBROUTINE nwp_ecrad_prep_aerosol_tegen_tanre ( slev, nlev, i_startidx, i_endidx,       &
-    &                                             zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,      &
-    &                                             ecrad_conf, ecrad_aerosol )
+  SUBROUTINE nwp_ecrad_prep_aerosol_tegen ( slev, nlev, i_startidx, i_endidx,       &
+    &                                       zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,      &
+    &                                       ecrad_conf, ecrad_aerosol )
     INTEGER, INTENT(in)      :: &
       &  slev, nlev,            & !< Start and end index of vertical loop
       &  i_startidx, i_endidx     !< Start and end index of horizontal loop
@@ -115,17 +115,25 @@ CONTAINS
       &  zaeq4(:,:),            & !<   for 5 different                 4: urban
       &  zaeq5(:,:)               !<   aerosol species.                5: stratospheric background
     TYPE(t_ecrad_conf),        INTENT(in)    :: &
-      &  ecrad_conf                        !< ecRad configuration object
+      &  ecrad_conf               !< ecRad configuration object
     TYPE(t_ecrad_aerosol_type),INTENT(inout) :: &
-      &  ecrad_aerosol                     !< ecRad aerosol information (input)
+      &  ecrad_aerosol            !< ecRad aerosol information (input)
 ! Local variables
     REAL(wp)                 :: &
       &  tau_abs, tau_sca         !< Absorption and scattering optical depth
+    REAL(wp), POINTER        :: &
+      &  scal_abs(:,:),         & !< Scaling factor absorption
+      &  scal_sct(:,:),         & !< Scaling factor scattering
+      &  scal_asy(:,:)            !< Scaling factor asymmetry
     CHARACTER(len=*), PARAMETER :: &
       &  routine = modname//'::nwp_ecrad_prep_aerosol_tegen' 
     INTEGER                  :: &
       &  jc, jk, jband,         & !< Loop indices
-      &  jband_rrtm               !< Band index in rrtm container (for shortwave: shifted by nbands_lw)
+      &  jband_shift              !< Band index in container (for shortwave: shifted by n_bands_lw)
+
+    scal_abs => tegen_scal_factors%absorption
+    scal_sct => tegen_scal_factors%scattering
+    scal_asy => tegen_scal_factors%asymmetry
 
 ! LONGWAVE
     IF (ecrad_conf%do_lw) THEN
@@ -133,11 +141,11 @@ CONTAINS
         DO jk = slev, nlev
           DO jc = i_startidx, i_endidx
             ! LW optical thickness
-            ecrad_aerosol%od_lw (jband,jk,jc) =  zaeq1(jc,jk) * zaea_rrtm(jband,1) &
-              &                                + zaeq2(jc,jk) * zaea_rrtm(jband,2) &
-              &                                + zaeq3(jc,jk) * zaea_rrtm(jband,3) &
-              &                                + zaeq4(jc,jk) * zaea_rrtm(jband,4) &
-              &                                + zaeq5(jc,jk) * zaea_rrtm(jband,5)
+            ecrad_aerosol%od_lw (jband,jk,jc) =  zaeq1(jc,jk) * scal_abs(jband,1) &
+              &                                + zaeq2(jc,jk) * scal_abs(jband,2) &
+              &                                + zaeq3(jc,jk) * scal_abs(jband,3) &
+              &                                + zaeq4(jc,jk) * scal_abs(jband,4) &
+              &                                + zaeq5(jc,jk) * scal_abs(jband,5)
             ! No scattering at aerosol in longwave
             ecrad_aerosol%ssa_lw(jband,jk,jc) = 0._wp
             ecrad_aerosol%g_lw  (jband,jk,jc) = 0._wp
@@ -149,41 +157,41 @@ CONTAINS
 ! SHORTWAVE
     IF (ecrad_conf%do_sw) THEN
       DO jband = 1, ecrad_conf%n_bands_sw
-        jband_rrtm = ecrad_conf%n_bands_lw + jband
+        jband_shift = ecrad_conf%n_bands_lw + jband
         DO jk = slev, nlev
           DO jc = i_startidx, i_endidx
             ! SW absorption optical depth
-            tau_abs =  zaeq1(jc,jk) * zaea_rrtm(jband_rrtm,1) &
-              &      + zaeq2(jc,jk) * zaea_rrtm(jband_rrtm,2) &
-              &      + zaeq3(jc,jk) * zaea_rrtm(jband_rrtm,3) &
-              &      + zaeq4(jc,jk) * zaea_rrtm(jband_rrtm,4) &
-              &      + zaeq5(jc,jk) * zaea_rrtm(jband_rrtm,5)
+            tau_abs =  zaeq1(jc,jk) * scal_abs(jband_shift,1) &
+              &      + zaeq2(jc,jk) * scal_abs(jband_shift,2) &
+              &      + zaeq3(jc,jk) * scal_abs(jband_shift,3) &
+              &      + zaeq4(jc,jk) * scal_abs(jband_shift,4) &
+              &      + zaeq5(jc,jk) * scal_abs(jband_shift,5)
             ! SW scattering optical depth
-            tau_sca =  zaeq1(jc,jk) * zaes_rrtm(jband_rrtm,1) &
-              &      + zaeq2(jc,jk) * zaes_rrtm(jband_rrtm,2) &
-              &      + zaeq3(jc,jk) * zaes_rrtm(jband_rrtm,3) &
-              &      + zaeq4(jc,jk) * zaes_rrtm(jband_rrtm,4) &
-              &      + zaeq5(jc,jk) * zaes_rrtm(jband_rrtm,5)
+            tau_sca =  zaeq1(jc,jk) * scal_sct(jband_shift,1) &
+              &      + zaeq2(jc,jk) * scal_sct(jband_shift,2) &
+              &      + zaeq3(jc,jk) * scal_sct(jband_shift,3) &
+              &      + zaeq4(jc,jk) * scal_sct(jband_shift,4) &
+              &      + zaeq5(jc,jk) * scal_sct(jband_shift,5)
     
             ! Total optical depth for band jband
             ecrad_aerosol%od_sw (jband,jk,jc) = tau_abs + tau_sca
-    
+            
             ! Bulk SW single scattering albedo for band jband
             ecrad_aerosol%ssa_sw(jband,jk,jc) = tau_sca / ( tau_abs + tau_sca )
     
             ! Bulk SW asymmetry factor
             ecrad_aerosol%g_sw  (jband,jk,jc) =                                        &
-              & (   zaeq1(jc,jk) * zaes_rrtm(jband_rrtm,1) * zaeg_rrtm(jband_rrtm,1)   &
-              &   + zaeq2(jc,jk) * zaes_rrtm(jband_rrtm,2) * zaeg_rrtm(jband_rrtm,2)   &
-              &   + zaeq3(jc,jk) * zaes_rrtm(jband_rrtm,3) * zaeg_rrtm(jband_rrtm,3)   &
-              &   + zaeq4(jc,jk) * zaes_rrtm(jband_rrtm,4) * zaeg_rrtm(jband_rrtm,4)   &
-              &   + zaeq5(jc,jk) * zaes_rrtm(jband_rrtm,5) * zaeg_rrtm(jband_rrtm,5) ) / tau_sca
+              & (   zaeq1(jc,jk) * scal_sct(jband_shift,1) * scal_asy(jband_shift,1)   &
+              &   + zaeq2(jc,jk) * scal_sct(jband_shift,2) * scal_asy(jband_shift,2)   &
+              &   + zaeq3(jc,jk) * scal_sct(jband_shift,3) * scal_asy(jband_shift,3)   &
+              &   + zaeq4(jc,jk) * scal_sct(jband_shift,4) * scal_asy(jband_shift,4)   &
+              &   + zaeq5(jc,jk) * scal_sct(jband_shift,5) * scal_asy(jband_shift,5) ) / tau_sca
           ENDDO ! jc
         ENDDO ! jk
       ENDDO ! jband
     ENDIF
 
-  END SUBROUTINE nwp_ecrad_prep_aerosol_tegen_tanre
+  END SUBROUTINE nwp_ecrad_prep_aerosol_tegen
   !---------------------------------------------------------------------------------------
 
   !---------------------------------------------------------------------------------------

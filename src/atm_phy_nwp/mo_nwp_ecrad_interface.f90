@@ -335,8 +335,8 @@ CONTAINS
             !         Arguments can be added to fill ecrad_aerosol with actual values. For the time being,
             !         we stay consistent with RRTM where irad_aero=2 does not add any aerosol
             CALL nwp_ecrad_prep_aerosol(ecrad_conf, ecrad_aerosol)
-          CASE(5,6)
-            ! Fill aerosol configuration type with Tanre or Tegen aerosol
+          CASE(6)
+            ! Fill aerosol configuration type with Tegen aerosol
             CALL nwp_ecrad_prep_aerosol(1, nlev, i_startidx_rad, i_endidx_rad,     &
               &                         zaeq1(jcs:jce,:,jb), zaeq2(jcs:jce,:,jb),  &
               &                         zaeq3(jcs:jce,:,jb), zaeq4(jcs:jce,:,jb),  &
@@ -1031,8 +1031,8 @@ CONTAINS
             !         Arguments can be added to fill ecrad_aerosol with actual values. For the time being,
             !         we stay consistent with RRTM where irad_aero=2 does not add any aerosol
             CALL nwp_ecrad_prep_aerosol(ecrad_conf, ecrad_aerosol)
-          CASE(5,6)
-            ! Fill aerosol configuration type with Tanre or Tegen aerosol
+          CASE(6)
+            ! Fill aerosol configuration type with Tegen aerosol
             CALL nwp_ecrad_prep_aerosol(1, nlev_rg, i_startidx_rad, i_endidx_rad,         &
               &                         zrg_aeq1(jcs:jce,:,jb), zrg_aeq2(jcs:jce,:,jb),   &
               &                         zrg_aeq3(jcs:jce,:,jb), zrg_aeq4(jcs:jce,:,jb),   &

@@ -35,8 +35,12 @@ MODULE mo_nwp_ecrad_init
 
   USE mo_kind,                 ONLY: wp
   USE mo_exception,            ONLY: finish, message, message_text
+  USE mtime,                   ONLY: datetime
+  USE mo_model_domain,         ONLY: t_patch
   USE mo_radiation_config,     ONLY: icld_overlap, irad_aero, ecrad_data_path,           &
                                  &   llw_cloud_scat, iliquid_scat, iice_scat
+  USE mo_aerosol_util,         ONLY: init_aerosol_props_tegen_ecrad
+  USE mo_bc_aeropt_kinne,      ONLY: read_bc_aeropt_kinne
 #ifdef __ECRAD
   USE mo_ecrad,                ONLY: t_ecrad_conf, ecrad_setup,                          &
                                  &   ISolverHomogeneous, ISolverMcICA, ISolverSpartacus, &
@@ -69,12 +73,16 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Daniel Rieger, Deutscher Wetterdienst, Offenbach (2019-01-31)
   !!
-  SUBROUTINE setup_ecrad ( ecrad_conf )
+  SUBROUTINE setup_ecrad ( p_patch, ecrad_conf, ini_date )
 
     CHARACTER(len=*), PARAMETER :: routine = modname//'::setup_ecrad'
 
-    TYPE(t_ecrad_conf), INTENT(inout) :: &
-      &  ecrad_conf           !< ecRad configuration state
+    TYPE(t_patch),TARGET,INTENT(in)    :: &
+      &  p_patch
+    TYPE(t_ecrad_conf),  INTENT(inout) :: &
+      &  ecrad_conf                         !< ecRad configuration state
+    TYPE(datetime), POINTER            :: &
+      &  ini_date                           !< current datetime (mtime)
 
     ! Local variables
     REAL(wp)                  :: &
@@ -83,6 +91,8 @@ CONTAINS
     INTEGER                   :: &
       &  i_band_in_sw(2),        & !< The albedo band indices corresponding to each interval
       &  i_band_in_lw(1)           !< The emissivity band indices corresponding to each interval
+    LOGICAL                   :: &
+      &  l_rrtm_gas_model =.false. !< Use RRTM gas model
 
     CALL message('', 'Setup of ecRad')
 
@@ -189,6 +199,7 @@ CONTAINS
     ecrad_conf%i_gas_model           = IGasModelIFSRRTMG  !< Use RRTM gas model (only available option)
     IF (ecrad_conf%i_gas_model == IGasModelIFSRRTMG) THEN
       ecrad_conf%do_setup_ifsrrtm = .true.
+      l_rrtm_gas_model            = .true.
     ELSE
       ecrad_conf%do_setup_ifsrrtm = .false.
     ENDIF
@@ -233,7 +244,18 @@ CONTAINS
     ! external data.
     i_band_in_lw           = 1
     CALL ecrad_conf%define_lw_emiss_intervals(1, wavelength_bound_lw, i_band_in_lw)
-    
+
+    !---------------------------------------------------------------------------------------
+    ! Setup aerosol
+    !---------------------------------------------------------------------------------------
+
+    SELECT CASE (irad_aero)
+      CASE(6) ! Tegen aerosol
+        CALL init_aerosol_props_tegen_ecrad(ecrad_conf%n_bands_sw, ecrad_conf%n_bands_lw, l_rrtm_gas_model)
+      CASE(13)      
+        CALL read_bc_aeropt_kinne(ini_date, p_patch, .true.)
+    END SELECT
+
   END SUBROUTINE setup_ecrad
   !---------------------------------------------------------------------------------------
 
