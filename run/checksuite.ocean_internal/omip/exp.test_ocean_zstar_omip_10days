@@ -165,8 +165,6 @@ cat > ${ocean_namelist} << EOF
   str_mod_tst='all'               ! define modules to print out in debug mode
 /
 &ocean_dynamics_nml
-
-&ocean_dynamics_nml
   vert_cor_type              = 1                                ! Vertical co-ordinate type 0: z  1: z*
   minVerticalLevels          = 3
 
