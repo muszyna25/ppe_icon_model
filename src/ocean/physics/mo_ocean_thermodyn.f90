@@ -1059,7 +1059,7 @@ CONTAINS
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, start_index, end_index) 
         DO jc = start_index, end_index
-          levels = patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+          levels = max(1,patch_3d%p_patch_1d(1)%dolic_c(jc,jb))
           z_p(1:levels - 1) = patch_3d%p_patch_1d(1)%depth_CellMiddle(jc,1:levels - 1,jb) * OceanReferenceDensity * sitodbar
           !! For bottom, use the uniform depth without partial cells
           !! This allows well-balancedness for pressure gradients
@@ -1076,7 +1076,7 @@ CONTAINS
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, start_index, end_index)
         DO jc = start_index, end_index
-          levels = patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+          levels = max(1,patch_3d%p_patch_1d(1)%dolic_c(jc,jb))
           z_p(1:levels - 1) = patch_3d%p_patch_1d(1)%depth_CellMiddle(jc,1:levels - 1,jb) * OceanReferenceDensity * sitodbar
           !! For bottom, use the uniform depth without partial cells
           z_p(levels) = patch_3d%p_patch_1d(1)%zlev_m(levels) * OceanReferenceDensity * sitodbar
